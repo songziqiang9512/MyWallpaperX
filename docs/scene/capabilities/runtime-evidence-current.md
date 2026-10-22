@@ -1,5 +1,4 @@
 <!-- document-role: stable-contract -->
-
 # Scene 当前运行证据摘要
 
 > 按需证据库：先读[当前证据快照](#current-snapshot)与[运行证据深度](#evidence-levels)，再按精确 `E-*` anchor 查询[单条证据包](#evidence-packages)。更早记录见[运行证据归档](../history/runtime-evidence-index.md)。不要整页装入普通实现上下文。
@@ -1181,3 +1180,4 @@ U35旧原包仍见卡片下重复矩形；四独立音频链实际消费非零16
 
 正式包`.artifacts/scene-evidence/runs/new-scene-intake-20261022/current/samples/3187857248/runtime_evidence.zip`（20,201,223B、SHA`c780a01d8f010c7c0a6b639d8d088f8c6470905792c766947dbab078fa6caf10`）保完整report/日志、身份、静态/独审与renderer失败、51张有损缩小series及332/378末张原图；其余PNG保原SHA/尺寸，非精确像素oracle。raw census另留唯一cache；普通14天/总5GiB/单包32MiB。运行副本与停用输出清理，一份既有增量cache留后继；未重建/重跑旧356或官方客户端，不认整样本通过。
 <a id="composition-background-bounds-20261022"></a> [归档记录](../history/composition-background-bounds-2026-10-22.md#composition-background-bounds-20261022) <!-- archive-redirect -->
+<a id="native-text-bounds-20261022"></a> **原生文字坐标后继**：同字体/内容仅切段落选项，glyph-path产生`-DBL_MAX`，无选项及三CFF/Arial正控健康；资格后整次typographic重排，固定12:34源alpha由0到121716、黑白/改名与动态一致，保旧Arial ink-fit。签名优化Debug `c05606c2…64b2d5a`，4749df8f7冻结导出加两文字文件，4336输入无漂移；332三张晚图主HH:MM完整可读，旧小字为独立秒数，未跨分钟；独立347人物/网格/文字/花瓣保持。两包20s/30FPS静音中心pointer，exit0/stop排空/无GPU失败；46项文字回归与独审通过。正式包`.artifacts/scene-evidence/runs/native-text-bounds-20261022/`保原图/运行、原生正反/变体、构建/测试身份及独审。新后验不升级整景裁决；异常字体限宽仅证可见与一致，post-scale/多语言/官方同状态、Release/HDR/多屏/长稳/性能未验，376媒体拒绝未闭。

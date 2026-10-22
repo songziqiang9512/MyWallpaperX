@@ -9,14 +9,23 @@ import tempfile
 import unittest
 from pathlib import Path
 
+from script.scene_swift_source_sets import scene_swift_sources
+
 
 REPOSITORY_ROOT = Path(__file__).resolve().parents[2]
 SOURCE_ROOT = REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene"
 TEXT_TEXTURE_LOADER_SOURCE = REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Systems/Text/SceneTextTextureLoader.swift"
-SWIFT_SOURCES = [
-    REPOSITORY_ROOT / "script/tests/fixtures/SceneUserPropertyResolutionStub.swift",
+SWIFT_SOURCES = list(dict.fromkeys([
+    *scene_swift_sources("authored_shader_frontend_support"),
     REPOSITORY_ROOT / "script/tests/fixtures/SceneStaticModelMaterialBindingUnavailableStub.swift",
     SOURCE_ROOT / "Runtime/Frame/SceneStaticModelMaterialBindings.swift",
+    SOURCE_ROOT / "Runtime/Frame/SceneMaterialRenderState.swift",
+    SOURCE_ROOT / "Compilation/Material/SceneMaterialRenderState+Compilation.swift",
+    SOURCE_ROOT / "Compilation/Material/SceneRenderTargetVocabulary.swift",
+    SOURCE_ROOT / "Compilation/ShaderContract/SceneBuiltinShaderIdentity.swift",
+    SOURCE_ROOT / "Resources/Assets/SceneModelResourceIdentity.swift",
+    SOURCE_ROOT / "Resources/Textures/SceneNamedTextureReference.swift",
+    SOURCE_ROOT / "Diagnostics/ScenePerformanceCounterHub.swift",
     Path(__file__).resolve().parents[2] / "MyWallpaperX/Core/SteamWorkshopScene/Resources/Textures/SceneResourceBudget.swift",
     SOURCE_ROOT / "Rendering/Composition/SceneBloomPostProcess.swift",
     SOURCE_ROOT / "Format/SceneCompatibilityContext.swift",
@@ -35,6 +44,10 @@ SWIFT_SOURCES = [
     SOURCE_ROOT / "Format/SceneJSONValue.swift",
     SOURCE_ROOT / "Format/SceneScriptBindingDefinition.swift",
     SOURCE_ROOT / "Systems/Properties/SceneScriptDynamicProviderHostContract.swift",
+    SOURCE_ROOT / "Systems/Properties/SceneUserProperty.swift",
+    SOURCE_ROOT / "Systems/Properties/SceneUserPropertyBindings.swift",
+    SOURCE_ROOT / "Systems/Properties/SceneUserPropertyResolver.swift",
+    SOURCE_ROOT / "Systems/Properties/SceneDefault2DCameraInputProfile.swift",
     SOURCE_ROOT / "Format/SceneScriptSourceEvidence.swift",
     REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Compilation/Material/SceneEffectDefinition.swift",
     REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Compilation/Material/SceneEffectTextureInput.swift",
@@ -50,7 +63,7 @@ SWIFT_SOURCES = [
     REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Systems/Text/SceneTextFontResolver.swift",
     REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Systems/Text/SceneTextRowLimit.swift",
     REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Systems/Text/SceneTextTextureLoader.swift",
-]
+]))
 
 # 全部 fixture 自建：字体只用 macOS 系统别名，内容是 A/B 重复串，没有官方 payload。
 # pointsize 12 -> 12 * 25/6 = 50 px；Arial 50 px 下 "AAAA BBBB" 约 290 px 宽、行高约 58 px，
@@ -238,35 +251,6 @@ struct SceneParticleDefinitionParser {
     func parseInstanceOverride(_ raw: Any?) -> SceneParticleInstanceOverride? { nil }
 }
 
-enum SceneUserPropertyValue {}
-
-enum SceneUserPropertyKind {
-    case sceneTexture
-}
-
-struct SceneUserPropertyDefinition {
-    let key: String
-    let kind: SceneUserPropertyKind
-}
-
-struct SceneUserPropertyCatalog {
-    let definitions: [SceneUserPropertyDefinition]
-
-    static let empty = SceneUserPropertyCatalog(definitions: [])
-}
-
-
-
-struct SceneUserPropertyDocumentResolver {
-    func resolve(
-        root: [String: Any],
-        catalog: SceneUserPropertyCatalog,
-        overrides: [String: SceneUserPropertyValue]
-    ) -> SceneUserPropertyResolution {
-        SceneUserPropertyResolution(root: root)
-    }
-}
-
 struct ScenePkgExtractionReport {
     let outputURL: URL?
 }
@@ -287,6 +271,7 @@ struct SceneMdlPuppetAttachment {
 struct SceneAssetCatalog {
     struct ModelAsset {
         var declaredSizeWH: [Float]? { nil }
+        var passthrough: Bool? { nil }
         let relativePath: String
         let materialPath: String?
         let cropOffsetXY: [Float]?
@@ -322,7 +307,7 @@ struct SceneAssetCatalog {
     let effectDefinitions: [SceneEffectDefinition]
     let effectDefinitionDiagnostics: [SceneEffectDefinitionDiagnostic]
     let shaderReferences: [String]
-    var shaderContracts: [Never] { [] }
+    var shaderContracts: [SceneShaderContract] { [] }
     let textureReferences: [String]
 }
 

@@ -476,13 +476,13 @@
       "role": "stable-contract",
       "entrypoint": "docs/README.md",
       "currentStateAuthority": "docs/scene/capabilities/coverage-ledger.md",
-      "lastReviewed": "2026-10-21",
+      "lastReviewed": "2026-10-22",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "e29e4c40e73fb2aa4cacd36366173975817716c5765725d65e5bbab3a36bd4b1",
+        "sourceSHA256": "ace117a93883a8dbcf6cb16025d3ccb0f2b0cb9d979274ed60937bb3ddb2d901",
         "method": "document_registry --audit + document_health --check",
-        "scope": "普通image终端的prepared资格、配对放置投影、可选PSO回退；199前后ROI和独立374后验；关闭下游偏移，保真实输入/hover余项。",
-        "limitations": "未验证PMA专项、完整alpha/profile、真实鼠标入口/DPI、多屏、HDR、官方同phase或性能；历史条目未整体重跑。"
+        "scope": "原生字形段落坐标失效时同一准备链统一边界降级；332主时钟恢复及独立347后验由运行证据持有。",
+        "limitations": "仅本批职责和导航；未跨分钟、未验异常字体精确ink限宽、post-scale/多语言、官方parity、Release/HDR/多屏或性能；旧条目不冒fresh复验。"
       }
     },
     {
@@ -751,10 +751,10 @@
       "lastReviewed": "2026-10-22",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "475c729ff2fe04d7c299db5ec97cc4c6766ebf3765ff9f00b7ba9fcfeddc7749",
+        "sourceSHA256": "4a4195739d5890cb58d52792c402ccdb0061e22dbbefada49e6419cda6cd647b",
         "method": "document_registry --audit + document_health --check",
-        "scope": "新增17诊断及378分栏边界限定后验入口；原373静态目录/260混合运行分母和unreviewed整景裁决保持；代码/像素证明归独立限窗证据。",
-        "limitations": "导航核验不代运行；无本组官方截屏、全属性/交互或性能验收；census renderer失败及原writer两页债保留，不称verify通过。"
+        "scope": "原生字形段落坐标失效时同一准备链统一边界降级；332主时钟恢复及独立347后验由运行证据持有。",
+        "limitations": "仅本批职责和导航；未跨分钟、未验异常字体精确ink限宽、post-scale/多语言、官方parity、Release/HDR/多屏或性能；旧条目不冒fresh复验。"
       }
     },
     {

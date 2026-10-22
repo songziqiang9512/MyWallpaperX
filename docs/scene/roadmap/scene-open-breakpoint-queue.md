@@ -12,14 +12,12 @@
 
 10-21[后继5包](../capabilities/runtime-evidence-current.md#intake-five-20261021)与10-22[新增17包](../capabilities/runtime-evidence-current.md#intake-20261022)均已实际播放、正常退出/排空；当前目录373。新增17包无官方“截屏”，默认20s、固定PCM/中心pointer，另核5/10/15s系列；未验真实点击/拖动、全属性或媒体播放。矩阵17PASS只属运行门，全部视觉unreviewed；默认隐藏分支、空媒体、作者预览与早截图差异不直接入缺陷。
 
-
 ## 1. 画面合成与正常播放：可定位的开放项
 
 | 项目 | 当前证据与边界 | 最小下一门 / 停止条件 |
 |---|---|---|
 | Program前端及来源准入 · 3086016320 | 430仍报execution-stage-conservation/named binding；它属于父426下的封面转场/混合，默认父alpha0，不能当独立root1521底部频谱缺失根因。既有原1521双32band实际非零、原Program/GPU/末合成已完成。292 global const、314/370分组prefix首拒已闭，不重开。 | 后继先取430可见媒体正控与实际base/potential/selected依赖向量；302多槽合同可复用owner，不能跳过隐藏effectless forward259的作者顺序或照套anchor。无默认可归因ROI时不为修日志首错优先实现；292短曲线另归视觉资格。 |
 | Compose子树准入 · 3707474273 /3775655074 | 370默认197及子206 TV可见，三effect未进Program；新增377四个默认compose均`unsupportedChildren`，12个pixelate/VHS/pulse效果无执行owner，仅背景两effect执行。共同首拒为SourceRoute的passthrough+children；TV框可见不等于后处理已播。 | 10-22自有双子板正控合格，有/无效果B/C各6 ROI一致；非线性效果RGB仍不支持朴素flatten/per-child推论，不能直接删guard。先补分组颜色/alpha与背景取源的可区分证据；无根效果组局部边界已独立闭合，不外推本项。[有界后验](../capabilities/runtime-evidence-current.md#composition-background-bounds-20261022)。 |
-| 时钟provider到效果的可见内容 · 3321237804 | 默认639时间在5/10/15s均只见小白碎片；VM文字输入输出均5bytes，text provider非零尺寸，pulse已GPU/末消费。字体回退`spincycle_3d_ot→stockSubstituted:display`，尚未区分字形光栅与后级UV/采样。376媒体颜色nonfinite另属空媒体条件，不作为时钟根因。 | 先读同帧文字provider及首effect输入，区分原字形/布局与效果；须同状态官方或受控字体正控才能定修法。右上媒体框/空标题暂无媒体事件，不凭PCM或预览裁缺图；不跳过颜色数值拒绝。 |
 | source材质/lookup余项 · 3616476797 /3679907516 | 361113及36771/74/83的source-only render-state首拒仍在（translucent/VERSION2等组合），不能泛化全部translucent/VERSION2或整layer缺失。361右下媒体面板/条实际在，无同控thumbnail；36771作者回调产黑、83初alpha0待thumbnail事件，74普通effect已实际Program/GPU/末消费。当前无source独占默认缺失ROI。367名称/祖父缺席异常另未证明缺host API。 | 优先低成本受控媒体资格；仅texture×g_Color4的native等价路径须证明一次调制/输出域，不为无新增像素扩raw接口。只有非等价source可见ROI才推进原sourceEvaluationState/typed Program；保父子/多receiver、straight/PMA、UV、资源身份与局部失败反例，不直接放guard或全局吞lookup错误。 |
 | 动画metadata准入 · 3822822401 | 161→puppetAnimationLayer244.visible报prepared metadata unavailable，独立可见损失未定；**蝴蝶延迟正常**。281/299292的文字创建误拒已由下述后继退出，不再归缺asset。 | 核合法lookup与target prepared metadata的最早owner，只接原typed事务；先取得该回调可见作用，不吞异常或由本项宣称缺蝴蝶。 |
 | forward copy-background composition · 2972071249 | 313引用后置隐藏composition234，首拒在dependency stage order；234隐式copyBackground使全局prepass不具作者顺序独立性。白色波形未归因234，不能据此闭合可见缺口。 | 先资格consumer边界prefix及跨consumer身份，再复用原graph执行/发布；官方自有单board的静态蓝slot1正控呈黄黑checker，已STOP_UNKNOWN，不能将其余两卡当语义结论，也不重复未资格载体。证据归[运行记录](../capabilities/runtime-evidence-current.md#forward-composition-prefix-20261019)。 |
@@ -33,6 +31,8 @@
 <a id="qv-visual-repairs"></a>
 <a id="qf-2026-10-07-用户点名四样本公共主链修复"></a>
 
+
+332默认639主时钟缺失已退出：实际字体在原生glyph-path段落中产生不可表达的字形坐标；同一准备链统一退回typographic排版，原包5/10/15s主时间完整可读，日期/星期与独立347文字/画面保留。旧“小碎片”主要是独立秒数，不能继续归因639。异常字体的精确ink限宽、post-scale/多语言与官方同状态未验；376空媒体颜色拒绝仍单列待事件资格，不吞数值检查。[有界后验](../capabilities/runtime-evidence-current.md#native-text-bounds-20261022)。
 
 281/299292的Bool文字创建首拒已退出：合法nil-path文本不再被图片路径门误拒，原文字与隐藏副本沿同一typed事务；299默认字形有小幅姿态变化，精确X/Y未分离。仅把作者阴影选项Off改Static的受控副本已恢复可见偏移黑字，默认仍Off；281与独立302主体/文字保持，不升整景或官方parity。见[有界后验](../capabilities/runtime-evidence-current.md#boolean-dynamic-text-20261021)。
 
@@ -234,6 +234,7 @@
 | 10-17新可达脚本/粒子首错 | 359777 Bird的省略距离与零origin world CP旧拒绝已按[源空间合同](../capabilities/particle-component-coverage.md#control-point-force-的源空间与缺省距离)退出；operator10非零world origin仍拒，当前默认窗口270无非空粒子/可见鸟群UNKNOWN，既有音频发射response原因未证；360的196/205单图atlas Rope旧拒绝已[退出](../capabilities/runtime-evidence-current.md#rope-whole-source-20261017)，只保49.visibility notfunction。360的49.visibility后继读源锁console.warn为静态候选，实际目标55是MP4-backed image，视频控制API已有；旧TypeError缺stack/初始available，callee仍未证。停止据标签补API/改media类型；窄资格 `../../../.artifacts/tmp/360-visibility-notfunction-qualification-20261018/qualification.json`。具体运行/输入只归台账，不把入场phase再排camera。 |
 | 粒子剩余真实unsupported profile | static depth-one child Rope首门已闭，不再保getsuga Z=2缺口。新增3795384177的122/116默认`mapsequencearoundcontrolpoint`只写count5，现plan要求显式repeat/bounds/speedmin/speedmax，实际`positionAroundControlPointUnsupported`并跳过该initializer；两源仍有child/粒子，不等于整系统失败或已证光环缺失。省略值官方合同未取，沿原出生/CP owner资格后补接。mapsequencebetweencontrolpoints、控制点约束、nested/event、非均匀child变换及深层duration/9999 delay仍独立保留。[唯一profile合同](../capabilities/particle-component-coverage.md)、[已闭首门](../history/static-child-rope-2026-10-16.md) |
 | 新增控制点距离/event色 · 3742497499 | 135默认活跃、有GPU输出，但距离算子未接。10-22自有官方板0/1半径均100，.1为129→126，零值不约束预设失败即STOP；静态只证reader，零值/时长仍unknown，不选公式或重跑矩阵。174事件色另拒，该名称已有有界owner，不泛化；与时钟无关。证据`.artifacts/scene-evidence/runs/particle-distance-cp-qualification-20261022/`。 |
+| 源码目录合同漏登记 | 10-22固定4749df8f7与文字候选均有6个既存filename mismatch：Lighting输入、3个UserShortcuts、Puppet属性准备及shortcut dispatch；本批无新增目录违规。先按现役owner核准登记，不移动或删除合法代码消红；有界收据归`.artifacts/scene-evidence/runs/native-text-bounds-20261022/`。 |
 | 全样本诊断工具边界 | 10-22 census raw373/parsed372完成后仍因旧376仅shaders缺`has_manual_screenshot`崩溃；本轮只由exact occurrence索引及实查目录补展示，保原失败。声明统计已分总览/373行清单，原writer尚未支持两页，不能直写现役页或称verify通过。pointer会提前写after；归一器还把378/381隐藏/特殊solid记load-incomplete、380隐藏分支异常记降级。保raw，人工限定，不把结构标签当可见缺陷；沿原生成/归一owner补失败行、两页写出及显隐反例。 |
 | 光照数值合同余项 | point剖面差异、spot父级缩放及更广2D ambient/spot/directional的精确响应未取得完整公开控制；先分consumer、固定法线/位置/父变换的官方自有正控。已闭灯数/零点、shadow朝向和模型表面响应不重修；R40逐动画播放已闭，见[共享角度合同](../capabilities/advanced-object-coverage.md#standalone-spot-playback)。[光照范围](../history/2d-lit-image-light-contract-2026-10-06.md)、[模型合同](../history/static-model-light-input-semantics-2026-10-06.md) |
 | RF05及真实跨层/跨屏、异步故障组合验收 | 原property→dependency/provider闭包→Session唯一evaluation→simulationFrame→各surface独立提交→唯一compositor已分别有界执行；[readiness后验](../history/rf05-named-provider-readiness-implementation-2026-10-02.md)不证明全部组合。物理多屏/clock、跨surface VM/粒子/Puppet cadence、late epoch/purpose、重建中拖动和异步故障仍未联验。先实际可达组合与取消/退休反例，不新增第二事务或每帧heap序列化。[输入/lifecycle范围](../capabilities/runtime-input-property-coverage.md) |

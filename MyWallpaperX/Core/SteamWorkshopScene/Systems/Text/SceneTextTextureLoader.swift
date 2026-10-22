@@ -17,6 +17,7 @@ enum SceneTextTextureLoader {
     private struct RenderedTexture {
         let raster: RasterizedTexture
         let font: SceneTextFontResolver.Resolution
+        let lineBounds: SceneTextRowLimit.LineBounds
     }
 
     private static let maxDimension = 2048
@@ -56,6 +57,9 @@ enum SceneTextTextureLoader {
                     + " \"\(layer.name ?? "(unnamed)")\": OK"
                     + " \(rendered.raster.texture.width)×\(rendered.raster.texture.height);"
                     + " \(rendered.font.summary)"
+                if rendered.lineBounds == .typographic {
+                    message += "; layout=nativeTypographicFallback:unusableGlyphBounds"
+                }
                 if let summary = effectSummary(layer) {
                     message += "; \(summary)"
                 }
@@ -157,6 +161,7 @@ enum SceneTextTextureLoader {
             draw(
                 text: prepared.text,
                 wrapWidth: CGFloat(prepared.wrapWidth * layout.scale),
+                lineBounds: prepared.lineBounds,
                 style: style,
                 font: font,
                 layout: layout,
@@ -191,7 +196,8 @@ enum SceneTextTextureLoader {
                 texture: texture, renderSizeWH: renderSize,
                 centerOffsetY: Float(CTFontGetDescent(sourceFont.font)) / 2
             ),
-            font: sourceFont
+            font: sourceFont,
+            lineBounds: prepared.lineBounds
         )
     }
 
@@ -199,16 +205,22 @@ enum SceneTextTextureLoader {
         text: String,
         style: SceneTextDescriptor,
         font: CTFont
-    ) -> (text: String, size: [Float], wrapWidth: Float)? {
+    ) -> (text: String, size: [Float], wrapWidth: Float, lineBounds: SceneTextRowLimit.LineBounds)? {
+        let lineBounds = SceneTextRowLimit.lineBounds(
+            text: text, font: font, useEllipsis: style.limitRows && style.useEllipsis
+        )
         let attributes = [
             kCTFontAttributeName: font,
-            kCTParagraphStyleAttributeName: paragraphStyle(alignment: .natural)
+            kCTParagraphStyleAttributeName: SceneTextRowLimit.paragraphStyle(
+                alignment: .natural, lineBounds: lineBounds
+            )
         ] as CFDictionary
         let wrapWidth = Float(SceneTextRowLimit.wrapWidth(
             contentWidth: CGFloat(maxAutoSizeDimension), style: style, scale: 1
         ))
         let content = SceneTextRowLimit.limitedText(
-            text, style: style, attributes: attributes, wrapWidth: CGFloat(wrapWidth)
+            text, style: style, attributes: attributes,
+            wrapWidth: CGFloat(wrapWidth), lineBounds: lineBounds
         )
         guard let attributed = CFAttributedStringCreate(
             kCFAllocatorDefault,
@@ -239,12 +251,13 @@ enum SceneTextTextureLoader {
         // Padding is authored input. Reject an unrepresentable extent before
         // rasterLayout converts scaled dimensions to integer texture sizes.
         guard size.allSatisfy(\.isFinite) else { return nil }
-        return (content, size, wrapWidth)
+        return (content, size, wrapWidth, lineBounds)
     }
 
     private static func draw(
         text: String,
         wrapWidth: CGFloat,
+        lineBounds: SceneTextRowLimit.LineBounds,
         style: SceneTextDescriptor,
         font: CTFont,
         layout: SceneTextGeometry.RasterLayout,
@@ -267,7 +280,9 @@ enum SceneTextTextureLoader {
         let padding = CGFloat(layout.padding)
         let contentWidth = CGFloat(layout.contentWidth)
         let contentHeight = CGFloat(layout.contentHeight)
-        let paragraph = paragraphStyle(alignment: textAlignment(style.horizontalAlignment))
+        let paragraph = SceneTextRowLimit.paragraphStyle(
+            alignment: textAlignment(style.horizontalAlignment), lineBounds: lineBounds
+        )
         let attributes: [CFString: Any] = [
             kCTFontAttributeName: font,
             kCTForegroundColorAttributeName: color(style.colorRGB, brightness: style.brightness),
@@ -366,29 +381,6 @@ enum SceneTextTextureLoader {
         CTFrameDraw(frame, context)
         if shadow != nil { context.endTransparencyLayer() }
         context.restoreGState()
-    }
-
-    /// One native line-bound contract for truncation, measurement and raster.
-    /// Ink that fits the authored width must not wrap because of side bearings.
-    private static func paragraphStyle(alignment: CTTextAlignment) -> CTParagraphStyle {
-        var alignment = alignment
-        var lineBreak = CTLineBreakMode.byWordWrapping
-        var bounds = SceneTextRowLimit.lineBoundsOptions
-        return withUnsafePointer(to: &alignment) { alignmentPointer in
-            withUnsafePointer(to: &lineBreak) { lineBreakPointer in
-                withUnsafePointer(to: &bounds) { boundsPointer in
-                    var settings = [
-                        CTParagraphStyleSetting(spec: .alignment,
-                            valueSize: MemoryLayout<CTTextAlignment>.size, value: alignmentPointer),
-                        CTParagraphStyleSetting(spec: .lineBreakMode,
-                            valueSize: MemoryLayout<CTLineBreakMode>.size, value: lineBreakPointer),
-                        CTParagraphStyleSetting(spec: .lineBoundsOptions,
-                            valueSize: MemoryLayout<CTLineBoundsOptions>.size, value: boundsPointer)
-                    ]
-                    return CTParagraphStyleCreate(&settings, settings.count)
-                }
-            }
-        }
     }
 
     private static func color(_ rgb: [Float], brightness: Float, alpha: CGFloat = 1) -> CGColor {

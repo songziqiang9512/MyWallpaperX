@@ -1913,6 +1913,7 @@
         "test_scene_text_decoration",
         "test_scene_text_padding",
         "test_scene_text_row_limit",
+        "test_scene_text_native_bounds",
         "test_scene_text_geometry"
       ]
     },

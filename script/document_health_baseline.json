@@ -62,7 +62,7 @@
     },
     "docs/scene/architecture/runtime-architecture.md": {
       "lines": 600,
-      "bytes": 133545
+      "bytes": 133901
     },
     "docs/scene/architecture/runtime-as-built-map.md": {
       "lines": 153,
@@ -98,7 +98,7 @@
     },
     "docs/scene/capabilities/advanced-object-coverage.md": {
       "lines": 388,
-      "bytes": 80810
+      "bytes": 80927
     },
     "docs/scene/capabilities/alpha-display-fallback-design.md": {
       "lines": 124,
@@ -106,7 +106,7 @@
     },
     "docs/scene/capabilities/coverage-ledger.md": {
       "lines": 371,
-      "bytes": 175730
+      "bytes": 175881
     },
     "docs/scene/capabilities/direct-model-bind-geometry.md": {
       "lines": 23,
@@ -142,7 +142,7 @@
     },
     "docs/scene/capabilities/runtime-evidence-current.md": {
       "lines": 600,
-      "bytes": 214364
+      "bytes": 215319
     },
     "docs/scene/capabilities/runtime-input-property-coverage.md": {
       "lines": 600,
@@ -166,7 +166,7 @@
     },
     "docs/scene/capabilities/scene-sample-acceptance-ledger.md": {
       "lines": 436,
-      "bytes": 97294
+      "bytes": 97308
     },
     "docs/scene/capabilities/scene-sample-debug-ledger.md": {
       "lines": 534,
@@ -269,8 +269,8 @@
       "bytes": 18426
     },
     "docs/scene/roadmap/scene-open-breakpoint-queue.md": {
-      "lines": 251,
-      "bytes": 78963
+      "lines": 252,
+      "bytes": 79266
     },
     "docs/web/cold-descriptor-parse-offload-design.md": {
       "lines": 43,
@@ -1222,15 +1222,6 @@
     },
     {
       "section": "bodies",
-      "path": "docs/scene/architecture/runtime-architecture.md",
-      "before": "73f1647cb362d82ed9665a97042ef84b19de2d876651046006bf5c7ac2b179dd",
-      "after": "8fa48c55a62ca0b442cb583084aedff53c7dbfd314942a4656dc679a3a2e538b",
-      "owner": "root-scene-image-terminal-placement",
-      "reason": "普通image终端放置合同、原199可逆ROI与独立374有界后验；更新现役队列和两行来源，不重复旧状态。",
-      "decision": "docs/scene/roadmap/batch2/terminal-material-chain-design.md#image-terminal-placement"
-    },
-    {
-      "section": "bodies",
       "path": "docs/scene/roadmap/performance-convergence-card.md",
       "before": "88751fa991f2c4cd83f111130ffa380ca23a6552dd701781f6cc5be9ddff989a",
       "after": "d950cc7a2dff6aa3a84ca8b1c078d83319cd6e0dcf3a1d89a8fe3e0946985ee3",
@@ -1285,48 +1276,12 @@
     },
     {
       "section": "bodies",
-      "path": "docs/scene/capabilities/runtime-evidence-current.md",
-      "before": "5e3cfe32272edd1841e0f5a3138ba612b678186836274f477df9a2f52953fbc1",
-      "after": "6f4bea9f5533b6b2543b32a304d30e2527c6c6f6aa3655bf7a5c9fd841fd7181",
-      "owner": "scene-new17-diagnosis",
-      "reason": "新增17实跑及静态373刷新；总览/373行清单拆分保持单页有界、旧243运行与旧裁决不变；仅记录可证公共缺口与限定候选，不扩产品。",
-      "decision": "docs/scene/capabilities/runtime-evidence-current.md#intake-20261022"
-    },
-    {
-      "section": "bodies",
       "path": "docs/scene/capabilities/scene-corpus-sample-inventory.md",
       "before": "74234e98afe7498fb5daf1f36ac2d78acc339464f950703b8c019892f982b90b",
       "after": "e401b918b58848bd8e5709915cc7d105e70981abe2beec29a471bf55ce75af17",
       "owner": "scene-new17-diagnosis",
       "reason": "新增17实跑及静态373刷新；总览/373行清单拆分保持单页有界、旧243运行与旧裁决不变；仅记录可证公共缺口与限定候选，不扩产品。",
       "decision": "docs/scene/capabilities/runtime-evidence-current.md#intake-20261022"
-    },
-    {
-      "section": "bodies",
-      "path": "docs/scene/roadmap/scene-open-breakpoint-queue.md",
-      "before": "6b631f7ca6dd15a7925f05d9b4bc8082cc16f93ae3eff9297cdbcd1ec5966d06",
-      "after": "9bdd2c28d76b432d342d8cb48ebb1dea66d70002b9fbebbc8f282d7cb5046d22",
-      "owner": "scene-new17-diagnosis",
-      "reason": "新增17实跑及静态373刷新；总览/373行清单拆分保持单页有界、旧243运行与旧裁决不变；仅记录可证公共缺口与限定候选，不扩产品。",
-      "decision": "docs/scene/capabilities/runtime-evidence-current.md#intake-20261022"
-    },
-    {
-      "section": "bodies",
-      "path": "docs/scene/capabilities/coverage-ledger.md",
-      "before": "043161750ad45f597dbd859233a7f41c8a7434a4f10db6920c257fda4a2b604b",
-      "after": "4951c277cad6a1d7f3bd3b1434ee3b5892b77623f7ca7c167bcf19046aa56020",
-      "owner": "scene-composition-source-and-terminal",
-      "reason": "同一D1增补无根效果背景组局部源及终端alpha消费，378实景分栏恢复；限定证据独立归历史，原运行分母/整景裁决保留。",
-      "decision": "docs/scene/roadmap/batch2/composition-render-target-design.md"
-    },
-    {
-      "section": "bodies",
-      "path": "docs/scene/capabilities/scene-sample-acceptance-ledger.md",
-      "before": "fb46eb8a83bd53ff54aafe910f01a75aad2de3210b9b3e61149ce1281b2dcf52",
-      "after": "0e2f9c4155f285081c08f5bd262878ba2d0edf40757c045e96b4861bbcb665f7",
-      "owner": "scene-composition-source-and-terminal",
-      "reason": "同一D1增补无根效果背景组局部源及终端alpha消费，378实景分栏恢复；限定证据独立归历史，原运行分母/整景裁决保留。",
-      "decision": "docs/scene/roadmap/batch2/composition-render-target-design.md"
     },
     {
       "section": "bodies",
@@ -1390,6 +1345,60 @@
       "owner": "repository-maintainer",
       "reason": "第一批精简设计、现役合同同步、执行与交叉审查的有界证据；正文预算按实际内容收紧。",
       "decision": "docs/development/code-slimming-program.md#第一批设计与停止条件"
+    },
+    {
+      "section": "bodies",
+      "path": "docs/scene/architecture/runtime-architecture.md",
+      "before": "8fa48c55a62ca0b442cb583084aedff53c7dbfd314942a4656dc679a3a2e538b",
+      "after": "541806d5654afb3d10ae1cbf0fdd9b6afd5ff94ca0fcd06e5fe3564049926de4",
+      "owner": "Scene native text bounds",
+      "reason": "原生字形坐标失效的同prepare边界修复，默认332主时钟恢复；保异常限宽及官方边界，退出已修首断点并更新单样本备注，不升整景裁决。",
+      "decision": "docs/scene/architecture/runtime-architecture.md#文字宽度与栅格化"
+    },
+    {
+      "section": "bodies",
+      "path": "docs/scene/capabilities/advanced-object-coverage.md",
+      "before": "fef5f205a0259896f02fab14acb4dbb11363678d720340e0b2b07241425211ab",
+      "after": "c473af60a86eee37b23dddb2da81a9c41612ca8e1f77d6716b0e24b605da46a7",
+      "owner": "Scene native text bounds",
+      "reason": "原生字形坐标失效的同prepare边界修复，默认332主时钟恢复；保异常限宽及官方边界，退出已修首断点并更新单样本备注，不升整景裁决。",
+      "decision": "docs/scene/architecture/runtime-architecture.md#文字宽度与栅格化"
+    },
+    {
+      "section": "bodies",
+      "path": "docs/scene/capabilities/coverage-ledger.md",
+      "before": "4951c277cad6a1d7f3bd3b1434ee3b5892b77623f7ca7c167bcf19046aa56020",
+      "after": "76fd8f90c2e67355b35dc0d229c389c1f850152448cb8c96841e9a8dedf6e8bb",
+      "owner": "Scene native text bounds",
+      "reason": "原生字形坐标失效的同prepare边界修复，默认332主时钟恢复；保异常限宽及官方边界，退出已修首断点并更新单样本备注，不升整景裁决。",
+      "decision": "docs/scene/architecture/runtime-architecture.md#文字宽度与栅格化"
+    },
+    {
+      "section": "bodies",
+      "path": "docs/scene/capabilities/runtime-evidence-current.md",
+      "before": "6f4bea9f5533b6b2543b32a304d30e2527c6c6f6aa3655bf7a5c9fd841fd7181",
+      "after": "404b650804d97135faff3aafcff0eee66a28c539118d98d54df4f53497bf023c",
+      "owner": "Scene native text bounds",
+      "reason": "原生字形坐标失效的同prepare边界修复，默认332主时钟恢复；保异常限宽及官方边界，退出已修首断点并更新单样本备注，不升整景裁决。",
+      "decision": "docs/scene/architecture/runtime-architecture.md#文字宽度与栅格化"
+    },
+    {
+      "section": "bodies",
+      "path": "docs/scene/capabilities/scene-sample-acceptance-ledger.md",
+      "before": "0e2f9c4155f285081c08f5bd262878ba2d0edf40757c045e96b4861bbcb665f7",
+      "after": "cd8abc144309bf9c855e09cf779e540a952c0790eb0ea97af6a282948dc1e072",
+      "owner": "Scene native text bounds",
+      "reason": "原生字形坐标失效的同prepare边界修复，默认332主时钟恢复；保异常限宽及官方边界，退出已修首断点并更新单样本备注，不升整景裁决。",
+      "decision": "docs/scene/architecture/runtime-architecture.md#文字宽度与栅格化"
+    },
+    {
+      "section": "bodies",
+      "path": "docs/scene/roadmap/scene-open-breakpoint-queue.md",
+      "before": "8288d4391209e3b27487fb15b87c4215aca9bc7db682d806afccad0556c2c215",
+      "after": "2002d9e8566f241160ce3f5ecfafa94fbcede30115c312fcfdbdd69703a15ba7",
+      "owner": "Scene native text bounds",
+      "reason": "主时钟已修首断点退出并保精简后验；新复核的6条既存目录登记债与固定基线一致，单列防重复误判，不混入产品修法。",
+      "decision": "docs/scene/architecture/runtime-architecture.md#文字宽度与栅格化"
     }
   ]
 }

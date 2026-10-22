@@ -2125,12 +2125,13 @@
     "3321237804": {
       "verdict": "unreviewed",
       "reviewedOn": "2026-10-22",
-      "reviewer": "Codex默认短窗诊断与独立静态/原图复核，非人工整样本裁决",
-      "note": "人物、视频、日期/星期、频谱可见；639时钟晚图均为小白碎片，provider与pulse实际执行，字体回退/首effect输入待区分。四triangle默认关闭；376 nonfinite媒体颜色待媒体正控，不当时钟根因。 本轮20s/30FPS固定PCM、中心pointer，核5/10/15s系列；after为约2s早图，不据请求时刻裁延迟效果。",
-      "remainingDifferences": "无目录官方“截屏”；作者预览非golden。全属性/点击拖动、同媒体/音频/时相与官方parity未验；具体缺口归现役队列。",
+      "reviewer": "Codex固定源码Debug运行与独立原图复核，非人工整样本裁决",
+      "note": "人物、视频、日期/星期与频谱保留；639主时钟原生字形坐标失效已修，静音/中心pointer的5/10/15s主HH:MM完整可读，旧小字是独立秒数，未跨分钟。独立347文字/画面保持；376 nonfinite空媒体颜色另待事件正控。",
+      "remainingDifferences": "无目录官方“截屏”；异常字体精确ink限宽、post-scale/多语言、全属性/点击拖动、媒体/音频/时相与官方parity未验，保unreviewed。",
       "officialComparison": "not-run",
       "runs": [
-        ".artifacts/scene-evidence/runs/new-scene-intake-20261022/current/report.json"
+        ".artifacts/scene-evidence/runs/new-scene-intake-20261022/current/report.json",
+        ".artifacts/scene-evidence/runs/native-text-bounds-20261022/final/report.json"
       ],
       "evidence": [
         "docs/scene/capabilities/runtime-evidence-current.md"

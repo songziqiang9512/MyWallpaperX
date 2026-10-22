@@ -1,11 +1,67 @@
 import CoreText
 import Foundation
 
-/// Width and row limits share CoreText's glyph-bound contract. Disabled limits
+/// Width and row limits share one prepared CoreText bound policy. Disabled limits
 /// ignore the editor's saved default maxwidth/maxrows values.
 nonisolated enum SceneTextRowLimit {
-    static let lineBoundsOptions: CTLineBoundsOptions = .useGlyphPathBounds
+    enum LineBounds {
+        case glyphPath
+        case typographic
+
+        var options: CTLineBoundsOptions {
+            self == .glyphPath ? .useGlyphPathBounds : []
+        }
+    }
+
     private static let ellipsis = "…"
+
+    /// Some native font/paragraph combinations return finite sentinel origins
+    /// (-DBL_MAX) while retaining a positive ink size. Such an interval has no
+    /// representable right/top edge and cannot place glyphs in any raster.
+    /// Qualify the actual content before truncation; keep one policy through
+    /// row selection, measurement and drawing, including dynamic updates.
+    static func lineBounds(text: String, font: CTFont, useEllipsis: Bool) -> LineBounds {
+        let attributes: [NSAttributedString.Key: Any] = [
+            NSAttributedString.Key(kCTFontAttributeName as String): font,
+            NSAttributedString.Key(kCTParagraphStyleAttributeName as String):
+                paragraphStyle(alignment: .natural, lineBounds: .glyphPath)
+        ]
+        let attributed = NSAttributedString(
+            string: useEllipsis ? text + ellipsis : text, attributes: attributes
+        )
+        let line = CTLineCreateWithAttributedString(attributed)
+        let bounds = CTLineGetBoundsWithOptions(line, .useGlyphPathBounds)
+        // Empty/whitespace-only ink is legal and must not acquire a fallback.
+        if bounds.isNull { return .glyphPath }
+        let usableX = bounds.width == 0
+            || (bounds.minX.isFinite && bounds.maxX.isFinite && bounds.maxX > bounds.minX)
+        let usableY = bounds.height == 0
+            || (bounds.minY.isFinite && bounds.maxY.isFinite && bounds.maxY > bounds.minY)
+        return usableX && usableY ? .glyphPath : .typographic
+    }
+
+    static func paragraphStyle(
+        alignment: CTTextAlignment, lineBounds: LineBounds
+    ) -> CTParagraphStyle {
+        var alignment = alignment
+        var lineBreak = CTLineBreakMode.byWordWrapping
+        var bounds = lineBounds.options
+        return withUnsafePointer(to: &alignment) { alignmentPointer in
+            withUnsafePointer(to: &lineBreak) { lineBreakPointer in
+                withUnsafePointer(to: &bounds) { boundsPointer in
+                    let settings = [
+                        CTParagraphStyleSetting(spec: .alignment,
+                            valueSize: MemoryLayout<CTTextAlignment>.size, value: alignmentPointer),
+                        CTParagraphStyleSetting(spec: .lineBreakMode,
+                            valueSize: MemoryLayout<CTLineBreakMode>.size, value: lineBreakPointer),
+                        CTParagraphStyleSetting(spec: .lineBoundsOptions,
+                            valueSize: MemoryLayout<CTLineBoundsOptions>.size, value: boundsPointer)
+                    ]
+                    return CTParagraphStyleCreate(settings, settings.count)
+                }
+            }
+        }
+    }
 
     /// `maxwidth` 的单位是像素（lib.sceneScript.d.ts 的 ITextLayer："Max width in
     /// pixels"），所以要和 padding 一样乘上栅格降采样比例；上界是准备阶段按同一
@@ -26,7 +82,8 @@ nonisolated enum SceneTextRowLimit {
         _ text: String,
         style: SceneTextDescriptor,
         attributes: CFDictionary,
-        wrapWidth: CGFloat
+        wrapWidth: CGFloat,
+        lineBounds: LineBounds
     ) -> String {
         guard style.limitRows, wrapWidth > 0 else { return text }
         let source = text as NSString
@@ -56,19 +113,23 @@ nonisolated enum SceneTextRowLimit {
         )
         guard style.useEllipsis else { return head + lastRow }
         while !lastRow.isEmpty,
-              width(lastRow + Self.ellipsis, attributes: attributes) > wrapWidth
+              width(lastRow + Self.ellipsis, attributes: attributes, lineBounds: lineBounds) > wrapWidth
         {
             lastRow = droppingLastCharacter(lastRow)
         }
         return head + lastRow + Self.ellipsis
     }
 
-    private nonisolated static func width(_ value: String, attributes: CFDictionary) -> CGFloat {
+    private nonisolated static func width(
+        _ value: String, attributes: CFDictionary, lineBounds: LineBounds
+    ) -> CGFloat {
         guard let attributed = CFAttributedStringCreate(
             kCFAllocatorDefault, value as CFString, attributes
         ) else { return 0 }
         let line = CTLineCreateWithAttributedString(attributed)
-        return CTLineGetBoundsWithOptions(line, lineBoundsOptions).width
+        return lineBounds == .glyphPath
+            ? CTLineGetBoundsWithOptions(line, .useGlyphPathBounds).width
+            : CGFloat(CTLineGetTypographicBounds(line, nil, nil, nil))
     }
 
     private nonisolated static func droppingLastCharacter(_ value: String) -> String {
