@@ -2850,6 +2850,17 @@
       ]
     },
     {
+      "id": "steam-html-entry-resolution",
+      "patterns": [
+        "MyWallpaperX/Modules/SteamWorkshop/Core/SteamWorkshopService+LibraryRecords.swift",
+        "script/tests/test_steam_html_entry_resolution.py",
+        "script/tests/fixtures/SteamHTMLResolutionHarness.swift"
+      ],
+      "modules": [
+        "test_steam_html_entry_resolution"
+      ]
+    },
+    {
       "id": "scene-debug-pointer-schedule",
       "patterns": [
         "script/tests/fixtures/SceneDebugPointerScheduleHarness.swift"
