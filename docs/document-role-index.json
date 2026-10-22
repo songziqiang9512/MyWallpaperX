@@ -748,13 +748,13 @@
       "role": "stable-contract",
       "entrypoint": "docs/scene/capabilities/README.md",
       "currentStateAuthority": "docs/scene/capabilities/coverage-ledger.md",
-      "lastReviewed": "2026-10-22",
+      "lastReviewed": "2026-10-23",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "5168a07f81c12844626eaf68784b8ceb82c58d42698739649ae666e10df396e3",
+        "sourceSHA256": "157ae5f98c58a56a52d4a7ecaa6b0864b8740d5ac80db679af95624ec5a4c762",
         "method": "document_registry --audit + document_health --check",
-        "scope": "当前局部源/隐藏准备职责与固定实际运行已同步；本收据只复核导航与文档角色。",
-        "limitations": "仅顶层正交普通成员且无utility后代；官方精确grid/FBO、完整HDR/alpha/属性/整景及性能未验。"
+        "scope": "仅核N03当前资格、证据可用性和导航；其他能力与旧记录未重验。",
+        "limitations": "新官方载体一次正控失败，STOP_UNKNOWN；无产品或默认文字depth/整景/性能结论。"
       }
     },
     {
