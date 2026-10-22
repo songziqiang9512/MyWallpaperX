@@ -22,15 +22,6 @@ final class SteamWorkshopDownloadThumbnailPipeline {
         failureCache.countLimit = 256
     }
 
-    /// 只读内存缓存与负缓存，不做磁盘 IO；磁盘读+解码统一挪到 generateThumbnail 的后台块。
-    func cachedThumbnail(for videoURL: URL) -> NSImage? {
-        let key = cacheKey(for: videoURL)
-        if failureCache.object(forKey: key as NSString) != nil {
-            return nil
-        }
-        return memoryCache.object(forKey: key as NSString)
-    }
-
     func generateThumbnail(for videoURL: URL, completion: @escaping (NSImage?) -> Void) {
         guard FileManager.default.fileExists(atPath: videoURL.path) else {
             DispatchQueue.main.async {

@@ -4270,7 +4270,7 @@
       ],
       "verification": "先重查实际消费者和本批owned，执行相应行为回归与Debug构建；不得以静态无调用证明全部功能验收。",
       "owner": "repository-maintainer",
-      "firstRead": "docs/development/code-slimming-program.md#第五批范围与停止条件",
+      "firstRead": "docs/development/code-slimming-program.md#第六批范围与停止条件",
       "nearestTestGroups": [
         "documentation"
       ],
