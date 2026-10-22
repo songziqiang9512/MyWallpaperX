@@ -328,7 +328,7 @@ final class SteamDownloadJobStore: ObservableObject {
     }
 
     func failedJob(forWorkshopItemId workshopItemId: String, accountSteamId: String) -> SteamDownloadJob? {
-        jobs
+        jobs.lazy
             .filter {
                 $0.workshopItemId == workshopItemId && $0.state == .failed
                     && $0.accountSteamId == accountSteamId
@@ -347,7 +347,7 @@ final class SteamDownloadJobStore: ObservableObject {
     }
 
     var queuedCount: Int {
-        jobs.filter { $0.state == .queued }.count
+        jobs.lazy.filter { $0.state == .queued }.count
     }
 
     func history(forAccount accountSteamId: String?) -> [SteamDownloadHistoryEntry] {

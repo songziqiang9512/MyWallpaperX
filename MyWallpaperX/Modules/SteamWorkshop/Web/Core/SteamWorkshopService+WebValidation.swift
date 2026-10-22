@@ -166,92 +166,96 @@ extension SteamWorkshopService {
         }
 
         let maxScanFiles = 200
-        while let fileURL = pendingFiles.first, scannedFiles.count < maxScanFiles {
-            pendingFiles.removeFirst()
-            guard scannedFiles.insert(fileURL).inserted else { continue }
-            guard let scan = Self.webStaticAnalysisContent(from: fileURL) else {
-                appendIssue(.warning, .warning, "无法读取文件：\(webRelativePath(for: fileURL, under: rootURL))")
-                continue
-            }
-            let content = scan.content
-            if scan.isTruncated {
-                truncatedScanFileCount += 1
-            }
+        dependencyScan: while !pendingFiles.isEmpty {
+            var nextFiles: [URL] = []
+            for fileURL in pendingFiles {
+                guard scannedFiles.count < maxScanFiles else { break dependencyScan }
+                guard scannedFiles.insert(fileURL).inserted else { continue }
+                guard let scan = Self.webStaticAnalysisContent(from: fileURL) else {
+                    appendIssue(.warning, .warning, "无法读取文件：\(webRelativePath(for: fileURL, under: rootURL))")
+                    continue
+                }
+                let content = scan.content
+                if scan.isTruncated {
+                    truncatedScanFileCount += 1
+                }
 
-            // WebM / 悬停 / 插件桥 / 持久化存储四类信号只驱动 summary 侧旗标：
-            // 校验报告不再本地重扫一份（见下方 scannedRiskFlags 装配）。
-            if Self.webContentUsesApplyGeneralProperties(content) {
-                usesGeneralProperties = true
-            }
-            if Self.webContentUsesGeneralFPS(content) {
-                usesGeneralFPS = true
-            }
-            if !usesServiceWorkerRegistration,
-               Self.webContentUsesServiceWorkerRegistration(content)
-                || (scan.isTruncated
-                    && needsServiceWorkerFallbackScan
-                    && Self.webFileContainsServiceWorkerRegistration(fileURL)) {
-                usesServiceWorkerRegistration = true
-            }
-            if Self.webContentUsesESModuleDependency(content) {
-                usesESModuleDependency = true
-            }
-            if Self.webContentUsesDynamicImport(content) {
-                usesDynamicImport = true
-            }
-            if Self.webContentUsesWASMResource(content) {
-                usesWASMResource = true
-            }
-            if Self.webContentUsesWASMStreaming(content) {
-                usesWASMStreaming = true
-            }
-            if Self.webContentUsesCustomSchemeSensitiveWebGL(content) {
-                usesCustomSchemeSensitiveWebGL = true
-            }
-            if Self.webContentUsesIframeCrossFrameAccess(content) {
-                usesIframeCrossFrameAccess = true
-            }
+                // WebM / 悬停 / 插件桥 / 持久化存储四类信号只驱动 summary 侧旗标：
+                // 校验报告不再本地重扫一份（见下方 scannedRiskFlags 装配）。
+                if Self.webContentUsesApplyGeneralProperties(content) {
+                    usesGeneralProperties = true
+                }
+                if Self.webContentUsesGeneralFPS(content) {
+                    usesGeneralFPS = true
+                }
+                if !usesServiceWorkerRegistration,
+                   Self.webContentUsesServiceWorkerRegistration(content)
+                    || (scan.isTruncated
+                        && needsServiceWorkerFallbackScan
+                        && Self.webFileContainsServiceWorkerRegistration(fileURL)) {
+                    usesServiceWorkerRegistration = true
+                }
+                if Self.webContentUsesESModuleDependency(content) {
+                    usesESModuleDependency = true
+                }
+                if Self.webContentUsesDynamicImport(content) {
+                    usesDynamicImport = true
+                }
+                if Self.webContentUsesWASMResource(content) {
+                    usesWASMResource = true
+                }
+                if Self.webContentUsesWASMStreaming(content) {
+                    usesWASMStreaming = true
+                }
+                if Self.webContentUsesCustomSchemeSensitiveWebGL(content) {
+                    usesCustomSchemeSensitiveWebGL = true
+                }
+                if Self.webContentUsesIframeCrossFrameAccess(content) {
+                    usesIframeCrossFrameAccess = true
+                }
 
-            for reference in Self.extractLocalWebResourceReferences(from: content, fileExtension: fileURL.pathExtension) {
-                switch reference {
-                case let .local(path):
-                    guard let resolvedURL = Self.resolveWebResourceURL(path, relativeTo: fileURL, rootURL: rootURL) else {
-                        appendIssue(.warning, .warning, "发现越界或无法解析的资源路径：\(path)")
-                        continue
-                    }
-                    let exists = FileManager.default.fileExists(atPath: resolvedURL.path)
-                    if exists == false {
-                        let missingPath = webRelativePath(for: resolvedURL, under: rootURL)
-                        let missingLevel = webValidationLevelForMissingResource(
-                            relativePath: missingPath,
-                            sampleStructure: sampleStructure,
-                            referencingFileExtension: fileURL.pathExtension,
-                            record: record
-                        )
-                        let missingMessage = webValidationMessageForMissingResource(
-                            relativePath: missingPath,
-                            sampleStructure: sampleStructure,
-                            referencingFileExtension: fileURL.pathExtension,
-                            level: missingLevel,
-                            record: record
-                        )
-                        appendIssue(missingLevel.severity, missingLevel, missingMessage)
-                        continue
-                    }
+                for reference in Self.extractLocalWebResourceReferences(from: content, fileExtension: fileURL.pathExtension) {
+                    switch reference {
+                    case let .local(path):
+                        guard let resolvedURL = Self.resolveWebResourceURL(path, relativeTo: fileURL, rootURL: rootURL) else {
+                            appendIssue(.warning, .warning, "发现越界或无法解析的资源路径：\(path)")
+                            continue
+                        }
+                        let exists = FileManager.default.fileExists(atPath: resolvedURL.path)
+                        if exists == false {
+                            let missingPath = webRelativePath(for: resolvedURL, under: rootURL)
+                            let missingLevel = webValidationLevelForMissingResource(
+                                relativePath: missingPath,
+                                sampleStructure: sampleStructure,
+                                referencingFileExtension: fileURL.pathExtension,
+                                record: record
+                            )
+                            let missingMessage = webValidationMessageForMissingResource(
+                                relativePath: missingPath,
+                                sampleStructure: sampleStructure,
+                                referencingFileExtension: fileURL.pathExtension,
+                                level: missingLevel,
+                                record: record
+                            )
+                            appendIssue(missingLevel.severity, missingLevel, missingMessage)
+                            continue
+                        }
 
-                    let ext = resolvedURL.pathExtension.localizedLowercase
-                    if ext == "wasm" {
-                        usesWASMResource = true
+                        let ext = resolvedURL.pathExtension.localizedLowercase
+                        if ext == "wasm" {
+                            usesWASMResource = true
+                        }
+                        if ["html", "htm", "css", "js", "json"].contains(ext),
+                           Self.shouldScanWebDependencyFile(named: resolvedURL.lastPathComponent) {
+                            nextFiles.append(resolvedURL)
+                        }
+                    case let .external(urlString):
+                        externalDependencyURLs.insert(urlString)
+                        appendIssue(.warning, .warning, "依赖外部资源：\(urlString)")
                     }
-                    if ["html", "htm", "css", "js", "json"].contains(ext),
-                       Self.shouldScanWebDependencyFile(named: resolvedURL.lastPathComponent) {
-                        pendingFiles.append(resolvedURL)
-                    }
-                case let .external(urlString):
-                    externalDependencyURLs.insert(urlString)
-                    appendIssue(.warning, .warning, "依赖外部资源：\(urlString)")
                 }
             }
+            pendingFiles = nextFiles
         }
 
         if !scannedFiles.isEmpty {

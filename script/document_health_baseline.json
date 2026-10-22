@@ -33,8 +33,8 @@
       "bytes": 116385
     },
     "docs/development/code-slimming-program.md": {
-      "lines": 75,
-      "bytes": 10564
+      "lines": 96,
+      "bytes": 15239
     },
     "docs/development/repository-workflow.md": {
       "lines": 100,
@@ -1348,15 +1348,6 @@
     },
     {
       "section": "bodies",
-      "path": "docs/development/code-slimming-program.md",
-      "before": "74234e98afe7498fb5daf1f36ac2d78acc339464f950703b8c019892f982b90b",
-      "after": "c1955d0e723ef39b4d528b09cced73a3c2a6e45698ccea6c3b7c9288fcafd87c",
-      "owner": "repository-maintainer",
-      "reason": "第一批精简设计、现役合同同步、执行与交叉审查的有界证据；正文预算按实际内容收紧。",
-      "decision": "docs/development/code-slimming-program.md#第一批设计与停止条件"
-    },
-    {
-      "section": "bodies",
       "path": "docs/web/current-state.md",
       "before": "4303753aa767949b179173d61cd0e19d4af2f83846bcb90da516c4c2e0c68ffe",
       "after": "ca6e48eaa48baad4d38179e9d0121297becd0a1564075b24e0af9310dd0329f8",
@@ -1390,6 +1381,15 @@
       "owner": "repository-maintainer",
       "reason": "第一批精简设计、现役合同同步、执行与交叉审查的有界证据；正文预算按实际内容收紧。",
       "decision": "docs/development/code-slimming-program.md#第一批设计与停止条件"
+    },
+    {
+      "section": "bodies",
+      "path": "docs/development/code-slimming-program.md",
+      "before": "c1955d0e723ef39b4d528b09cced73a3c2a6e45698ccea6c3b7c9288fcafd87c",
+      "after": "42e6fa23c96d2442a73cd4d029be2cefd9afc2a59598c9e231b951b8a895b0e6",
+      "owner": "repository-maintainer",
+      "reason": "第二批局部扫描与只读查询简化、基线和候选身份区分、再次交叉审查及授权提交整合；正文按实际内容有界登记。",
+      "decision": "docs/development/code-slimming-program.md#第二批范围与停止条件"
     }
   ]
 }

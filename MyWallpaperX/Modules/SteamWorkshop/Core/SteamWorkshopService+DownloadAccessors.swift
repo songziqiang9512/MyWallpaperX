@@ -35,22 +35,22 @@ extension SteamWorkshopService {
     }
 
     var visibleVideoDownloadsCount: Int {
-        downloads.filter { $0.status == .ready && $0.contentType == .video }.count
+        downloads.lazy.filter { $0.status == .ready && $0.contentType == .video }.count
     }
 
     var visibleWebDownloadsCount: Int {
-        downloads.filter { $0.status == .ready && $0.contentType == .web }.count
+        downloads.lazy.filter { $0.status == .ready && $0.contentType == .web }.count
     }
 
     var visibleSceneDownloadsCount: Int {
-        downloads.filter { $0.status == .ready && $0.contentType == .scene }.count
+        downloads.lazy.filter { $0.status == .ready && $0.contentType == .scene }.count
     }
 
     func firstDisplayedDownloadID(in ids: Set<String>) -> String? {
         displayedDownloads.first { ids.contains($0.id) }?.id
     }
 
-    var downloadsCount: Int { downloads.filter { $0.status == .ready }.count }
+    var downloadsCount: Int { downloads.lazy.filter { $0.status == .ready }.count }
 
     var activeFilterDisplayParts: [String] {
         var parts: [String] = []
