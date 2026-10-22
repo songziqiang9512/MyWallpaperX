@@ -189,18 +189,16 @@ nonisolated final class CompletionProbe: @unchecked Sendable {
             && completions.image("first") != nil && completions.image("first") === completions.image("same-key")
         checks["differentKeyGeneratesIndependently"] = generations.count(second) == 1
             && completions.image("second") != nil && completions.image("second") !== completions.image("first")
-        let cached = pipeline.cachedThumbnail(for: first)
         request("warm", first)
         checks["memoryWarmReturnsWithoutGeneration"] = pump { completions.count("warm") == 1 }
-            && generations.count(first) == 1 && cached != nil
-            && cached === completions.image("first") && cached === completions.image("warm")
+            && generations.count(first) == 1 && completions.image("first") != nil
+            && completions.image("first") === completions.image("warm")
         request("bad", bad)
         checks["badMediaCompletesWithFailure"] = pump { completions.count("bad") == 1 }
             && completions.image("bad") == nil && generations.count(bad) == 1
         request("negative-cache", bad)
         checks["negativeCacheAvoidsAnotherGeneration"] = pump { completions.count("negative-cache") == 1 }
             && completions.image("negative-cache") == nil && generations.count(bad) == 1
-            && pipeline.cachedThumbnail(for: bad) == nil
         request("missing", missing)
         checks["missingMediaCompletesWithoutGeneration"] = pump { completions.count("missing") == 1 }
             && completions.image("missing") == nil && generations.count(missing) == 0

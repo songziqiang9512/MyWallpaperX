@@ -614,28 +614,6 @@ nonisolated final class ThumbnailCache: @unchecked Sendable {
         }
     }
 
-    /// Legacy prefetch remains pinned; cancellable consumers use load(.prefetch).
-    /// Prefetch failure has never populated the synchronous-load failure cache.
-    func prefetch(forKey key: String, loader: @escaping () -> NSImage?) {
-        loadSynchronously(forKey: key, priority: .prefetch, cancellation: nil,
-            cachesFailure: false, decoder: Self.decodeStoredImage, generate: {
-                let image = loader(); return (image, image.flatMap(Self.jpegData))
-            }, completion: { _ in })
-    }
-
-    func prefetchImageData(forKey key: String, loader: @escaping () -> Data?) {
-        loadImageData(forKey: key, priority: .prefetch, loader: loader, completion: { _ in })
-    }
-
-    func prefetchImageDataAsync(forKey key: String, loader: @escaping @Sendable () async -> Data?) {
-        loadImageDataAsync(forKey: key, priority: .prefetch, loader: loader, completion: { _ in })
-    }
-
-    func prefetchRawDataAsync(forKey key: String, loader: @escaping @Sendable () async -> Data?) {
-        guard imageCache.object(forKey: key as NSString) == nil else { return }
-        loadRawDataAsync(forKey: key, priority: .prefetch, loader: loader, completion: { _ in })
-    }
-
     /// 清空内存缓存（磁盘缓存保留）
     func removeAll() {
         imageCache.removeAllObjects()
@@ -656,26 +634,6 @@ nonisolated final class ThumbnailCache: @unchecked Sendable {
     /// 同步读取内存缓存，不触发磁盘 IO。
     func cachedImage(forKey key: String) -> NSImage? {
         imageCache.object(forKey: key as NSString)
-    }
-
-    /// 同步读取缓存，优先内存，其次磁盘。
-    /// 适合需要避免首次占位闪烁的场景。
-    /// 新代码请优先使用 load 的异步管线，不要新增同步磁盘解码入口。
-    func cachedOrDiskImage(
-        forKey key: String,
-        decoder: (Data) -> NSImage? = { NSImage(data: $0) }
-    ) -> NSImage? {
-        let cacheKey = key as NSString
-        if let cached = imageCache.object(forKey: cacheKey) {
-            return cached
-        }
-        let diskURL = diskCacheURL(for: key)
-        guard let data = try? Data(contentsOf: diskURL),
-              let image = decoder(data) else {
-            return nil
-        }
-        imageCache.setObject(image, forKey: cacheKey, cost: Self.memoryCost(of: image))
-        return image
     }
 
     /// 清空本实例 namespace 的磁盘缓存（实例级，「清除缓存」显式清单逐目录调用）。

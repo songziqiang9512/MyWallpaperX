@@ -246,7 +246,8 @@ final class LeaseWriteSequence: @unchecked Sendable {
         let prefetchGate = LeaseDiskWriteGate()
         let prefetchCache = ThumbnailCache(namespace: "prefetch-" + UUID().uuidString,
             writeEncodedData: { data, url in try prefetchGate.write(data, to: url, blocking: data == red) })
-        prefetchCache.prefetchRawDataAsync(forKey: "prefetch-key", loader: { red })
+        prefetchCache.loadRawDataAsync(forKey: "prefetch-key", priority: .prefetch,
+            loader: { red }, completion: { _ in })
         checks["oldRawPrefetchStagesBeforeRefresh"] = pump { prefetchGate.waiting }
         prefetchCache.remove(forKey: "prefetch-key")
         var prefetchedStatic: NSImage?, prefetchDisk: Data?
