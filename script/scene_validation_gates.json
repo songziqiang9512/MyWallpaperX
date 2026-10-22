@@ -3358,7 +3358,10 @@
         "MyWallpaperX/Modules/SteamWorkshop/UI/SteamWorkshopDownloadTasksPopover.swift",
         "MyWallpaperX/Shared/UI/ToolbarMenuPopover.swift",
         "MyWallpaperX/Shell/AppKitMainSplitView.swift",
-        "script/tests/fixtures/LibraryToolbarBehaviorHarness.swift"
+        "script/tests/fixtures/LibraryToolbarBehaviorHarness.swift",
+        "MyWallpaperX/Modules/OnlineLibrary/Core/OnlineLibraryService.swift",
+        "MyWallpaperX/Modules/OnlineLibrary/Core/OnlineLibraryModels.swift",
+        "MyWallpaperX/Modules/StaticImageLibrary/Core/SILService.swift"
       ],
       "modules": [
         "test_library_toolbar_behaviors"

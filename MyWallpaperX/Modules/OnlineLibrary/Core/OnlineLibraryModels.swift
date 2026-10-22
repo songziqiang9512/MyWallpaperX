@@ -165,26 +165,3 @@ struct OnlineLibraryVideoFile: Equatable {
     let size:      Int
     let thumbnail: String
 }
-
-// MARK: - 本地下载文件描述
-
-struct OLLocalFile: Identifiable {
-    let url:          URL
-    let fileSize:     Int
-    let creationDate: Date
-
-    var id: URL { url }
-
-    var displayName: String { url.lastPathComponent }
-
-    var fileSizeString: String {
-        let mb = Double(fileSize) / (1024 * 1024)
-        return String(format: "%.1f MB", mb)
-    }
-
-    var pixabayID: Int? {
-        let name = url.lastPathComponent
-        guard name.hasPrefix("online_"), name.hasSuffix(".mp4") else { return nil }
-        return Int(name.dropFirst("online_".count).dropLast(".mp4".count))
-    }
-}

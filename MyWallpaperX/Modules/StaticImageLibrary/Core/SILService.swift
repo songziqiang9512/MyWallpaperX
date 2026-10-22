@@ -357,11 +357,6 @@ final class SILService: ObservableObject {
         return selectedID
     }
 
-    /// 某标签下的壁纸列表
-    func wallpapers(forSILTag tag: String) -> [SILWallpaper] {
-        wallpapers.filter { $0.tags.contains(tag) }
-    }
-
     // MARK: - 计算属性
 
     var sortedWallpapers: [SILWallpaper] {
@@ -653,31 +648,4 @@ final class SILService: ObservableObject {
         return (next ?? prev)?.id
     }
 
-    // MARK: - 信息
-
-    func detailInfoText(for wallpaper: SILWallpaper, completion: @escaping (String) -> Void) {
-        DispatchQueue.global(qos: .userInitiated).async {
-            let url = URL(fileURLWithPath: wallpaper.path)
-            var lines: [String] = []
-            lines.append("文件名：\(url.lastPathComponent)")
-            lines.append("路径：\(wallpaper.path)")
-            if let size = wallpaper.fileSize {
-                let mb = Double(size) / 1_048_576
-                lines.append(String(format: "大小：%.2f MB", mb))
-            }
-            if let src = CGImageSourceCreateWithURL(url as CFURL, nil),
-               let props = CGImageSourceCopyPropertiesAtIndex(src, 0, nil) as? [CFString: Any] {
-                let w = props[kCGImagePropertyPixelWidth] as? Int ?? 0
-                let h = props[kCGImagePropertyPixelHeight] as? Int ?? 0
-                if w > 0 && h > 0 { lines.append("尺寸：\(w) × \(h)") }
-            }
-            let fmt = DateFormatter()
-            fmt.dateStyle = .medium; fmt.timeStyle = .short
-            lines.append("添加时间：\(fmt.string(from: wallpaper.addedAt))")
-            if wallpaper.lastUsed > Date.distantPast {
-                lines.append("最近使用：\(fmt.string(from: wallpaper.lastUsed))")
-            }
-            DispatchQueue.main.async { completion(lines.joined(separator: "\n")) }
-        }
-    }
 }

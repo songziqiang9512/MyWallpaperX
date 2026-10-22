@@ -69,7 +69,10 @@ final class IntentAuth { var steamId: String? = "A" }
     static func workshopItemIDSearchID(from query: String) -> String? { nil }
     // STEAM_METHODS
 }
-struct OnlineEntry { let id: Int; let localURL = URL(fileURLWithPath: "/fixture/unused") }
+struct OnlineEntry {
+    let id: Int
+    var localURL: URL { URL(fileURLWithPath: "/fixture/online_\(id).mp4") }
+}
 @MainActor final class OnlineDownloadsBridge {
     static let shared = OnlineDownloadsBridge()
     func refreshToolbar() {}
@@ -81,11 +84,10 @@ enum ProbeSection: Hashable { case main }
                completion: @escaping () -> Void) { completions.append(completion) }
     func release() { let callbacks = completions; completions = []; callbacks.forEach { $0() } }
 }
-struct OLLocalFile { let url: URL; let fileSize: Int; let creationDate: Date }
 @MainActor final class OnlineLibraryService {
     static let shared = OnlineLibraryService()
     var deletedURLs: [URL] = []
-    func deleteLocalFile(_ file: OLLocalFile) { deletedURLs.append(file.url) }
+    func deleteLocalFile(at url: URL) { deletedURLs.append(url) }
 }
 @MainActor final class OnlineProbe {
     var entries: [OnlineEntry] = [.init(id: 1), .init(id: 2), .init(id: 3)]
@@ -200,6 +202,8 @@ final class DimmingSurface: NSView, ToolbarGridScrollDismissalSurface {}
         checks["onlineBulkDeleteExitsModeAndUpdatesNativeSelection"] = !online.isMultiSelectMode
             && !online.collectionView.allowsMultipleSelection && online.selectedIDs.isEmpty && online.reloads == 1
             && OnlineLibraryService.shared.deletedURLs.count == 2
+        checks["onlineBulkDeleteTargetsSelectedURLsOnly"] = Set(OnlineLibraryService.shared.deletedURLs)
+            == Set([URL(fileURLWithPath: "/fixture/online_1.mp4"), URL(fileURLWithPath: "/fixture/online_2.mp4")])
         let sil = SILProbe(); sil.remove(ids: ["a"])
         checks["staticImageLibraryAlreadyExitsBulkMode"] = !sil.isMultiSelectMode && sil.wallpapers.map(\.id) == ["b"]
         let tag = SILProbe(); tag.removeFromSILTag("tag", ids: ["a"])
