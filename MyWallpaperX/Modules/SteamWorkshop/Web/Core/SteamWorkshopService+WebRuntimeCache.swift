@@ -387,37 +387,40 @@ extension SteamWorkshopService {
         var entries: [SteamWorkshopWebRuntimeResourceSignature.Entry] = []
         var truncated = false
 
-        while let fileURL = pendingFiles.first {
-            if scannedFiles.count >= maxScannedFiles || Date() >= deadline {
-                truncated = true
-                break
-            }
-            pendingFiles.removeFirst()
-            let normalizedURL = fileURL.resolvingSymlinksInPath().standardizedFileURL
-            guard scannedFiles.insert(normalizedURL).inserted else { continue }
+        dependencyScan: while !pendingFiles.isEmpty {
+            var nextFiles: [URL] = []
+            for fileURL in pendingFiles {
+                if scannedFiles.count >= maxScannedFiles || Date() >= deadline {
+                    truncated = true
+                    break dependencyScan
+                }
+                let normalizedURL = fileURL.resolvingSymlinksInPath().standardizedFileURL
+                guard scannedFiles.insert(normalizedURL).inserted else { continue }
 
-            let resourceValues = try? normalizedURL.resourceValues(forKeys: [.contentModificationDateKey, .fileSizeKey])
-            entries.append(
-                SteamWorkshopWebRuntimeResourceSignature.Entry(
-                    relativePath: webRelativePath(for: normalizedURL, under: rootURL),
-                    modifiedAt: resourceValues?.contentModificationDate,
-                    size: resourceValues?.fileSize.map(Int64.init)
+                let resourceValues = try? normalizedURL.resourceValues(forKeys: [.contentModificationDateKey, .fileSizeKey])
+                entries.append(
+                    SteamWorkshopWebRuntimeResourceSignature.Entry(
+                        relativePath: webRelativePath(for: normalizedURL, under: rootURL),
+                        modifiedAt: resourceValues?.contentModificationDate,
+                        size: resourceValues?.fileSize.map(Int64.init)
+                    )
                 )
-            )
 
-            guard Self.shouldScanWebDependencyFile(named: normalizedURL.lastPathComponent),
-                  let content = try? String(contentsOf: normalizedURL, encoding: .utf8) else {
-                continue
-            }
-            for reference in Self.extractLocalWebResourceReferences(from: content, fileExtension: normalizedURL.pathExtension) {
-                guard case let .local(path) = reference,
-                      let resolvedURL = Self.resolveWebResourceURL(path, relativeTo: normalizedURL, rootURL: rootURL),
-                      FileManager.default.fileExists(atPath: resolvedURL.path),
-                      Self.shouldScanWebDependencyFile(named: resolvedURL.lastPathComponent) else {
+                guard Self.shouldScanWebDependencyFile(named: normalizedURL.lastPathComponent),
+                      let content = try? String(contentsOf: normalizedURL, encoding: .utf8) else {
                     continue
                 }
-                pendingFiles.append(resolvedURL)
+                for reference in Self.extractLocalWebResourceReferences(from: content, fileExtension: normalizedURL.pathExtension) {
+                    guard case let .local(path) = reference,
+                          let resolvedURL = Self.resolveWebResourceURL(path, relativeTo: normalizedURL, rootURL: rootURL),
+                          FileManager.default.fileExists(atPath: resolvedURL.path),
+                          Self.shouldScanWebDependencyFile(named: resolvedURL.lastPathComponent) else {
+                        continue
+                    }
+                    nextFiles.append(resolvedURL)
+                }
             }
+            pendingFiles = nextFiles
         }
 
         return SteamWorkshopWebRuntimeResourceSignature(

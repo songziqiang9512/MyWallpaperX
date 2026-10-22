@@ -27,7 +27,12 @@ enum SteamWorkshopDownloadTaskProjection {
         in jobs: [SteamDownloadJob],
         accountSteamID: String?
     ) -> Int {
-        currentJobs(from: jobs, accountSteamID: accountSteamID).count
+        guard let accountSteamID, !accountSteamID.isEmpty else { return 0 }
+        return jobs.lazy.filter {
+            $0.accountSteamId == accountSteamID
+                && $0.state != .completed
+                && $0.state != .cancelled
+        }.count
     }
 
     static func jobKey(for job: SteamDownloadJob) -> String? {

@@ -4291,6 +4291,36 @@
         "test_steam_queries",
         "test_steam_helper_offline"
       ]
+    },
+    {
+      "id": "steam-download-read-projection",
+      "patterns": [
+        "MyWallpaperX/Modules/SteamWorkshop/Core/SteamWorkshopDownloadTaskProjection.swift",
+        "MyWallpaperX/Modules/SteamWorkshop/Core/SteamWorkshopJobStore.swift",
+        "MyWallpaperX/Modules/SteamWorkshop/Core/SteamWorkshopService+DownloadAccessors.swift",
+        "script/tests/test_steam_download_tasks_popover.py"
+      ],
+      "modules": [
+        "test_steam_download_tasks_popover",
+        "test_steam_download_history",
+        "test_steam_library_transaction",
+        "test_steam_library_interactions",
+        "test_library_toolbar_behaviors"
+      ]
+    },
+    {
+      "id": "web-dependency-traversal",
+      "patterns": [
+        "MyWallpaperX/Modules/SteamWorkshop/Web/Core/SteamWorkshopService+WebRuntimeCache.swift",
+        "MyWallpaperX/Modules/SteamWorkshop/Web/Core/SteamWorkshopService+WebValidation.swift",
+        "MyWallpaperX/Modules/SteamWorkshop/Web/Core/SteamWorkshopWebResolvedRuntimeDiagnostics.swift",
+        "script/tests/test_web_dependency_traversal.py",
+        "script/tests/test_web_runtime_cache.py"
+      ],
+      "modules": [
+        "test_web_dependency_traversal",
+        "test_web_runtime_cache"
+      ]
     }
   ],
   "method_gates": {
