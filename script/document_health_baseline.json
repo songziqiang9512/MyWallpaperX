@@ -266,11 +266,11 @@
     },
     "docs/scene/roadmap/scene-full-sample-static-audit.md": {
       "lines": 57,
-      "bytes": 18426
+      "bytes": 18422
     },
     "docs/scene/roadmap/scene-open-breakpoint-queue.md": {
       "lines": 252,
-      "bytes": 79266
+      "bytes": 79169
     },
     "docs/web/cold-descriptor-parse-offload-design.md": {
       "lines": 43,
