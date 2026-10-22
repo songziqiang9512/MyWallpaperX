@@ -692,13 +692,13 @@
       "role": "current-state",
       "entrypoint": "docs/scene/capabilities/README.md",
       "purpose": "限定专题的实现状态、偏差或证据；运行结论须复核身份和边界，不决定任务顺序。",
-      "lastReviewed": "2026-10-20",
+      "lastReviewed": "2026-10-23",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "6f4d3e2ebeca2fba6d9fb24f4accddfdd4f1f4babe961cd611d4e0971878f95b",
+        "sourceSHA256": "8b4f715def1ea11390339ac12b47aebd078f08f3119af801455044966eb4211b",
         "method": "document_registry --audit + document_health --check",
-        "scope": "Screen displacement view-plane contract, bounded real-cursor329 AB fix and independent374 health; synchronize specific closed feedback and retain other sample gaps.",
-        "limitations": "Navigation and source identity audit only; product validation is linked separately. No full sample/Release/HDR/official same-phase/performance claim."
+        "scope": "I13 omitted-default input contract, current actual379/independent311 and owned-board results; retain official protocol STOP and unrelated gaps. Current376 late-window source remains unknown.",
+        "limitations": "Navigation identity only; linked bounded runtime receipts own validation. No complete sample, official golden, HDR or performance claim."
       }
     },
     {
@@ -751,10 +751,10 @@
       "lastReviewed": "2026-10-23",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "ab0b411e34bb372c317d175587db38b5497ff5562e4c1f9172856799216b97a9",
+        "sourceSHA256": "2713f63c2a6d8015756d679cddca24d6a96a1137224bc0adc9c0363533a51a68",
         "method": "document_registry --audit + document_health --check",
-        "scope": "仅同步N03资格/证据可用性及固定视口物理pointer后验；其余能力未重验。",
-        "limitations": "N03一次正控失败不裁深度；199人工确认不扩DPI/多屏/357半径，CPU采样不算收益。"
+        "scope": "I13 omitted-default input contract, current actual379/independent311 and owned-board results; retain official protocol STOP and unrelated gaps. Current376 late-window source remains unknown.",
+        "limitations": "Navigation identity only; linked bounded runtime receipts own validation. No complete sample, official golden, HDR or performance claim."
       }
     },
     {
@@ -3650,13 +3650,13 @@
       "role": "current-state",
       "entrypoint": "docs/scene/README.md",
       "purpose": "对旧静态审计逐项复核后仍可定位的首owner缺口/状态反例；不维护旧样本评分，不代替实际运行故障或队列选序。",
-      "lastReviewed": "2026-10-22",
+      "lastReviewed": "2026-10-23",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "09efd1ec597891372ed10aba8b8ca2e2fe96ae5681fcc5bd51f2c25296db262a",
+        "sourceSHA256": "c11af283ca6771a211bba10331d98fcd8c899976ee27a35456860af68672eefa",
         "method": "document_registry --audit + document_health --check",
-        "scope": "当前局部源/隐藏准备职责与固定实际运行已同步；本收据只复核导航与文档角色。",
-        "limitations": "仅顶层正交普通成员且无utility后代；官方精确grid/FBO、完整HDR/alpha/属性/整景及性能未验。"
+        "scope": "Remove only I13 four omitted-field rejection now handled in the existing plan; preserve all other declared gaps.",
+        "limitations": "Not a full runtime re-audit; current bounded evidence is linked separately."
       }
     },
     {
@@ -3667,10 +3667,10 @@
       "lastReviewed": "2026-10-23",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "c823a19060905a13e91fc4845e44d8e8c1e9f7b91fd976f7b488d6e64e14b86d",
+        "sourceSHA256": "acf8016a6411f01cca5426b2fe67505c5e657259e2a2d23aea4d956c816349d6",
         "method": "document_registry --audit + document_health --check",
-        "scope": "Scene当前自主选序与粒子等值keyed采样的小幅CPU有界结果；376旧来源证据纠正，未将历史记录冒认当前实播。",
-        "limitations": "仅优化Debug隔离Host三对与独立311本窗；非整引擎/Release/能耗验收，376本轮未播、机制仍unknown。"
+        "scope": "I13 omitted-default input contract, current actual379/independent311 and owned-board results; retain official protocol STOP and unrelated gaps. Current376 late-window source remains unknown.",
+        "limitations": "Navigation identity only; linked bounded runtime receipts own validation. No complete sample, official golden, HDR or performance claim."
       }
     },
     {

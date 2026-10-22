@@ -37,8 +37,10 @@ nonisolated struct SceneParticlePositionAroundControlPoint: Equatable, Sendable 
             "speedmin": speedMinimum, "speedmax": speedMaximum, "axis": axis,
             "controlpoint": controlPoint, "flags": rawFlags,
         ]
+        let defaultedFields = ["bounds", "limitbehavior", "speedmin", "speedmax"]
         hasMalformedFields = parsed.contains { key, value in
-            root[key] != nil && !(root[key] is NSNull) && value == nil
+            root[key] != nil && value == nil
+                && (defaultedFields.contains(key) || !(root[key] is NSNull))
         }
     }
 }
@@ -73,11 +75,11 @@ extension SceneParticleInitializer {
         guard case let .positionAroundControlPoint(value) = kind,
               !value.hasMalformedFields, value.unsupportedFieldNames.isEmpty,
               value.rawFlags ?? 0 == 0,
-              value.limitBehavior == "repeat",
-              let bounds = Self.vector(value.bounds, count: 2),
+              (value.limitBehavior ?? "repeat") == "repeat",
+              let bounds = Self.vector(value.bounds ?? .vector([0, 1]), count: 2),
               let count = value.count, count.isFinite, (1 ... 1_024).contains(count),
-              let speedMinimum = Self.vector(value.speedMinimum, count: 3),
-              let speedMaximum = Self.vector(value.speedMaximum, count: 3),
+              let speedMinimum = Self.vector(value.speedMinimum ?? .vector([0, 0, 0]), count: 3),
+              let speedMaximum = Self.vector(value.speedMaximum ?? .vector([0, 0, 0]), count: 3),
               (0 ... 7).contains(value.controlPoint ?? 0) else { return nil }
         guard bounds.allSatisfy({ $0.isFinite && (0 ... 1).contains($0) }),
               bounds[0] <= bounds[1],

@@ -883,7 +883,7 @@ enum Harness {
         unseenBox.advance(by: 0.1)
 
         let invalidFields = [
-            #""count":4,"limitbehavior":"repeat","speedmin":"0 2 0","speedmax":"0 2 0""#,
+            #""bounds":null,"count":4,"limitbehavior":"repeat","speedmin":"0 2 0","speedmax":"0 2 0""#,
             #""bounds":"0 1","count":0,"limitbehavior":"repeat","speedmin":"0 2 0","speedmax":"0 2 0""#,
             #""bounds":"0 1","count":4,"limitbehavior":"mirror","speedmin":"0 2 0","speedmax":"0 2 0""#,
             #""bounds":"0 1","count":4,"limitbehavior":"repeat","speedmin":0,"speedmax":"0 2 0""#,

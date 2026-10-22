@@ -125,8 +125,8 @@
       "bytes": 7388
     },
     "docs/scene/capabilities/particle-component-coverage.md": {
-      "lines": 488,
-      "bytes": 160029
+      "lines": 495,
+      "bytes": 161550
     },
     "docs/scene/capabilities/previous-blurred-composite-admission.md": {
       "lines": 17,
@@ -141,8 +141,8 @@
       "bytes": 349060
     },
     "docs/scene/capabilities/runtime-evidence-current.md": {
-      "lines": 598,
-      "bytes": 215276
+      "lines": 597,
+      "bytes": 216323
     },
     "docs/scene/capabilities/runtime-input-property-coverage.md": {
       "lines": 600,
@@ -265,12 +265,12 @@
       "bytes": 22442
     },
     "docs/scene/roadmap/scene-full-sample-static-audit.md": {
-      "lines": 56,
-      "bytes": 17858
+      "lines": 55,
+      "bytes": 17227
     },
     "docs/scene/roadmap/scene-open-breakpoint-queue.md": {
-      "lines": 252,
-      "bytes": 79128
+      "lines": 253,
+      "bytes": 79422
     },
     "docs/web/cold-descriptor-parse-offload-design.md": {
       "lines": 43,
@@ -1249,15 +1249,6 @@
     },
     {
       "section": "bodies",
-      "path": "docs/scene/capabilities/particle-component-coverage.md",
-      "before": "ebd594fc23f9cd86f1271890cddd8b5052e1e2f77bc82a79178a3bceafe5a6a7",
-      "after": "98daacafb9cfd2970fd39fd6c4880458115a3333e54dcc77b7453e40b1938edd",
-      "owner": "Scene particle initializer / evidence and sample ledger",
-      "reason": "Number-valued Count follows the existing birth owner; official footprint limits, actual GPU evidence and unresolved direction/density replace stale status. Merge the evidence into the existing CP theme without growing retained lines.",
-      "decision": "docs/scene/capabilities/particle-component-coverage.md#position-around-fractional-count"
-    },
-    {
-      "section": "bodies",
       "path": "docs/scene/roadmap/batch2/terminal-material-chain-design.md",
       "before": "dfb4d7855a471e2014126d30c0c4a811c4c55f444d1c908270c8cf24cecdc8d8",
       "after": "398c46d46411eba636581dd76ace5d5428dc44fa443048750bae396452137f5e",
@@ -1348,15 +1339,6 @@
     },
     {
       "section": "bodies",
-      "path": "docs/scene/capabilities/runtime-evidence-current.md",
-      "before": "7ed2fcc143c3aaf596b2a0fea8a3eee11e4401ff1ebbdc034967ae170e272d15",
-      "after": "4f2f8f892adc53a9746a5d9e51fb4ef2d9227a1f521acbb98af07cdb82ad9c46",
-      "owner": "scene-composition-local-root-fx",
-      "reason": "同一D1新增顶层passthrough普通成员局部源及原typed隐藏准备合同；无utility后代，保旧viewport/nested，真实五根15FX及正反门有界验收。",
-      "decision": "docs/scene/roadmap/batch2/composition-render-target-design.md"
-    },
-    {
-      "section": "bodies",
       "path": "docs/scene/capabilities/scene-sample-acceptance-ledger.md",
       "before": "0e2f9c4155f285081c08f5bd262878ba2d0edf40757c045e96b4861bbcb665f7",
       "after": "cd8abc144309bf9c855e09cf779e540a952c0790eb0ea97af6a282948dc1e072",
@@ -1420,12 +1402,30 @@
     },
     {
       "section": "bodies",
+      "path": "docs/scene/capabilities/particle-component-coverage.md",
+      "before": "98daacafb9cfd2970fd39fd6c4880458115a3333e54dcc77b7453e40b1938edd",
+      "after": "42bd3f2f30d1698192342c09a4aa086d4f292d9a068e8820b9c2272d5551e1e5",
+      "owner": "Scene particle initializer / current evidence",
+      "reason": "Existing I13 plan admits observed omitted defaults and rejects explicit invalid values. Bounded runtime and independent evidence replace stale unsupported status; preserve official STOP and other gaps, correct obsolete local artifact routing.",
+      "decision": "docs/scene/capabilities/particle-component-coverage.md#position-around-omitted-defaults"
+    },
+    {
+      "section": "bodies",
+      "path": "docs/scene/capabilities/runtime-evidence-current.md",
+      "before": "6149b0d0b54743137a840781afbcde1e6ef566646cbd9c15a74c576f2c0f6e91",
+      "after": "485dc458cdca9fedccccc2a41dad49db194f59cdaf9ee5e959661f0c0e1633ff",
+      "owner": "Scene particle initializer / current evidence",
+      "reason": "Existing I13 plan admits observed omitted defaults and rejects explicit invalid values. Bounded runtime and independent evidence replace stale unsupported status; preserve official STOP and other gaps, correct obsolete local artifact routing.",
+      "decision": "docs/scene/capabilities/particle-component-coverage.md#position-around-omitted-defaults"
+    },
+    {
+      "section": "bodies",
       "path": "docs/scene/roadmap/scene-open-breakpoint-queue.md",
-      "before": "1bbf8809f86e1cc4b1d4bbd104a590d54e3912091aceb18ff89f95e38be1d87e",
-      "after": "02a993e9059f2ecec2fa550d9ccbab9bf1f106d8805bc815f48395a69e8c8086",
-      "owner": "scene-keyed-sampling-local-cpu",
-      "reason": "记录用户允许可靠小收益后的三对实际CPU结果与精确未验范围，保留原正式门；同时纠正Scene执行路线与376历史来源，避免误开旧实现。",
-      "decision": "docs/scene/roadmap/performance-convergence-card.md#keyed-sampling-20261023"
+      "before": "02a993e9059f2ecec2fa550d9ccbab9bf1f106d8805bc815f48395a69e8c8086",
+      "after": "173778315ef04d8c7e68b2a9eded85ca121a640335b07cff1d37f9f28c0c7314",
+      "owner": "Scene particle initializer / current evidence",
+      "reason": "Existing I13 plan admits observed omitted defaults and rejects explicit invalid values. Bounded runtime and independent evidence replace stale unsupported status; preserve official STOP and other gaps, correct obsolete local artifact routing.",
+      "decision": "docs/scene/capabilities/particle-component-coverage.md#position-around-omitted-defaults"
     }
   ]
 }
