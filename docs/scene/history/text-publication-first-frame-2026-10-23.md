@@ -28,3 +28,5 @@ MetalView改发独立`.textPublication`，Session只在held期间与media public
 正式包 `.artifacts/scene-evidence/runs/text-publication-first-frame-20261023/` 保存两版本失败/成功身份、生产源冻结、CPU因果反例、App三门输入与像素、366/332原图、构建与独审；单包32MiB、普通14天、总5GiB。原366灯光批的失败收据保持历史含义，不再作为当前未修启动项。
 
 本轮进程与临时HOME已退出，设备交回并行UI会话；停用样本/重复运行输出归档后清理。继续迭代仅保 `.build-cache/video-extraction-demand-20261021` 单份构建缓存与对应冻结源码；不改用户真实样本、安装App、官方VM或另一会话产物。
+
+同包旧 `[P1] Data` 异常的后继只读核对：原517脚本两次误读 `shared.shared`，主 producer 写平铺 shared；实际 `shaders/effects/guidao.frag` 无 Data uniform，直接消费 OrbitA/B，本次日志 frame0 起两者均非零进入对应 uniform。该作者遗留键不构成已证引擎缺口，不补 shared 自引用或吞异常；球体/曲率及完整交互仍未验。原包、脚本、shader SHA-256 分别为 `06db4dc21ca78724f37e513776d0beb10ac587367897fab4051ead94dc1f3ec8`、`15cbe84f9c92611b2eb20954b80680f38da0e5fcbe7a0f94cbca00ef0a6a1634`、`e3d608217d501f060fd6d6386e3c079f11a7ebdb634242735fe8853b621dff35`；实际输入依据复用上述正式包的 candidate-real/366 app.log 与 runtime，未新增运行或产品修复。

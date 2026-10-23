@@ -101,7 +101,7 @@
 | 3768724269 · 旧光束范围/根部及右上渐变观察待同状态复验 | 10-20用户观察近官方，仅作线索；当前原包实图亦未确认新的gross光照缺陷。12个effect均进入Program、14个作者脚本target均完成callback，但不代验完整交互/音频响应。另已证实并修复sunrays整key热更被quad结构门误拒：光束与粒子同代开关、startup-false恢复且无重建。旧范围/渐变不作确信缺陷，不按观感调gain；有新同状态ROI再定位。[有界证据](../capabilities/runtime-evidence-current.md#quad-visibility-live-20261020) |
 | 3287715210 · 眼周过亮/渐变弱、横移细竖条纹 | 两个独立余项。10-08原包与gradient-only完成GPU，16F量化存在但未证是条纹根因；后继官方2.8.0.42自有phase4输入已取得8位PNG、52色/最长63列平台，只能证明终端量化，不能推出内部F16或328根因。物理呈现及整样本仍待同状态复验，不额外压暗、不重复优先消融Bloom。[颜色/精度证据](../capabilities/runtime-evidence-current.md#e-2026-10-08-gradient-storage-isolation) |
 | 3750813609 /3363252053 · 相机过强/纵向反转 | 用户三轮未接受、曾要求挂起，保低优先同输入复验；默认2D camera后继不替这两个原报告作体验验收，不从不同viewport补偿布局 |
-| 3662790108 JUNO · Data脚本、球体/曲率及交互 | 10-13开场/持续更新的heap首门已修；旧球体/曲率、点击观察未取得同条件关闭，10-14 layer517读取undefined的p1_longNode TypeError仍待当前复验。10-16冷运行未ready，不会执行证明该异常消失；旧8.8 FPS也不当当前性能结论。[最后CPU资格](../history/script-c-codegen-ablation-2026-10-14.md)、[heap边界](../history/scenescript-host-heap-admission-2026-10-13.md) |
+| 3662790108 JUNO · 球体/曲率及交互 | 首帧文字发布阻断已闭；旧球体/曲率、点击观察仍待同条件复验。517的遗留Data脚本误读`shared.shared`，当前shader不消费该键，实际OrbitA/B非零输入成立，退出引擎缺口候选；[输入复核](../history/text-publication-first-frame-2026-10-23.md)。旧8.8 FPS不当当前性能结论。 |
 | 3589454154 土星 · Bloom、亚像素细线/微颗粒、轮廓/布局 | 用户调序暂缓；已修模型/光照不关闭这些旧具体差异。保持合法屏外投影，不用视锥剔除消影。[原光照证据](../history/saturn-light-delivery-2026-10-07.md) |
 | 3747492842 · 闪烁、光束位置、viewport裁切/文字构图 | 旧正交near-plane首错不重修；固定当前输入/phase比较首个不同stage，再判原因 |
 | N07 · 3248220186运动/密度/亮度 | 世界Sprite准入/相机与GodRays首门已修；这里只保10-11旧运行所留的具体运动/密度/亮度差异，待同phase/音源当前复验，不再列“world Sprite不支持”。[运行边界](../history/particle-world-depth-2026-10-11.md) |
