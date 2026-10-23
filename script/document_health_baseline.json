@@ -261,8 +261,8 @@
       "bytes": 7457
     },
     "docs/scene/roadmap/performance-convergence-card.md": {
-      "lines": 64,
-      "bytes": 17376
+      "lines": 68,
+      "bytes": 18154
     },
     "docs/scene/roadmap/properties-panel-card.md": {
       "lines": 45,
@@ -1320,15 +1320,6 @@
     },
     {
       "section": "bodies",
-      "path": "docs/scene/roadmap/performance-convergence-card.md",
-      "before": "d950cc7a2dff6aa3a84ca8b1c078d83319cd6e0dcf3a1d89a8fe3e0946985ee3",
-      "after": "06f57d2b2462fd48d6a6ad70016f42215853af5dc5dc14b22f2db45c72325bc7",
-      "owner": "scene-keyed-sampling-local-cpu",
-      "reason": "记录用户允许可靠小收益后的三对实际CPU结果与精确未验范围，保留原正式门；同时纠正Scene执行路线与376历史来源，避免误开旧实现。",
-      "decision": "docs/scene/roadmap/performance-convergence-card.md#keyed-sampling-20261023"
-    },
-    {
-      "section": "bodies",
       "path": "docs/scene/capabilities/particle-component-coverage.md",
       "before": "221ef81fe7c61f4b4657edf662a6e096579b88fa703ad68f177e883fbdac5838",
       "after": "42ae786d7de7e384df7ed13a54ee4c077794799317e2c661fa370e011a7c24a5",
@@ -1479,6 +1470,15 @@
       "owner": "Scene official capture qualification",
       "reason": "纠正官方截图JPEG原格式与无损资格范围，保留独立产品修复；记录扇子固定帧正控与数值捕获失败，不扩大准入或宣布scalar已知。",
       "decision": "docs/scene/history/static-model-default-albedo-implementation-2026-10-06.md#single-slot-default-20261023"
+    },
+    {
+      "section": "bodies",
+      "path": "docs/scene/roadmap/performance-convergence-card.md",
+      "before": "06f57d2b2462fd48d6a6ad70016f42215853af5dc5dc14b22f2db45c72325bc7",
+      "after": "0d60497b7f4aeff6ac435de2758d67ede242edc3a3707f9d0220e12921ba15c8",
+      "owner": "Scene movement CPU screening",
+      "reason": "记录当前优化CPU探针、两项独立原型的预定门STOP及撤回，避免以后重复同型微筛；不外推App/画面/能耗收益。",
+      "decision": "docs/scene/roadmap/performance-convergence-card.md#movement-access-screen-20261023"
     }
   ]
 }

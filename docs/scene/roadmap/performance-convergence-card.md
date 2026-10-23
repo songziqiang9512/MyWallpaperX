@@ -27,6 +27,10 @@
 
 **10-18工具链资格短筛：STOP。** 同源真实resolve/严格验签与双version，三进程各11次全部成功，但总计时噪声306.98%超过事前5%门；未剔首次慢探针，三个真实normalized pair的工具子链0执行。后10次的乐观可省上界中位103.845ms不是实测收益，不据此加缓存或认App启动收益。原数、固定输入、清理与独审仅保本机收据 `../../../.artifacts/tmp/shader-toolchain-qualification-cost-20261018/summary.json`；本方向无产品修改，不重复旧筛或放宽阈值，先回可执行能力断点。
 
+<a id="movement-access-screen-20261023"></a>
+
+**10-23 Movement访问短筛：停止，产品已撤。** 原304五root的`-O`纯CPU探针未见实质事件导出热点，birth/death仍有短命渲染消费者。薄参数三对CPU中位降5.402%未越双噪声门；单次Array借用降20.247%/升11.882%/降17.589%，方向不一致，均未剔点、补跑或放宽。30个状态字摘要组合相同、借用候选的既有vortex门通过，不代完整FrameSnapshot、实际画面或收益。产品及冻结源码已恢复，0新App/0GPU，无播放链CPU/GPU/能耗收益结论。原栈、身份、各六run与撤回归`.artifacts/scene-evidence/runs/particle-movement-access-stop-20261023/`，普通14天；后继先取完整播放链当前成本，不重复同型微筛。
+
 <a id="keyed-sampling-20261023"></a>
 
 **10-23等值keyed粒子采样：窄保留。** 有限等值范围沿原标量算术直接取值，省去无后续状态的局部hash；出生共享RNG、非等值/非有限路径不变。用户明确允许可靠小收益后，原3%早停门撤销；新HEAD优化Debug隔离Host、原199静音/30FPS、30s预热+≥60s稳态三对AB/BA/AB，每完成帧进程CPU下降1.667%/1.927%/2.467%，中位1.927%，基线噪声0.961%，仅略过两倍噪声。非目标中位未越原门，不认GPU/内存收益；四舍入模式位值/共享RNG门及独立311非等值phase实际输出、正常stop/排空成立。仅本条件小幅CPU改善；普通Service/daemon、Release、能耗与全样本未验。身份、原数、协议覆盖与旧STOP归本机限期包 `.artifacts/scene-evidence/runs/particle-keyed-sampling-20261023/`，首对原始图/CLI归其前驱 `particle-keyed-sampling-stop-20261023`；不扩为正式10%验收。
