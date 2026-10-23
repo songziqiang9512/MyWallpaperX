@@ -98,7 +98,7 @@
     },
     "docs/scene/capabilities/advanced-object-coverage.md": {
       "lines": 388,
-      "bytes": 81117
+      "bytes": 81123
     },
     "docs/scene/capabilities/alpha-display-fallback-design.md": {
       "lines": 124,
@@ -146,7 +146,7 @@
     },
     "docs/scene/capabilities/runtime-evidence-current.md": {
       "lines": 600,
-      "bytes": 218728
+      "bytes": 218765
     },
     "docs/scene/capabilities/runtime-input-property-coverage.md": {
       "lines": 600,
@@ -278,7 +278,7 @@
     },
     "docs/scene/roadmap/scene-open-breakpoint-queue.md": {
       "lines": 256,
-      "bytes": 80279
+      "bytes": 80509
     },
     "docs/web/cold-descriptor-parse-offload-design.md": {
       "lines": 43,
@@ -1446,15 +1446,6 @@
     },
     {
       "section": "bodies",
-      "path": "docs/scene/roadmap/scene-open-breakpoint-queue.md",
-      "before": "bc461d9ac4362741f28fcc7c4663c74304b8def454f17f794107b698617d4226",
-      "after": "c3f4f62a3c412975cb61855bfdf114f594c4798df1bcf2b14928b68e8130e400",
-      "owner": "text-publication-first-frame",
-      "reason": "退出已验证修复的366启动项，仅保有界后验和未验整景范围。",
-      "decision": "docs/scene/architecture/scene-launch-responsiveness-contract.md#initial-video-presentation"
-    },
-    {
-      "section": "bodies",
       "path": "docs/scene/development/corpus-diagnostic-workflow.md",
       "before": "01baca69f55103861eb1f2d23f1c49eab5f362f1753bad44176831791347be9b",
       "after": "609cbdcf92861fee4dbd8f90e212a20213227b0884ffc7c2e79b960c0b61c0b7",
@@ -1465,19 +1456,28 @@
     {
       "section": "bodies",
       "path": "docs/scene/capabilities/advanced-object-coverage.md",
-      "before": "c473af60a86eee37b23dddb2da81a9c41612ca8e1f77d6716b0e24b605da46a7",
-      "after": "216fddc3b7933afd5201bb2cda6c21db409cdf9f608683978dd23a177a0b904e",
-      "owner": "Scene single-slot model default input",
-      "reason": "默认albedo独立槽修复及已资格Chroma载体，保完整Program ABI；实际样本受益未证，不关闭Cloud光色或性能。",
+      "before": "216fddc3b7933afd5201bb2cda6c21db409cdf9f608683978dd23a177a0b904e",
+      "after": "2489c7eaaeaeaf7bc4d2e077ab2da74f1a482608906f40824e43e8a519342306",
+      "owner": "Scene official capture qualification",
+      "reason": "纠正官方截图JPEG原格式与无损资格范围，保留独立产品修复；记录扇子固定帧正控与数值捕获失败，不扩大准入或宣布scalar已知。",
       "decision": "docs/scene/history/static-model-default-albedo-implementation-2026-10-06.md#single-slot-default-20261023"
     },
     {
       "section": "bodies",
       "path": "docs/scene/capabilities/runtime-evidence-current.md",
-      "before": "bdfa041d8702ce4f4870e94718c2c6227599e5db3c9dc89cf1322a186ebbf1e2",
-      "after": "8830171bf01b70eef4ffcffb2e351ff7c0e29bef33f1aadb9414d79e2f614a9d",
-      "owner": "Scene single-slot model default input",
-      "reason": "默认albedo独立槽修复及已资格Chroma载体，保完整Program ABI；实际样本受益未证，不关闭Cloud光色或性能。",
+      "before": "8830171bf01b70eef4ffcffb2e351ff7c0e29bef33f1aadb9414d79e2f614a9d",
+      "after": "1855a418a153c993baa5c5d45cb43fc8be17f377a06aa9a52e5acc63fad1deaa",
+      "owner": "Scene official capture qualification",
+      "reason": "纠正官方截图JPEG原格式与无损资格范围，保留独立产品修复；记录扇子固定帧正控与数值捕获失败，不扩大准入或宣布scalar已知。",
+      "decision": "docs/scene/history/static-model-default-albedo-implementation-2026-10-06.md#single-slot-default-20261023"
+    },
+    {
+      "section": "bodies",
+      "path": "docs/scene/roadmap/scene-open-breakpoint-queue.md",
+      "before": "78f218225cefb23e9c3ce8ec5158b1f15ba653ca3331a3751a768c40e9e0f78e",
+      "after": "b96ed6a608f27acca5094886c3ca41e889538e54a3a40d4f5d30042b9d27b263",
+      "owner": "Scene official capture qualification",
+      "reason": "纠正官方截图JPEG原格式与无损资格范围，保留独立产品修复；记录扇子固定帧正控与数值捕获失败，不扩大准入或宣布scalar已知。",
       "decision": "docs/scene/history/static-model-default-albedo-implementation-2026-10-06.md#single-slot-default-20261023"
     }
   ]

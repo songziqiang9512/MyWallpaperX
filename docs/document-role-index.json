@@ -767,10 +767,10 @@
       "lastReviewed": "2026-10-23",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "a2d1707eb3e0e355a5ac95e792be5498ee737ccca0da50e35aaf5ab83883467b",
+        "sourceSHA256": "bcab0d8c774fcf849ed60d087c3b1c041eae14150708930e11a855e5b6b43dae",
         "method": "document_registry --audit + document_health --check",
-        "scope": "默认albedo独立槽及Chroma中性载体有界后验入口；复核原owner/能力边界，未升级完整stock材质。",
-        "limitations": "原生/官方及真实短窗见历史收据；无已证Cloud修复、整体parity、Release或性能收益。"
+        "scope": "Scene default-slot修复边界保持；纠正官方JPEG观察与未满足的无损资格，其他运行事实未重验。",
+        "limitations": "导航及本次证据纠正；不认完整官方parity、Cloud光色、性能或全样本验收。"
       }
     },
     {

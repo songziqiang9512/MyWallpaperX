@@ -56,7 +56,7 @@ JUNO隔离fixture含原MDL、7材料、7TEX原字节和自有固定场景/相机
 
 ### Chroma资格边界
 
-固定官方2.8.0.42/32位可执行SHA `daac1ea7c991207fdb6098616757e3dae393850f6862845db55d04921b6bda07`，自有平面、同相机/白directional、无ambient/sky/HDR/Bloom、neutral tint、metallic=.1。预登记client归一化ROI `[.54,.43,.58,.47]`，观察窗口边界后统一ICC至sRGB，两settled帧均合格：generic4 r=.5为59；Chroma r=.5为104、r=1为66，相差38，超过事前8色阶门。原生修前Chroma采到的是clear，已明确STOP，无roughness结论；修后两档均38才证明当前legacy consumer没有标量roughness响应。它也反证直接把Chroma纳入generic4的同输入响应。
+固定官方2.8.0.42/32位可执行SHA `daac1ea7c991207fdb6098616757e3dae393850f6862845db55d04921b6bda07`，自有平面、同相机/白directional、无ambient/sky/HDR/Bloom、neutral tint、metallic=.1。预登记client归一化ROI `[.54,.43,.58,.47]`，观察窗口边界后统一ICC至sRGB，两settled帧的JPEG解码观察值为generic4 r=.5约59、Chroma r=.5约104/r=1约66。10-23复核6张官方图实际为JPEG，原lossless PNG资格未满足，撤回“已资格”及精确pixel golden表述；约38色阶的可见差异只支持响应不同。原生修前Chroma采到的是clear，已明确STOP，无roughness结论；修后两档均38才证明当前legacy consumer没有标量roughness响应。它也反证直接把Chroma纳入generic4的同输入响应。
 
 这些结果只建立可辨载体和独立材质缺口；不定义完整BRDF或私有公式。Cloud另有r=0、彩色specular、pigmentation、动态back tint与透明coverage，本批未归因其夜侧/色彩，也未修正这些通道。Windows拒绝ps1执行后改用原生文件复制与官方公开open/close命令，未调整执行策略；一次Tools参数失败按同命令重试成功，原失败保留。
 
