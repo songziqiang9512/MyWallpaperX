@@ -5,6 +5,8 @@
 
 > 设计复核：2026-10-18。当前实现与验证结果分别以源码、最终运行证据为准；本设计不单独证明启动收益。
 
+> 后继：跨 Scene/Web 的步骤与停止条件归[启动专项](../development/wallpaper-startup-optimization-plan.md)。本设计继续持有解析核/actor 边界；P1 将两层校验与保存收敛到同次依赖快照，保留 awaited 保存，不重开已否决的独立保存队列。
+
 ## 目标与取舍
 
 用户点击播放后，主 actor 只收集记录/属性状态、必要的轻量入口事实和书签副作用；项目全量解析、HTML/JS/CSS 依赖扫描、缓存读写在后台执行。保持唯一 descriptor 构造核，播放不依赖完整属性面板或样本诊断。
@@ -21,8 +23,8 @@
 播放链按以下次序执行：
 
 1. `setAsWallpaper` 的入口准入只检查实际/声明入口及依赖可用事实；不调用 descriptor，从而避免后台准备之前先在主线程扫描项目。
-2. async 准备在后台读取/校验 execution cache；同时经共享 descriptor memo、分析缓存或解析核取得同一项目解释，主 actor 完成装配。
-3. 冷路径生成有效属性 payload，保持原有 `await saveWebRuntimeCache` 完成时序；同步 UI 与后台编排共用同一解析与缓存实现。
+2. async 准备在后台先核两份缓存的廉价字段，再以同次依赖快照服务 execution/analysis 校验与共享 descriptor 核，主 actor 完成装配。快照绑定作者版本、locale/schema 与完整/截断事实；当前 grants 在采用时独立解析。
+3. 冷路径生成有效属性 payload，保持原有 `await saveWebRuntimeCache` 完成时序；保存消费该次已验证依赖快照，不再另扫。同步 UI 与后台编排共用同一解析与缓存实现；新目标尚须实施，不冒充当前命中次数。
 4. 产品接纳返回值前复核 launch generation 和进程准备身份；档位只检查 descriptor 中 service worker、ES module、WASM streaming、敏感 WebGL、iframe 和截断扫描六类风险。完整面板模型额外产生的文件/目录缺失标记不参与档位选择。
 5. 通过现役 ready-to-play 通知进入唯一切换事务；快照准备、媒体 ACK、可见确认、失败保留旧输出均不缩减。兼容接口 `resolvedWebPlaybackContext` 委托同一准备流程，供现有 preload/Debug 调用者使用。
 

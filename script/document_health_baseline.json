@@ -9,8 +9,8 @@
       "bytes": 20641
     },
     "docs/architecture/playback-lifecycle-transaction-design.md": {
-      "lines": 47,
-      "bytes": 6779
+      "lines": 48,
+      "bytes": 7206
     },
     "docs/architecture/repository-map.md": {
       "lines": 32,
@@ -73,8 +73,8 @@
       "bytes": 5956
     },
     "docs/scene/architecture/scene-launch-responsiveness-contract.md": {
-      "lines": 217,
-      "bytes": 26439
+      "lines": 221,
+      "bytes": 28327
     },
     "docs/scene/architecture/scene-resource-admission.md": {
       "lines": 90,
@@ -85,8 +85,8 @@
       "bytes": 18155
     },
     "docs/scene/architecture/scene-startup-pipeline.md": {
-      "lines": 137,
-      "bytes": 11603
+      "lines": 34,
+      "bytes": 3436
     },
     "docs/scene/architecture/shader-metadata-failure-contract.md": {
       "lines": 71,
@@ -262,7 +262,7 @@
     },
     "docs/scene/roadmap/performance-convergence-card.md": {
       "lines": 70,
-      "bytes": 18648
+      "bytes": 18789
     },
     "docs/scene/roadmap/properties-panel-card.md": {
       "lines": 45,
@@ -277,8 +277,8 @@
       "bytes": 33722
     },
     "docs/web/cold-descriptor-parse-offload-design.md": {
-      "lines": 43,
-      "bytes": 5192
+      "lines": 45,
+      "bytes": 5707
     },
     "docs/web/cross-origin-reply-delivery-design.md": {
       "lines": 50,
@@ -293,8 +293,8 @@
       "bytes": 51713
     },
     "docs/web/dedicated-host-process-design.md": {
-      "lines": 76,
-      "bytes": 15163
+      "lines": 78,
+      "bytes": 15935
     },
     "docs/web/mediaremote-nowplaying-design.md": {
       "lines": 76,
@@ -314,11 +314,15 @@
     },
     "docs/web/web-project-json-runtime-model.md": {
       "lines": 180,
-      "bytes": 5977
+      "bytes": 6114
     },
     "docs/web/web-wallpaper-benchmark-standard.md": {
       "lines": 86,
       "bytes": 8377
+    },
+    "docs/development/wallpaper-startup-optimization-plan.md": {
+      "lines": 220,
+      "bytes": 31801
     }
   },
   "archives": [
@@ -1173,6 +1177,25 @@
       ],
       "originalLines": 263,
       "originalBytes": 51754
+    },
+    {
+      "source": "docs/scene/architecture/scene-startup-pipeline.md",
+      "archive": "docs/scene/history/scene-startup-pipeline-before-optimization-2026-10-23.md",
+      "anchors": [
+        "1-两条启动路径",
+        "2-启动阶段表launch-stage-标记",
+        "3-暖启动持久层导航",
+        "4-daemon-预热l1",
+        "5-按需加载与失效域",
+        "6-测量方法与已知陷阱",
+        "7-当前边界与未验收项",
+        "preparedcontent-预解析场景-a已评估决定暂不做2026-09-30",
+        "scene-启动流程与运行机制启动专题"
+      ],
+      "preservedBodySHA256": "fd07bfab3fe420cbaee370c82a11229a3cfbaf7a6878c17b45a0f9f5e544793a",
+      "originalBodySHA256": "3f61246d6fe6c789a5ddd7d7e8579cf2829b45ec706dd5d7f6496467b21a382c",
+      "originalLines": 137,
+      "originalBytes": 11603
     }
   ],
   "snapshots": [
@@ -1214,6 +1237,15 @@
       "owner": "scene-boolean-dynamic-text",
       "reason": "Bool文字创建与既有typed文字事务统一；原包回调首拒、受控静态阴影及独立样本有界后验。只刷新三条混合身份运行记录，不改其余239行或人工裁决。",
       "decision": "docs/scene/capabilities/runtime-evidence-current.md#boolean-dynamic-text-20261021"
+    },
+    {
+      "section": "bodies",
+      "path": "docs/architecture/appkit-migration.md",
+      "before": "eee2f0b8c283db120b169b551a2f47f134eefa54ad8ba3b912dbe15de736bb67",
+      "after": "89cc7e712ae599716b1916d7f0528eb16c31bda33b2102a607456f8c6d814e26",
+      "owner": "appkit-grid-card-presentation",
+      "reason": "用户授权网格减负试用；原专题新增跟踪区退让、徽章首次显示构建与Steam布局像素档边界、退出和实际行为验收，不改变D17失效/缓存owner，也不复制性能结果。 续版仅补充预取后台完整指纹与单批生命周期、隐藏玻璃bar挂回/动画退出合同。",
+      "decision": "docs/architecture/appkit-migration.md#网格卡片减负试用版2026-10-23"
     },
     {
       "section": "bodies",
@@ -1283,15 +1315,6 @@
       "path": "docs/scene/roadmap/properties-panel-card.md",
       "before": "f1deeba1f66b3ae0fee1d3b3159063935cd86335fe67018588ad854e12fbef8b",
       "after": "05d51ebd5ee40d47468e3a63bbf80b677acb7c23d1d71466cdd681bd1703a1ac",
-      "owner": "code-slimming-b12",
-      "reason": "按第十二批用户授权同步精简合同及有界验证，替换退役说明并按实际正文调整预算。",
-      "decision": "docs/development/code-slimming-program.md#第十二批范围与停止条件"
-    },
-    {
-      "section": "bodies",
-      "path": "docs/web/web-project-json-runtime-model.md",
-      "before": "fb1026783831c15621d04a6f0ddfe702729c6d03c66d2204cdb01901dfbddcff",
-      "after": "aa24fefaa2a99d12f04ad2e8ebc77c051c89f4943c19a1b2f51b299fc4e40285",
       "owner": "code-slimming-b12",
       "reason": "按第十二批用户授权同步精简合同及有界验证，替换退役说明并按实际正文调整预算。",
       "decision": "docs/development/code-slimming-program.md#第十二批范围与停止条件"
@@ -1379,15 +1402,6 @@
     },
     {
       "section": "bodies",
-      "path": "docs/scene/architecture/scene-launch-responsiveness-contract.md",
-      "before": "6200cf1a079f13c13b93e4e0c8e8ece4a36aa78e17108e4074be0ff76a5cb15c",
-      "after": "1470cf354aef9fba51f50530aae5e76e6f7f578f860dad5a330f246f5e6b9a1e",
-      "owner": "text-publication-first-frame",
-      "reason": "澄清已提交首帧与未采用provider发布的边界，复用原promotion补画，保留真实surface失效和暂停行为。",
-      "decision": "docs/scene/architecture/scene-launch-responsiveness-contract.md#initial-video-presentation"
-    },
-    {
-      "section": "bodies",
       "path": "docs/scene/development/corpus-diagnostic-workflow.md",
       "before": "01baca69f55103861eb1f2d23f1c49eab5f362f1753bad44176831791347be9b",
       "after": "609cbdcf92861fee4dbd8f90e212a20213227b0884ffc7c2e79b960c0b61c0b7",
@@ -1415,27 +1429,9 @@
     },
     {
       "section": "bodies",
-      "path": "docs/scene/capabilities/runtime-evidence-current.md",
-      "before": "1855a418a153c993baa5c5d45cb43fc8be17f377a06aa9a52e5acc63fad1deaa",
-      "after": "fdbb9dc95d5afc06eae596628a9e0164b1c468d9f7016d758faa7ce5d111d723",
-      "owner": "Scene canonical camera origin setter",
-      "reason": "合并相机设计/能力与有界实际热改后验，移除已闭首拒队列；当前证据用原相机历史留底和稳定跳转，不认整样本通过或性能收益。",
-      "decision": "docs/scene/roadmap/batch2/script-component-api-design.md#default-camera-origin-setter"
-    },
-    {
-      "section": "bodies",
       "path": "docs/scene/roadmap/batch2/terminal-material-chain-design.md",
       "before": "f634e7fcfd3e1996ae5cbf7322fd2ccaed5c4dea5bb375a7c8ddf3b918a828a5",
       "after": "3c81ac8bb029b3f161c6ec77ca3d4c94cd85243507fbd86a764ac897387cce4c",
-      "owner": "Scene prepared frame input / Program uniform query",
-      "reason": "先行设计并同步唯一实际值/数值核迁移，记录CPU/依赖/Debug及两个原包实际保持；不新增性能收益或重复路线。",
-      "decision": "docs/scene/roadmap/batch2/terminal-material-chain-design.md#prepared-frame-uniform-query"
-    },
-    {
-      "section": "bodies",
-      "path": "docs/scene/roadmap/performance-convergence-card.md",
-      "before": "0d60497b7f4aeff6ac435de2758d67ede242edc3a3707f9d0220e12921ba15c8",
-      "after": "b7b3a7a15a988f188c299621d8db56c2ca7b9548c4995eccd543ce79e1a3e342",
       "owner": "Scene prepared frame input / Program uniform query",
       "reason": "先行设计并同步唯一实际值/数值核迁移，记录CPU/依赖/Debug及两个原包实际保持；不新增性能收益或重复路线。",
       "decision": "docs/scene/roadmap/batch2/terminal-material-chain-design.md#prepared-frame-uniform-query"
@@ -1451,12 +1447,75 @@
     },
     {
       "section": "bodies",
-      "path": "docs/architecture/appkit-migration.md",
-      "before": "eee2f0b8c283db120b169b551a2f47f134eefa54ad8ba3b912dbe15de736bb67",
-      "after": "89cc7e712ae599716b1916d7f0528eb16c31bda33b2102a607456f8c6d814e26",
-      "owner": "appkit-grid-card-presentation",
-      "reason": "用户授权网格减负试用；原专题新增跟踪区退让、徽章首次显示构建与Steam布局像素档边界、退出和实际行为验收，不改变D17失效/缓存owner，也不复制性能结果。 续版仅补充预取后台完整指纹与单批生命周期、隐藏玻璃bar挂回/动画退出合同。",
-      "decision": "docs/architecture/appkit-migration.md#网格卡片减负试用版2026-10-23"
+      "path": "docs/architecture/playback-lifecycle-transaction-design.md",
+      "before": "23dcc50cc46e055e4e80984ff48aa857f071b47cbb1cc44be955b43b6786fbb4",
+      "after": "921a3156ee08b340637c2abe8c1f2da970fcd04e64fa279847684658b809a5bd",
+      "owner": "scene-web-startup-design",
+      "reason": "用户要求完整启动改进方案并修订旧合同；登记专项、资源/生命周期边界与旧专题保留归档，未声明产品收益。",
+      "decision": "docs/development/wallpaper-startup-optimization-plan.md#decision"
+    },
+    {
+      "section": "bodies",
+      "path": "docs/development/wallpaper-startup-optimization-plan.md",
+      "before": "74234e98afe7498fb5daf1f36ac2d78acc339464f950703b8c019892f982b90b",
+      "after": "85095be2b1e4271568fa2a4b5c93c1760f595f03ba899b5cf774a6c643023c43",
+      "owner": "scene-web-startup-design",
+      "reason": "用户要求完整启动改进方案并修订旧合同；登记专项、资源/生命周期边界与旧专题保留归档，未声明产品收益。",
+      "decision": "docs/development/wallpaper-startup-optimization-plan.md#decision"
+    },
+    {
+      "section": "bodies",
+      "path": "docs/scene/architecture/scene-launch-responsiveness-contract.md",
+      "before": "1470cf354aef9fba51f50530aae5e76e6f7f578f860dad5a330f246f5e6b9a1e",
+      "after": "2a0fcc69f23e53f3225b08a7f224fd3176b8ca25c1faa217c284e1c8cbe8a737",
+      "owner": "scene-web-startup-design",
+      "reason": "用户要求完整启动改进方案并修订旧合同；登记专项、资源/生命周期边界与旧专题保留归档，未声明产品收益。",
+      "decision": "docs/development/wallpaper-startup-optimization-plan.md#decision"
+    },
+    {
+      "section": "bodies",
+      "path": "docs/scene/roadmap/performance-convergence-card.md",
+      "before": "b7b3a7a15a988f188c299621d8db56c2ca7b9548c4995eccd543ce79e1a3e342",
+      "after": "1eaf31cac58289626d7639d442d7ca145ec9d29e6f322e6d2af08a306e517047",
+      "owner": "scene-web-startup-design",
+      "reason": "用户要求完整启动改进方案并修订旧合同；登记专项、资源/生命周期边界与旧专题保留归档，未声明产品收益。",
+      "decision": "docs/development/wallpaper-startup-optimization-plan.md#decision"
+    },
+    {
+      "section": "bodies",
+      "path": "docs/web/cold-descriptor-parse-offload-design.md",
+      "before": "f9efb2d91ac339b5cd447b2ff13d61463736475e11ab4ff1e3675950d592c99c",
+      "after": "301268fadbe6fe0a1f24e0cfe3331f21ac4765d43e4ace724b9b9d7bc72884ab",
+      "owner": "scene-web-startup-design",
+      "reason": "用户要求完整启动改进方案并修订旧合同；登记专项、资源/生命周期边界与旧专题保留归档，未声明产品收益。",
+      "decision": "docs/development/wallpaper-startup-optimization-plan.md#decision"
+    },
+    {
+      "section": "bodies",
+      "path": "docs/web/dedicated-host-process-design.md",
+      "before": "b4131212ddf0c2e5aecba9c3695c3310d676414b3882f0a3fd9b49bddba1ae99",
+      "after": "f2403aa66064e2b12c0dedc9e9ddc9dfcd962823187bc544db93112d02e7c17e",
+      "owner": "scene-web-startup-design",
+      "reason": "用户要求完整启动改进方案并修订旧合同；登记专项、资源/生命周期边界与旧专题保留归档，未声明产品收益。",
+      "decision": "docs/development/wallpaper-startup-optimization-plan.md#decision"
+    },
+    {
+      "section": "bodies",
+      "path": "docs/web/web-project-json-runtime-model.md",
+      "before": "aa24fefaa2a99d12f04ad2e8ebc77c051c89f4943c19a1b2f51b299fc4e40285",
+      "after": "d1dd80e86c72c756160120a9a9ac68793e3a706d018bf23c620fa25675a2c598",
+      "owner": "scene-web-startup-design",
+      "reason": "用户要求完整启动改进方案并修订旧合同；登记专项、资源/生命周期边界与旧专题保留归档，未声明产品收益。",
+      "decision": "docs/development/wallpaper-startup-optimization-plan.md#decision"
+    },
+    {
+      "section": "archives",
+      "path": "docs/scene/history/scene-startup-pipeline-before-optimization-2026-10-23.md",
+      "before": "74234e98afe7498fb5daf1f36ac2d78acc339464f950703b8c019892f982b90b",
+      "after": "3ed063113094c4cd8114c1c82b50edd9e3c1e8cea31242645d1b1fd401d94f7a",
+      "owner": "scene-web-startup-design",
+      "reason": "用户要求完整启动改进方案并修订旧合同；登记专项、资源/生命周期边界与旧专题保留归档，未声明产品收益。",
+      "decision": "docs/development/wallpaper-startup-optimization-plan.md#decision"
     },
     {
       "section": "bodies",

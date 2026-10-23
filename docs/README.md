@@ -13,6 +13,7 @@
 | Scene 目录依赖 | Compilation / Rendering 结构边及有界扫描合同 | [依赖边界试点](scene/architecture/scene-dependency-boundaries.md) |
 | Scene 目标架构 | 播放器职责、逐对象加载／更新／合成／释放与编码合同 | [Scene 兼容运行时架构](scene/architecture/runtime-architecture.md)、[Sampler 缺省输入优先级](scene/capabilities/sampler-alias-precedence.md) |
 | Scene 启动响应 | 属性准备、开发观测、候选首帧、回滚和分层缓存合同 | [Scene 启动响应与按需诊断合同](scene/architecture/scene-launch-responsiveness-contract.md) |
+| Scene/Web 冷暖启动改进 | 包内读取、依赖快照、资源与宿主复用的实施步骤、迁移退出及验收 | [壁纸启动专项](development/wallpaper-startup-optimization-plan.md) |
 | Scene 日常开发 | 如何选首断点、做纵向切片、消融常驻成本和选择验证门 | [Scene 开发工作流](scene/development/development-workflow.md) |
 | 工程设计与专项执行 | 所有权、成本消融与退出设计；当前顺序和验收 | [重构顶层设计](scene/roadmap/engine-refactor-program.md)、[性能卡](scene/roadmap/performance-convergence-card.md)、[属性卡](scene/roadmap/properties-panel-card.md) |
 | Apple silicon优化结项与实施合同 | 跨模块24项的唯一处置记录、分批验证和取舍；保留U1/U2实施合同，不自动开启新队列 | [Apple silicon优化执行方案](development/apple-silicon-optimization-plan.md) |

@@ -744,7 +744,7 @@
       "owner": "web-playback-host",
       "status": "approved",
       "designDoc": "docs/web/dedicated-host-process-design.md",
-      "design_notes": "先隔离原WKWebView host，父App唯一采集媒体/音频，版本化request IPC、有界候选/活跃与停止退出；真实Space残余停顿和跨引擎首帧须分别验收，不能以导航完成冒充无缝。 2026-10-18启动后继：同adapter有界空宿主至多一个、2s延后/30s退出、无内容无订阅、采用原UUID与epoch、内存压力和停止撤销；1×1首帧同步保留，Scene预热按真实意图收窄。收益须同输入计时，未批准渲染线程或独立target迁移。",
+      "design_notes": "先隔离原WKWebView host，父App唯一采集媒体/音频，版本化request IPC、有界候选/活跃与停止退出；真实Space残余停顿和跨引擎首帧须分别验收，不能以导航完成冒充无缝。 2026-10-18启动后继：同adapter有界空宿主至多一个、2s延后/30s退出、无内容无订阅、采用原UUID与epoch、内存压力和停止撤销；1×1首帧同步保留，Scene预热按真实意图收窄。收益须同输入计时，未批准渲染线程或独立target迁移。 2026-10-23后继P5原adapter退休复用另由启动专项设计覆盖，先instance/执行身份与drain/reset ACK；原进程隔离和产品事务保持，不能以旧一次性UUID策略阻塞已定义迁移。",
       "matchPatterns": [
         "MyWallpaperX/Core/SteamWorkshopWeb/Process/*.swift",
         "MyWallpaperX/App/MyWallpaperXApplication.swift",
@@ -1184,6 +1184,77 @@
         "MyWallpaperX/Core/SteamWorkshopScene/Format/SceneDocumentObject.swift",
         "MyWallpaperX/Core/SteamWorkshopScene/Resources/Assets/SceneAssetCatalog.swift",
         "MyWallpaperX/Core/SteamWorkshopScene/Runtime/Frame/SceneRuntimeSourceFacts.swift"
+      ],
+      "contentPatterns": []
+    },
+    {
+      "id": "startup-scene-resource-input",
+      "title": "启动专项Scene包内读取与内容复用",
+      "owner": "Existing library version owner / Scene ResourceView / ModelBuilder",
+      "status": "approved",
+      "designDoc": "docs/development/wallpaper-startup-optimization-plan.md",
+      "design_notes": "P2/P3：完整可信receipt与索引准入，verified range/stream与有界owned-file，字体保bytes；来源IPC与lease、属性/VM隔离；退役全量extractor产品路径。 设计边界已定义，产品/收益未验；本轮仅文档，执行不得跳过成本/正确性门。",
+      "matchPatterns": [
+        "MyWallpaperX/Core/SteamWorkshopScene/Format/ScenePkg*.swift",
+        "MyWallpaperX/Core/SteamWorkshopScene/Resources/Assets/SceneResource*.swift",
+        "MyWallpaperX/Core/SteamWorkshopScene/Runtime/Frame/SceneRuntimeSourceFacts.swift",
+        "MyWallpaperX/Core/SteamWorkshopScene/Runtime/Frame/SceneRuntimeModel.swift",
+        "MyWallpaperX/Modules/SteamWorkshop/Core/SteamWorkshopLibraryTransaction.swift"
+      ],
+      "contentPatterns": []
+    },
+    {
+      "id": "startup-web-preparation-snapshot",
+      "title": "启动专项Web一次依赖快照",
+      "owner": "SteamWorkshopService existing descriptor/cache owners",
+      "status": "approved",
+      "designDoc": "docs/development/wallpaper-startup-optimization-plan.md",
+      "design_notes": "P1：作者依赖与execution投影分键，同次快照供analysis/execution/save；当前grants独立重建，awaited保存保留且轻量核代际，不重开无收益保存队列。 设计边界已定义，产品/收益未验；本轮仅文档，执行不得跳过成本/正确性门。",
+      "matchPatterns": [
+        "MyWallpaperX/Modules/SteamWorkshop/Web/Core/SteamWorkshopService+WebRuntimeCache*.swift",
+        "MyWallpaperX/Modules/SteamWorkshop/Web/Core/SteamWorkshopWebResolvedRuntimeModels.swift",
+        "MyWallpaperX/Modules/SteamWorkshop/Web/Core/SteamWorkshopService+WebComputationCache.swift"
+      ],
+      "contentPatterns": []
+    },
+    {
+      "id": "startup-scene-device-sharing",
+      "title": "启动专项同launch成功Metal产物共享",
+      "owner": "ScenePreparedDeviceResources / existing pass encoders",
+      "status": "approved",
+      "designDoc": "docs/development/wallpaper-startup-optimization-plan.md",
+      "design_notes": "P4：成功library/PSO和single-flight上移同launch/device，完整compile key，保每屏token/history/binding，borrowers/创建/GPU全部drain后释放；不批准跨launch保温。 设计边界已定义，产品/收益未验；本轮仅文档，执行不得跳过成本/正确性门。",
+      "matchPatterns": [
+        "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Graph/SceneResolvedMaterialPassEncoder*.swift",
+        "MyWallpaperX/Core/SteamWorkshopScene/Runtime/Session/ScenePreparedDeviceResources*.swift"
+      ],
+      "contentPatterns": []
+    },
+    {
+      "id": "startup-web-worker-reuse",
+      "title": "启动专项Web退休worker与匹配WebView复用",
+      "owner": "WebDaemonHostAdapter / WebDaemonRuntime / existing host",
+      "status": "approved",
+      "designDoc": "docs/development/wallpaper-startup-optimization-plan.md",
+      "design_notes": "P5先daemon-only再standard matching-view；拆instance/request/session/reset身份，先revoke/cancel再drain/blank ACK，旧lease按execution结清，两槽无第三池；HTTP只reuse daemon，无法隔离则退回。 设计边界已定义，产品/收益未验；本轮仅文档，执行不得跳过成本/正确性门。",
+      "matchPatterns": [
+        "MyWallpaperX/Core/SteamWorkshopWeb/Process/*.swift",
+        "MyWallpaperX/Core/SteamWorkshopWeb/Host/DedicatedWebWallpaperHostPlaceholderAdapter+Lifecycle*.swift",
+        "MyWallpaperX/Core/SteamWorkshopWeb/Host/DedicatedWebWallpaperHostPlaceholderAdapter+Surface.swift"
+      ],
+      "contentPatterns": []
+    },
+    {
+      "id": "startup-web-response-reuse",
+      "title": "启动专项Web响应复用与lease凭据",
+      "owner": "Existing Web scheme/loopback/transform owners",
+      "status": "approved",
+      "designDoc": "docs/development/wallpaper-startup-optimization-plan.md",
+      "design_notes": "P6：有界转换cache与当前授权/投影分开；token路径或本lease cookie准入，cookie不按port隔离；只修冲突不认完整隔离，不批准稳定HTTP broker、固定端口或高兼容view复用。 设计边界已定义，产品/收益未验；本轮仅文档，执行不得跳过成本/正确性门。",
+      "matchPatterns": [
+        "MyWallpaperX/Core/SteamWorkshopWeb/Support/WebWallpaperLocalSchemeHandler*.swift",
+        "MyWallpaperX/Core/SteamWorkshopWeb/Support/WebWallpaperLoopbackServer*.swift",
+        "MyWallpaperX/Core/SteamWorkshopWeb/Support/WebWallpaperResponseTransformer.swift"
       ],
       "contentPatterns": []
     }

@@ -5,6 +5,8 @@
 
 状态：2026-10-18 已接入唯一独立播放入口，Debug 签名构建与协议/生命周期门通过；物理 Space、长稳与全作品兼容另验。
 
+2026-10-23 后继设计：[冷暖启动专项 P5/P6](../development/wallpaper-startup-optimization-plan.md)允许在原 adapter 内重构一次性 worker 的退休/复用；本文保留进程隔离、资源与候选交接权威。下述复用是待实施目标，当前仍以源码的一次 launch、空 daemon 预备为事实。
+
 ## 目标与依据
 
 最小 WKWebView 对照在桌面和普通窗口层级均复现同进程主窗口最小化/恢复的约 0.5–0.7 秒 RAF 间隔；只有桌面 WebView 的独立 accessory 进程在另一进程窗口动画期间未复现该量级停顿，真实 Space 切换仍有约 120ms 间隔。该证据支持隔离主 App 窗口事件，不支持承诺全部系统/作者内容零掉帧。
@@ -17,7 +19,7 @@
 
 - Web 产品进程与空宿主采用 `.prohibited` 激活策略，与 Video 后台入口一致，不能取得前台焦点；桌面 surface 在 AppKit 启动后按 IPC 创建、以非 key 窗口显示。只有显式 DEBUG evidence 窗口允许 `.accessory`，便于独立画面取证。
 - 主 App 不再创建生产 WebView。沿用同一可执行文件的独立 `--mwx-web-daemon` 入口，在产品装配前进入禁止激活的后台 AppKit run loop；普通 XPC service 不持有桌面窗口。
-- 请求 DTO 只传不可变 URL、属性、可信 typed resource grants、profile、语言、显示配置与白名单；`PlaybackResourceLifetime` 留在父进程，直到对应子进程退出。命令/事件带协议版本与 request UUID，准备/提交另带 surface preparation generation，旧进程或旧请求不得发布状态。
+- 请求 DTO 只传不可变 URL、属性、可信 typed resource grants、profile、语言、显示配置与白名单。当前 `PlaybackResourceLifetime` 留在父进程直到对应子进程退出；退休复用实施时须拆 daemon instance 与每次 request/session 身份，以匹配该 request 的资源排空/reset ACK 或实际退出结清租约。仅逻辑取消或 blank URL 不足以释放。命令/事件带协议版本与 producer 捕获的请求/表面 generation，不能给旧回包重贴新身份。
 - 属性、暂停、音量、速率、显示配置走有序控制；频谱只保留最新值并以控制为屏障。stdin、stdout 均限制积压与单帧大小，EOF/协议失败结束该子进程，不能继续显示失控旧内容。
 
 属性消息携带独立的 property/resource revision 和完整授权替换快照。已提交 request 在崩溃恢复等待、恢复候选和显示重建期间也必须同步最新属性与撤权；不能只更新 active，也不能把另一用户选择的候选当作已提交 request。已退出 transport 只更新原恢复输入，不写 dead pipe；重启、reload 与多屏继续消费同一请求事实。授权粒度和消费边界归[运行模型合同](web-project-json-runtime-model.md#24-playback-context)。
@@ -43,7 +45,7 @@ Web/Scene 复用主可执行文件，应用包默认以 `LSUIElement=YES` 的后
 ## 候选与交接
 
 - 至多一个活跃 Web 子进程与一个候选。新请求取消旧候选，保留旧活跃画面；失败或超时仅结束候选。显式停止/跨引擎停止撤销两者和所有订阅。
-- 点击后的异步作品准备与同 UUID 的空宿主启动并行；预备宿主尚不读取作品、不创建窗口或订阅采集。完成后将同一 transport 原子交给候选 Session，未完成的 hello/协议帧继续由新 Session 消费。新选择、准备失败、显式停止或 15s 未采用会结束请求预备进程；异步完成另以主 App 唯一产品意图 epoch 的只读快照拒绝迟到发布。预备与候选共用一个名额。
+- 点击后的异步作品准备与同 UUID 的空宿主启动并行；当前预备宿主不读取作品、不创建 WebView/窗口或订阅采集。完成后原子采用，hello/协议帧不丢。退休复用后只有已排空旧授权/任务并确认空文档的 worker 可进入原 warm 名额；standard 档仅完整配置 key 匹配才保留 WebView，不匹配重建；HTTP loopback 首批只复用 daemon。新选择、失败、停止或原 15s 未采用截止期撤销请求预备；epoch/newer-wins 仍归原产品 owner，预备与候选共用一个名额。
 - 候选窗口先位于活动壁纸之下，不在 HTML 导航完成时覆盖旧画面。导航 ready 后对当前每屏 WebView 执行一次原生 snapshot preparation；成功只说明可生成当前渲染内容，不冒充物理显示呈现时间。
 - 父 adapter 只报告准备/可见事实；WallpaperManager 事务授权激活，候选暂升 desktop + 2，旧输出确认撤下后 finalize 恢复常规层级。候选准备期间静音且不接管桌面输入，交接时应用当前音量并启用输入，避免两份作者音频重叠。显示拓扑改变会撤销旧准备代际，不能用旧 snapshot 的确认提交新 surface 集。
 - 跨引擎退休由唯一产品事务下达，运行时通知仅投影提交事实；Video/Scene 的原生准备和资源链仍归执行端。审查所有方向的现有 ready/retire 时机，只有实际通过的方向可声明视觉连续；不以 `didFinish`、process alive 或 `.launched` 名称替代首帧证据。
@@ -57,7 +59,7 @@ Web/Scene 复用主可执行文件，应用包默认以 `LSUIElement=YES` 的后
 
 目标是在保留隔离、作者样式和旧输出回滚的前提下，缩短用户点击到 Web 提交的等待。参考 Mirage 的专用播放入口、候选交接与极小区域快照；其源码不证明本项目的耗时占比。当前每次创建宿主，WebKit/作品初始化和快照在关键路径；Scene 冷准备另有独立内容成本。
 
-本片选择已有 adapter 内一个有界空宿主，避免新增进程池 owner 或修改共享 Xcode target：
+以下是 P5 实施前的现状及未采用复用时的回退路径：已有 adapter 内一个有界空宿主。P5a/P5b 达门后由专项替代对应一次性 UUID、资源释放和“不建 WebView”边界，仍不新增进程池 owner 或修改共享 Xcode target：
 
 - Web 成功提交后延迟 2s 预备下一空宿主；启动延后 3s 时仅在本地有可播放 Web 记录且无候选时尝试一次。空宿主至多一个，30s 未采用即退出，超时不自行补充；不读取作品、不建 WebView/窗口、不运行作者脚本、不采集音频。内存压力、显式停止、跨引擎意图与 App 退出撤销预备及延迟任务。
 - 空宿主 UUID 在创建时确定；App 装配把该 UUID 作为下一用户请求的 requestID 返回，随后请求保留原意图 epoch 和全部 guard。没有把旧作品请求改名、复用旧页面或重贴迟到事件。采用时转换为请求预备，重新给予原 15s 截止期；hello 前后均可采用。无空宿主或预备失败仍走现有冷启动。

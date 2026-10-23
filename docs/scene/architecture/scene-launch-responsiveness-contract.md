@@ -6,7 +6,7 @@
 >
 > 当前实现程度、性能数字与运行证据只查[能力台账](../capabilities/coverage-ledger.md)和[运行证据索引](../capabilities/runtime-evidence-current.md)。
 >
-> 本文服从[兼容运行时架构](runtime-architecture.md)并由[兼容执行路线](../roadmap/scene-compatibility-roadmap.md)决定进入时机；它不是第二份 Scene 现役计划，也不改变 V0-V5 的任务顺序。
+> 本文服从[兼容运行时架构](runtime-architecture.md)，不拥有任务顺序。用户指定的冷暖启动改进按[Scene/Web 启动专项](../../development/wallpaper-startup-optimization-plan.md)执行；自主兼容选题仍由[兼容路线](../roadmap/scene-compatibility-roadmap.md)决定。
 
 ## 1. 目标与边界
 
@@ -15,7 +15,7 @@ Scene 详情和壁纸切换必须满足两个独立目标：
 1. 打开详情只展示廉价、已有的项目元数据，不隐式触发 package 校验、解包、资源遍历、scene 解析、shader preparation、纹理解码或 GPU pipeline 创建；
 2. 设置壁纸立即接受用户意图并保持主界面响应。候选内容在后台准备，当前壁纸在候选可提交前保持可见；不可避免的长准备必须有真实阶段、可取消状态和失败反馈。
 
-本合同不建立第二 renderer、resource registry、property tree、frame clock、graph、history、compositor 或最终输出 owner。`SceneDesktopWallpaperHost` 继续持有唯一 Scene 桌面输出决定；新协调职责只管理请求、准备和提交事务。
+本合同不建立第二 renderer、resource registry、property tree、frame clock、graph、history、compositor 或最终输出 owner。`SceneDesktopWallpaperHost` 持有 Scene 执行端候选与表面提升事实；产品意图与跨引擎提交仍归 WallpaperManager 的[唯一切换事务](../../architecture/playback-lifecycle-transaction-design.md)，不能由 Host 另作产品决定。
 
 MirageWallpaper 只提供 `candidate / active / standby`、request generation、首帧后提交和失败回滚的 clean-room 职责/时序对照。不得复制其 GPL 源码、shader、常量、payload、算法表达、独立 C++/Vulkan renderer 或按显示器启动进程的产品结构，也不得把第三方静态结构当作性能或官方语义证据。
 
@@ -92,7 +92,7 @@ accepted
 
 第一阶段在专用、可取消的 preparation executor 上形成不可变候选：
 
-- 安全 package identity、解包 generation 与 resource view；
+- 安全内容 identity、已验证 generation 与 resource view；包内按需读取或必要物化均由同一资源入口提供，不要求全量解包；
 - project、scene、asset、property、Program 和 graph 输入；
 - 当前内容实际需要的 authored shader variant、reflection 与 pipeline preflight；
 - 可共享的纹理、字体、静态 text、material asset、sprite atlas 和其他 device-scoped immutable 资源。
@@ -105,7 +105,7 @@ accepted
 - 所有必须 surface 就绪后原子提升候选，随后退役旧 active；
 - 失败、取消、超时、显示器变化或 App teardown 时销毁 pending，保留或恢复旧 active。
 
-候选和 active 是同一 host 内两个有界 session role。Host 唯一拥有请求、目标拓扑、公共播放意图和可见性提升；Session 拥有该场景的 VM、clock、provider、surface 与 GPU 租约。旧 Host 的播放字段和方法迁入 Session，不保留双执行路径。候选窗口在首帧 GPU/terminal compositor 完成前透明，声音暂停，不订阅鼠标边沿；必须 surface 集合全部成功后 Host 在主线程提升可见性，才退役旧 active。首帧 presented 观测在提升时才安装，不能把透明候选的 GPU completion 当作可见证据。
+候选和 active 是同一 host 内两个有界 session role。Host 唯一拥有 Scene 执行请求、目标拓扑与可见性提升，消费产品事务的授权；Session 拥有该场景的 VM、clock、provider、surface 与 GPU 租约。旧 Host 的播放字段和方法迁入 Session，不保留双执行路径。候选窗口在首帧 GPU/terminal compositor 完成前透明，声音暂停，不订阅鼠标边沿；必须 surface 集合全部成功并取得产品授权后才提升可见性，旧输出沿原 finalize/退休屏障退出。首帧 presented 观测在提升时才安装，不能把透明候选的 GPU completion 当作可见证据。
 
 候选的 localStorage 仍使用现有 session owner，但延迟持久化；候选取消、超时或被新请求替代不会把写入送到 persistence coordinator。同 record 替换时，提升只合入候选相对准备基线实际修改的键，保留旧 active 在此期间对其他键的写入。音频采集需求由 Host 聚合 active 与 candidate 的声明后送入既有 inbox，任一 session 退场不得清掉另一 session 的需求。
 
@@ -128,19 +128,23 @@ promote释放cohort并恢复原driver；stop、surface对象替换及真实rende
 
 ## 5. 缓存与预热
 
-缓存分三层，失效条件必须显式且不得绕过安全校验：
+缓存分三层，这是目标分工而非全部已实现。具体迁移、成本门和旧链退出归[启动专项](../../development/wallpaper-startup-optimization-plan.md#decision)：
 
-1. `PreparedContent`：内容 digest、package generation、基础 project/scene/asset/resource/descriptor；
+1. `PreparedContent`：内容/依赖 digest、generation 与不可变作者 bytes/IR；不携属性投影、VM、clock、storage session、播放器或 graph/history；
 2. `PreparedLaunchPlan`：PreparedContent + 属性快照 + runtime/compiler schema；
 3. `PreparedDeviceResources`：PreparedLaunchPlan + OS/Metal/compiler/device identity。
 
-首次下载或首次解包完成时可低优先级预热 `PreparedContent`。用户点击设置后复用并提升同一请求，不能并行重复解析。预热在内存压力、温度压力、新用户意图或 App teardown 时可取消。
+先在真实请求中有界复用；完整模型常驻和下载后默认预解析不作为必需步骤。预热只有在真实命中率、内存与争用证据支持后进入；沿同 key single-flight，点击提升同次工作，压力、新意图与退出取消。历史暂缓结论不禁止按新成本重构，也不能直接重启旧方案。
 
-完整 package/hash/path/range 校验在首次建立可信 generation、来源变化、marker 损坏或 identity 不匹配时执行。已经原子完成且位于 App 自有 content-addressed cache 的 generation 可以使用廉价 identity 检查；不得每次详情打开重复读取并 hash 全部 package 和所有缓存文件，也不得为了命中缓存跳过路径逃逸、entry range、ABI 或完整性失败。
+内容身份与 byte 完整性分开：版本租约只防 App 回收，App 自有目录/mtime/size/marker 不能自行证明内容可信。首次准入完整验证索引、路径、range 与冲突，receipt 另绑定预期摘要。暖挂载核对索引，实际消费 entry 的自持字节验证成功后才能发布；缺可信 receipt 回完整准入，managed 来源失配不得静默收养。未使用 payload 的损坏可延至首次使用发现，索引安全错误仍在挂载拒绝，同大小篡改不得漏检。详情不触发此工作；不为暖命中跳过安全或 ABI 检查。
+
+ResourceView 唯一决定 package/loose/stock 顺序，允许内部以 package index-backed handle 替代解包目录。URL-only 消费者走有界、验证后原子完成的物化桥；来源/物化 pin 保持到在途 CPU 与 GPU/provider 排空。缓存自持 bytes/IR 优先，跨请求保留 lazy handle 须显式延长原租约并验证更新/删除退出。全量 extractor 的产品调用在迁移验收后退役，不长期维持第二资源路径。
 
 项目固定 MSL 必须构建期编译。Workshop 作者 shader 只在 preparation 阶段按当前内容需求编译和 preflight；不得在 draw/pass encode 热路径首次同步编译，也不为未使用的完整 catalog 做无界 eager compile。
 
-作者 shader 的跨进程缓存只保存已经 accepted 的前端 Program 与 preparation 产物。identity 至少覆盖完整作者 source/source graph、combo、inactive/optional provider、资源 readiness/format、render contract 和 frontend/compiler schema；读取时同时校验 key digest、payload digest、stage/backend 和产物自报 identity。失败结果、诊断、超时和损坏文件不落成 success，读取异常统一作为 miss 并在后台重建。缓存容量必须有界，淘汰只影响性能，不能改变产品输出或失败语义。
+作者 shader 的 CPU 跨进程缓存只保存已经 accepted 的前端 Program 与 preparation 产物。identity 至少覆盖完整作者 source/source graph、combo、inactive/optional provider、资源 readiness/format、render contract 和 frontend/compiler schema；读取时同时校验 key digest、payload digest、stage/backend 和产物自报 identity。device/backend 磁盘产物另受 OS/compiler/GPU/attachment 身份、损坏回退和容量合同约束，不与 CPU 层混同。失败结果、诊断、超时和损坏文件不落成 success，读取异常统一作为 miss 并在后台重建。淘汰只影响性能，不能改变输出或失败语义。
+
+同 launch/device 的成功 MTLLibrary/PSO 可由现有 prepared-device owner 共享，完整 compile key 与 single-flight 不变；每屏 encoder token/reset、graph/history、binding 与 publication 独立。最后一次 drain 后释放，跨 launch 保温需另有收益/驻留证据。
 
 CPU Program/preparation 命中不等于 `PreparedDeviceResources` 命中。Metal library、pipeline、texture、surface 与 publication 仍属于当前进程和 device generation；在 OS/compiler/device/attachment identity 完整闭合并有真实首帧证据前，不得把磁盘 Program 命中表述为壁纸已经 ready。
 
@@ -191,7 +195,7 @@ CPU Program/preparation 命中不等于 `PreparedDeviceResources` 命中。Metal
 
 ## 8. 可独立交付的纵向结果
 
-以下是职责分解，不是第二份任务队列；具体进入时机仍由唯一现役 roadmap 决定，并且每次只冻结一个结果：
+以下是职责分解，不是第二份任务队列；具体进入时机由用户指定专项或对应现役路线决定，并且每次只冻结一个结果：
 
 1. **详情与开发观测分离**：详情不再提供样本诊断链；属性准备保持异步、可取消、缓存与 stale rejection，开发证据沿独立显式工具入口。
 2. **异步准备与状态反馈**：点击立即返回，CPU preparation 离开主线程，中心状态可观察，成功前不改变持久化当前壁纸。
@@ -214,4 +218,4 @@ CPU Program/preparation 命中不等于 `PreparedDeviceResources` 命中。Metal
 
 首次基线只记录实际数字，不预写未经测量的百分比目标。UI 线程不执行 package I/O/hash、解包、作者 shader 编译或纹理解码，旧 generation 不提交，候选失败不撤销 active，进度只使用真实阶段/计数，这些属于不依赖性能阈值的结构合同。
 
-静态审查、compile、route count、非黑画面和单次启动都不能证明性能闭合。性能结论需要冻结 source/build/input identity 下的 cold/warm 分布、主线程 stall、first visible frame、多屏内存与失败/回滚反例；视觉兼容声明仍须满足现役 Scene GPU/compositor/next-frame 和相称 ROI/事件证据门。
+静态审查、compile、route count、非黑画面和单次启动都不能证明性能闭合。性能结论需要冻结 source/build/input identity 下的 cold/warm 分布、主线程 stall、first visible frame、多屏内存与失败/回滚反例；视觉兼容声明仍须满足现役 Scene GPU/compositor/next-frame 和相称 ROI/事件证据门。专项明确区分空产品 cache、新进程磁盘暖、同进程暖与跨引擎返回；direct Host 的 ready、保留本轮目录或 Web forcedCold 标签都不能替代实际缓存/进程身份与可见终点证明。

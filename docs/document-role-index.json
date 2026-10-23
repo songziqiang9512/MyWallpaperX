@@ -10,6 +10,7 @@
       "docs/development/apple-silicon-optimization-plan.md",
       "docs/development/code-slimming-program.md",
       "docs/development/repository-workflow.md",
+      "docs/development/wallpaper-startup-optimization-plan.md",
       "docs/release/release-signing.md",
       "docs/scene/architecture/gpu-stage-timestamp-diagnostics.md",
       "docs/scene/architecture/refactor-baseline.md",
@@ -128,13 +129,13 @@
       "role": "active-plan",
       "entrypoint": "docs/README.md",
       "retirementCondition": "三引擎退出、可见交接与唯一产品事务实施且有界验收完成，稳定合同接管后归档。",
-      "lastReviewed": "2026-10-18",
+      "lastReviewed": "2026-10-23",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "206a463e1f3bc5781b407a2406a5fb93acecebec29cb105cc8f7f04a01266832",
+        "sourceSHA256": "07cde8f92b29ff65d7bb811e440111af4476a33656828c887b2be14b55c19280",
         "method": "document_registry --audit + document_health --check",
-        "scope": "Playback lifetime, native visibility gates, sole product transaction and their document routes.",
-        "limitations": "Source and routing review; runtime acceptance is recorded separately and is not full compatibility or Space parity."
+        "scope": "冷暖启动专项设计与原合同/导航同步；重核产品提交、来源完整性、资源输入、Web准备及复用退出边界。",
+        "limitations": "仅设计和当前源码/文档复核，无本轮产品改动、构建、官方运行或冷暖性能验收。"
       }
     },
     {
@@ -222,6 +223,12 @@
       "role": "navigation",
       "entrypoint": "docs/development/repository-improvement.md",
       "purpose": "已完成分类设计的永久旧链接及classification_migration历史身份；现行职责由工作流和机器合同承担。"
+    },
+    {
+      "path": "docs/development/wallpaper-startup-optimization-plan.md",
+      "role": "active-plan",
+      "entrypoint": "docs/README.md",
+      "retirementCondition": "实际采用阶段通过产品冷暖及失败/退出验收、旧owner退役且剩余项明确结算，或用户结束专项后归档；长期边界由原合同接管。"
     },
     {
       "path": "docs/history/README.md",
@@ -530,10 +537,10 @@
       "lastReviewed": "2026-10-23",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "7c97fa24b5541ee4427a885aca654f042ccdf90664479da29205a6e3df345941",
+        "sourceSHA256": "61a90eb92488f100f8b5d904a07c7deb0e660c9a20136b5a447c0344e448e35e",
         "method": "document_registry --audit + document_health --check",
-        "scope": "同步未adopt文字publication与真实surface失效边界及首帧有界后验入口；这里只复核导航/角色。",
-        "limitations": "实际运行边界见对应历史；不宣称完整Scene、Release、HDR、多屏或性能验收。"
+        "scope": "冷暖启动专项设计与原合同/导航同步；重核产品提交、来源完整性、资源输入、Web准备及复用退出边界。",
+        "limitations": "仅设计和当前源码/文档复核，无本轮产品改动、构建、官方运行或冷暖性能验收。"
       }
     },
     {
@@ -1067,7 +1074,7 @@
       "lastReviewed": "2026-10-24",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "897185f2e58a7d8b5f811e38865d54163e9da37c588c09854c7328d32f90f5cd",
+        "sourceSHA256": "4ce88ff8c29ce1d304cb32e53dd026a0f5e1934a65e3e92ab3d066af6f3a63e6",
         "method": "document_registry --audit + document_health --check",
         "scope": "Declared texture/RGB graph bounded change: route, queue retirement and archived runtime evidence reconciled with the same source/App identity.",
         "limitations": "Only this change and navigation reviewed; startup texture selection is not live-panel, full parity, HDR or performance acceptance."
@@ -3074,6 +3081,17 @@
       ]
     },
     {
+      "path": "docs/scene/history/scene-startup-pipeline-before-optimization-2026-10-23.md",
+      "role": "historical-evidence",
+      "entrypoint": "docs/scene/history/README.md",
+      "commandPolicy": "historical-only",
+      "currentAuthorities": [
+        "docs/scene/architecture/scene-startup-pipeline.md",
+        "docs/scene/architecture/scene-launch-responsiveness-contract.md",
+        "docs/development/wallpaper-startup-optimization-plan.md"
+      ]
+    },
+    {
       "path": "docs/scene/history/scene-switch-residency-qualification-2026-10-15.md",
       "role": "historical-evidence",
       "entrypoint": "docs/scene/history/README.md",
@@ -3765,10 +3783,10 @@
       "lastReviewed": "2026-10-23",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "19af7bac23ea7c1d55521690724bc5520c439353c2321ff76ff8e42a494aeeb0",
+        "sourceSHA256": "c34fe4661021d5558cbf8b75265815edd3c73577b0a3ee32531bf66cefb7075c",
         "method": "document_registry --audit + document_health --check",
-        "scope": "仅prepared帧输入/唯一Program数值核等价迁移、依赖退休与CPU/Debug；原332/独立311实际画面和停止保持，其余主题未重审。",
-        "limitations": "执行观察关闭；无逐层compositor或完整官方同phase证据，无新算法/能力/policy/cache、CPU/GPU/内存收益声明；Release/HDR/多屏未验。"
+        "scope": "冷暖启动专项设计与原合同/导航同步；重核产品提交、来源完整性、资源输入、Web准备及复用退出边界。",
+        "limitations": "仅设计和当前源码/文档复核，无本轮产品改动、构建、官方运行或冷暖性能验收。"
       }
     },
     {
@@ -3854,13 +3872,13 @@
       "role": "active-plan",
       "entrypoint": "docs/web/README.md",
       "retirementCondition": "唯一生产 Web 独立宿主及有界切换/生命周期验收完成，稳定合同接管后归档。",
-      "lastReviewed": "2026-10-19",
+      "lastReviewed": "2026-10-23",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "412aed942c70627c8ea8b791772789b8b6eca04088a3f406c54dc303428b8641",
+        "sourceSHA256": "f3c6f1fd9209404ad01734619614dc83016093dd4da718673f862b04d43c771e",
         "method": "document_registry --audit + document_health --check",
-        "scope": "Current Web grants/cache rejection/recovery and Scene cooperative cancellation boundaries documented at existing owners.",
-        "limitations": "Does not establish all-sample compatibility, stable performance percentage, minimum-macOS compatibility or release notarization."
+        "scope": "冷暖启动专项设计与原合同/导航同步；重核产品提交、来源完整性、资源输入、Web准备及复用退出边界。",
+        "limitations": "仅设计和当前源码/文档复核，无本轮产品改动、构建、官方运行或冷暖性能验收。"
       }
     },
     {
@@ -3911,10 +3929,10 @@
       "lastReviewed": "2026-10-23",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "e843007ebffd3ba9995378f470197804670501842b674cabc2e4e08d4e3d7391",
+        "sourceSHA256": "646255540ffdf4380b00d7daa2aa0a58ecb5104ea557d790303dffcf45d55b26",
         "method": "document_registry --audit + document_health --check",
-        "scope": "B12 按授权退役隐藏详情报告，保属性、播放与独立开发工具；同步现役合同与失效链接。",
-        "limitations": "仅审查本次变更职责与导航；回归及构建结果归专项，不升级历史样本、性能或发布验收。"
+        "scope": "冷暖启动专项设计与原合同/导航同步；重核产品提交、来源完整性、资源输入、Web准备及复用退出边界。",
+        "limitations": "仅设计和当前源码/文档复核，无本轮产品改动、构建、官方运行或冷暖性能验收。"
       }
     },
     {
@@ -4429,6 +4447,76 @@
           ],
           "requiredArguments": [
             "--path"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "wallpaper-startup",
+      "title": "Scene/Web 壁纸冷暖启动改进",
+      "keywords": [
+        "冷暖启动",
+        "冷启动",
+        "暖启动",
+        "壁纸启动",
+        "包内读取",
+        "启动缓存",
+        "worker复用"
+      ],
+      "documents": [
+        "docs/development/wallpaper-startup-optimization-plan.md",
+        "docs/scene/architecture/scene-launch-responsiveness-contract.md",
+        "docs/scene/architecture/scene-startup-pipeline.md",
+        "docs/web/dedicated-host-process-design.md",
+        "docs/web/cold-descriptor-parse-offload-design.md",
+        "docs/scene/roadmap/performance-convergence-card.md",
+        "docs/architecture/playback-lifecycle-transaction-design.md"
+      ],
+      "sourcePaths": [
+        "MyWallpaperX/Core/SteamWorkshopScene",
+        "MyWallpaperX/Core/SteamWorkshopWeb",
+        "MyWallpaperX/Modules/SteamWorkshop/Web/Core"
+      ],
+      "verification": "本次文档仅registry/health/link/design门；产品实施按P0-P7先真实输入正反例、签名Debug与产品可见终点，冷暖cache/进程分别证明。",
+      "owner": "Existing Scene ResourceView/Host and Web preparation/daemon adapters",
+      "firstRead": "docs/development/wallpaper-startup-optimization-plan.md#decision",
+      "nearestTestGroups": [
+        "pkg-extraction",
+        "web-dependency-traversal",
+        "web-host-lifecycle",
+        "shader-completed-cache-retention"
+      ],
+      "verificationPhases": [
+        {
+          "phase": "inner",
+          "gateRefs": [
+            "focused-tests"
+          ],
+          "requiredArguments": [
+            "--path"
+          ]
+        },
+        {
+          "phase": "checkpoint",
+          "gateRefs": [
+            "code-health",
+            "build-verify",
+            "design-gate"
+          ],
+          "requiredArguments": [
+            "--path"
+          ]
+        },
+        {
+          "phase": "integration",
+          "gateRefs": [
+            "targeted-sample"
+          ],
+          "requiredArguments": [
+            "--app",
+            "--sample-id",
+            "--sample-root",
+            "--output-dir"
           ]
         }
       ]
