@@ -4,6 +4,11 @@ import Foundation
 // The evidence runner's launch and capture ordering stays in the existing
 // owner; this extension is also compiled by the standalone scheduling harness.
 extension DebugScenePlaybackRunner {
+    // Pointer evidence ends after both the requested observation time and the
+    // interaction's exit/settle step. Use the same monotonic Dispatch clock as
+    // the existing capture schedule; authored simulation time is unrelated.
+    static var pointerAfterSnapshotDeadline: DispatchTime = .now()
+
     static func launchForEvidence(
         rootURL: URL,
         userPropertyTextureURLs: [String: URL],
@@ -49,6 +54,7 @@ extension DebugScenePlaybackRunner {
         previewLogURL: URL?
     ) {
         if let hoverPointer = requestedHoverPointer {
+            pointerAfterSnapshotDeadline = .now() + requestedAfterSnapshotDelay
             setPointerOutside()
             schedulePointerSnapshots(
                 outputDirectory: outputDirectory,
@@ -61,6 +67,13 @@ extension DebugScenePlaybackRunner {
             schedulePeriodicSnapshots(outputDirectory: outputDirectory)
         } else {
             scheduleSnapshots(outputDirectory: outputDirectory, previewLogURL: previewLogURL)
+        }
+    }
+
+    static func schedulePointerAfterSnapshot(outputDirectory: URL) {
+        let deadline = max(.now() + 0.2, pointerAfterSnapshotDeadline)
+        DispatchQueue.main.asyncAfter(deadline: deadline) {
+            requestSnapshot(reason: "after", outputDirectory: outputDirectory)
         }
     }
 

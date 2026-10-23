@@ -55,9 +55,7 @@ extension DebugScenePlaybackRunner {
         requestSnapshot(reason: "hover", outputDirectory: outputDirectory)
         DispatchQueue.main.asyncAfter(deadline: .now() + 0.2) {
             setPointerOutside()
-            DispatchQueue.main.asyncAfter(deadline: .now() + 0.2) {
-                requestSnapshot(reason: "after", outputDirectory: outputDirectory)
-            }
+            schedulePointerAfterSnapshot(outputDirectory: outputDirectory)
         }
     }
 
@@ -211,19 +209,7 @@ extension DebugScenePlaybackRunner {
                 }
                 DispatchQueue.main.asyncAfter(deadline: .now() + 0.28) {
                     guard !isClosing else { return }
-                    requestSnapshot(
-                        reason: "hover",
-                        outputDirectory: outputDirectory
-                    )
-                    DispatchQueue.main.asyncAfter(deadline: .now() + 0.2) {
-                        setPointerOutside()
-                        DispatchQueue.main.asyncAfter(deadline: .now() + 0.2) {
-                            requestSnapshot(
-                                reason: "after",
-                                outputDirectory: outputDirectory
-                            )
-                        }
-                    }
+                    capturePointerResult(outputDirectory: outputDirectory)
                 }
             }
         }

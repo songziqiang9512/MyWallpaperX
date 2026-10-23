@@ -107,6 +107,64 @@ class SceneDebugEvidenceScheduleTests(unittest.TestCase):
                             if row["event"].startswith("capture:")
                             and not row["event"].startswith("capture:series-")))
 
+    def assert_after_deadline(self, payload: dict, *, pointer: bool = True) -> None:
+        events = payload["events"]
+        after = [row for row in events if row["event"] == "capture:after"]
+        self.assertEqual(len(after), 1, events)
+        # Real DispatchQueue timings may run late; a small timer tolerance
+        # cannot hide the former ~2s pointer capture against delay4/5.
+        deadline = payload["scheduleTime"] + payload["afterDelay"]
+        self.assertGreaterEqual(after[0]["time"], deadline - 0.01, payload)
+        if pointer:
+            hover_index = next(i for i, row in enumerate(events)
+                               if row["event"] == "capture:hover")
+            exit_event = next(row for row in events[hover_index + 1:]
+                              if row["event"] == "pointer:outside")
+            self.assertGreaterEqual(after[0]["time"] - exit_event["time"], 0.195, payload)
+
+    def test_hover_after_respects_requested_observation_deadline(self) -> None:
+        payload = self.run_schedule(extra=("--mwx-debug-scene-after-snapshot-delay", "4"))
+        self.assert_pointer_sequence(payload)
+        self.assert_after_deadline(payload)
+
+    def test_trajectory_after_respects_requested_observation_deadline(self) -> None:
+        payload = self.run_schedule(extra=(
+            "--mwx-debug-scene-after-snapshot-delay", "5",
+            "--mwx-debug-scene-pointer-trajectory-json", "[[0.25,-0.5],[-0.6,0.5]]",
+        ))
+        events = payload["events"]
+        self.assertEqual([row["event"] for row in events if row["event"].startswith("capture:")],
+                         ["capture:before", "capture:pointer-trajectory-00",
+                          "capture:pointer-trajectory-01", "capture:hover", "capture:after"])
+        hover = next(row for row in events if row["event"] == "capture:hover")
+        self.assertTrue(hover["inside"])
+        for actual, expected in zip(hover["point"], [-0.6, 0.5]):
+            self.assertAlmostEqual(actual, expected, places=6)
+        self.assert_after_deadline(payload)
+
+    def test_closing_after_hover_prevents_capture_at_later_deadline(self) -> None:
+        payload = self.run_schedule("close-after-hover", extra=(
+            "--mwx-debug-scene-after-snapshot-delay", "4",
+        ))
+        names = [row["event"] for row in payload["events"]]
+        self.assertIn("capture:hover", names)
+        self.assertEqual(names[-1], "closed")
+        self.assertNotIn("capture:after", names)
+        self.assertLess(payload["events"][-1]["time"], payload["scheduleTime"] + 4)
+
+    def test_late_interactions_preserve_exit_settle_after_deadline_passes(self) -> None:
+        for flags in [
+            ("--mwx-debug-scene-pointer-trajectory-json", "[[0.25,-0.5],[-0.6,0.5]]"),
+            ("--mwx-debug-scene-cursor-drag-to-json", '{"x":0.75,"y":0.25}'),
+        ]:
+            with self.subTest(interaction=flags[0]):
+                payload = self.run_schedule(extra=(
+                    "--mwx-debug-scene-after-snapshot-delay", "1.1", *flags,
+                ))
+                self.assert_after_deadline(payload)
+                hover = next(row for row in payload["events"] if row["event"] == "capture:hover")
+                self.assertGreater(hover["time"], payload["scheduleTime"] + 1.1)
+
     def test_awaited_launch_precedes_hover_and_periodic_captures(self) -> None:
         payload = self.run_schedule(extra=("--mwx-debug-scene-periodic-snapshot-interval", "0.08"))
         self.assert_pointer_sequence(payload)
@@ -119,14 +177,19 @@ class SceneDebugEvidenceScheduleTests(unittest.TestCase):
 
     def test_stationary_from_launch_preserves_the_declared_first_point(self) -> None:
         payload = self.run_schedule(extra=("--mwx-debug-scene-hover-pointer-stationary-entry",
-                                           "--mwx-debug-scene-hover-pointer-from-launch"))
+                                           "--mwx-debug-scene-hover-pointer-from-launch",
+                                           "--mwx-debug-scene-after-snapshot-delay", "4"))
         self.assert_pointer_sequence(payload, stationary=True, from_launch=True)
         self.assertEqual(payload["suspendedEvents"][1]["point"], [0.25, -0.5])
+        self.assert_after_deadline(payload)
 
     def test_drag_captures_held_destination_before_release_and_exit(self) -> None:
-        self.assert_pointer_sequence(self.run_schedule(extra=(
-            "--mwx-debug-scene-cursor-drag-to-json", '{"x":0.75,"y":0.25}'
-        )), drag=True)
+        payload = self.run_schedule(extra=(
+            "--mwx-debug-scene-cursor-drag-to-json", '{"x":0.75,"y":0.25}',
+            "--mwx-debug-scene-after-snapshot-delay", "4",
+        ))
+        self.assert_pointer_sequence(payload, drag=True)
+        self.assert_after_deadline(payload)
 
     def test_default_drag_preserves_single_round_delays_and_snapshot_reasons(self) -> None:
         payload = self.run_schedule("legacy-drag-full", extra=(
@@ -145,6 +208,7 @@ class SceneDebugEvidenceScheduleTests(unittest.TestCase):
         spring = next(row for row in events if row["event"] == "capture:spring-after")
         self.assertGreaterEqual(spring["time"] - release["time"], 5.95)
         self.assertIsNone(payload["dragTiming"])
+        self.assert_after_deadline(payload)
 
     def test_three_explicit_drags_hold_across_runloop_turns_and_use_unique_captures(self) -> None:
         timing = {"count": 3, "pressSeconds": 0.32, "heldSeconds": 0.4, "betweenSeconds": 0.32}
@@ -257,6 +321,7 @@ class SceneDebugEvidenceScheduleTests(unittest.TestCase):
         positive = self.run_schedule(pointer=False, extra=flags)
         names = [row["event"] for row in positive["events"]]
         self.assertEqual(names[:5], ["launch", "launch-complete", "ready", "capture:ready", "capture:after"])
+        self.assert_after_deadline(positive, pointer=False)
         self.assertIn("capture:series-0001", names)
         closed = self.run_schedule("close-before-capture", pointer=False, extra=flags)
         self.assertEqual([row["event"] for row in closed["events"]], ["launch", "launch-complete", "ready"])

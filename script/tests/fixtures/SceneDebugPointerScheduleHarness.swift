@@ -131,6 +131,7 @@ struct SceneDebugPointerScheduleHarness {
                 // An explicitly broken caller starts the actual capture schedule
                 // while host launch is suspended; the Python event oracle rejects it.
                 if scenario == "fault-early-capture" {
+                    payload["scheduleTime"] = ProcessInfo.processInfo.systemUptime - Runner.start
                     Runner.scheduleInitialEvidenceSnapshots(outputDirectory: output, previewLogURL: nil)
                     await Runner.waitFor("capture:before")
                 }
@@ -152,9 +153,21 @@ struct SceneDebugPointerScheduleHarness {
                     payload["model"] = model.identity
                     Runner.record("ready")
                     if scenario != "fault-early-capture" {
+                        payload["scheduleTime"] = ProcessInfo.processInfo.systemUptime - Runner.start
                         Runner.scheduleInitialEvidenceSnapshots(outputDirectory: output, previewLogURL: nil)
                     }
-                    if scenario == "close-during-drag" {
+                    if scenario == "close-after-hover" {
+                        await Runner.waitFor("capture:hover")
+                        Runner.isClosing = true
+                        Runner.record("closed")
+                        // Wait past the original observation deadline, not just
+                        // past the interaction's former early after callback.
+                        let scheduled = payload["scheduleTime"] as! TimeInterval
+                        let elapsed = ProcessInfo.processInfo.systemUptime - Runner.start
+                        try await Task.sleep(for: .seconds(
+                            max(0, scheduled + Runner.requestedAfterSnapshotDelay - elapsed) + 0.3
+                        ))
+                    } else if scenario == "close-during-drag" {
                         await Runner.waitFor("turn-after-drag")
                         Runner.isClosing = true
                         Runner.record("closed")

@@ -949,12 +949,12 @@
       "lastReviewed": "2026-10-23",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "d790549978fd50825fb261cdf7426ca65227744de574ad107568503412b53148",
+        "sourceSHA256": "832c08f1a2eba0a658f8c371e6ad762ad35da275b8a063075804338671c17ad8",
         "method": "document_registry --audit + document_health --check",
-        "scope": "Design-first migration preserves the unique scanner and import API; complete failed-row facts, three-output preflight/projection/write/verify. 43 focused tests and real 373-directory generate/verify pass.",
-        "limitations": "Declaration-tool and navigation evidence only; no App build, runtime support, performance or official visual parity claim."
+        "scope": "Retain the unique declaration scanner and three-output contract; document DEBUG after-request timing shared by hover/click/trajectory/single drag, with original capture owner and historical evidence limits.",
+        "limitations": "Navigation/source review only. Runtime capture timing is separately tested through the actual DEBUG extensions; no full sample, GPU image or performance claim."
       },
-      "purpose": "唯一声明扫描、失败材料事实及机器快照/总览/明细生成与验证合同；运行与视觉裁决归验收台账。"
+      "purpose": "唯一声明扫描、机器快照/总览/明细生成验证及DEBUG观测时刻合同；运行与视觉裁决归验收台账。"
     },
     {
       "path": "docs/scene/development/development-workflow.md",

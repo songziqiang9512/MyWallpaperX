@@ -189,8 +189,8 @@
       "bytes": 3517
     },
     "docs/scene/development/corpus-diagnostic-workflow.md": {
-      "lines": 47,
-      "bytes": 4656
+      "lines": 55,
+      "bytes": 5455
     },
     "docs/scene/development/development-workflow.md": {
       "lines": 78,
@@ -278,7 +278,7 @@
     },
     "docs/scene/roadmap/scene-open-breakpoint-queue.md": {
       "lines": 257,
-      "bytes": 81268
+      "bytes": 81264
     },
     "docs/web/cold-descriptor-parse-offload-design.md": {
       "lines": 43,
@@ -1365,15 +1365,6 @@
     },
     {
       "section": "bodies",
-      "path": "docs/scene/development/corpus-diagnostic-workflow.md",
-      "before": "74234e98afe7498fb5daf1f36ac2d78acc339464f950703b8c019892f982b90b",
-      "after": "01baca69f55103861eb1f2d23f1c49eab5f362f1753bad44176831791347be9b",
-      "owner": "Scene corpus diagnostic reporting",
-      "reason": "Complete failed-directory reports and preserve compact overview/detail authority; exact generated body and design contract budgets after nearest validation.",
-      "decision": "docs/scene/development/corpus-diagnostic-workflow.md#diagnostic-output-acceptance"
-    },
-    {
-      "section": "bodies",
       "path": "docs/scene/development/development-workflow.md",
       "before": "460072c339a100e83a73a4caf6cd076498aed55c8722f59b3639ec9e6abf6c21",
       "after": "86f807d898ec463c48232d7a673e5bec6bd696ae4f30d29f3510455a7b2aff24",
@@ -1470,6 +1461,15 @@
       "owner": "text-publication-first-frame",
       "reason": "退出已验证修复的366启动项，仅保有界后验和未验整景范围。",
       "decision": "docs/scene/architecture/scene-launch-responsiveness-contract.md#initial-video-presentation"
+    },
+    {
+      "section": "bodies",
+      "path": "docs/scene/development/corpus-diagnostic-workflow.md",
+      "before": "01baca69f55103861eb1f2d23f1c49eab5f362f1753bad44176831791347be9b",
+      "after": "609cbdcf92861fee4dbd8f90e212a20213227b0884ffc7c2e79b960c0b61c0b7",
+      "owner": "Scene DEBUG evidence capture",
+      "reason": "记录已定位的pointer提前after修复：请求观察时刻和交互结束等待同由现有DEBUG调度消费，保留实际捕获时刻及旧证据边界。",
+      "decision": "docs/scene/development/corpus-diagnostic-workflow.md#evidence-capture-timing"
     }
   ]
 }

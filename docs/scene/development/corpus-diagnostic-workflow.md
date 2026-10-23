@@ -35,7 +35,15 @@ CLI / build_census 唯一遍历与守恒
 3. 首次写入前，在内存生成全部三份payload；投影失败不得留下“新snapshot＋旧文档”。随后复用现单文件atomic_write。它不承诺三文件IO事务；IO失败明确报错，由verify逐项识别漂移，不另造持久化协调器。
 4. verify分别检查三项输出，区分snapshot、总览与明细drift；query缺缓存的早退与显式live边界不变。
 
-不在本批修改运行归一器、pointer提前after、粒子/脚本/资源的视觉准入。工具正常或声明计数守恒不证明样本能正确播放。
+运行归一器和粒子/脚本/资源的视觉准入独立维护。工具正常或声明计数守恒不证明样本能正确播放。
+
+<a id="evidence-capture-timing"></a>
+## 运行截图时刻
+
+`after-snapshot-delay`以ready后开始安排截图的单调时钟为起点，约束after请求的最早时刻。鼠标hover、click、trajectory及普通单轮drag还须发出hover截图请求、移出并经过原0.2秒等待；取两者较晚者。鼠标动作不为等after而延长，独立命名的多轮drag保持原计划。普通ready/after、周期截图和spring-after继续各自现有时序。
+
+launch失败/取消或closing后不请求新截图。该时间只约束DEBUG请求，实际捕获/保存仍由原frame-capture owner确认；日志时刻、音频和鼠标状态共同决定图像是否可比较。旧鼠标路径提前after的历史图保留实际日志时刻，不按请求参数追认成延后截图，也不因此自动改样本裁决。
+
 
 <a id="diagnostic-output-acceptance"></a>
 ## 验收与停止条件
