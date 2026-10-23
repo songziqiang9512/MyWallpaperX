@@ -57,10 +57,11 @@ import QuartzCore
                         image: NSImage(systemSymbolName: "play.fill", accessibilityDescription: "播放"),
                         kind: kind, target: target, action: #selector(ActionTarget.invoke(_:)))
                     root.addSubview(button)
+                    let buttonWidth = button.widthAnchor.constraint(equalToConstant: iconOnly ? 38 : 180)
                     NSLayoutConstraint.activate([
                         button.leadingAnchor.constraint(equalTo: root.leadingAnchor, constant: 24),
                         button.topAnchor.constraint(equalTo: root.topAnchor, constant: -80),
-                        button.widthAnchor.constraint(equalToConstant: iconOnly ? 38 : 180),
+                        buttonWidth,
                         button.heightAnchor.constraint(equalToConstant: 38)
                     ])
                     root.layoutSubtreeIfNeeded()
@@ -119,12 +120,33 @@ import QuartzCore
                             checks[id + "-key-" + String(key.keyCode)] = target.senders.count == before + 1
                         }
                     }
+                    let trackingOptions: NSTrackingArea.Options = [.activeAlways, .mouseEnteredAndExited, .inVisibleRect]
+                    var trackingValid = true
+                    for width in [CGFloat(iconOnly ? 76 : 260), iconOnly ? 38 : 180] {
+                        buttonWidth.constant = width
+                        root.layoutSubtreeIfNeeded()
+                        button.updateTrackingAreas()
+                        let areas = button.trackingAreas.filter { $0.owner === button && $0.options.contains(.inVisibleRect) }
+                        trackingValid = trackingValid && button.frame.width == width
+                            && areas.count == 1 && areas.first?.options == trackingOptions
+                    }
+                    checks[id + "-tracking-resize"] = trackingValid
+                    window.setContentSize(NSSize(width: 48, height: 400))
+                    root.layoutSubtreeIfNeeded()
+                    button.updateTrackingAreas()
+                    let clippedAreas = button.trackingAreas.filter { $0.owner === button && $0.options.contains(.inVisibleRect) }
+                    checks[id + "-tracking-clipped"] = button.visibleRect.width < button.bounds.width
+                        && clippedAreas.count == 1 && clippedAreas.first?.options == trackingOptions
+                    window.setContentSize(NSSize(width: 640, height: 400))
+                    root.layoutSubtreeIfNeeded()
                     button.removeFromSuperview()
                 }
             }
             let settings = SettingsGroupView(title: "测试设置")
             settings.frame = NSRect(x: 0, y: 0, width: 320, height: 150)
             root.addSubview(settings)
+            let settingsWidth = settings.widthAnchor.constraint(equalToConstant: 320)
+            settingsWidth.isActive = true
             let rows = (0..<3).map { _ in NSView() }
             for row in rows {
                 row.heightAnchor.constraint(equalToConstant: 32).isActive = true
@@ -139,12 +161,56 @@ import QuartzCore
                     && $0.subviews.first!.frame.width == $0.bounds.width - 32
             }
             image("\(dark ? "dark" : "light")-settings", settings)
+            let rowPoint = rows[0].convert(NSPoint(x: 10, y: 10), to: settings.superview)
+            checks["settings-row-hit-\(dark)"] = settings.hitTest(rowPoint) === rows[0]
+            for (step, appearance) in [NSAppearance.Name.darkAqua, .aqua, .darkAqua, .aqua].enumerated() {
+                root.appearance = NSAppearance(named: appearance)
+                settingsWidth.constant = step.isMultiple(of: 2) ? 420 : 320
+                settings.layoutSubtreeIfNeeded()
+                pump()
+                let background = settings.subviews.first { $0.layer?.cornerRadius == 12 }!
+                checks["settings-transition-\(dark)-\(step)"] = settings.bounds.width == settingsWidth.constant
+                    && background.frame.width == settings.bounds.width
+                    && background.layer?.masksToBounds == true && background.layer?.cornerCurve == .continuous
+                let bitmap = settings.bitmapImageRepForCachingDisplay(in: settings.bounds)!
+                settings.cacheDisplay(in: settings.bounds, to: bitmap)
+                let pixel = bitmap.colorAt(x: bitmap.pixelsWide / 2, y: bitmap.pixelsHigh / 2)!
+                    .usingColorSpace(.deviceRGB)!
+                let expectedAlpha: CGFloat = appearance == .darkAqua ? 0.02 : 1
+                checks["settings-transition-fill-\(dark)-\(step)"] = abs(pixel.alphaComponent - expectedAlpha) < 0.005
+                    && pixel.redComponent > 0.9 && abs(pixel.redComponent - pixel.greenComponent) < 0.01
+                facts["settings-transition-\(dark)-\(step)-frames"] = ([settings, background] + rows).map {
+                    [$0.frame.minX, $0.frame.minY, $0.frame.width, $0.frame.height]
+                }
+                image("settings-transition-\(dark)-\(step)", settings)
+            }
+            root.appearance = NSAppearance(named: dark ? .darkAqua : .aqua)
+            settingsWidth.constant = 320
+            settings.layoutSubtreeIfNeeded()
             rows[1].isHidden = true
             settings.refreshSeparators()
             settings.layoutSubtreeIfNeeded()
             checks["settings-hidden-separators-\(dark)"] = separators.allSatisfy(\.isHidden)
             image("\(dark ? "dark" : "light")-settings-hidden", settings)
             settings.removeFromSuperview()
+            let untitled = SettingsGroupView(title: nil)
+            let maintenanceRow = NSView()
+            maintenanceRow.heightAnchor.constraint(equalToConstant: 32).isActive = true
+            untitled.addRow(maintenanceRow)
+            root.addSubview(untitled)
+            let maintenanceWidth = untitled.widthAnchor.constraint(equalToConstant: 320)
+            maintenanceWidth.isActive = true
+            for width in [CGFloat(320), 420] {
+                maintenanceWidth.constant = width
+                untitled.layoutSubtreeIfNeeded()
+                pump()
+                let background = untitled.subviews.first { $0.layer?.cornerRadius == 12 }!
+                checks["settings-untitled-\(dark)-\(width)"] = untitled.bounds.size == NSSize(width: width, height: 32)
+                    && background.frame == untitled.bounds && maintenanceRow.frame.size.width == width
+                checks["settings-background-accessibility-\(dark)"] = !background.isAccessibilityElement()
+                image("settings-untitled-\(dark)-\(width)", untitled)
+            }
+            untitled.removeFromSuperview()
         }
         for ratio in [CGFloat(0), 0.035] {
             let scroll = InspectorFadingScrollView(fadeRatio: ratio)
@@ -181,6 +247,102 @@ import QuartzCore
         up.invalidate()
         checks["native-reference-click"] = target.senders.count == beforeReference + 1
         reference.removeFromSuperview()
+        for dark in [false, true] {
+            window.appearance = NSAppearance(named: dark ? .darkAqua : .aqua)
+            let anchor = NSButton(title: "菜单", target: nil, action: nil)
+            anchor.frame = NSRect(x: 220, y: 200, width: 80, height: 32)
+            root.addSubview(anchor)
+            typealias Row = ToolbarMenuPopoverPresenter.Row
+            let menus: [(String, [Row])] = [
+                ("empty", []),
+                ("single", [.init(title: "创建时间", kind: .check, isChecked: true)]),
+                ("mixed", [.header("排序方式"), .init(title: "作品名称", kind: .check),
+                    .separator(), .init(title: "灰显状态", kind: .info),
+                    .init(title: "不可点击", kind: .action, isEnabled: false)]),
+                ("long", [.separator(), .header("多种文字与连续分隔线"), .separator(), .separator(),
+                    .init(title: "非常长的作品名称与 English 🎨 é 测试文字", kind: .check),
+                    .init(title: "重复", kind: .action), .init(title: "重复", kind: .check),
+                    .separator()])
+            ]
+            func panel(_ presenter: ToolbarMenuPopoverPresenter) -> NSPopover {
+                Mirror(reflecting: presenter).children.first { $0.label == "popover" }!.value as! NSPopover
+            }
+            func descendants(_ view: NSView) -> [NSButton] {
+                (view as? NSButton).map { [$0] } ?? view.subviews.flatMap(descendants)
+            }
+            for (name, rows) in menus {
+                let presenter = ToolbarMenuPopoverPresenter()
+                presenter.toggle(anchor: anchor) { rows }
+                pump(0.18)
+                let popover = panel(presenter)
+                let view = popover.contentViewController!.view
+                view.layoutSubtreeIfNeeded()
+                let id = "menu-\(dark)-\(name)"
+                let expectedHeight = 12 + rows.reduce(CGFloat(0)) {
+                    $0 + ($1.kind == .separator ? 5 : ($1.kind == .sectionHeader ? 24 : 26))
+                }
+                checks[id + "-height"] = popover.contentSize.height == expectedHeight
+                checks[id + "-width"] = (104...280).contains(popover.contentSize.width)
+                checks[id + "-shown"] = presenter.isShown
+                facts[id + "-size"] = [popover.contentSize.width, popover.contentSize.height]
+                let stack = view.subviews.first as! NSStackView
+                facts[id + "-frames"] = stack.arrangedSubviews.map {
+                    [$0.frame.minX, $0.frame.minY, $0.frame.width, $0.frame.height]
+                }
+                image(id, view)
+                presenter.close()
+                pump(0.16)
+            }
+            var selected = false
+            var calls: [String] = []
+            let presenter = ToolbarMenuPopoverPresenter()
+            presenter.toggle(anchor: anchor) {
+                [.header("排序"),
+                 .init(title: selected ? "升序" : "降序", kind: .check, isChecked: selected,
+                       handler: { selected.toggle(); calls.append("check") }),
+                 .separator(),
+                 .init(title: "不可点击", kind: .check, isEnabled: false, handler: { calls.append("disabled") }),
+                 .init(title: "重复", kind: .check, handler: { calls.append("duplicate-first") }),
+                 .init(title: "重复", kind: .action, handler: { calls.append("duplicate-second") })]
+            }
+            pump(0.18)
+            let popover = panel(presenter)
+            let oldButton = descendants(popover.contentViewController!.view).first { $0.title == "降序" }!
+            oldButton.performClick(nil)
+            pump(0.08)
+            let buttons = descendants(popover.contentViewController!.view)
+            checks["menu-\(dark)-check-stays-open"] = presenter.isShown && selected && calls == ["check"]
+                && buttons.first?.title == "升序"
+            oldButton.performClick(nil)
+            checks["menu-\(dark)-retired-button-inert"] = calls == ["check"] && selected
+            buttons.first { $0.title == "不可点击" }!.performClick(nil)
+            checks["menu-\(dark)-disabled-inert"] = calls == ["check"]
+            buttons.filter { $0.title == "重复" }.first!.performClick(nil)
+            pump(0.08)
+            checks["menu-\(dark)-duplicate-check"] = presenter.isShown && calls == ["check", "duplicate-first"]
+            let refreshedButtons = descendants(popover.contentViewController!.view)
+            refreshedButtons.filter { $0.title == "重复" }.last!.performClick(nil)
+            let closingDeadline = Date().addingTimeInterval(1)
+            while presenter.isShown && Date() < closingDeadline { pump(0.02) }
+            facts["menu-\(dark)-calls"] = calls
+            checks["menu-\(dark)-action-closes"] = !presenter.isShown
+                && calls == ["check", "duplicate-first", "duplicate-second"]
+            anchor.removeFromSuperview()
+        }
+        let probePopover = NSPopover()
+        var probeObserver: ToolbarPopoverScrollDismissal? = ToolbarPopoverScrollDismissal(popover: probePopover)
+        weak var weakObserver = probeObserver
+        func hasMonitor(_ observer: ToolbarPopoverScrollDismissal) -> Bool {
+            let value = Mirror(reflecting: observer).children.first { $0.label == "monitor" }!.value
+            return !Mirror(reflecting: value).children.isEmpty
+        }
+        probeObserver!.watch(relativeTo: root)
+        let watching = hasMonitor(probeObserver!)
+        NotificationCenter.default.post(name: NSPopover.willCloseNotification, object: probePopover)
+        checks["menu-observer-stops-on-close"] = watching && !hasMonitor(probeObserver!)
+        probeObserver = nil
+        checks["menu-observer-released"] = weakObserver == nil
+        NotificationCenter.default.post(name: NSPopover.willCloseNotification, object: probePopover)
         facts["checks"] = checks
         facts["nativeButton"] = InspectorFooterButton.self is NSButton.Type
         facts["windowVisible"] = window.isVisible

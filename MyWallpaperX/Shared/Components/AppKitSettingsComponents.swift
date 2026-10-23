@@ -5,50 +5,28 @@
 
 import AppKit
 
-final class AdaptiveSystemBackgroundView: NSView {
-    override var wantsUpdateLayer: Bool { true }
-
-    override init(frame frameRect: NSRect) {
-        super.init(frame: frameRect)
-        wantsLayer = true
-    }
-
-    @available(*, unavailable)
-    required init?(coder: NSCoder) {
-        nil
-    }
-
-    override func viewDidChangeEffectiveAppearance() {
-        super.viewDidChangeEffectiveAppearance()
-        needsDisplay = true
-        needsLayout = true
-    }
-
-    override func updateLayer() {
-        let isDark = effectiveAppearance.bestMatch(from: [.darkAqua, .aqua]) == .darkAqua
-        let color = isDark
-            ? NSColor.white.withAlphaComponent(0.02)
-            : NSColor.textBackgroundColor.blended(withFraction: 0.08, of: .underPageBackgroundColor)
-        layer?.backgroundColor = color?.cgColor ?? NSColor.textBackgroundColor.cgColor
-        layer?.borderWidth = 0
-        layer?.borderColor = nil
-    }
-}
-
 final class SettingsGroupView: NSView {
     private let titleLabel: NSTextField
     private let showsTitle: Bool
-    private let backgroundView: AdaptiveSystemBackgroundView = {
-        let view = AdaptiveSystemBackgroundView()
+    private let backgroundView: NSBox = {
+        let view = NSBox()
+        view.boxType = .custom
+        view.borderWidth = 0
+        view.cornerRadius = 0
+        view.titlePosition = .noTitle
+        view.contentViewMargins = .zero
+        view.fillColor = NSColor(name: nil) { appearance in
+            if appearance.bestMatch(from: [.darkAqua, .aqua]) == .darkAqua {
+                return NSColor.white.withAlphaComponent(0.02)
+            }
+            return NSColor.textBackgroundColor.blended(withFraction: 0.08, of: .underPageBackgroundColor)
+                ?? .textBackgroundColor
+        }
+        view.wantsLayer = true
+        view.setAccessibilityElement(false)
         view.translatesAutoresizingMaskIntoConstraints = false
         return view
     }()
-    private let contentContainerView: NSView = {
-        let view = NSView()
-        view.translatesAutoresizingMaskIntoConstraints = false
-        return view
-    }()
-
     private let rowStack: NSStackView = {
         let stack = NSStackView()
         stack.orientation = .vertical
@@ -59,7 +37,6 @@ final class SettingsGroupView: NSView {
         return stack
     }()
 
-    private var rowCount = 0
     private var contentRows: [NSView] = []
     private var separators: [NSView] = []
 
@@ -79,22 +56,17 @@ final class SettingsGroupView: NSView {
 
         addSubview(titleLabel)
         addSubview(backgroundView)
-        addSubview(contentContainerView)
-        contentContainerView.addSubview(rowStack)
+        addSubview(rowStack)
 
         var constraints: [NSLayoutConstraint] = [
             backgroundView.leadingAnchor.constraint(equalTo: leadingAnchor),
             backgroundView.trailingAnchor.constraint(equalTo: trailingAnchor),
             backgroundView.bottomAnchor.constraint(equalTo: bottomAnchor),
 
-            contentContainerView.leadingAnchor.constraint(equalTo: leadingAnchor),
-            contentContainerView.trailingAnchor.constraint(equalTo: trailingAnchor),
-            contentContainerView.bottomAnchor.constraint(equalTo: bottomAnchor),
-
-            rowStack.leadingAnchor.constraint(equalTo: contentContainerView.leadingAnchor),
-            rowStack.trailingAnchor.constraint(equalTo: contentContainerView.trailingAnchor),
-            rowStack.topAnchor.constraint(equalTo: contentContainerView.topAnchor),
-            rowStack.bottomAnchor.constraint(equalTo: contentContainerView.bottomAnchor)
+            rowStack.leadingAnchor.constraint(equalTo: leadingAnchor),
+            rowStack.trailingAnchor.constraint(equalTo: trailingAnchor),
+            rowStack.topAnchor.constraint(equalTo: backgroundView.topAnchor),
+            rowStack.bottomAnchor.constraint(equalTo: bottomAnchor)
         ]
 
         if showsTitle {
@@ -102,12 +74,10 @@ final class SettingsGroupView: NSView {
                 titleLabel.topAnchor.constraint(equalTo: topAnchor),
                 titleLabel.leadingAnchor.constraint(equalTo: leadingAnchor, constant: 16),
                 titleLabel.trailingAnchor.constraint(lessThanOrEqualTo: trailingAnchor, constant: -16),
-                backgroundView.topAnchor.constraint(equalTo: titleLabel.bottomAnchor, constant: 8),
-                contentContainerView.topAnchor.constraint(equalTo: titleLabel.bottomAnchor, constant: 8)
+                backgroundView.topAnchor.constraint(equalTo: titleLabel.bottomAnchor, constant: 8)
             ])
         } else {
             constraints.append(backgroundView.topAnchor.constraint(equalTo: topAnchor))
-            constraints.append(contentContainerView.topAnchor.constraint(equalTo: topAnchor))
         }
 
         NSLayoutConstraint.activate(constraints)
@@ -122,7 +92,7 @@ final class SettingsGroupView: NSView {
     }
 
     func addRow(_ row: NSView) {
-        if rowCount > 0 {
+        if !contentRows.isEmpty {
             let separator = makeSeparator()
             rowStack.addArrangedSubview(separator)
             separator.translatesAutoresizingMaskIntoConstraints = false
@@ -133,7 +103,6 @@ final class SettingsGroupView: NSView {
         row.translatesAutoresizingMaskIntoConstraints = false
         row.widthAnchor.constraint(equalTo: rowStack.widthAnchor).isActive = true
         contentRows.append(row)
-        rowCount += 1
         refreshSeparators()
     }
 

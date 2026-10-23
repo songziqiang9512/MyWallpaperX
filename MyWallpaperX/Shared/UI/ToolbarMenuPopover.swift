@@ -130,24 +130,22 @@ protocol ToolbarGridScrollDismissalSurface: AnyObject {}
 /// Observe real wheel input only while presented; layout/scroll restoration
 /// must not dismiss menus, and the original event still reaches the grid.
 @MainActor
-final class ToolbarPopoverScrollDismissal {
+final class ToolbarPopoverScrollDismissal: NSObject {
     private weak var popover: NSPopover?
     private weak var sourceWindow: NSWindow?
     private var monitor: Any?
-    private var closeObserver: NSObjectProtocol?
 
     init(popover: NSPopover) {
         self.popover = popover
-        closeObserver = NotificationCenter.default.addObserver(
-            forName: NSPopover.willCloseNotification, object: popover, queue: .main
-        ) { [weak self] _ in
-            MainActor.assumeIsolated { self?.stop() }
-        }
+        super.init()
+        NotificationCenter.default.addObserver(
+            self, selector: #selector(stop(_:)),
+            name: NSPopover.willCloseNotification, object: popover
+        )
     }
 
     deinit {
         if let monitor { NSEvent.removeMonitor(monitor) }
-        if let closeObserver { NotificationCenter.default.removeObserver(closeObserver) }
     }
 
     func watch(relativeTo anchor: NSView) {
@@ -160,7 +158,7 @@ final class ToolbarPopoverScrollDismissal {
         }
     }
 
-    private func stop() {
+    @objc private func stop(_ notification: Notification? = nil) {
         if let monitor { NSEvent.removeMonitor(monitor) }
         monitor = nil
         sourceWindow = nil

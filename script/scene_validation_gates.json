@@ -2811,6 +2811,7 @@
         "MyWallpaperX/Shared/UI/InspectorFooterMetrics.swift",
         "MyWallpaperX/Shared/UI/InspectorFadingScrollView.swift",
         "MyWallpaperX/Shared/Components/AppKitSettingsComponents.swift",
+        "MyWallpaperX/Shared/UI/ToolbarMenuPopover.swift",
         "script/tests/fixtures/NativeUIEquivalenceHarness.swift",
         "script/tests/test_native_ui_equivalence.py"
       ],

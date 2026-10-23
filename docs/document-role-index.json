@@ -4358,7 +4358,7 @@
       ],
       "verification": "先重查实际消费者和本批owned，执行相应行为回归与Debug构建；不得以静态无调用证明全部功能验收。",
       "owner": "repository-maintainer",
-      "firstRead": "docs/development/code-slimming-program.md#原生-ui-等价精简第一批",
+      "firstRead": "docs/development/code-slimming-program.md#原生-ui-等价精简第二批",
       "nearestTestGroups": [
         "documentation"
       ],

@@ -29,7 +29,6 @@ final class InspectorFooterButton: NSControl {
     private var progressFraction: Double?
     private var isPressed = false
     private var isHovering = false
-    private var hoverTrackingArea: NSTrackingArea?
 
     init(
         title: String,
@@ -137,6 +136,9 @@ final class InspectorFooterButton: NSControl {
         layer?.borderWidth = 0.7
         progressFillLayer.backgroundColor = NSColor.white.withAlphaComponent(0.26).cgColor
         translatesAutoresizingMaskIntoConstraints = false
+        addTrackingArea(NSTrackingArea(
+            rect: .zero, options: [.activeAlways, .mouseEnteredAndExited, .inVisibleRect], owner: self
+        ))
         setupContentViews()
         updateStyle()
     }
@@ -202,13 +204,6 @@ final class InspectorFooterButton: NSControl {
         isEnabled ? super.hitTest(point) : nil
     }
 
-    override func updateTrackingAreas() {
-        super.updateTrackingAreas()
-        if let hoverTrackingArea { removeTrackingArea(hoverTrackingArea) }
-        let area = NSTrackingArea(rect: .zero, options: [.activeAlways, .mouseEnteredAndExited, .inVisibleRect], owner: self)
-        addTrackingArea(area)
-        hoverTrackingArea = area
-    }
     override func mouseEntered(with event: NSEvent) { isHovering = true; updateStyle() }
     override func mouseExited(with event: NSEvent) { isHovering = false; updateStyle() }
 
