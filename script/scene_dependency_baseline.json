@@ -166,15 +166,6 @@
     },
     {
       "rule": "rendering-no-compilation-internals",
-      "consumer": "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Bindings/SceneResolvedMaterialUniformProjection.swift",
-      "symbol": "SceneResolvedMaterialShaderSchema",
-      "declaration": "MyWallpaperX/Core/SteamWorkshopScene/Compilation/Material/SceneResolvedMaterialShaderSchema.swift",
-      "owner": "Scene Compilation / Rendering",
-      "reason": "试点前存在的直接内部类型引用；namespace混合合同与算法亦保守保留，不将当前使用自动公开",
-      "retirement": "由现有preparation owner产出typed合同并移除本直接边，或经独立设计迁移实际职责；同批ratchet删除此todo"
-    },
-    {
-      "rule": "rendering-no-compilation-internals",
       "consumer": "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Composition/SceneResolvedMaterialGraphComposition.swift",
       "symbol": "SceneResolvedMaterialExecutionCapabilityCatalog",
       "declaration": "MyWallpaperX/Core/SteamWorkshopScene/Compilation/Material/SceneResolvedMaterialExecutionCapability.swift",
@@ -454,27 +445,12 @@
     }
   ],
   "last_ratchet": {
-    "reason": "SceneMaterialRenderState DTO moved to Runtime/Frame; unique authored parsing extension remains Compilation/Material; Rendering has no parsing calls",
+    "reason": "prepared-frame-uniform-query: actual neutral DTO and Program query retire DirectDraw internal edges and UniformProjection schema edge; no new public exceptions",
     "removed": [
       [
         "rendering-no-compilation-internals",
-        "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Graph/SceneResolvedMaterialPassEncoder+Warmup.swift",
-        "SceneMaterialRenderState"
-      ],
-      [
-        "rendering-no-compilation-internals",
-        "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Graph/SceneResolvedMaterialPassEncoder.swift",
-        "SceneMaterialRenderState"
-      ],
-      [
-        "rendering-no-compilation-internals",
-        "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Graph/SceneResolvedMaterialPipelineBinaryArchive.swift",
-        "SceneMaterialRenderState"
-      ],
-      [
-        "rendering-no-compilation-internals",
-        "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Particles/SceneParticlePipelineRenderStateCompiler.swift",
-        "SceneMaterialRenderState"
+        "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Bindings/SceneResolvedMaterialUniformProjection.swift",
+        "SceneResolvedMaterialShaderSchema"
       ]
     ]
   }

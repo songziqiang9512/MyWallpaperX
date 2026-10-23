@@ -7,7 +7,7 @@ nonisolated enum SceneResolvedMaterialUniformProjection {
 
     static func encodeAuthoredStatic(
         _ value: Template.StaticUniformValue,
-        schema: SceneResolvedMaterialShaderSchema.Uniform,
+        schema: SceneResolvedMaterialPreparedUniformSchema,
         field: SceneAuthoredShaderUniformLayout.Field
     ) -> Data? {
         if let exact = SceneResolvedMaterialUniformEncoder.encode(
@@ -33,7 +33,7 @@ nonisolated enum SceneResolvedMaterialUniformProjection {
     }
 
     static func isIsotropicFloat2Consumer(
-        schema: SceneResolvedMaterialShaderSchema.Uniform,
+        schema: SceneResolvedMaterialPreparedUniformSchema,
         field: SceneAuthoredShaderUniformLayout.Field
     ) -> Bool {
         field.type == .float2
@@ -42,7 +42,7 @@ nonisolated enum SceneResolvedMaterialUniformProjection {
     }
 
     static func hasIsotropicFloat2Default(
-        _ schema: SceneResolvedMaterialShaderSchema.Uniform
+        _ schema: SceneResolvedMaterialPreparedUniformSchema
     ) -> Bool {
         guard let consumerDefault = schema.defaultValue else { return false }
         let components = consumerDefault.componentBitPatterns.map {

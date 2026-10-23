@@ -176,49 +176,7 @@ final class SceneResolvedMaterialExecutionCapabilityCatalog {
         )
     }
 
-    /// Immutable layer-level sources for host values shared by every effect
-    /// stage. Each Program variant separately owns its exact per-uniform route;
-    /// this contract fixes how renderer geometry becomes those host values.
-    struct FrameInputContract: Equatable {
-        struct DirectDrawGeometryBinding: Equatable {
-            let sourceMaterialKey: MaterialKey
-            /// Prepared p0...p3 numeric ownership, independent of source names.
-            let pointBindings: [SceneResolvedMaterialPreparedUniformBinding]
-        }
-        enum EmittedOutputGeometrySource: Equatable {
-            case layerCard
-            case captureGeometry
-            case authoredCanvasDirectDraw
-        }
-
-        enum EffectTextureProjectionSource: Equatable {
-            /// The geometry used to emit the layer's effect card into its
-            /// working target. This is canonical fullscreen geometry for a
-            /// fullscreen capture and live world geometry for image, Puppet,
-            /// composition, and direct-draw products.
-            case emittedOutputGeometry
-        }
-
-        let effectTextureProjectionSource: EffectTextureProjectionSource
-        let emittedOutputGeometrySource: EmittedOutputGeometrySource
-        let requiresInvertibleEffectTextureProjection: Bool
-        let directDrawGeometry: DirectDrawGeometryBinding?
-        let directDrawGeometryFallback: SceneResolvedMaterialAdmittedLayer.DirectDrawGeometryFallback?
-
-        init(
-            effectTextureProjectionSource: EffectTextureProjectionSource,
-            emittedOutputGeometrySource: EmittedOutputGeometrySource,
-            requiresInvertibleEffectTextureProjection: Bool,
-            directDrawGeometry: DirectDrawGeometryBinding? = nil,
-            directDrawGeometryFallback: SceneResolvedMaterialAdmittedLayer.DirectDrawGeometryFallback? = nil
-        ) {
-            self.effectTextureProjectionSource = effectTextureProjectionSource
-            self.emittedOutputGeometrySource = emittedOutputGeometrySource
-            self.requiresInvertibleEffectTextureProjection = requiresInvertibleEffectTextureProjection
-            self.directDrawGeometry = directDrawGeometry
-            self.directDrawGeometryFallback = directDrawGeometryFallback
-        }
-    }
+    typealias FrameInputContract = SceneResolvedMaterialFrameInputContract
 
     final class LayerCapability {
         let layerID: Int

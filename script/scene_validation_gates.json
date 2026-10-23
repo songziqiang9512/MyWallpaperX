@@ -1375,7 +1375,8 @@
         "test_scene_resolved_material_graph_executor",
         "test_scene_resolved_material_program_finalizer",
         "test_scene_utility_layers",
-        "test_scene_source_color_graph"
+        "test_scene_source_color_graph",
+        "test_scene_prepared_uniform_query"
       ]
     },
     {
@@ -1618,7 +1619,8 @@
         "test_scene_source_proven_straight_color_purpose",
         "test_scene_scalar_mask_data_purpose",
         "test_scene_ordinary_effect_lighting",
-        "test_scene_ordinary_effect_lighting_gpu"
+        "test_scene_ordinary_effect_lighting_gpu",
+        "test_scene_prepared_uniform_query"
       ]
     },
     {
@@ -1651,7 +1653,11 @@
         "script/tests/fixtures/SceneResolvedMaterialFinalizerSharedState.swift",
         "script/tests/fixtures/SceneResolvedMaterialFinalizerSupport.swift",
         "script/tests/fixtures/SceneResolvedMaterialFinalizerTextureResolutionCases.swift",
-        "script/tests/fixtures/SceneResolvedMaterialPreparedVariantCases.swift"
+        "script/tests/fixtures/SceneResolvedMaterialPreparedVariantCases.swift",
+        "script/tests/fixtures/ScenePreparedUniformQueryChecks.swift",
+        "script/tests/test_scene_prepared_uniform_query.py",
+        "MyWallpaperX/Core/SteamWorkshopScene/Runtime/Frame/SceneResolvedMaterialPreparedFrameInput.swift",
+        "MyWallpaperX/Core/SteamWorkshopScene/Compilation/Material/SceneResolvedMaterialProgram+PreparedUniformResolution.swift"
       ],
       "modules": [
         "test_scene_resolved_material_program_finalizer",
@@ -1659,7 +1665,8 @@
         "test_scene_background_material_provider",
         "test_scene_effect_draw_alpha",
         "test_scene_localized_graph_input_alias",
-        "test_scene_opaque_alpha_weighted_loop_average_owner"
+        "test_scene_opaque_alpha_weighted_loop_average_owner",
+        "test_scene_prepared_uniform_query"
       ]
     },
     {
@@ -1794,7 +1801,8 @@
         "test_scene_smoothstep_vector_broadcast",
         "test_scene_direct_function_scalar_conversion",
         "test_scene_swift_source_sets",
-        "test_scene_shader_scalar_remainder"
+        "test_scene_shader_scalar_remainder",
+        "test_scene_prepared_uniform_query"
       ]
     },
     {
@@ -3018,7 +3026,8 @@
         "test_scene_shader_variant_environment",
         "test_scene_static_model_rendering",
         "test_scene_utility_layers",
-        "test_scene_wallpaper_async_launch"
+        "test_scene_wallpaper_async_launch",
+        "test_scene_prepared_uniform_query"
       ]
     },
     {
@@ -3315,7 +3324,8 @@
         "test_scene_texture_snapshot_overlays",
         "test_scene_frame_texture_registry",
         "test_scene_resolved_material_program_finalizer",
-        "test_scene_material_copy_history_rendering"
+        "test_scene_material_copy_history_rendering",
+        "test_scene_prepared_uniform_query"
       ]
     },
     {
@@ -3997,7 +4007,8 @@
       ],
       "modules": [
         "test_scene_resolved_material_program_finalizer",
-        "test_scene_background_material_provider"
+        "test_scene_background_material_provider",
+        "test_scene_prepared_uniform_query"
       ]
     },
     {

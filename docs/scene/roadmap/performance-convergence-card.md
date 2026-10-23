@@ -51,6 +51,8 @@
 
 [材质帧载荷](../history/compiled-variant-frame-program-convergence-2026-10-13.md#material-frame-payload-screen)未达App继续门，原型已撤，设计登记退役，不重新列为待实施。
 
+**10-23 prepared帧输入职责整理：不计性能。** 几何与shader共用原Program数值核，实际值定义退出mutable Catalog；只修依赖方向，未加policy/cache、未省数值检查。CPU/Debug与交叉独审通过，原332及独立311实际回归/排空保持；[唯一设计](batch2/terminal-material-chain-design.md#prepared-frame-uniform-query)。后继HostSchema/帧重复须先取当前整链成本；不重开已撤帧载荷原型、不以函数迁移推算收益。
+
 **工具边界。** 保唯一CLI、语义parser与验收入口、严格默认与未舍入ratio；[旧monolith已退役](../history/benchmark-responsibility-convergence-2026-10-13.md)，不另造wrapper/算法。
 
 **筛选与正式验收。** 先用最近门、采样和短实验筛选；短实验不称性能验收，连续两次有区分力实验无收益则停该方向。目标预先锁定整进程 CPU、GPU、内存、启动或明确交互成本，局部阶段数字单列。

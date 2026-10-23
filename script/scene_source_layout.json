@@ -112,7 +112,8 @@
           "SceneResolvedMaterialExecutionCapabilityVariant+Finalization.swift",
           "SceneResolvedMaterialExecutionCapabilityVariant+CompileProfile.swift",
           "SceneRenderTargetVocabulary.swift",
-          "ScenePreparedImageMaterialCatalog.swift"
+          "ScenePreparedImageMaterialCatalog.swift",
+          "SceneResolvedMaterialProgram+PreparedUniformResolution.swift"
         ],
         "responsibility": "Material: Load/generation-time authored compilation and immutable prepared products; no frame submission ownership."
       },
@@ -584,7 +585,8 @@
           "SceneRuntimeSourceFacts.swift",
           "SceneScreenTopology.swift",
           "SceneStaticModelMaterialBindings.swift",
-          "SceneSurfacePointerState.swift"
+          "SceneSurfacePointerState.swift",
+          "SceneResolvedMaterialPreparedFrameInput.swift"
         ],
         "responsibility": "Frame: Scene process/session orchestration and frame handoff; capability algorithms stay with their systems."
       },

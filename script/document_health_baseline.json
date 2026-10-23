@@ -253,16 +253,16 @@
       "bytes": 13418
     },
     "docs/scene/roadmap/batch2/terminal-material-chain-design.md": {
-      "lines": 122,
-      "bytes": 24916
+      "lines": 135,
+      "bytes": 28401
     },
     "docs/scene/roadmap/engine-refactor-program.md": {
       "lines": 62,
       "bytes": 7457
     },
     "docs/scene/roadmap/performance-convergence-card.md": {
-      "lines": 68,
-      "bytes": 18154
+      "lines": 70,
+      "bytes": 18648
     },
     "docs/scene/roadmap/properties-panel-card.md": {
       "lines": 45,
@@ -1374,15 +1374,6 @@
     },
     {
       "section": "bodies",
-      "path": "docs/scene/roadmap/batch2/terminal-material-chain-design.md",
-      "before": "398c46d46411eba636581dd76ace5d5428dc44fa443048750bae396452137f5e",
-      "after": "f634e7fcfd3e1996ae5cbf7322fd2ccaed5c4dea5bb375a7c8ddf3b918a828a5",
-      "owner": "Scene authored direct-draw domain",
-      "reason": "Add bounded light inventory and typed four-point design; retire closed geometry queue item, keep video and unqualified boundaries open. New actual evidence uses a permanent history redirect without growing600-line runtime body.",
-      "decision": "docs/scene/roadmap/batch2/terminal-material-chain-design.md#authored-direct-draw-domain"
-    },
-    {
-      "section": "bodies",
       "path": "docs/scene/roadmap/batch2/2d-lighting-material-design.md",
       "before": "68c25f6c26befa4bec6af100169e7ca93b940faa1edf500dd2c1b6c2e6c13060",
       "after": "162835948965bf92e59cafa7ebad7d5a450f56a79ece6a4f132adcd8c26cb821",
@@ -1455,15 +1446,6 @@
     },
     {
       "section": "bodies",
-      "path": "docs/scene/roadmap/performance-convergence-card.md",
-      "before": "06f57d2b2462fd48d6a6ad70016f42215853af5dc5dc14b22f2db45c72325bc7",
-      "after": "0d60497b7f4aeff6ac435de2758d67ede242edc3a3707f9d0220e12921ba15c8",
-      "owner": "Scene movement CPU screening",
-      "reason": "记录当前优化CPU探针、两项独立原型的预定门STOP及撤回，避免以后重复同型微筛；不外推App/画面/能耗收益。",
-      "decision": "docs/scene/roadmap/performance-convergence-card.md#movement-access-screen-20261023"
-    },
-    {
-      "section": "bodies",
       "path": "docs/scene/roadmap/scene-open-breakpoint-queue.md",
       "before": "b96ed6a608f27acca5094886c3ca41e889538e54a3a40d4f5d30042b9d27b263",
       "after": "b565d79d7a9c6c3975516c5bcd7cae21631029dd61866a1e5b5355f5ba4cb7cc",
@@ -1488,6 +1470,24 @@
       "owner": "Scene canonical camera origin setter",
       "reason": "合并相机设计/能力与有界实际热改后验，移除已闭首拒队列；当前证据用原相机历史留底和稳定跳转，不认整样本通过或性能收益。",
       "decision": "docs/scene/roadmap/batch2/script-component-api-design.md#default-camera-origin-setter"
+    },
+    {
+      "section": "bodies",
+      "path": "docs/scene/roadmap/batch2/terminal-material-chain-design.md",
+      "before": "f634e7fcfd3e1996ae5cbf7322fd2ccaed5c4dea5bb375a7c8ddf3b918a828a5",
+      "after": "3c81ac8bb029b3f161c6ec77ca3d4c94cd85243507fbd86a764ac897387cce4c",
+      "owner": "Scene prepared frame input / Program uniform query",
+      "reason": "先行设计并同步唯一实际值/数值核迁移，记录CPU/依赖/Debug及两个原包实际保持；不新增性能收益或重复路线。",
+      "decision": "docs/scene/roadmap/batch2/terminal-material-chain-design.md#prepared-frame-uniform-query"
+    },
+    {
+      "section": "bodies",
+      "path": "docs/scene/roadmap/performance-convergence-card.md",
+      "before": "0d60497b7f4aeff6ac435de2758d67ede242edc3a3707f9d0220e12921ba15c8",
+      "after": "b7b3a7a15a988f188c299621d8db56c2ca7b9548c4995eccd543ce79e1a3e342",
+      "owner": "Scene prepared frame input / Program uniform query",
+      "reason": "先行设计并同步唯一实际值/数值核迁移，记录CPU/依赖/Debug及两个原包实际保持；不新增性能收益或重复路线。",
+      "decision": "docs/scene/roadmap/batch2/terminal-material-chain-design.md#prepared-frame-uniform-query"
     }
   ]
 }

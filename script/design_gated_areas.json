@@ -1113,9 +1113,11 @@
       "owner": "Scene FrameInputContract / GraphExecutor / compositor",
       "status": "approved",
       "designDoc": "docs/scene/roadmap/batch2/terminal-material-chain-design.md",
-      "design_notes": "2026-10-23 #authored-direct-draw-domain 已由固定官方R3自有U/E/N板资格：凸四点coverage、raw UV及H顶点单位。批准通过原Program/frame/compositor落地唯一source emitter；两packed host与物理/逻辑尺寸分离。多emitter、未知geometry、任意后续过滤链与全族一致仍不批准；设计不是实现完成。",
+      "design_notes": "2026-10-23 #authored-direct-draw-domain 已由固定官方R3自有U/E/N板资格：凸四点coverage、raw UV及H顶点单位。批准通过原Program/frame/compositor落地唯一source emitter；两packed host与物理/逻辑尺寸分离。多emitter、未知geometry、任意后续过滤链与全族一致仍不批准；设计不是实现完成。 2026-10-23 #prepared-frame-uniform-query批准等价职责迁移：真实prepared值脱离mutable Catalog，完整uniform数值核归唯一Program查询，几何/shader共用并删旧实现；不加prepared policy/cache或放宽source/range/fallback/ABI，不认性能收益。",
       "matchPatterns": [
-        "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Geometry/SceneDirectDrawAuthoredDomain.swift"
+        "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Geometry/SceneDirectDrawAuthoredDomain.swift",
+        "MyWallpaperX/Core/SteamWorkshopScene/Runtime/Frame/SceneResolvedMaterialPreparedFrameInput.swift",
+        "MyWallpaperX/Core/SteamWorkshopScene/Compilation/Material/SceneResolvedMaterialProgram+PreparedUniformResolution.swift"
       ],
       "contentPatterns": [
         "authoredDirectDrawDomain"

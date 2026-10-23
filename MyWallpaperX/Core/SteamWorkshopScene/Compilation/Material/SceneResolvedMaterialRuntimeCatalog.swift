@@ -10,15 +10,7 @@ nonisolated struct SceneResolvedMaterialRuntimeCatalog {
     typealias AdmissionCandidate =
         SceneResolvedMaterialExecutionCapabilityAdmission.Candidate
 
-    struct Key: Hashable {
-        let effect: Graph.EffectKey
-        let nodeIndex: Int
-
-        var reportToken: String {
-            "\(effect.layerID):\(effect.effectIndex):"
-                + "\(effect.descriptorID.utf8.count)#\(effect.descriptorID):\(nodeIndex)"
-        }
-    }
+    typealias Key = SceneResolvedMaterialKey
 
     struct SourceMaterialKey: Hashable {
         let layerID: Int

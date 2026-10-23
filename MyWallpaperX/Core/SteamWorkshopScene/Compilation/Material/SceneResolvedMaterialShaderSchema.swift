@@ -144,15 +144,7 @@ nonisolated enum SceneResolvedMaterialShaderSchema {
         }
     }
 
-    struct Uniform: Hashable {
-        let name: String
-        let materialKeys: [String]
-        let defaultValue: Template.StaticUniformValue?
-        /// Author-declared numeric domain, including the normalized domain of
-        /// a typed color editor. It is not a general clamp policy; owner
-        /// transfers may require it to preserve an incumbent's runtime contract.
-        let authoredRange: ClosedRange<Double>?
-    }
+    typealias Uniform = SceneResolvedMaterialPreparedUniformSchema
 
     enum Issue: Error {
         case sampler(String)

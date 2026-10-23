@@ -265,6 +265,7 @@
       "description": "Shared immutable Program model, host schema, identity, and derivation boundary.",
       "includes": [],
       "sources": [
+        "Runtime/Frame/SceneResolvedMaterialPreparedFrameInput.swift",
         "Compilation/Material/SceneResolvedMaterialProgram.swift",
         "Compilation/Material/SceneResolvedMaterialGenericShaderProgramArtifact.swift",
         "Compilation/Material/SceneResolvedMaterialHostUniformSchema.swift",
@@ -280,7 +281,8 @@
       "sources": [
         "Rendering/Lighting/SceneAuthoredShaderLightingInputs.swift",
         "Rendering/Bindings/SceneResolvedMaterialUniformEncoder.swift",
-        "Rendering/Bindings/SceneResolvedMaterialUniformProjection.swift"
+        "Rendering/Bindings/SceneResolvedMaterialUniformProjection.swift",
+        "Compilation/Material/SceneResolvedMaterialProgram+PreparedUniformResolution.swift"
       ]
     },
     "resolved_material_shader_schema": {

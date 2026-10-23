@@ -120,3 +120,16 @@
 nominal-output owner 现在同时表达已证 opaque 与 `.premultipliedAlpha`，signal passthrough 和 color boundary 仍优先，其他未知内容仍为 nil；这只补齐已证输出事实，不新增 shader 分类。fragment opaque 只证明覆盖内 A=1，现 attachment-storage owner 将透明 clear0 的部分覆盖颜色附件推导为 PMA；straight/PMA 表示保持，data/独立 alpha 不因此取得扩域资格。每帧沿原 clear、lease 与 publication 生命周期消除旧覆盖，物理范围/预算/旧 token 检查保持。
 
 修后同一候选 App 的四项运行已完成：R3 自有常量/UV/position 的 U/E/N 域通过真实 prepared source 到终端，R2 六格缺活跃 p0 保健康 unit 并有 typed 原因，三种方向的自有 Color 板均可见；332 layer292 实际加载 v3 几何并出现左上斜入的光束。两后端属性与透明留白、CPU 数学/准备反例及构建证据的范围由正式证据 owner 列明。原332仍有其他未准入项；独立 holdout、完整 Gradient/mask、动态点、后续过滤链、全 HDR、官方绝对 RGB/位置及性能须继续分别验收，视频和整场景状态不由本节改变。
+
+<a id="prepared-frame-uniform-query"></a>
+## Prepared 帧输入与统一数值查询（2026-10-23，已实施、有界回归）
+
+原DirectDraw几何消费不可变帧输入，却直接依赖可变Capability Catalog及ProgramFinalizer内部查询；这两条边现已退出。目标是让几何与shader继续消费同一prepared身份、数值与失败合同；本片是职责迁移，不改变画面算法、作者能力或宣称性能收益。相机setter候选的两源App冻结对照独立保留，本片不能混入该对照身份。
+
+将原FrameInputContract、其material key、PreparedUniformBinding及四字段Uniform schema的**实际值定义**移到一个中性prepared帧输入职责；compiler只构造这些值，Catalog保有准入/variant/cache权威。原名称所需typealias只指向迁出的唯一值定义，不将Catalog/Finalizer登记为公共接口。原完整authored-uniform解析（source/fallback/range/scalar-splat/ABI）移到既有Program的同一数值查询，几何Float2投影与shader finalize都调用它；删除旧实现，不留转发facade或第二算法。编码继续复用原UniformEncoder/Projection，template/graph/snapshot、资源与最终输出owner不变。
+
+选择先做等价迁移，而不同时预计算新policy或缓存ActiveUniformIdentity：当前采样仅证明部分frame准备caller，不能把整个prepare成本归给schema。HostSchema的frame重复另在ProgramDerivation；只改Dynamic不算关闭它。后继优化须单独冻结协议并证明收益。本片不新加payload flags、cache identity、clock、资源/graph重建或更宽准入；当前值、resolved source、fallback字节、live authored值/属性范围及frame/generation照常校验，非法fallback不能提前拒绝原本合法的live值。
+
+验收复用真实Finalizer/Derivation正反门，补同一prepared四点binding/snapshot的几何Float2与Program uniform字节相等、wrong ABI/source、range/fallback及非有限反例；变量/资源改名不影响结果。依赖门须真实消掉两边，不调public白名单或todo上限。一次Debug、既有四点域/几何最近门和未参与修法样本实际输出/stop排空；共享设备未释放前仅记CPU/结构结果。任一原数值、失败码、Program/variant身份或生命周期回退即撤回迁移；不以目录移动、build或样本非黑冒验收。
+
+当前五个实际值定义已迁出，完整数值核由Program唯一拥有；依赖门45 todo边通过，只删一条真实退出的Projection旧登记，未扩公共白名单/预算。真实prepared四点与Finalizer独立字节/错误oracle的4方法34事实、相邻几何与路由69方法通过；数值核与DTO交叉独审无must-fix。固定5436输入无漂移、优化Debug及严格签名通过，App`d20c964f…3dc7402`。原332仍以geometry-v3/authored-quad加载292、实际encoded-output/GPU完成且左上斜光、人物视频与文字保持；独立311小提琴人物/星空/粒子保持。两原包各12s、静音/中心pointer/30FPS、3024×1964，矩阵PASS/App0/stop1→0/GPUdrain，原件/App/owned输入无漂移。执行观察关闭，不声称逐层compositor观察、官方同phase或新视觉能力；全部Finalizer/Derivation设备门、Release/HDR/多屏与性能未验。身份/必要原图、CPU失格首轮和最终4/34、69门、交叉及实际终审归`.artifacts/scene-evidence/runs/prepared-frame-uniform-query-20261023/`（普通14天），不把迁移数量计作收益。

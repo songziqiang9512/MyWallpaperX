@@ -12,7 +12,7 @@ extension SceneMetalRenderer {
     /// returned geometry is carried through this frame, never reconstructed by
     /// the graph executor or the terminal texture compositor.
     func prepareDirectDrawFrameTargetGeometry(
-        contract: SceneResolvedMaterialExecutionCapabilityCatalog.FrameInputContract,
+        contract: SceneResolvedMaterialFrameInputContract,
         snapshot: SceneDynamicSnapshot,
         canvasSize: SIMD2<Float>,
         squareUnitModelMatrix: simd_float4x4,
@@ -23,7 +23,7 @@ extension SceneMetalRenderer {
         let domain: SceneDirectDrawOutputGeometry.Resolved?
         if let binding = contract.directDrawGeometry {
             let points = binding.pointBindings.compactMap {
-                SceneResolvedMaterialProgramFinalizer.resolvePreparedPoint($0, snapshot: snapshot)
+                SceneResolvedMaterialProgram.resolvePreparedPoint($0, snapshot: snapshot)
             }
             guard points.count == 4,
                   let resolved = SceneDirectDrawOutputGeometry.resolve(

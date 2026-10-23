@@ -3691,10 +3691,10 @@
       "lastReviewed": "2026-10-23",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "ebb7ff4bd48362af132cb63aa62d831537c4f7ba86c29a966485a091f6710f33",
+        "sourceSHA256": "ff7a3dea972058a7e2b1fae26f33498538c3cec167e601fa5cf91e0ab9fcd30f",
         "method": "document_registry --audit + document_health --check",
-        "scope": "Read-only light census and authored four-point domain contract, bounded actual terminal evidence and retained unknowns; execution order remains live queue.",
-        "limitations": "No full light family, whole-sample official parity, video first-frame closure, HDR/Release/multiscreen or performance claim."
+        "scope": "仅prepared帧输入/唯一Program数值核等价迁移、依赖退休与CPU/Debug；原332/独立311实际画面和停止保持，其余主题未重审。",
+        "limitations": "执行观察关闭；无逐层compositor或完整官方同phase证据，无新算法/能力/policy/cache、CPU/GPU/内存收益声明；Release/HDR/多屏未验。"
       }
     },
     {
@@ -3719,10 +3719,10 @@
       "lastReviewed": "2026-10-23",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "1f3b223a81b179a0ee0f5af24a97c1e0a64a3092e7928e09d9c029ac6f825d6b",
+        "sourceSHA256": "19af7bac23ea7c1d55521690724bc5520c439353c2321ff76ff8e42a494aeeb0",
         "method": "document_registry --audit + document_health --check",
-        "scope": "Scene当前自主选序与粒子等值keyed采样的小幅CPU有界结果；376旧来源证据纠正，未将历史记录冒认当前实播。",
-        "limitations": "仅优化Debug隔离Host三对与独立311本窗；非整引擎/Release/能耗验收，376本轮未播、机制仍unknown。"
+        "scope": "仅prepared帧输入/唯一Program数值核等价迁移、依赖退休与CPU/Debug；原332/独立311实际画面和停止保持，其余主题未重审。",
+        "limitations": "执行观察关闭；无逐层compositor或完整官方同phase证据，无新算法/能力/policy/cache、CPU/GPU/内存收益声明；Release/HDR/多屏未验。"
       }
     },
     {

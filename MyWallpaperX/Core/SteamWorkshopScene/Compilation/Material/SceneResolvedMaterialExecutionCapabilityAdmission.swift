@@ -14,12 +14,7 @@ nonisolated struct SceneResolvedMaterialAdmittedLayer {
         let nodeIndex: Int
         let materialKeys: [String]
     }
-    enum DirectDrawGeometryFallback: String, Equatable {
-        case roleInvalid = "role-invalid"
-        case sourceAmbiguous = "source-ambiguous"
-        case vertexInputUnqualified = "vertex-input-unqualified"
-        case pointBindingsUnproven = "point-bindings-unproven"
-    }
+    typealias DirectDrawGeometryFallback = SceneResolvedMaterialFrameInputContract.DirectDrawGeometryFallback
 
     let layerID: Int
     let products: [SceneGraphAdmissionProduct]
