@@ -270,15 +270,11 @@
     },
     "docs/scene/roadmap/scene-compatibility-roadmap.md": {
       "lines": 182,
-      "bytes": 22442
-    },
-    "docs/scene/roadmap/scene-full-sample-static-audit.md": {
-      "lines": 55,
-      "bytes": 17294
+      "bytes": 22423
     },
     "docs/scene/roadmap/scene-open-breakpoint-queue.md": {
-      "lines": 256,
-      "bytes": 80673
+      "lines": 166,
+      "bytes": 33812
     },
     "docs/web/cold-descriptor-parse-offload-design.md": {
       "lines": 43,
@@ -1356,15 +1352,6 @@
     },
     {
       "section": "bodies",
-      "path": "docs/scene/roadmap/scene-full-sample-static-audit.md",
-      "before": "0fd0134c670c82ba8b625a15c1a48a382e2aa7d619c41ab5a31324f357c3dba2",
-      "after": "fc2aa513cb4c3d892a4196cc7f13e68be05d280033fcc40227b0d7e211475d33",
-      "owner": "Scene model material qualification",
-      "reason": "Replace the next gate with the bounded real contribution result and stop condition; no capability closure.",
-      "decision": "docs/scene/roadmap/scene-full-sample-static-audit.md#画面合成与播放"
-    },
-    {
-      "section": "bodies",
       "path": "docs/scene/capabilities/scene-sample-acceptance-ledger.md",
       "before": "801f984fd2455e1d1f32128e3edde8502aee68078452191286e34d09fe79fa26",
       "after": "0bab4d9d1e88551c190cf3b93e6730156158d6eacdd27fa7c66739825be300e3",
@@ -1446,15 +1433,6 @@
     },
     {
       "section": "bodies",
-      "path": "docs/scene/roadmap/scene-open-breakpoint-queue.md",
-      "before": "b96ed6a608f27acca5094886c3ca41e889538e54a3a40d4f5d30042b9d27b263",
-      "after": "b565d79d7a9c6c3975516c5bcd7cae21631029dd61866a1e5b5355f5ba4cb7cc",
-      "owner": "Scene canonical camera origin setter",
-      "reason": "合并相机设计/能力与有界实际热改后验，移除已闭首拒队列；当前证据用原相机历史留底和稳定跳转，不认整样本通过或性能收益。",
-      "decision": "docs/scene/roadmap/batch2/script-component-api-design.md#default-camera-origin-setter"
-    },
-    {
-      "section": "bodies",
       "path": "docs/scene/capabilities/runtime-input-property-coverage.md",
       "before": "47f9cf112f3048ebe0ea65342ab9041314ec3ec97d5ac69aca27d82fbd0db6ec",
       "after": "270dc5f7dad8bbc7cda3d29e1a2ae119ba7481be525f1b0f39714130d9a70538",
@@ -1488,6 +1466,15 @@
       "owner": "Scene prepared frame input / Program uniform query",
       "reason": "先行设计并同步唯一实际值/数值核迁移，记录CPU/依赖/Debug及两个原包实际保持；不新增性能收益或重复路线。",
       "decision": "docs/scene/roadmap/batch2/terminal-material-chain-design.md#prepared-frame-uniform-query"
+    },
+    {
+      "section": "bodies",
+      "path": "docs/scene/roadmap/scene-full-sample-static-audit.md",
+      "before": "c354e13d2dd6166c6675bb5b9a4a5706aef4cabd16ba837d8fa9d0887d7303e9",
+      "after": "74234e98afe7498fb5daf1f36ac2d78acc339464f950703b8c019892f982b90b",
+      "owner": "Scene single open breakpoint queue",
+      "reason": "按用户明确要求删除重复静态问题文档，14残余合入唯一队列；已闭/正常解释另归历史，不新建第二权威或扩大能力结论。",
+      "decision": "docs/scene/roadmap/scene-open-breakpoint-queue.md#static-capability-gaps"
     }
   ]
 }
