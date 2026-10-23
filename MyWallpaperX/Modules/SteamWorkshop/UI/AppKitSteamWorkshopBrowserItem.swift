@@ -43,9 +43,9 @@ final class AppKitSteamWorkshopBrowserItem: NSCollectionViewItem, WallpaperGridH
     let multiSelectBadgeIcon = NSImageView()
     let overlayBarShadowView = NSView()
     let overlayBar = SteamWorkshopGlassBarView()
-    let detailButton = SteamWorkshopOverlayIconButton()
+    let detailButton = NSButton()
     let titleMarqueeView = SteamWorkshopMarqueeTextView()
-    let statusBadgeButton = SteamWorkshopOverlayIconButton()
+    let statusBadgeButton = NSButton()
     var overlaySymbolConfiguration: NSImage.SymbolConfiguration?
 
     lazy var previewState: SteamWorkshopPreviewState = {
@@ -147,7 +147,6 @@ final class AppKitSteamWorkshopBrowserItem: NSCollectionViewItem, WallpaperGridH
         let barSpacing: CGFloat
         let marqueeSideInset: CGFloat
         let titleFont: NSFont
-        let buttonCornerRadius: CGFloat
     }
 
     override init(nibName: NSNib.Name?, bundle: Bundle?) {
@@ -763,7 +762,7 @@ final class AppKitSteamWorkshopBrowserItem: NSCollectionViewItem, WallpaperGridH
         }
 
         statusBadgeButton.image = configuredSymbol(named: symbolName)
-        statusBadgeButton.iconTintColor = tintColor
+        statusBadgeButton.contentTintColor = tintColor
         statusBadgeButton.setAccessibilityLabel(accessibilityLabel)
         statusBadgeButton.isEnabled = actionKind != .saving
         updateContinuousAnimationState()
@@ -862,7 +861,7 @@ final class AppKitSteamWorkshopBrowserItem: NSCollectionViewItem, WallpaperGridH
         guard key != lastHeartKey else { return }
         lastHeartKey = key
         detailButton.image = configuredSymbol(named: symbolName)
-        detailButton.iconTintColor = tint
+        detailButton.contentTintColor = tint
         detailButton.setAccessibilityLabel(accessibilityLabel)
         detailButton.isEnabled = isEnabled
         detailButton.toolTip = nil

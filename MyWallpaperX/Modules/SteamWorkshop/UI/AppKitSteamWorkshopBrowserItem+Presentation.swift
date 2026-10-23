@@ -19,8 +19,7 @@ extension AppKitSteamWorkshopBrowserItem {
             barEdgeInset: round(Layout.barEdgeInset * scale),
             barSpacing: round(Layout.barSpacing * scale),
             marqueeSideInset: round(Layout.marqueeSideInset * scale),
-            titleFont: .systemFont(ofSize: 12.5 * scale, weight: .medium),
-            buttonCornerRadius: max(8, min(12, 11 * scale))
+            titleFont: .systemFont(ofSize: 12.5 * scale, weight: .medium)
         )
     }
 
@@ -39,22 +38,11 @@ extension AppKitSteamWorkshopBrowserItem {
             cornerHeight: targetBarRadius,
             transform: nil
         )
-        let targetButtonRadius = max(8, min(12, Layout.cardCornerRadius - 1))
-        if abs(detailButton.cornerRadius - targetButtonRadius) > 0.001 {
-            detailButton.cornerRadius = targetButtonRadius
-        }
-        let targetBadgeRadius = prefersCircularPlayBadge
-            ? floor(metrics.badgeSize * 0.5)
-            : targetButtonRadius
-        if abs(statusBadgeButton.cornerRadius - targetBadgeRadius) > 0.001 {
-            statusBadgeButton.cornerRadius = targetBadgeRadius
-        }
         if abs(titleMarqueeView.font.pointSize - metrics.titleFont.pointSize) > 0.001 {
             titleMarqueeView.font = metrics.titleFont
         }
         let overlaySymbolConfig = NSImage.SymbolConfiguration(pointSize: max(11, metrics.iconButtonSize * 0.56), weight: .medium)
         overlaySymbolConfiguration = overlaySymbolConfig
-        detailButton.contentTintColor = detailButton.iconTintColor
         detailButton.image = detailButton.image?.withSymbolConfiguration(overlaySymbolConfig)
         statusBadgeButton.image = statusBadgeButton.image?.withSymbolConfiguration(overlaySymbolConfig)
     }
@@ -136,6 +124,14 @@ extension AppKitSteamWorkshopBrowserItem {
         overlayBar.setAccessibilityLabel("下载进度")
         cardView.addSubview(overlayBar)
 
+        for button in [detailButton, statusBadgeButton] {
+            button.isBordered = false
+            button.bezelStyle = .regularSquare
+            button.focusRingType = .none
+            button.wantsLayer = true
+            button.imagePosition = .imageOnly
+            button.imageScaling = .scaleProportionallyDown
+        }
         detailButton.image = NSImage(systemSymbolName: "heart", accessibilityDescription: "订阅")
         detailButton.target = self
         detailButton.action = #selector(handleSubscribeToggle)
@@ -240,23 +236,13 @@ extension AppKitSteamWorkshopBrowserItem {
             animated: false
         )
 
-        detailButton.normalBackgroundColor = .clear
-        detailButton.hoverBackgroundColor = .clear
-        detailButton.pressedBackgroundColor = .clear
-        detailButton.iconTintColor = fixedForeground
-        detailButton.borderColor = .clear
-        detailButton.borderWidth = 0
+        detailButton.contentTintColor = fixedForeground
         detailButton.appearance = overlayBar.appearance
 
         titleMarqueeView.textColor = fixedForeground
         titleMarqueeView.appearance = overlayBar.appearance
 
-        statusBadgeButton.normalBackgroundColor = .clear
-        statusBadgeButton.hoverBackgroundColor = .clear
-        statusBadgeButton.pressedBackgroundColor = .clear
-        statusBadgeButton.borderColor = .clear
-        statusBadgeButton.borderWidth = 0
-        statusBadgeButton.iconTintColor = fixedForeground
+        statusBadgeButton.contentTintColor = fixedForeground
         statusBadgeButton.appearance = overlayBar.appearance
         refreshSubscribeHeart()
         updateContinuousAnimationState()

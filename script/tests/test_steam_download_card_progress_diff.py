@@ -18,6 +18,10 @@ shape):
 from __future__ import annotations
 
 import pathlib
+import hashlib
+import json
+import os
+import shutil
 import subprocess
 import tempfile
 import unittest
@@ -60,7 +64,8 @@ final class SteamWorkshopService {
     let steamSubscriptions = SteamSubscriptionsProbe()
     @Published var source: Int = 0
     @MainActor let downloadProgressStore = SteamWorkshopDownloadProgressStore()
-    func presentSteamLoginForUserAction(context: String) {}
+    var loginPrompts = 0
+    func presentSteamLoginForUserAction(context: String) { loginPrompts += 1 }
     func latestDownloadRecord(for id: String) -> SteamWorkshopDownloadRecord? { nil }
     func isDownloading(itemID: String) -> Bool { false }
     // f140ee42 让卡片解析"下载失败意图"文案（真实实现 +DownloadFiltering.swift），
@@ -253,11 +258,12 @@ import Foundation
             updatedAt: Date(), sizeText: "100 MB", status: .ready, browserItem: item,
             contentType: .scene, dependencyItemID: nil, dependencyStatus: .none)
         let service = SteamWorkshopService.shared
+        var openedDetails = 0
         func launchCard(playing: Bool = false, multiSelect: Bool = false) {
             card.configure(displayContext: .downloads, isPlaying: playing, item: item,
                 downloadRecord: ready, downloadProgressStore: store, isDownloading: false, isDownloaded: true,
                 isMultiSelectMode: multiSelect, isKeyboardFocused: false,
-                onOpen: {}, onDownload: {}, onSetAsWallpaper: { service.launchPendingID = item.id }, onCancelDownload: {})
+                onOpen: { openedDetails += 1 }, onDownload: {}, onSetAsWallpaper: { service.launchPendingID = item.id }, onCancelDownload: {})
             card.isHovering = false
             card.applyHoverStyle(animated: false)
         }
@@ -270,14 +276,10 @@ import Foundation
             precondition(image?.size == expected.size, "same-size state update lost its symbol configuration: \(name)")
         }
         assertSymbolSize(card.statusBadgeButton.image, named: "play.fill")
-        card.detailButton.updateTrackingAreas()
         let firstTracking = card.view.trackingAreas.first
-        let firstButtonTracking = card.detailButton.trackingAreas.first
-        precondition(firstTracking != nil && firstButtonTracking != nil, "tracking identity controls must be nonempty")
+        precondition(firstTracking != nil, "card tracking identity control must be nonempty")
         card.viewDidLayout()
-        card.detailButton.updateTrackingAreas()
         precondition(firstTracking === card.view.trackingAreas.first, "unchanged layout must preserve card tracking")
-        precondition(firstButtonTracking === card.detailButton.trackingAreas.first, "unchanged layout must preserve icon tracking")
         precondition(!card.currentBarVisibility, "an idle ready download keeps its hover-only bar")
         card.statusBadgeButton.performClick(nil)
         precondition(service.launchPendingID == item.id, "the play button must enter the pending launch")
@@ -310,6 +312,73 @@ import Foundation
         card.refreshSubscribeHeart()
         precondition(card.detailButton.accessibilityLabel() == "订阅：\(item.title)", "heart test must enter unsubscribed browser chrome")
         assertSymbolSize(card.detailButton.image, named: "heart")
+        // Retired per-button tracking identity is covered by real hit regions,
+        // target/action delivery and disabled -> enabled transitions instead.
+        let proof = ProcessInfo.processInfo.environment["MWX_STEAM_NATIVE_BUTTON_PROOF_DIR"]
+            .map { URL(fileURLWithPath: $0, isDirectory: true) }
+        var buttonFrames: [String: [[CGFloat]]] = [:]
+        func capture(_ name: String) {
+            guard let proof else { return }
+            card.view.layoutSubtreeIfNeeded()
+            let bitmap = card.view.bitmapImageRepForCachingDisplay(in: card.view.bounds)!
+            card.view.cacheDisplay(in: card.view.bounds, to: bitmap)
+            try! bitmap.representation(using: .png, properties: [:])!.write(to: proof.appendingPathComponent(name + ".png"))
+        }
+        for dark in [false, true] {
+            window.appearance = NSAppearance(named: dark ? .darkAqua : .aqua)
+            for width: CGFloat in [200, 280, 380] {
+                card.view.frame.size = NSSize(width: width, height: 220)
+                launchCard()
+                card.isHovering = true
+                card.applyHoverStyle(animated: false)
+                card.viewDidLayout()
+                let buttons = [card.detailButton, card.statusBadgeButton]
+                let frames = buttons.map(\.frame)
+                for button in buttons {
+                    precondition(button.target === card && button.action != nil, "native button keeps its actual command owner")
+                    precondition(button.frame.width >= 20 && button.frame.height >= 20
+                        && card.overlayBar.bounds.contains(button.frame), "button hit frame stays inside overlay after resize")
+                    for point in [NSPoint(x: 1, y: 1), NSPoint(x: button.bounds.midX, y: button.bounds.midY),
+                                  NSPoint(x: button.bounds.maxX - 1, y: button.bounds.maxY - 1)] {
+                        let hit = card.view.hitTest(button.convert(point, to: card.view.superview))
+                        precondition(hit === button || hit?.isDescendant(of: button) == true,
+                            "button's full rectangle must retain the action, not open the card")
+                    }
+                }
+                card.viewDidLayout()
+                precondition(buttons.map(\.frame) == frames, "repeated layout must not move native button targets")
+                let beforeDetails = openedDetails
+                card.detailButton.performClick(nil)
+                precondition(openedDetails == beforeDetails + 1, "download detail button opens exactly once")
+                service.launchPendingID = nil
+                card.statusBadgeButton.performClick(nil)
+                precondition(service.launchPendingID == item.id, "native status button preserves play command")
+                service.launchPendingID = nil
+                let name = "card-\(dark ? "dark" : "light")-\(Int(width))"
+                buttonFrames[name] = frames.map { [$0.minX, $0.minY, $0.width, $0.height] }
+                capture(name)
+            }
+            card.configure(displayContext: .browser, item: item, downloadRecord: nil,
+                downloadProgressStore: store, isDownloading: false, isDownloaded: false,
+                isKeyboardFocused: false, onOpen: {}, onDownload: {}, onSetAsWallpaper: {}, onCancelDownload: {})
+            card.isHovering = true
+            card.applyHoverStyle(animated: false)
+            for state: SteamSubscriptionProbeState in [.known(true), .loading, .known(false)] {
+                service.steamSubscriptions.states[item.id] = state
+                card.refreshSubscribeHeart()
+                card.viewDidLayout()
+                precondition(card.detailButton.isEnabled == (state != .loading), "busy membership prevents duplicate requests")
+                let before = service.loginPrompts
+                card.detailButton.performClick(nil)
+                precondition(service.loginPrompts == before + (state == .loading ? 0 : 1),
+                    "disabled button is inert and re-enabled button restores the original command")
+                capture("subscription-\(dark ? "dark" : "light")-\(state)")
+            }
+        }
+        if let proof {
+            try! JSONSerialization.data(withJSONObject: buttonFrames, options: [.prettyPrinted, .sortedKeys])
+                .write(to: proof.appendingPathComponent("button-frames.json"))
+        }
         print("Steam download card progress diffing PASS")
     }
 }
@@ -327,13 +396,18 @@ class SteamDownloadCardProgressDiffTests(unittest.TestCase):
             binary = root / "progress-diff-probe"
             support.write_text(SUPPORT, encoding="utf-8")
             harness.write_text(HARNESS, encoding="utf-8")
+            identities = {str(path): hashlib.sha256(path.read_bytes()).hexdigest() for path in SOURCES}
+            frozen = root / "sources"
+            frozen.mkdir()
+            for path in SOURCES:
+                shutil.copy2(path, frozen / path.name)
             compilation = subprocess.run(
                 [
                     "xcrun",
                     "swiftc",
                     "-parse-as-library",
                     str(support),
-                    *map(str, SOURCES),
+                    *map(str, [frozen / path.name for path in SOURCES]),
                     str(harness),
                     "-o",
                     str(binary),
@@ -343,7 +417,9 @@ class SteamDownloadCardProgressDiffTests(unittest.TestCase):
                 text=True,
                 timeout=240,
             )
-            self.assertEqual(compilation.returncode, 0, compilation.stderr)
+            self.assertEqual((compilation.returncode, identities), (0, {
+                str(path): hashlib.sha256(path.read_bytes()).hexdigest() for path in SOURCES
+            }), compilation.stderr)
             run = subprocess.run(
                 # Literal command head; the probe binary is a tempdir
                 # artifact of the compilation above, never external input.
@@ -353,6 +429,12 @@ class SteamDownloadCardProgressDiffTests(unittest.TestCase):
                 text=True,
                 timeout=60,
             )
+            if destination := os.environ.get("MWX_STEAM_NATIVE_BUTTON_PROOF_DIR"):
+                target = pathlib.Path(destination)
+                target.mkdir(parents=True, exist_ok=True)
+                (target / "source-inputs.json").write_text(json.dumps(identities, indent=2))
+                (target / "compile.log").write_text(compilation.stdout + compilation.stderr)
+                (target / "runtime.log").write_text(run.stdout + run.stderr)
             self.assertEqual(run.returncode, 0, run.stderr or run.stdout)
             self.assertIn("PASS", run.stdout)
 
