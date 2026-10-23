@@ -109,6 +109,19 @@ accepted
 
 候选的 localStorage 仍使用现有 session owner，但延迟持久化；候选取消、超时或被新请求替代不会把写入送到 persistence coordinator。同 record 替换时，提升只合入候选相对准备基线实际修改的键，保留旧 active 在此期间对其他键的写入。音频采集需求由 Host 聚合 active 与 candidate 的声明后送入既有 inbox，任一 session 退场不得清掉另一 session 的需求。
 
+<a id="initial-video-presentation"></a>
+### 可见普通视频的首呈现完整性
+
+候选的GPU完成必须包含当前普通image消费者实际选中的authored video，不能把尚无buffer的成功空绘制当作内容完整。本合同不扩大到所有材质/命名依赖或后续active reveal/seek。Source仍唯一拥有AVPlayer、定位、buffer和commit/discard；初始property-video零帧seed不推广到普通视频，不覆盖首VM的seek/pause命令。
+
+Source在原prepareFrame旁暴露pending/已建立terminal失败；BaseImage snapshot携候选期可选事实，原BaseMaterial resolver保留实际fallback选择。Renderer只在当前projection/visibility与真实普通image分支收集所选视频，冻结到PreparedFrame：缺buffer仍pending，现成still/provider替换不等未选视频，真实失败只归该消费者局部fallback。不能靠资源列表、generation、诊断字符串、alpha或offscreen猜可见性/就绪；不新增播放器、时钟、可见性或资源registry。
+
+候选Session沿原renderSurfaces每次提交顺序生成独立attempt token，只有同一次全部prepared surface对象都实际提交且内容合格，才保留一个cohort并暂停后续候选cadence。各GPU完成后一次主线程批量调用原Host首帧回调；不能混合A旧attempt与B新attempt，也不能在父级延迟提升时覆盖已资格drawable。pending期间照常提交/commit，不能以GPU defer触发首start rollback/seek循环。暂停启动只重试既有simulation的资源/渲染，不重跑VM/粒子；复用原Timer直到原Host5s结果，不另造超时或“等够时长即ready”。
+
+promote释放cohort并恢复原driver；stop、surface对象替换及真实render invalidation先撤销attempt，迟到成功无效，任何候选GPU失败继续失败。已向父级交付的cohort若被真实surface变更撤销，沿原Host失败取消，不能保留旧promotion token重备；尚未adopt的media通知不改变冻结帧，paused提升时再读现有publication。首次媒体命令仍在原render后commit、下一帧可见；本片不承诺初始seek目标像素额外同步。Host仍唯一拥有candidate/old-active、5s超时、提升、父级确认/撤回和drain；旧壁纸与声画意图在候选等待期间保持。cohort只是Session首呈现状态值，PreparedFrame事实不成为第二个提升权威。
+
+长期门使用自有红色视频、静态青色peer、隐藏坏视频及改名双屏；暂停的真实脚本计数经peer alpha送到末端像素，不能以去重日志声称无重放。纯cohort门覆盖异步先后、不同attempt及对象替换；原Host门覆盖父级延迟commit期间的失败/取消、旧active与drain，实际App另验回调与旧输出。真实样本和已知失败、显式失败与相邻property-video边界归[有界验收](../history/initial-video-presentation-2026-10-23.md#initial-video-presentation-20261023)；不自动证明全视频、性能或官方一致。
+
 设计前置范围：Session 提取、Host 首帧提升、localStorage 激活提交和 GPU drain，横切 identity／clock／publication／持久化，走 generic-only 迁移。请求 supersede、candidate 创建失败、首帧 GPU 失败、超时、拓扑变化和 stop 必须保留旧 active 或完成既有停止意图；retiring session 直到自己的 queue drain 完成才释放资源。验证必须执行 A→失败 B→成功 C、首帧迟到、同 record 存储写入、所有 owner 退场，以及正常逐帧脚本/多屏回归。门闭合后删除本批设计登记，保留本节唯一职责合同。
 
 已接受但仍等待 deferred 图片资源的属性修改由 Session 的单个 pending transaction 保存：独立键累积，同键以最新值（含删除）覆盖，先验证完整候选，再按完整所需 layer 集合请求当前 generation。无重叠且无需 deferred 资源的新修改立即提交，不扩大到其他图片的等待/失败范围；新命令被拒绝时不得破坏已接受 pending；所有 surface 资源接入成功后才提交同一 typed liveState，部分接入失败沿现有回滚边界处理。

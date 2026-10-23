@@ -31,7 +31,6 @@ extension SceneMetalRenderer {
         commandBuffer: MTLCommandBuffer,
         effectExecutionTrace: SceneEffectExecutionFrameTrace?
     ) -> (stop: Bool, outcome: SceneImageLayerCompositor.DrawOutcome?) {
-        guard !modelFrame.unavailableImageMaterialLayerIDs.contains(layer.id) else { return (false, nil) }
         let texture = baseSource.texture
         let resolvedFramePlan = resolvedMaterialFrameTargetPlans[layer.id]
         let dependencyBypassReason = resolvedFramePlan == nil

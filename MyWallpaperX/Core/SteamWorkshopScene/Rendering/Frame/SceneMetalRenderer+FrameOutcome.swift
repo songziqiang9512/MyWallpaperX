@@ -37,16 +37,25 @@ extension SceneMetalRenderer {
         }
     }
 
+    /// Facts about this prepared output, never a decoder or promotion owner.
+    struct InitialVideoPresentation {
+        var pendingLayerIDs: Set<Int> = []
+        var isComplete: Bool { pendingLayerIDs.isEmpty }
+    }
+
     /// A synchronous candidate for one display. Dropping it releases only its
     /// unsubmitted resources; GPU ownership starts only in submit().
     final class PreparedFrame: Equatable {
+        let initialVideoPresentation: InitialVideoPresentation?
         private var commandBuffer: MTLCommandBuffer?
         private var submitActions: (() -> Void)?
         private var cancelActions: (() -> Void)?
         private var completionObservers: [(Bool) -> Void] = []
 
         init(commandBuffer: MTLCommandBuffer,
+             initialVideoPresentation: InitialVideoPresentation? = nil,
              submit: @escaping () -> Void, cancel: @escaping () -> Void) {
+            self.initialVideoPresentation = initialVideoPresentation
             self.commandBuffer = commandBuffer
             submitActions = submit
             cancelActions = cancel

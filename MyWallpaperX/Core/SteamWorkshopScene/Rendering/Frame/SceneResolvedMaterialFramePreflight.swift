@@ -238,7 +238,7 @@ extension SceneMetalRenderer {
                 switch selection {
                 case let .source(value):
                     selectedSource = value
-                case .missing:
+                case .missing, .pendingAuthoredVideo:
                     // An asynchronous source must not hold the entire scene
                     // at frame zero: submission also lets its decoder warm up.
                     // No source is fabricated; retry this layer next frame.
@@ -631,7 +631,7 @@ extension SceneMetalRenderer {
                 )
                 guard let providerSource = providerSelection.source else {
                     switch providerSelection {
-                    case .missing:
+                    case .missing, .pendingAuthoredVideo:
                         dependencyEffects = []
                         dependencyUnavailability = .providerSourceUnavailable
                     case let .rejected(reasonCode):

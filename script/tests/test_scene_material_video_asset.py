@@ -14,6 +14,7 @@ import zlib
 
 from script.tests import test_scene_sampler_default_purpose as sampler
 from script.tests import test_scene_user_property_textures as textures
+from script.tests import test_scene_initial_video_resource_readiness as readiness
 
 ROOT = Path(__file__).resolve().parents[2]
 SCENE = ROOT / "MyWallpaperX/Core/SteamWorkshopScene"
@@ -254,7 +255,8 @@ class SceneMaterialVideoAssetGPUTests(unittest.TestCase):
         cls.environment = os.environ.copy()
         cls.environment["CLANG_MODULE_CACHE_PATH"] = str(cls.work / "clang-cache")
         compiled = subprocess.run(["swiftc", "-parse-as-library", "-D", "DEBUG", "-default-isolation", "MainActor",
-            *map(str, sources), str(ROOT / "script/tests/fixtures/SceneMaterialVideoAssetHarness.swift"),
+            *map(str, sources), str(readiness.write_readiness_source(cls.work)),
+            str(ROOT / "script/tests/fixtures/SceneMaterialVideoAssetHarness.swift"),
             "-module-cache-path", str(cls.work / "swift-cache"), "-o", str(cls.work / "probe")],
             cwd=ROOT, env=cls.environment, capture_output=True, text=True)
         if compiled.returncode:

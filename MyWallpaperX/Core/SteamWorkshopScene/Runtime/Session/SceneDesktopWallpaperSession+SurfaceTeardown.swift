@@ -11,6 +11,7 @@ extension SceneDesktopWallpaperSession {
             SceneDesktopWallpaperHost.usesDebugEvidenceWindow && launchContext != nil
         let timerWasActive = frameTimer?.isValid == true
 #endif
+        initialPresentationCohort.reset()
         userShortcutInput.revoke()
         if clearContext {
             releaseUserShortcutScopes()

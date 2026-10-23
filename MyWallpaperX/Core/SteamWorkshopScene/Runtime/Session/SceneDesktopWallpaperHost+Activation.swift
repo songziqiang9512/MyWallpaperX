@@ -16,6 +16,7 @@ extension SceneDesktopWallpaperHost {
         NSLog("MWX Scene: phase=session-candidate session=%@", session.lifecycleID.uuidString)
 #endif
         var pendingScreens: Set<CGDirectDisplayID> = []
+        var didPrepare = false
         session.onFirstFrameCompletion = { [weak self, weak session] screen, succeeded in
             guard let self, let session, self.candidateSession === session else { return }
 #if DEBUG
@@ -34,9 +35,10 @@ extension SceneDesktopWallpaperHost {
                 return
             }
 #endif
+            guard !didPrepare else { return }
             pendingScreens.remove(screen)
             guard pendingScreens.isEmpty else { return }
-            session.onFirstFrameCompletion = nil
+            didPrepare = true
             let promote = { [weak self, weak session] in
                 guard let self, let session, self.candidateSession === session else { return }
                 let previous = self.activeSession

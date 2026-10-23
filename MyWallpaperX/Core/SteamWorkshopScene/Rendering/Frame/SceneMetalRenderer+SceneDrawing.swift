@@ -39,7 +39,8 @@ extension SceneMetalRenderer {
         particlePerformanceObservations: inout [SceneParticlePerformanceObservation]?,
         mainPassForSubmission: inout SceneMainPassEncoder?,
         reflectionFrame: inout ReflectionFrame?,
-        compositionGroupRuntime: inout SceneCompositionGroupFrameRuntime?
+        compositionGroupRuntime: inout SceneCompositionGroupFrameRuntime?,
+        initialVideoPresentation: inout InitialVideoPresentation?
     ) -> FrameOutcome? {
         var imageTextures = imageTextures
 #if DEBUG
@@ -562,7 +563,8 @@ extension SceneMetalRenderer {
             performanceTelemetry: performanceTelemetry,
             sceneColor: sceneColor,
             frameProjection: frameProjection,
-            layerTopology: layerTopology
+            layerTopology: layerTopology,
+            initialVideoPresentation: &initialVideoPresentation
         )
     }
 }

@@ -20,6 +20,7 @@ enum SceneBaseMaterialTextureResolution {
 enum SceneBaseMaterialTextureSelection {
     case source(SceneBaseMaterialTextureSource)
     case missing
+    case pendingAuthoredVideo(rejectedProviderReason: String?)
     case rejected(reasonCode: String)
 
     var source: SceneBaseMaterialTextureSource? {
@@ -31,8 +32,14 @@ enum SceneBaseMaterialTextureSelection {
         switch self {
         case let .source(value): value.rejectedProviderReason
         case .missing: nil
+        case let .pendingAuthoredVideo(reason): reason
         case let .rejected(reasonCode): reasonCode
         }
+    }
+
+    var hasPendingAuthoredVideo: Bool {
+        if case .pendingAuthoredVideo = self { return true }
+        return false
     }
 }
 
@@ -119,7 +126,10 @@ extension SceneMetalRenderer {
     ) -> SceneBaseMaterialTextureSelection {
         guard let binding = baseMaterialProviderBindings
             .baseMaterialBindings[layer.id] else {
-            guard let fallbackTexture = imageTextures[layer.id] else { return .missing }
+            guard let fallbackTexture = imageTextures[layer.id] else {
+                return imageTextures.initialVideoReadiness?[layer.id] == .pending
+                    ? .pendingAuthoredVideo(rejectedProviderReason: nil) : .missing
+            }
             return .source(
                 SceneBaseMaterialTextureSource(
                     texture: fallbackTexture,
@@ -193,6 +203,9 @@ extension SceneMetalRenderer {
             }
         case .authoredFallback:
             guard let fallback = imageTextures[layer.id] else {
+                if imageTextures.initialVideoReadiness?[layer.id] == .pending {
+                    return .pendingAuthoredVideo(rejectedProviderReason: rejectedProviderReason)
+                }
                 return rejectedProviderReason.map { .rejected(reasonCode: $0) } ?? .missing
             }
             texture = fallback

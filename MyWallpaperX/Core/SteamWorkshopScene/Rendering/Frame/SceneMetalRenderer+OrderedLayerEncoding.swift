@@ -41,7 +41,8 @@ extension SceneMetalRenderer {
         performanceTelemetry: SceneFramePerformanceTelemetry?,
         sceneColor: SceneResolvedMaterialSubmissionCoordinator.SceneColorReservation?,
         frameProjection: SceneMetalRendererFrameWorldProjection,
-        layerTopology: SceneScriptLayerTopologySnapshot?
+        layerTopology: SceneScriptLayerTopologySnapshot?,
+        initialVideoPresentation: inout InitialVideoPresentation?
     ) -> FrameOutcome? {
 #if DEBUG
         let collectsPointLightExecutionEvidence =
@@ -215,7 +216,12 @@ extension SceneMetalRenderer {
             guard frameVisibleLayerIDs.contains(layer.id) else { continue }
             switch layer.contentKind {
             case "image", "solid", "text":
-                guard let imagePipeline, let baseSource else { continue }
+                guard let imagePipeline,
+                      !modelFrame.unavailableImageMaterialLayerIDs.contains(layer.id) else { continue }
+                if baseSelection.hasPendingAuthoredVideo {
+                    initialVideoPresentation?.pendingLayerIDs.insert(layer.id)
+                }
+                guard let baseSource else { continue }
                 let imageResult = encodeImageLayer(
                     layer: layer,
                     baseSource: baseSource,

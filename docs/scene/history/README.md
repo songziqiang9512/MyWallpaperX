@@ -4,6 +4,7 @@
 
 | 截止日期 | 专题 | 类型 | 文件 | 独有价值 | 当前权威 |
 |---|---|---|---|---|---|
+| 2026-10-23 | 视频/首呈现 | 有界修复证据 | [普通视频首门](initial-video-presentation-2026-10-23.md) | 冷暂停真实红帧、同次多屏、局部坏源与旧active；332背景先于提升，329既有失败保留 | [启动合同](../architecture/scene-launch-responsiveness-contract.md#initial-video-presentation)、[队列](../roadmap/scene-open-breakpoint-queue.md) |
 | 2026-10-23 | 光束/四点域 | 有界修复证据 | [无源四点几何](authored-direct-draw-domain-2026-10-23.md) | 官方三样式与U/E/N、两后端ABI、332位置收益及unit/PMA相邻反例 | [终端材质设计](../roadmap/batch2/terminal-material-chain-design.md#authored-direct-draw-domain)、[运行证据](../capabilities/runtime-evidence-current.md)、[队列](../roadmap/scene-open-breakpoint-queue.md) |
 | 2026-10-23 | 粒子初始化 | 资格与STOP | [位置及死亡事件继承](particle-initializer-qualification-2026-10-23.md) | 两组冻结官方实验、全部候选未命中与后继重入条件；产品未改 | [组件覆盖](../capabilities/particle-component-coverage.md)、[运行证据](../capabilities/runtime-evidence-current.md)、[队列](../roadmap/scene-open-breakpoint-queue.md) |
 | 2026-10-22 | 组合层/局部源 | 有界修复证据 | [无根效果背景组边界](composition-background-bounds-2026-10-22.md) | 两轴裁切、终端alpha红绿与378五栏实景；保官方资格及签名失败边界 | [D1](../roadmap/batch2/composition-render-target-design.md)、[运行证据](../capabilities/runtime-evidence-current.md)、[队列](../roadmap/scene-open-breakpoint-queue.md) |

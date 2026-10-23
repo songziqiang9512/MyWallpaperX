@@ -8,10 +8,12 @@ import simd
 // The user-property assembly below is compiled from production unchanged.
 struct SceneBaseImageTextureStore {
     let textures: [Int: MTLTexture] = [:]
+    let unavailableOrdinaryVideoLayerIDs: Set<Int> = []
     func snapshot(textures: [Int: MTLTexture],
                   explicitLayerSources: [Int: SceneTextureProviderPublication],
                   layerSourcePublications: [Int: SceneLayerSourcePublication],
-                  pendingLayerSourceIDs: Set<Int>) -> SceneBaseImageTextureSnapshot {
+                  pendingLayerSourceIDs: Set<Int>,
+                  initialVideoReadiness: [Int: SceneOrdinaryVideoFrameReadiness]? = nil) -> SceneBaseImageTextureSnapshot {
         fatalError("unrelated layer assembly executed")
     }
 }

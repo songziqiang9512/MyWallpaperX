@@ -4406,6 +4406,26 @@
         "test_scene_direct_draw_output_geometry",
         "test_scene_prepared_material_output_content"
       ]
+    },
+    {
+      "id": "scene-initial-video-presentation",
+      "patterns": [
+        "MyWallpaperX/Core/SteamWorkshopScene/Runtime/Session/SceneInitialPresentationCohort.swift",
+        "MyWallpaperX/Core/SteamWorkshopScene/Runtime/Session/SceneDesktopWallpaperSession+SurfaceSubmission.swift",
+        "MyWallpaperX/Core/SteamWorkshopScene/Resources/Providers/SceneVideoTextureSource.swift",
+        "script/tests/test_scene_initial_video_presentation.py",
+        "script/tests/test_scene_initial_video_resource_readiness.py",
+        "script/tests/test_scene_initial_presentation_cohort.py",
+        "script/tests/fixtures/SceneInitialVideoResourceReadinessHarness.swift",
+        "script/tests/fixtures/SceneInitialPresentationCohortHarness.swift"
+      ],
+      "modules": [
+        "test_scene_initial_presentation_cohort",
+        "test_scene_initial_video_resource_readiness",
+        "test_scene_initial_video_presentation",
+        "test_scene_frame_presentation_integration",
+        "test_scene_session_activation"
+      ]
     }
   ],
   "method_gates": {

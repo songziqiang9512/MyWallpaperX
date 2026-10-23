@@ -347,7 +347,8 @@ class SceneMetalView: NSView {
                 layerID: layer.id,
                 cacheDirectory: cacheDirectory,
                 device: metalDevice,
-                loader: loader
+                loader: loader,
+                onSourceCreationFailure: { loaded.markOrdinaryVideoUnavailable(layerID: layer.id) }
             ) {
                 loadedVideoSources[layer.id] = videoSource
 #if DEBUG
@@ -759,6 +760,7 @@ class SceneMetalView: NSView {
     }
 
     func renderFrame(
+        collectsInitialVideoReadiness: Bool = false,
         performanceTelemetry: SceneFramePerformanceTelemetry? = nil
     ) -> SceneMetalRenderer.FrameOutcome {
         guard let simulationFrame else {
@@ -848,7 +850,8 @@ class SceneMetalView: NSView {
             base: imageTextures, dynamicImage: dynamicImageSnapshot,
             dynamicText: dynamicTextSnapshot,
             mediaThumbnail: mediaThumbnail, mediaBindings: mediaThumbnailCoordinator.program,
-            videoSources: videoTextureSources, timing: timing
+            videoSources: videoTextureSources, timing: timing,
+            collectsInitialVideoReadiness: collectsInitialVideoReadiness
         )
         #if DEBUG
             let linearCapture = usesLinearDisplayOutput
@@ -887,6 +890,7 @@ performanceTelemetry?.recordPreparation(
             onDrawableWillPresent = nil
         }
         let outcome = renderer.renderFrame(
+            collectsInitialVideoReadiness: collectsInitialVideoReadiness,
             imageTextures: frameImageTextures,
             layerTopology: layerTopology,
             userPropertyTextures: frameUserTextures.textures,

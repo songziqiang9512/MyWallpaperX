@@ -77,6 +77,7 @@ final class SceneVideoTextureSource {
     private var endObserver: NSObjectProtocol?
     private var payloadPreparation: Task<Void, Error>?
     private var payloadPreparationID: UUID?
+    private var payloadPreparationFailed = false
     private var lifecycle = SceneVideoProviderLifecycleState(epoch: 0)
     private var lastFrame: Frame?
     private var pendingFrame: Frame?
@@ -219,6 +220,7 @@ final class SceneVideoTextureSource {
             case .success:
                 self.installItem(at: file.url)
             case let .failure(error):
+                self.payloadPreparationFailed = true
 #if DEBUG
                 NSLog("MWX video preparation failed: owner=%@ error=%@",
                     String(describing: self.owner), String(describing: error))
@@ -228,6 +230,7 @@ final class SceneVideoTextureSource {
     }
 
     private func installItem(at fileURL: URL) {
+        payloadPreparationFailed = false
         let item = AVPlayerItem(url: fileURL)
         item.add(videoOutput)
         self.item = item
@@ -389,6 +392,14 @@ final class SceneVideoTextureSource {
         guard let frame = prepareFrame(for: timing) else { return lastFrame }
         commitPreparedFrame()
         return frame
+    }
+
+    /// Observes the frame already prepared by the original transaction. An
+    /// unknown item, positioning wait or absent copied buffer remains pending.
+    /// A usable last-ready frame still satisfies this ordinary consumer.
+    func initialFrameReadiness(preparedFrame: Frame?) -> SceneOrdinaryVideoFrameReadiness {
+        if preparedFrame?.publication != nil { return .ready }
+        return payloadPreparationFailed || item?.status == .failed ? .unavailable : .pending
     }
 
     /// Builds a frame candidate without advancing the provider publication.

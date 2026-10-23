@@ -50,6 +50,7 @@ final class SceneDesktopWallpaperSession {
     var audioDemand = (spectrum: false, currentProcess: false)
     var onAudioDemandChanged: (() -> Void)?
     var onFirstFrameCompletion: ((CGDirectDisplayID, Bool) -> Void)?
+    var initialPresentationCohort = SceneInitialPresentationCohort()
     var drainCallbacks: [@MainActor (Bool) -> Void] = []
     let retiringSurfaceDrain = DispatchGroup()
     var surfaceDrainFailed = false
@@ -211,6 +212,8 @@ final class SceneDesktopWallpaperSession {
     }
 
     func promote(firstPresentation: SceneFirstFramePresentationRegistration?) {
+        let heldInitialFrame = initialPresentationCohort.isHeld
+        initialPresentationCohort.reset()
         isVisible = true
         var usesSystemMedia = launchContext?.requiresSystemMedia == true
 #if DEBUG
@@ -237,7 +240,8 @@ final class SceneDesktopWallpaperSession {
         // A paused candidate already rendered its frame while transparent.
         // Present it once visibly without rerunning its simulation.
         surfaces.values.forEach { $0.didSubmitSimulationFrame = false }
-        if sceneClock.isPaused { startFrameDriver() }
+        if sceneClock.isPaused { _ = refreshPausedMediaPublications() }
+        if sceneClock.isPaused || heldInitialFrame { startFrameDriver() }
     }
 
     /// Keep the previous frame/resources available until the parent accepts the
@@ -625,13 +629,25 @@ final class SceneDesktopWallpaperSession {
                 metalView.onRenderInvalidated = { [weak self, weak surface] reason in
                     DispatchQueue.main.async { [weak self, weak surface] in
                         guard let self, let surface, self.surfaces[screenID] === surface else { return }
+                        if self.initialPresentationCohort.isHeld {
+                            // A publication notification has not changed this
+                            // frozen frame. Do not replace its qualified output.
+                            if reason == .mediaPublication { return }
+                            let delivered = self.initialPresentationCohort.hasDelivered
+                            self.initialPresentationCohort.invalidate()
+                            if delivered {
+                                // Parent may already hold the promotion token.
+                                self.onFirstFrameCompletion?(screenID, false)
+                                return
+                            }
+                        }
                         if reason == .mediaPublication {
                             guard self.sceneClock.isPaused,
                                   self.refreshPausedMediaPublications() else { return }
                         } else {
                             surface.didSubmitSimulationFrame = false
                         }
-                        if self.sceneClock.isPaused { self.startFrameDriver() }
+                        if self.sceneClock.isPaused || self.awaitsInitialPresentation { self.startFrameDriver() }
                     }
                 }
             }

@@ -522,10 +522,10 @@
       "lastReviewed": "2026-10-23",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "c6494fcf39d89b4230a70bc5915a6162145f3fe1fa75686390366dd5ed75e0ba",
+        "sourceSHA256": "5a9e0878531d64c281154af84c2d8d43eaf9deb4a85746aed6a23ca5479c40fc",
         "method": "document_registry --audit + document_health --check",
-        "scope": "B12 按授权退役隐藏详情报告，保属性、播放与独立开发工具；同步现役合同与失效链接。",
-        "limitations": "仅审查本次变更职责与导航；回归及构建结果归专项，不升级历史样本、性能或发布验收。"
+        "scope": "普通可见视频候选首呈现合同与有界验收；首GPU不再代替视频内容资格，332首门退出，329同输入既有失败保留。",
+        "limitations": "非全视频、首seek目标、HDR/Release、全部多屏像素、长稳、性能或整景官方一致。"
       }
     },
     {
@@ -767,10 +767,10 @@
       "lastReviewed": "2026-10-23",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "e366f71402e9c4f0139f95f38a81f24b2d18f8085743a082567485b0b9e032c5",
+        "sourceSHA256": "5e61ee5c6a32a425432855b1c1d0ff644887bf655e318378ff557f4164197a3d",
         "method": "document_registry --audit + document_health --check",
-        "scope": "Read-only light census and authored four-point domain contract, bounded actual terminal evidence and retained unknowns; execution order remains live queue.",
-        "limitations": "No full light family, whole-sample official parity, video first-frame closure, HDR/Release/multiscreen or performance claim."
+        "scope": "普通可见视频候选首呈现合同与有界验收；首GPU不再代替视频内容资格，332首门退出，329同输入既有失败保留。",
+        "limitations": "非全视频、首seek目标、HDR/Release、全部多屏像素、长稳、性能或整景官方一致。"
       }
     },
     {
@@ -1059,10 +1059,10 @@
       "lastReviewed": "2026-10-23",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "dbd00b851e4e30502576dbadee66b73b764940ce818e544682c3127369085f65",
+        "sourceSHA256": "494a595dff8b91bebdf54f4bf06ddac375cbb34c440dac9e0181f63e118d853b",
         "method": "document_registry --audit + document_health --check",
-        "scope": "Particle initializer position and death-event fixed official qualification; preserve strict UNKNOWN, actual135 target and existing unsupported boundaries. Historical details have one authority.",
-        "limitations": "Navigation identity only. No product formula selected, real sample repaired or performance result."
+        "scope": "普通可见视频候选首呈现合同与有界验收；首GPU不再代替视频内容资格，332首门退出，329同输入既有失败保留。",
+        "limitations": "非全视频、首seek目标、HDR/Release、全部多屏像素、长稳、性能或整景官方一致。"
       }
     },
     {
@@ -1760,6 +1760,19 @@
         "docs/scene/architecture/runtime-architecture.md",
         "docs/scene/roadmap/scene-open-breakpoint-queue.md"
       ]
+    },
+    {
+      "path": "docs/scene/history/initial-video-presentation-2026-10-23.md",
+      "role": "historical-evidence",
+      "entrypoint": "docs/scene/history/README.md",
+      "commandPolicy": "historical-only",
+      "currentAuthorities": [
+        "docs/scene/architecture/scene-launch-responsiveness-contract.md",
+        "docs/scene/roadmap/scene-open-breakpoint-queue.md",
+        "docs/scene/capabilities/runtime-evidence-current.md"
+      ],
+      "cutoffDate": "2026-10-23",
+      "uniqueValue": "真实冷暂停红帧对照、实际脚本计数、多屏cohort和晚到失败；332背景先于提升，329旧新同失败及测试ICC修正边界。"
     },
     {
       "path": "docs/scene/history/int-compound-assignment-normalizer-2026-10-07.md",
@@ -3722,10 +3735,10 @@
       "lastReviewed": "2026-10-23",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "66b7fed8182bfc2effe0d50c10bb65078a3f8e2907b2d838236266ba0abe3271",
+        "sourceSHA256": "f3593862d20a0a16daf2f3b23346d9951acad5efd83d9041ce08ecd05b0d334b",
         "method": "document_registry --audit + document_health --check",
-        "scope": "Read-only light census and authored four-point domain contract, bounded actual terminal evidence and retained unknowns; execution order remains live queue.",
-        "limitations": "No full light family, whole-sample official parity, video first-frame closure, HDR/Release/multiscreen or performance claim."
+        "scope": "普通可见视频候选首呈现合同与有界验收；首GPU不再代替视频内容资格，332首门退出，329同输入既有失败保留。",
+        "limitations": "非全视频、首seek目标、HDR/Release、全部多屏像素、长稳、性能或整景官方一致。"
       }
     },
     {

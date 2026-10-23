@@ -1,7 +1,7 @@
 import AppKit
 import QuartzCore
 import simd
-private enum SceneFrameDriverAttempt {
+enum SceneFrameDriverAttempt {
     case rendered
     case busy
     case dropped
@@ -50,6 +50,7 @@ extension SceneDesktopWallpaperSession {
 #endif
         // A newly loaded or rebuilt paused surface still needs its frozen first
         // frame. scheduleFrameDriver keeps the repeating driver stopped.
+        guard !initialPresentationCohort.isHeld else { return }
         let initialDeadline = CACurrentMediaTime()
         pausedFrameRetryDeadline = sceneClock.isPaused ? initialDeadline + 1 : nil
         let attempt = renderFrame()
@@ -63,7 +64,7 @@ extension SceneDesktopWallpaperSession {
         }
 #endif
     }
-    private func scheduleFrameDriver(
+    func scheduleFrameDriver(
         after attempt: SceneFrameDriverAttempt,
         scheduledDeadline: CFTimeInterval
     ) {
@@ -72,7 +73,8 @@ extension SceneDesktopWallpaperSession {
         // GPU transaction. Reuse this driver with a bounded admission deadline.
         let retryPausedFrame = (attempt == .busy || attempt == .dropped)
             && pausedFrameRetryDeadline.map { now < $0 } == true
-        guard launchContext != nil, !sceneClock.isPaused || retryPausedFrame else {
+        guard launchContext != nil, !initialPresentationCohort.isHeld,
+              !sceneClock.isPaused || retryPausedFrame || awaitsInitialPresentation else {
             frameTimer?.invalidate()
             frameTimer = nil
             frameDriverDeadline = nil
@@ -148,7 +150,8 @@ extension SceneDesktopWallpaperSession {
             )
 #endif
         }
-        guard launchContext != nil, !surfaces.isEmpty else { return .inactive }
+        guard launchContext != nil, !surfaces.isEmpty,
+              !initialPresentationCohort.isHeld else { return .inactive }
         if sceneClock.isPaused && surfaces.values.allSatisfy({ $0.metalView.hasSimulationFrame }) {
             _ = refreshPausedMediaPublications()
             return renderSurfaces()
@@ -914,87 +917,5 @@ extension SceneDesktopWallpaperSession {
         return changed
     }
 
-    private func renderSurfaces() -> SceneFrameDriverAttempt {
-        var frameOutcomes: [SceneMetalRenderer.FrameOutcome] = []
-        frameOutcomes.reserveCapacity(surfaces.count)
-        for (displayID, surface) in surfaces {
-            if sceneClock.isPaused && surface.didSubmitSimulationFrame { continue }
-#if DEBUG
-            let mainFrameStart = ProcessInfo.processInfo.systemUptime
-#endif
-            let frameOutcome = surface.metalView.renderFrame(
-                performanceTelemetry: SceneDesktopWallpaperHost.usesDebugEvidenceWindow
-                    ? SceneFramePerformanceTelemetry.debugEvidence : nil
-            )
-            if onFirstFrameCompletion != nil || sceneClock.isPaused,
-               case let .prepared(candidate) = frameOutcome {
-                if sceneClock.isPaused { surface.pendingPausedFrame = candidate }
-                candidate.whenCompleted { [weak self, weak surface, weak candidate] succeeded in
-                    DispatchQueue.main.async {
-                        guard let self, let surface, self.surfaces[displayID] === surface else { return }
-                        self.onFirstFrameCompletion?(displayID, succeeded)
-                        guard self.surfaces[displayID] === surface,
-                              let candidate, surface.pendingPausedFrame === candidate else { return }
-                        surface.pendingPausedFrame = nil
-                        guard self.sceneClock.isPaused, !succeeded else { return }
-                        surface.didSubmitSimulationFrame = false
-                        self.scheduleFrameDriver(after: .dropped, scheduledDeadline: CACurrentMediaTime())
-                    }
-                }
-            }
-            frameOutcomes.append(frameOutcome)
-#if DEBUG
-            if case let .prepared(candidate) = frameOutcome {
-                candidate.observeGPUStageSurface(frameIndex: surface.metalView.simulationFrameIndex, surfaceID: displayID)
-            }
-            if SceneDesktopWallpaperHost.usesDebugEvidenceWindow,
-               surface.metalView.simulationFrameIndex <= 2,
-               case let .prepared(candidate) = frameOutcome {
-                candidate.observeCompletion(frameIndex: surface.metalView.simulationFrameIndex, surfaceID: displayID)
-            }
-            if SceneDesktopWallpaperHost.usesDebugEvidenceWindow,
-               debugRejectPreparedFrameOnce == surface.metalView.simulationFrameIndex,
-               frameOutcomes.count == surfaces.count {
-                debugRejectPreparedFrameOnce = nil
-                if case let .prepared(candidate) = frameOutcome { candidate.cancel() }
-                frameOutcomes[frameOutcomes.count - 1] = .dropped(
-                    reasonCode: "debug-evidence-prepared-surface-rejected"
-                )
-                NSLog("MWX DEBUG SCENE: phase=surface-submission state=rejected frame=%llu surface=%u totalSurfaces=%d", surface.metalView.simulationFrameIndex, displayID, surfaces.count)
-            }
-            if SceneDesktopWallpaperHost.usesDebugEvidenceWindow {
-                SceneFramePerformanceTelemetry.debugEvidence.recordMainFrame(
-                    duration: ProcessInfo.processInfo.systemUptime - mainFrameStart
-                )
-            }
-#endif
-            let outcomeIndex = frameOutcomes.count - 1
-            let submitted = SceneMetalRenderer.submitPreparedFrame(frameOutcomes[outcomeIndex])
-            frameOutcomes[outcomeIndex] = submitted
-            if submitted.isSubmitted {
-                surface.didSubmitSimulationFrame = true
-                surface.metalView.commitPreparedMaterialAssetFrame()
-                surface.metalView.commitPreparedFrameTexturePublication()
-                surface.metalView.commitPreparedMediaThumbnailUpdate()
-                surface.metalView.commitPreparedDynamicTextUpdate()
-            } else {
-                if frameOutcome.isPrepared { surface.pendingPausedFrame = nil }
-                surface.metalView.discardPreparedMaterialAssetFrame()
-                surface.metalView.discardPreparedFrameTexturePublication()
-                surface.metalView.discardPreparedMediaThumbnailUpdate()
-                surface.metalView.discardPreparedDynamicTextUpdate()
-            }
-        }
-        // The shared provider version is resolved once. A failed surface may
-        // not roll back a source already referenced by another submitted GPU.
-        if frameOutcomes.contains(where: \.isSubmitted) {
-            videoTextureSourceRegistry?.commitPreparedFrame()
-        } else {
-            videoTextureSourceRegistry?.discardPreparedFrame()
-        }
-        if sceneClock.isPaused && !surfaces.values.allSatisfy(\.didSubmitSimulationFrame) {
-            return frameOutcomes.contains(where: \.isDeferred) ? .busy : .dropped
-        }
-        return frameOutcomes.contains(where: \.isSubmitted) ? .rendered : .dropped
-    }
+
 }

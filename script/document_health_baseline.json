@@ -73,8 +73,8 @@
       "bytes": 5956
     },
     "docs/scene/architecture/scene-launch-responsiveness-contract.md": {
-      "lines": 204,
-      "bytes": 23193
+      "lines": 217,
+      "bytes": 26174
     },
     "docs/scene/architecture/scene-resource-admission.md": {
       "lines": 90,
@@ -277,8 +277,8 @@
       "bytes": 17446
     },
     "docs/scene/roadmap/scene-open-breakpoint-queue.md": {
-      "lines": 254,
-      "bytes": 80655
+      "lines": 255,
+      "bytes": 80561
     },
     "docs/web/cold-descriptor-parse-offload-design.md": {
       "lines": 43,
@@ -1329,15 +1329,6 @@
     },
     {
       "section": "bodies",
-      "path": "docs/scene/architecture/scene-launch-responsiveness-contract.md",
-      "before": "a9fb34fedb1cfcac939840ca963afd281811cbb38761a529e0ceb86777ecf597",
-      "after": "96fff61543fb58e7a17bc09b8622e5a906a75607fa0ea487621953e70a574515",
-      "owner": "code-slimming-b12",
-      "reason": "按第十二批用户授权同步精简合同及有界验证，替换退役说明并按实际正文调整预算。",
-      "decision": "docs/development/code-slimming-program.md#第十二批范围与停止条件"
-    },
-    {
-      "section": "bodies",
       "path": "docs/scene/capabilities/render-graph-shader-coverage.md",
       "before": "7b32a41481ae8e2166ed8b4d32fcc0784a13f893f3941cfd0a77cbbf2e7d0fa3",
       "after": "8edb2977be1a1d20dc8c3a9e6402e9716061bb63c8db5af21055437cb950b265",
@@ -1455,12 +1446,21 @@
     },
     {
       "section": "bodies",
+      "path": "docs/scene/architecture/scene-launch-responsiveness-contract.md",
+      "before": "96fff61543fb58e7a17bc09b8622e5a906a75607fa0ea487621953e70a574515",
+      "after": "6200cf1a079f13c13b93e4e0c8e8ece4a36aa78e17108e4074be0ff76a5cb15c",
+      "owner": "scene-initial-video-presentation",
+      "reason": "新增首呈现唯一职责合同，视频首门由队列移至有界历史；不重复当前结果或升级整景/性能声明。",
+      "decision": "docs/scene/architecture/scene-launch-responsiveness-contract.md#initial-video-presentation"
+    },
+    {
+      "section": "bodies",
       "path": "docs/scene/roadmap/scene-open-breakpoint-queue.md",
-      "before": "151eb9900675ad8b2b1f6eac4f3963b4f126618ac2ab4e15627cf2ccd1ed56e2",
-      "after": "705abfe11f55039f3231ae114fd57133f7565d1ecde3bac716385f2eb2164528",
-      "owner": "Scene authored direct-draw domain",
-      "reason": "Add bounded light inventory and typed four-point design; retire closed geometry queue item, keep video and unqualified boundaries open. New actual evidence uses a permanent history redirect without growing600-line runtime body.",
-      "decision": "docs/scene/roadmap/batch2/terminal-material-chain-design.md#authored-direct-draw-domain"
+      "before": "705abfe11f55039f3231ae114fd57133f7565d1ecde3bac716385f2eb2164528",
+      "after": "a6e267eb6e803c7cceb41316742e25a861ad65955d93b1d6bb124546f33b596a",
+      "owner": "scene-initial-video-presentation",
+      "reason": "新增首呈现唯一职责合同，视频首门由队列移至有界历史；不重复当前结果或升级整景/性能声明。",
+      "decision": "docs/scene/architecture/scene-launch-responsiveness-contract.md#initial-video-presentation"
     }
   ]
 }

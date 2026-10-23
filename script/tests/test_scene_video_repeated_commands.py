@@ -7,6 +7,8 @@ import subprocess
 import tempfile
 import unittest
 
+from script.tests import test_scene_initial_video_resource_readiness as readiness
+
 ROOT = Path(__file__).resolve().parents[2]
 PROVIDERS = ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Resources/Providers"
 SCENE = ROOT / "MyWallpaperX/Core/SteamWorkshopScene"
@@ -22,6 +24,7 @@ def compile_probe(work):
         str(PROVIDERS / "SceneVideoOwnedFile.swift"),
         str(SCENE / "Resources/Textures/SceneResourceBudget.swift"),
         str(PROVIDERS / "SceneVideoTextureSource.swift"),
+        str(readiness.write_readiness_source(work)),
         str(ROOT / "script/tests/fixtures/SceneVideoRepeatedCommandsHarness.swift"),
         "-module-cache-path", str(work / "module-cache"),
         "-o", str(work / "probe")

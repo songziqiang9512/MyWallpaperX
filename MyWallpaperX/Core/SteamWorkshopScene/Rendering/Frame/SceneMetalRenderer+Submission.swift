@@ -20,9 +20,10 @@ extension SceneMetalRenderer {
         reflectionFrame: ReflectionFrame?,
         modelFrame: StaticModelFrame,
         mainPassForSubmission: SceneMainPassEncoder?,
-        particleBatches: [SceneParticleDrawBatch]
+        particleBatches: [SceneParticleDrawBatch],
+        initialVideoPresentation: InitialVideoPresentation? = nil
     ) -> PreparedFrame {
-        return PreparedFrame(commandBuffer: commandBuffer, submit: {
+        return PreparedFrame(commandBuffer: commandBuffer, initialVideoPresentation: initialVideoPresentation, submit: {
 #if DEBUG
             if !SceneGPUStageTimestampHook.isSelected(commandBuffer) {
                 encodeFrameReadback?(drawable.texture, commandBuffer)

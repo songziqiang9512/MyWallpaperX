@@ -2,6 +2,14 @@ import CoreGraphics
 import Foundation
 import Metal
 
+/// Candidate-only observation of the ordinary layer-video resource. Consumer
+/// selection and visibility remain with the existing renderer/resolver.
+enum SceneOrdinaryVideoFrameReadiness: Equatable {
+    case ready
+    case pending
+    case unavailable
+}
+
 struct SceneBaseImageTextureSnapshot {
     let textures: [Int: MTLTexture]
     let geometryProducts: [Int: SceneGeometryProduct]
@@ -9,6 +17,7 @@ struct SceneBaseImageTextureSnapshot {
     private let layerSourcePublications: [Int: SceneLayerSourcePublication]
     private let candidates: [Int: SceneTextureCandidate]
     private let pendingLayerSourceIDs: Set<Int>
+    let initialVideoReadiness: [Int: SceneOrdinaryVideoFrameReadiness]?
 
     init(
         textures: [Int: MTLTexture],
@@ -16,7 +25,8 @@ struct SceneBaseImageTextureSnapshot {
         explicitLayerSources: [Int: SceneTextureProviderPublication] = [:],
         layerSourcePublications: [Int: SceneLayerSourcePublication] = [:],
         candidates: [Int: SceneTextureCandidate],
-        pendingLayerSourceIDs: Set<Int> = []
+        pendingLayerSourceIDs: Set<Int> = [],
+        initialVideoReadiness: [Int: SceneOrdinaryVideoFrameReadiness]? = nil
     ) {
         var validatedTextures = textures
         var validatedExplicitLayerSources: [Int: SceneTextureProviderPublication] = [:]
@@ -66,6 +76,12 @@ struct SceneBaseImageTextureSnapshot {
         self.pendingLayerSourceIDs = pendingLayerSourceIDs.subtracting(
             validatedLayerSources.keys
         )
+        self.initialVideoReadiness = initialVideoReadiness.map { observations in
+            observations.reduce(into: [:]) { result, entry in
+                result[entry.key] = entry.value == .ready && validatedTextures[entry.key] == nil
+                    ? .pending : entry.value
+            }
+        }
     }
 
     func replacingLayerSources(
@@ -82,7 +98,8 @@ struct SceneBaseImageTextureSnapshot {
             geometryProducts: geometryProducts.filter { sources[$0.key] == nil },
             explicitLayerSources: explicitLayerSources,
             layerSourcePublications: replacedPublications, candidates: candidates,
-            pendingLayerSourceIDs: pendingLayerSourceIDs)
+            pendingLayerSourceIDs: pendingLayerSourceIDs,
+            initialVideoReadiness: initialVideoReadiness)
     }
 
     subscript(layerID: Int) -> MTLTexture? {
@@ -163,6 +180,7 @@ struct SceneBaseImageTextureStore {
     private(set) var geometryProducts: [Int: SceneGeometryProduct] = [:]
     private(set) var candidates: [Int: SceneTextureCandidate] = [:]
     private(set) var publications: [Int: SceneTextureProviderPublication] = [:]
+    private(set) var unavailableOrdinaryVideoLayerIDs: Set<Int> = []
     private var contentGeneration: UInt64 = 0
 
     subscript(layerID: Int) -> MTLTexture? {
@@ -172,6 +190,7 @@ struct SceneBaseImageTextureStore {
             candidates[layerID] = nil
             publications[layerID] = nil
             geometryProducts[layerID] = nil
+            unavailableOrdinaryVideoLayerIDs.remove(layerID)
         }
     }
 
@@ -180,6 +199,7 @@ struct SceneBaseImageTextureStore {
         candidate: SceneTextureCandidate?,
         layerID: Int
     ) {
+        unavailableOrdinaryVideoLayerIDs.remove(layerID)
         textures[layerID] = texture
         let matchingCandidate = candidate.flatMap {
             $0.texture === texture ? $0 : nil
@@ -196,6 +216,12 @@ struct SceneBaseImageTextureStore {
         geometryProducts[layerID] = nil
     }
 
+    /// Called only by the original load boundary after a declared video's
+    /// Source construction actually failed, never from a missing frame.
+    mutating func markOrdinaryVideoUnavailable(layerID: Int) {
+        unavailableOrdinaryVideoLayerIDs.insert(layerID)
+    }
+
     /// Installs the atlas and geometry atomically. The candidate retains only
     /// the atlas sampling contract used by source capture. The atlas is not a
     /// completed layer-source publication because only a mesh draw composes it.
@@ -205,6 +231,7 @@ struct SceneBaseImageTextureStore {
         samplingCandidate: SceneTextureCandidate?,
         layerID: Int
     ) {
+        unavailableOrdinaryVideoLayerIDs.remove(layerID)
         contentGeneration &+= 1
         textures[layerID] = samplingAtlas
         geometryProducts[layerID] = product.installing(
@@ -219,6 +246,7 @@ struct SceneBaseImageTextureStore {
     mutating func merge(_ incoming: [Int: MTLTexture]) {
         textures.merge(incoming) { _, value in value }
         for layerID in incoming.keys {
+            unavailableOrdinaryVideoLayerIDs.remove(layerID)
             candidates[layerID] = nil
             publications[layerID] = nil
             geometryProducts[layerID] = nil
@@ -229,7 +257,8 @@ struct SceneBaseImageTextureStore {
         textures: [Int: MTLTexture],
         explicitLayerSources: [Int: SceneTextureProviderPublication] = [:],
         layerSourcePublications: [Int: SceneLayerSourcePublication] = [:],
-        pendingLayerSourceIDs: Set<Int> = []
+        pendingLayerSourceIDs: Set<Int> = [],
+        initialVideoReadiness: [Int: SceneOrdinaryVideoFrameReadiness]? = nil
     ) -> SceneBaseImageTextureSnapshot {
         var combinedPublications = publications.filter { layerID, publication in
             textures[layerID] === publication.texture
@@ -247,7 +276,8 @@ struct SceneBaseImageTextureStore {
             explicitLayerSources: combinedPublications,
             layerSourcePublications: combinedLayerSources,
             candidates: candidates,
-            pendingLayerSourceIDs: pendingLayerSourceIDs
+            pendingLayerSourceIDs: pendingLayerSourceIDs,
+            initialVideoReadiness: initialVideoReadiness
         )
     }
 

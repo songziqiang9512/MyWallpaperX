@@ -16,7 +16,6 @@
 
 | 项目 | 当前证据与边界 | 最小下一门 / 停止条件 |
 |---|---|---|
-| 普通视频首可见帧完整性 · 3321237804 | 左上斜光的四点域首错已[有界关闭](../history/authored-direct-draw-domain-2026-10-23.md#authored-direct-draw-domain-20261023)，不重调origin/光强。背景270无作者入场/alpha控制；旧首GPU完成后196ms才发布首视频generation1，ready截图更晚已含背景，未捕到首瞬间黑底，不据此否定反馈。pending仅约束局部source，未约束候选提升。 | 沿原Source/同帧选源/首GPU资格定位，不等全部隐藏源、不重置clock。仅defer会触首start discard/seek复位；延后回调还须补paused资源重绘与多屏cohort资格，先设计再实现，不临时加延时。 |
 | Program前端及来源准入 · 3086016320 | 430仍报execution-stage-conservation/named binding；它属于父426下的封面转场/混合，默认父alpha0，不能当独立root1521底部频谱缺失根因。既有原1521双32band实际非零、原Program/GPU/末合成已完成。292 global const、314/370分组prefix首拒已闭，不重开。 | 后继先取430可见媒体正控与实际base/potential/selected依赖向量；302多槽合同可复用owner，不能跳过隐藏effectless forward259的作者顺序或照套anchor。无默认可归因ROI时不为修日志首错优先实现；292短曲线另归视觉资格。 |
 | source材质/lookup余项 · 3616476797 /3679907516 | 361113及36771/74/83的source-only render-state首拒仍在（translucent/VERSION2等组合），不能泛化全部translucent/VERSION2或整layer缺失。361右下媒体面板/条实际在，无同控thumbnail；36771作者回调产黑、83初alpha0待thumbnail事件，74普通effect已实际Program/GPU/末消费。当前无source独占默认缺失ROI。367名称/祖父缺席异常另未证明缺host API。 | 优先低成本受控媒体资格；仅texture×g_Color4的native等价路径须证明一次调制/输出域，不为无新增像素扩raw接口。只有非等价source可见ROI才推进原sourceEvaluationState/typed Program；保父子/多receiver、straight/PMA、UV、资源身份与局部失败反例，不直接放guard或全局吞lookup错误。 |
 | 动画metadata准入 · 3822822401 | 161→puppetAnimationLayer244.visible报prepared metadata unavailable，独立可见损失未定；**蝴蝶延迟正常**。281/299292的文字创建误拒已由下述后继退出，不再归缺asset。 | 核合法lookup与target prepared metadata的最早owner，只接原typed事务；先取得该回调可见作用，不吞异常或由本项宣称缺蝴蝶。 |
@@ -31,6 +30,8 @@
 <a id="qv-visual-repairs"></a>
 <a id="qf-2026-10-07-用户点名四样本公共主链修复"></a>
 
+
+332的普通视频首提升空绘制已退出：实际选择的可见视频内容与同次全部surface提交/GPU完成才允许Host提升；冷暂停红视频与脚本计数、坏源局部回退、改名双屏及旧active反例通过。原背景270首publication先于提升，左上光束修复保持；不认首seek目标同步、所有视频/整景parity或性能收益。独立329同输入旧/新App均有既有utility505/七项graph失败，保原NON-PASS，空媒体不推新缺图。[有界后验](../history/initial-video-presentation-2026-10-23.md#initial-video-presentation-20261023)。
 
 332默认639主时钟缺失已退出：实际字体在原生glyph-path段落中产生不可表达的字形坐标；同一准备链统一退回typographic排版，原包5/10/15s主时间完整可读，日期/星期与独立347文字/画面保留。旧“小碎片”主要是独立秒数，不能继续归因639。异常字体的精确ink限宽、post-scale/多语言与官方同状态未验；376空媒体颜色拒绝仍单列待事件资格，不吞数值检查。[有界后验](../capabilities/runtime-evidence-current.md#native-text-bounds-20261022)。
 

@@ -630,7 +630,9 @@
           "SceneDesktopWallpaperLaunchFrameSchema.swift",
           "ScenePreparedDeviceResources.swift",
           "ScenePreparedDeviceResources+SourceMaterials.swift",
-          "ScenePreparedPuppetResources.swift"
+          "ScenePreparedPuppetResources.swift",
+          "SceneInitialPresentationCohort.swift",
+          "SceneDesktopWallpaperSession+SurfaceSubmission.swift"
         ],
         "responsibility": "Session: Scene process/session orchestration and frame handoff; capability algorithms stay with their systems."
       }

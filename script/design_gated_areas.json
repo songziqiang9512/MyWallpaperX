@@ -1114,6 +1114,23 @@
       "contentPatterns": [
         "authoredDirectDrawDomain"
       ]
+    },
+    {
+      "id": "scene-initial-video-presentation",
+      "title": "可见普通视频首呈现与同次surface cohort",
+      "owner": "Existing Source / BaseMaterial selection / PreparedFrame / Session / Host",
+      "status": "approved",
+      "designDoc": "docs/scene/architecture/scene-launch-responsiveness-contract.md",
+      "design_notes": "2026-10-23 #initial-video-presentation 在实现前保存。只冻结实际可见普通消费者的视频事实；正常提交commit、同attempt全surface GPU后走原Host提升，暂停仅资源重试。原clock/Source定位/5s超时/old-active/取消/drain保留；冷paused先验不通过就修订，设计不证明实现。",
+      "matchPatterns": [
+        "MyWallpaperX/Core/SteamWorkshopScene/Runtime/Session/SceneInitialPresentationCohort.swift",
+        "MyWallpaperX/Core/SteamWorkshopScene/Runtime/Session/SceneDesktopWallpaperSession+SurfaceSubmission.swift"
+      ],
+      "contentPatterns": [
+        "initialVideoReadiness",
+        "initialVideoPresentation",
+        "initialPresentationCohort"
+      ]
     }
   ]
 }

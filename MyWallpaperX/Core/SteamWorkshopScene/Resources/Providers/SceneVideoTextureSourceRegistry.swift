@@ -193,11 +193,13 @@ final class SceneVideoTextureSourceRegistry {
         layerID: Int,
         cacheDirectory: URL,
         device: MTLDevice,
-        loader: SceneTextureLoader
+        loader: SceneTextureLoader,
+        onSourceCreationFailure: (() -> Void)? = nil
     ) -> SceneVideoTextureSource? {
         guard !isStopped, let declaration = loader.videoSourceDeclaration(from: url) else { return nil }
         return source(declaration: declaration, owner: .layer(layerID),
-            cacheDirectory: cacheDirectory, device: device, loader: loader)
+            cacheDirectory: cacheDirectory, device: device, loader: loader,
+            onSourceCreationFailure: onSourceCreationFailure)
     }
 
     func source(
@@ -205,7 +207,8 @@ final class SceneVideoTextureSourceRegistry {
         owner: SceneVideoTexturePlaybackOwner,
         cacheDirectory: URL,
         device: MTLDevice,
-        loader: SceneTextureLoader
+        loader: SceneTextureLoader,
+        onSourceCreationFailure: (() -> Void)? = nil
     ) -> SceneVideoTextureSource? {
         let sourceKey = declaration.source
         let url = declaration.url
@@ -227,10 +230,11 @@ final class SceneVideoTextureSourceRegistry {
             cacheDirectory: cacheDirectory,
             device: device,
             capturesLifecycleObservations: capturesLifecycleObservations
-        ),
-              loader.sourceKey(for: url) == sourceKey else {
+        ) else {
+            onSourceCreationFailure?()
             return nil
         }
+        guard loader.sourceKey(for: url) == sourceKey else { return nil }
         rebuildingSourceIdentities?.insert(identity)
         source.adoptLifecycleEpoch(epoch)
         sources[identity] = source

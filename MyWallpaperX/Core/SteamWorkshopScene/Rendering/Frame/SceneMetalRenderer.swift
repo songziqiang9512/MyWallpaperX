@@ -44,6 +44,7 @@ struct SceneMetalRenderer {
     /// topology revision, not by every frame that reuses the same snapshot.
     let dynamicLayerTopologyCache = SceneDynamicLayerRenderTopologyCache()
     func renderFrame(
+        collectsInitialVideoReadiness: Bool = false,
         imageTextures: SceneBaseImageTextureSnapshot,
         layerTopology: SceneScriptLayerTopologySnapshot? = nil,
         userPropertyTextures: [String: MTLTexture] = [:],
@@ -195,6 +196,7 @@ struct SceneMetalRenderer {
                 }
             }
         }
+        var initialVideoPresentation: InitialVideoPresentation? = collectsInitialVideoReadiness ? .init() : nil
         var mainPassForSubmission: SceneMainPassEncoder?
         defer { if !didTransferFrameOwnership { mainPassForSubmission?.cancelCompositionPins() } }
         var reflectionFrame: ReflectionFrame?
@@ -235,7 +237,8 @@ struct SceneMetalRenderer {
                 particlePerformanceObservations: &particlePerformanceObservations,
                 mainPassForSubmission: &mainPassForSubmission,
                 reflectionFrame: &reflectionFrame,
-                compositionGroupRuntime: &compositionGroupRuntime
+                compositionGroupRuntime: &compositionGroupRuntime,
+                initialVideoPresentation: &initialVideoPresentation
             ) { return failure }
         }
 #if DEBUG
@@ -268,7 +271,8 @@ struct SceneMetalRenderer {
             reflectionFrame: reflectionFrame,
             modelFrame: modelFrame,
             mainPassForSubmission: mainPassForSubmission,
-            particleBatches: particleBatches
+            particleBatches: particleBatches,
+            initialVideoPresentation: initialVideoPresentation
         )
         didTransferFrameOwnership = true
 #if DEBUG

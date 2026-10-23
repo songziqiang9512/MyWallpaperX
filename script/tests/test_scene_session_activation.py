@@ -178,6 +178,65 @@ final class SceneDesktopWallpaperSession {
         result["stopWaitsForGPU"] = !drained && !confirmed.visible && host.activeSession == nil
         confirmed.finishDrain()
         result["stopFinishesAfterGPU"] = drained && host.retiringSessions.isEmpty
+
+        // A separate Host keeps this delayed-parent case independent of the
+        // preceding handoff outcomes. These are controlled terminal callbacks,
+        // not a real command-buffer failure or a second rendering harness.
+        do {
+            let delayedHost=SceneDesktopWallpaperHost()
+            let previous=SceneDesktopWallpaperSession(textureDecodeCacheBudget:delayedHost.textureDecodeCacheBudget)
+            previous.visible=true
+            delayedHost.activeSession=previous
+            var delayedOutcomes:[Bool]=[]
+            var prepared:[UUID]=[]
+            var delayedReleased:[UUID]=[]
+            delayedHost.candidatePreparedHandler={prepared.append($0)}
+            delayedHost.requestResourcesReleasedHandler={delayedReleased.append($0)}
+            let presentation=SceneFirstFramePresentationRegistration()
+            let requestID=presentation.requestID
+            delayedHost.launchState = .init(requestID:requestID,recordID:nil,phase:.preparingModel,message:"")
+            try delayedHost.beginCandidate(.init(),firstPresentation:presentation) { outcome in
+                if case .success=outcome {delayedOutcomes.append(true)} else {delayedOutcomes.append(false)}
+            }
+            let candidate=delayedHost.candidateSession!
+            let staleSuccess=candidate.onFirstFrameCompletion!
+            // A previously submitted GPU terminal forwards through the Session's
+            // current callback, as production does when that terminal arrives.
+            let oldSubmittedFailure={ candidate.onFirstFrameCompletion?(1,false) }
+            candidate.onFirstFrameCompletion?(1,true)
+            candidate.onFirstFrameCompletion?(2,true)
+            let oldPromotion=delayedHost.candidatePromotion?.promote
+            result["DelayedParentHasPreparedCandidateWithoutPromotion"] = prepared == [requestID]
+                && delayedHost.candidateSession === candidate && delayedHost.activeSession === previous
+                && previous.visible && !candidate.visible && delayedOutcomes.isEmpty && oldPromotion != nil
+            result["DelayedParentStillObservesGPUFailure"] = candidate.onFirstFrameCompletion != nil
+            candidate.onFirstFrameCompletion?(1,true)
+            candidate.onFirstFrameCompletion?(2,true)
+            result["RepeatedSuccessDoesNotRepeatParentPreparedHandler"] = prepared == [requestID]
+                && delayedOutcomes.isEmpty && delayedHost.candidateSession === candidate
+            oldSubmittedFailure()
+            result["LateGPUFailureCancelsPreparedCandidate"] = delayedHost.candidateSession == nil
+                && candidate.stopped && !candidate.visible && delayedOutcomes == [false]
+                && delayedHost.candidatePromotion == nil && delayedHost.candidateDeadline == nil
+            result["LateGPUFailureKeepsPreviousActive"] = delayedHost.activeSession === previous
+                && previous.visible && !previous.stopped && delayedHost.unconfirmedPromotion == nil
+            result["LateGPUFailureRetainsCandidateUntilDrain"] = delayedReleased.isEmpty
+                && delayedHost.retiringSessions[ObjectIdentifier(candidate)] === candidate
+            staleSuccess(2,true)
+            oldPromotion?()
+            delayedHost.commitCandidate(requestID:requestID)
+            delayedHost.finalizeCandidate(requestID:requestID)
+            result["FailedPreparedCandidateCannotPromoteFromStaleParentCommit"] = delayedHost.activeSession === previous
+                && previous.visible && !previous.stopped && !candidate.visible
+                && delayedHost.candidateSession == nil && delayedHost.unconfirmedPromotion == nil
+                && delayedOutcomes == [false] && prepared == [requestID]
+            candidate.finishDrain()
+            candidate.finishDrain()
+            result["LateGPUFailureReleasesOnlyAfterSingleDrain"] = delayedReleased == [requestID]
+                && delayedHost.retiringSessions[ObjectIdentifier(candidate)] == nil
+            delayedHost.stop()
+            previous.finishDrain()
+        }
         print(String(data:try JSONSerialization.data(withJSONObject:result,options:[.sortedKeys]),encoding:.utf8)!)
     }
 }

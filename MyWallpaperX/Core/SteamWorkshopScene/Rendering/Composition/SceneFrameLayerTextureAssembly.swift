@@ -8,12 +8,16 @@ enum SceneFrameLayerTextureAssembly {
         mediaThumbnail: SceneMediaThumbnailTextureStore.Snapshot? = nil,
         mediaBindings: SceneBaseMaterialProviderBindingProgram = .empty,
         videoSources: [Int: SceneVideoTextureSource],
-        timing: SceneFrameTiming
+        timing: SceneFrameTiming,
+        collectsInitialVideoReadiness: Bool = false
     ) -> SceneBaseImageTextureSnapshot {
         var textures = base.textures
         var publications: [Int: SceneTextureProviderPublication] = [:]
         var layerSourcePublications: [Int: SceneLayerSourcePublication] = [:]
         var pendingLayerSourceIDs: Set<Int> = []
+        var initialVideoReadiness: [Int: SceneOrdinaryVideoFrameReadiness]? = collectsInitialVideoReadiness
+            ? Dictionary(uniqueKeysWithValues: base.unavailableOrdinaryVideoLayerIDs.map { ($0, .unavailable) })
+            : nil
 
         if let dynamicImage {
             for (layerID, layerSource) in dynamicImage.layerSources {
@@ -36,7 +40,11 @@ enum SceneFrameLayerTextureAssembly {
         _ = mediaThumbnail
         _ = mediaBindings
         for (layerID, source) in videoSources {
-            guard let frame = source.prepareFrame(for: timing),
+            let preparedFrame = source.prepareFrame(for: timing)
+            if collectsInitialVideoReadiness {
+                initialVideoReadiness?[layerID] = source.initialFrameReadiness(preparedFrame: preparedFrame)
+            }
+            guard let frame = preparedFrame,
                   let publication = frame.publication else {
                 pendingLayerSourceIDs.insert(layerID)
                 continue
@@ -55,7 +63,8 @@ enum SceneFrameLayerTextureAssembly {
             textures: textures,
             explicitLayerSources: publications,
             layerSourcePublications: layerSourcePublications,
-            pendingLayerSourceIDs: pendingLayerSourceIDs
+            pendingLayerSourceIDs: pendingLayerSourceIDs,
+            initialVideoReadiness: initialVideoReadiness
         )
     }
 }
