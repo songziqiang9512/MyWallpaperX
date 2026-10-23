@@ -1013,8 +1013,8 @@
       "title": "D15 全模块网格滚动与复用",
       "owner": "AppKit grid scroll views and item presentation",
       "status": "approved",
-      "designDoc": "docs/development/apple-silicon-optimization-plan.md",
-      "design_notes": "D15：滚动状态仅暂停可见卡片hover，不禁点击/键盘/框选；原生item复用与identity取消；布局按实际输入变化刷新；在线图后台下采样立即解码，保缓存失效、预算、原样式。按阶段独审、行为与真实窗口门后用户测试，不预支帧率或全量回归结论。",
+      "designDoc": "docs/architecture/appkit-migration.md",
+      "design_notes": "D15：滚动状态仅暂停可见卡片hover，不禁点击/键盘/框选；原生item复用与identity取消；布局按实际输入变化刷新；在线图后台下采样立即解码，保缓存失效、预算、原样式。按阶段独审、行为与真实窗口门后用户测试，不预支帧率或全量回归结论。 2026-10-23试用版设计见AppKit合同：原滚动态撤下/恢复hover tracking area，保集合输入；Video/Online下载徽章首次可见才创建并复用、尺寸独立保存；Steam布局仅像素档变化配置预览，模型配置仍校验来源。原失效/缓存预算/作者效果不变，行为门/两配置构建/独审后交用户测试，不预认FPS。 续版：Steam预取完整指纹在单批串行utility检查，latest-only视口与生命周期代次挡迟到；隐藏玻璃bar脱离窗口树并守住重入动画，缓存发布owner和原样式不变。",
       "matchPatterns": [
         "MyWallpaperX/Modules/OnlineLibrary/Core/OnlineLibraryThumbnailPipeline.swift",
         "MyWallpaperX/Modules/OnlineLibrary/UI/AppKitOLBrowserGridView.swift",

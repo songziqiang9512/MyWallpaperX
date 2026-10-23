@@ -48,15 +48,7 @@ extension AppKitSteamWorkshopBrowserItem {
     }
 
     func refreshTrackingArea() {
-        guard trackingAreaRef == nil else { return }
-        let trackingArea = NSTrackingArea(
-            rect: view.bounds,
-            options: [.mouseEnteredAndExited, .mouseMoved, .activeInActiveApp, .inVisibleRect],
-            owner: self,
-            userInfo: nil
-        )
-        view.addTrackingArea(trackingArea)
-        trackingAreaRef = trackingArea
+        hoverTracking.update(in: view, owner: self)
     }
 
     func buildHierarchy() {
@@ -122,7 +114,8 @@ extension AppKitSteamWorkshopBrowserItem {
         overlayBar.setAccessibilityElement(true)
         overlayBar.setAccessibilityRole(.progressIndicator)
         overlayBar.setAccessibilityLabel("下载进度")
-        cardView.addSubview(overlayBar)
+        // Invisible glass still participates in native layout. Keep the same
+        // reusable bar detached until the original visibility policy reveals it.
 
         for button in [detailButton, statusBadgeButton] {
             button.isBordered = false
@@ -276,6 +269,11 @@ extension AppKitSteamWorkshopBrowserItem {
         let suppressDownloadsBar = currentDisplayContext == .downloads && isMultiSelectMode
         let shouldRevealBar = !suppressDownloadsBar && (isHovering || shouldPersistBarVisibility)
         let shouldShowOutline = isHovering || isSelectionHighlighted
+        barPresentationGeneration &+= 1
+        let presentation = barPresentationGeneration
+        if shouldRevealBar, overlayBar.superview == nil {
+            cardView.addSubview(overlayBar, positioned: .above, relativeTo: overlayBarShadowView)
+        }
         refreshThemeAwareAppearance()
         let barDuration = shouldRevealBar
             ? UIInteractionAnimation.cardHoverExpandDuration
@@ -292,6 +290,7 @@ extension AppKitSteamWorkshopBrowserItem {
             CATransaction.commit()
             hoverOutlineView.alphaValue = shouldShowOutline ? 1 : 0
             currentBarVisibility = shouldRevealBar
+            if !shouldRevealBar { overlayBar.removeFromSuperview() }
             isHoverOutlineVisible = shouldShowOutline
             updateContinuousAnimationState(barVisible: shouldRevealBar)
             return
@@ -303,6 +302,9 @@ extension AppKitSteamWorkshopBrowserItem {
             self.cardView.animator().alphaValue = 1
             self.overlayBar.animator().alphaValue = shouldRevealBar ? (self.isHovering ? 0.92 : 0.84) : 0
             self.hoverOutlineView.animator().alphaValue = shouldShowOutline ? 1 : 0
+        } completionHandler: { [weak self] in
+            guard let self, self.barPresentationGeneration == presentation, !self.currentBarVisibility else { return }
+            self.overlayBar.removeFromSuperview()
         }
 
         applyBarTransform(isVisible: shouldRevealBar, duration: barDuration, timing: barTiming)

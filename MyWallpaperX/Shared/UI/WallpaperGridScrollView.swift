@@ -6,6 +6,35 @@ protocol WallpaperGridHoverItem: NSCollectionViewItem {
     func refreshGridHover(isScrolling: Bool)
 }
 
+/// The existing grid scroll phase owns suppression. Removing the tracking area
+/// also removes AppKit's hover bookkeeping, rather than only ignoring callbacks.
+/// Collection selection, button hits, menus and keyboard input stay untouched.
+final class WallpaperGridHoverTracking {
+    private weak var trackedView: NSView?
+    private var area: NSTrackingArea?
+
+    func update(in view: NSView, owner: AnyObject, isScrolling: Bool? = nil) {
+        if isScrolling ?? view.isGridHoverSuppressed {
+            detach()
+            return
+        }
+        guard trackedView !== view || area == nil else { return }
+        detach()
+        let next = NSTrackingArea(rect: .zero,
+            options: [.mouseEnteredAndExited, .mouseMoved, .activeInActiveApp, .inVisibleRect],
+            owner: owner, userInfo: nil)
+        trackedView = view
+        area = next
+        view.addTrackingArea(next)
+    }
+
+    private func detach() {
+        if let area { trackedView?.removeTrackingArea(area) }
+        area = nil
+        trackedView = nil
+    }
+}
+
 final class WallpaperGridScrollView: NSScrollView {
     // The wheel override only observes phases and forwards the original event.
     // Keep AppKit's responsive scrolling, which overrides otherwise opt out of.

@@ -305,6 +305,7 @@ final class AppKitOLDownloadsItem: NSCollectionViewItem, WallpaperGridHoverItem 
     }
 
     private let imageContainer = AppearanceAwareContainerView()
+    private let hoverTracking = WallpaperGridHoverTracking()
     private let thumbnailView = NSImageView()
     private let placeholderLabel = NSTextField(labelWithString: "加载中...")
     private let selectionTintView = NSView()
@@ -313,7 +314,8 @@ final class AppKitOLDownloadsItem: NSCollectionViewItem, WallpaperGridHoverItem 
     private let gradientLayer = CAGradientLayer()
     private let titleLabel = NSTextField(labelWithString: "")
     private let metaLabel = NSTextField(labelWithString: "")
-    private let playActionButton = OLDownloadsPlayBadgeView()
+    private var playActionButton: OLDownloadsPlayBadgeView?
+    private var playActionFrame = NSRect.zero
     private let multiSelectBadge = NSView()
     private let multiSelectBadgeIcon = NSImageView()
 
@@ -375,7 +377,7 @@ final class AppKitOLDownloadsItem: NSCollectionViewItem, WallpaperGridHoverItem 
         selectionTintView.alphaValue = 0
         multiSelectBadge.isHidden = true
         multiSelectBadgeIcon.isHidden = true
-        playActionButton.isPlaying = false
+        playActionButton?.isPlaying = false
         applyHoverVisibility(false, animated: false)
         refreshTheme()
     }
@@ -543,7 +545,7 @@ final class AppKitOLDownloadsItem: NSCollectionViewItem, WallpaperGridHoverItem 
         multiSelectBadgeIcon.translatesAutoresizingMaskIntoConstraints = false
         multiSelectBadgeIcon.isHidden = true
 
-        playActionButton.isHidden = true
+        playActionButton?.isHidden = true
 
         view.addSubview(imageContainer)
         imageContainer.addSubview(thumbnailView)
@@ -551,19 +553,12 @@ final class AppKitOLDownloadsItem: NSCollectionViewItem, WallpaperGridHoverItem 
         imageContainer.addSubview(overlayView)
         overlayView.addSubview(titleLabel)
         overlayView.addSubview(metaLabel)
-        overlayView.addSubview(playActionButton)
         imageContainer.addSubview(multiSelectBadge)
         multiSelectBadge.addSubview(multiSelectBadgeIcon)
         imageContainer.addSubview(hoverOutlineView)
         imageContainer.addSubview(placeholderLabel)
 
-        let tracking = NSTrackingArea(
-            rect: .zero,
-            options: [.mouseEnteredAndExited, .mouseMoved, .activeInActiveApp, .inVisibleRect],
-            owner: self,
-            userInfo: nil
-        )
-        imageContainer.addTrackingArea(tracking)
+        hoverTracking.update(in: imageContainer, owner: self)
 
         imageContainer.appearanceDidChangeHandler = { [weak self] in
             self?.refreshTheme()
@@ -586,6 +581,7 @@ final class AppKitOLDownloadsItem: NSCollectionViewItem, WallpaperGridHoverItem 
 
     override func viewDidLayout() {
         super.viewDidLayout()
+        hoverTracking.update(in: imageContainer, owner: self)
         let inputs = LayoutInputs(size: view.bounds.size, title: titleLabel.stringValue,
             metadata: metaLabel.stringValue, placeholder: placeholderLabel.stringValue)
         guard lastLayoutInputs != inputs else {
@@ -633,7 +629,8 @@ final class AppKitOLDownloadsItem: NSCollectionViewItem, WallpaperGridHoverItem 
         let actionTrailingInset: CGFloat = max(8, width * 0.04)
         let buttonX = width - actionTrailingInset - buttonSize
         let buttonY: CGFloat = max(8, width * 0.04)
-        playActionButton.frame = NSRect(x: buttonX, y: buttonY, width: buttonSize, height: buttonSize)
+        playActionFrame = NSRect(x: buttonX, y: buttonY, width: buttonSize, height: buttonSize)
+        playActionButton?.frame = playActionFrame
 
         let textMaxWidth = buttonX - pad - 12
 
@@ -711,12 +708,24 @@ final class AppKitOLDownloadsItem: NSCollectionViewItem, WallpaperGridHoverItem 
         }
     }
 
+    /// Keep the glass-backed control out of an idle card's initial hierarchy.
+    /// The collection owns its action/AX route; this view only draws the badge.
+    private func preparePlayActionButtonIfNeeded() {
+        guard playActionButton == nil else { return }
+        let button = OLDownloadsPlayBadgeView(frame: playActionFrame)
+        button.isPlaying = isPlaying
+        button.alphaValue = 0
+        overlayView.addSubview(button)
+        playActionButton = button
+    }
+
     private func applyHoverVisibility(_ visible: Bool, animated: Bool) {
         // 多选模式下不显示底部信息层，保持卡片干净
         let infoVisible = visible && !isMultiSelectMode
         let alpha: CGFloat = infoVisible ? 1 : 0
         let gradientOpacity: Float = infoVisible ? 1 : 0
         let playAlpha: CGFloat = ((visible || isPlaying) && !isMultiSelectMode) ? 1 : 0
+        if playAlpha > 0 { preparePlayActionButtonIfNeeded() }
 
         if animated {
             let duration = visible ? UIInteractionAnimation.cardHoverExpandDuration : UIInteractionAnimation.cardHoverCollapseDuration
@@ -726,20 +735,21 @@ final class AppKitOLDownloadsItem: NSCollectionViewItem, WallpaperGridHoverItem 
                 context.timingFunction = timing
                 titleLabel.animator().alphaValue = alpha
                 metaLabel.animator().alphaValue = alpha
-                playActionButton.animator().alphaValue = playAlpha
+                playActionButton?.animator().alphaValue = playAlpha
                 gradientLayer.opacity = gradientOpacity
             }
         } else {
             titleLabel.alphaValue = alpha
             metaLabel.alphaValue = alpha
-            playActionButton.alphaValue = playAlpha
+            playActionButton?.alphaValue = playAlpha
             gradientLayer.opacity = gradientOpacity
         }
 
-        playActionButton.isHidden = (!visible && !isPlaying) || isMultiSelectMode
+        playActionButton?.isHidden = (!visible && !isPlaying) || isMultiSelectMode
     }
 
     func refreshGridHover(isScrolling: Bool) {
+        hoverTracking.update(in: imageContainer, owner: self, isScrolling: isScrolling)
         let hovered = !isScrolling && view.isGridPointerInside
         guard hovered != isHovering else { return }
         isHovering = hovered
@@ -798,7 +808,7 @@ final class AppKitOLDownloadsItem: NSCollectionViewItem, WallpaperGridHoverItem 
     func applyPlayingState(isPlaying: Bool) {
         guard self.isPlaying != isPlaying else { return }
         self.isPlaying = isPlaying
-        playActionButton.isPlaying = isPlaying
+        playActionButton?.isPlaying = isPlaying
         applyHoverVisibility(isHovering, animated: false)
     }
 
@@ -819,7 +829,7 @@ final class AppKitOLDownloadsItem: NSCollectionViewItem, WallpaperGridHoverItem 
     }
 
     func shouldTriggerPlayAction(at pointInItem: NSPoint) -> Bool {
-        guard !playActionButton.isHidden else { return false }
+        guard let playActionButton, !playActionButton.isHidden else { return false }
         return playActionButton.frame.insetBy(dx: -8, dy: -8).contains(pointInItem)
     }
 

@@ -115,7 +115,7 @@ class VideoThumbnailPrefetchTests(unittest.TestCase):
             # replace either pre-existing direct-child exit assertion.
             self.assertEqual(run.launch_returncode, 0, run.stdout + run.stderr)
             checks = json.loads(run.stdout)
-            self.assertEqual(len(checks), 9)
+            self.assertGreaterEqual(len(checks), 17)
             for name, passed in checks.items():
                 with self.subTest(name=name): self.assertIs(passed, True)
 

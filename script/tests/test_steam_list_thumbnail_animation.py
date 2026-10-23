@@ -181,6 +181,9 @@ private final class CardSource: NSObject, NSCollectionViewDataSource {
         item.previewState.onChange = { [weak item] in item?.applyPreviewState() }
         item.loadPreview(from: URL(fileURLWithPath: "/fixture/preview.gif"), fallbackVideoURL: nil)
 
+        // Hidden glass has no window geometry/layout work. Its original view
+        // and controls are retained and reattached before the first reveal.
+        precondition(item.overlayBar.superview == nil, "idle Steam glass must be detached")
         // 1. Fresh card: static frame.
         precondition(!item.previewImageView.animates, "a fresh card must not animate")
 
@@ -196,6 +199,19 @@ private final class CardSource: NSObject, NSCollectionViewDataSource {
         // 4. Hover plays; leaving stops.
         item.mouseEntered(with: enterEvent(true))
         precondition(item.previewImageView.animates, "a hovered card must animate")
+        precondition(item.overlayBar.superview === item.cardView, "hover must attach original glass")
+        let bar = item.overlayBar
+        item.mouseExited(with: enterEvent(false))
+        item.mouseEntered(with: enterEvent(true))
+        // The real pointer is deliberately outside this offscreen window;
+        // layout correctly clears synthetic hover. Keep the original persistent
+        // visibility input true while pumping completion callbacks.
+        item.shouldPersistBarVisibility = true
+        let revealDeadline = Date().addingTimeInterval(0.35)
+        while Date() < revealDeadline { RunLoop.main.run(until: Date().addingTimeInterval(0.005)) }
+        precondition(item.overlayBar === bar && item.overlayBar.superview === item.cardView,
+            "a stale collapse completion must not detach a revealed persistent bar")
+        item.shouldPersistBarVisibility = false
         item.mouseExited(with: enterEvent(false))
         precondition(!item.previewImageView.animates, "leaving the card must stop the animation")
 
@@ -220,6 +236,8 @@ private final class CardSource: NSObject, NSCollectionViewDataSource {
         NotificationCenter.default.post(name: NSScrollView.willStartLiveScrollNotification, object: scroll)
         precondition(scroll.isGridScrolling && !item.isHovering && !item.previewImageView.animates,
             "scroll must stop the actual Steam card hover and GIF")
+        precondition(item.view.trackingAreas.isEmpty, "scroll must detach Steam hover tracking")
+        precondition(item.overlayBar.superview == nil, "scroll must remove invisible glass from the window")
         item.mouseMoved(with: enterEvent(true))
         item.mouseEntered(with: enterEvent(true))
         precondition(!item.isHovering && !item.previewImageView.animates,
@@ -236,14 +254,32 @@ private final class CardSource: NSObject, NSCollectionViewDataSource {
         let freshFrame = fresh.view.frame
         let freshEnter = enterEvent(true, target: fresh)
         fresh.mouseEntered(with: freshEnter)
+        precondition(fresh.view.trackingAreas.isEmpty, "a new scrolling Steam card must not install hover tracking")
         precondition(!fresh.isHovering, "newly visible real card must remain idle during scroll")
         NotificationCenter.default.post(name: NSScrollView.didEndLiveScrollNotification, object: scroll)
         let deadline = Date().addingTimeInterval(0.18)
         while Date() < deadline { RunLoop.main.run(until: Date().addingTimeInterval(0.005)) }
         precondition(!scroll.isGridScrolling && !item.previewImageView.animates,
             "settlement must use the current pointer, not revive the old GIF")
+        precondition(fresh.view.trackingAreas.count == 1, "settlement must restore one Steam hover tracking area")
         fresh.mouseEntered(with: freshEnter)
         precondition(fresh.isHovering, "the exact same new-card event must enter hover after scroll; before=\(freshFrame) now=\(fresh.view.frame) bounds=\(fresh.view.bounds) visible=\(fresh.view.visibleRect) local=\(fresh.view.convert(freshEnter.locationInWindow, from: nil)) scrolling=\(scroll.isGridScrolling)")
+        // Persistent playback/download visibility uses the same bar even
+        // without hover. Multi-select hides it, exiting restores it immediately.
+        fresh.isHovering = false
+        fresh.currentDisplayContext = .downloads
+        fresh.shouldPersistBarVisibility = true
+        fresh.applyHoverStyle(animated: false)
+        precondition(fresh.overlayBar.superview === fresh.cardView && fresh.overlayBar.alphaValue > 0,
+            "persistent bar must remain attached")
+        fresh.isMultiSelectMode = true
+        fresh.applyHoverStyle(animated: false)
+        precondition(fresh.overlayBar.superview == nil, "multi-select must detach persistent glass")
+        fresh.isMultiSelectMode = false
+        fresh.applyHoverStyle(animated: false)
+        precondition(fresh.overlayBar.superview === fresh.cardView, "exit multi-select must restore persistent glass")
+        fresh.prepareForReuse()
+        precondition(fresh.overlayBar.superview == nil, "reuse must retire old presentation")
         window.orderOut(nil)
         print("Steam list thumbnails: static unless hovered PASS")
     }

@@ -20,6 +20,12 @@ nonisolated final class ReuseCounter: @unchecked Sendable {
     func count(_ key: String) -> Int { lock.lock(); defer { lock.unlock() }; return counts[key, default: 0] }
 }
 
+// This wrapper is used only by the temporary production prefetch copy.
+nonisolated func checkedPrefetchKey(for url: URL, maxPixelSize: Int) -> String {
+    precondition(!Thread.isMainThread, "prefetch must never fingerprint on the UI thread")
+    return steamWorkshopPreviewStillKey(for: url, maxPixelSize: maxPixelSize)
+}
+
 @main struct ThumbnailReturnReuseChecks {
     @MainActor static func main() throws {
         var checks: [String: Bool] = [:]
@@ -181,16 +187,22 @@ nonisolated final class ReuseCounter: @unchecked Sendable {
         var observedPrefetch: SteamWorkshopPreviewPrefetchController? = SteamWorkshopPreviewPrefetchController(load: {
             requests.append(($0, $1, $2, $3))
         })
+        func settle(_ controller: SteamWorkshopPreviewPrefetchController) {
+            precondition(pump { !controller.preparationIsRunning && controller.pendingSources == nil }, "source preparation timed out")
+        }
         let nearby = SteamWorkshopPreviewPrefetchController.Candidate(id: online.id, item: online, record: installed)
         observedPrefetch!.replace(with: [nearby], maxPixelSize: 256)
         observedPrefetch!.replace(with: [nearby], maxPixelSize: 256)
+        settle(observedPrefetch!)
         checks["prefetchSameIdentityOnlyStartsOnce"] = requests.count == 1 && requests[0].0 == local
         var becameVisible = nearby; becameVisible.startsIfMissing = false
         observedPrefetch!.replace(with: [becameVisible], maxPixelSize: 256)
+        settle(observedPrefetch!)
         checks["prefetchLeaseSurvivesDelayedVisibleSourceValidation"] = requests.count == 1 && !requests[0].2.cancelled
         observedPrefetch!.replace(with: [becameVisible], maxPixelSize: 512)
         checks["pixelChangeCancelsObsoleteLeaseWithoutStartingVisibleDuplicate"] = requests[0].2.cancelled && requests.count == 1
         observedPrefetch!.replace(with: [nearby], maxPixelSize: 512)
+        settle(observedPrefetch!)
         checks["newPixelDemandStartsRequestedTier"] = requests.count == 2 && requests[1].1 == 512
         requests[1].3(nil)
         checks["failedInstalledPrefetchUsesRemoteFallbackWithSameLease"] = requests.count == 3
@@ -198,20 +210,43 @@ nonisolated final class ReuseCounter: @unchecked Sendable {
         observedPrefetch!.replace(with: [], maxPixelSize: 512)
         checks["leavingViewportCancelsOnlyGridConsumer"] = requests[2].2.cancelled
         observedPrefetch!.replace(with: [nearby], maxPixelSize: 256)
+        settle(observedPrefetch!)
         observedPrefetch!.cancelAll()
         checks["hideOrClearCancelsAllPrefetch"] = requests.last!.2.cancelled
         observedPrefetch!.replace(with: [nearby], maxPixelSize: 256)
+        settle(observedPrefetch!)
         let surviving = requests.last!.2
         observedPrefetch = nil
         checks["deinitRetiresGridPrefetchConsumers"] = surviving.cancelled
         let pressurePrefetch = SteamWorkshopPreviewPrefetchController(load: { requests.append(($0, $1, $2, $3)) })
         pressurePrefetch.replace(with: [nearby], maxPixelSize: 800)
+        settle(pressurePrefetch)
         let beforeRelease = requests.count
         requests.last!.3(red)
         // No corresponding ready pixels remain, as after an LRU pressure release.
         pressurePrefetch.replace(with: [nearby], maxPixelSize: 800)
+        settle(pressurePrefetch)
         checks["completedPrefetchRewarmsAfterDecodedPixelsAreEvicted"] = requests.count == beforeRelease + 1
         pressurePrefetch.cancelAll()
+        let blocked = DispatchSemaphore(value: 0)
+        let release = DispatchSemaphore(value: 0)
+        SteamWorkshopPreviewPrefetchController.preparationQueue.async {
+            blocked.signal(); release.wait()
+        }
+        precondition(blocked.wait(timeout: .now() + 2) == .success)
+        let countBeforeBlocked = requests.count
+        let coalesced = SteamWorkshopPreviewPrefetchController(load: { requests.append(($0, $1, $2, $3)) })
+        coalesced.replace(with: [nearby], maxPixelSize: 256)
+        coalesced.replace(with: [nearby], maxPixelSize: 800)
+        coalesced.cancelAll()
+        coalesced.replace(with: [nearby], maxPixelSize: 512)
+        checks["blockedFileChecksLeaveMainThreadResponsive"] = requests.count == countBeforeBlocked
+        release.signal()
+        settle(coalesced)
+        checks["latestViewportSurvivesHideAndLateSourcePreparation"] = requests.count == countBeforeBlocked + 1
+            && requests.last!.1 == 512
+        coalesced.cancelAll()
+
         let selected = steamWorkshopPreviewSources(item: online, record: installed)
         checks["onlineAndSubscriptionPickInstalledPreviewBeforeRemote"] = selected.primary == local && selected.fallback == online.previewImageURL
         checks["incompleteDownloadKeepsRemotePreview"] = steamWorkshopPreviewSources(item: online,

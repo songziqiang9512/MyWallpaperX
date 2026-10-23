@@ -71,6 +71,7 @@ import AppKit
     private let loaders: Loaders
 
     var image: NSImage? { animatedImage ?? staticImage }
+    var requestedPixelSize: Int? { request?.maxPixelSize }
     var isAnimating: Bool { wantsAnimation && animatedImage != nil }
     var placeholder: SteamWorkshopPreviewPlaceholderView.State {
         if image != nil { return .hidden }

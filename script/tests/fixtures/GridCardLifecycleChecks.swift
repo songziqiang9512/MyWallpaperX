@@ -4,9 +4,7 @@ import Foundation
 import ObjectiveC
 import QuartzCore
 
-// Only data transport is controlled. The two complete production card files,
-// their true Equatable models, AppKit hierarchy and completion bodies compile
-// alongside this fixture. No loader below reads network or user media.
+// Complete production cards/models/UI; only data transport is controlled. No network or user media.
 @MainActor final class CardThumbnailTransport {
     struct Pending {
         let key: String
@@ -353,7 +351,7 @@ func samePoint(_ lhs: NSPoint, _ rhs: NSPoint) -> Bool { close(lhs.x, rhs.x) && 
     }
     if let card = item as? AppKitOLDownloadsItem {
         return !card.isHovering && close(card.titleLabel.alphaValue, 0)
-            && close(card.metaLabel.alphaValue, 0) && close(card.playActionButton.alphaValue, 0)
+            && close(card.metaLabel.alphaValue, 0) && close(card.playActionButton?.alphaValue ?? 0, 0)
             && card.gradientLayer.opacity == 0 && card.imageContainer.layer.map({ CATransform3DIsIdentity($0.transform) }) == true
     }
     return false
@@ -635,7 +633,7 @@ func samePoint(_ lhs: NSPoint, _ rhs: NSPoint) -> Bool { close(lhs.x, rhs.x) && 
             facts.expect(label + ".current-A-presentation-survives-late-B", card.thumbnailView.image === newImage
                 && card.placeholderLabel.isHidden && card.currentEntryID == 1)
             facts.expect(label + ".selection-playing-survive-late-replies", card.isSelectedState
-                && card.isMultiSelectMode && card.isPlaying && card.playActionButton.isPlaying)
+                && card.isMultiSelectMode && card.isPlaying && (card.playActionButton?.isPlaying ?? card.isMultiSelectMode))
         }
     }
 }
@@ -820,10 +818,19 @@ func samePoint(_ lhs: NSPoint, _ rhs: NSPoint) -> Bool { close(lhs.x, rhs.x) && 
     let transport = OLDownloadedThumbnailStore.sharedCache
     card.prepareForReuse()
     card.view.frame.size = NSSize(width: 230, height: 180)
+    facts.expect("idle-card-does-not-create-glass-play-badge", card.playActionButton == nil)
     let original = downloadModel(7, name: String(repeating: "long original title ", count: 6) + ".mp4")
     card.configure(entry: original, isSelected: true, isMultiSelectMode: true, isPlaying: true)
     let first = transport.history.last!.0
     layout(card)
+    facts.expect("multi-select-playing-keeps-hidden-badge-unbuilt", card.playActionButton == nil)
+    card.applySelectionState(false, multiSelectMode: false)
+    guard let firstBadge = card.playActionButton else { facts.expect("playing-first-shows-badge", false); return }
+    facts.expect("playing-first-shows-badge", !firstBadge.isHidden && firstBadge.alphaValue == 1 && firstBadge.isPlaying)
+    let hitPoint = NSPoint(x: firstBadge.frame.midX, y: firstBadge.frame.midY)
+    facts.expect("lazy-badge-has-current-frame-and-hit-target", firstBadge.frame.width > 20 && card.shouldTriggerPlayAction(at: hitPoint))
+    card.applySelectionState(true, multiSelectMode: true)
+    facts.expect("multi-select-hides-and-disables-badge-target", firstBadge.isHidden && !card.shouldTriggerPlayAction(at: hitPoint))
     let mask = card.titleLabel.layer?.mask
     facts.expect("long-title-actually-has-mask", mask != nil)
     for _ in 0..<5 { card.viewDidLayout() }
@@ -838,14 +845,14 @@ func samePoint(_ lhs: NSPoint, _ rhs: NSPoint) -> Bool { close(lhs.x, rhs.x) && 
     facts.expect("metadata-only-keeps-image-request", card.thumbnailRequestID == generation
         && transport.history.count == requests && card.thumbnailView.image === decoded)
     facts.expect("metadata-keeps-selection-playing-presentation", card.isSelectedState && card.isMultiSelectMode
-        && card.isPlaying && card.playActionButton.isPlaying && !card.multiSelectBadge.isHidden
+        && card.isPlaying && (card.playActionButton?.isPlaying ?? card.isMultiSelectMode) && !card.multiSelectBadge.isHidden
         && !card.multiSelectBadgeIcon.isHidden && close(card.imageContainer.layer?.borderWidth ?? 0, 2)
         && close(card.selectionTintView.alphaValue, 0.2))
     let unchangedMask = card.titleLabel.layer?.mask
     card.configure(entry: metadataOnly, isSelected: false, isMultiSelectMode: false, isPlaying: false)
     card.viewDidLayout()
     facts.expect("equal-content-still-applies-selection-playing", !card.isSelectedState && !card.isMultiSelectMode
-        && !card.isPlaying && !card.playActionButton.isPlaying && card.multiSelectBadge.isHidden)
+        && !card.isPlaying && card.playActionButton?.isPlaying != true && card.multiSelectBadge.isHidden)
     facts.expect("equal-content-keeps-mask-object", unchangedMask != nil && card.titleLabel.layer?.mask === unchangedMask)
     let renamed = downloadModel(7, name: String(repeating: "replacement title ", count: 7) + ".mp4", duration: 3661)
     card.configure(entry: renamed, isSelected: true, isMultiSelectMode: true, isPlaying: true)
@@ -871,13 +878,14 @@ func samePoint(_ lhs: NSPoint, _ rhs: NSPoint) -> Bool { close(lhs.x, rhs.x) && 
     facts.expect("resize-updates-real-16-by-9-container", close(card.imageContainer.frame.width, 360)
         && close(card.imageContainer.frame.height, 202) && close(card.imageContainer.frame.maxY, 250))
     card.prepareForReuse()
-    facts.expect("prepare-clears-selection-playing", !card.isSelectedState && !card.isPlaying && !card.playActionButton.isPlaying)
+    facts.expect("reuse-retains-one-badge-without-new-allocation", card.playActionButton === firstBadge)
+    facts.expect("prepare-clears-selection-playing", !card.isSelectedState && !card.isPlaying && card.playActionButton?.isPlaying != true)
     card.configure(entry: original, isSelected: true, isMultiSelectMode: true, isPlaying: true)
     layout(card)
     facts.expect("same-size-after-reuse-rebuilds-layout", card.lastLayoutInputs?.size == card.view.bounds.size
         && card.titleLabel.layer?.mask != nil && card.titleLabel.stringValue == original.displayTitle
         && card.placeholderLabel.stringValue == "加载中...")
-    facts.expect("reused-selection-playing-applied", card.isSelectedState && card.isPlaying && card.playActionButton.isPlaying
+    facts.expect("reused-selection-playing-applied", card.isSelectedState && card.isPlaying && (card.playActionButton?.isPlaying ?? card.isMultiSelectMode)
         && !card.multiSelectBadge.isHidden && !card.multiSelectBadgeIcon.isHidden)
 }
 

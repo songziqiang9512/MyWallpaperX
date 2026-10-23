@@ -64,9 +64,10 @@ final class AppKitSteamWorkshopBrowserItem: NSCollectionViewItem, WallpaperGridH
     var prefersCircularPlayBadge = false
     /// M0.5：本卡片"设为壁纸"是否处于 pending（渲染加载态图标）。
     private var isLaunchPendingBadge = false
-    var trackingAreaRef: NSTrackingArea?
+    let hoverTracking = WallpaperGridHoverTracking()
     var isHovering = false
     var currentBarVisibility = false
+    var barPresentationGeneration: UInt64 = 0
     var isHoverOutlineVisible = false
     var isSelectionHighlighted = false
     var isMultiSelectMode = false
@@ -191,6 +192,8 @@ final class AppKitSteamWorkshopBrowserItem: NSCollectionViewItem, WallpaperGridH
         prefersCircularPlayBadge = false
         isHovering = false
         currentBarVisibility = false
+        barPresentationGeneration &+= 1
+        overlayBar.removeFromSuperview()
         isHoverOutlineVisible = false
         isSelectionHighlighted = false
         isMultiSelectMode = false
@@ -350,6 +353,7 @@ final class AppKitSteamWorkshopBrowserItem: NSCollectionViewItem, WallpaperGridH
 
     override func viewDidLayout() {
         super.viewDidLayout()
+        refreshTrackingArea()
         let inputs = LayoutInputs(size: view.bounds.size, scale: view.window?.backingScaleFactor ?? 2, downloads: currentDisplayContext == .downloads,
             multiSelect: isMultiSelectMode, circularBadge: prefersCircularPlayBadge)
         guard lastLayoutInputs != inputs else {
@@ -357,7 +361,12 @@ final class AppKitSteamWorkshopBrowserItem: NSCollectionViewItem, WallpaperGridH
             return
         }
         lastLayoutInputs = inputs
-        loadCurrentPreview()
+        // Model configuration still validates the full source identity. A
+        // geometry/chrome-only pass must not repeat local file fingerprints
+        // unless it actually changes the thumbnail's pixel tier.
+        let pixels = min(800, GridThumbnailDecoder.pixelLimit(width: view.bounds.width,
+            scale: view.window?.backingScaleFactor ?? 2))
+        if previewState.requestedPixelSize != pixels { loadCurrentPreview() }
 
         let bounds = view.bounds
         guard bounds.width.isFinite, bounds.height.isFinite else { return }
@@ -440,6 +449,7 @@ final class AppKitSteamWorkshopBrowserItem: NSCollectionViewItem, WallpaperGridH
     }
 
     func refreshGridHover(isScrolling: Bool) {
+        hoverTracking.update(in: view, owner: self, isScrolling: isScrolling)
         let hovered = !isScrolling && view.isGridPointerInside
         guard hovered != isHovering else { return }
         isHovering = hovered

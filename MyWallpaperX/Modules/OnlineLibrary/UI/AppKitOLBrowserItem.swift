@@ -129,6 +129,7 @@ final class AppKitOLBrowserItem: NSCollectionViewItem, WallpaperGridHoverItem {
 
     private let shadowView = NSView()
     private let imageContainer     = AppearanceAwareContainerView()
+    private let hoverTracking = WallpaperGridHoverTracking()
     private let thumbnailView      = NSImageView()
     private let placeholderView    = NSView()
     private let spinner            = NSProgressIndicator()
@@ -633,12 +634,7 @@ final class AppKitOLBrowserItem: NSCollectionViewItem, WallpaperGridHoverItem {
         completionBadgeView.addSubview(completionBadgeIcon)
         imageContainer.addSubview(hoverOutlineView)
 
-        let tracking = NSTrackingArea(
-            rect: .zero,
-            options: [.mouseEnteredAndExited, .mouseMoved, .activeInActiveApp, .inVisibleRect],
-            owner: self, userInfo: nil
-        )
-        imageContainer.addTrackingArea(tracking)
+        hoverTracking.update(in: imageContainer, owner: self)
         imageContainer.appearanceDidChangeHandler = { [weak self] in self?.refreshTheme() }
         applyHoverVisibility(false, animated: false)
         refreshTheme()
@@ -658,6 +654,7 @@ final class AppKitOLBrowserItem: NSCollectionViewItem, WallpaperGridHoverItem {
 
     override func viewDidLayout() {
         super.viewDidLayout()
+        hoverTracking.update(in: imageContainer, owner: self)
         let inputs = LayoutInputs(size: view.bounds.size, title: titleLabel.stringValue,
             metadata: metaLabel.stringValue, duration: (durationBadgeTextLayer.string as? String) ?? "", backingScale: view.window?.backingScaleFactor ?? 2)
         guard lastLayoutInputs != inputs else {
@@ -859,6 +856,7 @@ final class AppKitOLBrowserItem: NSCollectionViewItem, WallpaperGridHoverItem {
 
     // MARK: - Hover
     func refreshGridHover(isScrolling: Bool) {
+        hoverTracking.update(in: imageContainer, owner: self, isScrolling: isScrolling)
         let hovered = !isScrolling && view.isGridPointerInside
         guard hovered != isHovering else { return }
         isHovering = hovered

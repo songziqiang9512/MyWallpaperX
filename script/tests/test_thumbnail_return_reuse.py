@@ -53,6 +53,15 @@ class ThumbnailReturnReuseTests(unittest.TestCase):
                 ROOT / "MyWallpaperX/Modules/SteamWorkshop/UI/SteamWorkshopPreviewState.swift",
                 ROOT / "MyWallpaperX/Modules/SteamWorkshop/UI/SteamWorkshopPreviewPlaceholderView.swift",
                 ROOT / "script/tests/fixtures/ThumbnailReturnReuseChecks.swift"]
+            # Expose only scheduling state/queue to hold the real worker at a
+            # deterministic boundary. Instrument its actual fingerprint call;
+            # no loader, coalescing, cancellation or completion body is replaced.
+            prefetch_source = core / "SteamWorkshopService+BrowseHydration.swift"
+            observed = prefetch_source.read_text().replace("private ", "")
+            observed = observed.replace("steamWorkshopPreviewStillKey(for:", "checkedPrefetchKey(for:")
+            prefetch_copy = work / prefetch_source.name
+            prefetch_copy.write_text(observed)
+            sources[sources.index(prefetch_source)] = prefetch_copy
             build = subprocess.run(["xcrun", "swiftc", *SWIFT_ISOLATION_FLAGS, "-warnings-as-errors", "-parse-as-library", *map(str, sources),
                 "-module-cache-path", str(work / "modules"), "-o", str(work / "checks")],
                 capture_output=True, text=True, timeout=120)

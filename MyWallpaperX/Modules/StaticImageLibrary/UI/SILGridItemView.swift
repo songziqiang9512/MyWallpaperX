@@ -108,6 +108,7 @@ final class SILGridItem: NSCollectionViewItem, WallpaperGridHoverItem {
     static func resetHoverTracking() { hoverTrackingActivated = false }
 
     private let imageContainer   = AppearanceAwareContainerView()
+    private let hoverTracking = WallpaperGridHoverTracking()
     private let thumbnailView    = NSImageView()
     private let placeholderLabel = NSTextField(labelWithString: "加载中...")
     private let selectionTint    = NSView()
@@ -155,6 +156,7 @@ final class SILGridItem: NSCollectionViewItem, WallpaperGridHoverItem {
 
     override func viewDidLayout() {
         super.viewDidLayout()
+        hoverTracking.update(in: imageContainer, owner: self)
         layoutSubviewsManually()
     }
 
@@ -357,6 +359,7 @@ final class SILGridItem: NSCollectionViewItem, WallpaperGridHoverItem {
     // MARK: - Hover
 
     func refreshGridHover(isScrolling: Bool) {
+        hoverTracking.update(in: imageContainer, owner: self, isScrolling: isScrolling)
         let hovered = !isScrolling && view.isGridPointerInside
         guard hovered != isHovering else { return }
         isHovering = hovered
@@ -514,12 +517,7 @@ final class SILGridItem: NSCollectionViewItem, WallpaperGridHoverItem {
         imageContainer.addSubview(multiSelectBadge)
         multiSelectBadge.addSubview(multiSelectIcon)
 
-        let tracking = NSTrackingArea(
-            rect: .zero,
-            options: [.mouseEnteredAndExited, .mouseMoved, .activeInActiveApp, .inVisibleRect],
-            owner: self, userInfo: nil
-        )
-        imageContainer.addTrackingArea(tracking)
+        hoverTracking.update(in: imageContainer, owner: self)
 
         imageContainer.appearanceDidChangeHandler = { [weak self] in
             self?.refreshThemeAwareAppearance()

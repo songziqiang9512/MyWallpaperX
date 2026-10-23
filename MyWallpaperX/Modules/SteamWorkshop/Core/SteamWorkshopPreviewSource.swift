@@ -11,7 +11,7 @@ func steamWorkshopPreviewSources(item: SteamWorkshopBrowserItem, record: SteamWo
     return (item.previewImageURL ?? remote, remote)
 }
 
-func steamWorkshopPreviewStillKey(for url: URL, maxPixelSize: Int = 800) -> String {
+nonisolated func steamWorkshopPreviewStillKey(for url: URL, maxPixelSize: Int = 800) -> String {
     let source = url.isFileURL ? steamWorkshopLocalPreviewCacheKey(for: url) : steamWorkshopPreviewCacheKey(for: url)
     return "steam-still-v1:\(maxPixelSize):\(source)"
 }

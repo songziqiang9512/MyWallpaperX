@@ -28,6 +28,7 @@ private final class ClickSurface: NSView {
 }
 
 private final class HoverItem: NSCollectionViewItem, WallpaperGridHoverItem {
+    private let tracking = WallpaperGridHoverTracking()
     var identity = -1
     var refreshCalls: [Bool] = []
     var hovered = false
@@ -43,9 +44,15 @@ private final class HoverItem: NSCollectionViewItem, WallpaperGridHoverItem {
         view.addSubview(button)
     }
 
+    override func viewDidLayout() {
+        super.viewDidLayout()
+        tracking.update(in: view, owner: self)
+    }
+
     @objc private func action() { actions += 1 }
 
     func refreshGridHover(isScrolling: Bool) {
+        tracking.update(in: view, owner: self, isScrolling: isScrolling)
         refreshCalls.append(isScrolling)
         hovered = !isScrolling && view.isGridPointerInside
     }
@@ -191,7 +198,9 @@ private struct Checks {
         let first = try GridFixture(), second = try GridFixture()
         defer { first.cleanup(); second.cleanup() }
         let visible = first.visible
+        expect("idle cards have one native hover area", visible.allSatisfy { $0.view.trackingAreas.count == 1 })
         first.begin()
+        expect("scroll removes native hover tracking areas", visible.allSatisfy { $0.view.trackingAreas.isEmpty })
         expect("begin changes its own scroll state", first.scroll.isGridScrolling)
         expect("begin refreshes every native visible item once", visible.allSatisfy { $0.refreshCalls == [true] })
         expect("other grid stays interactive", !second.scroll.isGridScrolling && second.visible.allSatisfy { !$0.view.isGridHoverSuppressed && $0.refreshCalls.isEmpty })
@@ -206,6 +215,7 @@ private struct Checks {
         first.end()
         expect("native end keeps short momentum handoff suppressed", first.scroll.isGridScrolling)
         pump(0.16)
+        expect("end restores one area without accumulating duplicates", visible.allSatisfy { $0.view.trackingAreas.count == 1 })
         expect("end refreshes once", visible.allSatisfy { $0.refreshCalls == [true, false] })
         expect("second grid owns its independent session", second.scroll.isGridScrolling)
         second.end()
@@ -224,12 +234,14 @@ private struct Checks {
         fixture.move(to: 800)
         let incoming = fixture.visible.filter { !before.contains($0.identity) }
         expect("native virtualization reaches different cards", !incoming.isEmpty)
+        expect("newly visible cards do not install tracking during scrolling", incoming.allSatisfy { $0.view.trackingAreas.isEmpty })
         expect("newly visible cards read suppression immediately", incoming.allSatisfy { $0.view.isGridHoverSuppressed })
         let nested = NSView(frame: .zero)
         if let item = incoming.first { item.view.addSubview(nested) }
         expect("descendant controls read the same scroll owner", nested.isGridHoverSuppressed)
         fixture.end()
         pump(0.16)
+        expect("new cards restore their native tracking area", incoming.allSatisfy { $0.view.trackingAreas.count == 1 })
         expect("new cards release suppression at end", incoming.allSatisfy { !$0.view.isGridHoverSuppressed })
         fixture.move(to: 200)
         expect("later programmatic bounds stay outside the gate", !fixture.scroll.isGridScrolling)

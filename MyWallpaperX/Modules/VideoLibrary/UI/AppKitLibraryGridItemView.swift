@@ -24,6 +24,7 @@ final class AppKitWallpaperItem: NSCollectionViewItem, WallpaperGridHoverItem {
     }
 
     private let imageContainer = AppearanceAwareContainerView()
+    private let hoverTracking = WallpaperGridHoverTracking()
     private let selectionTintView = NSView()
     private let hoverOutlineView = NSView()
     private let overlayView = NSView()
@@ -36,7 +37,8 @@ final class AppKitWallpaperItem: NSCollectionViewItem, WallpaperGridHoverItem {
     private let favoriteBadge = NSImageView()
     private let multiSelectBadge = NSView()
     private let multiSelectBadgeIcon = NSImageView()
-    private let playActionButton = PlayBadgeView()
+    private var playActionButton: PlayBadgeView?
+    private var playActionFrame = NSRect.zero
     private var currentWallpaperID: String?
     private var currentWallpaper: VideoWallpaper?
     private var imageTaskID: UUID?
@@ -93,8 +95,8 @@ final class AppKitWallpaperItem: NSCollectionViewItem, WallpaperGridHoverItem {
         favoriteBadge.isHidden = true
         favoriteBadgeContainer.isHidden = true
         multiSelectBadge.isHidden = true
-        playActionButton.isHidden = true
-        playActionButton.isPlaying = false
+        playActionButton?.isHidden = true
+        playActionButton?.isPlaying = false
         hoverOutlineView.alphaValue = 0
         isHoverOutlineVisible = false
         selectionTintView.alphaValue = 0
@@ -150,8 +152,6 @@ final class AppKitWallpaperItem: NSCollectionViewItem, WallpaperGridHoverItem {
         metaLabel.stringValue = metaLines.joined(separator: "  ")
 
         applySelectionState(isSelected: isSelected, multiSelectMode: multiSelectMode)
-        updatePlayButtonVisibility()
-        applyHoverVisibility(isHovering, animated: false)
 
         thumbnailWallpaperManager = wallpaperManager
         currentThumbnailProvider = thumbnailProvider
@@ -281,7 +281,7 @@ final class AppKitWallpaperItem: NSCollectionViewItem, WallpaperGridHoverItem {
         multiSelectBadgeIcon.translatesAutoresizingMaskIntoConstraints = false
         multiSelectBadgeIcon.isHidden = true
 
-        playActionButton.isHidden = true
+        playActionButton?.isHidden = true
 
         overlayView.wantsLayer = true
         overlayView.translatesAutoresizingMaskIntoConstraints = false
@@ -328,7 +328,6 @@ final class AppKitWallpaperItem: NSCollectionViewItem, WallpaperGridHoverItem {
         favoriteBadgeContainer.addSubview(favoriteBadge)
         imageContainer.addSubview(multiSelectBadge)
         multiSelectBadge.addSubview(multiSelectBadgeIcon)
-        overlayView.addSubview(playActionButton)
 
         NSLayoutConstraint.activate([
             imageContainer.leadingAnchor.constraint(equalTo: view.leadingAnchor),
@@ -382,13 +381,7 @@ final class AppKitWallpaperItem: NSCollectionViewItem, WallpaperGridHoverItem {
 
         ])
 
-        let tracking = NSTrackingArea(
-            rect: .zero,
-            options: [.mouseEnteredAndExited, .mouseMoved, .activeInActiveApp, .inVisibleRect],
-            owner: self,
-            userInfo: nil
-        )
-        imageContainer.addTrackingArea(tracking)
+        hoverTracking.update(in: imageContainer, owner: self)
 
         imageContainer.appearanceDidChangeHandler = { [weak self] in
             self?.refreshThemeAwareAppearance()
@@ -408,12 +401,24 @@ final class AppKitWallpaperItem: NSCollectionViewItem, WallpaperGridHoverItem {
         }
     }
 
+    /// Keep the glass-backed control out of an idle card's initial hierarchy.
+    /// The collection owns its action/AX route; this view only draws the badge.
+    private func preparePlayActionButtonIfNeeded() {
+        guard playActionButton == nil else { return }
+        let button = PlayBadgeView(frame: playActionFrame)
+        button.isPlaying = isPlaying
+        button.alphaValue = 0
+        overlayView.addSubview(button)
+        playActionButton = button
+    }
+
     private func applyHoverVisibility(_ visible: Bool, animated: Bool) {
         // 多选模式下不显示底部信息层，保持卡片干净
         let infoVisible = visible && !isMultiSelectMode
         let alpha: CGFloat = infoVisible ? 1 : 0
         let gradientOpacity: Float = infoVisible ? 1 : 0
         let playAlpha: CGFloat = ((visible || isPlaying) && !isMultiSelectMode) ? 1 : 0
+        if playAlpha > 0 { preparePlayActionButtonIfNeeded() }
 
         if animated {
             let duration = visible ? UIInteractionAnimation.cardHoverExpandDuration : UIInteractionAnimation.cardHoverCollapseDuration
@@ -423,21 +428,22 @@ final class AppKitWallpaperItem: NSCollectionViewItem, WallpaperGridHoverItem {
                 context.timingFunction = timing
                 titleLabel.animator().alphaValue = alpha
                 metaLabel.animator().alphaValue = alpha
-                playActionButton.animator().alphaValue = playAlpha
+                playActionButton?.animator().alphaValue = playAlpha
                 gradientLayer.opacity = gradientOpacity
             }
         } else {
             titleLabel.alphaValue = alpha
             metaLabel.alphaValue = alpha
-            playActionButton.alphaValue = playAlpha
+            playActionButton?.alphaValue = playAlpha
             gradientLayer.opacity = gradientOpacity
         }
 
-        playActionButton.isHidden = (!visible && !isPlaying) || isMultiSelectMode
+        playActionButton?.isHidden = (!visible && !isPlaying) || isMultiSelectMode
     }
 
     override func viewDidLayout() {
         super.viewDidLayout()
+        hoverTracking.update(in: imageContainer, owner: self)
         let inputs = LayoutInputs(size: view.bounds.size, title: titleLabel.stringValue,
             metadata: metaLabel.stringValue)
         guard lastLayoutInputs != inputs else {
@@ -464,8 +470,9 @@ final class AppKitWallpaperItem: NSCollectionViewItem, WallpaperGridHoverItem {
         let actionTrailingInset: CGFloat = max(8, width * 0.04)
         let buttonX = width - actionTrailingInset - buttonSize
         let buttonY: CGFloat = max(8, width * 0.04)
-        playActionButton.frame = NSRect(x: buttonX, y: buttonY, width: buttonSize, height: buttonSize)
-        playActionButton.needsLayout = true
+        playActionFrame = NSRect(x: buttonX, y: buttonY, width: buttonSize, height: buttonSize)
+        playActionButton?.frame = playActionFrame
+        playActionButton?.needsLayout = true
 
         let textMaxWidth = buttonX - pad - 12
 
@@ -525,6 +532,7 @@ final class AppKitWallpaperItem: NSCollectionViewItem, WallpaperGridHoverItem {
     }
 
     func refreshGridHover(isScrolling: Bool) {
+        hoverTracking.update(in: imageContainer, owner: self, isScrolling: isScrolling)
         let hovered = !isScrolling && view.isGridPointerInside
         guard hovered != isHovering else { return }
         isHovering = hovered
@@ -571,12 +579,13 @@ final class AppKitWallpaperItem: NSCollectionViewItem, WallpaperGridHoverItem {
     private func updatePlayButtonVisibility() {
         // 播放按钮仅在非多选模式下显示，避免与批量操作视觉冲突。
         guard !isMultiSelectMode else {
-            playActionButton.isHidden = true
-            playActionButton.isPlaying = isPlaying
+            playActionButton?.isHidden = true
+            playActionButton?.isPlaying = isPlaying
             return
         }
-        playActionButton.isPlaying = isPlaying
-        playActionButton.isHidden = !(isHovering || isPlaying)
+        if isHovering || isPlaying { preparePlayActionButtonIfNeeded() }
+        playActionButton?.isPlaying = isPlaying
+        playActionButton?.isHidden = !(isHovering || isPlaying)
     }
 
     private func updateMultiSelectBadge(selected: Bool) {
@@ -593,7 +602,7 @@ final class AppKitWallpaperItem: NSCollectionViewItem, WallpaperGridHoverItem {
 
     func shouldTriggerPlayAction(at localPoint: NSPoint) -> Bool {
         // 播放命中区只做几何判断，不单独拦截事件；事件仍由 collectionView 统一处理。
-        guard !playActionButton.isHidden else { return false }
+        guard let playActionButton, !playActionButton.isHidden else { return false }
         return playActionButton.frame.insetBy(dx: -8, dy: -8).contains(localPoint)
     }
 
@@ -609,6 +618,7 @@ final class AppKitWallpaperItem: NSCollectionViewItem, WallpaperGridHoverItem {
         selectionTintView.alphaValue = isSelected ? 0.2 : 0
         updateMultiSelectBadge(selected: isSelected)
         updatePlayButtonVisibility()
+        applyHoverVisibility(isHovering, animated: false)
     }
 
     func applyFavoriteState(isFavorite: Bool) {
@@ -620,8 +630,9 @@ final class AppKitWallpaperItem: NSCollectionViewItem, WallpaperGridHoverItem {
     func applyPlayingState(isPlaying: Bool) {
         guard self.isPlaying != isPlaying else { return }
         self.isPlaying = isPlaying
-        playActionButton.isPlaying = isPlaying
+        playActionButton?.isPlaying = isPlaying
         updatePlayButtonVisibility()
+        applyHoverVisibility(isHovering, animated: false)
     }
 
     private func updateHoverOutline(_ hovered: Bool) {

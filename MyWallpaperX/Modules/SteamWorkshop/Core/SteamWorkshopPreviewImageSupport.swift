@@ -14,7 +14,7 @@ nonisolated enum SteamWorkshopPreviewImageCache {
     )
 }
 
-func steamWorkshopPreviewCacheKey(for url: URL) -> String {
+nonisolated func steamWorkshopPreviewCacheKey(for url: URL) -> String {
     let host = (url.host ?? "").lowercased()
     let normalizedPath: String = {
         let path = url.path.isEmpty ? "/" : url.path
@@ -32,7 +32,7 @@ func steamWorkshopPreviewCacheKey(for url: URL) -> String {
     return "steam-preview:\(url.absoluteString)"
 }
 
-func steamWorkshopLocalPreviewCacheKey(for url: URL) -> String {
+nonisolated func steamWorkshopLocalPreviewCacheKey(for url: URL) -> String {
     let fileURL = url.standardizedFileURL
     let attributes = try? FileManager.default.attributesOfItem(atPath: fileURL.path)
     let modificationTime = (attributes?[.modificationDate] as? Date)?.timeIntervalSince1970 ?? 0
