@@ -333,12 +333,16 @@
     },
     "3586705329": {
       "verdict": "unreviewed",
-      "reviewedOn": "2026-10-17",
-      "reviewer": "Codex root / prepared_puppet_design_sol",
-      "note": "人物与拼贴主体呈现；七个active clipping效果slot1纹理用途proof拒绝；具体遮罩ROI尚未对齐。 与目录官方截屏仅作基础构图对照；viewport、时相、媒体和全部属性尚未同状态验收。",
-      "runs": [],
-      "evidence": [],
-      "remainingDifferences": "人物与拼贴主体呈现；七个active clipping效果slot1纹理用途proof拒绝；具体遮罩ROI尚未对齐。；完整视觉、播放、交互及作者参数未验收。",
+      "reviewedOn": "2026-10-24",
+      "reviewer": "Codex root / light_census_sol (bounded texture runtime review)",
+      "note": "2026-10-24：七个clipping默认效果的slot1用途与声明_1身份已修；真实启动选图、清空恢复、默认滚动PASS，两个固定ROI已证替换。旧归档首断点不代表当前代码；未认整样本官方parity或真实面板热切换。",
+      "runs": [
+        ".artifacts/scene-evidence/runs/declared-texture-rgb-graph-20261024/final/report.json"
+      ],
+      "evidence": [
+        ".artifacts/scene-evidence/runs/declared-texture-rgb-graph-20261024/final/samples/3586705329/runtime_evidence.zip"
+      ],
+      "remainingDifferences": "完整视觉/播放/交互、同官方时相与全部作者参数未验收；MASK/WRITEALPHA非默认组合及真实面板热切换未覆盖。",
       "officialComparison": "compared",
       "unavailableLocalRuns": [
         ".artifacts/scene-evidence/runs/scene-intake-3586705329-20261017/final/report.json"

@@ -12,12 +12,22 @@ nonisolated struct SceneEffectTextureInput: Codable, Hashable {
     let kind: Kind
     let value: String
 
-    nonisolated static func parse(_ raw: Any) -> SceneEffectTextureInput? {
+    /// Project declarations disambiguate bare keys before typed preparation;
+    /// path syntax, RT vocabulary and explicit objects retain their identity.
+    nonisolated static func parse(
+        _ raw: Any,
+        declaredTexturePropertyKeys: Set<String> = []
+    ) -> SceneEffectTextureInput? {
         if raw is NSNull { return nil }
         if let string = raw as? String {
             let value = normalized(string)
             guard !value.isEmpty else { return nil }
-            let isPath = value.contains("/") || value.contains(".") || value.hasPrefix("_")
+            let hasPathSyntax = value.contains("/") || value.contains(".")
+            let declaredProperty = declaredTexturePropertyKeys.contains(value)
+                && !hasPathSyntax
+                && !value.hasPrefix(SceneRenderTargetVocabulary.internalTargetPrefix)
+                && SceneRenderTargetVocabulary.dispatch(authoredName: value) == .unadmitted(value)
+            let isPath = !declaredProperty && (hasPathSyntax || value.hasPrefix("_"))
             return SceneEffectTextureInput(kind: isPath ? .path : .property, value: value)
         }
         guard let dictionary = raw as? [String: Any] else {

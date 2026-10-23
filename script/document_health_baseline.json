@@ -89,8 +89,8 @@
       "bytes": 11603
     },
     "docs/scene/architecture/shader-metadata-failure-contract.md": {
-      "lines": 56,
-      "bytes": 10417
+      "lines": 71,
+      "bytes": 14659
     },
     "docs/scene/architecture/variant-analysis-cache-contract.md": {
       "lines": 19,
@@ -170,7 +170,7 @@
     },
     "docs/scene/capabilities/scene-sample-acceptance-ledger.md": {
       "lines": 436,
-      "bytes": 98130
+      "bytes": 98139
     },
     "docs/scene/capabilities/scene-sample-debug-ledger.md": {
       "lines": 534,
@@ -274,7 +274,7 @@
     },
     "docs/scene/roadmap/scene-open-breakpoint-queue.md": {
       "lines": 165,
-      "bytes": 33790
+      "bytes": 33722
     },
     "docs/web/cold-descriptor-parse-offload-design.md": {
       "lines": 43,
@@ -1217,15 +1217,6 @@
     },
     {
       "section": "bodies",
-      "path": "docs/scene/architecture/shader-metadata-failure-contract.md",
-      "before": "249f574962f37dd2eb9e8b206ec21c5343069f3d577ec822c8bc39d9ec4a9d6d",
-      "after": "12753b912d18c77d1d7b55894fa375d387ef075308caf75c6758c521d4c6385a",
-      "owner": "Scene shader preparation and scoped evidence",
-      "reason": "Bounded fixed-float interface contract, current default-waveform result and two-row frozen-ledger refresh; exact current bodies, no duplicated state owner.",
-      "decision": "docs/scene/capabilities/runtime-evidence-current.md#generic-varying-array-20261021"
-    },
-    {
-      "section": "bodies",
       "path": "docs/development/apple-silicon-optimization-plan.md",
       "before": "2d043fdaf2a57851868ea841be114b53082a1089fbcf6b34c34b3b2d33aabf55",
       "after": "3769b832b216646674ed5ac16bbc2ade02d6c156d440747f0d6a64a99e867a45",
@@ -1340,15 +1331,6 @@
       "owner": "Scene corpus diagnostic reporting",
       "reason": "Complete failed-directory reports and preserve compact overview/detail authority; exact generated body and design contract budgets after nearest validation.",
       "decision": "docs/scene/development/corpus-diagnostic-workflow.md#diagnostic-output-acceptance"
-    },
-    {
-      "section": "bodies",
-      "path": "docs/scene/capabilities/scene-sample-acceptance-ledger.md",
-      "before": "801f984fd2455e1d1f32128e3edde8502aee68078452191286e34d09fe79fa26",
-      "after": "0bab4d9d1e88551c190cf3b93e6730156158d6eacdd27fa7c66739825be300e3",
-      "owner": "Scene sample runtime ledger",
-      "reason": "Add two original gross-screen observations and their exact identities; preserve261 prior rows and every human verdict. No invented repair or whole-sample pass.",
-      "decision": "docs/scene/capabilities/scene-sample-acceptance-ledger.md#1-来源"
     },
     {
       "section": "bodies",
@@ -1475,6 +1457,33 @@
       "owner": "appkit-grid-card-presentation",
       "reason": "用户授权网格减负试用；原专题新增跟踪区退让、徽章首次显示构建与Steam布局像素档边界、退出和实际行为验收，不改变D17失效/缓存owner，也不复制性能结果。 续版仅补充预取后台完整指纹与单批生命周期、隐藏玻璃bar挂回/动画退出合同。",
       "decision": "docs/architecture/appkit-migration.md#网格卡片减负试用版2026-10-23"
+    },
+    {
+      "section": "bodies",
+      "path": "docs/scene/architecture/shader-metadata-failure-contract.md",
+      "before": "12753b912d18c77d1d7b55894fa375d387ef075308caf75c6758c521d4c6385a",
+      "after": "38c0f6fa6168c44f642eabfef4b3001e053ed45abf72ff493ef34ad97461c410",
+      "owner": "scene-declared-texture-rgb-graph",
+      "reason": "记录声明纹理与共用RGB事实合同，退出358已闭用途首门，保留未覆盖范围；过程与失败归历史。",
+      "decision": "docs/scene/history/declared-texture-rgb-graph-2026-10-24.md#declared-texture-rgb-graph-20261024"
+    },
+    {
+      "section": "bodies",
+      "path": "docs/scene/roadmap/scene-open-breakpoint-queue.md",
+      "before": "ac0dd2405c73d7bedbee7aa4e53d3277e08a1a89fe23683547ba3c545e82f06e",
+      "after": "f694dc8514390755e883c27e20f0f14ade8c9d67349619475b093367a9209676",
+      "owner": "scene-declared-texture-rgb-graph",
+      "reason": "记录声明纹理与共用RGB事实合同，退出358已闭用途首门，保留未覆盖范围；过程与失败归历史。",
+      "decision": "docs/scene/history/declared-texture-rgb-graph-2026-10-24.md#declared-texture-rgb-graph-20261024"
+    },
+    {
+      "section": "bodies",
+      "path": "docs/scene/capabilities/scene-sample-acceptance-ledger.md",
+      "before": "ef9667543224003a1bb3a66a700318657b459e5dc81492d584fb33e7208928b1",
+      "after": "d758f5479e4aecf961348407a51f34c755c4e5cb71296f64de93c22102228163",
+      "owner": "scene-declared-texture-rgb-graph",
+      "reason": "记录声明纹理与共用RGB事实合同，退出358已闭用途首门，保留未覆盖范围；过程与失败归历史。",
+      "decision": "docs/scene/history/declared-texture-rgb-graph-2026-10-24.md#declared-texture-rgb-graph-20261024"
     }
   ]
 }

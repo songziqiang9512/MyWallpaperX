@@ -123,6 +123,8 @@ struct SceneDocumentLoader {
         )
         let missingParallaxDepth = general.authoredOrthographicProjectionActive == true
             ? "1 1" : nil
+        let declaredTexturePropertyKeys = Set(propertyCatalog.definitions
+            .filter { $0.kind == .sceneTexture }.map(\.key))
 
         let rawObjects = root["objects"] as? [[String: Any]] ?? []
         let authoredObjects = sourceRoot["objects"] as? [[String: Any]] ?? []
@@ -133,6 +135,7 @@ struct SceneDocumentLoader {
                     ? authoredObjects[index]
                     : object,
                 missingParallaxDepth: missingParallaxDepth,
+                declaredTexturePropertyKeys: declaredTexturePropertyKeys,
                 startupMaterialScalarKeys: Set(["metallic", "roughness", "emissivecolor", "emissivebrightness", "reflectivity", "reflectivitydistance"].filter { key in
                     propertyResolution.startupValuePaths.contains(.init(components: [
                         .key("objects"), .index(index), .key("instance"),
@@ -188,6 +191,7 @@ struct SceneDocumentLoader {
         _ root: [String: Any],
         authoredRoot: [String: Any],
         missingParallaxDepth: String?,
+        declaredTexturePropertyKeys: Set<String>,
         startupMaterialScalarKeys: Set<String>
     ) -> SceneDocument.SceneObject? {
         guard let id = root["id"] as? Int else { return nil }
@@ -198,7 +202,8 @@ struct SceneDocumentLoader {
                 effect,
                 authoredRoot: authoredEffects.indices.contains(index)
                     ? authoredEffects[index]
-                    : effect
+                    : effect,
+                declaredTexturePropertyKeys: declaredTexturePropertyKeys
             )
         }
         let effectFiles = parsedEffects.map(\.file)
@@ -231,6 +236,7 @@ struct SceneDocumentLoader {
             materialInstance: SceneDocument.SceneLayerMaterialInstance.parse(
                 root["instance"],
                 authoredRaw: authoredRoot["instance"],
+                declaredTexturePropertyKeys: declaredTexturePropertyKeys,
                 startupScalarKeys: startupMaterialScalarKeys
             ),
             utilityLayer: SceneUtilityLayer.parse(imagePath: imagePath, object: root),
@@ -285,7 +291,8 @@ struct SceneDocumentLoader {
 
     nonisolated private static func parseEffect(
         _ root: [String: Any],
-        authoredRoot: [String: Any]
+        authoredRoot: [String: Any],
+        declaredTexturePropertyKeys: Set<String>
     ) -> SceneDocument.SceneEffect? {
         guard let file = normalizedPath(root["file"] as? String) else { return nil }
         let authoredPasses = authoredRoot["passes"] as? [[String: Any]] ?? []
@@ -297,7 +304,10 @@ struct SceneDocumentLoader {
                     : pass),
                 textures: texturePaths(in: pass),
                 textureSlots: (pass["textures"] as? [Any] ?? []).map { normalizedPath($0 as? String) },
-                userTextureInputs: (pass["usertextures"] as? [Any] ?? []).map(SceneEffectTextureInput.parse),
+                userTextureInputs: (pass["usertextures"] as? [Any] ?? []).map {
+                    SceneEffectTextureInput.parse($0,
+                        declaredTexturePropertyKeys: declaredTexturePropertyKeys)
+                },
                 combos: pass["combos"] as? [String: Int] ?? [:],
                 constantShaderValues: constantShaderValues(in: pass),
                 constantShaderValueKeys: constantShaderValueKeys(in: pass)

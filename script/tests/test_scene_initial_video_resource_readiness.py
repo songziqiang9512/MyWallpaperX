@@ -64,6 +64,7 @@ class InitialVideoResourceReadinessTests(unittest.TestCase):
             env["CLANG_MODULE_CACHE_PATH"] = str(p / "clang-cache")
             env["SWIFT_MODULECACHE_PATH"] = str(p / "swift-cache")
             extras = [SCENE / "Compilation/Material/SceneEffectTextureInput.swift",
+                      SCENE / "Compilation/Material/SceneRenderTargetVocabulary.swift",
                       SCENE / "Resources/Textures/SceneBaseImageTextureCandidateSupport.swift",
                       SCENE / "Resources/Textures/SceneBaseMaterialTextureResolver.swift"]
             command = ["xcrun", "swiftc", "-parse-as-library", *map(str, registry.SWIFT_SOURCES),

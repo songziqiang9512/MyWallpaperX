@@ -54,3 +54,18 @@ Generic固定float[1…32]沿现Normalizer与严格backend执行，退出误沿�
 每stage对实际保留接口按标量/向量/矩阵宽度及array count做溢出安全累计，较宽数组路径不超过124分量；依据[Apple GPU限制表](https://developer.apple.com/metal/Metal-Feature-Set-Tables.pdf)的Apple7/M1及后续family预算，不把32称为硬件最大值。原严格link/reflection/Metal pipeline仍裁实际资格，矩阵location与其他既有边界不扩。原生成build identity随Normalizer源码变化退休缓存，不另加盐或cache；失败仍保局部原输入。
 
 验收覆盖改名/等价表达、动态索引与插值、stage错配/类型/预算及bounded邻例，实际Metal读回和未参与修法原包。真实收益须锁默认可见ROI、实际typed输入与Program/GPU/末合成/次帧，控制参数只用于定位，不能替代默认结果；没有可归因收益或存在回退时撤候选。当前有界结果归[运行记录](../capabilities/runtime-evidence-current.md#generic-varying-array-20261021)，选序归[队列](../roadmap/scene-open-breakpoint-queue.md)。
+
+<a id="declared-texture-input-and-color-purpose"></a>
+### 声明纹理属性的输入身份与颜色用途（2026-10-24）
+
+目标是让作者已接入效果的图片替换沿原属性/资源/Program链真正显示。已声明裸键不能仅因underscore前缀被当作asset；默认fallback与base图相同时，默认画面正常不证明换图正常。[有界实施记录](../history/declared-texture-rgb-graph-2026-10-24.md)拥有实际身份、启动选图/恢复与未覆盖边界，不以清日志或解析正确认领画面完成。
+
+**输入身份。** 项目声明kind=sceneTexture的精确key集合由既有Project catalog提供，不用当前override值猜身份。原SceneEffectTextureInput.parse在生成typed Kind时，接收这份准备期上下文；只有裸且无slash/dot路径语法、非内部RT词汇的已声明键优先作property，其他path/system/shortcut/unknown和显式user对象保持现合同。Document的effect/instance与AssetCatalog的material（含SourceFacts直接resourceView入口）共用同一裁决，descriptor/Resolver/Template不再各自补字符串猜测。空上下文保原行为；已声明同名path.png仍是资产，真实_rt_由原Vocabulary处理，不扩大provider别名。
+
+**颜色事实。** input identity与source purpose独立。Schema沿现共享SyntaxUnit和ColorMixGraph/已验证helper数据流准备sampler角色：允许RGB只流向颜色混合、同次采样A只作有限标量coverage的有界图；reaching definition、别名与完整reference集合须覆盖所有读。复用既有helper纯度/签名和mix语义证明，不能仅凭ApplyBlending名称、模式号或material:texture注释认颜色。RGB参与UV/normal/data、alpha-only、额外读取、helper逃逸/写入、冲突声明/注册用途仍不获新事实。不增加shader家族模板或第二解析owner，不复制参考算法。
+
+source-proven purpose沿原TextureSlotPurpose→Catalog精确asset/user atom需求→variant envelope→Program；不能用默认PMA publication冒充straight-albedo。输出alpha、PMA/transfer及graph输入角色继续独立证明；如现输出证明不足，先沿同一数据流事实补齐资格，不能由input颜色推出最终颜色域。未知只局部保原输入，身份/代际错误拒最小不安全单元；保缺省fallback、pending/失败、取消、last-ready及GPU pin，不增provider、clock、缓存或compositor。语义改变沿现构建期producer源码身份退出旧build/variant缓存结果，普通帧不解析/编译。
+
+实际目标还无条件采slot3 framebuffer RGB，与slot0按source alpha预混，再消费slot1；默认WRITEALPHA0保source0.a。因此slot1 proof只产该sampler的input事实，不能授权整个Program。最小自有assembly须含RT背景、source0与replacement三输入，逐slot核原RT词汇/graph input角色，验证源alpha非1及背景attachment非1的RGB/A与最终transfer，并保错RT/混用data反例。若RT角色、输出transfer或attachment alpha未资格，停在下一真实首拒，不放宽整Program或改写作者算法。
+
+**验收与退出。** 先以小parse→Resolver→Template红绿门及真实跨Document/AssetCatalog/SourceFacts/Context门证明`property:_1`，覆盖改名、underscore、无声明、路径、RT、显式system/shortcut、kind冲突与材质/instance优先级。颜色门使用独立自写双/三颜色RGB图、覆盖权重、变量/资源/helper改名、mix/等价表达与相邻data/逃逸反例，继承现颜色/资源门；三输入数值门验证0/3为PMA、1为straight及partial attachment。实际Program/GPU/普通compositor像素与原358启动选图/空值恢复、健康邻图分开验证；启动覆盖不等于真实面板热切换。实际存储转换只沿既有ordinaryColorBoundary/frame mask，保sceneBackground consumer身份及terminal replay原限制；root直线RGB图以外的控制流、MASK/WRITEALPHA组合不自动获资格。先资格实际camera、inactive滚动与固定ROI；默认滚动另看真实输出，不混作静态golden。没有可归因换图收益、出现相邻回归或证明持续失格即收窄/撤回候选并重排，不以构建、加载OK或执行数认领改善；无可比测量不报性能收益。

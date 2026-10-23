@@ -5,11 +5,13 @@
 from __future__ import annotations
 
 import json
+import hashlib
 import os
 from pathlib import Path
 import runpy
 import subprocess
 import tempfile
+import time
 import unittest
 
 
@@ -283,6 +285,122 @@ private func syntaxReuseResults() throws -> [String: Any] {
             "multiple": (0..<8).map { token(manySamplers[$0]) }, "emptyCount": empty.count]
 }
 
+private func alphaRGBSource(three: Bool = false, helper: Bool = false) -> String {
+    let join = helper ? "JoinRGB(0, canvas.rgb, picture.rgb, amount)"
+        : "mix(canvas.rgb, picture.rgb, amount)"
+    let helperSource = helper ? """
+        vec3 JoinRGB(int style, vec3 lower, vec3 upper, float coverage) {
+            return mix(lower, upper, coverage);
+        }
+        """ : ""
+    return """
+    uniform sampler2D g_Texture0;
+    uniform sampler2D g_Texture1;
+    \(three ? "uniform sampler2D g_Texture3;" : "")
+    uniform float gain;
+    \(helperSource)
+    void main() {
+        vec4 canvas = texSample2D(g_Texture0, vec2(0.2));
+        vec4 picture = texSample2D(g_Texture1, vec2(0.8));
+        \(three ? "vec4 behind = texSample2D(g_Texture3, vec2(0.2)); canvas.rgb = mix(behind.rgb, canvas.rgb, canvas.a);" : "")
+        float amount = picture.a * gain;
+        canvas.rgb = \(join);
+        gl_FragColor = canvas;
+    }
+    """
+}
+
+private func alphaRGBPurposeResults() -> [String: Any] {
+    typealias Template = SceneResolvedMaterialTemplate
+    func samplers(_ source: String, vertex: String = vertexSource) -> [Int: Schema.Sampler] {
+        guard case let .accepted(prepared) = SceneAuthoredShaderPreparation.prepareShaderStages(
+            contract: contract(source, vertex: vertex), combos: [:],
+            textureReadiness: Dictionary(uniqueKeysWithValues: (0..<8).map { ($0, true) })
+        ) else { return [:] }
+        return (try? Schema.activeSamplers(prepared)) ?? [:]
+    }
+    func fact(_ sampler: Schema.Sampler?, _ reference: Template.TextureReference,
+              lower: Template.TextureReference? = nil) -> String {
+        guard let sampler else { return "missing" }
+        var candidates: [Template.TextureCandidate] = lower.map {
+            [.init(reference: $0, provenance: .material)]
+        } ?? []
+        candidates.append(.init(reference: reference, provenance: .userTexture))
+        return SceneResolvedMaterialTextureSlotPurpose.fact(in: .init(
+            index: sampler.slot, candidates: candidates),
+            candidateOrdinal: candidates.count - 1, sampler: sampler)?.purpose.reportToken ?? "nil"
+    }
+    let asset = Template.TextureReference.asset(customPath)
+    let renamedAsset = Template.TextureReference.asset(SceneVFSAssetPath("other/renamed-colors.png")!)
+    let user = Template.TextureReference.userProperty(.init(key: "_1"))
+    let renamedUser = Template.TextureReference.userProperty(.init(key: "_anotherImage"))
+    let graph = Template.TextureReference.graph(.init(kind: .effectOutput,
+        layerID: 901, effect: nil, name: "independent-input"))
+    let named = Template.TextureReference.provider(.namedLayerTarget(
+        .init(providerLayerID: 902, variant: .primary)))
+    let two = alphaRGBSource()
+    let three = alphaRGBSource(three: true)
+    let renamed = alphaRGBSource(three: true, helper: true)
+        .replacingOccurrences(of: "canvas", with: "retained")
+        .replacingOccurrences(of: "picture", with: "replacement")
+        .replacingOccurrences(of: "behind", with: "background")
+        .replacingOccurrences(of: "amount", with: "coverage")
+        .replacingOccurrences(of: "JoinRGB", with: "RenamedJoin")
+        .replacingOccurrences(of: "g_Texture0", with: "g_Texture4")
+        .replacingOccurrences(of: "g_Texture1", with: "g_Texture6")
+        .replacingOccurrences(of: "g_Texture3", with: "g_Texture7")
+    let variants = ["two": two, "three": three,
+        "helper": alphaRGBSource(three: true, helper: true),
+        "lerp": three.replacingOccurrences(of: "mix(", with: "lerp("),
+        "renamed": renamed]
+    let positive = variants.mapValues { source -> [String: Any] in
+        let typed = samplers(source)
+        let slots = typed.keys.sorted()
+        return ["slots": slots,
+            "sourcePurposes": slots.map { typed[$0]?.sourceProvenPurpose?.reportToken ?? "nil" },
+            "assets": slots.map { fact(typed[$0], asset) },
+            "users": slots.map { fact(typed[$0], user) },
+            "renamedAssets": slots.map { fact(typed[$0], renamedAsset) },
+            "renamedUsers": slots.map { fact(typed[$0], renamedUser) },
+            "transfer": SceneAuthoredShaderColorTransferAnalyzer.analyze(fragmentSource: source)
+                == .straightAlphaPreserving(textureSlot: source == renamed ? 4 : 0)]
+    }
+    let base = samplers(three)[1]
+    let metadata = ["mask": #"// {"mode":"opacitymask"}"#,
+        "normal": #"// {"material":"normal"}"#,
+        "noiseDefault": #"// {"default":"util/noise"}"#,
+        "internalDefault": #"// {"default":"_rt_unproven"}"#]
+    let declared = metadata.mapValues { annotation -> [String] in
+        let typed = samplers(three.replacingOccurrences(of: "uniform sampler2D g_Texture1;",
+            with: "uniform sampler2D g_Texture1; " + annotation))[1]
+        return [typed?.sourceProvenPurpose?.reportToken ?? "nil", fact(typed, asset), fact(typed, user)]
+    }
+    let rejected = [
+        "rgbAsWeight": two.replacingOccurrences(of: "picture.a * gain", with: "picture.r * gain"),
+        "extraRGBRead": two.replacingOccurrences(of: "gl_FragColor = canvas;",
+            with: "vec3 leaked = picture.rgb; gl_FragColor = canvas;"),
+        "extraAlphaRead": two.replacingOccurrences(of: "gl_FragColor = canvas;",
+            with: "float leaked = picture.a; gl_FragColor = canvas;"),
+        "extraSample": two.replacingOccurrences(of: "gl_FragColor = canvas;",
+            with: "vec4 leaked = texSample2D(g_Texture1, vec2(0.4)); gl_FragColor = canvas;"),
+    ].mapValues { source -> [String] in
+        let typed = samplers(source)[1]
+        return [typed?.sourceProvenPurpose?.reportToken ?? "nil", fact(typed, asset), fact(typed, user)]
+    }
+    let sampledVertex = """
+        uniform sampler2D g_Texture1;
+        void main() { gl_Position = texSample2D(g_Texture1, vec2(0.2)); }
+        """
+    return ["positive": positive, "declared": declared, "rejected": rejected,
+        "vertexUse": fact(samplers(two, vertex: sampledVertex)[1], asset),
+        "roles": ["graph": fact(base, graph), "named": fact(base, named),
+            "environment": fact(base, .provider(.sceneEnvironment)),
+            "backgroundNotStraight": fact(base, .provider(.sceneBackground(consumerLayerID: 901))),
+            "registeredNormalConflict": fact(base, .asset(registeredNormalPath)),
+            "lowerRegisteredConflict": fact(base, user, lower: .asset(registeredNormalPath)),
+            "lowerUnknownColor": fact(base, user, lower: renamedAsset)]]
+}
+
 @main
 private enum Main {
     static func main() throws {
@@ -302,6 +420,7 @@ private enum Main {
             """
         )
         let results: [String: Any] = [
+            "alphaRGBPurpose": alphaRGBPurposeResults(),
             "syntaxReuse": try syntaxReuseResults(),
             "graphPurpose": graphPurposeResults(),
             "colorGraph": colorGraphResults(),
@@ -428,19 +547,34 @@ class SceneSourceProvenStraightColorPurposeTests(unittest.TestCase):
         cls.temporary_directory = tempfile.TemporaryDirectory(
             prefix="mwx-source-proven-straight-color-purpose-"
         )
+        cls.addClassCleanup(cls.temporary_directory.cleanup)
         root = Path(cls.temporary_directory.name)
         support = root / "Support.swift"
         harness = root / "Harness.swift"
         binary = root / "source-proven-straight-color-purpose-test"
         support.write_text(SUPPORT, encoding="utf-8")
         harness.write_text(HARNESS, encoding="utf-8")
+        cls.source_manifest = {}
+        frozen_sources = []
+        for source in SWIFT_SOURCES:
+            relative = source.relative_to(REPOSITORY_ROOT)
+            payload = source.read_bytes()
+            frozen = root / "sources" / relative
+            frozen.parent.mkdir(parents=True, exist_ok=True)
+            frozen.write_bytes(payload)
+            frozen_sources.append(frozen)
+            cls.source_manifest[str(relative)] = hashlib.sha256(payload).hexdigest()
+        cls.source_manifest["Support.swift"] = hashlib.sha256(SUPPORT.encode()).hexdigest()
+        cls.source_manifest["Harness.swift"] = hashlib.sha256(HARNESS.encode()).hexdigest()
         environment = os.environ.copy()
         environment["CLANG_MODULE_CACHE_PATH"] = str(root / "clang-cache")
         environment["SWIFT_MODULECACHE_PATH"] = str(root / "swift-cache")
+        started = time.monotonic()
         compilation = subprocess.run(
             [
-                "xcrun", "--sdk", "macosx", "swiftc", "-parse-as-library",
-                str(support), *(str(path) for path in SWIFT_SOURCES), str(harness),
+                "xcrun", "--sdk", "macosx", "swiftc", "-Onone",
+                "-whole-module-optimization", "-num-threads", "2", "-parse-as-library",
+                str(support), *(str(path) for path in frozen_sources), str(harness),
                 "-framework", "Metal", "-framework", "CoreGraphics",
                 "-framework", "ImageIO", "-module-cache-path",
                 str(root / "module-cache"), "-o", str(binary),
@@ -449,16 +583,21 @@ class SceneSourceProvenStraightColorPurposeTests(unittest.TestCase):
             env=environment,
             capture_output=True,
             text=True,
+            timeout=180,
         )
+        cls.compile_seconds = time.monotonic() - started
         if compilation.returncode != 0:
             raise RuntimeError(compilation.stderr)
+        started = time.monotonic()
         completed = subprocess.run(
             [str(binary)],
             cwd=REPOSITORY_ROOT,
             env=environment,
             capture_output=True,
             text=True,
+            timeout=30,
         )
+        cls.execute_seconds = time.monotonic() - started
         if completed.returncode != 0:
             raise RuntimeError(completed.stderr or completed.stdout)
         cls.result = json.loads(completed.stdout)
@@ -479,6 +618,33 @@ class SceneSourceProvenStraightColorPurposeTests(unittest.TestCase):
             self.result,
         )
 
+    def test_alpha_preserving_rgb_graph_projects_exact_asset_and_user_purposes(self) -> None:
+        result = self.result["alphaRGBPurpose"]
+        for name, value in result["positive"].items():
+            with self.subTest(variant=name):
+                slots = [4, 6, 7] if name == "renamed" else [0, 1] if name == "two" else [0, 1, 3]
+                self.assertEqual(value["slots"], slots)
+                for field in ["sourcePurposes", "assets", "users", "renamedAssets", "renamedUsers"]:
+                    self.assertEqual(value[field], ["straight-albedo"] * len(slots), (name, field))
+                self.assertTrue(value["transfer"])
+
+    def test_alpha_rgb_graph_keeps_rt_roles_and_refuses_conflicting_or_extra_uses(self) -> None:
+        result = self.result["alphaRGBPurpose"]
+        self.assertEqual(result["roles"], {
+            "graph": "premultiplied-color", "named": "premultiplied-color",
+            "environment": "premultiplied-color", "backgroundNotStraight": "nil",
+            "registeredNormalConflict": "nil", "lowerRegisteredConflict": "nil",
+            "lowerUnknownColor": "straight-albedo",
+        })
+        self.assertEqual(result["declared"], {
+            "mask": ["nil", "mask", "mask"], "normal": ["nil", "normal", "normal"],
+            "noiseDefault": ["nil", "noise", "nil"], "internalDefault": ["nil", "nil", "nil"],
+        })
+        for name, value in result["rejected"].items():
+            with self.subTest(rejected=name):
+                self.assertEqual(value, ["nil", "nil", "nil"])
+        self.assertEqual(result["vertexUse"], "nil")
+
     def test_conflicts_and_indirect_uses_stay_closed(self) -> None:
         self.assertEqual(
             self.result["negative"],
@@ -494,7 +660,7 @@ class SceneSourceProvenStraightColorPurposeTests(unittest.TestCase):
                 "nestedSample": False,
                 "noiseMaterial": "unproven/nil/noise",
                 "scalar": "redOnly/nil/nil",
-                "alpha": "unproven/nil/nil",
+                "alpha": "alphaOnly/nil/nil",
                 "vertexUse": False,
                 "whole": "wholeVector/nil/nil",
             },

@@ -199,22 +199,6 @@ private func failure(
     guard case let .failure(value) = result else { return nil }
     return value
 }
-private func referenceToken(_ value: Template.TextureReference) -> String {
-    switch value {
-    case let .asset(request): return "asset:\(request.value)"
-    case let .userProperty(request): return "property:\(request.key)"
-    case let .provider(identity):
-        switch identity {
-        case let .system(name): return "system:\(name)"
-        case let .namedLayerTarget(reference):
-            return "named:\(reference.providerLayerID):\(reference.variant.rawValue)"
-        case let .sceneBackground(consumerLayerID):
-            return "scene-background:\(consumerLayerID)"
-        case .sceneEnvironment: return "scene-environment"
-        }
-    case let .graph(identity): return "graph:\(identity.kind.rawValue):\(identity.layerID)"
-    }
-}
 private func assetFailure(_ path: String) -> SceneResolvedMaterialFailure? {
     var slots = [SceneResolvedMaterialNode.TextureSlot?].emptySlots
     slots[0] = .init(index: 0, candidates: [
@@ -994,6 +978,7 @@ enum Harness {
         ]
         result.merge(namedScalarClassifierContracts()) { _, new in new }
         result.merge(sourceContracts()) { _, new in new }
+        result.merge(declaredTextureInputChecks(shader: contract("images/renamed"))) { _, new in new }
         let data = try JSONSerialization.data(withJSONObject: result, options: [.sortedKeys])
         print(String(decoding: data, as: UTF8.self))
     }

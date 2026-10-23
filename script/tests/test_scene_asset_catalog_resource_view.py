@@ -38,6 +38,8 @@ SWIFT_SOURCES = [
     REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Resources/Assets/SceneAssetCatalog.swift",
     REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Compilation/Material/SceneEffectDefinition.swift",
     REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Compilation/Material/SceneEffectTextureInput.swift",
+    SCENE_ROOT / "Compilation/Material/SceneRenderTargetVocabulary.swift",
+    SCENE_ROOT / "Resources/Textures/SceneNamedTextureReference.swift",
     SHADER_CONTRACT_RESOURCE_RESOLUTION_SOURCES["SceneShaderSourceGraph.swift"],
     SHADER_CONTRACT_RESOURCE_RESOLUTION_SOURCES[
         "SceneShaderLegacyAnnotationJSON.swift"

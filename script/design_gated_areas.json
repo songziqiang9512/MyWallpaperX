@@ -1167,6 +1167,25 @@
         "ListThumbnailTint",
         "AppKitListBackgroundTint"
       ]
+    },
+    {
+      "id": "scene-declared-texture-rgb-graph",
+      "title": "声明图片属性身份与保留源alpha的RGB图",
+      "owner": "Scene project/material preparation and shared shader facts",
+      "status": "approved",
+      "designDoc": "docs/scene/architecture/shader-metadata-failure-contract.md",
+      "design_notes": "#declared-texture-input-and-color-purpose：设计正文先落库。项目sceneTexture精确键沿原parse唯一裁决；同ColorMixGraph完整RGB/coverage/reference闭包分别投影input purpose与源alpha事实。复用ordinaryColorBoundary逐slot真实representation及原Program/graph/output，不扩旧overlay profile或新增lowerer。三输入RT、partial alpha、换图/恢复和相邻样本须另验；approved不等于能力完成。",
+      "matchPatterns": [
+        "MyWallpaperX/Core/SteamWorkshopScene/Compilation/Material/SceneEffectTextureInput.swift",
+        "MyWallpaperX/Core/SteamWorkshopScene/Compilation/Material/SceneResolvedMaterialShaderSchema+SamplerPurpose.swift",
+        "MyWallpaperX/Core/SteamWorkshopScene/Compilation/ShaderFrontend/SceneAuthoredShaderColorMixGraphAnalyzer.swift",
+        "MyWallpaperX/Core/SteamWorkshopScene/Compilation/ShaderFrontend/SceneAuthoredShaderColorTransferAnalyzer.swift",
+        "MyWallpaperX/Core/SteamWorkshopScene/Format/SceneDocument.swift",
+        "MyWallpaperX/Core/SteamWorkshopScene/Format/SceneDocumentObject.swift",
+        "MyWallpaperX/Core/SteamWorkshopScene/Resources/Assets/SceneAssetCatalog.swift",
+        "MyWallpaperX/Core/SteamWorkshopScene/Runtime/Frame/SceneRuntimeSourceFacts.swift"
+      ],
+      "contentPatterns": []
     }
   ]
 }

@@ -567,13 +567,13 @@
       "role": "stable-contract",
       "entrypoint": "docs/scene/architecture/runtime-architecture.md",
       "purpose": "Shader metadata记录级失败、源码/声明保真、共享准入与下游拒绝边界；不决定批次选序。",
-      "lastReviewed": "2026-10-21",
+      "lastReviewed": "2026-10-24",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "a7017965ce2f0584a62e7b60973fb5e5288172d6c5226548382207dae6614761",
+        "sourceSHA256": "7dfb573f7fdac15b2ee69f371b061f0c20ced9b9aad4c43412db6186734ba030",
         "method": "document_registry --audit + document_health --check",
-        "scope": "Generic scalar-array strict shape and component budget contract; current default437 waveform evidence and retired queue breakpoint; capability facts remain in runtime evidence.",
-        "limitations": "Navigation and this bounded change only; full-phase/official/HDR/multiscreen and performance not qualified."
+        "scope": "Declared texture/RGB graph bounded change: route, queue retirement and archived runtime evidence reconciled with the same source/App identity.",
+        "limitations": "Only this change and navigation reviewed; startup texture selection is not live-panel, full parity, HDR or performance acceptance."
       },
       "currentStateAuthority": "docs/scene/capabilities/runtime-evidence-current.md"
     },
@@ -772,13 +772,13 @@
       "role": "stable-contract",
       "entrypoint": "docs/scene/capabilities/README.md",
       "currentStateAuthority": "docs/scene/capabilities/coverage-ledger.md",
-      "lastReviewed": "2026-10-23",
+      "lastReviewed": "2026-10-24",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "833955ffe4cdc4b0e7a0def38ee5320d1a90dbc9cfa0b3437bd10951574aeed8",
+        "sourceSHA256": "5387682e55e553c2cfcf0d4412e6f4b1558fd97dc13e47508ee16ae9b969804c",
         "method": "document_registry --audit + document_health --check",
-        "scope": "只追加普通组合根效果后验的稳定跳转；实际合同、344白卡收益与322音频输入边界归D1/历史。",
-        "limitations": "其余主题不重审；不外推完整根效果/alpha/HDR/官方同态或性能。"
+        "scope": "Declared texture/RGB graph bounded change: route, queue retirement and archived runtime evidence reconciled with the same source/App identity.",
+        "limitations": "Only this change and navigation reviewed; startup texture selection is not live-panel, full parity, HDR or performance acceptance."
       }
     },
     {
@@ -878,13 +878,13 @@
       "role": "current-state",
       "entrypoint": "docs/scene/capabilities/README.md",
       "purpose": "限定专题的实现状态、偏差或证据；运行结论须复核身份和边界，不决定任务顺序。",
-      "lastReviewed": "2026-10-23",
+      "lastReviewed": "2026-10-24",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "cd2f50bb6e17ffccfc495f1b809e3a10714664e39cd162bbeb74c3775d1afd0d",
+        "sourceSHA256": "6f6a63221284448428338aa2296146f8c660539c2e139fb2cecba2229c547271",
         "method": "document_registry --audit + document_health --check",
-        "scope": "Append two original-sample gross screens to263 mixed-identity runtime associations; all261 prior runtime rows and human verdicts preserved. Independent original-image/log reviews.",
-        "limitations": "One20s silence window per sample; no new actionable gross defect, full parity, audio/property/interaction or performance acceptance."
+        "scope": "Declared texture/RGB graph bounded change: route, queue retirement and archived runtime evidence reconciled with the same source/App identity.",
+        "limitations": "Only this change and navigation reviewed; startup texture selection is not live-panel, full parity, HDR or performance acceptance."
       }
     },
     {
@@ -1064,13 +1064,13 @@
       "role": "navigation",
       "entrypoint": "docs/scene/README.md",
       "purpose": "Scene固定历史与当前权威的按需索引，不产生现役任务。",
-      "lastReviewed": "2026-10-23",
+      "lastReviewed": "2026-10-24",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "8640fbc05aa1dfd3d3bc2c2f7b5070e879d2456500f1f31739e3dc313c098eb6",
+        "sourceSHA256": "897185f2e58a7d8b5f811e38865d54163e9da37c588c09854c7328d32f90f5cd",
         "method": "document_registry --audit + document_health --check",
-        "scope": "仅清单治理：已闭/已解释/身份债归历史；14静态缺口按owner合入12公共条目，未闭反馈ID/稳定锚点守恒，旧静态文档删除并统一入口。",
-        "limitations": "对照现代码及既有证据，不新增App/VM/样本运行、修复、整景通过或性能结果；待复核与静态拒绝不等于当前可见bug。"
+        "scope": "Declared texture/RGB graph bounded change: route, queue retirement and archived runtime evidence reconciled with the same source/App identity.",
+        "limitations": "Only this change and navigation reviewed; startup texture selection is not live-panel, full parity, HDR or performance acceptance."
       }
     },
     {
@@ -1493,6 +1493,19 @@
         "docs/scene/architecture/runtime-architecture.md",
         "docs/scene/capabilities/sampler-alias-precedence.md"
       ]
+    },
+    {
+      "path": "docs/scene/history/declared-texture-rgb-graph-2026-10-24.md",
+      "role": "historical-evidence",
+      "entrypoint": "docs/scene/history/README.md",
+      "commandPolicy": "historical-only",
+      "currentAuthorities": [
+        "docs/scene/architecture/shader-metadata-failure-contract.md",
+        "docs/scene/capabilities/runtime-evidence-current.md",
+        "docs/scene/roadmap/scene-open-breakpoint-queue.md"
+      ],
+      "cutoffDate": "2026-10-24",
+      "uniqueValue": "声明图片输入身份、RGB图共用事实与358启动选图/恢复；三输入部分alpha数值、独立样本与未执行live边界。"
     },
     {
       "path": "docs/scene/history/default-2d-camera-inputs-2026-10-16.md",
@@ -3791,13 +3804,13 @@
       "role": "active-plan",
       "entrypoint": "docs/scene/README.md",
       "retirementCondition": "当队列中的公共 authored target 首断点关闭，后续只剩路线 P0/P3/P4/P5 的系统性验收，且不再需要该派生执行入口时，删除或转为 historical-evidence。",
-      "lastReviewed": "2026-10-23",
+      "lastReviewed": "2026-10-24",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "529d32f32e2f44a22faeec27db0d3af33d5787e47d39948b476c364df5c3dc8c",
+        "sourceSHA256": "35a9c4afc5fbefd14f010dd672100cefe93c6d00f520e5573c4086a1b1e94859",
         "method": "document_registry --audit + document_health --check",
-        "scope": "仅清单治理：已闭/已解释/身份债归历史；14静态缺口按owner合入12公共条目，未闭反馈ID/稳定锚点守恒，旧静态文档删除并统一入口。",
-        "limitations": "对照现代码及既有证据，不新增App/VM/样本运行、修复、整景通过或性能结果；待复核与静态拒绝不等于当前可见bug。"
+        "scope": "Declared texture/RGB graph bounded change: route, queue retirement and archived runtime evidence reconciled with the same source/App identity.",
+        "limitations": "Only this change and navigation reviewed; startup texture selection is not live-panel, full parity, HDR or performance acceptance."
       }
     },
     {

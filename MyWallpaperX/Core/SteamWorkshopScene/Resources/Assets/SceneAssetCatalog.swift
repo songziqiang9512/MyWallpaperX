@@ -95,13 +95,15 @@ struct SceneAssetCatalogLoader {
         )
         return try load(
             resourceView: resourceView,
-            referencedResourcePaths: referencedResourcePaths
+            referencedResourcePaths: referencedResourcePaths,
+            propertyCatalog: project.userProperties
         )
     }
 
     nonisolated func load(
         resourceView: SceneResourceView,
-        referencedResourcePaths: [String]
+        referencedResourcePaths: [String],
+        propertyCatalog: SceneUserPropertyCatalog = .empty
     ) throws -> SceneAssetCatalog {
         let rootURL = resourceView.primaryRootURL
         var resources = resourceView.authorResources
@@ -137,7 +139,11 @@ struct SceneAssetCatalogLoader {
         let materialResources = resources.filter {
             $0.kind == .material && $0.relativePath.localizedLowercase.hasSuffix(".json")
         }
-        let materials = materialResources.compactMap(loadMaterial)
+        let declaredTexturePropertyKeys = Set(propertyCatalog.definitions
+            .filter { $0.kind == .sceneTexture }.map(\.key))
+        let materials = materialResources.compactMap {
+            loadMaterial($0, declaredTexturePropertyKeys: declaredTexturePropertyKeys)
+        }
         let shaderReferences = SceneAssetCatalog.uniqueSorted(materials.flatMap { material in
             material.passes.compactMap(\.shader)
         })
@@ -244,7 +250,10 @@ struct SceneAssetCatalogLoader {
         )
     }
 
-    nonisolated private func loadMaterial(_ resource: SceneResourceIndex.Resource) -> SceneAssetCatalog.MaterialAsset? {
+    nonisolated private func loadMaterial(
+        _ resource: SceneResourceIndex.Resource,
+        declaredTexturePropertyKeys: Set<String>
+    ) -> SceneAssetCatalog.MaterialAsset? {
         guard let data = try? Data(contentsOf: resource.url),
               let root = (try? JSONSerialization.jsonObject(with: data)) as? [String: Any] else {
             return nil
@@ -255,7 +264,8 @@ struct SceneAssetCatalogLoader {
                 shader: normalizedPath(pass["shader"] as? String),
                 textures: texturePaths(in: pass),
                 textureSlots: textureSlots(in: pass),
-                userTextureInputs: userTextureInputs(in: pass),
+                userTextureInputs: userTextureInputs(in: pass,
+                    declaredTexturePropertyKeys: declaredTexturePropertyKeys),
                 combos: pass["combos"] as? [String: Int] ?? [:],
                 constantShaderValues: materialConstantShaderValues(in: pass),
                 userShaderValues: pass["usershadervalues"] as? [String: String] ?? [:],
@@ -389,9 +399,13 @@ struct SceneAssetCatalogLoader {
     }
 
     nonisolated private func userTextureInputs(
-        in pass: [String: Any]
+        in pass: [String: Any],
+        declaredTexturePropertyKeys: Set<String>
     ) -> [SceneEffectTextureInput?] {
-        (pass["usertextures"] as? [Any] ?? []).map(SceneEffectTextureInput.parse)
+        (pass["usertextures"] as? [Any] ?? []).map {
+            SceneEffectTextureInput.parse($0,
+                declaredTexturePropertyKeys: declaredTexturePropertyKeys)
+        }
     }
 
     nonisolated private func parsedVector(_ value: Any?, length: Int) -> [Float]? {

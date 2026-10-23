@@ -74,7 +74,8 @@ struct SceneRuntimeSourceFactsBuilder {
             try? SceneAssetCatalogLoader().load(
                 resourceView: resourceView,
                 referencedResourcePaths:
-                    sceneDocument?.referencedResourcePaths ?? []
+                    sceneDocument?.referencedResourcePaths ?? [],
+                propertyCatalog: project.userProperties
             )
         }
         try checkCancellation?()

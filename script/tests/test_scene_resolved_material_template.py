@@ -34,6 +34,7 @@ SWIFT_SOURCES = [
     REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Compilation/Material/SceneResolvedMaterialEffectIngress.swift",
     REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Compilation/Material/SceneResolvedMaterialScriptBindingClassifier.swift",
     REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Compilation/Material/SceneResolvedMaterialTemplateCompiler.swift",
+    REPOSITORY_ROOT / "script/tests/fixtures/SceneDeclaredTextureInputChecks.swift",
 ]
 
 
@@ -320,6 +321,18 @@ class SceneResolvedMaterialTemplateTests(unittest.TestCase):
             "sourceScriptProofCannotBorrowAnotherLayerIdentity",
             "sourceGraphBindingRejected", "sourceIdentityRejected",
             "sourceResolverSlotOverflowRejected",
+        ])
+
+    def test_declared_texture_keys_reach_the_real_template_without_path_aliases(self) -> None:
+        self.assert_contracts([
+            "declaredUnderscoreReachesTemplate", "declaredRenamedKeyReachesTemplate",
+            "declaredBareKeyUnchanged", "undeclaredUnderscoreStaysAsset",
+            "declarationIsCaseSensitive", "declaredDotPathStaysAsset",
+            "declaredSlashPathStaysAsset", "declaredBackslashStaysPath",
+            "declaredInternalRTKeepsVocabulary", "explicitUserKeepsIdentity",
+            "explicitSystemKeepsIdentity", "explicitShortcutKeepsIdentity",
+            "explicitUnknownStaysUnknown", "explicitMalformedSystemStaysUnknown",
+            "emptyAndNullRemainAbsent",
         ])
 
 

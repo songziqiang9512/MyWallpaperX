@@ -296,6 +296,10 @@ nonisolated enum SceneAuthoredShaderColorTransferAnalyzer {
             ) {
             return .straightAlphaPreserving(textureSlot: slots.source)
         }
+        if let graph = SceneAuthoredShaderColorMixGraphAnalyzer
+            .alphaPreservingRGBGraph(fragment: fragment) {
+            return .straightAlphaPreserving(textureSlot: graph.alphaCarrierSlot)
+        }
         if let slots = SceneAuthoredShaderColorMixGraphAnalyzer.analyze(
             outputUses: outputUses,
             fragment: fragment,

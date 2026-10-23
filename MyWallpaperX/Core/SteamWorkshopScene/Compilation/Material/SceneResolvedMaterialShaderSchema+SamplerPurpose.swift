@@ -65,12 +65,16 @@ extension SceneResolvedMaterialShaderSchema {
         let colorGraphSlots = SceneAuthoredShaderColorMixGraphAnalyzer.straightColorInputSlots(
             vertex: vertex, fragment: fragment
         )
+        let rgbGraphSlots = SceneAuthoredShaderColorMixGraphAnalyzer
+            .alphaPreservingRGBGraph(vertex: vertex, fragment: fragment)?
+            .colorSampleSlots ?? []
         let tintSlot = SceneAuthoredShaderNeutralTextureTintAnalyzer.analyze(
             vertex: vertex, fragment: fragment
         )?.textureSlot
         for (slot, sampler) in auxiliary {
             guard sampler.permitsSourceStraightColorProjection,
                   (sampler.channelUse == .wholeVector && colorGraphSlots.contains(slot))
+                    || rgbGraphSlots.contains(slot)
                     || slot == tintSlot
                     || SceneAuthoredShaderTextureChannelAnalyzer
                       .provesStraightColorUse(

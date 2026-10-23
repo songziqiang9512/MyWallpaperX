@@ -438,12 +438,12 @@ nonisolated enum SceneAuthoredShaderStraightBlendOutputAnalyzer {
         return slot
     }
 
-    static func hasNormalBlendHelper(_ fragment: Unit) -> Bool {
-        blendHelper(fragment) == .normal
+    static func hasNormalBlendHelper(_ fragment: Unit, named name: String = "ApplyBlending") -> Bool {
+        blendHelper(fragment, named: name) == .normal
     }
 
-    private static func blendHelper(_ fragment: Unit) -> BlendHelper? {
-        let matches = fragment.functions.filter { $0.name == "ApplyBlending" }
+    private static func blendHelper(_ fragment: Unit, named name: String = "ApplyBlending") -> BlendHelper? {
+        let matches = fragment.functions.filter { $0.name == name }
         guard matches.count == 1, let function = matches.first else { return nil }
         let tokens = fragment.tokens
         guard let names = SceneAuthoredShaderConditionalStraightUnionAnalyzer

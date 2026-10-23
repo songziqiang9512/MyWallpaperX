@@ -1576,7 +1576,9 @@
         "script/tests/test_scene_scalar_mask_data_purpose.py",
         "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Lighting/SceneAuthoredShaderLightingInputs.swift",
         "script/tests/test_scene_ordinary_effect_lighting.py",
-        "script/tests/test_scene_ordinary_effect_lighting_gpu.py"
+        "script/tests/test_scene_ordinary_effect_lighting_gpu.py",
+        "script/tests/test_scene_alpha_preserving_rgb_graph.py",
+        "script/tests/test_scene_rgb_graph_color_boundary.py"
       ],
       "modules": [
         "test_scene_opaque_loop_sample_average_owner",
@@ -1620,7 +1622,9 @@
         "test_scene_scalar_mask_data_purpose",
         "test_scene_ordinary_effect_lighting",
         "test_scene_ordinary_effect_lighting_gpu",
-        "test_scene_prepared_uniform_query"
+        "test_scene_prepared_uniform_query",
+        "test_scene_alpha_preserving_rgb_graph",
+        "test_scene_rgb_graph_color_boundary"
       ]
     },
     {
@@ -1862,7 +1866,9 @@
       "patterns": [
         "MyWallpaperX/Core/SteamWorkshopScene/Compilation/ShaderFrontend/**",
         "script/tests/fixtures/SceneScalarVectorBuiltInHarness.swift",
-        "script/tests/fixtures/SceneVaryingValueParameterPrefixHarness.swift"
+        "script/tests/fixtures/SceneVaryingValueParameterPrefixHarness.swift",
+        "script/tests/test_scene_alpha_preserving_rgb_graph.py",
+        "script/tests/test_scene_rgb_graph_color_boundary.py"
       ],
       "modules": [
         "test_scene_opaque_loop_sample_average_owner",
@@ -1890,7 +1896,9 @@
         "test_scene_swift_source_sets",
         "test_scene_shader_scalar_remainder",
         "test_scene_frontend_expression_semantics",
-        "test_scene_shader_lexer"
+        "test_scene_shader_lexer",
+        "test_scene_alpha_preserving_rgb_graph",
+        "test_scene_rgb_graph_color_boundary"
       ]
     },
     {
@@ -2267,6 +2275,7 @@
         "script/tests/test_scene_hidden_property_consumers.py",
         "script/tests/test_scene_property_preparation_reuse.py",
         "script/tests/test_scene_native_property_list.py",
+        "script/tests/test_scene_texture_property_context.py",
         "MyWallpaperX/App/ScenePropertyWindowController.swift",
         "MyWallpaperX/Modules/SteamWorkshop/UI/WorkshopPropertySlider.swift",
         "MyWallpaperX/Modules/SteamWorkshop/UI/SteamWorkshopWebPropertyEditorView.swift",
@@ -2284,6 +2293,7 @@
         "test_scene_detail_diagnostics_on_demand",
         "test_scene_property_preparation_reuse",
         "test_scene_property_live_routing",
+        "test_scene_texture_property_context",
         "test_scene_hidden_property_consumers",
         "test_scene_property_live_update_state",
         "test_scene_runtime_input",

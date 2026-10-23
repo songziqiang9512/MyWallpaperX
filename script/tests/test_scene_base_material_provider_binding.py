@@ -59,6 +59,9 @@ class SceneBaseMaterialProviderBindingTests(unittest.TestCase):
             )
             result = json.loads(subprocess.check_output([str(binary)], text=True))
         self.assertEqual(len(result["shortcutCollisions"]), 4)
+        for name, passed in result["declaredTextureProviders"].items():
+            with self.subTest(declared_texture_provider=name):
+                self.assertTrue(passed)
         for name, passed in result["shortcutCollisions"].items():
             with self.subTest(shortcut_collision=name):
                 self.assertTrue(passed)

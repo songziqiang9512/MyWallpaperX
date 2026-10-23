@@ -19,6 +19,7 @@ nonisolated extension SceneDocument {
         nonisolated static func parse(
             _ raw: Any?,
             authoredRaw: Any? = nil,
+            declaredTexturePropertyKeys: Set<String> = [],
             startupScalarKeys: Set<String> = []
         ) -> Self? {
             guard let raw else { return nil }
@@ -47,9 +48,10 @@ nonisolated extension SceneDocument {
                         .trimmingCharacters(in: .whitespacesAndNewlines)
                     return normalized.isEmpty ? nil : normalized
                 },
-                userTextureInputs: (userTextureValues ?? []).map(
-                    SceneEffectTextureInput.parse
-                ),
+                userTextureInputs: (userTextureValues ?? []).map {
+                    SceneEffectTextureInput.parse($0,
+                        declaredTexturePropertyKeys: declaredTexturePropertyKeys)
+                },
                 hasUserTextureOverride: root.keys.contains("usertextures"),
                 // The parsed fields are the effective runtime projection, while
                 // rawValue remains the exact authored instance before user

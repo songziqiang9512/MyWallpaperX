@@ -847,7 +847,38 @@ let scalarProfiles = [
     scalarProfile("genericimage2",material:["roughness":.init(userBinding:"live",components:[0.1])]),
     scalarProfile("genericimage2",material:["metallic":.init(userBinding:nil,components:[2]),"roughness":.init(userBinding:nil,components:[-1])]),
 ]
+func declaredTextureProviderChecks() -> [String: Bool] {
+    func provider(_ key: String, declared: Bool, instance: Bool) -> String? {
+        let input = SceneEffectTextureInput.parse(key,
+            declaredTexturePropertyKeys: declared ? [key] : [])
+        let layer = SceneRenderDescriptor.Layer(id: 910, contentKind: "image",
+            imagePath: "models/renamed-cover.json", effects: [])
+        let overlay = SceneDocument.SceneLayerMaterialInstance(id: 911,
+            textureSlots: ["assets/renamed-cover.png"], userTextureInputs: [input],
+            hasUserTextureOverride: true, combos: [:], unknownKeys: [], isMalformed: false)
+        let descriptor = SceneRenderDescriptor(layers: [layer], modelMaterialLinks: [
+            .init(modelPath: "models/renamed-cover.json", materialPath: "materials/renamed-cover.json")],
+            materialPasses: [.init(materialPath: "materials/renamed-cover.json",
+                textureSlots: ["assets/renamed-cover.png"], userTextureInputs: instance ? [] : [input])],
+            texturePropertyKeys: declared ? [key] : [])
+        let result = SceneBaseMaterialProviderBindingCompiler.compile(descriptor: descriptor,
+            materialInstancesByLayerID: instance ? [910: overlay] : [:],
+            scriptBindings: [], materialPropertyTargets: [])
+        return result.baseMaterialBindings[910]?.provider.reportToken
+    }
+    var checks: [String: Bool] = [:]
+    for instance in [false, true] {
+        let route = instance ? "Instance" : "Material"
+        checks[route + "DeclaredUnderscore"] = provider("_1", declared: true, instance: instance) == "user-property:_1"
+        checks[route + "RenamedDeclaration"] = provider("_otherCover", declared: true, instance: instance) == "user-property:_otherCover"
+        checks[route + "UndeclaredUnderscore"] = provider("_1", declared: false, instance: instance) == nil
+        checks[route + "DeclaredPath"] = provider("path.png", declared: true, instance: instance) == nil
+        checks[route + "DeclaredRT"] = provider("_rt_FullFrameBuffer", declared: true, instance: instance) == nil
+    }
+    return checks
+}
 let result: [String: Any] = [
+    "declaredTextureProviders": declaredTextureProviderChecks(),
     "shortcutCollisions": shortcutProviderCollisionChecks(),
     "preparedImageMaterials": preparedImageMaterialChecks(),
     "instanceFallback": instanceFallbackChecks(),

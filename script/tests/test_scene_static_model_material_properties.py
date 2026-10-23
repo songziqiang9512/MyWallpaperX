@@ -17,6 +17,8 @@ SOURCES = [
     SCENE_ROOT / "Runtime/Frame/SceneStaticModelMaterialBindings.swift",
     SCENE_ROOT / "Format/SceneJSONValue.swift",
     SCENE_ROOT / "Compilation/Material/SceneEffectTextureInput.swift",
+    SCENE_ROOT / "Compilation/Material/SceneRenderTargetVocabulary.swift",
+    SCENE_ROOT / "Resources/Textures/SceneNamedTextureReference.swift",
     SCENE_ROOT / "Systems/Script/SceneScriptPropertyInput.swift",
     REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Systems/Properties/SceneUserProperty.swift",
     REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Systems/Properties/SceneScriptDynamicProviderHostContract.swift",
