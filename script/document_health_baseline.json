@@ -170,7 +170,7 @@
     },
     "docs/scene/capabilities/scene-sample-acceptance-ledger.md": {
       "lines": 436,
-      "bytes": 98137
+      "bytes": 98130
     },
     "docs/scene/capabilities/scene-sample-debug-ledger.md": {
       "lines": 534,
@@ -205,8 +205,8 @@
       "bytes": 131843
     },
     "docs/scene/roadmap/batch2/composition-render-target-design.md": {
-      "lines": 136,
-      "bytes": 32415
+      "lines": 149,
+      "bytes": 35149
     },
     "docs/scene/roadmap/batch2/copy-pass-unification-design.md": {
       "lines": 120,
@@ -273,8 +273,8 @@
       "bytes": 22423
     },
     "docs/scene/roadmap/scene-open-breakpoint-queue.md": {
-      "lines": 166,
-      "bytes": 33812
+      "lines": 165,
+      "bytes": 33790
     },
     "docs/web/cold-descriptor-parse-offload-design.md": {
       "lines": 43,
@@ -1254,11 +1254,11 @@
     {
       "section": "bodies",
       "path": "docs/scene/roadmap/batch2/composition-render-target-design.md",
-      "before": "4a88f10511c1a0f17d31a404b09155d7645cb0a705c1b86c2514602b92b95786",
-      "after": "bdbfef7a0128402439ebcf73e88d85eecd1f3bb819323dbd159d8ab001044dd5",
-      "owner": "scene-composition-local-root-fx",
-      "reason": "同一D1新增顶层passthrough普通成员局部源及原typed隐藏准备合同；无utility后代，保旧viewport/nested，真实五根15FX及正反门有界验收。",
-      "decision": "docs/scene/roadmap/batch2/composition-render-target-design.md"
+      "before": "bdbfef7a0128402439ebcf73e88d85eecd1f3bb819323dbd159d8ab001044dd5",
+      "after": "1011a8b8f6aa707fee2eb3612346b0fe47d674d4d2587ffec922329be5ade789",
+      "owner": "Scene ordinary composition root effect source",
+      "reason": "既有D1新增并收敛普通组合根效果的固定local source合同、旧viewport退出、nested结构边界与可证伪采样验收；实际白卡收益及322音频输入/用户反馈边界已归历史，不另建运行owner。",
+      "decision": "docs/scene/roadmap/batch2/composition-render-target-design.md#ordinary-root-effect-local-boundary"
     },
     {
       "section": "bodies",

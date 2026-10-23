@@ -51,7 +51,7 @@
 | 3437487219 · 夜侧光色、闪烁与collision | MR/specular/pigment消费者确缺，但Cloud的r0/彩tint/透明coverage与宽夜侧因果未闭；中性Chroma只有JPEG有界响应，非无损golden。先固定实际consumer/状态，另复验碰撞和间歇全屏时序；不套generic4白名单、调gain或用旧superseded序列关闭。[当前边界](../capabilities/runtime-evidence-current.md#single-slot-default-20261023) |
 | 3743305891 · 十字流星尺寸 | 父world/子local各有scale但无重复乘证据；先取得同phase可归属尺寸正控，不改作者flags/scale。 |
 | 3768229922 · 完整开场/过渡 | 短窗PSYCHE GEAR标识已在，只保主体/完整过渡待复验；固定完整默认开场，不能从稳定帧缺标识反推故障。[边界](../capabilities/runtime-evidence-current.md#default-camera-single-20261019) |
-| 3770444459 · 溅水滴黑、用户称应白 | 短窗未圈出可归因黑水ROI，原因UNKNOWN；先锁source/材质/合成，不按猜测改blend。旧`water-particle-current-20261019`仅作历史运行身份 |
+| 3770444459 · 溅水滴黑 | 10-23原包20秒未圈出可归因黑水ROI；待锁source/合成，不猜改blend。旧water目录不可用，新身份见[后验](../history/composition-root-effect-local-source-2026-10-23.md)。 |
 | 3351163962 · 新补报左上文字超环 | 需确切文本、属性/时刻/viewport；旧默认三文本同状态对照只闭旧范围，不能代验新补报或直接改anchor。[旧对照](../capabilities/runtime-evidence-current.md#u25-u35-current-qualification-20261018) |
 | 3768724269 · 旧光束范围/根部、右上渐变 | 用户称近官方、当前未确认新gross缺陷，仅待新同状态ROI；不按观感调gain，不重开已闭sunrays热显隐。[边界](../capabilities/runtime-evidence-current.md#quad-visibility-live-20261020) |
 | 3287715210 · 眼周过亮/渐变弱、横移细竖纹 | 两个余项分别复验。终端8位量化有证，不证明内部F16或条纹根因，不额外压暗/重复优先消融Bloom。[证据](../capabilities/runtime-evidence-current.md#e-2026-10-08-gradient-storage-isolation) |
@@ -63,7 +63,6 @@
 | N03 · 3337494481遮挡/构图、solid亮度 | 侧clock/date跨面文字、扁盒/粉顶、亮度旧观察仍待同pointer/phase；effect CPU、229 fallback/黑背景尚无可行动归因。原默认text板正控失败，不能猜depth/整quad策略；官方rim倒字/title黑影不计缺陷。[资格](../capabilities/runtime-evidence-current.md#native-text-depth-qualification-20261023) |
 | 2938612768 · 右下时钟裁切 | 同输入后期图均在、执行集合相同但根因未定；先复验布局/输出ROI，不改矩阵期待。[证据](../history/frame-texture-snapshot-convergence-2026-10-14.md) |
 | 2775915974 · 顶部灰边 | 旧反馈缺当前身份，先判作者画布露底；方向/顶部事件修复不代验该边。 |
-| 3448845950 · 布局/重叠 | 同phase/viewport复裁，不重开启动/Vec3.equals或资源链。 |
 | 3712499998 · 重复文字/样式 | 若当前仍重复，定位实际String/图层组合，不再补已闭Vec构造API。 |
 | 3477054430 · 显示不全、月亮过亮/球体/文字、低频与猫受光 | 按当前原输入/声源/phase逐ROI定位；已有雾/Bloom等有界后验不合并销账。[原边界](../history/shared-shader-type-compatibility-2026-10-09.md#u12-真实-pcm-与系统采集后继) |
 | 3775355045 /3775373546 · 双视频可见卡顿/不同步 | 旧命令/provider时钟差<2ms仅排除相应时钟API缺失；需同内容逐帧核两层publication/graph完成，不泛化所有视频。[时钟后验](../capabilities/scene-sample-debug-ledger.md#video-command-generation) |
@@ -152,7 +151,7 @@
 | 3766415113普通captureFrame1×1 | 旧daemon已呈现而ScreenCaptureKit得1×1、Metal诊断完整；先当前窗口frame/时机，不把诊断替图称普通capture修复。[尝试](../history/shader-completed-cache-retention-2026-10-15.md#未完成边界与无效尝试) |
 | <a id="particle-world-space"></a>world-space affine/CP force · 359777 Bird | [空间准备](../../../MyWallpaperX/Core/SteamWorkshopScene/Systems/Particles/SceneParticleWorldSpacePlan+Descriptor.swift)限无parent/attachment/child的origin writer/单Sprite等组合，[同帧plan](../../../MyWallpaperX/Core/SteamWorkshopScene/Systems/Particles/SceneParticleWorldSpacePlan.swift)限basis/Z不变；[world CP force](../../../MyWallpaperX/Core/SteamWorkshopScene/Systems/Particles/SceneParticleControlPointForce.swift)限正交无层级local system、bounded CP、零operator origin。Bird operator10非零origin仍拒，270可见鸟群/音频出生UNKNOWN。先证active Z/rotation/scale、层级或空间consumer及ROI，沿原空间/出生/绘制扩展；零origin缺省距离不重开，不另造坐标链。 |
 | 3605722997 · 脚本49 notfunction | console.warn仅静态候选，目标55为MP4-backed image且控制API已有；callee/初始available未证。先堆栈/实际调用，不据标签补API或改类型。 |
-| 粒子unsupported与位置映射 | mapsequencebetweencontrolpoints、其余CP约束、Mirror、nested/event、非均匀child变换、深duration/9999 delay独立开放；只在真实active consumer有资格时实施。Position Around默认Z有效映射有反证，但斜轴六候选全拒；须新可区分出生/空间证据，不拟合phase/重跑旧板，不关闭311/379方向与速度。[位置边界](../capabilities/particle-component-coverage.md#position-around-position-mapping) |
+| 粒子unsupported与位置映射 | mapsequencebetweencontrolpoints、其余CP约束、Mirror、nested/event、非均匀child变换、深duration/9999 delay及322的68→64 matrix child预算独立开放，后者像素/成本待资格；只在真实active consumer有资格时实施。Position Around默认Z有效映射有反证，但斜轴六候选全拒；须新可区分出生/空间证据，不拟合phase/重跑旧板，不关闭311/379方向与速度。[位置边界](../capabilities/particle-component-coverage.md#position-around-position-mapping) |
 | <a id="particle-cp-distance"></a>3742497499 · CP距离/death child | [parseOperator](../../../MyWallpaperX/Core/SteamWorkshopScene/Systems/Particles/SceneParticleDefinitionParser+Operator.swift)无maintaindistancetocontrolpoint case，Simulator无typed位置约束消费者；135默认活跃/GPU有输出但此算子未接。death child在multiplysize/setopacity拒，setcolor已接，174隐藏不算consumer。距离及六板均STOP；先资格distance/variable-strength/轨迹，不能替为maintaindistancebetweencontrolpoints；另分Alpha初始化、事件输入、尺寸消费与真实splash ROI，不跳未知mode或用root计数替child。[资格](../history/particle-initializer-qualification-2026-10-23.md#event-inheritance) |
 | 源码目录6项漏登记 | 3ce7adae2下Lighting输入、3个UserShortcuts、Puppet属性准备及shortcut dispatch仍不在filename合同；与本批已登记的两个prepared新源无关，只读核表同旧6项。按实际owner补登记，不移动/删合法代码消红；原收据在`native-text-bounds-20261022`正式包。 |
 | 运行诊断显隐归一 | 381隐藏/特殊solid聚合load-incomplete、380隐藏分支异常降级仍待核；先消费既有active/retired事实，保raw，不把结构标签当缺图。[诊断合同](../development/corpus-diagnostic-workflow.md) |

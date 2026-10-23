@@ -775,10 +775,10 @@
       "lastReviewed": "2026-10-23",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "bc04b949afb99bb40ee11c1f4ef3ca552986e12b6042e6bcfdcd13f6a06b4443",
+        "sourceSHA256": "833955ffe4cdc4b0e7a0def38ee5320d1a90dbc9cfa0b3437bd10951574aeed8",
         "method": "document_registry --audit + document_health --check",
-        "scope": "仅默认camera origin setter的唯一typed别名、事务与退休；原304实际偏移热改和独立355开场，保U13其余视觉缺口。",
-        "limitations": "默认XY夹零不认默认像素收益；304旧738 loading FAIL保持。未验官方同属性、组件精确锚定、HDR/多屏或性能；其余主题未重审。"
+        "scope": "只追加普通组合根效果后验的稳定跳转；实际合同、344白卡收益与322音频输入边界归D1/历史。",
+        "limitations": "其余主题不重审；不外推完整根效果/alpha/HDR/官方同态或性能。"
       }
     },
     {
@@ -1276,6 +1276,19 @@
         "docs/scene/roadmap/batch2/composition-render-target-design.md",
         "docs/scene/roadmap/scene-open-breakpoint-queue.md"
       ]
+    },
+    {
+      "path": "docs/scene/history/composition-root-effect-local-source-2026-10-23.md",
+      "role": "historical-evidence",
+      "entrypoint": "docs/scene/history/README.md",
+      "commandPolicy": "historical-only",
+      "currentAuthorities": [
+        "docs/scene/roadmap/batch2/composition-render-target-design.md",
+        "docs/scene/capabilities/runtime-evidence-current.md",
+        "docs/scene/roadmap/scene-open-breakpoint-queue.md"
+      ],
+      "cutoffDate": "2026-10-23",
+      "uniqueValue": "普通组合根效果的固定局部源、344白卡因果与原包收益；322静音/PCM及用户候选反馈、预算和非golden边界。"
     },
     {
       "path": "docs/scene/history/coverage-ledger-batches-through-2026-10-03.md",

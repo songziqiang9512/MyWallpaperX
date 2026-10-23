@@ -117,6 +117,19 @@ CaptureGeometry 的源采样使用 enclosing attachment 的相同映射与实际
 
 尺寸/映射非法、源目标身份/格式错误、采集或分配失败沿原degraded group抑制成员，pin/epoch、取消与GPU completion保持。验收为同输入修前/修后局部背景标记、X/Y裁切、半透明重叠/健康后层及改名/变换反例，最近资源/顺序/显隐门、Debug构建、378实际画面及独立原包。背景边界外采样、全部alpha/变换/嵌套、HDR官方数值与带根效果算法不据此宣称一致；无可归因改善或出现旧路径回归即撤新资格，不改作者位置或颜色补图。
 
+<a id="ordinary-root-effect-local-boundary"></a>
+### 普通组合根效果与局部边界（2026-10-23，有界实施）
+
+344的原包声明5120×1440正交画布，组合669有普通子层及一个关闭的根效果，旧`skippedNoEffect`排序让90→627越出父画布、形成左上白卡。稳定作者B姿态的三臂已完成归因；未改变作者位置或隐藏白卡。既有官方双子板中，根效果开启卡110和无效果卡210均有独立正控、两帧X/Y越界回背景的证据；声明效果关闭板未运行，非线性RGB顺序、官方内部extent/UV仍未知。
+
+公共语义是：**合法正交组合的父局部输出边界不因根效果的声明或显隐而消失**。原SourceRoute现为获准普通二维成员固定局部source政策，使用原Planner、SourceGeometry、GroupRuntime、Program及唯一compositor；效果准备仍独立准入，关闭时由原source路径回绘。退出该profile旧skippedNoEffect/viewport选择，不按当帧visible切换空间，不增scissor、mask或资源/输出owner。原透视、native-camera、模型/粒子成员、依赖与嵌套背景限制不扩张；已准入passthrough保持原分支。
+
+组合范围须准确披露：普通背景根声明效果后，其无根效果的嵌套passthrough后代现在可沿同一外组成为结构成员；这与已准入的透明源+根效果、背景源+无根效果组合一致。嵌套层自身不取得第二source/output；嵌套passthrough自带根效果仍拒，普通嵌套背景组仍保原viewport限制。此闭包通过实际Planner事实验收，不能仅由outer准入推断内部执行。
+
+局部source是本项目已有独立实现，不据边界证据声称官方内部RT一致。实际App的96×80非居中源，以UV .25/.75红绿标记及水平镜像Program验证局部采样，X/Y外点回背景、健康后层保持；旧版红、候选OFF/ON绿并核同帧GPU完成。源/Planner变体与相邻拒例、344原包默认/B、独立322静音A/B及用户最新普通App反馈的有界结果归[后验](../../history/composition-root-effect-local-source-2026-10-23.md)。声明OFF官方板未补跑，既有半透明/背景顺序证据仅继承，不把新opaque镜像门外推全部alpha、LOD/边缘采样、像素步长或非线性RGB；input Resolution改变属于本次范围，不能声称所有根效果parity。
+
+原源预留、pin/epoch、取消/GPU退出、最小失败和degraded组成员抑制保持。无实际收益、相邻画面反证或source/身份首错时撤回新资格并重评；不改作者位置/增益追图。322白频谱/白环受作者音频门控制，静音与非零PCM分开记录，手部与子系统预算余项不因本批关闭；没有性能收益结论。
+
 ### 有成员 passthrough 的局部效果（2026-10-22，设计与有界实施）
 
 370/377的组合根有作者宽高和子图，却因config.passthrough在SourceRoute首拒，根的pixelate/VHS/pulse未进入Program。组合定义的明确画布尺寸、成员合为单纹理及原背景采样坐标分工，支持沿已有局部source实施；不需要恢复官方内部FBO。RGBA正控只证通道响应；空间板的两轮STOP分别保留小角标颜色及参考X边混色失败，未读语义，不能据此声称官方物理extent、精确grid或overflow一致。

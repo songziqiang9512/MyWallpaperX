@@ -74,7 +74,11 @@ struct SceneLayerDisplayScriptOwnership {
 }
 struct SceneRenderDescriptor {
     struct Camera { var authoredOrthographicProjectionActive: Bool? = nil }
-    struct EffectDescriptor { var visible: Bool? = true }
+    struct EffectDescriptor {
+        var id: Int = 0
+        var file: String = "effects/original/effect.json"
+        var visible: Bool? = true
+    }
     struct Layer {
         let id: Int
         var visible: Bool? = true
@@ -108,18 +112,33 @@ enum Harness {
                    childEffects: [SceneRenderDescriptor.EffectDescriptor] = [],
                    ortho: Bool = true, rootPerspective: Bool = false,
                    childPerspective: Bool = false, passthrough: Bool = false,
-                   childKind: String = "solid", dependencies: [Int] = []) -> [String: Any] {
+                   childKind: String = "solid", dependencies: [Int] = [],
+                   reverseMembers: Bool = false,
+                   nestedBackground: Bool = false) -> [String: Any] {
             var object: [String: Any] = ["config": ["passthrough": passthrough]]
             if let copy { object["copybackground"] = copy }
             let utility = SceneUtilityLayer.parse(imagePath: "models/util/composelayer.json",
                 object: object)!
-            let root = SceneRenderDescriptor.Layer(id: ids[0], childLayerIDs: [ids[1]],
+            let memberIDs = Array(ids.dropFirst())
+            let root = SceneRenderDescriptor.Layer(id: ids[0], childLayerIDs: memberIDs,
                 dependencyLayerIDs: dependencies, contentKind: "composition", utilityLayer: utility,
                 usesPerspective: rootPerspective, effects: rootEffects)
-            let child = SceneRenderDescriptor.Layer(id: ids[1], parentID: ids[0],
-                contentKind: childKind, usesPerspective: childPerspective, effects: childEffects)
-            var descriptor = SceneRenderDescriptor(layers: [child, root],
-                renderOrderOverride: [ids[0], ids[1]])
+            var children = memberIDs.map { id in
+                SceneRenderDescriptor.Layer(id: id, parentID: ids[0],
+                    contentKind: childKind, usesPerspective: childPerspective, effects: childEffects)
+            }
+            var order = reverseMembers ? Array(memberIDs.reversed()) : memberIDs
+            if nestedBackground {
+                children[0].contentKind = "composition"
+                children[0].utilityLayer = SceneUtilityLayer.parse(
+                    imagePath: "models/util/composelayer.json", object: [:])!
+                children[0].childLayerIDs = [ids[0] + 1000]
+                children.append(.init(id: ids[0] + 1000, parentID: memberIDs[0],
+                    contentKind: "solid"))
+                order.append(ids[0] + 1000)
+            }
+            var descriptor = SceneRenderDescriptor(layers: Array(children.reversed()) + [root],
+                renderOrderOverride: [ids[0]] + order)
             descriptor.camera.authoredOrthographicProjectionActive = ortho
             switch SceneUtilityLayerSourceRoute.resolve(layer: root, descriptor: descriptor) {
             case let .failure(failure): return ["failure": failure.rawValue]
@@ -138,6 +157,12 @@ enum Harness {
             "renamed": probe("renamed", ids: [709, 218], copy: true),
             "hidden-authored-effect": probe("hidden", rootEffects: [.init(visible: false)]),
             "visible-authored-effect": probe("visible", rootEffects: [.init(visible: true)]),
+            "renamed-hidden-effect": probe("renamed-hidden", ids: [73, 81, 218], copy: true,
+                rootEffects: [.init(id: 91, file: "effects/renamed/mask.json", visible: false)],
+                reverseMembers: true),
+            "renamed-visible-effect": probe("renamed-visible", ids: [73, 81, 218], copy: true,
+                rootEffects: [.init(id: 630, file: "effects/other/renamed.json", visible: true)],
+                reverseMembers: true),
             "child-effect": probe("child-effect", childEffects: [.init(visible: true)]),
             "not-orthographic": probe("native", ortho: false),
             "root-perspective": probe("perspective", rootPerspective: true),
@@ -146,6 +171,8 @@ enum Harness {
             "model-member": probe("model", childKind: "model"),
             "particle-member": probe("particle", childKind: "particle"),
             "external-dependency": probe("dependent", dependencies: [901]),
+            "nested-background": probe("nested", rootEffects: [.init(visible: false)],
+                nestedBackground: true),
         ]
     }
 
@@ -347,29 +374,36 @@ class SceneUtilityLayerTests(unittest.TestCase):
         self.assertEqual(self.result["copyBackground"], [True, True, False, False, False, False, True])
         self.assertEqual(self.result["passthrough"], [True, False, False, False, False, False, False])
 
-    def test_no_authored_root_effect_background_groups_use_local_sources(self) -> None:
+    def test_background_groups_keep_local_sources_across_root_effect_states(self) -> None:
         routes = self.result["backgroundLocalSourceRoutes"]
         for name, root, members, copies, omitted in (
             ("omitted", 20, [21], True, True),
             ("true", 20, [21], True, False),
             ("transparent", 20, [21], False, False),
             ("renamed", 709, [218], True, False),
+            ("hidden-authored-effect", 20, [21], True, True),
+            ("visible-authored-effect", 20, [21], True, True),
+            ("renamed-hidden-effect", 73, [218, 81], True, False),
+            ("renamed-visible-effect", 73, [218, 81], True, False),
             ("child-effect", 20, [21], True, True),
+            ("passthrough", 20, [21], True, True),
         ):
             with self.subTest(route=name):
                 self.assertEqual(routes[name], {
                     "root": root, "members": members, "isolated": True, "local": True,
                     "copyBackground": copies, "authoredCopyOmitted": omitted})
 
-    def test_authored_effect_presence_and_projection_keep_legacy_background_source(self) -> None:
+    def test_projection_and_members_keep_existing_background_source_boundaries(self) -> None:
         routes = self.result["backgroundLocalSourceRoutes"]
-        for name in ("hidden-authored-effect", "visible-authored-effect", "not-orthographic",
-                     "root-perspective", "child-perspective"):
+        for name in ("not-orthographic", "root-perspective", "child-perspective"):
             with self.subTest(route=name):
                 self.assertEqual(routes[name], {
                     "root": 20, "members": [21], "isolated": True, "local": False,
                     "copyBackground": True, "authoredCopyOmitted": True})
-        for name in ("passthrough", "model-member", "particle-member", "external-dependency"):
+        self.assertEqual(routes["nested-background"], {
+            "root": 20, "members": [21, 1020], "isolated": True, "local": False,
+            "copyBackground": True, "authoredCopyOmitted": True})
+        for name in ("model-member", "particle-member", "external-dependency"):
             with self.subTest(route=name):
                 self.assertEqual(routes[name], {"failure": "utility-composition-subtree-shape"})
 

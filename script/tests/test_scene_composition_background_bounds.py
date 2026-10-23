@@ -6,6 +6,8 @@ integration gate. These owned solids qualify the bounded local-source profile;
 they do not infer the official client's algorithm for effect-bearing groups.
 Top-level passthrough cases additionally exercise an owned root Program through
 the existing live-effect runner; planner admission alone never proves a Program.
+Ordinary background groups additionally use a spatial root Program: its local
+UV mirror must exchange two markers, not merely remove out-of-bounds pixels.
 """
 
 from __future__ import annotations
@@ -13,6 +15,7 @@ from __future__ import annotations
 import hashlib
 import json
 from pathlib import Path
+import re
 import shutil
 import subprocess
 import tempfile
@@ -34,7 +37,8 @@ enum BackgroundLocalPlannerProbe {
                    ortho: Bool = true, perspective: Bool = false,
                    passthrough: Bool = false, childKind: String = "solid",
                    dependencies: [Int] = [], admitted: Bool = false,
-                   nested: Bool = false) -> [String: Any] {
+                   nested: Bool = false, nestedBackground: Bool = false,
+                   nestedPassthrough: Bool = false) -> [String: Any] {
             var utility = SceneUtilityLayer(kind: .composition)
             utility.copyBackground = copy
             utility.passthrough = passthrough
@@ -43,12 +47,28 @@ enum BackgroundLocalPlannerProbe {
                 utilityLayer: utility, dependencyLayerIDs: dependencies,
                 childLayerIDs: [childID], visible: true, effects: effects)
             root.usesPerspective = perspective
+            var childUtility: SceneUtilityLayer?
+            let populatedChildUtility = nestedBackground || nestedPassthrough
+            if populatedChildUtility {
+                var composition = SceneUtilityLayer(kind: .composition)
+                composition.copyBackground = nestedBackground
+                composition.passthrough = nestedPassthrough
+                childUtility = composition
+            }
             let child = SceneRenderDescriptor.Layer(parentID: rootID, id: childID,
-                contentKind: childKind, utilityLayer: nil, dependencyLayerIDs: [],
-                childLayerIDs: [], visible: true, effects: childEffects)
+                contentKind: populatedChildUtility ? "composition" : childKind,
+                utilityLayer: childUtility, dependencyLayerIDs: [],
+                childLayerIDs: populatedChildUtility ? [childID + 100] : [],
+                visible: true, effects: childEffects)
             // Array order is deliberately different from the authored order.
             var layers = [child, root]
             var order = [rootID, childID]
+            if populatedChildUtility {
+                layers.append(SceneRenderDescriptor.Layer(parentID: childID,
+                    id: childID + 100, contentKind: "solid", utilityLayer: nil,
+                    dependencyLayerIDs: [], childLayerIDs: [], visible: true, effects: []))
+                order.append(childID + 100)
+            }
             if nested {
                 var parentUtility = SceneUtilityLayer(kind: .composition)
                 parentUtility.copyBackground = false
@@ -67,7 +87,7 @@ enum BackgroundLocalPlannerProbe {
                 resolvedMaterialLayerIDs: admitted ? [rootID] : [])
             let execution = SceneUtilityLayerRuntimePlanner.execution(in: descriptor, plans: plans)
             let plan = plans[rootID]!
-            return ["root": rootID, "child": childID,
+            var fact: [String: Any] = ["root": rootID, "child": childID,
                 "disposition": plan.disposition.rawValue,
                 "local": plan.usesAuthoredLocalSource,
                 "captureRoots": execution.captureLayerIDs.sorted(),
@@ -76,6 +96,11 @@ enum BackgroundLocalPlannerProbe {
                 "members": execution.membersByRootID[rootID] ?? [],
                 "childOwner": execution.memberRootsByLayerID[childID] ?? -1,
                 "order": execution.orderedLayerIDs]
+            if nestedPassthrough {
+                fact["nestedDisposition"] = plans[childID]!.disposition.rawValue
+                fact["grandchildOwner"] = execution.memberRootsByLayerID[childID + 100] ?? -1
+            }
+            return fact
         }
         let hidden = SceneRenderDescriptor.EffectDescriptor(id: "own-hidden",
             file: "effects/renamed-inactive-filter.json", visible: false, passes: [])
@@ -89,6 +114,16 @@ enum BackgroundLocalPlannerProbe {
             "hidden-authored-effect": probe(effects: [hidden], admitted: true),
             "unprepared-hidden-effect": probe(effects: [hidden]),
             "visible-authored-effect": probe(effects: [visible], admitted: true),
+            "unprepared-visible-effect": probe(effects: [visible]),
+            "nested-background-viewport": probe(effects: [hidden], admitted: true,
+                nestedBackground: true),
+            "background-effect-nested-passthrough": probe(effects: [visible], admitted: true,
+                nestedPassthrough: true),
+            "transparent-effect-nested-passthrough": probe(copy: false, effects: [visible],
+                admitted: true, nestedPassthrough: true),
+            "background-no-effect-nested-passthrough": probe(nestedPassthrough: true),
+            "nested-passthrough-own-effect": probe(effects: [visible], childEffects: [visible],
+                admitted: true, nestedPassthrough: true),
             "not-orthographic": probe(ortho: false),
             "perspective": probe(perspective: true),
             "passthrough-no-effect": probe(passthrough: true),
@@ -149,13 +184,16 @@ class SceneCompositionBackgroundPlannerTests(unittest.TestCase):
                     "backgroundRoots": [root] if copies else [], "members": [child],
                     "childOwner": root, "order": [child, root]})
 
-    def test_any_authored_root_effect_keeps_the_prepared_viewport_background_path(self):
-        for name in ("hidden-authored-effect", "visible-authored-effect"):
+    def test_ordinary_root_effect_seeds_keep_the_admitted_local_source(self):
+        # The unprepared hidden case has no admitted material Program. Capture
+        # proves only its source route; the App spatial cases below prove FX.
+        for name in ("hidden-authored-effect", "visible-authored-effect",
+                     "unprepared-hidden-effect"):
             with self.subTest(case=name):
                 value = self.facts[name]
                 self.assertEqual(value["disposition"], "capture", value)
-                self.assertFalse(value["local"], value)
-                self.assertEqual(value["localRoots"], [], value)
+                self.assertTrue(value["local"], value)
+                self.assertEqual(value["localRoots"], [20], value)
                 self.assertEqual(value["captureRoots"], [20], value)
                 self.assertEqual(value["backgroundRoots"], [20], value)
                 self.assertEqual(value["members"], [21], value)
@@ -175,13 +213,22 @@ class SceneCompositionBackgroundPlannerTests(unittest.TestCase):
                     "backgroundRoots": [root] if copies else [], "members": [child],
                     "childOwner": root, "order": [child, root]})
 
-    def test_unprepared_visible_passthrough_effect_does_not_gain_execution(self):
-        value = self.facts["passthrough-unprepared-visible-effect"]
-        self.assertTrue(value["local"], value)
-        self.assertEqual(value["disposition"], "unsupportedEffects", value)
-        self.assertEqual(value["captureRoots"], [], value)
-        self.assertEqual(value["localRoots"], [], value)
-        self.assertEqual(value["members"], [], value)
+    def test_unprepared_visible_effect_does_not_gain_execution(self):
+        for name in ("unprepared-visible-effect", "passthrough-unprepared-visible-effect"):
+            with self.subTest(case=name):
+                value = self.facts[name]
+                self.assertTrue(value["local"], value)
+                self.assertEqual(value["disposition"], "unsupportedEffects", value)
+                self.assertEqual(value["captureRoots"], [], value)
+                self.assertEqual(value["localRoots"], [], value)
+                self.assertEqual(value["members"], [], value)
+
+    def test_populated_nested_background_keeps_its_existing_viewport_owner(self):
+        value = self.facts["nested-background-viewport"]
+        self.assertFalse(value["local"], value)
+        self.assertNotIn(20, value["localRoots"], value)
+        self.assertEqual(value["disposition"], "capture", value)
+        self.assertIn(20, value["captureRoots"], value)
 
     def test_nested_passthrough_remains_a_structural_member_not_a_new_owner(self):
         value = self.facts["nested-passthrough-structural"]
@@ -192,9 +239,26 @@ class SceneCompositionBackgroundPlannerTests(unittest.TestCase):
         self.assertEqual(value["members"], [], value)
         self.assertEqual(value["childOwner"], 900, value)
         self.assertEqual(value["order"], [21, 20, 900, 901], value)
+        for name, copies in (("background-effect-nested-passthrough", True),
+                             ("transparent-effect-nested-passthrough", False),
+                             ("background-no-effect-nested-passthrough", True)):
+            with self.subTest(case=name):
+                self.assertEqual(self.facts[name], {
+                    "root": 20, "child": 21, "disposition": "capture", "local": True,
+                    "captureRoots": [20], "localRoots": [20],
+                    "backgroundRoots": [20] if copies else [], "members": [21, 121],
+                    "childOwner": 20, "grandchildOwner": 20,
+                    "nestedDisposition": "skippedNoEffect", "order": [21, 121, 20]})
+        value = self.facts["nested-passthrough-own-effect"]
+        self.assertEqual(value["disposition"], "unsupportedChildren", value)
+        self.assertEqual(value["nestedDisposition"], "unsupportedChildren", value)
+        self.assertFalse(value["local"], value)
+        for key in ("captureRoots", "localRoots", "backgroundRoots", "members"):
+            self.assertEqual(value[key], [], value)
+        self.assertEqual((value["childOwner"], value["grandchildOwner"]), (-1, -1), value)
 
     def test_neighboring_unqualified_profiles_do_not_gain_local_capture(self):
-        for name in ("unprepared-hidden-effect", "not-orthographic", "perspective",
+        for name in ("not-orthographic", "perspective",
                      "model-member", "particle-member", "external-dependency",
                      "passthrough-not-orthographic", "passthrough-perspective",
                      "passthrough-model-member", "passthrough-particle-member",
@@ -315,6 +379,79 @@ def preregistration(*, copy_background=None, renamed=False, quarter_turn=False):
     return protocol
 
 
+def ordinary_root_program_fixture(*, enabled):
+    """An off-center local UV mirror, using the existing owned effect schema."""
+    solid_path = "models/owned-local-uv-card.json"
+
+    def solid(layer_id, center, size, color, **extra):
+        return {"id": layer_id, "name": f"Owned local UV marker {layer_id}",
+                "image": solid_path, "origin": f"{center[0]} {center[1]} 0",
+                "size": f"{size[0]} {size[1]}", "color": color,
+                "alpha": 1, "visible": True, **extra}
+
+    background = solid(1, (128, 128), (256, 256), "0 0 1")
+    root = {"id": 20, "name": "Owned ordinary local UV root",
+            "image": "models/util/composelayer.json", "origin": "112 120 0",
+            "size": "96 80", "config": {"passthrough": False},
+            "copybackground": True, "alpha": 1, "visible": True,
+            "effects": [{"id": 200, "file": "effects/own_flip_x/effect.json",
+                         "visible": enabled}]}
+    # Root source X spans 64...160: these centers are UV .25 and .75.
+    red = solid(21, (-24, 0), (12, 12), "1 0 0", parent=20)
+    green = solid(22, (24, 0), (12, 12), "0 1 0", parent=20)
+    center = solid(23, (0, 0), (12, 12), "0 1 1", parent=20)
+    outside_x = solid(24, (0, 28), (160, 12), "1 0 1", parent=20)
+    outside_y = solid(25, (0, 56), (160, 12), "1 1 0", parent=20)
+    later = solid(30, (208, 184), (12, 12), "1 1 1")
+    scene = {"version": 3, "general": {
+        "orthogonalprojection": {"width": 256, "height": 256},
+        "clearcolor": "0 0 0"},
+        "objects": [background, root, later, red, green, center, outside_x, outside_y]}
+    _, template = app_fixture.fixture_entries(effect=True)
+    entries = {name.replace("own_invert", "own_flip_x"):
+               data.replace(b"own_invert", b"own_flip_x")
+               for name, data in template.items()
+               if name.startswith(("effects/", "materials/", "shaders/"))}
+    entries.update({"scene.json": app_fixture.encoded(scene),
+        solid_path: app_fixture.encoded({"solidlayer": True, "width": 256, "height": 256}),
+        "models/util/composelayer.json": app_fixture.encoded(
+            {"width": 96, "height": 80, "autosize": False}),
+        "shaders/own_flip_x.frag": (
+            b"uniform sampler2D g_Texture0;\nvarying vec2 v_TexCoord;\n"
+            b"void main(){gl_FragColor=texSample2D(g_Texture0,"
+            b"vec2(1.0-v_TexCoord.x,v_TexCoord.y));}\n")})
+    return {"type": "scene", "file": "scene.json"}, entries
+
+
+def ordinary_root_program_preregistration(*, enabled):
+    """Fixed canvas ROI colors; no source-geometry resolver or image fitting."""
+    # PNG Y=256-authoredY. A viewport mirror is about X=128, while this
+    # root's local mirror is about X=112, so it cannot pass the swap oracle.
+    points = {
+        "source_uv_quarter": ((88, 136), (0, 255, 0) if enabled else (255, 0, 0)),
+        "source_uv_three_quarters": ((136, 136), (255, 0, 0) if enabled else (0, 255, 0)),
+        "source_center": ((112, 136), (0, 255, 255)),
+        "source_inside_x_stripe": ((148, 108), (255, 0, 255)),
+        "outside_root_x_positive": ((176, 108), (0, 0, 255)),
+        "outside_root_x_negative": ((48, 108), (0, 0, 255)),
+        "outside_root_y_marker": ((112, 80), (0, 0, 255)),
+        "later_peer_stays_front": ((208, 72), (255, 255, 255)),
+        "healthy_background": ((208, 136), (0, 0, 255)),
+    }
+    return {"canvas": app_fixture.CANVAS,
+        "parameters": {"passthrough": False, "copybackground": True,
+                       "rootCenter": [112, 120], "rootSize": [96, 80],
+                       "rootAlpha": 1, "rootAuthoredEffectCount": 1,
+                       "rootEffectEnabled": enabled},
+        "oracle": {name: {"canvasRect": (x - 3, y - 3, x + 3, y + 3),
+                          "expectedRGB": color} for name, ((x, y), color) in points.items()},
+        "channelTolerance": app_fixture.CHANNEL_TOLERANCE,
+        "minimumCorrectAreaFraction": app_fixture.MINIMUM_CORRECT_FRACTION,
+        "captureMapping": "existing centered orthographic 256x256 cover mapping",
+        "evidenceBoundary": "owned ordinary local source and actual horizontal-UV Program; not official internal FBO, nonlinear RGB or full parity",
+        "oracleSourceSHA256": hashlib.sha256(Path(__file__).read_bytes()).hexdigest()}
+
+
 class SceneCompositionBackgroundBoundsIntegrationTests(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
@@ -334,6 +471,35 @@ class SceneCompositionBackgroundBoundsIntegrationTests(unittest.TestCase):
 
     def test_true_background_renamed_quarter_turn_keeps_source_axes_and_order(self):
         self.run_fixture(copy_background=True, renamed=True, quarter_turn=True)
+
+    def run_ordinary_root_program(self, *, enabled):
+        source_digest = hashlib.sha256(Path(__file__).read_bytes()).hexdigest()
+        project, entries = ordinary_root_program_fixture(enabled=enabled)
+        protocol = ordinary_root_program_preregistration(enabled=enabled)
+        with patch.object(app_fixture, "fixture_entries", return_value=(project, entries)), \
+                patch.object(app_fixture, "preregistration", return_value=protocol):
+            result = app_fixture.SceneCompositionAuthoredOrderIntegrationTests.run_case(
+                self, effect=True, enabled=enabled)
+        log, _ = result
+        encoded_frames = set(re.findall(
+            r"axis=effect-cpu-invocation frame=(\d+) [^\n]*\blayer=20 effect=0 "
+            r"[^\n]*\boutcome=encoded-output\b", log))
+        if enabled:
+            completed_frames = set(re.findall(
+                r"phase=surface-submission state=completed frame=(\d+) "
+                r"surface=\d+ gpu=completed\b", log))
+            self.assertTrue(encoded_frames & completed_frames,
+                            "root Program must encode and complete on the same frame")
+        else:
+            self.assertFalse(encoded_frames, "disabled root Program must not encode")
+        self.assertEqual(hashlib.sha256(Path(__file__).read_bytes()).hexdigest(), source_digest)
+        return result
+
+    def test_ordinary_hidden_root_effect_captures_local_source_and_clips_both_axes(self):
+        self.run_ordinary_root_program(enabled=False)
+
+    def test_ordinary_active_root_program_mirrors_local_uv_and_clips_both_axes(self):
+        self.run_ordinary_root_program(enabled=True)
 
 
 def passthrough_fixture(*, renamed=False, initial_visible=False):

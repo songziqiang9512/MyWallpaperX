@@ -78,13 +78,11 @@ nonisolated enum SceneUtilityLayerSourceRoute {
                 pending.append(childID)
             }
         }
-        // A top-level passthrough still owns its authored group effects. Keep
-        // the local input stable across effect visibility changes. Nested
-        // passthroughs retain their existing structural membership instead of
-        // becoming additional source/output owners.
+        // A composition's local canvas belongs to its admitted structure,
+        // independently of root effect declarations or visibility. Keep the
+        // same source when an effect is inactive. Nested passthroughs retain
+        // structural membership instead of adding source/output owners.
         let localSource = descriptor.camera.authoredOrthographicProjectionActive == true
-            && (!utility.copyBackground || layer.effects.isEmpty
-                || (utility.passthrough && layer.parentID == nil))
             && !descendants.isEmpty
             && layer.usesPerspective != true
             && descendants.allSatisfy { childID in
