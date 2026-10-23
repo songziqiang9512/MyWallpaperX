@@ -6,6 +6,7 @@ import hashlib
 import json
 import os
 from pathlib import Path
+import shutil
 import subprocess
 import tempfile
 import unittest
@@ -17,6 +18,7 @@ from script.tests.test_scene_particle_camera_frame import SWIFT_SOURCES as CAMER
 ROOT = vm.ROOT
 SCENE = vm.SCENE
 FIXTURE = ROOT / "script/tests/fixtures/SceneDefault2DCameraInputChecks.swift"
+SETTER_FIXTURE = ROOT / "script/tests/fixtures/SceneDefault2DCameraSetterChecks.swift"
 
 # Reuse the full descriptor/parser gate, replacing its deliberately unavailable
 # property resolver with the real property family used by the VM gate.
@@ -66,23 +68,45 @@ struct SceneTextScriptProgram {
 
 def run_probe(directory: Path) -> dict:
     sources = list(dict.fromkeys([*vm.SWIFT_SOURCES, *EXTRA_SOURCES]))
-    inputs = [*sources, *vm.C_SOURCES, FIXTURE, Path(__file__), Path(vm.__file__),
-              Path(timeline.__file__), vm.VM / "SceneQuickJS.h",
-              vm.VM / "SceneQuickJSHostTypes.h", vm.VM / "SceneQuickJSInternal.h"]
-    before = {str(p.relative_to(ROOT)): hashlib.sha256(p.read_bytes()).hexdigest()
+    source_root = Path(os.environ.get("MWX_SCENE_TEST_SOURCE_ROOT", ROOT))
+    headers = list((source_root / vm.VM.relative_to(ROOT)).rglob("*.h"))
+    product_inputs = [source_root / p.relative_to(ROOT)
+                      for p in [*sources, *vm.C_SOURCES]] + headers
+    inputs = [*product_inputs, FIXTURE, SETTER_FIXTURE, Path(__file__),
+              Path(vm.__file__), Path(timeline.__file__)]
+    before = {str(p): hashlib.sha256(p.read_bytes()).hexdigest()
               for p in dict.fromkeys(inputs)}
     (directory / "input-freeze.json").write_text(json.dumps(before, indent=2) + "\n")
     with tempfile.TemporaryDirectory(prefix="compile-", dir=directory) as build:
-        binary = vm.compile_vector_harness(Path(build), FIXTURE.read_text(),
-            "default-2d-camera-inputs", extra_swift_sources=tuple(EXTRA_SOURCES),
-            preamble=preamble())
-        run = subprocess.run([str(binary), str(binary.parent)], capture_output=True, text=True, timeout=30)
+        build = Path(build)
+        frozen = build / "source"
+        for path in dict.fromkeys(product_inputs):
+            target = frozen / path.relative_to(source_root)
+            target.parent.mkdir(parents=True, exist_ok=True)
+            shutil.copyfile(path, target)
+        def mapped(path: Path) -> Path:
+            return frozen / path.relative_to(ROOT)
+        original = vm.ROOT, vm.VM, vm.QUICKJS, vm.SWIFT_SOURCES, vm.C_SOURCES
+        try:
+            vm.ROOT, vm.VM = frozen, mapped(vm.VM)
+            vm.QUICKJS = vm.VM / "QuickJSNG"
+            vm.SWIFT_SOURCES = [mapped(p) for p in original[3]]
+            vm.C_SOURCES = [mapped(p) for p in original[4]]
+            binary = vm.compile_vector_harness(build,
+                FIXTURE.read_text() + "\n" + SETTER_FIXTURE.read_text(),
+                "default-2d-camera-inputs", extra_swift_sources=tuple(map(mapped, EXTRA_SOURCES)),
+                preamble=preamble())
+            run = subprocess.run([str(binary), str(binary.parent)], capture_output=True,
+                                 text=True, timeout=30)
+        finally:
+            vm.ROOT, vm.VM, vm.QUICKJS, vm.SWIFT_SOURCES, vm.C_SOURCES = original
     (directory / "stdout.json").write_text(run.stdout)
     (directory / "stderr.log").write_text(run.stderr)
     drift = [name for name, digest in before.items()
-             if hashlib.sha256((ROOT / name).read_bytes()).hexdigest() != digest]
+             if hashlib.sha256(Path(name).read_bytes()).hexdigest() != digest]
     (directory / "execution.json").write_text(json.dumps({
         "exitCode": run.returncode, "inputCount": len(before), "inputDrift": drift,
+        "sourceRoot": str(source_root), "compiledFromFrozenCopy": True,
     }, indent=2) + "\n")
     if drift:
         raise AssertionError(f"focused input drift: {drift}")
@@ -153,6 +177,34 @@ class SceneDefault2DCameraInputTests(unittest.TestCase):
     def test_invalid_camera_components_reject_the_pair_atomically(self) -> None:
         facts = self.result["combinedRejections"]
         self.assertTrue(facts)
+        self.assertEqual([k for k, v in facts.items() if v is not True], [], facts)
+
+    def test_origin_setter_alias_reaches_only_the_next_camera_cadence(self) -> None:
+        for facts in self.result["setterAliases"]:
+            self.assertEqual([k for k, v in facts.items() if v is not True], [], facts)
+
+    def test_setter_failure_and_late_rejection_preserve_the_owner_bundle(self) -> None:
+        facts = self.result["setterFailures"]
+        self.assertEqual([k for k, v in facts.items() if v is not True], [], facts)
+
+    def test_same_value_peers_are_idempotent_and_conflicting_peer_is_local(self) -> None:
+        facts = self.result["setterPeers"]
+        self.assertEqual([k for k, v in facts.items() if v is not True], [], facts)
+
+    def test_camera_alias_retires_with_source_and_discard_preserves_it(self) -> None:
+        facts = self.result["setterRetirement"]
+        self.assertEqual([k for k, v in facts.items() if v is not True], [], facts)
+
+    def test_setter_preserves_timeline_zoom_and_ineligible_layer_routes(self) -> None:
+        facts = self.result["setterNeighbors"]
+        self.assertEqual([k for k, v in facts.items() if v is not True], [], facts)
+
+    def test_camera_creator_retirement_and_discard_cover_dynamic_children(self) -> None:
+        facts = self.result["setterCreatorRetirement"]
+        self.assertEqual([k for k, v in facts.items() if v is not True], [], facts)
+
+    def test_launch_canonical_noninteger_seed_wins_over_dynamic_alias_definition(self) -> None:
+        facts = self.result["setterCanonicalSeed"]
         self.assertEqual([k for k, v in facts.items() if v is not True], [], facts)
 
 

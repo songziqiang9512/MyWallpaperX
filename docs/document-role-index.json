@@ -767,10 +767,10 @@
       "lastReviewed": "2026-10-23",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "bcab0d8c774fcf849ed60d087c3b1c041eae14150708930e11a855e5b6b43dae",
+        "sourceSHA256": "bc04b949afb99bb40ee11c1f4ef3ca552986e12b6042e6bcfdcd13f6a06b4443",
         "method": "document_registry --audit + document_health --check",
-        "scope": "Scene default-slot修复边界保持；纠正官方JPEG观察与未满足的无损资格，其他运行事实未重验。",
-        "limitations": "导航及本次证据纠正；不认完整官方parity、Cloud光色、性能或全样本验收。"
+        "scope": "仅默认camera origin setter的唯一typed别名、事务与退休；原304实际偏移热改和独立355开场，保U13其余视觉缺口。",
+        "limitations": "默认XY夹零不认默认像素收益；304旧738 loading FAIL保持。未验官方同属性、组件精确锚定、HDR/多屏或性能；其余主题未重审。"
       }
     },
     {
@@ -778,13 +778,13 @@
       "role": "current-state",
       "entrypoint": "docs/scene/capabilities/README.md",
       "purpose": "限定专题的实现状态、偏差或证据；运行结论须复核身份和边界，不决定任务顺序。",
-      "lastReviewed": "2026-10-20",
+      "lastReviewed": "2026-10-23",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "886a16c8e703004accd548edaf7c1fdc0e575eb25ecc9af73582de8ae2d326f3",
+        "sourceSHA256": "34fad552c27d9540f34dfc593d198115dec0f996150d8e7d9cd2f78d4bd86032",
         "method": "document_registry --audit + document_health --check",
-        "scope": "同步D4本机Shortcut唯一配置/输入/执行职责、Scene v2及合法cursor局部false；普通Release用户打开/遮挡反馈与199通用pointer待排查分别登记。其余内容未重审。",
-        "limitations": "有界代码/测试与普通Release人工目标打开、遮挡证据；hover宽半径只为静态解释，199中心准边缘偏差仍待当前同点复验，不代表完整handler、官方parity或性能。"
+        "scope": "仅默认camera origin setter的唯一typed别名、事务与退休；原304实际偏移热改和独立355开场，保U13其余视觉缺口。",
+        "limitations": "默认XY夹零不认默认像素收益；304旧738 loading FAIL保持。未验官方同属性、组件精确锚定、HDR/多屏或性能；其余主题未重审。"
       }
     },
     {
@@ -1483,8 +1483,8 @@
         "docs/scene/capabilities/runtime-input-property-coverage.md",
         "docs/scene/roadmap/scene-open-breakpoint-queue.md"
       ],
-      "cutoffDate": "2026-10-19",
-      "uniqueValue": "默认2D混合相机输入/source identity与304倍率同窗恢复、169同aspect官方留底；生产多比例/密度与Anchor GPU、SDR暂停resize基线/实修/原HDR邻例及独立314，保官方anchor零组失败与余界。；后继独立Single/visibility与358/360开场，含304中断及376默认hidden短窗原失败。"
+      "cutoffDate": "2026-10-23",
+      "uniqueValue": "默认2D混合相机输入/source identity与304倍率同窗恢复、169同aspect官方留底；生产多比例/密度与Anchor GPU、SDR暂停resize基线/实修/原HDR邻例及独立314，保官方anchor零组失败与余界。；后继独立Single/visibility与358/360开场，含304中断及376默认hidden短窗原失败。；10-23 origin setter别名的CPU红绿与实际属性热改、默认/独立开场及未覆盖，保304旧738 FAIL。"
     },
     {
       "path": "docs/scene/history/direct-function-scalar-inputs-2026-10-11.md",
@@ -3660,13 +3660,13 @@
       "role": "active-plan",
       "entrypoint": "docs/scene/roadmap/batch2/batch2-design-index.md",
       "retirementCondition": "公开 API 的限定表面、生命周期与预算通过双侧事务门并归入唯一脚本合同后归档，设计登记随实施关闭。",
-      "lastReviewed": "2026-10-20",
+      "lastReviewed": "2026-10-23",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "cbbae26d2545cfdf5a2f7a471a2d481990152ac855a2e719c3702ed727d26c16",
+        "sourceSHA256": "141ddb935c0258cfa0bd01a948ac8754675f0fc3e7d6cc3b7a4b43414d539a46",
         "method": "document_registry --audit + document_health --check",
-        "scope": "同步D4本机Shortcut唯一配置/输入/执行职责、Scene v2及合法cursor局部false；普通Release用户打开/遮挡反馈与199通用pointer待排查分别登记。其余内容未重审。",
-        "limitations": "有界代码/测试与普通Release人工目标打开、遮挡证据；hover宽半径只为静态解释，199中心准边缘偏差仍待当前同点复验，不代表完整handler、官方parity或性能。"
+        "scope": "仅默认camera origin setter的唯一typed别名、事务与退休；原304实际偏移热改和独立355开场，保U13其余视觉缺口。",
+        "limitations": "默认XY夹零不认默认像素收益；304旧738 loading FAIL保持。未验官方同属性、组件精确锚定、HDR/多屏或性能；其余主题未重审。"
       }
     },
     {
@@ -3775,10 +3775,10 @@
       "lastReviewed": "2026-10-23",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "2858d9a014462fb362ea91c80de91196794d8e3ff07d0e2f1161aa406da5b1c5",
+        "sourceSHA256": "84fffc77d349ac8748bb4607554748336ac8586fc62910bb334ee5134d31bd48",
         "method": "document_registry --audit + document_health --check",
-        "scope": "区分声明型光照与粒子光卡外观的下界；376正控即停、131非方尺寸有界观察与严格锚点未资格，原视觉缺口不关闭。",
-        "limitations": "无产品更改、完整官方parity、全光照用途穷尽或性能收益。"
+        "scope": "仅默认camera origin setter的唯一typed别名、事务与退休；原304实际偏移热改和独立355开场，保U13其余视觉缺口。",
+        "limitations": "默认XY夹零不认默认像素收益；304旧738 loading FAIL保持。未验官方同属性、组件精确锚定、HDR/多屏或性能；其余主题未重审。"
       }
     },
     {

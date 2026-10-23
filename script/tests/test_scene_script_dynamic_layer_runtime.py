@@ -3,6 +3,9 @@
 from __future__ import annotations
 
 import json
+import hashlib
+import os
+import re
 import shutil
 import subprocess
 import tempfile
@@ -16,6 +19,7 @@ SCENE_SCRIPT = (
     / "MyWallpaperX/Core/SteamWorkshopScene/Systems/Script"
 )
 SOURCES = [
+    REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Runtime/Frame/SceneMaterialRenderState.swift",
     SCENE_SCRIPT.parent / "Particles/SceneParticlePlaybackModels.swift",
     SCENE_SCRIPT / "SceneScriptDynamicLayerRuntime+ParticlePlayback.swift",
     SCENE_SCRIPT / "SceneScriptLayerMutation.swift",
@@ -25,6 +29,33 @@ SOURCES = [
 ]
 
 HARNESS = (Path(__file__).parent / "fixtures/SceneScriptDynamicLayerRuntimeHarness.swift").read_text(encoding="utf-8")
+CAMERA_PROFILE = SCENE_SCRIPT.parent / "Properties/SceneDefault2DCameraInputProfile.swift"
+
+
+def camera_numeric_leaf() -> str:
+    """Compile the unchanged real numeric owner, without the unrelated parser DTOs.
+
+    This tiny gate tests runtime transactions. The camera-input gate links the
+    complete Profile and real parser; this projection cannot replace that gate.
+    """
+    source = CAMERA_PROFILE.read_text(encoding="utf-8")
+    constants = re.findall(r"(?m)^    static let maximumOriginMagnitude = [^\n]+", source)
+    signatures = list(re.finditer(
+        r"    static func acceptsOrigin\(_ values: \[Double\], nearZ: Double, farZ: Double\) -> Bool \{",
+        source))
+    if len(constants) != 1 or len(signatures) != 1:
+        raise AssertionError("camera numeric owner missing or ambiguous")
+    start = signatures[0].start()
+    brace = source.index("{", start)
+    depth = 1
+    end = brace + 1
+    while depth and end < len(source):
+        depth += (source[end] == "{") - (source[end] == "}")
+        end += 1
+    if depth:
+        raise AssertionError("camera numeric owner is incomplete")
+    return ("nonisolated enum SceneDefault2DCameraInputProfile {\n"
+            + constants[0] + "\n" + source[start:end] + "\n}\n")
 
 
 class SceneScriptDynamicLayerRuntimeTests(unittest.TestCase):
@@ -36,12 +67,22 @@ class SceneScriptDynamicLayerRuntimeTests(unittest.TestCase):
             prefix="mwx-script-dynamic-layer-"
         )
         directory = Path(cls.temporary_directory.name)
+        inputs = [*SOURCES, CAMERA_PROFILE,
+                  Path(__file__), Path(__file__).parent / "fixtures/SceneScriptDynamicLayerRuntimeHarness.swift",
+                  *SCENE_SCRIPT.rglob("*.h")]
+        before = {str(p): hashlib.sha256(p.read_bytes()).hexdigest() for p in inputs}
+        frozen = directory / "source"
+        for source in inputs:
+            target = frozen / source.relative_to(REPOSITORY_ROOT)
+            target.parent.mkdir(parents=True, exist_ok=True)
+            shutil.copyfile(source, target)
         harness = directory / "Harness.swift"
-        harness.write_text(HARNESS, encoding="utf-8")
+        harness.write_text(HARNESS + "\n" + camera_numeric_leaf(), encoding="utf-8")
         binary = directory / "dynamic-layer-runtime"
         compilation = subprocess.run(
-            ["swiftc", "-import-objc-header", str(SCENE_SCRIPT / "SceneQuickJS.h"),
-             *map(str, SOURCES), str(harness), "-o", str(binary)],
+            ["swiftc", "-import-objc-header", str(frozen / (SCENE_SCRIPT / "SceneQuickJS.h").relative_to(REPOSITORY_ROOT)),
+             *(str(frozen / p.relative_to(REPOSITORY_ROOT)) for p in SOURCES),
+             str(harness), "-o", str(binary)],
             capture_output=True,
             text=True,
         )
@@ -52,6 +93,19 @@ class SceneScriptDynamicLayerRuntimeTests(unittest.TestCase):
                 [str(binary)], check=True, capture_output=True, text=True
             ).stdout
         )
+        drift = [str(p) for p in inputs if hashlib.sha256(p.read_bytes()).hexdigest() != before[str(p)]]
+        proof = os.environ.get("MWX_SCENE_PROPERTY_PROOF")
+        if proof:
+            output = Path(proof)
+            output.mkdir(parents=True, exist_ok=True)
+            (output / "runtime-input-freeze.json").write_text(json.dumps(before, indent=2) + "\n")
+            (output / "runtime-result.json").write_text(json.dumps(cls.result, indent=2) + "\n")
+            (output / "runtime-execution.json").write_text(json.dumps({
+                "compiledFromFrozenCopy": True, "inputDrift": drift,
+                "profileNumericLeafOnly": True,
+            }, indent=2) + "\n")
+        if drift:
+            raise AssertionError(f"focused input drift: {drift}")
 
     @classmethod
     def tearDownClass(cls) -> None:

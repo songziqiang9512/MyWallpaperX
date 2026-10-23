@@ -71,3 +71,12 @@ camera origin handle setter仍按原preflight整owner包拒绝；此片只支持
 未参与修法的304原包在62.958s ready，before/after保留塔底栏杆、双人物、星空/海平面/日期，姿态仍变化；69s总watchdog在正常停止前截断，原exit-15/5FAIL保留，只认短窗实际画面，不认停止验收。没有延长同门重试。追加独立376原包旧合法Combined且camera127默认hidden：8s短窗实际显示PSYCHE GEAR开场标识、App0/source及App无漂移/stop1→0/GPU排空；runner的hover最低变化FAIL原样保留，本窗center stationary未测试作者交互。主体及完整过渡未覆盖，不能以标识可见关闭用户过渡反馈。355反向Combined/Z=0、一般动画、多path/native selection、camera setter、官方关开重播和完整跨比例仍未开放。
 
 根代理与独立看图审查仅判采样中的近→展开→保持，不把跨日日期、随机粒子或未对齐音源差异判回归。普通14天正式包`.artifacts/scene-evidence/runs/default-camera-single-20261019/`含before/after/off/second/heldout/adjacent，31.384MiB，所有原失败保留；必要开场原图、构建/测试身份和独审收据在`.artifacts/tmp/default-camera-single-20261018/retained-reviewed/`。无稳定CPU/GPU、内存、启动或能耗收益声明。
+
+<a id="default-camera-origin-setter-20261023"></a>
+## 2026-10-23：prepared默认相机源origin setter统一typed目标
+
+原304的215.visible经共享函数写2847.origin，getter已映射camera，setter却撤回整个owner。现DynamicLayerRuntime将准入source的origin apply/冲突/definition/退休统一为`.camera(.origin)`，保真实C journal、原优先级、下一cadence及整owner失败，无新camera状态/renderer。两个最近VM门17+17方法通过，含改名等价、缓存handle、非整数seed、同/异值peer、throw/超幅/晚拒及source/creator退休；独审无must-fix。
+
+固定Scene输入、优化Debug A`52df00ef…b4d458`/B`e2b5a83b…e88bd`，同原包、静音/中心pointer、30FPS/3024×1964；g_zoom=1且XY从(-100,40)热改到(100,-40)，旧版仍拒，候选主体相应位移，surface/window不重建。默认.73的XY实际夹零，只确认人物/塔/白亮X/时钟保留，不冒称默认像素修复；独立355开场近→全及人物/钢琴保留。四次运行App均0、stop1→0/GPUdrain、无GPU失败/原件或App漂移；304三次矩阵仍因旧738粒子不可用FAIL，355 PASS，不销整景。
+
+正式包`.artifacts/scene-evidence/runs/default-camera-origin-setter-20261023/`保A/B必要原图、默认/相邻缩图及原图身份、原报告/日志、CPU红绿与独审/构建身份，普通14天。未验官方同属性/phase、组件精确锚定、跨比例/HDR/多屏、复杂动画、ICamera或性能，U13光束/媒体/布局余项保持。

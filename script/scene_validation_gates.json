@@ -3727,7 +3727,8 @@
     {
       "id": "input-scene-default-2d-camera-inputs",
       "patterns": [
-        "script/tests/fixtures/SceneDefault2DCameraInputChecks.swift"
+        "script/tests/fixtures/SceneDefault2DCameraInputChecks.swift",
+        "script/tests/fixtures/SceneDefault2DCameraSetterChecks.swift"
       ],
       "modules": [
         "test_scene_default_2d_camera_inputs"

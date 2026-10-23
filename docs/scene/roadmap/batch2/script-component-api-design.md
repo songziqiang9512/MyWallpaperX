@@ -38,16 +38,16 @@ chooser取消、隐藏/窗口换绑或旧请求完成保原选择；选取/替�
 
 若原Launcher仍被shared/visible/typed资源门阻断，先修同链最早owner而非强显图标或绕过原脚本；若本地同步调用出现不可接受的主线程停顿，或gesture/configuration无法在dispatch前原子核定，撤回执行route并重评。未覆盖全部16项/全部target handler、系统icon/完整file shape、commands/schemes、Windows失败细节、App完成启动、性能长稳和完整官方parity；只把真正阻塞首片的未证字段单列pending，不反复泛化BLOCK整个API。
 
-<a id="default-2d-camera-inputs"></a>
+<a id="default-2d-camera-inputs"></a><a id="default-camera-origin-setter"></a>
 ## Default 2D camera 输入
 
-**现役范围（2026-10-16，有界已实施）。** 目标是让普通正交画布的作者默认相机 origin/zoom 经唯一 typed camera snapshot 到达现有投影。原无 Timeline 的 path 基值与 direct Slider zoom 漏接、origin Script 误作普通层位置，现与原 Combined Timeline 共享 `.camera(.origin/.zoom)`。混合来源按字段准入；运行和不同比例边界归[限定证据](../../history/default-2d-camera-inputs-2026-10-16.md)，不改作者画布或图层位置补偿。
+**现役范围与目标。** 合法正交画布、唯一合法default path按字段准入静态基值、direct Slider zoom、VM origin Script及已准入Timeline，共用`.camera(.origin/.zoom)`、definition/resolver、优先级与clock；[限定后验](../../history/default-2d-camera-inputs-2026-10-16.md)不代全部画面。保源layer的thisLayer/property identity；准入origin才退出旧layer writer，未准入者完整保原owner/getter/setter/world链，zoom独立准入。direct zoom复用原property live事务；return-origin沿原Vector init/update/事件、失败与退休。renderer只消费settled snapshot，不再读path/补偿canvas、重找camera或增fallback。未知动画、重复/非default path、native3D、冲突来源不顺带开放。
 
-限定 profile 为具有合法正交画布、唯一合法 default camera path 的场景。准备期统一确定来源层及可消费字段，静态基值、direct Slider zoom、现 VM origin Script 和已准入 Combined Timeline 共享 `.camera(.origin/.zoom)` definition、优先级、resolver 与 clock。输入路径保留原作者层 identity，VM 的 thisLayer/property scope 仍属于该源层；只有 origin 真正准入时输出 target 才改为 camera，保源 owner identity且退出该字段旧层 writer；未准入的 origin 完整保留原层 owner、definition、getter/setter和world路由，zoom可独立准入。相机当前值只由 settled snapshot 消费，renderer 不再读 path 或加第二 fallback。
+**Setter别名后继（2026-10-23，有界已实施）。** 实际304的visible回调经共享函数写prepared path的`thisLayer.origin`，getter已读camera，setter却使七项mutation整包撤回。公开ILayer仅证明origin可写，不定义camera别名/返回优先级；统一别名是本项目owner策略。DynamicLayerRuntime准备时保有的`default2DOriginInputLayerID`唯一决定origin目标，apply、跨owner冲突键、definition及退休一致归`.camera(.origin)`，其余field/path不变；保真实handle、C journal与owner bundle，无新camera store、VM API、clock或renderer。退出专门拒绝；最近VM/事务门与原包热改、相邻开场镜头已验，身份及剩余范围归[当前证据](../../capabilities/runtime-evidence-current.md#default-camera-origin-setter-20261023)。
 
-direct user zoom 复用原 extractor、property Program、live 准入与事务；合法初值、连续改值、保存/reset 均更新同一相机 target。return 型 origin Script 沿既有 Vector owner 的 init/update、事件、失败撤回和退休，基值仅作原 resolver fallback。本片不开放 camera origin handle setter：其 mutation→schema/冲突尚属普通层合同，在原 preflight 拒绝相关 owner 整包，不能与 camera primary 形成双 writer；完整 setter 归后继统一别名准入，不能记作已支持。Combined Timeline 保原时钟与已准入 composition；未知动画、重复/非 default path、native 3D、冲突来源与非法有限域不顺带开放，拒绝只影响相关相机输入，健康内容保原路由。数值域复用已有 camera Timeline 验证，不在普通帧重找相机、解析、建图或编译。
+保普通origin setter的**下一cadence**消费和现Script返回/Timeline/user优先级，不加同帧抢占或return trim。Swift事务复用原camera有限幅度/clip-span门，越界/晚拒撤相关owner整包、保健康peer；C入口NaN/Inf既有忽略不变。同值writer保幂等、异值后owner拒绝；destroy/失败撤回清camera别名值及creator后代，不能留下退休来源。原相机与普通层能力保持；ICamera、zoom setter、多path、3D、复杂Timeline控制及官方仲裁不扩。
 
-验收从自有改名输入的真实 parser/extractor→property/Vector C owner→definition 合并/resolver→cameraTransform/投影走通：init 产生区别于 seed 的 origin，direct zoom 默认与两次热改保留该 current origin；静态 path、原 Combined Timeline、坏返回/非法 zoom、同名非 camera、重复 path/native/冲突来源为相邻反例。Swift 产品做一次有效 Debug build，304 原包实图对照并核实际相机输入，未参与修法样本真实回归；169 只按其独立证据裁决。正确接线不自动等于完整官方画面、跨比例、全部相机 API 或性能收益。失败保原局部回退，保暂停、取消、同 generation 与资源释放。
+验收沿真实parser/VM→definition/resolver→下一snapshot/cameraFrame，含改名/等价Vec3、缓存handle、非整数canonical seed、throw/超幅/非有限、晚拒、同/异值peer及source/creator退休撤回；保非camera/坏path、静态/旧return/Timeline/direct zoom邻例。一次当前Debug、原304默认与属性offset热改、独立健康camera样本实际输出/stop排空；默认XY夹零不以无变化截图冒视觉收益，高频拒绝不冒性能热点。暂停/取消、generation/资源退出保持；双writer、退休残值或画面回退即撤。完整官方画面、跨比例和所有API未验。
 
 ### 默认相机 Timeline 与控制柄（2026-10-19，有界已实施）
 

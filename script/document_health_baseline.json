@@ -146,11 +146,11 @@
     },
     "docs/scene/capabilities/runtime-evidence-current.md": {
       "lines": 600,
-      "bytes": 218765
+      "bytes": 218766
     },
     "docs/scene/capabilities/runtime-input-property-coverage.md": {
       "lines": 600,
-      "bytes": 203803
+      "bytes": 203972
     },
     "docs/scene/capabilities/sampler-alias-precedence.md": {
       "lines": 13,
@@ -246,7 +246,7 @@
     },
     "docs/scene/roadmap/batch2/script-component-api-design.md": {
       "lines": 600,
-      "bytes": 165900
+      "bytes": 165860
     },
     "docs/scene/roadmap/batch2/system-media-input-design.md": {
       "lines": 59,
@@ -278,7 +278,7 @@
     },
     "docs/scene/roadmap/scene-open-breakpoint-queue.md": {
       "lines": 256,
-      "bytes": 80509
+      "bytes": 80673
     },
     "docs/web/cold-descriptor-parse-offload-design.md": {
       "lines": 43,
@@ -1455,30 +1455,39 @@
     },
     {
       "section": "bodies",
-      "path": "docs/scene/capabilities/runtime-evidence-current.md",
-      "before": "8830171bf01b70eef4ffcffb2e351ff7c0e29bef33f1aadb9414d79e2f614a9d",
-      "after": "1855a418a153c993baa5c5d45cb43fc8be17f377a06aa9a52e5acc63fad1deaa",
-      "owner": "Scene official capture qualification",
-      "reason": "纠正官方截图JPEG原格式与无损资格范围，保留独立产品修复；记录扇子固定帧正控与数值捕获失败，不扩大准入或宣布scalar已知。",
-      "decision": "docs/scene/history/static-model-default-albedo-implementation-2026-10-06.md#single-slot-default-20261023"
-    },
-    {
-      "section": "bodies",
-      "path": "docs/scene/roadmap/scene-open-breakpoint-queue.md",
-      "before": "78f218225cefb23e9c3ce8ec5158b1f15ba653ca3331a3751a768c40e9e0f78e",
-      "after": "b96ed6a608f27acca5094886c3ca41e889538e54a3a40d4f5d30042b9d27b263",
-      "owner": "Scene official capture qualification",
-      "reason": "纠正官方截图JPEG原格式与无损资格范围，保留独立产品修复；记录扇子固定帧正控与数值捕获失败，不扩大准入或宣布scalar已知。",
-      "decision": "docs/scene/history/static-model-default-albedo-implementation-2026-10-06.md#single-slot-default-20261023"
-    },
-    {
-      "section": "bodies",
       "path": "docs/scene/roadmap/performance-convergence-card.md",
       "before": "06f57d2b2462fd48d6a6ad70016f42215853af5dc5dc14b22f2db45c72325bc7",
       "after": "0d60497b7f4aeff6ac435de2758d67ede242edc3a3707f9d0220e12921ba15c8",
       "owner": "Scene movement CPU screening",
       "reason": "记录当前优化CPU探针、两项独立原型的预定门STOP及撤回，避免以后重复同型微筛；不外推App/画面/能耗收益。",
       "decision": "docs/scene/roadmap/performance-convergence-card.md#movement-access-screen-20261023"
+    },
+    {
+      "section": "bodies",
+      "path": "docs/scene/roadmap/scene-open-breakpoint-queue.md",
+      "before": "b96ed6a608f27acca5094886c3ca41e889538e54a3a40d4f5d30042b9d27b263",
+      "after": "b565d79d7a9c6c3975516c5bcd7cae21631029dd61866a1e5b5355f5ba4cb7cc",
+      "owner": "Scene canonical camera origin setter",
+      "reason": "合并相机设计/能力与有界实际热改后验，移除已闭首拒队列；当前证据用原相机历史留底和稳定跳转，不认整样本通过或性能收益。",
+      "decision": "docs/scene/roadmap/batch2/script-component-api-design.md#default-camera-origin-setter"
+    },
+    {
+      "section": "bodies",
+      "path": "docs/scene/capabilities/runtime-input-property-coverage.md",
+      "before": "47f9cf112f3048ebe0ea65342ab9041314ec3ec97d5ac69aca27d82fbd0db6ec",
+      "after": "270dc5f7dad8bbc7cda3d29e1a2ae119ba7481be525f1b0f39714130d9a70538",
+      "owner": "Scene canonical camera origin setter",
+      "reason": "合并相机设计/能力与有界实际热改后验，移除已闭首拒队列；当前证据用原相机历史留底和稳定跳转，不认整样本通过或性能收益。",
+      "decision": "docs/scene/roadmap/batch2/script-component-api-design.md#default-camera-origin-setter"
+    },
+    {
+      "section": "bodies",
+      "path": "docs/scene/capabilities/runtime-evidence-current.md",
+      "before": "1855a418a153c993baa5c5d45cb43fc8be17f377a06aa9a52e5acc63fad1deaa",
+      "after": "fdbb9dc95d5afc06eae596628a9e0164b1c468d9f7016d758faa7ce5d111d723",
+      "owner": "Scene canonical camera origin setter",
+      "reason": "合并相机设计/能力与有界实际热改后验，移除已闭首拒队列；当前证据用原相机历史留底和稳定跳转，不认整样本通过或性能收益。",
+      "decision": "docs/scene/roadmap/batch2/script-component-api-design.md#default-camera-origin-setter"
     }
   ]
 }

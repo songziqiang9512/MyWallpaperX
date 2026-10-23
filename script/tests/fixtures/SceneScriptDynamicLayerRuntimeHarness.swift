@@ -24,6 +24,7 @@ nonisolated enum SceneDynamicLayerField: Hashable, Sendable {
 }
 nonisolated enum SceneDynamicParticleField: Hashable, Sendable { case alpha }
 nonisolated enum SceneDynamicTextField: Hashable, Sendable { case content, font, color, pointSize }
+nonisolated enum SceneDynamicCameraField: Hashable, Sendable { case origin }
 nonisolated enum SceneDynamicTarget: Hashable, Sendable {
     case layer(layerID: Int, field: SceneDynamicLayerField)
     case text(layerID: Int, field: SceneDynamicTextField)
@@ -32,7 +33,7 @@ nonisolated enum SceneDynamicTarget: Hashable, Sendable {
     case effectConstant(layerID: Int, effectIndex: Int, passIndex: Int, name: String)
     case materialConstant(layerID: Int, passIndex: Int, name: String, materialPath: String)
     case scriptInstanceProperty(layerID: Int, path: [String])
-    case scene(Int), camera(Int)
+    case scene(Int), camera(SceneDynamicCameraField)
 }
 nonisolated struct SceneScriptParticlePlaybackCommand: Sendable {
     let layerID: Int
@@ -198,6 +199,8 @@ nonisolated struct SceneRenderDescriptor: Sendable {
     struct Camera: Sendable {
         var default2DOriginInputLayerID: Int? = nil
         var orthoHeight: Float? = nil
+        var nearZ: Float = 0.01
+        var farZ: Float = 10000
     }
     var camera = Camera()
     let layers: [Layer]
@@ -281,7 +284,7 @@ enum Harness {
         let styleBeforeCommit = styleRuntime.snapshot().authoredLayerValues.isEmpty
         styleRuntime.commit(stylePlan)
         let styleAfterCommit = styleRuntime.snapshot()
-        let invalidStyle = styleRuntime.apply([mutation(10, dynamic: false, alpha: -1, fields: [.alpha])])
+        let invalidStyle = styleRuntime.apply([mutation(10, dynamic: false, alpha: .nan, fields: [.alpha])])
         let styleAfterFailure = styleRuntime.snapshot()
         let replayRuntime = SceneScriptDynamicLayerRuntime(descriptor: descriptor, authoredMutationLayerIDs: [10])
         let replayTarget = SceneDynamicTarget.layer(layerID: 10, field: .alpha)
@@ -307,7 +310,7 @@ enum Harness {
         let rejectedReplayPreservesValue = rejectedReplay.admission.layerPlan.authoredLayerValues == replayBefore.authoredLayerValues
         let invalidReplay = replayRuntime.preflightOwnerEffects([.init(
             ownerTarget: replayTarget,
-            layerMutations: [mutation(10, dynamic: false, alpha: -1, fields: [.alpha], ownerTarget: replayTarget)],
+            layerMutations: [mutation(10, dynamic: false, alpha: .nan, fields: [.alpha], ownerTarget: replayTarget)],
             animationMutations: [.init(target: replayTarget, command: .play)]
         )])
         replayRuntime.commit(replayPlans[0])

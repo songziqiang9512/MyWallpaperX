@@ -113,13 +113,14 @@ struct SceneMetalRenderer {
                 scriptBindings: document.scriptBindings, userPropertyDefinitions: catalog.definitions,
                 timelineTargets: timelineTargets, generation: 17)
             layers = SceneScriptDynamicLayerRuntime(descriptor: descriptor,
-                authoredMutationLayerIDs: Set(descriptor.layers.map(\.id)))
+                authoredMutationLayerIDs: Set(descriptor.layers.map(\.id)),
+                layerOrderProjection: { [domain] in domain.projectPendingLayerOrder(accepting: $0) })
             let cameraDefinitions = SceneDefault2DCameraInputProfile.definitions(
                 descriptor: descriptor, timelineTargets: timelineTargets)
             definitions = SceneDynamicDefinitionMerger.merge(
                 propertyDefinitions: property.program.definitions, timelineProgram: timeline,
                 textScriptProgram: .init(), additionalDefinitions: vector.definitions
-                    + scalarProgram.definitions + layers.authoredLayerDefinitions + cameraDefinitions)
+                    + scalarProgram.definitions + cameraDefinitions + layers.authoredLayerDefinitions)
             live = ScenePropertyLiveUpdateState(program: property.program,
                 effectiveValues: catalog.effectiveValues(overrides: [:]),
                 activeConsumerTargets: Set(definitions.map(\.target)),
@@ -129,7 +130,8 @@ struct SceneMetalRenderer {
 
         func frame(sceneTime: Double? = nil,
                    committedValues: [SceneDynamicTarget: SceneDynamicValue] = [:],
-                   commands: [SceneTimelinePlaybackMutation] = []) throws
+                   commands: [SceneTimelinePlaybackMutation] = [],
+                   excludingOwners: Set<SceneDynamicTarget> = []) throws
             -> (SceneDynamicSnapshot, SceneScriptVectorFrameResult) {
             frameIndex += 1
             let time = sceneTime ?? Double(frameIndex)
@@ -137,9 +139,10 @@ struct SceneMetalRenderer {
             definitions = SceneDynamicDefinitionMerger.merge(
                 propertyDefinitions: property.program.definitions, timelineProgram: timeline,
                 textScriptProgram: .init(), additionalDefinitions: vector.definitions
-                    + scalarProgram.definitions + layers.authoredLayerDefinitions
+                    + scalarProgram.definitions
                     + SceneDefault2DCameraInputProfile.definitions(descriptor: descriptor,
-                        timelineTargets: Set(timeline.bindings.map(\.target))))
+                        timelineTargets: Set(timeline.bindings.map(\.target)))
+                    + layers.authoredLayerDefinitions)
             let index = SceneDynamicSnapshotResolver.prepare(definitions: definitions)
             let timelineValues = playback.values(sceneTime: time)
             let previous = transaction.previousValues(for: vector.inputTargets.union(scalarProgram.inputTargets))
@@ -160,8 +163,12 @@ struct SceneMetalRenderer {
                 frame: SceneScriptFrameInput(timing: .init(wallDate: Date(timeIntervalSince1970: 0),
                     simulationFrameTime: 1.0/60.0, sceneTime: time)),
                 effectivePropertyValues: live.effectiveValues, propertyRevision: live.revision)
-            let admission = layers.preflightOwnerEffects(result.ownerEffects + scalar.ownerEffects)
+            let fixedPoint = layers.preflightOwnerEffectsToFixedPoint(
+                result.ownerEffects + scalar.ownerEffects, excludingOwners: excludingOwners,
+                rejectingExternally: { _ in [] })
+            let admission = fixedPoint.admission
             rejectedOwners = Set(admission.rejectedOwners.compactMap(\.ownerTarget))
+                .union(fixedPoint.externallyRejectedOwners)
             layers.commit(admission.layerPlan)
             let scriptValues = result.values.merging(scalar.values) { _, current in current }
                 .filter { !rejectedOwners.contains($0.key) }
@@ -383,10 +390,21 @@ struct SceneMetalRenderer {
             let acceptedBeforeCallback = fixture.transaction.committedSnapshot
             let (snapshot, evaluation) = try fixture.frame()
             let cameThroughC = evaluation.layerMutations.contains { $0.layerID == 7 && $0.fields.contains(.origin) }
-            facts[mode + "-rejects-the-whole-owner"] = mode == "setter"
-                ? evaluation.failures.isEmpty && cameThroughC && fixture.rejectedOwners == [originTarget]
-                : evaluation.failures[originTarget]?.code == "exception" && evaluation.layerMutations.isEmpty
-            facts[mode + "-no-camera-or-peer-leak"] = snapshot[originTarget]?.value == .vector3(0,0,500)
+            if mode == "setter" {
+                facts["setter-return-keeps-same-phase-precedence"] = evaluation.failures.isEmpty
+                    && cameThroughC && fixture.rejectedOwners.isEmpty
+                    && snapshot[originTarget]?.value == .vector3(120,-40,620)
+                    && fixture.layers.snapshot().authoredLayerValues[originTarget] == .vector3(9,8,700)
+                    && snapshot[.layer(layerID: 8, field: .alpha)]?.value == .scalar(0.6)
+                let (next, _) = try fixture.frame()
+                facts["setter-next-cadence-replaces-input-not-primary-return"] =
+                    next[originTarget]?.value == .vector3(9,8,700)
+                    && fixture.camera(next).cameraOrigin == SIMD3(9,8,700)
+                continue
+            }
+            facts["throw-rejects-the-whole-owner"] =
+                evaluation.failures[originTarget]?.code == "exception" && evaluation.layerMutations.isEmpty
+            facts["throw-no-camera-or-peer-leak"] = snapshot[originTarget]?.value == .vector3(0,0,500)
                 && snapshot[originTarget]?.value == acceptedBeforeCallback?[originTarget]?.value
                 && snapshot[originTarget]?.source == .authored
                 && fixture.scalarProgram.bindings.count == 1
@@ -394,7 +412,7 @@ struct SceneMetalRenderer {
                 && snapshot[.layer(layerID: 8, field: .alpha)]?.source == .sceneScript
                 && fixture.layers.snapshot().authoredLayerValues.isEmpty
                 && !fixture.definitions.contains { $0.target == .layer(layerID: 7, field: .origin) }
-            facts[mode + "-c-journal-rolled-back"] = try observe(fixture, id: 8,
+            facts["throw-c-journal-rolled-back"] = try observe(fixture, id: 8,
                 condition: "thisLayer.alpha===0.5&&thisScene.getLayerByID(7).origin.x===0")
         }
         return facts
@@ -938,7 +956,12 @@ struct SceneMetalRenderer {
             "originDomain": try originDomain(), "combinedRoots": try [combinedRoots(0), combinedRoots(1)],
             "combinedRejections": try combinedRejections(),
             "pathVisibility": try pathVisibility(), "independentRejections": try independentRejections(),
-            "malformedPeers": try malformedPeers()]
+            "malformedPeers": try malformedPeers(),
+            "setterAliases": try [setterAliases(0), setterAliases(1)],
+            "setterFailures": try setterFailures(), "setterPeers": try setterPeers(),
+            "setterRetirement": try setterRetirement(), "setterNeighbors": try setterNeighbors(),
+            "setterCreatorRetirement": try setterCreatorRetirement(),
+            "setterCanonicalSeed": try setterCanonicalSeed()]
         print(String(data: try JSONSerialization.data(withJSONObject: result,
             options: [.sortedKeys]), encoding: .utf8)!)
     }

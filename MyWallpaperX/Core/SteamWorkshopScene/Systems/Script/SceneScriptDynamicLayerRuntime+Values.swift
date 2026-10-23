@@ -2,15 +2,26 @@ import Foundation
 
 /// Typed definitions and value projection for the existing topology transaction.
 nonisolated extension SceneScriptDynamicLayerRuntime {
-    static func layerID(for target: SceneDynamicTarget) -> Int? {
+    static func layerID(
+        for target: SceneDynamicTarget, cameraOriginInputLayerID: Int? = nil
+    ) -> Int? {
         switch target {
         case let .layer(layerID, _), let .text(layerID, _), let .effectVisibility(layerID, _),
              let .effectConstant(layerID, _, _, _), let .materialConstant(layerID, _, _, _),
              let .particle(layerID, _), let .scriptInstanceProperty(layerID, _):
             layerID
+        case .camera(.origin):
+            cameraOriginInputLayerID
         default:
             nil
         }
+    }
+
+    static func authoredTransformTarget(
+        layerID: Int, field: SceneDynamicLayerField, cameraOriginInputLayerID: Int?
+    ) -> SceneDynamicTarget {
+        field == .origin && layerID == cameraOriginInputLayerID
+            ? .camera(.origin) : .layer(layerID: layerID, field: field)
     }
 
     /// Multiple authored owners may intentionally publish the same field and
@@ -19,7 +30,7 @@ nonisolated extension SceneScriptDynamicLayerRuntime {
     /// owner that disagrees remains a hard conflict because accepting it would
     /// make the final value depend on an implicit last-writer policy.
     static func authoredValues(
-        _ mutation: SceneScriptLayerMutation
+        _ mutation: SceneScriptLayerMutation, cameraOriginInputLayerID: Int? = nil
     ) -> [(SceneDynamicTarget, SceneDynamicValue)] {
         guard !mutation.isDynamic, mutation.kind == .upsert else { return [] }
         var values: [(SceneDynamicTarget, SceneDynamicValue)] = []
@@ -35,7 +46,8 @@ nonisolated extension SceneScriptDynamicLayerRuntime {
         }
         if mutation.fields.contains(.origin) {
             values.append((
-                .layer(layerID: mutation.layerID, field: .origin),
+                authoredTransformTarget(layerID: mutation.layerID, field: .origin,
+                    cameraOriginInputLayerID: cameraOriginInputLayerID),
                 .vector3(mutation.origin.x, mutation.origin.y, mutation.origin.z)
             ))
         }
@@ -130,11 +142,13 @@ nonisolated extension SceneScriptDynamicLayerRuntime {
     static func ensureDefinition(
         for target: SceneDynamicTarget,
         layer: SceneRenderDescriptor.Layer,
+        cameraOriginInputLayerID: Int? = nil,
         order: inout [SceneDynamicTarget],
         definitions: inout [SceneDynamicTarget: SceneDynamicTargetDefinition]
     ) {
         guard definitions[target] == nil,
-              let definition = definition(for: target, layer: layer) else {
+              let definition = definition(for: target, layer: layer,
+                  cameraOriginInputLayerID: cameraOriginInputLayerID) else {
             return
         }
         definitions[target] = definition
@@ -143,7 +157,8 @@ nonisolated extension SceneScriptDynamicLayerRuntime {
 
     static func definition(
         for target: SceneDynamicTarget,
-        layer: SceneRenderDescriptor.Layer
+        layer: SceneRenderDescriptor.Layer,
+        cameraOriginInputLayerID: Int? = nil
     ) -> SceneDynamicTargetDefinition? {
         switch target {
         case let .particle(layerID, .alpha) where layerID == layer.id && layer.contentKind == "particle":
@@ -162,6 +177,9 @@ nonisolated extension SceneScriptDynamicLayerRuntime {
                 target: target, valueType: .vector3,
                 authoredValue: vector3(layer.originXYZ, fallback: [0, 0, 0])
             )
+        case .camera(.origin) where layer.id == cameraOriginInputLayerID:
+            .init(target: target, valueType: .vector3,
+                  authoredValue: vector3(layer.originXYZ, fallback: [0, 0, 0]))
         case let .layer(layerID, .scale) where layerID == layer.id:
             .init(
                 target: target, valueType: .vector3,

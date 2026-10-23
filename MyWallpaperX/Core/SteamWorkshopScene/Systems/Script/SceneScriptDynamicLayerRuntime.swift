@@ -18,6 +18,7 @@ nonisolated final class SceneScriptDynamicLayerRuntime: @unchecked Sendable {
     private let authoredLayerIDs: Set<Int>
     private let authoredLayersByID: [Int: SceneRenderDescriptor.Layer]
     private let cameraOriginInputLayerID: Int?
+    private let cameraOriginClipSpan: (nearZ: Double, farZ: Double)
     private let supportsCompositionPerspective: Bool
     private var authoredDefinitionOrder: [SceneDynamicTarget] = []
     private var authoredDefinitionsByTarget:
@@ -49,6 +50,7 @@ nonisolated final class SceneScriptDynamicLayerRuntime: @unchecked Sendable {
     ) {
         authoredLayerIDs = Set(descriptor.layers.map(\.id))
         cameraOriginInputLayerID = descriptor.camera.default2DOriginInputLayerID
+        cameraOriginClipSpan = (Double(descriptor.camera.nearZ), Double(descriptor.camera.farZ))
         supportsCompositionPerspective = (descriptor.camera.orthoHeight ?? 0) > 0
         authoredLayersByID = Dictionary(
             uniqueKeysWithValues: descriptor.layers.map { ($0.id, $0) }
@@ -209,7 +211,7 @@ nonisolated final class SceneScriptDynamicLayerRuntime: @unchecked Sendable {
                     candidateDestroyedAuthoredLayerIDs.insert(mutation.layerID)
                     requiresRetirement = true
                     candidateAuthoredValues = candidateAuthoredValues.filter {
-                        Self.layerID(for: $0.key) != mutation.layerID
+                        Self.layerID(for: $0.key, cameraOriginInputLayerID: cameraOriginInputLayerID) != mutation.layerID
                     }
                     continue
                 }
@@ -237,11 +239,6 @@ nonisolated final class SceneScriptDynamicLayerRuntime: @unchecked Sendable {
                         "invalid authored layer mutation"
                     ))
                 }
-                // Camera-origin return values have one canonical camera target.
-                // The general ILayer setter is not a second publication lane.
-                if mutation.layerID == cameraOriginInputLayerID, mutation.fields.contains(.origin) {
-                    return .failure(.invalidArgument("default 2D camera origin setter unsupported"))
-                }
                 let values: [(
                     SceneScriptLayerMutation.Fields,
                     SceneDynamicLayerField,
@@ -256,7 +253,13 @@ nonisolated final class SceneScriptDynamicLayerRuntime: @unchecked Sendable {
                     let target: SceneDynamicTarget = targetField == .color
                         && authoredLayer.contentKind == "text"
                         ? .text(layerID: mutation.layerID, field: .color)
-                        : .layer(layerID: mutation.layerID, field: targetField)
+                        : Self.authoredTransformTarget(layerID: mutation.layerID, field: targetField,
+                            cameraOriginInputLayerID: cameraOriginInputLayerID)
+                    if target == .camera(.origin),
+                       !SceneDefault2DCameraInputProfile.acceptsOrigin([value.x, value.y, value.z],
+                           nearZ: cameraOriginClipSpan.nearZ, farZ: cameraOriginClipSpan.farZ) {
+                        return .failure(.invalidArgument("invalid default 2D camera origin mutation"))
+                    }
                     guard authoredTargets.insert(target).inserted else {
                         return .failure(.invalidArgument(
                             "conflicting authored layer mutation target"
@@ -268,6 +271,7 @@ nonisolated final class SceneScriptDynamicLayerRuntime: @unchecked Sendable {
                     Self.ensureDefinition(
                         for: target,
                         layer: authoredLayer,
+                        cameraOriginInputLayerID: cameraOriginInputLayerID,
                         order: &candidateDefinitionOrder,
                         definitions: &candidateDefinitions
                     )
@@ -432,9 +436,15 @@ nonisolated final class SceneScriptDynamicLayerRuntime: @unchecked Sendable {
                 candidateOrder.removeAll { $0 == mutation.layerID }
                 candidateCreators.removeValue(forKey: mutation.layerID)
                 candidateTextTemplates.removeValue(forKey: mutation.layerID)
-                candidateDefinitionOrder.removeAll { Self.layerID(for: $0) == mutation.layerID }
-                candidateDefinitions = candidateDefinitions.filter { Self.layerID(for: $0.key) != mutation.layerID }
-                candidateAuthoredValues = candidateAuthoredValues.filter { Self.layerID(for: $0.key) != mutation.layerID }
+                candidateDefinitionOrder.removeAll {
+                    Self.layerID(for: $0, cameraOriginInputLayerID: cameraOriginInputLayerID) == mutation.layerID
+                }
+                candidateDefinitions = candidateDefinitions.filter {
+                    Self.layerID(for: $0.key, cameraOriginInputLayerID: cameraOriginInputLayerID) != mutation.layerID
+                }
+                candidateAuthoredValues = candidateAuthoredValues.filter {
+                    Self.layerID(for: $0.key, cameraOriginInputLayerID: cameraOriginInputLayerID) != mutation.layerID
+                }
                 requiresRetirement = true
             case .upsert:
                 let layer: SceneRenderDescriptor.Layer?
@@ -460,7 +470,8 @@ nonisolated final class SceneScriptDynamicLayerRuntime: @unchecked Sendable {
                     candidateOrder.append(mutation.layerID)
                     if let creator = mutation.ownerTarget {
                         candidateCreators[mutation.layerID] = creator
-                        requiresRetirement = requiresRetirement || (Self.layerID(for: creator)
+                        requiresRetirement = requiresRetirement || (Self.layerID(for: creator,
+                            cameraOriginInputLayerID: cameraOriginInputLayerID)
                             .map(candidateDestroyedAuthoredLayerIDs.contains) ?? false)
                     }
                 }
@@ -503,6 +514,7 @@ nonisolated final class SceneScriptDynamicLayerRuntime: @unchecked Sendable {
             }
             Self.finalizeTopology(requiresRetirement: requiresRetirement, projectedOrder: projected,
                 destroyedAuthoredLayerIDs: candidateDestroyedAuthoredLayerIDs, authoredLayerIDs: authoredLayerIDs,
+                cameraOriginInputLayerID: cameraOriginInputLayerID,
                 order: &candidateOrder, layers: &candidateLayers, creators: &candidateCreators,
                 definitionOrder: &candidateDefinitionOrder, definitions: &candidateDefinitions,
                 values: &candidateAuthoredValues)
@@ -538,7 +550,8 @@ nonisolated final class SceneScriptDynamicLayerRuntime: @unchecked Sendable {
     /// then remove retired identities in one projection, across all peer owners.
     private static func finalizeTopology(
         requiresRetirement: Bool, projectedOrder: [Int]?,
-        destroyedAuthoredLayerIDs: Set<Int>, authoredLayerIDs: Set<Int>, order: inout [Int],
+        destroyedAuthoredLayerIDs: Set<Int>, authoredLayerIDs: Set<Int>, cameraOriginInputLayerID: Int?,
+        order: inout [Int],
         layers: inout [Int: SceneRenderDescriptor.Layer],
         creators: inout [Int: SceneDynamicTarget],
         definitionOrder: inout [SceneDynamicTarget],
@@ -550,7 +563,7 @@ nonisolated final class SceneScriptDynamicLayerRuntime: @unchecked Sendable {
         var retiredDynamicIDs: Set<Int> = []
         while true {
             let newlyRetired = Set(creators.compactMap { dynamicID, creator -> Int? in
-                guard let creatorLayerID = layerID(for: creator),
+                guard let creatorLayerID = layerID(for: creator, cameraOriginInputLayerID: cameraOriginInputLayerID),
                       destroyedAuthoredLayerIDs.contains(creatorLayerID)
                         || retiredDynamicIDs.contains(creatorLayerID)
                         || (!authoredLayerIDs.contains(creatorLayerID) && layers[creatorLayerID] == nil)
@@ -567,13 +580,13 @@ nonisolated final class SceneScriptDynamicLayerRuntime: @unchecked Sendable {
         let removedLayerIDs = destroyedAuthoredLayerIDs.union(retiredDynamicIDs)
         order.removeAll { destroyedAuthoredLayerIDs.contains($0) || retiredDynamicIDs.contains($0) }
         definitionOrder.removeAll { target in
-            layerID(for: target).map(removedLayerIDs.contains) ?? false
+            layerID(for: target, cameraOriginInputLayerID: cameraOriginInputLayerID).map(removedLayerIDs.contains) ?? false
         }
         definitions = definitions.filter { target, _ in
-            !(layerID(for: target).map(removedLayerIDs.contains) ?? false)
+            !(layerID(for: target, cameraOriginInputLayerID: cameraOriginInputLayerID).map(removedLayerIDs.contains) ?? false)
         }
         values = values.filter { target, _ in
-            !(layerID(for: target).map(removedLayerIDs.contains) ?? false)
+            !(layerID(for: target, cameraOriginInputLayerID: cameraOriginInputLayerID).map(removedLayerIDs.contains) ?? false)
         }
     }
 
@@ -811,7 +824,9 @@ nonisolated final class SceneScriptDynamicLayerRuntime: @unchecked Sendable {
         let committedDestroyedIDs = destroyedAuthoredLayerIDs
         for owner in ownerOrder {
             guard let batch = grouped[owner] else { continue }
-            let authoredValues = batch.flatMap(Self.authoredValues)
+            let authoredValues = batch.flatMap {
+                Self.authoredValues($0, cameraOriginInputLayerID: cameraOriginInputLayerID)
+            }
             let hasConflict = authoredValues.contains { target, value in
                 claimedAuthoredValues[target].map { $0 != value } ?? false
             }
@@ -851,6 +866,7 @@ nonisolated final class SceneScriptDynamicLayerRuntime: @unchecked Sendable {
         }
         Self.finalizeTopology(requiresRetirement: requiresRetirement, projectedOrder: projectedOrder,
             destroyedAuthoredLayerIDs: destroyedAuthoredLayerIDs, authoredLayerIDs: authoredLayerIDs,
+            cameraOriginInputLayerID: cameraOriginInputLayerID,
             order: &order, layers: &dynamicLayersByID, creators: &dynamicLayerCreatorTargetsByID,
             definitionOrder: &authoredDefinitionOrder, definitions: &authoredDefinitionsByTarget,
             values: &authoredLayerValues)
