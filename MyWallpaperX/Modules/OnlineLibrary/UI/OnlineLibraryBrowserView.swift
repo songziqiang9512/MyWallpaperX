@@ -6,7 +6,8 @@
 import AppKit
 import Combine
 
-final class OnlineLibraryBrowserView: NSView, NSTextFieldDelegate {
+final class OnlineLibraryBrowserView: NSView, NSTextFieldDelegate, ListThumbnailTintProviding {
+    let listThumbnailTintSource = ListThumbnailTintSource()
     private let service = OnlineLibraryService.shared
     private let contentHost = NSView()
     private var currentState: OnlineLibraryBrowserContentState?
@@ -133,6 +134,7 @@ final class OnlineLibraryBrowserView: NSView, NSTextFieldDelegate {
             return
         }
 
+        listThumbnailTintSource.forward(from: nil)
         currentState = nextState
         gridStack = nil
         gridBannerView = nil
@@ -283,6 +285,7 @@ final class OnlineLibraryBrowserView: NSView, NSTextFieldDelegate {
             onDownload: { [weak self] item in self?.service.download(item: item) },
             onSetAsWallpaper: { [weak self] item in self?.service.downloadAndSet(item: item) }
         )
+        listThumbnailTintSource.forward(from: grid.listThumbnailTintSource)
         grid.translatesAutoresizingMaskIntoConstraints = false
         stack.addArrangedSubview(grid)
         grid.widthAnchor.constraint(equalTo: stack.widthAnchor).isActive = true

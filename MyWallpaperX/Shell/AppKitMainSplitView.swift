@@ -28,6 +28,7 @@ final class AppKitMainSplitViewController: NSSplitViewController {
         contentController: detailHostController,
         overlayController: inspectorController
     )
+    private let listBackgroundTint = AppKitListBackgroundTint()
     private var hasConfiguredSplitItems = false
     private var sidebarMinWidth: CGFloat = 200
     private var sidebarMaxWidth: CGFloat = 320
@@ -312,6 +313,8 @@ final class AppKitMainSplitViewController: NSSplitViewController {
         splitView.isVertical = true
         splitView.dividerStyle = .thin
         splitView.autosaveName = LayoutConstants.splitAutosaveName
+        listBackgroundTint.install(sidebar: sidebarController.view, main: detailContainerController.backgroundView)
+        detailHostController.onListThumbnailTintSourceChange = { [weak self] in self?.listBackgroundTint.bind($0) }
         configureInspectorHostIfNeeded()
         configureInspectorNotificationObserversIfNeeded()
         DispatchQueue.main.async { [weak self] in
@@ -460,6 +463,7 @@ final class AppKitMainSplitViewController: NSSplitViewController {
 }
 
 private final class InspectorDetailContainerViewController: NSViewController {
+    let backgroundView = AppKitListTintSurface()
     private let contentController: NSViewController
     private let overlayController: NSViewController
     private let overlayView = InspectorOverlayPassthroughView()
@@ -480,7 +484,7 @@ private final class InspectorDetailContainerViewController: NSViewController {
     }
 
     override func loadView() {
-        let containerView = NSView()
+        let containerView = backgroundView
         containerView.wantsLayer = true
         containerView.layer?.backgroundColor = NSColor.clear.cgColor
         view = containerView

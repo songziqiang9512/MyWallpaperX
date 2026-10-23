@@ -23,7 +23,14 @@ private final class SteamWorkshopBrowserFlowLayout: NSCollectionViewFlowLayout {
     }
 }
 
-final class AppKitSteamWorkshopBrowserContainerView: NSView, ModuleFocusable, NSCollectionViewDelegateFlowLayout {
+final class AppKitSteamWorkshopBrowserContainerView: NSView, ModuleFocusable, NSCollectionViewDelegateFlowLayout, ListThumbnailTintProviding {
+    let listThumbnailTintSource = ListThumbnailTintSource()
+    private func publishListThumbnailTint() {
+        let first = orderedIDs.first.flatMap { itemsByID[$0] }
+        SteamWorkshopListThumbnailTint.publish(to: listThumbnailTintSource,
+            item: first, record: first.flatMap { service.latestDownloadRecord(for: $0.id) }, refreshToken: service.previewReloadToken)
+    }
+
     private enum Section {
         case main
         case status
@@ -231,6 +238,7 @@ final class AppKitSteamWorkshopBrowserContainerView: NSView, ModuleFocusable, NS
             .receive(on: DispatchQueue.main)
             .sink { [weak self] _ in
                 self?.reloadVisibleItems()
+                self?.publishListThumbnailTint()
                 self?.prioritizeVisibleItemsForHydration()
             }
             .store(in: &cancellables)
@@ -248,6 +256,7 @@ final class AppKitSteamWorkshopBrowserContainerView: NSView, ModuleFocusable, NS
             .sink { [weak self] _ in
                 self?.previewPrefetch.cancelAll()
                 self?.forceReloadVisiblePreviews()
+                self?.publishListThumbnailTint()
                 self?.prioritizeVisibleItemsForHydration()
             }
             .store(in: &cancellables)
@@ -361,6 +370,7 @@ final class AppKitSteamWorkshopBrowserContainerView: NSView, ModuleFocusable, NS
         let previousFocusIndex = keyboardFocusedID.flatMap { previousOrderedIDs.firstIndex(of: $0) }
         itemsByID = Dictionary(uniqueKeysWithValues: items.map { ($0.id, $0) })
         orderedIDs = items.map(\.id)
+        publishListThumbnailTint()
         if let previousFocusIndex, let focusedID = keyboardFocusedID, !orderedIDs.contains(focusedID) {
             keyboardFocusedID = orderedIDs.isEmpty ? nil : orderedIDs[min(previousFocusIndex, orderedIDs.count - 1)]
         }

@@ -4460,6 +4460,34 @@
         "test_scene_frame_presentation_integration",
         "test_scene_session_activation"
       ]
+    },
+    {
+      "id": "appkit-list-thumbnail-tint",
+      "patterns": [
+        "MyWallpaperX/Shared/UI/ListThumbnailTintSource.swift",
+        "MyWallpaperX/Shell/AppKitListBackgroundTint.swift",
+        "MyWallpaperX/Shell/AppKitMainSplitView.swift",
+        "MyWallpaperX/Shell/AppKitDetailHostViewController.swift",
+        "MyWallpaperX/Modules/VideoLibrary/UI/AppKitLibraryGridView.swift",
+        "MyWallpaperX/Modules/StaticImageLibrary/UI/SILGridContainerView.swift",
+        "MyWallpaperX/Modules/OnlineLibrary/UI/AppKitOLBrowserGridView.swift",
+        "MyWallpaperX/Modules/OnlineLibrary/UI/AppKitOLDownloadsGridView.swift",
+        "MyWallpaperX/Modules/SteamWorkshop/UI/AppKitSteamWorkshopBrowserGridView.swift",
+        "MyWallpaperX/Modules/SteamWorkshop/UI/AppKitSteamWorkshopDownloadsGridView.swift",
+        "MyWallpaperX/Modules/OnlineLibrary/UI/OnlineLibraryBrowserView.swift",
+        "MyWallpaperX/Modules/SteamWorkshop/UI/AppKitSteamWorkshopBrowserView.swift",
+        "MyWallpaperX/Modules/SteamWorkshop/UI/SteamWorkshopListThumbnailTint.swift",
+        "MyWallpaperX/Modules/VideoLibrary/UI/AppKitLibraryGridSupport.swift",
+        "script/tests/test_list_thumbnail_tint.py",
+        "script/tests/fixtures/ListThumbnailTint*.swift",
+        "script/tests/fixtures/SILMetadataLoadingHarness.swift"
+      ],
+      "modules": [
+        "test_list_thumbnail_tint",
+        "test_steam_grid_updates",
+        "test_ui_projection_efficiency",
+        "test_sil_metadata_loading"
+      ]
     }
   ],
   "method_gates": {

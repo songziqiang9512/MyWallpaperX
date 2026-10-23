@@ -7,6 +7,7 @@ import AppKit
 import Combine
 
 final class AppKitDetailHostViewController: NSViewController {
+    var onListThumbnailTintSourceChange: ((ListThumbnailTintSource?) -> Void)?
     private let wallpaperManager: WallpaperManager
     private var hostedController: NSViewController?
     private var currentSelectedItem: SelectedItem?
@@ -436,6 +437,7 @@ final class AppKitDetailHostViewController: NSViewController {
     }
 
     private func replaceHostedController(with controller: NSViewController) {
+        onListThumbnailTintSourceChange?(nil)
         let previousController = hostedController
         previousController?.view.removeFromSuperview()
         previousController?.removeFromParent()
@@ -445,6 +447,7 @@ final class AppKitDetailHostViewController: NSViewController {
         let hostedView = controller.view
         hostedView.translatesAutoresizingMaskIntoConstraints = false
         view.addSubview(hostedView)
+        onListThumbnailTintSourceChange?(ListThumbnailTintSource.mounted(in: hostedView))
         // Keep every page full-size under the translucent toolbar: the
         // system glass needs content behind it, and scroll views place
         // their first row below the toolbar via automatic content insets.

@@ -11,7 +11,21 @@ import Combine
 
 // MARK: - 容器
 
-final class AppKitOLBrowserContainerView: NSView, ModuleFocusable {
+final class AppKitOLBrowserContainerView: NSView, ModuleFocusable, ListThumbnailTintProviding {
+    let listThumbnailTintSource = ListThumbnailTintSource()
+    private func publishListThumbnailTint() {
+        let first = orderedIDs.first.flatMap { itemsByID[$0] }
+        listThumbnailTintSource.update(id: first.map { String($0.id) }, assets: first.map { [$0.previewThumbnailURL?.absoluteString ?? ""] } ?? []) { completion in
+            guard let url = first?.previewThumbnailURL else { completion(nil); return {} }
+            let task = Task {
+                let image = await OLThumbnailCache.shared.image(for: url, maxPixelSize: 256, priority: .prefetch)
+                guard !Task.isCancelled else { return }
+                completion(image)
+            }
+            return { task.cancel() }
+        }
+    }
+
     private enum Section { case main }
     private enum Constants {
         static let loadMoreThreshold: CGFloat = 240
@@ -190,6 +204,7 @@ final class AppKitOLBrowserContainerView: NSView, ModuleFocusable {
         for item in items { byID[item.id] = item }
         itemsByID = byID
         orderedIDs = items.map { $0.id }
+        publishListThumbnailTint()
 
         var snap = NSDiffableDataSourceSnapshot<Section, Int>()
         snap.appendSections([.main])

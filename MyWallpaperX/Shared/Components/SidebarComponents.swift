@@ -162,6 +162,12 @@ final class SidebarOutlineView: NSOutlineView {
 final class SidebarRowView: NSTableRowView {
     var suppressSelectionDuringDrag = false
 
+    // Keep the native neutral selection while focus moves into the new page.
+    override var isEmphasized: Bool {
+        get { false }
+        set { super.isEmphasized = false }
+    }
+
     override func drawSelection(in dirtyRect: NSRect) {
         guard !suppressSelectionDuringDrag else { return }
         super.drawSelection(in: dirtyRect)

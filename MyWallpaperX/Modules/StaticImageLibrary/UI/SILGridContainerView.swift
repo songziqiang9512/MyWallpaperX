@@ -47,7 +47,19 @@ private final class SILDecodeFailureSignature: @unchecked Sendable {
     }
 }
 
-final class SILGridContainerView: NSView, ModuleFocusable {
+final class SILGridContainerView: NSView, ModuleFocusable, ListThumbnailTintProviding {
+    let listThumbnailTintSource = ListThumbnailTintSource()
+    private func publishListThumbnailTint() {
+        let first = orderedIDs.first.flatMap { wallpapersByID[$0] }
+        listThumbnailTintSource.update(id: first?.id, assets: first.map { [$0.path, String(describing: $0.fileSize), String(describing: $0.addedAt)] } ?? []) { [weak self] completion in
+            guard let self, let first else { completion(nil); return {} }
+            let request = ThumbnailCacheRequestCancellation()
+            self.thumbnailCache.load(forKey: first.path, priority: .prefetch, cancellation: request,
+                loader: { silGridThumbnailImage(atPath: first.path) }, completion: completion)
+            return { request.cancel() }
+        }
+    }
+
     private enum Section { case main }
 
     // MARK: - 子视图
@@ -324,6 +336,7 @@ final class SILGridContainerView: NSView, ModuleFocusable {
         pendingDimensionReloadIDs.formIntersection(byID.keys)
         wallpapersByID = byID
         orderedIDs = wallpapers.map(\.id)
+        publishListThumbnailTint()
         orderedIndexByID = Dictionary(uniqueKeysWithValues: orderedIDs.enumerated().map { ($1, $0) })
         if !changedDimensions.isEmpty { waterfallLayout.invalidateLayout() }
         applySnapshot(ids: orderedIDs)

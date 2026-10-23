@@ -6,7 +6,17 @@
 import AppKit
 import Combine
 
-final class AppKitLibraryGridContainerView: NSView, ModuleFocusable {
+final class AppKitLibraryGridContainerView: NSView, ModuleFocusable, ListThumbnailTintProviding {
+    let listThumbnailTintSource = ListThumbnailTintSource()
+    private func publishListThumbnailTint() {
+        let first = orderedIDs.first.flatMap { wallpapersByID[$0] }
+        listThumbnailTintSource.update(id: first?.id, assets: first.map { [$0.path, $0.thumbnailPath ?? "", $0.staticFramePath ?? ""] } ?? []) { [weak self] completion in
+            guard let self, let first else { completion(nil); return {} }
+            let request = self.thumbnailProvider.loadThumbnail(for: first, priority: .prefetch, completion: completion)
+            return { request.cancel() }
+        }
+    }
+
     private enum Section {
         case main
     }
@@ -265,6 +275,7 @@ final class AppKitLibraryGridContainerView: NSView, ModuleFocusable {
                 byID[wallpaper.id] = wallpaper
             }
             wallpapersByID = byID
+            publishListThumbnailTint()
             if hasPathMutation {
                 rebuildPathIndex(wallpapers)
             }
@@ -312,6 +323,9 @@ final class AppKitLibraryGridContainerView: NSView, ModuleFocusable {
             .receive(on: DispatchQueue.main)
             .sink { [weak self] changedPath in
                 self?.enqueueThumbnailReload(forNormalizedPath: changedPath)
+                if let self, let first = self.orderedIDs.first, self.normalizedPathToIDs[changedPath]?.contains(first) == true {
+                    self.listThumbnailTintSource.invalidate()
+                }
             }
             .store(in: &cancellables)
 
@@ -441,6 +455,7 @@ final class AppKitLibraryGridContainerView: NSView, ModuleFocusable {
 
         wallpapersByID = byID
         orderedIDs = uniqueWallpapers.map(\.id)
+        publishListThumbnailTint()
         orderedIndexByID = Dictionary(uniqueKeysWithValues: orderedIDs.enumerated().map { ($1, $0) })
         rebuildPathIndex(uniqueWallpapers)
         applySnapshot(ids: orderedIDs)

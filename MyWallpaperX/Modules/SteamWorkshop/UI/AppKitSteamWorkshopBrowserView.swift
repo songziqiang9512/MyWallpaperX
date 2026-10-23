@@ -6,7 +6,8 @@
 import AppKit
 import Combine
 
-final class AppKitSteamWorkshopBrowserView: NSView {
+final class AppKitSteamWorkshopBrowserView: NSView, ListThumbnailTintProviding {
+    let listThumbnailTintSource = ListThumbnailTintSource()
     private enum ContentState: Equatable {
         case loading
         case error(String)
@@ -202,6 +203,7 @@ final class AppKitSteamWorkshopBrowserView: NSView {
     private func syncContent(force: Bool = false) {
         let nextState = contentState()
         guard force || nextState != currentState else { return }
+        listThumbnailTintSource.forward(from: nextState == .grid ? gridView.listThumbnailTintSource : nil)
         currentState = nextState
 
         contentHost.subviews.forEach { $0.removeFromSuperview() }

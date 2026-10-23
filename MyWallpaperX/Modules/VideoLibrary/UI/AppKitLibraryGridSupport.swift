@@ -180,9 +180,10 @@ final class AppKitThumbnailProvider {
     deinit { prefetches.values.forEach { $0.cancellation.cancel() } }
 
     @discardableResult
-    func loadThumbnail(for wallpaper: VideoWallpaper, completion: @escaping (NSImage?) -> Void) -> ThumbnailCacheRequestCancellation {
+    func loadThumbnail(for wallpaper: VideoWallpaper, priority: ThumbnailCacheRequestPriority = .visible,
+                       completion: @escaping (NSImage?) -> Void) -> ThumbnailCacheRequestCancellation {
         let cancellation = ThumbnailCacheRequestCancellation()
-        loadThumbnail(for: wallpaper, priority: .visible, cancellation: cancellation) { image, _ in completion(image) }
+        loadThumbnail(for: wallpaper, priority: priority, cancellation: cancellation) { image, _ in completion(image) }
         return cancellation
     }
 

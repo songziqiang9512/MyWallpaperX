@@ -73,7 +73,7 @@ class UIProjectionEfficiencyTests(unittest.TestCase):
             '// ONLINE_BINDINGS': bindings,
             '// ONLINE_PROVIDER': provider,
             '// ONLINE_METHODS': methods(online, [
-                '    private func applyItems(', '    private func refreshDownloadProgress(',
+                '    private func applyItems(', '    private func publishListThumbnailTint(', '    private func refreshDownloadProgress(',
                 '    private func reloadVisibleItems(', '    private func isItemDownloaded(',
                 '    private func updateVisibleThumbnailPriorities(',
                 '    private func applyThumbnailDemand(']),
@@ -89,6 +89,8 @@ class UIProjectionEfficiencyTests(unittest.TestCase):
             build = subprocess.run([
                 'xcrun', 'swiftc', '-parse-as-library', str(source),
                 str(APP / 'Shell/AppKitSidebarNode.swift'),
+                str(APP / 'Shared/UI/ListThumbnailTintSource.swift'),
+                str(ROOT / 'script/tests/fixtures/ListThumbnailTintCacheLeaves.swift'),
                 '-module-cache-path', str(work / 'modules'), '-o', str(binary),
             ], capture_output=True, text=True, timeout=120)
             self.assertEqual(build.returncode, 0, build.stdout + build.stderr)

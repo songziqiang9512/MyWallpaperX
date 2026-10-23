@@ -106,6 +106,8 @@ nonisolated func ProbeImageSourceCreateWithURL(_ url: CFURL, _ options: CFDictio
     }
 }
 @MainActor final class MetadataGrid {
+    let listThumbnailTintSource = ListThumbnailTintSource()
+    let thumbnailCache = TintRecordingThumbnailCache()
     enum Section: Hashable { case main }
     let collectionView = MetadataCollection()
     let waterfallLayout = MetadataLayout()

@@ -6,7 +6,14 @@
 import AppKit
 import Combine
 
-final class AppKitSteamWorkshopDownloadsContainerView: NSView, ModuleFocusable {
+final class AppKitSteamWorkshopDownloadsContainerView: NSView, ModuleFocusable, ListThumbnailTintProviding {
+    let listThumbnailTintSource = ListThumbnailTintSource()
+    private func publishListThumbnailTint() {
+        let first = orderedIDs.first.flatMap { recordsByID[$0] }
+        SteamWorkshopListThumbnailTint.publish(to: listThumbnailTintSource,
+            item: first.map { $0.displayItem ?? SteamWorkshopDownloadGridSupport.fallbackDisplayItem(for: $0) }, record: first, refreshToken: service.previewReloadToken)
+    }
+
     private enum Section {
         case main
     }
@@ -297,6 +304,7 @@ final class AppKitSteamWorkshopDownloadsContainerView: NSView, ModuleFocusable {
         service.$previewReloadToken.dropFirst().receive(on: DispatchQueue.main)
             .sink { [weak self] _ in
                 self?.previewPrefetch.cancelAll()
+                self?.publishListThumbnailTint()
                 self?.schedulePreviewPrefetch()
             }.store(in: &cancellables)
         applyRecords(service.displayedDownloads)
@@ -325,6 +333,7 @@ final class AppKitSteamWorkshopDownloadsContainerView: NSView, ModuleFocusable {
         schedulePreviewPrefetch()
         recordsByID = Dictionary(uniqueKeysWithValues: records.map { ($0.id, $0) })
         orderedIDs = records.map(\.id)
+        publishListThumbnailTint()
         var didRehomeSelection = false
         if let previousFocusIndex, let focusedID = keyboardFocusedID, !orderedIDs.contains(focusedID) {
             keyboardFocusedID = orderedIDs.isEmpty ? nil : orderedIDs[min(previousFocusIndex, orderedIDs.count - 1)]

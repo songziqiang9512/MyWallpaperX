@@ -64,7 +64,10 @@ struct SILWallpaper: Equatable {
     func syncSelectedWallpaperInspectorIfNeeded() { inspectorSyncs += 1 }
     // SIL_PROJECTION_METHODS
 }
-struct OnlineLibraryVideoItem: Equatable { let id: Int; var title: String = "fixture" }
+struct OnlineLibraryVideoItem: Equatable {
+    let id: Int; var title: String = "fixture"
+    var previewThumbnailURL: URL? { URL(string: "https://fixture.invalid/\(id).jpg")! }
+}
 @MainActor final class OnlineLibraryService: ObservableObject {
     static let shared = OnlineLibraryService()
     static var downloadDirectory = URL(fileURLWithPath: "/not-configured")
@@ -148,6 +151,7 @@ typealias AppKitSteamWorkshopBrowserView = NSView
 typealias AppKitSteamWorkshopDownloadsView = NSView
 
 @MainActor final class ShellProbe: NSViewController {
+    var onListThumbnailTintSourceChange: ((ListThumbnailTintSource?) -> Void)?
     let wallpaperManager: WallpaperManager
     var hostedController: NSViewController?
     var currentSelectedItem: SelectedItem?
@@ -235,6 +239,7 @@ typealias AppKitSteamWorkshopDownloadsView = NSView
     }
 }
 @MainActor final class OnlineProbe {
+    let listThumbnailTintSource = ListThumbnailTintSource()
     enum Section { case main }
     let service: OnlineLibraryService
     var onDownload: (OnlineLibraryVideoItem) -> Void = { _ in }

@@ -4,8 +4,13 @@ import Combine
 struct GridEntry: Equatable { let id: String; var title: String = "Wallpaper" }
 typealias SteamWorkshopBrowserItem = GridEntry
 typealias SteamWorkshopDownloadRecord = GridEntry
+enum SteamWorkshopDownloadGridSupport {
+    static func fallbackDisplayItem(for record: GridEntry) -> GridEntry { record }
+}
 
 @MainActor final class GridService {
+    var previewReloadToken = 0
+    func latestDownloadRecord(for id: String) -> SteamWorkshopDownloadRecord? { nil }
     @Published var displayedBrowserItems: [GridEntry] = []
     var browserLoadMoreFailureMessage: String?
     var isLoadingMoreBrowserItems = false
@@ -54,6 +59,7 @@ final class GridCell: NSCollectionViewItem {
 }
 
 @MainActor class GridProbe: NSView {
+    let listThumbnailTintSource = ListThumbnailTintSource()
     typealias Section = GridSection
     let service = GridService()
     let scrollView = NSScrollView()

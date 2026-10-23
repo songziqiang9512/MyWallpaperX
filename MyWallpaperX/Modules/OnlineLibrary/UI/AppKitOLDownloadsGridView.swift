@@ -11,7 +11,18 @@ import Combine
 
 // MARK: - 容器
 
-final class AppKitOLDownloadsContainerView: NSView, ModuleFocusable {
+final class AppKitOLDownloadsContainerView: NSView, ModuleFocusable, ListThumbnailTintProviding {
+    let listThumbnailTintSource = ListThumbnailTintSource()
+    private func publishListThumbnailTint() {
+        let first = orderedIDs.first.flatMap { entriesByID[$0] }
+        listThumbnailTintSource.update(id: first.map { String($0.id) }, assets: first.map { [$0.localURL.absoluteString, $0.thumbnailSourceKey ?? ""] } ?? []) { completion in
+            guard let first else { completion(nil); return {} }
+            let request = ThumbnailCacheRequestCancellation()
+            OLDownloadedThumbnailStore.prefetch(first, cancellation: request) { _, image in completion(image) }
+            return { request.cancel() }
+        }
+    }
+
     private enum Section { case main }
 
     private var cancellables = Set<AnyCancellable>()
@@ -387,6 +398,7 @@ final class AppKitOLDownloadsContainerView: NSView, ModuleFocusable {
         // newEntries 可以是过滤后的子集，不覆盖 entries（全量）
         entriesByID = Dictionary(uniqueKeysWithValues: entries.map { ($0.id, $0) })
         orderedIDs = newEntries.map { $0.id }
+        publishListThumbnailTint()
         orderedIndexByID = Dictionary(uniqueKeysWithValues: orderedIDs.enumerated().map { ($1, $0) })
         selectedIDs = effectiveSelectedIDs.intersection(Set(orderedIDs))
         if let anchor = selectedAnchorID, !orderedIDs.contains(anchor) {

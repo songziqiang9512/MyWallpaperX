@@ -35,6 +35,7 @@ class SILMetadataLoadingTests(unittest.TestCase):
         grid_methods = "\n".join(declaration(grid, signature) for signature in [
             "    func update(wallpapers:", "    private func applySnapshot(",
             "    private func reloadPendingDimensionItems(",
+            "    private func publishListThumbnailTint(",
         ])
         item = (ROOT / "MyWallpaperX/Modules/StaticImageLibrary/UI/SILGridItemView.swift").read_text()
         configure = declaration(item, "    func configure(")
@@ -53,6 +54,8 @@ class SILMetadataLoadingTests(unittest.TestCase):
             build = subprocess.run(["xcrun", "swiftc", "-swift-version", "6", "-default-isolation", "MainActor",
                                     "-parse-as-library", str(swift), "-module-cache-path", str(work / "modules"),
                                     str(ROOT / "MyWallpaperX/Modules/StaticImageLibrary/UI/SILWaterfallLayout.swift"),
+                                    str(ROOT / "MyWallpaperX/Shared/UI/ListThumbnailTintSource.swift"),
+                                    str(ROOT / "script/tests/fixtures/ListThumbnailTintCacheLeaves.swift"),
                                     "-o", str(binary)], capture_output=True, text=True, timeout=120)
             self.assertEqual(build.returncode, 0, build.stdout + build.stderr)
             home = work / "home"

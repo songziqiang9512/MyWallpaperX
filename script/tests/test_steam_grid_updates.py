@@ -7,6 +7,7 @@ import tempfile
 import unittest
 
 from script.tests.test_steam_library_interactions import method
+from script.tests.test_list_thumbnail_tint import STEAM_SOURCES, steam_source_projection
 
 ROOT = Path(__file__).resolve().parents[2]
 UI = ROOT / 'MyWallpaperX/Modules/SteamWorkshop/UI'
@@ -56,6 +57,8 @@ class SteamGridUpdateTests(unittest.TestCase):
             # Only expose state for settling/geometry checks. Keep the real
             # provider, delegate, bindings and layout/snapshot scheduling.
             source.write_text((UI / 'AppKitSteamWorkshopBrowserGridView.swift').read_text().replace('private ', ''))
+            preview = work / 'ActualPreviewSources.swift'
+            preview.write_text(steam_source_projection()[1])
             names = ['SteamWorkshopKeyboardCollectionView.swift', 'SteamWorkshopGridLayoutSupport.swift',
                      'SteamWorkshopGridKeyboardNavigation.swift', 'SteamWorkshopBrowserFooterSupport.swift',
                      'AppKitSteamWorkshopBrowserFooterComponents.swift']
@@ -63,6 +66,7 @@ class SteamGridUpdateTests(unittest.TestCase):
             sources = [ROOT / 'MyWallpaperX/Shared/UI/GridThumbnailPrefetchDemand.swift', ROOT / 'MyWallpaperX/Shared/UI/GridThumbnailDecoder.swift', ROOT / 'script/tests/fixtures/SteamBrowserContainerHarness.swift', source,
                        *[UI / name for name in names], ROOT / 'MyWallpaperX/Shared/UI/GridLayoutHelper.swift',
                        ROOT / 'MyWallpaperX/Shared/UI/WallpaperGridScrollView.swift']
+            sources += [*STEAM_SOURCES, preview, ROOT / 'script/tests/fixtures/ListThumbnailTintSteamModelLeaves.swift']
             build = subprocess.run(['xcrun', 'swiftc', '-parse-as-library', '-default-isolation', 'MainActor',
                                     *map(str, sources), '-o', str(binary)], capture_output=True, text=True, timeout=120)
             self.assertEqual(build.returncode, 0, build.stdout + build.stderr)
@@ -81,11 +85,13 @@ class SteamGridUpdateTests(unittest.TestCase):
         browser_methods = '\n'.join(method(browser, signature) for signature in [
             '    private func applyItems(', '    private func applyPendingItemsIfReady(',
             '    private func commitItems(', '    private func refreshFooterState(',
+            '    private func publishListThumbnailTint(',
             '    private func ensureKeyboardFocus(', '    private func restoreScrollOffset(',
             '    private func restorePendingScrollOffsetIfReady('])
         download_methods = '\n'.join(method(downloads, signature) for signature in [
             '    private func applyRecords(', '    private func applyPendingRecords(',
             '    private func commitRecords(', '    private func ensureKeyboardFocus(',
+            '    private func publishListThumbnailTint(',
             '    private func restoreAuthorReturnScrollIfNeeded('])
         core = ROOT / 'MyWallpaperX/Modules/SteamWorkshop/Core'
         selection = (core / 'SteamWorkshopService+DownloadSelection.swift').read_text()
@@ -111,9 +117,12 @@ class SteamGridUpdateTests(unittest.TestCase):
             source.write_text(template.replace('// BROWSER_METHODS', browser_methods).replace('// DOWNLOAD_METHODS', download_methods)
                 .replace('// SELECTION_METHODS', selection_methods).replace('// BROWSER_BINDINGS', bindings))
             binary = work / 'grids'
+            preview = work / 'ActualPreviewSources.swift'
+            preview.write_text(steam_source_projection()[1])
             sources = [UI / 'SteamWorkshopGridLayoutSupport.swift', UI / 'SteamWorkshopBrowserFooterSupport.swift',
                 UI / 'AppKitSteamWorkshopBrowserFooterComponents.swift', ROOT / 'MyWallpaperX/Shared/UI/GridLayoutHelper.swift', source]
-            build = subprocess.run(['xcrun', 'swiftc', '-parse-as-library', *map(str, sources),
+            sources += [*STEAM_SOURCES, preview, ROOT / 'script/tests/fixtures/ListThumbnailTintSteamModelLeaves.swift']
+            build = subprocess.run(['xcrun', 'swiftc', '-parse-as-library', '-default-isolation', 'MainActor', *map(str, sources),
                 '-module-cache-path', str(work / 'modules'), '-o', str(binary)], capture_output=True, text=True, timeout=120)
             self.assertEqual(build.returncode, 0, build.stdout + build.stderr)
             home = work / 'home'

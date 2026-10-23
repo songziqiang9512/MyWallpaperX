@@ -51,6 +51,14 @@ import QuartzCore
             view.cacheDisplay(in: view.bounds, to: bitmap)
             try! bitmap.representation(using: .png, properties: [:])!.write(to: output.appendingPathComponent(name + ".png"))
         }
+        func pixels(_ view: NSView) -> Data? {
+            view.layoutSubtreeIfNeeded()
+            view.displayIfNeeded()
+            guard let bitmap = view.bitmapImageRepForCachingDisplay(in: view.bounds) else { return nil }
+            view.cacheDisplay(in: view.bounds, to: bitmap)
+            guard let bytes = bitmap.bitmapData else { return nil }
+            return Data(bytes: bytes, count: bitmap.bytesPerRow * bitmap.pixelsHigh)
+        }
         func event(_ type: NSEvent.EventType, at point: NSPoint) -> NSEvent {
             if type == .mouseEntered || type == .mouseExited {
                 return NSEvent.enterExitEvent(with: type, location: point, modifierFlags: [], timestamp: 0,
@@ -381,6 +389,26 @@ import QuartzCore
             pump()
             let row = sidebar.rowView(atRow: 1, makeIfNecessary: true) as! SidebarRowView
             checks["sidebar-\(dark)-selection"] = sidebar.selectedRow == 1 && row.isSelected
+            checks["sidebar-\(dark)-native-neutral-selection"] = !row.isEmphasized
+            let selectedPixels = pixels(row)
+            row.isEmphasized = true
+            checks["sidebar-\(dark)-no-accent-phase"] = !row.isEmphasized
+            pump()
+            checks["sidebar-\(dark)-no-accent-pixel-shift"] = selectedPixels != nil && selectedPixels == pixels(row)
+            let editor = NSTextField(string: "焦点回归")
+            editor.frame = NSRect(x: 250, y: 200, width: 140, height: 24)
+            root.addSubview(editor)
+            let movedToContent = window.makeFirstResponder(editor)
+            pump()
+            checks["sidebar-\(dark)-content-focus-keeps-native-selection"] = movedToContent
+                && window.firstResponder !== sidebar && sidebar.selectedRow == 1 && row.isSelected && !row.isEmphasized
+            checks["sidebar-\(dark)-content-focus-pixel-stability"] = selectedPixels != nil && selectedPixels == pixels(row)
+            let movedToSidebar = window.makeFirstResponder(sidebar)
+            pump()
+            checks["sidebar-\(dark)-sidebar-focus-keeps-native-selection"] = movedToSidebar
+                && window.firstResponder === sidebar && sidebar.selectedRow == 1 && row.isSelected && !row.isEmphasized
+            checks["sidebar-\(dark)-sidebar-focus-pixel-stability"] = selectedPixels != nil && selectedPixels == pixels(row)
+            editor.removeFromSuperview()
             checks["sidebar-\(dark)-geometry"] = sidebar.rect(ofRow: 1).height == 30
             facts["sidebar-\(dark)-frames"] = (0..<3).map { index in
                 let rect = sidebar.rect(ofRow: index)

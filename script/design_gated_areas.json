@@ -1139,6 +1139,34 @@
         "initialVideoPresentation",
         "initialPresentationCohort"
       ]
+    },
+    {
+      "id": "appkit-list-thumbnail-background",
+      "title": "当前列表首图轻度背景染色",
+      "owner": "Grid snapshot / DetailHost source binding / Shell background projection",
+      "status": "approved",
+      "designDoc": "docs/development/code-slimming-program.md",
+      "design_notes": "2026-10-23 原生UI第十批用户试用调整。首项与原缩略图lease→唯一Shell背景投影；现有根layer复用，移除额外NSBox，系统Core Animation从presentation轻淡衔接；原bounds/命中/系统按钮强调色保持，迟到/可见性/辅助功能局部回退。独立复审与实际UI试用完成，2026-10-23用户验收后授权提交。",
+      "matchPatterns": [
+        "MyWallpaperX/Shared/UI/ListThumbnailTintSource.swift",
+        "MyWallpaperX/Shell/AppKitListBackgroundTint.swift",
+        "MyWallpaperX/Shell/AppKitMainSplitView.swift",
+        "MyWallpaperX/Shell/AppKitDetailHostViewController.swift",
+        "MyWallpaperX/Modules/VideoLibrary/UI/AppKitLibraryGridView.swift",
+        "MyWallpaperX/Modules/StaticImageLibrary/UI/SILGridContainerView.swift",
+        "MyWallpaperX/Modules/OnlineLibrary/UI/AppKitOLBrowserGridView.swift",
+        "MyWallpaperX/Modules/OnlineLibrary/UI/AppKitOLDownloadsGridView.swift",
+        "MyWallpaperX/Modules/SteamWorkshop/UI/AppKitSteamWorkshopBrowserGridView.swift",
+        "MyWallpaperX/Modules/SteamWorkshop/UI/AppKitSteamWorkshopDownloadsGridView.swift",
+        "MyWallpaperX/Modules/OnlineLibrary/UI/OnlineLibraryBrowserView.swift",
+        "MyWallpaperX/Modules/SteamWorkshop/UI/AppKitSteamWorkshopBrowserView.swift",
+        "MyWallpaperX/Modules/SteamWorkshop/UI/SteamWorkshopListThumbnailTint.swift",
+        "MyWallpaperX/Modules/VideoLibrary/UI/AppKitLibraryGridSupport.swift"
+      ],
+      "contentPatterns": [
+        "ListThumbnailTint",
+        "AppKitListBackgroundTint"
+      ]
     }
   ]
 }
