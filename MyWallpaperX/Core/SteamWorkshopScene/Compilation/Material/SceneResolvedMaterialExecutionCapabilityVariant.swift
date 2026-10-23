@@ -149,6 +149,59 @@ nonisolated final class SceneResolvedMaterialVariantCache: @unchecked Sendable {
         )
     }
 
+    /// Freeze role-to-uniform ownership after every reachable variant has
+    /// linked. Geometry and shader finalization then consume the same prepared
+    /// numeric producer; no frame needs to inspect annotations or JSON.
+    func directDrawPointBindings(
+        materialKeys: [String]
+    ) -> [SceneResolvedMaterialPreparedUniformBinding]? {
+        let snapshot = launchEnvelopeCapabilitySnapshot()
+        guard materialKeys.count == 4, Set(materialKeys).count == 4,
+              supportsTransparentDirectDraw,
+              snapshot.allEntriesReady, !snapshot.variants.isEmpty else { return nil }
+        var result: [SceneResolvedMaterialPreparedUniformBinding]?
+        for variant in snapshot.variants {
+            guard variant.frontendProgram.vertexPositionInput == .targetPixels,
+                  case let .color(.resolved(representation))? = variant.preparedOutputContent,
+                  representation == .opaque || representation == .premultipliedAlpha
+                    || representation == .straightAlpha else { return nil }
+            var bindings: [SceneResolvedMaterialPreparedUniformBinding] = []
+            for key in materialKeys {
+                let uniforms = variant.activeUniforms.filter { $0.value.materialKeys.contains(key) }
+                let matches = variant.preparedUniformBindings.filter { uniforms[$0.field.name] != nil }
+                    .sorted { $0.field.name < $1.field.name }
+                guard !uniforms.isEmpty, matches.count == uniforms.count,
+                      let binding = matches.first else { return nil }
+                for match in matches {
+                    guard match.field.type == .float2, match.field.arrayCount == nil,
+                          match.field.authoredName == binding.field.authoredName,
+                          match.source == binding.source else { return nil }
+                    switch match.source {
+                    case .staticValue, .dynamic: break
+                    case .host, .neutralMissingTextureResolution, .selfCompositeTextureResolution:
+                        return nil
+                    }
+                }
+                bindings.append(binding)
+            }
+            guard Set(bindings.map(\.field.authoredName)).count == 4 else { return nil }
+            if let result {
+                guard zip(result, bindings).allSatisfy({ $0.source == $1.source }) else { return nil }
+            } else {
+                result = bindings
+            }
+        }
+        return result
+    }
+
+    var launchEnvelopeSupportsAuthoredQuadGeometry: Bool {
+        let snapshot = launchEnvelopeCapabilitySnapshot()
+        return snapshot.allEntriesReady && !snapshot.variants.isEmpty
+            && snapshot.variants.allSatisfy {
+                $0.preservesTargetPixelFootprint && $0.frontendProgram.supportsAuthoredQuadAttributes
+            }
+    }
+
     /// Exact sampler slots consumed by at least one successfully precompiled
     /// launch variant. Resource-demand diagnostics for declarations outside
     /// this set cannot affect product execution and must not revoke the whole

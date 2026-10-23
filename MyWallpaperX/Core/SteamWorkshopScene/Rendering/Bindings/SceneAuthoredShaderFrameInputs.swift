@@ -82,6 +82,22 @@ nonisolated struct SceneAuthoredShaderFrameInputs {
     }
 }
 
+/// Public quad attributes before the authored vertex body runs. Geometry
+/// preparation supplies author UVs; every ordinary card shares the unit default.
+nonisolated struct SceneShaderQuadCoordinates: Equatable, Hashable, Sendable {
+    let p0: SIMD2<Float>
+    let p1: SIMD2<Float>
+    let p2: SIMD2<Float>
+    let p3: SIMD2<Float>
+
+    static let unit = Self(p0: .init(0, 0), p1: .init(1, 0),
+                           p2: .init(1, 1), p3: .init(0, 1))
+
+    /// Keep the established triangle-strip order in both shader backends.
+    var packed01: SIMD4<Float> { .init(p3.x, p3.y, p2.x, p2.y) }
+    var packed23: SIMD4<Float> { .init(p0.x, p0.y, p1.x, p1.y) }
+}
+
 nonisolated struct SceneAuthoredShaderUniformInputs {
     let frameIndex: UInt64
     let renderSize: CGSize
@@ -103,6 +119,8 @@ nonisolated struct SceneAuthoredShaderUniformInputs {
     let parallaxPositionNDC: SIMD2<Float>
     let audioSpectrum: SceneAuthoredShaderAudioSpectrumInputs
     let lighting: SceneAuthoredShaderLightingInputs
+    let vertexCoordinates: SceneShaderQuadCoordinates
+    let vertexInputSize: CGSize?
 
     init(
         frameIndex: UInt64,
@@ -124,10 +142,14 @@ nonisolated struct SceneAuthoredShaderUniformInputs {
         pointerPrimaryButtonDown: Bool = false,
         parallaxPositionNDC: SIMD2<Float> = .zero,
         audioSpectrum: SceneAuthoredShaderAudioSpectrumInputs = .silent,
-        lighting: SceneAuthoredShaderLightingInputs = .unavailable
+        lighting: SceneAuthoredShaderLightingInputs = .unavailable,
+        vertexCoordinates: SceneShaderQuadCoordinates = .unit,
+        vertexInputSize: CGSize? = nil
     ) {
         self.frameIndex = frameIndex
         self.renderSize = renderSize
+        self.vertexCoordinates = vertexCoordinates
+        self.vertexInputSize = vertexInputSize
         self.screenSize = screenSize
         self.modelViewProjection = modelViewProjection
         self.layerModelMatrix = layerModelMatrix

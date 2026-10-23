@@ -43,6 +43,26 @@ nonisolated enum SceneAuthoredShaderSamePixelSourceAnalyzer {
                     positionMatrixUniformName: matrix)
     }
 
+    /// Geometry admission can reuse the same identity-position proof without
+    /// requiring a texture sample or constraining unrelated varying math.
+    static func preservesTargetPixelFootprint(vertexSource: String) -> Bool {
+        guard let unit = unit(vertexSource, stage: .vertex),
+              declaration("a_Position", storage: .attribute, type: "vec3", in: unit),
+              let main = unit.functions.first(where: { $0.name == "main" }),
+              !unit.tokens[main.bodyRange].contains(where: {
+                  ["return", "discard"].contains($0.text)
+              }),
+              let uses = references("gl_Position", in: unit), uses.count == 1,
+              let statements = SceneAuthoredShaderUniformRGBMixAnalyzer.topLevelStatements(
+                  in: main.bodyRange, tokens: unit.tokens, skippingNestedBlocks: true),
+              let statement = statements.first(where: { $0.lowerBound == uses[0] }),
+              statement.count > 2, unit.tokens[statement.lowerBound + 1].text == "=",
+              positionMatrix((statement.lowerBound + 2)..<statement.upperBound, unit: unit)
+                == "g_ModelViewProjectionMatrix" else { return false }
+        return onlySafeUses("a_Position", protected: [0, 1, 2], in: unit,
+                            producers: [], calls: callSites(unit))
+    }
+
     private static func unit(_ source: String, stage: SceneShaderContract.StageKind) -> Unit? {
         let output = SceneAuthoredShaderSyntaxAnalyzer.analyzeForTypeConversions(
             lexerOutput: SceneAuthoredShaderLexer.lex(source: source, stage: stage), stage: stage)

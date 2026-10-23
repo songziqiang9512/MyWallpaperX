@@ -306,7 +306,9 @@ nonisolated extension SceneResolvedMaterialVariantCache {
                 sameAlphaReconstructedRGBInputContract,
             activeUniforms: uniforms,
             preparedUniformBindings: preparedUniformBindings,
-            neutralTextureResolution: neutralTextureResolution
+            neutralTextureResolution: neutralTextureResolution,
+            preservesTargetPixelFootprint: SceneAuthoredShaderSamePixelSourceAnalyzer
+                .preservesTargetPixelFootprint(vertexSource: compilerSources.vertex)
         )
     }
 
@@ -332,6 +334,9 @@ nonisolated extension SceneResolvedMaterialVariantCache {
             return .color(.resolved(representation))
         }
         if frontend.colorTransfer == .opaque { return .color(.resolved(.opaque)) }
+        if frontend.colorTransfer == .premultipliedAlpha {
+            return .color(.resolved(.premultipliedAlpha))
+        }
         if case .passthrough = frontend.colorTransfer { return signalPassthroughContent }
         return nil
     }

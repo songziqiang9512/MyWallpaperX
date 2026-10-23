@@ -30,7 +30,11 @@ nonisolated enum SceneResolvedMaterialHostUniformSchema {
             .lightAmbientColor
         case ("g_EffectModelMatrix", .float4x4) where field.arrayCount == nil && hasEffectContext:
             .effectModelMatrix
-        case ("mwxRenderSize", .float2): .renderSize
+        case ("mwxRenderSize", .float2) where field.arrayCount == nil: .renderSize
+        case ("mwxVertexCoordinates01", .float4) where field.arrayCount == nil:
+            .vertexCoordinates01
+        case ("mwxVertexCoordinates23", .float4) where field.arrayCount == nil:
+            .vertexCoordinates23
         case ("g_ModelViewProjectionMatrix", .float4x4): .modelViewProjection
         case ("g_ModelViewProjectionMatrixInverse", .float4x4):
             .modelViewProjectionInverse

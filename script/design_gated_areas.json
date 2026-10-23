@@ -1100,6 +1100,20 @@
         "script/scene_capability_census_reporting.py"
       ],
       "contentPatterns": []
+    },
+    {
+      "id": "scene-direct-draw-authored-domain",
+      "title": "作者无源quad坐标域与终端coverage",
+      "owner": "Scene FrameInputContract / GraphExecutor / compositor",
+      "status": "approved",
+      "designDoc": "docs/scene/roadmap/batch2/terminal-material-chain-design.md",
+      "design_notes": "2026-10-23 #authored-direct-draw-domain 已由固定官方R3自有U/E/N板资格：凸四点coverage、raw UV及H顶点单位。批准通过原Program/frame/compositor落地唯一source emitter；两packed host与物理/逻辑尺寸分离。多emitter、未知geometry、任意后续过滤链与全族一致仍不批准；设计不是实现完成。",
+      "matchPatterns": [
+        "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Geometry/SceneDirectDrawAuthoredDomain.swift"
+      ],
+      "contentPatterns": [
+        "authoredDirectDrawDomain"
+      ]
     }
   ]
 }

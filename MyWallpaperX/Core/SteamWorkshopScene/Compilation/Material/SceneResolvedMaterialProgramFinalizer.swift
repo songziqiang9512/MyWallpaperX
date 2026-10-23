@@ -9,6 +9,7 @@ nonisolated struct SceneResolvedMaterialFrameSnapshot {
     fileprivate let frameInputs: SceneAuthoredShaderFrameInputs
 
     var frameIndex: UInt64 { frameInputs.frameIndex }
+    var dynamicGeneration: UInt64 { dynamicSnapshot.generation }
 
     var audioSpectrum: SceneAuthoredShaderAudioSpectrumInputs {
         frameInputs.audioSpectrum
@@ -48,7 +49,9 @@ nonisolated struct SceneResolvedMaterialFrameSnapshot {
         effectTextureProjectionMatrixInverse: simd_float4x4,
         effectDrawAlpha: Float = 1,
         effectDrawColor: SIMD3<Float> = .init(repeating: 1),
-        implicitFramebufferIdentity: SceneAuthoredEffectRenderPlan.TextureIdentity? = nil
+        implicitFramebufferIdentity: SceneAuthoredEffectRenderPlan.TextureIdentity? = nil,
+        vertexCoordinates: SceneShaderQuadCoordinates = .unit,
+        vertexInputSize: CGSize? = nil
     ) -> SceneResolvedMaterialFinalizationInput {
         .init(
             template: template,
@@ -62,7 +65,9 @@ nonisolated struct SceneResolvedMaterialFrameSnapshot {
             effectTextureProjectionMatrixInverse: effectTextureProjectionMatrixInverse,
             effectDrawAlpha: effectDrawAlpha,
             effectDrawColor: effectDrawColor,
-            implicitFramebufferIdentity: implicitFramebufferIdentity
+            implicitFramebufferIdentity: implicitFramebufferIdentity,
+            vertexCoordinates: vertexCoordinates,
+            vertexInputSize: vertexInputSize
         )
     }
 
@@ -133,6 +138,8 @@ nonisolated struct SceneResolvedMaterialFinalizationInput {
     /// declare a `framebuffer` or `previous` material alias without an authored
     /// texture binding.
     let implicitFramebufferIdentity: SceneAuthoredEffectRenderPlan.TextureIdentity?
+    var vertexCoordinates: SceneShaderQuadCoordinates = .unit
+    var vertexInputSize: CGSize? = nil
 
     var textureSnapshot: SceneFrameTextureRegistrySnapshot {
         frameSnapshot.textureSnapshot
@@ -167,7 +174,9 @@ nonisolated struct SceneResolvedMaterialFinalizationInput {
             parallaxPositionNDC:
                 frameSnapshot.frameInputs.parallaxPositionNDC,
             audioSpectrum: frameSnapshot.frameInputs.audioSpectrum,
-            lighting: frameSnapshot.frameInputs.lighting
+            lighting: frameSnapshot.frameInputs.lighting,
+            vertexCoordinates: vertexCoordinates,
+            vertexInputSize: vertexInputSize
         )
     }
 
@@ -492,19 +501,8 @@ nonisolated enum SceneResolvedMaterialProgramFinalizer {
                     source: .host(host),
                     encodedValue: value
                 )
-            case let .staticValue(encoded):
-                guard encoded.count == field.storageByteSize else {
-                    throw failure(
-                        .invariant,
-                        .programAssemblyIdentityInvariant,
-                        details: [field.name, "prepared-static-byte-count"]
-                    )
-                }
-                return .init(
-                    field: field,
-                    source: .staticValue,
-                    encodedValue: encoded
-                )
+            case .staticValue:
+                return try resolvedAuthoredUniform(binding, snapshot: input.dynamicSnapshot)
             case let .neutralMissingTextureResolution(fact):
                 guard let neutral = neutralTextureResolutionUniform(
                     field: field,
@@ -535,80 +533,120 @@ nonisolated enum SceneResolvedMaterialProgramFinalizer {
                     )
                 }
                 return selfComposite
-            case let .dynamic(prepared):
-                let dynamic = prepared.declaration
-                let contributor = prepared.contributor
-                let fallback = prepared.fallback
-                let schema = prepared.schema
-                guard let resolved = input.dynamicSnapshot[dynamic.target],
-                      valid(
-                          resolved.source,
-                          contributor: contributor,
-                          fallback: fallback
-                      ) else {
-                    throw failure(
-                        .uniform,
-                        .dynamicUniformBindingInvalid,
-                        details: [field.name]
-                    )
-                }
-                let liveEncoded = encodeDynamicUniform(
-                    resolved.value,
-                    contributor: contributor,
-                    declaration: dynamic,
-                    schema: schema,
-                    field: field
-                )
-                guard let encoded = directUserPropertyRangedValue(
-                    liveEncoded,
-                    liveValue: resolved.value,
-                    authoredValue: input.dynamicSnapshot.authoredValue(
-                        for: dynamic.target
-                    ),
-                    userPropertyNumericRange:
-                        input.dynamicSnapshot.userPropertyNumericRange(
-                            for: dynamic.target
-                        ),
-                    fallback,
-                    source: resolved.source,
-                    contributor: contributor,
-                    declaration: dynamic,
-                    schema: schema,
-                    field: field
-                ) else {
-                    throw failure(
-                        .uniform,
-                        .dynamicUniformBindingInvalid,
-                        details: [field.name]
-                    )
-                }
-                if resolved.source == .authored {
-                    guard let fallback,
-                          encodeDynamicFallback(
-                              fallback,
-                              contributor: contributor,
-                              declaration: dynamic,
-                              schema: schema,
-                              field: field
-                          ) == encoded else {
-                        throw failure(
-                            .uniform,
-                            .dynamicUniformBindingInvalid,
-                            details: [field.name]
-                        )
-                    }
-                }
-                return .init(
-                    field: field,
-                    source: .dynamic(
-                        declared: contributor,
-                        target: dynamic.target,
-                        resolvedSource: resolved.source,
-                        scriptAttachments: dynamic.scriptAttachments
-                    ),
-                    encodedValue: encoded
+            case .dynamic:
+                return try resolvedAuthoredUniform(binding, snapshot: input.dynamicSnapshot)
+            }
+        }
+    }
+
+    static func resolvePreparedPoint(
+        _ binding: SceneResolvedMaterialPreparedUniformBinding,
+        snapshot: SceneDynamicSnapshot
+    ) -> SIMD2<Float>? {
+        guard binding.field.type == .float2, binding.field.arrayCount == nil,
+              let uniform = try? resolvedAuthoredUniform(binding, snapshot: snapshot),
+              uniform.encodedValue.count == 8 else { return nil }
+        let point = uniform.encodedValue.withUnsafeBytes {
+            SIMD2($0.loadUnaligned(as: Float.self),
+                  $0.loadUnaligned(fromByteOffset: 4, as: Float.self))
+        }
+        return point.x.isFinite && point.y.isFinite ? point : nil
+    }
+
+    private static func resolvedAuthoredUniform(
+        _ binding: SceneResolvedMaterialPreparedUniformBinding,
+        snapshot: SceneDynamicSnapshot
+    ) throws -> Program.ResolvedUniform {
+        let field = binding.field
+        switch binding.source {
+        case let .staticValue(encoded):
+            guard encoded.count == field.storageByteSize else {
+                throw failure(
+                    .invariant,
+                    .programAssemblyIdentityInvariant,
+                    details: [field.name, "prepared-static-byte-count"]
                 )
             }
+            return .init(
+                field: field,
+                source: .staticValue,
+                encodedValue: encoded
+            )
+        case let .dynamic(prepared):
+            let dynamic = prepared.declaration
+            let contributor = prepared.contributor
+            let fallback = prepared.fallback
+            let schema = prepared.schema
+            guard let resolved = snapshot[dynamic.target],
+                  valid(
+                      resolved.source,
+                      contributor: contributor,
+                      fallback: fallback
+                  ) else {
+                throw failure(
+                    .uniform,
+                    .dynamicUniformBindingInvalid,
+                    details: [field.name]
+                )
+            }
+            let liveEncoded = encodeDynamicUniform(
+                resolved.value,
+                contributor: contributor,
+                declaration: dynamic,
+                schema: schema,
+                field: field
+            )
+            guard let encoded = directUserPropertyRangedValue(
+                liveEncoded,
+                liveValue: resolved.value,
+                authoredValue: snapshot.authoredValue(
+                    for: dynamic.target
+                ),
+                userPropertyNumericRange:
+                    snapshot.userPropertyNumericRange(
+                        for: dynamic.target
+                    ),
+                fallback,
+                source: resolved.source,
+                contributor: contributor,
+                declaration: dynamic,
+                schema: schema,
+                field: field
+            ) else {
+                throw failure(
+                    .uniform,
+                    .dynamicUniformBindingInvalid,
+                    details: [field.name]
+                )
+            }
+            if resolved.source == .authored {
+                guard let fallback,
+                      encodeDynamicFallback(
+                          fallback,
+                          contributor: contributor,
+                          declaration: dynamic,
+                          schema: schema,
+                          field: field
+                      ) == encoded else {
+                    throw failure(
+                        .uniform,
+                        .dynamicUniformBindingInvalid,
+                        details: [field.name]
+                    )
+                }
+            }
+            return .init(
+                field: field,
+                source: .dynamic(
+                    declared: contributor,
+                    target: dynamic.target,
+                    resolvedSource: resolved.source,
+                    scriptAttachments: dynamic.scriptAttachments
+                ),
+                encodedValue: encoded
+            )
+        default:
+            throw failure(.uniform, .staticUniformBindingInvalid, details: [field.name])
         }
     }
 

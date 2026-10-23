@@ -138,8 +138,10 @@ nonisolated enum SceneAuthoredShaderMetalSource {
             constant SceneAuthoredUniforms &mwxUniforms [[buffer(0)]]\(resources)
         ) {
             const float2 coordinates[4] = {
-                float2(0.0, 1.0), float2(1.0, 1.0),
-                float2(0.0, 0.0), float2(1.0, 0.0)
+                mwxUniforms.mwxVertexCoordinates01.xy,
+                mwxUniforms.mwxVertexCoordinates01.zw,
+                mwxUniforms.mwxVertexCoordinates23.xy,
+                mwxUniforms.mwxVertexCoordinates23.zw
             };
             SceneAuthoredVertexAttributes mwxAttributes;
             mwxAttributes.a_TexCoord = coordinates[vertexID];

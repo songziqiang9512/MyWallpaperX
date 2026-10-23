@@ -63,6 +63,32 @@ struct SceneEffectDefinition: Codable, Equatable, Identifiable, Sendable {
         passes.filter { $0.materialPath != nil }.count
     }
 
+    enum PerspectiveUVRole: Equatable {
+        case absent
+        case quad(materialKeys: [String])
+        case invalid
+    }
+
+    /// Editor roles identify material bindings, not shader-uniform spellings.
+    /// Keep unknown gizmos on the existing unit route; a malformed or competing
+    /// four-point role cannot authorize a different render domain.
+    nonisolated var perspectiveUVRole: PerspectiveUVRole {
+        guard case let .array(gizmos) = gizmos else { return .absent }
+        let roles = gizmos.compactMap { value -> [String: SceneJSONValue]? in
+            guard case let .object(object) = value,
+                  object["type"]?.stringValue == "EffectPerspectiveUV" else { return nil }
+            return object
+        }
+        guard !roles.isEmpty else { return .absent }
+        guard roles.count == 1,
+              case let .object(variables) = roles[0]["vars"] else { return .invalid }
+        let keys = (0..<4).compactMap { variables["p\($0)"]?.stringValue }
+        guard keys.count == 4, Set(keys).count == 4,
+              keys.allSatisfy({ !$0.isEmpty && $0 == $0.trimmingCharacters(in: .whitespacesAndNewlines) })
+        else { return .invalid }
+        return .quad(materialKeys: keys)
+    }
+
     nonisolated init(
         relativePath: String,
         version: Int?,

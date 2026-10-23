@@ -9,6 +9,18 @@ nonisolated struct SceneResolvedMaterialAdmittedLayer {
         case transparentDirectDraw
     }
 
+    struct DirectDrawGeometryRole: Equatable {
+        let effect: Graph.EffectKey
+        let nodeIndex: Int
+        let materialKeys: [String]
+    }
+    enum DirectDrawGeometryFallback: String, Equatable {
+        case roleInvalid = "role-invalid"
+        case sourceAmbiguous = "source-ambiguous"
+        case vertexInputUnqualified = "vertex-input-unqualified"
+        case pointBindingsUnproven = "point-bindings-unproven"
+    }
+
     let layerID: Int
     let products: [SceneGraphAdmissionProduct]
     let pairPlan: SceneLayerFullFramePairPlan
@@ -24,6 +36,8 @@ nonisolated struct SceneResolvedMaterialAdmittedLayer {
     let isStaticModelGraphOutputPreparationRoot: Bool
     let requiresGraphOutputProvider: Bool
     let terminalReplayBlendMode: Int
+    let directDrawGeometryRole: DirectDrawGeometryRole?
+    let directDrawGeometryFallback: DirectDrawGeometryFallback?
 
     init(
         layerID: Int,
@@ -38,7 +52,9 @@ nonisolated struct SceneResolvedMaterialAdmittedLayer {
         isGraphOutputProvider: Bool,
         isStaticModelGraphOutputPreparationRoot: Bool = false,
         requiresGraphOutputProvider: Bool,
-        terminalReplayBlendMode: Int = 0
+        terminalReplayBlendMode: Int = 0,
+        directDrawGeometryRole: DirectDrawGeometryRole? = nil,
+        directDrawGeometryFallback: DirectDrawGeometryFallback? = nil
     ) {
         self.layerID = layerID
         self.products = products
@@ -54,6 +70,8 @@ nonisolated struct SceneResolvedMaterialAdmittedLayer {
             isStaticModelGraphOutputPreparationRoot
         self.requiresGraphOutputProvider = requiresGraphOutputProvider
         self.terminalReplayBlendMode = terminalReplayBlendMode
+        self.directDrawGeometryRole = directDrawGeometryRole
+        self.directDrawGeometryFallback = directDrawGeometryFallback
     }
 }
 
@@ -668,6 +686,8 @@ nonisolated enum SceneResolvedMaterialExecutionCapabilityAdmission {
                 plannedEffects: plannedEffects
             )
             var products: [SceneGraphAdmissionProduct] = []
+            var directDrawGeometryRole: SceneResolvedMaterialAdmittedLayer.DirectDrawGeometryRole?
+            var directDrawGeometryFallback: SceneResolvedMaterialAdmittedLayer.DirectDrawGeometryFallback?
             for effect in graph.effects {
                 let definitions = descriptor.effectDefinitions.filter {
                     normalized($0.relativePath) == normalized(effect.definitionPath)
@@ -676,6 +696,30 @@ nonisolated enum SceneResolvedMaterialExecutionCapabilityAdmission {
                     throw failure("effect-definition-count")
                 }
                 let stage = try extractStage(effect, from: graph)
+                if sourceRoute == .transparentDirectDraw {
+                    switch definition.perspectiveUVRole {
+                    case .absent: break
+                    case .invalid:
+                        directDrawGeometryRole = nil
+                        directDrawGeometryFallback = .roleInvalid
+                    case let .quad(materialKeys):
+                        // This first domain capability has one source emitter.
+                        // A later generator/filter needs its own graph role;
+                        // do not choose a material by ordinal or path guessing.
+                        if directDrawGeometryFallback == nil,
+                           graph.effects.count == 1, stage.nodes.count == 1,
+                           let node = stage.nodes.first, node.kind == .material,
+                           directDrawGeometryRole == nil {
+                            directDrawGeometryRole = .init(
+                                effect: node.effect, nodeIndex: node.nodeIndex,
+                                materialKeys: materialKeys
+                            )
+                        } else {
+                            directDrawGeometryRole = nil
+                            directDrawGeometryFallback = directDrawGeometryFallback ?? .sourceAmbiguous
+                        }
+                    }
+                }
                 let result = SceneGraphAdmissionCompiler.compile(
                     graph: stage,
                     descriptor: descriptor,
@@ -722,7 +766,9 @@ nonisolated enum SceneResolvedMaterialExecutionCapabilityAdmission {
                 isStaticModelGraphOutputPreparationRoot:
                     isStaticModelGraphOutputPreparationRoot,
                 requiresGraphOutputProvider: requiresGraphOutputProvider,
-                terminalReplayBlendMode: layer.colorBlendMode ?? 0
+                terminalReplayBlendMode: layer.colorBlendMode ?? 0,
+                directDrawGeometryRole: directDrawGeometryRole,
+                directDrawGeometryFallback: directDrawGeometryFallback
             ))
         } catch let rejection as Failure {
             return .failure(rejection)

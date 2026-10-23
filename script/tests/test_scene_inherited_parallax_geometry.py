@@ -20,6 +20,8 @@ SWIFT_SOURCES = [ROOT / "script/tests/fixtures/SceneLayerPerspectiveSnapshotHarn
     "Rendering/Geometry/SceneLayerScreenAnchor.swift",
     "Rendering/Geometry/SceneImageLayerPivot.swift",
     "Rendering/Geometry/SceneTextLayerPivot.swift",
+    "Rendering/Bindings/SceneAuthoredShaderFrameInputs.swift",
+    "Rendering/Lighting/SceneAuthoredShaderLightingInputs.swift",
     "Rendering/Geometry/SceneDirectDrawOutputGeometry.swift",
     "Rendering/Particles/SceneParticleRenderSupport.swift",
     "Systems/Particles/SceneParticleCameraFrame.swift",

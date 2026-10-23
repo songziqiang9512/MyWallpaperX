@@ -4386,6 +4386,26 @@
         "test_steam_download_thumbnail_pipeline",
         "test_thumbnail_return_reuse"
       ]
+    },
+    {
+      "id": "scene-authored-direct-draw-domain",
+      "patterns": [
+        "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Geometry/SceneDirectDrawOutputGeometry.swift",
+        "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Frame/SceneResolvedMaterialFramePreflight+DirectDraw.swift",
+        "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Bindings/SceneAuthoredShaderFrameInputs.swift",
+        "MyWallpaperX/Core/SteamWorkshopScene/Compilation/Material/SceneEffectDefinition.swift",
+        "script/tests/test_scene_authored_direct_draw_domain.py",
+        "script/tests/test_scene_direct_draw_vertex_attributes.py",
+        "script/tests/fixtures/SceneDirectDrawVertexAttributesHarness.swift",
+        "MyWallpaperX/Core/SteamWorkshopScene/Compilation/Material/SceneResolvedMaterialExecutionCapabilityVariant+Compilation.swift",
+        "script/tests/test_scene_prepared_material_output_content.py"
+      ],
+      "modules": [
+        "test_scene_authored_direct_draw_domain",
+        "test_scene_direct_draw_vertex_attributes",
+        "test_scene_direct_draw_output_geometry",
+        "test_scene_prepared_material_output_content"
+      ]
     }
   ],
   "method_gates": {

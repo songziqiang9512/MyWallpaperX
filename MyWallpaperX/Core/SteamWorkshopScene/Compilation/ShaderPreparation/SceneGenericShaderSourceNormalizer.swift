@@ -275,6 +275,8 @@ nonisolated enum SceneGenericShaderSourceNormalizer {
             }
             let varyings = vertexVaryings
             guard uniforms["mwxRenderSize"] == nil,
+                  uniforms["mwxVertexCoordinates01"] == nil,
+                  uniforms["mwxVertexCoordinates23"] == nil,
                   uniforms[SceneShaderColorBoundary.uniformName] == nil else {
                 throw Failure.reservedUniform
             }
@@ -372,7 +374,8 @@ nonisolated enum SceneGenericShaderSourceNormalizer {
                 let shape = uniforms[name]!
                 let suffix = shape.count.map { "[\($0)]" } ?? ""
                 return "    \(shape.type) \(name)\(suffix);"
-            } + ["    vec2 mwxRenderSize;"]
+            } + ["    vec2 mwxRenderSize;", "    vec4 mwxVertexCoordinates01;",
+                 "    vec4 mwxVertexCoordinates23;"]
             let varyingOrder = varyings.keys.sorted()
             var nextLocation = 0
             var locations: [String: Int] = [:]
@@ -795,9 +798,9 @@ nonisolated enum SceneGenericShaderSourceNormalizer {
             range: range,
             withTemplate: """
 void main() {
-    const vec2 mwxCoordinates[4] = vec2[4](
-        vec2(0.0, 1.0), vec2(1.0, 1.0),
-        vec2(0.0, 0.0), vec2(1.0, 0.0));
+    vec2 mwxCoordinates[4] = vec2[4](
+        mwxVertexCoordinates01.xy, mwxVertexCoordinates01.zw,
+        mwxVertexCoordinates23.xy, mwxVertexCoordinates23.zw);
     vec2 a_TexCoord = mwxCoordinates[gl_VertexIndex];
     vec2 mwxPosition = vec2(a_TexCoord.x, 1.0 - a_TexCoord.y);
     vec3 a_Position = vec3(\(positionExpression), 0.0);

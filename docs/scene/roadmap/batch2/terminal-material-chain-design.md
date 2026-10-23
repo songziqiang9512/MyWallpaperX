@@ -103,3 +103,20 @@
 验收复用纯图片官方RGB板，补prepared准入/手工模板投影、非白straight/PMA与A0/0.5/1、layer alpha0/0.5/1、原Alpha结果不变、source bind不变及depth/cull/未知字段反例；有前序效果的图须证完整graph-final到末合成。改名/等价输入不改变资格。Debug后核原炫光默认/关闭亮度变化的实际颜色、三effect/GPU/次帧与健康独立样本；无实际改善或邻例回归即修正或撤回，不调作者亮度。HDR/SDR有限值沿原片元与目标，未做全HDR/任意RT/官方A或性能验收不认领。
 
 实际原图、数值、构建与失败边界由[本批后验](../../capabilities/runtime-evidence-current.md#builtin-image-additive-rgb-20261022)维护。
+
+<a id="authored-direct-draw-domain"></a>
+## 作者 direct-draw 四点域（2026-10-23，已实施，有界验收）
+
+无源 quad 的真实几何、shader 输入域与最终放置已由同一 prepared 链贯通，恢复越界光束的覆盖；光强、作者 origin 和 Linear/Radial/Corner 的效果数学继续归原作者 Program。不同光线/受光样式与声明归[光照样本清单](../../capabilities/lighting-sample-inventory.md)，执行顺序归现役队列。本节的官方输入、测量、候选失败与修后运行统一归[四点域证据](../../history/authored-direct-draw-domain-2026-10-23.md#authored-direct-draw-domain-20261023)。
+
+原单位方形载体会裁掉越界四点域。官方自有 R3 板证明单位、越界矩形和越界凸四点的 polygon 覆盖，raw UV/position 的相对变化支持画布高度 H 尺度；本项目保留既有居中顶点合同 `L(p)=H*(p.x-.5,.5-p.y)`。官方与本项目窗口比例不同，CUA 原图含 ICC/JPEG，direct-draw 颜色也有共同偏移，绝对位置截距与 RGB 不据此认定为 ±2 数值一致或官方 parity。R1 缺依赖失败不作语义证据；R2 缺活跃 p0 的 UV/position 歧义由只补 witness 的 R3 消歧，不据此认领凹四边形、任意顶点位移或非仿射插值拓扑。
+
+准备期从 `EffectPerspectiveUV` 的 p0…p3 材质角色、唯一 source-emitting material node、所有 variant 一致的活跃 float2 producer、新属性 ABI 与 identity-MVP footprint proof 构成 typed 几何绑定，不按 uniform 名、shader/effect 路径或样本猜角点。角色无效或竞争、多 emitter、点被优化而未活跃、绑定/profile 未证只是不获新域资格：沿原 graph/stage 准入保留 unit，准备报告携带 `role-invalid`、`source-ambiguous`、`point-bindings-unproven` 或 `vertex-input-unqualified` 原因，不新增帧日志或猜首个。该 fallback 不放宽原 image-filter/graph-input 准入。已绑定新域后的非有限数、退化/自交与 frame/generation 失配仍拒绝最小不安全单元。动态值复用同一 DynamicSnapshot 和原 uniform resolver，不缓存初值、帧内不解析 JSON 或编译。
+
+通用顶点 ABI 的两组 packed float4 坐标有唯一 unit 默认值；generic normalizer 与 bounded Swift wrapper 都按原 strip 顺序 p3,p2,p0,p1 构造属性，随后执行未改的作者 vertex body。字段是 host 保留语义，布局与 artifact/cache 身份同步区分新旧 ABI，真实点值不是编译 key。`vertexInputSize` 仅给源生成节点提供 H×H；物理 target/renderSize 与 texture Resolution 保持实际尺寸。effect-model、effect-MVP 的 pixelsToUnit 使用相同逻辑顶点单位，保留原 H-square world/clip 基准。
+
+同帧 plan 保存四点、原 square basis、AABB 与 capture/terminal MVP。真实 polygon 经正交 capture MVP 绘入透明清空的有界 RTT；末 compositor 仍消费该 AABB 纹理一次，未覆盖区域为 RGBA0。只有 prepared source material key 取得四点与 capture MVP；其他节点保单位属性/fullTargetMVP，现有 source/chain 能力边界不变。原 world/parent/parallax 与唯一 camera、allocator、ledger、compositor 继续持权，不新增光线 renderer。
+
+nominal-output owner 现在同时表达已证 opaque 与 `.premultipliedAlpha`，signal passthrough 和 color boundary 仍优先，其他未知内容仍为 nil；这只补齐已证输出事实，不新增 shader 分类。fragment opaque 只证明覆盖内 A=1，现 attachment-storage owner 将透明 clear0 的部分覆盖颜色附件推导为 PMA；straight/PMA 表示保持，data/独立 alpha 不因此取得扩域资格。每帧沿原 clear、lease 与 publication 生命周期消除旧覆盖，物理范围/预算/旧 token 检查保持。
+
+修后同一候选 App 的四项运行已完成：R3 自有常量/UV/position 的 U/E/N 域通过真实 prepared source 到终端，R2 六格缺活跃 p0 保健康 unit 并有 typed 原因，三种方向的自有 Color 板均可见；332 layer292 实际加载 v3 几何并出现左上斜入的光束。两后端属性与透明留白、CPU 数学/准备反例及构建证据的范围由正式证据 owner 列明。原332仍有其他未准入项；独立 holdout、完整 Gradient/mask、动态点、后续过滤链、全 HDR、官方绝对 RGB/位置及性能须继续分别验收，视频和整场景状态不由本节改变。

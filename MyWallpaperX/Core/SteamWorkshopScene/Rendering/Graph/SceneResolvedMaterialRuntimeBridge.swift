@@ -203,6 +203,10 @@ final class SceneResolvedMaterialRuntimeBridge {
         /// vector for a single-provider owner, the authored slot order for a
         /// multi-provider aggregate, and empty when there is no dependency.
         let dependencyEffects: [SceneDependencyEffectInput]
+        let directDrawGeometry: SceneDirectDrawOutputGeometry.Resolved?
+        let directDrawSourceMaterialKey: SceneResolvedMaterialExecutionCapabilityCatalog.MaterialKey?
+        var vertexCoordinates: SceneShaderQuadCoordinates { directDrawGeometry?.coordinates ?? .unit }
+        var vertexInputSize: CGSize? { directDrawGeometry?.vertexInputSize }
         var dependencyUnavailability: DependencyUnavailability? = nil
 
         init(
@@ -224,7 +228,9 @@ final class SceneResolvedMaterialRuntimeBridge {
             time: Float,
             audioSpectrum: SceneAudioSpectrumSnapshot,
             dependencyEffects: [SceneDependencyEffectInput] = [],
-            dependencyUnavailability: DependencyUnavailability? = nil
+            dependencyUnavailability: DependencyUnavailability? = nil,
+            directDrawGeometry: SceneDirectDrawOutputGeometry.Resolved? = nil,
+            directDrawSourceMaterialKey: SceneResolvedMaterialExecutionCapabilityCatalog.MaterialKey? = nil
         ) {
             self.dynamicValues = dynamicValues
             self.cursorUV = cursorUV
@@ -246,6 +252,8 @@ final class SceneResolvedMaterialRuntimeBridge {
             self.audioSpectrum = audioSpectrum
             self.dependencyEffects = dependencyEffects
             self.dependencyUnavailability = dependencyUnavailability
+            self.directDrawGeometry = directDrawGeometry
+            self.directDrawSourceMaterialKey = directDrawSourceMaterialKey
         }
 
         func withDependencyEffects(
@@ -273,7 +281,9 @@ final class SceneResolvedMaterialRuntimeBridge {
                 time: time,
                 audioSpectrum: audioSpectrum,
                 dependencyEffects: dependencyEffects,
-                dependencyUnavailability: dependencyUnavailability
+                dependencyUnavailability: dependencyUnavailability,
+                directDrawGeometry: directDrawGeometry,
+                directDrawSourceMaterialKey: directDrawSourceMaterialKey
             )
         }
     }

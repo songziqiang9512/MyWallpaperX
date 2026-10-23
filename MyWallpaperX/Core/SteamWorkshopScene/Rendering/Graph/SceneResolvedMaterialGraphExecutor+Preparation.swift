@@ -265,12 +265,22 @@ extension SceneResolvedMaterialGraphExecutor {
                 ) else {
                     return .graphPublicationRejected
                 }
+                let authoredGeometry = frameInputs.directDrawSourceMaterialKey
+                    == .init(effect: node.effect, nodeIndex: node.nodeIndex)
+                    ? frameInputs.directDrawGeometry : nil
+                if let authoredGeometry {
+                    guard authoredGeometry.frameIndex == overlaid.frameIndex,
+                          authoredGeometry.generation == overlaid.dynamicGeneration else {
+                        return .graphStructureRejected
+                    }
+                }
                 let finalized = SceneResolvedMaterialProgramFinalizer.finalize(
                     overlaid.finalizationInput(
                         template: material.template,
                         layerID: node.effect.layerID,
                         renderSize: CGSize(width: target.width, height: target.height),
-                        modelViewProjection: Self.fullTargetMVP(target),
+                        modelViewProjection: authoredGeometry?.captureModelViewProjection
+                            ?? Self.fullTargetMVP(target),
                         layerModelMatrix: frameInputs.layerModelMatrix,
                         effectOutputModelViewProjection:
                             frameInputs.effectOutputModelViewProjection,
@@ -279,7 +289,9 @@ extension SceneResolvedMaterialGraphExecutor {
                             frameInputs.effectTextureProjectionMatrixInverse,
                         effectDrawAlpha: frameInputs.effectDrawAlpha,
                         effectDrawColor: frameInputs.effectDrawColor,
-                        implicitFramebufferIdentity: pairStep.inputIdentity
+                        implicitFramebufferIdentity: pairStep.inputIdentity,
+                        vertexCoordinates: authoredGeometry?.coordinates ?? .unit,
+                        vertexInputSize: authoredGeometry?.vertexInputSize
                     ),
                     variantCache: material.variants,
                     outputStorage: outputStorage(
@@ -396,7 +408,8 @@ extension SceneResolvedMaterialGraphExecutor {
                     program: program,
                     material: material,
                     target: target,
-                    descriptor: fboTarget?.resource.descriptor
+                    descriptor: fboTarget?.resource.descriptor,
+                    partialCoverage: authoredGeometry != nil
                 ) else {
                     return .graphStructureRejected
                 }

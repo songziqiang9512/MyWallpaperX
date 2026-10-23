@@ -83,8 +83,8 @@ nonisolated enum SceneAuthoredShaderFrontend {
             colorBoundary: SceneShaderColorBoundary?,
             boundTextureSlots: Set<Int>
         ) {
-            // v22 retires source-classified programs before typed RGBA signal auxiliaries.
-            cacheSchemaVersion = 23
+            // Retire fixed-unit wrappers before the host quad-attribute ABI.
+            cacheSchemaVersion = 24
             compilerIdentity = SceneShaderCacheIdentity.semantics
             vertexSourceSHA256 = ProgramCacheDigest.hash(Data(vertexSource.utf8))
             fragmentSourceSHA256 = ProgramCacheDigest.hash(Data(fragmentSource.utf8))
@@ -558,6 +558,8 @@ nonisolated enum SceneAuthoredShaderFrontend {
                     continue
                 }
                 if declaration.name == "mwxRenderSize"
+                    || declaration.name == "mwxVertexCoordinates01"
+                    || declaration.name == "mwxVertexCoordinates23"
                     || declaration.name == SceneShaderColorBoundary.uniformName {
                     diagnostics.append(.init(
                         code: .unsupportedDeclaration,
@@ -700,6 +702,12 @@ nonisolated enum SceneAuthoredShaderFrontend {
         if internalRemainder != 0 { offset += internalType.alignment - internalRemainder }
         fields.append(.init(name: "mwxRenderSize", type: internalType, offset: offset))
         offset += internalType.byteSize
+        for name in ["mwxVertexCoordinates01", "mwxVertexCoordinates23"] {
+            let remainder = offset % SceneAuthoredShaderValueType.float4.alignment
+            if remainder != 0 { offset += 16 - remainder }
+            fields.append(.init(name: name, type: .float4, offset: offset))
+            offset += SceneAuthoredShaderValueType.float4.byteSize
+        }
         if colorBoundary?.requiresInputMask == true {
             fields.append(.init(
                 name: SceneShaderColorBoundary.uniformName, type: .uint, offset: offset

@@ -8,19 +8,22 @@ struct SceneResolvedMaterialFrameTargetPlan {
     /// Resolved once during frame preflight from the prepared geometry source.
     /// Only transparent direct-draw products carry this compositor placement.
     let directDrawOutputModelViewProjection: simd_float4x4?
+    let directDrawGeometry: SceneDirectDrawOutputGeometry.Resolved?
 
     init(
         token: SceneResolvedMaterialExecutionCapabilityCatalog.Token,
         allocation: ScenePersistentGraphTargetFramePlan,
         consumesExternalPrimaryDependency: Bool = false,
-        directDrawOutputModelViewProjection: simd_float4x4? = nil
+        directDrawOutputModelViewProjection: simd_float4x4? = nil,
+        directDrawGeometry: SceneDirectDrawOutputGeometry.Resolved? = nil
     ) {
         self.token = token
         self.allocation = allocation
         self.consumesExternalPrimaryDependency =
             consumesExternalPrimaryDependency
         self.directDrawOutputModelViewProjection =
-            directDrawOutputModelViewProjection
+            directDrawGeometry?.outputModelViewProjection ?? directDrawOutputModelViewProjection
+        self.directDrawGeometry = directDrawGeometry
     }
 }
 

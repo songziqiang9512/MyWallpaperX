@@ -63,17 +63,22 @@ nonisolated enum SceneResolvedMaterialAttachmentStorage {
 
     static func storedOutput(
         _ outputContract: SceneResolvedMaterialProgram.OutputContract,
-        attachmentStorage: SceneResolvedMaterialAttachmentKind
+        attachmentStorage: SceneResolvedMaterialAttachmentKind,
+        partialCoverage: Bool = false
     ) -> StoredOutput? {
+        guard !partialCoverage || attachmentStorage == .color else { return nil }
         switch (outputContract, attachmentStorage) {
         case let (.color(contract), .color):
             guard let representation = acceptedColorOutput(
                 contract.fragmentOutput
             ) else { return nil }
-            return .init(
-                content: .color(.resolved(representation)),
-                colorRepresentation: representation
-            )
+            // Opaque fragment exits establish alpha=1 only at rasterized
+            // samples. A clear-zero color attachment with polygon holes is
+            // physically premultiplied; the fragment contract stays intact.
+            guard !partialCoverage || representation != .independentAlphaSignal else { return nil }
+            let stored = partialCoverage && representation == .opaque
+                ? SceneShaderColorRepresentation.premultipliedAlpha : representation
+            return .init(content: .color(.resolved(stored)), colorRepresentation: stored)
         case (.scalarRedUnorm, .scalarRedUnorm):
             return .init(
                 content: .scalarRedUnorm,

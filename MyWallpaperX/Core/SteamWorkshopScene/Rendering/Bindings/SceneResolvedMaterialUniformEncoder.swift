@@ -66,9 +66,10 @@ nonisolated enum SceneResolvedMaterialUniformEncoder {
                   let world = inputs.lighting.worldFromRenderWorld else {
                 return .inputUnavailable
             }
-            guard valid(inputs.renderSize) else { return .invalid }
-            let width = Float(inputs.renderSize.width)
-            let height = Float(inputs.renderSize.height)
+            let size = inputs.vertexInputSize ?? inputs.renderSize
+            guard valid(size) else { return .invalid }
+            let width = Float(size.width)
+            let height = Float(size.height)
             guard width.isFinite, height.isFinite, width > 0, height > 0 else {
                 return .invalid
             }
@@ -139,7 +140,13 @@ nonisolated enum SceneResolvedMaterialUniformEncoder {
             }
             return packed([mask], byteSize: 4)
         case .renderSize:
-            return encodeSize(inputs.renderSize, type: type)
+            return encodeSize(inputs.vertexInputSize ?? inputs.renderSize, type: type)
+        case .vertexCoordinates01, .vertexCoordinates23:
+            guard type == .float4 else { return nil }
+            let coordinates = host == .vertexCoordinates01
+                ? inputs.vertexCoordinates.packed01 : inputs.vertexCoordinates.packed23
+            return encodeComponents([Double(coordinates.x), Double(coordinates.y),
+                                     Double(coordinates.z), Double(coordinates.w)], as: type)
         case .modelViewProjection:
             return encodeMatrix(inputs.modelViewProjection, type: type)
         case .modelViewProjectionInverse:
@@ -151,10 +158,11 @@ nonisolated enum SceneResolvedMaterialUniformEncoder {
             // Optional ordinary inputs are resolved by the typed entry point.
             return nil
         case .effectModelViewProjection:
-            guard valid(inputs.renderSize) else { return nil }
+            let size = inputs.vertexInputSize ?? inputs.renderSize
+            guard valid(size) else { return nil }
             let targetPixelsToLayer = simd_float4x4(diagonal: SIMD4(
-                1 / Float(inputs.renderSize.width),
-                1 / Float(inputs.renderSize.height),
+                1 / Float(size.width),
+                1 / Float(size.height),
                 1,
                 1
             ))

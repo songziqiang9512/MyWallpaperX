@@ -427,6 +427,7 @@ nonisolated struct SceneResolvedMaterialProgram {
 
     enum HostUniform: Hashable {
         case renderSize, modelViewProjection, modelViewProjectionInverse
+        case vertexCoordinates01, vertexCoordinates23
         case premultipliedColorInputMask
         case effectDrawAlpha
         case effectDrawColor, effectDrawColor4

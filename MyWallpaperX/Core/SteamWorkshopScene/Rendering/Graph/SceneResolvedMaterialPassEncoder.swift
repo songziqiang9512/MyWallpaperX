@@ -112,12 +112,14 @@ final class SceneResolvedMaterialPassEncoder {
     func prepareResult(
         program: SceneResolvedMaterialProgram,
         target: MTLTexture,
-        attachmentStorage: SceneResolvedMaterialAttachmentKind
+        attachmentStorage: SceneResolvedMaterialAttachmentKind,
+        partialCoverage: Bool = false
     ) -> Result<PreparedPass, PreparationFailure> {
         prepareAuthorizedResult(
             program: program,
             target: target,
-            attachmentStorage: attachmentStorage
+            attachmentStorage: attachmentStorage,
+            partialCoverage: partialCoverage
         )
     }
 
@@ -125,11 +127,13 @@ final class SceneResolvedMaterialPassEncoder {
         program: SceneResolvedMaterialProgram,
         target: MTLTexture,
         attachmentStorage: SceneResolvedMaterialAttachmentKind,
+        partialCoverage: Bool = false,
         role: SceneResolvedMaterialProgram.PassRole = .offscreenOverwrite
     ) -> Result<PreparedPass, PreparationFailure> {
         guard let output = SceneResolvedMaterialAttachmentStorage.storedOutput(
             program.outputContract,
-            attachmentStorage: attachmentStorage
+            attachmentStorage: attachmentStorage,
+            partialCoverage: partialCoverage
         ) else { return .failure(.fragmentOutputRejected) }
         if (role == .terminalSourceOver || role == .terminalAdditive
                 || role == .terminalAttachmentSourceOver),

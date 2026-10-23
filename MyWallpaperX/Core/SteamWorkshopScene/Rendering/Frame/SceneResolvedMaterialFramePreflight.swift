@@ -137,6 +137,7 @@ extension SceneMetalRenderer {
             let layerID = layer.id
             var directDrawOutputModelViewProjection: simd_float4x4?
             var directDrawOutputUnitModelMatrix: simd_float4x4?
+            var directDrawGeometry: SceneDirectDrawOutputGeometry.Resolved?
             var capturedUnitModelMatrix: simd_float4x4?
             // Values the preparation request consumes, captured by the same
             // single pass that sizes the frame target.
@@ -392,32 +393,23 @@ extension SceneMetalRenderer {
                 }
             case .transparentDirectDraw:
                 guard layer.contentKind == "quad",
-                      case .authoredCanvasDirectDraw =
-                        claim.frameInputContract.emittedOutputGeometrySource,
                       let model = directDrawOutputModelMatrix(
-                          for: layer,
-                          worldFramesByLayerID: worldFramesByLayerID,
-                          parallaxMouseNormalized:
-                              frameContext.cameraParallaxPosition,
-                          configuration: parallaxConfiguration
+                        for: layer, worldFramesByLayerID: worldFramesByLayerID,
+                        parallaxMouseNormalized: frameContext.cameraParallaxPosition,
+                        configuration: parallaxConfiguration
+                      ), let geometry = prepareDirectDrawFrameTargetGeometry(
+                        contract: claim.frameInputContract, snapshot: frameContext.dynamicValues,
+                        canvasSize: parallaxConfiguration.orthoSize, squareUnitModelMatrix: model,
+                        viewProjection: cameraFrame.viewProjection(for: layer),
+                        viewportSize: frameContext.screenSize
                       ) else {
-                    return .rejected(
-                        reasonCode: "direct-draw-output-geometry-invalid"
-                    )
+                    graphTargetFallbacks[layerID] = "direct-draw-output-geometry-invalid"
+                    continue
                 }
-                let outputMVP = cameraFrame.viewProjection(for: layer) * model
-                guard let projectedSize =
-                        SceneCaptureGeometryResolver.projectedPixelSize(
-                            layerMVP: outputMVP,
-                            viewportSize: frameContext.screenSize
-                        ) else {
-                    return .rejected(
-                        reasonCode: "direct-draw-offscreen-size-unavailable"
-                    )
-                }
-                directDrawOutputModelViewProjection = outputMVP
+                directDrawOutputModelViewProjection = geometry.outputModelViewProjection
                 directDrawOutputUnitModelMatrix = model
-                desiredSize = projectedSize
+                directDrawGeometry = geometry.authoredDomain
+                desiredSize = geometry.pixelSize
             }
             let invocations = materialFunctionInvocations(for: layer)
             var invocationFailure: String?
@@ -486,7 +478,8 @@ extension SceneMetalRenderer {
                 allocation: allocation,
                 consumesExternalPrimaryDependency: consumesExternalPrimaryDependency,
                 directDrawOutputModelViewProjection:
-                    directDrawOutputModelViewProjection
+                    directDrawOutputModelViewProjection,
+                directDrawGeometry: directDrawGeometry
             )
             guard allocation.graphPlan.key.layerID == claim.layerID,
                   byLayerID.updateValue(frameTargetPlan, forKey: claim.layerID) == nil
@@ -764,8 +757,8 @@ extension SceneMetalRenderer {
                         "layer-\(layerID)-direct-draw-output-geometry-invalid"
                     )
                 }
-                sourceMVP = directDrawOutputMVP
-                outputMVP = sourceMVP
+                sourceMVP = directDrawGeometry?.squareModelViewProjection ?? directDrawOutputMVP
+                outputMVP = directDrawOutputMVP
                 effectUnitModelMatrix = directDrawOutputUnitModelMatrix
                 sourceTexture = nil
                 sourceCandidate = nil
@@ -876,7 +869,8 @@ extension SceneMetalRenderer {
                 ) * 0.5,
                 primaryButtonIsDown: frameContext.pointer.isPrimaryButtonDown,
                 layerModelMatrix: layerModelMatrix,
-                effectOutputModelViewProjection: effectProjectionMVP,
+                effectOutputModelViewProjection:
+                    directDrawGeometry?.squareModelViewProjection ?? effectProjectionMVP,
                 effectUnitModelMatrix: effectUnitModelMatrix,
                 terminalReplayModelViewProjection: compositionGroupRuntime?
                     .rasterModelViewProjection(forLayerID: layer.id, worldMVP: outputMVP),
@@ -888,7 +882,9 @@ extension SceneMetalRenderer {
                 time: time,
                 audioSpectrum: frameContext.audioSpectrum,
                 dependencyEffects: dependencyEffects,
-                dependencyUnavailability: dependencyUnavailability
+                dependencyUnavailability: dependencyUnavailability,
+                directDrawGeometry: directDrawGeometry,
+                directDrawSourceMaterialKey: claim.frameInputContract.directDrawGeometry?.sourceMaterialKey
             )
             guard let imagePipeline else {
                 return invalid("shared-input-unavailable")

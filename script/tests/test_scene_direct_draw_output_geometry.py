@@ -137,7 +137,9 @@ class SceneDirectDrawOutputGeometryTests(unittest.TestCase):
     def setUpClass(cls):
         with tempfile.TemporaryDirectory(prefix='mwx-square-gpu-') as directory:
             p=Path(directory); (p/'Main.swift').write_text(HARNESS)
-            sources=['Rendering/Geometry/SceneMatrix.swift','Rendering/Geometry/SceneDirectDrawOutputGeometry.swift',
+            sources=['Rendering/Bindings/SceneAuthoredShaderFrameInputs.swift',
+                     'Rendering/Lighting/SceneAuthoredShaderLightingInputs.swift',
+                     'Rendering/Geometry/SceneMatrix.swift','Rendering/Geometry/SceneDirectDrawOutputGeometry.swift',
                      'Rendering/Geometry/SceneLayerWorldFrameResolver.swift',
                      'Systems/Puppet/ScenePuppetAttachmentFrameSnapshot.swift',
                      'Rendering/Metal/SceneMetalPipeline.swift','Diagnostics/ScenePerformanceCounterHub.swift',

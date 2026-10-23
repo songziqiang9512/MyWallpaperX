@@ -5,7 +5,8 @@ extension SceneResolvedMaterialGraphExecutor {
         program: SceneResolvedMaterialProgram,
         material: SceneResolvedMaterialExecutionCapabilityCatalog.MaterialCapability,
         target: MTLTexture,
-        descriptor: State.ResourceDescriptor?
+        descriptor: State.ResourceDescriptor?,
+        partialCoverage: Bool = false
     ) -> Result<SceneResolvedMaterialPassEncoder.PreparedPass,
         SceneResolvedMaterialPassEncoder.PreparationFailure>? {
         let matches = switch (material.targetFormat, descriptor?.format) {
@@ -29,7 +30,8 @@ extension SceneResolvedMaterialGraphExecutor {
         return materialEncoder.prepareResult(
             program: program,
             target: target,
-            attachmentStorage: material.attachmentStorage
+            attachmentStorage: material.attachmentStorage,
+            partialCoverage: partialCoverage
         )
     }
 }

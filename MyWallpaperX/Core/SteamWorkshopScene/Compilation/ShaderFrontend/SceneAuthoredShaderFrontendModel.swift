@@ -531,6 +531,17 @@ nonisolated struct SceneAuthoredShaderProgram: Codable {
 
     var supportsTerminalMaterialReplay: Bool { vertexPositionInput == .targetPixels }
 
+    /// Older, fixed-unit artifacts remain valid ordinary cards but cannot
+    /// advertise the new authored-quad attribute contract.
+    var supportsAuthoredQuadAttributes: Bool {
+        ["mwxVertexCoordinates01", "mwxVertexCoordinates23"].allSatisfy { name in
+            uniformLayout.fields.contains {
+                $0.authoredName == name && $0.type == .float4
+                    && $0.arrayCount == nil && ($0.stage == nil || $0.stage == .vertex)
+            }
+        }
+    }
+
     var supportsPlacementSpaceTerminalReplay: Bool {
         supportsTerminalMaterialReplay && fragmentReadsRasterPosition == false
             && uniformLayout.isValid

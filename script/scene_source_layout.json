@@ -391,6 +391,7 @@
           "SceneResolvedMaterialFramePreflight+Admission.swift",
           "SceneResolvedMaterialFramePreflight+AggregateReservation.swift",
           "SceneResolvedMaterialFramePreflight+LitCapture.swift",
+          "SceneResolvedMaterialFramePreflight+DirectDraw.swift",
           "SceneResolvedMaterialFramePreflight.swift",
           "SceneResolvedMaterialUtilitySource.swift",
           "SceneSourceUpdateTransaction.swift",

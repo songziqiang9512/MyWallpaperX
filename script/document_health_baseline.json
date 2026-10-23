@@ -118,7 +118,11 @@
     },
     "docs/scene/capabilities/effect-execution-coverage.md": {
       "lines": 277,
-      "bytes": 177846
+      "bytes": 177807
+    },
+    "docs/scene/capabilities/lighting-sample-inventory.md": {
+      "lines": 98,
+      "bytes": 7413
     },
     "docs/scene/capabilities/material-video-assets.md": {
       "lines": 37,
@@ -249,8 +253,8 @@
       "bytes": 13418
     },
     "docs/scene/roadmap/batch2/terminal-material-chain-design.md": {
-      "lines": 105,
-      "bytes": 20506
+      "lines": 122,
+      "bytes": 24916
     },
     "docs/scene/roadmap/engine-refactor-program.md": {
       "lines": 62,
@@ -273,8 +277,8 @@
       "bytes": 17446
     },
     "docs/scene/roadmap/scene-open-breakpoint-queue.md": {
-      "lines": 253,
-      "bytes": 79962
+      "lines": 254,
+      "bytes": 80655
     },
     "docs/web/cold-descriptor-parse-offload-design.md": {
       "lines": 43,
@@ -1253,15 +1257,6 @@
     },
     {
       "section": "bodies",
-      "path": "docs/scene/roadmap/batch2/terminal-material-chain-design.md",
-      "before": "dfb4d7855a471e2014126d30c0c4a811c4c55f444d1c908270c8cf24cecdc8d8",
-      "after": "398c46d46411eba636581dd76ace5d5428dc44fa443048750bae396452137f5e",
-      "owner": "Scene prepared material / unique MainPass",
-      "reason": "新增已验证普通图片加法RGB终端资格及有界证据，替换304旧未知状态；运行证据合入现有终链主题，保600行，原Alpha/其他路径及未覆盖范围不扩。",
-      "decision": "docs/scene/roadmap/batch2/terminal-material-chain-design.md#builtin-image-additive-rgb"
-    },
-    {
-      "section": "bodies",
       "path": "docs/scene/roadmap/batch2/composition-render-target-design.md",
       "before": "4a88f10511c1a0f17d31a404b09155d7645cb0a705c1b86c2514602b92b95786",
       "after": "bdbfef7a0128402439ebcf73e88d85eecd1f3bb819323dbd159d8ab001044dd5",
@@ -1433,30 +1428,39 @@
     },
     {
       "section": "bodies",
-      "path": "docs/scene/capabilities/runtime-evidence-current.md",
-      "before": "5e4a0df02d443b4ec04c8d96915e4700d0df9765f2bbe3a7c12e3cd1892c97b1",
-      "after": "bdfa041d8702ce4f4870e94718c2c6227599e5db3c9dc89cf1322a186ebbf1e2",
-      "owner": "Scene runtime evidence diagnostics",
-      "reason": "Bounded retired-layer diagnostic result and two current sample associations; preserve raw failures and human verdicts, no capability or performance closure.",
-      "decision": "docs/scene/capabilities/runtime-evidence-current.md#retired-layer-diagnostic-20261023"
-    },
-    {
-      "section": "bodies",
-      "path": "docs/scene/roadmap/scene-open-breakpoint-queue.md",
-      "before": "e6fe683fbf09ff9c75003da0f54babb534fc5ca035459dad23662907e4894ec9",
-      "after": "151eb9900675ad8b2b1f6eac4f3963b4f126618ac2ab4e15627cf2ccd1ed56e2",
-      "owner": "Scene runtime evidence diagnostics",
-      "reason": "Bounded retired-layer diagnostic result and two current sample associations; preserve raw failures and human verdicts, no capability or performance closure.",
-      "decision": "docs/scene/capabilities/runtime-evidence-current.md#retired-layer-diagnostic-20261023"
-    },
-    {
-      "section": "bodies",
       "path": "docs/scene/capabilities/scene-sample-acceptance-ledger.md",
       "before": "801f984fd2455e1d1f32128e3edde8502aee68078452191286e34d09fe79fa26",
       "after": "0bab4d9d1e88551c190cf3b93e6730156158d6eacdd27fa7c66739825be300e3",
       "owner": "Scene sample runtime ledger",
       "reason": "Add two original gross-screen observations and their exact identities; preserve261 prior rows and every human verdict. No invented repair or whole-sample pass.",
       "decision": "docs/scene/capabilities/scene-sample-acceptance-ledger.md#1-来源"
+    },
+    {
+      "section": "bodies",
+      "path": "docs/scene/capabilities/lighting-sample-inventory.md",
+      "before": "74234e98afe7498fb5daf1f36ac2d78acc339464f950703b8c019892f982b90b",
+      "after": "87bc8ec4a29e41e74912403e16b609d843dc941383a9fd1ccceaf6b7b5181527",
+      "owner": "Scene authored direct-draw domain",
+      "reason": "Add bounded light inventory and typed four-point design; retire closed geometry queue item, keep video and unqualified boundaries open. New actual evidence uses a permanent history redirect without growing600-line runtime body.",
+      "decision": "docs/scene/roadmap/batch2/terminal-material-chain-design.md#authored-direct-draw-domain"
+    },
+    {
+      "section": "bodies",
+      "path": "docs/scene/roadmap/batch2/terminal-material-chain-design.md",
+      "before": "398c46d46411eba636581dd76ace5d5428dc44fa443048750bae396452137f5e",
+      "after": "f634e7fcfd3e1996ae5cbf7322fd2ccaed5c4dea5bb375a7c8ddf3b918a828a5",
+      "owner": "Scene authored direct-draw domain",
+      "reason": "Add bounded light inventory and typed four-point design; retire closed geometry queue item, keep video and unqualified boundaries open. New actual evidence uses a permanent history redirect without growing600-line runtime body.",
+      "decision": "docs/scene/roadmap/batch2/terminal-material-chain-design.md#authored-direct-draw-domain"
+    },
+    {
+      "section": "bodies",
+      "path": "docs/scene/roadmap/scene-open-breakpoint-queue.md",
+      "before": "151eb9900675ad8b2b1f6eac4f3963b4f126618ac2ab4e15627cf2ccd1ed56e2",
+      "after": "705abfe11f55039f3231ae114fd57133f7565d1ecde3bac716385f2eb2164528",
+      "owner": "Scene authored direct-draw domain",
+      "reason": "Add bounded light inventory and typed four-point design; retire closed geometry queue item, keep video and unqualified boundaries open. New actual evidence uses a permanent history redirect without growing600-line runtime body.",
+      "decision": "docs/scene/roadmap/batch2/terminal-material-chain-design.md#authored-direct-draw-domain"
     }
   ]
 }

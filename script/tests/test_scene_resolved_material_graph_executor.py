@@ -157,8 +157,10 @@ struct SceneEffectExactRuntimeSubject: Hashable {
 }
 
 struct SceneEffectDefinition {
+    enum PerspectiveUVRole { case absent, quad(materialKeys: [String]), invalid }
     let relativePath: String
     let functions: SceneJSONValue?
+    var perspectiveUVRole: PerspectiveUVRole = .absent
 }
 
 struct SceneUtilityLayer {
@@ -221,6 +223,7 @@ enum SceneUtilityLayerSourceRoute {
 
     struct Resolution {
         let capturesCompositionSubtree: Bool
+        var usesAuthoredLocalSource: Bool { false }
     }
 
     static func resolve(
@@ -510,6 +513,9 @@ final class SceneResolvedMaterialRuntimeBridge {
         let pointerIsInside: Bool
         let layerModelMatrix: simd_float4x4
         let effectOutputModelViewProjection: simd_float4x4
+        let effectUnitModelMatrix: simd_float4x4? = nil
+        let directDrawGeometry: SceneDirectDrawOutputGeometry.Resolved? = nil
+        let directDrawSourceMaterialKey: SceneResolvedMaterialExecutionCapabilityCatalog.MaterialKey? = nil
         let terminalReplayModelViewProjection: simd_float4x4? = nil
         let effectTextureProjectionMatrixInverse: simd_float4x4
         let effectDrawAlpha: Float = 1

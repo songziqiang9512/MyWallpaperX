@@ -180,6 +180,11 @@ final class SceneResolvedMaterialExecutionCapabilityCatalog {
     /// stage. Each Program variant separately owns its exact per-uniform route;
     /// this contract fixes how renderer geometry becomes those host values.
     struct FrameInputContract: Equatable {
+        struct DirectDrawGeometryBinding: Equatable {
+            let sourceMaterialKey: MaterialKey
+            /// Prepared p0...p3 numeric ownership, independent of source names.
+            let pointBindings: [SceneResolvedMaterialPreparedUniformBinding]
+        }
         enum EmittedOutputGeometrySource: Equatable {
             case layerCard
             case captureGeometry
@@ -197,6 +202,22 @@ final class SceneResolvedMaterialExecutionCapabilityCatalog {
         let effectTextureProjectionSource: EffectTextureProjectionSource
         let emittedOutputGeometrySource: EmittedOutputGeometrySource
         let requiresInvertibleEffectTextureProjection: Bool
+        let directDrawGeometry: DirectDrawGeometryBinding?
+        let directDrawGeometryFallback: SceneResolvedMaterialAdmittedLayer.DirectDrawGeometryFallback?
+
+        init(
+            effectTextureProjectionSource: EffectTextureProjectionSource,
+            emittedOutputGeometrySource: EmittedOutputGeometrySource,
+            requiresInvertibleEffectTextureProjection: Bool,
+            directDrawGeometry: DirectDrawGeometryBinding? = nil,
+            directDrawGeometryFallback: SceneResolvedMaterialAdmittedLayer.DirectDrawGeometryFallback? = nil
+        ) {
+            self.effectTextureProjectionSource = effectTextureProjectionSource
+            self.emittedOutputGeometrySource = emittedOutputGeometrySource
+            self.requiresInvertibleEffectTextureProjection = requiresInvertibleEffectTextureProjection
+            self.directDrawGeometry = directDrawGeometry
+            self.directDrawGeometryFallback = directDrawGeometryFallback
+        }
     }
 
     final class LayerCapability {
@@ -228,7 +249,9 @@ final class SceneResolvedMaterialExecutionCapabilityCatalog {
             stages: [StageCapability],
             materials: [MaterialKey: MaterialCapability],
             dependencyOwnership: SceneResolvedMaterialDependencyOwnership,
-            sceneBackgroundRequirement: SceneBackgroundRequirement?
+            sceneBackgroundRequirement: SceneBackgroundRequirement?,
+            directDrawGeometry: FrameInputContract.DirectDrawGeometryBinding?,
+            directDrawGeometryFallback: SceneResolvedMaterialAdmittedLayer.DirectDrawGeometryFallback?
         ) {
             layerID = admitted.layerID
             admittedProducts = admitted.products
@@ -256,7 +279,9 @@ final class SceneResolvedMaterialExecutionCapabilityCatalog {
                 requiresInvertibleEffectTextureProjection:
                     stages.contains(
                         where: \.requiresInvertibleEffectTextureProjection
-                    )
+                    ),
+                directDrawGeometry: directDrawGeometry,
+                directDrawGeometryFallback: directDrawGeometryFallback
             )
             var graphColorRepresentations: [
                 Graph.TextureIdentity: SceneShaderColorRepresentation
@@ -460,13 +485,32 @@ final class SceneResolvedMaterialExecutionCapabilityCatalog {
                         productAuthorityRejectedByLayerID[candidate.layerID] = failure.code
                     }
                 case let .success(compiled):
+                    var directDrawGeometry: FrameInputContract.DirectDrawGeometryBinding?
+                    var directDrawGeometryFallback = admitted.directDrawGeometryFallback
+                    if let role = admitted.directDrawGeometryRole {
+                        let key = MaterialKey(effect: role.effect, nodeIndex: role.nodeIndex)
+                        if let material = compiled.materials[key],
+                           material.variants.launchEnvelopeSupportsAuthoredQuadGeometry {
+                            if let points = material.variants.directDrawPointBindings(
+                                materialKeys: role.materialKeys
+                            ) {
+                                directDrawGeometry = .init(sourceMaterialKey: key, pointBindings: points)
+                            } else {
+                                directDrawGeometryFallback = .pointBindingsUnproven
+                            }
+                        } else {
+                            directDrawGeometryFallback = .vertexInputUnqualified
+                        }
+                    }
                     accepted[candidate.layerID] = .init(
                         admitted: admitted,
                         stages: compiled.stages,
                         materials: compiled.materials,
                         dependencyOwnership: compiled.dependencyOwnership,
                         sceneBackgroundRequirement:
-                            compiled.sceneBackgroundRequirement
+                            compiled.sceneBackgroundRequirement,
+                        directDrawGeometry: directDrawGeometry,
+                        directDrawGeometryFallback: directDrawGeometryFallback
                     )
                     productAuthorityRejectedByLayerID.removeValue(
                         forKey: candidate.layerID
@@ -837,10 +881,22 @@ final class SceneResolvedMaterialExecutionCapabilityCatalog {
                     .frameInputContract.emittedOutputGeometrySource else {
                 return nil
             }
+            if let geometry = capability.frameInputContract.directDrawGeometry {
+                return "resolved material output geometry:"
+                    + " schema=direct-draw-geometry-v3 layer=\(layerID)"
+                    + " extent=authored-quad units=authored-canvas-height anchor=authored-origin"
+                    + " sourceEffect=\(geometry.sourceMaterialKey.effect.effectIndex)"
+                    + " sourceNode=\(geometry.sourceMaterialKey.nodeIndex)"
+                    + " pointUniforms=\(geometry.pointBindings.map(\.field.authoredName).joined(separator: ","))"
+                    + " vertexFootprint=identity-mvp capture=transparent-aabb"
+            }
             return "resolved material output geometry:"
                 + " schema=direct-draw-geometry-v2"
                 + " layer=\(layerID)"
                 + " extent=authored-canvas-height-square anchor=authored-origin"
+                + (capability.frameInputContract.directDrawGeometryFallback.map {
+                    " domain=unit-preserved reason=\($0.rawValue)"
+                } ?? "")
         }
         result += capabilitiesByLayerID.keys.sorted().compactMap { layerID in
             guard let requirement = capabilitiesByLayerID[layerID]?

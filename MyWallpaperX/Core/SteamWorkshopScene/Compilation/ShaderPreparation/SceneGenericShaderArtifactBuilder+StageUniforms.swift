@@ -119,7 +119,8 @@ nonisolated extension SceneGenericShaderArtifactBuilder {
     }
 
     nonisolated private static func isSharedInternalUniform(_ name: String) -> Bool {
-        name == "mwxRenderSize"
+        name == "mwxRenderSize" || name == "mwxVertexCoordinates01"
+            || name == "mwxVertexCoordinates23"
     }
 
     nonisolated static func resolutionTextureDependencySlots(

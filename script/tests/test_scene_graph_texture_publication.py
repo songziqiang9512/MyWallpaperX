@@ -47,6 +47,8 @@ SWIFT_SOURCES = list(dict.fromkeys([
     SCENE_ROOT / "Compilation/ShaderContract/SceneShaderCacheIdentity.swift",
     *scene_swift_sources("authored_shader_frontend_implementation"),
     REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Bindings/SceneAuthoredShaderFrameInputs.swift",
+    SCENE_ROOT / "Rendering/Geometry/SceneMatrix.swift",
+    SCENE_ROOT / "Rendering/Geometry/SceneDirectDrawOutputGeometry.swift",
     *scene_swift_sources("authored_shader_preparation_implementation"),
     *scene_swift_sources("generic_shader_compiler_preparation_implementation"),
     REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Resources/Textures/SceneImageTextureUploader.swift",

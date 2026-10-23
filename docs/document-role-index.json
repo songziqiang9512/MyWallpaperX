@@ -675,6 +675,21 @@
       "commandPolicy": "reference-only"
     },
     {
+      "path": "docs/scene/capabilities/lighting-sample-inventory.md",
+      "role": "current-state",
+      "entrypoint": "docs/scene/capabilities/README.md",
+      "purpose": "光照相关样本的有界静态声明、去重统计及未知范围；不证明执行、视觉一致或动态启用。",
+      "commandPolicy": "reference-only",
+      "lastReviewed": "2026-10-23",
+      "reviewBasis": {
+        "kind": "navigation-audit",
+        "sourceSHA256": "d6fbabf77f06063022ab8244c48338748cb23aefcf22a53bac7550674008bc8c",
+        "method": "document_registry --audit + document_health --check",
+        "scope": "Read-only light census and authored four-point domain contract, bounded actual terminal evidence and retained unknowns; execution order remains live queue.",
+        "limitations": "No full light family, whole-sample official parity, video first-frame closure, HDR/Release/multiscreen or performance claim."
+      }
+    },
+    {
       "path": "docs/scene/capabilities/material-video-assets.md",
       "role": "stable-contract",
       "entrypoint": "docs/scene/architecture/runtime-architecture.md",
@@ -752,10 +767,10 @@
       "lastReviewed": "2026-10-23",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "617758f76237b4dfbbdf49c762328127f5f348e312638ae27916bdef77db1ad2",
+        "sourceSHA256": "e366f71402e9c4f0139f95f38a81f24b2d18f8085743a082567485b0b9e032c5",
         "method": "document_registry --audit + document_health --check",
-        "scope": "Retired authored layer DEBUG visibility consumes canonical captured topology; actual Host red/green and two original samples. Replace only378 and add381 runtime association, preserve other259 runtime rows and human verdicts.",
-        "limitations": "Diagnostic correction and bounded gross screen only; no rendering feature, full official parity, audio, physical multiscreen or performance acceptance."
+        "scope": "Read-only light census and authored four-point domain contract, bounded actual terminal evidence and retained unknowns; execution order remains live queue.",
+        "limitations": "No full light family, whole-sample official parity, video first-frame closure, HDR/Release/multiscreen or performance claim."
       }
     },
     {
@@ -1060,6 +1075,19 @@
         "docs/scene/capabilities/runtime-evidence-current.md",
         "docs/scene/roadmap/scene-open-breakpoint-queue.md"
       ]
+    },
+    {
+      "path": "docs/scene/history/authored-direct-draw-domain-2026-10-23.md",
+      "role": "historical-evidence",
+      "entrypoint": "docs/scene/history/README.md",
+      "commandPolicy": "historical-only",
+      "currentAuthorities": [
+        "docs/scene/roadmap/batch2/terminal-material-chain-design.md",
+        "docs/scene/capabilities/runtime-evidence-current.md",
+        "docs/scene/roadmap/scene-open-breakpoint-queue.md"
+      ],
+      "cutoffDate": "2026-10-23",
+      "uniqueValue": "官方四点/三样式、两后端数值正反、332位置改善与首候选回归、typed unit fallback及独立真实样本边界。"
     },
     {
       "path": "docs/scene/history/authored-layer-retirement-2026-10-07.md",
@@ -3607,13 +3635,13 @@
       "role": "active-plan",
       "entrypoint": "docs/scene/roadmap/batch2/batch2-design-index.md",
       "retirementCondition": "无依赖简单链及外部输入扩域分别验收；稳定职责移交运行架构、剩余边界归队列后归档。批准不是运行验收。",
-      "lastReviewed": "2026-10-22",
+      "lastReviewed": "2026-10-23",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "a945dc78acf4f373091206eaa24e392b4676d4c84b2b4ef2388f925c74389280",
+        "sourceSHA256": "ebb7ff4bd48362af132cb63aa62d831537c4f7ba86c29a966485a091f6710f33",
         "method": "document_registry --audit + document_health --check",
-        "scope": "普通图片加法RGB的职责/实际后验及304开放边界同步，其他事实未重跑。",
-        "limitations": "导航核验不替代运行；不证完整官方A、HDR、任意RT、动态创建、整样本或性能。"
+        "scope": "Read-only light census and authored four-point domain contract, bounded actual terminal evidence and retained unknowns; execution order remains live queue.",
+        "limitations": "No full light family, whole-sample official parity, video first-frame closure, HDR/Release/multiscreen or performance claim."
       }
     },
     {
@@ -3694,10 +3722,10 @@
       "lastReviewed": "2026-10-23",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "8e7ab6eebf0652be5af79cab4fd606a862e6c708b92802a3e0059a74ea746ad1",
+        "sourceSHA256": "66b7fed8182bfc2effe0d50c10bb65078a3f8e2907b2d838236266ba0abe3271",
         "method": "document_registry --audit + document_health --check",
-        "scope": "Retired authored layer DEBUG visibility consumes canonical captured topology; actual Host red/green and two original samples. Replace only378 and add381 runtime association, preserve other259 runtime rows and human verdicts.",
-        "limitations": "Diagnostic correction and bounded gross screen only; no rendering feature, full official parity, audio, physical multiscreen or performance acceptance."
+        "scope": "Read-only light census and authored four-point domain contract, bounded actual terminal evidence and retained unknowns; execution order remains live queue.",
+        "limitations": "No full light family, whole-sample official parity, video first-frame closure, HDR/Release/multiscreen or performance claim."
       }
     },
     {
@@ -3878,7 +3906,12 @@
         "内存",
         "启动",
         "属性面板",
-        "热更新"
+        "热更新",
+        "光照",
+        "光束",
+        "lighting",
+        "Light Shafts",
+        "God Rays"
       ],
       "documents": [
         "docs/scene/capabilities/coverage-ledger.md",
@@ -3905,7 +3938,8 @@
         "docs/scene/roadmap/scene-full-sample-static-audit.md",
         "docs/scene/capabilities/uniform-invariant-shader-constants.md",
         "docs/scene/capabilities/direct-model-bind-geometry.md",
-        "docs/scene/capabilities/direct-model-skeletal-animation.md"
+        "docs/scene/capabilities/direct-model-skeletal-animation.md",
+        "docs/scene/capabilities/lighting-sample-inventory.md"
       ],
       "sourcePaths": [
         "MyWallpaperX/Core/SteamWorkshopScene"
