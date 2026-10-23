@@ -270,7 +270,13 @@ nonisolated enum SceneResolvedMaterialShaderSchema {
               }) else { return nil }
         let sources = SceneShaderVariantSchemaSeed.unconditional(contract: contract, graph: graph)
         let declarations = records(sources)
-        guard let samplers = try? samplerSchemas(declarations),
+        // This proof supplies one model input, not an executable sampler ABI.
+        // An unrelated channel (including one outside that ABI) must not
+        // suppress a valid default for the requested slot.
+        let selected = declarations.filter {
+            SceneShaderSourceTextFacts.textureSlot($0.declaration.name) == slot
+        }
+        guard let samplers = try? samplerSchemas(selected),
               let sampler = samplers[slot], sampler.mode == .regular,
               sampler.formatKey == nil, sampler.readinessCombo == nil,
               !sampler.hasExplicitNonColorPurpose, !sampler.usesGraphInputMaterialAlias,
@@ -294,8 +300,11 @@ nonisolated enum SceneResolvedMaterialShaderSchema {
                 if case let .object(object) = annotation.variantValue,
                    let combo = object["combo"]?.stringValue, protected.contains(combo) { return nil }
             }
-            for declaration in parsed.declarations where declaration.name == sampler.name {
-                guard declaration.arraySuffix == nil, declaration.arraySize == nil,
+            for declaration in parsed.declarations where
+                declaration.name == sampler.name
+                    || SceneShaderSourceTextFacts.textureSlot(declaration.name) == slot {
+                guard declaration.name == sampler.name,
+                      declaration.arraySuffix == nil, declaration.arraySize == nil,
                       declarations.contains(where: {
                     $0.sourcePath == node.virtualPath && $0.declaration == declaration
                 }) else { return nil }

@@ -535,6 +535,36 @@ private func albedoDefaults() -> [String: Any] {
     if case let .rejected(failure) = variant {
         variantFailure = failure.details.first ?? "unclassified"
     } else { variantFailure = "not-rejected" }
+    let unrelatedOutOfRange = shader(fragmentExtra: """
+        \(ordinary)
+        uniform sampler2D g_Texture8; // {"default":"util/white"}
+        """)
+    let unrelatedMalformed = shader(fragmentExtra: """
+        \(ordinary)
+        uniform sampler2D g_Texture3; // {"default":false}
+        """)
+    let unrelatedHidden = shader(fragmentExtra: """
+        \(ordinary)
+        uniform sampler2D g_Texture6; // {"hidden":"invalid"}
+        """)
+    func fullSamplerSchemaRejects(_ contract: SceneShaderContract) -> Bool {
+        let template = SceneResolvedMaterialTemplate.validated(
+            textureSlots: Array(repeating: nil, count: 8), combos: [], uniformDeclarations: [],
+            renderState: SceneMaterialRenderState.compile(
+                blending: "normal", depthTest: "disabled", depthWrite: "disabled",
+                cullMode: "nocull", alphaWriting: nil)!,
+            graphRole: .init(effectInput: .layerSource, effectOutput: .effectOutput,
+                nodeTarget: .effectOutput, bindings: []),
+            shaderContract: contract,
+            diagnosticProvenance: .init(nodeIndex: 31, authoredShaderPath: contract.identity,
+                contractIdentity: contract.identity,
+                contractCanonicalSHA256: contract.canonicalSHA256,
+                textureSources: [], uniformSources: []))!
+        do {
+            _ = try SceneResolvedMaterialShaderSchema.unconditionalSamplers(template)
+            return false
+        } catch { return true }
+    }
     var result: [String: Any] = [
         "omitted": path(), "null": path(null), "normalOnly": path(normalOnly),
         "tailReadiness": path(tailAbsent, shader(fragmentExtra: """
@@ -558,9 +588,37 @@ private func albedoDefaults() -> [String: Any] {
         "graphRawMismatch": path(pass(), tamperedGraph(unconditionalInclude, rawMismatch: true)),
         "unrelatedFormatDefault": path(tailAbsent, unrelatedFormat),
         "unrelatedFormatVariantFailure": variantFailure,
+        "unrelatedOutOfRange": path(pass(), unrelatedOutOfRange),
+        "unrelatedMalformedDefault": path(pass(), unrelatedMalformed),
+        "unrelatedInvalidHidden": path(pass(), unrelatedHidden),
+        "fullSchemaStillRejects": [unrelatedOutOfRange, unrelatedMalformed, unrelatedHidden]
+            .map(fullSamplerSchemaRejects),
+        "crossStageDuplicate": path(pass(), shader(fragmentExtra: ordinary, vertexExtra: ordinary)),
+        "renamedIndependent": path(pass(materialPath: "materials/repainted/coat.json",
+            shaderPath: "fixture/repainted-surface"), shader(alphaKey: "opacityGain",
+                colorKey: "surfaceTint", brightnessKey: "radianceGain", fragmentExtra: """
+                uniform sampler2D g_Texture0; // {"default":"fixtures/repainted-lime","material":"surfacePaint"}
+                uniform sampler2D g_Texture12; // {"default":false}
+                """, identity: "fixture/repainted-surface")),
     ]
     let rejected: [String: SceneShaderContract] = [
         "conditionalOnly": shader(fragmentExtra: "#if defined(OPTIONAL)\n\(ordinary)\n#endif"),
+        "sameSlotAlias": shader(fragmentExtra: """
+            \(ordinary)
+            uniform sampler2D g_Texture00; // {"default":"util/white","material":"albedo"}
+            """),
+        "conditionalSameSlotAlias": shader(fragmentExtra: """
+            \(ordinary)
+            #if defined(OPTIONAL)
+            uniform sampler2D g_Texture00; // {"default":"fixtures/other"}
+            #endif
+            """),
+        "selectedInvalidWithUnrelated": shader(fragmentExtra: """
+            uniform sampler2D g_Texture0; // {"default":false}
+            uniform sampler2D g_Texture8; // {"default":"util/white"}
+            """),
+        "selectedInvalidHidden": shader(fragmentExtra:
+            #"uniform sampler2D g_Texture0; // {"default":"util/white","hidden":"invalid"}"#),
         "readiness": shader(fragmentExtra:
             #"uniform sampler2D g_Texture0; // {"default":"util/white","combo":"HAS_BASE"}"#),
         "macroRename": shader(fragmentPrefix: "#define g_Texture0 g_Texture1", fragmentExtra: ordinary),

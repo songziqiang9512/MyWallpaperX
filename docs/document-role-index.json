@@ -602,13 +602,13 @@
       "role": "current-state",
       "entrypoint": "docs/scene/capabilities/README.md",
       "purpose": "限定专题的实现状态、偏差或证据；运行结论须复核身份和边界，不决定任务顺序。",
-      "lastReviewed": "2026-10-21",
+      "lastReviewed": "2026-10-23",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "ffa515a6a0e81acd0be4567efcf64c6fb1b302991e96bcbca3ee054c7fdac2d3",
+        "sourceSHA256": "4fe0b6c80e61f3c59b7d56a4602c7870e70d995e92d76c9e3baee6a9ee736f03",
         "method": "document_registry --audit + document_health --check",
-        "scope": "PKG提取与平台可播OGG声音准入一致、原372实际ready/clock和独立FLAC；242条混合身份档案只更新372并新增192，其他240条保持。",
-        "limitations": "测试静音，不认可闻/全部codec或整样本parity；Morning诊断schema六项NONPASS保留，不认性能收益。"
+        "scope": "默认albedo独立槽及Chroma中性载体有界后验入口；复核原owner/能力边界，未升级完整stock材质。",
+        "limitations": "原生/官方及真实短窗见历史收据；无已证Cloud修复、整体parity、Release或性能收益。"
       }
     },
     {
@@ -767,10 +767,10 @@
       "lastReviewed": "2026-10-23",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "bc7ee1f51847d661050473ff536c97eb08b41cb6782d57b43fa5d2d2836d8152",
+        "sourceSHA256": "a2d1707eb3e0e355a5ac95e792be5498ee737ccca0da50e35aaf5ab83883467b",
         "method": "document_registry --audit + document_health --check",
-        "scope": "同步未adopt文字publication与真实surface失效边界及首帧有界后验入口；这里只复核导航/角色。",
-        "limitations": "实际运行边界见对应历史；不宣称完整Scene、Release、HDR、多屏或性能验收。"
+        "scope": "默认albedo独立槽及Chroma中性载体有界后验入口；复核原owner/能力边界，未升级完整stock材质。",
+        "limitations": "原生/官方及真实短窗见历史收据；无已证Cloud修复、整体parity、Release或性能收益。"
       }
     },
     {

@@ -243,10 +243,16 @@ class SceneStaticModelMaterialBindingTests(unittest.TestCase):
 
     def test_prepared_default_albedo_preserves_presence_and_independent_uniform_failure(self) -> None:
         result = self.result("albedoDefaults")
-        for name in ["omitted", "null", "normalOnly", "unconditionalInclude", "tailReadiness"]:
+        for name in ["omitted", "null", "normalOnly", "unconditionalInclude", "tailReadiness",
+                     "unrelatedOutOfRange", "unrelatedMalformedDefault", "unrelatedInvalidHidden",
+                     "crossStageDuplicate"]:
             with self.subTest(name=name):
                 self.assertEqual(result[name], "util/white")
         self.assertEqual(result["colored"], "fixtures/colored")
+        self.assertEqual(result["renamedIndependent"], "fixtures/repainted-lime")
+        # Independent selected-default lookup must not admit the complete
+        # Program's malformed or out-of-ABI sampler interface.
+        self.assertEqual(result["fullSchemaStillRejects"], [True, True, True])
         self.assertEqual(result["unavailableUniformState"], "unavailable")
         self.assertEqual(result["unavailableUniformDefault"], "util/white")
         self.assertEqual(result["unrelatedFormatVariantFailure"], "texture-format-unavailable")
@@ -260,6 +266,8 @@ class SceneStaticModelMaterialBindingTests(unittest.TestCase):
     def test_default_albedo_rejects_ambiguous_conditional_or_noncolor_metadata(self) -> None:
         result = self.result("albedoDefaults")
         for name in ["conditionalSameName", "conditionalOnly", "conditionalInclude", "readiness",
+                     "sameSlotAlias", "conditionalSameSlotAlias", "selectedInvalidWithUnrelated",
+                     "selectedInvalidHidden",
                      "macroRename", "conditionalMacroAlias", "noDefault", "opacityMode", "format", "internal", "conflict",
                      "malformedDefault", "invalidAssetPath", "samplerArray", "graphDigestMismatch",
                      "graphRawMismatch", "annotationComboSampler", "annotationComboType",

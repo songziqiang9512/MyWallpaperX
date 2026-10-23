@@ -41,3 +41,23 @@ JUNO隔离fixture含原MDL、7材料、7TEX原字节和自有固定场景/相机
 已执行既有prune-expired（无到期可删）；默认纹理包promotion仍因总cache预算不足被拒，保留原位，不扩预算或删除未知证据。原104.9MB聚合包由上述范围包替代。
 
 已用完的本轮App、HOME、样本副本、重试编译目录清理，最终包与小型身份/交接记录保留。一份build cache和shader cache供后继恢复，路径见交接；它们不是证据。Windows VM已挂起，测试App已退出；普通用户App不处理。真实用户媒体及原Workshop未修改，未推送。
+
+
+<a id="single-slot-default-20261023"></a>
+## 10-23 后继：默认纹理按槽独立证明
+
+本节截止2026-10-23；现役能力归[高级对象](../capabilities/advanced-object-coverage.md#op-model-shader)，待办归[断点队列](../roadmap/scene-open-breakpoint-queue.md)。在Chroma材质资格中发现：slot0省略且stock声明默认白图时，原生只显示clear。最早错误为`unconditionalColorAssetDefault`把全部无条件sampler交给完整schema；无关`g_Texture8`超出现役0..<8 ABI，连带丢失合法slot0，模型准备随后跳过该部件。
+
+局部修正仅向schema提交请求槽的声明；全图digest/include、potential条件声明、宏、数组、用途与显式资源优先级不变。另拒绝映射到同槽的不同名称，补上条件`g_Texture00`竞争漏口。完整Program sampler准入及8槽ABI均未扩大，没有新renderer、资源或帧内owner，也未改Chroma光照。
+
+旧真实schema定点两方法有5个预期失败；候选两方法加完整11方法共13次执行全过、无skip。覆盖无关超范围/坏default/坏hidden、跨stage重复、shader/材质键/资源改名，以及选中槽非法值、同槽alias、条件/宏/数组和完整schema反门。冻结5857文件的优化Debug构建32.742s，零漂移，严格深验签通过；App SHA `52df00ef46d7ce8f9d8bc6e3074530ff85355dbd4ed25e3a589a26a8ddb4d458`。
+
+自有同输入的两Chroma平面从缺失恢复，ready/after固定ROI均为中性38；generic4正控仍为59。未参与修法的原3589454154与3617056047短窗实际保持星环/文字、罐体/白环/文字，均正常stop、GPU排空；仅为该默认窗口的健康回归，不关闭旧Bloom、细节、布局或交互余项。12个direct-model样本385个已关联pass只见8个省略slot0，均未命中本次无关槽问题；Cloud114有显式albedo，**没有已证真实样本受益或性能收益**。
+
+### Chroma资格边界
+
+固定官方2.8.0.42/32位可执行SHA `daac1ea7c991207fdb6098616757e3dae393850f6862845db55d04921b6bda07`，自有平面、同相机/白directional、无ambient/sky/HDR/Bloom、neutral tint、metallic=.1。预登记client归一化ROI `[.54,.43,.58,.47]`，观察窗口边界后统一ICC至sRGB，两settled帧均合格：generic4 r=.5为59；Chroma r=.5为104、r=1为66，相差38，超过事前8色阶门。原生修前Chroma采到的是clear，已明确STOP，无roughness结论；修后两档均38才证明当前legacy consumer没有标量roughness响应。它也反证直接把Chroma纳入generic4的同输入响应。
+
+这些结果只建立可辨载体和独立材质缺口；不定义完整BRDF或私有公式。Cloud另有r=0、彩色specular、pigmentation、动态back tint与透明coverage，本批未归因其夜侧/色彩，也未修正这些通道。Windows拒绝ps1执行后改用原生文件复制与官方公开open/close命令，未调整执行策略；一次Tools参数失败按同命令重试成功，原失败保留。
+
+必要自有输入、官/原生原图、数值、身份、红绿及独审收据限期归档于`.artifacts/scene-evidence/runs/stock-model-default-slot-20261023/`；未复制参考实现，未保留私有实现正文。普通14天结果不升级全样本、完整Chroma、官方parity或Release验收。
