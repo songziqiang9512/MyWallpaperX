@@ -287,7 +287,7 @@ enum Harness {
         writeJPEG(thumbGreen, red: 0.10, green: 0.82, blue: 0.25, width: 70, height: 44)
 
         let manager = WallpaperManager()
-        let wallpaperA = VideoWallpaper(id: "card-a", title: "A", path: videoA)
+        let wallpaperA = VideoWallpaper(id: "card-a", title: "A", path: videoA, tags: ["保留原标签"])
         manager.wallpapers = [wallpaperA]
 
         let window = NSWindow(
@@ -313,6 +313,8 @@ enum Harness {
         let initialNotice = waitFor(timeout: 4.0) { noticeVisible(in: inspector) }
         check(initialNotice, "s1-initial-missing-notice")
         check(placeholderVisible(in: inspector), "s1-initial-placeholder-visible")
+        check(firstSubview(of: inspector) { ($0 as? NSTextField)?.stringValue == "保留原标签" } != nil,
+              "s1-original-tag-projected")
 
         // 场景 2：缩略图生成完成（磁盘补齐 + thumbnailReady 事件）→ 不重开面板即显示
         manager.setResolvedThumbnail(thumbRed, for: videoA)
@@ -325,7 +327,7 @@ enum Harness {
         // 场景 3：无关 publish（收藏切换，资产身份不变）不重复读取预览
         _ = manager.drainResolveLog()
         manager.wallpapers = [
-            VideoWallpaper(id: "card-a", title: "A", path: videoA, isFavorite: true)
+            VideoWallpaper(id: "card-a", title: "A", path: videoA, isFavorite: true, tags: ["保留原标签"])
         ]
         drain(0.5)
         check(!noticeVisible(in: inspector) && looksRed(centerPixel(in: inspector))

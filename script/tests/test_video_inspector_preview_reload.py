@@ -48,6 +48,7 @@ class VideoInspectorPreviewReloadTests(unittest.TestCase):
                     str(THUMBNAIL_CACHE_SOURCE),
                     str(FADING_SCROLL_SOURCE),
                     str(FOOTER_METRICS_SOURCE),
+                    str(REPOSITORY_ROOT / "MyWallpaperX/Shared/UI/InspectorBadgeView.swift"),
                     str(INSPECTOR_SUPPORT_SOURCE),
                     str(INSPECTOR_VIEW_SOURCE),
                     str(INSPECTOR_HARNESS_SOURCE),
@@ -80,6 +81,7 @@ class VideoInspectorPreviewReloadTests(unittest.TestCase):
             required_scenarios = (
                 "s1-initial-missing-notice",
                 "s1-initial-placeholder-visible",
+                "s1-original-tag-projected",
                 "s2-preview-reloads-on-thumbnail-ready",
                 "s3-unrelated-publish-keeps-preview",
                 "s4-replacement-clears-stale-preview",

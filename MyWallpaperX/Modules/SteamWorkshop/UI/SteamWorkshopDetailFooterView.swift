@@ -48,14 +48,23 @@ final class SteamWorkshopTagStripView: NSScrollView {
         verticalScrollElasticity = .none
         documentView = document
         for label in labels {
-            let chip = NSView()
-            chip.wantsLayer = true
-            chip.layer?.cornerRadius = 13
-            chip.layer?.borderWidth = 0.7
-            chip.addSubview(label)
+            let chip = NSBox()
+            chip.boxType = .custom
+            chip.titlePosition = .noTitle
+            chip.cornerRadius = 13
+            chip.borderWidth = 0.7
+            chip.fillColor = NSColor(name: nil) { appearance in
+                var fill = NSColor.clear
+                appearance.performAsCurrentDrawingAppearance {
+                    fill = NSColor.labelColor.withAlphaComponent(0.04)
+                }
+                return fill
+            }
+            chip.borderColor = .separatorColor
+            chip.contentViewMargins = .zero
+            chip.contentView!.addSubview(label)
             document.addSubview(chip)
         }
-        updateAppearance()
     }
     required init?(coder: NSCoder) { nil }
     override func scrollWheel(with event: NSEvent) {
@@ -69,13 +78,6 @@ final class SteamWorkshopTagStripView: NSScrollView {
         contentView.scroll(to: NSPoint(x: x, y: 0))
         reflectScrolledClipView(contentView)
     }
-    override func viewDidChangeEffectiveAppearance() { super.viewDidChangeEffectiveAppearance(); updateAppearance() }
-    private func updateAppearance() {
-        for chip in document.subviews {
-            chip.layer?.backgroundColor = NSColor.labelColor.withAlphaComponent(0.04).cgColor
-            chip.layer?.borderColor = NSColor.labelColor.withAlphaComponent(0.16).cgColor
-        }
-    }
     override func layout() {
         super.layout()
         var x: CGFloat = 0
@@ -83,7 +85,8 @@ final class SteamWorkshopTagStripView: NSScrollView {
             let textWidth = ceil((label.stringValue as NSString).size(withAttributes: [.font: label.font!]).width) + 8
             let width = textWidth + 20
             chip.frame = NSRect(x: x, y: 4, width: width, height: 26)
-            label.frame = NSRect(x: 10, y: 5, width: textWidth, height: 16)
+            chip.layoutSubtreeIfNeeded()
+            label.frame = chip.convert(NSRect(x: 10, y: 5, width: textWidth, height: 16), to: label.superview)
             x += width + 6
         }
         document.frame = NSRect(x: 0, y: 0, width: max(contentView.bounds.width, x - 6), height: 34)

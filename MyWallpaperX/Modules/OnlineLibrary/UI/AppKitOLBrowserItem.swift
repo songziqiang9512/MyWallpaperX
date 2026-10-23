@@ -154,7 +154,6 @@ final class AppKitOLBrowserItem: NSCollectionViewItem, WallpaperGridHoverItem {
     private var presentedItem: OnlineLibraryVideoItem?
     private var currentItemID     = -1
     private var currentPageURL:   String? = nil
-    private var trackingAreaRef:  NSTrackingArea?
     private var currentThumbnailURL: URL?
     private var requestedPixelLimit = 0
     private var thumbnailRequestID = UUID()
@@ -640,7 +639,6 @@ final class AppKitOLBrowserItem: NSCollectionViewItem, WallpaperGridHoverItem {
             owner: self, userInfo: nil
         )
         imageContainer.addTrackingArea(tracking)
-        trackingAreaRef = tracking
         imageContainer.appearanceDidChangeHandler = { [weak self] in self?.refreshTheme() }
         applyHoverVisibility(false, animated: false)
         refreshTheme()

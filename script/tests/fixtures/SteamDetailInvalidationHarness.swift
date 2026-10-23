@@ -42,6 +42,12 @@ import Foundation
             displayCondition: nil, defaultValue: .number(0), options: [])
         let originalRoots = roots(detail), originalFooter = footer(detail).subviews
         let initialConstraints = constraints(detail)
+        let initialScroll = views(detail).compactMap { $0 as? NSScrollView }.first!
+        let firstContentRect = originalRoots[0].convert(originalRoots[0].bounds, to: initialScroll.documentView!)
+        let visibleContentRect = initialScroll.documentVisibleRect
+        checks["initialTopContentIsFullyVisible"] = firstContentRect.minY >= visibleContentRect.minY - 1
+            && firstContentRect.maxY <= visibleContentRect.maxY + 1
+        checks["detailScrollbarsStayAbsent"] = !initialScroll.hasVerticalScroller && !initialScroll.hasHorizontalScroller
         checks["downloadDetailPrefersLocalOverRemoteMetadata"] = FixturePreview.localLoads == [URL(fileURLWithPath: "/fixture/local-preview.gif")]
         let initialPreviewState = previewState(detail)
         let initialHeightConstraint = previewHeightConstraints(detail).first
@@ -269,8 +275,11 @@ import Foundation
     @MainActor static func labels(_ root: NSView) -> [String] { views(root).compactMap { ($0 as? NSTextField)?.stringValue } }
     @MainActor static func footer(_ root: NSView) -> SteamWorkshopDetailFooterView { views(root).first { $0 is SteamWorkshopDetailFooterView } as! SteamWorkshopDetailFooterView }
     @MainActor static func roots(_ root: NSView) -> [NSView] {
-        let scroll = views(root).first { $0 is InspectorFadingScrollView } as! NSScrollView
-        return (scroll.documentView!.subviews.first as! NSStackView).arrangedSubviews
+        let scrolls = views(root).compactMap { $0 as? NSScrollView }.filter {
+            $0.documentView?.subviews.first is NSStackView
+        }
+        precondition(scrolls.count == 1, "detail must have one content scroll owner")
+        return (scrolls[0].documentView!.subviews.first as! NSStackView).arrangedSubviews
     }
     @MainActor static func constraints(_ root: NSView) -> Int { views(root).reduce(0) { $0 + $1.constraints.count } }
     @MainActor static func previewHeights(_ root: NSView) -> Int {

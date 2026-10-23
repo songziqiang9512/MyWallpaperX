@@ -4385,7 +4385,7 @@
       ],
       "verification": "先重查实际消费者和本批owned，执行相应行为回归与Debug构建；不得以静态无调用证明全部功能验收。",
       "owner": "repository-maintainer",
-      "firstRead": "docs/development/code-slimming-program.md#原生-ui-第四批steam-卡片按钮交回-nsbutton",
+      "firstRead": "docs/development/code-slimming-program.md#第九批试用后调整恢复标签半透明底色",
       "nearestTestGroups": [
         "documentation"
       ],

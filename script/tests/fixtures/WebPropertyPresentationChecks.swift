@@ -99,6 +99,7 @@
             for style: NSScroller.Style in [.overlay, .legacy] {
                 webScroll.scrollerStyle = style; settle(web)
                 webScroll.contentView.scroll(to: .zero); webScroll.flashScrollers(); settle(web)
+                precondition(webScroll.verticalScroller?.isHidden == true, "Web scrollbar must stay hidden after style, layout and flash")
                 let resetFrame = reset.convert(reset.bounds, to: web)
                 let toggle = descendants(webRows[0], NSButton.self).first!
                 let point = toggle.convert(NSPoint(x: toggle.bounds.maxX - 2, y: toggle.bounds.midY), to: web)
@@ -106,9 +107,12 @@
                 let event = CGEvent(scrollWheelEvent2Source: nil, units: .pixel, wheelCount: 1, wheel1: -80, wheel2: 0, wheel3: 0)!
                 webScroll.scrollWheel(with: NSEvent(cgEvent: event)!)
                 precondition(webScroll.contentView.bounds.origin.y > 0)
+                precondition(webScroll.verticalScroller?.isHidden == true, "Web wheel must not reveal a scrollbar")
                 precondition(reset.convert(reset.bounds, to: web) != resetFrame, "reset must scroll with its content")
                 sceneScroll.scrollerStyle = style
                 sceneScroll.contentView.scroll(to: .zero); settle(scene)
+                sceneScroll.flashScrollers(); settle(scene)
+                precondition(sceneScroll.verticalScroller?.isHidden == true, "Scene shared-panel scrollbar must stay hidden after style, layout and flash")
                 let sceneReset = descendants(scene, NSButton.self).first { $0.title == "恢复默认" }!
                 precondition(sceneReset.isDescendant(of: sceneScroll.documentView!))
                 let sceneResetFrame = sceneReset.convert(sceneReset.bounds, to: scene)
@@ -118,6 +122,8 @@
                     || sceneReset.convert(sceneReset.bounds, to: scene) != sceneResetFrame,
                     "Scene reset must also leave its original viewport position")
                 sceneScroll.contentView.scroll(to: .zero); settle(scene)
+                sceneScroll.flashScrollers(); settle(scene)
+                precondition(sceneScroll.verticalScroller?.isHidden == true, "Scene shared-panel scrollbar must stay hidden after style, layout and flash")
                 precondition(descendants(scene, NSButton.self).filter { $0.title == "恢复默认" }.count == 1)
             }
             let popup = descendants(web, NSPopUpButton.self).first!

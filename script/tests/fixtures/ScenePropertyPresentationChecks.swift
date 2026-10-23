@@ -47,6 +47,7 @@
                 list.scrollToItems(at: [IndexPath(item: 1, section: 0)], scrollPosition: .centeredVertically)
                 scroll.flashScrollers()
                 editor.layoutSubtreeIfNeeded()
+                precondition(scroll.verticalScroller?.isHidden == true, "Scene scrollbar must stay hidden after style, layout and flash")
                 let toggle = descendants(list.item(at: IndexPath(item: 1, section: 0))!.view, NSButton.self).first!
                 let point = toggle.convert(NSPoint(x: toggle.bounds.maxX - 2, y: toggle.bounds.midY), to: editor)
                 precondition(editor.hitTest(point) === toggle, "checkbox trailing click area at width \(width), scroller style \(style)")
@@ -55,6 +56,7 @@
                     wheel1: -80, wheel2: 0, wheel3: 0)!
                 scroll.scrollWheel(with: NSEvent(cgEvent: event)!)
                 precondition(scroll.contentView.bounds.origin.y > previousOrigin, "wheel scrolling must work without a visible scrollbar")
+                precondition(scroll.verticalScroller?.isHidden == true, "Scene wheel must not reveal a scrollbar")
             }
             precondition(list.numberOfItems(inSection: 0) == 7, "empty authored decoration must not become an identifier row")
             for row in 0..<7 {

@@ -126,7 +126,6 @@ final class SILGridItem: NSCollectionViewItem, WallpaperGridHoverItem {
     private var isThumbnailVisible = false
     private var thumbnailRequestFinished = false
     private var loadingPlaceholderWork: DispatchWorkItem?
-    private var trackingArea: NSTrackingArea?
     private var isHovering      = false
     private var isSelectedState = false
     private var isMultiSelect   = false
@@ -521,7 +520,6 @@ final class SILGridItem: NSCollectionViewItem, WallpaperGridHoverItem {
             owner: self, userInfo: nil
         )
         imageContainer.addTrackingArea(tracking)
-        trackingArea = tracking
 
         imageContainer.appearanceDidChangeHandler = { [weak self] in
             self?.refreshThemeAwareAppearance()

@@ -154,7 +154,6 @@ final class OnlineLibraryDownloadToastView: NSVisualEffectView {
     private let onSetAsWallpaper: () -> Void
     private let onDismiss: () -> Void
     private let onHoverChange: (Bool) -> Void
-    private var trackingAreaRef: NSTrackingArea?
 
     init(
         message: String,
@@ -174,20 +173,6 @@ final class OnlineLibraryDownloadToastView: NSVisualEffectView {
         nil
     }
 
-    override func updateTrackingAreas() {
-        super.updateTrackingAreas()
-        if let trackingAreaRef {
-            removeTrackingArea(trackingAreaRef)
-        }
-        let area = NSTrackingArea(
-            rect: bounds,
-            options: [.mouseEnteredAndExited, .activeInKeyWindow, .inVisibleRect],
-            owner: self
-        )
-        trackingAreaRef = area
-        addTrackingArea(area)
-    }
-
     override func mouseEntered(with event: NSEvent) {
         onHoverChange(true)
     }
@@ -204,6 +189,11 @@ final class OnlineLibraryDownloadToastView: NSVisualEffectView {
         layer?.cornerRadius = 26
         layer?.masksToBounds = true
         translatesAutoresizingMaskIntoConstraints = false
+        addTrackingArea(NSTrackingArea(
+            rect: .zero,
+            options: [.mouseEnteredAndExited, .activeInKeyWindow, .inVisibleRect],
+            owner: self
+        ))
 
         let row = NSStackView()
         row.orientation = .horizontal

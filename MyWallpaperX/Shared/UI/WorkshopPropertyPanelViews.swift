@@ -174,9 +174,11 @@ final class WorkshopPropertyTitleView: NSView {
 }
 
 @MainActor
-final class WorkshopPropertyScrollView: InspectorFadingScrollView {
+final class WorkshopPropertyScrollView: NSScrollView {
     init() {
-        super.init(fadeRatio: 0)
+        super.init(frame: .zero)
+        wantsLayer = true
+        contentView.wantsLayer = true
         drawsBackground = false
         hasVerticalScroller = true
         let scroller = PropertyScroller()

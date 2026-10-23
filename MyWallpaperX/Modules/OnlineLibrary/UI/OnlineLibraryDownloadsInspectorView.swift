@@ -222,7 +222,7 @@ final class OnlineLibraryDownloadsInspectorView: NSView {
         badgeStack.alignment = .centerY
         badgeStack.spacing = 8
         badgeStack.translatesAutoresizingMaskIntoConstraints = false
-        heroBadges.forEach { badgeStack.addArrangedSubview(OnlineLibraryDownloadsInspectorViews.makeBadge($0)) }
+        heroBadges.forEach { badgeStack.addArrangedSubview(InspectorBadgeView(text: $0)) }
         stack.addArrangedSubview(badgeStack)
 
         if let statusFactText {

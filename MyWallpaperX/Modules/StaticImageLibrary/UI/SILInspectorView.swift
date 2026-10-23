@@ -231,7 +231,7 @@ final class SILInspectorView: NSView {
             row.alignment = .centerY
             row.spacing = 8
             row.translatesAutoresizingMaskIntoConstraints = false
-            wallpaper.tags.forEach { row.addArrangedSubview(SILInspectorViews.makeBadge($0)) }
+            wallpaper.tags.forEach { row.addArrangedSubview(InspectorBadgeView(text: $0)) }
             stack.addArrangedSubview(row)
         }
 

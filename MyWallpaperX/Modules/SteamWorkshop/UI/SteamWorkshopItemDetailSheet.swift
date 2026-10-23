@@ -19,7 +19,7 @@ final class AppKitSteamWorkshopItemDetailView: NSView {
     private var didBuildInitialContent = false
 
     private let rootStack = NSStackView()
-    private let scrollView = InspectorFadingScrollView(fadeRatio: 0)
+    private let scrollView = NSScrollView()
     private let documentContainer = SteamWorkshopDetailDocumentView()
     private let contentStack = NSStackView()
     private let footerView = SteamWorkshopDetailFooterView()
@@ -174,6 +174,8 @@ final class AppKitSteamWorkshopItemDetailView: NSView {
         rootStack.spacing = 12
         rootStack.translatesAutoresizingMaskIntoConstraints = false
 
+        scrollView.wantsLayer = true
+        scrollView.contentView.wantsLayer = true
         scrollView.drawsBackground = false
         scrollView.hasVerticalScroller = false
         scrollView.hasHorizontalScroller = false

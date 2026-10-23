@@ -2269,7 +2269,8 @@
         "script/tests/test_workshop_property_display_localization.py",
         "script/tests/fixtures/SceneRetiredCallbackLiveUpdateChecks.swift",
         "script/tests/fixtures/ScenePropertyPresentationChecks.swift",
-        "script/tests/fixtures/WebPropertyPresentationChecks.swift"
+        "script/tests/fixtures/WebPropertyPresentationChecks.swift",
+        "MyWallpaperX/Shared/UI/WorkshopPropertyPanelViews.swift"
       ],
       "modules": [
         "test_scene_detail_diagnostics_on_demand",
@@ -2814,7 +2815,9 @@
         "MyWallpaperX/Shared/UI/ToolbarMenuPopover.swift",
         "MyWallpaperX/Shared/Components/SidebarComponents.swift",
         "script/tests/fixtures/NativeUIEquivalenceHarness.swift",
-        "script/tests/test_native_ui_equivalence.py"
+        "script/tests/test_native_ui_equivalence.py",
+        "MyWallpaperX/Modules/OnlineLibrary/UI/OnlineLibraryBrowserSupport.swift",
+        "script/tests/fixtures/OnlineDownloadToastChecks.swift"
       ],
       "modules": [
         "test_native_ui_equivalence",
@@ -2832,7 +2835,8 @@
         "MyWallpaperX/Modules/VideoLibrary/UI/VideoLibraryInspectorSupport.swift",
         "MyWallpaperX/Modules/VideoLibrary/UI/VideoLibraryInspectorView.swift",
         "MyWallpaperX/Modules/VideoLibrary/Core/WallpaperLibrarySupport.swift",
-        "script/tests/fixtures/VideoInspectorPreviewHarness.swift"
+        "script/tests/fixtures/VideoInspectorPreviewHarness.swift",
+        "MyWallpaperX/Shared/UI/InspectorBadgeView.swift"
       ],
       "modules": [
         "test_video_inspector_preview_reload"
@@ -4304,7 +4308,8 @@
       "id": "inspector-native-presentation",
       "patterns": [
         "MyWallpaperX/Shared/UI/InspectorHostBridge.swift",
-        "MyWallpaperX/Modules/SteamWorkshop/UI/SteamWorkshopItemDetailSupportViews.swift"
+        "MyWallpaperX/Modules/SteamWorkshop/UI/SteamWorkshopItemDetailSupportViews.swift",
+        "MyWallpaperX/Modules/SteamWorkshop/UI/SteamWorkshopDetailFooterView.swift"
       ],
       "modules": [
         "test_steam_detail_layout",

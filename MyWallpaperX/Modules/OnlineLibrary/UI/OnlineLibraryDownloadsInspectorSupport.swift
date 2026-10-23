@@ -123,38 +123,9 @@ enum OnlineLibraryDownloadsInspectorViews {
         return label
     }
 
-    static func makeBadge(_ text: String) -> NSView {
-        let label = NSTextField(labelWithString: text)
-        label.font = .systemFont(ofSize: 11, weight: .semibold)
-        label.textColor = .labelColor
-        label.alignment = .center
-        label.translatesAutoresizingMaskIntoConstraints = false
-
-        let container = NSView()
-        container.wantsLayer = true
-        container.layer?.cornerRadius = 13
-        container.layer?.backgroundColor = NSColor.black.withAlphaComponent(0.12).cgColor
-        container.layer?.borderColor = NSColor.white.withAlphaComponent(0.12).cgColor
-        container.layer?.borderWidth = 0.6
-        container.translatesAutoresizingMaskIntoConstraints = false
-        container.addSubview(label)
-
-        NSLayoutConstraint.activate([
-            label.leadingAnchor.constraint(equalTo: container.leadingAnchor, constant: 15),
-            label.trailingAnchor.constraint(equalTo: container.trailingAnchor, constant: -15),
-            label.topAnchor.constraint(equalTo: container.topAnchor, constant: 7),
-            label.bottomAnchor.constraint(equalTo: container.bottomAnchor, constant: -7),
-            container.widthAnchor.constraint(lessThanOrEqualToConstant: 180),
-            container.heightAnchor.constraint(equalToConstant: 28)
-        ])
-
-        return container
-    }
-
     static func makeDivider() -> NSView {
-        let divider = NSView()
-        divider.wantsLayer = true
-        divider.layer?.backgroundColor = NSColor.separatorColor.cgColor
+        let divider = NSBox()
+        divider.boxType = .separator
         divider.translatesAutoresizingMaskIntoConstraints = false
         NSLayoutConstraint.activate([divider.heightAnchor.constraint(equalToConstant: 1)])
         return divider

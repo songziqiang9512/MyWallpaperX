@@ -46,7 +46,6 @@ final class AppKitWallpaperItem: NSCollectionViewItem, WallpaperGridHoverItem {
     private weak var currentThumbnailProvider: AppKitThumbnailProvider?
     private var isThumbnailDemandPaused = false
     private var thumbnailRequestIsPending = false
-    private var trackingAreaRef: NSTrackingArea?
     private var isHovering = false
     private var isPlaying = false
     private var isMultiSelectMode = false
@@ -383,9 +382,6 @@ final class AppKitWallpaperItem: NSCollectionViewItem, WallpaperGridHoverItem {
 
         ])
 
-        if let trackingAreaRef {
-            imageContainer.removeTrackingArea(trackingAreaRef)
-        }
         let tracking = NSTrackingArea(
             rect: .zero,
             options: [.mouseEnteredAndExited, .mouseMoved, .activeInActiveApp, .inVisibleRect],
@@ -393,7 +389,6 @@ final class AppKitWallpaperItem: NSCollectionViewItem, WallpaperGridHoverItem {
             userInfo: nil
         )
         imageContainer.addTrackingArea(tracking)
-        trackingAreaRef = tracking
 
         imageContainer.appearanceDidChangeHandler = { [weak self] in
             self?.refreshThemeAwareAppearance()

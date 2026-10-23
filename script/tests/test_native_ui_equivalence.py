@@ -57,6 +57,38 @@ class NativeUIEquivalenceTests(unittest.TestCase):
             self.assertTrue(report['windowVisible'])
             self.assertTrue(all(value is True for value in checks.values()), checks)
 
+    def test_download_toast_layout_hover_and_actions(self):
+        """Compile the complete toast; callbacks record effects without account/media work."""
+        source = ROOT / 'MyWallpaperX/Modules/OnlineLibrary/UI/OnlineLibraryBrowserSupport.swift'
+        if override := os.environ.get('MWX_NATIVE_UI_SOURCE_DIR'):
+            source = Path(override) / source.name
+        fixture = ROOT / 'script/tests/fixtures/OnlineDownloadToastChecks.swift'
+        with tempfile.TemporaryDirectory(prefix='mwx-toast-native-', dir='/private/tmp') as temporary:
+            work = Path(temporary)
+            identities = {str(p): hashlib.sha256(p.read_bytes()).hexdigest() for p in [source, fixture]}
+            copies = []
+            for path in [source, fixture]:
+                target = work / path.name
+                shutil.copy2(path, target)
+                copies.append(target)
+            binary = work / 'toast'
+            build = subprocess.run(['xcrun', 'swiftc', '-parse-as-library', *map(str, copies),
+                '-module-cache-path', str(work / 'modules'), '-o', str(binary)],
+                capture_output=True, text=True, timeout=60)
+            self.assertEqual(build.returncode, 0, build.stdout + build.stderr)
+            home = work / 'home'; home.mkdir()
+            run = subprocess.run([str(binary)], env=dict(os.environ, HOME=str(home), CFFIXED_USER_HOME=str(home)),
+                capture_output=True, text=True, timeout=30)
+            self.assertEqual(run.returncode, 0, run.stdout + run.stderr)
+            report = json.loads(run.stdout)
+            if proof := os.environ.get('MWX_NATIVE_UI_PROOF_DIR'):
+                target = Path(proof); target.mkdir(parents=True, exist_ok=True)
+                (target / 'toast-report.json').write_text(json.dumps(report, indent=2)+'\n')
+                (target / 'toast-inputs.json').write_text(json.dumps(identities, indent=2)+'\n')
+            self.assertEqual(len(report['checks']), 42)
+            for name, passed in report['checks'].items():
+                with self.subTest(name=name): self.assertIs(passed, True)
+            self.assertEqual(identities, {str(p): hashlib.sha256(p.read_bytes()).hexdigest() for p in [source, fixture]})
 
 if __name__ == '__main__':
     unittest.main()

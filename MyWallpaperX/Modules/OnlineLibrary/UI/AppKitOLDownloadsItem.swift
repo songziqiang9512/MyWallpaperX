@@ -328,7 +328,6 @@ final class AppKitOLDownloadsItem: NSCollectionViewItem, WallpaperGridHoverItem 
     private var currentEntryID = -1
     private var isSelectedState = false
     private var isPlaying = false
-    private var trackingAreaRef: NSTrackingArea?
 
     override init(nibName: NSNib.Name?, bundle: Bundle?) {
         super.init(nibName: nil, bundle: nil)
@@ -565,7 +564,6 @@ final class AppKitOLDownloadsItem: NSCollectionViewItem, WallpaperGridHoverItem 
             userInfo: nil
         )
         imageContainer.addTrackingArea(tracking)
-        trackingAreaRef = tracking
 
         imageContainer.appearanceDidChangeHandler = { [weak self] in
             self?.refreshTheme()

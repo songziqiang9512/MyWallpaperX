@@ -359,7 +359,7 @@ final class VideoLibraryInspectorView: NSView {
             row.alignment = .centerY
             row.spacing = 8
             row.translatesAutoresizingMaskIntoConstraints = false
-            currentWallpaper.tags.forEach { row.addArrangedSubview(VideoLibraryInspectorViews.makeBadge($0)) }
+            currentWallpaper.tags.forEach { row.addArrangedSubview(InspectorBadgeView(text: $0, truncatesText: true)) }
             stack.addArrangedSubview(row)
         }
 
