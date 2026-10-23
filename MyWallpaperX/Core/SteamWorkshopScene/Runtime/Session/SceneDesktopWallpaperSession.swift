@@ -632,7 +632,7 @@ final class SceneDesktopWallpaperSession {
                         if self.initialPresentationCohort.isHeld {
                             // A publication notification has not changed this
                             // frozen frame. Do not replace its qualified output.
-                            if reason == .mediaPublication { return }
+                            if reason == .mediaPublication || reason == .textPublication { return }
                             let delivered = self.initialPresentationCohort.hasDelivered
                             self.initialPresentationCohort.invalidate()
                             if delivered {

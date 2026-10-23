@@ -499,7 +499,7 @@ class SceneMetalView: NSView {
             onPublication: { [weak self] store in
                 DispatchQueue.main.async { [weak self] in
                     guard let self, self.dynamicTextTextures === store else { return }
-                    self.onRenderInvalidated?(.surface)
+                    self.onRenderInvalidated?(.textPublication)
                 }
             }
         )
@@ -663,7 +663,7 @@ class SceneMetalView: NSView {
     }
     enum RenderInvalidation {
         case surface
-        case mediaPublication
+        case mediaPublication, textPublication
     }
     var onRenderInvalidated: ((RenderInvalidation) -> Void)?
     private var simulationFrame: SimulationFrame?

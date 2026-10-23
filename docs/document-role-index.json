@@ -522,10 +522,10 @@
       "lastReviewed": "2026-10-23",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "5a9e0878531d64c281154af84c2d8d43eaf9deb4a85746aed6a23ca5479c40fc",
+        "sourceSHA256": "7c97fa24b5541ee4427a885aca654f042ccdf90664479da29205a6e3df345941",
         "method": "document_registry --audit + document_health --check",
-        "scope": "普通可见视频候选首呈现合同与有界验收；首GPU不再代替视频内容资格，332首门退出，329同输入既有失败保留。",
-        "limitations": "非全视频、首seek目标、HDR/Release、全部多屏像素、长稳、性能或整景官方一致。"
+        "scope": "同步未adopt文字publication与真实surface失效边界及首帧有界后验入口；这里只复核导航/角色。",
+        "limitations": "实际运行边界见对应历史；不宣称完整Scene、Release、HDR、多屏或性能验收。"
       }
     },
     {
@@ -767,10 +767,10 @@
       "lastReviewed": "2026-10-23",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "bbe5c4aebbbd44b87a612a48853dd2fa57cf71c47371fc6f1149592df0e86557",
+        "sourceSHA256": "bc7ee1f51847d661050473ff536c97eb08b41cb6782d57b43fa5d2d2836d8152",
         "method": "document_registry --audit + document_health --check",
-        "scope": "同步builtin图片灯光代际的稳定职责与有界后验入口；这里只复核导航和文档角色。",
-        "limitations": "具体运行边界归历史证据；不代表完整光照/整景一致、Release、多屏、长稳或性能验收。"
+        "scope": "同步未adopt文字publication与真实surface失效边界及首帧有界后验入口；这里只复核导航/角色。",
+        "limitations": "实际运行边界见对应历史；不宣称完整Scene、Release、HDR、多屏或性能验收。"
       }
     },
     {
@@ -3447,6 +3447,19 @@
       ],
       "cutoffDate": "2026-10-16",
       "uniqueValue": "pointsize共享setter的journal/ABI/typed/渲染分域与独立审查修正、fixture bootstrap归因及最近门；213同媒体基线/候选标题换词S4、artist仅输入、首次发布和独立314实图分列，保黑块/opacityMask与完整媒体/字体parity未知。"
+    },
+    {
+      "path": "docs/scene/history/text-publication-first-frame-2026-10-23.md",
+      "role": "historical-evidence",
+      "entrypoint": "docs/scene/history/README.md",
+      "commandPolicy": "historical-only",
+      "currentAuthorities": [
+        "docs/scene/architecture/scene-launch-responsiveness-contract.md",
+        "docs/scene/capabilities/runtime-evidence-current.md",
+        "docs/scene/roadmap/scene-open-breakpoint-queue.md"
+      ],
+      "cutoffDate": "2026-10-23",
+      "uniqueValue": "动态文字未采用发布不撤销首帧的公共语义；四个旧红与366/332实际恢复、暂停/双屏/坏视频边界。"
     },
     {
       "path": "docs/scene/history/text-terminal-overflow-2026-10-12.md",

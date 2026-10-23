@@ -1185,3 +1185,4 @@ copied-background+双成员+根invert实际验背景孔、半透明、X/Y越界�
 <a id="initial-video-presentation-20261023"></a> [归档记录](../history/initial-video-presentation-2026-10-23.md#initial-video-presentation-20261023) <!-- archive-redirect -->
 <a id="light-particle-qualification-20261023"></a> [归档记录](../history/light-particle-qualification-2026-10-23.md#light-particle-qualification-20261023) <!-- archive-redirect -->
 <a id="builtin-image-light-families-20261023"></a> [归档记录](../history/builtin-image-light-families-2026-10-23.md#builtin-image-light-families-20261023) <!-- archive-redirect -->
+<a id="text-publication-first-frame-20261023"></a> [归档记录](../history/text-publication-first-frame-2026-10-23.md#text-publication-first-frame-20261023) <!-- archive-redirect -->

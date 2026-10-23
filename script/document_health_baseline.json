@@ -74,7 +74,7 @@
     },
     "docs/scene/architecture/scene-launch-responsiveness-contract.md": {
       "lines": 217,
-      "bytes": 26174
+      "bytes": 26439
     },
     "docs/scene/architecture/scene-resource-admission.md": {
       "lines": 90,
@@ -277,8 +277,8 @@
       "bytes": 17446
     },
     "docs/scene/roadmap/scene-open-breakpoint-queue.md": {
-      "lines": 256,
-      "bytes": 81498
+      "lines": 257,
+      "bytes": 81367
     },
     "docs/web/cold-descriptor-parse-offload-design.md": {
       "lines": 43,
@@ -1410,15 +1410,6 @@
     },
     {
       "section": "bodies",
-      "path": "docs/scene/architecture/scene-launch-responsiveness-contract.md",
-      "before": "96fff61543fb58e7a17bc09b8622e5a906a75607fa0ea487621953e70a574515",
-      "after": "6200cf1a079f13c13b93e4e0c8e8ece4a36aa78e17108e4074be0ff76a5cb15c",
-      "owner": "scene-initial-video-presentation",
-      "reason": "新增首呈现唯一职责合同，视频首门由队列移至有界历史；不重复当前结果或升级整景/性能声明。",
-      "decision": "docs/scene/architecture/scene-launch-responsiveness-contract.md#initial-video-presentation"
-    },
-    {
-      "section": "bodies",
       "path": "docs/development/code-slimming-program.md",
       "before": "87b70059704c70511f9e5738508beca6547f48f09a4ab7c91b59f65461e21cfd",
       "after": "d6aa1e99bf3ae3056195b5d2fdc2ab2f3baa4c98c7f046516e76d16933fc0de1",
@@ -1464,12 +1455,21 @@
     },
     {
       "section": "bodies",
+      "path": "docs/scene/architecture/scene-launch-responsiveness-contract.md",
+      "before": "6200cf1a079f13c13b93e4e0c8e8ece4a36aa78e17108e4074be0ff76a5cb15c",
+      "after": "1470cf354aef9fba51f50530aae5e76e6f7f578f860dad5a330f246f5e6b9a1e",
+      "owner": "text-publication-first-frame",
+      "reason": "澄清已提交首帧与未采用provider发布的边界，复用原promotion补画，保留真实surface失效和暂停行为。",
+      "decision": "docs/scene/architecture/scene-launch-responsiveness-contract.md#initial-video-presentation"
+    },
+    {
+      "section": "bodies",
       "path": "docs/scene/roadmap/scene-open-breakpoint-queue.md",
-      "before": "9e3cf03202e041e84b6393789d266983edb17037f2c22f74a2e9fbf9d48e4b72",
-      "after": "bc461d9ac4362741f28fcc7c4663c74304b8def454f17f794107b698617d4226",
-      "owner": "builtin-image-light-families",
-      "reason": "新增已在两构建复现的366首帧失败和最小反例；移出本批已修现代灯漏接，保其余光照余项。",
-      "decision": "docs/scene/roadmap/batch2/2d-lighting-material-design.md#builtin-image-light-families"
+      "before": "bc461d9ac4362741f28fcc7c4663c74304b8def454f17f794107b698617d4226",
+      "after": "c3f4f62a3c412975cb61855bfdf114f594c4798df1bcf2b14928b68e8130e400",
+      "owner": "text-publication-first-frame",
+      "reason": "退出已验证修复的366启动项，仅保有界后验和未验整景范围。",
+      "decision": "docs/scene/architecture/scene-launch-responsiveness-contract.md#initial-video-presentation"
     }
   ]
 }

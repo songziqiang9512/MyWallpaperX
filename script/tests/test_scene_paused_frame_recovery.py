@@ -1,9 +1,10 @@
 """Run production frozen-frame scheduling with controlled transport completion.
 
-The existing method-extraction scaffold executes the driver, invalidation,
-pause, surface-retirement prefix and PreparedFrame implementation. Only the
-normal simulation branch is replaced by a trap. Timer, dispatch and Metal are
-hand-controlled transport boundaries; no scheduler algorithm is reproduced.
+The existing method-extraction scaffold executes the driver, text-publication
+callback, invalidation, surface submission, cohort and PreparedFrame owners.
+Only the normal simulation branch is replaced by a trap. Timer, dispatch,
+raster readiness and Metal completion are hand-controlled transport boundaries;
+no scheduler or publication policy is reproduced.
 """
 from pathlib import Path
 import subprocess
@@ -20,6 +21,7 @@ SESSION = SCENE / "Runtime/Session"
 STUBS = r'''
 import Foundation
 import CoreFoundation
+typealias CGDirectDisplayID = UInt32
 
 enum TransportTime {
     static var now: TimeInterval = 100
@@ -136,28 +138,44 @@ final class SoundProviders { func pause() {}; func resume() {} }
 // Shortcut delivery/scopes are outside the controlled frame transport. Keep
 // their teardown leaves available without replacing the production teardown.
 final class UserShortcutInput { func revoke() {} }
+final class SceneDynamicTextTextureStore {
+    var generation = 0
+}
 
 final class SceneMetalView {
-    enum Invalidation { case surface, mediaPublication }
+    // INVALIDATION_TYPE
     enum Plan { case prepared, synchronousDrop, deferred, cancelled }
-    var onRenderInvalidated: ((Invalidation) -> Void)?
+    var onRenderInvalidated: ((RenderInvalidation) -> Void)?
+    var dynamicTextTextures: SceneDynamicTextTextureStore? = .init()
+    var textPublication: ((SceneDynamicTextTextureStore) -> Void)?
     let hasSimulationFrame = true
     let simulationFrameIndex: UInt64 = 7
     var plan: Plan = .prepared
     var draws = 0, commits = 0, cancels = 0
     var publicationCommits = 0, publicationDiscards = 0
+    var drawnTextGenerations: [Int] = []
     var buffers: [MTLCommandBuffer] = []
     // Retain superseded candidates so identity tests do not pass merely because
     // a weak capture has already become nil.
     var candidates: [SceneMetalRenderer.PreparedFrame] = []
-    func renderFrame(performanceTelemetry: Int?) -> SceneMetalRenderer.FrameOutcome {
+    init() {
+        // TEXT_PUBLICATION
+    }
+    func publishText(_ generation: Int) {
+        dynamicTextTextures!.generation = generation
+        textPublication?(dynamicTextTextures!)
+    }
+    func renderFrame(collectsInitialVideoReadiness: Bool,
+                     performanceTelemetry: Int?) -> SceneMetalRenderer.FrameOutcome {
         draws += 1
         if plan == .synchronousDrop { return .dropped(reasonCode: "controlled-sync-failure") }
         if plan == .deferred { return .deferred(reasonCode: "controlled-in-flight") }
         let buffer = MTLCommandBuffer()
         let candidate = SceneMetalRenderer.PreparedFrame(commandBuffer: buffer,
+            initialVideoPresentation: collectsInitialVideoReadiness ? .init() : nil,
             submit: { [self] in commits += 1; buffer.commit() },
             cancel: { [self] in cancels += 1 })
+        drawnTextGenerations.append(dynamicTextTextures!.generation)
         buffers.append(buffer)
         candidates.append(candidate)
         if plan == .cancelled { candidate.cancel() }
@@ -184,11 +202,13 @@ final class SceneDesktopWallpaperSession {
     }
     var sceneClock = SceneClock(hostTime: 0)
     var launchContext: Int? = 1
-    var surfaces: [Int: Surface] = [:]
+    var surfaces: [CGDirectDisplayID: Surface] = [:]
+    var preparedSurfaceIDs: Set<CGDirectDisplayID> = []
+    var initialPresentationCohort = SceneInitialPresentationCohort()
     var frameTimer: Timer?
     var frameDriverDeadline: CFTimeInterval?
     var pausedFrameRetryDeadline: CFTimeInterval?
-    var onFirstFrameCompletion: ((Int, Bool) -> Void)?
+    var onFirstFrameCompletion: ((CGDirectDisplayID, Bool) -> Void)?
     var videoTextureSourceRegistry: VideoProviders?
     var soundPlaybackRegistry: SoundProviders?
     let userShortcutInput = UserShortcutInput()
@@ -206,10 +226,11 @@ final class SceneDesktopWallpaperSession {
     func retireSurface(_ surface: Surface) { retiredSurfaces += 1 }
     // No new media input. The production driver still chooses its frozen path.
     func refreshPausedMediaPublications() -> Bool { false }
-    func attach(_ screenID: Int = 1) -> Surface {
+    func attach(_ screenID: CGDirectDisplayID = 1) -> Surface {
         let surface = Surface()
         let metalView = surface.metalView
         surfaces[screenID] = surface
+        preparedSurfaceIDs = Set(surfaces.keys)
         // INVALIDATION
         return surface
     }
@@ -275,7 +296,9 @@ SCENARIOS = r'''
         precondition(RunLoop.main.fireNext())
         precondition(surface.metalView.draws == 2 && surface.didSubmitSimulationFrame)
         complete(surface.metalView, 1, true)
-        precondition(callbacks == [false, true])
+        // An already-visible session retries its paused transport locally;
+        // candidate-only Host delivery is exercised separately below.
+        precondition(callbacks.isEmpty)
         stopped(owner)
         precondition(!RunLoop.main.fireNext())
         frozen(owner, before)
@@ -390,7 +413,7 @@ SCENARIOS = r'''
         complete(old.metalView, 0, false)
         old.metalView.onRenderInvalidated?(.surface)
         DispatchQueue.main.drain()
-        precondition(deliveries == 1 && current.didSubmitSimulationFrame)
+        precondition(deliveries == 0 && current.didSubmitSimulationFrame)
         precondition(current.pendingPausedFrame == nil && current.metalView.draws == 1)
         stopped(owner)
         frozen(owner, before)
@@ -412,6 +435,7 @@ SCENARIOS = r'''
     }
     static func callbackTeardown() {
         let (owner, surface, before) = fixture()
+        owner.isVisible = false
         var deliveries = 0
         owner.onFirstFrameCompletion = { _, succeeded in
             precondition(!succeeded && surface.didSubmitSimulationFrame)
@@ -480,6 +504,132 @@ SCENARIOS = r'''
         precondition(submissions == 0 && cancellations == 1 && completions == 0)
         synchronousExpiry(.cancelled)
     }
+    static func candidate(_ screens: Int = 1) ->
+        (SceneDesktopWallpaperSession, [SceneDesktopWallpaperSession.Surface], SceneClock.State) {
+        let owner = SceneDesktopWallpaperSession()
+        owner.isVisible = false
+        let surfaces = (0..<screens).map { owner.attach(CGDirectDisplayID($0 + 1)) }
+        owner.setPlaybackPaused(true)
+        return (owner, surfaces, owner.sceneClock.snapshot())
+    }
+    static func heldPublications(_ screens: Int) {
+        let (owner, surfaces, before) = candidate(screens)
+        var callbacks: [String] = []
+        owner.onFirstFrameCompletion = { callbacks.append("\($0):\($1)") }
+        owner.startFrameDriver()
+        precondition(owner.initialPresentationCohort.isHeld)
+        precondition(!owner.initialPresentationCohort.hasDelivered)
+        for surface in surfaces {
+            // Execute MetalView's real asynchronous text publication callback,
+            // including its store identity check, then Session's real callback.
+            surface.metalView.publishText(2)
+            surface.metalView.publishText(3)
+            surface.metalView.onRenderInvalidated?(.mediaPublication)
+        }
+        DispatchQueue.main.drain()
+        precondition(surfaces.allSatisfy { $0.metalView.draws == 1 },
+                     "unadopted publication replaced the qualified candidate")
+        precondition(owner.initialPresentationCohort.isHeld && callbacks.isEmpty)
+        stopped(owner)
+        for (index, surface) in surfaces.enumerated() {
+            complete(surface.metalView, 0, true)
+            if index < screens - 1 {
+                precondition(callbacks.isEmpty, "partial GPU cohort reached Host")
+                surface.metalView.publishText(4)
+                DispatchQueue.main.drain()
+            }
+        }
+        precondition(callbacks == (1...screens).map { "\($0):true" })
+        precondition(owner.initialPresentationCohort.hasDelivered)
+        // Parent may delay promotion. More ready data cannot silently replace
+        // its delivered drawable or turn publication into a Host failure.
+        for surface in surfaces {
+            surface.metalView.publishText(5)
+            surface.metalView.onRenderInvalidated?(.mediaPublication)
+        }
+        DispatchQueue.main.drain()
+        precondition(callbacks.count == screens)
+        precondition(owner.initialPresentationCohort.isHeld)
+        precondition(surfaces.allSatisfy { $0.metalView.draws == 1 })
+        frozen(owner, before)
+        stopped(owner)
+    }
+    static func realInvalidation() {
+        let (owner, surfaces, before) = candidate(2)
+        let a = surfaces[0].metalView, b = surfaces[1].metalView
+        var callbacks: [String] = []
+        owner.onFirstFrameCompletion = { callbacks.append("\($0):\($1)") }
+        owner.startFrameDriver()
+        complete(a, 0, true)
+        precondition(callbacks.isEmpty)
+        b.onRenderInvalidated?(.surface)
+        DispatchQueue.main.drain()
+        precondition(a.draws == 2 && b.draws == 2)
+        precondition(owner.initialPresentationCohort.isHeld)
+        // A-old success cannot combine with B-new, even on the same frameIndex.
+        complete(b, 0, true)
+        complete(b, 1, true)
+        precondition(callbacks.isEmpty)
+        complete(a, 1, true)
+        precondition(callbacks == ["1:true", "2:true"])
+        precondition(owner.initialPresentationCohort.hasDelivered)
+        a.onRenderInvalidated?(.surface)
+        DispatchQueue.main.drain()
+        precondition(callbacks == ["1:true", "2:true", "1:false"],
+                     "real invalidation after delivery must reach original Host failure")
+        precondition(!owner.initialPresentationCohort.isHeld)
+        precondition(!owner.initialPresentationCohort.hasDelivered)
+        precondition(a.draws == 2 && b.draws == 2)
+        stopped(owner)
+        frozen(owner, before)
+    }
+    static func candidateGPUFailure(_ stale: Bool) {
+        let (owner, surfaces, before) = candidate()
+        let view = surfaces[0].metalView
+        var callbacks: [Bool] = []
+        owner.onFirstFrameCompletion = { _, succeeded in
+            callbacks.append(succeeded)
+            if !succeeded { owner.teardownSurfaces(clearContext: false, reason: .testTeardown) }
+        }
+        owner.startFrameDriver()
+        if stale {
+            view.onRenderInvalidated?(.surface)
+            DispatchQueue.main.drain()
+            precondition(view.draws == 2)
+            complete(view, 1, true)
+            precondition(callbacks == [true] && owner.initialPresentationCohort.hasDelivered)
+        }
+        view.publishText(1)
+        DispatchQueue.main.drain()
+        precondition(callbacks == (stale ? [true] : []) && !owner.surfaces.isEmpty,
+                     "publication reached Host before actual GPU failure")
+        precondition(view.draws == (stale ? 2 : 1),
+                     "publication replaced candidate before GPU failure")
+        complete(view, 0, false)
+        precondition(callbacks == (stale ? [true, false] : [false]),
+                     "publication or stale success token swallowed actual GPU failure")
+        precondition(owner.surfaces.isEmpty && !owner.initialPresentationCohort.isHeld)
+        stopped(owner)
+        frozen(owner, before)
+    }
+    static func activePausedText() {
+        let (owner, surface, before) = fixture()
+        let view = surface.metalView
+        owner.startFrameDriver()
+        complete(view, 0, true)
+        stopped(owner)
+        view.publishText(8)
+        DispatchQueue.main.drain()
+        precondition(view.draws == 2 && view.drawnTextGenerations == [0, 8],
+                     "active paused text was routed into media-only refresh or never adopted")
+        complete(view, 1, true)
+        // A retired raster store must not invalidate the live view.
+        view.textPublication?(SceneDynamicTextTextureStore())
+        DispatchQueue.main.drain()
+        precondition(view.draws == 2)
+        stopped(owner)
+        frozen(owner, before)
+    }
     static func main() {
         let scenario = CommandLine.arguments[1]
         switch scenario {
@@ -495,6 +645,12 @@ SCENARIOS = r'''
         case "multipleSurfaces": multipleSurfaces()
         case "resumePause": resumePause()
         case "cancellation": cancellation()
+        case "heldText": heldPublications(1)
+        case "heldTextTwoSurfaces": heldPublications(2)
+        case "realInvalidation": realInvalidation()
+        case "candidateGPUFailure": candidateGPUFailure(false)
+        case "staleGPUFailureAfterDelivery": candidateGPUFailure(true)
+        case "activePausedText": activePausedText()
         default: fatalError("unknown scenario")
         }
         print("paused-frame-recovery-pass: \(scenario)")
@@ -503,13 +659,19 @@ SCENARIOS = r'''
 '''
 
 
-def production_harness():
-    driver = (SESSION / "SceneDesktopWallpaperSession+FrameDriver.swift").read_text()
-    session = (SESSION / "SceneDesktopWallpaperSession.swift").read_text()
-    pause = (SESSION / "SceneDesktopWallpaperSession+VideoProviders.swift").read_text()
-    teardown = (SESSION / "SceneDesktopWallpaperSession+SurfaceTeardown.swift").read_text()
-    context = (SCENE / "Runtime/Frame/SceneFrameContext.swift").read_text()
-    outcome = (SCENE / "Rendering/Frame/SceneMetalRenderer+FrameOutcome.swift").read_text()
+def production_harness(sources=None):
+    """Accept frozen source bytes for causal old/new checks; normal tests use live owners."""
+    def read(relative):
+        return sources[relative] if sources is not None else (SCENE / relative).read_text()
+
+    driver = read("Runtime/Session/SceneDesktopWallpaperSession+FrameDriver.swift")
+    session = read("Runtime/Session/SceneDesktopWallpaperSession.swift")
+    submission = read("Runtime/Session/SceneDesktopWallpaperSession+SurfaceSubmission.swift")
+    pause = read("Runtime/Session/SceneDesktopWallpaperSession+VideoProviders.swift")
+    teardown = read("Runtime/Session/SceneDesktopWallpaperSession+SurfaceTeardown.swift")
+    context = read("Runtime/Frame/SceneFrameContext.swift")
+    outcome = read("Rendering/Frame/SceneMetalRenderer+FrameOutcome.swift")
+    view = read("Rendering/Frame/SceneMetalView.swift")
     # Execute the complete frozen branch. Entering ordinary clock/VM work is a
     # test failure, rather than a fake implementation that could conceal it.
     frame = method(driver, "private func renderFrame()")
@@ -524,17 +686,24 @@ def production_harness():
         method(driver, "private var sceneFrameInterval:").replace("private var", "var"),
         method(driver, "private var sceneBusyFrameRetryInterval:").replace("private var", "var"),
         *(method(driver, signature) for signature in [
-            "func startFrameDriver(", "private func scheduleFrameDriver(",
-            "private func armFrameDriver(", "private func renderSurfaces(",
+            "func startFrameDriver(", "func scheduleFrameDriver(", "private func armFrameDriver(",
+        ]),
+        *(method(submission, signature) for signature in [
+            "func renderSurfaces(", "var awaitsInitialPresentation:",
+            "private func observeSurfaceCompletion(", "private func deliverInitialPresentationCohort(",
         ]),
         frame,
         method(pause, "func setPlaybackPaused("),
         retirement,
     ])
-    harness = STUBS.replace("// INVALIDATION", method(session, "metalView.onRenderInvalidated ="))
+    harness = STUBS.replace("// INVALIDATION\n", method(session, "metalView.onRenderInvalidated =") + "\n")
+    harness = harness.replace("// INVALIDATION_TYPE", method(view, "enum RenderInvalidation {"))
+    text_callback = method(view, "onPublication: { [weak self] store in")
+    harness = harness.replace("// TEXT_PUBLICATION", "textPublication =" + text_callback.split(":", 1)[1])
     harness = harness.replace("// METHODS", methods)
     return "\n".join([
-        method(driver, "private enum SceneFrameDriverAttempt").replace("private enum", "enum"),
+        method(driver, "enum SceneFrameDriverAttempt"),
+        read("Runtime/Session/SceneInitialPresentationCohort.swift"),
         harness,
         method(context, "nonisolated struct SceneFrameTiming:"),
         method(context, "nonisolated struct SceneClock {"),
@@ -599,6 +768,24 @@ class ScenePausedFrameRecoveryTests(unittest.TestCase):
 
     def test_cancelled_candidate_has_no_completion_and_retry_expires(self):
         self.run_scenario("cancellation")
+
+    def test_text_and_media_publications_preserve_qualified_and_delivered_candidate(self):
+        self.run_scenario("heldText")
+
+    def test_two_surface_publications_cannot_replace_or_partially_deliver_cohort(self):
+        self.run_scenario("heldTextTwoSurfaces")
+
+    def test_real_invalidation_rejects_cross_attempt_success_and_fails_delivered_host(self):
+        self.run_scenario("realInvalidation")
+
+    def test_candidate_gpu_failure_survives_text_publication(self):
+        self.run_scenario("candidateGPUFailure")
+
+    def test_old_submitted_gpu_failure_still_reaches_host_after_newer_delivery(self):
+        self.run_scenario("staleGPUFailureAfterDelivery")
+
+    def test_active_paused_text_adopts_latest_store_without_advancing_simulation(self):
+        self.run_scenario("activePausedText")
 
 
 if __name__ == "__main__":

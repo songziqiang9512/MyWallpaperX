@@ -16,7 +16,6 @@
 
 | 项目 | 当前证据与边界 | 最小下一门 / 停止条件 |
 |---|---|---|
-| 首帧发布被重复撤销 · 3662790108 | **运行复现，整景不能提升。** 同原包在灯光候选及纯1ac578a18均缺ready、Host5秒超时；qualified/held后文字provider发布重启帧驱动，随后GPU成功属旧token。不是本批灯光回归；全部尝试未逐条归因。[身份与失败](../history/builtin-image-light-families-2026-10-23.md#builtin-image-light-families-20261023) | 优先区分尚未采用的provider发布与真实surface/资源失效；原cohort/token owner验submit+hold→文字发布→GPU成功→Host恰一次，保resize、取消、GPU失败及旧active反例，再验原包。不得延长超时掩盖重备。本批未修。 |
 | Program前端及来源准入 · 3086016320 | 430仍报execution-stage-conservation/named binding；它属于父426下的封面转场/混合，默认父alpha0，不能当独立root1521底部频谱缺失根因。既有原1521双32band实际非零、原Program/GPU/末合成已完成。292 global const、314/370分组prefix首拒已闭，不重开。 | 后继先取430可见媒体正控与实际base/potential/selected依赖向量；302多槽合同可复用owner，不能跳过隐藏effectless forward259的作者顺序或照套anchor。无默认可归因ROI时不为修日志首错优先实现；292短曲线另归视觉资格。 |
 | source材质/lookup余项 · 3616476797 /3679907516 | 361113及36771/74/83的source-only render-state首拒仍在（translucent/VERSION2等组合），不能泛化全部translucent/VERSION2或整layer缺失。361右下媒体面板/条实际在，无同控thumbnail；36771作者回调产黑、83初alpha0待thumbnail事件，74普通effect已实际Program/GPU/末消费。当前无source独占默认缺失ROI。367名称/祖父缺席异常另未证明缺host API。 | 优先低成本受控媒体资格；仅texture×g_Color4的native等价路径须证明一次调制/输出域，不为无新增像素扩raw接口。只有非等价source可见ROI才推进原sourceEvaluationState/typed Program；保父子/多receiver、straight/PMA、UV、资源身份与局部失败反例，不直接放guard或全局吞lookup错误。 |
 | 动画metadata准入 · 3822822401 | 161→puppetAnimationLayer244.visible报prepared metadata unavailable，独立可见损失未定；**蝴蝶延迟正常**。281/299292的文字创建误拒已由下述后继退出，不再归缺asset。 | 核合法lookup与target prepared metadata的最早owner，只接原typed事务；先取得该回调可见作用，不吞异常或由本项宣称缺蝴蝶。 |
@@ -31,6 +30,8 @@
 <a id="qv-visual-repairs"></a>
 <a id="qf-2026-10-07-用户点名四样本公共主链修复"></a>
 
+
+366文字发布反复撤销首帧已退出：通知区分未adopt的provider与真实surface失效，原包由旧版反复重备超时恢复一次held即Host提升，开场说明可见；独立332视频与文字、暂停/双屏/坏视频回退通过。后续太阳系交互、灯光及整景官方一致性仍未验，不升级全样本裁决。[有界后验](../capabilities/runtime-evidence-current.md#text-publication-first-frame-20261023)。
 
 332的普通视频首提升空绘制已退出：实际选择的可见视频内容与同次全部surface提交/GPU完成才允许Host提升；冷暂停红视频与脚本计数、坏源局部回退、改名双屏及旧active反例通过。原背景270首publication先于提升，左上光束修复保持；不认首seek目标同步、所有视频/整景parity或性能收益。独立329同输入旧/新App均有既有utility505/七项graph失败，保原NON-PASS，空媒体不推新缺图。[有界后验](../history/initial-video-presentation-2026-10-23.md#initial-video-presentation-20261023)。
 
@@ -209,7 +210,7 @@
 | 项目 | 最后信号 / 下一门 |
 |---|---|
 | 用户反馈 · CPU高温与GPU满载 | 用户报告CPU频率不高时温度仍接近100°C、GPU经常满载；当前未锁定对应设备、样本、配置与同窗成本，不记已修或直接判瓶颈。按[性能卡](performance-convergence-card.md)联合归因整进程CPU/GPU及实际工作，复核重复运算、主线程/后台争用和最贵pass；已有局部收益不关闭此整体反馈，温度/能耗未测不认领。 |
-| N09 · 重型冷启动/准备 | 10-11的3476868923、3507496797首轮69秒超时，延时后153.425/93.820秒ready；10-16原3662790108冷120秒仍shader准备、无画面。prepare-catalog70.338s包含model-build43.313s，不相加。先定位当前唯一大成本与可省工作；不能再以延timeout、重开MDL/cache/排序或降低内容当优化。[最新归因与撤回](../history/shader-value-type-recognition-2026-10-16.md) |
+| N09 · 重型冷启动/准备 | 10-11的3476868923、3507496797首轮69秒超时，延时后153.425/93.820秒ready；10-16原3662790108冷120秒仍shader准备、无画面。10-23当前缓存窗口已恢复ready约19.4秒，但与旧冷启动不同条件，不作收益对照。prepare-catalog70.338s包含model-build43.313s，不相加。先定位当前唯一大成本与可省工作；不能再以延timeout、重开MDL/cache/排序或降低内容当优化。[最新归因与撤回](../history/shader-value-type-recognition-2026-10-16.md) |
 | U22 · 3805547608视频越播越卡 | 10-08用户报告保留待当前普通App长稳复验；该包65/100秒双视频未见递减，只排除该短窗口。点击切背景首门已闭，不借此关闭长时成本，也不继续声称所有视频普遍递减。[有界运行](../history/named-timeline-interaction-2026-10-10.md) |
 | 视频发布空档 / 动态视频实例 · 3372715909 | 10-22固定291临时观测原包20s：100非loop发布空档1.682s，578次prepare含144次hasNew=false、428新帧全部发布；copy/导入失败0、无秒级同步API阻塞。仅定位AVPlayer输出availability，内部解码/转换/队列UNKNOWN，不与旧3.180s算收益。旧包装因footprint退步撤回，不重复；120动态实例/dormant仍开放。输入、原图、独审/失败`../../../.artifacts/scene-evidence/runs/scene-source-diagnostics-20261022/`；[原设计](../capabilities/material-video-assets.md#video-consumer-demand)。 |
 | 3749463715 · 观感帧率低 | 2026-10-18用户补报，待锁当前设备/App、属性、时间窗与实际提交/呈现率；观感不等于已测FPS或性能回归。重复胸部拖动仅首次的独立交互反馈归U40，不以性能检查替代。 |
