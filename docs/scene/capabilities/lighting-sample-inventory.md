@@ -78,6 +78,8 @@ God Rays 与 Light Shafts 交叉 **4** 个：`3448877775`、`3566880847`、`3807
 
 ## 未知与执行边界
 
+另有实际复核的**粒子光卡外观**：1315486372顶部52以128×512纹理Sprite形成光线，3769761761含SpriteTrail/static-child光束。131不在上述71/108声明集合内，376已在集合中；把这项已确认外观也纳入时，广义相关样本的**已确认下界为109**，不是穷尽总数。任意自定义/粒子发光用途仍不能由文件名或`LIGHTING=0`排除，后续沿[实际贡献与几何资格](../history/light-particle-qualification-2026-10-23.md#light-particle-qualification-20261023)补证，不据此升级运行支持。
+
 - **MDL receiver UNKNOWN**：12 个样本的256个 `.mdl` 对象尚未通过完整 material-path reader 关联到材料，不能用同包 `LIGHTING` 字段推断受光。12个样本均已在71主集合内，此项待补分类不会新增这些样本身份。
 - **Fluid effect UNKNOWN**：`2987771245`、`2999907577`、`3137495261`、`3723344874`、`3749463715` 共11个 `fluidsimulation` effect 不可由普通JSON解码；须沿现有条件/模板解析器补证。其中前述 `2987771245`、`3137495261` 未在71主集合中，不能当作已排除光照。
 - **自定义语义 UNKNOWN**：任意 custom shader 的照明/发光含义、prepared variant/host来源、binary model 默认受光、材质map有效性及 live property/Timeline/script结果未在本次闭合；粒子零计数仅指所读关联材料中未见显式 `LIGHTING=1`，不是通用粒子光照缺失结论。

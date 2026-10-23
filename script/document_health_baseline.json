@@ -121,8 +121,8 @@
       "bytes": 177807
     },
     "docs/scene/capabilities/lighting-sample-inventory.md": {
-      "lines": 98,
-      "bytes": 7413
+      "lines": 100,
+      "bytes": 7981
     },
     "docs/scene/capabilities/material-video-assets.md": {
       "lines": 37,
@@ -278,7 +278,7 @@
     },
     "docs/scene/roadmap/scene-open-breakpoint-queue.md": {
       "lines": 255,
-      "bytes": 80561
+      "bytes": 80631
     },
     "docs/web/cold-descriptor-parse-offload-design.md": {
       "lines": 43,
@@ -1428,15 +1428,6 @@
     },
     {
       "section": "bodies",
-      "path": "docs/scene/capabilities/lighting-sample-inventory.md",
-      "before": "74234e98afe7498fb5daf1f36ac2d78acc339464f950703b8c019892f982b90b",
-      "after": "87bc8ec4a29e41e74912403e16b609d843dc941383a9fd1ccceaf6b7b5181527",
-      "owner": "Scene authored direct-draw domain",
-      "reason": "Add bounded light inventory and typed four-point design; retire closed geometry queue item, keep video and unqualified boundaries open. New actual evidence uses a permanent history redirect without growing600-line runtime body.",
-      "decision": "docs/scene/roadmap/batch2/terminal-material-chain-design.md#authored-direct-draw-domain"
-    },
-    {
-      "section": "bodies",
       "path": "docs/scene/roadmap/batch2/terminal-material-chain-design.md",
       "before": "398c46d46411eba636581dd76ace5d5428dc44fa443048750bae396452137f5e",
       "after": "f634e7fcfd3e1996ae5cbf7322fd2ccaed5c4dea5bb375a7c8ddf3b918a828a5",
@@ -1455,12 +1446,21 @@
     },
     {
       "section": "bodies",
+      "path": "docs/scene/capabilities/lighting-sample-inventory.md",
+      "before": "87bc8ec4a29e41e74912403e16b609d843dc941383a9fd1ccceaf6b7b5181527",
+      "after": "7828e3644128bb3cc1bb70736ebfb10430f807be4e4784f9c849e70b16282600",
+      "owner": "light-particle-qualification",
+      "reason": "保留仍未关闭的光卡外观与实际资格失败，补广义109下界及未知，替换过时下一门而不重复研究过程。",
+      "decision": "docs/scene/capabilities/lighting-sample-inventory.md#未知与执行边界"
+    },
+    {
+      "section": "bodies",
       "path": "docs/scene/roadmap/scene-open-breakpoint-queue.md",
-      "before": "705abfe11f55039f3231ae114fd57133f7565d1ecde3bac716385f2eb2164528",
-      "after": "a6e267eb6e803c7cceb41316742e25a861ad65955d93b1d6bb124546f33b596a",
-      "owner": "scene-initial-video-presentation",
-      "reason": "新增首呈现唯一职责合同，视频首门由队列移至有界历史；不重复当前结果或升级整景/性能声明。",
-      "decision": "docs/scene/architecture/scene-launch-responsiveness-contract.md#initial-video-presentation"
+      "before": "a6e267eb6e803c7cceb41316742e25a861ad65955d93b1d6bb124546f33b596a",
+      "after": "9e3cf03202e041e84b6393789d266983edb17037f2c22f74a2e9fbf9d48e4b72",
+      "owner": "light-particle-qualification",
+      "reason": "保留仍未关闭的光卡外观与实际资格失败，补广义109下界及未知，替换过时下一门而不重复研究过程。",
+      "decision": "docs/scene/capabilities/lighting-sample-inventory.md#未知与执行边界"
     }
   ]
 }

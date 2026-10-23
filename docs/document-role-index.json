@@ -683,10 +683,10 @@
       "lastReviewed": "2026-10-23",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "d6fbabf77f06063022ab8244c48338748cb23aefcf22a53bac7550674008bc8c",
+        "sourceSHA256": "5bd5f17b40ad326c6991d3071ca30b6f02f3d3c56f37d58de3ca0a1160201ce3",
         "method": "document_registry --audit + document_health --check",
-        "scope": "Read-only light census and authored four-point domain contract, bounded actual terminal evidence and retained unknowns; execution order remains live queue.",
-        "limitations": "No full light family, whole-sample official parity, video first-frame closure, HDR/Release/multiscreen or performance claim."
+        "scope": "区分声明型光照与粒子光卡外观的下界；376正控即停、131非方尺寸有界观察与严格锚点未资格，原视觉缺口不关闭。",
+        "limitations": "无产品更改、完整官方parity、全光照用途穷尽或性能收益。"
       }
     },
     {
@@ -767,10 +767,10 @@
       "lastReviewed": "2026-10-23",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "5e61ee5c6a32a425432855b1c1d0ff644887bf655e318378ff557f4164197a3d",
+        "sourceSHA256": "d0d56ba44602521d489492e05a4d4040efb9c56fda4b68feeb64764cae90b856",
         "method": "document_registry --audit + document_health --check",
-        "scope": "普通可见视频候选首呈现合同与有界验收；首GPU不再代替视频内容资格，332首门退出，329同输入既有失败保留。",
-        "limitations": "非全视频、首seek目标、HDR/Release、全部多屏像素、长稳、性能或整景官方一致。"
+        "scope": "区分声明型光照与粒子光卡外观的下界；376正控即停、131非方尺寸有界观察与严格锚点未资格，原视觉缺口不关闭。",
+        "limitations": "无产品更改、完整官方parity、全光照用途穷尽或性能收益。"
       }
     },
     {
@@ -1059,10 +1059,10 @@
       "lastReviewed": "2026-10-23",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "494a595dff8b91bebdf54f4bf06ddac375cbb34c440dac9e0181f63e118d853b",
+        "sourceSHA256": "0eb3d175c0ff05574b9a59219ea6d8f175479ea64f364f5042b832c07e383c76",
         "method": "document_registry --audit + document_health --check",
-        "scope": "普通可见视频候选首呈现合同与有界验收；首GPU不再代替视频内容资格，332首门退出，329同输入既有失败保留。",
-        "limitations": "非全视频、首seek目标、HDR/Release、全部多屏像素、长稳、性能或整景官方一致。"
+        "scope": "区分声明型光照与粒子光卡外观的下界；376正控即停、131非方尺寸有界观察与严格锚点未资格，原视觉缺口不关闭。",
+        "limitations": "无产品更改、完整官方parity、全光照用途穷尽或性能收益。"
       }
     },
     {
@@ -1849,6 +1849,19 @@
         "scope": "generic authored field reference, attached permission boundaries and retirement lifetime; one clock actual gain",
         "limitations": "cohort hot update unresolved; no treatment CPU/GPU/memory/launch gain or Windows/full sample parity"
       }
+    },
+    {
+      "path": "docs/scene/history/light-particle-qualification-2026-10-23.md",
+      "role": "historical-evidence",
+      "entrypoint": "docs/scene/history/README.md",
+      "commandPolicy": "historical-only",
+      "currentAuthorities": [
+        "docs/scene/capabilities/lighting-sample-inventory.md",
+        "docs/scene/capabilities/runtime-evidence-current.md",
+        "docs/scene/roadmap/scene-open-breakpoint-queue.md"
+      ],
+      "cutoffDate": "2026-10-23",
+      "uniqueValue": "376原倍率root/child正控失败即停；131同纹理非方标尺、原生及官方原图观察、strict锚点未资格与禁止猜修的边界。"
     },
     {
       "path": "docs/scene/history/linked-stage-startup-convergence-2026-10-18.md",
@@ -3735,10 +3748,10 @@
       "lastReviewed": "2026-10-23",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "f3593862d20a0a16daf2f3b23346d9951acad5efd83d9041ce08ecd05b0d334b",
+        "sourceSHA256": "2858d9a014462fb362ea91c80de91196794d8e3ff07d0e2f1161aa406da5b1c5",
         "method": "document_registry --audit + document_health --check",
-        "scope": "普通可见视频候选首呈现合同与有界验收；首GPU不再代替视频内容资格，332首门退出，329同输入既有失败保留。",
-        "limitations": "非全视频、首seek目标、HDR/Release、全部多屏像素、长稳、性能或整景官方一致。"
+        "scope": "区分声明型光照与粒子光卡外观的下界；376正控即停、131非方尺寸有界观察与严格锚点未资格，原视觉缺口不关闭。",
+        "limitations": "无产品更改、完整官方parity、全光照用途穷尽或性能收益。"
       }
     },
     {

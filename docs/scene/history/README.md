@@ -4,6 +4,7 @@
 
 | 截止日期 | 专题 | 类型 | 文件 | 独有价值 | 当前权威 |
 |---|---|---|---|---|---|
+| 2026-10-23 | 粒子式光线 | 资格停止/有界观察 | [主子贡献与非方尺寸](light-particle-qualification-2026-10-23.md) | 376正控失败即停；131同端尺寸比1，严格锚点未资格，不调算法追图 | [光照清单](../capabilities/lighting-sample-inventory.md)、[队列](../roadmap/scene-open-breakpoint-queue.md) |
 | 2026-10-23 | 视频/首呈现 | 有界修复证据 | [普通视频首门](initial-video-presentation-2026-10-23.md) | 冷暂停真实红帧、同次多屏、局部坏源与旧active；332背景先于提升，329既有失败保留 | [启动合同](../architecture/scene-launch-responsiveness-contract.md#initial-video-presentation)、[队列](../roadmap/scene-open-breakpoint-queue.md) |
 | 2026-10-23 | 光束/四点域 | 有界修复证据 | [无源四点几何](authored-direct-draw-domain-2026-10-23.md) | 官方三样式与U/E/N、两后端ABI、332位置收益及unit/PMA相邻反例 | [终端材质设计](../roadmap/batch2/terminal-material-chain-design.md#authored-direct-draw-domain)、[运行证据](../capabilities/runtime-evidence-current.md)、[队列](../roadmap/scene-open-breakpoint-queue.md) |
 | 2026-10-23 | 粒子初始化 | 资格与STOP | [位置及死亡事件继承](particle-initializer-qualification-2026-10-23.md) | 两组冻结官方实验、全部候选未命中与后继重入条件；产品未改 | [组件覆盖](../capabilities/particle-component-coverage.md)、[运行证据](../capabilities/runtime-evidence-current.md)、[队列](../roadmap/scene-open-breakpoint-queue.md) |
