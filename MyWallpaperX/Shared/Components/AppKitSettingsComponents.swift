@@ -156,7 +156,16 @@ final class SettingsGroupView: NSView {
         let container = NSView()
         container.translatesAutoresizingMaskIntoConstraints = false
 
-        let separator = AdaptiveSeparatorLineView()
+        let separator = NSBox()
+        separator.boxType = .custom
+        separator.borderWidth = 0
+        separator.cornerRadius = 0
+        separator.titlePosition = .noTitle
+        separator.contentViewMargins = .zero
+        separator.fillColor = NSColor(name: nil) { appearance in
+            let isDark = appearance.bestMatch(from: [.darkAqua, .aqua]) == .darkAqua
+            return NSColor.separatorColor.withAlphaComponent(isDark ? 0.12 : 0.16)
+        }
         separator.translatesAutoresizingMaskIntoConstraints = false
         container.addSubview(separator)
 
@@ -169,30 +178,5 @@ final class SettingsGroupView: NSView {
         ])
 
         return container
-    }
-}
-
-final class AdaptiveSeparatorLineView: NSView {
-    override var wantsUpdateLayer: Bool { true }
-
-    override init(frame frameRect: NSRect) {
-        super.init(frame: frameRect)
-        wantsLayer = true
-    }
-
-    @available(*, unavailable)
-    required init?(coder: NSCoder) {
-        nil
-    }
-
-    override func viewDidChangeEffectiveAppearance() {
-        super.viewDidChangeEffectiveAppearance()
-        needsDisplay = true
-        needsLayout = true
-    }
-
-    override func updateLayer() {
-        let isDark = effectiveAppearance.bestMatch(from: [.darkAqua, .aqua]) == .darkAqua
-        layer?.backgroundColor = NSColor.separatorColor.withAlphaComponent(isDark ? 0.12 : 0.16).cgColor
     }
 }

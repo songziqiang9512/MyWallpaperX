@@ -2806,6 +2806,21 @@
       ]
     },
     {
+      "id": "shared-native-ui-equivalence",
+      "patterns": [
+        "MyWallpaperX/Shared/UI/InspectorFooterMetrics.swift",
+        "MyWallpaperX/Shared/UI/InspectorFadingScrollView.swift",
+        "MyWallpaperX/Shared/Components/AppKitSettingsComponents.swift",
+        "script/tests/fixtures/NativeUIEquivalenceHarness.swift",
+        "script/tests/test_native_ui_equivalence.py"
+      ],
+      "modules": [
+        "test_native_ui_equivalence",
+        "test_steam_detail_layout",
+        "test_steam_property_window"
+      ]
+    },
+    {
       "id": "video-inspector-preview",
       "patterns": [
         "MyWallpaperX/Models/VideoWallpaper.swift",

@@ -31,12 +31,6 @@ class InspectorFadingScrollView: NSScrollView {
     override func layout() {
         super.layout()
         fadeMask.frame = bounds
-        updateFadeMaskOnMain()
-    }
-
-    override func reflectScrolledClipView(_ clipView: NSClipView) {
-        super.reflectScrolledClipView(clipView)
-        updateFadeMaskOnMain()
     }
 
     private func setupFadeMask() {
@@ -51,20 +45,6 @@ class InspectorFadingScrollView: NSScrollView {
             NSColor.clear.cgColor
         ]
         layer?.mask = fadeMask
-        updateFadeMaskOnMain()
-    }
-
-    private func updateFadeMaskOnMain() {
-        guard Thread.isMainThread else {
-            DispatchQueue.main.async { [weak self] in
-                self?.updateFadeMask()
-            }
-            return
-        }
-        updateFadeMask()
-    }
-
-    private func updateFadeMask() {
         fadeMask.locations = [
             0,
             NSNumber(value: Double(fadeRatio)),
