@@ -23,7 +23,7 @@ struct SceneImageLayerFragmentUniforms {
 };
 
 // Swift mirror: SceneLitImageLayerLightPayload in
-// SceneLitImageLayerPipeline.swift. Fixed four point and four spot slots,
+// SceneLitImageLayerPipeline.swift. Fixed four point, spot and directional slots,
 // zero-padded per type (the launch light snapshot already admits at most
 // SceneLightSnapshot.maximumLightCount lights in authored order).
 struct SceneLitImageLayerLightPayload {
@@ -50,7 +50,7 @@ struct SceneLitImageLayerLightPayload {
     float4 spotOuterConeCosines;
     // rgb = ambient, w = hasNormal (0/1)
     float4 ambientHasNormal;
-    // x = point count, y = spot count, z/w = unused
+    // xyz = point/spot/directional count, w = prepared LightingV1 family
     float4 lightCounts;
     float4x4 modelMatrix;
     float4x4 normalBasis;
@@ -65,6 +65,14 @@ struct SceneLitImageLayerLightPayload {
     float4 emission;
     float4x4 sceneViewProjection;
     float4 reflection;
+    float4 directionalDirectionIntensity0;
+    float4 directionalDirectionIntensity1;
+    float4 directionalDirectionIntensity2;
+    float4 directionalDirectionIntensity3;
+    float4 directionalColor0;
+    float4 directionalColor1;
+    float4 directionalColor2;
+    float4 directionalColor3;
 };
 
 // Texture-frame affine transform uses the common source uniform ABI.
@@ -124,12 +132,16 @@ static float sceneLitStoredTerm(float response, float intensity, float lightColo
 
 static float3 sceneLitDirect(float3 normal, float3 view, float3 light,
     float4 source, float4 material, float3 lightColor, float intensity,
-    float falloff, float3 tint, float opacity) {
+    float falloff, float3 tint, float opacity, bool usesLightingV1) {
     const float3 reflectance = material.z != 0.0
         ? clamp(source.rgb / source.a, 0.0, 1.0) : float3(0.0);
-    const SceneSurfaceWeights weights = sceneSurfaceResponse(normal, view, light,
+    SceneSurfaceWeights weights = sceneSurfaceResponse(normal, view, light,
         reflectance, material.x, material.y, material.z != 0.0,
-        SceneSurfaceCorrelatedSmith);
+        usesLightingV1 ? SceneSurfaceAnalyticSchlick : SceneSurfaceCorrelatedSmith);
+    if (usesLightingV1) {
+        weights.diffuse /= M_PI_F;
+        weights.specular /= M_PI_F;
+    }
     float3 result;
     for (uint channel = 0; channel < 3; ++channel) {
         const float diffuse = sceneLitStoredTerm(weights.diffuse[channel], intensity,
@@ -277,6 +289,19 @@ fragment float4 sceneLitImageLayerFrag(
         payload.spotColorIntensity2,
         payload.spotColorIntensity3,
     };
+    float4 directionalDirectionIntensity[4] = {
+        payload.directionalDirectionIntensity0,
+        payload.directionalDirectionIntensity1,
+        payload.directionalDirectionIntensity2,
+        payload.directionalDirectionIntensity3,
+    };
+    float4 directionalColor[4] = {
+        payload.directionalColor0,
+        payload.directionalColor1,
+        payload.directionalColor2,
+        payload.directionalColor3,
+    };
+    const bool usesLightingV1 = payload.lightCounts.w != 0.0;
 
     const float3 view = sceneLitDirection(payload.view.xyz - world * payload.view.w);
     float3 radiance;
@@ -290,7 +315,7 @@ fragment float4 sceneLitImageLayerFrag(
                 color[channel], uniforms.tint[channel], uniforms.alpha);
         }
     }
-    // Official 2D lit images amplify authored point intensity by ~1.85 and
+    // Legacy image materials amplify authored point intensity by ~1.85 and
     // attenuate with the planar (X/Y) distance only — the light's Z height
     // never enters the falloff (own-fixture ratio fit over two radii,
     // 2026-10-06; k in [1.75, 1.92] with planar (1-d/R)^2).
@@ -300,21 +325,25 @@ fragment float4 sceneLitImageLayerFrag(
             break;
         }
         const float3 delta = pointPositionRadius[index].xyz - world;
-        // Planar distance carries no zero-direction sentinel: the receiver
-        // exactly under the light is the falloff maximum, not a skip case.
-        const float planarRatio = saturate(
-            length(delta.xy) / max(pointPositionRadius[index].w, 1e-4)
-        );
-        const float remaining = max(0.0, 1.0 - planarRatio);
-        const float falloff = remaining * remaining;
+        float falloff;
+        if (usesLightingV1) {
+            falloff = sceneLitFalloff(delta, pointPositionRadius[index].w);
+        } else {
+            // Keep the legacy under-light maximum and arithmetic order.
+            const float planarRatio = saturate(
+                length(delta.xy) / max(pointPositionRadius[index].w, 1e-4)
+            );
+            const float remaining = max(0.0, 1.0 - planarRatio);
+            falloff = remaining * remaining;
+        }
         if (falloff <= 0.0) {
             continue;
         }
         const float3 towardLight = sceneLitDirection(delta);
         radiance = min(float3(65504.0), radiance + sceneLitDirect(normal, view,
             towardLight, color, material, pointColor[index].rgb,
-            pointColor[index].w * sceneLitImagePointEnergyScale, falloff,
-            uniforms.tint.rgb, uniforms.alpha));
+            pointColor[index].w * (usesLightingV1 ? 1.0 : sceneLitImagePointEnergyScale), falloff,
+            uniforms.tint.rgb, uniforms.alpha, usesLightingV1));
     }
     for (int index = 0; index < 4; index++) {
         if (float(index) >= payload.lightCounts.y) {
@@ -341,7 +370,14 @@ fragment float4 sceneLitImageLayerFrag(
         const float3 towardLight = sceneLitDirection(delta);
         radiance = min(float3(65504.0), radiance + sceneLitDirect(normal, view,
             towardLight, color, material, spotColorIntensity[index].rgb,
-            spotColorIntensity[index].w, falloff * cone, uniforms.tint.rgb, uniforms.alpha));
+            spotColorIntensity[index].w, falloff * cone, uniforms.tint.rgb, uniforms.alpha, false));
+    }
+    for (int index = 0; usesLightingV1 && index < 4; index++) {
+        if (float(index) >= payload.lightCounts.z) break;
+        radiance = min(float3(65504.0), radiance + sceneLitDirect(normal, view,
+            directionalDirectionIntensity[index].xyz, color, material,
+            directionalColor[index].rgb, directionalDirectionIntensity[index].w,
+            1.0, uniforms.tint.rgb, uniforms.alpha, true));
     }
 
     if (payload.reflection.z != 0.0) {

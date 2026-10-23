@@ -1,6 +1,8 @@
 #!/usr/bin/env python3
 """Real Metal base-capture/composition behavior for bounded 2D material lighting."""
 import json
+import math
+import struct
 from copy import deepcopy
 import os
 from pathlib import Path
@@ -12,9 +14,8 @@ from script.tests.fixtures import scene_reflection_oracle as reflection_oracle
 
 ROOT = Path(__file__).resolve().parents[2]
 SCENE = ROOT / 'MyWallpaperX/Core/SteamWorkshopScene'
-# Pure DTO parity with production; absent brightness keeps the existing fallback.
-TEXTURE_SUPPORT = texture_fixture.HARNESS.split('@main',1)[0].replace(
-    'struct SceneImageLayerUniformValues {', 'struct SceneImageLayerUniformValues {\n    var brightness: Float? = nil')
+# The nearest texture carrier already includes both authored and live brightness.
+TEXTURE_SUPPORT = texture_fixture.HARNESS.split('@main', 1)[0]
 
 def reflection_vectors():
     vectors = reflection_oracle.freeze()
@@ -268,6 +269,36 @@ import simd
 '''
 
 class SceneLitImageLayerTests(unittest.TestCase):
+    def test_light_packing_cpu_preserves_family_capacity_and_abi(self):
+        """CPU Swift executable only: no Metal device, library or GPU work."""
+        with tempfile.TemporaryDirectory(prefix='scene-lit-pack-cpu-') as temporary:
+            work = Path(temporary)
+            sources = ['Rendering/Metal/SceneMetalPipeline.swift',
+                'Rendering/Metal/SceneLitImageLayerPipeline.swift',
+                'Rendering/Composition/SceneOffscreenEffectRenderer+Capture.swift',
+                'Diagnostics/ScenePerformanceCounterHub.swift', 'Diagnostics/SceneGPUCensus.swift']
+            support = work / 'Support.swift'
+            support.write_text(TEXTURE_SUPPORT + 'import simd\nenum SceneMatrix { static func scale(_ v: SIMD3<Float>) -> simd_float4x4 { simd_float4x4(diagonal: SIMD4(v,1)) } }\n')
+            binary = work / 'fixture'
+            compiled = subprocess.run(['xcrun', 'swiftc', '-D', 'SCENE_LIT_PACK_ONLY',
+                '-parse-as-library', *map(str, dict.fromkeys(texture_fixture.SWIFT_SOURCES
+                    + [SCENE / s for s in sources])), str(support),
+                str(ROOT / 'script/tests/fixtures/SceneLitImageLayerHarness.swift'),
+                '-module-cache-path', str(work / 'module-cache'), '-o', str(binary)],
+                capture_output=True, text=True)
+            self.assertEqual(compiled.returncode, 0, compiled.stderr)
+            result = subprocess.run([str(binary)], capture_output=True, text=True)
+            self.assertEqual(result.returncode, 0, result.stderr)
+            report = json.loads(result.stdout)
+            self.assertEqual(len(report['checks']), 10)
+            for name, passed in report['checks'].items():
+                with self.subTest(packing=name):
+                    self.assertTrue(passed)
+            # Append-only Swift/Metal payload contract. GPU sampling below
+            # independently checks that these bytes reach the matching MSL ABI.
+            self.assertEqual(report['layout'], [352, 640, 704, 720, 784, 848])
+            print(json.dumps(report, sort_keys=True))
+
     def test_independent_reflection_numbers_and_scene_projection(self):
         with tempfile.TemporaryDirectory(prefix='mwx-f5-numeric-') as temporary:
             work=Path(temporary);vectors=reflection_vectors()
@@ -356,6 +387,25 @@ class SceneLitImageLayerTests(unittest.TestCase):
             self.assertEqual(report['flatNormalError'],0)
             self.assertTrue(report['mixedOverflowTruncates'])
             self.assertTrue(report['pointsOverflowKeepsAuthoredOrder'])
+            self.assertTrue(report['mixedFamilySingleCommandCompleted'])
+            family = {row['name']: row['rgba'] for row in report['lightingFamilyPixels']}
+            self.assertEqual(len(family), 9)
+            half = lambda value: struct.unpack('e', struct.pack('e', value))[0]
+            # At N=L=V, dielectric F=.04 and roughness1 gives specular
+            # weight .01. These closed-form head-on constants avoid another
+            # implementation of the general surface response in the test.
+            covered = [half(value) * .96 + .5 * .01 for value in [.2, .15, .1]]
+            scales = {'legacy-near': 1.85, 'legacy-far': 1.85, 'legacy-repeat': 1.85,
+                'modern-near': .75 ** 2 / math.pi, 'modern-far': .5 ** 2 / math.pi,
+                'direction-forward': 1 / math.pi, 'direction-flat-normal': 1 / math.pi,
+                'direction-backward': 0, 'direction-tilted-normal': 0}
+            for name, scale in scales.items():
+                with self.subTest(lighting_family=name):
+                    self.assertEqual(family[name][3], .5)  # PMA coverage survives both stores.
+                    for channel, source in enumerate(covered):
+                        self.assertAlmostEqual(family[name][channel], source * scale, delta=.0003)
+            self.assertEqual(family['legacy-repeat'], family['legacy-near'])
+            self.assertEqual(family['direction-flat-normal'], family['direction-forward'])
             print(json.dumps(report,sort_keys=True))
 
 if __name__ == '__main__': unittest.main()

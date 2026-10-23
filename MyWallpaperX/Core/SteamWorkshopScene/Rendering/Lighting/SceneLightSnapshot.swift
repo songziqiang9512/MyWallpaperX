@@ -17,9 +17,8 @@ struct SceneLightSnapshot {
     struct Point {
         var layerID: Int? = nil
         var castsShadow: Bool = false
-        /// Official splits point-light kinds by consumer (own-fixture
-        /// black-box, 2026-10-06): `lpoint` illuminates static models only,
-        /// `point` illuminates 2D lit images only.
+        /// Raw `lpoint` class, shared by static models and LightingV1 image
+        /// materials. Legacy image materials consume raw `point` instead.
         var illuminatesStaticModels: Bool = true
         let position: SIMD3<Float>
         let color: SIMD3<Float>
@@ -119,10 +118,10 @@ struct SceneLightSnapshot {
                 authoredLighting.rejectUnsupportedLight()
                 continue
             }
-            // general.lightconfig gates the STATIC-MODEL light classes per
+            // general.lightconfig gates the modern light classes per
             // scene: an absent author field leaves directional/lpoint/spot
             // inert for models in the official client (own-fixture N-series
-            // and SP1/SP2 black-box, 2026-10-06). The 2D lit-image consumer
+            // and SP1/SP2 black-box, 2026-10-06). The legacy image consumer
             // is NOT config-gated — `point` lights illuminate images with no
             // lightconfig at all (corpus 2815826216 and the IMG6 own-fixture
             // pair) — so 2D-only `point` lights always enter the snapshot.

@@ -105,11 +105,12 @@ SceneBaseMaterialLitCaptureMissLog.record(reason: reason, layerID: layer.id)
         case .unsupported: materialMap = .unsupported
         case .invalid: materialMap = .invalid
         }
+        let usesLightingV1 = profile.lightingFamily == .lightingV1
         let lights = SceneBaseMaterialLitCapturePayload.packLights(
             pointLights: (profile.lightingEnabled ? snapshot.point : []).filter { light in
-                // Official `point` lights 2D lit images; `lpoint` is a static-
-                // model light (own-fixture black-box, 2026-10-06).
-                !light.illuminatesStaticModels
+                // The prepared image family chooses from the shared raw-light
+                // classes; the snapshot does not own material-tier selection.
+                usesLightingV1 == light.illuminatesStaticModels
             }.map { light in
                 SceneBaseMaterialLitCapturePayload.PointLight(
                     position: light.position,
@@ -140,7 +141,15 @@ SceneBaseMaterialLitCaptureMissLog.record(reason: reason, layerID: layer.id)
                     usesPerspective: usesPerspective,
                     sceneOrthoHeight: renderDescriptor.camera.orthoHeight
                 ), 1
-            ))
+            )),
+            directionalLights: (profile.lightingEnabled && usesLightingV1
+                ? snapshot.directional : []).map { light in
+                SceneBaseMaterialLitCapturePayload.DirectionalLight(
+                    directionTowardLight: light.directionTowardLight,
+                    color: light.color, intensity: light.intensity
+                )
+            },
+            usesLightingV1: usesLightingV1
         )
         guard var lights else { return .miss(.lightPackingRejected) }
         lights.sceneViewProjection = sceneViewProjection

@@ -100,6 +100,7 @@ class SceneAuthoredNormalIntegrationTests(unittest.TestCase):
                    corrupt=False, effect=False, animated=False, instance=False, slot2=False,
                    encoding='rgb', render_size=64, parent_transform=None, shader='genericimage2',
                    scalar_values=None, instance_scalar=None, light_origin='180 48 100', intensity=1.5,
+                   light_kind='point', require_effect_program=False,
                    native_camera=None, layer_perspective=None, no_normal=False, reflection=0, property_defaults=None, instance_base_size=(4,4), instance_base_animated=False, same_model_peer=False, instance_base_failure=None, pbr_map=None, no_lights=False):
         import hashlib, struct, zlib, shutil
         from script.tests.test_scene_pkg_cache_extractor import make_package
@@ -127,8 +128,9 @@ class SceneAuthoredNormalIntegrationTests(unittest.TestCase):
         if layer_perspective is not None: receiver['perspective']=layer_perspective
         if effect: receiver['effects']=[{'id':10,'file':'effects/own_dim/effect.json','visible':True}]
         scene={'version':3,'general':{'orthogonalprojection':{'width':160,'height':96},'clearcolor':'0 0 0','ambientcolor':'0 0 0','skylightcolor':'0 0 0'},'objects':[receiver,
-            {'id':2,'light':'point','origin':light_origin,'color':'1 1 1','intensity':intensity,'radius':1000},
+            {'id':2,'light':light_kind,'origin':light_origin,'color':'1 1 1','intensity':intensity,'radius':1000},
             {'id':99,'name':'Healthy peer','image':'models/util/solidlayer.json','origin':'140 80 0','size':'12 12','color':'0 1 0'}]}
+        if light_kind == 'lpoint': scene['general']['lightconfig'] = {'point': 1}
         if no_lights:scene['objects']=[o for o in scene['objects'] if o['id']!=2]
         if same_model_peer:
             scene['objects'].append({'id':3,'name':'Same model inherited peer','image':'models/receiver.json','origin':'20 48 0','size':'16 16'})
@@ -199,6 +201,10 @@ class SceneAuthoredNormalIntegrationTests(unittest.TestCase):
                 (saved/'identity.json').write_text(json.dumps({'command':command,'returncode':result.returncode,'inputSHA':{k:hashlib.sha256(v).hexdigest() for k,v in entries.items()},'executionTestSHA':self.execution_test_sha,'appSHA':{str(p):hashlib.sha256(p.read_bytes()).hexdigest() for p in [self.app,self.app.with_name('MyWallpaperX.debug.dylib')] if p.exists()}},indent=2))
             self.assertEqual(result.returncode,0,log[-4000:]);self.assertIn('gpuDrained=true',log)
             self.assertRegex(log,r'state=completed frame=[1-9]\d* surface=\d+ gpu=completed')
+            if require_effect_program:
+                self.assertTrue(effect)
+                self.assertRegex(log, r'generic shader execution [^\n]*layer=1 effect=0 descriptor=1#effect#10 node=0 backend=\S+ prepared=[0-9a-f]+')
+                self.assertRegex(log, r'axis=effect-cpu-invocation [^\n]*layer=1 effect=0 descriptor=1%23effect%2310 [^\n]*outcome=encoded-output')
             self.assertGreaterEqual(len(pixels),2,log[-4000:])
             for p in pixels.values():self.assertGreater(p['greenPeer'],20,p)
             if missing or corrupt:self.assertIn('schema=base-material-normal status=unavailable fallback=flat-lit',log)

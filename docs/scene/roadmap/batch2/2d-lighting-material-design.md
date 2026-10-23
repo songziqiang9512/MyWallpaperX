@@ -143,7 +143,7 @@ XY超出单位圆时，方向落在正半球赤道并归一化，缺失Z取零�
 
 **目标与依据。** 实施前模型只累加漫反射并在灯编码乘经验0.30，未消费MR。自有模型平面H1–H10中性控制已区分albedo、强度、距离、视向与明确roughness/metallic；公开GGX、Schlick Fresnel、能量分配后的Lambert及analytic-light Schlick visibility可解释该有界集合，不声称还原官方私有BRDF或完整PBR。只开放原direct模型路径中generic4的静态MR、point/spot；本片按中性作者声明与数值门采用项目默认metallic0/roughness0.7，不外推所有tier/editor。其它tier、动态MR及模型normal/PBR贴图不扩权；directional 后继限于下述2026-10-10同profile消费。2D新夹具未通过Lighting入场，不能裁定其官方visibility或分量gate，也不阻塞本有界模型缺口。
 
-**唯一数学与caller。** `Rendering/Composition/SceneSurfaceResponse.metalh`拥有GGX分布、Schlick Fresnel、非金属漫反射份额和diffuse/specular组合，返回包含一次NoL、尚未除π的分量。2D调用保留当前计算顺序、height-correlated Smith、灯几何/单位、source coverage/tint、HDR稳定乘积与环境反射；3D调用选择公开analytic-light Schlick `k=(roughness+1)^2/8`，在caller恰好作一次1/π归一化，保原world normal/view、径向/锥体及阴影。唯一owner中仅visibility有两个显式策略，不复制整套BRDF、不按样本/路径选择。2D策略保留是迁移债，不是官方两种材质不同合同的声明；退出门为合法2D入场及角度反例定出策略，且原颜色/alpha/HDR/normal/环境门无回退。
+**唯一数学与caller。** `Rendering/Composition/SceneSurfaceResponse.metalh`拥有GGX分布、Schlick Fresnel、非金属漫反射份额和diffuse/specular组合，返回包含一次NoL、尚未除π的分量。旧2D调用保留原计算顺序、height-correlated Smith、灯几何/单位、source coverage/tint、HDR稳定乘积与环境反射；新版图片的lpoint/directional直射按[灯光代际](#builtin-image-light-families)复用analytic策略；3D调用选择公开analytic-light Schlick `k=(roughness+1)^2/8`，在caller恰好作一次1/π归一化，保原world normal/view、径向/锥体及阴影。唯一owner中仅visibility有两个显式策略，不复制整套BRDF、不按样本/路径选择。旧2D及spot策略保留是迁移债，不是官方两种材质不同合同的声明；退出门为合法2D入场及角度反例定出策略，且原颜色/alpha/HDR/normal/环境门无回退。
 
 **准备与旧路径退出。** 原`ScenePreparedStaticModelResources`在prepare通过现`SceneResourceView`的package/loose/stock优先级排除同名generic4根stage的作者override，再读取精确MR静态值；不加载shader表达、不新增source分类owner。非法或未解析user/script/Timeline使该可选profile不准入，保原模型输出；有限超域按项目物理域0…1归一化。完整搬出现有material/viewTint/动态解析值对象到`Rendering/Metal/SceneStaticModelMaterial.swift`，保一个typed profile，两个dynamic copy均保留。普通帧只读prepared值与现snapshot。新profile的point/spot不再编码0.30，改用标准表面归一化；未迁移材质保原输出，directional按下述后继接入同一profile。模型albedo与材质颜色先形成有效表面色，F0只在反射率域限制0…1，镜面不再乘一次albedo；coverage、viewTint、雾和最终合成仍各一次。`.5 g_Color/无纹理`与`gray128纹理/白 g_Color`必须保持已观测等价。ambient/emission/tint-mask继续原职责，不把这片扩大为新贴图或动态参数承诺。
 
@@ -571,3 +571,14 @@ one-spot 草案无当前可证 caster 受益，故后移；point 需要完整全
 **研究停止与后继。** 本片数值裁决已够实施，停止扩实验矩阵；保有限区间和候选相容表，不把clamp黑白当精确原值。后继仅当新的真实断点要求其他灯型、选择或world平面时再做区分实验；当前没有证据的profile不扩准入。
 
 **验收与退出。** 两frontend/反射/数组stride、host来源冲突、动态同帧值与无效输入反例，source/resource改名及等价表达式；实际GPU核world位置、非中心Y、非等比父变换/pivot及两target同footprint。当前宿主链与nil-world局部降级已取得8帧GPU证据，稳定职责见[运行时合同](../../architecture/runtime-architecture.md#ordinary-effect-lighting-host)，实际证据见[当前记录](../../capabilities/runtime-evidence-current.md#ordinary-effect-light-host-20261021)。原299仍在combine node17颜色合同拒绝，金属背景未恢复，独立313/372仅默认路径保持；不得以宿主首门消失、非黑或测试通过关闭流体单。原2D/model、其他灯型、shadow、HDR数值及官方精确parity仍待相应后继，不追加猜测或扩数值实验。
+
+<a id="builtin-image-light-families"></a>
+## 内建图片材质的灯光代际（2026-10-23）
+
+**问题与目标。** `genericimage4` 的修前准备结果只保留受光开关与材质标量，丢掉灯光代际；修前统一 image consumer 因而仅选旧 `point`，丢弃 `lpoint`，且没有 directional payload。自有无纹理法线、MR=0/1 的同输入官方对照中，旧 point 为0，新 lpoint 强度1/2的灰阶中位值分别12/24，方向光正向20、反向0；标尺、ICC与稳定帧通过。强度1未过事先规定的正控16下限，保留失败；强度2通过，不将失败改写为成功。早期IMG6记录不足以证明所有image tier都使用旧灯。固定输入、原始失败和有界验收归[实施证据](../../history/builtin-image-light-families-2026-10-23.md#builtin-image-light-families-20261023)。
+
+**唯一链路与取舍。** 在现有 builtin shader 身份已证明的准备期，为 `SceneBaseMaterialLightingProfile` 保留 typed lighting family；frame preflight 按该 family 消费同一 `SceneLightSnapshot`。新 family 接原已准入的 `lpoint` 与 directional，旧 family 保留旧 `point` 行为；不重解析 authored 数据、不新建灯表，不改变快照的动态状态、class 配置及预算。扩现有 lit payload 的有界方向灯字段并保持Swift/Metal ABI一致，plain和graph继续共用唯一lit producer。直接交换全局point过滤会破坏旧材质，另建lighting renderer会复制生命周期，均不采用。
+
+**数值与范围。** 新 family 的候选复用本项目已有 `SceneSurfaceResponse` 与现代灯的表面能量/空间距离约定，避免把旧平面point的1.85增益套到新灯；上述非饱和点光/方向光数值是最小校验，不能仅据shader模块名宣称全部BRDF、ambient或spot已与官方一致。旧 family、unlit、emission/reflection、normal/map、alpha/PMA、geometry、shadow与终端合成保持各自owner。未取得相应对照的分量保持原行为并明确记录，不以本片扩author shader `LightingV1` 的frontend准入或image阴影。
+
+**失败、验收与退出。** 现有非法payload/资源局部回退不放宽；不因一个可选灯无贡献跳过整层。先核修前同输入反例，再验新版point/lpoint分流、方向正反与强度、旧版资源改名邻例、同帧不同family、LIGHTING关闭和非builtin来源；覆盖plain/graph及现有normal/map/PMA/HDR门。用原335背景作为可见受益候选、独立旧tier样本保真，343银河与Earth/Cloud模型不能混为一个结论。若现有共享求值不能解释固定对照，停该数值候选而不拟合gain。完成Debug、代表运行、独立审查与必要证据后再认有界修复；本节不代表整景parity或完整D3完成。

@@ -3,7 +3,13 @@ import Foundation
 /// Launch-immutable diffuse-lighting intent for built-in image materials.
 /// Custom shader sources retain their existing frontend and output authority.
 nonisolated struct SceneBaseMaterialLightingProfile: Equatable, Sendable {
+    enum LightingFamily: Equatable, Sendable {
+        case legacyImage
+        case lightingV1
+    }
+
     let lightingEnabled: Bool
+    var lightingFamily: LightingFamily = .legacyImage
     /// Absent only for the legacy implicit-shader diffuse admission.
     var scalarMaterial: SIMD2<Float>? = nil
     /// Strength and project world-space sampling distance.
@@ -112,7 +118,11 @@ nonisolated enum SceneBaseMaterialLightingProfileCompiler {
                 .map { .asset($0) } ?? .invalid
         } else { normalSource = .disabled }
         var profile = SceneBaseMaterialLightingProfile(
-            lightingEnabled: lightingEnabled, reflection: reflection, normalSource: normalSource
+            lightingEnabled: lightingEnabled,
+            lightingFamily: builtinSurface && isBuiltin
+                && pass?.shaderPath?.lowercased() == "genericimage4"
+                ? .lightingV1 : .legacyImage,
+            reflection: reflection, normalSource: normalSource
         )
         if builtinLighting || reflection != nil, let pass, let shader = pass.shaderPath {
             let tierFour = shader.lowercased() == "genericimage4"

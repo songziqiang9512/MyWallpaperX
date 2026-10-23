@@ -107,7 +107,12 @@ func preparedImageMaterialChecks() -> [String: Any] {
     var defaultTierTwo = explicit
     defaultTierTwo.shaderPath = "genericimage2"
     defaultTierTwo.alphaWriting = "default"
-    checks["tierTwoLitDefaultRetainsTheSameStaticProfile"] = catalog(defaultTierTwo).profiles[model] == explicitProfile
+    let tierTwoDefaultProfile = catalog(defaultTierTwo).profiles[model]!
+    checks["tierTwoRetainsScalarRecipeWithDistinctLightFamily"] =
+        tierTwoDefaultProfile.scalarMaterial == explicitProfile.scalarMaterial
+        && tierTwoDefaultProfile.normalSource == explicitProfile.normalSource
+        && tierTwoDefaultProfile.lightingFamily == .legacyImage
+        && explicitProfile.lightingFamily == .lightingV1
     for (name, input) in [("plain", plain), ("lightingZero", lightingZero),
                           ("tierTwo", tierTwo), ("tierFour", tierFour),
                           ("explicit", explicit), ("clampedFinite", clamped)] {
@@ -136,6 +141,36 @@ func preparedImageMaterialChecks() -> [String: Any] {
     let newClone = Descriptor.Layer(id: -700, contentKind: "image", imagePath: model, effects: [])
     checks["authoredDisabledInstanceDoesNotDisableClone"] = disabledSourceProgram.lightingProfile(for: sourceLayer)?.lightingEnabled == false
         && disabledSourceProgram.lightingProfile(for: newClone) == explicitProfile
+    func family(_ profile: Profile) -> String {
+        switch profile.lightingFamily {
+        case .legacyImage: "legacy-image"
+        case .lightingV1: "lighting-v1"
+        }
+    }
+    var families = accepted.mapValues(family)
+    let instanceTierTwo = SceneBaseMaterialLightingProfileCompiler.profile(
+        layer: sourceLayer, materialInstance: litInstance,
+        materialPasses: [pass("genericimage2", lighting: 0)], materialPropertyTargets: [])
+    var customTierName = explicit
+    customTierName.shaderPath = "shaders/renamed/genericimage4.frag"
+    let customProfile = SceneBaseMaterialLightingProfileCompiler.profile(
+        layer: sourceLayer, materialInstance: litInstance,
+        materialPasses: [customTierName], materialPropertyTargets: [])
+    var implicitPass = explicit
+    implicitPass.shaderPath = nil
+    let implicitProfile = SceneBaseMaterialLightingProfileCompiler.profile(
+        layer: sourceLayer, materialInstance: litInstance,
+        materialPasses: [implicitPass], materialPropertyTargets: [])
+    families["instanceEnablesTierTwo"] = family(instanceTierTwo)
+    families["instanceEnablesTierFour"] = family(sourceProgram.lightingProfile(for: sourceLayer)!)
+    families["instanceDisablesTierFour"] = family(disabledSourceProgram.lightingProfile(for: sourceLayer)!)
+    families["dynamicCloneRetainsTierFour"] = family(disabledSourceProgram.lightingProfile(for: newClone)!)
+    families["customSourceTierName"] = family(customProfile)
+    families["implicitShader"] = family(implicitProfile)
+    families["defaultProfile"] = family(.init(lightingEnabled: true, normalSource: .disabled))
+    checks["instanceLightingOverrideDoesNotSelectFamily"] = instanceTierTwo.lightingEnabled
+        && !disabledSourceProgram.lightingProfile(for: sourceLayer)!.lightingEnabled
+    checks["sourcePathWithTierNameCannotAcquireBuiltinLighting"] = !customProfile.lightingEnabled
     let withLayer = ScenePreparedImageMaterialCatalog(descriptor: descriptor([explicit], layers: [sourceLayer]))
     checks["sourceLayerPresenceDoesNotChangeModelFact"] = withLayer.profiles == catalog(explicit).profiles
 
@@ -235,6 +270,7 @@ func preparedImageMaterialChecks() -> [String: Any] {
     rejected["missingMaterialPass"] = ScenePreparedImageMaterialCatalog(descriptor: descriptor([])).profiles.isEmpty
 
     return ["catalog": checks, "rejected": rejected,
+        "lightingFamilies": families,
         "scalarValues": accepted.mapValues { $0.scalarMaterial.map { [$0.x, $0.y] } ?? [] },
         "program": preparedImageMaterialProgramChecks(profiles: [model: explicitProfile], model: model)]
 }

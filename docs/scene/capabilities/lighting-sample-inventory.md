@@ -45,6 +45,30 @@ God Rays 与 Light Shafts 交叉 **4** 个：`3448877775`、`3566880847`、`3807
 
 环境光单列：**370** 个样本具有非零 `ambient/skylight` authored 回退值，3 个有动态输入；与已证 image receiver 的交集为7个。模板全局环境色本身不证明实际受光，不纳入71主集合。若额外把任意非零环境色也算入广义集合，结果为371；仅按 ambient 字段存在则为372，均属不同口径。
 
+## builtin image receiver 分型
+
+上述7个样本的31个受光声明按关联材质的 builtin shader identity 细分如下；`genericimage4` 的 stock 声明含 `LightingV1`，`genericimage2` 使用旧灯接口。这里记录作者输入类别，不以接口名推断实际灯贡献或运行支持。
+
+| 材质 identity | 独立样本 | receiver 声明 | 静态默认开 / 关 |
+|---|---:|---:|---:|
+| `genericimage2` | 4 | 25 | 6 / 19 |
+| `genericimage4` | 3 | 6 | 4 / 2 |
+| 合计 | 7 | 31 | 10 / 21 |
+
+“静态默认开/关”只合并字面 `visible`、直接 Bool 用户默认值、字面 combo 相等条件与祖先可见性。它不代表资源就绪、alpha 覆盖、实际投影、遮挡或脚本/Timeline 后的可见像素；31项也不表示同时存在31个可见 receiver。
+
+| 样本 | 材质 identity 与关联层 | 静态默认状态与归因边界 |
+|---|---|---|
+| `2784267518` | `genericimage2`，Mountain `24` | 雪山开关默认关闭，24静态关；独立 Eye Pulse 层不归此 receiver。 |
+| `2815826216` | `genericimage2`，人物 `20` | 20静态开；同包两个 `point`，其中44的强度含脚本，不能将总亮度当固定灯响应。 |
+| `2890473419` | `genericimage2`，`124 / 13 / 82` 共用人物材质 | 三层静态开；动态位置、effect 与重叠需另作实际像素归因。 |
+| `3708363772` | `genericimage2`，四份反光材质关联20层 | 默认布局与样式选中 `234 / 172`；其余18层经自身或祖先开关静态关。 |
+| `3351179520` | `genericimage4`，背景 `98` | 主题 `zt=1` 选中祖先657与98，静态开；同包声明 `lpoint`，材质同时启用 Reflection，不能将背景变化单归直射。 |
+| `3437487219` | `genericimage4`，Universe `146 / 135 / 143` | 默认 `milkyway=3` 仅135静态开，146/143关；同包声明 `ldirectional / lspot`，材质另有 emission 与 slot2 mask。Earth/Cloud 的模型受光不属于这三层。 |
+| `3662790108` | `genericimage4`，sun-4 `1121`、sun-1 `1336` | 两层无可见性开关，静态开；同包声明 `lpoint`，但动态微小 scale/origin、depth、emission/mask及1121的God Rays使实际投影贡献仍需核实。 |
+
+本细分来自正式包 `builtin-image-light-families-20261023` 内的只读 `builtin-lit-image-tier-matrix.json`，未增删样本或声明，仍保持373/372总分母、71主集合、108含辅助类并集及109外观相关下界。运行修复与边界另见[有界后验](../history/builtin-image-light-families-2026-10-23.md#builtin-image-light-families-20261023)，不能由本静态分型推断实际贡献。
+
 ## 完整去重样本 ID
 
 严格主集合 **71** 个，按 ID 升序：
@@ -97,4 +121,6 @@ God Rays 与 Light Shafts 交叉 **4** 个：`3448877775`、`3566880847`、`3807
 | `review-census.json` | `6f0add28926524fa2f68aa1c7b646843e4e110f9b5ecb6e941f74c42a4d4b467` |
 | 正式包 `manifest.json` | `399e5d6b503f51d76fb7d827cef36459a9731b8509facf4d31b3abbeecfd75b1` |
 
-仅用只读 `PkgArchive` mmap 与引用JSON补充缓存缺失字段，保留15,051个JSON资源文档的哈希（读取约35MB），未解出媒体/纹理或读取shader正文。包读取前后size/mtime稳定，未整包重算哈希；不把缓存package SHA冒充本轮验证。未构建、运行App/VM或产生本轮构建缓存。
+receiver 分型的只读补充矩阵 SHA256 为 `3b6c08e31fcadca5697c5c76719cecc346b28be7911f134c4d13bfc507ff38bc`；它不在上述原始 census ZIP 内，仅补充同7个样本的材质类别与静态默认状态。
+
+仅用只读 `PkgArchive` mmap 与引用JSON补充缓存缺失字段，保留15,051个JSON资源文档的哈希（读取约35MB），未解出媒体/纹理或读取shader正文。包读取前后size/mtime稳定，未整包重算哈希；不把缓存package SHA冒充本轮验证。上述静态统计未构建、运行App/VM或产生构建缓存。

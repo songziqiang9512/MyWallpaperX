@@ -40,10 +40,17 @@ struct ProviderBindings {
     var lightingProfileByLayerID:[Int:SceneBaseMaterialLightingProfile]=[:]
     func lightingProfile(for layer:SceneRenderDescriptor.Layer)->SceneBaseMaterialLightingProfile? {lightingProfileByLayerID[layer.id]}
 }
-struct PackedLights { var ambient=SIMD3<Float>.zero; var sceneViewProjection=matrix_identity_float4x4; var reflection=SIMD4<Float>.zero }
+struct PackedLights {
+    var ambient=SIMD3<Float>.zero
+    var sceneViewProjection=matrix_identity_float4x4; var reflection=SIMD4<Float>.zero
+    var pointIntensities:[Float]=[]; var directionalIntensities:[Float]=[]
+    var usesLightingV1=false
+}
 struct SceneLightSnapshot {
     struct Light { let position:SIMD3<Float>;let directionFromLight:SIMD3<Float>;let color:SIMD3<Float>;let intensity:Float;let radius:Float;let innerConeCosine:Float;let outerConeCosine:Float;var illuminatesStaticModels:Bool = true }
-    let point:[Light]=[];let spot:[Light]=[];let ambient=SIMD3<Float>(0.25,0.5,0.75);let skylight=SIMD3<Float>(0.75,0.5,0.25)
+    struct Directional { let directionTowardLight:SIMD3<Float>;let color:SIMD3<Float>;let intensity:Float }
+    var point:[Light]=[];var spot:[Light]=[];var directional:[Directional]=[]
+    let ambient=SIMD3<Float>(0.25,0.5,0.75);let skylight=SIMD3<Float>(0.75,0.5,0.25)
 }
 struct SceneParticleCameraFrame {
     static func acceptsNativePerspectiveProjection(camera:SceneRenderDescriptor.CameraDescriptor)->Bool {false}
@@ -58,10 +65,18 @@ struct SceneBaseMaterialLitCapturePayload {
     }
     struct PointLight { let position:SIMD3<Float>;let color:SIMD3<Float>;let intensity:Float;let radius:Float }
     struct SpotLight { let position:SIMD3<Float>;let direction:SIMD3<Float>;let color:SIMD3<Float>;let intensity:Float;let radius:Float;let innerConeCosine:Float;let outerConeCosine:Float }
-    static func packLights(pointLights:[PointLight],spotLights:[SpotLight],ambient:SIMD3<Float>,material:SIMD2<Float>?,view:Bool,layerModelMatrix:simd_float4x4,normalModelMatrix:simd_float4x4)->PackedLights? { var result=PackedLights();result.ambient=ambient;return result }
+    struct DirectionalLight { let directionTowardLight:SIMD3<Float>;let color:SIMD3<Float>;let intensity:Float }
+    static func packLights(pointLights:[PointLight],spotLights:[SpotLight],ambient:SIMD3<Float>,material:SIMD2<Float>?,view:Bool,layerModelMatrix:simd_float4x4,normalModelMatrix:simd_float4x4,directionalLights:[DirectionalLight]=[],usesLightingV1:Bool=false)->PackedLights? {
+        var result=PackedLights();result.ambient=ambient
+        result.pointIntensities=pointLights.map(\.intensity)
+        result.directionalIntensities=directionalLights.map(\.intensity)
+        result.usesLightingV1=usesLightingV1
+        return result
+    }
     let emission:SIMD4<Float>?
     let ambient:SIMD3<Float>
-    init?(pipeline:Int,lights:PackedLights,normal:TextureInput,materialMap:TextureInput,mapAllowedComponents:UInt32,mapRequiredComponents:UInt32,emission:SIMD4<Float>?,environmentSource:((MTLCommandBuffer)->SceneFrameTextureResource?)?) { self.emission=emission;self.ambient=lights.ambient }
+    let packed:PackedLights
+    init?(pipeline:Int,lights:PackedLights,normal:TextureInput,materialMap:TextureInput,mapAllowedComponents:UInt32,mapRequiredComponents:UInt32,emission:SIMD4<Float>?,environmentSource:((MTLCommandBuffer)->SceneFrameTextureResource?)?) { self.emission=emission;self.ambient=lights.ambient;self.packed=lights }
 }
 struct Pipelines { let litImageLayer:Int?=1 }
 struct SceneMetalRenderer {
@@ -103,7 +118,29 @@ struct SceneMetalRenderer {
         var blocked=ScenePropertyLiveUpdateState(program:program,effectiveValues:model.runtimeInput.effectivePropertyValues,activeConsumerTargets:targets.subtracting(targets.prefix(1)))
         let blockedAccepted=blocked.apply(.number(0),forPropertyKey:"constellations")
         let evaluation=program.evaluate(effectiveValues:model.runtimeInput.effectivePropertyValues)
+        // Actual Preflight chooses light classes from one immutable frame.
+        // The leaf pack spy records inputs; it performs no selection itself.
+        func point(_ intensity:Float,_ model:Bool)->SceneLightSnapshot.Light {
+            .init(position:SIMD3(0,0,20),directionFromLight:SIMD3(0,0,-1),
+                color:SIMD3(repeating:1),intensity:intensity,radius:100,
+                innerConeCosine:1,outerConeCosine:0,illuminatesStaticModels:model)
+        }
+        let frame=SceneLightSnapshot(point:[point(7,false),point(11,true)],
+            directional:[.init(directionTowardLight:SIMD3(0,0,1),color:SIMD3(repeating:1),intensity:13)])
+        let familySelection:[[String:Any]] = [false,true,false].map { modern in
+            let profile=SceneBaseMaterialLightingProfile(lightingEnabled:true,
+                lightingFamily:modern ? .lightingV1 : .legacyImage,normalSource:.disabled)
+            switch renderer.makeLitCapturePayload(profile:profile,snapshot:frame,dynamicValues:snapshot([:]),
+                layerModelMatrix:SceneMatrix.identity(),layerWorldFrame:SceneMatrix.identity(),
+                usesPerspective:false,cameraFrame:.init(),sceneViewProjection:matrix_identity_float4x4,
+                environmentSource:nil) {
+            case let .payload(payload): return ["points":payload.packed.pointIntensities,
+                "directions":payload.packed.directionalIntensities,"modern":payload.packed.usesLightingV1]
+            case .miss: return ["miss":true]
+            }
+        }
         let output:[String:Any] = ["instructions":program.instructions.count,"rebuildKeys":program.rebuildRequiredPropertyKeys,
+            "familySelection":familySelection,
             "rows":values(snapshot(evaluation.userValues)),"fallback":values(snapshot([:])),"events":events,
             "deletedAccepted":removed,"deleteRevisionStable":before==state.revision,"blockedAccepted":blockedAccepted,"blockedRevision":blocked.revision]
         print(String(decoding:try JSONSerialization.data(withJSONObject:output),as:UTF8.self))
@@ -141,6 +178,11 @@ class SceneMaterialUserEmissionTests(unittest.TestCase):
 
     def test_builder_snapshot_actual_capture_and_atomic_cycle(self):
         result=self.probe(alpha=True)
+        self.assertEqual(result['familySelection'], [
+            {'points': [7], 'directions': [], 'modern': False},
+            {'points': [11], 'directions': [13], 'modern': True},
+            {'points': [7], 'directions': [], 'modern': False},
+        ])
         self.assertEqual(result['instructions'],6,result)
         for row in result['rows']:
             self.assertEqual(row['ambient'],[1,1,1])  # Existing 2D combined input is preserved.

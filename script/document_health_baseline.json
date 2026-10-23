@@ -62,7 +62,7 @@
     },
     "docs/scene/architecture/runtime-architecture.md": {
       "lines": 600,
-      "bytes": 134037
+      "bytes": 134359
     },
     "docs/scene/architecture/runtime-as-built-map.md": {
       "lines": 153,
@@ -106,7 +106,7 @@
     },
     "docs/scene/capabilities/coverage-ledger.md": {
       "lines": 371,
-      "bytes": 175942
+      "bytes": 176179
     },
     "docs/scene/capabilities/direct-model-bind-geometry.md": {
       "lines": 23,
@@ -121,8 +121,8 @@
       "bytes": 177807
     },
     "docs/scene/capabilities/lighting-sample-inventory.md": {
-      "lines": 100,
-      "bytes": 7981
+      "lines": 126,
+      "bytes": 10796
     },
     "docs/scene/capabilities/material-video-assets.md": {
       "lines": 37,
@@ -201,8 +201,8 @@
       "bytes": 18384
     },
     "docs/scene/roadmap/batch2/2d-lighting-material-design.md": {
-      "lines": 573,
-      "bytes": 128946
+      "lines": 584,
+      "bytes": 131843
     },
     "docs/scene/roadmap/batch2/composition-render-target-design.md": {
       "lines": 136,
@@ -277,8 +277,8 @@
       "bytes": 17446
     },
     "docs/scene/roadmap/scene-open-breakpoint-queue.md": {
-      "lines": 255,
-      "bytes": 80631
+      "lines": 256,
+      "bytes": 81498
     },
     "docs/web/cold-descriptor-parse-offload-design.md": {
       "lines": 43,
@@ -1293,30 +1293,12 @@
     },
     {
       "section": "bodies",
-      "path": "docs/scene/architecture/runtime-architecture.md",
-      "before": "541806d5654afb3d10ae1cbf0fdd9b6afd5ff94ca0fcd06e5fe3564049926de4",
-      "after": "c89fe6cb3f2f6ebc541fcba67561a4c5b9813b59df58457cbf0913f901159710",
-      "owner": "scene-composition-local-root-fx",
-      "reason": "同一D1新增顶层passthrough普通成员局部源及原typed隐藏准备合同；无utility后代，保旧viewport/nested，真实五根15FX及正反门有界验收。",
-      "decision": "docs/scene/roadmap/batch2/composition-render-target-design.md"
-    },
-    {
-      "section": "bodies",
       "path": "docs/scene/capabilities/advanced-object-coverage.md",
       "before": "fef5f205a0259896f02fab14acb4dbb11363678d720340e0b2b07241425211ab",
       "after": "c473af60a86eee37b23dddb2da81a9c41612ca8e1f77d6716b0e24b605da46a7",
       "owner": "Scene native text bounds",
       "reason": "原生字形坐标失效的同prepare边界修复，默认332主时钟恢复；保异常限宽及官方边界，退出已修首断点并更新单样本备注，不升整景裁决。",
       "decision": "docs/scene/architecture/runtime-architecture.md#文字宽度与栅格化"
-    },
-    {
-      "section": "bodies",
-      "path": "docs/scene/capabilities/coverage-ledger.md",
-      "before": "76fd8f90c2e67355b35dc0d229c389c1f850152448cb8c96841e9a8dedf6e8bb",
-      "after": "48d3962d9e3e5e6db990b9c6e14fd4a5ced8ee261cc4169921af0f32346617bb",
-      "owner": "scene-composition-local-root-fx",
-      "reason": "同一D1新增顶层passthrough普通成员局部源及原typed隐藏准备合同；无utility后代，保旧viewport/nested，真实五根15FX及正反门有界验收。",
-      "decision": "docs/scene/roadmap/batch2/composition-render-target-design.md"
     },
     {
       "section": "bodies",
@@ -1437,30 +1419,57 @@
     },
     {
       "section": "bodies",
-      "path": "docs/scene/capabilities/lighting-sample-inventory.md",
-      "before": "87bc8ec4a29e41e74912403e16b609d843dc941383a9fd1ccceaf6b7b5181527",
-      "after": "7828e3644128bb3cc1bb70736ebfb10430f807be4e4784f9c849e70b16282600",
-      "owner": "light-particle-qualification",
-      "reason": "保留仍未关闭的光卡外观与实际资格失败，补广义109下界及未知，替换过时下一门而不重复研究过程。",
-      "decision": "docs/scene/capabilities/lighting-sample-inventory.md#未知与执行边界"
-    },
-    {
-      "section": "bodies",
-      "path": "docs/scene/roadmap/scene-open-breakpoint-queue.md",
-      "before": "a6e267eb6e803c7cceb41316742e25a861ad65955d93b1d6bb124546f33b596a",
-      "after": "9e3cf03202e041e84b6393789d266983edb17037f2c22f74a2e9fbf9d48e4b72",
-      "owner": "light-particle-qualification",
-      "reason": "保留仍未关闭的光卡外观与实际资格失败，补广义109下界及未知，替换过时下一门而不重复研究过程。",
-      "decision": "docs/scene/capabilities/lighting-sample-inventory.md#未知与执行边界"
-    },
-    {
-      "section": "bodies",
       "path": "docs/development/code-slimming-program.md",
       "before": "87b70059704c70511f9e5738508beca6547f48f09a4ab7c91b59f65461e21cfd",
       "after": "d6aa1e99bf3ae3056195b5d2fdc2ab2f3baa4c98c7f046516e76d16933fc0de1",
       "owner": "appkit-native-ui-b2",
       "reason": "用户试用确认后提交合并小项；记录原生布局/跟踪/通知精简、等价验收及增量 Debug 交付。",
       "decision": "docs/development/code-slimming-program.md#原生-ui-等价精简第二批"
+    },
+    {
+      "section": "bodies",
+      "path": "docs/scene/roadmap/batch2/2d-lighting-material-design.md",
+      "before": "68c25f6c26befa4bec6af100169e7ca93b940faa1edf500dd2c1b6c2e6c13060",
+      "after": "162835948965bf92e59cafa7ebad7d5a450f56a79ece6a4f132adcd8c26cb821",
+      "owner": "builtin-image-light-families",
+      "reason": "增加已经资格的builtin图片灯光代际、唯一snapshot消费、失败与退出合同；纠正旧2D统一数值策略表述。",
+      "decision": "docs/scene/roadmap/batch2/2d-lighting-material-design.md#builtin-image-light-families"
+    },
+    {
+      "section": "bodies",
+      "path": "docs/scene/capabilities/lighting-sample-inventory.md",
+      "before": "7828e3644128bb3cc1bb70736ebfb10430f807be4e4784f9c849e70b16282600",
+      "after": "a4e765ab4653e926749db507fd999ef59843db842c4a249c5ff21822b9169d1f",
+      "owner": "builtin-image-light-families",
+      "reason": "细分原7个样本31个receiver的材质代际、关联层和默认开关边界，复用原统计分母。",
+      "decision": "docs/scene/roadmap/batch2/2d-lighting-material-design.md#builtin-image-light-families"
+    },
+    {
+      "section": "bodies",
+      "path": "docs/scene/architecture/runtime-architecture.md",
+      "before": "c89fe6cb3f2f6ebc541fcba67561a4c5b9813b59df58457cbf0913f901159710",
+      "after": "8f6909dc9bee4b7b6af671329aec0e0863476dba38ecb70046929dc4ddb05146",
+      "owner": "builtin-image-light-families",
+      "reason": "补齐准备期lighting family到唯一lit producer的稳定职责，防止后续重新合并新旧灯光。",
+      "decision": "docs/scene/roadmap/batch2/2d-lighting-material-design.md#builtin-image-light-families"
+    },
+    {
+      "section": "bodies",
+      "path": "docs/scene/capabilities/coverage-ledger.md",
+      "before": "48d3962d9e3e5e6db990b9c6e14fd4a5ced8ee261cc4169921af0f32346617bb",
+      "after": "9c8aa7c5bbf8561897baca3d874f4264ddf931ee5c8a99d30a6ac42b7f8368df",
+      "owner": "builtin-image-light-families",
+      "reason": "在既有灯光条目登记有界的图片代际支持及唯一证据指针，不升级整体能力级别。",
+      "decision": "docs/scene/roadmap/batch2/2d-lighting-material-design.md#builtin-image-light-families"
+    },
+    {
+      "section": "bodies",
+      "path": "docs/scene/roadmap/scene-open-breakpoint-queue.md",
+      "before": "9e3cf03202e041e84b6393789d266983edb17037f2c22f74a2e9fbf9d48e4b72",
+      "after": "bc461d9ac4362741f28fcc7c4663c74304b8def454f17f794107b698617d4226",
+      "owner": "builtin-image-light-families",
+      "reason": "新增已在两构建复现的366首帧失败和最小反例；移出本批已修现代灯漏接，保其余光照余项。",
+      "decision": "docs/scene/roadmap/batch2/2d-lighting-material-design.md#builtin-image-light-families"
     }
   ]
 }

@@ -1,8 +1,8 @@
 import Metal
 import simd
 
-/// Fragment `buffer(1)` payload for the lit base capture. Fixed four point
-/// and four spot slots, zero-padded per type; the layout mirrors the MSL
+/// Fragment `buffer(1)` payload for the lit base capture. Four point, spot
+/// and directional slots per type, zero-padded; the layout mirrors the MSL
 /// struct `SceneLitImageLayerLightPayload` in SceneLitImageLayer.metal and
 /// follows the static-model zero-padding pattern for the same shared launch
 /// light snapshot (`SceneLightSnapshot`, authored order, maximum 4 total).
@@ -30,7 +30,7 @@ struct SceneLitImageLayerLightPayload {
     var spotColorIntensity3 = SIMD4<Float>.zero
     var spotOuterConeCosines = SIMD4<Float>.zero
     var ambientHasNormal = SIMD4<Float>.zero
-    /// x/y are populated point/spot slots; the snapshot owns admission order.
+    /// xyz = point/spot/directional count, w = prepared LightingV1 family.
     var lightCounts = SIMD4<Float>.zero
     var modelMatrix = matrix_identity_float4x4
     var normalBasis = matrix_identity_float4x4
@@ -50,6 +50,15 @@ struct SceneLitImageLayerLightPayload {
     var sceneViewProjection = matrix_identity_float4x4
     /// strength, project world distance, environment ready, direct enabled.
     var reflection = SIMD4<Float>(0, 4, 0, 1)
+    /// Toward-light xyz, intensity w. Appended to preserve older field offsets.
+    var directionalDirectionIntensity0 = SIMD4<Float>.zero
+    var directionalDirectionIntensity1 = SIMD4<Float>.zero
+    var directionalDirectionIntensity2 = SIMD4<Float>.zero
+    var directionalDirectionIntensity3 = SIMD4<Float>.zero
+    var directionalColor0 = SIMD4<Float>.zero
+    var directionalColor1 = SIMD4<Float>.zero
+    var directionalColor2 = SIMD4<Float>.zero
+    var directionalColor3 = SIMD4<Float>.zero
 }
 
 /// One claimed layer's lit base-capture request. Built by the frame
@@ -57,6 +66,12 @@ struct SceneLitImageLayerLightPayload {
 /// lit pipeline resolved and the light packing succeeded; any failure keeps
 /// the request nil so the executor takes the unlit `imagePipeline` capture.
 struct SceneBaseMaterialLitCapturePayload {
+    struct DirectionalLight {
+        let directionTowardLight: SIMD3<Float>
+        let color: SIMD3<Float>
+        let intensity: Float
+    }
+
     struct PointLight {
         let position: SIMD3<Float>
         let color: SIMD3<Float>
@@ -242,15 +257,19 @@ struct SceneBaseMaterialLitCapturePayload {
         material: SIMD2<Float>?,
         view: SIMD4<Float>,
         layerModelMatrix: simd_float4x4,
-        normalModelMatrix: simd_float4x4
+        normalModelMatrix: simd_float4x4,
+        directionalLights: [DirectionalLight] = [],
+        usesLightingV1: Bool = false
     ) -> SceneLitImageLayerLightPayload? {
         // Four is the physical shader ABI capacity, not another admission budget.
         // Overflow beyond the four combined slots truncates in the caller's
-        // authored order (points first, then spots in the remaining slots),
+        // order (points, spots, then directionals in the remaining slots),
         // mirroring the static-model budget's bounded admission instead of
         // rejecting the whole layer payload back to unlit.
         let boundedPoints = Array(pointLights.prefix(4))
         let boundedSpots = Array(spotLights.prefix(4 - boundedPoints.count))
+        let boundedDirectionals = usesLightingV1
+            ? Array(directionalLights.prefix(4 - boundedPoints.count - boundedSpots.count)) : []
         guard simd_determinant(layerModelMatrix).isFinite,
               abs(simd_determinant(layerModelMatrix)) > 1e-9,
               ambient.x >= 0, ambient.y >= 0, ambient.z >= 0 else { return nil }
@@ -260,7 +279,8 @@ struct SceneBaseMaterialLitCapturePayload {
         payload.modelMatrix = layerModelMatrix
         payload.normalBasis = simd_transpose(simd_inverse(normalModelMatrix))
         payload.ambientHasNormal = SIMD4(ambient, 0)
-        payload.lightCounts = SIMD4(Float(boundedPoints.count), Float(boundedSpots.count), 0, 0)
+        payload.lightCounts = SIMD4(Float(boundedPoints.count), Float(boundedSpots.count),
+            Float(boundedDirectionals.count), usesLightingV1 ? 1 : 0)
         var positions = [SIMD4<Float>](repeating: .zero, count: 4)
         var colors = positions
         for (index, light) in boundedPoints.enumerated() {
@@ -298,6 +318,25 @@ struct SceneBaseMaterialLitCapturePayload {
         (payload.spotColorIntensity0, payload.spotColorIntensity1,
          payload.spotColorIntensity2, payload.spotColorIntensity3) =
             (colors[0], colors[1], colors[2], colors[3])
+        directions = [SIMD4<Float>](repeating: .zero, count: 4)
+        colors = directions
+        for (index, light) in boundedDirectionals.enumerated() {
+            let value = light.directionTowardLight
+            let scale = max(abs(value.x), max(abs(value.y), abs(value.z)))
+            guard value.x.isFinite, value.y.isFinite, value.z.isFinite,
+                  scale > 0, light.intensity.isFinite, light.intensity >= 0,
+                  light.color.x.isFinite, light.color.y.isFinite, light.color.z.isFinite
+            else { return nil }
+            let scaled = value / scale
+            directions[index] = SIMD4(scaled / simd_length(scaled), light.intensity)
+            colors[index] = SIMD4(simd_max(light.color, .zero), 0)
+        }
+        (payload.directionalDirectionIntensity0, payload.directionalDirectionIntensity1,
+         payload.directionalDirectionIntensity2, payload.directionalDirectionIntensity3) =
+            (directions[0], directions[1], directions[2], directions[3])
+        (payload.directionalColor0, payload.directionalColor1,
+         payload.directionalColor2, payload.directionalColor3) =
+            (colors[0], colors[1], colors[2], colors[3])
         return payload.isFinite ? payload : nil
     }
 
@@ -325,6 +364,9 @@ private extension SceneLitImageLayerLightPayload {
             normalBasis.columns.0, normalBasis.columns.1,
             normalBasis.columns.2, normalBasis.columns.3, material, view,
             mapFrame0, mapFrame1, emission, reflection,
+            directionalDirectionIntensity0, directionalDirectionIntensity1,
+            directionalDirectionIntensity2, directionalDirectionIntensity3,
+            directionalColor0, directionalColor1, directionalColor2, directionalColor3,
             sceneViewProjection.columns.0, sceneViewProjection.columns.1,
             sceneViewProjection.columns.2, sceneViewProjection.columns.3,
         ].allSatisfy(sceneLitIsFinite)

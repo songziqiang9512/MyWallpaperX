@@ -175,6 +175,15 @@ class SceneBaseMaterialProviderBindingTests(unittest.TestCase):
         )
         self.assertTrue(result["lightingProfilesMatchDirectCompiler"])
         prepared = result["preparedImageMaterials"]
+        self.assertEqual(prepared["lightingFamilies"], {
+            "plain": "lighting-v1", "lightingZero": "lighting-v1",
+            "tierTwo": "legacy-image", "tierFour": "lighting-v1",
+            "explicit": "lighting-v1", "renamedWrapped": "lighting-v1",
+            "clampedFinite": "lighting-v1", "instanceEnablesTierTwo": "legacy-image",
+            "instanceEnablesTierFour": "lighting-v1", "instanceDisablesTierFour": "lighting-v1",
+            "dynamicCloneRetainsTierFour": "lighting-v1", "customSourceTierName": "legacy-image",
+            "implicitShader": "legacy-image", "defaultProfile": "legacy-image",
+        })
         for group in ("catalog", "rejected", "program"):
             self.assertTrue(prepared[group])
             for name, passed in prepared[group].items():

@@ -11,6 +11,18 @@ from script.tests import test_scene_texture_candidate as texture_fixture
 ROOT = Path(__file__).resolve().parents[2]
 SCENE = ROOT / 'MyWallpaperX/Core/SteamWorkshopScene'
 
+def lighting_v1_head_on_expected(metallic, roughness, *, intensity=2):
+    """Opaque128 gray, N=L=V, white lpoint at Z100/radius1000.
+
+    This closed form has constant Fresnel, unit masking and GGX D=1/(pi*r^4).
+    It is only an oracle for these head-on cases, not a second lighting model.
+    """
+    from math import pi
+    base = 128 / 255
+    f0 = .04 * (1 - metallic) + base * metallic
+    response = ((1 - metallic) * (1 - f0) * base + f0 / (4 * roughness ** 4)) / pi
+    return min(255, response * intensity * .9 ** 2 * 255)
+
 class ScenePBRScalarTests(unittest.TestCase):
     def test_startup_property_resolution_reaches_profile(self):
         from script.tests import test_scene_timeline_document as document, test_scene_user_properties as properties, test_scene_static_model_material_properties as material
@@ -151,6 +163,7 @@ class ScenePBRScalarIntegrationTests(unittest.TestCase):
     def run_case(self, name, *, expected, **kwargs):
         from script.tests.test_scene_authored_normal import SceneAuthoredNormalIntegrationTests
         self.scenario_id=name
+        kwargs.setdefault('shader', 'genericimage2')
         result=SceneAuthoredNormalIntegrationTests.run_normal(self,no_normal=True,**kwargs)
         for frame,value in result.items():
             self.assertLessEqual(abs(value['roiMean'][0]-expected),2,(name,frame,expected,value))
@@ -158,9 +171,9 @@ class ScenePBRScalarIntegrationTests(unittest.TestCase):
 
     def test_plain_scalar_material_response(self):
         from script.tests.test_scene_authored_normal import pbr_expected
-        for shader,m,r in [('genericimage2',1,.5),('genericimage2',1,1),('genericimage4',0,1),('genericimage4',1,1)]:
+        for m,r in [(1,.5),(1,1),(0,1)]:
             expected=pbr_expected(light=(0,0,100),metallic=m,roughness=r,intensity=.2)
-            self.run_case(f'{shader}-{m}-{r}',expected=expected,shader=shader,
+            self.run_case(f'genericimage2-{m}-{r}',expected=expected,shader='genericimage2',
                 scalar_values={'metallic':m,'roughness':r},light_origin='80 48 100',intensity=.2)
 
     def test_effect_scalar_material_response(self):
@@ -172,13 +185,37 @@ class ScenePBRScalarIntegrationTests(unittest.TestCase):
 
     def test_defaults_instance_zero_and_local_invalid(self):
         from script.tests.test_scene_authored_normal import pbr_expected
-        cases=[('default2','genericimage2',None,None,.5,.5),
-               ('default4','genericimage4',None,None,0,.7),
-               ('instance-zero','genericimage2',{'metallic':1,'roughness':1},{'metallic':0},0,1),
-               ('instance-invalid','genericimage4',{'metallic':1,'roughness':1},{'metallic':None},0,1)]
-        for name,shader,values,instance,m,r in cases:
+        cases=[('default2',None,None,.5,.5),
+               ('instance-zero',{'metallic':1,'roughness':1},{'metallic':0},0,1),
+               ('instance-invalid',{'metallic':1,'roughness':1},{'metallic':None},.5,1)]
+        for name,values,instance,m,r in cases:
             self.run_case(name,expected=pbr_expected(light=(0,0,100),metallic=m,roughness=r,intensity=.2),
-                shader=shader,scalar_values=values,instance_scalar=instance,light_origin='80 48 100',intensity=.2)
+                shader='genericimage2',scalar_values=values,instance_scalar=instance,light_origin='80 48 100',intensity=.2)
+
+    def test_lighting_v1_scalar_defaults_and_invalid_use_modern_lpoint(self):
+        # Preserve the original tier-four material/default/invalid inputs.
+        # Modern lamp units use a fixed intensity2, keeping the darkest chosen
+        # positive response above16 rather than hidden inside SDR tolerance.
+        cases=[('dielectric',{'metallic':0,'roughness':1},None,0,1),
+               ('metal',{'metallic':1,'roughness':1},None,1,1),
+               ('default4',None,None,0,.7),
+               ('instance-invalid',{'metallic':1,'roughness':1},{'metallic':None},0,1)]
+        for name,values,instance,m,r in cases:
+            self.run_case(f'lighting-v1-{name}',expected=lighting_v1_head_on_expected(m,r),
+                shader='genericimage4',light_kind='lpoint',scalar_values=values,
+                instance_scalar=instance,light_origin='80 48 100',intensity=2)
+
+    def test_lighting_v1_does_not_consume_legacy_point(self):
+        result=self.run_case('lighting-v1-legacy-point',expected=0,
+            shader='genericimage4',light_kind='point',scalar_values={'metallic':0,'roughness':1},
+            light_origin='80 48 100',intensity=2)
+        for value in result.values():
+            self.assertEqual(value['center'],[0,0,0],value)
+
+    def test_lighting_v1_effect_uses_prepared_program(self):
+        self.run_case('lighting-v1-own-dim',expected=lighting_v1_head_on_expected(0,1)/2,
+            shader='genericimage4',light_kind='lpoint',effect=True,require_effect_program=True,
+            scalar_values={'metallic':0,'roughness':1},light_origin='80 48 100',intensity=2)
 
     def test_startup_user_property_and_authored_fallback(self):
         from script.tests.test_scene_authored_normal import pbr_expected

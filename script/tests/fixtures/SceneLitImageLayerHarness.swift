@@ -57,10 +57,24 @@ enum Harness {
         payload: SceneLitImageLayerLightPayload?, normal: MTLTexture? = nil,
         normalInput: SceneBaseMaterialLitCapturePayload.TextureInput? = nil
     ) -> [Float] {
+        let command = queue.makeCommandBuffer()!
+        let terminal = encode(device, command, pipeline: pipeline, lit: lit,
+            payload: payload, normal: normal, normalInput: normalInput)
+        command.commit()
+        command.waitUntilCompleted()
+        precondition(command.status == .completed && command.error == nil)
+        return pixels(terminal)
+    }
+
+    static func encode(
+        _ device: MTLDevice, _ command: MTLCommandBuffer,
+        pipeline: SceneImageLayerPipeline, lit: SceneLitImageLayerPipeline,
+        payload: SceneLitImageLayerLightPayload?, normal: MTLTexture? = nil,
+        normalInput: SceneBaseMaterialLitCapturePayload.TextureInput? = nil
+    ) -> MTLTexture {
         let source = texture(device, fill: albedo)
         let captured = texture(device)
         let terminal = texture(device)
-        let command = queue.makeCommandBuffer()!
         let lighting = payload.flatMap { SceneBaseMaterialLitCapturePayload(pipeline: lit, lights: $0, normal: normalInput ?? normal.map { .resolve(candidate($0)) } ?? .disabled) }
         precondition(SceneOffscreenEffectRenderer.captureSource(
             sourceTexture: source, target: captured, sourceUniforms: uniforms,
@@ -76,9 +90,10 @@ enum Harness {
         pipeline.drawLayer(texture: captured, mvp: SceneOffscreenEffectRenderer.fullTargetMVP,
             uniforms: uniforms, encoder: encoder)
         encoder.endEncoding()
-        command.commit()
-        command.waitUntilCompleted()
-        precondition(command.status == .completed && command.error == nil)
+        return terminal
+    }
+
+    static func pixels(_ terminal: MTLTexture) -> [Float] {
         var pixels = [Float16](repeating: 0, count: width * height * 4)
         pixels.withUnsafeMutableBytes { terminal.getBytes($0.baseAddress!, bytesPerRow: width * 8,
             from: MTLRegionMake2D(0, 0, width, height), mipmapLevel: 0) }
@@ -125,7 +140,85 @@ enum Harness {
         return result
     }
 
+    // Pure CPU entry below calls the actual packer without creating a Metal
+    // device. Chosen axis and 3-4-5 inputs have independent normalized answers.
+    static func packingChecks() -> [String: Any] {
+        typealias Capture = SceneBaseMaterialLitCapturePayload
+        typealias Directional = Capture.DirectionalLight
+        func directional(_ vector: SIMD3<Float>, _ intensity: Float = 2,
+                         color: SIMD3<Float> = SIMD3(1, 0.5, -1)) -> Directional {
+            .init(directionTowardLight: vector, color: color, intensity: intensity)
+        }
+        let valid = directional(SIMD3(3, 4, 0))
+        let point = Capture.PointLight(position: SIMD3(1, 2, 3),
+            color: SIMD3(repeating: 1), intensity: 1, radius: 100)
+        let spot = Capture.SpotLight(position: SIMD3(1, 2, 3), direction: SIMD3(0, 0, -1),
+            color: SIMD3(repeating: 1), intensity: 1, radius: 100,
+            innerConeCosine: 0.9, outerConeCosine: 0.7)
+        func pack(_ directions: [Directional], v1: Bool = true,
+                  points: [Capture.PointLight] = [], spots: [Capture.SpotLight] = [])
+            -> SceneLitImageLayerLightPayload? {
+            Capture.packLights(pointLights: points, spotLights: spots, ambient: .zero,
+                material: SIMD2(0, 1), view: SIMD4(0, 0, 1, 0),
+                layerModelMatrix: matrix_identity_float4x4,
+                normalModelMatrix: matrix_identity_float4x4,
+                directionalLights: directions, usesLightingV1: v1)
+        }
+        let omitted = Capture.packLights(pointLights: [point], spotLights: [], ambient: .zero,
+            material: SIMD2(0, 1), view: SIMD4(0, 0, 1, 0),
+            layerModelMatrix: matrix_identity_float4x4, normalModelMatrix: matrix_identity_float4x4)!
+        let legacy = pack([directional(.zero)], v1: false, points: [point])!
+        let one = pack([valid])!
+        let tiny = pack([directional(SIMD3(0, 0, Float.leastNonzeroMagnitude))])!
+        let huge = pack([directional(SIMD3(0, Float.greatestFiniteMagnitude, 0))])!
+        let zeroEnergy = pack([directional(SIMD3(0, 0, 1), 0)])!
+        let mixed = pack([valid, valid], points: [point, point], spots: [spot])!
+        let full = pack((1...5).map { directional(SIMD3(0, 0, 1), Float($0)) })!
+        let invalid = [directional(.zero), directional(SIMD3(.nan, 0, 1)),
+            directional(SIMD3(0, .infinity, 1)), directional(SIMD3(0, 0, 1), -1),
+            directional(SIMD3(0, 0, 1), .nan),
+            directional(SIMD3(0, 0, 1), color: SIMD3(.infinity, 1, 1))]
+        let checks: [String: Bool] = [
+            "legacyDefaultRetained": omitted.lightCounts == SIMD4(1, 0, 0, 0)
+                && legacy.lightCounts == omitted.lightCounts
+                && legacy.pointPositionRadius0 == omitted.pointPositionRadius0
+                && legacy.pointColor0 == omitted.pointColor0,
+            "legacyIgnoresDirectionalRequest": legacy.directionalDirectionIntensity0 == .zero
+                && legacy.directionalColor0 == .zero,
+            "directionAndColorHaveIndependentUnits": one.lightCounts == SIMD4(0, 0, 1, 1)
+                && abs(one.directionalDirectionIntensity0.x - 0.6) < 1e-6
+                && abs(one.directionalDirectionIntensity0.y - 0.8) < 1e-6
+                && one.directionalDirectionIntensity0.z == 0
+                && one.directionalDirectionIntensity0.w == 2
+                && one.directionalColor0 == SIMD4(1, 0.5, 0, 0),
+            "finiteTinyDirectionIsNotDiscarded": tiny.directionalDirectionIntensity0 == SIMD4(0, 0, 1, 2),
+            "finiteHugeDirectionDoesNotOverflow": huge.directionalDirectionIntensity0 == SIMD4(0, 1, 0, 2),
+            "zeroEnergyPreservesSlot": zeroEnergy.lightCounts.z == 1
+                && zeroEnergy.directionalDirectionIntensity0.w == 0,
+            "invalidAdmittedDirectionRejected": invalid.allSatisfy { pack([$0]) == nil },
+            "combinedCapacityPreservesExistingPriority": mixed.lightCounts == SIMD4(2, 1, 1, 1)
+                && mixed.directionalDirectionIntensity1 == .zero,
+            "directionalCapacityPreservesInputOrder": full.lightCounts == SIMD4(0, 0, 4, 1)
+                && [full.directionalDirectionIntensity0.w, full.directionalDirectionIntensity1.w,
+                    full.directionalDirectionIntensity2.w, full.directionalDirectionIntensity3.w] == [1, 2, 3, 4],
+            "unusedDirectionalSlotsAreClear": one.directionalDirectionIntensity1 == .zero
+                && one.directionalDirectionIntensity2 == .zero && one.directionalDirectionIntensity3 == .zero
+                && one.directionalColor1 == .zero && one.directionalColor2 == .zero && one.directionalColor3 == .zero,
+        ]
+        typealias Payload = SceneLitImageLayerLightPayload
+        return ["checks": checks, "layout": [
+            MemoryLayout<Payload>.offset(of: \.lightCounts)!,
+            MemoryLayout<Payload>.offset(of: \.sceneViewProjection)!,
+            MemoryLayout<Payload>.offset(of: \.reflection)!,
+            MemoryLayout<Payload>.offset(of: \.directionalDirectionIntensity0)!,
+            MemoryLayout<Payload>.offset(of: \.directionalColor0)!, MemoryLayout<Payload>.stride]]
+    }
+
     static func main() throws {
+#if SCENE_LIT_PACK_ONLY
+        print(String(data: try JSONSerialization.data(withJSONObject: packingChecks(),
+            options: [.sortedKeys]), encoding: .utf8)!)
+#else
         let device = MTLCreateSystemDefaultDevice()!
         let queue = device.makeCommandQueue()!
         let library = try device.makeLibrary(URL: URL(fileURLWithPath: CommandLine.arguments[1]))
@@ -223,11 +316,50 @@ enum Harness {
             && pointsOnly.pointPositionRadius2.w == 102
             && pointsOnly.pointPositionRadius3.w == 103
         precondition(mixedTruncates && pointsTruncate)
+        // One command buffer alternates families on the same actual pipeline.
+        // A tiny world card makes the axis-aligned head-on answer constant to
+        // far below half-storage tolerance without copying a general BRDF.
+        let tinyCard = simd_float4x4(diagonal: SIMD4<Float>(0.001, 0.001, 1, 1))
+        func familyPayload(z: Float? = nil, direction: SIMD3<Float>? = nil,
+                           modern: Bool = true) -> SceneLitImageLayerLightPayload {
+            Capture.packLights(pointLights: z.map { [Capture.PointLight(
+                position: SIMD3(0, 0, $0), color: SIMD3(repeating: 1), intensity: 1, radius: 100)] } ?? [],
+                spotLights: [], ambient: .zero, material: SIMD2(0, 1), view: SIMD4(0, 0, 1, 0),
+                layerModelMatrix: tinyCard, normalModelMatrix: matrix_identity_float4x4,
+                directionalLights: direction.map { [Capture.DirectionalLight(
+                    directionTowardLight: $0, color: SIMD3(repeating: 1), intensity: 1)] } ?? [],
+                usesLightingV1: modern)!
+        }
+        let familyCases: [(String, SceneLitImageLayerLightPayload, MTLTexture?)] = [
+            ("legacy-near", familyPayload(z: 25, modern: false), nil),
+            ("modern-near", familyPayload(z: 25), nil),
+            ("direction-forward", familyPayload(direction: SIMD3(0, 0, 1)), nil),
+            ("legacy-far", familyPayload(z: 50, modern: false), nil),
+            ("modern-far", familyPayload(z: 50), nil),
+            ("direction-backward", familyPayload(direction: SIMD3(0, 0, -1)), nil),
+            ("direction-flat-normal", familyPayload(direction: SIMD3(0, 0, 1)), flat),
+            ("direction-tilted-normal", familyPayload(direction: SIMD3(0, 0, 1)), tilted),
+            ("legacy-repeat", familyPayload(z: 25, modern: false), nil),
+        ]
+        let familyCommand = queue.makeCommandBuffer()!
+        let familyTargets = familyCases.map { row in
+            encode(device, familyCommand, pipeline: pipeline, lit: lit, payload: row.1, normal: row.2)
+        }
+        familyCommand.commit()
+        familyCommand.waitUntilCompleted()
+        precondition(familyCommand.status == .completed && familyCommand.error == nil)
+        let center = (height / 2 * width + width / 2) * 4
+        let familyPixels = zip(familyCases, familyTargets).map { row, target -> [String: Any] in
+            let rgba = pixels(target)
+            return ["name": row.0, "rgba": Array(rgba[center..<(center + 4)])]
+        }
         let result: [String: Any] = ["rectangleRotationNormalCases": caseCount, "maxOracleError": maxError,
             "flatNormalError": flatError, "verticalMoveDelta": moveDelta, "nextFrameRestoreError": restorationError,
             "spotAlongNegativeZ": true, "plainUnlitUnchanged": true,
             "gpuCompletion": true, "terminalSourceOver": true,
-            "mixedOverflowTruncates": mixedTruncates, "pointsOverflowKeepsAuthoredOrder": pointsTruncate]
+            "mixedOverflowTruncates": mixedTruncates, "pointsOverflowKeepsAuthoredOrder": pointsTruncate,
+            "mixedFamilySingleCommandCompleted": true, "lightingFamilyPixels": familyPixels]
         print(String(data: try JSONSerialization.data(withJSONObject: result, options: [.sortedKeys]), encoding: .utf8)!)
+#endif
     }
 }
