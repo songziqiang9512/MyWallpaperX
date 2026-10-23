@@ -330,7 +330,7 @@ final class SteamWorkshopDownloadRowView: NSView {
 
         progressBar.translatesAutoresizingMaskIntoConstraints = false
         progressBar.levelIndicatorStyle = .continuousCapacity
-        progressBar.fillColor = .systemBlue
+        progressBar.fillColor = .controlAccentColor
         progressBar.warningValue = 2
         progressBar.criticalValue = 2
         progressBar.drawsTieredCapacityLevels = false

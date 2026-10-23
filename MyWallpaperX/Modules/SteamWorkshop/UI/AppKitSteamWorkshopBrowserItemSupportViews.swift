@@ -371,7 +371,7 @@ enum SteamWorkshopDownloadProgressPalette {
         case .transfer:
             return .systemGreen
         case .queued:
-            return .systemBlue
+            return .controlAccentColor
         case .waiting:
             return .systemOrange
         case .failure:

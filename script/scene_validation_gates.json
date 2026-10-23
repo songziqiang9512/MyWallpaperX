@@ -2812,6 +2812,7 @@
         "MyWallpaperX/Shared/UI/InspectorFadingScrollView.swift",
         "MyWallpaperX/Shared/Components/AppKitSettingsComponents.swift",
         "MyWallpaperX/Shared/UI/ToolbarMenuPopover.swift",
+        "MyWallpaperX/Shared/Components/SidebarComponents.swift",
         "script/tests/fixtures/NativeUIEquivalenceHarness.swift",
         "script/tests/test_native_ui_equivalence.py"
       ],

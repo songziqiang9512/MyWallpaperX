@@ -165,7 +165,7 @@ final class SILInspectorPreviewSurfaceView: NSView {
         super.draw(dirtyRect)
         NSGradient(
             starting: NSColor.white.withAlphaComponent(0.22),
-            ending: NSColor(calibratedRed: 0.84, green: 0.91, blue: 1, alpha: 0.20)
+            ending: NSColor.controlAccentColor.withAlphaComponent(0.20)
         )?.draw(in: bounds, angle: -45)
 
         guard let image else { return }

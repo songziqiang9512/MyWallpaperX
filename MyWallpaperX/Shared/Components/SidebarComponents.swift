@@ -162,19 +162,9 @@ final class SidebarOutlineView: NSOutlineView {
 final class SidebarRowView: NSTableRowView {
     var suppressSelectionDuringDrag = false
 
-    /// 始终以强调色（蓝色）显示选中态，不随窗口焦点变化切换为灰色。
-    override var isEmphasized: Bool {
-        get { true }
-        set { }
-    }
-
     override func drawSelection(in dirtyRect: NSRect) {
         guard !suppressSelectionDuringDrag else { return }
-        // 始终用强调色绘制选中背景，避免焦点转移到内容区后选中行变灰。
-        guard isSelected else { return }
-        let path = NSBezierPath(roundedRect: bounds.insetBy(dx: 4, dy: 2), xRadius: 6, yRadius: 6)
-        NSColor.controlAccentColor.withAlphaComponent(0.85).setFill()
-        path.fill()
+        super.drawSelection(in: dirtyRect)
     }
 }
 
@@ -228,6 +218,8 @@ final class SidebarRowCellView: NSTableCellView {
         wantsLayer = true
         layer?.backgroundColor = NSColor.clear.cgColor
 
+        textField = titleLabel
+        imageView = iconView
         iconView.contentTintColor = .secondaryLabelColor
         iconView.symbolConfiguration = NSImage.SymbolConfiguration(pointSize: 12, weight: .regular)
         iconView.translatesAutoresizingMaskIntoConstraints = false

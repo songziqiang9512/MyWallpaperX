@@ -249,9 +249,9 @@ final class InspectorFooterButton: NSControl {
 
         switch kind {
         case .primary:
-            fill = NSColor.systemBlue.withAlphaComponent((isDarkMode ? 0.95 : 0.88) * enabledAlpha * pressedFactor)
+            fill = NSColor.controlAccentColor.withAlphaComponent((isDarkMode ? 0.95 : 0.88) * enabledAlpha * pressedFactor)
             text = .white.withAlphaComponent(enabledAlpha)
-            border = NSColor.systemBlue.withAlphaComponent(0.42 * enabledAlpha)
+            border = NSColor.controlAccentColor.withAlphaComponent(0.42 * enabledAlpha)
         case .secondary:
             fill = isDarkMode
                 ? NSColor.black.withAlphaComponent(0.26 * enabledAlpha * pressedFactor)

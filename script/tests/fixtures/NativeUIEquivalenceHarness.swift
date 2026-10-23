@@ -11,6 +11,20 @@ import QuartzCore
     override var mouseLocationOutsideOfEventStream: NSPoint { pointer }
 }
 
+@MainActor private final class SidebarFixtureData: NSObject, NSOutlineViewDataSource, NSOutlineViewDelegate {
+    let rows: [NSString] = ["我的视频", "我的图片", "创意工坊"]
+    func outlineView(_ outlineView: NSOutlineView, numberOfChildrenOfItem item: Any?) -> Int { item == nil ? rows.count : 0 }
+    func outlineView(_ outlineView: NSOutlineView, isItemExpandable item: Any) -> Bool { false }
+    func outlineView(_ outlineView: NSOutlineView, child index: Int, ofItem item: Any?) -> Any { rows[index] }
+    func outlineView(_ outlineView: NSOutlineView, heightOfRowByItem item: Any) -> CGFloat { 30 }
+    func outlineView(_ outlineView: NSOutlineView, rowViewForItem item: Any) -> NSTableRowView? { SidebarRowView() }
+    func outlineView(_ outlineView: NSOutlineView, viewFor tableColumn: NSTableColumn?, item: Any) -> NSView? {
+        let cell = SidebarRowCellView()
+        cell.configure(title: item as! String, symbolName: "photo", count: 12)
+        return cell
+    }
+}
+
 @main struct NativeUIEquivalenceHarness {
     @MainActor static func main() throws {
         initializeNativeAppHarness()
@@ -343,6 +357,50 @@ import QuartzCore
         probeObserver = nil
         checks["menu-observer-released"] = weakObserver == nil
         NotificationCenter.default.post(name: NSPopover.willCloseNotification, object: probePopover)
+        facts["checks"] = checks
+        for dark in [false, true] {
+            root.appearance = NSAppearance(named: dark ? .darkAqua : .aqua)
+            let data = SidebarFixtureData()
+            let sidebar = SidebarOutlineView(frame: NSRect(x: 0, y: 0, width: 220, height: 140))
+            let column = NSTableColumn(identifier: .init("sidebar"))
+            column.width = 220
+            sidebar.addTableColumn(column)
+            sidebar.outlineTableColumn = column
+            sidebar.headerView = nil
+            sidebar.rowSizeStyle = .default
+            sidebar.style = .sourceList
+            sidebar.floatsGroupRows = false
+            sidebar.indentationPerLevel = 10
+            sidebar.intercellSpacing = NSSize(width: 0, height: 4)
+            sidebar.dataSource = data
+            sidebar.delegate = data
+            root.addSubview(sidebar)
+            sidebar.reloadData()
+            sidebar.selectRowIndexes(IndexSet(integer: 1), byExtendingSelection: false)
+            window.makeFirstResponder(sidebar)
+            pump()
+            let row = sidebar.rowView(atRow: 1, makeIfNecessary: true) as! SidebarRowView
+            checks["sidebar-\(dark)-selection"] = sidebar.selectedRow == 1 && row.isSelected
+            checks["sidebar-\(dark)-geometry"] = sidebar.rect(ofRow: 1).height == 30
+            facts["sidebar-\(dark)-frames"] = (0..<3).map { index in
+                let rect = sidebar.rect(ofRow: index)
+                return [rect.minX, rect.minY, rect.width, rect.height]
+            }
+            image("sidebar-\(dark)-active", sidebar)
+            row.isEmphasized = false
+            facts["sidebar-\(dark)-nonemphasized"] = !row.isEmphasized
+            row.needsDisplay = true
+            image("sidebar-\(dark)-inactive", sidebar)
+            row.suppressSelectionDuringDrag = true
+            row.needsDisplay = true
+            image("sidebar-\(dark)-drag", sidebar)
+            checks["sidebar-\(dark)-drag-keeps-selection"] = sidebar.selectedRow == 1 && row.isSelected
+            row.suppressSelectionDuringDrag = false
+            row.needsDisplay = true
+            checks["sidebar-\(dark)-restore-keeps-selection"] = sidebar.selectedRow == 1 && row.isSelected
+            image("sidebar-\(dark)-restored", sidebar)
+            sidebar.removeFromSuperview()
+        }
         facts["checks"] = checks
         facts["nativeButton"] = InspectorFooterButton.self is NSButton.Type
         facts["windowVisible"] = window.isVisible
