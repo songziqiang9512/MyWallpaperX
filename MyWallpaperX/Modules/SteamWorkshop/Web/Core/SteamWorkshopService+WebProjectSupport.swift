@@ -1,10 +1,24 @@
 import Foundation
 
-extension SteamWorkshopService {
-    nonisolated func loadDecodedWebProject(for record: SteamWorkshopDownloadRecord) -> SteamWorkshopProject? {
-        Self.loadWorkshopProject(from: record.projectFileURL)
+/// The author project used for property definitions, independent of download
+/// status, previews, media discovery and the current installed-library pointer.
+nonisolated struct SteamWorkshopWebPropertyDefinitionSource: Equatable, Sendable {
+    let id: String
+    let folderURL: URL
+    let projectFileURL: URL?
+
+    init(id: String, folderURL: URL, projectFileURL: URL?) {
+        self.id = id
+        self.folderURL = folderURL.resolvingSymlinksInPath().standardizedFileURL
+        self.projectFileURL = projectFileURL?.resolvingSymlinksInPath().standardizedFileURL
     }
 
+    init(record: SteamWorkshopDownloadRecord) {
+        self.init(id: record.id, folderURL: record.folderURL, projectFileURL: record.projectFileURL)
+    }
+}
+
+extension SteamWorkshopService {
     enum WebFallbackResourceSemantic {
         case file(fileType: String?)
         case directory
@@ -126,56 +140,86 @@ extension SteamWorkshopService {
     }
 
     nonisolated static func loadWebProjectRootStatic(for record: SteamWorkshopDownloadRecord) -> [String: Any]? {
-        guard let projectFileURL = record.projectFileURL,
+        loadWebProjectRootStatic(projectFileURL: record.projectFileURL)
+    }
+
+    nonisolated static func loadWebProjectRootStatic(projectFileURL: URL?) -> [String: Any]? {
+        guard let projectFileURL,
               let data = try? Data(contentsOf: projectFileURL),
-              let object = try? JSONSerialization.jsonObject(with: data),
+              let root = loadWebProjectRootStatic(data: data) else { return nil }
+        return root
+    }
+
+    nonisolated static func loadWebProjectRootStatic(data: Data?) -> [String: Any]? {
+        guard let data, let object = try? JSONSerialization.jsonObject(with: data),
               let root = object as? [String: Any] else {
             return nil
         }
         return root
     }
 
-    nonisolated func declaredWebEntryRelativePath(for record: SteamWorkshopDownloadRecord) -> String? {
-        let declaredEntry = loadDecodedWebProject(for: record)?.file?
-            .trimmingCharacters(in: .whitespacesAndNewlines)
-        guard let declaredEntry,
-              declaredEntry.isEmpty == false else {
-            return nil
-        }
-        return declaredEntry.replacingOccurrences(of: "\\", with: "/")
+    nonisolated static func declaredWebEntryRelativePath(data: Data?) -> String? {
+        guard let data, let project = try? JSONDecoder().decode(SteamWorkshopProject.self, from: data),
+              let file = project.file?.trimmingCharacters(in: .whitespacesAndNewlines), !file.isEmpty else { return nil }
+        return file.replacingOccurrences(of: "\\", with: "/")
     }
 
-    func webPropertyDefinitionSourceRecord(for record: SteamWorkshopDownloadRecord) -> SteamWorkshopDownloadRecord? {
+    func webPropertyDefinitionSource(for record: SteamWorkshopDownloadRecord) -> SteamWorkshopWebPropertyDefinitionSource? {
         guard record.contentType == .web else { return nil }
-        guard record.isDependencyBackedWeb else { return record }
-        guard case let .available(itemID) = record.dependencyStatus else { return record }
+        let ownSource = SteamWorkshopWebPropertyDefinitionSource(record: record)
+        guard record.isDependencyBackedWeb else { return ownSource }
+        guard case let .available(itemID) = record.dependencyStatus else { return ownSource }
+        if let pinnedFolder = record.dependencyHostFolderURL {
+            // The caller already selected and leased this concrete host tree.
+            // Its stable item ID is not the managed directory's generation name.
+            return Self.webPropertyDefinitionSource(id: itemID, folderURL: pinnedFolder)
+        }
+        // Unpinned legacy records retain the original discovery authority and
+        // priority. That compatibility branch can still scan installed content.
         let dependencyRecord = latestDownloadRecord(for: itemID)
             ?? buildInstalledRecord(at: webLibraryRootURL.appendingPathComponent(itemID, isDirectory: true))
             ?? buildInstalledRecord(at: sceneLibraryRootURL.appendingPathComponent(itemID, isDirectory: true))
-        guard let dependencyRecord,
-              dependencyRecord.contentType == .web,
-              dependencyRecord.webEntryURL != nil else {
-            return record
-        }
-        return dependencyRecord
+        guard let dependencyRecord, dependencyRecord.contentType == .web,
+              dependencyRecord.webEntryURL != nil else { return ownSource }
+        return SteamWorkshopWebPropertyDefinitionSource(id: itemID, folderURL: dependencyRecord.folderURL,
+            projectFileURL: dependencyRecord.projectFileURL)
+    }
+
+    /// Only verifies the known folder and its optional standard project. The
+    /// pinned path must never trigger library, HTML, video or preview discovery.
+    nonisolated private static func webPropertyDefinitionSource(
+        id: String, folderURL: URL
+    ) -> SteamWorkshopWebPropertyDefinitionSource? {
+        let folder = folderURL.resolvingSymlinksInPath().standardizedFileURL
+        var isDirectory: ObjCBool = false
+        guard FileManager.default.fileExists(atPath: folder.path, isDirectory: &isDirectory), isDirectory.boolValue else { return nil }
+        let project = folder.appendingPathComponent("project.json")
+        let hasProject = (try? project.resourceValues(forKeys: [.isRegularFileKey]))?.isRegularFile == true
+        return SteamWorkshopWebPropertyDefinitionSource(id: id, folderURL: folder,
+            projectFileURL: hasProject ? project : nil)
     }
 
     func webSampleStructure(for record: SteamWorkshopDownloadRecord) -> SteamWorkshopWebSampleStructure {
         Self.webSampleStructure(
             record: record,
-            sourceRecord: webPropertyDefinitionSourceRecord(for: record) ?? record
+            source: webPropertyDefinitionSource(for: record) ?? SteamWorkshopWebPropertyDefinitionSource(record: record)
         )
     }
 
-    /// 解析核：sourceRecord 由主线程快照后传入，可在任意线程执行。
+    /// The lightweight source is captured by the caller, with no record rebuild.
     nonisolated static func webSampleStructure(
         record: SteamWorkshopDownloadRecord,
-        sourceRecord: SteamWorkshopDownloadRecord
+        source: SteamWorkshopWebPropertyDefinitionSource
     ) -> SteamWorkshopWebSampleStructure {
+        let root = Self.loadWebProjectRootStatic(projectFileURL: source.projectFileURL)
+        let count = ((root?["general"] as? [String: Any])?["properties"] as? [String: Any])?.count ?? 0
+        let names = Set((try? FileManager.default.contentsOfDirectory(atPath: source.folderURL.path)) ?? [])
+        return webSampleStructure(record: record, propertyCount: count, fileNames: names)
+    }
+
+    nonisolated static func webSampleStructure(record: SteamWorkshopDownloadRecord,
+        propertyCount: Int, fileNames: Set<String>) -> SteamWorkshopWebSampleStructure {
         if record.isDependencyBackedWeb { return .dependencyBackedShell }
-        let root = Self.loadWebProjectRootStatic(for: sourceRecord)
-        let propertyCount = ((root?["general"] as? [String: Any])?["properties"] as? [String: Any])?.count ?? 0
-        let fileNames = Set((try? FileManager.default.contentsOfDirectory(atPath: sourceRecord.folderURL.path)) ?? [])
         if fileNames.contains("spine-player.js") || fileNames.contains("spine-player4.1.js") { return .spineWebCharacter }
         if fileNames.contains("shaders") { return .shaderOrCanvasWeb }
         if propertyCount > 150 { return .megaConfigDashboardWeb }
@@ -190,8 +234,12 @@ extension SteamWorkshopService {
 
     nonisolated static func webPresetValues(for record: SteamWorkshopDownloadRecord) -> [String: SteamWorkshopWebPropertyValue] {
         guard record.contentType == .web,
-              let root = Self.loadWebProjectRootStatic(for: record),
-              let preset = root["preset"] as? [String: Any] else {
+              let root = Self.loadWebProjectRootStatic(for: record) else { return [:] }
+        return webPresetValues(projectRoot: root)
+    }
+
+    nonisolated static func webPresetValues(projectRoot: [String: Any]?) -> [String: SteamWorkshopWebPropertyValue] {
+        guard let preset = projectRoot?["preset"] as? [String: Any] else {
             return [:]
         }
 

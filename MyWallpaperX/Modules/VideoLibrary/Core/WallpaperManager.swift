@@ -98,6 +98,9 @@ class WallpaperManager: ObservableObject {
     var switchEffectQueue: [PlaybackSwitchTransaction.Effect] = []
     var drainingSwitchEffects = false
     var runtimeSwitchingConfigured = false
+    // App assembly connects request-local preparation cancellation. The product
+    // transaction remains the sole epoch and output authority.
+    var playbackIntentDidAdvance: ((WallpaperRuntimeKind?) -> Void)?
     var playbackIntentEpoch: UInt64 { playbackSwitch.epoch }
     var requestedRuntime: WallpaperRuntimeKind? { playbackSwitch.requestedRuntime }
 
@@ -119,6 +122,9 @@ class WallpaperManager: ObservableObject {
             pendingWallpaper = nil
             stopAutoSwitchTimer()
         }
+        // Effects and published projections can synchronously begin a newer
+        // intent. Only its own notification may invalidate retained helpers.
+        if playbackSwitch.epoch == epoch { playbackIntentDidAdvance?(runtime) }
         return epoch
     }
 
@@ -327,14 +333,6 @@ class WallpaperManager: ObservableObject {
         GlobalHotkeyManager.shared.update(with: settings)
         lastAppliedHotkeySettings = HotkeySettingsSnapshot(settings: settings)
         finishInitialIndexBootstrap()
-    }
-
-    func restorePersistedSystemAudioSpectrumIfNeeded() {
-        guard settings.systemAudioSpectrumEnabled else { return }
-        DispatchQueue.main.asyncAfter(deadline: .now() + 0.6) { [weak self] in
-            guard let self, self.settings.systemAudioSpectrumEnabled else { return }
-            self.applySystemAudioSpectrumToEngine()
-        }
     }
 
     let thumbnailFailureRetryCooldown: TimeInterval = 12

@@ -98,7 +98,7 @@ private enum Harness {
                 projectRootURL: URL(fileURLWithPath: input.projectRoot),
                 packageRootURL: input.packageRoot.map { URL(fileURLWithPath: $0) },
                 stockAssetsRootURL: input.stockRoot.map { URL(fileURLWithPath: $0) })
-            let graph = SceneShaderSourceGraphBuilder().build(roots: [
+            let graph = try SceneShaderSourceGraphBuilder().build(roots: [
                 .init(label: "vertex", virtualPath: input.vertexPath),
                 .init(label: "fragment", virtualPath: input.fragmentPath)
             ], resourceView: view)

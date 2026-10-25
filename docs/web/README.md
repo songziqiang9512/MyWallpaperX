@@ -18,7 +18,7 @@
 - [web-wallpaper-benchmark-standard.md](web-wallpaper-benchmark-standard.md)：长期运行证据与评分合同；不保存当前 PASS 数字。
 
 - [冷启动项目解析设计](cold-descriptor-parse-offload-design.md)：后台解析与取消边界。
-- [Scene/Web 冷暖启动专项](../development/wallpaper-startup-optimization-plan.md)：依赖快照、资源输入、宿主复用与分阶段验收；不替代本专题的作者/授权合同。
+- 启动职责继续查[Web 项目模型](web-project-json-runtime-model.md)与[独立宿主](dedicated-host-process-design.md)；[Scene/Web 启动专项完成记录](../history/cross-topic/wallpaper-startup-optimization-completed-2026-10-25.md)只保存实施取舍、STOP与有限验收，不产生现役任务。
 - [CSS 动画暂停设计](css-animation-freeze-redesign.md)：页面动画冻结与恢复合同。
 - [Scene/Web 共享歌曲信息方案](mediaremote-nowplaying-design.md)：共享采集迁移、五类媒体监听与失败恢复设计；实施状态见现役状态。
 - [独立桌面宿主与切换交接](dedicated-host-process-design.md)：Web 进程隔离、唯一采集 owner、候选交接与验收边界。

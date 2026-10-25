@@ -1,223 +1,166 @@
-"""Exercise execution-cache rejection order through the production async loader.
+"""Production warm analysis reuse, nonblocking save and publication CAS.
 
-Decode, validation, resource BFS and the playback preparation consumer are real.
-Only actor metadata and descriptor/payload recomputation leaves are controlled;
-the real scanner has a test-local call counter. No App or user library is opened.
+No parser substitutes: the shared harness compiles the real capture, JSON,
+properties, assembly and playback preparation. Gates pause staging/rename only.
 """
 from __future__ import annotations
 
-import os
-from pathlib import Path
-import subprocess
-import tempfile
 import unittest
-
 from script.tests.test_steam_library_interactions import method
-from script.tests.test_web_compat_parity import source_block
+from script.tests.test_web_author_preparation import CHECKS, WEB, harness_source as author_source, run_harness
 
-ROOT = Path(__file__).resolve().parents[2]
-WEB = ROOT / "MyWallpaperX/Modules/SteamWorkshop/Web/Core"
-
-
-COLLABORATORS = r'''
-import Foundation
-
-struct SteamWorkshopDownloadRecord { let id: String }
-enum PropertyKind { case file, directory, other }
-struct PropertyDefinition { let key: String; let kind: PropertyKind }
-struct PropertyValue { let stringValue: String? }
-struct ResolvedWebProjectDescriptor {
-    let resolvedEntryURL: URL
-    let effectiveRootURL: URL
-    let propertyDefinitions: [PropertyDefinition]
-}
-// Analysis data is irrelevant to execution loading; retain only the fields the
-// unchanged analysis validator references so the entire validator compiles.
-struct CachedResolvedWebProjectDescriptor: Codable, Equatable {
-    let resolvedEntryPath: String
-    let effectiveRootPath: String
-}
-final class ScanCounter: @unchecked Sendable {
-    private let lock = NSLock()
-    private var value = 0
-    func record() { lock.lock(); value += 1; lock.unlock() }
-    func reset() { lock.lock(); value = 0; lock.unlock() }
-    var count: Int { lock.lock(); defer { lock.unlock() }; return value }
-}
-@MainActor final class SteamWorkshopService {
-    let inputs: WebRuntimeCacheManifestInputs
-    nonisolated let scanCounter = ScanCounter()
-    var definitions: [PropertyDefinition] = []
-    var overrides: [String: PropertyValue] = [:]
-    var bookmarkedKeys = Set<String>()
-    var descriptorReads = 0
-    var saves = 0
-    static func resolvedWebWallpaperLanguage() -> String { "en-us" }
-    init(inputs: WebRuntimeCacheManifestInputs) { self.inputs = inputs }
-    func webRuntimeCacheManifestInputs(for record: SteamWorkshopDownloadRecord) -> WebRuntimeCacheManifestInputs { inputs }
-    func webPropertyDefinitions(for record: SteamWorkshopDownloadRecord) -> [PropertyDefinition] { definitions }
-    func webPropertyOverrides(for record: SteamWorkshopDownloadRecord) -> [String: PropertyValue] { overrides }
-    func hasWebPropertyBookmark(forKey key: String, record: SteamWorkshopDownloadRecord) -> Bool { bookmarkedKeys.contains(key) }
-    func resolvedWebProjectDescriptorForLaunch(for record: SteamWorkshopDownloadRecord) async -> ResolvedWebProjectDescriptor? {
-        descriptorReads += 1
-        return .init(resolvedEntryURL: inputs.entryURL!, effectiveRootURL: inputs.rootURL!, propertyDefinitions: [])
-    }
-    func resolvedWebResourceGrants(for record: SteamWorkshopDownloadRecord,
-        definitions: [PropertyDefinition], valuesOverride: [String: String]? = nil,
-        effectiveRootURL: URL) -> [WebWallpaperResourceGrant] { [] }
-    func effectiveWebPropertyValues(for record: SteamWorkshopDownloadRecord,
-        descriptor: ResolvedWebProjectDescriptor) -> [String: String] { ["marker": "recomputed"] }
-    func effectiveWebPropertiesJSONString(for record: SteamWorkshopDownloadRecord,
-        definitions: [PropertyDefinition], valuesOverride: [String: String]) -> String? {
-        #"{"marker":{"type":"text","value":"recomputed"}}"#
-    }
-    func saveWebRuntimeCache(descriptor: ResolvedWebProjectDescriptor,
-        propertyPayloadJSON: String?, for record: SteamWorkshopDownloadRecord) async { saves += 1 }
-}
-func check(_ condition: @autoclosure () -> Bool, _ message: String) {
-    guard condition() else { fatalError(message) }
-}
-'''
-
-
-CHECKS = r'''
-@main enum Harness {
+CACHE_CHECKS = r'''
+@main enum CacheHarness {
     @MainActor static func main() async throws {
         let fm = FileManager.default
-        let root = URL(fileURLWithPath: fm.currentDirectoryPath).resolvingSymlinksInPath().standardizedFileURL
-            .appendingPathComponent("renamed-project", isDirectory: true)
-        try fm.createDirectory(at: root, withIntermediateDirectories: true)
-        let entry = root.appendingPathComponent("entry with space.html")
-        let script = root.appendingPathComponent("arbitrary-module.js")
-        let css = root.appendingPathComponent("arbitrary-style.css")
-        let data = root.appendingPathComponent("arbitrary-data.json")
-        let files = [(entry, "<script src='arbitrary-module.js'></script><link href='arbitrary-style.css'>"),
-                     (script, "import 'arbitrary-data.json'; const renamedValue = 1;"),
-                     (css, "body { color: red; }"), (data, "{\"renamed\":1}")]
-        for (url, text) in files { try Data(text.utf8).write(to: url) }
-        let input = SteamWorkshopService.WebRuntimeCacheManifestInputs(recordID: "renamed-record", language: "en-us",
-            projectModifiedAt: Date(timeIntervalSinceReferenceDate: 100), propertySourceRecordID: "renamed-source",
-            propertySourceProjectModifiedAt: Date(timeIntervalSinceReferenceDate: 200),
-            resolvedEntryModifiedAt: Date(timeIntervalSinceReferenceDate: 300), overridesSignature: Data([1, 2]),
-            entryURL: entry, rootURL: root, currentEntryPath: entry.path, currentRootPath: root.path,
-            analysisFileURL: root.appendingPathComponent("analysis.json"), runtimeFileURL: root.appendingPathComponent("runtime.json"),
-            sessionStartDate: Date())
-        let record = SteamWorkshopDownloadRecord(id: input.recordID)
-        let service = SteamWorkshopService(inputs: input)
-        let payload = #"{"renamedChoice":{"type":"text","value":"author Default"},"color":{"type":"color","value":"0.1 0.2 0.3"}}"#
-        func signature() -> SteamWorkshopWebRuntimeResourceSignature {
-            service.webRuntimeResourceSignature(entryURL: entry, rootURL: root)!
+        let root = URL(fileURLWithPath: fm.currentDirectoryPath).resolvingSymlinksInPath()
+        let folder = root.appendingPathComponent("author"); try fm.createDirectory(at: folder, withIntermediateDirectories: true)
+        func write(_ text: String, _ name: String) throws { try Data(text.utf8).write(to: folder.appendingPathComponent(name)) }
+        let project = #"{"file":"index.html","general":{"properties":{"speed":{"type":"slider","value":1},"selected":{"type":"file","value":"bundled.png"}}},"preset":{"speed":7}}"#
+        try write(project, "project.json"); try write("<script src='a.js'></script>", "index.html"); try write("properties.fps", "a.js")
+        try write("bundled", "bundled.png")
+        let external = root.appendingPathComponent("external.png"), peerFileURL = root.appendingPathComponent("peer.png")
+        try Data("external".utf8).write(to: external); try Data("peer".utf8).write(to: peerFileURL)
+        let record = SteamWorkshopDownloadRecord(id: "cached", folderURL: folder,
+            projectFileURL: folder.appendingPathComponent("project.json"), entryURL: folder.appendingPathComponent("index.html"))
+        let service = SteamWorkshopService(); service.steamDownloadLibraryRootURL = root.appendingPathComponent("library")
+        trace.reset(); let backgroundWrite = Gate(); cacheStaging.gate = backgroundWrite
+        let cold = await service.prepareWebPlaybackContext(for: record)!
+        await backgroundWrite.wait()
+        check(!fm.fileExists(atPath: service.webAnalysisCacheFileURL(for: record).path), "playback preparation returns while optional cache publication is blocked")
+        cacheStaging.gate = nil; backgroundWrite.release.signal()
+        check(cold.descriptor.defaultValueMap["speed"] == .number(7) && trace.parseCount == 1, "real cold parser and final projection")
+        check(trace.rows.count == 3, "cold capture plus parse plus save performs one actual read per author file")
+        let analysisURL = service.webAnalysisCacheFileURL(for: record)
+        func waitForAnalysis(expectedSpeed: Double = 7) async throws -> Data {
+            for _ in 0..<200 {
+                if let data = try? Data(contentsOf: analysisURL),
+                   let manifest = try? JSONDecoder().decode(SteamWorkshopWebAnalysisCacheManifest.self, from: data),
+                   manifest.version == SteamWorkshopWebAnalysisCacheManifest.currentVersion,
+                   manifest.author.product.presetOverrides["speed"] == .number(expectedSpeed) { return data }
+                try await Task.sleep(for: .milliseconds(10))
+            }
+            fatalError("analysis writer did not finish")
         }
-        func persist(_ signature: SteamWorkshopWebRuntimeResourceSignature?) throws {
-            let manifest = SteamWorkshopWebRuntimeCacheManifest(version: SteamWorkshopWebRuntimeCacheManifest.currentVersion,
-                recordID: input.recordID, generatedAt: Date(), language: input.language,
-                projectModifiedAt: input.projectModifiedAt, propertySourceRecordID: input.propertySourceRecordID,
-                propertySourceProjectModifiedAt: input.propertySourceProjectModifiedAt,
-                resolvedEntryModifiedAt: input.resolvedEntryModifiedAt, resourceSignature: signature,
-                overridesSignature: input.overridesSignature,
-                execution: .init(resolvedEntryPath: entry.path, effectiveRootPath: root.path, propertyPayloadJSON: payload))
-            try JSONEncoder().encode(manifest).write(to: input.runtimeFileURL)
+        let analysisOriginal = try await waitForAnalysis()
+        trace.reset()
+        let warmMemo = await service.prepareWebPlaybackContext(for: record)!
+        check(cold == warmMemo && trace.rows.isEmpty && trace.parseCount == 0, "memo warm performs no author byte reads or scan")
+        service.webProjectDescriptorCache = [:]; trace.reset()
+        let warm = await service.prepareWebPlaybackContext(for: record)!
+        check(cold == warm && trace.rows.isEmpty && trace.parseCount == 0, "disk warm reuses author analysis without scanning dependencies")
+        // Exercise the actual property actions. Persistence/bookmark and live
+        // player delivery remain the harness's existing controlled leaves.
+        let speed = warm.descriptor.propertyDefinitions.first { $0.key == "speed" }!
+        let authorMemo = service.webProjectDescriptorCache[record.id]
+        check(authorMemo != nil, "warm preparation has a reusable author memo")
+        trace.reset()
+        service.updateWebPropertyValue(.number(11), for: speed, record: record)
+        check(service.webProjectDescriptorCache[record.id] == authorMemo, "property update retains author-only memo")
+        service.bookmarks["selected"] = external
+        let updated = await service.prepareWebPlaybackContext(for: record)!
+        let updatedJSON = try JSONSerialization.jsonObject(with: Data(updated.context.propertyPayloadJSON!.utf8)) as! [String: [String: Any]]
+        check(updatedJSON["speed"]?["value"] as? Double == 11 && updated.descriptor == cold.descriptor
+            && trace.rows.isEmpty && trace.parseCount == 0, "actual property update keeps next preparation warm with latest override")
+        check(updatedJSON["selected"]?["value"] as? String == external.path
+            && updated.context.resourceGrants.contains { $0.url == external && $0.kind == .file }
+            && !updated.context.resourceGrants.contains { $0.allowsCanonicalURL(peerFileURL) }, "warm author cannot cache bookmark payload or widen exact-file grants")
+        service.resetWebPropertyValues(for: record)
+        check(service.webProjectDescriptorCache[record.id] == authorMemo, "property reset retains author-only memo")
+        trace.reset()
+        let reset = await service.prepareWebPlaybackContext(for: record)!
+        let resetJSON = try JSONSerialization.jsonObject(with: Data(reset.context.propertyPayloadJSON!.utf8)) as! [String: [String: Any]]
+        check(resetJSON["speed"]?["value"] as? Double == 7 && trace.rows.isEmpty && trace.parseCount == 0
+            && !reset.context.resourceGrants.contains { $0.url == external }, "actual reset clears current override/bookmark while author remains warm")
+        service.observeWebPlaybackFailures()
+        NotificationCenter.default.post(name: WallpaperEngine.playbackFailedNotification, object: nil,
+            userInfo: ["contentKind": "web", "recordID": record.id, "path": record.entryURL!.path, "message": "controlled runtime failure"])
+        for _ in 0..<100 {
+            if service.lastWebPlaybackFailureMessage == "controlled runtime failure" { break }
+            try await Task.sleep(for: .milliseconds(5))
         }
-        @MainActor func rejected(_ label: String, scans: Int) async {
-            service.scanCounter.reset()
-            let context = await service.loadCachedWebPlaybackContext(for: record)
-            check(context == nil, "invalid execution accepted: " + label)
-            check(service.scanCounter.count == scans,
-                "unexpected scan count for " + label + ": \(service.scanCounter.count), expected \(scans)")
-        }
-
-        let originalSignature = signature()
-        check(originalSignature.scannedFileCount == 4 && !originalSignature.truncated,
-            "real scanner must reach the entry, JS, CSS and referenced JSON")
-        try persist(originalSignature)
-        let original = try Data(contentsOf: input.runtimeFileURL)
-        service.scanCounter.reset()
-        let hit = await service.loadCachedWebPlaybackContext(for: record)
-        check(hit == ResolvedWebPlaybackContext(recordID: record.id, effectiveEntryURL: entry,
-            effectiveRootURL: root, propertyPayloadJSON: payload, language: input.language),
-            "valid cache payload/paths changed: \(String(describing: hit))")
-        check(service.scanCounter.count == 1, "valid execution must still scan resources exactly once")
-
-        let cheap: [(String, Any)] = [("version", -1), ("recordID", "other"), ("language", "zh-cn"),
-            ("projectModifiedAt", 101.0), ("propertySourceRecordID", "other-source"),
-            ("propertySourceProjectModifiedAt", 201.0), ("resolvedEntryModifiedAt", 301.0),
-            ("overridesSignature", Data([9]).base64EncodedString())]
-        for (key, value) in cheap {
-            var json = try JSONSerialization.jsonObject(with: original) as! [String: Any]
-            json[key] = value
-            try JSONSerialization.data(withJSONObject: json).write(to: input.runtimeFileURL)
-            await rejected("cheap field " + key, scans: 0)
-        }
-        for field in ["resolvedEntryPath", "effectiveRootPath"] {
-            var json = try JSONSerialization.jsonObject(with: original) as! [String: Any]
-            var execution = json["execution"] as! [String: Any]
-            execution[field] = root.appendingPathComponent("different-" + field).path
-            json["execution"] = execution
-            try JSONSerialization.data(withJSONObject: json).write(to: input.runtimeFileURL)
-            await rejected("execution path " + field, scans: 0)
-        }
-        for malformed in [Data("broken-json".utf8), Data(#"{"version":"eighteen"}"#.utf8)] {
-            try malformed.write(to: input.runtimeFileURL)
-            await rejected("malformed/typed decode", scans: 0)
-        }
-        var wrongPayload = try JSONSerialization.jsonObject(with: original) as! [String: Any]
-        wrongPayload["execution"] = ["resolvedEntryPath": 12, "effectiveRootPath": root.path]
-        try JSONSerialization.data(withJSONObject: wrongPayload).write(to: input.runtimeFileURL)
-        await rejected("execution path has wrong type", scans: 0)
-        try fm.removeItem(at: input.runtimeFileURL)
-        await rejected("missing manifest", scans: 0)
-
-        // Resource edits keep every cheap field equal, so only the unchanged
-        // real BFS/signature comparison can reject each referenced resource.
-        for (url, body) in files.dropFirst() {
-            try persist(signature())
-            try Data((body + "\nchanged resource contents with a different size").utf8).write(to: url)
-            await rejected("resource " + url.pathExtension, scans: 1)
-            try Data(body.utf8).write(to: url)
-        }
-        try persist(nil)
-        await rejected("missing resource signature while resources exist", scans: 1)
-
-        // Build a manifest matching the scanner's missing-file signature. The
-        // final existence guard must still reject it after equality succeeds.
-        try fm.removeItem(at: entry)
-        try persist(signature())
-        await rejected("entry missing after otherwise equal checks", scans: 1)
-        try Data(files[0].1.utf8).write(to: entry)
-
-        // Existing live-resolution bypass must remain ahead of disk loading.
-        try persist(signature())
-        service.definitions = [.init(key: "chosenFile", kind: .file)]
-        service.bookmarkedKeys = ["chosenFile"]
-        await rejected("live bookmark", scans: 0)
-        service.bookmarkedKeys = []
-        service.overrides = ["chosenFile": .init(stringValue: "/unresolved/raw/file.mp3")]
-        await rejected("absolute resource override", scans: 0)
-        service.definitions = []; service.overrides = [:]
-
-        // Consume the same optional cache result through the actual preparation
-        // method. Recompute leaves are controlled; no copied loader/fallback.
-        service.scanCounter.reset()
-        let preparedHit = await service.prepareWebPlaybackContext(for: record)
-        check(preparedHit?.context.propertyPayloadJSON == payload && service.saves == 0,
-            "valid hit unexpectedly recomputed or changed payload")
-        check(service.scanCounter.count == 1, "preparation hit must retain its real resource scan")
+        check(service.lastWebPlaybackFailureRecordID == record.id
+            && service.lastWebPlaybackFailurePath == record.entryURL!.path
+            && service.lastWebPlaybackFailureMessage == "controlled runtime failure"
+            && service.webProjectDescriptorCache[record.id] == authorMemo, "actual failure observer publishes feedback without clearing author analysis")
+        trace.reset()
+        let recovered = await service.prepareWebPlaybackContext(for: record)!
+        check(recovered == reset && trace.rows.isEmpty && trace.parseCount == 0, "runtime failure leaves same-author preparation warm")
+        let inputs = service.webRuntimeCacheManifestInputs(for: record, source: service.webPropertyDefinitionSource(for: record))
         for missing in [false, true] {
-            if missing { try fm.removeItem(at: input.runtimeFileURL) }
-            else { try Data("corrupt cache".utf8).write(to: input.runtimeFileURL) }
-            let readsBefore = service.descriptorReads
-            let savesBefore = service.saves
-            service.scanCounter.reset()
-            let rebuilt = await service.prepareWebPlaybackContext(for: record)
-            check(rebuilt?.context.propertyPayloadJSON == #"{"marker":{"type":"text","value":"recomputed"}}"#,
-                "bad/missing manifest did not take the existing recomputation interface")
-            check(rebuilt?.context.effectiveEntryURL == entry && rebuilt?.context.effectiveRootURL == root,
-                "recomputed projection changed entry/root")
-            check(service.descriptorReads == readsBefore + 1 && service.saves == savesBefore + 1,
-                "bad manifest changed fallback ownership or introduced retries")
-            check(service.scanCounter.count == 0, "bad manifest scanned before recomputation")
-            if !missing { try persist(signature()) }
+            if missing { try fm.removeItem(at: analysisURL) } else { try Data("corrupt".utf8).write(to: analysisURL) }
+            check(SteamWorkshopService.loadCachedAnalysisDescriptor(inputs: inputs) == nil, "missing/corrupt analysis is a cache miss, not a playback refusal")
+            try analysisOriginal.write(to: analysisURL)
         }
+        for wrongVersion in [false, true] {
+            var json = try JSONSerialization.jsonObject(with: analysisOriginal) as! [String: Any]
+            if wrongVersion { json["version"] = -1 }
+            else {
+                var author = json["author"] as! [String: Any]
+                var identity = author["identity"] as! [String: Any]
+                identity["languageKeys"] = ["different"]; author["identity"] = identity; json["author"] = author
+            }
+            try JSONSerialization.data(withJSONObject: json).write(to: analysisURL)
+            check(SteamWorkshopService.loadCachedAnalysisDescriptor(inputs: inputs) == nil, "schema/ordered locale changes invalidate derived analysis")
+            try analysisOriginal.write(to: analysisURL)
+        }
+        // Same size and mtime still changes ctime/replacement identity.
+        let projectURL = record.projectFileURL!
+        let oldDate = try fm.attributesOfItem(atPath: projectURL.path)[.modificationDate] as! Date
+        try write(project.replacingOccurrences(of: "\"speed\":7", with: "\"speed\":8"), "project.json")
+        try fm.setAttributes([.modificationDate: oldDate], ofItemAtPath: projectURL.path)
+        service.webProjectDescriptorCache = [:]
+        let edited = await service.prepareWebPlaybackContext(for: record)!
+        check(edited.descriptor.defaultValueMap["speed"] == .number(8), "stat revisions reject stale same-size/mtime author input")
+
+        _ = try await waitForAnalysis(expectedSpeed: 8)
+
+        let owner = SteamWorkshopWebRuntimeCachePublication.shared
+        let target = root.appendingPathComponent("publication/analysis.json")
+        let peer = root.appendingPathComponent("publication/runtime.json")
+        let key = target.path
+        // Writer already passed actor checks and completed IO outside its lock.
+        // A new ticket can publish; the old rename cannot overwrite it.
+        let old = owner.begin(key: key)
+        let staging = Gate(); cacheStaging.gate = staging
+        let late = Task.detached { owner.publish(Data("old".utf8), to: target, ticket: old) }
+        await staging.wait()
+        let newer = owner.begin(key: key)
+        check(owner.publish(Data("new".utf8), to: target, ticket: newer), "new publication while old staging is blocked")
+        staging.release.signal(); let lateResult = await late.value
+        let finalData = try Data(contentsOf: target)
+        check(!lateResult && finalData == Data("new".utf8), "final CAS fences check-before-IO race")
+        cacheStaging.gate = nil
+        // Deletion shares the same commit fence and cannot be resurrected.
+        let deleted = owner.begin(key: key)
+        check(owner.publish(Data("A".utf8), to: target, ticket: deleted) && owner.publish(Data("B".utf8), to: peer, ticket: deleted), "delete fixture")
+        let deleteStaging = Gate(); cacheStaging.gate = deleteStaging
+        let resurrection = Task.detached { owner.publish(Data("late".utf8), to: target, ticket: deleted) }
+        await deleteStaging.wait(); owner.invalidate(key: key, removing: [target, peer]); deleteStaging.release.signal()
+        let resurrectionResult = await resurrection.value
+        check(!resurrectionResult && !fm.fileExists(atPath: target.path) && !fm.fileExists(atPath: peer.path), "delete cannot be undone by staged old save")
+        cacheStaging.gate = nil
+        // Cancellation while staging is complete rejects rename and cleans only
+        // this O_EXCL staging file, leaving no pending writer behind.
+        let cancelTicket = owner.begin(key: key); let cancelGate = Gate(); cacheStaging.gate = cancelGate
+        let canceled = Task.detached { owner.publish(Data("cancel".utf8), to: target, ticket: cancelTicket) }
+        await cancelGate.wait(); canceled.cancel(); cancelGate.release.signal(); let canceledResult = await canceled.value
+        check(!canceledResult && !fm.fileExists(atPath: target.path), "canceled save cannot publish")
+        cacheStaging.gate = nil
+        let pending = try fm.contentsOfDirectory(atPath: target.deletingLastPathComponent().path).filter { $0.hasSuffix(".pending") }
+        check(pending.isEmpty, "owned staging cleanup after stale/delete/cancel")
+        // A publication already in rename serializes with deletion. The test
+        // releases it from outside the actor instead of blocking the UI owner.
+        let committed = owner.begin(key: key); let renameGate = Gate(); cacheCommit.gate = renameGate
+        let writer = Task.detached { owner.publish(Data("committing".utf8), to: target, ticket: committed) }
+        await renameGate.wait()
+        let remover = Task.detached { owner.invalidate(key: key, removing: [target]) }
+        renameGate.release.signal(); _ = await writer.value; await remover.value
+        check(!fm.fileExists(atPath: target.path), "in-commit writer finishes before same-fence physical delete")
+        cacheCommit.gate = nil
+        for i in 0..<500 { _ = owner.begin(key: "ephemeral-\(i)") }
+        _ = owner.begin(key: "reap")
+        check(owner.testLiveSlots <= 2, "registry retains active tickets, not historical records")
         print("web-runtime-cache-pass")
     }
 }
@@ -225,61 +168,62 @@ CHECKS = r'''
 
 
 def harness_source() -> str:
-    cache = (WEB / "SteamWorkshopService+WebRuntimeCache.swift").read_text()
-    validation = (WEB / "SteamWorkshopService+WebRuntimeCacheValidation.swift").read_text()
-    project = (WEB / "SteamWorkshopService+WebProjectSupport.swift").read_text()
-    models = (WEB / "SteamWorkshopWebResolvedRuntimeModels.swift").read_text()
-    model_types = (WEB / "SteamWorkshopWebResolvedRuntimeModelTypes.swift").read_text()
-    host_types = (ROOT / "MyWallpaperX/Core/SteamWorkshopWeb/Host/WebWallpaperHostTypes.swift").read_text()
-    declarations = [source_block(cache, name) for name in (
-        "nonisolated struct SteamWorkshopWebAnalysisCacheManifest",
-        "nonisolated struct SteamWorkshopWebRuntimeCacheManifest",
-        "nonisolated struct SteamWorkshopWebRuntimeResourceSignature",
-        "nonisolated struct CachedResolvedWebExecutionManifest")]
-    declarations += [source_block(host_types, "struct WebWallpaperResourceGrant"),
-                     source_block(model_types, "nonisolated struct ResolvedWebPlaybackContext"),
-                     source_block(model_types, "struct ResolvedWebPlaybackPreparation")]
-    scanner = method(cache, "nonisolated func webRuntimeResourceSignature(\n        entryURL:")
-    # Add only a test-local observation at the real scanner leaf; loader and all
-    # validation/FS algorithms compile directly from their production sources.
-    scanner = scanner.replace("{", "{\n        scanCounter.record()", 1)
-    methods = [source_block(cache, "nonisolated struct WebRuntimeCacheManifestInputs"),
-               method(cache, "func loadCachedWebPlaybackContext("),
-               method(cache, "nonisolated private static func liveResourceSignature("), scanner,
-               method(models, "func prepareWebPlaybackContext(for")]
-    methods += [source_block(project, "enum WebResourceReference")]
-    # This production function contains unmatched braces inside raw regex text;
-    # the shared brace counter is not a Swift lexer. Preserve its complete bytes
-    # up to the following declaration instead of truncating the regex function.
-    reference_start = project.index("    nonisolated static func extractLocalWebResourceReferences(")
-    reference_end = project.index("    nonisolated static func resolveWebResourceURL(", reference_start)
-    methods.append(project[reference_start:reference_end])
-    methods += [method(project, name) for name in (
-        "nonisolated func webRelativePath(",
-        "nonisolated static func resolveWebResourceURL(", "nonisolated static func shouldScanWebDependencyFile(",
-        "private nonisolated static func isWebPath(")]
-    return (COLLABORATORS + "\n" + "\n".join(declarations) + "\nextension SteamWorkshopService {\n"
-            + "\n".join(methods) + "\n}\n" + validation + "\n" + CHECKS)
+    source = author_source().removesuffix(CHECKS)
+    source = source.replace('import Foundation\n', 'import Foundation\nimport Combine\n', 1)
+    source = source.replace('@MainActor final class SteamWorkshopService {', r'''@MainActor final class SteamWorkshopService {
+    let objectWillChange = ObservableObjectPublisher()
+    var cancellables = Set<AnyCancellable>()
+    var lastWebPlaybackFailureRecordID: String?
+    var lastWebPlaybackFailurePath: String?
+    var lastWebPlaybackFailureMessage: String?
+    func saveWebPropertyOverrides(_ values: [String: SteamWorkshopWebPropertyValue], for record: SteamWorkshopDownloadRecord) { overrides = values }
+    func updateWebPropertyBookmark(for definition: SteamWorkshopWebPropertyDefinition,
+        value: SteamWorkshopWebPropertyValue, record: SteamWorkshopDownloadRecord) {}
+    func clearWebPropertyBookmarks(for record: SteamWorkshopDownloadRecord) { bookmarks.removeAll() }
+    func isActiveWebRecord(_ record: SteamWorkshopDownloadRecord) -> Bool { false }
+''', 1)
+    properties = (WEB / 'SteamWorkshopService+WebProperties.swift').read_text()
+    controls = (WEB / 'SteamWorkshopService+WebPropertyControlSupport.swift').read_text()
+    source += '\nextension SteamWorkshopService {\n' + '\n'.join(method(properties, signature) for signature in (
+        '    func updateWebPropertyValue(', '    func resetWebPropertyValues(',
+        '    private func webPropertyChangesResources(', '    func currentWebPropertyValue(',
+        '    func visibleWebPropertyOptions(',
+    )) + '\n' + method(controls, '    func shouldRefreshFullWebPropertyPayload(') + '\n}\n'
+    source += (WEB / 'SteamWorkshopService+WebRuntimeState.swift').read_text()
+    source += r'''
+@MainActor final class WallpaperEngine {
+    static let shared = WallpaperEngine()
+    nonisolated static let playbackFailedNotification = Notification.Name("controlled-web-runtime-failed")
+    var currentWebResourceGrants: [WebWallpaperResourceGrant] = []
+    var currentWebResourceRootURL: URL?
+    func updateCurrentWebWallpaperProperties(_ payload: String?, resourceGrants: [WebWallpaperResourceGrant], resourcesChanged: Bool) {}
+}
+'''
+    source += r'''
+nonisolated final class PublicationGate: @unchecked Sendable { var gate: Gate? }
+nonisolated let cacheStaging = PublicationGate()
+nonisolated let cacheCommit = PublicationGate()
+'''
+    source = source.replace('            try handle.write(contentsOf: data)', '            try handle.write(contentsOf: data)\n            cacheStaging.gate?.pause()', 1)
+    source = source.replace('            return rename(staging.path, fileURL.path) == 0', '            cacheCommit.gate?.pause()\n            return rename(staging.path, fileURL.path) == 0', 1)
+    source = source.replace('    private let registryLock = NSLock()', '    var testLiveSlots: Int { registryLock.withLock { slots.values.filter { $0.value != nil }.count } }\n    private let registryLock = NSLock()', 1)
+    # Compare complete resulting preparations without granting value types a new
+    # product conformance just for this gate.
+    source += r'''
+@MainActor func == (lhs: ResolvedWebPlaybackPreparation, rhs: ResolvedWebPlaybackPreparation) -> Bool {
+    let a = lhs.context, b = rhs.context
+    let aj = a.propertyPayloadJSON.flatMap { try? JSONSerialization.jsonObject(with: Data($0.utf8)) } as? NSDictionary
+    let bj = b.propertyPayloadJSON.flatMap { try? JSONSerialization.jsonObject(with: Data($0.utf8)) } as? NSDictionary
+    return a.recordID == b.recordID && a.effectiveEntryURL == b.effectiveEntryURL && a.effectiveRootURL == b.effectiveRootURL
+        && a.language == b.language && a.resourceGrants == b.resourceGrants && aj == bj && lhs.descriptor == rhs.descriptor
+}
+'''
+    return source + CACHE_CHECKS
 
 
 class WebRuntimeCacheTests(unittest.TestCase):
-    def test_execution_loader_rejects_cheap_misses_without_resource_scans(self):
-        with tempfile.TemporaryDirectory(prefix="mwx-web-runtime-cache-") as temporary:
-            task = Path(temporary)
-            source = task / "Harness.swift"
-            source.write_text(harness_source())
-            compiled = subprocess.run(["xcrun", "swiftc", "-parse-as-library", str(source),
-                "-module-cache-path", str(task / "modules"), "-o", str(task / "harness")],
-                capture_output=True, text=True, timeout=90)
-            self.assertEqual(compiled.returncode, 0, compiled.stdout + compiled.stderr)
-            home, scratch = task / "home", task / "tmp"
-            home.mkdir(); scratch.mkdir()
-            environment = dict(os.environ, HOME=str(home), CFFIXED_USER_HOME=str(home), TMPDIR=str(scratch) + "/")
-            result = subprocess.run([str(task / "harness")], cwd=task, env=environment,
-                                    capture_output=True, text=True, timeout=30)
-            self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
-            self.assertIn("web-runtime-cache-pass", result.stdout)
+    def test_real_preparation_and_publication_fence(self):
+        run_harness(self, harness_source(), 'web-runtime-cache-pass')
 
 
-if __name__ == "__main__":
-    unittest.main()
+if __name__ == '__main__': unittest.main()

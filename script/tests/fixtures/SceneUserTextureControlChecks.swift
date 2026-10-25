@@ -41,6 +41,7 @@ import Foundation
         let lifetime: Int
         var rootURL: URL = URL(fileURLWithPath: "/own")
         var recordID: String? = "own"
+        var source: ScenePlaybackSource? = nil
     }
     var activeIntent: ScenePlaybackLoadRequest?
     var pendingIntent: ScenePlaybackLoadRequest?
@@ -59,6 +60,7 @@ import Foundation
     var pendingPresentationRequestID:UUID?
     var pendingPresentationReachability:ScenePreparedCallbackPropertyReachability?
     var requestResourceLifetimes:[UUID:Int]=[:]
+    var sourceSchemaVersion: Int?
     var endpointReady = true
     var transport: Transport? = .init()
     var sessionGeneration: UInt64 = 1
@@ -443,6 +445,29 @@ extension Notification.Name {
             checks["protocol_rejects_invalid_atomic_request"] = invalids.allSatisfy {
                 if case .failure = decode($0) { return true }; return false
             }
+        }
+        do {
+            func source(_ generation: String) -> ScenePlaybackSource {
+                .init(rootURL: URL(fileURLWithPath: "/own"), managed: .init(
+                    storageIdentity: "v2:scene:123-" + generation, generation: generation))
+            }
+            let a = source("11111111-1111-4111-8111-111111111111")
+            let b = source("22222222-2222-4222-8222-222222222222")
+            let c = client(), candidate = UUID()
+            c.activeIntent?.source = a; c.activeResourceLifetime = .init(lifetime: 1, source: a)
+            var result: ScenePlaybackTextureUpdateOutcome?
+            _ = c.reloadUserTextureUpdate(update(1)) { result = $0 }
+            launch(c, id: candidate, phase: "accepted")
+            c.activeIntent?.source = b
+            c.resumeDeferredTextureUpdates(recordID: "own", requestID: candidate)
+            checks["old_source_fallback_cannot_replace_current_generation"] = result == .superseded
+                && c.activeIntent?.source == b
+            let newer = client()
+            newer.activeIntent?.source = a; newer.activeResourceLifetime = .init(lifetime: 1, source: a)
+            _ = newer.reloadUserTextureUpdate(update(1)) { _ in }
+            newer.pendingIntent?.source = b
+            newer.finishPendingTextureUpdates(.superseded)
+            checks["old_source_cancel_cannot_restore_over_new_pending_generation"] = newer.pendingIntent?.source == b
         }
         print(String(decoding: try JSONSerialization.data(withJSONObject: checks), as: UTF8.self))
     }

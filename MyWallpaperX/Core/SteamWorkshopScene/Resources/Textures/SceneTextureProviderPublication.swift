@@ -20,6 +20,8 @@ nonisolated struct SceneTextureProviderPublication {
         switch (candidate.identity, candidate.generation) {
         case (.file, .file), (.builtIn, .immutable):
             return true
+        case let (.package(identity), .package(revision)):
+            return identity.isValid && revision.isValid
         case let (.provider, .provider(generation)):
             return generation == contentGeneration
         default:
@@ -53,7 +55,7 @@ nonisolated struct SceneTextureProviderPublication {
         case .provider(.mediaThumbnailCurrent),
              .provider(.mediaThumbnailPrevious):
             return false
-        case .file, .builtIn, .provider:
+        case .file, .package, .builtIn, .provider:
             return true
         }
     }
@@ -97,7 +99,7 @@ nonisolated struct SceneTextureProviderPublication {
         switch candidate.identity {
         case let .provider(identity):
             return .provider(identity)
-        case .file, .builtIn:
+        case .file, .package, .builtIn:
             return .versionedResource(
                 identity: candidate.identity,
                 generation: candidate.generation
@@ -112,6 +114,8 @@ nonisolated struct SceneTextureProviderPublication {
         switch (candidate.identity, candidate.generation) {
         case (.file, .file), (.builtIn, .immutable):
             return true
+        case let (.package(identity), .package(revision)):
+            return identity.isValid && revision.isValid
         case let (.provider, .provider(contentGeneration)):
             return contentGeneration == self.contentGeneration
         default:
@@ -216,7 +220,7 @@ nonisolated struct SceneLayerSourcePublication {
             return false
         }
         switch publication.candidate.identity {
-        case .file, .builtIn:
+        case .file, .package, .builtIn:
             return true
         case let .provider(.video(candidateLayerID, _)):
             return candidateLayerID == layerID
@@ -230,7 +234,7 @@ nonisolated struct SceneLayerSourcePublication {
         publication: SceneTextureProviderPublication
     ) -> Bool {
         switch publication.candidate.identity {
-        case .file, .builtIn:
+        case .file, .package, .builtIn:
             return true
         case let .provider(.materialSource(candidateLayerID, _, _)),
              let .provider(.dynamicText(candidateLayerID)),

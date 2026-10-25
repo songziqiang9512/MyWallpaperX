@@ -35,7 +35,7 @@ final class SceneDesktopWallpaperHost {
     /// The daemon requests admission after every candidate GPU surface is ready.
     /// Direct DEBUG hosts leave this nil and preserve their local transaction.
     var candidatePreparedHandler: ((UUID) -> Void)?
-    var requestResourcesReleasedHandler: ((UUID) -> Void)?
+    var requestResourcesReleasedHandler: ((UUID, Bool) -> Void)?
     var candidatePromotion: (requestID: UUID, promote: () -> Void)?
     var unconfirmedPromotion: (requestID: UUID, previous: SceneDesktopWallpaperSession?)?
     var presentationDeadline: DispatchWorkItem?

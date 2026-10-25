@@ -19,7 +19,7 @@ import unittest
 from script.tests import test_scene_static_model_reader as reader
 from script.tests.test_scene_directional_shadow_integration import png, quad
 from script.tests.test_scene_static_model_parts import join_parts
-from script.tests.test_scene_pkg_cache_extractor import make_package
+from script.tests.scene_pkg_fixture import make_package
 from script.tests.test_scene_fullscreen_visibility_integration import app_hashes, file_hashes
 from script.web_benchmark_capture import png_rgb_pixels
 
@@ -32,7 +32,7 @@ STATES = (("nocull", "  NoCull \n"), ("normal", "normal"),
 SOURCES = tuple(REPO / "script/tests" / name for name in (
     "test_scene_static_model_cull_integration.py", "test_scene_static_model_reader.py",
     "test_scene_static_model_parts.py", "test_scene_directional_shadow_integration.py",
-    "test_scene_pkg_cache_extractor.py", "test_scene_fullscreen_visibility_integration.py"
+    "scene_pkg_fixture.py", "test_scene_fullscreen_visibility_integration.py"
 )) + (REPO / "script/web_benchmark_capture.py",)
 
 

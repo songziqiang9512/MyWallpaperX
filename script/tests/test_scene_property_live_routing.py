@@ -11,6 +11,8 @@ import unittest
 import zlib
 from pathlib import Path
 
+from script.tests.scene_video_segment_delegate_fixture import compile_segment_delegate
+
 
 REPOSITORY_ROOT = Path(__file__).resolve().parents[2]
 SERVICE_SOURCE = REPOSITORY_ROOT / (
@@ -64,7 +66,14 @@ extension Notification.Name {
         (intentEpoch: UInt64, isCurrent: () -> Bool, cancel: () -> Void)?)?
     init() { defaults = UserDefaults(suiteName: suiteName)! }
     func cleanup() { defaults.removePersistentDomain(forName: suiteName); defaults.synchronize() }
-    func libraryVersionLifetime(for record: SteamWorkshopDownloadRecord) throws -> PlaybackResourceLifetime? { nil }
+    // Controlled source admission; playback runs its real synchronous method.
+    struct SceneSourceAdmission {
+        let source: ScenePlaybackSource
+        let resourceLifetime: PlaybackResourceLifetime?
+    }
+    func sceneSourceAdmission(for record: SteamWorkshopDownloadRecord) throws -> SceneSourceAdmission {
+        .init(source: .init(rootURL: record.folderURL), resourceLifetime: nil)
+    }
     func clearLaunchPending(matching id: String) {}
     func resetSceneShortcutProperties(for record: SteamWorkshopDownloadRecord,
         completion: @escaping @MainActor (ScenePlaybackShortcutUpdateOutcome) -> Void) { completion(.applied) }
@@ -156,7 +165,7 @@ extension Notification.Name {
             try await waitForReload()
             let reloads = spy.requests.count - before
             service.requestSceneRender(record)
-            rows.append(["case": name, "outcome": outcomeLabel(accepted), "reloads": reloads, "path": requestPath()])
+                rows.append(["case": name, "outcome": outcomeLabel(accepted), "reloads": reloads, "path": requestPath()])
         }
         for name in ["broken.png", "crc-broken.png", "directory.png", "missing.png", "unsupported.gif"] {
             _ = await select(png)
@@ -169,7 +178,7 @@ extension Notification.Name {
             try await waitForReload()
             let reloads = spy.requests.count - before
             service.requestSceneRender(record)
-            rows.append([
+                rows.append([
                 "case": name, "outcome": outcomeLabel(accepted), "reloads": reloads,
                 "bookmarkUnchanged": service.defaults.data(forKey: bookmarkKey) == bookmark,
                 "overridesUnchanged": service.scenePropertyOverrides(for: record) == overrides,
@@ -435,7 +444,7 @@ struct SceneDaemonClient {
 }
 @main enum ContextProbe {
     @MainActor static func main() throws {
-        let facts = SceneRuntimeSourceFactsBuilder().build(
+        let facts = try SceneRuntimeSourceFactsBuilder().build(
             rootURL: URL(fileURLWithPath: CommandLine.arguments[1])
         )
         let service = SteamWorkshopService()
@@ -717,13 +726,21 @@ class SceneTextureSelectionAdmissionTests(unittest.TestCase):
             SCENE_ROOT / "Resources/Textures/SceneImageTextureUploader+Resample.swift",
             SCENE_ROOT / "Resources/Textures/SceneResourceBudget.swift",
             SCENE_ROOT / "Resources/Providers/SceneVideoPayloadPreparation.swift",
+            SCENE_ROOT / "Resources/Providers/SceneVideoOwnedFile.swift",
+            SCENE_ROOT / "Resources/Assets/SceneResourceIndex.swift",
+            SCENE_ROOT / "Resources/Assets/SceneResourceView.swift",
+            SCENE_ROOT / "Resources/Assets/SceneResourceIdentity.swift",
+            SCENE_ROOT / "Resources/Assets/SceneResourceView+Backing.swift",
+            SCENE_ROOT / "Format/ScenePkgReader.swift",
+            REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopStorage/ScenePlaybackSource.swift",
             SCENE_ROOT / "Format/SceneWebMContainer.swift",
             REPOSITORY_ROOT / "MyWallpaperX/Core/PlaybackControl/ScenePlaybackShortcut.swift",
             TEXTURE_SOURCE, PLAYBACK_SOURCE, harness,
         ]
         binary = cls.work / "selection"
+        delegate_arguments = compile_segment_delegate(cls.work)
         compiled = subprocess.run(
-            ["swiftc", "-enable-upcoming-feature", "MemberImportVisibility", *map(str, sources), "-module-cache-path", str(cls.work / "cache"), "-o", str(binary)],
+            ["swiftc", "-enable-upcoming-feature", "MemberImportVisibility", *delegate_arguments, *map(str, sources), "-module-cache-path", str(cls.work / "cache"), "-o", str(binary)],
             capture_output=True, text=True,
         )
         if compiled.returncode:

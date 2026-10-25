@@ -66,13 +66,15 @@ class SceneDetailDiagnosticsOnDemandTests(unittest.TestCase):
         self.assertIn("propertyPreparation.preparePropertyEditor(for: current)", entry)
         self.assertNotIn("SceneDiagnosticsBuilder", self.controller)
         self.assertNotIn("makeSection", self.controller)
-        build = function_body(self.controller, "private static func buildPropertyInspection(")
+        build = function_body(self.controller, "private nonisolated static func buildPropertyInspection(")
         self.assertIn("SceneRuntimeSourceFactsBuilder().build(", build)
 
     def test_inspection_runs_off_main_and_rejects_stale_completion(self) -> None:
         start = function_body(self.controller, "private func startInspection(")
         finish = function_body(self.controller, "private func finishInspection(")
-        self.assertIn("queue.async(execute: workItem)", start)
+        self.assertIn("queue.async {", start)
+        self.assertIn("withCheckedContinuation", start)
+        self.assertNotIn("workItem.cancel()", start)
         self.assertIn("DispatchQueue.main.async", start)
         # Delivery, cancellation and replacement are exercised by the native
         # request-owner fixture rather than by a particular guard spelling.

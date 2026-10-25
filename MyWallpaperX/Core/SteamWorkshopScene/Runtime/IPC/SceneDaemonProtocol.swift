@@ -11,7 +11,8 @@ nonisolated enum SceneDaemonCommand: Equatable, Sendable {
         profile: PlaybackPerformanceProfile,
         recordID: String?,
         requiredUserTextureKeys: Set<String> = [],
-        requestID: UUID? = nil
+        requestID: UUID? = nil,
+        source: ScenePlaybackSource? = nil
     )
     case setProperty(
         values: [String: SceneUserPropertyValue],
@@ -25,7 +26,7 @@ nonisolated enum SceneDaemonCommand: Equatable, Sendable {
     case finalizeCandidate(requestID: UUID)
     case cancelCandidate(requestID: UUID, operationID: UUID? = nil)
     case setOutputActive(requestID: UUID, operationID: UUID, active: Bool)
-    case retireOutput(requestID: UUID, operationID: UUID)
+    case retireOutput(requestID: UUID, operationID: UUID, requireRequestRetirement: Bool = false)
     case setDisplayConfiguration([SceneScreenTopology])
     case setPerformanceProfile(PlaybackPerformanceProfile)
     /// Normalized master volume (0...1) applied after authored/user volume.
@@ -94,6 +95,14 @@ nonisolated enum SceneDaemonProtocol {
     static let commandFlag = "--mwx-scene-daemon"
     static let sceneRootFlag = "--mwx-scene-root"
 
+    static func sourceObject(_ source: ScenePlaybackSource) throws -> [String: Any] {
+        guard source.isValid,
+              let object = try JSONSerialization.jsonObject(with: JSONEncoder().encode(source)) as? [String: Any] else {
+            throw SceneDaemonProtocolFailure.invalidPayload("scene-source")
+        }
+        return object
+    }
+
     private static func optionalTextureKeys(_ raw: Any?) -> Set<String>? {
         guard let raw else { return [] }
         guard let keys = raw as? [String], keys.allSatisfy({ !$0.isEmpty }),
@@ -132,16 +141,29 @@ nonisolated enum SceneDaemonProtocol {
                   ), let requiredKeys = optionalTextureKeys(payload["requiredUserTextureKeys"]) else {
                 return .failure(.invalidPayload(action))
             }
+            let rootURL = URL(fileURLWithPath: root, isDirectory: true)
+                .resolvingSymlinksInPath().standardizedFileURL
+            let source: ScenePlaybackSource?
+            if let rawSource = payload["source"] {
+                guard JSONSerialization.isValidJSONObject(rawSource),
+                      let encoded = try? JSONSerialization.data(withJSONObject: rawSource),
+                      let decoded = try? JSONDecoder().decode(ScenePlaybackSource.self, from: encoded),
+                      decoded.isValid,
+                      decoded.rootURL.resolvingSymlinksInPath().standardizedFileURL.path == rootURL.path else {
+                    return .failure(.invalidPayload("scene-source"))
+                }
+                source = decoded
+            } else { source = nil }
             return .success(.loadScene(
-                rootURL: URL(fileURLWithPath: root, isDirectory: true)
-                    .resolvingSymlinksInPath().standardizedFileURL,
+                rootURL: rootURL,
                 propertyOverrides: values,
                 userPropertyTextures: textures,
                 userShortcuts: shortcuts,
                 profile: profile,
                 recordID: payload["recordID"] as? String,
                 requiredUserTextureKeys: requiredKeys,
-                requestID: requestID
+                requestID: requestID,
+                source: source
             ))
         case "setUserShortcuts":
             guard let configuration = shortcutConfiguration(payload["configuration"]),
@@ -221,7 +243,13 @@ nonisolated enum SceneDaemonProtocol {
                   let operationID = UUID(uuidString: rawOperation) else {
                 return .failure(.invalidPayload(action))
             }
-            return .success(.retireOutput(requestID: requestID, operationID: operationID))
+            let requireRequestRetirement: Bool
+            if let value = payload["requireRequestRetirement"] {
+                guard let required = boolean(value) else { return .failure(.invalidPayload(action)) }
+                requireRequestRetirement = required
+            } else { requireRequestRetirement = false }
+            return .success(.retireOutput(requestID: requestID, operationID: operationID,
+                                         requireRequestRetirement: requireRequestRetirement))
         case "setDisplayConfiguration":
             guard let topology = displayConfiguration(payload["screens"]) else {
                 return .failure(.invalidPayload(action))
@@ -416,7 +444,7 @@ nonisolated enum SceneDaemonProtocol {
         return NSNumber(value: value) == number ? value : nil
     }
 
-    private static func boolean(_ raw: Any?) -> Bool? {
+    static func boolean(_ raw: Any?) -> Bool? {
         guard let number = raw as? NSNumber,
               CFGetTypeID(number) == CFBooleanGetTypeID() else { return nil }
         return number.boolValue

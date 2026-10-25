@@ -17,6 +17,12 @@ SOURCE = ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Resources/Textures/SceneIm
 RESAMPLE_SOURCE = ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Resources/Textures/SceneImageTextureUploader+Resample.swift"
 SCENE = ROOT / "MyWallpaperX/Core/SteamWorkshopScene"
 LOADER_SOURCES = [
+    SCENE / "Resources/Assets/SceneResourceIndex.swift",
+    SCENE / "Resources/Assets/SceneResourceView.swift",
+    SCENE / "../SteamWorkshopStorage/ScenePlaybackSource.swift",
+    SCENE / "Format/ScenePkgReader.swift",
+    SCENE / "Resources/Assets/SceneResourceIdentity.swift",
+    SCENE / "Resources/Assets/SceneResourceView+Backing.swift",
     Path(__file__).resolve().parents[2] / "MyWallpaperX/Core/SteamWorkshopScene/Resources/Textures/SceneResourceBudget.swift",
     SCENE / "Format/SceneTexContainer.swift",
     SCENE / "Format/SceneTexDataReader.swift",
@@ -127,11 +133,11 @@ import Metal
         for fault in 0...4 {
             MWXSetUploadFault(device, Int32(fault))
             let loader = SceneTextureLoader()
-            results["loaderFailure\(fault)"] = describe(loader.load(from: url, device: device))
+            results["loaderFailure\(fault)"] = describe((try loader.load(from: url, device: device)))
             MWXSetUploadFault(device, 0)
-            let recovered = loader.load(from: url, device: device)
+            let recovered = (try loader.load(from: url, device: device))
             results["loaderRecovery\(fault)"] = describe(recovered)
-            let cached = loader.load(from: url, device: device)
+            let cached = (try loader.load(from: url, device: device))
             if case let .loaded(first) = recovered, case let .loaded(second) = cached {
                 results["loaderReusesTexture\(fault)"] = first === second
             }
@@ -181,13 +187,13 @@ import Metal
             let key = source.pathExtension
             let loader = SceneTextureLoader()
             MWXSetUploadFault(device, 5)
-            results["allocationFailure-\(key)"] = describe(loader.load(from: source, device: device))
+            results["allocationFailure-\(key)"] = describe((try loader.load(from: source, device: device)))
             MWXSetUploadFault(device, 0)
-            results["allocationRecovery-\(key)"] = describe(loader.load(from: source, device: device))
+            results["allocationRecovery-\(key)"] = describe((try loader.load(from: source, device: device)))
             // A successful cached texture survives a subsequent allocation
             // fault because reloading it must not allocate another texture.
             MWXSetUploadFault(device, 5)
-            results["cachedDuringFailure-\(key)"] = describe(loader.load(from: source, device: device))
+            results["cachedDuringFailure-\(key)"] = describe((try loader.load(from: source, device: device)))
         }
         MWXSetUploadFault(device, 0)
         results["recovery"] = describe(SceneImageTextureUploader.upload(
@@ -327,9 +333,9 @@ import Metal
         let reclamationLoader = SceneTextureLoader(uploadCommandQueue: batchQueue)
         batchQueue.beginMipmapBatch()
         var reclamationBefore: MTLTexture?
-        if case let .loaded(before) = reclamationLoader.load(
+        if case let .loaded(before) = (try reclamationLoader.load(
             from: url, device: device
-        ) {
+        )) {
             reclamationBefore = before
         }
         MWXSetUploadFault(device, 4)
@@ -343,18 +349,18 @@ import Metal
         results["reclamationEvicted"] = evictedCount
         var reclamationAfter: MTLTexture?
         if let before = reclamationBefore,
-           case let .loaded(after) = reclamationLoader.load(
+           case let .loaded(after) = (try reclamationLoader.load(
                from: url, device: device
-           ) {
+           )) {
             reclamationAfter = after
             results["reclamationRetriesWithNewTexture"] = before !== after
             results["reclamationRetryHasMips"] = after.mipmapLevelCount > 1
         }
         // A repeat load after the retry keeps serving the proven texture.
         if let after = reclamationAfter,
-           case let .loaded(repeatLoad) = reclamationLoader.load(
+           case let .loaded(repeatLoad) = (try reclamationLoader.load(
                from: url, device: device
-           ) {
+           )) {
             results["reclamationRepeatStable"] = repeatLoad === after
         }
         // Decoded-cache eviction: CPU bytes release at the GPU-ready point
@@ -365,11 +371,11 @@ import Metal
             uploadCommandQueue: SceneTextureUploadCommandQueue(),
             decodeCacheBudget: evictBudget
         )
-        if case let .loaded(evictFirst) = evictLoader.load(from: url, device: device) {
+        if case let .loaded(evictFirst) = (try evictLoader.load(from: url, device: device)) {
             results["evictAdmittedBefore"] = evictBudget.residentBytes > 0
             evictLoader.evictDecodedCaches()
             results["evictResidentAfter"] = evictBudget.residentBytes == 0
-            if case let .loaded(evictSecond) = evictLoader.load(from: url, device: device) {
+            if case let .loaded(evictSecond) = (try evictLoader.load(from: url, device: device)) {
                 results["evictReloadSameTexture"] = evictFirst === evictSecond
                 results["evictReloadAdmitted"] = evictBudget.residentBytes == 0
             }
@@ -377,16 +383,16 @@ import Metal
                 .appendingPathComponent("evict-redecode-\(UUID().uuidString).png")
             try? (encoded as Data).write(to: secondURL)
             defer { try? FileManager.default.removeItem(at: secondURL) }
-            if case .loaded = evictLoader.load(from: secondURL, device: device) {
+            if case .loaded = (try evictLoader.load(from: secondURL, device: device)) {
                 results["evictSecondDecodeSucceeded"] = true
                 results["evictSecondAdmitted"] = evictBudget.residentBytes > 0
             }
             // Parsed-container path: the .tex source re-parses after eviction
             // and its GPU texture keeps its identity across the round trip.
-            if case let .loaded(texFirst) = evictLoader.load(from: texURL, device: device) {
+            if case let .loaded(texFirst) = (try evictLoader.load(from: texURL, device: device)) {
                 evictLoader.evictDecodedCaches()
-                if let reparsed = evictLoader.texContainer(from: texURL),
-                   case let .loaded(texSecond) = evictLoader.load(from: texURL, device: device) {
+                if let reparsed = (try evictLoader.texContainer(from: texURL)),
+                   case let .loaded(texSecond) = (try evictLoader.load(from: texURL, device: device)) {
                     results["evictTexReparse"] = reparsed.images.count
                     results["evictTexIdentityStable"] = texFirst === texSecond
                 }

@@ -68,7 +68,7 @@ class SceneSwiftSourceSetTests(unittest.TestCase):
             "authored_effect_planning_support"
         )
 
-        self.assertEqual(len(resolution), 12)
+        self.assertEqual(len(resolution), 16)
         self.assertEqual(resolution[:len(frontend_support)], frontend_support)
         self.assertEqual(
             resolution[len(frontend_support):],
@@ -80,9 +80,13 @@ class SceneSwiftSourceSetTests(unittest.TestCase):
                 "MyWallpaperX/Core/SteamWorkshopScene/Compilation/ShaderContract/SceneBuiltinShaderIdentity.swift",
                 "MyWallpaperX/Core/SteamWorkshopScene/Compilation/ShaderContract/SceneShaderContractLoader.swift",
                 "MyWallpaperX/Core/SteamWorkshopScene/Compilation/ShaderContract/SceneShaderContractLoader+SourceGraph.swift",
+                "MyWallpaperX/Core/SteamWorkshopStorage/ScenePlaybackSource.swift",
+                "MyWallpaperX/Core/SteamWorkshopScene/Resources/Assets/SceneResourceIdentity.swift",
+                "MyWallpaperX/Core/SteamWorkshopScene/Format/ScenePkgReader.swift",
+                "MyWallpaperX/Core/SteamWorkshopScene/Resources/Assets/SceneResourceView+Backing.swift",
             ),
         )
-        self.assertEqual(len(planning), 15)
+        self.assertEqual(len(planning), 19)
         self.assertEqual(
             planning,
             (
@@ -101,6 +105,10 @@ class SceneSwiftSourceSetTests(unittest.TestCase):
                 "MyWallpaperX/Core/SteamWorkshopScene/Compilation/ShaderContract/SceneBuiltinShaderIdentity.swift",
                 "MyWallpaperX/Core/SteamWorkshopScene/Compilation/ShaderContract/SceneShaderContractLoader.swift",
                 "MyWallpaperX/Core/SteamWorkshopScene/Compilation/ShaderContract/SceneShaderContractLoader+SourceGraph.swift",
+                "MyWallpaperX/Core/SteamWorkshopStorage/ScenePlaybackSource.swift",
+                "MyWallpaperX/Core/SteamWorkshopScene/Resources/Assets/SceneResourceIdentity.swift",
+                "MyWallpaperX/Core/SteamWorkshopScene/Format/ScenePkgReader.swift",
+                "MyWallpaperX/Core/SteamWorkshopScene/Resources/Assets/SceneResourceView+Backing.swift",
             ),
         )
         self.assertEqual(

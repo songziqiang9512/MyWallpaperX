@@ -1,4 +1,6 @@
 """Read production DTO declarations into the graph gate's runtime leaf shell."""
+from __future__ import annotations
+
 from pathlib import Path
 
 
@@ -8,8 +10,8 @@ SOURCE = Path(__file__).resolve().parents[2] / (
 )
 
 
-def _declaration(source: str, name: str) -> str:
-    marker = f"    struct {name} {{"
+def _declaration(source: str, name: str, *, marker: str | None = None) -> str:
+    marker = marker or f"    struct {name} {{"
     if source.count(marker) != 1:
         raise AssertionError(f"expected one production declaration: {name}")
     start = source.index(marker)

@@ -21,6 +21,8 @@ import Foundation
 import Metal
 import simd
 
+enum CoverageScanProbe { static var partScans = 0 }
+
 final class Allocations {
     let device: MTLDevice
     var attempts: [[Int]] = []
@@ -129,13 +131,15 @@ final class Allocations {
         }
         func render(_ mesh: Mesh, _ clipping: ScenePuppetClipping, posed: [SceneQuadVertex]? = nil,
                     points: [String: SIMD2<Float>] = standardPoints,
+                    vertexCoverageVaries: Bool = true, extent: Int = 64,
                     followup: SIMD4<Float>? = nil,
                     prepared: ((Int) -> Void)? = nil) -> [String: [UInt8]] {
             let posed = posed ?? vertices(mesh), (vb, ib) = buffers(mesh, posed)
             let command = queue.makeCommandBuffer()!
             var releases: [() -> Void] = []
-            clipping.prepare(commandBuffer: command, extent: SIMD2(64, 64), mvp: matrix_identity_float4x4,
-                retainAuxiliary: { releases.append($0) }, vertices: posed, vertexBuffer: vb, indexBuffer: ib)
+            clipping.prepare(commandBuffer: command, extent: SIMD2(extent, extent), mvp: matrix_identity_float4x4,
+                retainAuxiliary: { releases.append($0) }, vertexCoverageVaries: vertexCoverageVaries,
+                vertices: posed, vertexBuffer: vb, indexBuffer: ib)
             prepared?(releases.count)
             let target = texture(.bgra8Unorm, 64, 64, target: true)
             let pass = MTLRenderPassDescriptor()
@@ -180,6 +184,13 @@ final class Allocations {
         let full = SIMD4<Float>(-0.75, -0.5, 0.75, 0.5)
         let healthy = SIMD4<Float>(0.55, 0.55, 0.85, 0.85)
         let basic = fixture([left, full, healthy], colors: [0, 1, 2], records: [record(1, [0])])
+        let staticAlloc = Allocations(device), staticOwner = owner(basic, [0: white], staticAlloc)
+        CoverageScanProbe.partScans = 0
+        let staticFrame = render(basic, staticOwner, vertexCoverageVaries: false)
+        let staticResizedFrame = render(basic, staticOwner, vertexCoverageVaries: false, extent: 128)
+        staticAlloc.denyAll = true
+        let staticFailedFrame = render(basic, staticOwner, vertexCoverageVaries: false)
+        let staticScans = CoverageScanProbe.partScans
         let movement = Allocations(device), moving = owner(basic, [0: white], movement)
         let leftFrame = render(basic, moving)
         var moved = vertices(basic)
@@ -198,9 +209,11 @@ final class Allocations {
         let alphaAlloc = Allocations(device), alphaOwner = owner(basic, [0: white], alphaAlloc)
         var translucentProvider = vertices(basic)
         for index in 0..<4 { translucentProvider[index].vertexCoverage = 0.5 }
+        CoverageScanProbe.partScans = 0
         let unsupportedAlphaFrame = render(basic, alphaOwner, posed: translucentProvider)
         let unsupportedAlphaAttempts = alphaAlloc.attempts
         let restoredAlphaFrame = render(basic, alphaOwner)
+        let dynamicScans = CoverageScanProbe.partScans
 
         let selfCandidate = fixture([left, full, healthy], colors: [0, 1, 2], records: [record(1, [0, 1])])
         let selfOnly = fixture([left, full, healthy], colors: [0, 1, 2], records: [record(1, [1])])
@@ -328,6 +341,10 @@ final class Allocations {
         let chainAlloc = Allocations(device)
         let chainFrame = render(chain, owner(chain, [:], chainAlloc))
         let result: [String: Any] = [
+            "staticCoverage": staticFrame, "staticCoverageResized": staticResizedFrame,
+            "staticCoverageFailed": staticFailedFrame, "staticCoverageScans": staticScans,
+            "staticCoverageAttempts": staticAlloc.attempts,
+            "staticCoverageReleases": staticAlloc.releases, "dynamicCoverageScans": dynamicScans,
             "left": leftFrame, "right": rightFrame, "failed": failedFrame,
             "black": blackFrame, "gray": grayFrame, "selfCandidate": selfFrame, "selfOnly": onlyFrame,
             "overlap": overlapFrame, "unsupportedAlpha": unsupportedAlphaFrame,
@@ -368,11 +385,22 @@ class ScenePuppetClippingRenderTests(unittest.TestCase):
             root = Path(directory)
             harness = root / "Harness.swift"
             harness.write_text(HARNESS)
+            # Count entry into the unchanged per-part opacity traversal in a
+            # test-only copy. Product callers and mask decisions stay intact.
+            clipping_source = SCENE / "Systems/Puppet/ScenePuppetClipping.swift"
+            clipping_text = clipping_source.read_text()
+            scan = "                      let part = mesh.drawParts[ordinal]\n                      let opaque ="
+            if clipping_text.count(scan) != 1:
+                raise AssertionError("clipping opacity traversal instrumentation drifted")
+            counted = root / clipping_source.name
+            counted.write_text(clipping_text.replace(scan,
+                "                      CoverageScanProbe.partScans += 1\n" + scan, 1))
+            sources = [counted if path == clipping_source else path for path in SOURCES]
             air, library, binary = root / "image.air", root / "image.metallib", root / "render"
             cls.run_command(["xcrun", "--sdk", "macosx", "metal", "-c",
                              str(SCENE / "Rendering/Composition/SceneImageLayer.metal"), "-o", str(air)])
             cls.run_command(["xcrun", "--sdk", "macosx", "metallib", str(air), "-o", str(library)])
-            cls.run_command(["swiftc", *map(str, SOURCES), str(harness),
+            cls.run_command(["swiftc", *map(str, sources), str(harness),
                              "-module-cache-path", str(root / "module-cache"), "-o", str(binary)])
             cls.result = json.loads(cls.run_command([str(binary), str(library)]))
         if cls.result.get("metalUnavailable"):
@@ -396,6 +424,19 @@ class ScenePuppetClippingRenderTests(unittest.TestCase):
         self.assert_pixel("right", "right", [160, 80, 40, 255])
         for frame in ("left", "right", "failed"):
             self.assert_pixel(frame, "healthy", [0, 200, 0, 255])
+
+    def test_fixed_opaque_coverage_skips_scans_without_reusing_masks_after_resize_or_failure(self):
+        self.assertEqual(self.result["staticCoverageScans"], 0)
+        self.assertEqual(self.result["dynamicCoverageScans"], 2)
+        self.assertEqual(self.result["staticCoverage"], self.result["staticCoverageResized"])
+        self.assertEqual(self.result["staticCoverage"], self.result["left"])
+        self.assertEqual(len(self.result["staticCoverageAttempts"]), 3)
+        self.assertEqual(self.result["staticCoverageReleases"], 2)
+        self.assertNotEqual(self.result["staticCoverageAttempts"][0][1:],
+                            self.result["staticCoverageAttempts"][1][1:])
+        for point in ("left", "right"):
+            self.assert_pixel("staticCoverageFailed", point, [0, 0, 0, 0])
+        self.assert_pixel("staticCoverageFailed", "healthy", [0, 200, 0, 255])
 
     def test_black_gray_paint_and_next_failure_never_leak_unclipped_target(self):
         self.assert_pixel("gray", "left", [80, 40, 20, 128])

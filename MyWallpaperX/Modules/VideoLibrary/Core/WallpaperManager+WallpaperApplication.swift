@@ -49,7 +49,6 @@ extension WallpaperManager {
         prepareVideoSwitch(wallpaper)
         PlaybackVolumeState.shared.setNormalizedVolume(Float(settings.volume / 100))
         PlaybackCommandMultiplexer.shared.dispatch(.setVolume(Float(settings.volume)))
-        applySystemAudioSpectrumToEngine()
 
         if settings.autoSwitchEnabled && userInitiated {
             // 用户手动切换时立即重置 timer，从 0 重新计时。

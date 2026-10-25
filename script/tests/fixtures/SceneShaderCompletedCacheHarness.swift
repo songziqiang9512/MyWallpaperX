@@ -40,14 +40,16 @@ private func cacheRetentionInput(fragmentSource: String) ->
     )
 }
 
-private func retainedResolution(_ marker: String, payloadBytes: Int = 0)
-    -> SceneResolvedMaterialGenericShaderArtifactCache.Resolution {
-    let program = SceneAuthoredShaderProgram(
-        metalSource: marker + String(repeating: "m", count: payloadBytes),
+private func retainedProgram(_ marker: String, payloadBytes: Int = 0) -> SceneAuthoredShaderProgram {
+    .init(metalSource: marker + String(repeating: "m", count: payloadBytes),
         vertexFunctionName: "vertex", fragmentFunctionName: "fragment",
         uniformLayout: .init(fields: [], byteSize: 0), textureBindings: [],
         staticLoopWork: 0, colorTransfer: .opaque)
-    return .accepted(program: program, premultipliedColorInputSlots: [],
+}
+
+private func retainedResolution(_ marker: String, payloadBytes: Int = 0)
+    -> SceneResolvedMaterialGenericShaderArtifactCache.Resolution {
+    .accepted(program: retainedProgram(marker, payloadBytes: payloadBytes), premultipliedColorInputSlots: [],
         requestKey: marker, routeDecision: .init(profile: "fixture",
             state: "generic-only", fallbackOwner: "none"))
 }
@@ -60,6 +62,14 @@ private func isAcceptedResolution(
 }
 
 #if !CACHE_RETENTION_BASELINE
+private func compilationKey(_ requestKey: String) ->
+    SceneResolvedMaterialGenericShaderCompilationCoordinator.Key
+{
+    .init(requestKey: requestKey, outputSemantics: .color,
+        premultipliedColorInputSlots: [], colorBoundary: nil,
+        colorTransfer: .opaque, fragmentOutputChannelUse: .unproven)
+}
+
 private final class RetentionCallCounts: @unchecked Sendable {
     private let lock = NSLock()
     private var calls = 0
@@ -91,11 +101,11 @@ private func completedCacheRetentionChecks() -> [String: Any] {
     func composedAttempt() -> SceneResolvedMaterialGenericShaderResolutionCache.Outcome {
         outer.perform(key: key) {
             outerCalls += 1
-            let result = inner.perform(key: "repairable-compiler-key") {
+            let result = inner.perform(key: compilationKey("repairable-compiler-key")) {
                 compilerCalls += 1
                 return compilerRepaired
-                    ? .success(URL(fileURLWithPath: "/tmp/repaired-fixture-artifact"))
-                    : .failure(.workspace)
+                    ? .success(retainedProgram("repaired"))
+                    : .failure(.compiler(.workspace))
             }
             switch result.result {
             case .success: return retainedResolution("repaired")
@@ -211,13 +221,13 @@ private func compilerFailureFlight() -> [String: Any] {
     let releaseOwner = DispatchSemaphore(value: 0)
     let callers = 8
     func work() {
-        let result = compiler.perform(key: "shared-failure") {
+        let result = compiler.perform(key: compilationKey("shared-failure")) {
             let ordinal = counts.nextOperation()
             if ordinal == 1 {
                 ownerStarted.signal()
                 _ = releaseOwner.wait(timeout: .now() + 10)
             }
-            return .failure(.workspace)
+            return .failure(.compiler(.workspace))
         }
         if case .failure = result.result { counts.record(accepted: true) }
     }
@@ -237,9 +247,9 @@ private func compilerFailureFlight() -> [String: Any] {
     let completed = group.wait(timeout: .now() + 10) == .success
     let shared = counts.snapshot
     let emptyAfterFailure = compiler.snapshot.completedEntries == 0
-    let repaired = compiler.perform(key: "shared-failure") {
+    let repaired = compiler.perform(key: compilationKey("shared-failure")) {
         _ = counts.nextOperation()
-        return .success(URL(fileURLWithPath: "/tmp/repaired-flight-artifact"))
+        return .success(retainedProgram("repaired-flight"))
     }
     let repairedSucceeded: Bool
     if case .success = repaired.result { repairedSucceeded = true }

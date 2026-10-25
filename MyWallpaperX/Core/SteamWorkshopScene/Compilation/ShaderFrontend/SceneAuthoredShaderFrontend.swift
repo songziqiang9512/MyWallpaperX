@@ -141,8 +141,6 @@ nonisolated enum SceneAuthoredShaderFrontend {
                       ), envelope.schemaVersion == schemaVersion,
                       envelope.key == key,
                       envelope.keySHA256 == keySHA256,
-                      envelope.keySHA256
-                        == ProgramCacheDigest.hash(envelope.key),
                       envelope.programSHA256
                         == ProgramCacheDigest.hash(envelope.program),
                       valid(envelope.program) else { return nil }
@@ -203,7 +201,12 @@ nonisolated enum SceneAuthoredShaderFrontend {
         }
 
         private func directoryURL() -> URL? {
-            guard Bundle.main.bundleIdentifier == "com.songziqiang.MyWallpaperX",
+#if DEBUG
+            let isStartupTestApp = Bundle.main.bundleIdentifier == "com.songziqiang.MyWallpaperX.Debug.Startup"
+#else
+            let isStartupTestApp = false
+#endif
+            guard Bundle.main.bundleIdentifier == "com.songziqiang.MyWallpaperX" || isStartupTestApp,
                   let root = FileManager.default.urls(
                       for: .cachesDirectory,
                       in: .userDomainMask

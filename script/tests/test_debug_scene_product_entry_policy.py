@@ -35,6 +35,9 @@ class DebugSceneProductEntryPolicyTests(unittest.TestCase):
                         let arguments = Array(CommandLine.arguments.dropFirst())
                         guard let mode = arguments.first else { exit(64) }
                         switch mode {
+                        case "startup":
+                            print(DebugSceneProductEntryPolicy.isStartupMeasurementRequested(
+                                arguments: Array(arguments.dropFirst())))
                         case "coordinator":
                             let appArguments = Array(arguments.dropFirst())
                             print(DebugSceneProductEntryPolicy
@@ -126,6 +129,13 @@ class DebugSceneProductEntryPolicyTests(unittest.TestCase):
         self.assertTrue(
             self.run_policy("coordinator", daemon, product, *root)
         )
+
+    def test_incomplete_startup_arguments_still_require_early_isolation(self) -> None:
+        self.assertFalse(self.run_policy("startup", "--mwx-debug-scene-daemon-client"))
+        for flag in ("--mwx-debug-scene-startup-report", "--mwx-debug-scene-startup-mode"):
+            with self.subTest(flag=flag):
+                self.assertTrue(self.run_policy("startup", flag))
+                self.assertTrue(self.run_policy("startup", flag, "single"))
 
     def test_isolated_directory_rejects_all_protected_root_overlap(self) -> None:
         protected_parent = self._root / "real-library"

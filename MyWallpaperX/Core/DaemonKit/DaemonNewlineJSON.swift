@@ -4,6 +4,7 @@ import Foundation
 /// frames. An incomplete final frame remains buffered for the next append.
 nonisolated struct DaemonNewlineFrameBuffer {
     private var storage = Data()
+    private var scannedByteCount = 0
 
     var pendingByteCount: Int { storage.count }
 
@@ -11,18 +12,21 @@ nonisolated struct DaemonNewlineFrameBuffer {
         storage.append(chunk)
         var frames: [Data] = []
         var frameStart = storage.startIndex
+        var searchStart = storage.index(storage.startIndex, offsetBy: scannedByteCount)
 
-        while frameStart < storage.endIndex,
-              let newlineIndex = storage[frameStart...].firstIndex(of: 0x0A) {
+        while searchStart < storage.endIndex,
+              let newlineIndex = storage[searchStart...].firstIndex(of: 0x0A) {
             if frameStart < newlineIndex {
                 frames.append(Data(storage[frameStart..<newlineIndex]))
             }
             frameStart = storage.index(after: newlineIndex)
+            searchStart = frameStart
         }
 
         if frameStart > storage.startIndex {
             storage.removeSubrange(storage.startIndex..<frameStart)
         }
+        scannedByteCount = storage.count
         return frames
     }
 }

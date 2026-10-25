@@ -87,17 +87,20 @@ nonisolated struct SceneCompressedTextureUploader {
         purpose: SceneTextureLoadPurpose,
         device: MTLDevice
     ) -> SceneTextureLoadOutcome {
-        guard SceneTexContainer.valid2DMipDimensions(
-            container.mips.map { ($0.width, $0.height) }
-        ) else {
-            return .decodeFailed("TEX container has an invalid mip chain")
-        }
         let levelCount = purpose.preservesSourceChannels
             ? container.mips.count
             : SceneTexContainer.maximum2DMipCount(
                 width: container.imageWidth, height: container.imageHeight
             )
-        let decoded = container.mips.enumerated().compactMap { level, mip in
+        // Cropped color output cannot use levels beyond its 1x1 mip. Channel
+        // consumers keep the complete stored chain and its original extent.
+        let selectedMips = container.mips.prefix(levelCount)
+        guard SceneTexContainer.valid2DMipDimensions(
+            selectedMips.map { ($0.width, $0.height) }
+        ) else {
+            return .decodeFailed("TEX container has an invalid mip chain")
+        }
+        let selectedImages = selectedMips.enumerated().compactMap { level, mip in
             let imageWidth = purpose.preservesSourceChannels
                 ? mip.width
                 : max(1, container.imageWidth >> level)
@@ -113,9 +116,7 @@ nonisolated struct SceneCompressedTextureUploader {
                 format: format
             )
         }
-        // Validate every stored payload before dropping redundant cropped levels.
-        let selectedImages = decoded.prefix(levelCount)
-        guard decoded.count == container.mips.count,
+        guard selectedImages.count == selectedMips.count,
               let first = selectedImages.first,
               SceneTexContainer.valid2DMipDimensions(selectedImages.map { ($0.width, $0.height) }) else {
             return .decodeFailed("BC mip data does not match its stored block layout")

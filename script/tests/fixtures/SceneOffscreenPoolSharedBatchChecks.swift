@@ -4,6 +4,67 @@ import Foundation
 import Metal
 
 extension Harness {
+    static func staticPlanMemoChecks(_ device: MTLDevice) -> [String: Any] {
+        let fixture = fixture(effectIndex: 935, precise: true)
+        let graphs = admittedGraphs([fixture])
+        let pair = pairPlan([fixture])
+        let token = SceneResolvedMaterialExecutionCapabilityCatalog.Token()
+        let pool = SceneOffscreenTexturePool(device: device, residentByteBudget: 1_048_576)
+        func plan(_ targetPool: SceneOffscreenTexturePool, width: Int = 8,
+                  shared: Bool = true, targets: Set<Graph.TextureIdentity> = [],
+                  capabilityToken: SceneResolvedMaterialExecutionCapabilityCatalog.Token? = nil)
+            -> SceneLayerGraphTargetPlan {
+            guard case let .success(frame) = targetPool.framePlanResultForPersistentGraphTargets(
+                admittedGraphs: graphs,
+                materialFunctionTargetsByEffect: [pair.effects[0].effect: targets],
+                pairPlan: pair, requestedWidth: width, requestedHeight: 8,
+                usesSharedFullFrameWorkingPair: shared,
+                plansMemoIdentity: .init(capabilityToken: capabilityToken ?? token, layerID: pair.layerID)
+            ) else { fatalError("expected memo fixture plan") }
+            return frame.graphPlan
+        }
+        let first = plan(pool), again = plan(pool)
+        let resized = plan(pool, width: 16)
+        let owned = plan(pool, shared: false)
+        let functions = plan(pool, targets: Set(fixture.framebufferIdentities))
+        let changedCapability = plan(pool, capabilityToken: .init())
+        guard let firstExecution = first.stages[0].preparedExecution,
+              let againExecution = again.stages[0].preparedExecution,
+              let resizedExecution = resized.stages[0].preparedExecution,
+              let ownedExecution = owned.stages[0].preparedExecution,
+              let functionExecution = functions.stages[0].preparedExecution,
+              let changedExecution = changedCapability.stages[0].preparedExecution else {
+            fatalError("expected captured static execution")
+        }
+        let noResidency = pool.residentByteCost == 0
+        pool.reset()
+        let afterReset = plan(pool)
+        let tight = SceneOffscreenTexturePool(device: device, residentByteBudget: 0)
+        let rejectedBudget: Bool
+        switch tight.framePlanResultForPersistentGraphTargets(
+            admittedGraphs: graphs, pairPlan: pair, requestedWidth: 8, requestedHeight: 8,
+            usesSharedFullFrameWorkingPair: false,
+            plansMemoIdentity: .init(capabilityToken: token, layerID: pair.layerID)
+        ) {
+        case .failure: rejectedBudget = true
+        case .success: rejectedBudget = false
+        }
+        return ["staticPlanMemo": [
+            "same-input-reuses-static-execution": firstExecution === againExecution,
+            "resize-prepares-new-execution": firstExecution !== resizedExecution
+                && resizedExecution.plan.inputExtent.width == 16,
+            "pair-storage-prepares-corresponding-plan": firstExecution !== ownedExecution
+                && first.pairStorage == .shared && owned.pairStorage == .owned,
+            "function-targets-are-keyed": firstExecution !== functionExecution
+                && functionExecution.materialFunctionTargets == Set(fixture.framebufferIdentities),
+            "capability-is-keyed": firstExecution !== changedExecution
+                && first.capabilityID != changedCapability.capabilityID,
+            "reset-drops-static-memo": firstExecution !== afterReset.stages[0].preparedExecution,
+            "memo-holds-no-residency": noResidency && pool.residentByteCost == 0,
+            "other-budget-remains-effective": rejectedBudget,
+        ]]
+    }
+
     static func sourceMaterialResidencyChecks(_ device: MTLDevice) -> [String: Any] {
         let queue = device.makeCommandQueue()!
         let firstFrame = queue.makeCommandBuffer()!

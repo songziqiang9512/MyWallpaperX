@@ -61,13 +61,13 @@ CDN 候选与 token 只属于当前账号 lease 的单个作业。manifest/chunk
 
 ## 5. receipt、v3 发布与消费生命周期
 
-helper 仅产出 staged 内容与 typed receipt，不决定 ready。receipt v2 核对 job/account/epoch/Workshop/manifest、完成状态、非空 project.json、相等且有界的 verified/total bytes 及独占 lease。App 复制时重算完整摘要：NFC UTF-8 路径排序，逐文件编码 UInt32-LE 路径长度、路径、UInt64-LE 文件长度及文件 SHA-256，再对串联求 SHA-256；路径格式校验不替代消费端身份及内容重验。
+helper 仅产出 staged 内容与 typed receipt，不决定 ready。receipt v2 核对 job/account/epoch/Workshop/manifest、完成状态、非空 project.json、相等且有界的 verified/total bytes 及独占 lease。App 在复制流中核下载摘要：NFC UTF-8 路径排序，逐文件编码 UInt32-LE 路径长度、路径、UInt64-LE 文件长度及文件 SHA-256，再对串联求 SHA-256；不在复制前额外全文扫描。可选 preview 不成为整项目发布关卡，由原预览链在实际选择时局部处理。下载完整性不能成为日后播放许可，普通播放不核历史整树摘要。
 
 v3 使用 `Video|Web|Scene/<WorkshopID>`；generation 在 commit/ownership marker，兼容 v2 UUID 目录。incoming 校验后保存 publication intent，经 rename/exchange 安装并原子发布 `.mywallpaperx-steam-metadata/<WorkshopID>.json`。**metadata 是唯一 ready 点**；目录、marker、stagedComplete 不代表 ready。失败经同一 journal 回滚/恢复，未知目录勿覆盖；复制/摘要在后台，账号/attempt 复核至发布不挂起。`firstDownloadedAt` 保存首次入库时间，刷新和版本替换不重置；旧记录沿用 commit/本地创建时间。排序与详情共用后台目录统计的原始字节数。
 
 任务沿 `running → staged → committing → completed` 持久化推进，receipt/commit 先落盘再推进。失败、取消、空间不足或重复 terminal 不破坏旧 ready；成功后的 staging 清理失败不回滚已发布 ready，未释放清理责任保留并有界重试。
 
-旧 v1 隐藏内容只读兼容，迁移复用同一容量/发布 owner；旧 v2 只有在无消费引用时迁至纯 ID。迁移先重核旧 metadata，正在播放/导入的路径不移动，不因专项计划退役删除兼容代码。保留命名空间即使 marker 损坏也从 legacy discovery 排除，避免第二 ready。旧 generation 先改名为同类型隐藏退役目录，再交既有回收器，不在主线程递归清理。
+旧 v1 隐藏内容只读兼容，迁移复用同一容量/发布 owner，复制当前内容并记录本次摘要，不用历史摘要拒绝合法变化；旧 v2 只有在无消费引用时迁至纯 ID。迁移前后复核当前 metadata，旧路径继续供现有播放/导入使用，不因专项计划删除兼容代码。保留命名空间即使 marker 损坏也从 legacy discovery 排除，避免第二 ready。旧 generation 先改名为同类型隐藏退役目录，再交既有回收器，不在主线程递归清理。
 
 播放/导入消费持有具体 storage identity 的租约，依赖 Web 同时保壳与宿主；新 ready 不能代替旧消费者的身份。删除先阻止该项目的新播放/入库并取消精确作业，Scene 消费等当次 daemon generations 的真实退出后释放，再按身份发布 tombstone/删除；后继进程不能拖住旧代际回调。普通回收要求完整可读索引、超过 24 小时、未在 ready/未决事务/播放与视频库引用保留集，并经原 lease registry 预约及目录身份/marker 复核。未知、损坏或替换目录不被收养；同代际 tombstone 不得被崩溃恢复复活。入口为 [LibraryReclamation](../../MyWallpaperX/Modules/SteamWorkshop/Core/SteamWorkshopService+LibraryReclamation.swift)。
 

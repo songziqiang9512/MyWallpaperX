@@ -11,15 +11,46 @@ enum MyWallpaperXApplication {
 #if DEBUG
     private static var runsIsolatedWebWorkshopSample: Bool {
         ProcessInfo.processInfo.arguments.contains("--mwx-debug-run-web-workshop-id")
+            || DebugWebPlaybackRunner.isStartupMeasurementRequested
     }
 #endif
 
     @MainActor
     static func main() {
+#if DEBUG
+        var debugStartupPrefixUptimes: [String: UInt64]? = nil
+        if SceneDaemonRuntime.isRequested,
+           ProcessInfo.processInfo.arguments.contains("--mwx-debug-scene-startup-prefix") {
+            debugStartupPrefixUptimes = [
+                "entryObserved": UInt64(ProcessInfo.processInfo.systemUptime * 1_000_000)
+            ]
+        }
+        let startupMeasurementRequested = DebugWebPlaybackRunner.isStartupMeasurementRequested
+            || DebugSceneProductEntryPolicy.isStartupMeasurementRequested(
+                arguments: ProcessInfo.processInfo.arguments)
+        let dedicatedStartupMain = Bundle.main.bundleIdentifier
+            == "com.songziqiang.MyWallpaperX.Debug.Startup"
+            && !WebDaemonRuntime.isRequested && !SceneDaemonRuntime.isRequested
+        if (startupMeasurementRequested || dedicatedStartupMain)
+            && !DebugWebPlaybackRunner.hasIsolatedStartupEnvironment {
+            NSLog("MWX STARTUP: dedicated test bundle identity, standard-defaults token and isolated HOME/Library/cache/workshop/report required")
+            return
+        }
+#endif
         if WebDaemonRuntime.isRequested || SceneDaemonRuntime.isRequested {
             _ = DaemonParentLifetime.shared
         }
+#if DEBUG
+        if debugStartupPrefixUptimes != nil {
+            debugStartupPrefixUptimes?["appKitBegin"] = UInt64(ProcessInfo.processInfo.systemUptime * 1_000_000)
+        }
+#endif
         let app = NSApplication.shared
+#if DEBUG
+        if debugStartupPrefixUptimes != nil {
+            debugStartupPrefixUptimes?["appKitReturned"] = UInt64(ProcessInfo.processInfo.systemUptime * 1_000_000)
+        }
+#endif
         if WebDaemonRuntime.isRequested {
             guard let runtime = WebDaemonRuntime() else { return }
             runtime.configure()
@@ -27,7 +58,19 @@ enum MyWallpaperXApplication {
             return
         }
         if SceneDaemonRuntime.isRequested {
+#if DEBUG
+            if debugStartupPrefixUptimes != nil {
+                debugStartupPrefixUptimes?["runtimeBegin"] = UInt64(ProcessInfo.processInfo.systemUptime * 1_000_000)
+            }
+#endif
             let runtime = SceneDaemonRuntime()
+#if DEBUG
+            if debugStartupPrefixUptimes != nil {
+                debugStartupPrefixUptimes?["runtimeReturned"] = UInt64(ProcessInfo.processInfo.systemUptime * 1_000_000)
+                runtime.debugStartupPrefixUptimes = debugStartupPrefixUptimes
+                debugStartupPrefixUptimes = nil
+            }
+#endif
             runtime.configure()
             runtime.loadSceneFromArgumentsIfPresent()
             withExtendedLifetime(runtime) { app.run() }
@@ -37,8 +80,7 @@ enum MyWallpaperXApplication {
         app.delegate = delegate
 #if DEBUG
         let usesDirectPlaybackHarness = (DebugWebPlaybackRunner.runsIsolatedWebWorkshopSample
-            && !ProcessInfo.processInfo.arguments.contains("--mwx-debug-web-process-isolation-report")
-            && !ProcessInfo.processInfo.arguments.contains("--mwx-debug-web-runtime-switch-sequence"))
+            && !DebugWebPlaybackRunner.requiresProductCoordinator)
             || (DebugScenePlaybackRunner.runsIsolatedSceneSample && !DebugSceneDaemonClientRunner.requiresProductCoordinator)
             || (DebugSceneDaemonClientRunner.isRequested && !DebugSceneDaemonClientRunner.requiresProductCoordinator)
             || DebugSystemMediaRunner.isRequested
@@ -64,10 +106,12 @@ enum MyWallpaperXApplication {
                 WallpaperManager.shared.performSystemHotkeyAction(action)
             }
         }
-        // E2c 站点 3: web host 的网络桥接白名单由 App 解析（Host 层不再
-        // 直呼 SteamWorkshopService 单例）。
+        // Prepare the optional empty Web process through the product intent owner.
         if let adapter = WallpaperEngine.shared.dedicatedWebHostAdapter
             as? WebDaemonHostAdapter {
+            adapter.mayPrepareIdleProcess = {
+                !SceneDaemonClient.shared.hasRetainedOrRetiringTransport
+            }
             SteamWorkshopService.shared.prepareWebPlaybackProcess = { [weak adapter] in
                 let id = adapter?.availablePreparedRequestID ?? UUID()
                 let epoch = WallpaperManager.shared.beginPlaybackIntent(runtime: .web)
@@ -85,14 +129,6 @@ enum MyWallpaperXApplication {
                     isCurrent: { WallpaperManager.shared.playbackIntentEpoch == epoch },
                     intentEpoch: epoch
                 )
-            }
-            adapter.allowedNetworkBridgeHostsResolver = { recordID in
-                guard let record = SteamWorkshopService.shared.latestDownloadRecord(for: recordID),
-                      let descriptor = SteamWorkshopService.shared.resolvedWebProjectDescriptor(for: record) else {
-                    return []
-                }
-                return Set(descriptor.staticContentSummary.externalDependencyHosts
-                    .compactMap(DedicatedWebWallpaperHostPlaceholderAdapter.normalizedNetworkBridgeHost))
             }
         }
         SteamWorkshopService.shared.prepareScenePlaybackIntent = { recordID, newSelection in
@@ -136,14 +172,31 @@ enum MyWallpaperXApplication {
         PlaybackMuteState.shared.migrateLegacyVolumeMuteIfNeeded(
             volume: WallpaperManager.shared.settings.volume
         )
+        WallpaperManager.shared.playbackIntentDidAdvance = { runtime in
+            if runtime != .web {
+                (WallpaperEngine.shared.dedicatedWebHostAdapter as? WebDaemonHostAdapter)?.cancelIdlePreparation()
+            }
+            SceneDaemonClient.shared.invalidateRetainedTransport(for: runtime)
+            SteamWorkshopService.shared.advanceWebLaunchIntentGeneration()
+        }
 #if DEBUG
-        if !runsIsolatedWebWorkshopSample
+        if (!runsIsolatedWebWorkshopSample || DebugWebPlaybackRunner.requiresProductCoordinator)
             && (!DebugScenePlaybackRunner.runsIsolatedSceneSample
                 || DebugSceneDaemonClientRunner.requiresProductCoordinator) {
             MainWindowCoordinator.configure(with: WallpaperManager.shared)
         }
 #else
         MainWindowCoordinator.configure(with: WallpaperManager.shared)
+#endif
+#if DEBUG
+        if DebugWebPlaybackRunner.isStartupMeasurementRequested
+            || DebugSceneProductEntryPolicy.isStartupMeasurementRequested(
+                arguments: ProcessInfo.processInfo.arguments) {
+            // Product transaction stays enabled, but a fresh HOME must not
+            // start bundled Video before the measured Workshop selection.
+            WallpaperManager.shared.settings.restorePlaybackOnLaunch = false
+            NSLog("MWX STARTUP: launch replay suppressed for isolated product-entry measurement")
+        }
 #endif
         if !usesDirectPlaybackHarness { WallpaperManager.shared.configureRuntimeSwitching() }
         app.run()
@@ -166,18 +219,8 @@ enum MyWallpaperXApplication {
         )
     }
 
-    /// 工坊 web 记录 → Host 层 store 身份。`rootPaths` 与创建侧同源：创建用的
-    /// launch rootURL 就是 descriptor.effectiveRootURL，而它由
-    /// `effectiveWebRootURL(for:entryURL:)` 求得（SteamWorkshopWebResolvedRuntimeModels.swift:18）。
-    /// 这里只用 record 字段入口候选调用同一函数——缓存命中路径不构成第二个来源：
-    /// 缓存有效期门强制 `manifest.execution.resolvedEntryPath == record.webEntryURL`
-    /// 且 `effectiveRootPath == effectiveWebRootURL(record, record.webEntryURL)`
-    /// （SteamWorkshopService+WebRuntimeCacheValidation.swift:76-88），record 入口候选
-    /// 因此覆盖创建侧全部四个分支（webHostRootURL / projectFileURL 父目录 / 记录目录 /
-    /// 入口父目录）。刻意不读运行时缓存：`loadCachedWebPlaybackContext` 会付
-    /// 读盘与资源签名扫描（最多 120 文件 stat + 读取，2026-10-09 起在后台段
-    /// 执行）的等待代价，而它对本集合逐字节冗余。再并上解析根 / 依赖宿主目录 /
-    /// 记录目录作为宽集合——宽集合只让在用 store 更不可能被误判为孤儿。
+    /// Project current root candidates without parsing author content. The
+    /// reclaimer keeps these input facts; UUID expansion runs only for deletion.
     @MainActor
     private static func webPersistentDataStoreRecord(
         for record: SteamWorkshopDownloadRecord

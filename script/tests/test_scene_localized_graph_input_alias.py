@@ -175,7 +175,7 @@ class SceneLocalizedGraphInputAliasTests(unittest.TestCase):
         (root / "shader-cache").mkdir()
         compilation = subprocess.run(
             [
-                "xcrun", "--sdk", "macosx", "swiftc", "-parse-as-library",
+                "xcrun", "--sdk", "macosx", "swiftc", "-parse-as-library", "-D", "SCENE_GRAPH_TESTING",
                 *(str(path) for path in SWIFT_SOURCES), str(harness),
                 "-framework", "Metal", "-framework", "CoreGraphics",
                 "-framework", "ImageIO", "-module-cache-path", str(root / "module-cache"),

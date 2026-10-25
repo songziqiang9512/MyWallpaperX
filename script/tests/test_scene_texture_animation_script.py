@@ -14,10 +14,19 @@ from pathlib import Path
 REPOSITORY_ROOT = Path(__file__).resolve().parents[2]
 SOURCE_ROOT = REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene"
 SWIFT_SOURCES = [
+    SOURCE_ROOT / "Resources/Assets/SceneResourceIndex.swift",
+    SOURCE_ROOT / "Resources/Assets/SceneResourceView.swift",
+    SOURCE_ROOT / "../SteamWorkshopStorage/ScenePlaybackSource.swift",
+    SOURCE_ROOT / "Format/ScenePkgReader.swift",
+    SOURCE_ROOT / "Resources/Assets/SceneResourceIdentity.swift",
+    SOURCE_ROOT / "Resources/Assets/SceneResourceView+Backing.swift",
     REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Diagnostics/ScenePerformanceCounterHub.swift",
     SOURCE_ROOT / "Format/SceneJSONValue.swift",
+    SOURCE_ROOT / "Runtime/Frame/SceneMaterialRenderState.swift",
     SOURCE_ROOT / "Format/SceneScriptBindingDefinition.swift",
     SOURCE_ROOT / "Systems/Properties/SceneScriptDynamicProviderHostContract.swift",
+    SOURCE_ROOT / "Systems/Properties/SceneUserProperty.swift",
+    SOURCE_ROOT / "Systems/Properties/SceneUserPropertyBindings.swift",
     SOURCE_ROOT / "Format/SceneTexDataReader.swift",
     SOURCE_ROOT / "Format/SceneTexContainer.swift",
     REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Resources/Textures/SceneTextureUVTransform.swift",
@@ -106,10 +115,10 @@ enum Harness {
                 "spritesheetsequences": [["frames": count, "width": 100, "height": 50]],
             ]
             try JSONSerialization.data(withJSONObject: invalid).write(to: sidecarURL)
-            invalidFrameCountsRejected.append(SceneSpriteAnimation.nominalFrameSize(
-                from: textureURL, expectedFrameCount: 3
+            invalidFrameCountsRejected.append(try SceneSpriteAnimation.nominalFrameSize(
+                from: .externalFile(textureURL), expectedFrameCount: 3
             ) == nil)
-            let fallback = SceneSpriteAnimation(container: atlasContainer, sourceURL: textureURL)
+            let fallback = try SceneSpriteAnimation(container: atlasContainer, sourceInput: .externalFile(textureURL))
             invalidSidecarPlaybackPreserved.append(
                 fallback?.aspectRatio(forFrameAt: 0) == 0.5
                     && fallback?.transform(at: 1).origin.x == 0.25
@@ -120,12 +129,13 @@ enum Harness {
             "spritesheetsequences": [["frames": 3, "width": 100, "height": 50]],
         ]
         try JSONSerialization.data(withJSONObject: sidecar).write(to: sidecarURL)
-        let acceptedSidecar = SceneSpriteAnimation.nominalFrameSize(
-            from: textureURL,
+        let inputChecks = try sidecarInputChecks(root: temporary, data: JSONSerialization.data(withJSONObject: sidecar))
+        let acceptedSidecar = try SceneSpriteAnimation.nominalFrameSize(
+            from: .externalFile(textureURL),
             expectedFrameCount: 3
         )
-        let mismatchedSidecar = SceneSpriteAnimation.nominalFrameSize(
-            from: textureURL,
+        let mismatchedSidecar = try SceneSpriteAnimation.nominalFrameSize(
+            from: .externalFile(textureURL),
             expectedFrameCount: 2
         )
         let invalidURL = temporary.appendingPathComponent("invalid.tex")
@@ -135,8 +145,8 @@ enum Harness {
         try JSONSerialization.data(withJSONObject: invalidSidecar).write(
             to: URL(fileURLWithPath: invalidURL.path + "-json")
         )
-        let invalidDimensionsRejected = SceneSpriteAnimation.nominalFrameSize(
-            from: invalidURL,
+        let invalidDimensionsRejected = try SceneSpriteAnimation.nominalFrameSize(
+            from: .externalFile(invalidURL),
             expectedFrameCount: 3
         ) == nil
         let booleanURL = temporary.appendingPathComponent("boolean.tex")
@@ -146,8 +156,8 @@ enum Harness {
         try JSONSerialization.data(withJSONObject: booleanSidecar).write(
             to: URL(fileURLWithPath: booleanURL.path + "-json")
         )
-        let booleanRejected = SceneSpriteAnimation.nominalFrameSize(
-            from: booleanURL,
+        let booleanRejected = try SceneSpriteAnimation.nominalFrameSize(
+            from: .externalFile(booleanURL),
             expectedFrameCount: 1
         ) == nil
         let atlasSceneTimes: [Float] = [0, 0.999, 1, 1.999, 2, 2.999, 3, 4]
@@ -270,6 +280,7 @@ enum Harness {
         )
 
         let payload: [String: Any] = [
+            "inputChecks": inputChecks,
             "parsedCount": parsed.count,
             "invalidTimelinesRejected": invalidTimelinesRejected,
             "zeroDurationPreserved": defaultDurationAnimation.duration.isFinite
@@ -345,6 +356,67 @@ enum Harness {
         print(String(decoding: data, as: UTF8.self))
     }
 
+    enum ProbeStop: Error { case cancelled }
+
+    static func sidecarInputChecks(root: URL, data: Data) throws -> [String: Bool] {
+        let primary = root.appendingPathComponent("primary")
+        let lower = root.appendingPathComponent("lower")
+        let other = root.appendingPathComponent("other")
+        for folder in [primary, lower, other] {
+            try FileManager.default.createDirectory(at: folder, withIntermediateDirectories: true)
+        }
+        for folder in [primary, lower] {
+            try Data([1]).write(to: folder.appendingPathComponent("atlas.tex"))
+        }
+        try data.write(to: lower.appendingPathComponent("atlas.tex-json"))
+        var view = SceneResourceView(projectRootURL: lower, packageRootURL: primary,
+                                     stockAssetsRootURL: nil)
+        let input = SceneResourceView.FileInput.resource(view.resolvedResource(relativePath: "atlas.tex")!)
+        var checks = ["missingSidecarDoesNotFallThrough": try SceneSpriteAnimation.nominalFrameSize(
+            from: input, expectedFrameCount: 3) == nil]
+        try data.write(to: primary.appendingPathComponent("atlas.tex-json"))
+        checks["sameRootSidecar"] = try SceneSpriteAnimation.nominalFrameSize(
+            from: input, expectedFrameCount: 3) == SIMD2(100, 50)
+        let raw = "particles\\I.tex"
+        try Data([1]).write(to: primary.appendingPathComponent(raw))
+        try data.write(to: primary.appendingPathComponent(raw + "-json"))
+        view = SceneResourceView(projectRootURL: primary, packageRootURL: nil, stockAssetsRootURL: nil)
+        let rawInput = SceneResourceView.FileInput.resource(view.resolvedResource(relativePath: "particles/i.tex")!)
+        checks["selectedRawSibling"] = try SceneSpriteAnimation.nominalFrameSize(
+            from: rawInput, expectedFrameCount: 3) == SIMD2(100, 50)
+        do {
+            _ = try SceneSpriteAnimation.nominalFrameSize(from: input, expectedFrameCount: 3,
+                checkCancellation: { throw ProbeStop.cancelled })
+            checks["cancelPropagates"] = false
+        } catch ProbeStop.cancelled { checks["cancelPropagates"] = true }
+        do {
+            _ = try SceneSpriteAnimation.nominalFrameSize(from: input, expectedFrameCount: 3,
+                checkCancellation: { throw CocoaError(.userCancelled) })
+            checks["cocoaCancelPropagates"] = false
+        } catch let error as CocoaError where error.code == .userCancelled {
+            checks["cocoaCancelPropagates"] = true
+        }
+        try FileManager.default.removeItem(at: primary.appendingPathComponent("atlas.tex-json"))
+        try FileManager.default.createSymbolicLink(at: primary.appendingPathComponent("atlas.tex-json"),
+            withDestinationURL: lower.appendingPathComponent("atlas.tex-json"))
+        do {
+            _ = try SceneSpriteAnimation.nominalFrameSize(from: input, expectedFrameCount: 3)
+            checks["sidecarEscapePropagates"] = false
+        } catch SceneResourceView.ReadError.symlinkEscape { checks["sidecarEscapePropagates"] = true }
+        let alias = root.appendingPathComponent("alias")
+        try FileManager.default.createSymbolicLink(at: alias, withDestinationURL: primary)
+        let aliasRoot = SceneResourceView.Root(source: .loose, url: alias,
+            index: SceneResourceIndex(rootURL: alias, resources: []))
+        let aliasInput = SceneResourceView.FileInput.resource(aliasRoot.handle(relativePath: "atlas.tex", exact: true)!)
+        try FileManager.default.removeItem(at: alias)
+        try FileManager.default.createSymbolicLink(at: alias, withDestinationURL: other)
+        do {
+            _ = try SceneSpriteAnimation.nominalFrameSize(from: aliasInput, expectedFrameCount: 3)
+            checks["rootChangePropagates"] = false
+        } catch SceneResourceView.ReadError.sourceChanged { checks["rootChangePropagates"] = true }
+        return checks
+    }
+
     static func spriteFrame(
         originX: Float,
         duration: Float = 1
@@ -414,6 +486,7 @@ class SceneTextureAnimationScriptTests(unittest.TestCase):
 
         self.assertEqual(result.returncode, 0, result.stderr)
         payload = json.loads(result.stdout)
+        self.assertTrue(all(payload["inputChecks"].values()), payload["inputChecks"])
         self.assertEqual(payload["parsedCount"], 1)
         self.assertEqual(payload["invalidTimelinesRejected"], [True, True])
         self.assertTrue(payload["zeroDurationPreserved"])

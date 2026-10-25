@@ -5,12 +5,6 @@ import simd
 /// Prepares immutable MDL and pose data, then creates layer/surface-owned
 /// GeometryProducts. The atlas remains a sampling resource of each product.
 enum ScenePuppetLayerLoad {
-    private enum MeshFileResolution {
-        case ready(URL)
-        case absent
-        case rejected
-    }
-
     /// Launch-time payload installed into any existing SceneScript owner for
     /// the same authored layer.  The rig reader remains the sole source of
     /// names, parent order, and bind-local matrices; no sample-specific
@@ -68,26 +62,45 @@ enum ScenePuppetLayerLoad {
 
     static func prepareAsset(
         meshPath: String,
-        cacheDirectory: URL,
-        needsAnimations: Bool
-    ) -> AssetPreparation {
-        let meshURL: URL
-        switch meshFileResolution(relativePath: meshPath, cacheDirectory: cacheDirectory) {
-        case let .ready(url):
-            meshURL = url
-        case .absent:
+        resourceView: SceneResourceView,
+        needsAnimations: Bool,
+        cancellationCheck: () throws -> Void = {}
+    ) throws -> AssetPreparation {
+        try cancellationCheck()
+        // Preserve the former cacheDirectory-only exact lookup, including
+        // hidden paths. A missing primary entry must not select a lower root.
+        guard !meshPath.hasPrefix("/") else {
+            return .unavailable(allowsMissingMeshTextureProduct: false,
+                message: "puppet mesh path rejected (\(meshPath))")
+        }
+        guard let root = resourceView.roots.first else {
             return .unavailable(allowsMissingMeshTextureProduct: true,
                 message: "puppet mesh unavailable (\(meshPath))")
-        case .rejected:
+        }
+        let relativePath = meshPath.split(separator: "/", omittingEmptySubsequences: true)
+            .filter { $0 != "." }.joined(separator: "/")
+        guard let handle = root.handle(relativePath: relativePath, exact: true) else {
             return .unavailable(allowsMissingMeshTextureProduct: false,
                 message: "puppet mesh path rejected (\(meshPath))")
         }
         let data: Data
         do {
-            data = try Data(contentsOf: meshURL)
-        } catch {
-            return .unavailable(allowsMissingMeshTextureProduct: false,
-                message: "puppet mesh read failed (\(meshPath))")
+            data = try withoutActuallyEscaping(cancellationCheck) { check in
+                try handle.readBytes(checkCancellation: check)
+            }
+        } catch let error as SceneResourceView.ReadError {
+            switch error {
+            case .sourceChanged, .invalidHandle: throw error
+            case .missing:
+                return .unavailable(allowsMissingMeshTextureProduct: true,
+                    message: "puppet mesh unavailable (\(meshPath))")
+            case .invalidPath, .symlinkEscape:
+                return .unavailable(allowsMissingMeshTextureProduct: false,
+                    message: "puppet mesh path rejected (\(meshPath))")
+            case .unreadable, .fileTooLarge:
+                return .unavailable(allowsMissingMeshTextureProduct: false,
+                    message: "puppet mesh read failed (\(meshPath))")
+            }
         }
         let mesh: SceneMdlPuppetMesh
         do {
@@ -431,27 +444,4 @@ enum ScenePuppetLayerLoad {
         }
     }
 
-    /// The mesh path comes from extracted pkg JSON; only accept it when the
-    /// resolved file (symlinks included) stays inside the extraction cache.
-    private static func meshFileResolution(
-        relativePath: String,
-        cacheDirectory: URL
-    ) -> MeshFileResolution {
-        guard relativePath.hasPrefix("/") == false,
-              relativePath.contains("..") == false
-        else {
-            return .rejected
-        }
-        let candidate = cacheDirectory.appendingPathComponent(relativePath)
-        guard FileManager.default.fileExists(atPath: candidate.path) else {
-            return .absent
-        }
-        let resolvedFile = candidate.resolvingSymlinksInPath().standardizedFileURL
-        let resolvedRoot = cacheDirectory.resolvingSymlinksInPath().standardizedFileURL
-        let rootPath = resolvedRoot.path.hasSuffix("/")
-            ? resolvedRoot.path
-            : resolvedRoot.path + "/"
-        guard resolvedFile.path.hasPrefix(rootPath) else { return .rejected }
-        return .ready(candidate)
-    }
 }

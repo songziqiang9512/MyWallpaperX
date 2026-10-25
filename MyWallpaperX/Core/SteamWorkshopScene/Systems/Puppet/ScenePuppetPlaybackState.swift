@@ -121,6 +121,8 @@ final class ScenePuppetPlaybackState {
     let geometry: Geometry
     private let evaluator: ScenePuppetAnimationEvaluator
     private let attachments: [SceneMdlPuppetAttachment]
+    /// The evaluator's rig is immutable; script edits change pose, not physics membership.
+    private let physicsBoneIndices: [Int]
 
     var isDirectModel: Bool {
         if case .direct = geometry { return true }
@@ -417,6 +419,7 @@ final class ScenePuppetPlaybackState {
                     guard let index = lastPreparedVertexBufferIndex else { return }
                     clipping.prepare(commandBuffer: commandBuffer, extent: extent, mvp: mvp,
                         retainAuxiliary: retainAuxiliary,
+                        vertexCoverageVaries: image.hasBoneAlpha,
                         vertices: image.vertexScratch, vertexBuffer: image.vertexBuffers[index], indexBuffer: image.indexBuffer)
                 }
             },
@@ -545,13 +548,13 @@ final class ScenePuppetPlaybackState {
 #if DEBUG
         boneWrittenInFrame = false
 #endif
-        guard evaluator.rig.bones.contains(where: { $0.translationPhysics != nil }) else { return }
+        guard !physicsBoneIndices.isEmpty else { return }
         guard let base = try? evaluator.boneTransforms(selection: selection,
             frameSamples: animationFrame.samples, blends: animationFrame.blends)
         else { return }
         lastBonePhysicsFrameIndex = frameIndex
-        for (index, bone) in evaluator.rig.bones.enumerated() {
-            guard let configuration = bone.translationPhysics else { continue }
+        for index in physicsBoneIndices {
+            guard let configuration = evaluator.rig.bones[index].translationPhysics else { continue }
             var pose = base.local[index]
             if let override = renderBoneOverrides[index] { pose = override }
             let target = SIMD3(base.local[index].columns.3.x,
@@ -609,6 +612,9 @@ final class ScenePuppetPlaybackState {
         self.selection = selection
         self.evaluator = evaluator
         self.attachments = attachments
+        physicsBoneIndices = evaluator.rig.bones.indices.filter {
+            evaluator.rig.bones[$0].translationPhysics != nil
+        }
         let matrixScratchCount = evaluator.boneCount
         localMatrixScratch = Array(repeating: matrix_identity_float4x4, count: matrixScratchCount)
         skinMatrixScratch = Array(repeating: matrix_identity_float4x4, count: matrixScratchCount)

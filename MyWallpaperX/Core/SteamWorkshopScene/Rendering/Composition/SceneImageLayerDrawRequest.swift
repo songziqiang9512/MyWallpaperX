@@ -306,7 +306,7 @@ struct SceneImageLayerDrawRequest {
             acceptsCandidate = true
         case let ("text", .provider(.dynamicText(candidateLayerID))):
             acceptsCandidate = candidateLayerID == layer.id
-        case ("solid", .file),
+        case ("solid", .file), ("solid", .package),
              ("solid", .provider(.mediaThumbnailCurrent)):
             acceptsCandidate = true
         case let ("solid", .provider(.videoAsset(asset, _, epoch))):

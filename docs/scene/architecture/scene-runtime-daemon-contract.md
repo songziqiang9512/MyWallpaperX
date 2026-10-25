@@ -53,6 +53,8 @@
 | `pause` / `resume` | — | 播放暂停/恢复（时钟+视频+音效） |
 | `shutdown` | — | 有序退出（先释放表面再退进程） |
 
+D23 强退役已接入：原 hello 的可选 requestRetirementSchemaVersion=1 与原 retireOutput 的 requireRequestRetirement=true 协商精确完整请求退役。普通命令缺省 false，保持原窗口撤回语义；强分支的 switchControlResult 另以 requestRetired=true 表示已知请求的原 preparation fence、Session 已接纳任务和 GPU 成功终态、窗口撤回及空 Host owners，不能由未知请求/字段缺失推导。原 launchResourcesReleased 增 resourcesRetired:true，失败不得退源租约；强屏障另保旧借用直到成功或实际退出。强分支暂停原 inbox drain 到一次终态再恢复，父端原2秒退出兜底不延长。音频 none 在 ACK 前按原 FIFO 发布，迟到 demand 须核完整当前 scope。原 registry/退出/Scene候选回滚继续唯一；最多30秒空进程复用不承诺AV borrower或RSS归零。新非Scene意图撤idle/强退役保留，物理retiring期间让Web可选空预热让位，真正Web准备保持。跨引擎产品交接归[切换事务](../../architecture/playback-lifecycle-transaction-design.md)，历史设计依据见[专项结算](../../history/cross-topic/wallpaper-startup-optimization-completed-2026-10-25.md)，限定运行与未闭性能门归[D23历史](../history/scene-startup-d23-2026-10-25.md)。
+
 ### 3.2 事件（daemon → 主程序）
 
 | 事件 | 载荷 | 时机 |

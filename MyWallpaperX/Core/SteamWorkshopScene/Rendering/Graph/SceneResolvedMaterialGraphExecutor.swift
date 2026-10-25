@@ -234,6 +234,7 @@ final class SceneResolvedMaterialGraphExecutor {
         guard validate(
             capability: capability,
             leases: leases,
+            token: token,
             materialFunctionTargetsByEffect: resolvedInvocations.mapValues {
                 Set($0.flatMap(\.targets))
             }
@@ -359,19 +360,27 @@ final class SceneResolvedMaterialGraphExecutor {
                 effectGeneration: effectGeneration,
                 resetGeneration: resetGeneration
             ) else { return .failure(.historyRejected) }
-            let reduction = State.reduce(
-                graph: graph,
-                targetPlan: lease.table.plan,
-                pairStep: pairStep,
-                allocation: lease.framebufferAllocation,
-                effectGeneration: effectGeneration,
-                resetGeneration: resetGeneration,
-                previous: previous,
-                historyRehydration: history.rehydration,
-                materialFunctionInvocations: (resolvedInvocations[effect] ?? []).map {
-                    .init(name: $0.name, targets: $0.targets)
-                }
-            )
+            let invocations = (resolvedInvocations[effect] ?? []).map {
+                State.MaterialFunctionInvocation(name: $0.name, targets: $0.targets)
+            }
+            let reduction: Result<State.Transition, State.Failure>
+            if let prepared = lease.table.preparedExecution,
+               lease.table.capabilityID != nil {
+                reduction = State.reduce(
+                    preparedExecution: prepared, allocation: lease.framebufferAllocation,
+                    effectGeneration: effectGeneration, resetGeneration: resetGeneration,
+                    previous: previous, historyRehydration: history.rehydration,
+                    materialFunctionInvocations: invocations
+                )
+            } else {
+                reduction = State.reduce(
+                    graph: graph, targetPlan: lease.table.plan, pairStep: pairStep,
+                    allocation: lease.framebufferAllocation,
+                    effectGeneration: effectGeneration, resetGeneration: resetGeneration,
+                    previous: previous, historyRehydration: history.rehydration,
+                    materialFunctionInvocations: invocations
+                )
+            }
             guard case let .success(transition) = reduction,
                   publishRehydratedHistory(
                       transition: transition,

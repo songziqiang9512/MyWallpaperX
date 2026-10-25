@@ -56,7 +56,7 @@ class OnlineThumbnailSchedulingTests(unittest.TestCase):
             self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
             facts = json.loads(result.stdout)
             self.assertEqual(set(facts), {'networkConsumerLeases', 'pendingCancellationAndPromotion',
-                                         'boundedCoalescedDecode', 'fullRequestClearEpoch'})
+                                         'boundedCoalescedDecode', 'fullRequestClearEpoch', 'diskReadContract'})
             self.assertTrue(all(facts.values()), facts)
 
 

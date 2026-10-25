@@ -13,6 +13,7 @@ import unittest
 from pathlib import Path
 
 from script.tests.scene_source_color_fixture import HARNESS_EXTENSION, assert_source_color_upload
+from script.scene_swift_source_sets import scene_swift_sources
 
 
 REPOSITORY_ROOT = Path(__file__).resolve().parents[2]
@@ -20,6 +21,7 @@ SCENE_ROOT = REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene"
 IMAGE_LAYER_METAL_SOURCE = REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Composition/SceneImageLayer.metal"
 FOG_HEADER = IMAGE_LAYER_METAL_SOURCE.with_name("SceneDistanceFog.metalh")
 SWIFT_SOURCES = [
+    *scene_swift_sources("scene_resource_input"),
     Path(__file__).parent / "fixtures/SceneTextureSamplingReadback.swift",
     Path(__file__).resolve().parents[2] / "MyWallpaperX/Core/SteamWorkshopScene/Resources/Textures/SceneResourceBudget.swift",
     REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Diagnostics/ScenePerformanceCounterHub.swift",
@@ -500,238 +502,238 @@ enum Harness {
             payload: Data(repeating: 0, count: 4)
         ).write(to: overflowingRawURL)
         let overflowingRawRejected: Bool
-        if case .decodeFailed = loader.load(from: overflowingRawURL, device: device) {
+        if case .decodeFailed = (try loader.load(from: overflowingRawURL, device: device)) {
             overflowingRawRejected = true
         } else {
             overflowingRawRejected = false
         }
         let spriteTextureLoader = SceneMultiImageSpriteTextureLoader()
-        let missingSourceKeyUnavailable = loader.sourceKey(for: missingURL) == nil
-        let missingMetadataRejected: Bool
-        switch loader.loadCandidate(
+        let missingSourceKeyUnavailable = (try loader.sourceKey(for: missingURL)) == nil
+        let missingSourceCandidateRejected: Bool
+        switch (try loader.loadCandidate(
             from: missingURL,
             purpose: .mask,
             device: device
-        ) {
-        case .failed(.decodeFailed(let message)):
-            missingMetadataRejected = message.contains("file metadata unavailable")
+        )) {
+        case .failed(.decodeFailed):
+            missingSourceCandidateRejected = true
         default:
-            missingMetadataRejected = false
+            missingSourceCandidateRejected = false
         }
-        let first = try candidate(loader.loadCandidate(
+        let first = try candidate((try loader.loadCandidate(
             from: url,
             purpose: .mask,
             device: device
-        ))
-        let repeated = try candidate(loader.loadCandidate(
+        )))
+        let repeated = try candidate((try loader.loadCandidate(
             from: url,
             purpose: .mask,
             device: device
-        ))
-        let flow = try candidate(loader.loadCandidate(
+        )))
+        let flow = try candidate((try loader.loadCandidate(
             from: url,
             purpose: .flow,
             device: device
-        ))
+        )))
         let spriteRejected: Bool
-        switch loader.loadCandidate(
+        switch (try loader.loadCandidate(
             from: spriteURL,
             purpose: .mask,
             device: device
-        ) {
+        )) {
         case .failed(.decodeFailed(let message)):
             spriteRejected = message.contains("one non-sprite image")
         default:
             spriteRejected = false
         }
         let zeroMappedRejected = rejectedDimensions(
-            loader.loadCandidate(
+            (try loader.loadCandidate(
                 from: zeroMappedURL,
                 purpose: .mask,
                 device: device
-            )
+            ))
         )
         let oversizedMappedRejected = rejectedDimensions(
-            loader.loadCandidate(
+            (try loader.loadCandidate(
                 from: oversizedMappedURL,
                 purpose: .mask,
                 device: device
-            )
+            ))
         )
         let mismatchedPhysicalRejected = rejectedDimensions(
-            loader.loadCandidate(
+            (try loader.loadCandidate(
                 from: mismatchedPhysicalURL,
                 purpose: .mask,
                 device: device
-            )
+            ))
         )
         let emptySpriteRejected = rejectedNonSprite(
-            loader.loadCandidate(
+            (try loader.loadCandidate(
                 from: emptySpriteURL,
                 purpose: .mask,
                 device: device
-            )
+            ))
         )
         let unparsedFallbackRejected = rejectedUnparsedMetadata(
-            loader.loadCandidate(
+            (try loader.loadCandidate(
                 from: unparsedFallbackURL,
                 purpose: .mask,
                 device: device
-            )
+            ))
         )
-        let croppedColor = try candidate(loader.loadCandidate(
+        let croppedColor = try candidate((try loader.loadCandidate(
             from: croppedColorURL,
             purpose: .premultipliedColor,
             device: device
-        ))
-        let normalizedColor = try candidate(loader.loadCandidate(
+        )))
+        let normalizedColor = try candidate((try loader.loadCandidate(
             from: normalizedColorURL,
             purpose: .premultipliedColor,
             device: device
-        ))
+        )))
         let wrongOutputRejected = rejectedDimensions(
-            loader.loadCandidate(
+            (try loader.loadCandidate(
                 from: wrongOutputURL,
                 purpose: .premultipliedColor,
                 device: device
-            )
+            ))
         )
-        let mappedEmbeddedColor = try candidate(loader.loadCandidate(
+        let mappedEmbeddedColor = try candidate((try loader.loadCandidate(
             from: mappedEmbeddedURL,
             purpose: .premultipliedColor,
             device: device
-        ))
+        )))
         let mappedEmbeddedNormalRejected = rejectedDimensions(
-            loader.loadCandidate(
+            (try loader.loadCandidate(
                 from: mappedEmbeddedURL,
                 purpose: .normal,
                 device: device
-            )
+            ))
         )
-        let mappedTexb3EmbeddedColor = try candidate(loader.loadCandidate(
+        let mappedTexb3EmbeddedColor = try candidate((try loader.loadCandidate(
             from: mappedTexb3EmbeddedURL,
             purpose: .premultipliedColor,
             device: device
-        ))
-        let oversizedTexb3MipChainColor = try candidate(loader.loadCandidate(
+        )))
+        let oversizedTexb3MipChainColor = try candidate((try loader.loadCandidate(
             from: oversizedTexb3MipChainURL,
             purpose: .premultipliedColor,
             device: device
-        ))
-        let mappedTexb3EmbeddedNormal = try candidate(loader.loadCandidate(
+        )))
+        let mappedTexb3EmbeddedNormal = try candidate((try loader.loadCandidate(
             from: mappedTexb3EmbeddedURL,
             purpose: .normal,
             device: device
-        ))
+        )))
         let malformedTexb3EmbeddedRejected = rejectedEmbeddedMetadata(
-            loader.loadCandidate(
+            (try loader.loadCandidate(
                 from: malformedTexb3EmbeddedURL,
                 purpose: .premultipliedColor,
                 device: device
-            )
+            ))
         )
         let decodedMismatchTexb3Rejected = rejectedEmbeddedMetadata(
-            loader.loadCandidate(
+            (try loader.loadCandidate(
                 from: decodedMismatchTexb3URL,
                 purpose: .premultipliedColor,
                 device: device
-            )
+            ))
         )
         let lowerMipMismatchTexb3Rejected = rejectedEmbeddedMetadata(
-            loader.loadCandidate(
+            (try loader.loadCandidate(
                 from: lowerMipMismatchTexb3URL,
                 purpose: .premultipliedColor,
                 device: device
-            )
+            ))
         )
         let freeFormatMismatchTexb3Rejected = rejectedEmbeddedMetadata(
-            loader.loadCandidate(
+            (try loader.loadCandidate(
                 from: freeFormatMismatchTexb3URL,
                 purpose: .premultipliedColor,
                 device: device
-            )
+            ))
         )
-        let mappedTexb3JPEG = try candidate(loader.loadCandidate(
+        let mappedTexb3JPEG = try candidate((try loader.loadCandidate(
             from: mappedTexb3JPEGURL,
             purpose: .premultipliedColor,
             device: device
-        ))
-        let normalizedStraightAlbedoJPEG = try candidate(loader.loadCandidate(
+        )))
+        let normalizedStraightAlbedoJPEG = try candidate((try loader.loadCandidate(
             from: normalizedStraightAlbedoJPEGURL,
             purpose: .straightAlbedo,
             device: device
-        ))
-        let normalizedStraightAlbedoPNG = try candidate(loader.loadCandidate(
+        )))
+        let normalizedStraightAlbedoPNG = try candidate((try loader.loadCandidate(
             from: normalizedStraightAlbedoPNGURL,
             purpose: .straightAlbedo,
             device: device
-        ))
-        let transparentStraightAlbedoPNG = try candidate(loader.loadCandidate(
+        )))
+        let transparentStraightAlbedoPNG = try candidate((try loader.loadCandidate(
             from: transparentStraightAlbedoPNGURL,
             purpose: .straightAlbedo,
             device: device
-        ))
+        )))
         let transparentStraightAlbedoPixel = try readFirstPixel(
             texture: transparentStraightAlbedoPNG.texture, device: device
         )
         let directTransparentURL = directory.appendingPathComponent("transparent-large.png")
         try pngData(width: 4097, height: 2).write(to: directTransparentURL)
-        let directTransparent = try candidate(loader.loadCandidate(
+        let directTransparent = try candidate((try loader.loadCandidate(
             from: directTransparentURL, purpose: .straightAlbedo, device: device
-        ))
-        let legacyMappedStraight = try candidate(loader.loadCandidate(
-            from: mappedEmbeddedURL, purpose: .straightAlbedo, device: device))
-        let normalizedLegacyStraight = try candidate(loader.loadCandidate(
-            from: normalizedColorURL, purpose: .straightAlbedo, device: device))
+        )))
+        let legacyMappedStraight = try candidate((try loader.loadCandidate(
+            from: mappedEmbeddedURL, purpose: .straightAlbedo, device: device)))
+        let normalizedLegacyStraight = try candidate((try loader.loadCandidate(
+            from: normalizedColorURL, purpose: .straightAlbedo, device: device)))
         let paddedMipsURL = directory.appendingPathComponent("padded-straight-mips.tex")
         try embeddedImageTex(textureWidth: 8192, textureHeight: 8,
             imageWidth: 4096, imageHeight: 8, payload: try pngData(width: 8192, height: 8),
             containerVersion: "TEXB0003", freeImageFormat: 13, mipWidth: 8192, mipHeight: 8,
             additionalMips: [(4096, 4, try pngData(width: 4096, height: 4))]).write(to: paddedMipsURL)
-        let paddedStraightMips = try candidate(loader.loadCandidate(
-            from: paddedMipsURL, purpose: .straightAlbedo, device: device))
+        let paddedStraightMips = try candidate((try loader.loadCandidate(
+            from: paddedMipsURL, purpose: .straightAlbedo, device: device)))
         let straightResize = try straightResizeProbe(device: device)
         let authoredStraightAlbedoMipsPNG = try candidate(
-            loader.loadCandidate(
+            (try loader.loadCandidate(
                 from: authoredStraightAlbedoMipsPNGURL,
                 purpose: .straightAlbedo,
                 device: device
-            )
+            ))
         )
         let authoredStraightAlbedoMipsPixel = try readFirstPixel(
             texture: authoredStraightAlbedoMipsPNG.texture,
             device: device
         )
         let paddedStraightAlbedoJPEGRejected = rejectedDimensions(
-            loader.loadCandidate(
+            (try loader.loadCandidate(
                 from: paddedStraightAlbedoJPEGURL,
                 purpose: .straightAlbedo,
                 device: device
-            )
+            ))
         )
         let mislabeledTexb4StraightAlbedoPNGRejected = rejectedDimensions(
-            loader.loadCandidate(
+            (try loader.loadCandidate(
                 from: mislabeledTexb4StraightAlbedoPNGURL,
                 purpose: .straightAlbedo,
                 device: device
-            )
+            ))
         )
         let mappedTexb2MipRejected = rejectedDimensions(
-            loader.loadCandidate(
+            (try loader.loadCandidate(
                 from: mappedTexb2MipURL,
                 purpose: .premultipliedColor,
                 device: device
-            )
+            ))
         )
         let baseDirect = try baseLoaded(SceneBaseImageTextureLoad.load(
-            from: fallbackPNGURL,
+            from: .externalFile(fallbackPNGURL),
             usesPuppet: false,
             loader: loader,
             spriteTextureLoader: spriteTextureLoader,
             device: device
         ))
         let baseCropped = try baseLoaded(SceneBaseImageTextureLoad.load(
-            from: croppedColorURL,
+            from: .externalFile(croppedColorURL),
             usesPuppet: false,
             loader: loader,
             spriteTextureLoader: spriteTextureLoader,
@@ -739,7 +741,7 @@ enum Harness {
         ))
         let clampBorderBaseLoadRejected: Bool
         switch SceneBaseImageTextureLoad.load(
-            from: clampBorderColorURL,
+            from: .externalFile(clampBorderColorURL),
             usesPuppet: false,
             loader: loader,
             spriteTextureLoader: spriteTextureLoader,
@@ -753,7 +755,7 @@ enum Harness {
         }
         let unknownSamplerBaseLoadRejected: Bool
         switch SceneBaseImageTextureLoad.load(
-            from: unknownSamplerColorURL,
+            from: .externalFile(unknownSamplerColorURL),
             usesPuppet: false,
             loader: loader,
             spriteTextureLoader: spriteTextureLoader,
@@ -766,21 +768,21 @@ enum Harness {
             unknownSamplerBaseLoadRejected = false
         }
         let baseNearestRepeat = try baseLoaded(SceneBaseImageTextureLoad.load(
-            from: nearestRepeatColorURL,
+            from: .externalFile(nearestRepeatColorURL),
             usesPuppet: false,
             loader: loader,
             spriteTextureLoader: spriteTextureLoader,
             device: device
         ))
         let basePaddedSpecialized = try baseLoaded(SceneBaseImageTextureLoad.load(
-            from: url,
+            from: .externalFile(url),
             usesPuppet: false,
             loader: loader,
             spriteTextureLoader: spriteTextureLoader,
             device: device
         ))
         let baseSpritePlayback = try baseLoaded(SceneBaseImageTextureLoad.load(
-            from: spriteURL,
+            from: .externalFile(spriteURL),
             usesPuppet: false,
             loader: loader,
             spriteTextureLoader: spriteTextureLoader,
@@ -788,7 +790,7 @@ enum Harness {
         ))
         let baseCrossImageSprite = try baseLoaded(
             SceneBaseImageTextureLoad.load(
-                from: crossImageSpriteURL,
+                from: .externalFile(crossImageSpriteURL),
                 usesPuppet: false,
                 loader: loader,
                 spriteTextureLoader: spriteTextureLoader,
@@ -797,7 +799,7 @@ enum Harness {
         )
         let baseRotatedCrossImageSprite = try baseLoaded(
             SceneBaseImageTextureLoad.load(
-                from: rotatedCrossImageSpriteURL,
+                from: .externalFile(rotatedCrossImageSpriteURL),
                 usesPuppet: false,
                 loader: loader,
                 spriteTextureLoader: spriteTextureLoader,
@@ -806,7 +808,7 @@ enum Harness {
         )
         let baseBudgetLimitedCrossImageSprite = try baseLoaded(
             SceneBaseImageTextureLoad.load(
-                from: crossImageSpriteURL,
+                from: .externalFile(crossImageSpriteURL),
                 usesPuppet: false,
                 loader: loader,
                 spriteTextureLoader: SceneMultiImageSpriteTextureLoader(
@@ -850,7 +852,7 @@ enum Harness {
         let boundaryURL = directory.appendingPathComponent("sprite-boundaries.tex")
         try crossImageSpriteBC3Tex(frameCount: 64, frameDuration: 0.1).write(to: boundaryURL)
         let boundarySprite = try baseLoaded(SceneBaseImageTextureLoad.load(
-            from: boundaryURL, usesPuppet: false, loader: loader,
+            from: .externalFile(boundaryURL), usesPuppet: false, loader: loader,
             spriteTextureLoader: spriteTextureLoader, device: device
         ))
         let boundaryAnimation = boundarySprite.animation!
@@ -873,7 +875,7 @@ enum Harness {
         }
         let crossImageTransform = crossImageAnimation.transform(at: 0.04)
         let basePuppetSpecialized = try baseLoaded(SceneBaseImageTextureLoad.load(
-            from: croppedColorURL,
+            from: .externalFile(croppedColorURL),
             usesPuppet: true,
             loader: loader,
             spriteTextureLoader: spriteTextureLoader,
@@ -884,7 +886,7 @@ enum Harness {
             loader: loader, spriteTextureLoader: spriteTextureLoader, device: device
         )
         let baseUnparsedOutcome = SceneBaseImageTextureLoad.load(
-            from: unparsedFallbackURL,
+            from: .externalFile(unparsedFallbackURL),
             usesPuppet: false,
             loader: loader,
             spriteTextureLoader: spriteTextureLoader,
@@ -898,7 +900,7 @@ enum Harness {
         }
         let baseCandidateFailureTerminal = baseRejectedDimensions(
             SceneBaseImageTextureLoad.load(
-                from: mismatchedPhysicalURL,
+                from: .externalFile(mismatchedPhysicalURL),
                 usesPuppet: false,
                 loader: loader,
                 spriteTextureLoader: spriteTextureLoader,
@@ -1207,7 +1209,7 @@ enum Harness {
             allowedPixelFormats: [.r8Unorm]
         )
 
-        guard let originalSource = loader.sourceKey(for: url) else {
+        guard case let .file(originalSource)? = try loader.sourceKey(for: url) else {
             throw HarnessError.loadFailed
         }
         let originalStatus = try fileStatus(url)
@@ -1222,7 +1224,7 @@ enum Harness {
             payloadByte: 64
         ).write(to: url)
         try restoreTimestamps(originalStatus, at: url)
-        guard let inPlaceSource = loader.sourceKey(for: url) else {
+        guard case let .file(inPlaceSource)? = try loader.sourceKey(for: url) else {
             throw HarnessError.loadFailed
         }
         let inPlaceStableMetadata =
@@ -1235,11 +1237,11 @@ enum Harness {
                 != originalSource.statusChangedAtSeconds
                 || inPlaceSource.statusChangedAtNanoseconds
                     != originalSource.statusChangedAtNanoseconds
-        let restoredMetadata = try candidate(loader.loadCandidate(
+        let restoredMetadata = try candidate((try loader.loadCandidate(
             from: url,
             purpose: .mask,
             device: device
-        ))
+        )))
         try rawR8Tex(
             textureWidth: 8,
             textureHeight: 4,
@@ -1249,7 +1251,7 @@ enum Harness {
             payloadByte: 32
         ).write(to: url, options: .atomic)
         try restoreTimestamps(originalStatus, at: url)
-        guard let atomicSource = loader.sourceKey(for: url) else {
+        guard case let .file(atomicSource)? = try loader.sourceKey(for: url) else {
             throw HarnessError.loadFailed
         }
         let atomicReplaceMetadataPreconditions =
@@ -1257,11 +1259,11 @@ enum Harness {
                 && atomicSource.modifiedAtBits == inPlaceSource.modifiedAtBits
                 && atomicSource.fileSystemID == inPlaceSource.fileSystemID
                 && atomicSource.fileID != inPlaceSource.fileID
-        let atomicReplacement = try candidate(loader.loadCandidate(
+        let atomicReplacement = try candidate((try loader.loadCandidate(
             from: url,
             purpose: .mask,
             device: device
-        ))
+        )))
         try rawR8Tex(
             textureWidth: 8,
             textureHeight: 8,
@@ -1269,11 +1271,11 @@ enum Harness {
             imageHeight: 8,
             flags: 0
         ).write(to: url)
-        let refreshed = try candidate(loader.loadCandidate(
+        let refreshed = try candidate((try loader.loadCandidate(
             from: url,
             purpose: .mask,
             device: device
-        ))
+        )))
 
         let attributes = try FileManager.default.attributesOfItem(atPath: url.path)
         let result: [String: Any] = [
@@ -1607,7 +1609,7 @@ enum Harness {
             "textureChangedAfterAtomicReplace":
                 restoredMetadata.texture !== atomicReplacement.texture,
             "missingSourceKeyUnavailable": missingSourceKeyUnavailable,
-            "missingMetadataRejected": missingMetadataRejected,
+            "missingSourceCandidateRejected": missingSourceCandidateRejected,
             "refreshedPhysical": [
                 Int(refreshed.physicalSize.width), Int(refreshed.physicalSize.height),
             ],
@@ -2365,7 +2367,7 @@ class SceneTextureCandidateTests(unittest.TestCase):
                 "invalidMappedRejected": True,
                 "invalidPhysicalRejected": True,
                 "mismatchedPhysicalRejected": True,
-                "missingMetadataRejected": True,
+                "missingSourceCandidateRejected": True,
                 "missingSourceKeyUnavailable": True,
                 "mappedEmbeddedColorIdentity": True,
                 "mappedEmbeddedNormalRejected": True,

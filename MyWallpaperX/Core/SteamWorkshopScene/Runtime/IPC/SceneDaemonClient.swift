@@ -70,6 +70,8 @@ final class SceneDaemonClient: PlaybackEngineControlling {
     var restartBackoff = DaemonRestartBackoff()
     let maximumRestartAttempts = 6
     var endpointReady = false
+    var requestRetirementSchemaVersion: Int?
+    var idleTransport: IdleTransport?
 
     var launchState: SceneWallpaperLaunchState?
     var latestFrameStats: SceneDaemonFrameStats?
@@ -133,8 +135,10 @@ final class SceneDaemonClient: PlaybackEngineControlling {
     struct RetainedResourceLifetime {
         let rootURL: URL
         let recordID: String?
+        let source: ScenePlaybackSource?
         let lifetime: PlaybackResourceLifetime
     }
+    var sourceSchemaVersion: Int?
     var pendingResourceLifetime: RetainedResourceLifetime?
     var activeResourceLifetime: RetainedResourceLifetime?
     var retiringResourceLifetimes: [UInt64: [PlaybackResourceLifetime]] = [:]
@@ -270,17 +274,24 @@ final class SceneDaemonClient: PlaybackEngineControlling {
     func retainResourceLifetime(
         _ lifetime: PlaybackResourceLifetime?,
         rootURL: URL,
-        recordID: String?
+        recordID: String?,
+        source: ScenePlaybackSource? = nil
     ) {
         pendingResourceLifetime = lifetime.map {
             RetainedResourceLifetime(
                 rootURL: rootURL.resolvingSymlinksInPath().standardizedFileURL,
                 recordID: recordID,
+                source: source,
                 lifetime: $0
             )
         }
     }
 #if DEBUG
+    var debugStartupObserver: ((SceneDaemonStartupObservation) -> Void)?
+    var debugStartupPrefixObserver: ((SceneDaemonStartupPrefixObservation) -> Void)?
+    var debugStartupWireObserver: ((UInt64, Int32?, UInt64, [String: Any]) -> Void)?
+    var debugConfiguredMaximumFPS: Int { performanceProfile.maxFPS }
+
     var debugProcessIdentifier: Int32? {
         guard let transport, transport.isRunning else { return nil }
         return transport.process.processIdentifier
@@ -370,6 +381,7 @@ final class SceneDaemonClient: PlaybackEngineControlling {
     /// Internal execution teardown stays silent. A standalone command stop may
     /// publish its state; product command stops first enter stopPlaybackRequested.
     func stop(postsLaunchState: Bool) {
+        discardIdleTransport()
         finishPendingShortcutUpdates(.superseded)
         finishPendingTextureUpdates(.superseded)
         let stoppedRequestID = activeRequestID ?? pendingRequestID
@@ -400,6 +412,8 @@ final class SceneDaemonClient: PlaybackEngineControlling {
         pendingPropertyRevisions.removeAll(keepingCapacity: true)
         activeRecordID = nil
         endpointReady = false
+        sourceSchemaVersion = nil
+        requestRetirementSchemaVersion = nil
         failPendingFrameCaptures()
         revokeAudioSpectrumDemand(generation: sessionGeneration)
         revokeSystemMediaDemand(generation: sessionGeneration)
@@ -436,6 +450,7 @@ final class SceneDaemonClient: PlaybackEngineControlling {
         let sameVersion: (ScenePlaybackLoadRequest?) -> Bool = {
             $0?.recordID == request.recordID
                 && $0?.rootURL.standardizedFileURL == request.rootURL.standardizedFileURL
+                && $0?.source == request.source
         }
         // A property fallback for the committed version cannot replace a newer
         // product selection. Internal rebuilds retain the accepted product ticket.
@@ -454,6 +469,13 @@ final class SceneDaemonClient: PlaybackEngineControlling {
         let normalizedRoot = request.rootURL.resolvingSymlinksInPath().standardizedFileURL
         let incomingLifetime = [pendingResourceLifetime, activeResourceLifetime].compactMap { $0 }.first {
             $0.rootURL == normalizedRoot && $0.recordID == request.recordID
+                && $0.source == request.source
+        }
+        if hasRequestRetirementControl {
+            queuedSwitchPreparation = .init(request: request, ticket: ticket,
+                                             resourceLifetime: incomingLifetime?.lifetime)
+            pendingResourceLifetime = nil
+            return
         }
         if let ticket, pendingSwitchExecution?.presented == true {
             queuedSwitchPreparation = .init(request: request, ticket: ticket,
@@ -476,6 +498,15 @@ final class SceneDaemonClient: PlaybackEngineControlling {
         lastPropertyRevision = 0
         restartWorkItem?.cancel()
         restartWorkItem = nil
+        if request.source?.managed != nil && incomingLifetime == nil {
+            let requestID = UUID()
+            pendingRequestID = requestID
+            var failure: [String: Any] = ["phase": "failed", "requestID": requestID.uuidString,
+                "message": "Scene 受管来源缺少同版本资源租约"]
+            if let recordID = request.recordID { failure["recordID"] = recordID }
+            handleLaunchState(failure)
+            return
+        }
         if ensureSession(), endpointReady {
             replayPendingIntent()
         }
@@ -518,6 +549,9 @@ final class SceneDaemonClient: PlaybackEngineControlling {
 
     @discardableResult
     func ensureSession() -> Bool {
+        guard DaemonPlaybackProcessRegistry.shared.acceptsNewProcesses,
+              !hasRequestRetirementControl else { return false }
+        discardIdleTransport()
         if transport?.isRunning == true { return true }
         warmSessionPending = false
         return spawnSession(silentHandshakeFailure: false)
@@ -537,6 +571,7 @@ final class SceneDaemonClient: PlaybackEngineControlling {
 
     private func spawnSession(silentHandshakeFailure: Bool) -> Bool {
         guard DaemonPlaybackProcessRegistry.shared.acceptsNewProcesses else { return false }
+        discardIdleTransport()
         guard let executableURL = Bundle.main.executableURL else {
             guard !silentHandshakeFailure else { return false }
             scheduleRestart(reason: "missing-main-executable")
@@ -548,9 +583,14 @@ final class SceneDaemonClient: PlaybackEngineControlling {
         let generation = sessionGeneration
         expectedTerminationGenerations.remove(generation)
         endpointReady = false
+        sourceSchemaVersion = nil
+        requestRetirementSchemaVersion = nil
         outputFrames = DaemonNewlineFrameBuffer()
         var daemonArguments = [SceneDaemonProtocol.commandFlag]
 #if DEBUG
+        if debugStartupPrefixObserver != nil {
+            daemonArguments.append("--mwx-debug-scene-startup-prefix")
+        }
         if let evidenceDirectory = Self.argumentValue(
             after: "--mwx-debug-scene-evidence-dir"
         ) {
@@ -579,8 +619,14 @@ final class SceneDaemonClient: PlaybackEngineControlling {
             self?.handleTermination(status: status, generation: generation)
         }
         do {
+#if DEBUG
+            observeDebugStartupPrefix(.processStartBegan)
+#endif
             try transport.start()
             self.transport = transport
+#if DEBUG
+            observeDebugStartupPrefix(.processStartReturned)
+#endif
             let handshake = DispatchWorkItem { [weak self] in
                 guard let self,
                       generation == self.sessionGeneration,
@@ -615,9 +661,25 @@ final class SceneDaemonClient: PlaybackEngineControlling {
     }
 
     func replayPendingIntent() {
-        guard let request = pendingIntent else { return }
+        guard !hasRequestRetirementControl, idleTransport == nil,
+              DaemonPlaybackProcessRegistry.shared.acceptsNewProcesses,
+              let request = pendingIntent else { return }
         let requestID = UUID()
         pendingRequestID = requestID
+        let sourceObject: [String: Any]?
+        do {
+            guard request.source?.managed == nil || sourceSchemaVersion == 1 else {
+                throw NSError(domain: "SceneSourceProtocol", code: 1,
+                    userInfo: [NSLocalizedDescriptionKey: "Scene daemon 不支持受管来源协议"])
+            }
+            sourceObject = try request.source.map(SceneDaemonProtocol.sourceObject)
+        } catch {
+            var failure: [String: Any] = ["phase": "failed", "requestID": requestID.uuidString,
+                "message": "Scene 来源编码失败：\(error.localizedDescription)"]
+            if let recordID = request.recordID { failure["recordID"] = recordID }
+            handleLaunchState(failure)
+            return
+        }
         if let lifetime = pendingResourceLifetime?.lifetime {
             requestResourceLifetimes[requestID] = lifetime
         }
@@ -644,9 +706,13 @@ final class SceneDaemonClient: PlaybackEngineControlling {
             "requiredUserTextureKeys": request.requiredUserTextureKeys.sorted(),
             "profile": performanceProfile.maxFPS
         ]
+        if let sourceObject { payload["source"] = sourceObject }
         if let recordID = request.recordID {
             payload["recordID"] = recordID
         }
+#if DEBUG
+        observeDebugStartupPrefix(.loadEnqueueAttempted)
+#endif
         send(payload)
         send([
             "v": SceneDaemonProtocol.version,

@@ -51,7 +51,6 @@ nonisolated struct SceneParticleMaterialPass: Equatable, Sendable {
 
 nonisolated struct SceneParticleAsset: Sendable {
     let relativePath: String
-    let definitionURL: URL
     let definition: SceneParticleDefinition
     let materialPass: SceneParticleMaterialPass?
     let supportsBuiltInShaderExecution: Bool
@@ -89,11 +88,29 @@ nonisolated struct SceneParticleAssetDiagnostic: Codable, Equatable, Hashable, S
 }
 
 nonisolated struct SceneParticleAssetGraphLoader {
+    /// Captured once for this launch, including failed leaves. Discovery may
+    /// inspect a hidden root; its hard read failure belongs to actual adoption.
+    enum PreparedDefinition {
+        case parsed(SceneParticleDefinition)
+        case missing
+        case invalid
+        case readFailed(SceneResourceView.ReadError)
+
+        func rethrowHardReadFailure() throws {
+            if case let .readFailed(error) = self {
+                switch error {
+                case .sourceChanged, .invalidHandle: throw error
+                default: break
+                }
+            }
+        }
+    }
+
     private let stockTextureResolver: SceneStockTextureResolver?
-    private let resourceView: SceneResourceView?
+    private let resourceView: SceneResourceView
 
     init(
-        resourceView: SceneResourceView? = nil,
+        resourceView: SceneResourceView,
         stockTextureBundleURL: URL? = SceneStockTextureResolver.defaultBundleRoot()
     ) {
         self.resourceView = resourceView
@@ -105,13 +122,17 @@ nonisolated struct SceneParticleAssetGraphLoader {
     func load(
         rootPaths: [String],
         materialPasses: [SceneParticleMaterialPass],
-        cacheDirectory: URL
-    ) -> SceneParticleAssetGraph {
-        let index = SceneResourceIndexBuilder().build(rootURL: cacheDirectory)
-        let filesByPath = Dictionary(
-            index.resources.map { (Self.normalizedPath($0.relativePath), $0.url) },
-            uniquingKeysWith: { first, _ in first }
-        )
+        preparedDefinitions: [String: PreparedDefinition]? = nil,
+        checkCancellation: (() throws -> Void)? = nil
+    ) throws -> SceneParticleAssetGraph {
+        try checkCancellation?()
+        var definitions = preparedDefinitions ?? [:]
+        if preparedDefinitions == nil {
+            _ = try prepareDefinitions(rootPaths: rootPaths, checkCancellation: checkCancellation) { path, value in
+                try value.rethrowHardReadFailure()
+                definitions[path] = value
+            }
+        }
         let passesByMaterial = Dictionary(
             grouping: materialPasses,
             by: { Self.normalizedPath($0.materialPath) }
@@ -127,19 +148,24 @@ nonisolated struct SceneParticleAssetGraphLoader {
             if !diagnostics.contains(value) { diagnostics.append(value) }
         }
 
-        func visit(_ rawPath: String) {
+        func visit(_ rawPath: String) throws {
+            try checkCancellation?()
             let path = Self.normalizedPath(rawPath)
             if visiting.contains(path) {
                 diagnose(.cyclicChildReference, path)
                 return
             }
             guard attempted.insert(path).inserted else { return }
-            guard let definitionURL = filesByPath[path] else {
+            guard let prepared = definitions[path] else {
                 diagnose(.missingDefinition, path)
                 return
             }
-            guard let data = try? Data(contentsOf: definitionURL),
-                  let definition = try? SceneParticleDefinitionParser().parse(data: data) else {
+            try prepared.rethrowHardReadFailure()
+            if case .missing = prepared {
+                diagnose(.missingDefinition, path)
+                return
+            }
+            guard case let .parsed(definition) = prepared else {
                 diagnose(.invalidDefinition, path)
                 return
             }
@@ -164,8 +190,8 @@ nonisolated struct SceneParticleAssetGraphLoader {
             if textureName == nil {
                 diagnose(.missingTextureReference, path, materialPath)
             }
-            var textureSource = textureName.flatMap {
-                resolveTextureSource(named: $0, filesByPath: filesByPath)
+            var textureSource = try textureName.flatMap {
+                try resolveTextureSource(named: $0)
             }
             if let textureName, textureSource == nil {
                 diagnose(
@@ -185,9 +211,8 @@ nonisolated struct SceneParticleAssetGraphLoader {
                     )
                 } else if let refractionPlan,
                           let normalReference = refractionPlan.normalReference,
-                          let normal = resolveTextureSource(
-                              named: normalReference,
-                              filesByPath: filesByPath
+                          let normal = try resolveTextureSource(
+                              named: normalReference
                           ) {
                     refraction = SceneParticleRefractionDeclaration(
                         normalTextureSource: normal,
@@ -252,7 +277,6 @@ nonisolated struct SceneParticleAssetGraphLoader {
             let childPaths = Self.unique(definition.children.compactMap(\.path).map(Self.normalizedPath))
             assets[path] = SceneParticleAsset(
                 relativePath: path,
-                definitionURL: definitionURL,
                 definition: definition,
                 materialPass: materialPass,
                 supportsBuiltInShaderExecution: supportsShader,
@@ -263,11 +287,12 @@ nonisolated struct SceneParticleAssetGraphLoader {
                 childPaths: childPaths
             )
             visiting.insert(path)
-            for childPath in childPaths { visit(childPath) }
+            for childPath in childPaths { try visit(childPath) }
             visiting.remove(path)
         }
 
-        for root in roots { visit(root) }
+        for root in roots { try visit(root) }
+        try checkCancellation?()
         return SceneParticleAssetGraph(
             rootPaths: roots,
             assetsByPath: assets,
@@ -276,6 +301,41 @@ nonisolated struct SceneParticleAssetGraphLoader {
                     < ($1.assetPath, $1.kind.rawValue, $1.detail ?? "")
             }
         )
+    }
+
+    /// The original definition owner discovers material/child dependencies.
+    /// Raw bytes never cross the CPU preparation handoff and missing map rows
+    /// at adoption never reopen the source.
+    func prepareDefinitions(
+        rootPaths: [String],
+        checkCancellation: (() throws -> Void)? = nil,
+        prepared: (String, PreparedDefinition) throws -> Void
+    ) throws -> [String] {
+        var seen: Set<String> = []
+        var materials: [String] = []
+        func visit(_ rawPath: String) throws {
+            try checkCancellation?()
+            let path = Self.normalizedPath(rawPath)
+            guard !path.isEmpty, seen.insert(path).inserted else { return }
+            let value: PreparedDefinition
+            if let handle = resourceView.roots.first?.invariantHandle(relativePath: path) {
+                do {
+                    let data = try handle.readBytes(checkCancellation: checkCancellation)
+                    try checkCancellation?()
+                    let parsed = try? SceneParticleDefinitionParser().parse(data: data)
+                    try checkCancellation?()
+                    value = parsed.map(PreparedDefinition.parsed) ?? .invalid
+                } catch let error as SceneResourceView.ReadError {
+                    value = .readFailed(error)
+                }
+            } else { value = .missing }
+            try prepared(path, value)
+            guard case let .parsed(definition) = value else { return }
+            if let material = definition.materialPath { materials.append(material) }
+            for child in definition.children { if let path = child.path { try visit(path) } }
+        }
+        for root in rootPaths { try visit(root) }
+        return Self.unique(materials)
     }
 
     private static func preferredPass(
@@ -290,26 +350,27 @@ nonisolated struct SceneParticleAssetGraphLoader {
         return name == "genericparticle"
     }
 
-    private func resolveTextureSource(
-        named rawName: String,
-        filesByPath: [String: URL]
-    ) -> SceneParticleTextureSource? {
+    private func resolveTextureSource(named rawName: String) throws -> SceneParticleTextureSource? {
         let name = Self.normalizedPath(rawName)
         let bases = name.hasPrefix("materials/") ? [name] : ["materials/\(name)", name]
         var candidates = bases.flatMap { [$0, "\($0).tex"] }
         if URL(fileURLWithPath: name).pathExtension.isEmpty {
             candidates += bases.flatMap { ["\($0).png", "\($0).jpg", "\($0).jpeg"] }
         }
-        if let localURL = candidates.lazy.compactMap({ filesByPath[$0] }).first {
-            return .file(localURL)
-        }
-        if let resource = candidates.lazy.compactMap({
-            resourceView?.resource(relativePath: $0)
+        // Preserve the old primary cache-root precedence across all texture
+        // candidates, using its existing lookup instead of a second index.
+        if let handle = candidates.lazy.compactMap({
+            resourceView.roots.first?.invariantHandle(relativePath: $0)
         }).first {
-            return .file(resource.url)
+            return .file(.resource(handle))
         }
-        if let stockURL = stockTextureResolver?.textureURL(for: name) {
-            return .file(stockURL)
+        if let handle = candidates.lazy.compactMap({
+            resourceView.resolvedResource(relativePath: $0)
+        }).first {
+            return .file(.resource(handle))
+        }
+        if let stock = try stockTextureResolver?.textureInput(for: name) {
+            return .file(stock)
         }
         return SceneParticleTextureSource(reference: name)
     }
@@ -332,11 +393,7 @@ nonisolated struct SceneParticleAssetGraphLoader {
     }
 
     static func normalizedPath(_ rawPath: String) -> String {
-        var value = rawPath
-            .trimmingCharacters(in: .whitespacesAndNewlines)
-            .replacingOccurrences(of: "\\", with: "/")
-        while value.hasPrefix("./") { value.removeFirst(2) }
-        return value.lowercased()
+        SceneResourceView.Root.invariantPathIdentity(rawPath)
     }
 
     private static func unique(_ values: [String]) -> [String] {

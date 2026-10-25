@@ -61,6 +61,9 @@ struct SceneGraphRenderTargetLease {
         let plan: SceneGraphRenderTargetPlan
         let fullFramePair: Textures
         let makeInputsDigest: Int
+        struct Prepared { let materialFunctionTargets: Set<Int> }
+        var preparedExecution: Prepared? = nil
+        var capabilityID: UUID? = nil
     }
     struct Allocation { let resources: [Int: Int] }
     let generation: UInt64
@@ -70,6 +73,7 @@ struct SceneGraphRenderTargetLease {
     let framebufferAllocation: Allocation
 }
 enum SceneResolvedMaterialExecutionCapabilityCatalog {
+    struct Token { let capabilityID: UUID }
     final class LayerCapability {
         struct Product { let graph: SceneAuthoredEffectRenderPlan }
         struct Step { let effect: Int; let inputIdentity: Int; let outputIdentity: Int }
@@ -105,14 +109,18 @@ TAIL = r'''
         )
         func lease(
             _ plan: SceneGraphRenderTargetPlan,
-            makeInputsDigest: Int
+            makeInputsDigest: Int,
+            preparedTargets: Set<Int>? = nil,
+            capabilityID: UUID? = nil
         ) -> SceneGraphRenderTargetLease {
             .init(generation: 3, fullFramePair: .init(first: 10, second: 11),
                 texturesByToken: [10: zero, 11: one],
                 table: .init(
                     plan: plan,
                     fullFramePair: .init(first: zero, second: one),
-                    makeInputsDigest: makeInputsDigest
+                    makeInputsDigest: makeInputsDigest,
+                    preparedExecution: preparedTargets.map { .init(materialFunctionTargets: $0) },
+                    capabilityID: capabilityID
                 ),
                 framebufferAllocation: .init(resources: [:]))
         }
@@ -124,8 +132,20 @@ TAIL = r'''
         let negativeFirst = SceneResolvedMaterialGraphExecutor()
         let invalidInitiallyAccepted = negativeFirst.validate(capability: capability, leases: [invalid])
         let validAfterInvalid = negativeFirst.validate(capability: capability, leases: [valid])
+        let token = SceneResolvedMaterialExecutionCapabilityCatalog.Token(capabilityID: UUID())
+        let prepared = lease(expected, makeInputsDigest: -1,
+            preparedTargets: [], capabilityID: token.capabilityID)
+        let foreign = lease(expected, makeInputsDigest: -1,
+            preparedTargets: [], capabilityID: UUID())
+        let staleFunctions = lease(expected, makeInputsDigest: -1,
+            preparedTargets: [42], capabilityID: token.capabilityID)
+        let preparedAccepted = positiveFirst.validate(capability: capability, leases: [prepared], token: token)
+        let foreignAccepted = positiveFirst.validate(capability: capability, leases: [foreign], token: token)
+        let staleFunctionsAccepted = positiveFirst.validate(capability: capability, leases: [staleFunctions], token: token)
         let result = ["valid": validAccepted, "invalidAfterValid": invalidAccepted,
-            "invalidInitially": invalidInitiallyAccepted, "validAfterInvalid": validAfterInvalid]
+            "invalidInitially": invalidInitiallyAccepted, "validAfterInvalid": validAfterInvalid,
+            "preparedAccepted": preparedAccepted, "foreignAccepted": foreignAccepted,
+            "staleFunctionsAccepted": staleFunctionsAccepted]
         print(String(data: try JSONEncoder().encode(result), encoding: .utf8)!)
     }
 }
@@ -152,4 +172,4 @@ class ScenePlanValidationIdentityTests(unittest.TestCase):
             compiled = subprocess.run(['xcrun','swiftc','-parse-as-library',str(harness),'-o',str(binary)],capture_output=True,text=True,timeout=60)
             self.assertEqual(compiled.returncode,0,compiled.stderr)
             result = subprocess.run([str(binary)],capture_output=True,text=True,check=True,timeout=10)
-            self.assertEqual(json.loads(result.stdout), {'valid':True,'invalidAfterValid':False,'invalidInitially':False,'validAfterInvalid':True})
+            self.assertEqual(json.loads(result.stdout), {'valid':True,'invalidAfterValid':False,'invalidInitially':False,'validAfterInvalid':True, 'preparedAccepted':True, 'foreignAccepted':False, 'staleFunctionsAccepted':False})

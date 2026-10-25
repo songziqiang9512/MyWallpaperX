@@ -10,7 +10,7 @@
       "docs/development/apple-silicon-optimization-plan.md",
       "docs/development/code-slimming-program.md",
       "docs/development/repository-workflow.md",
-      "docs/development/wallpaper-startup-optimization-plan.md",
+      "docs/development/validation-simplification-plan.md",
       "docs/release/release-signing.md",
       "docs/scene/architecture/gpu-stage-timestamp-diagnostics.md",
       "docs/scene/architecture/refactor-baseline.md",
@@ -129,13 +129,13 @@
       "role": "active-plan",
       "entrypoint": "docs/README.md",
       "retirementCondition": "三引擎退出、可见交接与唯一产品事务实施且有界验收完成，稳定合同接管后归档。",
-      "lastReviewed": "2026-10-23",
+      "lastReviewed": "2026-10-26",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "07cde8f92b29ff65d7bb811e440111af4476a33656828c887b2be14b55c19280",
+        "sourceSHA256": "b9b1fc3d37b4a38c5441dcd3efd8d155e25e13c8f3d25a37208988aff7efe0f9",
         "method": "document_registry --audit + document_health --check",
-        "scope": "冷暖启动专项设计与原合同/导航同步；重核产品提交、来源完整性、资源输入、Web准备及复用退出边界。",
-        "limitations": "仅设计和当前源码/文档复核，无本轮产品改动、构建、官方运行或冷暖性能验收。"
+        "scope": "仅复核当前正文hash、文档角色、入口及现役/历史指针；精简方案拥有本轮实施与验证状态，历史结算保留原边界。",
+        "limitations": "这是导航与文档治理复核，不代表源码、编译、运行、视觉、性能、真实账号或发布复验；不重授旧证据的适用范围。"
       }
     },
     {
@@ -157,13 +157,13 @@
       "role": "stable-contract",
       "entrypoint": "docs/README.md",
       "currentStateAuthority": "docs/architecture/repository-map.md",
-      "lastReviewed": "2026-10-19",
+      "lastReviewed": "2026-10-26",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "d8de2b55d47d7b5859f22faf8a39108ceea8a2c84f953ec97517cc5a7100481d",
+        "sourceSHA256": "8f5b1700774361de960525c88e2b07d4b6f8372950a26b1a4f2281aab9acf57a",
         "method": "document_registry --audit + document_health --check",
-        "scope": "复核详情缓存静默刷新、原始获取时间及即时复用、预览独立加载、作者返回来源与列表状态；保留账号和分页唯一职责。",
-        "limitations": "有界离线响应、原生网格测试与隔离 Debug 构建另行留证；不代表真实账号网络、全部作品、长时或 Release 验收。"
+        "scope": "仅复核当前正文hash、文档角色、入口及现役/历史指针；精简方案拥有本轮实施与验证状态，历史结算保留原边界。",
+        "limitations": "这是导航与文档治理复核，不代表源码、编译、运行、视觉、性能、真实账号或发布复验；不重授旧证据的适用范围。"
       }
     },
     {
@@ -225,10 +225,16 @@
       "purpose": "已完成分类设计的永久旧链接及classification_migration历史身份；现行职责由工作流和机器合同承担。"
     },
     {
-      "path": "docs/development/wallpaper-startup-optimization-plan.md",
+      "path": "docs/development/validation-simplification-plan.md",
       "role": "active-plan",
       "entrypoint": "docs/README.md",
-      "retirementCondition": "实际采用阶段通过产品冷暖及失败/退出验收、旧owner退役且剩余项明确结算，或用户结束专项后归档；长期边界由原合同接管。"
+      "retirementCondition": "先完成Scene/Web全范围、再完成全仓审查，所有有依据同类问题处理并完成回归/前后对照/独立复审；稳定职责迁回对应原合同且用户结束本专项后归档。"
+    },
+    {
+      "path": "docs/development/wallpaper-startup-optimization-plan.md",
+      "role": "navigation",
+      "entrypoint": "docs/history/cross-topic/wallpaper-startup-optimization-completed-2026-10-25.md",
+      "purpose": "已结算启动专项的永久URL与六个历史锚点；不拥有任务顺序或当前结果。"
     },
     {
       "path": "docs/history/README.md",
@@ -333,6 +339,85 @@
         "docs/README.md",
         "AGENTS.md"
       ]
+    },
+    {
+      "path": "docs/history/cross-topic/wallpaper-startup-d12-2026-10-24.md",
+      "role": "historical-evidence",
+      "entrypoint": "docs/history/README.md",
+      "commandPolicy": "historical-only",
+      "currentAuthorities": [
+        "docs/web/current-state.md",
+        "docs/scene/architecture/scene-launch-responsiveness-contract.md",
+        "docs/web/web-project-json-runtime-model.md"
+      ],
+      "cutoffDate": "2026-10-24",
+      "uniqueValue": "双loopback同store cookie覆盖先红后绿、真实Web六暖按App配对；P5成本入口STOP及一次seek未复现/C1旧日志窗口。"
+    },
+    {
+      "path": "docs/history/cross-topic/wallpaper-startup-d16-2026-10-25.md",
+      "role": "historical-evidence",
+      "entrypoint": "docs/history/README.md",
+      "commandPolicy": "historical-only",
+      "currentAuthorities": [
+        "docs/scene/architecture/scene-launch-responsiveness-contract.md",
+        "docs/web/web-project-json-runtime-model.md"
+      ],
+      "cutoffDate": "2026-10-25",
+      "uniqueValue": "运行包名混杂与污染名称控制原点；测量工具最小修正、旧main反例、30方法及两份真实签名staging限定资格。"
+    },
+    {
+      "path": "docs/history/cross-topic/wallpaper-startup-optimization-completed-2026-10-25.md",
+      "role": "historical-evidence",
+      "entrypoint": "docs/history/README.md",
+      "commandPolicy": "historical-only",
+      "currentAuthorities": [
+        "docs/scene/architecture/scene-launch-responsiveness-contract.md",
+        "docs/web/web-project-json-runtime-model.md",
+        "docs/web/dedicated-host-process-design.md",
+        "docs/architecture/playback-lifecycle-transaction-design.md",
+        "docs/scene/capabilities/runtime-evidence-current.md"
+      ],
+      "cutoffDate": "2026-10-25",
+      "uniqueValue": "唯一保存已结算专项的完整设计、各阶段失败/STOP及Root实际最终验收；不代表全部设计已实施或正式整体性能通过。"
+    },
+    {
+      "path": "docs/history/cross-topic/wallpaper-startup-p0-2026-10-24.md",
+      "role": "historical-evidence",
+      "entrypoint": "docs/history/README.md",
+      "commandPolicy": "historical-only",
+      "currentAuthorities": [
+        "docs/scene/architecture/scene-launch-responsiveness-contract.md",
+        "docs/web/dedicated-host-process-design.md",
+        "docs/web/web-project-json-runtime-model.md"
+      ],
+      "cutoffDate": "2026-10-24",
+      "uniqueValue": "P0真实入口、偏好隔离修复及有效基线；P3a固定索引、P0b原生窗口的五组交替、作者音频与未闭合prepared前长尾；保留原噪声门，不认领专项完成。"
+    },
+    {
+      "path": "docs/history/cross-topic/wallpaper-startup-p1-p2a-2026-10-24.md",
+      "role": "historical-evidence",
+      "entrypoint": "docs/history/README.md",
+      "commandPolicy": "historical-only",
+      "currentAuthorities": [
+        "docs/scene/architecture/scene-launch-responsiveness-contract.md",
+        "docs/web/dedicated-host-process-design.md",
+        "docs/web/web-project-json-runtime-model.md"
+      ],
+      "cutoffDate": "2026-10-24",
+      "uniqueValue": "P1a同次依赖/发布、P2a FD基础与prepared前观测；签名与有界真实回归通过，五组无正式提速；保留C1变慢、CPU marker资格失败和P1b/P2b未完成。"
+    },
+    {
+      "path": "docs/history/cross-topic/wallpaper-startup-p1b-d1-2026-10-24.md",
+      "role": "historical-evidence",
+      "entrypoint": "docs/history/README.md",
+      "commandPolicy": "historical-only",
+      "currentAuthorities": [
+        "docs/scene/architecture/scene-launch-responsiveness-contract.md",
+        "docs/web/dedicated-host-process-design.md",
+        "docs/web/web-project-json-runtime-model.md"
+      ],
+      "cutoffDate": "2026-10-24",
+      "uniqueValue": "P1b实际捕获/纯解析/取消租约与D1句柄接线；10→3服务读叶、v2 C1未归因回退及v3五组/实音限定结果，无整体提速结论。"
     },
     {
       "path": "docs/history/cross-topic/web-scene-current-state-roadmap-2026-07-19.md",
@@ -492,13 +577,13 @@
       "role": "stable-contract",
       "entrypoint": "docs/README.md",
       "currentStateAuthority": "docs/scene/capabilities/coverage-ledger.md",
-      "lastReviewed": "2026-10-23",
+      "lastReviewed": "2026-10-26",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "ce85cd66cbb7e77f567770bcbf7ecd4f326f802643776dffd3bcdfd1ded67db5",
+        "sourceSHA256": "151351922da2769a58d90dbf9e97bd9b6fe75c74faa7f67bf734b92453e9a553",
         "method": "document_registry --audit + document_health --check",
-        "scope": "同步builtin图片灯光代际的稳定职责与有界后验入口；这里只复核导航和文档角色。",
-        "limitations": "具体运行边界归历史证据；不代表完整光照/整景一致、Release、多屏、长稳或性能验收。"
+        "scope": "仅复核当前正文hash、文档角色、入口及现役/历史指针；精简方案拥有本轮实施与验证状态，历史结算保留原边界。",
+        "limitations": "这是导航与文档治理复核，不代表源码、编译、运行、视觉、性能、真实账号或发布复验；不重授旧证据的适用范围。"
       }
     },
     {
@@ -506,13 +591,13 @@
       "role": "stable-contract",
       "entrypoint": "docs/scene/README.md",
       "currentStateAuthority": "docs/scene/capabilities/coverage-ledger.md",
-      "lastReviewed": "2026-10-21",
+      "lastReviewed": "2026-10-26",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "fc355bba234c972ab3679e876607a11003d7fa739948bec3106c6a51cf46f758",
+        "sourceSHA256": "9465c6c3217ce204e9c00d556792ea786a0686f60c575f95665b88f91403f302",
         "method": "document_registry --audit + document_health --check",
-        "scope": "372未优化Debug时间线、优化Debug资格停止条件；纠正as-built将VM提交误绑到呈现的旧文字。",
-        "limitations": "不认代码优化收益、Release/能耗/温度、多屏或所有内容帧节奏资格；探针已撤。"
+        "scope": "仅复核当前正文hash、文档角色、入口及现役/历史指针；精简方案拥有本轮实施与验证状态，历史结算保留原边界。",
+        "limitations": "这是导航与文档治理复核，不代表源码、编译、运行、视觉、性能、真实账号或发布复验；不重授旧证据的适用范围。"
       }
     },
     {
@@ -534,13 +619,13 @@
       "role": "stable-contract",
       "entrypoint": "docs/README.md",
       "currentStateAuthority": "docs/scene/capabilities/coverage-ledger.md",
-      "lastReviewed": "2026-10-23",
+      "lastReviewed": "2026-10-26",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "61a90eb92488f100f8b5d904a07c7deb0e660c9a20136b5a447c0344e448e35e",
+        "sourceSHA256": "cdfe1c78e55b37f48c8c40403897baef79b9d581fd3bc81147ba6ce9a368326e",
         "method": "document_registry --audit + document_health --check",
-        "scope": "冷暖启动专项设计与原合同/导航同步；重核产品提交、来源完整性、资源输入、Web准备及复用退出边界。",
-        "limitations": "仅设计和当前源码/文档复核，无本轮产品改动、构建、官方运行或冷暖性能验收。"
+        "scope": "仅复核当前正文hash、文档角色、入口及现役/历史指针；精简方案拥有本轮实施与验证状态，历史结算保留原边界。",
+        "limitations": "这是导航与文档治理复核，不代表源码、编译、运行、视觉、性能、真实账号或发布复验；不重授旧证据的适用范围。"
       }
     },
     {
@@ -554,13 +639,13 @@
       "role": "stable-contract",
       "entrypoint": "docs/scene/README.md",
       "currentStateAuthority": "docs/scene/capabilities/coverage-ledger.md",
-      "lastReviewed": "2026-10-21",
+      "lastReviewed": "2026-10-26",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "92bcb04429b951911ff45b1b24c5678ec5b6b3a67f5505c049a8d61e20826cb2",
+        "sourceSHA256": "e1dd359a559d44a74e5a2dd5cba002e91f742c0691ccfc5a2d8e4962fedc449e",
         "method": "document_registry --audit + document_health --check",
-        "scope": "核对Scene v2唯一版本及实际音频sender到decoder/Inbox测试、普通App到daemon非零材质输入与证据指针。",
-        "limitations": "只复核本次IPC遗漏；旧段落未重新验收，不代表全样本、官方视觉或性能。"
+        "scope": "仅复核当前正文hash、文档角色、入口及现役/历史指针；精简方案拥有本轮实施与验证状态，历史结算保留原边界。",
+        "limitations": "这是导航与文档治理复核，不代表源码、编译、运行、视觉、性能、真实账号或发布复验；不重授旧证据的适用范围。"
       }
     },
     {
@@ -779,13 +864,13 @@
       "role": "stable-contract",
       "entrypoint": "docs/scene/capabilities/README.md",
       "currentStateAuthority": "docs/scene/capabilities/coverage-ledger.md",
-      "lastReviewed": "2026-10-24",
+      "lastReviewed": "2026-10-26",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "5387682e55e553c2cfcf0d4412e6f4b1558fd97dc13e47508ee16ae9b969804c",
+        "sourceSHA256": "0c3940861e0859a4a4abad6e4ea80c84bdd3d3e17772d3509e2463ae32eb2ec8",
         "method": "document_registry --audit + document_health --check",
-        "scope": "Declared texture/RGB graph bounded change: route, queue retirement and archived runtime evidence reconciled with the same source/App identity.",
-        "limitations": "Only this change and navigation reviewed; startup texture selection is not live-panel, full parity, HDR or performance acceptance."
+        "scope": "仅复核当前正文hash、文档角色、入口及现役/历史指针；精简方案拥有本轮实施与验证状态，历史结算保留原边界。",
+        "limitations": "这是导航与文档治理复核，不代表源码、编译、运行、视觉、性能、真实账号或发布复验；不重授旧证据的适用范围。"
       }
     },
     {
@@ -1071,13 +1156,13 @@
       "role": "navigation",
       "entrypoint": "docs/scene/README.md",
       "purpose": "Scene固定历史与当前权威的按需索引，不产生现役任务。",
-      "lastReviewed": "2026-10-24",
+      "lastReviewed": "2026-10-26",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "4ce88ff8c29ce1d304cb32e53dd026a0f5e1934a65e3e92ab3d066af6f3a63e6",
+        "sourceSHA256": "17bed48f356b00f52d8f3ac02eb17710149c84d205ae243c5ae9c45e67e1dc06",
         "method": "document_registry --audit + document_health --check",
-        "scope": "Declared texture/RGB graph bounded change: route, queue retirement and archived runtime evidence reconciled with the same source/App identity.",
-        "limitations": "Only this change and navigation reviewed; startup texture selection is not live-panel, full parity, HDR or performance acceptance."
+        "scope": "仅复核当前正文hash、文档角色、入口及现役/历史指针；精简方案拥有本轮实施与验证状态，历史结算保留原边界。",
+        "limitations": "这是导航与文档治理复核，不代表源码、编译、运行、视觉、性能、真实账号或发布复验；不重授旧证据的适用范围。"
       }
     },
     {
@@ -3081,14 +3166,300 @@
       ]
     },
     {
+      "path": "docs/scene/history/scene-startup-d10-2026-10-24.md",
+      "role": "historical-evidence",
+      "entrypoint": "docs/scene/history/README.md",
+      "commandPolicy": "historical-only",
+      "currentAuthorities": [
+        "docs/scene/architecture/scene-launch-responsiveness-contract.md"
+      ],
+      "cutoffDate": "2026-10-24",
+      "uniqueValue": "旧v3按需新generation升级沿原共享预准入、lease/join、publisher/CAS；保I/O认证回退、同ticket纠偏、实际旧库首迁移与后继对照及独立GPU，明确有限资格和旧来源余项。"
+    },
+    {
+      "path": "docs/scene/history/scene-startup-d11-2026-10-24.md",
+      "role": "historical-evidence",
+      "entrypoint": "docs/scene/history/README.md",
+      "commandPolicy": "historical-only",
+      "currentAuthorities": [
+        "docs/scene/roadmap/performance-convergence-card.md",
+        "docs/scene/architecture/scene-launch-responsiveness-contract.md"
+      ],
+      "cutoffDate": "2026-10-24",
+      "uniqueValue": "同身份A/A与首次target失败相位、collector命令记录丢失边界；唯一benchmark完整iteration配对摘要及未改变的性能门。"
+    },
+    {
+      "path": "docs/scene/history/scene-startup-d13-2026-10-24.md",
+      "role": "historical-evidence",
+      "entrypoint": "docs/scene/history/README.md",
+      "commandPolicy": "historical-only",
+      "currentAuthorities": [
+        "docs/scene/architecture/scene-launch-responsiveness-contract.md"
+      ],
+      "cutoffDate": "2026-10-24",
+      "uniqueValue": "双encoder真实创建与原archive命中窗口、原夹具ABI失败及一次隔离修正资格；P4成本不足停止，不新增产品复用或认启动收益。"
+    },
+    {
+      "path": "docs/scene/history/scene-startup-d14-2026-10-24.md",
+      "role": "historical-evidence",
+      "entrypoint": "docs/scene/history/README.md",
+      "commandPolicy": "historical-only",
+      "currentAuthorities": [
+        "docs/scene/architecture/scene-launch-responsiveness-contract.md"
+      ],
+      "cutoffDate": "2026-10-24",
+      "uniqueValue": "原唯一Metal回归141事实恢复、自然fixture迁移与验证路由；一次真实3App/4请求资格及sample无栈失败，拒未归因P3缓存。"
+    },
+    {
+      "path": "docs/scene/history/scene-startup-d15-2026-10-25.md",
+      "role": "historical-evidence",
+      "entrypoint": "docs/scene/history/README.md",
+      "commandPolicy": "historical-only",
+      "currentAuthorities": [
+        "docs/scene/architecture/scene-launch-responsiveness-contract.md"
+      ],
+      "cutoffDate": "2026-10-25",
+      "uniqueValue": "Voronoi两行范围循环局部成本与全部mip摘要、无收益开方候选撤回、原门/构建/真实行为资格及冷App准入前额外等待未解。"
+    },
+    {
+      "path": "docs/scene/history/scene-startup-d17-2026-10-25.md",
+      "role": "historical-evidence",
+      "entrypoint": "docs/scene/history/README.md",
+      "commandPolicy": "historical-only",
+      "currentAuthorities": [
+        "docs/scene/architecture/scene-launch-responsiveness-contract.md"
+      ],
+      "cutoffDate": "2026-10-25",
+      "uniqueValue": "规范化五对及原噪声/慢点、真实key/load四请求与不增缓存、已取得ordinary视频payload的相邻discard重试及旧seek边界。"
+    },
+    {
+      "path": "docs/scene/history/scene-startup-d18-2026-10-25.md",
+      "role": "historical-evidence",
+      "entrypoint": "docs/scene/history/README.md",
+      "commandPolicy": "historical-only",
+      "currentAuthorities": [
+        "docs/scene/architecture/scene-launch-responsiveness-contract.md"
+      ],
+      "cutoffDate": "2026-10-25",
+      "uniqueValue": "原stock完整叶成本、post-rsync清单生产/原Root消费、失效与夹具纠偏、实际签名构建及五对全部原点；5/6噪声失败不认整体性能。"
+    },
+    {
+      "path": "docs/scene/history/scene-startup-d19-2026-10-25.md",
+      "role": "historical-evidence",
+      "entrypoint": "docs/scene/history/README.md",
+      "commandPolicy": "historical-only",
+      "currentAuthorities": [
+        "docs/scene/architecture/scene-launch-responsiveness-contract.md"
+      ],
+      "cutoffDate": "2026-10-25",
+      "uniqueValue": "排序一次ABA全部原点/未知进程与STOP；P2b先行设计、原OwnedFile弱成功复用、夹具API纠偏、32门及真实45.3MB两次prepare的IO/预算/AV借用叶，保完整性能边界。"
+    },
+    {
+      "path": "docs/scene/history/scene-startup-d2-2026-10-24.md",
+      "role": "historical-evidence",
+      "entrypoint": "docs/scene/history/README.md",
+      "commandPolicy": "historical-only",
+      "currentAuthorities": [
+        "docs/scene/architecture/scene-launch-responsiveness-contract.md"
+      ],
+      "cutoffDate": "2026-10-24",
+      "uniqueValue": "D2结构资源读取的实际before十项FD换源缺口与39项恢复、真实附件/完整MDL、三输入产品资格；无按需包IO或正式提速结论。"
+    },
+    {
+      "path": "docs/scene/history/scene-startup-d20-2026-10-25.md",
+      "role": "historical-evidence",
+      "entrypoint": "docs/scene/history/README.md",
+      "commandPolicy": "historical-only",
+      "currentAuthorities": [
+        "docs/scene/architecture/scene-launch-responsiveness-contract.md"
+      ],
+      "cutoffDate": "2026-10-25",
+      "uniqueValue": "原D19预接受日志缺口、DEBUG五处父观察/身份反例、原门与实际构建、一次3App4请求分桶；保C1差因未知与typed drain边界，不授性能。"
+    },
+    {
+      "path": "docs/scene/history/scene-startup-d21-2026-10-25.md",
+      "role": "historical-evidence",
+      "entrypoint": "docs/scene/history/README.md",
+      "commandPolicy": "historical-only",
+      "currentAuthorities": [
+        "docs/scene/architecture/scene-launch-responsiveness-contract.md"
+      ],
+      "cutoffDate": "2026-10-25",
+      "uniqueValue": "原App不变的一次App Launch真实ready/收尾超时及副本缺template；区分C1原passed分支与缺失完整返回、W0未执行，保原失败和精确测试域清理。"
+    },
+    {
+      "path": "docs/scene/history/scene-startup-d22-2026-10-25.md",
+      "role": "historical-evidence",
+      "entrypoint": "docs/scene/history/README.md",
+      "commandPolicy": "historical-only",
+      "currentAuthorities": [
+        "docs/scene/architecture/scene-launch-responsiveness-contract.md"
+      ],
+      "cutoffDate": "2026-10-25",
+      "uniqueValue": "原hello六子时点、独立资格及一次3App/4请求；本次等待缩至AppKit调用窗，暖缺值/同boot跨进程边界、既有框架警告与typed drain未知保留。"
+    },
+    {
+      "path": "docs/scene/history/scene-startup-d23-2026-10-25.md",
+      "role": "historical-evidence",
+      "entrypoint": "docs/scene/history/README.md",
+      "commandPolicy": "historical-only",
+      "currentAuthorities": [
+        "docs/scene/architecture/scene-launch-responsiveness-contract.md"
+      ],
+      "cutoffDate": "2026-10-25",
+      "uniqueValue": "四实际App及源重建、强请求退役/30秒原transport、原空预备互斥；最终五对资格通过但5/6噪声与Video正差未闭；普通UI TTL/Quit、原observer失败及同raw校正。"
+    },
+    {
+      "path": "docs/scene/history/scene-startup-d24-2026-10-25.md",
+      "role": "historical-evidence",
+      "entrypoint": "docs/scene/history/README.md",
+      "commandPolicy": "historical-only",
+      "currentAuthorities": [
+        "docs/scene/architecture/scene-launch-responsiveness-contract.md"
+      ],
+      "cutoffDate": "2026-10-25",
+      "uniqueValue": "不可达tool退役、实际R3普通UI20切换/30min与90App195请求、旧失败保留及已完成保护清理；D25补清交接完成成本非首画回退，真实余项由当前专项接管。"
+    },
+    {
+      "path": "docs/scene/history/scene-startup-d25-2026-10-25.md",
+      "role": "historical-evidence",
+      "entrypoint": "docs/scene/history/README.md",
+      "commandPolicy": "historical-only",
+      "currentAuthorities": [
+        "docs/scene/architecture/scene-launch-responsiveness-contract.md"
+      ],
+      "cutoffDate": "2026-10-25",
+      "uniqueValue": "Video首画/commit与finalized分界及STOP；新鲜普通GUI六方向、真实作者属性、分请求typed政策暂停/页面实音；native峰值/OS恢复余项和D24已完成保护清理。"
+    },
+    {
+      "path": "docs/scene/history/scene-startup-d26-2026-10-25.md",
+      "role": "historical-evidence",
+      "entrypoint": "docs/scene/history/README.md",
+      "commandPolicy": "historical-only",
+      "currentAuthorities": [
+        "docs/scene/architecture/scene-launch-responsiveness-contract.md"
+      ],
+      "cutoffDate": "2026-10-25",
+      "uniqueValue": "生成WebM夹具五点进程lifetime footprint/segment Data与R3普通App独立进程高水位；无预登记RAM门，不授峰值预算或内存改善，保scope与原始API退出race。"
+    },
+    {
+      "path": "docs/scene/history/scene-startup-d27-2026-10-25.md",
+      "role": "historical-evidence",
+      "entrypoint": "docs/scene/history/README.md",
+      "commandPolicy": "historical-only",
+      "currentAuthorities": [
+        "docs/scene/architecture/scene-launch-responsiveness-contract.md"
+      ],
+      "cutoffDate": "2026-10-25",
+      "uniqueValue": "首夹具VP9 superframe拒绝与最小生成修正、复用同binary的长GOP共同AV行为及明显新增进程高水位；媒体内存风险未解决，保可逆释放边界候选。"
+    },
+    {
+      "path": "docs/scene/history/scene-startup-d28-2026-10-25.md",
+      "role": "historical-evidence",
+      "entrypoint": "docs/scene/history/README.md",
+      "commandPolicy": "historical-only",
+      "currentAuthorities": [
+        "docs/scene/architecture/scene-launch-responsiveness-contract.md"
+      ],
+      "cutoffDate": "2026-10-25",
+      "uniqueValue": "包级释放池无效STOP、NSData薄回调部分峰值降低与产品集成；保留原seek/fixture/App准入失败及修后有界结果，分开native与App资格。"
+    },
+    {
+      "path": "docs/scene/history/scene-startup-d29-2026-10-25.md",
+      "role": "historical-evidence",
+      "entrypoint": "docs/scene/history/README.md",
+      "commandPolicy": "historical-only",
+      "currentAuthorities": [
+        "docs/scene/architecture/scene-launch-responsiveness-contract.md"
+      ],
+      "cutoffDate": "2026-10-25",
+      "uniqueValue": "D29三个一次诊断STOP与D30真正初始HEAD/current原三红子例6次通过合并记录；原失败不抹，RAM/OS仅准备，未改产品。"
+    },
+    {
+      "path": "docs/scene/history/scene-startup-d3-2026-10-24.md",
+      "role": "historical-evidence",
+      "entrypoint": "docs/scene/history/README.md",
+      "commandPolicy": "historical-only",
+      "currentAuthorities": [
+        "docs/scene/architecture/scene-launch-responsiveness-contract.md"
+      ],
+      "cutoffDate": "2026-10-24",
+      "uniqueValue": "D3播放入口/粒子/完整模型同源读取，实际before、跨locale与原始路径纠偏、最终CPU/GPU及三输入固定五组；无正式提速或package激活结论。"
+    },
+    {
+      "path": "docs/scene/history/scene-startup-d31-2026-10-25.md",
+      "role": "historical-evidence",
+      "entrypoint": "docs/scene/history/README.md",
+      "commandPolicy": "historical-only",
+      "currentAuthorities": [
+        "docs/scene/architecture/scene-launch-responsiveness-contract.md"
+      ],
+      "cutoffDate": "2026-10-25",
+      "uniqueValue": "D31–D39旧失败保；D36/D37采用减工，D38大输入RAM通过；D39退出重核生效但375短命PID不可读，统计STOP未覆盖；最终版本视频长跑/OS缺口有界。"
+    },
+    {
+      "path": "docs/scene/history/scene-startup-d4-2026-10-24.md",
+      "role": "historical-evidence",
+      "entrypoint": "docs/scene/history/README.md",
+      "commandPolicy": "historical-only",
+      "currentAuthorities": [
+        "docs/scene/architecture/scene-launch-responsiveness-contract.md"
+      ],
+      "cutoffDate": "2026-10-24",
+      "uniqueValue": "D4目录TEX/直接图片Input与同FD身份、预算短值及typed失败接线；保首轮模型W0超预算、Root局部减工、诊断与最终固定五组分批边界，未激活package或通过正式性能卡。"
+    },
+    {
+      "path": "docs/scene/history/scene-startup-d5-2026-10-24.md",
+      "role": "historical-evidence",
+      "entrypoint": "docs/scene/history/README.md",
+      "commandPolicy": "historical-only",
+      "currentAuthorities": [
+        "docs/scene/architecture/scene-launch-responsiveness-contract.md"
+      ],
+      "cutoffDate": "2026-10-24",
+      "uniqueValue": "D5目录字体Root/Data与动态请求ABA退休身份；保actual D4-final before、夹具资格/首轮失败、两批mixed最近门及两输入固定五组，无正式收益，D4残余资源代价和AV/receipt/package退出仍开放。"
+    },
+    {
+      "path": "docs/scene/history/scene-startup-d6-2026-10-24.md",
+      "role": "historical-evidence",
+      "entrypoint": "docs/scene/history/README.md",
+      "commandPolicy": "historical-only",
+      "currentAuthorities": [
+        "docs/scene/architecture/scene-launch-responsiveness-contract.md"
+      ],
+      "cutoffDate": "2026-10-24",
+      "uniqueValue": "D6作者Sound同Root私有文件与实际AV借用、font/deferred及原launch尾退出；保actual D5-final before、stop-first和写域纠偏、来源合格mixed最近门及两输入固定复核。高噪声无正式收益，其余媒体存储、receipt/package继续开放。"
+    },
+    {
+      "path": "docs/scene/history/scene-startup-d8-2026-10-24.md",
+      "role": "historical-evidence",
+      "entrypoint": "docs/scene/history/README.md",
+      "commandPolicy": "historical-only",
+      "currentAuthorities": [
+        "docs/scene/architecture/scene-launch-responsiveness-contract.md"
+      ],
+      "cutoffDate": "2026-10-24",
+      "uniqueValue": "D8原出版receipt与lease/IPC/属性/同FD挂载，私有媒体聚合磁盘预约；保实际D7前驱、逐来源门、真实managed入口及UI、独立GPU退出、五组高噪声原点与未解seek，不认正式提速或完整P2验收。"
+    },
+    {
+      "path": "docs/scene/history/scene-startup-d9-2026-10-24.md",
+      "role": "historical-evidence",
+      "entrypoint": "docs/scene/history/README.md",
+      "commandPolicy": "historical-only",
+      "currentAuthorities": [
+        "docs/scene/architecture/scene-launch-responsiveness-contract.md"
+      ],
+      "cutoffDate": "2026-10-24",
+      "uniqueValue": "D9旧managed完整tree认证后selected同FD临时挂包；实际D8前驱、62门、原D7真实nil-ref库、五组高噪声原点、UI详情补全导致strict guard失败及独立GPU，保持续准入与P2未完边界。"
+    },
+    {
       "path": "docs/scene/history/scene-startup-pipeline-before-optimization-2026-10-23.md",
       "role": "historical-evidence",
       "entrypoint": "docs/scene/history/README.md",
       "commandPolicy": "historical-only",
       "currentAuthorities": [
         "docs/scene/architecture/scene-startup-pipeline.md",
-        "docs/scene/architecture/scene-launch-responsiveness-contract.md",
-        "docs/development/wallpaper-startup-optimization-plan.md"
+        "docs/scene/architecture/scene-launch-responsiveness-contract.md"
       ]
     },
     {
@@ -3780,13 +4151,13 @@
       "role": "active-plan",
       "entrypoint": "docs/scene/roadmap/scene-open-breakpoint-queue.md",
       "retirementCondition": "用户结束该专项，或本卡已证问题及对应实际验收完成后退役到历史，不保第二执行路线。",
-      "lastReviewed": "2026-10-23",
+      "lastReviewed": "2026-10-26",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "c34fe4661021d5558cbf8b75265815edd3c73577b0a3ee32531bf66cefb7075c",
+        "sourceSHA256": "e3007f2b29b60d60f38e70c08b29c80c1dc60bb3db7b1e929e1698a229e3a5c9",
         "method": "document_registry --audit + document_health --check",
-        "scope": "冷暖启动专项设计与原合同/导航同步；重核产品提交、来源完整性、资源输入、Web准备及复用退出边界。",
-        "limitations": "仅设计和当前源码/文档复核，无本轮产品改动、构建、官方运行或冷暖性能验收。"
+        "scope": "仅复核当前正文hash、文档角色、入口及现役/历史指针；精简方案拥有本轮实施与验证状态，历史结算保留原边界。",
+        "limitations": "这是导航与文档治理复核，不代表源码、编译、运行、视觉、性能、真实账号或发布复验；不重授旧证据的适用范围。"
       }
     },
     {
@@ -3865,20 +4236,28 @@
       "path": "docs/web/current-state.md",
       "role": "current-state",
       "entrypoint": "README.md",
-      "purpose": "限定专题的实现状态、偏差或证据；运行结论须复核身份和边界，不决定任务顺序。"
+      "purpose": "限定专题的实现状态、偏差或证据；运行结论须复核身份和边界，不决定任务顺序。",
+      "lastReviewed": "2026-10-26",
+      "reviewBasis": {
+        "kind": "navigation-audit",
+        "sourceSHA256": "9dc72317943b654a81a75cc8a0a65089e6365d59e5cd5f7c7bd41726b5c21749",
+        "method": "document_registry --audit + document_health --check",
+        "scope": "仅复核当前正文hash、文档角色、入口及现役/历史指针；精简方案拥有本轮实施与验证状态，历史结算保留原边界。",
+        "limitations": "这是导航与文档治理复核，不代表源码、编译、运行、视觉、性能、真实账号或发布复验；不重授旧证据的适用范围。"
+      }
     },
     {
       "path": "docs/web/dedicated-host-process-design.md",
       "role": "active-plan",
       "entrypoint": "docs/web/README.md",
       "retirementCondition": "唯一生产 Web 独立宿主及有界切换/生命周期验收完成，稳定合同接管后归档。",
-      "lastReviewed": "2026-10-23",
+      "lastReviewed": "2026-10-26",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "f3c6f1fd9209404ad01734619614dc83016093dd4da718673f862b04d43c771e",
+        "sourceSHA256": "7ec17126a0b3d84dd992ea1d77b7b83d9aa60ba0f614fef3ff4a2338dfd5305f",
         "method": "document_registry --audit + document_health --check",
-        "scope": "冷暖启动专项设计与原合同/导航同步；重核产品提交、来源完整性、资源输入、Web准备及复用退出边界。",
-        "limitations": "仅设计和当前源码/文档复核，无本轮产品改动、构建、官方运行或冷暖性能验收。"
+        "scope": "仅复核当前正文hash、文档角色、入口及现役/历史指针；精简方案拥有本轮实施与验证状态，历史结算保留原边界。",
+        "limitations": "这是导航与文档治理复核，不代表源码、编译、运行、视觉、性能、真实账号或发布复验；不重授旧证据的适用范围。"
       }
     },
     {
@@ -3926,13 +4305,13 @@
       "role": "stable-contract",
       "entrypoint": "docs/web/README.md",
       "currentStateAuthority": "docs/web/current-state.md",
-      "lastReviewed": "2026-10-23",
+      "lastReviewed": "2026-10-26",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "646255540ffdf4380b00d7daa2aa0a58ecb5104ea557d790303dffcf45d55b26",
+        "sourceSHA256": "2a405c252d12c90335e0d6830a817fc47cfb88bc1e8398866b2d89205aa264f3",
         "method": "document_registry --audit + document_health --check",
-        "scope": "冷暖启动专项设计与原合同/导航同步；重核产品提交、来源完整性、资源输入、Web准备及复用退出边界。",
-        "limitations": "仅设计和当前源码/文档复核，无本轮产品改动、构建、官方运行或冷暖性能验收。"
+        "scope": "仅复核当前正文hash、文档角色、入口及现役/历史指针；精简方案拥有本轮实施与验证状态，历史结算保留原边界。",
+        "limitations": "这是导航与文档治理复核，不代表源码、编译、运行、视觉、性能、真实账号或发布复验；不重授旧证据的适用范围。"
       }
     },
     {
@@ -4453,7 +4832,7 @@
     },
     {
       "id": "wallpaper-startup",
-      "title": "Scene/Web 壁纸冷暖启动改进",
+      "title": "Scene/Web启动与资源生命周期",
       "keywords": [
         "冷暖启动",
         "冷启动",
@@ -4464,7 +4843,6 @@
         "worker复用"
       ],
       "documents": [
-        "docs/development/wallpaper-startup-optimization-plan.md",
         "docs/scene/architecture/scene-launch-responsiveness-contract.md",
         "docs/scene/architecture/scene-startup-pipeline.md",
         "docs/web/dedicated-host-process-design.md",
@@ -4477,11 +4855,11 @@
         "MyWallpaperX/Core/SteamWorkshopWeb",
         "MyWallpaperX/Modules/SteamWorkshop/Web/Core"
       ],
-      "verification": "本次文档仅registry/health/link/design门；产品实施按P0-P7先真实输入正反例、签名Debug与产品可见终点，冷暖cache/进程分别证明。",
+      "verification": "按现役启动/资源/宿主合同选择最近行为门和隔离产品证据；原benchmark/统计与退出门不改。专项历史不产生实施顺序，噪声未通过不认提速。",
       "owner": "Existing Scene ResourceView/Host and Web preparation/daemon adapters",
-      "firstRead": "docs/development/wallpaper-startup-optimization-plan.md#decision",
+      "firstRead": "docs/scene/architecture/scene-launch-responsiveness-contract.md#1-目标与边界",
       "nearestTestGroups": [
-        "pkg-extraction",
+        "pkg-resource-reading",
         "web-dependency-traversal",
         "web-host-lifecycle",
         "shader-completed-cache-retention"
@@ -4517,6 +4895,49 @@
             "--sample-id",
             "--sample-root",
             "--output-dir"
+          ]
+        }
+      ]
+    },
+    {
+      "id": "validation-simplification",
+      "title": "全仓过严校验与重复工作精简",
+      "keywords": [
+        "校验",
+        "认证",
+        "重复计算",
+        "冷暖",
+        "链路精简",
+        "全仓审查"
+      ],
+      "documents": [
+        "docs/development/validation-simplification-plan.md",
+        "docs/scene/architecture/scene-launch-responsiveness-contract.md",
+        "docs/web/cold-descriptor-parse-offload-design.md"
+      ],
+      "sourcePaths": [
+        "MyWallpaperX",
+        "SteamService",
+        "script/scene_validation_gates.json"
+      ],
+      "verification": "沿真实消费者检查必要边界和成本；完成固定源最近行为门、必要构建/代表运行、前后对照及独立复审，不以少数通过宣布全仓完成。",
+      "owner": "repository-maintainer",
+      "firstRead": "docs/development/validation-simplification-plan.md#审查方法与完成条件",
+      "nearestTestGroups": [
+        "steam-library-publication",
+        "scene-resource-input",
+        "web-dependency-traversal",
+        "web-host-lifecycle"
+      ],
+      "verificationPhases": [
+        {
+          "phase": "inner",
+          "gateRefs": [
+            "document-links",
+            "scene-structure"
+          ],
+          "requiredArguments": [
+            "--path"
           ]
         }
       ]

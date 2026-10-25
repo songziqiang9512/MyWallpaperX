@@ -25,7 +25,7 @@ class SceneUserTextureControlPlaneTests(unittest.TestCase):
             events = EVENTS.read_text()
             handlers = "\n".join(method_body(events, signature).replace("private func", "func", 1)
                 .replace("private static func", "static func", 1) for signature in [
-                    "private func handleLaunchState(", "private func handleFirstFrame(",
+                    "func handleLaunchState(", "private func handleFirstFrame(",
                     "static func unsignedInteger(", "private static func double(",
                     "private func handlePropertyUpdateResult(", "func handleTermination(",
                 ])
@@ -41,6 +41,7 @@ class SceneUserTextureControlPlaneTests(unittest.TestCase):
                 + "\n@MainActor extension SceneDaemonClient {\n" + handlers + "\n}\n")
             sources = [
                 SCENE / "Systems/Properties/SceneUserProperty.swift",
+                ROOT / "MyWallpaperX/Core/SteamWorkshopStorage/ScenePlaybackSource.swift",
                 ROOT / "MyWallpaperX/Core/PlaybackControl/ScenePlaybackShortcut.swift",
                 ROOT / "MyWallpaperX/Core/PlaybackControl/WallpaperEngineCommand.swift",
                 ROOT / "MyWallpaperX/Core/PlaybackControl/PlaybackPerformanceProfile.swift",

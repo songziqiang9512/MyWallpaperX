@@ -240,8 +240,8 @@ nonisolated struct SceneStockNoiseTextureStore {
                 var second = Float.greatestFiniteMagnitude
                 for (px, py) in points {
                     // wrap distance for tileability
-                    for dx in [-1.0, 0.0, 1.0] {
-                        for dy in [-1.0, 0.0, 1.0] {
+                    for dx in -1...1 {
+                        for dy in -1...1 {
                             let dxp = nx - (px + Float(dx))
                             let dyp = ny - (py + Float(dy))
                             let distance = (dxp * dxp + dyp * dyp).squareRoot()

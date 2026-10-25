@@ -39,15 +39,9 @@ enum Harness {
                 // the same checked reader behavior as an ordinary file buffer.
                 let data = ProcessInfo.processInfo.environment["MWX_READER_SLICE"] == "1"
                     ? (Data([0xA5]) + loaded).dropFirst() : loaded
-                entry["metadataMaterialPath"] = try? SceneMdlStaticModelReader
-                    .readMaterialPathMetadata(data: data)
-                do {
-                    entry["fullMetadataPaths"] = try SceneMdlStaticModelReader.readMaterialPathsMetadata(data: data)
-                } catch let error as SceneMdlStaticModelReadError {
-                    entry["fullMetadataError"] = error.description
-                }
                 let parts = try SceneMdlStaticModelReader.readParts(data: data)
                 let model = parts[0]
+                entry["materialPaths"] = parts.map(\.materialPath)
                 if ProcessInfo.processInfo.environment["MWX_READER_COMPACT"] == "1" {
                     // Exercise the complete decoder without serializing millions
                     // of vectors. Tail samples also prove the widened range is read.
@@ -76,7 +70,6 @@ enum Harness {
                      "elementSize": part.indexElementSize,
                      "positions": part.vertices.map { [Double($0.position.x), Double($0.position.y), Double($0.position.z)] }] as [String: Any]
                 }
-                entry["materialPaths"] = try SceneMdlStaticModelReader.readMaterialPathsMetadata(data: data)
                 entry["ok"] = true
                 entry["version"] = model.version
                 entry["headerFormat"] = model.headerFormat
@@ -125,7 +118,6 @@ enum Harness {
                 if case let .unsupportedMaterialCount(count) = error {
                     entry["unsupportedCount"] = Int(count)
                 }
-                entry["fullMetadataRejected"] = (try? SceneMdlStaticModelReader.readMaterialPathsMetadata(data: Data(contentsOf: url))) == nil
             }
             results.append(entry)
         }
@@ -446,7 +438,7 @@ class SceneMdlStaticModelReaderTests(unittest.TestCase):
         row = json.loads(completed.stdout)[0]
         self.assertTrue(row["ok"], row)
         self.assertEqual(row["partCount"], 1)
-        self.assertEqual(row["fullMetadataPaths"], ["materials/models/fixture/large.json"])
+        self.assertEqual(row["materialPaths"], ["materials/models/fixture/large.json"])
         self.assertEqual(row["vertexCount"], count)
         self.assertEqual(row["decodedVertexBytes"], count * 64)
         self.assertEqual(row["indexElementSize"], 4)
@@ -458,8 +450,8 @@ class SceneMdlStaticModelReaderTests(unittest.TestCase):
         print(f"Large model reader: {count * 48} authored bytes, {count * 64} decoded bytes, "
               f"{len(completed.stdout)} output bytes, {time.monotonic() - started:.3f}s", flush=True)
 
-        # Corruption beyond the old cap must still reject the complete metadata
-        # and decode with the same late failure, before publishing any part.
+        # Corruption beyond the old cap rejects the complete model before
+        # publishing material paths or any part.
         with path.open("r+b") as handle:
             handle.seek(vertex_offset + (count - 1) * 48)
             handle.write(struct.pack("<f", float("nan")))
@@ -471,19 +463,10 @@ class SceneMdlStaticModelReaderTests(unittest.TestCase):
         self.assertEqual(corrupted.returncode, 0, corrupted.stderr)
         rejected = json.loads(corrupted.stdout)[0]
         self.assertFalse(rejected["ok"])
-        self.assertTrue(rejected["fullMetadataRejected"])
-        self.assertEqual(rejected["fullMetadataError"], rejected["error"])
+        self.assertNotIn("materialPaths", rejected)
         self.assertIn(f"non-finite static mdl vertex data at index {count - 1}", rejected["error"])
         self.assertNotIn("partCount", rejected)
         path.unlink()
-
-    def test_metadata_preserves_full_decode_acceptance_and_error_identity(self):
-        for row in self.results.values():
-            with self.subTest(file=row["file"]):
-                if row["ok"]:
-                    self.assertEqual(row["fullMetadataPaths"], [p["material"] for p in row["parts"]])
-                else:
-                    self.assertEqual(row["fullMetadataError"], row["error"])
 
     def test_nonzero_data_slice_preserves_every_value_and_rejection(self):
         self.assertEqual(self.sliced_results, self.results)
@@ -511,12 +494,11 @@ class SceneMdlStaticModelReaderTests(unittest.TestCase):
             row = self.results[name]
             self.assertFalse(row["ok"], row)
             self.assertEqual(row["workBudgetCount"], count)
-            self.assertTrue(row["fullMetadataRejected"])
             self.assertNotIn("unsupportedCount", row)
         for name, count in (("zero-material.mdl",0), ("legacy-multipart.mdl",2)):
             self.assertEqual(self.results[name]["unsupportedCount"], count)
 
-    def test_late_corruption_and_cumulative_budget_reject_full_metadata(self):
+    def test_late_corruption_and_cumulative_budget_reject_complete_parts(self):
         for name, message in (("late-truncated.mdl","truncated"), ("late-index.mdl","index 99"),
                 ("late-path.mdl","material path"), ("late-finite.mdl","non-finite"),
                 ("late-trailer.mdl","trailer"), ("cumulative-vertex.mdl","vertex byte budget"),
@@ -524,16 +506,12 @@ class SceneMdlStaticModelReaderTests(unittest.TestCase):
             row = self.results[name]
             self.assertFalse(row["ok"], row)
             self.assertIn(message, row["error"])
-            self.assertTrue(row["fullMetadataRejected"], row)
+            self.assertNotIn("materialPaths", row)
             self.assertNotIn("parts", row)
 
     def test_valid_profile_preserves_all_geometry_channels(self) -> None:
         result = self.results["valid.mdl"]
         self.assertTrue(result["ok"], result)
-        self.assertEqual(
-            result["metadataMaterialPath"],
-            "materials/models/fixture/default.json",
-        )
         self.assertEqual(result["version"], "MDLV0023")
         self.assertEqual((result["headerFormat"], result["vertexFormat"]), (15, 15))
         self.assertEqual((result["vertexStride"], result["indexElementSize"]), (48, 2))
@@ -567,7 +545,7 @@ class SceneMdlStaticModelReaderTests(unittest.TestCase):
         self.assertTrue(result["ok"], result)
         self.assertEqual(result["version"], "MDLV0016")
         self.assertEqual(
-            result["metadataMaterialPath"],
+            result["materialPath"],
             "materials/models/fixture/legacy.json",
         )
         self.assertEqual(result["boundsMinimum"], [-1, -1, 0])

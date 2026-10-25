@@ -16,13 +16,15 @@ final class SceneParticlePlaybackState {
     private(set) var batches: [SceneParticleDrawBatch]
     /// Resource admission history. Empty batches are valid and do not prove
     /// that a layer produced particles or reached the GPU.
+#if DEBUG
     private(set) var stickyBatchLayerIDs: Set<Int> = []
     /// Nonempty batches in committed host frames, retained across dormant
     /// periods. This is producer evidence, not GPU completion or visibility.
     private(set) var committedNonemptyBatchLayerIDs: Set<Int> = []
-    private var didTeardown = false
     private var reportedAudioEvaluationIdentities:
         Set<SceneParticleRuntimeAudioEvaluationIdentity> = []
+#endif
+    private var didTeardown = false
     var hasAudioConsumer: Bool { runtime.hasAudioConsumer }
     var lifecycleSnapshot: SceneParticleRuntimeLifecycleSnapshot {
         runtime.lifecycleSnapshot
@@ -30,9 +32,8 @@ final class SceneParticlePlaybackState {
 
     init?(
         descriptor: SceneRenderDescriptor,
-        cacheDirectory: URL,
+        preparedAssets: SceneParticleAssetGraph,
         device: MTLDevice,
-        resourceView: SceneResourceView? = nil,
         textureLoader: SceneTextureLoader = SceneTextureLoader(),
         layerImage: SceneParticleLayerImageEmitterCompilation = .empty,
         preparedParticleVisibilityLayerIDs: Set<Int> = [],
@@ -41,9 +42,8 @@ final class SceneParticlePlaybackState {
     ) {
         let runtime = SceneParticleRuntime(
             descriptor: descriptor,
-            cacheDirectory: cacheDirectory,
+            preparedAssets: preparedAssets,
             device: device,
-            resourceView: resourceView,
             textureLoader: textureLoader,
             layerImageEmissionMaps: layerImage.mapsByLayerID,
             initialDiagnostics: layerImage.diagnostics,
@@ -75,7 +75,9 @@ final class SceneParticlePlaybackState {
         self.batches = runtime.advance(
             by: 0, dynamicValues: initialDynamicValues, layerWorldFrames: initialWorldFrames
         )
+#if DEBUG
         stickyBatchLayerIDs.formUnion(self.batches.map(\.layerID))
+#endif
     }
 
     func playbackLiveCount(charging: (UInt64) throws -> Void) throws -> Int {
@@ -141,14 +143,17 @@ final class SceneParticlePlaybackState {
             ),
             layerWorldFrames: layerWorldFrames
         )
+#if DEBUG
         stickyBatchLayerIDs.formUnion(batches.map(\.layerID))
         for batch in batches where !batch.instances.isEmpty {
             committedNonemptyBatchLayerIDs.insert(batch.layerID)
         }
         publishCommittedAudioEvaluationObservations()
+#endif
         return batches
     }
 
+#if DEBUG
     private func publishCommittedAudioEvaluationObservations() {
         for observation in runtime.consumeAudioEvaluationObservations() {
             let evaluation = observation.evaluation
@@ -162,7 +167,6 @@ final class SceneParticlePlaybackState {
                 continue
             }
             let encodedPath = Data(observation.particlePath.utf8).base64EncodedString()
-#if DEBUG
             NSLog(
                 "MWX particle audio: consumer=particle-component layer=%d "
                     + "pathBase64=%@ component=%@ index=%d generation=%llu "
@@ -178,9 +182,9 @@ final class SceneParticlePlaybackState {
                 evaluation.frequencyEnd,
                 evaluation.selectedNonZeroInputCount
             )
-#endif
         }
     }
+#endif
 
     /// Product playback drops overdue wall-clock debt instead of recursively making
     /// an already slow frame run an unbounded number of fixed simulation steps.
@@ -207,6 +211,7 @@ final class SceneParticlePlaybackState {
         return observation
     }
 
+#if DEBUG
     func loadReportLines(descriptor: SceneRenderDescriptor) -> [String] {
         let particleLayers = descriptor.layers.filter { $0.contentKind == "particle" }
         let visibleIDs = SceneLayerVisibility.visibleLayerIDs(in: descriptor)
@@ -280,4 +285,5 @@ final class SceneParticlePlaybackState {
     ) -> String {
         "particle loaded: \(Set(batchLayerIDs).count) / \(visibleLayerCount)"
     }
+#endif
 }

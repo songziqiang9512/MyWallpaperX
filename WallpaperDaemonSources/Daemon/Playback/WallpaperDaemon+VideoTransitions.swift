@@ -38,8 +38,8 @@ extension WallpaperDaemon {
             outgoingLayer.opacity = 0
             fallbackLayer.opacity = 0
             CATransaction.commit()
+            cleanupOutgoing()
             confirmVideoActivationWhenVisible(requestID: requestID)
-            DispatchQueue.main.asyncAfter(deadline: .now() + crossfadeDuration, execute: cleanupOutgoing)
             return
         }
 

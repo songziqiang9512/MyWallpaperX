@@ -22,6 +22,9 @@ DYNAMIC_SNAPSHOT_SOURCE = REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScen
 BINDINGS_SOURCE = SCENE_ROOT / "Runtime/Frame/SceneStaticModelMaterialBindings.swift"
 DYNAMIC_LAYER_VALUES_SOURCE = REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Systems/Properties/SceneDynamicLayerValues.swift"
 MODEL_SOURCE = SCENE_ROOT / "Format/SceneMdlStaticModel.swift"
+MODEL_SUPPORT_SOURCES = [SCENE_ROOT / "Format" / name for name in [
+    "SceneMdlPuppetMeshReader.swift", "SceneMdlPuppetRigReader.swift",
+]]
 SAMPLING_SOURCE = REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Resources/Textures/SceneTextureSampling.swift"
 UV_TRANSFORM_SOURCE = REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Resources/Textures/SceneTextureUVTransform.swift"
 LIGHT_SOURCE = REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Lighting/SceneLightSnapshot.swift"
@@ -256,7 +259,7 @@ fragment half4 sceneStaticModelFragment(
 }
 '''
             probe_shader.write_text(source, encoding="utf-8")
-            sources = [MODEL_SOURCE, SAMPLING_SOURCE, UV_TRANSFORM_SOURCE,
+            sources = [MODEL_SOURCE, *MODEL_SUPPORT_SOURCES, SAMPLING_SOURCE, UV_TRANSFORM_SOURCE,
                        DIRECTIONAL_LIGHT_SOURCE, POINT_LIGHT_SOURCE, SPOT_LIGHT_SOURCE,
                        LIGHT_SOURCE, VISIBILITY_SOURCE, DYNAMIC_SNAPSHOT_SOURCE, DYNAMIC_LAYER_VALUES_SOURCE,
                        PERFORMANCE_COUNTER_SOURCE, BINDINGS_SOURCE, MATERIAL_SOURCE, PIPELINE_SOURCE, SHADOW_SOURCE,
@@ -335,6 +338,7 @@ fragment half4 sceneStaticModelFragment(
                     swiftc,
                     "-typecheck",
                     str(MODEL_SOURCE),
+                    *map(str, MODEL_SUPPORT_SOURCES),
                     str(SAMPLING_SOURCE),
                     str(UV_TRANSFORM_SOURCE),
                     str(DIRECTIONAL_LIGHT_SOURCE),
@@ -590,6 +594,7 @@ enum MaterialHarness {
                 [
                     swiftc,
                     str(MODEL_SOURCE),
+                    *map(str, MODEL_SUPPORT_SOURCES),
                     str(SAMPLING_SOURCE),
                     str(UV_TRANSFORM_SOURCE),
                     str(DIRECTIONAL_LIGHT_SOURCE),

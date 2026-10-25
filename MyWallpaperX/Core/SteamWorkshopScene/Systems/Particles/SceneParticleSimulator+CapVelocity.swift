@@ -5,6 +5,7 @@ nonisolated extension SceneParticleSimulator {
     /// direction. This is a bounded clean-room contract; no Windows numeric golden exists.
     func applyCapVelocity(
         plan: SceneParticleCapVelocityPlan?,
+        normalizedLives: [Double],
         blendPlan: SceneParticleOperatorBlendPlan
     ) {
         guard let plan else { return }
@@ -15,10 +16,7 @@ nonisolated extension SceneParticleSimulator {
             let velocity = particles[index].velocity
             let speed = SceneParticleSimulationMath.length(velocity)
             guard speed.isFinite, speed > maximumSpeed, speed > 1e-12 else { continue }
-            let life = min(max(
-                particles[index].age / max(particles[index].lifetime, 1e-12), 0
-            ), 1)
-            let blend = operatorBlend(blendPlan, life)
+            let blend = operatorBlend(blendPlan, normalizedLives[index])
             let target = velocity / speed * maximumSpeed
             let result = velocity + (target - velocity) * blend
             guard result.x.isFinite, result.y.isFinite, result.z.isFinite else { continue }

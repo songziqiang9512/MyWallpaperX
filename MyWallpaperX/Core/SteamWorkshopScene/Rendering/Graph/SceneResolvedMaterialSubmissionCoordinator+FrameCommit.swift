@@ -16,36 +16,6 @@ extension SceneResolvedMaterialSubmissionCoordinator {
         let targets: ScenePreparedPersistentGraphTargets
     }
 
-    func preparedEvidenceFitsLocked(
-        _ preparedGraphs: [SceneResolvedMaterialGraphExecutor.PreparedGraph]
-    ) -> Bool {
-        var transitionCount = 0
-        var nodeCount = 0
-        for preparedGraph in preparedGraphs {
-            let stages = preparedGraph.stages
-            guard !stages.isEmpty,
-                  stages.count <= Self.maximumTransitionsPerTransaction
-            else { return false }
-            let (nextTransitions, transitionOverflow) = transitionCount
-                .addingReportingOverflow(stages.count)
-            guard !transitionOverflow,
-                  nextTransitions <= Self.maximumTransitionsPerSubmission else {
-                return false
-            }
-            transitionCount = nextTransitions
-            for value in stages {
-                let (nextNodes, nodeOverflow) = nodeCount
-                    .addingReportingOverflow(value.graph.nodes.count)
-                guard !nodeOverflow,
-                      nextNodes <= Self.maximumObservedNodesPerSubmission else {
-                    return false
-                }
-                nodeCount = nextNodes
-            }
-        }
-        return true
-    }
-
     func framePreparationFailureLocked(
         _: [PreparedFrameCandidate],
         reason: String

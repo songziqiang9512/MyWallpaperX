@@ -591,23 +591,28 @@ nonisolated final class SceneScriptLocalStorageSession: @unchecked Sendable {
                 "localStorage scope exceeds 256 entries"
             )
         }
+        var total = 0
         for scope in scopes {
-            let bytes = scope.reduce(0) {
-                $0 + $1.key.utf8.count + $1.value.utf8.count
+            var bytes = 0
+            for (key, value) in scope {
+                let keyBytes = key.utf8.count
+                let valueBytes = value.utf8.count
+                // Loaded values and every set mutation already crossed the
+                // value boundary. Quota replay only needs their byte totals.
+                if validatingValues,
+                   keyBytes > 256 || valueBytes > 65_536 || !validJSON(value) {
+                    throw SceneScriptScalarRuntimeFailure.budgetExceeded(
+                        "localStorage scope exceeds its byte budget"
+                    )
+                }
+                bytes += keyBytes + valueBytes
             }
-            guard bytes <= 262_144,
-                  scope.allSatisfy({
-                      $0.key.utf8.count <= 256
-                          && $0.value.utf8.count <= 65_536
-                          && (!validatingValues || validJSON($0.value))
-                  }) else {
+            guard bytes <= 262_144 else {
                 throw SceneScriptScalarRuntimeFailure.budgetExceeded(
                     "localStorage scope exceeds its byte budget"
                 )
             }
-        }
-        let total = scopes.flatMap { $0 }.reduce(0) {
-            $0 + $1.key.utf8.count + $1.value.utf8.count
+            total += bytes
         }
         guard total <= 1_048_576 else {
             throw SceneScriptScalarRuntimeFailure.budgetExceeded(

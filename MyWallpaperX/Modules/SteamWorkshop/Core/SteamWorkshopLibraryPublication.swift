@@ -91,7 +91,8 @@ nonisolated extension SteamWorkshopLibraryTransaction {
             jobId: prepared.jobId, attempt: prepared.attempt, directoryName: prepared.workshopId,
             manifestId: prepared.manifestId, contentDigest: prepared.contentDigest,
             contentType: prepared.contentType, entryPath: prepared.entryPath, committedAt: prepared.committedAt,
-            generation: String(prepared.directoryName.dropFirst(prepared.workshopId.count + 1)))
+            generation: String(prepared.directoryName.dropFirst(prepared.workshopId.count + 1)),
+            sceneReceipt: prepared.sceneReceipt)
     }
 
     private static func atomicWrite(_ data: Data, name: String, in root: FD) throws {
@@ -188,7 +189,7 @@ nonisolated extension SteamWorkshopLibraryTransaction {
                 directoryName: previous.workshopId + "-" + generation,
                 manifestId: previous.manifestId, contentDigest: previous.contentDigest,
                 contentType: previous.contentType, entryPath: previous.entryPath,
-                committedAt: previous.committedAt)
+                committedAt: previous.committedAt, sceneReceipt: previous.sceneReceipt)
             var backupInfo = stat()
             if fstatat(type.value, intent.prepared.directoryName, &backupInfo, AT_SYMLINK_NOFOLLOW) == 0 {
                 let backup = try directory(type, intent.prepared.directoryName)
@@ -209,6 +210,28 @@ nonisolated extension SteamWorkshopLibraryTransaction {
         // 空的事务日志目录不必常驻：读侧（recoverPublications/publishCanonical）
         // 全部按需创建。有并发新意图时 ENOTEMPTY 自动放弃，无害。
         _ = unlinkat(library.value, publicationsName, AT_REMOVEDIR)
+    }
+
+    /// A pending intent may still own a prepared candidate or a swapped backup.
+    /// Absence alone permits scoped cleanup; malformed/unknown state fails closed.
+    static func hasPendingPublication(for itemID: String, libraryRoot: URL) throws -> Bool {
+        try require(validID(itemID))
+        let library = try absoluteDirectory(libraryRoot)
+        let descriptor = openat(library.value, publicationsName, O_RDONLY | O_DIRECTORY | O_NOFOLLOW | O_CLOEXEC)
+        guard descriptor >= 0 else {
+            if errno == ENOENT { return false }
+            throw Failure(message: "无法打开待恢复的入库事务目录。")
+        }
+        let journal = try FD(descriptor)
+        var value = stat()
+        if fstatat(journal.value, itemID + ".json", &value, AT_SYMLINK_NOFOLLOW) != 0 {
+            if errno == ENOENT { return false }
+            throw Failure(message: "无法检查待恢复的入库事务。")
+        }
+        try require((value.st_mode & S_IFMT) == S_IFREG && value.st_nlink == 1
+            && value.st_size >= 0 && value.st_size <= 12 * 1024 * 1024,
+            "待恢复的入库事务身份或大小无效。")
+        return true
     }
 
     static func recoverPublications(libraryRoot: URL, retaining identities: Set<String> = [],

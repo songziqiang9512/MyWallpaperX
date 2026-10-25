@@ -1,7 +1,7 @@
 <!-- document-role: stable-contract -->
 # Scene 当前运行证据摘要
 
-> 按需证据库：先读[当前证据快照](#current-snapshot)与[运行证据深度](#evidence-levels)，再按精确 `E-*` anchor 查询[单条证据包](#evidence-packages)。更早记录见[运行证据归档](../history/runtime-evidence-index.md)。不要整页装入普通实现上下文。
+> 按需证据库：先读[当前快照](#current-snapshot)与[证据深度](#evidence-levels)。D36完成文件复用、D37命中免读已采用，产品仍D37；D38近上限输入RAM三条件通过，正式整体启动时序仍未过噪声门，375完整统计按D39停止未覆盖。D40当前版本普通UI21次GPU首帧/提交、20次切换、1816.635秒视频稳态和自然退出通过；真实锁睡/显示缩放/人工OS警告恢复仅证本次Scene视频，Web真实OS恢复未验。旧失败与成本STOP保留，专项已结算，不再另排启动队列。 专项实施、原失败/STOP与最终结算统一查[完成记录](../../history/cross-topic/wallpaper-startup-optimization-completed-2026-10-25.md)，稳定职责归[启动合同](../architecture/scene-launch-responsiveness-contract.md)。
 >
 > 本页只回答能力在何种输入、代码与产品身份下取得过哪一级证据；当前路线与能力等级分别由[执行路线](../roadmap/scene-compatibility-roadmap.md)和[能力台账](coverage-ledger.md#current-overview)拥有。旧包不自动成为当前 HEAD 的 fresh 复现。
 <a id="local-evidence-availability"></a>

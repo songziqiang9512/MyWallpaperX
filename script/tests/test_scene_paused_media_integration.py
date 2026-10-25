@@ -18,7 +18,7 @@ import zlib
 from script.web_benchmark_capture import png_rgb_pixels
 from .test_scene_composition_authored_order_integration import encoded
 from .test_scene_fullscreen_visibility_integration import app_hashes, file_hashes
-from .test_scene_pkg_cache_extractor import make_package
+from .scene_pkg_fixture import make_package
 
 
 ROOT = Path(__file__).resolve().parents[2]
@@ -35,7 +35,7 @@ SOURCE_PATHS = [ROOT / path for path in (
     "MyWallpaperX/Core/SteamWorkshopScene/Systems/Script/SceneScriptVectorProgram.swift",
     "script/tests/test_scene_composition_authored_order_integration.py",
     "script/tests/test_scene_fullscreen_visibility_integration.py",
-    "script/tests/test_scene_pkg_cache_extractor.py",
+    "script/tests/scene_pkg_fixture.py",
     "script/web_benchmark_capture.py",
 )] + [Path(__file__).resolve()]
 PROTOCOL = {"canvas": [256, 256], "surfaces": 2, "requestedDurationSeconds": 6,

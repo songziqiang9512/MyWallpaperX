@@ -33,6 +33,7 @@ nonisolated enum SceneDeferredBaseImageStatus: Equatable {
 /// static atlases are shared; pose/physics/GPU geometry remain surface-scoped.
 final class ScenePreparedBaseImageResources {
     private struct Entry {
+        let input: SceneResourceView.FileInput
         let source: SceneTextureLoader.SourceKey
         let outcome: SceneBaseImageTextureLoad.Outcome?
         let naturalSizeWH: [Float]?
@@ -40,7 +41,7 @@ final class ScenePreparedBaseImageResources {
 
     private struct DeferredRequest {
         let layerID: Int
-        let url: URL
+        let url: SceneResourceView.FileInput
         let source: SceneTextureLoader.SourceKey
     }
 
@@ -123,216 +124,227 @@ final class ScenePreparedBaseImageResources {
         ),
         cancellationCheck: () throws -> Void
     ) throws -> ScenePreparedBaseImageResources {
-        let textureLoader = SceneTextureLoader(
-            uploadCommandQueue: uploadCommandQueue,
-            decodeCacheBudget: decodeCacheBudget
-        )
-        let resolver = SceneTexturePathResolver(
-            resourceView: resourceView,
-            descriptor: descriptor
-        )
-        let puppets = try ScenePreparedPuppetResources.prepare(
-            descriptor: descriptor, cacheDirectory: resourceView.primaryRootURL,
-            cancellationCheck: cancellationCheck)
-        var entries: [Int: Entry] = [:]
-        var loadedCount = 0
-        var failedCount = 0
-        var deferredRequests: [Int: DeferredRequest] = [:]
-        let models = Dictionary(uniqueKeysWithValues: imageGeometryModels.map {
-            ($0.relativePath, $0)
-        })
-        var imageRequests: [Int: (url: URL, source: SceneTextureLoader.SourceKey)] = [:]
-        var geometry: [Int: [Float]] = [:]
-        for layer in descriptor.layers where layer.isImageRenderable {
+        try withoutActuallyEscaping(cancellationCheck) { cancellationCheck in
+            let textureLoader = SceneTextureLoader(
+                uploadCommandQueue: uploadCommandQueue,
+                decodeCacheBudget: decodeCacheBudget
+            )
+            let resolver = SceneTexturePathResolver(
+                resourceView: resourceView,
+                descriptor: descriptor
+            )
+            let puppets = try ScenePreparedPuppetResources.prepare(
+                descriptor: descriptor, resourceView: resourceView,
+                cancellationCheck: cancellationCheck)
+            var entries: [Int: Entry] = [:]
+            var loadedCount = 0
+            var failedCount = 0
+            var deferredRequests: [Int: DeferredRequest] = [:]
+            let models = Dictionary(uniqueKeysWithValues: imageGeometryModels.map {
+                ($0.relativePath, $0)
+            })
+            var imageRequests: [Int: (url: SceneResourceView.FileInput, source: SceneTextureLoader.SourceKey,
+                direct: SceneTextureLoader.PreparedDirectImageSource?)] = [:]
+            var geometry: [Int: [Float]] = [:]
+            for layer in descriptor.layers where layer.isImageRenderable {
+                try cancellationCheck()
+                guard layer.contentKind != "solid" || layer.staticBaseTexturePath != nil,
+                      let url = resolver.resolvePrimaryTexture(for: layer) else {
+                    continue
+                }
+                let preparedTex = try textureLoader.prepareTexSource(from: url, checkCancellation: cancellationCheck)
+                let direct = try textureLoader.prepareDirectImageSource(from: url, checkCancellation: cancellationCheck)
+                guard let source = preparedTex?.source ?? direct?.source else { continue }
+                let container = preparedTex?.container
+                guard SceneBaseImageTextureLoad.specializedLoadReason(
+                    url: url,
+                    container: container,
+                    usesPuppet: false
+                ) == nil else {
+                    continue
+                }
+                let naturalSize = try direct.map {
+                    try textureLoader.preparedNaturalImageSize(from: $0, checkCancellation: cancellationCheck)
+                } ?? container.map { CGSize(width: $0.imageWidth, height: $0.imageHeight) }
+                let naturalSizeWH = naturalSize.map { [Float($0.width), Float($0.height)] }
+                entries[layer.id] = .init(input: url, source: source, outcome: nil, naturalSizeWH: naturalSizeWH)
+                if layer.contentKind == "image", layer.puppetMeshPath == nil, container?.isVideoMp4 != true,
+                   let model = layer.imagePath.flatMap({ models[$0] }) {
+                    if model.autosize == true, let naturalSizeWH,
+                       naturalSizeWH.allSatisfy({ $0.isFinite && $0 > 0 }) {
+                        geometry[layer.id] = naturalSizeWH
+                    } else if model.autosize != true, layer.size == nil,
+                              !model.hasDeclaredSizeFields, model.declaredSizeWH == nil,
+                              case let .object(authored)? = layer.initialConfiguration,
+                              authored["size"] == nil {
+                        geometry[layer.id] = [1, 1]
+                    }
+                }
+                if deferredBaseImageLayerIDs.contains(layer.id) {
+                    deferredRequests[layer.id] = .init(
+                        layerID: layer.id,
+                        url: url,
+                        source: source
+                    )
+                    continue
+                }
+                imageRequests[layer.id] = (url, source, direct?.admitForPreparation() == true ? direct : nil)
+            }
             try cancellationCheck()
-            guard layer.contentKind != "solid" || layer.staticBaseTexturePath != nil,
-                  let url = resolver.resolvePrimaryTexture(for: layer),
-                  let source = textureLoader.sourceKey(for: url) else {
-                continue
-            }
-            let container = url.pathExtension.lowercased() == "tex"
-                ? textureLoader.texContainer(from: url, source: source)
-                : nil
-            guard SceneBaseImageTextureLoad.specializedLoadReason(
-                url: url,
-                container: container,
-                usesPuppet: false
-            ) == nil else {
-                continue
-            }
-            let naturalSize = textureLoader.preparedNaturalImageSize(from: url, source: source)
-                .map { [Float($0.width), Float($0.height)] }
-            entries[layer.id] = .init(source: source, outcome: nil, naturalSizeWH: naturalSize)
-            if layer.contentKind == "image", layer.puppetMeshPath == nil, container?.isVideoMp4 != true,
-               let model = layer.imagePath.flatMap({ models[$0] }) {
-                if model.autosize == true, let naturalSize,
-                   naturalSize.allSatisfy({ $0.isFinite && $0 > 0 }) {
-                    geometry[layer.id] = naturalSize
-                } else if model.autosize != true, layer.size == nil,
-                          !model.hasDeclaredSizeFields, model.declaredSizeWH == nil,
-                          case let .object(authored)? = layer.initialConfiguration,
-                          authored["size"] == nil {
-                    geometry[layer.id] = [1, 1]
+            geometryPrepared(geometry)
+            // GPU uploads continue after metadata publication on the same worker.
+            uploadCommandQueue.beginMipmapBatch()
+            for layer in descriptor.layers {
+                guard let request = imageRequests.removeValue(forKey: layer.id) else { continue }
+                try cancellationCheck()
+                let outcome = SceneBaseImageTextureLoad.load(
+                    from: request.url,
+                    usesPuppet: layer.puppetMeshPath != nil,
+                    loader: textureLoader,
+                    spriteTextureLoader: spriteTextureLoader,
+                    device: device, source: request.source, preparedDirectImageSource: request.direct,
+                    checkCancellation: cancellationCheck
+                )
+                if case let .failed(failure) = outcome { try failure.rethrowResourceReadFailure() }
+                switch outcome {
+                case .loaded:
+                    entries[layer.id] = .init(input: request.url, source: request.source, outcome: outcome,
+                        naturalSizeWH: entries[layer.id]?.naturalSizeWH)
+                    loadedCount += 1
+                case .failed:
+                    failedCount += 1
                 }
             }
-            if deferredBaseImageLayerIDs.contains(layer.id) {
-                deferredRequests[layer.id] = .init(
-                    layerID: layer.id,
-                    url: url,
-                    source: source
-                )
-                continue
+            var dynamicImageResources: [String: ScenePreparedDynamicImageResource] = [:]
+            let imageMaterials = ScenePreparedImageMaterialCatalog(descriptor: descriptor)
+            let requestedModels = try dynamicImageModelPathsProvider?() ?? dynamicImageModelPaths
+            for modelPath in requestedModels.sorted() {
+                try cancellationCheck()
+                // Puppet resources enter below through mesh + straight atlas, never a quad.
+                if models[modelPath]?.puppetPath != nil { continue }
+                let modelIdentity = SceneModelResourceIdentity(modelPath).value
+                // Built-in literal and indirect requests require the same recipe.
+                // Non-built-in source Programs retain their existing preparation.
+                if imageMaterials.builtinModelPaths.contains(modelIdentity),
+                   imageMaterials.profiles[modelIdentity] == nil { continue }
+                guard let url = resolver.resolvePrimaryTexture(modelPath: modelPath) else {
+                    failedCount += 1
+                    continue
+                }
+                let preparedTex = try textureLoader.prepareTexSource(from: url, checkCancellation: cancellationCheck)
+                let direct = try textureLoader.prepareDirectImageSource(from: url, checkCancellation: cancellationCheck)
+                let container = preparedTex?.container
+                guard SceneBaseImageTextureLoad.specializedLoadReason(
+                    url: url, container: container, usesPuppet: false
+                ) == nil else {
+                    failedCount += 1
+                    continue
+                }
+                let outcome = SceneBaseImageTextureLoad.load(
+                    from: url, usesPuppet: false, loader: textureLoader,
+                    spriteTextureLoader: spriteTextureLoader, device: device,
+                    preparedTexSource: preparedTex, preparedDirectImageSource: direct,
+                    checkCancellation: cancellationCheck)
+                if case let .failed(failure) = outcome { try failure.rethrowResourceReadFailure() }
+                switch outcome {
+                case let .loaded(loaded):
+                    dynamicImageResources[modelPath.lowercased()] = .init(
+                        modelPath: modelPath, loaded: loaded,
+                        naturalSizeWH: try (direct.map {
+                            try textureLoader.preparedNaturalImageSize(from: $0, checkCancellation: cancellationCheck)
+                        } ?? container.map { CGSize(width: $0.imageWidth, height: $0.imageHeight) })
+                            .map { [Float($0.width), Float($0.height)] },
+                        lightingProfile: imageMaterials.profiles[modelIdentity],
+                        imageMaterialRenderState: imageMaterials.renderStates[modelIdentity]
+                    )
+                    loadedCount += 1
+                case .failed:
+                    failedCount += 1
+                }
             }
-            imageRequests[layer.id] = (url, source)
-        }
-        try cancellationCheck()
-        geometryPrepared(geometry)
-        // GPU uploads continue after metadata publication on the same worker.
-        uploadCommandQueue.beginMipmapBatch()
-        for layer in descriptor.layers {
-            guard let request = imageRequests[layer.id] else { continue }
             try cancellationCheck()
-            let outcome = SceneBaseImageTextureLoad.load(
-                from: request.url,
-                usesPuppet: layer.puppetMeshPath != nil,
-                loader: textureLoader,
-                spriteTextureLoader: spriteTextureLoader,
-                device: device
-            )
-            switch outcome {
-            case .loaded:
-                entries[layer.id] = .init(source: request.source, outcome: outcome,
-                    naturalSizeWH: entries[layer.id]?.naturalSizeWH)
-                loadedCount += 1
-            case .failed:
-                failedCount += 1
+            // Cancellation aborts the pass with pending textures discarded; a
+            // successful pass flushes every deferred generation before any frame
+            // can sample the returned textures. A flush failure reclaims every
+            // entry whose GPU publication cannot be proven AND evicts those
+            // textures from the loader's GPU cache: the affected layers and
+            // dynamic images lose their prepared outcome, and their render-time
+            // inline loads miss the cache, re-decode and retry — the pre-batch
+            // single-texture fail-soft semantics. Every device is drained by
+            // the flush, so no deferred texture escapes accounting.
+            let mipmapFlush = uploadCommandQueue.flushMipmapBatch()
+            let conversionFlush = uploadCommandQueue.flushUncommittedCommandBuffers()
+            let failedTextures = mipmapFlush.failedTextures + conversionFlush
+            if !failedTextures.isEmpty {
+                func isFailed(_ outcome: SceneBaseImageTextureLoad.Outcome?) -> Bool {
+                    guard case let .loaded(loaded)? = outcome else { return false }
+                    return failedTextures.contains { $0 === loaded.texture }
+                }
+                var reclaimed = 0
+                for (layerID, entry) in entries where isFailed(entry.outcome) {
+                    entries.removeValue(forKey: layerID)
+                    reclaimed += 1
+                }
+                for (modelPath, resource) in dynamicImageResources
+                where failedTextures.contains(where: { $0 === resource.loaded.texture }) {
+                    dynamicImageResources.removeValue(forKey: modelPath)
+                    reclaimed += 1
+                }
+                // Shared sources appear under multiple entries while the failed
+                // identity list holds each texture once; count reclaims so
+                // loaded+failed stays consistent with the entry accounting.
+                loadedCount -= reclaimed
+                failedCount += reclaimed
+                textureLoader.evictTextures(containedIn: failedTextures)
             }
-        }
-        var dynamicImageResources: [String: ScenePreparedDynamicImageResource] = [:]
-        let imageMaterials = ScenePreparedImageMaterialCatalog(descriptor: descriptor)
-        let requestedModels = try dynamicImageModelPathsProvider?() ?? dynamicImageModelPaths
-        for modelPath in requestedModels.sorted() {
-            try cancellationCheck()
-            // Puppet resources enter below through mesh + straight atlas, never a quad.
-            if models[modelPath]?.puppetPath != nil { continue }
-            let modelIdentity = SceneModelResourceIdentity(modelPath).value
-            // Built-in literal and indirect requests require the same recipe.
-            // Non-built-in source Programs retain their existing preparation.
-            if imageMaterials.builtinModelPaths.contains(modelIdentity),
-               imageMaterials.profiles[modelIdentity] == nil { continue }
-            guard let url = resolver.resolvePrimaryTexture(modelPath: modelPath),
-                  let source = textureLoader.sourceKey(for: url) else {
-                failedCount += 1
-                continue
-            }
-            let container = url.pathExtension.lowercased() == "tex"
-                ? textureLoader.texContainer(from: url, source: source)
-                : nil
-            guard SceneBaseImageTextureLoad.specializedLoadReason(
-                url: url, container: container, usesPuppet: false
-            ) == nil else {
-                failedCount += 1
-                continue
-            }
-            switch SceneBaseImageTextureLoad.load(
-                from: url, usesPuppet: false, loader: textureLoader,
-                spriteTextureLoader: spriteTextureLoader, device: device
-            ) {
-            case let .loaded(loaded):
+            // An authored ordinary model can be requested through initial config
+            // without a literal script reference. Reuse only GPU-published entries
+            // whose source is the model default, never a layer-local override.
+            for layer in descriptor.layers where layer.contentKind == "image" {
+                try cancellationCheck()
+                guard let modelPath = layer.imagePath,
+                      dynamicImageResources[modelPath.lowercased()] == nil,
+                      let profile = imageMaterials.profiles[SceneModelResourceIdentity(modelPath).value],
+                      layer.puppetMeshPath == nil || !profile.surfaceEnabled,
+                      let entry = entries[layer.id],
+                      let modelURL = resolver.resolvePrimaryTexture(modelPath: modelPath),
+                      try (modelURL == entry.input || textureLoader.sourceKey(for: modelURL) == entry.source),
+                      case let .loaded(loaded)? = entry.outcome,
+                      loaded.animation == nil,
+                      let candidate = loaded.candidate,
+                      candidate.texture === loaded.texture else { continue }
+                let pose = puppets.defaultPose(for: layer)
+                guard layer.puppetMeshPath == nil || pose != nil else { continue }
                 dynamicImageResources[modelPath.lowercased()] = .init(
                     modelPath: modelPath, loaded: loaded,
-                    naturalSizeWH: textureLoader.preparedNaturalImageSize(from: url, source: source)
-                        .map { [Float($0.width), Float($0.height)] },
-                    lightingProfile: imageMaterials.profiles[modelIdentity],
-                    imageMaterialRenderState: imageMaterials.renderStates[modelIdentity]
+                    naturalSizeWH: entry.naturalSizeWH,
+                    puppetMeshPath: layer.puppetMeshPath, puppetPose: pose,
+                    lightingProfile: profile
                 )
-                loadedCount += 1
-            case .failed:
-                failedCount += 1
             }
-        }
-        try cancellationCheck()
-        // Cancellation aborts the pass with pending textures discarded; a
-        // successful pass flushes every deferred generation before any frame
-        // can sample the returned textures. A flush failure reclaims every
-        // entry whose GPU publication cannot be proven AND evicts those
-        // textures from the loader's GPU cache: the affected layers and
-        // dynamic images lose their prepared outcome, and their render-time
-        // inline loads miss the cache, re-decode and retry — the pre-batch
-        // single-texture fail-soft semantics. Every device is drained by
-        // the flush, so no deferred texture escapes accounting.
-        let mipmapFlush = uploadCommandQueue.flushMipmapBatch()
-        let conversionFlush = uploadCommandQueue.flushUncommittedCommandBuffers()
-        let failedTextures = mipmapFlush.failedTextures + conversionFlush
-        if !failedTextures.isEmpty {
-            func isFailed(_ outcome: SceneBaseImageTextureLoad.Outcome?) -> Bool {
-                guard case let .loaded(loaded)? = outcome else { return false }
-                return failedTextures.contains { $0 === loaded.texture }
-            }
-            var reclaimed = 0
-            for (layerID, entry) in entries where isFailed(entry.outcome) {
-                entries.removeValue(forKey: layerID)
-                reclaimed += 1
-            }
-            for (modelPath, resource) in dynamicImageResources
-            where failedTextures.contains(where: { $0 === resource.loaded.texture }) {
-                dynamicImageResources.removeValue(forKey: modelPath)
-                reclaimed += 1
-            }
-            // Shared sources appear under multiple entries while the failed
-            // identity list holds each texture once; count reclaims so
-            // loaded+failed stays consistent with the entry accounting.
-            loadedCount -= reclaimed
-            failedCount += reclaimed
-            textureLoader.evictTextures(containedIn: failedTextures)
-        }
-        // An authored ordinary model can be requested through initial config
-        // without a literal script reference. Reuse only GPU-published entries
-        // whose source is the model default, never a layer-local override.
-        for layer in descriptor.layers where layer.contentKind == "image" {
-            try cancellationCheck()
-            guard let modelPath = layer.imagePath,
-                  dynamicImageResources[modelPath.lowercased()] == nil,
-                  let profile = imageMaterials.profiles[SceneModelResourceIdentity(modelPath).value],
-                  layer.puppetMeshPath == nil || !profile.surfaceEnabled,
-                  let entry = entries[layer.id],
-                  let modelURL = resolver.resolvePrimaryTexture(modelPath: modelPath),
-                  textureLoader.sourceKey(for: modelURL) == entry.source,
-                  case let .loaded(loaded)? = entry.outcome,
-                  loaded.animation == nil,
-                  let candidate = loaded.candidate,
-                  candidate.texture === loaded.texture else { continue }
-            let pose = puppets.defaultPose(for: layer)
-            guard layer.puppetMeshPath == nil || pose != nil else { continue }
-            dynamicImageResources[modelPath.lowercased()] = .init(
-                modelPath: modelPath, loaded: loaded,
-                naturalSizeWH: entry.naturalSizeWH,
-                puppetMeshPath: layer.puppetMeshPath, puppetPose: pose,
-                lightingProfile: profile
+            // Every launch texture is GPU-published past this point: drop the
+            // loader's CPU-side decoded bytes so they do not sit next to their
+            // GPU copies for the whole session. Later loads hit the GPU cache;
+            // a miss re-decodes from the source file.
+            textureLoader.evictDecodedCaches()
+            return ScenePreparedBaseImageResources(
+                textureLoader: textureLoader,
+                puppets: puppets,
+                sceneGeneration: sceneGeneration,
+                device: device,
+                deviceRegistryID: device.registryID,
+                entries: entries,
+                dynamicImageResources: dynamicImageResources,
+                deferredRequests: deferredRequests,
+                loadedCount: loadedCount,
+                failedCount: failedCount
             )
         }
-        // Every launch texture is GPU-published past this point: drop the
-        // loader's CPU-side decoded bytes so they do not sit next to their
-        // GPU copies for the whole session. Later loads hit the GPU cache;
-        // a miss re-decodes from the source file.
-        textureLoader.evictDecodedCaches()
-        return ScenePreparedBaseImageResources(
-            textureLoader: textureLoader,
-            puppets: puppets,
-            sceneGeneration: sceneGeneration,
-            device: device,
-            deviceRegistryID: device.registryID,
-            entries: entries,
-            dynamicImageResources: dynamicImageResources,
-            deferredRequests: deferredRequests,
-            loadedCount: loadedCount,
-            failedCount: failedCount
-        )
     }
 
     func outcome(
         for layerID: Int,
-        url: URL,
+        url: SceneResourceView.FileInput,
         device: MTLDevice
     ) -> SceneBaseImageTextureLoad.Outcome? {
         guard device.registryID == deviceRegistryID else { return nil }
@@ -344,14 +356,15 @@ final class ScenePreparedBaseImageResources {
             if case let .ready(prepared)? = deferredStates[layerID] {
                 entry = prepared
             } else {
-                entry = nil
+                entry = entries[layerID]
             }
             deferredLock.unlock()
         }
-        guard let entry,
-              textureLoader.sourceKey(for: url) == entry.source else {
-            return nil
-        }
+        guard let entry else { return nil }
+        // Preparation already captured and uploaded this exact selected input.
+        // Adopting the immutable GPU result must not reopen author payloads on
+        // AppKit's main thread, once per layer and display.
+        guard entry.input == url else { return .failed(.resourceReadFailed(SceneResourceView.ReadError.invalidHandle)) }
         return entry.outcome
     }
 
@@ -360,7 +373,6 @@ final class ScenePreparedBaseImageResources {
         layerID: Int,
         requestGeneration: UInt64
     ) -> SceneDeferredBaseImageStatus {
-        var shouldSchedule = false
         deferredLock.lock()
         guard !cancelled else {
             deferredLock.unlock()
@@ -386,15 +398,10 @@ final class ScenePreparedBaseImageResources {
             preferredLayerID = layerID
             if !workerScheduled {
                 workerScheduled = true
-                shouldSchedule = true
+                deferredQueue.async { [weak self] in self?.runDeferredWorker() }
             }
         }
         deferredLock.unlock()
-        if shouldSchedule {
-            deferredQueue.async { [weak self] in
-                self?.runDeferredWorker()
-            }
-        }
         return status
     }
 
@@ -408,10 +415,24 @@ final class ScenePreparedBaseImageResources {
 
     func cancelDeferredPreparation() {
         deferredLock.lock()
+        cancelDeferredPreparationLocked()
+        deferredLock.unlock()
+    }
+
+    /// Stops admission and joins actual reads/decode/upload on the original queue.
+    func cancelAndDrainDeferredPreparation(completion: @escaping @Sendable () -> Void) {
+        deferredLock.lock()
+        cancelDeferredPreparationLocked()
+        deferredQueue.async { [self] in
+            withExtendedLifetime(self) { completion() }
+        }
+        deferredLock.unlock()
+    }
+
+    private func cancelDeferredPreparationLocked() {
         cancelled = true
         requestedGenerations.removeAll(keepingCapacity: false)
         preferredLayerID = nil
-        deferredLock.unlock()
     }
 
     private func runDeferredWorker() {
@@ -431,20 +452,31 @@ final class ScenePreparedBaseImageResources {
             deferredStates[selectedLayerID] = .loading
             deferredLock.unlock()
 
-            let outcome = SceneBaseImageTextureLoad.load(
-                from: request.url,
-                usesPuppet: false,
-                loader: deferredTextureLoader,
-                spriteTextureLoader: deferredSpriteTextureLoader,
-                device: device
-            )
+            let (outcome, naturalSize): (SceneBaseImageTextureLoad.Outcome, [Float]?) = {
+                do {
+                    try checkDeferredCancellation()
+                    let preparedTex = try deferredTextureLoader.prepareTexSource(
+                        from: request.url, source: request.source, checkCancellation: checkDeferredCancellation)
+                    let direct = try deferredTextureLoader.prepareDirectImageSource(
+                        from: request.url, source: request.source, checkCancellation: checkDeferredCancellation)
+                    let loaded = SceneBaseImageTextureLoad.load(
+                        from: request.url, usesPuppet: false, loader: deferredTextureLoader,
+                        spriteTextureLoader: deferredSpriteTextureLoader, device: device, source: request.source,
+                        preparedTexSource: preparedTex, preparedDirectImageSource: direct,
+                        checkCancellation: checkDeferredCancellation)
+                    if case let .failed(failure) = loaded { try failure.rethrowResourceReadFailure() }
+                    let size = try (direct.map {
+                        try deferredTextureLoader.preparedNaturalImageSize(from: $0,
+                            checkCancellation: checkDeferredCancellation)
+                    } ?? preparedTex?.container.map { CGSize(width: $0.imageWidth, height: $0.imageHeight) })
+                        .map { [Float($0.width), Float($0.height)] }
+                    return (loaded, size)
+                } catch { return (.failed(.resourceReadFailed(error)), nil) }
+            }()
             // The load returns with its texture GPU-published (the upload
             // paths commit and wait), so the deferred loader's decoded CPU
             // bytes for this source are evictable now — same reasoning as
             // the prepare-tail eviction, applied per deferred load.
-            let naturalSize = deferredTextureLoader.preparedNaturalImageSize(
-                from: request.url, source: request.source)
-                .map { [Float($0.width), Float($0.height)] }
             deferredTextureLoader.evictDecodedCaches()
             deferredLock.lock()
             guard !cancelled else {
@@ -455,7 +487,7 @@ final class ScenePreparedBaseImageResources {
             switch outcome {
             case .loaded:
                 deferredStates[request.layerID] = .ready(.init(
-                    source: request.source,
+                    input: request.url, source: request.source,
                     outcome: outcome,
                     naturalSizeWH: naturalSize
                 ))
@@ -483,6 +515,13 @@ final class ScenePreparedBaseImageResources {
             }
 #endif
         }
+    }
+
+    private func checkDeferredCancellation() throws {
+        deferredLock.lock()
+        let stopped = cancelled
+        deferredLock.unlock()
+        if stopped { throw CancellationError() }
     }
 
     private func nextRequestedLayerIDLocked() -> Int? {
@@ -524,6 +563,7 @@ final class ScenePreparedBaseImageResources {
         case .texNoEmbeddedImage: "tex-no-embedded-image"
         case .texContainsVideoPayload: "tex-video-payload"
         case .decodeFailed: "decode-failed"
+        case .resourceReadFailed: "resource-read-failed"
         case .textureAllocationFailed: "texture-allocation-failed"
         }
     }
@@ -613,6 +653,7 @@ final class ScenePreparedDeviceResourcesTask {
     private var geometryResult: Result<[Int: [Float]], Error>?
     private var cancellationRequested = false
     private var scriptResourcePlanningResult: Set<String>?
+    private var preparedStaticModels: [String: SceneMdlStaticModel.PreparedSource]
 
     init(
         descriptor: SceneRenderDescriptor,
@@ -623,6 +664,7 @@ final class ScenePreparedDeviceResourcesTask {
         awaitsScriptResourcePlanning: Bool = false,
         deferredBaseImageLayerIDs: Set<Int> = [],
         imageGeometryModels: [SceneAssetCatalog.ModelAsset] = [],
+        preparedStaticModels: [String: SceneMdlStaticModel.PreparedSource] = [:],
         textureUploadCommandQueue: SceneTextureUploadCommandQueue = .init(),
         textureDecodeCacheBudget: SceneTextureDecodeCacheBudget = .init(
             maximumBytes: 1_024 * 1_024 * 1_024
@@ -637,6 +679,7 @@ final class ScenePreparedDeviceResourcesTask {
         self.textureDecodeCacheBudget = textureDecodeCacheBudget
         scriptResourcePlanningResult = awaitsScriptResourcePlanning ? nil : dynamicImageModelPaths
         self.imageGeometryModels = imageGeometryModels
+        self.preparedStaticModels = preparedStaticModels
         self.deferredBaseImageLayerIDs = deferredBaseImageLayerIDs
         externalCancellationCheck = cancellationCheck
     }
@@ -644,6 +687,7 @@ final class ScenePreparedDeviceResourcesTask {
     func start() {
         Self.queue.async { [self] in
             let prepared = Result {
+                defer { preparedStaticModels.removeAll() }
                 try checkCancellation()
                 guard let imageLayerPipeline = SceneImageLayerPipeline(
                     device: device,
@@ -697,6 +741,7 @@ final class ScenePreparedDeviceResourcesTask {
                     resourceView: resourceView,
                     device: device,
                     textureLoader: baseImages.textureLoader,
+                    preparedSources: &preparedStaticModels,
                     cancellationCheck: checkCancellation
                 )
                 baseImages.textureLoader.evictDecodedCaches()

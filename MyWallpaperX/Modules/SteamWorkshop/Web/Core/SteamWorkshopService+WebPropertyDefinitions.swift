@@ -2,22 +2,22 @@ import Foundation
 
 extension SteamWorkshopService {
     func webPropertyDefinitions(for record: SteamWorkshopDownloadRecord) -> [SteamWorkshopWebPropertyDefinition] {
-        guard let sourceRecord = webPropertyDefinitionSourceRecord(for: record),
-              let root = Self.loadWebProjectRootStatic(for: sourceRecord) else {
+        guard let source = webPropertyDefinitionSource(for: record),
+              let root = Self.loadWebProjectRootStatic(projectFileURL: source.projectFileURL) else {
             return []
         }
         return Self.webPropertyDefinitions(projectRoot: root)
     }
 
     /// 解析核：project root 由调用方加载后传入，可在任意线程执行。
-    nonisolated static func webPropertyDefinitions(projectRoot root: [String: Any]) -> [SteamWorkshopWebPropertyDefinition] {
+    nonisolated static func webPropertyDefinitions(projectRoot root: [String: Any], languageKeys: [String] = WorkshopPropertyDisplayResolver.languageVersion) -> [SteamWorkshopWebPropertyDefinition] {
         guard let general = root["general"] as? [String: Any],
               let properties = general["properties"] as? [String: Any] else {
             return []
         }
 
-        let localization = Self.webProjectLocalization(from: root)
-        let displayResolver = WorkshopPropertyDisplayResolver(localization: .init(flat: localization))
+        let localization = Self.webProjectLocalization(from: root, languageKeys: languageKeys)
+        let displayResolver = WorkshopPropertyDisplayResolver(localization: .init(flat: localization), languageKeys: languageKeys)
         var definitions: [SteamWorkshopWebPropertyDefinition] = []
         for (key, rawValue) in properties {
             guard let propertyObject = rawValue as? [String: Any] else {

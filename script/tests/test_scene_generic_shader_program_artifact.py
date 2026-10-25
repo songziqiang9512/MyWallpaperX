@@ -4101,16 +4101,24 @@ private struct GenericShaderArtifactHarness {
         if CommandLine.arguments[1] == "--coordinator" {
             let coordinator =
                 SceneResolvedMaterialGenericShaderCompilationCoordinator()
-            var operationCount = 0
-            let failed: () -> Result<URL, SceneGenericShaderCompiler.Failure> = {
-                operationCount += 1
-                return .failure(.workspace)
+            func key(_ requestKey: String) -> SceneResolvedMaterialGenericShaderCompilationCoordinator.Key {
+                .init(requestKey: requestKey, outputSemantics: .color,
+                    premultipliedColorInputSlots: [], colorBoundary: nil,
+                    colorTransfer: .opaque, fragmentOutputChannelUse: .unproven)
             }
-            let first = coordinator.perform(key: "failed-key", operation: failed)
-            let repeated = coordinator.perform(key: "failed-key", operation: failed)
-            let independent = coordinator.perform(key: "independent-key") {
+            var operationCount = 0
+            let failed: () -> SceneResolvedMaterialGenericShaderCompilationCoordinator.ProductResult = {
                 operationCount += 1
-                return .success(URL(fileURLWithPath: "/tmp/fixture-artifact"))
+                return .failure(.compiler(.workspace))
+            }
+            let first = coordinator.perform(key: key("failed-key"), operation: failed)
+            let repeated = coordinator.perform(key: key("failed-key"), operation: failed)
+            let independent = coordinator.perform(key: key("independent-key")) {
+                operationCount += 1
+                return .success(SceneAuthoredShaderProgram(
+                    metalSource: "fixture", vertexFunctionName: "vertex", fragmentFunctionName: "fragment",
+                    uniformLayout: .init(fields: [], byteSize: 0), textureBindings: [],
+                    staticLoopWork: 0, colorTransfer: .opaque))
             }
             let output = CoordinatorOutput(
                 operationCount: operationCount,
@@ -5472,9 +5480,25 @@ fragment Output mwxGenericFragment(texture2d<float> g_Texture0 [[texture(0)]], c
         self.assertEqual(swift_key, request_cache_key({**request(), "schemaVersion": 8,
             "compilerIdentity": "a" * 64, "toolchainIdentity": "b" * 64}))
         self.assertEqual(swift_key,
+            "513e316d835a55c4fdb5beb35236a696f45b730059506d4dd995e982c5032cbd")
+        # The alpha-only input-role migration changed the boundary from v2 to
+        # v3, including an empty alphaInputSlots field. Reconstruct that exact
+        # historical request independently: the old golden must remain an old
+        # namespace, even when every other typed input and producer is equal.
+        legacy = hashlib.sha256()
+        for field in (
+            "mwx-generic-shader-request-v34", "a" * 64, "b" * 64,
+            "wallpaper-engine-glsl-like-v0", "color",
+            "void main() { /* 顶点 */ }", "void main() { /* fragment */ }",
+            "independent-alpha-signal-preserving:1", "2", "0,3",
+            "ordinary-color-v2:0,3:premultiplied-alpha:0", "0,3,7", "{}",
+        ):
+            encoded = field.encode("utf-8")
+            legacy.update(len(encoded).to_bytes(8, "big"))
+            legacy.update(encoded)
+        self.assertEqual(legacy.hexdigest(),
             "e294adf83c654259ed7110a73aa74f70aeda3fd778533070e2d937c27a74818b")
-        self.assertNotEqual(swift_key,
-            "50685a429c279c65a21e49de075e1f69be11d78884c7e4706484143f15f0d902")
+        self.assertNotEqual(swift_key, legacy.hexdigest())
 
     def test_independent_signal_request_carries_exact_source_proven_contract(self):
         assert_independent_signal_request_contract(

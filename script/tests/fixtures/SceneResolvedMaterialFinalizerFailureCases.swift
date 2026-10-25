@@ -11,6 +11,37 @@ final class SceneResolvedMaterialFinalizerFailureCases {
         self.fixture = fixture
     }
 
+    lazy var arithmeticOutputProgram = finalize(
+        shader: contract(revision: "arithmetic-output", arithmetic: true),
+        device: fixture.device
+    )
+
+    var arithmeticColorBoundary: [String: Bool] {
+        guard case let .success(program) = arithmeticOutputProgram,
+              let boundary = program.frontendProgram.colorBoundary else {
+            return ["acceptedWithOrdinaryBoundary": false]
+        }
+        var mask: UInt32 = 1
+        let expectedMask = withUnsafeBytes(of: &mask) { Data($0) }
+        return [
+            "acceptedWithOrdinaryBoundary": true,
+            "actualPMAInputRetained": program.textureSlots[0]?.resource.publication
+                .candidate.content == .color(.resolved(.premultipliedAlpha)),
+            "colorSlotNormalizedOnce": boundary.colorInputSlots == [0]
+                && boundary.alphaInputSlots.isEmpty && boundary.signalPassthroughSlot == nil,
+            "actualInputMaskEncoded": program.resolvedUniforms.contains {
+                if case .host(.premultipliedColorInputMask) = $0.source {
+                    return $0.encodedValue == expectedMask
+                }
+                return false
+            },
+            "authoredMathUsesStraightColorDomain": boundary.outputRepresentation == .straightAlpha
+                && program.semanticIdentity.outputContract == .color(.init(
+                    framebufferInput: .straightAlpha, fragmentOutput: .straightAlpha
+                )),
+        ]
+    }
+
     lazy var failures: [String: String] = [
         "nonFramebufferDoesNotInject": failureToken(finalize(
             shader: contract(
@@ -342,10 +373,7 @@ final class SceneResolvedMaterialFinalizerFailureCases {
             device: self.fixture.device,
             snapshotKind: .data
         )),
-        "arithmeticOutput": failureToken(finalize(
-            shader: contract(revision: "arithmetic-output", arithmetic: true),
-            device: self.fixture.device
-        )),
+        "arithmeticOutput": failureToken(arithmeticOutputProgram),
         "arithmeticScalarOutput": failureToken(finalize(
             shader: contract(revision: "arithmetic-scalar-output", arithmetic: true),
             device: self.fixture.device,

@@ -82,8 +82,10 @@ enum SceneStaticModelVertexBasisChecks {
         let expected = native ? authorWorld
             : SceneMatrix.translation(SIMD3(0, 128, 0)) * SceneMatrix.scale(SIMD3(1, -1, 1)) * authorWorld
         let loader = try SceneTextureLoader(root: root, device: device)
+        var sources = try prepareModelSources(descriptor, view: .init(root: root))
         let resources = try ScenePreparedStaticModelResources.prepare(descriptor: descriptor,
-            resourceView: .init(root: root), device: device, textureLoader: loader, cancellationCheck: {})
+            resourceView: .init(root: root), device: device, textureLoader: loader,
+            preparedSources: &sources, cancellationCheck: {})
         let renderer = SceneMetalRenderer(device: device, resources: resources)
         renderer.renderDescriptor = descriptor
         let draws = renderer.staticModelDraws(layer: child, worldFrames: worlds, snapshot: snapshot)!
@@ -93,13 +95,14 @@ enum SceneStaticModelVertexBasisChecks {
             for point in [SIMD4<Float>(0, 0, 0, 1), SIMD4(6, 13, 5.2, 1), SIMD4(-3, 7, 2.8, 1)] {
                 worldError = max(worldError, simd_distance(draw.world * point, expected * point))
             }
-            let actualNormal = simd_normalize(SceneStaticModelPipeline.normalMatrix(for: draw.world)! * sourceNormal)
+            let actualNormal = simd_normalize(draw.normalMatrix * sourceNormal)
             normalError = max(normalError, simd_distance(actualNormal, expectedNormal(expected)))
         }
         let reference = draws.map { draw in
             SceneMetalRenderer.StaticModelDraw(entry: draw.entry, mesh: draw.mesh, texture: draw.texture,
                 textureFrame: draw.textureFrame, sampling: draw.sampling, premultiplied: draw.premultiplied,
-                world: expected, material: draw.material, alpha: draw.alpha)
+                world: expected, normalMatrix: SceneStaticModelPipeline.normalMatrix(for: expected)!,
+                material: draw.material, alpha: draw.alpha)
         }
         let camera = SceneParticleCameraFrame(camera: descriptor.camera,
             viewportSize: CGSize(width: width, height: height), dynamicValues: snapshot)
@@ -223,6 +226,7 @@ enum SceneStaticModelVertexBasisChecks {
                     texture: draw.texture, colorTextureIsPremultiplied: draw.premultiplied,
                     emissiveMask: nil, emissiveMaskTextureFrame: nil, emissiveMaskSampling: nil,
                     modelMatrix: draw.world,
+                    normalMatrix: draw.normalMatrix,
                     viewProjection: camera.reverseDepthViewProjection(usesPerspective: layer.usesPerspective == true),
                     cameraPosition: camera.perspectiveEyePosition, textureFrame: draw.textureFrame,
                     sampling: draw.sampling, layerAlpha: draw.alpha, material: draw.material,

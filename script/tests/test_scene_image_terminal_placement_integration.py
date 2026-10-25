@@ -21,7 +21,7 @@ from unittest.mock import patch
 
 from script.tests import test_scene_reflection_history_integration as runner
 from script.tests.test_scene_native_world_composition import encoded, png
-from script.tests.test_scene_pkg_cache_extractor import make_package
+from script.tests.scene_pkg_fixture import make_package
 from script.web_benchmark_capture import png_rgb_pixels
 
 REPO = Path(__file__).resolve().parents[2]
@@ -284,7 +284,7 @@ class SceneImageTerminalPlacementIntegrationTests(unittest.TestCase):
         if cls.expectation not in ('legacy','placed'):raise ValueError(cls.expectation)
         binaries=[cls.app,cls.app.with_name('MyWallpaperX.debug.dylib'),cls.app.parent.parent/'Resources/default.metallib']
         cls.app_identity={str(p):runner.sha256(p) for p in binaries if p.is_file()}
-        cls.source_identity={str(p):runner.sha256(p) for p in [Path(__file__),Path(runner.__file__),REPO/'script/tests/test_scene_pkg_cache_extractor.py',REPO/'script/web_benchmark_capture.py']}
+        cls.source_identity={str(p):runner.sha256(p) for p in [Path(__file__),Path(runner.__file__),REPO/'script/tests/scene_pkg_fixture.py',REPO/'script/web_benchmark_capture.py']}
         destination=Path(os.environ.get('MWX_SCENE_INTEGRATION_EVIDENCE',str(DEFAULT_ROOT/cls.expectation)))
         destination.mkdir(parents=True,exist_ok=True)
         cls.evidence_root=Path(tempfile.mkdtemp(prefix='image-terminal-placement-',dir=destination))

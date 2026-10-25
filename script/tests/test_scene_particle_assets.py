@@ -12,6 +12,9 @@ from pathlib import Path
 REPOSITORY_ROOT = Path(__file__).resolve().parents[2]
 SOURCE_ROOT = REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene"
 SWIFT_SOURCES = [
+    REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopStorage/ScenePlaybackSource.swift",
+    SOURCE_ROOT / "Resources/Assets/SceneResourceIdentity.swift",
+    SOURCE_ROOT / "Resources/Assets/SceneResourceView+Backing.swift",
     REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Runtime/Frame/SceneMaterialRenderState.swift",
     REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Compilation/Material/SceneMaterialRenderState+Compilation.swift",
     REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Resources/Textures/SceneTextureSampling.swift",
@@ -254,7 +257,7 @@ enum Harness {
             packageRootURL: nil,
             stockAssetsRootURL: nil
         )
-        let graph = SceneParticleAssetGraphLoader(resourceView: resourceView).load(
+        let graph = try SceneParticleAssetGraphLoader(resourceView: resourceView).load(
             rootPaths: [
                 "Particles\\Root.JSON",
                 "particles/missing-material.json",
@@ -274,8 +277,7 @@ enum Harness {
                 "particles/missing-shader.json",
                 "particles/missing-definition.json"
             ],
-            materialPasses: passes,
-            cacheDirectory: directory
+            materialPasses: passes
         )
         let root = graph.assetsByPath["particles/root.json"]
         let child = graph.assetsByPath["particles/child.json"]
@@ -293,18 +295,18 @@ enum Harness {
         let customShader = graph.assetsByPath["particles/custom-shader.json"]
         let missingShader = graph.assetsByPath["particles/missing-shader.json"]
         try write(Data([0x54, 0x45, 0x58]), relativePath: "materials/particle/drop.tex", under: directory)
-        let localDropGraph = SceneParticleAssetGraphLoader().load(
+        let localDropGraph = try SceneParticleAssetGraphLoader(resourceView: .init(
+            projectRootURL: directory, packageRootURL: nil, stockAssetsRootURL: nil
+        )).load(
             rootPaths: ["particles/drop-texture.json"],
-            materialPasses: passes,
-            cacheDirectory: directory
+            materialPasses: passes
         )
         let localDrop = localDropGraph.assetsByPath["particles/drop-texture.json"]
-        let missingNormalGraph = SceneParticleAssetGraphLoader(
+        let missingNormalGraph = try SceneParticleAssetGraphLoader(
             resourceView: resourceView
         ).load(
             rootPaths: ["particles/refract-missing-normal.json"],
-            materialPasses: passes,
-            cacheDirectory: directory
+            materialPasses: passes
         )
         let missingNormalRefract = missingNormalGraph.assetsByPath[
             "particles/refract-missing-normal.json"
@@ -505,9 +507,9 @@ enum Harness {
                 combos: pass.combos, userTexture: pass.hasUserTextureInputs,
                 userValues: pass.hasUserShaderValues, cameraProfile: false)
         }
-        let graph = SceneParticleAssetGraphLoader(resourceView: .init(
+        let graph = try SceneParticleAssetGraphLoader(resourceView: .init(
             projectRootURL: directory, packageRootURL: nil, stockAssetsRootURL: nil
-        )).load(rootPaths: roots, materialPasses: passes, cacheDirectory: directory)
+        )).load(rootPaths: roots, materialPasses: passes)
         let rows = roots.map { path -> [String: Any] in
             let expectation = expected[path]!
             let asset = graph.assetsByPath[path]
@@ -563,7 +565,8 @@ enum Harness {
             ))
             let entryPath = normalizedPath(project["file"] as? String ?? "scene.json")
             let packageURL = try scenePackageURL(sampleURL: sampleURL, entryPath: entryPath)
-            let index = try ScenePkgReader().readIndex(packageURL: packageURL)
+            let opened = try ScenePkgReader().openPackage(packageURL: packageURL, limits: .compatibility)
+            let index = opened.index
             let entries = Dictionary(
                 index.entries.map { (normalizedPath($0.path), $0) },
                 uniquingKeysWith: { first, _ in first }
@@ -577,7 +580,7 @@ enum Harness {
             let jsonEntries = entries.filter { path, _ in
                 path == entryPath || URL(fileURLWithPath: path).pathExtension == "json"
             }.map(\.value)
-            try extract(jsonEntries, index: index, packageURL: packageURL, outputURL: outputURL)
+            try extract(jsonEntries, opened: opened, outputURL: outputURL)
 
             let sceneURL = outputURL.appendingPathComponent(entryPath)
             let scene = try jsonObject(data: Data(contentsOf: sceneURL))
@@ -596,12 +599,13 @@ enum Harness {
             let textureEntries = relevantPasses.flatMap(\.texturePaths).compactMap { texturePath in
                 textureCandidates(texturePath).lazy.compactMap { entries[$0] }.first
             }
-            try extract(textureEntries, index: index, packageURL: packageURL, outputURL: outputURL)
+            try extract(textureEntries, opened: opened, outputURL: outputURL)
 
-            let graph = SceneParticleAssetGraphLoader().load(
+            let graph = try SceneParticleAssetGraphLoader(resourceView: .init(
+                projectRootURL: outputURL, packageRootURL: nil, stockAssetsRootURL: nil
+            )).load(
                 rootPaths: rootPaths,
-                materialPasses: materialPasses,
-                cacheDirectory: outputURL
+                materialPasses: materialPasses
             )
             for root in rootPaths.map(normalizedPath) {
                 var queue: [(String, Int)] = [(root, 0)]
@@ -712,22 +716,16 @@ enum Harness {
 
     private static func extract(
         _ entries: [ScenePkgIndex.Entry],
-        index: ScenePkgIndex,
-        packageURL: URL,
+        opened: ScenePkgReader.OpenPackage,
         outputURL: URL
     ) throws {
-        let handle = try FileHandle(forReadingFrom: packageURL)
-        defer { try? handle.close() }
         for entry in entries {
             let path = normalizedPath(entry.path)
             guard !path.hasPrefix("/"), !path.split(separator: "/").contains("..") else {
                 throw HarnessError.unsafeEntry(entry.path)
             }
-            try handle.seek(toOffset: UInt64(index.dataStartOffset) + UInt64(entry.offset))
-            guard let data = try handle.read(upToCount: Int(entry.size)),
-                  data.count == Int(entry.size) else {
-                throw HarnessError.truncatedEntry(entry.path)
-            }
+            var data = Data()
+            try opened.readEntryChunks(entry) { data.append($0) }
             try write(data, relativePath: path, under: outputURL)
         }
     }
@@ -780,8 +778,8 @@ enum Harness {
     }
 
     private static func fileURL(_ source: SceneParticleTextureSource?) -> URL? {
-        guard case let .file(url)? = source else { return nil }
-        return url
+        guard case let .file(input)? = source else { return nil }
+        return URL(fileURLWithPath: input.diagnosticPath)
     }
 
     private static func sourceKind(_ source: SceneParticleTextureSource?) -> String {

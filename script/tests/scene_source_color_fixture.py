@@ -16,7 +16,7 @@ extension Harness {
             try readback.sample(texture, uv: uv, mip: mip, linear: linear).map(Int.init)
         }
         let png = try baseLoaded(SceneBaseImageTextureLoad.load(
-            from: pngURL, usesPuppet: false, loader: loader,
+            from: .externalFile(pngURL), usesPuppet: false, loader: loader,
             spriteTextureLoader: spriteTextureLoader, device: device
         ))
         guard let pngCandidate = png.candidate,
@@ -24,7 +24,7 @@ extension Harness {
                 candidate: pngCandidate, sourceTexture: png.texture) else {
             throw HarnessError.loadFailed
         }
-        let pngPMA = try candidate(loader.loadCandidate(
+        let pngPMA = try candidate(try loader.loadCandidate(
             from: pngURL, purpose: .premultipliedColor, device: device
         ))
         var result: [String: Any] = [
@@ -84,11 +84,11 @@ extension Harness {
             let url = directory.appendingPathComponent("\(name).tex")
             try hiddenColorBC3Tex(width: width, height: height).write(to: url)
             let ordinary = try baseLoaded(SceneBaseImageTextureLoad.load(
-                from: url, usesPuppet: false, loader: loader,
+                from: .externalFile(url), usesPuppet: false, loader: loader,
                 spriteTextureLoader: spriteTextureLoader, device: device
             ))
             let puppet = try baseLoaded(SceneBaseImageTextureLoad.load(
-                from: url, usesPuppet: true, loader: loader,
+                from: .externalFile(url), usesPuppet: true, loader: loader,
                 spriteTextureLoader: spriteTextureLoader, device: device
             ))
             guard let candidate = ordinary.candidate,

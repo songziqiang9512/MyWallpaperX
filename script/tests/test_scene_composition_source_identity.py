@@ -784,7 +784,7 @@ class SceneCompositionSourceIntegrationTests(unittest.TestCase):
         import os
         import re
         from script.web_benchmark_capture import png_rgb_pixels
-        from script.tests.test_scene_pkg_cache_extractor import make_package
+        from script.tests.scene_pkg_fixture import make_package
         scene = {"version": 3, "general": {"orthogonalprojection": {"width": 160, "height": 96}, "clearcolor": "0 0 1"}, "objects": [
             {"id": 1, "name": "Blue main", "image": "models/util/solidlayer.json", "origin": "80 48 0", "size": "160 96", "color": background},
             {"id": 20, "name": "Selected source", "copybackground": False, "image": "models/util/composelayer.json", "origin": "0 0 0", "size": "160 96", "effects": [{"id": 200, "file": "effects/own_dim/effect.json", "visible": enabled}]},

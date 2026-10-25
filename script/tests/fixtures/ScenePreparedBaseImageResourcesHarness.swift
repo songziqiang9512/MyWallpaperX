@@ -3,17 +3,6 @@ import Metal
 
 // Controlled decoder/upload boundaries. The production preparation owner and
 // path resolver compile whole below; actual MTLTexture identities are observed.
-struct SceneResourceView {
-    let projectRootURL: URL
-    let packageRootURL: URL?
-    var primaryRootURL: URL { packageRootURL ?? projectRootURL }
-    struct Resource { let url: URL }
-    func resource(relativePath: String) -> Resource? {
-        let url = projectRootURL.appendingPathComponent(relativePath)
-        return FileManager.default.fileExists(atPath: url.path) ? .init(url: url) : nil
-    }
-}
-
 struct SceneAssetCatalog {
     struct ModelAsset {
         let relativePath: String
@@ -27,7 +16,7 @@ struct SceneAssetCatalog {
 // gate. The complete CPU preparation contract has its own production-source gate.
 enum ScenePuppetLayerLoad { struct PreparedPose {} }
 struct ScenePreparedPuppetResources {
-    static func prepare(descriptor: SceneRenderDescriptor, cacheDirectory: URL,
+    static func prepare(descriptor: SceneRenderDescriptor, resourceView: SceneResourceView,
                         cancellationCheck: () throws -> Void) throws -> Self {
         try cancellationCheck(); return .init()
     }
@@ -70,6 +59,9 @@ struct SceneRenderDescriptor {
     ]
     var materialPasses: [MaterialPass]
     var colorTargetFormat = TestColorFormat()
+    var requiresImageDepthAttachment = false
+    var requiresImageAdditiveRGB = false
+    var preparedImageMaterialStatesByModelPath: [String: SceneMaterialRenderState]? = nil
 }
 // Material-value compilation has its own production-source gate. This owner
 // gate controls only its result; no shader, light or pixel behavior is claimed.
@@ -107,6 +99,8 @@ final class SceneTextureUploadCommandQueue {
 enum SceneTextureLoadOutcome {
     case loaded, unsupportedFormat, unsupportedTexFormat, texNoEmbeddedImage
     case texContainsVideoPayload, decodeFailed, textureAllocationFailed
+    case resourceReadFailed(any Error)
+    func rethrowResourceReadFailure() throws { if case let .resourceReadFailed(error) = self { throw error } }
 }
 struct TestCandidate {
     let texture: MTLTexture
@@ -116,6 +110,8 @@ struct TestCandidate {
 struct TestContainer {
     var reason: String? = nil
     var isVideoMp4 = false
+    let imageWidth = 20
+    let imageHeight = 10
 }
 struct SceneBaseImageTextureLoad {
     struct Loaded {
@@ -125,19 +121,55 @@ struct SceneBaseImageTextureLoad {
         let loadOrdinal: Int
     }
     enum Outcome { case loaded(Loaded), failed(SceneTextureLoadOutcome) }
-    static func specializedLoadReason(url: URL, container: TestContainer?, usesPuppet: Bool) -> String? {
+    static func specializedLoadReason(url: SceneResourceView.FileInput, container: TestContainer?, usesPuppet: Bool) -> String? {
         if usesPuppet { return "puppet" }
         return container?.reason
     }
-    static func load(from url: URL, usesPuppet: Bool, loader: SceneTextureLoader,
+    static func load(from url: SceneResourceView.FileInput, usesPuppet: Bool, loader: SceneTextureLoader,
                      spriteTextureLoader: SceneMultiImageSpriteTextureLoader,
-                     device: MTLDevice) -> Outcome {
-        loader.controlledLoad(url: url, device: device)
+                     device: MTLDevice,
+                     source expectedSource: SceneTextureLoader.SourceKey? = nil,
+                     preparedTexSource: SceneTextureLoader.PreparedTexSource? = nil,
+                     preparedDirectImageSource: SceneTextureLoader.PreparedDirectImageSource? = nil,
+                     checkCancellation: (() throws -> Void)? = nil) -> Outcome {
+        do {
+            try checkCancellation?()
+            if preparedDirectImageSource != nil { SceneTextureLoader.preparedDirectLoads += 1 }
+            let tex = try preparedTexSource ?? loader.prepareTexSource(from: url, source: expectedSource,
+                checkCancellation: checkCancellation)
+            let direct = try preparedDirectImageSource ?? loader.prepareDirectImageSource(from: url,
+                source: expectedSource, checkCancellation: checkCancellation)
+            if let expectedSource, expectedSource != (tex?.source ?? direct?.source) {
+                throw SceneResourceView.ReadError.sourceChanged
+            }
+            return loader.controlledLoad(url: url, device: device)
+        }
+        catch { return .failed(.resourceReadFailed(error)) }
     }
 }
 
 final class SceneTextureLoader {
-    struct SourceKey: Equatable { let path: String; let bytes: UInt64 }
+    typealias SourceKey = SceneResourceView.ContentIdentity
+    struct PreparedTexSource {
+        let input: SceneResourceView.FileInput
+        let source: SourceKey
+        let container: TestContainer?
+    }
+    final class PreparedDirectImageSource {
+        let input: SceneResourceView.FileInput
+        let source: SourceKey
+        init(input: SceneResourceView.FileInput, source: SourceKey) {
+            self.input = input; self.source = source
+            SceneTextureLoader.livePreparedDirectSources += 1
+        }
+        deinit { SceneTextureLoader.livePreparedDirectSources -= 1 }
+        func admitForPreparation() -> Bool { SceneTextureLoader.preparationAdmissionAllowed }
+    }
+    static var sourceHook: (() throws -> Void)?
+    static var loadHook: (() -> Void)?
+    static var preparationAdmissionAllowed = true
+    static var livePreparedDirectSources = 0
+    static var preparedDirectLoads = 0
     let uploadCommandQueue: SceneTextureUploadCommandQueue
     let decodeCacheBudget: SceneTextureDecodeCacheBudget
     static var totalLoadCount = 0
@@ -148,29 +180,57 @@ final class SceneTextureLoader {
         self.uploadCommandQueue = uploadCommandQueue
         self.decodeCacheBudget = decodeCacheBudget
     }
-    func sourceKey(for url: URL) -> SourceKey? {
-        guard let attributes = try? FileManager.default.attributesOfItem(atPath: url.path),
-              let bytes = attributes[.size] as? NSNumber else { return nil }
-        return .init(path: url.standardizedFileURL.path, bytes: bytes.uint64Value)
+    func sourceKey(for url: SceneResourceView.FileInput,
+                   checkCancellation: (() throws -> Void)? = nil) throws -> SourceKey? {
+        try checkCancellation?(); try Self.sourceHook?()
+        do { return try url.currentIdentity() }
+        catch let error as SceneResourceView.ReadError {
+            switch error { case .missing, .unreadable: return nil; default: throw error }
+        }
     }
-    func texContainer(from url: URL, source: SourceKey) -> TestContainer? {
+    func texContainer(from url: SceneResourceView.FileInput, source: SourceKey,
+                      checkCancellation: (() throws -> Void)? = nil) throws -> TestContainer? {
+        try checkCancellation?()
         if url.lastPathComponent == "animated.tex" { return .init(reason: "animation") }
         if url.lastPathComponent == "video.tex" { return .init(isVideoMp4: true) }
         return nil
     }
-    func preparedNaturalImageSize(from url: URL, source: SourceKey) -> CGSize? {
-        // Controlled source metadata deliberately differs from the uploaded 2x1 texture.
-        guard source == sourceKey(for: url) else { return nil }
+    func prepareTexSource(from input: SceneResourceView.FileInput, source expectedSource: SourceKey? = nil,
+                          checkCancellation: (() throws -> Void)? = nil) throws -> PreparedTexSource? {
+        guard input.pathExtension.lowercased() == "tex",
+              let source = try sourceKey(for: input, checkCancellation: checkCancellation) else { return nil }
+        if let expectedSource, expectedSource != source { throw SceneResourceView.ReadError.sourceChanged }
+        return .init(input: input, source: source,
+            container: try texContainer(from: input, source: source, checkCancellation: checkCancellation) ?? .init())
+    }
+    func preparedNaturalImageSize(from url: SceneResourceView.FileInput, source: SourceKey,
+                                 checkCancellation: (() throws -> Void)? = nil) throws -> CGSize? {
+        try checkCancellation?()
+        guard source == (try sourceKey(for: url)) else { throw SceneResourceView.ReadError.sourceChanged }
         return CGSize(width: 20, height: 10)
     }
-    func controlledLoad(url: URL, device: MTLDevice) -> SceneBaseImageTextureLoad.Outcome {
+    func prepareDirectImageSource(from input: SceneResourceView.FileInput, source expectedSource: SourceKey? = nil,
+                                  checkCancellation: (() throws -> Void)? = nil) throws -> PreparedDirectImageSource? {
+        try checkCancellation?()
+        guard ["png", "jpg", "jpeg"].contains(input.pathExtension.lowercased()),
+              let source = try sourceKey(for: input) else { return nil }
+        if let expectedSource, expectedSource != source { throw SceneResourceView.ReadError.sourceChanged }
+        return .init(input: input, source: source)
+    }
+    func preparedNaturalImageSize(from prepared: PreparedDirectImageSource,
+                                 checkCancellation: (() throws -> Void)? = nil) throws -> CGSize? {
+        try checkCancellation?()
+        return CGSize(width: 20, height: 10)
+    }
+    func controlledLoad(url: SceneResourceView.FileInput, device: MTLDevice) -> SceneBaseImageTextureLoad.Outcome {
         loadCount += 1
         Self.totalLoadCount += 1
+        Self.loadHook?()
         let name = url.lastPathComponent
         if name == "decode-failure.png" { return .failed(.decodeFailed) }
         if name == "video.tex" { return .failed(.texContainsVideoPayload) }
         let texture: MTLTexture
-        if let cached = textures[url.path] { texture = cached }
+        if let cached = textures[url.diagnosticPath] { texture = cached }
         else {
             let descriptor = MTLTextureDescriptor.texture2DDescriptor(
                 pixelFormat: .rgba8Unorm, width: 2, height: 1, mipmapped: false)
@@ -179,7 +239,7 @@ final class SceneTextureLoader {
                 return .failed(.textureAllocationFailed)
             }
             texture = allocated
-            textures[url.path] = texture
+            textures[url.diagnosticPath] = texture
         }
         if name == "upload-failure.png" { uploadCommandQueue.failedTextures.append(texture) }
         let candidateTexture = name == "mismatched-candidate.png"
@@ -203,7 +263,8 @@ final class SceneTextureLoader {
 enum SceneDesktopWallpaperHostLaunchError: Error { case requiredImagePipelineUnavailable }
 final class SceneImageLayerPipeline {
     static var reject = false
-    init?(device: MTLDevice, pixelFormat: MTLPixelFormat) {
+    init?(device: MTLDevice, pixelFormat: MTLPixelFormat,
+          preparesDepth: Bool = false, preparesAdditive: Bool = false) {
         if Self.reject { return nil }
     }
 }
@@ -213,9 +274,11 @@ final class SceneImageEffectPipelineRepository {
     func prepareDirectDraw() -> Bool { true }
     func layerColorBlendState() -> Int { 0 }
 }
+enum SceneMdlStaticModel { struct PreparedSource {} }
 struct ScenePreparedStaticModelResources {
     static func prepare(descriptor: SceneRenderDescriptor, resourceView: SceneResourceView,
                         device: MTLDevice, textureLoader: SceneTextureLoader,
+                        preparedSources: inout [String: SceneMdlStaticModel.PreparedSource],
                         cancellationCheck: () throws -> Void) throws -> Self { .init() }
 }
 struct SceneResolvedMaterialExecutionCapabilityCatalog {}
@@ -477,12 +540,42 @@ enum Checks {
         _ = deferredPrepared.requestDeferredBaseImage(layerID: 1, requestGeneration: 1)
         let deadline = Date().addingTimeInterval(3)
         while deferredPrepared.deferredStatus(for: 1) != .ready && Date() < deadline { Thread.sleep(forTimeInterval: 0.001) }
-        let afterReady = deferredPrepared.outcome(for: 1, url: root.appendingPathComponent("materials/canonical.png"), device: device)
-        var readyHasOutcome = false
+        let preparedInput = SceneTexturePathResolver(resourceView: deferredView, descriptor: deferredDescriptor)
+            .resolvePrimaryTexture(for: ordinary)!
+        let canonical = root.appendingPathComponent("materials/canonical.png")
+        let moved = root.appendingPathComponent("materials/temporarily-moved.png")
+        try FileManager.default.moveItem(at: canonical, to: moved)
+        let afterReady = deferredPrepared.outcome(for: 1, url: preparedInput, device: device)
+        let foreign = deferredPrepared.outcome(for: 1, url: .externalFile(canonical), device: device)
+        try FileManager.default.moveItem(at: moved, to: canonical)
+        var readyHasOutcome = false, foreignInputRejected = false
         if case .loaded? = afterReady { readyHasOutcome = true }
+        if case .failed(.resourceReadFailed)? = foreign { foreignInputRejected = true }
         deferredPrepared.cancelDeferredPreparation()
         results["deferredReady"] = ["beforeLoads": beforeDeferred, "ready": deferredPrepared.deferredStatus(for: 1) == .ready,
-            "hasOutcome": readyHasOutcome, "cancelRejectsRequest": deferredPrepared.requestDeferredBaseImage(layerID: 1, requestGeneration: 2) == .failed("cancelled")]
+            "hasOutcome": readyHasOutcome, "foreignInputRejected": foreignInputRejected, "cancelRejectsRequest": deferredPrepared.requestDeferredBaseImage(layerID: 1, requestGeneration: 2) == .failed("cancelled")]
+        let heldPrepared = try ScenePreparedBaseImageResources.prepare(descriptor:deferredDescriptor,
+            resourceView:deferredView,device:device,spriteTextureLoader:.init(),sceneGeneration:2,
+            deferredBaseImageLayerIDs:[1],imageGeometryModels:[automatic],cancellationCheck:{})
+        let heldEntered=DispatchSemaphore(value:0),heldRelease=DispatchSemaphore(value:0),heldDrained=DispatchSemaphore(value:0)
+        SceneTextureLoader.loadHook={heldEntered.signal();heldRelease.wait()}
+        _ = heldPrepared.requestDeferredBaseImage(layerID:1,requestGeneration:1)
+        precondition(heldEntered.wait(timeout:.now()+5) == .success)
+        heldPrepared.cancelDeferredPreparation()
+        heldPrepared.cancelAndDrainDeferredPreparation {heldDrained.signal()}
+        heldPrepared.cancelAndDrainDeferredPreparation {heldDrained.signal()}
+        let deferredDrainPending=heldDrained.wait(timeout:.now()) == .timedOut
+        let closedRejects=heldPrepared.requestDeferredBaseImage(layerID:1,requestGeneration:2) == .failed("cancelled")
+        heldRelease.signal()
+        let firstDeferredDrained=heldDrained.wait(timeout:.now()+5) == .success
+        let repeatedDeferredDrained=heldDrained.wait(timeout:.now()+5) == .success
+        SceneTextureLoader.loadHook=nil
+        heldPrepared.cancelAndDrainDeferredPreparation {heldDrained.signal()}
+        results["deferredDrain"] = ["pendingWhileActualLoadHeld":deferredDrainPending,
+            "rejectsNewAdmission":closedRejects,"actualLoadReturnedBeforeDrain":firstDeferredDrained,
+            "coalescedTailsComplete":repeatedDeferredDrained,
+            "completedDrainStillCompletes":heldDrained.wait(timeout:.now()+5) == .success,
+            "cancelledWorkerCannotPublishReady":heldPrepared.deferredStatus(for:1) != .ready]
         func task() -> ScenePreparedDeviceResourcesTask {
             .init(descriptor: deferredDescriptor, resourceView: deferredView, device: device,
                 sceneGeneration: 1, deferredBaseImageLayerIDs: [1], imageGeometryModels: [automatic],

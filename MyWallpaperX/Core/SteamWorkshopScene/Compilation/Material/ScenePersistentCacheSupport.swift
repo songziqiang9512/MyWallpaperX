@@ -94,13 +94,15 @@ nonisolated enum ScenePersistentCacheSupport {
         return url
     }
 
-    static func regularFileData(
-        _ url: URL,
-        maximumBytes: Int
-    ) -> Data? {
-        // URL caches resource values, including size and symlink status. An
-        // atomic publication replaces the inode, so a repeated read must not
-        // reject the new file using metadata retained from the old entry.
+    static func regularFileData(_ url: URL, maximumBytes: Int) -> Data? {
+        guard let currentURL = regularFileURL(url, maximumBytes: maximumBytes) else { return nil }
+        return try? Data(contentsOf: currentURL, options: .mappedIfSafe)
+    }
+
+    /// A path consumer such as Metal needs a current bounded regular-file
+    /// probe, not a Data value that it will discard and reopen itself.
+    static func regularFileURL(_ url: URL, maximumBytes: Int) -> URL? {
+        // URL resource values may describe the inode before atomic publication.
         var currentURL = url
         currentURL.removeAllCachedResourceValues()
         let values = try? currentURL.resourceValues(forKeys: [
@@ -110,7 +112,7 @@ nonisolated enum ScenePersistentCacheSupport {
               values?.isSymbolicLink != true,
               let size = values?.fileSize,
               (1 ... maximumBytes).contains(size) else { return nil }
-        return try? Data(contentsOf: currentURL, options: .mappedIfSafe)
+        return currentURL
     }
 
     static func prune(

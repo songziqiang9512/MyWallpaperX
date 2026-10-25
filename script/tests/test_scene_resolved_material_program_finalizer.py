@@ -68,6 +68,7 @@ VARIANT_COMPILATION_SOURCE = MATERIAL_PROGRAM_SOURCES[
 SWIFT_SOURCES = [
     Path(__file__).resolve().parents[2] / "MyWallpaperX/Core/SteamWorkshopScene/Resources/Textures/SceneResourceBudget.swift",
     *scene_swift_sources("authored_shader_frontend_support"),
+    *scene_swift_sources("scene_resource_input"),
     SCENE_ROOT / "Compilation/ShaderContract/SceneShaderContractLoader.swift",
     SCENE_ROOT / "Compilation/ShaderContract/SceneBuiltinShaderIdentity.swift",
     SCENE_ROOT / "Format/SceneBCTextureDecoder.swift",
@@ -148,7 +149,7 @@ class SceneResolvedMaterialProgramFinalizerTests(unittest.TestCase):
                 "--sdk",
                 "macosx",
                 "swiftc",
-                "-parse-as-library",
+                "-parse-as-library", "-D", "SCENE_GRAPH_TESTING",
                 *(str(path) for path in SWIFT_SOURCES),
                 *(str(path) for path in FIXTURE_SOURCES),
                 "-framework",
@@ -849,7 +850,7 @@ class SceneResolvedMaterialProgramFinalizerTests(unittest.TestCase):
         expected = {
             "unsupportedState": "state/renderStateInvalid",
             "dataGraphInput": "texture/textureMetadataIncomplete",
-            "arithmeticOutput": "color/colorContractUnproven",
+            "arithmeticOutput": "success",
             "arithmeticScalarOutput": "success",
             "scalarRedConsumer": "success",
             "scalarRedForgedTEXFormat": "texture/textureMetadataIncomplete",
@@ -861,6 +862,15 @@ class SceneResolvedMaterialProgramFinalizerTests(unittest.TestCase):
             {name: self.result["failures"][name] for name in expected},
             expected,
         )
+        # The fixture's sample * 0.5 runs through the existing color boundary;
+        # acceptance alone must not erase the real input representation/mask.
+        self.assertEqual(self.result["arithmeticColorBoundary"], {
+            "acceptedWithOrdinaryBoundary": True,
+            "actualPMAInputRetained": True,
+            "colorSlotNormalizedOnce": True,
+            "actualInputMaskEncoded": True,
+            "authoredMathUsesStraightColorDomain": True,
+        })
 
 
 if __name__ == "__main__":

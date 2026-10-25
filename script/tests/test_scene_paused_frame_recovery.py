@@ -140,6 +140,7 @@ final class SoundProviders { func pause() {}; func resume() {} }
 final class UserShortcutInput { func revoke() {} }
 final class SceneDynamicTextTextureStore {
     var generation = 0
+    func close() {}
 }
 
 final class SceneMetalView {

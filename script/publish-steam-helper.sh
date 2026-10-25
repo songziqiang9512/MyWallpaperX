@@ -40,17 +40,6 @@ cd "$REPO_ROOT/SteamService"
   -p:BaseOutputPath="$INTERMEDIATE_DIR/bin/" -o "$FRESH_DIR"
 [[ -x "$FRESH_DIR/SteamService" && -f "$FRESH_DIR/SteamService.dll" && -f "$FRESH_DIR/libhostfxr.dylib" \
    && -f "$FRESH_DIR/libcoreclr.dylib" && -f "$FRESH_DIR/SteamKit2.dll" ]] || exit 1
-# arm64 codesign treats every executable file inside Contents/ as nested code
-# requiring a signature, and .NET PE assemblies cannot be signed. Strip the
-# exec bit from non-Mach-O files so the outer app signature accepts them as
-# resources; only real Mach-O binaries stay executable.
-while IFS= read -r -d '' f; do
-  if /usr/bin/file -b "$f" | /usr/bin/grep -q Mach-O; then
-    /bin/chmod 755 "$f"
-  else
-    /bin/chmod 644 "$f"
-  fi
-done < <(/usr/bin/find "$FRESH_DIR" -type f -print0)
 # arm64 requires every nested Mach-O to be signed. Use the build's own code
 # signing identity when Xcode provides one, ad-hoc ("-") otherwise; local
 # ad-hoc builds stay unhardened (no library validation on same-team deps).

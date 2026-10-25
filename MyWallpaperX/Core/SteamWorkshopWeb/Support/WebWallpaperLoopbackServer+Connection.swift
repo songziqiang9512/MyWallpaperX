@@ -202,7 +202,7 @@ extension WebWallpaperLoopbackServer {
     }
 
     private func sendResourceResponse(
-        _ resource: WebWallpaperLocalSchemeHandler.ResolvedResource,
+        _ resolved: WebWallpaperLocalSchemeHandler.ResolvedResource,
         method: String,
         requestText: String,
         requestURL: URL,
@@ -210,79 +210,88 @@ extension WebWallpaperLoopbackServer {
         leftover: Data,
         on context: ConnectionContext
     ) throws {
-        guard let resource = schemeHandler.revalidatedResource(resource) else {
-            throw WebWallpaperLocalSchemeHandler.AccessDenied(reason: .outsideAllowedRoots,
-                requestURL: requestURL, candidateURL: resource.fileURL, resolvedURL: resource.fileURL)
-        }
+        var resolved = resolved
         let isHeadRequest = method == "HEAD"
-        let transformsResponse = WebWallpaperResponseTransformer.supportsTransformation(for: resource.fileURL)
-        var urlRequest = URLRequest(url: requestURL)
+        let transformsResponse = WebWallpaperResponseTransformer.supportsTransformation(for: resolved.fileURL)
+        let ifNoneMatch = headerValue(named: "If-None-Match", in: requestText)
+        let ifModifiedSince = headerValue(named: "If-Modified-Since", in: requestText)
+        var request = URLRequest(url: requestURL)
         if let rangeHeader = headerValue(named: "Range", in: requestText) {
-            urlRequest.setValue(rangeHeader, forHTTPHeaderField: "Range")
+            request.setValue(rangeHeader, forHTTPHeaderField: "Range")
         }
-        // 声明长度与验证器都以交付时刻的现取 stat 为准。
-        guard let fileStat = WebWallpaperLocalSchemeHandler.fileStat(for: resource.fileURL) else {
-            throw WebWallpaperLocalSchemeHandler.LocalSchemeError.unreadableFileSize
+        if (isHeadRequest && !transformsResponse) || (!isHeadRequest && (ifNoneMatch != nil || ifModifiedSince != nil)) {
+            if let current = schemeHandler.revalidatedResource(resolved) {
+                resolved = current
+            } else {
+                let refreshed = schemeHandler.resolveResource(for: requestURL, allowsDirectoryIndexFallback: true,
+                    refreshCachedResolution: true)
+                guard let current = refreshed.resource else {
+                    throw refreshed.denial ?? WebWallpaperLocalSchemeHandler.AccessDenied(reason: .invalidURL,
+                        requestURL: requestURL, candidateURL: nil, resolvedURL: nil)
+                }
+                resolved = current
+            }
+            let resource = resolved
+            guard let stat = WebWallpaperLocalSchemeHandler.fileStat(for: resource.fileURL) else {
+                throw WebWallpaperLocalSchemeHandler.LocalSchemeError.unreadableFileSize
+            }
+            let validators = WebWallpaperLocalSchemeHandler.responseValidators(for: stat)
+            if !isHeadRequest, WebWallpaperLocalSchemeHandler.isNotModified(
+                ifNoneMatch: ifNoneMatch, ifModifiedSince: ifModifiedSince, validators: validators) {
+                sendNotModifiedResponse(validators: validators, keepAlive: keepAlive, on: context) { [weak self] in
+                    self?.continueAfterResponse(on: context, leftover: leftover, keepAlive: keepAlive)
+                }
+                return
+            }
+            if isHeadRequest && !WebWallpaperResponseTransformer.supportsTransformation(for: resource.fileURL) {
+                let range = try WebWallpaperLocalSchemeHandler.byteRange(for: request, totalSize: stat.fileSize)
+                sendHTTPResponse(statusCode: range == nil ? 200 : 206,
+                    mimeType: WebWallpaperLocalSchemeHandler.mimeType(for: resource.fileURL),
+                    totalSize: stat.fileSize, range: range, body: Data(),
+                    contentLength: range.map { $0.upperBound - $0.lowerBound + 1 } ?? stat.fileSize,
+                    acceptsRanges: true, validators: validators, keepAlive: keepAlive, sessionCookie: nil,
+                    on: context) { [weak self] in
+                        self?.continueAfterResponse(on: context, leftover: leftover, keepAlive: keepAlive)
+                    }
+                return
+            }
         }
-        let range = transformsResponse
-            ? nil
-            : try WebWallpaperLocalSchemeHandler.byteRange(for: urlRequest, totalSize: fileStat.fileSize)
+        let opened = try schemeHandler.openResponseStream(from: resolved, request: request)
+        var transferredHandle = false
+        defer { if !transferredHandle { try? opened.handle.close() } }
+        let resource = opened.resource
+        let transformsOpenedResponse = WebWallpaperResponseTransformer.supportsTransformation(for: resource.fileURL)
         let mimeType = WebWallpaperLocalSchemeHandler.mimeType(for: resource.fileURL)
-        let validators = WebWallpaperLocalSchemeHandler.responseValidators(for: fileStat)
-
+        let validators = WebWallpaperLocalSchemeHandler.responseValidators(for: opened.stat)
         if !isHeadRequest, WebWallpaperLocalSchemeHandler.isNotModified(
-            ifNoneMatch: headerValue(named: "If-None-Match", in: requestText),
-            ifModifiedSince: headerValue(named: "If-Modified-Since", in: requestText),
-            validators: validators
-        ) {
+            ifNoneMatch: ifNoneMatch, ifModifiedSince: ifModifiedSince, validators: validators) {
             sendNotModifiedResponse(validators: validators, keepAlive: keepAlive, on: context) { [weak self] in
                 self?.continueAfterResponse(on: context, leftover: leftover, keepAlive: keepAlive)
             }
             return
         }
-
-        if !transformsResponse, !isHeadRequest,
-           range != nil || fileStat.fileSize > Self.streamingThreshold {
-            try streamFile(resource, request: urlRequest, mimeType: mimeType, validators: validators,
-                requestURL: requestURL, keepAlive: range != nil && keepAlive, leftover: leftover, on: context)
+        if !isHeadRequest, !transformsOpenedResponse,
+           opened.range != nil || opened.stat.fileSize > Self.streamingThreshold {
+            transferredHandle = true
+            streamFile(opened, mimeType: mimeType, validators: validators, requestURL: requestURL,
+                keepAlive: opened.range != nil && keepAlive, leftover: leftover, on: context)
             return
         }
-
-        let body: Data
-        let responseSize: Int64
-        let contentLength: Int64
-        if isHeadRequest, !transformsResponse {
-            body = Data()
-            responseSize = fileStat.fileSize
-            contentLength = range.map { $0.upperBound - $0.lowerBound + 1 } ?? fileStat.fileSize
-        } else {
-            let responseData = try WebWallpaperLocalSchemeHandler.readResponseData(from: resource.fileURL, range: range)
-            body = isHeadRequest ? Data() : responseData
-            responseSize = range == nil ? Int64(responseData.count) : fileStat.fileSize
-            contentLength = Int64(responseData.count)
-        }
-        // 会话标记只在 HTML 文档响应上下发：拿到入口文档的客户端才有资格用
-        // 无前缀的 Web 根绝对路径访问受控资源（见 authorizedRequestPath）。
-        let sessionCookie = mimeType.hasPrefix("text/html") ? accessCookieHeader : nil
-        guard schemeHandler.revalidatedResource(resource) != nil else {
+        let data = try WebWallpaperLocalSchemeHandler.readResponseData(from: opened.handle,
+            fileURL: resource.fileURL, range: opened.range)
+        let body = isHeadRequest ? Data() : data
+        if schemeHandler.readableRootsSnapshot().generation != resource.authorizationGeneration,
+           schemeHandler.revalidatedResource(resource) == nil {
             throw WebWallpaperLocalSchemeHandler.AccessDenied(reason: .outsideAllowedRoots,
                 requestURL: requestURL, candidateURL: resource.fileURL, resolvedURL: resource.fileURL)
         }
-        sendHTTPResponse(
-            statusCode: range == nil ? 200 : 206,
-            mimeType: mimeType,
-            totalSize: responseSize,
-            range: range,
-            body: body,
-            contentLength: contentLength,
-            acceptsRanges: !transformsResponse,
-            validators: validators,
-            keepAlive: keepAlive,
-            sessionCookie: sessionCookie,
-            on: context
-        ) { [weak self] in
-            self?.continueAfterResponse(on: context, leftover: leftover, keepAlive: keepAlive)
-        }
+        sendHTTPResponse(statusCode: opened.range == nil ? 200 : 206, mimeType: mimeType,
+            totalSize: opened.range == nil ? Int64(data.count) : opened.stat.fileSize,
+            range: opened.range, body: body, contentLength: Int64(data.count), acceptsRanges: !transformsOpenedResponse,
+            validators: validators, keepAlive: keepAlive,
+            sessionCookie: mimeType.hasPrefix("text/html") ? accessCookieHeader : nil, on: context) { [weak self] in
+                self?.continueAfterResponse(on: context, leftover: leftover, keepAlive: keepAlive)
+            }
     }
 
     private func continueAfterResponse(on context: ConnectionContext, leftover: Data, keepAlive: Bool) {
@@ -327,29 +336,31 @@ extension WebWallpaperLoopbackServer {
 
     /// 206 与完整大文件复用同一背压链；范围、seek 和声明长度同源于已打开句柄。
     private func streamFile(
-        _ resource: WebWallpaperLocalSchemeHandler.ResolvedResource,
-        request: URLRequest,
+        _ stream: (resource: WebWallpaperLocalSchemeHandler.ResolvedResource, handle: FileHandle,
+                   stat: WebWallpaperLocalSchemeHandler.FileStat, range: ClosedRange<Int64>?, length: Int64),
         mimeType: String,
         validators: WebWallpaperLocalSchemeHandler.ResponseValidators,
         requestURL: URL,
         keepAlive: Bool,
         leftover: Data,
         on context: ConnectionContext
-    ) throws {
-        guard !context.cancellation.isCancelled else { context.connection.cancel(); return }
-        let stream = try WebWallpaperLocalSchemeHandler.openResponseStream(from: resource.fileURL, request: request)
-        guard let resource = schemeHandler.revalidatedResource(resource) else {
-            try? stream.handle.close()
-            throw WebWallpaperLocalSchemeHandler.AccessDenied(reason: .outsideAllowedRoots,
-                requestURL: requestURL, candidateURL: resource.fileURL, resolvedURL: resource.fileURL)
+    ) {
+        guard !context.cancellation.isCancelled else { try? stream.handle.close(); context.connection.cancel(); return }
+        var resource = stream.resource
+        if schemeHandler.readableRootsSnapshot().generation != resource.authorizationGeneration {
+            guard let current = schemeHandler.revalidatedResource(resource) else {
+                try? stream.handle.close(); context.connection.cancel(); return
+            }
+            resource = current
         }
+        let deliveredResource = resource
         sendHTTPResponse(statusCode: stream.range == nil ? 200 : 206, mimeType: mimeType,
-            totalSize: stream.totalSize, range: stream.range, body: Data(), contentLength: stream.length,
+            totalSize: stream.stat.fileSize, range: stream.range, body: Data(), contentLength: stream.length,
             acceptsRanges: true, validators: validators, keepAlive: keepAlive, sessionCookie: nil,
             on: context, failure: { try? stream.handle.close() }) { [weak self] in
             guard let self else { try? stream.handle.close(); return }
             self.streamNextChunk(from: stream.handle, remaining: stream.length, requestURL: requestURL,
-                resource: resource, keepAlive: keepAlive, leftover: leftover, on: context)
+                resource: deliveredResource, keepAlive: keepAlive, leftover: leftover, on: context)
         }
     }
 

@@ -177,13 +177,64 @@ HARNESS = SPRITE_HARNESS.split("@main", 1)[0] + r'''
             let multiImage = try loaded(SceneCompressedTextureUploader.upload(
                 container: container([.init(mips: mips), .init(mips: mips)]),
                 pixelFormat: pixelFormat, purpose: .premultipliedColor, device: device))
+            let completeMips = mips + [
+                .init(width: 2, height: 1, data: block(0x001f)),
+                .init(width: 1, height: 1, data: block(0x001f)),
+            ]
+            func cropped(_ authored: [SceneTexContainer.Mip]) -> SceneTexContainer {
+                .init(format: format, flags: 2, textureWidth: 8, textureHeight: 4,
+                    imageWidth: 2, imageHeight: 1, containerVersion: .texb0002,
+                    freeImageFormat: -1, isVideoMp4: false,
+                    images: [.init(mips: authored)], spriteFrames: [])
+            }
+            func rejectsCropped(_ authored: [SceneTexContainer.Mip],
+                          purpose: SceneTextureLoadPurpose) -> Bool {
+                if case .decodeFailed = SceneCompressedTextureUploader.upload(
+                    container: cropped(authored), pixelFormat: pixelFormat,
+                    purpose: purpose, device: device) { return true }
+                return false
+            }
+            var unusedBadTail = completeMips
+            unusedBadTail[3] = .init(width: 1, height: 1,
+                data: Data(completeMips[3].data.dropLast()))
+            let croppedColor = try loaded(SceneCompressedTextureUploader.upload(
+                container: cropped(unusedBadTail), pixelFormat: pixelFormat,
+                purpose: .premultipliedColor, device: device))
+            var usedBadMip = completeMips
+            usedBadMip[1] = .init(width: 4, height: 2,
+                data: Data(completeMips[1].data.dropLast()))
+            var usedBadDimensions = completeMips
+            usedBadDimensions[1] = .init(width: 3, height: 2, data: block(0xf800))
+            var fullChainPurposes: [String: Any] = [:]
+            for (name, purpose) in [
+                ("straightAlbedo", SceneTextureLoadPurpose.straightAlbedo),
+                ("preservedChannels", .preservedChannels), ("mask", .mask),
+                ("noise", .noise), ("flow", .flow), ("phase", .phase),
+                ("normal", .normal), ("depth", .depth), ("lookupTable", .lookupTable),
+            ] {
+                let texture = try loaded(SceneCompressedTextureUploader.upload(
+                    container: cropped(completeMips), pixelFormat: pixelFormat,
+                    purpose: purpose, device: device))
+                fullChainPurposes[name] = ["size": [texture.width, texture.height],
+                    "mips": texture.mipmapLevelCount,
+                    "tail": try readFirstPixel(texture: texture, level: 3, device: device),
+                    "badTailRejected": rejectsCropped(unusedBadTail, purpose: purpose)]
+            }
             results[String(format)] = ["purposes": purposeResults,
                 "pmaRGBA": pma.pixelFormat == .rgba8Unorm,
                 "pmaPixel": try readFirstPixel(texture: pma, device: device),
                 "lutKeepsPriorRGBA": lut.pixelFormat == .rgba8Unorm,
                 "volumeCannotPublish2D": volume.isVolume && volumeRejected,
                 "multiImagePMA": try readFirstPixel(texture: multiImage, device: device),
-                "corruptTailRejected": rejected]
+                "corruptTailRejected": rejected,
+                "croppedColor": ["size": [croppedColor.width, croppedColor.height],
+                    "mips": croppedColor.mipmapLevelCount,
+                    "pixels": try (0..<croppedColor.mipmapLevelCount).map {
+                        try readFirstPixel(texture: croppedColor, level: $0, device: device)
+                    },
+                    "usedBadMipRejected": rejectsCropped(usedBadMip, purpose: .premultipliedColor),
+                    "usedBadDimensionsRejected": rejectsCropped(usedBadDimensions, purpose: .premultipliedColor)],
+                "fullCroppedPurposes": fullChainPurposes]
         }
         let punchThrough = SceneTexContainer(format: 7, flags: 2,
             textureWidth: 4, textureHeight: 4, imageWidth: 4, imageHeight: 4,
@@ -460,3 +511,18 @@ class SceneBCPreservedUploadTests(unittest.TestCase):
                 # linear sampling adds a final RGBA8 write quantization boundary.
                 self.assertLessEqual(value["nearestMaxUNormDelta"], 1)
                 self.assertLessEqual(value["linearMaxUNormDelta"], 2)
+
+    def test_cropped_color_decodes_only_used_levels_and_preserves_data_chains(self) -> None:
+        for code, alpha in (("7", 255), ("6", 68), ("4", 64)):
+            with self.subTest(format=code):
+                values = self.result["nativeCodecs"][code]
+                self.assertEqual(values["croppedColor"], {"size": [2, 1], "mips": 2,
+                    "pixels": [[0, alpha, 0, alpha], [alpha, 0, 0, alpha]],
+                    "usedBadMipRejected": True, "usedBadDimensionsRejected": True})
+                self.assertEqual(set(values["fullCroppedPurposes"]), {
+                    "straightAlbedo", "preservedChannels", "mask", "noise", "flow",
+                    "phase", "normal", "depth", "lookupTable"})
+                for purpose, record in values["fullCroppedPurposes"].items():
+                    with self.subTest(purpose=purpose):
+                        self.assertEqual(record, {"size": [8, 4], "mips": 4,
+                            "tail": [0, 0, 255, alpha], "badTailRejected": True})

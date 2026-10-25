@@ -977,7 +977,7 @@ class WebCompatibilityParityTests(unittest.TestCase):
             [
                 "xcrun",
                 "swiftc",
-                "-parse-as-library",
+                "-parse-as-library", "-D", "DEBUG",
                 str(host / "WebWallpaperPlaybackScript.swift"),
                 *map(str, sorted(host.glob("DedicatedWebWallpaperHostCompatibilityScript+*.swift"))),
                 str(directory / "Harness.swift"),

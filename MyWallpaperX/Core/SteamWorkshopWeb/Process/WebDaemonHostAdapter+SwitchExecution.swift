@@ -57,6 +57,9 @@ extension WebDaemonHostAdapter {
             rebuildCandidateSession(session)
             return
         }
+#if DEBUG
+        session.startupTiming?.preparedCohortAcceptedAt = ProcessInfo.processInfo.systemUptime
+#endif
         session.visibilityConfirmed = false
         session.activationSent = false
         session.preparedCohort = cohort
@@ -77,6 +80,9 @@ extension WebDaemonHostAdapter {
                       session.activationIdentity == identity, let cohort = session.preparedCohort else { return }
                 session.activationSent = true
                 self.armSessionTimeout(session, after: 8, message: "Web 可见确认超时")
+#if DEBUG
+                session.startupTiming?.activationSentAt = ProcessInfo.processInfo.systemUptime
+#endif
                 self.send(.activate(.init(identity: identity, surfaces: cohort.surfaces)), to: session)
             },
             finalize: { [weak self, weak session] in
@@ -91,7 +97,7 @@ extension WebDaemonHostAdapter {
                 guard let self, let session, session.executionID == executionID else { completion(!active); return }
                 self.setOutputActivity(active, session: session, completion: completion)
             },
-            retire: { [weak self, weak session] completion in
+            retire: { [weak self, weak session] _, completion in
                 guard let self, let session else { completion(); return }
                 self.retireEndpoint(session, completion: completion)
             })

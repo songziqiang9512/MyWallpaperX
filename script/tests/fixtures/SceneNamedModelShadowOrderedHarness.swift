@@ -5,7 +5,7 @@ extension SceneUtilityLayer { var framebufferSource: Bool? { nil } }
 struct SceneImageLayerTerminalDepthBinding {
  let encoder:(SceneMainPassEncoder)->MTLRenderCommandEncoder?
 }
-nonisolated enum SceneResolvedMaterialExecutionCapabilityCatalog {struct Token:Hashable {}}
+nonisolated enum SceneResolvedMaterialExecutionCapabilityCatalog {struct Token:Hashable {let capabilityID=UUID()}}
 struct FixtureSource {let texture:MTLTexture;let candidate:SceneTextureCandidate;var usesAuthoredLayerColor:Bool=true}
 struct SceneLayerParallax {struct Configuration {}}
 struct SceneEffectExecutionFrameTrace {

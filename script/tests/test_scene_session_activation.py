@@ -42,12 +42,19 @@ final class SceneDesktopWallpaperSession {
     var paused = false
     var stopped = false
     var drains: [@MainActor (Bool)->Void] = []
+    var drainResult:Bool?
     init(textureDecodeCacheBudget: SceneTextureDecodeCacheBudget) {}
     func activate(_ context: SceneDesktopWallpaperLaunchContext) throws { launchContext=context }
     func promote(firstPresentation: SceneFirstFramePresentationRegistration?) { visible=true }
     func suspendPresentationForHandoff() { visible=false }
-    func stopAndDrainGPU(completion: @escaping @MainActor (Bool)->Void) { stopped=true;visible=false;drains.append(completion) }
-    @MainActor func finishDrain() { let pending=drains;drains=[];pending.forEach{$0(true)} }
+    @MainActor func stopAndDrainGPU(completion: @escaping @MainActor (Bool)->Void) {
+        stopped=true;visible=false
+        if let drainResult {completion(drainResult)} else {drains.append(completion)}
+    }
+    @MainActor func finishDrain(_ success:Bool = true) {
+        guard drainResult == nil else {return}
+        drainResult=success;let pending=drains;drains=[];pending.forEach{$0(success)}
+    }
 }
 @MainActor final class SceneDesktopWallpaperHost {
     let textureDecodeCacheBudget=SceneTextureDecodeCacheBudget()
@@ -59,7 +66,9 @@ final class SceneDesktopWallpaperSession {
     var candidateCompletion:((Result<Void,Error>)->Void)?
     let launchPreparationQueue=DispatchQueue(label:"test-preparation")
     var candidatePreparedHandler:((UUID)->Void)?
-    var requestResourcesReleasedHandler:((UUID)->Void)?
+    var requestResourcesReleasedHandler:((UUID,Bool)->Void)?
+    var launchCancellation:Bool?
+    var pendingLaunchCompletion:(()->Void)?
     var candidatePromotion:(requestID:UUID,promote:()->Void)?
     var unconfirmedPromotion:(requestID:UUID,previous:SceneDesktopWallpaperSession?)?
     var launchState:SceneWallpaperLaunchState?
@@ -69,7 +78,7 @@ final class SceneDesktopWallpaperSession {
     func stop() { discardCandidate();if let activeSession {self.activeSession=nil;retire(activeSession)} }
 }
 @main enum Harness {
-    @MainActor static func main() throws {
+    @MainActor static func main() async throws {
         let host=SceneDesktopWallpaperHost()
         var outcomes:[Bool]=[]
         func begin() throws -> SceneDesktopWallpaperSession {
@@ -118,7 +127,7 @@ final class SceneDesktopWallpaperSession {
         var admitted:[UUID]=[]
         var released:[UUID]=[]
         host.candidatePreparedHandler={admitted.append($0)}
-        host.requestResourcesReleasedHandler={released.append($0)}
+        host.requestResourcesReleasedHandler={if $1 {released.append($0)}}
         let revoked=try begin()
         revoked.onFirstFrameCompletion?(1,true);revoked.onFirstFrameCompletion?(2,true)
         let revokedID=revoked.launchRequestID!
@@ -177,6 +186,9 @@ final class SceneDesktopWallpaperSession {
         host.stopAndDrainGPU {drained=$0}
         result["stopWaitsForGPU"] = !drained && !confirmed.visible && host.activeSession == nil
         confirmed.finishDrain()
+        await withCheckedContinuation { (continuation:CheckedContinuation<Void,Never>) in
+            host.launchPreparationQueue.async {DispatchQueue.main.async {continuation.resume()}}
+        }
         result["stopFinishesAfterGPU"] = drained && host.retiringSessions.isEmpty
 
         // A separate Host keeps this delayed-parent case independent of the
@@ -191,7 +203,7 @@ final class SceneDesktopWallpaperSession {
             var prepared:[UUID]=[]
             var delayedReleased:[UUID]=[]
             delayedHost.candidatePreparedHandler={prepared.append($0)}
-            delayedHost.requestResourcesReleasedHandler={delayedReleased.append($0)}
+            delayedHost.requestResourcesReleasedHandler={if $1 {delayedReleased.append($0)}}
             let presentation=SceneFirstFramePresentationRegistration()
             let requestID=presentation.requestID
             delayedHost.launchState = .init(requestID:requestID,recordID:nil,phase:.preparingModel,message:"")
@@ -237,6 +249,79 @@ final class SceneDesktopWallpaperSession {
             delayedHost.stop()
             previous.finishDrain()
         }
+        // A normal exit can have a cancelled preparation and no Session yet.
+        // Hold the actual Host queue and observe main-loop progress before release.
+        let preparingHost=SceneDesktopWallpaperHost()
+        let preparationEntered=DispatchSemaphore(value:0),allowPreparation=DispatchSemaphore(value:0)
+        preparingHost.launchPreparationQueue.async {preparationEntered.signal();allowPreparation.wait()}
+        precondition(preparationEntered.wait(timeout:.now()+5) == .success)
+        var queueDrained=false
+        preparingHost.stopAndDrainGPU {_ in queueDrained=true}
+        await withCheckedContinuation {(c:CheckedContinuation<Void,Never>) in DispatchQueue.main.async {c.resume()}}
+        result["NoSessionStopDoesNotReleaseBlockedPreparation"] = !queueDrained
+        allowPreparation.signal()
+        await withCheckedContinuation {(c:CheckedContinuation<Void,Never>) in
+            preparingHost.launchPreparationQueue.async {DispatchQueue.main.async {c.resume()}}
+        }
+        result["NoSessionStopFinishesAfterPreparation"] = queueDrained
+        let failedHost=SceneDesktopWallpaperHost()
+        let failedSession=SceneDesktopWallpaperSession(textureDecodeCacheBudget:failedHost.textureDecodeCacheBudget)
+        failedHost.activeSession=failedSession
+        var failedResult:Bool?
+        failedHost.stopAndDrainGPU {failedResult=$0}
+        failedSession.finishDrain(false)
+        await withCheckedContinuation {(c:CheckedContinuation<Void,Never>) in
+            failedHost.launchPreparationQueue.async {DispatchQueue.main.async {c.resume()}}
+        }
+        result["PreparationFenceDoesNotHideGPUFailure"] = failedResult == false
+        let retirementHost=SceneDesktopWallpaperHost()
+        let retiredID=UUID()
+        let retired=SceneDesktopWallpaperSession(textureDecodeCacheBudget:retirementHost.textureDecodeCacheBudget)
+        retired.launchRequestID=retiredID;retirementHost.activeSession=retired
+        let workerEntered=DispatchSemaphore(value:0),workerRelease=DispatchSemaphore(value:0)
+        retirementHost.launchPreparationQueue.async {workerEntered.signal();workerRelease.wait()}
+        precondition(workerEntered.wait(timeout:.now()+5) == .success)
+        let known=retirementHost.hasRequestOutput(requestID:retiredID)
+        let withdrew=retirementHost.retireOutput(requestID:retiredID)
+        var releasedResult:Bool?
+        retirementHost.whenRequestResourcesReleased(requestID:retiredID) {releasedResult=$0}
+        retired.finishDrain()
+        result["KnownRequestRetirementStillWaitsForPreparationFence"] = known && withdrew && releasedResult == nil
+        workerRelease.signal()
+        await withCheckedContinuation {(c:CheckedContinuation<Void,Never>) in
+            retirementHost.launchPreparationQueue.async {DispatchQueue.main.async {c.resume()}}
+        }
+        result["KnownRequestRetirementQualifiesOnlyAfterActualOwnersEnd"] = releasedResult == true
+            && retirementHost.isEmptyForRequestRetirement
+        result["UnknownRequestCannotCertifyRetirementFromAbsence"] =
+            !retirementHost.hasRequestOutput(requestID:UUID()) && retirementHost.isEmptyForRequestRetirement
+        let failedRetirementHost=SceneDesktopWallpaperHost()
+        let failedID=UUID(),failedRetirement=SceneDesktopWallpaperSession(textureDecodeCacheBudget:failedRetirementHost.textureDecodeCacheBudget)
+        failedRetirement.launchRequestID=failedID;failedRetirementHost.activeSession=failedRetirement
+        var terminalResults:[Bool]=[]
+        failedRetirementHost.requestResourcesReleasedHandler={_,succeeded in terminalResults.append(succeeded)}
+        _=failedRetirementHost.retireOutput(requestID:failedID)
+        failedRetirement.finishDrain(false)
+        var truthfulFailure:Bool?
+        failedRetirementHost.whenRequestResourcesReleased(requestID:failedID) {truthfulFailure=$0}
+        await withCheckedContinuation {(c:CheckedContinuation<Void,Never>) in
+            failedRetirementHost.launchPreparationQueue.async {DispatchQueue.main.async {c.resume()}}
+        }
+        result["FailedRetirementKeepsSessionAndReportsFalse"] = terminalResults == [false]
+            && truthfulFailure == false && !failedRetirementHost.isEmptyForRequestRetirement
+            && failedRetirementHost.retiringSessions[ObjectIdentifier(failedRetirement)] === failedRetirement
+        let occupied=SceneDesktopWallpaperSession(textureDecodeCacheBudget:retirementHost.textureDecodeCacheBudget)
+        occupied.launchRequestID=UUID();retirementHost.activeSession=occupied
+        result["NewOwnerPreventsEmptyCertificateWithoutStoppingIt"] =
+            !retirementHost.isEmptyForRequestRetirement && !occupied.stopped
+        retirementHost.unconfirmedPromotion=(UUID(),occupied);retirementHost.activeSession=nil
+        var standbyResult:Bool?
+        retirementHost.whenRequestResourcesReleased(requestID:occupied.launchRequestID!) {standbyResult=$0}
+        await withCheckedContinuation {(c:CheckedContinuation<Void,Never>) in
+            retirementHost.launchPreparationQueue.async {DispatchQueue.main.async {c.resume()}}
+        }
+        result["RollbackStandbyCannotReleaseItsRequest"] = standbyResult == false
+            && !retirementHost.isEmptyForRequestRetirement && !occupied.stopped
         print(String(data:try JSONSerialization.data(withJSONObject:result,options:[.sortedKeys]),encoding:.utf8)!)
     }
 }

@@ -2,21 +2,24 @@ import Foundation
 
 nonisolated struct SceneStockTextureResolver: Sendable {
     private let bundleRoot: URL
+    private let root: SceneResourceView.Root
 
     init?(bundleRoot: URL) {
         let standardizedRoot = bundleRoot.standardizedFileURL
         let assetsRoot = standardizedRoot.appendingPathComponent("assets", isDirectory: true)
         guard FileManager.default.fileExists(atPath: assetsRoot.path) else { return nil }
         self.bundleRoot = standardizedRoot
+        root = SceneResourceView.Root(source: .stock, url: standardizedRoot,
+            index: SceneResourceIndex(rootURL: standardizedRoot, resources: []))
     }
 
-    func textureURL(for rawReference: String) -> URL? {
+    func textureInput(for rawReference: String) throws -> SceneResourceView.FileInput? {
         guard let reference = Self.normalizedReference(rawReference) else { return nil }
         for projectPath in Self.projectPathCandidates(for: reference) {
             let candidate = bundleRoot.appendingPathComponent(projectPath).standardizedFileURL
             guard candidate.path.hasPrefix(bundleRoot.path + "/") else { continue }
-            if FileManager.default.fileExists(atPath: candidate.path) {
-                return candidate
+            if let handle = try root.existingLiteralHandle(relativePath: projectPath) {
+                return .resource(handle)
             }
         }
         return nil

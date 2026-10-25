@@ -226,11 +226,6 @@ nonisolated enum SceneTextureMipUploader {
             return .decodeFailed("TEX container has no mip data")
         }
         guard !SceneTexContainer.isVideoPayload(first.data) else { return .texContainsVideoPayload }
-        guard SceneTexContainer.valid2DMipDimensions(
-            container.mips.map { ($0.width, $0.height) }
-        ) else {
-            return .decodeFailed("TEX container has an invalid mip chain")
-        }
         let mips = croppedStaticRawMips(container: container, bytesPerPixel: 4)
         return uploadRaw(
             container: container,
@@ -293,7 +288,16 @@ nonisolated enum SceneTextureMipUploader {
               container.imageHeight > 0 else {
             return container.mips
         }
-        let dimensions = container.mips.enumerated().map { level, mip in
+        // The authored crop can reach 1x1 before the stored chain. Only these
+        // levels contribute bytes to the texture; unused tails cannot reject it.
+        let levelCount = SceneTexContainer.maximum2DMipCount(
+            width: container.imageWidth, height: container.imageHeight
+        )
+        let selectedMips = container.mips.prefix(levelCount)
+        guard SceneTexContainer.valid2DMipDimensions(
+            selectedMips.map { ($0.width, $0.height) }
+        ) else { return container.mips }
+        let dimensions = selectedMips.enumerated().map { level, mip in
             let targetWidth = max(1, container.imageWidth >> level)
             let targetHeight = max(1, container.imageHeight >> level)
             return (targetWidth, targetHeight, mip)
@@ -309,11 +313,7 @@ nonisolated enum SceneTextureMipUploader {
         }) else {
             return container.mips
         }
-        // Cropping padding can reach 1x1 before the stored chain does.
-        let levelCount = SceneTexContainer.maximum2DMipCount(
-            width: container.imageWidth, height: container.imageHeight
-        )
-        return dimensions.prefix(levelCount).map { targetWidth, targetHeight, mip in
+        return dimensions.map { targetWidth, targetHeight, mip in
             let sourceBytesPerRow = mip.width * bytesPerPixel
             let targetBytesPerRow = targetWidth * bytesPerPixel
             var cropped = Data(capacity: targetBytesPerRow * targetHeight)

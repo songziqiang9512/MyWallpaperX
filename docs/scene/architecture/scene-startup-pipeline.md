@@ -2,22 +2,25 @@
 
 <!-- document-role: current-state -->
 
-> 源码复核：2026-10-23。这里保存当前接线与工具边界，不维护执行顺序或历史性能数字。
-> [启动合同](scene-launch-responsiveness-contract.md)拥有稳定语义；[冷暖启动专项](../../development/wallpaper-startup-optimization-plan.md)拥有用户指定改进步骤；运行结果仍从[证据索引](../capabilities/runtime-evidence-current.md)进入。
+> 源码复核：2026-10-26。P0/P1 优化 Debug 构建、两份真实 Scene 与两份 Web 产品入口验证已完成；后继精简代码及图回归夹具修复仍待验证，范围见[精简计划](../../development/validation-simplification-plan.md)。这里保存接线与工具边界，不维护历史性能数字。
+> [启动合同](scene-launch-responsiveness-contract.md)拥有稳定语义；当前按[全仓精简方案](../../development/validation-simplification-plan.md)清退误拒播与重复工作。此前冷暖启动[完成记录](../../history/cross-topic/wallpaper-startup-optimization-completed-2026-10-25.md)只证明当时版本；运行结果从[证据索引](../capabilities/runtime-evidence-current.md)进入。
 
 ## 产品入口与执行所有权
 
-`SteamWorkshopService.requestSceneRender → 原产品切换事务 → SceneDaemonClient → daemon 内 Host → 后台 prepareLaunch → Session/每屏 surface → 实际 presented → 产品 finalize`。
+`SteamWorkshopService.requestSceneRender → 捕获当前记录/source/读取 lease → 原产品切换事务/SceneDaemonClient → daemon 内 Host → 后台 prepareLaunch → Session/每屏 surface → 实际 presented → 产品 finalize`。属性 Request 使用同一当前来源入口。播放不升级 receipt、不复制目录、不重核历史入库摘要；下载出版、读取与退出边界归[启动合同 §4.1](scene-launch-responsiveness-contract.md#41-唯一请求与准备-owner)。
 
 WallpaperManager 拥有产品意图和跨引擎提交；Host 拥有 Scene 执行候选/提升，Session 拥有 VM/clock/provider/资源与 GPU 排空。候选 prepared、实际 presented 和产品提交是不同事件。
 
-Scene→Scene 请求可复用仍存活的 transport；stop/跨引擎停止会 shutdown 并退租。`warmSession()` 已有握手预备，App 延后触发受 active/requested Scene 意图约束；不是每次会话都重新孵化，也不是无条件常驻保温。事实落点见 `AppDelegate.swift`、`SceneDaemonClient.swift` 和[daemon 合同](scene-runtime-daemon-contract.md)。
+Scene→Scene 请求可复用仍存活的 transport。仅已提交 Web/Video 的合格 handoff，在精确请求强退役成功且 Host 已空后，可沿原 Client 保留该 transport 最多30秒；新非 Scene 意图只撤销已有空闲或在途保留资格，active Scene 的候选与回滚仍沿原提交事务。普通 Stop/quit、失败、非保留退休及到期走原物理退出，Scene 新请求重新准入来源与 lease。Web 可选空预备与此保留互斥，真实 Web 请求不受阻断；实际组合及未覆盖范围以[运行证据](../capabilities/runtime-evidence-current.md)为准，具体准入归[daemon 合同](scene-runtime-daemon-contract.md)。`warmSession()` 保持原受 active/requested Scene 意图约束的握手预备，不是无条件常驻保温；事实落点见 `AppDelegate.swift`、`SceneDaemonClient.swift` 和[daemon 合同](scene-runtime-daemon-contract.md)。
 
 ## 当前准备与缓存落点
 
-- 每次 launch 仍进入 ModelBuilder/SourceFacts。package 路由使用全量 extractor；命中前完整包/entry 摘要与缓存读取比较。ResourceView 为 package/loose/stock 建索引，Host 仍要求 package cache URL。专项 P2/P3 是替代目标，尚未实施。
+- 每次 launch 进入 ModelBuilder/SourceFacts。父端捕获当前版本 lease 与 ScenePlaybackSource，经原请求、Shell 和版本化 IPC 交给 daemon。SourceFacts 建立当前 loose Root，包沿同一 Reader/FD 一次索引、单一逻辑 Root 按需读 entry，命名与局部失败归[启动合同](scene-launch-responsiveness-contract.md)。坏包不挂旧提取目录，完整 loose scene 仍可播放；当前来源变动、无效句柄与取消保留原失败语义。属性准备沿同一来源输入，lease 持有到实际工作退出或交接。
+- 同 Root handle 供 shader、结构/播放 JSON、模型、TEX/直接图片、粒子定义、字体和媒体使用；package 保完整 literal namespace，ordinary index 仅投影可见项。固定 bundled stock 共享成功 Root/index，粒子定义图沿 LaunchContext 传给各 surface 建立自身 GPU/模拟。目录缓存身份是当前文件 revision，包缓存身份是当前包 revision 与 entry 范围；命中不再读取全文/哈希，实际读取保路径、范围、稳定性和取消检查。
+- Host 在既有 launch 直接构造 App 私有 cache 根，经独立 privateMediaCacheDirectory 供 Sound、TEX MP4/WebM、material video 与初始/动态外部属性 video 写私有池，作者 cacheDirectory/ResourceView 不换。原 OwnedFile 统一 8GiB 进程磁盘预约，计入 partial、已发布文件、worker 和最后 AV asset 借用；已知长度先预约，WebM 保原 VP9 passthrough，以公开 segment delegate 向受控 FD sink 逐段预约后写入，完成才交付。Sound 保原 asset/item 构造与创建时 pin；Video 保原 URL item/活跃路径，仅有效 stop 后在取消/replace/nil 前交接给当前 asset。pin 不等于通用 AV drain，也不承诺 native workspace/RSS 归零；跨 provider 文件 single-flight 未采用，成本不足时保持 STOP。字体/deferred 和无 Session 的 launch 队列尾仍归原退休链。限定接线不代表全部回归、首帧收益或完整 P2 验收，阶段与未解 seek 查[专项结算](../../history/cross-topic/wallpaper-startup-optimization-completed-2026-10-25.md)。
+- 目录纹理 snapshot 交付同 FD 的 bytes 与 FileIdentity，原 Loader 以所选 Input 解释 TEX/图片、尺寸/opacity 与嵌入视频声明。direct encoded bytes 的留存仍计原 decode budget，领取后移出队列；超额只保 metadata，GPU 读取时以原身份确认当前来源。已备 GPU 结果按原 selected Input/device 采用，不在主线程重读作者文件。sameRoot raw sidecar 与外部用户文件 scope 保原边界，来源硬错/取消不重选其他根。本轮行为和性能复验完成前，不用旧 D4 证据宣称当前无回退或提速。
 - CPU 前端/作者 preparation、generic/demand/variant 和外部编译产物已存在持久缓存；按完整来源/规则/工具身份校验。binary archive 已接线，不能说尚无 shader 磁盘缓存。
-- 固定 pipeline、base texture 有共享；authored library/PSO 存储仍在各 encoder。初始隐藏资源延后、CPU/GPU 准备重叠已存在；同 launch 成功产物共享是专项 P4 的待实施范围。
+- 固定 pipeline、base texture 有共享；authored library/PSO 存储仍在各 encoder。初始隐藏资源延后、CPU/GPU 准备重叠已存在；同 launch 成功产物共享未采用，专项 P4 因已测重复窗口不足而 STOP，只有新的实际热点证据才重开。
 - 属性 preparation 的单份 context 有独立身份、预算与关闭/压力失效；它不是可直接驻留复用的产品 RuntimeModel。
 
 当前 owner 查[源码职责图](runtime-as-built-map.md)，完整资源、identity 与释放边界查[运行架构](runtime-architecture.md)。模型预解析与 device 保温的旧否决仅保其成本/风险依据，新方案须重新证明收益，不把历史“暂不做”当永久禁令。

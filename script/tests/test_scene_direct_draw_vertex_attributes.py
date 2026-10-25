@@ -65,7 +65,7 @@ class SceneDirectDrawVertexAttributesTests(unittest.TestCase):
         inputs = [*sources, harness, *(p for p in bundle.rglob("*") if p.is_file())]
         frozen_before = hashes(inputs)
         binary = root / "vertex-attributes"
-        command = ["xcrun", "--sdk", "macosx", "swiftc", "-parse-as-library",
+        command = ["xcrun", "--sdk", "macosx", "swiftc", "-parse-as-library", "-D", "SCENE_GRAPH_TESTING",
                    "-whole-module-optimization", "-Onone", *map(str, sources), str(harness),
                    "-framework", "Metal", "-framework", "CoreGraphics", "-framework", "ImageIO",
                    "-framework", "Security", "-module-cache-path", str(root / "modules"),

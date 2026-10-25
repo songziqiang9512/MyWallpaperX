@@ -30,7 +30,7 @@ extension DedicatedWebWallpaperHostPlaceholderAdapter {
     }
 
     func syncFetchAllDirectoryProperties(using propertiesJSON: String) {
-        guard let request = currentRequest, request.propertiesJSON == propertiesJSON else { return }
+        guard let request = currentRequest, (request.propertiesJSON ?? "{}") == propertiesJSON else { return }
         directorySyncRequestID &+= 1
         let requestID = directorySyncRequestID
         let previousSnapshots = directorySnapshotsByProperty
@@ -85,6 +85,7 @@ extension DedicatedWebWallpaperHostPlaceholderAdapter {
         var hasFetchAllDirectory = false
         var changeNotifications: [FetchAllDirectoryNotification] = []
         var accessNotifications: [FetchAllDirectoryAccessNotification] = []
+        var statusesByDirectoryPath: [String: DirectorySyncStatus] = [:]
 
         for property in properties {
             let propertyName = property.name
@@ -92,23 +93,29 @@ extension DedicatedWebWallpaperHostPlaceholderAdapter {
             // An unselected directory cannot change through filesystem events.
             // Property updates will trigger the next synchronization themselves.
             seenPropertyNames.insert(propertyName)
-            let nextStatus = directorySyncStatus(forPath: directoryPath, rootURL: rootURL,
-                grants: grants, cancellation: cancellation)
+            let canonicalPath = directoryPath.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+                ? nil : WebWallpaperResourceGrant.authorizedURL(URL(fileURLWithPath: directoryPath),
+                    kind: .directory, rootURL: rootURL, grants: grants)?.path
+            let nextStatus: DirectorySyncStatus
+            if cancellation?.isCancelled != true,
+               let canonicalPath, let existing = statusesByDirectoryPath[canonicalPath] {
+                nextStatus = existing
+            } else {
+                nextStatus = directorySyncStatus(forPath: directoryPath, rootURL: rootURL,
+                    grants: grants, cancellation: cancellation)
+                if let sourcePath = nextStatus.snapshot.sourceDirectoryPath {
+                    statusesByDirectoryPath[sourcePath] = nextStatus
+                }
+            }
             hasFetchAllDirectory = hasFetchAllDirectory || (!directoryPath.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
                 && nextStatus.errorMessage != "directory_not_authorized" && cancellation?.isCancelled != true)
             let nextSnapshot = nextStatus.snapshot
             snapshotsByProperty[propertyName] = nextSnapshot
 
-            if nextStatus.isAccessible {
-                // watcher 归属键与 FD 目标都用解析符号链接后的真实路径：
-                // 键存原路径串时，符号链接被原子换指向（rsync/Dropbox 式写新
-                // 目录再换链）后路径串不变 → 旧 watcher 被 reconfigure 复用、
-                // FD 仍盯着旧 inode，事件驱动静默退化成 10s 轮询且不自愈；
-                // 存解析后路径则换指向 → 键变化 → watcher 在新目标上重建。
-                watchedDirectoriesByProperty[propertyName] = URL(fileURLWithPath: directoryPath)
-                    .resolvingSymlinksInPath()
-                    .standardizedFileURL
-                    .path
+            if nextStatus.isAccessible, let sourcePath = nextSnapshot.sourceDirectoryPath {
+                // Watch the same canonical directory that produced the value.
+                // A later symlink retarget is resolved by the next synchronization.
+                watchedDirectoriesByProperty[propertyName] = sourcePath
             }
 
             let previousFiles = previousSnapshots[propertyName]?.filesByPath ?? [:]
@@ -265,7 +272,7 @@ extension DedicatedWebWallpaperHostPlaceholderAdapter {
             filesByPath[authorized.path] = modifiedAt
         }
         return DirectorySyncStatus(
-            snapshot: DirectorySnapshot(filesByPath: filesByPath),
+            snapshot: DirectorySnapshot(sourceDirectoryPath: directoryURL.path, filesByPath: filesByPath),
             isAccessible: true,
             errorMessage: nil
         )

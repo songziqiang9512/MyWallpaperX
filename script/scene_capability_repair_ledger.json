@@ -157,7 +157,7 @@
    "regression_gates": [
     {
      "kind": "synthetic-positive",
-     "reference": "script/tests/test_scene_resolved_material_pass_encoder.py#factoredAlphaPixelsMatch"
+     "reference": "script/tests/fixtures/SceneResolvedMaterialPassColorCases.swift#factoredAlphaPixelsMatch"
     },
     {
      "kind": "synthetic-negative",
@@ -204,7 +204,7 @@
    "regression_gates": [
     {
      "kind": "synthetic-positive",
-     "reference": "script/tests/test_scene_resolved_material_pass_encoder.py#wholeFilterPixelsMatch"
+     "reference": "script/tests/fixtures/SceneResolvedMaterialPassColorCases.swift#wholeFilterPixelsMatch"
     },
     {
      "kind": "synthetic-negative",

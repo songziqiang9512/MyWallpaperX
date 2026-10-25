@@ -82,11 +82,12 @@ import CryptoKit
             throw HarnessError.descriptorRejected
         }
         guard let device = MTLCreateSystemDefaultDevice() else { throw HarnessError.noMetal }
-        let cacheDirectory = sceneURL.deletingLastPathComponent()
+        let resourceView = SceneResourceView(projectRoot: .init(source: .loose,
+            url: sceneURL.deletingLastPathComponent()), packageRoot: nil, stockRoot: nil)
 
         let loaded = SceneTextTextureLoader.load(
             descriptor: descriptor,
-            cacheDirectory: cacheDirectory,
+            resourceView: resourceView,
             device: device
         )
 
@@ -114,11 +115,11 @@ import CryptoKit
     "glyphWorld":[(Double(minX)+0.5-Double(w)/2)/scale+dx,(Double(minY)+0.5-Double(h)/2)/scale+dy,(Double(maxX)+0.5-Double(w)/2)/scale+dx,(Double(maxY)+0.5-Double(h)/2)/scale+dy],
     "backgroundWorld":[(Double(minAlphaX)-Double(w)/2)/scale+dx,(Double(minAlphaY)-Double(h)/2)/scale+dy,(Double(maxAlphaX+1)-Double(w)/2)/scale+dx,(Double(maxAlphaY+1)-Double(h)/2)/scale+dy]]
   }
-  guard let same=SceneTextTextureLoader.makeDynamicTexture(for:layer,content:layer.text!,pointSize:style.pointSize,colorRGB:style.colorRGB,cacheDirectory:cacheDirectory,device:device),
-    let changed=SceneTextTextureLoader.makeDynamicTexture(for:layer,content:"HOHO",pointSize:style.pointSize,colorRGB:style.colorRGB,cacheDirectory:cacheDirectory,device:device) else { throw HarnessError.descriptorRejected }
+  guard let same=try SceneTextTextureLoader.makeDynamicTexture(for:layer,content:layer.text!,pointSize:style.pointSize,colorRGB:style.colorRGB,resourceView:resourceView,device:device),
+    let changed=try SceneTextTextureLoader.makeDynamicTexture(for:layer,content:"HOHO",pointSize:style.pointSize,colorRGB:style.colorRGB,resourceView:resourceView,device:device) else { throw HarnessError.descriptorRejected }
   var entry: [String:Any] = ["static":measure(raster),"same":measure(same),"changed":measure(changed)]
   if style.limitWidth {
-   guard let widened=SceneTextTextureLoader.makeDynamicTexture(for:layer,content:layer.text!,pointSize:style.pointSize,colorRGB:style.colorRGB,maxWidth:400,cacheDirectory:cacheDirectory,device:device) else { throw HarnessError.descriptorRejected }
+   guard let widened=try SceneTextTextureLoader.makeDynamicTexture(for:layer,content:layer.text!,pointSize:style.pointSize,colorRGB:style.colorRGB,maxWidth:400,resourceView:resourceView,device:device) else { throw HarnessError.descriptorRejected }
    entry["widened"]=measure(widened)
   }
   result[layer.name ?? String(layer.id)] = entry

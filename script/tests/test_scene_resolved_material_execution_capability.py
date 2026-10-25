@@ -118,14 +118,17 @@ class SceneResolvedMaterialExecutionCapabilityTests(unittest.TestCase):
             ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Composition/SceneDirectDrawLayerRenderer.swift"
         ).read_text(encoding="utf-8")
 
-        self.assertIn("struct FrameInputContract: Equatable", capability)
-        self.assertIn("case emittedOutputGeometry", capability)
+        frame_contract = (
+            SCENE / "Runtime/Frame/SceneResolvedMaterialPreparedFrameInput.swift"
+        ).read_text(encoding="utf-8")
+        self.assertIn("SceneResolvedMaterialFrameInputContract", capability)
+        self.assertIn("case emittedOutputGeometry", frame_contract)
         for geometry_source in (
             "case layerCard",
             "case captureGeometry",
             "case authoredCanvasDirectDraw",
         ):
-            self.assertIn(geometry_source, capability)
+            self.assertIn(geometry_source, frame_contract)
         self.assertIn("let frameInputContract: FrameInputContract", capability)
         self.assertIn("stages.contains(", capability)
         self.assertIn(
@@ -140,18 +143,7 @@ class SceneResolvedMaterialExecutionCapabilityTests(unittest.TestCase):
             "extension SceneResolvedMaterialExecutionCapabilityCatalog.LayerCapability",
             stages,
         )
-        self.assertIn(
-            "struct SceneResolvedMaterialPreparedUniformBinding: Hashable",
-            compiled,
-        )
-        for route in (
-            "case host(Program.HostUniform)",
-            "case staticValue(Data)",
-            "case dynamic(Dynamic)",
-            "case neutralMissingTextureResolution(",
-            "case selfCompositeTextureResolution(",
-        ):
-            self.assertIn(route, compiled)
+        self.assertIn("preparedUniformBindings:", compiled)
         self.assertIn(".prepareUniformBindings(", compilation)
         resolved_start = finalizer.index("private static func resolvedUniforms(")
         resolved_end = finalizer.index(

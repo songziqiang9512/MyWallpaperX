@@ -33,6 +33,14 @@ extension SteamWorkshopService {
         return (content, true)
     }
 
+    nonisolated static func webStaticAnalysisContent(data: Data) -> (content: String, isTruncated: Bool)? {
+        let maximum = webStaticAnalysisMaximumFileBytes
+        if data.count <= maximum { return String(data: data, encoding: .utf8).map { ($0, false) } }
+        return (String(decoding: data.prefix(maximum / 2), as: UTF8.self)
+            + "\n/* static analysis truncated */\n"
+            + String(decoding: data.suffix(maximum / 2), as: UTF8.self), true)
+    }
+
     nonisolated static func webFileContainsServiceWorkerRegistration(_ fileURL: URL) -> Bool {
         WebStaticFileSignalScanner.containsServiceWorkerRegistration(in: fileURL)
     }
@@ -52,16 +60,6 @@ extension SteamWorkshopService {
             "mouseenter", "mouseleave", "mouseover", "mouseout"
         ]
         return !pointerMarkers.contains { lowered.contains($0) }
-    }
-
-    nonisolated static func webContentUsesApplyGeneralProperties(_ content: String) -> Bool {
-        let lowered = content.lowercased()
-        return lowered.contains("applygeneralproperties")
-    }
-
-    nonisolated static func webContentUsesGeneralFPS(_ content: String) -> Bool {
-        let lowered = content.lowercased()
-        return lowered.contains("properties.fps") || lowered.contains("fps:")
     }
 
     nonisolated static func webContentReferencesSchemeColorUserProperty(_ content: String) -> Bool {

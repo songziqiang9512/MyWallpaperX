@@ -60,10 +60,36 @@ enum Harness {
         scheduledState.registerInitial(layerID: 2, signature: authored, isReady: true)
         let scheduledSecond = scheduledState.schedule(layerID: 2, signature: second)!
         let queuedLatest = scheduledState.schedule(layerID: 2, signature: latest)
+        let runningWhileLatestQueued = scheduledState.isRendering(scheduledSecond)
         let staleCompletion = scheduledState.finish(scheduledSecond, succeeded: true)
         let latestCompletion = scheduledState.finish(staleCompletion.next!, succeeded: true)
+        let oldStillRendering = scheduledState.isRendering(scheduledSecond)
+        var retiredState = SceneDynamicTextGenerationState()
+        let retired = retiredState.registerDynamic(layerID: 7, signature: authored)!
+        retiredState.unregister(layerID: 7)
+        let replacement = retiredState.registerDynamic(layerID: 7, signature: second)!
+        let retiredMembership = retiredState.isRendering(retired)
+        let replacementMembership = retiredState.isRendering(replacement)
+        let retiredAccepted = retiredState.finish(retired, succeeded: true).accepted
+        let replacementAccepted = retiredState.finish(replacement, succeeded: true).accepted
+        let replacementReady = retiredState.readySignature(layerID: 7)?.content
+        let beforeReset = retiredState.registerDynamic(layerID: 8, signature: authored)!
+        retiredState.reset()
+        let afterReset = retiredState.registerDynamic(layerID: 8, signature: latest)!
+        let resetStaleAccepted = retiredState.finish(beforeReset, succeeded: true).accepted
+        let resetNewAccepted = retiredState.finish(afterReset, succeeded: true).accepted
         state.reset()
         let payload: [String: Any] = [
+            "retiredTokenReused": retired.generation == replacement.generation,
+            "retiredMembership": retiredMembership,
+            "replacementMembership": replacementMembership,
+            "retiredAccepted": retiredAccepted,
+            "replacementAccepted": replacementAccepted,
+            "replacementReady": replacementReady as Any,
+            "resetTokenReused": beforeReset.generation == afterReset.generation,
+            "resetStaleAccepted": resetStaleAccepted,
+            "resetNewAccepted": resetNewAccepted,
+            "oldMembershipAfterCompletion": oldStillRendering,
             "duplicate": duplicate as Any,
             "initialReadyGeneration": initialReadyGeneration as Any,
             "ordered": generationC > generationB,
@@ -75,6 +101,7 @@ enum Harness {
             "readyAfterSuccess": readyAfterSuccess.content,
             "generationAfterSuccess": generationAfterSuccess as Any,
             "queuedLatestStartedImmediately": queuedLatest != nil,
+            "runningWhileLatestQueued": runningWhileLatestQueued,
             "scheduledStaleAccepted": staleCompletion.accepted,
             "scheduledNextContent": staleCompletion.next?.signature.content as Any,
             "scheduledLatestAccepted": latestCompletion.accepted,
@@ -96,6 +123,12 @@ STORE_HARNESS = r'''
 import Foundation
 import Metal
 
+enum SceneTextDescriptor {
+    static func renderedPointSize(_ value: Double) -> Float? {
+        guard value.isFinite else { return nil }
+        return Float(max(1, min(value, 1_024)))
+    }
+}
 enum SceneDynamicTextField: Hashable { case content, font, pointSize, color, maxWidth }
 enum SceneDynamicValue { case string(String), scalar(Double), vector3(Double,Double,Double) }
 enum SceneDynamicTarget: Hashable { case text(layerID: Int,field: SceneDynamicTextField) }
@@ -168,30 +201,46 @@ final class ControlledRasterProducer: @unchecked Sendable {
     let rasterD: SceneTextTextureLoader.RasterizedTexture
     private let lock = NSLock()
     private var calls: [String] = []
+    private var fontInputs: [String] = []
     init(_ b: SceneTextTextureLoader.RasterizedTexture,_ d: SceneTextTextureLoader.RasterizedTexture) {
         rasterB = b; rasterD = d
     }
-    func render(_ content: String) -> SceneTextTextureLoader.RasterizedTexture? {
-        lock.lock(); calls.append(content); lock.unlock()
+    func render(_ content: String, preparedFont: String?) throws -> SceneTextTextureLoader.RasterizedTexture? {
+        lock.lock(); calls.append(content); fontInputs.append(preparedFont ?? "none")
+        let callCount = calls.count
+        lock.unlock()
+        if CommandLine.arguments.contains("--retired-font") {
+            if callCount == 1 { startedB.signal(); wait(allowB); return rasterB }
+            startedD.signal(); wait(allowD); return rasterD
+        }
         switch content {
         case "B": startedB.signal(); wait(allowB); return rasterB
-        case "C": startedC.signal(); wait(allowC); return nil
+        case "C":
+            startedC.signal(); wait(allowC)
+            if CommandLine.arguments.contains("--hard-source") { throw SceneResourceView.ReadError.sourceChanged }
+            if CommandLine.arguments.contains("--cancel-source") { throw CancellationError() }
+            return nil
         case "D": startedD.signal(); wait(allowD); return rasterD
         default: preconditionFailure("unexpected raster request: \(content)")
         }
     }
     func renderedContents() -> [String] { lock.lock(); defer { lock.unlock() }; return calls }
+    func renderedFonts() -> [String] { lock.lock(); defer { lock.unlock() }; return fontInputs }
     func wait(_ semaphore: DispatchSemaphore) {
         precondition(semaphore.wait(timeout: .now()+5) == .success,"producer deadline")
     }
 }
 enum SceneTextTextureLoader {
-    struct RasterizedTexture { let texture: MTLTexture; let renderSizeWH: [Float]; let centerOffsetY: Float }
+    struct RasterizedTexture { let texture: MTLTexture; let renderSizeWH: [Float]; let centerOffsetY: Float; var sourceFont: String? = nil }
     static var producer: ControlledRasterProducer!
     static func makeDynamicTexture(for layer: SceneRenderDescriptor.Layer,content: String,
         fontPath: String?,pointSize: Float,colorRGB: [Float],maxWidth: Float,
-        cacheDirectory: URL,device: MTLDevice) -> RasterizedTexture? {
-        producer.render(content)
+        resourceView: SceneResourceView?,preparedFont: String? = nil,device: MTLDevice,
+        checkCancellation: (() throws -> Void)? = nil) throws -> RasterizedTexture? {
+        try checkCancellation?()
+        let raster = try producer.render(content, preparedFont: preparedFont)
+        try checkCancellation?()
+        return raster
     }
 }
 @main enum StoreProbe {
@@ -206,14 +255,32 @@ enum SceneTextTextureLoader {
             descriptor.storageMode = .shared; descriptor.usage = .shaderRead
             let texture = device.makeTexture(descriptor: descriptor)!
             texture.label = name
-            return .init(texture: texture,renderSizeWH: size,centerOffsetY: offset)
+            return .init(texture: texture,renderSizeWH: size,centerOffsetY: offset,sourceFont: name)
         }
         let a = raster("g1",2,3,[120,30],3), b = raster("g2",4,5,[240,50],-11)
         let d = raster("g4",6,7,[360,70],19)
         let producer = ControlledRasterProducer(b,d)
         SceneTextTextureLoader.producer = producer
+        if CommandLine.arguments.contains("--retired-font") {
+            let store = SceneDynamicTextTextureStore(descriptor: .init(layers: []),
+                resourceView: nil, device: device, initialRasters: [:],
+                onPublication: { _ in producer.published.signal() })
+            let snapshot = SceneDynamicSnapshot(values: [:])
+            store.update(from: snapshot, dynamicLayers: [.init(id: 8)])
+            producer.wait(producer.startedB)
+            store.update(from: snapshot, dynamicLayers: [])
+            store.update(from: snapshot, dynamicLayers: [.init(id: 8)])
+            producer.allowB.signal(); producer.wait(producer.startedD)
+            let oldPublicationRejected = store.snapshot().layerSources.isEmpty
+            producer.allowD.signal(); producer.wait(producer.published)
+            let result: [String: Any] = ["oldPublicationRejected": oldPublicationRejected,
+                "newLayerDidNotBorrowRetiredFont": producer.renderedFonts() == ["none", "none"],
+                "replacementPublished": store.snapshot().layerSources[8]?.texture.label == "g4"]
+            print(String(decoding: try JSONSerialization.data(withJSONObject: result), as: UTF8.self))
+            return
+        }
         let store = SceneDynamicTextTextureStore(descriptor: .init(layers: [.init(id: 7)]),
-            cacheDirectory: URL(fileURLWithPath: NSTemporaryDirectory()),device: device,
+            resourceView: nil,device: device,
             initialRasters: [7:a],dynamicTextFieldsByLayerID: [7:[.content]],
             onPublication: { _ in producer.published.signal() })
         func update(_ content: String) {
@@ -256,11 +323,84 @@ enum SceneTextTextureLoader {
         result["readyAfterRecovery"] = atom(store.snapshot())
         result["submittedAfterRecovery"] = atom(store.submittedSnapshot())
         result["renderCalls"] = producer.renderedContents()
+        result["fontInputs"] = producer.renderedFonts()
         print(String(decoding: try JSONSerialization.data(withJSONObject: result,options: [.sortedKeys]),as: UTF8.self))
     }
 }
 '''
 
+
+# Reuse only the DTOs above; this probe never allocates a texture or submits GPU work.
+STORE_DRAIN_HARNESS = STORE_HARNESS.split("final class ControlledRasterProducer", 1)[0] + r"""
+enum SceneResourceView { final class Root {} }
+final class ControlledFontWork: @unchecked Sendable {
+    let started = DispatchSemaphore(value: 0), release = DispatchSemaphore(value: 0)
+    private let lock = NSLock()
+    private var events: [String] = []
+    func note(_ event: String) { lock.lock(); events.append(event); lock.unlock() }
+    func capturedEvents() -> [String] { lock.lock(); defer { lock.unlock() }; return events }
+    func render(_ content: String) throws {
+        note("render:" + content); started.signal()
+        precondition(release.wait(timeout: .now()+5) == .success)
+        defer { note("raster-leaf-returned") }
+        if CommandLine.arguments.contains("--hard-source") { throw ReadFailure.sourceChanged }
+        if CommandLine.arguments.contains("--cancel-source") { throw CancellationError() }
+    }
+    enum ReadFailure: Error { case sourceChanged }
+}
+enum SceneTextTextureLoader {
+    struct RasterizedTexture { let texture: MTLTexture; let renderSizeWH: [Float]; let centerOffsetY: Float; var sourceFont: String? = nil }
+    static let work = ControlledFontWork()
+    static func makeDynamicTexture(for layer: SceneRenderDescriptor.Layer, content: String,
+        fontPath: String?, pointSize: Float, colorRGB: [Float], maxWidth: Float,
+        resourceView: SceneResourceView?, preparedFont: String? = nil, device: MTLDevice,
+        checkCancellation: (() throws -> Void)? = nil) throws -> RasterizedTexture? {
+        try checkCancellation?()
+        try work.render(content)
+        try checkCancellation?()
+        return nil
+    }
+}
+@main enum FontDrainProbe {
+    static func main() {
+        guard let device = MTLCreateSystemDefaultDevice() else {
+            print("{\"metalUnavailable\":true}"); return
+        }
+        let work = SceneTextTextureLoader.work
+        let store = SceneDynamicTextTextureStore(descriptor: .init(layers: [.init(id: 7)]),
+            resourceView: nil, device: device, initialRasters: [:],
+            dynamicTextFieldsByLayerID: [7:[.content]],
+            onPublication: { _ in work.note("publication") })
+        func update(_ content: String) {
+            store.update(from: .init(values: [.text(layerID:7,field:.content):.init(value:.string(content))]),
+                dynamicTextFieldsByLayerID: [7:[.content]])
+        }
+        update("B")
+        precondition(work.started.wait(timeout:.now()+5) == .success)
+        update("C")
+        store.close()
+        let drained = DispatchSemaphore(value:0)
+        for _ in 0..<2 { store.closeAndDrain {work.note("drain");drained.signal()} }
+        update("D")
+        store.update(from:.init(values:[:]),dynamicLayers:[.init(id:8)])
+        var output = ["drainPendingWhileActualWorkerHeld":drained.wait(timeout:.now()) == .timedOut]
+        work.release.signal()
+        precondition(drained.wait(timeout:.now()+5) == .success)
+        precondition(drained.wait(timeout:.now()+5) == .success)
+        let events = work.capturedEvents()
+        output["closedStoreDoesNotScheduleLatestOrNewLayer"] = events.filter {$0.hasPrefix("render:")} == ["render:B"]
+        output["closedWorkerDoesNotPublish"] = !events.contains("publication")
+        output["bothTailsFollowWorkerReturn"] = events == ["render:B","raster-leaf-returned","drain","drain"]
+        store.closeAndDrain {drained.signal()}
+        output["repeatedCompletedDrainStillCompletes"] = drained.wait(timeout:.now()+5) == .success
+        let empty = SceneDynamicTextTextureStore(descriptor:.init(layers:[]),resourceView:nil,
+            device:device,initialRasters:[:])
+        empty.closeAndDrain {drained.signal()}
+        output["emptyStoreDrains"] = drained.wait(timeout:.now()+5) == .success
+        print(String(data:try! JSONSerialization.data(withJSONObject:output,options:[.sortedKeys]),encoding:.utf8)!)
+    }
+}
+"""
 
 class SceneDynamicTextGenerationTests(unittest.TestCase):
     @classmethod
@@ -300,11 +440,17 @@ class SceneDynamicTextGenerationTests(unittest.TestCase):
             harness = directory / "StoreHarness.swift"
             harness.write_text(STORE_HARNESS, encoding="utf-8")
             binary = directory / "text-store"
+            resource_sources = [REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene" / path for path in
+                                ("Resources/Assets/SceneResourceIndex.swift", "Resources/Assets/SceneResourceView.swift",
+                                 "../SteamWorkshopStorage/ScenePlaybackSource.swift", "Format/ScenePkgReader.swift",
+                                 "Resources/Assets/SceneResourceIdentity.swift", "Resources/Assets/SceneResourceView+Backing.swift")]
             identity = {str(path): hashlib.sha256(path.read_bytes()).hexdigest()
-                        for path in (SOURCE, STORE_SOURCE, Path(__file__), harness)}
+                        for path in (SOURCE, STORE_SOURCE, *resource_sources, Path(__file__), harness)}
             (directory / "source-identity.json").write_text(json.dumps(identity, indent=2))
             compiled = subprocess.run(
-                ["swiftc", str(SOURCE), str(STORE_SOURCE), str(harness), "-o", str(binary)],
+                ["swiftc", str(SOURCE), str(STORE_SOURCE),
+                 *map(str, resource_sources),
+                 str(harness), "-o", str(binary)],
                 capture_output=True, text=True, timeout=60,
             )
             (directory / "compile.log").write_text(compiled.stdout + compiled.stderr)
@@ -341,9 +487,54 @@ class SceneDynamicTextGenerationTests(unittest.TestCase):
             self.assertEqual(result["readyAfterRecovery"]["renderSize"], [360, 70])
             self.assertEqual(result["readyAfterRecovery"]["offset"], 19)
             self.assertEqual(result["renderCalls"], ["B", "C", "D"])
+            self.assertEqual(result["fontInputs"], ["g1", "g2", "g2"])
+            # The same real Store transaction must preserve the complete old
+            # atom for a hard read error and an original cancellation, too.
+            for flag in ("--hard-source", "--cancel-source"):
+                rejected = subprocess.run([str(binary), flag], capture_output=True, text=True, timeout=30)
+                (directory / (flag[2:] + ".log")).write_text(rejected.stdout + rejected.stderr)
+                self.assertEqual(rejected.returncode, 0, rejected.stderr)
+                self.assertEqual(json.loads(rejected.stdout), result)
+            retired = subprocess.run([str(binary), "--retired-font"],
+                                     capture_output=True, text=True, timeout=30)
+            self.assertEqual(retired.returncode, 0, retired.stderr)
+            for field, passed in json.loads(retired.stdout).items():
+                self.assertTrue(passed, field)
         finally:
             if not parent:
                 shutil.rmtree(directory)
+
+    def test_close_joins_actual_worker_and_rejects_late_admission(self) -> None:
+        with tempfile.TemporaryDirectory(prefix="mwx-text-cpu-drain-") as raw:
+            directory = Path(raw)
+            harness = directory / "Drain.swift"
+            harness.write_text(STORE_DRAIN_HARNESS)
+            binary = directory / "drain"
+            sources = (SOURCE, STORE_SOURCE, harness)
+            identity = {str(path): hashlib.sha256(path.read_bytes()).hexdigest() for path in sources}
+            compiled = subprocess.run(["swiftc", *map(str, sources), "-o", str(binary)],
+                                      capture_output=True, text=True, timeout=60)
+            self.assertEqual(compiled.returncode, 0, compiled.stderr)
+            for flag in (None, "--hard-source", "--cancel-source"):
+                with self.subTest(failure=flag):
+                    result = subprocess.run([str(binary), *([flag] if flag else [])],
+                                            capture_output=True, text=True, timeout=20)
+                    self.assertEqual(result.returncode, 0, result.stderr)
+                    output = json.loads(result.stdout)
+                    if output.get("metalUnavailable"):
+                        self.skipTest("Metal device unavailable; no GPU commands submitted by this probe")
+                    for name, passed in output.items():
+                        self.assertTrue(passed, name)
+            self.assertEqual(identity, {path: hashlib.sha256(Path(path).read_bytes()).hexdigest()
+                                        for path in identity})
+
+    def test_retirement_and_reset_never_reuse_an_inflight_request_token(self) -> None:
+        for field in ("retiredTokenReused", "retiredMembership", "retiredAccepted",
+                      "resetTokenReused", "resetStaleAccepted", "oldMembershipAfterCompletion"):
+            self.assertFalse(self.result[field], field)
+        for field in ("replacementMembership", "replacementAccepted", "resetNewAccepted", "runningWhileLatestQueued"):
+            self.assertTrue(self.result[field], field)
+        self.assertEqual(self.result["replacementReady"], "B")
 
     def test_stale_or_failed_results_never_replace_the_last_ready_value(self) -> None:
         self.assertFalse(self.result["staleAccepted"])

@@ -74,7 +74,6 @@ nonisolated final class SceneWallpaperLaunchCancellation: @unchecked Sendable {
 
 enum SceneDesktopWallpaperHostLaunchError: LocalizedError {
     case cancelled
-    case missingPackageCache
     case conflictingBoundedSceneScriptTargets(String)
     case invalidBoundedSceneScriptProgramAt(String)
     case requiredImagePipelineUnavailable
@@ -87,8 +86,6 @@ enum SceneDesktopWallpaperHostLaunchError: LocalizedError {
         switch self {
         case .cancelled:
             "Scene 启动请求已取消。"
-        case .missingPackageCache:
-            "Scene 资源缓存不可用。"
         case .conflictingBoundedSceneScriptTargets(let details):
             "Scene 有界脚本目标存在冲突，已停止启动。\(details)"
         case .invalidBoundedSceneScriptProgramAt(let phase):

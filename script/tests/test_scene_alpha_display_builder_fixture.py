@@ -37,6 +37,8 @@ from pathlib import Path
 REPOSITORY_ROOT = Path(__file__).resolve().parents[2]
 SOURCE_ROOT = REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene"
 SWIFT_SOURCES = [
+    REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopStorage/ScenePlaybackSource.swift",
+    REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopStorage/SteamWorkshopStorageTree.swift",
     REPOSITORY_ROOT / "script/tests/fixtures/SceneProgramResourcePlanningUnavailableStub.swift",
     REPOSITORY_ROOT / "script/tests/fixtures/SceneStaticModelMaterialBindingUnavailableStub.swift",
     SOURCE_ROOT / "Runtime/Frame/SceneStaticModelMaterialBindings.swift",
@@ -58,6 +60,11 @@ SWIFT_SOURCES = [
     SOURCE_ROOT / "Format/SceneDocument+NumericParsing.swift",
     SOURCE_ROOT / "Format/ScenePuppetAnimationLayer.swift",
     SOURCE_ROOT / "Format/SceneMdlPuppetAnimation.swift",
+    SOURCE_ROOT / "Format/SceneMdlStaticModel.swift",
+    SOURCE_ROOT / "Format/SceneMdlStaticModelReader.swift",
+    SOURCE_ROOT / "Format/SceneMdlPuppetMeshReader.swift",
+    SOURCE_ROOT / "Format/SceneMdlPuppetRigReader.swift",
+    SOURCE_ROOT / "Format/SceneMdlPuppetAnimationReader.swift",
     SOURCE_ROOT / "Format/SceneJSONValue.swift",
     SOURCE_ROOT / "Format/SceneScriptBindingDefinition.swift",
     SOURCE_ROOT / "Systems/Properties/SceneScriptDynamicProviderHostContract.swift",
@@ -84,9 +91,10 @@ SWIFT_SOURCES = [
     SOURCE_ROOT / "Resources/Textures/SceneSolidLayerTexture.swift",
     Path(__file__).resolve().parents[2] / "MyWallpaperX/Shared/WorkshopPropertyDisplayResolver.swift",
     SOURCE_ROOT / "Format/SceneProject.swift",
-    SOURCE_ROOT / "Format/ScenePkgExtractionReport.swift",
     SOURCE_ROOT / "Resources/Assets/SceneResourceIndex.swift",
+    SOURCE_ROOT / "Resources/Assets/SceneResourceIdentity.swift",
     SOURCE_ROOT / "Resources/Assets/SceneResourceView.swift",
+    SOURCE_ROOT / "Resources/Assets/SceneResourceView+Backing.swift",
     SOURCE_ROOT / "Resources/Assets/SceneAssetCatalog.swift",
     SOURCE_ROOT / "Resources/Assets/SceneResourceReferenceIndex.swift",
     SOURCE_ROOT / "Runtime/Frame/SceneCapabilityProfile.swift",
@@ -131,7 +139,6 @@ SWIFT_SOURCES = [
     SOURCE_ROOT / "Compilation/ShaderContract/SceneShaderContractLoader.swift",
     SOURCE_ROOT / "Compilation/ShaderContract/SceneBuiltinShaderIdentity.swift",
     SOURCE_ROOT / "Compilation/ShaderContract/SceneShaderContractLoader+SourceGraph.swift",
-    SOURCE_ROOT / "Format/ScenePkgCacheExtractor.swift",
     SOURCE_ROOT / "Resources/Textures/SceneNamedTextureReference.swift",
     SOURCE_ROOT / "Systems/Script/SceneScriptVectorCandidateCatalog.swift",
     SOURCE_ROOT / "Systems/Script/SceneScriptDynamicImageReferenceAnalysis.swift",
@@ -151,6 +158,13 @@ SWIFT_SOURCES = [
     SOURCE_ROOT / "Systems/Particles/SceneParticleDefinitionParser.swift",
     SOURCE_ROOT / "Systems/Particles/SceneParticleDefinitionParser+Operator.swift",
     SOURCE_ROOT / "Systems/Particles/SceneParticleDefinitionParser+InstanceOverride.swift",
+    SOURCE_ROOT / "Systems/Particles/SceneParticleAssetGraph.swift",
+    SOURCE_ROOT / "Systems/Particles/SceneParticleTextureSource.swift",
+    SOURCE_ROOT / "Systems/Particles/SceneParticleRefractionPlan.swift",
+    SOURCE_ROOT / "Rendering/Particles/SceneParticleRenderSupport.swift",
+    SOURCE_ROOT / "Rendering/Particles/SceneParticlePipelineRenderStateCompiler.swift",
+    SOURCE_ROOT / "Resources/Assets/SceneStockTextureResolver.swift",
+    SOURCE_ROOT / "Resources/Textures/SceneTextureSampling.swift",
     SOURCE_ROOT / "Rendering/Dependencies/SceneNamedTextureDependencyReferenceAnalysis.swift",
 ]
 
@@ -246,7 +260,7 @@ HARNESS_SOURCE = r'''
 // Probe shell: run the real SceneRuntimeModelBuilder disk chain and dump the
 // post-build display-ownership state. Stubs below stand in for leaves outside
 // the asserted chain (QuickJS VM runtime, launch-graph planner/route
-// admission, MDL reading, base-material modulation); their shapes follow the
+// admission, base-material modulation); their shapes follow the
 // committed harness precedents in test_scene_solid_layers.py and
 // test_scene_script_binding_parser.py.
 enum SceneGraphRenderTargetPlan { enum TextureFormat { case rgba16f, rgbaBackbuffer } }
@@ -256,11 +270,6 @@ import Metal
 // This builder/factory gate does not prepare native FOV consumers.
 enum SceneParticleCameraFrame {
     static func acceptsNativePerspectiveProjection(camera: SceneRenderDescriptor.CameraDescriptor) -> Bool { false }
-}
-
-enum SceneMdlStaticModelReader {
-    static func readMaterialPathMetadata(data rawData: Data) throws -> String { "" }
-    static func readMaterialPathsMetadata(data: Data) throws -> [String] { [] }
 }
 
 nonisolated struct SceneScriptScalarProgram {}
@@ -688,6 +697,9 @@ class SceneAlphaDisplayBuilderFixtureTests(unittest.TestCase):
             if raw != "absent":
                 item["size"] = raw
             scene_fixture["objects"].append(item)
+        for layer_id, name in enumerate(("width", "height", "invalid", "pair"), 91):
+            scene_fixture["objects"].append({"id": layer_id,
+                "image": f"models/field-presence-{name}.json", "visible": False})
         (scene_root / "scene.json").write_text(json.dumps(scene_fixture), encoding="utf-8")
         (scene_root / "project.json").write_text(
             json.dumps(PROJECT_FIXTURE), encoding="utf-8"
@@ -754,7 +766,7 @@ class SceneAlphaDisplayBuilderFixtureTests(unittest.TestCase):
 
     def test_fixture_loads_all_authored_layers(self) -> None:
         self.assertEqual(
-            [l["id"] for l in self.result["layers"]], [10, 20, 30, 40, 50, 101, 102, 103, 104, 105]
+            [l["id"] for l in self.result["layers"]], [10, 20, 30, 40, 50, 101, 102, 103, 104, 105, 91, 92, 93, 94]
         )
         # 本 fixture 无 shared-alpha 形态：shared 发布路径认领为零。
         self.assertEqual(self.result["sharedAlphaTargets"], [])

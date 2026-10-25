@@ -31,10 +31,11 @@ enum SceneResolvedMaterialGraphObservationBuilder {
         dependencyProviders: [Int] = []
     ) throws -> SceneGraphExecutionObservation {
         let transaction = value.transition.transaction
-        guard State.maximumNodeCount
-                == SceneGraphExecutionObservation.maximumNodeCount,
-              State.maximumLogicalBindingCount
-                == SceneGraphExecutionObservation.maximumLogicalBindingCount,
+        // This output format is bounded; exceeding it drops diagnostics only.
+        // The terminal ledger and history have already been committed.
+        guard value.graph.nodes.count <= SceneGraphExecutionObservation.maximumNodeCount,
+              transaction.mappingBefore.count <= SceneGraphExecutionObservation.maximumLogicalBindingCount,
+              transaction.mappingAfter.count <= SceneGraphExecutionObservation.maximumLogicalBindingCount,
               let effect = value.graph.effects.first?.key,
               effect == value.effect,
               effect == value.pairStep.effect,
@@ -344,6 +345,7 @@ enum SceneResolvedMaterialGraphObservationBuilder {
         switch publication.candidate.identity {
         case let .provider(identity): return identity.reportToken
         case let .file(path): return "file:\(path)"
+        case let .package(entry): return "package:\(entry.packagePath):\(entry.rawEntryPath)"
         case let .builtIn(name): return "built-in:\(name)"
         }
     }

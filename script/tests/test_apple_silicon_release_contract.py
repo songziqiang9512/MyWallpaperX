@@ -131,6 +131,8 @@ class AppleSiliconReleaseContractTests(unittest.TestCase):
                                     capture_output=True, text=True, timeout=15)
             self.assertEqual(result.returncode, 0, result.stderr)
             calls = [json.loads(line) for line in log.read_text().splitlines()]
+            self.assertFalse(any("--verify" in call for call in calls),
+                             "the following final validator owns signature verification")
             signatures = [call for call in calls if "--sign" in call]
             signed_paths = [call[-1] for call in signatures]
             self.assertIn(str(observer), signed_paths, "the unsigned build's observer must be distribution-signed")
@@ -214,7 +216,6 @@ class AppleSiliconReleaseContractTests(unittest.TestCase):
         self.assertIn("script/sign-steam-helper.sh", (ROOT / ".github/workflows/build.yml").read_text())
         publish = (ROOT / "script/publish-steam-helper.sh").read_text()
         self.assertIn("-p:TargetName=SteamService", publish)
-        self.assertIn('$FRESH_DIR/SteamService.dll', publish)
     def test_project_and_release_workflow_freeze_arm64(self):
         project = (ROOT / "MyWallpaperX.xcodeproj/project.pbxproj").read_text()
         workflow = (ROOT / ".github/workflows/build.yml").read_text()

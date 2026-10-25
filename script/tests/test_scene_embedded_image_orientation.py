@@ -37,24 +37,31 @@ enum OrientationHarness {
             let payload = encoded as Data
             let displayWidth = orientation >= 5 ? height : width
             let displayHeight = orientation >= 5 ? width : height
-            func container(_ mipWidth: Int) -> SceneTexContainer {
-                SceneTexContainer(format: 0, flags: 2,
-                    textureWidth: displayWidth, textureHeight: displayHeight,
-                    imageWidth: displayWidth, imageHeight: displayHeight,
-                    containerVersion: .texb0003, freeImageFormat: 2, isVideoMp4: false,
-                    images: [.init(mips: [.init(width: mipWidth, height: displayHeight, data: payload)])],
-                    spriteFrames: [])
+            func texBytes(_ mipWidth: Int) -> Data {
+                var bytes = Data("TEXV0005\0TEXI0001\0".utf8)
+                func u32(_ value: UInt32) {
+                    var little = value.littleEndian
+                    withUnsafeBytes(of: &little) { bytes.append(contentsOf: $0) }
+                }
+                for field in [0, 2, displayWidth, displayHeight, displayWidth, displayHeight, 0] { u32(UInt32(field)) }
+                bytes.append(Data("TEXB0003\0".utf8))
+                for field in [1, 2, 1, mipWidth, displayHeight, 0, 0, payload.count] { u32(UInt32(field)) }
+                bytes.append(payload)
+                return bytes
             }
-            guard loader.hasValidTexb3EmbeddedMipChain(container(displayWidth)),
-                  !loader.hasValidTexb3EmbeddedMipChain(container(displayWidth + 1)) else {
-                fatalError("container dimension proof \(orientation)")
+            let base = URL(fileURLWithPath: CommandLine.arguments[1])
+            let goodURL = base.appendingPathComponent("oriented-\(orientation).tex")
+            let badURL = base.appendingPathComponent("bad-oriented-\(orientation).tex")
+            try texBytes(displayWidth).write(to: goodURL)
+            try texBytes(displayWidth + 1).write(to: badURL)
+            guard case let .loaded(candidate) = try loader.loadCandidate(from: goodURL,
+                    purpose: .straightAlbedo, device: device),
+                  case .failed = try loader.loadCandidate(from: badURL, purpose: .straightAlbedo, device: device),
+                  let decoded = SceneTextureMipUploader.decodeEmbeddedImages([payload]) else {
+                fatalError("orientation \(orientation) metadata boundary failed")
             }
-            guard let extent = loader.embeddedImagePixelSize(payload),
-                  let decoded = SceneTextureMipUploader.decodeEmbeddedImages([payload]),
-                  case let .loaded(texture)? = SceneTextureMipUploader.uploadEmbeddedDataImages(
-                    decoded, purpose: .straightAlbedo, device: device) else {
-                fatalError("orientation \(orientation) rejected")
-            }
+            let texture = candidate.texture
+            let extent = CGSize(width: decoded[0].width, height: decoded[0].height)
             var rgba = [UInt8](repeating: 0, count: texture.width * texture.height * 4)
             texture.getBytes(&rgba, bytesPerRow: texture.width * 4,
                 from: MTLRegionMake2D(0, 0, texture.width, texture.height), mipmapLevel: 0)
@@ -72,7 +79,7 @@ enum OrientationHarness {
                 "corners": corners])
         }
         guard SceneTextureMipUploader.decodeEmbeddedImages([Data([0xFF, 0xD8, 0xFF])]) == nil,
-              loader.embeddedImagePixelSize(Data([0xFF, 0xD8, 0xFF])) == nil else {
+              SceneTextureMipUploader.embeddedImagePixelSize(Data([0xFF, 0xD8, 0xFF])) == nil else {
             fatalError("truncated payload admitted")
         }
         // A legal single-level TEX above the loose upload limit takes the
@@ -98,7 +105,7 @@ enum OrientationHarness {
         tex.append(largeJPEG as Data)
         let url = URL(fileURLWithPath: CommandLine.arguments[1]).appendingPathComponent("large-oriented.tex")
         try tex.write(to: url)
-        guard case let .loaded(texture) = loader.load(from: url, purpose: .straightAlbedo, device: device),
+        guard case let .loaded(texture) = try loader.load(from: url, purpose: .straightAlbedo, device: device),
               texture.width == 1, texture.height == 4096 else {
             fatalError("large fallback lost display orientation")
         }

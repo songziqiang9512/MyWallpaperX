@@ -70,67 +70,217 @@ enum DebugWebProcessIsolationRunner {
         return true
     }
 
-    /// Real Steam selection path, rather than the shorter direct host launch.
-    /// Alternating forced-cold and ordinary selections separate cache warmth
-    /// from an already-running empty renderer. Polling contributes up to 20ms.
+    /// Real product selection and transaction, with no direct-host runner flag.
+    /// `single` supports separate App launches against empty/retained HOME;
+    /// `sequence` retains the same App and its normal prepared-process policy.
+    /// Neither mode claims a cold OS or WebKit cache. Report the stored finalize
+    /// timestamp separately from polling observation and its scheduling delay.
     private static func measureStartup(reportURL: URL, itemID: String) async {
         let engine = WallpaperEngine.shared
-        guard DebugWebPlaybackRunner.hasUsableWorkshopRoot,
-              let host = engine.dedicatedWebHostAdapter as? WebDaemonHostAdapter else { return }
-        let originalSettings = WallpaperManager.shared.settings
-        defer { WallpaperManager.shared.settings = originalSettings }
+        let manager = WallpaperManager.shared
+        let originalSettings = manager.settings
+        var result: [String: Any] = [
+            "passed": false, "rows": [[String: Any]](), "itemID": itemID,
+            "timingSchemaVersion": 3,
+            "parentPID": ProcessInfo.processInfo.processIdentifier,
+            "foundationHome": FileManager.default.homeDirectoryForCurrentUser.path,
+            "environmentHome": ProcessInfo.processInfo.environment["HOME"] ?? "",
+            "fixedUserHome": ProcessInfo.processInfo.environment["CFFIXED_USER_HOME"] ?? "",
+            "webKitPIDs": "unknown", "systemCacheState": "unknown",
+            "timingBoundary": "Product selection entry to matching Web session.committedAt (parent Host finalize)",
+            "observationTimingBoundary": "Matching committed/finalized execution observed by nominal 20ms polling; scheduling delay is measured, not bounded",
+            "startupTimingScope": "Parent and matching child monotonic event callbacks; prepared-process hello may precede selection; WebKit internals and physical presentation unknown",
+            "activationSentBoundary": "Parent enqueue of accepted candidate activate; not pipe completion or child receipt",
+            "childStartupTimingBoundary": "Accepted activate handler, current native-policy ACK, and first all-surface visibility observation; producer times, not parent receive times",
+            "childPreparationTimingBoundary": "Current prepared cohort snapshot; complete surface creation, load issued and first ready source; native-policy interval is remaining wait, not necessarily a new native call",
+            "cacheObservationScope": "Manifest metadata only; presence does not prove a cache hit",
+            "launchReplaySuppressed": true,
+            "audioIsSeparateGate": true
+        ]
+        defer {
+            manager.stopCurrentPlayback()
+            manager.settings = originalSettings
+            do {
+                let data = try JSONSerialization.data(withJSONObject: result, options: [.prettyPrinted, .sortedKeys])
+                try data.write(to: reportURL, options: .atomic)
+            } catch { NSLog("MWX Web startup report failed: %@", error.localizedDescription) }
+            DispatchQueue.main.async { NSApp.terminate(nil) }
+        }
+        let args = ProcessInfo.processInfo.arguments
+        let mode: String
+        if let index = args.firstIndex(of: "--mwx-debug-web-startup-mode") {
+            guard args.indices.contains(index + 1), ["single", "sequence"].contains(args[index + 1]) else {
+                result["failure"] = "startup-mode-must-be-single-or-sequence"; return
+            }
+            mode = args[index + 1]
+        } else { mode = "sequence" }
+        result["mode"] = mode
+        result["standardDefaultsDomain"] = Bundle.main.bundleIdentifier ?? ""
+        result["standardDefaultsSentinelVerified"] = DebugWebPlaybackRunner.hasIsolatedStartupEnvironment
+        result["productCoordinatorConfigured"] = manager.runtimeSwitchingConfigured
+        guard DebugWebPlaybackRunner.hasIsolatedStartupEnvironment,
+              DebugWebPlaybackRunner.hasUsableWorkshopRoot,
+              manager.runtimeSwitchingConfigured,
+              let host = engine.dedicatedWebHostAdapter as? WebDaemonHostAdapter else {
+            result["failure"] = "isolated-product-coordinator-required"; return
+        }
         var settings = WallpaperSettings()
         settings.pauseWhenOtherAppFocused = false
         settings.pauseWhenOtherAppFullscreen = false
         settings.pauseWhenUnplugged = false
         settings.pauseWhenIdle = false
-        WallpaperManager.shared.settings = settings
+        manager.settings = settings
+        result["policyConfiguration"] = "Four automatic pause conditions disabled; default remaining WallpaperSettings"
+        guard let rawFPS = DebugScenePlaybackRunner.argumentValue(after: "--mwx-debug-startup-fps"),
+              let fps = Int(rawFPS), let profile = PlaybackPerformanceProfile(rawValue: fps) else {
+            result["failure"] = "startup-fps-must-be-30-or-60"; return
+        }
+        PlaybackPerformanceProfile.save(profile)
+        PlaybackCommandMultiplexer.shared.dispatch(.setPerformanceProfile(maxFPS: fps))
+        result["appliedFPS"] = PlaybackPerformanceProfile.current.maxFPS
         PlaybackCommandMultiplexer.shared.dispatch(.resume)
         let service = SteamWorkshopService.shared
         service.reloadInstalledItems()
         guard let record = await DebugWebPlaybackRunner.awaitInstalledRecord(itemID, using: service),
-              record.contentType == .web else { return }
+              record.contentType == .web else {
+            result["failure"] = "web-record-unavailable"; return
+        }
+        result["workshopRoot"] = service.libraryRootURL.path
+        result["recordRoot"] = record.folderURL.path
+        result["entryPath"] = record.webEntryURL?.path ?? ""
+        let selections = mode == "single" ? 1 : 7
+        let removePrepared = args.contains("--mwx-debug-web-startup-no-prepared-process")
         var rows: [[String: Any]] = []
-        for index in 0..<7 {
-            let cold = index == 0 || index.isMultiple(of: 2)
-            if cold { host.cancelPreparation() }
+        for index in 0..<selections {
+            let removesPrepared = removePrepared
+            if removesPrepared {
+                host.cancelPreparation()
+                guard await waitUntil({
+                    host.preparedProcess == nil && host.retiringPrepared.isEmpty
+                }, attempts: 30) else {
+                    rows.append(["index": index, "recordID": itemID, "failed": true,
+                        "failure": "prepared-process-did-not-exit"])
+                    break
+                }
+            }
             let before = host.liveProcessIdentifiers
             let preparationFacts = host.debugPreparationFacts
             let previous = host.activeRequest?.id
+            let cacheBefore = startupCacheFacts(service: service, record: record)
             let started = ProcessInfo.processInfo.systemUptime
             service.setAsWallpaper(record)
+            let selectedEpoch = manager.playbackIntentEpoch
             var completed = false
-            for _ in 0..<1_000 {
+            let deadline = started + 45
+            while ProcessInfo.processInfo.systemUptime < deadline {
                 if let request = host.activeRequest, request.id != previous,
                    request.recordID == itemID, engine.currentWebRequestID == request.id,
+                   let session = host.active,
+                   let committedAt = session.committedAt, committedAt >= started,
+                   let committed = manager.playbackSwitch.committed,
+                   committed.ticket.epoch == selectedEpoch, committed.ticket.runtime == .web,
+                   committed.executionID == session.executionID,
+                   manager.activeWallpaperRuntime == .web,
+                   manager.lastWorkshopPlaybackRecordID == itemID,
                    !host.hasPendingRequest {
                     let pid = host.debugActiveProcessIdentifier
-                    rows.append(["index": index, "forcedCold": cold,
-                        "entryToCommitMs": (ProcessInfo.processInfo.systemUptime - started) * 1_000,
+                    let observedAt = ProcessInfo.processInfo.systemUptime
+                    var row: [String: Any] = ["index": index, "preparedProcessRemovalRequested": removesPrepared,
+                        "entryToCommitMs": (committedAt - started) * 1_000,
+                        "entryToCommitObservedMs": (observedAt - started) * 1_000,
+                        "commitObservationDelayMs": (observedAt - committedAt) * 1_000,
+                        "recordID": itemID,
                         "requestID": request.id.uuidString, "beforePIDs": before, "activePID": pid ?? 0,
                         "preparationFacts": preparationFacts,
-                        "adoptedExistingProcess": pid.map { before.contains($0) } ?? false])
+                        "selectionUptime": started, "committedAt": committedAt,
+                        "committedExecutionObservedUptime": observedAt,
+                        "intentEpoch": selectedEpoch, "ticketID": committed.ticket.id.uuidString,
+                        "executionID": session.executionID.uuidString,
+                        "runtimeProfile": request.runtimeProfile.id,
+                        "originMode": request.runtimeProfile.originMode.rawValue,
+                        "dataStorePolicy": request.runtimeProfile.dataStorePolicy.rawValue,
+                        "cacheBefore": cacheBefore,
+                        "cacheAfter": startupCacheFacts(service: service, record: record),
+                        "adoptedExistingProcess": pid.map { before.contains($0) } ?? false]
+                    if let timing = session.startupTiming {
+                        var parentTimes: [String: TimeInterval] = ["finalized": committedAt]
+                        parentTimes["helloReceived"] = timing.helloReceivedAt
+                        parentTimes["launchEnqueued"] = timing.launchEnqueuedAt
+                        parentTimes["preparedCohortAccepted"] = timing.preparedCohortAcceptedAt
+                        parentTimes["activationSent"] = timing.activationSentAt
+                        parentTimes["activationConfirmedAccepted"] = timing.activationConfirmedAcceptedAt
+                        row["parentStartupUptime"] = parentTimes
+                    }
+                    row["childStartupTimingStatus"] = "unavailable"
+                    row["childPreparationTimingStatus"] = "unavailable"
+                    row["childStartupUptime"] = NSNull()
+                    if let timing = session.matchingChildStartupTiming {
+                        var childTimes: [String: TimeInterval] = ["activateReceived": timing.activateReceivedAt]
+                        childTimes["nativePolicyAccepted"] = timing.nativePolicyAcceptedAt
+                        childTimes["visibilityFirstConfirmed"] = timing.visibilityFirstConfirmedAt
+                        childTimes["firstVisibilityRetry"] = timing.firstVisibilityRetryAt
+                        row["childStartupUptime"] = childTimes
+                        row["childStartupTimingStatus"] = "matched-activation"
+                        row["childStartupActivation"] = ["generation": timing.identity.generation,
+                            "activationID": timing.identity.activationID.uuidString] as [String: Any]
+                        row["childStartupFirstVisibilityRetryReason"] = timing.firstVisibilityRetryReason as Any? ?? NSNull()
+                        if let preparation = timing.preparation,
+                           preparation.generation == timing.identity.generation,
+                           preparation.surfaces == session.preparedCohort?.surfaces {
+                            var times: [String: TimeInterval] = ["launchReceived": preparation.launchReceivedAt]
+                            times["hostReady"] = preparation.hostReadyAt
+                            times["snapshotRequested"] = preparation.snapshotRequestedAt
+                            times["snapshotCompleted"] = preparation.snapshotCompletedAt
+                            times["policyWaitStarted"] = preparation.policyWaitStartedAt
+                            times["policyAccepted"] = preparation.policyAcceptedAt
+                            row["childPreparationUptime"] = times
+                            row["childPreparationGeneration"] = preparation.generation
+                            row["childSurfacePreparationCoverage"] = preparation.surfaceTimings.count == preparation.surfaces.count
+                                ? "complete" : "partial"
+                            row["childSurfacePreparation"] = preparation.surfaceTimings.map { surface in
+                                var value: [String: Any] = ["displayID": surface.displayID,
+                                    "creationStarted": surface.creationStartedAt]
+                                value["surfaceID"] = surface.surfaceID?.uuidString
+                                value["navigationGeneration"] = surface.navigationGeneration
+                                value["creationCompleted"] = surface.creationCompletedAt
+                                value["loadIssued"] = surface.loadIssuedAt
+                                value["readyObserved"] = surface.readyObservedAt
+                                value["readySource"] = surface.readySource
+                                return value
+                            }
+                            row["childPreparationTimingStatus"] = "matched-prepared-cohort"
+                        }
+                    }
+                    rows.append(row)
                     completed = true
                     break
                 }
                 try? await Task.sleep(for: .milliseconds(20))
             }
             if !completed {
-                rows.append(["index": index, "failed": true]); break
+                rows.append(["index": index, "failed": true, "failure": "matching-product-commit-not-observed",
+                    "recordID": itemID, "intentEpoch": selectedEpoch,
+                    "preparationFacts": host.debugPreparationFacts])
+                break
             }
-            try? await Task.sleep(for: .seconds(3))
-            rows[rows.count - 1]["realMusicObserved"] = engine.spectrumDelivery.currentWebLevels.contains { $0 > 0.001 }
+            if index + 1 < selections { try? await Task.sleep(for: .seconds(3)) }
         }
-        WallpaperManager.shared.stopCurrentPlayback()
-        let result: [String: Any] = ["rows": rows, "itemID": itemID,
-            "passed": rows.count == 7 && rows.allSatisfy {
-                $0["failed"] == nil && $0["realMusicObserved"] as? Bool == true
-            },
-            "timingBoundary": "Steam selection entry to matching committed Web request; up to 20ms polling"]
-        do {
-            let data = try JSONSerialization.data(withJSONObject: result, options: [.prettyPrinted, .sortedKeys])
-            try data.write(to: reportURL, options: .atomic)
-        } catch { NSLog("MWX Web startup report failed: %@", error.localizedDescription) }
+        result["rows"] = rows
+        result["passed"] = rows.count == selections && rows.allSatisfy { $0["failed"] == nil }
+    }
+
+    private static func startupCacheFacts(
+        service: SteamWorkshopService, record: SteamWorkshopDownloadRecord
+    ) -> [String: Any] {
+        func metadata(_ url: URL) -> [String: Any] {
+            guard let values = try? url.resourceValues(forKeys: [.fileSizeKey, .contentModificationDateKey]) else {
+                return ["path": url.path, "exists": false]
+            }
+            return ["path": url.path, "exists": true, "bytes": values.fileSize ?? 0,
+                "modifiedAt": values.contentModificationDate?.timeIntervalSince1970 ?? 0]
+        }
+        return ["analysis": metadata(service.webAnalysisCacheFileURL(for: record)),
+            "descriptorMemoPresent": service.webProjectDescriptorCache[record.id] != nil]
     }
 
     private static func waitUntil(_ test: () -> Bool, attempts: Int = 150) async -> Bool {

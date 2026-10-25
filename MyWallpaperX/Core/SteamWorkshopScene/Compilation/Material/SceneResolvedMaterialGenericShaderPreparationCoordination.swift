@@ -428,18 +428,35 @@ nonisolated final class SceneResolvedMaterialGenericShaderResolutionCache:
 nonisolated final class SceneResolvedMaterialGenericShaderCompilationCoordinator:
     @unchecked Sendable
 {
+    typealias ProductResult = Result<
+        SceneAuthoredShaderProgram,
+        SceneResolvedMaterialGenericShaderArtifactCache.ProgramLoadFailure
+    >
+
+    /// An accepted Program belongs to its actual consumption contract, which
+    /// can be more specific than the compiler's persistent artifact key.
+    struct Key: Hashable, Sendable {
+        let requestKey: String
+        let outputSemantics: SceneGenericShaderOutputSemantics
+        let premultipliedColorInputSlots: Set<Int>
+        let colorBoundary: SceneShaderColorBoundary?
+        let colorTransfer: SceneShaderColorTransfer
+        let fragmentOutputChannelUse:
+            SceneAuthoredShaderProgram.FragmentOutputChannelUse
+    }
+
     enum Source: String {
         case spawn
         case joinedFlight = "joined-flight"
     }
 
     struct Outcome {
-        let result: Result<URL, SceneGenericShaderCompiler.Failure>
+        let result: ProductResult
         let source: Source
     }
 
     private let condition = NSCondition()
-    private var active: [String: SceneShaderCacheFlight<Result<URL, SceneGenericShaderCompiler.Failure>>] = [:]
+    private var active: [Key: SceneShaderCacheFlight<ProductResult>] = [:]
     var snapshot: SceneShaderCompletedCacheSnapshot {
         condition.lock()
         defer { condition.unlock() }
@@ -449,8 +466,8 @@ nonisolated final class SceneResolvedMaterialGenericShaderCompilationCoordinator
     }
 
     func perform(
-        key: String,
-        operation: () -> Result<URL, SceneGenericShaderCompiler.Failure>
+        key: Key,
+        operation: () -> ProductResult
     ) -> Outcome {
         condition.lock()
         if let flight = active[key] {
@@ -461,14 +478,14 @@ nonisolated final class SceneResolvedMaterialGenericShaderCompilationCoordinator
             condition.unlock()
             return .init(result: result, source: .joinedFlight)
         }
-        let flight = SceneShaderCacheFlight<Result<URL, SceneGenericShaderCompiler.Failure>>()
+        let flight = SceneShaderCacheFlight<ProductResult>()
         active[key] = flight
         condition.unlock()
 
         let result = operation()
         condition.lock()
-        // Only existing waiters share the outcome. A later request revalidates
-        // the actual file and may retry a repaired compiler/cache/workspace.
+        // Existing waiters consume this accepted Program or failure. Nothing
+        // is retained: later requests read their current cache entry again.
         flight.result = result
         active.removeValue(forKey: key)
         condition.broadcast()

@@ -86,10 +86,10 @@ class SceneResolvedMaterialProgramDerivationTests(unittest.TestCase):
                 [str(binary)],
                 cwd=REPOSITORY_ROOT,
                 env=environment,
-                check=True,
                 capture_output=True,
                 text=True,
             )
+            self.assertEqual(completed.returncode, 0, completed.stdout + completed.stderr)
         result = json.loads(completed.stdout)
         if not result["metalAvailable"]:
             self.skipTest("Metal is unavailable")

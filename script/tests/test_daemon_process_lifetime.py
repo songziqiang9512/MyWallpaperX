@@ -37,6 +37,10 @@ import Foundation
                 try "entry".write(toFile: args[2] + ".entry", atomically: true, encoding: .utf8)
                 Thread.sleep(forTimeInterval: 0.2)
             }
+            if mode == "--child-install-race" {
+                // No ready handshake fences the parent kill from installation.
+                try "entry".write(toFile: args[2] + ".entry", atomically: true, encoding: .utf8)
+            }
             let lifetime = DaemonParentLifetime(hardExitDelay: 0.45)
             if mode != "--child-initializing" {
                 lifetime.setShutdownHandler {
@@ -174,7 +178,8 @@ class DaemonProcessLifetimeTests(unittest.TestCase):
             try:
                 self.wait_file(pidfile)
                 pid = int(pidfile.read_text())
-                self.wait_file(Path(str(ready) + ".entry") if mode == "--child-late-install" else ready)
+                self.wait_file(Path(str(ready) + ".entry") if mode in
+                               ("--child-late-install", "--child-install-race") else ready)
                 parent.kill()
                 parent.wait(timeout=2)
                 self.wait_exit(pid)
@@ -201,6 +206,11 @@ class DaemonProcessLifetimeTests(unittest.TestCase):
 
     def test_parent_exits_before_watchdog_installation(self):
         self.parent_death("--child-late-install", graceful=True)
+
+    def test_parent_exit_is_not_fenced_from_watchdog_installation(self):
+        for attempt in range(4):
+            with self.subTest(attempt=attempt):
+                self.parent_death("--child-install-race", graceful=True)
 
     def test_eof_with_child_main_blocked_uses_hard_deadline(self):
         ready = self.work / "blocked-eof-ready"

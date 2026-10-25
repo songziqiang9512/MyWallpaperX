@@ -19,11 +19,13 @@ final class FakeProcess { var isRunning = true; let processIdentifier: Int32; in
 final class DaemonProcessTransport {
     static var nextPID: Int32 = 1000
     let process: FakeProcess
+    let arguments: [String]
     let inputPipe = Pipe(), outputPipe = Pipe(), errorPipe = Pipe()
     var onOutput: ((Data)->Void)?, onError: ((String)->Void)?, onTermination: ((Int32)->Void)?
     var sent: [Data] = []; var stopRequested = false
     var isRunning: Bool { process.isRunning }
     init(executableURL: URL, arguments: [String], playbackRenderer: Bool = false) {
+        self.arguments = arguments
         Self.nextPID += 1; process = FakeProcess(Self.nextPID)
     }
     func start() throws {}
@@ -143,6 +145,38 @@ extension WallpaperEngine {
 }
 '''
 
+PREPARATION_PRODUCER_SUPPORT = r'''
+#if DEBUG
+final class WKNavigation {}
+final class WKWebView {
+    func load(_ request: URLRequest) -> WKNavigation? { WKNavigation() }
+    func reload() -> WKNavigation? { WKNavigation() }
+    func stopLoading() {}
+}
+final class DedicatedWebWallpaperHostPlaceholderAdapter {
+    struct HostSurface { let id = UUID(); let screenID: UInt32; let webView: WKWebView }
+    struct NavigationOwnership { let requestID: UUID; let navigation: WKNavigation; let generation: UInt64 }
+    enum Phase { case ready, launching }
+    var phase = Phase.ready
+    var surfaces: [UInt32: HostSurface] = [:]
+    var currentRequest: WallpaperEngine.WebWallpaperLaunchRequest?
+    var navigationOwnershipByScreen: [UInt32: NavigationOwnership] = [:]
+    var recoveringWebContentScreenIDs = Set<UInt32>()
+    var readyScreenIDs = Set<UInt32>()
+    var debugStartupSurfaceTimings: [UInt32: WebDaemonStartupSurfaceTimingObservation]? = [:]
+    var generation: UInt64 = 0
+    func advanceNavigationGeneration() -> UInt64 { generation += 1; return generation }
+    func invalidatePresentation(on surface: HostSurface) {}
+    func screenID(for view: WKWebView) -> UInt32? { surfaces.first { $0.value.webView === view }?.key }
+    func runtimeEntryURL(for request: WallpaperEngine.WebWallpaperLaunchRequest, localEntryURL: URL,
+                         surface: HostSurface, completion: (URL) -> Void) { completion(localEntryURL) }
+}
+extension DedicatedWebWallpaperHostPlaceholderAdapter {
+    // REAL_NAVIGATION_PRODUCERS
+}
+#endif
+'''
+
 
 HARNESS = r'''
 import AppKit
@@ -205,7 +239,7 @@ import Foundation
         engine.cancelSwitch(ticket: queuedVideoTicket) { queueCancelled = true }
         precondition(queueCancelled && engine.deferredVideoPreparation == nil && engine.videoCandidate === b)
         var sameTypeRetired = false
-        endpointA.retire { sameTypeRetired = true }
+        endpointA.retire(nil) { sameTypeRetired = true }
         precondition(sameTypeRetired)
         endpointB.finalize()
         precondition(engine.currentContentPath == "/B")
@@ -286,11 +320,17 @@ import Foundation
         func prepareWeb(_ name: String) -> WebDaemonHostAdapter.Session {
             let request = WallpaperEngine.WebWallpaperLaunchRequest(id: UUID(), entryURL: URL(fileURLWithPath: "/" + name),
                 rootURL: URL(fileURLWithPath: "/"), propertiesJSON: "{}", source: .steamWorkshop,
-                recordID: name, language: "zh", runtimeProfile: .standard, multiDisplayEnabled: false)
+                recordID: name, language: "zh", runtimeProfile: .standard, multiDisplayEnabled: false,
+                allowedNetworkHosts: ["prepared-author.example"])
             adapter.prepareSwitch(ticket: ticket(.web), request: request,
                 runtimeState: .init(paused: false, volume: 0.8, playbackRate: 1, spectrumLevels: nil))
             let session = adapter.candidate!
             adapter.receive(.hello, from: session)
+            let launch = try! JSONDecoder().decode(WebDaemonEnvelope<WebDaemonCommand>.self, from: session.transport.sent[0])
+            guard case let .launch(input) = launch.payload else { fatalError("expected launch command") }
+            precondition(input.allowedNetworkHosts == ["prepared-author.example"]
+                && session.executionRequest.allowedNetworkHosts == request.allowedNetworkHosts,
+                "hello uses the prepared request hosts without a descriptor resolver")
             return session
         }
         func preparedWeb(_ session: WebDaemonHostAdapter.Session) {
@@ -314,10 +354,111 @@ import Foundation
         abandoned.transport.end()
 
         let wa = prepareWeb("WA"); preparedWeb(wa)
+#if DEBUG
+        let measuresStartup = ProcessInfo.processInfo.arguments.contains("--mwx-debug-web-startup-report")
+        precondition((wa.startupTiming != nil) == measuresStartup)
+        precondition(wa.transport.arguments.contains("--mwx-debug-web-startup-timing") == measuresStartup)
+        precondition(wa.startupTiming?.preparedCohortAcceptedAt != nil || !measuresStartup)
+        precondition(wa.startupTiming?.launchEnqueuedAt != nil || !measuresStartup)
+        precondition(wa.startupTiming?.activationSentAt == nil)
+#endif
         adapter.receive(.host(.audioSpectrumDemandChanged(true, requestID: wa.request.id)), from: wa)
         let webA = webEndpoints[wa.executionID]!
         precondition(adapter.active == nil)
-        webA.activate(); visibleWeb(wa)
+        webA.activate()
+#if DEBUG
+        let sentAt = wa.startupTiming?.activationSentAt
+        precondition((sentAt != nil) == measuresStartup)
+        webA.activate()
+        precondition(wa.startupTiming?.activationSentAt == sentAt, "duplicate activation rewrote its event time")
+        func startupObservationData(_ timing: WebDaemonStartupTimingObservation, requestID: UUID) throws -> Data {
+            let observation = WebDaemonHostObservation(phase: "ready", currentRequest: 1,
+                loopbacks: 0, monitors: 0, observers: 0, pointerTimer: 0, surfaces: 1,
+                watchTimer: 0, watchers: 0, startupTiming: timing)
+            return try DaemonNewlineJSON.encode(WebDaemonEnvelope(
+                requestID: requestID, payload: WebDaemonEvent.observation(observation)))
+        }
+        let identity = wa.activationIdentity!
+        let surfaceIdentity = wa.preparedCohort!.surfaces.first!
+        let observedSurface = WebDaemonStartupSurfaceTimingObservation(displayID: surfaceIdentity.displayID,
+            creationStartedAt: 2.5, surfaceID: surfaceIdentity.surfaceID,
+            navigationGeneration: surfaceIdentity.navigationGeneration,
+            creationCompletedAt: 3, loadIssuedAt: 3.5, readyObservedAt: 4, readySource: "didFinish")
+        precondition(observedSurface.matching(surfaceIdentity) != nil)
+        precondition(observedSurface.matching(.init(displayID: surfaceIdentity.displayID,
+            surfaceID: UUID(), navigationGeneration: surfaceIdentity.navigationGeneration, windowID: 10)) == nil,
+            "replaced surface inherited old preparation telemetry")
+        precondition(observedSurface.matching(.init(displayID: surfaceIdentity.displayID,
+            surfaceID: surfaceIdentity.surfaceID, navigationGeneration: surfaceIdentity.navigationGeneration + 1, windowID: 10)) == nil,
+            "replacement document inherited old load/ready telemetry")
+        let wrongActivation = WebDaemonStartupTimingObservation(
+            identity: .init(generation: identity.generation, activationID: UUID()), activateReceivedAt: 1)
+        adapter.consume(try startupObservationData(wrongActivation, requestID: wa.request.id), from: wa)
+        precondition(wa.matchingChildStartupTiming == nil, "stale activation telemetry became matching evidence")
+        var preparation = WebDaemonPreparationTimingObservation(launchReceivedAt: 2,
+            generation: identity.generation, surfaces: wa.preparedCohort!.surfaces,
+            hostReadyAt: 4, snapshotRequestedAt: 5, snapshotCompletedAt: 7,
+            policyWaitStartedAt: 7.5, policyAcceptedAt: 8,
+            surfaceTimings: [observedSurface])
+        let producerTiming = WebDaemonStartupTimingObservation(identity: identity, activateReceivedAt: 10,
+            nativePolicyAcceptedAt: 30, visibilityFirstConfirmedAt: 20,
+            firstVisibilityRetryAt: 15, firstVisibilityRetryReason: "window-not-onscreen",
+            preparation: preparation)
+        preparation.snapshotCompletedAt = 999
+        adapter.consume(try startupObservationData(producerTiming, requestID: wa.request.id), from: wa)
+        precondition(!wa.visibilityConfirmed && webVisible.isEmpty, "diagnostics authorized a product switch")
+        if measuresStartup {
+            precondition(wa.matchingChildStartupTiming?.activateReceivedAt == 10
+                && wa.matchingChildStartupTiming?.nativePolicyAcceptedAt == 30
+                && wa.matchingChildStartupTiming?.visibilityFirstConfirmedAt == 20
+                && wa.matchingChildStartupTiming?.firstVisibilityRetryAt == 15
+                && wa.matchingChildStartupTiming?.firstVisibilityRetryReason == "window-not-onscreen",
+                "IPC replaced producer times with receive time or forced media/visibility order")
+            let transported = wa.matchingChildStartupTiming!.preparation!
+            precondition(transported.generation == identity.generation
+                && transported.surfaces == wa.preparedCohort!.surfaces
+                && transported.launchReceivedAt == 2 && transported.snapshotCompletedAt == 7
+                && transported.policyWaitStartedAt == 7.5 && transported.policyAcceptedAt == 8
+                && transported.surfaceTimings.first?.loadIssuedAt == 3.5
+                && transported.surfaceTimings.first?.readySource == "didFinish",
+                "preparation snapshot lost cohort, producer time or ready semantics in transport")
+        } else { precondition(wa.matchingChildStartupTiming == nil) }
+        // Execute the actual initial-load, recovery and page-navigation writers.
+        let producer = DedicatedWebWallpaperHostPlaceholderAdapter()
+        producer.currentRequest = wa.request
+        let producerSurface = DedicatedWebWallpaperHostPlaceholderAdapter.HostSurface(screenID: 1, webView: WKWebView())
+        producer.surfaces[1] = producerSurface
+        func seedCreation() {
+            producer.debugStartupSurfaceTimings?[1] = .init(displayID: 1, creationStartedAt: 1,
+                surfaceID: producerSurface.id, creationCompletedAt: 2)
+        }
+        seedCreation()
+        producer.loadTrackedNavigation(on: producerSurface, request: wa.request,
+            localEntryURL: wa.request.entryURL, stopCurrent: false) { precondition($0) }
+        let firstNavigationGeneration = producer.navigationOwnershipByScreen[1]!.generation
+        let firstIdentity = WebDaemonSurfaceIdentity(displayID: 1, surfaceID: producerSurface.id,
+            navigationGeneration: firstNavigationGeneration, windowID: 10)
+        precondition(producer.debugStartupSurfaceTimings?[1]?.loadIssuedAt != nil
+            && producer.debugStartupSurfaceTimings?[1]?.matching(firstIdentity) != nil)
+        precondition(producer.reloadTrackedNavigation(on: producerSurface, requestID: wa.request.id))
+        precondition(producer.debugStartupSurfaceTimings?[1] == nil,
+            "WebContent recovery retained initial document preparation times")
+        seedCreation()
+        producer.loadTrackedNavigation(on: producerSurface, request: wa.request,
+            localEntryURL: wa.request.entryURL, stopCurrent: false) { precondition($0) }
+        producer.readyScreenIDs.insert(1)
+        precondition(producer.screenIDForStartedNavigation(WKNavigation(), webView: producerSurface.webView) == 1)
+        precondition(producer.debugStartupSurfaceTimings?[1] == nil,
+            "page navigation retained initial document preparation times")
+        let invalidTelemetryAdapter = WebDaemonHostAdapter(spectrumDelivery: .init())
+        invalidTelemetryAdapter.prepareSwitch(ticket: ticket(.web), request: wa.executionRequest, runtimeState: wa.state)
+        let invalidTelemetrySession = invalidTelemetryAdapter.candidate!
+        invalidTelemetryAdapter.consume(try startupObservationData(producerTiming, requestID: UUID()),
+            from: invalidTelemetrySession)
+        precondition(invalidTelemetrySession.observation == nil && invalidTelemetryAdapter.candidate == nil,
+            "wrong request telemetry bypassed normal protocol rejection")
+#endif
+        visibleWeb(wa)
         precondition(webVisible == [wa.executionID] && adapter.active == nil)
         webA.finalize(); precondition(adapter.active === wa)
         let wb = prepareWeb("WB"); var earlyCancelled = false
@@ -344,7 +485,7 @@ import Foundation
         precondition(webQueueCancelled && adapter.deferredPreparation == nil && adapter.candidate === wd)
         precondition(adapter.active === wa && !wa.transport.stopRequested)
         var webRetired = false
-        webA.retire { webRetired = true }
+        webA.retire(nil) { webRetired = true }
         precondition(!webRetired && wa.transport.stopRequested && adapter.candidate === wd && !wd.transport.stopRequested)
         wa.transport.end(); precondition(webRetired)
         precondition(adapter.audioSpectrumRequested && audioDemands.last == true,
@@ -398,6 +539,8 @@ import Foundation
         while Date() < recoveryDeadline { RunLoop.main.run(until: Date().addingTimeInterval(0.01)) }
         let restarted = recoveryAdapter.candidate!
         precondition(restarted.ticket == originalTicket && restarted.executionID != dead.executionID)
+        precondition(restarted.executionRequest.allowedNetworkHosts == dead.executionRequest.allowedNetworkHosts,
+            "recovery preserves the same author host snapshot")
         precondition(restarted.resourceGrants.isEmpty && restarted.resourceRevision == 1,
             "recovery resurrected an external grant cleared during its wait")
         propertyEngine.updateCurrentWebWallpaperProperties("{\"image\":{\"value\":\"Default\"}}", resourceGrants: [], resourcesChanged: true)
@@ -469,10 +612,17 @@ import Foundation
         let oldToggle = toggleAdapter.candidate!
         feedPrepared(toggleAdapter, oldToggle)
         precondition(!oldToggle.activationSent)
+#if DEBUG
+        precondition(oldToggle.startupTiming?.activationSentAt == nil,
+            "prepared telemetry skipped the old output barrier")
+#endif
         let deactivateA = committedA.outputActivityCompletions.first!
         precondition(!deactivateA.value.desired)
         toggleAdapter.receive(.outputActivityChanged(deactivateA.key, false), from: committedA)
         precondition(oldToggle.activationSent)
+#if DEBUG
+        precondition((oldToggle.startupTiming?.activationSentAt != nil) == measuresStartup)
+#endif
         let oldExecutionID = oldToggle.executionID, oldActivation = oldToggle.activationIdentity!
         toggleAdapter.updateDisplayConfiguration(multiDisplayEnabled: true)
         precondition(oldToggle.executionID == oldExecutionID && oldToggle.activationIdentity == oldActivation
@@ -510,6 +660,41 @@ import Foundation
         let afterRebuild = rebuildAdapter.candidate!
         precondition(afterRebuild.ticket == rebuildTicket && afterRebuild.executionID != beforeRebuild.executionID
             && afterRebuild.multiDisplayEnabled && afterRebuild.state.paused && afterRebuild.state.volume == 0.3)
+        precondition(afterRebuild.executionRequest.allowedNetworkHosts == beforeRebuild.executionRequest.allowedNetworkHosts,
+            "display-cohort rebuilding preserves prepared author hosts")
+
+        let optional = WebDaemonHostAdapter(spectrumDelivery: .init())
+        var mayPrewarm = true
+        optional.mayPrepareIdleProcess = { mayPrewarm }
+        optional.scheduleIdlePreparation()
+        let scheduled = optional.idlePreparationWorkItem!
+        optional.active = wa
+        mayPrewarm = false
+        scheduled.perform()
+        precondition(optional.preparedProcess == nil,
+            "optional timer must consult current Scene retention at actual admission")
+        optional.prepareIdleProcess()
+        precondition(optional.preparedProcess == nil)
+        let explicitRequest = UUID()
+        optional.prepareProcess(requestID: explicitRequest)
+        let claimed = optional.preparedProcess!
+        precondition(claimed.requestID == explicitRequest && !claimed.isIdle,
+            "Scene optional-prewarm predicate cannot block a real Web request")
+        optional.cancelIdlePreparation()
+        precondition(optional.preparedProcess === claimed && !claimed.transport.stopRequested,
+            "non-Web intent cleanup cannot cancel an already claimed real request")
+        optional.cancelPreparedProcess(requestID: explicitRequest)
+        claimed.transport.end()
+        mayPrewarm = true
+        optional.prepareIdleProcess()
+        let unused = optional.preparedProcess!
+        optional.scheduleIdlePreparation()
+        optional.cancelIdlePreparation()
+        precondition(optional.preparedProcess == nil && optional.idlePreparationWorkItem == nil
+            && unused.transport.stopRequested && optional.retiringPrepared[ObjectIdentifier(unused)] === unused)
+        unused.transport.end()
+        precondition(optional.retiringPrepared.isEmpty)
+        optional.active = nil
 
         print("playback-switch-endpoints-pass")
     }
@@ -518,6 +703,117 @@ import Foundation
 
 
 class PlaybackSwitchEndpointTests(unittest.TestCase):
+    def test_product_intent_cancels_preparation_after_advancing_epoch(self):
+        manager = (ROOT / "MyWallpaperX/Modules/VideoLibrary/Core/WallpaperManager.swift").read_text()
+        assembly = (ROOT / "MyWallpaperX/App/MyWallpaperXApplication.swift").read_text()
+        harness_source = r'''
+import Foundation
+protocol PlaybackResourceLifetime: AnyObject {}
+@MainActor final class WallpaperManager {
+    static let shared = WallpaperManager()
+    var playbackSwitch = PlaybackSwitchTransaction()
+    var playbackIntentDidAdvance: ((WallpaperRuntimeKind?) -> Void)?
+    var playbackIntentEpoch: UInt64 { playbackSwitch.epoch }
+    var pendingWallpaper: Int?
+    var timerStops = 0
+    var onEffects: (() -> Void)?
+    func runSwitchEffects(_ effects: [PlaybackSwitchTransaction.Effect]) { onEffects?() }
+    func scheduleSwitchDeadline(_ ticket: PlaybackSwitchTicket) {}
+    func stopAutoSwitchTimer() { timerStops += 1 }
+    // REAL_BEGIN
+}
+@MainActor final class WebDaemonHostAdapter {
+    var mayPrepareIdleProcess: (() -> Bool)?
+    var cancellations = 0
+    func cancelIdlePreparation() { cancellations += 1 }
+}
+@MainActor final class WallpaperEngine {
+    static let shared = WallpaperEngine()
+    let dedicatedWebHostAdapter: Any = WebDaemonHostAdapter()
+}
+@MainActor final class SceneDaemonClient {
+    static let shared = SceneDaemonClient()
+    var hasRetainedOrRetiringTransport = false
+    var intents: [WallpaperRuntimeKind?] = []
+    func invalidateRetainedTransport(for runtime: WallpaperRuntimeKind?) { intents.append(runtime) }
+}
+@MainActor final class SteamWorkshopService {
+    static let shared = SteamWorkshopService()
+    var cancelledEpochs: [UInt64] = []
+    var cancelledRuntimes: [WallpaperRuntimeKind?] = []
+    @discardableResult func advanceWebLaunchIntentGeneration() -> UInt64 {
+        cancelledEpochs.append(WallpaperManager.shared.playbackIntentEpoch)
+        cancelledRuntimes.append(WallpaperManager.shared.playbackSwitch.requestedRuntime)
+        return UInt64(cancelledEpochs.count)
+    }
+}
+@main enum Harness {
+    @MainActor static func main() {
+        let manager = WallpaperManager.shared
+        let service = SteamWorkshopService.shared
+        let adapter = WallpaperEngine.shared.dedicatedWebHostAdapter as! WebDaemonHostAdapter
+        let scene = SceneDaemonClient.shared
+        // REAL_IDLE_ASSEMBLY
+        precondition(adapter.mayPrepareIdleProcess?() == true)
+        scene.hasRetainedOrRetiringTransport = true
+        precondition(adapter.mayPrepareIdleProcess?() == false)
+        scene.hasRetainedOrRetiringTransport = false
+        precondition(manager.beginPlaybackIntent(runtime: .web) == 1)
+        precondition(service.cancelledEpochs.isEmpty)
+        // REAL_ASSEMBLY
+        for runtime in [WallpaperRuntimeKind.video, .web, .scene, .systemStill] {
+            let old = manager.playbackIntentEpoch
+            let autoplay = ImportedVideoAutoplayGate.shared.claim()
+            let cancellations = adapter.cancellations
+            manager.pendingWallpaper = 1
+            let epoch = manager.beginPlaybackIntent(runtime: runtime)
+            precondition(epoch == old + 1)
+            precondition(service.cancelledEpochs.last == epoch, "cancel before product epoch advanced")
+            precondition(service.cancelledRuntimes.last! == runtime)
+            precondition(scene.intents.last! == runtime)
+            precondition(adapter.cancellations == cancellations + (runtime == .web ? 0 : 1))
+            precondition(manager.pendingWallpaper == (runtime == .video ? 1 : nil))
+            precondition(!ImportedVideoAutoplayGate.shared.isCurrent(autoplay))
+        }
+        let stopped = manager.beginPlaybackIntent()
+        precondition(service.cancelledEpochs == [2, 3, 4, 5, 6])
+        precondition(service.cancelledRuntimes.last! == nil && stopped == 6)
+        precondition(manager.playbackSwitch.pending == nil && manager.playbackSwitch.committed == nil)
+        let notifications = service.cancelledEpochs.count
+        manager.onEffects = {
+            manager.onEffects = nil
+            _ = manager.beginPlaybackIntent(runtime: .scene)
+        }
+        let superseded = manager.beginPlaybackIntent(runtime: .web)
+        precondition(manager.playbackIntentEpoch == superseded + 1)
+        precondition(service.cancelledEpochs.count == notifications + 1
+            && service.cancelledEpochs.last == superseded + 1
+            && scene.intents.last! == .scene,
+            "outer stale notification must not revoke the reentrant Scene intent")
+        print("product-intent-preparation-cancellation-pass")
+    }
+}
+'''
+        harness_source = harness_source.replace("// REAL_BEGIN", source_block(manager, "func beginPlaybackIntent("))
+        harness_source = harness_source.replace("// REAL_ASSEMBLY", source_block(assembly,
+            "WallpaperManager.shared.playbackIntentDidAdvance ="))
+        harness_source = harness_source.replace("// REAL_IDLE_ASSEMBLY", source_block(assembly,
+            "adapter.mayPrepareIdleProcess ="))
+        with tempfile.TemporaryDirectory(prefix="mwx-intent-cancellation-") as raw:
+            directory = Path(raw)
+            harness = directory / "Harness.swift"
+            harness.write_text(harness_source)
+            binary = directory / "harness"
+            sources = ["WallpaperRuntimeSwitch.swift", "PlaybackSwitchTransaction.swift", "ImportedVideoAutoplayGate.swift"]
+            compilation = subprocess.run(["xcrun", "swiftc", "-parse-as-library", "-default-isolation", "MainActor",
+                *[str(ROOT / "MyWallpaperX/Core/PlaybackControl" / name) for name in sources],
+                str(harness), "-module-cache-path", str(directory / "modules"), "-o", str(binary)],
+                capture_output=True, text=True, timeout=60)
+            self.assertEqual(compilation.returncode, 0, compilation.stderr)
+            result = subprocess.run([str(binary)], capture_output=True, text=True, timeout=10)
+            self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+            self.assertIn("product-intent-preparation-cancellation-pass", result.stdout)
+
     def test_parent_endpoints_prepare_activate_finalize_cancel_and_exact_retirement(self):
         with tempfile.TemporaryDirectory(prefix="mwx-switch-endpoints-") as raw:
             directory = Path(raw)
@@ -530,6 +826,11 @@ class PlaybackSwitchEndpointTests(unittest.TestCase):
                 "func updateCurrentWebWallpaperProperties(", "private func mergedWebPropertiesJSON(",
                 "private func jsonObjectDictionary("))
             shell = SUPPORT.replace("// REAL_VIDEO_PAUSE", source_block(pause, "func sendPlaybackPaused(")).replace("// REAL_WEB_PROPERTIES", properties)
+            navigation = (ROOT / "MyWallpaperX/Core/SteamWorkshopWeb/Host/DedicatedWebWallpaperHostPlaceholderAdapter+NavigationIdentity.swift").read_text()
+            producers = "\n".join(source_block(navigation, marker) for marker in (
+                "func loadTrackedNavigation(\n", "func reloadTrackedNavigation(on surface:",
+                "func screenIDForStartedNavigation("))
+            shell += PREPARATION_PRODUCER_SUPPORT.replace("// REAL_NAVIGATION_PRODUCERS", producers)
             support.write_text(shell + "\n" + source_block(types, "struct WebWallpaperResourceGrant")
                 + "\n" + source_block(types, "struct WebWallpaperPropertyUpdate")
                 + "\n" + source_block(types, "extension WallpaperEngine"))
@@ -546,14 +847,19 @@ class PlaybackSwitchEndpointTests(unittest.TestCase):
                 "Core/SteamWorkshopWeb/Process/WebDaemonHostAdapter.swift",
                 "Core/SteamWorkshopWeb/Process/WebDaemonHostAdapter+SwitchExecution.swift",
             ]
-            binary = directory / "harness"
-            compilation = subprocess.run(["xcrun", "swiftc", "-parse-as-library", "-default-isolation", "MainActor",
-                *[str(ROOT / "MyWallpaperX" / item) for item in sources], str(support), str(harness), "-o", str(binary)],
-                capture_output=True, text=True, timeout=60)
-            self.assertEqual(compilation.returncode, 0, compilation.stderr)
-            result = subprocess.run([str(binary)], capture_output=True, text=True, timeout=10)
-            self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
-            self.assertIn("playback-switch-endpoints-pass", result.stdout)
+            for debug in (False, True):
+                with self.subTest(debug=debug):
+                    binary = directory / ("harness-debug" if debug else "harness-release")
+                    compilation = subprocess.run(["xcrun", "swiftc", "-parse-as-library", "-default-isolation", "MainActor",
+                        *(["-D", "DEBUG"] if debug else []),
+                        *[str(ROOT / "MyWallpaperX" / item) for item in sources], str(support), str(harness), "-o", str(binary)],
+                        capture_output=True, text=True, timeout=60)
+                    self.assertEqual(compilation.returncode, 0, compilation.stderr)
+                    modes = ([], ["--mwx-debug-web-startup-report"]) if debug else ([],)
+                    for arguments in modes:
+                        result = subprocess.run([str(binary), *arguments], capture_output=True, text=True, timeout=10)
+                        self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+                        self.assertIn("playback-switch-endpoints-pass", result.stdout)
 
     def test_actual_engine_assembly_typechecks_against_endpoint_contract(self):
         with tempfile.TemporaryDirectory(prefix="mwx-engine-assembly-") as raw:

@@ -1,6 +1,7 @@
 import AVFoundation
 import CoreMedia
 import VideoToolbox
+import UniformTypeIdentifiers
 
 /// Media input validation and container preparation. Playback, decoding,
 /// timing and publication remain in the existing video source.
@@ -60,7 +61,85 @@ nonisolated enum SceneVideoPayloadPreparation {
         }
     }
 
-    static func writeWebM(_ payload: Data, to url: URL) async throws {
+    /// Segment delivery suppresses AVAssetWriter's URL writer. The existing
+    /// owned-file sink reserves the actual output bytes before every write.
+    private final class SegmentSink: NSObject, @unchecked Sendable {
+        final class Cancellation: @unchecked Sendable {
+            private let lock = NSLock()
+            private var cancelled = false
+            func cancel() { lock.lock(); cancelled = true; lock.unlock() }
+            func check() throws {
+                lock.lock(); defer { lock.unlock() }
+                if cancelled { throw CancellationError() }
+            }
+        }
+
+        let cancellation = Cancellation()
+        private let output: SceneVideoOwnedFile.Writer
+        private let lock = NSLock()
+        private var failure: (any Error)?
+        private var initializationReceived = false
+        private var segments = 0
+        private var closed = false
+
+        init(output: SceneVideoOwnedFile.Writer) { self.output = output }
+
+        // Receives a synchronous NSData byte view from the native delegate.
+        func receiveSegment(_ bytes: UnsafeRawBufferPointer,
+                            segmentType: AVAssetSegmentType) {
+            lock.lock(); defer { lock.unlock() }
+            guard !closed, failure == nil else { return }
+            do {
+                try cancellation.check()
+                switch segmentType {
+                case .initialization:
+                    guard !initializationReceived, segments == 0 else {
+                        throw Failure.writer("duplicate-initialization-segment")
+                    }
+                case .separable:
+                    guard initializationReceived else { throw Failure.writer("missing-initialization-segment") }
+                @unknown default: throw Failure.writer("unknown-segment-type")
+                }
+                try output.append(bytes, checkCancellation: cancellation.check)
+                if segmentType == .initialization { initializationReceived = true }
+                else { segments += 1 }
+            } catch { failure = error }
+        }
+
+        func check() throws {
+            try cancellation.check()
+            lock.lock(); defer { lock.unlock() }
+            if let failure { throw failure }
+        }
+
+        func hasSegments(_ count: Int) throws -> Bool {
+            try check()
+            lock.lock(); defer { lock.unlock() }
+            return segments >= count
+        }
+
+        func finish(expectedSegments: Int) throws {
+            lock.lock(); defer { lock.unlock() }
+            try cancellation.check()
+            if let failure { throw failure }
+            guard initializationReceived, segments == expectedSegments else {
+                throw Failure.writer("incomplete-segment-output")
+            }
+            _ = try output.finish(checkCancellation: cancellation.check)
+            closed = true
+        }
+
+        func abort() {
+            cancellation.cancel()
+            lock.lock(); defer { lock.unlock() }
+            closed = true
+            output.abort()
+        }
+    }
+
+    static func writeWebM(_ payload: Data, to output: SceneVideoOwnedFile.Writer) async throws {
+        var completed = false
+        defer { if !completed { output.abort() } }
         registerDecoders()
         let video = try SceneWebMContainer.parse(payload, cancellationCheck: {
             try Task.checkCancellation()
@@ -75,12 +154,23 @@ nonisolated enum SceneVideoPayloadPreparation {
             formatDescriptionOut: &format)
         guard status == noErr, let format else { throw Failure.format(status) }
         try Task.checkCancellation()
-        let writer = try AVAssetWriter(outputURL: url, fileType: .mp4)
-        var completed = false
+        let writer = AVAssetWriter(contentType: .mpeg4Movie)
+        writer.outputFileTypeProfile = .mpeg4AppleHLS
+        writer.preferredOutputSegmentInterval = .indefinite
+        let sink = SegmentSink(output: output)
+        let adapter = SceneVideoSegmentDelegate(owner: sink, callback: { owner, bytes, length, segmentType in
+            let originalSink = owner as! SegmentSink
+            originalSink.receiveSegment(UnsafeRawBufferPointer(start: bytes, count: Int(length)),
+                                        segmentType: segmentType)
+        })
+        // AVAssetWriter holds its delegate weakly. Keep the adapter and sink
+        // through finish, or through cancelWriting and abort.
+        defer { withExtendedLifetime(adapter) {} }
+        writer.delegate = adapter
         defer {
             if !completed {
                 writer.cancelWriting()
-                try? FileManager.default.removeItem(at: url)
+                sink.abort()
             }
         }
         let input = AVAssetWriterInput(mediaType: .video, outputSettings: nil,
@@ -97,34 +187,67 @@ nonisolated enum SceneVideoPayloadPreparation {
         writer.startSession(atSourceTime: .zero)
         let clock = ContinuousClock()
         let deadline = clock.now.advanced(by: .seconds(30))
-        for packet in video.packets {
+        func checkpoint() throws {
             try Task.checkCancellation()
-            while !input.isReadyForMoreMediaData {
-                guard writer.status == .writing else {
-                    throw writer.error ?? Failure.writer("append-unavailable")
+            try sink.check()
+            guard clock.now < deadline else { throw Failure.deadlineExceeded }
+        }
+        // Await each requested flush before appending the next sync sample.
+        // Callback IO stays in the callback; no second queue stores segments.
+        func waitForSegments(_ count: Int) async throws {
+            while try !sink.hasSegments(count) {
+                try checkpoint()
+                guard writer.status == .writing || writer.status == .completed else {
+                    throw writer.error ?? Failure.writer("segment-output-unavailable")
                 }
-                guard clock.now < deadline else { throw Failure.deadlineExceeded }
                 try await Task.sleep(for: .milliseconds(1))
             }
-            guard clock.now < deadline else { throw Failure.deadlineExceeded }
-            let sample = try makeSample(packet, payload: payload, format: format)
-            guard input.append(sample) else {
-                throw writer.error ?? Failure.writer("append-failed")
+        }
+        try await withTaskCancellationHandler {
+            var appendedPackets = 0
+            var flushedSegments = 0
+            var segmentStart: Int64 = 0
+            for packet in video.packets {
+                try checkpoint()
+                if packet.isKeyframe, appendedPackets > 0,
+                   packet.presentationTimeNanoseconds - segmentStart >= 1_000_000_000 {
+                    writer.flushSegment()
+                    flushedSegments += 1
+                    try await waitForSegments(flushedSegments)
+                    segmentStart = packet.presentationTimeNanoseconds
+                }
+                while !input.isReadyForMoreMediaData {
+                    try checkpoint()
+                    guard writer.status == .writing else {
+                        throw writer.error ?? Failure.writer("append-unavailable")
+                    }
+                    try await Task.sleep(for: .milliseconds(1))
+                }
+                let sample = try makeSample(packet, payload: payload, format: format)
+                guard input.append(sample) else {
+                    throw writer.error ?? Failure.writer("append-failed")
+                }
+                appendedPackets += 1
             }
+            input.markAsFinished()
+            beginFinishing(writer)
+            while writer.status == .writing {
+                try checkpoint()
+                try await Task.sleep(for: .milliseconds(1))
+            }
+            try checkpoint()
+            guard writer.status == .completed else {
+                throw writer.error ?? Failure.writer("finish-failed")
+            }
+            try await waitForSegments(flushedSegments + 1)
+            try checkpoint()
+            try sink.finish(expectedSegments: flushedSegments + 1)
+            completed = true
+        } onCancel: {
+            // Never call cancelWriting concurrently with input.append. The
+            // original worker observes this flag, exits append and cancels.
+            sink.cancellation.cancel()
         }
-        input.markAsFinished()
-        beginFinishing(writer)
-        while writer.status == .writing {
-            try Task.checkCancellation()
-            guard clock.now < deadline else { throw Failure.deadlineExceeded }
-            try await Task.sleep(for: .milliseconds(1))
-        }
-        try Task.checkCancellation()
-        guard clock.now < deadline else { throw Failure.deadlineExceeded }
-        guard writer.status == .completed else {
-            throw writer.error ?? Failure.writer("finish-failed")
-        }
-        completed = true
     }
 
     // Use the nonblocking completion API, polling its thread-safe status on

@@ -1,5 +1,6 @@
 import Foundation
 import WebKit
+import Darwin
 
 /// scheme task 的交付：resolve 与读文件在 IO 队列，didReceive/didFinish 回主线程。
 extension WebWallpaperLocalSchemeHandler {
@@ -37,6 +38,10 @@ extension WebWallpaperLocalSchemeHandler {
         let diagnosticHandler: WebRuntimeDiagnosticHandler? = self.diagnosticHandler
         ioQueue.async { [weak self] in
             guard let self else { return }
+            guard !cancellation.isCancelled else {
+                DispatchQueue.main.async { self.finishRequest(urlSchemeTask) }
+                return
+            }
             let delivery = self.prepareDelivery(
                 for: request,
                 requestURL: requestURL,
@@ -75,95 +80,89 @@ self.recordDeny(denied)
         diagnosticHandler: WebRuntimeDiagnosticHandler?
     ) -> PreparedDelivery {
         let outcome = resolveResource(for: requestURL, allowsDirectoryIndexFallback: true)
-        guard let resolved = outcome.resource else {
+        guard var resolved = outcome.resource else {
             return .failure(outcome.denial ?? AccessDenied(
-                reason: .invalidURL,
-                requestURL: requestURL,
-                candidateURL: nil,
-                resolvedURL: nil
-            ))
+                reason: .invalidURL, requestURL: requestURL, candidateURL: nil, resolvedURL: nil))
         }
-        guard let resource = revalidatedResource(resolved) else {
-            return .failure(AccessDenied(reason: .outsideAllowedRoots, requestURL: requestURL,
-                candidateURL: resolved.fileURL, resolvedURL: resolved.fileURL))
-        }
-        if resource.didTraverseSymlink {
-#if DEBUG
-            diagnosticHandler?(
-                "local-resource-symlink",
-                .warning,
-                "symlink_inside_allowed_root matchedRoot=\(resource.matchedRootPath) resolved=\(resource.fileURL.path)",
-                requestURL
-            )
-#endif
-        }
-
-        let transformsResponse = WebWallpaperResponseTransformer.supportsTransformation(for: resource.fileURL)
-        let mimeType = Self.mimeType(for: resource.fileURL)
         do {
-            // 声明长度与验证器都以交付时刻的现取 stat 为准。
-            guard let fileStat = Self.fileStat(for: resource.fileURL) else {
-                return .failure(LocalSchemeError.unreadableFileSize)
+            let transformsResponse = WebWallpaperResponseTransformer.supportsTransformation(for: resolved.fileURL)
+            let hasCondition = request.value(forHTTPHeaderField: "If-None-Match") != nil
+                || request.value(forHTTPHeaderField: "If-Modified-Since") != nil
+            if (isHeadRequest && !transformsResponse) || (!isHeadRequest && hasCondition) {
+                // HEAD and an immediately reusable 304 need no open FD.
+                if let current = revalidatedResource(resolved) {
+                    resolved = current
+                } else {
+                    let refreshed = resolveResource(for: requestURL, allowsDirectoryIndexFallback: true,
+                        refreshCachedResolution: true)
+                    guard let current = refreshed.resource else {
+                        throw refreshed.denial ?? AccessDenied(reason: .invalidURL, requestURL: requestURL,
+                            candidateURL: nil, resolvedURL: nil)
+                    }
+                    resolved = current
+                }
+                let resource = resolved
+                guard let stat = Self.fileStat(for: resource.fileURL) else {
+                    throw LocalSchemeError.unreadableFileSize
+                }
+                let validators = Self.responseValidators(for: stat)
+                if !isHeadRequest, Self.isNotModified(request: request, validators: validators) {
+                    return .ready(PreparedResponse(
+                        response: try Self.makeNotModifiedResponse(for: requestURL, validators: validators),
+                        resource: resource, body: nil, streamedHandle: nil, streamedLength: 0, cssServedDiagnostic: nil))
+                }
+                if isHeadRequest && !WebWallpaperResponseTransformer.supportsTransformation(for: resource.fileURL) {
+                    let range = try Self.byteRange(for: request, totalSize: stat.fileSize)
+                    let length = range.map { $0.upperBound - $0.lowerBound + 1 } ?? stat.fileSize
+                    return .ready(PreparedResponse(response: try Self.makeResponse(for: requestURL,
+                        mimeType: Self.mimeType(for: resource.fileURL), totalSize: stat.fileSize,
+                        range: range, deliveredLength: Int(length), validators: validators),
+                        resource: resource, body: nil, streamedHandle: nil, streamedLength: 0, cssServedDiagnostic: nil))
+                }
             }
-            let validators = Self.responseValidators(for: fileStat)
-            var range = transformsResponse ? nil : try Self.byteRange(for: request, totalSize: fileStat.fileSize)
+            let opened = try openResponseStream(from: resolved, request: request)
+            var transferredHandle = false
+            defer { if !transferredHandle { try? opened.handle.close() } }
+            let resource = opened.resource
+            let stat = opened.stat
+            let range = opened.range
+            let transformsOpenedResponse = WebWallpaperResponseTransformer.supportsTransformation(for: resource.fileURL)
+            let mimeType = Self.mimeType(for: resource.fileURL)
+            let validators = Self.responseValidators(for: stat)
             if !isHeadRequest, Self.isNotModified(request: request, validators: validators) {
                 return .ready(PreparedResponse(
                     response: try Self.makeNotModifiedResponse(for: requestURL, validators: validators),
-                    resource: resource,
-                    body: nil,
-                    streamedHandle: nil,
-                    streamedLength: 0,
-                    cssServedDiagnostic: nil
-                ))
+                    resource: resource, body: nil, streamedHandle: nil, streamedLength: 0, cssServedDiagnostic: nil))
             }
             let body: Data?
             let responseSize: Int64
             let deliveredLength: Int
-            var streamedHandle: FileHandle?
-            var streamedLength: Int64 = 0
-            if !transformsResponse, !isHeadRequest {
-                // 完整与 Range 响应共用同一有界交付链；范围和声明长度
-                // 均取自已打开句柄，seek 后只交付选定窗口。
-                let stream = try Self.openResponseStream(from: resource.fileURL, request: request)
-                streamedHandle = stream.handle
-                streamedLength = stream.length
-                range = stream.range
+            if !transformsOpenedResponse {
                 body = nil
-                responseSize = stream.totalSize
-                deliveredLength = Int(stream.length)
-            } else if isHeadRequest, !transformsResponse {
-                body = nil
-                responseSize = fileStat.fileSize
-                deliveredLength = range.map { Int($0.upperBound - $0.lowerBound + 1) } ?? Int(fileStat.fileSize)
+                responseSize = stat.fileSize
+                deliveredLength = Int(opened.length)
             } else {
-                let responseData = try Self.readResponseData(from: resource.fileURL, range: range)
-                body = isHeadRequest ? nil : responseData
-                responseSize = range == nil ? Int64(responseData.count) : fileStat.fileSize
-                deliveredLength = responseData.count
+                let data = try Self.readResponseData(from: opened.handle, fileURL: resource.fileURL, range: nil)
+                body = isHeadRequest ? nil : data
+                responseSize = Int64(data.count)
+                deliveredLength = data.count
             }
-            return .ready(PreparedResponse(
-                response: try Self.makeResponse(
-                    for: requestURL,
-                    mimeType: mimeType,
-                    totalSize: responseSize,
-                    range: range,
-                    deliveredLength: deliveredLength,
-                    acceptsRanges: !transformsResponse,
-                    validators: validators
-                ),
-                resource: resource,
-                body: body,
-                streamedHandle: streamedHandle,
-                streamedLength: streamedLength,
-                cssServedDiagnostic: Self.cssServedDiagnostic(
-                    fileURL: resource.fileURL,
-                    fileSize: fileStat.fileSize,
-                    mimeType: mimeType,
-                    deliveredLength: deliveredLength,
-                    range: range
-                )
-            ))
+            let prepared = PreparedResponse(response: try Self.makeResponse(for: requestURL,
+                mimeType: mimeType, totalSize: responseSize,
+                range: range, deliveredLength: deliveredLength, acceptsRanges: !transformsOpenedResponse,
+                validators: validators), resource: resource, body: body,
+                streamedHandle: transformsOpenedResponse || isHeadRequest ? nil : opened.handle,
+                streamedLength: transformsOpenedResponse || isHeadRequest ? 0 : opened.length,
+                cssServedDiagnostic: Self.cssServedDiagnostic(fileURL: resource.fileURL, fileSize: stat.fileSize,
+                    mimeType: mimeType, deliveredLength: deliveredLength, range: range))
+            transferredHandle = prepared.streamedHandle != nil
+#if DEBUG
+            if resource.didTraverseSymlink {
+                diagnosticHandler?("local-resource-symlink", .warning,
+                    "symlink_inside_allowed_root matchedRoot=\(resource.matchedRootPath) resolved=\(resource.fileURL.path)", requestURL)
+            }
+#endif
+            return .ready(prepared)
         } catch {
             return .failure(error)
         }
@@ -365,19 +364,68 @@ recordDeny(denied)
             cancellation: cancellation, resource: resource)
     }
 
-    /// 打开、定长、解析 Range 与 seek 在同一句柄上完成，失败不泄漏 FD。
-    /// 调用者仍负责资源授权；这里不产生新的可读根或缓存。
-    static func openResponseStream(
-        from fileURL: URL, request: URLRequest
-    ) throws -> (handle: FileHandle, totalSize: Int64, range: ClosedRange<Int64>?, length: Int64) {
-        let handle = try FileHandle(forReadingFrom: fileURL)
+    /// Bind the actual opened file once, then keep this handle through body
+    /// transformation or streaming. A grant revision does not detect a path
+    /// replaced by a symlink; FD pathname and regular-file facts do.
+    func openResponseStream(
+        from resource: ResolvedResource, request: URLRequest
+    ) throws -> (resource: ResolvedResource, handle: FileHandle, stat: FileStat,
+                 range: ClosedRange<Int64>?, length: Int64) {
+        var resource = resource
+        var descriptor = Darwin.open(resource.fileURL.path, O_RDONLY | O_NONBLOCK | O_CLOEXEC)
+        if descriptor < 0 {
+            let openError = errno
+            guard (openError == ENOENT || openError == ENOTDIR), let requestURL = request.url else {
+                throw NSError(domain: NSPOSIXErrorDomain, code: Int(openError))
+            }
+            // A cached location can disappear while a current spelling or
+            // compatibility candidate exists. Retry the original resolver once
+            // only after a real missing-path open; authorization failures below
+            // never enter this branch or search for another candidate.
+            let refreshed = resolveResource(for: requestURL, allowsDirectoryIndexFallback: true,
+                refreshCachedResolution: true)
+            guard let current = refreshed.resource else {
+                throw refreshed.denial ?? AccessDenied(reason: .invalidURL, requestURL: requestURL,
+                    candidateURL: nil, resolvedURL: nil)
+            }
+            resource = current
+            descriptor = Darwin.open(resource.fileURL.path, O_RDONLY | O_NONBLOCK | O_CLOEXEC)
+            guard descriptor >= 0 else { throw NSError(domain: NSPOSIXErrorDomain, code: Int(errno)) }
+        }
+        let handle = FileHandle(fileDescriptor: descriptor, closeOnDealloc: true)
         do {
-            guard let totalSize = streamedLength(of: handle) else {
+            var facts = stat()
+            guard fstat(descriptor, &facts) == 0, facts.st_size >= 0 else {
                 throw LocalSchemeError.unreadableFileSize
             }
-            let range = try byteRange(for: request, totalSize: totalSize)
+            guard facts.st_mode & S_IFMT == S_IFREG else {
+                throw AccessDenied(reason: .notRegularFile, requestURL: request.url ?? resource.fileURL,
+                    candidateURL: resource.fileURL, resolvedURL: resource.fileURL)
+            }
+            var path = [CChar](repeating: 0, count: Int(MAXPATHLEN))
+            guard fcntl(descriptor, F_GETPATH, &path) == 0 else { throw LocalSchemeError.unreadableFileSize }
+            let actualURL = URL(fileURLWithPath: String(
+                decoding: path.prefix { $0 != 0 }.map { UInt8(bitPattern: $0) }, as: UTF8.self)).standardizedFileURL
+            let (grants, generation) = readableRootsSnapshot()
+            guard let matchedRootPath = matchedReadableRootPath(for: actualURL, roots: grants) else {
+                throw AccessDenied(reason: .outsideAllowedRoots, requestURL: request.url ?? resource.fileURL,
+                    candidateURL: resource.fileURL, resolvedURL: actualURL)
+            }
+            let didTraverseSymlink = resource.didTraverseSymlink
+                || Self.isMaterialPathRewrite(from: resource.fileURL.path, to: actualURL.path)
+            guard !strictSymlinkPolicy || !didTraverseSymlink else {
+                throw AccessDenied(reason: .symlinkRejected, requestURL: request.url ?? resource.fileURL,
+                    candidateURL: resource.fileURL, resolvedURL: actualURL)
+            }
+            let current = ResolvedResource(fileURL: actualURL, didTraverseSymlink: didTraverseSymlink,
+                matchedRootPath: matchedRootPath, authorizationGeneration: generation)
+            let fileStat = FileStat(fileSize: Int64(facts.st_size), modificationDate: Date(
+                timeIntervalSince1970: Double(facts.st_mtimespec.tv_sec)
+                    + Double(facts.st_mtimespec.tv_nsec) / 1_000_000_000))
+            let range = WebWallpaperResponseTransformer.supportsTransformation(for: actualURL)
+                ? nil : try Self.byteRange(for: request, totalSize: fileStat.fileSize)
             if let range { try handle.seek(toOffset: UInt64(range.lowerBound)) }
-            return (handle, totalSize, range, range.map { $0.upperBound - $0.lowerBound + 1 } ?? totalSize)
+            return (current, handle, fileStat, range, range.map { $0.upperBound - $0.lowerBound + 1 } ?? fileStat.fileSize)
         } catch {
             try? handle.close()
             throw error
@@ -430,21 +478,14 @@ recordDeny(denied)
         return start...end
     }
 
-    static func readFileData(from fileURL: URL, range: ClosedRange<Int64>?) throws -> Data {
-        let fileHandle = try FileHandle(forReadingFrom: fileURL)
-        defer {
-            try? fileHandle.close()
-        }
+    static func readResponseData(from fileHandle: FileHandle, fileURL: URL, range: ClosedRange<Int64>?) throws -> Data {
+        let data: Data
         if let range {
-            try fileHandle.seek(toOffset: UInt64(range.lowerBound))
             let length = Int(range.upperBound - range.lowerBound + 1)
-            return try fileHandle.read(upToCount: length) ?? Data()
+            data = try fileHandle.read(upToCount: length) ?? Data()
+        } else {
+            data = try fileHandle.readToEnd() ?? Data()
         }
-        return try fileHandle.readToEnd() ?? Data()
-    }
-
-    static func readResponseData(from fileURL: URL, range: ClosedRange<Int64>?) throws -> Data {
-        let data = try readFileData(from: fileURL, range: range)
         guard range == nil else { return data }
         return WebWallpaperResponseTransformer.transform(data, fileURL: fileURL)
     }

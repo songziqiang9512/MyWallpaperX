@@ -53,8 +53,9 @@ extension SceneMetalRenderer {
         environmentSource: ((MTLCommandBuffer) -> SceneFrameTextureResource?)?,
         frameLightSnapshot: SceneLightSnapshot? = nil,
         compositionGroupRuntime: SceneCompositionGroupFrameRuntime? = nil,
-        preparationLayers: [SceneRenderDescriptor.Layer]? = nil,
-        utilityExecution: SceneUtilityLayerRuntimePlanner.Execution? = nil
+        preparationLayers: [SceneRenderDescriptor.Layer]?,
+        liveLayerIDs: Set<Int>,
+        utilityExecution: SceneUtilityLayerRuntimePlanner.Execution
     ) -> SceneMetalRenderer.ResolvedMaterialFrameAdmission {
         // Source selection is frame-scoped: provider readiness and authored
         // fallback state are refreshed above, then shared by the single
@@ -80,6 +81,7 @@ extension SceneMetalRenderer {
             frameLightSnapshot: frameLightSnapshot,
             compositionGroupRuntime: compositionGroupRuntime,
             preparationLayers: preparationLayers,
+            liveLayerIDs: liveLayerIDs,
             utilityExecution: utilityExecution
         ) {
         case let .ready(plans, localFallbacks, preparationRequests):

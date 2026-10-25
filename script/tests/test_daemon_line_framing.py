@@ -38,6 +38,28 @@ struct Message: Codable, Equatable {
         precondition(third == Message(value: 3))
         precondition(buffer.pendingByteCount == 0)
 
+        // Each chunk can split a UTF-8 scalar. Only the newline completes a
+        // frame; consumed prefixes, retained tails and value copies stay exact.
+        let payload = Data(String(repeating: "aé😀", count: 16_384).utf8)
+        for start in stride(from: 0, to: payload.count, by: 257) {
+            let end = min(start + 257, payload.count)
+            precondition(buffer.append(Data(payload[start..<end])).isEmpty)
+        }
+        precondition(buffer.pendingByteCount == payload.count)
+        let mixed = buffer.append(Data("\n\nfirst\npart".utf8))
+        precondition(mixed == [payload, Data("first".utf8)])
+        precondition(buffer.pendingByteCount == 4)
+        var fork = buffer
+        precondition(fork.append(Data("ial\n".utf8)) == [Data("partial".utf8)])
+        precondition(fork.pendingByteCount == 0)
+        precondition(buffer.append(Data()).isEmpty && buffer.pendingByteCount == 4)
+        precondition(buffer.append(Data("2\nleft".utf8)) == [Data("part2".utf8)])
+        precondition(buffer.pendingByteCount == 4)
+        buffer = DaemonNewlineFrameBuffer()
+        precondition(buffer.append(Data("\nreset\nlast".utf8)) == [Data("reset".utf8)])
+        precondition(buffer.append(Data("\n".utf8)) == [Data("last".utf8)])
+        precondition(buffer.pendingByteCount == 0 && fork.pendingByteCount == 0)
+
         let codable = try DaemonNewlineJSON.encode(Message(value: 4))
         precondition(codable.last == 0x0A)
         let fourth = try JSONDecoder().decode(Message.self, from: Data(codable.dropLast()))

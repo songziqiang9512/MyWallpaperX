@@ -47,8 +47,10 @@ nonisolated final class SystemAudioSpectrumService: NSObject, @unchecked Sendabl
     var captureRetryAttempt = 0
     var captureRetryWorkItem: DispatchWorkItem?
     private var captureRetrySequence = 0
+#if DEBUG
     private var captureGeneration = 0
     private var hasLoggedCapturedData = false
+#endif
     var captureResourceGeneration = 0
     var pendingCaptureResourceGeneration = 0
     var pendingSceneCaptureToken = SceneAudioSpectrumCaptureToken(
@@ -315,9 +317,9 @@ nonisolated final class SystemAudioSpectrumService: NSObject, @unchecked Sendabl
                 throw SystemAudioCaptureDeviceFactory.CaptureError.osStatus(startStatus)
             }
             captureRetryAttempt = 0
+#if DEBUG
             captureGeneration += 1
             hasLoggedCapturedData = false
-#if DEBUG
             NSLog(
                 "MWX AUDIO CAPTURE: started generation=%d scope=%@ sampleRate=%.0f channels=%u",
                 captureGeneration,
@@ -715,19 +717,19 @@ nonisolated final class SystemAudioSpectrumService: NSObject, @unchecked Sendabl
 #endif
         guard let frame = captureBuffer.decodedFrame else { return }
         let sampleRate = Float(max(1, tapStreamFormat.mSampleRate))
+#if DEBUG
         if !hasLoggedCapturedData {
             let peak = frame.rectifiedMono.max() ?? 0
             if peak >= 0.0001 {
                 hasLoggedCapturedData = true
-#if DEBUG
                 NSLog(
                     "MWX AUDIO CAPTURE: data generation=%d peak=%.4f",
                     captureGeneration,
                     peak
                 )
-#endif
             }
         }
+#endif
         guard let sceneAnalyzer else {
             if overlayEnabled { onLevels?(overlayAnalyzer.reset()) }
             if webEnabled { onWebLevels?(Self.clearedWebLevels) }

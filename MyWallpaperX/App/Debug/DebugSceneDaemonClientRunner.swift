@@ -59,6 +59,7 @@ enum DebugSceneDaemonClientRunner {
         }
         let rootURL = URL(fileURLWithPath: rootPath, isDirectory: true)
             .resolvingSymlinksInPath().standardizedFileURL
+        if scheduleStartupIfRequested(rootURL: rootURL) { return }
         guard let realWorkshopRoot = DebugSceneProductEntryPolicy
             .protectedWorkshopRootURL() else {
             NSLog("MWX SCENE CLIENT: phase=precondition-failed reason=account-home-unavailable")

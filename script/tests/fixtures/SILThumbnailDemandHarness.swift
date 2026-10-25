@@ -7,6 +7,15 @@ import UniformTypeIdentifiers
 // PRODUCTION_RESULT
 // PRODUCTION_IMAGE_LEAVES
 
+private nonisolated final class SILSignatureReads: @unchecked Sendable {
+    static let shared = SILSignatureReads()
+    private let lock = NSLock()
+    private var reads = 0
+    func record() { lock.lock(); reads += 1; lock.unlock() }
+    func reset() { lock.lock(); reads = 0; lock.unlock() }
+    var count: Int { lock.lock(); defer { lock.unlock() }; return reads }
+}
+
 @MainActor private final class VisibleItems {
     var visible = [10, 11, 12, 13, 14, 15]
     var displayedItems: [NSCollectionViewItem] = []
@@ -42,6 +51,13 @@ import UniformTypeIdentifiers
     func fire() { prefetchNearbyThumbnails() }
     func schedule() { scheduleThumbnailPrefetch() }
     func cancel() { cancelThumbnailPrefetch() }
+    func loadVisible(path: String, token: ThumbnailCacheRequestCancellation = .init(),
+                     completion: @escaping (SILThumbnailLoadResult) -> Void) {
+        let w = Record(path: path)
+        let load: (ThumbnailCacheRequestCancellation, @escaping (SILThumbnailLoadResult) -> Void) -> Void =
+            // PRODUCTION_VISIBLE_LOADER
+        load(token, completion)
+    }
     // Unrelated filesystem-probe/toplevel-scroll leaves; demand methods are unmodified.
     func updateMissingPathProbeTimer() {}
     func scheduleRestingScrollOriginCapture() {}
@@ -66,6 +82,80 @@ import UniformTypeIdentifiers
         let destination = CGImageDestinationCreateWithURL(path as CFURL, UTType.png.identifier as CFString, 1, nil)!
         CGImageDestinationAddImage(destination, context.makeImage()!, nil)
         precondition(CGImageDestinationFinalize(destination))
+    }
+    @MainActor static func failureCacheChecks(root: URL, original: URL, host: NSView) throws -> [String: Bool] {
+        var checks: [String: Bool] = [:]
+        let fm = FileManager.default, probe = SILSignatureReads.shared
+        let visible = root.appendingPathComponent("visible-miss.png")
+        let repaired = root.appendingPathComponent("replaced-failure.png")
+        let bytes = try Data(contentsOf: original)
+        try bytes.write(to: visible)
+        try Data(repeating: 0x7f, count: bytes.count).write(to: repaired)
+        let before = Date(timeIntervalSince1970: 1_700_000_000.125)
+        let after = Date(timeIntervalSince1970: 1_700_000_000.875)
+        try fm.setAttributes([.modificationDate: before], ofItemAtPath: repaired.path)
+        let grid = PrefetchGrid(paths: [original.path, repaired.path])
+        grid.collectionView.visible = [0]
+        defer { grid.cancel(); grid.removeFromSuperview() }
+        func load(_ path: String) -> SILThumbnailLoadResult {
+            var result: SILThumbnailLoadResult?
+            grid.loadVisible(path: path) { result = $0 }
+            wait("visible production loader completes") { result != nil }
+            return result!
+        }
+        probe.reset()
+        if case .image = load(visible.path) {
+            checks["emptyFailureSetVisibleDoesNotReadSignature"] = probe.count == 0
+        }
+        probe.reset()
+        if case .missingFile = load(root.appendingPathComponent("missing.png").path) {
+            checks["visibleMissingFileKeepsFeedbackWithoutSignature"] = probe.count == 0
+        }
+        probe.reset()
+        if case .unavailable = load(repaired.path) {
+            checks["decodeFailureRecordsCurrentSignature"] = probe.count == 1 && grid.failedThumbnailSignatures.count == 1
+        }
+        let failedSignature = silGridThumbnailFailureSignature(atPath: repaired.path)!
+        probe.reset()
+        if case .unavailable = load(repaired.path) {
+            checks["unchangedFailureSkipsDecode"] = probe.count == 1
+                && grid.failedThumbnailSignatures.contains(failedSignature)
+        }
+        try bytes.write(to: repaired)
+        try fm.setAttributes([.modificationDate: after], ofItemAtPath: repaired.path)
+        let nextSignature = silGridThumbnailFailureSignature(atPath: repaired.path)!
+        probe.reset()
+        if case .image = load(repaired.path) {
+            checks["sameSecondSameSizeReplacementInvalidatesFailure"] = failedSignature != nextSignature
+                && Int64(before.timeIntervalSince1970) == Int64(after.timeIntervalSince1970) && probe.count == 1
+        }
+        grid.thumbnailCache.remove(forKey: repaired.path)
+        // A prior transient decode failure may have left this still-valid
+        // revision in the negative cache. Prefetch must respect that fact.
+        grid.failedThumbnailSignatures = [nextSignature]
+        probe.reset()
+        host.addSubview(grid)
+        grid.fire()
+        wait("prefetch consults known failure") { probe.count == 1 }
+        pump(0.03)
+        checks["prefetchFailureSkipsDecode"] = grid.thumbnailCache.cachedImage(forKey: repaired.path) == nil
+            && probe.count == 1
+        grid.cancel()
+        try fm.setAttributes([.modificationDate: before], ofItemAtPath: repaired.path)
+        probe.reset()
+        grid.fire()
+        wait("same-second replacement prefetch decodes") { grid.thumbnailCache.cachedImage(forKey: repaired.path) != nil }
+        checks["prefetchReplacementUsesPreciseSignature"] = probe.count == 1
+        grid.cancel()
+        var cancelledCompleted = false
+        let token = ThumbnailCacheRequestCancellation(); token.cancel()
+        probe.reset()
+        grid.loadVisible(path: root.appendingPathComponent("cancelled.png").path, token: token) { _ in
+            cancelledCompleted = true
+        }
+        pump(0.03)
+        checks["cancelledVisibleMissDoesNotCompleteOrReadSignature"] = !cancelledCompleted && probe.count == 0
+        return checks
     }
     @MainActor static func main() throws {
         if CommandLine.arguments.dropFirst().first == "--card-interactions" {
@@ -113,6 +203,7 @@ import UniformTypeIdentifiers
         wait("nearby decoded images") {
             firstTokens.keys.allSatisfy { grid.thumbnailCache.cachedImage(forKey: paths[Int($0)!]) != nil }
         }
+        checks["emptyFailureSetPrefetchDoesNotReadSignature"] = SILSignatureReads.shared.count == 0
         pump(0.02)
         let ready = grid.thumbnailCache.cachedImage(forKey: paths[16])!
         // NSImage(cgImage:size:.zero) may expose a Retina bitmap rep; its
@@ -237,6 +328,7 @@ import UniformTypeIdentifiers
         item.setThumbnailVisible(true)
         checks["showAfterHiddenReconfigureLoadsLatestOnly"] = hiddenLoadCount == 1 && item.wallpaperID == replacement.id
         callback?(.image(ready))
+        checks.merge(try failureCacheChecks(root: root, original: original, host: host)) { _, new in new }
         print(String(data: try JSONEncoder().encode(checks), encoding: .utf8)!)
     }
 }

@@ -227,7 +227,7 @@ extension SceneShaderPreprocessor {
     }
 
     nonisolated enum DiagnosticCode: String, Codable, Equatable, Sendable {
-        case missingRoot = "missing-root", sourceIdentityMismatch = "source-identity-mismatch"
+        case missingRoot = "missing-root"
         case malformedDirective = "malformed-directive", unsupportedDirective = "unsupported-directive"
         case unknownDirective = "unknown-directive", functionLikeMacro = "function-like-macro"
         case moduleDirectiveSyntax = "module-directive-syntax"

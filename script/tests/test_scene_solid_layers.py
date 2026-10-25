@@ -62,6 +62,10 @@ SWIFT_SOURCES = [
     REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Resources/Textures/SceneSolidLayerTexture.swift",
     SOURCE_ROOT / "Resources/Assets/SceneResourceIndex.swift",
     SOURCE_ROOT / "Resources/Assets/SceneResourceView.swift",
+    SOURCE_ROOT / "../SteamWorkshopStorage/ScenePlaybackSource.swift",
+    SOURCE_ROOT / "Format/ScenePkgReader.swift",
+    SOURCE_ROOT / "Resources/Assets/SceneResourceIdentity.swift",
+    SOURCE_ROOT / "Resources/Assets/SceneResourceView+Backing.swift",
     SOURCE_ROOT / "Resources/Textures/SceneTexturePathResolver.swift",
 ]
 SWIFT_SOURCES = list(dict.fromkeys([*SWIFT_SOURCES, *PARTICLE_SOURCES,
@@ -339,10 +343,6 @@ struct SceneUserPropertyDocumentResolver {
     ) -> SceneUserPropertyResolution {
         SceneUserPropertyResolution(root: root)
     }
-}
-
-struct ScenePkgExtractionReport {
-    let outputURL: URL?
 }
 
 struct SceneProject {

@@ -3,16 +3,28 @@ import Metal
 
 extension SceneBaseImageTextureLoad {
     static func loadOrdinaryCandidate(
-        from url: URL,
+        from url: SceneResourceView.FileInput,
         loader: SceneTextureLoader,
         device: MTLDevice,
-        purpose: SceneTextureLoadPurpose = .straightAlbedo
-    ) -> Outcome {
-        switch loader.loadCandidate(
-            from: url,
-            purpose: purpose,
-            device: device
-        ) {
+        purpose: SceneTextureLoadPurpose = .straightAlbedo,
+        preparedTexSource: SceneTextureLoader.PreparedTexSource? = nil,
+        preparedDirectImageSource: SceneTextureLoader.PreparedDirectImageSource? = nil,
+        checkCancellation: (() throws -> Void)? = nil
+    ) throws -> Outcome {
+        if let preparedTexSource, preparedTexSource.input != url { throw SceneResourceView.ReadError.invalidHandle }
+        if let preparedDirectImageSource, preparedDirectImageSource.input != url { throw SceneResourceView.ReadError.invalidHandle }
+        let outcome: SceneTextureCandidateLoadOutcome
+        if let preparedTexSource {
+            outcome = try loader.loadCandidate(from: preparedTexSource, purpose: purpose,
+                device: device, checkCancellation: checkCancellation)
+        } else if let preparedDirectImageSource {
+            outcome = try loader.loadCandidate(from: preparedDirectImageSource, purpose: purpose,
+                device: device, checkCancellation: checkCancellation)
+        } else {
+            outcome = try loader.loadCandidate(from: url, purpose: purpose,
+                device: device, checkCancellation: checkCancellation)
+        }
+        switch outcome {
         case .failed(let failure):
             return .failed(failure)
         case .loaded(let candidate):

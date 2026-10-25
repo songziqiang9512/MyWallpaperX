@@ -213,7 +213,7 @@ class SceneShaderVec2AuthoredFallbackTests(unittest.TestCase):
                            SWIFT_MODULECACHE_PATH=str(work / "swift-cache"),
                            MWX_SCENE_GENERIC_SHADER_CACHE=str(work / "shader-cache"))
         binary = work / "vec2-fallback"
-        command = ["xcrun", "--sdk", "macosx", "swiftc", "-parse-as-library",
+        command = ["xcrun", "--sdk", "macosx", "swiftc", "-parse-as-library", "-D", "SCENE_GRAPH_TESTING",
                    *(str(p) for p in SOURCES), str(harness), "-framework", "Metal",
                    "-framework", "CoreGraphics", "-framework", "ImageIO",
                    "-module-cache-path", str(work / "module-cache"), "-o", str(binary)]

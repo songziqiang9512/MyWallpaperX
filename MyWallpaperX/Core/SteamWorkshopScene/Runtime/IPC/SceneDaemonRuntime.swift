@@ -149,12 +149,14 @@ final class SceneDaemonRuntime {
     private let host = SceneDesktopWallpaperHost()
     private var observers: [NSObjectProtocol] = []
 #if DEBUG
+    var debugStartupPrefixUptimes: [String: UInt64]?
     private var statsTimer: DispatchSourceTimer?
 #endif
     private var currentRequestID: UUID?
     private var lastPropertyRevision: UInt64 = 0
     private var shouldPausePlayback = false
     private var isShuttingDown = false
+    private var pendingRequestRetirement: (requestID: UUID, operationID: UUID)?
     private var audioDemand = SceneAudioSpectrumCaptureDemand.none
 #if DEBUG
     private var didReportNonSilentAudioPublication = false
@@ -175,13 +177,34 @@ final class SceneDaemonRuntime {
             MainActor.assumeIsolated { self?.shutdown(exitCode: 0) }
         }
         NSApplication.shared.setActivationPolicy(.accessory)
-        host.requestResourcesReleasedHandler = { [weak self] requestID in
-            self?.emitRequestResourcesReleased(requestID)
+        host.requestResourcesReleasedHandler = { [weak self] requestID, succeeded in
+            guard let self else { return }
+            if succeeded { self.emitRequestResourcesReleased(requestID) }
+            else { self.shutdown(exitCode: 70) }
         }
+#if DEBUG
+        var hello: [String: Any] = [
+            "v": SceneDaemonProtocol.version,
+            "role": "scene-daemon",
+            "sourceSchemaVersion": ScenePlaybackSource.supportedSchemaVersion,
+            "requestRetirementSchemaVersion": 1
+        ]
+        if var uptimes = debugStartupPrefixUptimes {
+            uptimes["schemaVersion"] = 1
+            uptimes["pid"] = UInt64(getpid())
+            uptimes["helloSnapshotCaptured"] = UInt64(ProcessInfo.processInfo.systemUptime * 1_000_000)
+            debugStartupPrefixUptimes = uptimes
+            hello["debugStartupPrefixUptimes"] = uptimes
+        }
+        emit(hello)
+#else
         emit([
             "v": SceneDaemonProtocol.version,
-            "role": "scene-daemon"
+            "role": "scene-daemon",
+            "sourceSchemaVersion": ScenePlaybackSource.supportedSchemaVersion,
+            "requestRetirementSchemaVersion": 1
         ])
+#endif
         installAudioSpectrumDemandBridge()
         installSystemMediaDemandBridge()
         installObservers()
@@ -232,8 +255,8 @@ final class SceneDaemonRuntime {
     }
 
     private func drainPendingCommands() {
-        guard !isShuttingDown else { return }
-        while !isShuttingDown, let pending = commands.takeNext() {
+        guard !isShuttingDown, pendingRequestRetirement == nil else { return }
+        while !isShuttingDown, pendingRequestRetirement == nil, let pending = commands.takeNext() {
             switch pending {
             case let .droppable(frame):
                 handle(.publishAudioSpectrum(frame))
@@ -262,7 +285,7 @@ final class SceneDaemonRuntime {
     private func handle(_ command: SceneDaemonCommand) {
         switch command {
         case let .loadScene(
-            rootURL, overrides, textureReferences, shortcuts, profile, recordID, requiredTextureKeys, requestID
+            rootURL, overrides, textureReferences, shortcuts, profile, recordID, requiredTextureKeys, requestID, source
         ):
             lastPropertyRevision = 0
             // Explicit parent identities use a cancellable prepare/commit/
@@ -277,6 +300,7 @@ final class SceneDaemonRuntime {
             host.applyPerformanceProfile(profile)
             host.requestLaunch(
                 rootURL: rootURL,
+                source: source,
                 propertyOverrides: overrides,
                 userPropertyTextureURLs: Self.resolveTextureURLs(
                     textureReferences
@@ -350,12 +374,26 @@ final class SceneDaemonRuntime {
         case let .setOutputActive(requestID, operationID, active):
             let accepted = host.setOutputActive(active, requestID: requestID)
             emitSwitchControlResult(requestID: requestID, operationID: operationID, accepted: accepted)
-        case let .retireOutput(requestID, operationID):
+        case let .retireOutput(requestID, operationID, requireRequestRetirement):
             let windows = host.outputWindows(requestID: requestID)
+            let knownRequest = host.hasRequestOutput(requestID: requestID)
+            if requireRequestRetirement {
+                pendingRequestRetirement = (requestID, operationID)
+            }
             let accepted = host.retireOutput(requestID: requestID)
-            confirmOutputWithdrawal(windows: windows) { [weak self] hidden in
-                self?.emitSwitchControlResult(requestID: requestID, operationID: operationID,
-                                              accepted: accepted && hidden)
+            if requireRequestRetirement {
+                host.whenRequestResourcesReleased(requestID: requestID) { [weak self] succeeded in
+                    guard let self, !self.isShuttingDown else { return }
+                    self.confirmOutputWithdrawal(windows: windows) { [weak self] hidden in
+                        self?.finishRequestRetirement(requestID: requestID, operationID: operationID,
+                            accepted: accepted && hidden, knownRequest: knownRequest, succeeded: succeeded)
+                    }
+                }
+            } else {
+                confirmOutputWithdrawal(windows: windows) { [weak self] hidden in
+                    self?.emitSwitchControlResult(requestID: requestID, operationID: operationID,
+                                                  accepted: accepted && hidden)
+                }
             }
         case let .setDisplayConfiguration(topology):
 #if DEBUG
@@ -445,14 +483,36 @@ final class SceneDaemonRuntime {
         emitSystemMediaEvent("systemMediaDemandChanged", frame: demand)
     }
 
-    private func emitSwitchControlResult(requestID: UUID, operationID: UUID, accepted: Bool) {
-        emit(["v": SceneDaemonProtocol.version, "event": "switchControlResult",
-              "requestID": requestID.uuidString, "operationID": operationID.uuidString,
-              "accepted": accepted])
+    private func finishRequestRetirement(requestID: UUID, operationID: UUID,
+                                         accepted: Bool, knownRequest: Bool, succeeded: Bool) {
+        guard !isShuttingDown, let pending = pendingRequestRetirement,
+              pending.requestID == requestID, pending.operationID == operationID else { return }
+        let demand = SceneAudioSpectrumInbox.shared.captureDemand
+        let requestRetired = accepted && knownRequest && succeeded
+            && host.isEmptyForRequestRetirement && !demand.requiresSpectrum
+        if requestRetired {
+            if currentRequestID == requestID { currentRequestID = nil }
+            // Both events use the original FIFO writer; no-demand precedes ACK.
+            publishAudioSpectrumDemand(demand)
+        }
+        emitSwitchControlResult(requestID: requestID, operationID: operationID,
+                                accepted: accepted, requestRetired: requestRetired)
+        guard requestRetired else { shutdown(exitCode: 70); return }
+        pendingRequestRetirement = nil
+        drainPendingCommands()
     }
 
-    /// Cancellation/retirement ACK means the exact old windows are withdrawn,
-    /// not merely removed from a Swift dictionary. Failure makes the parent
+    private func emitSwitchControlResult(requestID: UUID, operationID: UUID, accepted: Bool,
+                                         requestRetired: Bool? = nil) {
+        var payload: [String: Any] = ["v": SceneDaemonProtocol.version, "event": "switchControlResult",
+            "requestID": requestID.uuidString, "operationID": operationID.uuidString,
+            "accepted": accepted]
+        if let requestRetired { payload["requestRetired"] = requestRetired }
+        emit(payload)
+    }
+
+    /// The accepted field confirms exact window withdrawal; strong retirement
+    /// separately qualifies request CPU/GPU terminal. Failure makes the parent
     /// terminate this child and wait for physical exit before releasing its barrier.
     private func confirmOutputWithdrawal(windows: [NSWindow], completion: @escaping (Bool) -> Void) {
         let deadline = ProcessInfo.processInfo.systemUptime + 1
@@ -523,7 +583,8 @@ final class SceneDaemonRuntime {
     private func publishAudioSpectrumDemand(
         _ demand: SceneAudioSpectrumCaptureDemand
     ) {
-        guard demand != audioDemand else { return }
+        guard demand == SceneAudioSpectrumInbox.shared.captureDemand,
+              demand != audioDemand else { return }
         audioDemand = demand
 #if DEBUG
         didReportNonSilentAudioPublication = false
@@ -567,8 +628,10 @@ final class SceneDaemonRuntime {
                 }
                 self.emit(payload)
                 if state.phase == .failed || state.phase == .cancelled {
-                    self.host.whenRequestResourcesReleased(requestID: state.requestID) { [weak self] in
-                        self?.emitRequestResourcesReleased(state.requestID)
+                    self.host.whenRequestResourcesReleased(requestID: state.requestID) { [weak self] succeeded in
+                        guard let self else { return }
+                        if succeeded { self.emitRequestResourcesReleased(state.requestID) }
+                        else { self.shutdown(exitCode: 70) }
                     }
                 }
             }
@@ -600,7 +663,7 @@ final class SceneDaemonRuntime {
 
     private func emitRequestResourcesReleased(_ requestID: UUID) {
         emit(["v": SceneDaemonProtocol.version, "event": "launchResourcesReleased",
-              "requestID": requestID.uuidString])
+              "requestID": requestID.uuidString, "resourcesRetired": true])
     }
 #if DEBUG
     private func capturePresentedFrameIfRequested(reason: String) {

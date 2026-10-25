@@ -33,6 +33,9 @@ struct SceneRenderDescriptor {
         var clampUVs: Bool = false
         var noInterpolation: Bool = false
         var brightness: Float? = nil
+        var utilityLayer: SceneUtilityLayer? = nil
+        var imageMaterialRenderState: SceneMaterialRenderState? = nil
+        var childLayerIDs: [Int] = []
     }
 
     struct EffectDescriptor {
@@ -50,6 +53,13 @@ struct SceneRenderDescriptor {
         var userTextureInputs: [String] = []
         var combos: [String: Int] = [:]
     }
+}
+
+struct SceneUtilityLayer {
+    enum Kind { case composition }
+    var kind: Kind = .composition
+    var framebufferSource: Int? = nil
+    var copyBackground = false
 }
 
 struct SceneNamedTextureReference {
@@ -90,6 +100,12 @@ struct SceneAuthoredShaderFrameInputs {}
 
 struct SceneGeometryProduct {}
 
+// This routing fixture never prepares direct-draw geometry; it carries only
+// the optional placement leaf consumed by the real composition plan.
+enum SceneDirectDrawOutputGeometry {
+    struct Resolved { let outputModelViewProjection: simd_float4x4 }
+}
+
 enum SceneGraphExecutionResetReason { case deviceLoss }
 
 enum SceneBlendModeShaderSource { static let maximumMode = 32 }
@@ -128,7 +144,12 @@ struct SceneBaseMaterialLitCapturePayload {
     let hasDirectLighting = true
     func resolvingEnvironment(for target: MTLTexture, commandBuffer: MTLCommandBuffer) -> Self? { self }
 }
-final class SceneImageLayerPipeline { static func bindQuad(encoder: MTLRenderCommandEncoder) {} }
+final class SceneImageLayerPipeline {
+    static func bindQuad(encoder: MTLRenderCommandEncoder) {}
+    func supports(_ state: SceneMaterialRenderState) -> Bool {
+        fatalError("static source fixture must not execute a terminal material state")
+    }
+}
 
 final class SceneLayerColorBlendPipeline {
     private(set) static weak var lastCreated: SceneLayerColorBlendPipeline?
@@ -203,6 +224,9 @@ enum SceneImageLayerMainPassRenderer {
         colorBlendPipeline: SceneLayerColorBlendPipeline?,
         distanceFog: SceneImageDistanceFogUniforms = .init(),
         geometryProduct: SceneGeometryProduct? = nil,
+        terminalDepth: SceneImageLayerTerminalDepthBinding? = nil,
+        terminalMaterialState: SceneMaterialRenderState? = nil,
+        terminalMVP: simd_float4x4? = nil,
         mainPass: SceneMainPassEncoder
     ) -> Bool {
         recorded.append(.init(
@@ -356,6 +380,8 @@ final class SceneResolvedMaterialRuntimeBridge {
         let finalContent: SceneTextureContent
         let consumesExternalPrimaryDependency: Bool
         var hasTerminalMaterialReplay: Bool { false }
+        var terminalReplayBlendMode: Int? { nil }
+        var terminalReadsCurrentAttachment: Bool { false }
     }
     enum ExecutionResult {
         case encoded(texture: MTLTexture, ticket: ExecutionTicket)

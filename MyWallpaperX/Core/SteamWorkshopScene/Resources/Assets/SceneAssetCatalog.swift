@@ -49,7 +49,8 @@ struct SceneAssetCatalog {
         var id: String { relativePath }
     }
 
-    let rootURL: URL
+    /// Parsed resources in the actual reference closure, including hidden and
+    /// script-created templates; these counts do not enumerate author files.
     let models: [ModelAsset]
     let materials: [MaterialAsset]
     let effectDefinitions: [SceneEffectDefinition]
@@ -83,97 +84,134 @@ struct SceneAssetCatalog {
 
 struct SceneAssetCatalogLoader {
     nonisolated func load(
-        project: SceneProject,
-        packageReport: ScenePkgExtractionReport?,
-        referencedResourcePaths: [String] = [],
-        stockAssetsRootURL: URL? = SceneResourceView.defaultStockAssetsRootURL()
-    ) throws -> SceneAssetCatalog {
-        let resourceView = SceneResourceView(
-            projectRootURL: project.rootURL,
-            packageRootURL: packageReport?.outputURL,
-            stockAssetsRootURL: stockAssetsRootURL
-        )
-        return try load(
-            resourceView: resourceView,
-            referencedResourcePaths: referencedResourcePaths,
-            propertyCatalog: project.userProperties
-        )
-    }
-
-    nonisolated func load(
         resourceView: SceneResourceView,
         referencedResourcePaths: [String],
-        propertyCatalog: SceneUserPropertyCatalog = .empty
+        propertyCatalog: SceneUserPropertyCatalog = .empty,
+        scriptSources: [String] = [],
+        additionalModelPaths: [String] = [],
+        additionalMaterialPaths: [String] = [],
+        particlePaths: [String] = [],
+        preparedParticleDefinition: (String, SceneParticleAssetGraphLoader.PreparedDefinition) -> Void = { _, _ in },
+        checkCancellation: (() throws -> Void)? = nil
     ) throws -> SceneAssetCatalog {
-        let rootURL = resourceView.primaryRootURL
-        var resources = resourceView.authorResources
-        for path in referencedResourcePaths {
-            guard let resource = resourceView.resource(forReference: path) else { continue }
-            if resourceView.source(containing: resource.url) != .stock || resource.kind == .model {
-                append(resource, to: &resources)
-            }
-        }
-
-        let modelResources = resources.filter {
+        try checkCancellation?()
+        // Retain the complete name namespace, but read only selected consumers.
+        let authorNames = resourceView.authorHandles
+        var modelNames = authorNames.filter {
             $0.kind == .model && $0.relativePath.localizedLowercase.hasSuffix(".json")
+        }.map(\.relativePath) + additionalModelPaths
+        var order = Dictionary(uniqueKeysWithValues: authorNames.enumerated().map {
+            (SceneResourceView.identity($0.element.relativePath), $0.offset)
+        })
+        var queue: [SceneResourceView.Handle] = []
+        var seen: Set<String> = []
+        func enqueue(_ path: String, reference: Bool = true) {
+            let selected = reference ? resourceView.resolvedResource(forReference: path)
+                : resourceView.resolvedResource(relativePath: path)
+            guard let resource = selected else { return }
+            let key = SceneResourceView.identity(resource.relativePath)
+            guard seen.insert(key).inserted else { return }
+            if order[key] == nil { order[key] = order.count }
+            if resource.kind == .model && resource.source == .stock { modelNames.append(resource.relativePath) }
+            queue.append(resource)
         }
-        let models = modelResources.compactMap {
-            loadModel($0, resourceView: resourceView)
+        var sources: [String] = []
+        var sourceIDs: [String: Int] = [:]
+        var pendingSources: Set<Int> = []
+        var sourcesByModel: [String: Set<Int>] = [:]
+        var failedModels: Set<String> = []
+        func addSource(_ source: String) {
+            guard sourceIDs[source] == nil else { return }
+            sourceIDs[source] = sources.count
+            pendingSources.insert(sources.count)
+            sources.append(source)
         }
-        for model in models {
-            if !Self.isUtilityModelPath(model.relativePath) {
-                append(model.materialPath.flatMap(resourceView.resource(relativePath:)), to: &resources)
-            }
-            append(model.puppetPath.flatMap(resourceView.resource(relativePath:)), to: &resources)
-        }
-
-        let effectResources = resources.filter { $0.kind == .effectDefinition }
-        let effectResults = effectResources.map(loadEffectDefinition)
-        let effectDefinitions = effectResults.compactMap(\.definition)
-        for definition in effectDefinitions {
-            for path in definition.passes.compactMap(\.materialPath) + definition.dependencies {
-                append(resourceView.resource(forReference: path), to: &resources)
-            }
-        }
-
-        let materialResources = resources.filter {
-            $0.kind == .material && $0.relativePath.localizedLowercase.hasSuffix(".json")
-        }
+        for source in scriptSources { addSource(source) }
+        for path in referencedResourcePaths { enqueue(path) }
+        for path in additionalMaterialPaths { enqueue(path, reference: false) }
+        let particleMaterials = try SceneParticleAssetGraphLoader(resourceView: resourceView,
+            stockTextureBundleURL: nil).prepareDefinitions(rootPaths: particlePaths,
+                checkCancellation: checkCancellation) { path, value in
+                    preparedParticleDefinition(path, value)
+                }
+        for path in particleMaterials { enqueue(path, reference: false) }
         let declaredTexturePropertyKeys = Set(propertyCatalog.definitions
             .filter { $0.kind == .sceneTexture }.map(\.key))
-        let materials = materialResources.compactMap {
-            loadMaterial($0, declaredTexturePropertyKeys: declaredTexturePropertyKeys)
+        var models: [SceneAssetCatalog.ModelAsset] = []
+        var materials: [SceneAssetCatalog.MaterialAsset] = []
+        var effectResults: [(definition: SceneEffectDefinition?, diagnostic: SceneEffectDefinitionDiagnostic?)] = []
+        var next = 0
+        while next < queue.count || !pendingSources.isEmpty {
+            while next < queue.count {
+                try checkCancellation?()
+                let resource = queue[next]
+                next += 1
+                switch resource.kind {
+                case .model where resource.relativePath.localizedLowercase.hasSuffix(".json"):
+                    guard let model = try loadModel(resource, resourceView: resourceView,
+                        checkCancellation: checkCancellation) else {
+                        let key = SceneResourceView.identity(resource.relativePath)
+                        failedModels.insert(key)
+                        pendingSources.formUnion(sourcesByModel[key] ?? [])
+                        continue
+                    }
+                    models.append(model)
+                    if !Self.isUtilityModelPath(model.relativePath), let path = model.materialPath {
+                        enqueue(path, reference: false)
+                    }
+                case .effectDefinition:
+                    let result = try loadEffectDefinition(resource, checkCancellation: checkCancellation)
+                    effectResults.append(result)
+                    if let definition = result.definition {
+                        for path in definition.passes.compactMap(\.materialPath) + definition.dependencies { enqueue(path) }
+                    }
+                case .material where resource.relativePath.localizedLowercase.hasSuffix(".json"):
+                    if let material = try loadMaterial(resource, declaredTexturePropertyKeys: declaredTexturePropertyKeys,
+                        checkCancellation: checkCancellation) {
+                        materials.append(material)
+                        for source in material.passes.flatMap({ $0.constantShaderValues.values.compactMap(\.scriptSource) }) {
+                            addSource(source)
+                        }
+                    }
+                default: break
+                }
+            }
+            let available = modelNames.filter { !failedModels.contains(SceneResourceView.identity($0)) }
+            let pending = pendingSources.sorted()
+            pendingSources.removeAll(keepingCapacity: true)
+            for index in pending {
+                try checkCancellation?()
+                for reference in SceneScriptDynamicImageReferenceAnalysis.references(
+                    in: sources[index], availableModelPaths: available) ?? [] {
+                    sourcesByModel[SceneResourceView.identity(reference.modelPath), default: []].insert(index)
+                    enqueue(reference.modelPath)
+                }
+            }
         }
+        func precedes(_ lhs: String, _ rhs: String) -> Bool {
+            (order[SceneResourceView.identity(lhs)] ?? Int.max) < (order[SceneResourceView.identity(rhs)] ?? Int.max)
+        }
+        models.sort { precedes($0.relativePath, $1.relativePath) }
+        materials.sort { precedes($0.relativePath, $1.relativePath) }
+        effectResults.sort { precedes($0.definition?.relativePath ?? "", $1.definition?.relativePath ?? "") }
+        let effectDefinitions = effectResults.compactMap(\.definition)
         let shaderReferences = SceneAssetCatalog.uniqueSorted(materials.flatMap { material in
             material.passes.compactMap(\.shader)
         })
 
         var catalog = SceneAssetCatalog(
-            rootURL: rootURL,
             models: models,
             materials: materials,
             effectDefinitions: effectDefinitions,
-            shaderContracts: SceneShaderContractLoader().load(
+            shaderContracts: try SceneShaderContractLoader().load(
                 shaderReferences: shaderReferences,
-                resourceView: resourceView
+                resourceView: resourceView, checkCancellation: checkCancellation
             )
         )
 #if DEBUG
         catalog.effectDefinitionDiagnostics = effectResults.compactMap(\.diagnostic)
 #endif
         return catalog
-    }
-
-    nonisolated private func append(
-        _ resource: SceneResourceIndex.Resource?,
-        to resources: inout [SceneResourceIndex.Resource]
-    ) {
-        guard let resource else { return }
-        let identity = resource.relativePath.localizedLowercase
-        guard !resources.contains(where: { $0.relativePath.localizedLowercase == identity }) else {
-            return
-        }
-        resources.append(resource)
     }
 
     nonisolated private static func isUtilityModelPath(_ path: String) -> Bool {
@@ -185,11 +223,22 @@ struct SceneAssetCatalogLoader {
     }
 
     nonisolated private func loadEffectDefinition(
-        _ resource: SceneResourceIndex.Resource
-    ) -> (definition: SceneEffectDefinition?, diagnostic: SceneEffectDefinitionDiagnostic?) {
+        _ resource: SceneResourceView.Handle,
+        checkCancellation: (() throws -> Void)?
+    ) throws -> (definition: SceneEffectDefinition?, diagnostic: SceneEffectDefinitionDiagnostic?) {
+        let data: Data
+        do {
+            data = try resource.readBytes(checkCancellation: checkCancellation)
+        } catch let error as SceneResourceView.ReadError {
+            switch error {
+            case .sourceChanged, .invalidHandle: throw error
+            case .missing, .invalidPath, .symlinkEscape, .unreadable, .fileTooLarge:
+                return invalidEffectDefinition(resource.relativePath, error: error)
+            }
+        }
         do {
             let definition = try SceneEffectDefinitionLoader().load(
-                from: resource.url,
+                data: data,
                 relativePath: resource.relativePath
             )
 #if DEBUG
@@ -207,33 +256,50 @@ struct SceneAssetCatalogLoader {
             return (definition, nil)
 #endif
         } catch {
-#if DEBUG
-            return (
-                nil,
-                .init(
-                    code: .invalidDefinition,
-                    effectPath: resource.relativePath,
-                    layerID: nil,
-                    effectIndex: nil,
-                    detail: error.localizedDescription
-                )
-            )
-#else
-            return (nil, nil)
-#endif
+            return invalidEffectDefinition(resource.relativePath, error: error)
         }
     }
 
+    nonisolated private func invalidEffectDefinition(
+        _ relativePath: String,
+        error: Error
+    ) -> (definition: SceneEffectDefinition?, diagnostic: SceneEffectDefinitionDiagnostic?) {
+#if DEBUG
+        return (
+            nil,
+            .init(
+                code: .invalidDefinition,
+                effectPath: relativePath,
+                layerID: nil,
+                effectIndex: nil,
+                detail: error.localizedDescription
+            )
+        )
+#else
+        return (nil, nil)
+#endif
+    }
+
     nonisolated private func loadModel(
-        _ resource: SceneResourceIndex.Resource,
-        resourceView: SceneResourceView
-    ) -> SceneAssetCatalog.ModelAsset? {
-        guard let root = loadJSON(resource.url) else { return nil }
+        _ resource: SceneResourceView.Handle,
+        resourceView: SceneResourceView,
+        checkCancellation: (() throws -> Void)?
+    ) throws -> SceneAssetCatalog.ModelAsset? {
+        guard let root = try loadJSON(resource, checkCancellation: checkCancellation) else { return nil }
         let puppetPath = normalizedPath(root["puppet"] as? String)
-        let puppetAttachments = puppetPath
-            .flatMap(resourceView.resource(relativePath:))
-            .flatMap { try? Data(contentsOf: $0.url) }
-            .flatMap { try? SceneMdlPuppetAttachmentReader.read(data: $0) } ?? []
+        let puppetAttachments: [SceneMdlPuppetAttachment]
+        if let puppet = puppetPath.flatMap(resourceView.resolvedResource(relativePath:)),
+           let data = try readOptionalBytes(puppet, checkCancellation: checkCancellation) {
+            do {
+                puppetAttachments = try SceneMdlPuppetAttachmentReader.read(data: data)
+            } catch {
+                // Optional attachment metadata may be malformed. Only parsing
+                // self-owned bytes degrades here; read failures escape above.
+                puppetAttachments = []
+            }
+        } else {
+            puppetAttachments = []
+        }
         return SceneAssetCatalog.ModelAsset(
             relativePath: resource.relativePath,
             materialPath: normalizedPath(root["material"] as? String),
@@ -251,10 +317,11 @@ struct SceneAssetCatalogLoader {
     }
 
     nonisolated private func loadMaterial(
-        _ resource: SceneResourceIndex.Resource,
-        declaredTexturePropertyKeys: Set<String>
-    ) -> SceneAssetCatalog.MaterialAsset? {
-        guard let data = try? Data(contentsOf: resource.url),
+        _ resource: SceneResourceView.Handle,
+        declaredTexturePropertyKeys: Set<String>,
+        checkCancellation: (() throws -> Void)?
+    ) throws -> SceneAssetCatalog.MaterialAsset? {
+        guard let data = try readOptionalBytes(resource, checkCancellation: checkCancellation),
               let root = (try? JSONSerialization.jsonObject(with: data)) as? [String: Any] else {
             return nil
         }
@@ -383,9 +450,26 @@ struct SceneAssetCatalogLoader {
             .compactMap { Double($0) }
     }
 
-    nonisolated private func loadJSON(_ url: URL) -> [String: Any]? {
-        guard let data = try? Data(contentsOf: url) else { return nil }
+    nonisolated private func loadJSON(
+        _ resource: SceneResourceView.Handle,
+        checkCancellation: (() throws -> Void)?
+    ) throws -> [String: Any]? {
+        guard let data = try readOptionalBytes(resource, checkCancellation: checkCancellation) else { return nil }
         return (try? JSONSerialization.jsonObject(with: data)) as? [String: Any]
+    }
+
+    nonisolated private func readOptionalBytes(
+        _ resource: SceneResourceView.Handle,
+        checkCancellation: (() throws -> Void)?
+    ) throws -> Data? {
+        do {
+            return try resource.readBytes(checkCancellation: checkCancellation)
+        } catch let error as SceneResourceView.ReadError {
+            switch error {
+            case .sourceChanged, .invalidHandle: throw error
+            case .missing, .invalidPath, .symlinkEscape, .unreadable, .fileTooLarge: return nil
+            }
+        }
     }
 
     nonisolated private func texturePaths(in pass: [String: Any]) -> [String] {

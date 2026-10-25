@@ -83,7 +83,8 @@ extension SteamWorkshopService {
         definition: SteamWorkshopWebPropertyDefinition?,
         rawValue: SteamWorkshopWebPropertyValue,
         record: SteamWorkshopDownloadRecord,
-        usesBookmarks: Bool = true
+        usesBookmarks: Bool = true,
+        bindingContext: WebAuthorBindingContext? = nil
     ) -> ResolvedWebResourceBinding? {
         guard let rawPath = rawValue.stringValue?.trimmingCharacters(in: .whitespacesAndNewlines),
               !rawPath.isEmpty else {
@@ -94,7 +95,7 @@ extension SteamWorkshopService {
         let normalizedKey = key.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
         let isDirectoryDefinition = definition?.kind == .directory
         let isFileDefinition = definition?.kind == .file
-        let looksLikePathPreset = webShellResourcePathLikeKeys(for: record).contains(normalizedKey)
+        let looksLikePathPreset = (bindingContext?.pathlikeKeys ?? webShellResourcePathLikeKeys(for: record)).contains(normalizedKey)
         let origin: ResolvedWebResourceBindingOrigin = definition == nil ? .presetFallback : .propertyDefinition
         let kind: ResolvedWebResourceBindingKind
         if isDirectoryDefinition {
@@ -107,7 +108,7 @@ extension SteamWorkshopService {
             return nil
         }
 
-        let candidateRoots = webResourceCandidateRoots(for: record)
+        let candidateRoots = bindingContext?.candidateRoots.map { ($0.source, $0.url) } ?? webResourceCandidateRoots(for: record)
 
         if usesBookmarks,
            kind != .pathlikePreset,
@@ -169,7 +170,7 @@ extension SteamWorkshopService {
         )
     }
 
-    private func webResourceCandidateRoots(for record: SteamWorkshopDownloadRecord) -> [(ResolvedWebResourceBindingSource, URL)] {
+    nonisolated func webResourceCandidateRoots(for record: SteamWorkshopDownloadRecord) -> [(ResolvedWebResourceBindingSource, URL)] {
         var candidateRoots: [(ResolvedWebResourceBindingSource, URL)] = []
         if record.isDependencyBackedWeb {
             // Dependency-backed presets commonly point at files owned by the shell sample,
@@ -191,7 +192,7 @@ extension SteamWorkshopService {
 
     private func isWebResource(_ candidateURL: URL, containedIn rootURL: URL) -> Bool {
         let candidatePath = candidateURL.resolvingSymlinksInPath().standardizedFileURL.path
-        let rootPath = rootURL.resolvingSymlinksInPath().standardizedFileURL.path
+        let rootPath = rootURL.standardizedFileURL.path
         return candidatePath == rootPath || candidatePath.hasPrefix(rootPath + "/")
     }
 
@@ -199,13 +200,14 @@ extension SteamWorkshopService {
         forKey key: String,
         definition: SteamWorkshopWebPropertyDefinition,
         rawValue: SteamWorkshopWebPropertyValue,
-        record: SteamWorkshopDownloadRecord
+        record: SteamWorkshopDownloadRecord,
+        bindingContext: WebAuthorBindingContext? = nil
     ) -> URL? {
         guard let resolvedURL = resolvedWebResourceBinding(
             forKey: key,
             definition: definition,
             rawValue: rawValue,
-            record: record
+            record: record, bindingContext: bindingContext
         )?.resolvedURL else {
             return nil
         }
@@ -219,7 +221,8 @@ extension SteamWorkshopService {
         forKey key: String,
         definition: SteamWorkshopWebPropertyDefinition,
         rawValue: SteamWorkshopWebPropertyValue,
-        record: SteamWorkshopDownloadRecord
+        record: SteamWorkshopDownloadRecord,
+        bindingContext: WebAuthorBindingContext? = nil
     ) -> SteamWorkshopWebPropertyValue {
         if definition.kind == .color,
            case let .string(rawString) = rawValue,
@@ -231,7 +234,7 @@ extension SteamWorkshopService {
             forKey: key,
             definition: definition,
             rawValue: rawValue,
-            record: record
+            record: record, bindingContext: bindingContext
         ), let resolvedURL = binding.resolvedURL {
             guard definition.kind != .file || Self.webFileURL(resolvedURL, matches: definition.fileType) else {
                 return .string("")
@@ -252,20 +255,21 @@ extension SteamWorkshopService {
         for record: SteamWorkshopDownloadRecord,
         definitions: [SteamWorkshopWebPropertyDefinition],
         valuesOverride: [String: SteamWorkshopWebPropertyValue]? = nil,
-        effectiveRootURL: URL? = nil
+        effectiveRootURL: URL? = nil,
+        bindingContext: WebAuthorBindingContext? = nil
     ) -> [WebWallpaperResourceGrant] {
         let values = valuesOverride ?? effectiveWebPropertyValues(for: record, definitions: definitions)
         var bindings: [ResolvedWebResourceBinding] = []
         for definition in definitions {
             if let binding = resolvedWebResourceBinding(forKey: definition.key, definition: definition,
-                rawValue: values[definition.key] ?? definition.defaultValue, record: record) {
+                rawValue: values[definition.key] ?? definition.defaultValue, record: record, bindingContext: bindingContext) {
                 bindings.append(binding)
             }
         }
         let definitionKeys = Set(definitions.map(\.key))
-        for (key, value) in webShellResourcePathLikePresetValues(for: record) where !definitionKeys.contains(key) {
+        for (key, value) in (bindingContext?.pathlikePresetValues ?? webShellResourcePathLikePresetValues(for: record)) where !definitionKeys.contains(key) {
             if let binding = resolvedWebResourceBinding(forKey: key, definition: nil,
-                rawValue: values[key] ?? value, record: record) { bindings.append(binding) }
+                rawValue: values[key] ?? value, record: record, bindingContext: bindingContext) { bindings.append(binding) }
         }
         let resourceGrants = bindings.compactMap { binding -> WebWallpaperResourceGrant? in
             guard binding.source != .unresolved, binding.source != .absolutePath,
@@ -282,11 +286,12 @@ extension SteamWorkshopService {
         // These are independently trusted project namespaces, never a selected
         // file's parent. Dependency shell assets remain readable after clearing
         // a user bookmark; the handler already owns its effective root.
-        let implicitRoot = (effectiveRootURL ?? record.webHostRootURL ?? record.resolvedWebRootURL ?? record.folderURL)
+        let implicitRoot = effectiveRootURL?.standardizedFileURL ?? (record.webHostRootURL ?? record.resolvedWebRootURL ?? record.folderURL)
             .resolvingSymlinksInPath().standardizedFileURL
-        let namespaceGrants = webResourceCandidateRoots(for: record).compactMap { _, root -> WebWallpaperResourceGrant? in
+        let roots = bindingContext?.candidateRoots.map { ($0.source, $0.url) } ?? webResourceCandidateRoots(for: record)
+        let namespaceGrants = roots.compactMap { _, root -> WebWallpaperResourceGrant? in
             let grant = WebWallpaperResourceGrant(kind: .directory, url: root)
-            guard grant.url != implicitRoot,
+            guard grant.url.path == root.path, grant.url != implicitRoot,
                   (try? grant.url.resourceValues(forKeys: [.isDirectoryKey]).isDirectory) == true else { return nil }
             return grant
         }
@@ -295,10 +300,4 @@ extension SteamWorkshopService {
         }
     }
 
-}
-
-private extension String {
-    var nilIfEmpty: String? {
-        isEmpty ? nil : self
-    }
 }

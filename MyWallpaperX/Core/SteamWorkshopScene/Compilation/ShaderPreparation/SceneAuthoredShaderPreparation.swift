@@ -282,7 +282,6 @@ nonisolated enum SceneAuthoredShaderPreparation {
                   envelope.schemaVersion == schemaVersion,
                   envelope.key == key,
                   envelope.keySHA256 == keySHA256,
-                  envelope.keySHA256 == SceneShaderStableDigest.hash(envelope.key),
                   envelope.programSHA256 == SceneShaderStableDigest.hash(envelope.program),
                   valid(envelope.program, key: key, contract: contract) else {
                 return nil
@@ -344,7 +343,12 @@ nonisolated enum SceneAuthoredShaderPreparation {
                         createIfNeeded: createIfNeeded
                     )
             }
-            guard Bundle.main.bundleIdentifier == "com.songziqiang.MyWallpaperX",
+#if DEBUG
+            let isStartupTestApp = Bundle.main.bundleIdentifier == "com.songziqiang.MyWallpaperX.Debug.Startup"
+#else
+            let isStartupTestApp = false
+#endif
+            guard Bundle.main.bundleIdentifier == "com.songziqiang.MyWallpaperX" || isStartupTestApp,
                   let root = FileManager.default.urls(
                       for: .cachesDirectory,
                       in: .userDomainMask
@@ -803,7 +807,6 @@ nonisolated enum SceneAuthoredShaderPreparation {
         let code: SceneAuthoredShaderPreparationFailure.Code
         switch diagnostic.code {
         case .missingRoot: code = .shaderSourceGraphMissing
-        case .sourceIdentityMismatch: code = .shaderSourceIdentityMismatch
         case .missingInclude: code = .shaderIncludeMissing
         case .ambiguousInclude: code = .shaderIncludeAmbiguous
         case .includeCycle: code = .shaderIncludeCycle

@@ -27,8 +27,6 @@ class ScenePBRScalarTests(unittest.TestCase):
     def test_startup_property_resolution_reaches_profile(self):
         from script.tests import test_scene_timeline_document as document, test_scene_user_properties as properties, test_scene_static_model_material_properties as material
         support=document.HARNESS_SOURCE.split('@main',1)[0]
-        start=support.index('enum SceneUserPropertyValue {}');end=support.index('struct ScenePkgExtractionReport')
-        support=support[:start]+support[end:]
         # Reuse the nearest material fixture's color binding transport type.
         start=material.STUBS.index('enum SceneBaseMaterialColorModulationCompiler {')
         end=material.STUBS.index('enum SceneShaderUserValueKind',start)

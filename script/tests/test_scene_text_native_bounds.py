@@ -1,7 +1,7 @@
 """Native paragraph bounds keep real text ink and static/dynamic agreement.
 
-Only the descriptor DTO and unused parse methods are doubled. The six source
-owners below provide the real font, layout, raster and Metal allocation path.
+Only the descriptor DTO and unused parse methods are doubled. The source
+owners below provide real Root input, font, layout, raster and Metal allocation.
 No App is launched. A host where CoreText fixes the original paragraph issue
 must still pass: native failure is observed, never required by font identity.
 """
@@ -22,6 +22,12 @@ REPOSITORY_ROOT = Path(__file__).resolve().parents[2]
 SOURCE_ROOT = REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene"
 FONT_ROOT = REPOSITORY_ROOT / "MyWallpaperX/Resources/SceneStockAssets.bundle/assets/fonts"
 SWIFT_SOURCES = [
+    SOURCE_ROOT / "Resources/Assets/SceneResourceIndex.swift",
+    SOURCE_ROOT / "Resources/Assets/SceneResourceView.swift",
+    SOURCE_ROOT / "../SteamWorkshopStorage/ScenePlaybackSource.swift",
+    SOURCE_ROOT / "Format/ScenePkgReader.swift",
+    SOURCE_ROOT / "Resources/Assets/SceneResourceIdentity.swift",
+    SOURCE_ROOT / "Resources/Assets/SceneResourceView+Backing.swift",
     SOURCE_ROOT / "Systems/Text/SceneTextDescriptor.swift",
     SOURCE_ROOT / "Systems/Text/SceneTextFontResolver.swift",
     SOURCE_ROOT / "Systems/Text/SceneTextGeometry.swift",
@@ -61,6 +67,7 @@ HARNESS = r'''
 import CoreGraphics
 import CoreText
 import CryptoKit
+import Darwin
 import Foundation
 import Metal
 
@@ -185,6 +192,8 @@ struct SceneRenderDescriptor {
 
     static func main() throws {
         let directory = URL(fileURLWithPath: CommandLine.arguments[1], isDirectory: true)
+        let resourceView = SceneResourceView(projectRoot: .init(source: .loose, url: directory),
+            packageRoot: nil, stockRoot: nil)
         let inputs = try JSONDecoder().decode([Input].self,
             from: Data(contentsOf: directory.appendingPathComponent("fixture.json")))
         guard let device = MTLCreateSystemDefaultDevice() else {
@@ -201,18 +210,18 @@ struct SceneRenderDescriptor {
                 text: value.content, textStyle: style)
         }
         let loaded = SceneTextTextureLoader.load(descriptor: .init(layers: layers),
-            cacheDirectory: directory, device: device)
+            resourceView: resourceView, device: device)
         var result: [String: Any] = [:]
         for (value, layer) in zip(inputs, layers) {
             guard let style = layer.textStyle, let initial = loaded.rasters[layer.id],
-                  let dynamic = SceneTextTextureLoader.makeDynamicTexture(for: layer,
+                  let dynamic = try SceneTextTextureLoader.makeDynamicTexture(for: layer,
                     content: value.content, fontPath: value.fontPath, pointSize: value.pointSize,
                     colorRGB: value.color, maxWidth: value.maxWidth,
-                    cacheDirectory: directory, device: device)
+                    resourceView: resourceView, device: device)
             else { fatalError("Missing real raster for \(value.name)") }
             let initialPixels = bytes(initial.texture), dynamicPixels = bytes(dynamic.texture)
-            let resolution = SceneTextFontResolver.resolve(path: value.fontPath,
-                size: CGFloat(SceneTextGeometry.pointSizeInPixels(value.pointSize)), cacheDirectory: directory)
+            let resolution = try SceneTextFontResolver.resolve(path: value.fontPath,
+                size: CGFloat(SceneTextGeometry.pointSizeInPixels(value.pointSize)), resourceView: resourceView)
             let policy = SceneTextRowLimit.lineBounds(text: value.content, font: resolution.font,
                 useEllipsis: value.useEllipsis)
             let qualificationText = value.content + (value.useEllipsis ? "…" : "")
@@ -227,8 +236,63 @@ struct SceneRenderDescriptor {
                 "nativeParagraph": nativeParagraphFacts(qualificationText, font: resolution.font),
                 "limitWidth": style.limitWidth, "limitRows": style.limitRows]
         }
+        // Observe the real font FD at cancellation checkpoints, without a
+        // product hook or resolver double. One open interval is one payload read.
+        let observedPaths = Set(["owned-renamed-clock.otf", "alternate.otf", "invalid.otf"].map {
+            directory.appendingPathComponent("fonts/" + $0)
+                .resolvingSymlinksInPath().standardizedFileURL.path
+        })
+        var readStarts = 0, wasOpen = false
+        func observeRead() {
+            let isOpen = (3..<256).contains { descriptor in
+                var path = [CChar](repeating: 0, count: Int(MAXPATHLEN))
+                return fcntl(Int32(descriptor), F_GETPATH, &path) == 0
+                    && observedPaths.contains(String(cString: path))
+            }
+            if isOpen && !wasOpen { readStarts += 1 }
+            wasOpen = isOpen
+        }
+        let layer = layers.first { $0.textStyle?.fontPath == "fonts/owned-renamed-clock.otf" }!
+        let style = layer.textStyle!
+        func render(_ text: String, path: String = "fonts/owned-renamed-clock.otf",
+                    size: Float = 32, color: [Float] = [1, 1, 1], width: Float = 500,
+                    font: SceneTextFontResolver.Resolution? = nil)
+            throws -> SceneTextTextureLoader.RasterizedTexture {
+            guard let raster = try SceneTextTextureLoader.makeDynamicTexture(for: layer,
+                content: text, fontPath: path, pointSize: size, colorRGB: color,
+                maxWidth: width, resourceView: resourceView, preparedFont: font, device: device,
+                checkCancellation: observeRead) else { fatalError("font reuse raster failed") }
+            return raster
+        }
+        let initial = try render("12:34")
+        let afterInitial = readStarts
+        let changed = try render("7:05", color: [0.2, 0.8, 0.3], width: 300, font: initial.sourceFont)
+        let afterContent = readStarts
+        let resized = try render("12:34", size: 512, font: changed.sourceFont)
+        let afterSize = readStarts
+        let alternate = try render("12:34", path: "fonts/alternate.otf", font: resized.sourceFont)
+        let afterPath = readStarts
+        let invalid = try render("12:34", path: "fonts/invalid.otf", font: alternate.sourceFont)
+        let afterInvalid = readStarts
+        let invalidReused = try render("7:05", path: "fonts/invalid.otf", font: invalid.sourceFont)
+        let afterFallbackReuse = readStarts
+        let fresh = try render("12:34", size: 512)
+        let fontReuse: [String: Any] = [
+            "reads": [afterInitial, afterContent, afterSize, afterPath, afterInvalid, afterFallbackReuse],
+            "contentUsesSameFont": changed.sourceFont.font === initial.sourceFont.font,
+            "sizeUsesOriginalSourceSize": CTFontGetSize(resized.sourceFont.font)
+                == CGFloat(SceneTextGeometry.pointSizeInPixels(512)),
+            "resizedMatchesFreshPixels": bytes(resized.texture) == bytes(fresh.texture),
+            "resizedMatchesFreshGeometry": resized.renderSizeWH == fresh.renderSizeWH,
+            "pathChangesTypeface": alternate.sourceFont.postScriptName != initial.sourceFont.postScriptName,
+            "invalidFallback": invalid.sourceFont.diagnostic == "invalidBundledFont",
+            "fallbackReuse": invalidReused.sourceFont.font === invalid.sourceFont.font,
+            "freshAttemptReadsCurrentFont": readStarts == afterFallbackReuse + 1,
+            "initialRastersCarrySourceSize": CTFontGetSize(loaded.rasters[layer.id]!.sourceFont.font)
+                == CGFloat(SceneTextGeometry.pointSizeInPixels(style.pointSize)),
+        ]
         print(String(decoding: try JSONSerialization.data(withJSONObject: [
-            "metalAvailable": true, "cases": result, "messages": loaded.messages],
+            "metalAvailable": true, "cases": result, "messages": loaded.messages, "fontReuse": fontReuse],
             options: [.sortedKeys]), as: UTF8.self))
     }
 }
@@ -250,6 +314,8 @@ class SceneTextNativeBoundsTests(unittest.TestCase):
         for name in ("spincycle_3d_ot.otf", "Atami-Regular.otf"):
             shutil.copy2(FONT_ROOT / name, stock / name)
         shutil.copy2(FONT_ROOT / "spincycle_3d_ot.otf", embedded / "owned-renamed-clock.otf")
+        shutil.copy2(FONT_ROOT / "Atami-Regular.otf", embedded / "alternate.otf")
+        (embedded / "invalid.otf").write_bytes(b"invalid author font")
         fixture, harness, binary = root / "fixture.json", root / "Harness.swift", root / "probe"
         fixture.write_text(json.dumps(fixture_cases(), sort_keys=True), encoding="utf-8")
         harness.write_text(HARNESS, encoding="utf-8")
@@ -261,7 +327,7 @@ class SceneTextNativeBoundsTests(unittest.TestCase):
                    "-framework", "Metal", "-framework", "CoreText", "-o", str(binary)]
         identity = {"compileCommand": command, "inputs": before,
                     "renamedFontSHA256": hashlib.sha256((embedded / "owned-renamed-clock.otf").read_bytes()).hexdigest(),
-                    "boundary": "one compile/run, real six-source raster closure; no App and no official ink parity"}
+                    "boundary": "one compile/run, real Root/font/raster closure; no App and no official ink parity"}
         try:
             compilation = subprocess.run(command, capture_output=True, text=True, timeout=120)
             (root / "compile.log").write_text(compilation.stdout + compilation.stderr)
@@ -338,6 +404,13 @@ class SceneTextNativeBoundsTests(unittest.TestCase):
                 self.assertEqual(row["limitRows"], name != "width-limited", row)
                 self.assertGreater(row["initial"]["alphaPixels"], 0, row)
                 self.assertTrue(row["samePixels"], row)
+
+    def test_current_raster_reuses_real_source_font_until_path_changes(self):
+        facts = self.result["fontReuse"]
+        self.assertEqual(facts["reads"], [1, 1, 1, 2, 3, 3], facts)
+        for key, value in facts.items():
+            if key != "reads":
+                self.assertTrue(value, key)
 
 
 if __name__ == "__main__":

@@ -9,11 +9,19 @@ import tempfile
 import unittest
 from pathlib import Path
 
+from script.tests.scene_video_segment_delegate_fixture import compile_segment_delegate
+
 
 REPOSITORY_ROOT = Path(__file__).resolve().parents[2]
 SOURCE_ROOT = REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene"
 HOST_SOURCE = REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Runtime/Session/SceneDesktopWallpaperHost.swift"
 SWIFT_SOURCES = [
+    SOURCE_ROOT / "Resources/Assets/SceneResourceIndex.swift",
+    SOURCE_ROOT / "Resources/Assets/SceneResourceView.swift",
+    SOURCE_ROOT / "../SteamWorkshopStorage/ScenePlaybackSource.swift",
+    SOURCE_ROOT / "Format/ScenePkgReader.swift",
+    SOURCE_ROOT / "Resources/Assets/SceneResourceIdentity.swift",
+    SOURCE_ROOT / "Resources/Assets/SceneResourceView+Backing.swift",
     SOURCE_ROOT / "Resources/Providers/SceneVideoOwnedFile.swift",
     SOURCE_ROOT / "Resources/Providers/SceneVideoPayloadPreparation.swift",
     SOURCE_ROOT / "Format/SceneWebMContainer.swift",
@@ -55,9 +63,10 @@ class SceneUserPropertyTextureTests(unittest.TestCase):
         harness = directory / "Harness.swift"
         harness.write_text(HARNESS_SOURCE, encoding="utf-8")
         cls.binary = directory / "scene-user-property-textures"
+        delegate_arguments = compile_segment_delegate(directory)
         compilation = subprocess.run(
             [
-                swiftc,
+                swiftc, *delegate_arguments,
                 *(str(path) for path in SWIFT_SOURCES),
                 str(harness),
                 "-framework", "Metal",

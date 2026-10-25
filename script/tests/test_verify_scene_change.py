@@ -143,6 +143,8 @@ class SceneValidationSelectionTests(unittest.TestCase):
             'script/tests/fixtures/ScenePropertyPresentationChecks.swift': 'test_scene_native_property_list',
             'script/tests/fixtures/WebPropertyPresentationChecks.swift': 'test_scene_native_property_list',
             'script/tests/fixtures/SceneTerminalMaterialReplayProbe.swift': 'test_scene_resolved_material_pass_encoder',
+            'script/tests/fixtures/SceneResolvedMaterialPassFixture.swift': 'test_scene_resolved_material_pass_encoder',
+            'script/tests/fixtures/SceneResolvedMaterialPassHarness.swift': 'test_scene_resolved_material_pass_encoder',
             'script/tests/scene_particle_render_test_support.py': 'test_scene_particle_camera_rendering',
             'script/tests/scene_wallpaper_graph_output_test_support.py': 'test_scene_wallpaper_graph_terminals',
         }

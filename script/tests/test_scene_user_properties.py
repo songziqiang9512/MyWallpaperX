@@ -392,11 +392,13 @@ enum Harness {
             let projectRoot = try jsonObject(data: Data(contentsOf: sampleURL.appendingPathComponent("project.json")))
             let entryPath = normalizedPath(projectRoot["file"] as? String ?? "scene.json")
             let packageURL = try scenePackageURL(sampleURL: sampleURL, entryPath: entryPath)
-            let index = try ScenePkgReader().readIndex(packageURL: packageURL)
+            let opened = try ScenePkgReader().openPackage(packageURL: packageURL, limits: .compatibility)
+            let index = opened.index
             guard let entry = index.entries.first(where: { normalizedPath($0.path) == entryPath }) else {
                 throw HarnessError.missingEntry(sampleURL.lastPathComponent, entryPath)
             }
-            let sceneData = try ScenePkgReader().readEntryData(entry, in: packageURL)
+            var sceneData = Data()
+            try opened.readEntryChunks(entry) { sceneData.append($0) }
             let sceneRoot = try jsonObject(data: sceneData)
             let catalog = SceneUserPropertyDefinitionParser().parse(projectRoot: projectRoot)
             let report = SceneUserPropertyBindingParser().parse(root: sceneRoot)

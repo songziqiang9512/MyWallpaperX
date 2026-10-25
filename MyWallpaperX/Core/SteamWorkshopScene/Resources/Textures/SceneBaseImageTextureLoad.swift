@@ -318,7 +318,7 @@ enum SceneBaseImageTextureLoad {
     static func failureReportLine(
         _ failure: SceneTextureLoadOutcome,
         layer: ReportLayerIdentity,
-        url: URL,
+        url: SceneResourceView.FileInput,
         placementSummary: String
     ) -> String {
         let detail: String
@@ -335,6 +335,8 @@ enum SceneBaseImageTextureLoad {
                 + " — \(url.lastPathComponent)"
         case let .decodeFailed(message):
             detail = "decode failed (\(message))"
+        case let .resourceReadFailed(error):
+            detail = "resource read failed (\(error))"
         case let .textureAllocationFailed(width, height):
             detail = "texture allocation failed at \(width)×\(height)"
         case .loaded:
@@ -345,67 +347,93 @@ enum SceneBaseImageTextureLoad {
     }
 
     static func load(
-        from url: URL,
+        from url: SceneResourceView.FileInput,
         usesPuppet: Bool,
         loader: SceneTextureLoader,
         spriteTextureLoader: SceneMultiImageSpriteTextureLoader,
-        device: MTLDevice
+        device: MTLDevice,
+        source expectedSource: SceneTextureLoader.SourceKey? = nil,
+        preparedTexSource: SceneTextureLoader.PreparedTexSource? = nil,
+        preparedDirectImageSource: SceneTextureLoader.PreparedDirectImageSource? = nil,
+        checkCancellation: (() throws -> Void)? = nil
     ) -> Outcome {
-        let source = loader.sourceKey(for: url)
-        let container = source.flatMap {
-            loader.texContainer(from: url, source: $0)
-        }
-        // A static puppet atlas is a sampling resource, not a completed layer
-        // publication. Its existing samplingCandidate carries the same typed
-        // color and padded UV contract as an ordinary base image.
-        let directFormat = container?.rawMetalPixelFormat ?? container?.metalPixelFormat
-        let supportsCandidateFormat = directFormat.map {
-            SceneBaseImageTextureCandidateResolver.supportsColorSampling(pixelFormat: $0)
-        } ?? true
-        let staticSingleImage = container?.imageCount == 1
-            && container?.isAnimated == false
-            && container?.spriteFrames.isEmpty == true
-        if !supportsCandidateFormat, staticSingleImage {
-            // Retain the existing specialized producer and its strict
-            // Candidate geometry/sampler validation before dropping metadata.
-            return loadOrdinaryCandidate(
-                from: url, loader: loader, device: device,
-                purpose: .premultipliedColor
-            )
-        }
-        if usesPuppet, supportsCandidateFormat,
-           (url.pathExtension.lowercased() != "tex"
-            || staticSingleImage) {
-            return loadOrdinaryCandidate(
-                from: url,
-                loader: loader,
-                device: device
-            )
-        }
-        if let specializedLoadReason = specializedLoadReason(
-            url: url,
-            container: container,
-            usesPuppet: usesPuppet
-        ) {
-            return specializedLoad(
-                from: url,
-                source: source,
+        do {
+            try checkCancellation?()
+            if let preparedDirectImageSource, preparedDirectImageSource.input != url {
+                throw SceneResourceView.ReadError.invalidHandle
+            }
+            if let preparedTexSource, preparedTexSource.input != url {
+                throw SceneResourceView.ReadError.invalidHandle
+            }
+            let preparedTexSource = try preparedTexSource ?? loader.prepareTexSource(
+                from: url, source: expectedSource, checkCancellation: checkCancellation)
+            if url.pathExtension.lowercased() == "tex", preparedTexSource == nil {
+                return .failed(.decodeFailed("TEX source unavailable: \(url.lastPathComponent)"))
+            }
+            let preparedDirectImageSource = try preparedDirectImageSource ?? (
+                url.pathExtension.lowercased() == "tex" ? nil : loader.prepareDirectImageSource(
+                    from: url, source: expectedSource, checkCancellation: checkCancellation))
+            let source = preparedTexSource?.source ?? preparedDirectImageSource?.source
+            if let expectedSource, let source, expectedSource != source {
+                throw SceneResourceView.ReadError.sourceChanged
+            }
+            let container = preparedTexSource?.container
+            // A static puppet atlas is a sampling resource, not a completed layer
+            // publication. Its existing samplingCandidate carries the same typed
+            // color and padded UV contract as an ordinary base image.
+            let directFormat = container?.rawMetalPixelFormat ?? container?.metalPixelFormat
+            let supportsCandidateFormat = directFormat.map {
+                SceneBaseImageTextureCandidateResolver.supportsColorSampling(pixelFormat: $0)
+            } ?? true
+            let staticSingleImage = container?.imageCount == 1
+                && container?.isAnimated == false
+                && container?.spriteFrames.isEmpty == true
+            if !supportsCandidateFormat, staticSingleImage {
+                // Retain the existing specialized producer and its strict
+                // Candidate geometry/sampler validation before dropping metadata.
+                return try loadOrdinaryCandidate(
+                    from: url, loader: loader, device: device,
+                    purpose: .premultipliedColor, preparedTexSource: preparedTexSource,
+                    preparedDirectImageSource: preparedDirectImageSource, checkCancellation: checkCancellation
+                )
+            }
+            if usesPuppet, supportsCandidateFormat,
+               (url.pathExtension.lowercased() != "tex"
+                || staticSingleImage) {
+                return try loadOrdinaryCandidate(
+                    from: url,
+                    loader: loader,
+                    device: device, preparedTexSource: preparedTexSource,
+                    preparedDirectImageSource: preparedDirectImageSource, checkCancellation: checkCancellation
+                )
+            }
+            if let specializedLoadReason = specializedLoadReason(
+                url: url,
                 container: container,
-                reason: specializedLoadReason,
+                usesPuppet: usesPuppet
+            ) {
+                return try specializedLoad(
+                    from: url,
+                    source: source,
+                    container: container,
+                    preparedTexSource: preparedTexSource,
+                    reason: specializedLoadReason,
+                    loader: loader,
+                    spriteTextureLoader: spriteTextureLoader,
+                    device: device, checkCancellation: checkCancellation
+                )
+            }
+            return try loadOrdinaryCandidate(
+                from: url,
                 loader: loader,
-                spriteTextureLoader: spriteTextureLoader,
-                device: device
+                device: device, preparedTexSource: preparedTexSource,
+                preparedDirectImageSource: preparedDirectImageSource, checkCancellation: checkCancellation
             )
-        }
-        return loadOrdinaryCandidate(
-            from: url,
-            loader: loader,
-            device: device
-        )
+        } catch { return .failed(.resourceReadFailed(error)) }
     }
 
     static func specializedLoadReason(
-        url: URL,
+        url: SceneResourceView.FileInput,
         container: SceneTexContainer?,
         usesPuppet: Bool
     ) -> String? {
@@ -431,25 +459,25 @@ enum SceneBaseImageTextureLoad {
     }
 
     private static func specializedLoad(
-        from url: URL,
+        from url: SceneResourceView.FileInput,
         source: SceneTextureLoader.SourceKey?,
         container: SceneTexContainer?,
+        preparedTexSource: SceneTextureLoader.PreparedTexSource?,
         reason: String,
         loader: SceneTextureLoader,
         spriteTextureLoader: SceneMultiImageSpriteTextureLoader,
-        device: MTLDevice
-    ) -> Outcome {
+        device: MTLDevice,
+        checkCancellation: (() throws -> Void)?
+    ) throws -> Outcome {
         var crossImageFallbackMessage = ""
         if reason == "multi-image TEX",
            let source, let container, container.imageCount > 1
         {
-            switch spriteTextureLoader.playback(
+            switch try spriteTextureLoader.playback(
                 source: source,
                 container: container,
                 device: device,
-                sourceIsCurrent: {
-                    loader.sourceKey(for: url) == source
-                }
+                checkCancellation: checkCancellation
             ) {
             case let .loaded(playback):
                 guard let animation = SceneSpriteAnimation(
@@ -475,11 +503,11 @@ enum SceneBaseImageTextureLoad {
                 "file metadata unavailable: \(url.lastPathComponent)"
             ))
         }
-        switch loader.load(
+        switch try loader.load(
             from: url,
             source: source,
             purpose: .premultipliedColor,
-            device: device
+            device: device, preparedTexSource: preparedTexSource, checkCancellation: checkCancellation
         ) {
         case let .loaded(texture):
             return .loaded(Loaded(

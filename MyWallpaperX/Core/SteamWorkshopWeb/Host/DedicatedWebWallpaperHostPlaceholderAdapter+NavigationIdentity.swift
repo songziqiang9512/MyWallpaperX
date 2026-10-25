@@ -69,6 +69,13 @@ extension DedicatedWebWallpaperHostPlaceholderAdapter {
         stopCurrent: Bool,
         completion: @escaping (Bool) -> Void
     ) {
+#if DEBUG
+        // Later loads have no new surface-creation measurement. Never relabel
+        // the first document's times as observations of its replacement.
+        if debugStartupSurfaceTimings?[surface.screenID]?.loadIssuedAt != nil {
+            debugStartupSurfaceTimings?.removeValue(forKey: surface.screenID)
+        }
+#endif
         invalidatePresentation(on: surface)
         navigationOwnershipByScreen.removeValue(forKey: surface.screenID)
         if stopCurrent {
@@ -82,6 +89,9 @@ extension DedicatedWebWallpaperHostPlaceholderAdapter {
                   self.surfaces[surface.screenID]?.webView === surface.webView else {
                 return
             }
+#if DEBUG
+            self.debugStartupSurfaceTimings?[surface.screenID]?.loadIssuedAt = ProcessInfo.processInfo.systemUptime
+#endif
             guard let navigation = surface.webView.load(URLRequest(url: entryURL)) else {
                 completion(false)
                 return
@@ -91,11 +101,18 @@ extension DedicatedWebWallpaperHostPlaceholderAdapter {
                 navigation: navigation,
                 generation: self.advanceNavigationGeneration()
             )
+#if DEBUG
+            self.debugStartupSurfaceTimings?[surface.screenID]?.navigationGeneration =
+                self.navigationOwnershipByScreen[surface.screenID]?.generation
+#endif
             completion(true)
         }
     }
 
     func reloadTrackedNavigation(on surface: HostSurface, requestID: UUID) -> Bool {
+#if DEBUG
+        debugStartupSurfaceTimings?.removeValue(forKey: surface.screenID)
+#endif
         invalidatePresentation(on: surface)
         navigationOwnershipByScreen.removeValue(forKey: surface.screenID)
         guard let navigation = surface.webView.reload() else { return false }
@@ -140,6 +157,9 @@ extension DedicatedWebWallpaperHostPlaceholderAdapter {
               readyScreenIDs.contains(screenID) else {
             return nil
         }
+#if DEBUG
+        debugStartupSurfaceTimings?.removeValue(forKey: screenID)
+#endif
         invalidatePresentation(on: surface)
         navigationOwnershipByScreen[screenID] = NavigationOwnership(
             requestID: requestID,

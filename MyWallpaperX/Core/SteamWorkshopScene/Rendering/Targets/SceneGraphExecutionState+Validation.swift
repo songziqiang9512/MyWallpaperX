@@ -196,60 +196,137 @@ nonisolated extension SceneGraphExecutionState {
         return .success(operations)
     }
 
-    static func validateAllocation(
-        graph: Graph,
-        plan: Plan,
-        allocation: Allocation,
-        materialFunctionTargets: Set<Identity> = []
-    ) -> Result<Void, Failure> {
+    /// Static execution data belongs to the existing target plan. It contains
+    /// no allocation, history state, texture or residency pin.
+    nonisolated final class PreparedExecution: Equatable {
+        let graph: Graph
+        let plan: Plan
+        let pairStep: PairStep
+        let operations: [Operation]
+        let nodesByIndex: [Int: Graph.Node]
+        let pairNodesByIndex: [Int: SceneLayerFullFramePairPlan.NodeStep]
+        let framebufferBindingsByNode: [Int: [Graph.Binding]]
+        let commandOrdinalsByNode: [Int: Int]
+        let initializationTargets: [Plan.LogicalTarget]
+        let expectedAllocation: [Identity: ResourceDescriptor]
+        let materialFunctionTargets: Set<Identity>
+        let historyLogicalIdentities: Set<Identity>
+        let historyClosureIdentities: Set<Identity>
+        let signatures: ExecutionSignatures?
+
+        fileprivate init(graph: Graph, plan: Plan, pairStep: PairStep,
+                         operations: [Operation], expectedAllocation: [Identity: ResourceDescriptor],
+                         materialFunctionTargets: Set<Identity>, historyClosure: Set<Identity>,
+                         signatures: ExecutionSignatures?) {
+            self.graph = graph; self.plan = plan; self.pairStep = pairStep
+            self.operations = operations; self.expectedAllocation = expectedAllocation
+            self.materialFunctionTargets = materialFunctionTargets
+            nodesByIndex = Dictionary(uniqueKeysWithValues: graph.nodes.map { ($0.nodeIndex, $0) })
+            pairNodesByIndex = Dictionary(uniqueKeysWithValues: pairStep.nodes.map { ($0.nodeIndex, $0) })
+            framebufferBindingsByNode = Dictionary(uniqueKeysWithValues: graph.nodes.map { node in
+                (node.nodeIndex, node.bindings.filter { $0.texture.kind == .framebuffer }
+                    .sorted { ($0.slot ?? Int.max) < ($1.slot ?? Int.max) })
+            })
+            let commands = graph.nodes.filter { $0.kind == .copy || $0.kind == .swap }
+                .map(\.nodeIndex).sorted()
+            commandOrdinalsByNode = Dictionary(uniqueKeysWithValues: commands.enumerated().map { ($0.element, $0.offset) })
+            initializationTargets = plan.logicalTargets.sorted(by: SceneGraphExecutionState.targetOrder)
+            historyLogicalIdentities = Set(plan.logicalTargets.compactMap {
+                $0.lifetime.requiresHistorySeed ? $0.identity : nil
+            })
+            historyClosureIdentities = historyClosure
+            self.signatures = signatures
+        }
+
+        static func == (lhs: PreparedExecution, rhs: PreparedExecution) -> Bool {
+            lhs === rhs || (lhs.graph == rhs.graph && lhs.plan == rhs.plan && lhs.pairStep == rhs.pairStep
+                && lhs.materialFunctionTargets == rhs.materialFunctionTargets)
+        }
+    }
+
+    static func prepareExecution(graph: Graph, plan: Plan, pairStep: PairStep,
+                                 materialFunctionTargets: Set<Identity> = []) -> Result<PreparedExecution, Failure> {
+        guard Set(graph.nodes.map(\.nodeIndex)).count == graph.nodes.count,
+              Set(pairStep.nodes.map(\.nodeIndex)).count == pairStep.nodes.count else {
+            return .failure(.invalidTopology)
+        }
+        let operations: [Operation]
+        switch compile(graph: graph, targetPlan: plan, pairStep: pairStep) {
+        case let .success(value): operations = value
+        case let .failure(failure): return .failure(failure)
+        }
+        let expected: [Identity: ResourceDescriptor]
+        switch allocationDescriptors(graph: graph, plan: plan, materialFunctionTargets: materialFunctionTargets) {
+        case let .success(value): expected = value
+        case let .failure(failure): return .failure(failure)
+        }
+        guard let closure = historyClosure(in: plan) else { return .failure(.stateMismatch) }
+        let signatures: ExecutionSignatures?
+        if closure.isEmpty {
+            signatures = nil
+        } else {
+            guard let value = executionSignatures(graph: graph, plan: plan) else {
+                return .failure(.stateMismatch)
+            }
+            signatures = value
+        }
+        return .success(.init(graph: graph, plan: plan, pairStep: pairStep,
+                              operations: operations, expectedAllocation: expected,
+                              materialFunctionTargets: materialFunctionTargets,
+                              historyClosure: closure, signatures: signatures))
+    }
+
+    static func allocationDescriptors(
+        graph: Graph, plan: Plan, materialFunctionTargets: Set<Identity> = []
+    ) -> Result<[Identity: ResourceDescriptor], Failure> {
         let required = Set(plan.logicalTargets.map(\.identity))
         guard required.count == plan.logicalTargets.count,
               required.allSatisfy({ $0.kind == .framebuffer }),
-              !required.contains(plan.input),
-              !required.contains(plan.output),
-              Set(allocation.resources.keys) == required else {
+              !required.contains(plan.input), !required.contains(plan.output) else {
             return .failure(.missingIdentity)
         }
         var expected: [Identity: ResourceDescriptor] = [:]
         for logical in plan.logicalTargets {
-            expected[logical.identity] = .init(
-                extent: logical.extent,
-                format: logical.format,
-                addressMode: logical.addressMode,
-                isUnique: logical.isUnique,
-                initialClear: logical.initialClear
-            )
+            expected[logical.identity] = .init(extent: logical.extent, format: logical.format,
+                addressMode: logical.addressMode, isUnique: logical.isUnique, initialClear: logical.initialClear)
         }
         guard plan.matchesSourceDeclarations(in: graph),
-              allocation.resources.allSatisfy({
-                  expected[$0.key] == $0.value.descriptor
-              }),
-              lifetimesMatch(
-                  graph: graph,
-                  plan: plan,
-                  materialFunctionTargets: materialFunctionTargets
-              ) else {
+              lifetimesMatch(graph: graph, plan: plan, materialFunctionTargets: materialFunctionTargets) else {
             return .failure(.descriptorMismatch)
         }
         for command in plan.commands {
             guard command.source != command.target,
-                  let source = expected[command.source],
-                  let target = expected[command.target],
-                  source.extent == target.extent,
-                  source.format == target.format else {
-                return .failure(.descriptorMismatch)
-            }
-            if command.kind == .swap, source != target {
-                return .failure(.descriptorMismatch)
-            }
+                  let source = expected[command.source], let target = expected[command.target],
+                  source.extent == target.extent, source.format == target.format,
+                  command.kind != .swap || source == target else { return .failure(.descriptorMismatch) }
+        }
+        return .success(expected)
+    }
+
+    static func validateAllocation(
+        graph: Graph, plan: Plan, allocation: Allocation, materialFunctionTargets: Set<Identity> = []
+    ) -> Result<Void, Failure> {
+        guard Set(allocation.resources.keys) == Set(plan.logicalTargets.map(\.identity)) else {
+            return .failure(.missingIdentity)
+        }
+        switch allocationDescriptors(graph: graph, plan: plan, materialFunctionTargets: materialFunctionTargets) {
+        case let .success(expected): return validateAllocation(allocation, expected: expected)
+        case let .failure(failure): return .failure(failure)
+        }
+    }
+
+    static func validateAllocation(_ allocation: Allocation,
+                                   expected: [Identity: ResourceDescriptor]) -> Result<Void, Failure> {
+        guard allocation.resources.count == expected.count,
+              allocation.resources.keys.allSatisfy({ expected[$0] != nil }) else { return .failure(.missingIdentity) }
+        guard allocation.resources.allSatisfy({ expected[$0.key] == $0.value.descriptor }) else {
+            return .failure(.descriptorMismatch)
         }
         let tokens = allocation.resources.values.map(\.token)
-        guard tokens.allSatisfy({
-            !$0.rawValue.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
-        }) else { return .failure(.missingIdentity) }
-        guard Set(tokens).count == tokens.count else {
-            return .failure(.physicalAlias)
+        guard tokens.allSatisfy({ !$0.rawValue.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty }) else {
+            return .failure(.missingIdentity)
         }
+        guard Set(tokens).count == tokens.count else { return .failure(.physicalAlias) }
         return .success(())
     }
 

@@ -166,27 +166,27 @@ nonisolated enum SceneScriptPropertyInputCodec {
         kinds: [String: SceneUserPropertyKind]
     ) -> String {
         let object = values.reduce(into: [String: Any]()) { result, entry in
-            // Shortcut assignments are native control-plane resources. This
-            // slice does not expose the public structured shortcut object.
-            guard validName(entry.key), kinds[entry.key] != .userShortcut else { return }
-            switch (kinds[entry.key], entry.value) {
-            case (.color, .string(let value)):
-                if let color = vector3(value) {
-                    result[entry.key] = SceneScriptHostValue.vector3(
-                        color.x, color.y, color.z
-                    ).jsonObject
-                }
-            case (_, .number(let value)) where value.isFinite:
-                result[entry.key] = value
-            case (_, .bool(let value)):
-                result[entry.key] = value
-            case (_, .string(let value)):
-                result[entry.key] = value
-            default:
-                break
-            }
+            guard validName(entry.key) else { return }
+            result[entry.key] = userPropertyJSONValue(entry.value, kind: kinds[entry.key])
         }
         return json(object) ?? "{}"
+    }
+
+    private static func userPropertyJSONValue(
+        _ value: SceneUserPropertyValue, kind: SceneUserPropertyKind?
+    ) -> Any? {
+        // Shortcuts remain native resources. Both full and delta payloads use
+        // this same projection without encoding and parsing each changed key.
+        guard kind != .userShortcut else { return nil }
+        switch (kind, value) {
+        case (.color, .string(let value)):
+            guard let color = vector3(value) else { return nil }
+            return SceneScriptHostValue.vector3(color.x, color.y, color.z).jsonObject
+        case (_, .number(let value)) where value.isFinite: return value
+        case (_, .bool(let value)): return value
+        case (_, .string(let value)): return value
+        default: return nil
+        }
     }
 
     static func changedUserPropertiesJSON(
@@ -215,15 +215,7 @@ nonisolated enum SceneScriptPropertyInputCodec {
                 object[key] = NSNull()
                 continue
             }
-            let encoded = userPropertiesJSON(
-                values: [key: value],
-                kinds: kinds
-            )
-            guard let data = encoded.data(using: .utf8),
-                  let item = try? JSONSerialization.jsonObject(with: data),
-                  let dictionary = item as? [String: Any],
-                  let encodedValue = dictionary[key] else { continue }
-            object[key] = encodedValue
+            object[key] = userPropertyJSONValue(value, kind: kinds[key])
         }
         return object.isEmpty ? nil : json(object)
     }

@@ -97,8 +97,8 @@ nonisolated enum SceneGraphExecutionObservationError: String, Error, Sendable {
 
 #if DEBUG
 nonisolated struct SceneGraphExecutionObservation: Sendable {
-    // These mirror SceneGraphExecutionState. The observation builder verifies
-    // the equality before it can authorize a committed graph tail.
+    // Limits only this diagnostic payload. Observation failure cannot change
+    // the already committed ledger, output or history.
     static let maximumNodeCount = 512, maximumLogicalBindingCount = 512
 
     let runtimeInstanceIdentity: String

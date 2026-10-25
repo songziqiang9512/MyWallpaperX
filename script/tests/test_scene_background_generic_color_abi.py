@@ -260,7 +260,7 @@ class SceneBackgroundGenericColorABITests(unittest.TestCase):
                 if ref else source.read_bytes())
             frozen_sources.append(target)
         before = hashes(frozen_sources + [harness])
-        command = ["xcrun", "--sdk", "macosx", "swiftc", "-parse-as-library", "-whole-module-optimization", "-Onone",
+        command = ["xcrun", "--sdk", "macosx", "swiftc", "-parse-as-library", "-D", "SCENE_GRAPH_TESTING", "-whole-module-optimization", "-Onone",
             *map(str, frozen_sources), str(harness), "-framework", "Metal",
             "-framework", "CoreGraphics", "-framework", "ImageIO", "-framework", "Security",
             "-module-cache-path", str(root / "modules"), "-o", str(binary)]

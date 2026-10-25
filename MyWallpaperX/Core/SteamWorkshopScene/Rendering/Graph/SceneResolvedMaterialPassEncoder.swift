@@ -53,20 +53,25 @@ final class SceneResolvedMaterialPassEncoder {
     private let libraryCondition = NSCondition()
     private var librariesByMetalSource: [String: MetalLibraryEntry] = [:]
     private var compilingMetalSources = Set<String>()
+#if DEBUG || SCENE_GRAPH_TESTING
     private var libraryCompilationAttempts = 0
+#endif
     let lock = NSLock()
     var entries: [SceneResolvedMaterialProgram.MetalCompileStateKey: PipelineEntry] = [:]
     var resetGeneration: UInt64 = 0
+#if DEBUG || SCENE_GRAPH_TESTING
     var compilationAttempts = 0
     var failedPipelines = 0
     var launchWarmupHits = 0
     var launchWarmupFailureHits = 0
     var consumedLaunchWarmupKeys = Set<SceneResolvedMaterialProgram.MetalCompileStateKey>()
     var consumedLaunchWarmupFailureKeys = Set<SceneResolvedMaterialProgram.MetalCompileStateKey>()
+#endif
     #if SCENE_GRAPH_TESTING
     var testingPreparationFailuresByPreparedKey: [String: PreparationFailure] = [:]
     #endif
 
+#if DEBUG || SCENE_GRAPH_TESTING
     var cachedPipelineCount: Int { withLock { entries.count } }
     var pipelineCompilationAttemptCount: Int { withLock { compilationAttempts } }
     var failedPipelineCount: Int { withLock { failedPipelines } }
@@ -77,6 +82,8 @@ final class SceneResolvedMaterialPassEncoder {
         defer { libraryCondition.unlock() }
         return libraryCompilationAttempts
     }
+
+#endif
 
     init?(device: MTLDevice) {
         guard let samplers = SceneTextureSamplerStateSet(device: device) else {
@@ -155,7 +162,6 @@ final class SceneResolvedMaterialPassEncoder {
         ) else {
             return .failure(.targetRejected)
         }
-        guard validUniforms(program) else { return .failure(.uniformsRejected) }
         guard let bindings = validatedBindings(program, target: target) else {
             return .failure(.bindingsRejected)
         }
@@ -197,11 +203,13 @@ final class SceneResolvedMaterialPassEncoder {
         case let .success(value): cached = value
         case let .failure(failure): return .failure(failure)
         }
+#if DEBUG || SCENE_GRAPH_TESTING
         recordLaunchWarmupConsumption(
             key: key,
             origin: cached.origin,
             preparedKey: program.preparedShader.cacheKey
         )
+#endif
         return .success(PreparedPass(
             fragmentOutput: output.colorRepresentation,
             storedContent: storedContent,
@@ -230,8 +238,7 @@ final class SceneResolvedMaterialPassEncoder {
               !readsCurrentAttachment || blendMode == 0 else {
             return .failure(.renderStateRejected)
         }
-        guard validUniforms(program),
-              let replay = program.terminalReplay(
+        guard let replay = program.terminalReplay(
                 unitModelViewProjection: unitModelViewProjection)
         else { return .failure(.uniformsRejected) }
         let output = SceneResolvedMaterialAttachmentStorage.storedOutput(
@@ -392,40 +399,6 @@ final class SceneResolvedMaterialPassEncoder {
         resetGeneration &+= 1
     }
 
-    private func validUniforms(_ program: SceneResolvedMaterialProgram) -> Bool {
-        let layout = program.frontendProgram.uniformLayout
-        guard layout.byteSize == program.uniformBytes.count,
-              (0 ..< 31).contains(program.frontendProgram.uniformBufferIndex),
-              layout.byteSize >= 0,
-              layout.byteSize <= 4_096,
-              layout.byteSize.isMultiple(of: 16),
-              program.exactIdentity.uniformBytes == program.uniformBytes,
-              program.resolvedUniforms.count == layout.fields.count else {
-            return false
-        }
-        // Program assembly admits fields in offset order. Check the gaps and
-        // payloads directly instead of building a hash-set entry for each byte.
-        var occupiedEnd = 0
-        for (field, resolved) in zip(layout.fields, program.resolvedUniforms) {
-            guard resolved.field == field,
-                  field.offset >= occupiedEnd,
-                  field.offset.isMultiple(of: field.type.alignment),
-                  field.offset <= layout.byteSize,
-                  field.storageByteSize <= layout.byteSize - field.offset,
-                  resolved.encodedValue.count == field.storageByteSize,
-                  program.uniformBytes[occupiedEnd ..< field.offset]
-                    .allSatisfy({ $0 == 0 }) else {
-                return false
-            }
-            let end = field.offset + field.storageByteSize
-            guard program.uniformBytes[field.offset ..< end]
-                == resolved.encodedValue else { return false }
-            occupiedEnd = end
-        }
-        return program.uniformBytes[occupiedEnd ..< layout.byteSize]
-            .allSatisfy { $0 == 0 }
-    }
-
     private func validatedBindings(
         _ program: SceneResolvedMaterialProgram,
         target: MTLTexture
@@ -516,6 +489,7 @@ final class SceneResolvedMaterialPassEncoder {
             case let .ready(pipeline, entryOrigin):
                 return .success((pipeline, resetGeneration, entryOrigin))
             case let .failed(failure, entryOrigin):
+#if DEBUG || SCENE_GRAPH_TESTING
                 if entryOrigin == .launchWarmup,
                    consumedLaunchWarmupFailureKeys.insert(key).inserted {
                     launchWarmupFailureHits += 1
@@ -528,6 +502,7 @@ final class SceneResolvedMaterialPassEncoder {
                     )
 #endif
                 }
+#endif
                 return .failure(failure)
             }
         }
@@ -536,7 +511,9 @@ final class SceneResolvedMaterialPassEncoder {
         guard key.passRole == .offscreenOverwrite else {
             return .failure(.compileStateKeyRejected)
         }
+#if DEBUG || SCENE_GRAPH_TESTING
         compilationAttempts += 1
+#endif
         switch compileUncachedPipeline(
             frontend: frontend,
             renderState: renderState,
@@ -690,7 +667,9 @@ final class SceneResolvedMaterialPassEncoder {
             }
         }
         compilingMetalSources.insert(metalSource)
+#if DEBUG || SCENE_GRAPH_TESTING
         libraryCompilationAttempts += 1
+#endif
         libraryCondition.unlock()
 
         let result: Result<MTLLibrary, PreparationFailure>
@@ -739,7 +718,9 @@ final class SceneResolvedMaterialPassEncoder {
     > {
         if entries[key] == nil {
             entries[key] = .failed(failure, origin: origin)
+#if DEBUG || SCENE_GRAPH_TESTING
             failedPipelines += 1
+#endif
         }
         return .failure(failure)
     }

@@ -60,15 +60,18 @@ extension SceneMetalView {
             ScenePuppetClipping.makePipeline(device: metalDevice)
         }
         let clippingDomain = UUID()
+        var clippingSourceFailed = false
         guard let outcome = ScenePuppetLayerLoad.preparedGeometry(
             for: layer, preparedPose: pose, atlasTexture: atlasTexture,
             device: metalDevice, pipeline: imagePipeline,
             clippingPipeline: { clippingPipeline.resolve() },
             loadClippingMask: { [metalDevice] name in
+                do {
                 guard let url = resolver.resolveTextureFile(named: name),
-                      case let .loaded(texture) = loader.loadDataTexture(from: url, device: metalDevice)
+                      case let .loaded(texture) = try loader.loadDataTexture(from: url, device: metalDevice)
                 else { return nil }
                 return texture
+                } catch { clippingSourceFailed = true; return nil }
             },
             allocateClippingMask: { [offscreenTexturePool] clip, width, height, commandBuffer in
                 guard let target = offscreenTexturePool.reservePuppetClipping(
@@ -77,6 +80,10 @@ extension SceneMetalView {
                 let pin = target.pin
                 return .init(texture: target.texture, release: { pin.release() })
             }) else { return nil }
+        guard !clippingSourceFailed else {
+            return .init(geometryProduct: nil, playback: nil,
+                allowsMissingMeshTextureProduct: false, message: "puppet clipping source read failed")
+        }
         if let playback = outcome.playback,
            case let .failure(failure) = puppetAnimationPlaybackRuntime.register(
                layerID: layer.id, selection: playback.selection,

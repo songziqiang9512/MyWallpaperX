@@ -53,7 +53,7 @@ nonisolated enum SceneParticleBuiltInTexture: String, Hashable, Sendable {
 }
 
 nonisolated enum SceneParticleTextureSource: Equatable, Sendable {
-    case file(URL)
+    case file(SceneResourceView.FileInput)
     case builtIn(SceneParticleBuiltInTexture)
 
     nonisolated init?(reference rawReference: String) {

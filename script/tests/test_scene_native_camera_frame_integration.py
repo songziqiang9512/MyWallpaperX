@@ -19,7 +19,7 @@ import tempfile
 import unittest
 
 from script.tests.test_scene_native_world_composition import encoded, mdl_quad, model_material, png
-from script.tests.test_scene_pkg_cache_extractor import make_package
+from script.tests.scene_pkg_fixture import make_package
 from script.tests.test_scene_reflection_history_integration import METAL_FAILURE, sha256
 from script.web_benchmark_capture import png_rgb_pixels
 
@@ -41,7 +41,7 @@ SOURCES = tuple(REPO / path for path in (
     "script/tests/test_scene_native_camera_frame_integration.py",
     "script/tests/test_scene_native_world_composition.py",
     "script/tests/test_scene_static_model_reader.py",
-    "script/tests/test_scene_pkg_cache_extractor.py",
+    "script/tests/scene_pkg_fixture.py",
     "script/tests/test_scene_reflection_history_integration.py",
     "script/web_benchmark_capture.py"))
 

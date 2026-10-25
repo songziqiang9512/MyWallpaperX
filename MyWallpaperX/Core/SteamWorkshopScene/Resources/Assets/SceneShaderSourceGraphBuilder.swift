@@ -29,15 +29,18 @@ nonisolated struct SceneShaderSourceGraphBuilder {
         let limits: Limits
         let resolver: SceneShaderSourceResolver
         let resourceView: SceneResourceView
+        let checkCancellation: (() throws -> Void)?
         var nodesByIdentity: [String: SceneShaderSourceGraph.Node] = [:]
         var edges: [SceneShaderSourceGraph.Edge] = []
         var completed: Set<String> = []
         var stack: [String] = []
         var totalBytes = 0
+        var resolutionsByPath: [String: ResolutionSet] = [:]
+        var capturedByteCount = 0
 
-        mutating func loadRoot(_ root: SceneShaderSourceGraph.RootRequest) {
+        mutating func loadRoot(_ root: SceneShaderSourceGraph.RootRequest) throws {
             let request = safeRootRequest(root.virtualPath)
-            let resolutionSet = resolve(root.virtualPath)
+            let resolutionSet = try resolve(root.virtualPath)
             let resolution = resolutionSet.selected
             let candidatePath = request
             var outcome = outcome(for: resolution)
@@ -56,10 +59,10 @@ nonisolated struct SceneShaderSourceGraphBuilder {
                 candidates: candidates(path: candidatePath, set: resolutionSet),
                 outcome: outcome
             ))
-            if let selected { visit(selected, depth: 0) }
+            if let selected { try visit(selected, depth: 0) }
         }
 
-        mutating func visit(_ file: File, depth: Int) {
+        mutating func visit(_ file: File, depth: Int) throws {
             let identity = SceneShaderSourceResolver.identity(file.virtualPath)
             guard !completed.contains(identity) else { return }
             stack.append(file.virtualPath)
@@ -73,7 +76,7 @@ nonisolated struct SceneShaderSourceGraphBuilder {
                 stageRelativePath: file.virtualPath
             ).includes
             for include in includes {
-                let result = resolveInclude(
+                let result = try resolveInclude(
                     request: include.relativePath,
                     parent: file.virtualPath,
                     line: include.line,
@@ -81,7 +84,7 @@ nonisolated struct SceneShaderSourceGraphBuilder {
                 )
                 edges.append(result.edge)
                 if let selected = result.selected {
-                    visit(selected, depth: depth + 1)
+                    try visit(selected, depth: depth + 1)
                 }
             }
         }
@@ -91,7 +94,7 @@ nonisolated struct SceneShaderSourceGraphBuilder {
             parent: String,
             line: Int,
             depth: Int
-        ) -> (edge: SceneShaderSourceGraph.Edge, selected: File?) {
+        ) throws -> (edge: SceneShaderSourceGraph.Edge, selected: File?) {
             guard case let .paths(paths) = resolver.includeCandidatePaths(
                 request: request,
                 parentVirtualPath: parent
@@ -123,7 +126,7 @@ nonisolated struct SceneShaderSourceGraphBuilder {
                 ), nil)
             }
 
-            let resolutionSets = paths.map(resolve)
+            let resolutionSets = try paths.map { try resolve($0) }
             let candidateEvidence = zip(paths, resolutionSets).flatMap {
                 candidates(path: $0.0, set: $0.1)
             }
@@ -211,12 +214,22 @@ nonisolated struct SceneShaderSourceGraphBuilder {
             return true
         }
 
-        func resolve(_ path: String) -> ResolutionSet {
-            resolver.resolveWithEvidence(
-                virtualPath: path,
-                resourceView: resourceView,
-                maximumBytes: limits.maximumFileBytes
-            )
+        mutating func resolve(_ path: String) throws -> ResolutionSet {
+            try checkCancellation?()
+            let key = SceneShaderSourceResolver.normalizedShaderVirtualPath(path) ?? path
+            if let captured = resolutionsByPath[key] { return captured }
+            let captured = try resolver.resolveWithEvidence(
+                virtualPath: key, resourceView: resourceView,
+                maximumBytes: limits.maximumFileBytes, checkCancellation: checkCancellation)
+            let byteCost: Int
+            if case let .resolved(file) = captured.selected { byteCost = file.byteCount }
+            else { byteCost = 0 }
+            if resolutionsByPath.count < limits.maximumNodes,
+               byteCost <= limits.maximumTotalBytes - capturedByteCount {
+                resolutionsByPath[key] = captured
+                capturedByteCount += byteCost
+            }
+            return captured
         }
 
         func cyclePath(to path: String) -> [String]? {
@@ -282,8 +295,10 @@ nonisolated struct SceneShaderSourceGraphBuilder {
 
     nonisolated func build(
         roots: [SceneShaderSourceGraph.RootRequest],
-        resourceView: SceneResourceView
-    ) -> SceneShaderSourceGraph {
+        resourceView: SceneResourceView,
+        checkCancellation: (() throws -> Void)? = nil
+    ) throws -> SceneShaderSourceGraph {
+        try checkCancellation?()
         let roots = roots.sorted {
             ($0.virtualPath.lowercased(), $0.label)
                 < ($1.virtualPath.lowercased(), $1.label)
@@ -291,9 +306,9 @@ nonisolated struct SceneShaderSourceGraphBuilder {
         var state = State(
             limits: limits,
             resolver: SceneShaderSourceResolver(),
-            resourceView: resourceView
+            resourceView: resourceView, checkCancellation: checkCancellation
         )
-        for root in roots { state.loadRoot(root) }
+        for root in roots { try state.loadRoot(root) }
         let nodes = state.nodesByIdentity.values.sorted {
             ($0.virtualPath.lowercased(), $0.virtualPath)
                 < ($1.virtualPath.lowercased(), $1.virtualPath)
@@ -336,19 +351,6 @@ nonisolated struct SceneShaderSourceGraphBuilder {
         }
         if let code { result.append(diagnostic(code, edge: edge, path: nil)) }
 
-        let grouped = Dictionary(grouping: edge.candidates) {
-            SceneShaderSourceResolver.identity($0.virtualPath)
-        }
-        let conflicts = grouped.values.compactMap { candidates -> String? in
-            let hashes = Set(candidates.compactMap { candidate -> String? in
-                guard case let .resolved(hash) = candidate.outcome else { return nil }
-                return hash
-            })
-            return hashes.count > 1 ? candidates.first?.virtualPath : nil
-        }.sorted()
-        result += conflicts.map {
-            diagnostic(.shadowedRootContentConflict, edge: edge, path: $0)
-        }
         return result
     }
 

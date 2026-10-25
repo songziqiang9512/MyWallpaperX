@@ -450,8 +450,8 @@ enum SceneSubmissionAtomicPreparationChecks {
             SceneResolvedMaterialGraphExecutor.prepareTokens = []
             SceneResolvedMaterialGraphExecutor.encodeSucceeds = true
             SceneResolvedMaterialGraphExecutor.preparedByToken = [
-                7: makeAtomicPrepared(device: device, layerID: 7, generation: 1),
-                8: makeAtomicPrepared(device: device, layerID: 8, generation: 2),
+                7: makeAtomicPrepared(device: device, layerID: 7, generation: 1, nodeCount: 32_769),
+                8: makeAtomicPrepared(device: device, layerID: 8, generation: 2, nodeCount: 32_769),
             ]
             let coordinator = makeCoordinator(device, layerIDs: [7, 8])
             let buffer = queue.makeCommandBuffer()!
@@ -558,6 +558,9 @@ enum SceneSubmissionAtomicPreparationChecks {
                 && pool.batchCommitCount == 1
                 && targets7.commit.submissionPin.releaseCount == 1
                 && targets8.commit.submissionPin.releaseCount == 1
+            results["largeGraphsBeyondObservationAggregateCapSubmit"] =
+                results["twoCandidatesPublishConsumeAndCommitAtomically"] == true
+                && coordinator.frameFailures == 0
             _ = coordinator.endFrame()
             SceneResolvedMaterialGraphExecutor.preparedByToken = [:]
             SceneResolvedMaterialGraphExecutor.encodeSucceeds = false

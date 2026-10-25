@@ -12,8 +12,8 @@ nonisolated struct OnlineLibraryDownloadedAssetMetadata: Sendable {
     let durationSeconds: Int
     let resolutionString: String?
 
-    static func load(from url: URL) async -> OnlineLibraryDownloadedAssetMetadata {
-        let fileSize = (try? url.resourceValues(forKeys: [.fileSizeKey]))?.fileSize ?? 0
+    static func load(from url: URL, fileSize: Int? = nil) async -> OnlineLibraryDownloadedAssetMetadata {
+        let fileSize = fileSize ?? (try? url.resourceValues(forKeys: [.fileSizeKey]))?.fileSize ?? 0
         let asset = AVURLAsset(url: url)
         return OnlineLibraryDownloadedAssetMetadata(
             fileSize: fileSize,
@@ -71,7 +71,8 @@ struct OnlineLibraryDownloadsInspectorSnapshot {
 
         let attributes = (try? FileManager.default.attributesOfItem(atPath: url.path)) ?? [:]
         let creationDate = attributes[.creationDate] as? Date
-        let metadata = await OnlineLibraryDownloadedAssetMetadata.load(from: url)
+        let metadata = await OnlineLibraryDownloadedAssetMetadata.load(
+            from: url, fileSize: (attributes[.size] as? NSNumber)?.intValue)
 
         let formatter = DateFormatter()
         formatter.dateStyle = .medium

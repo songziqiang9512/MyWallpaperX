@@ -30,6 +30,7 @@ nonisolated enum SceneResolvedMaterialPipelineBinaryArchive {
 
     private static let lock = NSLock()
     private static var pruned = false
+#if DEBUG || SCENE_GRAPH_TESTING
     private static var counters = Counters()
 
     private struct Counters {
@@ -63,6 +64,8 @@ nonisolated enum SceneResolvedMaterialPipelineBinaryArchive {
         )
     }
 
+#endif
+
     /// One launch-warmup key's archive handle. Prepared only from the launch
     /// warmup path; the frame path passes no session at all.
     struct Session {
@@ -80,7 +83,9 @@ nonisolated enum SceneResolvedMaterialPipelineBinaryArchive {
         /// as loaded; a fresh archive publishes its entry for the next launch.
         func recordReadyOutcome(descriptor: MTLRenderPipelineDescriptor) {
             if loadedFromDisk {
+#if DEBUG || SCENE_GRAPH_TESTING
                 Tier.bump { $0.hits += 1 }
+#endif
 #if DEBUG
                 NSLog(
                     "MWX resolved material pipeline binary archive"
@@ -97,15 +102,21 @@ nonisolated enum SceneResolvedMaterialPipelineBinaryArchive {
         /// Republishes after the attached archive could not serve the state.
         /// The freshly compiled entry overwrites a stale or corrupted file.
         func republishAfterRetry(descriptor: MTLRenderPipelineDescriptor) {
+#if DEBUG || SCENE_GRAPH_TESTING
             Tier.bump { $0.archiveRetries += 1 }
+#endif
             publish(descriptor: descriptor)
         }
 
+#if DEBUG
         private var shortDigest: String { String(digest.prefix(12)) }
+#endif
 
         private func publish(descriptor: MTLRenderPipelineDescriptor) {
             guard let directory = Tier.publishDirectory() else {
+#if DEBUG || SCENE_GRAPH_TESTING
                 recordPublicationFailure(reason: "cache-unavailable")
+#endif
                 return
             }
             let temporary = directory.appendingPathComponent(
@@ -124,7 +135,9 @@ nonisolated enum SceneResolvedMaterialPipelineBinaryArchive {
                     try FileManager.default.removeItem(at: destination)
                 }
                 try FileManager.default.moveItem(at: temporary, to: destination)
+#if DEBUG || SCENE_GRAPH_TESTING
                 Tier.bump { $0.publications += 1 }
+#endif
 #if DEBUG
                 NSLog(
                     "MWX resolved material pipeline binary archive"
@@ -138,10 +151,13 @@ nonisolated enum SceneResolvedMaterialPipelineBinaryArchive {
                 // A failed publication must not leak the serialized scratch
                 // file; the live pipeline state is already independent.
                 try? FileManager.default.removeItem(at: temporary)
+#if DEBUG || SCENE_GRAPH_TESTING
                 recordPublicationFailure(reason: String(describing: error))
+#endif
             }
         }
 
+#if DEBUG || SCENE_GRAPH_TESTING
         private func recordPublicationFailure(reason: String) {
             Tier.bump { $0.publicationFailures += 1 }
 #if DEBUG
@@ -155,6 +171,7 @@ nonisolated enum SceneResolvedMaterialPipelineBinaryArchive {
             )
 #endif
         }
+#endif
     }
 
     /// Resolves the per-key session: loads this identity's archive when a
@@ -189,19 +206,21 @@ nonisolated enum SceneResolvedMaterialPipelineBinaryArchive {
             // The size-bounded regular-file probe also proves the entry is
             // not a symlink before Metal is pointed at it. The read path
             // never creates the directory and never mutates entries.
-            if ScenePersistentCacheSupport.regularFileData(
+            if let candidateURL = ScenePersistentCacheSupport.regularFileURL(
                 url, maximumBytes: maximumArchiveBytes
-            ) != nil {
+            ) {
                 hadDiskEntry = true
                 let descriptor = MTLBinaryArchiveDescriptor()
-                descriptor.url = url
+                descriptor.url = candidateURL
                 do {
                     loadedArchive = try device.makeBinaryArchive(
                         descriptor: descriptor
                     )
                     loadedFromDisk = true
                 } catch {
+#if DEBUG || SCENE_GRAPH_TESTING
                     bump { $0.invalidLoads += 1 }
+#endif
 #if DEBUG
                     NSLog(
                         "MWX resolved material pipeline binary archive"
@@ -217,7 +236,9 @@ nonisolated enum SceneResolvedMaterialPipelineBinaryArchive {
         }
         if loadedArchive == nil {
             if !hadDiskEntry {
+#if DEBUG || SCENE_GRAPH_TESTING
                 bump { $0.absentLoads += 1 }
+#endif
             }
             do {
                 loadedArchive = try device.makeBinaryArchive(
@@ -325,9 +346,11 @@ nonisolated enum SceneResolvedMaterialPipelineBinaryArchive {
         )
     }
 
+#if DEBUG || SCENE_GRAPH_TESTING
     private static func bump(_ mutate: (inout Counters) -> Void) {
         lock.lock()
         defer { lock.unlock() }
         mutate(&counters)
     }
+#endif
 }

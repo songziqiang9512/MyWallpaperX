@@ -280,40 +280,44 @@ enum SceneParticleChildGraphExpansion {
         let colorSampling: SceneParticleTextureSampling
         let refraction: SceneParticleRefractionBinding?
         let wholeSourceRope: Bool
-        if let declaration = asset.refraction {
-            guard let loaded = SceneParticleRefractionTextureLoader.load(
-                colorSource: source,
-                declaration: declaration,
-                textureLoader: textureLoader,
-                device: device
-            ) else {
-                return .rejected("\(path):refractionTextureProfileUnsupported")
+        do {
+            if let declaration = asset.refraction {
+                guard let loaded = try SceneParticleRefractionTextureLoader.load(
+                    colorSource: source,
+                    declaration: declaration,
+                    textureLoader: textureLoader,
+                    device: device
+                ) else {
+                    return .rejected("\(path):refractionTextureProfileUnsupported")
+                }
+                texture = loaded.color
+                animation = loaded.colorAnimation
+                staticSpriteAspect = loaded.staticSpriteAspect
+                colorUVScale = loaded.colorUVScale
+                colorSampling = loaded.colorSampling
+                refraction = loaded.binding
+                wholeSourceRope = false
+            } else {
+                guard let loaded = try SceneParticleChildTemplateSupport.loadTexture(
+                    source,
+                    textureLoader: textureLoader,
+                    builtInTextureRegistry: builtInTextureRegistry,
+                    device: device,
+                    rope: render.rope,
+                    definition: asset.definition
+                ) else {
+                    return .rejected("\(path):textureLoadFailed")
+                }
+                texture = loaded.texture
+                animation = loaded.animation
+                staticSpriteAspect = loaded.staticAspect
+                colorSampling = loaded.sampling
+                colorUVScale = loaded.uvScale
+                refraction = nil
+                wholeSourceRope = loaded.wholeSourceRope
             }
-            texture = loaded.color
-            animation = loaded.colorAnimation
-            staticSpriteAspect = loaded.staticSpriteAspect
-            colorUVScale = loaded.colorUVScale
-            colorSampling = loaded.colorSampling
-            refraction = loaded.binding
-            wholeSourceRope = false
-        } else {
-            guard let loaded = SceneParticleChildTemplateSupport.loadTexture(
-                source,
-                textureLoader: textureLoader,
-                builtInTextureRegistry: builtInTextureRegistry,
-                device: device,
-                rope: render.rope,
-                definition: asset.definition
-            ) else {
-                return .rejected("\(path):textureLoadFailed")
-            }
-            texture = loaded.texture
-            animation = loaded.animation
-            staticSpriteAspect = loaded.staticAspect
-            colorSampling = loaded.sampling
-            colorUVScale = loaded.uvScale
-            refraction = nil
-            wholeSourceRope = loaded.wholeSourceRope
+        } catch {
+            return .rejected("\(path):resourceReadFailed:\(error)")
         }
         let maximum = child.maximumCount ?? 512
         guard maximum > 0, maximum <= 512 else {

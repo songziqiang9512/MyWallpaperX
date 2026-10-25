@@ -17,7 +17,7 @@ from script.web_benchmark_capture import png_rgb_pixels
 from .test_scene_hidden_provider_integration import fixture_entries as hidden_fixture
 from .test_scene_directional_shadow_integration import png
 from .test_scene_fullscreen_visibility_integration import app_hashes, file_hashes
-from .test_scene_pkg_cache_extractor import make_package
+from .scene_pkg_fixture import make_package
 
 
 REPO = Path(__file__).resolve().parents[2]

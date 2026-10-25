@@ -9,8 +9,8 @@ final class SceneDynamicLayerRenderTopologyCache {
         let layersByID: [Int: SceneRenderDescriptor.Layer]
         let layerIndicesByID: [Int: Int]
         let staticWorldFrames: [Int: simd_float4x4]
-        let authoredLayerIDs: [Int]
         let orderedLayers: [SceneRenderDescriptor.Layer]
+        let orderedLayerIDs: [Int]
         let orderedLayerPositionsByID: [Int: Int]
         let dynamicLayerIDs: Set<Int>
         let lightLayerIDs: [Int]
@@ -18,6 +18,8 @@ final class SceneDynamicLayerRenderTopologyCache {
         let utilityExecution: SceneUtilityLayerRuntimePlanner.Execution
         let preparationLayers: [SceneRenderDescriptor.Layer]?
         let preparationLayerPositionsByID: [Int: Int]
+        let preparationLayerIDs: Set<Int>
+        let framebufferSourceLayerIDs: Set<Int>
 
         /// Dynamic layer values are surface/frame scoped. Keep the complete
         /// value record out of the revision cache so two surfaces cannot
@@ -46,15 +48,17 @@ final class SceneDynamicLayerRenderTopologyCache {
                 layersByID: layersByID,
                 layerIndicesByID: layerIndicesByID,
                 staticWorldFrames: staticWorldFrames,
-                authoredLayerIDs: authoredLayerIDs,
                 orderedLayers: orderedLayers,
+                orderedLayerIDs: orderedLayerIDs,
                 orderedLayerPositionsByID: orderedLayerPositionsByID,
                 dynamicLayerIDs: dynamicLayerIDs,
                 lightLayerIDs: lightLayerIDs,
                 imageMaterialStateLayerIDs: imageMaterialStateLayerIDs,
                 utilityExecution: utilityExecution,
                 preparationLayers: preparationLayers,
-                preparationLayerPositionsByID: preparationLayerPositionsByID
+                preparationLayerPositionsByID: preparationLayerPositionsByID,
+                preparationLayerIDs: preparationLayerIDs,
+                framebufferSourceLayerIDs: framebufferSourceLayerIDs
             )
         }
     }
@@ -84,7 +88,6 @@ final class SceneDynamicLayerRenderTopologyCache {
             }
         )
         let dynamicLayerIDs = Set(topology.dynamicLayers.map(\.id))
-        let authoredLayerIDs = descriptor.renderOrderLayerIDs
         let utilityExecution = SceneUtilityLayerRuntimePlanner.execution(
             in: descriptor,
             plans: SceneUtilityLayerRuntimePlanner.plans(
@@ -121,8 +124,8 @@ final class SceneDynamicLayerRenderTopologyCache {
             staticWorldFrames: SceneLayerWorldFrameResolver.compute(
                 descriptor: descriptor, byID: layersByID
             ),
-            authoredLayerIDs: authoredLayerIDs,
             orderedLayers: orderedLayers,
+            orderedLayerIDs: orderedLayers.map(\.id),
             orderedLayerPositionsByID: orderedLayerPositionsByID,
             dynamicLayerIDs: dynamicLayerIDs,
             lightLayerIDs: lightLayerIDs,
@@ -131,7 +134,11 @@ final class SceneDynamicLayerRenderTopologyCache {
             }),
             utilityExecution: utilityExecution,
             preparationLayers: preparationLayers,
-            preparationLayerPositionsByID: preparationLayerPositionsByID
+            preparationLayerPositionsByID: preparationLayerPositionsByID,
+            preparationLayerIDs: Set((preparationLayers ?? []).map(\.id)),
+            framebufferSourceLayerIDs: Set((preparationLayers ?? []).compactMap {
+                $0.utilityLayer?.framebufferSource == nil ? nil : $0.id
+            })
         )
         revision = topology.topologyRevision
         self.projection = projection

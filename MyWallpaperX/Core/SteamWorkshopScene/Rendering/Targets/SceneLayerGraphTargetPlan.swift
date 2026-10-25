@@ -79,9 +79,10 @@ nonisolated struct SceneLayerGraphTargetPlan: Equatable {
         /// Full permutation closure of history-seeded identities through every
         /// authored swap. This must match State.historyClosureIdentities.
         let historyClosureIdentities: Set<Graph.TextureIdentity>
-        /// M4.1：本 stage 的 make 输入摘要（role+extent+targets），铸造期
-        /// 随 table 持久化，供帧路径 validate O(1) 比对跳过重推导。
+        /// Original input digest for raw table validation. Production carries
+        /// the captured static execution with this target plan.
         let makeInputsDigest: Int
+        let preparedExecution: SceneGraphExecutionState.PreparedExecution?
     }
 
     enum Failure: String, Error {
@@ -100,6 +101,7 @@ nonisolated struct SceneLayerGraphTargetPlan: Equatable {
     let slots: [Slot]
     let residentByteCost: Int
     let historyByteCost: Int
+    let capabilityID: UUID?
 
     var sharedPairDimensions: (width: Int, height: Int)? {
         guard pairStorage == .shared else { return nil }
@@ -117,11 +119,15 @@ nonisolated struct SceneLayerGraphTargetPlan: Equatable {
         pairPlan: PairPlan,
         byteBudget: Int,
         pairStorage: FullFramePairStorage = .owned,
-        makeInputsDigests: [Int]
+        makeInputsDigests: [Int],
+        admittedGraphs: [Graph]? = nil,
+        materialFunctionTargetsByEffect: [Graph.EffectKey: Set<Graph.TextureIdentity>] = [:],
+        capabilityID: UUID? = nil
     ) -> Result<Self, Failure> {
         guard byteBudget >= 0 else { return .failure(.invalidBudget) }
         guard let first = plans.first,
               plans.count == pairPlan.effects.count,
+              admittedGraphs == nil || admittedGraphs?.count == plans.count,
               first.layerID == pairPlan.layerID else {
             return .failure(.invalidGraph)
         }
@@ -151,31 +157,6 @@ nonisolated struct SceneLayerGraphTargetPlan: Equatable {
         var freeFramebufferSlots: [Int] = []
         var priorOrdinaryFramebufferSlots: [Int] = []
 
-        func historyClosureIdentities(
-            in plan: TargetPlan
-        ) -> Set<Graph.TextureIdentity>? {
-            let identities = plan.logicalTargets.map(\.identity)
-            guard Set(identities).count == identities.count else { return nil }
-            var permutation = Dictionary(
-                uniqueKeysWithValues: identities.map { ($0, $0) }
-            )
-            for command in plan.commands where command.kind == .swap {
-                guard let source = permutation[command.source],
-                      let target = permutation[command.target] else { return nil }
-                permutation[command.source] = target
-                permutation[command.target] = source
-            }
-            var eligible = Set<Graph.TextureIdentity>()
-            for target in plan.logicalTargets where target.lifetime.requiresHistorySeed {
-                var identity = target.identity
-                while eligible.insert(identity).inserted {
-                    guard let next = permutation[identity] else { return nil }
-                    identity = next
-                }
-            }
-            return eligible
-        }
-
         func takeFramebufferSlot(
             cacheIdentity: FramebufferCacheIdentity,
             historyEffect: Graph.EffectKey?
@@ -200,12 +181,25 @@ nonisolated struct SceneLayerGraphTargetPlan: Equatable {
 
         for (index, values) in zip(plans, pairPlan.effects).enumerated() {
             let (plan, pairStep) = values
+            let preparedExecution: SceneGraphExecutionState.PreparedExecution?
+            if let admittedGraphs {
+                switch SceneGraphExecutionState.prepareExecution(
+                    graph: admittedGraphs[index], plan: plan, pairStep: pairStep,
+                    materialFunctionTargets: materialFunctionTargetsByEffect[pairStep.effect] ?? []
+                ) {
+                case let .success(value): preparedExecution = value
+                case .failure: return .failure(.invalidPlan)
+                }
+            } else {
+                preparedExecution = nil
+            }
             let identities = [plan.input]
                 + plan.logicalTargets.map(\.identity) + [plan.output]
             guard Set(identities).count == identities.count,
                   plan.input == pairStep.inputIdentity,
                   plan.output == pairStep.outputIdentity,
-                  let historyClosure = historyClosureIdentities(in: plan) else {
+                  let historyClosure = preparedExecution?.historyClosureIdentities
+                    ?? SceneGraphExecutionState.historyClosure(in: plan) else {
                 return .failure(.invalidPlan)
             }
             if index == 0 {
@@ -263,7 +257,8 @@ nonisolated struct SceneLayerGraphTargetPlan: Equatable {
                 slotByIdentity: mapping,
                 historyClosureIdentities: historyClosure,
                 makeInputsDigest: index < makeInputsDigests.count
-                    ? makeInputsDigests[index] : 0
+                    ? makeInputsDigests[index] : 0,
+                preparedExecution: preparedExecution
             ))
             priorOrdinaryFramebufferSlots = framebufferSlots.filter {
                 slots[$0].historyEffect == nil && !slots[$0].isEffectUnique
@@ -320,7 +315,8 @@ nonisolated struct SceneLayerGraphTargetPlan: Equatable {
             stages: stages,
             slots: slots,
             residentByteCost: resident,
-            historyByteCost: history
+            historyByteCost: history,
+            capabilityID: capabilityID
         ))
     }
 }

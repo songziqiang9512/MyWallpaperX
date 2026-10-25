@@ -54,6 +54,8 @@ import Darwin
         let tokenB = daemon.switchToken
         daemon.commitVideoPreparation(requestID: 2)
         precondition(daemon.currentVideoPath == "B" && daemon.activeSlot == .secondary)
+        precondition(daemon.videoPreparation?.transitionComplete == false,
+            "a real crossfade must retain its animation completion")
         daemon.completeVideoTransition(token: tokenB)
         precondition(daemon.primaryPlayer.currentItem === original, "old A released before finalize")
         daemon.cancelVideoPreparation(requestID: 2)
@@ -80,6 +82,10 @@ import Darwin
         daemon.currentVideoPath = nil; daemon.currentRequestID = nil
         prepare(5, path: "first")
         daemon.commitVideoPreparation(requestID: 5)
+        precondition(daemon.videoPreparation?.transitionComplete == true,
+            "first play has no animation and must not wait for a crossfade timer")
+        precondition(daemon.videoPreparation?.visibilityConfirmed == false,
+            "finishing an unanimated transition must not invent a decoded visible frame")
         daemon.cancelVideoPreparation(requestID: 5)
         precondition(daemon.currentVideoPath == nil)
         precondition(daemon.window.level.rawValue < WallpaperDaemon.desktopWindowLevel.rawValue)
@@ -150,6 +156,8 @@ import Darwin
                 spectrumBarCount: nil, spectrumColorHex: nil, spectrumOffsetX: nil,
                 spectrumOffsetY: nil, spectrumPeakCapsEnabled: nil, requestID: nil))
             daemon.commitVideoPreparation(requestID: 8)
+            precondition(daemon.videoPreparation?.transitionComplete == true,
+                "real paused and playing first frames must not inherit a crossfade delay")
             precondition(daemon.activeLayer.frame.size != daemon.window.contentView?.bounds.size,
                 "commit used a frame prepared before the new fill mode: mode=\(daemon.currentFillMode) item=\(String(describing: daemon.activePlayer.currentItem?.presentationSize)) actual=\(daemon.activeLayer.frame) bounds=\(String(describing: daemon.window.contentView?.bounds))")
             RunLoop.current.run(until: Date().addingTimeInterval(0.08))

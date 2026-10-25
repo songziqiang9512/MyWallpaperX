@@ -24,6 +24,12 @@ class SceneUserTextureUpdateTests(unittest.TestCase):
         module = importlib.util.module_from_spec(spec)
         spec.loader.exec_module(module)
         sources = list(module.SWIFT_SOURCES) + [
+            SCENE / "Resources/Assets/SceneResourceIndex.swift",
+            SCENE / "Resources/Assets/SceneResourceView.swift",
+            SCENE / "../SteamWorkshopStorage/ScenePlaybackSource.swift",
+            SCENE / "Format/ScenePkgReader.swift",
+            SCENE / "Resources/Assets/SceneResourceIdentity.swift",
+            SCENE / "Resources/Assets/SceneResourceView+Backing.swift",
             SCENE / "Systems/Properties/SceneUserPropertyTextureLoader.swift",
             SCENE / "Runtime/Session/SceneDesktopWallpaperSession+UserTextures.swift",
             ROOT / "script/tests/fixtures/SceneUserTextureUpdateChecks.swift",

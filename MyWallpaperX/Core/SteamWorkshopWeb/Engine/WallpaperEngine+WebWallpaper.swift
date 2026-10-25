@@ -18,7 +18,8 @@ extension WallpaperEngine {
         runtimeProfile: WebRuntimeProfile = .standard,
         multiDisplayEnabled: Bool,
         resourceLifetime: PlaybackResourceLifetime? = nil,
-        resourceGrants: [WebWallpaperResourceGrant] = []
+        resourceGrants: [WebWallpaperResourceGrant] = [],
+        allowedNetworkHosts: Set<String> = []
     ) {
         launchWebWallpaper(
             WebWallpaperLaunchRequest(
@@ -32,7 +33,7 @@ extension WallpaperEngine {
                 runtimeProfile: runtimeProfile,
                 multiDisplayEnabled: multiDisplayEnabled,
                 resourceLifetime: resourceLifetime,
-                resourceGrants: resourceGrants
+                resourceGrants: resourceGrants, allowedNetworkHosts: allowedNetworkHosts
             )
         )
     }
@@ -83,14 +84,15 @@ extension WallpaperEngine {
             propertiesJSON: request.propertiesJSON, recordID: request.recordID,
             language: request.language, runtimeProfile: request.runtimeProfile,
             multiDisplayEnabled: request.multiDisplayEnabled, resourceLifetime: request.resourceLifetime,
-            resourceGrants: request.resourceGrants)
+            resourceGrants: request.resourceGrants, allowedNetworkHosts: request.allowedNetworkHosts)
     }
 
     func prepareWebSwitch(ticket: PlaybackSwitchTicket, requestID: UUID,
                           entryURL: URL, rootURL: URL, propertiesJSON: String?,
                           recordID: String?, language: String, runtimeProfile: WebRuntimeProfile,
                           multiDisplayEnabled: Bool, resourceLifetime: PlaybackResourceLifetime?,
-                          resourceGrants: [WebWallpaperResourceGrant] = []) {
+                          resourceGrants: [WebWallpaperResourceGrant] = [],
+                          allowedNetworkHosts: Set<String> = []) {
         guard ticket.runtime == .web, let adapter = dedicatedWebHostAdapter as? WebDaemonHostAdapter else {
             switchFailed?(ticket, "Web execution endpoint is unavailable"); return
         }
@@ -99,7 +101,7 @@ extension WallpaperEngine {
             rootURL: rootURL, propertiesJSON: propertiesJSON ?? "{}", source: .steamWorkshop,
             recordID: recordID, language: language, runtimeProfile: runtimeProfile,
             multiDisplayEnabled: multiDisplayEnabled, resourceLifetime: resourceLifetime,
-            resourceGrants: resourceGrants)
+            resourceGrants: resourceGrants, allowedNetworkHosts: allowedNetworkHosts)
         adapter.prepareSwitch(ticket: ticket, request: request, runtimeState: webWallpaperRuntimeState())
     }
 

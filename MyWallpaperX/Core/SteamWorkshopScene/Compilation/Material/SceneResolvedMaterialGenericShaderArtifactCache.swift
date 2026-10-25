@@ -357,7 +357,14 @@ routeTelemetry.record(
         )
         let loaded = loadOrCompileProgram(
             artifactURL: artifactURL,
-            requestKey: key,
+            key: .init(
+                requestKey: key,
+                outputSemantics: outputSemantics,
+                premultipliedColorInputSlots: premultipliedColorInputSlots,
+                colorBoundary: colorBoundary,
+                colorTransfer: colorTransfer,
+                fragmentOutputChannelUse: fragmentOutputChannelUse
+            ),
             validate: { data in
                 let artifact: SceneGenericShaderProgramArtifact
                 do {
@@ -449,7 +456,7 @@ routeTelemetry.record(
     /// concurrently repaired entry. One request never retries a bad publication.
     static func loadOrCompileProgram(
         artifactURL: URL,
-        requestKey: String,
+        key: SceneResolvedMaterialGenericShaderCompilationCoordinator.Key,
         coordinator: SceneResolvedMaterialGenericShaderCompilationCoordinator =
             compilationCoordinator,
         validate: (Data) -> Result<SceneAuthoredShaderProgram, ProgramLoadFailure>,
@@ -462,31 +469,28 @@ routeTelemetry.record(
             return validate(data)
         }
         if case let .success(program) = readProgram() { return .success(program) }
-        let compilation = coordinator.perform(key: requestKey) {
-            if case .success = readProgram() { return .success(artifactURL) }
-            return compile()
+        let compilation = coordinator.perform(key: key) {
+            if case let .success(program) = readProgram() { return .success(program) }
+            switch compile() {
+            case .success: return readProgram()
+            case let .failure(failure): return .failure(.compiler(failure))
+            }
         }
-        let result: Result<SceneAuthoredShaderProgram, ProgramLoadFailure>
-        switch compilation.result {
-        case .success: result = readProgram()
-        case let .failure(failure): result = .failure(.compiler(failure))
-        }
+        let result = compilation.result
+#if DEBUG
         switch result {
         case .success:
-#if DEBUG
-routeTelemetry.recordCompilerLifecycle(
+            routeTelemetry.recordCompilerLifecycle(
                 source: compilation.source, outcome: "published",
-                reason: "-", requestKey: requestKey
+                reason: "-", requestKey: key.requestKey
             )
-#endif
         case let .failure(failure):
-#if DEBUG
-routeTelemetry.recordCompilerLifecycle(
+            routeTelemetry.recordCompilerLifecycle(
                 source: compilation.source, outcome: "failed",
-                reason: failure.code, requestKey: requestKey
+                reason: failure.code, requestKey: key.requestKey
             )
-#endif
         }
+#endif
         return result
     }
 

@@ -133,7 +133,7 @@ enum Harness {
         let loader = SceneEffectDefinitionLoader()
         let definitions = try ["blur", "motion", "fluid"].map { name in
             try loader.load(
-                from: root.appendingPathComponent("effects/\(name)/effect.json"),
+                data: Data(contentsOf: root.appendingPathComponent("effects/\(name)/effect.json")),
                 relativePath: "effects/\(name)/effect.json"
             )
         }
@@ -146,7 +146,7 @@ enum Harness {
         let invalidRejected: Bool
         do {
             _ = try loader.load(
-                from: root.appendingPathComponent("effects/broken/effect.json"),
+                data: Data(contentsOf: root.appendingPathComponent("effects/broken/effect.json")),
                 relativePath: "effects/broken/effect.json"
             )
             invalidRejected = false

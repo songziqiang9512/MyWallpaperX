@@ -14,6 +14,7 @@ HARNESS = r'''
 import Foundation
 // RESOURCE TYPES
 final class Host {
+    var enumerationCount = 0
 // PRODUCT
 }
 func check(_ value: @autoclosure () -> Bool, _ message: String) {
@@ -45,6 +46,18 @@ func check(_ value: @autoclosure () -> Bool, _ message: String) {
         let initial = host.computeFetchAllDirectorySyncResult(using: json, previousSnapshots: [:], rootURL: cwd, grants: [])
         check(initial.hasFetchAllDirectory && initial.watchedDirectoriesByProperty.count == 1, "selected directory watched")
         check(initial.changeNotifications.first?.addedOrChangedFiles == [file.path], "initial contents")
+        check(initial.snapshotsByProperty["slides"]?.sourceDirectoryPath == directory.path, "snapshot records its canonical source")
+        let aliasForSharedScan = cwd.appendingPathComponent("shared-alias")
+        try FileManager.default.createSymbolicLink(at: aliasForSharedScan, withDestinationURL: directory)
+        let sharedPayload = String(data: try JSONSerialization.data(withJSONObject: [
+            "first": ["type":"directory", "mode":"fetchall", "value":directory.path],
+            "second": ["type":"directory", "mode":"fetchall", "value":aliasForSharedScan.path]
+        ]), encoding: .utf8)!
+        let beforeSharedScan = host.enumerationCount
+        let shared = host.computeFetchAllDirectorySyncResult(using: sharedPayload, previousSnapshots: [:], rootURL: cwd, grants: [])
+        check(host.enumerationCount == beforeSharedScan + 1, "same canonical directory enumerates once per synchronization")
+        check(shared.snapshotsByProperty.count == 2 && shared.changeNotifications.count == 2, "both authored properties retain their own notifications")
+        check(shared.snapshotsByProperty.values.allSatisfy { $0.sourceDirectoryPath == directory.path && $0.filesByPath.count == 1 && $0.filesByPath[file.path] != nil }, "shared value keeps source and files")
         let unchanged = host.computeFetchAllDirectorySyncResult(using: json, previousSnapshots: initial.snapshotsByProperty, rootURL: cwd, grants: [])
         check(unchanged.changeNotifications.isEmpty, "unchanged directory sends no duplicate list")
         let alias = cwd.appendingPathComponent("selected-alias")
@@ -78,6 +91,10 @@ class WebDirectorySyncTests(unittest.TestCase):
         declarations += [method(source, signature) for signature in (
             "func parseFetchAllDirectoryProperties(", "func computeFetchAllDirectorySyncResult(",
             "func directorySyncStatus(")]
+        # Count the real enumeration boundary; product code keeps no counter.
+        declarations = [value.replace("        guard let enumerator = FileManager.default.enumerator(",
+                                      "        enumerationCount += 1\n        guard let enumerator = FileManager.default.enumerator(")
+                        for value in declarations]
         with tempfile.TemporaryDirectory(prefix="mwx-web-directory-sync-") as temporary:
             root = Path(temporary)
             (root / "Harness.swift").write_text(HARNESS.replace("// PRODUCT", "\n".join(declarations)).replace("// RESOURCE TYPES", resource_types))

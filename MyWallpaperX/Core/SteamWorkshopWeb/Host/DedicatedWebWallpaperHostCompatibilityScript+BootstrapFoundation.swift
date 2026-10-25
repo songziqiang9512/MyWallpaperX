@@ -1,3 +1,79 @@
+// The logger has no Release message-handler consumer. Keep only its name
+// for optional calls in the shared playback/resource compatibility script.
+#if DEBUG
+private let webCompatibilityScriptHostLogger = #"""
+  const hostLogger = (() => {
+    const handler = window.webkit && window.webkit.messageHandlers && window.webkit.messageHandlers.wallpaperHostLog;
+    if (!handler) return undefined;
+    const lastLogTimes = new Map();
+    const noisyTypeIntervals = {
+      'console.warn': 2000,
+      'console.error': 500,
+      'window.error': 500,
+      'promise.rejection': 500,
+      'resource.error': 2000,
+      'resource.ignored': 5000,
+      'fetch.error': 5000,
+      'fetch.ignored': 5000,
+      'xhr.error': 5000,
+      'xhr.status': 5000,
+      'media.error': 2000,
+      'media.waiting': 2000,
+      'media.stalled': 2000,
+      'media.suspend': 2000,
+      'media.playing': 1000,
+      'media.pause': 1000,
+      'media.loadedmetadata': 1000,
+      'media.loadeddata': 1000,
+      'media.canplay': 1000,
+      'media.canplaythrough': 1000,
+      'media.initial': 1000,
+      'media.play.unsupported': 5000,
+      'media.resume.skipped': 5000,
+      'audio.resume.skipped': 5000,
+      'host-reply.unsupported': 5000,
+      'interactive-regions.subframe-ignored': 5000,
+      'loader.pending': 1000,
+      'iframe.crossOriginAccess': 5000,
+      'backstretch.noop': 1000,
+      'pointer.defer': 1000,
+      'runtime.randomFile': 1000,
+      'directory.access': 2000
+    };
+    return {
+      post(type, message) {
+        if (!handler || typeof handler.postMessage !== 'function') return;
+        try {
+          const normalizedType = String(type || '');
+          const normalizedMessage = String(message ?? '').slice(0, 600);
+          const interval = noisyTypeIntervals[normalizedType];
+          if (interval) {
+            const key = `${normalizedType}|${normalizedMessage}`;
+            const now = Date.now();
+            const lastTime = lastLogTimes.get(key) || 0;
+            if ((now - lastTime) < interval) {
+              return;
+            }
+            lastLogTimes.set(key, now);
+            if (lastLogTimes.size > 300) {
+              const staleBefore = now - 60000;
+              for (const [entryKey, entryTime] of lastLogTimes.entries()) {
+                if (entryTime < staleBefore) {
+                  lastLogTimes.delete(entryKey);
+                }
+              }
+            }
+          }
+          handler.postMessage({ type: normalizedType, message: normalizedMessage });
+        } catch (_) {}
+      }
+    };
+  })();
+"""#
+#else
+private let webCompatibilityScriptHostLogger = "  const hostLogger = undefined;"
+#endif
+
 let webCompatibilityScriptBootstrapFoundation = #"""
   const audioStreams = [];
   const audioListeners = [];
@@ -242,73 +318,7 @@ let webCompatibilityScriptBootstrapFoundation = #"""
       return false;
     }
   };
-  const hostLogger = (() => {
-    const handler = window.webkit && window.webkit.messageHandlers && window.webkit.messageHandlers.wallpaperHostLog;
-    if (!handler) return undefined;
-    const lastLogTimes = new Map();
-    const noisyTypeIntervals = {
-      'console.warn': 2000,
-      'console.error': 500,
-      'window.error': 500,
-      'promise.rejection': 500,
-      'resource.error': 2000,
-      'resource.ignored': 5000,
-      'fetch.error': 5000,
-      'fetch.ignored': 5000,
-      'xhr.error': 5000,
-      'xhr.status': 5000,
-      'media.error': 2000,
-      'media.waiting': 2000,
-      'media.stalled': 2000,
-      'media.suspend': 2000,
-      'media.playing': 1000,
-      'media.pause': 1000,
-      'media.loadedmetadata': 1000,
-      'media.loadeddata': 1000,
-      'media.canplay': 1000,
-      'media.canplaythrough': 1000,
-      'media.initial': 1000,
-      'media.play.unsupported': 5000,
-      'media.resume.skipped': 5000,
-      'audio.resume.skipped': 5000,
-      'host-reply.unsupported': 5000,
-      'interactive-regions.subframe-ignored': 5000,
-      'loader.pending': 1000,
-      'iframe.crossOriginAccess': 5000,
-      'backstretch.noop': 1000,
-      'pointer.defer': 1000,
-      'runtime.randomFile': 1000,
-      'directory.access': 2000
-    };
-    return {
-      post(type, message) {
-        if (!handler || typeof handler.postMessage !== 'function') return;
-        try {
-          const normalizedType = String(type || '');
-          const normalizedMessage = String(message ?? '').slice(0, 600);
-          const interval = noisyTypeIntervals[normalizedType];
-          if (interval) {
-            const key = `${normalizedType}|${normalizedMessage}`;
-            const now = Date.now();
-            const lastTime = lastLogTimes.get(key) || 0;
-            if ((now - lastTime) < interval) {
-              return;
-            }
-            lastLogTimes.set(key, now);
-            if (lastLogTimes.size > 300) {
-              const staleBefore = now - 60000;
-              for (const [entryKey, entryTime] of lastLogTimes.entries()) {
-                if (entryTime < staleBefore) {
-                  lastLogTimes.delete(entryKey);
-                }
-              }
-            }
-          }
-          handler.postMessage({ type: normalizedType, message: normalizedMessage });
-        } catch (_) {}
-      }
-    };
-  })();
+\#(webCompatibilityScriptHostLogger)
   resumeAudioContexts();
   wrapAudioContextConstructor('AudioContext');
   wrapAudioContextConstructor('webkitAudioContext');

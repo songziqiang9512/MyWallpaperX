@@ -7,7 +7,9 @@ import Foundation
 /// own Sound layer.
 struct SceneSoundPlaybackProgram {
     struct Resource {
-        let url: URL
+        /// Nil retains a selected but ordinarily unreadable source slot. It
+        /// must not trigger another authored path or lower-priority Root.
+        let file: SceneVideoOwnedFile?
         let displayPath: String
     }
 
@@ -105,9 +107,8 @@ struct SceneSoundPlaybackProgram {
         }.map(\.layerID)).count
     }
 
-    /// Diagnostics for sources skipped by layers that admitted another
-    /// source - real facts, but they must not read as rejected layers in
-    /// corpus tooling that counts reason lines.
+    /// Source diagnostics on admitted layers include unavailable selected
+    /// slots. They must not read as rejected layers in corpus tooling.
     var skippedSourceCount: Int {
         let admittedLayerIDs = Set(bindings.map(\.layerID))
         return diagnostics.filter { admittedLayerIDs.contains($0.layerID) }.count
@@ -143,11 +144,15 @@ struct SceneSoundPlaybackProgram {
 
     static func compile(
         document: SceneDocument,
-        resourceView: SceneResourceView
-    ) -> SceneSoundPlaybackProgram {
+        resourceView: SceneResourceView,
+        privateCacheDirectory: URL,
+        checkCancellation: (() throws -> Void)? = nil
+    ) throws -> SceneSoundPlaybackProgram {
         var bindings: [Binding] = []
         var diagnostics: [Diagnostic] = []
+        var preparedResources: [SceneResourceView.FileInput: Resource] = [:]
         for object in document.objects.sorted(by: { $0.id < $1.id }) {
+            try checkCancellation?()
             guard let sound = object.sound else { continue }
             let playbackMode: PlaybackMode
             switch admission(sound) {
@@ -163,21 +168,53 @@ struct SceneSoundPlaybackProgram {
             }
             var skippedSources: [(reason: Diagnostic.Reason, detail: String)] = []
             var resources: [Resource] = []
-            // Ordinary playback keeps its first usable source. Random prepares
-            // every usable reference; decoding and selection belong to Registry.
+            // Preserve index selection, including an unavailable selected slot.
+            // Random retains all selected references; playback owns decoding.
             for path in sound.paths {
+                try checkCancellation?()
                 if let failure = sourceFailure(path) {
                     skippedSources.append(failure)
                     continue
                 }
-                guard let resource = resourceView.resource(forReference: path) else {
+                guard let handle = resourceView.resolvedResource(forReference: path) else {
                     skippedSources.append((.resourceUnavailable, path))
                     continue
                 }
-                resources.append(Resource(
-                    url: resource.url,
-                    displayPath: resourceView.displayPath(for: resource.url)
-                ))
+                let input = SceneResourceView.FileInput.resource(handle)
+                let resource: Resource
+                if let prepared = preparedResources[input] {
+                    resource = prepared
+                } else {
+                    let file: SceneVideoOwnedFile?
+                    do {
+                        file = try SceneVideoOwnedFile.snapshot(
+                            from: handle, cacheDirectory: privateCacheDirectory,
+                            fileExtension: sourceExtension(of: path),
+                            checkCancellation: checkCancellation
+                        )
+                    } catch SceneResourceView.ReadError.missing {
+                        file = nil
+                    } catch SceneResourceView.ReadError.unreadable {
+                        file = nil
+                    } catch SceneVideoOwnedFile.Failure.directoryCreation {
+                        file = nil
+                    } catch SceneVideoOwnedFile.Failure.aggregateDiskBudgetExceeded {
+                        file = nil
+                    } catch SceneVideoOwnedFile.Failure.io(let operation, _)
+                        where operation == .createSnapshot || operation == .writeSnapshot
+                            || operation == .closeSnapshot {
+                        file = nil
+                    }
+                    resource = Resource(
+                        file: file,
+                        displayPath: handle.displayPath
+                    )
+                    preparedResources[input] = resource
+                }
+                if resource.file == nil {
+                    skippedSources.append((.resourceUnavailable, resource.displayPath))
+                }
+                resources.append(resource)
                 if case .random = playbackMode { continue }
                 break
             }
@@ -194,6 +231,7 @@ struct SceneSoundPlaybackProgram {
                 ))
             }
         }
+        try checkCancellation?()
         return SceneSoundPlaybackProgram(
             bindings: bindings,
             diagnostics: diagnostics

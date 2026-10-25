@@ -22,8 +22,9 @@ extension SceneMetalRenderer {
         environmentSource: ((MTLCommandBuffer) -> SceneFrameTextureResource?)?,
         frameLightSnapshot: SceneLightSnapshot? = nil,
         compositionGroupRuntime: SceneCompositionGroupFrameRuntime? = nil,
-        preparationLayers: [SceneRenderDescriptor.Layer]? = nil,
-        utilityExecution: SceneUtilityLayerRuntimePlanner.Execution? = nil
+        preparationLayers: [SceneRenderDescriptor.Layer]?,
+        liveLayerIDs: Set<Int>,
+        utilityExecution: SceneUtilityLayerRuntimePlanner.Execution
     ) -> SceneResolvedMaterialGraphComposition.FramePreflightResult {
 #if DEBUG
         performanceTelemetry?.beginStage("admit-preflight-targets")
@@ -34,15 +35,11 @@ extension SceneMetalRenderer {
 #endif
 
         let viewportSize = frameContext.screenSize
-        guard let orderedLayers = utilityExecution == nil
-                ? (preparationLayers ?? resolvedMaterialPreparationLayers)
-                : preparationLayers else {
+        guard let orderedLayers = preparationLayers else {
             return .rejected(
                 reasonCode: "resolved-material-preparation-order-invalid"
             )
         }
-        let utilityExecution = utilityExecution ?? self.utilityExecution
-        let liveLayerIDs = Set(orderedLayers.map(\.id))
         let availableExecutionLayerIDs = (imageCompositor.resolvedMaterialRuntime?
             .executionLayerIDs ?? []).intersection(liveLayerIDs)
         let demand = dependencyRuntime.resolvedMaterialFrameDemand(

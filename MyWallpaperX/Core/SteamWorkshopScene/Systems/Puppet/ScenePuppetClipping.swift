@@ -121,8 +121,11 @@ final class ScenePuppetClipping {
 
     /// Always prepares against this consumer and submission. No cross-frame
     /// readiness memo can survive a cancelled or failed command buffer.
+    /// Fixed all-one geometry coverage needs no opacity traversal; posed
+    /// positions, viewport ROI, dependency masks and allocations remain live.
     func prepare(commandBuffer: MTLCommandBuffer, extent: SIMD2<Int>, mvp: simd_float4x4,
                  retainAuxiliary: SceneGeometryProduct.AuxiliaryRetainer,
+                 vertexCoverageVaries: Bool = true,
                  vertices: [SceneQuadVertex], vertexBuffer: MTLBuffer, indexBuffer: MTLBuffer) {
         prepared.removeAll(keepingCapacity: true)
         opaqueSources.removeAll(keepingCapacity: true)
@@ -134,7 +137,7 @@ final class ScenePuppetClipping {
             // unavailable nested components cannot consume healthy parts' budget.
             guard let paint = paintTextures[targetPart.recordIndex],
                   sources.allSatisfy({ targetIndexByPart[$0] == nil || prepared[$0] != nil }),
-                  sources.allSatisfy({ ordinal in
+                  (!vertexCoverageVaries || sources.allSatisfy({ ordinal in
                       if let opaque = opaqueSources[ordinal] { return opaque }
                       let part = mesh.drawParts[ordinal]
                       let opaque = (part.indexOffset ..< part.indexOffset + part.indexCount).allSatisfy {
@@ -142,7 +145,7 @@ final class ScenePuppetClipping {
                       }
                       opaqueSources[ordinal] = opaque
                       return opaque
-                  }),
+                  })),
                   let roi = region(part: mesh.drawParts[targetPart.partOrdinal],
                                    vertices: vertices, extent: extent, mvp: mvp),
                   let allocation = allocate(index, roi.width, roi.height, commandBuffer) else { continue }

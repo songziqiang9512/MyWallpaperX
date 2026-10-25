@@ -25,6 +25,13 @@ nonisolated struct SceneDynamicTextGenerationState {
     private var generations: [Int: UInt64] = [:]
     private var readyGenerations: [Int: UInt64] = [:]
     private var renderingGenerations: [Int: UInt64] = [:]
+    private var lastIssuedGeneration: UInt64 = 0
+
+    nonisolated private mutating func issueGeneration() -> UInt64? {
+        guard lastIssuedGeneration < .max else { return nil }
+        lastIssuedGeneration += 1
+        return lastIssuedGeneration
+    }
 
     nonisolated mutating func registerInitial(
         layerID: Int,
@@ -42,11 +49,11 @@ nonisolated struct SceneDynamicTextGenerationState {
         layerID: Int,
         signature: SceneDynamicTextSignature
     ) -> RenderRequest? {
-        guard requested[layerID] == nil else { return nil }
+        guard requested[layerID] == nil, let generation = issueGeneration() else { return nil }
         requested[layerID] = signature
-        generations[layerID] = 1
-        renderingGenerations[layerID] = 1
-        return .init(layerID: layerID, signature: signature, generation: 1)
+        generations[layerID] = generation
+        renderingGenerations[layerID] = generation
+        return .init(layerID: layerID, signature: signature, generation: generation)
     }
 
     nonisolated mutating func unregister(layerID: Int) {
@@ -61,8 +68,7 @@ nonisolated struct SceneDynamicTextGenerationState {
         layerID: Int,
         signature: SceneDynamicTextSignature
     ) -> UInt64? {
-        guard requested[layerID] != signature else { return nil }
-        let generation = (generations[layerID] ?? 0) &+ 1
+        guard requested[layerID] != signature, let generation = issueGeneration() else { return nil }
         generations[layerID] = generation
         requested[layerID] = signature
         return generation
@@ -134,7 +140,12 @@ nonisolated struct SceneDynamicTextGenerationState {
         readyGenerations[layerID]
     }
 
+    nonisolated func isRendering(_ request: RenderRequest) -> Bool {
+        renderingGenerations[request.layerID] == request.generation
+    }
+
     nonisolated mutating func reset() {
+        // Never reuse a token while a retired worker may still complete.
         requested.removeAll()
         ready.removeAll()
         generations.removeAll()

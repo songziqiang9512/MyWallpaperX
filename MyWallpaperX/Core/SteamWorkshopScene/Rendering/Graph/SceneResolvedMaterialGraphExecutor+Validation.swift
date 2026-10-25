@@ -5,6 +5,7 @@ extension SceneResolvedMaterialGraphExecutor {
     func validate(
         capability: SceneResolvedMaterialExecutionCapabilityCatalog.LayerCapability,
         leases: [SceneGraphRenderTargetLease],
+        token: SceneResolvedMaterialExecutionCapabilityCatalog.Token? = nil,
         materialFunctionTargetsByEffect: [
             Graph.EffectKey: Set<Graph.TextureIdentity>
         ] = [:]
@@ -29,37 +30,42 @@ extension SceneResolvedMaterialGraphExecutor {
             let lease = leases[index]
             let role: SceneAuthoredEffectInputRole = index == 0
                 ? .layerSource : .priorEffectOutput
-            // M4.1：当帧 make 输入摘要 vs 铸造期摘要 O(1) 比对。make 为
-            // 纯函数且 table.plan 随铸造不可变——摘要命中即证明 stored
-            // plan 就是当前输入的推导结果，跳过 make 与全结构比较；
-            // 未命中（functionTargets 变化等）回退完整推导+比较，语义
-            // 与旧路径逐分支一致。纹理 === 门与 functionTargets 门保留。
-            let currentInputsDigest = SceneGraphRenderTargetPlan.makeInputsDigest(
-                inputRole: role,
-                inputWidth: lease.table.plan.inputExtent.width,
-                inputHeight: lease.table.plan.inputExtent.height,
-                materialFunctionTargets:
-                    materialFunctionTargetsByEffect[step.effect] ?? [],
-                backbufferFormat: lease.table.plan.backbufferFormat
-            )
             let expectedMatchesStoredPlan: Bool
-            if lease.table.makeInputsDigest == currentInputsDigest {
-                expectedMatchesStoredPlan = true
+            if let prepared = lease.table.preparedExecution,
+               let preparedID = lease.table.capabilityID {
+                // The immutable plan was made from this admitted capability.
+                // Actual frame allocation, pair textures and publications are
+                // checked below and at their consumers.
+                guard preparedID == token?.capabilityID else { return false }
+                expectedMatchesStoredPlan = prepared.materialFunctionTargets
+                    == (materialFunctionTargetsByEffect[step.effect] ?? [])
             } else {
-                let targetPlanResult = SceneGraphRenderTargetPlan.make(
-                    graph: graph,
-                    inputRole: index == 0 ? .layerSource : .priorEffectOutput,
+                let currentInputsDigest = SceneGraphRenderTargetPlan.makeInputsDigest(
+                    inputRole: role,
                     inputWidth: lease.table.plan.inputExtent.width,
                     inputHeight: lease.table.plan.inputExtent.height,
                     materialFunctionTargets:
                         materialFunctionTargetsByEffect[step.effect] ?? [],
                     backbufferFormat: lease.table.plan.backbufferFormat
                 )
-                switch targetPlanResult {
-                case let .success(expected):
-                    expectedMatchesStoredPlan = expected == lease.table.plan
-                case .failure:
-                    expectedMatchesStoredPlan = false
+                if lease.table.makeInputsDigest == currentInputsDigest {
+                    expectedMatchesStoredPlan = true
+                } else {
+                    let targetPlanResult = SceneGraphRenderTargetPlan.make(
+                        graph: graph,
+                        inputRole: index == 0 ? .layerSource : .priorEffectOutput,
+                        inputWidth: lease.table.plan.inputExtent.width,
+                        inputHeight: lease.table.plan.inputExtent.height,
+                        materialFunctionTargets:
+                            materialFunctionTargetsByEffect[step.effect] ?? [],
+                        backbufferFormat: lease.table.plan.backbufferFormat
+                    )
+                    switch targetPlanResult {
+                    case let .success(expected):
+                        expectedMatchesStoredPlan = expected == lease.table.plan
+                    case .failure:
+                        expectedMatchesStoredPlan = false
+                    }
                 }
             }
             guard graph.effects.count == 1,

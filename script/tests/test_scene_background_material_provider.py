@@ -257,7 +257,7 @@ class SceneBackgroundMaterialProviderTests(unittest.TestCase):
         environment["MWX_SCENE_GENERIC_SHADER_ROUTE"] = "disable-generic"
         compilation = subprocess.run(
             [
-                "xcrun", "--sdk", "macosx", "swiftc", "-parse-as-library",
+                "xcrun", "--sdk", "macosx", "swiftc", "-parse-as-library", "-D", "SCENE_GRAPH_TESTING",
                 *(str(path) for path in FINALIZER_FIXTURE["SWIFT_SOURCES"]),
                 *(str(path) for path in FINALIZER_FIXTURE["SHARED_FIXTURE_SOURCES"]),
                 str(harness),

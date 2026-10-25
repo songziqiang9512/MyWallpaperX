@@ -139,6 +139,8 @@ METHODS
             harness.write_text(stub)
             binary = root / "admission"
             dependencies = [
+                ROOT / "MyWallpaperX/Core/SteamWorkshopStorage/ScenePlaybackSource.swift",
+                ROOT / "MyWallpaperX/Core/SteamWorkshopStorage/SteamWorkshopStorageTree.swift",
                 ROOT / "MyWallpaperX/Core/DaemonKit/DaemonNewlineJSON.swift",
                 ROOT / "MyWallpaperX/Core/DaemonKit/DaemonProcessTransport.swift",
                 *[CORE / name for name in ("SteamServiceProtocol.swift", "SteamServiceClient.swift",

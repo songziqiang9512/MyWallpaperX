@@ -18,16 +18,16 @@ extension SteamWorkshopService {
 
     func cachedCanLaunchDownloadRecord(_ record: SteamWorkshopDownloadRecord) -> Bool {
         guard record.status == .ready else { return false }
+        // Cards project the published record. The selected target's current
+        // files are checked by canLaunchDownloadRecord and runtime preparation.
+        let hasVideo = record.exportedVideoURL != nil || record.sourceVideoURL != nil
         if record.contentType == .web {
-            guard record.isPlayableOrLaunchable else { return false }
-            let signature = webProjectDescriptorSignature(for: record)
-            if let cached = webLaunchEligibilityCache[record.id],
-               cached.signature == signature {
-                return cached.isValid
-            }
-            return true
+            guard record.entryHTMLURL != nil else { return false }
+            if hasVideo || record.dependencyItemID == nil { return true }
+            if case .available = record.dependencyStatus { return true }
+            return false
         }
-        return record.isPlayableOrLaunchable
+        return hasVideo || record.contentType == .scene
     }
 
     var filteredDownloads: [SteamWorkshopDownloadRecord] {
@@ -155,7 +155,7 @@ extension SteamWorkshopService {
         case .video:
             guard WallpaperEngine.shared.currentPlaybackContentKind == .video,
                   let path = WallpaperEngine.shared.currentContentPath else { return false }
-            return [record.videoURL, record.exportedVideoURL, record.sourceVideoURL].compactMap { $0 }
+            return [record.exportedVideoURL, record.sourceVideoURL].compactMap { $0 }
                 .contains { $0.resolvingSymlinksInPath().standardizedFileURL.path == path }
         }
     }

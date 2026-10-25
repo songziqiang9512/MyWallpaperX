@@ -154,6 +154,7 @@ extension SceneResolvedMaterialVariantCache {
         }
     }
 
+#if DEBUG || SCENE_GRAPH_TESTING
     struct Counters: Equatable {
         let cachedVariantCount: Int
         let shaderPreparationCount: Int
@@ -161,6 +162,8 @@ extension SceneResolvedMaterialVariantCache {
         let frontendCompilationCount: Int
         let capacityRejectionCount: Int
     }
+
+#endif
 
     enum LaunchEnvelopeFailure: Error {
         enum Kind: String {

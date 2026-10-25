@@ -64,6 +64,7 @@ let webCompatibilityScriptDOMLifecycleMutation = #"""
       };
     })();
     const wallpaperAutoRegisterInteractiveRegions = () => {
+      if (wallpaperIsTopFrame !== true) return;
       try {
         if (typeof window.__myWallpaperRegisterInteractiveRegions !== 'function') return;
         const rootWidth = Math.max(window.innerWidth || 0, 1);
@@ -109,7 +110,7 @@ let webCompatibilityScriptDOMLifecycleMutation = #"""
           };
         }).filter(Boolean);
         const signature = regions.map((region) => {
-          return [region.id, region.x.toFixed(4), region.y.toFixed(4), region.width.toFixed(4), region.height.toFixed(4), region.allowsDrag ? 1 : 0].join(':');
+          return [region.id, region.x, region.y, region.width, region.height, region.allowsClick ? 1 : 0, region.allowsDrag ? 1 : 0].join(':');
         }).join('|');
         const currentState = window.__myWallpaperInteractiveRegionState || (window.__myWallpaperInteractiveRegionState = { lastSignature: '', lastAutoRegisterAt: 0 });
         if (signature === currentState.lastSignature) return;
@@ -177,15 +178,6 @@ let webCompatibilityScriptDOMLifecycleMutation = #"""
       attributes: true,
       attributeFilter: ['src', 'poster', 'data-thumbnail']
     });
-    if (typeof window.requestAnimationFrame === 'function') {
-      window.requestAnimationFrame(() => {
-        window.requestAnimationFrame(() => {
-        });
-      });
-    } else {
-      window.setTimeout(() => {
-      }, 32);
-    }
     window.setInterval(() => {
       wallpaperScheduleLifecycleRefresh();
       wallpaperScheduleInteractiveRegionRefresh();

@@ -11,7 +11,7 @@ HARNESS = builder.HARNESS_SOURCE.split('@main', 1)[0] + r'''
 @main enum Harness {
     static func main() throws {
         let root = URL(fileURLWithPath: CommandLine.arguments[1])
-        let facts = SceneRuntimeSourceFactsBuilder().build(rootURL: root)
+        let facts = try SceneRuntimeSourceFactsBuilder().build(rootURL: root)
         let descriptor = facts.renderDescriptor!
         let resolver = SceneTexturePathResolver(resourceView: facts.resourceView, descriptor: descriptor)
         let encoded = try JSONEncoder().encode(descriptor)

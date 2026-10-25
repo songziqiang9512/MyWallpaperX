@@ -281,7 +281,6 @@ enum SceneGraphRenderTargetPlan { enum TextureFormat { case rgba16f, rgbaBackbuf
 enum SceneTextGeometry {
     static func expandedSize(authoredSize: [Float]?, padding: Float) -> [Float]? { authoredSize }
 }
-struct ScenePkgExtractionReport { let outputURL: URL? }
 struct SceneProject {
     let rootURL: URL
     let entryPath: String

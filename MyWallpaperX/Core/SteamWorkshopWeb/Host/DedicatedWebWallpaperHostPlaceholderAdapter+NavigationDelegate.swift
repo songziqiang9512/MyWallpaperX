@@ -124,8 +124,8 @@ extension DedicatedWebWallpaperHostPlaceholderAdapter {
                 screenID: screenID(for: webView),
                 url: url.absoluteString
             )
-#endif
             publishNavigationBlockedToWebView(url: url, reason: "link_handoff", webView: webView)
+#endif
             NSWorkspace.shared.open(url)
         case let .cancel(reason):
 #if DEBUG
@@ -136,11 +136,13 @@ extension DedicatedWebWallpaperHostPlaceholderAdapter {
                 screenID: screenID(for: webView),
                 url: targetURL?.absoluteString
             )
-#endif
             publishNavigationBlockedToWebView(url: targetURL, reason: reason, webView: webView)
+#endif
+            break
         }
     }
 
+#if DEBUG
     /// navigation.blocked 的 WebView 侧可查询通道：把阻断事实写进当前文档
     /// （webNavigationStateScript 注入的 __mwxNavigationBlocked）。取消导航不会
     /// 更换文档，页面 JS 上下文仍在原处；写入失败（文档已销毁）按诊断缺失处理。
@@ -150,6 +152,8 @@ extension DedicatedWebWallpaperHostPlaceholderAdapter {
         let script = "window.__mwxNavigationBlocked && window.__mwxNavigationBlocked({ url: \(urlLiteral), reason: \(reasonLiteral) });"
         webView.evaluateJavaScript(script) { _, _ in }
     }
+
+#endif
 
     static func isSameDocumentNavigation(target: URL, current: URL) -> Bool {
         var targetComponents = URLComponents(url: target, resolvingAgainstBaseURL: false)
@@ -175,11 +179,14 @@ extension DedicatedWebWallpaperHostPlaceholderAdapter {
     func webView(_ webView: WKWebView, didFinish navigation: WKNavigation!) {
         guard let screenID = screenIDForCurrentNavigation(navigation, webView: webView) else { return }
         installDefaultInteractiveRegionsIfNeeded()
-        applyCompatibilityState(to: webView, deferDirectorySync: false)
+        applyCompatibilityState(to: webView)
         startSyntheticInputForwardingIfNeeded()
         finishWebContentRecovery(for: screenID, webView: webView)
 #if DEBUG
         recordDiagnostic(type: "navigation.finish", severity: .info, message: "ready", screenID: screenID, url: webView.url?.absoluteString)
+        if !readyScreenIDs.contains(screenID) {
+            debugStartupSurfaceTimings?[screenID]?.readySource = "didFinish"
+        }
 #endif
         markScreenReady(screenID)
     }

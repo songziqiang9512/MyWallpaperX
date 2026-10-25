@@ -85,7 +85,7 @@ class SceneSnapshotShadowIntegrationTests(unittest.TestCase):
             Path(parent).mkdir(parents=True, exist_ok=True)
         cls.root = Path(tempfile.mkdtemp(prefix='snapshot-shadow-app-', dir=parent))
         sources = [Path(__file__), REPO/'script/tests/test_scene_directional_shadow_integration.py',
-                   REPO/'script/tests/test_scene_static_model_reader.py', REPO/'script/tests/test_scene_pkg_cache_extractor.py']
+                   REPO/'script/tests/test_scene_static_model_reader.py', REPO/'script/tests/scene_pkg_fixture.py']
         protocol = {'sources': {str(p): hashlib.sha256(p.read_bytes()).hexdigest() for p in sources}, 'app': cls.identity,
                     'inputs': {}, 'ROI': 'cover scale=max(W/160,H/96); canvas center maps viewport center',
                     'expected': 'shadow9/control85; colorblend64 (normal100); refraction positive blue/zero red; tolerance3'}

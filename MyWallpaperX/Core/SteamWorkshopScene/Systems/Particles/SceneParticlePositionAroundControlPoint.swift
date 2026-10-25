@@ -52,6 +52,9 @@ nonisolated struct SceneParticlePositionAroundControlPointPlan: Equatable, Senda
     let speedMinimum: SIMD3<Double>
     let speedMaximum: SIMD3<Double>
     let axis: SIMD3<Double>
+    /// Derived only from the authored axis. The control point stays frame-local.
+    let circleBasisU: SIMD3<Double>
+    let circleBasisV: SIMD3<Double>
     let controlPoint: Int
 
     nonisolated func sequence(particleID: UInt64) -> Double {
@@ -113,11 +116,27 @@ extension SceneParticleInitializer {
               abs(authoredAxis.x) <= 1_000_000,
               abs(authoredAxis.y) <= 1_000_000,
               abs(authoredAxis.z) <= 1_000_000 else { return nil }
+        let axis = authoredAxis / length
+        let reference = abs(axis.z) > 0.9 ? SIMD3<Double>(0, 1, 0) : .init(0, 0, 1)
+        let first = SIMD3(
+            reference.y * axis.z - reference.z * axis.y,
+            reference.z * axis.x - reference.x * axis.z,
+            reference.x * axis.y - reference.y * axis.x
+        )
+        let basisLength = sqrt(first.x * first.x + first.y * first.y + first.z * first.z)
+        guard basisLength.isFinite, basisLength > 1e-12 else { return nil }
+        let basisU = first / basisLength
+        let basisV = SIMD3(
+            axis.y * basisU.z - axis.z * basisU.y,
+            axis.z * basisU.x - axis.x * basisU.z,
+            axis.x * basisU.y - axis.y * basisU.x
+        )
         return .init(
             bounds: bounds[0] ... bounds[1], count: count,
             integerCount: UInt64(exactly: count),
             speedMinimum: minimumSpeed, speedMaximum: maximumSpeed,
-            axis: authoredAxis / length, controlPoint: value.controlPoint ?? 0
+            axis: axis, circleBasisU: basisU, circleBasisV: basisV,
+            controlPoint: value.controlPoint ?? 0
         )
     }
 

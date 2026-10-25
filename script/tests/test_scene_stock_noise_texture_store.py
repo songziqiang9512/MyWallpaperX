@@ -149,6 +149,7 @@ enum Harness {
                 "nextFrameStable": pixels == read(next.texture, level: 0),
                 "mean": mean, "min": pixels.min()!, "max": pixels.max()!,
                 "upperHalfFraction": Double(pixels.filter { $0 >= 128 }.count) / Double(pixels.count),
+                "levelZeroSHA": SceneShaderStableDigest.hash(Data(pixels)),
                 "mipMeans": mips,
             ]
         }
@@ -286,6 +287,22 @@ class StockNoiseTests(unittest.TestCase):
 
     def test_preparation_is_demand_scoped_shared_and_cancellable(self) -> None:
         self.assertTrue(all(self.result["preparation"].values()), self.result["preparation"])
+
+    def test_level_zero_matches_deterministic_baseline(self) -> None:
+        # Pin packed CPU-generated level zero bytes; GPU-generated mips retain
+        # their readiness and mean checks without vendor-specific byte goldens.
+        expected = {
+            "pattern/voronoi": "9f0c7a22580756d960834c5a1eed022b01970db26f4da528f17a7ac817a917ec",
+            "pattern/voronoi_local": "f0a694a52bcf61164a3cd12f2cc87523dccdeb55880fafa8a95e51b243be4230",
+            "util/clouds_256": "ec67ac76b4ce66aee2e81184e6438b48b0c370204b53f534b8f6e03cedc11238",
+            "util/noise": "396d505ddd1ef30b71c1901316bc0e1b857d86a0fad6ea46f8f226ad301c5606",
+            "util/perlin_256": "cf23367131b5c17052a6e6822d4566d7418cee0bae5540b7e24af0bc36dea4ec",
+            "util/uniform_256": "a1c5b967f3f8c55ae3f2da641e522e64c69d78b8a852dfccfdf0b63ece8fed21",
+        }
+        self.assertEqual(set(self.result["textures"]), set(expected))
+        for name, digest in expected.items():
+            with self.subTest(name=name):
+                self.assertEqual(self.result["textures"][name]["levelZeroSHA"], digest)
 
     def test_upload_failures_do_not_publish_or_poison_cache(self) -> None:
         self.assertTrue(all(self.result["failures"].values()), self.result["failures"])

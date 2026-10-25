@@ -13,7 +13,7 @@ import subprocess
 import tempfile
 import unittest
 
-from .test_scene_pkg_cache_extractor import make_package
+from .scene_pkg_fixture import make_package
 
 
 class SceneFramePresentationIntegrationTests(unittest.TestCase):

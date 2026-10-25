@@ -17,7 +17,8 @@ struct PlaybackSwitchEndpoint {
     let finalize: () -> Void
     let cancel: (@escaping () -> Void) -> Void
     let setOutputActive: (Bool, @escaping (Bool) -> Void) -> Void
-    let retire: (@escaping () -> Void) -> Void
+    /// Only a committed handoff supplies a replacement; stop/loss pass nil.
+    let retire: (PlaybackSwitchTicket?, @escaping () -> Void) -> Void
 }
 
 /// Pure product state. WallpaperManager is its only mutable owner. In

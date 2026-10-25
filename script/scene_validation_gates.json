@@ -176,6 +176,7 @@
         "script/release_version.py",
         "script/requirements-tests.txt",
         "script/copy-scene-stock-assets.sh",
+        "script/generate-scene-stock-index.swift",
         "MyWallpaperX/Resources/SceneStockAssets.bundle/**",
         "docs/releases/**",
         "docs/release/**",
@@ -215,13 +216,18 @@
       ]
     },
     {
-      "id": "pkg-extraction",
+      "id": "pkg-resource-reading",
       "patterns": [
         "MyWallpaperX/Core/SteamWorkshopScene/Format/ScenePkgReader.swift",
-        "MyWallpaperX/Core/SteamWorkshopScene/Format/ScenePkgCacheExtractor.swift"
+        "MyWallpaperX/Core/SteamWorkshopScene/Resources/Assets/SceneResourceView+Backing.swift",
+        "script/tests/scene_pkg_fixture.py",
+        "script/tests/test_scene_pkg_reader.py",
+        "script/tests/test_scene_package_resource_backing.py"
       ],
       "modules": [
-        "test_scene_pkg_cache_extractor"
+        "test_scene_pkg_reader",
+        "test_scene_package_resource_backing",
+        "test_scene_pkg_failure_propagation"
       ]
     },
     {
@@ -478,6 +484,8 @@
     {
       "id": "web-host-lifecycle",
       "patterns": [
+        "MyWallpaperX/Core/SteamWorkshopWeb/Host/DedicatedWebWallpaperHostCompatibilityScript+InteractionAndRuntimePointer.swift",
+        "script/tests/test_web_interactive_region_projection.py",
         "MyWallpaperX/Core/SteamWorkshopWeb/Host/DedicatedWebWallpaperHostPlaceholderAdapter+DirectorySync.swift",
         "MyWallpaperX/Core/SteamWorkshopWeb/Host/DedicatedWebWallpaperHostPlaceholderAdapter+DirectoryWatchers.swift",
         "MyWallpaperX/Core/SteamWorkshopWeb/Host/DedicatedWebWallpaperHostPlaceholderAdapter+Lifecycle.swift",
@@ -498,7 +506,8 @@
         "script/tests/test_web_launch_profile.py",
         "script/tests/fixtures/WebLaunchProfileChecks.swift",
         "MyWallpaperX/Modules/SteamWorkshop/Web/Core/SteamWorkshopService+WebPlayback.swift",
-        "MyWallpaperX/Modules/SteamWorkshop/Web/Core/SteamWorkshopWebResolvedRuntimeModelTypes.swift"
+        "MyWallpaperX/Modules/SteamWorkshop/Web/Core/SteamWorkshopWebResolvedRuntimeModelTypes.swift",
+        "script/tests/test_web_interactive_region_projection.py"
       ],
       "modules": [
         "test_web_compat_parity",
@@ -506,7 +515,8 @@
         "test_web_navigation_policy",
         "test_web_response_transformer",
         "test_web_static_content_signals",
-        "test_web_launch_profile"
+        "test_web_launch_profile",
+        "test_web_interactive_region_projection"
       ]
     },
     {
@@ -594,7 +604,12 @@
         "script/tests/test_scene_daemon_protocol.py",
         "script/tests/test_steam_playback_lifetime.py",
         "MyWallpaperX/Modules/SteamWorkshop/Scene/SteamWorkshopSceneService+ScenePlayback.swift",
-        "MyWallpaperX/Modules/SteamWorkshop/Core/SteamWorkshopService+LibraryReclamation.swift"
+        "MyWallpaperX/Modules/SteamWorkshop/Core/SteamWorkshopService+LibraryReclamation.swift",
+        "MyWallpaperX/App/Debug/DebugSceneStartupMeasurement.swift",
+        "MyWallpaperX/App/Debug/DebugSceneDaemonClientRunner+Startup.swift",
+        "script/tests/test_scene_startup_cross_runtime.py",
+        "script/tests/fixtures/SceneStartupCrossRuntimeHarness.swift",
+        "script/tests/fixtures/SceneDaemonRequestRetirementHarness.swift"
       ],
       "modules": [
         "test_scene_audio_capture_scope",
@@ -603,7 +618,10 @@
         "test_scene_daemon_protocol",
         "test_scene_wallpaper_async_launch",
         "test_steam_playback_lifetime",
-        "test_scene_renderer_submission_stage"
+        "test_scene_renderer_submission_stage",
+        "test_scene_startup_measurement",
+        "test_scene_daemon_switch_cancellation",
+        "test_scene_startup_cross_runtime"
       ]
     },
     {
@@ -820,12 +838,16 @@
         "MyWallpaperX/Core/SteamWorkshopScene/Runtime/Session/SceneDesktopWallpaperSession+FrameDriverLifecycle.swift",
         "script/tests/test_scene_script_sound_volume.py",
         "script/tests/test_scene_sound_playback_program.py",
-        "script/tests/fixtures/SceneSoundPlaybackRegistryHarness.swift"
+        "script/tests/fixtures/SceneSoundPlaybackRegistryHarness.swift",
+        "MyWallpaperX/Core/SteamWorkshopScene/Resources/Providers/SceneVideoOwnedFile.swift",
+        "script/tests/test_scene_sound_script_commands.py",
+        "script/tests/test_scene_sound_resource_input.py"
       ],
       "modules": [
         "test_scene_script_sound_volume",
         "test_scene_sound_playback_program",
-        "test_scene_sound_script_commands"
+        "test_scene_sound_script_commands",
+        "test_scene_sound_resource_input"
       ]
     },
     {
@@ -1258,7 +1280,8 @@
         "MyWallpaperX/Core/SteamWorkshopScene/Runtime/Session/SceneDesktopWallpaperHost+Launch.swift",
         "MyWallpaperX/Core/SteamWorkshopScene/Runtime/Session/ScenePreparedDeviceResources.swift",
         "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Graph/SceneResolvedMaterialGraphExecutor*.swift",
-        "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Graph/SceneResolvedMaterialPassEncoder*.swift"
+        "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Graph/SceneResolvedMaterialPassEncoder*.swift",
+        "script/tests/fixtures/SceneDynamicTopologyProjectionHarness.swift"
       ],
       "modules": [
         "test_scene_realtime_path_policy"
@@ -1348,7 +1371,9 @@
       "patterns": [
         "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Targets/SceneGraphExecutionState.swift",
         "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Targets/SceneGraphExecutionState+Validation.swift",
-        "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Targets/SceneGraphExecutionState+Identity.swift"
+        "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Targets/SceneGraphExecutionState+Identity.swift",
+        "script/tests/fixtures/SceneGraphExecutionStateSupport.swift",
+        "script/tests/fixtures/SceneGraphExecutionStateCases.swift"
       ],
       "modules": [
         "test_scene_graph_execution_state",
@@ -1377,6 +1402,15 @@
         "test_scene_utility_layers",
         "test_scene_source_color_graph",
         "test_scene_prepared_uniform_query"
+      ]
+    },
+    {
+      "id": "resolved-material-pass-fixtures",
+      "patterns": [
+        "script/tests/fixtures/SceneResolvedMaterialPass*.swift"
+      ],
+      "modules": [
+        "test_scene_resolved_material_pass_encoder"
       ]
     },
     {
@@ -1760,6 +1794,93 @@
       ]
     },
     {
+      "id": "scene-resource-input",
+      "patterns": [
+        "MyWallpaperX/Core/SteamWorkshopScene/Resources/Assets/SceneResourceView.swift",
+        "MyWallpaperX/Core/SteamWorkshopScene/Resources/Assets/SceneShaderSourceResolver.swift",
+        "MyWallpaperX/Core/SteamWorkshopScene/Resources/Assets/SceneShaderSourceGraphBuilder.swift",
+        "MyWallpaperX/Core/SteamWorkshopScene/Runtime/Frame/SceneRuntimeSourceFacts.swift",
+        "script/tests/test_scene_resource_view.py",
+        "script/tests/test_scene_resource_handles.py",
+        "script/tests/test_scene_pkg_failure_propagation.py",
+        "script/tests/test_scene_source_preparation_cancellation.py",
+        "MyWallpaperX/Core/SteamWorkshopScene/Resources/Assets/SceneAssetCatalog.swift",
+        "MyWallpaperX/Core/SteamWorkshopScene/Compilation/Material/SceneEffectDefinition.swift",
+        "script/tests/test_scene_asset_catalog_resource_view.py",
+        "MyWallpaperX/Core/SteamWorkshopScene/Format/SceneProject.swift",
+        "MyWallpaperX/Core/SteamWorkshopScene/Format/SceneDocument.swift",
+        "MyWallpaperX/Core/SteamWorkshopScene/Resources/Textures/ScenePreparedStaticModelResources.swift",
+        "MyWallpaperX/Core/SteamWorkshopScene/Runtime/Session/ScenePreparedPuppetResources.swift",
+        "MyWallpaperX/Core/SteamWorkshopScene/Systems/Puppet/ScenePuppetLayerLoad.swift",
+        "script/tests/test_scene_model_resource_reads.py",
+        "MyWallpaperX/Core/SteamWorkshopScene/Systems/Particles/SceneParticleAssetGraph.swift",
+        "MyWallpaperX/Core/SteamWorkshopScene/Systems/Particles/SceneParticleRuntime.swift",
+        "script/tests/test_scene_particle_asset_preparation.py",
+        "script/tests/test_scene_particle_casefold.py",
+        "MyWallpaperX/Core/SteamWorkshopScene/Resources/Textures/SceneTextureLoader.swift",
+        "MyWallpaperX/Core/SteamWorkshopScene/Resources/Textures/SceneTextureLoader+Candidate.swift",
+        "MyWallpaperX/Core/SteamWorkshopScene/Resources/Textures/SceneImageTextureUploader.swift",
+        "MyWallpaperX/Core/SteamWorkshopScene/Resources/Textures/SceneTexturePathResolver.swift",
+        "MyWallpaperX/Core/SteamWorkshopScene/Resources/Assets/SceneStockTextureResolver.swift",
+        "MyWallpaperX/Core/SteamWorkshopScene/Systems/Particles/SceneParticleTextureSource.swift",
+        "MyWallpaperX/Core/SteamWorkshopScene/Systems/Particles/SceneParticleChildTemplateSupport.swift",
+        "MyWallpaperX/Core/SteamWorkshopScene/Systems/Particles/SceneParticleRefractionTextureLoader.swift",
+        "MyWallpaperX/Core/SteamWorkshopScene/Systems/Particles/SceneParticleChildGraphExpansion.swift",
+        "MyWallpaperX/Core/SteamWorkshopScene/Systems/Animation/SceneSpriteAnimation.swift",
+        "MyWallpaperX/Core/SteamWorkshopScene/Resources/Textures/SceneBaseImageTextureLoad.swift",
+        "MyWallpaperX/Core/SteamWorkshopScene/Resources/Textures/SceneBaseImageTextureLoad+Ordinary.swift",
+        "MyWallpaperX/Core/SteamWorkshopScene/Resources/Textures/SceneMaterialAssetTextureCatalog.swift",
+        "MyWallpaperX/Core/SteamWorkshopScene/Runtime/Session/ScenePreparedDeviceResources.swift",
+        "MyWallpaperX/Core/SteamWorkshopScene/Resources/Providers/SceneVideoTextureSourceRegistry.swift",
+        "MyWallpaperX/Core/SteamWorkshopScene/Systems/Animation/SceneMultiImageSpritePlayback.swift",
+        "MyWallpaperX/Core/SteamWorkshopScene/Systems/Properties/SceneUserPropertyTextureLoader.swift",
+        "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Frame/SceneMetalView+PuppetResources.swift",
+        "script/tests/test_scene_resource_snapshots.py",
+        "script/tests/test_scene_texture_resource_input.py",
+        "script/tests/test_scene_texture_candidate.py",
+        "script/tests/test_scene_tex_cache_budget.py",
+        "script/tests/test_scene_static_image_autosize.py",
+        "script/tests/test_scene_texture_animation_script.py",
+        "script/tests/test_scene_prepared_base_image_resources.py",
+        "script/tests/test_scene_video_texture_source.py",
+        "script/tests/test_scene_user_property_textures.py",
+        "script/tests/test_scene_user_texture_updates.py",
+        "script/tests/test_scene_particle_texture_inputs.py",
+        "script/tests/test_scene_texture_consumer_failures.py",
+        "script/tests/test_scene_sound_resource_input.py"
+      ],
+      "modules": [
+        "test_scene_resource_view",
+        "test_scene_resource_handles",
+        "test_scene_pkg_failure_propagation",
+        "test_scene_shader_contract",
+        "test_scene_asset_catalog_resource_view",
+        "test_scene_source_preparation_cancellation",
+        "test_scene_effect_definition",
+        "test_scene_static_model_document",
+        "test_scene_user_properties",
+        "test_scene_model_resource_reads",
+        "test_scene_puppet_preparation",
+        "test_scene_particle_assets",
+        "test_scene_particle_asset_preparation",
+        "test_scene_wallpaper_async_launch",
+        "test_scene_particle_casefold",
+        "test_scene_resource_snapshots",
+        "test_scene_texture_resource_input",
+        "test_scene_texture_candidate",
+        "test_scene_tex_cache_budget",
+        "test_scene_static_image_autosize",
+        "test_scene_texture_animation_script",
+        "test_scene_prepared_base_image_resources",
+        "test_scene_video_texture_source",
+        "test_scene_user_property_textures",
+        "test_scene_user_texture_updates",
+        "test_scene_particle_texture_inputs",
+        "test_scene_texture_consumer_failures",
+        "test_scene_sound_resource_input"
+      ]
+    },
+    {
       "id": "shader-contract",
       "patterns": [
         "MyWallpaperX/Core/SteamWorkshopScene/Compilation/ShaderContract/**"
@@ -1917,7 +2038,11 @@
     {
       "id": "text",
       "patterns": [
-        "MyWallpaperX/Core/SteamWorkshopScene/Systems/Text/**"
+        "MyWallpaperX/Core/SteamWorkshopScene/Systems/Text/**",
+        "script/tests/test_scene_text_font_resources.py",
+        "script/tests/test_scene_text_native_bounds.py",
+        "script/tests/test_scene_dynamic_text_generation.py",
+        "script/tests/test_scene_text_row_limit.py"
       ],
       "keywords": [
         "text"
@@ -1928,7 +2053,9 @@
         "test_scene_text_padding",
         "test_scene_text_row_limit",
         "test_scene_text_native_bounds",
-        "test_scene_text_geometry"
+        "test_scene_text_geometry",
+        "test_scene_text_font_resources",
+        "test_scene_dynamic_text_generation"
       ]
     },
     {
@@ -2868,11 +2995,16 @@
         "MyWallpaperX/Modules/SteamWorkshop/Core/SteamWorkshopLibraryPublication.swift",
         "MyWallpaperX/Modules/SteamWorkshop/Core/SteamWorkshopLibraryVersionLease.swift",
         "MyWallpaperX/Modules/SteamWorkshop/Core/SteamWorkshopService+DownloadLibrarySync.swift",
-        "MyWallpaperX/Modules/SteamWorkshop/Core/SteamWorkshopService+LibraryReclamation.swift"
+        "MyWallpaperX/Modules/SteamWorkshop/Core/SteamWorkshopService+LibraryReclamation.swift",
+        "MyWallpaperX/Core/SteamWorkshopStorage/ScenePlaybackSource.swift",
+        "MyWallpaperX/Modules/SteamWorkshop/Scene/SteamWorkshopSceneService+ScenePlayback.swift",
+        "MyWallpaperX/Modules/SteamWorkshop/UI/SteamWorkshopSceneInspectionController.swift",
+        "script/tests/test_scene_source_admission.py"
       ],
       "modules": [
         "test_steam_library_transaction",
-        "test_steam_library_publication"
+        "test_steam_library_publication",
+        "test_scene_source_admission"
       ]
     },
     {
@@ -3418,6 +3550,18 @@
       ],
       "modules": [
         "test_library_toolbar_behaviors"
+      ]
+    },
+    {
+      "id": "online-download-transfer",
+      "patterns": [
+        "MyWallpaperX/Modules/OnlineLibrary/Core/OnlineLibraryService.swift",
+        "MyWallpaperX/Modules/OnlineLibrary/Core/OnlineLibraryModels.swift",
+        "script/tests/test_online_download_transfer.py",
+        "script/tests/fixtures/OnlineDownloadTransferHarness.swift"
+      ],
+      "modules": [
+        "test_online_download_transfer"
       ]
     },
     {
@@ -4111,6 +4255,8 @@
     {
       "id": "web-endpoint-audio-demand",
       "patterns": [
+        "MyWallpaperX/Core/SteamWorkshopWeb/Host/DedicatedWebWallpaperHostCompatibilityScript+HostBridge.swift",
+        "script/tests/test_web_audio_demand.py",
         "MyWallpaperX/Core/SteamWorkshopWeb/Host/DedicatedWebWallpaperHostCompatibilityScript+BootstrapFoundation.swift",
         "MyWallpaperX/Core/SteamWorkshopWeb/Host/DedicatedWebWallpaperHostPlaceholderAdapter+AudioDemand.swift",
         "MyWallpaperX/Core/SteamWorkshopWeb/Host/DedicatedWebWallpaperHostPlaceholderAdapter+FrameReply.swift",
@@ -4129,6 +4275,9 @@
     {
       "id": "web-range-streaming",
       "patterns": [
+        "MyWallpaperX/Core/SteamWorkshopWeb/Support/WebWallpaperLocalSchemeHandler.swift",
+        "MyWallpaperX/Core/SteamWorkshopWeb/Support/WebWallpaperLocalSchemeHandler+Resolve.swift",
+        "script/tests/test_web_range_streaming.py",
         "MyWallpaperX/Core/SteamWorkshopWeb/Support/WebWallpaperLocalSchemeHandler+IO.swift",
         "MyWallpaperX/Core/SteamWorkshopWeb/Support/WebWallpaperLoopbackServer+Connection.swift",
         "MyWallpaperX/Core/SteamWorkshopWeb/Support/WebWallpaperLoopbackServer.swift"
@@ -4383,11 +4532,41 @@
         "MyWallpaperX/Modules/SteamWorkshop/Web/Core/SteamWorkshopService+WebValidation.swift",
         "MyWallpaperX/Modules/SteamWorkshop/Web/Core/SteamWorkshopWebResolvedRuntimeDiagnostics.swift",
         "script/tests/test_web_dependency_traversal.py",
-        "script/tests/test_web_runtime_cache.py"
+        "script/tests/test_web_runtime_cache.py",
+        "MyWallpaperX/Modules/SteamWorkshop/Web/Core/SteamWorkshopService+WebAuthorInput.swift",
+        "MyWallpaperX/Modules/SteamWorkshop/Web/Core/SteamWorkshopService+WebAuthorPreparation.swift",
+        "MyWallpaperX/Modules/SteamWorkshop/Web/Core/SteamWorkshopService+WebComputationCache.swift",
+        "MyWallpaperX/Modules/SteamWorkshop/Web/Core/SteamWorkshopService+WebPlayback.swift",
+        "MyWallpaperX/Modules/SteamWorkshop/Web/Core/SteamWorkshopService+WebProjectSupport.swift",
+        "MyWallpaperX/Modules/SteamWorkshop/Web/Core/SteamWorkshopService+WebPropertyDefinitions.swift",
+        "MyWallpaperX/Modules/SteamWorkshop/Web/Core/SteamWorkshopService+WebPropertyNormalizationSupport.swift",
+        "MyWallpaperX/Modules/SteamWorkshop/Web/Core/SteamWorkshopService+WebPropertySupport.swift",
+        "MyWallpaperX/Modules/SteamWorkshop/Web/Core/SteamWorkshopService+WebPropertyRuntimePayload.swift",
+        "MyWallpaperX/Modules/SteamWorkshop/Web/Core/SteamWorkshopService+WebRuntimeCacheMetadata.swift",
+        "MyWallpaperX/Modules/SteamWorkshop/Web/Core/SteamWorkshopService+WebRuntimeCacheValidation.swift",
+        "MyWallpaperX/Modules/SteamWorkshop/Web/Core/SteamWorkshopService+WebValidationContentSignals.swift",
+        "MyWallpaperX/Modules/SteamWorkshop/Web/Core/WebStaticFileSignalScanner.swift",
+        "MyWallpaperX/Modules/SteamWorkshop/Web/Core/SteamWorkshopWebResolvedRuntimeModels.swift",
+        "MyWallpaperX/Modules/SteamWorkshop/Web/Core/SteamWorkshopWebResolvedRuntimeModelTypes.swift",
+        "MyWallpaperX/Modules/SteamWorkshop/Web/Core/SteamWorkshopWebResolvedRuntimePreconditions.swift",
+        "MyWallpaperX/Modules/SteamWorkshop/Web/Core/SteamWorkshopWebValidationModels.swift",
+        "MyWallpaperX/Modules/SteamWorkshop/Core/SteamWorkshopService+DownloadAccessors.swift",
+        "MyWallpaperX/Modules/SteamWorkshop/Core/SteamWorkshopService+LibraryReclamation.swift",
+        "MyWallpaperX/Modules/SteamWorkshop/Core/SteamWorkshopService.swift",
+        "MyWallpaperX/Modules/VideoLibrary/Core/WallpaperManager.swift",
+        "MyWallpaperX/App/MyWallpaperXApplication.swift",
+        "script/tests/test_web_author_preparation.py",
+        "script/tests/test_web_preparation_intent.py",
+        "script/tests/test_web_resource_grants.py",
+        "MyWallpaperX/Modules/SteamWorkshop/Web/Core/SteamWorkshopService+WebPropertyOverridePersistence.swift"
       ],
       "modules": [
         "test_web_dependency_traversal",
-        "test_web_runtime_cache"
+        "test_web_runtime_cache",
+        "test_web_author_preparation",
+        "test_web_preparation_intent",
+        "test_web_resource_grants",
+        "test_playback_switch_endpoints"
       ]
     },
     {

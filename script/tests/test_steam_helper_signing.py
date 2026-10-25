@@ -30,6 +30,7 @@ class SteamHelperSigningTests(unittest.TestCase):
         shutil.copy2(ROOT / "SteamService/SteamService.entitlements", service)
         self.sign_log = self.folder / "codesign.jsonl"
         self.dotnet_log = self.folder / "dotnet.jsonl"
+        self.file_log = self.folder / "file.jsonl"
         self.recorder = self.folder / "record codesign"
         self.recorder.write_text(
             f"#!{sys.executable}\n"
@@ -40,10 +41,20 @@ class SteamHelperSigningTests(unittest.TestCase):
             "    sys.exit(13)\n"
         )
         self.recorder.chmod(0o755)
+        classifier = self.folder / "record file classification"
+        classifier.write_text(
+            f"#!{sys.executable}\n"
+            "import json, os, sys\n"
+            "with open(os.environ['MWX_TEST_FILE_LOG'], 'a') as stream:\n"
+            "    stream.write(json.dumps(sys.argv[1:]) + '\\n')\n"
+            "os.execv('/usr/bin/file', ['/usr/bin/file'] + sys.argv[1:])\n"
+        )
+        classifier.chmod(0o755)
         for name in ("publish-steam-helper.sh", "sign-steam-helper.sh"):
             source = (ROOT / "script" / name).read_text()
             # Preserve all real shell decisions, including publish -> sign.
             source = source.replace("/usr/bin/codesign", shlex.quote(str(self.recorder)))
+            source = source.replace("/usr/bin/file", shlex.quote(str(classifier)))
             (scripts / name).write_text(source)
         self.publisher = self.folder / "fake dotnet"
         self.publisher.write_text(
@@ -62,7 +73,7 @@ class SteamHelperSigningTests(unittest.TestCase):
             "    target = output / name\n"
             "    target.parent.mkdir(parents=True, exist_ok=True)\n"
             "    shutil.copyfile('/usr/bin/true', target)\n"
-            "    target.chmod(0o755)\n"
+            "    target.chmod(0o755 if name == 'SteamService' else 0o600)\n"
             "for name in ('SteamService.dll', 'SteamKit2.dll', 'SteamService.deps.json'):\n"
             "    target = output / name\n"
             "    target.write_text('fixture resource')\n"
@@ -75,7 +86,8 @@ class SteamHelperSigningTests(unittest.TestCase):
             self.env.pop(key, None)
         self.env.update(DOTNET=str(self.publisher),
                         MWX_TEST_CODESIGN_LOG=str(self.sign_log),
-                        MWX_TEST_DOTNET_LOG=str(self.dotnet_log))
+                        MWX_TEST_DOTNET_LOG=str(self.dotnet_log),
+                        MWX_TEST_FILE_LOG=str(self.file_log))
 
     def run_command(self, args, *, overrides=None):
         environment = self.env | (overrides or {})
@@ -87,6 +99,11 @@ class SteamHelperSigningTests(unittest.TestCase):
         if not self.sign_log.exists():
             return []
         return [json.loads(line) for line in self.sign_log.read_text().splitlines()]
+
+    def classification_calls(self):
+        if not self.file_log.exists():
+            return []
+        return [json.loads(line) for line in self.file_log.read_text().splitlines()]
 
     def prepare_payload(self):
         helper = self.folder / "direct helper"
@@ -111,6 +128,14 @@ class SteamHelperSigningTests(unittest.TestCase):
         return result, output
 
     def assert_signing(self, helper, *, timestamp, identity=IDENTITY, options="runtime"):
+        classified = self.classification_calls()
+        expected_files = {"SteamService", "libcoreclr.dylib", "libhostfxr.dylib",
+                          "nested/dependency.dylib", "SteamService.dll", "SteamKit2.dll",
+                          "SteamService.deps.json"}
+        self.assertEqual(len(classified), len(expected_files), classified)
+        self.assertTrue(all(call[:-1] == ["-b"] for call in classified), classified)
+        self.assertEqual({Path(call[-1]).relative_to(helper).as_posix() for call in classified},
+                         expected_files)
         calls = self.calls()
         self.assertEqual(len(calls), 5, calls)
         nested, apphost, verify = calls[:3], calls[3], calls[4]
@@ -125,6 +150,14 @@ class SteamHelperSigningTests(unittest.TestCase):
         with entitlements.open("rb") as stream:
             self.assertIs(plistlib.load(stream)["com.apple.security.cs.allow-jit"], True)
 
+    def assert_payload_permissions(self, helper):
+        native_files = {"SteamService", "libcoreclr.dylib", "libhostfxr.dylib",
+                        "nested/dependency.dylib"}
+        for path in helper.rglob("*"):
+            if path.is_file():
+                mode = 0o755 if path.relative_to(helper).as_posix() in native_files else 0o644
+                self.assertEqual(path.stat().st_mode & 0o777, mode, path)
+
     def assert_published(self, result, output, *, timestamp, identity=IDENTITY, options="runtime", configuration="Release"):
         self.assertEqual(result.returncode, 0, result.stdout)
         # The real signer runs in the fresh directory before rsync publication.
@@ -133,8 +166,7 @@ class SteamHelperSigningTests(unittest.TestCase):
         self.assertNotEqual(signed_helper, output)
         self.assertFalse(signed_helper.exists())
         self.assertTrue((output / "SteamService").is_file())
-        self.assertFalse((output / "SteamService.dll").stat().st_mode & 0o111)
-        self.assertTrue((output / "libcoreclr.dylib").stat().st_mode & 0o111)
+        self.assert_payload_permissions(output)
         dotnet = [json.loads(line) for line in self.dotnet_log.read_text().splitlines()]
         self.assertEqual([args[0] for args in dotnet], ["restore", "publish"])
         self.assertIn("--locked-mode", dotnet[0])
@@ -147,6 +179,7 @@ class SteamHelperSigningTests(unittest.TestCase):
         result, helper = self.sign()
         self.assertEqual(result.returncode, 0, result.stdout)
         self.assert_signing(helper, timestamp="--timestamp")
+        self.assert_payload_permissions(helper)
 
     def test_direct_none_preserves_real_identity_runtime_and_jit(self):
         result, helper = self.sign(policy="none")
@@ -157,6 +190,7 @@ class SteamHelperSigningTests(unittest.TestCase):
         for policy in (None, "required", "none"):
             with self.subTest(policy=policy):
                 self.sign_log.unlink(missing_ok=True)
+                self.file_log.unlink(missing_ok=True)
                 result, helper = self.sign(identity="-", policy=policy)
                 self.assertEqual(result.returncode, 0, result.stdout)
                 self.assert_signing(helper, timestamp="--timestamp=none", identity="-", options="0")
@@ -166,6 +200,7 @@ class SteamHelperSigningTests(unittest.TestCase):
         self.assertEqual(result.returncode, 2, result.stdout)
         self.assertIn("Invalid timestamp policy", result.stdout)
         self.assertEqual(self.calls(), [])
+        self.assertEqual(self.classification_calls(), [])
 
     def test_publish_debug_forces_no_timestamp(self):
         result, output = self.publish(overrides={"CONFIGURATION": "Debug",
@@ -198,6 +233,7 @@ class SteamHelperSigningTests(unittest.TestCase):
                                                 "MWX_STEAM_HELPER_TIMESTAMP_POLICY": "optional"})
         self.assertEqual(result.returncode, 2, result.stdout)
         self.assertEqual(self.calls(), [])
+        self.assertEqual(self.classification_calls(), [])
         self.assertFalse(output.exists())
         self.assertEqual(list(output.parent.glob(".mwx-steam-publish.*")), [])
 

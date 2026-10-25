@@ -57,6 +57,8 @@ import Metal
 import CoreGraphics
 import ImageIO
 
+enum TextureMetadataProbe { static var calls = 0 }
+
 @main enum Harness {
     static func candidate(_ outcome: SceneTextureCandidateLoadOutcome) -> SceneTextureCandidate {
         guard case let .loaded(value) = outcome else { fatalError("expected candidate") }
@@ -95,68 +97,72 @@ import ImageIO
         let loader = SceneTextureLoader(decodeCacheBudget: budget)
         var results: [String: Bool] = [:]
         let url = root.appendingPathComponent("original.tex")
-        let prepared = loader.prepareTexSource(from: url)!
+        let prepared = (try loader.prepareTexSource(from: url))!
         results["oneDeniedParse"] = budget.rejectionCount == 1 && budget.residentBytes == 0
-        results["nonVideoDoesNotReparse"] = loader.videoSourceDeclaration(from: prepared) == nil && budget.rejectionCount == 1
+        results["nonVideoDoesNotReparse"] = (try loader.videoSourceDeclaration(from: prepared)) == nil && budget.rejectionCount == 1
         MWXSetUploadFault(device, 5)
-        if case .failed(.textureAllocationFailed) = loader.loadCandidate(from: prepared, purpose: .preservedChannels, device: device) {
+        if case .failed(.textureAllocationFailed) = (try loader.loadCandidate(from: prepared, purpose: .preservedChannels, device: device)) {
             results["transientAllocationRefused"] = true
         }
         MWXSetUploadFault(device, 0)
-        let data = candidate(loader.loadCandidate(from: prepared, purpose: .preservedChannels, device: device))
-        let color = candidate(loader.loadCandidate(from: prepared, purpose: .premultipliedColor, device: device))
+        let data = candidate((try loader.loadCandidate(from: prepared, purpose: .preservedChannels, device: device)))
+        let color = candidate((try loader.loadCandidate(from: prepared, purpose: .premultipliedColor, device: device)))
         results["samePreparedRetryWithoutReparse"] = budget.rejectionCount == 1 && pixel(data.texture) == [65, 65, 65, 65]
         results["purposeSeparated"] = data.texture !== color.texture && data.content == .data &&
             color.content == .color(.resolved(.premultipliedAlpha)) && pixel(color.texture) == [17, 17, 17, 65]
         results["geometryAndSampler"] = data.physicalSize == CGSize(width: 32, height: 32) &&
             data.mappedSize == CGSize(width: 16, height: 32) && data.sampling.rawFlags == 0 &&
             data.axisAlignedMappedUVScale(expectedPurpose: .preservedChannels) == SIMD2(0.5, 1)
-        if case .failed(.decodeFailed) = loader.loadCandidate(from: prepared, purpose: .lookupTable, device: device) {
+        if case .failed(.decodeFailed) = (try loader.loadCandidate(from: prepared, purpose: .lookupTable, device: device)) {
             results["twoDimensionalLookupRefused"] = true
         }
         loader.evictDecodedCaches()
         results["deniedCacheReleased"] = budget.residentBytes == 0
-        if case let .loaded(cached) = loader.load(from: url, purpose: .preservedChannels, device: device) {
+        if case let .loaded(cached) = (try loader.load(from: url, purpose: .preservedChannels, device: device)) {
             results["ordinaryWarmLoadDoesNotReparse"] = cached === data.texture && budget.rejectionCount == 1
         }
-        let repeated = candidate(loader.loadCandidate(from: prepared, purpose: .preservedChannels, device: device))
+        let repeated = candidate((try loader.loadCandidate(from: prepared, purpose: .preservedChannels, device: device)))
         results["publishedTextureSurvivesEviction"] = repeated.texture === data.texture && budget.rejectionCount == 1
-        let renamed = loader.prepareTexSource(from: root.appendingPathComponent("renamed-resource.tex"))!
-        let renamedCandidate = candidate(loader.loadCandidate(from: renamed, purpose: .preservedChannels, device: device))
+        let renamed = (try loader.prepareTexSource(from: root.appendingPathComponent("renamed-resource.tex")))!
+        let renamedCandidate = candidate((try loader.loadCandidate(from: renamed, purpose: .preservedChannels, device: device)))
         results["renamedSourceSamePixelsDistinctIdentity"] = pixel(renamedCandidate.texture) == pixel(data.texture) &&
             renamedCandidate.identity != data.identity && renamedCandidate.texture !== data.texture && budget.rejectionCount == 2
-        let animated = loader.prepareTexSource(from: root.appendingPathComponent("animated.tex"))!
-        if case let .loaded(atlas) = loader.loadAnimatedMaterialCandidate(from: animated, purpose: .preservedChannels, device: device) {
+        let animated = (try loader.prepareTexSource(from: root.appendingPathComponent("animated.tex")))!
+        if case let .loaded(atlas) = (try loader.loadAnimatedMaterialCandidate(from: animated, purpose: .preservedChannels, device: device)) {
             results["animatedPreparedWithoutReparse"] = atlas.frames.count == 1 && atlas.frames[0].xAxis == SIMD2(0.5, 0) &&
                 pixel(atlas.candidate.texture) == [65, 65, 65, 65] && budget.rejectionCount == 3
         }
-        if case .failed(.decodeFailed) = loader.loadCandidate(from: animated, purpose: .preservedChannels, device: device) {
+        if case .failed(.decodeFailed) = (try loader.loadCandidate(from: animated, purpose: .preservedChannels, device: device)) {
             results["animatedOrdinaryCandidateRefused"] = true
         }
-        let video = loader.prepareTexSource(from: root.appendingPathComponent("video.tex"))!
-        let declaration = loader.videoSourceDeclaration(from: video)
+        let video = (try loader.prepareTexSource(from: root.appendingPathComponent("video.tex")))!
+        let declaration = (try loader.videoSourceDeclaration(from: video))
         results["videoPreparedWithoutReparse"] = declaration?.source == video.source && declaration?.payload == video.container?.mips.first?.data &&
             declaration?.isWebM == false && budget.rejectionCount == 4
-        if case .failed(.texContainsVideoPayload) = loader.loadCandidate(from: video, purpose: .preservedChannels, device: device) {
+        if case .failed(.texContainsVideoPayload) = (try loader.loadCandidate(from: video, purpose: .preservedChannels, device: device)) {
             results["videoOrdinaryCandidateRefused"] = true
         }
         let badBudget = SceneTextureDecodeCacheBudget(maximumBytes: 0)
         let badLoader = SceneTextureLoader(decodeCacheBudget: badBudget)
-        let bad = badLoader.prepareTexSource(from: root.appendingPathComponent("broken.tex"))!
-        if case .failed(.decodeFailed) = badLoader.loadCandidate(from: bad, purpose: .preservedChannels, device: device) {
+        let bad = (try badLoader.prepareTexSource(from: root.appendingPathComponent("broken.tex")))!
+        if case .failed(.decodeFailed) = (try badLoader.loadCandidate(from: bad, purpose: .preservedChannels, device: device)) {
             results["badFormatRemainsLocal"] = bad.container == nil && badBudget.rejectionCount == 0 && badBudget.residentBytes == 0
         }
         let previousRevision = prepared.source
         try Data(contentsOf: url).write(to: url, options: .atomic)
-        if case .failed(.decodeFailed) = loader.loadCandidate(from: prepared, purpose: .preservedChannels, device: device) {
-            results["stalePreparedRefusedBeforeCachedTexture"] = loader.sourceKey(for: url) != previousRevision && budget.rejectionCount == 4
-        }
+        let capturedCandidate = candidate(try loader.loadCandidate(from: prepared, purpose: .preservedChannels, device: device))
+        let currentRevision = try loader.sourceKey(for: url)
+        results["completedPreparedSurvivesLaterAuthorWrite"] = capturedCandidate.texture === data.texture
+            && currentRevision != previousRevision && budget.rejectionCount == 4
         let previousVideoRevision = video.source
-        try Data(contentsOf: video.url).write(to: video.url, options: .atomic)
-        results["staleVideoDeclarationRefused"] = loader.sourceKey(for: video.url) != previousVideoRevision &&
-            loader.videoSourceDeclaration(from: video) == nil
-        let current = loader.prepareTexSource(from: url)!
-        let currentCandidate = candidate(loader.loadCandidate(from: current, purpose: .preservedChannels, device: device))
+        let videoURL = root.appendingPathComponent("video.tex")
+        try Data(contentsOf: videoURL).write(to: videoURL, options: .atomic)
+        let capturedVideo = try loader.videoSourceDeclaration(from: video)
+        let currentVideoRevision = try loader.sourceKey(for: video.input)
+        results["completedVideoDeclarationSurvivesLaterAuthorWrite"] = capturedVideo?.payload == declaration?.payload
+            && currentVideoRevision != previousVideoRevision
+        let current = (try loader.prepareTexSource(from: url))!
+        let currentCandidate = candidate((try loader.loadCandidate(from: current, purpose: .preservedChannels, device: device)))
         results["currentRevisionLoadsIndependently"] = currentCandidate.generation != data.generation &&
             currentCandidate.texture !== data.texture && pixel(currentCandidate.texture) == pixel(data.texture) && budget.rejectionCount == 5
 
@@ -169,9 +175,41 @@ import ImageIO
         CGImageDestinationAddImage(jpegDestination, image, nil); precondition(CGImageDestinationFinalize(jpegDestination))
         let jpegURL = root.appendingPathComponent("opaque-renamed.tex")
         try embedded(jpeg as Data, width: 2, height: 2, format: 2).write(to: jpegURL)
-        let opaquePrepared = loader.prepareTexSource(from: jpegURL)!
-        let opaque = candidate(loader.loadCandidate(from: opaquePrepared, purpose: .premultipliedColor, device: device))
+        let opaquePrepared = (try loader.prepareTexSource(from: jpegURL))!
+        let opaque = candidate((try loader.loadCandidate(from: opaquePrepared, purpose: .premultipliedColor, device: device)))
         results["opaqueMetadataPreserved"] = opaque.content == .color(.resolved(.opaque)) && opaque.physicalSize == opaque.mappedSize
+
+        let directURL = root.appendingPathComponent("direct-renamed.jpg")
+        try (jpeg as Data).write(to: directURL)
+        let directBudget = SceneTextureDecodeCacheBudget(maximumBytes: 0)
+        let directLoader = SceneTextureLoader(decodeCacheBudget: directBudget)
+        let directPrepared = try directLoader.prepareDirectImageSource(from: directURL)!
+        let directNatural = try directLoader.preparedNaturalImageSize(from: directPrepared)
+        results["directHeaderIsLazy"] = directNatural == CGSize(width: 2, height: 2) && directLoader.directImageDecodeAttemptCount == 0
+        results["directDeniedRetentionKeepsCurrentRequest"] = !directPrepared.admitForPreparation() && directBudget.residentBytes == 0
+        let directColor = candidate(try directLoader.loadCandidate(from: directPrepared, purpose: .premultipliedColor, device: device))
+        let directData = candidate(try directLoader.loadCandidate(from: directPrepared, purpose: .preservedChannels, device: device))
+        results["directPreparedReusesOneDecodeForPurposes"] = directLoader.directImageDecodeAttemptCount == 1 &&
+            directColor.texture !== directData.texture && directColor.identity == directData.identity &&
+            directColor.content == .color(.resolved(.opaque)) && directData.content == .data && directBudget.residentBytes == 0
+        results["decodedDirectCannotReenterMetadataQueue"] = !directPrepared.admitForPreparation()
+        directLoader.evictDecodedCaches()
+        let warmDirect = try directLoader.prepareDirectImageSource(from: directURL)!
+        let warmColor = candidate(try directLoader.loadCandidate(from: warmDirect, purpose: .premultipliedColor, device: device))
+        let warmNatural = try directLoader.preparedNaturalImageSize(from: warmDirect)
+        results["directPublishedCacheSurvivesDecodedEviction"] = warmColor.texture === directColor.texture &&
+            warmColor.content == directColor.content && directLoader.directImageDecodeAttemptCount == 1 &&
+            warmNatural == directNatural
+        let cachedDirectBudget = SceneTextureDecodeCacheBudget(maximumBytes: 1024 * 1024)
+        let cachedDirectLoader = SceneTextureLoader(decodeCacheBudget: cachedDirectBudget)
+        _ = try cachedDirectLoader.loadCandidate(from: directURL, purpose: .premultipliedColor, device: device)
+        let residentBefore = cachedDirectBudget.residentBytes
+        let cachedDirect = try cachedDirectLoader.prepareDirectImageSource(from: directURL)!
+        results["directCachedImageNotChargedTwice"] = residentBefore > 0 && cachedDirect.admitForPreparation() &&
+            cachedDirectBudget.residentBytes == residentBefore
+        _ = try cachedDirectLoader.loadCandidate(from: cachedDirect, purpose: .preservedChannels, device: device)
+        results["directCachedPreparedReusesDecode"] = cachedDirectLoader.directImageDecodeAttemptCount == 1 &&
+            cachedDirectBudget.residentBytes == residentBefore
 
         let volumeBytes = Data(repeating: 80, count: 2 * 4 * 4)
         let volumeImage = CGImage(width: 2, height: 4, bitsPerComponent: 8, bitsPerPixel: 32, bytesPerRow: 8,
@@ -182,20 +220,47 @@ import ImageIO
         CGImageDestinationAddImage(pngDestination, volumeImage, nil); precondition(CGImageDestinationFinalize(pngDestination))
         let volumeURL = root.appendingPathComponent("volume.tex")
         try embedded(png as Data, width: 2, height: 2, depth: 2, format: 13).write(to: volumeURL)
-        let volume = loader.prepareTexSource(from: volumeURL)!
-        results["volumeDeclarationRefused"] = volume.container?.isVolume == true && loader.videoSourceDeclaration(from: volume) == nil
-        if case .failed(.decodeFailed) = loader.loadCandidate(from: volume, purpose: .premultipliedColor, device: device) {
+        let volume = (try loader.prepareTexSource(from: volumeURL))!
+        let volumeDeclaration = try loader.videoSourceDeclaration(from: volume)
+        results["volumeDeclarationRefused"] = volume.container?.isVolume == true && volumeDeclaration == nil
+        if case .failed(.decodeFailed) = (try loader.loadCandidate(from: volume, purpose: .premultipliedColor, device: device)) {
             results["volumeColorPurposeRefused"] = true
         }
-        if case let .loaded(texture) = loader.load(from: volume.url, source: volume.source, purpose: .lookupTable,
-            device: device, preparedTexSource: volume) {
+        if case let .loaded(texture) = (try loader.load(from: volume.input, source: volume.source, purpose: .lookupTable,
+            device: device, preparedTexSource: volume)) {
             results["volumeLookupRemainsThreeDimensional"] = texture.textureType == .type3D && texture.depth == 2
         }
-        if case .failed(.decodeFailed) = loader.loadCandidate(from: volume, purpose: .lookupTable, device: device) {
+        if case .failed(.decodeFailed) = (try loader.loadCandidate(from: volume, purpose: .lookupTable, device: device)) {
             results["volumeTypedTwoDimensionalCandidateRefused"] = true
         }
         results["temporaryResultsNotChargedAsPersistentCache"] = budget.residentBytes == 0
         MWXSetUploadFault(device, 0)
+        do {
+            _ = try loader.load(from: renamed.input, source: prepared.source, purpose: .preservedChannels,
+                device: device, preparedTexSource: prepared)
+            results["preparedInputMismatchIsHard"] = false
+        } catch SceneResourceView.ReadError.invalidHandle { results["preparedInputMismatchIsHard"] = true }
+        do {
+            _ = try loader.load(from: prepared.input, source: current.source, purpose: .preservedChannels,
+                device: device, preparedTexSource: prepared)
+            results["preparedExpectedKeyMismatchIsHard"] = false
+        } catch SceneResourceView.ReadError.sourceChanged { results["preparedExpectedKeyMismatchIsHard"] = true }
+        try (jpeg as Data).write(to: directURL, options: .atomic)
+        do {
+            _ = try directLoader.loadCandidate(from: warmDirect, purpose: .noise, device: device)
+            results["scalarFactsCannotLabelNewlyReadBytesWithOldKey"] = false
+        } catch SceneResourceView.ReadError.sourceChanged { results["scalarFactsCannotLabelNewlyReadBytesWithOldKey"] = true }
+        let queryLoader = SceneTextureLoader()
+        TextureMetadataProbe.calls = 0
+        _ = try queryLoader.loadCandidate(from: url, purpose: .preservedChannels, device: device)
+        results["coldCandidateQueriesIdentityOnce"] = TextureMetadataProbe.calls == 1
+        TextureMetadataProbe.calls = 0
+        _ = try queryLoader.loadCandidate(from: url, purpose: .preservedChannels, device: device)
+        results["warmCandidateQueriesIdentityOnce"] = TextureMetadataProbe.calls == 1
+        TextureMetadataProbe.calls = 0
+        let cohort = try queryLoader.loadDirectImageCandidates(from: directURL,
+            purposes: [.premultipliedColor, .preservedChannels], device: device)
+        results["directCohortQueriesIdentityOnce"] = TextureMetadataProbe.calls == 1 && cohort.count == 2
         print(String(decoding: try JSONSerialization.data(withJSONObject: results), as: UTF8.self))
     }
 }
@@ -203,10 +268,17 @@ import ImageIO
             subprocess.run(['clang', '-c', str(faults), '-o', str(root / 'faults.o')],
                            check=True, capture_output=True, text=True, timeout=120)
             binary = root / 'harness'
-            subprocess.run(['swiftc', '-import-objc-header', str(header), str(SOURCE), str(RESAMPLE_SOURCE),
-                            *map(str, LOADER_SOURCES), *map(str, candidate_sources), str(harness),
-                            str(root / 'faults.o'), '-o', str(binary)],
-                           check=True, capture_output=True, text=True, timeout=120)
+            loader_source = next(path for path in LOADER_SOURCES if path.name == 'SceneTextureLoader.swift')
+            counted_loader = root / loader_source.name
+            counted_loader.write_text(loader_source.read_text().replace(
+                'static func currentSourceKey(for input: Input, checkCancellation: (() throws -> Void)? = nil) throws -> SourceKey? {',
+                'static func currentSourceKey(for input: Input, checkCancellation: (() throws -> Void)? = nil) throws -> SourceKey? {\n        TextureMetadataProbe.calls += 1', 1))
+            loader_sources = [counted_loader if path == loader_source else path for path in LOADER_SOURCES]
+            compiled = subprocess.run(['swiftc', '-import-objc-header', str(header), str(SOURCE), str(RESAMPLE_SOURCE),
+                                       *map(str, loader_sources), *map(str, candidate_sources), str(harness),
+                                       str(root / 'faults.o'), '-o', str(binary)],
+                                      capture_output=True, text=True, timeout=120)
+            self.assertEqual(compiled.returncode, 0, compiled.stdout + compiled.stderr)
             run = subprocess.run([str(binary), str(root)], check=True, capture_output=True, text=True, timeout=60)
             if run.stdout.strip() == 'SKIP':
                 self.skipTest('requires actual Metal device')
@@ -216,10 +288,16 @@ import ImageIO
                 'twoDimensionalLookupRefused', 'deniedCacheReleased', 'ordinaryWarmLoadDoesNotReparse', 'publishedTextureSurvivesEviction',
                 'renamedSourceSamePixelsDistinctIdentity', 'animatedPreparedWithoutReparse',
                 'animatedOrdinaryCandidateRefused', 'videoPreparedWithoutReparse', 'videoOrdinaryCandidateRefused',
-                'badFormatRemainsLocal', 'stalePreparedRefusedBeforeCachedTexture', 'staleVideoDeclarationRefused',
+                'directHeaderIsLazy', 'directDeniedRetentionKeepsCurrentRequest', 'directPreparedReusesOneDecodeForPurposes',
+                'decodedDirectCannotReenterMetadataQueue', 'directPublishedCacheSurvivesDecodedEviction',
+                'directCachedImageNotChargedTwice', 'directCachedPreparedReusesDecode',
+                'badFormatRemainsLocal', 'completedPreparedSurvivesLaterAuthorWrite', 'completedVideoDeclarationSurvivesLaterAuthorWrite',
                 'currentRevisionLoadsIndependently', 'opaqueMetadataPreserved', 'volumeDeclarationRefused',
                 'volumeColorPurposeRefused', 'volumeLookupRemainsThreeDimensional',
-                'volumeTypedTwoDimensionalCandidateRefused', 'temporaryResultsNotChargedAsPersistentCache')
+                'volumeTypedTwoDimensionalCandidateRefused', 'temporaryResultsNotChargedAsPersistentCache',
+                'preparedInputMismatchIsHard', 'preparedExpectedKeyMismatchIsHard',
+                'scalarFactsCannotLabelNewlyReadBytesWithOldKey', 'coldCandidateQueriesIdentityOnce',
+                'warmCandidateQueriesIdentityOnce', 'directCohortQueriesIdentityOnce')
             self.assertEqual(set(result), set(expected))
             for name in expected:
                 self.assertIs(result[name], True, name)
@@ -248,7 +326,7 @@ import Foundation
             do {
                 let loader = SceneTextureLoader(decodeCacheBudget: budget)
                 for _ in 0..<2 {
-                    guard let container = loader.texContainer(from: url) else { fatalError("parse failed") }
+                    guard let container = (try loader.texContainer(from: url)) else { fatalError("parse failed") }
                     precondition(container.images.count == 2)
                     for image in container.images {
                         precondition(image.mips.count == 2)
@@ -268,8 +346,10 @@ import Foundation
         do {
             let tightLoader = SceneTextureLoader(decodeCacheBudget: tight)
             let roomyLoader = SceneTextureLoader(decodeCacheBudget: roomy)
-            precondition(tightLoader.texContainer(from: animatedURL)?.spriteFrames.count == 1)
-            precondition(roomyLoader.texContainer(from: animatedURL)?.spriteFrames.count == 1)
+            let tightContainer = try tightLoader.texContainer(from: animatedURL)
+            let roomyContainer = try roomyLoader.texContainer(from: animatedURL)
+            precondition(tightContainer?.spriteFrames.count == 1)
+            precondition(roomyContainer?.spriteFrames.count == 1)
             results["animatedDenied"] = tight.residentBytes
             results["animatedAdmitted"] = roomy.residentBytes
             withExtendedLifetime((tightLoader, roomyLoader)) {}
@@ -277,11 +357,11 @@ import Foundation
         results["animatedReleased"] = roomy.residentBytes
         let lateBudget = SceneTextureDecodeCacheBudget(maximumBytes: 10240)
         let lateLoader = SceneTextureLoader(decodeCacheBudget: lateBudget)
-        guard let first = lateLoader.texContainer(from: url) else { fatalError("initial parse failed") }
+        guard let first = (try lateLoader.texContainer(from: url)) else { fatalError("initial parse failed") }
         results["initialParseResident"] = lateBudget.residentBytes
         lateLoader.evictDecodedCaches()
         results["initialEvictionResident"] = lateBudget.residentBytes
-        guard let late = lateLoader.texContainer(from: url) else { fatalError("late parse failed") }
+        guard let late = (try lateLoader.texContainer(from: url)) else { fatalError("late parse failed") }
         precondition(first.images.map { $0.mips.map(\.data) } == late.images.map { $0.mips.map(\.data) })
         results["lateParseResident"] = lateBudget.residentBytes
         lateLoader.evictDecodedCaches()
@@ -353,34 +433,34 @@ import Metal
         let decoded = SceneTextureDecodeCacheBudget(maximumBytes: decodedCost, resourceBudget: budget)
         let loader = SceneTextureLoader(decodeCacheBudget: decoded)
         guard let anchor = device.makeSceneBuffer(length: anchorLength, options: options, budget: budget),
-              case let .loaded(firstTexture) = loader.load(from: png, device: device)
+              case let .loaded(firstTexture) = (try loader.load(from: png, device: device))
         else { fatalError("initial real resource preparation failed") }
         let before = pixels(firstTexture)
-        let pngSource = loader.sourceKey(for: png)!
-        let nativePNG = loader.preparedNaturalImageSize(from: png, source: pngSource)
+        let pngSource = (try loader.sourceKey(for: png))!
+        let nativePNG = (try loader.preparedNaturalImageSize(from: png, source: pngSource))
         let zeroBudget = SceneTextureDecodeCacheBudget(maximumBytes: 0)
         let zeroLoader = SceneTextureLoader(decodeCacheBudget: zeroBudget)
-        guard case .loaded = zeroLoader.load(from: png, device: device) else { fatalError("uncached PNG failed") }
-        let zeroNativePNG = zeroLoader.preparedNaturalImageSize(from: png, source: zeroLoader.sourceKey(for: png)!)
-        guard case let .loaded(wideTexture) = zeroLoader.load(from: wide, device: device) else {
+        guard case .loaded = (try zeroLoader.load(from: png, device: device)) else { fatalError("uncached PNG failed") }
+        let zeroNativePNG = (try zeroLoader.preparedNaturalImageSize(from: png, source: (try zeroLoader.sourceKey(for: png))!))
+        guard case let .loaded(wideTexture) = (try zeroLoader.load(from: wide, device: device)) else {
             fatalError("normalized PNG failed")
         }
-        let wideNativePNG = zeroLoader.preparedNaturalImageSize(from: wide, source: zeroLoader.sourceKey(for: wide)!)
+        let wideNativePNG = (try zeroLoader.preparedNaturalImageSize(from: wide, source: (try zeroLoader.sourceKey(for: wide))!))
         precondition(before == Array(repeating: [UInt8](arrayLiteral: 255, 0, 0, 255), count: 16).flatMap { $0 })
         loader.evictDecodedCaches()
-        guard let initial = loader.texContainer(from: tex) else { fatalError("initial TEX parse failed") }
+        guard let initial = (try loader.texContainer(from: tex)) else { fatalError("initial TEX parse failed") }
         var result: [String: Any] = ["initialDecoded": decoded.residentBytes,
             "nativePNGMetadata": nativePNG?.width == 4 && nativePNG?.height == 4,
             "zeroBudgetNativePNGMetadata": zeroNativePNG?.width == 4 && zeroNativePNG?.height == 4 &&
                 zeroBudget.residentBytes == 0 && zeroLoader.directImageDecodeAttemptCount == 2,
             "normalizedPNGNativeMetadata": wideNativePNG?.width == 4097 && wideNativePNG?.height == 2 &&
                 wideTexture.width == 4096 && wideTexture.height == 1,
-            "nativePNGMetadataRefetchedAfterEviction": loader.preparedNaturalImageSize(from: png, source: pngSource) == nativePNG &&
+            "nativePNGMetadataRefetchedAfterEviction": (try loader.preparedNaturalImageSize(from: png, source: pngSource)) == nativePNG &&
                 loader.directImageDecodeAttemptCount == 1,
-            "nativeTEXMetadata": loader.preparedNaturalImageSize(from: tex, source: loader.sourceKey(for: tex)!)?.width == 32]
+            "nativeTEXMetadata": (try loader.preparedNaturalImageSize(from: tex, source: (try loader.sourceKey(for: tex))!))?.width == 32]
         loader.evictDecodedCaches()
         result["firstEvictionDecoded"] = decoded.residentBytes
-        guard let late = loader.texContainer(from: tex) else { fatalError("late TEX parse failed") }
+        guard let late = (try loader.texContainer(from: tex)) else { fatalError("late TEX parse failed") }
         result["lateContentSame"] = initial.images.map { $0.mips.map(\.data) } == late.images.map { $0.mips.map(\.data) }
         result["lateDecoded"] = decoded.residentBytes
         result["allocationRejectedWhileLateDecoded"] = device.makeSceneBuffer(
@@ -390,7 +470,7 @@ import Metal
         result["secondEvictionDecoded"] = decoded.residentBytes
         result["secondEvictionTotal"] = budget.snapshot.residentBytes
         guard let restored = device.makeSceneBuffer(length: requestLength, options: options, budget: budget),
-              case let .loaded(cachedTexture) = loader.load(from: png, device: device)
+              case let .loaded(cachedTexture) = (try loader.load(from: png, device: device))
         else { fatalError("allocation or uploaded cache did not survive eviction") }
         result["restoredBufferLength"] = restored.length
         result["restoredResident"] = budget.snapshot.residentBytes

@@ -57,24 +57,18 @@ struct SceneSpriteAnimation {
         self.texturePlayback = texturePlayback
     }
 
-    init?(container: SceneTexContainer, sourceURL: URL) {
+    init?(
+        container: SceneTexContainer, sourceInput: SceneResourceView.FileInput,
+        checkCancellation: (() throws -> Void)? = nil
+    ) throws {
         self.init(
             frames: container.spriteFrames,
             textureSize: SIMD2(container.textureWidth, container.textureHeight),
-            nominalFrameSize: Self.nominalFrameSize(
-                from: sourceURL,
-                expectedFrameCount: container.spriteFrames.count
+            nominalFrameSize: try Self.nominalFrameSize(
+                from: sourceInput, expectedFrameCount: container.spriteFrames.count,
+                checkCancellation: checkCancellation
             )
         )
-    }
-
-    static func load(from url: URL) -> SceneSpriteAnimation? {
-        guard url.pathExtension.localizedLowercase == "tex",
-              let data = try? Data(contentsOf: url, options: .mappedIfSafe),
-              let container = try? SceneTexContainerReader().read(data: data) else {
-            return nil
-        }
-        return SceneSpriteAnimation(container: container, sourceURL: url)
     }
 
     func transform(at elapsed: Float) -> SceneTextureUVTransform {
@@ -126,14 +120,25 @@ struct SceneSpriteAnimation {
     }
 
     static func nominalFrameSize(
-        from textureURL: URL,
-        expectedFrameCount: Int
-    ) -> SIMD2<Float>? {
+        from input: SceneResourceView.FileInput, expectedFrameCount: Int,
+        checkCancellation: (() throws -> Void)? = nil
+    ) throws -> SIMD2<Float>? {
+        guard expectedFrameCount > 0 else { return nil }
+        let data: Data
+        do {
+            data = try input.sibling(appendingSuffix: "-json")
+                .readSnapshot(checkCancellation: checkCancellation).data
+        } catch let error as SceneResourceView.ReadError {
+            switch error {
+            case .sourceChanged, .invalidHandle, .invalidPath, .symlinkEscape: throw error
+            case .missing, .unreadable, .fileTooLarge: return nil
+            }
+        }
+        return nominalFrameSize(data: data, expectedFrameCount: expectedFrameCount)
+    }
+
+    static func nominalFrameSize(data: Data, expectedFrameCount: Int) -> SIMD2<Float>? {
         guard expectedFrameCount > 0,
-              let data = try? Data(
-                  contentsOf: URL(fileURLWithPath: textureURL.path + "-json"),
-                  options: .mappedIfSafe
-              ),
               let root = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
               let sequences = root["spritesheetsequences"] as? [[String: Any]],
               sequences.count == 1,

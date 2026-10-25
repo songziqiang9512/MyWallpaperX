@@ -25,6 +25,12 @@ SCENE = ROOT / "MyWallpaperX/Core/SteamWorkshopScene"
 LAYER_LOAD = SCENE / "Systems/Puppet/ScenePuppetLayerLoad.swift"
 CASES = ROOT / "script/tests/fixtures/ScenePuppetPreparationCases.swift"
 SOURCES = [
+    "../SteamWorkshopStorage/ScenePlaybackSource.swift",
+    "Format/ScenePkgReader.swift",
+    "Resources/Assets/SceneResourceIdentity.swift",
+    "Resources/Assets/SceneResourceView+Backing.swift",
+    "Resources/Assets/SceneResourceIndex.swift",
+    "Resources/Assets/SceneResourceView.swift",
     "Runtime/Frame/SceneMaterialRenderState.swift",
     "Format/SceneMdlPuppetMeshReader.swift",
     "Format/SceneMdlPuppetRigReader.swift",
@@ -134,7 +140,8 @@ class ScenePuppetPreparationTests(unittest.TestCase):
                             + static_model_carrier_source().encode())
         binary = directory / "preparation"
         compilation = subprocess.run(
-            ["swiftc", *(str(SCENE / item) for item in SOURCES), str(harness), "-o", str(binary)],
+            ["swiftc", *(str(SCENE / item) for item in SOURCES), str(harness),
+             "-module-cache-path", str(directory / "module-cache"), "-o", str(binary)],
             capture_output=True, text=True, timeout=120,
         )
         if compilation.returncode:
@@ -176,10 +183,12 @@ class ScenePuppetPreparationTests(unittest.TestCase):
             "static-uv20.mdl": build_mdl(magic=b"MDLV0016", stride=20,
                 vertex_format=9, include_mdls=False, suffix=b"\0"),
         }
+        inputs = directory / "inputs"
+        inputs.mkdir()
         for name, data in files.items():
-            (directory / name).write_bytes(data)
-        (directory / "directory.mdl").mkdir()
-        run = subprocess.run([str(binary), str(directory)], capture_output=True, text=True, timeout=30)
+            (inputs / name).write_bytes(data)
+        (inputs / "directory.mdl").mkdir()
+        run = subprocess.run([str(binary), str(inputs)], capture_output=True, text=True, timeout=30)
         if run.returncode:
             raise AssertionError(run.stdout + run.stderr)
         current_identity = {str(path): hashlib.sha256(path.read_bytes()).hexdigest() for path in source_paths}
@@ -201,6 +210,11 @@ class ScenePuppetPreparationTests(unittest.TestCase):
             self.assertEqual(row["source"]["fallback"], "", row)
             self.assertEqual(row["default"]["animationIDs"], [], row)
             self.assertEqual(row["default"]["neutralRootX"], 20, row)
+
+    def test_resource_reads_keep_primary_exact_lookup_and_escape_hard_failures(self) -> None:
+        for name, passed in self.result["resource-read-checks"].items():
+            with self.subTest(name=name):
+                self.assertTrue(passed)
 
     def test_default_pose_keeps_reference_and_does_not_inherit_script_or_animation(self) -> None:
         row = self.result["default-reference"]

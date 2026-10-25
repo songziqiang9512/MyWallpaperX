@@ -31,9 +31,8 @@ extension SceneParticleSimulator {
         let phase = plan.bounds.lowerBound
             + (plan.bounds.upperBound - plan.bounds.lowerBound) * sequence
         let angle = phase * 2 * Double.pi
-        guard let basis = circleBasis(axis: plan.axis) else { return false }
         let mappedPosition = target + plan.axis * axialDistance
-            + (basis.0 * cos(angle) + basis.1 * sin(angle)) * radius
+            + (plan.circleBasisU * cos(angle) + plan.circleBasisV * sin(angle)) * radius
         let sampledSpeed = SIMD3(
             random.value(plan.speedMinimum.x, plan.speedMaximum.x),
             random.value(plan.speedMinimum.y, plan.speedMaximum.y),
@@ -44,17 +43,6 @@ extension SceneParticleSimulator {
         particle.position = mappedPosition
         particle.velocity += rotatedSpeed
         return true
-    }
-
-    private nonisolated func circleBasis(
-        axis: SIMD3<Double>
-    ) -> (SIMD3<Double>, SIMD3<Double>)? {
-        let reference = abs(axis.z) > 0.9 ? SIMD3<Double>(0, 1, 0) : .init(0, 0, 1)
-        let first = cross(reference, axis)
-        let length = SceneParticleSimulationMath.length(first)
-        guard length.isFinite, length > 1e-12 else { return nil }
-        let unit = first / length
-        return (unit, cross(axis, unit))
     }
 
     private nonisolated func rotate(

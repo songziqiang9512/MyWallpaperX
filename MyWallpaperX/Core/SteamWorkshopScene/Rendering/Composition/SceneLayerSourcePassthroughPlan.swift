@@ -33,7 +33,7 @@ struct SceneLayerSourcePassthroughPlan {
     }
 
     enum SourceKind: Equatable {
-        case staticFile
+        case staticResource
         case currentMedia
     }
 
@@ -268,8 +268,9 @@ struct SceneLayerSourcePassthroughPlan {
             publication.candidate.identity,
             publication.candidate.generation
         ) {
-        case (.file, .file):
-            guard let requestCandidate = request.baseTextureCandidate,
+        case (.file, .file), (.package, .package):
+            guard publication.isComplete,
+                  let requestCandidate = request.baseTextureCandidate,
                   sameAtom(requestCandidate, publication.candidate),
                   SceneBaseImageTextureCandidateResolver.sample(
                       candidate: requestCandidate,
@@ -277,7 +278,7 @@ struct SceneLayerSourcePassthroughPlan {
                   ) != nil else {
                 return .failure(.staticSourceAtomInvalid)
             }
-            return .success(.staticFile)
+            return .success(.staticResource)
         case let (
             .provider(.mediaThumbnailCurrent),
             .provider(contentGeneration)
@@ -308,7 +309,7 @@ struct SceneLayerSourcePassthroughPlan {
                 return .failure(.currentMediaAtomInvalid)
             }
             return .success(.currentMedia)
-        case (.builtIn, _), (.provider, _), (.file, _):
+        case (.builtIn, _), (.provider, _), (.file, _), (.package, _):
             return .failure(.sourceIdentityUnsupported)
         }
     }

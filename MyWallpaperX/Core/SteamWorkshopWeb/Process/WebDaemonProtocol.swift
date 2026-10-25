@@ -35,21 +35,22 @@ nonisolated struct WebDaemonLaunch: Codable {
     let state: WallpaperEngine.WebWallpaperRuntimeState
 
     init(_ request: WallpaperEngine.WebWallpaperLaunchRequest,
-         state: WallpaperEngine.WebWallpaperRuntimeState, hosts: Set<String>) {
+         state: WallpaperEngine.WebWallpaperRuntimeState) {
         entryURL = request.entryURL; rootURL = request.rootURL
         propertiesJSON = request.propertiesJSON; source = request.source
         resourceGrants = request.resourceGrants; propertyRevision = request.propertyRevision
         resourceRevision = request.resourceRevision
         recordID = request.recordID; language = request.language
         profile = request.runtimeProfile; multiDisplayEnabled = request.multiDisplayEnabled
-        allowedNetworkHosts = hosts; self.state = state
+        allowedNetworkHosts = request.allowedNetworkHosts; self.state = state
     }
 
     func request(id: UUID) -> WallpaperEngine.WebWallpaperLaunchRequest {
         .init(id: id, entryURL: entryURL, rootURL: rootURL,
               propertiesJSON: propertiesJSON, source: source, recordID: recordID,
               language: language, runtimeProfile: profile, multiDisplayEnabled: multiDisplayEnabled,
-              resourceGrants: resourceGrants, propertyRevision: propertyRevision, resourceRevision: resourceRevision)
+              resourceGrants: resourceGrants, propertyRevision: propertyRevision, resourceRevision: resourceRevision,
+              allowedNetworkHosts: allowedNetworkHosts)
     }
 }
 
@@ -167,6 +168,49 @@ nonisolated struct WebDaemonHostObservation: Codable {
     let surfaces: Int
     let watchTimer: Int
     let watchers: Int
+    var startupTiming: WebDaemonStartupTimingObservation? = nil
+}
+
+/// Passive producer timestamps, transported by the existing DEBUG observation.
+/// They never authorize activation or replace the normal visibility evidence.
+nonisolated struct WebDaemonStartupTimingObservation: Codable {
+    let identity: WebDaemonActivationIdentity
+    let activateReceivedAt: TimeInterval
+    var nativePolicyAcceptedAt: TimeInterval?
+    var visibilityFirstConfirmedAt: TimeInterval?
+    var firstVisibilityRetryAt: TimeInterval?
+    var firstVisibilityRetryReason: String?
+    var preparation: WebDaemonPreparationTimingObservation? = nil
+}
+
+nonisolated struct WebDaemonStartupSurfaceTimingObservation: Codable {
+    let displayID: UInt32
+    let creationStartedAt: TimeInterval
+    var surfaceID: UUID?
+    var navigationGeneration: UInt64?
+    var creationCompletedAt: TimeInterval?
+    var loadIssuedAt: TimeInterval?
+    var readyObservedAt: TimeInterval?
+    var readySource: String?
+
+    func matching(_ surface: WebDaemonSurfaceIdentity) -> Self? {
+        guard displayID == surface.displayID, surfaceID == surface.surfaceID,
+              navigationGeneration == surface.navigationGeneration else { return nil }
+        return self
+    }
+}
+
+/// The current prepared cohort's passive snapshot; no timestamp is a ready gate.
+nonisolated struct WebDaemonPreparationTimingObservation: Codable {
+    let launchReceivedAt: TimeInterval
+    var generation: UInt64 = 0
+    var surfaces: [WebDaemonSurfaceIdentity] = []
+    var hostReadyAt: TimeInterval?
+    var snapshotRequestedAt: TimeInterval?
+    var snapshotCompletedAt: TimeInterval?
+    var policyWaitStartedAt: TimeInterval?
+    var policyAcceptedAt: TimeInterval?
+    var surfaceTimings: [WebDaemonStartupSurfaceTimingObservation] = []
 }
 #endif
 

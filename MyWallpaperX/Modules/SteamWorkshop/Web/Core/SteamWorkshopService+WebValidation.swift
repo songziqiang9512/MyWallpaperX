@@ -3,38 +3,13 @@ import Combine
 import Foundation
 
 extension SteamWorkshopService {
-    /// Product launch admission checks entry availability only; dependency
-    /// analysis belongs to asynchronous runtime preparation.
+    /// Synchronous product admission samples the already-selected entry only.
+    /// Author declarations and fallback selection belong to capture's original
+    /// resolver; this front door never discovers a source or reads project JSON.
     func webLaunchEntryIsValid(for record: SteamWorkshopDownloadRecord) -> Bool {
-        let signature = webProjectDescriptorSignature(for: record)
-        if let cached = webLaunchEligibilityCache[record.id], cached.signature == signature {
-            return cached.isValid
-        }
-        let isValid = computeWebLaunchEntryIsValid(for: record)
-        webLaunchEligibilityCache[record.id] = .init(signature: signature, isValid: isValid)
-        return isValid
+        let entry = record.webEntryURL?.resolvingSymlinksInPath().standardizedFileURL
+        return entry.flatMap { try? $0.resourceValues(forKeys: [.isRegularFileKey]) }?.isRegularFile == true
     }
-
-    private func computeWebLaunchEntryIsValid(for record: SteamWorkshopDownloadRecord) -> Bool {
-        // A missing dependency is handled by the existing launchability guard;
-        // it was a nonfatal precondition in the development report as well.
-        if case .missing = record.dependencyStatus,
-           record.isDependencyBackedWeb, !record.hasPlayableDependencyWebHost { return true }
-        // Admission needs the entry only. Resolving a descriptor here would
-        // synchronously parse the project and scan dependencies before the
-        // asynchronous launch preparation gets a chance to run.
-        guard let entryURL = record.webEntryURL else { return false }
-        if !record.isDependencyBackedWeb,
-           let declared = declaredWebEntryRelativePath(for: record) {
-            let declaredURL = record.folderURL.appendingPathComponent(declared)
-                .resolvingSymlinksInPath().standardizedFileURL
-            guard FileManager.default.fileExists(atPath: declaredURL.path) else { return false }
-        }
-        return FileManager.default.fileExists(
-            atPath: entryURL.resolvingSymlinksInPath().standardizedFileURL.path
-        )
-    }
-
 
     func webPlaybackFailureMessage(for record: SteamWorkshopDownloadRecord) -> String? {
         if let failureRecordID = lastWebPlaybackFailureRecordID {

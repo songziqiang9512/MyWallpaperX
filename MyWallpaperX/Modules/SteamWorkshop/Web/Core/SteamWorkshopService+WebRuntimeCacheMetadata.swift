@@ -1,32 +1,50 @@
 import Foundation
+import Darwin
 
-extension SteamWorkshopService {
-    /// 签名只被逐字节比较、从不被解码，因此字典键序必须与进程哈希种子无关。
-    static let webSignatureJSONEncoder: JSONEncoder = {
-        let encoder = JSONEncoder()
-        encoder.outputFormatting = [.sortedKeys]
-        return encoder
-    }()
+/// A cheap revision of a file actually consumed by author interpretation.
+/// These facts invalidate a derived cache; they never grant playback access.
+nonisolated struct WebAuthorFileRevision: Codable, Equatable, Sendable {
+    struct State: Codable, Equatable, Sendable {
+        let device: Int32
+        let inode: UInt64
+        let mode: UInt16
+        let size: Int64
+        let modifiedSeconds: Int
+        let modifiedNanoseconds: Int
+        let changedSeconds: Int
+        let changedNanoseconds: Int
 
-    func webRuntimeCacheOverridesSignature(for record: SteamWorkshopDownloadRecord) -> Data? {
-        let overrides = webPropertyOverrides(for: record)
-        guard !overrides.isEmpty else { return nil }
-        return try? Self.webSignatureJSONEncoder.encode(overrides)
+        init(_ value: stat) {
+            device = value.st_dev; inode = value.st_ino; mode = value.st_mode
+            size = value.st_size
+            modifiedSeconds = value.st_mtimespec.tv_sec
+            modifiedNanoseconds = value.st_mtimespec.tv_nsec
+            changedSeconds = value.st_ctimespec.tv_sec
+            changedNanoseconds = value.st_ctimespec.tv_nsec
+        }
     }
 
-    func webRuntimeCacheProjectModifiedAt(for record: SteamWorkshopDownloadRecord) -> Date? {
-        guard let projectFileURL = record.projectFileURL else { return nil }
-        return (try? projectFileURL.resourceValues(forKeys: [.contentModificationDateKey]))?.contentModificationDate
+    let url: URL
+    let state: State?
+
+    init(_ url: URL) {
+        self.url = url.standardizedFileURL
+        var value = stat()
+        state = lstat(url.path, &value) == 0 ? State(value) : nil
     }
 
-    func webRuntimeCachePropertySourceProjectModifiedAt(for record: SteamWorkshopDownloadRecord) -> Date? {
-        guard let sourceRecord = webPropertyDefinitionSourceRecord(for: record),
-              let projectFileURL = sourceRecord.projectFileURL else { return nil }
-        return (try? projectFileURL.resourceValues(forKeys: [.contentModificationDateKey]))?.contentModificationDate
-    }
+    var isCurrent: Bool { Self(url) == self }
+}
 
-    func webRuntimeCacheResolvedEntryModifiedAt(for record: SteamWorkshopDownloadRecord) -> Date? {
-        guard let entryURL = record.webEntryURL else { return nil }
-        return (try? entryURL.resourceValues(forKeys: [.contentModificationDateKey]))?.contentModificationDate
+/// Preserve the resolver outcome too: a symlink or a previously missing local
+/// dependency may change without changing its containing script's bytes.
+nonisolated struct WebAuthorDependencyReference: Codable, Equatable, Sendable {
+    let path: String
+    let sourceURL: URL
+    let rootURL: URL
+    let resolvedURL: URL?
+
+    var isCurrent: Bool {
+        SteamWorkshopService.resolveWebResourceURL(path, relativeTo: sourceURL, rootURL: rootURL) == resolvedURL
     }
 }

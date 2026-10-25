@@ -9,8 +9,8 @@
       "bytes": 20641
     },
     "docs/architecture/playback-lifecycle-transaction-design.md": {
-      "lines": 48,
-      "bytes": 7206
+      "lines": 50,
+      "bytes": 8990
     },
     "docs/architecture/repository-map.md": {
       "lines": 32,
@@ -18,7 +18,7 @@
     },
     "docs/architecture/steam-workshop-acquisition-contract.md": {
       "lines": 80,
-      "bytes": 17498
+      "bytes": 17747
     },
     "docs/architecture/system-audio-spectrum-design.md": {
       "lines": 34,
@@ -39,6 +39,10 @@
     "docs/development/repository-workflow.md": {
       "lines": 100,
       "bytes": 14139
+    },
+    "docs/development/validation-simplification-plan.md": {
+      "lines": 220,
+      "bytes": 47762
     },
     "docs/release/bundle-content.md": {
       "lines": 61,
@@ -62,31 +66,31 @@
     },
     "docs/scene/architecture/runtime-architecture.md": {
       "lines": 600,
-      "bytes": 134359
+      "bytes": 134517
     },
     "docs/scene/architecture/runtime-as-built-map.md": {
-      "lines": 153,
-      "bytes": 30017
+      "lines": 158,
+      "bytes": 33250
     },
     "docs/scene/architecture/scene-dependency-boundaries.md": {
       "lines": 31,
       "bytes": 5956
     },
     "docs/scene/architecture/scene-launch-responsiveness-contract.md": {
-      "lines": 221,
-      "bytes": 28327
+      "lines": 252,
+      "bytes": 42193
     },
     "docs/scene/architecture/scene-resource-admission.md": {
       "lines": 90,
       "bytes": 19022
     },
     "docs/scene/architecture/scene-runtime-daemon-contract.md": {
-      "lines": 129,
-      "bytes": 18155
+      "lines": 131,
+      "bytes": 19466
     },
     "docs/scene/architecture/scene-startup-pipeline.md": {
-      "lines": 34,
-      "bytes": 3436
+      "lines": 37,
+      "bytes": 7119
     },
     "docs/scene/architecture/shader-metadata-failure-contract.md": {
       "lines": 71,
@@ -98,7 +102,7 @@
     },
     "docs/scene/capabilities/advanced-object-coverage.md": {
       "lines": 388,
-      "bytes": 81123
+      "bytes": 81263
     },
     "docs/scene/capabilities/alpha-display-fallback-design.md": {
       "lines": 124,
@@ -146,7 +150,7 @@
     },
     "docs/scene/capabilities/runtime-evidence-current.md": {
       "lines": 600,
-      "bytes": 218766
+      "bytes": 219277
     },
     "docs/scene/capabilities/runtime-input-property-coverage.md": {
       "lines": 600,
@@ -262,7 +266,7 @@
     },
     "docs/scene/roadmap/performance-convergence-card.md": {
       "lines": 70,
-      "bytes": 18789
+      "bytes": 18924
     },
     "docs/scene/roadmap/properties-panel-card.md": {
       "lines": 45,
@@ -277,8 +281,8 @@
       "bytes": 33722
     },
     "docs/web/cold-descriptor-parse-offload-design.md": {
-      "lines": 45,
-      "bytes": 5707
+      "lines": 30,
+      "bytes": 4342
     },
     "docs/web/cross-origin-reply-delivery-design.md": {
       "lines": 50,
@@ -289,12 +293,12 @@
       "bytes": 6677
     },
     "docs/web/current-state.md": {
-      "lines": 138,
-      "bytes": 51713
+      "lines": 140,
+      "bytes": 53285
     },
     "docs/web/dedicated-host-process-design.md": {
-      "lines": 78,
-      "bytes": 15935
+      "lines": 80,
+      "bytes": 16652
     },
     "docs/web/mediaremote-nowplaying-design.md": {
       "lines": 76,
@@ -313,16 +317,12 @@
       "bytes": 12911
     },
     "docs/web/web-project-json-runtime-model.md": {
-      "lines": 180,
-      "bytes": 6114
+      "lines": 178,
+      "bytes": 6103
     },
     "docs/web/web-wallpaper-benchmark-standard.md": {
       "lines": 86,
       "bytes": 8377
-    },
-    "docs/development/wallpaper-startup-optimization-plan.md": {
-      "lines": 220,
-      "bytes": 31801
     }
   },
   "archives": [
@@ -1196,6 +1196,22 @@
       "originalBodySHA256": "3f61246d6fe6c789a5ddd7d7e8579cf2829b45ec706dd5d7f6496467b21a382c",
       "originalLines": 137,
       "originalBytes": 11603
+    },
+    {
+      "source": "docs/development/wallpaper-startup-optimization-plan.md",
+      "archive": "docs/history/cross-topic/wallpaper-startup-optimization-completed-2026-10-25.md",
+      "originalBodySHA256": "47fe0c7f084b6fab3c630a6739ec09928b7597b9a79ff1c3c30e30a7145ef210",
+      "preservedBodySHA256": "4f9ec75dea43d876e7f5b6bf67ab6799e741ab8f75ed4932cfadca7ff153583e",
+      "anchors": [
+        "decision",
+        "d23-idle-admission",
+        "d23scene-跨类型重入的有界原进程复用实施前设计",
+        "p2scene-一次安全挂载按需读取退出全量解包",
+        "p4同-launchdevice-共享成功-metal-librarypso",
+        "p7整体验收退役与收尾"
+      ],
+      "originalLines": 480,
+      "originalBytes": 133199
     }
   ],
   "snapshots": [
@@ -1213,336 +1229,138 @@
   "adjustments": [
     {
       "section": "bodies",
-      "path": "docs/scene/roadmap/batch2/hdr-tonemap-edr-design.md",
-      "before": "d8664bb592c4ee3e4f4a5a469fe506c216c8d152988844a3cd6aa0a2c074dd48",
-      "after": "16fe161d1aacec13c584cb09c68b7239e3c737b922c8a2ffed961776e1af2eb7",
-      "owner": "scene-material-color-boundary",
-      "reason": "既有独立信号颜色/反馈合同补opaque辅助与alpha-only中间读取；原299默认金属背景和文字真实恢复，退出已修首断点并同步有界样本记录，不升级完整模式/HDR/性能。",
-      "decision": "docs/scene/roadmap/batch2/hdr-tonemap-edr-design.md#independent-signal-opaque-auxiliary"
-    },
-    {
-      "section": "bodies",
-      "path": "docs/scene/architecture/runtime-as-built-map.md",
-      "before": "833ba69921eead8634eb099d41ff8c67d49cb41f5e67868a5b0b34ffe3c41b3c",
-      "after": "c67828ee5b8bb077f95a301262d941a85399d77d2eba411ea07088f73716772a",
-      "owner": "scene-frame-cadence-qualification",
-      "reason": "同源码优化Debug未重现372半帧率，保临时探针/首失败/配置边界并停止调度改动；纠正代码地图的VM呈现绑定旧描述，不变运行合同。",
-      "decision": "docs/development/repository-workflow.md#代码与知识交付"
-    },
-    {
-      "section": "bodies",
-      "path": "docs/scene/capabilities/scenescript-api-coverage.md",
-      "before": "e6924f1ac8bad1c87f1ca5c8cdca12aa9f4faebcca289d41d81fcadd2e4a34df",
-      "after": "e0a779dcc4b97876e9f5309afefa4d0b09c0c2a933775835b3fa9f416e188002",
-      "owner": "scene-boolean-dynamic-text",
-      "reason": "Bool文字创建与既有typed文字事务统一；原包回调首拒、受控静态阴影及独立样本有界后验。只刷新三条混合身份运行记录，不改其余239行或人工裁决。",
-      "decision": "docs/scene/capabilities/runtime-evidence-current.md#boolean-dynamic-text-20261021"
-    },
-    {
-      "section": "bodies",
-      "path": "docs/architecture/appkit-migration.md",
-      "before": "eee2f0b8c283db120b169b551a2f47f134eefa54ad8ba3b912dbe15de736bb67",
-      "after": "89cc7e712ae599716b1916d7f0528eb16c31bda33b2102a607456f8c6d814e26",
-      "owner": "appkit-grid-card-presentation",
-      "reason": "用户授权网格减负试用；原专题新增跟踪区退让、徽章首次显示构建与Steam布局像素档边界、退出和实际行为验收，不改变D17失效/缓存owner，也不复制性能结果。 续版仅补充预取后台完整指纹与单批生命周期、隐藏玻璃bar挂回/动画退出合同。",
-      "decision": "docs/architecture/appkit-migration.md#网格卡片减负试用版2026-10-23"
-    },
-    {
-      "section": "bodies",
-      "path": "docs/development/apple-silicon-optimization-plan.md",
-      "before": "2d043fdaf2a57851868ea841be114b53082a1089fbcf6b34c34b3b2d33aabf55",
-      "after": "3769b832b216646674ed5ac16bbc2ade02d6c156d440747f0d6a64a99e867a45",
-      "owner": "grid-thumbnail-demand-scheduling",
-      "reason": "D17请求职责、实际owner行为门、独审及最终签名Release闭环；记录局部机制收益、停止取舍与未覆盖范围，不预支整App性能。",
-      "decision": "docs/development/apple-silicon-optimization-plan.md#d17实施与验收2026-10-22"
-    },
-    {
-      "section": "bodies",
-      "path": "docs/scene/capabilities/material-video-assets.md",
-      "before": "ba79983778e8f64d58319d0488716cdb5271c8facb66e924bda46fcd14d9fc81",
-      "after": "2c31888e57a2741d6f1016f4c0fe50feae56fa5f4d966596f93dbaf00070bd6c",
-      "owner": "scene-video-position-publication",
-      "reason": "原Source定位/解码获取/呈现提交分责限定验收；旧提取候选过程收敛为必要结论与正式证据链接，保未闭337边界及600行上限。",
-      "decision": "docs/scene/capabilities/material-video-assets.md#video-position-publication"
-    },
-    {
-      "section": "bodies",
-      "path": "docs/scene/roadmap/batch2/composition-render-target-design.md",
-      "before": "bdbfef7a0128402439ebcf73e88d85eecd1f3bb819323dbd159d8ab001044dd5",
-      "after": "1011a8b8f6aa707fee2eb3612346b0fe47d674d4d2587ffec922329be5ade789",
-      "owner": "Scene ordinary composition root effect source",
-      "reason": "既有D1新增并收敛普通组合根效果的固定local source合同、旧viewport退出、nested结构边界与可证伪采样验收；实际白卡收益及322音频输入/用户反馈边界已归历史，不另建运行owner。",
-      "decision": "docs/scene/roadmap/batch2/composition-render-target-design.md#ordinary-root-effect-local-boundary"
-    },
-    {
-      "section": "bodies",
-      "path": "docs/web/current-state.md",
-      "before": "4303753aa767949b179173d61cd0e19d4af2f83846bcb90da516c4c2e0c68ffe",
-      "after": "ca6e48eaa48baad4d38179e9d0121297becd0a1564075b24e0af9310dd0329f8",
-      "owner": "repository-maintainer",
-      "reason": "第一批精简设计、现役合同同步、执行与交叉审查的有界证据；正文预算按实际内容收紧。",
-      "decision": "docs/development/code-slimming-program.md#第一批设计与停止条件"
-    },
-    {
-      "section": "bodies",
-      "path": "docs/web/wallpaper-engine-web-rules.md",
-      "before": "e694bedade49595c1ea576ca9fa604f246fd08d2904d899a4c5c1c3e27a49dfe",
-      "after": "f03a633442498df351643256b2fc946abe0717e5f4c440b8d1f27583c87ca0c6",
-      "owner": "repository-maintainer",
-      "reason": "第一批精简设计、现役合同同步、执行与交叉审查的有界证据；正文预算按实际内容收紧。",
-      "decision": "docs/development/code-slimming-program.md#第一批设计与停止条件"
-    },
-    {
-      "section": "bodies",
-      "path": "docs/web/web-project-json-localization.md",
-      "before": "5a565ee9c5cde9152162fcbd714c96c9fce264e00e286518f71ba157b9c91d23",
-      "after": "a58389afe426f31afd71469303d5707170ee4dbdf11e782d1b3e65c56b2f5fc1",
-      "owner": "repository-maintainer",
-      "reason": "第一批精简设计、现役合同同步、执行与交叉审查的有界证据；正文预算按实际内容收紧。",
-      "decision": "docs/development/code-slimming-program.md#第一批设计与停止条件"
-    },
-    {
-      "section": "bodies",
-      "path": "docs/scene/capabilities/render-graph-shader-coverage.md",
-      "before": "7b32a41481ae8e2166ed8b4d32fcc0784a13f893f3941cfd0a77cbbf2e7d0fa3",
-      "after": "8edb2977be1a1d20dc8c3a9e6402e9716061bb63c8db5af21055437cb950b265",
-      "owner": "code-slimming-b12",
-      "reason": "按第十二批用户授权同步精简合同及有界验证，替换退役说明并按实际正文调整预算。",
-      "decision": "docs/development/code-slimming-program.md#第十二批范围与停止条件"
-    },
-    {
-      "section": "bodies",
-      "path": "docs/scene/roadmap/properties-panel-card.md",
-      "before": "f1deeba1f66b3ae0fee1d3b3159063935cd86335fe67018588ad854e12fbef8b",
-      "after": "05d51ebd5ee40d47468e3a63bbf80b677acb7c23d1d71466cdd681bd1703a1ac",
-      "owner": "code-slimming-b12",
-      "reason": "按第十二批用户授权同步精简合同及有界验证，替换退役说明并按实际正文调整预算。",
-      "decision": "docs/development/code-slimming-program.md#第十二批范围与停止条件"
-    },
-    {
-      "section": "bodies",
-      "path": "docs/scene/capabilities/particle-component-coverage.md",
-      "before": "221ef81fe7c61f4b4657edf662a6e096579b88fa703ad68f177e883fbdac5838",
-      "after": "42ae786d7de7e384df7ed13a54ee4c077794799317e2c661fa370e011a7c24a5",
-      "owner": "Scene particle initializer qualification",
-      "reason": "Keep strict eventdeath no-pattern result and corrected active-child identity; move detailed experiment facts to one historical record and keep current authority compact. No product semantics or coverage expansion.",
-      "decision": "docs/scene/history/particle-initializer-qualification-2026-10-23.md#event-inheritance"
-    },
-    {
-      "section": "bodies",
-      "path": "docs/scene/capabilities/scene-corpus-capability-inventory.md",
-      "before": "961efa0aee6eff68c54bad3bcc9ee73994eb0f89a3a7b974ee9b9bc1986b8a6e",
-      "after": "d38d6228b282e4b2020a67538eea2d17324f7f0913ed9058a33dca8be65ef705",
-      "owner": "Scene corpus diagnostic reporting",
-      "reason": "Complete failed-directory reports and preserve compact overview/detail authority; exact generated body and design contract budgets after nearest validation.",
-      "decision": "docs/scene/development/corpus-diagnostic-workflow.md#diagnostic-output-acceptance"
-    },
-    {
-      "section": "bodies",
-      "path": "docs/scene/capabilities/scene-corpus-sample-inventory.md",
-      "before": "e401b918b58848bd8e5709915cc7d105e70981abe2beec29a471bf55ce75af17",
-      "after": "259e5194f4bd534b7eb5af6e27ca7a64c7f78e3d827410f9b334b6f85ee4c003",
-      "owner": "Scene corpus diagnostic reporting",
-      "reason": "Complete failed-directory reports and preserve compact overview/detail authority; exact generated body and design contract budgets after nearest validation.",
-      "decision": "docs/scene/development/corpus-diagnostic-workflow.md#diagnostic-output-acceptance"
-    },
-    {
-      "section": "bodies",
-      "path": "docs/scene/development/development-workflow.md",
-      "before": "460072c339a100e83a73a4caf6cd076498aed55c8722f59b3639ec9e6abf6c21",
-      "after": "86f807d898ec463c48232d7a673e5bec6bd696ae4f30d29f3510455a7b2aff24",
-      "owner": "Scene corpus diagnostic reporting",
-      "reason": "Complete failed-directory reports and preserve compact overview/detail authority; exact generated body and design contract budgets after nearest validation.",
-      "decision": "docs/scene/development/corpus-diagnostic-workflow.md#diagnostic-output-acceptance"
-    },
-    {
-      "section": "bodies",
-      "path": "docs/scene/roadmap/batch2/2d-lighting-material-design.md",
-      "before": "68c25f6c26befa4bec6af100169e7ca93b940faa1edf500dd2c1b6c2e6c13060",
-      "after": "162835948965bf92e59cafa7ebad7d5a450f56a79ece6a4f132adcd8c26cb821",
-      "owner": "builtin-image-light-families",
-      "reason": "增加已经资格的builtin图片灯光代际、唯一snapshot消费、失败与退出合同；纠正旧2D统一数值策略表述。",
-      "decision": "docs/scene/roadmap/batch2/2d-lighting-material-design.md#builtin-image-light-families"
-    },
-    {
-      "section": "bodies",
-      "path": "docs/scene/capabilities/lighting-sample-inventory.md",
-      "before": "7828e3644128bb3cc1bb70736ebfb10430f807be4e4784f9c849e70b16282600",
-      "after": "a4e765ab4653e926749db507fd999ef59843db842c4a249c5ff21822b9169d1f",
-      "owner": "builtin-image-light-families",
-      "reason": "细分原7个样本31个receiver的材质代际、关联层和默认开关边界，复用原统计分母。",
-      "decision": "docs/scene/roadmap/batch2/2d-lighting-material-design.md#builtin-image-light-families"
-    },
-    {
-      "section": "bodies",
-      "path": "docs/scene/architecture/runtime-architecture.md",
-      "before": "c89fe6cb3f2f6ebc541fcba67561a4c5b9813b59df58457cbf0913f901159710",
-      "after": "8f6909dc9bee4b7b6af671329aec0e0863476dba38ecb70046929dc4ddb05146",
-      "owner": "builtin-image-light-families",
-      "reason": "补齐准备期lighting family到唯一lit producer的稳定职责，防止后续重新合并新旧灯光。",
-      "decision": "docs/scene/roadmap/batch2/2d-lighting-material-design.md#builtin-image-light-families"
-    },
-    {
-      "section": "bodies",
-      "path": "docs/scene/capabilities/coverage-ledger.md",
-      "before": "48d3962d9e3e5e6db990b9c6e14fd4a5ced8ee261cc4169921af0f32346617bb",
-      "after": "9c8aa7c5bbf8561897baca3d874f4264ddf931ee5c8a99d30a6ac42b7f8368df",
-      "owner": "builtin-image-light-families",
-      "reason": "在既有灯光条目登记有界的图片代际支持及唯一证据指针，不升级整体能力级别。",
-      "decision": "docs/scene/roadmap/batch2/2d-lighting-material-design.md#builtin-image-light-families"
-    },
-    {
-      "section": "bodies",
-      "path": "docs/development/code-slimming-program.md",
-      "before": "4bd8626691bfa5aff55002923f816fc86dc86e7fc06a1858ff33e9160a9a49e8",
-      "after": "b80b7f81184b52a2218ac3ad512a1f2f6570ad34afa7d545f8c61b40a8abeb00",
-      "owner": "appkit-native-ui-b10",
-      "reason": "B10首图背景染色、0.75秒过渡与原生中性侧栏选中已完成回归/独审及用户试用，按2026-10-23授权窄提交，保留并行Scene预算叶。",
-      "decision": "docs/development/code-slimming-program.md#原生-ui-第十批当前列表首图轻度背景染色"
-    },
-    {
-      "section": "bodies",
-      "path": "docs/scene/development/corpus-diagnostic-workflow.md",
-      "before": "01baca69f55103861eb1f2d23f1c49eab5f362f1753bad44176831791347be9b",
-      "after": "609cbdcf92861fee4dbd8f90e212a20213227b0884ffc7c2e79b960c0b61c0b7",
-      "owner": "Scene DEBUG evidence capture",
-      "reason": "记录已定位的pointer提前after修复：请求观察时刻和交互结束等待同由现有DEBUG调度消费，保留实际捕获时刻及旧证据边界。",
-      "decision": "docs/scene/development/corpus-diagnostic-workflow.md#evidence-capture-timing"
-    },
-    {
-      "section": "bodies",
-      "path": "docs/scene/capabilities/advanced-object-coverage.md",
-      "before": "216fddc3b7933afd5201bb2cda6c21db409cdf9f608683978dd23a177a0b904e",
-      "after": "2489c7eaaeaeaf7bc4d2e077ab2da74f1a482608906f40824e43e8a519342306",
-      "owner": "Scene official capture qualification",
-      "reason": "纠正官方截图JPEG原格式与无损资格范围，保留独立产品修复；记录扇子固定帧正控与数值捕获失败，不扩大准入或宣布scalar已知。",
-      "decision": "docs/scene/history/static-model-default-albedo-implementation-2026-10-06.md#single-slot-default-20261023"
-    },
-    {
-      "section": "bodies",
-      "path": "docs/scene/capabilities/runtime-input-property-coverage.md",
-      "before": "47f9cf112f3048ebe0ea65342ab9041314ec3ec97d5ac69aca27d82fbd0db6ec",
-      "after": "270dc5f7dad8bbc7cda3d29e1a2ae119ba7481be525f1b0f39714130d9a70538",
-      "owner": "Scene canonical camera origin setter",
-      "reason": "合并相机设计/能力与有界实际热改后验，移除已闭首拒队列；当前证据用原相机历史留底和稳定跳转，不认整样本通过或性能收益。",
-      "decision": "docs/scene/roadmap/batch2/script-component-api-design.md#default-camera-origin-setter"
-    },
-    {
-      "section": "bodies",
-      "path": "docs/scene/roadmap/batch2/terminal-material-chain-design.md",
-      "before": "f634e7fcfd3e1996ae5cbf7322fd2ccaed5c4dea5bb375a7c8ddf3b918a828a5",
-      "after": "3c81ac8bb029b3f161c6ec77ca3d4c94cd85243507fbd86a764ac897387cce4c",
-      "owner": "Scene prepared frame input / Program uniform query",
-      "reason": "先行设计并同步唯一实际值/数值核迁移，记录CPU/依赖/Debug及两个原包实际保持；不新增性能收益或重复路线。",
-      "decision": "docs/scene/roadmap/batch2/terminal-material-chain-design.md#prepared-frame-uniform-query"
-    },
-    {
-      "section": "bodies",
-      "path": "docs/scene/roadmap/scene-full-sample-static-audit.md",
-      "before": "c354e13d2dd6166c6675bb5b9a4a5706aef4cabd16ba837d8fa9d0887d7303e9",
-      "after": "74234e98afe7498fb5daf1f36ac2d78acc339464f950703b8c019892f982b90b",
-      "owner": "Scene single open breakpoint queue",
-      "reason": "按用户明确要求删除重复静态问题文档，14残余合入唯一队列；已闭/正常解释另归历史，不新建第二权威或扩大能力结论。",
-      "decision": "docs/scene/roadmap/scene-open-breakpoint-queue.md#static-capability-gaps"
-    },
-    {
-      "section": "bodies",
       "path": "docs/architecture/playback-lifecycle-transaction-design.md",
-      "before": "23dcc50cc46e055e4e80984ff48aa857f071b47cbb1cc44be955b43b6786fbb4",
-      "after": "921a3156ee08b340637c2abe8c1f2da970fcd04e64fa279847684658b809a5bd",
-      "owner": "scene-web-startup-design",
-      "reason": "用户要求完整启动改进方案并修订旧合同；登记专项、资源/生命周期边界与旧专题保留归档，未声明产品收益。",
-      "decision": "docs/development/wallpaper-startup-optimization-plan.md#decision"
+      "before": "921a3156ee08b340637c2abe8c1f2da970fcd04e64fa279847684658b809a5bd",
+      "after": "99603a77f6b5ebc57cfcaf0eb16f35e14628ef78777f7683d561d2868adc8bf9",
+      "owner": "原播放事务与父进程生命周期",
+      "reason": "保留原三引擎事务与短时Scene重入合同，补事件注册/独立退出期限和恢复前频谱播种，替换重复轮询/补配说法；不新增运行或性能验收。",
+      "decision": "docs/development/validation-simplification-plan.md#全仓后继事件分片与重复桥接"
+    },
+    {
+      "section": "bodies",
+      "path": "docs/architecture/steam-workshop-acquisition-contract.md",
+      "before": "ece660ca6b5aabfaf83f079b76f48c6fe8ce613cb7373bb7738d654fbfe58276",
+      "after": "93b175d938856717223ad6637f5df598a70f11848d0d5a6f122ac1af1eef53bd",
+      "owner": "原下载/库发布事务",
+      "reason": "区分正常receipt下载摘要与旧v1当前内容迁移，完整性沿原复制流、metadata CAS与租约执行；普通播放不重核历史目录，不扩大账号或发布验收。",
+      "decision": "docs/development/validation-simplification-plan.md#p7下载与旧目录迁移直接消费当前结果"
+    },
+    {
+      "section": "bodies",
+      "path": "docs/development/validation-simplification-plan.md",
+      "before": "74234e98afe7498fb5daf1f36ac2d78acc339464f950703b8c019892f982b90b",
+      "after": "c3cdd1a91db53198594290f570c787711424b896e875ad773368d113e7a27268",
+      "owner": "全仓校验与链路精简",
+      "reason": "按用户指定范围登记唯一现役精简方案及当前实际正文预算；目标/数据流/失败/退出/覆盖和验证边界在同一权威维护，不以历史结算或门数代表完成。",
+      "decision": "docs/development/validation-simplification-plan.md#审查方法与完成条件"
     },
     {
       "section": "bodies",
       "path": "docs/development/wallpaper-startup-optimization-plan.md",
-      "before": "74234e98afe7498fb5daf1f36ac2d78acc339464f950703b8c019892f982b90b",
-      "after": "85095be2b1e4271568fa2a4b5c93c1760f595f03ba899b5cf774a6c643023c43",
-      "owner": "scene-web-startup-design",
-      "reason": "用户要求完整启动改进方案并修订旧合同；登记专项、资源/生命周期边界与旧专题保留归档，未声明产品收益。",
+      "before": "85095be2b1e4271568fa2a4b5c93c1760f595f03ba899b5cf774a6c643023c43",
+      "after": "74234e98afe7498fb5daf1f36ac2d78acc339464f950703b8c019892f982b90b",
+      "owner": "旧启动专项退役",
+      "reason": "已结算正文移入唯一历史，原路径仅保导航和永久锚点，撤去现役正文预算；不从历史重开任务或STOP。",
       "decision": "docs/development/wallpaper-startup-optimization-plan.md#decision"
     },
     {
       "section": "bodies",
+      "path": "docs/scene/architecture/runtime-architecture.md",
+      "before": "8f6909dc9bee4b7b6af671329aec0e0863476dba38ecb70046929dc4ddb05146",
+      "after": "4f9eb7fc04d43e36f36d64f34dd3bb8f40afbd6e8179212138d9ef6380785bf3",
+      "owner": "Scene模型准备与运行架构",
+      "reason": "替换已退役MDL metadata全扫说法，记录原SourceFacts一次读取/解析与短生命周期PreparedSource交接；原解析/局部失败和GPU职责保持，不预支视觉或性能结论。",
+      "decision": "docs/development/validation-simplification-plan.md#mdl-一次读取与解析"
+    },
+    {
+      "section": "bodies",
+      "path": "docs/scene/architecture/runtime-as-built-map.md",
+      "before": "c67828ee5b8bb077f95a301262d941a85399d77d2eba411ea07088f73716772a",
+      "after": "e9157f09976a8c38b9cd73c24d1af0046a1c077df1742329a8c790cdca06654c",
+      "owner": "Scene现役源码职责导航",
+      "reason": "用当前来源挂载、引用闭包、模型/字体与快照消费职责替换历史认证和重复准备描述；本次按实际正文收紧此前未提交预算，不重授旧运行资格。",
+      "decision": "docs/development/validation-simplification-plan.md#已证问题与裁决"
+    },
+    {
+      "section": "bodies",
       "path": "docs/scene/architecture/scene-launch-responsiveness-contract.md",
-      "before": "1470cf354aef9fba51f50530aae5e76e6f7f578f860dad5a330f246f5e6b9a1e",
-      "after": "2a0fcc69f23e53f3225b08a7f224fd3176b8ca25c1faa217c284e1c8cbe8a737",
-      "owner": "scene-web-startup-design",
-      "reason": "用户要求完整启动改进方案并修订旧合同；登记专项、资源/生命周期边界与旧专题保留归档，未声明产品收益。",
+      "before": "2a0fcc69f23e53f3225b08a7f224fd3176b8ca25c1faa217c284e1c8cbe8a737",
+      "after": "d5c7881941947003560d2a23975491d1f8592029617796b932186f642af89eff",
+      "owner": "Scene启动/资源生命周期合同",
+      "reason": "合并已实现来源与完整快照边界、预算下未来读取、同load字体复用和Sound入口一次身份；退出历史摘要许可与重复校验说法，保FD/取消/租约，不宣称跨屏字体共享或实际提速。",
+      "decision": "docs/development/validation-simplification-plan.md#下一批纹理-snapshot-完成后不重查作者文件"
+    },
+    {
+      "section": "bodies",
+      "path": "docs/scene/architecture/scene-runtime-daemon-contract.md",
+      "before": "b8a77268253eebfe53257a56bc26eaf2cd927fa947ccea0b98d9cfda84047072",
+      "after": "32aaea72d248b271d42224c87843b090e6f10cf8232d486f189b869f45a124de",
+      "owner": "Scene daemon生命周期合同",
+      "reason": "保留原短时重入的请求/空Host/实际退出与租约边界，旧专项过程只导航单一历史；合同扩展不替代当前构建或运行复验。",
+      "decision": "docs/development/wallpaper-startup-optimization-plan.md#decision"
+    },
+    {
+      "section": "bodies",
+      "path": "docs/scene/architecture/scene-startup-pipeline.md",
+      "before": "52d4cc5fc35c4d6e657bede1638c8840b370809f2315a5ebd5e9edcbca00d6e0",
+      "after": "66206339c9d092feb20c7f5b2632f8fc1707e380591fd49cc7f33b394a580c25",
+      "owner": "Scene启动接线导航",
+      "reason": "将旧完整过程归档，保当前来源/准备/首帧/退休接线与现役合同入口；按实际正文收紧未提交预算，验证状态指向唯一精简方案。",
+      "decision": "docs/development/validation-simplification-plan.md#已证问题与裁决"
+    },
+    {
+      "section": "bodies",
+      "path": "docs/scene/capabilities/runtime-evidence-current.md",
+      "before": "fdbb9dc95d5afc06eae596628a9e0164b1c468d9f7016d758faa7ce5d111d723",
+      "after": "23a8d5af4ba73e720e84e911b699ea62736371765b6128c89cda5a6567ac0042",
+      "owner": "Scene运行证据索引",
+      "reason": "仅补旧冷暖专项单一历史与当前职责入口，不重资格历史矩阵、性能或正式发布；保原证据等级及档案边界。",
       "decision": "docs/development/wallpaper-startup-optimization-plan.md#decision"
     },
     {
       "section": "bodies",
       "path": "docs/scene/roadmap/performance-convergence-card.md",
-      "before": "b7b3a7a15a988f188c299621d8db56c2ca7b9548c4995eccd543ce79e1a3e342",
-      "after": "1eaf31cac58289626d7639d442d7ca145ec9d29e6f322e6d2af08a306e517047",
-      "owner": "scene-web-startup-design",
-      "reason": "用户要求完整启动改进方案并修订旧合同；登记专项、资源/生命周期边界与旧专题保留归档，未声明产品收益。",
+      "before": "1eaf31cac58289626d7639d442d7ca145ec9d29e6f322e6d2af08a306e517047",
+      "after": "fea8d0e8f7875d4e629081a03120fceaa0a2fccf7029b29f4d6506dfdc7aa78b",
+      "owner": "Scene性能路线导航",
+      "reason": "用旧专项已结算及其未覆盖范围替换继续实施的旧入口，保当前路线职责；文档指针增长不授新性能结论。",
       "decision": "docs/development/wallpaper-startup-optimization-plan.md#decision"
     },
     {
       "section": "bodies",
-      "path": "docs/web/cold-descriptor-parse-offload-design.md",
-      "before": "f9efb2d91ac339b5cd447b2ff13d61463736475e11ab4ff1e3675950d592c99c",
-      "after": "301268fadbe6fe0a1f24e0cfe3331f21ac4765d43e4ace724b9b9d7bc72884ab",
-      "owner": "scene-web-startup-design",
-      "reason": "用户要求完整启动改进方案并修订旧合同；登记专项、资源/生命周期边界与旧专题保留归档，未声明产品收益。",
-      "decision": "docs/development/wallpaper-startup-optimization-plan.md#decision"
+      "path": "docs/web/current-state.md",
+      "before": "ca6e48eaa48baad4d38179e9d0121297becd0a1564075b24e0af9310dd0329f8",
+      "after": "bedb7ae020ad3bb8a55c4b17af3ec49673df945b2f642e32d400bb2de2bfe8fc",
+      "owner": "Web当前状态与证据导航",
+      "reason": "区分历史专项结果与当前单FD资源、目录/hosts/datastore及请求生命周期职责，保原限定证据和未覆盖项，不复制专项队列。",
+      "decision": "docs/development/validation-simplification-plan.md#当前验证边界2026-10-26"
     },
     {
       "section": "bodies",
       "path": "docs/web/dedicated-host-process-design.md",
-      "before": "b4131212ddf0c2e5aecba9c3695c3310d676414b3882f0a3fd9b49bddba1ae99",
-      "after": "f2403aa66064e2b12c0dedc9e9ddc9dfcd962823187bc544db93112d02e7c17e",
-      "owner": "scene-web-startup-design",
-      "reason": "用户要求完整启动改进方案并修订旧合同；登记专项、资源/生命周期边界与旧专题保留归档，未声明产品收益。",
-      "decision": "docs/development/wallpaper-startup-optimization-plan.md#decision"
-    },
-    {
-      "section": "bodies",
-      "path": "docs/web/web-project-json-runtime-model.md",
-      "before": "aa24fefaa2a99d12f04ad2e8ebc77c051c89f4943c19a1b2f51b299fc4e40285",
-      "after": "d1dd80e86c72c756160120a9a9ac68793e3a706d018bf23c620fa25675a2c598",
-      "owner": "scene-web-startup-design",
-      "reason": "用户要求完整启动改进方案并修订旧合同；登记专项、资源/生命周期边界与旧专题保留归档，未声明产品收益。",
+      "before": "f2403aa66064e2b12c0dedc9e9ddc9dfcd962823187bc544db93112d02e7c17e",
+      "after": "a3ca3489e93d45f5b4eb0fd6b8333f09743b3e07f733391fac9849099c305ee1",
+      "owner": "Web宿主与切换事务",
+      "reason": "将未采用退休WebView/worker复用改为历史STOP指针，保Scene短时重入互斥与真实可见提交职责；不把设计条件写成实施或运行验收。",
       "decision": "docs/development/wallpaper-startup-optimization-plan.md#decision"
     },
     {
       "section": "archives",
-      "path": "docs/scene/history/scene-startup-pipeline-before-optimization-2026-10-23.md",
+      "path": "docs/history/cross-topic/wallpaper-startup-optimization-completed-2026-10-25.md",
       "before": "74234e98afe7498fb5daf1f36ac2d78acc339464f950703b8c019892f982b90b",
-      "after": "3ed063113094c4cd8114c1c82b50edd9e3c1e8cea31242645d1b1fd401d94f7a",
-      "owner": "scene-web-startup-design",
-      "reason": "用户要求完整启动改进方案并修订旧合同；登记专项、资源/生命周期边界与旧专题保留归档，未声明产品收益。",
+      "after": "37c63274d434e8a3141286496ad0ab73134b6e6b1191065d46fa090fab6e57d3",
+      "owner": "旧启动专项档案保留",
+      "reason": "登记唯一原专项保存载荷、原文身份与六个永久锚点；当前纠正方案另有现役权威，原失败/STOP及未覆盖结果不被导航复核改写。",
       "decision": "docs/development/wallpaper-startup-optimization-plan.md#decision"
     },
     {
       "section": "bodies",
-      "path": "docs/scene/architecture/shader-metadata-failure-contract.md",
-      "before": "12753b912d18c77d1d7b55894fa375d387ef075308caf75c6758c521d4c6385a",
-      "after": "38c0f6fa6168c44f642eabfef4b3001e053ed45abf72ff493ef34ad97461c410",
-      "owner": "scene-declared-texture-rgb-graph",
-      "reason": "记录声明纹理与共用RGB事实合同，退出358已闭用途首门，保留未覆盖范围；过程与失败归历史。",
-      "decision": "docs/scene/history/declared-texture-rgb-graph-2026-10-24.md#declared-texture-rgb-graph-20261024"
-    },
-    {
-      "section": "bodies",
-      "path": "docs/scene/roadmap/scene-open-breakpoint-queue.md",
-      "before": "ac0dd2405c73d7bedbee7aa4e53d3277e08a1a89fe23683547ba3c545e82f06e",
-      "after": "f694dc8514390755e883c27e20f0f14ade8c9d67349619475b093367a9209676",
-      "owner": "scene-declared-texture-rgb-graph",
-      "reason": "记录声明纹理与共用RGB事实合同，退出358已闭用途首门，保留未覆盖范围；过程与失败归历史。",
-      "decision": "docs/scene/history/declared-texture-rgb-graph-2026-10-24.md#declared-texture-rgb-graph-20261024"
-    },
-    {
-      "section": "bodies",
-      "path": "docs/scene/capabilities/scene-sample-acceptance-ledger.md",
-      "before": "ef9667543224003a1bb3a66a700318657b459e5dc81492d584fb33e7208928b1",
-      "after": "d758f5479e4aecf961348407a51f34c755c4e5cb71296f64de93c22102228163",
-      "owner": "scene-declared-texture-rgb-graph",
-      "reason": "记录声明纹理与共用RGB事实合同，退出358已闭用途首门，保留未覆盖范围；过程与失败归历史。",
-      "decision": "docs/scene/history/declared-texture-rgb-graph-2026-10-24.md#declared-texture-rgb-graph-20261024"
+      "path": "docs/scene/capabilities/advanced-object-coverage.md",
+      "before": "2489c7eaaeaeaf7bc4d2e077ab2da74f1a482608906f40824e43e8a519342306",
+      "after": "8a0a7f7d0be8c438e771e10bfa0dfbe42451b221d56e46da495adf8ef994a4b6",
+      "owner": "Scene 当前能力与资源读取导航",
+      "reason": "以当前单一 Root 读取合同替换已退役解包路径导航；P8 运行仍待验，不沿用旧提取互斥数据作现链性能证明。",
+      "decision": "docs/development/validation-simplification-plan.md#审查方法与完成条件"
     }
   ]
 }

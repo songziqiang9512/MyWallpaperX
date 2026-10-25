@@ -147,101 +147,112 @@ nonisolated struct SceneUserPropertyTextureLoader {
                 reportLines: []
             )
         }
-        let loader = SceneTextureLoader(
-            uploadCommandQueue: textureUploadCommandQueue,
-            decodeCacheBudget: textureDecodeCacheBudget
-        )
-        var textures: [String: MTLTexture] = [:]
-        var textureCandidates: [String: SceneTextureCandidate] = [:]
-        var videoDeclarations: [String: SceneUserPropertyVideoDeclaration] = [:]
-        var providerStates: [
-            SceneUserPropertyTextureIdentity: SceneTextureProviderState
-        ] = [:]
-        for identity in requestedIdentities {
-            providerStates[identity] = urlsByPropertyKey[identity.propertyKey] == nil
-                ? .absent : .unavailable
-        }
-        var reportLines = ["sceneUserTextureRequestedCount: \(urlsByPropertyKey.count)"]
-        for key in urlsByPropertyKey.keys.sorted() {
-            guard !isCancelled(), let url = urlsByPropertyKey[key] else { break }
-            let purposes = Set(requestedIdentities.filter { $0.propertyKey == key }.map(\.purpose))
-                .union([.premultipliedColor])
-            for purpose in purposes {
-                if let identity = SceneUserPropertyTextureIdentity(propertyKey: key, purpose: purpose) {
-                    providerStates[identity] = .unavailable
+        return withoutActuallyEscaping(isCancelled) { isCancelled in
+            let checkCancellation: () throws -> Void = {
+                if isCancelled() { throw CancellationError() }
+            }
+            let loader = SceneTextureLoader(
+                uploadCommandQueue: textureUploadCommandQueue,
+                decodeCacheBudget: textureDecodeCacheBudget
+            )
+            var textures: [String: MTLTexture] = [:]
+            var textureCandidates: [String: SceneTextureCandidate] = [:]
+            var videoDeclarations: [String: SceneUserPropertyVideoDeclaration] = [:]
+            var providerStates: [
+                SceneUserPropertyTextureIdentity: SceneTextureProviderState
+            ] = [:]
+            for identity in requestedIdentities {
+                providerStates[identity] = urlsByPropertyKey[identity.propertyKey] == nil
+                    ? .absent : .unavailable
+            }
+            var reportLines = ["sceneUserTextureRequestedCount: \(urlsByPropertyKey.count)"]
+            for key in urlsByPropertyKey.keys.sorted() {
+                guard !isCancelled(), let url = urlsByPropertyKey[key] else { break }
+                let purposes = Set(requestedIdentities.filter { $0.propertyKey == key }.map(\.purpose))
+                    .union([.premultipliedColor])
+                for purpose in purposes {
+                    if let identity = SceneUserPropertyTextureIdentity(propertyKey: key, purpose: purpose) {
+                        providerStates[identity] = .unavailable
+                    }
                 }
-            }
-            guard Self.supports(url: url) else {
-                reportLines.append("scene user texture \(key): unsupported \(url.pathExtension.lowercased())")
-                continue
-            }
-            if Self.isVideo(url: url) {
-                guard purposes == [.premultipliedColor], let videoCacheDirectory,
-                      let identity = SceneUserPropertyTextureIdentity(propertyKey: key, purpose: .premultipliedColor),
-                      let source = loader.sourceKey(for: url) else {
-                    reportLines.append("scene user texture \(key): video-purpose-or-source-unavailable")
+                guard Self.supports(url: url) else {
+                    reportLines.append("scene user texture \(key): unsupported \(url.pathExtension.lowercased())")
+                    continue
+                }
+                if Self.isVideo(url: url) {
+                    do {
+                        guard purposes == [.premultipliedColor], let videoCacheDirectory,
+                              let identity = SceneUserPropertyTextureIdentity(propertyKey: key, purpose: .premultipliedColor),
+                              let source = try loader.sourceKey(for: .externalFile(url), checkCancellation: checkCancellation) else {
+                            reportLines.append("scene user texture \(key): video-purpose-or-source-unavailable")
+                            continue
+                        }
+                        let file = try SceneVideoOwnedFile.snapshot(
+                            from: url, cacheDirectory: videoCacheDirectory, isCancelled: isCancelled,
+                            isSourceCurrent: { try loader.sourceKey(for: .externalFile(url)) == source }
+                        )
+                        guard !isCancelled(), let frozenSource = try loader.sourceKey(for: .externalFile(file.url),
+                            checkCancellation: checkCancellation) else { continue }
+                        videoDeclarations[key] = .init(identity: identity, file: file, source: frozenSource)
+                        reportLines.append("scene user texture \(key): video-prepared-awaiting-first-frame")
+                    } catch {
+                        reportLines.append("scene user texture \(key): video-prepare-failed (\(error))")
+                    }
                     continue
                 }
                 do {
-                    let file = try SceneVideoOwnedFile.snapshot(
-                        from: url, cacheDirectory: videoCacheDirectory, isCancelled: isCancelled,
-                        isSourceCurrent: { loader.sourceKey(for: url) == source }
-                    )
-                    guard !isCancelled(), let frozenSource = loader.sourceKey(for: file.url) else { continue }
-                    videoDeclarations[key] = .init(identity: identity, file: file, source: frozenSource)
-                    reportLines.append("scene user texture \(key): video-prepared-awaiting-first-frame")
-                } catch {
-                    reportLines.append("scene user texture \(key): video-prepare-failed (\(error))")
-                }
-                continue
-            }
-            let outcomes = loader.loadDirectImageCandidates(
-                from: url, purposes: purposes, device: device, isCancelled: isCancelled
-            )
-            for purpose in purposes.sorted(by: { $0.reportToken < $1.reportToken }) {
-                guard !isCancelled(), let outcome = outcomes[purpose] else { break }
-                switch outcome {
-                case let .loaded(candidate):
-                    if purpose == .premultipliedColor {
-                        textures[key] = candidate.texture
-                        textureCandidates[key] = candidate
+                    let outcomes = try loader.loadDirectImageCandidates(
+                        from: .externalFile(url), purposes: purposes, device: device,
+                        isCancelled: isCancelled, checkCancellation: checkCancellation)
+                    for purpose in purposes.sorted(by: { $0.reportToken < $1.reportToken }) {
+                        guard !isCancelled(), let outcome = outcomes[purpose] else { break }
+                        switch outcome {
+                        case let .loaded(candidate):
+                            if purpose == .premultipliedColor {
+                                textures[key] = candidate.texture
+                                textureCandidates[key] = candidate
+                            }
+                            publish(candidate, propertyKey: key, contentGeneration: contentGeneration,
+                                    into: &providerStates)
+                            reportLines.append("scene user texture \(key) \(purpose.reportToken): OK "
+                                + "\(url.lastPathComponent) -> \(candidate.texture.width)x\(candidate.texture.height)")
+                        case let .failed(outcome):
+                            reportLines.append("scene user texture \(key) \(purpose.reportToken): "
+                                + failureDescription(outcome))
+                        }
                     }
-                    publish(candidate, propertyKey: key, contentGeneration: contentGeneration,
-                            into: &providerStates)
-                    reportLines.append("scene user texture \(key) \(purpose.reportToken): OK "
-                        + "\(url.lastPathComponent) -> \(candidate.texture.width)x\(candidate.texture.height)")
-                case let .failed(outcome):
-                    reportLines.append("scene user texture \(key) \(purpose.reportToken): "
-                        + failureDescription(outcome))
+                } catch {
+                    reportLines.append("scene user texture \(key): resource-read-failed (\(error))")
                 }
             }
-        }
-        reportLines.append("sceneUserTextureLoadedCount: \(textures.count)")
-        let readyPurposeCount: (SceneTextureLoadPurpose) -> Int = { purpose in
-            providerStates.reduce(into: 0) { count, pair in
-                guard pair.key.purpose == purpose,
-                      case .ready = pair.value else { return }
-                count += 1
+            reportLines.append("sceneUserTextureLoadedCount: \(textures.count)")
+            let readyPurposeCount: (SceneTextureLoadPurpose) -> Int = { purpose in
+                providerStates.reduce(into: 0) { count, pair in
+                    guard pair.key.purpose == purpose,
+                          case .ready = pair.value else { return }
+                    count += 1
+                }
             }
+            reportLines.append(
+                "sceneUserTextureStraightAlbedoLoadedCount: \(readyPurposeCount(.straightAlbedo))"
+            )
+            reportLines.append(
+                "sceneUserTexturePreservedLoadedCount: \(readyPurposeCount(.preservedChannels))"
+            )
+            return SceneUserPropertyTextureLoadResult(
+                textures: textures,
+                textureCandidates: textureCandidates,
+                providerStates: providerStates,
+                videoDeclarations: videoDeclarations,
+                reportLines: reportLines
+            )
         }
-        reportLines.append(
-            "sceneUserTextureStraightAlbedoLoadedCount: \(readyPurposeCount(.straightAlbedo))"
-        )
-        reportLines.append(
-            "sceneUserTexturePreservedLoadedCount: \(readyPurposeCount(.preservedChannels))"
-        )
-        return SceneUserPropertyTextureLoadResult(
-            textures: textures,
-            textureCandidates: textureCandidates,
-            providerStates: providerStates,
-            videoDeclarations: videoDeclarations,
-            reportLines: reportLines
-        )
     }
 
     private func failureDescription(_ outcome: SceneTextureLoadOutcome) -> String {
         switch outcome {
         case let .decodeFailed(message): "decode failed (\(message))"
+        case let .resourceReadFailed(error): "resource read failed (\(error))"
         case let .textureAllocationFailed(width, height): "allocation failed at \(width)x\(height)"
         case .unsupportedFormat, .unsupportedTexFormat, .texNoEmbeddedImage, .texContainsVideoPayload:
             "unsupported image payload"

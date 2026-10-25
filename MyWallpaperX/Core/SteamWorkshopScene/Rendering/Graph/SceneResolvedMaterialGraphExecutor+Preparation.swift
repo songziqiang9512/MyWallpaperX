@@ -197,10 +197,11 @@ extension SceneResolvedMaterialGraphExecutor {
                   ) else { return .graphPublicationRejected }
             dependencyFrame = replacement
         }
-        let nodes = Dictionary(uniqueKeysWithValues: graph.nodes.map {
+        let preparedExecution = lease.table.capabilityID == nil ? nil : lease.table.preparedExecution
+        let nodes = preparedExecution?.nodesByIndex ?? Dictionary(uniqueKeysWithValues: graph.nodes.map {
             ($0.nodeIndex, $0)
         })
-        let pairNodes = Dictionary(uniqueKeysWithValues: pairStep.nodes.map {
+        let pairNodes = preparedExecution?.pairNodesByIndex ?? Dictionary(uniqueKeysWithValues: pairStep.nodes.map {
             ($0.nodeIndex, $0)
         })
         var visited = Set<Int>()
@@ -249,6 +250,7 @@ extension SceneResolvedMaterialGraphExecutor {
                       validate(
                           bindings: bindings,
                           node: node,
+                          preparedBindings: preparedExecution?.framebufferBindingsByNode[nodeIndex],
                           pair: pair,
                           publications: publications
                       ), let target = materialTarget(
@@ -596,6 +598,7 @@ extension SceneResolvedMaterialGraphExecutor {
                     targetResource: targetResource,
                     nodes: nodes,
                     pairNodes: pairNodes,
+                    commandOrdinal: preparedExecution?.commandOrdinalsByNode[nodeIndex],
                     visited: &visited,
                     publications: publications
                 ), let sourcePublication = publications[source],
@@ -627,6 +630,7 @@ extension SceneResolvedMaterialGraphExecutor {
                     targetResource: targetResource,
                     nodes: nodes,
                     pairNodes: pairNodes,
+                    commandOrdinal: preparedExecution?.commandOrdinalsByNode[nodeIndex],
                     visited: &visited,
                     publications: publications
                 ), let sourcePublication = publications[source],
@@ -669,10 +673,11 @@ extension SceneResolvedMaterialGraphExecutor {
     private func validate(
         bindings: [State.MaterialBinding],
         node: Graph.Node,
+        preparedBindings: [Graph.Binding]?,
         pair: PairAtom,
         publications: [Graph.TextureIdentity: SceneFrameTextureResource]
     ) -> Bool {
-        let expected = node.bindings.filter { $0.texture.kind == .framebuffer }
+        let expected = preparedBindings ?? node.bindings.filter { $0.texture.kind == .framebuffer }
             .sorted { ($0.slot ?? Int.max) < ($1.slot ?? Int.max) }
         guard expected.count == bindings.count else { return false }
         for (authored, reduced) in zip(expected, bindings) {
@@ -727,6 +732,7 @@ extension SceneResolvedMaterialGraphExecutor {
         targetResource: State.VersionedResource,
         nodes: [Int: Graph.Node],
         pairNodes: [Int: Pair.NodeStep],
+        commandOrdinal: Int?,
         visited: inout Set<Int>,
         publications: [Graph.TextureIdentity: SceneFrameTextureResource]
     ) -> Bool {
@@ -749,7 +755,7 @@ extension SceneResolvedMaterialGraphExecutor {
         } else {
             guard targetResource.contentGeneration > 0 else { return false }
         }
-        let commandsBefore = nodes.values.filter {
+        let commandsBefore = commandOrdinal ?? nodes.values.filter {
             $0.nodeIndex < nodeIndex && ($0.kind == .copy || $0.kind == .swap)
         }.count
         return ordinal == commandsBefore

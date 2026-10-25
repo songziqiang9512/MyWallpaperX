@@ -34,6 +34,12 @@ class WebResponseTransformerTests(unittest.TestCase):
             r'''
             import Foundation
 
+            var responseUTF8Decodes = 0
+            func observedResponseUTF8Decode(_ data: Data) -> String? {
+                responseUTF8Decodes += 1
+                return String(data: data, encoding: .utf8)
+            }
+
             func expect(_ condition: @autoclosure () -> Bool, _ message: String) {
                 guard condition() else {
                     FileHandle.standardError.write(Data("FAIL: \(message)\n".utf8))
@@ -168,6 +174,21 @@ class WebResponseTransformerTests(unittest.TestCase):
             expect(WebWallpaperResponseTransformer.supportsTransformation(for: URL(fileURLWithPath: "/tmp/site.css")), "CSS should be transformable")
             expect(!WebWallpaperResponseTransformer.supportsTransformation(for: URL(fileURLWithPath: "/tmp/video.mp4")), "binary media must not be transformed")
 
+            let beforeOpaqueResources = responseUTF8Decodes
+            for fileExtension in ["js", "json", "svg", "png", "bin"] {
+                let url = URL(fileURLWithPath: "/fixture/resource." + fileExtension)
+                for original in [Data(googleLink.utf8), Data([0xff, 0x00, 0x80])] {
+                    expect(WebWallpaperResponseTransformer.transform(original, fileURL: url) == original,
+                           "opaque resource bytes must pass through unchanged")
+                }
+            }
+            expect(responseUTF8Decodes == beforeOpaqueResources, "non-transformable resources must not be UTF8 decoded")
+            let transformedHTML = WebWallpaperResponseTransformer.transform(Data(googleLink.utf8), fileURL: URL(fileURLWithPath: "/fixture/index.html"))
+            expect(String(data: transformedHTML, encoding: .utf8) == transformedGoogleLink, "HTML response retains real font transformation")
+            let transformedCSSResponse = WebWallpaperResponseTransformer.transform(Data(screenQualifiedImport.utf8), fileURL: URL(fileURLWithPath: "/fixture/site.css"))
+            expect(String(data: transformedCSSResponse, encoding: .utf8) == transformedScreenQualified, "CSS response retains authored qualifier semantics")
+            expect(responseUTF8Decodes == beforeOpaqueResources + 2, "only transformable response bodies are decoded")
+
             // mwx-local resolve 百分号合同：三条生产路径（入口构造、
             // randomFile/__absolute__ 逐段编码、页面 encodeURIComponent）都
             // 恰好编码一次，自定义 scheme 的 URL.path 恰好解码一次——resolve
@@ -218,8 +239,18 @@ class WebResponseTransformerTests(unittest.TestCase):
             grant = source_block((ROOT / "MyWallpaperX/Core/SteamWorkshopWeb/Host/WebWallpaperHostTypes.swift").read_text(),
                                  "struct WebWallpaperResourceGrant")
             harness_path.write_text("import Foundation\n" + grant + "\n" + harness, encoding="utf-8")
+            # Observe the sole production UTF8 conversion without adding any
+            # product diagnostic state. All control flow and transforms stay real.
+            sources = list(TRANSFORMER_SOURCES)
+            transformer = next(path for path in sources if path.name == "WebWallpaperResponseTransformer.swift")
+            instrumented = Path(directory) / transformer.name
+            production = transformer.read_text()
+            conversion = "String(data: data, encoding: .utf8)"
+            self.assertEqual(production.count(conversion), 1)
+            instrumented.write_text(production.replace(conversion, "observedResponseUTF8Decode(data)"))
+            sources[sources.index(transformer)] = instrumented
             subprocess.run(
-                [swiftc, *(str(path) for path in TRANSFORMER_SOURCES), str(harness_path), "-o", str(binary_path)],
+                [swiftc, *(str(path) for path in sources), str(harness_path), "-o", str(binary_path)],
                 cwd=ROOT,
                 check=True,
             )

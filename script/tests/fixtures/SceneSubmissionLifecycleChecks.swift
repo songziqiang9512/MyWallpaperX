@@ -323,6 +323,32 @@ enum SceneSubmissionLifecycleChecks {
                 && failed.historyState == .reused
         }
 
+        do {
+            let coordinator = makeCoordinator(device)
+            let stage = makeObservationTransition(device: device, nodeCount: 513)
+            let prepared = SceneResolvedMaterialGraphExecutor.PreparedGraph(
+                stages: [stage], finalResource: stage.effectOutputResource,
+                finalTexture: stage.effectOutputResource.publication.texture, historyTokensByEffect: [:])
+            let pin = SceneGraphRenderTargetResidencyPin(
+                purpose: .history(effect, [.init(rawValue: "retained-history")]), generation: 3)
+            let tail = makeTail(device: device, token: "retained-history", generation: 3, pin: pin)
+            coordinator.committedTails = [effect: tail]
+            let commit = makeCommit(generation: 3, historyPin: pin)
+            let ledger = makeLedger(coordinator: coordinator, identity: 9,
+                commandBuffer: queue.makeCommandBuffer()!, prepared: prepared, commit: commit,
+                blueprint: .init(states: [effect: stage.transition.nextState], resources: [effect: [:]],
+                    mappingGenerations: [effect: 9]),
+                candidate: [effect: tail], phase: .sealed, consumed: true)
+            let emission = coordinator.successObservationsLocked(for: ledger)
+            results["observationCapacityCannotChangeCommittedHistory"] = emission.observations.isEmpty
+                && !emission.diagnostics.isEmpty && pin.active
+                && commit.submissionPin.active
+                && coordinator.committedTails[effect]?.state == tail.state
+                && coordinator.committedTails[effect]?.historyPin === pin
+                && coordinator.frameFailures == 0
+            commit.releaseAll()
+        }
+
     }
 
     static func ticketsPinsAndCompletionOrder(

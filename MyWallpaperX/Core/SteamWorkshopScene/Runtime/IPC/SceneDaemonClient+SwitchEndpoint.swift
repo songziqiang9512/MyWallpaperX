@@ -1,10 +1,40 @@
 import Foundation
 
+#if DEBUG
+nonisolated struct SceneDaemonStartupObservation: Sendable {
+    enum Phase: String, Sendable { case prepared, parentFinalized }
+    let phase: Phase
+    let ticketID: UUID
+    let intentEpoch: UInt64
+    let requestID: UUID
+    let executionID: UUID
+    let transportGeneration: UInt64
+    let daemonPID: Int32?
+    let uptimeMicros: UInt64
+}
+
+/// Parent call boundaries plus optional values from this transport's hello.
+nonisolated struct SceneDaemonStartupPrefixObservation: Sendable {
+    enum Phase: String, Sendable {
+        case preparationReceived, processStartBegan, processStartReturned
+        case helloObserved, loadEnqueueAttempted
+    }
+    let phase: Phase
+    let ticketID: UUID
+    let intentEpoch: UInt64
+    let requestID: UUID?
+    let transportGeneration: UInt64
+    let daemonPID: Int32?
+    let uptimeMicros: UInt64
+    var childStartupUptimes: [String: UInt64]? = nil
+}
+#endif
+
 @MainActor
 extension SceneDaemonClient {
     struct QueuedSwitchPreparation {
         let request: ScenePlaybackLoadRequest
-        let ticket: PlaybackSwitchTicket
+        let ticket: PlaybackSwitchTicket?
         let resourceLifetime: PlaybackResourceLifetime?
     }
     struct CommittedSwitchRecovery {
@@ -38,22 +68,61 @@ extension SceneDaemonClient {
         let requestID: UUID?
         let transport: DaemonProcessTransport
         let requiresCancellation: Bool
+        let requiresRequestRetired: Bool
+        let resourceLifetimes: [PlaybackResourceLifetime]
         let completion: (Bool) -> Void
         var deadline: DispatchWorkItem?
 
         init(generation: UInt64, requestID: UUID?, transport: DaemonProcessTransport,
-             requiresCancellation: Bool, completion: @escaping (Bool) -> Void) {
+             requiresCancellation: Bool, requiresRequestRetired: Bool = false,
+             resourceLifetimes: [PlaybackResourceLifetime] = [], completion: @escaping (Bool) -> Void) {
             self.generation = generation
             self.requestID = requestID
             self.transport = transport
             self.requiresCancellation = requiresCancellation
+            self.requiresRequestRetired = requiresRequestRetired
+            self.resourceLifetimes = resourceLifetimes
             self.completion = completion
         }
     }
 
+    /// One deadline for the existing transport, never a second process slot.
+    final class IdleTransport {
+        let generation: UInt64
+        let transport: DaemonProcessTransport
+        var deadline: DispatchWorkItem?
+
+        init(generation: UInt64, transport: DaemonProcessTransport) {
+            self.generation = generation
+            self.transport = transport
+        }
+    }
+
+    var hasRequestRetirementControl: Bool {
+        switchControls.values.contains {
+            $0.requiresRequestRetired && $0.generation == sessionGeneration && $0.transport === transport
+        }
+    }
+
+    var hasRetainedOrRetiringTransport: Bool {
+        idleTransport != nil || hasRequestRetirementControl || !retiringTransports.isEmpty
+    }
+
+    /// A new Scene may adopt this transport. Other intents revoke only empty
+    /// retention; the committed Scene remains available for failed-switch rollback.
+    func invalidateRetainedTransport(for runtime: WallpaperRuntimeKind?) {
+        guard runtime != .scene, idleTransport != nil || hasRequestRetirementControl else { return }
+        stop()
+    }
+
+    func discardIdleTransport() {
+        idleTransport?.deadline?.cancel()
+        idleTransport = nil
+    }
+
     func prepareSwitch(_ request: ScenePlaybackLoadRequest, ticket: PlaybackSwitchTicket,
                        resourceLifetime: PlaybackResourceLifetime?) {
-        if pendingSwitchExecution?.presented == true {
+        if hasRequestRetirementControl || pendingSwitchExecution?.presented == true {
             // The product already committed this visible candidate; retiring its
             // previous output may still be in flight. A newer prepare must not
             // cancel it before the product's finalize arrives.
@@ -61,8 +130,15 @@ extension SceneDaemonClient {
                                              resourceLifetime: resourceLifetime)
             return
         }
+        // A control completion may synchronously admit a newer selection before
+        // it returns to the old queued continuation.
+        queuedSwitchPreparation = nil
+#if DEBUG
+        observeDebugStartupPrefix(.preparationReceived, ticket: ticket)
+#endif
         flushDeferredDisplayConfigurationUpdate()
-        retainResourceLifetime(resourceLifetime, rootURL: request.rootURL, recordID: request.recordID)
+        retainResourceLifetime(resourceLifetime, rootURL: request.rootURL, recordID: request.recordID,
+                               source: request.source)
         startLaunch(request, ticket: ticket)
     }
 
@@ -131,10 +207,13 @@ extension SceneDaemonClient {
                 guard let self else { completion(false); return }
                 self.setSwitchOutputActive(execution, active: active, completion: completion)
             },
-            retire: { [weak self] completion in
+            retire: { [weak self] replacement, completion in
                 guard let self else { completion(); return }
-                self.retireSwitch(execution, completion: completion)
+                self.retireSwitch(execution, replacement: replacement, completion: completion)
             })
+#if DEBUG
+        observeDebugStartup(.prepared, execution: execution)
+#endif
         prepared(ticket, endpoint)
         return true
     }
@@ -177,18 +256,55 @@ extension SceneDaemonClient {
         pendingSwitchTicket = nil
         pendingSwitchExecution = nil
         committedSwitchRecovery = nil
+#if DEBUG
+        observeDebugStartup(.parentFinalized, execution: execution)
+#endif
         resumeDeferredTextureUpdates(recordID: activeIntent?.recordID, requestID: execution.requestID)
         flushDeferredDisplayConfigurationUpdate()
         startQueuedSwitchIfPossible()
     }
 
-    private func startQueuedSwitchIfPossible() {
-        guard pendingSwitchExecution?.presented != true, let queued = queuedSwitchPreparation else { return }
-        queuedSwitchPreparation = nil
-        prepareSwitch(queued.request, ticket: queued.ticket, resourceLifetime: queued.resourceLifetime)
+#if DEBUG
+    func observeDebugStartupPrefix(
+        _ phase: SceneDaemonStartupPrefixObservation.Phase, ticket: PlaybackSwitchTicket? = nil,
+        childStartupUptimes: [String: UInt64]? = nil
+    ) {
+        guard let observer = debugStartupPrefixObserver,
+              let ticket = ticket ?? pendingSwitchTicket else { return }
+        observer(.init(phase: phase, ticketID: ticket.id, intentEpoch: ticket.epoch,
+            requestID: phase == .loadEnqueueAttempted ? pendingRequestID : nil,
+            transportGeneration: sessionGeneration, daemonPID: debugProcessIdentifier,
+            uptimeMicros: UInt64(ProcessInfo.processInfo.systemUptime * 1_000_000),
+            childStartupUptimes: childStartupUptimes))
     }
 
-    private func retireSwitch(_ execution: SwitchExecution, completion: @escaping () -> Void) {
+    private func observeDebugStartup(
+        _ phase: SceneDaemonStartupObservation.Phase, execution: SwitchExecution
+    ) {
+        guard let observer = debugStartupObserver else { return }
+        observer(.init(phase: phase, ticketID: execution.ticket.id,
+            intentEpoch: execution.ticket.epoch, requestID: execution.requestID,
+            executionID: execution.id, transportGeneration: execution.generation,
+            daemonPID: debugProcessIdentifier,
+            uptimeMicros: UInt64(ProcessInfo.processInfo.systemUptime * 1_000_000)))
+    }
+#endif
+
+    private func startQueuedSwitchIfPossible() {
+        guard !hasRequestRetirementControl, pendingSwitchExecution?.presented != true,
+              let queued = queuedSwitchPreparation else { return }
+        queuedSwitchPreparation = nil
+        if let ticket = queued.ticket {
+            prepareSwitch(queued.request, ticket: ticket, resourceLifetime: queued.resourceLifetime)
+        } else {
+            retainResourceLifetime(queued.resourceLifetime, rootURL: queued.request.rootURL,
+                                   recordID: queued.request.recordID, source: queued.request.source)
+            startLaunch(queued.request, ticket: nil)
+        }
+    }
+
+    private func retireSwitch(_ execution: SwitchExecution, replacement: PlaybackSwitchTicket? = nil,
+                              completion: @escaping () -> Void) {
         let revokesRecovery = committedSwitchRecovery?.ticket == execution.ticket
         if revokesRecovery { committedSwitchRecovery = nil }
         if revokesRecovery, pendingSwitchTicket == execution.ticket,
@@ -221,6 +337,13 @@ extension SceneDaemonClient {
                 cancelSwitch(ticket: execution.ticket, completion: completion)
             }
         } else if pendingIntent == nil, activeSwitchExecution === execution {
+            if let replacement, replacement.id != execution.ticket.id,
+               replacement.runtime == .web || replacement.runtime == .video,
+               endpointReady, requestRetirementSchemaVersion == 1,
+               DaemonPlaybackProcessRegistry.shared.acceptsNewProcesses {
+                retireForIdleReuse(execution, completion: completion)
+                return
+            }
             let child = execution.transport
             stop()
             waitForSwitchExit(child, generation: execution.generation) { _ in completion() }
@@ -243,6 +366,58 @@ extension SceneDaemonClient {
         } else { completion() }
     }
 
+    private func retireForIdleReuse(_ execution: SwitchExecution, completion: @escaping () -> Void) {
+        let child = execution.transport
+        let generation = execution.generation
+        let lifetimes = [activeResourceLifetime?.lifetime,
+            requestResourceLifetimes[execution.requestID]].compactMap { $0 }
+        let operationID = installSwitchControl(child, generation: generation, requestID: execution.requestID,
+            requiresCancellation: true, requiresRequestRetired: true, resourceLifetimes: lifetimes) { [weak self] success in
+                guard let self else { completion(); return }
+                if success, self.transport === child, self.sessionGeneration == generation,
+                   child.isRunning, self.activeIntent == nil, self.pendingIntent == nil,
+                   DaemonPlaybackProcessRegistry.shared.acceptsNewProcesses {
+                    self.requestResourceLifetimes.removeValue(forKey: execution.requestID)
+                    let idle = IdleTransport(generation: generation, transport: child)
+                    self.idleTransport = idle
+                    let deadline = DispatchWorkItem { [weak self, weak idle] in
+                        guard let self, let idle, self.idleTransport === idle,
+                              self.transport === idle.transport, self.sessionGeneration == idle.generation,
+                              self.activeIntent == nil, self.pendingIntent == nil,
+                              self.queuedSwitchPreparation == nil else { return }
+                        self.stop()
+                    }
+                    idle.deadline = deadline
+                    DispatchQueue.main.asyncAfter(deadline: .now() + 30, execute: deadline)
+                } else if success, self.transport === child, self.sessionGeneration == generation,
+                          !DaemonPlaybackProcessRegistry.shared.acceptsNewProcesses {
+                    self.stop()
+                }
+                completion()
+                self.startQueuedSwitchIfPossible()
+            }
+        // Install the existing control before invoking any reentrant callbacks.
+        activeIntent = nil
+        activeRequestID = nil
+        activeRecordID = nil
+        activeResourceLifetime = nil
+        activeCallbackPropertyFacts = nil
+        activeSwitchTicket = nil
+        activeSwitchExecution = nil
+        committedSwitchRecovery = nil
+        latestFrameStats = nil
+        finishPendingShortcutUpdates(.superseded)
+        finishPendingTextureUpdates(.superseded)
+        failPendingFrameCaptures()
+        revokeAudioSpectrumDemand(generation: generation)
+        revokeSystemMediaDemand(generation: generation)
+        guard transport === child, sessionGeneration == generation,
+              switchControls[operationID] != nil else { return }
+        send(["v": SceneDaemonProtocol.version, "cmd": "retireOutput",
+              "requestID": execution.requestID.uuidString, "operationID": operationID.uuidString,
+              "requireRequestRetirement": true])
+    }
+
     func rememberCommittedSwitchForRecovery() {
         if pendingSwitchExecution?.presented == true,
            let request = pendingIntent, let ticket = pendingSwitchTicket {
@@ -260,7 +435,7 @@ extension SceneDaemonClient {
         pendingIntent = queued.request
         pendingSwitchTicket = queued.ticket
         retainResourceLifetime(queued.resourceLifetime, rootURL: queued.request.rootURL,
-                               recordID: queued.request.recordID)
+                               recordID: queued.request.recordID, source: queued.request.source)
     }
 
     func resumeCommittedSwitchRecoveryIfPossible(after failedTicket: PlaybackSwitchTicket?) {
@@ -306,10 +481,14 @@ extension SceneDaemonClient {
 
     private func installSwitchControl(_ child: DaemonProcessTransport, generation: UInt64,
                                       requestID: UUID?, requiresCancellation: Bool,
+                                      requiresRequestRetired: Bool = false,
+                                      resourceLifetimes: [PlaybackResourceLifetime] = [],
                                       completion: @escaping (Bool) -> Void) -> UUID {
         let id = UUID()
         let control = SwitchControl(generation: generation, requestID: requestID, transport: child,
-                                    requiresCancellation: requiresCancellation, completion: completion)
+                                    requiresCancellation: requiresCancellation,
+                                    requiresRequestRetired: requiresRequestRetired,
+                                    resourceLifetimes: resourceLifetimes, completion: completion)
         switchControls[id] = control
         let deadline = DispatchWorkItem { [weak self, weak control] in
             guard let self, let control, self.switchControls[id] === control else { return }
@@ -326,15 +505,22 @@ extension SceneDaemonClient {
         guard let raw = payload["operationID"] as? String, let id = UUID(uuidString: raw),
               let control = switchControls[id], control.generation == generation,
               let requestRaw = payload["requestID"] as? String,
-              UUID(uuidString: requestRaw) == control.requestID,
-              let accepted = payload["accepted"] as? Bool else { return }
-        if !accepted, control.requiresCancellation {
+              UUID(uuidString: requestRaw) == control.requestID else { return }
+        let accepted = control.requiresRequestRetired
+            ? SceneDaemonProtocol.boolean(payload["accepted"]) : payload["accepted"] as? Bool
+        guard let accepted else { return }
+        if control.requiresRequestRetired,
+           (transport !== control.transport || generation != sessionGeneration
+            || expectedTerminationGenerations.contains(generation)) { return }
+        let succeeded = accepted && (!control.requiresRequestRetired
+            || SceneDaemonProtocol.boolean(payload["requestRetired"]) == true)
+        if !succeeded, control.requiresCancellation {
             control.transport.terminate()
             return
         }
         switchControls.removeValue(forKey: id)
         control.deadline?.cancel()
-        control.completion(accepted)
+        control.completion(succeeded)
     }
 
     func finishSwitchControlsAfterExit(generation: UInt64) {
@@ -351,7 +537,8 @@ extension SceneDaemonClient {
     func commitPresentedScene(requestID: UUID) {
         let fallback = fallbackReplayIntent(requestID: requestID)
         if let fallback, let accepted = activeIntent, accepted.recordID == fallback.recordID,
-           accepted.rootURL.standardizedFileURL == fallback.rootURL.standardizedFileURL {
+           accepted.rootURL.standardizedFileURL == fallback.rootURL.standardizedFileURL,
+           accepted.source == fallback.source {
             activeIntent = accepted
         } else { activeIntent = fallback ?? pendingIntent }
         activeResourceLifetime = pendingResourceLifetime

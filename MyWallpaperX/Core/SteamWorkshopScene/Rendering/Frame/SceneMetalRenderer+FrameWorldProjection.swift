@@ -6,11 +6,14 @@ struct SceneMetalRendererFrameWorldProjection {
     let descriptor: SceneRenderDescriptor
     let layersByID: [Int: SceneRenderDescriptor.Layer]
     let orderedLayers: [SceneRenderDescriptor.Layer]
+    let orderedLayerIDs: [Int]
     let dynamicLayerIDs: Set<Int>
     let lightLayerIDs: [Int]
     let worldFrames: [Int: simd_float4x4]
     let utilityExecution: SceneUtilityLayerRuntimePlanner.Execution
     let preparationLayers: [SceneRenderDescriptor.Layer]?
+    let preparationLayerIDs: Set<Int>
+    let framebufferSourceLayerIDs: Set<Int>
     var imageMaterialStateLayerIDs: Set<Int> = []
 }
 
@@ -24,10 +27,13 @@ extension SceneMetalRenderer {
         let layersByID: [Int: SceneRenderDescriptor.Layer]
         let staticWorldFrames: [Int: simd_float4x4]
         let orderedLayers: [SceneRenderDescriptor.Layer]
+        let orderedLayerIDs: [Int]
         let dynamicLayerIDs: Set<Int>
         let lightLayerIDs: [Int]
         let utilityExecution: SceneUtilityLayerRuntimePlanner.Execution
         let preparationLayers: [SceneRenderDescriptor.Layer]?
+        let preparationLayerIDs: Set<Int>
+        let framebufferSourceLayerIDs: Set<Int>
         let imageMaterialStateLayerIDs: Set<Int>
         if let layerTopology,
            !layerTopology.dynamicLayers.isEmpty
@@ -45,26 +51,33 @@ extension SceneMetalRenderer {
             layersByID = projection.layersByID
             staticWorldFrames = projection.staticWorldFrames
             orderedLayers = projection.orderedLayers
+            orderedLayerIDs = projection.orderedLayerIDs
             dynamicLayerIDs = projection.dynamicLayerIDs
             lightLayerIDs = projection.lightLayerIDs
             utilityExecution = projection.utilityExecution
             preparationLayers = projection.preparationLayers
+            preparationLayerIDs = projection.preparationLayerIDs
+            framebufferSourceLayerIDs = projection.framebufferSourceLayerIDs
             imageMaterialStateLayerIDs = projection.imageMaterialStateLayerIDs
         } else {
             descriptor = renderDescriptor
             layersByID = self.layersByID
             staticWorldFrames = worldFramesByLayerID
             orderedLayers = authoredLayers
+            orderedLayerIDs = self.orderedLayerIDs
             dynamicLayerIDs = []
             lightLayerIDs = self.lightLayerIDs
             utilityExecution = self.utilityExecution
             preparationLayers = resolvedMaterialPreparationLayers
+            preparationLayerIDs = self.preparationLayerIDs
+            framebufferSourceLayerIDs = self.framebufferSourceLayerIDs
             imageMaterialStateLayerIDs = self.imageMaterialStateLayerIDs
         }
         return SceneMetalRendererFrameWorldProjection(
             descriptor: descriptor,
             layersByID: layersByID,
             orderedLayers: orderedLayers,
+            orderedLayerIDs: orderedLayerIDs,
             dynamicLayerIDs: dynamicLayerIDs,
             lightLayerIDs: lightLayerIDs,
             worldFrames: SceneLayerDynamicWorldFrameResolver.resolve(
@@ -77,6 +90,8 @@ extension SceneMetalRenderer {
             ),
             utilityExecution: utilityExecution,
             preparationLayers: preparationLayers,
+            preparationLayerIDs: preparationLayerIDs,
+            framebufferSourceLayerIDs: framebufferSourceLayerIDs,
             imageMaterialStateLayerIDs: imageMaterialStateLayerIDs
         )
     }

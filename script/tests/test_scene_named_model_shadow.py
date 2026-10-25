@@ -122,7 +122,7 @@ class SceneNamedModelShadowAppTests(unittest.TestCase):
         if parent: Path(parent).mkdir(parents=True,exist_ok=True)
         cls.root=Path(tempfile.mkdtemp(prefix='named-model-shadow-app-',dir=parent))
         sources=[Path(__file__),REPO/'script/tests/test_scene_directional_shadow_integration.py',
-                 REPO/'script/tests/test_scene_static_model_reader.py',REPO/'script/tests/test_scene_pkg_cache_extractor.py']
+                 REPO/'script/tests/test_scene_static_model_reader.py',REPO/'script/tests/scene_pkg_fixture.py']
         cls.source_identity={str(p):sha(p) for p in sources}
         inputs={}
         for case in APP_CASES:

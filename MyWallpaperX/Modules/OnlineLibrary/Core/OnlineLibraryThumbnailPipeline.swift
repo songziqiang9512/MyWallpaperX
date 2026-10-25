@@ -265,8 +265,7 @@ actor OLThumbnailCache {
         let key = url.absoluteString as NSString
         if let data = memCache.object(forKey: key) { return data as Data }
         let file = cacheFile(for: url)
-        guard FileManager.default.fileExists(atPath: file.path),
-              let attrs = try? FileManager.default.attributesOfItem(atPath: file.path),
+        guard let attrs = try? FileManager.default.attributesOfItem(atPath: file.path),
               let modified = attrs[.modificationDate] as? Date,
               Date().timeIntervalSince(modified) < maxAge,
               let data = try? Data(contentsOf: file)
@@ -284,11 +283,9 @@ actor OLThumbnailCache {
         memCache.setObject(data as NSData, forKey: key, cost: data.count)
         let file = cacheFile(for: url)
         try? data.write(to: file, options: .atomic)
-        // 与 ThumbnailCache 共享同一「总量上限 + 限频扫描 + LRU 淘汰」机制（限频钟按目录区分）；
-        // 到点扫描时顺带执行 7 天过期清理，不再只在 init 跑一次
-        if ThumbnailCache.trimDiskCache(directory: cacheDir, sizeLimit: diskSizeLimit) {
-            evictExpired()
-        }
+        // 同次限频扫描先删除过期文件，再对剩余缓存执行原容量淘汰。
+        ThumbnailCache.trimDiskCache(directory: cacheDir, sizeLimit: diskSizeLimit,
+            expireBefore: Date().addingTimeInterval(-maxAge))
     }
 
     /// 清空缓存（内存 + 磁盘）：设置「清除缓存」统一入口调用

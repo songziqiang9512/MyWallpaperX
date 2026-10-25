@@ -13,7 +13,7 @@ import unittest
 import zlib
 
 from script.web_benchmark_capture import png_rgb_pixels
-from .test_scene_pkg_cache_extractor import make_package
+from .scene_pkg_fixture import make_package
 
 
 def fixture_entries(conditional=True, consumer=True, consumer_hidden=False, optional=False, shadow=False, solid_graph=False, solid_mask=False):

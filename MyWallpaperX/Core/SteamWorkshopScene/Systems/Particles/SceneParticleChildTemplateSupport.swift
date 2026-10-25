@@ -231,7 +231,7 @@ enum SceneParticleChildTemplateSupport {
         device: MTLDevice,
         rope: SceneParticleRopePlan? = nil,
         definition: SceneParticleDefinition
-    ) -> (
+    ) throws -> (
         texture: MTLTexture,
         animation: SceneSpriteAnimation?,
         sampling: SceneParticleTextureSampling,
@@ -240,9 +240,10 @@ enum SceneParticleChildTemplateSupport {
         wholeSourceRope: Bool
     )? {
         switch source {
-        case let .file(url):
-            guard let sourceIdentity = textureLoader.sourceKey(for: url) else { return nil }
-            let container = textureLoader.texContainer(from: url)
+        case let .file(input):
+            let prepared = try textureLoader.prepareTexSource(from: input)
+            if input.pathExtension.lowercased() == "tex", prepared == nil { return nil }
+            let container = prepared?.container
             let wholeSourceRope: Bool
             if let rope, let container {
                 // Rope consumes the uploaded image, not an age-selected cell.
@@ -260,8 +261,8 @@ enum SceneParticleChildTemplateSupport {
             } else {
                 wholeSourceRope = false
             }
-            let animation = container.flatMap {
-                SceneSpriteAnimation(container: $0, sourceURL: url)
+            let animation = try container.flatMap {
+                try SceneSpriteAnimation(container: $0, sourceInput: input)
             }
             var uvScale = SIMD2<Float>(repeating: 1)
             var staticAspect: Float = 1
@@ -271,9 +272,18 @@ enum SceneParticleChildTemplateSupport {
             // raw uploads can be cropped while embedded images retain padding.
             if container == nil || (container?.spriteFrames.isEmpty == true
                 && container?.imageCount == 1 && container?.isAnimated == false) {
-                guard case let .loaded(candidate) = textureLoader.loadCandidate(
-                    from: url, purpose: .straightAlbedo, device: device
-                ) else { return nil }
+                let outcome: SceneTextureCandidateLoadOutcome
+                if let prepared {
+                    outcome = try textureLoader.loadCandidate(
+                        from: prepared, purpose: .straightAlbedo, device: device
+                    )
+                } else {
+                    outcome = try textureLoader.loadCandidate(
+                        from: input, purpose: .straightAlbedo, device: device
+                    )
+                }
+                if case let .failed(failure) = outcome { try failure.rethrowResourceReadFailure() }
+                guard case let .loaded(candidate) = outcome else { return nil }
                 texture = candidate.texture
                 uvScale = SIMD2(
                     Float(candidate.mappedSize.width / candidate.physicalSize.width),
@@ -285,15 +295,18 @@ enum SceneParticleChildTemplateSupport {
                     Float($0.imageWidth) / Float($0.imageHeight)
                 } ?? Float(candidate.mappedSize.width / candidate.mappedSize.height)
             } else {
-                guard case let .loaded(value) = textureLoader.load(
-                    from: url, purpose: .straightAlbedo, device: device
+                guard let prepared else { return nil }
+                let outcome = try textureLoader.load(
+                    from: input, source: prepared.source, purpose: .straightAlbedo,
+                    device: device, preparedTexSource: prepared
                 )
-                else { return nil }
+                try outcome.rethrowResourceReadFailure()
+                guard case let .loaded(value) = outcome else { return nil }
                 texture = value
             }
             guard let colorTexture = SceneParticleColorTextureAdapter.adapt(
                 texture
-            ), textureLoader.sourceKey(for: url) == sourceIdentity else { return nil }
+            ) else { return nil }
             return (
                 colorTexture, animation,
                 container.map { SceneParticleTextureSampling(texFlags: $0.flags) }

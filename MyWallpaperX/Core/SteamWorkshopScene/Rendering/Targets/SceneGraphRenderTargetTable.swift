@@ -21,9 +21,11 @@ struct SceneGraphRenderTargetTable {
     }
 
     let plan: SceneGraphRenderTargetPlan
-    /// M4.1：本 table 的 make 输入摘要（铸造期计算）。validate 以当帧
-    /// 输入重算并 O(1) 比对，命中即接受 stored plan、跳过 make 重推导。
+    /// Raw table callers retain the original make-input check. Production
+    /// tables carry static execution from the admitted capability below.
     let makeInputsDigest: Int
+    let preparedExecution: SceneGraphExecutionState.PreparedExecution?
+    let capabilityID: UUID?
     let inputTexture: MTLTexture
     let outputTexture: MTLTexture
     let fullFramePair: FullFramePair
@@ -50,10 +52,14 @@ struct SceneGraphRenderTargetTable {
         inputOutputAliased: Bool,
         residentByteCost: Int,
         texturesByIdentity: [Graph.TextureIdentity: MTLTexture],
-        makeInputsDigest: Int = 0
+        makeInputsDigest: Int = 0,
+        preparedExecution: SceneGraphExecutionState.PreparedExecution? = nil,
+        capabilityID: UUID? = nil
     ) {
         self.plan = plan
         self.makeInputsDigest = makeInputsDigest
+        self.preparedExecution = preparedExecution
+        self.capabilityID = capabilityID
         self.inputTexture = inputTexture
         self.outputTexture = outputTexture
         self.fullFramePair = fullFramePair

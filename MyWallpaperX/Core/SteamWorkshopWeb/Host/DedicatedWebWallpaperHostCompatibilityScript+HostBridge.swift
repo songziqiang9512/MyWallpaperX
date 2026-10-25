@@ -42,6 +42,7 @@ let webCompatibilityScriptHostBridge = #"""
         window.dispatchEvent(new CustomEvent('wallpaper-interactive-regions-registered', { detail: messagePayload }));
       } catch (_) {}
       try {
+        // Keep the same complete projection as the DOM auto-registration check.
         window.__myWallpaperInteractiveRegionState.lastSignature = safeRegions.map((region) => {
           return [region.id, region.x, region.y, region.width, region.height, region.allowsClick ? 1 : 0, region.allowsDrag ? 1 : 0].join(':');
         }).join('|');
@@ -220,8 +221,14 @@ let webCompatibilityScriptHostBridge = #"""
     try {
       if (myWallpaperPropertyReplayState.timer !== null) return;
       myWallpaperPropertyReplayState.timer = window.setTimeout(() => {
-        myWallpaperPropertyReplayState.timer = null;
-        window.__myWallpaperRunAfterSettledFrames(window.__myWallpaperDrainPendingProperties);
+        if (myWallpaperPropertyReplayState.pendingProperties === null && !myWallpaperPropertyReplayState.pendingSignature) {
+          myWallpaperPropertyReplayState.timer = null;
+          return;
+        }
+        window.__myWallpaperRunAfterSettledFrames(() => {
+          myWallpaperPropertyReplayState.timer = null;
+          window.__myWallpaperDrainPendingProperties();
+        });
       }, Math.max(0, Number(delayMS) || 0));
     } catch (_) {}
   };
@@ -581,7 +588,7 @@ let webCompatibilityScriptHostBridge = #"""
     // 边界，自定义元素内的 <video> 只有挂接时的一次性回填，宿主音量调整
     // 永远到不了——与媒体状态 payload 共用同一遍历器（MediaDiscovery 段
     // 在 HostBridge 之前拼接，const 先于本段的种子调用与宿主调用求值）。
-    for (const node of wallpaperMediaNodes().concat(audioStreams)) {
+    for (const node of new Set(wallpaperMediaNodes().concat(audioStreams))) {
       if (!node) continue;
       try { node.volume = volume; } catch (_) {}
     }
@@ -596,7 +603,7 @@ let webCompatibilityScriptHostBridge = #"""
     const playbackRate = Math.max(0.25, Math.min(2, Number(value) || 1));
     window.__myWallpaperLastHostPlaybackRate = playbackRate;
     // 同 __myWallpaperSetGlobalVolume：穿透 shadow 边界的全量遍历。
-    for (const node of wallpaperMediaNodes().concat(audioStreams)) {
+    for (const node of new Set(wallpaperMediaNodes().concat(audioStreams))) {
       if (!node) continue;
       try { node.playbackRate = playbackRate; } catch (_) {}
     }

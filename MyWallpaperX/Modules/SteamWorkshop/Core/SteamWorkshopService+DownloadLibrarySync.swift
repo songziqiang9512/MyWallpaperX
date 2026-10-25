@@ -77,13 +77,6 @@ extension SteamWorkshopService {
 
     private func applyInstalledLibraryRecords(_ records: [SteamWorkshopDownloadRecord]) {
         downloads = records
-#if DEBUG
-        if !ProcessInfo.processInfo.arguments.contains("--mwx-debug-run-web-workshop-id") {
-            preloadWebRuntimeCaches(for: records)
-        }
-#else
-        preloadWebRuntimeCaches(for: records)
-#endif
         let nextPrimaryID: String? = {
             if let selectedDownloadID,
                downloads.contains(where: { $0.id == selectedDownloadID }) {
@@ -635,11 +628,9 @@ extension SteamWorkshopService {
     private func resolvePreviewRelativePath(in directory: URL) -> String? {
         let projectURL = directory.appendingPathComponent("project.json")
         let project = Self.loadWorkshopProject(from: projectURL)
-        let projectRoot = Self.loadWorkshopProjectRoot(from: projectURL)
         return Self.preferredPreviewRelativePath(
             in: directory,
-            project: project,
-            projectRoot: projectRoot
+            project: project
         )
     }
 

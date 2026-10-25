@@ -12,7 +12,9 @@ import uuid
 
 ROOT = pathlib.Path(__file__).resolve().parents[2]
 CORE = ROOT / 'MyWallpaperX/Modules/SteamWorkshop/Core'
-SOURCES = [ROOT / 'MyWallpaperX/Core/DaemonKit/DaemonNewlineJSON.swift',
+SOURCES = [*[ROOT / 'MyWallpaperX/Core/SteamWorkshopStorage' / name for name in (
+               'ScenePlaybackSource.swift', 'SteamWorkshopStorageTree.swift')],
+           ROOT / 'MyWallpaperX/Core/DaemonKit/DaemonNewlineJSON.swift',
            ROOT / 'MyWallpaperX/Core/DaemonKit/DaemonProcessTransport.swift',
            ROOT / 'MyWallpaperX/Core/PlaybackControl/PlaybackResourceLifetime.swift',
            *[CORE / name for name in ('SteamServiceProtocol.swift', 'SteamServiceClient.swift',
@@ -675,8 +677,8 @@ class SteamLibraryTransactionTests(unittest.TestCase):
     def test_reclaimed_identity_is_not_reused_by_same_process_redownload(self):
         self.scenario(mode='generation-lease')
 
-    def test_hidden_v1_commit_migrates_to_public_type_folder_without_moving_old_content(self):
-        files = {'project.json': b'{"type":"scene","file":"scene.json"}',
+    def test_hidden_v1_migration_copies_current_content_and_preserves_old_path_and_gc(self):
+        files = {'project.json': b'{"type":"scene","file":"scene.pkg"}',
                  'scene.pkg': b'package-fixture'}
         with tempfile.TemporaryDirectory(prefix='mwx-steam-migrate-', dir='/private/tmp') as temporary:
             root = pathlib.Path(temporary)
@@ -694,11 +696,15 @@ class SteamLibraryTransactionTests(unittest.TestCase):
                 'manifestId': '789',
                 'contentDigest': digest(files),
                 'contentType': 'scene',
-                'entryPath': 'scene.json',
+                'entryPath': 'scene.pkg',
                 'committedAt': 0,
                 'removed': False,
             }
             (root / 'legacy.json').write_text(json.dumps(legacy))
+            files |= {'shader-cache.bin': b'generated after import', 'scene.pkg': b'updated-fixture'}
+            for name, data in files.items():
+                (legacy_content / name).write_bytes(data)
+            self.assertNotEqual(digest(files), legacy['contentDigest'])
             result = subprocess.run(
                 [str(self.binary), str(root), 'migrate'], capture_output=True, text=True, timeout=30,
             )
@@ -706,6 +712,7 @@ class SteamLibraryTransactionTests(unittest.TestCase):
             self.assertIn('MIGRATED', result.stdout)
             migrated = json.loads((root / 'migrated.json').read_text())
             self.assertEqual(migrated['version'], 2)
+            self.assertEqual(migrated['contentDigest'], digest(files))
             self.assertRegex(migrated['directoryName'], r'^123456-[0-9a-f-]{36}$')
             public = root / 'library' / 'Scene' / migrated['directoryName']
             for name, data in files.items():
@@ -746,14 +753,14 @@ class SteamLibraryTransactionTests(unittest.TestCase):
             self.assertTrue((root / 'library' / 'Scene' / '999999').is_symlink())
             self.assertEqual((outside / 'sentinel').read_text(), 'untouched')
 
-    def test_same_length_corruption(self):
-        self.scenario(mutate=lambda r, s: (s / 'index.html').write_bytes(b'x' * len(b'<h1>safe</h1>')), accepted=False)
+    def test_download_receipt_rejects_same_length_entry_change(self):
+        self.scenario(mutate=lambda r, s: (s / 'index.html').write_bytes(b'<h1>edit</h1>'), accepted=False)
 
     def test_truncation(self):
         self.scenario(mutate=lambda r, s: (s / 'index.html').write_bytes(b''), accepted=False)
 
-    def test_extra_file(self):
-        self.scenario(mutate=lambda r, s: (s / 'extra').write_bytes(b'extra'), accepted=False)
+    def test_download_receipt_rejects_added_cache(self):
+        self.scenario(mutate=lambda r, s: (s / 'shader-cache.bin').write_bytes(b'generated after receipt'), accepted=False)
 
     def test_missing_file(self):
         self.scenario(mutate=lambda r, s: (s / 'index.html').unlink(), accepted=False)
@@ -956,6 +963,13 @@ class SteamLibraryTransactionTests(unittest.TestCase):
                       {'project.json': b'{"type":" web ","dependency":987654}'}]:
             with self.subTest(files=files):
                 self.scenario(files=files)
+
+    def test_optional_preview_does_not_reject_a_playable_project(self):
+        for content_type, entry in [('web', 'index.html'), ('video', 'a.mp4'), ('scene', 'scene.pkg')]:
+            for preview in ['../missing.png', '/missing.png', './missing.png', 'missing.png']:
+                project = json.dumps({'type': content_type, 'file': entry, 'preview': preview}).encode()
+                with self.subTest(content_type=content_type, preview=preview):
+                    self.scenario(files={'project.json': project, entry: b'playable-fixture'})
 
 
 if __name__ == '__main__':

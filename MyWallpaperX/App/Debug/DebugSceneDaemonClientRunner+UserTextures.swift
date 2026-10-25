@@ -25,7 +25,12 @@ extension DebugSceneDaemonClientRunner {
               let data = payload.data(using: .utf8), data.count <= 65_536,
               let objects = try? JSONSerialization.jsonObject(with: data)
                 as? [[String: Any]], objects.count <= 64 else { return false }
-        let facts = SceneRuntimeSourceFactsBuilder().build(rootURL: record.folderURL)
+        let facts: SceneRuntimeSourceFacts
+        do { facts = try SceneRuntimeSourceFactsBuilder().build(rootURL: record.folderURL) }
+        catch {
+            NSLog("MWX DEBUG Scene user-texture source failed: %@", String(describing: error))
+            return false
+        }
         guard let context = SteamWorkshopService.shared.scenePropertyContext(
             for: record, sourceFacts: facts
         ) else { return false }

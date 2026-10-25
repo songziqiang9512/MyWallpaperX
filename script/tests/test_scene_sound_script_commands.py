@@ -10,9 +10,14 @@ from .scene_vector_vm_test_support import compile_vector_harness, SCENE
 HARNESS = r'''
 import AVFoundation
 // Prepared-plan fixture only; admission and real media selection have their own gate.
+nonisolated final class SceneVideoOwnedFile: Sendable {
+    let url: URL
+    init(url: URL) { self.url = url }
+    func retainForLifetime(of asset: AVAsset) {}
+}
 struct SceneSoundPlaybackProgram {
     struct Resource {
-        let url: URL
+        let file: SceneVideoOwnedFile?
         let displayPath: String
     }
     enum PlaybackMode: Equatable {
@@ -43,7 +48,7 @@ struct SceneSoundPlaybackProgram {
                   originXYZ: [0,0,0], scaleXYZ: [1,1,1], scaleHasScript: nil,
                   alpha: 1, effects: [])])
         let registry = SceneSoundPlaybackRegistry(program: .init(bindings: [
-            .init(layerID: 1, resources: [.init(url: URL(fileURLWithPath: CommandLine.arguments[1]),
+            .init(layerID: 1, resources: [.init(file: SceneVideoOwnedFile(url: URL(fileURLWithPath: CommandLine.arguments[1])),
                 displayPath: "fixture.wav")])]), epoch: 1)
         registry.start(paused: false, userValues: [:]); defer { registry.stop() }
         let domain = try SceneScriptQuickJSDomain(); try domain.configureLayerCatalog(descriptor)

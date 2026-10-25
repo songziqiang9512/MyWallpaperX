@@ -9,31 +9,6 @@ final class SceneParticleRuntime {
     private let descriptor: SceneRenderDescriptor
     private let visibilityLayersByID: [Int: SceneRenderDescriptor.Layer]
 
-    struct FrameSnapshot {
-        struct LayerSnapshot {
-            struct RootSnapshot {
-                let simulator: SceneParticleSimulator
-                let simulatorFrame: SceneParticleSimulator.FrameSnapshot
-                let instances: [SceneParticleGPUInstance]
-                let ropeTrailHistory: SceneParticleRopeTrailHistory?
-            }
-
-            let root: RootSnapshot?
-            let child: SceneParticleChildRuntime.FrameSnapshot?
-            let wasVisible: Bool?
-        }
-
-        let layers: [LayerSnapshot]
-        let pendingAudioEvaluationObservations:
-            [SceneParticleRuntimeAudioEvaluationObservation]
-        /// World-space freeze/adopt bookkeeping enters the same
-        /// transaction as the simulation values: a discarded frame rolls
-        /// the freeze back with the particles, and a replayed frame
-        /// re-derives it from the same inputs.
-        let frozenWorldSpaceLayerIDs: Set<Int>
-        let adoptedWorldSpaceLayerIDs: Set<Int>
-    }
-
     private let device: MTLDevice
     private var layers: [SceneParticleLayerRuntime] = []
     private(set) var diagnostics: [SceneParticleRuntimeDiagnostic] = []
@@ -56,8 +31,10 @@ final class SceneParticleRuntime {
     /// coordinates are still supplied by the host each advance.
     private(set) var pointerControlPointLayerIDs: Set<Int> = []
     private(set) var requiresAlphaToCoverage = false
+#if DEBUG
     private var pendingAudioEvaluationObservations:
         [SceneParticleRuntimeAudioEvaluationObservation] = []
+#endif
 
     func playbackLiveCount(charging: (UInt64) throws -> Void) throws -> Int {
         try charging(UInt64(layers.count))
@@ -181,35 +158,21 @@ final class SceneParticleRuntime {
         )
     }
 
-    init(
+    /// Definition bytes are prepared before candidate publication. Per-surface
+    /// runtimes consume this graph without reopening authored particle files.
+    static func prepareAssets(
         descriptor: SceneRenderDescriptor,
-        cacheDirectory: URL,
-        device: MTLDevice,
-        resourceView: SceneResourceView? = nil,
-        stockTextureBundleURL: URL? = SceneStockTextureResolver.defaultBundleRoot(),
-        textureLoader: SceneTextureLoader = SceneTextureLoader(),
-        layerImageEmissionMaps: [Int: SceneParticleLayerImageEmissionMap] = [:],
-        initialDiagnostics: [SceneParticleRuntimeDiagnostic] = [],
-        staticWorldSpaceFrames: [Int: SceneParticleWorldSpaceFrame]? = nil,
-        staticWorldSpaceChains: [Int: Set<Int>]? = nil,
+        resourceView: SceneResourceView,
         preparedParticleVisibilityLayerIDs: Set<Int> = [],
-        initialDynamicValues: SceneDynamicSnapshot = .empty(frameIndex: 0),
-        initialPlayback: [Int: SceneParticlePlaybackSnapshot] = [:]
-    ) {
-        self.device = device
-        self.descriptor = descriptor
-        visibilityLayersByID = Dictionary(uniqueKeysWithValues: descriptor.layers.map { ($0.id, $0) })
-        diagnostics = initialDiagnostics
-        let staticWorldSpaceFrames = staticWorldSpaceFrames
-            ?? descriptor.staticParticleWorldSpaceFrames
-        worldSpaceChains = staticWorldSpaceChains
-            ?? descriptor.staticParticleWorldSpaceChains
-        let preparedTranslations = descriptor.particleRootWorldTranslations(initialDynamicValues: initialDynamicValues)
+        preparedDefinitions: [String: SceneParticleAssetGraphLoader.PreparedDefinition]? = nil,
+        stockTextureBundleURL: URL? = SceneStockTextureResolver.defaultBundleRoot(),
+        checkCancellation: (() throws -> Void)? = nil
+    ) throws -> SceneParticleAssetGraph {
+        try checkCancellation?()
         let visibleIDs = SceneLayerVisibility.visibleLayerIDs(in: descriptor)
         let particleLayers = Self.orderedLayers(in: descriptor).filter {
             (visibleIDs.contains($0.id) || preparedParticleVisibilityLayerIDs.contains($0.id))
-                && $0.contentKind == "particle"
-                && $0.particlePath != nil
+                && $0.contentKind == "particle" && $0.particlePath != nil
         }
         let materialPasses = descriptor.materialPasses.map {
             SceneParticleMaterialPass(
@@ -243,14 +206,45 @@ final class SceneParticleRuntime {
                 alphaWriting: $0.alphaWriting
             )
         }
-        let graph = SceneParticleAssetGraphLoader(
+        return try SceneParticleAssetGraphLoader(
             resourceView: resourceView,
             stockTextureBundleURL: stockTextureBundleURL
         ).load(
             rootPaths: particleLayers.compactMap(\.particlePath),
             materialPasses: materialPasses,
-            cacheDirectory: cacheDirectory
+            preparedDefinitions: preparedDefinitions,
+            checkCancellation: checkCancellation
         )
+    }
+
+    init(
+        descriptor: SceneRenderDescriptor,
+        preparedAssets graph: SceneParticleAssetGraph,
+        device: MTLDevice,
+        textureLoader: SceneTextureLoader = SceneTextureLoader(),
+        layerImageEmissionMaps: [Int: SceneParticleLayerImageEmissionMap] = [:],
+        initialDiagnostics: [SceneParticleRuntimeDiagnostic] = [],
+        staticWorldSpaceFrames: [Int: SceneParticleWorldSpaceFrame]? = nil,
+        staticWorldSpaceChains: [Int: Set<Int>]? = nil,
+        preparedParticleVisibilityLayerIDs: Set<Int> = [],
+        initialDynamicValues: SceneDynamicSnapshot = .empty(frameIndex: 0),
+        initialPlayback: [Int: SceneParticlePlaybackSnapshot] = [:]
+    ) {
+        self.device = device
+        self.descriptor = descriptor
+        visibilityLayersByID = Dictionary(uniqueKeysWithValues: descriptor.layers.map { ($0.id, $0) })
+        diagnostics = initialDiagnostics
+        let staticWorldSpaceFrames = staticWorldSpaceFrames
+            ?? descriptor.staticParticleWorldSpaceFrames
+        worldSpaceChains = staticWorldSpaceChains
+            ?? descriptor.staticParticleWorldSpaceChains
+        let preparedTranslations = descriptor.particleRootWorldTranslations(initialDynamicValues: initialDynamicValues)
+        let visibleIDs = SceneLayerVisibility.visibleLayerIDs(in: descriptor)
+        let particleLayers = Self.orderedLayers(in: descriptor).filter {
+            (visibleIDs.contains($0.id) || preparedParticleVisibilityLayerIDs.contains($0.id))
+                && $0.contentKind == "particle"
+                && $0.particlePath != nil
+        }
         // Prewarm consumes the initial typed transform, before the first advance.
         let initialPointFrames = graph.assetsByPath.values.contains(where: {
             $0.definition.controlPoints.contains { $0.rawFlags == 2 }
@@ -575,6 +569,7 @@ final class SceneParticleRuntime {
                             }
                         } : nil
                 )
+#if DEBUG
                 pendingAudioEvaluationObservations.append(contentsOf:
                     root.simulator.consumeAudioEvaluationObservations().map {
                         SceneParticleRuntimeAudioEvaluationObservation(
@@ -584,6 +579,7 @@ final class SceneParticleRuntime {
                         )
                     }
                 )
+#endif
                 births = root.simulator.consumeBirthEvents()
                 deaths = root.simulator.consumeDeathEvents()
                 parentParticles = root.simulator.particles
@@ -606,6 +602,7 @@ final class SceneParticleRuntime {
                     worldSpaceFrameOverride: worldSpaceFrameOverride,
                     isVisible: isVisible
                 )
+#if DEBUG
                 pendingAudioEvaluationObservations.append(contentsOf:
                     childRuntime.consumeAudioEvaluationObservations().map {
                         SceneParticleRuntimeAudioEvaluationObservation(
@@ -615,6 +612,7 @@ final class SceneParticleRuntime {
                         )
                     }
                 )
+#endif
                 batches.append(contentsOf: result.batches)
                 for path in result.bufferFailurePaths {
                     addDiagnostic(
@@ -657,7 +655,7 @@ final class SceneParticleRuntime {
     }
 
     func frameSnapshot() -> FrameSnapshot {
-        FrameSnapshot(layers: layers.map { layer in
+        var snapshot = FrameSnapshot(layers: layers.map { layer in
             let root = layer.rootRender.map {
                 FrameSnapshot.LayerSnapshot.RootSnapshot(
                     simulator: $0.simulator,
@@ -671,9 +669,12 @@ final class SceneParticleRuntime {
                 child: layer.childRuntime?.frameSnapshot(),
                 wasVisible: layer.wasVisible
             )
-        }, pendingAudioEvaluationObservations: pendingAudioEvaluationObservations,
-           frozenWorldSpaceLayerIDs: frozenWorldSpaceLayerIDs,
+        }, frozenWorldSpaceLayerIDs: frozenWorldSpaceLayerIDs,
            adoptedWorldSpaceLayerIDs: liveWorldSpaceAdoptedLayerIDs)
+#if DEBUG
+        snapshot.pendingAudioEvaluationObservations = pendingAudioEvaluationObservations
+#endif
+        return snapshot
     }
 
     func restoreFrame(_ snapshot: FrameSnapshot) {
@@ -691,16 +692,20 @@ final class SceneParticleRuntime {
                 layers[index].childRuntime?.restoreFrame(childSnapshot)
             }
         }
+#if DEBUG
         pendingAudioEvaluationObservations = snapshot.pendingAudioEvaluationObservations
+#endif
         frozenWorldSpaceLayerIDs = snapshot.frozenWorldSpaceLayerIDs
         liveWorldSpaceAdoptedLayerIDs = snapshot.adoptedWorldSpaceLayerIDs
     }
 
+#if DEBUG
     func consumeAudioEvaluationObservations()
         -> [SceneParticleRuntimeAudioEvaluationObservation] {
         defer { pendingAudioEvaluationObservations.removeAll(keepingCapacity: true) }
         return pendingAudioEvaluationObservations
     }
+#endif
 
     /// Ends this launch-scoped runtime atomically. Root and child systems are
     /// never transplanted into a replacement Scene/surface generation.
@@ -869,50 +874,56 @@ final class SceneParticleRuntime {
         let colorSampling: SceneParticleTextureSampling
         let refraction: SceneParticleRefractionBinding?
         let wholeSourceRope: Bool
-        if let declaration = asset.refraction {
-            guard let loaded = SceneParticleRefractionTextureLoader.load(
-                colorSource: textureSource,
-                declaration: declaration,
-                textureLoader: textureLoader,
-                device: device
-            ) else {
-                addDiagnostic(
-                    kind: .refractionUnsupported,
-                    layerID: layer.id,
-                    path: path,
-                    detail: "textureProfileUnsupported"
-                )
-                return nil
+        do {
+            if let declaration = asset.refraction {
+                guard let loaded = try SceneParticleRefractionTextureLoader.load(
+                    colorSource: textureSource,
+                    declaration: declaration,
+                    textureLoader: textureLoader,
+                    device: device
+                ) else {
+                    addDiagnostic(
+                        kind: .refractionUnsupported,
+                        layerID: layer.id,
+                        path: path,
+                        detail: "textureProfileUnsupported"
+                    )
+                    return nil
+                }
+                texture = loaded.color
+                spriteAnimation = loaded.colorAnimation
+                staticSpriteAspect = loaded.staticSpriteAspect
+                colorUVScale = loaded.colorUVScale
+                colorSampling = loaded.colorSampling
+                refraction = loaded.binding
+                wholeSourceRope = false
+            } else {
+                guard let loaded = try SceneParticleChildTemplateSupport.loadTexture(
+                    textureSource,
+                    textureLoader: textureLoader,
+                    builtInTextureRegistry: builtInTextureRegistry,
+                    device: device,
+                    rope: render.rope,
+                    definition: asset.definition
+                ) else {
+                    addDiagnostic(
+                        kind: .textureLoadFailed, layerID: layer.id, path: path,
+                        detail: "particleColorTexturePreparationFailed"
+                    )
+                    return nil
+                }
+                texture = loaded.texture
+                spriteAnimation = loaded.animation
+                staticSpriteAspect = loaded.staticAspect
+                colorSampling = loaded.sampling
+                colorUVScale = loaded.uvScale
+                refraction = nil
+                wholeSourceRope = loaded.wholeSourceRope
             }
-            texture = loaded.color
-            spriteAnimation = loaded.colorAnimation
-            staticSpriteAspect = loaded.staticSpriteAspect
-            colorUVScale = loaded.colorUVScale
-            colorSampling = loaded.colorSampling
-            refraction = loaded.binding
-            wholeSourceRope = false
-        } else {
-            guard let loaded = SceneParticleChildTemplateSupport.loadTexture(
-                textureSource,
-                textureLoader: textureLoader,
-                builtInTextureRegistry: builtInTextureRegistry,
-                device: device,
-                rope: render.rope,
-                definition: asset.definition
-            ) else {
-                addDiagnostic(
-                    kind: .textureLoadFailed, layerID: layer.id, path: path,
-                    detail: "particleColorTexturePreparationFailed"
-                )
-                return nil
-            }
-            texture = loaded.texture
-            spriteAnimation = loaded.animation
-            staticSpriteAspect = loaded.staticAspect
-            colorSampling = loaded.sampling
-            colorUVScale = loaded.uvScale
-            refraction = nil
-            wholeSourceRope = loaded.wholeSourceRope
+        } catch {
+            addDiagnostic(kind: .textureLoadFailed, layerID: layer.id, path: path,
+                          detail: "resourceReadFailed:\(error)")
+            return nil
         }
         guard supportsPathRendererTexture(
             rope: render.rope,

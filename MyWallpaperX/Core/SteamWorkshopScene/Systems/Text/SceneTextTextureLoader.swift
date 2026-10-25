@@ -12,6 +12,7 @@ enum SceneTextTextureLoader {
         let texture: MTLTexture
         let renderSizeWH: [Float]
         let centerOffsetY: Float
+        let sourceFont: SceneTextFontResolver.Resolution
     }
 
     private struct RenderedTexture {
@@ -25,9 +26,10 @@ enum SceneTextTextureLoader {
 
     static func load(
         descriptor: SceneRenderDescriptor,
-        cacheDirectory: URL,
+        resourceView: SceneResourceView?,
         device: MTLDevice,
         recordsDiagnostics: Bool = true,
+        checkCancellation: (() throws -> Void)? = nil,
         effectSummary: (SceneRenderDescriptor.Layer) -> String? = { _ in nil }
     ) -> SceneTextTextureLoadResult {
         // Authored hidden text can be shown by a later script/property event.
@@ -38,11 +40,20 @@ enum SceneTextTextureLoader {
         var rasters: [Int: RasterizedTexture] = [:]
         var messages: [String] = []
         for layer in candidates {
-            guard let rendered = makeRenderedTexture(
-                for: layer,
-                cacheDirectory: cacheDirectory,
-                device: device
-            ) else {
+            let preparedFont = rasters.values.first {
+                $0.sourceFont.requestedPath == layer.textStyle?.fontPath
+            }?.sourceFont
+            let rendered: RenderedTexture?
+            do {
+                rendered = try makeRenderedTexture(for: layer, resourceView: resourceView,
+                    preparedFont: preparedFont, device: device, checkCancellation: checkCancellation)
+            } catch {
+                if recordsDiagnostics {
+                    messages.append("text layer \(layer.id): resource read failed: \(error)")
+                }
+                continue
+            }
+            guard let rendered else {
                 if recordsDiagnostics {
                     messages.append(
                         "text layer \(layer.id) \"\(layer.name ?? "(unnamed)")\":"
@@ -81,18 +92,22 @@ enum SceneTextTextureLoader {
         pointSize: Float,
         colorRGB: [Float],
         maxWidth: Float? = nil,
-        cacheDirectory: URL,
-        device: MTLDevice
-    ) -> RasterizedTexture? {
-        guard let rendered = makeRenderedTexture(
+        resourceView: SceneResourceView?,
+        preparedFont: SceneTextFontResolver.Resolution? = nil,
+        device: MTLDevice,
+        checkCancellation: (() throws -> Void)? = nil
+    ) throws -> RasterizedTexture? {
+        guard let rendered = try makeRenderedTexture(
             for: layer,
             content: content,
             fontPath: fontPath,
             pointSize: pointSize,
             colorRGB: colorRGB,
             maxWidth: maxWidth,
-            cacheDirectory: cacheDirectory,
-            device: device
+            resourceView: resourceView,
+            preparedFont: preparedFont,
+            device: device,
+            checkCancellation: checkCancellation
         ) else {
             return nil
         }
@@ -106,9 +121,12 @@ enum SceneTextTextureLoader {
         pointSize: Float? = nil,
         colorRGB: [Float]? = nil,
         maxWidth: Float? = nil,
-        cacheDirectory: URL,
-        device: MTLDevice
-    ) -> RenderedTexture? {
+        resourceView: SceneResourceView?,
+        preparedFont: SceneTextFontResolver.Resolution? = nil,
+        device: MTLDevice,
+        checkCancellation: (() throws -> Void)? = nil
+    ) throws -> RenderedTexture? {
+        try checkCancellation?()
         guard let text = content ?? layer.text, let authoredStyle = layer.textStyle else { return nil }
         let style = authoredStyle.replacing(
             fontPath: fontPath,
@@ -116,10 +134,12 @@ enum SceneTextTextureLoader {
             colorRGB: colorRGB,
             maxWidth: maxWidth
         )
-        let sourceFont = SceneTextFontResolver.resolve(
+        let sourceFont = try SceneTextFontResolver.resolve(
             path: style.fontPath,
             size: CGFloat(SceneTextGeometry.pointSizeInPixels(style.pointSize)),
-            cacheDirectory: cacheDirectory
+            resourceView: resourceView,
+            reusing: preparedFont,
+            checkCancellation: checkCancellation
         )
         // Initial and updated content use the same font measurement contract.
         // Saved editor geometry is not an implicit wrapping/clipping limit.
@@ -171,6 +191,7 @@ enum SceneTextTextureLoader {
             )
             return true
         }
+        try checkCancellation?()
         guard drewText else { return nil }
 
         let descriptor = MTLTextureDescriptor.texture2DDescriptor(
@@ -188,13 +209,15 @@ enum SceneTextTextureLoader {
             withBytes: pixels,
             bytesPerRow: rowBytes
         )
+        try checkCancellation?()
         // Center alignment anchors the line block without its trailing descent
         // region. Keep the raster intact (including descenders and decoration);
         // the shared layer pivot consumes this logical, pre-downsample offset.
         return RenderedTexture(
             raster: RasterizedTexture(
                 texture: texture, renderSizeWH: renderSize,
-                centerOffsetY: Float(CTFontGetDescent(sourceFont.font)) / 2
+                centerOffsetY: Float(CTFontGetDescent(sourceFont.font)) / 2,
+                sourceFont: sourceFont
             ),
             font: sourceFont,
             lineBounds: prepared.lineBounds

@@ -532,12 +532,13 @@ enum Harness {
             let projectRoot = try jsonObject(data: Data(contentsOf: sampleURL.appendingPathComponent("project.json")))
             let entryPath = normalizedPath(projectRoot["file"] as? String ?? "scene.json")
             let packageURL = try scenePackageURL(sampleURL: sampleURL, entryPath: entryPath)
-            let index = try ScenePkgReader().readIndex(packageURL: packageURL)
+            let opened = try ScenePkgReader().openPackage(packageURL: packageURL, limits: .compatibility)
+            let index = opened.index
             let entries = Dictionary(uniqueKeysWithValues: index.entries.map { (normalizedPath($0.path), $0) })
             guard let sceneEntry = entries[entryPath] else {
                 throw HarnessError.missingEntry(sampleURL.lastPathComponent, entryPath)
             }
-            let sceneRoot = try jsonObject(data: try readEntry(sceneEntry, index: index, packageURL: packageURL))
+            let sceneRoot = try jsonObject(data: try readEntry(sceneEntry, opened: opened))
             let objects = sceneRoot["objects"] as? [[String: Any]] ?? []
             let particleObjects = objects.filter { $0["particle"] is String }
             if !particleObjects.isEmpty { samplesWithParticles += 1 }
@@ -553,7 +554,7 @@ enum Harness {
                     missingDefinitionCount += 1
                     return
                 }
-                let definition = try parser.parse(data: readEntry(entry, index: index, packageURL: packageURL))
+                let definition = try parser.parse(data: readEntry(entry, opened: opened))
                 definitionCount += 1
                 for emitter in definition.emitters {
                     emitterCounts[emitterName(emitter.kind), default: 0] += 1
@@ -646,15 +647,10 @@ enum Harness {
 
     private static func readEntry(
         _ entry: ScenePkgIndex.Entry,
-        index: ScenePkgIndex,
-        packageURL: URL
+        opened: ScenePkgReader.OpenPackage
     ) throws -> Data {
-        let handle = try FileHandle(forReadingFrom: packageURL)
-        defer { try? handle.close() }
-        try handle.seek(toOffset: UInt64(index.dataStartOffset) + UInt64(entry.offset))
-        guard let data = try handle.read(upToCount: Int(entry.size)), data.count == Int(entry.size) else {
-            throw HarnessError.truncatedEntry(entry.path)
-        }
+        var data = Data()
+        try opened.readEntryChunks(entry) { data.append($0) }
         return data
     }
 

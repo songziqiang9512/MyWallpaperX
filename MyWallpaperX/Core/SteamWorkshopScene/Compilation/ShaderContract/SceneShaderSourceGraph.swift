@@ -160,6 +160,7 @@ nonisolated struct SceneShaderSourceGraph: Codable, Equatable, Sendable {
         case unreadable
         case invalidUTF8
         case fileTooLarge
+        case sourceChanged
     }
 
     nonisolated struct RootRequest: Codable, Equatable, Sendable {
@@ -213,8 +214,9 @@ nonisolated struct SceneShaderSourceGraph: Codable, Equatable, Sendable {
         case unreadable
         case invalidUTF8
         case fileTooLarge
+        case sourceChanged
         case graphBudgetExceeded
-        /// Project-policy evidence only; selection still follows root order.
+        /// Legacy serialized evidence; new graphs do not read shadowed roots.
         case shadowedRootContentConflict
     }
 

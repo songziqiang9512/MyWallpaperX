@@ -63,11 +63,22 @@ let webCompatibilityScriptInteractionAndRuntimePointer = #"""
           } catch (_) {}
         }
       };
+      const readableStyleSheets = new Set();
       for (const sheet of Array.from(document.styleSheets || [])) {
-        try { collectRules(sheet.cssRules); } catch (_) {}
+        try {
+          const sheetRules = sheet.cssRules;
+          if (sheetRules) {
+            collectRules(sheetRules);
+            readableStyleSheets.add(sheet);
+          }
+        } catch (_) {}
       }
       if (appendSyntheticHoverStyle(rules)) return;
-      const stylesheetLinks = Array.from(document.querySelectorAll('link[rel~="stylesheet"][href]'));
+      // This call has already inspected readable CSSOM. Fetch only sheets
+      // unavailable there; an empty result is never retained across calls.
+      const stylesheetLinks = Array.from(document.querySelectorAll('link[rel~="stylesheet"][href]')).filter((link) => {
+        try { return !readableStyleSheets.has(link.sheet); } catch (_) { return true; }
+      });
       if (stylesheetLinks.length === 0 || typeof fetch !== 'function') return;
       window.__mwxSyntheticHoverStyleLoading = true;
       Promise.all(stylesheetLinks.map((link) => {

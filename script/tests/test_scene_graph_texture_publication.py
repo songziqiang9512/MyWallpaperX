@@ -27,6 +27,7 @@ SWIFT_SOURCES = list(dict.fromkeys([
     SCENE_ROOT / "Format/SceneBCTextureDecoder.swift",
     SCENE_ROOT / "Format/SceneTexContainer.swift",
     SCENE_ROOT / "Format/SceneTexDataReader.swift",
+    *scene_swift_sources("scene_resource_input"),
     REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Systems/Properties/SceneDynamicSnapshot.swift",
     *scene_swift_sources("authored_shader_frontend_support"),
     REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Compilation/Graph/SceneAuthoredEffectRenderPlan.swift",

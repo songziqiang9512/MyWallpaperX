@@ -51,6 +51,7 @@ final class PlaybackCommandMultiplexer {
     @Published var isPlaying = false
     var effectiveCurrentWallpaper: VideoWallpaper? { pendingWallpaper ?? currentWallpaper }
     var playbackSwitch = PlaybackSwitchTransaction()
+    var requestedRuntime: WallpaperRuntimeKind? { playbackSwitch.requestedRuntime }
     var switchEndpoints: [UUID: PlaybackSwitchEndpoint] = [:]
     var switchSelections: [UUID: RuntimeSwitchSelection] = [:]
     var switchEffectQueue: [PlaybackSwitchTransaction.Effect] = []
@@ -58,6 +59,7 @@ final class PlaybackCommandMultiplexer {
     var switchDeadline: DispatchWorkItem?
     var pendingSystemWallpaperSyncWorkItem: DispatchWorkItem?
     var settings = Settings()
+    var playbackIntentDidAdvance: ((WallpaperRuntimeKind?) -> Void)?
     func scheduleSwitchDeadline(_ ticket: PlaybackSwitchTicket) {}
     func refreshAutoSwitchTimerIfNeeded(forceRestart: Bool = false) {}
     func stopAutoSwitchTimer() {}
@@ -127,7 +129,7 @@ extension Notification.Name {
                 WallpaperEngine.shared.currentPlaybackContentKind = record.contentType
                 WallpaperEngine.shared.currentWebRecordID = record.contentType == .web ? record.id : nil
             }
-        }, cancel: { $0() }, setOutputActive: { _, done in done(true) }, retire: { [self] done in
+        }, cancel: { $0() }, setOutputActive: { _, done in done(true) }, retire: { [self] _, done in
             if delayedRetirement { retirement = done }
             else { done() }
         })

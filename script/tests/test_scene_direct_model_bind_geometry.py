@@ -80,16 +80,13 @@ import Foundation
                     row["weights"] = rig.vertexWeights.count
                 } catch { row["ok"] = false; row["error"] = String(describing: error) }
             } else {
-                do { row["metadata"] = try SceneMdlStaticModelReader.readMaterialPathsMetadata(data: data) }
-                catch { row["metadataError"] = String(describing: error) }
-                do { row["singularMetadata"] = try SceneMdlStaticModelReader.readMaterialPathMetadata(data: data) }
-                catch { row["singularError"] = String(describing: error) }
                 do {
                     let parts = try SceneMdlStaticModelReader.readParts(data: data)
                     let model = parts[0]
                     row["ok"] = true
                     row["partCount"] = parts.count
                     row["material"] = model.materialPath
+                    row["materialPaths"] = parts.map(\.materialPath)
                     row["state"] = model.geometryState.rawValue
                     row["headerFormat"] = model.headerFormat
                     row["vertexFormat"] = model.vertexFormat
@@ -159,8 +156,7 @@ class DirectModelBindGeometryTests(unittest.TestCase):
                 with self.subTest(name=name, sliced=sliced):
                     self.assertTrue(row["ok"], row)
                     self.assertEqual(row["state"], "bindOnlyAnimationUnqualified")
-                    self.assertEqual(row["metadata"], [row["material"]])
-                    self.assertEqual(row["singularMetadata"], row["material"])
+                    self.assertEqual(row["materialPaths"], [row["material"]])
                     self.assertEqual((row["headerFormat"],row["vertexFormat"],row["stride"]), (FORMAT,FORMAT,80))
                     self.assertEqual((row["partCount"],row["vertexCount"],row["triangleCount"]), (1,4,4))
                     self.assertEqual(row["indices"], list(INDICES))
@@ -212,8 +208,7 @@ class DirectModelBindGeometryTests(unittest.TestCase):
         for name,row in rows.items():
             with self.subTest(name=name):
                 self.assertFalse(row["ok"],row)
-                self.assertEqual(row["error"],row["metadataError"])
-                self.assertEqual(row["error"],row["singularError"])
+                self.assertNotIn("materialPaths",row)
                 self.assertNotIn("state",row)
         self.assertIn("required bind rig",rows["bad-weight-sum.mdl"]["error"])
         self.assertIn("vertex byte budget",rows["vertex-budget.mdl"]["error"])
@@ -255,7 +250,7 @@ class DirectModelBindGeometryTests(unittest.TestCase):
         row = rows["actual-bind.mdl"]
         self.assertTrue(row["ok"],row)
         self.assertEqual(row["state"],"bindOnlyAnimationUnqualified")
-        self.assertEqual(row["metadata"],[row["material"]])
+        self.assertEqual(row["materialPaths"],[row["material"]])
         self.assertEqual(row["partCount"],1)
         self.assertEqual(row["stride"],80)
         self.assertGreater(row["vertexCount"],3)

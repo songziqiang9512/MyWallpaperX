@@ -17,6 +17,8 @@ SWIFT_SOURCES = [
     SOURCE_ROOT / "Format/SceneJSONValue.swift",
     SOURCE_ROOT / "Format/SceneScriptBindingDefinition.swift",
     SOURCE_ROOT / "Systems/Properties/SceneScriptDynamicProviderHostContract.swift",
+    SOURCE_ROOT / "Systems/Properties/SceneUserProperty.swift",
+    SOURCE_ROOT / "Systems/Properties/SceneUserPropertyBindings.swift",
     REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Systems/Properties/SceneDynamicSnapshot.swift",
     REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Systems/Text/SceneTextScriptDefinition.swift",
     REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Systems/Text/SceneTextScriptSubsetProgram.swift",

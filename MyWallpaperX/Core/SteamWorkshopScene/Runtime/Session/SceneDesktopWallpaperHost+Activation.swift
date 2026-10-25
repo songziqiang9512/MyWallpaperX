@@ -115,9 +115,9 @@ extension SceneDesktopWallpaperHost {
         NSLog("MWX Scene: phase=session-retiring session=%@", session.lifecycleID.uuidString)
 #endif
         session.stopAndDrainGPU { [weak self] succeeded in
-            self?.retiringSessions.removeValue(forKey: identity)
+            if succeeded { self?.retiringSessions.removeValue(forKey: identity) }
             if let requestID = session.launchRequestID {
-                self?.requestResourcesReleasedHandler?(requestID)
+                self?.requestResourcesReleasedHandler?(requestID, succeeded)
             }
             if !succeeded {
 #if DEBUG
@@ -210,21 +210,40 @@ extension SceneDesktopWallpaperHost {
         reconcileAudioDemand()
     }
 
-    /// A cancelled preparation may still be unwinding on the worker queue.
-    /// Release its parent's immutable-version lease only after CPU and GPU use.
-    func whenRequestResourcesReleased(requestID: UUID, completion: @escaping @MainActor () -> Void) {
+    /// Presence is captured before withdrawal; absence alone is not a retired request.
+    func hasRequestOutput(requestID: UUID) -> Bool {
+        activeSession?.launchRequestID == requestID
+            || unconfirmedPromotion?.previous?.launchRequestID == requestID
+    }
+
+    var isEmptyForRequestRetirement: Bool {
+        activeSession == nil && candidateSession == nil && candidatePromotion == nil
+            && candidateCompletion == nil && candidateDeadline == nil && presentationDeadline == nil
+            && unconfirmedPromotion == nil && retiringSessions.isEmpty
+            && launchCancellation == nil && pendingLaunchCompletion == nil
+            && launchState?.isInProgress != true
+    }
+
+    /// A cancelled preparation may still be unwinding on the original queue.
+    /// A false Session terminal cannot authorize release or reuse before real exit.
+    func whenRequestResourcesReleased(requestID: UUID, completion: @escaping @MainActor (Bool) -> Void) {
         launchPreparationQueue.async { [weak self] in
             DispatchQueue.main.async { [weak self] in
-                guard let self,
-                      self.activeSession?.launchRequestID != requestID,
-                      self.candidateSession?.launchRequestID != requestID else { return }
+                guard let self else { completion(false); return }
+                guard self.activeSession?.launchRequestID != requestID,
+                      self.candidateSession?.launchRequestID != requestID,
+                      self.unconfirmedPromotion?.previous?.launchRequestID != requestID,
+                      !(self.launchState?.requestID == requestID && self.launchState?.isInProgress == true)
+                else { completion(false); return }
                 let sessions = self.retiringSessions.values.filter { $0.launchRequestID == requestID }
-                guard !sessions.isEmpty else { completion(); return }
+                guard !sessions.isEmpty else { completion(true); return }
                 var remaining = sessions.count
+                var succeeded = true
                 for session in sessions {
-                    session.stopAndDrainGPU { _ in
+                    session.stopAndDrainGPU { result in
+                        succeeded = succeeded && result
                         remaining -= 1
-                        if remaining == 0 { completion() }
+                        if remaining == 0 { completion(succeeded) }
                     }
                 }
             }
@@ -242,15 +261,26 @@ extension SceneDesktopWallpaperHost {
     func stopAndDrainGPU(completion: @escaping @MainActor (Bool) -> Void) {
         stop()
         let sessions = Array(retiringSessions.values)
-        guard !sessions.isEmpty else { completion(true); return }
-        var remaining = sessions.count
+        // A cancelled launch may have no Session but still own a preparation
+        // task (and its cleanup). Join the original queue alongside Sessions.
+        var remaining = sessions.count + 1
         var succeeded = true
-        for session in sessions {
-            session.stopAndDrainGPU { result in
-                succeeded = succeeded && result
-                remaining -= 1
-                if remaining == 0 { completion(succeeded) }
+        let finishPart: @MainActor @Sendable (Bool) -> Void = { result in
+            succeeded = succeeded && result
+            remaining -= 1
+            if remaining == 0 { completion(succeeded) }
+        }
+        launchPreparationQueue.async {
+#if DEBUG
+            RunLoop.main.perform(inModes: [.common, .modalPanel]) {
+                MainActor.assumeIsolated { finishPart(true) }
             }
+#else
+            DispatchQueue.main.async { finishPart(true) }
+#endif
+        }
+        for session in sessions {
+            session.stopAndDrainGPU(completion: finishPart)
         }
     }
     /// M3.2：launch 阶段 → M1 计数器 hub 的统一映射（同步/异步两条

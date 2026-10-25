@@ -7,11 +7,16 @@ import subprocess
 import tempfile
 import unittest
 
-from .test_scene_texture_candidate import SWIFT_SOURCES, HARNESS as TEXTURE_HARNESS
+from .test_scene_image_upload_completion import LOADER_SOURCES, SOURCE, RESAMPLE_SOURCE
+
+SWIFT_SOURCES = [*LOADER_SOURCES, SOURCE, RESAMPLE_SOURCE]
 from .scene_vector_vm_test_support import compile_vector_harness
 
 
-HARNESS = TEXTURE_HARNESS.split("@main", 1)[0] + r'''
+HARNESS = r'''
+import Foundation
+import CoreGraphics
+import ImageIO
 @main enum HeaderChecks {
     static func writeImage(_ url: URL, width: Int, height: Int, type: CFString) throws {
         let bytes = Data(repeating: 255, count: width * height * 4)
@@ -35,21 +40,22 @@ HARNESS = TEXTURE_HARNESS.split("@main", 1)[0] + r'''
         for (name, type) in [("renamed-Ä.png", "public.png"), ("other-resource.jpg", "public.jpeg")] {
             let url = root.appendingPathComponent(name)
             try writeImage(url, width: 200, height: 100, type: type as CFString)
-            let source = loader.sourceKey(for: url)!
-            let size = loader.preparedNaturalImageSize(from: url, source: source)!
+            let source = (try loader.sourceKey(for: url))!
+            let size = (try loader.preparedNaturalImageSize(from: url, source: source))!
             sizes.append([size.width, size.height])
             loader.evictDecodedCaches()
-            let again = loader.preparedNaturalImageSize(from: url, source: source)!
+            let again = (try loader.preparedNaturalImageSize(from: url, source: source))!
             sizes.append([again.width, again.height])
             try writeImage(url, width: 120, height: 60, type: type as CFString)
-            oldSourceRejected = loader.preparedNaturalImageSize(from: url, source: source) == nil
-            let changed = loader.sourceKey(for: url)!
-            let changedSize = loader.preparedNaturalImageSize(from: url, source: changed)!
+            do { _ = try loader.preparedNaturalImageSize(from: url, source: source) }
+            catch SceneResourceView.ReadError.sourceChanged { oldSourceRejected = true }
+            let changed = (try loader.sourceKey(for: url))!
+            let changedSize = (try loader.preparedNaturalImageSize(from: url, source: changed))!
             sizes.append([changedSize.width, changedSize.height])
         }
         let invalid = root.appendingPathComponent("invalid.png")
         try Data("not an image".utf8).write(to: invalid)
-        let failureIsLocal = loader.preparedNaturalImageSize(from: invalid, source: loader.sourceKey(for: invalid)!) == nil
+        let failureIsLocal = (try loader.preparedNaturalImageSize(from: invalid, source: (try loader.sourceKey(for: invalid))!)) == nil
         let payload: [String: Any] = ["sizes": sizes, "oldSourceRejected": oldSourceRejected,
             "failureIsLocal": failureIsLocal, "decodeAttempts": loader.directImageDecodeAttemptCount,
             "decodeResidentBytes": budget.residentBytes, "queueCreationAttempts": queue.creationAttemptCount]

@@ -11,13 +11,18 @@ final class WebDaemonRuntime: NSObject, NSApplicationDelegate {
     static var isRequested: Bool { ProcessInfo.processInfo.arguments.contains(WebDaemonProtocol.flag) }
     let host = DedicatedWebWallpaperHostPlaceholderAdapter()
     let requestID: UUID
-    private let inbox = WebDaemonMailbox()
-    private let outbox = WebDaemonMailbox()
+    private let inbox = WebDaemonMailbox<WebDaemonCommand>()
+    private let outbox = WebDaemonMailbox<Data>()
     private let outputQueue = DispatchQueue(label: "com.mywallpaperx.web-daemon-output")
 #if DEBUG
     private var diagnosticObserver: NSObjectProtocol?
     private var pendingDiagnostics: [WebDaemonDiagnostic] = []
     private var diagnosticFlushScheduled = false
+    private let startupTimingEnabled: Bool
+    private var startupTiming: WebDaemonStartupTimingObservation?
+    private var preparationTiming: WebDaemonPreparationTimingObservation?
+    private var preparedStartupTiming: WebDaemonPreparationTimingObservation?
+    private var pendingHostReadyObservedAt: TimeInterval?
 #endif
     private var mediaReplayPending = false
     private var desiredVolume: Float = 0
@@ -47,6 +52,9 @@ final class WebDaemonRuntime: NSObject, NSApplicationDelegate {
               arguments.indices.contains(index + 1),
               let id = UUID(uuidString: arguments[index + 1]) else { return nil }
         requestID = id
+#if DEBUG
+        startupTimingEnabled = arguments.contains("--mwx-debug-web-startup-timing")
+#endif
         super.init()
     }
 
@@ -85,6 +93,7 @@ final class WebDaemonRuntime: NSObject, NSApplicationDelegate {
         }
         host.eventHandler = { [weak self] event in self?.handleHostEvent(event) }
 #if DEBUG
+        if startupTimingEnabled { host.debugStartupSurfaceTimings = [:] }
         diagnosticObserver = NotificationCenter.default.addObserver(
             forName: WebRuntimeDiagnosticsStore.didChangeNotification, object: nil, queue: .main
         ) { [weak self] _ in
@@ -109,7 +118,7 @@ final class WebDaemonRuntime: NSObject, NSApplicationDelegate {
                     guard frame.count <= WebDaemonProtocol.maximumFrameBytes,
                           let value = try? JSONDecoder().decode(WebDaemonEnvelope<WebDaemonCommand>.self, from: frame),
                           value.version == WebDaemonProtocol.version, value.requestID == expected,
-                          inbox.submit(frame, latest: value.payload.isLatestValue, schedule: {
+                          inbox.submit(value.payload, byteCount: frame.count, latest: value.payload.isLatestValue, schedule: {
                               RunLoop.main.perform(inModes: [.common]) { [weak self] in
                                   MainActor.assumeIsolated { self?.drainInbox() }
                               }
@@ -125,15 +134,20 @@ final class WebDaemonRuntime: NSObject, NSApplicationDelegate {
     }
 
     private func drainInbox() {
-        while !stopping, let data = inbox.take(),
-              let value = try? JSONDecoder().decode(WebDaemonEnvelope<WebDaemonCommand>.self, from: data) {
-            switch value.payload {
+        // The pipe reader has already decoded and validated this immutable
+        // command. Consume that value instead of parsing its JSON again on main.
+        while !stopping, let command = inbox.take() {
+            switch command {
             case let .launch(input):
                 guard host.currentRequest == nil, input.entryURL.isFileURL, input.rootURL.isFileURL else {
                     emit(.error("invalid-launch")); shutdown(); return
                 }
+#if DEBUG
+                if startupTimingEnabled {
+                    preparationTiming = .init(launchReceivedAt: ProcessInfo.processInfo.systemUptime)
+                }
+#endif
                 desiredVolume = input.state.volume
-                host.allowedNetworkBridgeHostsResolver = { _ in input.allowedNetworkHosts }
                 let mutedState = WallpaperEngine.WebWallpaperRuntimeState(paused: input.state.paused,
                     volume: 0, playbackRate: input.state.playbackRate, spectrumLevels: input.state.spectrumLevels)
                 host.launch(input.request(id: requestID), runtimeState: mutedState)
@@ -199,6 +213,9 @@ final class WebDaemonRuntime: NSObject, NSApplicationDelegate {
                 emitObservation()
 #endif
                 return }
+#if DEBUG
+            if startupTimingEnabled { pendingHostReadyObservedAt = ProcessInfo.processInfo.systemUptime }
+#endif
             preparePresentation()
         default:
 #if DEBUG
@@ -215,6 +232,18 @@ final class WebDaemonRuntime: NSObject, NSApplicationDelegate {
         didPrepare = false
         preparationSnapshotReady = false
         preparedSurfaces = host.presentationSurfaceIdentities
+#if DEBUG
+        preparedStartupTiming = nil
+        preparationTiming?.hostReadyAt = pendingHostReadyObservedAt
+        pendingHostReadyObservedAt = nil
+        preparationTiming?.generation = generation
+        preparationTiming?.surfaces = preparedSurfaces
+        preparationTiming?.snapshotRequestedAt = ProcessInfo.processInfo.systemUptime
+        preparationTiming?.snapshotCompletedAt = nil
+        preparationTiming?.policyWaitStartedAt = nil
+        preparationTiming?.policyAcceptedAt = nil
+        preparationTiming?.surfaceTimings = []
+#endif
         let surfaces = Array(host.surfaces.values)
         var remaining = surfaces.count
         var failed = false
@@ -232,6 +261,9 @@ final class WebDaemonRuntime: NSObject, NSApplicationDelegate {
                 guard remaining == 0 else { return }
                 if failed { self.emit(.error("web-presentation-preparation-failed")); return }
                 self.preparationSnapshotReady = true
+#if DEBUG
+                self.preparationTiming?.snapshotCompletedAt = ProcessInfo.processInfo.systemUptime
+#endif
                 self.host.setOutputActivity(false) { _ in }
                 self.confirmPreparationMedia()
             }
@@ -240,12 +272,22 @@ final class WebDaemonRuntime: NSObject, NSApplicationDelegate {
 
     private func confirmPreparationMedia() {
         let generation = preparationGeneration
+#if DEBUG
+        preparationTiming?.policyWaitStartedAt = ProcessInfo.processInfo.systemUptime
+#endif
         host.awaitNativeMediaPolicy { [weak self] accepted in
             guard let self, accepted, !self.stopping, !self.committed, self.activation == nil,
                   self.preparationGeneration == generation, self.preparationSnapshotReady,
                   self.host.presentationSurfaceIdentities == self.preparedSurfaces else { return }
             guard !self.didPrepare else { return }
             self.didPrepare = true
+#if DEBUG
+            self.preparationTiming?.policyAcceptedAt = ProcessInfo.processInfo.systemUptime
+            self.preparationTiming?.surfaceTimings = self.preparedSurfaces.compactMap {
+                self.host.debugStartupSurfaceTimings?[$0.displayID]?.matching($0)
+            }
+            self.preparedStartupTiming = self.preparationTiming
+#endif
             self.emitUsage()
 #if DEBUG
             self.emitObservation()
@@ -262,6 +304,15 @@ final class WebDaemonRuntime: NSObject, NSApplicationDelegate {
               !committed, host.phase == .ready, activation == nil else {
             emit(.activationFailed(request.identity, "web-activation-identity-mismatch")); return
         }
+#if DEBUG
+        if startupTimingEnabled {
+            startupTiming = .init(identity: request.identity,
+                activateReceivedAt: ProcessInfo.processInfo.systemUptime)
+            if preparedStartupTiming?.generation == request.identity.generation {
+                startupTiming?.preparation = preparedStartupTiming
+            }
+        }
+#endif
         pendingCancellation = nil
         activityID = nil
         activation = request
@@ -289,10 +340,17 @@ final class WebDaemonRuntime: NSObject, NSApplicationDelegate {
         mediaConfirmationRevision &+= 1
         let revision = mediaConfirmationRevision
         activationMediaReady = false
+#if DEBUG
+        // A superseding pause/resume requires its own current-policy ACK.
+        startupTiming?.nativePolicyAcceptedAt = nil
+#endif
         host.awaitNativeMediaPolicy { [weak self] accepted in
             guard let self, accepted, !self.stopping, self.activation?.identity == identity,
                   self.mediaConfirmationRevision == revision,
                   self.host.presentationSurfaceIdentities == self.preparedSurfaces else { return }
+#if DEBUG
+            self.startupTiming?.nativePolicyAcceptedAt = ProcessInfo.processInfo.systemUptime
+#endif
             self.activationMediaReady = true
             self.checkActivationVisibility(identity)
         }
@@ -309,6 +367,23 @@ final class WebDaemonRuntime: NSObject, NSApplicationDelegate {
             PlaybackSurfaceVisibility.observe(window: $0.window, displayID: $0.screenID,
                                                expectedLevel: host.surfaceWindowLevel.rawValue)
         }
+#if DEBUG
+        if startupTiming?.identity == identity {
+            if startupTiming?.visibilityFirstConfirmedAt == nil,
+               evidence.allSatisfy({ PlaybackSurfaceVisibility.evaluate($0) == .confirmed }) {
+                startupTiming?.visibilityFirstConfirmedAt = ProcessInfo.processInfo.systemUptime
+            }
+            if startupTiming?.firstVisibilityRetryReason == nil {
+                for value in evidence {
+                    if case let .retry(reason) = PlaybackSurfaceVisibility.evaluate(value) {
+                        startupTiming?.firstVisibilityRetryAt = ProcessInfo.processInfo.systemUptime
+                        startupTiming?.firstVisibilityRetryReason = reason
+                        break
+                    }
+                }
+            }
+        }
+#endif
         if evidence.contains(where: { PlaybackSurfaceVisibility.evaluate($0) == .deferredOffSpace }) {
             failActivation(identity, reason: "inactive-space", deferred: true); return
         }
@@ -423,7 +498,7 @@ final class WebDaemonRuntime: NSObject, NSApplicationDelegate {
             pointerTimer: host.pointerPollingTimer == nil ? 0 : 1,
             surfaces: host.surfaces.count,
             watchTimer: host.directoryWatchTimer == nil ? 0 : 1,
-            watchers: host.directoryWatchersByProperty.count)))
+            watchers: host.directoryWatchersByProperty.count, startupTiming: startupTiming)))
     }
 #endif
 #if DEBUG
@@ -439,7 +514,7 @@ final class WebDaemonRuntime: NSObject, NSApplicationDelegate {
 
     func emit(_ event: WebDaemonEvent) {
         guard let data = try? DaemonNewlineJSON.encode(WebDaemonEnvelope(requestID: requestID, payload: event)),
-              outbox.submit(data, latest: false, schedule: { [weak self] in
+              outbox.submit(data, byteCount: data.count, latest: false, schedule: { [weak self] in
                   guard let self else { return }
                   let outbox = self.outbox
                   self.outputQueue.async {

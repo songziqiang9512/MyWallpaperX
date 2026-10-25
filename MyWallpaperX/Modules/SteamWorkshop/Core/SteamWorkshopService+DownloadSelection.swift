@@ -241,6 +241,7 @@ extension SteamWorkshopService {
         let ids = Set(itemIDs).subtracting(removingDownloadIDs)
         guard !ids.isEmpty else { return }
         removingDownloadIDs.formUnion(ids)
+        for id in ids { removeWebRuntimeCaches(for: id) }
         Task { [weak self] in
             guard let self else { return }
             defer { self.removingDownloadIDs.subtract(ids) }

@@ -232,8 +232,6 @@ jobs:
             --sign "$DEVELOPER_ID_APPLICATION" \
             "$APP_PATH"
 
-          codesign --verify --deep --strict --verbose=2 "$APP_PATH"
-
       - name: Verify distribution signatures and permissions
         env:
           APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}

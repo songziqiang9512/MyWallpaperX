@@ -445,12 +445,17 @@ final class SceneOffscreenTexturePool {
         let materialFunctionTargets: [SceneAuthoredEffectRenderPlan.EffectKey: Set<SceneAuthoredEffectRenderPlan.TextureIdentity>]
     }
 
-    private var persistentPlansMemo: [PersistentPlansMemoKey: (
-        plans: [SceneGraphRenderTargetPlan],
-        makeInputsDigests: [Int],
-        width: Int,
-        height: Int
-    )] = [:]
+    private struct PersistentPlansMemoValue {
+        let plans: [SceneGraphRenderTargetPlan]
+        let makeInputsDigests: [Int]
+        let width: Int
+        let height: Int
+        // Requested pair storage is part of this original memo. A shared
+        // request may retain its successful owned fallback, as before.
+        var layerPlans: [SceneLayerGraphTargetPlan.FullFramePairStorage: SceneLayerGraphTargetPlan] = [:]
+    }
+
+    private var persistentPlansMemo: [PersistentPlansMemoKey: PersistentPlansMemoValue] = [:]
 
     func persistentTargetPlansResult(
         admittedGraphs: [SceneAuthoredEffectRenderPlan],
@@ -512,7 +517,10 @@ final class SceneOffscreenTexturePool {
                 size: size
             )
             guard case let .success(value) = derived else { return derived }
-            persistentPlansMemo[memoKey] = value
+            persistentPlansMemo[memoKey] = .init(
+                plans: value.plans, makeInputsDigests: value.makeInputsDigests,
+                width: value.width, height: value.height
+            )
             return .success(
                 (plans: value.plans,
                  makeInputsDigests: value.makeInputsDigests,
@@ -526,6 +534,59 @@ final class SceneOffscreenTexturePool {
             pairPlan: pairPlan,
             size: size
         )
+    }
+
+    func persistentLayerTargetPlanResult(
+        admittedGraphs: [SceneAuthoredEffectRenderPlan],
+        materialFunctionTargetsByEffect: [SceneAuthoredEffectRenderPlan.EffectKey: Set<SceneAuthoredEffectRenderPlan.TextureIdentity>],
+        pairPlan: SceneLayerFullFramePairPlan,
+        extentPolicy: SceneFullFrameExtentPolicy,
+        requestedWidth: Int, requestedHeight: Int,
+        usesSharedFullFrameWorkingPair: Bool,
+        plansMemoIdentity: PersistentPlansMemoIdentity?
+    ) -> Result<SceneLayerGraphTargetPlan, ScenePersistentGraphTargetPlanningFailure> {
+        let prepared: (plans: [SceneGraphRenderTargetPlan], makeInputsDigests: [Int], width: Int, height: Int)
+        switch persistentTargetPlansResult(
+            admittedGraphs: admittedGraphs,
+            materialFunctionTargetsByEffect: materialFunctionTargetsByEffect,
+            pairPlan: pairPlan, extentPolicy: extentPolicy,
+            requestedWidth: requestedWidth, requestedHeight: requestedHeight,
+            plansMemoIdentity: plansMemoIdentity
+        ) {
+        case let .success(value): prepared = value
+        case let .failure(failure): return .failure(failure)
+        }
+        let requestedStorage: SceneLayerGraphTargetPlan.FullFramePairStorage =
+            usesSharedFullFrameWorkingPair ? .shared : .owned
+        let memoKey = plansMemoIdentity.map {
+            PersistentPlansMemoKey(identity: $0, extentPolicy: extentPolicy,
+                width: prepared.width, height: prepared.height,
+                materialFunctionTargets: materialFunctionTargetsByEffect)
+        }
+        if let memoKey, let cached = persistentPlansMemo[memoKey]?.layerPlans[requestedStorage] {
+            return .success(cached)
+        }
+        // The pool's device, format, hard limit and budget are immutable. The
+        // existing capability token binds graph/pair topology; the memo key
+        // covers extent, function targets and requested pair storage.
+        let storages: [SceneLayerGraphTargetPlan.FullFramePairStorage] =
+            usesSharedFullFrameWorkingPair ? [.shared, .owned] : [.owned]
+        var lastFailure = SceneLayerGraphTargetPlan.Failure.invalidPlan
+        for storage in storages {
+            switch SceneLayerGraphTargetPlan.make(
+                plans: prepared.plans, pairPlan: pairPlan, byteBudget: residentByteBudget,
+                pairStorage: storage, makeInputsDigests: prepared.makeInputsDigests,
+                admittedGraphs: admittedGraphs,
+                materialFunctionTargetsByEffect: materialFunctionTargetsByEffect,
+                capabilityID: plansMemoIdentity?.capabilityToken.capabilityID
+            ) {
+            case let .success(plan):
+                if let memoKey { persistentPlansMemo[memoKey]?.layerPlans[requestedStorage] = plan }
+                return .success(plan)
+            case let .failure(failure): lastFailure = failure
+            }
+        }
+        return .failure(.layerTargetPlan(lastFailure))
     }
 
     /// make 的纯推导体（无状态；memo 未命中时执行）。

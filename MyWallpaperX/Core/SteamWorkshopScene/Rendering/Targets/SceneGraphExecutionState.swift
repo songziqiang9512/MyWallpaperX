@@ -9,9 +9,6 @@ nonisolated struct SceneGraphExecutionState: Equatable {
     typealias PairStep = SceneLayerFullFramePairPlan.EffectStep
     typealias Identity = Graph.TextureIdentity
 
-    static let maximumNodeCount = 512
-    static let maximumLogicalBindingCount = 512
-
     struct PhysicalToken: Hashable { let rawValue: String }
 
     struct ResourceDescriptor: Equatable {
@@ -121,7 +118,7 @@ nonisolated struct SceneGraphExecutionState: Equatable {
     enum Failure: String, Error {
         case graphBlocked, conditionUnavailable, functionUnavailable
         case composeUnproven, unknownOperation, invalidTopology, ordinalMismatch
-        case pairStepMismatch, executionEvidenceCapacityExceeded
+        case pairStepMismatch
         case missingIdentity, descriptorMismatch, physicalAlias
         case readBeforeWrite, readWriteHazard
         case allocationGenerationMismatch, freshAllocationTokenReuse
@@ -138,9 +135,9 @@ nonisolated struct SceneGraphExecutionState: Equatable {
     let historyLogicalIdentities: Set<Identity>
     let historyClosureIdentities: Set<Identity>
     let lastContentGeneration: UInt64
-    /// Static execution work is compiled once per effect/allocation generation.
-    /// The admitted capability is immutable; callers must advance
-    /// `effectGeneration` before replacing its graph or pair plan.
+    /// Raw reducer callers retain their compiled operations. Production uses
+    /// PreparedExecution from the original target-plan memo. Effect generation
+    /// still advances before replacing the admitted graph or pair plan.
     private let compiledOperations: [Operation]?
     private let materialFunctionTargets: Set<Identity>
     private let topologySignature: Data?
@@ -291,14 +288,40 @@ nonisolated struct SceneGraphExecutionState: Equatable {
         materialFunctionInvocations:
             [MaterialFunctionInvocation] = []
     ) -> Result<Transition, Failure> {
-        guard graph.nodes.count <= maximumNodeCount,
-              targetPlan.logicalTargets.count <= maximumLogicalBindingCount else {
-            return .failure(.executionEvidenceCapacityExceeded)
-        }
+        reduce(graph: graph, targetPlan: targetPlan, pairStep: pairStep,
+            allocation: allocation, effectGeneration: effectGeneration, resetGeneration: resetGeneration,
+            previous: previous, historyRehydration: historyRehydration,
+            materialFunctionInvocations: materialFunctionInvocations, preparedExecution: nil)
+    }
+
+    static func reduce(
+        preparedExecution: PreparedExecution, allocation: Allocation,
+        effectGeneration: UInt64, resetGeneration: UInt64, previous: Self = .empty,
+        historyRehydration: [PhysicalToken: PhysicalToken] = [:],
+        materialFunctionInvocations: [MaterialFunctionInvocation] = []
+    ) -> Result<Transition, Failure> {
+        reduce(graph: preparedExecution.graph, targetPlan: preparedExecution.plan, pairStep: preparedExecution.pairStep,
+            allocation: allocation, effectGeneration: effectGeneration, resetGeneration: resetGeneration,
+            previous: previous, historyRehydration: historyRehydration,
+            materialFunctionInvocations: materialFunctionInvocations, preparedExecution: preparedExecution)
+    }
+
+    private static func reduce(
+        graph: Graph, targetPlan: Plan, pairStep: PairStep, allocation: Allocation,
+        effectGeneration: UInt64, resetGeneration: UInt64, previous: Self,
+        historyRehydration: [PhysicalToken: PhysicalToken],
+        materialFunctionInvocations: [MaterialFunctionInvocation], preparedExecution: PreparedExecution?
+    ) -> Result<Transition, Failure> {
         let materialFunctionTargets = Set(materialFunctionInvocations.flatMap(\.targets))
-        let plannedTargets = Set(targetPlan.logicalTargets.map(\.identity))
-        guard materialFunctionTargets.isSubset(of: plannedTargets) else {
-            return .failure(.functionUnavailable)
+        if let preparedExecution {
+            guard materialFunctionTargets == preparedExecution.materialFunctionTargets else {
+                return .failure(.functionUnavailable)
+            }
+        } else {
+            let plannedTargets = Set(targetPlan.logicalTargets.map(\.identity))
+            guard materialFunctionTargets.isSubset(of: plannedTargets) else {
+                return .failure(.functionUnavailable)
+            }
         }
         guard generationsDoNotRegress(
             effect: effectGeneration,
@@ -317,7 +340,15 @@ nonisolated struct SceneGraphExecutionState: Equatable {
         let operations: [Operation]
         let signatures: ExecutionSignatures?
         let historyClosure: Set<Identity>
-        if reusesStaticPlan {
+        if let preparedExecution {
+            operations = preparedExecution.operations
+            signatures = preparedExecution.signatures
+            historyClosure = preparedExecution.historyClosureIdentities
+            switch validateAllocation(allocation, expected: preparedExecution.expectedAllocation) {
+            case let .failure(failure): return .failure(failure)
+            case .success: break
+            }
+        } else if reusesStaticPlan {
             guard let cachedOperations = previous.compiledOperations,
                   allocation.resources == previous.authoredResources else {
                 return .failure(.stateMismatch)
@@ -407,7 +438,7 @@ nonisolated struct SceneGraphExecutionState: Equatable {
             return .failure(.stateMismatch)
         }
 
-        let history = Set(targetPlan.logicalTargets.compactMap {
+        let history = preparedExecution?.historyLogicalIdentities ?? Set(targetPlan.logicalTargets.compactMap {
             $0.lifetime.requiresHistorySeed ? $0.identity : nil
         })
         guard reset || (
@@ -449,7 +480,7 @@ nonisolated struct SceneGraphExecutionState: Equatable {
         var intents: [Intent] = []
         var readableTokens = initialized
 
-        for target in targetPlan.logicalTargets.sorted(by: targetOrder) {
+        for target in preparedExecution?.initializationTargets ?? targetPlan.logicalTargets.sorted(by: targetOrder) {
             guard let current = currentMapping[target.identity] else {
                 return .failure(.missingIdentity)
             }
@@ -508,9 +539,10 @@ nonisolated struct SceneGraphExecutionState: Equatable {
             switch operation {
             case .material(let node):
                 var bindings: [MaterialBinding] = []
-                for binding in node.bindings.sorted(by: {
-                    ($0.slot ?? Int.max) < ($1.slot ?? Int.max)
-                }) where binding.texture.kind == .framebuffer {
+                let framebufferBindings = preparedExecution?.framebufferBindingsByNode[node.nodeIndex]
+                    ?? node.bindings.filter { $0.texture.kind == .framebuffer }
+                        .sorted { ($0.slot ?? Int.max) < ($1.slot ?? Int.max) }
+                for binding in framebufferBindings {
                     guard let slot = binding.slot,
                           let resource = currentMapping[binding.texture] else {
                         return .failure(.missingIdentity)

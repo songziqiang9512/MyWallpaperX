@@ -2050,6 +2050,24 @@ enum Harness {
         let capVelocityBlendMiddle = blendedCapVelocity.particles[0].velocity
         blendedCapVelocity.advance(by: 1)
         let capVelocityBlendEnd = blendedCapVelocity.particles[0].velocity
+        let capVelocityLifeEdges: [[String: Any]] = [
+            (0.0, 1e-13), (0.775, 1.0), (0.875, 10.0), (1.875, 10.0),
+            (2.875, 10.0), (6.875, 10.0), (7.875, 10.0), (8.875, 10.0), (9.875, 10.0)
+        ].map { age, lifetime in
+            let value = simulator(capVelocityJSON(blend:
+                #", "blendinstart":0.1, "blendinend":0.3, "blendoutstart":0.7, "blendoutend":0.9"#),
+                seed: 91, step: 0.125)
+            value.advance(by: 0.125)
+            var particle = value.particles[0]
+            particle.age = age; particle.lifetime = lifetime
+            particle.velocity = SIMD3(300, 400, 0)
+            value.particles = [particle]
+            value.advance(by: 0.125)
+            let deaths = value.consumeDeathEvents()
+            let result = value.particles.first ?? deaths.last!
+            return ["velocity": vector(result.velocity), "age": result.age,
+                "lifetime": result.lifetime, "dead": value.particles.isEmpty]
+        }
         let capVelocityOverride = SceneParticleDefinitionParser().parseInstanceOverride(
             try object(#"{"speed":2}"#)
         )
@@ -2560,6 +2578,7 @@ enum Harness {
             "capVelocityBlendStart": vector(capVelocityBlendStart),
             "capVelocityBlendMiddle": vector(capVelocityBlendMiddle),
             "capVelocityBlendEnd": vector(capVelocityBlendEnd),
+            "capVelocityLifeEdges": capVelocityLifeEdges,
             "overriddenCapVelocity": vector(overriddenCapVelocity.particles[0].velocity),
             "overrideDeniedCapVelocity":
                 vector(overrideDeniedCapVelocity.particles[0].velocity),
@@ -3345,16 +3364,17 @@ enum Harness {
             let project = try object(data: Data(contentsOf: sample.appendingPathComponent("project.json")))
             let scenePath = normalized(project["file"] as? String ?? "scene.json")
             let packageURL = try packageURL(sample: sample, scenePath: scenePath)
-            let index = try ScenePkgReader().readIndex(packageURL: packageURL)
+            let opened = try ScenePkgReader().openPackage(packageURL: packageURL, limits: .compatibility)
+            let index = opened.index
             let entries = Dictionary(uniqueKeysWithValues: index.entries.map { (normalized($0.path), $0) })
             guard let sceneEntry = entries[scenePath] else { throw HarnessError.missingEntry(scenePath) }
-            let scene = try object(data: try read(sceneEntry, index: index, packageURL: packageURL))
+            let scene = try object(data: try read(sceneEntry, opened: opened))
             let objects = scene["objects"] as? [[String: Any]] ?? []
 
             for object in objects {
                 guard let path = object["particle"] as? String,
                       let entry = entries[normalized(path)] else { continue }
-                let definition = try parser.parse(data: read(entry, index: index, packageURL: packageURL))
+                let definition = try parser.parse(data: read(entry, opened: opened))
                 var runtime = SceneParticleSimulator(
                     definition: definition,
                     instanceOverride: parser.parseInstanceOverride(object["instanceoverride"]),
@@ -3368,7 +3388,7 @@ enum Harness {
             func visit(_ rawPath: String) throws {
                 let path = normalized(rawPath)
                 guard visited.insert(path).inserted, let entry = entries[path] else { return }
-                let definition = try parser.parse(data: read(entry, index: index, packageURL: packageURL))
+                let definition = try parser.parse(data: read(entry, opened: opened))
                 var runtime = SceneParticleSimulator(
                     definition: definition, seed: UInt64(definitionSimulators), fixedTimeStep: 1.0 / 60.0
                 )
@@ -3383,14 +3403,10 @@ enum Harness {
     }
 
     private static func read(
-        _ entry: ScenePkgIndex.Entry, index: ScenePkgIndex, packageURL: URL
+        _ entry: ScenePkgIndex.Entry, opened: ScenePkgReader.OpenPackage
     ) throws -> Data {
-        let handle = try FileHandle(forReadingFrom: packageURL)
-        defer { try? handle.close() }
-        try handle.seek(toOffset: UInt64(index.dataStartOffset) + UInt64(entry.offset))
-        guard let data = try handle.read(upToCount: Int(entry.size)), data.count == Int(entry.size) else {
-            throw HarnessError.truncatedEntry(entry.path)
-        }
+        var data = Data()
+        try opened.readEntryChunks(entry) { data.append($0) }
         return data
     }
 
@@ -4520,6 +4536,17 @@ class SceneParticleSimulatorTests(unittest.TestCase):
         self.assertEqual(self.results["invalidCapVelocities"], [[300, 400, 0]] * 11)
         for diagnostics in self.results["invalidCapVelocityDiagnostics"]:
             self.assertIn("capVelocityUnsupported", diagnostics)
+
+    def test_cap_velocity_uses_current_step_life_at_blend_and_death_boundaries(self) -> None:
+        rows = self.results["capVelocityLifeEdges"]
+        expected = [[300, 400, 0], [300, 400, 0], [300, 400, 0], [180, 240, 0],
+                    [60, 80, 0], [60, 80, 0], [180, 240, 0], [300, 400, 0], [300, 400, 0]]
+        self.assertEqual(len(rows), len(expected))
+        for index, (row, velocity) in enumerate(zip(rows, expected)):
+            with self.subTest(edge=index):
+                for actual, reference in zip(row["velocity"], velocity):
+                    self.assertAlmostEqual(actual, reference, places=8)
+                self.assertEqual(row["dead"], index in (0, 8))
 
     def test_unsupported_capabilities_are_reported(self) -> None:
         self.assertEqual(

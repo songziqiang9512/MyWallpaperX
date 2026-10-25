@@ -60,7 +60,7 @@ enum SceneBaseMaterialTextureResolver {
             let candidate = publication.candidate
             let isAsset: Bool
             switch candidate.identity {
-            case .file, .builtIn: isAsset = true
+            case .file, .package, .builtIn: isAsset = true
             case let .provider(.videoAsset(candidateAsset, _, epoch)):
                 isAsset = candidateAsset == asset && epoch > 0
             case .provider: isAsset = false

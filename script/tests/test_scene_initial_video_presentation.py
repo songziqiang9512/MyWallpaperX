@@ -16,7 +16,7 @@ import time
 import unittest
 
 from .test_scene_material_video_asset import video_tex
-from .test_scene_pkg_cache_extractor import make_package
+from .scene_pkg_fixture import make_package
 
 
 class SceneInitialVideoPresentationTests(unittest.TestCase):

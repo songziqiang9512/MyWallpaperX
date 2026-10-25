@@ -43,6 +43,7 @@ enum SceneEffectSourceExtentContract { case exactSamplingTexture }
 final class ScenePuppetClipping {
     func prepare(commandBuffer: MTLCommandBuffer, extent: SIMD2<Int>, mvp: simd_float4x4,
                  retainAuxiliary: SceneGeometryProduct.AuxiliaryRetainer,
+                 vertexCoverageVaries: Bool = true,
                  vertices: [SceneQuadVertex], vertexBuffer: MTLBuffer, indexBuffer: MTLBuffer) {
         preconditionFailure()
     }
@@ -51,8 +52,9 @@ final class ScenePuppetClipping {
     }
 }
 enum SceneDynamicTarget: Hashable { case scriptInstanceProperty(layerID: Int, path: [String]) }
-enum SceneDynamicValue { case bool(Bool) }
-struct SceneDynamicResolvedValue { let value: SceneDynamicValue }
+enum SceneDynamicValue { case bool(Bool), scalar(Double) }
+enum SceneDynamicSource: Equatable { case authored, userProperty, timeline, sceneScript }
+struct SceneDynamicResolvedValue { let value: SceneDynamicValue; let source: SceneDynamicSource }
 struct SceneDynamicSnapshot {
     let frameIndex: UInt64
     let values: [SceneDynamicTarget: SceneDynamicResolvedValue]
@@ -118,21 +120,24 @@ struct Subject {
     let evaluator: ScenePuppetAnimationEvaluator
 }
 func makeSubject(_ device: Device, lateSingular: Bool = false, channel: String? = nil,
-             renamed: Bool = false) throws -> Subject {
+             renamed: Bool = false,
+             physics: [SceneMdlPuppetRig.TranslationPhysics?] = [nil, nil]) throws -> Subject {
     let vertices = (0..<2).map { index in
         SceneMdlStaticModel.Vertex(position: SIMD3(Float(index + 1), 2, 3),
             normal: SIMD3(2, 1, 0), tangent: SIMD4(1, -2, 1, -1), uv: SIMD2(0.25, 0.75))
     }
     let identity = columns(matrix_identity_float4x4)
-    let rig = SceneMdlPuppetRig(bones: (0..<2).map { _ in
-        .init(parentIndex: -1, bindLocalMatrixColumnMajor: identity)
+    let rig = SceneMdlPuppetRig(bones: physics.enumerated().map { index, configuration in
+        .init(name: "bone-\(index)", parentIndex: -1, bindLocalMatrixColumnMajor: identity,
+              translationPhysics: configuration)
     }, vertexWeights: (0..<2).map { index in
         .init(boneIndices: SIMD4(UInt32(index), 0, 0, 0), boneWeights: SIMD4(1, 0, 0, 0))
     })
     let animation = SceneMdlPuppetAnimation(id: 7, name: renamed ? "renamed-motion" : "motion",
         mode: "loop", framesPerSecond: 1, frameCount: 1,
-        transformsByBone: [[transform(), transform(z: 4)],
-            [transform(), transform(z: 4, scale: lateSingular ? 0 : 1)]])
+        transformsByBone: physics.indices.map { index in
+            [transform(), transform(z: 4, scale: lateSingular && index == 1 ? 0 : 1)]
+        })
     var animations = [animation]
     var layers = [ScenePuppetAnimationLayer(id: 71, animationID: 7, name: "base", additive: false,
         blend: 1, blendIn: false, blendOut: false, blendTime: 0, rate: 1, visible: true,
@@ -182,10 +187,51 @@ func read(_ mesh: SceneStaticModelMesh?) -> [SceneMdlStaticModel.Vertex]? {
     return Array(UnsafeBufferPointer(start: buffer.contents()
         .assumingMemoryBound(to: SceneMdlStaticModel.Vertex.self), count: mesh.vertexCount))
 }
+
+func physicsSubsetChecks(_ device: Device) throws -> Bool {
+    let configurations: [SceneMdlPuppetRig.TranslationPhysics?] = [nil,
+        .init(spring: true, stiffness: 70, friction: 5, inertia: 5, maxDistance: 50), nil,
+        .init(spring: true, stiffness: 140, friction: 9, inertia: 3, maxDistance: 50)]
+    let subject = try makeSubject(device, physics: configurations)
+    let written: [Float] = [0.25, 0.45, 0.65, 0.85]
+    subject.state.apply(scriptBoneMutations: written.enumerated().map { index, origin in
+        var matrix = matrix_identity_float4x4; matrix.columns.3.z = origin
+        return .init(layerID: 42, boneIndex: index, matrix: columns(matrix).map(Double.init))
+    })
+    var motions = configurations.map { _ in ScenePuppetTranslationMotion() }
+    var expected = written
+    var valid = true
+    for cadence in UInt64(10)...11 {
+        for index in configurations.indices {
+            guard let config = configurations[index] else { continue }
+            expected[index] = motions[index].advance(
+                position: SIMD3(0, 0, expected[index]), target: .zero,
+                deltaTime: 0.05, configuration: config).z
+        }
+        subject.state.advanceBonePhysics(animationFrame: singleFrame(0), deltaTime: 0.05, frameIndex: cadence)
+        let pose = subject.state.poseConfiguration(animationFrame: singleFrame(0))!
+        for index in configurations.indices {
+            valid = valid && abs(pose.bones.localMatrices[index * 16 + 14] - Double(expected[index])) < 1e-6
+                && abs(pose.queryLocalMatrices[index * 16 + 14]
+                    - Double(configurations[index] == nil ? written[index] : 0)) < 1e-6
+        }
+    }
+    let before = subject.state.poseConfiguration(animationFrame: singleFrame(0))!.bones.localMatrices
+    subject.state.advanceBonePhysics(animationFrame: singleFrame(0), deltaTime: 0.25, frameIndex: 11)
+    valid = valid && before == subject.state.poseConfiguration(animationFrame: singleFrame(0))!.bones.localMatrices
+        && expected[1] != written[1] && expected[3] != written[3]
+    let ordinary = try makeSubject(device)
+    var matrix = matrix_identity_float4x4; matrix.columns.3.z = 0.75
+    ordinary.state.apply(scriptBoneMutations: [.init(layerID: 42, boneIndex: 1,
+        matrix: columns(matrix).map(Double.init))])
+    ordinary.state.advanceBonePhysics(animationFrame: singleFrame(0), deltaTime: 0.05, frameIndex: 10)
+    return valid && ordinary.state.poseConfiguration(animationFrame: singleFrame(0))!.bones.localMatrices[30] == 0.75
+}
 @main enum Main {
     static func main() throws {
         var rows: [String: Bool] = [:]
         let device = Device()
+        rows["multiplePhysicsBones"] = try physicsSubsetChecks(device)
         let subject = try makeSubject(device)
         let command = Command(device)
         let tx = encode(subject, singleFrame(1), command)

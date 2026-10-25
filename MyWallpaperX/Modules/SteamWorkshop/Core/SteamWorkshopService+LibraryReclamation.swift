@@ -2,13 +2,14 @@ import Foundation
 
 extension SteamWorkshopService {
     func libraryVersionLifetime(for record: SteamWorkshopDownloadRecord) throws -> PlaybackResourceLifetime? {
-        guard !removingDownloadIDs.contains(record.id) else {
+        try libraryVersionLifetime(recordID: record.id,
+            consumedRoots: [record.folderURL, record.dependencyHostFolderURL].compactMap { $0 })
+    }
+
+    func libraryVersionLifetime(recordID: String, consumedRoots: [URL]) throws -> PlaybackResourceLifetime? {
+        guard !removingDownloadIDs.contains(recordID) else {
             throw SteamWorkshopLibraryTransaction.Failure(message: "此壁纸正在删除，无法开始播放。")
         }
-        // Lease the concrete model paths rather than re-reading the latest ready
-        // pointer. A card may still carry the previous version while an update is
-        // publishing, and dependency-backed Web consumes both version trees.
-        let consumedRoots = [record.folderURL, record.dependencyHostFolderURL].compactMap { $0 }
         let storageIdentities = Set(consumedRoots.compactMap {
             SteamWorkshopLibraryTransaction.storageIdentity(
                 containing: $0,
@@ -22,6 +23,68 @@ extension SteamWorkshopService {
             throw SteamWorkshopLibraryTransaction.Failure(message: "此版本已开始回收，请刷新列表后选择当前版本。")
         }
         return lease
+    }
+
+    /// Captured on the service actor with no suspension between the authoritative
+    /// metadata/marker comparison and the original version-registry admission.
+    /// The opaque lifetime never crosses into a worker or the wire DTO.
+    struct SceneSourceAdmission {
+        let source: ScenePlaybackSource
+        let resourceLifetime: PlaybackResourceLifetime?
+    }
+
+    /// Captures the current managed pointer and obtains its lease in one
+    /// unsuspended service-actor segment. No migration or content scan runs here.
+    func sceneSourceAdmission(for record: SteamWorkshopDownloadRecord) throws -> SceneSourceAdmission {
+        typealias Transaction = SteamWorkshopLibraryTransaction
+        let rejected = Transaction.Failure(message: "Scene 来源版本已变化或正在删除，请刷新后重试。")
+        guard !removingDownloadIDs.contains(record.id),
+              record.dependencyItemID.map({ !removingDownloadIDs.contains($0) }) ?? true else { throw rejected }
+        // Foundation may abbreviate /private/tmp to its /tmp symlink for an
+        // existing URL. Keep the original FD owner's physical spelling.
+        let root = try Transaction.configuredRoot(record.folderURL)
+        let library = steamDownloadLibraryRootURL
+        let snapshot: SteamWorkshopDownloadMetadataSnapshot?
+        if FileManager.default.fileExists(atPath: library.path) {
+            snapshot = try loadManagedDownloadSnapshots(requireComplete: true,
+                matchingItemID: record.id, includeLegacy: true)[record.id]
+        } else { snapshot = nil }
+        if let commit = snapshot?.commit {
+            let expectedRoot = try Transaction.contentURL(for: commit, libraryRoot: library)
+            guard !commit.removed, commit.workshopId == record.id, commit.contentType == "scene",
+                  let storageIdentity = Transaction.storageIdentity(for: commit),
+                  expectedRoot.resolvingSymlinksInPath().standardizedFileURL.path ==
+                    root.resolvingSymlinksInPath().standardizedFileURL.path,
+                  snapshot?.legacyFolderURL?.standardizedFileURL == expectedRoot.standardizedFileURL else { throw rejected }
+            let directory = try Transaction.absoluteDirectory(root)
+            if commit.version >= 2 {
+                guard try Transaction.markerCommit(in: directory) == commit else { throw rejected }
+            }
+            let generation: String
+            switch commit.version {
+            case 1: generation = commit.directoryName
+            case 2: generation = String(commit.directoryName.suffix(36))
+            case 3:
+                guard let value = commit.generation else { throw rejected }
+                generation = value
+            default: throw rejected
+            }
+            let source = ScenePlaybackSource(rootURL: root, managed: .init(
+                storageIdentity: storageIdentity, generation: generation.lowercased()))
+            guard source.isValid else { throw rejected }
+            guard let lifetime = steamLibraryVersionLeaseRegistry.acquire(storageIdentities: [storageIdentity]) else {
+                throw Transaction.Failure(message: "Scene 来源版本已开始回收，请刷新后重试。")
+            }
+            return SceneSourceAdmission(source: source, resourceLifetime: lifetime)
+        }
+        // A missing/corrupt managed pointer or marker is not permission to turn a
+        // previously managed generation into an unmanaged directory launch.
+        guard snapshot?.legacyRemoved != true,
+              Transaction.storageIdentity(containing: root, libraryRoot: library) == nil,
+              !Transaction.isReservedManagedPublicDirectory(root, libraryRoot: library) else { throw rejected }
+        let source = ScenePlaybackSource(rootURL: root)
+        guard source.isValid else { throw rejected }
+        return SceneSourceAdmission(source: source, resourceLifetime: nil)
     }
 
     func scheduleLibraryVersionReclamation() {

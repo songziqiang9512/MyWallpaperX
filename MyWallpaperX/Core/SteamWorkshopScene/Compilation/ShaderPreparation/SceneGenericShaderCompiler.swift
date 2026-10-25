@@ -94,28 +94,6 @@ nonisolated enum SceneGenericShaderCompiler {
         defer { try? fileManager.removeItem(at: workspace) }
         let vertexURL = workspace.appendingPathComponent("author.vert")
         let fragmentURL = workspace.appendingPathComponent("author.frag")
-        switch probe(
-            configuration.glslang,
-            phase: "glslang-version",
-            contains: configuration.glslangVersionProbe,
-            expectedExitCode: configuration.glslangVersionProbeExitCode,
-            configuration: configuration,
-            workspace: workspace
-        ) {
-        case .success: break
-        case let .failure(failure): return .failure(failure)
-        }
-        switch probe(
-            configuration.spirvCross,
-            phase: "spirv-cross-version",
-            contains: configuration.spirvCrossVersionProbe,
-            expectedExitCode: configuration.spirvCrossVersionProbeExitCode,
-            configuration: configuration,
-            workspace: workspace
-        ) {
-        case .success: break
-        case let .failure(failure): return .failure(failure)
-        }
         let compiled: [CompiledStage]
         switch compileStages(
             vertex: normalized.vertex,
@@ -310,36 +288,6 @@ nonisolated enum SceneGenericShaderCompiler {
             ))
         }
         return .success(compiled)
-    }
-
-    private static func probe(
-        _ executable: URL,
-        phase: String,
-        contains expected: String,
-        expectedExitCode: Int32,
-        configuration: SceneGenericShaderCompilerBundle.Configuration,
-        workspace: URL
-    ) -> Result<Void, Failure> {
-        guard !expected.isEmpty else {
-            return .failure(.tool("\(phase):version-mismatch"))
-        }
-        switch SceneGenericShaderCompilerProcess.run(
-            executable: executable,
-            arguments: ["--version"],
-            workingDirectory: workspace,
-            timeoutMilliseconds: configuration.limits.timeoutMilliseconds,
-            maximumDiagnosticBytes: configuration.limits.maximumDiagnosticBytes,
-            maximumResidentBytes: configuration.limits.maximumResidentBytes,
-            expectedExitCode: expectedExitCode
-        ) {
-        case let .success(output):
-            let version = String(decoding: output.stdout + output.stderr, as: UTF8.self)
-            return version.contains(expected)
-                ? .success(())
-                : .failure(.tool("\(phase):version-mismatch"))
-        case let .failure(failure):
-            return .failure(.tool("\(phase):\(failure)"))
-        }
     }
 
     private static func run(

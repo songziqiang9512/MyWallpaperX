@@ -1,6 +1,6 @@
 import Foundation
 
-// Resolves an image layer's primary texture file URL by walking the render descriptor:
+// Resolves an image layer's primary texture input by walking the render descriptor:
 //   layer.imagePath (e.g. "models/foo.json")
 //     -> modelMaterialLinks: model -> material
 //     -> materialPasses: material -> first texture name (no extension/path prefix)
@@ -38,7 +38,7 @@ struct SceneTexturePathResolver {
         )
     }
 
-    func resolvePrimaryTexture(for layer: SceneRenderDescriptor.Layer) -> URL? {
+    func resolvePrimaryTexture(for layer: SceneRenderDescriptor.Layer) -> SceneResourceView.FileInput? {
         guard let modelPath = layer.imagePath else { return nil }
         if let texturePath = layer.staticBaseTexturePath {
             return resolveTextureFile(named: texturePath)
@@ -46,7 +46,7 @@ struct SceneTexturePathResolver {
         return resolvePrimaryTexture(modelPath: modelPath)
     }
 
-    func resolvePrimaryTexture(modelPath: String) -> URL? {
+    func resolvePrimaryTexture(modelPath: String) -> SceneResourceView.FileInput? {
         guard let materialPath = descriptor.modelMaterialLinks
             .first(where: { $0.modelPath == modelPath })?
             .materialPath else { return nil }
@@ -56,15 +56,15 @@ struct SceneTexturePathResolver {
         return resolveTextureFile(named: textureName)
     }
 
-    func resolveTextureFile(named textureName: String) -> URL? {
+    func resolveTextureFile(named textureName: String) -> SceneResourceView.FileInput? {
         let pathExtension = (textureName as NSString).pathExtension.lowercased()
         if Self.explicitTextureExtensions.contains(pathExtension) {
-            return resourceView.resource(relativePath: textureName)?.url
+            return resourceView.resolvedResource(relativePath: textureName).map(SceneResourceView.FileInput.resource)
         }
         for template in Self.candidatePathTemplates {
             let relative = String(format: template, textureName)
-            if let resource = resourceView.resource(relativePath: relative) {
-                return resource.url
+            if let handle = resourceView.resolvedResource(relativePath: relative) {
+                return .resource(handle)
             }
         }
         return nil

@@ -275,7 +275,7 @@ class SceneNativeWorldCompositionTests(unittest.TestCase):
         cls.evidence_root = Path(tempfile.mkdtemp(prefix="native-world-source-", dir=parent))
         sources = [Path(__file__), Path(app_runner.__file__),
                    REPO / "script/tests/test_scene_static_model_reader.py",
-                   REPO / "script/tests/test_scene_pkg_cache_extractor.py",
+                   REPO / "script/tests/scene_pkg_fixture.py",
                    REPO / "script/web_benchmark_capture.py"]
         cls.source_identity = {str(p): app_runner.sha256(p) for p in sources}
         entries = fixture_entries()

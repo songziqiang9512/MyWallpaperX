@@ -31,8 +31,10 @@ nonisolated extension SceneParticleSimulator {
         let dynamicControlPoints: [Int: SIMD3<Double>]
         let dynamicControlPointAngles: [Int: SIMD3<Double>]
         let audioInput: SceneParticleAudioInput
-        let observedNonSilentAudioComponents: Set<SceneParticleAudioComponentIdentity>
-        let pendingAudioEvaluationObservations: [SceneParticleAudioEvaluationObservation]
+#if DEBUG
+        var observedNonSilentAudioComponents: Set<SceneParticleAudioComponentIdentity> = []
+        var pendingAudioEvaluationObservations: [SceneParticleAudioEvaluationObservation] = []
+#endif
         let eventColorContext: SceneParticleEventColorContext
         var stepSnapshotRecorder: SceneParticleStepSnapshotRecorder?
         var positionOscillationCache: [SceneParticleOscillationCacheKey: SceneParticlePositionOscillation]
@@ -168,10 +170,15 @@ nonisolated extension SceneParticleSimulator.FrameSnapshot {
             + 2 * normalizedLives.capacity * MemoryLayout<Double>.stride
             + 2 * emitters.capacity * MemoryLayout<SceneParticleEmitterState>.stride
         let buckets = (positionOscillationCache.capacity + dynamicControlPoints.capacity
-            + dynamicControlPointAngles.capacity + observedNonSilentAudioComponents.capacity + initializers) * 512
+            + dynamicControlPointAngles.capacity) * 512
         let notices = 2 * (diagnostics.capacity + diagnostics.count + 8) * 256
+#if DEBUG
+        let observationBytes = (observedNonSilentAudioComponents.capacity + initializers) * 512
             + 2 * (pendingAudioEvaluationObservations.capacity + initializers) * 256
+#else
+        let observationBytes = 0
+#endif
         return MemoryLayout<Self>.stride + 1024 + arrays + buckets + notices
-            + (stepSnapshotRecorder?.emissionStorageBytes ?? 0)
+            + observationBytes + (stepSnapshotRecorder?.emissionStorageBytes ?? 0)
     }
 }

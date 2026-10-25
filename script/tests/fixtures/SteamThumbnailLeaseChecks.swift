@@ -1,4 +1,5 @@
 import AppKit
+import Darwin
 import ImageIO
 
 final class LeaseURLProtocol: URLProtocol, @unchecked Sendable {
@@ -74,8 +75,83 @@ final class LeaseWriteSequence: @unchecked Sendable {
 }
 
 @main struct SteamThumbnailLeaseChecks {
+    @MainActor static func diskMaintenanceChecks() throws -> [String: Bool] {
+        let fileManager = FileManager.default
+        let root = URL(fileURLWithPath: ProcessInfo.processInfo.environment["HOME"]!)
+            .appendingPathComponent("trim-" + UUID().uuidString, isDirectory: true)
+        try fileManager.createDirectory(at: root, withIntermediateDirectories: true)
+        defer { try? fileManager.removeItem(at: root) }
+        let now = Date(), expired = Date().addingTimeInterval(-14 * 24 * 3600)
+        let cutoff = now.addingTimeInterval(-7 * 24 * 3600)
+        var checks: [String: Bool] = [:]
+        func directory(_ name: String) throws -> URL {
+            let value = root.appendingPathComponent(name, isDirectory: true)
+            try fileManager.createDirectory(at: value, withIntermediateDirectories: true)
+            return value
+        }
+        func file(_ parent: URL, _ name: String, bytes: Int, modified: Date, used: Date) throws -> URL {
+            let value = parent.appendingPathComponent(name)
+            try Data(repeating: 37, count: bytes).write(to: value)
+            var times = [timeval(tv_sec: Int(used.timeIntervalSince1970), tv_usec: 0),
+                         timeval(tv_sec: Int(modified.timeIntervalSince1970), tv_usec: 0)]
+            guard value.path.withCString({ Darwin.utimes($0, &times) }) == 0 else {
+                throw POSIXError(POSIXErrorCode(rawValue: errno) ?? .EIO)
+            }
+            return value
+        }
+        let expiry = try directory("expiry")
+        let old = try file(expiry, "old", bytes: 16, modified: expired, used: now)
+        let fresh = try file(expiry, "fresh", bytes: 8, modified: now, used: expired)
+        let nested = expiry.appendingPathComponent("old-empty-directory", isDirectory: true)
+        try fileManager.createDirectory(at: nested, withIntermediateDirectories: false)
+        try fileManager.setAttributes([.modificationDate: expired], ofItemAtPath: nested.path)
+        checks["trimExpiryPrecedesLRUAndPreservesFreshRegularFile"] = ThumbnailCache.trimDiskCache(
+            directory: expiry, sizeLimit: 8, interval: 0, expireBefore: cutoff)
+            && !fileManager.fileExists(atPath: old.path) && fileManager.fileExists(atPath: fresh.path)
+            && fileManager.fileExists(atPath: nested.path)
+
+        let defaults = try directory("default")
+        let unexpiredByPolicy = try file(defaults, "old", bytes: 8, modified: expired, used: expired)
+        checks["trimDefaultDoesNotApplyExpiry"] = ThumbnailCache.trimDiskCache(
+            directory: defaults, sizeLimit: 8, interval: 0)
+            && fileManager.fileExists(atPath: unexpiredByPolicy.path)
+        let lru = try directory("lru")
+        let leastUsed = try file(lru, "least-used", bytes: 8, modified: now, used: expired)
+        let recent = try file(lru, "recent", bytes: 8, modified: now, used: now)
+        checks["trimRetainsOriginalRemainingByteLRU"] = ThumbnailCache.trimDiskCache(
+            directory: lru, sizeLimit: 8, interval: 0, expireBefore: cutoff)
+            && !fileManager.fileExists(atPath: leastUsed.path) && fileManager.fileExists(atPath: recent.path)
+
+        let throttled = try directory("throttled")
+        checks["trimInitialDirectoryScanRuns"] = ThumbnailCache.trimDiskCache(
+            directory: throttled, sizeLimit: 8, interval: 86400, expireBefore: cutoff)
+        let delayed = try file(throttled, "late-expired", bytes: 8, modified: expired, used: expired)
+        checks["trimExpirySharesOriginalThrottle"] = !ThumbnailCache.trimDiskCache(
+            directory: throttled, sizeLimit: 8, interval: 86400, expireBefore: cutoff)
+            && fileManager.fileExists(atPath: delayed.path)
+        checks["trimNextEligibleScanDeletesExpiredFile"] = ThumbnailCache.trimDiskCache(
+            directory: throttled, sizeLimit: 8, interval: 0, expireBefore: cutoff)
+            && !fileManager.fileExists(atPath: delayed.path)
+
+        if geteuid() != 0 {
+            let failures = try directory("failure")
+            let protected = failures.appendingPathComponent("protected", isDirectory: true)
+            try fileManager.createDirectory(at: protected, withIntermediateDirectories: false)
+            let retained = try file(protected, "expired", bytes: 9, modified: expired, used: expired)
+            let removable = try file(failures, "fresh", bytes: 6, modified: now, used: now)
+            try fileManager.setAttributes([.posixPermissions: 0o500], ofItemAtPath: protected.path)
+            defer { try? fileManager.setAttributes([.posixPermissions: 0o700], ofItemAtPath: protected.path) }
+            checks["trimFailedExpiryStillCountsBytesAndContinuesLRU"] = ThumbnailCache.trimDiskCache(
+                directory: failures, sizeLimit: 6, interval: 0, expireBefore: cutoff)
+                && fileManager.fileExists(atPath: retained.path) && !fileManager.fileExists(atPath: removable.path)
+        } else {
+            FileHandle.standardError.write(Data("trim permission-failure case skipped: UID 0 bypasses directory permissions\n".utf8))
+        }
+        return checks
+    }
+
     @MainActor static func main() throws {
-        _ = NSApplication.shared
+        NSApplication.shared.setActivationPolicy(.prohibited)
         func png(_ color: NSColor) -> Data {
             let context = CGContext(data: nil, width: 32, height: 32, bitsPerComponent: 8, bytesPerRow: 128,
                 space: CGColorSpaceCreateDeviceRGB(), bitmapInfo: CGImageAlphaInfo.premultipliedLast.rawValue)!
@@ -258,6 +334,7 @@ final class LeaseWriteSequence: @unchecked Sendable {
         RunLoop.main.run(until: Date().addingTimeInterval(0.05))
         prefetchCache.loadRawDataAsync(forKey: "prefetch-key", loader: { nil }) { prefetchDisk = $0 }
         checks["oldRawPrefetchCannotOverwriteRefreshedDisk"] = pump { prefetchDisk != nil } && prefetchDisk == blue
+        checks.merge(try diskMaintenanceChecks(), uniquingKeysWith: { _, current in current })
         session.invalidateAndCancel()
         print(String(data: try JSONSerialization.data(withJSONObject: checks, options: [.sortedKeys]), encoding: .utf8)!)
     }

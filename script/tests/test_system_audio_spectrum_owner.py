@@ -15,6 +15,7 @@ import tempfile
 import unittest
 
 from script.tests.test_web_compat_parity import source_block
+from script.tests.test_steam_library_interactions import method
 
 
 ROOT = Path(__file__).resolve().parents[2]
@@ -197,6 +198,244 @@ extension WallpaperEngine {
 
 
 class SystemAudioSpectrumOwnerTests(unittest.TestCase):
+    def test_manager_seeds_spectrum_once_before_restore_and_projects_real_changes(self):
+        core = ROOT / 'MyWallpaperX/Modules/VideoLibrary/Core'
+        settings = (core / 'WallpaperManager+PlaybackSettings.swift').read_text()
+        manager = (core / 'WallpaperManager.swift').read_text()
+        switching = (core / 'WallpaperManager+RuntimeSwitching.swift').read_text()
+        application = (core / 'WallpaperManager+WallpaperApplication.swift').read_text()
+        audio = (PLAYBACK / 'WallpaperEngine+SystemAudioSpectrum.swift').read_text()
+        execution = (PLAYBACK / 'WallpaperEngine+SwitchExecution.swift').read_text()
+        start = manager.index('        $settings\n')
+        end = manager.index('        .store(in: &cancellables)', start) + len('        .store(in: &cancellables)')
+        bindings = manager[start:end]
+        start = execution.index('            var command = DaemonCommand(action: "play"')
+        end = execution.index('            command.cohortID', start)
+        play_command = execution[start:end] + '\n            return command'
+        harness = r'''
+import Foundation
+import Combine
+enum Runtime { case video, web, scene, other }
+struct VideoWallpaper { let id: String; let path: String; var staticFramePath: String? = nil }
+enum PlaybackSurfaceVisibility { struct Evidence: Codable {} }
+struct HotkeySettingsSnapshot: Equatable { init(settings: WallpaperSettings) {} }
+@MainActor final class GlobalHotkeyManager {
+    static let shared = GlobalHotkeyManager(); func update(with settings: WallpaperSettings) {}
+}
+@MainActor final class PlaybackVolumeState {
+    static let shared = PlaybackVolumeState(); func setNormalizedVolume(_ value: Float) {}
+}
+@MainActor final class PlaybackPolicyController {
+    static let shared = PlaybackPolicyController(); func updateSettings(_ value: WallpaperSettings) {}
+}
+@MainActor final class PlaybackCommandMultiplexer {
+    enum Command { case setVolume(Float) }
+    static let shared = PlaybackCommandMultiplexer(); func dispatch(_ value: Command) {}
+}
+@MainActor final class SceneDaemonClient {
+    static let shared = SceneDaemonClient()
+    var stopPlaybackRequested: (() -> Void)?
+    var switchPrepared: ((Int, Int) -> Void)?, switchVisible: ((Int, UUID) -> Void)?
+    var switchFailed: ((Int, String) -> Void)?, switchLost: ((Int, String) -> Void)?
+    var multiDisplayEnabled = false
+    func setMultiDisplayEnabled(_ value: Bool) { multiDisplayEnabled = value }
+}
+@MainActor final class RecordingAudioService {
+    var changes: [(SystemAudioSpectrumStyle, SystemAudioSpectrumSensitivity, Int)] = []
+    func updateConfiguration(style: SystemAudioSpectrumStyle, sensitivity: SystemAudioSpectrumSensitivity, barCount: Int) {
+        changes.append((style, sensitivity, barCount))
+    }
+}
+@MainActor final class WallpaperEngine {
+    final class Process { var isRunning = true }
+    final class Session { let process = Process(); var commands: [DaemonCommand] = [] }
+    struct Delivery { var currentOverlayLevels: [Float] = [] }
+    static let shared = WallpaperEngine()
+    var videoEndDeliveryAdmission: (() -> Bool)?
+    var switchPrepared: ((Int, Int) -> Void)?, switchVisible: ((Int, UUID) -> Void)?
+    var switchFailed: ((Int, String) -> Void)?, switchLost: ((Int, String) -> Void)?
+    var currentSystemAudioSpectrumEnabled = false
+    var currentSystemAudioSpectrumBarCount = 28, currentSystemAudioSpectrumColorHex = "default"
+    var currentSystemAudioSpectrumOffsetX: Float = 0, currentSystemAudioSpectrumOffsetY: Float = 0
+    var currentSystemAudioSpectrumPeakCapsEnabled = true
+    var currentSpectrumLevels: [Float] = [], currentPlaybackContentKind = Runtime.other
+    var currentWebAudioSpectrumRequested = false
+    var effectiveVolumeNormalized: Float = 0, targetPlaybackRate: Float = 1
+    var displaySessions: [Int: Session] = [:]
+    let systemAudioSpectrumService = RecordingAudioService()
+    var spectrumDelivery = Delivery()
+    func refreshSystemAudioSpectrumCapture() {}
+    func currentWebSpectrumSnapshot() -> [Float]? { nil }
+    func clearedWebSpectrumLevels() -> [Float] { [] }
+    enum Command { case pushAudioSpectrum([Float]) }
+    func dispatchWebRuntimeCommand(_ value: Command) {}
+    func send(_ command: DaemonCommand, to session: Session) { session.commands.append(command) }
+    func setVolume(_ value: Float) { effectiveVolumeNormalized = value / 100 }
+    func setPlaybackRate(_ value: Float) { targetPlaybackRate = value }
+    func setFillMode(_ value: String) {}
+    func setLoopCurrentItem(_ value: Bool) {}
+    func updateWebDisplayConfiguration(multiDisplayEnabled: Bool) {}
+    func playCommand(_ wallpaper: VideoWallpaper, request: Int) -> DaemonCommand {
+        let path = wallpaper.path, videoFillMode = "aspectFill", shouldLoopCurrentItem = true
+        struct Execution { let path: String }
+        let execution = Execution(path: path)
+        // PLAY_COMMAND
+    }
+    // CONFIGURE_SPECTRUM
+}
+extension Notification.Name {
+    static let onlineDownloadsPlaybackPathDidChange = Notification.Name("audio-owner-playback-path")
+}
+@MainActor final class WallpaperManager {
+    @Published var settings = WallpaperSettings()
+    var cancellables = Set<AnyCancellable>()
+    var lastEngineProjectionBaseline: WallpaperSettings?
+    var lastAppliedHotkeySettings: HotkeySettingsSnapshot?
+    var runtimeSwitchingConfigured = false
+    var activeWallpaperRuntime = Runtime.other
+    var currentWallpaper: VideoWallpaper?, pendingWallpaper: VideoWallpaper?
+    var playbackSourceContext = 0, currentSelectionContext = 0
+    var restoredConfigurations: [DaemonCommand] = []
+    func bindSettings() {
+        // SETTINGS_BINDINGS
+    }
+    func restorePlaybackState() {
+        restoredConfigurations.append(WallpaperEngine.shared.playCommand(
+            .init(id: "restore", path: "/not-read"), request: 0))
+    }
+    func sanitizeSystemHotkeySettingsIfNeeded() {}
+    func scheduleSettingsAutoPersist() {}
+    func switchPrepared(_ ticket: Int, endpoint: Int) {}
+    func switchVisible(_ ticket: Int, executionID: UUID) {}
+    func switchFailed(_ ticket: Int, reason: String) {}
+    func switchLost(_ ticket: Int, reason: String) {}
+    func stopCurrentPlayback() {}
+    func admitsDeferredVideoEnd() -> Bool { true }
+    func normalizedPath(_ value: String) -> String { value }
+    func pathExists(_ path: String) -> Bool { FileManager.default.fileExists(atPath: path) }
+    func handleMissingWallpaperDuringSwitch(_ wallpaper: VideoWallpaper, userInitiated: Bool) { preconditionFailure() }
+    func recordInitialIndexUserSelection(_ wallpaper: VideoWallpaper) {}
+    func recordPlaybackHistoryIfNeeded(current: VideoWallpaper?, targetNormalizedPath: String, enabled: Bool) {}
+    func updateCurrentWallpaperIndex(for id: String) {}
+    func updateRecentWallpapers(_ wallpaper: VideoWallpaper) {}
+    func startAutoSwitchTimer() {}
+    func shouldLoopCurrentItemInEngine(settings: WallpaperSettings?) -> Bool { true }
+    func prepareVideoSwitch(_ wallpaper: VideoWallpaper) {
+        let engine = WallpaperEngine.shared
+        for session in engine.displaySessions.values {
+            engine.send(engine.playCommand(wallpaper, request: 1), to: session)
+        }
+    }
+    // MANAGER_METHODS
+}
+@main enum Harness {
+    @MainActor static func main() throws {
+        let engine = WallpaperEngine.shared
+        let path = URL(fileURLWithPath: CommandLine.arguments[1]).appendingPathComponent("test.mov")
+        try Data("fixture".utf8).write(to: path)
+        let movie = VideoWallpaper(id: "video", path: path.path)
+        func matches(_ command: DaemonCommand, _ settings: WallpaperSettings) -> Bool {
+            command.spectrumEnabled == settings.systemAudioSpectrumEnabled
+                && command.spectrumBarCount == settings.systemAudioSpectrumBarCount
+                && command.spectrumColorHex == settings.systemAudioSpectrumColorHex
+                && command.spectrumOffsetX == Float(settings.systemAudioSpectrumOffsetX)
+                && command.spectrumOffsetY == Float(settings.systemAudioSpectrumOffsetY)
+                && command.spectrumPeakCapsEnabled == settings.systemAudioSpectrumPeakCapsEnabled
+        }
+        for initial in [Runtime.video, .web, .scene] {
+            for enabled in [false, true] {
+                engine.displaySessions = [:]; engine.systemAudioSpectrumService.changes = []
+                engine.currentPlaybackContentKind = initial
+                let manager = WallpaperManager(); manager.activeWallpaperRuntime = initial
+                manager.settings.systemAudioSpectrumEnabled = enabled
+                manager.settings.systemAudioSpectrumStyle = .banded
+                manager.settings.systemAudioSpectrumSensitivity = .lively
+                manager.settings.systemAudioSpectrumBarCount = 36
+                manager.settings.systemAudioSpectrumColorHex = "#123456"
+                manager.settings.systemAudioSpectrumOffsetX = 0.12
+                manager.settings.systemAudioSpectrumOffsetY = -0.21
+                manager.settings.systemAudioSpectrumPeakCapsEnabled = false
+                manager.settings.multiDisplayEnabled = false
+                manager.bindSettings()
+                manager.configureRuntimeSwitching(); manager.configureRuntimeSwitching()
+                precondition(engine.systemAudioSpectrumService.changes.count == 1,
+                    "restore must use one complete seed before any runtime starts")
+                precondition(manager.restoredConfigurations.count == 1
+                    && matches(manager.restoredConfigurations[0], manager.settings))
+                precondition(SceneDaemonClient.shared.multiDisplayEnabled == false)
+                let configured = engine.systemAudioSpectrumService.changes[0]
+                precondition(configured.0 == .banded && configured.1 == .lively && configured.2 == 36)
+                engine.displaySessions = [1: .init(), 2: .init()]
+                manager.setAsWallpaper(movie); manager.setAsWallpaper(movie)
+                precondition(engine.systemAudioSpectrumService.changes.count == 1,
+                    "first and later video selection must not reset spectrum configuration")
+                for session in engine.displaySessions.values {
+                    precondition(session.commands.count == 2 && session.commands.allSatisfy {
+                        $0.action == "play" && matches($0, manager.settings)
+                    }, "each new display/helper gets the complete seed in its play payload")
+                    session.commands = []
+                }
+                manager.settings.volume = 27
+                manager.settings.pauseWhenIdle.toggle()
+                manager.applyEngineSettings(reloadWallpaper: false)
+                precondition(engine.systemAudioSpectrumService.changes.count == 1,
+                    "unrelated settings and policy apply must not clear spectrum")
+                var imported = manager.settings
+                imported.systemAudioSpectrumColorHex = "#abcdef"
+                imported.systemAudioSpectrumBarCount = 24
+                imported.systemAudioSpectrumEnabled.toggle()
+                manager.settings = imported // same published write used by preferences import
+                manager.applyEngineSettings(reloadWallpaper: false)
+                precondition(engine.systemAudioSpectrumService.changes.count == 2)
+                for session in engine.displaySessions.values {
+                    precondition(session.commands.count == 1 && session.commands[0].action == "setSpectrumEnabled"
+                        && matches(session.commands[0], imported),
+                        "willSet projection must use incoming values exactly once")
+                    session.commands = []
+                }
+                manager.settings = .defaults // same published write used by fresh-install reset
+                manager.applyEngineSettings(reloadWallpaper: false)
+                precondition(engine.systemAudioSpectrumService.changes.count == 3)
+                for session in engine.displaySessions.values {
+                    precondition(session.commands.count == 1 && matches(session.commands[0], .defaults))
+                }
+                manager.setAsWallpaper(movie)
+                precondition(engine.systemAudioSpectrumService.changes.count == 3)
+                let restarted = WallpaperEngine.Session()
+                engine.send(engine.playCommand(movie, request: 2), to: restarted)
+                precondition(matches(restarted.commands[0], .defaults), "replacement helper must inherit current configuration")
+            }
+        }
+        print("manager-spectrum-projection-pass")
+    }
+}
+'''
+        methods = '\n'.join(method(settings, signature) for signature in [
+            '    func applyPlaybackRateToEngine(', '    func applySystemAudioSpectrumToEngine(',
+            '    func seedEngineProjectionFromPersistedSettings(', '    func projectEngineSettingsIfChanged(',
+            '    func projectLoopPolicyToEngine(', '    func applyEngineSettings(',
+        ]) + '\n' + method(switching, '    func configureRuntimeSwitching(') + '\n' + method(application, '    func setAsWallpaper(')
+        for marker, fragment in [
+            ('// SETTINGS_BINDINGS', bindings), ('// MANAGER_METHODS', methods),
+            ('// CONFIGURE_SPECTRUM', method(audio, '    public func configureSystemAudioSpectrum(')),
+            ('// PLAY_COMMAND', play_command),
+        ]:
+            harness = harness.replace(marker, fragment)
+        with tempfile.TemporaryDirectory(prefix='mwx-manager-audio-projection-', dir='/private/tmp') as directory:
+            work = Path(directory)
+            source = work / 'Harness.swift'; source.write_text(harness)
+            binary = work / 'projection'
+            compiled = subprocess.run(['xcrun', 'swiftc', '-parse-as-library',
+                str(ROOT / 'MyWallpaperX/Models/WallpaperSettings.swift'),
+                str(ROOT / 'MyWallpaperX/Models/WallpaperControls.swift'),
+                str(PLAYBACK / 'DaemonProtocol.swift'), str(source),
+                '-module-cache-path', str(work / 'modules'), '-o', str(binary)],
+                capture_output=True, text=True, timeout=120)
+            self.assertEqual(compiled.returncode, 0, compiled.stdout + compiled.stderr)
+            run = subprocess.run([str(binary), str(work)], capture_output=True, text=True, timeout=30)
+            self.assertEqual(run.returncode, 0, run.stdout + run.stderr)
+            self.assertIn('manager-spectrum-projection-pass', run.stdout)
+
     def test_initializer_owns_one_eager_service_with_all_callbacks(self):
         engine = (PLAYBACK / "WallpaperEngine.swift").read_text()
         audio = (PLAYBACK / "WallpaperEngine+SystemAudioSpectrum.swift").read_text()

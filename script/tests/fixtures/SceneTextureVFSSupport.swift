@@ -25,10 +25,10 @@ enum Harness {
             descriptor: .init(modelMaterialLinks: [], materialPasses: [])
         )
         let output = [
-            "shared": resolver.resolveTextureFile(named: "materials/shared.png")?.path ?? "",
-            "bare": resolver.resolveTextureFile(named: "bare")?.path ?? "",
-            "stock": resolver.resolveTextureFile(named: "assets/stock-only.png")?.path ?? "",
-            "missing": resolver.resolveTextureFile(named: "missing")?.path ?? "",
+            "shared": resolver.resolveTextureFile(named: "materials/shared.png")?.diagnosticPath ?? "",
+            "bare": resolver.resolveTextureFile(named: "bare")?.diagnosticPath ?? "",
+            "stock": resolver.resolveTextureFile(named: "assets/stock-only.png")?.diagnosticPath ?? "",
+            "missing": resolver.resolveTextureFile(named: "missing")?.diagnosticPath ?? "",
         ]
         let data = try JSONSerialization.data(withJSONObject: output, options: [.sortedKeys])
         print(String(decoding: data, as: UTF8.self))

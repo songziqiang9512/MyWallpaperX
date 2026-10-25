@@ -17,7 +17,7 @@ import tempfile
 import unittest
 
 from script.web_benchmark_capture import png_rgb_pixels
-from .test_scene_pkg_cache_extractor import make_package
+from .scene_pkg_fixture import make_package
 
 CANVAS = (256, 192)
 COLORS = ((255, 0, 0), (0, 255, 0), (0, 0, 255), (255, 255, 0))

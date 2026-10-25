@@ -298,7 +298,8 @@ enum WebWallpaperHostSupport {
         func request(_ revision: UInt64, _ json: String, _ grants: [WebWallpaperResourceGrant]) -> WallpaperEngine.WebWallpaperLaunchRequest {
             .init(id: requestID, entryURL: own, rootURL: root, propertiesJSON: json, source: .steamWorkshop,
                 recordID: "fixture", language: "en-us", runtimeProfile: .standard,
-                multiDisplayEnabled: true, resourceGrants: grants, propertyRevision: revision, resourceRevision: revision)
+                multiDisplayEnabled: true, resourceGrants: grants, propertyRevision: revision, resourceRevision: revision,
+                allowedNetworkHosts: ["prepared-resource.example"])
         }
         func payload(_ directory: String) throws -> String {
             String(data: try JSONSerialization.data(withJSONObject: ["renamedSlides":
@@ -307,7 +308,7 @@ enum WebWallpaperHostSupport {
         let json = try payload(directory.path)
         let launch = request(0, json, [directoryGrant])
         let wire = WebDaemonEnvelope(requestID: requestID, payload: WebDaemonLaunch(launch,
-            state: .init(paused: false, volume: 0, playbackRate: 1, spectrumLevels: nil), hosts: []))
+            state: .init(paused: false, volume: 0, playbackRate: 1, spectrumLevels: nil)))
         let decoded = try JSONDecoder().decode(WebDaemonEnvelope<WebDaemonLaunch>.self,
             from: JSONEncoder().encode(wire))
         check(decoded.version == 2 && decoded.payload.request(id: requestID).resourceGrants == [directoryGrant], "launch IPC typed grants")
@@ -346,6 +347,9 @@ enum WebWallpaperHostSupport {
         host.directorySyncQueue.async { ordinaryGate.wait() }
         host.resetRandomFileSnapshots()
         host.refreshRandomFileSnapshots(using: json)
+        check(host.randomFileEnumeratingDirectoryPaths.isEmpty, "fetchall does not enqueue a second random-pool enumeration")
+        let afterOrdinaryFile = directory.appendingPathComponent("after-ordinary-edits.png")
+        try Data("updated after queue wait".utf8).write(to: afterOrdinaryFile)
         host.syncFetchAllDirectoryProperties(using: host.currentRequest!.propertiesJSON!)
         for revision in 2...50 {
             host.handle(.applyProperties(.init(requestID: requestID, revision: UInt64(revision), resourceRevision: 0,
@@ -353,7 +357,9 @@ enum WebWallpaperHostSupport {
         }
         check(host.directoryWatchersByProperty["renamedSlides"] === preservedWatcher, "ordinary updates retain watcher")
         ordinaryGate.signal()
-        spin { !host.randomFileSnapshotsByDirectoryPath.isEmpty }
+        spin { host.directorySnapshotsByProperty["renamedSlides"]?.filesByPath[afterOrdinaryFile.path] != nil }
+        check(host.randomFileSnapshotsByDirectoryPath.isEmpty, "fetchall publishes only its original shared snapshot")
+        check(host.resolveRandomFilePath(forPropertyNamed: "renamedSlides") != nil, "fetchall random selection consumes that committed snapshot")
         check(host.directoryWatchersByProperty["renamedSlides"] === preservedWatcher, "ordinary updates do not starve directory work")
         let queueGate = DispatchSemaphore(value: 0)
         host.directorySyncQueue.async { queueGate.wait() }
@@ -381,6 +387,8 @@ enum WebWallpaperHostSupport {
         host.handle(.applyProperties(.init(requestID: UUID(), revision: 100, resourceRevision: 0, propertiesJSON: json, resourceGrants: [directoryGrant])))
         host.handle(.applyProperties(.init(requestID: requestID, revision: 100, resourceRevision: 0, propertiesJSON: json, resourceGrants: [directoryGrant])))
         check(host.currentRequest?.resourceGrants.isEmpty == true, "old revision/request cannot widen grants")
+        check(host.currentRequest?.allowedNetworkHosts == ["prepared-resource.example"],
+            "property and resource changes preserve the prepared author network host snapshot")
         let control = ControlPlane()
         control.active = ControlPlane.Session(host.currentRequest!)
         control.handle(.applyProperties(.init(requestID: requestID, revision: 100, resourceRevision: 0,
@@ -404,6 +412,54 @@ enum WebWallpaperHostSupport {
         oldRequestEvent.cancel()
         check(host.directorySyncRequestID == syncAfterRequestReplacement,
             "old deferred request must not synchronize a new request even at the same resource revision")
+        // Fetch-all and random selection share one value. A changed property
+        // must not consume the prior value merely because both roots are granted.
+        let nextDirectory = base.appendingPathComponent("next-slides")
+        try fm.createDirectory(at: nextDirectory, withIntermediateDirectories: true)
+        let nextFile = nextDirectory.appendingPathComponent("current.png")
+        try Data("next".utf8).write(to: nextFile)
+        let nextGrant = WebWallpaperResourceGrant(kind: .directory, url: nextDirectory)
+        let shared = DedicatedWebWallpaperHostPlaceholderAdapter()
+        shared.currentRequest = request(0, json, [directoryGrant, nextGrant])
+        shared.syncFetchAllDirectoryProperties(using: json)
+        spin { shared.directorySnapshotsByProperty["renamedSlides"]?.sourceDirectoryPath == directory.path }
+        check(shared.resolveRandomFilePath(forPropertyNamed: "renamedSlides") != nil, "initial fetchall snapshot can serve random selection")
+        check(shared.randomFileSnapshotsByDirectoryPath.isEmpty && shared.randomFileEnumeratingDirectoryPaths.isEmpty,
+              "fetchall random selection has no second pool or pending enumeration")
+        let nextJSON = try payload(nextDirectory.path)
+        shared.currentRequest = request(1, nextJSON, [directoryGrant, nextGrant])
+        check(shared.resolveRandomFilePath(forPropertyNamed: "renamedSlides") == nil, "switching directory cannot read its old snapshot")
+        shared.syncFetchAllDirectoryProperties(using: nextJSON)
+        spin { shared.directorySnapshotsByProperty["renamedSlides"]?.sourceDirectoryPath == nextDirectory.path }
+        check(shared.resolveRandomFilePath(forPropertyNamed: "renamedSlides") == shared.absoluteLocalSchemeURL(for: nextFile), "new directory snapshot is selected")
+        try fm.removeItem(at: nextFile)
+        check(shared.resolveRandomFilePath(forPropertyNamed: "renamedSlides") == nil, "deleted cached file cannot be returned")
+        try Data("restored".utf8).write(to: nextFile)
+        shared.currentRequest = request(2, nextJSON, [])
+        check(shared.resolveRandomFilePath(forPropertyNamed: "renamedSlides") == nil, "revocation rejects an already prepared fetchall snapshot")
+        let selectedAlias = base.appendingPathComponent("selected-slides-alias")
+        try fm.createSymbolicLink(at: selectedAlias, withDestinationURL: directory)
+        let aliasJSON = try payload(selectedAlias.path)
+        shared.currentRequest = request(3, aliasJSON, [directoryGrant, nextGrant])
+        shared.syncFetchAllDirectoryProperties(using: aliasJSON)
+        spin { shared.directorySnapshotsByProperty["renamedSlides"]?.sourceDirectoryPath == directory.path }
+        try fm.removeItem(at: selectedAlias)
+        try fm.createSymbolicLink(at: selectedAlias, withDestinationURL: nextDirectory)
+        check(shared.resolveRandomFilePath(forPropertyNamed: "renamedSlides") == nil, "retargeted symlink cannot reuse its former directory snapshot")
+        shared.syncFetchAllDirectoryProperties(using: aliasJSON)
+        spin { shared.directorySnapshotsByProperty["renamedSlides"]?.sourceDirectoryPath == nextDirectory.path }
+        check(shared.resolveRandomFilePath(forPropertyNamed: "renamedSlides") == shared.absoluteLocalSchemeURL(for: nextFile), "retargeted selection uses the new current snapshot")
+        try fm.removeItem(at: nextDirectory)
+        check(shared.resolveRandomFilePath(forPropertyNamed: "renamedSlides") == nil, "deleted directory cannot use its retained list")
+        shared.stopAllDirectoryWatchers(); shared.stopDirectoryWatchTimer()
+
+        let randomOnly = DedicatedWebWallpaperHostPlaceholderAdapter()
+        let randomJSON = String(data: try JSONSerialization.data(withJSONObject: ["renamedSlides":
+            ["type":"directory", "mode":"random", "value":directory.path]]), encoding: .utf8)!
+        randomOnly.currentRequest = request(0, randomJSON, [directoryGrant])
+        spin { randomOnly.randomFileSnapshotsByDirectoryPath[directory.path]?.sourceDirectoryPath == directory.path }
+        check(randomOnly.resolveRandomFilePath(forPropertyNamed: "renamedSlides") != nil,
+              "non-fetchall directory retains its original random pool")
         print("web-resource-grants-pass")
     }
 }
@@ -413,7 +469,6 @@ enum WebWallpaperHostSupport {
 class WebResourceGrantTests(unittest.TestCase):
     def test_binding_bookmark_owner_projects_only_live_authority(self):
         model = (WEB / "SteamWorkshopWebResolvedRuntimeModelTypes.swift").read_text()
-        validation = (WEB / "SteamWorkshopService+WebRuntimeCacheValidation.swift").read_text()
         normalization = (WEB / "SteamWorkshopService+WebPropertyNormalizationSupport.swift").read_text()
         bindings = "\n".join(source_block(model, marker) for marker in (
             "enum ResolvedWebResourceBindingKind", "enum ResolvedWebResourceBindingSource",
@@ -505,7 +560,6 @@ func check(_ condition: @autoclosure () -> Bool, _ message: String) { if !condit
         // This is the production selection/bookmark owner, not a payload-derived grant.
         service.updateWebPropertyBookmark(for: file, value: .string(chosen.path), record: record)
         check(service.webPropertyOverrides(for: record).isEmpty, "bookmark-only state fixture")
-        check(service.webRuntimeRequiresLiveResourceResolution(for: record), "bookmark-only state cannot use disk execution authorization")
         let grants = service.resolvedWebResourceGrants(for: record, definitions: [file])
         check(grants.contains { $0.kind == .file && $0.allowsCanonicalURL(chosen) }, "bookmarked exact file")
         check(!grants.contains { $0.allowsCanonicalURL(privatePeer) }, "bookmarked file never grants sibling")
@@ -539,9 +593,12 @@ func check(_ condition: @autoclosure () -> Bool, _ message: String) { if !condit
     }
 }
 '''
+        author = (WEB / "SteamWorkshopService+WebAuthorInput.swift").read_text()
+        context = source_block(author, "nonisolated struct WebAuthorBindingContext")
+        context = context.replace(method(context, "nonisolated static func make("), "")
+        bindings += "\nextension SteamWorkshopService {\n" + context + "\n}\n"
         source = source.replace("// DECLARATIONS", grant_declaration() + "\n" + bindings).replace(
-            "// HELPERS", helpers).replace("// LIVE CACHE CHECK", method(validation,
-            "func webRuntimeRequiresLiveResourceResolution("))
+            "// HELPERS", helpers).replace("// LIVE CACHE CHECK", "")
         compile_and_run(source, [WEB / "SteamWorkshopWebPropertyModels.swift",
             WEB / "SteamWorkshopService+WebPropertySupport.swift",
             WEB / "SteamWorkshopService+WebPropertyOverridePersistence.swift"] + TRANSFORMER_SOURCES, "web-binding-grants-pass")

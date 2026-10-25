@@ -1,4 +1,4 @@
-"""Shared thumbnail interest cancels only the last consumer and preserves generations."""
+"""Shared thumbnail leases preserve generations; real disk maintenance preserves expiry and LRU budgets."""
 import json
 import os
 import pathlib

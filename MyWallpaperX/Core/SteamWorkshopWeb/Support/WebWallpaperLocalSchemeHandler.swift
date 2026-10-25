@@ -8,8 +8,9 @@ import WebKit
 import UniformTypeIdentifiers
 
 final class WebWallpaperLocalSchemeHandler: NSObject, WKURLSchemeHandler {
-    /// 只承载「路径身份 + 受控读取判定」：size/mtime 属于交付时刻的事实，
-    /// 由 `FileStat` 每次现取，不从 resolve 缓存里带出来。
+    /// Path/grant-revision input for consumption. Resolve caches a location;
+    /// body delivery binds the opened FD, while metadata replies recheck it.
+    /// Current size/mtime never come from the resolution cache.
     struct ResolvedResource {
         let fileURL: URL
         let didTraverseSymlink: Bool
@@ -131,8 +132,8 @@ final class WebWallpaperLocalSchemeHandler: NSObject, WKURLSchemeHandler {
         stateLock.unlock()
     }
 
-    /// Cached resolutions and prepared IO must recheck symlink/regular-file
-    /// state and current authority before consuming or publishing bytes.
+    /// Metadata-only responses and asynchronous delivery after a grant change
+    /// consume current path/authority. Body preparation instead binds its FD.
     func revalidatedResource(_ resource: ResolvedResource) -> ResolvedResource? {
         let (grants, generation) = readableRootsSnapshot()
         guard let authorized = WebWallpaperResourceGrant.authorizedURL(resource.fileURL,
@@ -297,15 +298,6 @@ recordDeny(error)
             normalizedPath.hasSuffix(".m4a") ||
             normalizedPath.hasSuffix(".aac") ||
             normalizedPath.hasSuffix(".flac")
-    }
-
-    /// 已打开句柄的实际长度：流式交付的声明长度以此为准（seek 到末尾取偏移后回到起点）。
-    static func streamedLength(of fileHandle: FileHandle) -> Int64? {
-        guard let endOffset = try? fileHandle.seekToEnd(),
-              (try? fileHandle.seek(toOffset: 0)) != nil else {
-            return nil
-        }
-        return Int64(endOffset)
     }
 
     /// css 交付诊断文案（`local-resource.served` 的唯一产生点）。

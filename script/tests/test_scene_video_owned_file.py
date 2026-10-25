@@ -30,6 +30,8 @@ enum Harness {
         let source = URL(fileURLWithPath: CommandLine.arguments[2])
         let cache = URL(fileURLWithPath: CommandLine.arguments[3], isDirectory: true)
         let maximum = Int(CommandLine.arguments[4])!
+        let diskBudget = mode == "aggregate-quota"
+            ? SceneVideoOwnedFile.DiskBudget(maximumBytes: 1_024 * 1_024) : .shared
         let fm = FileManager.default
         let directory = cache.appendingPathComponent(".mywallpaperx-scene-video-payloads")
         var facts: [String: Any] = ["mode": mode]
@@ -45,14 +47,17 @@ enum Harness {
         }
         do {
             var lease: SceneVideoOwnedFile?
-            if mode == "allocate" {
-                lease = try SceneVideoOwnedFile.allocate(cacheDirectory: cache, fileExtension: "mov")
-                facts["absentBeforePayloadWrite"] = !fm.fileExists(atPath: lease!.url.path)
-                facts["allocatedExtension"] = lease!.url.pathExtension
-                try Data([7, 11, 13]).write(to: lease!.url)
+            if mode == "writer" {
+                let writer = try SceneVideoOwnedFile.makeWriter(cacheDirectory: cache,
+                    fileExtension: "mov", expectedBytes: 3)
+                let initialSize = (try fm.attributesOfItem(atPath: writer.file.url.path)[.size] as! NSNumber).intValue
+                facts["emptyUnpublishedBeforePayloadWrite"] = fm.fileExists(atPath: writer.file.url.path) && initialSize == 0
+                facts["allocatedExtension"] = writer.file.url.pathExtension
+                try writer.append(Data([7, 11, 13]))
+                lease = try writer.finish()
             } else {
                 lease = try SceneVideoOwnedFile.snapshot(from: source, cacheDirectory: cache,
-                    maximumBytes: maximum, isCancelled: {
+                    maximumBytes: maximum, diskBudget: diskBudget, isCancelled: {
                         if mode == "cancel-before" { return true }
                         if mode == "cancel-during" { return hasCopiedChunk() }
                         if (mode == "grow" || mode == "shrink"), !mutated, hasCopiedChunk() {
@@ -107,6 +112,7 @@ enum Harness {
         facts["remainingOwnedFiles"] = fm.fileExists(atPath: directory.path)
             ? try fm.contentsOfDirectory(atPath: directory.path).count : 0
         facts["sourceStillExists"] = fm.fileExists(atPath: source.path)
+        facts["diskBytesAfterCleanup"] = diskBudget.reservedBytes
         print(String(decoding: try JSONSerialization.data(withJSONObject: facts, options: [.sortedKeys]), as: UTF8.self))
     }
 }
@@ -177,7 +183,14 @@ class SceneVideoOwnedFileTests(unittest.TestCase):
         observer.write_text(READ_OBSERVER)
         commands = [
             ["xcrun", "--sdk", "macosx", "swiftc", "-parse-as-library", "-strict-concurrency=complete",
-             "-warnings-as-errors", "-default-isolation", "MainActor", str(SOURCE), str(harness),
+             "-warnings-as-errors", "-default-isolation", "MainActor",
+             str(ROOT / "MyWallpaperX/Core/SteamWorkshopStorage/ScenePlaybackSource.swift"),
+             str(ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Format/ScenePkgReader.swift"),
+             str(ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Resources/Assets/SceneResourceIdentity.swift"),
+             str(ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Resources/Assets/SceneResourceView+Backing.swift"),
+             str(ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Resources/Assets/SceneResourceIndex.swift"),
+             str(ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Resources/Assets/SceneResourceView.swift"),
+             str(SOURCE), str(harness),
              "-module-cache-path", str(cls.work / "module-cache"), "-o", str(cls.binary)],
             ["xcrun", "--sdk", "macosx", "clang", "-dynamiclib", "-Wall", "-Werror", str(observer), "-o", str(cls.observer)],
         ]
@@ -229,9 +242,9 @@ class SceneVideoOwnedFileTests(unittest.TestCase):
         self.assertEqual(facts["identityChecks"], 2)
         self.assertTrue(facts["retainedURLMatches"] and facts["existsWithLastLease"] and facts["removedAfterLastLease"])
 
-    def test_allocate_leaves_destination_absent_for_existing_payload_writers(self):
-        facts, _, _ = self.run_case("allocate")
-        self.assertTrue(facts["absentBeforePayloadWrite"])
+    def test_controlled_writer_creates_only_private_unpublished_destination(self):
+        facts, _, _ = self.run_case("writer")
+        self.assertTrue(facts["emptyUnpublishedBeforePayloadWrite"])
         self.assertEqual(facts["allocatedExtension"], "mov")
         self.assertTrue(facts["existsWithLastLease"] and facts["removedAfterLastLease"])
 
@@ -239,6 +252,12 @@ class SceneVideoOwnedFileTests(unittest.TestCase):
         facts, observed, _ = self.run_case(maximum=CHUNK)
         self.assertEqual(facts["failure"], "byteLimitExceeded")
         self.assertEqual(observed["calls"], 0)
+
+    def test_aggregate_disk_quota_is_reserved_before_source_payload_read(self):
+        facts, observed, _ = self.run_case("aggregate-quota")
+        self.assertEqual(facts["failure"], "aggregateDiskBudgetExceeded")
+        self.assertEqual(observed["calls"], 0)
+        self.assertEqual(facts["diskBytesAfterCleanup"], 0)
 
     def test_actual_growth_cannot_exceed_byte_budget(self):
         facts, _, _ = self.run_case("grow", maximum=3 * CHUNK + 251)

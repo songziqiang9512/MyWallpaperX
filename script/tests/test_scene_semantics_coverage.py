@@ -20,6 +20,7 @@ from script.source_authority import (
     authority_relocation_transition_violations,
     capability_addition_transition_violations,
     classification_transition_violations,
+    passive_result_inventory_correction_valid,
     render_chain_authority_violations,
     render_chain_completion_violations,
     scene_source_layout_violations,
@@ -246,7 +247,14 @@ class SceneSemanticsCoverageTests(unittest.TestCase):
             if new_rule is None:
                 violations.append(f"{rule_id}: committed rule was removed")
                 continue
-            violations.extend(classification_transition_violations(old_rule, new_rule))
+            correction_sources = {}
+            if new_rule.get("passive_result_correction") is not None and old_rule.get("passive_result_correction") is None:
+                for relative in new_rule["passive_result_correction"]["source_sha256"]:
+                    path = SCENE_SOURCE_ROOT / relative
+                    if path.is_file():
+                        correction_sources[relative] = path.read_bytes().decode("utf-8")
+            corrected_inventory = passive_result_inventory_correction_valid(old_rule, new_rule, correction_sources)
+            violations.extend(classification_transition_violations(old_rule, new_rule, correction_sources))
             renamed_allowed = {
                 renamed_scene_files.get(path, path)
                 for path in old_rule["allowed_files"]
@@ -285,6 +293,7 @@ class SceneSemanticsCoverageTests(unittest.TestCase):
                 path = SCENE_SOURCE_ROOT / "Format/SceneWebMContainer.swift"
                 if path.is_file():
                     current_sources["Format/SceneWebMContainer.swift"] = path.read_bytes().decode("utf-8")
+            current_sources.update(correction_sources)
             addition_errors = capability_addition_transition_violations(
                 old_rule, new_rule, previous_sources, current_sources)
             violations.extend(addition_errors)
@@ -326,6 +335,7 @@ class SceneSemanticsCoverageTests(unittest.TestCase):
                 and not inventory_consolidated_without_growth
                 and not exact_owner_relocated
                 and not exact_capability_added
+                and not corrected_inventory
             ):
                 violations.append(f"{rule_id}: allowed file set increased")
             renamed_scope = {
@@ -365,6 +375,7 @@ class SceneSemanticsCoverageTests(unittest.TestCase):
                     new_allowed == renamed_allowed
                     or inventory_consolidated_without_growth
                     or exact_owner_relocated
+                    or corrected_inventory
                 )
                 and set(new_rule.get("scope_files", [])) == renamed_scope
             )
@@ -542,6 +553,7 @@ class SceneSemanticsCoverageTests(unittest.TestCase):
                                   if rule.get("metric") == "classified-declarations"))
         rule.update(baseline_occurrences=0, allowed_files=[])
         classification = rule["classifications"][0]
+        rule["classifications"] = [classification]
         declaration = classification["declaration"]
         positive = "#if DEBUG\nfinal class SceneDebugFrameCapture {\n" + declaration + "\n}\n#endif\n"
         with tempfile.TemporaryDirectory() as directory:
@@ -583,6 +595,28 @@ class SceneSemanticsCoverageTests(unittest.TestCase):
             (root / "Extension.swift").write_text("extension ResultType { func resolve() {} }\n")
             self.assertTrue(any("New.swift: typealias" in value for value in
                                 render_chain_authority_violations(root, [rule])))
+
+        # The Session result is a second concrete passive value, not a file or
+        # suffix exemption. Exercise its real owner and all three allowed cases.
+        rule = copy.deepcopy(next(value for value in layout["render_chain_authority_ratchet"]["rules"]
+                                  if value["id"] == "shape-derived-analyzer-fleet"))
+        value = rule["classifications"][-1]
+        rule.update(baseline_occurrences=0, allowed_files=[], classifications=[value])
+        positive = "nonisolated struct SceneUserShortcutInputState {\n" + value["declaration"] + "\n}\n"
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory); source = root / value["file"]
+            source.parent.mkdir(parents=True); source.write_text(positive)
+            self.assertEqual(render_chain_authority_violations(root, [rule]), [])
+            for content in (
+                positive.replace("revoked }", "revoked; func consume() {} }"),
+                positive.replace("revoked }", "revoked; static var count = 0 }"),
+                positive.replace("duplicate", "other"),
+                positive + "enum OtherAdmission { case allowed }\n",
+                positive + "extension SceneUserShortcutInputState.Admission { func consume() {} }\n",
+                positive + "typealias Result = SceneUserShortcutInputState.Admission\n",
+            ):
+                source.write_text(content)
+                self.assertTrue(render_chain_authority_violations(root, [rule]))
 
     def test_local_alias_metric_rejects_new_owners_and_unclassified_references(self) -> None:
         layout = json.loads(SCENE_LAYOUT_PATH.read_text())
@@ -686,6 +720,33 @@ class SceneSemanticsCoverageTests(unittest.TestCase):
             reopened["classification_migration"]["from_contract_sha256"] = authority_metric_digest(retired)
             self.assertTrue(classification_transition_violations(retired, reopened))
 
+        live = copy.deepcopy(next(rule for rule in json.loads(SCENE_LAYOUT_PATH.read_text())[
+            "render_chain_authority_ratchet"]["rules"] if rule["id"] == "shape-derived-analyzer-fleet"))
+        before = copy.deepcopy(live)
+        del before["passive_result_correction"]
+        before["classifications"].pop()
+        origin = "Compilation/Material/SceneResolvedMaterialExecutionCapability.swift"
+        destination = "Runtime/Frame/SceneResolvedMaterialPreparedFrameInput.swift"
+        before["allowed_files"] = sorted(origin if path == destination else path for path in live["allowed_files"])
+        sources = {path: (SCENE_SOURCE_ROOT / path).read_bytes().decode("utf-8")
+                   for path in live["passive_result_correction"]["source_sha256"]}
+        self.assertTrue(passive_result_inventory_correction_valid(before, live, sources))
+        self.assertEqual(classification_transition_violations(before, live, sources), [])
+        self.assertEqual(classification_transition_violations(live, copy.deepcopy(live)), [])
+        for key, replacement in (("baseline_occurrences", 67), ("pattern", "NEVER"),
+                                 ("allowed_files", live["allowed_files"] + ["New.swift"])):
+            changed = copy.deepcopy(live); changed[key] = replacement
+            changed["passive_result_correction"]["to_contract_sha256"] = authority_metric_digest(changed)
+            self.assertTrue(classification_transition_violations(before, changed, sources))
+        changed = copy.deepcopy(live)
+        changed["classifications"][-1]["declaration"] = "enum Admission { case allowed }"
+        changed["passive_result_correction"]["to_contract_sha256"] = authority_metric_digest(changed)
+        self.assertTrue(classification_transition_violations(before, changed, sources))
+        changed = copy.deepcopy(live); changed["passive_result_correction"]["source_sha256"][origin] = "0" * 64
+        self.assertTrue(classification_transition_violations(before, changed, sources))
+        self.assertTrue(classification_transition_violations(live, changed, sources))
+        self.assertTrue(classification_transition_violations(before, live))
+
     def test_capability_addition_binds_exact_source_and_cannot_reopen_growth(self) -> None:
         old = next(rule for rule in json.loads(SCENE_LAYOUT_PATH.read_text())["render_chain_authority_ratchet"]["rules"]
                    if rule["id"] == "shape-derived-analyzer-fleet")
@@ -749,6 +810,10 @@ class SceneSemanticsCoverageTests(unittest.TestCase):
         committed = next(rule for rule in committed_scene_layout()["render_chain_authority_ratchet"]["rules"]
                          if rule["id"] == "shape-derived-analyzer-fleet")
         message = "committed capability receipt" if "capability_addition" in committed else "baseline occurrence increased"
+        # Isolate this committed receipt's removal from an independent live
+        # passive-result/path correction, which has its own tampering cases.
+        rule.clear()
+        rule.update(copy.deepcopy(committed))
         rule.pop("capability_addition", None)
         if "capability_addition" not in committed:
             rule["baseline_occurrences"] = committed["baseline_occurrences"] + 1

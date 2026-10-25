@@ -29,9 +29,11 @@ HARNESS = r'''
         for mode in ["native", "ortho", "override"] {
             let root = base.appendingPathComponent(mode)
             let project = try SceneProjectLoader().load(from: root)
-            let document = try SceneDocumentLoader().load(project: project, packageReport: nil)
-            let catalog = try SceneAssetCatalogLoader().load(project: project,
-                packageReport: nil, stockAssetsRootURL: base.appendingPathComponent("stock"))
+            let document = try SceneDocumentLoader().load(from: project.entryURL, propertyCatalog: project.userProperties)
+            let view = SceneResourceView(projectRootURL: root, packageRootURL: nil,
+                stockAssetsRootURL: base.appendingPathComponent("stock"))
+            let catalog = try SceneAssetCatalogLoader().load(resourceView: view,
+                referencedResourcePaths: document.referencedResourcePaths)
             let descriptor = SceneRenderDescriptorBuilder().build(project: project,
                 sceneDocument: document, assetCatalog: catalog)!
             let encoded = try JSONEncoder().encode(descriptor)

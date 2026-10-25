@@ -149,20 +149,20 @@ enum PlaybackHarness {
 
     static func randomProgram(layer: Int, paths: [String], gap: Double,
                               resources: SceneResourceView, propertyKey: String? = nil)
-        -> SceneSoundPlaybackProgram {
-        let program = SceneSoundPlaybackProgram.compile(document: .init(objects: [
+        throws -> SceneSoundPlaybackProgram {
+        let program = try SceneSoundPlaybackProgram.compile(document: .init(objects: [
             .init(id: layer, sound: makeSound(mode: "random", paths: paths,
                                              gap: gap, propertyKey: propertyKey))
-        ]), resourceView: resources)
+        ]), resourceView: resources, privateCacheDirectory: FileManager.default.temporaryDirectory)
         precondition(program.bindings.count == 1,
                      "random fixture did not reach Program: \(program.diagnostics)")
         return program
     }
 
     static func randomNaturalContinuation(resources: SceneResourceView, allowed: Set<URL>) throws {
-        let program = randomProgram(layer: 71, paths: ["audio/renamed-chime.wav", "audio/other-pulse.wav"],
+        let program = try randomProgram(layer: 71, paths: ["audio/renamed-chime.wav", "audio/other-pulse.wav"],
                                     gap: 1.5, resources: resources)
-        precondition(Set(program.bindings[0].resources.map(\.url)) == allowed)
+        precondition(Set(program.bindings[0].resources.map { $0.file!.url }) == allowed)
         let registry = SceneSoundPlaybackRegistry(program: program, epoch: 41)
         defer { registry.stop() }
         registry.start(paused: false, userValues: [:])
@@ -198,7 +198,7 @@ enum PlaybackHarness {
     }
 
     static func randomHostPauseAndGain(resources: SceneResourceView, secondURL: URL) throws {
-        let program = randomProgram(layer: 72, paths: ["audio/other-pulse.wav"], gap: 2,
+        let program = try randomProgram(layer: 72, paths: ["audio/other-pulse.wav"], gap: 2,
                                     resources: resources, propertyKey: "randomGain")
         let registry = SceneSoundPlaybackRegistry(program: program, epoch: 42)
         defer { registry.stop() }
@@ -234,7 +234,7 @@ enum PlaybackHarness {
     }
 
     static func randomAuthorGapResume(resources: SceneResourceView, firstURL: URL) throws {
-        let registry = SceneSoundPlaybackRegistry(program: randomProgram(
+        let registry = SceneSoundPlaybackRegistry(program: try randomProgram(
             layer: 73, paths: ["audio/renamed-chime.wav"], gap: 0.6, resources: resources), epoch: 43)
         defer { registry.stop() }
         registry.start(paused: false, userValues: [:])
@@ -270,7 +270,7 @@ enum PlaybackHarness {
 
     static func randomRetainedGapSurvivesTemporaryEnd(resources: SceneResourceView,
                                                      firstURL: URL) throws {
-        let registry = SceneSoundPlaybackRegistry(program: randomProgram(
+        let registry = SceneSoundPlaybackRegistry(program: try randomProgram(
             layer: 74, paths: ["audio/renamed-chime.wav"], gap: 1.2, resources: resources), epoch: 44)
         defer { registry.stop() }
         registry.start(paused: false, userValues: [:])
@@ -296,7 +296,7 @@ enum PlaybackHarness {
     }
 
     static func randomStopRetireAndEpoch(resources: SceneResourceView, firstURL: URL) throws {
-        let program = randomProgram(layer: 75, paths: ["audio/renamed-chime.wav"],
+        let program = try randomProgram(layer: 75, paths: ["audio/renamed-chime.wav"],
                                     gap: 1, resources: resources)
         let registry = SceneSoundPlaybackRegistry(program: program, epoch: 45)
         registry.start(paused: false, userValues: [:])
@@ -345,7 +345,7 @@ enum PlaybackHarness {
             .init(id: 76, sound: makeSound(mode: "random", paths: ["audio/not-a-codec.wav"], gap: 0)),
             .init(id: 77, sound: makeSound(mode: "loop", paths: ["audio/renamed-chime.wav"]))
         ])
-        let program = SceneSoundPlaybackProgram.compile(document: document, resourceView: resources)
+        let program = try SceneSoundPlaybackProgram.compile(document: document, resourceView: resources, privateCacheDirectory: FileManager.default.temporaryDirectory)
         precondition(program.bindings.count == 2, "codec failure must reach the real player")
         let registry = SceneSoundPlaybackRegistry(program: program, epoch: 47)
         defer { registry.stop() }
@@ -423,10 +423,10 @@ enum PlaybackHarness {
             let document = SceneDocument(objects: [
                 .init(id: 12, sound: makeSound(mode: "single"))
             ])
-            let program = SceneSoundPlaybackProgram.compile(
+            let program = try SceneSoundPlaybackProgram.compile(
                 document: document,
                 resourceView: resourceView
-            )
+            , privateCacheDirectory: FileManager.default.temporaryDirectory)
             precondition(
                 program.bindings.count == 1,
                 "single binding missing: \(program.diagnostics)"
@@ -467,10 +467,10 @@ enum PlaybackHarness {
             let document = SceneDocument(objects: [
                 .init(id: 13, sound: makeSound(mode: "loop"))
             ])
-            let program = SceneSoundPlaybackProgram.compile(
+            let program = try SceneSoundPlaybackProgram.compile(
                 document: document,
                 resourceView: resourceView
-            )
+            , privateCacheDirectory: FileManager.default.temporaryDirectory)
             precondition(
                 program.bindings.count == 1,
                 "loop binding missing: \(program.diagnostics)"
@@ -489,9 +489,9 @@ enum PlaybackHarness {
         // Long, muted WAV gives position assertions enough headroom before completion.
         try writeWav(to: toneURL, seconds: 3)
         do {
-            let program = SceneSoundPlaybackProgram.compile(document: .init(objects: [
+            let program = try SceneSoundPlaybackProgram.compile(document: .init(objects: [
                 .init(id: 31, sound: makeSound(mode: "single", startsSilent: true))
-            ]), resourceView: resourceView)
+            ]), resourceView: resourceView, privateCacheDirectory: FileManager.default.temporaryDirectory)
             let registry = SceneSoundPlaybackRegistry(program: program, epoch: 9)
             registry.start(paused: false, userValues: [:])
             let actual = player(registry, layer: 31)
@@ -588,9 +588,9 @@ enum PlaybackHarness {
             print("teardown-rejects-and-does-not-revive-pass")
         }
         do {
-            let program = SceneSoundPlaybackProgram.compile(document: .init(objects: [
+            let program = try SceneSoundPlaybackProgram.compile(document: .init(objects: [
                 .init(id: 32, sound: makeSound(mode: "single"))
-            ]), resourceView: resourceView)
+            ]), resourceView: resourceView, privateCacheDirectory: FileManager.default.temporaryDirectory)
             let registry = SceneSoundPlaybackRegistry(program: program, epoch: 10)
             registry.start(paused: true, userValues: [:])
             let actual = player(registry, layer: 32)
@@ -603,9 +603,9 @@ enum PlaybackHarness {
             print("initial-host-pause-retains-autoplay-intent-pass")
         }
         do {
-            let program = SceneSoundPlaybackProgram.compile(document: .init(objects: [
+            let program = try SceneSoundPlaybackProgram.compile(document: .init(objects: [
                 .init(id: 33, sound: makeSound(mode: "loop", startsSilent: true, volume: 0.8))
-            ]), resourceView: resourceView)
+            ]), resourceView: resourceView, privateCacheDirectory: FileManager.default.temporaryDirectory)
             let registry = SceneSoundPlaybackRegistry(program: program, epoch: 11)
             registry.setMasterVolume(0.5); registry.setMuted(true)
             registry.start(paused: false, userValues: [:])
@@ -620,10 +620,10 @@ enum PlaybackHarness {
             print("gain-and-mute-contract-pass")
         }
         do {
-            let program = SceneSoundPlaybackProgram.compile(document: .init(objects: [
+            let program = try SceneSoundPlaybackProgram.compile(document: .init(objects: [
                 .init(id: 34, sound: makeSound(mode: "loop")),
                 .init(id: 35, sound: makeSound(mode: "loop"))
-            ]), resourceView: resourceView)
+            ]), resourceView: resourceView, privateCacheDirectory: FileManager.default.temporaryDirectory)
             let registry = SceneSoundPlaybackRegistry(program: program, epoch: 12)
             registry.start(paused: false, userValues: [:])
             let retired = player(registry, layer: 34), healthy = player(registry, layer: 35)

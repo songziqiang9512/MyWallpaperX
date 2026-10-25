@@ -572,7 +572,7 @@ class SceneOrdinaryColorBoundaryLaunchTests(unittest.TestCase):
                     "--sdk",
                     "macosx",
                     "swiftc",
-                    "-parse-as-library",
+                    "-parse-as-library", "-D", "SCENE_GRAPH_TESTING",
                     "-whole-module-optimization",
                     *(str(path) for path in finalizer.SWIFT_SOURCES),
                     *(str(path) for path in finalizer.SHARED_FIXTURE_SOURCES),

@@ -330,7 +330,13 @@ extension DedicatedWebWallpaperHostPlaceholderAdapter {
 
         let resolvedURL: URL?
         if isDirectory.boolValue {
-            resolvedURL = randomFileURL(in: candidateURL)
+            if payloadType == "directory", propertyPayload["mode"] as? String == "fetchall" {
+                guard let snapshot = directorySnapshotsByProperty[propertyName],
+                      snapshot.sourceDirectoryPath == candidateURL.path else { return nil }
+                resolvedURL = snapshot.filesByPath.keys.randomElement().map { URL(fileURLWithPath: $0) }
+            } else {
+                resolvedURL = randomFileURL(in: candidateURL)
+            }
         } else {
             resolvedURL = candidateURL
         }
@@ -377,6 +383,9 @@ extension DedicatedWebWallpaperHostPlaceholderAdapter {
                   rawValue.isEmpty == false else {
                 continue
             }
+            // Fetch-all already owns this directory's committed snapshot.
+            // Other directory modes retain the existing independent random pool.
+            if payloadType == "directory", payload["mode"] as? String == "fetchall" { continue }
             scheduleRandomFileSnapshotRefresh(for: URL(fileURLWithPath: rawValue))
         }
     }
@@ -424,10 +433,7 @@ extension DedicatedWebWallpaperHostPlaceholderAdapter {
         return "\(WebWallpaperHostSupport.localScheme)://wallpaper/__absolute__/\(segments)"
     }
 
-    func applyCompatibilityState(to webView: WKWebView, deferDirectorySync _: Bool) {
-        let propertiesJSON = currentRequest?.propertiesJSON ?? "{}"
-        refreshReadableResourceRoots(using: propertiesJSON)
-        syncFetchAllDirectoryProperties(using: propertiesJSON)
+    func applyCompatibilityState(to webView: WKWebView) {
         webView.evaluateJavaScript(
             compatibilityStateScript(for: webView),
             completionHandler: nil
@@ -462,7 +468,6 @@ extension DedicatedWebWallpaperHostPlaceholderAdapter {
                 sequence: endpoint.advancePushSequence()
             )
         }
-        applyGeneralProperties(to: webView)
     }
 
     func applyGeneralProperties(to webView: WKWebView) {
@@ -833,10 +838,7 @@ extension DedicatedWebWallpaperHostPlaceholderAdapter {
     }
 
     private func allowedNetworkBridgeHosts() -> Set<String> {
-        guard let recordID = currentRequest?.recordID else {
-            return []
-        }
-        return allowedNetworkBridgeHostsResolver?(recordID) ?? []
+        currentRequest?.recordID == nil ? [] : currentRequest?.allowedNetworkHosts ?? []
     }
 
     static func normalizedNetworkBridgeHost(_ rawHost: String?) -> String? {

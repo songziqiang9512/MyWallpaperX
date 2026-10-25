@@ -495,14 +495,14 @@ final class SceneDesktopWallpaperSession {
             device: launchContext.preparedDeviceResources.device
         )
         for (identity, declaration) in launchContext.materialAssetCatalog.videoDeclarations {
-            if let source = videoTextureSourceRegistry.source(
+            do { if let source = try videoTextureSourceRegistry.source(
                 declaration: declaration, owner: .asset,
-                cacheDirectory: launchContext.cacheDirectory,
+                cacheDirectory: launchContext.privateMediaCacheDirectory,
                 device: launchContext.preparedDeviceResources.device,
                 loader: launchContext.preparedDeviceResources.baseImages.textureLoader
             ) {
                 assetVideoSources[identity] = source
-            }
+            } } catch { continue }
         }
         for (screen, screenID) in surfaceScreens {
             let frame = screen.frame
@@ -560,13 +560,14 @@ final class SceneDesktopWallpaperSession {
 #endif
             if wroteLog {
                 metalView.loadImageLayers(
-                    from: launchContext.cacheDirectory,
+                    privateMediaCacheDirectory: launchContext.privateMediaCacheDirectory,
                     resourceView: launchContext.resourceView,
                     videoSourceRegistry: videoTextureSourceRegistry,
                     preparedBaseImages:
                         launchContext.preparedDeviceResources.baseImages,
                     spriteTextureLoader:
                         launchContext.preparedDeviceResources.spriteTextureLoader,
+                    preparedParticleAssets: launchContext.preparedParticleAssets,
                     preparedParticleVisibilityLayerIDs:
                         launchContext.preparedParticleVisibilityLayerIDs,
                     initialPlayback: launchContext.sceneScriptDynamicLayerRuntime.snapshot().particlePlayback,
@@ -574,13 +575,14 @@ final class SceneDesktopWallpaperSession {
                 )
             } else {
                 metalView.loadImageLayers(
-                    from: launchContext.cacheDirectory,
+                    privateMediaCacheDirectory: launchContext.privateMediaCacheDirectory,
                     resourceView: launchContext.resourceView,
                     videoSourceRegistry: videoTextureSourceRegistry,
                     preparedBaseImages:
                         launchContext.preparedDeviceResources.baseImages,
                     spriteTextureLoader:
                         launchContext.preparedDeviceResources.spriteTextureLoader,
+                    preparedParticleAssets: launchContext.preparedParticleAssets,
                     preparedParticleVisibilityLayerIDs:
                         launchContext.preparedParticleVisibilityLayerIDs,
                     initialPlayback: launchContext.sceneScriptDynamicLayerRuntime.snapshot().particlePlayback,
@@ -605,6 +607,7 @@ final class SceneDesktopWallpaperSession {
                 screen: screen
             )
             window.isReleasedWhenClosed = false
+            window.animationBehavior = .none
             window.ignoresMouseEvents = !SceneDesktopWallpaperHost.usesDebugEvidenceWindow
             window.backgroundColor = .clear
             window.isOpaque = false

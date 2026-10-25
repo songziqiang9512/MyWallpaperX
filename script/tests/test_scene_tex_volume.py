@@ -23,6 +23,12 @@ STOCK_NEUTRAL = (
 )
 STOCK_LUT_DIRECTORY = STOCK_NEUTRAL.parent
 SWIFT_SOURCES = [
+    SCENE_ROOT / "Resources/Assets/SceneResourceIndex.swift",
+    SCENE_ROOT / "Resources/Assets/SceneResourceView.swift",
+    SCENE_ROOT / "../SteamWorkshopStorage/ScenePlaybackSource.swift",
+    SCENE_ROOT / "Format/ScenePkgReader.swift",
+    SCENE_ROOT / "Resources/Assets/SceneResourceIdentity.swift",
+    SCENE_ROOT / "Resources/Assets/SceneResourceView+Backing.swift",
     Path(__file__).resolve().parents[2] / "MyWallpaperX/Core/SteamWorkshopScene/Resources/Textures/SceneResourceBudget.swift",
     SCENE_ROOT / "Format/SceneBCTextureDecoder.swift",
     SCENE_ROOT / "Format/SceneTexDataReader.swift",
@@ -55,12 +61,12 @@ enum Harness {
         let loader = SceneTextureLoader()
         let ownedURL = URL(fileURLWithPath: CommandLine.arguments[1])
         let stockURL = URL(fileURLWithPath: CommandLine.arguments[2])
-        guard case let .loaded(ownedTexture) = loader.load(
+        guard case let .loaded(ownedTexture) = try loader.load(
                   from: ownedURL,
                   purpose: .lookupTable,
                   device: device
               ),
-              case let .loaded(stockTexture) = loader.load(
+              case let .loaded(stockTexture) = try loader.load(
                   from: stockURL,
                   purpose: .lookupTable,
                   device: device
@@ -68,7 +74,7 @@ enum Harness {
             throw HarnessError.uploadFailed
         }
         let twoDRejected: Bool
-        if case let .decodeFailed(reason) = loader.load(from: ownedURL, device: device) {
+        if case let .decodeFailed(reason) = try loader.load(from: ownedURL, device: device) {
             twoDRejected = reason == "3D TEX requires a lookup-table consumer"
         } else {
             twoDRejected = false
@@ -80,7 +86,7 @@ enum Harness {
         ).filter { $0.pathExtension.lowercased() == "tex" }
         var stockFailures: [String] = []
         for url in stockURLs {
-            guard case let .loaded(texture) = loader.load(
+            guard case let .loaded(texture) = try loader.load(
                       from: url,
                       purpose: .lookupTable,
                       device: device

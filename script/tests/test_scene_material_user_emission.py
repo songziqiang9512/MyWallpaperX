@@ -253,7 +253,7 @@ class SceneMaterialUserEmissionTests(unittest.TestCase):
 class SceneMaterialUserEmissionAppTests(unittest.TestCase):
     def run_case(self,name,*,effect=False,instance=False,sequence=(1,0),single=None,invalid_sequence=False,missing_payload=False,invalid_color=False):
         import hashlib, re, struct, zlib
-        from script.tests.test_scene_pkg_cache_extractor import make_package
+        from script.tests.scene_pkg_fixture import make_package
         from PIL import Image, ImageStat
         work=Path(os.environ['MWX_MATERIAL_USER_EVIDENCE'])/name
         work.mkdir(parents=True,exist_ok=False);content=work/'content';content.mkdir();home=work/'home';home.mkdir();evidence=work/'evidence'

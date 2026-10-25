@@ -66,6 +66,11 @@ nonisolated struct SteamWorkshopProject: Decodable {
     let type: String?
     let dependency: String?
     let general: SteamWorkshopProjectGeneral?
+    let presetImagePaths: [String]
+
+    private enum PresetImageKey: String, CodingKey, CaseIterable {
+        case backgroundimageb, backgroundimage, background_image, foreground_image, image, bgimage
+    }
 
     enum CodingKeys: String, CodingKey {
         case title
@@ -77,6 +82,7 @@ nonisolated struct SteamWorkshopProject: Decodable {
         case type
         case dependency
         case general
+        case preset
     }
 
     init(from decoder: Decoder) throws {
@@ -90,6 +96,11 @@ nonisolated struct SteamWorkshopProject: Decodable {
         type = Self.decodeLossyString(from: container, forKey: .type)
         dependency = Self.decodeLossyString(from: container, forKey: .dependency)
         general = try? container.decodeIfPresent(SteamWorkshopProjectGeneral.self, forKey: .general)
+        if let preset = try? container.nestedContainer(keyedBy: PresetImageKey.self, forKey: .preset) {
+            presetImagePaths = PresetImageKey.allCases.compactMap { try? preset.decode(String.self, forKey: $0) }
+        } else {
+            presetImagePaths = []
+        }
     }
 
     private static func decodeLossyString(

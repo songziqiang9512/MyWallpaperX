@@ -11,6 +11,10 @@ final class WebWallpaperLoopbackServer {
     private let listenerQueue = DispatchQueue(label: "com.songziqiang.MyWallpaperX.web-loopback", qos: .userInitiated)
     /// 启动期生成的 128-bit token：只有拿到入口 URL 的页面能用前缀访问受控资源。
     let accessToken: String
+    /// Cookie 不按端口隔离；每个服务器使用自身 token 派生的不可变名字。
+    let accessCookieName: String
+    /// 精确的 name/domain/path 删除身份；不把 cookie store 的所有权交给 server。
+    let accessCookie: HTTPCookie
     let schemeHandler: WebWallpaperLocalSchemeHandler
     private var listener: NWListener?
     /// 同一次启动尝试的完成回调统一在这里排队；重入 `start()` 只会追加，不再覆盖。
@@ -27,7 +31,14 @@ final class WebWallpaperLoopbackServer {
 
     init(schemeHandler: WebWallpaperLocalSchemeHandler) {
         self.schemeHandler = schemeHandler
-        self.accessToken = Self.makeAccessToken()
+        let token = Self.makeAccessToken()
+        let cookieName = "mwx-access-\(token)"
+        guard let cookie = HTTPCookie(properties: [
+            .name: cookieName, .value: token, .domain: "127.0.0.1", .path: "/"
+        ]) else { preconditionFailure("invalid_loopback_cookie_identity") }
+        self.accessToken = token
+        self.accessCookieName = cookieName
+        self.accessCookie = cookie
     }
 
     /// 登记与 start 同锁，stop 不会先 cancel 再让迟到 accept 启动旧连接。
@@ -60,13 +71,11 @@ final class WebWallpaperLoopbackServer {
     /// 会话标记 cookie 名：入口 HTML 响应以 `Set-Cookie` 下发，页面在 origin 下
     /// 以 `/` 开头的绝对路径（`<img src="/x">`、`fetch('/x')`、`new URL('/x', origin)`）
     /// 因此仍可访问受控资源。
-    static let accessCookieName = "mwx-access"
-
     /// 会话 cookie 的 `Set-Cookie` 文本。`SameSite=Strict` 是第二因子的关键：
     /// 跨站页面发起的请求不会携带它，未持有 token 的本机进程也拿不到，两者保持
     /// 无前缀 403；代价是跨源子 frame 仍拿不到无前缀资源（与既有 token 模型一致）。
     var accessCookieHeader: String {
-        "\(Self.accessCookieName)=\(accessToken); Path=/; SameSite=Strict"
+        "\(accessCookieName)=\(accessToken); Path=/; SameSite=Strict"
     }
 
     /// 异步启动：端口就绪或失败经 completion（主队列）回报，超时 1 秒回退。
@@ -246,7 +255,7 @@ final class WebWallpaperLoopbackServer {
             }
             return requestPath
         }
-        guard Self.hasAccessCookie(cookieHeader, token: accessToken) else { return nil }
+        guard Self.hasAccessCookie(cookieHeader, name: accessCookieName, token: accessToken) else { return nil }
         var requestPath = rawPath.hasPrefix("/") ? rawPath : "/" + rawPath
         if let rawQuery {
             requestPath += "?\(rawQuery)"
@@ -256,12 +265,12 @@ final class WebWallpaperLoopbackServer {
 
     /// 会话 cookie 匹配：按 `;` 分段做名字（大小写不敏感）与值（大小写敏感）比较，
     /// 只认本服务器的 token。
-    private static func hasAccessCookie(_ cookieHeader: String?, token: String) -> Bool {
+    private static func hasAccessCookie(_ cookieHeader: String?, name: String, token: String) -> Bool {
         guard let cookieHeader else { return false }
         for field in cookieHeader.split(separator: ";") {
             let parts = field.split(separator: "=", maxSplits: 1, omittingEmptySubsequences: false)
             guard parts.count == 2,
-                  parts[0].trimmingCharacters(in: .whitespaces).caseInsensitiveCompare(accessCookieName) == .orderedSame else {
+                  parts[0].trimmingCharacters(in: .whitespaces).caseInsensitiveCompare(name) == .orderedSame else {
                 continue
             }
             return parts[1].trimmingCharacters(in: .whitespaces) == token

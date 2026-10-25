@@ -388,7 +388,7 @@ class SceneParticlePlaybackSimulatorTests(unittest.TestCase):
             harness = directory / "Harness.swift"
             harness.write_text(HARNESS)
             binary = directory / "fixture"
-            compile_result = subprocess.run([shutil.which("swiftc"), *map(str, SWIFT_SOURCES), str(harness), "-o", str(binary)], capture_output=True, text=True)
+            compile_result = subprocess.run([shutil.which("swiftc"), "-D", "DEBUG", *map(str, SWIFT_SOURCES), str(harness), "-o", str(binary)], capture_output=True, text=True)
             self.assertEqual(compile_result.returncode, 0, compile_result.stderr)
             run = subprocess.run([str(binary)], capture_output=True, text=True)
             self.assertEqual(run.returncode, 0, run.stderr)

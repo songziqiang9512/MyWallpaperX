@@ -61,6 +61,82 @@ void mwx_fixture_layer_catalog_admission_cases(MWXSceneScriptQuickJSFixture *fix
         );
         mwx_scene_quickjs_domain_destroy(invalid_size_domain);
     }
+    // Configuration may arrive out of order. Failed/repeated slots must not
+    // publish a partial catalog or bypass final parent/identity checks.
+    for (int scenario = 0; scenario < 3; ++scenario) {
+        MWXSceneQuickJSDomain *reordered = mwx_scene_quickjs_domain_create(
+            2 * 1024 * 1024, 512 * 1024, 100000,
+            fixture->diagnostic, sizeof(fixture->diagnostic)
+        );
+        fixture->failures += mwx_fixture_check(
+            reordered != NULL, "reordered catalog domain", fixture->diagnostic
+        );
+        if (reordered == NULL) continue;
+        const double origin[3] = {0, 0, 0};
+        const double size[2] = {1, 1};
+        const double bad_size[2] = {NAN, 1};
+        MWXSceneQuickJSResult result = mwx_scene_quickjs_domain_configure_layer_catalog(
+            reordered, 3, 0, fixture->diagnostic, sizeof(fixture->diagnostic)
+        );
+        if (result == MWX_SCENE_QUICKJS_OK) {
+            result = mwx_scene_quickjs_domain_set_layer_descriptor(
+                reordered, 2, 30, 1, scenario == 2 ? 999 : 20,
+                "child", 5, origin, size, fixture->diagnostic, sizeof(fixture->diagnostic)
+            );
+        }
+        fixture->failures += mwx_fixture_check(
+            result == MWX_SCENE_QUICKJS_OK,
+            "later parent may be configured after child", fixture->diagnostic
+        );
+        result = mwx_scene_quickjs_domain_set_layer_descriptor(
+            reordered, 2, 30, 0, 0, "repeated", 8,
+            origin, size, fixture->diagnostic, sizeof(fixture->diagnostic)
+        );
+        fixture->failures += mwx_fixture_check(
+            result == MWX_SCENE_QUICKJS_INVALID_ARGUMENT,
+            "repeated slot is rejected before complete catalog", fixture->diagnostic
+        );
+        result = mwx_scene_quickjs_domain_set_layer_descriptor(
+            reordered, 0, 10, 0, 0, "root", 4,
+            origin, size, fixture->diagnostic, sizeof(fixture->diagnostic)
+        );
+        fixture->failures += mwx_fixture_check(
+            result == MWX_SCENE_QUICKJS_OK, "reordered root accepted", fixture->diagnostic
+        );
+        result = mwx_scene_quickjs_domain_set_layer_descriptor(
+            reordered, 1, 20, 1, 10, "parent", 6,
+            origin, bad_size, fixture->diagnostic, sizeof(fixture->diagnostic)
+        );
+        fixture->failures += mwx_fixture_check(
+            result == MWX_SCENE_QUICKJS_INVALID_ARGUMENT,
+            "failed slot remains available for correction", fixture->diagnostic
+        );
+        result = mwx_scene_quickjs_domain_set_layer_descriptor(
+            reordered, 1, scenario == 1 ? 10 : 20, scenario == 1 ? 0 : 1, 10,
+            "parent", 6, origin, size, fixture->diagnostic, sizeof(fixture->diagnostic)
+        );
+        fixture->failures += mwx_fixture_check(
+            result == (scenario == 0 ? MWX_SCENE_QUICKJS_OK : MWX_SCENE_QUICKJS_INVALID_ARGUMENT),
+            scenario == 0 ? "reordered corrected catalog is accepted"
+                : "complete catalog still rejects duplicate identity or missing parent",
+            fixture->diagnostic
+        );
+        mwx_scene_quickjs_domain_destroy(reordered);
+    }
+    MWXSceneQuickJSDomain *empty_catalog = mwx_scene_quickjs_domain_create(
+        2 * 1024 * 1024, 512 * 1024, 100000,
+        fixture->diagnostic, sizeof(fixture->diagnostic)
+    );
+    fixture->failures += mwx_fixture_check(empty_catalog != NULL, "empty catalog domain", fixture->diagnostic);
+    if (empty_catalog != NULL) {
+        fixture->failures += mwx_fixture_check(
+            mwx_scene_quickjs_domain_configure_layer_catalog(
+                empty_catalog, 0, 0, fixture->diagnostic, sizeof(fixture->diagnostic)
+            ) == MWX_SCENE_QUICKJS_OK,
+            "empty authored catalog remains valid", fixture->diagnostic
+        );
+        mwx_scene_quickjs_domain_destroy(empty_catalog);
+    }
     MWXSceneQuickJSDomain *authored_budget_domain = mwx_scene_quickjs_domain_create(
         2 * 1024 * 1024, 512 * 1024, 100000,
         fixture->diagnostic, sizeof(fixture->diagnostic)

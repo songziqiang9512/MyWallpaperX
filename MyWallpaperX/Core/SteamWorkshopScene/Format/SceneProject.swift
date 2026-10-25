@@ -42,8 +42,18 @@ struct SceneProjectLoader {
         guard FileManager.default.fileExists(atPath: projectFileURL.path) else {
             throw LoadError.missingProjectFile(projectFileURL)
         }
-        guard let data = try? Data(contentsOf: projectFileURL),
-              let root = try? JSONSerialization.jsonObject(with: data) as? [String: Any] else {
+        guard let data = try? Data(contentsOf: projectFileURL) else {
+            throw LoadError.invalidProjectJSON(projectFileURL)
+        }
+        return try load(data: data, from: rootURL)
+    }
+
+    /// Playback supplies the bytes read by its existing loose Root. The URL
+    /// convenience entry remains for lightweight record classification/tools.
+    func load(data: Data, from rootURL: URL,
+              packageExists: ((String) throws -> Bool)? = nil) throws -> SceneProject {
+        let projectFileURL = rootURL.appendingPathComponent("project.json")
+        guard let root = try? JSONSerialization.jsonObject(with: data) as? [String: Any] else {
             throw LoadError.invalidProjectJSON(projectFileURL)
         }
 
@@ -64,9 +74,10 @@ struct SceneProjectLoader {
             rootURL: rootURL,
             projectFileURL: projectFileURL,
             entryPath: resolvedEntryPath,
-            packageURL: SceneProjectLoader.scenePackageURL(
+            packageURL: try SceneProjectLoader.scenePackageURL(
                 in: rootURL,
-                entryPath: resolvedEntryPath
+                entryPath: resolvedEntryPath,
+                packageExists: packageExists
             ),
             declaredVersion: SceneDeclaredInteger.parse(
                 root: root,
@@ -80,15 +91,18 @@ struct SceneProjectLoader {
         )
     }
 
-    static func scenePackageURL(in rootURL: URL, entryPath: String) -> URL? {
+    static func scenePackageURL(in rootURL: URL, entryPath: String,
+                                packageExists: ((String) throws -> Bool)? = nil) rethrows -> URL? {
         let entryFileName = (entryPath as NSString).lastPathComponent
         let entryBaseName = (entryFileName as NSString).deletingPathExtension
         let derivedPackageName = entryBaseName.isEmpty ? "scene.pkg" : "\(entryBaseName).pkg"
         let packageNames = derivedPackageName == "scene.pkg"
             ? [derivedPackageName]
             : [derivedPackageName, "scene.pkg"]
-        return packageNames
-            .map(rootURL.appendingPathComponent)
-            .first { FileManager.default.fileExists(atPath: $0.path) }
+        for name in packageNames {
+            let url = rootURL.appendingPathComponent(name)
+            if try packageExists?(name) ?? FileManager.default.fileExists(atPath: url.path) { return url }
+        }
+        return nil
     }
 }

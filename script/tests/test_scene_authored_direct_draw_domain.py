@@ -93,7 +93,7 @@ import simd
         result["hierarchyMirrorParallaxOnce"] = close(transformed.outputModelViewProjection * SIMD4(0,0,0,1),expected)
         let root = URL(fileURLWithPath:CommandLine.arguments[1],isDirectory:true)
         func role(_ name:String) throws -> SceneEffectDefinition.PerspectiveUVRole {
-            try SceneEffectDefinitionLoader().load(from:root.appendingPathComponent(name+".json"),
+            try SceneEffectDefinitionLoader().load(data:Data(contentsOf:root.appendingPathComponent(name+".json")),
                 relativePath:name+".json").perspectiveUVRole
         }
         result["renamedPublicRole"] = try role("renamed") == .quad(materialKeys:["nw","ne","se","sw"])

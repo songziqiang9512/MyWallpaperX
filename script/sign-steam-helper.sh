@@ -1,5 +1,5 @@
 #!/bin/bash
-# Sign each native dependency first, then the .NET apphost with MAP_JIT.
+# Normalize payload permissions and sign dependencies, then the apphost with MAP_JIT.
 set -euo pipefail
 REPOSITORY_ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 HELPER_DIR="${1:?helper directory required}"
@@ -14,9 +14,15 @@ SIGN_OPTIONS=runtime
 if [[ "$IDENTITY" == - ]]; then SIGN_OPTIONS=0; fi
 if [[ "$IDENTITY" != - && "$TIMESTAMP_POLICY" == required ]]; then TIMESTAMP=(--timestamp); fi
 while IFS= read -r -d '' binary; do
-  [[ "$binary" != "$HELPER_DIR/SteamService" ]] || continue
   if /usr/bin/file -b "$binary" | /usr/bin/grep -q 'Mach-O'; then
-    /usr/bin/codesign --force "${TIMESTAMP[@]}" --options "$SIGN_OPTIONS" --sign "$IDENTITY" "$binary"
+    /bin/chmod 755 "$binary"
+    if [[ "$binary" != "$HELPER_DIR/SteamService" ]]; then
+      /usr/bin/codesign --force "${TIMESTAMP[@]}" --options "$SIGN_OPTIONS" --sign "$IDENTITY" "$binary"
+    fi
+  else
+    # Executable PE assemblies would be treated as unsigned nested code by
+    # the outer app signature. Classify each file once and keep them resources.
+    /bin/chmod 644 "$binary"
   fi
 done < <(/usr/bin/find "$HELPER_DIR" -type f -print0)
 /usr/bin/codesign --force "${TIMESTAMP[@]}" --options "$SIGN_OPTIONS" --sign "$IDENTITY" \

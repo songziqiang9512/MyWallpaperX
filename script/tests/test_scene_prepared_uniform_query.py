@@ -51,7 +51,7 @@ class ScenePreparedUniformQueryTests(unittest.TestCase):
             target.parent.mkdir(parents=True, exist_ok=True)
             shutil.copyfile(source, target)
             mapped.append(target)
-        command = ["xcrun", "--sdk", "macosx", "swiftc", "-parse-as-library",
+        command = ["xcrun", "--sdk", "macosx", "swiftc", "-parse-as-library", "-D", "SCENE_GRAPH_TESTING",
             *map(str, mapped), "-framework", "Metal", "-framework", "CoreGraphics",
             "-framework", "ImageIO", "-module-cache-path", str(temporary / "modules"),
             "-o", str(temporary / "prepared-uniform-query")]

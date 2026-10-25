@@ -316,11 +316,9 @@ final class SceneMultiImageSpriteTextureLoader {
         source: SceneTextureLoader.SourceKey,
         container: SceneTexContainer,
         device: MTLDevice,
-        sourceIsCurrent: () -> Bool
-    ) -> Outcome {
-        guard sourceIsCurrent() else {
-            return .unsupported("file changed before sprite allocation")
-        }
+        checkCancellation: (() throws -> Void)? = nil
+    ) throws -> Outcome {
+        try checkCancellation?()
         guard container.isAnimated, !container.spriteFrames.isEmpty,
               let plan = SceneMultiImageSpriteAdmissionPlan(container: container) else {
             return .unsupported("unsupported image, codec, or frame layout")
@@ -376,9 +374,7 @@ final class SceneMultiImageSpriteTextureLoader {
         ) else {
             return .unsupported("RGBA frame target allocation failed")
         }
-        guard sourceIsCurrent() else {
-            return .unsupported("file changed while loading sprite textures")
-        }
+        try checkCancellation?()
         if cachedSet == nil {
             guard let sourceReservation else {
                 return .unsupported("source budget reservation unavailable")

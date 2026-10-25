@@ -1,4 +1,4 @@
-"""Real SourceFacts/descriptor/MDL cancellation boundaries and ordinary failures.
+"""Real structural-resource/SourceFacts cancellation, mutation and local failures.
 
 The existing disk-builder source set supplies production parsing, source facts,
 descriptor and ModelBuilder. The production cancellation token/error are linked
@@ -46,6 +46,8 @@ enum SceneStaticModelMaterialBindingCompiler {
 '''
 
 MAIN = r'''
+import Darwin
+import CryptoKit
 @main enum CancellationProbe {
     static func projection(_ facts: SceneRuntimeSourceFacts) throws -> Data {
         let encoder = JSONEncoder(); encoder.outputFormatting = [.sortedKeys]
@@ -56,24 +58,21 @@ MAIN = r'''
             "documentError": facts.sceneDocumentLoadErrorDescription ?? "",
             "catalog": facts.assetCatalog != nil,
             "materials": facts.assetCatalog?.materials.map(\.relativePath) ?? [],
-            "packageFailure": facts.packageReport?.blockingMessage ?? "",
             "descriptor": descriptor ?? "missing",
         ], options: [.sortedKeys])
     }
 
     static func sourceCases(_ root: URL) throws -> [String: Bool] {
         var checks: [String: Bool] = [:]
-        for name in ["valid", "bad-model", "bad-document", "bad-project", "bad-package"] {
+        for name in ["valid", "bad-model", "bad-tail", "bad-document", "bad-project", "bad-package"] {
             let folder = root.appendingPathComponent(name)
             ProofLeaf.reset()
-            // These calls deliberately omit `try`: the default nil and a
-            // nonthrowing callback must preserve all existing caller syntax.
-            let plain = SceneRuntimeSourceFactsBuilder().build(rootURL: folder)
+            let plain = try SceneRuntimeSourceFactsBuilder().build(rootURL: folder)
             let plainProjection = try projection(plain)
             let plainProofCalls = ProofLeaf.calls
             ProofLeaf.reset()
             var total = 0
-            let observed = SceneRuntimeSourceFactsBuilder().build(
+            let observed = try SceneRuntimeSourceFactsBuilder().build(
                 rootURL: folder, checkCancellation: { total += 1 })
             checks[name + "-ordinaryProjectionUnchanged"] = try projection(observed) == plainProjection
                 && ProofLeaf.calls == plainProofCalls
@@ -96,26 +95,199 @@ MAIN = r'''
                 } catch { allCancelled = false }
             }
             checks[name + "-everyBoundaryPreservesCancellation"] = allCancelled
-            if name == "bad-model" {
-                checks["badModelKeepsPeerAndMaterialCatalog"] =
+            if name == "bad-model" || name == "bad-tail" {
+                checks[name + "-keepsPeerAndMaterialCatalog"] =
                     plain.renderDescriptor?.modelMaterialLinks.contains { $0.modelPath == "models/parts.mdl" } == false
                     && plain.renderDescriptor?.modelMaterialLinks.contains { $0.modelPath == "models/peer.mdl" } == true
-                    && plain.assetCatalog?.materials.count == 4
+                    && plain.assetCatalog?.materials.map(\.relativePath) == ["materials/peer.json"]
             } else if name == "bad-project" {
                 checks["ordinaryProjectFailureRemainsOptional"] = plain.project == nil && plain.renderDescriptor == nil
             } else if name == "bad-document" {
                 checks["ordinaryDocumentFailureRetainsDescription"] = plain.sceneDocument == nil
                     && plain.sceneDocumentLoadErrorDescription != nil && plain.renderDescriptor == nil
             } else if name == "bad-package" {
-                checks["ordinaryPackageFailureRetainsReport"] = plain.packageReport?.blockingMessage != nil
+                checks["ordinaryPackageFailureKeepsCompleteLooseScene"] = plain.sceneDocument != nil
+                    && plain.renderDescriptor != nil
+                    && plain.resourceView.roots.allSatisfy { $0.source != .package }
             }
         }
         return checks
     }
 
+    static func structuralSourceChangeCases(_ root: URL) throws -> [String: Bool] {
+        let folder = root.appendingPathComponent("valid")
+        var checks: [String: Bool] = [:]
+        let plain = try SceneRuntimeSourceFactsBuilder().build(rootURL: folder)
+        checks["literalDynamicModelRetainsMaterialLink"] = plain.renderDescriptor?
+            .modelMaterialLinks.contains {
+                $0.modelPath == "models/unreferenced.json"
+                    && $0.materialPath == "materials/unreferenced.json"
+            } == true
+        for relativePath in ["project.json", "scene.json", "models/parts.mdl", "models/unreferenced.json",
+            "materials/unreferenced.json", "models/attachment.mdl", "effects/probe/effect.json"] {
+            let target = folder.appendingPathComponent(relativePath)
+            let original = try Data(contentsOf: target)
+            let expectedPath = target.resolvingSymlinksInPath().standardizedFileURL.path
+            for caller in ["facts", "model"] {
+                var changed = false
+                func mutateOpenedResource() throws {
+                    guard !changed else { return }
+                    for descriptor: Int32 in 0..<512 {
+                        var path = [CChar](repeating: 0, count: Int(MAXPATHLEN))
+                        if fcntl(descriptor, F_GETPATH, &path) == 0,
+                           URL(fileURLWithPath: String(cString: path)).resolvingSymlinksInPath().standardizedFileURL.path == expectedPath {
+                            try original.dropLast().write(to: target, options: .atomic)
+                            changed = true
+                            return
+                        }
+                    }
+                }
+                do {
+                    if caller == "facts" {
+                        _ = try SceneRuntimeSourceFactsBuilder().build(
+                            rootURL: folder, checkCancellation: mutateOpenedResource)
+                    } else {
+                        _ = try SceneRuntimeModelBuilder().build(
+                            rootURL: folder, checkCancellation: mutateOpenedResource)
+                    }
+                    checks[caller + "-" + relativePath + "-sourceChangeEscapes"] = false
+                } catch SceneResourceView.ReadError.sourceChanged {
+                    checks[caller + "-" + relativePath + "-sourceChangeEscapes"] = changed
+                }
+                try original.write(to: target, options: .atomic)
+            }
+        }
+        let recovered = try SceneRuntimeSourceFactsBuilder().build(rootURL: folder)
+        checks["structuralReadFailureDoesNotPoisonLaterFacts"] = try projection(recovered) == projection(plain)
+        checks["fullMdlMetadataRetainsAllThreeMaterials"] = recovered.renderDescriptor?
+            .modelMaterialLinks.filter { $0.modelPath == "models/parts.mdl" }.count == 3
+        return checks
+    }
+
+    static func entrySelectionCases(_ root: URL) throws -> [String: Bool] {
+        var checks: [String: Bool] = [:]
+        for (name, expectedID) in [
+            ("entry-hidden", 17), ("entry-dot", 17), ("entry-package", 29),
+            ("entry-package-miss", 17), ("entry-derived-package", 41)
+        ] {
+            let facts = try SceneRuntimeSourceFactsBuilder().build(rootURL: root.appendingPathComponent(name))
+            checks[name + "-keepsLiteralSelection"] = facts.sceneDocument?.objects.map(\.id) == [expectedID]
+            checks[name + "-noParseFailure"] = facts.sceneDocumentLoadErrorDescription == nil
+        }
+        let derived = try SceneRuntimeSourceFactsBuilder().build(rootURL: root.appendingPathComponent("entry-derived-package"))
+        checks["entryBasePackagePrecedesScenePackage"] = derived.project?.packageURL?.lastPathComponent == "Entry.pkg"
+        let fallback = try SceneRuntimeSourceFactsBuilder().build(rootURL: root.appendingPathComponent("entry-package"))
+        checks["scenePackageRemainsDerivedPackageFallback"] = fallback.project?.packageURL?.lastPathComponent == "scene.pkg"
+        for name in ["entry-package-invalid", "entry-package-duplicate"] {
+            let facts = try SceneRuntimeSourceFactsBuilder().build(rootURL: root.appendingPathComponent(name))
+            checks[name + "-doesNotParseLowerLooseDocument"] = facts.sceneDocument == nil
+                && facts.sceneDocumentLoadErrorDescription != nil && facts.renderDescriptor == nil
+        }
+        let missingDot = try SceneRuntimeSourceFactsBuilder().build(rootURL: root.appendingPathComponent("entry-dot-missing"))
+        checks["literalDotMissingComponentRemainsMissing"] = missingDot.sceneDocument == nil
+            && missingDot.sceneDocumentLoadErrorDescription != nil
+        let folder = root.appendingPathComponent("entry-package")
+        let normal = try SceneRuntimeSourceFactsBuilder().build(rootURL: folder)
+        guard let selected = normal.project?.packageURL,
+              let entry = normal.project?.entryPath,
+              case .package? = try normal.resourceView.literalEntry(relativePath: entry)?.currentIdentity() else {
+            fatalError("selected document must be mounted directly from the package")
+        }
+        let packageBytes = try Data(contentsOf: selected)
+        let expectedPath = selected.resolvingSymlinksInPath().standardizedFileURL.path
+        var removed = false
+        var entryReadReady = false
+        do {
+            _ = try SceneRuntimeSourceFactsBuilder().build(rootURL: folder, checkCancellation: {
+                guard entryReadReady, !removed else { return }
+                for descriptor: Int32 in 0..<512 {
+                    var path = [CChar](repeating: 0, count: Int(MAXPATHLEN))
+                    if fcntl(descriptor, F_GETPATH, &path) == 0,
+                       URL(fileURLWithPath: String(cString: path)).resolvingSymlinksInPath().standardizedFileURL.path == expectedPath {
+                        try FileManager.default.removeItem(at: selected)
+                        removed = true
+                        return
+                    }
+                }
+            }, willReadResourceRoots: { _ in entryReadReady = true })
+            checks["selectedDocumentDeletionEscapesWithoutLooseFallback"] = false
+        } catch SceneResourceView.ReadError.sourceChanged {
+            checks["selectedDocumentDeletionEscapesWithoutLooseFallback"] = removed
+        }
+        try packageBytes.write(to: selected, options: .atomic)
+        let recovered = try SceneRuntimeSourceFactsBuilder().build(rootURL: folder)
+        checks["restoredPackageRecoversOnNextRequest"] = try projection(recovered) == projection(normal)
+        let propertyRoot = root.appendingPathComponent("entry-properties")
+        let overrides: [String: SceneUserPropertyValue] = ["enabled": .bool(false), "amount": .number(0.7)]
+        let properties = try SceneRuntimeSourceFactsBuilder().build(rootURL: propertyRoot, propertyOverrides: overrides)
+        let project = properties.project!, document = properties.sceneDocument!
+        let legacy = try SceneDocumentLoader().load(from: project.entryURL,
+            propertyCatalog: project.userProperties, propertyOverrides: overrides)
+        checks["capturedDocumentKeepsScriptsAuthoredProvidersAndOverrides"] = document.authoredRoot == legacy.authoredRoot
+            && !document.scriptBindings.isEmpty && document.scriptBindings == legacy.scriptBindings
+            && document.scriptSourceEvidence == legacy.scriptSourceEvidence
+            && document.scriptBindingDiagnostics == legacy.scriptBindingDiagnostics
+            && document.objects.first?.visible == false && document.objects.first?.alpha == 0.7
+        let alternate = try SceneRuntimeSourceFactsBuilder().build(rootURL: propertyRoot,
+            propertyOverrides: ["enabled": .bool(true), "amount": .number(0.2)])
+        func witness(_ url: URL) throws -> String {
+            SHA256.hash(data: try Data(contentsOf: url)).map { String(format: "%02x", $0) }.joined()
+        }
+        checks["projectAndDocumentWitnessUseAuthoredBytesAcrossOverrides"] = try project.sourceWitness == witness(project.projectFileURL)
+            && document.sourceWitness == witness(project.entryURL)
+            && alternate.project?.sourceWitness == project.sourceWitness
+            && alternate.sceneDocument?.sourceWitness == document.sourceWitness
+            && alternate.sceneDocument?.authoredRoot == document.authoredRoot
+        return checks
+    }
+
+    static func sourceChangeCases(_ root: URL) throws -> [String: Bool] {
+        let folder = root.appendingPathComponent("valid")
+        let target = folder.appendingPathComponent("shaders/handles/probe.vert")
+        try FileManager.default.createDirectory(at: target.deletingLastPathComponent(), withIntermediateDirectories: true)
+        try Data("void main() {}".utf8).write(to: target)
+        try Data("void main() {}".utf8).write(to: target.deletingPathExtension().appendingPathExtension("frag"))
+        try Data(#"{"passes":[{"shader":"handles/probe"}]}"#.utf8)
+            .write(to: folder.appendingPathComponent("materials/handle-probe.json"))
+        let expectedPath = target.resolvingSymlinksInPath().standardizedFileURL.path
+        var changed = false
+        func mutateOpenedShader() throws {
+            guard !changed else { return }
+            for descriptor: Int32 in 0..<512 {
+                var path = [CChar](repeating: 0, count: Int(MAXPATHLEN))
+                if fcntl(descriptor, F_GETPATH, &path) == 0,
+                   URL(fileURLWithPath: String(cString: path)).resolvingSymlinksInPath().standardizedFileURL.path == expectedPath {
+                    try Data("// changed source\nvoid main() {}".utf8).write(to: target, options: .atomic)
+                    changed = true
+                    return
+                }
+            }
+        }
+        var checks: [String: Bool] = [:]
+        do {
+            _ = try SceneRuntimeSourceFactsBuilder().build(rootURL: folder,
+                checkCancellation: mutateOpenedShader)
+            checks["shaderSourceChangeEscapesGraphCatalogAndFacts"] = false
+        } catch SceneResourceView.ReadError.sourceChanged {
+            checks["shaderSourceChangeEscapesGraphCatalogAndFacts"] = changed
+        }
+        changed = false
+        do {
+            _ = try SceneRuntimeModelBuilder().build(rootURL: folder,
+                checkCancellation: mutateOpenedShader)
+            checks["shaderSourceChangeReachesModelCaller"] = false
+        } catch SceneResourceView.ReadError.sourceChanged {
+            checks["shaderSourceChangeReachesModelCaller"] = changed
+        }
+        let recovered = try SceneRuntimeSourceFactsBuilder().build(rootURL: folder)
+        checks["sourceFailureDoesNotPoisonLaterFacts"] = recovered.assetCatalog != nil
+            && recovered.renderDescriptor != nil
+        return checks
+    }
+
     static func descriptorCases(_ root: URL) throws -> [String: Bool] {
         ProofLeaf.reset()
-        let facts = SceneRuntimeSourceFactsBuilder().build(rootURL: root.appendingPathComponent("valid"))
+        let facts = try SceneRuntimeSourceFactsBuilder().build(rootURL: root.appendingPathComponent("valid"))
         guard let project = facts.project, let document = facts.sceneDocument,
               let catalog = facts.assetCatalog, let descriptor = facts.renderDescriptor else {
             fatalError("valid disk chain did not prepare descriptor")
@@ -184,6 +356,9 @@ MAIN = r'''
         precondition(FileManager.default.homeDirectoryForCurrentUser.standardizedFileURL == home,
             "refusing fixture package work outside isolated HOME")
         var checks = try sourceCases(root)
+        checks.merge(try sourceChangeCases(root)) { _, new in new }
+        checks.merge(try structuralSourceChangeCases(root)) { _, new in new }
+        checks.merge(try entrySelectionCases(root)) { _, new in new }
         checks.merge(try descriptorCases(root)) { _, new in new }
         checks.merge(try modelCases(root)) { _, new in new }
         print(String(decoding: try JSONSerialization.data(withJSONObject: checks, options: [.sortedKeys]), as: UTF8.self))
@@ -200,9 +375,26 @@ class SceneSourcePreparationCancellationTests(unittest.TestCase):
             work = Path(temporary)
             root, home = work / "fixtures", work / "home"
             home.mkdir()
-            for name in ["valid", "bad-model", "bad-document", "bad-project", "bad-package"]:
+            for name in ["valid", "bad-model", "bad-tail", "bad-document", "bad-project", "bad-package"]:
                 entries, _ = parts.native_fixture(3, bad=name == "bad-model")
-                if name == "bad-document":
+                if name == "valid":
+                    # The selected script and effect make these definitions
+                    # actual closure members; unrelated author files stay unread.
+                    scene = json.loads(entries["scene.json"])
+                    scene["objects"][0]["color"] = {"value": "1 1 1", "script":
+                        "export function init() { thisScene.createLayer('models/unreferenced.json'); }"}
+                    scene["objects"][0]["effects"] = [{"file": "effects/probe/effect.json"}]
+                    entries["scene.json"] = json.dumps(scene).encode()
+                    entries["models/unreferenced.json"] = json.dumps({
+                        "material": "materials/unreferenced.json",
+                        "puppet": "models/attachment.mdl",
+                    }).encode()
+                    entries["materials/unreferenced.json"] = b'{"passes":[{"shader":"genericimage"}]}'
+                    entries["models/attachment.mdl"] = parts.puppet_mesh.build_attachment_mdl()
+                    entries["effects/probe/effect.json"] = b'{"passes":[{"material":"materials/unreferenced.json"}],"dependencies":["materials/handle-probe.json"]}'
+                elif name == "bad-tail":
+                    entries["models/parts.mdl"] = entries["models/parts.mdl"][:-1] + b"\x01"
+                elif name == "bad-document":
                     entries["scene.json"] = b"{invalid"
                 elif name == "bad-project":
                     entries["project.json"] = b"{invalid"
@@ -212,6 +404,45 @@ class SceneSourcePreparationCancellationTests(unittest.TestCase):
                     path = root / name / relative
                     path.parent.mkdir(parents=True, exist_ok=True)
                     path.write_bytes(data)
+            # Each entry uses the actual project/package/source-facts path.
+            # The loose peer is deliberately valid when the package is invalid.
+            for name in ["entry-hidden", "entry-dot", "entry-dot-missing", "entry-package", "entry-package-miss",
+                         "entry-derived-package", "entry-package-invalid", "entry-package-duplicate"]:
+                folder = root / name
+                entry = "models/.authored/Entry.JSON"
+                project_entry = "ignored/../" + entry if name in ["entry-dot", "entry-dot-missing"] else entry
+                folder.mkdir(parents=True)
+                (folder / "project.json").write_text(json.dumps({"type": "scene", "file": project_entry}))
+                loose = folder / entry
+                loose.parent.mkdir(parents=True)
+                loose.write_text(json.dumps({"objects": [{"id": 17}]}))
+                if name == "entry-dot":
+                    (folder / "ignored").mkdir()
+                if name in ["entry-hidden", "entry-dot", "entry-dot-missing"]:
+                    continue
+                data = json.dumps({"objects": [{"id": 29}]}).encode()
+                if name == "entry-package-invalid":
+                    data = b"{invalid"
+                elif name == "entry-package-duplicate":
+                    data = b'{"objects":[{"id":29},{"id":29}]}'
+                package_entry = "other.json" if name == "entry-package-miss" else entry
+                (folder / "scene.pkg").write_bytes(parts.make_package([(package_entry, data)]))
+                if name == "entry-derived-package":
+                    (folder / "Entry.pkg").write_bytes(parts.make_package([
+                        (entry, b'{"objects":[{"id":41}]}')]))
+            property_folder = root / "entry-properties"
+            property_folder.mkdir()
+            (property_folder / "project.json").write_text(json.dumps({
+                "type": "scene", "file": "scene.json", "general": {"properties": {
+                    "enabled": {"type": "bool", "value": True},
+                    "amount": {"type": "slider", "value": 0.4},
+                }}}))
+            (property_folder / "scene.json").write_text(json.dumps({"objects": [{
+                "id": 17, "visible": {"user": "enabled", "value": True},
+                "alpha": {"user": "amount", "value": 0.4},
+                "origin": {"script": "export function update(value) { return value; }", "value": "1 2 3",
+                           "scriptproperties": {"rate": {"user": "amount", "value": 1}}},
+            }]}))
             support = parts.builder_support().split("@main enum PartsDependencies", 1)[0]
             sources = list(dict.fromkeys([*parts.builder.SWIFT_SOURCES, *parts.reader.SWIFT_SOURCES,
                 SCENE / "Runtime/Session/SceneDesktopWallpaperLaunchModels.swift"]))

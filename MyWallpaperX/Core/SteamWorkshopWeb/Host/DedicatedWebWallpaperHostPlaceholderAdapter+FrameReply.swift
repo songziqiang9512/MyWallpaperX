@@ -78,9 +78,32 @@ extension DedicatedWebWallpaperHostPlaceholderAdapter {
         to endpoint: WebWallpaperFrameEndpointRegistry.Endpoint,
         webView: WKWebView
     ) {
+        var script = compatibilityStateScript(for: webView)
+        // A new document may register after the request's directory scan has
+        // completed. Replay the committed snapshot to this frame without
+        // enumerating the same directories again for every screen/hello.
+        let directoryProperties = parseFetchAllDirectoryProperties(from: currentRequest?.propertiesJSON ?? "{}") ?? []
+        for directory in directoryProperties.sorted(by: { $0.name < $1.name }) {
+            guard let request = currentRequest, !directory.path.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty,
+                  let current = WebWallpaperResourceGrant.authorizedURL(URL(fileURLWithPath: directory.path),
+                    kind: .directory, rootURL: request.rootURL, grants: request.resourceGrants),
+                  let snapshot = directorySnapshotsByProperty[directory.name],
+                  snapshot.sourceDirectoryPath == current.path else { continue }
+            let property = WebWallpaperHostSupport.javaScriptQuotedString(directory.name)
+            let files = WebWallpaperHostSupport.javaScriptArrayLiteral(from: snapshot.filesByPath.keys.sorted())
+            script += "\nwindow.__myWallpaperNotifyDirectoryFilesChanged(\(property), \(files), []);"
+        }
+        let currentPropertyNames = Set(directoryProperties.map(\.name))
+        let targetScreenID = screenID(for: webView)
+        for (key, error) in directoryAccessErrorsByProperty.sorted(by: { $0.key.propertyName < $1.key.propertyName })
+            where key.screenID == targetScreenID && currentPropertyNames.contains(key.propertyName) {
+            let property = WebWallpaperHostSupport.javaScriptQuotedString(key.propertyName)
+            let message = WebWallpaperHostSupport.javaScriptQuotedString(error)
+            script += "\nwindow.__myWallpaperNotifyDirectoryAccessError(\(property), \(message));"
+        }
         let sequence = endpoint.advancePushSequence()
         webView.evaluateJavaScript(
-            sequencedPushScript(compatibilityStateScript(for: webView), sequence: sequence),
+            sequencedPushScript(script, sequence: sequence),
             in: endpoint.frameInfo,
             in: .page
         ) { _ in }

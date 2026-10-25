@@ -20,7 +20,7 @@ import tempfile
 import unittest
 import zlib
 
-from script.tests.test_scene_pkg_cache_extractor import make_package
+from script.tests.scene_pkg_fixture import make_package
 from script.web_benchmark_capture import png_rgb_pixels
 
 
@@ -155,7 +155,7 @@ class SceneReflectionHistoryIntegrationTests(unittest.TestCase):
         if destination:
             Path(destination).mkdir(parents=True, exist_ok=True)
         cls.evidence_root = Path(tempfile.mkdtemp(prefix="rf04-reflection-history-", dir=destination))
-        sources = [Path(__file__), REPO / "script/tests/test_scene_pkg_cache_extractor.py",
+        sources = [Path(__file__), REPO / "script/tests/scene_pkg_fixture.py",
                    REPO / "script/web_benchmark_capture.py",
                    REPO / "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Composition/SceneLitImageLayer.metal",
                    REPO / "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Frame/SceneResolvedMaterialFramePreflight+LitCapture.swift",

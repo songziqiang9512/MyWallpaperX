@@ -315,6 +315,9 @@ struct SceneStaticModelPipeline {
         emissiveMaskTextureFrame: SceneTextureUVTransform?,
         emissiveMaskSampling: SceneTextureSampling?,
         modelMatrix: simd_float4x4,
+        // The renderer carries this from the same current world transform
+        // admitted before depth/shadow preparation; standalone draws derive it.
+        normalMatrix preparedNormalMatrix: simd_float3x3? = nil,
         viewProjection: simd_float4x4,
         cameraPosition: SIMD3<Float>,
         textureFrame: SceneTextureUVTransform,
@@ -353,7 +356,8 @@ struct SceneStaticModelPipeline {
               cameraPosition.y.isFinite,
               cameraPosition.z.isFinite,
               Self.isValid(material.viewTint),
-              let normalMatrix = Self.normalMatrix(for: modelMatrix) else {
+              let normalMatrix = preparedNormalMatrix ?? Self.normalMatrix(for: modelMatrix),
+              Self.isFinite(normalMatrix) else {
             return false
         }
         // Official `lpoint` lights static models; `point` lights only 2D lit

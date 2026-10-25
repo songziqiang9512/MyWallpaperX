@@ -49,9 +49,16 @@ class SILThumbnailDemandTests(unittest.TestCase):
         leaves = "\n".join(declaration(grid, name) for name in [
             "private nonisolated func silGridThumbnailImage(",
             "private nonisolated func silGridThumbnailFailureSignature(",
+            "private final class SILDecodeFailureSignature:",
         ])
+        signature_start = leaves.index("private nonisolated func silGridThumbnailFailureSignature(")
+        signature_opening = leaves.index("{", signature_start) + 1
+        leaves = leaves[:signature_opening] + "\n    SILSignatureReads.shared.record()" + leaves[signature_opening:]
+        visible_loader = declaration(grid, "            ) { [weak self] cancellation, completion in")
+        visible_loader = visible_loader[visible_loader.index("{"):]
         fixture = fixture_path.read_text().replace("// PRODUCTION_GRID_STATE", state).replace(
-            "// PRODUCTION_GRID_METHODS", methods).replace("// PRODUCTION_IMAGE_LEAVES", leaves)
+            "// PRODUCTION_GRID_METHODS", methods).replace("// PRODUCTION_IMAGE_LEAVES", leaves).replace(
+            "// PRODUCTION_VISIBLE_LOADER", visible_loader)
         fixture = fixture.replace("// PRODUCTION_MODEL", declaration(model_path.read_text(), "struct SILWallpaper:"))
         fixture = fixture.replace("// PRODUCTION_RESULT", declaration(grid, "enum SILThumbnailLoadResult"))
         # Expose observation only; all card methods, closures and NSView hierarchy remain intact.
@@ -94,6 +101,13 @@ class SILThumbnailDemandTests(unittest.TestCase):
             for name, value in checks.items():
                 with self.subTest(name=name):
                     self.assertTrue(value)
+            self.assertTrue({
+                "emptyFailureSetPrefetchDoesNotReadSignature", "emptyFailureSetVisibleDoesNotReadSignature",
+                "visibleMissingFileKeepsFeedbackWithoutSignature", "decodeFailureRecordsCurrentSignature",
+                "unchangedFailureSkipsDecode", "sameSecondSameSizeReplacementInvalidatesFailure",
+                "prefetchFailureSkipsDecode", "prefetchReplacementUsesPreciseSignature",
+                "cancelledVisibleMissDoesNotCompleteOrReadSignature",
+            }.issubset(checks), checks)
             self.assertGreaterEqual(len(checks), 25)
             self.assertEqual(inputs, {str(p): hashlib.sha256(p.read_bytes()).hexdigest()
                                      for p in sources + [grid_path, card_path, model_path, fixture_path]})

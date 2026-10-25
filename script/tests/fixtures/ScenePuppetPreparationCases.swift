@@ -1,5 +1,6 @@
 import Foundation
 import simd
+import Darwin
 
 // Peripheral immutable DTOs only. MDL parsing, pose preparation, evaluation,
 // playback, clipping, geometry, buffers and Metal types are production sources.
@@ -16,8 +17,12 @@ struct SceneRenderDescriptor {
 enum SceneDynamicTarget: Hashable {
     case scriptInstanceProperty(layerID: Int, path: [String])
 }
-enum SceneDynamicValue { case bool(Bool) }
-struct SceneDynamicResolvedValue { let value: SceneDynamicValue }
+enum SceneDynamicValue { case bool(Bool), scalar(Double) }
+enum SceneDynamicSource { case authored, userProperty, timeline, sceneScript }
+struct SceneDynamicResolvedValue {
+    let value: SceneDynamicValue
+    var source: SceneDynamicSource = .authored
+}
 struct SceneDynamicSnapshot {
     let frameIndex: UInt64
     let values: [SceneDynamicTarget: SceneDynamicResolvedValue]
@@ -92,11 +97,87 @@ private func failure(_ preparation: ScenePuppetLayerLoad.AssetPreparation) -> [S
 
 @main
 private enum ScenePuppetPreparationCases {
+    private enum ProbeStop: Error { case stopped }
+
+    private static func isOpen(_ target: URL) -> Bool {
+        let expected = target.resolvingSymlinksInPath().standardizedFileURL.path
+        for descriptor: Int32 in 0..<512 {
+            var path = [CChar](repeating: 0, count: Int(MAXPATHLEN))
+            if fcntl(descriptor, F_GETPATH, &path) == 0,
+               URL(fileURLWithPath: String(cString: path)).resolvingSymlinksInPath().standardizedFileURL.path == expected {
+                return true
+            }
+        }
+        return false
+    }
+
+    private static func resourceReadChecks(_ root: URL) throws -> [String: Bool] {
+        let package = root.appendingPathComponent("lookup-primary")
+        let loose = root.appendingPathComponent("lookup-loose")
+        try FileManager.default.createDirectory(at: package.appendingPathComponent(".hidden"), withIntermediateDirectories: true)
+        try FileManager.default.createDirectory(at: loose, withIntermediateDirectories: true)
+        let original = try Data(contentsOf: root.appendingPathComponent("shared.mdl"))
+        let target = package.appendingPathComponent("selected.mdl")
+        try original.write(to: target)
+        try original.write(to: package.appendingPathComponent(".hidden/rig.mdl"))
+        try original.write(to: package.appendingPathComponent("renamed..rig.mdl"))
+        try Data("bad mesh".utf8).write(to: package.appendingPathComponent("bad.mdl"))
+        try original.write(to: loose.appendingPathComponent("bad.mdl"))
+        try original.write(to: loose.appendingPathComponent("lower-only.mdl"))
+        let view = SceneResourceView(projectRootURL: loose, packageRootURL: package, stockAssetsRootURL: nil)
+        var checks: [String: Bool] = [:]
+        let hidden = try ScenePuppetLayerLoad.prepareAsset(meshPath: ".hidden/rig.mdl", resourceView: view, needsAnimations: true)
+        checks["hiddenExactPrimaryEntryRemainsReadable"] = failure(hidden)["kind"] as? String == "ready"
+        let equivalent = try ScenePuppetLayerLoad.prepareAsset(meshPath: "./.hidden//rig.mdl", resourceView: view, needsAnimations: true)
+        checks["safeDotAndSeparatorVariantKeepsExactFile"] = failure(equivalent)["kind"] as? String == "ready"
+        let dottedName = try ScenePuppetLayerLoad.prepareAsset(meshPath: "renamed..rig.mdl", resourceView: view, needsAnimations: true)
+        checks["dotsInsideFilenameAreNotTraversal"] = failure(dottedName)["kind"] as? String == "ready"
+        for path in ["../shared.mdl", "nested/../../shared.mdl", "/shared.mdl", "nested/../selected.mdl"] {
+            let rejected = try ScenePuppetLayerLoad.prepareAsset(meshPath: path, resourceView: view, needsAnimations: false)
+            checks["pathComponentsRemainRejected:" + path] = failure(rejected)["allowsTexture"] as? Bool == false
+        }
+        let bad = try ScenePuppetLayerLoad.prepareAsset(meshPath: "bad.mdl", resourceView: view, needsAnimations: true)
+        checks["badPrimaryDoesNotSelectHealthyLowerRoot"] = failure(bad)["allowsTexture"] as? Bool == false
+        let missing = try ScenePuppetLayerLoad.prepareAsset(meshPath: "lower-only.mdl", resourceView: view, needsAnimations: true)
+        checks["missingPrimaryKeepsOriginalMissingFallback"] = failure(missing)["allowsTexture"] as? Bool == true
+        var changed = false
+        let descriptor = SceneRenderDescriptor(layers: [sourceLayer(801, mesh: "selected.mdl", animated: true)])
+        do {
+            _ = try ScenePreparedPuppetResources.prepare(descriptor: descriptor, resourceView: view,
+                cancellationCheck: {
+                    if !changed, isOpen(target) {
+                        try original.dropLast().write(to: target, options: .atomic)
+                        changed = true
+                    }
+                })
+            checks["sourceChangeEscapesPreparedResourceOwner"] = false
+        } catch SceneResourceView.ReadError.sourceChanged {
+            checks["sourceChangeEscapesPreparedResourceOwner"] = changed
+        }
+        try original.write(to: target, options: .atomic)
+        var stopped = false
+        do {
+            _ = try ScenePreparedPuppetResources.prepare(descriptor: descriptor, resourceView: view,
+                cancellationCheck: {
+                    if isOpen(target) { stopped = true; throw ProbeStop.stopped }
+                })
+            checks["nonReadCancellationEscapesOpenedRead"] = false
+        } catch ProbeStop.stopped {
+            checks["nonReadCancellationEscapesOpenedRead"] = stopped
+        }
+        let recovered = try ScenePreparedPuppetResources.prepare(descriptor: descriptor, resourceView: view,
+            cancellationCheck: {})
+        checks["failedReadDoesNotPoisonNextPreparedResource"] = recovered.assetsByMeshPath.count == 1
+            && recovered.posesByLayerID[801] != nil
+        return checks
+    }
+
     static func main() throws {
         let root = URL(fileURLWithPath: CommandLine.arguments[1], isDirectory: true)
-        func asset(_ name: String, animations: Bool = true) -> ScenePuppetLayerLoad.AssetPreparation {
-            ScenePuppetLayerLoad.prepareAsset(meshPath: name,
-                cacheDirectory: root, needsAnimations: animations)
+        let resourceView = SceneResourceView(projectRootURL: root, packageRootURL: nil, stockAssetsRootURL: nil)
+        func asset(_ name: String, animations: Bool = true) throws -> ScenePuppetLayerLoad.AssetPreparation {
+            try ScenePuppetLayerLoad.prepareAsset(meshPath: name,
+                resourceView: resourceView, needsAnimations: animations)
         }
         var output: [String: Any] = [:]
         var orders: [String: Any] = [:]
@@ -107,7 +188,7 @@ private enum ScenePuppetPreparationCases {
             let animated = sourceLayer(2, mesh: path, animated: true, script: true)
             let resources = try ScenePreparedPuppetResources.prepare(
                 descriptor: .init(layers: reversed ? [animated, plain] : [plain, animated]),
-                cacheDirectory: root, cancellationCheck: {})
+                resourceView: resourceView, cancellationCheck: {})
             orders[label] = ["assetCount": resources.assetsByMeshPath.count,
                 "source": try describe(resources.posesByLayerID[2]),
                 "default": try describe(resources.defaultPose(for: animated))]
@@ -122,19 +203,19 @@ private enum ScenePuppetPreparationCases {
 
         var exactBind: [String: Any] = [:]
         for path in ["bind-shear.mdl", "bind-small.mdl"] {
-            let prepared = asset(path, animations: false)
+            let prepared = try asset(path, animations: false)
             var row = bones(prepared)
             row["pose"] = try describe(ScenePuppetLayerLoad.preparePose(
                 for: sourceLayer(5, mesh: path), asset: prepared))
             exactBind[path] = row
         }
         output["exact-bind"] = exactBind
-        let badReference = asset("bad-reference.mdl", animations: false)
+        let badReference = try asset("bad-reference.mdl", animations: false)
         output["bad-reference"] = ["bonesAvailable": bones(badReference)["available"]!,
             "pose": try describe(ScenePuppetLayerLoad.preparePose(
                 for: sourceLayer(6, mesh: "bad-reference.mdl"), asset: badReference))]
 
-        let retained = asset("reuse.mdl")
+        let retained = try asset("reuse.mdl")
         let beforeBones = bones(retained)
         try FileManager.default.removeItem(at: root.appendingPathComponent("reuse.mdl"))
         let retainedLayer = sourceLayer(7, mesh: "reuse.mdl", animated: true, script: true)
@@ -146,7 +227,7 @@ private enum ScenePuppetPreparationCases {
                 for: retainedLayer, asset: retained, usesDefaultConfiguration: true))]
 
         let staticPath = "static-uv20.mdl"
-        let staticPrepared = asset(staticPath, animations: false)
+        let staticPrepared = try asset(staticPath, animations: false)
         if case let .ready(value) = staticPrepared {
             let layer = sourceLayer(31, mesh: staticPath)
             let before = try describe(ScenePuppetLayerLoad.preparePose(for: layer, asset: staticPrepared))
@@ -167,7 +248,7 @@ private enum ScenePuppetPreparationCases {
         var failures: [String: Any] = [:]
         for (label, path) in [("missing", "missing.mdl"), ("read", "directory.mdl"),
                                ("parse", "bad-mesh.mdl"), ("path", "../outside.mdl")] {
-            failures[label] = failure(asset(path))
+            failures[label] = try failure(asset(path))
         }
         for (label, path, requested) in [("rig", "bad-rig.mdl", true),
                                          ("animation", "bad-animation.mdl", true),
@@ -199,7 +280,7 @@ private enum ScenePuppetPreparationCases {
             ("independent", "independent-reference-failure.mdl", true, 101, 1.0),
             ("reordered", "reordered-reference-failure.mdl", true, 101, 1.0)
         ] {
-            let prepared = asset(path, animations: requested)
+            let prepared = try asset(path, animations: requested)
             let layer = sourceLayer(41, mesh: path, animated: true,
                 animationID: animationID, clipRate: rate)
             referenceFallbacks[label] = ["bones": bones(prepared),
@@ -212,7 +293,7 @@ private enum ScenePuppetPreparationCases {
         for (label, path) in [("rig", "reference-bad-rig.mdl"),
                                ("reference", "invalid-reference-failure.mdl"),
                                ("selected-evaluator", "selected-evaluator-failure.mdl")] {
-            let prepared = asset(path)
+            let prepared = try asset(path)
             referenceSafety[label] = ["bones": bones(prepared),
                 "pose": try describe(ScenePuppetLayerLoad.preparePose(
                     for: sourceLayer(42, mesh: path, animated: true), asset: prepared))]
@@ -222,13 +303,14 @@ private enum ScenePuppetPreparationCases {
         let first = sourceLayer(21, mesh: "shared.mdl")
         let second = sourceLayer(22, mesh: "other.mdl")
         let resources = try ScenePreparedPuppetResources.prepare(descriptor: .init(layers: [first, second]),
-            cacheDirectory: root, cancellationCheck: {})
+            resourceView: resourceView, cancellationCheck: {})
         output["identity"] = ["first": try describe(resources.posesByLayerID[21]),
             "second": try describe(resources.posesByLayerID[22]),
             "default-first": try describe(resources.defaultPose(for: first)),
             "default-second": try describe(resources.defaultPose(for: second)),
             "missingLayerPresent": resources.posesByLayerID[999] != nil,
             "missingMeshPresent": resources.defaultPose(for: sourceLayer(-1, mesh: "unprepared.mdl")) != nil]
+        output["resource-read-checks"] = try resourceReadChecks(root)
         let data = try JSONSerialization.data(withJSONObject: output, options: [.sortedKeys])
         print(String(decoding: data, as: UTF8.self))
     }

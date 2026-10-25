@@ -228,13 +228,32 @@ enum Harness {
             container: mipContainer(sizes: [8, 4, 2, 1], imageSize: 3, format: 7, corruptTail: true),
             pixelFormat: .bc1_rgba, purpose: .premultipliedColor, device: device
         ))
+        for (name, sizes, corruptLevel) in [
+            ("corruptUsed", [8, 4, 2, 1], Optional(1)),
+            ("unusedShape", [8, 4, 3], nil),
+            ("usedShape", [8, 2, 1], nil),
+        ] {
+            result["raw_" + name] = summary(SceneTextureMipUploader.uploadRawRGBA(
+                container: mipContainer(sizes: sizes, imageSize: 3, format: 0, corruptLevel: corruptLevel),
+                device: device
+            ))
+            result["bc_" + name] = summary(SceneCompressedTextureUploader.upload(
+                container: mipContainer(sizes: sizes, imageSize: 3, format: 7, corruptLevel: corruptLevel),
+                pixelFormat: .bc1_rgba, purpose: .premultipliedColor, device: device
+            ))
+        }
+        result["rawData_corruptTail"] = summary(SceneTextureMipUploader.uploadRaw(
+            container: mipContainer(sizes: [8, 4, 2, 1], imageSize: 3, format: 0, corruptTail: true),
+            pixelFormat: .rgba8Unorm, bytesPerPixel: 4, device: device
+        ))
         FileHandle.standardOutput.write(
             try JSONSerialization.data(withJSONObject: result)
         )
     }
 
     static func mipContainer(
-        sizes: [Int], imageSize: Int, format: UInt32, corruptTail: Bool = false
+        sizes: [Int], imageSize: Int, format: UInt32, corruptTail: Bool = false,
+        corruptLevel: Int? = nil
     ) -> SceneTexContainer {
         SceneTexContainer(
             format: format, flags: 2,
@@ -244,7 +263,7 @@ enum Harness {
             images: [.init(mips: sizes.enumerated().map { index, size in
                 let byteCount = format == 0 ? size * size * 4
                     : ((size + 3) / 4) * ((size + 3) / 4) * (format == 7 ? 8 : 16)
-                let count = corruptTail && index == sizes.count - 1 ? 0 : byteCount
+                let count = (corruptTail && index == sizes.count - 1) || corruptLevel == index ? 0 : byteCount
                 return .init(width: size, height: size, data: Data(repeating: 255, count: count))
             })], spriteFrames: []
         )
@@ -304,9 +323,13 @@ enum Harness {
 
 
 class SceneRawTextureUploaderTests(unittest.TestCase):
-    def test_cropping_does_not_hide_corrupt_discarded_payload(self) -> None:
-        self.assertEqual(self.result["raw_corruptTail"], "rejected")
-        self.assertEqual(self.result["bc_corruptTail"], "rejected")
+    def test_cropped_color_checks_consumed_levels_and_ignores_unused_tail(self) -> None:
+        for route in ("raw", "bc"):
+            for case in ("corruptTail", "unusedShape"):
+                self.assertEqual(self.result[f"{route}_{case}"], "3x3:2")
+            for case in ("corruptUsed", "usedShape"):
+                self.assertEqual(self.result[f"{route}_{case}"], "rejected")
+        self.assertEqual(self.result["rawData_corruptTail"], "rejected")
 
     def test_mip_upload_boundaries(self) -> None:
         routes = ["raw", "bc", "embedded", "data"]
@@ -315,7 +338,12 @@ class SceneRawTextureUploaderTests(unittest.TestCase):
         for route in routes:
             for case in ("excess", "excessCropped", "excessOne", "gap"):
                 with self.subTest(route=route, case=case):
-                    self.assertEqual(self.result[f"{route}_{case}"], "rejected")
+                    expected = "rejected"
+                    if route == "bc" and case != "gap":
+                        expected = {"excess": "8x8:4", "excessCropped": "3x3:2", "excessOne": "1x1:1"}[case]
+                    elif route == "raw" and case == "excessCropped":
+                        expected = "3x3:2"
+                    self.assertEqual(self.result[f"{route}_{case}"], expected)
             for case, expected in (("complete", "8x8:4"), ("partial", "8x8:2"), ("one", "1x1:1")):
                 with self.subTest(route=route, case=case):
                     self.assertEqual(self.result[f"{route}_{case}"], expected)

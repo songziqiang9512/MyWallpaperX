@@ -138,6 +138,7 @@ nonisolated extension SceneResolvedMaterialProgramFinalizer {
     private static func resourceToken(_ identity: SceneTextureResourceIdentity) -> String {
         switch identity {
         case .file: "file"
+        case .package: "package"
         case .builtIn: "built-in"
         case .provider(.dynamicText): "provider-dynamic-text"
         case .provider(.materialSource): "provider-material-source"

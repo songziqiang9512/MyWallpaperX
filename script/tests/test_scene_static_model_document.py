@@ -14,7 +14,8 @@ from pathlib import Path
 REPOSITORY_ROOT = Path(__file__).resolve().parents[2]
 SOURCE_ROOT = REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene"
 SWIFT_SOURCES = [
-    REPOSITORY_ROOT / "script/tests/fixtures/SceneUserPropertyResolutionStub.swift",
+    SOURCE_ROOT / "Systems/Properties/SceneUserProperty.swift",
+    SOURCE_ROOT / "Systems/Properties/SceneUserPropertyBindings.swift",
     SOURCE_ROOT / "Format/SceneCompatibilityContext.swift",
     SOURCE_ROOT / "Format/SceneDocument.swift",
     SOURCE_ROOT / "Format/SceneDocument+General.swift",
@@ -129,33 +130,16 @@ enum SceneTextGeometry {
     }
 }
 
-enum SceneUserPropertyValue {}
-enum SceneUserPropertyKind { case sceneTexture }
-
-struct SceneUserPropertyDefinition {
-    let key: String
-    let kind: SceneUserPropertyKind
-}
-
-struct SceneUserPropertyCatalog {
-    let definitions: [SceneUserPropertyDefinition]
-    static let empty = SceneUserPropertyCatalog(definitions: [])
-}
-
-
-
 struct SceneUserPropertyDocumentResolver {
     func resolve(
         root: [String: Any],
         catalog: SceneUserPropertyCatalog,
         overrides: [String: SceneUserPropertyValue]
     ) -> SceneUserPropertyResolution {
-        SceneUserPropertyResolution(root: root)
+        SceneUserPropertyResolution(root: root,
+            bindingReport: .init(bindings: [], diagnostics: []),
+            diagnostics: [], resolvedBindingCount: 0)
     }
-}
-
-struct ScenePkgExtractionReport {
-    let outputURL: URL?
 }
 
 struct SceneProject {
@@ -212,6 +196,26 @@ enum Harness {
         }
         let sourceURL = URL(fileURLWithPath: CommandLine.arguments[1])
         let document = try SceneDocumentLoader().load(from: sourceURL)
+        let captured = try Data(contentsOf: sourceURL)
+        let fromBytes = try SceneDocumentLoader().load(data: captured, sourcePath: sourceURL.path)
+        precondition(fromBytes.authoredRoot == document.authoredRoot)
+        precondition(fromBytes.scriptBindings == document.scriptBindings)
+        precondition(fromBytes.scriptBindingDiagnostics == document.scriptBindingDiagnostics)
+        precondition(fromBytes.scriptSourceEvidence == document.scriptSourceEvidence)
+        precondition(fromBytes.sourceWitness == document.sourceWitness)
+        try Data("{invalid replacement".utf8).write(to: sourceURL, options: .atomic)
+        let retained = try SceneDocumentLoader().load(data: captured, sourcePath: sourceURL.path)
+        precondition(retained.authoredRoot == document.authoredRoot)
+        precondition(retained.sourceWitness == document.sourceWitness)
+        precondition(retained.objects.map(\.id) == document.objects.map(\.id))
+        try captured.write(to: sourceURL, options: .atomic)
+        do {
+            _ = try SceneDocumentLoader().load(
+                data: Data(#"{"objects":[{"id":8},{"id":8}]}"#.utf8), sourcePath: "diagnostic only")
+            preconditionFailure("captured bytes must reject duplicate object IDs")
+        } catch SceneDocumentLoader.LoadError.duplicateObjectIDs(let path, let ids) {
+            precondition(path == "diagnostic only" && ids == [8])
+        }
         let objects = document.objects.map { object in
             [
                 "id": object.id,

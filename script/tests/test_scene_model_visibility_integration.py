@@ -19,7 +19,7 @@ from script.web_benchmark_capture import png_rgb_pixels
 from .test_scene_composition_authored_order_integration import encoded
 from .test_scene_directional_shadow_integration import fixture_entries as shadow_fixture, png, quad
 from .test_scene_fullscreen_visibility_integration import app_hashes, file_hashes
-from .test_scene_pkg_cache_extractor import make_package
+from .scene_pkg_fixture import make_package
 
 
 CANVAS = (160, 96)
@@ -29,7 +29,7 @@ RECTS = {"shadow": (58, 46, 62, 50), "caster": (78, 46, 82, 50),
          "image": (36, 70, 44, 78), "peer": (132, 70, 140, 78)}
 SOURCES = (Path(__file__), Path(__file__).with_name("test_scene_directional_shadow_integration.py"),
            Path(__file__).with_name("test_scene_static_model_reader.py"),
-           Path(__file__).with_name("test_scene_pkg_cache_extractor.py"),
+           Path(__file__).with_name("scene_pkg_fixture.py"),
            Path(__file__).with_name("test_scene_fullscreen_visibility_integration.py"),
            Path(__file__).with_name("test_scene_composition_authored_order_integration.py"),
            Path(__file__).parents[1] / "web_benchmark_capture.py")

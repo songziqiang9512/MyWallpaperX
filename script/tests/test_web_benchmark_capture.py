@@ -3,6 +3,8 @@
 from __future__ import annotations
 
 import binascii
+import hashlib
+import plistlib
 import shutil
 import struct
 import sys
@@ -167,6 +169,7 @@ class WebBenchmarkCaptureTests(unittest.TestCase):
 
             runtime_binary, identity = capture.stage_signed_app(source_binary, output)
             self.assertTrue(runtime_binary.is_file())
+            self.assertEqual(Path(identity["runtime_bundle_path"]).name, source_bundle.name)
             self.assertTrue(identity["verified_before"])
             self.assertIsNone(identity["verified_after"])
 
@@ -188,6 +191,91 @@ class WebBenchmarkCaptureTests(unittest.TestCase):
             self.assertIsNone(identity["runtime_root_path"])
             self.assertIsNone(identity["runtime_bundle_path"])
             self.assertIsNone(identity["runtime_executable_path"])
+
+    @mock.patch.object(capture, "_codesign_values")
+    @mock.patch.object(capture, "_verify_signature")
+    @mock.patch.object(capture, "_ditto_copy")
+    def test_canonical_runtime_basename_preserves_distinct_signed_sources(
+        self,
+        copy_app: mock.Mock,
+        verify_signature: mock.Mock,
+        codesign_values: mock.Mock,
+    ) -> None:
+        with tempfile.TemporaryDirectory(prefix="mwx-capture-canonical-") as directory:
+            root = Path(directory).resolve()
+            output = root / "output"
+            output.mkdir()
+            copy_app.side_effect = lambda source, destination: shutil.copytree(source, destination)
+            codesign_values.return_value = {
+                "bundle_identifier": "com.songziqiang.MyWallpaperX.Debug.Startup",
+                "team_identifier": "H9QWU9XN8R",
+                "cdhash": "same-code-identity",
+            }
+            runtime_roots = []
+            for basename in ("Baseline-copy.app", "Candidate-signed.app"):
+                with self.subTest(source=basename):
+                    source_bundle = root / basename
+                    source_binary = source_bundle / "Contents/MacOS/MyWallpaperX"
+                    source_binary.parent.mkdir(parents=True)
+                    source_binary.write_bytes(b"unchanged executable bytes")
+                    (source_bundle / "Contents/Info.plist").write_bytes(plistlib.dumps({
+                        "CFBundleIdentifier": "com.songziqiang.MyWallpaperX.Debug.Startup",
+                        "CFBundleExecutable": "MyWallpaperX",
+                        "CFBundleShortVersionString": "2.11.0",
+                        "CFBundleVersion": "283",
+                    }))
+                    source_files = {path.relative_to(source_bundle): path.read_bytes()
+                                    for path in source_bundle.rglob("*") if path.is_file()}
+                    runtime_binary, identity = capture.stage_signed_app(
+                        source_binary, output, runtime_bundle_name="MyWallpaperX.app")
+                    runtime_bundle = Path(identity["runtime_bundle_path"])
+                    runtime_root = Path(identity["runtime_root_path"])
+                    runtime_roots.append(runtime_root)
+                    self.assertEqual(runtime_bundle.name, "MyWallpaperX.app")
+                    self.assertEqual(runtime_bundle.parent, runtime_root)
+                    self.assertEqual(runtime_binary.relative_to(runtime_bundle),
+                                     source_binary.relative_to(source_bundle))
+                    self.assertEqual(Path(identity["source_bundle_path"]), source_bundle)
+                    self.assertEqual(Path(identity["source_executable_path"]), source_binary)
+                    self.assertEqual({path.relative_to(runtime_bundle): path.read_bytes()
+                                      for path in runtime_bundle.rglob("*") if path.is_file()}, source_files)
+                    self.assertEqual(identity["executable_sha256"],
+                                     hashlib.sha256(source_binary.read_bytes()).hexdigest())
+                    copy_app.assert_any_call(source_bundle, runtime_bundle)
+                    capture.verify_staged_app(identity)
+                    self.assertTrue(identity["verified_after"])
+                    capture.discard_staged_app(identity)
+                    self.assertFalse(runtime_root.exists())
+                    self.assertFalse(identity["runtime_retained"])
+                    self.assertEqual({path.relative_to(source_bundle): path.read_bytes()
+                                      for path in source_bundle.rglob("*") if path.is_file()}, source_files)
+            self.assertEqual(len(set(runtime_roots)), 2)
+            self.assertEqual(verify_signature.call_count, 6)
+
+    @mock.patch.object(capture, "_identity_values", return_value={})
+    @mock.patch.object(capture, "_verify_signature")
+    @mock.patch.object(capture, "_ditto_copy")
+    def test_explicit_runtime_basename_rejects_non_leaf_before_copy(
+        self,
+        copy_app: mock.Mock,
+        _verify_signature: mock.Mock,
+        _identity_values: mock.Mock,
+    ) -> None:
+        with tempfile.TemporaryDirectory(prefix="mwx-capture-invalid-name-") as directory:
+            root = Path(directory).resolve()
+            source_binary = root / "Source.app/Contents/MacOS/MyWallpaperX"
+            source_binary.parent.mkdir(parents=True)
+            source_binary.write_bytes(b"unchanged source")
+            output = root / "output"
+            output.mkdir()
+            for basename in ("", ".", "..", "../Escape.app", "nested/MyWallpaperX.app",
+                             str(root / "Absolute.app")):
+                with self.subTest(basename=basename):
+                    with self.assertRaises(capture.AppIdentityError):
+                        capture.stage_signed_app(source_binary, output, runtime_bundle_name=basename)
+                    copy_app.assert_not_called()
+                    self.assertEqual(list(output.iterdir()), [])
+                    self.assertEqual(source_binary.read_bytes(), b"unchanged source")
 
     def test_discard_staged_app_rejects_paths_outside_runtime_root(self) -> None:
         with tempfile.TemporaryDirectory(prefix="mwx-capture-cleanup-") as directory:

@@ -3,6 +3,92 @@
 //  MyWallpaperX
 //
 
+// Media state logging has no Release message-handler consumer. Keep its JS
+// source and event listeners out of that script; DEBUG uses this one observer.
+#if DEBUG
+private let webCompatibilityScriptMediaDiagnosticState = #"""
+    let loggedFirstMediaNode = false;
+    let loggedFirstVideoCanPlay = false;
+    const mediaStateSummary = (node) => {
+      const source = node.currentSrc || node.src || 'inline-media';
+      const parts = [source];
+      try { parts.push(`tag=${(node.tagName || 'media').toLowerCase()}`); } catch (_) {}
+      try { parts.push(`readyState=${Number(node.readyState || 0)}`); } catch (_) {}
+      try { parts.push(`networkState=${Number(node.networkState || 0)}`); } catch (_) {}
+      try { parts.push(`paused=${node.paused ? 'true' : 'false'}`); } catch (_) {}
+      try { parts.push(`ended=${node.ended ? 'true' : 'false'}`); } catch (_) {}
+      try { parts.push(`muted=${node.muted ? 'true' : 'false'}`); } catch (_) {}
+      try { parts.push(`currentTime=${Number(node.currentTime || 0).toFixed(3)}`); } catch (_) {}
+      try { parts.push(`duration=${Number(node.duration || 0).toFixed(3)}`); } catch (_) {}
+      try {
+        if (typeof node.videoWidth === 'number' && typeof node.videoHeight === 'number') {
+          parts.push(`videoSize=${node.videoWidth}x${node.videoHeight}`);
+        }
+      } catch (_) {}
+      try {
+        const rect = node.getBoundingClientRect();
+        parts.push(`rect=${Math.round(rect.width)}x${Math.round(rect.height)}`);
+      } catch (_) {}
+      try { parts.push(`visibility=${document.visibilityState || 'unknown'}`); } catch (_) {}
+      return parts.join(' ');
+    };
+    const postMediaState = (type, node) => hostLogger?.post(type, mediaStateSummary(node));
+"""#
+private let webCompatibilityScriptMediaDiagnosticListeners = #"""
+      if (!hostLogger) return;
+      if (!loggedFirstMediaNode) {
+        loggedFirstMediaNode = true;
+        hostLogger?.post('first-media-node-found', mediaStateSummary(node));
+      }
+      postMediaState('media.initial', node);
+      node.addEventListener('error', () => {
+        const error = node.error;
+        const details = error ? `code=${error.code}` : 'unknown';
+        hostLogger?.post('media.error', `${mediaStateSummary(node)} ${details}`.trim());
+      });
+      node.addEventListener('stalled', () => {
+        postMediaState('media.stalled', node);
+      });
+      node.addEventListener('suspend', () => {
+        postMediaState('media.suspend', node);
+      });
+      node.addEventListener('waiting', () => {
+        postMediaState('media.waiting', node);
+      });
+      node.addEventListener('playing', () => {
+        postMediaState('media.playing', node);
+      });
+      node.addEventListener('pause', () => {
+        postMediaState('media.pause', node);
+      });
+      node.addEventListener('loadedmetadata', () => {
+        postMediaState('media.loadedmetadata', node);
+      });
+      node.addEventListener('loadeddata', () => {
+        postMediaState('media.loadeddata', node);
+      });
+      node.addEventListener('canplay', () => {
+        if (!loggedFirstVideoCanPlay && String(node.tagName || '').toLowerCase() === 'video') {
+          loggedFirstVideoCanPlay = true;
+          hostLogger?.post('first-video-canplay', mediaStateSummary(node));
+        }
+        postMediaState('media.canplay', node);
+      });
+      node.addEventListener('canplaythrough', () => {
+        postMediaState('media.canplaythrough', node);
+      });
+      node.addEventListener('ended', () => {
+        postMediaState('media.ended', node);
+      });
+      node.addEventListener('emptied', () => {
+        postMediaState('media.emptied', node);
+      });
+"""#
+#else
+private let webCompatibilityScriptMediaDiagnosticState = ""
+private let webCompatibilityScriptMediaDiagnosticListeners = ""
+#endif
+
 let webCompatibilityScriptMediaObservers = #"""
   // document-start 顶层补丁区：attachShadow 包装器（F01）与
   // addEventListener/removeEventListener DOMContentLoaded 同一性补丁（F40）
@@ -97,32 +183,7 @@ let webCompatibilityScriptMediaObservers = #"""
       document.body && (document.body.style.height = '100%');
     } catch (_) {}
     const registeredMediaNodes = new WeakSet();
-    let loggedFirstMediaNode = false;
-    let loggedFirstVideoCanPlay = false;
-    const mediaStateSummary = (node) => {
-      const source = node.currentSrc || node.src || 'inline-media';
-      const parts = [source];
-      try { parts.push(`tag=${(node.tagName || 'media').toLowerCase()}`); } catch (_) {}
-      try { parts.push(`readyState=${Number(node.readyState || 0)}`); } catch (_) {}
-      try { parts.push(`networkState=${Number(node.networkState || 0)}`); } catch (_) {}
-      try { parts.push(`paused=${node.paused ? 'true' : 'false'}`); } catch (_) {}
-      try { parts.push(`ended=${node.ended ? 'true' : 'false'}`); } catch (_) {}
-      try { parts.push(`muted=${node.muted ? 'true' : 'false'}`); } catch (_) {}
-      try { parts.push(`currentTime=${Number(node.currentTime || 0).toFixed(3)}`); } catch (_) {}
-      try { parts.push(`duration=${Number(node.duration || 0).toFixed(3)}`); } catch (_) {}
-      try {
-        if (typeof node.videoWidth === 'number' && typeof node.videoHeight === 'number') {
-          parts.push(`videoSize=${node.videoWidth}x${node.videoHeight}`);
-        }
-      } catch (_) {}
-      try {
-        const rect = node.getBoundingClientRect();
-        parts.push(`rect=${Math.round(rect.width)}x${Math.round(rect.height)}`);
-      } catch (_) {}
-      try { parts.push(`visibility=${document.visibilityState || 'unknown'}`); } catch (_) {}
-      return parts.join(' ');
-    };
-    const postMediaState = (type, node) => hostLogger?.post(type, mediaStateSummary(node));
+    \#(webCompatibilityScriptMediaDiagnosticState)
     Array.from(document.querySelectorAll('source')).forEach((sourceNode) => {
       const src = (sourceNode.getAttribute('src') || '').trim();
       if (!src) {
@@ -179,54 +240,7 @@ let webCompatibilityScriptMediaObservers = #"""
         const hostPlaybackRate = Number(window.__myWallpaperLastHostPlaybackRate);
         if (Number.isFinite(hostPlaybackRate)) node.playbackRate = hostPlaybackRate;
       } catch (_) {}
-      if (!hostLogger) return;
-      if (!loggedFirstMediaNode) {
-        loggedFirstMediaNode = true;
-        hostLogger?.post('first-media-node-found', mediaStateSummary(node));
-      }
-      postMediaState('media.initial', node);
-      node.addEventListener('error', () => {
-        const error = node.error;
-        const details = error ? `code=${error.code}` : 'unknown';
-        hostLogger?.post('media.error', `${mediaStateSummary(node)} ${details}`.trim());
-      });
-      node.addEventListener('stalled', () => {
-        postMediaState('media.stalled', node);
-      });
-      node.addEventListener('suspend', () => {
-        postMediaState('media.suspend', node);
-      });
-      node.addEventListener('waiting', () => {
-        postMediaState('media.waiting', node);
-      });
-      node.addEventListener('playing', () => {
-        postMediaState('media.playing', node);
-      });
-      node.addEventListener('pause', () => {
-        postMediaState('media.pause', node);
-      });
-      node.addEventListener('loadedmetadata', () => {
-        postMediaState('media.loadedmetadata', node);
-      });
-      node.addEventListener('loadeddata', () => {
-        postMediaState('media.loadeddata', node);
-      });
-      node.addEventListener('canplay', () => {
-        if (!loggedFirstVideoCanPlay && String(node.tagName || '').toLowerCase() === 'video') {
-          loggedFirstVideoCanPlay = true;
-          hostLogger?.post('first-video-canplay', mediaStateSummary(node));
-        }
-        postMediaState('media.canplay', node);
-      });
-      node.addEventListener('canplaythrough', () => {
-        postMediaState('media.canplaythrough', node);
-      });
-      node.addEventListener('ended', () => {
-        postMediaState('media.ended', node);
-      });
-      node.addEventListener('emptied', () => {
-        postMediaState('media.emptied', node);
-      });
+      \#(webCompatibilityScriptMediaDiagnosticListeners)
     };
     const attachWallpaperMediaNodesFromRoot = (rootNode) => {
       if (!rootNode) return;

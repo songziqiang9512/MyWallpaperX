@@ -358,8 +358,10 @@ enum DecorationProbe {
                 builtInReferenceCount: 0, runtimeProvidedReferenceCount: 0),
             capabilityProfile: SceneCapabilityProfile(firstStageRendererGaps: [])) else { throw ProbeError.descriptor }
         guard let device = MTLCreateSystemDefaultDevice() else { throw ProbeError.metal }
+        let resourceView = SceneResourceView(projectRoot: .init(source: .loose,
+            url: url.deletingLastPathComponent()), packageRoot: nil, stockRoot: nil)
         let loaded = SceneTextTextureLoader.load(descriptor: descriptor,
-            cacheDirectory: url.deletingLastPathComponent(), device: device)
+            resourceView: resourceView, device: device)
         let layers = Dictionary(uniqueKeysWithValues: descriptor.layers.map { ($0.name!, $0) })
         var images: [String: Image] = [:], styleEncoding: [String: Bool] = [:]
         for (name, layer) in layers {
@@ -391,12 +393,12 @@ enum DecorationProbe {
             var rendered: [String: Image] = [:], sizes: [String: [Float]] = [:]
             for name in ["baseline", "outline", "shadow", "combined", "msdf-combined"] {
                 let layer = layers[name]!, style = layer.textStyle!
-                guard let texture = SceneTextTextureLoader.makeDynamicTexture(for: layer,
+                guard let texture = try SceneTextTextureLoader.makeDynamicTexture(for: layer,
                     content: variant == "content" ? "WMWX" : layer.text!,
                     fontPath: variant == "font" ? "systemfont_consolas" : style.fontPath,
                     pointSize: variant == "pointSize" ? 28 : style.pointSize,
                     colorRGB: variant == "color" ? [0, 1, 1] : style.colorRGB,
-                    cacheDirectory: url.deletingLastPathComponent(), device: device) else {
+                    resourceView: resourceView, device: device) else {
                     throw ProbeError.texture(name + variant)
                 }
                 rendered[name] = Image(texture.texture, logicalSize: texture.renderSizeWH); sizes[name] = texture.renderSizeWH
@@ -447,9 +449,9 @@ enum DecorationProbe {
                 "rasterScale": images[name]!.scale]
         }
         let dynamicShadowLayer = layers["axis-positive"]!
-        guard let updatedShadow = SceneTextTextureLoader.makeDynamicTexture(
+        guard let updatedShadow = try SceneTextTextureLoader.makeDynamicTexture(
             for: dynamicShadowLayer, content: "I", pointSize: 64, colorRGB: [0, 1, 0],
-            cacheDirectory: url.deletingLastPathComponent(), device: device) else {
+            resourceView: resourceView, device: device) else {
             throw ProbeError.texture("axis-dynamic-pointsize")
         }
         let updatedImage = Image(updatedShadow.texture, logicalSize: updatedShadow.renderSizeWH)

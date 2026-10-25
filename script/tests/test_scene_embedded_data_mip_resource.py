@@ -25,9 +25,9 @@ private enum EmbeddedDataMipHarness {
     static func observe(
         _ url: URL, purpose: SceneTextureLoadPurpose, device: MTLDevice,
         queue: MTLCommandQueue, expected: [[UInt8]]
-    ) -> [String: Any] {
+    ) throws -> [String: Any] {
         let loader = SceneTextureLoader()
-        switch loader.loadCandidate(from: url, purpose: purpose, device: device) {
+        switch try loader.loadCandidate(from: url, purpose: purpose, device: device) {
         case let .failed(failure):
             return ["status": "failed", "failure": String(describing: failure)]
         case let .loaded(candidate):
@@ -81,7 +81,7 @@ private enum EmbeddedDataMipHarness {
         for name in ["authored-data-mips.tex", "renamed-signal.tex"] {
             for purpose in purposes {
                 let bytes = purpose.preservesSourceChannels ? raw : associated
-                results[name + ":" + purpose.reportToken] = observe(
+                results[name + ":" + purpose.reportToken] = try observe(
                     root.appendingPathComponent(name), purpose: purpose, device: device,
                     queue: queue, expected: bytes.map { $0.map { UInt8($0.intValue) } })
             }
@@ -89,16 +89,37 @@ private enum EmbeddedDataMipHarness {
         var rejected: [String: Bool] = [:]
         for name in ["single-oversized.tex", "bad-mip-table.tex", "bad-mip-payload.tex",
                      "bad-header-mapped.tex"] {
-            let outcome = SceneTextureLoader().loadCandidate(from: root.appendingPathComponent(name),
+            let outcome = try SceneTextureLoader().loadCandidate(from: root.appendingPathComponent(name),
                 purpose: .preservedChannels, device: device)
             if case .failed = outcome { rejected[name] = true }
             else { rejected[name] = false }
         }
-        let small = observe(root.appendingPathComponent("single-small.tex"),
+        let small = try observe(root.appendingPathComponent("single-small.tex"),
             purpose: .preservedChannels, device: device, queue: queue,
             expected: (manifest["small"] as! [[NSNumber]]).map { $0.map { UInt8($0.intValue) } })
+        func observer(_ name: String) -> UInt64 {
+            guard let symbol = dlsym(UnsafeMutableRawPointer(bitPattern: -2), "mwx_embedded_header_" + name) else {
+                fatalError("header observation symbol missing")
+            }
+            return unsafeBitCast(symbol, to: (@convention(c) () -> UInt64).self)()
+        }
+        let reuseLoader = SceneTextureLoader()
+        _ = observer("reset")
+        let prepared = try reuseLoader.prepareTexSource(from: root.appendingPathComponent("authored-data-mips.tex"))!
+        let preparationHeaderReads = observer("count")
+        guard case .loaded = try reuseLoader.loadCandidate(from: prepared, purpose: .straightAlbedo, device: device) else {
+            fatalError("metadata reuse positive control failed")
+        }
+        _ = observer("reset")
+        for purpose: SceneTextureLoadPurpose in [.straightAlbedo, .premultipliedColor, .preservedChannels] {
+            guard case .loaded = try reuseLoader.loadCandidate(from: prepared, purpose: purpose, device: device) else {
+                fatalError("prepared purpose reuse failed")
+            }
+        }
+        let reuseHeaderReads = observer("count")
         let report: [String: Any] = ["available": true, "results": results,
-            "rejected": rejected, "singleSmall": small]
+            "rejected": rejected, "singleSmall": small,
+            "preparationHeaderReads": preparationHeaderReads, "reuseHeaderReads": reuseHeaderReads]
         let output = try JSONSerialization.data(withJSONObject: report, options: [.sortedKeys])
         print(String(decoding: output, as: UTF8.self))
     }
@@ -126,6 +147,24 @@ def _png(width: int, height: int, pixels: bytes) -> bytes:
     return (b"\x89PNG\r\n\x1a\n"
             + chunk(b"IHDR", struct.pack(">IIBBBBB", width, height, 8, 6, 0, 0, 0))
             + chunk(b"IDAT", zlib.compress(scanlines)) + chunk(b"IEND", b""))
+
+
+HEADER_OBSERVER = r'''
+#include <ImageIO/ImageIO.h>
+#include <stdatomic.h>
+#include <stdint.h>
+static _Atomic uint64_t observed;
+uint64_t mwx_embedded_header_reset(void) { return atomic_exchange(&observed, 0); }
+uint64_t mwx_embedded_header_count(void) { return atomic_load(&observed); }
+static CFDictionaryRef observed_properties(CGImageSourceRef source, size_t index, CFDictionaryRef options) {
+    atomic_fetch_add(&observed, 1);
+    return CGImageSourceCopyPropertiesAtIndex(source, index, options);
+}
+__attribute__((used)) static const struct { const void *replacement; const void *original; }
+interpose_properties __attribute__((section("__DATA,__interpose"))) = {
+    (const void *)observed_properties, (const void *)CGImageSourceCopyPropertiesAtIndex
+};
+'''
 
 
 def _tex(mips: list[tuple[int, int, bytes]], *, mapped: tuple[int, int] = (4097, 4)) -> bytes:
@@ -177,6 +216,13 @@ class SceneEmbeddedDataMipResourceTests(unittest.TestCase):
         environment = os.environ.copy()
         environment["CLANG_MODULE_CACHE_PATH"] = str(root / "module-cache")
         environment["SWIFT_MODULECACHE_PATH"] = str(root / "module-cache")
+        observer_source = root / "header-observer.c"
+        observer_source.write_text(HEADER_OBSERVER)
+        observer = root / "header-observer.dylib"
+        observed_build = subprocess.run(["xcrun", "clang", "-dynamiclib", str(observer_source),
+            "-framework", "ImageIO", "-o", str(observer)], env=environment, capture_output=True, text=True)
+        if observed_build.returncode:
+            raise RuntimeError(observed_build.stderr)
         binary = root / "embedded-data-mips"
         compilation = subprocess.run([
             "xcrun", "--sdk", "macosx", "swiftc", "-parse-as-library",
@@ -186,8 +232,10 @@ class SceneEmbeddedDataMipResourceTests(unittest.TestCase):
         ], cwd=REPOSITORY_ROOT, env=environment, capture_output=True, text=True)
         if compilation.returncode:
             raise RuntimeError(compilation.stderr)
+        run_environment = environment.copy()
+        run_environment["DYLD_INSERT_LIBRARIES"] = str(observer)
         completed = subprocess.run([str(binary), str(root)], cwd=REPOSITORY_ROOT,
-                                   env=environment, capture_output=True, text=True)
+                                   env=run_environment, capture_output=True, text=True)
         if completed.returncode:
             raise RuntimeError(completed.stderr or completed.stdout)
         cls.result = json.loads(completed.stdout)
@@ -206,6 +254,10 @@ class SceneEmbeddedDataMipResourceTests(unittest.TestCase):
                 self.assertEqual(facts["levelPixelsMatch"], [True, True, True], facts)
                 self.assertTrue(facts["identityUV"], facts)
                 self.assertTrue(facts["purposeMatches"], facts)
+
+    def test_embedded_metadata_is_captured_once_and_reused_across_purposes(self) -> None:
+        self.assertEqual(self.result["preparationHeaderReads"], 3)
+        self.assertEqual(self.result["reuseHeaderReads"], 0)
 
     def test_single_level_and_invalid_metadata_keep_existing_boundaries(self) -> None:
         self.assertEqual(self.result["rejected"], {

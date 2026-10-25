@@ -31,7 +31,7 @@ private nonisolated func silGridThumbnailFailureSignature(atPath path: String) -
     guard let attrs = try? FileManager.default.attributesOfItem(atPath: path) else { return nil }
     let size = (attrs[.size] as? NSNumber)?.int64Value ?? -1
     let modified = (attrs[.modificationDate] as? Date)?.timeIntervalSince1970 ?? 0
-    return "\(path)|\(size)|\(Int64(modified))"
+    return "\(path)|\(size)|\(modified)"
 }
 
 /// decodeQueue 解码失败签名的跨队列载体：loader 写入、主线程 completion 读取
@@ -139,10 +139,11 @@ final class SILGridContainerView: NSView, ModuleFocusable, ListThumbnailTintProv
                     return
                 }
                 // 未命中：文件存在性与失败签名 stat 在后台执行，避免逐 cell 主线程文件系统 IO
+                let checksFailureSignature = !self.failedThumbnailSignatures.isEmpty
                 DispatchQueue.global(qos: .userInitiated).async { [weak self] in
                     guard !cancellation.cancelled else { return }
                     let exists = FileManager.default.fileExists(atPath: w.path)
-                    let signature = exists ? silGridThumbnailFailureSignature(atPath: w.path) : nil
+                    let signature = exists && checksFailureSignature ? silGridThumbnailFailureSignature(atPath: w.path) : nil
                     DispatchQueue.main.async { [weak self] in
                         guard !cancellation.cancelled else { return }
                         guard let self else {
@@ -691,7 +692,8 @@ extension SILGridContainerView {
             // File validity remains off-main. The token also covers this pre-cache wait.
             DispatchQueue.global(qos: .utility).async { [weak self] in
                 guard !token.cancelled, FileManager.default.fileExists(atPath: path) else { return }
-                if let signature = silGridThumbnailFailureSignature(atPath: path), failedSignatures.contains(signature) { return }
+                if !failedSignatures.isEmpty,
+                   let signature = silGridThumbnailFailureSignature(atPath: path), failedSignatures.contains(signature) { return }
                 cache.load(forKey: path, priority: .prefetch, cancellation: token,
                     loader: { silGridThumbnailImage(atPath: path) }, completion: { [weak self] image in
                         DispatchQueue.main.async { [weak self] in

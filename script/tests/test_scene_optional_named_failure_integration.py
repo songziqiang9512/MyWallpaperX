@@ -11,7 +11,7 @@ import unittest
 
 from script.web_benchmark_capture import png_rgb_pixels
 from .test_scene_hidden_provider_integration import fixture_entries
-from .test_scene_pkg_cache_extractor import make_package
+from .scene_pkg_fixture import make_package
 
 
 class SceneOptionalNamedFailureIntegrationTests(unittest.TestCase):

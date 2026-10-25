@@ -212,18 +212,26 @@ class SceneFrameVMRoutingTests(unittest.TestCase):
         runtime_fields = LAYER_RUNTIME_DESCRIPTOR_SOURCE.read_text(
             encoding="utf-8"
         )
-        snapshot = swift_body(handle, "func publishLayerSnapshot(")
+        # Snapshot publication and current frame fields share the descriptor
+        # bridge; immutable catalog configuration remains in the handle bridge.
+        snapshot = swift_body(runtime_fields, "func publishLayerSnapshot(")
         runtime = swift_body(runtime_fields, "func publishLayerRuntimeFields(")
+        catalog = swift_body(handle, "func configureLayerCatalog(")
         self.assertEqual(snapshot.count("configureLayerCatalog(descriptor)"), 1)
         self.assertNotIn("configureLayerCatalog(descriptor)", runtime)
+        self.assertNotIn("catalogSignature(", runtime)
+        self.assertIn("publishLayerRuntimeFields(", snapshot)
+        self.assertIn("mwx_scene_quickjs_domain_update_layer_runtime_fields(", runtime)
+        self.assertLess(catalog.index("if let configured = layerCatalogSignature"),
+                        catalog.index("mwx_scene_quickjs_domain_configure_layer_catalog("))
         # The per-frame snapshot path must not rescan the layer catalog: a
         # launch-frozen token is compared instead, and configure only runs
         # for the token-less bootstrap path.
         self.assertIn(
             "videoSnapshots: [Int: SceneScriptVideoPlaybackSnapshot] = [:]",
-            handle[handle.index("func publishLayerSnapshot("):],
+            runtime_fields[runtime_fields.index("func publishLayerSnapshot("):],
         )
-        self.assertIn("catalogToken: String? = nil", handle)
+        self.assertIn("catalogToken: String? = nil", runtime_fields)
         self.assertIn(
             "guard configured == catalogToken else", snapshot
         )
@@ -233,7 +241,10 @@ class SceneFrameVMRoutingTests(unittest.TestCase):
 
     def test_layer_mutation_bridge_rejects_malformed_dto_before_owner_plan(self) -> None:
         handle = LAYER_HANDLE_SOURCE.read_text(encoding="utf-8")
-        mutations = swift_body(handle, "static func mutations(\n        owner: OpaquePointer,\n        ownerTarget: SceneDynamicTarget\n    )")
+        mutations = swift_body(handle, "static func mutations(\n        owner: OpaquePointer,")
+        layer_runtime = (
+            SCENE / "Systems/Script/SceneScriptDynamicLayerRuntime.swift"
+        ).read_text(encoding="utf-8")
 
         # The C DTO is a safety boundary: enum values and bit fields must be
         # exact, rather than being coerced into the nearest Swift case.
@@ -260,8 +271,13 @@ class SceneFrameVMRoutingTests(unittest.TestCase):
             mutations,
         )
         self.assertIn("if raw.dynamic == 1", mutations)
-        self.assertIn("(0...1).contains(raw.alpha)", mutations)
-        self.assertIn("(1...1024).contains(raw.point_size)", mutations)
+        # ABI transport rejects non-finite numbers. Field-specific admissible
+        # ranges belong to the existing target owner, not every raw DTO field.
+        self.assertIn("raw.alpha.isFinite", mutations)
+        self.assertIn("raw.point_size.isFinite", mutations)
+        self.assertIn("mutation.alpha.isFinite", layer_runtime)
+        self.assertIn("SceneScriptValueOwner.acceptsScalar(mutation.pointSize, for: target)", layer_runtime)
+        self.assertIn("hasPointSizeInput || (1...1024).contains(mutation.pointSize)", layer_runtime)
         self.assertIn("(0...1).contains(raw.color.0)", mutations)
         self.assertIn("unknown layer mutation kind", mutations)
         self.assertNotIn(

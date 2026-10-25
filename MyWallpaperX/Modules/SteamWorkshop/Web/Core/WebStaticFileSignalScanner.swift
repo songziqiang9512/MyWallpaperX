@@ -10,6 +10,12 @@ enum WebStaticFileSignalScanner {
         )
     }
 
+    nonisolated static func containsServiceWorkerRegistration(data: Data) -> Bool {
+        guard data.count <= maximumScanBytes else { return false }
+        let lowered = Data(data.map { $0 >= 65 && $0 <= 90 ? $0 + 32 : $0 })
+        return ["serviceworker.register", "navigator.serviceworker"].contains { lowered.range(of: Data($0.utf8)) != nil }
+    }
+
     private nonisolated static func contains(asciiSignals: [String], in fileURL: URL) -> Bool {
         let signals = asciiSignals.map { Data($0.utf8) }
         let overlapCount = max(0, (signals.map(\.count).max() ?? 1) - 1)

@@ -10,6 +10,8 @@ ROOT = pathlib.Path(__file__).resolve().parents[2]
 class SteamClientLifecycleTests(unittest.TestCase):
     def test_real_client_with_fake_transport(self):
         sources = [
+            "MyWallpaperX/Core/SteamWorkshopStorage/ScenePlaybackSource.swift",
+            "MyWallpaperX/Core/SteamWorkshopStorage/SteamWorkshopStorageTree.swift",
             "MyWallpaperX/Core/DaemonKit/DaemonNewlineJSON.swift",
             "MyWallpaperX/Core/DaemonKit/DaemonProcessTransport.swift",
             "MyWallpaperX/Modules/SteamWorkshop/Core/SteamServiceProtocol.swift",

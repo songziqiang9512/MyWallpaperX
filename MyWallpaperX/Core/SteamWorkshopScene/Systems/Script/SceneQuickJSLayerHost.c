@@ -216,6 +216,7 @@ MWXSceneQuickJSResult mwx_scene_quickjs_domain_configure_layer_catalog(
     domain->layers = calloc(MWX_SCENE_QUICKJS_MAX_LAYERS, sizeof(*domain->layers));
     if (domain->layers == NULL) return MWX_SCENE_QUICKJS_MEMORY_EXCEEDED;
     domain->layer_count = layer_count; domain->authored_layer_count = layer_count;
+    domain->configured_layer_runtime_count = 0;
     domain->defaults_to_perspective = defaults_to_perspective != 0;
     return MWX_SCENE_QUICKJS_OK;
 }
@@ -235,8 +236,6 @@ static bool validate_complete_layer_catalog(
     char *diagnostic,
     size_t diagnostic_capacity
 ) {
-    for (uint32_t index = 0; index < domain->authored_layer_count; ++index)
-        if (!domain->layers[index].configured) return true;
     for (uint32_t index = 0; index < domain->authored_layer_count; ++index) {
         MWXSceneQuickJSLayerRecord *record = &domain->layers[index];
         for (uint32_t candidate = index + 1;
@@ -309,6 +308,10 @@ MWXSceneQuickJSResult mwx_scene_quickjs_domain_set_layer_runtime_descriptor(
     record->perspective = 2;
     record->alpha = alpha; record->point_size = point_size; record->order_index = (int32_t)layer_index;
     record->configured = true;
+    // Each authored slot is configured once. Only the last completed slot
+    // needs the whole catalog; avoid rescanning all earlier slots on each call.
+    if (++domain->configured_layer_runtime_count < domain->authored_layer_count)
+        return MWX_SCENE_QUICKJS_OK;
     return validate_complete_layer_catalog(
         domain, diagnostic, diagnostic_capacity
     ) ? MWX_SCENE_QUICKJS_OK : MWX_SCENE_QUICKJS_INVALID_ARGUMENT;

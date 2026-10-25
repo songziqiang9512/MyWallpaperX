@@ -63,6 +63,7 @@ final class SteamWorkshopService: ObservableObject {
     /// App composition injects a cancellable, request-scoped renderer preparation.
     var prepareWebPlaybackProcess: (() -> (requestID: UUID, cancel: () -> Void, isCurrent: () -> Bool, intentEpoch: UInt64))?
     var cancelWebProcessPreparation: (() -> Void)?
+    var webLaunchPreparationTask: Task<Void, Never>?
     /// Claims the product selection before asynchronous Scene resource lookup.
     var prepareScenePlaybackIntent: ((String, Bool) -> (intentEpoch: UInt64, isCurrent: () -> Bool, cancel: () -> Void)?)?
 
@@ -70,6 +71,8 @@ final class SteamWorkshopService: ObservableObject {
     /// 不能直接写 private(set) 字段）。
     @discardableResult
     func advanceWebLaunchIntentGeneration() -> UInt64 {
+        webLaunchPreparationTask?.cancel()
+        webLaunchPreparationTask = nil
         cancelWebProcessPreparation?()
         cancelWebProcessPreparation = nil
         webLaunchIntentGeneration &+= 1
@@ -319,15 +322,8 @@ final class SteamWorkshopService: ObservableObject {
     @Published var lastWebPlaybackFailurePath: String?
     @Published var lastWebPlaybackFailureMessage: String?
 
-    var webLaunchEligibilityCache: [String: CachedWebLaunchEligibility] = [:]
     var webProjectDescriptorCache: [String: CachedWebProjectDescriptor] = [:]
     var activeWebPropertySecurityScopedURLs: [String: URL] = [:]
-    /// 会话新鲜清单快速路径的起点：本实例存续期间由保存路径写入的分析
-    /// 清单（写时刚完成同源签名扫描）在 `isAnalysisManifestValid` 里会话内
-    /// 免再扫。execution 清单不适用该会话捷径——廉价字段匹配后，调用方
-    /// 仍在后台段执行实时扫描。壁钟前跳后回拨或并行第二实例写出的清单可能
-    /// 被误判新鲜，暴露面与 mtime 键内存缓存的既有盲区同级。
-    let webRuntimeCacheSessionStartDate = Date()
     var scenePropertyRenderTask: Task<Void, Never>?
     var scenePropertyCommandRevision: UInt64 = 0
     var scenePropertyEditRevisions: [String: UInt64] = [:]
@@ -337,11 +333,6 @@ final class SteamWorkshopService: ObservableObject {
     // MARK: - Runtime tasks and processes
 
     var browserFetchTask: Task<Void, Never>?
-    var webRuntimePreloadTask: Task<Void, Never>?
-    /// preload 任务代际：被抢占的旧任务收尾时据此判断句柄是否已归属新
-    /// 任务，避免把新任务的 cancel 句柄清成 nil（重复 IO 有界但脏）。
-    /// 唯一写方是 preloadWebRuntimeCaches。
-    var webRuntimePreloadGeneration: UInt64 = 0
     var browserLoadMoreRetryAfter: Date = .distantPast
     /// 稀疏筛选下连续无新增可见项的自动续载页数（见 maxConsecutiveEmptyLoadMorePages）。
     var consecutiveEmptyLoadMorePages = 0
@@ -431,6 +422,7 @@ final class SteamWorkshopService: ObservableObject {
         }
 #if DEBUG
         let isIsolatedWebSampleRun = ProcessInfo.processInfo.arguments.contains("--mwx-debug-run-web-workshop-id")
+            || ProcessInfo.processInfo.arguments.contains("--mwx-debug-web-startup-report")
 #else
         let isIsolatedWebSampleRun = false
 #endif

@@ -88,14 +88,16 @@ nonisolated final class SceneParticleSimulator: @unchecked Sendable {
     var activeWorldSpaceFrame: SceneParticleWorldSpaceFrame?
     var dynamicControlPointAngles: [Int: SIMD3<Double>] = [:]
     var audioInput = SceneParticleAudioInput.silent
+#if DEBUG
     /// Sticky per-system identities suppress repeated telemetry after the first
     /// non-silent evaluation. Both this set and its pending events participate
     /// in the existing particle frame transaction, so rejected frames cannot
     /// publish or consume execution evidence.
-    private var observedNonSilentAudioComponents:
+    var observedNonSilentAudioComponents:
         Set<SceneParticleAudioComponentIdentity> = []
-    private var pendingAudioEvaluationObservations:
+    var pendingAudioEvaluationObservations:
         [SceneParticleAudioEvaluationObservation] = []
+#endif
     var eventColorContext: SceneParticleEventColorContext
     private var stepSnapshotRecorder: SceneParticleStepSnapshotRecorder?
     var positionOscillationCache: [SceneParticleOscillationCacheKey: SceneParticlePositionOscillation] = [:]
@@ -295,69 +297,11 @@ nonisolated final class SceneParticleSimulator: @unchecked Sendable {
         stepSnapshotRecorder?.consume(particles: particles) ?? []
     }
 
-    nonisolated func evaluateAudioResponse(
-        _ plan: SceneParticleAudioResponsePlan,
-        componentKind: SceneParticleAudioComponentKind,
-        componentIndex: Int
-    ) -> Double {
-        let identity = SceneParticleAudioComponentIdentity(
-            kind: componentKind,
-            index: componentIndex
-        )
-        guard audioInput.generation > 0,
-              !observedNonSilentAudioComponents.contains(identity) else {
-            return plan.evaluate(audioInput)
-        }
-        let evaluation = plan.evaluateForExecutionObservation(audioInput)
-        guard evaluation.selectedNonZeroInputCount > 0 else {
-            return evaluation.response
-        }
-        observedNonSilentAudioComponents.insert(identity)
-        pendingAudioEvaluationObservations.append(.init(
-            componentKind: componentKind,
-            componentIndex: componentIndex,
-            generation: audioInput.generation,
-            channel: plan.channel.rawValue,
-            frequencyStart: plan.frequencies.lowerBound,
-            frequencyEnd: plan.frequencies.upperBound,
-            selectedNonZeroInputCount: evaluation.selectedNonZeroInputCount
-        ))
-        return evaluation.response
-    }
-
-    nonisolated func consumeAudioEvaluationObservations()
-        -> [SceneParticleAudioEvaluationObservation] {
-        defer { pendingAudioEvaluationObservations.removeAll(keepingCapacity: true) }
-        return pendingAudioEvaluationObservations
-    }
-
-    /// Child runtimes reuse one prepared template across short-lived simulator
-    /// instances. Suppress component identities already observed by that
-    /// template before advancing a new instance, so playback-level dedup does
-    /// not leave recurring band scans and pending allocations in the hot path.
-    nonisolated func suppressAudioEvaluationObservations(
-        for identities: Set<SceneParticleAudioComponentIdentity>
-    ) {
-        guard !identities.isEmpty,
-              !identities.isSubset(of: observedNonSilentAudioComponents) else {
-            return
-        }
-        observedNonSilentAudioComponents.formUnion(identities)
-        if !pendingAudioEvaluationObservations.isEmpty {
-            pendingAudioEvaluationObservations.removeAll {
-                identities.contains(.init(
-                    kind: $0.componentKind,
-                    index: $0.componentIndex
-                ))
-            }
-        }
-    }
-
     /// Captures mutable simulation state before a frame is admitted. The
     /// runtime keeps immutable definition/operator data shared; only the
     /// frame-varying state is copied and can be restored on host rejection.
     nonisolated func frameSnapshot() -> FrameSnapshot {
-        FrameSnapshot(
+        var snapshot = FrameSnapshot(
             playback: playback,
             particles: particles,
             diagnostics: diagnostics,
@@ -377,12 +321,15 @@ nonisolated final class SceneParticleSimulator: @unchecked Sendable {
             dynamicControlPoints: dynamicControlPoints,
             dynamicControlPointAngles: dynamicControlPointAngles,
             audioInput: audioInput,
-            observedNonSilentAudioComponents: observedNonSilentAudioComponents,
-            pendingAudioEvaluationObservations: pendingAudioEvaluationObservations,
             eventColorContext: eventColorContext,
             stepSnapshotRecorder: stepSnapshotRecorder,
             positionOscillationCache: positionOscillationCache
         )
+#if DEBUG
+        snapshot.observedNonSilentAudioComponents = observedNonSilentAudioComponents
+        snapshot.pendingAudioEvaluationObservations = pendingAudioEvaluationObservations
+#endif
+        return snapshot
     }
 
     nonisolated func restoreFrame(_ snapshot: FrameSnapshot) {
@@ -405,8 +352,10 @@ nonisolated final class SceneParticleSimulator: @unchecked Sendable {
         dynamicControlPoints = snapshot.dynamicControlPoints
         dynamicControlPointAngles = snapshot.dynamicControlPointAngles
         audioInput = snapshot.audioInput
+#if DEBUG
         observedNonSilentAudioComponents = snapshot.observedNonSilentAudioComponents
         pendingAudioEvaluationObservations = snapshot.pendingAudioEvaluationObservations
+#endif
         eventColorContext = snapshot.eventColorContext
         stepSnapshotRecorder = snapshot.stepSnapshotRecorder
         positionOscillationCache = snapshot.positionOscillationCache
@@ -947,6 +896,7 @@ nonisolated final class SceneParticleSimulator: @unchecked Sendable {
         case .capVelocity:
             applyCapVelocity(
                 plan: operatorExecutionPlans[operatorIndex].capVelocity,
+                normalizedLives: normalizedLives,
                 blendPlan: operatorExecutionPlans[operatorIndex].blend
             )
         case .remapValue:

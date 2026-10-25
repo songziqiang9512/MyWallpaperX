@@ -6,13 +6,14 @@ extension SteamWorkshopService {
         rawValue: SteamWorkshopWebPropertyValue,
         runtimeValue: SteamWorkshopWebPropertyValue,
         visibleOptions: [SteamWorkshopWebPropertyOption],
-        record: SteamWorkshopDownloadRecord
+        record: SteamWorkshopDownloadRecord,
+        bindingContext: WebAuthorBindingContext? = nil
     ) -> [String: Any] {
         if let binding = resolvedWebResourceBinding(
             forKey: definition.key,
             definition: definition,
             rawValue: rawValue,
-            record: record
+            record: record, bindingContext: bindingContext
         ), binding.kind == .pathlikePreset {
             var payload = Self.webRuntimeFallbackPropertyPayload(forKey: definition.key, value: runtimeValue)
             if !visibleOptions.isEmpty {
@@ -38,7 +39,8 @@ extension SteamWorkshopService {
         rawValue: SteamWorkshopWebPropertyValue,
         runtimeValue: SteamWorkshopWebPropertyValue,
         visibleOptions: [SteamWorkshopWebPropertyOption],
-        record: SteamWorkshopDownloadRecord
+        record: SteamWorkshopDownloadRecord,
+        bindingContext: WebAuthorBindingContext? = nil
     ) -> String? {
         let payload = [
             definition.key: resolvedWebRuntimePropertyPayload(
@@ -46,7 +48,7 @@ extension SteamWorkshopService {
                 rawValue: rawValue,
                 runtimeValue: runtimeValue,
                 visibleOptions: visibleOptions,
-                record: record
+                record: record, bindingContext: bindingContext
             )
         ]
 
@@ -61,7 +63,8 @@ extension SteamWorkshopService {
     func effectiveWebPropertiesJSONString(
         for record: SteamWorkshopDownloadRecord,
         definitions: [SteamWorkshopWebPropertyDefinition]? = nil,
-        valuesOverride: [String: SteamWorkshopWebPropertyValue]? = nil
+        valuesOverride: [String: SteamWorkshopWebPropertyValue]? = nil,
+        bindingContext: WebAuthorBindingContext? = nil
     ) -> String? {
         let resolvedDefinitions = definitions ?? webPropertyDefinitions(for: record)
         let effectiveValues = valuesOverride ?? effectiveWebPropertyValues(for: record, definitions: resolvedDefinitions)
@@ -73,12 +76,12 @@ extension SteamWorkshopService {
                     forKey: definition.key,
                     definition: definition,
                     rawValue: rawValue,
-                    record: record
+                    record: record, bindingContext: bindingContext
                 )
             )
         })
 
-        let pathlikePresetValues = webShellResourcePathLikePresetValues(for: record)
+        let pathlikePresetValues = bindingContext?.pathlikePresetValues ?? webShellResourcePathLikePresetValues(for: record)
         let pathlikePresetKeys = Set(pathlikePresetValues.keys)
         let missingPathlikePresetKeys = pathlikePresetKeys.filter { runtimeResolvedValues[$0] == nil }
         for key in missingPathlikePresetKeys {
@@ -87,7 +90,7 @@ extension SteamWorkshopService {
                 forKey: key,
                 definition: nil,
                 rawValue: rawValue,
-                record: record
+                record: record, bindingContext: bindingContext
             ), let resolvedPath = binding.resolvedPath {
                 runtimeResolvedValues[key] = .string(resolvedPath)
             } else {
@@ -120,7 +123,7 @@ extension SteamWorkshopService {
                 rawValue: rawValue,
                 runtimeValue: runtimeValue,
                 visibleOptions: visibleOptionsByKey[definition.key] ?? [],
-                record: record
+                record: record, bindingContext: bindingContext
             )
         }
 

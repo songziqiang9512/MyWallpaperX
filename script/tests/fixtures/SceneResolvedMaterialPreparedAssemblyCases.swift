@@ -120,13 +120,14 @@ func scenePreparedAssemblyRegressionCases(
 
     func alteredFrontend(
         layout: SceneAuthoredShaderUniformLayout? = nil,
+        uniformBufferIndex: Int? = nil,
         bindings: [SceneAuthoredShaderProgram.TextureBinding]? = nil
     ) -> SceneAuthoredShaderProgram {
         .init(
             metalSource: frontend.metalSource,
             vertexFunctionName: frontend.vertexFunctionName,
             fragmentFunctionName: frontend.fragmentFunctionName,
-            uniformBufferIndex: frontend.uniformBufferIndex,
+            uniformBufferIndex: uniformBufferIndex ?? frontend.uniformBufferIndex,
             uniformLayout: layout ?? frontend.uniformLayout,
             textureBindings: bindings ?? frontend.textureBindings,
             staticLoopWork: frontend.staticLoopWork,
@@ -184,6 +185,8 @@ func scenePreparedAssemblyRegressionCases(
         attachmentPixelFormat: .bgra8Unorm, sampleCount: 1, device: device
     )
     var results = [
+        "preparedAssemblyRejectsOutOfRangeUniformBuffer": prepare(alteredFrontend(uniformBufferIndex: -1)) == nil
+            && prepare(alteredFrontend(uniformBufferIndex: 31)) == nil,
         "preparedFactoryRejectsDuplicateLayout": prepare(duplicateLayout) == nil,
         "preparedFactoryRejectsUnalignedLayout": prepare(unalignedLayout) == nil,
         "preparedFactoryRejectsDuplicateSlots": prepare(duplicateBindings) == nil,

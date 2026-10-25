@@ -9,11 +9,16 @@
 
 import Foundation
 import Combine
+import Darwin
 
-private final class OLDownloadTaskDelegate: NSObject, URLSessionDownloadDelegate, @unchecked Sendable {
+nonisolated private final class OLDownloadTaskDelegate: NSObject, URLSessionDownloadDelegate, @unchecked Sendable {
     var expectedBytes: Int64
     let progressHandler: @MainActor (Double) -> Void
-    let completion: (Result<URL, Error>) -> Void
+    private let stagingURL: URL
+    private var completion: ((Result<URL, Error>) -> Void)?
+    private let cancellationLock = NSLock()
+    private var downloadTask: URLSessionDownloadTask?
+    private var cancellationRequested = false
     private var finished = false
     /// 进度节流：didWriteData 每个 tick 都会回调，直发会驱动网格全量刷新；
     /// 只在距上次发出 ≥ 最小间隔、或百分比步进 ≥ 最小步进、或到达 100% 时发出。
@@ -24,12 +29,40 @@ private final class OLDownloadTaskDelegate: NSObject, URLSessionDownloadDelegate
 
     init(
         expectedBytes: Int64,
-        progressHandler: @escaping @MainActor (Double) -> Void,
-        completion: @escaping (Result<URL, Error>) -> Void
+        stagingURL: URL,
+        progressHandler: @escaping @MainActor (Double) -> Void
     ) {
         self.expectedBytes = expectedBytes
+        self.stagingURL = stagingURL
         self.progressHandler = progressHandler
+    }
+
+    func start(from url: URL, completion: @escaping (Result<URL, Error>) -> Void) {
         self.completion = completion
+        let configuration = URLSessionConfiguration.default
+        configuration.timeoutIntervalForRequest = 60
+        let session = URLSession(configuration: configuration, delegate: self, delegateQueue: nil)
+        let task = session.downloadTask(with: url)
+        cancellationLock.lock()
+        downloadTask = task
+        let cancelled = cancellationRequested
+        cancellationLock.unlock()
+        if cancelled { task.cancel() }
+        task.resume()
+    }
+
+    func cancel() {
+        cancellationLock.lock()
+        cancellationRequested = true
+        let task = downloadTask
+        cancellationLock.unlock()
+        task?.cancel()
+    }
+
+    private var isCancelled: Bool {
+        cancellationLock.lock()
+        defer { cancellationLock.unlock() }
+        return cancellationRequested
     }
 
     func urlSession(
@@ -59,26 +92,35 @@ private final class OLDownloadTaskDelegate: NSObject, URLSessionDownloadDelegate
 
     func urlSession(_ session: URLSession, downloadTask: URLSessionDownloadTask, didFinishDownloadingTo location: URL) {
         guard !finished else { return }
-        finished = true
         do {
-            let stableURL = FileManager.default.temporaryDirectory
-                .appendingPathComponent(UUID().uuidString)
-                .appendingPathExtension("mp4")
-            try? FileManager.default.removeItem(at: stableURL)
-            try FileManager.default.copyItem(at: location, to: stableURL)
-            session.finishTasksAndInvalidate()
-            completion(.success(stableURL))
+            guard !isCancelled else { throw URLError(.cancelled) }
+            guard let response = downloadTask.response as? HTTPURLResponse,
+                  (200..<300).contains(response.statusCode) else { throw URLError(.badServerResponse) }
+            try FileManager.default.moveItem(at: location, to: stagingURL)
+            if isCancelled {
+                throw URLError(.cancelled)
+            }
+            finish(.success(stagingURL), session: session)
         } catch {
-            session.finishTasksAndInvalidate()
-            completion(.failure(error))
+            finish(.failure(error), session: session)
         }
     }
 
     func urlSession(_ session: URLSession, task: URLSessionTask, didCompleteWithError error: Error?) {
-        guard let error, !finished else { return }
+        guard let error else { return }
+        finish(.failure(error), session: session)
+    }
+
+    private func finish(_ result: Result<URL, Error>, session: URLSession) {
+        guard !finished else { return }
         finished = true
+        cancellationLock.lock()
+        downloadTask = nil
+        cancellationLock.unlock()
         session.finishTasksAndInvalidate()
-        completion(.failure(error))
+        let callback = completion
+        completion = nil
+        callback?(result)
     }
 }
 
@@ -338,13 +380,14 @@ final class OnlineLibraryService: ObservableObject {
     }
 
     private func startDownload(item: OnlineLibraryVideoItem) {
-        guard !downloadingIDs.contains(item.id), let url = item.bestVideoURL else { return }
+        guard !downloadingIDs.contains(item.id), let source = item.bestVideoDownload else { return }
         downloadingIDs.insert(item.id)
         downloadProgressByID[item.id] = 0
         Task {
             do {
                 _ = try await fetchAndMove(
-                    from: url,
+                    from: source.url,
+                    expectedBytes: source.expectedBytes,
                     name: "online_\(item.id).mp4",
                     itemID: item.id
                 )
@@ -361,47 +404,42 @@ final class OnlineLibraryService: ObservableObject {
         }
     }
 
-    private func fetchAndMove(from url: URL, name: String, itemID: Int) async throws -> URL {
-        let expectedBytes = await fetchRemoteFileSize(from: url)
+    private func fetchAndMove(from url: URL, expectedBytes: Int64?, name: String, itemID: Int) async throws -> URL {
         if let expectedBytes, expectedBytes > 0 {
             downloadProgressByID[itemID] = max(downloadProgressByID[itemID] ?? 0, 0.01)
         }
-        let tmp = try await downloadFile(from: url, itemID: itemID, expectedBytes: expectedBytes)
         let dest = Self.downloadDirectory.appendingPathComponent(name)
+        let directory = dest.deletingLastPathComponent()
         try FileManager.default.createDirectory(
-            at: dest.deletingLastPathComponent(),
+            at: directory,
             withIntermediateDirectories: true
         )
-        try? FileManager.default.removeItem(at: dest)
-        try FileManager.default.moveItem(at: tmp, to: dest)
+        let staging = directory.appendingPathComponent(".online-\(UUID().uuidString).pending")
+        defer { try? FileManager.default.removeItem(at: staging) }
+        let tmp = try await downloadFile(from: url, itemID: itemID, expectedBytes: expectedBytes, stagingURL: staging)
+        try Task.checkCancellation()
+        guard rename(tmp.path, dest.path) == 0 else {
+            throw POSIXError(POSIXErrorCode(rawValue: errno) ?? .EIO)
+        }
         return dest
     }
 
-    private func fetchRemoteFileSize(from url: URL) async -> Int64? {
-        var request = URLRequest(url: url)
-        request.httpMethod = "HEAD"
-        guard let (_, response) = try? await session.data(for: request) else { return nil }
-        return response.expectedContentLength > 0 ? response.expectedContentLength : nil
-    }
-
-    private func downloadFile(from url: URL, itemID: Int, expectedBytes: Int64?) async throws -> URL {
-        try await withCheckedThrowingContinuation { continuation in
-            let delegate = OLDownloadTaskDelegate(
-                expectedBytes: expectedBytes ?? 0,
-                progressHandler: { [weak self] progress in
-                    guard let self, self.downloadProgressByID[itemID] != progress else { return }
-                    self.downloadProgressByID[itemID] = progress
-                },
-                completion: { result in
+    private func downloadFile(from url: URL, itemID: Int, expectedBytes: Int64?, stagingURL: URL) async throws -> URL {
+        let delegate = OLDownloadTaskDelegate(
+            expectedBytes: expectedBytes ?? 0,
+            stagingURL: stagingURL,
+            progressHandler: { [weak self] progress in
+                guard let self, self.downloadProgressByID[itemID] != progress else { return }
+                self.downloadProgressByID[itemID] = progress
+            }
+        )
+        return try await withTaskCancellationHandler {
+            try await withCheckedThrowingContinuation { continuation in
+                delegate.start(from: url) { result in
                     continuation.resume(with: result)
                 }
-            )
-            let cfg = URLSessionConfiguration.default
-            cfg.timeoutIntervalForRequest = 60
-            let downloadSession = URLSession(configuration: cfg, delegate: delegate, delegateQueue: nil)
-            let task = downloadSession.downloadTask(with: url)
-            task.resume()
-        }
+            }
+        } onCancel: { delegate.cancel() }
     }
 
     func refresh() { search(params: currentParams) }

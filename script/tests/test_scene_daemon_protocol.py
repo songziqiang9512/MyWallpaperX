@@ -47,15 +47,62 @@ import Foundation
             ]
         ])
         let loadValid: Bool
-        if case let .success(.loadScene(root, values, textures, _, profile, recordID, requiredKeys, requestID)) = load {
+        if case let .success(.loadScene(root, values, textures, _, profile, recordID, requiredKeys, requestID, source)) = load {
             loadValid = root.path == "/private/tmp/scene"
-                && profile == .efficient && recordID == "fixture" && requiredKeys.isEmpty && requestID == nil
+                && profile == .efficient && recordID == "fixture" && requiredKeys.isEmpty && requestID == nil && source == nil
                 && values["enabled"] == .bool(true)
                 && values["rate"] == .number(1.5)
                 && values["label"] == .string("ok")
                 && textures["cover"]?.url.path == "/private/tmp/cover.png"
                 && textures["cover"]?.bookmarkData == Data([1, 2, 3])
         } else { loadValid = false }
+        let generation = "aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa"
+        let storageIdentity = "v2:scene:123-" + generation
+        let source = ScenePlaybackSource(rootURL: URL(fileURLWithPath: "/private/tmp/scene"),
+            managed: .init(storageIdentity: storageIdentity, generation: generation))
+        let sourceObject = try SceneDaemonProtocol.sourceObject(source)
+        func loadSource(_ object: Any) -> Result<SceneDaemonCommand, SceneDaemonProtocolFailure> {
+            decode(["v": 2, "cmd": "loadScene", "rootURL": "/private/tmp/scene",
+                "profile": 30, "source": object])
+        }
+        let managedSourcePreserved: Bool
+        if case let .success(.loadScene(_, _, _, _, _, _, _, _, decoded)) = loadSource(sourceObject) {
+            managedSourcePreserved = decoded == source
+        } else { managedSourcePreserved = false }
+        let wireContainsOnlyCurrentLeaseIdentity = Set((sourceObject["managed"] as! [String: Any]).keys)
+            == ["storageIdentity", "generation"]
+        let oldHints: [Any] = [NSNull(), "malformed", ["relativePath": "../receipt.json"],
+            ["schemaVersion": 999, "encodedByteCount": -1, "sha256": "bad"]] as [Any]
+        let legacySourceHintsIgnored = oldHints.allSatisfy { receipt in
+            var object = sourceObject
+            var managed = object["managed"] as! [String: Any]
+            managed["contentDigest"] = "not-a-playback-permit"
+            managed["receipt"] = receipt; object["managed"] = managed
+            if case let .success(.loadScene(_, _, _, _, _, _, _, _, decoded)) = loadSource(object) {
+                return decoded == source
+            }
+            return false
+        }
+        let invalidManagedIdentitiesRejected = [["generation": "bad"],
+            ["storageIdentity": "v2:scene:456-" + generation + "-extra"],
+            ["storageIdentity": "v2:scene:0-" + generation]].allSatisfy { changes in
+            var object = sourceObject
+            var managed = object["managed"] as! [String: Any]
+            managed.merge(changes, uniquingKeysWith: { _, value in value })
+            object["managed"] = managed
+            if case .failure(.invalidPayload("scene-source")) = loadSource(object) { return true }
+            return false
+        }
+        let wrongSourceRootsRejected = ["file:///private/tmp/other", "https://example.org/scene"].allSatisfy { root in
+            var object = sourceObject; object["rootURL"] = root
+            if case .failure(.invalidPayload("scene-source")) = loadSource(object) { return true }
+            return false
+        }
+        let malformedSourcesRejected = [NSNull(), "source", ["rootURL": 7]] as [Any]
+        let sourceShapeRejected = malformedSourcesRejected.allSatisfy {
+            if case .failure(.invalidPayload("scene-source")) = loadSource($0) { return true }
+            return false
+        }
         let shortcuts = ScenePlaybackShortcutConfiguration(revision: 9, references: [
             "open_file": .init(kind: .file, url: URL(fileURLWithPath: "/private/tmp/action.command"),
                 bookmarkData: Data([3, 1, 4, 1, 5])),
@@ -65,7 +112,7 @@ import Foundation
         let shortcutObject = SceneDaemonProtocol.shortcutObject(shortcuts)
         let shortcutRequestID = UUID()
         let shortcutLoadValid: Bool
-        if case let .success(.loadScene(_, _, _, decoded, _, recordID, _, requestID)) = decode([
+        if case let .success(.loadScene(_, _, _, decoded, _, recordID, _, requestID, _)) = decode([
             "v": 2, "cmd": "loadScene", "rootURL": "/private/tmp/scene", "profile": 60,
             "recordID": "fixture", "requestID": shortcutRequestID.uuidString,
             "userShortcuts": shortcutObject,
@@ -119,7 +166,7 @@ import Foundation
         } else { legacyShortcutVersionRejected = false }
         let explicitID = UUID()
         let explicitRequestValid: Bool
-        if case let .success(.loadScene(_, _, _, _, _, _, _, requestID)) = decode([
+        if case let .success(.loadScene(_, _, _, _, _, _, _, requestID, _)) = decode([
             "v": 2, "cmd": "loadScene", "rootURL": "/private/tmp/scene", "profile": 30,
             "requestID": explicitID.uuidString
         ]) { explicitRequestValid = requestID == explicitID } else { explicitRequestValid = false }
@@ -232,6 +279,27 @@ import Foundation
             "v": 2, "cmd": "setOutputActive", "requestID": candidateID.uuidString,
             "operationID": operationID.uuidString, "active": 1
         ]) { numericOutputActivityRejected = true } else { numericOutputActivityRejected = false }
+        let retirementControlsValid = [false, true].allSatisfy { required in
+            if case .success(.retireOutput(requestID: candidateID, operationID: operationID,
+                requireRequestRetirement: required)) = decode([
+                "v": 2, "cmd": "retireOutput", "requestID": candidateID.uuidString,
+                "operationID": operationID.uuidString, "requireRequestRetirement": required
+            ]) { return true }
+            return false
+        }
+        let retirementDefaultPreserved: Bool
+        if case .success(.retireOutput(requestID: candidateID, operationID: operationID,
+            requireRequestRetirement: false)) = decode([
+            "v": 2, "cmd": "retireOutput", "requestID": candidateID.uuidString,
+            "operationID": operationID.uuidString
+        ]) { retirementDefaultPreserved = true } else { retirementDefaultPreserved = false }
+        let malformedRetirementRejected = [1 as Any, "true", NSNull()].allSatisfy { value in
+            if case .failure(.invalidPayload("retireOutput")) = decode([
+                "v": 2, "cmd": "retireOutput", "requestID": candidateID.uuidString,
+                "operationID": operationID.uuidString, "requireRequestRetirement": value
+            ]) { return true }
+            return false
+        }
         let displayValid: Bool
         if case let .success(.setDisplayConfiguration(screens)) = decode([
             "v": 2, "cmd": "setDisplayConfiguration", "screens": [[
@@ -353,6 +421,12 @@ import Foundation
             "v": 2, "cmd": "publishSystemMedia", "frame": ["scope": true]
         ]) { mediaWrongTypeRejected = true } else { mediaWrongTypeRejected = false }
         let payload = [
+            "managedSourcePreserved": managedSourcePreserved,
+            "wireContainsOnlyCurrentLeaseIdentity": wireContainsOnlyCurrentLeaseIdentity,
+            "legacySourceHintsIgnored": legacySourceHintsIgnored,
+            "invalidManagedIdentitiesRejected": invalidManagedIdentitiesRejected,
+            "wrongSourceRootsRejected": wrongSourceRootsRejected,
+            "sourceShapeRejected": sourceShapeRejected,
             "mediaCommandValid": mediaCommandValid,
             "mediaChunkValid": mediaChunkValid,
             "oversizeMediaChunkRejected": oversizeMediaChunkRejected,
@@ -385,6 +459,9 @@ import Foundation
             "malformedOutputActivityRejected": malformedOutputActivityRejected,
             "numericOutputActivityRejected": numericOutputActivityRejected,
             "malformedCandidateControlsRejected": malformedCandidateControlsRejected,
+            "retirementControlsValid": retirementControlsValid,
+            "retirementDefaultPreserved": retirementDefaultPreserved,
+            "malformedRetirementRejected": malformedRetirementRejected,
             "displayValid": displayValid,
             "duplicateDisplayRejected": duplicateDisplayRejected,
             "badBookmarkRejected": badBookmarkRejected,
@@ -413,6 +490,7 @@ class SceneDaemonProtocolTests(unittest.TestCase):
                     "-swift-version", "6",
                     "-default-isolation", "MainActor", "-warnings-as-errors",
                     str(PROPERTY), str(ROOT / "MyWallpaperX/Core/PlaybackControl/ScenePlaybackShortcut.swift"),
+                    str(ROOT / "MyWallpaperX/Core/SteamWorkshopStorage/ScenePlaybackSource.swift"),
                     str(COMMAND), str(PROFILE), str(SCREEN), str(AUDIO),
                     str(ROOT / "MyWallpaperX/Core/Playback/SystemMedia/SystemMediaSnapshotStore.swift"),
                     str(ROOT / "MyWallpaperX/Core/Playback/SystemMedia/SystemMediaSnapshot.swift"),
@@ -434,6 +512,41 @@ class SceneDaemonProtocolTests(unittest.TestCase):
                 with self.subTest(behavior=name):
                     self.assertTrue(passed)
 
+
+    def test_actual_runtime_retirement_inbox_and_audio_scope(self) -> None:
+        fixture = ROOT / "script/tests/fixtures/SceneDaemonRequestRetirementHarness.swift"
+        runtime = RUNTIME.read_text(encoding="utf-8")
+        template = fixture.read_text(encoding="utf-8")
+        markers = ("    private func drainPendingCommands()",
+                   "    private func finishRequestRetirement(requestID:",
+                   "    private func publishAudioSpectrumDemand(",
+                   "    private func emitSwitchControlResult(requestID:")
+        methods = []
+        for marker in markers:
+            start = runtime.index(marker)
+            opening = runtime.index("{", start)
+            methods.append(runtime[start:opening] + function_body(runtime, marker))
+        harness = template.replace("    // @PRODUCTION_METHODS@", "\n\n".join(methods))
+        inputs = {path: path.read_bytes() for path in (RUNTIME, fixture)}
+        with tempfile.TemporaryDirectory(prefix="mwx-scene-request-retirement-") as directory:
+            main = Path(directory) / "Harness.swift"
+            binary = Path(directory) / "harness"
+            main.write_text(harness, encoding="utf-8")
+            compiled = subprocess.run([
+                "xcrun", "swiftc", "-parse-as-library", "-swift-version", "6",
+                "-default-isolation", "MainActor", "-warnings-as-errors", "-D", "DEBUG",
+                str(main), "-o", str(binary)
+            ], capture_output=True, text=True, timeout=60)
+            self.assertEqual(compiled.returncode, 0, compiled.stderr)
+            completed = subprocess.run([str(binary)], capture_output=True, text=True, timeout=10)
+            self.assertEqual(completed.returncode, 0, completed.stdout + completed.stderr)
+            checks = json.loads(completed.stdout)
+            self.assertTrue(checks)
+            for name, passed in checks.items():
+                with self.subTest(behavior=name):
+                    self.assertTrue(passed)
+        self.assertEqual(inputs, {path: path.read_bytes() for path in inputs},
+                         "actual Runtime or fixture changed during the gate")
 
     def test_performance_profile_updates_shared_texture_decode_budget(self) -> None:
         host = HOST.read_text(encoding="utf-8")

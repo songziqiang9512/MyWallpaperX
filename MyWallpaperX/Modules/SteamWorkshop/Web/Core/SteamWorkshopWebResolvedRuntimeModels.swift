@@ -6,29 +6,30 @@ extension SteamWorkshopService {
             return nil
         }
 
-        // mtime 键记忆缓存：
-        // 属性面板 rebuild、详情页、宿主桥解析闭包等高频同步调用面在 mtime
-        // 态未变时零 IO 返回，只有首个未命中才走读盘校验
-        // 或冷解析。
-        let memoSignature = webProjectDescriptorSignature(for: record)
-        if let cached = webProjectDescriptorCache[record.id], cached.signature == memoSignature {
-            return cached.descriptor
+        let source = webPropertyDefinitionSource(for: record)
+        let inputs = webRuntimeCacheManifestInputs(for: record, source: source)
+        if let cached = webProjectDescriptorCache[record.id], cached.matches(inputs) {
+            return assembleResolvedWebProjectDescriptor(record: record, product: cached.product)
         }
-
-        guard let resolvedDescriptor = computeResolvedWebProjectDescriptor(for: record) else {
-            return nil
+        if let cached = Self.loadCachedAnalysisDescriptor(inputs: inputs) {
+            webProjectDescriptorCache[record.id] = cached
+            return assembleResolvedWebProjectDescriptor(record: record, product: cached.product)
         }
-        webProjectDescriptorCache[record.id] = CachedWebProjectDescriptor(
-            signature: memoSignature,
-            descriptor: resolvedDescriptor
-        )
-        return resolvedDescriptor
+        let reader = WebAuthorFileReader()
+        guard let captured = captureWebAuthorInput(record: record, source: source, inputs: inputs, reader: reader),
+              let product = parseWebProjectDescriptorCore(record: record, captured: captured) else { return nil }
+        let cached = reader.cachedProduct(product, inputs: inputs)
+        if cached.isReusable {
+            webProjectDescriptorCache[record.id] = cached
+            let publication = SteamWorkshopWebRuntimeCachePublication.shared.begin(key: inputs.analysisFileURL.path)
+            Self.saveWebAnalysisCache(cached, inputs: inputs, publication: publication)
+        }
+        return assembleResolvedWebProjectDescriptor(record: record, product: product)
     }
 
-    /// 冷解析产物：除书签相邻段（presetBindings/preconditions——经
-    /// resolvedWebResourceBinding 触 security scope 与陈旧书签回写，必须
-    /// 主线程）外的全部字段；由 nonisolated 解析核产出，主线程收尾装配。
-    struct WebProjectDescriptorParseProduct {
+    /// Author-only interpretation. Current overrides and bookmark authority are
+    /// projected separately on the service actor immediately before playback.
+    nonisolated struct WebProjectDescriptorParseProduct: Codable, Equatable, Sendable {
         let standardizedEntryURL: URL
         let effectiveRootURL: URL
         let propertySource: SteamWorkshopWebPropertySource
@@ -43,212 +44,43 @@ extension SteamWorkshopService {
         let staticContentSummary: ResolvedWebStaticContentSummary
         let sampleStructure: SteamWorkshopWebSampleStructure
         let runtimeRiskFlags: [ResolvedWebRuntimeRiskFlag]
+        let bindingContext: WebAuthorBindingContext
     }
 
-    private func computeResolvedWebProjectDescriptor(for record: SteamWorkshopDownloadRecord) -> ResolvedWebProjectDescriptor? {
-        if let cachedDescriptor = loadCachedWebProjectDescriptor(for: record) {
-            return cachedDescriptor
-        }
-
-        guard let resolvedDescriptor = assembleResolvedWebProjectDescriptor(
-            record: record,
-            propertySourceRecord: webPropertyDefinitionSourceRecord(for: record),
-            parseProduct: nil
-        ) else {
-            return nil
-        }
-        saveWebAnalysisCache(descriptor: resolvedDescriptor, for: record)
-        return resolvedDescriptor
+    /// The real parser consumes captured bytes/names/signals only. No author
+    /// URL may be reopened here or in the per-waiter assembly below.
+    nonisolated func parseWebProjectDescriptorCore(record: SteamWorkshopDownloadRecord,
+        captured: WebCapturedAuthorInput) -> WebProjectDescriptorParseProduct? {
+        guard !Task.isCancelled, let entry = captured.inputs.entryURL, let root = captured.inputs.rootURL else { return nil }
+        let sourceRoot = Self.loadWebProjectRootStatic(data: captured.sourceProjectData)
+        let ownRoot = captured.sourceProjectData == captured.ownProjectData ? sourceRoot : Self.loadWebProjectRootStatic(data: captured.ownProjectData)
+        let definitions = sourceRoot.map { Self.webPropertyDefinitions(projectRoot: $0, languageKeys: captured.inputs.authorLanguageKeys) } ?? []
+        let localization = Self.webProjectLocalization(from: sourceRoot ?? ownRoot ?? [:], languageKeys: captured.inputs.authorLanguageKeys)
+        let presets = Self.webPresetValues(projectRoot: ownRoot)
+        var baseline = Dictionary(uniqueKeysWithValues: definitions.map { ($0.key, $0.defaultValue) })
+        baseline.merge(presets) { _, preset in preset }
+        let count = ((sourceRoot?["general"] as? [String: Any])?["properties"] as? [String: Any])?.count ?? 0
+        let structure = Self.webSampleStructure(record: record, propertyCount: count, fileNames: captured.topLevelNames)
+        let summary = captured.summary.withDirectoryModes(definitions: definitions)
+        let sourceKind: ResolvedWebProjectDescriptor.SourceKind = record.isDependencyBackedWeb
+            ? .dependencyBackedShell : (record.projectFileURL == nil ? .inferredProject : .ownProject)
+        let propertySource: SteamWorkshopWebPropertySource = if let source = captured.source, source.id != record.id {
+            .dependencyHost(itemID: source.id)
+        } else { .ownProject }
+        let flags = Array(Set(Self.resolvedWebStructuralRiskFlags(record: record, sampleStructure: structure,
+            propertyDefinitions: definitions)).union(resolvedWebStaticContentRiskFlags(from: summary))).sorted { $0.rawValue < $1.rawValue }
+        return WebProjectDescriptorParseProduct(standardizedEntryURL: entry, effectiveRootURL: root,
+            propertySource: propertySource, sourceKind: sourceKind, declaredEntryRelativePath: captured.declaredEntry,
+            entrySource: captured.entrySource, propertyDefinitions: definitions, localization: localization,
+            baselineValues: baseline, presetOverrides: presets, hostCapabilitySnapshot: resolvedWebHostCapabilitySnapshot(),
+            staticContentSummary: summary, sampleStructure: structure, runtimeRiskFlags: flags,
+            bindingContext: .make(record: record, presets: presets, roots: captured.candidateRoots))
     }
 
-    /// 启动冷路径入口：memo（主线程零 IO 命中）→ 后台段（分析缓存读盘
-    /// 校验/解析核全量构造）→ 主线程收尾（书签相邻段 + 装配 + memo）。
-    /// 与同步版共享 memo、解析核与装配，只是执行位置不同。
-    func resolvedWebProjectDescriptorForLaunch(for record: SteamWorkshopDownloadRecord) async -> ResolvedWebProjectDescriptor? {
-        guard record.contentType == .web else {
-            return nil
-        }
-        let memoSignature = webProjectDescriptorSignature(for: record)
-        if let cached = webProjectDescriptorCache[record.id], cached.signature == memoSignature {
-            return cached.descriptor
-        }
-        // 主线程快照：actor 输入一次收集，后台段不回读。
-        let propertySourceRecord = webPropertyDefinitionSourceRecord(for: record)
-        let inputs = webRuntimeCacheManifestInputs(for: record)
-        let entryURL = inputs.entryURL
-        let rootURL = inputs.rootURL
-        enum LaunchOutcome {
-            case cached(ResolvedWebProjectDescriptor)
-            case parsed(WebProjectDescriptorParseProduct)
-            case none
-        }
-        let outcome: LaunchOutcome = await Task.detached(priority: .userInitiated) { [weak self] () -> LaunchOutcome in
-            if let cachedDescriptor = Self.loadCachedAnalysisDescriptor(inputs: inputs, scanner: self) {
-                return .cached(cachedDescriptor)
-            }
-            guard let self, let entryURL, let rootURL else {
-                return .none
-            }
-            guard let product = self.parseWebProjectDescriptorCore(
-                record: record,
-                propertySourceRecord: propertySourceRecord,
-                standardizedEntryURL: entryURL,
-                effectiveRootURL: rootURL
-            ) else {
-                return .none
-            }
-            return .parsed(product)
-        }.value
-        let resolvedDescriptor: ResolvedWebProjectDescriptor?
-        switch outcome {
-        case let .cached(cachedDescriptor):
-            resolvedDescriptor = cachedDescriptor
-        case let .parsed(product):
-            resolvedDescriptor = assembleResolvedWebProjectDescriptor(
-                record: record,
-                propertySourceRecord: propertySourceRecord,
-                parseProduct: product
-            )
-        case .none:
-            resolvedDescriptor = nil
-        }
-        guard let resolvedDescriptor else { return nil }
-        webProjectDescriptorCache[record.id] = CachedWebProjectDescriptor(
-            signature: memoSignature,
-            descriptor: resolvedDescriptor
-        )
-        return resolvedDescriptor
-    }
-
-    /// 解析核：project root/入口 HTML BFS/目录 listing 等全部文件 IO 在
-    /// 调用线程执行；propertySourceRecord 由主线程快照传入。
-    nonisolated private func parseWebProjectDescriptorCore(
-        record: SteamWorkshopDownloadRecord,
-        propertySourceRecord: SteamWorkshopDownloadRecord?,
-        standardizedEntryURL: URL,
-        effectiveRootURL: URL
-    ) -> WebProjectDescriptorParseProduct? {
-        let propertySource: SteamWorkshopWebPropertySource = if let propertySourceRecord, propertySourceRecord.id != record.id {
-            .dependencyHost(itemID: propertySourceRecord.id)
-        } else {
-            .ownProject
-        }
-        let sourceKind: ResolvedWebProjectDescriptor.SourceKind = if record.isDependencyBackedWeb {
-            .dependencyBackedShell
-        } else if record.projectFileURL == nil {
-            .inferredProject
-        } else {
-            .ownProject
-        }
-
-        let declaredEntryRelativePath = declaredWebEntryRelativePath(for: record)
-
-        let entrySource: ResolvedWebProjectDescriptor.EntrySource
-        if let declaredEntryRelativePath,
-           standardizedEntryURL.path == record.folderURL.appendingPathComponent(declaredEntryRelativePath).resolvingSymlinksInPath().standardizedFileURL.path {
-            entrySource = .declaredProjectEntry
-        } else if record.isDependencyBackedWeb,
-                  let dependencyEntryURL = record.webDependencyHostEntryURL,
-                  dependencyEntryURL.resolvingSymlinksInPath().standardizedFileURL.path == standardizedEntryURL.path {
-            entrySource = .dependencyHostEntry
-        } else {
-            entrySource = .inferredFallbackEntry
-        }
-
-        let sourceRoot = propertySourceRecord.flatMap { Self.loadWebProjectRootStatic(for: $0) }
-        let localizationRoot = sourceRoot ?? Self.loadWebProjectRootStatic(for: record) ?? [:]
-        let propertyDefinitions = sourceRoot.map { Self.webPropertyDefinitions(projectRoot: $0) } ?? []
-        let localization = Self.webProjectLocalization(from: localizationRoot)
-        let baselineValues = webPropertyBaselineValues(for: record, definitions: propertyDefinitions)
-        let presetOverrides = Self.webPresetValues(for: record)
-        let hostCapabilitySnapshot = resolvedWebHostCapabilitySnapshot()
-        let staticContentSummary = resolvedWebStaticContentSummary(
-            for: record,
-            entryURL: standardizedEntryURL,
-            rootURL: effectiveRootURL,
-            propertyDefinitions: propertyDefinitions
-        )
-        let sampleStructure = Self.webSampleStructure(
-            record: record,
-            sourceRecord: propertySourceRecord ?? record
-        )
-        var runtimeRiskFlags = Self.resolvedWebStructuralRiskFlags(
-            record: record,
-            sampleStructure: sampleStructure,
-            propertyDefinitions: propertyDefinitions
-        )
-        runtimeRiskFlags = runtimeRiskFlags.union(with: resolvedWebStaticContentRiskFlags(from: staticContentSummary))
-        return WebProjectDescriptorParseProduct(
-            standardizedEntryURL: standardizedEntryURL,
-            effectiveRootURL: effectiveRootURL,
-            propertySource: propertySource,
-            sourceKind: sourceKind,
-            declaredEntryRelativePath: declaredEntryRelativePath,
-            entrySource: entrySource,
-            propertyDefinitions: propertyDefinitions,
-            localization: localization,
-            baselineValues: baselineValues,
-            presetOverrides: presetOverrides,
-            hostCapabilitySnapshot: hostCapabilitySnapshot,
-            staticContentSummary: staticContentSummary,
-            sampleStructure: sampleStructure,
-            runtimeRiskFlags: runtimeRiskFlags
-        )
-    }
-
-    /// 主线程装配：书签相邻段（presetBindings/preconditions）+ 最终
-    /// descriptor 构造。`parseProduct == nil` 时在调用线程（同步路径=主
-    /// 线程）先执行解析核——两条编排共享同一实现。
-    private func assembleResolvedWebProjectDescriptor(
-        record: SteamWorkshopDownloadRecord,
-        propertySourceRecord: SteamWorkshopDownloadRecord?,
-        parseProduct: WebProjectDescriptorParseProduct?
-    ) -> ResolvedWebProjectDescriptor? {
-        let product: WebProjectDescriptorParseProduct
-        if let parseProduct {
-            product = parseProduct
-        } else {
-            guard let resolvedEntryURL = record.webEntryURL else {
-                return nil
-            }
-            let standardizedEntryURL = resolvedEntryURL.resolvingSymlinksInPath().standardizedFileURL
-            guard let parsed = parseWebProjectDescriptorCore(
-                record: record,
-                propertySourceRecord: propertySourceRecord,
-                standardizedEntryURL: standardizedEntryURL,
-                effectiveRootURL: effectiveWebRootURL(for: record, entryURL: standardizedEntryURL)
-            ) else {
-                return nil
-            }
-            product = parsed
-        }
+    func assembleResolvedWebProjectDescriptor(record: SteamWorkshopDownloadRecord,
+        product: WebProjectDescriptorParseProduct) -> ResolvedWebProjectDescriptor {
         let propertyDefinitions = product.propertyDefinitions
         let baselineValues = product.baselineValues
-        let baselineVisiblePropertyKeys = propertyDefinitions
-            .filter {
-                shouldDisplayWebProperty(
-                    $0,
-                    values: baselineValues,
-                    definitions: propertyDefinitions
-                )
-            }
-            .map(\.key)
-        let baselineVisibleOptionsByKey = Dictionary(uniqueKeysWithValues: propertyDefinitions.map { definition in
-            (
-                definition.key,
-                visibleWebPropertyOptions(
-                    for: definition,
-                    values: baselineValues,
-                    definitions: propertyDefinitions
-                )
-            )
-        })
-        let presetResourceBindingsByKey = resolvedWebPresetResourceBindings(for: record)
-        let baselinePreconditionStates = resolvedWebRuntimePreconditions(
-            for: record,
-            definitions: propertyDefinitions,
-            effectiveValues: baselineValues
-        )
 
         return ResolvedWebProjectDescriptor(
             recordID: record.id,
@@ -263,30 +95,10 @@ extension SteamWorkshopService {
             propertyDefinitions: propertyDefinitions,
             defaultValueMap: baselineValues,
             presetOverrideMap: product.presetOverrides,
-            presetResourceBindingsByKey: presetResourceBindingsByKey,
-            baselineVisiblePropertyKeys: baselineVisiblePropertyKeys,
-            baselineVisibleOptionsByKey: baselineVisibleOptionsByKey,
-            baselinePreconditionStates: baselinePreconditionStates,
             resolvedLocalizationMap: product.localization,
             hostCapabilitySnapshot: product.hostCapabilitySnapshot,
             staticContentSummary: product.staticContentSummary,
             runtimeRiskFlags: product.runtimeRiskFlags
-        )
-    }
-
-    func resolvedWebPresetResourceBindings(for record: SteamWorkshopDownloadRecord) -> [String: ResolvedWebResourceBinding] {
-        Dictionary(
-            uniqueKeysWithValues: webShellResourcePathLikePresetValues(for: record).compactMap { key, rawValue in
-                guard let binding = resolvedWebResourceBinding(
-                    forKey: key,
-                    definition: nil,
-                    rawValue: rawValue,
-                    record: record
-                ) else {
-                    return nil
-                }
-                return (key, binding)
-            }
         )
     }
 
@@ -297,49 +109,31 @@ extension SteamWorkshopService {
 
     /// Runtime profile selection consumes this same descriptor rather than
     /// reconstructing a property-panel model after preparation has finished.
-    /// The optional disk cache retains its existing awaited save semantics.
+    /// Optional analysis-cache writing never delays this playback projection.
     func prepareWebPlaybackContext(for record: SteamWorkshopDownloadRecord) async -> ResolvedWebPlaybackPreparation? {
-        if let cachedPlaybackContext = await loadCachedWebPlaybackContext(for: record) {
-            guard let descriptor = await resolvedWebProjectDescriptorForLaunch(for: record) else { return nil }
-            // Disk execution payloads carry no authority. Re-resolve current
-            // bindings/bookmarks even on a valid cached author interpretation.
-            let grants = resolvedWebResourceGrants(for: record, definitions: descriptor.propertyDefinitions,
-                effectiveRootURL: descriptor.effectiveRootURL)
-            let context = ResolvedWebPlaybackContext(recordID: cachedPlaybackContext.recordID,
-                effectiveEntryURL: cachedPlaybackContext.effectiveEntryURL,
-                effectiveRootURL: cachedPlaybackContext.effectiveRootURL,
-                propertyPayloadJSON: cachedPlaybackContext.propertyPayloadJSON,
-                language: cachedPlaybackContext.language, resourceGrants: grants)
-            return ResolvedWebPlaybackPreparation(context: context, descriptor: descriptor)
-        }
-
-        guard let descriptor = await resolvedWebProjectDescriptorForLaunch(for: record) else {
-            return nil
-        }
-        let effectiveValues = effectiveWebPropertyValues(for: record, descriptor: descriptor)
-        let propertyPayloadJSON = effectiveWebPropertiesJSONString(
-            for: record,
-            definitions: descriptor.propertyDefinitions,
-            valuesOverride: effectiveValues
-        )
+        guard let admission = admitWebAuthorPreparation(for: record) else { return nil }
+        defer { withExtendedLifetime(admission) {} }
+        guard let product = await resolvedWebAuthorProduct(for: record, admission: admission) else { return nil }
+        let bindingContext = product.bindingContext
+        // No suspension after the current overrides and bookmark grants are
+        // projected. The analysis cache carries no playback payload authority.
+        let descriptor = assembleResolvedWebProjectDescriptor(record: record, product: product)
+        let currentValues = effectiveWebPropertyValues(for: record, descriptor: descriptor)
+        let currentPayload = effectiveWebPropertiesJSONString(for: record,
+            definitions: product.propertyDefinitions, valuesOverride: currentValues, bindingContext: bindingContext)
         let resourceGrants = resolvedWebResourceGrants(for: record,
-            definitions: descriptor.propertyDefinitions, valuesOverride: effectiveValues,
-            effectiveRootURL: descriptor.effectiveRootURL)
-        await saveWebRuntimeCache(descriptor: descriptor, propertyPayloadJSON: propertyPayloadJSON, for: record)
+            definitions: product.propertyDefinitions, valuesOverride: currentValues,
+            effectiveRootURL: descriptor.effectiveRootURL, bindingContext: bindingContext)
         let context = ResolvedWebPlaybackContext(
             recordID: record.id,
             effectiveEntryURL: descriptor.resolvedEntryURL,
             effectiveRootURL: descriptor.effectiveRootURL,
-            propertyPayloadJSON: propertyPayloadJSON,
-            language: Self.resolvedWebWallpaperLanguage(),
-            resourceGrants: resourceGrants
+            propertyPayloadJSON: currentPayload,
+            language: admission.inputs.language,
+            resourceGrants: resourceGrants,
+            allowedNetworkHosts: Set(descriptor.staticContentSummary.externalDependencyHosts
+                .compactMap(DedicatedWebWallpaperHostPlaceholderAdapter.normalizedNetworkBridgeHost))
         )
-        return ResolvedWebPlaybackPreparation(context: context, descriptor: descriptor)
-    }
-}
-
-private extension Array where Element == ResolvedWebRuntimeRiskFlag {
-    nonisolated func union(with other: [ResolvedWebRuntimeRiskFlag]) -> [ResolvedWebRuntimeRiskFlag] {
-        Array(Set(self).union(other))
+        return ResolvedWebPlaybackPreparation(context: context, descriptor: descriptor, resourceLifetime: admission.lifetime)
     }
 }

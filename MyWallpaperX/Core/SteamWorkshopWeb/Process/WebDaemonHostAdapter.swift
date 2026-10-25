@@ -10,7 +10,9 @@ final class WebDaemonHostAdapter: WallpaperEngine.WebWallpaperHostAdapter {
     var switchVisible: ((PlaybackSwitchTicket, UUID) -> Void)?
     var switchFailed: ((PlaybackSwitchTicket, String) -> Void)?
     var switchLost: ((PlaybackSwitchTicket, String) -> Void)?
-    var allowedNetworkBridgeHostsResolver: ((String) -> Set<String>)?
+    /// App assembly suppresses optional prewarming while Scene is retained or
+    /// physically retiring. Actual request preparation never consults this.
+    var mayPrepareIdleProcess: (() -> Bool)?
 
     final class Session {
         let ticket: PlaybackSwitchTicket
@@ -45,6 +47,21 @@ final class WebDaemonHostAdapter: WallpaperEngine.WebWallpaperHostAdapter {
         var audioDemand = false
 #if DEBUG
         var observation: WebDaemonHostObservation?
+        struct StartupTimingObservation {
+            var helloReceivedAt: TimeInterval?
+            var launchEnqueuedAt: TimeInterval?
+            var preparedCohortAcceptedAt: TimeInterval?
+            var activationSentAt: TimeInterval?
+            var activationConfirmedAcceptedAt: TimeInterval?
+        }
+        var startupTiming: StartupTimingObservation?
+
+        var matchingChildStartupTiming: WebDaemonStartupTimingObservation? {
+            guard startupTiming?.activationSentAt != nil,
+                  let value = observation?.startupTiming,
+                  value.identity == activationIdentity else { return nil }
+            return value
+        }
 #endif
         var isRetiring = false
         var timeout: DispatchWorkItem?
@@ -65,6 +82,11 @@ final class WebDaemonHostAdapter: WallpaperEngine.WebWallpaperHostAdapter {
             resourceRevision = request.resourceRevision
             multiDisplayEnabled = request.multiDisplayEnabled
             self.recoveryAttempt = recoveryAttempt
+#if DEBUG
+            if ProcessInfo.processInfo.arguments.contains("--mwx-debug-web-startup-report") {
+                startupTiming = StartupTimingObservation()
+            }
+#endif
         }
 
         var executionRequest: WallpaperEngine.WebWallpaperLaunchRequest {
@@ -73,7 +95,8 @@ final class WebDaemonHostAdapter: WallpaperEngine.WebWallpaperHostAdapter {
                   recordID: request.recordID, language: request.language,
                   runtimeProfile: request.runtimeProfile, multiDisplayEnabled: multiDisplayEnabled,
                   resourceLifetime: request.resourceLifetime, resourceGrants: resourceGrants,
-                  propertyRevision: propertyRevision, resourceRevision: resourceRevision)
+                  propertyRevision: propertyRevision, resourceRevision: resourceRevision,
+                  allowedNetworkHosts: request.allowedNetworkHosts)
         }
     }
 
@@ -123,6 +146,9 @@ final class WebDaemonHostAdapter: WallpaperEngine.WebWallpaperHostAdapter {
         let transport: DaemonProcessTransport
         var frames = DaemonNewlineFrameBuffer()
         var hello = false
+#if DEBUG
+        var startupHelloReceivedAt: TimeInterval?
+#endif
         var isIdle: Bool
         var timeout: DispatchWorkItem?
         init(requestID: UUID, transport: DaemonProcessTransport, isIdle: Bool) {
@@ -149,7 +175,8 @@ final class WebDaemonHostAdapter: WallpaperEngine.WebWallpaperHostAdapter {
     }
 
     func prepareIdleProcess() {
-        guard memoryPressureAllowsPreparation, candidate == nil, preparedProcess == nil else { return }
+        guard memoryPressureAllowsPreparation, candidate == nil, preparedProcess == nil,
+              mayPrepareIdleProcess?() != false else { return }
         startPreparedProcess(requestID: UUID(), isIdle: true)
     }
 
@@ -198,6 +225,11 @@ final class WebDaemonHostAdapter: WallpaperEngine.WebWallpaperHostAdapter {
                     self.cancelPreparedProcess(requestID: requestID); return
                 }
                 prepared.hello = true
+#if DEBUG
+                if ProcessInfo.processInfo.arguments.contains("--mwx-debug-web-startup-report") {
+                    prepared.startupHelloReceivedAt = ProcessInfo.processInfo.systemUptime
+                }
+#endif
             }
             if prepared.frames.pendingByteCount > WebDaemonProtocol.maximumFrameBytes {
                 self.cancelPreparedProcess(requestID: requestID)
@@ -336,6 +368,9 @@ final class WebDaemonHostAdapter: WallpaperEngine.WebWallpaperHostAdapter {
         let session = Session(request: request, state: state, transport: transport,
             recoveryAttempt: recoveryAttempt, ticket: ticket)
         if reusable, let prepared { session.frames = prepared.frames }
+#if DEBUG
+        if reusable { session.startupTiming?.helloReceivedAt = prepared?.startupHelloReceivedAt }
+#endif
         candidate = session
         transport.onOutput = { [weak self, weak session] data in
             guard let self, let session else { return }
@@ -361,6 +396,9 @@ final class WebDaemonHostAdapter: WallpaperEngine.WebWallpaperHostAdapter {
         var arguments = [WebDaemonProtocol.flag, requestID.uuidString]
 #if DEBUG
         let inherited = ProcessInfo.processInfo.arguments
+        if inherited.contains("--mwx-debug-web-startup-report") {
+            arguments.append("--mwx-debug-web-startup-timing")
+        }
         for flag in ["--mwx-debug-web-evidence-dir", "--mwx-debug-web-interaction"] {
             if let index = inherited.firstIndex(of: flag), inherited.indices.contains(index + 1) {
                 arguments += [flag, inherited[index + 1]]
@@ -494,8 +532,15 @@ final class WebDaemonHostAdapter: WallpaperEngine.WebWallpaperHostAdapter {
 #endif
             guard !session.hello else { fail(session, message: "Web 宿主重复握手"); return }
             session.hello = true
-            let hosts = session.request.recordID.flatMap { allowedNetworkBridgeHostsResolver?($0) } ?? []
-            send(.launch(.init(session.executionRequest, state: session.state, hosts: hosts)), to: session)
+#if DEBUG
+            if session.startupTiming != nil, session.startupTiming?.helloReceivedAt == nil {
+                session.startupTiming?.helloReceivedAt = ProcessInfo.processInfo.systemUptime
+            }
+#endif
+#if DEBUG
+            session.startupTiming?.launchEnqueuedAt = ProcessInfo.processInfo.systemUptime
+#endif
+            send(.launch(.init(session.executionRequest, state: session.state)), to: session)
             updateSpectrumTargets()
         case let .host(event):
             switch event {
@@ -522,6 +567,9 @@ final class WebDaemonHostAdapter: WallpaperEngine.WebWallpaperHostAdapter {
                         && cohort.surfaces.contains { $0.displayID == value.displayID && $0.windowID == value.windowID }
                         && PlaybackSurfaceVisibility.evaluate(value) == .confirmed
                   }) else { return }
+#if DEBUG
+            session.startupTiming?.activationConfirmedAcceptedAt = ProcessInfo.processInfo.systemUptime
+#endif
             session.visibilityConfirmed = true
             session.timeout?.cancel(); session.timeout = nil
             if let switchVisible { switchVisible(session.ticket, session.executionID) }

@@ -26,6 +26,7 @@ from script.tests import test_scene_puppet_animation as animation
 from script.tests import test_scene_puppet_mesh as puppet_mesh
 from script.tests.test_scene_direct_model_bind_geometry import build_bind_model
 from script.tests.test_scene_directional_shadow_integration import png, quad, make_package
+from script.tests.test_scene_prepared_script_resource_catalog import swift_declaration
 
 REPO = Path(__file__).resolve().parents[2]
 SCENE = REPO/'MyWallpaperX/Core/SteamWorkshopScene'
@@ -246,9 +247,7 @@ BUILDER_MAIN=r'''
 
 
 def builder_support():
-    s=builder.HARNESS_SOURCE.split('@main',1)[0]
-    start=s.index('enum SceneMdlStaticModelReader {');end=s.index('nonisolated struct SceneScriptScalarProgram',start)
-    return s[:start]+s[end:]+BUILDER_MAIN
+    return builder.HARNESS_SOURCE.split('@main',1)[0]+BUILDER_MAIN
 
 
 class SceneModelPartsDependencyTests(unittest.TestCase):
@@ -283,20 +282,18 @@ enum SceneMaterialPropertyBindingCompiler {
 }
 struct SceneDocument {
  struct ShaderValue {let components:[Double];var userBinding:String?=nil;var scriptSource:String?=nil}
+ let objects:[SceneRenderDescriptor.Layer]
 }
-struct SceneResourceView {
- enum Source {case package,loose,stock}
- func source(containing url:URL)->Source? {.loose}
- struct Resource {let url:URL}
- let root:URL
- func resource(relativePath:String)->Resource? {
-  let url=root.appendingPathComponent(relativePath)
-  return FileManager.default.fileExists(atPath:url.path) ? Resource(url:url):nil
+extension SceneResourceView {
+ init(root:URL) {
+  self.init(projectRootURL:root,packageRootURL:nil,stockAssetsRootURL:nil)
  }
 }
 struct SceneTexturePathResolver {
  let resourceView:SceneResourceView;let descriptor:SceneRenderDescriptor
- func resolveTextureFile(named path:String)->URL? {resourceView.resource(relativePath:path)?.url}
+ func resolveTextureFile(named path:String)->SceneResourceView.FileInput? {
+  resourceView.resolvedResource(relativePath:path).map(SceneResourceView.FileInput.resource)
+ }
 }
 final class SceneTextureLoader {
  enum Result {case loaded(SceneTextureCandidate);case missing}
@@ -316,7 +313,10 @@ final class SceneTextureLoader {
       content:.data,physicalSize:CGSize(width:1,height:1),mappedSize:CGSize(width:1,height:1),uvTransform:.identity,sampling:.directImageFallback)
   }
  }
- func loadCandidate(from url:URL,purpose:SceneTextureLoadPurpose,device:MTLDevice)->Result {
+ func loadCandidate(from input:SceneResourceView.FileInput,purpose:SceneTextureLoadPurpose,device:MTLDevice,
+                    checkCancellation:(() throws -> Void)?=nil) throws -> Result {
+  try checkCancellation?()
+  let url=URL(fileURLWithPath:input.diagnosticPath)
   precondition(purpose == .straightAlbedo || purpose == .mask)
   requests.append(["path":url.lastPathComponent,"purpose":String(describing:purpose)])
   guard let candidate=candidates[url.resolvingSymlinksInPath().path] else {return .missing}
@@ -326,6 +326,7 @@ final class SceneTextureLoader {
  }
 }
 extension SceneRenderDescriptor {
+ struct ModelMaterialLink {let modelPath:String;let materialPath:String?}
  struct ColorTargetFormat {var metalPixelFormat:MTLPixelFormat { .bgra8Unorm }}
  struct MaterialPassDescriptor {
   let materialPath:String;let textureSlots:[String?];let combos:[String:Int]
@@ -360,10 +361,31 @@ def resource_support():
     initial=load[load.index('    static func initialBoneConfiguration('):
                  load.index('    struct Outcome {')]
     bones='\nenum ScenePuppetLayerLoad {\n'+config+initial+'\n}\n'
-    return frame.pool_fixture.HARNESS.split('@main',1)[0]+s+frame.UNUSED_ORDERED_SUPPORT+RESOURCE_TRANSPORT+bones
+    properties=(SCENE/'Systems/Properties/ScenePuppetAnimationPropertyPreparation.swift').read_text()
+    visibility=swift_declaration(properties, '    nonisolated static func visibilityTargets(')
+    targets='\nenum ScenePuppetAnimationPropertyPreparation {\n'+visibility+'\n}\n'
+    source_facts=(SCENE/'Runtime/Frame/SceneRuntimeSourceFacts.swift').read_text()
+    source_type='\nextension SceneMdlStaticModel {\n'+swift_declaration(source_facts, '    struct PreparedSource {')+'\n}\n'
+    prepare=swift_declaration(source_facts, '    private func directStaticModelMaterialLinks(')
+    prepare=prepare.replace('    private func ', '    func ', 1)
+    prepared='\nstruct SourceFactsPreparationProbe {\n'+prepare+'\n}\n'+r'''
+func prepareModelSources(_ descriptor:SceneRenderDescriptor, view:SceneResourceView) throws
+    -> [String:SceneMdlStaticModel.PreparedSource] {
+ var sources:[String:SceneMdlStaticModel.PreparedSource]=[:]
+ _ = try SourceFactsPreparationProbe().directStaticModelMaterialLinks(
+    document:.init(objects:descriptor.layers),resourceView:view,
+    preparedStaticModel:{sources[$0]=$1})
+ return sources
+}
+'''
+    return frame.pool_fixture.HARNESS.split('@main',1)[0]+s+frame.UNUSED_ORDERED_SUPPORT+RESOURCE_TRANSPORT+bones+targets+source_type+prepared
 
 
 NATIVE_SOURCES=list(dict.fromkeys([*frame.SOURCES,*reader.SWIFT_SOURCES,*puppet.SWIFT_SOURCES,RESOURCE_SOURCE,
+    SCENE/'Resources/Assets/SceneResourceIndex.swift',
+    SCENE/'Resources/Assets/SceneResourceView.swift',
+    SCENE/'Rendering/Lighting/SceneAuthoredShaderLightingInputs.swift',
+    SCENE/'Systems/Properties/ScenePuppetAnimationPropertyTarget.swift',
     SCENE/'Format/SceneMdlPuppetAnimationReader.swift',
     SCENE/'Format/SceneMdlPuppetAttachmentReader.swift',
     SCENE/'Format/ScenePuppetBoneCatalog.swift',
@@ -386,7 +408,7 @@ NATIVE_MAIN=r'''
   let root=URL(fileURLWithPath:input["root"]!)
   var rows:[[String:Any]]=[]
   for (name,fixture) in [("parts5","parts5"),("parts8","parts8"),("parts64","parts64"),
-                          ("bad8","bad8"),("quota","parts8"),("recovery","parts8"),("overlap","overlap"),
+                          ("bad8","bad8"),("quota","parts8"),("recovery","parts8"),("snapshot","parts8"),("overlap","overlap"),
                           ("defaults","defaults"),("emission","emission"),
                           ("blends","blends"),("blends-false","blends") ] {
    let before=SceneResourceBudget.shared.snapshot.residentBytes
@@ -436,8 +458,15 @@ NATIVE_MAIN=r'''
    precondition(SceneResourceBudget.shared.reserve(held,kind:.gpu))
   }
   defer {if held>0 {SceneResourceBudget.shared.release(held,kind:.gpu)}}
-  let resources=try ScenePreparedStaticModelResources.prepare(descriptor:descriptor,resourceView:.init(root:root),device:device,
-      textureLoader:loader,cancellationCheck:{})
+  let resourceView=SceneResourceView(root:root)
+  var preparedSources=try prepareModelSources(descriptor,view:resourceView)
+  let modelDirectory=root.appendingPathComponent("models")
+  let movedModels=root.appendingPathComponent("models-after-capture")
+  if mode=="snapshot" {try FileManager.default.moveItem(at:modelDirectory,to:movedModels)}
+  defer {if mode=="snapshot" {try! FileManager.default.moveItem(at:movedModels,to:modelDirectory)}}
+  let resources=try ScenePreparedStaticModelResources.prepare(descriptor:descriptor,resourceView:resourceView,device:device,
+      textureLoader:loader,preparedSources:&preparedSources,cancellationCheck:{})
+  precondition(preparedSources.isEmpty,"GPU owner must consume the transient CPU inputs")
   let rejected=SceneResourceBudget.shared.snapshot.rejectionCount-rejectionBefore
   if held>0 {SceneResourceBudget.shared.release(held,kind:.gpu);held=0}
   let renderer=SceneMetalRenderer(device:device,resources:resources)
@@ -540,7 +569,8 @@ class SceneStaticModelSurfaceAdmissionTests(unittest.TestCase):
   for suffix in ["vert","frag"] {
    let stage=shaderRoot.appendingPathComponent("generic4."+suffix)
    try Data().write(to:stage)
-   precondition(ScenePreparedStaticModelResources.surfaceProfile(pass,resourceView:view) == nil)
+   precondition(ScenePreparedStaticModelResources.surfaceProfile(pass,
+       resourceView:SceneResourceView(root:root)) == nil)
    try FileManager.default.removeItem(at:stage)
   }
   pass.shaderPath="custom/generic4"
@@ -667,6 +697,12 @@ class SceneModelPartsNativeTests(unittest.TestCase):
         self.assertEqual(full['frames'],self.rows['parts8']['frames'])
         for r in self.report['rows']:self.assertEqual(r['budgetAfter'],r['budgetBefore'],r['mode'])
 
+    def test_gpu_consumes_same_cpu_snapshot_after_author_models_move(self):
+        row=self.rows['snapshot']
+        self.assertEqual(row['parts'],self.rows['parts8']['parts'])
+        self.assertEqual(row['frames'],self.rows['parts8']['frames'])
+        self.assertEqual(row['peerParts'],1)
+
     def test_bad_later_structure_rejects_model_but_peer_still_draws(self):
         row=self.rows['bad8'];self.assertEqual(row['parts'],[])
         self.assertEqual(row['frames'][0][:64],[[0,0,0,255]]*64)
@@ -787,7 +823,7 @@ class SceneModelPartsAppTests(unittest.TestCase):
         if parent:Path(parent).mkdir(parents=True,exist_ok=True)
         cls.root=Path(tempfile.mkdtemp(prefix='model-parts-app-',dir=parent))
         cls.protocol={'app':{str(p):sha(p) for p in cls.binaries},'buildReceipt':cls.buildReceipt,
-            'sources':{str(p):sha(p) for p in [Path(__file__),Path(reader.__file__),REPO/'script/tests/test_scene_directional_shadow_integration.py',REPO/'script/tests/test_scene_pkg_cache_extractor.py']},'cases':{}}
+            'sources':{str(p):sha(p) for p in [Path(__file__),Path(reader.__file__),REPO/'script/tests/test_scene_directional_shadow_integration.py',REPO/'script/tests/scene_pkg_fixture.py']},'cases':{}}
         cls.runs={}
         for name,count,cast in [('five-on',5,True),('five-off',5,False),('eight',8,False)]:
             scene,entries,oracle=app_fixture(count,cast)

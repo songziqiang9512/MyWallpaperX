@@ -19,8 +19,7 @@ from scene_swift_source_sets import scene_swift_sources  # noqa: E402
 
 SWIFT_SOURCES = [
     SCENE_ROOT / "Format/SceneJSONValue.swift",
-    REPO_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Resources/Assets/SceneResourceIndex.swift",
-    REPO_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Resources/Assets/SceneResourceView.swift",
+    *scene_swift_sources("scene_resource_input"),
     REPO_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Compilation/ShaderContract/SceneShaderSourceGraph.swift",
     REPO_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Compilation/ShaderContract/SceneShaderLegacyAnnotationJSON.swift",
     REPO_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Compilation/ShaderContract/SceneShaderContract.swift",
@@ -87,8 +86,8 @@ private func graph(
     _ rootPath: String,
     view: SceneResourceView,
     limits: SceneShaderSourceGraphBuilder.Limits = .init()
-) -> SceneShaderSourceGraph {
-    SceneShaderSourceGraphBuilder(limits: limits).build(
+) throws -> SceneShaderSourceGraph {
+    try SceneShaderSourceGraphBuilder(limits: limits).build(
         roots: [.init(label: "fragment", virtualPath: rootPath)],
         resourceView: view
     )
@@ -282,7 +281,7 @@ private func runResourceGraphFixtures(at base: URL) throws -> [String] {
         stockWinner.provenance == .stock && stockWinner.source == "STOCK_WIN",
         "Stock source did not provide the final fallback."
     )
-    let packageGraph = graph("shaders/package_wins.frag", view: view)
+    let packageGraph = try graph("shaders/package_wins.frag", view: view)
     guard let packageEdge = packageGraph.edges.first(where: {
         $0.parentVirtualPath == nil
     }) else {
@@ -293,7 +292,7 @@ private func runResourceGraphFixtures(at base: URL) throws -> [String] {
         "Shadow evidence changed first-root selection."
     )
     try expect(
-        packageEdge.candidates.map(\.provenance) == [.package, .loose, .stock],
+        packageEdge.candidates.map(\.provenance) == [.package],
         "Root candidate provenance or project-policy order was lost."
     )
     try expect(
@@ -307,9 +306,8 @@ private func runResourceGraphFixtures(at base: URL) throws -> [String] {
         $0.code == .shadowedRootContentConflict
     }
     try expect(
-        shadowDiagnostics.count == 1
-            && shadowDiagnostics[0].candidateVirtualPath == "shaders/package_wins.frag",
-        "Different shadow content did not produce stable audit evidence."
+        shadowDiagnostics.isEmpty,
+        "Unselected root content must not enter the active source graph."
     )
     let packagePrepared = try prepared(
         rootPath: "shaders/package_wins.frag",
@@ -321,14 +319,14 @@ private func runResourceGraphFixtures(at base: URL) throws -> [String] {
         "A non-fatal shadow diagnostic changed selected shader bytes."
     )
 
-    let looseGraph = graph("shaders/loose_wins.frag", view: view)
+    let looseGraph = try graph("shaders/loose_wins.frag", view: view)
     guard let looseEdge = looseGraph.edges.first(where: {
         $0.parentVirtualPath == nil
     }) else {
         throw HarnessFailure(description: "Loose graph lost its root edge.")
     }
     try expect(
-        looseEdge.candidates.map(\.provenance) == [.package, .loose, .stock]
+        looseEdge.candidates.map(\.provenance) == [.package, .loose]
             && {
                 if case .failed(.missing) = looseEdge.candidates[0].outcome { return true }
                 return false
@@ -344,7 +342,7 @@ private func runResourceGraphFixtures(at base: URL) throws -> [String] {
         package: packageRoot,
         stock: stockRoot
     )
-    let identicalGraph = graph("shaders/identical.frag", view: identicalView)
+    let identicalGraph = try graph("shaders/identical.frag", view: identicalView)
     guard let identicalEdge = identicalGraph.edges.first(where: {
         $0.parentVirtualPath == nil
     }) else {
@@ -355,20 +353,20 @@ private func runResourceGraphFixtures(at base: URL) throws -> [String] {
         return hash
     })
     try expect(
-        identicalEdge.candidates.count == 3
+        identicalEdge.candidates.count == 1
             && identicalHashes.count == 1
             && identicalGraph.node(at: "shaders/identical.frag")?.provenance == .package
             && !identicalGraph.diagnostics.contains {
                 $0.code == .shadowedRootContentConflict
             },
-        "Byte-identical roots were not safely merged under project precedence."
+        "Only the selected source must participate in the active graph."
     )
+    let repeatedIdenticalGraph = try graph("shaders/identical.frag", view: identicalView)
     try expect(
-        identicalGraph.dependencySHA256
-            == graph("shaders/identical.frag", view: identicalView).dependencySHA256,
+        identicalGraph.dependencySHA256 == repeatedIdenticalGraph.dependencySHA256,
         "Root candidate evidence was not deterministic."
     )
-    var checks = ["precedence", "shadow_evidence"]
+    var checks = ["precedence", "selected_source_evidence"]
 
     try write(
         """
@@ -385,7 +383,7 @@ private func runResourceGraphFixtures(at base: URL) throws -> [String] {
     try write("SAME_BODY", to: looseRoot, "shaders/effects/same.glsl")
     try write("SAME_BODY", to: looseRoot, "shaders/same.glsl")
     let includeView = resourceView(loose: looseRoot, package: packageRoot, stock: stockRoot)
-    let includeGraph = graph("shaders/effects/graph.frag", view: includeView)
+    let includeGraph = try graph("shaders/effects/graph.frag", view: includeView)
     let relativeEdge = try edge(
         includeGraph,
         parent: "shaders/effects/graph.frag",
@@ -415,7 +413,14 @@ private func runResourceGraphFixtures(at base: URL) throws -> [String] {
         sameEdge.outcome == .resolved(virtualPath: "shaders/effects/same.glsl"),
         "Identical dual include candidates did not resolve deterministically."
     )
-    try expect(sameEdge.candidates.count == 6, "Dual candidate evidence was lost.")
+    try expect(
+        Set(sameEdge.candidates.map(\.virtualPath)) == Set(["shaders/effects/same.glsl", "shaders/same.glsl"])
+            && sameEdge.candidates.filter {
+                if case .resolved = $0.outcome { return true }; return false
+            }.count == 2
+            && sameEdge.candidates.allSatisfy { $0.provenance != .stock },
+        "Both real include interpretations must remain without reading shadowed roots."
+    )
     try expect(
         sameEdge.candidates.filter {
             if case .resolved = $0.outcome { return true }
@@ -444,7 +449,7 @@ private func runResourceGraphFixtures(at base: URL) throws -> [String] {
     try write("SOURCE_CANDIDATE", to: looseRoot, "shaders/effects/ambiguous.glsl")
     try write("ROOT_CANDIDATE", to: looseRoot, "shaders/ambiguous.glsl")
     let ambiguousView = resourceView(loose: looseRoot, package: packageRoot, stock: stockRoot)
-    let ambiguousGraph = graph("shaders/effects/ambiguous.frag", view: ambiguousView)
+    let ambiguousGraph = try graph("shaders/effects/ambiguous.frag", view: ambiguousView)
     let ambiguousEdge = try edge(
         ambiguousGraph,
         parent: "shaders/effects/ambiguous.frag",
@@ -477,8 +482,8 @@ private func runResourceGraphFixtures(at base: URL) throws -> [String] {
         "shaders/effects/symlink.frag"
     )
     let securityView = resourceView(loose: looseRoot, package: packageRoot, stock: stockRoot)
-    let invalidGraph = graph("shaders/effects/invalid_path.frag", view: securityView)
-    let symlinkGraph = graph("shaders/effects/symlink.frag", view: securityView)
+    let invalidGraph = try graph("shaders/effects/invalid_path.frag", view: securityView)
+    let symlinkGraph = try graph("shaders/effects/symlink.frag", view: securityView)
     try expect(
         invalidGraph.diagnostics.map(\.code).contains(.invalidPath),
         "Escaping include did not produce invalid-path graph evidence."
@@ -508,7 +513,7 @@ private func runResourceGraphFixtures(at base: URL) throws -> [String] {
     )
     try write("CHILD", to: looseRoot, "shaders/effects/budget_child.glsl")
     let budgetView = resourceView(loose: looseRoot, package: packageRoot, stock: stockRoot)
-    let budgetGraph = graph(
+    let budgetGraph = try graph(
         "shaders/effects/budget.frag",
         view: budgetView,
         limits: .init(maximumNodes: 1)
@@ -583,7 +588,7 @@ private func runPreprocessorFixtures(at base: URL) throws -> [String] {
     try write("DEEP_INCLUDE", to: looseRoot, "shaders/logic/deep.glsl")
     try write("FALLBACK_INCLUDE", to: looseRoot, "shaders/logic/fallback.glsl")
     var view = resourceView(loose: looseRoot)
-    let conditionalGraph = graph("shaders/logic/main.frag", view: view)
+    let conditionalGraph = try graph("shaders/logic/main.frag", view: view)
     try expect(
         conditionalGraph.diagnostics.map(\.code).contains(.missing),
         "Inactive missing include was not retained in graph evidence."
@@ -630,7 +635,7 @@ private func runPreprocessorFixtures(at base: URL) throws -> [String] {
     view = resourceView(loose: looseRoot)
     let trailingConditionSemicolon = try prepared(
         rootPath: "shaders/logic/trailing_condition_semicolon.frag",
-        graph: graph("shaders/logic/trailing_condition_semicolon.frag", view: view),
+        graph: try graph("shaders/logic/trailing_condition_semicolon.frag", view: view),
         environment: environment()
     )
     try expect(
@@ -674,7 +679,7 @@ private func runPreprocessorFixtures(at base: URL) throws -> [String] {
     view = resourceView(loose: looseRoot)
     let functionPrepared = try prepared(
         rootPath: "shaders/macros/functions.frag",
-        graph: graph("shaders/macros/functions.frag", view: view),
+        graph: try graph("shaders/macros/functions.frag", view: view),
         environment: environment()
     )
     for expected in [
@@ -705,7 +710,7 @@ private func runPreprocessorFixtures(at base: URL) throws -> [String] {
     view = resourceView(loose: looseRoot)
     let redundantEndif = try prepared(
         rootPath: "shaders/logic/redundant_top_level_endif.frag",
-        graph: graph("shaders/logic/redundant_top_level_endif.frag", view: view),
+        graph: try graph("shaders/logic/redundant_top_level_endif.frag", view: view),
         environment: environment()
     )
     try expect(
@@ -724,7 +729,7 @@ private func runPreprocessorFixtures(at base: URL) throws -> [String] {
     view = resourceView(loose: looseRoot)
     let trailingRedundantEndif = try prepared(
         rootPath: "shaders/logic/trailing_redundant_endif.frag",
-        graph: graph("shaders/logic/trailing_redundant_endif.frag", view: view),
+        graph: try graph("shaders/logic/trailing_redundant_endif.frag", view: view),
         environment: environment()
     )
     try expect(
@@ -771,7 +776,7 @@ private func runPreprocessorFixtures(at base: URL) throws -> [String] {
         let path = "shaders/failures/\(name).frag"
         try expectFailure(
             rootPath: path,
-            graph: graph(path, view: view),
+            graph: try graph(path, view: view),
             environment: environment(),
             code: code
         )
@@ -792,7 +797,7 @@ private func runPreprocessorFixtures(at base: URL) throws -> [String] {
         let path = "shaders/failures/directive_annotation_\(index).frag"
         try expectFailure(
             rootPath: path,
-            graph: graph(path, view: view),
+            graph: try graph(path, view: view),
             environment: environment(),
             code: .unsupportedAnnotationPlacement
         )
@@ -805,7 +810,7 @@ private func runPreprocessorFixtures(at base: URL) throws -> [String] {
     view = resourceView(loose: looseRoot)
     let inactiveDirectiveAnnotation = try prepared(
         rootPath: "shaders/logic/inactive_directive_annotation.frag",
-        graph: graph("shaders/logic/inactive_directive_annotation.frag", view: view),
+        graph: try graph("shaders/logic/inactive_directive_annotation.frag", view: view),
         environment: environment()
     )
     try expect(
@@ -833,13 +838,13 @@ private func runPreprocessorFixtures(at base: URL) throws -> [String] {
     view = resourceView(loose: looseRoot)
     try expectFailure(
         rootPath: "shaders/failures/missing.frag",
-        graph: graph("shaders/failures/missing.frag", view: view),
+        graph: try graph("shaders/failures/missing.frag", view: view),
         environment: environment(),
         code: .missingInclude
     )
     try expectFailure(
         rootPath: "shaders/failures/cycle_a.frag",
-        graph: graph("shaders/failures/cycle_a.frag", view: view),
+        graph: try graph("shaders/failures/cycle_a.frag", view: view),
         environment: environment(),
         code: .includeCycle
     )
@@ -858,7 +863,7 @@ private func runPreprocessorFixtures(at base: URL) throws -> [String] {
     view = resourceView(loose: looseRoot)
     let floatingPrepared = try prepared(
         rootPath: "shaders/macros/floating.frag",
-        graph: graph("shaders/macros/floating.frag", view: view),
+        graph: try graph("shaders/macros/floating.frag", view: view),
         environment: environment()
     )
     try expect(
@@ -867,7 +872,7 @@ private func runPreprocessorFixtures(at base: URL) throws -> [String] {
     )
     try expectFailure(
         rootPath: "shaders/macros/floating_condition.frag",
-        graph: graph("shaders/macros/floating_condition.frag", view: view),
+        graph: try graph("shaders/macros/floating_condition.frag", view: view),
         environment: environment(),
         code: .invalidExpression
     )
@@ -887,7 +892,7 @@ private func runPreprocessorFixtures(at base: URL) throws -> [String] {
     view = resourceView(loose: looseRoot)
     let lexicalPrepared = try prepared(
         rootPath: "shaders/macros/lexical.frag",
-        graph: graph("shaders/macros/lexical.frag", view: view),
+        graph: try graph("shaders/macros/lexical.frag", view: view),
         environment: environment([.init(
             name: "MODE",
             definition: .defined(.integer(7))
@@ -917,7 +922,7 @@ private func runPreprocessorFixtures(at base: URL) throws -> [String] {
     view = resourceView(loose: looseRoot)
     let blockMetadata = try prepared(
         rootPath: "shaders/metadata/block_comments.frag",
-        graph: graph("shaders/metadata/block_comments.frag", view: view),
+        graph: try graph("shaders/metadata/block_comments.frag", view: view),
         environment: environment()
     )
     try expect(
@@ -941,7 +946,7 @@ private func runPreprocessorFixtures(at base: URL) throws -> [String] {
     view = resourceView(loose: looseRoot)
     let skippedMalformedAnnotation = try prepared(
         rootPath: "shaders/metadata/malformed_annotation.frag",
-        graph: graph("shaders/metadata/malformed_annotation.frag", view: view),
+        graph: try graph("shaders/metadata/malformed_annotation.frag", view: view),
         environment: environment()
     )
     try expect(
@@ -1003,7 +1008,7 @@ private func runPreprocessorFixtures(at base: URL) throws -> [String] {
         ("malformed_nested_options", ["NESTED"]),
     ] {
         let path = "shaders/metadata/\(name).frag"
-        let sourceGraph = graph(path, view: view)
+        let sourceGraph = try graph(path, view: view)
         guard let raw = sourceGraph.node(at: path) else {
             throw HarnessFailure(description: "Missing self-owned malformed-record source.")
         }
@@ -1030,7 +1035,7 @@ private func runPreprocessorFixtures(at base: URL) throws -> [String] {
     }
     try expectFailure(
         rootPath: "shaders/metadata/malformed_sampler.frag",
-        graph: graph("shaders/metadata/malformed_sampler.frag", view: view),
+        graph: try graph("shaders/metadata/malformed_sampler.frag", view: view),
         environment: environment(),
         code: .malformedSourceAnnotation
     )
@@ -1051,7 +1056,7 @@ private func runPreprocessorFixtures(at base: URL) throws -> [String] {
         int equivalentValue = 6;
         """, to: looseRoot, "shaders/metadata/renamed_include.frag")
     view = resourceView(loose: looseRoot)
-    let renamedGraph = graph("shaders/metadata/renamed_include.frag", view: view)
+    let renamedGraph = try graph("shaders/metadata/renamed_include.frag", view: view)
     let renamedPrepared = try prepared(rootPath: "shaders/metadata/renamed_include.frag",
         graph: renamedGraph, environment: environment())
     try expect(
@@ -1081,7 +1086,7 @@ private func runPreprocessorFixtures(at base: URL) throws -> [String] {
         let path = "shaders/metadata/\(name).frag"
         try write(source, to: looseRoot, path)
         view = resourceView(loose: looseRoot)
-        try expectFailure(rootPath: path, graph: graph(path, view: view),
+        try expectFailure(rootPath: path, graph: try graph(path, view: view),
             environment: environment(), code: expected)
     }
     checks.append("malformed_annotation_record_boundaries")
@@ -1095,7 +1100,7 @@ private func runPreprocessorFixtures(at base: URL) throws -> [String] {
     view = resourceView(loose: looseRoot)
     try expectFailure(
         rootPath: "shaders/comments/include_root.frag",
-        graph: graph("shaders/comments/include_root.frag", view: view),
+        graph: try graph("shaders/comments/include_root.frag", view: view),
         environment: environment(),
         code: .unterminatedBlockComment
     )
@@ -1109,7 +1114,7 @@ private func runPreprocessorFixtures(at base: URL) throws -> [String] {
     view = resourceView(loose: looseRoot)
     let precedencePrepared = try prepared(
         rootPath: "shaders/logic/precedence.frag",
-        graph: graph("shaders/logic/precedence.frag", view: view),
+        graph: try graph("shaders/logic/precedence.frag", view: view),
         environment: environment()
     )
     try expect(
@@ -1122,7 +1127,7 @@ private func runPreprocessorFixtures(at base: URL) throws -> [String] {
     view = resourceView(loose: looseRoot)
     try expectFailure(
         rootPath: "shaders/budget/output.frag",
-        graph: graph("shaders/budget/output.frag", view: view),
+        graph: try graph("shaders/budget/output.frag", view: view),
         environment: environment(),
         code: .budgetExceeded,
         limits: .init(
@@ -1146,7 +1151,7 @@ private func runPreprocessorFixtures(at base: URL) throws -> [String] {
     view = resourceView(loose: looseRoot)
     try expectFailure(
         rootPath: "shaders/budget/macro_tokens.frag",
-        graph: graph("shaders/budget/macro_tokens.frag", view: view),
+        graph: try graph("shaders/budget/macro_tokens.frag", view: view),
         environment: environment(),
         code: .budgetExceeded,
         limits: .init(
@@ -1170,7 +1175,7 @@ private func runPreprocessorFixtures(at base: URL) throws -> [String] {
     view = resourceView(loose: looseRoot)
     try expectFailure(
         rootPath: "shaders/budget/macro_depth.frag",
-        graph: graph("shaders/budget/macro_depth.frag", view: view),
+        graph: try graph("shaders/budget/macro_depth.frag", view: view),
         environment: environment(),
         code: .budgetExceeded,
         limits: .init(
@@ -1194,7 +1199,7 @@ private func runPreprocessorFixtures(at base: URL) throws -> [String] {
     view = resourceView(loose: looseRoot)
     try expectFailure(
         rootPath: "shaders/budget/macro_bytes.frag",
-        graph: graph("shaders/budget/macro_bytes.frag", view: view),
+        graph: try graph("shaders/budget/macro_bytes.frag", view: view),
         environment: environment(),
         code: .budgetExceeded,
         limits: .init(
@@ -1233,7 +1238,7 @@ private func runPreprocessorFixtures(at base: URL) throws -> [String] {
     view = resourceView(loose: looseRoot)
     let metadata = try prepared(
         rootPath: "shaders/metadata/main.frag",
-        graph: graph("shaders/metadata/main.frag", view: view),
+        graph: try graph("shaders/metadata/main.frag", view: view),
         environment: environment()
     )
     try expect(
@@ -1377,7 +1382,7 @@ private func runVariantAndDigestFixtures(at base: URL) throws -> [String] {
     )
     let inactivePrepared = try prepared(
         rootPath: "shaders/variants/main.frag",
-        graph: graph(
+        graph: try graph(
             "shaders/variants/main.frag",
             view: resourceView(loose: inactiveComboRoot)
         ),
@@ -1414,7 +1419,7 @@ private func runVariantAndDigestFixtures(at base: URL) throws -> [String] {
     )
     let explicitPrepared = try prepared(
         rootPath: "shaders/variants/main.frag",
-        graph: graph(
+        graph: try graph(
             "shaders/variants/main.frag",
             view: resourceView(loose: inactiveComboRoot)
         ),
@@ -1452,9 +1457,9 @@ private func runVariantAndDigestFixtures(at base: URL) throws -> [String] {
     let originalViewA = resourceView(loose: originalRoot)
     let originalViewB = resourceView(loose: originalRoot)
     let changedView = resourceView(loose: changedRoot)
-    let originalGraphA = graph("shaders/digest/main.frag", view: originalViewA)
-    let originalGraphB = graph("shaders/digest/main.frag", view: originalViewB)
-    let changedGraph = graph("shaders/digest/main.frag", view: changedView)
+    let originalGraphA = try graph("shaders/digest/main.frag", view: originalViewA)
+    let originalGraphB = try graph("shaders/digest/main.frag", view: originalViewB)
+    let changedGraph = try graph("shaders/digest/main.frag", view: changedView)
     let orderedEnvironment = try environment([
         .init(name: "AUX", definition: .defined(.integer(3))),
         .init(name: "MODE", definition: .defined(.integer(1))),
@@ -1612,7 +1617,7 @@ class SceneShaderPreprocessorTests(unittest.TestCase):
             self.run_mode("resource-graph"),
             [
                 "precedence",
-                "shadow_evidence",
+                "selected_source_evidence",
                 "include_resolution",
                 "ambiguity",
                 "path_security",

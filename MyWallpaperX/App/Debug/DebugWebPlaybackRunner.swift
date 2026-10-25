@@ -9,12 +9,18 @@ import Foundation
 
 @MainActor
 enum DebugWebPlaybackRunner {
+    static var isStartupMeasurementRequested: Bool {
+        arguments.contains("--mwx-debug-web-startup-report")
+            || arguments.contains("--mwx-debug-web-startup-mode")
+    }
+
     static var shouldSuppressInitialMainWindow: Bool {
         arguments.contains("--mwx-debug-suppress-main-window")
     }
 
     static var runsIsolatedWebWorkshopSample: Bool {
         arguments.contains("--mwx-debug-web-process-isolation-report")
+            || isStartupMeasurementRequested
             || arguments.contains("--mwx-debug-run-web-workshop-id")
             || arguments.contains("--mwx-debug-web-lifecycle-sequence")
             || arguments.contains("--mwx-debug-web-system-state-sequence")
@@ -24,6 +30,64 @@ enum DebugWebPlaybackRunner {
             || arguments.contains("--mwx-debug-web-runtime-switch-sequence")
             || arguments.contains("--mwx-debug-web-failure-state-report")
             || arguments.contains("--mwx-debug-web-rapid-double-launch")
+    }
+
+    static var requiresProductCoordinator: Bool {
+        isStartupMeasurementRequested
+            || arguments.contains("--mwx-debug-web-process-isolation-report")
+            || arguments.contains("--mwx-debug-web-runtime-switch-sequence")
+    }
+
+    /// Check before product singletons can read preferences or restore playback.
+    /// Reuses the Scene probe's canonical path/account-home admission boundary.
+    static var hasIsolatedStartupEnvironment: Bool {
+        func value(after flag: String) -> String? {
+            guard let index = arguments.firstIndex(of: flag),
+                  arguments.indices.contains(index + 1) else { return nil }
+            return arguments[index + 1]
+        }
+        let sceneStartup = DebugSceneProductEntryPolicy.isStartupMeasurementRequested(arguments: arguments)
+        guard isStartupMeasurementRequested != sceneStartup else { return false }
+        let reportFlag = isStartupMeasurementRequested
+            ? "--mwx-debug-web-startup-report" : "--mwx-debug-scene-startup-report"
+        guard Bundle.main.bundleIdentifier == "com.songziqiang.MyWallpaperX.Debug.Startup",
+              let token = value(after: "--mwx-debug-startup-defaults-token"), !token.isEmpty,
+              UserDefaults.standard.string(forKey: "MWXStartupDefaultsToken") == token,
+              let userHome = DebugSceneProductEntryPolicy.protectedUserHomeURL(),
+              let workshopPath = value(after: "--mwx-debug-workshop-root"),
+              let reportPath = value(after: reportFlag),
+              let suite = value(after: "--mwx-debug-user-defaults-suite"),
+              suite.hasPrefix("com.songziqiang.MyWallpaperX.Debug."),
+              let homePath = ProcessInfo.processInfo.environment["HOME"],
+              let fixedHome = ProcessInfo.processInfo.environment["CFFIXED_USER_HOME"],
+              [workshopPath, reportPath, homePath, fixedHome].allSatisfy({ $0.hasPrefix("/") }) else {
+            return false
+        }
+        let home = URL(fileURLWithPath: homePath, isDirectory: true)
+            .resolvingSymlinksInPath().standardizedFileURL
+        guard home == URL(fileURLWithPath: fixedHome, isDirectory: true)
+                .resolvingSymlinksInPath().standardizedFileURL,
+              home == FileManager.default.homeDirectoryForCurrentUser
+                .resolvingSymlinksInPath().standardizedFileURL,
+              FileManager.default.urls(for: .cachesDirectory, in: .userDomainMask).first
+                .map({ $0.resolvingSymlinksInPath().standardizedFileURL.path.hasPrefix(home.path + "/") }) == true,
+              FileManager.default.urls(for: .libraryDirectory, in: .userDomainMask).first
+                .map({ $0.resolvingSymlinksInPath().standardizedFileURL.path.hasPrefix(home.path + "/") }) == true,
+              home != userHome else { return false }
+        let protectedRoots = [
+            userHome.appendingPathComponent("Movies/MyWallpaperX", isDirectory: true),
+            userHome.appendingPathComponent("Library", isDirectory: true)
+        ]
+        let directories = [workshopPath, home.path,
+            URL(fileURLWithPath: reportPath).resolvingSymlinksInPath()
+                .deletingLastPathComponent().path]
+        return directories.allSatisfy { path in
+            protectedRoots.allSatisfy { protected in
+                DebugSceneProductEntryPolicy.isolatedExistingDirectory(
+                    rawPath: path, disjointFrom: protected
+                ) != nil
+            }
+        }
     }
 
     private static var arguments: [String] {
@@ -366,7 +430,8 @@ enum DebugWebPlaybackRunner {
             language: playbackContext.language,
             runtimeProfile: service.recommendedWebRuntimeProfile(for: record),
             multiDisplayEnabled: true,
-            resourceGrants: playbackContext.resourceGrants
+            resourceGrants: playbackContext.resourceGrants,
+            allowedNetworkHosts: playbackContext.allowedNetworkHosts
         )
         scheduleWebAudioSpectrumIfRequested()
     }

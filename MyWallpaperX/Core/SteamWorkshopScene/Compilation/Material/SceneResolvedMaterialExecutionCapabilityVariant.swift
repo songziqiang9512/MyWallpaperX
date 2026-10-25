@@ -27,9 +27,11 @@ nonisolated final class SceneResolvedMaterialVariantCache: @unchecked Sendable {
     private static let maximumReadinessPasses = 8
     private let lock = NSLock()
     private var entries: [SceneResolvedMaterialVariantKey: Entry] = [:]
+#if DEBUG || SCENE_GRAPH_TESTING
     private var shaderPreparations = 0
     private var frontendCompilations = 0
     private var capacityRejections = 0
+#endif
     private var cachedLaunchEnvelopeKeys = Set<SceneResolvedMaterialVariantKey>()
     private var cachedReachableSamplers: [
         Int: Set<SceneResolvedMaterialShaderSchema.Sampler>
@@ -111,6 +113,7 @@ nonisolated final class SceneResolvedMaterialVariantCache: @unchecked Sendable {
         ))
     }
 
+#if DEBUG || SCENE_GRAPH_TESTING
     var counters: Counters {
         lock.lock()
         defer { lock.unlock() }
@@ -121,6 +124,8 @@ nonisolated final class SceneResolvedMaterialVariantCache: @unchecked Sendable {
             capacityRejectionCount: capacityRejections
         )
     }
+
+#endif
 
     func compiledChannelUses(for slot: Int) -> [ChannelUse]? {
         guard (0 ..< 8).contains(slot) else { return nil }
@@ -424,7 +429,9 @@ nonisolated final class SceneResolvedMaterialVariantCache: @unchecked Sendable {
                             }
                             guard entries[key] != nil
                                     || entries.count < maximumVariantCount else {
+#if DEBUG || SCENE_GRAPH_TESTING
                                 capacityRejections += 1
+#endif
                                 return .failure(.capacity)
                             }
                             keys.append(key)
@@ -740,14 +747,18 @@ nonisolated final class SceneResolvedMaterialVariantCache: @unchecked Sendable {
             }
         }
         guard entries.count < maximumVariantCount else {
+#if DEBUG || SCENE_GRAPH_TESTING
             capacityRejections += 1
+#endif
             throw Self.failure(
                 .shaderPreparationFailed,
                 phase: .preparation,
                 details: ["variant-cache-capacity"]
             )
         }
+#if DEBUG || SCENE_GRAPH_TESTING
         shaderPreparations += 1
+#endif
         do {
             let variant = try Self.compile(
                 template: template,
@@ -757,7 +768,11 @@ nonisolated final class SceneResolvedMaterialVariantCache: @unchecked Sendable {
                 implicitFramebufferIdentity: implicitFramebufferIdentity,
                 graphTextureFormatFacts: graphTextureFormatFacts,
                 graphTextureContentFacts: graphTextureContentFacts,
-                onBoundedFrontendCompilation: { frontendCompilations += 1 }
+                onBoundedFrontendCompilation: {
+#if DEBUG || SCENE_GRAPH_TESTING
+                    frontendCompilations += 1
+#endif
+                }
             )
             entries[key] = .ready(variant)
             memoizedSelections.removeAll()

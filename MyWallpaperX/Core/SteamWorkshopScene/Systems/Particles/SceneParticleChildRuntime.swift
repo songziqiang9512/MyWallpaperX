@@ -20,10 +20,12 @@ final class SceneParticleChildRuntime {
         let systems: [SystemSnapshot]
         let nextSeed: UInt64
         let nextSystemID: UInt64
-        let observedAudioComponentsByTemplate:
-            [Int: Set<SceneParticleAudioComponentIdentity>]
-        let pendingAudioEvaluationObservations:
-            [SceneParticleChildAudioEvaluationObservation]
+#if DEBUG
+        var observedAudioComponentsByTemplate:
+            [Int: Set<SceneParticleAudioComponentIdentity>] = [:]
+        var pendingAudioEvaluationObservations:
+            [SceneParticleChildAudioEvaluationObservation] = []
+#endif
     }
 
     private struct TemplateSelectionKey: Hashable {
@@ -92,10 +94,12 @@ final class SceneParticleChildRuntime {
     private var instanceScratch: [Int: [SceneParticleGPUInstance]] = [:]
     private var nextSeed: UInt64 = 0
     private var nextSystemID: UInt64 = 1
+#if DEBUG
     private var observedAudioComponentsByTemplate:
         [Int: Set<SceneParticleAudioComponentIdentity>] = [:]
     private var pendingAudioEvaluationObservations:
         [SceneParticleChildAudioEvaluationObservation] = []
+#endif
 
     init(
         layerID: Int,
@@ -322,7 +326,7 @@ final class SceneParticleChildRuntime {
     }
 
     func frameSnapshot() -> FrameSnapshot {
-        FrameSnapshot(
+        var snapshot = FrameSnapshot(
             systems: systems.map {
                 .init(
                     id: $0.id,
@@ -338,10 +342,13 @@ final class SceneParticleChildRuntime {
                 )
             },
             nextSeed: nextSeed,
-            nextSystemID: nextSystemID,
-            observedAudioComponentsByTemplate: observedAudioComponentsByTemplate,
-            pendingAudioEvaluationObservations: pendingAudioEvaluationObservations
+            nextSystemID: nextSystemID
         )
+#if DEBUG
+        snapshot.observedAudioComponentsByTemplate = observedAudioComponentsByTemplate
+        snapshot.pendingAudioEvaluationObservations = pendingAudioEvaluationObservations
+#endif
+        return snapshot
     }
 
     func restoreFrame(_ snapshot: FrameSnapshot) {
@@ -361,22 +368,28 @@ final class SceneParticleChildRuntime {
         }
         nextSeed = snapshot.nextSeed
         nextSystemID = snapshot.nextSystemID
+#if DEBUG
         observedAudioComponentsByTemplate = snapshot.observedAudioComponentsByTemplate
         pendingAudioEvaluationObservations = snapshot.pendingAudioEvaluationObservations
+#endif
         instanceScratch.removeAll(keepingCapacity: true)
     }
 
+#if DEBUG
     func consumeAudioEvaluationObservations()
         -> [SceneParticleChildAudioEvaluationObservation] {
         defer { pendingAudioEvaluationObservations.removeAll(keepingCapacity: true) }
         return pendingAudioEvaluationObservations
     }
+#endif
 
     func teardown() {
         systems.removeAll(keepingCapacity: false)
         instanceScratch.removeAll(keepingCapacity: false)
+#if DEBUG
         observedAudioComponentsByTemplate.removeAll(keepingCapacity: false)
         pendingAudioEvaluationObservations.removeAll(keepingCapacity: false)
+#endif
     }
 
     /// Advances depth-one systems against the root simulator and collects the per-system
@@ -401,7 +414,9 @@ final class SceneParticleChildRuntime {
         }
         var frames: [SceneParticleChildParentFrame] = []
         for index in systems.indices where systems[index].depth == 1 {
+#if DEBUG
             suppressObservedAudioComponents(systemAt: index)
+#endif
             if let parentID = systems[index].parentParticleID,
                let parent = parentsByID[parentID]
             {
@@ -423,7 +438,9 @@ final class SceneParticleChildRuntime {
                 worldSpaceFrameOverride: worldSpaceFrameOverride,
                 allowsEmission: allowsEmission
             )
+#if DEBUG
             collectAudioEvaluationObservations(systemAt: index)
+#endif
             let births = systems[index].simulator.consumeBirthEvents()
             let deaths = systems[index].simulator.consumeDeathEvents()
             updateWorldSpaceOrigins(systemAt: index, births: births, deaths: deaths)
@@ -472,7 +489,9 @@ final class SceneParticleChildRuntime {
             return parent.particles[parentID] == nil
         }
         for index in systems.indices where systems[index].depth == 2 {
+#if DEBUG
             suppressObservedAudioComponents(systemAt: index)
+#endif
             if let scope = systems[index].spawnScopeID,
                let parentID = systems[index].parentParticleID,
                let parent = liveParents[scope],
@@ -496,7 +515,9 @@ final class SceneParticleChildRuntime {
                 worldSpaceFrameOverride: worldSpaceFrameOverride,
                 allowsEmission: allowsEmission
             )
+#if DEBUG
             collectAudioEvaluationObservations(systemAt: index)
+#endif
             let births = systems[index].simulator.consumeBirthEvents()
             let deaths = systems[index].simulator.consumeDeathEvents()
             updateWorldSpaceOrigins(systemAt: index, births: births, deaths: deaths)
@@ -535,6 +556,7 @@ final class SceneParticleChildRuntime {
         }
     }
 
+#if DEBUG
     private func collectAudioEvaluationObservations(systemAt index: Int) {
         guard let template = templatesByIndex[systems[index].templateIndex] else {
             return
@@ -560,6 +582,7 @@ final class SceneParticleChildRuntime {
         }
         systems[index].simulator.suppressAudioEvaluationObservations(for: observed)
     }
+#endif
 
     private func isCompleted(_ system: SceneParticleChildSystem, atDepth depth: Int) -> Bool {
         system.depth == depth

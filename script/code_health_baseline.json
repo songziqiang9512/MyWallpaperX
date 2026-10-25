@@ -4,7 +4,8 @@
   "sourceRoots": [
     "MyWallpaperX",
     "WallpaperDaemonSources",
-    "script/tests/fixtures"
+    "script/tests/fixtures",
+    "script"
   ],
   "policy": "2026-10-03 用户明确要求统一单文件不超过 1000 行并保持职责清晰；替换原 400 行审查阈值、当前行数锁及家族棘轮，不保留例外。职责边界由设计与代码审查判断，行数门不代替职责审查。"
 }

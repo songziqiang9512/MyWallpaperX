@@ -198,8 +198,13 @@ extension SceneDaemonClient {
                 if let base = pending.fallbackBaseIntent {
                     // Other accepted properties/textures may have changed
                     // since candidate preparation. Commit only this key.
-                    let accepted = activeIntent?.recordID == base.recordID ? activeIntent! : base
-                    activeIntent = applying(pending.update, to: accepted)
+                    if let active = activeIntent,
+                       active.recordID != base.recordID || active.source != base.source
+                        || active.rootURL.standardizedFileURL != base.rootURL.standardizedFileURL {
+                        pending.completion(.superseded)
+                        continue
+                    }
+                    activeIntent = applying(pending.update, to: activeIntent ?? base)
                     activeIntent?.requiredUserTextureKeys = []
                 }
                 pending.completion(.applied)
@@ -226,8 +231,10 @@ extension SceneDaemonClient {
         guard let base = pending.fallbackBaseIntent else { return }
         // activeIntent retains the accepted base until real presentation. It
         // may already include independently acknowledged edits; keep those.
-        if pendingIntent?.recordID == base.recordID {
-            pendingIntent = activeIntent?.recordID == base.recordID ? activeIntent : base
+        if pendingIntent?.recordID == base.recordID, pendingIntent?.source == base.source,
+           pendingIntent?.rootURL.standardizedFileURL == base.rootURL.standardizedFileURL {
+            pendingIntent = activeIntent?.recordID == base.recordID && activeIntent?.source == base.source
+                && activeIntent?.rootURL.standardizedFileURL == base.rootURL.standardizedFileURL ? activeIntent : base
         }
     }
 

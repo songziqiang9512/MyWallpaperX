@@ -164,6 +164,7 @@ TEXTURE_SAMPLING_TYPES = (
     REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Resources/Textures/SceneTextureSampling.swift"
 )
 STATIC_SOURCE_DRAW_ONLY_SOURCES = [
+    SCENE_ROOT / "Runtime/Frame/SceneMaterialRenderState.swift",
     SCENE_ROOT / "Rendering/Composition/SceneFramebufferSnapshot.swift",
     SCENE_ROOT / "Resources/Textures/SceneResourceBudget.swift",
     SCENE_ROOT / "Diagnostics/ScenePerformanceCounterHub.swift",
@@ -257,10 +258,8 @@ class SceneResolvedMaterialRuntimeBridgeTests(unittest.TestCase):
         self.assertNotIn("SceneEffectRuntimePlanner", diagnostics)
         self.assertIn("return nil", diagnostics)
 
-        self.assertIn(
-            "effectSummary: { [renderer] in renderer.effectRuntimeSummary(for: $0) }",
-            view,
-        )
+        self.assertIn("renderer.effectRuntimeSummary(for:", view)
+        self.assertIn("effectSummary: textEffectSummary", view)
         self.assertIn(
             "effectSummary: (SceneRenderDescriptor.Layer) -> String? = { _ in nil }",
             text_loader,
@@ -399,9 +398,7 @@ class SceneResolvedMaterialRuntimeBridgeTests(unittest.TestCase):
         )
         self.assertIn("enum RejectionReason: String, Error", passthrough_plan)
         self.assertIn("unclaimed-visible-effects-\\(reason.rawValue)", compositor)
-        fallback_start = compositor.index(
-            "if case let .success(passthroughPlan) = passthroughResolution"
-        )
+        fallback_start = compositor.index("case let .success(passthroughPlan) = passthroughResolution")
         fallback_end = compositor.index(
             "guard !hasUnclaimedVisibleEffects else", fallback_start
         )
@@ -938,6 +935,8 @@ class SceneResolvedMaterialRuntimeBridgeTests(unittest.TestCase):
                 "aggregateSourceUnavailableSkipsClaimAndKeepsSuffix",
                 "sourceUnavailableFallbackRequiresDependencyContract",
                 "twoCandidatesPublishConsumeAndCommitAtomically",
+                "largeGraphsBeyondObservationAggregateCapSubmit",
+                "observationCapacityCannotChangeCommittedHistory",
                 "postClaimFailureDropsWholeFrame",
                 "foreignBufferRejectedBeforePrepare",
                 "ticketIsSingleConsumption",
@@ -974,6 +973,10 @@ class SceneResolvedMaterialRuntimeBridgeTests(unittest.TestCase):
                 [
                     "xcrun", "--sdk", "macosx", "swiftc",
                     str(REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Resources/Assets/SceneResourceIndex.swift"),
+                    str(REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopStorage/ScenePlaybackSource.swift"),
+                    str(REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Format/ScenePkgReader.swift"),
+                    str(REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Resources/Assets/SceneResourceIdentity.swift"),
+                    str(REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Resources/Assets/SceneResourceView+Backing.swift"),
                     str(REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Resources/Assets/SceneResourceView.swift"),
                     str(REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Resources/Textures/SceneTexturePathResolver.swift"),
                     str(harness), "-module-cache-path", str(root / "module-cache"),

@@ -107,6 +107,7 @@ nonisolated struct SceneParticleAudioResponsePlan: Equatable, Sendable {
         return boundedResponse(total: total)
     }
 
+#if DEBUG
     /// Evaluates the authored response and counts positive selected inputs in
     /// the same ordered traversal. Execution observation calls this only while
     /// an identity is still unreported, avoiding a second scan of the bands.
@@ -138,6 +139,7 @@ nonisolated struct SceneParticleAudioResponsePlan: Equatable, Sendable {
             selectedNonZeroInputCount
         )
     }
+#endif
 
     private nonisolated func boundedResponse(total: Double) -> Double {
         let channelCount = channel == .center ? 2 : 1
@@ -161,6 +163,7 @@ nonisolated enum SceneParticleAudioComponentKind: String, Hashable, Sendable {
 
 /// Payload-free proof that one prepared particle component evaluated its own
 /// authored band selection against a non-silent typed publication.
+#if DEBUG
 nonisolated struct SceneParticleAudioEvaluationObservation: Hashable, Sendable {
     let componentKind: SceneParticleAudioComponentKind
     let componentIndex: Int
@@ -175,6 +178,7 @@ nonisolated struct SceneParticleAudioComponentIdentity: Hashable, Sendable {
     let kind: SceneParticleAudioComponentKind
     let index: Int
 }
+#endif
 
 /// Launch-stable execution inputs for the turbulence operator.
 ///

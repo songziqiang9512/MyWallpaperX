@@ -269,7 +269,7 @@ extension SceneMetalRenderer {
     }
 
     func prepareForwardDependencyProviders(
-        orderedLayers: [SceneRenderDescriptor.Layer],
+        orderedLayerIDs: [Int],
         layersByID: [Int: SceneRenderDescriptor.Layer],
         imageTextures: SceneBaseImageTextureSnapshot,
         imagePipeline: SceneImageLayerPipeline,
@@ -288,7 +288,7 @@ extension SceneMetalRenderer {
         let activeExecutionLayerIDs = Set(framePlans.keys)
         guard let preparationLayerIDs = dependencyRuntime
                 .forwardDependencyPreparationOrder(
-                    authoredLayerIDs: orderedLayers.map(\.id),
+                    authoredLayerIDs: orderedLayerIDs,
                     activeExecutionLayerIDs: activeExecutionLayerIDs,
                     activeStaticModelConsumerLayerIDs:
                         activeStaticModelConsumerLayerIDs

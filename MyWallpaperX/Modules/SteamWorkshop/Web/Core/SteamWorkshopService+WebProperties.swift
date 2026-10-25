@@ -92,7 +92,6 @@ extension SteamWorkshopService {
         objectWillChange.send()
         saveWebPropertyOverrides(overrides, for: record)
         updateWebPropertyBookmark(for: definition, value: value, record: record)
-        invalidateCachedWebRuntime(for: record.id)
 
         guard isActiveWebRecord(record) else { return }
         let propertyDefinitions = webPropertyDefinitions(for: record)
@@ -180,7 +179,6 @@ extension SteamWorkshopService {
         objectWillChange.send()
         saveWebPropertyOverrides([:], for: record)
         clearWebPropertyBookmarks(for: record)
-        invalidateCachedWebRuntime(for: record.id)
         guard isActiveWebRecord(record) else { return }
         let definitions = webPropertyDefinitions(for: record)
         WallpaperEngine.shared.updateCurrentWebWallpaperProperties(effectiveWebPropertiesJSONString(for: record, definitions: definitions),

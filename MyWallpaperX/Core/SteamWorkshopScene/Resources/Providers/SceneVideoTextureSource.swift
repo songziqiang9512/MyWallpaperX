@@ -132,19 +132,29 @@ final class SceneVideoTextureSource {
         isWebM: Bool = false,
         cacheDirectory: URL,
         device: MTLDevice,
-        capturesLifecycleObservations: Bool = false
+        capturesLifecycleObservations: Bool = false,
+        onWebMPrepared: (@Sendable (SceneVideoOwnedFile.Writer) throws -> Void)? = nil
     ) {
-        guard let file = try? SceneVideoOwnedFile.allocate(cacheDirectory: cacheDirectory) else {
-            return nil
-        }
+        let file: SceneVideoOwnedFile
+        let writer: SceneVideoOwnedFile.Writer?
         do {
-            if !isWebM { try mp4PayloadData.write(to: file.url, options: [.atomic]) }
+            if isWebM {
+                let output = try SceneVideoOwnedFile.makeWriter(cacheDirectory: cacheDirectory)
+                file = output.file
+                writer = output
+            } else {
+                file = try SceneVideoOwnedFile.snapshot(payload: mp4PayloadData,
+                    cacheDirectory: cacheDirectory)
+                writer = nil
+            }
         } catch {
             return nil
         }
         self.init(owner: owner, fileLease: file, installPreparedItem: !isWebM,
             device: device, capturesLifecycleObservations: capturesLifecycleObservations)
-        if isWebM { prepareWebMPayload(mp4PayloadData, file: file) }
+        if let writer {
+            prepareWebMPayload(mp4PayloadData, output: writer, onPrepared: onWebMPrepared)
+        }
     }
 
     convenience init?(
@@ -200,14 +210,20 @@ final class SceneVideoTextureSource {
         if installPreparedItem { installItem(at: fileLease.url) }
     }
 
-    private func prepareWebMPayload(_ data: Data, file: SceneVideoOwnedFile) {
+    private func prepareWebMPayload(
+        _ data: Data, output: SceneVideoOwnedFile.Writer,
+        onPrepared: (@Sendable (SceneVideoOwnedFile.Writer) throws -> Void)?
+    ) {
+        let file = output.file
         let preparationID = UUID()
         payloadPreparationID = preparationID
         let worker = Task.detached(priority: .utility) {
             // Cancellation is cooperative. Keep the destination lease until
             // the actual writer exits, even after Source.stop releases it.
             defer { withExtendedLifetime(file) {} }
-            try await SceneVideoPayloadPreparation.writeWebM(data, to: file.url)
+            try await SceneVideoPayloadPreparation.writeWebM(data, to: output)
+            try Task.checkCancellation()
+            try onPrepared?(output)
         }
         payloadPreparation = worker
         Task { [weak self] in
@@ -725,6 +741,11 @@ final class SceneVideoTextureSource {
 
     func stop() {
         guard lifecycle.stop() else { return }
+        // Active playback owns the file here. Transfer it to the actual asset
+        // before retiring the item, so AV borrowers can outlive this Source.
+        if let ownedFile, let item {
+            ownedFile.retainForLifetime(of: item.asset)
+        }
         primeOperationID = nil
         primeSeekResult = nil
         primePrerollResult = nil

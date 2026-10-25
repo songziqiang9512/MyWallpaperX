@@ -17,14 +17,16 @@ extension WebWallpaperLocalSchemeHandler {
     }
 
     static func fileStat(for fileURL: URL) -> FileStat? {
-        guard let values = try? fileURL.resourceValues(forKeys: [.fileSizeKey, .contentModificationDateKey]),
+        var currentURL = fileURL
+        currentURL.removeAllCachedResourceValues()
+        guard let values = try? currentURL.resourceValues(forKeys: [.fileSizeKey, .contentModificationDateKey]),
               let fileSize = values.fileSize else {
             return nil
         }
         return FileStat(fileSize: Int64(fileSize), modificationDate: values.contentModificationDate)
     }
 
-    /// resolve 缓存条目：只存路径身份与受控读取判定结果。
+    /// A short-lived location candidate, never current size or permission to read.
     struct CachedResolution {
         let resource: ResolvedResource
         let storedAtUptimeNanoseconds: UInt64
@@ -47,15 +49,23 @@ extension WebWallpaperLocalSchemeHandler {
     /// 缓存键带 `readableRootsGeneration`：受控读取判定完全由
     /// `updateResourceGrants` 决定，根集合每次变更都会让旧条目不可达，
     /// 因此缓存命中不会绕过 root 校验。
-    func resolveResource(for requestURL: URL, allowsDirectoryIndexFallback: Bool) -> ResolveOutcome {
+    func resolveResource(
+        for requestURL: URL, allowsDirectoryIndexFallback: Bool, refreshCachedResolution: Bool = false
+    ) -> ResolveOutcome {
         let (roots, generation) = readableRootsSnapshot()
         let cacheKey = Self.resolveCacheKey(
             for: requestURL,
             allowsDirectoryIndexFallback: allowsDirectoryIndexFallback,
             generation: generation
         )
-        if let cached = cachedResolution(forKey: cacheKey), let current = revalidatedResource(cached) {
-            return ResolveOutcome(resource: current, denial: nil)
+        if refreshCachedResolution {
+            stateLock.lock()
+            resolveCache.removeValue(forKey: cacheKey)
+            stateLock.unlock()
+        } else if let cached = cachedResolution(forKey: cacheKey) {
+            // A cached path is only a location candidate. Body consumers bind
+            // their actual opened FD; HEAD/304 validate current metadata.
+            return ResolveOutcome(resource: cached, denial: nil)
         }
         let outcome = computeResolution(
             for: requestURL,
@@ -292,8 +302,10 @@ extension WebWallpaperLocalSchemeHandler {
         return candidateURL
     }
 
-    private func matchedReadableRootPath(for targetURL: URL, roots: [WebWallpaperResourceGrant]) -> String? {
-        let targetPath = targetURL.resolvingSymlinksInPath().standardizedFileURL.path
+    /// Callers supply a resolved path or the actual pathname returned for an
+    /// opened FD. Do not resolve that FD pathname through a later replacement.
+    func matchedReadableRootPath(for targetURL: URL, roots: [WebWallpaperResourceGrant]) -> String? {
+        let targetPath = targetURL.standardizedFileURL.path
         let rootPath = rootURL.path
         if targetPath == rootPath || targetPath.hasPrefix(rootPath + "/") {
             return rootPath
@@ -302,7 +314,7 @@ extension WebWallpaperLocalSchemeHandler {
         return nil
     }
 
-    private static func isMaterialPathRewrite(from originalPath: String, to resolvedPath: String) -> Bool {
+    static func isMaterialPathRewrite(from originalPath: String, to resolvedPath: String) -> Bool {
         guard originalPath != resolvedPath else { return false }
         return originalPath.compare(resolvedPath, options: [.caseInsensitive, .diacriticInsensitive]) != .orderedSame
     }

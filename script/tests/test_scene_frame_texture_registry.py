@@ -777,8 +777,24 @@ enum Harness {
                 purpose: .mask
             ) == nil
             && SceneVFSAssetPath("materials//mask.tex") == nil
-            && SceneVFSAssetPath("file:materials/mask.tex") == nil
+            && SceneVFSAssetPath("/materials/mask.tex") == nil
+            && SceneVFSAssetPath("file:///materials/mask.tex") == nil
             && SceneVFSAssetPath("materials/ma\u{7f}sk.tex") == nil
+        let colonAssetIdentity = [
+            ("Materials/Phase:Night.TEX", "materials/phase:night.tex"),
+            ("./Images\\Tone:Dawn.PNG", "images/tone:dawn.png"),
+            ("C:/Textures/Mask.PNG", "c:/textures/mask.png"),
+            ("file:materials/mask.tex", "file:materials/mask.tex"),
+        ].allSatisfy { authored, normalized in
+            guard let mask = SceneAssetTextureIdentity(virtualPath: authored, purpose: .mask),
+                  let color = SceneAssetTextureIdentity(virtualPath: authored, purpose: .premultipliedColor),
+                  let canonical = SceneAssetTextureIdentity(virtualPath: normalized, purpose: .mask) else {
+                return false
+            }
+            return mask == canonical && mask != color
+                && mask.reportToken == "asset:\(normalized):mask"
+                && Set([mask.reportToken, color.reportToken]).count == 2
+        }
         let assetRegistryIdentity = SceneFrameTextureIdentity.asset(canonicalMask)
         let assetPublication = dataPublication.publication(
             for: assetRegistryIdentity
@@ -1312,6 +1328,7 @@ enum Harness {
                 dataPurposeAndSourceRevisionPreserved,
             "mismatchedContentRejected": mismatchedContentRejected,
             "normalizedAssetIdentity": normalizedAssetIdentity,
+            "colonAssetIdentity": colonAssetIdentity,
             "typedToBareAdvancesGeneration": typedToBareAdvancesGeneration,
             "exactIdentityMismatchRejectedWithoutEntry":
                 exactIdentityMismatchRejectedWithoutEntry,
@@ -1524,6 +1541,7 @@ class SceneFrameTextureRegistryTests(unittest.TestCase):
             "dataPurposeAndSourceRevisionPreserved",
             "mismatchedContentRejected",
             "normalizedAssetIdentity",
+            "colonAssetIdentity",
             "purposeMismatchedAssetIncomplete",
             "purposeMismatchReplacesOldReady",
             "mismatchedIdentityGenerationIncomplete",

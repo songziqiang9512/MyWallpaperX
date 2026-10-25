@@ -28,16 +28,18 @@ import Foundation
             entryURL: URL(fileURLWithPath: "/fixture/index.html"),
             rootURL: URL(fileURLWithPath: "/fixture"), propertiesJSON: "{\"value\":1}",
             source: .steamWorkshop, recordID: "fixture", language: "en-us",
-            runtimeProfile: .standard, multiDisplayEnabled: true)
+            runtimeProfile: .standard, multiDisplayEnabled: true, allowedNetworkHosts: ["example.com"])
         let state = WallpaperEngine.WebWallpaperRuntimeState(paused: true,
             volume: 0.6, playbackRate: 1.25, spectrumLevels: nil)
         let data = try DaemonNewlineJSON.encode(WebDaemonEnvelope(requestID: id,
-            payload: WebDaemonCommand.launch(.init(request, state: state, hosts: ["example.com"]))))
+            payload: WebDaemonCommand.launch(.init(request, state: state))))
         let decoded = try JSONDecoder().decode(WebDaemonEnvelope<WebDaemonCommand>.self, from: data)
         guard case let .launch(launch) = decoded.payload else { fatalError("launch roundtrip") }
         expect(decoded.requestID == id && decoded.version == 2, "envelope identity")
         expect(launch.request(id: id).propertiesJSON == request.propertiesJSON
-            && launch.state.paused && launch.state.playbackRate == 1.25, "immutable launch roundtrip")
+            && launch.state.paused && launch.state.playbackRate == 1.25
+            && launch.allowedNetworkHosts == ["example.com"]
+            && launch.request(id: id).allowedNetworkHosts == request.allowedNetworkHosts, "immutable launch roundtrip")
         expect(launch.request(id: id).resourceLifetime == nil, "leases stay in parent")
 
         var song = SystemMediaSnapshot.empty
@@ -74,17 +76,39 @@ import Foundation
         try pipe.fileHandleForWriting.close()
         expect(consumedWhileOpen, "small controls must not wait for EOF or a full read buffer")
 
-        let mailbox = WebDaemonMailbox()
+        let mailbox = WebDaemonMailbox<Data>()
         var wakes = 0
         for (text, latest) in [("one", true), ("two", true), ("pause", false), ("three", true), ("four", true)] {
-            expect(mailbox.submit(Data(text.utf8), latest: latest, schedule: { wakes += 1 }), "mailbox admission")
+            expect(mailbox.submit(Data(text.utf8), byteCount: text.utf8.count, latest: latest, schedule: { wakes += 1 }), "mailbox admission")
         }
         var controls: [String] = []
         while let item = mailbox.take() { controls.append(String(decoding: item, as: UTF8.self)) }
         expect(controls == ["two", "pause", "four"] && wakes == 1, "control is a latest-value barrier")
-        expect(!mailbox.submit(Data(count: WebDaemonProtocol.maximumFrameBytes + 1), latest: false, schedule: {}), "oversize denied")
+        expect(!mailbox.submit(Data(), byteCount: WebDaemonProtocol.maximumFrameBytes + 1, latest: false, schedule: {}), "oversize denied")
         mailbox.close()
-        expect(!mailbox.submit(Data(), latest: true, schedule: {}), "closed mailbox rejects late work")
+        expect(!mailbox.submit(Data(), byteCount: 0, latest: true, schedule: {}), "closed mailbox rejects late work")
+
+        // Commands cross the same mailbox after one successful native decode;
+        // the consumer receives that value, including its complete properties.
+        let commands = WebDaemonMailbox<WebDaemonCommand>()
+        expect(commands.submit(decoded.payload, byteCount: data.count, latest: false, schedule: {}), "typed launch admission")
+        expect(commands.submit(.runtime(.pushAudioSpectrum([0.1])), byteCount: 32, latest: true, schedule: {}), "first typed spectrum")
+        expect(commands.submit(.runtime(.pushAudioSpectrum([0.2])), byteCount: 32, latest: true, schedule: {}), "latest typed spectrum")
+        expect(commands.submit(.runtime(.pause), byteCount: 16, latest: false, schedule: {}), "pause barrier")
+        expect(commands.submit(.runtime(.pushAudioSpectrum([0.3])), byteCount: 32, latest: true, schedule: {}), "spectrum after barrier")
+        guard case let .launch(current)? = commands.take() else { fatalError("typed launch was lost") }
+        expect(current.propertiesJSON == request.propertiesJSON && current.state.playbackRate == 1.25,
+               "decoded launch payload reaches the native consumer unchanged")
+        guard case let .runtime(.pushAudioSpectrum(spectrumBeforeBarrier))? = commands.take(), spectrumBeforeBarrier == [Float(0.2)],
+              case .runtime(.pause)? = commands.take(),
+              case let .runtime(.pushAudioSpectrum(spectrumAfterBarrier))? = commands.take(), spectrumAfterBarrier == [Float(0.3)] else {
+            fatalError("typed commands lost latest-value/control ordering")
+        }
+        expect(commands.take() == nil, "typed mailbox drained")
+        expect(!commands.submit(.shutdown, byteCount: WebDaemonProtocol.maximumFrameBytes + 1, latest: false, schedule: {}),
+               "typed commands retain original byte-count admission")
+        commands.close()
+        expect(!commands.submit(.shutdown, byteCount: 1, latest: false, schedule: {}), "typed close rejects late commands")
 
         let path = CommandLine.arguments[1]
         let transport = DaemonProcessTransport(executableURL: URL(fileURLWithPath: "/usr/bin/tee"), arguments: [path])
@@ -438,6 +462,7 @@ final class WallpaperEngine {
                 "MyWallpaperX/Core/Playback/SystemMedia/SystemMediaSnapshot.swift",
                 "MyWallpaperX/Core/Playback/SystemMedia/SystemMediaSnapshotStore.swift",
                 "MyWallpaperX/Core/SteamWorkshopWeb/Process/WebDaemonProtocol.swift",
+                "MyWallpaperX/Core/SteamWorkshopStorage/ScenePlaybackSource.swift",
                 "MyWallpaperX/Core/PlaybackControl/PlaybackSurfaceVisibility.swift",
                 "MyWallpaperX/Core/SteamWorkshopWeb/Process/WebDaemonIO.swift",
                 "MyWallpaperX/Core/SteamWorkshopScene/Systems/Media/SceneAudioSpectrum.swift",

@@ -410,6 +410,7 @@ struct MWXSceneQuickJSDomain {
     MWXSceneQuickJSLayerRecord *layers;
     uint32_t layer_count;
     uint32_t authored_layer_count;
+    uint32_t configured_layer_runtime_count;
     MWXSceneQuickJSAssetPathNormalizer asset_path_normalizer;
     MWXSceneQuickJSDynamicImageRecord *dynamic_image_resources;
     uint32_t dynamic_image_resource_count;

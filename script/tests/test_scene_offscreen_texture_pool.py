@@ -110,6 +110,10 @@ class SceneOffscreenTexturePoolTests(unittest.TestCase):
     def tearDownClass(cls) -> None:
         cls.temporary_directory.cleanup()
 
+    def test_static_plan_memo_reuses_only_the_matching_preparation(self) -> None:
+        for name, passed in self.result["staticPlanMemo"].items():
+            self.assertTrue(passed, name)
+
     def test_reflection_resources_are_atomic_budgeted_and_submission_pinned(self) -> None:
         for key, passed in self.result["reflectionResidency"].items():
             self.assertTrue(passed, key)

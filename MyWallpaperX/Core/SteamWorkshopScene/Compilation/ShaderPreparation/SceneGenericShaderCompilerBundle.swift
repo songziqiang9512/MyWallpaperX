@@ -4,7 +4,7 @@ import Security
 /// Resolves only the Developer-ID-signed helpers copied into this App bundle.
 /// Environment variables and authored paths cannot replace these executables.
 nonisolated enum SceneGenericShaderCompilerBundle {
-    struct Limits: Decodable, Equatable {
+    struct Limits: Decodable, Equatable, Sendable {
         let maximumStageSourceBytes: Int
         let maximumDiagnosticBytes: Int
         let maximumArtifactBytes: Int
@@ -12,14 +12,10 @@ nonisolated enum SceneGenericShaderCompilerBundle {
         let timeoutMilliseconds: Int
     }
 
-    struct Configuration {
+    struct Configuration: Sendable {
         let backendID: String
         let glslang: URL
         let spirvCross: URL
-        let glslangVersionProbe: String
-        let glslangVersionProbeExitCode: Int32
-        let spirvCrossVersionProbe: String
-        let spirvCrossVersionProbeExitCode: Int32
         let limits: Limits
     }
 
@@ -37,8 +33,6 @@ nonisolated enum SceneGenericShaderCompilerBundle {
         struct Helper: Decodable {
             let fileName: String
             let revision: String
-            let versionProbeContains: String
-            let versionProbeExitCode: Int32
             let sourceArtifactSHA256: String
         }
 
@@ -57,7 +51,14 @@ nonisolated enum SceneGenericShaderCompilerBundle {
     private static let expectedBackendID = "glslang-spirv-cross-msl-v2"
     private static let expectedTeamID = "H9QWU9XN8R"
 
+    private static let mainConfiguration = resolveUncached(bundle: .main)
+
     static func resolve(bundle: Bundle = .main) -> Result<Configuration, Failure> {
+        if bundle.bundleURL == Bundle.main.bundleURL { return mainConfiguration }
+        return resolveUncached(bundle: bundle)
+    }
+
+    private static func resolveUncached(bundle: Bundle) -> Result<Configuration, Failure> {
         guard let licenseBundleURL = bundle.url(
             forResource: "SceneShaderCompilerLicenses",
             withExtension: "bundle"
@@ -100,10 +101,6 @@ nonisolated enum SceneGenericShaderCompilerBundle {
             backendID: manifest.backendID,
             glslang: glslang,
             spirvCross: spirvCross,
-            glslangVersionProbe: manifest.helpers.glslang.versionProbeContains,
-            glslangVersionProbeExitCode: manifest.helpers.glslang.versionProbeExitCode,
-            spirvCrossVersionProbe: manifest.helpers.spirvCross.versionProbeContains,
-            spirvCrossVersionProbeExitCode: manifest.helpers.spirvCross.versionProbeExitCode,
             limits: manifest.limits
         ))
     }
@@ -117,8 +114,6 @@ nonisolated enum SceneGenericShaderCompilerBundle {
             && manifest.helpers.spirvCross.revision.count == 40
             && manifest.helpers.glslang.sourceArtifactSHA256.count == 64
             && manifest.helpers.spirvCross.sourceArtifactSHA256.count == 64
-            && (0 ... 1).contains(manifest.helpers.glslang.versionProbeExitCode)
-            && (0 ... 1).contains(manifest.helpers.spirvCross.versionProbeExitCode)
             && (1_024 ... 4 * 1_024 * 1_024).contains(
                 manifest.limits.maximumStageSourceBytes
             )

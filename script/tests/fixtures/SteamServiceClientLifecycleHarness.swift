@@ -138,12 +138,59 @@ final class FakeSteamIdleReapTiming: SteamIdleReapTiming {
         await restarting.stop(shutdownTimeout: 0)
         try await explicitStartDuringBackoff()
         try await publicCrashRestartLifecycle()
+        try await dataFrameLifecycle()
         try await authenticationLifecycle()
         try await accountRouteLifecycle()
         try await stagedReceiptLifecycle()
         commandTaxonomyConformance()
         try await helperIdleReapingLifecycle()
         print("Steam client lifecycle: cold start, synchronous reply, cancellation, frame limit, timeout teardown, crash restart, stale callback PASS")
+    }
+
+    @MainActor static func dataFrameLifecycle() async throws {
+        let old = FakeSteamTransport(), current = FakeSteamTransport()
+        var starts = 0, events: [String] = []
+        let client = SteamServiceClient(executablePath: "/fake", maximumRestartAttempts: 0,
+            transportFactory: { _ in starts += 1; return starts == 1 ? old : current })
+        _ = client.addEventObserver { events.append($0.root["marker"]?.stringValue ?? "") }
+        _ = try await client.start()
+        func bytes(_ object: [String: Any]) -> Data {
+            var value = try! JSONSerialization.data(withJSONObject: object)
+            value.append(10)
+            return value
+        }
+        var invalidUTF8 = Data(#"{"v":1,"type":"event","event":"wire","marker":""#.utf8)
+        invalidUTF8.append(0xFF)
+        invalidUTF8.append(Data("\"}\n".utf8))
+        old.onOutput?(invalidUTF8)
+        precondition(events.isEmpty && client.currentIdentity != nil,
+                     "invalid UTF-8 is dropped without ending a valid connection")
+        let unicode = bytes(["v": 1, "type": "event", "event": "wire", "marker": "中文é😀"])
+        for byte in unicode { old.onOutput?(Data([byte])) }
+        precondition(events == ["中文é😀"], "fragmented UTF-8 is decoded only as one complete frame")
+        let staleOutput = old.onOutput!
+        await client.stop(shutdownTimeout: 0)
+        _ = try await client.start()
+        current.replyOnSend = false
+        var completed = false
+        let pending = Task {
+            defer { completed = true }
+            return try await client.request(command: "ping", timeout: nil)
+        }
+        while current.requests.isEmpty { await Task.yield() }
+        let requestID = current.requests.last!["requestId"]!
+        staleOutput(bytes(["v": 1, "type": "result", "requestId": requestID,
+                           "ok": true, "data": ["marker": "stale"]]))
+        staleOutput(bytes(["v": 1, "type": "event", "event": "wire", "marker": "stale"]))
+        await Task.yield()
+        precondition(!completed && events == ["中文é😀"], "old transport cannot consume current request IDs or events")
+        current.emit(["v": 1, "type": "result", "requestId": requestID,
+                      "ok": true, "data": ["marker": "current"]])
+        let response = try await pending.value
+        precondition(response.root["data"]?.objectValue?["marker"]?.stringValue == "current")
+        current.emit(["v": 1, "type": "event", "event": "wire", "marker": "current"])
+        precondition(events == ["中文é😀", "current"])
+        await client.stop(shutdownTimeout: 0)
     }
 
     // MARK: - commands.json taxonomy conformance（fixture 做双端相等锚）

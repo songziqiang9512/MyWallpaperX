@@ -1,5 +1,4 @@
 import Foundation
-import CryptoKit
 import Darwin
 
 /// The existing metadata index publishes this pointer. Version directories alone are never ready.
@@ -20,6 +19,7 @@ nonisolated struct SteamWorkshopLibraryCommit: Codable, Equatable, Sendable {
     let committedAt: Date
     var removed: Bool = false
     var generation: String? = nil
+    var sceneReceipt: SceneSourceReceiptReference? = nil
 }
 
 /// Disk preparation is detached from UI. Publication is a small, synchronous operation performed
@@ -29,7 +29,7 @@ nonisolated enum SteamWorkshopLibraryTransaction {
     static let versionsName = ".mywallpaperx-steam-versions"
     static let incomingName = ".mywallpaperx-steam-incoming"
     static let metadataName = ".mywallpaperx-steam-metadata"
-    static let ownershipMarkerName = ".mywallpaperx-steam-version.json"
+    static let ownershipMarkerName = SteamWorkshopStorageTree.ownershipMarkerName
     static let retiredPrefix = ".retired-"
     static let maxBytes = 8 * 1024 * 1024 * 1024
     static let maximumRetainedBytesBeforeAdmissions = 16 * 1024 * 1024 * 1024
@@ -51,134 +51,34 @@ nonisolated enum SteamWorkshopLibraryTransaction {
         "web": "Web",
         "scene": "Scene",
     ]
-    final class FD {
-        let value: Int32
-        init(_ value: Int32) throws {
-            guard value >= 0 else { throw Failure(message: "文件操作失败：\(String(cString: strerror(errno)))") }
-            self.value = value
-        }
-        deinit { close(value) }
-    }
+    typealias FD = SteamWorkshopStorageTree.FD
+    typealias FileEntry = SteamWorkshopStorageTree.FileEntry
     static func require(_ condition: Bool, _ message: String = "下载内容或文件路径校验失败。") throws {
         guard condition else { throw Failure(message: message) }
     }
     private static func parts(_ path: String) throws -> [String] {
-        let values = path.replacingOccurrences(of: "\\", with: "/").split(separator: "/", omittingEmptySubsequences: false).map(String.init)
-        try require(!values.isEmpty && values.count <= 64 && path.utf8.count <= 16384)
-        try require(values.allSatisfy { !$0.isEmpty && $0 != "." && $0 != ".." && !$0.contains(":") && !$0.utf8.contains(0) })
-        return values
+        try SteamWorkshopStorageTree.parts(path)
     }
     static func directory(_ parent: FD, _ name: String, create: Bool = false, exclusive: Bool = false) throws -> FD {
-        if create && mkdirat(parent.value, name, 0o700) != 0 {
-            try require(!exclusive && errno == EEXIST, "无法创建下载版本目录。")
-        }
-        return try FD(openat(parent.value, name, O_RDONLY | O_DIRECTORY | O_NOFOLLOW | O_CLOEXEC))
+        try SteamWorkshopStorageTree.directory(parent, name, create: create, exclusive: exclusive)
     }
     static func absoluteDirectory(_ url: URL, create: Bool = false) throws -> FD {
-        try require(url.isFileURL && url.path.hasPrefix("/"))
-        var fd = try FD(open("/", O_RDONLY | O_DIRECTORY | O_CLOEXEC))
-        for part in try parts(String(url.path.dropFirst())) {
-            fd = try directory(fd, part, create: create)
-        }
-        return fd
+        try SteamWorkshopStorageTree.absoluteDirectory(url, create: create)
     }
     static func info(_ fd: FD, regular: Bool) throws -> stat {
-        var value = stat()
-        try require(fstat(fd.value, &value) == 0)
-        try require((value.st_mode & S_IFMT) == (regular ? S_IFREG : S_IFDIR))
-        if regular { try require(value.st_nlink == 1 && value.st_size >= 0, "拒绝链接或特殊下载文件。") }
-        return value
+        try SteamWorkshopStorageTree.info(fd, regular: regular)
     }
-    static func openFile(_ root: FD, _ path: String, create: Bool = false) throws -> FD {
-        let components = try parts(path)
-        var parent = root
-        for part in components.dropLast() { parent = try directory(parent, part, create: create) }
-        let flags = O_NOFOLLOW | O_CLOEXEC | O_NONBLOCK | (create ? O_WRONLY | O_CREAT | O_EXCL : O_RDONLY)
-        let fd = try FD(openat(parent.value, components.last!, flags, mode_t(0o600)))
-        _ = try info(fd, regular: true)
-        return fd
+    static func openFile(_ root: FD, _ path: String, create: Bool = false, readableOutput: Bool = false) throws -> FD {
+        try SteamWorkshopStorageTree.openFile(root, path, create: create, readableOutput: readableOutput)
     }
-    private struct FileEntry { let path: String; let size: Int64; let isDirectory: Bool }
     private static func files(_ root: FD, topLevelLimit: Int? = nil) throws -> [FileEntry] {
-        var result: [FileEntry] = []
-        var count = 0
-        var topLevelCount = 0
-        var pathBytes = 0
-        func walk(_ fd: FD, prefix: String, depth: Int) throws {
-            try Task.checkCancellation()
-            try require(depth <= 64)
-            let duplicate = dup(fd.value)
-            guard duplicate >= 0 else { throw Failure(message: "无法枚举下载目录。") }
-            guard let stream = fdopendir(duplicate) else { close(duplicate); throw Failure(message: "无法枚举下载目录。") }
-            defer { closedir(stream) }
-            while true {
-                errno = 0
-                guard let entry = readdir(stream) else {
-                    try require(errno == 0, "下载目录枚举失败。")
-                    break
-                }
-                let name = withUnsafePointer(to: &entry.pointee.d_name) {
-                    $0.withMemoryRebound(to: CChar.self, capacity: Int(MAXNAMLEN) + 1) { String(cString: $0) }
-                }
-                if name == "." || name == ".." { continue }
-                if depth == 0 {
-                    topLevelCount += 1
-                    if let topLevelLimit { try require(topLevelCount < topLevelLimit, "保留的下载/版本目录达到数量预算。") }
-                }
-                let path = prefix + name
-                _ = try parts(path)
-                count += 1; pathBytes += path.utf8.count
-                try require(count <= 200_000 && pathBytes <= 8 * 1024 * 1024)
-                var value = stat()
-                try require(fstatat(fd.value, name, &value, AT_SYMLINK_NOFOLLOW) == 0)
-                switch value.st_mode & S_IFMT {
-                case S_IFDIR:
-                    result.append(FileEntry(path: path, size: 0, isDirectory: true))
-                    try walk(directory(fd, name), prefix: path + "/", depth: depth + 1)
-                case S_IFREG:
-                    try require(value.st_nlink == 1 && value.st_size >= 0)
-                    result.append(FileEntry(path: path, size: value.st_size, isDirectory: false))
-                default: throw Failure(message: "下载目录包含链接或特殊文件。")
-                }
-            }
-        }
-        try walk(root, prefix: "", depth: 0)
-        return result.sorted {
-            $0.path.precomposedStringWithCanonicalMapping.utf8.lexicographicallyPrecedes($1.path.precomposedStringWithCanonicalMapping.utf8)
-        }
+        try SteamWorkshopStorageTree.files(root, topLevelLimit: topLevelLimit, checkCancellation: { try Task.checkCancellation() })
     }
     static func write(_ data: Data, to fd: FD) throws {
-        try data.withUnsafeBytes { buffer in
-            var offset = 0
-            while offset < buffer.count {
-                let n = Darwin.write(fd.value, buffer.baseAddress!.advanced(by: offset), buffer.count - offset)
-                if n < 0 && errno == EINTR { continue }
-                try require(n > 0, "下载入库写入失败，可能没有足够磁盘空间。")
-                offset += n
-            }
-        }
+        try SteamWorkshopStorageTree.write(data, to: fd)
     }
     static func readData(_ fd: FD, maximumBytes: Int) throws -> Data {
-        let before = try info(fd, regular: true)
-        try require(before.st_size >= 0 && before.st_size <= maximumBytes, "下载记录超出读取预算。")
-        var data = Data(count: Int(before.st_size))
-        try data.withUnsafeMutableBytes { buffer in
-            var offset = 0
-            while offset < buffer.count {
-                let count = Darwin.read(fd.value, buffer.baseAddress!.advanced(by: offset), buffer.count - offset)
-                if count < 0 && errno == EINTR { continue }
-                try require(count > 0, "下载记录读取不完整。")
-                offset += count
-            }
-        }
-        let after = try info(fd, regular: true)
-        try require(samePinnedFileSnapshot(after, before),
-            "下载记录在读取期间发生变化。")
-        return data
-    }
-    private static func littleEndian<T: FixedWidthInteger>(_ value: T) -> Data {
-        var value = value.littleEndian
-        return withUnsafeBytes(of: &value) { Data($0) }
+        try SteamWorkshopStorageTree.readData(fd, maximumBytes: maximumBytes)
     }
 
     static func publicTypeDirectoryName(for contentType: String) throws -> String {
@@ -288,7 +188,9 @@ nonisolated enum SteamWorkshopLibraryTransaction {
 
     private static func writeMarker(_ commit: SteamWorkshopLibraryCommit, to root: FD) throws {
         let file = try openFile(root, ownershipMarkerName, create: true)
-        try write(try JSONEncoder().encode(commit), to: file)
+        let data = try JSONEncoder().encode(commit)
+        try require(data.count <= 16 * 1024, "下载版本标记超过预算。")
+        try write(data, to: file)
         try require(fsync(file.value) == 0, "下载版本标记无法同步到磁盘。")
     }
 
@@ -422,13 +324,12 @@ nonisolated enum SteamWorkshopLibraryTransaction {
     /// The public layout is still a version store. Count v1 compatibility,
     /// crash-orphan incoming and every reserved v2 generation before admitting
     /// another full copy; unrelated user folders in the public roots are not owned.
-    private static func admitLibraryRetainedBytes(in library: FD, adding bytes: Int64) throws {
-        try require(bytes >= 0 && bytes <= Int64(maxBytes))
+    static func libraryRetainedBytes(in library: FD) throws -> Int64 {
         var total: Int64 = 0
         func add(_ amount: Int64) throws {
-            try require(amount >= 0
-                && amount <= Int64(maximumRetainedBytesBeforeAdmissions) - total,
-                "保留的下载/版本已达到磁盘预算；请先处理旧任务和版本。")
+            guard amount >= 0 && amount <= Int64(maximumRetainedBytesBeforeAdmissions) - total else {
+                throw Failure(message: "保留的下载/版本已达到磁盘预算；请先处理旧任务和版本。")
+            }
             total += amount
         }
         func addTree(_ root: FD, topLevelLimit: Int? = nil) throws {
@@ -452,7 +353,13 @@ nonisolated enum SteamWorkshopLibraryTransaction {
                 try addTree(managed)
             }
         }
-        try add(bytes)
+        return total
+    }
+    private static func admitLibraryRetainedBytes(in library: FD, adding bytes: Int64) throws {
+        let retained = try libraryRetainedBytes(in: library)
+        guard bytes >= 0 && bytes <= Int64(maximumRetainedBytesBeforeAdmissions) - retained else {
+            throw Failure(message: "保留的下载/版本已达到磁盘预算；请先处理旧任务和版本。")
+        }
     }
 
     static func availableDiskBytes(at root: URL) throws -> Int64 {
@@ -609,11 +516,12 @@ nonisolated enum SteamWorkshopLibraryTransaction {
                                     libraryRoot: URL) throws -> SteamWorkshopLibraryCommit {
         let sourceURL = try contentURL(for: commit, libraryRoot: libraryRoot)
         let total = try migrationRequiredBytes(for: commit, libraryRoot: libraryRoot)
+        // Migrate the current files; the old commit digest is not their identity.
         return try prepareSource(
             sourceURL: sourceURL,
             expectedSourceIdentity: nil,
             verifiedBytes: total,
-            expectedDigest: commit.contentDigest,
+            expectedDigest: nil,
             workshopId: commit.workshopId,
             jobId: commit.jobId,
             attempt: commit.attempt,
@@ -625,7 +533,7 @@ nonisolated enum SteamWorkshopLibraryTransaction {
 
     private static func prepareSource(sourceURL: URL,
                                       expectedSourceIdentity: SteamWorkshopStagingLeaseIdentity?,
-                                      verifiedBytes: Int64, expectedDigest: String,
+                                      verifiedBytes: Int64, expectedDigest: String?,
                                       workshopId: String, jobId: String, attempt: Int,
                                       manifestId: String, committedAt: Date,
                                       libraryRoot: URL) throws -> SteamWorkshopLibraryCommit {
@@ -638,7 +546,8 @@ nonisolated enum SteamWorkshopLibraryTransaction {
             try require(sameDirectory(sourceInfo, as: expectedSourceIdentity),
                         "下载暂存目录已被同名替换，拒绝入库。")
         }
-        let inventory = try files(source)
+        let inventory = try SteamWorkshopStorageTree.files(source,
+            checkCancellation: { try Task.checkCancellation() })
         try require(!inventory.contains { $0.path == ownershipMarkerName }, "下载内容使用了保留标记名。")
         let library = try absoluteDirectory(libraryRoot, create: true)
         try admitLibraryRetainedBytes(in: library, adding: verifiedBytes)
@@ -668,8 +577,16 @@ nonisolated enum SteamWorkshopLibraryTransaction {
         }
         let destination = try directory(version, "content", create: true, exclusive: true)
         var total: Int64 = 0
-        var tree = SHA256()
-        for entry in inventory {
+        var fileFacts: [SceneSourceManifest.FileFact] = []
+        // Parse the small project first; the complete download digest below
+        // still folds every copied author file in the original NFC/UTF8 order.
+        guard let projectEntry = inventory.first(where: { $0.path == "project.json" && !$0.isDirectory }) else {
+            throw Failure(message: "下载项目缺少 project.json。")
+        }
+        var project: [String: Any] = [:]
+        var contentType = ""
+        let copyOrder = [projectEntry] + inventory.filter { $0.path != "project.json" }
+        for entry in copyOrder {
             try Task.checkCancellation()
             if entry.isDirectory {
                 var parent = destination
@@ -678,61 +595,34 @@ nonisolated enum SteamWorkshopLibraryTransaction {
             }
             try require(entry.size <= Int64(maxBytes) - total)
             let input = try openFile(source, entry.path)
-            let before = try info(input, regular: true)
-            try require(before.st_size == entry.size)
-            let output = try openFile(destination, entry.path, create: true)
-            var remaining = entry.size
-            var hash = SHA256()
-            var bytes = [UInt8](repeating: 0, count: 64 * 1024)
-            while remaining > 0 {
-                try Task.checkCancellation()
-                let n = read(input.value, &bytes, min(bytes.count, Int(remaining)))
-                if n < 0 && errno == EINTR { continue }
-                try require(n > 0, "下载源文件在入库时被截断。")
-                let data = Data(bytes.prefix(n))
-                hash.update(data: data)
-                try write(data, to: output)
-                remaining -= Int64(n)
-            }
-            let after = try info(input, regular: true)
-            try require(after.st_size == before.st_size && after.st_mtimespec.tv_sec == before.st_mtimespec.tv_sec
-                && after.st_mtimespec.tv_nsec == before.st_mtimespec.tv_nsec)
+            let output = try openFile(destination, entry.path, create: true, readableOutput: true)
+            let fact = try SteamWorkshopStorageTree.streamFile(input, entry: entry, output: output,
+                                                              checkCancellation: { try Task.checkCancellation() })
             try require(fsync(output.value) == 0, "下载文件无法同步到磁盘。")
-            let path = Data(entry.path.precomposedStringWithCanonicalMapping.utf8)
-            tree.update(data: littleEndian(UInt32(path.count))); tree.update(data: path)
-            tree.update(data: littleEndian(UInt64(entry.size))); tree.update(data: Data(hash.finalize()))
+            fileFacts.append(fact)
             total += entry.size
-        }
-        let digest = tree.finalize().map { String(format: "%02x", $0) }.joined()
-        try require(total == verifiedBytes && digest == expectedDigest, "下载内容在入库前发生变化。")
-        // Bounded project parsing from the newly copied, descriptor-anchored version.
-        let projectFD = try openFile(destination, "project.json")
-        let projectSize = try info(projectFD, regular: true).st_size
-        try require(projectSize > 0 && projectSize <= 1024 * 1024, "project.json 超出解析预算。")
-        var projectData = Data(count: Int(projectSize))
-        try projectData.withUnsafeMutableBytes { buffer in
-            var offset = 0
-            while offset < buffer.count {
-                try Task.checkCancellation()
-                let n = read(projectFD.value, buffer.baseAddress!.advanced(by: offset), buffer.count - offset)
-                if n < 0 && errno == EINTR { continue }
-                try require(n > 0, "project.json 读取不完整。")
-                offset += n
+            if entry.path == "project.json" {
+                try require(entry.size > 0 && entry.size <= 1024 * 1024, "project.json 超出解析预算。")
+                let data = try SteamWorkshopStorageTree.readData(output, maximumBytes: 1024 * 1024,
+                                                                 checkCancellation: { try Task.checkCancellation() })
+                guard let value = try JSONSerialization.jsonObject(with: data) as? [String: Any],
+                      let rawType = value["type"] as? String else {
+                    throw Failure(message: "下载项目缺少有效的 scene/web/video 类型。")
+                }
+                project = value
+                contentType = rawType.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
+                try require(["scene", "web", "video"].contains(contentType), "下载项目缺少有效的 scene/web/video 类型。")
             }
         }
-        guard let project = try JSONSerialization.jsonObject(with: projectData) as? [String: Any],
-              let rawType = project["type"] as? String else {
-            throw Failure(message: "下载项目缺少有效的 scene/web/video 类型。")
+        let digest = try SteamWorkshopStorageTree.treeDigest(fileFacts)
+        try require(total == verifiedBytes, "下载内容在入库前发生变化。")
+        if let expectedDigest {
+            try require(digest == expectedDigest, "下载内容在入库前发生变化。")
         }
-        let contentType = rawType.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
-        try require(["scene", "web", "video"].contains(contentType),
-            "下载项目缺少有效的 scene/web/video 类型。")
         let entry = (project["file"] as? String)?
             .trimmingCharacters(in: .whitespacesAndNewlines)
             .replacingOccurrences(of: "\\", with: "/")
         if let entry { _ = try parts(entry) }
-        if let preview = (project["preview"] as? String)?.trimmingCharacters(in: .whitespacesAndNewlines),
-           !preview.isEmpty { _ = try parts(preview) }
         let dependency: String? = {
             if let value = project["dependency"] as? String {
                 return value.trimmingCharacters(in: .whitespacesAndNewlines)
@@ -771,6 +661,7 @@ nonisolated enum SteamWorkshopLibraryTransaction {
             entryPath: entry,
             committedAt: committedAt
         )
+        try admitLibraryRetainedBytes(in: library, adding: Int64(try JSONEncoder().encode(commit).count))
         try writeMarker(commit, to: destination)
         try require(fsync(destination.value) == 0, "下载版本目录无法同步到磁盘。")
         try require(renameatx_np(version.value, "content", typeDirectory.value, finalDirectoryName, UInt32(RENAME_EXCL)) == 0,

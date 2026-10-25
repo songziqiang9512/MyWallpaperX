@@ -137,11 +137,6 @@ final class AppKitSteamWorkshopItemDetailView: NSView {
         return latestDownloadRecord
     }
 
-    var webProjectDescriptor: ResolvedWebProjectDescriptor? {
-        guard let webDownloadRecord else { return nil }
-        return service.resolvedWebProjectDescriptor(for: webDownloadRecord)
-    }
-
     private var isRefreshingDetail: Bool {
         if service.selectedDownloadInspectorItem?.id == currentItem.id {
             return service.isRefreshingSelectedDownloadDetailItem

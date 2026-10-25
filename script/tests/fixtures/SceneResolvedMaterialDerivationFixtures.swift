@@ -306,6 +306,10 @@ func resolvedUniforms(
             switch host {
             case .renderSize:
                 value = data(SIMD2<Float>(1920, 1080))
+            case .vertexCoordinates01:
+                value = data(SIMD4<Float>(0, 1, 1, 1))
+            case .vertexCoordinates23:
+                value = data(SIMD4<Float>(0, 0, 1, 0))
             default:
                 fatalError("unexpected host field \(field.name)")
             }

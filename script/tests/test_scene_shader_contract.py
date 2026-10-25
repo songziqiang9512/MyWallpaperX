@@ -79,8 +79,8 @@ private struct ShaderContractHarness {
             "foo/genericimage2"
         ]
         let loader = SceneShaderContractLoader()
-        let contracts = loader.load(shaderReferences: references, rootURL: rootURL)
-        let reversed = loader.load(shaderReferences: references.reversed(), rootURL: rootURL)
+        let contracts = try loader.load(shaderReferences: references, rootURL: rootURL)
+        let reversed = try loader.load(shaderReferences: references.reversed(), rootURL: rootURL)
         let reversedCanonical = Dictionary(
             uniqueKeysWithValues: reversed.map { ($0.identity, $0.canonicalSHA256) }
         )
@@ -96,7 +96,7 @@ private struct ShaderContractHarness {
             [SceneShaderContract].self,
             from: encodedContracts
         )
-        let mixedContract = loader.load(
+        let mixedContract = try loader.load(
             shaderReferences: ["effects/mixed"],
             resourceView: SceneResourceView(
                 projectRootURL: rootURL.appendingPathComponent("mixed-loose"),
@@ -104,7 +104,7 @@ private struct ShaderContractHarness {
                 stockAssetsRootURL: nil
             )
         ).first
-        let packageVertexContract = loader.load(
+        let packageVertexContract = try loader.load(
             shaderReferences: ["effects/packagevertex"],
             resourceView: SceneResourceView(
                 projectRootURL: rootURL.appendingPathComponent("mixed-loose"),
@@ -112,7 +112,7 @@ private struct ShaderContractHarness {
                 stockAssetsRootURL: nil
             )
         ).first
-        let large = loader.load(
+        let large = try loader.load(
             shaderReferences: ["effects/large"],
             rootURL: rootURL
         ).first
@@ -123,7 +123,7 @@ private struct ShaderContractHarness {
             default: return false
             }
         } ?? false
-        let hidden = loader.load(
+        let hidden = try loader.load(
             shaderReferences: [".hidden/effects/foo"],
             resourceView: SceneResourceView(
                 projectRootURL: rootURL.appendingPathComponent("hidden-loose"),

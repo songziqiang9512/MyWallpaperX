@@ -78,8 +78,10 @@ enum Harness {
         let leftPlan = plan(mode: 1, bounds: .vector([0, 1]), exponent: 2)
         let rightPlan = plan(mode: 2, bounds: .vector([0, 1]), exponent: 2)
         let centerPlan = plan(mode: 3, bounds: .vector([0, 1]), exponent: 2)
+#if DEBUG
         let publishedSilenceEvaluation = centerPlan
             .evaluateForExecutionObservation(publishedSilence)
+#endif
 
         var silentEmitter = simulator(emitterJSON, seed: 1, step: 0.1)
         var activeEmitter = simulator(emitterJSON, seed: 1, step: 0.1)
@@ -117,6 +119,7 @@ enum Harness {
         silentVortex.advance(by: 1, audioInput: silence)
         activeVortex.advance(by: 1, audioInput: active)
 
+#if DEBUG
         let emitterObservations = activeEmitter.consumeAudioEvaluationObservations()
         let initializerObservations = activeInitializer.consumeAudioEvaluationObservations()
         let turbulenceObservations = activeTurbulence.consumeAudioEvaluationObservations()
@@ -131,14 +134,13 @@ enum Harness {
             .consumeAudioEvaluationObservations().count
         rollbackEmitter.advance(by: 0.1, audioInput: active)
         let retryObservations = rollbackEmitter.consumeAudioEvaluationObservations()
+#endif
 
-        let payload: [String: Any] = [
+        var payload: [String: Any] = [
             "leftResponse": leftPlan.evaluate(asymmetric),
             "rightResponse": rightPlan.evaluate(asymmetric),
             "centerResponse": centerPlan.evaluate(asymmetric),
-            "publishedSilenceResponse": publishedSilenceEvaluation.response,
-            "publishedSilenceSelectedNonZero": publishedSilenceEvaluation
-                .selectedNonZeroInputCount,
+            "publishedSilenceResponse": centerPlan.evaluate(publishedSilence),
             "invalidPlans": invalidPlans(),
             "silentEmitterCount": silentEmitter.particles.count,
             "activeEmitterCount": activeEmitter.particles.count,
@@ -150,23 +152,25 @@ enum Harness {
             "initializerActive": vector(activeInitializer.particles[0].velocity),
             "zeroPhaseStable": zeroPhaseSilent.particles == zeroPhaseActive.particles,
             "publishedSilenceInitializerCount": publishedSilenceInitializer.particles.count,
-            "publishedSilenceObservationCount": publishedSilenceInitializer
-                .consumeAudioEvaluationObservations().count,
             "turbulenceSilent": vector(silentTurbulence.particles[0].velocity),
             "turbulenceActive": vector(activeTurbulence.particles[0].velocity),
             "vortexSilent": vector(silentVortex.particles[0].velocity),
             "vortexActive": vector(activeVortex.particles[0].velocity),
             "vortexDiagnostics": activeVortex.diagnostics.map(\.kind.rawValue).sorted(),
-            "audioObservations": [
+        ]
+#if DEBUG
+        payload["publishedSilenceSelectedNonZero"] = publishedSilenceEvaluation.selectedNonZeroInputCount
+        payload["publishedSilenceObservationCount"] = publishedSilenceInitializer.consumeAudioEvaluationObservations().count
+        payload["audioObservations"] = [
                 emitterObservations,
                 initializerObservations,
                 turbulenceObservations,
                 vortexObservations,
-            ].flatMap { $0 }.map { observation($0) },
-            "rejectedObservationCount": rejectedObservationCount,
-            "observationsAfterRestore": observationsAfterRestore,
-            "retryObservations": retryObservations.map { observation($0) },
-        ]
+            ].flatMap { $0 }.map { observation($0) }
+        payload["rejectedObservationCount"] = rejectedObservationCount
+        payload["observationsAfterRestore"] = observationsAfterRestore
+        payload["retryObservations"] = retryObservations.map { observation($0) }
+#endif
         let data = try JSONSerialization.data(withJSONObject: payload, options: [.sortedKeys])
         print(String(decoding: data, as: UTF8.self))
     }
@@ -214,6 +218,7 @@ enum Harness {
         [value.x, value.y, value.z]
     }
 
+#if DEBUG
     private static func observation(
         _ value: SceneParticleAudioEvaluationObservation
     ) -> [String: Any] {
@@ -227,6 +232,7 @@ enum Harness {
             "selectedNonZero": value.selectedNonZeroInputCount,
         ]
     }
+#endif
 
     private static let emitterJSON = #"""
     {"material":"p.json","maxcount":100,
@@ -282,18 +288,19 @@ class SceneParticleAudioResponseTests(unittest.TestCase):
         directory = Path(cls.temporary_directory.name)
         harness = directory / "Harness.swift"
         harness.write_text(HARNESS_SOURCE, encoding="utf-8")
-        binary = directory / "scene-particle-audio-response"
-        compilation = subprocess.run(
-            ["/usr/bin/swiftc", *map(str, SWIFT_SOURCES), str(harness), "-o", str(binary)],
-            capture_output=True,
-            text=True,
-        )
-        if compilation.returncode != 0:
-            raise RuntimeError(compilation.stderr)
-        completed = subprocess.run(
-            [str(binary)], check=True, capture_output=True, text=True
-        )
-        cls.result = json.loads(completed.stdout)
+        results = {}
+        for mode, flags in [("debug", ["-D", "DEBUG"]), ("release", ["-O"])]:
+            binary = directory / ("scene-particle-audio-response-" + mode)
+            compilation = subprocess.run(
+                ["/usr/bin/swiftc", *flags, *map(str, SWIFT_SOURCES), str(harness), "-o", str(binary)],
+                capture_output=True, text=True,
+            )
+            if compilation.returncode != 0:
+                raise RuntimeError(compilation.stderr)
+            completed = subprocess.run([str(binary)], check=True, capture_output=True, text=True)
+            results[mode] = json.loads(completed.stdout)
+        cls.result = results["debug"]
+        cls.release_result = results["release"]
 
     @classmethod
     def tearDownClass(cls) -> None:
@@ -306,6 +313,13 @@ class SceneParticleAudioResponseTests(unittest.TestCase):
         self.assertEqual(self.result["publishedSilenceResponse"], 0)
         self.assertEqual(self.result["publishedSilenceSelectedNonZero"], 0)
         self.assertEqual(self.result["invalidPlans"], [True] * 4)
+
+    def test_release_has_identical_audio_and_simulation_results_without_observation(self) -> None:
+        observation_keys = {"publishedSilenceSelectedNonZero", "publishedSilenceObservationCount",
+            "audioObservations", "rejectedObservationCount", "observationsAfterRestore", "retryObservations"}
+        self.assertTrue(observation_keys.isdisjoint(self.release_result))
+        self.assertEqual(self.release_result, {key: value for key, value in self.result.items()
+            if key not in observation_keys})
 
     def test_emitter_is_silent_without_audio_and_partition_stable(self) -> None:
         self.assertEqual(self.result["silentEmitterCount"], 0)

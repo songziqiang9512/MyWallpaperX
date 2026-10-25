@@ -18,7 +18,7 @@ import unittest
 from script.web_benchmark_capture import png_rgb_pixels
 from .test_scene_composition_authored_order_integration import encoded
 from .test_scene_fullscreen_visibility_integration import app_hashes, file_hashes
-from .test_scene_pkg_cache_extractor import make_package
+from .scene_pkg_fixture import make_package
 
 
 SCRIPT = """export function init(value) {

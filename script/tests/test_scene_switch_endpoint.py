@@ -17,7 +17,9 @@ def method(source, signature):
 
 SUPPORT = r'''
 import Foundation
-struct ScenePlaybackLoadRequest {let recordID:String?; var rootURL=URL(fileURLWithPath:"/version")}
+import CoreFoundation
+@MainActor final class DaemonPlaybackProcessRegistry {static let shared=DaemonPlaybackProcessRegistry();var acceptsNewProcesses=true}
+struct ScenePlaybackLoadRequest {let recordID:String?; var rootURL=URL(fileURLWithPath:"/version");var source:ScenePlaybackSource?=nil}
 final class PlaybackResourceLifetime {}
 final class DaemonProcessTransport {
     var isRunning=true;var terminations=0;func terminate(){terminations += 1};func closeIO(){}
@@ -35,7 +37,9 @@ struct Reachability:Codable {
 typealias ScenePreparedCallbackPropertyReachability=Reachability
 enum Outcome {case superseded,failed(String)}
 struct Backoff {mutating func reset(){}}
-enum SceneDaemonProtocol {static let version=2}
+enum SceneDaemonProtocol {static let version=2
+// PROTOCOL_BOOLEAN
+}
 enum NSScreen {static let screens=[1,2]}
 struct SceneScreenTopology:Equatable {
     let id:Int
@@ -46,7 +50,7 @@ extension Notification.Name {
     static let sceneWallpaperFirstFrameDidPresent=Notification.Name("frame")
 }
 @MainActor final class SceneDaemonClient {
-    struct Lifetime {let lifetime:PlaybackResourceLifetime}
+    struct Lifetime {let lifetime:PlaybackResourceLifetime;var source:ScenePlaybackSource?=nil}
     struct Facts {let transportGeneration:UInt64;let requestID:UUID;let recordID:String?;let reachability:Reachability}
     var activeIntent:ScenePlaybackLoadRequest?
     var pendingIntent:ScenePlaybackLoadRequest?
@@ -60,6 +64,14 @@ extension Notification.Name {
     var activeRecordID:String?
     var activeRequestID:UUID?
     var sessionGeneration:UInt64=1
+    #if DEBUG
+    var debugStartupObserver:((SceneDaemonStartupObservation)->Void)?
+    var debugStartupPrefixObserver:((SceneDaemonStartupPrefixObservation)->Void)?
+    var debugProcessIdentifier:Int32? {123}
+    #endif
+    var requestRetirementSchemaVersion:Int?
+    var idleTransport:IdleTransport?
+    var sourceSchemaVersion:Int?
     var endpointReady=true
     var transport:DaemonProcessTransport?=DaemonProcessTransport()
     var activeSwitchTicket:PlaybackSwitchTicket?
@@ -90,8 +102,8 @@ extension Notification.Name {
     var requestResourceLifetimes:[UUID:PlaybackResourceLifetime]=[:]
     var restarts:[String]=[]
     var captureCompletion:(()->Void)?
-    func retainResourceLifetime(_ value:PlaybackResourceLifetime?,rootURL:URL,recordID:String?) {
-        pendingResourceLifetime=value.map{Lifetime(lifetime:$0)}
+    func retainResourceLifetime(_ value:PlaybackResourceLifetime?,rootURL:URL,recordID:String?,source:ScenePlaybackSource?=nil) {
+        pendingResourceLifetime=value.map{Lifetime(lifetime:$0,source:source)}
     }
     func startLaunch(_ request:ScenePlaybackLoadRequest,ticket:PlaybackSwitchTicket?) {
         pendingIntent=request;pendingSwitchTicket=ticket
@@ -100,6 +112,7 @@ extension Notification.Name {
     func finishPendingShortcutUpdates(_ outcome: Outcome) {}
     func send(_ value:[String:Any]) {sent.append(value)}
     func stop() {
+        discardIdleTransport();requestRetirementSchemaVersion=nil
         stopped += 1;pendingIntent=nil;pendingRequestID=nil;pendingSwitchTicket=nil
         pendingSwitchExecution=nil;activeSwitchExecution=nil;activeIntent=nil;transport=nil
         queuedSwitchPreparation=nil
@@ -220,7 +233,7 @@ HARNESS = r'''
         precondition(client.deferredDisplayConfigurationUpdate && client.displayUpdates == 0
             && client.pendingRequestID == thirdID,"topology must not revoke visible product commitment")
         var oldRetired=false
-        first.retire{oldRetired=true}
+        first.retire(nil) {oldRetired=true}
         let retirement=client.sent.last!
         precondition(!oldRetired && client.activeRequestID == id && client.stopped == 0,
             "same-engine old standby remains until activity ACK and successor finalize")
@@ -233,13 +246,13 @@ HARNESS = r'''
             && client.displayConfiguration.count == 2,"finalize flushes latest display policy before queued prepare")
         client.pendingIntent=nil;client.pendingSwitchTicket=nil // leaf startLaunch in this harness does no IPC
         var retired=false
-        first.retire{retired=true}
+        first.retire(nil) {retired=true}
         precondition(retired && client.stopped == 0 && client.activeRequestID == thirdID,
                      "retire of replaced endpoint cannot stop newer same-engine execution")
 
         let oldChild=client.transport!
         var exitedRetirement=false
-        third.retire{exitedRetirement=true}
+        third.retire(nil) {exitedRetirement=true}
         precondition(!exitedRetirement && client.stopped == 1,
             "cross-engine retirement waits for actual child exit")
         oldChild.isRunning=false
@@ -270,6 +283,29 @@ HARNESS = r'''
 #else
         precondition(standalone.sent.isEmpty,"production without product owner must not auto-activate")
 #endif
+        do {
+            let a=PlaybackSwitchTicket(epoch:40,id:UUID(),runtime:.scene)
+            let b=PlaybackSwitchTicket(epoch:41,id:UUID(),runtime:.scene)
+            let lease=PlaybackResourceLifetime()
+            let capturedSource=ScenePlaybackSource(rootURL:URL(fileURLWithPath:"/version"),managed:.init(
+                storageIdentity:"v2:scene:123-11111111-1111-4111-8111-111111111111",
+                generation:"11111111-1111-4111-8111-111111111111"))
+            let sourceClient=SceneDaemonClient()
+            let visible=SceneDaemonClient.SwitchExecution(ticket:a,requestID:UUID(),generation:1,transport:sourceClient.transport!)
+            visible.presented=true;sourceClient.pendingSwitchExecution=visible
+            var selected=ScenePlaybackLoadRequest(recordID:"same-path");selected.source=capturedSource
+            sourceClient.prepareSwitch(selected,ticket:b,resourceLifetime:lease)
+            precondition(sourceClient.queuedSwitchPreparation?.request.source == capturedSource)
+            sourceClient.adoptQueuedSwitchPreparationForRecovery()
+            precondition(sourceClient.pendingIntent?.source == capturedSource
+                && sourceClient.pendingResourceLifetime?.source == capturedSource
+                && sourceClient.pendingResourceLifetime?.lifetime === lease,
+                "queued recovery cannot drop or reselect source/lease")
+            sourceClient.rememberCommittedSwitchForRecovery()
+            precondition(sourceClient.committedSwitchRecovery?.request.source == capturedSource
+                && sourceClient.committedSwitchRecovery?.resourceLifetime === lease,
+                "committed recovery keeps captured generation with original lease")
+        }
         print("scene-switch-endpoint-ok")
     }
     @MainActor static func exerciseCrashRecovery() {
@@ -311,7 +347,7 @@ HARNESS = r'''
         _=restored.reportPreparedSwitch(requestID:recoveredID)
         recovered!.activate();restored.pendingPresentationRequestID=recoveredID;restored.switchVisible={_,_ in}
         restored.handleFirstFrame(["requestID":recoveredID.uuidString,"recordID":"A","uptimeMs":3.0])
-        var oldRetired=false;oldA.retire{oldRetired=true}
+        var oldRetired=false;oldA.retire(nil) {oldRetired=true}
         precondition(oldRetired && restored.pendingRequestID == recoveredID,
             "retiring dead old endpoint cannot cancel already visible recovery accepted by product")
         recovered!.finalize()
@@ -320,7 +356,7 @@ HARNESS = r'''
         let (revoked,oldRevoked,deadRevoked)=active()
         crashWithPendingB(revoked,deadRevoked);failPending(revoked,"B")
         let recoveringChild=revoked.transport!
-        var revokedDone=false;oldRevoked.retire{revokedDone=true}
+        var revokedDone=false;oldRevoked.retire(nil) {revokedDone=true}
         precondition(!revokedDone && revoked.pendingIntent == nil && revoked.committedSwitchRecovery == nil,
             "old dead endpoint retirement revokes same-ticket recovery before its prepared event")
         recoveringChild.isRunning=false;revoked.finishSwitchControlsAfterExit(generation:2)
@@ -354,7 +390,7 @@ HARNESS = r'''
 
         let (retiredInput,retiredOld,deadInput)=active()
         crashWithPendingB(retiredInput,deadInput)
-        var inputRetired=false;retiredOld.retire{inputRetired=true}
+        var inputRetired=false;retiredOld.retire(nil) {inputRetired=true}
         precondition(inputRetired && retiredInput.pendingSwitchTicket == b
             && retiredInput.committedSwitchRecovery == nil,"retirement preserves another ticket's preparation")
         failPending(retiredInput,"B")
@@ -387,10 +423,12 @@ HARNESS = r'''
 class SceneSwitchEndpointTests(unittest.TestCase):
     def test_native_identity_receipts_cancellation_and_explicit_commit(self):
         events = (IPC / "SceneDaemonClient+Events.swift").read_text()
-        source = SUPPORT.replace("// EVENTS", "\n".join(method(events, signature) for signature in (
+        protocol = (IPC / "SceneDaemonProtocol.swift").read_text()
+        support = SUPPORT.replace("// PROTOCOL_BOOLEAN", method(protocol, "static func boolean(_ raw: Any?) -> Bool?"))
+        source = support.replace("// EVENTS", "\n".join(method(events, signature) for signature in (
             "private func handleCandidatePrepared(_ payload: [String: Any])",
             "private func handleFirstFrame(_ payload: [String: Any])",
-            "private func handleLaunchState(_ payload: [String: Any])",
+            "func handleLaunchState(_ payload: [String: Any])",
             "func handleTermination(status: Int32, generation: UInt64)",
         )))
         topology = (IPC / "SceneDaemonClient+DisplayConfiguration.swift").read_text()
@@ -414,7 +452,8 @@ class SceneSwitchEndpointTests(unittest.TestCase):
                     command += ["-D", "DEBUG"]
                 command += [
                     *shared,
-                    str(IPC / "SceneDaemonClient+SwitchEndpoint.swift"), str(harness), "-o", str(executable),
+                    str(ROOT / "MyWallpaperX/Core/SteamWorkshopStorage/ScenePlaybackSource.swift"),
+                 str(IPC / "SceneDaemonClient+SwitchEndpoint.swift"), str(harness), "-o", str(executable),
                 ]
                 built = subprocess.run(command, capture_output=True, text=True, timeout=60)
                 self.assertEqual(built.returncode, 0, built.stdout + built.stderr)

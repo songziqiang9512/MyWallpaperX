@@ -39,6 +39,10 @@ PREPROCESSOR_SOURCES = [
     SCENE_ROOT / "Format/SceneJSONValue.swift",
     REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Resources/Assets/SceneResourceIndex.swift",
     REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Resources/Assets/SceneResourceView.swift",
+    REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/../SteamWorkshopStorage/ScenePlaybackSource.swift",
+    REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Format/ScenePkgReader.swift",
+    REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Resources/Assets/SceneResourceIdentity.swift",
+    REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Resources/Assets/SceneResourceView+Backing.swift",
     REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Compilation/ShaderContract/SceneShaderSourceGraph.swift",
     REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Compilation/ShaderContract/SceneShaderLegacyAnnotationJSON.swift",
     REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Compilation/ShaderContract/SceneShaderContract.swift",
@@ -148,7 +152,7 @@ private func preparedCast(stockRoot: URL) throws -> String {
         packageRootURL: nil,
         stockAssetsRootURL: globalStockRoot
     )
-    let graph = SceneShaderSourceGraphBuilder().build(
+    let graph = try SceneShaderSourceGraphBuilder().build(
         roots: [.init(label: "fragment", virtualPath: path)],
         resourceView: view
     )
@@ -185,7 +189,7 @@ private func preparedInlineCast(stockRoot: URL) throws -> String {
         packageRootURL: nil,
         stockAssetsRootURL: globalStockRoot
     )
-    let graph = SceneShaderSourceGraphBuilder().build(
+    let graph = try SceneShaderSourceGraphBuilder().build(
         roots: [.init(label: "fragment", virtualPath: path)],
         resourceView: view
     )

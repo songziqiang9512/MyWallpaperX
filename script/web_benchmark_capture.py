@@ -106,15 +106,28 @@ def _ditto_copy(source: Path, destination: Path) -> None:
         raise AppIdentityError(f"failed to stage signed app with ditto: {detail}")
 
 
-def stage_signed_app(source_binary: Path, output_dir: Path) -> tuple[Path, dict[str, Any]]:
+def stage_signed_app(
+    source_binary: Path,
+    output_dir: Path,
+    *,
+    runtime_bundle_name: str | None = None,
+) -> tuple[Path, dict[str, Any]]:
     source_binary = source_binary.expanduser().resolve()
     if not source_binary.is_file():
         raise AppIdentityError(f"app binary not found: {source_binary}")
     source_bundle = _app_bundle_for(source_binary)
+    if runtime_bundle_name is None:
+        runtime_bundle_name = source_bundle.name
+    elif (not isinstance(runtime_bundle_name, str)
+          or not runtime_bundle_name.endswith(".app")
+          or runtime_bundle_name == ".app"
+          or Path(runtime_bundle_name).name != runtime_bundle_name
+          or "\\" in runtime_bundle_name or "\0" in runtime_bundle_name):
+        raise AppIdentityError("runtime bundle name must be a single .app basename")
     _verify_signature(source_bundle)
 
     runtime_root = output_dir / f"runtime-app-{os.getpid()}-{time.time_ns()}"
-    runtime_bundle = runtime_root / source_bundle.name
+    runtime_bundle = runtime_root / runtime_bundle_name
     runtime_root.mkdir(parents=False, exist_ok=False)
     _ditto_copy(source_bundle, runtime_bundle)
     relative_binary = source_binary.relative_to(source_bundle)

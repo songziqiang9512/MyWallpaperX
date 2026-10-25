@@ -36,6 +36,7 @@ nonisolated extension SceneResolvedMaterialProgram {
             premultipliedColorInputSlots: Set<Int>
         ) throws {
             guard SceneResolvedMaterialProgramDerivation.validPreparedStages(preparedShader),
+                  (0 ..< 31).contains(frontend.uniformBufferIndex),
                   SceneResolvedMaterialProgramDerivation.uniqueAndValid(frontend.uniformLayout) else {
                 throw Failure(phase: .frontend, code: .shaderFrontendFailed)
             }

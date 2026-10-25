@@ -24,6 +24,7 @@ enum ScenePlaybackTextureUpdateOutcome { case applied, failed(String), supersede
 struct ScenePlaybackLoadRequest {
     let rootURL: URL
     let recordID: String?
+    var source: ScenePlaybackSource? = nil
 }
 struct ScenePreparedCallbackPropertyReachability: Decodable {
     struct Source: Decodable { let rootPath: String }
@@ -65,6 +66,7 @@ extension Notification.Name {
     func adoptQueuedSwitchPreparationForRecovery(){}
     func resumeCommittedSwitchRecoveryIfPossible(after ticket:Int?){}
     var transport: DaemonProcessTransport?
+    func discardIdleTransport() {}
     var retiringTransports: [UInt64: DaemonProcessTransport] = [:]
     var sessionGeneration: UInt64 = 0
     var expectedTerminationGenerations: Set<UInt64> = []
@@ -85,6 +87,8 @@ extension Notification.Name {
     var activeRecordID: String?
     var pendingPropertyRevisions: [UInt64: String] = [:]
     var endpointReady = false
+    var sourceSchemaVersion: Int?
+    var requestRetirementSchemaVersion: Int?
     var latestFrameStats: Int?
     var launchState: SceneWallpaperLaunchState?
     // 自截帧回调桩：真实 stop(postsLaunchState:) 方法体被拼接进本桩类，
@@ -99,6 +103,7 @@ extension Notification.Name {
     struct RetainedResourceLifetime {
         let rootURL: URL
         let recordID: String?
+        var source: ScenePlaybackSource? = nil
         let lifetime: PlaybackResourceLifetime
     }
     var pendingResourceLifetime: RetainedResourceLifetime?
@@ -124,7 +129,7 @@ extension Notification.Name {
             '    func hasIntent(', '    func retainResourceLifetime(',
             '    func shutdown(', '    func stop(postsLaunchState:',
         )) + '\n' + '\n'.join(method(events, signature) for signature in (
-            '    private func handleLaunchState(', '    private func handleFirstFrame(', '    func handleTermination(',
+            '    func handleLaunchState(', '    private func handleFirstFrame(', '    func handleTermination(',
             '    func finishShutdownIfPossible(',
         )) + '\n' + method((ipc / 'SceneDaemonClient+SwitchEndpoint.swift').read_text(), '    func commitPresentedScene(') + r'''
     func startProcess() throws {
@@ -156,6 +161,12 @@ struct SteamWorkshopDownloadRecord {
     let folderURL: URL
     let contentType = ContentType.scene
     let dependencyHostFolderURL: URL? = nil
+    let dependencyItemID: String? = nil
+}
+struct SteamWorkshopDownloadMetadataSnapshot: Codable {
+    var commit: SteamWorkshopLibraryCommit?
+    var legacyFolderURL: URL?
+    var legacyRemoved: Bool? = nil
 }
 @MainActor final class SteamWorkshopService {
     var prepareScenePlaybackIntent:((String,Bool)->(intentEpoch:UInt64,isCurrent:()->Bool,cancel:()->Void)?)?
@@ -167,11 +178,20 @@ struct SteamWorkshopDownloadRecord {
     var statusMessage = ""
     init(_ root: URL) { steamDownloadLibraryRootURL = root }
     func clearLaunchPending(matching id: String) {}
+    func loadManagedDownloadSnapshots(requireComplete: Bool, matchingItemID: String, includeLegacy: Bool)
+        throws -> [String:SteamWorkshopDownloadMetadataSnapshot] {
+        try SteamWorkshopLibraryTransaction.publishedMetadata(libraryRoot: steamDownloadLibraryRootURL,
+            requireComplete: requireComplete, matchingItemID: matchingItemID).mapValues {
+                try JSONDecoder().decode(SteamWorkshopDownloadMetadataSnapshot.self, from: $0)
+            }
+    }
     func scenePropertyOverrides(for record: SteamWorkshopDownloadRecord) -> [String: SceneUserPropertyValue] { [:] }
     func sceneShortcutConfiguration(for record: SteamWorkshopDownloadRecord) -> ScenePlaybackShortcutConfiguration { .empty }
     func withResolvedSceneTexturePropertyReferences(for record: SteamWorkshopDownloadRecord,
         completion: ([String: ScenePlaybackTextureReference]) -> Void) { completion([:]) }
-''' + method(reclamation, '    func libraryVersionLifetime(') + r'''
+''' + '\n'.join(method(reclamation, signature) for signature in (
+            '    func libraryVersionLifetime(', '    func libraryVersionLifetime(recordID:',
+            '    struct SceneSourceAdmission {', '    func sceneSourceAdmission(')) + r'''
 }
 @main struct Harness {
     @MainActor static func main() async throws {
@@ -184,6 +204,8 @@ struct SteamWorkshopDownloadRecord {
         let folder = try T.contentURL(for: prepared, libraryRoot: root)
         try FileManager.default.createDirectory(at: folder, withIntermediateDirectories: true)
         try JSONEncoder().encode(prepared).write(to: folder.appendingPathComponent(T.ownershipMarkerName))
+        try T.publish(metadata: JSONEncoder().encode(SteamWorkshopDownloadMetadataSnapshot(
+            commit: prepared, legacyFolderURL: folder)), itemID: prepared.workshopId, libraryRoot: root)
         let service = SteamWorkshopService(root)
         let leases = service.steamLibraryVersionLeaseRegistry
         let identity = T.storageIdentity(for: prepared)!
@@ -194,8 +216,8 @@ struct SteamWorkshopDownloadRecord {
             object: nil, queue: nil) { note in
             MainActor.assumeIsolated {
                 let request = note.userInfo!["request"] as! SteamWorkshopScenePlaybackRequest
-                daemon.retainResourceLifetime(request.resourceLifetime, rootURL: request.rootURL, recordID: request.recordID)
-                daemon.pendingIntent = ScenePlaybackLoadRequest(rootURL: request.rootURL, recordID: request.recordID)
+                daemon.retainResourceLifetime(request.resourceLifetime, rootURL: request.rootURL, recordID: request.recordID, source: request.source)
+                daemon.pendingIntent = ScenePlaybackLoadRequest(rootURL: request.rootURL, recordID: request.recordID, source: request.source)
                 loads += 1
             }
         }

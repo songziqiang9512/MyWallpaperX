@@ -18,6 +18,12 @@ HOST_SOURCE = REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Runtime/Se
 HOST_LAUNCH_SOURCE = REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Runtime/Session/SceneDesktopWallpaperHost+Launch.swift"
 METAL_VIEW_SOURCE = REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Frame/SceneMetalView.swift"
 SWIFT_SOURCES = [
+    SCENE_ROOT / "Resources/Assets/SceneResourceIndex.swift",
+    SCENE_ROOT / "Resources/Assets/SceneResourceView.swift",
+    SCENE_ROOT / "../SteamWorkshopStorage/ScenePlaybackSource.swift",
+    SCENE_ROOT / "Format/ScenePkgReader.swift",
+    SCENE_ROOT / "Resources/Assets/SceneResourceIdentity.swift",
+    SCENE_ROOT / "Resources/Assets/SceneResourceView+Backing.swift",
     Path(__file__).resolve().parents[2] / "MyWallpaperX/Core/SteamWorkshopScene/Resources/Textures/SceneResourceBudget.swift",
     REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Diagnostics/ScenePerformanceCounterHub.swift",
     SCENE_ROOT / "Format/SceneTexDataReader.swift",
@@ -225,7 +231,7 @@ enum Harness {
         result["parsedFirstBytes"] = parsed.images.map { Int($0.mips[0].data[0]) }
 
         let animated = makeAnimatedColorContainer()
-        let source = SceneTextureLoader.SourceKey(
+        let source = SceneTextureLoader.SourceKey.file(.init(
             path: "/fixture/cross-image-sprite.tex",
             size: 32,
             modifiedAtBits: 1,
@@ -233,13 +239,13 @@ enum Harness {
             fileID: 3,
             statusChangedAtSeconds: 4,
             statusChangedAtNanoseconds: 5
-        )
+        ))
         let animationLoader = SceneMultiImageSpriteTextureLoader()
-        if case let .loaded(playback) = animationLoader.playback(
+        if case let .loaded(playback) = try animationLoader.playback(
             source: source,
             container: animated,
             device: device,
-            sourceIsCurrent: { true }
+            checkCancellation: nil
         ) {
             result["crossImageAnimationAccepted"] = true
             let queue = device.makeCommandQueue()!
@@ -299,8 +305,8 @@ enum Harness {
             ]
         )
         let cropLoader = SceneMultiImageSpriteTextureLoader()
-        let croppedPlayback = try playback(cropLoader.playback(
-            source: source, container: cropAnimation, device: device, sourceIsCurrent: { true }
+        let croppedPlayback = try playback(try cropLoader.playback(
+            source: source, container: cropAnimation, device: device, checkCancellation: nil
         ))
         guard let cropQueue = device.makeCommandQueue() else { throw HarnessError.noDevice }
         var cropPixels: [[UInt8]] = []
@@ -362,23 +368,23 @@ enum Harness {
                 + residentCosts.destination * 2
         )
         var boundedFirst: SceneMultiImageSpritePlayback? = try playback(
-            boundedLoader.playback(
+            try boundedLoader.playback(
             source: source,
             container: animated,
             device: device,
-            sourceIsCurrent: { true }
+            checkCancellation: nil
         ))
-        let boundedSecond = try playback(boundedLoader.playback(
+        let boundedSecond = try playback(try boundedLoader.playback(
             source: source,
             container: animated,
             device: device,
-            sourceIsCurrent: { true }
+            checkCancellation: nil
         ))
-        let boundedThird = boundedLoader.playback(
+        let boundedThird = try boundedLoader.playback(
             source: source,
             container: animated,
             device: device,
-            sourceIsCurrent: { true }
+            checkCancellation: nil
         )
         if case let .unsupported(detail) = boundedThird {
             result["residentBudgetDeduplicatesSource"] =
@@ -388,11 +394,11 @@ enum Harness {
             result["residentBudgetDeduplicatesSource"] = false
         }
         boundedFirst = nil
-        if case .loaded = boundedLoader.playback(
+        if case .loaded = try boundedLoader.playback(
             source: source,
             container: animated,
             device: device,
-            sourceIsCurrent: { true }
+            checkCancellation: nil
         ) {
             result["releasedDestinationRestoresBudget"] = true
         } else {
@@ -403,36 +409,28 @@ enum Harness {
             residentByteBudget: residentCosts.source
                 + residentCosts.destination
         )
-        var revisionChecks = 0
-        let staleRevision = revisionLoader.playback(
-            source: source,
-            container: animated,
-            device: device,
-            sourceIsCurrent: {
-                revisionChecks += 1
-                return revisionChecks == 1
-            }
-        )
-        let stableRevision = revisionLoader.playback(
-            source: source,
-            container: animated,
-            device: device,
-            sourceIsCurrent: { true }
-        )
-        if case let .unsupported(detail) = staleRevision,
-           case .loaded = stableRevision {
-            result["revisionChangeFailsWithoutConsumingBudget"] =
-                detail.contains("file changed while loading")
-        } else {
-            result["revisionChangeFailsWithoutConsumingBudget"] = false
-        }
+        enum PreparationStop: Error { case cancelled }
+        var cancellationChecks = 0
+        var cancelledPreparation = false
+        do {
+            _ = try revisionLoader.playback(source: source, container: animated, device: device,
+                checkCancellation: {
+                    cancellationChecks += 1
+                    if cancellationChecks == 2 { throw PreparationStop.cancelled }
+                })
+        } catch PreparationStop.cancelled { cancelledPreparation = true }
+        let stableRevision = try revisionLoader.playback(
+            source: source, container: animated, device: device)
+        if case .loaded = stableRevision {
+            result["cancelledPreparationDoesNotConsumeBudget"] = cancelledPreparation
+        } else { result["cancelledPreparationDoesNotConsumeBudget"] = false }
 
-        result["bc1AnimationAccepted"] = accepts(
+        result["bc1AnimationAccepted"] = try accepts(
             makeAnimatedColorContainer(format: 7),
             sourcePath: "/fixture/cross-image-bc1.tex",
             device: device
         )
-        result["bc2AnimationAccepted"] = accepts(
+        result["bc2AnimationAccepted"] = try accepts(
             makeAnimatedColorContainer(format: 6),
             sourcePath: "/fixture/cross-image-bc2.tex",
             device: device
@@ -441,8 +439,8 @@ enum Harness {
         let invalidTimelineDurations: [[Float]] = [
             [.greatestFiniteMagnitude, .greatestFiniteMagnitude], [16_777_216, 1],
         ]
-        result["invalidTimelineRejected"] = invalidTimelineDurations.allSatisfy { durations in
-            rejectsAdmission(makeAnimatedColorContainer(frames: durations.enumerated().map { index, duration in
+        result["invalidTimelineRejected"] = try invalidTimelineDurations.allSatisfy { durations in
+            try rejectsAdmission(makeAnimatedColorContainer(frames: durations.enumerated().map { index, duration in
                 .init(imageIndex: index, duration: duration, origin: .zero,
                       xAxis: SIMD2(1, 0), yAxis: SIMD2(0, 1))
             }), device: device)
@@ -468,25 +466,25 @@ enum Harness {
             xAxis: SIMD2(1, 0),
             yAxis: SIMD2(0, 1)
         )
-        result["fractionalFrameRejected"] = rejectsAdmission(
+        result["fractionalFrameRejected"] = try rejectsAdmission(
             makeAnimatedColorContainer(
                 frames: [fractionalFrame, defaultFrames[1]]
             ),
             device: device
         )
-        result["outOfRangeImageRejected"] = rejectsAdmission(
+        result["outOfRangeImageRejected"] = try rejectsAdmission(
             makeAnimatedColorContainer(
                 frames: [outOfRangeFrame, defaultFrames[1]]
             ),
             device: device
         )
-        result["nonFiniteFrameRejected"] = rejectsAdmission(
+        result["nonFiniteFrameRejected"] = try rejectsAdmission(
             makeAnimatedColorContainer(
                 frames: [nonFiniteFrame, defaultFrames[1]]
             ),
             device: device
         )
-        result["seventeenImagesRejected"] = rejectsAdmission(
+        result["seventeenImagesRejected"] = try rejectsAdmission(
             makeAnimatedColorContainer(
                 images: Array(repeating: animated.images[0], count: 17)
             ),
@@ -495,7 +493,7 @@ enum Harness {
         let differentSizeImage = SceneTexContainer.Image(mips: [
             .init(width: 8, height: 4, data: Data(repeating: 0, count: 32))
         ])
-        result["differentFrameSizesRejected"] = rejectsAdmission(
+        result["differentFrameSizesRejected"] = try rejectsAdmission(
             makeAnimatedColorContainer(
                 images: [animated.images[0], differentSizeImage]
             ),
@@ -504,7 +502,7 @@ enum Harness {
         let oversizedSourceImage = SceneTexContainer.Image(mips: [
             .init(width: 16_385, height: 4, data: Data())
         ])
-        result["oversizedSourceRejected"] = rejectsAdmission(
+        result["oversizedSourceRejected"] = try rejectsAdmission(
             makeAnimatedColorContainer(
                 images: [oversizedSourceImage, oversizedSourceImage]
             ),
@@ -513,7 +511,7 @@ enum Harness {
         let oversizedOutputImage = SceneTexContainer.Image(mips: [
             .init(width: 8_192, height: 4, data: Data())
         ])
-        result["oversizedOutputRejected"] = rejectsAdmission(
+        result["oversizedOutputRejected"] = try rejectsAdmission(
             makeAnimatedColorContainer(
                 images: [oversizedOutputImage, oversizedOutputImage]
             ),
@@ -648,8 +646,8 @@ enum Harness {
         _ container: SceneTexContainer,
         sourcePath: String,
         device: MTLDevice
-    ) -> Bool {
-        let source = SceneTextureLoader.SourceKey(
+    ) throws -> Bool {
+        let source = SceneTextureLoader.SourceKey.file(.init(
             path: sourcePath,
             size: 32,
             modifiedAtBits: 1,
@@ -657,12 +655,12 @@ enum Harness {
             fileID: 3,
             statusChangedAtSeconds: 4,
             statusChangedAtNanoseconds: 5
-        )
-        if case .loaded = SceneMultiImageSpriteTextureLoader().playback(
+        ))
+        if case .loaded = try SceneMultiImageSpriteTextureLoader().playback(
             source: source,
             container: container,
             device: device,
-            sourceIsCurrent: { true }
+            checkCancellation: nil
         ) {
             return true
         }
@@ -672,8 +670,8 @@ enum Harness {
     static func rejectsAdmission(
         _ container: SceneTexContainer,
         device: MTLDevice
-    ) -> Bool {
-        let source = SceneTextureLoader.SourceKey(
+    ) throws -> Bool {
+        let source = SceneTextureLoader.SourceKey.file(.init(
             path: "/fixture/rejected-\(UUID().uuidString).tex",
             size: 32,
             modifiedAtBits: 1,
@@ -681,13 +679,13 @@ enum Harness {
             fileID: 3,
             statusChangedAtSeconds: 4,
             statusChangedAtNanoseconds: 5
-        )
+        ))
         if case let .unsupported(detail) =
-            SceneMultiImageSpriteTextureLoader().playback(
+            try SceneMultiImageSpriteTextureLoader().playback(
                 source: source,
                 container: container,
                 device: device,
-                sourceIsCurrent: { true }
+                checkCancellation: nil
             ) {
             return detail.contains("unsupported image, codec, or frame layout")
         }
@@ -889,7 +887,7 @@ class SceneBCTextureUploaderTests(unittest.TestCase):
         self.assertTrue(self.result["usesDeviceAllocationCost"])
 
     def test_revision_change_rejects_publication_without_leaking_budget(self) -> None:
-        self.assertTrue(self.result["revisionChangeFailsWithoutConsumingBudget"])
+        self.assertTrue(self.result["cancelledPreparationDoesNotConsumeBudget"])
 
     def test_bounded_admission_covers_supported_codecs_and_layout_limits(self) -> None:
         self.assertTrue(self.result["invalidTimelineRejected"])

@@ -62,6 +62,8 @@ struct VideoWallpaper {let path:String}
 extension Notification.Name {static let wallpaperSwitchDidFail=Self("switch-failed")}
 @MainActor final class WallpaperManager {
     static let shared=WallpaperManager()
+    let objectWillChange=ObservableObjectPublisher()
+    var playbackIntentDidAdvance:((WallpaperRuntimeKind?)->Void)?
     init() { WallpaperEngine.shared.videoEndDeliveryAdmission = { [weak self] in self?.admitsDeferredVideoEnd() ?? false } }
     // SELECTION
     struct Settings {
@@ -88,12 +90,12 @@ extension Notification.Name {static let wallpaperSwitchDidFail=Self("switch-fail
     var autoSwitchTimer:Timer?
     var timerFires=0,snapshots=0
     var endedPaths:[String]=[],failedPaths:[String]=[]
-    var onFlush:(()->Void)?
+    var onFlush:(()->Void)?,onPersist:(()->Void)?
     func isSwitchingPlaybackMode()->Bool{true}
     func shouldLoopCurrentItemInEngine()->Bool{true}
     func normalizedPath(_ path:String)->String{path}
     func timerDidFire(){timerFires += 1}
-    func persistCurrentWallpaperSnapshot(){snapshots += 1}
+    func persistCurrentWallpaperSnapshot(){snapshots += 1;onPersist?()}
     func syncSystemWallpaper(with wallpaper:VideoWallpaper){}
     func scheduleRuntimeFrameSystemWallpaperSync(kind:WallpaperRuntimeKind,recordID:String){}
     func handlePlaybackEnded(forPath path:String){endedPaths.append(path)}
@@ -104,13 +106,15 @@ extension Notification.Name {static let wallpaperSwitchDidFail=Self("switch-fail
 @MainActor final class NativeEndpoint {
     let id=UUID(),ticket:PlaybackSwitchTicket
     var activations=0,finalizations=0,cancellations=0,retirements=0
+    var replacements:[PlaybackSwitchTicket?]=[]
     var onCancel:(()->Void)?,onFinalize:(()->Void)?
     init(_ ticket:PlaybackSwitchTicket){self.ticket=ticket}
     var endpoint:PlaybackSwitchEndpoint {
         .init(id:id,activate:{[self] in activations += 1},finalize:{[self] in
             finalizations += 1;onFinalize?()
         },cancel:{[self] done in cancellations += 1;onCancel?();done()},
-        setOutputActive:{_,done in done(true)},retire:{[self] done in retirements += 1;done()})
+        setOutputActive:{_,done in done(true)},retire:{[self] replacement,done in
+            replacements.append(replacement);retirements += 1;done()})
     }
     func show(_ manager:WallpaperManager){manager.switchVisible(ticket,executionID:id)}
 }
@@ -232,14 +236,15 @@ class ImportedVideoAutoplayGateTests(unittest.TestCase):
         service=(REPO_ROOT / "MyWallpaperX/Modules/SteamWorkshop/Core/SteamWorkshopService.swift").read_text()
         web=(REPO_ROOT / "MyWallpaperX/Modules/SteamWorkshop/Web/Core/SteamWorkshopService+WebPlayback.swift").read_text()
         delegate=(REPO_ROOT / "MyWallpaperX/App/AppDelegate.swift").read_text()
-        guards=web[web.index("                guard launchGeneration == self.webLaunchIntentGeneration"):
-                   web.index("                guard let playbackContext else")]
+        guards=web[web.index("                guard !Task.isCancelled, launchGeneration == self.webLaunchIntentGeneration"):
+                   web.index("                guard let preparation else")]
         program=r'''
 struct Preparation {var isCurrent:()->Bool}
 struct Record {let id="fixture"}
 @MainActor final class SteamWorkshopService {
     static let shared=SteamWorkshopService()
     var webLaunchIntentGeneration:UInt64=0
+    var webLaunchPreparationTask:Task<Void,Never>?
     var cancelWebProcessPreparation:(()->Void)?
     var launches=0,cleared=0
     func clearLaunchPending(matching:String){cleared += 1}
@@ -435,6 +440,42 @@ struct Record {let id="fixture"}
                 text=True,
             )
         self.assertEqual(result.stdout.strip(), "imported-video-autoplay-gate-pass")
+
+    def test_reentrant_commit_revokes_only_stale_handoff_retention(self):
+        self.run_product_harness(r'''
+@main enum Check {
+    @MainActor static func main() {
+        let cases:[(String,Bool,WallpaperRuntimeKind?)]=[
+            ("current",false,nil),("web",true,.web),("video",true,.video),
+            ("scene",true,.scene),("stop",true,nil)]
+        for (name,reenters,runtime) in cases {
+            let manager=WallpaperManager()
+            let old=candidate(manager,.scene);old.show(manager)
+            let successor=candidate(manager,.web)
+            var latestEpoch:UInt64?
+            manager.onPersist={
+                manager.onPersist=nil
+                if reenters {latestEpoch=manager.beginPlaybackIntent(runtime:runtime)}
+            }
+            successor.show(manager)
+            precondition(old.retirements == 1 && old.replacements.count == 1,
+                "old handoff and barrier must not be dropped: "+name)
+            let expected=(!reenters || runtime == .scene) ? successor.ticket : nil
+            precondition(old.replacements[0] == expected,
+                "only current successor or newer Scene may retain the old helper: "+name)
+            precondition(manager.playbackSwitch.retirements.isEmpty
+                && manager.switchEndpoints[old.id] == nil,
+                "optional retention refusal still completes exact old retirement: "+name)
+            if let latestEpoch {
+                precondition(manager.playbackIntentEpoch == latestEpoch
+                    && manager.requestedRuntime == runtime)
+            }
+            manager.stopAutoSwitchTimer()
+        }
+        print("reentrant-handoff-retention-pass")
+    }
+}
+''',"reentrant-handoff-retention-pass")
 
 
 if __name__ == "__main__":

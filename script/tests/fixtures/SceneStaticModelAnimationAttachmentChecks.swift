@@ -29,9 +29,10 @@ enum SceneStaticModelAnimationAttachmentChecks {
             let descriptor = SceneRenderDescriptor(lighting: nil, layers: [peer, layer],
                 renderOrderLayerIDs: [1, 2], materialPasses: passes)
             let loader = try SceneTextureLoader(root: directory, device: device)
+            var sources = try prepareModelSources(descriptor, view: .init(root: directory))
             let resources = try ScenePreparedStaticModelResources.prepare(
                 descriptor: descriptor, resourceView: .init(root: directory),
-                device: device, textureLoader: loader, cancellationCheck: {}
+                device: device, textureLoader: loader, preparedSources: &sources, cancellationCheck: {}
             )
             let attachmentError: String
             switch parsed {

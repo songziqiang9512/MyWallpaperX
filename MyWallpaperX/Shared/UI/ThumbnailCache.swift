@@ -650,12 +650,13 @@ nonisolated final class ThumbnailCache: @unchecked Sendable {
     /// 共享磁盘惰性淘汰：总量上限 + 限频扫描 + LRU 淘汰。
     /// ThumbnailCache 自身与 OLThumbnailCache、Steam 下载管线接入同一机制，不另起第二套；
     /// 限频钟按目录区分，多目录接入时互不挤占扫描窗口。
-    /// 返回是否实际执行了扫描（限频窗口到点），调用方可顺带执行该目录的其他维护。
+    /// 可在同次扫描先删除过期文件，再按剩余大小淘汰；返回是否实际执行了扫描。
     @discardableResult
     static func trimDiskCache(
         directory: URL,
         sizeLimit: UInt64,
-        interval: TimeInterval = ThumbnailCache.diskTrimInterval
+        interval: TimeInterval = ThumbnailCache.diskTrimInterval,
+        expireBefore: Date? = nil
     ) -> Bool {
         let now = Date()
         diskTrimStateLock.lock()
@@ -691,6 +692,13 @@ nonisolated final class ThumbnailCache: @unchecked Sendable {
         for case let fileURL as URL in enumerator {
             let values = try? fileURL.resourceValues(forKeys: Set(resourceKeys))
             guard values?.isRegularFile == true else { continue }
+            if let expireBefore,
+               (values?.contentModificationDate ?? .distantPast) < expireBefore {
+                do {
+                    try fileManager.removeItem(at: fileURL)
+                    continue
+                } catch { /* A failed removal still occupies its original LRU bytes. */ }
+            }
             let size = Int64(values?.fileSize ?? 0)
             // APFS 下访问时间可能不严格更新，回退到修改时间保证排序稳定。
             let lastUsed = values?.contentAccessDate
@@ -706,8 +714,10 @@ nonisolated final class ThumbnailCache: @unchecked Sendable {
         var reclaimed: Int64 = 0
         for entry in entries.sorted(by: { $0.lastUsed < $1.lastUsed }) {
             guard reclaimed < overflow else { break }
-            try? fileManager.removeItem(at: entry.url)
-            reclaimed += entry.size
+            do {
+                try fileManager.removeItem(at: entry.url)
+                reclaimed += entry.size
+            } catch { /* Keep failed removals charged while trying remaining entries. */ }
         }
         return true
     }

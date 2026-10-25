@@ -3,15 +3,16 @@ import Foundation
 extension SceneShaderContractLoader {
     nonisolated func load(
         shaderReferences: [String],
-        rootURL: URL
-    ) -> [SceneShaderContract] {
-        load(
+        rootURL: URL,
+        checkCancellation: (() throws -> Void)? = nil
+    ) throws -> [SceneShaderContract] {
+        try load(
             shaderReferences: shaderReferences,
             resourceView: SceneResourceView(
                 projectRootURL: rootURL,
                 packageRootURL: nil,
                 stockAssetsRootURL: nil
-            )
+            ), checkCancellation: checkCancellation
         )
     }
 
@@ -20,30 +21,46 @@ extension SceneShaderContractLoader {
     /// The graph must not rewrite raw stages or their canonical admission key.
     nonisolated func load(
         shaderReferences: [String],
-        resourceView: SceneResourceView
-    ) -> [SceneShaderContract] {
-        var groups: [String: (rootURL: URL, references: [String])] = [:]
+        resourceView: SceneResourceView,
+        checkCancellation: (() throws -> Void)? = nil
+    ) throws -> [SceneShaderContract] {
+        try checkCancellation?()
+        let mounted = resourceView.roots.contains(where: \.usesPackageNamespaceOrder)
+        var groups: [SceneResourceView.Root.NamespaceIdentity: (root: SceneResourceView.Root?, references: [String])] = [:]
         for reference in shaderReferences {
-            let rootURL = sourceRootURL(for: reference, resourceView: resourceView)
-            let key = rootURL.standardizedFileURL.path
+            let root = sourceRoot(for: reference, resourceView: resourceView)
+            let key: SceneResourceView.Root.NamespaceIdentity = mounted
+                ? root?.namespaceIdentity ?? .absent
+                : root?.directoryURL.map { .directory(path: $0.standardizedFileURL.path) } ?? .absent
             if var group = groups[key] {
                 group.references.append(reference)
                 groups[key] = group
             } else {
-                groups[key] = (rootURL, [reference])
+                groups[key] = (root, [reference])
             }
         }
 
-        let contracts = groups.keys.sorted().flatMap { key in
+        let keys = groups.keys.sorted { lhs, rhs in
+            // The legacy directory projection retains its physical path order.
+            // Package mounts order by resource domain, then typed namespace;
+            // their retired extraction directory cannot be an authority.
+            if mounted {
+                let a = groups[lhs]?.root?.sourceOrder ?? 3
+                let b = groups[rhs]?.root?.sourceOrder ?? 3
+                if a != b { return a < b }
+            }
+            return lhs.sortComponents.lexicographicallyPrecedes(rhs.sortComponents)
+        }
+        let contracts = try keys.flatMap { key in
             guard let group = groups[key] else { return [SceneShaderContract]() }
-            return loadRootStageProjection(
+            return try loadRootStageProjection(
                 shaderReferences: group.references,
-                rootURL: group.rootURL
+                root: group.root, checkCancellation: checkCancellation
             )
         }
-        return contracts.sorted { $0.identity < $1.identity }.map { contract in
+        return try contracts.sorted { $0.identity < $1.identity }.map { contract in
             guard contract.sourceKind == .authoredSource else { return contract }
-            let graph = SceneShaderSourceGraphBuilder().build(
+            let graph = try SceneShaderSourceGraphBuilder().build(
                 roots: [
                     .init(
                         label: SceneShaderContract.StageKind.vertex.rawValue,
@@ -54,7 +71,7 @@ extension SceneShaderContractLoader {
                         virtualPath: "shaders/\(contract.identity).frag"
                     ),
                 ],
-                resourceView: resourceView
+                resourceView: resourceView, checkCancellation: checkCancellation
             )
             return SceneShaderContract(
                 identity: contract.identity,
@@ -69,10 +86,10 @@ extension SceneShaderContractLoader {
 
     /// Mirrors the pre-R2 AssetCatalog projection exactly: the first indexed
     /// vertex wins, then fragment, otherwise the primary project/package root.
-    nonisolated private func sourceRootURL(
+    nonisolated private func sourceRoot(
         for reference: String,
         resourceView: SceneResourceView
-    ) -> URL {
+    ) -> SceneResourceView.Root? {
         var identity = reference.replacingOccurrences(of: "\\", with: "/")
         for suffix in [".vert", ".frag", ".json"]
         where identity.localizedLowercase.hasSuffix(suffix) {
@@ -80,12 +97,12 @@ extension SceneShaderContractLoader {
             break
         }
         for suffix in [".vert", ".frag"] {
-            if let resource = resourceView.resource(
+            if let resource = resourceView.resolvedResource(
                 relativePath: "shaders/" + identity + suffix
-            ), let rootURL = resourceView.rootURL(containing: resource.url) {
-                return rootURL
+            ), let root = resourceView.roots.first(where: { $0.owns(resource) }) {
+                return root
             }
         }
-        return resourceView.primaryRootURL
+        return resourceView.roots.first
     }
 }

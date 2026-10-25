@@ -8,7 +8,7 @@ import Foundation
 final class SteamWorkshopSceneInspectionController {
     private static let propertyPreparation = SteamWorkshopSceneInspectionController()
 
-    private struct Identity: Equatable {
+    private nonisolated struct Identity: Equatable {
         let recordID: String
         let folderURL: URL
         let updatedAt: Date
@@ -22,21 +22,35 @@ final class SteamWorkshopSceneInspectionController {
         }
     }
 
-    private struct Snapshot {
+    private nonisolated struct Snapshot {
         let identity: Identity
+        let source: ScenePlaybackSource
         let content: InspectionResult
     }
 
-    private enum InspectionResult {
+    private nonisolated enum InspectionResult {
         case properties(SceneRuntimeSourceFacts, ScenePropertySourceVersion?)
+        case sourceFailure(Error)
         case preparedProperties(SteamWorkshopScenePropertyContext, ScenePropertySourceVersion)
     }
 
-    private struct Request {
-        let id: UUID
+    private final class Request {
+        let id = UUID()
         let identity: Identity
-        let workItem: DispatchWorkItem
+        var admission: SteamWorkshopService.SceneSourceAdmission?
+        let cancellation = SceneWallpaperLaunchCancellation()
         let cacheEpoch: UInt64
+        var task: Task<Void, Never>?
+
+        init(identity: Identity, cacheEpoch: UInt64) {
+            self.identity = identity
+            self.cacheEpoch = cacheEpoch
+        }
+
+        func cancel() {
+            cancellation.cancel()
+            task?.cancel()
+        }
     }
 
     private let service = SteamWorkshopService.shared
@@ -112,7 +126,7 @@ final class SteamWorkshopSceneInspectionController {
 
     deinit {
         MainActor.assumeIsolated {
-            request?.workItem.cancel()
+            request?.cancel()
             if let launchObserver {
                 NotificationCenter.default.removeObserver(launchObserver)
             }
@@ -124,7 +138,7 @@ final class SteamWorkshopSceneInspectionController {
     }
 
     func reset() {
-        request?.workItem.cancel()
+        request?.cancel()
         request = nil
         discardSnapshot()
         presentedIdentity = nil
@@ -153,40 +167,63 @@ final class SteamWorkshopSceneInspectionController {
 
     private func startInspection(for record: SteamWorkshopDownloadRecord) {
         let identity = inspectionIdentity(for: record)
-        request?.workItem.cancel()
-        let requestID = UUID()
-        let rootURL = identity.folderURL
+        request?.cancel()
+        let pending = Request(identity: identity, cacheEpoch: cacheEpoch)
+        request = pending
+        let requestID = pending.id
         let propertyOverrides = identity.propertyOverrides
-        let reusable = snapshot.flatMap { $0.identity.hasSameAuthoredInput(as: identity) ? $0 : nil }
-        let workItem = DispatchWorkItem { [weak self] in
-            let result: InspectionResult
-            if let reusable,
-               case let .preparedProperties(context, version) = reusable.content,
-               version.stockRootURL == SceneResourceView.defaultStockAssetsRootURL(),
-               ScenePropertySourceVersion.capture(roots: version.rootURLs) == version {
-                result = .preparedProperties(context, version)
-            } else {
-                result = Self.buildPropertyInspection(
-                    rootURL: rootURL, propertyOverrides: propertyOverrides
-                )
+        let queue = self.queue
+        let cancellation = pending.cancellation
+        pending.task = Task { @MainActor [weak self] in
+            defer { pending.admission = nil; pending.task = nil }
+            guard let self else { return }
+            do {
+                pending.admission = try self.service.sceneSourceAdmission(for: record)
+                try Task.checkCancellation()
+                try cancellation.check()
+            } catch {
+                self.finishInspection(requestID: requestID, identity: identity, record: record,
+                    result: .sourceFailure(error))
+                return
             }
-
-            DispatchQueue.main.async { [weak self] in
-                self?.finishInspection(
-                    requestID: requestID,
-                    identity: identity,
-                    record: record,
-                    result: result
-                )
-            }
+            let source = pending.admission!.source
+            // Managed source facts still never reuse the directory memo.
+            let reusable = source.managed == nil ? self.snapshot.flatMap {
+                $0.source == source && $0.identity.hasSameAuthoredInput(as: identity) ? $0 : nil
+            } : nil
+            await withTaskCancellationHandler {
+                await withCheckedContinuation { (continuation: CheckedContinuation<Void, Never>) in
+                    // Do not cancel a DispatchWorkItem: its closure must run even
+                    // when cancelled before dequeue, to resume and join this task.
+                    queue.async {
+                        var result: InspectionResult
+                        do {
+                            try cancellation.check()
+                            if let reusable,
+                               case let .preparedProperties(context, version) = reusable.content,
+                               version.stockRootURL == SceneResourceView.defaultStockAssetsRootURL(),
+                               ScenePropertySourceVersion.capture(roots: version.rootURLs,
+                                    checkCancellation: { try cancellation.check() }) == version {
+                                result = .preparedProperties(context, version)
+                            } else {
+                                result = try SteamWorkshopSceneInspectionController.buildPropertyInspection(source: source,
+                                    propertyOverrides: propertyOverrides,
+                                    checkCancellation: { try cancellation.check() })
+                            }
+                            try cancellation.check()
+                        } catch { result = .sourceFailure(error) }
+                        DispatchQueue.main.async { [weak self] in
+                            self?.finishInspection(requestID: requestID, identity: identity,
+                                record: record, result: result)
+                            continuation.resume()
+                        }
+                    }
+                }
+            } onCancel: { cancellation.cancel() }
+            // The MainActor-only admission (and opaque lease) remains live until
+            // the actual queued read and its delivery have both completed.
+            withExtendedLifetime(pending.admission) {}
         }
-        request = Request(
-            id: requestID,
-            identity: identity,
-            workItem: workItem,
-            cacheEpoch: cacheEpoch
-        )
-        queue.async(execute: workItem)
     }
 
     private func finishInspection(
@@ -224,11 +261,15 @@ final class SteamWorkshopSceneInspectionController {
         }
 
         switch result {
+        case let .sourceFailure(error):
+            snapshot = nil
+            NSLog("MWX Scene property source failed: %@", String(describing: error))
+            presentPropertyUnavailable(record: currentRecord)
         case let .properties(facts, version):
             if let context = service.scenePropertyContext(for: currentRecord, sourceFacts: facts) {
-                if let version, requestEpoch == cacheEpoch,
+                if let source = request.admission?.source, let version, requestEpoch == cacheEpoch,
                    Self.retentionCost(context: context, version: version, identity: identity) <= 4 * 1024 * 1024 {
-                    snapshot = Snapshot(identity: identity, content: .preparedProperties(context, version))
+                    snapshot = Snapshot(identity: identity, source: source, content: .preparedProperties(context, version))
                 } else {
                     snapshot = nil
                 }
@@ -240,9 +281,9 @@ final class SteamWorkshopSceneInspectionController {
         case let .preparedProperties(context, version):
             let projected = service.projectedScenePropertyContext(context, for: currentRecord)
             let retained = projected ?? context
-            if requestEpoch == cacheEpoch,
+            if let source = request.admission?.source, requestEpoch == cacheEpoch,
                Self.retentionCost(context: retained, version: version, identity: identity) <= 4 * 1024 * 1024 {
-                snapshot = Snapshot(identity: identity, content: .preparedProperties(retained, version))
+                snapshot = Snapshot(identity: identity, source: source, content: .preparedProperties(retained, version))
             } else { snapshot = nil }
             if let projected {
                 presentPropertyEditor(record: currentRecord, context: projected)
@@ -285,7 +326,7 @@ final class SteamWorkshopSceneInspectionController {
     }
 
     private func cancelPropertyPresentation() {
-        request?.workItem.cancel()
+        request?.cancel()
         request = nil
         propertyPanelToken = nil
         presentedIdentity = nil
@@ -296,31 +337,42 @@ final class SteamWorkshopSceneInspectionController {
         cacheEpoch &+= 1
     }
 
-    private static func buildPropertyInspection(
-        rootURL: URL,
-        propertyOverrides: [String: SceneUserPropertyValue]
-    ) -> InspectionResult {
-        // Project loading, the loose index and package validation precede the
-        // resource-root callback, so cover their input before starting them.
-        let original = ScenePropertySourceVersion.capture(roots: [rootURL])
-        // Pin the complete read chain to the namespace observed initially.
-        // An ancestor alias moving A→B→A cannot make facts from B acquire A's
-        // version. Keep the authored root in subsequent versions for hit checks.
-        let preparedRoot = original?.resolvedRootURLs.first ?? rootURL.resolvingSymlinksInPath()
+    private nonisolated static func buildPropertyInspection(
+        source: ScenePlaybackSource,
+        propertyOverrides: [String: SceneUserPropertyValue],
+        checkCancellation: @escaping () throws -> Void
+    ) throws -> InspectionResult {
+        try checkCancellation()
+        let rootURL = source.rootURL
+        // Managed facts use the selected storage identity and shared source
+        // lifetime. A physical directory stamp does not describe package data.
+        let original = source.managed == nil
+            ? ScenePropertySourceVersion.capture(roots: [rootURL], checkCancellation: checkCancellation) : nil
+        let preparedRoot = original?.resolvedRootURLs.first ?? rootURL
         var before: ScenePropertySourceVersion?
-        let facts = SceneRuntimeSourceFactsBuilder().build(
-            rootURL: preparedRoot,
+        let builderSource = source.managed == nil ? ScenePlaybackSource(rootURL: preparedRoot) : source
+        let facts = try SceneRuntimeSourceFactsBuilder().build(
+            rootURL: preparedRoot, source: builderSource,
             propertyOverrides: propertyOverrides,
-            willReadResourceRoots: {
-                before = ScenePropertySourceVersion.capture(roots: [rootURL] + $0)
+            checkCancellation: checkCancellation,
+            willReadResourceRoots: { roots in
+                if source.managed == nil {
+                    before = ScenePropertySourceVersion.capture(roots: [rootURL] + roots,
+                        checkCancellation: checkCancellation)
+                }
             }
         )
-        let after = ScenePropertySourceVersion.capture(roots: [rootURL] + facts.resourceView.roots.map(\.url))
+        try checkCancellation()
+        // Package backing has no directory URL. Do not invent one or memoize
+        // package currentness with FTS. Keep the original pure-context boundary.
+        guard source.managed == nil, facts.project?.packageURL == nil else {
+            return .properties(facts, nil)
+        }
+        let after = ScenePropertySourceVersion.capture(roots: [rootURL] + facts.resourceView.roots.compactMap(\.directoryURL),
+            checkCancellation: checkCancellation)
         let successful = facts.project != nil && facts.sceneDocument != nil
-            && facts.assetCatalog != nil
-            && facts.renderDescriptor != nil && facts.sceneDocumentLoadErrorDescription == nil
-            && (facts.project?.packageURL == nil
-                || (facts.packageReport != nil && facts.packageReport?.blockingMessage == nil))
+            && facts.assetCatalog != nil && facts.renderDescriptor != nil
+            && facts.sceneDocumentLoadErrorDescription == nil
         let stable = original != nil && before?.entries(in: preparedRoot) == original?.entries
             && before?.resolvedRootURLs.first == preparedRoot && after?.resolvedRootURLs.first == preparedRoot
             && before != nil && before == after
@@ -416,7 +468,7 @@ private nonisolated struct ScenePropertySourceVersion: Equatable {
         return entries.filter { $0.rootPath == path }
     }
 
-    static func capture(roots: [URL]) -> Self? {
+    static func capture(roots: [URL], checkCancellation: (() throws -> Void)? = nil) -> Self? {
         var seenRoots: Set<String> = [], seenResolvedRoots: Set<String> = []
         let roots = roots.map(\.standardizedFileURL).filter { seenRoots.insert($0.path).inserted }
         guard !roots.isEmpty else { return nil }
@@ -438,6 +490,7 @@ private nonisolated struct ScenePropertySourceVersion: Equatable {
             return true
         }
         for root in roots {
+            if (try? checkCancellation?()) == nil && checkCancellation != nil { return nil }
             var info = stat()
             guard lstat(root.path, &info) == 0, info.st_mode & S_IFMT == S_IFDIR else { return nil }
             // Resolve ancestor aliases once. Retain the original roots so a
@@ -456,6 +509,7 @@ private nonisolated struct ScenePropertySourceVersion: Equatable {
             }) else { return nil }
             defer { fts_close(tree) }
             while true {
+                if (try? checkCancellation?()) == nil && checkCancellation != nil { return nil }
                 errno = 0
                 guard let node = fts_read(tree) else {
                     guard errno == 0 else { return nil }

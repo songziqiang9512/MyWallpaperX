@@ -104,7 +104,6 @@ enum ScanGate {
     func installedLibraryScanContext() -> SteamWorkshopInstalledLibraryScanContext {
         SteamWorkshopInstalledLibraryScanContext(libraryRoot: steamDownloadLibraryRootURL)
     }
-    func preloadWebRuntimeCaches(for records: [SteamWorkshopDownloadRecord]) {}
     func publishDownloadSelectionState(primaryID: String?, selectedIDs: Set<String>, deferPublishing: Bool) {}
     func scheduleLibraryVersionReclamation() {}
     nonisolated static func scanInstalledLibraryRecords(

@@ -7,7 +7,7 @@ final class SceneDynamicTextTextureStore: @unchecked Sendable {
         let layerSources: [Int: SceneLayerSourcePublication]
     }
 
-    private let cacheDirectory: URL
+    private let resourceView: SceneResourceView?
     private let device: MTLDevice
     private let onPublication: (@Sendable (SceneDynamicTextTextureStore) -> Void)?
     private let authoredLayerIDs: Set<Int>
@@ -15,6 +15,7 @@ final class SceneDynamicTextTextureStore: @unchecked Sendable {
     private var layersByID: [Int: SceneRenderDescriptor.Layer]
     private let queue = DispatchQueue(label: "com.mywallpaperx.scene.dynamic-text", qos: .userInitiated)
     private let lock = NSLock()
+    private var closed = false
     private var generationState = SceneDynamicTextGenerationState()
     private var currentRasters: [Int: SceneTextTextureLoader.RasterizedTexture]
     private var cachedSnapshot: Snapshot?
@@ -27,7 +28,7 @@ final class SceneDynamicTextTextureStore: @unchecked Sendable {
 
     init(
         descriptor: SceneRenderDescriptor,
-        cacheDirectory: URL,
+        resourceView: SceneResourceView?,
         device: MTLDevice,
         initialRasters: [Int: SceneTextTextureLoader.RasterizedTexture],
         dynamicTextFieldsByLayerID: [Int: Set<SceneDynamicTextField>] = [:],
@@ -40,7 +41,7 @@ final class SceneDynamicTextTextureStore: @unchecked Sendable {
                 && $0.text != nil
                 && $0.textStyle != nil
         }
-        self.cacheDirectory = cacheDirectory
+        self.resourceView = resourceView
         self.device = device
         self.onPublication = onPublication
         self.layersByID = Dictionary(uniqueKeysWithValues: layers.map { ($0.id, $0) })
@@ -74,6 +75,7 @@ final class SceneDynamicTextTextureStore: @unchecked Sendable {
             .contains { !$0.isEmpty }
         if dynamicLayers.isEmpty && !incomingHasDynamicTextFields {
             lock.lock()
+            guard !closed else { lock.unlock(); return }
             let hasAdmittedDynamicLayer = layersByID.keys.contains {
                 !authoredLayerIDs.contains($0)
             }
@@ -92,6 +94,7 @@ final class SceneDynamicTextTextureStore: @unchecked Sendable {
         }
         let admittedIDs = Set(admittedDynamic.map(\.id))
         lock.lock()
+        guard !closed else { lock.unlock(); return }
         var signatureRefreshLayerIDs: Set<Int> = []
         for layerID in authoredLayerIDs {
             let nextFields = dynamicTextFieldsByLayerID[layerID] ?? []
@@ -119,9 +122,7 @@ final class SceneDynamicTextTextureStore: @unchecked Sendable {
                 if let request = generationState.registerDynamic(
                     layerID: layer.id, signature: signature
                 ) {
-                    lock.unlock()
-                    schedule(request)
-                    lock.lock()
+                    scheduleLocked(request)
                 }
             } else {
                 layersByID[layer.id] = layer
@@ -138,10 +139,35 @@ final class SceneDynamicTextTextureStore: @unchecked Sendable {
                 for: layer, snapshot: snapshot, dynamicFields: dynamicFields
             )
             lock.lock()
+            guard !closed else { lock.unlock(); return }
             let request = generationState.schedule(layerID: layer.id, signature: signature)
+            if let request { scheduleLocked(request) }
             lock.unlock()
-            if let request { schedule(request) }
         }
+    }
+
+    /// Stops admission without waiting for synchronous font drawing to return.
+    func close() {
+        lock.lock()
+        closeLocked()
+        lock.unlock()
+    }
+
+    /// The tail runs after every admitted render has returned and released its
+    /// temporary font/bitmap bytes. Admission and the tail share the same lock.
+    func closeAndDrain(completion: @escaping @Sendable () -> Void) {
+        lock.lock()
+        closeLocked()
+        queue.async { [self] in
+            withExtendedLifetime(self) { completion() }
+        }
+        lock.unlock()
+    }
+
+    private func closeLocked() {
+        guard !closed else { return }
+        closed = true
+        generationState.reset()
     }
 
     /// Pins the currently published provider view for one host frame. Async
@@ -230,13 +256,14 @@ final class SceneDynamicTextTextureStore: @unchecked Sendable {
         lock.unlock()
     }
 
-    private func schedule(_ request: SceneDynamicTextGenerationState.RenderRequest) {
+    private func scheduleLocked(_ request: SceneDynamicTextGenerationState.RenderRequest) {
         queue.async { [weak self] in self?.render(request) }
     }
 
     private func render(_ request: SceneDynamicTextGenerationState.RenderRequest) {
         lock.lock()
-        let layer = layersByID[request.layerID]
+        let layer = closed ? nil : layersByID[request.layerID]
+        let preparedFont = currentRasters[request.layerID]?.sourceFont
         lock.unlock()
         guard let layer else { return }
 #if DEBUG
@@ -246,16 +273,22 @@ final class SceneDynamicTextTextureStore: @unchecked Sendable {
             Thread.sleep(forTimeInterval: delay)
         }
 #endif
-        let rendered = SceneTextTextureLoader.makeDynamicTexture(
-            for: layer,
-            content: request.signature.content,
-            fontPath: request.signature.fontPath,
-            pointSize: request.signature.pointSize,
-            colorRGB: request.signature.colorRGB,
-            maxWidth: request.signature.maxWidth,
-            cacheDirectory: cacheDirectory,
-            device: device
-        )
+        let rendered: SceneTextTextureLoader.RasterizedTexture?
+        do {
+            let candidate = try SceneTextTextureLoader.makeDynamicTexture(
+                for: layer, content: request.signature.content,
+                fontPath: request.signature.fontPath, pointSize: request.signature.pointSize,
+                colorRGB: request.signature.colorRGB, maxWidth: request.signature.maxWidth,
+                resourceView: resourceView, preparedFont: preparedFont, device: device,
+                checkCancellation: { try self.checkRendering(request) })
+            try checkRendering(request)
+            rendered = candidate
+        } catch {
+            rendered = nil
+#if DEBUG
+            NSLog("MWX Scene text layer=%d raster rejected: %@", request.layerID, String(describing: error))
+#endif
+        }
 #if DEBUG
         var debugPublication: (
             layerID: Int,
@@ -288,6 +321,7 @@ final class SceneDynamicTextTextureStore: @unchecked Sendable {
             }
 #endif
         }
+        if let next = completion.next { scheduleLocked(next) }
         lock.unlock()
 #if DEBUG
         if let debugPublication {
@@ -305,7 +339,14 @@ final class SceneDynamicTextTextureStore: @unchecked Sendable {
         }
 #endif
         if completion.accepted, rendered != nil { onPublication?(self) }
-        if let next = completion.next { schedule(next) }
+    }
+
+    private func checkRendering(_ request: SceneDynamicTextGenerationState.RenderRequest) throws {
+        lock.lock()
+        let active = !closed && layersByID[request.layerID] != nil
+            && generationState.isRendering(request)
+        lock.unlock()
+        guard active else { throw CancellationError() }
     }
 
     private static func signature(

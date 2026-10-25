@@ -4,7 +4,7 @@
 
 > 状态：现役工程参考地图（代码实际接线的事实记录）
 >
-> 复核：2026-09-14
+> 复核：2026-10-26。P0/P1 来源/读取接线已有优化 Debug 构建与真实产品入口呈现证据；后继代码仍待最近门与构建，范围见[精简计划](../../development/validation-simplification-plan.md)。其余条目保留各自历史复核边界。
 >
 > 当前能力权威：[能力台账](../capabilities/coverage-ledger.md)。
 >
@@ -23,15 +23,19 @@
 ### 1.1 加载链（一次 launch）
 
 ```
-App 主线程  选壁纸 → 收集属性覆盖与安全作用域书签 → SceneDaemonClient 保存 authored intent → newline JSON 管道
+App 主线程  选壁纸 → 原service捕获当前记录/source/读取lease（属性Request复用同一入口）
+        → 收集属性覆盖与安全作用域书签 → SceneDaemonClient 保存 authored intent → newline JSON 管道
 daemon 主线程  解码 typed loadScene → Host.requestLaunch（世代号++，取消上一代）
-daemon 后台    launchPreparationQueue 串行：package 解码（project.json/scene.json JSONSerialization、scene.pkg 解包）
-        → IR/RenderDescriptor/资产目录 → admission/catalog 编译（concurrentPerform）
+daemon 后台    launchPreparationQueue 串行：当前 loose Root → Project自持Data解析
+        → 同Reader/FD一次索引、单一逻辑Root按需entry读取 → Document
+        → IR/RenderDescriptor/资产目录 → 粒子定义图prepare → admission/catalog编译（concurrentPerform）
         → 材质资产纹理内联解码 → 双后台 worker（基础纹理/模型、first-surface runtime）→ NSCondition join
-        → QuickJS 全 family 编译 → launchContext 组装
+        → QuickJS全family编译 → launchContext组装（携粒子图、Sound file lease及独立privateMediaCacheDirectory）
 daemon 主线程  activate：QuickJS adoptCurrentThread → 逐屏建 SceneMetalView（安全作用域内同步加载用户属性纹理）
-        → loadImageLayers（缓存 miss 同步 decode/puppet 重组/文字/粒子 init）→ 建窗口 → 立即首帧 → Timer 帧循环
+        → loadImageLayers（缓存miss同步decode/puppet重组/文字；消费已备粒子图建每屏状态/GPU）→ 建窗口 → 立即首帧 → Timer帧循环
 ```
+
+播放不执行 receipt 升级或历史整树摘要核验；下载出版、读取 lease、取消与 App 退出边界查[启动合同 §4.1](scene-launch-responsiveness-contract.md#41-唯一请求与准备-owner)。下述 Host/Session 排空仅指 daemon 执行端。Host 停止沿原 launchPreparationQueue 尾 fence 汇合 Session 排空，没有 Session 也等待已接纳准备结束。Session 全 clearContext 先将共享 deferred 原 queue 尾纳原 retiringSurfaceDrain，再清 context；停止后才调用 drain 也保留该等待。字体与原退休 group 终态后再提交全停 surface GPU barrier，主线程不 wait；GPU 状态 Bool 不改称 AV drain。
 
 ### 1.2 所有权权威
 
@@ -67,18 +71,19 @@ SceneScript C host按layer catalog/baseline、native handle、typed value、jour
 
 | 对象类 | 谁加载/构建 | 分配到哪 | 存活期 | 失效域 |
 |---|---|---|---|---|
-| authored 解码产物（IR/descriptor/资产目录） | launch 队列一次构建 | launchContext | 场景期 | topology（整体替换） |
+| authored解码产物（IR/descriptor/资产目录）与粒子定义图 | launch队列原prepare中一次构建；粒子沿同ResourceView读取，不再独立枚举 | launchContext；定义图携所选纹理Input/Root引用，surface建立自身GPU/模拟 | 场景期 | topology（整体替换）；不是跨launch纯产物缓存 |
 | author shader 程序（MSL artifact） | admission 编译（子进程）+ 磁盘/内存 artifact cache | capability catalog（不可变，token 寻址） | catalog 生命周期 | program-variant |
 | PSO/MTLLibrary | PassEncoder PSO entries 以完整 MetalCompileStateKey 寻址；MTLLibrary 按完整 metalSource 内容寻址并合并并发 in-flight 编译；launch 期 warmup 预编 | pipeline repository | executor 生命周期；reset 只失效 PreparedPass 命令世代，保留不可变编译产物与负缓存 | program-variant；catalog/device 整体替换时随 executor 释放 |
 | layer colorBlend PSO / framebuffer snapshot | 非零blend由worker预热PSO；普通quad按最终MVP保守区域同坐标复制，custom/不可信/折射全屏 | launch repository唯一PSO，各surface独占完整snapshot | PSO场景期；snapshot surface期 | device/repository替换；surface teardown或extent变化；保容量与失效 |
 | source-less direct-draw 放置几何 | SceneResolvedMaterialDirectDrawGeometryCompiler 从不可变 Program 事实编译 | ScenePreparedDirectDrawOutputGeometry（capability 持有） | capability 生命周期 | program-variant；renderer 消费 typed 放置结果，不按 effect 名称选择算法 |
 | 材质静态准备 / 帧Program | variant admission唯一factory准备layout、固定slot/channel-use、shader/prepared/render-state identity及UniformBindings；不可变shader identity只构造时哈希，查询复用、完整字段判等；原失败优先级保留 | 原CompiledVariant持有PreparedAssembly及preparedUniformBindings；Finalizer物化当帧Program | variant期 / 帧期 | variant替换释放静态值；帧内仍验证publication、device、generation、extent/UV、purpose/content/sampling、graph及color/output，不缓存完整Program或跨commandBuffer PreparedPass；pipeline key沿用Program identity并保attachment/sample/writeMask |
-| 基础纹理 | PreparedBaseImageResources 后台预解码；deferred 按需 worker（per 世代队列）；loose PNG/JPEG 与内嵌 TEX mip/payload 在每个 SceneTextureLoader 内按完整 SourceKey 复用 ImageIO CGImage 解码，Metal texture 仍按 source/device/purpose 分离；daemon Host 按性能档持有共享 `SceneTextureDecodeCacheBudget`（standard 1GB / efficient 512MB），统计 TEX 源数据与解码 CGImage，超限只跳过中间缓存 | imageTextures store（per view）+ loader directImageResources/texEmbeddedImageResources；预算 lease 聚合一次 launch 的 material/base/deferred/user-property loader | view/场景期；loader 释放时归还预算；热降档从下次准入生效，不驱逐既有纹理 | resource-generation / geometry-extent；文件 size/mtime/device/inode/ctime 任一变化即换 SourceKey；profile 只改准入帽，不新增失效域 |
+| 基础纹理 | FileInput区分已选Root handle与独立外部URL，SourceKey为FileIdentity；PreparedBaseImageResources 后台预解码；deferred 按需 worker（per 世代队列）；loose PNG/JPEG 与内嵌 TEX mip/payload 在每个 SceneTextureLoader 内按完整 SourceKey 复用 ImageIO CGImage 解码，Metal texture 仍按 source/device/purpose 分离；daemon Host 按性能档持有共享 `SceneTextureDecodeCacheBudget`（standard 1GB / efficient 512MB），统计TEX源数据、跨metadata→GPU留存的direct encoded bytes与解码CGImage，超限只跳过中间缓存或短值留存 | imageTextures store（per view）+ loader directImageResources/texEmbeddedImageResources；预算 lease 聚合一次 launch 的 material/base/deferred/user-property loader | view/场景期；loader释放归还预算；deferred仅全clearContext同锁关闭，原queue尾进Session退休group；热降档不驱逐既有纹理 | resource-generation / geometry-extent；文件 size/mtime/device/inode/ctime 任一变化即换 SourceKey；profile 只改准入帽，不新增失效域 |
 | 纹理上传 command queue | launch 创建一个 `SceneTextureUploadCommandQueue`，按 device registryID 缓存成功创建的 queue，创建失败允许后续请求重试；注入 material/base/deferred/static-model/particle/user-property/media-thumbnail/stock-noise 资源消费者 | launchContext 持有的共享 upload queue；renderer 另有 per-surface frame queue | scene/device 生命周期；跨 surface 共享 | device/scene 整体替换；不参与 value-only/resource-generation 帧失效 |
 | 材质资产纹理 | catalog准备静态纹理或视频声明；session由原video registry激活asset源 | 静态catalog；视频经各surface bridge→原帧registry | 场景/source期 | source/device换代；[媒体合同](../capabilities/material-video-assets.md) |
 | stock noise 替代纹理 | launch worker 在 capability catalog 前按 asset absent / 显式 system demand 生成；已有 upload queue 单批 mipmap，完成成功才交给统一默认选择及帧消费 | 不可变 SceneStockNoiseTextureStore，由 launchContext 持有并跨 surface 共享；普通帧只消费 states | scene/device 生命周期；失败 unavailable 不逐帧重试 | 新 launch preparation；不同 device 拒绝复用 |
-| 视频帧 | 原video registry的typed layer/asset源，AVPlayer + CVMetalTextureCache | per-source pending → 原共享提交栅栏 | 帧期 | incarnation/epoch/contentGeneration；asset无脚本layerID |
-| 动态文字/媒体缩略图 | 专用异步队列，签名/generation 去重 | pending 状态机 → 三段栅栏 | 帧期 | resource-generation |
+| 视频帧 | 原video registry的typed layer/asset源，AVPlayer + CVMetalTextureCache；普通TEX MP4/WebM、material video、初始/动态外部属性video共用Host直接构造的App私有cache根，经context.privateMediaCacheDirectory写私有池，作者cacheDirectory/ResourceView不改 | per-source pending → 原共享提交栅栏；Video保原AVPlayerItem(url:)及活跃路径，仅有效stop后、取消/replace/nil前由同OwnedFile helper将file交接给当前item.asset | 活跃期Source持file；stop交接后的实际AV asset借用或原WebM worker持lease，最后释放unlink；deinit仍stop，不等于AV drain | incarnation/epoch/contentGeneration；asset无脚本layerID；进程磁盘预约由原OwnedFile统一；当前package Root按实际entry范围读取，native workspace与跨provider文件共享仍开放 |
+| 作者Sound | 原Host launch队列内Program沿所选Root/FD流式完成原OwnedFile，复用同一显式私有写域，不从outputURL推断 | 原Program同compile共享file lease；Registry保D6的AVURLAsset(url:)→AVPlayerItem(asset:)，创建时由同OwnedFile helper给实际asset持pin | 最后AV asset借用释放才unlink；launch工作归原队列尾，不称通用AV drain | 原候选/Binding失败边界；进程磁盘预约由原OwnedFile统一；当前package Root按实际entry范围读取，native workspace与跨provider文件共享仍开放 |
+| 动态文字/媒体缩略图 | 原专用异步队列；文字字体沿完整ResourceView按package→loose作者优先级的literal handle→Data→CoreText，同次成功raster与动态当前raster持原sourceFont复用；原State单调token跨退休/reset不复用 | 原pending状态机→三段栅栏；失败保旧完整raster，无新字体cache | 帧/场景期；Store原锁关闭/入队/尾fence线性化，字体CPU并入该surface退休；媒体缩略图不据此泛称已join | resource-generation |
 | graph render target | 每个 surface 的 offscreen allocation cache（自动预算为设备建议工作集 `/16`、192 MiB floor、1.5 GiB cap；显式注入优先；submissionPin/historyPin + history rehydrate） | lease/table（per layer plan） | 跨帧（history）或帧内 | geometry-extent / topology；当前没有跨 surface 的进程级聚合 cap |
 | 性能 counter / 资源 gauge | frame/Metal 命令点定长累加；daemon 1Hz 读取 surface 的 offscreen、named、depth、framebuffer owner 值与 device allocation | `ScenePerformanceCounterHub` 21 槽；App client 仅最新快照 | daemon 进程期；无 history/percentile | 不参与五类产品失效；场景切换后累计 counter 延续、当前 gauge 覆盖 |
 | 帧 values | FrameDriver 每帧双 resolve 动态快照 | frameContext（值传递，字典 CoW） | 帧期 | value-only |
@@ -129,7 +134,7 @@ SceneScript C host按layer catalog/baseline、native handle、typed value、jour
 
 - `6aa74ba2`：coordinator 按不可变 catalog token 缓存 ClaimedExecution，独立锁；不缓存当帧 publication/准入。
 - `08c70d53`：pool 按 capability token/layer/解析后尺寸/materialFunctionTargets 内容缓存 target plans；reset 清空，失败不缓存。键与输入同源性及缓存容量仍需正式反例门。
-- M4.2 texture decode cache：一次 daemon Host 持有共享字节预算，loader lease 在其生命周期内累计 TEX 源数据与 decoded CGImage；拒绝缓存准入不能拒绝同次解码/上传，也不能变更 Metal texture/publication owner。profile 热降档只影响后续准入；既有 resident 中间数据随 loader 生命周期释放。
+- M4.2 texture decode cache：原Host共享字节预算与loader lease继续拥有TEX/decoded缓存；D4 direct短值用同预算source lease跨metadata→GPU，领取时先移出队列，操作完成释放。拒绝留存仅保小metadata，GPU按expected identity重捕获；deferred只保Input与身份。准入拒绝不拒绝同次解码/上传或改变Metal texture/publication owner，热降档只影响后续准入，原resident缓存随loader释放。
 - executor 的 `8b3a8d58` Bool memo 已撤回：同键不同 stored plan 可绕过命令表校验，失败结果也可污染后续合法 lease。当前恢复 `make + expected == lease.table.plan`；纹理、角色、generation 和 functionTargets 守卫全部保留。后续只能缓存 expected plan 或有完整内容/身份保证的 prepared 表示，不能缓存省略被比较对象身份的 Bool。
 - 同步 launch 与异步 requestLaunch 均在每次准备尝试前递增唯一 `nextSceneScriptGeneration`。`1a7e4020` 误删同步递增已在交接纠偏恢复；可执行入口测试覆盖成功/失败/成功得到 1/2/3，失败尝试不可复用身份。
 - 播放态 `isPlaying` 已补为 `PlaybackEngineControlling` 协议要求，multiplexer 读取具体处理端状态；回归测试覆盖 Scene 在播、广播暂停、video 定向恢复与注销。此前 extension-only 默认 false 的错误分发不得在 IPC client 中复现。Scene `.stop` 始终进入既有 Host.stop()（幂等），包括异步准备中尚无 launchContext 的阶段，避免 pending launch 在停止后继续激活。

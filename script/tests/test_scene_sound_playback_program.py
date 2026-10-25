@@ -29,6 +29,7 @@ def record_process(name, process):
         (root / f"{name}.json").write_text(json.dumps({"returnCode": process.returncode}))
 
 STUB_SOURCE = r'''
+import AVFoundation
 import Foundation
 
 enum SceneDynamicField: Hashable {
@@ -95,16 +96,41 @@ struct SceneResource {
     let url: URL
 }
 
+// Prepared-plan carriers only: no filesystem, Root safety or byte-copy proof.
+// The real Root/OwnedFile chain is executed by test_scene_sound_resource_input.
 struct SceneResourceView {
+    struct Handle: Hashable {
+        let url: URL
+        var diagnosticPath: String { url.path }
+        var displayPath: String { url.path }
+        var relativePath: String { url.lastPathComponent }
+    }
+    enum FileInput: Hashable { case resource(Handle) }
+    enum ReadError: Error { case missing, unreadable, sourceChanged, invalidHandle, symlinkEscape }
     let resourcesByReference: [String: URL]
 
-    func resource(forReference reference: String) -> SceneResource? {
-        guard let url = resourcesByReference[reference] else { return nil }
-        return SceneResource(url: url)
+    func resolvedResource(forReference reference: String) -> Handle? {
+        resourcesByReference[reference].map { Handle(url: $0) }
     }
 
-    func displayPath(for url: URL) -> String {
-        url.path
+    func displayPath(for url: URL) -> String { url.path }
+}
+
+nonisolated final class SceneVideoOwnedFile: Sendable {
+    let url: URL
+    init(url: URL) { self.url = url }
+    func retainForLifetime(of asset: AVAsset) {}
+    enum Operation: Equatable { case createSnapshot, writeSnapshot, closeSnapshot }
+    enum Failure: Error {
+        case invalidSourceURL
+        case aggregateDiskBudgetExceeded
+        case directoryCreation(domain: String, code: Int)
+        case io(operation: Operation, code: Int32)
+    }
+    static func snapshot(from handle: SceneResourceView.Handle, cacheDirectory: URL,
+        fileExtension: String, checkCancellation: (() throws -> Void)? = nil) throws -> SceneVideoOwnedFile {
+        try checkCancellation?()
+        return SceneVideoOwnedFile(url: handle.url)
     }
 }
 '''
@@ -289,13 +315,13 @@ enum Harness {
             "../escape.flac": URL(fileURLWithPath: "/fixture/escape.flac"),
         ])
 
-        let program = SceneSoundPlaybackProgram.compile(
+        let program = try SceneSoundPlaybackProgram.compile(
             document: document,
             resourceView: resourceView
-        )
-        let unavailableOnly = SceneSoundPlaybackProgram.compile(document: .init(
+        , privateCacheDirectory: FileManager.default.temporaryDirectory)
+        let unavailableOnly = try SceneSoundPlaybackProgram.compile(document: .init(
             objects: document.objects.filter { $0.id == allSourcesUnavailableLayerID }),
-            resourceView: resourceView)
+            resourceView: resourceView, privateCacheDirectory: FileManager.default.temporaryDirectory)
         let volumeDefinitions = program.bindings.map {
             SceneDynamicTargetDefinition(target: $0.volumeTarget, authoredValue: .scalar(0.5))
         }
@@ -310,7 +336,7 @@ enum Harness {
             "bindings": program.bindings.map { binding in
                 var result: [String: Any] = ["layerID": binding.layerID,
                     "sources": binding.resources.map(\.displayPath),
-                    "resourceURLs": binding.resources.map { $0.url.path },
+                    "resourceURLs": binding.resources.map { $0.file!.url.path },
                     "startsSilent": binding.startsSilent,
                     "volumeConsumer": consumers.contains(binding.volumeTarget)]
                 switch binding.playbackMode {
@@ -616,7 +642,7 @@ class SceneSoundPlaybackRegistryPlaybackTests(unittest.TestCase):
         _, separator, carriers = STUB_SOURCE.partition("struct SceneScriptMediaPlaybackCommand")
         if not separator:
             raise RuntimeError("media carrier boundary missing from shared Sound stub")
-        stub.write_text("import Foundation\n\n" + separator + carriers, encoding="utf-8")
+        stub.write_text("import AVFoundation\nimport Foundation\n\n" + separator + carriers, encoding="utf-8")
         harness.write_text(PLAYBACK_HARNESS_SOURCE, encoding="utf-8")
         compilation = subprocess.run(
             [

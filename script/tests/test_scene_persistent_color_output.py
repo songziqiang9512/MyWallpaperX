@@ -58,13 +58,17 @@ enum SceneUtilityLayerRuntimePlanner {
         let membersByRootID: [Int: [Int]]
         let orderedRootIDs: [Int]
         let copyBackgroundRootIDs: Set<Int>
+        var localSourceRootIDs: Set<Int> = []
     }
 }
 final class SceneCompositionGroupFrameRuntime {
     init(parentPass: SceneMainPassEncoder, commandBuffer: MTLCommandBuffer,
          offscreenTexturePool: SceneOffscreenTexturePool,
          memberRootsByLayerID: [Int: Int], membersByRootID: [Int: [Int]], viewportSize: CGSize,
-         copyBackgroundRootIDs: Set<Int> = []) {
+         copyBackgroundRootIDs: Set<Int> = [],
+         localSourceRootIDs: Set<Int> = [],
+         sourceGeometriesByRootID: [Int: SceneCompositionSourceGeometry] = [:],
+         captureBackground: ((MTLTexture, MTLTexture, simd_float4x4, MTLCommandBuffer) -> Bool)? = nil) {
         fatalError("terminal fixture must not prepare composition groups")
     }
     func reserveSources(orderedRootIDs: [Int], visibleLayerIDs: Set<Int>) {
@@ -134,6 +138,9 @@ def _compile_and_run(name: str, *, source: str | None = None) -> dict:
             harness = folder / name
             harness.write_text(source, encoding="utf-8")
         sources = list(dict.fromkeys([*OWNER_SOURCES, MAPPING, MAPPING.with_name("SceneBloomPostProcess.swift"), RESOURCE_BUDGET,
+                   SCENE / "Rendering/Geometry/SceneCaptureGeometry.swift",
+                   SCENE / "Rendering/Geometry/SceneLayerCursorGeometry.swift",
+                   SCENE / "Rendering/Composition/SceneOffscreenEffectRenderer+Capture.swift",
                    SCENE / "Format/SceneDocument+NumericParsing.swift",
                    SCENE / "Rendering/Composition/SceneMainPassEncoder.swift",
                    SCENE / "Rendering/Frame/SceneMetalRenderer+ClearColor.swift",

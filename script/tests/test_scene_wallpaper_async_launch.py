@@ -157,7 +157,8 @@ class SceneWallpaperAsyncLaunchTests(unittest.TestCase):
     def test_first_surface_runtime_warmup_overlaps_program_compilation(self) -> None:
         prepare = function_body(self.launch, "private static func prepareLaunch(")
         make_runtime = function_body(
-            self.launch, "func makeResolvedMaterialRuntime()"
+            LAUNCH.with_name("SceneDesktopWallpaperLaunchContext.swift").read_text(),
+            "func makeResolvedMaterialRuntime()"
         )
         self.assertIn("ScenePreparedFirstSurfaceRuntimeTask(", prepare)
         self.assertIn("firstSurfaceRuntimePreparation.start()", prepare)
@@ -297,6 +298,7 @@ class SceneWallpaperAsyncLaunchTests(unittest.TestCase):
             compilation = subprocess.run([
                 "xcrun", "swiftc", "-D", "DEBUG", "-swift-version", "5", "-parse-as-library",
                 str(LAUNCH.with_name("SceneDesktopWallpaperLaunchModels.swift")),
+                str(ROOT / "MyWallpaperX/Core/SteamWorkshopStorage/ScenePlaybackSource.swift"),
                 str(ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Systems/Properties/SceneUserProperty.swift"),
                 str(ROOT / "MyWallpaperX/Core/PlaybackControl/ScenePlaybackShortcut.swift"),
                 str(harness), "-o", str(binary),
@@ -341,7 +343,7 @@ def property_launch_harness(host_source: str) -> str:
         method(client, "private func applyPropertyValues("),
         method(client, "func hasIntent("),
         method(events, "private func handlePropertyUpdateResult("),
-        method(events, "private func handleLaunchState("),
+        method(events, "func handleLaunchState("),
         method(events, "private func handleFirstFrame("),
         method((ipc / "SceneDaemonClient+SwitchEndpoint.swift").read_text(), "func commitPresentedScene("),
         method(client, "func preparedCallbackPropertyKeys("),
@@ -437,7 +439,7 @@ struct SceneTextureDecodeCacheBudget: Sendable { let control: PreparationControl
     var onState: ((SceneWallpaperLaunchState) -> Void)?
     var began: [UInt64] = [], trace: [String] = []
     init(_ control: PreparationControl) { textureDecodeCacheBudget = .init(control: control) }
-    nonisolated static func prepareLaunch(rootURL: URL,
+    nonisolated static func prepareLaunch(rootURL: URL, source: ScenePlaybackSource? = nil,
         propertyOverrides: [String: SceneUserPropertyValue], userPropertyTextureURLs: [String: URL],
         requiredUserTextureKeys: Set<String>, logURL: URL?, recordID: String?,
         sceneScriptGeneration: UInt64, textureDecodeCacheBudget: SceneTextureDecodeCacheBudget,
@@ -498,7 +500,11 @@ struct SceneTextureDecodeCacheBudget: Sendable { let control: PreparationControl
     func cancelSwitch(ticket:Int,completion:()->Void){completion()}
     func resumeCommittedSwitchRecoveryIfPossible(after ticket:Int?){}
     func reportPreparedSwitch(requestID:UUID)->Bool{false}
-    struct Lifetime { let rootURL: URL; let recordID: String?;var lifetime:Int? = nil }
+    struct Lifetime {
+        let rootURL: URL; let recordID: String?
+        var lifetime: Int? = nil
+        var source: ScenePlaybackSource? = nil
+    }
     final class Transport { var isRunning = true }
     __PENDING_TEXTURE_UPDATE__
     let host: SceneDesktopWallpaperHost

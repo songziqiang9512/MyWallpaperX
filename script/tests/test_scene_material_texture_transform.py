@@ -35,6 +35,7 @@ nonisolated enum SceneDynamicSource: Hashable {
 )
 
 EXTRA_SOURCES = [
+    SCENE_ROOT / "Rendering/Lighting/SceneAuthoredShaderLightingInputs.swift",
     SCENE_ROOT / "Systems/Properties/SceneDynamicSnapshot.swift",
     SCENE_ROOT / "Rendering/Bindings/SceneAuthoredShaderFrameInputs.swift",
     SCENE_ROOT / "Compilation/Material/SceneResolvedMaterialHostUniformSchema.swift",
@@ -864,7 +865,7 @@ class SceneMaterialTextureTransformTests(unittest.TestCase):
         harness.write_text(HARNESS, encoding="utf-8")
         before = source_hashes([*SWIFT_SOURCES, support, harness])
         command = [
-            "xcrun", "--sdk", "macosx", "swiftc", "-parse-as-library",
+            "xcrun", "--sdk", "macosx", "swiftc", "-parse-as-library", "-D", "SCENE_GRAPH_TESTING",
             str(support), *map(str, SWIFT_SOURCES), str(harness),
             "-framework", "Metal", "-framework", "CoreGraphics",
             "-module-cache-path", str(root / "module-cache"), "-o", str(binary),

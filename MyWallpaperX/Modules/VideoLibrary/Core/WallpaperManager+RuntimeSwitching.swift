@@ -28,7 +28,6 @@ extension WallpaperManager {
         scene.switchLost = { [weak self] ticket, reason in self?.switchLost(ticket, reason: reason) }
         seedEngineProjectionFromPersistedSettings()
         restorePlaybackState()
-        restorePersistedSystemAudioSpectrumIfNeeded()
     }
 
     func prepareVideoSwitch(_ wallpaper: VideoWallpaper) {
@@ -51,7 +50,8 @@ extension WallpaperManager {
                          propertiesJSON: String?, recordID: String?, language: String,
                          runtimeProfile: WallpaperEngine.WebRuntimeProfile,
                          resourceLifetime: PlaybackResourceLifetime?, intentEpoch: UInt64?,
-                         resourceGrants: [WebWallpaperResourceGrant] = []) {
+                         resourceGrants: [WebWallpaperResourceGrant] = [],
+                         allowedNetworkHosts: Set<String> = []) {
         if let intentEpoch {
             guard playbackIntentEpoch == intentEpoch, requestedRuntime == .web,
                   playbackSwitch.pending != nil else { return }
@@ -62,7 +62,7 @@ extension WallpaperManager {
             entryURL: entryURL, rootURL: rootURL, propertiesJSON: propertiesJSON,
             recordID: recordID, language: language, runtimeProfile: runtimeProfile,
             multiDisplayEnabled: settings.multiDisplayEnabled, resourceLifetime: resourceLifetime,
-            resourceGrants: resourceGrants)
+            resourceGrants: resourceGrants, allowedNetworkHosts: allowedNetworkHosts)
     }
 
     /// Resolving a Workshop request releases its empty-host reservation in a
@@ -131,7 +131,7 @@ extension WallpaperManager {
                 return
             }
             self.switchVisible(ticket, executionID: id)
-        }, finalize: {}, cancel: { $0() }, setOutputActive: { _, done in done(true) }, retire: { $0() })
+        }, finalize: {}, cancel: { $0() }, setOutputActive: { _, done in done(true) }, retire: { _, done in done() })
         switchPrepared(ticket, endpoint: endpoint)
     }
 
@@ -217,16 +217,22 @@ extension WallpaperManager {
                     // 已有后继提交时，交给其 finalize 发布完整投影。
                     if self.playbackSwitch.committed == nil { self.objectWillChange.send() }
                 }
-                if let id = selection.executionID, let endpoint = switchEndpoints[id] { endpoint.retire(done) }
+                if let id = selection.executionID, let endpoint = switchEndpoints[id] { endpoint.retire(nil, done) }
                 else { done() }
-            case let .handoff(barrier, old, _):
+            case let .handoff(barrier, old, replacement):
                 let done = { [weak self] in
                     guard let self else { return }
                     if let id = old.executionID { self.switchEndpoints.removeValue(forKey: id) }
                     self.pruneSwitchSelection(old.ticket)
                     self.runSwitchEffects(self.playbackSwitch.retired(barrier))
                 }
-                if let id = old.executionID, let endpoint = switchEndpoints[id] { endpoint.retire(done) }
+                if let id = old.executionID, let endpoint = switchEndpoints[id] {
+                    // Commit projections may reenter before this effect runs.
+                    // Still retire the old output, but retain its empty helper
+                    // only for the current successor or a newer Scene intent.
+                    let mayRetain = playbackSwitch.epoch == replacement.ticket.epoch || requestedRuntime == .scene
+                    endpoint.retire(mayRetain ? replacement.ticket : nil, done)
+                }
                 else { done() }
             case let .failed(ticket, reason):
                 switchDeadline?.cancel()

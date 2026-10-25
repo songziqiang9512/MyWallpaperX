@@ -3,42 +3,27 @@
 
 # Web 冷路径 descriptor 解析后台下沉
 
-> 设计复核：2026-10-18。当前实现与验证结果分别以源码、最终运行证据为准；本设计不单独证明启动收益。
+> 设计复核：2026-10-24。当前实现与验证结果分别以源码、最终运行证据为准；本设计不单独证明启动收益。
 
-> 后继：跨 Scene/Web 的步骤与停止条件归[启动专项](../development/wallpaper-startup-optimization-plan.md)。本设计继续持有解析核/actor 边界；P1 将两层校验与保存收敛到同次依赖快照，保留 awaited 保存，不重开已否决的独立保存队列。
+> 2026-10-25 校正：旧专项把内容认证、无消费者的 execution cache 与可选保存放进播放前置，现已按用户要求重新收敛。历史测量只证明当时版本，不再作为保留这些工作的理由；当前源码与本轮回归决定实际完成状态。
 
 ## 目标与取舍
 
-用户点击播放后，主 actor 只收集记录/属性状态、必要的轻量入口事实和书签副作用；项目全量解析、HTML/JS/CSS 依赖扫描、缓存读写在后台执行。保持唯一 descriptor 构造核，播放不依赖完整属性面板或样本诊断。
-
-选择解析核 nonisolated 化、播放编排 async 化；同步属性面板仍使用同一核与 memo。将所有 descriptor API 改为 async 会扩大 UI 状态机改动；另建播放解析器则会产生第二解释权威，均不采用。不增加预热容量、周期任务或 Release 诊断。
+用户点击播放后，主 actor 只捕获记录、当前属性/书签和原请求身份；项目解析及首次必要的 HTML/JS/CSS 风险摘要在原后台准备任务执行。解析核与 analysis memo/磁盘缓存保持唯一 owner；不保留没有播放消费者的完整 runtime model、execution payload 清单、baseline 面板投影、全库预加载或并发解析 flight。
 
 ## 职责与数据流
 
-- `SteamWorkshopService` 主 actor 快照 `webPropertyDefinitionSourceRecord`、有效属性与书签状态，拥有现有 memo 和失效钩子。
-- `parseWebProjectDescriptorCore` 是共享解析核，显式消费 record、属性来源、entry/root；静态摘要、目录结构与结构风险 helpers 不回读 actor 状态。
-- 主 actor 的 `assembleResolvedWebProjectDescriptor` 收尾 baseline 可见性、preset 资源绑定与 preconditions。书签解析及陈旧书签回写继续留在原 owner；没有新增书签解析实现。
-- `prepareWebPlaybackContext` 返回不可变的 `context + descriptor`。产品切换只消费入口、root、属性 JSON、语言和同次 descriptor 的兼容档位，不构造完整 runtime model。
-
-播放链按以下次序执行：
-
-1. `setAsWallpaper` 的入口准入只检查实际/声明入口及依赖可用事实；不调用 descriptor，从而避免后台准备之前先在主线程扫描项目。
-2. async 准备在后台先核两份缓存的廉价字段，再以同次依赖快照服务 execution/analysis 校验与共享 descriptor 核，主 actor 完成装配。快照绑定作者版本、locale/schema 与完整/截断事实；当前 grants 在采用时独立解析。
-3. 冷路径生成有效属性 payload，保持原有 `await saveWebRuntimeCache` 完成时序；保存消费该次已验证依赖快照，不再另扫。同步 UI 与后台编排共用同一解析与缓存实现；新目标尚须实施，不冒充当前命中次数。
-4. 产品接纳返回值前复核 launch generation 和进程准备身份；档位只检查 descriptor 中 service worker、ES module、WASM streaming、敏感 WebGL、iframe 和截断扫描六类风险。完整面板模型额外产生的文件/目录缺失标记不参与档位选择。
-5. 通过现役 ready-to-play 通知进入唯一切换事务；快照准备、媒体 ACK、可见确认、失败保留旧输出均不缩减。兼容接口 `resolvedWebPlaybackContext` 委托同一准备流程，供现有 preload/Debug 调用者使用。
-
-## 缓存候选与失败退出
-
-“先交付播放、后持久化”候选已撤回。真实清单的 Swift 动态 Codable 屏选中，可后移的编码加双原子写盘中位约 0.9–4.5ms，不能支撑约 200 行新增排序、代际和 metadata 重核。该屏选不是 App 收益或数学上界；原保存 owner、等待语义与失效边界保留，不新增缓存或保存队列。
-
-缺失入口/根目录走原失败反馈；后台解析失败不发布播放。较新选择使旧请求退休，迟到完成不得清除新请求 pending 或替换当前输出。取消、预备进程释放和资源 lifetime 仍归现役请求 owner。解析和签名的现有 mtime/依赖校验边界保持，本批不宣称提供原子文件系统快照。
+1. 使用库已经选择的入口。点击播放不为再次发现 fallback HTML 递归遍历作者目录；实际入口在原 host/open 边界检查可读性。库刷新继续拥有入口重新发现。
+2. analysis 缓存只保存纯作者解析/风险结果。命中用项目、locale/schema、入口/namespace和此前实际依赖的文件 revision 判断；不先全文重读、SHA256 全部依赖或重新运行摘要来证明缓存可用。依赖变化使缓存 miss，首次解析仍走原共享解释核。
+3. 普通 CSS/JS、目录或其他可选依赖变化只影响派生缓存。缓存不存在、损坏或失效时重算；不授文件权限，也不作为播放许可。实际入口或必要项目读取失败才进入原失败反馈。
+4. 每次播放按当前属性和真实 bookmark 重新组装必要 payload 与 typed grants，不能从旧 execution cache 恢复授权或当前值。删除没有产品消费者的可见性、选项、preset binding 与 precondition baseline 投影；面板需要时仍由原面板 owner 按需计算。
+5. 一份原版本 lease 覆盖实际作者来源与依赖，保持到后台 worker 实际 join、转交 renderer 或取消后退出。已有选择任务负责 newer-wins，不新增 flight/等待者表、授权 owner 或保存队列。
+6. 可选 analysis 持久化不阻塞 click-to-ready，失败仅损失后续缓存命中；即使迟到写入旧派生结果，也必须由下次 revision 对照 miss，不为它增加一套产品 CAS/重试协议。
+7. 卡片只投影原 ready/入口/依赖字段，不做 filesystem eligibility 或维护第二准入 cache；方向导航只检查实际访问候选，失效继续且最多一圈。ready-to-play、媒体策略 ACK、可见提交与失败保留仍沿唯一切换事务，实际准备/读取保请求、取消、删除及路径/书签边界。
 
 ## 验收与停止条件
 
-入口行为门覆盖首次与重复校验、缺失声明入口、依赖宿主 fallback、入口删除及正常错误反馈；测试不提供完整 descriptor 实现。档位门编译真实风险 owner，覆盖六类风险、非消费风险与组合，不提供完整 runtime model 实现。
-
-真实产品入口验证冷/完整暖应用缓存、属性/书签跨进程恢复与清空、快速连续选择、失败保留和退出；以 matching request 的提交为计时边界，同安装路径、配置和输入交替比较。Release 不编入测量入口。收益未达门或出现功能回退则撤回相应候选，不以跳过资源/可见检查、增加 timeout 或减少作者内容换速度。
+验证冷/暖 analysis 命中不重复全文扫描、入口正常/缺失与依赖宿主、项目/依赖变化后重算、损坏缓存继续播放、属性/书签当前值、快速连续选择和取消 join。真实产品入口按同输入比较提交结果与冷暖耗时，Release 不编入调试测量入口。静态可证明删除了重复工作，但没有本轮数据时不宣称整条链已提速；不能以少读必要作者内容或省略实际可见提交换速度。
 
 ## 2026-10-18 验证边界
 

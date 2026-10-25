@@ -1,3 +1,4 @@
+import Foundation
 import Metal
 
 extension SceneGraphRenderTargetTable {
@@ -32,7 +33,9 @@ extension SceneGraphRenderTargetTable {
         texturesByIdentity: [Graph.TextureIdentity: MTLTexture],
         fullFramePair: FullFramePair,
         expectsInputOutputAlias: Bool,
-        makeInputsDigest: Int
+        makeInputsDigest: Int,
+        preparedExecution: SceneGraphExecutionState.PreparedExecution? = nil,
+        capabilityID: UUID? = nil
     ) -> Result<Self, Failure> {
         guard let specifications = specifications(for: plan),
               specifications.count == texturesByIdentity.count,
@@ -106,7 +109,9 @@ extension SceneGraphRenderTargetTable {
             inputOutputAliased: expectsInputOutputAlias,
             residentByteCost: totalByteCost,
             texturesByIdentity: texturesByIdentity,
-            makeInputsDigest: makeInputsDigest
+            makeInputsDigest: makeInputsDigest,
+            preparedExecution: preparedExecution,
+            capabilityID: capabilityID
         ))
     }
 }

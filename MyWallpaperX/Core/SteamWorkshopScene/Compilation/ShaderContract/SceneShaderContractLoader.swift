@@ -28,8 +28,10 @@ nonisolated struct SceneShaderContractLoader {
 
     nonisolated func loadRootStageProjection(
         shaderReferences: [String],
-        rootURL: URL
-    ) -> [SceneShaderContract] {
+        root: SceneResourceView.Root?,
+        checkCancellation: (() throws -> Void)? = nil
+    ) throws -> [SceneShaderContract] {
+        try checkCancellation?()
         var drafts: [String: ContractDraft] = [:]
 
         for reference in shaderReferences {
@@ -49,12 +51,12 @@ nonisolated struct SceneShaderContractLoader {
             }
         }
 
-        let packageRoot = rootURL.standardizedFileURL
-        let resolvedPackageRoot = packageRoot.resolvingSymlinksInPath().standardizedFileURL
-        let lexicalRoot = packageRoot.appendingPathComponent("shaders", isDirectory: true)
-        let resolvedRoot = lexicalRoot.resolvingSymlinksInPath().standardizedFileURL
-        let shaderRootIsContained = contains(resolvedRoot, root: resolvedPackageRoot)
-        return drafts.values.sorted { $0.identity < $1.identity }.map { draft in
+        let shaderRootIsContained: Bool
+        do {
+            try root?.validatePath("shaders")
+            shaderRootIsContained = true
+        } catch SceneResourceView.ReadError.symlinkEscape { shaderRootIsContained = false }
+        return try drafts.values.sorted { $0.identity < $1.identity }.map { draft in
             var diagnostics = draft.diagnostics
             if draft.isDuplicate {
                 diagnostics.append(.init(
@@ -79,13 +81,13 @@ nonisolated struct SceneShaderContractLoader {
                         (SceneShaderContract.StageKind.vertex, ".vert", SceneShaderContract.DiagnosticCode.missingVertexStage),
                         (.fragment, ".frag", .missingFragmentStage)
                     ] {
-                        if let stage = loadStage(
+                        if let stage = try loadStage(
                             identity: draft.identity,
                             suffix: suffix,
                             kind: kind,
                             missingCode: missingCode,
-                            lexicalRoot: lexicalRoot,
-                            resolvedRoot: resolvedRoot,
+                            root: root,
+                            checkCancellation: checkCancellation,
                             diagnostics: &diagnostics
                         ) {
                             stages.append(stage)
@@ -220,63 +222,37 @@ nonisolated struct SceneShaderContractLoader {
         suffix: String,
         kind: SceneShaderContract.StageKind,
         missingCode: SceneShaderContract.DiagnosticCode,
-        lexicalRoot: URL,
-        resolvedRoot: URL,
+        root: SceneResourceView.Root?,
+        checkCancellation: (() throws -> Void)?,
         diagnostics: inout [SceneShaderContract.Diagnostic]
-    ) -> SceneShaderContract.Stage? {
+    ) throws -> SceneShaderContract.Stage? {
         let sourceRelativePath = identity + suffix
         let relativePath = "shaders/" + sourceRelativePath
-        let candidate = lexicalRoot
-            .appendingPathComponent(sourceRelativePath, isDirectory: false)
-        guard contains(candidate, root: lexicalRoot) else {
-            diagnostics.append(.init(
-                code: .pathEscape,
-                message: "Shader stage escapes its root.",
-                relativePath: relativePath,
-                line: nil
-            ))
-            return nil
-        }
-
-        let resolvedCandidate = candidate.resolvingSymlinksInPath().standardizedFileURL
-        guard contains(resolvedCandidate, root: resolvedRoot) else {
-            diagnostics.append(.init(
-                code: .symlinkEscape,
-                message: "Shader stage resolves outside its root.",
-                relativePath: relativePath,
-                line: nil
-            ))
-            return nil
-        }
-        guard FileManager.default.fileExists(atPath: candidate.path) else {
-            diagnostics.append(.init(
-                code: missingCode,
-                message: "Shader stage is missing.",
-                relativePath: relativePath,
-                line: nil
-            ))
-            return nil
-        }
-
         let data: Data
         do {
-            data = try Data(contentsOf: candidate, options: [.mappedIfSafe])
-        } catch {
-            diagnostics.append(.init(
-                code: .unreadableSource,
-                message: "Shader stage could not be read.",
-                relativePath: relativePath,
-                line: nil
-            ))
+            guard let root, let handle = root.handle(relativePath: relativePath, exact: true) else {
+                throw SceneResourceView.ReadError.missing
+            }
+            // The raw contract has no graph file-size budget. Both stages keep
+            // the vertex-first selected Root and the original shader subtree.
+            data = try root.readBytes(handle, within: "shaders", checkCancellation: checkCancellation)
+        } catch let error as SceneResourceView.ReadError {
+            let code: SceneShaderContract.DiagnosticCode
+            let message: String
+            switch error {
+            case .missing: code = missingCode; message = "Shader stage is missing."
+            case .invalidPath: code = .pathEscape; message = "Shader stage escapes its root."
+            case .symlinkEscape: code = .symlinkEscape; message = "Shader stage resolves outside its root."
+            case .unreadable, .fileTooLarge: code = .unreadableSource; message = "Shader stage could not be read."
+            case .sourceChanged, .invalidHandle: throw error
+            }
+            diagnostics.append(.init(code: code, message: message,
+                relativePath: relativePath, line: nil))
             return nil
         }
         guard let source = String(data: data, encoding: .utf8) else {
-            diagnostics.append(.init(
-                code: .invalidUTF8,
-                message: "Shader stage is not valid UTF-8.",
-                relativePath: relativePath,
-                line: nil
-            ))
+            diagnostics.append(.init(code: .invalidUTF8, message: "Shader stage is not valid UTF-8.",
+                relativePath: relativePath, line: nil))
             return nil
         }
 
@@ -287,11 +263,10 @@ nonisolated struct SceneShaderContractLoader {
         diagnostics.append(contentsOf: parsed.diagnostics)
         let stageDirectory = (sourceRelativePath as NSString).deletingLastPathComponent
         for include in parsed.includes {
-            validateInclude(
+            try validateInclude(
                 include.relativePath,
                 stageDirectory: stageDirectory,
-                lexicalRoot: lexicalRoot,
-                resolvedRoot: resolvedRoot,
+                root: root,
                 stageRelativePath: relativePath,
                 line: include.line,
                 diagnostics: &diagnostics
@@ -311,51 +286,23 @@ nonisolated struct SceneShaderContractLoader {
     nonisolated private func validateInclude(
         _ includePath: String,
         stageDirectory: String,
-        lexicalRoot: URL,
-        resolvedRoot: URL,
+        root: SceneResourceView.Root?,
         stageRelativePath: String,
         line: Int,
         diagnostics: inout [SceneShaderContract.Diagnostic]
-    ) {
+    ) throws {
         guard let relativePath = SceneShaderContractPath.normalizedRelativePath(
-            base: stageDirectory,
-            path: includePath
+            base: stageDirectory, path: includePath
         ) else {
-            diagnostics.append(.init(
-                code: .pathEscape,
-                message: "Shader include escapes its root.",
-                relativePath: stageRelativePath,
-                line: line
-            ))
+            diagnostics.append(.init(code: .pathEscape, message: "Shader include escapes its root.",
+                relativePath: stageRelativePath, line: line))
             return
         }
-        let candidate = lexicalRoot
-            .appendingPathComponent(relativePath, isDirectory: false)
-        guard contains(candidate, root: lexicalRoot) else {
-            diagnostics.append(.init(
-                code: .pathEscape,
-                message: "Shader include escapes its root.",
-                relativePath: stageRelativePath,
-                line: line
-            ))
-            return
+        do { try root?.validatePath("shaders/" + relativePath, within: "shaders") }
+        catch SceneResourceView.ReadError.symlinkEscape {
+            diagnostics.append(.init(code: .symlinkEscape, message: "Shader include resolves outside its root.",
+                relativePath: stageRelativePath, line: line))
         }
-        let resolvedCandidate = candidate.resolvingSymlinksInPath().standardizedFileURL
-        guard contains(resolvedCandidate, root: resolvedRoot) else {
-            diagnostics.append(.init(
-                code: .symlinkEscape,
-                message: "Shader include resolves outside its root.",
-                relativePath: stageRelativePath,
-                line: line
-            ))
-            return
-        }
-    }
-
-    nonisolated private func contains(_ candidate: URL, root: URL) -> Bool {
-        let rootPath = root.path
-        let prefix = rootPath.hasSuffix("/") ? rootPath : rootPath + "/"
-        return candidate.path == rootPath || candidate.path.hasPrefix(prefix)
     }
 
     nonisolated private func sortedUnique(

@@ -1,4 +1,7 @@
-let webCompatibilityScriptInteractionAndRuntimeLogging = #"""
+// Diagnostic listeners compile only into DEBUG; the functional network bridge
+// stays shared. Reused XHR instances retain one logging listener pair.
+#if DEBUG
+private let webCompatibilityScriptConsoleDiagnosticListeners = #"""
   if (hostLogger) {
   const serializedConsoleArgs = (args) => args.map(arg => {
     if (typeof arg === 'string') return arg;
@@ -100,6 +103,38 @@ let webCompatibilityScriptInteractionAndRuntimeLogging = #"""
     hostLogger?.post('promise.rejection', reason || 'unknown');
   });
   }
+"""#
+private let webCompatibilityScriptXHRDiagnosticListeners = #"""
+    if (hostLogger && this.__mwxXHRLoggingInstalled !== true) {
+      this.__mwxXHRLoggingInstalled = true;
+      this.addEventListener('error', function() {
+        const method = this.__mwx_method;
+        const url = this.__mwx_url;
+        if (canProxyNetworkRequest(method, url) && wallpaperHostReplyReachable() === true) {
+          hostLogger.post('xhr.proxy.pending', `${method} ${String(url)}`);
+          return;
+        }
+        hostLogger.post('xhr.error', `${method} ${String(url)}`);
+      });
+      this.addEventListener('loadend', function() {
+        if (this.status >= 400 || this.status === 0) {
+          const method = this.__mwx_method;
+          const url = this.__mwx_url;
+          if (this.status === 0 && canProxyNetworkRequest(method, url) && wallpaperHostReplyReachable() === true) {
+            return;
+          }
+          hostLogger.post('xhr.status', `${method} ${String(url)} status=${this.status}`);
+        }
+      });
+    }
+"""#
+#else
+private let webCompatibilityScriptConsoleDiagnosticListeners = ""
+private let webCompatibilityScriptXHRDiagnosticListeners = ""
+#endif
+
+let webCompatibilityScriptInteractionAndRuntimeLogging = #"""
+\#(webCompatibilityScriptConsoleDiagnosticListeners)
   const networkRequestHandler = window.webkit && window.webkit.messageHandlers && window.webkit.messageHandlers.wallpaperHostNetworkRequest;
   let networkRequestCounter = 0;
   // 请求 ID 加 per-frame 随机段：主 frame 与子 frame 的计数器各自从 0 起，
@@ -338,21 +373,7 @@ let webCompatibilityScriptInteractionAndRuntimeLogging = #"""
     for (const proxiedKey of ['readyState', 'status', 'statusText', 'responseURL', 'responseText', 'response', '__mwx_proxied']) {
       try { delete this[proxiedKey]; } catch (_) {}
     }
-    this.addEventListener('error', () => {
-      if (canProxyNetworkRequest(method, url) && wallpaperHostReplyReachable() === true) {
-        hostLogger?.post('xhr.proxy.pending', `${method} ${String(url)}`);
-        return;
-      }
-      hostLogger?.post('xhr.error', `${method} ${String(url)}`);
-    });
-    this.addEventListener('loadend', () => {
-      if (this.status >= 400 || this.status === 0) {
-        if (this.status === 0 && canProxyNetworkRequest(method, url) && wallpaperHostReplyReachable() === true) {
-          return;
-        }
-        hostLogger?.post('xhr.status', `${method} ${String(url)} status=${this.status}`);
-      }
-    });
+    \#(webCompatibilityScriptXHRDiagnosticListeners)
     return originalOpen.call(this, method, url, ...rest);
   };
   // 代理路径下 send 被拦截、真实请求不再发出，但页面显式设置的请求头仍然要

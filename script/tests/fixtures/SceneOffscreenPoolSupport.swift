@@ -50,7 +50,7 @@ struct SceneFrameTextureResource {
 }
 
 nonisolated enum SceneResolvedMaterialExecutionCapabilityCatalog {
-    struct Token: Hashable {}
+    struct Token: Hashable { let capabilityID = UUID() }
 }
 
 extension SceneLayerGraphTargetPlan {

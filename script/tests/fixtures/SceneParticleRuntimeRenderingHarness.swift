@@ -184,9 +184,9 @@ extension Harness {
         let wide = batches.first { $0.particlePath == "particles/wide.json" }
         let refractionSampling: [String: Any]
         if let resolver = SceneStockTextureResolver(bundleRoot: bundleURL),
-           let colorURL = resolver.textureURL(for: "particle/misc/wave"),
-           let normalURL = resolver.textureURL(for: "particle/normal_splash"),
-           let loaded = SceneParticleRefractionTextureLoader.load(
+           let colorURL = try resolver.textureInput(for: "particle/misc/wave"),
+           let normalURL = try resolver.textureInput(for: "particle/normal_splash"),
+           let loaded = try SceneParticleRefractionTextureLoader.load(
                colorSource: .file(colorURL),
                declaration: SceneParticleRefractionDeclaration(
                    normalTextureSource: .file(normalURL),

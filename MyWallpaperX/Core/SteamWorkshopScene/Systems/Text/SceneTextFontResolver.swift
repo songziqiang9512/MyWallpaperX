@@ -9,6 +9,15 @@ nonisolated enum SceneTextFontResolver {
         let requestedPath: String?
         let postScriptName: String
 
+        func resized(to size: CGFloat) -> Resolution {
+            guard CTFontGetSize(font) != size else { return self }
+            return Resolution(
+                font: CTFontCreateCopyWithAttributes(font, size, nil, nil),
+                source: source, diagnostic: diagnostic, requestedPath: requestedPath,
+                postScriptName: postScriptName
+            )
+        }
+
         var summary: String {
             var value = "font=\(postScriptName) source=\(source)"
             if let requestedPath {
@@ -109,9 +118,17 @@ nonisolated enum SceneTextFontResolver {
     nonisolated static func resolve(
         path: String?,
         size: CGFloat,
-        cacheDirectory: URL
-    ) -> Resolution {
+        resourceView: SceneResourceView?,
+        reusing prepared: Resolution? = nil,
+        checkCancellation: (() throws -> Void)? = nil
+    ) throws -> Resolution {
+        try checkCancellation?()
         let clampedSize = max(1, size)
+        // A published text raster already owns this source's font snapshot.
+        // Content/layout updates need no source I/O; a new path resolves anew.
+        if let prepared, prepared.requestedPath == path {
+            return prepared.resized(to: clampedSize)
+        }
         guard let path, !path.isEmpty else {
             return fallback(
                 size: clampedSize,
@@ -132,31 +149,37 @@ nonisolated enum SceneTextFontResolver {
             )
         }
 
-        guard let fontURL = bundledFontURL(path: normalizedPath, cacheDirectory: cacheDirectory) else {
-            return fallback(
-                size: clampedSize,
-                requestedPath: path,
-                diagnostic: "unsafeFontPath"
-            )
-        }
-        guard FileManager.default.fileExists(atPath: fontURL.path) else {
-            // 壁纸包内没有这个文件时才认 stock：`fonts/X` 的官方语义是先包内、后客户端自带。
-            if let stock = stockFonts[basename] {
-                return resolveStockFont(
-                    stock,
-                    stockPath: normalizedPath,
+        let data: Data
+        do {
+            guard let handle = try resourceView?.literalEntry(relativePath: normalizedPath) else {
+                // 壁纸包内没有这个文件时才认 stock：`fonts/X` 先包内、后客户端自带。
+                if let stock = stockFonts[basename] {
+                    return resolveStockFont(
+                        stock,
+                        stockPath: normalizedPath,
+                        requestedPath: path,
+                        size: clampedSize
+                    )
+                }
+                return fallback(
+                    size: clampedSize,
                     requestedPath: path,
-                    size: clampedSize
+                    diagnostic: "missingBundledFont"
                 )
             }
-            return fallback(
-                size: clampedSize,
-                requestedPath: path,
-                diagnostic: "missingBundledFont"
-            )
+            data = try handle.readBytes(checkCancellation: checkCancellation)
+        } catch let error as SceneResourceView.ReadError {
+            switch error {
+            case .missing, .unreadable:
+                return fallback(size: clampedSize, requestedPath: path, diagnostic: "invalidBundledFont")
+            case .invalidPath:
+                return fallback(size: clampedSize, requestedPath: path, diagnostic: "unsafeFontPath")
+            default:
+                throw error
+            }
         }
-        guard let data = try? Data(contentsOf: fontURL),
-              let provider = CGDataProvider(data: data as CFData),
+        try checkCancellation?()
+        guard let provider = CGDataProvider(data: data as CFData),
               let graphicsFont = CGFont(provider) else {
             return fallback(
                 size: clampedSize,
@@ -165,6 +188,7 @@ nonisolated enum SceneTextFontResolver {
             )
         }
         let font = CTFontCreateWithGraphicsFont(graphicsFont, clampedSize, nil, nil)
+        try checkCancellation?()
         return resolution(
             font: font,
             source: "embedded",
@@ -289,18 +313,6 @@ nonisolated enum SceneTextFontResolver {
             requestedPath: requestedPath,
             postScriptName: CTFontCopyPostScriptName(font) as String
         )
-    }
-
-    nonisolated private static func bundledFontURL(path: String, cacheDirectory: URL) -> URL? {
-        guard !path.hasPrefix("/") else { return nil }
-        let components = path.split(separator: "/", omittingEmptySubsequences: false)
-        guard !components.contains(".."), !components.contains("") else { return nil }
-        let root = cacheDirectory.standardizedFileURL.resolvingSymlinksInPath()
-        let candidate = root.appendingPathComponent(path)
-            .standardizedFileURL
-            .resolvingSymlinksInPath()
-        guard candidate.path.hasPrefix(root.path + "/") else { return nil }
-        return candidate
     }
 
     nonisolated private static func isInstalledFontFamily(_ name: String) -> Bool {

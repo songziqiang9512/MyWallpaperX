@@ -18,7 +18,7 @@ import unittest
 import zlib
 
 from .test_scene_composition_authored_order_integration import VERTEX, encoded, measure_capture
-from .test_scene_pkg_cache_extractor import make_package
+from .scene_pkg_fixture import make_package
 
 
 WHITE, GRAY, GREEN, RED = (255, 255, 255), (128, 128, 128), (0, 255, 0), (255, 0, 0)

@@ -82,7 +82,7 @@ struct SceneAssetTextureIdentity: Equatable, Sendable {
 }
 @main enum ReflectionProfileProbe {
     static func main() throws {
-        let facts=SceneRuntimeSourceFactsBuilder().build(rootURL:URL(fileURLWithPath:CommandLine.arguments[1]))
+        let facts=try SceneRuntimeSourceFactsBuilder().build(rootURL:URL(fileURLWithPath:CommandLine.arguments[1]))
         let document=facts.sceneDocument!,descriptor=facts.renderDescriptor!
         let instances=Dictionary(uniqueKeysWithValues:document.objects.compactMap { o in o.materialInstance.map { (o.id,$0) } })
         let profiles=SceneBaseMaterialLightingProfileCompiler.profiles(descriptor:descriptor,materialInstancesByLayerID:instances,materialPropertyTargets:[])
@@ -174,7 +174,7 @@ struct SceneAssetTextureIdentity: Equatable, Sendable {
 @main enum MapProfileProbe {
     static func main() throws {
         let root=URL(fileURLWithPath:CommandLine.arguments[1])
-        let facts=SceneRuntimeSourceFactsBuilder().build(rootURL:root)
+        let facts=try SceneRuntimeSourceFactsBuilder().build(rootURL:root)
         let document=facts.sceneDocument!,descriptor=facts.renderDescriptor!
         let instances=Dictionary(uniqueKeysWithValues:document.objects.compactMap { o in o.materialInstance.map { (o.id,$0) } })
         let profiles=SceneBaseMaterialLightingProfileCompiler.profiles(descriptor:descriptor,materialInstancesByLayerID:instances,materialPropertyTargets:[])

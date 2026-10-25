@@ -10,6 +10,11 @@ struct DebugSceneProductEntryPolicy {
     private static let productEntryFlag = "--mwx-debug-scene-product-entry"
     private static let sceneRootFlag = "--mwx-debug-scene-root"
 
+    static func isStartupMeasurementRequested(arguments: [String]) -> Bool {
+        arguments.contains("--mwx-debug-scene-startup-report")
+            || arguments.contains("--mwx-debug-scene-startup-mode")
+    }
+
     static func requiresProductCoordinator(arguments: [String]) -> Bool {
         arguments.contains(daemonClientFlag)
             && arguments.contains(productEntryFlag)

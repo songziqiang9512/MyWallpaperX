@@ -56,7 +56,6 @@ extension WallpaperDaemon {
     func showFallback(framePath: String?, gravity: CALayerContentsGravity, fillMode: String? = nil) {
         fallbackLayer.contentsGravity = gravity
         guard let framePath,
-              FileManager.default.fileExists(atPath: framePath),
               let image = NSImage(contentsOfFile: framePath),
               let cgImage = image.cgImage(forProposedRect: nil, context: nil, hints: nil) else {
             fallbackLayer.contents = nil

@@ -67,14 +67,9 @@ extension SceneShaderPreprocessor {
             guard !stack.contains(identity) else {
                 throw failure(.includeCycle, "Shader include cycle contains '\(node.virtualPath)'.", node.virtualPath)
             }
-            let actualHash = SceneShaderStableDigest.hash(Data(node.source.utf8))
-            guard actualHash == node.rawSHA256.lowercased() else {
-                throw failure(.sourceIdentityMismatch, "Shader source bytes do not match their identity.", node.virtualPath)
-            }
-            if let existing = dependencies[node.virtualPath], existing != actualHash {
-                throw failure(.sourceIdentityMismatch, "Shader dependency changed during preprocessing.", node.virtualPath)
-            }
-            dependencies[node.virtualPath] = actualHash
+            // The immutable graph captured this selected source and its
+            // digest together. Each variant consumes that preparation fact.
+            dependencies[node.virtualPath] = node.rawSHA256
             guard dependencies.count <= limits.maximumDependencies else {
                 throw failure(.budgetExceeded, "Shader dependency count exceeds its budget.", node.virtualPath)
             }

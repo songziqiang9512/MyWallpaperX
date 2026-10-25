@@ -216,7 +216,7 @@ final class AppKitSteamWorkshopDownloadsView: NSView {
         isShowingDownloadError = true
         let revisionAtPresentation = service.downloadErrorRevision
         let alert = NSAlert()
-        alert.messageText = "下载失败"
+        alert.messageText = "操作失败"
         alert.informativeText = message
         alert.alertStyle = .warning
         alert.addButton(withTitle: "确定")

@@ -23,22 +23,10 @@ nonisolated struct SteamWorkshopInstalledLibraryScanContext: Sendable {
 extension SteamWorkshopService {
     nonisolated static func loadWorkshopProject(from projectFileURL: URL?) -> SteamWorkshopProject? {
         guard let projectFileURL,
-              FileManager.default.fileExists(atPath: projectFileURL.path),
               let data = try? Data(contentsOf: projectFileURL) else {
             return nil
         }
         return try? JSONDecoder().decode(SteamWorkshopProject.self, from: data)
-    }
-
-    nonisolated static func loadWorkshopProjectRoot(from projectFileURL: URL?) -> [String: Any]? {
-        guard let projectFileURL,
-              FileManager.default.fileExists(atPath: projectFileURL.path),
-              let data = try? Data(contentsOf: projectFileURL),
-              let object = try? JSONSerialization.jsonObject(with: data),
-              let root = object as? [String: Any] else {
-            return nil
-        }
-        return root
     }
 
     nonisolated static func detailCacheDirectoryURL() -> URL {
@@ -61,9 +49,10 @@ extension SteamWorkshopService {
     nonisolated static func preferredPreviewRelativePath(
         in directory: URL,
         project: SteamWorkshopProject?,
-        projectRoot: [String: Any]?
+        fallbackPath: String? = nil
     ) -> String? {
         let fileManager = FileManager.default
+        let root = directory.resolvingSymlinksInPath().standardizedFileURL.path
 
         func normalizedRelativePath(_ rawPath: String?) -> String? {
             guard let rawPath else { return nil }
@@ -75,47 +64,13 @@ extension SteamWorkshopService {
 
         func existingRelativePath(_ rawPath: String?) -> String? {
             guard let relativePath = normalizedRelativePath(rawPath) else { return nil }
-            let root = directory.resolvingSymlinksInPath().standardizedFileURL.path
             let candidate = directory.appendingPathComponent(relativePath).resolvingSymlinksInPath().standardizedFileURL
             guard candidate.path.hasPrefix(root + "/") else { return nil }
             return fileManager.fileExists(atPath: candidate.path) ? relativePath : nil
         }
 
-        func staticSiblingPath(for relativePath: String) -> String? {
-            let baseURL = URL(fileURLWithPath: relativePath)
-            let directoryPath = baseURL.deletingLastPathComponent().path == "."
-                ? ""
-                : baseURL.deletingLastPathComponent().path
-            let baseName = baseURL.deletingPathExtension().lastPathComponent
-            let extensions = ["png", "jpg", "jpeg", "webp"]
-            for pathExtension in extensions {
-                let fileName = "\(baseName).\(pathExtension)"
-                let sibling = directoryPath.isEmpty ? fileName : "\(directoryPath)/\(fileName)"
-                if let existing = existingRelativePath(sibling) {
-                    return existing
-                }
-            }
-            return nil
-        }
-
         func firstStaticPresetImagePath() -> String? {
-            guard let preset = projectRoot?["preset"] as? [String: Any] else { return nil }
-            let preferredKeys = [
-                "backgroundimageb",
-                "backgroundimage",
-                "background_image",
-                "foreground_image",
-                "image",
-                "bgimage"
-            ]
-            for key in preferredKeys {
-                guard let rawValue = preset[key] else { continue }
-                let path: String?
-                if let stringValue = rawValue as? String {
-                    path = stringValue
-                } else {
-                    path = nil
-                }
+            for path in project?.presetImagePaths ?? [] {
                 guard let relativePath = existingRelativePath(path) else { continue }
                 let pathExtension = URL(fileURLWithPath: relativePath).pathExtension.lowercased()
                 if pathExtension != "gif" {
@@ -144,7 +99,7 @@ extension SteamWorkshopService {
             return animatedFallback
         }
 
-        return nil
+        return existingRelativePath(fallbackPath)
     }
 
     func downloadMetadataIndexDirectoryURL() -> URL {
@@ -576,13 +531,12 @@ extension SteamWorkshopService {
             }
             return Self.loadWorkshopProject(from: projectFileURL)
         }()
-        let projectRoot = Self.loadWorkshopProjectRoot(from: projectFileURL)
         let preferredPreviewRelativePath: String? = {
             guard let resolvedLegacyDirectory else { return nil }
             return Self.preferredPreviewRelativePath(
                 in: resolvedLegacyDirectory,
                 project: resolvedProject,
-                projectRoot: projectRoot
+                fallbackPath: metadata?.previewRelativePath
             )
         }()
 
@@ -590,23 +544,7 @@ extension SteamWorkshopService {
             if let preferredPreviewRelativePath,
                let resolvedLegacyDirectory {
                 let candidate = resolvedLegacyDirectory.appendingPathComponent(preferredPreviewRelativePath)
-                if FileManager.default.fileExists(atPath: candidate.path) {
-                    return candidate
-                }
-            }
-            if let previewRelativePath = metadata?.previewRelativePath,
-               let resolvedLegacyDirectory {
-                let candidate = resolvedLegacyDirectory.appendingPathComponent(previewRelativePath)
-                if FileManager.default.fileExists(atPath: candidate.path) {
-                    return candidate
-                }
-            }
-            if let preview = resolvedProject?.preview,
-               let resolvedLegacyDirectory {
-                let candidate = resolvedLegacyDirectory.appendingPathComponent(preview)
-                if FileManager.default.fileExists(atPath: candidate.path) {
-                    return candidate
-                }
+                return candidate
             }
             return nil
         }()

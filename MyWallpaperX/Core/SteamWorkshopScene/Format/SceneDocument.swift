@@ -33,7 +33,7 @@ struct SceneDocument {
         let passes: [Pass]
     }
 
-    let sourceURL: URL
+    let sourcePath: String
     /// The authored document before user-property overrides are resolved.
     /// Typed fields below intentionally use the resolved projection, while
     /// this value remains available to later graph/provider consumers.
@@ -64,36 +64,20 @@ extension SceneDocument {
 struct SceneDocumentLoader {
     enum LoadError: LocalizedError {
         case missingSceneJSON
-        case invalidSceneJSON(URL)
-        case duplicateObjectIDs(URL, [Int])
+        case invalidSceneJSON(String)
+        case duplicateObjectIDs(String, [Int])
 
         var errorDescription: String? {
             switch self {
             case .missingSceneJSON:
                 return "未找到可解析的 scene.json。"
-            case let .invalidSceneJSON(url):
-                return "无法解析 Scene 入口文件：\(url.path)"
-            case let .duplicateObjectIDs(url, ids):
+            case let .invalidSceneJSON(path):
+                return "无法解析 Scene 入口文件：\(path)"
+            case let .duplicateObjectIDs(path, ids):
                 let values = ids.map(String.init).joined(separator: ", ")
-                return "Scene 入口包含重复对象 ID（\(values)）：\(url.path)"
+                return "Scene 入口包含重复对象 ID（\(values)）：\(path)"
             }
         }
-    }
-
-    nonisolated func load(
-        project: SceneProject,
-        packageReport: ScenePkgExtractionReport?,
-        propertyOverrides: [String: SceneUserPropertyValue] = [:]
-    ) throws -> SceneDocument {
-        let candidates = [
-            packageReport?.outputURL?.appendingPathComponent(project.entryPath),
-            project.entryURL
-        ].compactMap { $0 }
-
-        guard let sourceURL = candidates.first(where: { FileManager.default.fileExists(atPath: $0.path) }) else {
-            throw LoadError.missingSceneJSON
-        }
-        return try load(from: sourceURL, propertyCatalog: project.userProperties, propertyOverrides: propertyOverrides)
     }
 
     nonisolated func load(
@@ -102,8 +86,18 @@ struct SceneDocumentLoader {
         propertyOverrides: [String: SceneUserPropertyValue] = [:]
     ) throws -> SceneDocument {
         let data = try Data(contentsOf: sourceURL)
+        return try load(data: data, sourcePath: sourceURL.path,
+            propertyCatalog: propertyCatalog, propertyOverrides: propertyOverrides)
+    }
+
+    nonisolated func load(
+        data: Data,
+        sourcePath: String,
+        propertyCatalog: SceneUserPropertyCatalog = .empty,
+        propertyOverrides: [String: SceneUserPropertyValue] = [:]
+    ) throws -> SceneDocument {
         guard let sourceRoot = try JSONSerialization.jsonObject(with: data) as? [String: Any] else {
-            throw LoadError.invalidSceneJSON(sourceURL)
+            throw LoadError.invalidSceneJSON(sourcePath)
         }
         // Script IR 必须读取作者原始 wrapper；property resolver 会按运行覆盖改写 `value`，
         // 不能让当前用户值冒充 authored fallback。
@@ -148,7 +142,7 @@ struct SceneDocumentLoader {
             .compactMap { id, matches in matches.count > 1 ? id : nil }
             .sorted()
         guard duplicateObjectIDs.isEmpty else {
-            throw LoadError.duplicateObjectIDs(sourceURL, duplicateObjectIDs)
+            throw LoadError.duplicateObjectIDs(sourcePath, duplicateObjectIDs)
         }
         let referencedPaths = Set(objects.flatMap { object in
             [object.imagePath, object.staticModelPath, object.particlePath]
@@ -157,11 +151,11 @@ struct SceneDocumentLoader {
                 + object.effectFiles + object.texturePaths
         })
         guard let authoredValue = SceneJSONValue(jsonObject: sourceRoot) else {
-            throw LoadError.invalidSceneJSON(sourceURL)
+            throw LoadError.invalidSceneJSON(sourcePath)
         }
 
         return SceneDocument(
-            sourceURL: sourceURL,
+            sourcePath: sourcePath,
             authoredRoot: authoredValue,
             declaredVersion: SceneDeclaredInteger.parse(root: sourceRoot, fieldName: "version"),
             camera: Self.parseCamera(root["camera"] as? [String: Any]),

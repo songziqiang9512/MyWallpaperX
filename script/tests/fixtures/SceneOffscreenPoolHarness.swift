@@ -897,6 +897,7 @@ enum Harness {
         }
         let budget = budgetPolicyChecks(device)
         append(budget.checks)
+        append(staticPlanMemoChecks(device))
         append(copyExtentChecks(device))
         append(sampleBudgetChecks(device,
             automaticBudgetFloor: budget.automaticBudgetFloor,

@@ -4,7 +4,6 @@ struct SceneRuntimeModel {
     let project: SceneProject
     let sceneDocument: SceneDocument
     let assetCatalog: SceneAssetCatalog
-    let packageReport: ScenePkgExtractionReport?
     let resourceView: SceneResourceView
     let authoredRenderDescriptor: SceneRenderDescriptor
     let renderDescriptor: SceneRenderDescriptor
@@ -71,13 +70,19 @@ struct SceneRuntimeModelBuilder {
 
     func build(
         rootURL: URL,
+        source: ScenePlaybackSource? = nil,
         propertyOverrides: [String: SceneUserPropertyValue] = [:],
-        checkCancellation: (() throws -> Void)? = nil
+        checkCancellation: (() throws -> Void)? = nil,
+        preparedStaticModel: (String, SceneMdlStaticModel.PreparedSource) -> Void = { _, _ in },
+        preparedParticleDefinition: (String, SceneParticleAssetGraphLoader.PreparedDefinition) -> Void = { _, _ in }
     ) throws -> SceneRuntimeModel {
         let sourceFacts = try SceneRuntimeSourceFactsBuilder().build(
             rootURL: rootURL,
+            source: source,
             propertyOverrides: propertyOverrides,
-            checkCancellation: checkCancellation
+            checkCancellation: checkCancellation,
+            preparedStaticModel: preparedStaticModel,
+            preparedParticleDefinition: preparedParticleDefinition
         )
         try checkCancellation?()
         guard let project = sourceFacts.project else {
@@ -274,7 +279,6 @@ struct SceneRuntimeModelBuilder {
             project: project,
             sceneDocument: sceneDocument,
             assetCatalog: assetCatalog,
-            packageReport: sourceFacts.packageReport,
             resourceView: sourceFacts.resourceView,
             authoredRenderDescriptor: renderDescriptor,
             renderDescriptor: runtimeInput.renderDescriptor,

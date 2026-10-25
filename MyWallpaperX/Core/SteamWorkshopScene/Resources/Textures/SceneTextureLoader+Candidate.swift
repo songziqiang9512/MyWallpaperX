@@ -1,6 +1,5 @@
 import CoreGraphics
 import Foundation
-import ImageIO
 import Metal
 import simd
 
@@ -28,16 +27,22 @@ nonisolated enum SceneAnimatedMaterialAtlasAdmission {
 nonisolated extension SceneTextureLoader {
     /// One request-local decoded image serves every representation even when
     /// the persistent decode budget declines admission. Nothing is published
-    /// until all requested candidates and the source revision are complete.
+    /// until the source snapshot and all requested candidates are complete.
     func loadDirectImageCandidates(
-        from url: URL,
-        purposes: Set<SceneTextureLoadPurpose>,
-        device: MTLDevice,
-        isCancelled: () -> Bool = { false }
-    ) -> [SceneTextureLoadPurpose: SceneTextureCandidateLoadOutcome] {
-        guard !isCancelled(), let source = sourceKey(for: url),
-              let data = try? Data(contentsOf: url, options: .mappedIfSafe),
-              let image = SceneImageTextureUploader.decodeSourceImage(data) else {
+        from input: Input, purposes: Set<SceneTextureLoadPurpose>, device: MTLDevice,
+        isCancelled: () -> Bool = { false },
+        checkCancellation: (() throws -> Void)? = nil
+    ) throws -> [SceneTextureLoadPurpose: SceneTextureCandidateLoadOutcome] {
+        try checkCancellation?()
+        guard !isCancelled(), let source = try sourceKey(for: input, checkCancellation: checkCancellation),
+              let snapshot = try sourceSnapshot(input, source: source, checkCancellation: checkCancellation) else {
+            return Dictionary(uniqueKeysWithValues: purposes.map {
+                ($0, .failed(.decodeFailed("image source unavailable")))
+            })
+        }
+        let image = SceneImageTextureUploader.decodeSourceImage(snapshot.data)
+        try checkCancellation?()
+        guard let image else {
             return Dictionary(uniqueKeysWithValues: purposes.map {
                 ($0, .failed(.decodeFailed("image source unavailable")))
             })
@@ -45,168 +50,158 @@ nonisolated extension SceneTextureLoader {
         recordDirectImageDecodeAttempt()
         var results: [SceneTextureLoadPurpose: SceneTextureCandidateLoadOutcome] = [:]
         for purpose in purposes.sorted(by: { $0.reportToken < $1.reportToken }) {
+            try checkCancellation?()
             guard !isCancelled() else { break }
             let outcome = SceneImageTextureUploader.upload(
-                image: image, purpose: purpose,
-                maxDimension: Self.maxTextureDimension,
+                image: image, purpose: purpose, maxDimension: Self.maxTextureDimension,
                 uploadCommandQueue: uploadCommandQueue, device: device
             )
             if case let .loaded(texture) = outcome {
-                results[purpose] = makeCandidate(
-                    texture: texture, container: nil, source: source,
-                    url: url, purpose: purpose, decodedSourceImage: image
+                results[purpose] = try makeCandidate(
+                    texture: texture, resource: nil, source: source,
+                    purpose: purpose, decodedSourceImage: image,
+                    checkCancellation: checkCancellation
                 )
-            } else {
-                results[purpose] = .failed(outcome)
-            }
+            } else { results[purpose] = .failed(outcome) }
         }
+        try checkCancellation?()
         return results
     }
 
-    func loadCandidate(
-        from url: URL,
-        purpose: SceneTextureLoadPurpose,
-        device: MTLDevice
-    ) -> SceneTextureCandidateLoadOutcome {
-        guard let source = sourceKey(for: url) else {
-            return .failed(.decodeFailed(
-                "file metadata unavailable: \(url.lastPathComponent)"
-            ))
-        }
-        let isTex = url.pathExtension.lowercased() == "tex"
-        let prepared = isTex ? prepareTexSource(from: url, source: source) : nil
-        guard !isTex || prepared != nil else {
-            return .failed(.decodeFailed("TEX source unavailable: \(url.lastPathComponent)"))
-        }
-        return loadCandidate(
-            from: url, source: source, prepared: prepared,
-            purpose: purpose, device: device
-        )
+    func loadDirectImageCandidates(
+        from url: URL, purposes: Set<SceneTextureLoadPurpose>, device: MTLDevice,
+        isCancelled: () -> Bool = { false }, checkCancellation: (() throws -> Void)? = nil
+    ) throws -> [SceneTextureLoadPurpose: SceneTextureCandidateLoadOutcome] {
+        try loadDirectImageCandidates(from: .externalFile(url), purposes: purposes, device: device,
+            isCancelled: isCancelled, checkCancellation: checkCancellation)
     }
 
     func loadCandidate(
-        from prepared: PreparedTexSource,
-        purpose: SceneTextureLoadPurpose,
-        device: MTLDevice
-    ) -> SceneTextureCandidateLoadOutcome {
-        loadCandidate(
-            from: prepared.url, source: prepared.source, prepared: prepared,
-            purpose: purpose, device: device
-        )
+        from input: Input, purpose: SceneTextureLoadPurpose, device: MTLDevice,
+        checkCancellation: (() throws -> Void)? = nil
+    ) throws -> SceneTextureCandidateLoadOutcome {
+        let isTex = input.pathExtension.lowercased() == "tex"
+        if isTex {
+            guard let prepared = try prepareTexSource(from: input, checkCancellation: checkCancellation) else {
+                return .failed(.decodeFailed("TEX source unavailable: \(input.lastPathComponent)"))
+            }
+            return try loadCandidate(from: prepared, purpose: purpose, device: device,
+                                     checkCancellation: checkCancellation)
+        }
+        guard let prepared = try prepareDirectImageSource(from: input, checkCancellation: checkCancellation) else {
+            return .failed(.decodeFailed("image source unavailable: \(input.lastPathComponent)"))
+        }
+        return try loadCandidate(from: prepared, purpose: purpose, device: device,
+                                 checkCancellation: checkCancellation)
+    }
+
+    func loadCandidate(
+        from url: URL, purpose: SceneTextureLoadPurpose, device: MTLDevice,
+        checkCancellation: (() throws -> Void)? = nil
+    ) throws -> SceneTextureCandidateLoadOutcome {
+        try loadCandidate(from: .externalFile(url), purpose: purpose, device: device,
+                          checkCancellation: checkCancellation)
+    }
+
+    func loadCandidate(
+        from prepared: PreparedTexSource, purpose: SceneTextureLoadPurpose, device: MTLDevice,
+        checkCancellation: (() throws -> Void)? = nil
+    ) throws -> SceneTextureCandidateLoadOutcome {
+        try loadCandidate(from: prepared.input, source: prepared.source, prepared: prepared,
+            purpose: purpose, device: device, checkCancellation: checkCancellation)
+    }
+
+    func loadCandidate(
+        from prepared: PreparedDirectImageSource, purpose: SceneTextureLoadPurpose, device: MTLDevice,
+        checkCancellation: (() throws -> Void)? = nil
+    ) throws -> SceneTextureCandidateLoadOutcome {
+        try loadCandidate(from: prepared.input, source: prepared.source, prepared: nil,
+            preparedDirect: prepared, purpose: purpose, device: device, checkCancellation: checkCancellation)
     }
 
     private func loadCandidate(
-        from url: URL,
-        source: SourceKey,
-        prepared: PreparedTexSource?,
-        purpose: SceneTextureLoadPurpose,
-        device: MTLDevice
-    ) -> SceneTextureCandidateLoadOutcome {
-        let outcome = load(
-            from: url,
-            source: source,
-            purpose: purpose,
-            device: device,
-            preparedTexSource: prepared
-        )
-        guard case .loaded(let texture) = outcome else {
-            return .failed(outcome)
-        }
+        from input: Input, source: SourceKey, prepared: PreparedTexSource?,
+        preparedDirect: PreparedDirectImageSource? = nil,
+        purpose: SceneTextureLoadPurpose, device: MTLDevice,
+        checkCancellation: (() throws -> Void)?
+    ) throws -> SceneTextureCandidateLoadOutcome {
+        let outcome = try load(from: input, source: source, purpose: purpose, device: device,
+            preparedTexSource: prepared, preparedDirectImageSource: preparedDirect,
+            checkCancellation: checkCancellation)
+        guard case .loaded(let texture) = outcome else { return .failed(outcome) }
         guard texture.textureType == .type2D else {
-            return .failed(.decodeFailed(
-                "typed slot candidate requires a 2D texture"
-            ))
+            return .failed(.decodeFailed("typed slot candidate requires a 2D texture"))
         }
-        let isTex = url.pathExtension.lowercased() == "tex"
+        let isTex = input.pathExtension.lowercased() == "tex"
         let container = prepared?.container
         guard !isTex || container != nil else {
-            return .failed(.decodeFailed(
-                "typed slot candidate requires parsed TEX metadata"
-            ))
+            return .failed(.decodeFailed("typed slot candidate requires parsed TEX metadata"))
         }
-        guard container?.imageCount ?? 1 == 1,
-              !(container?.isAnimated ?? false),
+        guard container?.imageCount ?? 1 == 1, !(container?.isAnimated ?? false),
               container?.spriteFrames.isEmpty ?? true else {
-            return .failed(.decodeFailed(
-                "typed slot candidate requires one non-sprite image"
-            ))
+            return .failed(.decodeFailed("typed slot candidate requires one non-sprite image"))
         }
-        return makeCandidate(
-            texture: texture,
-            container: container,
-            source: source,
-            url: url,
-            purpose: purpose
-        )
+        return try makeCandidate(texture: texture, resource: prepared?.resource, source: source,
+            purpose: purpose, checkCancellation: checkCancellation)
     }
 
-    /// Catalog-only admission for one parsed single-image atlas. This keeps
-    /// ordinary candidate loading static while sharing its exact file/device
-    /// cache and typed candidate construction.
+    /// Catalog-only admission shares the exact source/device cache and typed
+    /// candidate geometry with ordinary static texture loading.
     func loadAnimatedMaterialCandidate(
-        from url: URL,
-        purpose: SceneTextureLoadPurpose,
-        device: MTLDevice
-    ) -> SceneAnimatedTextureCandidateLoadOutcome {
-        guard let prepared = prepareTexSource(from: url) else {
-            return .failed(.decodeFailed(
-                "animated material candidate requires one finite axis-aligned atlas"
-            ))
+        from input: Input, purpose: SceneTextureLoadPurpose, device: MTLDevice,
+        checkCancellation: (() throws -> Void)? = nil
+    ) throws -> SceneAnimatedTextureCandidateLoadOutcome {
+        guard let prepared = try prepareTexSource(from: input, checkCancellation: checkCancellation) else {
+            return .failed(.decodeFailed("animated material candidate requires one finite axis-aligned atlas"))
         }
-        return loadAnimatedMaterialCandidate(from: prepared, purpose: purpose, device: device)
+        return try loadAnimatedMaterialCandidate(from: prepared, purpose: purpose, device: device,
+                                                 checkCancellation: checkCancellation)
     }
 
     func loadAnimatedMaterialCandidate(
-        from prepared: PreparedTexSource,
-        purpose: SceneTextureLoadPurpose,
-        device: MTLDevice
-    ) -> SceneAnimatedTextureCandidateLoadOutcome {
-        guard let container = prepared.container,
-              materialAtlasAdmission(container) == .valid else {
-            return .failed(.decodeFailed(
-                "animated material candidate requires one finite axis-aligned atlas"
-            ))
+        from url: URL, purpose: SceneTextureLoadPurpose, device: MTLDevice,
+        checkCancellation: (() throws -> Void)? = nil
+    ) throws -> SceneAnimatedTextureCandidateLoadOutcome {
+        try loadAnimatedMaterialCandidate(from: .externalFile(url), purpose: purpose, device: device,
+                                         checkCancellation: checkCancellation)
+    }
+
+    func loadAnimatedMaterialCandidate(
+        from prepared: PreparedTexSource, purpose: SceneTextureLoadPurpose, device: MTLDevice,
+        checkCancellation: (() throws -> Void)? = nil
+    ) throws -> SceneAnimatedTextureCandidateLoadOutcome {
+        try checkCancellation?()
+        guard let container = prepared.container, materialAtlasAdmission(container) == .valid else {
+            return .failed(.decodeFailed("animated material candidate requires one finite axis-aligned atlas"))
         }
-        let outcome = load(
-            from: prepared.url,
-            source: prepared.source,
-            purpose: purpose,
-            device: device,
-            preparedTexSource: prepared
-        )
-        guard case let .loaded(texture) = outcome else {
-            return .failed(outcome)
-        }
-        guard case let .loaded(candidate) = makeCandidate(
-            texture: texture,
-            container: container,
-            source: prepared.source,
-            url: prepared.url,
-            purpose: purpose
-        ) else {
-            return .failed(.decodeFailed(
-                "animated material candidate has inconsistent texture geometry"
-            ))
+        let outcome = try load(from: prepared.input, source: prepared.source, purpose: purpose,
+            device: device, preparedTexSource: prepared, checkCancellation: checkCancellation)
+        guard case let .loaded(texture) = outcome else { return .failed(outcome) }
+        guard case let .loaded(candidate) = try makeCandidate(texture: texture, resource: prepared.resource,
+            source: prepared.source, purpose: purpose,
+            checkCancellation: checkCancellation) else {
+            return .failed(.decodeFailed("animated material candidate has inconsistent texture geometry"))
         }
         return .loaded(.init(candidate: candidate, frames: container.spriteFrames))
     }
 
     private func makeCandidate(
         texture: MTLTexture,
-        container: SceneTexContainer?,
+        resource: TexResource?,
         source: SourceKey,
-        url: URL,
         purpose: SceneTextureLoadPurpose,
-        decodedSourceImage: CGImage? = nil
-    ) -> SceneTextureCandidateLoadOutcome {
+        decodedSourceImage: CGImage? = nil,
+        checkCancellation: (() throws -> Void)?
+    ) throws -> SceneTextureCandidateLoadOutcome {
         guard texture.textureType == .type2D else {
             return .failed(.decodeFailed(
                 "typed slot candidate requires a 2D texture"
             ))
         }
+        let container = resource?.container
         let physicalSize: CGSize
         let mappedSize: CGSize
-        if let container {
+        if let resource, let container {
             guard let firstMip = container.mips.first,
                   container.textureWidth > 0,
                   container.textureHeight > 0,
@@ -215,13 +210,13 @@ nonisolated extension SceneTextureLoader {
                   container.imageWidth <= container.textureWidth,
                   container.imageHeight <= container.textureHeight,
                   let sourcePhysicalSize = candidateSourcePhysicalSize(
-                      container: container,
+                      container: container, resource: resource,
                       firstMip: firstMip,
                       purpose: purpose
                   ),
                   let outputGeometry = candidateOutputGeometry(
                       texture: texture,
-                      container: container,
+                      container: container, resource: resource,
                       sourcePhysicalSize: sourcePhysicalSize,
                       purpose: purpose
                   ) else {
@@ -239,18 +234,14 @@ nonisolated extension SceneTextureLoader {
             Float(mappedSize.width / physicalSize.width),
             Float(mappedSize.height / physicalSize.height)
         )
-        guard sourceKey(for: url) == source else {
-            return .failed(.decodeFailed(
-                "file changed while loading: \(url.lastPathComponent)"
-            ))
-        }
+        try checkCancellation?()
         let content: SceneTextureContent
         switch purpose {
         case .premultipliedColor:
             content = .color(.resolved(
                 sourceIsProvenOpaque(
-                    url: url,
-                    container: container,
+                    source: source,
+                    resource: resource,
                     physicalSize: physicalSize,
                     mappedSize: mappedSize,
                     decodedSourceImage: decodedSourceImage
@@ -262,19 +253,28 @@ nonisolated extension SceneTextureLoader {
              .depth, .lookupTable:
             content = .data
         }
+        let identity: SceneTextureResourceIdentity
+        let generation: SceneTextureResourceGeneration
+        switch source {
+        case let .file(file):
+            identity = .file(path: file.path)
+            generation = .file(byteCount: file.size, modifiedAtBits: file.modifiedAtBits,
+                revision: .init(fileSystemID: file.fileSystemID, fileID: file.fileID,
+                    statusChangedAtSeconds: file.statusChangedAtSeconds,
+                    statusChangedAtNanoseconds: file.statusChangedAtNanoseconds))
+        case let .package(entry):
+            identity = .package(.init(packagePath: entry.packagePath, rawEntryPath: entry.rawEntryPath))
+            let file = entry.fileRevision
+            generation = .package(.init(fileSystemID: file.fileSystemID, fileID: file.fileID,
+                fileByteCount: file.byteCount, modifiedSeconds: file.modifiedSeconds,
+                modifiedNanoseconds: file.modifiedNanoseconds, changedSeconds: file.changedSeconds,
+                changedNanoseconds: file.changedNanoseconds, dataStartOffset: entry.dataStartOffset,
+                offset: entry.offset, byteCount: entry.byteCount))
+        }
         return .loaded(SceneTextureCandidate(
             texture: texture,
-            identity: .file(path: source.path),
-            generation: .file(
-                byteCount: source.size,
-                modifiedAtBits: source.modifiedAtBits,
-                revision: SceneTextureFileRevision(
-                    fileSystemID: source.fileSystemID,
-                    fileID: source.fileID,
-                    statusChangedAtSeconds: source.statusChangedAtSeconds,
-                    statusChangedAtNanoseconds: source.statusChangedAtNanoseconds
-                )
-            ),
+            identity: identity,
+            generation: generation,
             purpose: purpose,
             content: content,
             physicalSize: physicalSize,
@@ -293,27 +293,25 @@ nonisolated extension SceneTextureLoader {
     }
 
     private func sourceIsProvenOpaque(
-        url: URL,
-        container: SceneTexContainer?,
+        source: SourceKey,
+        resource: TexResource?,
         physicalSize: CGSize,
         mappedSize: CGSize,
         decodedSourceImage: CGImage? = nil
     ) -> Bool {
+        let container = resource?.container
         if container == nil {
             if let decodedSourceImage {
                 return SceneImageTextureUploader.imageHasNoAlpha(decodedSourceImage)
             }
-            guard let source = CGImageSourceCreateWithURL(url as CFURL, nil),
-                  let image = CGImageSourceCreateImageAtIndex(source, 0, nil)
-            else { return false }
-            return SceneImageTextureUploader.imageHasNoAlpha(image)
+            return directImageFacts[source]?.isOpaque ?? false
         }
         guard let container else { return false }
         return container.format == 0
             && container.containerVersion == .texb0003
             && container.freeImageFormat == 2
             && physicalSize == mappedSize
-            && hasValidTexb3EmbeddedMipChain(container)
+            && resource?.hasValidTexb3EmbeddedMipChain == true
     }
 
     func materialAtlasAdmission(
@@ -358,7 +356,7 @@ nonisolated extension SceneTextureLoader {
     }
 
     private func candidateSourcePhysicalSize(
-        container: SceneTexContainer,
+        container: SceneTexContainer, resource: TexResource,
         firstMip: SceneTexContainer.Mip,
         purpose: SceneTextureLoadPurpose
     ) -> CGSize? {
@@ -371,15 +369,13 @@ nonisolated extension SceneTextureLoader {
             height: container.imageHeight
         )
         let firstMipSize = CGSize(width: firstMip.width, height: firstMip.height)
-        let embeddedSize = container.format == 0
-            ? embeddedImagePixelSize(firstMip.data)
-            : nil
+        let embeddedSize = resource.firstEmbeddedMipSize
         if container.format == 0,
            container.containerVersion == .texb0003,
            embeddedSize != nil
             || container.freeImageFormat == 2
             || container.freeImageFormat == 13,
-           !hasValidTexb3EmbeddedMipChain(container) {
+           !resource.hasValidTexb3EmbeddedMipChain {
             return nil
         }
         if firstMipSize == headerPhysical {
@@ -408,7 +404,7 @@ nonisolated extension SceneTextureLoader {
 
     private func candidateOutputGeometry(
         texture: MTLTexture,
-        container: SceneTexContainer,
+        container: SceneTexContainer, resource: TexResource,
         sourcePhysicalSize: CGSize,
         purpose: SceneTextureLoadPurpose
     ) -> (physical: CGSize, mapped: CGSize)? {
@@ -424,9 +420,9 @@ nonisolated extension SceneTextureLoader {
             && sourcePhysicalSize == sourceMapped
             && ((container.containerVersion == .texb0003
                 && [2, 13].contains(container.freeImageFormat)
-                && hasValidTexb3EmbeddedMipChain(container))
+                && resource.hasValidTexb3EmbeddedMipChain)
                 || (container.containerVersion == .texb0002
-                    && container.mips.first.map { embeddedImagePixelSize($0.data) == sourceMapped } == true))
+                    && resource.firstEmbeddedMipSize == sourceMapped))
         let mayNormalizeMappedColor = purpose == .premultipliedColor
             || (purpose == .straightAlbedo && sourceMappedEmbeddedImage)
         guard mayNormalizeMappedColor else {

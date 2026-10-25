@@ -14,7 +14,6 @@ extension SteamWorkshopService {
                     notification.userInfo?["path"] as? String
                     ?? notification.userInfo?["videoPath"] as? String
                 self.lastWebPlaybackFailureMessage = notification.userInfo?["message"] as? String
-                self.invalidateAllCachedWebRuntime()
             }
             .store(in: &cancellables)
     }

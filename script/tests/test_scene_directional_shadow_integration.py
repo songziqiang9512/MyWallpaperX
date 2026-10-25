@@ -18,7 +18,7 @@ import tempfile
 import unittest
 import zlib
 
-from script.tests.test_scene_pkg_cache_extractor import make_package
+from script.tests.scene_pkg_fixture import make_package
 from script.tests.test_scene_static_model_reader import build_model
 
 REPO = Path(__file__).resolve().parents[2]
@@ -134,7 +134,7 @@ class SceneDirectionalShadowIntegrationTests(unittest.TestCase):
         if parent:
             Path(parent).mkdir(parents=True, exist_ok=True)
         cls.root = Path(tempfile.mkdtemp(prefix='directional-shadow-app-', dir=parent))
-        sources = [Path(__file__), REPO/'script/tests/fixtures/scene_directional_shadow_oracle.py', REPO/'script/tests/test_scene_static_model_reader.py', REPO/'script/tests/test_scene_pkg_cache_extractor.py']
+        sources = [Path(__file__), REPO/'script/tests/fixtures/scene_directional_shadow_oracle.py', REPO/'script/tests/test_scene_static_model_reader.py', REPO/'script/tests/scene_pkg_fixture.py']
         (cls.root/'test-source-identity.json').write_text(json.dumps({str(p): hashlib.sha256(p.read_bytes()).hexdigest() for p in sources}, indent=2))
         cls.runs = {}
         print(f'directional shadow App evidence: {cls.root}', flush=True)

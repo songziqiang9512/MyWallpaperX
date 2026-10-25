@@ -271,45 +271,17 @@ extension SceneOffscreenTexturePool {
         guard pixelFormat == .bgra8Unorm || pixelFormat == .rgba16Float else {
             return .failure(.unsupportedPixelFormat)
         }
-        let prepared: (
-            plans: [SceneGraphRenderTargetPlan],
-            makeInputsDigests: [Int],
-            width: Int,
-            height: Int
-        )
-        switch persistentTargetPlansResult(
+        let plan: SceneLayerGraphTargetPlan
+        switch persistentLayerTargetPlanResult(
             admittedGraphs: admittedGraphs,
             materialFunctionTargetsByEffect: materialFunctionTargetsByEffect,
-            pairPlan: pairPlan,
-            extentPolicy: extentPolicy,
-            requestedWidth: requestedWidth,
-            requestedHeight: requestedHeight,
+            pairPlan: pairPlan, extentPolicy: extentPolicy,
+            requestedWidth: requestedWidth, requestedHeight: requestedHeight,
+            usesSharedFullFrameWorkingPair: usesSharedFullFrameWorkingPair,
             plansMemoIdentity: plansMemoIdentity
         ) {
-        case let .success(value): prepared = value
+        case let .success(value): plan = value
         case let .failure(failure): return .failure(failure)
-        }
-        let plan: SceneLayerGraphTargetPlan
-        if usesSharedFullFrameWorkingPair,
-           case let .success(shared) = SceneLayerGraphTargetPlan.make(
-               plans: prepared.plans,
-               pairPlan: pairPlan,
-               byteBudget: residentByteBudget,
-               pairStorage: .shared,
-               makeInputsDigests: prepared.makeInputsDigests
-           ) {
-            plan = shared
-        } else {
-            switch SceneLayerGraphTargetPlan.make(
-                plans: prepared.plans,
-                pairPlan: pairPlan,
-                byteBudget: residentByteBudget,
-                pairStorage: .owned,
-                makeInputsDigests: prepared.makeInputsDigests
-            ) {
-            case let .success(owned): plan = owned
-            case let .failure(failure): return .failure(.layerTargetPlan(failure))
-            }
         }
         return .success(.init(
             residencyDomainID: residencyDomainID,

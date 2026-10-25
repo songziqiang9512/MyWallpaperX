@@ -56,15 +56,33 @@ SWIFT_SOURCES = [
         "SceneShaderContractLoader+SourceGraph.swift"
     ],
 ]
+SWIFT_SOURCES = list(dict.fromkeys([
+    *SWIFT_SOURCES, *SHADER_CONTRACT_RESOURCE_RESOLUTION_SOURCES.values(),
+    SCENE_ROOT / "Systems/Script/SceneScriptDynamicImageReferenceAnalysis.swift",
+    SCENE_ROOT / "Systems/Properties/SceneLaunchOriginTransitionCompiler+SyntaxLexer.swift",
+]))
 
 # SceneDocument 的完整图会拉入 particle/utility/puppet/text 全套，与 material pass 解析无关，
-# 因此只为它的容器类型留最小替身；packageReport 只提供 outputURL，puppet 附件不参与
-# material pass 解析。loadMaterial 及其依赖的 numeric parsing 全部编译真实源码。
+# 因此只为它的容器与未消费的粒子发现留最小替身，puppet 附件不参与 material
+# pass 解析。闭包/粒子真实读取由 test_scene_asset_catalog_resource_view 覆盖。
+# loadMaterial 及其依赖的 numeric parsing 全部编译真实源码。
 HARNESS = r"""
 import Foundation
 
-struct ScenePkgExtractionReport {
-    let outputURL: URL?
+struct SceneRenderDescriptor {
+    struct Link { let modelPath: String }
+    let modelMaterialLinks: [Link]
+}
+
+struct SceneParticleAssetGraphLoader {
+    enum PreparedDefinition {}
+    init(resourceView: SceneResourceView, stockTextureBundleURL: URL?) {}
+    func prepareDefinitions(rootPaths: [String], checkCancellation: (() throws -> Void)?,
+                            prepared: (String, PreparedDefinition) throws -> Void) throws -> [String] {
+        precondition(rootPaths.isEmpty)
+        try checkCancellation?()
+        return []
+    }
 }
 
 struct SceneMdlPuppetAttachment {}
@@ -103,8 +121,9 @@ private struct CatalogState: Codable {
 private enum MaterialRenderStateHarness {
     static func main() throws {
         let rootURL = URL(fileURLWithPath: CommandLine.arguments[1], isDirectory: true)
-        let project = try SceneProjectLoader().load(from: rootURL)
-        let catalog = try SceneAssetCatalogLoader().load(project: project, packageReport: nil)
+        let view = SceneResourceView(projectRootURL: rootURL, packageRootURL: nil, stockAssetsRootURL: nil)
+        let catalog = try SceneAssetCatalogLoader().load(resourceView: view,
+            referencedResourcePaths: CommandLine.arguments.dropFirst(2).map { "materials/\($0).json" })
         let states = catalog.materials.reduce(into: [String: [PassState]]()) { result, material in
             result[material.relativePath] = material.passes.map {
                 PassState(
@@ -246,7 +265,7 @@ class SceneMaterialRenderStateTests(unittest.TestCase):
                     json.dumps(payload), encoding="utf-8"
                 )
             completed = subprocess.run(
-                [str(cls.binary), str(root)],
+                [str(cls.binary), str(root), *MATERIALS],
                 cwd=REPO_ROOT,
                 check=True,
                 capture_output=True,

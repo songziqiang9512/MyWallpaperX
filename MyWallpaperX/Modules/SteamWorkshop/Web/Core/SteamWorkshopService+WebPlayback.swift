@@ -55,8 +55,10 @@ extension SteamWorkshopService {
         // Start the empty renderer before validation/cache/resource preparation;
         // these stages already consume part of the click-to-play critical path.
         // Every early return below releases it without loading author content.
-        let launchGeneration = webLaunchIntentGeneration
         let processPreparation = record.contentType == .web ? prepareWebPlaybackProcess?() : nil
+        // The product intent callback inside preparation may synchronously
+        // advance this owner. Sample only after that admission is complete.
+        let launchGeneration = webLaunchIntentGeneration
         let requestID = processPreparation?.requestID ?? UUID()
         let cancelProcessPreparation = processPreparation?.cancel
         cancelWebProcessPreparation = cancelProcessPreparation
@@ -80,33 +82,23 @@ extension SteamWorkshopService {
             return
         }
 
-        // The immutable version remains readable until the concrete consumer
-        // (Scene, Web, or the Video import pipeline) releases this token.
-        let resourceLifetime: PlaybackResourceLifetime?
-        do {
-            resourceLifetime = try libraryVersionLifetime(for: record)
-        } catch {
-            clearLaunchPending(matching: record.id)
-            downloadError = error.localizedDescription
-            return
-        }
-
         if record.contentType == .web {
             // Web preparation reads/scans in the background and returns the
             // same descriptor used to prepare the playback properties.
             // 代际校验：窗口内有更新的点击时本请求整体退役——成功通知与
             // 失败出口都不得覆盖新点击的 pending / 状态 / 最终壁纸。
             processPreparationTransferred = true
-            Task { [weak self] in
+            webLaunchPreparationTask = Task { [weak self] in
                 defer {
                     cancelProcessPreparation?()
                     if self?.webLaunchIntentGeneration == launchGeneration {
                         self?.cancelWebProcessPreparation = nil
+                        self?.webLaunchPreparationTask = nil
                     }
                 }
                 guard let self else { return }
                 let preparation = await self.prepareWebPlaybackContext(for: record)
-                guard launchGeneration == self.webLaunchIntentGeneration else {
+                guard !Task.isCancelled, launchGeneration == self.webLaunchIntentGeneration else {
                     // 更新的点击已在 setAsWallpaper 入口同步 mark 过 pending
                     //（或已随早退自行清除），退役请求不触碰任何共享状态——
                     // 也不清 pending，避免同名重击时提前熄灭加载态。
@@ -123,6 +115,7 @@ extension SteamWorkshopService {
                 }
                 let playbackContext = preparation.context
                 let runtimeProfile = self.recommendedWebRuntimeProfile(for: preparation.descriptor)
+                let playbackResourceLifetime = preparation.resourceLifetime
                 NotificationCenter.default.post(
                     name: .steamWorkshopWebWallpaperReadyToPlay,
                     object: nil,
@@ -135,13 +128,24 @@ extension SteamWorkshopService {
                         "propertiesJSON": playbackContext.propertyPayloadJSON as Any,
                         "resourceGrants": playbackContext.resourceGrants,
                         "language": playbackContext.language,
+                        "allowedNetworkHosts": playbackContext.allowedNetworkHosts,
                         "runtimeProfile": runtimeProfile,
-                        "resourceLifetime": resourceLifetime as Any
+                        "resourceLifetime": playbackResourceLifetime as Any
                     ]
                 )
                 self.statusMessage = "已将 \(record.title) 发送到 HTML 网页壁纸实验宿主"
                 self.scheduleLaunchPendingFallbackClear(recordID: record.id)
             }
+            return
+        }
+
+        // The Video import consumer retains this version until import finishes.
+        let resourceLifetime: PlaybackResourceLifetime?
+        do {
+            resourceLifetime = try libraryVersionLifetime(for: record)
+        } catch {
+            clearLaunchPending(matching: record.id)
+            downloadError = error.localizedDescription
             return
         }
 

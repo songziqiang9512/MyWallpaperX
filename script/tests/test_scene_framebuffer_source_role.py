@@ -26,10 +26,10 @@ enum FramebufferRoleProbe {
         for path in CommandLine.arguments.dropFirst() {
             let root = URL(fileURLWithPath: path)
             let project = try SceneProjectLoader().load(from: root)
-            let document = try SceneDocumentLoader().load(project: project, packageReport: nil)
-            let catalog = try SceneAssetCatalogLoader().load(project: project,
-                packageReport: nil, referencedResourcePaths: document.referencedResourcePaths,
-                stockAssetsRootURL: nil)
+            let document = try SceneDocumentLoader().load(from: project.entryURL, propertyCatalog: project.userProperties)
+            let view = SceneResourceView(projectRootURL: root, packageRootURL: nil, stockAssetsRootURL: nil)
+            let catalog = try SceneAssetCatalogLoader().load(resourceView: view,
+                referencedResourcePaths: document.referencedResourcePaths)
             let descriptor = SceneRenderDescriptorBuilder().build(project: project,
                 sceneDocument: document, assetCatalog: catalog)
             let layer = descriptor?.layers.first { $0.imagePath != nil }
@@ -156,11 +156,8 @@ class SceneFramebufferSourceRoleTests(unittest.TestCase):
                 target.parent.mkdir(parents=True, exist_ok=True)
                 target.write_text(value if isinstance(value, str) else json.dumps(value))
             roots.append(case)
-        force = (SCENE / "Systems/Particles/SceneParticleControlPointForce.swift").read_text()
-        start = force.index("nonisolated struct SceneParticleControlPointForceEnvironment:")
-        environment = force[start:force.index("\n}", start) + 2]
         source = root / "Probe.swift"
-        source.write_text(environment + "\n" + builder.HARNESS_SOURCE.split("@main", 1)[0] + HARNESS)
+        source.write_text(builder.HARNESS_SOURCE.split("@main", 1)[0] + HARNESS)
         binary = root / "probe"
         compiled = subprocess.run(["xcrun", "--sdk", "macosx", "swiftc",
             *map(str, dict.fromkeys(builder.SWIFT_SOURCES)), str(source), "-framework", "Metal",

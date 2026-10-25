@@ -17,6 +17,12 @@ from pathlib import Path
 REPOSITORY_ROOT = Path(__file__).resolve().parents[2]
 SCENE_ROOT = REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene"
 SWIFT_SOURCES = [
+    SCENE_ROOT / "Resources/Assets/SceneResourceIndex.swift",
+    SCENE_ROOT / "Resources/Assets/SceneResourceView.swift",
+    SCENE_ROOT / "../SteamWorkshopStorage/ScenePlaybackSource.swift",
+    SCENE_ROOT / "Format/ScenePkgReader.swift",
+    SCENE_ROOT / "Resources/Assets/SceneResourceIdentity.swift",
+    SCENE_ROOT / "Resources/Assets/SceneResourceView+Backing.swift",
     Path(__file__).parent / "fixtures/SceneTextureSamplingReadback.swift",
     Path(__file__).resolve().parents[2] / "MyWallpaperX/Core/SteamWorkshopScene/Resources/Textures/SceneResourceBudget.swift",
     REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Diagnostics/ScenePerformanceCounterHub.swift",
@@ -266,7 +272,7 @@ import simd
 
 typealias SceneParticleTextureSampling = SceneTextureSampling
 enum SceneTextureLoadPurpose { case normal, straightAlbedo }
-enum SceneParticleTextureSource { case file(URL), builtIn(String) }
+enum SceneParticleTextureSource { case file(SceneResourceView.FileInput), builtIn(String) }
 struct SceneParticleRefractionDeclaration {
     let normalTextureSource: SceneParticleTextureSource?
     let amount: Float = 1
@@ -284,7 +290,7 @@ struct SceneTexContainer {
     let spriteFrames: [SpriteFrame] = []; let mips = [Mip()]
     let imageWidth = 4; let imageHeight = 4; let textureWidth = 4; let textureHeight = 4
 }
-struct SceneSpriteAnimation { init(container: SceneTexContainer, sourceURL: URL) {} }
+struct SceneSpriteAnimation { init(container: SceneTexContainer, sourceInput: SceneResourceView.FileInput) throws {} }
 struct SceneTextureCandidate {
     let texture: MTLTexture
     let authoredFormat: SceneShaderTextureFormat?
@@ -294,12 +300,20 @@ struct SceneTextureCandidate {
 }
 final class SceneTextureLoader {
     struct SourceKey: Equatable { let revision: Int }
-    enum Outcome { case loaded(MTLTexture) }
-    enum CandidateOutcome { case loaded(SceneTextureCandidate) }
+    enum Outcome {
+        case loaded(MTLTexture)
+        func rethrowResourceReadFailure() throws {}
+    }
+    enum CandidateOutcome { case loaded(SceneTextureCandidate), failed(Outcome) }
+    struct PreparedTexSource {
+        let input: SceneResourceView.FileInput; let source: SourceKey
+        let container: SceneTexContainer?
+    }
     let texture: MTLTexture
     let mode: String
     var revision: [String: Int] = [:]
     var changed = false
+    var preparations = 0
     init(device: MTLDevice, mode: String) {
         self.mode = mode
         let d = MTLTextureDescriptor.texture2DDescriptor(pixelFormat: .rgba8Unorm,
@@ -307,10 +321,14 @@ final class SceneTextureLoader {
         d.usage = .shaderRead
         texture = device.makeTexture(descriptor: d)!
     }
-    func sourceKey(for url: URL) -> SourceKey? { .init(revision: revision[url.path, default: 0]) }
-    func texContainer(from url: URL) -> SceneTexContainer? {
-        .init(format: revision[url.path, default: 0] == 0 ? 0 : 4,
-              flags: mode == "normal-base" ? 8 : 0)
+    func sourceKey(for input: SceneResourceView.FileInput) throws -> SourceKey? {
+        .init(revision: revision[input.diagnosticPath, default: 0])
+    }
+    func prepareTexSource(from input: SceneResourceView.FileInput) throws -> PreparedTexSource? {
+        preparations += 1
+        return .init(input: input, source: try sourceKey(for: input)!, container: .init(
+            format: revision[input.diagnosticPath, default: 0] == 0 ? 0 : 4,
+            flags: mode == "normal-base" ? 8 : 0))
     }
     func changeIfNeeded(_ url: URL, candidate: Bool) {
         guard !changed else { return }
@@ -319,13 +337,18 @@ final class SceneTextureLoader {
             || mode == "normal-candidate" && candidate
         if change { revision[url.path, default: 0] += 1; changed = true }
     }
-    func load(from url: URL, purpose: SceneTextureLoadPurpose, device: MTLDevice) -> Outcome {
-        changeIfNeeded(url, candidate: false); return .loaded(texture)
+    func load(from input: SceneResourceView.FileInput, source: SourceKey,
+              purpose: SceneTextureLoadPurpose, device: MTLDevice,
+              preparedTexSource: PreparedTexSource? = nil) throws -> Outcome {
+        changeIfNeeded(URL(fileURLWithPath: input.diagnosticPath), candidate: false)
+        return .loaded(texture)
     }
-    func loadCandidate(from url: URL, purpose: SceneTextureLoadPurpose, device: MTLDevice) -> CandidateOutcome {
+    func loadCandidate(from prepared: PreparedTexSource, purpose: SceneTextureLoadPurpose,
+                       device: MTLDevice) throws -> CandidateOutcome {
+        let url = URL(fileURLWithPath: prepared.input.diagnosticPath)
         changeIfNeeded(url, candidate: true)
         return .loaded(.init(texture: texture,
-            authoredFormat: revision[url.path, default: 0] == 0 ? .rgba8888 : .dxt5))
+            authoredFormat: SceneShaderTextureFormat(rawValue: prepared.container!.format)))
     }
 }
 @main enum Main {
@@ -337,12 +360,16 @@ final class SceneTextureLoader {
         for mode in ["stable", "color", "same-file", "normal-base", "normal-candidate"] {
             let loader = SceneTextureLoader(device: device, mode: mode)
             let declaration = SceneParticleRefractionDeclaration(
-                normalTextureSource: mode == "color" ? nil : .file(mode == "same-file" ? color : normal))
+                normalTextureSource: mode == "color" ? nil : .file(.externalFile(mode == "same-file" ? color : normal)))
             func prepare() -> Bool {
-                SceneParticleRefractionTextureLoader.load(colorSource: .file(color),
-                    declaration: declaration, textureLoader: loader, device: device) != nil
+                do {
+                    return try SceneParticleRefractionTextureLoader.load(colorSource: .file(.externalFile(color)),
+                        declaration: declaration, textureLoader: loader, device: device) != nil
+                } catch SceneResourceView.ReadError.sourceChanged { return false }
+                catch { fatalError("unexpected error: \(error)") }
             }
             result[mode] = [prepare(), prepare()]
+            result[mode + "-captureCount"] = [loader.preparations == (["color", "same-file"].contains(mode) ? 2 : 4)]
         }
         let data = try JSONSerialization.data(withJSONObject: result, options: .sortedKeys)
         print(String(decoding: data, as: UTF8.self))
@@ -351,13 +378,19 @@ final class SceneTextureLoader {
 '''
 
 class SceneParticleRefractionIdentityTests(unittest.TestCase):
-    def test_metadata_upload_identity_drift_is_rejected_and_retry_recovers(self) -> None:
+    def test_complete_snapshots_survive_author_changes_during_upload(self) -> None:
         with tempfile.TemporaryDirectory(prefix="mwx-refraction-identity-") as directory:
             root = Path(directory)
             harness = root / "harness.swift"
             harness.write_text(IDENTITY_HARNESS)
             binary = root / "harness"
             sources = [
+                SCENE_ROOT / "Resources/Assets/SceneResourceIndex.swift",
+                SCENE_ROOT / "Resources/Assets/SceneResourceView.swift",
+                SCENE_ROOT / "../SteamWorkshopStorage/ScenePlaybackSource.swift",
+                SCENE_ROOT / "Format/ScenePkgReader.swift",
+                SCENE_ROOT / "Resources/Assets/SceneResourceIdentity.swift",
+                SCENE_ROOT / "Resources/Assets/SceneResourceView+Backing.swift",
                 SCENE_ROOT / "Resources/Textures/SceneTextureSampling.swift",
                 SCENE_ROOT / "Systems/Particles/SceneParticleRefractionBinding.swift",
                 SCENE_ROOT / "Systems/Particles/SceneParticleRefractionTextureLoader.swift",
@@ -370,7 +403,9 @@ class SceneParticleRefractionIdentityTests(unittest.TestCase):
             values = json.loads(result.stdout)
             self.assertEqual(values["stable"], [True, True])
             for key in ["color", "same-file", "normal-base", "normal-candidate"]:
-                self.assertEqual(values[key], [False, True], key)
+                self.assertEqual(values[key], [True, True], key)
+            for key in ["stable", "color", "same-file", "normal-base", "normal-candidate"]:
+                self.assertEqual(values[key + "-captureCount"], [True], key)
 
 
 if __name__ == "__main__":

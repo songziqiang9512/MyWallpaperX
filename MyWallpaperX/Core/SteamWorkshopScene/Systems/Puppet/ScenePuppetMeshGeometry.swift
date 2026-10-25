@@ -72,6 +72,7 @@ enum ScenePuppetMeshGeometry {
                 { commandBuffer, extent, mvp, retainAuxiliary in
                     clipping.prepare(commandBuffer: commandBuffer, extent: extent, mvp: mvp,
                         retainAuxiliary: retainAuxiliary,
+                        vertexCoverageVaries: false,
                         vertices: vertices, vertexBuffer: vertexBuffer, indexBuffer: indexBuffer)
                 }
             },

@@ -16,6 +16,10 @@ SWIFT_SOURCES = [
     REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Resources/Textures/SceneNamedTextureReference.swift",
     REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Resources/Assets/SceneResourceIndex.swift",
     REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Resources/Assets/SceneResourceView.swift",
+    REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/../SteamWorkshopStorage/ScenePlaybackSource.swift",
+    REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Format/ScenePkgReader.swift",
+    REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Resources/Assets/SceneResourceIdentity.swift",
+    REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Resources/Assets/SceneResourceView+Backing.swift",
     REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Resources/Assets/SceneResourceReferenceIndex.swift",
 ]
 
@@ -26,14 +30,11 @@ struct SceneDocument {
     let referencedResourcePaths: [String]
 }
 
-struct ScenePkgExtractionReport {
-    let discoveredPaths: [String]
-}
-
 @main
 enum Harness {
     static func main() throws {
-        let rootURL = URL(fileURLWithPath: "/tmp/scene-resource-reference-index")
+        let rootURL = URL(fileURLWithPath: CommandLine.arguments[1])
+        try FileManager.default.createDirectory(at: rootURL, withIntermediateDirectories: true)
         let resourceIndex = SceneResourceIndex(
             rootURL: rootURL,
             resources: [
@@ -68,8 +69,8 @@ enum Harness {
         ]
         let index = SceneResourceReferenceIndexBuilder().build(
             document: SceneDocument(referencedResourcePaths: references),
-            packageReport: nil,
-            resourceIndex: resourceIndex
+            resourceView: SceneResourceView(projectRoot: .init(source: .loose, url: rootURL, index: resourceIndex),
+                packageRoot: nil, stockRoot: nil)
         )
 
         let result: [String: Any] = [
@@ -118,7 +119,7 @@ class SceneResourceReferenceIndexTests(unittest.TestCase):
         if compilation.returncode != 0:
             raise RuntimeError(compilation.stderr)
         completed = subprocess.run(
-            [str(cls.binary)], check=True, capture_output=True, text=True
+            [str(cls.binary), str(directory / "resources")], check=True, capture_output=True, text=True
         )
         cls.result = json.loads(completed.stdout)
 

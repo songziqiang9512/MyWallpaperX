@@ -21,7 +21,8 @@ extension MainWindowCoordinator {
                 runtimeProfile: notification.userInfo?["runtimeProfile"] as? WallpaperEngine.WebRuntimeProfile ?? .standard,
                 resourceLifetime: notification.userInfo?["resourceLifetime"] as? PlaybackResourceLifetime,
                 intentEpoch: notification.userInfo?["intentEpoch"] as? UInt64,
-                resourceGrants: notification.userInfo?["resourceGrants"] as? [WebWallpaperResourceGrant] ?? [])
+                resourceGrants: notification.userInfo?["resourceGrants"] as? [WebWallpaperResourceGrant] ?? [],
+                allowedNetworkHosts: notification.userInfo?["allowedNetworkHosts"] as? Set<String> ?? [])
         }
         observe(.steamWorkshopSceneReadyToRender) { notification in
             guard let request = notification.userInfo?["request"] as? SteamWorkshopScenePlaybackRequest else { return }
@@ -29,6 +30,7 @@ extension MainWindowCoordinator {
             var load = ScenePlaybackLoadRequest(rootURL: request.rootURL,
                 propertyOverrides: request.propertyOverrides, userPropertyTextures: request.userPropertyTextures,
                 recordID: request.recordID)
+            load.source = request.source
             load.userShortcuts = request.userShortcuts
             manager.setSceneWallpaper(load, resourceLifetime: request.resourceLifetime, intentEpoch: request.intentEpoch)
         }

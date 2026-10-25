@@ -19,10 +19,6 @@ enum SceneTextGeometry {
     }
 }
 
-struct ScenePkgExtractionReport {
-    let outputURL: URL?
-}
-
 struct SceneProject {
     let rootURL: URL
     let entryPath: String

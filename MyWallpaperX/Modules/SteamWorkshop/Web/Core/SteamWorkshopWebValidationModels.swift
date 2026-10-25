@@ -1,7 +1,7 @@
 import Foundation
 
 
-enum SteamWorkshopWebSampleStructure: String, Codable, Equatable, Hashable {
+nonisolated enum SteamWorkshopWebSampleStructure: String, Codable, Equatable, Hashable {
     case dependencyBackedShell
     case spineWebCharacter
     case shaderOrCanvasWeb

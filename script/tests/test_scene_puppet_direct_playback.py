@@ -124,6 +124,9 @@ class ScenePuppetDirectPlaybackTests(unittest.TestCase):
         self.check("wrongCommandAndTransaction")
         self.check("renamed")
 
+    def test_noncontiguous_physical_bones_keep_their_configuration_and_nonphysical_edits(self):
+        self.check("multiplePhysicsBones")
+
     def test_late_vertex_and_active_unconsumed_channels_choose_complete_bind(self):
         self.check("lateVertexFallback")
         self.check("channelVisibility")

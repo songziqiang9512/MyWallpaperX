@@ -16,18 +16,19 @@ enum SceneParticleRefractionTextureLoader {
         declaration: SceneParticleRefractionDeclaration,
         textureLoader: SceneTextureLoader,
         device: MTLDevice
-    ) -> Loaded? {
-        guard case let .file(colorURL) = colorSource,
-              let colorIdentity = textureLoader.sourceKey(for: colorURL),
-              let colorContainer = textureLoader.texContainer(from: colorURL),
-              [UInt32(0), 4, 8].contains(colorContainer.format),
-              case let .loaded(color) = textureLoader.load(
-                  from: colorURL,
-                  purpose: .straightAlbedo,
-                  device: device
-              ) else {
+    ) throws -> Loaded? {
+        guard case let .file(colorInput) = colorSource,
+              let colorPrepared = try textureLoader.prepareTexSource(from: colorInput),
+              let colorContainer = colorPrepared.container,
+              [UInt32(0), 4, 8].contains(colorContainer.format) else {
             return nil
         }
+        let colorOutcome = try textureLoader.load(
+            from: colorInput, source: colorPrepared.source, purpose: .straightAlbedo,
+            device: device, preparedTexSource: colorPrepared
+        )
+        try colorOutcome.rethrowResourceReadFailure()
+        guard case let .loaded(color) = colorOutcome else { return nil }
 
         let normalCandidate: SceneTextureCandidate?
         let normal: MTLTexture
@@ -35,7 +36,6 @@ enum SceneParticleRefractionTextureLoader {
         let normalUVScale: SIMD2<Float>
         let normalSampling: SceneParticleTextureSampling
         let normalFormat: SceneShaderTextureFormat?
-        var normalIdentity: (url: URL, key: SceneTextureLoader.SourceKey)?
         switch declaration.normalTextureSource {
         case nil:
             // No authored normal means exactly zero displacement. Reuse the
@@ -48,14 +48,14 @@ enum SceneParticleRefractionTextureLoader {
             normalSampling = .linearClamp
         case .some(.builtIn):
             return nil
-        case let .some(.file(normalURL)):
-            guard let sourceIdentity = textureLoader.sourceKey(for: normalURL),
-                  let normalContainer = textureLoader.texContainer(from: normalURL),
+        case let .some(.file(normalInput)):
+            guard let prepared = try (normalInput == colorInput ? colorPrepared
+                    : textureLoader.prepareTexSource(from: normalInput)),
+                  let normalContainer = prepared.container,
                   let format = SceneShaderTextureFormat(rawValue: normalContainer.format),
                   format == .rgba8888 || format == .dxt5 else {
                 return nil
             }
-            normalIdentity = (normalURL, sourceIdentity)
             normalFormat = format
             normalSampling = SceneParticleTextureSampling(
                 texFlags: normalContainer.flags
@@ -66,19 +66,22 @@ enum SceneParticleRefractionTextureLoader {
                       !normalContainer.isAnimated,
                       normalContainer.spriteFrames.isEmpty,
                       !normalSampling.usesClampBorderFallback {
-                guard case let .loaded(candidate) = textureLoader.loadCandidate(
-                    from: normalURL,
+                let outcome = try textureLoader.loadCandidate(
+                    from: prepared,
                     purpose: .normal,
                     device: device
-                ) else { return nil }
+                )
+                if case let .failed(failure) = outcome { try failure.rethrowResourceReadFailure() }
+                guard case let .loaded(candidate) = outcome else { return nil }
                 normal = candidate.texture
                 normalCandidate = candidate
             } else {
-                guard case let .loaded(value) = textureLoader.load(
-                    from: normalURL,
-                    purpose: .normal,
-                    device: device
-                ) else { return nil }
+                let outcome = try textureLoader.load(
+                    from: normalInput, source: prepared.source, purpose: .normal,
+                    device: device, preparedTexSource: prepared
+                )
+                try outcome.rethrowResourceReadFailure()
+                guard case let .loaded(value) = outcome else { return nil }
                 normal = value
                 normalCandidate = nil
             }
@@ -122,16 +125,10 @@ enum SceneParticleRefractionTextureLoader {
                 normalFormat: normalFormat
             )
         }
-        guard textureLoader.sourceKey(for: colorURL) == colorIdentity else { return nil }
-        if let normalIdentity {
-            guard textureLoader.sourceKey(for: normalIdentity.url) == normalIdentity.key else {
-                return nil
-            }
-        }
         return Loaded(
             color: color,
             colorAnimation: colorFrames.isEmpty
-                ? nil : SceneSpriteAnimation(container: colorContainer, sourceURL: colorURL),
+                ? nil : try SceneSpriteAnimation(container: colorContainer, sourceInput: colorInput),
             staticSpriteAspect: colorFrames.isEmpty
                 && colorContainer.imageWidth > 0 && colorContainer.imageHeight > 0
                 ? Float(colorContainer.imageWidth) / Float(colorContainer.imageHeight) : 1,

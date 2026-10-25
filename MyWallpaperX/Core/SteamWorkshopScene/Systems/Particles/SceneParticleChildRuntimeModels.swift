@@ -6,10 +6,12 @@ struct SceneParticleChildAdvanceResult {
     let limitationDetails: [String]
 }
 
+#if DEBUG
 struct SceneParticleChildAudioEvaluationObservation {
     let particlePath: String
     let evaluation: SceneParticleAudioEvaluationObservation
 }
+#endif
 
 struct SceneParticleChildSystem {
     let id: UInt64

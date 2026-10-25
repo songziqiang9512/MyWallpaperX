@@ -532,6 +532,7 @@ final class SceneResolvedMaterialFinalizerFixture {
             "capturedMainInternalTerminal": capturedMainInternalTerminal,
             "admittedEffectIngress": fixture.preparation.admittedEffectIngress,
             "failures": fixture.failures.failures,
+            "arithmeticColorBoundary": fixture.failures.arithmeticColorBoundary,
             "materialCrossTemplateCache": crossTemplateMaterialCacheTokens(device),
             "preparedVariantFrames": scenePreparedVariantFrameCases(device),
         ]

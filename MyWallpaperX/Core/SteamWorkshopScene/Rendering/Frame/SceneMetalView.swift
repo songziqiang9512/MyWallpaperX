@@ -57,8 +57,8 @@ class SceneMetalView: NSView {
         ((CAMetalDrawable) -> Bool)?
     private var dynamicImageTextures: SceneDynamicImageTextureProvider?
     weak var preparedBaseImages: ScenePreparedBaseImageResources?
-    private var deferredBaseImageURLs: [Int: URL] = [:]
-    private var adoptedDeferredBaseImageURLs: [Int: URL] = [:]
+    private var deferredBaseImageURLs: [Int: SceneResourceView.FileInput] = [:]
+    private var adoptedDeferredBaseImageURLs: [Int: SceneResourceView.FileInput] = [:]
     private let mediaThumbnailCoordinator: SceneMediaThumbnailCoordinator
     let offscreenTexturePool: SceneOffscreenTexturePool
     var pointerState = SceneSurfacePointerState()
@@ -207,10 +207,11 @@ class SceneMetalView: NSView {
     // MARK: - Texture loading and diagnostics
 
     func loadImageLayers(
-        from cacheDirectory: URL, resourceView: SceneResourceView,
+        privateMediaCacheDirectory: URL, resourceView: SceneResourceView,
         videoSourceRegistry: SceneVideoTextureSourceRegistry,
         preparedBaseImages: ScenePreparedBaseImageResources,
         spriteTextureLoader: SceneMultiImageSpriteTextureLoader,
+        preparedParticleAssets: SceneParticleAssetGraph,
         preparedParticleVisibilityLayerIDs: Set<Int> = [],
         initialPlayback: [Int: SceneParticlePlaybackSnapshot] = [:],
         initialDynamicValues: SceneDynamicSnapshot = .empty(frameIndex: 0),
@@ -257,7 +258,7 @@ class SceneMetalView: NSView {
 #endif
 
 #if DEBUG
-        report.append("cacheDirectory: \(cacheDirectory.path)")
+        report.append("privateMediaCacheDirectory: \(privateMediaCacheDirectory.path)")
 #endif
 
 #if DEBUG
@@ -329,6 +330,7 @@ class SceneMetalView: NSView {
                 url: url,
                 device: metalDevice
             )
+            if case .failed(.resourceReadFailed)? = preparedBaseImage { continue }
             if preparedBaseImages.deferredLayerIDs.contains(layer.id),
                preparedBaseImage == nil
             {
@@ -342,20 +344,19 @@ class SceneMetalView: NSView {
 
                 continue
             }
-            if let videoSource = videoSourceRegistry.source(
-                from: url,
-                layerID: layer.id,
-                cacheDirectory: cacheDirectory,
-                device: metalDevice,
-                loader: loader,
+            let videoSource: SceneVideoTextureSource?
+            do { videoSource = try videoSourceRegistry.source(
+                from: url, layerID: layer.id, cacheDirectory: privateMediaCacheDirectory,
+                device: metalDevice, loader: loader,
                 onSourceCreationFailure: { loaded.markOrdinaryVideoUnavailable(layerID: layer.id) }
-            ) {
+            ) } catch { loaded.markOrdinaryVideoUnavailable(layerID: layer.id); continue }
+            if let videoSource {
                 loadedVideoSources[layer.id] = videoSource
 #if DEBUG
                 if report.isEnabled {
                     var message = "layer \(layer.id) \"\(name)\":"
                         + " mp4 payload video source ready (\(url.lastPathComponent))"
-                    message += " [\(resourceView.displayPath(for: url))]"
+                    message += " [\(url.diagnosticPath)]"
                     if let effectSummary = renderer.effectRuntimeSummary(for: layer) {
                         message += "; \(effectSummary)"
                     }
@@ -414,7 +415,7 @@ class SceneMetalView: NSView {
                 // so publish the same prepared definition and playback time
                 // to both geometry kinds.
                 if let animation = baseLoad.animation {
-                    let identity = resourceView.displayPath(for: url)
+                    let identity = url.diagnosticPath
                     if case .success = textureAnimationPlaybackRuntime.register(
                         layerID: layer.id,
                         sourceIdentity: identity,
@@ -438,7 +439,7 @@ class SceneMetalView: NSView {
                 if report.isEnabled {
                     var message = "layer \(layer.id) \"\(name)\": OK"
                         + " \(url.lastPathComponent) → \(texture.width)×\(texture.height)"
-                        + " [\(resourceView.displayPath(for: url))]"
+                        + " [\(url.diagnosticPath)]"
                     message += baseLoad.message
                     if preparedBaseImage != nil {
                         message += "; launch-prepared-static-base"
@@ -480,7 +481,7 @@ class SceneMetalView: NSView {
         specializedBaseTextureSamplings = loadedSpecializedBaseTextureSamplings
         let textLoad = SceneTextTextureLoader.load(
             descriptor: renderer.renderDescriptor,
-            cacheDirectory: cacheDirectory,
+            resourceView: resourceView,
             device: metalDevice,
             recordsDiagnostics: recordsDiagnostics,
             effectSummary: textEffectSummary
@@ -492,7 +493,7 @@ class SceneMetalView: NSView {
 
         dynamicTextTextures = SceneDynamicTextTextureStore(
             descriptor: renderer.renderDescriptor,
-            cacheDirectory: cacheDirectory,
+            resourceView: resourceView,
             device: metalDevice,
             initialRasters: textLoad.rasters,
             dynamicTextFieldsByLayerID: preparedDynamicTextFieldsByLayerID,
@@ -509,13 +510,12 @@ class SceneMetalView: NSView {
 #if DEBUG
         report.append(contentsOf: textLoad.messages)
 #endif
-
         videoTextureSources = loadedVideoSources
         puppetPlaybackStates = loadedPuppetPlaybackStates
         installDirectModelAnimations()
         particlePlayback = SceneParticlePlaybackState(
-            descriptor: renderer.renderDescriptor, cacheDirectory: cacheDirectory,
-            device: metalDevice, resourceView: resourceView, textureLoader: loader,
+            descriptor: renderer.renderDescriptor, preparedAssets: preparedParticleAssets,
+            device: metalDevice, textureLoader: loader,
             layerImage: SceneParticleLayerImageEmitterCompiler.compile(
                 descriptor: renderer.renderDescriptor, texturesByLayerID: imageTextures.textures,
                 animatedSourceLayerIDs: Set(loadedSpriteAnimations.keys)

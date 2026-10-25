@@ -164,8 +164,9 @@ final class SceneMaterialAssetTextureCatalog {
         textureDecodeCacheBudget: SceneTextureDecodeCacheBudget = .init(
             maximumBytes: 1_024 * 1_024 * 1_024
         ),
-        device: MTLDevice
-    ) {
+        device: MTLDevice,
+        checkCancellation: (() throws -> Void)? = nil
+    ) throws {
         let resolver = SceneTexturePathResolver(
             resourceView: resourceView,
             descriptor: descriptor
@@ -180,16 +181,24 @@ final class SceneMaterialAssetTextureCatalog {
         var launchStates: [
             SceneAssetTextureIdentity: SceneAssetTextureLaunchState
         ] = [:]
+        var sourceCohort: (input: SceneResourceView.FileInput,
+            tex: SceneTextureLoader.PreparedTexSource?, direct: SceneTextureLoader.PreparedDirectImageSource?)?
         for identity in demands.sorted(by: Self.less) {
+            try checkCancellation?()
             guard let url = resolver.resolveTextureFile(named: identity.path.value) else {
                 loaded[identity] = .absent
                 launchStates[identity] = .absent
                 continue
             }
-            let prepared = loader.prepareTexSource(from: url)
+            if sourceCohort?.input != url {
+                sourceCohort = (url,
+                    try loader.prepareTexSource(from: url, checkCancellation: checkCancellation),
+                    try loader.prepareDirectImageSource(from: url, checkCancellation: checkCancellation))
+            }
+            let prepared = sourceCohort?.tex
             let container = prepared?.container
             if let prepared, let container,
-               let declaration = loader.videoSourceDeclaration(from: prepared) {
+               let declaration = try loader.videoSourceDeclaration(from: prepared, checkCancellation: checkCancellation) {
                 guard identity.purpose == .premultipliedColor,
                       !container.isVolume, !container.isAnimated,
                       container.spriteFrames.isEmpty,
@@ -214,12 +223,13 @@ final class SceneMaterialAssetTextureCatalog {
                     )
                     continue
                 }
-                switch loader.loadAnimatedMaterialCandidate(
+                switch try loader.loadAnimatedMaterialCandidate(
                     from: prepared,
                     purpose: identity.purpose,
-                    device: device
+                    device: device, checkCancellation: checkCancellation
                 ) {
-                case .failed:
+                case let .failed(failure):
+                    try failure.rethrowResourceReadFailure()
                     loaded[identity] = .unavailable
                     launchStates[identity] = .unavailable
                 case let .loaded(asset):
@@ -236,11 +246,19 @@ final class SceneMaterialAssetTextureCatalog {
                 }
                 continue
             }
-            let outcome = prepared.map {
-                loader.loadCandidate(from: $0, purpose: identity.purpose, device: device)
-            } ?? loader.loadCandidate(from: url, purpose: identity.purpose, device: device)
+            let outcome: SceneTextureCandidateLoadOutcome
+            if let prepared {
+                outcome = try loader.loadCandidate(from: prepared, purpose: identity.purpose,
+                    device: device, checkCancellation: checkCancellation)
+            } else if let direct = sourceCohort?.direct {
+                outcome = try loader.loadCandidate(from: direct, purpose: identity.purpose,
+                    device: device, checkCancellation: checkCancellation)
+            } else {
+                outcome = .failed(.decodeFailed("texture source unavailable: \(url.lastPathComponent)"))
+            }
             switch outcome {
-            case .failed:
+            case let .failed(failure):
+                try failure.rethrowResourceReadFailure()
                 loaded[identity] = .unavailable
                 launchStates[identity] = .unavailable
             case let .loaded(candidate):

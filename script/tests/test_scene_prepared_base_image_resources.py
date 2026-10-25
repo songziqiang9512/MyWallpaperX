@@ -37,7 +37,11 @@ class ScenePreparedBaseImageResourceTests(unittest.TestCase):
         binary = workspace / "checks"
         source = Path(os.environ.get("MWX_PREPARED_BASE_IMAGE_SOURCE", PREPARATION))
         compile_result = subprocess.run(
-            ["xcrun", "swiftc", "-swift-version", "5", str(source), str(SOURCE_MATERIALS), str(RESOLVER),
+            ["xcrun", "swiftc", "-swift-version", "5",
+             str(SCENE / "Resources/Assets/SceneResourceIndex.swift"),
+             str(SCENE / "../SteamWorkshopStorage/ScenePlaybackSource.swift"), str(SCENE / "Format/ScenePkgReader.swift"),
+             str(SCENE / "Resources/Assets/SceneResourceIdentity.swift"), str(SCENE / "Resources/Assets/SceneResourceView+Backing.swift"),
+             str(SCENE / "Resources/Assets/SceneResourceView.swift"), str(source), str(SOURCE_MATERIALS), str(RESOLVER),
              str(BUILTIN), str(RENDER_STATE), str(RENDER_STATE_COMPILATION),
              str(SCENE / "Format/SceneJSONValue.swift"),
              str(SCENE / "Resources/Assets/SceneModelResourceIdentity.swift"),
@@ -85,7 +89,12 @@ class ScenePreparedBaseImageResourceTests(unittest.TestCase):
         self.assertEqual(ready["beforeLoads"], 0)
         self.assertTrue(ready["ready"])
         self.assertTrue(ready["hasOutcome"])
+        self.assertTrue(ready["foreignInputRejected"])
         self.assertTrue(ready["cancelRejectsRequest"])
+
+    def test_cancel_and_drain_joins_actual_deferred_worker(self) -> None:
+        for name, passed in self.facts["deferredDrain"].items():
+            self.assertTrue(passed, name)
 
     def test_existing_task_metadata_stage_preserves_deferred_cancel_and_early_failure(self) -> None:
         case = self.facts["taskStages"]

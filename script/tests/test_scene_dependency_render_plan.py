@@ -3592,7 +3592,7 @@ class SceneDependencyRenderPlanTests(unittest.TestCase):
         self.assertIn("layersByID: frameLayersByID", prepass)
         self.assertIn(
             ".forwardDependencyPreparationOrder(\n"
-            "                    authoredLayerIDs: orderedLayers.map(\\.id),\n"
+            "                    authoredLayerIDs: orderedLayerIDs,\n"
             "                    activeExecutionLayerIDs: activeExecutionLayerIDs,\n"
             "                    activeStaticModelConsumerLayerIDs:",
             dependency_provider,

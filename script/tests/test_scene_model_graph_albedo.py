@@ -18,7 +18,7 @@ import unittest
 from script.tests.test_scene_dependency_render_plan import SWIFT_SOURCES
 from script.tests.test_scene_directional_shadow_integration import fixture_entries as shadow_fixture, png, quad
 from script.tests.test_scene_fullscreen_visibility_integration import app_hashes, file_hashes
-from script.tests.test_scene_pkg_cache_extractor import make_package
+from script.tests.scene_pkg_fixture import make_package
 from script.scene_swift_source_sets import scene_swift_sources
 
 
@@ -32,7 +32,7 @@ RECEIVER_RGB = [76, 76, 76]
 PLATFORMS = {"dim": [0, 50, 0], "bright": [0, 100, 0], "transparent": RECEIVER_RGB}
 SOURCES = tuple(REPO / "script/tests" / name for name in (
     "test_scene_model_graph_albedo.py", "test_scene_directional_shadow_integration.py",
-    "test_scene_static_model_reader.py", "test_scene_pkg_cache_extractor.py",
+    "test_scene_static_model_reader.py", "scene_pkg_fixture.py",
     "test_scene_fullscreen_visibility_integration.py"))
 VERTEX = b"attribute vec3 a_Position;\nattribute vec2 a_TexCoord;\nvarying vec2 v_TexCoord;\nvoid main(){gl_Position=vec4(a_Position,1.0);v_TexCoord=a_TexCoord;}\n"
 FRAGMENT = b'''uniform sampler2D g_Texture0;

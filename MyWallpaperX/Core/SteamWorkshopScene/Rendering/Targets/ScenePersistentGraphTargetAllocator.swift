@@ -226,7 +226,9 @@ struct ScenePersistentGraphTargetAllocator {
                       fullFramePair: .init(first: zero, second: one),
                       expectsInputOutputAlias: stage.pairStep.inputMember
                         == stage.pairStep.outputMember,
-                      makeInputsDigest: stage.makeInputsDigest
+                      makeInputsDigest: stage.makeInputsDigest,
+                      preparedExecution: stage.preparedExecution,
+                      capabilityID: plan.capabilityID
                   ) else { return nil }
             let lease: SceneGraphRenderTargetLease
             if let sharedPair {

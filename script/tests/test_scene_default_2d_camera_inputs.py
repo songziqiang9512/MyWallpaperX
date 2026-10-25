@@ -51,7 +51,7 @@ def preamble() -> str:
     materials = source[source.index("enum SceneBaseMaterialColorModulationCompiler {"):
                        source.index("enum SceneTimelinePlaybackCommand:")]
     source = timeline.HARNESS_SOURCE
-    assets = source[source.index("struct ScenePkgExtractionReport {"):
+    assets = source[source.index("struct SceneProject {"):
                     source.index("enum HarnessError:")]
     assets = assets.replace("var shaderContracts: [Never] { [] }",
                             "var shaderContracts: [SceneShaderContract] { [] }")

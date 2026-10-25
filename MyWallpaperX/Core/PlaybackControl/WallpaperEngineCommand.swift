@@ -37,6 +37,7 @@ nonisolated struct ScenePlaybackLoadRequest: Equatable, Sendable {
     var propertyOverrides: [String: SceneUserPropertyValue]
     var userPropertyTextures: [String: ScenePlaybackTextureReference]
     let recordID: String?
+    var source: ScenePlaybackSource? = nil
     var requiredUserTextureKeys: Set<String> = []
     var userShortcuts: ScenePlaybackShortcutConfiguration = .empty
 }

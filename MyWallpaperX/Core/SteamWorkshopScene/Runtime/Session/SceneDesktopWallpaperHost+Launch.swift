@@ -2,85 +2,6 @@ import Foundation
 import QuartzCore
 import Metal
 
-struct SceneDesktopWallpaperLaunchContext {
-    let runtimeInput: SceneRuntimeInput
-    let particleLayerIDs: Set<Int>
-    let particleVisibilityRequirements: [Int: Set<Int>]
-    var preparedParticleVisibilityLayerIDs: Set<Int> {
-        Set(particleVisibilityRequirements.values.joined())
-    }
-    let effectAdmissionCatalog: SceneEffectAdmissionCatalog
-    let resolvedMaterialCatalog: SceneResolvedMaterialRuntimeCatalog
-    let resolvedMaterialExecutionCapabilities:
-        SceneResolvedMaterialExecutionCapabilityCatalog
-    let materialAssetCatalog: SceneMaterialAssetTextureCatalog
-    let stockNoiseTextures: SceneStockNoiseTextureStore
-    let preparedDeviceResources: ScenePreparedDeviceResources
-    let preparedFirstSurfaceRuntime: ScenePreparedFirstSurfaceRuntime
-    let timelineProgram: SceneTimelineProgram
-    let timelinePlaybackRuntime: SceneTimelinePlaybackRuntime
-    let textureAnimationPlaybackRuntime: SceneTextureAnimationPlaybackRuntime
-    let puppetAnimationPlaybackRuntime: ScenePuppetAnimationPlaybackRuntime
-    let textScriptProgram: SceneTextScriptProgram
-    let sharedLayerAlphaProgram: SceneSharedLayerAlphaProgram
-    let sceneScriptCursorProgram: SceneScriptCursorProgram
-    let propertyVectorScriptProgram: SceneScriptVectorProgram
-    let propertyVectorPassCandidateTargets: Set<SceneDynamicTarget>
-    let propertyVectorPassConsumerTargets: Set<SceneDynamicTarget>
-    let propertyVectorPassFailedTargets: Set<SceneDynamicTarget>
-    let propertyVectorMediaTargets: Set<SceneDynamicTarget>
-    let sceneScriptFallbackDefinitions: [SceneDynamicTargetDefinition]
-    let sceneScriptVectorMediaRoute: SceneScriptVectorMediaRouteState
-    let sceneScriptScalarProgram: SceneScriptScalarProgram
-    let sceneScriptSourceEvidence: [SceneScriptSourceEvidenceIR]
-    let sceneScriptStringProgram: SceneScriptStringProgram
-    let sceneScriptDynamicLayerRuntime: SceneScriptDynamicLayerRuntime
-    let sceneScriptStorageSession: SceneScriptLocalStorageSession?
-    let frameSchema: SceneDesktopWallpaperLaunchFrameSchema
-    var sceneScriptStatefulTargets: Set<SceneDynamicTarget> {
-        frameSchema.sceneScriptStatefulTargets
-    }
-    var dynamicDefinitions: [SceneDynamicTargetDefinition] {
-        frameSchema.dynamicDefinitions
-    }
-    var dynamicDefinitionIndex: SceneDynamicSnapshotDefinitionIndex {
-        frameSchema.dynamicDefinitionIndex
-    }
-    let baseMaterialProviderBindings: SceneBaseMaterialProviderBindingProgram
-    let soundPlaybackProgram: SceneSoundPlaybackProgram
-    var liveState: ScenePropertyLiveUpdateState
-    var userPropertyTextureLoad: SceneUserPropertyTextureLoadResult
-    let cacheDirectory: URL
-    let resourceView: SceneResourceView
-    let logURL: URL?
-    let recordID: String?
-    let capturesExecutionObservations: Bool
-    var userShortcuts: ScenePlaybackShortcutConfiguration = .empty
-    var userShortcutKeys: Set<String> = []
-
-    var requiresSystemMedia: Bool {
-        !propertyVectorScriptProgram.mediaOwnerRegistrations.isEmpty
-            || !sceneScriptScalarProgram.mediaOwnerRegistrations.isEmpty
-            || !sceneScriptStringProgram.mediaOwnerRegistrations.isEmpty
-            || textScriptProgram.bindings.contains { $0.profile == .ecmaMediaPropertiesChangedSubset }
-            || !baseMaterialProviderBindings.systemProviderDemands.isEmpty
-            || resolvedMaterialCatalog.systemProviderDemands.contains {
-                $0.name == SceneBaseMaterialProviderBindingProgram.currentIdentity
-                    || $0.name == SceneBaseMaterialProviderBindingProgram.previousIdentity
-            }
-    }
-
-    func makeResolvedMaterialRuntime() -> SceneResolvedMaterialRuntimeBridge {
-        preparedFirstSurfaceRuntime.take() ?? ScenePreparedDeviceResources.makeMaterialRuntime(
-            catalog: resolvedMaterialCatalog,
-            capabilities: resolvedMaterialExecutionCapabilities,
-            assets: materialAssetCatalog,
-            device: preparedDeviceResources.device,
-            capturesExecutionObservations: capturesExecutionObservations
-        )
-    }
-}
-
 extension SceneDesktopWallpaperHost {
     struct PreparedLaunch {
         let model: SceneRuntimeModel
@@ -89,6 +10,7 @@ extension SceneDesktopWallpaperHost {
 
     func requestLaunch(
         rootURL: URL,
+        source: ScenePlaybackSource? = nil,
         propertyOverrides: [String: SceneUserPropertyValue] = [:],
         userPropertyTextureURLs: [String: URL] = [:],
         userShortcuts: ScenePlaybackShortcutConfiguration = .empty,
@@ -125,6 +47,7 @@ extension SceneDesktopWallpaperHost {
             do {
                 var prepared = try Self.prepareLaunch(
                     rootURL: rootURL,
+                    source: source,
                     propertyOverrides: propertyOverrides,
                     userPropertyTextureURLs: userPropertyTextureURLs,
                     requiredUserTextureKeys: requiredUserTextureKeys,
@@ -252,6 +175,7 @@ extension SceneDesktopWallpaperHost {
     /// the daemon. There is no synchronous activation bypass.
     func launch(
         rootURL: URL,
+        source: ScenePlaybackSource? = nil,
         propertyOverrides: [String: SceneUserPropertyValue] = [:],
         userPropertyTextureURLs: [String: URL] = [:],
         requiredUserTextureKeys: Set<String> = [],
@@ -259,7 +183,7 @@ extension SceneDesktopWallpaperHost {
         recordID: String? = nil
     ) async throws -> SceneRuntimeModel {
         try await withCheckedThrowingContinuation { continuation in
-            requestLaunch(rootURL: rootURL, propertyOverrides: propertyOverrides,
+            requestLaunch(rootURL: rootURL, source: source, propertyOverrides: propertyOverrides,
                 userPropertyTextureURLs: userPropertyTextureURLs,
                 requiredUserTextureKeys: requiredUserTextureKeys, logURL: logURL,
                 recordID: recordID) { continuation.resume(with: $0) }
@@ -268,6 +192,7 @@ extension SceneDesktopWallpaperHost {
 #endif
     private static func prepareLaunch(
         rootURL: URL,
+        source: ScenePlaybackSource?,
         propertyOverrides: [String: SceneUserPropertyValue],
         userPropertyTextureURLs: [String: URL],
         requiredUserTextureKeys: Set<String>,
@@ -289,20 +214,24 @@ extension SceneDesktopWallpaperHost {
             )
         }
 #endif
-        progress?(.preparingModel, "正在验证资源包并解析场景")
+        progress?(.preparingModel, "正在读取资源并解析场景")
+        var preparedStaticModels: [String: SceneMdlStaticModel.PreparedSource] = [:]
+        var preparedParticleDefinitions: [String: SceneParticleAssetGraphLoader.PreparedDefinition] = [:]
         let model = try SceneRuntimeModelBuilder().build(
             rootURL: rootURL,
+            source: source,
             propertyOverrides: propertyOverrides,
-            checkCancellation: { try cancellation?.check() }
+            checkCancellation: { try cancellation?.check() },
+            preparedStaticModel: { preparedStaticModels[$0] = $1 },
+            preparedParticleDefinition: { preparedParticleDefinitions[$0] = $1 }
         )
 #if DEBUG
         let modelBuildMs = (CACurrentMediaTime() - prepareEntry) * 1_000
 #endif
         try cancellation?.check()
         progress?(.preparingPrograms, "正在准备材质、脚本与渲染计划")
-        guard let cacheDirectory = model.packageReport?.outputURL else {
-            throw SceneDesktopWallpaperHostLaunchError.missingPackageCache
-        }
+        let privateMediaCacheDirectory = FileManager.default.homeDirectoryForCurrentUser
+            .appendingPathComponent("Library/Caches/MyWallpaperX/SteamWorkshopScene", isDirectory: true)
         var runtimeInput = model.runtimeInput
         var authoredRenderDescriptor = model.authoredRenderDescriptor
         guard let device = MTLCreateSystemDefaultDevice()
@@ -322,10 +251,12 @@ extension SceneDesktopWallpaperHost {
             awaitsScriptResourcePlanning: true,
             deferredBaseImageLayerIDs: deferredBaseImageLayerIDs,
             imageGeometryModels: model.assetCatalog.models,
+            preparedStaticModels: preparedStaticModels,
             textureUploadCommandQueue: textureUploadCommandQueue,
             textureDecodeCacheBudget: textureDecodeCacheBudget,
             cancellationCheck: { try cancellation?.check() }
         )
+        preparedStaticModels.removeAll()
         deviceResourcesPreparation.start()
         defer {
             deviceResourcesPreparation.cancel()
@@ -441,9 +372,11 @@ extension SceneDesktopWallpaperHost {
                     " phases=\(boundedProducerConflicts.joined(separator: ","))"
                 )
         }
-        var soundPlaybackProgram = SceneSoundPlaybackProgram.compile(
+        var soundPlaybackProgram = try SceneSoundPlaybackProgram.compile(
             document: model.sceneDocument,
-            resourceView: model.resourceView
+            resourceView: model.resourceView,
+            privateCacheDirectory: privateMediaCacheDirectory,
+            checkCancellation: { try cancellation?.check() }
         )
         let sceneScriptScalarDefinitions = SceneScriptScalarProgram.projectedDefinitions(
             descriptor: authoredRenderDescriptor,
@@ -504,6 +437,16 @@ extension SceneDesktopWallpaperHost {
         let preparedParticleVisibilityLayerIDs = Set(
             particleVisibilityRequirements.values.joined()
         )
+        let preparedParticleAssets: SceneParticleAssetGraph
+        do {
+            defer { preparedParticleDefinitions.removeAll() }
+            preparedParticleAssets = try SceneParticleRuntime.prepareAssets(
+                descriptor: runtimeInput.renderDescriptor, resourceView: model.resourceView,
+                preparedParticleVisibilityLayerIDs: preparedParticleVisibilityLayerIDs,
+                preparedDefinitions: preparedParticleDefinitions,
+                checkCancellation: { try cancellation?.check() }
+            )
+        }
         let textScriptProgram = SceneTextScriptCompiler.compile(
             descriptor: runtimeInput.renderDescriptor,
             excludedTargets: sceneScriptStringTargets,
@@ -577,14 +520,14 @@ extension SceneDesktopWallpaperHost {
             )
         let lightingDemands = Set(baseMaterialProviderBindings.lightingProfileByLayerID.values
             .flatMap { [$0.normalAsset, $0.mapAsset].compactMap { $0 } })
-        let materialAssetCatalog = SceneMaterialAssetTextureCatalog(
+        let materialAssetCatalog = try SceneMaterialAssetTextureCatalog(
             demands: resolvedMaterialCatalog.assetDemands.union(lightingDemands)
                 .union(baseMaterialProviderBindings.assetDemands),
             resourceView: model.resourceView,
             descriptor: runtimeInput.renderDescriptor,
             textureUploadCommandQueue: textureUploadCommandQueue,
             textureDecodeCacheBudget: textureDecodeCacheBudget,
-            device: device
+            device: device, checkCancellation: { try cancellation?.check() }
         )
 #if DEBUG
         NSLog("MWX LAUNCH-STAGE: stage=catalog-decode elapsedMs=%.0f", (CACurrentMediaTime() - resourcesStageStart) * 1000)
@@ -833,7 +776,7 @@ extension SceneDesktopWallpaperHost {
                 textureUploadCommandQueue: textureUploadCommandQueue,
                 textureDecodeCacheBudget: textureDecodeCacheBudget,
                 device: device,
-                videoCacheDirectory: cacheDirectory,
+                videoCacheDirectory: privateMediaCacheDirectory,
                 isCancelled: {
                     do { try cancellation?.check(); return false }
                     catch { return true }
@@ -887,6 +830,7 @@ extension SceneDesktopWallpaperHost {
         try cancellation?.check()
         let context = SceneDesktopWallpaperLaunchContext(
             runtimeInput: runtimeInput,
+            preparedParticleAssets: preparedParticleAssets,
             particleLayerIDs: Set(runtimeInput.renderDescriptor.layers
                 .filter { $0.contentKind == "particle" }.map(\.id)),
             particleVisibilityRequirements: particleVisibilityRequirements,
@@ -951,7 +895,7 @@ extension SceneDesktopWallpaperHost {
                 propertyDefinitions: model.project.userProperties.definitions
             ),
             userPropertyTextureLoad: userPropertyTextureLoad,
-            cacheDirectory: cacheDirectory,
+            privateMediaCacheDirectory: privateMediaCacheDirectory,
             resourceView: model.resourceView,
             logURL: logURL,
             recordID: recordID,

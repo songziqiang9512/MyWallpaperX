@@ -16,6 +16,12 @@ REPOSITORY_ROOT = Path(__file__).resolve().parents[2]
 SOURCE_ROOT = REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene"
 TEXT_TEXTURE_LOADER_SOURCE = REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Systems/Text/SceneTextTextureLoader.swift"
 SWIFT_SOURCES = list(dict.fromkeys([
+    SOURCE_ROOT / "Resources/Assets/SceneResourceIndex.swift",
+    SOURCE_ROOT / "Resources/Assets/SceneResourceView.swift",
+    SOURCE_ROOT / "../SteamWorkshopStorage/ScenePlaybackSource.swift",
+    SOURCE_ROOT / "Format/ScenePkgReader.swift",
+    SOURCE_ROOT / "Resources/Assets/SceneResourceIdentity.swift",
+    SOURCE_ROOT / "Resources/Assets/SceneResourceView+Backing.swift",
     *scene_swift_sources("authored_shader_frontend_support"),
     REPOSITORY_ROOT / "script/tests/fixtures/SceneStaticModelMaterialBindingUnavailableStub.swift",
     SOURCE_ROOT / "Runtime/Frame/SceneStaticModelMaterialBindings.swift",
@@ -251,10 +257,6 @@ struct SceneParticleDefinitionParser {
     func parseInstanceOverride(_ raw: Any?) -> SceneParticleInstanceOverride? { nil }
 }
 
-struct ScenePkgExtractionReport {
-    let outputURL: URL?
-}
-
 struct SceneProject {
     let rootURL: URL
     let entryPath: String
@@ -360,11 +362,12 @@ enum Harness {
             throw HarnessError.descriptorRejected
         }
         guard let device = MTLCreateSystemDefaultDevice() else { throw HarnessError.noMetal }
-        let cacheDirectory = sceneURL.deletingLastPathComponent()
+        let resourceView = SceneResourceView(projectRoot: .init(source: .loose,
+            url: sceneURL.deletingLastPathComponent()), packageRoot: nil, stockRoot: nil)
 
         let loaded = SceneTextTextureLoader.load(
             descriptor: descriptor,
-            cacheDirectory: cacheDirectory,
+            resourceView: resourceView,
             device: device
         )
         let layers = Dictionary(uniqueKeysWithValues: descriptor.layers.map { ($0.id, $0) })
@@ -383,9 +386,9 @@ enum Harness {
             ]
             guard let texture = loaded.rasters[id]?.texture else { continue }
             ink["\(id)"] = inkStatistics(texture)
-            if let dynamic = SceneTextTextureLoader.makeDynamicTexture(
+            if let dynamic = try SceneTextTextureLoader.makeDynamicTexture(
                 for: layer, content: layer.text!, pointSize: text.pointSize,
-                colorRGB: text.colorRGB, cacheDirectory: cacheDirectory, device: device
+                colorRGB: text.colorRGB, resourceView: resourceView, device: device
             ) {
                 sameContentDynamicInk["\(id)"] = inkStatistics(dynamic.texture)
                 precondition(loaded.rasters[id]?.renderSizeWH == dynamic.renderSizeWH)
@@ -430,45 +433,45 @@ enum Harness {
             ),
         ]
         let longContent = "AAAA BBBB CCCC DDDD"
-        let autoSized = layers[70].flatMap {
-            SceneTextTextureLoader.makeDynamicTexture(
+        let autoSized = try layers[70].flatMap {
+            try SceneTextTextureLoader.makeDynamicTexture(
                 for: $0,
                 content: longContent,
                 pointSize: $0.textStyle!.pointSize,
                 colorRGB: $0.textStyle!.colorRGB,
-                cacheDirectory: cacheDirectory,
+                resourceView: resourceView,
                 device: device
             )
         }
-        let widthLimited = layers[60].flatMap {
-            SceneTextTextureLoader.makeDynamicTexture(
+        let widthLimited = try layers[60].flatMap {
+            try SceneTextTextureLoader.makeDynamicTexture(
                 for: $0,
                 content: longContent,
                 pointSize: $0.textStyle!.pointSize,
                 colorRGB: $0.textStyle!.colorRGB,
-                cacheDirectory: cacheDirectory,
+                resourceView: resourceView,
                 device: device
             )
         }
-        let timelineNarrow = layers[60].flatMap {
-            SceneTextTextureLoader.makeDynamicTexture(
+        let timelineNarrow = try layers[60].flatMap {
+            try SceneTextTextureLoader.makeDynamicTexture(
                 for: $0,
                 content: "AAAA BBBB",
                 pointSize: $0.textStyle!.pointSize,
                 colorRGB: $0.textStyle!.colorRGB,
                 maxWidth: 100,
-                cacheDirectory: cacheDirectory,
+                resourceView: resourceView,
                 device: device
             )
         }
-        let timelineWide = layers[60].flatMap {
-            SceneTextTextureLoader.makeDynamicTexture(
+        let timelineWide = try layers[60].flatMap {
+            try SceneTextTextureLoader.makeDynamicTexture(
                 for: $0,
                 content: "AAAA BBBB",
                 pointSize: $0.textStyle!.pointSize,
                 colorRGB: $0.textStyle!.colorRGB,
                 maxWidth: 350,
-                cacheDirectory: cacheDirectory,
+                resourceView: resourceView,
                 device: device
             )
         }
@@ -487,23 +490,23 @@ enum Harness {
         for (name, id, width) in [("fits", 60, admittedWidth),
                                   ("tooNarrow", 60, Float(floor(inkWidth) - 1)),
                                   ("oneRow", 20, admittedWidth)] {
-            if let layer = layers[id], let rendered = SceneTextTextureLoader.makeDynamicTexture(
+            if let layer = layers[id], let rendered = try SceneTextTextureLoader.makeDynamicTexture(
                 for: layer, content: "ONE TWO", pointSize: 12,
                 colorRGB: [1, 1, 1], maxWidth: width,
-                cacheDirectory: cacheDirectory, device: device
+                resourceView: resourceView, device: device
             ) { boundaryInk[name] = inkStatistics(rendered.texture) }
         }
 
-        let lastRowLiteral = layers[70].flatMap {
-            SceneTextTextureLoader.makeDynamicTexture(
+        let lastRowLiteral = try layers[70].flatMap {
+            try SceneTextTextureLoader.makeDynamicTexture(
                 for: $0, content: "AAAA B", pointSize: 12,
-                colorRGB: [1, 1, 1], cacheDirectory: cacheDirectory, device: device
+                colorRGB: [1, 1, 1], resourceView: resourceView, device: device
             )
         }
-        let ellipsisLiteral = layers[70].flatMap {
-            SceneTextTextureLoader.makeDynamicTexture(
+        let ellipsisLiteral = try layers[70].flatMap {
+            try SceneTextTextureLoader.makeDynamicTexture(
                 for: $0, content: "AAAA …", pointSize: 12,
-                colorRGB: [1, 1, 1], cacheDirectory: cacheDirectory, device: device
+                colorRGB: [1, 1, 1], resourceView: resourceView, device: device
             )
         }
         let result: [String: Any] = [

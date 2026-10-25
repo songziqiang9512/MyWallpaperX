@@ -7,12 +7,21 @@ extension SceneDesktopWallpaperSession {
         let update: ScenePlaybackTextureUpdate
         let cancellation = SceneWallpaperLaunchCancellation()
         var resourceTask: Task<Void, Never>?
+        private var retirementDrain: DispatchGroup?
         var completion: (@MainActor (ScenePlaybackTextureUpdateOutcome) -> Void)?
 
-        init(_ update: ScenePlaybackTextureUpdate,
+        init(_ update: ScenePlaybackTextureUpdate, retirementDrain: DispatchGroup,
              completion: @escaping @MainActor (ScenePlaybackTextureUpdateOutcome) -> Void) {
             self.update = update
             self.completion = completion
+            self.retirementDrain = retirementDrain
+            retirementDrain.enter()
+        }
+
+        func finishResourceWork() {
+            let drain = retirementDrain
+            retirementDrain = nil
+            drain?.leave()
         }
 
         func finish(_ outcome: ScenePlaybackTextureUpdateOutcome) {
@@ -27,7 +36,7 @@ extension SceneDesktopWallpaperSession {
         resolvedURLs: [String: URL],
         completion: @escaping @MainActor (ScenePlaybackTextureUpdateOutcome) -> Void
     ) {
-        guard let context = launchContext, context.recordID == update.recordID,
+        guard !drainStarted, let context = launchContext, context.recordID == update.recordID,
               let registry = videoTextureSourceRegistry else {
             completion(.unavailable)
             return
@@ -71,7 +80,7 @@ extension SceneDesktopWallpaperSession {
         keys.forEach { latestUserTextureRevisions[$0] = update.revision }
         nextUserTextureGeneration += 1
         let generation = nextUserTextureGeneration
-        let pending = PendingUserTextureUpdate(update, completion: completion)
+        let pending = PendingUserTextureUpdate(update, retirementDrain: retiringSurfaceDrain, completion: completion)
         pendingUserTextureUpdates[generation] = pending
         let token = pending.cancellation
         let device = context.preparedDeviceResources.device
@@ -79,7 +88,7 @@ extension SceneDesktopWallpaperSession {
         let scriptGeneration = context.propertyVectorScriptProgram.generation
         let queue = context.preparedDeviceResources.baseImages.textureLoader.uploadCommandQueue
         let budget = context.preparedDeviceResources.baseImages.textureLoader.decodeCacheBudget
-        let cacheDirectory = context.cacheDirectory
+        let privateMediaCacheDirectory = context.privateMediaCacheDirectory
         let identities = Set(demands.filter { keys.contains($0.propertyKey) })
         // DispatchQueue executes synchronous nonisolated resource APIs. No
         // Task/MainActor hop can move decoding back onto the frame thread.
@@ -88,15 +97,20 @@ extension SceneDesktopWallpaperSession {
                 urlsByPropertyKey: resolvedURLs, requestedIdentities: identities,
                 textureUploadCommandQueue: queue, textureDecodeCacheBudget: budget,
                 device: device, contentGeneration: generation,
-                videoCacheDirectory: cacheDirectory,
+                videoCacheDirectory: privateMediaCacheDirectory,
                 isCancelled: {
                     do { try token.check(); return false }
                     catch { return true }
                 }
             )
             DispatchQueue.main.async { [weak self] in
-                guard let self else { pending.finish(.superseded); return }
+                guard let self else {
+                    pending.finish(.superseded)
+                    pending.finishResourceWork()
+                    return
+                }
                 pending.resourceTask = Task { @MainActor [weak self] in
+                    defer { pending.finishResourceWork() }
                     guard let self else { pending.finish(.superseded); return }
                     defer { self.pendingUserTextureUpdates.removeValue(forKey: generation) }
                     @MainActor func isCurrent() -> Bool {
@@ -187,11 +201,14 @@ extension SceneDesktopWallpaperSession {
     }
 
     func prepareInitialUserPropertyVideos() {
-        guard let context = launchContext, let registry = videoTextureSourceRegistry,
+        guard !drainStarted, let context = launchContext, let registry = videoTextureSourceRegistry,
               !userPropertyTextureLoad.videoDeclarations.isEmpty else { return }
         let declarations = userPropertyTextureLoad.videoDeclarations
         let device = context.preparedDeviceResources.device
+        let retirementDrain = retiringSurfaceDrain
+        retirementDrain.enter()
         initialUserVideoPreparation = Task { @MainActor [weak self] in
+            defer { retirementDrain.leave() }
             var candidates: [SceneVideoTextureSourceRegistry.UserPropertyCandidate] = []
             for declaration in declarations.values {
                 guard !Task.isCancelled,

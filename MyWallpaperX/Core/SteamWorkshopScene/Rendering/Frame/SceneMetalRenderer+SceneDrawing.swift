@@ -146,9 +146,7 @@ extension SceneMetalRenderer {
         performanceTelemetry?.endStage("prepass-particles")
 #endif
         let framebufferSourceLayerIDs: Set<Int> = imagePipeline?.supportsReadOnlyDepth == true
-            ? Set((frameProjection.preparationLayers ?? []).compactMap { layer in
-                layer.utilityLayer?.framebufferSource != nil ? layer.id : nil
-            }) : []
+            ? frameProjection.framebufferSourceLayerIDs : []
         let requestedFramebufferSources = framebufferSourceLayerIDs.intersection(frameVisibleLayerIDs)
             .intersection(frameProjection.utilityExecution.captureLayerIDs)
         // Only prepared policy IDs are inspected. Source/effect programs retain
@@ -239,6 +237,7 @@ extension SceneMetalRenderer {
                 ? frameProjection.preparationLayers : frameProjection.preparationLayers?.filter {
                 !unavailableTerminalLayers.contains($0.id)
             },
+            liveLayerIDs: frameProjection.preparationLayerIDs.subtracting(unavailableTerminalLayers),
             utilityExecution: frameProjection.utilityExecution
         )
 #if DEBUG
@@ -460,7 +459,7 @@ extension SceneMetalRenderer {
 #endif
 
             if let prepared = prepareForwardDependencyProviders(
-                orderedLayers: orderedLayers, layersByID: frameLayersByID,
+                orderedLayerIDs: frameProjection.orderedLayerIDs, layersByID: frameLayersByID,
                 imageTextures: imageTextures,
                 imagePipeline: imagePipeline,
                 frameContext: frameContext,

@@ -5,6 +5,10 @@
 from __future__ import annotations
 
 from script.tests.source_family import read_source_family
+import json
+import shutil
+import subprocess
+import tempfile
 import unittest
 from pathlib import Path
 
@@ -14,6 +18,27 @@ SCENE = ROOT / "MyWallpaperX/Core/SteamWorkshopScene"
 
 
 class SceneRealtimePathPolicyTests(unittest.TestCase):
+    @unittest.skipUnless(shutil.which("swiftc"), "swiftc is required")
+    def test_prepared_topology_membership_follows_revision_and_frame_values(self) -> None:
+        with tempfile.TemporaryDirectory(prefix="mwx-topology-projection-") as directory:
+            root = Path(directory)
+            binary = root / "projection"
+            compiled = subprocess.run([
+                "xcrun", "swiftc", "-parse-as-library",
+                str(SCENE / "Rendering/Composition/SceneDynamicLayerRenderTopologyCache.swift"),
+                str(ROOT / "script/tests/fixtures/SceneDynamicTopologyProjectionHarness.swift"),
+                "-module-cache-path", str(root / "modules"), "-o", str(binary),
+            ], capture_output=True, text=True, timeout=60)
+            self.assertEqual(compiled.returncode, 0, compiled.stderr)
+            completed = subprocess.run([str(binary)], capture_output=True, text=True, timeout=10)
+            self.assertEqual(completed.returncode, 0, completed.stdout + completed.stderr)
+            self.assertEqual(json.loads(completed.stdout), {
+                "sameRevisionKeepsPreparedMembership": True,
+                "frameValuesPatchOrderedAndPreparation": True,
+                "newRevisionRebuildsMembership": True,
+                "missingPreparationRemainsInvalid": True,
+            })
+
     def test_static_graph_work_is_reused_for_stable_generations(self) -> None:
         state = (
             ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Targets/SceneGraphExecutionState.swift"
@@ -67,6 +92,9 @@ class SceneRealtimePathPolicyTests(unittest.TestCase):
         frame_schema = (
             ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Runtime/Session/SceneDesktopWallpaperLaunchFrameSchema.swift"
         ).read_text(encoding="utf-8")
+        launch_context = (
+            SCENE / "Runtime/Session/SceneDesktopWallpaperLaunchContext.swift"
+        ).read_text(encoding="utf-8")
         self.assertIn(
             "self.launchDefinitions = SceneDynamicDefinitionMerger.merge(",
             frame_schema,
@@ -76,6 +104,12 @@ class SceneRealtimePathPolicyTests(unittest.TestCase):
             frame_schema,
         )
         self.assertIn("SceneDesktopWallpaperLaunchFrameSchema(", launch)
+        self.assertIn("frameSchema: frameSchema,", launch)
+        # Launch owns the prepared schema; its context forwards the revisioned
+        # index to FrameDriver's typed resolvers. Definitions need not be read
+        # eagerly by Launch merely to establish that handoff.
+        self.assertIn("frameSchema.dynamicDefinitions", launch_context)
+        self.assertIn("frameSchema.dynamicDefinitionIndex", launch_context)
         self.assertIn(
             "let definitionIndex = launchContext.dynamicDefinitionIndex",
             frame_driver,
@@ -84,7 +118,6 @@ class SceneRealtimePathPolicyTests(unittest.TestCase):
             "index: definitionIndex",
             frame_driver,
         )
-        self.assertIn("frameSchema.dynamicDefinitions", launch)
         self.assertIn("authoredDefinitionRevision", frame_schema)
         self.assertIn("cachedDefinitionIndexRevision", frame_schema)
         self.assertIn(
@@ -99,6 +132,7 @@ class SceneRealtimePathPolicyTests(unittest.TestCase):
             "SceneDynamicDefinitionMerger.merge(",
             frame_driver,
         )
+        self.assertNotIn("SceneDynamicSnapshotResolver.prepare(", frame_driver)
 
     def test_dynamic_layer_projection_is_revisioned(self) -> None:
         renderer = read_source_family(ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Frame/SceneMetalRenderer.swift")

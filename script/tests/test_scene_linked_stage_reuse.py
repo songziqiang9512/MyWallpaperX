@@ -30,10 +30,6 @@ enum SceneGenericShaderCompilerBundle {
         let backendID = "test"
         let glslang = URL(fileURLWithPath: "/test/glslang")
         let spirvCross = URL(fileURLWithPath: "/test/cross")
-        let glslangVersionProbe = "test-version"
-        let spirvCrossVersionProbe = "test-version"
-        let glslangVersionProbeExitCode: Int32 = 0
-        let spirvCrossVersionProbeExitCode: Int32 = 0
         let limits = Limits()
     }
     enum Failure: Error { case unavailable }
@@ -83,7 +79,6 @@ enum SceneGenericShaderCompilerProcess {
                     timeoutMilliseconds: Int, maximumDiagnosticBytes: Int,
                     maximumResidentBytes: Int, expectedExitCode: Int32 = 0) -> Result<Output, Failure> {
         calls.append(arguments)
-        if arguments == ["--version"] { return .success(.init(stdout: Data("test-version".utf8))) }
         do {
             if arguments.contains("-l") {
                 links += 1
@@ -149,7 +144,8 @@ class SceneLinkedStageReuseTests(unittest.TestCase):
         row = self.run_case('ordinary')
         self.assertEqual(row['artifact']['stages'], ['renamed_vertex', 'renamed_fragment'])
         self.assertEqual(row['links'], 1)
-        self.assertEqual(len(row['calls']), 7)  # two version probes, one link, four cross calls
+        self.assertEqual(len(row['calls']), 5)  # one actual link, four lowering/reflection calls
+        self.assertNotIn(['--version'], row['calls'])
 
     def test_guarded_retry_publishes_only_the_replacement_stages(self):
         row = self.run_case('guarded')
@@ -168,7 +164,7 @@ class SceneLinkedStageReuseTests(unittest.TestCase):
         row = self.run_case('link-failure')
         self.assertIn('stage-link', row['failure'])
         self.assertFalse(row['published'])
-        self.assertEqual(len(row['calls']), 3)
+        self.assertEqual(len(row['calls']), 1)
 
 if __name__ == '__main__':
     unittest.main()

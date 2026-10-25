@@ -9,7 +9,7 @@ struct ScenePreparedPuppetResources {
 
     static func prepare(
         descriptor: SceneRenderDescriptor,
-        cacheDirectory: URL,
+        resourceView: SceneResourceView,
         cancellationCheck: () throws -> Void
     ) throws -> Self {
         let layers = descriptor.layers.filter { $0.puppetMeshPath != nil }
@@ -24,8 +24,9 @@ struct ScenePreparedPuppetResources {
         var assets: [String: ScenePuppetLayerLoad.AssetPreparation] = [:]
         for (key, demand) in demands {
             try cancellationCheck()
-            assets[key] = ScenePuppetLayerLoad.prepareAsset(meshPath: demand.path,
-                cacheDirectory: cacheDirectory, needsAnimations: demand.animations)
+            assets[key] = try ScenePuppetLayerLoad.prepareAsset(meshPath: demand.path,
+                resourceView: resourceView, needsAnimations: demand.animations,
+                cancellationCheck: cancellationCheck)
         }
         var poses: [Int: ScenePuppetLayerLoad.PreparedPose] = [:]
         var defaults: [String: ScenePuppetLayerLoad.PreparedPose] = [:]

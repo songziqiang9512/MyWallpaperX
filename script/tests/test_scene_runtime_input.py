@@ -49,6 +49,10 @@ SHADER_CONTRACT_GRAPH_LOADER_SOURCE = (
     ]
 )
 SWIFT_SOURCES = [
+    SHADER_CONTRACT_RESOURCE_RESOLUTION_SOURCES["ScenePlaybackSource.swift"],
+    SHADER_CONTRACT_RESOURCE_RESOLUTION_SOURCES["SceneResourceIdentity.swift"],
+    SHADER_CONTRACT_RESOURCE_RESOLUTION_SOURCES["ScenePkgReader.swift"],
+    SHADER_CONTRACT_RESOURCE_RESOLUTION_SOURCES["SceneResourceView+Backing.swift"],
     SHADER_CONTRACT_RESOURCE_RESOLUTION_SOURCES["SceneBuiltinShaderIdentity.swift"],
     REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Systems/Properties/SceneUserProperty.swift",
     REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Systems/Properties/SceneScriptDynamicProviderHostContract.swift",
@@ -217,7 +221,7 @@ enum Harness {
             "opacity": .number(0.75),
             "visible": .bool(true),
         ]
-        let shaderContracts = SceneShaderContractLoader().load(
+        let shaderContracts = try SceneShaderContractLoader().load(
             shaderReferences: ["genericimage2"],
             rootURL: URL(fileURLWithPath: CommandLine.arguments[1], isDirectory: true)
         )

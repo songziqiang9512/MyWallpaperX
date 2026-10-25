@@ -35,8 +35,9 @@ enum SceneParticleMaterialCoverageHarness {
                 constantValues: constants, hasUserTextureInputs: userTexture,
                 hasUserShaderValues: userValue, depthTest: test, depthWrite: write,
                 cullMode: cull, alphaWriting: alpha)
-            let graph = SceneParticleAssetGraphLoader(stockTextureBundleURL: nil).load(
-                rootPaths: [path], materialPasses: [pass], cacheDirectory: root)
+            let graph = try SceneParticleAssetGraphLoader(resourceView: .init(
+                projectRootURL: root, packageRootURL: nil, stockAssetsRootURL: nil
+            ), stockTextureBundleURL: nil).load(rootPaths: [path], materialPasses: [pass])
             guard let asset = graph.assetsByPath[SceneParticleAssetGraphLoader.normalizedPath(path)]
             else { throw Harness.HarnessError.missingPath }
             let state = asset.pipelineState

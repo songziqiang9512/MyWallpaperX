@@ -1,8 +1,6 @@
 import Foundation
 import Metal
 import CoreGraphics
-import Darwin
-import ImageIO
 
 // Outcome of attempting to load a layer texture. Captured so the preview can
 // report exactly *why* a layer's texture didn't show up (file missing, .tex
@@ -15,7 +13,12 @@ nonisolated enum SceneTextureLoadOutcome {
     case texNoEmbeddedImage             // .tex container is DXT/BC, no JPEG/PNG inside
     case texContainsVideoPayload
     case decodeFailed(String)
+    case resourceReadFailed(any Error)
     case textureAllocationFailed(width: Int, height: Int)
+
+    func rethrowResourceReadFailure() throws {
+        if case let .resourceReadFailed(error) = self { throw error }
+    }
 }
 
 /// Shared admission counter for launch-lifetime decoded texture caches. It
@@ -105,39 +108,40 @@ nonisolated private final class SceneTextureDecodeCacheLease {
 }
 
 nonisolated final class SceneTextureLoader {
-    struct SourceKey: Hashable {
-        let path: String
-        let size: UInt64
-        let modifiedAtBits: UInt64
-        let fileSystemID: UInt64
-        let fileID: UInt64
-        let statusChangedAtSeconds: Int64
-        let statusChangedAtNanoseconds: Int64
-    }
+    typealias SourceKey = SceneResourceView.ContentIdentity
+    typealias Input = SceneResourceView.FileInput
 
-    /// An immutable media input, never a decoded or ready texture. Both layer
-    /// and material preparation consume these same stable-source facts.
+    /// An immutable media input, never a decoded or ready texture.
     struct VideoSourceDeclaration {
-        let url: URL
+        let input: Input
         let source: SourceKey
         let payload: Data
         let isWebM: Bool
     }
 
-    func videoSourceDeclaration(from url: URL) -> VideoSourceDeclaration? {
-        guard let prepared = prepareTexSource(from: url) else { return nil }
-        return videoSourceDeclaration(from: prepared)
+    func videoSourceDeclaration(
+        from input: Input, checkCancellation: (() throws -> Void)? = nil
+    ) throws -> VideoSourceDeclaration? {
+        guard let prepared = try prepareTexSource(from: input, checkCancellation: checkCancellation)
+        else { return nil }
+        return try videoSourceDeclaration(from: prepared, checkCancellation: checkCancellation)
     }
 
-    func videoSourceDeclaration(from prepared: PreparedTexSource) -> VideoSourceDeclaration? {
-        guard sourceKey(for: prepared.url) == prepared.source,
-              let container = prepared.container,
-              container.format == 0,
+    func videoSourceDeclaration(
+        from prepared: PreparedTexSource, checkCancellation: (() throws -> Void)? = nil
+    ) throws -> VideoSourceDeclaration? {
+        try checkCancellation?()
+        guard let container = prepared.container, container.format == 0,
               let payload = container.mips.first?.data,
-              SceneTexContainer.isVideoPayload(payload),
-              sourceKey(for: prepared.url) == prepared.source else { return nil }
-        return .init(url: prepared.url, source: prepared.source, payload: payload,
+              SceneTexContainer.isVideoPayload(payload) else { return nil }
+        return .init(input: prepared.input, source: prepared.source, payload: payload,
             isWebM: SceneTexContainer.isWebMPayload(payload))
+    }
+
+    func videoSourceDeclaration(
+        from url: URL, checkCancellation: (() throws -> Void)? = nil
+    ) throws -> VideoSourceDeclaration? {
+        try videoSourceDeclaration(from: .externalFile(url), checkCancellation: checkCancellation)
     }
 
     private struct TextureKey: Hashable {
@@ -146,9 +150,35 @@ nonisolated final class SceneTextureLoader {
         let purpose: SceneTextureLoadPurpose
     }
 
-    fileprivate struct TexResource {
+    struct TexResource {
         let container: SceneTexContainer?
         let parseError: String?
+        let firstEmbeddedMipSize: CGSize?
+        let hasValidTexb3EmbeddedMipChain: Bool
+
+        init(container: SceneTexContainer?, parseError: String?) {
+            self.container = container; self.parseError = parseError
+            guard let container, container.format == 0 else {
+                firstEmbeddedMipSize = nil; hasValidTexb3EmbeddedMipChain = false
+                return
+            }
+            // Capture ImageIO header facts once with this parsed resource. All
+            // purposes and GPU-cache hits consume the same immutable metadata.
+            let sizes = container.mips.map { SceneTextureMipUploader.embeddedImagePixelSize($0.data) }
+            firstEmbeddedMipSize = sizes.first ?? nil
+            let expectedMagic: Data?
+            switch container.freeImageFormat {
+            case 2: expectedMagic = Data([0xFF, 0xD8, 0xFF])
+            case 13: expectedMagic = Data([0x89, 0x50, 0x4E, 0x47])
+            default: expectedMagic = nil
+            }
+            hasValidTexb3EmbeddedMipChain = expectedMagic.map { magic in
+                SceneTexContainer.valid2DMipDimensions(container.mips.map { ($0.width, $0.height) })
+                    && zip(container.mips, sizes).allSatisfy { mip, size in
+                        mip.data.starts(with: magic) && size == CGSize(width: mip.width, height: mip.height)
+                    }
+            } ?? false
+        }
 
         var decodedByteCost: Int? {
             guard let container else { return 0 }
@@ -171,16 +201,47 @@ nonisolated final class SceneTextureLoader {
     /// loader owns parsing/cache admission; consumers can retain the result
     /// briefly even when the decoded-cache budget declines admission.
     struct PreparedTexSource {
-        let url: URL
+        let input: Input
         let source: SourceKey
-        fileprivate let resource: TexResource
+        let resource: TexResource
 
         var container: SceneTexContainer? { resource.container }
     }
 
-    private enum DirectImageResource {
+    fileprivate enum DirectImageResource {
         case decoded(CGImage)
         case failed(String)
+    }
+
+    /// One preparation operation may share captured bytes and a lazy decode.
+    /// A metadata queue may retain this value only after source-byte admission;
+    /// its consumer removes it before decoding, and releases it after upload.
+    final class PreparedDirectImageSource {
+        let input: Input
+        let source: SourceKey
+        fileprivate let data: Data?
+        fileprivate let naturalSize: CGSize?
+        fileprivate var resource: DirectImageResource?
+        fileprivate var didDecode = false
+        private let sourceLease: SceneTextureDecodeCacheLease
+        private var admitted = false
+
+        fileprivate init(input: Input, source: SourceKey, data: Data?, naturalSize: CGSize?,
+                         resource: DirectImageResource?, budget: SceneTextureDecodeCacheBudget) {
+            self.input = input; self.source = source; self.data = data
+            self.naturalSize = naturalSize; self.resource = resource
+            sourceLease = .init(budget: budget)
+        }
+
+        /// Uses the loader's existing budget. A cached decoded resource is
+        /// already charged there; newly captured encoded bytes have one lease.
+        func admitForPreparation() -> Bool {
+            guard !didDecode else { return false }
+            if admitted { return true }
+            guard let data else { return true }
+            admitted = sourceLease.reserve(data.count)
+            return admitted
+        }
     }
 
     private enum TexEmbeddedImageResource {
@@ -194,6 +255,13 @@ nonisolated final class SceneTextureLoader {
     private var texResources: [SourceKey: TexResource] = [:]
     private var directImageResources: [SourceKey: DirectImageResource] = [:]
     private var directImageNaturalSizes: [SourceKey: CGSize] = [:]
+    // Small source facts accompany published GPU textures even after decoded
+    // payload eviction; candidate cache hits never reopen an image for alpha.
+    struct DirectImageFacts {
+        let naturalSize: CGSize
+        let isOpaque: Bool
+    }
+    private(set) var directImageFacts: [SourceKey: DirectImageFacts] = [:]
     private var texEmbeddedImageResources: [SourceKey: TexEmbeddedImageResource] = [:]
     let uploadCommandQueue: SceneTextureUploadCommandQueue
     let decodeCacheBudget: SceneTextureDecodeCacheBudget
@@ -220,83 +288,93 @@ nonisolated final class SceneTextureLoader {
         )
     }
 
-    func load(from url: URL, device: MTLDevice) -> SceneTextureLoadOutcome {
-        load(from: url, purpose: .premultipliedColor, device: device)
-    }
-
-    func recordDirectImageDecodeAttempt() {
-        directImageDecodeAttemptCount += 1
-    }
-
-    /// Loads a texture according to the consumer's channel contract. The
-    /// purpose participates in cache identity so one source can safely serve
-    /// both composited color and data/straight-channel consumers.
     func load(
-        from url: URL,
-        purpose: SceneTextureLoadPurpose,
-        device: MTLDevice
-    ) -> SceneTextureLoadOutcome {
-        guard let source = sourceKey(for: url) else {
-            return .decodeFailed("file metadata unavailable: \(url.lastPathComponent)")
-        }
-        return load(
-            from: url,
-            source: source,
-            purpose: purpose,
-            device: device
-        )
+        from input: Input, device: MTLDevice,
+        checkCancellation: (() throws -> Void)? = nil
+    ) throws -> SceneTextureLoadOutcome {
+        try load(from: input, purpose: .premultipliedColor, device: device,
+                 checkCancellation: checkCancellation)
+    }
+
+    func recordDirectImageDecodeAttempt() { directImageDecodeAttemptCount += 1 }
+
+    /// Purpose participates in cache identity; source identity is checked on
+    /// cache hits without rereading payload bytes.
+    func load(
+        from input: Input, purpose: SceneTextureLoadPurpose, device: MTLDevice,
+        checkCancellation: (() throws -> Void)? = nil
+    ) throws -> SceneTextureLoadOutcome {
+        try load(from: input, source: nil, purpose: purpose, device: device,
+                 checkCancellation: checkCancellation)
     }
 
     func load(
-        from url: URL,
-        source: SourceKey,
-        purpose: SceneTextureLoadPurpose,
-        device: MTLDevice,
-        preparedTexSource: PreparedTexSource? = nil
-    ) -> SceneTextureLoadOutcome {
-        if let preparedTexSource,
-           preparedTexSource.source != source || sourceKey(for: url) != source {
-            return .decodeFailed("file changed while loading: \(url.lastPathComponent)")
-        }
-        let key = TextureKey(
-            source: source,
-            deviceRegistryID: device.registryID,
-            purpose: purpose
-        )
-        if let cached = textures[key] {
-            guard sourceKey(for: url) == source else {
-                return .decodeFailed("file changed while loading: \(url.lastPathComponent)")
+        from input: Input, source expectedSource: SourceKey?, purpose: SceneTextureLoadPurpose,
+        device: MTLDevice, preparedTexSource: PreparedTexSource? = nil,
+        preparedDirectImageSource: PreparedDirectImageSource? = nil,
+        checkCancellation: (() throws -> Void)? = nil
+    ) throws -> SceneTextureLoadOutcome {
+        try checkCancellation?()
+        let source: SourceKey
+        if let preparedTexSource {
+            guard preparedTexSource.input == input else { throw SceneResourceView.ReadError.invalidHandle }
+            source = preparedTexSource.source
+        } else if let preparedDirectImageSource {
+            guard preparedDirectImageSource.input == input else { throw SceneResourceView.ReadError.invalidHandle }
+            source = preparedDirectImageSource.source
+        } else {
+            guard let current = try sourceKey(for: input, checkCancellation: checkCancellation) else {
+                return .decodeFailed("file metadata unavailable: \(input.lastPathComponent)")
             }
-            return .loaded(cached)
+            source = current
         }
-        let ext = url.pathExtension.lowercased()
+        if let expectedSource, expectedSource != source { throw SceneResourceView.ReadError.sourceChanged }
+        let key = TextureKey(source: source, deviceRegistryID: device.registryID, purpose: purpose)
+        if let cached = textures[key] { return .loaded(cached) }
+        let ext = input.pathExtension.lowercased()
         let outcome: SceneTextureLoadOutcome
         if Self.directImageExtensions.contains(ext) {
-            outcome = loadDirectImage(
-                url: url,
-                source: source,
-                purpose: purpose,
-                device: device
-            )
+            outcome = try loadDirectImage(input: input, source: source, purpose: purpose,
+                device: device, prepared: preparedDirectImageSource, checkCancellation: checkCancellation)
         } else if ext == Self.texExtension {
-            outcome = loadWallpaperEngineTex(
-                url: url,
-                source: source,
-                purpose: purpose,
-                device: device,
-                preparedResource: preparedTexSource?.resource
-            )
+            outcome = try loadWallpaperEngineTex(input: input, source: source, purpose: purpose,
+                device: device, preparedResource: preparedTexSource?.resource,
+                checkCancellation: checkCancellation)
         } else {
             outcome = .unsupportedFormat(extension: ext)
         }
-        guard sourceKey(for: url) == source else {
-            return .decodeFailed("file changed while loading: \(url.lastPathComponent)")
-        }
-        // Upload failures describe this attempt, not an immutable property of
-        // the source. Keep decoded resources reusable while allowing a later
-        // explicit load to recover from transient Metal allocation/GPU faults.
+        try checkCancellation?()
+        // A failed upload is an attempt, never a successful cache entry.
         if case let .loaded(texture) = outcome { textures[key] = texture }
         return outcome
+    }
+
+    // External URL conveniences preserve the independent-file domain. Author
+    // resources must pass their already selected Root handle instead.
+    func load(from url: URL, device: MTLDevice,
+              checkCancellation: (() throws -> Void)? = nil) throws -> SceneTextureLoadOutcome {
+        try load(from: .externalFile(url), device: device, checkCancellation: checkCancellation)
+    }
+
+    func load(from url: URL, purpose: SceneTextureLoadPurpose, device: MTLDevice,
+              checkCancellation: (() throws -> Void)? = nil) throws -> SceneTextureLoadOutcome {
+        try load(from: .externalFile(url), purpose: purpose, device: device,
+                 checkCancellation: checkCancellation)
+    }
+
+    func load(from url: URL, source: SourceKey, purpose: SceneTextureLoadPurpose,
+              device: MTLDevice, preparedTexSource: PreparedTexSource? = nil,
+              preparedDirectImageSource: PreparedDirectImageSource? = nil,
+              checkCancellation: (() throws -> Void)? = nil) throws -> SceneTextureLoadOutcome {
+        try load(from: .externalFile(url), source: source, purpose: purpose, device: device,
+                 preparedTexSource: preparedTexSource, preparedDirectImageSource: preparedDirectImageSource,
+                 checkCancellation: checkCancellation)
+    }
+
+    func load(from prepared: PreparedDirectImageSource, purpose: SceneTextureLoadPurpose,
+              device: MTLDevice, checkCancellation: (() throws -> Void)? = nil) throws -> SceneTextureLoadOutcome {
+        try load(from: prepared.input, source: prepared.source, purpose: purpose, device: device,
+                 preparedDirectImageSource: prepared, checkCancellation: checkCancellation)
     }
 
     /// Releases the CPU-side decoded caches (parsed TEX containers and
@@ -334,112 +412,171 @@ nonisolated final class SceneTextureLoader {
         return evictedKeys.count
     }
 
-    /// Compatibility wrapper for existing data consumers.
-    func loadDataTexture(from url: URL, device: MTLDevice) -> SceneTextureLoadOutcome {
-        load(from: url, purpose: .preservedChannels, device: device)
+    func loadDataTexture(from input: Input, device: MTLDevice,
+                         checkCancellation: (() throws -> Void)? = nil) throws -> SceneTextureLoadOutcome {
+        try load(from: input, purpose: .preservedChannels, device: device,
+                 checkCancellation: checkCancellation)
     }
 
-    func texContainer(from url: URL) -> SceneTexContainer? {
-        guard let source = sourceKey(for: url) else { return nil }
-        return texContainer(from: url, source: source)
+    func loadDataTexture(from url: URL, device: MTLDevice,
+                         checkCancellation: (() throws -> Void)? = nil) throws -> SceneTextureLoadOutcome {
+        try loadDataTexture(from: .externalFile(url), device: device, checkCancellation: checkCancellation)
     }
 
-    func texContainer(from url: URL, source: SourceKey) -> SceneTexContainer? {
-        prepareTexSource(from: url, source: source)?.container
+    func texContainer(from input: Input, source: SourceKey? = nil,
+                      checkCancellation: (() throws -> Void)? = nil) throws -> SceneTexContainer? {
+        try prepareTexSource(from: input, source: source, checkCancellation: checkCancellation)?.container
     }
 
-    func prepareTexSource(
-        from url: URL,
-        source: SourceKey? = nil
-    ) -> PreparedTexSource? {
-        guard url.pathExtension.lowercased() == Self.texExtension,
-              let source = source ?? sourceKey(for: url),
-              let resource = texResource(from: url, source: source),
-              sourceKey(for: url) == source else { return nil }
-        return .init(url: url, source: source, resource: resource)
+    func texContainer(from url: URL, source: SourceKey? = nil,
+                      checkCancellation: (() throws -> Void)? = nil) throws -> SceneTexContainer? {
+        try texContainer(from: .externalFile(url), source: source, checkCancellation: checkCancellation)
     }
 
-    /// Preparation-only metadata from the existing decode owner before upload
-    /// resizing. TEX lookup follows the same bounded parse/cache owner; direct
-    /// image dimensions remain available even if the decode lease was denied.
-    func preparedNaturalImageSize(from url: URL, source: SourceKey) -> CGSize? {
-        guard sourceKey(for: url) == source else { return nil }
-        if url.pathExtension.lowercased() == Self.texExtension {
-            return texContainer(from: url, source: source).map {
+    func prepareTexSource(from input: Input, source expectedSource: SourceKey? = nil,
+                          checkCancellation: (() throws -> Void)? = nil) throws -> PreparedTexSource? {
+        try checkCancellation?()
+        guard input.pathExtension.lowercased() == Self.texExtension,
+              let source = try sourceKey(for: input, checkCancellation: checkCancellation) else { return nil }
+        if let expectedSource, expectedSource != source { throw SceneResourceView.ReadError.sourceChanged }
+        guard let resource = try texResource(from: input, source: source, checkCancellation: checkCancellation)
+        else { return nil }
+        return .init(input: input, source: source, resource: resource)
+    }
+
+    func prepareTexSource(from url: URL, source: SourceKey? = nil,
+                          checkCancellation: (() throws -> Void)? = nil) throws -> PreparedTexSource? {
+        try prepareTexSource(from: .externalFile(url), source: source, checkCancellation: checkCancellation)
+    }
+
+    /// Header metadata and parsing consume the same captured bytes as their
+    /// source key. A cache hit validates identity without rereading payload.
+    func preparedNaturalImageSize(from input: Input, source: SourceKey,
+                                  checkCancellation: (() throws -> Void)? = nil) throws -> CGSize? {
+        if input.pathExtension.lowercased() == Self.texExtension {
+            return try texContainer(from: input, source: source, checkCancellation: checkCancellation).map {
                 CGSize(width: $0.imageWidth, height: $0.imageHeight)
             }
         }
-        if let prepared = directImageNaturalSizes[source] { return prepared }
-        guard let extent = SceneImageTextureUploader.sourceImageSize(from: url),
-              sourceKey(for: url) == source else { return nil }
+        guard let current = try sourceKey(for: input, checkCancellation: checkCancellation) else { return nil }
+        guard current == source else { throw SceneResourceView.ReadError.sourceChanged }
+        if let prepared = directImageNaturalSizes[source] ?? directImageFacts[source]?.naturalSize { return prepared }
+        guard let snapshot = try sourceSnapshot(input, source: source, checkCancellation: checkCancellation)
+        else { return nil }
+        let extent = SceneImageTextureUploader.sourceImageSize(snapshot.data)
+        try checkCancellation?()
+        guard let extent else { return nil }
         directImageNaturalSizes[source] = extent
         return extent
     }
 
-    private func loadDirectImage(
-        url: URL,
-        source: SourceKey,
-        purpose: SceneTextureLoadPurpose,
-        device: MTLDevice
-    ) -> SceneTextureLoadOutcome {
-        let resource: DirectImageResource
+    func preparedNaturalImageSize(from url: URL, source: SourceKey,
+                                  checkCancellation: (() throws -> Void)? = nil) throws -> CGSize? {
+        try preparedNaturalImageSize(from: .externalFile(url), source: source, checkCancellation: checkCancellation)
+    }
+
+    func prepareDirectImageSource(
+        from input: Input, source expectedSource: SourceKey? = nil,
+        checkCancellation: (() throws -> Void)? = nil
+    ) throws -> PreparedDirectImageSource? {
+        try checkCancellation?()
+        guard Self.directImageExtensions.contains(input.pathExtension.lowercased()),
+              let source = try sourceKey(for: input, checkCancellation: checkCancellation) else { return nil }
+        if let expectedSource, expectedSource != source { throw SceneResourceView.ReadError.sourceChanged }
         if let cached = directImageResources[source] {
+            return .init(input: input, source: source, data: nil, naturalSize: directImageNaturalSizes[source],
+                         resource: cached, budget: decodeCacheBudget)
+        }
+        if let facts = directImageFacts[source] {
+            // A published texture's scalar facts survive decoded eviction.
+            // A representation cache miss captures payload on actual load.
+            return .init(input: input, source: source, data: nil, naturalSize: facts.naturalSize,
+                         resource: nil, budget: decodeCacheBudget)
+        }
+        guard let snapshot = try sourceSnapshot(input, source: source, checkCancellation: checkCancellation)
+        else { return nil }
+        let naturalSize = SceneImageTextureUploader.sourceImageSize(snapshot.data)
+        try checkCancellation?()
+        if let naturalSize { directImageNaturalSizes[source] = naturalSize }
+        return .init(input: input, source: source, data: snapshot.data, naturalSize: naturalSize,
+                     resource: nil, budget: decodeCacheBudget)
+    }
+
+    func prepareDirectImageSource(
+        from url: URL, source: SourceKey? = nil, checkCancellation: (() throws -> Void)? = nil
+    ) throws -> PreparedDirectImageSource? {
+        try prepareDirectImageSource(from: .externalFile(url), source: source, checkCancellation: checkCancellation)
+    }
+
+    func preparedNaturalImageSize(
+        from prepared: PreparedDirectImageSource, checkCancellation: (() throws -> Void)? = nil
+    ) throws -> CGSize? {
+        try checkCancellation?()
+        return prepared.naturalSize
+    }
+
+    private func loadDirectImage(
+        input: Input, source: SourceKey, purpose: SceneTextureLoadPurpose, device: MTLDevice,
+        prepared: PreparedDirectImageSource?, checkCancellation: (() throws -> Void)?
+    ) throws -> SceneTextureLoadOutcome {
+        let resource: DirectImageResource
+        if let cached = prepared?.resource ?? directImageResources[source] {
             resource = cached
         } else {
+            let data: Data
+            if let captured = prepared?.data { data = captured }
+            else {
+                guard let snapshot = try sourceSnapshot(input, source: source, checkCancellation: checkCancellation)
+                else { return .decodeFailed("read failed: \(input.lastPathComponent)") }
+                data = snapshot.data
+            }
             directImageDecodeAttemptCount += 1
-            if let data = try? Data(contentsOf: url, options: .mappedIfSafe),
-               let image = SceneImageTextureUploader.decodeSourceImage(data) {
+            if let image = SceneImageTextureUploader.decodeSourceImage(data) {
                 resource = .decoded(image)
             } else {
-                resource = .failed(
-                    "CGImageSource failed to decode \(url.lastPathComponent)"
-                )
+                resource = .failed("CGImageSource failed to decode \(input.lastPathComponent)")
             }
+            try checkCancellation?()
+            prepared?.resource = resource
             if case let .decoded(image) = resource,
                decodeCacheLease.reserve(Self.decodedByteCost(image)) {
                 directImageResources[source] = resource
-            } else if case .failed = resource {
-                directImageResources[source] = resource
-            }
+            } else if case .failed = resource { directImageResources[source] = resource }
         }
+        prepared?.didDecode = true
         let cgImage: CGImage
         switch resource {
-        case let .decoded(image):
-            cgImage = image
-        case let .failed(message):
-            return .decodeFailed(message)
+        case let .decoded(image): cgImage = image
+        case let .failed(message): return .decodeFailed(message)
         }
         directImageNaturalSizes[source] = CGSize(width: cgImage.width, height: cgImage.height)
-        return SceneImageTextureUploader.upload(
-            image: cgImage,
-            purpose: purpose,
-            maxDimension: Self.maxTextureDimension,
-            uploadCommandQueue: uploadCommandQueue,
-            device: device
-        )
+        directImageFacts[source] = .init(naturalSize: CGSize(width: cgImage.width, height: cgImage.height),
+            isOpaque: SceneImageTextureUploader.imageHasNoAlpha(cgImage))
+        return SceneImageTextureUploader.upload(image: cgImage, purpose: purpose,
+            maxDimension: Self.maxTextureDimension, uploadCommandQueue: uploadCommandQueue, device: device)
     }
 
     // TEX payloads may be raw, BC, embedded images, video, or a bounded volume;
     // dispatch only after the container metadata has been preserved.
     private func loadWallpaperEngineTex(
-        url: URL,
+        input: Input,
         source: SourceKey,
         purpose: SceneTextureLoadPurpose,
         device: MTLDevice,
-        preparedResource: TexResource? = nil
-    ) -> SceneTextureLoadOutcome {
-        guard let resource = preparedResource ?? texResource(from: url, source: source) else {
-            return .decodeFailed("read failed: \(url.lastPathComponent)")
+        preparedResource: TexResource? = nil,
+        checkCancellation: (() throws -> Void)?
+    ) throws -> SceneTextureLoadOutcome {
+        guard let resource = try preparedResource ?? texResource(from: input, source: source,
+                                                               checkCancellation: checkCancellation) else {
+            return .decodeFailed("read failed: \(input.lastPathComponent)")
         }
         guard let container = resource.container else {
             return .decodeFailed("TEX parse failed: \(resource.parseError ?? "unknown error")")
         }
         if container.format == 0 {
             return loadFormatZeroContainer(
-                container,
-                source: source,
-                purpose: purpose,
-                device: device
+                container, embeddedMipChainIsValid: resource.hasValidTexb3EmbeddedMipChain,
+                source: source, purpose: purpose, device: device
             )
         }
         return makeDirectUploadTexture(
@@ -449,62 +586,64 @@ nonisolated final class SceneTextureLoader {
         ) ?? .unsupportedTexFormat(code: container.format)
     }
 
-    private func texResource(from url: URL, source: SourceKey) -> TexResource? {
-        guard sourceKey(for: url) == source else { return nil }
+    private func texResource(from input: Input, source: SourceKey,
+                             checkCancellation: (() throws -> Void)?) throws -> TexResource? {
+        try checkCancellation?()
         if let cached = texResources[source] { return cached }
-        guard let data = try? Data(contentsOf: url, options: .mappedIfSafe) else { return nil }
-        guard sourceKey(for: url) == source else { return nil }
+        guard let snapshot = try sourceSnapshot(input, source: source, checkCancellation: checkCancellation)
+        else { return nil }
         let resource: TexResource
         do {
-            resource = TexResource(
-                container: try SceneTexContainerReader().read(data: data),
-                parseError: nil
-            )
+            resource = TexResource(container: try SceneTexContainerReader().read(data: snapshot.data), parseError: nil)
         } catch {
-            resource = TexResource(
-                container: nil,
-                parseError: error.localizedDescription
-            )
+            // Invalid author TEX remains a local decode failure; IO/cancel is
+            // deliberately outside this pure-parser catch.
+            resource = TexResource(container: nil, parseError: error.localizedDescription)
         }
-        // The source file may be much smaller than its decompressed mips.
-        // Only parsed payloads remain resident; the original bytes are no
-        // longer needed once the container has been validated.
-        if let byteCost = resource.decodedByteCost,
-           decodeCacheLease.reserve(byteCost) {
+        try checkCancellation?()
+        if let byteCost = resource.decodedByteCost, decodeCacheLease.reserve(byteCost) {
             texResources[source] = resource
         }
         return resource
     }
 
-    func sourceKey(for url: URL) -> SourceKey? {
-        Self.currentSourceKey(for: url)
+    func sourceKey(for input: Input, checkCancellation: (() throws -> Void)? = nil) throws -> SourceKey? {
+        try checkCancellation?()
+        return try Self.currentSourceKey(for: input, checkCancellation: checkCancellation)
     }
 
-    static func currentSourceKey(for url: URL) -> SourceKey? {
-        let canonicalPath = url.resolvingSymlinksInPath().standardizedFileURL.path
-        var status = Darwin.stat()
-        guard canonicalPath.withCString({
-            Darwin.lstat($0, &status)
-        }) == 0,
-              (status.st_mode & S_IFMT) == S_IFREG,
-              status.st_size >= 0 else {
-            return nil
+    func sourceKey(for url: URL, checkCancellation: (() throws -> Void)? = nil) throws -> SourceKey? {
+        try sourceKey(for: .externalFile(url), checkCancellation: checkCancellation)
+    }
+
+    static func currentSourceKey(for input: Input, checkCancellation: (() throws -> Void)? = nil) throws -> SourceKey? {
+        do { return try input.currentIdentity(checkCancellation: checkCancellation) }
+        catch let error as SceneResourceView.ReadError {
+            switch error {
+            case .missing, .unreadable: return nil
+            default: throw error
+            }
         }
-        let modifiedAt = Double(status.st_mtimespec.tv_sec)
-            + Double(status.st_mtimespec.tv_nsec) / 1_000_000_000
-        return SourceKey(
-            path: canonicalPath,
-            size: UInt64(status.st_size),
-            modifiedAtBits: modifiedAt.bitPattern,
-            fileSystemID: UInt64(bitPattern: Int64(status.st_dev)),
-            fileID: UInt64(status.st_ino),
-            statusChangedAtSeconds: Int64(status.st_ctimespec.tv_sec),
-            statusChangedAtNanoseconds: Int64(status.st_ctimespec.tv_nsec)
-        )
+    }
+
+    static func currentSourceKey(for url: URL) throws -> SourceKey? {
+        try currentSourceKey(for: .externalFile(url))
+    }
+
+    func sourceSnapshot(_ input: Input, source: SourceKey,
+                                    checkCancellation: (() throws -> Void)?) throws -> SceneResourceView.ReadSnapshot? {
+        do { return try input.readSnapshot(expectedIdentity: source, checkCancellation: checkCancellation) }
+        catch let error as SceneResourceView.ReadError {
+            switch error {
+            case .missing, .unreadable: return nil
+            default: throw error
+            }
+        }
     }
 
     private func loadFormatZeroContainer(
         _ container: SceneTexContainer,
+        embeddedMipChainIsValid: Bool,
         source: SourceKey,
         purpose: SceneTextureLoadPurpose,
         device: MTLDevice
@@ -528,7 +667,7 @@ nonisolated final class SceneTextureLoader {
         if container.containerVersion == .texb0003,
            SceneTexContainer.isEmbeddedImagePayload(firstMip.data)
             || [2, 13].contains(container.freeImageFormat),
-           !hasValidTexb3EmbeddedMipChain(container) {
+           !embeddedMipChainIsValid {
             return .decodeFailed("compiled TEX embedded mip metadata does not match its payload")
         }
 
@@ -589,30 +728,6 @@ nonisolated final class SceneTextureLoader {
         }
 
         return .decodeFailed("raw ARGB8888 mip data size mismatch: \(firstMip.data.count) != \(expectedRawByteCount)")
-    }
-
-    func hasValidTexb3EmbeddedMipChain(_ container: SceneTexContainer) -> Bool {
-        guard SceneTexContainer.valid2DMipDimensions(
-            container.mips.map { ($0.width, $0.height) }
-        ) else { return false }
-        let expectedMagic: Data
-        switch container.freeImageFormat {
-        case 2:
-            expectedMagic = Data([0xFF, 0xD8, 0xFF])
-        case 13:
-            expectedMagic = Data([0x89, 0x50, 0x4E, 0x47])
-        default:
-            return false
-        }
-        return container.mips.allSatisfy { mip in
-            mip.data.starts(with: expectedMagic)
-                && embeddedImagePixelSize(mip.data)
-                    == CGSize(width: mip.width, height: mip.height)
-        }
-    }
-
-    func embeddedImagePixelSize(_ data: Data) -> CGSize? {
-        SceneTextureMipUploader.embeddedImagePixelSize(data)
     }
 
     private func cachedTexEmbeddedImages(

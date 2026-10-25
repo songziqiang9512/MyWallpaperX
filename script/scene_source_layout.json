@@ -451,6 +451,7 @@
       },
       "Lighting": {
         "file_globs": [
+          "SceneAuthoredShaderLightingInputs.swift",
           "SceneLightSnapshot.swift",
           "SceneSpotLightPipeline.swift",
           "SceneSpotLightPlan.swift",
@@ -518,8 +519,10 @@
         "file_globs": [
           "SceneAssetCatalog.swift",
           "SceneModelResourceIdentity.swift",
+          "SceneResourceIdentity.swift",
           "SceneResourceIndex.swift",
           "SceneResourceReferenceIndex.swift",
+          "SceneResourceView+Backing.swift",
           "SceneResourceView.swift",
           "SceneShaderSourceGraphBuilder.swift",
           "SceneShaderSourceResolver.swift",
@@ -595,10 +598,12 @@
           "SceneDaemonClient+DisplayConfiguration.swift",
           "SceneDaemonClient+Events.swift",
           "SceneDaemonClient+SystemMedia.swift",
+          "SceneDaemonClient+UserShortcuts.swift",
           "SceneDaemonClient+UserTextures.swift",
           "SceneDaemonClient.swift",
           "SceneDaemonMediaProtocol.swift",
           "SceneDaemonMediaReceiver.swift",
+          "SceneDaemonProtocol+UserShortcuts.swift",
           "SceneDaemonProtocol.swift",
           "SceneDaemonRuntime.swift",
           "SceneDaemonClient+SwitchEndpoint.swift"
@@ -625,7 +630,9 @@
           "SceneDesktopWallpaperHost+Activation.swift",
           "SceneDesktopWallpaperSession.swift",
           "SceneDesktopWallpaperSession+LiveConsumers.swift",
+          "SceneDesktopWallpaperSession+UserShortcuts.swift",
           "SceneDesktopWallpaperSession+UserTextures.swift",
+          "SceneDesktopWallpaperLaunchContext.swift",
           "SceneDesktopWallpaperLaunchModels.swift",
           "SceneDesktopWallpaperLaunchContext+PuppetBones.swift",
           "SceneDesktopWallpaperLaunchContext+StartupReport.swift",
@@ -751,6 +758,7 @@
           "ScenePropertyBindingProgram.swift",
           "ScenePropertyBindingProgramValidator.swift",
           "ScenePropertyLiveUpdateState.swift",
+          "ScenePuppetAnimationPropertyPreparation.swift",
           "ScenePuppetAnimationPropertyTarget.swift",
           "SceneScriptDynamicProviderHostContract.swift",
           "SceneScriptValueOwnership.swift",
@@ -828,6 +836,7 @@
           "SceneScriptScalarRuntime.swift",
           "SceneScriptStringProgram+PreparedText.swift",
           "SceneScriptStringProgram.swift",
+          "SceneScriptUserShortcutDispatch.swift",
           "SceneScriptValueOwner+Cursor.swift",
           "SceneScriptValueOwner+PuppetBones.swift",
           "SceneScriptValueOwner+String.swift",
@@ -1266,13 +1275,12 @@
       {
         "id": "shape-derived-analyzer-fleet",
         "role": "inventory",
-        "description": "Broad five-suffix type discovery remains global: 65 existing E5 declarations plus one public WebM format parser. Passive values retain exact lexical classification. The capability receipt admits only this measured 65-to-66 addition; committed discovery and owner scope cannot grow. Owner: Scene analysis-family consolidation; retire the receipt only with complete inventory retirement.",
+        "description": "Global five-suffix analyzer discovery retains its fixed 66-owner inventory, including the public WebM format parser. The frame input contract is registered at its actual Runtime/Frame owner. Exact passive results are classified individually; neither discovery nor execution ownership is exempted.",
         "pattern": "^[ \\t]*(?:@\\w+[ \\t]+)*(?:nonisolated[ \\t]+|public[ \\t]+|internal[ \\t]+|private[ \\t]+|fileprivate[ \\t]+|final[ \\t]+)*(?:struct|enum|class)[ \\t]+\\w*(?:Contract|Link|Parser|Admission|Conversion)\\b",
         "baseline_occurrences": 66,
         "allowed_files": [
           "Compilation/Material/SceneDirectBoolEffectVisibilityRouteAdmission.swift",
           "Compilation/Material/SceneEffectStageAdmission.swift",
-          "Compilation/Material/SceneResolvedMaterialExecutionCapability.swift",
           "Compilation/Material/SceneResolvedMaterialExecutionCapabilityAdmission.swift",
           "Compilation/Material/SceneResolvedMaterialExecutionCapabilityTemplateAdmission.swift",
           "Compilation/Material/SceneResolvedMaterialPreviousBlurredCompositeGraphAdmission.swift",
@@ -1307,6 +1315,7 @@
           "Rendering/Targets/SceneOffscreenResolutionPolicy.swift",
           "Resources/Textures/SceneTextureLoader+Candidate.swift",
           "Runtime/Frame/SceneRenderDescriptor+AuthoredAssets.swift",
+          "Runtime/Frame/SceneResolvedMaterialPreparedFrameInput.swift",
           "Runtime/IPC/SceneDaemonProtocol.swift",
           "Systems/Input/SceneCameraShake.swift",
           "Systems/Particles/SceneParticleChildTemplateSupport.swift",
@@ -1340,6 +1349,21 @@
             "owner": "SceneDebugFrameCapture diagnostic enqueue result",
             "reason": "A reviewed passive result for diagnostic enqueue, not an authored semantic analyzer. Exact shape only bounds this static classification; it is not runtime proof.",
             "retirement": "Remove when the diagnostic result declaration is removed; re-review any shape, scope or conditional change."
+          },
+          {
+            "kind": "passive-value-declaration",
+            "file": "Runtime/Session/SceneDesktopWallpaperSession+UserShortcuts.swift",
+            "scope": [
+              {
+                "kind": "struct",
+                "name": "SceneUserShortcutInputState"
+              }
+            ],
+            "conditions": [],
+            "declaration": "enum Admission { case allowed, duplicate, revoked }",
+            "owner": "SceneUserShortcutInputState.consume returns a typed result; Session dispatch remains the sole action owner",
+            "reason": "A complete behavior-free result enum, not an authored analyzer or execution owner. Methods, state, extra cases, aliases and extensions require review.",
+            "retirement": "Remove when this typed result is removed; never exclude its file or all Admission declarations."
           }
         ],
         "classification_migration": {
@@ -1367,6 +1391,20 @@
           "owner": "SceneWebMContainer preparation-only format reader",
           "reason": "A new public WebM container responsibility adds one Parser; existing E5 counts and discovery stay unchanged, with no passive classification exemption.",
           "retirement": "This receipt is immutable after commit; remove only when the full inventory reaches zero with no allowed files. Later capability growth needs a separately designed governance change."
+        },
+        "passive_result_correction": {
+          "schema_version": 1,
+          "from_contract_sha256": "a322c17a37f349fae5996fc656da723a7bd0869637da9e4090c55eec30392ba8",
+          "to_contract_sha256": "70e0721ac5673920e640db324b0532cc979f7c62070662004e64ff0dee09221b",
+          "source_sha256": {
+            "Compilation/Material/SceneResolvedMaterialExecutionCapability.swift": "d3dd1995eace86c74c65eec84acc3c952c56dba3a9f0664fcb08b0c692f9b48b",
+            "Runtime/Frame/SceneResolvedMaterialPreparedFrameInput.swift": "cf2202a118d807780f484170a3994295347a7d3f143be4a13779351db88070a8",
+            "Runtime/Session/SceneDesktopWallpaperSession+UserShortcuts.swift": "8d43ddee3db7bb03d802e4ab8ee5957f422cdc308c0eced0ccf5f0ef68244a55"
+          },
+          "design_doc": "docs/development/repository-workflow.md",
+          "owner": "Scene structural governance and Session user-shortcut result owner",
+          "reason": "Correct the stale FrameInputContract registration and classify exactly the already-existing three-case Session input result. Baseline66 and global discovery remain unchanged.",
+          "retirement": "This source-bound correction is immutable after commit. Retire only with the complete inventory or the removed concrete result, never reopen owner growth."
         }
       },
       {
@@ -1440,9 +1478,8 @@
         "role": "inventory",
         "description": "Scene product protocols require an explicit manifest ratchet with owner justification; accidental abstraction layers cannot appear. Script lifecycle bridge shares Scalar/String retirement through one default implementation (D4 authored leaf retirement); no new lifecycle owner or runtime dispatch.",
         "pattern": "^[ \\t]*(?:@\\w+[ \\t]+)*(?:nonisolated[ \\t]+|public[ \\t]+|internal[ \\t]+|private[ \\t]+|fileprivate[ \\t]+)?protocol[ \\t]+\\w+",
-        "baseline_occurrences": 4,
+        "baseline_occurrences": 3,
         "allowed_files": [
-          "Format/ScenePkgExtractionReport.swift",
           "Systems/Animation/SceneSpriteAnimation.swift",
           "Systems/Script/SceneScriptMediaEventBridge.swift",
           "Systems/Script/SceneScriptOwnerLifecycleBridge.swift"
@@ -1499,8 +1536,6 @@
         "SceneMdlStaticModel.swift",
         "SceneMdlStaticModelReader.swift",
         "SceneObjectDependency.swift",
-        "ScenePkgCacheExtractor.swift",
-        "ScenePkgExtractionReport.swift",
         "ScenePkgReader.swift",
         "ScenePointLightDefinition.swift",
         "SceneProject.swift",

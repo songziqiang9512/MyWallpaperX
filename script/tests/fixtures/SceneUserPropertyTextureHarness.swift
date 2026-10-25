@@ -85,12 +85,12 @@ enum Harness {
             device: device
         )
         let embeddedTexLoader = SceneTextureLoader()
-        let embeddedTexColor = embeddedTexLoader.load(
+        let embeddedTexColor = try embeddedTexLoader.load(
             from: embeddedTexURL,
             purpose: .premultipliedColor,
             device: device
         )
-        let embeddedTexPreserved = embeddedTexLoader.load(
+        let embeddedTexPreserved = try embeddedTexLoader.load(
             from: embeddedTexURL,
             purpose: .preservedChannels,
             device: device
@@ -104,11 +104,11 @@ enum Harness {
         }
         let embeddedTexDecodeAttempts = embeddedTexLoader.texEmbeddedImageDecodeAttemptCount
         let launchUploadQueue = SceneTextureUploadCommandQueue()
-        _ = SceneTextureLoader(uploadCommandQueue: launchUploadQueue).load(
+        _ = try SceneTextureLoader(uploadCommandQueue: launchUploadQueue).load(
             from: pngURL,
             device: device
         )
-        _ = SceneTextureLoader(uploadCommandQueue: launchUploadQueue).load(
+        _ = try SceneTextureLoader(uploadCommandQueue: launchUploadQueue).load(
             from: jpegURL,
             device: device
         )
@@ -117,18 +117,18 @@ enum Harness {
         let admittedDecodeLoader = SceneTextureLoader(
             decodeCacheBudget: decodeBudget
         )
-        _ = admittedDecodeLoader.load(from: pngURL, device: device)
+        _ = try admittedDecodeLoader.load(from: pngURL, device: device)
         let admittedDecodeBytes = decodeBudget.residentBytes
         decodeBudget.updateMaximumBytes(0)
         let deniedDecodeLoader = SceneTextureLoader(
             decodeCacheBudget: decodeBudget
         )
-        let deniedColorOutcome = deniedDecodeLoader.load(
+        let deniedColorOutcome = try deniedDecodeLoader.load(
             from: jpegURL,
             purpose: .premultipliedColor,
             device: device
         )
-        let deniedPreservedOutcome = deniedDecodeLoader.load(
+        let deniedPreservedOutcome = try deniedDecodeLoader.load(
             from: jpegURL,
             purpose: .preservedChannels,
             device: device
@@ -146,7 +146,7 @@ enum Harness {
             let leasedLoader = SceneTextureLoader(
                 decodeCacheBudget: releasedDecodeBudget
             )
-            _ = leasedLoader.load(from: pngURL, device: device)
+            _ = try leasedLoader.load(from: pngURL, device: device)
             leasedDecodeBytes = releasedDecodeBudget.residentBytes
         }
         let releasedDecodeBytes = releasedDecodeBudget.residentBytes
@@ -268,14 +268,14 @@ enum Harness {
         case let .success(texture): encodedOpaque = texture
         case .failure: throw HarnessError.textureRead
         }
-        let firstCached = sharedLoader.load(from: pngURL, device: device)
-        let secondCached = sharedLoader.load(from: pngURL, device: device)
-        let firstPreserved = sharedLoader.load(
+        let firstCached = try sharedLoader.load(from: pngURL, device: device)
+        let secondCached = try sharedLoader.load(from: pngURL, device: device)
+        let firstPreserved = try sharedLoader.load(
             from: pngURL,
             purpose: .preservedChannels,
             device: device
         )
-        let secondPreserved = sharedLoader.load(
+        let secondPreserved = try sharedLoader.load(
             from: pngURL,
             purpose: .preservedChannels,
             device: device
@@ -299,15 +299,15 @@ enum Harness {
             differentPurposeTexture = false
         }
         let reversedLoader = SceneTextureLoader()
-        let reversedPreserved = reversedLoader.load(
+        let reversedPreserved = try reversedLoader.load(
             from: pngURL,
             purpose: .preservedChannels,
             device: device
         )
-        let reversedColor = reversedLoader.load(from: pngURL, device: device)
+        let reversedColor = try reversedLoader.load(from: pngURL, device: device)
         try Data("changed user image".utf8).write(to: pngURL)
         let changedFileInvalidatedCache: Bool
-        if case .decodeFailed = sharedLoader.load(from: pngURL, device: device) {
+        if case .decodeFailed = try sharedLoader.load(from: pngURL, device: device) {
             changedFileInvalidatedCache = true
         } else {
             changedFileInvalidatedCache = false
@@ -488,8 +488,8 @@ enum Harness {
                 requestedIdentities: identities, device: device)
             let headerLoader = SceneTextureLoader()
             guard let color = loaded.textures[key], let straight = loaded.straightAlbedoTextures[key],
-                  let candidate = loaded.textureCandidates[key], let identity = headerLoader.sourceKey(for: url),
-                  let natural = headerLoader.preparedNaturalImageSize(from: url, source: identity),
+                  let candidate = loaded.textureCandidates[key], let identity = try headerLoader.sourceKey(for: url),
+                  let natural = try headerLoader.preparedNaturalImageSize(from: url, source: identity),
                   let dataExtent = SceneImageTextureUploader.sourceImageSize(data),
                   let embeddedExtent = SceneTextureMipUploader.embeddedImagePixelSize(data),
                   let embeddedImages = SceneTextureMipUploader.decodeEmbeddedImages([data]),

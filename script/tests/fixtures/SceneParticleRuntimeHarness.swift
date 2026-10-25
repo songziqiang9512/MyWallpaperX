@@ -631,3 +631,61 @@ struct SceneMetalRenderer {
     let parallaxByLayerID: [Int: SceneLayerParallax.Resolution]
 }
 // PRODUCTION_PARTICLE_MODEL_METHODS
+
+// Fixture-only adapters preserve existing simulation inputs while preparing
+// through the real throwing product kernel. Product runtime initializers
+// require the already prepared per-launch graph and perform no definition IO.
+extension SceneParticleRuntime {
+    convenience init(
+        descriptor: SceneRenderDescriptor,
+        cacheDirectory: URL,
+        device: MTLDevice,
+        resourceView: SceneResourceView? = nil,
+        stockTextureBundleURL: URL? = SceneStockTextureResolver.defaultBundleRoot(),
+        textureLoader: SceneTextureLoader = SceneTextureLoader(),
+        layerImageEmissionMaps: [Int: SceneParticleLayerImageEmissionMap] = [:],
+        initialDiagnostics: [SceneParticleRuntimeDiagnostic] = [],
+        staticWorldSpaceFrames: [Int: SceneParticleWorldSpaceFrame]? = nil,
+        staticWorldSpaceChains: [Int: Set<Int>]? = nil,
+        preparedParticleVisibilityLayerIDs: Set<Int> = [],
+        initialDynamicValues: SceneDynamicSnapshot = .empty(frameIndex: 0),
+        initialPlayback: [Int: SceneParticlePlaybackSnapshot] = [:]
+    ) {
+        let view = resourceView ?? SceneResourceView(
+            projectRootURL: cacheDirectory, packageRootURL: nil)
+        let assets = try! Self.prepareAssets(descriptor: descriptor,
+            resourceView: view,
+            preparedParticleVisibilityLayerIDs: preparedParticleVisibilityLayerIDs,
+            stockTextureBundleURL: stockTextureBundleURL)
+        self.init(descriptor: descriptor, preparedAssets: assets, device: device,
+            textureLoader: textureLoader, layerImageEmissionMaps: layerImageEmissionMaps,
+            initialDiagnostics: initialDiagnostics, staticWorldSpaceFrames: staticWorldSpaceFrames,
+            staticWorldSpaceChains: staticWorldSpaceChains,
+            preparedParticleVisibilityLayerIDs: preparedParticleVisibilityLayerIDs,
+            initialDynamicValues: initialDynamicValues, initialPlayback: initialPlayback)
+    }
+}
+
+extension SceneParticlePlaybackState {
+    convenience init?(
+        descriptor: SceneRenderDescriptor,
+        cacheDirectory: URL,
+        device: MTLDevice,
+        resourceView: SceneResourceView? = nil,
+        textureLoader: SceneTextureLoader = SceneTextureLoader(),
+        layerImage: SceneParticleLayerImageEmitterCompilation = .empty,
+        preparedParticleVisibilityLayerIDs: Set<Int> = [],
+        initialDynamicValues: SceneDynamicSnapshot = .empty(frameIndex: 0),
+        initialPlayback: [Int: SceneParticlePlaybackSnapshot] = [:]
+    ) {
+        let view = resourceView ?? SceneResourceView(
+            projectRootURL: cacheDirectory, packageRootURL: nil)
+        let assets = try! SceneParticleRuntime.prepareAssets(descriptor: descriptor,
+            resourceView: view,
+            preparedParticleVisibilityLayerIDs: preparedParticleVisibilityLayerIDs)
+        self.init(descriptor: descriptor, preparedAssets: assets, device: device,
+            textureLoader: textureLoader, layerImage: layerImage,
+            preparedParticleVisibilityLayerIDs: preparedParticleVisibilityLayerIDs,
+            initialDynamicValues: initialDynamicValues, initialPlayback: initialPlayback)
+    }
+}

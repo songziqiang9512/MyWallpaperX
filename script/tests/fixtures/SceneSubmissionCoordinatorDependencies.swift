@@ -1,11 +1,9 @@
 import Foundation
 import Metal
-
 struct SceneGraphMaterialFunctionInvocationRequest {}
 struct SceneGraphClearFunctionRegistry {
     init() {}
 }
-
 struct SceneAuthoredEffectRenderPlan {
     struct EffectKey: Hashable {
         let layerID: Int
@@ -78,8 +76,6 @@ struct SceneLayerFullFramePairPlan {
 
 struct SceneGraphExecutionState {
     typealias Identity = SceneAuthoredEffectRenderPlan.TextureIdentity
-    static let maximumNodeCount = 512
-    static let maximumLogicalBindingCount = 512
     struct PhysicalToken: Hashable { let rawValue: String }
     struct ResourceDescriptor: Equatable {
         let extent: SceneGraphRenderTargetPlan.PixelExtent
@@ -189,8 +185,10 @@ enum SceneTextureProviderIdentity: Hashable {
 enum SceneTextureCandidateIdentity: Hashable {
     case provider(SceneTextureProviderIdentity)
     case file(String)
+    case package(SceneTexturePackageIdentity)
     case builtIn(String)
 }
+struct SceneTexturePackageIdentity: Hashable { let packagePath: String; let rawEntryPath: String }
 struct SceneSystemProviderTextureIdentity: Hashable {
     let name: String
     let purpose: SceneTextureLoadPurpose
@@ -402,10 +400,6 @@ final class ScenePreparedPersistentGraphTargets {
     }
 }
 
-enum SceneResolvedMaterialExecutionCapabilityAdmission {
-    static let maximumEffectsPerLayer = 512
-    static let maximumNodesPerLayer = 65_536
-}
 struct SceneResolvedMaterialAdmittedLayer {
     enum SourceRoute {
         case capturedLayerTexture
@@ -500,7 +494,12 @@ enum SceneResolvedMaterialDependencyOwnership: Equatable {
             }
         }
 struct SceneEffectStageExecutionPlan {}
+struct SceneShaderQuadCoordinates { static let unit = Self() }
+enum SceneDirectDrawOutputGeometry {
+    struct Resolved { let coordinates: SceneShaderQuadCoordinates; let vertexInputSize: CGSize }
+}
 final class SceneResolvedMaterialExecutionCapabilityCatalog {
+    struct MaterialKey: Hashable { let effect: SceneAuthoredEffectRenderPlan.EffectKey; let nodeIndex: Int }
     struct FrameInputContract: Equatable {
         enum EffectTextureProjectionSource: Equatable {
             case emittedOutputGeometry
@@ -559,6 +558,7 @@ final class SceneResolvedMaterialExecutionCapabilityCatalog {
         let dependencyOwnership: SceneResolvedMaterialDependencyOwnership
         var sourceRoute: SceneResolvedMaterialAdmittedLayer.SourceRoute
         var supportsTerminalMaterialReplay = false
+        var supportsPlacementSpaceTerminalReplay = false
         var supportsSourceSizedSolidEffects = false
         var terminalReplayBlendMode = 0
         let sceneBackgroundRequirement: SceneBackgroundRequirement? = nil

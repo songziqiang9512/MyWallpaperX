@@ -133,7 +133,7 @@ final class SceneResolvedMaterialExecutionCapabilityCatalog {
 
     struct Token: Hashable {
         fileprivate let ownerID: UUID
-        fileprivate let capabilityID: UUID
+        let capabilityID: UUID
         fileprivate let layerID: Int
     }
 
@@ -199,6 +199,7 @@ final class SceneResolvedMaterialExecutionCapabilityCatalog {
         let supportsTerminalMaterialReplay: Bool
         let supportsPlacementSpaceTerminalReplay: Bool
         let terminalReplayBlendMode: Int
+        let effectSubjectsAreConserved: Bool
 
         fileprivate let capabilityID = UUID()
 
@@ -214,6 +215,11 @@ final class SceneResolvedMaterialExecutionCapabilityCatalog {
             layerID = admitted.layerID
             admittedProducts = admitted.products
             self.stages = stages
+            let effectKeys = admitted.products.flatMap { $0.graph.effects.map(\.key) }
+            let subjects = stages.compactMap(\.subject)
+            effectSubjectsAreConserved = !effectKeys.isEmpty
+                && Set(effectKeys).count == effectKeys.count
+                && subjects.count == effectKeys.count && subjects.map(\.key) == effectKeys
             pairPlan = admitted.pairPlan
             self.materials = materials
             self.dependencyOwnership = dependencyOwnership
@@ -291,14 +297,6 @@ final class SceneResolvedMaterialExecutionCapabilityCatalog {
 
         func material(effect: Graph.EffectKey, nodeIndex: Int) -> MaterialCapability? {
             materials[.init(effect: effect, nodeIndex: nodeIndex)]
-        }
-
-        var effectSubjectsAreConserved: Bool {
-            let keys = admittedProducts.flatMap { $0.graph.effects.map(\.key) }
-            let subjects = stages.compactMap(\.subject)
-            return !keys.isEmpty && Set(keys).count == keys.count
-                && subjects.count == keys.count
-                && subjects.map(\.key) == keys
         }
     }
 

@@ -33,8 +33,6 @@ nonisolated struct ResolvedWebHostCapabilitySnapshot: Codable, Equatable {
 }
 
 nonisolated struct ResolvedWebStaticContentSummary: Codable, Equatable {
-    let usesApplyGeneralProperties: Bool
-    let usesGeneralFPS: Bool
     let usesPluginBridge: Bool
     let usesPersistentBrowserStorage: Bool
     let usesServiceWorkerRegistration: Bool
@@ -55,9 +53,31 @@ nonisolated struct ResolvedWebStaticContentSummary: Codable, Equatable {
     let localhostDependencyHosts: [String]
     let remoteScriptDependencyHosts: [String]
 
+    func withDirectoryModes(definitions: [SteamWorkshopWebPropertyDefinition]) -> Self {
+        Self(
+            usesPluginBridge: usesPluginBridge,
+            usesPersistentBrowserStorage: usesPersistentBrowserStorage,
+            usesServiceWorkerRegistration: usesServiceWorkerRegistration,
+            usesESModuleDependency: usesESModuleDependency,
+            usesDynamicImport: usesDynamicImport,
+            usesWASMResource: usesWASMResource,
+            usesWASMStreaming: usesWASMStreaming,
+            usesCustomSchemeSensitiveWebGL: usesCustomSchemeSensitiveWebGL,
+            usesIframeCrossFrameAccess: usesIframeCrossFrameAccess,
+            usesWebMResource: usesWebMResource,
+            usesHoverOnlyInteraction: usesHoverOnlyInteraction,
+            referencesSchemeColorUserProperty: referencesSchemeColorUserProperty,
+            hasUncertainUserPropertyUsage: hasUncertainUserPropertyUsage,
+            hasTruncatedStaticAnalysis: hasTruncatedStaticAnalysis,
+            hasFetchAllDirectoryProperty: definitions.contains { $0.kind == .directory && $0.directoryMode?.lowercased() == "fetchall" },
+            hasOnDemandDirectoryProperty: definitions.contains { $0.kind == .directory && $0.directoryMode?.lowercased() == "ondemand" },
+            externalDependencyHosts: externalDependencyHosts,
+            localhostDependencyHosts: localhostDependencyHosts,
+            remoteScriptDependencyHosts: remoteScriptDependencyHosts
+        )
+    }
+
     enum CodingKeys: String, CodingKey {
-        case usesApplyGeneralProperties
-        case usesGeneralFPS
         case usesPluginBridge
         case usesPersistentBrowserStorage
         case usesServiceWorkerRegistration
@@ -80,8 +100,6 @@ nonisolated struct ResolvedWebStaticContentSummary: Codable, Equatable {
     }
 
     init(
-        usesApplyGeneralProperties: Bool,
-        usesGeneralFPS: Bool,
         usesPluginBridge: Bool,
         usesPersistentBrowserStorage: Bool,
         usesServiceWorkerRegistration: Bool,
@@ -102,8 +120,6 @@ nonisolated struct ResolvedWebStaticContentSummary: Codable, Equatable {
         localhostDependencyHosts: [String],
         remoteScriptDependencyHosts: [String]
     ) {
-        self.usesApplyGeneralProperties = usesApplyGeneralProperties
-        self.usesGeneralFPS = usesGeneralFPS
         self.usesPluginBridge = usesPluginBridge
         self.usesPersistentBrowserStorage = usesPersistentBrowserStorage
         self.usesServiceWorkerRegistration = usesServiceWorkerRegistration
@@ -128,8 +144,6 @@ nonisolated struct ResolvedWebStaticContentSummary: Codable, Equatable {
     init(from decoder: Decoder) throws {
         let container = try decoder.container(keyedBy: CodingKeys.self)
         self.init(
-            usesApplyGeneralProperties: try container.decode(Bool.self, forKey: .usesApplyGeneralProperties),
-            usesGeneralFPS: try container.decode(Bool.self, forKey: .usesGeneralFPS),
             usesPluginBridge: try container.decode(Bool.self, forKey: .usesPluginBridge),
             usesPersistentBrowserStorage: try container.decode(Bool.self, forKey: .usesPersistentBrowserStorage),
             usesServiceWorkerRegistration: try container.decode(Bool.self, forKey: .usesServiceWorkerRegistration),
@@ -178,10 +192,6 @@ struct ResolvedWebProjectDescriptor: Equatable {
     let propertyDefinitions: [SteamWorkshopWebPropertyDefinition]
     let defaultValueMap: [String: SteamWorkshopWebPropertyValue]
     let presetOverrideMap: [String: SteamWorkshopWebPropertyValue]
-    let presetResourceBindingsByKey: [String: ResolvedWebResourceBinding]
-    let baselineVisiblePropertyKeys: [String]
-    let baselineVisibleOptionsByKey: [String: [SteamWorkshopWebPropertyOption]]
-    let baselinePreconditionStates: [ResolvedWebRuntimePrecondition]
     let resolvedLocalizationMap: [String: String]
     let hostCapabilitySnapshot: ResolvedWebHostCapabilitySnapshot
     let staticContentSummary: ResolvedWebStaticContentSummary
@@ -268,39 +278,26 @@ nonisolated struct ResolvedWebPlaybackContext: Equatable {
     let propertyPayloadJSON: String?
     let language: String
     let resourceGrants: [WebWallpaperResourceGrant]
+    let allowedNetworkHosts: Set<String>
 
     init(recordID: String, effectiveEntryURL: URL, effectiveRootURL: URL,
-         propertyPayloadJSON: String?, language: String, resourceGrants: [WebWallpaperResourceGrant] = []) {
+         propertyPayloadJSON: String?, language: String, resourceGrants: [WebWallpaperResourceGrant] = [],
+         allowedNetworkHosts: Set<String> = []) {
         self.recordID = recordID
         self.effectiveEntryURL = effectiveEntryURL
         self.effectiveRootURL = effectiveRootURL
         self.propertyPayloadJSON = propertyPayloadJSON
         self.language = language
         self.resourceGrants = resourceGrants
+        self.allowedNetworkHosts = allowedNetworkHosts
     }
 }
 
 /// Playback and profile selection consume the same prepared descriptor.
-struct ResolvedWebPlaybackPreparation {
+@MainActor struct ResolvedWebPlaybackPreparation {
     let context: ResolvedWebPlaybackContext
     let descriptor: ResolvedWebProjectDescriptor
-}
-
-nonisolated struct ResolvedWebRuntimePrecondition: Codable, Equatable, Hashable {
-    enum Kind: String, Codable, Equatable, Hashable {
-        case file
-        case directory
-    }
-
-    enum Status: String, Codable, Equatable, Hashable {
-        case satisfied
-        case unmet
-    }
-
-    let key: String
-    let kind: Kind
-    let status: Status
-    let message: String
+    let resourceLifetime: PlaybackResourceLifetime?
 }
 
 enum ResolvedWebResourceBindingKind: String, Codable, Equatable, Hashable {

@@ -692,10 +692,10 @@ final class SceneDesktopWallpaperSession {
             sim.restoreFrame(.init(playback:old.playback,particles:old.particles,diagnostics:old.diagnostics,
                 transientRenderBirths:old.transientRenderBirths,birthEvents:old.birthEvents,deathEvents:old.deathEvents,
                 simulationTime:old.simulationTime,activeInstanceOverride:old.activeInstanceOverride,activeWorldSpaceFrame:old.activeWorldSpaceFrame,
+                controlPointForceFrame:old.controlPointForceFrame,
                 explicitBirthEventStart:old.explicitBirthEventStart,emitters:old.emitters,random:old.random,accumulator:old.accumulator,
                 nextParticleID:UInt64.max,normalizedLives:old.normalizedLives,dynamicControlPoints:old.dynamicControlPoints,
                 dynamicControlPointAngles:old.dynamicControlPointAngles,audioInput:old.audioInput,
-                observedNonSilentAudioComponents:old.observedNonSilentAudioComponents,pendingAudioEvaluationObservations:old.pendingAudioEvaluationObservations,
                 eventColorContext:old.eventColorContext,stepSnapshotRecorder:old.stepSnapshotRecorder,
                 positionOscillationCache:old.positionOscillationCache))
             let (d,tx)=try emissionScope([sim])

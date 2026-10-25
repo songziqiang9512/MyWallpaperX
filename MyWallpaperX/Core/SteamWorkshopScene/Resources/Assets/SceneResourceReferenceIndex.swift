@@ -49,18 +49,6 @@ struct SceneResourceReferenceIndexBuilder {
         )
     }
 
-    nonisolated func build(
-        document: SceneDocument,
-        packageReport: ScenePkgExtractionReport?,
-        resourceIndex: SceneResourceIndex
-    ) -> SceneResourceReferenceIndex {
-        build(
-            document: document,
-            availableRelativePaths: (packageReport?.discoveredPaths ?? [])
-                + resourceIndex.resources.map(\.relativePath)
-        )
-    }
-
     nonisolated private func build(
         document: SceneDocument,
         availableRelativePaths: [String]

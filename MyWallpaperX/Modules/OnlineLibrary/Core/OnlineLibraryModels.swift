@@ -92,11 +92,12 @@ struct OnlineLibraryVideoItem: Identifiable, Equatable {
     let user:         String
     let videos:       OnlineLibraryVideoFiles
 
-    var bestVideoURL: URL? {
-        if let u = videos.large?.url,  !u.isEmpty { return URL(string: u) }
-        if let u = videos.medium?.url, !u.isEmpty { return URL(string: u) }
-        if let u = videos.small?.url,  !u.isEmpty { return URL(string: u) }
-        if let u = videos.tiny?.url,   !u.isEmpty { return URL(string: u) }
+    var bestVideoDownload: (url: URL, expectedBytes: Int64?)? {
+        for file in [videos.large, videos.medium, videos.small, videos.tiny].compactMap({ $0 }) {
+            guard !file.url.isEmpty else { continue }
+            guard let url = URL(string: file.url) else { return nil }
+            return (url, file.size > 0 ? Int64(file.size) : nil)
+        }
         return nil
     }
 

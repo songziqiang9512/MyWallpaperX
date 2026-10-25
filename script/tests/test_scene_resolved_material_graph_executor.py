@@ -677,10 +677,7 @@ enum SceneEffectStageRenderer {
 struct SceneResolvedMaterialRuntimeCatalog {
     typealias Graph = SceneAuthoredEffectRenderPlan
 
-    struct Key: Hashable {
-        let effect: Graph.EffectKey
-        let nodeIndex: Int
-    }
+    typealias Key = SceneResolvedMaterialKey
 
     enum Entry {
         case template(SceneResolvedMaterialTemplate)
@@ -8927,20 +8924,19 @@ private enum Harness {
                 uniformSchemaInvalidNodes: [0]
             )
         )
-        let oversizedNodeGraph = graph(
+        let largeNodeGraph = graph(
             targets: [],
-            nodes: (0 ... Executor.State.maximumNodeCount).map { index in
+            nodes: (0 ..< 513).map { index in
                 material(
                     index,
                     ordinal: index,
                     target: output,
-                    read: input
+                    read: input,
+                    compose: index < 512 ? .bool(true) : nil
                 )
             }
         )
-        let oversizedLogicalTargets = (
-            0 ... Executor.State.maximumLogicalBindingCount - 2
-        ).map { index in
+        let largeLogicalTargets = (0 ..< 513).map { index in
             Graph.TextureIdentity(
                 kind: .framebuffer,
                 layerID: layerID,
@@ -8948,9 +8944,11 @@ private enum Harness {
                 name: "oversized-\(index)"
             )
         }
-        let oversizedLogicalGraph = graph(
-            targets: oversizedLogicalTargets.map { rawTarget($0) },
-            nodes: [material(0, ordinal: 0, target: output, read: input)]
+        let largeLogicalGraph = graph(
+            targets: largeLogicalTargets.map { rawTarget($0) },
+            nodes: largeLogicalTargets.enumerated().map {
+                material($0.offset, ordinal: $0.offset, target: $0.element, read: input)
+            } + [material(513, ordinal: 513, target: output, read: largeLogicalTargets.last!)]
         )
 
         guard clear(ordinaryLease, queue: queue),
@@ -9919,12 +9917,12 @@ private enum Harness {
                 commandVisualFailureCapabilities.claim(
                     admittedGraph(commandVisualFailureGraph)
                 ) != nil,
-            "oversizedNodeGraphRejectedBeforeGPU": capabilities(
-                admittedGraph(oversizedNodeGraph), catalog: catalog(for: oversizedNodeGraph)
-            ).claim(admittedGraph(oversizedNodeGraph)) == nil,
-            "oversizedLogicalGraphRejectedBeforeGPU": capabilities(
-                admittedGraph(oversizedLogicalGraph), catalog: catalog(for: oversizedLogicalGraph)
-            ).claim(admittedGraph(oversizedLogicalGraph)) == nil,
+            "largeNodeGraphCanClaim": capabilities(
+                admittedGraph(largeNodeGraph), catalog: catalog(for: largeNodeGraph)
+            ).claim(admittedGraph(largeNodeGraph)) != nil,
+            "largeLogicalGraphCanClaim": capabilities(
+                admittedGraph(largeLogicalGraph), catalog: catalog(for: largeLogicalGraph)
+            ).claim(admittedGraph(largeLogicalGraph)) != nil,
             "prepareHasNoEncodingSideEffect": prepareHasNoEncodingSideEffect,
             "launchWarmupPreparesEveryUniqueOrdinaryPipeline":
                 ordinaryWarmupReport.plannedPlanCount == 2

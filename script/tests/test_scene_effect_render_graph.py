@@ -431,7 +431,7 @@ enum Harness {
         ]
         let definitions = try names.map { name in
             try SceneEffectDefinitionLoader().load(
-                from: root.appendingPathComponent("\(name).json"),
+                data: Data(contentsOf: root.appendingPathComponent("\(name).json")),
                 relativePath: "effects/\(name)/effect.json"
             )
         }

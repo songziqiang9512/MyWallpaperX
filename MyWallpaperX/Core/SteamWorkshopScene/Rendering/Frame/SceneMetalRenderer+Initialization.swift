@@ -105,14 +105,20 @@ extension SceneMetalRenderer {
         let byID = Dictionary(
             uniqueKeysWithValues: renderDescriptor.layers.map { ($0.id, $0) }
         )
-        self.authoredLayers = utilityExecution.orderedLayerIDs.compactMap {
+        let authoredLayers = utilityExecution.orderedLayerIDs.compactMap {
             byID[$0]
         }
-        self.resolvedMaterialPreparationLayerIDs = preparationLayerIDs
-        self.resolvedMaterialPreparationLayers = preparationLayerIDs.flatMap { ids in
+        self.authoredLayers = authoredLayers
+        self.orderedLayerIDs = authoredLayers.map(\.id)
+        let preparationLayers = preparationLayerIDs.flatMap { ids in
             let layers = ids.compactMap { byID[$0] }
             return layers.count == ids.count ? layers : nil
         }
+        self.resolvedMaterialPreparationLayers = preparationLayers
+        self.preparationLayerIDs = Set((preparationLayers ?? []).map(\.id))
+        self.framebufferSourceLayerIDs = Set((preparationLayers ?? []).compactMap {
+            $0.utilityLayer?.framebufferSource == nil ? nil : $0.id
+        })
         self.layersByID = byID
         self.imageMaterialStateLayerIDs = Set(renderDescriptor.layers.compactMap {
             $0.imageMaterialRenderState == nil ? nil : $0.id

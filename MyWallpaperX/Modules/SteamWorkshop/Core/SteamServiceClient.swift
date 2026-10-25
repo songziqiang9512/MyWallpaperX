@@ -453,8 +453,7 @@ final class SteamServiceClient {
                 failProtocolConnection(reason: "frame exceeded 1 MiB limit")
                 return
             }
-            guard let line = String(data: frame, encoding: .utf8) else { continue }
-            switch SteamServiceFrameDecoder.decode(line) {
+            switch SteamServiceFrameDecoder.decode(frame) {
             case .failure(let error):
                 // 单个坏帧不锁死连接；只记诊断并丢弃。
 #if DEBUG

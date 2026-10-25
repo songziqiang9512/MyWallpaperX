@@ -53,9 +53,10 @@
             orthoWidth: 64, orthoHeight: 64, fovDegrees: nil,
             perspectiveOverrideFOVDegrees: nil, nearZ: 0.01, farZ: 1000)
         let loader = try SceneTextureLoader(root: directory, device: device)
+        var sources = try prepareModelSources(descriptor, view: .init(root: directory))
         let resources = try ScenePreparedStaticModelResources.prepare(descriptor: descriptor,
             resourceView: .init(root: directory), device: device, textureLoader: loader,
-            cancellationCheck: {})
+            preparedSources: &sources, cancellationCheck: {})
         let renderer = SceneMetalRenderer(device: device, resources: resources)
         renderer.renderDescriptor = descriptor
         let worlds = SceneLayerWorldFrameResolver.compute(descriptor: descriptor,

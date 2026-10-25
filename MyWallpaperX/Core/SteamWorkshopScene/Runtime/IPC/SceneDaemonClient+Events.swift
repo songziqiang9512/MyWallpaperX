@@ -17,10 +17,28 @@ extension SceneDaemonClient {
                 )
                 continue
             }
+#if DEBUG
+            debugStartupWireObserver?(generation, debugProcessIdentifier,
+                UInt64(ProcessInfo.processInfo.systemUptime * 1_000_000), payload)
+#endif
             if payload["role"] as? String == "scene-daemon" {
                 handshakeWorkItem?.cancel()
                 handshakeWorkItem = nil
+                sourceSchemaVersion = Self.integer(payload["sourceSchemaVersion"])
+                requestRetirementSchemaVersion = nil
+                if let capability = payload["requestRetirementSchemaVersion"] as? NSNumber,
+                   CFGetTypeID(capability) != CFBooleanGetTypeID(),
+                   !["f", "d"].contains(String(cString: capability.objCType)),
+                   Self.unsignedInteger(capability) == 1 {
+                    requestRetirementSchemaVersion = 1
+                }
                 endpointReady = true
+#if DEBUG
+                if debugStartupPrefixObserver != nil {
+                    observeDebugStartupPrefix(.helloObserved,
+                        childStartupUptimes: Self.debugStartupUptimes(payload["debugStartupPrefixUptimes"]))
+                }
+#endif
                 replayPendingIntent()
                 continue
             }
@@ -29,7 +47,8 @@ extension SceneDaemonClient {
             case "candidatePrepared": handleCandidatePrepared(payload)
             case "switchControlResult": handleSwitchControlResult(payload, generation: generation)
             case "launchResourcesReleased":
-                if let raw = payload["requestID"] as? String, let requestID = UUID(uuidString: raw) {
+                if SceneDaemonProtocol.boolean(payload["resourcesRetired"]) == true,
+                   let raw = payload["requestID"] as? String, let requestID = UUID(uuidString: raw) {
                     requestResourceLifetimes.removeValue(forKey: requestID)
                 }
             case "launchStateChanged": handleLaunchState(payload)
@@ -94,7 +113,7 @@ extension SceneDaemonClient {
         pendingFrameCaptureCompletions.removeValue(forKey: requestID)?(nil)
     }
 
-    private func handleLaunchState(_ payload: [String: Any]) {
+    func handleLaunchState(_ payload: [String: Any]) {
         guard let rawPhase = payload["phase"] as? String,
               let phase = SceneWallpaperLaunchState.Phase(rawValue: rawPhase),
               let rawRequestID = payload["requestID"] as? String,
@@ -274,6 +293,7 @@ extension SceneDaemonClient {
             includesCurrentProcessOutput: includesDaemonProcessOutput,
             scopeEpoch: scopeEpoch
         )
+        if (idleTransport != nil || hasRequestRetirementControl), demand.requiresSpectrum { return }
         guard audioSpectrumDemandGeneration != generation
                 || audioSpectrumDemand != demand else { return }
         audioSpectrumDemand = demand
@@ -347,11 +367,14 @@ extension SceneDaemonClient {
             return
         }
         guard generation == sessionGeneration else { return }
+        discardIdleTransport()
         handshakeWorkItem?.cancel()
         handshakeWorkItem = nil
         transport?.closeIO()
         transport = nil
         endpointReady = false
+        sourceSchemaVersion = nil
+        requestRetirementSchemaVersion = nil
         latestFrameStats = nil
         rememberCommittedSwitchForRecovery()
         adoptQueuedSwitchPreparationForRecovery()
@@ -464,6 +487,23 @@ extension SceneDaemonClient {
         }
     }
 
+#if DEBUG
+    /// Diagnostics only: malformed telemetry never changes hello admission.
+    static func debugStartupUptimes(_ raw: Any?) -> [String: UInt64]? {
+        let keys: Set<String> = ["schemaVersion", "pid", "entryObserved", "appKitBegin",
+            "appKitReturned", "runtimeBegin", "runtimeReturned", "helloSnapshotCaptured"]
+        guard let values = raw as? [String: Any], Set(values.keys) == keys else { return nil }
+        var result: [String: UInt64] = [:]
+        for (key, rawValue) in values {
+            guard let number = rawValue as? NSNumber,
+                  !["f", "d"].contains(String(cString: number.objCType)),
+                  let value = unsignedInteger(number) else { return nil }
+            result[key] = value
+        }
+        return result
+    }
+
+#endif
     private static func integer(_ raw: Any?) -> Int? {
         guard let number = raw as? NSNumber,
               CFGetTypeID(number) != CFBooleanGetTypeID() else { return nil }

@@ -14,7 +14,6 @@ nonisolated struct SceneVFSAssetPath: Hashable, Sendable {
         while path.hasPrefix("./") { path.removeFirst(2) }
         guard !path.isEmpty,
               !path.hasPrefix("/"),
-              !path.contains(":"),
               !path.unicodeScalars.contains(where: {
                   $0.value < 32 || $0.value == 127
               }) else {
@@ -159,8 +158,36 @@ nonisolated enum SceneVideoTexturePlaybackOwner: Hashable, Sendable {
 
 nonisolated enum SceneTextureResourceIdentity: Hashable, Sendable {
     case file(path: String)
+    case package(SceneTexturePackageIdentity)
     case builtIn(name: String)
     case provider(SceneTextureProviderIdentity)
+}
+
+/// Package coordinates projected from the selected Root, without owning IO.
+nonisolated struct SceneTexturePackageIdentity: Hashable, Sendable {
+    let packagePath: String
+    let rawEntryPath: String
+
+    var isValid: Bool { !packagePath.isEmpty && !rawEntryPath.isEmpty }
+}
+
+nonisolated struct SceneTexturePackageRevision: Hashable, Sendable {
+    let fileSystemID: UInt64
+    let fileID: UInt64
+    let fileByteCount: UInt64
+    let modifiedSeconds: Int64
+    let modifiedNanoseconds: Int64
+    let changedSeconds: Int64
+    let changedNanoseconds: Int64
+    let dataStartOffset: UInt64
+    let offset: UInt32
+    let byteCount: UInt32
+
+    var isValid: Bool {
+        guard dataStartOffset <= fileByteCount else { return false }
+        let payloadBytes = fileByteCount - dataStartOffset
+        return UInt64(offset) <= payloadBytes && UInt64(byteCount) <= payloadBytes - UInt64(offset)
+    }
 }
 
 nonisolated struct SceneTextureFileRevision: Hashable, Sendable {
@@ -176,6 +203,7 @@ nonisolated enum SceneTextureResourceGeneration: Hashable, Sendable {
         modifiedAtBits: UInt64,
         revision: SceneTextureFileRevision
     )
+    case package(SceneTexturePackageRevision)
     case immutable(revision: UInt64)
     case provider(contentGeneration: UInt64)
 }

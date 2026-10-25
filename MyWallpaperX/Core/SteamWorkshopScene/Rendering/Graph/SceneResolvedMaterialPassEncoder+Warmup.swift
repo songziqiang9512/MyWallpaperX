@@ -87,7 +87,9 @@ extension SceneResolvedMaterialPassEncoder {
     }
 
     func warmup(_ plans: [WarmupPlan]) -> WarmupReport {
+#if DEBUG || SCENE_GRAPH_TESTING
         let attemptsBefore = pipelineCompilationAttemptCount
+#endif
         var visited = Set<SceneResolvedMaterialProgram.MetalCompileStateKey>()
         let uniquePlans = plans.sorted(by: {
             if $0.identity != $1.identity { return $0.identity < $1.identity }
@@ -120,13 +122,17 @@ extension SceneResolvedMaterialPassEncoder {
                 reasonCode: failuresByIndex[index]!.code
             )
         }
+#if DEBUG || SCENE_GRAPH_TESTING
+        let compilationAttemptCount = pipelineCompilationAttemptCount - attemptsBefore
+#else
+        let compilationAttemptCount = 0
+#endif
         return .init(
             plannedPlanCount: plans.count,
             uniqueKeyCount: visited.count,
             readyKeyCount: uniquePlans.count - failures.count,
             failedKeyCount: failures.count,
-            compilationAttemptCount:
-                pipelineCompilationAttemptCount - attemptsBefore,
+            compilationAttemptCount: compilationAttemptCount,
             failures: failures
         )
     }
@@ -145,7 +151,9 @@ extension SceneResolvedMaterialPassEncoder {
             case let .failed(failure, _): return failure
             }
         }
+#if DEBUG || SCENE_GRAPH_TESTING
         compilationAttempts += 1
+#endif
         lock.unlock()
 
         let binaryArchiveSession = SceneResolvedMaterialPipelineBinaryArchive
@@ -175,11 +183,14 @@ extension SceneResolvedMaterialPassEncoder {
             return nil
         case let .failure(failure):
             entries[plan.key] = .failed(failure, origin: .launchWarmup)
+#if DEBUG || SCENE_GRAPH_TESTING
             failedPipelines += 1
+#endif
             return failure
         }
     }
 
+#if DEBUG || SCENE_GRAPH_TESTING
     func recordLaunchWarmupConsumption(
         key: SceneResolvedMaterialProgram.MetalCompileStateKey,
         origin: PipelineOrigin,
@@ -201,4 +212,5 @@ extension SceneResolvedMaterialPassEncoder {
         )
 #endif
     }
+#endif
 }

@@ -154,25 +154,24 @@ enum SceneEffectDefinitionDiagnostic {}
 
 struct SceneEffectDefinitionLoader {
     enum LoadError: LocalizedError {
-        case invalidRoot(URL)
+        case invalidRoot(String)
 
         var errorDescription: String? {
             switch self {
-            case .invalidRoot(let url):
-                return "Effect definition is not a JSON object: \(url.lastPathComponent)"
+            case .invalidRoot(let relativePath):
+                return "Effect definition is not a JSON object: \((relativePath as NSString).lastPathComponent)"
             }
         }
     }
 
     nonisolated init() {}
 
-    nonisolated func load(from url: URL, relativePath: String) throws -> SceneEffectDefinition {
-        let data = try Data(contentsOf: url)
+    nonisolated func load(data: Data, relativePath: String) throws -> SceneEffectDefinition {
         guard let root = try JSONSerialization.jsonObject(
             with: data,
             options: [.json5Allowed]
         ) as? [String: Any] else {
-            throw LoadError.invalidRoot(url)
+            throw LoadError.invalidRoot(relativePath)
         }
 
         let passes = (root["passes"] as? [[String: Any]] ?? []).enumerated().map(parsePass)

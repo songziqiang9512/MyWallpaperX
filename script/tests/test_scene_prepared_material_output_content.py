@@ -115,7 +115,7 @@ class PreparedMaterialOutputContentTests(unittest.TestCase):
             env["MWX_SCENE_GENERIC_SHADER_CACHE"] = str(p / "shader-cache")
             env["MWX_SCENE_GENERIC_SHADER_ROUTE"] = "disable-generic"
             sources = [s for s in fixture.SWIFT_SOURCES if s != OWNER]
-            command = ["xcrun", "swiftc", "-parse-as-library", *map(str, sources),
+            command = ["xcrun", "swiftc", "-parse-as-library", "-D", "SCENE_GRAPH_TESTING", *map(str, sources),
                        str(owner_copy), *map(str, fixture.SHARED_FIXTURE_SOURCES),
                        str(p / "Main.swift"), "-module-cache-path", str(p / "modules"),
                        "-o", str(p / "run")]

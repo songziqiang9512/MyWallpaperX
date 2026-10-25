@@ -21,7 +21,7 @@ nonisolated struct SceneParticleRefractionDeclaration {
 }
 
 struct SceneSpriteAnimation {
-    init(container: SceneTexContainer, sourceURL: URL) {}
+    init(container: SceneTexContainer, sourceInput: SceneResourceView.FileInput) throws {}
 }
 
 @main
@@ -163,13 +163,13 @@ enum Harness {
         let sixteenURL = directory.appendingPathComponent("sixteen.tex")
         try makeTex(format: 0, textureWidth: 2, textureHeight: 2, imageWidth: 2, imageHeight: 2,
             payload: try makeOpaquePNG(width: 2, height: 2, straight16: true)).write(to: sixteenURL)
-        let sixteenColor = SceneParticleRefractionTextureLoader.load(
-            colorSource: .file(sixteenURL),
+        let sixteenColor = try SceneParticleRefractionTextureLoader.load(
+            colorSource: .file(.externalFile(sixteenURL)),
             declaration: SceneParticleRefractionDeclaration(normalTextureSource: nil,
                 amount: 0.25, overbright: 1), textureLoader: loader, device: device)
-        let sixteenNormal = SceneParticleRefractionTextureLoader.load(
-            colorSource: .file(sixteenURL),
-            declaration: SceneParticleRefractionDeclaration(normalTextureSource: .file(sixteenURL),
+        let sixteenNormal = try SceneParticleRefractionTextureLoader.load(
+            colorSource: .file(.externalFile(sixteenURL)),
+            declaration: SceneParticleRefractionDeclaration(normalTextureSource: .file(.externalFile(sixteenURL)),
                 amount: 0.25, overbright: 1), textureLoader: loader, device: device)
         let oversizedSameSourceURL = directory.appendingPathComponent(
             "oversized-same-source.tex"
@@ -182,10 +182,10 @@ enum Harness {
             imageHeight: 2,
             payload: try makeOpaquePNG(width: 4_097, height: 2)
         ).write(to: oversizedSameSourceURL)
-        let oversizedSameSourceRejected = SceneParticleRefractionTextureLoader.load(
-            colorSource: .file(oversizedSameSourceURL),
+        let oversizedSameSourceRejected = try SceneParticleRefractionTextureLoader.load(
+            colorSource: .file(.externalFile(oversizedSameSourceURL)),
             declaration: SceneParticleRefractionDeclaration(
-                normalTextureSource: .file(oversizedSameSourceURL),
+                normalTextureSource: .file(.externalFile(oversizedSameSourceURL)),
                 amount: 0.25,
                 overbright: 1
             ),
@@ -202,10 +202,10 @@ enum Harness {
             imageWidth: 8,
             imageHeight: 4
         ).write(to: invalidMappedURL)
-        let invalidMappedRejected = SceneParticleRefractionTextureLoader.load(
-            colorSource: .file(opaqueURL),
+        let invalidMappedRejected = try SceneParticleRefractionTextureLoader.load(
+            colorSource: .file(.externalFile(opaqueURL)),
             declaration: SceneParticleRefractionDeclaration(
-                normalTextureSource: .file(invalidMappedURL),
+                normalTextureSource: .file(.externalFile(invalidMappedURL)),
                 amount: 0.25,
                 overbright: 1
             ),
@@ -671,10 +671,10 @@ enum Harness {
         loader: SceneTextureLoader,
         device: MTLDevice
     ) throws -> SceneParticleRefractionTextureLoader.Loaded {
-        guard let loaded = SceneParticleRefractionTextureLoader.load(
-            colorSource: .file(colorURL),
+        guard let loaded = try SceneParticleRefractionTextureLoader.load(
+            colorSource: .file(.externalFile(colorURL)),
             declaration: SceneParticleRefractionDeclaration(
-                normalTextureSource: normalURL.map(SceneParticleTextureSource.file),
+                normalTextureSource: normalURL.map { .file(.externalFile($0)) },
                 amount: amount,
                 overbright: 1
             ),

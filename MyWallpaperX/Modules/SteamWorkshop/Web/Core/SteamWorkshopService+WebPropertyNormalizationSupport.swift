@@ -88,8 +88,8 @@ extension SteamWorkshopService {
         }
     }
 
-    nonisolated static func webProjectLocalization(from root: [String: Any]) -> [String: String] {
-        WorkshopPropertyLocalization(projectRoot: root).strings(languageKeys: WorkshopPropertyDisplayResolver.languageVersion)
+    nonisolated static func webProjectLocalization(from root: [String: Any], languageKeys: [String] = WorkshopPropertyDisplayResolver.languageVersion) -> [String: String] {
+        WorkshopPropertyLocalization(projectRoot: root).strings(languageKeys: languageKeys)
     }
 
     nonisolated static func localizedWebString(_ raw: String, localization: [String: String]) -> String {

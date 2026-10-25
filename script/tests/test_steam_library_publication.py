@@ -13,15 +13,22 @@ import Darwin
         let library = URL(fileURLWithPath: CommandLine.arguments[1], isDirectory: true)
         let mode = CommandLine.arguments[2]
         typealias T = SteamWorkshopLibraryTransaction
+        let legacyHint = mode.hasSuffix("legacy-hint")
+        let entryName = legacyHint ? "scene.json" : "index.html"
         func prepare(_ payload: String) throws -> SteamWorkshopLibraryCommit {
-            let commit = SteamWorkshopLibraryCommit(version: 2, workshopId: "123456", jobId: payload,
+            var commit = SteamWorkshopLibraryCommit(version: 2, workshopId: "123456", jobId: payload,
                 attempt: 1, directoryName: "123456-" + UUID().uuidString.lowercased(), manifestId: "123",
-                contentDigest: String(repeating: "a", count: 64), contentType: "web", entryPath: "index.html",
+                contentDigest: String(repeating: "a", count: 64), contentType: legacyHint ? "scene" : "web", entryPath: entryName,
                 committedAt: Date())
+            if legacyHint {
+                commit.sceneReceipt = .init(schemaVersion: 999, relativePath: "../obsolete-sidecar.json",
+                    encodedByteCount: -1, sha256: "obsolete", storageIdentity: "obsolete", contentDigest: "obsolete")
+            }
             let url = try T.contentURL(for: commit, libraryRoot: library)
             try FileManager.default.createDirectory(at: url, withIntermediateDirectories: true)
-            try Data(#"{"type":"web","file":"index.html"}"#.utf8).write(to: url.appendingPathComponent("project.json"))
-            try Data(payload.utf8).write(to: url.appendingPathComponent("index.html"))
+            try JSONSerialization.data(withJSONObject: ["type": commit.contentType, "file": entryName])
+                .write(to: url.appendingPathComponent("project.json"))
+            try Data(payload.utf8).write(to: url.appendingPathComponent(entryName))
             try JSONEncoder().encode(commit).write(to: url.appendingPathComponent(T.ownershipMarkerName))
             return commit
         }
@@ -119,10 +126,16 @@ import Darwin
             precondition(!T.isAvailable(canonical, libraryRoot: library))
             precondition(!FileManager.default.fileExists(atPath: preparedURL.path))
             precondition(T.storageIdentity(for: next) != T.storageIdentity(for: canonical))
-            let payload = try String(contentsOf: target.appendingPathComponent("index.html"), encoding: .utf8)
+            if legacyHint {
+                let marker = try T.markerCommit(in: T.absoluteDirectory(target))
+                precondition(marker.sceneReceipt == second.sceneReceipt && marker.sceneReceipt != nil,
+                    "publication/recovery must preserve old identity fields without opening an obsolete hint path")
+                precondition(!FileManager.default.fileExists(atPath: library.appendingPathComponent("obsolete-sidecar.json").path))
+            }
+            let payload = try String(contentsOf: target.appendingPathComponent(entryName), encoding: .utf8)
             precondition(payload == "second")
             let retiredURL = target.deletingLastPathComponent().appendingPathComponent(T.retiredPrefix + first.directoryName)
-            precondition(FileManager.default.fileExists(atPath: retiredURL.appendingPathComponent("index.html").path),
+            precondition(FileManager.default.fileExists(atPath: retiredURL.appendingPathComponent(entryName).path),
                 "publication must leave old payload to GC")
             let visible = try FileManager.default.contentsOfDirectory(at: target.deletingLastPathComponent(),
                 includingPropertiesForKeys: nil, options: [.skipsHiddenFiles])
@@ -182,6 +195,8 @@ class SteamLibraryPublicationTests(unittest.TestCase):
             self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
 
     def test_clean_id_first_publication_and_replacement(self): self.run_case('replace')
+    def test_legacy_acceleration_hint_does_not_gate_publication(self): self.run_case('replace-legacy-hint')
+    def test_legacy_acceleration_hint_does_not_gate_journal_recovery(self): self.run_case('recover-legacy-hint')
     def test_failed_index_write_restores_old_directory(self): self.run_case('rollback')
     def test_recover_intent_before_directory_swap(self): self.run_case('recover-before')
     def test_recover_after_directory_swap(self): self.run_case('recover-after')

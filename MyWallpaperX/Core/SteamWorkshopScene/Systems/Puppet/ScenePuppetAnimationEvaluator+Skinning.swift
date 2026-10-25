@@ -13,6 +13,7 @@ extension ScenePuppetAnimationEvaluator {
     /// Writes a transform-only direct-model candidate. The caller admits its
     /// animation channels and publishes this scratch buffer only on success;
     /// any failure requires one complete bind fallback, never partial vertices.
+    /// Bind vertices are the immutable model already validated by its reader.
     func writeDeformedVertices(
         bindVertices: [SceneMdlStaticModel.Vertex],
         selection: ScenePuppetAnimationSelection,
@@ -51,10 +52,6 @@ extension ScenePuppetAnimationEvaluator {
         // affine; do not infer a projective profile or clamp its numeric row.
         for index in bindVertices.indices {
             let bind = bindVertices[index]
-            guard Self.isFinite(bind.position), Self.isFinite(bind.normal),
-                  Self.isFinite(bind.tangent), bind.uv.x.isFinite, bind.uv.y.isFinite else {
-                throw DirectSkinningFailure.invalidVertex(index)
-            }
             let skinned = try skinnedVertex(at: index,
                 skinMatrices: skinMatricesScratch, includesLinear: true)
             let linear = Self.doubleMatrix(skinned.linear)

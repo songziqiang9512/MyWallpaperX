@@ -18,6 +18,8 @@ def controller_fixture_source() -> str:
     source = CONTROLLER_PATH.read_text()
     models = ROOT / 'MyWallpaperX/Core/SteamWorkshopScene/Runtime/Session/SceneDesktopWallpaperLaunchModels.swift'
     reachability = models.read_text().split('nonisolated struct SceneWallpaperLaunchState:', 1)[0]
+    cancellation = models.read_text().split('nonisolated final class SceneWallpaperLaunchCancellation:', 1)[1].split('enum SceneDesktopWallpaperHostLaunchError:', 1)[0]
+    reachability += 'nonisolated final class SceneWallpaperLaunchCancellation:' + cancellation
     return reachability + source.replace('private ', '').replace('WorkshopPropertyDisplayResolver.languageVersion', 'FixtureDisplayLanguage.keys')
 
 
@@ -25,6 +27,9 @@ PROBE = r'''
 import AppKit
 import Foundation
 import Darwin
+enum SceneDesktopWallpaperHostLaunchError: Error { case cancelled }
+protocol PlaybackResourceLifetime: AnyObject {}
+final class FixtureLifetime: PlaybackResourceLifetime {}
 
 extension Notification.Name {
     static let sceneWallpaperLaunchStateDidChange = Self("fixture-launch")
@@ -48,16 +53,15 @@ struct SteamWorkshopDownloadRecord {
     var title = "fixture"; var status = Status.ready; var contentType = ContentType.scene
 }
 struct SceneResourceView {
-    struct Root { let url: URL }
+    struct Root { let url: URL; var directoryURL: URL? { url } }
     let roots: [Root]
     static func defaultStockAssetsRootURL() -> URL? { BuilderSpy.shared.stockRoot }
 }
 struct SceneProject { let packageURL: URL? }
-struct ScenePkgExtractionReport { let blockingMessage: String? }
 struct SceneRuntimeSourceFacts {
     let project: SceneProject?; let sceneDocument: Bool?; let assetCatalog: Bool?
     let resourceReferences: Bool?; let renderDescriptor: Bool?
-    let sceneDocumentLoadErrorDescription: String?; let packageReport: ScenePkgExtractionReport?
+    let sceneDocumentLoadErrorDescription: String?
     let resourceView: SceneResourceView; let key: String
 }
 final class BuilderSpy: @unchecked Sendable {
@@ -69,8 +73,9 @@ final class BuilderSpy: @unchecked Sendable {
     var afterBoundary: (() -> Void)?
     var stockRoot: URL?
     var additionalRoots: [URL] = []
-    var packageFailure = false
+    var hasPackage = false
     var documentFailure = false
+    var sources: [ScenePlaybackSource] = []
     func increment() { lock.lock(); calls += 1; lock.unlock() }
     var count: Int { lock.lock(); defer { lock.unlock() }; return calls }
 }
@@ -81,17 +86,19 @@ final class FixtureBarrier: @unchecked Sendable {
     var isFinished: Bool { lock.lock(); defer { lock.unlock() }; return finished }
 }
 struct SceneRuntimeSourceFactsBuilder {
-    func build(rootURL: URL, propertyOverrides: [String: SceneUserPropertyValue] = [:],
-               willReadResourceRoots: (([URL]) -> Void)? = nil) -> SceneRuntimeSourceFacts {
+    func build(rootURL: URL, source: ScenePlaybackSource? = nil, propertyOverrides: [String: SceneUserPropertyValue] = [:],
+               checkCancellation: (() throws -> Void)? = nil,
+               willReadResourceRoots: (([URL]) -> Void)? = nil) throws -> SceneRuntimeSourceFacts {
         let spy = BuilderSpy.shared
         spy.increment(); spy.beforeRead?()
+        try checkCancellation?()
+        if let source { spy.sources.append(source) }
         let key = (try? String(contentsOf: rootURL.appendingPathComponent("definition"), encoding: .utf8)) ?? "none"
         spy.afterRead?()
         willReadResourceRoots?([rootURL] + spy.additionalRoots); spy.afterBoundary?()
-        return .init(project: .init(packageURL: spy.packageFailure ? rootURL.appendingPathComponent("broken.pkg") : nil),
+        return .init(project: .init(packageURL: spy.hasPackage ? rootURL.appendingPathComponent("broken.pkg") : nil),
             sceneDocument: spy.documentFailure ? nil : true, assetCatalog: true, resourceReferences: true,
             renderDescriptor: true, sceneDocumentLoadErrorDescription: spy.documentFailure ? "broken" : nil,
-            packageReport: spy.packageFailure ? .init(blockingMessage: "failed") : nil,
             resourceView: .init(roots: ([rootURL] + spy.additionalRoots).map { .init(url: $0) }), key: key)
     }
 }
@@ -107,6 +114,20 @@ struct SteamWorkshopScenePropertyContext {
     static let shared = SteamWorkshopService()
     var records: [String: SteamWorkshopDownloadRecord] = [:]
     var overrides: [String: [String: SceneUserPropertyValue]] = [:]
+    var managed = false
+    var rejectAdmission = false
+    weak var lastLifetime: FixtureLifetime?
+    struct SceneSourceAdmission {
+        let source: ScenePlaybackSource
+        let resourceLifetime: PlaybackResourceLifetime?
+    }
+    func sceneSourceAdmission(for record: SteamWorkshopDownloadRecord) throws -> SceneSourceAdmission {
+        if rejectAdmission { throw CocoaError(.fileReadNoPermission) }
+        let lifetime = FixtureLifetime(); lastLifetime = lifetime
+        let generation = "11111111-1111-4111-8111-111111111111"
+        return .init(source: .init(rootURL: record.folderURL.resolvingSymlinksInPath(), managed: managed ? .init(
+            storageIdentity: "v2:scene:123-" + generation, generation: generation) : nil), resourceLifetime: lifetime)
+    }
     func latestDownloadRecord(for id: String) -> SteamWorkshopDownloadRecord? { records[id] }
     func scenePropertyOverrides(for record: SteamWorkshopDownloadRecord) -> [String: SceneUserPropertyValue] { overrides[record.id] ?? [:] }
     func scenePropertyContext(for record: SteamWorkshopDownloadRecord, sourceFacts: SceneRuntimeSourceFacts) -> SteamWorkshopScenePropertyContext? {
@@ -245,19 +266,19 @@ struct SteamWorkshopScenePropertyContext {
         open(); check(owner.snapshot == nil, "project read before boundary cannot acquire new version")
         reset(); spy.afterBoundary = { try! Data("afterXX".utf8).write(to: input) }
         open(); check(owner.snapshot == nil, "resource change during preparation not cached")
-        reset(); spy.packageFailure = true; open(); let failed = spy.count; open()
-        check(owner.snapshot == nil && spy.count == failed + 1, "failed package validation never cached")
-        spy.packageFailure = false; spy.documentFailure = true; reset(); open()
+        reset(); spy.hasPackage = true; open(); let failed = spy.count; open()
+        check(owner.snapshot == nil && spy.count == failed + 1, "package-backed context is prepared by its actual source owner")
+        spy.hasPackage = false; spy.documentFailure = true; reset(); open()
         check(owner.snapshot == nil, "document failure never cached")
         spy.documentFailure = false; reset(); try write("none"); open(); let unavailable = spy.count; open()
         check(owner.snapshot == nil && spy.count == unavailable + 1, "no controls result never cached")
         try write("enabled"); reset(); open(); owner.discardSnapshot(); let pressure = spy.count; open()
         check(spy.count == pressure + 1, "pressure clears warm reuse")
         func blocked(_ action: () -> Void) {
-            reset(); let entered = DispatchSemaphore(value: 0), release = DispatchSemaphore(value: 0)
-            spy.beforeRead = { entered.signal(); release.wait() }
+            reset(); let entered = FixtureBarrier(), release = DispatchSemaphore(value: 0)
+            spy.beforeRead = { entered.finish(); release.wait() }
             owner.preparePropertyEditor(for: record)
-            precondition(entered.wait(timeout: .now() + 2) == .success)
+            drain { entered.isFinished }
             action(); spy.beforeRead = nil; release.signal()
             let barrier = FixtureBarrier()
             owner.queue.async { DispatchQueue.main.async { barrier.finish() } }
@@ -331,6 +352,30 @@ struct SteamWorkshopScenePropertyContext {
         check(SteamWorkshopSceneInspectionController.retentionCost(context: hugeLocalization,
             version: ScenePropertySourceVersion.capture(roots: [root])!, identity: retained.identity) > 8 * 1024 * 1024,
             "author localization is charged within original context budget")
+        reset(); let entered = FixtureBarrier(), release = DispatchSemaphore(value: 0)
+        spy.beforeRead = { entered.finish(); release.wait() }
+        owner.preparePropertyEditor(for: record); drain { entered.isFinished }
+        check(service.lastLifetime != nil, "actual worker is protected by request admission")
+        owner.cancelPropertyPresentation()
+        check(owner.request == nil && service.lastLifetime != nil, "close cannot release an in-flight source lease")
+        spy.beforeRead = nil; release.signal(); drain { service.lastLifetime == nil }
+        check(service.lastLifetime == nil, "lease releases only after actual worker join")
+        service.managed = true; reset(); open(); let managedCalls = spy.count
+        check(owner.snapshot == nil && spy.sources.last?.managed != nil, "managed source reaches actual queued builder without directory memo")
+        open(); check(spy.count == managedCalls + 1, "managed inspection never reuses unverified package memo")
+        service.managed = false; service.rejectAdmission = true; reset(); let rejected = spy.count
+        open(); check(spy.count == rejected, "failed source admission performs no author work")
+        service.rejectAdmission = false; reset()
+        let gate = DispatchSemaphore(value: 0), queued = FixtureBarrier()
+        owner.queue.async { queued.finish(); gate.wait() }
+        drain { queued.isFinished }
+        let beforeCancelled = spy.count
+        owner.preparePropertyEditor(for: record)
+        drain { service.lastLifetime != nil }
+        owner.cancelPropertyPresentation()
+        check(service.lastLifetime != nil, "pre-dequeue cancellation keeps admitted lifetime until queued terminal")
+        gate.signal(); drain { service.lastLifetime == nil }
+        check(spy.count == beforeCancelled, "pre-dequeue cancellation resumes join without starting builder")
         print(String(decoding: try JSONSerialization.data(withJSONObject: results), as: UTF8.self))
     }
 }
@@ -353,13 +398,13 @@ class ScenePropertyPreparationReuseTests(unittest.TestCase):
             probe = work / 'Probe.swift'
             probe.write_text(PROBE)
             binary = work / 'probe'
-            build = subprocess.run(['swiftc', '-O', str(PROPERTY_MODEL), str(ROOT / 'MyWallpaperX/Shared/WorkshopPropertyDisplayResolver.swift'), str(source), str(probe),
+            build = subprocess.run(['swiftc', '-O', str(PROPERTY_MODEL), str(ROOT / 'MyWallpaperX/Shared/WorkshopPropertyDisplayResolver.swift'), str(ROOT / 'MyWallpaperX/Core/SteamWorkshopStorage/ScenePlaybackSource.swift'), str(source), str(probe),
                 '-module-cache-path', str(work / 'cache'), '-o', str(binary)], capture_output=True, text=True)
             self.assertEqual(build.returncode, 0, build.stderr)
             run = subprocess.run([str(binary), str((work / 'input').resolve())], capture_output=True, text=True, timeout=30)
             self.assertEqual(run.returncode, 0, run.stderr)
             cases = json.loads(run.stdout)
-            self.assertEqual(len(cases), 37)
+            self.assertEqual(len(cases), 45)
 
 
 if __name__ == '__main__':

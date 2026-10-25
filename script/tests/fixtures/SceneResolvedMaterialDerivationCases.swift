@@ -572,7 +572,19 @@ private enum Harness {
                 && scalarBaseline.semanticIdentity.outputContract == .scalarRedUnorm
                 && scalarBaseline.outputContract == .scalarRedUnorm,
             "baselineAssembled": baseline.textureSlots.count == 8,
-            "uniformLayoutMatchesDeclaredFields": baseline.uniformBytes.count == 16,
+            "uniformLayoutMatchesDeclaredFields": baseline.uniformBytes.count
+                == baseline.frontendProgram.uniformLayout.byteSize
+                && baseline.frontendProgram.uniformLayout.fields.map(\.name)
+                    == ["g_Gain", "mwxRenderSize", "mwxVertexCoordinates01", "mwxVertexCoordinates23"]
+                && baseline.frontendProgram.uniformLayout.fields.filter {
+                    $0.name == "mwxVertexCoordinates01" || $0.name == "mwxVertexCoordinates23"
+                }.allSatisfy { field in
+                    field.type == .float4
+                        && field.offset >= 0 && field.offset + 16 <= baseline.uniformBytes.count
+                        && baseline.uniformBytes.subdata(in: field.offset ..< field.offset + 16)
+                            == data(field.name == "mwxVertexCoordinates01"
+                                ? SIMD4<Float>(0, 1, 1, 1) : SIMD4<Float>(0, 0, 1, 0))
+                },
             "rawStateSynonymSemantic": baseline.semanticIdentity
                 == synonymState.semanticIdentity,
             "rawStateExcludedFromExact": baseline.exactIdentity

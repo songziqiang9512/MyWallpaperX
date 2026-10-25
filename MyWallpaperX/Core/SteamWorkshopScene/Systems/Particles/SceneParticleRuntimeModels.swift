@@ -61,6 +61,7 @@ struct SceneParticleDrawBatch {
     var sizeIsWorldSpace: Bool = false
 }
 
+#if DEBUG
 struct SceneParticleRuntimeAudioEvaluationObservation: Hashable, Sendable {
     let layerID: Int
     let particlePath: String
@@ -73,6 +74,7 @@ struct SceneParticleRuntimeAudioEvaluationIdentity: Hashable, Sendable {
     let componentKind: SceneParticleAudioComponentKind
     let componentIndex: Int
 }
+#endif
 
 /// Immutable accounting for one live particle-runtime instance. This is an
 /// observation of the existing root/child owners, not a second lifecycle state.
@@ -97,4 +99,33 @@ struct SceneParticlePlaybackTeardownObservation: Equatable, Sendable {
     let reason: String
     let snapshotBeforeTeardown: SceneParticleRuntimeLifecycleSnapshot
     let batchCountBeforeTeardown: Int
+}
+
+extension SceneParticleRuntime {
+    struct FrameSnapshot {
+        struct LayerSnapshot {
+            struct RootSnapshot {
+                let simulator: SceneParticleSimulator
+                let simulatorFrame: SceneParticleSimulator.FrameSnapshot
+                let instances: [SceneParticleGPUInstance]
+                let ropeTrailHistory: SceneParticleRopeTrailHistory?
+            }
+
+            let root: RootSnapshot?
+            let child: SceneParticleChildRuntime.FrameSnapshot?
+            let wasVisible: Bool?
+        }
+
+        let layers: [LayerSnapshot]
+#if DEBUG
+        var pendingAudioEvaluationObservations:
+            [SceneParticleRuntimeAudioEvaluationObservation] = []
+#endif
+        /// World-space freeze/adopt bookkeeping enters the same
+        /// transaction as the simulation values: a discarded frame rolls
+        /// the freeze back with the particles, and a replayed frame
+        /// re-derives it from the same inputs.
+        let frozenWorldSpaceLayerIDs: Set<Int>
+        let adoptedWorldSpaceLayerIDs: Set<Int>
+    }
 }

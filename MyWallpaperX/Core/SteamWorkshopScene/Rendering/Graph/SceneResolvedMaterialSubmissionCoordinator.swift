@@ -13,11 +13,6 @@ final class SceneResolvedMaterialSubmissionCoordinator: @unchecked Sendable {
     static let maximumTransactionsPerSubmission = 1_024
     static let maximumPendingSubmissions =
         SceneResolvedMaterialInFlightCapacity.maximumSubmissions
-    static let maximumTransitionsPerTransaction =
-        SceneResolvedMaterialExecutionCapabilityAdmission.maximumEffectsPerLayer
-    static let maximumTransitionsPerSubmission = 1_024
-    static let maximumObservedNodesPerSubmission =
-        SceneResolvedMaterialExecutionCapabilityAdmission.maximumNodesPerLayer
     struct Tail {
         let state: State
         /// Exactly the readable history closure; pair and scratch resources
@@ -650,13 +645,6 @@ final class SceneResolvedMaterialSubmissionCoordinator: @unchecked Sendable {
         defer { performanceTelemetry?.endStage("admit-frame-commit") }
 #endif
 
-        guard preparedEvidenceFitsLocked(candidates.map(\.prepared)) else {
-            let reason = "execution-evidence-capacity"
-            emission = framePreparationFailureLocked(candidates, reason: reason)
-            lock.unlock()
-            emit(emission)
-            return .rejected(reasonCode: reason)
-        }
         let commits: [Commit]
         if let resourcePossession {
             guard let committed = resourcePossession.admission.finalize(

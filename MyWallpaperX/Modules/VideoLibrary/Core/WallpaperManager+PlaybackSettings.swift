@@ -66,10 +66,9 @@ extension WallpaperManager {
             }
         }
 
-        // 音量和频谱投影到各运行时，不改变共享暂停意图。
+        // 频谱由启动播种和 settings 差分投影负责；这里仅投影音量。
         PlaybackVolumeState.shared.setNormalizedVolume(Float(settings.volume / 100))
         PlaybackCommandMultiplexer.shared.dispatch(.setVolume(Float(settings.volume)))
-        applySystemAudioSpectrumToEngine()
     }
 
     // 启动自动切换 timer（始终从 0 重新计时）
@@ -354,7 +353,7 @@ extension WallpaperManager {
         )
     }
 
-    /// 启动期一次性播种：音量与速率权威在任何 play/web/scene 播种之前
+    /// 启动期一次性播种：音量、速率和频谱在任何 play/web/scene 播种之前
     /// 就位，避免上次运行时为 web/scene 时新会话拿到默认 0.5/1.0。
     /// 音量要同时落 PlaybackVolumeState（scene replay 读它）和引擎
     /// currentVolumeNormalized（web runtimeState 播种读它）。
@@ -364,6 +363,7 @@ extension WallpaperManager {
         PlaybackVolumeState.shared.setNormalizedVolume(persistedVolume / 100)
         WallpaperEngine.shared.setVolume(persistedVolume)
         applyPlaybackRateToEngine(settings: settings)
+        applySystemAudioSpectrumToEngine(settings: settings)
         // Scene 显示集也从持久化设置起步，避免本会话首次 setDisplayConfiguration
         // 用全屏默认值覆盖用户的多屏选择。
         SceneDaemonClient.shared.setMultiDisplayEnabled(settings.multiDisplayEnabled)

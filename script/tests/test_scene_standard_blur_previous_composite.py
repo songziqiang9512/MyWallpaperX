@@ -199,8 +199,8 @@ private func write(_ value: String, to url: URL) throws {
 }
 
 private func prepare(_ root: URL, maskReady: Bool = false)
-    -> (SceneShaderContract, SceneShaderPreparedProgram)? {
-    let contracts = SceneShaderContractLoader().load(
+    throws -> (SceneShaderContract, SceneShaderPreparedProgram)? {
+    let contracts = try SceneShaderContractLoader().load(
         shaderReferences: ["effects/blur_combine"], rootURL: root
     )
     guard contracts.count == 1, let contract = contracts.first,
@@ -216,8 +216,8 @@ private func prepare(_ root: URL, maskReady: Bool = false)
 }
 
 private func prepareGaussian(_ root: URL)
-    -> (SceneShaderContract, SceneShaderPreparedProgram)? {
-    let contracts = SceneShaderContractLoader().load(
+    throws -> (SceneShaderContract, SceneShaderPreparedProgram)? {
+    let contracts = try SceneShaderContractLoader().load(
         shaderReferences: ["effects/blur_gaussian"], rootURL: root
     )
     guard contracts.count == 1, let contract = contracts.first,
@@ -358,7 +358,7 @@ private struct Harness {
             let stockRoot = URL(fileURLWithPath: arguments[1], isDirectory: true)
             let outputRoot = URL(fileURLWithPath: arguments[2], isDirectory: true)
             let maskReady = arguments.count > 3 && arguments[3] == "mask"
-            guard let prepared = prepare(stockRoot, maskReady: maskReady)?.1,
+            guard let prepared = try prepare(stockRoot, maskReady: maskReady)?.1,
                   case let .success(normalized) =
                     SceneGenericShaderSourceNormalizer.normalize(
                         vertexSource: prepared.vertex.source,
@@ -519,10 +519,10 @@ private struct Harness {
         let roots = arguments.map {
             URL(fileURLWithPath: $0, isDirectory: true)
         }
-        let stock = prepare(roots[0])
-        let mask = prepare(roots[0], maskReady: true)
-        let wrongPurposeMask = prepare(roots[5], maskReady: true)
-        let wrongSourceMask = prepare(roots[6], maskReady: true)
+        let stock = try prepare(roots[0])
+        let mask = try prepare(roots[0], maskReady: true)
+        let wrongPurposeMask = try prepare(roots[5], maskReady: true)
+        let wrongSourceMask = try prepare(roots[6], maskReady: true)
         let fact = stock.flatMap {
             SceneAuthoredShaderPreviousBlurredCompositeAnalyzer.analyze(
                 fragmentSource: $0.1.fragment.source
@@ -577,20 +577,20 @@ private struct Harness {
             maskSourceMismatchRejected: !eligible(
                 wrongSourceMask, includeMask: true
             ),
-            missingDefaultRejected: !eligible(prepare(roots[1])),
-            tintedDefaultEligible: eligible(prepare(roots[2])),
-            malformedDefaultRejected: !eligible(prepare(roots[3])),
-            duplicateDeclarationRejected: !eligible(prepare(roots[4])),
+            missingDefaultRejected: !eligible(try prepare(roots[1])),
+            tintedDefaultEligible: eligible(try prepare(roots[2])),
+            malformedDefaultRejected: !eligible(try prepare(roots[3])),
+            duplicateDeclarationRejected: !eligible(try prepare(roots[4])),
             stockGaussianScaleConsumer:
-                gaussianScaleConsumerEligible(prepareGaussian(roots[0])),
+                gaussianScaleConsumerEligible(try prepareGaussian(roots[0])),
             wrongGaussianTypeRejected:
-                !gaussianScaleConsumerEligible(prepareGaussian(roots[7])),
+                !gaussianScaleConsumerEligible(try prepareGaussian(roots[7])),
             gaussianArrayRejected:
-                !gaussianScaleConsumerEligible(prepareGaussian(roots[8])),
+                !gaussianScaleConsumerEligible(try prepareGaussian(roots[8])),
             missingGaussianDefaultRejected:
-                !gaussianScaleConsumerEligible(prepareGaussian(roots[9])),
+                !gaussianScaleConsumerEligible(try prepareGaussian(roots[9])),
             unequalGaussianDefaultRejected:
-                !gaussianScaleConsumerEligible(prepareGaussian(roots[10]))
+                !gaussianScaleConsumerEligible(try prepareGaussian(roots[10]))
         )
         FileHandle.standardOutput.write(try JSONEncoder().encode(output))
     }
@@ -624,7 +624,13 @@ class StandardBlurPreviousCompositeTests(unittest.TestCase):
             raise RuntimeError("Product texture purpose enum boundary was not found")
         purpose.write_text("import Foundation\nnonisolated enum SceneTextureLoadPurpose:"
                            + purpose_enum + purpose_projection, encoding="utf-8")
-        support.write_text(SUPPORT, encoding="utf-8")
+        frame_input = (SCENE_ROOT / "Runtime/Frame/SceneResolvedMaterialPreparedFrameInput.swift").read_text()
+        uniform_schema, schema_boundary, _ = frame_input.partition(
+            "\n/// Immutable identity of one admitted material node."
+        )
+        if not schema_boundary:
+            raise RuntimeError("Prepared uniform schema declaration boundary was not found")
+        support.write_text(SUPPORT + "\n" + uniform_schema, encoding="utf-8")
         harness.write_text(HARNESS, encoding="utf-8")
         cls.binary = cls.root / "standard-blur-previous-composite"
         subprocess.run([

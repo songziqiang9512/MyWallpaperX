@@ -91,12 +91,12 @@ final class SceneVideoTextureSourceRegistry {
         let candidateEpoch = nextUserPropertyEpoch
         pendingUserPropertyCandidates.removeValue(forKey: declaration.identity)?.value?.cancel()
         guard declaration.identity.purpose == .premultipliedColor,
-              SceneTextureLoader.currentSourceKey(for: declaration.file.url) == declaration.source,
+              currentUserFileMatches(declaration),
               let source = SceneVideoTextureSource(
                 owner: .userProperty(declaration.identity), preparedFile: declaration.file,
                 device: device, capturesLifecycleObservations: capturesLifecycleObservations
               ) else { return nil }
-        guard SceneTextureLoader.currentSourceKey(for: declaration.file.url) == declaration.source else {
+        guard currentUserFileMatches(declaration) else {
             source.stop()
             return nil
         }
@@ -117,8 +117,7 @@ final class SceneVideoTextureSourceRegistry {
             && candidate.source.owner == .userProperty(candidate.identity)
             && candidate.sourceIdentity.owner == candidate.source.owner
             && candidate.sourceIdentity.source == candidate.declaration.source
-            && SceneTextureLoader.currentSourceKey(for: candidate.declaration.file.url)
-                == candidate.declaration.source
+            && currentUserFileMatches(candidate.declaration)
             && candidate.source.hasCompletePrimedPublication(for: candidate.identity)
     }
 
@@ -189,17 +188,30 @@ final class SceneVideoTextureSourceRegistry {
     }
 
     func source(
-        from url: URL,
+        from url: SceneResourceView.FileInput,
         layerID: Int,
         cacheDirectory: URL,
         device: MTLDevice,
         loader: SceneTextureLoader,
         onSourceCreationFailure: (() -> Void)? = nil
-    ) -> SceneVideoTextureSource? {
-        guard !isStopped, let declaration = loader.videoSourceDeclaration(from: url) else { return nil }
-        return source(declaration: declaration, owner: .layer(layerID),
-            cacheDirectory: cacheDirectory, device: device, loader: loader,
-            onSourceCreationFailure: onSourceCreationFailure)
+    ) throws -> SceneVideoTextureSource? {
+        guard !isStopped else { return nil }
+        if case let .resource(handle) = url, handle.wasSelectedEntry,
+           handle.owner.packageBacking != nil, url.pathExtension.lowercased() == "tex" {
+            let sourceKey = try url.currentIdentity(checkCancellation: { try Task.checkCancellation() })
+            if case .package = sourceKey {
+                return try source(sourceKey: sourceKey, owner: .layer(layerID),
+                    permitsCompletedWebM: true, cacheDirectory: cacheDirectory, device: device,
+                    makeDeclaration: { try loader.videoSourceDeclaration(from: url) },
+                    onSourceCreationFailure: onSourceCreationFailure)
+            }
+        }
+        guard let declaration = try loader.videoSourceDeclaration(from: url) else { return nil }
+        // Loader selected and read this request's snapshot. Only independently
+        // supplied declarations need the separate entry's current-source check.
+        return try source(sourceKey: declaration.source, owner: .layer(layerID),
+            permitsCompletedWebM: declaration.isWebM, cacheDirectory: cacheDirectory, device: device,
+            makeDeclaration: { declaration }, onSourceCreationFailure: onSourceCreationFailure)
     }
 
     func source(
@@ -209,37 +221,84 @@ final class SceneVideoTextureSourceRegistry {
         device: MTLDevice,
         loader: SceneTextureLoader,
         onSourceCreationFailure: (() -> Void)? = nil
-    ) -> SceneVideoTextureSource? {
-        let sourceKey = declaration.source
-        let url = declaration.url
-        guard !isStopped, loader.sourceKey(for: url) == sourceKey else { return nil }
+    ) throws -> SceneVideoTextureSource? {
+        guard !isStopped else { return nil }
+        guard try declaration.input.currentIdentity(checkCancellation: { try Task.checkCancellation() })
+                == declaration.source else { throw SceneResourceView.ReadError.sourceChanged }
+        return try source(sourceKey: declaration.source, owner: owner,
+            permitsCompletedWebM: declaration.isWebM, cacheDirectory: cacheDirectory, device: device,
+            makeDeclaration: { declaration }, onSourceCreationFailure: onSourceCreationFailure)
+    }
+
+    /// Both request entries select the current identity before reaching here.
+    /// Reuse and fresh creation consume that identity and captured payload;
+    /// the synchronous declaration producer runs only on a true miss.
+    private func source(
+        sourceKey: SceneTextureLoader.SourceKey,
+        owner: SceneVideoTexturePlaybackOwner,
+        permitsCompletedWebM: Bool,
+        cacheDirectory: URL,
+        device: MTLDevice,
+        makeDeclaration: () throws -> SceneTextureLoader.VideoSourceDeclaration?,
+        onSourceCreationFailure: (() -> Void)?
+    ) throws -> SceneVideoTextureSource? {
+        guard !isStopped else { return nil }
+        try Task.checkCancellation()
         let identity = SourceIdentity(
             owner: owner,
             source: sourceKey,
             deviceRegistryID: device.registryID
         )
         if let source = sources[identity] {
-            guard loader.sourceKey(for: url) == sourceKey else { return nil }
+            try Task.checkCancellation()
             rebuildingSourceIdentities?.insert(identity)
             return source
         }
-        guard let source = SceneVideoTextureSource(
-            owner: owner,
-            mp4PayloadData: declaration.payload,
-            isWebM: declaration.isWebM,
-            cacheDirectory: cacheDirectory,
-            device: device,
-            capturesLifecycleObservations: capturesLifecycleObservations
-        ) else {
+        var completedFile: SceneVideoOwnedFile?
+        var onWebMPrepared: (@Sendable (SceneVideoOwnedFile.Writer) throws -> Void)? = nil
+        if permitsCompletedWebM, case let .package(packageIdentity) = sourceKey {
+            completedFile = try SceneVideoOwnedFile.borrowCompletedWebM(
+                identity: packageIdentity, cacheDirectory: cacheDirectory,
+                checkCancellation: { try Task.checkCancellation() }
+            )
+            onWebMPrepared = { writer in
+                try SceneVideoOwnedFile.publishCompletedWebM(
+                    writer, identity: packageIdentity,
+                    cacheDirectory: cacheDirectory, checkCancellation: { try Task.checkCancellation() }
+                )
+            }
+        }
+        let preparedSource: SceneVideoTextureSource?
+        if let completedFile {
+            preparedSource = SceneVideoTextureSource(owner: owner, preparedFile: completedFile,
+                device: device, capturesLifecycleObservations: capturesLifecycleObservations)
+        } else {
+            let declaration = try makeDeclaration()
+            try Task.checkCancellation()
+            guard let declaration else { return nil }
+            guard declaration.source == sourceKey else { throw SceneResourceView.ReadError.sourceChanged }
+            preparedSource = SceneVideoTextureSource(
+                owner: owner, mp4PayloadData: declaration.payload, isWebM: declaration.isWebM,
+                cacheDirectory: cacheDirectory, device: device,
+                capturesLifecycleObservations: capturesLifecycleObservations,
+                onWebMPrepared: onWebMPrepared
+            )
+        }
+        guard let source = preparedSource else {
             onSourceCreationFailure?()
             return nil
         }
-        guard loader.sourceKey(for: url) == sourceKey else { return nil }
+        try Task.checkCancellation()
         rebuildingSourceIdentities?.insert(identity)
         source.adoptLifecycleEpoch(epoch)
         sources[identity] = source
         orderedSourceIdentities = nil
         return source
+    }
+
+    private func currentUserFileMatches(_ declaration: SceneUserPropertyVideoDeclaration) -> Bool {
+        do { return try SceneResourceView.FileInput.externalFile(declaration.file.url).currentIdentity() == declaration.source }
+        catch { return false }
     }
 
     func pause(sceneTime: TimeInterval, hostTime: TimeInterval) {

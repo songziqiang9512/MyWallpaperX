@@ -56,9 +56,6 @@ final class StatusBarController: NSObject, NSMenuDelegate {
     // MARK: - 状态栏图标动态刷新
 
     private func startIconRefreshTimer() {
-        // 首次采样（建立基线，第一次差值为 0 属正常）
-        SystemMonitor.shared.refreshRuntimeStats()
-
         let timer = DispatchSource.makeTimerSource(queue: .main)
         timer.schedule(deadline: .now() + 2.0, repeating: 2.0, leeway: .milliseconds(200))
         timer.setEventHandler { [weak self] in

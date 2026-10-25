@@ -118,7 +118,8 @@ private func makePrepared(
 
 private func makeObservationTransition(
     device: MTLDevice,
-    programCacheKeys: [String] = ["fixture-program"]
+    programCacheKeys: [String] = ["fixture-program"],
+    nodeCount: Int = 1
 ) -> SceneResolvedMaterialGraphExecutor.PreparedStage {
     let resource = SceneFrameTextureResource(
         publication: .init(
@@ -138,11 +139,9 @@ private func makeObservationTransition(
     let graph = Graph(
         layerID: 7,
         effects: [.init(key: effect)],
-        nodes: [.init(
-            nodeIndex: 0,
-            kind: .material,
-            materialOrdinal: 0
-        )]
+        nodes: (0 ..< nodeCount).map {
+            .init(nodeIndex: $0, kind: .material, materialOrdinal: $0)
+        }
     )
     let nextState = State(
         effectGeneration: 4,
@@ -153,12 +152,9 @@ private func makeObservationTransition(
         historyClosureIdentities: []
     )
     let transaction = State.Transaction(
-        intents: [.material(
-            nodeIndex: 0,
-            materialOrdinal: 0,
-            bindings: [],
-            target: nil
-        )],
+        intents: (0 ..< nodeCount).map {
+            .material(nodeIndex: $0, materialOrdinal: $0, bindings: [], target: nil)
+        },
         mappingBefore: [:],
         mappingAfter: [:],
         allocationGeneration: 3,
@@ -174,11 +170,9 @@ private func makeObservationTransition(
             outputIdentity: observationOutputIdentity,
             inputMember: .zero,
             outputMember: .zero,
-            nodes: [.init(
-                nodeIndex: 0,
-                kind: .material,
-                rotatesAfterNode: true
-            )]
+            nodes: (0 ..< nodeCount).map {
+                .init(nodeIndex: $0, kind: .material, rotatesAfterNode: $0 == nodeCount - 1)
+            }
         ),
         transition: .init(nextState: nextState, transaction: transaction),
         inputWidth: 2_048,
@@ -215,7 +209,8 @@ private func makeAtomicPrepared(
     generation: UInt64,
     terminalSampling: SceneTextureSampling = .linearClamp,
     discardedPersistentTargetState: Bool = false,
-    forgedDiscardTransaction: Bool = false
+    forgedDiscardTransaction: Bool = false,
+    nodeCount: Int = 1
 ) -> SceneResolvedMaterialGraphExecutor.PreparedGraph {
     let key = effect(for: layerID)
     let output = outputIdentity(for: layerID)
@@ -239,7 +234,9 @@ private func makeAtomicPrepared(
     let graph = Graph(
         layerID: layerID,
         effects: [.init(key: key)],
-        nodes: [.init(nodeIndex: 0, kind: .material, materialOrdinal: 0)],
+        nodes: (0 ..< nodeCount).map {
+            .init(nodeIndex: $0, kind: .material, materialOrdinal: $0)
+        },
         renderTargets: discardedPersistentTargetState ? [output] : []
     )
     let state = State(
@@ -253,12 +250,9 @@ private func makeAtomicPrepared(
     let transaction = State.Transaction(
         intents: discardedPersistentTargetState && !forgedDiscardTransaction
             ? []
-            : [.material(
-                nodeIndex: 0,
-                materialOrdinal: 0,
-                bindings: [],
-                target: nil
-            )],
+            : (0 ..< nodeCount).map {
+                .material(nodeIndex: $0, materialOrdinal: $0, bindings: [], target: nil)
+            },
         mappingBefore: [:],
         mappingAfter: [:],
         allocationGeneration: generation,
@@ -274,11 +268,9 @@ private func makeAtomicPrepared(
             outputIdentity: output,
             inputMember: .zero,
             outputMember: .zero,
-            nodes: [.init(
-                nodeIndex: 0,
-                kind: .material,
-                rotatesAfterNode: true
-            )]
+            nodes: (0 ..< nodeCount).map {
+                .init(nodeIndex: $0, kind: .material, rotatesAfterNode: $0 == nodeCount - 1)
+            }
         ),
         transition: .init(nextState: state, transaction: transaction),
         inputWidth: 2_048,

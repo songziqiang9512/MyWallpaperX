@@ -48,8 +48,11 @@ final class SceneSoundPlaybackRegistry {
             player.automaticallyWaitsToMinimizeStalling = false
             player.volume = Float(binding.authoredVolume)
             if binding.playbackMode == .loop {
-                let item = AVPlayerItem(url: currentResource.url)
-                looper = AVPlayerLooper(player: player, templateItem: item)
+                if let item = makeItem() {
+                    looper = AVPlayerLooper(player: player, templateItem: item)
+                } else {
+                    rejectUnavailableResource()
+                }
                 currentItemObservation = player.observe(\.currentItem, options: [.initial, .new]) {
                     [weak self] _, change in
                     let item = change.newValue ?? nil
@@ -184,9 +187,14 @@ final class SceneSoundPlaybackRegistry {
             itemStatusObservation?.invalidate()
             if let endObservation { NotificationCenter.default.removeObserver(endObservation) }
             endObservation = nil
+            managedItem = nil
+            itemGeneration &+= 1
             player.pause()
             player.removeAllItems()
-            let item = AVPlayerItem(url: currentResource.url)
+            guard let item = makeItem() else {
+                rejectUnavailableResource()
+                return
+            }
             observeStatus(of: item)
             player.insert(item, after: nil)
             if case .random = binding.playbackMode {
@@ -207,6 +215,27 @@ final class SceneSoundPlaybackRegistry {
                     }
                 }
             }
+        }
+
+        /// AVPlayerLooper's items share the template asset. Pin the private
+        /// file to that actual AV consumer rather than to Registry retirement.
+        private func makeItem() -> AVPlayerItem? {
+            guard let file = currentResource.file else { return nil }
+            let asset = AVURLAsset(url: file.url)
+            file.retainForLifetime(of: asset)
+            return AVPlayerItem(asset: asset)
+        }
+
+        private func rejectUnavailableResource() {
+            if case .random = binding.playbackMode {
+                randomFailed = true
+                wantsPlayback = false
+                remainingGap = nil
+            }
+#if DEBUG
+            NSLog("MWX Scene sound: layer=%d epoch=%llu phase=failed source=%@ reason=resource-unavailable",
+                  binding.layerID, epoch, currentResource.displayPath)
+#endif
         }
 
         private func reconcilePlayback() {

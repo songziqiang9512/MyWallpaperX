@@ -3,7 +3,8 @@
 WebKit delivery is delayed by the harness. The real registry, surface message
 handler, demand reducer, goodbye branch, lease work, and spectrum methods execute;
 no CoreAudio device or App is started. A separate JS check runs actual registration
-and hello-ACK source for pre-ACK and re-registration ordering.
+and hello-ACK source for pre-ACK and re-registration ordering. Media-control JS
+also preserves author setters/notifications while deduplicating each target list.
 """
 from pathlib import Path
 import json
@@ -19,7 +20,16 @@ ROOT = Path(__file__).resolve().parents[2]
 HOST = ROOT / "MyWallpaperX/Core/SteamWorkshopWeb/Host"
 
 ADAPTER_STATE = r'''
-    struct Request { let id = UUID(); let propertiesJSON = "{}" }
+    struct Request {
+        let id = UUID()
+        var propertiesJSON: String? = "{}"
+        var rootURL = URL(fileURLWithPath: "/a")
+        var resourceGrants: [WebWallpaperResourceGrant] = []
+    }
+    // DIRECTORY TYPES
+    struct DirectoryAccessErrorKey: Hashable { let propertyName: String; let screenID: CGDirectDisplayID? }
+    var directorySnapshotsByProperty: [String: DirectorySnapshot] = [:]
+    var directoryAccessErrorsByProperty: [DirectoryAccessErrorKey: String] = [:]
     struct Surface { let webView: WKWebView; let audioDemandMessageHandler: WebAudioDemandMessageHandler }
     enum Event { case audioSpectrumDemandChanged(Bool, requestID: UUID) }
     var surfaces: [CGDirectDisplayID: Surface] = [:]
@@ -45,6 +55,12 @@ ADAPTER_STATE = r'''
     var effectiveVolume = 1.0
     var currentPlaybackRate = 1.0
     var paused = false
+    var resourceRefreshes = 0
+    var directoryScans = 0
+    var generalPropertyPushes = 0
+    func applyGeneralProperties(to webView: WKWebView) { generalPropertyPushes += 1 }
+    func refreshReadableResourceRoots(using propertiesJSON: String?) { resourceRefreshes += 1 }
+    func syncFetchAllDirectoryProperties(using propertiesJSON: String) { directoryScans += 1 }
     static func screenID(for screen: NSScreen) -> CGDirectDisplayID { 1 }
     func currentGeneralPropertiesJSON(for screen: NSScreen?, screenID: CGDirectDisplayID?) -> String { "{}" }
     var currentSystemMediaSnapshot: SystemMediaSnapshot?
@@ -58,9 +74,17 @@ typealias CGDirectDisplayID = UInt32
 @MainActor final class WKNavigation {}
 @MainActor struct WKScriptMessage { let name: String; let body: Any }
 @MainActor final class NSScreen { static let screens: [NSScreen] = [] }
+extension WKWebView {
+    func evaluateJavaScript(_ script: String, completionHandler: ((Any?, Error?) -> Void)?) {
+        sent.append(.init(script: script, frame: WKFrameInfo(-1), finish: { _ in }))
+    }
+}
 enum WebWallpaperHostSupport {
     static func javaScriptQuotedString(_ value: String) -> String {
         String(data: try! JSONEncoder().encode(value), encoding: .utf8)!
+    }
+    static func javaScriptArrayLiteral(from values: [String]) -> String {
+        String(data: try! JSONEncoder().encode(values), encoding: .utf8)!
     }
 }
 '''
@@ -81,6 +105,21 @@ CHECKS = r'''
         let firstHandler = WebAudioDemandMessageHandler(adapter: adapter, screenID: 1)
         adapter.surfaces[1] = .init(webView: first, audioDemandMessageHandler: firstHandler)
         adapter.surfaces[2] = .init(webView: second, audioDemandMessageHandler: WebAudioDemandMessageHandler(adapter: adapter, screenID: 2))
+        for _ in 0..<2 {
+            adapter.applyCompatibilityState(to: first)
+            adapter.applyCompatibilityState(to: second)
+        }
+        expect(adapter.resourceRefreshes == 0 && adapter.directoryScans == 0,
+               "per-surface DOM-ready/didFinish state replay must not repeat global resource work")
+        expect(first.sent.count == 2 && second.sent.count == 2, "every surface retains compatibility-state replay")
+        first.sent.removeAll(); second.sent.removeAll()
+        let propertyFrame = adapter.frameEndpointRegistry.register(documentNonce: "property-only", frameInfo: WKFrameInfo(30), in: first)!
+        adapter.applyProperties(#"{"speed":{"value":4},"enabled":{"value":true}}"#, to: first)
+        expect(adapter.generalPropertyPushes == 0 && first.sent.count == 1 && first.sent[0].frame.id == 30,
+               "user property changes deliver the full payload without repeating unchanged general properties")
+        print("property-push=" + String(data: try! JSONEncoder().encode(first.sent[0].script), encoding: .utf8)!)
+        adapter.frameEndpointRegistry.revoke(token: propertyFrame.token, in: first)
+        first.sent.removeAll(); first.pending.removeAll()
         let only = adapter.frameEndpointRegistry.register(documentNonce: "only-audio", frameInfo: WKFrameInfo(1), in: first)!
         let passive = adapter.frameEndpointRegistry.register(documentNonce: "passive", frameInfo: WKFrameInfo(2), in: first)!
         send(adapter, 1, ["active": true])
@@ -242,6 +281,28 @@ CHECKS = r'''
         snapshotAdapter.currentSpectrumLevels = [0.85]
         snapshotAdapter.applyCompatibilitySnapshot(to: retained, webView: snapshotView)
         snapshots.append(snapshotView.sent.last!.script)
+        snapshotAdapter.currentRequest!.propertiesJSON = #"{"slides":{"type":"directory","mode":"fetchall","value":"/a"},"blocked":{"type":"directory","mode":"fetchall","value":"/a/blocked"}}"#
+        snapshotAdapter.directorySnapshotsByProperty = ["slides": .init(sourceDirectoryPath: "/a", filesByPath: ["/a/photo.jpg": 1, "/a/next.jpg": 2])]
+        snapshotAdapter.directoryAccessErrorsByProperty = [
+            .init(propertyName: "blocked", screenID: 1): "permission denied",
+            .init(propertyName: "other-display-only", screenID: 2): "unrelated error"
+        ]
+        snapshotAdapter.handleFrameEndpointHello(nonce: "late-directory-child", frameInfo: WKFrameInfo(25), webView: snapshotView)
+        let directorySnapshot = snapshotView.sent.last!
+        expect(directorySnapshot.frame.id == 25, "late child receives its own current resource snapshot")
+        print("directory-snapshot=" + String(data: try! JSONEncoder().encode(directorySnapshot.script), encoding: .utf8)!)
+        snapshotAdapter.currentRequest!.propertiesJSON = #"{"slides":{"type":"directory","mode":"fetchall","value":"/a/new-selection"}}"#
+        let lateReplacement = snapshotAdapter.frameEndpointRegistry.register(documentNonce: "late-directory-replacement", frameInfo: WKFrameInfo(26), in: snapshotView)!
+        snapshotAdapter.applyCompatibilitySnapshot(to: lateReplacement, webView: snapshotView)
+        var notReadySnapshots = [snapshotView.sent.last!.script]
+        snapshotAdapter.currentRequest!.propertiesJSON = #"{"slides":{"type":"directory","mode":"fetchall","value":"/outside"}}"#
+        snapshotAdapter.currentRequest!.resourceGrants = [.init(kind: .directory, url: URL(fileURLWithPath: "/outside"))]
+        snapshotAdapter.directorySnapshotsByProperty = ["slides": .init(sourceDirectoryPath: "/outside", filesByPath: ["/outside/private.jpg": 1])]
+        snapshotAdapter.currentRequest!.resourceGrants = []
+        let lateRevoked = snapshotAdapter.frameEndpointRegistry.register(documentNonce: "late-directory-revoked", frameInfo: WKFrameInfo(27), in: snapshotView)!
+        snapshotAdapter.applyCompatibilitySnapshot(to: lateRevoked, webView: snapshotView)
+        notReadySnapshots.append(snapshotView.sent.last!.script)
+        print("directory-not-ready=" + String(data: try! JSONEncoder().encode(notReadySnapshots), encoding: .utf8)!)
         print("snapshots=" + String(data: try! JSONEncoder().encode(snapshots), encoding: .utf8)!)
         print("endpoint audio demand checks passed")
     }
@@ -259,9 +320,13 @@ class WebAudioDemandTests(unittest.TestCase):
         navigation = (HOST / "DedicatedWebWallpaperHostPlaceholderAdapter+NavigationDelegate.swift").read_text()
         methods = "\n".join(method(delivery, marker) for marker in [
             "func sequencedPushScript(", "func pushAudioSpectrum(", "func clearAudioSpectrum(",
-            "func compatibilityStateScript(", "func applyCompatibilitySnapshot(",
+            "func compatibilityStateScript(", "func applyCompatibilitySnapshot(", "func deliverStatePush(",
             "private func deliverAudioSpectrum(", "private func renewFrameEndpointLeases(",
         ]).replace("private func renewFrameEndpointLeases", "func renewFrameEndpointLeases")
+        runtime = (HOST / "DedicatedWebWallpaperHostPlaceholderAdapter+RuntimeBridge.swift").read_text()
+        methods += "\n" + method(runtime, "func applyCompatibilityState(")
+        methods += "\n" + method(runtime, "func applyProperties(")
+        methods += "\n" + method((HOST / "DedicatedWebWallpaperHostPlaceholderAdapter+DirectorySync.swift").read_text(), "func parseFetchAllDirectoryProperties(")
         goodbye = lifecycle.split('            case "goodbye":', 1)[1].split('            case "hello", nil:', 1)[0]
         methods += '\nfunc goodbye(_ body: [String: Any], nonce: String, webView: WKWebView) {\n' + goodbye + '\n}\n'
         methods += method(navigation, "func webView(_ webView: WKWebView, didStartProvisionalNavigation")
@@ -269,8 +334,10 @@ class WebAudioDemandTests(unittest.TestCase):
         base = DELIVERY_HARNESS.split("@main struct SpectrumDeliveryChecks", 1)[0]
         base = base.replace("    func refreshAudioSpectrumDemand() {}\n", "")
         base = base.replace("    let id: Int\n", "    let id: Int\n    var isMainFrame = false\n")
-        base = base.replace("    let frameEndpointRegistry", ADAPTER_STATE + "\n    let frameEndpointRegistry")
-        base = base.replace("// PRODUCTION_TYPES", NATIVE_STUBS + "\n@MainActor\n" + registry + "\n@MainActor\n" + payload)
+        directory_types = "\n".join(source_block(types, marker) for marker in ["struct DirectorySnapshot", "struct FetchAllDirectoryProperty"])
+        state = ADAPTER_STATE.replace("// DIRECTORY TYPES", directory_types)
+        base = base.replace("    let frameEndpointRegistry", state + "\n    let frameEndpointRegistry")
+        base = base.replace("// PRODUCTION_TYPES", NATIVE_STUBS + "\n" + source_block(types, "struct WebWallpaperResourceGrant") + "\n@MainActor\n" + registry + "\n@MainActor\n" + payload)
         base = base.replace("// PRODUCTION_METHODS", methods)
         audio = (HOST / "DedicatedWebWallpaperHostPlaceholderAdapter+AudioDemand.swift").read_text()
         audio = "\n".join(x for x in audio.splitlines() if not x.startswith("import "))
@@ -286,6 +353,49 @@ class WebAudioDemandTests(unittest.TestCase):
             self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
             snapshots = json.loads(next(line.removeprefix("snapshots=") for line in result.stdout.splitlines()
                                         if line.startswith("snapshots=")))
+            property_push = json.loads(next(line.removeprefix("property-push=") for line in result.stdout.splitlines()
+                                             if line.startswith("property-push=")))
+            projection = "const window={__myWallpaperApplyProperties:p=>{window.current=p}};\n" + property_push
+            projection += "\nconsole.log(JSON.stringify(window.current));"
+            projected = subprocess.run(["node", "-e", projection], capture_output=True, text=True, timeout=15)
+            self.assertEqual(projected.returncode, 0, projected.stderr)
+            self.assertEqual(json.loads(projected.stdout), {"speed": {"value": 4}, "enabled": {"value": True}})
+            directory_snapshot = json.loads(next(line.removeprefix("directory-snapshot=") for line in result.stdout.splitlines()
+                                                  if line.startswith("directory-snapshot=")))
+            bridge = (HOST / "DedicatedWebWallpaperHostCompatibilityScript+HostBridge.swift").read_text()
+            projection = method(bridge, "  window.__myWallpaperNotifyDirectoryFilesChanged =") + ";\n"
+            projection += method(bridge, "  window.__myWallpaperNotifyDirectoryAccessError =") + ";\n"
+            script = r'''
+            const events=[], hostLogger=null, window={};
+            const CustomEvent=function(type,init){this.type=type;this.detail=init.detail};
+            for (const name of ['__myWallpaperNotifyPluginLoaded', '__myWallpaperApplyProperties',
+                                '__myWallpaperApplyGeneralProperties', '__myWallpaperSetGlobalVolume',
+                                '__myWallpaperSetPlaybackRate', '__myWallpaperApplyInitialPausedState',
+                                '__myWallpaperPushAudioSpectrum']) window[name]=()=>{};
+            window.dispatchEvent=e=>events.push(e);
+            window.wallpaperPropertyListener={userDirectoryFilesAddedOrChanged:(name,files)=>events.push({type:'files',name,files})};
+            '''
+
+            script += projection + directory_snapshot
+            script += "\nconsole.log(JSON.stringify({state:window.__myWallpaperDirectoryState,events}));"
+            projected = subprocess.run(["node", "-e", script], capture_output=True, text=True, timeout=15)
+            self.assertEqual(projected.returncode, 0, projected.stderr)
+            current = json.loads(projected.stdout)
+            self.assertEqual(current["state"], {"slides": ["/a/next.jpg", "/a/photo.jpg"]})
+            self.assertEqual([e for e in current["events"] if e["type"] == "files"],
+                             [{"type": "files", "name": "slides", "files": ["/a/next.jpg", "/a/photo.jpg"]}])
+            self.assertEqual([e["detail"] for e in current["events"] if e["type"] == "wallpaper-directory-access-error"],
+                             [{"propertyName": "blocked", "errorMessage": "permission denied"}])
+            not_ready_snapshots = json.loads(next(line.removeprefix("directory-not-ready=") for line in result.stdout.splitlines()
+                                                 if line.startswith("directory-not-ready=")))
+            for pending_snapshot in not_ready_snapshots:
+                fixture = "const directoryCalls=[]; const window={};\n"
+                fixture += "for(const name of ['__myWallpaperNotifyPluginLoaded','__myWallpaperApplyProperties','__myWallpaperApplyGeneralProperties','__myWallpaperSetGlobalVolume','__myWallpaperSetPlaybackRate','__myWallpaperApplyInitialPausedState','__myWallpaperPushAudioSpectrum']) window[name]=()=>{};\n"
+                fixture += "window.__myWallpaperNotifyDirectoryFilesChanged=(...args)=>directoryCalls.push(args);\n"
+                fixture += pending_snapshot + "\nconsole.log(JSON.stringify(directoryCalls));"
+                pending = subprocess.run(["node", "-e", fixture], capture_output=True, text=True, timeout=15)
+                self.assertEqual(pending.returncode, 0, pending.stderr)
+                self.assertEqual(json.loads(pending.stdout), [], "new paths and revoked grants must not replay an old directory")
             for index, snapshot in enumerate(snapshots):
                 # Execute every native-generated script in a fresh page so the
                 # actual visible levels, rather than its source shape, decide.
@@ -324,3 +434,184 @@ class WebAudioDemandTests(unittest.TestCase):
         script += "\nif(window.lastLevels.length!==128 || window.lastLevels.some(x=>x!==0)) throw Error('old evaluation must not override withdrawal silence');\n"
         result = subprocess.run(["node", "-e", script], capture_output=True, text=True, timeout=15)
         self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+
+    def test_pending_properties_share_one_timer_and_keep_late_alias_registration(self):
+        bridge = (HOST / "DedicatedWebWallpaperHostCompatibilityScript+HostBridge.swift").read_text()
+        properties = bridge[bridge.index("  window.__myWallpaperStablePropertySignature ="):
+                            bridge.index("  window.__myWallpaperApplyGeneralProperties =")]
+        scheduling = source_block((HOST / "DedicatedWebWallpaperHostCompatibilityScript+Scheduling.swift").read_text(),
+                                  "window.__myWallpaperRunAfterSettledFrames = function(callback)")
+        script = r'''
+const vm = require('node:vm'), assert = require('node:assert/strict');
+function page(listener) {
+  let nextID = 0, rafCount = 0;
+  const timers = new Map(), frames = [], calls = [];
+  const context = { hostLogger: null, document: { readyState: 'complete' },
+    setTimeout(fn, delay) { const id = ++nextID; timers.set(id, { fn, delay }); return id; },
+    clearTimeout(id) { timers.delete(id); },
+    requestAnimationFrame(fn) { rafCount++; frames.push(fn); return ++nextID; },
+    dispatchEvent() {}, CustomEvent: class {}, Event: class {},
+    wallpaperPropertyListener: listener,
+    __myWallpaperNormalizePropertyBag: value => value
+  };
+  context.window = context;
+  vm.createContext(context);
+  vm.runInContext(PRODUCTION, context);
+  const runTimer = delay => {
+    const entry = Array.from(timers).find(([id, timer]) => timer.delay === delay);
+    assert.ok(entry, 'expected timer delay=' + delay);
+    timers.delete(entry[0]); entry[1].fn();
+  };
+  const settled = () => {
+    while (frames.length) frames.shift()(0);
+    runTimer(0);
+  };
+  return { context, calls, timers, frames, runTimer, settled, rafCount: () => rafCount };
+}
+const delivered = [];
+const main = page({ applyUserProperties: value => delivered.push(value.speed.value) });
+main.context.__myWallpaperApplyProperties({ speed: { value: 1 } });
+main.runTimer(0);
+assert.equal(main.frames.length, 1);
+for (let value = 2; value <= 20; value++) {
+  main.context.__myWallpaperApplyProperties({ speed: { value } });
+}
+assert.equal(main.frames.length, 1, 'updates while frames settle share the existing timer owner');
+assert.equal(main.timers.size, 1, 'only the one existing settled-frame fallback remains');
+main.settled();
+assert.deepEqual(delivered, [20], 'one complete callback consumes the current property bag');
+assert.equal(main.context.__myWallpaperPropertyReplayState.pendingProperties, null);
+assert.equal(main.timers.size, 0);
+
+const alreadyConsumed = [];
+const empty = page({ applyUserProperties: value => alreadyConsumed.push(value.speed.value) });
+empty.context.__myWallpaperApplyProperties({ speed: { value: 7 } });
+empty.context.__myWallpaperDrainPendingProperties();
+assert.deepEqual(alreadyConsumed, [7]);
+empty.runTimer(0);
+assert.equal(empty.rafCount(), 0, 'an emptied pending queue creates no RAF or fallback chain');
+assert.equal(empty.timers.size, 0);
+
+const alias = {}, late = [], waiting = page(alias);
+waiting.context.__myWallpaperApplyProperties({ renamedSetting: { value: 'current' } });
+waiting.runTimer(0); waiting.settled();
+for (let attempt = 0; attempt < 3; attempt++) {
+  waiting.runTimer(80); waiting.settled();
+}
+assert.equal(waiting.context.__myWallpaperPropertyReplayState.pendingSignature.length > 0, true);
+Object.defineProperty(alias, 'applyUserProperties', {
+  configurable: true, value: value => late.push(value.renamedSetting.value)
+});
+waiting.runTimer(80); waiting.settled();
+assert.deepEqual(late, ['current'], 'late defineProperty on a captured alias remains supported');
+assert.equal(waiting.timers.size, 0);
+assert.equal(waiting.context.__myWallpaperPropertyReplayState.pendingProperties, null);
+
+const stalledCalls = [], stalled = page({ applyUserProperties: value => stalledCalls.push(value.mode.value) });
+stalled.context.__myWallpaperApplyProperties({ mode: { value: 'fallback' } });
+stalled.runTimer(0); stalled.runTimer(250);
+assert.deepEqual(stalledCalls, ['fallback'], 'stalled author RAF retains the existing fallback');
+console.log('web-pending-property-replay-pass');
+'''.replace("PRODUCTION", json.dumps(scheduling + ";\n" + properties))
+        result = subprocess.run(["node", "-e", script], capture_output=True, text=True, timeout=15)
+        self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+        self.assertIn("web-pending-property-replay-pass", result.stdout)
+
+
+    def test_media_control_deduplicates_objects_and_preserves_author_setters(self):
+        bridge = (HOST / "DedicatedWebWallpaperHostCompatibilityScript+HostBridge.swift").read_text()
+        discovery = source_block((HOST / "DedicatedWebWallpaperHostCompatibilityScript+MediaDiscovery.swift").read_text(),
+                                 "const wallpaperMediaNodes = () =>")
+        foundation = (HOST / "DedicatedWebWallpaperHostCompatibilityScript+BootstrapFoundation.swift").read_text()
+        production = discovery + ";\n" + source_block(foundation, "window.wallpaperRegisterAudioStream = function(audio)")
+        for marker in ["window.__myWallpaperSetGlobalVolume = function(value)",
+                       "window.__myWallpaperSetPlaybackRate = function(value)"]:
+            production += ";\n" + source_block(bridge, marker)
+        script = r"""
+const vm = require('node:vm'), assert = require('node:assert/strict');
+function media(name, throwingGetter = false) {
+  const state = { name, volume: 1, rate: 1, volumeWrites: 0, rateWrites: 0, reads: 0 };
+  const node = {
+    get volume() { state.reads++; if (throwingGetter) throw Error('author volume getter'); return state.volume; },
+    set volume(value) { state.volume = value; state.volumeWrites++; },
+    get playbackRate() { state.reads++; if (throwingGetter) throw Error('author rate getter'); return state.rate; },
+    set playbackRate(value) { state.rate = value; state.rateWrites++; }
+  };
+  return { node, state };
+}
+function root(nodes, elements = []) {
+  return { querySelectorAll(selector) {
+    if (selector === 'audio,video') return nodes;
+    assert.equal(selector, '*'); return elements;
+  } };
+}
+function page(document) {
+  const events = [], volumeCalls = [];
+  const context = { document, audioStreams: [], volumeListeners: [value => volumeCalls.push(value)],
+    CustomEvent: class { constructor(type, options) { this.type = type; this.detail = options.detail; } },
+    dispatchEvent(event) { events.push(event); } };
+  context.window = context; vm.createContext(context); vm.runInContext(PRODUCTION, context);
+  return { context, events, volumeCalls,
+    register: node => context.wallpaperRegisterAudioStream(node),
+    volume: value => context.__myWallpaperSetGlobalVolume(value),
+    rate: value => context.__myWallpaperSetPlaybackRate(value) };
+}
+const shared = media('DOM-and-stream'), shadow = media('shadow'), child = media('iframe');
+const detached = media('registered-only'), accessor = media('author-accessor', true);
+const childNodes = [child.node], mainNodes = [shared.node];
+const childRoot = root(childNodes);
+const mainRoot = root(mainNodes, [
+  { shadowRoot: root([shadow.node]) }, { tagName: 'IFRAME', contentDocument: childRoot }
+]);
+const main = page(mainRoot), frame = page(childRoot);
+for (let i = 0; i < 4; i++) main.register(shared.node);
+main.register(detached.node); main.register(detached.node);
+main.register(accessor.node); main.register(accessor.node);
+main.volume(0.25); main.rate(1.5);
+for (const target of [shared, shadow, child, detached, accessor]) {
+  assert.equal(target.state.volume, 0.25, target.state.name);
+  assert.equal(target.state.rate, 1.5, target.state.name);
+  assert.equal(target.state.volumeWrites, 1, 'one object is written once per volume invocation: ' + target.state.name);
+  assert.equal(target.state.rateWrites, 1, 'one object is written once per rate invocation: ' + target.state.name);
+}
+assert.equal(accessor.state.reads, 0, 'author writeable properties do not gain a getter prerequisite');
+assert.deepEqual(main.volumeCalls, [0.25]);
+assert.deepEqual(main.events.map(event => [event.type, event.detail]), [
+  ['wallpaper-volume-changed', 0.25], ['wallpaper-playback-rate-changed', 1.5]
+]);
+
+// The parent retains coverage of a same-origin child before that child's
+// endpoint update; the child also keeps its own notifications/control call.
+frame.volume(0.25); frame.rate(1.5);
+assert.equal(child.state.volumeWrites, 2); assert.equal(child.state.rateWrites, 2);
+assert.deepEqual(frame.volumeCalls, [0.25]);
+assert.deepEqual(frame.events.map(event => event.type), ['wallpaper-volume-changed', 'wallpaper-playback-rate-changed']);
+
+// Author edits and new/detached/iframe media are rediscovered on every control
+// event. No last-host-value early return may bypass them.
+child.node.playbackRate = 0.75;
+shared.node.volume = 0.9;
+const late = media('new-DOM'), lateChild = media('new-iframe'), lateRegistered = media('new-stream');
+mainNodes.push(late.node); childNodes.push(lateChild.node);
+main.register(lateRegistered.node); main.register(lateRegistered.node);
+main.volume(0.25); main.rate(1.5);
+for (const target of [shared, shadow, child, detached, accessor, late, lateChild, lateRegistered]) {
+  assert.equal(target.state.volume, 0.25, 'current volume reaches ' + target.state.name);
+  assert.equal(target.state.rate, 1.5, 'current rate reaches ' + target.state.name);
+}
+assert.equal(child.state.rateWrites, 4, 'author-edited rate receives the later host value');
+for (const target of [late, lateChild, lateRegistered]) {
+  assert.equal(target.state.volumeWrites, 1); assert.equal(target.state.rateWrites, 1);
+}
+assert.equal(accessor.state.reads, 0);
+main.volume(0.25); main.rate(1.5);
+assert.deepEqual(main.volumeCalls, [0.25, 0.25, 0.25], 'same-value control calls retain author listeners');
+assert.equal(main.events.filter(event => event.type === 'wallpaper-volume-changed').length, 3);
+assert.equal(main.events.filter(event => event.type === 'wallpaper-playback-rate-changed').length, 3);
+assert.equal(shared.state.rateWrites, 3, 'local deduplication does not alter subsequent control events');
+assert.equal(detached.state.rateWrites, 3);
+console.log('web-media-control-object-deduplication-pass');
+""".replace("PRODUCTION", json.dumps(production))
+        result = subprocess.run(["node", "-e", script], capture_output=True, text=True, timeout=15)
+        self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+        self.assertIn("web-media-control-object-deduplication-pass", result.stdout)

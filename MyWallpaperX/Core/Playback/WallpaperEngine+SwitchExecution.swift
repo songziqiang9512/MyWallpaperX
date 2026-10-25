@@ -187,7 +187,7 @@ extension WallpaperEngine {
                 guard let self, let execution else { completion(false); return }
                 self.setVideoOutputActive(execution, active: active, completion: completion)
             },
-            retire: { [weak self, weak execution] completion in
+            retire: { [weak self, weak execution] _, completion in
                 guard let self, let execution else { completion(); return }
                 self.retireVideoExecution(execution, completion: completion)
             })

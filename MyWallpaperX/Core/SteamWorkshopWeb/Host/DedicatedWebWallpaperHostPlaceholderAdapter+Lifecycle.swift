@@ -86,6 +86,11 @@ extension DedicatedWebWallpaperHostPlaceholderAdapter {
             url: entryURL.absoluteString
         )
 #endif
+        // Resource state belongs to this request/revision, not to each surface's
+        // DOM-ready and navigation callbacks. New frame hello replays snapshots.
+        let propertiesJSON = request.propertiesJSON ?? "{}"
+        refreshReadableResourceRoots(using: propertiesJSON)
+        syncFetchAllDirectoryProperties(using: propertiesJSON)
         if !shouldRebuildSurfaces, !surfaces.isEmpty {
             installDefaultInteractiveRegionsIfNeeded()
             // 装载失败在异步完成回调里以同一 message failCurrentLaunch。
@@ -126,7 +131,8 @@ extension DedicatedWebWallpaperHostPlaceholderAdapter {
             resourceLifetime: request.resourceLifetime,
             resourceGrants: request.resourceGrants,
             propertyRevision: request.propertyRevision,
-            resourceRevision: request.resourceRevision
+            resourceRevision: request.resourceRevision,
+            allowedNetworkHosts: request.allowedNetworkHosts
         )
         currentRequest = updatedRequest
         reconcileDisplaySurfaces(for: updatedRequest)
@@ -279,7 +285,8 @@ extension DedicatedWebWallpaperHostPlaceholderAdapter {
                     resourceLifetime: request.resourceLifetime,
                     resourceGrants: update.resourceGrants,
                     propertyRevision: update.revision,
-                    resourceRevision: update.resourceRevision
+                    resourceRevision: update.resourceRevision,
+                    allowedNetworkHosts: request.allowedNetworkHosts
                 )
                 if resourcesChanged {
                     refreshReadableResourceRoots(using: effectivePropertiesJSON)
@@ -309,30 +316,6 @@ extension DedicatedWebWallpaperHostPlaceholderAdapter {
                 break
             }
         }
-    }
-
-    private func mergedWebPropertiesJSON(baseJSON: String?, deltaJSON: String) -> String {
-        guard let deltaData = deltaJSON.data(using: .utf8),
-              let delta = try? JSONSerialization.jsonObject(with: deltaData) as? [String: Any] else {
-            return baseJSON ?? deltaJSON
-        }
-
-        var merged: [String: Any] = [:]
-        if let baseJSON,
-           let baseData = baseJSON.data(using: .utf8),
-           let base = try? JSONSerialization.jsonObject(with: baseData) as? [String: Any] {
-            merged = base
-        }
-        for (key, value) in delta {
-            merged[key] = value
-        }
-
-        guard JSONSerialization.isValidJSONObject(merged),
-              let mergedData = try? JSONSerialization.data(withJSONObject: merged),
-              let mergedJSON = String(data: mergedData, encoding: .utf8) else {
-            return baseJSON ?? deltaJSON
-        }
-        return mergedJSON
     }
 
     func userContentController(_ userContentController: WKUserContentController, didReceive message: WKScriptMessage) {
@@ -367,8 +350,13 @@ extension DedicatedWebWallpaperHostPlaceholderAdapter {
             if isMainFrame, let screenID,
                !recoveringWebContentScreenIDs.contains(screenID) {
                 installDefaultInteractiveRegionsIfNeeded()
-                applyCompatibilityState(to: webView, deferDirectorySync: false)
+                applyCompatibilityState(to: webView)
                 startSyntheticInputForwardingIfNeeded()
+#if DEBUG
+                if !readyScreenIDs.contains(screenID) {
+                    debugStartupSurfaceTimings?[screenID]?.readySource = "main-frame-ready-message"
+                }
+#endif
                 markScreenReady(screenID)
             }
 #if DEBUG
@@ -587,6 +575,11 @@ extension DedicatedWebWallpaperHostPlaceholderAdapter {
 #endif
     func markScreenReady(_ screenID: CGDirectDisplayID) {
         let inserted = readyScreenIDs.insert(screenID).inserted
+#if DEBUG
+        if inserted {
+            debugStartupSurfaceTimings?[screenID]?.readyObservedAt = ProcessInfo.processInfo.systemUptime
+        }
+#endif
         guard inserted,
               readyScreenIDs.count == surfaces.count,
               phase != .ready else {

@@ -270,7 +270,61 @@ def authority_metric_digest(rule: dict) -> str:
     return hashlib.sha256(payload.encode()).hexdigest()
 
 
-def classification_transition_violations(old: dict, new: dict) -> list[str]:
+def passive_result_inventory_correction_valid(old: dict, new: dict, sources: dict[str, str]) -> bool:
+    """One reviewed stale path/passive-result correction, never a new owner allowance."""
+    key = "passive_result_correction"
+    receipt = new.get(key)
+    origin = "Compilation/Material/SceneResolvedMaterialExecutionCapability.swift"
+    destination = "Runtime/Frame/SceneResolvedMaterialPreparedFrameInput.swift"
+    result_file = "Runtime/Session/SceneDesktopWallpaperSession+UserShortcuts.swift"
+    fields = {"schema_version", "from_contract_sha256", "to_contract_sha256", "source_sha256",
+              "design_doc", "owner", "reason", "retirement"}
+    if (old.get(key) is not None or not isinstance(receipt, dict) or set(receipt) != fields
+            or old.get("id") != "shape-derived-analyzer-fleet" or new.get("id") != old["id"]
+            or old.get("role") != "inventory" or new.get("role") != "inventory"
+            or old.get("metric") != "classified-declarations"
+            or old.get("baseline_occurrences") != 66 or new.get("baseline_occurrences") != 66
+            or any(old.get(k) != new.get(k) for k in authority_metric_contract(old)
+                   if k not in {"allowed_files", "classifications"})
+            or old.get("classification_migration") != new.get("classification_migration")
+            or old.get("capability_addition") != new.get("capability_addition")
+            or set(new.get("allowed_files", [])) != (set(old["allowed_files"]) - {origin}) | {destination}
+            or origin not in old["allowed_files"] or destination in old["allowed_files"]
+            or receipt.get("schema_version") != 1
+            or receipt.get("from_contract_sha256") != authority_metric_digest(old)
+            or receipt.get("to_contract_sha256") != authority_metric_digest(new)
+            or receipt.get("design_doc") != "docs/development/repository-workflow.md"
+            or any(not isinstance(receipt.get(k), str) or not receipt[k].strip()
+                   for k in ("owner", "reason", "retirement"))):
+        return False
+    classifications = new.get("classifications", [])
+    if (len(classifications) != len(old.get("classifications", [])) + 1
+            or classifications[:-1] != old.get("classifications", [])):
+        return False
+    value = classifications[-1]
+    identity = {"kind": "passive-value-declaration", "file": result_file,
+                "scope": [{"kind": "struct", "name": "SceneUserShortcutInputState"}],
+                "conditions": [], "declaration": "enum Admission { case allowed, duplicate, revoked }"}
+    if (set(value) != set(identity) | {"owner", "reason", "retirement"}
+            or any(value.get(k) != v for k, v in identity.items())
+            or any(not isinstance(value.get(k), str) or not value[k].strip()
+                   for k in ("owner", "reason", "retirement"))):
+        return False
+    expected_sources = receipt.get("source_sha256")
+    if (not isinstance(expected_sources, dict) or set(expected_sources) != {origin, destination, result_file}
+            or not all(path in sources and hashlib.sha256(sources[path].encode()).hexdigest() == digest
+                       for path, digest in expected_sources.items())):
+        return False
+    for path, expected_count in ((origin, 0), (destination, 1), (result_file, 0)):
+        count, errors, _ = classified_authority_count(swift_without_comments(sources[path]), path, new)
+        if count != expected_count or errors:
+            return False
+    return True
+
+
+def classification_transition_violations(
+    old: dict, new: dict, correction_sources: dict[str, str] | None = None,
+) -> list[str]:
     if old.get("metric") is not None or new.get("classifications"):
         if any(old.get(field) != new.get(field) for field in (
             "pattern", "scan_root", "scope_files", "start_marker", "end_marker",
@@ -283,11 +337,19 @@ def classification_transition_violations(old: dict, new: dict) -> list[str]:
                and not new.get("allowed_files") and not new.get("scope_files"))
     if retired:
         return []
+    correction = old.get("passive_result_correction")
+    if correction is not None and new.get("passive_result_correction") != correction:
+        return [f"{new['id']}: committed passive-result correction is immutable until complete retirement"]
     if (old.get("classification_migration") is not None
             and new.get("classification_migration") != old["classification_migration"]):
         return [f"{new['id']}: committed migration record is immutable until complete retirement"]
+    exact_correction = passive_result_inventory_correction_valid(old, new, correction_sources or {})
+    if correction is None and new.get("passive_result_correction") is not None and not exact_correction:
+        return [f"{new['id']}: passive-result correction requires its exact source-bound receipt"]
     changed = any(old.get(key) != new.get(key) for key in ("metric", "classifications"))
     if not changed:
+        return []
+    if exact_correction:
         return []
     migration = new.get("classification_migration", {})
     if (old.get("classification_migration") is not None
@@ -322,13 +384,16 @@ def capability_addition_transition_violations(
         return len(declarations) == 1 and not conditional_stack_at(text, tokens[declarations[0]][1])
     stable = all(old.get(k) == new.get(k) for k in authority_metric_contract(old)
                  if k not in {"allowed_files", "baseline_occurrences"})
+    corrected = passive_result_inventory_correction_valid(old, new, new_sources)
+    if corrected:
+        stable = True
     if before is not None:
         retired = new.get("baseline_occurrences") == 0 and not new.get("allowed_files") and receipt is None
         if retired:
             stable = all(old.get(k) == new.get(k) for k in authority_metric_contract(old)
                          if k not in {"allowed_files", "baseline_occurrences", "classifications"})
         if (not stable or new.get("role") != old.get("role")
-                or not set(new.get("allowed_files", [])).issubset(old["allowed_files"])
+                or (not corrected and not set(new.get("allowed_files", [])).issubset(old["allowed_files"]))
                 or new.get("baseline_occurrences", 0) > old["baseline_occurrences"]):
             return [f"{new['id']}: committed capability discovery and owner scope cannot expand or change"]
         if not retired and receipt != before:

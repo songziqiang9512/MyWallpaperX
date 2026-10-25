@@ -36,18 +36,25 @@ private final class State: @unchecked Sendable {
     var accepted = 0
     var failures: [String] = []
     var validations = 0
+    var acceptedOutputChannels: [String] = []
 
     func result(_ value: Result<SceneAuthoredShaderProgram, Cache.ProgramLoadFailure>) {
         lock.withLock {
             switch value {
-            case .success: accepted += 1
+            case let .success(program):
+                accepted += 1
+                acceptedOutputChannels.append(program.fragmentOutputChannelUse.rawValue)
             case let .failure(failure): failures.append(failure.code)
             }
         }
     }
 }
 
-private func validate(_ data: Data) ->
+private func validate(
+    _ data: Data,
+    expectedColorTransfer: SceneShaderColorTransfer = .straightAlpha(textureSlot: 0),
+    expectedOutputChannelUse: SceneAuthoredShaderProgram.FragmentOutputChannelUse = .unproven
+) ->
     Result<SceneAuthoredShaderProgram, Cache.ProgramLoadFailure>
 {
     let artifact: SceneGenericShaderProgramArtifact
@@ -58,8 +65,8 @@ private func validate(_ data: Data) ->
         expectedOutputSemantics: .color,
         expectedPremultipliedColorInputSlots: [],
         expectedColorBoundary: nil,
-        expectedColorTransfer: .straightAlpha(textureSlot: 0),
-        expectedFragmentOutputChannelUse: .unproven
+        expectedColorTransfer: expectedColorTransfer,
+        expectedFragmentOutputChannelUse: expectedOutputChannelUse
     ) else { return .failure(.contractRejected) }
     return .success(program)
 }
@@ -77,9 +84,18 @@ private struct ArtifactRecoveryHarness {
         let ownerStarted = DispatchSemaphore(value: 0)
         let releaseOwner = DispatchSemaphore(value: 0)
 
-        func attempt(publication: String = "valid", slow: Bool = false) {
+        func attempt(
+            publication: String = "valid", slow: Bool = false,
+            expectedColorTransfer: SceneShaderColorTransfer = .straightAlpha(textureSlot: 0),
+            expectedOutputChannelUse: SceneAuthoredShaderProgram.FragmentOutputChannelUse = .unproven
+        ) {
             let result = Cache.loadOrCompileProgram(
-                artifactURL: artifactURL, requestKey: key, coordinator: coordinator,
+                artifactURL: artifactURL,
+                key: .init(requestKey: key, outputSemantics: .color,
+                    premultipliedColorInputSlots: [], colorBoundary: nil,
+                    colorTransfer: expectedColorTransfer,
+                    fragmentOutputChannelUse: expectedOutputChannelUse),
+                coordinator: coordinator,
                 validate: { data in
                     let count = state.lock.withLock {
                         state.validations += 1
@@ -92,7 +108,14 @@ private struct ArtifactRecoveryHarness {
                         catch { return .failure(.publicationMissing) }
                         return .failure(.invalidJSON)
                     }
-                    return validate(data)
+                    let result = validate(data, expectedColorTransfer: expectedColorTransfer,
+                        expectedOutputChannelUse: expectedOutputChannelUse)
+                    // The accepted immutable Program remains usable if the
+                    // optional file disappears before this flight returns.
+                    if mode == "accepted-file-removed", case .success = result {
+                        try? FileManager.default.removeItem(at: artifactURL)
+                    }
+                    return result
                 },
                 compile: {
                     state.lock.withLock { state.compilations += 1 }
@@ -115,7 +138,41 @@ private struct ArtifactRecoveryHarness {
 
         var allJoined = true
         var allCompleted = true
+        var isolatedContracts = true
         switch mode {
+        case "contracts-positive-first", "contracts-negative-first",
+             "channels-unproven-first", "channels-red-first":
+            let channelCase = mode.hasPrefix("channels-")
+            let positiveFirst = mode == "contracts-positive-first"
+            let first: SceneShaderColorTransfer = channelCase || positiveFirst ? .straightAlpha(textureSlot: 0) : .opaque
+            let second: SceneShaderColorTransfer = channelCase || !positiveFirst ? .straightAlpha(textureSlot: 0) : .opaque
+            let firstChannel: SceneAuthoredShaderProgram.FragmentOutputChannelUse =
+                mode == "channels-red-first" ? .redDefined : .unproven
+            let secondChannel: SceneAuthoredShaderProgram.FragmentOutputChannelUse =
+                mode == "channels-unproven-first" ? .redDefined : .unproven
+            let group = DispatchGroup()
+            group.enter()
+            DispatchQueue.global().async {
+                attempt(slow: true, expectedColorTransfer: first, expectedOutputChannelUse: firstChannel)
+                group.leave()
+            }
+            let started = ownerStarted.wait(timeout: .now() + 10) == .success
+            if started {
+                group.enter()
+                DispatchQueue.global().async {
+                    attempt(expectedColorTransfer: second, expectedOutputChannelUse: secondChannel)
+                    group.leave()
+                }
+            }
+            let deadline = Date().addingTimeInterval(10)
+            while state.lock.withLock({ state.compilations }) < 2,
+                  coordinator.snapshot.waitingCallers == 0, Date() < deadline {
+                Thread.sleep(forTimeInterval: 0.001)
+            }
+            isolatedContracts = started && state.lock.withLock({ state.compilations == 2 })
+                && coordinator.snapshot.waitingCallers == 0
+            releaseOwner.signal()
+            allCompleted = group.wait(timeout: .now() + 10) == .success
         case "concurrent", "concurrent-bad-publication":
             let group = DispatchGroup()
             group.enter()
@@ -158,6 +215,8 @@ private struct ArtifactRecoveryHarness {
             "compilations": state.compilations, "accepted": state.accepted,
             "failures": state.failures, "validations": state.validations,
             "allJoined": allJoined, "allCompleted": allCompleted,
+            "isolatedContracts": isolatedContracts,
+            "acceptedOutputChannels": state.acceptedOutputChannels,
             "retainedCompilerResults": coordinator.snapshot.completedEntries,
         ]
         FileHandle.standardOutput.write(try JSONSerialization.data(withJSONObject: output))
@@ -259,7 +318,12 @@ class SceneGenericShaderArtifactRecoveryTests(unittest.TestCase):
 
     def test_repaired_entry_is_rechecked_before_compiling(self):
         output = self.run_case("repair-race", initial=b"broken")
-        self.assertEqual((output["accepted"], output["compilations"]), (1, 0), output)
+        self.assertEqual((output["accepted"], output["compilations"], output["validations"]), (1, 0, 2), output)
+
+    def test_accepted_flight_does_not_reopen_the_optional_file(self):
+        output = self.run_case("accepted-file-removed")
+        self.assertEqual((output["accepted"], output["compilations"], output["validations"]), (1, 1, 1), output)
+        self.assertIsNone(output["artifact"], output)
 
     def test_symlink_target_is_preserved_and_entry_is_atomically_replaced(self):
         output = self.run_case(entry_kind="symlink")
@@ -301,6 +365,25 @@ class SceneGenericShaderArtifactRecoveryTests(unittest.TestCase):
         output = self.run_case("concurrent", initial=b"broken")
         self.assertTrue(output["allJoined"] and output["allCompleted"], output)
         self.assertEqual((output["accepted"], output["compilations"]), (8, 1), output)
+        self.assertEqual(output["validations"], 10, output)
+
+    def test_same_artifact_different_expected_contracts_do_not_share_program(self):
+        for mode in ("contracts-positive-first", "contracts-negative-first"):
+            with self.subTest(mode=mode):
+                output = self.run_case(mode)
+                self.assertTrue(output["isolatedContracts"] and output["allCompleted"], output)
+                self.assertEqual((output["accepted"], output["compilations"]), (1, 2), output)
+                self.assertEqual(output["failures"], ["artifact-contract-rejected"], output)
+                self.assertEqual(output["retainedCompilerResults"], 0, output)
+
+    def test_same_artifact_keeps_each_accepted_output_channel_projection(self):
+        for mode in ("channels-unproven-first", "channels-red-first"):
+            with self.subTest(mode=mode):
+                output = self.run_case(mode)
+                self.assertTrue(output["isolatedContracts"] and output["allCompleted"], output)
+                self.assertEqual((output["accepted"], output["compilations"]), (2, 2), output)
+                self.assertEqual(output["failures"], [], output)
+                self.assertEqual(sorted(output["acceptedOutputChannels"]), ["redDefined", "unproven"], output)
 
     def test_bad_publication_is_shared_with_waiters_but_never_retained(self):
         output = self.run_case("concurrent-bad-publication", initial=b"broken")

@@ -279,7 +279,7 @@ nonisolated enum SceneResolvedMaterialExecutionCapabilityAdmission {
     }
 
     /// Bounds all layer-wide work before pair planning, target allocation, or
-    /// per-frame executor preparation. Per-effect State limits still apply.
+    /// per-frame executor preparation; these are launch-work bounds.
     static let maximumEffectsPerLayer = 512
     static let maximumNodesPerLayer = 65_536
     static let maximumRenderTargetsPerLayer = 65_536
@@ -683,14 +683,17 @@ nonisolated enum SceneResolvedMaterialExecutionCapabilityAdmission {
             var products: [SceneGraphAdmissionProduct] = []
             var directDrawGeometryRole: SceneResolvedMaterialAdmittedLayer.DirectDrawGeometryRole?
             var directDrawGeometryFallback: SceneResolvedMaterialAdmittedLayer.DirectDrawGeometryFallback?
+            let nodesByIndex = Dictionary(grouping: graph.nodes, by: \.nodeIndex)
+            let targetsByEffect = Dictionary(grouping: graph.renderTargets, by: \.texture.effect)
+            let blockersByEffect = Dictionary(grouping: graph.blockers, by: \.effect)
+            let definitionsByPath = Dictionary(grouping: descriptor.effectDefinitions, by: { normalized($0.relativePath) })
             for effect in graph.effects {
-                let definitions = descriptor.effectDefinitions.filter {
-                    normalized($0.relativePath) == normalized(effect.definitionPath)
-                }
+                let definitions = definitionsByPath[normalized(effect.definitionPath)] ?? []
                 guard definitions.count == 1, let definition = definitions.first else {
                     throw failure("effect-definition-count")
                 }
-                let stage = try extractStage(effect, from: graph)
+                let stage = try extractStage(effect, from: graph, nodesByIndex: nodesByIndex,
+                    targets: targetsByEffect[effect.key] ?? [], blockers: blockersByEffect[effect.key] ?? [])
                 if sourceRoute == .transparentDirectDraw {
                     switch definition.perspectiveUVRole {
                     case .absent: break
@@ -838,12 +841,13 @@ nonisolated enum SceneResolvedMaterialExecutionCapabilityAdmission {
 
     private static func extractStage(
         _ effect: Graph.Effect,
-        from graph: Graph
+        from graph: Graph,
+        nodesByIndex: [Int: [Graph.Node]],
+        targets: [Graph.RenderTarget], blockers: [Graph.Blocker]
     ) throws -> Graph {
-        let byIndex = Dictionary(grouping: graph.nodes, by: \.nodeIndex)
         var nodes: [Graph.Node] = []
         for index in effect.nodeIndices {
-            let matches = byIndex[index] ?? []
+            let matches = nodesByIndex[index] ?? []
             guard matches.count == 1, let node = matches.first,
                   node.effect == effect.key else {
                 throw failure("stage-extraction")
@@ -853,20 +857,15 @@ nonisolated enum SceneResolvedMaterialExecutionCapabilityAdmission {
         return Graph(
             layerID: graph.layerID,
             effects: [effect],
-            renderTargets: graph.renderTargets.filter {
-                $0.texture.effect == effect.key
-            },
+            renderTargets: targets,
             nodes: nodes,
             finalOutput: effect.output,
-            blockers: graph.blockers.filter { $0.effect == effect.key }
+            blockers: blockers
         )
     }
 
     private static func validateAdmittedStructure(_ graph: Graph) throws {
-        guard graph.nodes.count <= SceneGraphExecutionState.maximumNodeCount,
-              graph.renderTargets.count
-                <= SceneGraphExecutionState.maximumLogicalBindingCount - 2,
-              graph.nodes.contains(where: { node in
+        guard graph.nodes.contains(where: { node in
                   if case .material = node.kind { return true }
                   return false
               }), graph.renderTargets.allSatisfy({ target in

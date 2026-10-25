@@ -29,6 +29,7 @@ extension SceneDesktopWallpaperSession {
         frameDriverDeadline = nil
         pausedFrameRetryDeadline = nil
         for surface in surfaces.values {
+            surface.metalView.dynamicTextTextures?.close()
             surface.metalView.invalidateResolvedMaterialRuntime(reason: reason)
             surface.metalView.teardownParticlePlayback(reason: reason)
             surface.window.orderOut(nil)
@@ -54,8 +55,12 @@ extension SceneDesktopWallpaperSession {
             SceneSystemMediaDemandRegistry.shared.release(lifecycleID)
             if let launchContext {
                 teardownSceneScriptOwners(launchContext, reason: reason)
+                // stop() can clear this context before a later request drain.
+                // Keep its shared worker on the Session's existing release fence.
+                let retirementDrain = retiringSurfaceDrain
+                retirementDrain.enter()
                 launchContext.preparedDeviceResources.baseImages
-                    .cancelDeferredPreparation()
+                    .cancelAndDrainDeferredPreparation { retirementDrain.leave() }
             }
             if let pending = pendingDeferredLayerVisibilityUpdate {
 #if DEBUG

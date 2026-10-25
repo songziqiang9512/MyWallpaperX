@@ -682,6 +682,11 @@ class SystemAudioSpectrumRecoveryTests(unittest.TestCase):
                 f"harness failed:\n{completed.stdout}\n{completed.stderr}",
             )
             self.assertIn("recovery coordination tests passed", completed.stdout)
+            debug_symbols = subprocess.run(
+                ["nm", str(binary_path)], check=True, capture_output=True, text=True
+            ).stdout
+            for diagnostic_field in ["captureGeneration", "hasLoggedCapturedData"]:
+                self.assertIn(diagnostic_field, debug_symbols)
 
             release_binary_path = temporary / "SystemAudioSpectrumRecoveryReleaseCompile"
             release_compile_result = subprocess.run(
@@ -713,6 +718,16 @@ class SystemAudioSpectrumRecoveryTests(unittest.TestCase):
                 text=True,
             )
             self.assertIn("release compile passed", release_completed.stdout)
+            release_symbols = subprocess.run(
+                ["nm", str(release_binary_path)], check=True, capture_output=True, text=True
+            ).stdout
+            for diagnostic_field in ["captureGeneration", "hasLoggedCapturedData"]:
+                self.assertNotIn(diagnostic_field, release_symbols)
+            self.assertNotIn(
+                b"MWX AUDIO CAPTURE: data generation=",
+                release_binary_path.read_bytes(),
+                "Release must exclude the first-data peak scan and its logging payload",
+            )
 
 
 if __name__ == "__main__":

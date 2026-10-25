@@ -100,7 +100,7 @@ class WebNavigationPolicyTests(unittest.TestCase):
                 func installDefaultInteractiveRegionsIfNeeded() {}
                 func refreshSystemMediaSubscription() {}
                 func invalidatePresentation(on surface: HostSurface) {}
-                func applyCompatibilityState(to webView: WKWebView, deferDirectorySync: Bool) {}
+                func applyCompatibilityState(to webView: WKWebView) {}
                 func startSyntheticInputForwardingIfNeeded() {}
                 func markScreenReady(_ screenID: CGDirectDisplayID) {}
                 func resetInteractionState(for screenID: CGDirectDisplayID) {}

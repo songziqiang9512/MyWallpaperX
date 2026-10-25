@@ -120,6 +120,7 @@ extension WallpaperEngine {
         let source: WebWallpaperLaunchSource
         let recordID: String?
         let language: String
+        let allowedNetworkHosts: Set<String>
         let runtimeProfile: WebRuntimeProfile
         let multiDisplayEnabled: Bool
         let resourceLifetime: PlaybackResourceLifetime?
@@ -137,7 +138,8 @@ extension WallpaperEngine {
             resourceLifetime: PlaybackResourceLifetime? = nil,
             resourceGrants: [WebWallpaperResourceGrant] = [],
             propertyRevision: UInt64 = 0,
-            resourceRevision: UInt64 = 0
+            resourceRevision: UInt64 = 0,
+            allowedNetworkHosts: Set<String> = []
         ) {
             self.id = id
             self.entryURL = entryURL
@@ -149,6 +151,7 @@ extension WallpaperEngine {
             self.source = source
             self.recordID = recordID
             self.language = language
+            self.allowedNetworkHosts = allowedNetworkHosts
             self.runtimeProfile = runtimeProfile
             self.multiDisplayEnabled = multiDisplayEnabled
             self.resourceLifetime = resourceLifetime
@@ -374,11 +377,6 @@ final class DedicatedWebWallpaperHostPlaceholderAdapter: NSObject, WallpaperEngi
         case failed
     }
 
-    /// E2c 站点 3: App 装配注入的下载记录解析器（返回外部依赖 host 白
-    /// 名单）——Host 层不再直呼 Modules 的 SteamWorkshopService 单例。
-    /// 注入前维持空名单（保守拒绝网络桥接）。
-    var allowedNetworkBridgeHostsResolver: ((_ recordID: String) -> Set<String>)?
-
     final class HostWindow: NSWindow {
         override var canBecomeKey: Bool {
             #if DEBUG
@@ -425,7 +423,13 @@ final class DedicatedWebWallpaperHostPlaceholderAdapter: NSObject, WallpaperEngi
     }
 
     struct DirectorySnapshot {
+        let sourceDirectoryPath: String?
         let filesByPath: [String: TimeInterval]
+
+        init(sourceDirectoryPath: String? = nil, filesByPath: [String: TimeInterval]) {
+            self.sourceDirectoryPath = sourceDirectoryPath
+            self.filesByPath = filesByPath
+        }
     }
 
     struct DirectorySyncStatus {
@@ -576,6 +580,7 @@ final class DedicatedWebWallpaperHostPlaceholderAdapter: NSObject, WallpaperEngi
     var lastPreheatedRegionIDByScreen: [CGDirectDisplayID: String] = [:]
     #if DEBUG
     var debugSnapshotLumaSamplesByScreen: [CGDirectDisplayID: [String: [Double]]] = [:]
+    var debugStartupSurfaceTimings: [CGDirectDisplayID: WebDaemonStartupSurfaceTimingObservation]?
     #endif
 
     static let pointerMoveThrottleInterval: TimeInterval = 1.0 / 30.0
@@ -644,6 +649,7 @@ final class DedicatedWebWallpaperHostPlaceholderAdapter: NSObject, WallpaperEngi
         webWallpaperPlaybackScriptByPausedState[paused] ?? MyWallpaperX.webWallpaperPlaybackScript
     }
 
+#if DEBUG
     /// navigation.blocked 的 WebView 侧只读状态。宿主每次取消主框架导航后经
     /// `__mwxNavigationBlocked` 累加；页面与 DEBUG 探针可查询
     /// `window.__mwxNavigationState`，无需依赖宿主诊断存储。
@@ -677,6 +683,7 @@ final class DedicatedWebWallpaperHostPlaceholderAdapter: NSObject, WallpaperEngi
       } catch (_) {}
     })();
     """#
+#endif
 }
 
 /// 工坊 web 记录的持久化 WKWebsiteDataStore 回收。触发面只有装配层注入的事实
@@ -719,7 +726,10 @@ final class WebWallpaperDataStoreReclaimer {
     static let maxRemovalAttempts = 3
 
     private(set) var liveRecordIDs = Set<String>()
-    private var identifiersByRecordID: [String: Set<UUID>] = [:]
+    // Keep the existing projection as input facts. Store UUIDs are only
+    // needed when an actual deletion reaches this reclaimer.
+    private var recordsByRecordID: [String: DedicatedWebWallpaperHostPlaceholderAdapter.WebPersistentDataStoreRecord] = [:]
+    private var screenIDs: [CGDirectDisplayID] = []
     private var pendingRemovalWorkItems: [String: DispatchWorkItem] = [:]
     private var removalAttemptsByRecordID: [String: Int] = [:]
     private var activeRecordIDs = Set<String>()
@@ -751,32 +761,31 @@ final class WebWallpaperDataStoreReclaimer {
         activeRecordIDs: Set<String>,
         inUsePersistentDataStoreIdentifiers: Set<UUID>
     ) {
-        var nextIdentifiersByRecordID: [String: Set<UUID>] = [:]
-        for record in records {
-            nextIdentifiersByRecordID[record.recordID] = DedicatedWebWallpaperHostPlaceholderAdapter.persistentDataStoreIdentifiers(
-                for: record,
-                screenIDs: screenIDs
-            )
-        }
+        var nextRecordsByRecordID: [String: DedicatedWebWallpaperHostPlaceholderAdapter.WebPersistentDataStoreRecord] = [:]
+        for record in records { nextRecordsByRecordID[record.recordID] = record }
         let deletedRecordIDs = Self.confirmedDeletedRecordIDs(
             previouslyKnown: liveRecordIDs,
-            currentProjection: Set(nextIdentifiersByRecordID.keys),
+            currentProjection: Set(nextRecordsByRecordID.keys),
             removalIntent: removalIntent
         ).sorted()
-        let previousIdentifiersByRecordID = identifiersByRecordID
-        liveRecordIDs = Set(nextIdentifiersByRecordID.keys)
-        identifiersByRecordID = nextIdentifiersByRecordID
+        let previousRecordsByRecordID = recordsByRecordID
+        let previousScreenIDs = self.screenIDs
+        liveRecordIDs = Set(nextRecordsByRecordID.keys)
+        recordsByRecordID = nextRecordsByRecordID
+        self.screenIDs = screenIDs
         self.activeRecordIDs = activeRecordIDs
         self.inUsePersistentDataStoreIdentifiers = inUsePersistentDataStoreIdentifiers
 
-        for recordID in nextIdentifiersByRecordID.keys {
+        for recordID in nextRecordsByRecordID.keys {
             // 记录在宽限期内回归（库重扫 / 版本发布）：撤销待执行删除。
             pendingRemovalWorkItems.removeValue(forKey: recordID)?.cancel()
             removalAttemptsByRecordID.removeValue(forKey: recordID)
         }
         for recordID in deletedRecordIDs {
-            guard let identifiers = previousIdentifiersByRecordID[recordID],
-                  !identifiers.isEmpty else { continue }
+            guard let record = previousRecordsByRecordID[recordID] else { continue }
+            let identifiers = DedicatedWebWallpaperHostPlaceholderAdapter.persistentDataStoreIdentifiers(
+                for: record, screenIDs: previousScreenIDs)
+            guard !identifiers.isEmpty else { continue }
             // arm 阶段不做 still_in_use 丢弃：此刻记录已被移出 liveRecordIDs，
             // 任何后续发射都不会再判它一次删除；WebKit 契约校验统一交给宽限期末
             // 复核（且仍在用则按 maxRemovalAttempts 有界重试，不静默放弃）。
@@ -816,8 +825,7 @@ final class WebWallpaperDataStoreReclaimer {
                 self.schedulePersistentDataStoreRemoval(recordID: recordID, identifiers: identifiers)
                 return
             }
-            self.removalAttemptsByRecordID.removeValue(forKey: recordID)
-            self.reclaimPersistentDataStores(removing: identifiers, recordID: recordID, liveUsage: liveUsage)
+            self.reclaimPersistentDataStores(removing: identifiers, recordID: recordID)
         }
         pendingRemovalWorkItems[recordID] = workItem
         DispatchQueue.main.asyncAfter(deadline: .now() + Self.removalGracePeriod, execute: workItem)
@@ -833,24 +841,42 @@ final class WebWallpaperDataStoreReclaimer {
 
     private func reclaimPersistentDataStores(
         removing removedIdentifiers: Set<UUID>,
-        recordID: String,
-        liveUsage: LiveUsage
+        recordID: String
     ) {
-        guard #available(macOS 14.0, *) else { return }
-        // 在播记录 / 在播 surface 持有的 store 一律排除：WKWebsiteDataStore 的
-        // "WKWebView using the data store must be released before removal" 契约。
-        // 集合来自复核时刻的实时事实（含宽限期内新建的 surface）。
-        let protectedIdentifiers = liveUsage.activeRecordIDs
-            .union(liveRecordIDs)
-            .reduce(into: Set<UUID>()) { $0.formUnion(identifiersByRecordID[$1] ?? []) }
-            .union(liveUsage.inUsePersistentDataStoreIdentifiers)
-        let liveIdentifiers = identifiersByRecordID.values.reduce(into: Set<UUID>()) { $0.formUnion($1) }
-        let retiresOrphanStores = !didRetireOrphanStores && liveUsage.activeRecordIDs.isSubset(of: liveRecordIDs)
+        guard #available(macOS 14.0, *) else {
+            removalAttemptsByRecordID.removeValue(forKey: recordID)
+            return
+        }
         // 与 SteamWorkshopLegacyAcquisitionRetirement 的 web store 退役同法：WebKit
         // 的类级 store API 会分发回自己的 run loop，先初始化该 owner 再枚举标识。
         _ = WKWebsiteDataStore.default()
         WKWebsiteDataStore.fetchAllDataStoreIdentifiers { [weak self] identifiers in
             guard let self else { return }
+            // Enumeration is asynchronous. A record may return or a surface
+            // may acquire a store before WebKit calls back; consume current
+            // usage and projection here, immediately before actual removal.
+            guard !self.liveRecordIDs.contains(recordID) else {
+                self.removalAttemptsByRecordID.removeValue(forKey: recordID)
+                return
+            }
+            let liveUsage = self.currentLiveUsage()
+            if liveUsage.activeRecordIDs.contains(recordID)
+                || !removedIdentifiers.isDisjoint(with: liveUsage.inUsePersistentDataStoreIdentifiers) {
+                if self.removalAttemptsByRecordID[recordID, default: 0] < Self.maxRemovalAttempts {
+                    self.schedulePersistentDataStoreRemoval(recordID: recordID, identifiers: removedIdentifiers)
+                } else {
+                    self.removalAttemptsByRecordID.removeValue(forKey: recordID)
+                }
+                return
+            }
+            self.removalAttemptsByRecordID.removeValue(forKey: recordID)
+            let liveIdentifiers = self.recordsByRecordID.values.reduce(into: Set<UUID>()) {
+                $0.formUnion(DedicatedWebWallpaperHostPlaceholderAdapter.persistentDataStoreIdentifiers(
+                    for: $1, screenIDs: self.screenIDs))
+            }
+            let protectedIdentifiers = liveIdentifiers.union(liveUsage.inUsePersistentDataStoreIdentifiers)
+            let retiresOrphanStores = !self.didRetireOrphanStores
+                && liveUsage.activeRecordIDs.isSubset(of: self.liveRecordIDs)
             var targets = removedIdentifiers.subtracting(protectedIdentifiers)
             if retiresOrphanStores {
                 self.didRetireOrphanStores = true

@@ -72,7 +72,7 @@
 
 属性更新整体替换授权快照，request 与资源 revision 同时约束资源读取、random/fetchall 枚举、watcher 和异步结果发布。普通值更新不刷新资源代际；授权改变时，仅撤销实际失去授权的资源，仍获授权的媒体流应继续交付。路径规范化、symlink containment 与 regular-file 检查仍在消费入口执行。
 
-execution 清单先比较已有的版本、作品、语言、项目/来源 metadata、overrides 与入口/资源根字段；失配直接走原重算。全部字段匹配后仍核对当前依赖签名与路径；[启动专项 P1](../development/wallpaper-startup-optimization-plan.md)允许 analysis/execution/保存共享同次已验证快照，不能重复全文扫描，也不能扩为长期免校验。扫描中变动或截断须保守处理，快照不自授资源权限。
+播放每次按当前属性与授权组装最小 payload，不维护没有实际消费者的 execution 清单。纯 analysis memo/磁盘缓存使用此前实际依赖的文件 revision 与 locale/schema/入口事实失效，不在暖命中前重新全文扫描和哈希；变动、损坏或缺失只回原解析核重算。可选保存不阻塞播放；缓存不自授资源权限，也不要求本地目录永远等于历史入库内容。数据流与退出归[后台解析合同](cold-descriptor-parse-offload-design.md)。
 
 ---
 
@@ -85,8 +85,6 @@ execution 清单先比较已有的版本、作品、语言、项目/来源 metad
 - 入口解析结果
 - property source / definitions
 - 默认值与 preset override
-- preset 资源绑定
-- baseline 可见性与 precondition
 - 宿主能力快照、静态内容摘要与风险标记
 
 ### 3.2 会话投影

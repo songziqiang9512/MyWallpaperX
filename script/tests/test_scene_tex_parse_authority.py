@@ -71,7 +71,7 @@ import Metal
         ] {
             let url = folder.appendingPathComponent(name + ".tex")
             try bytes.write(to: url)
-            switch SceneTextureLoader().load(from: url, device: device) {
+            switch try SceneTextureLoader().load(from: url, device: device) {
             case let .loaded(texture):
                 var pixel = [UInt8](repeating: 0, count: 4)
                 texture.getBytes(&pixel, bytesPerRow: 4,

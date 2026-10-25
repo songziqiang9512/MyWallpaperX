@@ -4,7 +4,7 @@ import Foundation
 // Only maintenance trimming is excluded. Request actors, decoder, memory owner,
 // source publication, cancellation handlers and permits are production code.
 nonisolated enum ThumbnailCache {
-    static func trimDiskCache(directory: URL, sizeLimit: UInt64) -> Bool { false }
+    static func trimDiskCache(directory: URL, sizeLimit: UInt64, expireBefore: Date? = nil) -> Bool { false }
 }
 
 nonisolated private final class ProtocolState: @unchecked Sendable {
@@ -64,6 +64,27 @@ extension OLThumbnailRequestScheduler {
 }
 
 extension OLThumbnailCache {
+    fileprivate func diskReadContract() throws {
+        let resource = url("disk-read")
+        let file = cacheFile(for: resource)
+        let data = Data("disk snapshot".utf8)
+        try FileManager.default.createDirectory(at: cacheDir, withIntermediateDirectories: true)
+        try expect(cachedData(for: resource) == nil, "missing disk cache must miss")
+        try data.write(to: file)
+        try expect(cachedData(for: resource) == data, "fresh disk cache must load")
+        try FileManager.default.removeItem(at: file)
+        try expect(cachedData(for: resource) == data, "loaded memory snapshot must remain usable")
+        memCache.removeObject(forKey: resource.absoluteString as NSString)
+        try expect(cachedData(for: resource) == nil, "missing disk cache must not survive memory eviction")
+        try data.write(to: file)
+        try FileManager.default.setAttributes([.modificationDate: Date().addingTimeInterval(-maxAge - 1)],
+                                             ofItemAtPath: file.path)
+        try expect(cachedData(for: resource) == nil, "expired disk cache must miss")
+        try FileManager.default.removeItem(at: file)
+        try FileManager.default.createDirectory(at: file, withIntermediateDirectories: false)
+        try expect(cachedData(for: resource) == nil, "unreadable cache entry must miss")
+        try FileManager.default.removeItem(at: file)
+    }
     fileprivate func suspendDecodeQueue(_ value: Bool) { decodeQueue.isSuspended = value }
     fileprivate func decodeAudit() -> (requests: Int, consumers: Int, concurrency: Int, promoted: Int) {
         (decoding.count, decoding.values.reduce(0) { $0 + $1.consumers.count },
@@ -194,6 +215,9 @@ private func url(_ name: String) -> URL { URL(string: "https://thumbnail.test/" 
         try await scheduler()
         try await decode()
         try await fullRequestEpoch()
-        print("{\"networkConsumerLeases\":true,\"pendingCancellationAndPromotion\":true,\"boundedCoalescedDecode\":true,\"fullRequestClearEpoch\":true}")
+        let cache = OLThumbnailCache(requestCoordinator: coordinator())
+        try await cache.diskReadContract()
+        await cache.clearAll()
+        print("{\"networkConsumerLeases\":true,\"pendingCancellationAndPromotion\":true,\"boundedCoalescedDecode\":true,\"fullRequestClearEpoch\":true,\"diskReadContract\":true}")
     }
 }

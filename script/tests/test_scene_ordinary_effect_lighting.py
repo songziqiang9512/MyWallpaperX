@@ -506,7 +506,7 @@ class OrdinaryEffectLightingTests(unittest.TestCase):
             environment = os.environ.copy()
             environment["MWX_SCENE_GENERIC_SHADER_ROUTE"] = "disable-generic"
             environment["MWX_SCENE_GENERIC_SHADER_CACHE"] = str(work / "shader-cache")
-            compiled = subprocess.run(["swiftc", "-parse-as-library", *map(str, frozen),
+            compiled = subprocess.run(["swiftc", "-parse-as-library", "-D", "SCENE_GRAPH_TESTING", *map(str, frozen),
                 str(harness), "-framework", "Metal", "-framework", "CoreGraphics",
                 "-framework", "ImageIO", "-o", str(binary)], capture_output=True, text=True)
             self.assertEqual(compiled.returncode, 0, compiled.stderr)

@@ -12,6 +12,7 @@ from script.tests.test_scene_particle_simulator import SWIFT_SOURCES
 
 HARNESS = r'''
 import Foundation
+import simd
 
 @main enum Harness {
     static func definition(_ count: Any, renamed: Bool = false,
@@ -158,6 +159,52 @@ import Foundation
                 "speedDrawSequences": [speedDrawSequence(reference), speedDrawSequence(renamedOmitted)]]
     }
 
+    static func basisResults() -> [[String: Any]] {
+        let axes = ["0 0 1", "0 0 -7", "1 0 0", "0 3 0", "1 2 3",
+                    "0.44 0 0.9", "0.43 0 0.9"]
+        var rows: [[String: Any]] = []
+        for rawAxis in axes {
+            for renamed in [false, true] {
+                let def = definition(5, renamed: renamed, extra: ["axis": rawAxis,
+                    "speedmin": "1 2 3", "speedmax": "4 5 6"])
+                let sim = simulator(def)
+                guard let plan = def.initializers[1].positionAroundControlPointPlan else {
+                    preconditionFailure("owned basis fixture rejected")
+                }
+                // A separate SIMD oracle reconstructs the authored circle;
+                // dynamic CP translations remain current for each execution.
+                let axisValues = rawAxis.split(separator: " ").map { Double($0)! }
+                let axis = simd_normalize(SIMD3(axisValues[0], axisValues[1], axisValues[2]))
+                let reference = abs(axis.z) > 0.9 ? SIMD3<Double>(0, 1, 0) : .init(0, 0, 1)
+                let u = simd_normalize(simd_cross(reference, axis)), v = simd_cross(axis, u)
+                for target in [SIMD3<Double>(1, 2, 3), SIMD3<Double>(20, -7, 5)] {
+                    sim.advance(by: 0, dynamicControlPoints: [0: target])
+                    var particle = SceneParticleState(id: 1, position: SIMD3(50, 7, 3), velocity: .zero,
+                        color: .init(repeating: 1), alpha: 1, size: 8, rotation: .zero,
+                        angularVelocity: .zero, age: 0, lifetime: 120,
+                        initialColor: .init(repeating: 1), initialAlpha: 1, initialSize: 8)
+                    let axial = simd_dot(particle.position, axis)
+                    let radius = simd_length(particle.position - axis * axial)
+                    let angle = 2 * Double.pi / 5
+                    let expectedPosition = target + axis * axial + (u * cos(angle) + v * sin(angle)) * radius
+                    var random = sim.frameSnapshot().random
+                    let speed = SIMD3(random.value(1, 4), random.value(2, 5), random.value(3, 6))
+                    let expectedVelocity = speed * cos(angle) + simd_cross(axis, speed) * sin(angle)
+                        + axis * simd_dot(axis, speed) * (1 - cos(angle))
+                    let applied = sim.applyPositionAroundControlPoint(plan, to: &particle)
+                    let state = sim.frameSnapshot()
+                    rows.append(["axis": rawAxis, "renamed": renamed, "applied": applied,
+                        "position": [particle.position.x, particle.position.y, particle.position.z],
+                        "expectedPosition": [expectedPosition.x, expectedPosition.y, expectedPosition.z],
+                        "velocity": [particle.velocity.x, particle.velocity.y, particle.velocity.z],
+                        "expectedVelocity": [expectedVelocity.x, expectedVelocity.y, expectedVelocity.z],
+                        "exactlyThreeRandomDraws": random.state == state.random.state])
+                }
+            }
+        }
+        return rows
+    }
+
     static func main() throws {
         var rows: [[String: Any]] = []
         for (label, count, renamed) in [
@@ -215,7 +262,7 @@ import Foundation
         }
         let result: [String: Any] = ["rows": rows, "invalid": invalid,
                                     "adjacentRejected": adjacentRejected, "wide": wide,
-                                    "defaults": omissionResults()]
+                                    "defaults": omissionResults(), "basis": basisResults()]
         print(String(decoding: try JSONSerialization.data(withJSONObject: result), as: UTF8.self))
     }
 }
@@ -272,6 +319,22 @@ class SceneParticlePositionAroundTests(unittest.TestCase):
                 expected = [50 * math.cos(phase * math.tau), 50 * math.sin(phase * math.tau), 0]
                 for actual, value in zip(row["position"], expected):
                     self.assertAlmostEqual(actual, value, delta=1e-10)
+
+    def test_prepared_circle_basis_preserves_axes_dynamic_control_points_and_random_sequence(self):
+        rows = self.result["basis"]
+        self.assertEqual(len(rows), 28)
+        for row in rows:
+            with self.subTest(axis=row["axis"], renamed=row["renamed"]):
+                self.assertTrue(row["applied"])
+                self.assertTrue(row["exactlyThreeRandomDraws"])
+                for actual, expected in zip(row["position"], row["expectedPosition"]):
+                    self.assertAlmostEqual(actual, expected, delta=1e-10)
+                for actual, expected in zip(row["velocity"], row["expectedVelocity"]):
+                    self.assertAlmostEqual(actual, expected, delta=1e-10)
+        for offset in range(0, len(rows), 4):
+            for index in (0, 1):
+                self.assertEqual(rows[offset + index]["position"], rows[offset + index + 2]["position"])
+                self.assertEqual(rows[offset + index]["velocity"], rows[offset + index + 2]["velocity"])
 
     def assert_birth_match(self, row):
         self.assertTrue(row["admitted"])

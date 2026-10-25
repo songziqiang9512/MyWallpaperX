@@ -8,6 +8,8 @@
 
 本页回答 Web 当前生产路径由谁拥有、哪些结论只有源码证据、哪些发布项仍未闭合。长期语言、进程与性能边界统一由[技术栈与架构路线边界](../architecture/technology-stack-boundaries.md)规定；测试证据口径由[Web 壁纸运行能力评测标准](web-wallpaper-benchmark-standard.md)规定。
 
+2026-10-25 [Scene 保留/空预备合同](dedicated-host-process-design.md#启动优化有界空宿主与最小首帧探测)原空预备互斥不变，真实Web不受阻，无退休WebView复用。[D25](../scene/history/scene-startup-d25-2026-10-25.md)已补普通GUI六方向、两真实作者有限属性/输出；原政策分别证typed standard/customScheme/workshopPersistent与highCompatibility/httpLoopback/scopedPersistent暂停/恢复。标准同请求有非零实音，模块原请求实音0、Stop后新请求另证7窗非零，不能合成一次全程通过。模块IMG空thumbnail/fallback交互错误保留，唯一运行时归因未证，不授作者零错。本段旧运行未覆盖F12/focus或OS恢复；D40仅补Scene视频OS恢复，Web OS仍未验，具体范围以专项完成记录为准；P5/P6 STOP非开发债，性能未过。
+
 ## 1. 当前生产所有权
 
 | 系统 | 当前所有者 | 当前边界 |
@@ -17,7 +19,7 @@
 | 暂停策略 | `PlaybackPolicyController` → `PlaybackCommandMultiplexer` | 四个节能开关与锁屏/休眠统一控制 Video/Web/Scene；手动暂停独立保留，Web 不再额外按低电量模式暂停。归属与验证边界见 [E2b 历史验收](../scene/history/engine-refactor-program-through-2026-10-14.md#e2-收敛控制意图与公共依赖) |
 | 生产宿主 | `WebDaemonHostAdapter` → `WebDaemonRuntime` → `DedicatedWebWallpaperHostPlaceholderAdapter` | 主 App 控制端通过带 request UUID 的有界 IPC 管理独立后台 AppKit 播放进程；每屏 WKWebView、桌面窗口、输入、属性与资源桥接只在子进程创建 |
 | 进程入口 | 同一 App 可执行文件 `--mwx-web-daemon` | 产品装配前进入专用 AppKit run loop；Video helper 与 Scene daemon 保持原播放 owner。主 App 不再创建生产 WebView；没有可切换的双生产 route |
-| 本地资源 | `WebWallpaperLocalSchemeHandler` 等 | 受控读取项目根、MIME/响应转换和兼容资源映射；不能扩大为任意文件访问。loopback 档另受「入口前缀 + `SameSite=Strict` 会话 cookie」双重凭据约束 |
+| 本地资源 | `WebWallpaperLocalSchemeHandler` 等 | GET 由同一 FD 完成实际 grants、长度/Range、转换与发送，HEAD/304 保元数据快路；排队取消不再做 IO。loopback 按本租约 token 或 `SameSite=Strict` cookie 和原 root/grants 准入 |
 | 持久化 WebKit store 回收 | `WebWallpaperDataStoreReclaimer`（装配层注入在用事实） | 只按「曾见过 + 新投影缺席 + 模块删除意图」判删除（`confirmedDeletedRecordIDs`，`WebWallpaperHostTypes.swift:471`）；宽限期末按实时在用事实复核，未回收必有 `MWX WEB DATASTORE REMOVAL` 日志；派生标识为 SHA256（`+Surface.swift:370`）。用户可见后果：highCompatibility 用户既有 scoped store（旧模 256 派生的 localStorage）不会被新算法再次命中，等于重置，旧 store 由孤儿退役清理；未接入显示器期间创建的 scoped store 也按孤儿回收，该屏重连后 store 重建 |
 | 评测工具 | `script/web_wallpaper_benchmark.py` 及矩阵 | 采集 App 身份、日志、DOM/窗口/动画证据；没有 fixture 时不能伪造 PASS |
 
@@ -35,7 +37,7 @@ project.json / Workshop directory
   -> per-display WKWebView surface
 ```
 
-`prepareWebPlaybackContext` 在 descriptor 上合并会话属性并重建当前资源授权，返回 context 与同一 descriptor；profile 选择复用后者。无消费者的全量会话模型、内存缓存及专属诊断快照已退役；现役属性、诊断、授权与磁盘缓存语义不变。
+`prepareWebPlaybackContext` 捕获实际作者来源的一份读取租约、同次项目字节、入口/namespace 与语言事实，沿原可取消后台任务准备。analysis memo/磁盘缓存以当前项目和实际依赖 revision 失效；暖命中不先全文 hash 或重复发现 HTML。不保留无人消费的 execution payload 缓存、全库预加载及额外 flight。主 actor 在最后 await 后按当前属性与书签组装必要 payload/grants，返回同一 descriptor/context 与 renderer 所需来源 lifetime；profile 复用 descriptor。语义归[Web 项目模型](web-project-json-runtime-model.md#24-playback-context)，本轮构建与实播仍待复验，旧运行不代表本轮整体验收。 [第三批](../history/cross-topic/wallpaper-startup-p1b-d1-2026-10-24.md)已补真实捕获核、取消/租约、授权与当前实音；五组未证整体提速；[D12](../history/cross-topic/wallpaper-startup-d12-2026-10-24.md)缩小原C1握手窗口、补cookie连续性，根因仍未闭合。
 
 `Placeholder` 是尚未完成命名收口的历史名称，不表示该类型没有产品执行权。重命名必须作为独立机械批次完成源码、测试、日志 schema 和文档同步；不得同时改变宿主行为。
 
@@ -56,7 +58,7 @@ project.json / Workshop directory
 Web Combo使用显式原生菜单项保留同标题不同值，按原option identity选择/提交；共享滑块只提升tracking控件，不改变原preview/去抖/store职责。2026-10-14已编译实际Web编辑器验证同标题A/B两项及B→A提交，未重跑Web样本矩阵；见[相邻修复边界](../scene/history/native-property-list-convergence-2026-10-14.md#接受的实现)。
 
 - 原始 `project.json`、目录和资源布局保持只读；本地 descriptor/cache 是派生执行数据，不反向改写样本。
-- loopback（`httpLoopback`）档的受控资源访问是双重凭据：入口 URL 携带 `/mwx-<token>/` 前缀，入口 HTML 响应另下发 `SameSite=Strict` 会话 cookie（`WebWallpaperLoopbackServer.accessCookieHeader`）。页面 origin 下以 `/` 开头的 Web 根绝对路径（`<img src="/x">`、`fetch('/x')`、`new URL('/x', origin)`）按 cookie 放行，其余无前缀请求仍是 403；跨站页面无法携带该 cookie，未持有 token 的本机进程同样拿不到。合同落点 `WebWallpaperLoopbackServer.authorizedRequestPath(_:cookieHeader:)`。
+- loopback（`httpLoopback`）按本token路径或本租约cookie准入，原root/grants仍校验：入口HTML下发`SameSite=Strict`、Path=/ cookie，供`fetch('/x')`等无前缀资源；缺本cookie的无前缀请求403。cookie不按端口隔离，名称须按原lease token区分；surface退出仅从其原WK store精确删除本name/domain/path，不清其他租约。异步删除不证明在途Set-Cookie排空，也不授跨端口文档隔离。落点`WebWallpaperLoopbackServer.authorizedRequestPath(_:cookieHeader:)`和原`removeSurface`。
 - 兼容脚本的 frame 门（顶层 frame 才发屏幕级信号）是行为边界的第一层；宿主对任何 frame 都能直投的 `window.webkit.messageHandlers.*` 消息按 `WKScriptMessage.frameInfo` 二次判定：`wallpaperHostInteractiveRegions` 与 `wallpaperHostRandomFile` 只接受主 frame，`wallpaperHostLog` 的 `dom.ready` 副作用只认主 frame（日志按来源 frame 标记），网络桥接的在飞配额按 frame 分桶，子 frame 不得耗尽顶层配额。
 - 暂停快照按宿主暂停「回合」记录，不按每次应用的观测状态重写：同一暂停被重复应用（种子期、`dom.ready`、DCL/`load` 兜底重放、`applyPausedState`）时，宿主自己的 `suspend()` 不得被记成作者挂起；`AudioContext` 与媒体节点在恢复时只重放未被作者暂停者。DCL 与 `load` 是同一属性重放的互斥兜底（先到者取走一次性标志并撤销另一侧），不是两次重放。
 - Web 与视频、Scene 的产品状态分离，但共享高层播放切换、显示器、系统中断和音频采集合同。显式暂停由 WebKit 原生媒体门与所有 frame 的页面调度门执行，冻结 RAF、定时器、CSS/Web Animations；恢复保留作者自行暂停的动画。调度门不接管 Web Worker 等独立执行域，不承诺冻结任意后台计算。

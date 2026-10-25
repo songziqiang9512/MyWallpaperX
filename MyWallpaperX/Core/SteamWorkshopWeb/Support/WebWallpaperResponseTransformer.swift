@@ -7,7 +7,8 @@ import Foundation
 
 enum WebWallpaperResponseTransformer {
     static func transform(_ data: Data, fileURL: URL) -> Data {
-        guard let source = String(data: data, encoding: .utf8) else { return data }
+        guard supportsTransformation(for: fileURL),
+              let source = String(data: data, encoding: .utf8) else { return data }
         let transformed: String
         switch fileURL.pathExtension.lowercased() {
         case "html", "htm":

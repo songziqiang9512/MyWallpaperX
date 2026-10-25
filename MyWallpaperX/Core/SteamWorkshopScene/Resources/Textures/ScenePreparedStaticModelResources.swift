@@ -65,12 +65,16 @@ struct ScenePreparedStaticModelResources {
     let pipeline: SceneStaticModelPipeline?
     private let entriesByLayerID: [Int: [Entry]]
     private let animationsByLayerID: [Int: Animation]
+    let namedAlbedoLayerIDs: Set<Int>
 
     private init(pipeline: SceneStaticModelPipeline?, entriesByLayerID: [Int: [Entry]],
                  animationsByLayerID: [Int: Animation] = [:]) {
         self.pipeline = pipeline
         self.entriesByLayerID = entriesByLayerID
         self.animationsByLayerID = animationsByLayerID
+        namedAlbedoLayerIDs = Set(entriesByLayerID.compactMap {
+            $0.value.contains(where: { $0.namedAlbedo != nil }) ? $0.key : nil
+        })
     }
 
     static let empty = ScenePreparedStaticModelResources(
@@ -89,10 +93,6 @@ struct ScenePreparedStaticModelResources {
                 layerID: entry.key, selection: entry.value.selection))
         }
     }
-    var namedAlbedoLayerIDs: Set<Int> {
-        Set(entriesByLayerID.compactMap { $0.value.contains(where: { $0.namedAlbedo != nil }) ? $0.key : nil })
-    }
-
     subscript(layerID: Int) -> [Entry]? {
         entriesByLayerID[layerID]
     }
@@ -104,188 +104,171 @@ struct ScenePreparedStaticModelResources {
         resourceView: SceneResourceView,
         device: MTLDevice,
         textureLoader: SceneTextureLoader,
+        preparedSources: inout [String: SceneMdlStaticModel.PreparedSource],
         cancellationCheck: () throws -> Void
     ) throws -> ScenePreparedStaticModelResources {
-        let layers = descriptor.layers.filter { $0.staticModelPath != nil }
-        guard !layers.isEmpty,
-              let pipeline = SceneStaticModelPipeline(
-                  device: device, colorPixelFormat: descriptor.colorTargetFormat.metalPixelFormat
-              ) else {
-            return .empty
-        }
-
-        struct PreparedGeometry {
-            let materialPath: String
-            let mesh: SceneStaticModelMesh
-            let geometryState: SceneMdlStaticModel.GeometryState
-            let animationAsset: AnimationAsset?
-        }
-
-        let textureResolver = SceneTexturePathResolver(
-            resourceView: resourceView,
-            descriptor: descriptor
-        )
-        var geometryByPath: [String: [PreparedGeometry]] = [:]
-        var rejectedModelPaths: Set<String> = []
-        var entries: [Int: [Entry]] = [:]
-        var animations: [Int: Animation] = [:]
-        let animationDemands = Set(layers.compactMap { layer in
-            !layer.puppetAnimationLayers.isEmpty ? layer.staticModelPath.map(identity) : nil
-        })
-
-        for layer in layers {
-            try cancellationCheck()
-            guard let modelPath = layer.staticModelPath else { continue }
-            let modelIdentity = identity(modelPath)
-            if rejectedModelPaths.contains(modelIdentity) { continue }
-
-            let preparedGeometries: [PreparedGeometry]
-            if let cached = geometryByPath[modelIdentity] {
-                preparedGeometries = cached
-            } else {
-                guard let modelURL = resourceView.resource(
-                    relativePath: modelPath
-                )?.url,
-                      let data = try? Data(
-                          contentsOf: modelURL,
-                          options: .mappedIfSafe
-                      ),
-                      let decoded = try? SceneMdlStaticModelReader.readParts(
-                          data: data
-                      ) else {
-                    rejectedModelPaths.insert(modelIdentity)
-                    continue
-                }
-                // One read/validation per resource, including all clip records.
-                // Hidden visibility-bound clips remain in the same selection.
-                let animationSet: Result<SceneMdlPuppetAnimationSet?, Error>? =
-                    animationDemands.contains(modelIdentity) && decoded.contains(where: { $0.rig != nil })
-                    ? Result { try SceneMdlPuppetAnimationReader.read(data: data) } : nil
-                let attachments: Result<[SceneMdlPuppetAttachment], Error> = animationSet != nil
-                    ? Result { try SceneMdlPuppetAttachmentReader.read(data: data) } : .success([])
-                preparedGeometries = decoded.compactMap { part in
-                    guard let mesh = pipeline.makeMesh(
-                        vertices: part.vertices, indices: part.indices
-                    ) else { return nil }
-                    return PreparedGeometry(
-                        materialPath: part.materialPath,
-                        mesh: mesh,
-                        geometryState: part.geometryState,
-                        animationAsset: animationSet.map {
-                            AnimationAsset(model: part, animations: $0, attachments: attachments)
-                        }
-                    )
-                }
-                geometryByPath[modelIdentity] = preparedGeometries
+        try withoutActuallyEscaping(cancellationCheck) { cancellationCheck in
+            let layers = descriptor.layers.filter { $0.staticModelPath != nil }
+            guard !layers.isEmpty,
+                  let pipeline = SceneStaticModelPipeline(
+                      device: device, colorPixelFormat: descriptor.colorTargetFormat.metalPixelFormat
+                  ) else {
+                return .empty
             }
-            if preparedGeometries.count == 1,
-               let asset = preparedGeometries[0].animationAsset,
-               !layer.puppetAnimationLayers.isEmpty {
-                do {
-                    if let animation = try prepareAnimation(
-                        asset: asset, layers: layer.puppetAnimationLayers) {
-                        animations[layer.id] = animation
+
+            struct PreparedGeometry {
+                let materialPath: String
+                let mesh: SceneStaticModelMesh
+                let geometryState: SceneMdlStaticModel.GeometryState
+                let animationAsset: AnimationAsset?
+            }
+
+            let textureResolver = SceneTexturePathResolver(
+                resourceView: resourceView,
+                descriptor: descriptor
+            )
+            var geometryByPath: [String: [PreparedGeometry]] = [:]
+            var rejectedModelPaths: Set<String> = []
+            var entries: [Int: [Entry]] = [:]
+            var animations: [Int: Animation] = [:]
+            for layer in layers {
+                try cancellationCheck()
+                guard let modelPath = layer.staticModelPath else { continue }
+                let modelIdentity = identity(modelPath)
+                if rejectedModelPaths.contains(modelIdentity) { continue }
+
+                let preparedGeometries: [PreparedGeometry]
+                if let cached = geometryByPath[modelIdentity] {
+                    preparedGeometries = cached
+                } else {
+                    guard let source = preparedSources.removeValue(forKey: modelIdentity) else {
+                        rejectedModelPaths.insert(modelIdentity)
+                        continue
+                    }
+                    // Material links and geometry use the one completed CPU
+                    // snapshot. This owner only uploads it; it never rereads.
+                    preparedGeometries = source.parts.compactMap { part in
+                        guard let mesh = pipeline.makeMesh(
+                            vertices: part.vertices, indices: part.indices
+                        ) else { return nil }
+                        return PreparedGeometry(
+                            materialPath: part.materialPath,
+                            mesh: mesh,
+                            geometryState: part.geometryState,
+                            animationAsset: source.animations.map {
+                                AnimationAsset(model: part, animations: $0, attachments: source.attachments)
+                            }
+                        )
+                    }
+                    geometryByPath[modelIdentity] = preparedGeometries
+                }
+                if preparedGeometries.count == 1,
+                   let asset = preparedGeometries[0].animationAsset,
+                   !layer.puppetAnimationLayers.isEmpty {
+                    do {
+                        if let animation = try prepareAnimation(
+                            asset: asset, layers: layer.puppetAnimationLayers) {
+                            animations[layer.id] = animation
 #if DEBUG
-                        if let failure = animation.futureVisibilityFailure {
-                            NSLog("MWX Scene model-animation layer=%d state=default-selection-preserved futureVisibility=unavailable reason=%@",
-                                layer.id, String(describing: failure))
+                            if let failure = animation.futureVisibilityFailure {
+                                NSLog("MWX Scene model-animation layer=%d state=default-selection-preserved futureVisibility=unavailable reason=%@",
+                                    layer.id, String(describing: failure))
+                            }
+#endif
                         }
+                    } catch {
+#if DEBUG
+                        NSLog("MWX Scene model-animation layer=%d state=bind-only reason=%@",
+                              layer.id, String(describing: error))
 #endif
                     }
-                } catch {
-#if DEBUG
-                    NSLog("MWX Scene model-animation layer=%d state=bind-only reason=%@",
-                          layer.id, String(describing: error))
-#endif
                 }
-            }
-            try cancellationCheck()
-
-            for preparedGeometry in preparedGeometries {
-                guard let materialIdentity = SceneVFSAssetPath(
-                    preparedGeometry.materialPath
-                ),
-                      let pass = descriptor.materialPasses.first(where: {
-                    SceneVFSAssetPath($0.materialPath) == materialIdentity
-                        && $0.passIndex == 0
-                }) else { continue }
-#if DEBUG
-                if SceneDesktopWallpaperHost.usesDebugEvidenceWindow,
-                   let bindings = pass.staticModelMaterialBindings {
-                    NSLog("MWX Scene model-material layer=%d state=%@ reason=%@",
-                        layer.id, bindings.state.rawValue, bindings.rejectionReason ?? "none")
-                }
-#endif
-                guard pass.staticModelMaterialBindings?.state != .rejected,
-                      let modelMaterial = material(
-                          pass, hdrEnabled: descriptor.hdrEnabled, resourceView: resourceView
-                      ),
-                      let texturePath = pass.textureSlots.first.flatMap({ $0 })
-                        ?? pass.staticModelDefaultAlbedoAssetPath else {
-                    continue
-                }
-                let namedAlbedo = SceneNamedTextureReference.parse(texturePath)
-                let albedo: SceneTextureCandidate?
-                if namedAlbedo == nil {
-                    guard let textureURL = textureResolver.resolveTextureFile(
-                        named: texturePath
-                    ), case let .loaded(candidate) = textureLoader.loadCandidate(
-                        from: textureURL,
-                        purpose: .straightAlbedo,
-                        device: device
-                    ) else { continue }
-                    albedo = candidate
-                } else {
-                    albedo = nil
-                }
-                let emission = shaderValue(named: "emissivebrightness", in: pass)
-                // Dynamic declarations need the mask even with a zero seed.
-                // Resource reservation does not grant a live script consumer.
-                let hasDynamicEmissiveBrightness = emission?.userBinding != nil || emission?.scriptSource != nil
-                let emissiveMask = modelMaterial.emissiveBrightness > 0
-                    || hasDynamicEmissiveBrightness
-                    ? optionalTexture(
-                        at: 2,
-                        in: pass,
-                        purpose: .mask,
-                        resolver: textureResolver,
-                        textureLoader: textureLoader,
-                        device: device
-                    )
-                    : nil
-                entries[layer.id, default: []].append(Entry(
-                    modelPath: modelPath,
-                    materialPath: preparedGeometry.materialPath,
-                    dynamicMaterialPath: identity(preparedGeometry.materialPath),
-                    mesh: preparedGeometry.mesh,
-                    albedo: albedo,
-                    namedAlbedo: namedAlbedo,
-                    emissiveMask: emissiveMask,
-                    material: modelMaterial,
-                    writesDepth: writesDepth(pass.depthWrite),
-                    materialBlending: SceneMaterialRenderState.compileBlending(pass.blending),
-                    geometryState: preparedGeometry.geometryState
-                ))
-#if DEBUG
-                if SceneDesktopWallpaperHost.usesDebugEvidenceWindow,
-                   preparedGeometry.geometryState == .bindOnlyAnimationUnqualified {
-                    NSLog("MWX Scene model-geometry layer=%d state=%@ preparation=ready animation=unqualified",
-                        layer.id, preparedGeometry.geometryState.rawValue)
-                }
-#endif
                 try cancellationCheck()
-            }
-        }
 
-        return ScenePreparedStaticModelResources(
-            pipeline: entries.isEmpty ? nil : pipeline,
-            entriesByLayerID: entries,
-            animationsByLayerID: animations.filter { entries[$0.key]?.count == 1 }
-        )
+                for preparedGeometry in preparedGeometries {
+                    guard let materialIdentity = SceneVFSAssetPath(
+                        preparedGeometry.materialPath
+                    ),
+                          let pass = descriptor.materialPasses.first(where: {
+                        SceneVFSAssetPath($0.materialPath) == materialIdentity
+                            && $0.passIndex == 0
+                    }) else { continue }
+#if DEBUG
+                    if SceneDesktopWallpaperHost.usesDebugEvidenceWindow,
+                       let bindings = pass.staticModelMaterialBindings {
+                        NSLog("MWX Scene model-material layer=%d state=%@ reason=%@",
+                            layer.id, bindings.state.rawValue, bindings.rejectionReason ?? "none")
+                    }
+#endif
+                    guard pass.staticModelMaterialBindings?.state != .rejected,
+                          let modelMaterial = material(
+                              pass, hdrEnabled: descriptor.hdrEnabled, resourceView: resourceView
+                          ),
+                          let texturePath = pass.textureSlots.first.flatMap({ $0 })
+                            ?? pass.staticModelDefaultAlbedoAssetPath else {
+                        continue
+                    }
+                    let namedAlbedo = SceneNamedTextureReference.parse(texturePath)
+                    let albedo: SceneTextureCandidate?
+                    if namedAlbedo == nil {
+                        guard let textureURL = textureResolver.resolveTextureFile(
+                            named: texturePath
+                        ), case let .loaded(candidate) = try textureLoader.loadCandidate(
+                            from: textureURL,
+                            purpose: .straightAlbedo,
+                            device: device, checkCancellation: cancellationCheck
+                        ) else { continue }
+                        albedo = candidate
+                    } else {
+                        albedo = nil
+                    }
+                    let emission = shaderValue(named: "emissivebrightness", in: pass)
+                    // Dynamic declarations need the mask even with a zero seed.
+                    // Resource reservation does not grant a live script consumer.
+                    let hasDynamicEmissiveBrightness = emission?.userBinding != nil || emission?.scriptSource != nil
+                    let emissiveMask = modelMaterial.emissiveBrightness > 0
+                        || hasDynamicEmissiveBrightness
+                        ? try optionalTexture(
+                            at: 2,
+                            in: pass,
+                            purpose: .mask,
+                            resolver: textureResolver,
+                            textureLoader: textureLoader,
+                            device: device, checkCancellation: cancellationCheck
+                        )
+                        : nil
+                    entries[layer.id, default: []].append(Entry(
+                        modelPath: modelPath,
+                        materialPath: preparedGeometry.materialPath,
+                        dynamicMaterialPath: identity(preparedGeometry.materialPath),
+                        mesh: preparedGeometry.mesh,
+                        albedo: albedo,
+                        namedAlbedo: namedAlbedo,
+                        emissiveMask: emissiveMask,
+                        material: modelMaterial,
+                        writesDepth: writesDepth(pass.depthWrite),
+                        materialBlending: SceneMaterialRenderState.compileBlending(pass.blending),
+                        geometryState: preparedGeometry.geometryState
+                    ))
+#if DEBUG
+                    if SceneDesktopWallpaperHost.usesDebugEvidenceWindow,
+                       preparedGeometry.geometryState == .bindOnlyAnimationUnqualified {
+                        NSLog("MWX Scene model-geometry layer=%d state=%@ preparation=ready animation=unqualified",
+                            layer.id, preparedGeometry.geometryState.rawValue)
+                    }
+#endif
+                    try cancellationCheck()
+                }
+            }
+
+            return ScenePreparedStaticModelResources(
+                pipeline: entries.isEmpty ? nil : pipeline,
+                entriesByLayerID: entries,
+                animationsByLayerID: animations.filter { entries[$0.key]?.count == 1 }
+            )
+        }
     }
 
-    /// Extend future demand without revoking a healthy current selection. The
-    /// validated asset is reused; no Reader, geometry or playback owner retries.
     private static func prepareAnimation(
         asset: AnimationAsset,
         layers: [ScenePuppetAnimationLayer]
@@ -448,8 +431,8 @@ struct ScenePreparedStaticModelResources {
                   requiresCompleteScalar: true
               )?.first else { return nil }
         for suffix in [".vert", ".frag"] {
-            if let stage = resourceView.resource(relativePath: "shaders/generic4" + suffix),
-               resourceView.source(containing: stage.url) != .stock {
+            if let stage = resourceView.resolvedResource(relativePath: "shaders/generic4" + suffix),
+               stage.source != .stock {
                 return nil
             }
         }
@@ -467,15 +450,16 @@ struct ScenePreparedStaticModelResources {
         purpose: SceneTextureLoadPurpose,
         resolver: SceneTexturePathResolver,
         textureLoader: SceneTextureLoader,
-        device: MTLDevice
-    ) -> SceneTextureCandidate? {
+        device: MTLDevice,
+        checkCancellation: (() throws -> Void)?
+    ) throws -> SceneTextureCandidate? {
         guard pass.textureSlots.indices.contains(slotIndex),
               let path = pass.textureSlots[slotIndex],
               let url = resolver.resolveTextureFile(named: path),
-              case let .loaded(candidate) = textureLoader.loadCandidate(
+              case let .loaded(candidate) = try textureLoader.loadCandidate(
                   from: url,
                   purpose: purpose,
-                  device: device
+                  device: device, checkCancellation: checkCancellation
               ),
               candidate.sampling.isResolvedForMaterialProgram,
               !candidate.sampling.usesClampBorderFallback else {

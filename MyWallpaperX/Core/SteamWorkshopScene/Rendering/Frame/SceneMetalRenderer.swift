@@ -16,6 +16,9 @@ struct SceneMetalRenderer {
     let pipelineRepository: SceneImageEffectPipelineRepository
     let visibleLayerIDs: Set<Int>
     let authoredLayers: [SceneRenderDescriptor.Layer]
+    let orderedLayerIDs: [Int]
+    let framebufferSourceLayerIDs: Set<Int>
+    let preparationLayerIDs: Set<Int>
     // Cached transforms propagate parent pivot/orientation without double-scaling child quads.
     let worldFramesByLayerID: [Int: simd_float4x4]
     let parallaxByLayerID: [Int: SceneLayerParallax.Resolution]
@@ -33,7 +36,7 @@ struct SceneMetalRenderer {
     /// The dependency graph and authored order are launch-scoped facts. Keep
     /// the validated topological order with the renderer so normal frames do
     /// not rebuild the same order for admission and request preparation.
-    let resolvedMaterialPreparationLayerIDs: [Int]?; let resolvedMaterialPreparationLayers: [SceneRenderDescriptor.Layer]?
+    let resolvedMaterialPreparationLayers: [SceneRenderDescriptor.Layer]?
     let textureRegistry = SceneFrameTextureRegistry()
     let utilityCaptureTelemetry = SceneGPUCompletionTelemetry(phase: "utility-capture")
 #if DEBUG

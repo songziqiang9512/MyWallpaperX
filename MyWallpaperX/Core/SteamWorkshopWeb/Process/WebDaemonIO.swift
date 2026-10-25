@@ -18,19 +18,19 @@ nonisolated enum WebDaemonPipeReader {
 
 /// One bounded mailbox on each pipe direction. Critical controls are barriers;
 /// high-rate values coalesce without blocking either AppKit main run loop.
-nonisolated final class WebDaemonMailbox: @unchecked Sendable {
+nonisolated final class WebDaemonMailbox<Payload>: @unchecked Sendable {
     private let lock = NSLock()
-    private var pending = DaemonCommandBuffer<Data, Data>()
+    private var pending = DaemonCommandBuffer<Payload, Payload>()
     private var scheduled = false
     private var closed = false
 
-    func submit(_ data: Data, latest: Bool, schedule: () -> Void) -> Bool {
+    func submit(_ payload: Payload, byteCount: Int, latest: Bool, schedule: () -> Void) -> Bool {
         lock.lock()
-        guard !closed, data.count <= WebDaemonProtocol.maximumFrameBytes else {
+        guard !closed, byteCount <= WebDaemonProtocol.maximumFrameBytes else {
             lock.unlock(); return false
         }
-        if latest { pending.enqueueDroppable(data) }
-        else if !pending.enqueueControl(data, byteCount: data.count,
+        if latest { pending.enqueueDroppable(payload) }
+        else if !pending.enqueueControl(payload, byteCount: byteCount,
                     maximumCount: DaemonCommandBufferLimits.maximumPendingControlCount,
                     maximumBytes: DaemonCommandBufferLimits.maximumPendingControlBytes) {
             lock.unlock(); return false
@@ -42,11 +42,11 @@ nonisolated final class WebDaemonMailbox: @unchecked Sendable {
         return true
     }
 
-    func take() -> Data? {
+    func take() -> Payload? {
         lock.lock(); defer { lock.unlock() }
         guard !closed, let entry = pending.takeFirst() else { scheduled = false; return nil }
         switch entry {
-        case let .control(data, _), let .droppable(data): return data
+        case let .control(payload, _), let .droppable(payload): return payload
         }
     }
 

@@ -70,11 +70,11 @@ import AVFoundation
                          volume: Double = seed, property: String? = nil,
                          mode: String = "loop", spatial: Bool? = nil,
                          available: Bool = true, minimumTime: Double? = nil,
-                         maximumTime: Double? = nil) -> SceneSoundPlaybackProgram {
-        .compile(document: .init(objects: [.init(id: 16, sound: sound(resource: resource,
+                         maximumTime: Double? = nil) throws -> SceneSoundPlaybackProgram {
+        try .compile(document: .init(objects: [.init(id: 16, sound: sound(resource: resource,
             volume: volume, property: property, mode: mode, spatial: spatial,
             minimumTime: minimumTime, maximumTime: maximumTime))]),
-            resourceView: .init(resourcesByReference: available ? [resource: audio] : [:]))
+            resourceView: .init(resourcesByReference: available ? [resource: audio] : [:]), privateCacheDirectory: FileManager.default.temporaryDirectory)
     }
 
     static func document(resource: String = "audio/own.wav", source: String = passthrough,
@@ -172,10 +172,10 @@ import AVFoundation
             objects.append(["id": 17, "sound": [resource],
                 "volume": ["user": "directGain", "value": 0.2]])
             root["objects"] = objects
-            let plan = SceneSoundPlaybackProgram.compile(document: .init(objects: [
+            let plan = try SceneSoundPlaybackProgram.compile(document: .init(objects: [
                 .init(id: 16, sound: sound(resource: resource)),
                 .init(id: 17, sound: sound(resource: resource, volume: 0.2, property: "directGain"))]),
-                resourceView: .init(resourcesByReference: [resource: audio]))
+                resourceView: .init(resourcesByReference: [resource: audio]), privateCacheDirectory: FileManager.default.temporaryDirectory)
             let catalog = SceneUserPropertyDefinitionParser().parse(properties: [
                 key: ["type": "slider", "value": 2.0, "min": 0, "max": 4],
                 "directGain": ["type": "slider", "value": 0.2, "min": 0, "max": 1]])
@@ -328,7 +328,7 @@ import AVFoundation
                 condition: ["type": "combo", "value": "1", "options": [
                     ["label": "Off", "value": "0"], ["label": "On", "value": "1"]]],
             ])
-            let unassigned = prepared(audio: audio, resource: resource, volume: 0.8, property: key)
+            let unassigned = try prepared(audio: audio, resource: resource, volume: 0.8, property: key)
             let accepted = try candidate(scene, scripts, sound: unassigned,
                 properties: catalog.definitions, resolvedVolumes: [key: 0.8])
             let program = accepted.scalarProgram
@@ -454,7 +454,7 @@ import AVFoundation
         let root = namedDocument(key: "gain", condition: "mode", pause: "pause", play: "play",
             source: source, resource: "audio/named-admission.wav")
         let scene = namedScene(root), valid = bindings(root)[0]
-        let plan = prepared(audio: audio, resource: "audio/named-admission.wav", volume: 0.8, property: "gain")
+        let plan = try prepared(audio: audio, resource: "audio/named-admission.wav", volume: 0.8, property: "gain")
         let plain = bindings(document(source: source))[0]
         let rejected: [(String, SceneRenderDescriptor, [SceneScriptBindingIR], Set<SceneDynamicTarget>)] = [
             ("source-mismatch", scene, [changed(valid, source: source + " ")], []),
@@ -507,8 +507,8 @@ import AVFoundation
             ("missing-resolved-proof", plan, keys, [:]),
             ("wrong-resolved-proof", plan, keys, ["gain": 0.4]),
             ("nonfinite-resolved-proof", plan, keys, ["gain": Double.nan]),
-            ("wrong-source-property", prepared(audio: audio, volume: 0.8, property: "other"), keys, ["gain": 0.8]),
-            ("missing-resource", prepared(audio: audio, volume: 0.8, property: "gain", available: false), keys, ["gain": 0.8]),
+            ("wrong-source-property", try prepared(audio: audio, volume: 0.8, property: "other"), keys, ["gain": 0.8]),
+            ("missing-resource", try prepared(audio: audio, volume: 0.8, property: "gain", available: false), keys, ["gain": 0.8]),
         ] {
             facts["named-late-reject-" + name] = sound.sceneScriptVolumeConsumerTargets(for: definitions,
                 namedPropertyKeys: named, resolvedPropertyVolumes: resolved).isEmpty
@@ -528,7 +528,7 @@ import AVFoundation
     static func admissionFacts(audio: URL) throws -> [String: Bool] {
         var facts: [String: Bool] = [:]
         let scene = SceneRenderDescriptor(layers: [layer()])
-        let sound = prepared(audio: audio)
+        let sound = try prepared(audio: audio)
         let valid = bindings(document())[0]
         let rejected: [(String, SceneRenderDescriptor, [SceneScriptBindingIR], Set<SceneDynamicTarget>)] = [
             ("wrong-host", scene, [changed(valid,
@@ -562,19 +562,19 @@ import AVFoundation
             .init(target: .layer(layerID: 999, field: .volume), valueType: .scalar, authoredValue: .scalar(seed)),
             .init(target: .layer(layerID: 16, field: .alpha), valueType: .scalar, authoredValue: .scalar(seed)),
         ]).isEmpty
-        let random = prepared(audio: audio, mode: "random", minimumTime: 1, maximumTime: 2)
+        let random = try prepared(audio: audio, mode: "random", minimumTime: 1, maximumTime: 2)
         let randomCandidate = try candidate(scene, [valid], sound: random)
         facts["random-prepared-volume-consumer"] = random.sceneScriptVolumeConsumerTargets(for: definitions) == [target]
             && randomCandidate.constructionReport.instantiatedScalarTargets == [target]
             && randomCandidate.scalarProgram.bindings.count == 1
         for (name, plan) in [
-            ("missing-resource", prepared(audio: audio, available: false)),
-            ("seed-conflict", prepared(audio: audio, volume: seed.nextUp)),
-            ("direct-property-conflict", prepared(audio: audio, property: "gain")),
-            ("unsupported-format", prepared(audio: audio, resource: "audio/unsupported.webm")),
-            ("random-interval", prepared(audio: audio, mode: "random")),
-            ("unknown-mode", prepared(audio: audio, mode: "once")),
-            ("spatial", prepared(audio: audio, spatial: true)),
+            ("missing-resource", try prepared(audio: audio, available: false)),
+            ("seed-conflict", try prepared(audio: audio, volume: seed.nextUp)),
+            ("direct-property-conflict", try prepared(audio: audio, property: "gain")),
+            ("unsupported-format", try prepared(audio: audio, resource: "audio/unsupported.webm")),
+            ("random-interval", try prepared(audio: audio, mode: "random")),
+            ("unknown-mode", try prepared(audio: audio, mode: "once")),
+            ("spatial", try prepared(audio: audio, spatial: true)),
         ] {
             let excluded = exclusions(scene, [valid], sound: plan)
             let accepted = try candidate(scene, [valid], sound: plan)
@@ -591,7 +591,7 @@ import AVFoundation
         let scripts = bindings(document(source: request))
         var resourceScene = scene
         resourceScene.modelMaterialLinks = [.init(modelPath: "models/excluded-sound.json")]
-        let missing = prepared(audio: audio, available: false)
+        let missing = try prepared(audio: audio, available: false)
         let excluded = exclusions(resourceScene, scripts, sound: missing)
         let projection = SceneScriptVectorProgram.project(descriptor: resourceScene, scriptBindings: scripts)
         let planned = SceneScriptQuickJSProgramCandidate.plannedOwnerSources(authoredDescriptor: resourceScene,
@@ -610,10 +610,10 @@ import AVFoundation
         var facts: [String: Bool] = [:]
         let peer = SceneDynamicTarget.layer(layerID: 18, field: .volume)
         let scene = SceneRenderDescriptor(layers: [layer(), layer(18, index: 1)])
-        let plan = SceneSoundPlaybackProgram.compile(document: .init(objects: [
+        let plan = try SceneSoundPlaybackProgram.compile(document: .init(objects: [
             .init(id: 16, sound: sound(resource: "audio/numeric.wav")),
             .init(id: 18, sound: sound(resource: "audio/numeric.wav", volume: 0.1))]),
-            resourceView: .init(resourcesByReference: ["audio/numeric.wav": audio]))
+            resourceView: .init(resourcesByReference: ["audio/numeric.wav": audio]), privateCacheDirectory: FileManager.default.temporaryDirectory)
         func scripts(_ source: String) -> [SceneScriptBindingIR] {
             var root = document(source: source)
             var objects = root["objects"] as! [[String: Any]]
@@ -699,10 +699,10 @@ import AVFoundation
     static func lifecycleFacts(audio: URL) throws -> [String: Bool] {
         var facts: [String: Bool] = [:]
         let scene = SceneRenderDescriptor(layers: [layer(), layer(18, index: 1)])
-        let plan = SceneSoundPlaybackProgram.compile(document: .init(objects: [
+        let plan = try SceneSoundPlaybackProgram.compile(document: .init(objects: [
             .init(id: 16, sound: sound(resource: "audio/lifecycle.wav")),
             .init(id: 18, sound: sound(resource: "audio/lifecycle.wav", volume: 0.1))]),
-            resourceView: .init(resourcesByReference: ["audio/lifecycle.wav": audio]))
+            resourceView: .init(resourcesByReference: ["audio/lifecycle.wav": audio]), privateCacheDirectory: FileManager.default.temporaryDirectory)
         let program = try candidate(scene, bindings(document()), sound: plan).scalarProgram
         let registry = SceneSoundPlaybackRegistry(program: plan, epoch: 5)
         registry.start(paused: false, userValues: [:]); defer { registry.stop() }
@@ -777,9 +777,9 @@ import AVFoundation
             ["id": id, "sound": [resource], "volume": ["script": source, "value": seed]]
                 as [String: Any]
         }]
-        let soundPlan = SceneSoundPlaybackProgram.compile(document: .init(objects: [16, 18].map {
+        let soundPlan = try SceneSoundPlaybackProgram.compile(document: .init(objects: [16, 18].map {
             .init(id: $0, sound: sound(resource: resource))
-        }), resourceView: .init(resourcesByReference: [resource: audio]))
+        }), resourceView: .init(resourcesByReference: [resource: audio]), privateCacheDirectory: FileManager.default.temporaryDirectory)
         let catalog = SceneUserPropertyDefinitionParser().parse(properties: [
             "mode": ["type": "slider", "value": 0, "min": 0, "max": 1]])
         let accepted = try candidate(scene, bindings(root), sound: soundPlan,

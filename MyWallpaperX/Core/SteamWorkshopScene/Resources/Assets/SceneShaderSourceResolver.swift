@@ -42,98 +42,79 @@ nonisolated struct SceneShaderSourceResolver {
     nonisolated func resolve(
         virtualPath rawPath: String,
         resourceView: SceneResourceView,
-        maximumBytes: Int
-    ) -> Resolution {
-        resolveWithEvidence(
+        maximumBytes: Int,
+        checkCancellation: (() throws -> Void)? = nil
+    ) throws -> Resolution {
+        try resolveWithEvidence(
             virtualPath: rawPath,
             resourceView: resourceView,
-            maximumBytes: maximumBytes
+            maximumBytes: maximumBytes, checkCancellation: checkCancellation
         ).selected
     }
 
-    /// Records every root candidate while preserving SceneResourceView's
-    /// package -> loose -> stock first-existing-root project policy.
+    /// Captures the selected source and required upper-root misses. Shadowed
+    /// roots do not affect playback or dependency identity and are not read.
     nonisolated func resolveWithEvidence(
         virtualPath rawPath: String,
         resourceView: SceneResourceView,
-        maximumBytes: Int
-    ) -> ResolutionSet {
+        maximumBytes: Int,
+        checkCancellation: (() throws -> Void)? = nil
+    ) throws -> ResolutionSet {
+        try checkCancellation?()
         guard let virtualPath = Self.normalizedShaderVirtualPath(rawPath) else {
             return .init(selected: .failed(.invalidPath), candidates: [])
         }
         guard maximumBytes >= 0 else {
             return .init(selected: .failed(.fileTooLarge), candidates: [])
         }
-        let candidates = resourceView.roots.map { root in
-            CandidateResolution(
-                provenance: Self.provenance(root.source),
-                resolution: resolve(
-                    virtualPath: virtualPath,
-                    root: root,
-                    maximumBytes: maximumBytes
-                )
-            )
+        // Indexed selection is authoritative even if the selected file becomes
+        // unreadable or disappears. It must never expose a lower-root shader.
+        if let selected = resourceView.resolvedResource(relativePath: virtualPath) {
+            let resolution = try resolve(virtualPath: virtualPath, root: selected.owner,
+                maximumBytes: maximumBytes, checkCancellation: checkCancellation)
+            let upperMisses = resourceView.roots.prefix { !$0.owns(selected) }.map {
+                CandidateResolution(provenance: Self.provenance($0.source), resolution: .failed(.missing))
+            }
+            return .init(selected: resolution, candidates: upperMisses
+                + [.init(provenance: Self.provenance(selected.source), resolution: resolution)])
         }
-        let indexedResource = resourceView.resource(relativePath: virtualPath)
-        let indexedRoot = indexedResource.flatMap { selected in
-            resourceView.rootIndex(containing: selected.url)
+        // Literal-only files, including hidden authored paths, retain the same
+        // first-existing-root semantics when ordinary indexing has no entry.
+        var candidates: [CandidateResolution] = []
+        for root in resourceView.roots {
+            let resolution = try resolve(virtualPath: virtualPath, root: root,
+                maximumBytes: maximumBytes, checkCancellation: checkCancellation)
+            candidates.append(.init(provenance: Self.provenance(root.source), resolution: resolution))
+            if !isMissing(resolution) { return .init(selected: resolution, candidates: candidates) }
         }
-        let selected = indexedRoot.map { candidates[$0].resolution }
-            ?? candidates.first { !isMissing($0.resolution) }?.resolution
-            ?? .failed(.missing)
-        return .init(selected: selected, candidates: candidates)
+        return .init(selected: .failed(.missing), candidates: candidates)
     }
 
     nonisolated private func resolve(
         virtualPath: String,
         root: SceneResourceView.Root,
-        maximumBytes: Int
-    ) -> Resolution {
-        let indexed = root.resource(relativePath: virtualPath)
-        let candidate = indexed?.url.standardizedFileURL
-            ?? root.url.appendingPathComponent(virtualPath).standardizedFileURL
-        guard indexed != nil || FileManager.default.fileExists(atPath: candidate.path) else {
-            return .failed(.missing)
-        }
-        let rootURL = root.url.standardizedFileURL
-        guard contains(candidate, root: rootURL.standardizedFileURL) else {
-            return .failed(.symlinkEscape)
-        }
-
-        let resolvedRoot = rootURL.resolvingSymlinksInPath().standardizedFileURL
-        let resolvedCandidate = candidate.resolvingSymlinksInPath().standardizedFileURL
-        guard contains(resolvedCandidate, root: resolvedRoot) else {
-            return .failed(.symlinkEscape)
-        }
-
-        let values: URLResourceValues
-        do {
-            values = try candidate.resourceValues(forKeys: [.isRegularFileKey, .fileSizeKey])
-        } catch {
-            return .failed(.unreadable)
-        }
-        guard values.isRegularFile == true else { return .failed(.unreadable) }
-        if let fileSize = values.fileSize, fileSize > maximumBytes {
-            return .failed(.fileTooLarge)
-        }
-
+        maximumBytes: Int,
+        checkCancellation: (() throws -> Void)? = nil
+    ) throws -> Resolution {
+        guard let handle = root.handle(relativePath: virtualPath) else { return .failed(.invalidPath) }
         let data: Data
-        do {
-            data = try Data(contentsOf: candidate, options: [.mappedIfSafe])
-        } catch {
-            return .failed(.unreadable)
+        do { data = try root.readBytes(handle, maximumBytes: maximumBytes, checkCancellation: checkCancellation) }
+        catch let error as SceneResourceView.ReadError {
+            switch error {
+            case .invalidPath: return .failed(.invalidPath)
+            case .missing: return .failed(.missing)
+            case .symlinkEscape: return .failed(.symlinkEscape)
+            case .unreadable: return .failed(.unreadable)
+            case .fileTooLarge: return .failed(.fileTooLarge)
+            case .sourceChanged, .invalidHandle: throw error
+            }
         }
-        guard data.count <= maximumBytes else { return .failed(.fileTooLarge) }
         guard let shaderSource = String(data: data, encoding: .utf8) else {
             return .failed(.invalidUTF8)
         }
-        return .resolved(.init(
-            virtualPath: virtualPath,
-            provenance: Self.provenance(root.source),
-            source: shaderSource,
-            rawSHA256: sha256(data),
-            byteCount: data.count
-        ))
+        return .resolved(.init(virtualPath: virtualPath,
+            provenance: Self.provenance(root.source), source: shaderSource,
+            rawSHA256: sha256(data), byteCount: data.count))
     }
 
     nonisolated private func isMissing(_ resolution: Resolution) -> Bool {
@@ -239,12 +220,6 @@ nonisolated struct SceneShaderSourceResolver {
         case .loose: .loose
         case .stock: .stock
         }
-    }
-
-    nonisolated private func contains(_ candidate: URL, root: URL) -> Bool {
-        let rootPath = root.path
-        let prefix = rootPath.hasSuffix("/") ? rootPath : rootPath + "/"
-        return candidate.path == rootPath || candidate.path.hasPrefix(prefix)
     }
 
     nonisolated private func sha256(_ data: Data) -> String {

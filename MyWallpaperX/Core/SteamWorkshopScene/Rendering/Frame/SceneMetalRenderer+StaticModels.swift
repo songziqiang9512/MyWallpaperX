@@ -11,6 +11,7 @@ extension SceneMetalRenderer {
         let sampling: SceneTextureSampling
         let premultiplied: Bool
         let world: simd_float4x4
+        let normalMatrix: simd_float3x3
         let material: SceneStaticModelMaterial
         let alpha: Float
     }
@@ -170,7 +171,7 @@ extension SceneMetalRenderer {
         // Authored zero scale can leave planar geometry while the color draw
         // rejects its singular normal transform. Apply that same admission before
         // collecting depth leases, shadow bounds or casters for this layer.
-        guard SceneStaticModelPipeline.normalMatrix(for: world) != nil else { return [] }
+        guard let normalMatrix = SceneStaticModelPipeline.normalMatrix(for: world) else { return [] }
         var hasMissingInput = false
         let draws: [StaticModelDraw] = parts.compactMap { entry in
             let mesh: SceneStaticModelMesh
@@ -204,7 +205,7 @@ extension SceneMetalRenderer {
                 snapshot: snapshot))
             return StaticModelDraw(entry: entry, mesh: mesh, texture: texture, textureFrame: frame,
                 sampling: sampling, premultiplied: premultiplied,
-                world: world, material: material,
+                world: world, normalMatrix: normalMatrix, material: material,
                 alpha: Float(SceneDynamicLayerValues.alpha(layerID: layer.id,
                     authoredValue: layer.alpha, snapshot: snapshot)))
         }
@@ -243,6 +244,7 @@ extension SceneMetalRenderer {
                 emissiveMaskTextureFrame: draw.entry.emissiveMask?.uvTransform,
                 emissiveMaskSampling: draw.entry.emissiveMask?.sampling,
                 modelMatrix: draw.world,
+                normalMatrix: draw.normalMatrix,
                 viewProjection: cameraFrame.reverseDepthViewProjection(
                     usesPerspective: cameraFrame.resolvesPerspective(for: layer)),
                 cameraPosition: cameraFrame.perspectiveEyePosition,

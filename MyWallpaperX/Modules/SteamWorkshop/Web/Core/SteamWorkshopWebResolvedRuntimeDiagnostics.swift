@@ -44,15 +44,16 @@ extension SteamWorkshopService {
         for record: SteamWorkshopDownloadRecord,
         entryURL: URL,
         rootURL: URL,
-        propertyDefinitions: [SteamWorkshopWebPropertyDefinition]
+        propertyDefinitions: [SteamWorkshopWebPropertyDefinition],
+        read: ((URL) -> WebAuthorFileReader.Observation?)? = nil,
+        exists: ((URL) -> Bool)? = nil,
+        observeReference: ((String, URL, URL?) -> Void)? = nil
     ) -> ResolvedWebStaticContentSummary {
         var scannedFiles = Set<URL>()
         var pendingFiles = [entryURL]
         var externalDependencyURLs = Set<String>()
         var usesWebMResource = false
         var usesHoverOnlyInteraction = false
-        var usesApplyGeneralProperties = false
-        var usesGeneralFPS = false
         var usesPluginBridge = false
         var usesPersistentBrowserStorage = false
         var usesServiceWorkerRegistration = false
@@ -75,7 +76,14 @@ extension SteamWorkshopService {
         while let fileURL = pendingFiles.first {
             pendingFiles.removeFirst()
             guard scannedFiles.insert(fileURL).inserted else { continue }
-            guard let scan = Self.webStaticAnalysisContent(from: fileURL) else {
+            guard !Task.isCancelled else { break }
+            let observation: WebAuthorFileReader.Observation?
+            if let read { observation = read(fileURL) }
+            else { observation = Self.webStaticAnalysisContent(from: fileURL).map {
+                WebAuthorFileReader.Observation(content: $0.content, isTruncated: $0.isTruncated,
+                    containsServiceWorker: $0.isTruncated && Self.webFileContainsServiceWorkerRegistration(fileURL))
+            } }
+            guard let scan = observation else {
                 hasUncertainUserPropertyUsage = true
                 continue
             }
@@ -92,12 +100,6 @@ extension SteamWorkshopService {
                Self.webContentUsesHoverOnlyInteraction(content) {
                 usesHoverOnlyInteraction = true
             }
-            if Self.webContentUsesApplyGeneralProperties(content) {
-                usesApplyGeneralProperties = true
-            }
-            if Self.webContentUsesGeneralFPS(content) {
-                usesGeneralFPS = true
-            }
             if Self.webContentUsesPluginBridge(content) {
                 usesPluginBridge = true
             }
@@ -106,7 +108,7 @@ extension SteamWorkshopService {
             }
             if !usesServiceWorkerRegistration,
                Self.webContentUsesServiceWorkerRegistration(content)
-                || (scan.isTruncated && Self.webFileContainsServiceWorkerRegistration(fileURL)) {
+                || (scan.isTruncated && scan.containsServiceWorker) {
                 usesServiceWorkerRegistration = true
             }
             if Self.webContentUsesESModuleDependency(content) {
@@ -137,7 +139,10 @@ extension SteamWorkshopService {
             for reference in Self.extractLocalWebResourceReferences(from: content, fileExtension: fileURL.pathExtension) {
                 switch reference {
                 case let .local(path):
-                    guard let resolvedURL = Self.resolveWebResourceURL(path, relativeTo: fileURL, rootURL: rootURL) else {
+                    let resolved = Self.resolveWebResourceURL(path, relativeTo: fileURL, rootURL: rootURL)
+                    let dependencyName = path.split(whereSeparator: { $0 == "?" || $0 == "#" }).first.map(String.init) ?? path
+                    if Self.shouldScanWebDependencyFile(named: dependencyName) { observeReference?(path, fileURL, resolved) }
+                    guard let resolvedURL = resolved else {
                         let normalizedPath = path.split(separator: "?", maxSplits: 1).first.map(String.init) ?? path
                         if Self.shouldScanWebDependencyFile(named: normalizedPath) {
                             hasUncertainUserPropertyUsage = true
@@ -153,7 +158,7 @@ extension SteamWorkshopService {
                     }
                     if ["html", "htm", "css", "js", "json"].contains(ext),
                        Self.shouldScanWebDependencyFile(named: resolvedURL.lastPathComponent) {
-                        if FileManager.default.fileExists(atPath: resolvedURL.path) {
+                        if exists?(resolvedURL) ?? FileManager.default.fileExists(atPath: resolvedURL.path) {
                             pendingFiles.append(resolvedURL)
                         } else {
                             hasUncertainUserPropertyUsage = true
@@ -185,8 +190,6 @@ extension SteamWorkshopService {
         }
 
         return ResolvedWebStaticContentSummary(
-            usesApplyGeneralProperties: usesApplyGeneralProperties,
-            usesGeneralFPS: usesGeneralFPS,
             usesPluginBridge: usesPluginBridge,
             usesPersistentBrowserStorage: usesPersistentBrowserStorage,
             usesServiceWorkerRegistration: usesServiceWorkerRegistration,

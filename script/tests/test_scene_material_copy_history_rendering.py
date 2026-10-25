@@ -13,6 +13,8 @@ import subprocess
 import tempfile
 import unittest
 
+from script.tests.scene_framebuffer_source_test_support import _declaration
+
 
 REPOSITORY_ROOT = Path(__file__).resolve().parents[2]
 EXECUTOR_GATE = Path(__file__).with_name(
@@ -71,76 +73,8 @@ SUPPORT = (
 """,
         "",
     )
-    .replace(
-        """struct SceneDependencyEffectInput {
-    let frameEpoch: UInt64
-    let namedReference: SceneNamedTextureReference
-    let reservedMaterialResource: SceneFrameTextureResource?
-}
-""",
-        """struct SceneDependencyEffectInput {
-    let consumerLayerID: Int
-    let providerLayerID: Int
-    let variant: SceneNamedTextureReference.Variant
-    let slot: SceneEffectPassSlot
-    let blendMode: Int
-    let frameEpoch: UInt64
-    let texture: MTLTexture
-
-    var namedReference: SceneNamedTextureReference {
-        .init(providerLayerID: providerLayerID, variant: variant)
-    }
-
-    var reservedMaterialResource: SceneFrameTextureResource? {
-        SceneFrameTextureResource.reservedNamedLayerTarget(
-            reference: namedReference,
-            frameEpoch: frameEpoch,
-            texture: texture
-        )
-    }
-}
-""",
-    )
-    .replace(
-        """final class SceneResolvedMaterialRuntimeBridge {
-    struct FrameInputs {
-        enum DependencyUnavailability: String, Hashable {
-            case providerSourceUnavailable =
-                "external-primary-provider-source-unavailable"
-        }
-
-        let time: Float
-        let dynamicValues: SceneDynamicSnapshot
-        let pointerIsInside: Bool
-        let layerModelMatrix: simd_float4x4
-        let effectOutputModelViewProjection: simd_float4x4
-        let effectTextureProjectionMatrixInverse: simd_float4x4
-        let effectDrawAlpha: Float = 1
-        let effectDrawColor = SIMD3<Float>(repeating: 1)
-        // The single ordered dependency lane: a one-element vector when a
-        // single-provider dependency is reserved, empty otherwise.
-        let dependencyEffects: [SceneDependencyEffectInput]
-        let dependencyUnavailability: DependencyUnavailability?
-
-        init(
-            dependencyEffects: [SceneDependencyEffectInput] = [],
-            dependencyUnavailability: DependencyUnavailability? = nil,
-            dynamicValues: SceneDynamicSnapshot = .empty(frameIndex: 0),
-            pointerIsInside: Bool = true
-        ) {
-            time = 0
-            self.dynamicValues = dynamicValues
-            self.pointerIsInside = pointerIsInside
-            layerModelMatrix = matrix_identity_float4x4
-            effectOutputModelViewProjection = matrix_identity_float4x4
-            effectTextureProjectionMatrixInverse = matrix_identity_float4x4
-            self.dependencyEffects = dependencyEffects
-            self.dependencyUnavailability = dependencyUnavailability
-        }
-    }
-}
-""",
-        """final class SceneResolvedMaterialRuntimeBridge {
+    + r'''
+extension SceneResolvedMaterialRuntimeBridge {
     typealias LogSink = @Sendable (String) -> Void
 
     struct ClaimedExecution {
@@ -157,91 +91,22 @@ SUPPORT = (
         case rejected(reasonCode: String)
         case claimed(ClaimedExecution)
     }
-    struct FrameInputs {
-        enum DependencyUnavailability: String, Hashable {
-            case providerSourceUnavailable =
-                "external-primary-provider-source-unavailable"
-        }
 
-        let time: Float = 0
-        let dynamicValues: SceneDynamicSnapshot
-        let pointerIsInside: Bool
-        let layerModelMatrix = matrix_identity_float4x4
-        let effectOutputModelViewProjection = matrix_identity_float4x4
-        let effectTextureProjectionMatrixInverse = matrix_identity_float4x4
-        let effectDrawAlpha: Float = 1
-        let effectDrawColor = SIMD3<Float>(repeating: 1)
-        let dependencyEffects: [SceneDependencyEffectInput]
-        let dependencyUnavailability: DependencyUnavailability?
-
-        init(
-            dependencyEffects: [SceneDependencyEffectInput] = [],
-            dependencyUnavailability: DependencyUnavailability? = nil,
-            dynamicValues: SceneDynamicSnapshot = .empty(frameIndex: 0),
-            pointerIsInside: Bool = true
-        ) {
-            self.dynamicValues = dynamicValues
-            self.pointerIsInside = pointerIsInside
-            self.dependencyEffects = dependencyEffects
-            self.dependencyUnavailability = dependencyUnavailability
-        }
-
-        func withDependencyEffects(
-            _ dependencyEffects: [SceneDependencyEffectInput]
-        ) -> Self {
-            .init(
-                dependencyEffects: dependencyEffects,
-                dependencyUnavailability: dependencyUnavailability,
-                dynamicValues: dynamicValues,
-                pointerIsInside: pointerIsInside
-            )
-        }
-    }
-    struct FramePreparationRequest {
-        let claim: ClaimedExecution
-        let targetPlan: SceneResolvedMaterialFrameTargetPlan
-        let materialFunctionInvocations:
-            [SceneGraphMaterialFunctionInvocationRequest] = []
-        let sceneBackgroundResource: SceneFrameTextureResource? = nil
-        let sourceTexture: MTLTexture?
-        let sourceUniforms: SceneLayerFragmentUniforms?
-        let sourcePipeline: SceneImageLayerPipeline
-        // Mechanical sync: the production request gained the lit
-        // base-capture payload (D3 first slice).
-        let sourceLighting: SceneBaseMaterialLitCapturePayload? = nil
-        let terminalReplayTarget: MTLTexture? = nil
-        let frameInputs: FrameInputs
-    }
+'''
+    + _declaration((REPOSITORY_ROOT /
+        'MyWallpaperX/Core/SteamWorkshopScene/Rendering/Graph/SceneResolvedMaterialRuntimeBridge.swift'
+      ).read_text(encoding='utf-8'), 'FramePreparationRequest')
+    + r'''
     enum FramePreparationResult {
         case ready
         case rejected(reasonCode: String)
     }
-    struct ExecutionTicket: Hashable {
-        struct EffectFailure: Hashable {
-            let layerID: Int
-            let effectIndex: Int
-            let descriptorID: String
-            let reasonCode: String
-        }
-        let identity, epoch: UInt64
-        let finalTextureIdentity: ObjectIdentifier
-        let finalContent: SceneTextureContent
-        let consumesExternalPrimaryDependency: Bool
-        let effectFailures: [EffectFailure]
-        let hasTerminalMaterialReplay: Bool
-
-        init(identity: UInt64, epoch: UInt64, finalTextureIdentity: ObjectIdentifier,
-             finalContent: SceneTextureContent, consumesExternalPrimaryDependency: Bool,
-             effectFailures: [EffectFailure], hasTerminalMaterialReplay: Bool = false) {
-            self.identity = identity
-            self.epoch = epoch
-            self.finalTextureIdentity = finalTextureIdentity
-            self.finalContent = finalContent
-            self.consumesExternalPrimaryDependency = consumesExternalPrimaryDependency
-            self.effectFailures = effectFailures
-            self.hasTerminalMaterialReplay = hasTerminalMaterialReplay
-        }
-    }
+'''
+    + _declaration((REPOSITORY_ROOT /
+        'MyWallpaperX/Core/SteamWorkshopScene/Rendering/Graph/SceneResolvedMaterialRuntimeBridge.swift'
+      ).read_text(encoding='utf-8'), 'ExecutionTicket',
+      marker='    struct ExecutionTicket: Hashable {')
+    + r'''
     enum ExecutionResult {
         case encoded(texture: MTLTexture, ticket: ExecutionTicket)
         case failed(reasonCode: String)
@@ -261,18 +126,18 @@ struct SceneResolvedMaterialFrameTargetPlan {
     let token: SceneResolvedMaterialExecutionCapabilityCatalog.Token
     let allocation: ScenePersistentGraphTargetFramePlan
 }
-""",
-    )
-    + "\nfinal class SceneFramePerformanceTelemetry: @unchecked Sendable {\n"
-    "    func beginStage(_ name: String) {}\n"
-    "    func endStage(_ name: String) {}\n"
-    "}\n"
+
+extension SceneResolvedMaterialRuntimeBridge.FrameInputs {
+    func withDependencyEffects(_ dependencyEffects: [SceneDependencyEffectInput]) -> Self {
+        .init(dependencyEffects: dependencyEffects,
+            dependencyUnavailability: dependencyUnavailability,
+            dynamicValues: dynamicValues, pointerIsInside: pointerIsInside)
+    }
+}
+'''
+
 
 )
-if "typealias LogSink = @Sendable (String) -> Void" not in SUPPORT:
-    raise AssertionError("runtime bridge support replacement did not match")
-if "let consumerLayerID: Int" not in SUPPORT:
-    raise AssertionError("dependency effect support replacement did not match")
 
 
 HARNESS_PATH = (

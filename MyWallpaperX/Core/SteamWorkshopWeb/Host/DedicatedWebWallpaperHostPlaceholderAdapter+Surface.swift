@@ -11,6 +11,12 @@ import CryptoKit
 
 extension DedicatedWebWallpaperHostPlaceholderAdapter {
     func makeSurface(for screen: NSScreen, screenID: CGDirectDisplayID) -> HostSurface {
+#if DEBUG
+        if debugStartupSurfaceTimings != nil {
+            debugStartupSurfaceTimings?[screenID] = .init(displayID: screenID,
+                creationStartedAt: ProcessInfo.processInfo.systemUptime)
+        }
+#endif
         let request = currentRequest
         let window = HostWindow(
             contentRect: screen.frame,
@@ -20,6 +26,8 @@ extension DedicatedWebWallpaperHostPlaceholderAdapter {
             screen: screen
         )
         window.isReleasedWhenClosed = false
+        // Desktop geometry must be final before the handoff confirmation.
+        window.animationBehavior = .none
         // 默认保持桌面透传；只在命中热点时做短时接管。
         window.ignoresMouseEvents = true
         window.acceptsMouseMovedEvents = true
@@ -51,12 +59,14 @@ extension DedicatedWebWallpaperHostPlaceholderAdapter {
             source: Self.webWallpaperPlaybackScript(paused: paused),
             injectionTime: .atDocumentStart, forMainFrameOnly: false
         ))
+#if DEBUG
         // navigation.blocked 的 WebView 侧通道：主框架导航被取消后页面可查询
         // 阻断计数与末次目标（宿主经 evaluateJavaScript 累加，见 NavigationDelegate）。
         controller.addUserScript(WKUserScript(
             source: Self.webNavigationStateScript,
             injectionTime: .atDocumentStart, forMainFrameOnly: true
         ))
+#endif
         // 兼容 API 面与种子按 frame 各自建立（种子只是本 frame 的初始值，
         // 属性/媒体/指针状态都存储在 window 上），因此与暂停门、远程样式表
         // 脚本保持同一注入面：iframe 壁纸同样拿到完整 API。
@@ -134,7 +144,7 @@ extension DedicatedWebWallpaperHostPlaceholderAdapter {
         }
 #endif
         contentView.addSubview(webView)
-        return HostSurface(
+        let surface = HostSurface(
             mediaPlaybackGate: mediaPlaybackGate,
             screenID: screenID,
             window: window,
@@ -145,6 +155,11 @@ extension DedicatedWebWallpaperHostPlaceholderAdapter {
             originMode: request?.runtimeProfile.originMode ?? .customScheme,
             persistentDataStoreIdentifier: persistentDataStoreIdentifier(for: request, screenID: screenID)
         )
+#if DEBUG
+        debugStartupSurfaceTimings?[screenID]?.surfaceID = surface.id
+        debugStartupSurfaceTimings?[screenID]?.creationCompletedAt = ProcessInfo.processInfo.systemUptime
+#endif
+        return surface
     }
 
     func teardownHostSurfaces() {
@@ -196,7 +211,8 @@ extension DedicatedWebWallpaperHostPlaceholderAdapter {
         debugSnapshotLumaSamplesByScreen.removeValue(forKey: screenID)
         #endif
         surfaces.removeValue(forKey: screenID)
-        if let loopbackServer = loopbackServers.removeValue(forKey: screenID) {
+        let removedLoopbackServer = loopbackServers.removeValue(forKey: screenID)
+        if let loopbackServer = removedLoopbackServer {
 #if DEBUG
         recordDiagnostic(
                 type: "loopback.stopped",
@@ -214,6 +230,14 @@ extension DedicatedWebWallpaperHostPlaceholderAdapter {
         refreshSystemMediaSubscription()
         surface.webView.navigationDelegate = nil
         surface.webView.stopLoading()
+        if let loopbackServer = removedLoopbackServer {
+            let accessCookie = loopbackServer.accessCookie
+            let cookieStore = surface.webView.configuration.websiteDataStore.httpCookieStore
+            // A late HTTP response may set this cookie again; deletion is not a drain ACK.
+            cookieStore.delete(accessCookie) {
+                withExtendedLifetime(cookieStore) {}
+            }
+        }
         surface.webView.configuration.userContentController.removeScriptMessageHandler(forName: "wallpaperHostReady")
 #if DEBUG
         surface.webView.configuration.userContentController.removeScriptMessageHandler(forName: "wallpaperHostLog")

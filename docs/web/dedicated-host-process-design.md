@@ -5,7 +5,7 @@
 
 状态：2026-10-18 已接入唯一独立播放入口，Debug 签名构建与协议/生命周期门通过；物理 Space、长稳与全作品兼容另验。
 
-2026-10-23 后继设计：[冷暖启动专项 P5/P6](../development/wallpaper-startup-optimization-plan.md)允许在原 adapter 内重构一次性 worker 的退休/复用；本文保留进程隔离、资源与候选交接权威。下述复用是待实施目标，当前仍以源码的一次 launch、空 daemon 预备为事实。
+冷暖启动专项已结算，实施与停止依据见[完成记录](../history/cross-topic/wallpaper-startup-optimization-completed-2026-10-25.md)。本文继续拥有进程隔离、资源与候选交接；Web 退休 WebView/worker 复用未采用，下面的复用条件不等于现有实现或新的实施授权。当前仍以源码的一次 launch、空 daemon 预备为事实。
 
 ## 目标与依据
 
@@ -47,6 +47,7 @@ Web/Scene 复用主可执行文件，应用包默认以 `LSUIElement=YES` 的后
 - 至多一个活跃 Web 子进程与一个候选。新请求取消旧候选，保留旧活跃画面；失败或超时仅结束候选。显式停止/跨引擎停止撤销两者和所有订阅。
 - 点击后的异步作品准备与同 UUID 的空宿主启动并行；当前预备宿主不读取作品、不创建 WebView/窗口或订阅采集。完成后原子采用，hello/协议帧不丢。退休复用后只有已排空旧授权/任务并确认空文档的 worker 可进入原 warm 名额；standard 档仅完整配置 key 匹配才保留 WebView，不匹配重建；HTTP loopback 首批只复用 daemon。新选择、失败、停止或原 15s 未采用截止期撤销请求预备；epoch/newer-wins 仍归原产品 owner，预备与候选共用一个名额。
 - 候选窗口先位于活动壁纸之下，不在 HTML 导航完成时覆盖旧画面。导航 ready 后对当前每屏 WebView 执行一次原生 snapshot preparation；成功只说明可生成当前渲染内容，不冒充物理显示呈现时间。
+- 桌面 surface 在首次显示前关闭 AppKit 普通窗口展示动画，保持目标几何直接呈现；作者页面的 CSS/JS 动画仍由原 WebView 执行。可见确认继续检查真实 WindowServer 几何/层级/alpha/Space 与媒体 ACK，不能以动画时长或放宽矩形阈值替代。
 - 父 adapter 只报告准备/可见事实；WallpaperManager 事务授权激活，候选暂升 desktop + 2，旧输出确认撤下后 finalize 恢复常规层级。候选准备期间静音且不接管桌面输入，交接时应用当前音量并启用输入，避免两份作者音频重叠。显示拓扑改变会撤销旧准备代际，不能用旧 snapshot 的确认提交新 surface 集。
 - 跨引擎退休由唯一产品事务下达，运行时通知仅投影提交事实；Video/Scene 的原生准备和资源链仍归执行端。审查所有方向的现有 ready/retire 时机，只有实际通过的方向可声明视觉连续；不以 `didFinish`、process alive 或 `.launched` 名称替代首帧证据。
 - 接受新意图时立即撤销旧导入的自动播放票据与过期候选，不能依赖延后的可见交接通知。撤销准备同时恢复实际 active 的请求投影；坏 Video、准备失败及验证早退不留下虚假的 kind/path 或继续启动的候选进程。
@@ -64,6 +65,7 @@ Web/Scene 复用主可执行文件，应用包默认以 `LSUIElement=YES` 的后
 - Web 成功提交后延迟 2s 预备下一空宿主；启动延后 3s 时仅在本地有可播放 Web 记录且无候选时尝试一次。空宿主至多一个，30s 未采用即退出，超时不自行补充；不读取作品、不建 WebView/窗口、不运行作者脚本、不采集音频。内存压力、显式停止、跨引擎意图与 App 退出撤销预备及延迟任务。
 - 空宿主 UUID 在创建时确定；App 装配把该 UUID 作为下一用户请求的 requestID 返回，随后请求保留原意图 epoch 和全部 guard。没有把旧作品请求改名、复用旧页面或重贴迟到事件。采用时转换为请求预备，重新给予原 15s 截止期；hello 前后均可采用。无空宿主或预备失败仍走现有冷启动。
 - 原 `hasPendingRequest` 只计用户请求，不把无内容预热投影为加载态。进程清单仍包含空宿主；资源 store 使用只从真实 Session 汇总。准备、候选、空闲共用一个名额，活动输出另一个名额，retiring 保留至真实退出。
+- [Scene daemon 合同](../scene/architecture/scene-runtime-daemon-contract.md)在原 App 装配接入 Scene 保留/强退役/真实退出中的只读事实；可选空预备在实际创建前据此让位，非 Web 意图撤已有空预备。真实 Web 请求仍沿原准备/冷启动，不能把此互斥扩成第二产品选择或全局进程配额 owner。
 - 每屏首帧检查改用中心 1×1 区域，并要求 afterScreenUpdates；保留 surface/准备代际校验与全部目标完成门，不删首帧确认来换取计时。
 - App 延后预热只为实际 Scene 意图保留 Scene daemon，不因当前 Web 或泛化的旧工坊身份额外启动 Scene。Scene 内容准备及渲染线程不在本片迁移；精简 executable 与线程迁移需各自成本证据和设计，不能与本片混做归因。
 

@@ -8,6 +8,7 @@ import tempfile
 import unittest
 
 from script.tests import test_scene_initial_video_resource_readiness as readiness
+from script.tests.scene_video_segment_delegate_fixture import compile_segment_delegate
 
 ROOT = Path(__file__).resolve().parents[2]
 PROVIDERS = ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Resources/Providers"
@@ -15,12 +16,17 @@ SCENE = ROOT / "MyWallpaperX/Core/SteamWorkshopScene"
 
 
 def compile_probe(work):
+    delegate_arguments = compile_segment_delegate(work)
     compiled = subprocess.run([
         "swiftc", "-parse-as-library", "-default-isolation", "MainActor",
-        "-swift-version", "5",
+        "-swift-version", "5", *delegate_arguments,
         str(PROVIDERS / "SceneVideoProviderLifecycleState.swift"),
         str(SCENE / "Format/SceneWebMContainer.swift"),
         str(PROVIDERS / "SceneVideoPayloadPreparation.swift"),
+        str(SCENE / "Resources/Assets/SceneResourceIndex.swift"),
+        str(SCENE / "../SteamWorkshopStorage/ScenePlaybackSource.swift"), str(SCENE / "Format/ScenePkgReader.swift"),
+        str(SCENE / "Resources/Assets/SceneResourceIdentity.swift"), str(SCENE / "Resources/Assets/SceneResourceView+Backing.swift"),
+        str(SCENE / "Resources/Assets/SceneResourceView.swift"),
         str(PROVIDERS / "SceneVideoOwnedFile.swift"),
         str(SCENE / "Resources/Textures/SceneResourceBudget.swift"),
         str(PROVIDERS / "SceneVideoTextureSource.swift"),
@@ -337,7 +343,12 @@ class SceneVideoRepeatedCommandsTests(unittest.TestCase):
             self.assertTrue(all(b == a + 1 for a, b in zip(generations, generations[1:])))
             self.assertTrue(result["stoppedFrameAbsent"])
             self.assertTrue(result["stoppedItemAbsent"])
-            self.assertEqual(result["filesAfterStop"], [])
+            self.assertTrue(result["filesAfterStop"], "the explicitly borrowed asset must pin its payload")
+            self.assertTrue(result["stoppedSourceAliveAtReleaseCheck"])
+            self.assertTrue(result["stoppedAssetReleased"])
+            self.assertTrue(result["stoppedOwnedFileReleased"])
+            self.assertTrue(result["stoppedPayloadAbsent"])
+            self.assertEqual(result["filesAfterBorrowerRelease"], [])
             self.assertTrue(result["cancelStartedPending"])
             self.assertTrue(result["cancelLateFrameAbsent"])
             self.assertTrue(result["cancelLateItemAbsent"])
