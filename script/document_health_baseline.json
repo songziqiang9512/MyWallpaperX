@@ -330,7 +330,7 @@
     },
     "docs/development/status-bar-panel-redesign.md": {
       "lines": 117,
-      "bytes": 18671
+      "bytes": 18639
     }
   },
   "archives": [
@@ -1481,7 +1481,7 @@
       "section": "bodies",
       "path": "docs/development/status-bar-panel-redesign.md",
       "before": "74234e98afe7498fb5daf1f36ac2d78acc339464f950703b8c019892f982b90b",
-      "after": "9f18a0d9b6d5a25fb106589e4083736e983fb4f8d648e4ba32741b645d072cbd",
+      "after": "135d441bae50ba167bc4f3801047658ddf9a342ebe4842240f0464b9fe9ea9b3",
       "owner": "App/StatusBarController",
       "reason": "用户确认概念图后新增状态栏产品面专项设计；范围和退役条件已明确，不放宽其他预算。",
       "decision": "docs/development/status-bar-panel-redesign.md#文档登记与范围"

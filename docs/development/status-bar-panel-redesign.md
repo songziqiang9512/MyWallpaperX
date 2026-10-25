@@ -108,10 +108,10 @@
 
 ### 执行记录
 
-- 原生面板及用户逐次确认的视觉调整已完成：顶部时段文案与房子入口、底部打开设置与退出、互斥播放模式、静音滑块投影、原系统指标和网速；无二级菜单、动态封面或新增后台采样。
+- 原生面板及用户确认的外观调整已完成；保留原采样策略，无二级菜单或额外常驻任务。
 - UI专项放行`de3ef098e`后整合：删除本专项原独立LastPlaybackSelection/SQLite恢复实现与额外暂停通知；保留最新Library Sequence、typed pending、Restoration与pauseSnapshots唯一链。源导航、手动恢复、静态轮换和属性入口均调用现owner。
-- 独立审查发现并修正：旧成功在关闭启动恢复后退出丢失、来源未就绪时手动恢复误降级、活动面板刷新触发全catalog解析、小高度属性按钮与模式重叠、手动恢复失败无可见反馈。回归覆盖迁移/停止/重启、来源就绪与删除、原来源和查询保留、旧图片迟到、文案一小时稳定及小高度布局。
-- 整合版原生面板与真实Restoration门已通过；原Library Sequence/产品事务门及pause multiplexer门通过。Debug/Release构建、最终签名安装与复核结果在本批收尾时补齐。旧设计基线的运行与构建不作为最新整合版证据，不宣称量测到打开延迟或全样本视觉一致性。
+- 独立审查修正迁移记忆/暂停意图、部分来源加载、全catalog重复解析、小高度按钮重叠及同步/异步失败反馈；原owner回归覆盖Stop/重启、来源/查询保留和迟到/过期反例。
+- 最终原生面板/Restoration、Library Sequence/产品事务、pause/icon门及Debug/Release构建通过；独立复核无新增可修问题。Release通过25个Mach-O的arm64闭包、同Team签名/必要权限/版本核验，已替换并启动`/Applications/MyWallpaperX.app`（2.11.0/283）。仅确认新版主窗口启动，状态栏实景与操作交用户测试；harness不代表实景、延迟或全样本验收。保留基线Scene隔离和旧控件警告，未混改。
 - 临时HOME不隔离CFPreferences域；预览阶段已改用独立签名bundle标识与偏好域，正式安装仍保持产品身份。该测试处理不修改产品运行配置。
 
-本轮连续验证暂留一份构建缓存`/private/tmp/mwx-statusbar-bB99XA/DerivedData`；旧独立预览App已退出，最终安装完成后清理旧预览及启动脚本，避免继续打开过期版本。只整合本专项文件，不推送。
+产品提交`43280edd2`以UI放行提交`de3ef098e`为父，快进整合到`codex/engine-refactor-program`；未触碰main、不推送。最终证据保留在忽略目录`.artifacts/status-bar-integration-20261026/`，旧预览、安装回退副本、临时样本及本轮DerivedData于安装启动验证后清理；正式安装App继续保留供用户测试。
