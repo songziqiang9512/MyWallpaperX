@@ -167,7 +167,7 @@ class PlaybackCommandMultiplexerTests(unittest.TestCase):
             harness.write_text(HARNESS)
             binary = path / 'harness'
             result = subprocess.run(['xcrun', 'swiftc', '-parse-as-library',
-                str(PROPERTY),
+                str(PROPERTY), str(ROOT / "MyWallpaperX/Core/SteamWorkshopStorage/ScenePlaybackSource.swift"),
                 *[str(SOURCES / name) for name in ['ScenePlaybackShortcut.swift', 'WallpaperEngineCommand.swift', 'PlaybackEngineControlling.swift', 'PlaybackCommandMultiplexer.swift', 'PlaybackIntentEpoch.swift']],
                 str(harness), '-o', str(binary)], capture_output=True, text=True, timeout=60)
             self.assertEqual(result.returncode, 0, result.stderr)

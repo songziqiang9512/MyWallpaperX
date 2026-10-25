@@ -11,6 +11,7 @@
       "docs/development/code-slimming-program.md",
       "docs/development/main-window-playlists-redesign.md",
       "docs/development/repository-workflow.md",
+      "docs/development/status-bar-panel-redesign.md",
       "docs/development/validation-simplification-plan.md",
       "docs/release/release-signing.md",
       "docs/scene/architecture/gpu-stage-timestamp-diagnostics.md",
@@ -224,6 +225,12 @@
         "scope": "CI/release audit: fixed UTC+08 review dates and checksum-pinned Sparkle signed permission contract; no distribution or runtime readiness claim.",
         "limitations": "仅文档职责与导航，不证明产品性能、兼容或发布验收"
       }
+    },
+    {
+      "path": "docs/development/status-bar-panel-redesign.md",
+      "role": "active-plan",
+      "entrypoint": "docs/README.md",
+      "retirementCondition": "原生状态栏面板完成布局、行为、构建和独立审查后，稳定呈现合同接管，退役本专项执行顺序。"
     },
     {
       "path": "docs/development/structural-governance-design.md",

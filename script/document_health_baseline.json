@@ -327,6 +327,10 @@
     "docs/development/main-window-playlists-redesign.md": {
       "lines": 596,
       "bytes": 117102
+    },
+    "docs/development/status-bar-panel-redesign.md": {
+      "lines": 117,
+      "bytes": 18671
     }
   },
   "archives": [
@@ -1472,6 +1476,15 @@
       "owner": "main-window-playlists-design",
       "reason": "完整保留新10项之前U/A/N15方案及候选收据，避免旧堆叠/取消返回/取色与当前裁决混用；历史banner注明真实崩溃终态。",
       "decision": "docs/development/main-window-playlists-redesign.md#documentation-decision"
+    },
+    {
+      "section": "bodies",
+      "path": "docs/development/status-bar-panel-redesign.md",
+      "before": "74234e98afe7498fb5daf1f36ac2d78acc339464f950703b8c019892f982b90b",
+      "after": "9f18a0d9b6d5a25fb106589e4083736e983fb4f8d648e4ba32741b645d072cbd",
+      "owner": "App/StatusBarController",
+      "reason": "用户确认概念图后新增状态栏产品面专项设计；范围和退役条件已明确，不放宽其他预算。",
+      "decision": "docs/development/status-bar-panel-redesign.md#文档登记与范围"
     }
   ]
 }

@@ -3,7 +3,7 @@ import Foundation
 
 /// 视频库缩略图共享缓存，模式与 SILThumbnailStore 一致：
 /// NSCache 内存缓存 + in-flight 去重 + 磁盘层都由 ThumbnailCache 承担。
-enum VideoLibraryThumbnailStore {
+nonisolated enum VideoLibraryThumbnailStore {
     static let sharedCache = ThumbnailCache(
         label: "com.mywallpaper.videolibrary.thumbnail",
         countLimit: 360,

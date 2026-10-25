@@ -259,6 +259,105 @@ private struct SavedPlayback: Codable {
             p.ready()
             checks["dependency-resolution-reentry-cannot-override-new-user-intent"] = p.requests.isEmpty && p.manager.requestedRuntime == .scene
         }
+        do {
+            let p=RestorationProbe();defer{p.close()}
+            let id=UUID(),query=WallpaperLibraryQueryState();p.manager.settings.restorePlaybackOnLaunch=false
+            p.save(source:.page(.playlist(id)),ref:p.a,query:query,paused:true)
+            p.snapshot=try .init(source:.page(.playlist(id)),revision:4,entries:[.init(reference:p.a,runtime:.video,isPlayable:true),.init(reference:p.b,runtime:.video,isPlayable:true)],sourceQuery:query)
+            p.start();p.ready(ids:[id]);p.restoration.resumeLastSelection()
+            checks["manual-replay-with-launch-off-reuses-saved-source-and-resumes-user-intent"] = p.requests.count == 1
+                && p.requests[0].proposal.snapshot.source == .page(.playlist(id)) && !PlaybackCommandMultiplexer.shared.isUserPaused
+                && p.requests[0].proposal.cause == .restore
+            p.restoration.resumeLastSelection()
+            checks["manual-replay-does-not-duplicate-pending-ticket"] = p.requests.count == 1
+            p.endpoints.last?.show(p.manager)
+            p.manager.stopCurrentPlayback();p.restoration.onStopped()
+            checks["stop-retains-success-for-manual-replay-without-auto-admission"] = p.stored()?.status == "stopped"
+                && p.restoration.rememberedReference == p.a
+            p.manager.settings.restorePlaybackOnLaunch=true;p.start();p.ready(ids:[id])
+            checks["stopped-success-does-not-autoplay-on-relaunch"] = p.requests.count == 1
+            p.restoration.resumeLastSelection()
+            checks["stopped-success-can-replay-through-original-admission"] = p.requests.count == 2
+                && p.requests.last?.proposal.entry.reference == p.a
+            p.manager.stopCurrentPlayback();p.restoration.reset()
+            checks["reset-clears-manual-replay-memory"] = p.restoration.rememberedReference == nil
+        }
+        do {
+            let p=RestorationProbe();defer{p.close()}
+            p.manager.settings.restorePlaybackOnLaunch=false;p.manager.currentWallpaper = .init(path:p.a.sourceID)
+            p.start();p.ready();p.restoration.resumeLastSelection()
+            checks["legacy-success-manual-replay-does-not-need-a-second-storage-key"] = p.requests.count == 1
+                && p.requests[0].proposal.entry.reference == p.a && p.requests[0].proposal.snapshot.source == .single(p.a)
+        }
+        do {
+            let p=RestorationProbe();defer{p.close()}
+            p.save(source:.single(p.a),ref:p.a);p.items[p.a]=nil
+            p.manager.settings.restorePlaybackOnLaunch=false;p.start();p.ready();p.restoration.resumeLastSelection()
+            checks["unavailable-manual-replay-never-substitutes-another-target"] = p.requests.isEmpty && p.errors.count == 1
+        }
+        do {
+            let p=RestorationProbe();defer{p.close()}
+            p.manager.settings.restorePlaybackOnLaunch=false;p.manager.currentWallpaper = .init(path:p.a.sourceID)
+            p.start();p.ready();p.manager.currentWallpaper=nil
+            p.defaults.removeObject(forKey:p.manager.currentWallpaperKey)
+            p.start();p.ready();let accepted=p.restoration.resumeLastSelection()
+            checks["legacy-launch-off-exit-and-relaunch-retains-the-single-migrated-success"] = accepted
+                && p.requests.count == 1 && p.requests[0].proposal.entry.reference == p.a
+        }
+        do {
+            let p=RestorationProbe();defer{p.close()}
+            p.manager.wallpapers = [.init(path:p.a.sourceID)]
+            p.manager.currentWallpaper = .init(path:p.a.sourceID)
+            p.manager.settings.restorePlaybackOnLaunch=false
+            p.defaults.set(true,forKey:p.manager.playbackStateKey)
+            p.start();p.ready()
+            p.defaults.set(false,forKey:p.manager.playbackStateKey)
+            p.manager.settings.restorePlaybackOnLaunch=true;p.start();p.ready()
+            checks["migrated-pause-intent-survives-launch-off-exit-rewriting-legacy-key"] = p.requests.count == 1
+                && !PlaybackCommandMultiplexer.shared.isUserPaused && p.stored()?.userPaused == false
+        }
+        do {
+            let p=RestorationProbe();defer{p.close()}
+            p.manager.settings.restorePlaybackOnLaunch=false;p.save(source:.single(p.a),ref:p.a)
+            p.start();p.ready();var notices=0
+            let accepted=p.restoration.resumeLastSelection(onFailure:{notices += 1})
+            let failed=p.requests[0];p.manager.switchFailed(failed.ticket,reason:"late native load failure")
+            p.restoration.onFailed(failed)
+            checks["admitted-manual-replay-late-failure-reports-and-notifies-once"] = accepted
+                && notices == 1 && p.errors.count == 1 && p.stored()?.reference == p.a
+        }
+        do {
+            let p=RestorationProbe();defer{p.close()}
+            p.manager.settings.restorePlaybackOnLaunch=false;p.save(source:.single(p.a),ref:p.a)
+            p.start();p.ready();var notices=0
+            p.restoration.resumeLastSelection(onFailure:{notices += 1})
+            let stale=p.requests[0];_ = p.manager.beginPlaybackIntent(runtime:.web)
+            p.restoration.onFailed(stale)
+            checks["superseded-manual-replay-cannot-present-stale-failure"] = notices == 0 && p.errors.isEmpty
+        }
+        do {
+            let p=RestorationProbe();defer{p.close()}
+            p.manager.settings.restorePlaybackOnLaunch=false;p.save(source:.global,ref:p.a)
+            p.snapshot=try .init(source:.global,revision:1,entries:[
+                .init(reference:p.a,runtime:.video,isPlayable:true),
+                .init(reference:p.b,runtime:.video,isPlayable:true)])
+            p.start();p.ready([.videoLibrary]);let saved=p.defaults.data(forKey:WallpaperLibraryPlaybackRestoration.storageKey)
+            let early=p.restoration.resumeLastSelection()
+            checks["manual-global-replay-does-not-degrade-a-partially-loaded-source"] = !early && p.requests.isEmpty
+                && p.defaults.data(forKey:WallpaperLibraryPlaybackRestoration.storageKey) == saved
+            p.ready();let ready=p.restoration.resumeLastSelection()
+            checks["manual-global-replay-uses-complete-original-source-after-readiness"] = ready
+                && p.requests.count == 1 && p.requests[0].proposal.snapshot.source == .global
+            p.endpoints.last?.show(p.manager)
+            p.manager.stopCurrentPlayback();p.restoration.onStopped();p.start();p.ready([.videoLibrary])
+            let stopped=p.defaults.data(forKey:WallpaperLibraryPlaybackRestoration.storageKey)
+            let stoppedEarly=p.restoration.resumeLastSelection()
+            checks["stopped-global-manual-replay-waits-for-all-source-owners"] = !stoppedEarly
+                && p.requests.count == 1 && p.defaults.data(forKey:WallpaperLibraryPlaybackRestoration.storageKey) == stopped
+            p.ready();let stoppedReady=p.restoration.resumeLastSelection()
+            checks["stopped-global-manual-replay-retains-original-source"] = stoppedReady
+                && p.requests.count == 2 && p.requests.last?.proposal.snapshot.source == .global
+        }
         print(String(data:try JSONSerialization.data(withJSONObject:checks,options:[.sortedKeys]),encoding:.utf8)!)
     }
 }

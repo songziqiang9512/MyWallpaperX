@@ -96,11 +96,9 @@ import Foundation
     func setPersonalSettingsReady(_ ready: Bool) {
         personalSettingsReady = ready
         presentation.setEditingAllowed(ready)
-        if ready {
-            restoration.updateInitialReadiness(loadedProviders: catalog.catalog.loadedProviders,
-                existingPlaylistIDs: Set(relationships.playlists.map(\.id)), resetEpoch: relationships.resetEpoch,
-                relationshipsReady: collections != nil, catalogRevision: catalog.catalog.revision)
-        }
+        restoration.updateInitialReadiness(loadedProviders: catalog.catalog.loadedProviders,
+            existingPlaylistIDs: Set(relationships.playlists.map(\.id)), resetEpoch: relationships.resetEpoch,
+            relationshipsReady: collections != nil && ready, catalogRevision: catalog.catalog.revision)
     }
 
     private func installPlaybackBindings() {

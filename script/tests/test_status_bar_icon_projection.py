@@ -29,6 +29,7 @@ import Foundation
     var statusItem: Item? = Item()
     // PRODUCTION_STATE
     // PRODUCTION_UPDATE
+    var label: String? { displayedIconLabel }
     func update() { updateStatusBarIcon() }
 }
 @main enum Checks {
@@ -40,26 +41,29 @@ import Foundation
         monitor.stats.gpuUsage = nil
         projection.update()
         let initial = button.image
-        checks["nilMetricStillProducesInitialZeroIcon"] = initial != nil && button.assignments == 1
+        checks["nilMetricProducesUnavailableIcon"] = initial != nil && projection.label == "—" && button.assignments == 1
             && button.imagePosition == .imageOnly
         for _ in 0..<100 { projection.update() }
         checks["identicalTicksRetainImageWithoutButtonAssignment"] = button.image === initial && button.assignments == 1
         monitor.stats.gpuUsage = 0.004
         projection.update()
-        checks["unchangedRoundedMetricReusesImage"] = button.image === initial && button.assignments == 1
+        let zero = button.image
+        checks["realZeroDiffersFromUnavailable"] = zero !== initial && projection.label == "0%" && button.assignments == 2
+        projection.update()
+        checks["unchangedRoundedMetricReusesImage"] = button.image === zero && button.assignments == 2
         monitor.stats.gpuUsage = 0.006
         projection.update()
         let changed = button.image
-        checks["roundedMetricChangePublishesNewImage"] = changed !== initial && button.assignments == 2
+        checks["roundedMetricChangePublishesNewImage"] = changed !== zero && button.assignments == 3
         button.effectiveAppearance = NSAppearance(named: .darkAqua)!
         projection.update()
         let dark = button.image
-        checks["appearanceChangeRefreshesSamePercentage"] = dark !== changed && button.assignments == 3
+        checks["appearanceChangeRefreshesSamePercentage"] = dark !== changed && button.assignments == 4
         projection.update()
-        checks["sameDarkAppearanceReusesNewImage"] = button.image === dark && button.assignments == 3
+        checks["sameDarkAppearanceReusesNewImage"] = button.image === dark && button.assignments == 4
         monitor.stats.gpuUsage = nil
         projection.update()
-        checks["metricBecomingUnavailableKeepsExistingZeroFallback"] = button.assignments == 4
+        checks["metricBecomingUnavailableUsesDash"] = projection.label == "—" && button.assignments == 5
         let detached = Projection()
         let item = detached.statusItem!
         detached.statusItem = nil
@@ -93,7 +97,7 @@ class StatusBarIconProjectionTests(unittest.TestCase):
             run = subprocess.run([str(binary)], capture_output=True, text=True, timeout=30)
             self.assertEqual(run.returncode, 0, run.stdout + run.stderr)
             checks = json.loads(run.stdout)
-            self.assertEqual(len(checks), 9)
+            self.assertEqual(len(checks), 10)
             for name, passed in checks.items():
                 with self.subTest(name=name):
                     self.assertTrue(passed)

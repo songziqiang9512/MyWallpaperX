@@ -37,6 +37,7 @@
 - [2.11.0 更新说明](releases/2.11.0.md)；历史说明：[2.10.1](releases/2.10.1.md)、[2.10.0](releases/2.10.0.md)。实际发布状态以正式 Release 为准。
 
 - [播放进程生命周期与统一切换事务](architecture/playback-lifecycle-transaction-design.md)：三引擎退出、可见确认、取消和退休边界。
+- [状态栏控制面板专项](development/status-bar-panel-redesign.md)：原生封面、播放控制、监控与窗口交接设计及验收。
 - [AppKit 迁移](architecture/appkit-migration.md)：当前 SwiftUI 残留和迁移门。
 - [主界面与混合播放列表改造](development/main-window-playlists-redesign.md)：Apple Music 风格的侧栏、统一卡片和逐页工具栏规范，以及关系迁移、跨类型轮换与分批验收；分批实施与验收见专项。
 - [代码精简专项](development/code-slimming-program.md)：无消费者链路、重复计算和校验策略的分批范围与验收。

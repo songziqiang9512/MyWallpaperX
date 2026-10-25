@@ -20,7 +20,7 @@ func steamWorkshopCachedPreviewImage(for url: URL, maxPixelSize: Int = 800) -> N
     SteamWorkshopPreviewImageCache.shared.cachedImage(forKey: steamWorkshopPreviewStillKey(for: url, maxPixelSize: maxPixelSize))
 }
 
-func steamWorkshopLoadPreviewImage(
+nonisolated func steamWorkshopLoadPreviewImage(
     from url: URL,
     maxPixelSize: Int = 800,
     priority: SteamWorkshopPreviewRequestPriority = .visible,

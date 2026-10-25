@@ -1474,6 +1474,20 @@
         "MyWallpaperX/Shared/UI/AppCenteredAlertPresentation.swift"
       ],
       "contentPatterns": []
+    },
+    {
+      "id": "status-bar-control-panel",
+      "title": "状态栏封面播放与监控控制面板",
+      "owner": "App/StatusBarController",
+      "status": "approved",
+      "designDoc": "docs/development/status-bar-panel-redesign.md",
+      "design_notes": "2026-10-26用户确认状态栏产品面并授权接入最新统一Library Sequence。上次成功身份、手动/启动恢复共用原Restoration envelope；暂停直接消费原pauseSnapshots。不得恢复私有来源扫描、独立SQLite恢复或第二套持久化。",
+      "matchPatterns": [
+        "MyWallpaperX/App/StatusBarController.swift",
+        "MyWallpaperX/App/StatusBarPanel*.swift",
+        "MyWallpaperX/App/WallpaperLibraryPlaybackRestoration.swift"
+      ],
+      "contentPatterns": []
     }
   ]
 }

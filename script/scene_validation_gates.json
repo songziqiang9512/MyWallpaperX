@@ -4474,10 +4474,16 @@
       "id": "system-status-display",
       "patterns": [
         "MyWallpaperX/Core/System/SystemMonitor.swift",
-        "MyWallpaperX/App/StatusBarController.swift"
+        "MyWallpaperX/App/StatusBarController.swift",
+        "MyWallpaperX/App/StatusBarPanel*.swift",
+        "MyWallpaperX/App/WallpaperLibraryPlaybackRestoration.swift",
+        "script/tests/test_status_bar_panel.py",
+        "script/tests/fixtures/StatusBarPanelHarness.swift"
       ],
       "modules": [
-        "test_status_bar_icon_projection"
+        "test_status_bar_icon_projection",
+        "test_status_bar_panel",
+        "test_wallpaper_playback_restoration"
       ]
     },
     {
