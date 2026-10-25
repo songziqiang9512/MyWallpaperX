@@ -17,6 +17,9 @@ class SteamPlaybackLifetimeTests(unittest.TestCase):
         harness = r'''
 import AppKit
 struct SceneUserPropertyValue {}
+enum WallpaperPlaybackSequence { struct Pending {} }
+enum WallpaperProvider { case steamWorkshop }
+struct WallpaperReference { let provider:WallpaperProvider;let sourceID:String }
 struct ScenePlaybackTextureReference {}
 // 真实形状见 WallpaperEngineCommand.swift；抽取的 stop/shutdown 路径会构造
 // .failed(String) 等分支，stub 枚举必须承接这些调用点。
@@ -169,7 +172,10 @@ struct SteamWorkshopDownloadMetadataSnapshot: Codable {
     var legacyRemoved: Bool? = nil
 }
 @MainActor final class SteamWorkshopService {
-    var prepareScenePlaybackIntent:((String,Bool)->(intentEpoch:UInt64,isCurrent:()->Bool,cancel:()->Void)?)?
+    var requestLibraryPlayback:((WallpaperReference)->Void)?
+    var prepareScenePlaybackIntent:((String,Bool,WallpaperPlaybackSequence.Pending?)->(intentEpoch:UInt64,isCurrent:()->Bool,cancel:()->Void)?)? = { _,_,_ in
+        (intentEpoch:1,isCurrent:{true},cancel:{})
+    }
     var webLaunchIntentGeneration: UInt64 = 0
     var removingDownloadIDs: Set<String> = []
     let steamLibraryVersionLeaseRegistry = SteamWorkshopLibraryVersionLeaseRegistry()
@@ -223,15 +229,15 @@ struct SteamWorkshopDownloadMetadataSnapshot: Codable {
         }
         defer { NotificationCenter.default.removeObserver(observer) }
         try daemon.startProcess()
-        service.requestSceneRender(record)
+        service.requestSceneRender(record, libraryPending:.init())
         precondition(leases.protectedStorageIdentities() == [identity])
         daemon.launchPending()
-        service.requestSceneRender(record) // same entry used by a texture-property reload
+        service.requestSceneRender(record, newSelection:false) // same ticket/resource path used by a texture-property reload
         daemon.launchPending()
         precondition(loads == 2 && leases.protectedStorageIdentities() == [identity])
         precondition(!leases.beginReclamation(identity), "reloaded Scene must still pin its files")
         service.removingDownloadIDs.insert(record.id)
-        service.requestSceneRender(record)
+        service.requestSceneRender(record, libraryPending:.init())
         precondition(loads == 2 && service.downloadError != nil, "deletion fences reloading")
 
         var ended = false
@@ -247,7 +253,7 @@ struct SteamWorkshopDownloadMetadataSnapshot: Codable {
 
         // Stop a load that has not received accepted/launched yet.
         service.removingDownloadIDs.remove(record.id)
-        service.requestSceneRender(record)
+        service.requestSceneRender(record, libraryPending:.init())
         precondition(daemon.hasIntent(for: record.id) && daemon.activeRecordID == nil)
         var pendingEnded = false
         daemon.shutdown(postsLaunchState: true) { pendingEnded = true }

@@ -57,7 +57,7 @@ class WindowProbe: NSView {
         _ = NSApplication.shared
         NSApp.setActivationPolicy(.prohibited)
         var checks: [String: Bool] = [:]
-        for (index, probe) in [P0(), P1(), P2()].enumerated() {
+        for (index, probe) in [(1, P1())] {
             let window = NSWindow(contentRect: NSRect(x: 14000, y: 14000, width: 500, height: 300),
                 styleMask: [.titled, .miniaturizable], backing: .buffered, defer: false)
             window.isReleasedWhenClosed = false

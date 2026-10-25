@@ -48,6 +48,8 @@ class SteamLibraryReloadCoalescingTests(unittest.TestCase):
             '    private func applyInstalledLibraryRecords(',
         ):
             members.append(extract(source, signature))
+        members.append(extract((CORE / 'SteamWorkshopService+BrowseStateRecovery.swift').read_text(),
+                               '    func clearAllCachedState() {'))
         # Post-fix the reload protocol routes through dedicated scan members and a
         # per-instance flight holder; extract them so the harness runs the real
         # implementations rather than stand-ins.
@@ -89,14 +91,69 @@ enum ScanGate {
     }
 }
 
+@MainActor final class CacheClearAuth {
+    let accountID = "kept-account"
+    private(set) var cancellations = 0
+    func cancelPendingAuthentication() { cancellations += 1 }
+}
+@MainActor final class CacheClearBrowseStore {
+    private(set) var clears = 0
+    func clear() { clears += 1 }
+}
+@MainActor final class SteamWorkshopPreviewImageCache {
+    static let shared = SteamWorkshopPreviewImageCache()
+    private(set) var memoryClears = 0, diskClears = 0
+    func removeAll() { memoryClears += 1 }
+    func clearDiskCache() { diskClears += 1 }
+}
+@MainActor final class CacheClearProgress {
+    private(set) var clears = 0
+    func removeAll() { clears += 1 }
+}
+enum CacheClearOption {
+    case idle, discovery, video, featured, subscriptionDate, week, none
+    var title: String { "Steam Workshop" }
+}
 @MainActor final class SteamWorkshopService {
     var statusMessage = ""
     let steamDownloadLibraryRootURL: URL
     var installedLibraryScanGeneration = 0
     var downloads: [SteamWorkshopDownloadRecord] = []
-    var selectedDownloadID: String?
-    var selectedDownloadIDs: Set<String> = []
-    init(libraryRoot: URL) { steamDownloadLibraryRootURL = libraryRoot }
+    var hasCompletedInstalledLibraryLoad = false
+    let steamAuth = CacheClearAuth()
+    let steamKitBrowseStore = CacheClearBrowseStore()
+    let downloadProgressStore = CacheClearProgress()
+    let downloadJobStore: SteamDownloadJobStore
+    var browserFetchTask: Task<Void, Never>?
+    var browserItems = ["old"], displayedBrowserItems = ["old"]
+    var retainedBrowseSections = ["old": "snapshot"]
+    var pendingBrowserScrollRestoreOffset: Double? = 400
+    var browserState = CacheClearOption.idle
+    var isRefreshingBrowserFeed = true, isLoadingMoreBrowserItems = true, hasMoreBrowserItems = false
+    var previewReloadToken = 0
+    var browserLoadMoreFailureMessage: String? = "old", selectedBrowserItem: String? = "old"
+    var browserLoadMoreRetryAfter = Date.distantFuture
+    var selectedBrowserItemError: String? = "old", currentWorkshopItemID: String? = "old"
+    var isRefreshingSelectedBrowserItem = true
+    var currentPageTitle = "old", activeDownloadItemIDs: Set<String> = ["active"]
+    var selectedDownloadInspectorItem: String? = "old", selectedDownloadDetailItem: String? = "old"
+    var selectedDownloadDetailError: String? = "old", downloadError: String? = "old"
+    var isRefreshingSelectedDownloadDetailItem = true
+    var browseContext = CacheClearOption.discovery, browserContentMode = CacheClearOption.video
+    var source = CacheClearOption.featured, personalSort = CacheClearOption.subscriptionDate
+    var trendingWindow = CacheClearOption.week, facetFilters = CacheClearOption.none
+    var discoveryBrowseSnapshot: String? = "old", savedDiscoveryQueryBeforeAuthorBrowse: String? = "old"
+    var isUpdatingBrowserQueryProgrammatically = false, suppressAutomaticBrowseNavigation = false
+    var browserQuery = "old", navigationVersion = 0
+    var detailCancellations = 0, cacheDeletionRequests: [URL] = []
+    var cacheDirectoryURL: URL { steamDownloadLibraryRootURL.appendingPathComponent("cache") }
+    static func detailCacheDirectoryURL() -> URL { URL(fileURLWithPath: "/private/tmp/fixture-steam-detail-cache") }
+    func clearSteamWorkshopCacheDirectory(_ url: URL) { cacheDeletionRequests.append(url) }
+    func cancelSelectedItemDetailRefresh() { detailCancellations += 1 }
+    init(libraryRoot: URL) {
+        steamDownloadLibraryRootURL = libraryRoot
+        downloadJobStore = SteamDownloadJobStore(persistenceURL: libraryRoot.deletingLastPathComponent().appendingPathComponent("jobs.json"))
+    }
     func referencedLibraryStorageIdentities() -> Set<String> { [] }
     func scheduleLegacyLibraryPublicationMigration(from snapshots: [String: SteamWorkshopDownloadMetadataSnapshot]) {}
     func reconcileDownloadCommits(_ snapshots: [String: SteamWorkshopDownloadMetadataSnapshot]) {}
@@ -104,7 +161,6 @@ enum ScanGate {
     func installedLibraryScanContext() -> SteamWorkshopInstalledLibraryScanContext {
         SteamWorkshopInstalledLibraryScanContext(libraryRoot: steamDownloadLibraryRootURL)
     }
-    func publishDownloadSelectionState(primaryID: String?, selectedIDs: Set<String>, deferPublishing: Bool) {}
     func scheduleLibraryVersionReclamation() {}
     nonisolated static func scanInstalledLibraryRecords(
         managed: [String: SteamWorkshopDownloadMetadataSnapshot],
@@ -184,8 +240,23 @@ enum ScanGate {
 
         // --- Scenario 1: continuous refresh while a scan is in flight. ---
         try publish("100001", "alpha-v1")
-        service.reloadInstalledItems()
+        let retainedJob = service.downloadJobStore.enqueue(workshopItemId: "654321", title: "Retained queued job", accountSteamId: "kept-account").job
+        let jobBytesBefore = try Data(contentsOf: base.appendingPathComponent("jobs.json"))
+        let browseTask = Task { while !Task.isCancelled { await Task.yield() } }
+        service.browserFetchTask = browseTask
+        service.clearAllCachedState()
+        precondition(browseTask.isCancelled && service.browserFetchTask == nil && service.detailCancellations == 1)
+        precondition(service.browserItems.isEmpty && service.displayedBrowserItems.isEmpty && service.retainedBrowseSections.isEmpty)
+        precondition(service.cacheDeletionRequests == [service.cacheDirectoryURL, SteamWorkshopService.detailCacheDirectoryURL()])
+        precondition(SteamWorkshopPreviewImageCache.shared.memoryClears == 1 && SteamWorkshopPreviewImageCache.shared.diskClears == 1)
+        precondition(service.steamAuth.accountID == "kept-account" && service.steamAuth.cancellations == 1)
+        precondition(service.downloadJobStore.jobs == [retainedJob])
+        let jobBytesAfter = try Data(contentsOf: base.appendingPathComponent("jobs.json"))
+        precondition(jobBytesBefore == jobBytesAfter, "cache clearing must not cancel/rewrite the durable download queue")
+        precondition(service.navigationVersion == 1 && !service.isUpdatingBrowserQueryProgrammatically && !service.suppressAutomaticBrowseNavigation)
         try await waitUntil("first scan started") { ScanGate.gate { ScanGate.started == 1 } }
+        precondition(service.installedLibraryScanGeneration == 1 && ScanGate.gate { ScanGate.started == 1 },
+            "cache clear must directly request one original source reload without waiting for a grid/window/query")
         for index in 2...6 {
             try publish(String(100_000 + index), "item-\(index)")
         }
@@ -230,6 +301,7 @@ enum ScanGate {
             "scan sequence must be initial, catch-up(newest), post-deletion, catch-up(newest): "
             + "\(ScanGate.gate { ScanGate.seenManagedCounts })")
         precondition(ScanGate.gate { ScanGate.peakInFlight == 1 })
+        print("CACHE CLEAR REFRESH PASS: one explicit scan; auth/jobs preserved")
         print("RELOAD COALESCING PASS: scans=\(ScanGate.gate { ScanGate.started })"
             + " peakConcurrent=\(ScanGate.gate { ScanGate.peakInFlight })")
     }
@@ -250,6 +322,7 @@ enum ScanGate {
             result = subprocess.run([str(self.binary), directory], capture_output=True, text=True, timeout=30)
             self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
             self.assertIn('RELOAD COALESCING PASS: scans=', result.stdout)
+            self.assertIn('CACHE CLEAR REFRESH PASS: one explicit scan; auth/jobs preserved', result.stdout)
 
 
 if __name__ == '__main__':

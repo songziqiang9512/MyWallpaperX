@@ -17,6 +17,12 @@ NORMALIZATION = MODULE / 'Web/Core/SteamWorkshopService+WebPropertyNormalization
 STUBS = r'''
 import AppKit
 import Combine
+@discardableResult @MainActor func presentAppAlert(_ alert: NSAlert, in window: NSWindow?,
+    completion: ((NSApplication.ModalResponse) -> Void)? = nil) -> NSWindow {
+    // Dialog recording leaf only; the real centered presenter has its own gate.
+    alert.beginSheetModal(for: window!, completionHandler: completion)
+    return alert.window
+}
 struct SteamWorkshopDownloadRecord { let id: String; let title: String }
 struct ResolvedWebStaticContentSummary {
     let referencesSchemeColorUserProperty = false

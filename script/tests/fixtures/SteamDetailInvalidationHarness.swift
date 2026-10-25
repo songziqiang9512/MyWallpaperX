@@ -88,6 +88,22 @@ import Foundation
         checks["explicitConfigureStillForcesRebuild"] = !same(beforeConfigure, roots(detail))
         checks["forceRefreshAlsoKeepsOnePreviewHeight"] = previewHeights(detail) == 1
             && previewHeightConstraints(detail).first === initialHeightConstraint && previewHeight(detail) == 156
+        let originalContentSize = window.contentView!.bounds.size
+        window.setContentSize(NSSize(width: 400, height: 380)); settle(detail)
+        let sourcePreview = views(detail).first { $0 is SteamWorkshopPreviewImageContainerView }!
+        let scroll = views(detail).compactMap { $0 as? NSScrollView }.first!
+        let maxOffset = max(0, (scroll.documentView?.bounds.height ?? 0) - scroll.contentView.bounds.height)
+        checks["realSteamSameTurnScrollProbeHasANonzeroScrollableDocument"] = maxOffset >= 37
+        let offset = NSPoint(x: 0, y: min(maxOffset, 37))
+        scroll.contentView.scroll(to: offset); scroll.reflectScrolledClipView(scroll.contentView)
+        detail.configure(item: service.selectedDownloadDetailItem!)
+        let immediateFrame = sourcePreview.convert(sourcePreview.bounds, to: detail)
+        let immediateOffset = scroll.contentView.bounds.origin
+        settle(detail)
+        checks["realSteamPreviewHasFinalGeometryBeforeTheNextRunLoop"] = immediateFrame == sourcePreview.convert(sourcePreview.bounds, to: detail)
+            && immediateFrame.width > 0 && immediateFrame.height == 156
+        checks["realSteamScrollRestoresWithinTheSameRebuild"] = immediateOffset == offset && scroll.contentView.bounds.origin == offset
+        window.setContentSize(originalContentSize); settle(detail)
 
         checks["rawReadyRecordSizeInvalidates"] = changes { service.record = makeRecord(size: "9 MB") } && labels(detail).contains("9 MB")
         qualify()
@@ -264,6 +280,43 @@ import Foundation
         settle(bothBadDetail)
         let bothBad = views(bothBadDetail).first { $0 is SteamWorkshopPreviewImageContainerView } as! SteamWorkshopPreviewImageContainerView
         checks["actualDetailBothCandidatesFailWithoutVideo"] = bothBad.previewState.image == nil && bothBad.previewState.placeholder == .unavailable
+        var injectedPrimary = 0
+        service.record = makeRecord()
+        service.downloading = false; service.downloadingIDs = []; service.queuedIDs = []; service.pendingLaunch = false
+        SceneDaemonClient.shared.activeRecordID = nil
+        func libraryActions(playing: Bool = false, canPlay: Bool = true) -> WallpaperInspectorActions {
+            .init(state: .init(isPlaying: playing, isFavorite: false, canPerformPrimary: canPlay, canFavorite: false, canOrganize: false, playlistNames: []),
+                onPrimary: { injectedPrimary += 1 }, onToggleFavorite: {}, onChoosePlaylist: { _ in })
+        }
+        let injectedDetail = AppKitSteamWorkshopItemDetailView(item: item, service: service, libraryActions: libraryActions())
+        let injectedPlay = views(injectedDetail).compactMap { $0 as? InspectorFooterButton }.first { $0.action == NSSelectorFromString("setAsWallpaper") }!
+        _ = injectedPlay.accessibilityPerformPress()
+        checks["injectedSteamPrimaryDoesNotBypassCanonicalPlaybackOwner"] = injectedPrimary == 1 && service.wallpaperRequests == 0
+        injectedDetail.updateLibraryActions(libraryActions(canPlay: false))
+        let disabledPlay = views(injectedDetail).compactMap { $0 as? InspectorFooterButton }.first { $0.action == NSSelectorFromString("setAsWallpaper") }!
+        checks["injectedUnavailableSteamPrimaryRefusesNativePress"] = !disabledPlay.isEnabled && !disabledPlay.accessibilityPerformPress() && injectedPrimary == 1
+        injectedDetail.updateLibraryActions(libraryActions(playing: true))
+        let injectedStop = views(injectedDetail).compactMap { $0 as? InspectorFooterButton }.first { $0.action == NSSelectorFromString("stopCurrentWallpaper") }!
+        checks["injectedSteamStopRemainsOnFixedCanonicalAction"] = injectedStop.accessibilityPerformPress() && injectedPrimary == 2 && service.wallpaperRequests == 0
+        injectedDetail.updateLibraryActions(libraryActions(playing: true, canPlay: false))
+        let disabledStop = views(injectedDetail).compactMap { $0 as? InspectorFooterButton }.first { $0.action == NSSelectorFromString("stopCurrentWallpaper") }!
+        checks["absentPinnedPrimaryCannotExposeAnEnabledSteamStop"] = !disabledStop.isEnabled && !disabledStop.accessibilityPerformPress() && injectedPrimary == 2
+        injectedDetail.updateLibraryActions(nil)
+        checks["clearingRemoteInspectorFactoryRevokesOldPinnedAction"] = !views(injectedDetail).compactMap { $0 as? InspectorFooterButton }.contains { $0.action == NSSelectorFromString("stopCurrentWallpaper") }
+            && injectedPrimary == 2
+        service.steamAuth.isOnline = false
+        let accountDetail = AppKitSteamWorkshopItemDetailView(item: item, service: service)
+        let offlineSubscribe = views(accountDetail).compactMap { $0 as? InspectorFooterButton }.first { $0.action == NSSelectorFromString("toggleSubscriptionClicked:") }!
+        let offlineIcon = views(offlineSubscribe).compactMap { $0 as? NSImageView }.first!.image
+        let bookmark = NSImage(systemSymbolName: "bookmark", accessibilityDescription: nil)!.withSymbolConfiguration(.init(pointSize: 14, weight: .semibold))!
+        checks["sourceInspectorSubscriptionUsesNativeBookmarkWithoutOrganizationFactory"] = offlineIcon?.size == bookmark.size
+            && offlineSubscribe.accessibilityLabel() == "订阅"
+        service.steamAuth.isOnline = true; service.steamSubscriptions.value = .known(true)
+        let subscribedDetail = AppKitSteamWorkshopItemDetailView(item: item, service: service)
+        let subscribedButton = views(subscribedDetail).compactMap { $0 as? InspectorFooterButton }.first { $0.action == NSSelectorFromString("toggleSubscriptionClicked:") }!
+        let subscribedIcon = views(subscribedButton).compactMap { $0 as? NSImageView }.first!.image
+        let filledBookmark = NSImage(systemSymbolName: "bookmark.fill", accessibilityDescription: nil)!.withSymbolConfiguration(.init(pointSize: 14, weight: .semibold))!
+        checks["subscribedSourceInspectorUsesFilledBookmarkAndRetainsAccountLabel"] = subscribedIcon?.size == filledBookmark.size && subscribedButton.accessibilityLabel() == "已订阅"
         let output: [String: Any] = ["checks": checks, "ordinaryUpdates": 20, "propertyPulses": pulses,
             "propertyDispatches": PlaybackCommandMultiplexer.shared.propertyDispatches,
             "previewInitial": initialPreviewState, "previewAfterMetadata": rebuiltPreviewState,

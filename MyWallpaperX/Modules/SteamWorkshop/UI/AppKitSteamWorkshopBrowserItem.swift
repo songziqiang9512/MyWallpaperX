@@ -21,7 +21,7 @@ private enum SteamWorkshopSymbolImageCache {
     }
 }
 
-final class AppKitSteamWorkshopBrowserItem: NSCollectionViewItem, WallpaperGridHoverItem {
+final class AppKitSteamWorkshopBrowserItem: WallpaperCardCollectionViewItem, WallpaperGridHoverItem {
     private struct LayoutInputs: Equatable {
         let size: NSSize
         let scale: CGFloat
@@ -42,9 +42,9 @@ final class AppKitSteamWorkshopBrowserItem: NSCollectionViewItem, WallpaperGridH
     let multiSelectBadgeView = NSView()
     let multiSelectBadgeIcon = NSImageView()
     let overlayBarShadowView = NSView()
-    let overlayBar = SteamWorkshopGlassBarView()
+    let overlayBar = WallpaperCardGlassBarView()
     let detailButton = NSButton()
-    let titleMarqueeView = SteamWorkshopMarqueeTextView()
+    let titleMarqueeView = WallpaperCardMarqueeTextView()
     let statusBadgeButton = NSButton()
     var overlaySymbolConfiguration: NSImage.SymbolConfiguration?
 
@@ -60,6 +60,8 @@ final class AppKitSteamWorkshopBrowserItem: NSCollectionViewItem, WallpaperGridH
     private var onDownload: (() -> Void)?
     private var onSetAsWallpaper: (() -> Void)?
     private var onCancelDownload: (() -> Void)?
+    private var makeMenu: (() -> NSMenu?)?
+    var organizationPresentation: OrganizationPresentation?
     private var currentActionKind: ActionKind = .download
     var prefersCircularPlayBadge = false
     /// M0.5：本卡片"设为壁纸"是否处于 pending（渲染加载态图标）。
@@ -123,31 +125,8 @@ final class AppKitSteamWorkshopBrowserItem: NSCollectionViewItem, WallpaperGridH
 
     enum Layout {
         static let cardCornerRadius: CGFloat = 14
-        static let referenceCardWidth: CGFloat = 250
         static let cardInset: CGFloat = 2
-        static let barHorizontalInset: CGFloat = 8
-        static let barBottomInset: CGFloat = 11
-        static let hoverLift: CGFloat = 2
-        static let barHeight: CGFloat = 34
-        static let iconButtonSize: CGFloat = 30
-        static let statusBadgeSize: CGFloat = 30
-        static let barEdgeInset: CGFloat = 8
-        static let barSpacing: CGFloat = 8
-        static let marqueeSideInset: CGFloat = 2
         static let minBarCornerInset: CGFloat = 4
-    }
-
-    struct Metrics {
-        let scale: CGFloat
-        let barHorizontalInset: CGFloat
-        let barBottomInset: CGFloat
-        let barHeight: CGFloat
-        let iconButtonSize: CGFloat
-        let badgeSize: CGFloat
-        let barEdgeInset: CGFloat
-        let barSpacing: CGFloat
-        let marqueeSideInset: CGFloat
-        let titleFont: NSFont
     }
 
     override init(nibName: NSNib.Name?, bundle: Bundle?) {
@@ -170,7 +149,11 @@ final class AppKitSteamWorkshopBrowserItem: NSCollectionViewItem, WallpaperGridH
 
     override func loadView() {
         let root = SteamWorkshopCardAccessibilityView()
-        root.onPress = { [weak self] in self?.onOpen?() }
+        root.onPress = { [weak self] in
+            guard let action = self?.onOpen else { return false }
+            action()
+            return true
+        }
         view = root
         buildHierarchy()
     }
@@ -185,9 +168,14 @@ final class AppKitSteamWorkshopBrowserItem: NSCollectionViewItem, WallpaperGridH
         titleMarqueeView.text = ""
         previewImageView.image = nil
         onOpen = nil
+        view.setAccessibilityCustomActions([])
         onDownload = nil
         onSetAsWallpaper = nil
         onCancelDownload = nil
+        makeMenu = nil
+        (view as? WallpaperCardInteractionView)?.onAccessibilityActivate = { false }
+        organizationPresentation = nil
+        detailButton.isHidden = false
         currentActionKind = .download
         prefersCircularPlayBadge = false
         isHovering = false
@@ -233,38 +221,44 @@ final class AppKitSteamWorkshopBrowserItem: NSCollectionViewItem, WallpaperGridH
         isDownloaded: Bool,
         isMultiSelectMode: Bool = false,
         isKeyboardFocused: Bool,
-        onOpen: @escaping () -> Void,
+        organization: OrganizationPresentation? = nil,
+        makeMenu: (() -> NSMenu?)? = nil,
+        onOpen: (() -> Void)?,
         onDownload: @escaping () -> Void,
         onSetAsWallpaper: @escaping () -> Void,
         onCancelDownload: @escaping () -> Void
     ) {
+        organizationPresentation = organization
         self.onOpen = onOpen
         self.onDownload = onDownload
         self.onSetAsWallpaper = onSetAsWallpaper
         self.onCancelDownload = onCancelDownload
+        self.makeMenu = makeMenu
         currentDisplayContext = displayContext
-        isPlayingRecord = isPlaying && displayContext == .downloads
+        if displayContext == .browser { (view as? WallpaperCardInteractionView)?.onAccessibilityActivate = nil }
+        isPlayingRecord = isPlaying && (displayContext == .downloads || organization != nil)
         currentDownloadVideoURL = downloadRecord?.videoURL
         currentDebugID = item.id
         currentItem = item
         (view as? SteamWorkshopCardAccessibilityView)?.onMenu = { [weak self] in
-            guard let self, let item = self.currentItem, self.currentDisplayContext == .browser else { return nil }
-            return SteamWorkshopItemMenu.make(item: item, service: SteamWorkshopService.shared)
+            self?.currentContextMenu()
         }
         view.setAccessibilityElement(true)
         view.setAccessibilityRole(.group)
         view.setAccessibilityLabel(item.title)
-        view.setAccessibilityCustomActions([
+        view.setAccessibilityCustomActions((onOpen.map { action in [
             NSAccessibilityCustomAction(name: "查看详情", handler: { [weak self] in
-                self?.onOpen?()
-                return self != nil
+                guard let self, self.onOpen != nil, self.currentDisplayContext == displayContext,
+                      self.currentItem?.id.utf8.elementsEqual(item.id.utf8) == true else { return false }
+                action()
+                return true
             })
-        ] + (displayContext == .browser ? [
+        ] } ?? []) + (displayContext == .browser ? [
             NSAccessibilityCustomAction(name: "作品操作菜单", handler: { [weak self] in
-                guard let self, self.currentDisplayContext == .browser,
-                      let item = self.currentItem else { return false }
-                SteamWorkshopItemMenu.make(item: item, service: SteamWorkshopService.shared)
-                    .popUp(positioning: nil, at: NSPoint(x: self.view.bounds.midX, y: self.view.bounds.midY), in: self.view)
+                guard let self, self.currentDisplayContext == displayContext,
+                      self.currentItem?.id.utf8.elementsEqual(item.id.utf8) == true,
+                      let menu = self.currentContextMenu() else { return false }
+                menu.popUp(positioning: nil, at: NSPoint(x: self.view.bounds.midX, y: self.view.bounds.midY), in: self.view)
                 return true
             })
         ] : []))
@@ -293,38 +287,44 @@ final class AppKitSteamWorkshopBrowserItem: NSCollectionViewItem, WallpaperGridH
         isDownloaded: Bool,
         isMultiSelectMode: Bool = false,
         isKeyboardFocused: Bool,
-        onOpen: @escaping () -> Void,
+        organization: OrganizationPresentation? = nil,
+        makeMenu: (() -> NSMenu?)? = nil,
+        onOpen: (() -> Void)?,
         onDownload: @escaping () -> Void,
         onSetAsWallpaper: @escaping () -> Void,
         onCancelDownload: @escaping () -> Void
     ) {
+        organizationPresentation = organization
         self.onOpen = onOpen
         self.onDownload = onDownload
         self.onSetAsWallpaper = onSetAsWallpaper
         self.onCancelDownload = onCancelDownload
+        self.makeMenu = makeMenu
         currentDisplayContext = displayContext
-        isPlayingRecord = isPlaying && displayContext == .downloads
+        if displayContext == .browser { (view as? WallpaperCardInteractionView)?.onAccessibilityActivate = nil }
+        isPlayingRecord = isPlaying && (displayContext == .downloads || organization != nil)
         currentDownloadVideoURL = downloadRecord?.videoURL
         currentDebugID = item.id
         currentItem = item
         (view as? SteamWorkshopCardAccessibilityView)?.onMenu = { [weak self] in
-            guard let self, let item = self.currentItem, self.currentDisplayContext == .browser else { return nil }
-            return SteamWorkshopItemMenu.make(item: item, service: SteamWorkshopService.shared)
+            self?.currentContextMenu()
         }
         view.setAccessibilityElement(true)
         view.setAccessibilityRole(.group)
         view.setAccessibilityLabel(item.title)
-        view.setAccessibilityCustomActions([
+        view.setAccessibilityCustomActions((onOpen.map { action in [
             NSAccessibilityCustomAction(name: "查看详情", handler: { [weak self] in
-                self?.onOpen?()
-                return self != nil
+                guard let self, self.onOpen != nil, self.currentDisplayContext == displayContext,
+                      self.currentItem?.id.utf8.elementsEqual(item.id.utf8) == true else { return false }
+                action()
+                return true
             })
-        ] + (displayContext == .browser ? [
+        ] } ?? []) + (displayContext == .browser ? [
             NSAccessibilityCustomAction(name: "作品操作菜单", handler: { [weak self] in
-                guard let self, self.currentDisplayContext == .browser,
-                      let item = self.currentItem else { return false }
-                SteamWorkshopItemMenu.make(item: item, service: SteamWorkshopService.shared)
-                    .popUp(positioning: nil, at: NSPoint(x: self.view.bounds.midX, y: self.view.bounds.midY), in: self.view)
+                guard let self, self.currentDisplayContext == displayContext,
+                      self.currentItem?.id.utf8.elementsEqual(item.id.utf8) == true,
+                      let menu = self.currentContextMenu() else { return false }
+                menu.popUp(positioning: nil, at: NSPoint(x: self.view.bounds.midX, y: self.view.bounds.midY), in: self.view)
                 return true
             })
         ] : []))
@@ -340,6 +340,17 @@ final class AppKitSteamWorkshopBrowserItem: NSCollectionViewItem, WallpaperGridH
         // 初始内容应用显式执行。
         applyCurrentContent()
         loadCurrentPreview()
+    }
+
+    /// Selection/relations/playback do not rebind progress or revalidate pixels.
+    func applyOrganizationState(_ presentation: OrganizationPresentation, isPlaying: Bool,
+                                isMultiSelectMode: Bool, isKeyboardFocused: Bool) {
+        organizationPresentation = presentation
+        isPlayingRecord = isPlaying
+        if self.isMultiSelectMode != isMultiSelectMode { view.needsLayout = true }
+        self.isMultiSelectMode = isMultiSelectMode
+        currentIsKeyboardFocused = isKeyboardFocused
+        applyCurrentContent()
     }
 
     private func loadCurrentPreview() {
@@ -573,7 +584,6 @@ final class AppKitSteamWorkshopBrowserItem: NSCollectionViewItem, WallpaperGridH
         let displayTitle = resolvedDisplayTitle(item: item, downloadRecord: downloadRecord, barState: barState)
         currentTitleText = item.title
         titleMarqueeView.text = displayTitle
-        detailButton.setAccessibilityLabel("订阅：\(item.title)")
         // D7：ready 卡存在失败意图（更新失败）时，徽章提示附带该失败摘要；
         // 失败摘要不进搜索等隐式字段，只在此处可见。
         let updateFailedMessage = resolvedUpdateFailedMessage(downloadRecord: downloadRecord)
@@ -732,7 +742,7 @@ final class AppKitSteamWorkshopBrowserItem: NSCollectionViewItem, WallpaperGridH
         itemTitle: String,
         isLaunchPending: Bool = false
     ) {
-        let badgeKey = "\(String(describing: actionKind))|\(isLaunchPending)"
+        let badgeKey = "\(String(describing: actionKind))|\(isLaunchPending)|\(organizationPresentation?.canPlay ?? true)|\(organizationPresentation?.canDownload ?? true)|\(organizationPresentation?.canCancel ?? true)"
         guard badgeKey != lastBadgeKey else { return }
         lastBadgeKey = badgeKey
         let symbolName: String
@@ -774,7 +784,16 @@ final class AppKitSteamWorkshopBrowserItem: NSCollectionViewItem, WallpaperGridH
         statusBadgeButton.image = configuredSymbol(named: symbolName)
         statusBadgeButton.contentTintColor = tintColor
         statusBadgeButton.setAccessibilityLabel(accessibilityLabel)
-        statusBadgeButton.isEnabled = actionKind != .saving
+        let allowed: Bool
+        if let organizationPresentation {
+            switch actionKind {
+            case .setAsWallpaper, .stop: allowed = organizationPresentation.canPlay
+            case .download, .retry: allowed = organizationPresentation.canDownload
+            case .cancel: allowed = organizationPresentation.canCancel
+            case .saving: allowed = false
+            }
+        } else { allowed = actionKind != .saving }
+        statusBadgeButton.isEnabled = allowed
         updateContinuousAnimationState()
     }
 
@@ -801,9 +820,13 @@ final class AppKitSteamWorkshopBrowserItem: NSCollectionViewItem, WallpaperGridH
         onOpen?()
     }
 
-    /// 心形订阅：unknown 先拉取订阅状态，已知状态直接切换。
+    /// Local heart and account bookmark dispatch to their independent owners.
     @objc func handleSubscribeToggle() {
-        guard let item = currentItem else { return }
+        guard !isMultiSelectMode, let item = currentItem else { return }
+        if let organizationPresentation {
+            if organizationPresentation.canFavorite { organizationPresentation.onFavorite?() }
+            return
+        }
         if currentDisplayContext == .downloads { onOpen?(); return }
         guard SteamWorkshopService.shared.steamAuth.isOnline else {
             SteamWorkshopService.shared.presentSteamLoginForUserAction(context: "订阅")
@@ -821,6 +844,16 @@ final class AppKitSteamWorkshopBrowserItem: NSCollectionViewItem, WallpaperGridH
     /// Subscription membership comes only from the account-scoped store.
     func refreshSubscribeHeart() {
         guard let item = currentItem else { return }
+        if let organizationPresentation {
+            detailButton.isHidden = !organizationPresentation.canFavorite
+            applyDetailChrome(key: "favorite|\(organizationPresentation.isFavorite)|\(organizationPresentation.canFavorite)|\(item.title)",
+                symbolName: organizationPresentation.isFavorite ? "heart.fill" : "heart",
+                tint: organizationPresentation.isFavorite ? .controlAccentColor : .labelColor,
+                accessibilityLabel: organizationPresentation.isFavorite ? "取消特别喜爱：\(item.title)" : "特别喜爱：\(item.title)",
+                isEnabled: organizationPresentation.canFavorite)
+            return
+        }
+        detailButton.isHidden = false
         guard currentDisplayContext == .browser else {
             applyDetailChrome(
                 key: "detail|\(item.title)",
@@ -843,8 +876,8 @@ final class AppKitSteamWorkshopBrowserItem: NSCollectionViewItem, WallpaperGridH
         let busy = state == .loading || state == .writing || state == .reconciling
         applyDetailChrome(
             key: "\(subscribed)|\(busy)|\(item.title)",
-            symbolName: subscribed ? "heart.fill" : "heart",
-            tint: subscribed ? .systemRed : .labelColor,
+            symbolName: subscribed ? "bookmark.fill" : "bookmark",
+            tint: subscribed ? .controlAccentColor : .labelColor,
             accessibilityLabel: busy
                 ? "正在核对订阅：\(item.title)"
                 : (subscribed ? "取消订阅：\(item.title)" : "订阅：\(item.title)"),
@@ -878,6 +911,7 @@ final class AppKitSteamWorkshopBrowserItem: NSCollectionViewItem, WallpaperGridH
     }
 
     @objc func handleStatusAction() {
+        guard statusBadgeButton.isEnabled, !isMultiSelectMode else { return }
         switch currentActionKind {
         case .download, .retry:
             onDownload?()
@@ -888,6 +922,7 @@ final class AppKitSteamWorkshopBrowserItem: NSCollectionViewItem, WallpaperGridH
         case .saving:
             break
         case .stop:
+            if let organizationPresentation { organizationPresentation.onPrimary?(); return }
             if let record = currentDownloadRecord,
                SteamWorkshopService.shared.isRecordCurrentlyPlaying(record) {
                 PlaybackCommandMultiplexer.shared.dispatch(
@@ -896,6 +931,12 @@ final class AppKitSteamWorkshopBrowserItem: NSCollectionViewItem, WallpaperGridH
                 )
             }
         }
+    }
+
+    private func currentContextMenu() -> NSMenu? {
+        guard currentDisplayContext == .browser, let item = currentItem else { return nil }
+        if let makeMenu { return makeMenu() }
+        return SteamWorkshopItemMenu.make(item: item, service: SteamWorkshopService.shared)
     }
 
     func setPrefersCircularPlayBadge(_ prefersCircularPlayBadge: Bool) {
@@ -914,13 +955,13 @@ final class AppKitSteamWorkshopBrowserItem: NSCollectionViewItem, WallpaperGridH
 }
 
 /// The card itself opens details; secondary operations remain in its context menu.
-private final class SteamWorkshopCardAccessibilityView: NSView {
-    var onPress: (() -> Void)?
+private final class SteamWorkshopCardAccessibilityView: WallpaperCardInteractionView {
+    var onPress: (() -> Bool)?
     var onMenu: (() -> NSMenu?)?
     override func menu(for event: NSEvent) -> NSMenu? { onMenu?() ?? super.menu(for: event) }
     override func accessibilityPerformPress() -> Bool {
+        if let onAccessibilityActivate { return onAccessibilityActivate() }
         guard let onPress else { return false }
-        onPress()
-        return true
+        return onPress()
     }
 }

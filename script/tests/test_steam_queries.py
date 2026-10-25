@@ -25,6 +25,8 @@ class SteamQueryTests(unittest.TestCase):
         from script.tests.test_steam_library_interactions import method
         reconcile = method(navigation, '    func reconcileSubscriptionWrite(')
         display = method(navigation, '    func updateDisplayedBrowserItems(')
+        search_parser = method((CORE / 'SteamWorkshopService+BrowserSupport.swift').read_text(),
+                               '    nonisolated static func workshopItemIDSearchID(')
         restoration = '\n'.join(method(navigation, signature) for signature in [
             '    func makeDiscoveryBrowseSnapshot(', '    func restoreDiscoveryBrowseSnapshot(',
             '    func enterBrowseSection(', '    func invalidatePersonalBrowseSnapshot(',
@@ -96,7 +98,7 @@ extension Notification.Name { static let appKitSelectItemRequested = Notificatio
  var consecutiveEmptyLoadMorePages = 0
  var statusMessage = ""
  var refreshes = 0
- static func workshopItemIDSearchID(from query: String) -> String? { nil }
+ // SOURCE_ID_SEARCH_PARSER
  func loadMoreBrowserItemsIfNeeded() {}
  func fetchBrowserItems(forceRefresh: Bool) { refreshes += 1 }
  var source = SteamWorkshopSource.mySubscriptions
@@ -104,12 +106,13 @@ extension Notification.Name { static let appKitSelectItemRequested = Notificatio
  init(_ store: SteamKitBrowseStore) { steamKitBrowseStore = store }
 ''' + projection.replace('private func steamKitStructuredPostProcess', 'func steamKitStructuredPostProcess')\
     .replace('private func steamKitPersonalPostProcess', 'func steamKitPersonalPostProcess') + '\n' + reconcile + '\n' + display + '\n' + restoration + '\n}\n' + snapshot + '\ntypealias SteamWorkshopBrowserItem = Projection.MembershipItem\n' + store
-        fixture = fixture.replace('// MEMBERSHIP_HOOK', hook)
+        fixture = fixture.replace('// MEMBERSHIP_HOOK', hook).replace('// SOURCE_ID_SEARCH_PARSER', search_parser)
         with tempfile.TemporaryDirectory(prefix='mwx-steam-queries-') as folder:
             folder = pathlib.Path(folder)
             extracted = folder / 'ActualBrowseStore.swift'
             extracted.write_text(fixture)
-            sources = [ROOT / 'MyWallpaperX/Core/DaemonKit/DaemonNewlineJSON.swift',
+            sources = [ROOT / 'MyWallpaperX/Models/WallpaperReference.swift',
+                       ROOT / 'MyWallpaperX/Core/DaemonKit/DaemonNewlineJSON.swift',
                        ROOT / 'MyWallpaperX/Core/DaemonKit/DaemonProcessTransport.swift',
                        *[CORE / name for name in ['SteamServiceProtocol.swift', 'SteamServiceClient.swift',
                         'SteamWorkshopQueryClient.swift', 'SteamWorkshopSubscriptionStore.swift',

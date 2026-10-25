@@ -49,6 +49,9 @@ struct SteamWorkshopDownloadRecord {
     let id: String; let contentType: ContentType; let folderURL: URL; let title: String
 }
 struct PlaybackResourceLifetime {}
+enum WallpaperPlaybackSequence { struct Pending {} }
+enum WallpaperProvider { case steamWorkshop }
+struct WallpaperReference { let provider:WallpaperProvider;let sourceID:String }
 extension Notification.Name {
     static let steamWorkshopSceneReadyToRender = Self("own-selection-probe-request")
 }
@@ -62,8 +65,11 @@ extension Notification.Name {
     var pendingSceneTextureProperties: [String: SceneTexturePropertyPending] = [:]
     var scenePropertyRenderTask: Task<Void, Never>?
     var webLaunchIntentGeneration: UInt64 = 0
-    var prepareScenePlaybackIntent: ((String, Bool) ->
-        (intentEpoch: UInt64, isCurrent: () -> Bool, cancel: () -> Void)?)?
+    var requestLibraryPlayback: ((WallpaperReference) -> Void)?
+    var prepareScenePlaybackIntent: ((String, Bool, WallpaperPlaybackSequence.Pending?) ->
+        (intentEpoch: UInt64, isCurrent: () -> Bool, cancel: () -> Void)?)? = { _,_,_ in
+            (intentEpoch:1,isCurrent:{true},cancel:{})
+        }
     init() { defaults = UserDefaults(suiteName: suiteName)! }
     func cleanup() { defaults.removePersistentDomain(forName: suiteName); defaults.synchronize() }
     // Controlled source admission; playback runs its real synchronous method.
@@ -164,8 +170,8 @@ extension Notification.Name {
             let accepted = await select(root.appendingPathComponent(name))
             try await waitForReload()
             let reloads = spy.requests.count - before
-            service.requestSceneRender(record)
-                rows.append(["case": name, "outcome": outcomeLabel(accepted), "reloads": reloads, "path": requestPath()])
+            service.requestSceneRender(record, newSelection:false)
+            rows.append(["case": name, "outcome": outcomeLabel(accepted), "reloads": reloads, "path": requestPath()])
         }
         for name in ["broken.png", "crc-broken.png", "directory.png", "missing.png", "unsupported.gif"] {
             _ = await select(png)
@@ -177,8 +183,8 @@ extension Notification.Name {
             let accepted = await select(url)
             try await waitForReload()
             let reloads = spy.requests.count - before
-            service.requestSceneRender(record)
-                rows.append([
+            service.requestSceneRender(record, newSelection:false)
+            rows.append([
                 "case": name, "outcome": outcomeLabel(accepted), "reloads": reloads,
                 "bookmarkUnchanged": service.defaults.data(forKey: bookmarkKey) == bookmark,
                 "overridesUnchanged": service.scenePropertyOverrides(for: record) == overrides,
@@ -189,11 +195,11 @@ extension Notification.Name {
         let old = service.defaults.data(forKey: bookmarkKey)
         let recovery = await select(jpeg)
         try await waitForReload()
-        service.requestSceneRender(record)
+        service.requestSceneRender(record, newSelection:false)
         rows.append(["case": "recovery", "outcome": outcomeLabel(recovery), "bookmarkChanged": service.defaults.data(forKey: bookmarkKey) != old, "path": requestPath()])
         let cleared = await select(nil)
         try await waitForReload()
-        service.requestSceneRender(record)
+        service.requestSceneRender(record, newSelection:false)
         rows.append(["case": "clear", "outcome": outcomeLabel(cleared), "bookmarkExists": service.defaults.data(forKey: bookmarkKey) != nil, "overrides": service.scenePropertyOverrides(for: record).count, "path": requestPath()])
         _ = await select(png)
         try await waitForReload()
@@ -202,7 +208,7 @@ extension Notification.Name {
                 continuation.resume(returning: $0)
             }
         }
-        service.requestSceneRender(record)
+        service.requestSceneRender(record, newSelection:false)
         rows.append(["case": "reset", "outcome": outcomeLabel(resetOutcome), "bookmarkExists": service.defaults.data(forKey: bookmarkKey) != nil, "overrides": service.scenePropertyOverrides(for: record).count, "path": requestPath()])
         let mux = PlaybackCommandMultiplexer.shared
         SceneDaemonClient.shared.active = true

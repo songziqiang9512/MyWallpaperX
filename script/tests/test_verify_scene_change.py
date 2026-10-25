@@ -871,7 +871,7 @@ class ProductTestMappingTests(unittest.TestCase):
             "MyWallpaperX/Modules/VideoLibrary/Core/BundledVideoLibrary.swift": "test_bundled_video_library",
             "MyWallpaperX/Modules/SteamWorkshop/Core/SteamWorkshopLibraryPublication.swift": "test_steam_library_publication",
             "MyWallpaperX/Modules/SteamWorkshop/Core/SteamWorkshopLibraryTransaction.swift": "test_steam_library_transaction",
-            "MyWallpaperX/Shell/AppKitMainSplitView+SteamSelection.swift": "test_steam_library_interactions",
+            "MyWallpaperX/App/WallpaperLibraryWindowComposition.swift": "test_steam_library_interactions",
             "MyWallpaperX/Modules/VideoLibrary/UI/VideoLibraryInspectorView.swift": "test_video_inspector_preview_reload",
             "MyWallpaperX/Modules/StaticImageLibrary/Core/SILService.swift": "test_ui_projection_efficiency",
         }
@@ -901,15 +901,17 @@ class ProductTestMappingTests(unittest.TestCase):
                 self.assertEqual(modules, {"test_video_index_ordered_save"})
 
     def test_untested_static_image_and_shell_neighbors_remain_visible(self) -> None:
-        paths = ["MyWallpaperX/Modules/StaticImageLibrary/UI/SILQuickLookController.swift",
-                 "MyWallpaperX/Shell/AppKitMainSplitView+ModuleRouting.swift",
+        # Explicit hypothetical neighbors keep this negative control independent
+        # of real owners becoming covered or being retired.
+        paths = ["MyWallpaperX/Modules/StaticImageLibrary/UI/UnmappedStaticImageNeighborFixture.swift",
+                 "MyWallpaperX/Shell/UnmappedShellNeighborFixture.swift",
                  "MyWallpaperX/Core/PlaybackControl/PlaybackPerformanceProfile.swift"]
         report = verify.product_test_mapping(paths, self.registry, self.available)
         self.assertEqual(report["unmapped_paths"], sorted(paths))
         self.assertEqual(report["mapped_paths"], [])
 
     def test_build_success_cannot_close_unmapped_product_test_debt(self) -> None:
-        path = "MyWallpaperX/Modules/StaticImageLibrary/UI/SILQuickLookController.swift"
+        path = "MyWallpaperX/Modules/StaticImageLibrary/UI/UnmappedStaticImageNeighborFixture.swift"
         args = arguments()
         gates, groups = verify.build_plan([path], args, self.registry)
         self.assertIn("build-verify", [gate.gate_id for gate in gates])
@@ -926,7 +928,7 @@ class ProductTestMappingTests(unittest.TestCase):
         self.assertIn("[TEST MAPPING DEBT] " + path, output.getvalue())
 
     def test_unmapped_inner_product_stays_blocked_next_to_a_mapped_source(self) -> None:
-        paths = ["MyWallpaperX/Modules/StaticImageLibrary/UI/SILQuickLookController.swift",
+        paths = ["MyWallpaperX/Modules/StaticImageLibrary/UI/UnmappedStaticImageNeighborFixture.swift",
                  "MyWallpaperX/Core/PlaybackControl/WallpaperRuntimeSwitch.swift"]
         gates, _ = verify.build_plan(paths, arguments(phase="inner"), self.registry)
         self.assertEqual(gates[-1].gate_id, "unmapped-change")

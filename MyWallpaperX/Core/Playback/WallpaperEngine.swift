@@ -194,7 +194,14 @@ public final class WallpaperEngine: NSObject {
         pendingVideoRecovery = nil
         (dedicatedWebHostAdapter as? WebDaemonHostAdapter)?.handle(.stop)
         for execution in Array(videoExecutions.values) {
-            if execution.finalized { execution.retired = true; videoExecutions.removeValue(forKey: execution.id) }
+            if execution.finalized {
+                // Manager's begin(nil) registers endpoint retirement before
+                // calling this generic stop on the same stack. Its execution
+                // must survive until actual session exits deliver that ACK.
+                guard !execution.retired else { continue }
+                execution.retired = true
+                videoExecutions.removeValue(forKey: execution.id)
+            }
             else { cancelVideoExecution(execution, completion: {}) }
         }
         videoCandidate = nil

@@ -8,6 +8,7 @@
 
 import Foundation
 import Combine
+import QuartzCore
 
 class WallpaperManager: ObservableObject {
     enum ActiveWallpaperRuntime: String, Codable {
@@ -17,8 +18,6 @@ class WallpaperManager: ObservableObject {
         case systemStill
     }
 
-    static let recentWallpapersLimit: Int = 25
-    static let defaultTags: [String] = ["自然景观", "科技未来", "游戏CG", "卡通动漫"]
     struct HotkeySettingsSnapshot: Equatable {
         let systemHotkeysEnabled: Bool
         let previousWallpaperHotkey: FunctionKeyShortcut
@@ -35,34 +34,18 @@ class WallpaperManager: ObservableObject {
         }
     }
 
+    /// Transitional startup disposition, set by App before shared construction.
+    /// W20 retires this with the old relationship writers.
+    static var startupMigrationRecoveryMessage: String?
     static let shared = WallpaperManager()
-    
-    @Published var selectedCategory: Category = .myWallpapers
-    @Published var selectedTag: String? = nil
+    let migrationRecoveryMessage: String?
+    var preservesLegacyMigrationInputs: Bool { migrationRecoveryMessage != nil }
+    var allowsLibraryMutation: Bool { !preservesLegacyMigrationInputs }
+
     @Published var wallpapers: [VideoWallpaper] = [] {
-        didSet {
-            recordInitialIndexChanges(from: oldValue, to: wallpapers)
-            syncSelectedWallpaperInspectorIfNeeded()
-        }
+        didSet { recordInitialIndexChanges(from: oldValue, to: wallpapers) }
     }
     @Published var settings: WallpaperSettings = WallpaperSettings()
-    @Published var selectedWallpaperId: String? = nil {
-        didSet {
-            syncSelectedWallpaperInspectorIfNeeded()
-        }
-    }
-    @Published var selectedWallpaperIds: Set<String> = [] {
-        didSet {
-            syncSelectedWallpaperInspectorIfNeeded()
-        }
-    }
-    @Published var inspectedWallpaperID: String? = nil
-    @Published var isMultiSelectMode: Bool = false {
-        didSet {
-            syncSelectedWallpaperInspectorIfNeeded()
-        }
-    }
-    @Published var isDragSelecting: Bool = false
     @Published var currentWallpaper: VideoWallpaper? = nil
     /// 上次播放的工坊单品（web/scene）身份；启动重放按 recordID 走原
     /// 工坊 launch 入口。video/静态图播放时清空。nil 清键而非写 null
@@ -77,9 +60,6 @@ class WallpaperManager: ObservableObject {
             }
         }
     }
-    /// 启动重放计划（restorePlaybackState 产出，App 装配层一次性消费）。
-    var workshopLaunchReplayPlan: WorkshopLaunchReplayPlan?
-    @Published var recentlyUsedWallpapers: [VideoWallpaper] = []
     @Published var isPlaying: Bool = true
     @Published var activeWallpaperRuntime: ActiveWallpaperRuntime = .video
     // E2a-3: requested 层选择（立即写，UI 高亮读 effectiveCurrentWallpaper）；
@@ -95,30 +75,49 @@ class WallpaperManager: ObservableObject {
     var switchEndpoints: [UUID: PlaybackSwitchEndpoint] = [:]
     var switchSelections: [UUID: RuntimeSwitchSelection] = [:]
     var switchDeadline: DispatchWorkItem?
-    var switchEffectQueue: [PlaybackSwitchTransaction.Effect] = []
+    var switchEffectQueue: [(effect: PlaybackSwitchTransaction.Effect, originEpoch: UInt64)] = []
     var drainingSwitchEffects = false
+    var switchSettlementObservers: [PlaybackSwitchTicket: [() -> Void]] = [:]
     var runtimeSwitchingConfigured = false
     // App assembly connects request-local preparation cancellation. The product
     // transaction remains the sole epoch and output authority.
     var playbackIntentDidAdvance: ((WallpaperRuntimeKind?) -> Void)?
     var playbackIntentEpoch: UInt64 { playbackSwitch.epoch }
+    var libraryPlaybackSequence = WallpaperPlaybackSequence()
+    var libraryRotationDeadline = WallpaperRotationDeadline()
+    var libraryPlaybackSnapshotProvider: ((WallpaperReference?, WallpaperPlaybackSequence.Source, WallpaperPlaybackCause) -> WallpaperPlaybackSequence.Snapshot?)?
+    var libraryPlaybackDispatcher: ((WallpaperPlaybackSequence.Pending) -> Bool)?
+    var libraryPlaybackCommitted: ((WallpaperPlaybackSequence.Commit) -> Void)?
+    var libraryPlaybackStopped: (() -> Void)?
+    var libraryPlaybackFailed: ((WallpaperPlaybackSequence.Pending) -> Void)?
+    var libraryPlaybackResetRequested: (() -> Void)?
+    var libraryBackingPublished: ((WallpaperContentBackingPublication) -> Void)?
     var requestedRuntime: WallpaperRuntimeKind? { playbackSwitch.requestedRuntime }
 
     @discardableResult
     func beginPlaybackIntent(runtime: WallpaperRuntimeKind? = nil) -> UInt64 {
+        // Cancellation callbacks may synchronously accept a newer selection.
+        // Revoke the old import gate before any such callback can claim it.
+        if runtime == nil {
+            libraryPlaybackSequence.stop()
+            libraryRotationDeadline.stop()
+        } else {
+            if let obsolete = libraryPlaybackSequence.pending { _ = libraryPlaybackSequence.cancel(obsolete.ticket) }
+            libraryRotationDeadline.freezeForPreparation(now: CACurrentMediaTime())
+        }
+        ImportedVideoAutoplayGate.shared.invalidate()
         let epoch: UInt64
         if let runtime {
             let result = playbackSwitch.begin(runtime)
             epoch = result.0.epoch
             runSwitchEffects(result.1)
-            scheduleSwitchDeadline(result.0)
+            if playbackSwitch.pending?.selection.ticket == result.0 { scheduleSwitchDeadline(result.0) }
         } else {
             let effects = playbackSwitch.stop()
             epoch = playbackSwitch.epoch
             runSwitchEffects(effects)
         }
-        ImportedVideoAutoplayGate.shared.invalidate()
-        if runtime != .video {
+        if playbackIntentEpoch == epoch, runtime != .video {
             pendingWallpaper = nil
             stopAutoSwitchTimer()
         }
@@ -128,36 +127,10 @@ class WallpaperManager: ObservableObject {
         return epoch
     }
 
-    func restoreCommittedPlaybackIntent() {
-        guard let ticket = playbackSwitch.pending?.selection.ticket else { return }
-        runSwitchEffects(playbackSwitch.failed(ticket, reason: "已取消壁纸准备"))
-    }
-    
-    // 标签管理
-    @Published var tags: [String] = WallpaperManager.defaultTags
-    
-    // 搜索功能
-    @Published var searchQuery: String = ""
-    @Published var isSearchFieldActive: Bool = false
-    @Published var visibleGridColumnCount: Int = 4
-
-    // 网格缩放：用户手动调整的期望列数偏移（-2~+2），叠加到宽度自适应结果上。
-    // 0 = 默认（纯宽度自适应），负数 = 更大卡片，正数 = 更多列。
-    @Published var gridZoomOffset: Int = 0 {
-        didSet {
-            UserDefaults.standard.set(gridZoomOffset, forKey: "gridZoomOffset")
-        }
-    }
-
-    // 每个列表独立排序状态，key = WallpaperSelectionContext.scrollPersistenceKey。
-    @Published var perSelectionSortStates: [String: SortState] = [:]
-    
     // 自动切换计时器
     var autoSwitchTimer: Timer?
 
-    // 播放列表来源：记录用户点击播放时所在的列表，后续切换都在此列表内进行。
-    // userInitiated=true 时更新；自动切换时保持不变。
-    var playbackSourceContext: WallpaperSelectionContext = .category(.myWallpapers)
+    // 视频索引中的当前位置，由真实播放提交更新。
     var currentIndex: Int = 0
     let deletionQueue = DispatchQueue(label: "com.mywallpaper.delete", qos: .utility)
     
@@ -187,7 +160,7 @@ class WallpaperManager: ObservableObject {
     }
     var wallpaperIndexSaveRevision: UInt64 = 0
     var wallpaperIndexSaveEpoch: UInt64 = 0
-    var didFinishInitialIndexLoad = false
+    @Published var didFinishInitialIndexLoad = false
     var initialIndexChanges = WallpaperIndexStartupChanges()
     var initialIndexLoadGeneration: UInt64 = 0
     var initialIndexLoadInFlight = false
@@ -197,7 +170,6 @@ class WallpaperManager: ObservableObject {
     var initialIndexGlobalMutationDepth = 0
     var wallpaperIndexSaveInFlight: WallpaperIndexSaveSnapshot?
     var pendingWallpaperIndexSave: WallpaperIndexSaveSnapshot?
-    var recentWallpapersAutoSaveWorkItem: DispatchWorkItem?
     var settingsAutoSaveWorkItem: DispatchWorkItem?
     var pendingSystemWallpaperSyncWorkItem: DispatchWorkItem?
     let importPreparationQueue = DispatchQueue(label: "com.mywallpaper.import.prepare", qos: .userInitiated)
@@ -216,13 +188,10 @@ class WallpaperManager: ObservableObject {
     // UserDefaults 键
     let settingsKey = "WallpaperSettings"
     let wallpapersKey = "Wallpapers"
-    let tagsKey = "WallpaperTags"
     let currentWallpaperKey = "CurrentWallpaper"
     let lastWorkshopPlaybackRecordIDKey = "LastWorkshopPlaybackRecordID"
-    let recentWallpapersKey = "RecentWallpapers"
     let playbackStateKey = "PlaybackState"
     let activeWallpaperRuntimeKey = "ActiveWallpaperRuntime"
-    let perSelectionSortStatesKey = "PerSelectionSortStates"
     
     // 用于存储 Combine 订阅
     private var cancellables = Set<AnyCancellable>()
@@ -232,13 +201,9 @@ class WallpaperManager: ObservableObject {
     var lastManualNavigationAt: CFTimeInterval = 0
     let manualNavigationMinInterval: CFTimeInterval = 0.18
     var pendingManualNavigationDirection: ManualNavigationDirection?
-    var pendingManualNavigationUserInitiated: Bool = false
     var pendingManualNavigationWorkItem: DispatchWorkItem?
     // #7 已移除 Manager 侧 lastPlaybackFailure/Ended 去重变量。
     // Engine 在 handlePlaybackFailureEvent / handlePlaybackEndedEvent 已有 1s 去重窗口，Manager 侧不再重复过滤。
-    var playbackHistoryPaths: [String] = []
-    var playbackForwardPaths: [String] = []   // 随机模式"上一张"后，"下一张"优先消费此栈
-    let playbackHistoryLimit: Int = 10
     let thumbnailReadySubject = PassthroughSubject<String, Never>()
     
     let thumbnailCacheDirectory: URL = {
@@ -256,16 +221,14 @@ class WallpaperManager: ObservableObject {
     }()
     
     init() {
-        // 加载顺序不能乱：先把持久化库和标签装进内存，再恢复最近使用/当前壁纸，最后再恢复播放态。
+        migrationRecoveryMessage = Self.startupMigrationRecoveryMessage
+        // Publish source facts before App resolves saved runtime intent; Store owns relationships/history.
         loadSettings()
         sanitizeSystemHotkeySettingsIfNeeded()
         normalizePlaybackSettings()
         loadWallpapers()
-        loadSampleData()
-        loadTags()
+        if !preservesLegacyMigrationInputs { loadSampleData() }
         loadSavedState()
-        loadPerSelectionSortStates()
-        gridZoomOffset = UserDefaults.standard.object(forKey: "gridZoomOffset") as? Int ?? 0
         // Actual playback starts after App has installed the three endpoints.
         // Loading persisted selection must not race their commit callbacks.
 
@@ -329,6 +292,9 @@ class WallpaperManager: ObservableObject {
         .store(in: &cancellables)
 
         observePlaybackEvents(storeIn: &cancellables)
+        PlaybackCommandMultiplexer.shared.pauseSnapshots
+            .sink { [weak self] snapshot in self?.handleLibraryPlaybackPause(snapshot.isPaused) }
+            .store(in: &cancellables)
 
         GlobalHotkeyManager.shared.update(with: settings)
         lastAppliedHotkeySettings = HotkeySettingsSnapshot(settings: settings)
@@ -404,41 +370,7 @@ class WallpaperManager: ObservableObject {
         return wallpapers.firstIndex(where: { $0.id == currentWallpaper.id })
     }
 
-    func normalizeRecentWallpapers(limit: Int = WallpaperManager.recentWallpapersLimit, requireExistingFiles: Bool) {
-        guard didFinishInitialIndexLoad else { return }
-        // 最近使用是快照列表，先回填到主库对象再做去重和限长，避免快照字段漂移。
-        let libraryByPath = wallpapers.reduce(into: [String: VideoWallpaper]()) { result, wallpaper in
-            result[normalizedPath(wallpaper.path)] = wallpaper
-        }
-        guard !libraryByPath.isEmpty else {
-            if !recentlyUsedWallpapers.isEmpty {
-                recentlyUsedWallpapers.removeAll()
-            }
-            return
-        }
 
-        var seenPaths = Set<String>()
-        var normalizedRecent: [VideoWallpaper] = []
-        normalizedRecent.reserveCapacity(min(limit, recentlyUsedWallpapers.count))
-
-        for wallpaper in recentlyUsedWallpapers {
-            let normalized = normalizedPath(wallpaper.path)
-            guard let canonicalWallpaper = libraryByPath[normalized] else { continue }
-            guard !requireExistingFiles || pathExists(normalized) else { continue }
-            guard seenPaths.insert(normalized).inserted else { continue }
-            normalizedRecent.append(canonicalWallpaper)
-            if normalizedRecent.count == limit {
-                break
-            }
-        }
-
-        recentlyUsedWallpapers = normalizedRecent
-    }
-
-    func constrainRecentWallpapersToLibrary() {
-        // 保留现有列表但剔除不在主库中的项，供持久化写盘前收口。
-        normalizeRecentWallpapers(limit: WallpaperManager.recentWallpapersLimit, requireExistingFiles: false)
-    }
 
     private func mergeWallpaper(_ incoming: VideoWallpaper, into existing: inout VideoWallpaper) {
         // 合并策略只补缺不覆盖用户态数据，收藏/标签/缓存路径都尽量保留已有值。
@@ -446,6 +378,8 @@ class WallpaperManager: ObservableObject {
         existing.staticFramePath = existing.staticFramePath ?? incoming.staticFramePath
         existing.isFavorite = existing.isFavorite || incoming.isFavorite
         existing.lastUsed = max(existing.lastUsed, incoming.lastUsed)
+        // Preserve the original admission fact, including a legacy unknown.
+        // Duplicate imports and derived preview updates never create its date.
         for tag in incoming.tags where !existing.tags.contains(tag) {
             existing.tags.append(tag)
         }

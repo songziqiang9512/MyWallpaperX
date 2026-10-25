@@ -1,69 +1,11 @@
 // Production bodies are inserted by test_ui_projection_efficiency.py. Services,
 // grid rendering, and diffable application are recording boundaries; Combine,
-// dispatch delivery, NSViewController replacement, snapshots, and filesystem
-// admission use the platform implementations. No private user library is read.
+// dispatch delivery, NSViewController replacement and snapshots use platform
+// implementations. The separate downloaded-source gate covers filesystem facts.
 import AppKit
 import Combine
 import Foundation
 
-enum Category: Hashable { case myWallpapers, favorites, recentlyUsed, tags, settings }
-enum WallpaperSortMode { case none, name, size, dateAdded }
-struct SortState { var mode: WallpaperSortMode = .none; var ascending = true }
-struct WallpaperSettings { var sortMode: WallpaperSortMode = .none; var sortAscending = true }
-struct VideoWallpaper: Equatable {
-    let id: String
-    var title: String
-    var tags: [String] = []
-    var isFavorite = false
-    var fileSize: Int64?
-    var lastUsed = Date.distantPast
-    var displayTitle: String { title }
-}
-enum SILSortMode: CaseIterable { case none, name, lastUsed, fileSize, addedAt }
-struct SILSortState { var mode: SILSortMode = .none; var ascending = true }
-struct SILWallpaper: Equatable {
-    let id: String
-    var title: String
-    var tags: [String] = []
-    var path: String { "/fixture/" + id }
-    var fileSize: Int64?
-    var lastUsed = Date.distantPast
-    var addedAt = Date.distantPast
-}
-@MainActor final class WallpaperManager: ObservableObject {
-    @Published var wallpapers: [VideoWallpaper] = []
-    @Published var recentlyUsedWallpapers: [VideoWallpaper] = []
-    @Published var searchQuery = ""
-    @Published var perSelectionSortStates: [String: SortState] = [:]
-    @Published var inspectedWallpaperID: String?
-    var tags: [String] = []
-    var settings = WallpaperSettings()
-    var isMultiSelectMode = false
-    var selectedWallpaperId: String?
-    var selectedWallpaperIds: Set<String> = []
-    var derivations = 0
-    var favoriteWallpapers: [VideoWallpaper] { wallpapers.filter(\.isFavorite) }
-    // VIDEO_PROJECTION_METHODS
-}
-@MainActor final class SILService: ObservableObject {
-    static let shared = SILService()
-    @Published var wallpapers: [SILWallpaper] = []
-    @Published var selectedID: String?
-    @Published var selectedIDs: Set<String> = []
-    @Published var isMultiSelectMode = false
-    @Published var gridZoomOffset = 0
-    @Published var sortState = SILSortState()
-    @Published var searchQuery = ""
-    @Published var inspectedWallpaperID: String?
-    var silTags: [String] = []
-    var derivations = 0
-    var comparisons = 0
-    var currentContextTag: String?
-    var visibleGridColumnCount = 4
-    var inspectorSyncs = 0
-    func syncSelectedWallpaperInspectorIfNeeded() { inspectorSyncs += 1 }
-    // SIL_PROJECTION_METHODS
-}
 struct OnlineLibraryVideoItem: Equatable {
     let id: Int; var title: String = "fixture"
     var previewThumbnailURL: URL? { URL(string: "https://fixture.invalid/\(id).jpg")! }
@@ -75,16 +17,11 @@ struct OnlineLibraryVideoItem: Equatable {
     @Published var downloadingIDs: Set<Int> = []
     @Published var downloadedIDs: Set<Int> = []
     @Published var downloadProgressByID: [Int: Double] = [:]
-    @Published var zoomOffset = 0
     @Published var inspectedDownloadedItemID: Int?
     var prioritizedWindows: [[Int]] = []
     func prioritizeVisibleItemIDs(_ ids: [Int], maxPixelSize: Int = 512) { prioritizedWindows.append(ids) }
     func thumbnailPrefetchNeedsRefresh() -> Bool { false }
     func cancelThumbnailPrefetch() {}
-}
-@MainActor final class SteamWorkshopService {
-    static let shared = SteamWorkshopService()
-    var downloadsCount = 0
 }
 enum ModuleIdentifier: String { case onlineLibrary }
 extension Notification.Name {
@@ -92,102 +29,6 @@ extension Notification.Name {
     static let inspectorHostDidClose = Self("fixture.inspector.close")
     static let moduleDidBecomeActive = Self("fixture.module.active")
 }
-enum SelectedItem: Hashable {
-    case category(Category), tag(String), silTag(String)
-    case staticImageLibrary, onlineLibrary, onlineDownloads
-    case steamWorkshop, steamSubscribed, steamDownloads
-    @MainActor var selectionContext: WallpaperSelectionContext {
-        switch self {
-        case .category(let category): return .category(category)
-        case .tag(let tag): return .tag(tag)
-        default: return .category(.myWallpapers)
-        }
-    }
-    var isInVideoLibraryContext: Bool {
-        switch self { case .category, .tag: return true; default: return false }
-    }
-    var isInStaticImageLibraryContext: Bool {
-        switch self { case .staticImageLibrary, .silTag: return true; default: return false }
-    }
-}
-@MainActor enum WallpaperSelectionContext: Equatable {
-    case category(Category), tag(String)
-    var scrollPersistenceKey: String {
-        switch self {
-        case .category(let category): return "category.\(category)"
-        case .tag(let tag): return "tag.\(tag)"
-        }
-    }
-    // SELECTION_SOURCE
-}
-@MainActor final class AppKitLibraryGridContainerView: NSView {
-    let wallpaperManager: WallpaperManager
-    var outputs: [[VideoWallpaper]] = []
-    init(wallpaperManager: WallpaperManager, animatesReorder: Bool, animatesInsertDelete: Bool) {
-        self.wallpaperManager = wallpaperManager
-        super.init(frame: .zero)
-    }
-    required init?(coder: NSCoder) { nil }
-    func update(wallpapers: [VideoWallpaper]) {
-        outputs.append(wallpaperManager.filterWallpapers(wallpapers,
-            usingNormalizedQuery: wallpaperManager.normalizedSearchQuery))
-    }
-}
-@MainActor final class SILGridContainerView: NSView {
-    var currentSILTag: String?
-    var outputs: [[SILWallpaper]] = []
-    func update(wallpapers: [SILWallpaper]) { outputs.append(wallpapers) }
-    func invalidateLayout() {}
-    func scheduleSelectionVisualUpdate() {}
-    func refreshVisibleItemsIfNeeded(isMultiSelectMode: Bool) {}
-}
-@MainActor final class StaticViewController: NSViewController {
-    init(contentView: NSView) { super.init(nibName: nil, bundle: nil); view = contentView }
-    required init?(coder: NSCoder) { nil }
-}
-typealias OnlineLibraryBrowserView = NSView
-typealias AppKitOLDownloadsContainerView = NSView
-typealias AppKitSteamWorkshopBrowserView = NSView
-typealias AppKitSteamWorkshopDownloadsView = NSView
-
-@MainActor final class ShellProbe: NSViewController {
-    var onListThumbnailTintSourceChange: ((ListThumbnailTintSource?) -> Void)?
-    let wallpaperManager: WallpaperManager
-    var hostedController: NSViewController?
-    var currentSelectedItem: SelectedItem?
-    var currentVideoGridView: AppKitLibraryGridContainerView?
-    var currentSILGridView: SILGridContainerView?
-    var currentSILTag: String?
-    var cancellables = Set<AnyCancellable>()
-    var pendingVideoGridUpdate = false
-    var pendingSILGridUpdate = false
-    init(_ manager: WallpaperManager) {
-        wallpaperManager = manager
-        super.init(nibName: nil, bundle: nil)
-        observeVideoLibraryState()
-    }
-    required init?(coder: NSCoder) { nil }
-    override func loadView() { view = NSView() }
-    func closeOnlineDownloadsInspectorIfNeeded(leavingFor: SelectedItem) {}
-    func syncVideoInspectorIfNeeded() {}
-    func syncSILInspectorIfNeeded() {}
-    func syncOnlineDownloadsInspectorIfNeeded() {}
-    func mountVideoInspectorContentIfNeeded(_ notification: Notification) {}
-    func clearVideoInspectorIfNeeded(_ notification: Notification) {}
-    func mountSILInspectorContentIfNeeded(_ notification: Notification) {}
-    func clearSILInspectorIfNeeded(_ notification: Notification) {}
-    func mountOnlineDownloadsInspectorContentIfNeeded(_ notification: Notification) {}
-    func clearOnlineDownloadsInspectorIfNeeded(_ notification: Notification) {}
-    // SHELL_METHODS
-}
-@MainActor final class SidebarProbe {
-    let wallpaperManager: WallpaperManager
-    var liveTagOrder: [String]?
-    var rootNodes: [SidebarNode] = []
-    init(_ manager: WallpaperManager) { wallpaperManager = manager }
-    // SIDEBAR_METHODS
-}
-
 @MainActor final class AppKitOLBrowserItem: NSCollectionViewItem {
     static let reuseIdentifier = NSUserInterfaceItemIdentifier("OnlineProbeCard")
     struct State: Equatable {
@@ -198,15 +39,24 @@ typealias AppKitSteamWorkshopDownloadsView = NSView
         let progress: Double?
     }
     var states: [State] = []
+    var configuredOrganization: WallpaperInspectorActions?
+    var organizationUpdates: [(id: Int, state: WallpaperInspectorActions.State?)] = []
     var downloadAction: (() -> Void)?
     var wallpaperAction: (() -> Void)?
     func configure(item: OnlineLibraryVideoItem, isDownloading: Bool, isDownloaded: Bool,
-                   downloadProgress: Double?, thumbnailDemandActive: Bool? = nil, onDownload: @escaping () -> Void,
+                   downloadProgress: Double?, thumbnailDemandActive: Bool? = nil,
+                   organization: WallpaperInspectorActions? = nil, onDownload: @escaping () -> Void,
                    onSetAsWallpaper: @escaping () -> Void) {
         states.append(State(id: item.id, title: item.title, downloading: isDownloading,
             downloaded: isDownloaded, progress: downloadProgress))
+        configuredOrganization = organization
         downloadAction = onDownload
         wallpaperAction = onSetAsWallpaper
+    }
+    func updateOrganization(_ actions: WallpaperInspectorActions?, for itemID: Int) {
+        // A recording boundary only: the complete real card gate proves its
+        // wrong-ID guard. Do not reproduce that guard as this gate's oracle.
+        organizationUpdates.append((itemID, actions?.state))
     }
 }
 @MainActor final class RecordingCollection {
@@ -223,14 +73,37 @@ typealias AppKitSteamWorkshopDownloadsView = NSView
     let collectionView: RecordingCollection
     let provider: (RecordingCollection, IndexPath, Item) -> NSCollectionViewItem?
     var identifiers: [Item] = []
+    var defersApplications = false
+    var pendingIdentifiers: [Item]?
+    var pendingCompletions: [() -> Void] = []
     init(collectionView: RecordingCollection,
          itemProvider: @escaping (RecordingCollection, IndexPath, Item) -> NSCollectionViewItem?) {
         self.collectionView = collectionView
         provider = itemProvider
     }
-    func apply(_ snapshot: NSDiffableDataSourceSnapshot<Section, Item>, animatingDifferences: Bool) {
+    func apply(_ snapshot: NSDiffableDataSourceSnapshot<Section, Item>, animatingDifferences: Bool,
+               completion: (() -> Void)? = nil) {
+        if defersApplications {
+            pendingIdentifiers = snapshot.itemIdentifiers
+            if let completion { pendingCompletions.append(completion) }
+            return
+        }
         identifiers = snapshot.itemIdentifiers
         materializeVisible()
+        completion?()
+    }
+    func finishPendingApplication() {
+        guard let pendingIdentifiers else { return }
+        self.pendingIdentifiers = nil
+        let completions = pendingCompletions
+        pendingCompletions.removeAll()
+        identifiers = pendingIdentifiers
+        materializeVisible()
+        completions.forEach { $0() }
+    }
+    func itemIdentifier(for indexPath: IndexPath) -> Item? {
+        guard indexPath.section == 0, identifiers.indices.contains(indexPath.item) else { return nil }
+        return identifiers[indexPath.item]
     }
     func materializeVisible() {
         for indexPath in collectionView.visible where indexPath.item < identifiers.count {
@@ -257,6 +130,7 @@ typealias AppKitSteamWorkshopDownloadsView = NSView
     var lastLoadedCount = 0
     let scrollView = NSScrollView()
     let collectionView = RecordingCollection()
+    // ONLINE_ORGANIZATION_FACTORY
     // ONLINE_PROVIDER
     init(_ service: OnlineLibraryService) { self.service = service }
     func bind() {
@@ -284,382 +158,9 @@ enum GridThumbnailDecoder {
         try FileManager.default.createDirectory(at: downloadRoot, withIntermediateDirectories: true)
         OnlineLibraryService.downloadDirectory = downloadRoot
         var checks: [String: Bool] = [:]
-        testShell(&checks)
-        testVideoQuickLook(&checks)
-        testSidebar(&checks)
-        testSILTagProjection(&checks)
         try testOnline(&checks)
+        testOrganization(&checks)
         print(String(data: try JSONSerialization.data(withJSONObject: checks, options: [.sortedKeys]), encoding: .utf8)!)
-    }
-
-    @MainActor static func testShell(_ checks: inout [String: Bool]) {
-        let manager = WallpaperManager()
-        let sil = SILService.shared
-        manager.wallpapers = [VideoWallpaper(id: "b", title: "Beta"), VideoWallpaper(id: "a", title: "Alpha")]
-        let shell = ShellProbe(manager)
-        shell.update(selectedItem: .category(.myWallpapers))
-        let initial = shell.currentVideoGridView!
-        checks["shellInitialConstructionIsSynchronous"] = initial.outputs.last?.map(\.id) == ["b", "a"]
-        pump()
-        manager.derivations = 0
-        sil.derivations = 0
-        let beforeInactiveSIL = initial.outputs.count
-        for index in 1...20 {
-            sil.wallpapers = [SILWallpaper(id: "inactive", title: "Still \(index)")]
-            sil.searchQuery = "still \(index)"
-            sil.sortState = SILSortState(mode: .name, ascending: index % 2 == 0)
-        }
-        pump()
-        checks["shellInactiveSILBurstDoesNotDeriveActiveVideo"] = manager.derivations == 0
-            && sil.derivations == 0 && initial.outputs.count == beforeInactiveSIL
-        manager.derivations = 0
-        let previousCount = initial.outputs.count
-        for index in 1...50 {
-            manager.wallpapers[0].fileSize = Int64(index)
-            manager.wallpapers[0].title = "Beta \(index)"
-            manager.recentlyUsedWallpapers = Array(manager.wallpapers.reversed())
-        }
-        manager.searchQuery = "beta"
-        manager.perSelectionSortStates = ["category.myWallpapers": SortState(mode: .name, ascending: true)]
-        // Exercise all seven production publisher bindings in the same turn.
-        sil.wallpapers = [SILWallpaper(id: "s", title: "Still")]
-        sil.searchQuery = "still"
-        sil.sortState = SILSortState(mode: .name, ascending: true)
-        checks["shellBurstDoesNotDeriveSynchronously"] = manager.derivations == 0
-        pump()
-        checks["shellBurstDerivesLatestVideoExactlyOnce"] = manager.derivations == 1
-            && initial.outputs.count == previousCount + 1
-            && initial.outputs.last == [manager.wallpapers[0]]
-        manager.searchQuery = ""
-        manager.wallpapers[0].tags = ["blue"]
-        manager.wallpapers[1].tags = ["red"]
-        shell.update(selectedItem: .tag("red"))
-        let red = shell.currentVideoGridView!
-        shell.update(selectedItem: .tag("blue"))
-        let blue = shell.currentVideoGridView!
-        let redCount = red.outputs.count
-        let blueCount = blue.outputs.count
-        pump()
-        checks["shellQueuedRefreshUsesLatestVideoTagAndPreservesRetiredGrid"] = red.outputs.count == redCount
-            && blue.outputs.count == blueCount + 1 && blue.outputs.last?.map(\.id) == ["b"]
-        manager.wallpapers[0].title = "Latest"
-        let videoCount = blue.outputs.count
-        sil.searchQuery = ""
-        sil.wallpapers = [SILWallpaper(id: "x", title: "X", tags: ["old"]),
-            SILWallpaper(id: "y", title: "Y", tags: ["new"])]
-        shell.update(selectedItem: .silTag("old"))
-        let oldSIL = shell.currentSILGridView!
-        shell.update(selectedItem: .silTag("new"))
-        let newSIL = shell.currentSILGridView!
-        let oldCount = oldSIL.outputs.count
-        let newCount = newSIL.outputs.count
-        sil.derivations = 0
-        pump()
-        checks["shellModuleAndSILTagSwitchCannotApplyStaleProjection"] = blue.outputs.count == videoCount
-            && oldSIL.outputs.count == oldCount && newSIL.outputs.count == newCount + 1
-            && newSIL.outputs.last?.map(\.id) == ["y"] && sil.derivations == 1
-        manager.derivations = 0
-        sil.derivations = 0
-        let beforeInactiveVideo = newSIL.outputs.count
-        for index in 1...20 {
-            manager.wallpapers[0].fileSize = Int64(index)
-            manager.recentlyUsedWallpapers = manager.wallpapers
-            manager.searchQuery = "inactive \(index)"
-            manager.perSelectionSortStates = [:]
-        }
-        pump()
-        checks["shellInactiveVideoBurstDoesNotDeriveActiveSIL"] = manager.derivations == 0
-            && sil.derivations == 0 && newSIL.outputs.count == beforeInactiveVideo
-        manager.wallpapers[0].title = "Changed again"
-        shell.update(selectedItem: .onlineLibrary)
-        let retiredCount = newSIL.outputs.count
-        manager.derivations = 0
-        sil.derivations = 0
-        pump()
-        checks["shellNonLibraryModuleDoesNotDeriveQueuedLibraryState"] = manager.derivations == 0
-            && sil.derivations == 0 && newSIL.outputs.count == retiredCount
-        manager.searchQuery = ""
-        sil.searchQuery = ""
-        pump()
-        shell.update(selectedItem: .category(.myWallpapers))
-        let pendingVideo = shell.currentVideoGridView!
-        let pendingVideoCount = pendingVideo.outputs.count
-        // Drive this precise transition through the production scheduler so it
-        // cannot depend on the run loop's interleaving of two receive(on:) sinks.
-        // Queue the real SIL publication ahead of the dispatch; after switching,
-        // its sink joins the already-pending source flags without adding a turn.
-        sil.wallpapers[1].title = "Y final"
-        shell.scheduleCurrentLibraryGridUpdate(forVideoLibrary: true)
-        shell.update(selectedItem: .silTag("new"))
-        let pendingSIL = shell.currentSILGridView!
-        let pendingSILCount = pendingSIL.outputs.count
-        shell.scheduleCurrentLibraryGridUpdate(forVideoLibrary: false)
-        checks["shellPendingVideoToSILTransitionKeepsBothDirtySources"] = shell.pendingVideoGridUpdate
-            && shell.pendingSILGridUpdate
-        manager.derivations = 0
-        sil.derivations = 0
-        pump()
-        checks["shellSharedPendingDispatchConsumesLatestSILWithoutLosingItsEvent"] = manager.derivations == 0
-            && sil.derivations == 1 && pendingVideo.outputs.count == pendingVideoCount
-            && pendingSIL.outputs.count == pendingSILCount + 1
-            && pendingSIL.outputs.last?.map(\.title) == ["Y final"]
-        var transient: ShellProbe? = ShellProbe(manager)
-        transient?.update(selectedItem: .category(.myWallpapers))
-        transient?.scheduleCurrentLibraryGridUpdate(forVideoLibrary: true)
-        weak var weakShell = transient
-        transient = nil
-        checks["shellPendingDispatchAndCombineDoNotRetainController"] = weakShell == nil
-        pump()
-        checks["shellReleasedControllerRemainsReleasedAfterQueuedDelivery"] = weakShell == nil
-    }
-
-    @MainActor static func testVideoQuickLook(_ checks: inout [String: Bool]) {
-        let manager = WallpaperManager()
-        let one = VideoWallpaper(id: "1", title: "Middle")
-        let ten = VideoWallpaper(id: "10", title: "Zulu")
-        let two = VideoWallpaper(id: "2", title: "Alpha")
-        manager.wallpapers = [two, ten, one]
-        manager.selectedWallpaperIds = ["1", "2"]
-        checks["videoQuickLookEmptySingleSelectionReturnsNil"] = manager.selectedWallpaperForQuickLook == nil
-        manager.selectedWallpaperId = "2"
-        checks["videoQuickLookSingleSelectionIgnoresMultiSelectionSlot"] = manager.selectedWallpaperForQuickLook == two
-        manager.selectedWallpaperId = "missing"
-        checks["videoQuickLookStaleSingleSelectionReturnsNil"] = manager.selectedWallpaperForQuickLook == nil
-
-        manager.isMultiSelectMode = true
-        manager.selectedWallpaperId = "2"
-        manager.selectedWallpaperIds = []
-        checks["videoQuickLookEmptyMultiSelectionIgnoresSingleSelectionSlot"] = manager.selectedWallpaperForQuickLook == nil
-        manager.selectedWallpaperIds = ["2"]
-        checks["videoQuickLookSingleItemMultiSelectionReturnsItsRecord"] = manager.selectedWallpaperForQuickLook == two
-        var lexicalSelection = true
-        for insertionOrder in [["2", "10"], ["10", "2"], ["2", "10", "2"]] {
-            manager.selectedWallpaperIds = []
-            insertionOrder.forEach { manager.selectedWallpaperIds.insert($0) }
-            lexicalSelection = lexicalSelection && manager.selectedWallpaperForQuickLook == ten
-        }
-        manager.selectedWallpaperIds = ["2", "10", "1"]
-        checks["videoQuickLookUsesLexicalIDAcrossInsertionOrdersInsteadOfTitleOrLibraryOrder"] = lexicalSelection
-            && manager.selectedWallpaperForQuickLook == one
-        manager.selectedWallpaperIds = ["0-missing", "1", "2"]
-        checks["videoQuickLookStaleSmallestIDDoesNotFallThroughToAValidRecord"] = manager.selectedWallpaperForQuickLook == nil
-        manager.selectedWallpaperIds = ["z-missing", "10"]
-        checks["videoQuickLookLargerStaleIDDoesNotHideTheValidSmallestID"] = manager.selectedWallpaperForQuickLook == ten
-
-        let firstDuplicate = VideoWallpaper(id: "10", title: "First duplicate", tags: ["first"], fileSize: 5)
-        manager.wallpapers = [firstDuplicate, two, ten]
-        manager.selectedWallpaperIds = ["2", "10"]
-        checks["videoQuickLookDuplicateLibraryIDKeepsTheFirstCompleteRecord"] = manager.selectedWallpaperForQuickLook == firstDuplicate
-        let replacement = VideoWallpaper(id: "10", title: "Replacement", tags: ["new"], fileSize: 9)
-        manager.wallpapers = [two, replacement]
-        let changedRecord = manager.selectedWallpaperForQuickLook
-        manager.selectedWallpaperIds = ["2"]
-        checks["videoQuickLookNextReadReflectsLibraryAndSelectionMutation"] = changedRecord == replacement
-            && manager.selectedWallpaperForQuickLook == two
-        manager.selectedWallpaperIds = ["10", "2"]
-        manager.wallpapers = [two]
-        checks["videoQuickLookRemovedSmallestRecordBecomesNilOnNextRead"] = manager.selectedWallpaperForQuickLook == nil
-
-        manager.wallpapers = [two, ten, one]
-        manager.selectedWallpaperIds = ["2", "10"]
-        manager.searchQuery = "nothing-matches"
-        manager.settings = WallpaperSettings(sortMode: .name, sortAscending: false)
-        manager.perSelectionSortStates = ["category.myWallpapers": SortState(mode: .size, ascending: true)]
-        let recordsBeforeRead = manager.wallpapers
-        let multiSelectionBeforeRead = manager.selectedWallpaperIds
-        let singleSelectionBeforeRead = manager.selectedWallpaperId
-        let result = manager.selectedWallpaperForQuickLook
-        checks["videoQuickLookReadIgnoresSearchSortAndLeavesSelectionAndLibraryUntouched"] = result == ten
-            && manager.wallpapers == recordsBeforeRead && manager.selectedWallpaperIds == multiSelectionBeforeRead
-            && manager.selectedWallpaperId == singleSelectionBeforeRead && manager.isMultiSelectMode
-            && manager.searchQuery == "nothing-matches" && manager.settings.sortMode == .name
-            && !manager.settings.sortAscending && manager.perSelectionSortStates["category.myWallpapers"]?.mode == .size
-            && manager.perSelectionSortStates["category.myWallpapers"]?.ascending == true && manager.derivations == 0
-    }
-
-    @MainActor static func testSidebar(_ checks: inout [String: Bool]) {
-        let manager = WallpaperManager()
-        manager.tags = ["v", "empty"]
-        manager.wallpapers = [VideoWallpaper(id: "v", title: "Video", tags: ["v"], isFavorite: true)]
-        let sil = SILService.shared
-        sil.silTags = ["blue", "", "empty", "blue"]
-        sil.wallpapers = [SILWallpaper(id: "1", title: "One", tags: ["blue", "blue", "", "hidden"]),
-            SILWallpaper(id: "2", title: "Two", tags: ["blue", "hidden"]),
-            SILWallpaper(id: "3", title: "Three", tags: [])]
-        OnlineLibraryService.shared.downloadedIDs = [1, 2]
-        SteamWorkshopService.shared.downloadsCount = 3
-        let sidebar = SidebarProbe(manager)
-        let signature = sidebar.makeSidebarSnapshotSignature()
-        var originalCounts: [String: Int] = [:]
-        for tag in sil.silTags { originalCounts[tag] = sil.wallpapers.filter { $0.tags.contains(tag) }.count }
-        checks["sidebarSinglePassMatchesFilterContainsIncludingDuplicateAndEmptyTags"] = signature.silTagCounts == originalCounts
-            && signature.silTagCounts == ["blue": 2, "": 1, "empty": 0]
-            && signature.silTagCounts["hidden"] == nil
-        checks["sidebarVideoFavoriteAndTagCountsRemainEquivalent"] = signature.favoriteCount == 1
-            && signature.tagCounts == ["v": 1] && signature.wallpaperCount == 1
-        // A prepared snapshot must remain the sole count authority during rebuild.
-        sil.wallpapers = []
-        sil.silTags = ["new live tag"]
-        OnlineLibraryService.shared.downloadedIDs = []
-        SteamWorkshopService.shared.downloadsCount = 99
-        sidebar.rebuildNodes(using: signature, tagOrder: manager.tags)
-        let images = sidebar.rootNodes.first { if case .section(.images) = $0.kind { return true }; return false }!
-        let online = sidebar.rootNodes.first { if case .section(.online) = $0.kind { return true }; return false }!
-        let steam = sidebar.rootNodes.first { if case .section(.steam) = $0.kind { return true }; return false }!
-        checks["sidebarRebuildConsumesSnapshotTagOrderAndCounts"] = images.children.map(\.title) == ["我的图片", "blue", "", "empty", "blue"]
-            && images.children.map(\.count) == [3, 2, 1, 0, 2]
-        checks["sidebarRebuildUsesSnapshotOnlineAndSteamCounts"] = online.children.last?.count == 2
-            && steam.children.last?.count == 3
-        let empty = sidebar.makeSidebarSnapshotSignature()
-        checks["sidebarEmptyLibraryKeepsDeclaredZeroCountTags"] = empty.silTagCounts == ["new live tag": 0]
-            && empty.silWallpapersCount == 0
-    }
-
-    /// Independent reference for the previous product order: search the whole
-    /// library, sort it, then let the tag page filter that sorted result. Keep
-    /// this oracle outside the production helper to catch changed tie ordering.
-    @MainActor static func legacySortedAll(_ service: SILService) -> [SILWallpaper] {
-        let query = service.searchQuery.trimmingCharacters(in: .whitespaces).lowercased()
-        let filtered = query.isEmpty ? service.wallpapers : service.wallpapers.filter {
-            $0.title.lowercased().contains(query) || $0.path.lowercased().contains(query)
-        }
-        guard service.sortState.mode != .none else { return filtered }
-        return filtered.sorted { a, b in
-            let asc = service.sortState.ascending
-            switch service.sortState.mode {
-            case .none: return false
-            case .name: return asc ? a.title < b.title : a.title > b.title
-            case .lastUsed: return asc ? a.lastUsed < b.lastUsed : a.lastUsed > b.lastUsed
-            case .fileSize:
-                let left = a.fileSize ?? 0, right = b.fileSize ?? 0
-                return asc ? left < right : left > right
-            case .addedAt: return asc ? a.addedAt < b.addedAt : a.addedAt > b.addedAt
-            }
-        }
-    }
-
-    @MainActor static func testSILTagProjection(_ checks: inout [String: Bool]) {
-        let sil = SILService.shared
-        let rows: [(String, String, [String], Int64?, TimeInterval, TimeInterval)] = [
-            ("path-hit-7", "同名", ["blue", "blue", ""], nil, 10, 20),
-            ("path-hit-2", "Alpha", ["red"], 0, 10, 20),
-            ("plain-9", "同名", ["blue"], 0, 10, 20),
-            ("plain-3", "Beta", ["red", "blue"], 20, 30, 10),
-            ("PATH-HIT-5", "alpha", [""], 20, 30, 10),
-            ("plain-1", "同名", ["blue"], nil, 10, 20),
-            ("plain-8", "Beta", [], 100, 30, 10),
-            ("path-hit-4", "空白", ["blue"], 100, 5, 1),
-        ]
-        sil.wallpapers = rows.map { row in
-            SILWallpaper(id: row.0, title: row.1, tags: row.2, fileSize: row.3,
-                lastUsed: Date(timeIntervalSince1970: row.4), addedAt: Date(timeIntervalSince1970: row.5))
-        }
-        let queries = ["", "   ", "ALPHA", " path-HIT ", "同名", "no match", "\n"]
-        let tags: [String?] = [nil, "", "blue", "red", "no-such-tag"]
-        var allEquivalent = true
-        var propertyEquivalent = true
-        var exactTiesKeepOrder = true
-        for mode in SILSortMode.allCases {
-            for ascending in [false, true] {
-                sil.sortState = SILSortState(mode: mode, ascending: ascending)
-                for query in queries {
-                    sil.searchQuery = query
-                    let legacy = legacySortedAll(sil)
-                    propertyEquivalent = propertyEquivalent && sil.sortedWallpapers.map(\.id) == legacy.map(\.id)
-                    for tag in tags {
-                        let expected = tag.map { tag in legacy.filter { $0.tags.contains(tag) } } ?? legacy
-                        let actual = sil.sortedWallpapers(forSILTag: tag)
-                        allEquivalent = allEquivalent && actual.map(\.id) == expected.map(\.id)
-                    }
-                }
-                sil.searchQuery = "同名"
-                // These three records compare equal for every comparator and
-                // include nil/zero file sizes, which intentionally remain ties.
-                exactTiesKeepOrder = exactTiesKeepOrder
-                    && sil.sortedWallpapers(forSILTag: "blue").map(\.id) == ["path-hit-7", "plain-9", "plain-1"]
-            }
-        }
-        checks["silTagProjectionMatchesLegacyWholeOutputForAllModesDirectionsQueriesAndTags"] = allEquivalent
-        checks["silUntaggedPropertyPreservesItsExistingProjection"] = propertyEquivalent
-        checks["silTagProjectionKeepsEqualValueInputOrderInBothDirections"] = exactTiesKeepOrder
-
-        var navigationEquivalent = true
-        for mode in SILSortMode.allCases {
-            for ascending in [false, true] {
-                sil.sortState = SILSortState(mode: mode, ascending: ascending)
-                for query in queries {
-                    sil.searchQuery = query
-                    let legacy = legacySortedAll(sil)
-                    for tag in tags {
-                        sil.currentContextTag = tag
-                        let visible = tag.map { tag in legacy.filter { $0.tags.contains(tag) } } ?? legacy
-                        let selections: [String?] = [nil, "missing"] + visible.map { Optional($0.id) }
-                        for current in selections {
-                            for key in [UInt16(123), 124, 125, 126, 0] {
-                                let expected: String?
-                                if visible.isEmpty { expected = current }
-                                else if let current, let index = visible.firstIndex(where: { $0.id == current }) {
-                                    let offset: Int
-                                    switch key {
-                                    case 123: offset = -1
-                                    case 124: offset = 1
-                                    case 125: offset = sil.visibleGridColumnCount
-                                    case 126: offset = -sil.visibleGridColumnCount
-                                    default: offset = 0
-                                    }
-                                    expected = visible[min(max(0, index + offset), visible.count - 1)].id
-                                } else { expected = visible.first?.id }
-                                sil.selectedID = current
-                                sil.moveSingleSelectionByArrowKey(key)
-                                navigationEquivalent = navigationEquivalent && sil.selectedID == expected
-                            }
-                        }
-                    }
-                }
-            }
-        }
-        checks["silArrowNavigationMatchesDisplayedLegacyOrderIncludingTiesAndBoundaries"] = navigationEquivalent
-        sil.isMultiSelectMode = true
-        sil.selectedID = "unchanged"
-        let priorSyncs = sil.inspectorSyncs
-        sil.moveSingleSelectionByArrowKey(124)
-        checks["silMultiSelectionArrowDoesNotChangeSelectionOrInspector"] = sil.selectedID == "unchanged"
-            && sil.inspectorSyncs == priorSyncs
-        sil.isMultiSelectMode = false
-
-        // A narrow page selects four scattered rows from a much larger input.
-        // Count the actual production comparator, rather than timing a copy.
-        sil.wallpapers = (0..<256).map { index in
-            SILWallpaper(id: "large-\(index)", title: String(format: "%04d", 255 - index),
-                tags: index % 64 == 0 ? ["narrow"] : [])
-        }
-        sil.searchQuery = ""
-        sil.sortState = SILSortState(mode: .name, ascending: true)
-        sil.comparisons = 0
-        let whole = sil.sortedWallpapers
-        let wholeComparisons = sil.comparisons
-        sil.comparisons = 0
-        sil.derivations = 0
-        let narrow = sil.sortedWallpapers(forSILTag: "narrow")
-        let narrowComparisons = sil.comparisons
-        checks["silTagProjectionSortsOnlyTheSelectedSubset"] = narrow.count == 4 && sil.derivations == 1
-            && narrow.map(\.id) == whole.filter { $0.tags.contains("narrow") }.map(\.id)
-            && narrowComparisons > 0 && narrowComparisons < wholeComparisons / 8
-        sil.comparisons = 0
-        let missing = sil.sortedWallpapers(forSILTag: "absent")
-        checks["silMissingTagPerformsNoSortComparisons"] = missing.isEmpty && sil.comparisons == 0
-        sil.currentContextTag = "narrow"
-        sil.selectedID = narrow.first?.id
-        sil.comparisons = 0
-        sil.derivations = 0
-        sil.moveSingleSelectionByArrowKey(124)
-        checks["silArrowNavigationSortsOnlyTheActiveTag"] = sil.selectedID == narrow.dropFirst().first?.id
-            && sil.derivations == 1 && sil.comparisons == narrowComparisons
-        sil.currentContextTag = nil
-        sil.sortState = SILSortState(mode: .none, ascending: false)
-        sil.comparisons = 0
-        checks["silDefaultOrderFiltersWithoutSorting"] = sil.sortedWallpapers(forSILTag: "narrow").map(\.id)
-            == sil.wallpapers.filter { $0.tags.contains("narrow") }.map(\.id) && sil.comparisons == 0
     }
 
     @MainActor static func testOnline(_ checks: inout [String: Bool]) throws {
@@ -709,11 +210,15 @@ enum GridThumbnailDecoder {
         online.collectionView.visible = [IndexPath(item: 0, section: 0), IndexPath(item: 1, section: 0)]
         let external = OnlineLibraryService.downloadDirectory.appendingPathComponent("online_2.mp4")
         try Data([0]).write(to: external)
-        // A low-frequency collection-wide status publication still admits an
-        // externally-created file for a card unrelated to the active task.
+        // Rendering and status ticks no longer inspect the directory. The
+        // source's published result updates the unrelated card instead.
         service.downloadingIDs = [1]
         pump()
-        checks["onlineLowFrequencyStatusRefreshDiscoversUnrelatedExternalDownload"] = service.downloadedIDs.contains(2)
+        checks["onlineLowFrequencyStatusDoesNotGuessExternalFileAvailability"] = !service.downloadedIDs.contains(2)
+            && b.states.last?.downloaded == false
+        service.downloadedIDs = [1, 2]
+        pump()
+        checks["onlineSourcePublicationRefreshesUnrelatedExternalDownload"] = service.downloadedIDs.contains(2)
             && b.states.last?.downloaded == true
         service.prioritizedWindows = []
         online.lastPrioritizedVisibleIDs = nil
@@ -759,5 +264,61 @@ enum GridThumbnailDecoder {
         service.downloadProgressByID = [1: 0.99]
         pump(0.25)
         checks["onlineReleasedContainerIsNotRevivedByQueuedProgress"] = weakOnline == nil
+    }
+
+    @MainActor static func testOrganization(_ checks: inout [String: Bool]) {
+        let service = OnlineLibraryService(), online = OnlineProbe(service)
+        online.collectionView.visible = [IndexPath(item: 0, section: 0), IndexPath(item: 1, section: 0)]
+        var eligible: Set<Int> = [11], favorites = Set<Int>(), factoryCalls: [Int] = []
+        let factory: (OnlineLibraryVideoItem) -> WallpaperInspectorActions? = { item in
+            factoryCalls.append(item.id)
+            guard eligible.contains(item.id) else { return nil }
+            return .init(state: .init(isPlaying: false, isFavorite: favorites.contains(item.id),
+                canPerformPrimary: false, canFavorite: true, canOrganize: true, playlistNames: []),
+                onPrimary: {}, onToggleFavorite: {}, onChoosePlaylist: { _ in })
+        }
+        online.makeOrganization = factory
+        online.bind()
+        service.items = [OnlineLibraryVideoItem(id: 11), OnlineLibraryVideoItem(id: 12), OnlineLibraryVideoItem(id: 13)]
+        pump(0.25)
+        let a = online.collectionView.cell(0), b = online.collectionView.cell(1)
+        checks["onlineOrganizationFactorySuppliesOnlyEligibleVisibleCards"] = a.configuredOrganization?.state.isFavorite == false
+            && b.configuredOrganization == nil && !factoryCalls.contains(13)
+        service.downloadedIDs = [11, 12]
+        pump()
+        checks["onlineDownloadedIDsAloneCannotCreateOrganization"] = a.states.last?.downloaded == true
+            && b.states.last?.downloaded == true && a.configuredOrganization != nil && b.configuredOrganization == nil
+
+        let aConfigurations = a.states.count, bConfigurations = b.states.count
+        eligible = [11, 12]; favorites = [11]; factoryCalls = []
+        online.refreshOrganization()
+        checks["onlineRelationshipEchoUsesVisibleIDsWithoutReconfiguration"] = factoryCalls.sorted() == [11, 12]
+            && a.states.count == aConfigurations && b.states.count == bConfigurations
+            && a.organizationUpdates.last?.id == 11 && a.organizationUpdates.last?.state?.isFavorite == true
+            && b.organizationUpdates.last?.id == 12 && b.organizationUpdates.last?.state?.isFavorite == false
+        let aUpdates = a.organizationUpdates.count, bUpdates = b.organizationUpdates.count
+        online.makeOrganization = nil
+        checks["onlineOrganizationFactoryWithdrawalRevokesWithoutReconfiguration"] = a.states.count == aConfigurations
+            && b.states.count == bConfigurations && a.organizationUpdates.count == aUpdates + 1
+            && b.organizationUpdates.count == bUpdates + 1 && a.organizationUpdates.last?.id == 11
+            && b.organizationUpdates.last?.id == 12 && a.organizationUpdates.last?.state == nil
+            && b.organizationUpdates.last?.state == nil
+
+        eligible = [21]; favorites = [21]
+        online.makeOrganization = factory
+        online.dataSource.defersApplications = true
+        service.items = [OnlineLibraryVideoItem(id: 21), OnlineLibraryVideoItem(id: 22)]
+        pump()
+        online.refreshOrganization()
+        checks["onlineOrganizationEchoCarriesNewIDAcrossDeferredSnapshot"] = online.orderedIDs == [21, 22]
+            && online.dataSource.identifiers == [11, 12, 13] && a.states.last?.id == 11
+            && b.states.last?.id == 12 && a.states.count == aConfigurations && b.states.count == bConfigurations
+            && a.organizationUpdates.last?.id == 21 && a.organizationUpdates.last?.state?.isFavorite == true
+            && b.organizationUpdates.last?.id == 22 && b.organizationUpdates.last?.state == nil
+        online.dataSource.finishPendingApplication()
+        let newA = online.collectionView.cell(0), newB = online.collectionView.cell(1)
+        checks["onlineDeferredProviderUsesCurrentOrganizationWhenNewCellArrives"] = newA !== a && newB !== b
+            && newA.states.last?.id == 21 && newA.configuredOrganization?.state.isFavorite == true
+            && newB.states.last?.id == 22 && newB.configuredOrganization == nil
     }
 }

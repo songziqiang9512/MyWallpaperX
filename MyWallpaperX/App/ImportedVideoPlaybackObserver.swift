@@ -17,7 +17,7 @@ enum ImportedVideoPlaybackObserver {
                 from: [request.localURL],
                 presentingIn: nil,
                 context: context,
-                autoplayToken: request.autoplayToken,
+                admission: request.admission,
                 resourceLifetime: request.resourceLifetime
             )
         }

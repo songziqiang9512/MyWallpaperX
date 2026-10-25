@@ -8,140 +8,35 @@ import AppKit
 import QuartzCore
 
 extension WallpaperManager {
-    func setAsWallpaper(
-        _ wallpaper: VideoWallpaper,
-        userInitiated: Bool = false,
-        recordHistory: Bool = true,
-        updateRecentList: Bool = true
-    ) {
-        // 设为壁纸是全局切换入口：当前播放、最近使用、系统壁纸同步都从这里串起来。
-        let normalizedTargetPath = normalizedPath(wallpaper.path)
-        guard pathExists(normalizedTargetPath) else {
-            handleMissingWallpaperDuringSwitch(wallpaper, userInitiated: userInitiated)
+    func setAsWallpaper(_ wallpaper: VideoWallpaper,
+                        admission: ImportedVideoPlaybackAdmission? = nil,
+                        libraryPending: WallpaperPlaybackSequence.Pending? = nil) {
+        let libraryPending = libraryPending ?? admission?.libraryPending
+        guard let libraryPending else {
+            _ = requestLibraryPlayback(reference: .init(provider: .videoLibrary, sourceID: wallpaper.id))
             return
         }
-
-        if userInitiated { recordInitialIndexUserSelection(wallpaper) }
-
-        recordPlaybackHistoryIfNeeded(
-            current: currentWallpaper,
-            targetNormalizedPath: normalizedTargetPath,
-            enabled: recordHistory
-        )
-
-        // E2a-3: requested 层立即写（UI 高亮即时）；committed
-        // currentWallpaper 延后到 daemon ready 事件提交——失败项真值不落地。
-        pendingWallpaper = wallpaper
-        NotificationCenter.default.post(
-            name: .onlineDownloadsPlaybackPathDidChange,
-            object: nil,
-            userInfo: ["path": normalizedTargetPath]
-        )
-
-        // 同步当前索引（避免切换时触发全库高频写入）
-        updateCurrentWallpaperIndex(for: wallpaper.id)
-
-        // 更新最近使用列表
-        if updateRecentList {
-            updateRecentWallpapers(wallpaper)
+        guard acceptsLibraryPlayback(libraryPending), libraryPending.ticket.runtime == .video else { return }
+        if let admission, !acceptsImportedVideoPlayback(admission) { return }
+        let targetPath = normalizedPath(wallpaper.path)
+        guard pathExists(targetPath) else {
+            switchFailed(libraryPending.ticket, reason: "视频文件已不可用，已保留原壁纸")
+            return
         }
-
-        prepareVideoSwitch(wallpaper)
+        pendingWallpaper = wallpaper
+        NotificationCenter.default.post(name: .onlineDownloadsPlaybackPathDidChange,
+                                       object: nil, userInfo: ["path": targetPath])
+        guard acceptsLibraryPlayback(libraryPending) else { return }
+        prepareVideoSwitch(wallpaper, admission: admission, libraryPending: libraryPending)
         PlaybackVolumeState.shared.setNormalizedVolume(Float(settings.volume / 100))
         PlaybackCommandMultiplexer.shared.dispatch(.setVolume(Float(settings.volume)))
-
-        if settings.autoSwitchEnabled && userInitiated {
-            // 用户手动切换时立即重置 timer，从 0 重新计时。
-            startAutoSwitchTimer()
-        }
-
-        if userInitiated {
-            // 记录用户点击播放时所在的列表，后续自动切换都在此列表内进行。
-            playbackSourceContext = currentSelectionContext
-        }
-
-
     }
 
     func requestSetAsWallpaper(_ wallpaper: VideoWallpaper) {
-        // 用户点击卡片/按钮的入口加了节流，防止高频重复点击把切换链路打爆。
-        if currentWallpaper?.path == wallpaper.path {
-            return
-        }
-
-        let currentTime = CACurrentMediaTime()
-        guard currentTime - lastInteractiveWallpaperSetTime > interactiveWallpaperSetDebounceInterval else {
-            return
-        }
-        lastInteractiveWallpaperSetTime = currentTime
-        // 用户手动点击选择视频，清空前进和后退历史，重建新的播放历史链路。
-        playbackForwardPaths.removeAll()
-        playbackHistoryPaths.removeAll()
-        setAsWallpaper(wallpaper, userInitiated: true)
-    }
-
-    private func handleMissingWallpaperDuringSwitch(_ wallpaper: VideoWallpaper, userInitiated: Bool) {
-        // 当前项缺失时先清理索引，再找下一张可播项，避免界面停留在坏引用上。
-        let normalized = normalizedPath(wallpaper.path)
-        let title = wallpaper.displayTitle
-
-        purgeMissingWallpaperFromIndex(path: normalized, displayTitle: title, notifyUser: userInitiated)
-
-        guard let fallback = nextPlayableWallpaper(afterMissingPath: normalized) else {
-            clearCurrentWallpaperAndStopPlayback()
-            return
-        }
-
-        setAsWallpaper(fallback, userInitiated: false)
-    }
-
-    private func purgeMissingWallpaperFromIndex(path: String, displayTitle: String, notifyUser: Bool) {
-        let normalized = normalizedPath(path)
-        let matched = wallpapers.filter { normalizedPath($0.path) == normalized }
-        let removedIDs = Set(matched.map(\.id))
-
-        if !matched.isEmpty {
-            for item in matched {
-                removeDerivedAssets(for: removalRecord(for: item))
-            }
-
-            removeWallpapersFromCollections([normalized])
-            clearSelectionAndPendingState(removedIDs)
-            saveWallpapers()
-        }
-
-        if notifyUser {
-            reportMissingIndexedFile(path: normalized, displayTitle: displayTitle)
-        }
-    }
-
-    private func nextPlayableWallpaper(afterMissingPath failedPath: String) -> VideoWallpaper? {
-        var attempts = 0
-        // 循环前快照上限，避免每次删除后 wallpapers.count 缩减导致提前退出。
-        let maxAttempts = max(1, wallpapers.count)
-        while attempts < maxAttempts {
-            guard let candidate = nextWallpaperAfterFailure(failedPath: failedPath) ?? wallpapers.first else {
-                return nil
-            }
-
-            if purgeMissingCandidateIfNeeded(candidate) {
-                attempts += 1
-                continue
-            }
-            return candidate
-        }
-        return nil
-    }
-
-    private func purgeMissingCandidateIfNeeded(_ candidate: VideoWallpaper) -> Bool {
-        let candidatePath = normalizedPath(candidate.path)
-        guard !pathExists(candidatePath) else {
-            return false
-        }
-
-        let candidateTitle = candidate.displayTitle
-        purgeMissingWallpaperFromIndex(path: candidatePath, displayTitle: candidateTitle, notifyUser: false)
-        return true
+        let now = CACurrentMediaTime()
+        guard now - lastInteractiveWallpaperSetTime > interactiveWallpaperSetDebounceInterval else { return }
+        lastInteractiveWallpaperSetTime = now
+        _ = requestLibraryPlayback(reference: .init(provider: .videoLibrary, sourceID: wallpaper.id))
     }
 
     func syncSystemWallpaper(with wallpaper: VideoWallpaper) {
@@ -396,24 +291,9 @@ extension WallpaperManager {
         }
     }
 
-    private func recordPlaybackHistoryIfNeeded(
-        current: VideoWallpaper?,
-        targetNormalizedPath: String,
-        enabled: Bool
-    ) {
-        guard enabled, let current else { return }
-        let normalizedCurrentPath = normalizedPath(current.path)
-        // 目标和当前相同，不记录（原地切换）。
-        guard normalizedCurrentPath != targetNormalizedPath else { return }
-        // 注意：不做 last == current 的去重，避免 A→B→A 这种情况漏记 B。
-        // 允许连续推入相同路径，pop 时自动跳过已从库中删除的项即可。
-        playbackHistoryPaths.append(normalizedCurrentPath)
-        if playbackHistoryPaths.count > playbackHistoryLimit {
-            playbackHistoryPaths.removeFirst(playbackHistoryPaths.count - playbackHistoryLimit)
-        }
-    }
 
-    private func updateCurrentWallpaperIndex(for wallpaperID: String) {
+
+    func updateCurrentWallpaperIndex(for wallpaperID: String) {
         if wallpapers.indices.contains(currentIndex),
            wallpapers[currentIndex].id == wallpaperID {
             return

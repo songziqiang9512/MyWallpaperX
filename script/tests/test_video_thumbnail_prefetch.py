@@ -81,12 +81,33 @@ class VideoThumbnailPrefetchTests(unittest.TestCase):
                 with self.subTest(name=name):
                     self.assertTrue(passed)
 
+    def test_visible_preview_repair_is_scoped_to_original_provider_and_current_row(self):
+        support = (ROOT / 'MyWallpaperX/Modules/VideoLibrary/UI/AppKitLibraryGridSupport.swift').read_text()
+        with tempfile.TemporaryDirectory(prefix='mwx-visible-preview-repair-', dir='/private/tmp') as directory:
+            work = Path(directory)
+            source = work / 'Provider.swift'; source.write_text(support)
+            shared = ROOT / 'MyWallpaperX/Shared/UI'
+            sources = [source, shared / 'GridThumbnailDecoder.swift', shared / 'DecodedThumbnailMemoryCache.swift',
+                shared / 'ThumbnailCache.swift', ROOT / 'script/tests/fixtures/VideoVisiblePreviewRepairChecks.swift']
+            binary = work / 'checks'
+            build = subprocess.run(['xcrun', 'swiftc', *SWIFT_ISOLATION_FLAGS, '-warnings-as-errors', '-parse-as-library',
+                *map(str, sources), '-module-cache-path', str(work / 'modules'), '-o', str(binary)],
+                capture_output=True, text=True, timeout=120)
+            self.assertEqual(build.returncode, 0, build.stdout + build.stderr)
+            run = subprocess.run([str(binary)], capture_output=True, text=True, timeout=30,
+                env=dict(os.environ, HOME=str(work / 'home'), CFFIXED_USER_HOME=str(work / 'home')))
+            self.assertEqual(run.returncode, 0, run.stdout + run.stderr)
+            checks = json.loads(run.stdout)
+            self.assertGreaterEqual(len(checks), 16)
+            for name, passed in checks.items():
+                with self.subTest(name=name): self.assertIs(passed, True)
+
     def test_complete_video_card_hover_click_exit_and_restore_never_scale(self):
         ui = ROOT / 'MyWallpaperX/Modules/VideoLibrary/UI'
         shared = ROOT / 'MyWallpaperX/Shared/UI'
         fixtures = ROOT / 'script/tests/fixtures'
-        provider = (ui / 'AppKitLibraryGridSupport.swift').read_text()
-        provider = provider[provider.index('enum VideoLibraryThumbnailStore {'):]
+        support = (ui / 'AppKitLibraryGridSupport.swift').read_text()
+        provider = support[support.index('enum VideoLibraryThumbnailStore {'):]
         # Reuse only the existing model/controlled asset-validation leaves. The
         # complete card (including its real hierarchy/events) replaces no method.
         leaves = (fixtures / 'VideoThumbnailPrefetchChecks.swift').read_text().split('@main struct VideoThumbnailPrefetchChecks {')[0]
@@ -95,11 +116,19 @@ class VideoThumbnailPrefetchTests(unittest.TestCase):
             work = Path(directory)
             actual = work / 'ActualCard.swift'
             actual.write_text(leaves + '\n' + provider + '\n' + card)
-            sources = [actual, fixtures / 'VideoCardInteractionHarness.swift',
+            sources = [actual, ROOT / 'MyWallpaperX/Shared/Components/WallpaperCardInteractionView.swift',
+                       ROOT / 'MyWallpaperX/Shared/Components/WallpaperCardSupportViews.swift',
+                       ROOT / 'MyWallpaperX/Shared/Components/WallpaperCardControlsView.swift', fixtures / 'VideoCardInteractionHarness.swift',
                        fixtures / 'GridCardInteractionChecks.swift', fixtures / 'NativeAppHarness.swift', *[shared / name for name in [
                            'GridThumbnailDecoder.swift', 'DecodedThumbnailMemoryCache.swift', 'ThumbnailCache.swift',
                            'AppearanceAwareContainerView.swift', 'NSViewExtensions.swift',
-                           'UIInteractionAnimation.swift', 'WallpaperGridScrollView.swift']]]
+                           'UIInteractionAnimation.swift', 'WallpaperGridScrollView.swift',
+                           'WallpaperGridIdentifiable.swift', 'GridCollectionViewProtocol.swift',
+                           'BoxSelectionState.swift', 'GridThumbnailPrefetchDemand.swift']]]
+            sources += [ROOT / 'MyWallpaperX' / path for path in [
+                'Models/WallpaperReference.swift', 'Models/WallpaperContent.swift', 'Models/WallpaperLibraryPage.swift',
+                'Shared/Components/WallpaperLibraryGridMetrics.swift', 'Shell/WallpaperLibraryGridController.swift']]
+            sources.append(fixtures / 'WallpaperLibraryGridCardReflowChecks.swift')
             binary = prepare_native_app(work, 'VideoCardInteractionChecks')
             build = subprocess.run(['xcrun', 'swiftc', *SWIFT_ISOLATION_FLAGS, '-warnings-as-errors', '-parse-as-library',
                 *map(str, sources), '-module-cache-path', str(work / 'modules'), '-o', str(binary)],
@@ -118,6 +147,15 @@ class VideoThumbnailPrefetchTests(unittest.TestCase):
             self.assertGreaterEqual(len(checks), 17)
             for name, passed in checks.items():
                 with self.subTest(name=name): self.assertIs(passed, True)
+            reflow = run_native_app(binary, ["--card-reflow"], timeout=30)
+            self.assertEqual(reflow.launch_returncode, 0, reflow.stdout + reflow.stderr)
+            if proof := os.environ.get("MWX_VIDEO_PREFETCH_PROOF_DIR"):
+                (Path(proof) / "reflow.json").write_text(reflow.stdout)
+                (Path(proof) / "reflow-runtime.log").write_text(reflow.stderr)
+            reflow_checks = json.loads(reflow.stdout)
+            self.assertEqual(len(reflow_checks), 17)
+            for name, passed in reflow_checks.items():
+                with self.subTest(name=name): self.assertIs(passed, True, reflow.stderr)
 
 
 if __name__ == '__main__':

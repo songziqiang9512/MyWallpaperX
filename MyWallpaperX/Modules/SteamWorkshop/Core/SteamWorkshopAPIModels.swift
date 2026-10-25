@@ -177,6 +177,8 @@ struct SteamWorkshopDiscoveryBrowseSnapshot {
     let browserQuery: String
     let currentWorkshopItemID: String?
     let selectedBrowserItem: SteamWorkshopBrowserItem?
+    /// In-memory uncovered document viewport minY; zero means the real top.
+    /// This snapshot does not persist a window-specific native toolbar inset.
     let scrollOffsetY: CGFloat
     var steamKitBrowseSnapshot: SteamKitBrowseStore.Snapshot
     var source: SteamWorkshopSource = .featured

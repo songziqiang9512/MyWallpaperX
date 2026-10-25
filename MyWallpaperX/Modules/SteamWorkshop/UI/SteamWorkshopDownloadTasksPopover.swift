@@ -24,14 +24,16 @@ final class SteamWorkshopDownloadTasksPopoverController: NSObject, NSPopoverDele
 
     var isShown: Bool { popover.isShown }
 
-    func toggle(relativeTo view: NSView, positioningRect: NSRect? = nil) {
+    func toggle(relativeTo toolbarItem: NSToolbarItem, in window: NSWindow) {
+        guard let toolbar = toolbarItem.toolbar, toolbar === window.toolbar,
+              let contentView = window.contentView else { return }
         if popover.isShown {
             close()
             return
         }
         contentController.startObserving()
-        scrollDismissal.watch(relativeTo: view)
-        popover.show(relativeTo: positioningRect ?? view.bounds, of: view, preferredEdge: .maxY)
+        scrollDismissal.watch(relativeTo: contentView)
+        popover.show(relativeTo: toolbarItem)
     }
 
     func close() {

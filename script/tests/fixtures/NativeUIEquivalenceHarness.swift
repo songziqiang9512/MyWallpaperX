@@ -419,14 +419,9 @@ import QuartzCore
             facts["sidebar-\(dark)-nonemphasized"] = !row.isEmphasized
             row.needsDisplay = true
             image("sidebar-\(dark)-inactive", sidebar)
-            row.suppressSelectionDuringDrag = true
-            row.needsDisplay = true
-            image("sidebar-\(dark)-drag", sidebar)
-            checks["sidebar-\(dark)-drag-keeps-selection"] = sidebar.selectedRow == 1 && row.isSelected
-            row.suppressSelectionDuringDrag = false
-            row.needsDisplay = true
-            checks["sidebar-\(dark)-restore-keeps-selection"] = sidebar.selectedRow == 1 && row.isSelected
-            image("sidebar-\(dark)-restored", sidebar)
+            // Manual drag selection suppression has retired. Real native gap,
+            // cancellation and receipt behavior live in SidebarHarness; the
+            // focus/neutral-selection/pixel/geometry checks above stay here.
             sidebar.removeFromSuperview()
         }
         facts["checks"] = checks

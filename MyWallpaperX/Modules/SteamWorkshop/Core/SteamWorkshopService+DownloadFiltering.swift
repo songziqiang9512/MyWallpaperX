@@ -6,44 +6,43 @@
 import Foundation
 
 extension SteamWorkshopService {
-    /// D7 单一投影：记录 ⊕ 现役账号失败意图 → 模式过滤 → 搜索 → 排序。
-    /// 失败项与失败后的重试任务保留在下载页；从未失败的新 queued/downloading
-    /// 只在下载弹窗展示，不进本列表。
-    func filteredAndSortedDownloads(from records: [SteamWorkshopDownloadRecord]) -> [SteamWorkshopDownloadRecord] {
-        filteredAndSortedMergedDownloads(from: downloadsWithFailedIntents(from: records))
-    }
-
-    /// refreshDisplayedDownloads 已提交合成记录，不在筛选阶段重复扫描任务意图。
-    func filteredAndSortedMergedDownloads(from records: [SteamWorkshopDownloadRecord]) -> [SteamWorkshopDownloadRecord] {
-        let modeFiltered = records.filter { record in
-            switch downloadsDisplayMode {
-            case .all:
-                // all 含未知类型的失败意图。
-                return true
-            case .video:
-                return record.contentType == .video
-            case .web:
-                return record.contentType == .web
-            case .scene:
-                return record.contentType == .scene
-            }
-        }
+    /// Source facts for the unified downloads page; other pages keep the full
+    /// catalog. A brand-new task stays in the queue popover, while a retry with
+    /// failure history for the supplied account keeps its original card.
+    /// Published account inputs are explicit so willSet cannot consult the
+    /// previous account. Missing/empty identity never borrows the live getter.
+    func excludedDownloadReferences(
+        in records: [SteamWorkshopDownloadRecord],
+        showsAdultContent: Bool,
+        accountSteamID: String?
+    ) -> Set<WallpaperReference> {
+        var excluded: Set<WallpaperReference> = []
         var failedHistoryItemIDs: Set<String>?
-        let visible = modeFiltered.filter { record in
-            if !downloadsShowsAdultContent, let item = record.browserItem,
-               item.hasAdultContent || SteamWorkshopContentRatingSupport.hasAdultContent(tags: item.tags) {
-                return false
+        for record in records {
+            let reference = WallpaperReference(provider: .steamWorkshop, sourceID: record.id)
+            if let intentAccount = record.intentAccountSteamID,
+               accountSteamID != intentAccount || accountSteamID?.isEmpty != false {
+                excluded.insert(reference)
+                continue
+            }
+            if !showsAdultContent, let item = record.browserItem,
+               SteamWorkshopContentRatingSupport.hasAdultContent(tags: item.tags, isMarkedAdult: item.hasAdultContent) {
+                excluded.insert(reference)
+                continue
             }
             switch record.status {
             case .ready, .failed:
-                return true
+                break
             case .queued, .downloading:
-                // 进行中意图 = 失败后的重试（同卡续显进度）；从未失败的新任务
-                // 属弹窗队列，不进下载页。
-                return hasFailedDownloadHistory(itemID: record.id, failedItemIDs: &failedHistoryItemIDs)
+                guard let accountSteamID, !accountSteamID.isEmpty,
+                      hasFailedDownloadHistory(itemID: record.id, accountSteamId: accountSteamID,
+                                               failedItemIDs: &failedHistoryItemIDs) else {
+                    excluded.insert(reference)
+                    continue
+                }
             }
         }
-        return sortedDownloadRecords(visible)
+        return excluded
     }
 
     /// 把现役账号的持久失败意图与失败后的重试任务合并进记录列表。
@@ -52,17 +51,28 @@ extension SteamWorkshopService {
     ///   不由任何临时 UI 状态决定。
     /// - 只为 `downloads` 中不存在的 item 合成记录：ready 卡不被失败覆盖，
     ///   也不产生同 item 两张卡；进行中的瞬态卡（含进度）原样保留。
-    /// - 合成结果写回 `downloads`（由 refreshDisplayedDownloads 值相等守卫执行），
-    ///   选中/删除/详情因此走同一条 record 路径（含既有的 discardFailedDownload
+    /// - 合成结果写回 `downloads`（由 refreshDownloadIntentProjection 值相等守卫执行），
+    ///   删除/详情因此走同一条 record 路径（含既有的 discardFailedDownload
     ///   「仅移除意图、不删文件」语义）。
     func downloadsWithFailedIntents(from records: [SteamWorkshopDownloadRecord]) -> [SteamWorkshopDownloadRecord] {
-        guard let account = currentSteamDownloadAccount else { return records }
+        // Published/legacy source rows have no provenance tag and are account
+        // independent. Keep current admitted transient snapshots (metadata and
+        // progress included); only their original JobStore can revoke them.
+        let account = currentSteamDownloadAccount
+        let admittedItemIDs = Set(downloadJobStore.jobs.lazy.filter {
+            $0.accountSteamId == account && $0.state != .cancelled && $0.state != .completed
+        }.map(\.workshopItemId))
+        let sourceRecords = records.filter {
+            guard let intentAccount = $0.intentAccountSteamID else { return true }
+            return intentAccount == account && admittedItemIDs.contains($0.id)
+        }
+        guard let account else { return sourceRecords }
         // 同 item 只合成一张卡：knownIDs 之外的每个 workshop intent 只取第一条
         // 命中意图。存量形态里同账号同 item 可能有多条 failed job（旧版本落盘
         // 的重复 failed intents，见 discardFailedDownload 的去重注释）；多余的
         // 意图仍由既有 discardFailedDownload / terminal cleanup 路径清理，投影
         // 不删 job，只保证不产生同 item 两张卡。
-        var synthesizedItemIDs = Set(records.map(\.id))
+        var synthesizedItemIDs = Set(sourceRecords.map(\.id))
         var synthesized: [SteamWorkshopDownloadRecord] = []
         var failedHistoryItemIDs: Set<String>?
         for job in downloadJobStore.jobs {
@@ -86,8 +96,8 @@ extension SteamWorkshopService {
             synthesized.append(record)
             synthesizedItemIDs.insert(job.workshopItemId)
         }
-        guard synthesized.isEmpty == false else { return records }
-        return (records + synthesized).sorted { $0.updatedAt > $1.updatedAt }
+        guard synthesized.isEmpty == false else { return sourceRecords }
+        return (sourceRecords + synthesized).sorted { $0.updatedAt > $1.updatedAt }
     }
 
     /// 现役下载账号（合成与历史判定的账号隔离边界：跨账号不接管旧失败意图）。
@@ -143,7 +153,8 @@ extension SteamWorkshopService {
             browserItem: nil,
             contentType: .unknown,
             dependencyItemID: nil,
-            dependencyStatus: .none
+            dependencyStatus: .none,
+            intentAccountSteamID: job.accountSteamId
         )
     }
 
@@ -169,98 +180,8 @@ extension SteamWorkshopService {
             browserItem: nil,
             contentType: .unknown,
             dependencyItemID: nil,
-            dependencyStatus: .none
-        )
-    }
-
-    private func sortedDownloadRecords(_ filtered: [SteamWorkshopDownloadRecord]) -> [SteamWorkshopDownloadRecord] {
-        let query = downloadsQuery.trimmingCharacters(in: .whitespacesAndNewlines)
-        let searched: [SteamWorkshopDownloadRecord]
-        if query.isEmpty {
-            searched = filtered
-        } else {
-            let normalized = query.localizedLowercase
-            let idQuery = Self.workshopItemIDSearchID(from: query)?.localizedLowercase ?? normalized
-            searched = filtered.filter {
-                $0.title.localizedLowercase.contains(normalized)
-                || $0.description.localizedLowercase.contains(normalized)
-                || $0.tags.contains(where: { $0.localizedLowercase.contains(normalized) })
-                || $0.id.localizedLowercase.contains(idQuery)
-                || $0.browserItem?.author.localizedLowercase.contains(normalized) == true
-            }
-        }
-        // Filesystem statistics are prepared by the background library scan.
-        // Never sort by rounded display strings or mutable modification dates.
-        let locale = Locale(identifier: "en_US_POSIX")
-        var foldedTitles: [String: String] = [:]
-        return searched.sorted { lhs, rhs in
-            let comparison: ComparisonResult
-            switch downloadsSortMode {
-            case .createdAt:
-                switch (lhs.createdAt, rhs.createdAt) {
-                case let (a?, b?) where a != b: comparison = a < b ? .orderedAscending : .orderedDescending
-                case (.some, nil): return true
-                case (nil, .some): return false
-                default: comparison = downloadRecordStableComparison(lhs, rhs, foldedTitles: &foldedTitles, locale: locale)
-                }
-            case .title:
-                comparison = downloadRecordStableComparison(lhs, rhs, foldedTitles: &foldedTitles, locale: locale)
-            case .size:
-                switch (lhs.sizeBytes, rhs.sizeBytes) {
-                case let (a?, b?) where a != b: comparison = a < b ? .orderedAscending : .orderedDescending
-                case (.some, nil): return true
-                case (nil, .some): return false
-                default: comparison = downloadRecordStableComparison(lhs, rhs, foldedTitles: &foldedTitles, locale: locale)
-                }
-            }
-            return comparison == (downloadsSortAscending ? .orderedAscending : .orderedDescending)
-        }
-    }
-
-    /// Fixed alphabetic collation and a stable identity make direction changes
-    /// exact inverses for known values, including equal titles/sizes/dates.
-    private func downloadRecordStableComparison(
-        _ lhs: SteamWorkshopDownloadRecord,
-        _ rhs: SteamWorkshopDownloadRecord,
-        foldedTitles: inout [String: String],
-        locale: Locale
-    ) -> ComparisonResult {
-        // Per-sort, demand-driven keys: unique date/size comparisons need no folding.
-        func folded(_ title: String) -> String {
-            if let cached = foldedTitles[title] { return cached }
-            let value = title.folding(options: [.caseInsensitive, .diacriticInsensitive], locale: locale)
-            foldedTitles[title] = value
-            return value
-        }
-        let lhsTitle = folded(lhs.title)
-        let rhsTitle = folded(rhs.title)
-        let comparison = lhsTitle.compare(rhsTitle, options: [.numeric], locale: locale)
-        if comparison != .orderedSame { return comparison }
-        return lhs.id.compare(rhs.id, options: [.literal])
-    }
-
-    func sanitizeDownloadSelectionAgainstDisplayedDownloads() {
-        let visibleIDs = Set(displayedDownloads.map(\.id))
-        let visibleSelection = selectedDownloadIDs.intersection(visibleIDs)
-        let normalizedPrimaryID: String? = {
-            if let selectedDownloadID, visibleIDs.contains(selectedDownloadID) {
-                return selectedDownloadID
-            }
-            if isDownloadsMultiSelectMode {
-                return firstDisplayedDownloadID(in: visibleSelection)
-            }
-            return nil
-        }()
-        let normalizedSelectedIDs = isDownloadsMultiSelectMode
-            ? visibleSelection
-            : (normalizedPrimaryID.map { [$0] } ?? [])
-        guard normalizedPrimaryID != selectedDownloadID || normalizedSelectedIDs != selectedDownloadIDs else {
-            return
-        }
-        publishDownloadSelectionState(
-            primaryID: normalizedPrimaryID,
-            selectedIDs: normalizedSelectedIDs,
-            deferPublishing: true
+            dependencyStatus: .none,
+            intentAccountSteamID: job.accountSteamId
         )
     }
 

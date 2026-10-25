@@ -6,47 +6,23 @@
 import AppKit
 
 extension SteamWorkshopToolbarController {
+    var accountActionsEnabled: Bool {
+        switch SteamWorkshopService.shared.steamAuth.displayState {
+        case .connecting, .awaitingInput: return false
+        default: return true
+        }
+    }
+
     func focusSearch() {
         guard isSteamWorkshopMode else { return }
-        if isDownloadsMode {
-            window?.makeFirstResponder(downloadsSearchField)
-        } else {
-            window?.makeFirstResponder(searchField)
-        }
+        guard !isDownloadsMode else { return }
+        searchToolbarItem.beginSearchInteraction()
     }
 
-    func performZoom(delta: Int) {
-        guard isSteamWorkshopMode else { return }
-        let width = gridWidth()
-        let availability = GridLayoutHelper.zoomAvailability(
-            currentOffset: SteamWorkshopService.shared.zoomOffset,
-            for: width,
-            minimumItemWidth: 100
-        )
-        let canZoom = delta > 0 ? availability.canZoomIn : availability.canZoomOut
-        guard canZoom else { return }
-        let segment = delta > 0 ? 1 : 0
-        zoomControl.setSelected(true, forSegment: segment)
-        DispatchQueue.main.asyncAfter(deadline: .now() + 0.15) { [weak self] in
-            self?.zoomControl.setSelected(false, forSegment: segment)
-        }
-        SteamWorkshopService.shared.zoomOffset = GridLayoutHelper.zoomedOffset(
-            currentOffset: SteamWorkshopService.shared.zoomOffset, delta: delta, for: width, minimumItemWidth: 100)
-        configureZoomItem()
-    }
-
-    private func gridWidth() -> CGFloat {
-        GridLayoutHelper.availableWidth(in: window?.contentView) ?? ((window?.contentView?.bounds.width ?? 800) - 220)
-    }
-
-    func configureZoomItem() {
-        let availability = GridLayoutHelper.zoomAvailability(
-            currentOffset: SteamWorkshopService.shared.zoomOffset,
-            for: gridWidth(),
-            minimumItemWidth: 100
-        )
-        zoomControl.setEnabled(availability.canZoomOut, forSegment: 0)
-        zoomControl.setEnabled(availability.canZoomIn, forSegment: 1)
+    func configureZoom(preferredColumns: Int, clipWidth: CGFloat) {
+        zoomControl.update(preferredColumns: preferredColumns, clipWidth: clipWidth, canDispatch: makeZoomAction != nil)
+        zoomToolbarItem.isEnabled = zoomControl.isEnabled
+        zoomToolbarItem.menuFormRepresentation = zoomControl.menuRepresentation()
     }
 
     func configureAuthItems() {
@@ -58,40 +34,39 @@ extension SteamWorkshopToolbarController {
         let symbolName: String
         let tint: NSColor
         let tooltip: String
-        let isBusy: Bool
         switch auth.displayState {
         case .online:
             symbolName = "person.crop.circle.badge.checkmark"
             tint = .controlAccentColor
             tooltip = "Steam 账号菜单"
-            isBusy = false
         case .connecting, .awaitingInput:
             symbolName = "hourglass"
             tint = .secondaryLabelColor
             tooltip = "正在登录 Steam…"
-            isBusy = true
         case .expired:
             symbolName = "person.crop.circle.badge.exclamationmark"
             tint = .systemOrange
             tooltip = "重新登录"
-            isBusy = false
         case .failed:
             symbolName = "person.crop.circle.badge.exclamationmark"
             tint = .systemOrange
             tooltip = "登录出现问题，点击重新登录"
-            isBusy = false
         case .signedOut:
             symbolName = "person.crop.circle"
             tint = requiresLoginAttention ? .systemOrange : .labelColor
             tooltip = requiresLoginAttention ? service.statusMessage : "登录 Steam"
-            isBusy = false
         }
         accountButton.image = NSImage(systemSymbolName: symbolName, accessibilityDescription: "Steam 账号")
         accountButton.contentTintColor = tint
         accountButton.toolTip = tooltip
         accountButton.setAccessibilityLabel("Steam 账号，\(tooltip)")
-        accountButton.isEnabled = !isBusy
+        let canExecute = accountActionsEnabled
+        accountButton.isEnabled = canExecute
+        accountToolbarItem.isEnabled = canExecute
         accountToolbarItem.toolTip = accountButton.toolTip
+        accountToolbarItem.menuFormRepresentation = ToolbarMenuPopoverPresenter.menuRepresentation(title: "Steam 账号", rows: accountRows())
+        accountToolbarItem.menuFormRepresentation?.isEnabled = canExecute
+        accountToolbarItem.visibilityPriority = .low
     }
 
     func configureDownloadTasksItem() {
@@ -114,6 +89,9 @@ extension SteamWorkshopToolbarController {
             ? (SteamWorkshopService.shared.authorWorkshopReturnDestination?.title ?? "返回创意工坊")
             : "当前不在作者工坊模式"
         authorBackToolbarItem.toolTip = authorBackButton.toolTip
+        let back = ActionMenuItem(title: "返回创意工坊", symbol: "chevron.backward") { [weak self] in self?.handleBackToDiscovery() }
+        back.isEnabled = isBrowsingAuthorWorkshop
+        authorBackToolbarItem.menuFormRepresentation = back
     }
 
     func syncSortPopup() {
@@ -130,12 +108,13 @@ extension SteamWorkshopToolbarController {
             : "作者工坊模式暂不支持切换浏览来源"
         sortButton.toolTip = sortToolbarItem.toolTip
         sortButton.sizeToFit()
+        sortToolbarItem.menuFormRepresentation = ToolbarMenuPopoverPresenter.menuRepresentation(title: sortToolbarItem.label, rows: sortRows())
     }
 
     func syncPersonalListPopup() {
         let service = SteamWorkshopService.shared
         let isEnabled = service.source.isPersonal && !service.isBrowsingAuthorWorkshop
-        personalListButton.title = service.source.toolbarDisplayName
+        personalListButton.title = service.source == .myFavorites ? "Steam 收藏" : service.source.toolbarDisplayName
         personalListToolbarItem.isEnabled = isEnabled
         personalListButton.isEnabled = isEnabled
         personalListToolbarItem.toolTip = isEnabled
@@ -143,6 +122,7 @@ extension SteamWorkshopToolbarController {
             : "进入「我的订阅」后选择个人列表"
         personalListButton.toolTip = personalListToolbarItem.toolTip
         personalListButton.sizeToFit()
+        personalListToolbarItem.menuFormRepresentation = ToolbarMenuPopoverPresenter.menuRepresentation(title: "个人列表", rows: personalListRows())
     }
 
     func syncTrendingWindowPopup() {
@@ -153,6 +133,7 @@ extension SteamWorkshopToolbarController {
         trendingWindowToolbarItem.isEnabled = isEnabled
         trendingWindowButton.isEnabled = isEnabled
         trendingWindowButton.sizeToFit()
+        trendingWindowToolbarItem.menuFormRepresentation = ToolbarMenuPopoverPresenter.menuRepresentation(title: "时间段", rows: trendingWindowRows())
     }
 
     func configureFilterItem() {
@@ -165,6 +146,9 @@ extension SteamWorkshopToolbarController {
         filterToolbarItem.isEnabled = isEnabled
         filterButton.isEnabled = isEnabled
         filterToolbarItem.toolTip = filterButton.toolTip
+        let filter = ActionMenuItem(title: "筛选", symbol: "line.3.horizontal.decrease.circle") { [weak self] in self?.handleFilterMenu() }
+        filter.isEnabled = isEnabled
+        filterToolbarItem.menuFormRepresentation = filter
     }
 
     func syncSearchField() {
@@ -172,7 +156,8 @@ extension SteamWorkshopToolbarController {
         searchToolbarItem.isEnabled = true
         searchField.isEnabled = true
         searchField.placeholderString = SteamWorkshopService.shared.isBrowsingAuthorWorkshop
-            ? "搜索已加载作品" : "搜索"
+            ? "在已加载作品中查找" : "在\(SteamWorkshopService.shared.browserSectionTitle)中查找"
+        searchField.setAccessibilityLabel(searchField.placeholderString)
     }
 
     func syncBrowserContextControls() {
@@ -206,55 +191,4 @@ extension SteamWorkshopToolbarController {
         }
     }
 
-    func syncDownloadsSearchField() {
-        downloadsSearchField.stringValue = SteamWorkshopService.shared.downloadsQuery
-    }
-
-    func configureDownloadsTitleItem() {
-        downloadsTitleLabel.stringValue = Title.downloads
-        downloadsTitleItem.toolTip = Title.downloads
-    }
-
-    func configureDownloadsSelectItem() {
-        let isMultiSelectMode = SteamWorkshopService.shared.isDownloadsMultiSelectMode
-        let symbolName = isMultiSelectMode ? "checkmark.circle.fill" : "checkmark.circle"
-        downloadsSelectItem.image = NSImage(systemSymbolName: symbolName, accessibilityDescription: "选择")
-        downloadsSelectItem.toolTip = isMultiSelectMode ? "退出选择模式" : "进入选择模式"
-    }
-
-    func configureDownloadsDeleteItem() {
-        let enabled = isDownloadsMode && SteamWorkshopService.shared.canDeleteSelectedDownload
-        downloadsDeleteItem.isEnabled = enabled
-        downloadsDeleteItem.toolTip = enabled
-            ? "删除当前选中的下载项"
-            : "请先选中一个已下载或失败的项目"
-    }
-
-    func configureDownloadsFilterItem() {
-        let service = SteamWorkshopService.shared
-        let mode = service.downloadsDisplayMode
-        let title: String
-        switch mode {
-        case .all:
-            title = "全部 \(service.downloadsCount)"
-        case .video:
-            title = "视频 \(service.visibleVideoDownloadsCount)"
-        case .web:
-            title = "Web \(service.visibleWebDownloadsCount)"
-        case .scene:
-            title = "场景 \(service.visibleSceneDownloadsCount)"
-        }
-        downloadsFilterButton.title = title
-        downloadsFilterButton.toolTip = "当前筛选：\(mode.title)"
-        downloadsFilterItem.toolTip = downloadsFilterButton.toolTip
-        downloadsFilterItem.isEnabled = isDownloadsMode
-        downloadsFilterButton.isEnabled = isDownloadsMode
-    }
-
-    func configureDownloadsSortItem() {
-        let service = SteamWorkshopService.shared
-        let direction = service.downloadsSortAscending ? "升序" : "降序"
-        downloadsSortMenuButton.toolTip = "排序方式：\(service.downloadsSortMode.displayName) · \(direction)"
-        downloadsSortItem.toolTip = downloadsSortMenuButton.toolTip
-    }
 }

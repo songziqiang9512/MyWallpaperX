@@ -16,6 +16,7 @@ PRODUCT = [
     'MyWallpaperX/Shared/UI/InspectorFooterMetrics.swift',
     'MyWallpaperX/Shared/UI/InspectorFadingScrollView.swift',
     'MyWallpaperX/Shared/Components/AppKitSettingsComponents.swift',
+    'MyWallpaperX/Shared/Components/ActionMenuItem.swift',
     'MyWallpaperX/Shared/UI/ToolbarMenuPopover.swift',
     'MyWallpaperX/Shared/Components/SidebarComponents.swift',
 ]
@@ -53,7 +54,7 @@ class NativeUIEquivalenceTests(unittest.TestCase):
                 (target / 'runtime.log').write_text(result.stdout + result.stderr)
                 (target / 'input-identities.json').write_text(json.dumps(identities, indent=2))
             self.assertEqual(identities, {str(p): hashlib.sha256(p.read_bytes()).hexdigest() for p in sources})
-            self.assertEqual(len(checks), 177)
+            self.assertEqual(len(checks), 173)
             self.assertTrue(report['windowVisible'])
             self.assertTrue(all(value is True for value in checks.values()), checks)
 

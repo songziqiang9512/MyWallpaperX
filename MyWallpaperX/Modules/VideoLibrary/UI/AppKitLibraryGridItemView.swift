@@ -7,11 +7,9 @@ import AppKit
 import QuartzCore
 
 @objc(AppKitWallpaperItem)
-final class AppKitWallpaperItem: NSCollectionViewItem, WallpaperGridHoverItem {
+final class AppKitWallpaperItem: WallpaperCardCollectionViewItem, WallpaperGridHoverItem {
     private struct LayoutInputs: Equatable {
         let size: NSSize
-        let title: String
-        let metadata: String
     }
     private var lastLayoutInputs: LayoutInputs?
 
@@ -28,17 +26,22 @@ final class AppKitWallpaperItem: NSCollectionViewItem, WallpaperGridHoverItem {
     private let selectionTintView = NSView()
     private let hoverOutlineView = NSView()
     private let overlayView = NSView()
-    private let gradientLayer = CAGradientLayer()
-    private let titleLabel = NSTextField(labelWithString: "")
-    private let metaLabel = NSTextField(labelWithString: "")
+    private var currentTitle = ""
+    private var currentMetadata = ""
     private let thumbnailImageView = NSImageView()
     private let placeholderLabel = NSTextField(labelWithString: "生成中...")
-    private let favoriteBadgeContainer = NSView()
-    private let favoriteBadge = NSImageView()
+    private var isFavoriteState = false
     private let multiSelectBadge = NSView()
     private let multiSelectBadgeIcon = NSImageView()
-    private var playActionButton: PlayBadgeView?
-    private var playActionFrame = NSRect.zero
+    private var controlBar: WallpaperCardControlsView?
+    private var controlBarFrame = NSRect.zero
+    private var barVisibilityRevision = 0
+    var onPlayRequested: ((String) -> Void)? {
+        didSet { controlBar?.playButton.isEnabled = onPlayRequested != nil }
+    }
+    var onFavoriteRequested: ((String) -> Void)? {
+        didSet { controlBar?.favoriteButton.isHidden = onFavoriteRequested == nil }
+    }
     private var currentWallpaperID: String?
     private var currentWallpaper: VideoWallpaper?
     private var imageTaskID: UUID?
@@ -65,7 +68,7 @@ final class AppKitWallpaperItem: NSCollectionViewItem, WallpaperGridHoverItem {
     deinit { imageCancellation?.cancel(); loadingPlaceholderWorkItem?.cancel() }
 
     override func loadView() {
-        view = NSView()
+        view = WallpaperCardInteractionView()
         setupViews()
     }
 
@@ -92,18 +95,23 @@ final class AppKitWallpaperItem: NSCollectionViewItem, WallpaperGridHoverItem {
         placeholderLabel.stringValue = "生成中..."
         placeholderLabel.toolTip = nil
         placeholderLabel.isHidden = true
-        favoriteBadge.isHidden = true
-        favoriteBadgeContainer.isHidden = true
+        isFavoriteState = false
         multiSelectBadge.isHidden = true
-        playActionButton?.isHidden = true
-        playActionButton?.isPlaying = false
+        barVisibilityRevision += 1
+        controlBar?.setActive(false)
+        controlBar?.removeFromSuperview()
+        controlBar?.isHidden = true
+        controlBar?.primaryState = .apply
+        controlBar?.isFavorite = false
+        controlBar?.apply(title: "", metadata: "")
+        onPlayRequested = nil
+        onFavoriteRequested = nil
         hoverOutlineView.alphaValue = 0
         isHoverOutlineVisible = false
         selectionTintView.alphaValue = 0
-        titleLabel.stringValue = ""
-        metaLabel.stringValue = ""
-        titleLabel.layer?.mask = nil
-        metaLabel.layer?.mask = nil
+        currentTitle = ""
+        currentMetadata = ""
+        view.toolTip = nil
         refreshThemeAwareAppearance()
     }
 
@@ -126,12 +134,9 @@ final class AppKitWallpaperItem: NSCollectionViewItem, WallpaperGridHoverItem {
         self.isMultiSelectMode = multiSelectMode
         loadingPlaceholderWorkItem?.cancel()
         placeholderLabel.isHidden = true
-        favoriteBadgeContainer.isHidden = !isFavorite
-        favoriteBadge.isHidden = !isFavorite
+        isFavoriteState = isFavorite
         
-        titleLabel.stringValue = wallpaper.displayTitle
-        titleLabel.layer?.mask = nil
-        metaLabel.layer?.mask = nil
+        currentTitle = wallpaper.displayTitle
         var metaLines: [String] = []
         if let size = wallpaper.fileSize {
             let mb = Double(size) / (1024 * 1024)
@@ -149,7 +154,9 @@ final class AppKitWallpaperItem: NSCollectionViewItem, WallpaperGridHoverItem {
         if let res = wallpaper.resolution {
             metaLines.append(res)
         }
-        metaLabel.stringValue = metaLines.joined(separator: "  ")
+        currentMetadata = metaLines.joined(separator: "  ")
+        view.toolTip = nil
+        updateControlBarContent(isFavorite: isFavorite)
 
         applySelectionState(isSelected: isSelected, multiSelectMode: multiSelectMode)
 
@@ -164,6 +171,7 @@ final class AppKitWallpaperItem: NSCollectionViewItem, WallpaperGridHoverItem {
     func setThumbnailVisible(_ visible: Bool) {
         if !visible {
             isThumbnailDemandPaused = true
+            applyHoverVisibility(isHovering, animated: false)
             imageTaskID = nil
             imageCancellation?.cancel()
             imageCancellation = nil
@@ -171,6 +179,7 @@ final class AppKitWallpaperItem: NSCollectionViewItem, WallpaperGridHoverItem {
             loadingPlaceholderWorkItem = nil
         } else if isThumbnailDemandPaused {
             isThumbnailDemandPaused = false
+            applyHoverVisibility(isHovering, animated: false)
             guard thumbnailRequestIsPending, let wallpaper = currentWallpaper,
                   let manager = thumbnailWallpaperManager, let provider = currentThumbnailProvider else { return }
             requestThumbnail(for: wallpaper, wallpaperManager: manager, thumbnailProvider: provider)
@@ -200,6 +209,7 @@ final class AppKitWallpaperItem: NSCollectionViewItem, WallpaperGridHoverItem {
             self.loadingPlaceholderWorkItem = nil
             if let image {
                 self.thumbnailImageView.image = image
+                self.layoutThumbnail()
                 self.placeholderLabel.isHidden = true
             } else {
                 self.thumbnailImageView.image = nil
@@ -207,13 +217,13 @@ final class AppKitWallpaperItem: NSCollectionViewItem, WallpaperGridHoverItem {
                 let normalizedPath = wallpaperManager.normalizedPath(wallpaper.path)
                 if !wallpaperManager.normalizedSourcePathExists(wallpaper.path) {
                     self.placeholderLabel.stringValue = "请检查文件路径"
-                    self.placeholderLabel.toolTip = wallpaper.path
+                    self.placeholderLabel.toolTip = nil
                 } else if wallpaperManager.isThumbnailGenerationInFlight(for: normalizedPath) {
                     self.placeholderLabel.stringValue = "生成中..."
                     self.placeholderLabel.toolTip = nil
                 } else if wallpaperManager.hasRecentThumbnailGenerationFailure(for: normalizedPath) {
                     self.placeholderLabel.stringValue = "缩略图生成失败"
-                    self.placeholderLabel.toolTip = "稍后将自动重试"
+                    self.placeholderLabel.toolTip = nil
                 } else {
                     self.placeholderLabel.stringValue = "生成中..."
                     self.placeholderLabel.toolTip = nil
@@ -224,7 +234,7 @@ final class AppKitWallpaperItem: NSCollectionViewItem, WallpaperGridHoverItem {
     }
 
     private func setupViews() {
-        // 卡片视觉由几层独立 overlay 组成：缩略图、选中态、hover 描边、播放按钮、收藏角标。
+        // 卡片视觉由几层独立 overlay 组成：缩略图、选中态、hover 描边、播放按钮与多选标记。
         view.wantsLayer = true
         view.layer?.backgroundColor = NSColor.clear.cgColor
 
@@ -246,29 +256,12 @@ final class AppKitWallpaperItem: NSCollectionViewItem, WallpaperGridHoverItem {
         hoverOutlineView.translatesAutoresizingMaskIntoConstraints = false
         hoverOutlineView.alphaValue = 0
 
-        thumbnailImageView.imageScaling = .scaleAxesIndependently
-        thumbnailImageView.translatesAutoresizingMaskIntoConstraints = false
+        thumbnailImageView.imageScaling = .scaleProportionallyUpOrDown
 
         placeholderLabel.alignment = .center
         placeholderLabel.textColor = .secondaryLabelColor
         placeholderLabel.font = .systemFont(ofSize: 11, weight: .regular)
         placeholderLabel.translatesAutoresizingMaskIntoConstraints = false
-
-        favoriteBadgeContainer.wantsLayer = true
-        favoriteBadgeContainer.layer?.cornerRadius = 10
-        favoriteBadgeContainer.layer?.masksToBounds = false
-        favoriteBadgeContainer.layer?.backgroundColor = NSColor.white.cgColor
-        favoriteBadgeContainer.layer?.shadowColor = NSColor.black.cgColor
-        favoriteBadgeContainer.layer?.shadowOpacity = 0.2
-        favoriteBadgeContainer.layer?.shadowRadius = 2
-        favoriteBadgeContainer.layer?.shadowOffset = CGSize(width: 0, height: 1)
-        favoriteBadgeContainer.translatesAutoresizingMaskIntoConstraints = false
-        favoriteBadgeContainer.isHidden = true
-
-        favoriteBadge.image = NSImage(systemSymbolName: "heart.fill", accessibilityDescription: nil)
-        favoriteBadge.contentTintColor = .systemRed
-        favoriteBadge.translatesAutoresizingMaskIntoConstraints = false
-        favoriteBadge.isHidden = true
 
         multiSelectBadge.wantsLayer = true
         multiSelectBadge.layer?.cornerRadius = 12
@@ -281,51 +274,17 @@ final class AppKitWallpaperItem: NSCollectionViewItem, WallpaperGridHoverItem {
         multiSelectBadgeIcon.translatesAutoresizingMaskIntoConstraints = false
         multiSelectBadgeIcon.isHidden = true
 
-        playActionButton?.isHidden = true
-
         overlayView.wantsLayer = true
         overlayView.translatesAutoresizingMaskIntoConstraints = false
         overlayView.layer?.backgroundColor = NSColor.clear.cgColor
-        overlayView.layer?.addSublayer(gradientLayer)
-        // 底部信息渐变：仅在底部形成对比，提升文字可读性
-        gradientLayer.colors = [
-            NSColor.clear.cgColor,
-            NSColor.black.withAlphaComponent(0.05).cgColor,
-            NSColor.black.withAlphaComponent(0.72).cgColor
-        ]
-        gradientLayer.locations = [0.0, 0.62, 1.0]
-        gradientLayer.startPoint = CGPoint(x: 0.5, y: 1.0)
-        gradientLayer.endPoint = CGPoint(x: 0.5, y: 0.0)
-        gradientLayer.actions = ["bounds": NSNull(), "position": NSNull()]
-        gradientLayer.needsDisplayOnBoundsChange = true
-        gradientLayer.autoresizingMask = [.layerWidthSizable, .layerHeightSizable]
-
-        titleLabel.textColor = .white
-        titleLabel.alignment = .left
-        titleLabel.maximumNumberOfLines = 1
-        titleLabel.lineBreakMode = .byTruncatingTail
-        titleLabel.wantsLayer = true
-        titleLabel.translatesAutoresizingMaskIntoConstraints = false
-
-        metaLabel.textColor = NSColor.white.withAlphaComponent(0.80)
-        metaLabel.alignment = .left
-        metaLabel.maximumNumberOfLines = 1
-        metaLabel.lineBreakMode = .byClipping
-        metaLabel.maximumNumberOfLines = 1
-        metaLabel.lineBreakMode = .byTruncatingTail
-        metaLabel.font = .systemFont(ofSize: 10, weight: .regular)
-        metaLabel.translatesAutoresizingMaskIntoConstraints = false
 
         view.addSubview(imageContainer)
         imageContainer.addSubview(thumbnailImageView)
+        imageView = thumbnailImageView
         imageContainer.addSubview(selectionTintView)
-        imageContainer.addSubview(overlayView)
-        overlayView.addSubview(titleLabel)
-        overlayView.addSubview(metaLabel)
         imageContainer.addSubview(hoverOutlineView)
+        imageContainer.addSubview(overlayView)
         imageContainer.addSubview(placeholderLabel)
-        imageContainer.addSubview(favoriteBadgeContainer)
-        favoriteBadgeContainer.addSubview(favoriteBadge)
         imageContainer.addSubview(multiSelectBadge)
         multiSelectBadge.addSubview(multiSelectBadgeIcon)
 
@@ -333,12 +292,7 @@ final class AppKitWallpaperItem: NSCollectionViewItem, WallpaperGridHoverItem {
             imageContainer.leadingAnchor.constraint(equalTo: view.leadingAnchor),
             imageContainer.trailingAnchor.constraint(equalTo: view.trailingAnchor),
             imageContainer.topAnchor.constraint(equalTo: view.topAnchor),
-            imageContainer.heightAnchor.constraint(equalTo: imageContainer.widthAnchor, multiplier: 9.0 / 16.0),
-
-            thumbnailImageView.leadingAnchor.constraint(equalTo: imageContainer.leadingAnchor),
-            thumbnailImageView.trailingAnchor.constraint(equalTo: imageContainer.trailingAnchor),
-            thumbnailImageView.topAnchor.constraint(equalTo: imageContainer.topAnchor),
-            thumbnailImageView.bottomAnchor.constraint(equalTo: imageContainer.bottomAnchor),
+            imageContainer.heightAnchor.constraint(equalTo: imageContainer.widthAnchor),
 
             selectionTintView.leadingAnchor.constraint(equalTo: imageContainer.leadingAnchor),
             selectionTintView.trailingAnchor.constraint(equalTo: imageContainer.trailingAnchor),
@@ -352,16 +306,6 @@ final class AppKitWallpaperItem: NSCollectionViewItem, WallpaperGridHoverItem {
 
             placeholderLabel.centerXAnchor.constraint(equalTo: imageContainer.centerXAnchor),
             placeholderLabel.centerYAnchor.constraint(equalTo: imageContainer.centerYAnchor),
-
-            favoriteBadgeContainer.trailingAnchor.constraint(equalTo: imageContainer.trailingAnchor, constant: -8),
-            favoriteBadgeContainer.topAnchor.constraint(equalTo: imageContainer.topAnchor, constant: 8),
-            favoriteBadgeContainer.widthAnchor.constraint(equalToConstant: 20),
-            favoriteBadgeContainer.heightAnchor.constraint(equalToConstant: 20),
-
-            favoriteBadge.centerXAnchor.constraint(equalTo: favoriteBadgeContainer.centerXAnchor),
-            favoriteBadge.centerYAnchor.constraint(equalTo: favoriteBadgeContainer.centerYAnchor),
-            favoriteBadge.widthAnchor.constraint(equalToConstant: 12),
-            favoriteBadge.heightAnchor.constraint(equalToConstant: 12),
 
             multiSelectBadge.centerXAnchor.constraint(equalTo: imageContainer.centerXAnchor),
             multiSelectBadge.centerYAnchor.constraint(equalTo: imageContainer.centerYAnchor),
@@ -390,146 +334,97 @@ final class AppKitWallpaperItem: NSCollectionViewItem, WallpaperGridHoverItem {
         refreshThemeAwareAppearance()
     }
 
-    private func fontSizeForWidth(_ width: CGFloat) -> (title: CGFloat, meta: CGFloat) {
-        switch width {
-        case ..<160:
-            return (9, 8)
-        case 160..<260:
-            return (11, 10)
-        default:
-            return (13, 11)
+    /// The glass hierarchy is created only on first hover/current playback.
+    private func prepareControlBarIfNeeded() {
+        guard controlBar == nil else { return }
+        let bar = WallpaperCardControlsView(frame: controlBarFrame)
+        bar.alphaValue = 0
+        bar.onPlay = { [weak self] in
+            guard let self, !self.isMultiSelectMode, let id = self.currentWallpaperID else { return }
+            self.onPlayRequested?(id)
         }
+        bar.onFavorite = { [weak self] in
+            guard let self, !self.isMultiSelectMode, let id = self.currentWallpaperID else { return }
+            self.onFavoriteRequested?(id)
+        }
+        controlBar = bar
+        bar.apply(metrics: WallpaperCardBarMetrics(cardWidth: imageContainer.bounds.width))
+        updateControlBarContent(isFavorite: isFavoriteState)
     }
 
-    /// Keep the glass-backed control out of an idle card's initial hierarchy.
-    /// The collection owns its action/AX route; this view only draws the badge.
-    private func preparePlayActionButtonIfNeeded() {
-        guard playActionButton == nil else { return }
-        let button = PlayBadgeView(frame: playActionFrame)
-        button.isPlaying = isPlaying
-        button.alphaValue = 0
-        overlayView.addSubview(button)
-        playActionButton = button
+    private func updateControlBarContent(isFavorite: Bool) {
+        controlBar?.playButton.isEnabled = onPlayRequested != nil
+        controlBar?.favoriteButton.isHidden = onFavoriteRequested == nil
+        controlBar?.primaryState = isPlaying ? .playing : .apply
+        controlBar?.isFavorite = isFavorite
+        controlBar?.apply(title: currentTitle, metadata: currentMetadata)
     }
 
     private func applyHoverVisibility(_ visible: Bool, animated: Bool) {
-        // 多选模式下不显示底部信息层，保持卡片干净
-        let infoVisible = visible && !isMultiSelectMode
-        let alpha: CGFloat = infoVisible ? 1 : 0
-        let gradientOpacity: Float = infoVisible ? 1 : 0
-        let playAlpha: CGFloat = ((visible || isPlaying) && !isMultiSelectMode) ? 1 : 0
-        if playAlpha > 0 { preparePlayActionButtonIfNeeded() }
-
-        if animated {
-            let duration = visible ? UIInteractionAnimation.cardHoverExpandDuration : UIInteractionAnimation.cardHoverCollapseDuration
-            let timing = visible ? UIInteractionAnimation.cardEnterTiming : UIInteractionAnimation.cardExitTiming
+        let showBar = (visible || isPlaying) && !isMultiSelectMode
+        if showBar { prepareControlBarIfNeeded() }
+        guard let bar = controlBar else { return }
+        barVisibilityRevision += 1
+        let revision = barVisibilityRevision
+        if showBar {
+            if bar.superview == nil { overlayView.addSubview(bar) }
+            bar.isHidden = false
+        }
+        bar.setActive(showBar && visible && !isThumbnailDemandPaused)
+        let finish = { [weak self, weak bar] in
+            guard let self, let bar, self.barVisibilityRevision == revision, !showBar else { return }
+            bar.isHidden = true
+            bar.removeFromSuperview()
+        }
+        if animated && bar.superview != nil {
             NSAnimationContext.runAnimationGroup { context in
-                context.duration = duration
-                context.timingFunction = timing
-                titleLabel.animator().alphaValue = alpha
-                metaLabel.animator().alphaValue = alpha
-                playActionButton?.animator().alphaValue = playAlpha
-                gradientLayer.opacity = gradientOpacity
+                context.duration = visible ? UIInteractionAnimation.cardHoverExpandDuration : UIInteractionAnimation.cardHoverCollapseDuration
+                context.timingFunction = visible ? UIInteractionAnimation.cardEnterTiming : UIInteractionAnimation.cardExitTiming
+                bar.animator().alphaValue = showBar ? 1 : 0
+            } completionHandler: {
+                DispatchQueue.main.async(execute: finish)
             }
         } else {
-            titleLabel.alphaValue = alpha
-            metaLabel.alphaValue = alpha
-            playActionButton?.alphaValue = playAlpha
-            gradientLayer.opacity = gradientOpacity
+            bar.alphaValue = showBar ? 1 : 0
+            finish()
         }
-
-        playActionButton?.isHidden = (!visible && !isPlaying) || isMultiSelectMode
     }
 
     override func viewDidLayout() {
         super.viewDidLayout()
         hoverTracking.update(in: imageContainer, owner: self)
-        let inputs = LayoutInputs(size: view.bounds.size, title: titleLabel.stringValue,
-            metadata: metaLabel.stringValue)
+        let inputs = LayoutInputs(size: imageContainer.bounds.size)
         guard lastLayoutInputs != inputs else {
-            checkInitialHoverState()
+            refreshGridHover(isScrolling: view.isGridHoverSuppressed)
             return
         }
         lastLayoutInputs = inputs
-
         let width = imageContainer.bounds.width
         guard width > 0 else { return }
-        
-        let radius = max(6, width * 0.045)
-        imageContainer.layer?.cornerRadius = radius
-        hoverOutlineView.layer?.cornerRadius = max(5, radius - 1)
-
-        let (titleSize, metaSize) = fontSizeForWidth(width)
-        let pad = max(6, width * 0.05)
-        let gap = 2.0
-
-        titleLabel.font = .systemFont(ofSize: titleSize, weight: .medium)
-        metaLabel.font = .systemFont(ofSize: metaSize, weight: .regular)
-
-        let buttonSize: CGFloat = max(22, min(32, width * 0.12))
-        let actionTrailingInset: CGFloat = max(8, width * 0.04)
-        let buttonX = width - actionTrailingInset - buttonSize
-        let buttonY: CGFloat = max(8, width * 0.04)
-        playActionFrame = NSRect(x: buttonX, y: buttonY, width: buttonSize, height: buttonSize)
-        playActionButton?.frame = playActionFrame
-        playActionButton?.needsLayout = true
-
-        let textMaxWidth = buttonX - pad - 12
-
-        metaLabel.frame = NSRect(
-            x: pad,
-            y: buttonY,
-            width: textMaxWidth,
-            height: metaSize + 2
-        )
-
-        titleLabel.frame = NSRect(
-            x: pad,
-            y: metaLabel.frame.maxY + gap,
-            width: textMaxWidth,
-            height: titleSize + 3
-        )
-
-        gradientLayer.frame = overlayView.bounds
-
-        applyTitleFadeMaskIfNeeded()
-
-        // 检查当前鼠标是否已经在卡片范围内（解决导入新文件时不显示 meta 的问题）
-        checkInitialHoverState()
+        imageContainer.layer?.cornerRadius = 14
+        hoverOutlineView.layer?.cornerRadius = 13
+        let metrics = WallpaperCardBarMetrics(cardWidth: width)
+        controlBarFrame = NSRect(x: metrics.barHorizontalInset, y: metrics.barBottomInset,
+            width: max(0, width - metrics.barHorizontalInset * 2), height: metrics.barHeight)
+        controlBar?.frame = controlBarFrame
+        controlBar?.apply(metrics: metrics)
+        layoutThumbnail()
+        refreshGridHover(isScrolling: view.isGridHoverSuppressed)
     }
 
-    private func checkInitialHoverState() {
-        guard !view.isGridHoverSuppressed else { return }
-        let isHoveringNow = view.isGridPointerInside
-        if isHoveringNow && !isHovering {
-            isHovering = true
-            applyHoverVisibility(true, animated: false)
-        }
-    }
-
-    private func applyTitleFadeMaskIfNeeded() {
-        applyFadeMask(to: titleLabel)
-        applyFadeMask(to: metaLabel)
-    }
-
-    private func applyFadeMask(to label: NSTextField) {
-        let textWidth = label.attributedStringValue.size().width
-        let viewWidth = label.frame.width
-        guard viewWidth > 0 else {
-            label.layer?.mask = nil
+    private func layoutThumbnail() {
+        let bounds = imageContainer.bounds
+        guard let image = thumbnailImageView.image, image.size.width > 0, image.size.height > 0 else {
+            thumbnailImageView.frame = bounds
             return
         }
-        if textWidth > viewWidth - 4 {
-            let mask = CAGradientLayer()
-            mask.colors = [NSColor.black.cgColor, NSColor.clear.cgColor]
-            mask.startPoint = CGPoint(x: 0.85, y: 0.5)
-            mask.endPoint = CGPoint(x: 1.0, y: 0.5)
-            mask.frame = label.bounds
-            label.layer?.mask = mask
-        } else {
-            label.layer?.mask = nil
-        }
+        // Aspect-fill crops only the thumbnail; wallpaper playback scaling stays unchanged.
+        let scale = max(bounds.width / image.size.width, bounds.height / image.size.height)
+        let size = NSSize(width: image.size.width * scale, height: image.size.height * scale)
+        thumbnailImageView.frame = NSRect(x: bounds.midX - size.width / 2, y: bounds.midY - size.height / 2,
+            width: size.width, height: size.height)
     }
+
 
     func refreshGridHover(isScrolling: Bool) {
         hoverTracking.update(in: imageContainer, owner: self, isScrolling: isScrolling)
@@ -537,7 +432,6 @@ final class AppKitWallpaperItem: NSCollectionViewItem, WallpaperGridHoverItem {
         guard hovered != isHovering else { return }
         isHovering = hovered
         updateHoverOutline(hovered)
-        updatePlayButtonVisibility()
         applyHoverVisibility(hovered, animated: false)
     }
 
@@ -547,17 +441,15 @@ final class AppKitWallpaperItem: NSCollectionViewItem, WallpaperGridHoverItem {
         guard Self.hoverTrackingActivated else { return }
         isHovering = true
         updateHoverOutline(true)
-        updatePlayButtonVisibility()
         applyHoverVisibility(true, animated: true)
     }
 
     override func mouseExited(with event: NSEvent) {
         guard !view.isGridHoverSuppressed else { return }
         // hover 离开恢复描边和播放按钮可见性。
-        guard Self.hoverTrackingActivated else { return }
+        guard Self.hoverTrackingActivated || isHovering else { return }
         isHovering = false
         updateHoverOutline(false)
-        updatePlayButtonVisibility()
         applyHoverVisibility(false, animated: true)
     }
 
@@ -572,20 +464,7 @@ final class AppKitWallpaperItem: NSCollectionViewItem, WallpaperGridHoverItem {
         guard hoveringNow != isHovering else { return }
         isHovering = hoveringNow
         updateHoverOutline(hoveringNow)
-        updatePlayButtonVisibility()
         applyHoverVisibility(hoveringNow, animated: true)
-    }
-
-    private func updatePlayButtonVisibility() {
-        // 播放按钮仅在非多选模式下显示，避免与批量操作视觉冲突。
-        guard !isMultiSelectMode else {
-            playActionButton?.isHidden = true
-            playActionButton?.isPlaying = isPlaying
-            return
-        }
-        if isHovering || isPlaying { preparePlayActionButtonIfNeeded() }
-        playActionButton?.isPlaying = isPlaying
-        playActionButton?.isHidden = !(isHovering || isPlaying)
     }
 
     private func updateMultiSelectBadge(selected: Bool) {
@@ -600,12 +479,6 @@ final class AppKitWallpaperItem: NSCollectionViewItem, WallpaperGridHoverItem {
         }
     }
 
-    func shouldTriggerPlayAction(at localPoint: NSPoint) -> Bool {
-        // 播放命中区只做几何判断，不单独拦截事件；事件仍由 collectionView 统一处理。
-        guard let playActionButton, !playActionButton.isHidden else { return false }
-        return playActionButton.frame.insetBy(dx: -8, dy: -8).contains(localPoint)
-    }
-
     func applySelectionState(isSelected: Bool, multiSelectMode: Bool) {
         // selection 只改边框和遮罩，hover 描边独立更新。
         isMultiSelectMode = multiSelectMode
@@ -617,21 +490,19 @@ final class AppKitWallpaperItem: NSCollectionViewItem, WallpaperGridHoverItem {
         CATransaction.commit()
         selectionTintView.alphaValue = isSelected ? 0.2 : 0
         updateMultiSelectBadge(selected: isSelected)
-        updatePlayButtonVisibility()
         applyHoverVisibility(isHovering, animated: false)
     }
 
     func applyFavoriteState(isFavorite: Bool) {
-        // 收藏角标只跟收藏状态绑定，不参与 selection / hover 的其他视觉逻辑。
-        favoriteBadgeContainer.isHidden = !isFavorite
-        favoriteBadge.isHidden = !isFavorite
+        // 喜爱状态仍供原bar投影，不以已退役角标的可见性充当状态。
+        isFavoriteState = isFavorite
+        controlBar?.isFavorite = isFavorite
     }
 
     func applyPlayingState(isPlaying: Bool) {
         guard self.isPlaying != isPlaying else { return }
         self.isPlaying = isPlaying
-        playActionButton?.isPlaying = isPlaying
-        updatePlayButtonVisibility()
+        controlBar?.primaryState = isPlaying ? .playing : .apply
         applyHoverVisibility(isHovering, animated: false)
     }
 
@@ -663,136 +534,7 @@ final class AppKitWallpaperItem: NSCollectionViewItem, WallpaperGridHoverItem {
 
         selectionTintView.layer?.backgroundColor = NSColor.controlAccentColor.withAlphaComponent(0.2).cgColor
 
-        let hoverColor: NSColor
-        if isDarkAppearance {
-            hoverColor = .white
-        } else {
-            hoverColor = .controlAccentColor
-        }
-        hoverOutlineView.layer?.borderColor = hoverColor.cgColor
+        hoverOutlineView.layer?.borderColor = NSColor.white.cgColor
     }
 
-    private var isDarkAppearance: Bool { view.isDarkAppearance }
-}
-
-private final class PlayBadgeView: NSView {
-    var isPlaying: Bool = false {
-        didSet {
-            guard oldValue != isPlaying else { return }
-            updateGlyphAppearance()
-        }
-    }
-
-    private let backdropView = NSVisualEffectView()
-    private let glyphView = NSImageView()
-    private let glossLayer = CAGradientLayer()
-
-    override init(frame frameRect: NSRect) {
-        super.init(frame: frameRect)
-        setupView()
-    }
-
-    required init?(coder: NSCoder) {
-        super.init(coder: coder)
-        setupView()
-    }
-
-    override func hitTest(_ point: NSPoint) -> NSView? {
-        nil
-    }
-
-    private func setupView() {
-        wantsLayer = true
-        layer?.backgroundColor = NSColor.clear.cgColor
-        layer?.shadowColor = NSColor.black.cgColor
-        layer?.shadowOpacity = 0.16
-        layer?.shadowRadius = 4
-        layer?.shadowOffset = CGSize(width: 0, height: 1)
-
-        backdropView.material = .menu
-        backdropView.blendingMode = .behindWindow
-        backdropView.state = .active
-        backdropView.wantsLayer = true
-        backdropView.translatesAutoresizingMaskIntoConstraints = false
-        backdropView.isEmphasized = true
-        backdropView.alphaValue = 0.90
-
-        glyphView.image = NSImage(systemSymbolName: "play.fill", accessibilityDescription: "设为壁纸")
-        glyphView.symbolConfiguration = NSImage.SymbolConfiguration(pointSize: 12.5, weight: .semibold)
-        glyphView.contentTintColor = .white
-        glyphView.imageScaling = .scaleProportionallyDown
-        glyphView.translatesAutoresizingMaskIntoConstraints = false
-        glyphView.wantsLayer = true
-        glyphView.layer?.shadowColor = NSColor.black.cgColor
-        glyphView.layer?.shadowOpacity = 0.06
-        glyphView.layer?.shadowRadius = 1
-        glyphView.layer?.shadowOffset = .zero
-
-        addSubview(backdropView)
-        addSubview(glyphView)
-
-        NSLayoutConstraint.activate([
-            backdropView.leadingAnchor.constraint(equalTo: leadingAnchor),
-            backdropView.trailingAnchor.constraint(equalTo: trailingAnchor),
-            backdropView.topAnchor.constraint(equalTo: topAnchor),
-            backdropView.bottomAnchor.constraint(equalTo: bottomAnchor),
-
-            glyphView.centerXAnchor.constraint(equalTo: centerXAnchor),
-            glyphView.centerYAnchor.constraint(equalTo: centerYAnchor),
-            glyphView.widthAnchor.constraint(equalToConstant: 14),
-            glyphView.heightAnchor.constraint(equalToConstant: 14)
-        ])
-
-        layer?.borderWidth = 1
-        layer?.borderColor = NSColor.white.withAlphaComponent(0.50).cgColor
-
-        glossLayer.colors = [
-            NSColor.white.withAlphaComponent(0.28).cgColor,
-            NSColor.white.withAlphaComponent(0.10).cgColor,
-            NSColor.white.withAlphaComponent(0.02).cgColor,
-            NSColor.clear.cgColor
-        ]
-        glossLayer.locations = [0.0, 0.22, 0.58, 1.0]
-        glossLayer.startPoint = CGPoint(x: 0.18, y: 0.96)
-        glossLayer.endPoint = CGPoint(x: 0.76, y: 0.06)
-        layer?.addSublayer(glossLayer)
-
-        updateGlyphAppearance()
-    }
-
-    override func layout() {
-        super.layout()
-        let radius = min(bounds.width, bounds.height) / 2
-        // 只在 radius 真正变化时才写 layer 属性，避免每次布局都触发 NSVisualEffectView 内部重新布局。
-        if abs((layer?.cornerRadius ?? 0) - radius) > 0.5 {
-            layer?.cornerRadius = radius
-            backdropView.layer?.cornerRadius = radius
-            backdropView.layer?.masksToBounds = true
-        }
-        layer?.shadowPath = CGPath(ellipseIn: bounds.insetBy(dx: 1, dy: 1), transform: nil)
-        glossLayer.frame = bounds
-        glossLayer.cornerRadius = radius
-        glossLayer.masksToBounds = true
-    }
-
-    private func updateGlyphAppearance() {
-        // 播放中徽章即停止按钮（互斥形态）：红色 stop 字形；空闲为播放。
-        // 配置逐次内联到镜像上：视图级 symbolConfiguration 不会自动作用到
-        // 后续换上的新图，尺寸漂移会让字形在圆圈内偏心。
-        let symbolImage = NSImage(
-            systemSymbolName: isPlaying ? "stop.fill" : "play.fill",
-            accessibilityDescription: isPlaying ? "停止播放" : "设为壁纸"
-        )?.withSymbolConfiguration(.init(pointSize: 12.5, weight: .semibold))
-        glyphView.image = symbolImage
-        glyphView.imageAlignment = .alignCenter
-        let darkModeBoost: CGFloat = effectiveAppearance.bestMatch(from: [.darkAqua, .aqua]) == .darkAqua ? 0.06 : 0.0
-        backdropView.alphaValue = min(1.0, isPlaying ? (1.0 + darkModeBoost) : (0.90 + darkModeBoost))
-        layer?.borderColor = NSColor.white.withAlphaComponent(0.50).cgColor
-        layer?.shadowOpacity = isPlaying ? 0.18 : 0.16
-        glossLayer.opacity = isPlaying ? 1.0 : 0.90
-
-        glyphView.contentTintColor = isPlaying ? .systemRed : .white
-        glyphView.layer?.shadowColor = NSColor.black.cgColor
-        glyphView.layer?.shadowOpacity = isPlaying ? 0.14 : 0.06
-    }
 }

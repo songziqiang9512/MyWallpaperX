@@ -94,7 +94,7 @@ import Foundation
     var isApplyingSnapshot = false, isItemsApplyScheduled = false
     var pendingItems: [SteamWorkshopBrowserItem]?
     var orderedIDs = ["matching-card"]
-    let scrollView = NSScrollView(frame: NSRect(x: 0, y: 0, width: 800, height: 600))
+    let scrollView = WallpaperGridScrollView(frame: NSRect(x: 0, y: 0, width: 800, height: 600))
     init(_ service: SteamWorkshopService) {
         self.service = service
         scrollView.documentView = NSView(frame: NSRect(x: 0, y: 0, width: 800, height: 120))

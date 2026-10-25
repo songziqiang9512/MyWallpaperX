@@ -10,13 +10,9 @@ class SteamLoginLayoutTests(unittest.TestCase):
     def test_real_appkit_pages_fit_and_keep_controls_separate(self):
         with tempfile.TemporaryDirectory(prefix='mwx-steam-login-layout-', dir='/private/tmp') as temporary:
             folder = pathlib.Path(temporary)
-            source = (ROOT / 'MyWallpaperX/Shared/UI/InspectorHostViewController.swift').read_text()
-            start = source.index('enum InspectorGlassPalette {')
-            end = source.index('\nprivate final class InspectorHostedContentContainerView', start)
-            palette = folder / 'Palette.swift'
-            palette.write_text('import AppKit\n' + source[start:end])
             binary = folder / 'layout'
-            subprocess.run(['xcrun', 'swiftc', '-parse-as-library', str(palette),
+            subprocess.run(['xcrun', 'swiftc', '-parse-as-library',
+                str(ROOT / 'MyWallpaperX/Shared/UI/WallpaperLibrarySheetPresentation.swift'),
                 str(ROOT / 'MyWallpaperX/Modules/SteamWorkshop/UI/SteamLoginPanelView.swift'),
                 str(ROOT / 'script/tests/fixtures/SteamLoginLayoutHarness.swift'), '-o', str(binary)],
                 check=True, capture_output=True, text=True, timeout=60)

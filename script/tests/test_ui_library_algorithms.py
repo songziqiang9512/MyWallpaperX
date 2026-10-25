@@ -1,4 +1,4 @@
-"""Exercise production metadata commits and SIL layout queries against their inputs/outputs."""
+"""Exercise production metadata commits against their original inputs/outputs."""
 import json
 import os
 from pathlib import Path
@@ -24,7 +24,7 @@ def declaration(source: str, signature: str) -> str:
 
 
 class UILibraryAlgorithmsTests(unittest.TestCase):
-    def test_metadata_batch_and_waterfall_query_equivalence(self):
+    def test_metadata_batch_preserves_values_notifications_and_failure_inputs(self):
         imports = (VIDEO_CORE / "WallpaperManager+ImportProcessing.swift").read_text()
         manager = (VIDEO_CORE / "WallpaperManager.swift").read_text()
         template = (ROOT / "script/tests/fixtures/UILibraryAlgorithmsHarness.swift").read_text()
@@ -49,7 +49,6 @@ class UILibraryAlgorithmsTests(unittest.TestCase):
             binary = work / "library-algorithms"
             sources = [
                 ROOT / "MyWallpaperX/Models/VideoWallpaper.swift",
-                ROOT / "MyWallpaperX/Modules/StaticImageLibrary/UI/SILWaterfallLayout.swift",
                 source,
             ]
             build = subprocess.run(
@@ -72,7 +71,7 @@ class UILibraryAlgorithmsTests(unittest.TestCase):
                 if line.startswith("UI algorithm observations:"):
                     print(line)
             checks = json.loads(run.stdout)
-            self.assertGreaterEqual(len(checks), 20)
+            self.assertEqual(len(checks), 18)
             for name, passed in checks.items():
                 with self.subTest(name=name):
                     self.assertTrue(passed, run.stderr)

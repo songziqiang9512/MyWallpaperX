@@ -18,7 +18,9 @@ extension SteamWorkshopToolbarController {
         case .steamFilter:
             configureFilterItem()
             return filterToolbarItem
-        case .steamAccount: return accountToolbarItem
+        case .steamAccount:
+            configureAuthItems()
+            return accountToolbarItem
         case .steamDownloadTasks:
             configureDownloadTasksItem()
             return downloadTasksToolbarItem
@@ -26,20 +28,6 @@ extension SteamWorkshopToolbarController {
         case .steamSearch:
             syncSearchField()
             return searchToolbarItem
-        case .steamDownloadsTitle: return downloadsTitleItem
-        case .steamDownloadsSelect:
-            configureDownloadsSelectItem()
-            return downloadsSelectItem
-        case .steamDownloadsDelete:
-            configureDownloadsDeleteItem()
-            return downloadsDeleteItem
-        case .steamDownloadsFilter:
-            configureDownloadsFilterItem()
-            return downloadsFilterItem
-        case .steamDownloadsSort:
-            configureDownloadsSortItem()
-            return downloadsSortItem
-        case .steamDownloadsSearch: return downloadsSearchItem
         default: return nil
         }
     }
@@ -49,15 +37,11 @@ extension SteamWorkshopToolbarController {
             .sidebarTrackingSeparator,
             NSToolbarItem.Identifier("ToolbarTitle"),
             .flexibleSpace,
-            .steamAccount,
-            .space,
-            .steamDownloadTasks,
+            .steamAccount, .steamDownloadTasks,
             .space,
             .steamPersonalList,
             .space,
-            .steamSort,
-            .space,
-            .steamFilter,
+            .steamSort, .steamFilter,
             .space,
             .steamZoom,
             .space,
@@ -65,24 +49,4 @@ extension SteamWorkshopToolbarController {
         ]
     }
 
-    var downloadsIdentifiers: [NSToolbarItem.Identifier] {
-        [
-            .sidebarTrackingSeparator,
-            .steamDownloadsTitle,
-            .flexibleSpace,
-            .steamAccount,
-            .space,
-            .steamDownloadTasks,
-            .space,
-            .steamDownloadsSelect,
-            .space,
-            .steamDownloadsDelete,
-            .steamDownloadsFilter,
-            .steamDownloadsSort,
-            .space,
-            .steamZoom,
-            .space,
-            .steamDownloadsSearch
-        ]
-    }
 }

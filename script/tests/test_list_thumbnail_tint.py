@@ -1,6 +1,7 @@
 """Real tint request/controller/sampler and production first-item projections.
 
 Media and network loaders are recording leaves; no user library or main App runs.
+The opaque native system-background hosts prove projection, not product visual acceptance.
 """
 import hashlib
 import json
@@ -78,29 +79,20 @@ class ListThumbnailTintTests(unittest.TestCase):
     def test_real_window_animation_and_passive_roots(self):
         self.run_case("animation", [TINT_SOURCE, TINT_CONTROLLER, FIXTURES / "ListThumbnailTintAnimationChecks.swift"])
 
-    def test_production_six_first_item_projections(self):
+    def test_live_remote_first_item_projections(self):
         paths = {
-            "VIDEO": APP / "Modules/VideoLibrary/UI/AppKitLibraryGridView.swift",
-            "SIL": APP / "Modules/StaticImageLibrary/UI/SILGridContainerView.swift",
             "ONLINE": APP / "Modules/OnlineLibrary/UI/AppKitOLBrowserGridView.swift",
-            "ONLINE_DOWNLOAD": APP / "Modules/OnlineLibrary/UI/AppKitOLDownloadsGridView.swift",
             "STEAM": STEAM_UI / "AppKitSteamWorkshopBrowserGridView.swift",
-            "STEAM_DOWNLOAD": STEAM_UI / "AppKitSteamWorkshopDownloadsGridView.swift",
         }
         template = (FIXTURES / "ListThumbnailTintProjectionChecks.swift").read_text()
         for key, path in paths.items():
             fragment = declaration(path.read_text(), "    private func publishListThumbnailTint(")
-            if key == "VIDEO":
-                fragment += "\n" + declaration(path.read_text(), "    private func applyFilterAndSnapshot(usingNormalizedQuery")
             marker = "// " + key + "_METHODS"
             self.assertEqual(template.count(marker), 1)
-            # Expose the real owners to the fixture; retain their bodies verbatim.
             template = template.replace(marker, fragment.replace("private func ", "func "))
-        manager = APP / "Modules/VideoLibrary/Core/WallpaperManager+Selection.swift"
-        template = template.replace("// VIDEO_FILTER", declaration(manager.read_text(), "    func filterWallpapers("))
         preview_path, preview = steam_source_projection()
         self.run_case("projections", [*STEAM_SOURCES, FIXTURES / "ListThumbnailTintCacheLeaves.swift"],
-            fragments=template + "\n" + preview, originals=[*paths.values(), manager, preview_path, STEAM_IMAGE_SUPPORT,
+            fragments=template + "\n" + preview, originals=[*paths.values(), preview_path, STEAM_IMAGE_SUPPORT,
                 FIXTURES / "ListThumbnailTintProjectionChecks.swift"])
 
 

@@ -8,6 +8,32 @@ import Combine
 
 final class AppKitSteamWorkshopBrowserView: NSView, ListThumbnailTintProviding {
     let listThumbnailTintSource = ListThumbnailTintSource()
+    var preferredColumns = 5 {
+        didSet { if currentState == .grid { gridView.preferredColumns = preferredColumns } }
+    }
+    var clipWidth: CGFloat { currentState == .grid && gridView.window != nil ? gridView.clipWidth : 0 }
+    var onClipWidthChange: ((CGFloat) -> Void)? {
+        didSet { onClipWidthChange?(clipWidth) }
+    }
+    var makeOrganization: ((SteamWorkshopBrowserItem) -> AppKitSteamWorkshopBrowserItem.OrganizationPresentation?)? {
+        didSet { gridView.makeOrganization = makeOrganization }
+    }
+    var makeInspectorActions: ((SteamWorkshopBrowserItem) -> WallpaperInspectorActions?)? {
+        didSet { refreshInspectorActions() }
+    }
+    var makeOrganizationMenu: ((SteamWorkshopBrowserItem) -> NSMenu?)? {
+        didSet { gridView.makeOrganizationMenu = makeOrganizationMenu }
+    }
+
+    func refreshLibraryActions() {
+        gridView.refreshLibraryActions()
+        refreshInspectorActions()
+    }
+
+    private func refreshInspectorActions() {
+        guard let item = latestInspectorItem else { return }
+        inspectorDetailView?.updateLibraryActions(makeInspectorActions?(item))
+    }
     private enum ContentState: Equatable {
         case loading
         case error(String)
@@ -205,6 +231,7 @@ final class AppKitSteamWorkshopBrowserView: NSView, ListThumbnailTintProviding {
         guard force || nextState != currentState else { return }
         listThumbnailTintSource.forward(from: nextState == .grid ? gridView.listThumbnailTintSource : nil)
         currentState = nextState
+        if nextState != .grid { onClipWidthChange?(0) }
 
         contentHost.subviews.forEach { $0.removeFromSuperview() }
 
@@ -221,6 +248,11 @@ final class AppKitSteamWorkshopBrowserView: NSView, ListThumbnailTintProviding {
             contentView = makeCenteredStateView(symbolName: symbolName, message: message)
             fillsHost = false
         case .grid:
+            gridView.preferredColumns = preferredColumns
+            gridView.onClipWidthChange = { [weak self] width in
+                guard let self, self.currentState == .grid else { return }
+                self.onClipWidthChange?(width)
+            }
             contentView = gridView
             fillsHost = true
         }
@@ -394,9 +426,10 @@ final class AppKitSteamWorkshopBrowserView: NSView, ListThumbnailTintProviding {
         let detailView: AppKitSteamWorkshopItemDetailView
         if let existing = inspectorDetailView {
             existing.configure(item: item)
+            existing.updateLibraryActions(makeInspectorActions?(item))
             detailView = existing
         } else {
-            let created = AppKitSteamWorkshopItemDetailView(item: item)
+            let created = AppKitSteamWorkshopItemDetailView(item: item, service: service, libraryActions: makeInspectorActions?(item))
             inspectorDetailView = created
             detailView = created
         }
@@ -425,7 +458,7 @@ final class AppKitSteamWorkshopBrowserView: NSView, ListThumbnailTintProviding {
         alert.informativeText = message
         alert.alertStyle = .warning
         alert.addButton(withTitle: "确定")
-        alert.beginSheetModal(for: window) { [weak self] _ in
+        presentAppAlert(alert, in: window) { [weak self] _ in
             guard let self else { return }
             self.isShowingDownloadError = false
             // 弹窗展示期间到达的新失败会推进失败代数；按代数而非文本判定，

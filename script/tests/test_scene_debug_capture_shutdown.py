@@ -430,6 +430,16 @@ enum PlaybackPerformanceProfile:Int {case fps60=60;var maxFPS:Int {rawValue}}
     static let shared=WallpaperEngine()
     func cleanup() {}
 }
+// Compile the product-only branch too; the isolated runner below takes its
+// original drain path and never invokes these metadata/UI leaves.
+@MainActor enum MyWallpaperXApplication {
+    static func prepareLibraryForTermination() {}
+    static func cancelLibraryTermination() {}
+    static func flushLibraryBeforeTermination() async -> String? {nil}
+}
+@MainActor enum MainWindowCoordinator {static func mainWindow()->NSWindow? {nil}}
+@MainActor func makeAppAlert(title:String,message:String)->String {title+message}
+@MainActor func presentAppAlert(_ alert:String,in window:NSWindow?) {}
 @MainActor final class ProbeApplication:NSApplication {
     override func reply(toApplicationShouldTerminate shouldTerminate:Bool) {
         NSLog("APPKIT TEST reply=%@",shouldTerminate ? "true":"false")

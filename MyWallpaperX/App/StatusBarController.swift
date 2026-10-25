@@ -191,7 +191,7 @@ final class StatusBarController: NSObject, NSMenuDelegate {
     @objc private func importVideos() {
         wallpaperManager.importVideos(
             presentingIn: appModalHostWindow(),
-            context: wallpaperManager.currentImportContext
+            context: .library
         )
     }
     

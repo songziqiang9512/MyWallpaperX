@@ -8,18 +8,22 @@
 
 import AppKit
 
-func appModalHostWindow() -> NSWindow? {
+@MainActor func appModalHostWindow() -> NSWindow? {
     // 反馈 UI 优先挂到当前正在交互的窗口，再回退到主窗口，避免设置页等二级窗口把 sheet 错挂到主窗口上。
     if let keyWindow = NSApp.keyWindow, keyWindow.isVisible {
-        return keyWindow
+        return topAppModalWindow(keyWindow)
     }
     if let mainWindow = NSApp.mainWindow, mainWindow.isVisible {
-        return mainWindow
+        return topAppModalWindow(mainWindow)
     }
-    return MainWindowCoordinator.mainWindow()
+    return MainWindowCoordinator.mainWindow().map(topAppModalWindow)
 }
 
-func makeAppAlert(
+@MainActor private func topAppModalWindow(_ window: NSWindow) -> NSWindow {
+    WallpaperLibrarySheetPresentation.topWindow(in: window)
+}
+
+@MainActor func makeAppAlert(
     title: String,
     message: String = "",
     style: NSAlert.Style = .informational,
@@ -36,61 +40,29 @@ func makeAppAlert(
     return alert
 }
 
-private func centeredAlertString(_ text: String, font: NSFont) -> NSAttributedString {
-    // 系统对话框文字居中只在这里做一次，避免每个 alert 自己重复拼样式。
-    let paragraphStyle = NSMutableParagraphStyle()
-    paragraphStyle.alignment = .center
-    paragraphStyle.lineBreakMode = .byWordWrapping
-
-    return NSAttributedString(
-        string: text,
-        attributes: [
-            .font: font,
-            .paragraphStyle: paragraphStyle
-        ]
-    )
-}
-
 extension NSAlert {
-    func applyAppDialogStyle() {
-        // 对话框样式只在一个扩展里统一处理，后续改全局弹窗风格只改这里。
+    @MainActor func applyAppDialogStyle() {
+        // Public properties only. Centered geometry belongs to the App-owned
+        // presentation, never to private NSAlert fields or internal subviews.
         icon = NSApp.applicationIconImage
-
-        if !messageText.isEmpty {
-            setValue(
-                centeredAlertString(
-                messageText,
-                font: .systemFont(ofSize: NSFont.systemFontSize, weight: .semibold)
-                ),
-                forKey: "attributedMessageText"
-            )
-        }
-
-        if !informativeText.isEmpty {
-            setValue(
-                centeredAlertString(
-                    informativeText,
-                    font: .systemFont(ofSize: NSFont.smallSystemFontSize)
-                ),
-                forKey: "attributedInformativeText"
-            )
-        }
     }
 }
 
-func presentAppAlert(
+@discardableResult @MainActor func presentAppAlert(
     _ alert: NSAlert,
     in window: NSWindow? = nil,
     completion: ((NSApplication.ModalResponse) -> Void)? = nil
-) {
+) -> NSWindow {
     // 先应用统一样式，再决定用 sheet 还是 modal，不把展示策略散到调用方。
     alert.applyAppDialogStyle()
 
-    if let window = window {
-        alert.beginSheetModal(for: window, completionHandler: completion)
-        return
-    }
+    let presentation = AppCenteredAlertPresentation(alert: alert, completion: completion)
+    if let window { presentation.beginSheet(in: topAppModalWindow(window)) }
+    else { _ = presentation.runModal() }
+    return presentation.window
+}
 
-    let response = alert.runModal()
-    completion?(response)
+@MainActor func runAppAlert(_ alert: NSAlert) -> NSApplication.ModalResponse {
+    alert.applyAppDialogStyle()
+    return AppCenteredAlertPresentation(alert: alert, completion: nil).runModal()
 }

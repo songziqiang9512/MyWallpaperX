@@ -1,4 +1,4 @@
-"""Real NSWindow events drive the three production thumbnail lifecycle owners."""
+"""Real NSWindow events drive the shared local grid and live remote browser leases."""
 import json
 import os
 from pathlib import Path
@@ -12,20 +12,39 @@ ROOT = Path(__file__).resolve().parents[2]
 
 
 class GridWindowThumbnailLifecycleTests(unittest.TestCase):
+    def test_shared_local_grid_viewport_geometry_and_native_window_leases(self):
+        from script.tests.native_app_harness import prepare_native_app, run_native_app
+        from script.tests.test_video_thumbnail_prefetch import SWIFT_ISOLATION_FLAGS
+        paths = ["Models/WallpaperReference.swift", "Models/WallpaperContent.swift", "Models/WallpaperLibraryPage.swift",
+            "Shared/Components/WallpaperLibraryGridMetrics.swift", "Shared/Components/WallpaperCardInteractionView.swift",
+            "Shared/UI/WallpaperGridScrollView.swift", "Shared/UI/BoxSelectionState.swift",
+            "Shared/UI/GridThumbnailPrefetchDemand.swift", "Shell/WallpaperLibraryGridController.swift"]
+        sources = [ROOT / "MyWallpaperX" / path for path in paths]
+        sources += [ROOT / "script/tests/fixtures" / name for name in
+            ["NativeAppHarness.swift", "WallpaperLibraryGridViewportHarness.swift"]]
+        with tempfile.TemporaryDirectory(prefix="mwx-local-viewport-", dir="/private/tmp") as directory:
+            work = Path(directory)
+            binary = prepare_native_app(work, "WallpaperLibraryGridViewport")
+            build = subprocess.run(["xcrun", "swiftc", *SWIFT_ISOLATION_FLAGS, "-warnings-as-errors", "-parse-as-library",
+                *map(str, sources), "-module-cache-path", str(work / "modules"), "-o", str(binary)],
+                capture_output=True, text=True, timeout=120)
+            self.assertEqual(build.returncode, 0, build.stdout + build.stderr)
+            run = run_native_app(binary, timeout=35)
+            self.assertEqual(run.launch_returncode, 0, run.stdout + run.stderr)
+            checks = json.loads(run.stdout)
+            self.assertGreaterEqual(len(checks), 16)
+            for name, passed in checks.items():
+                with self.subTest(name=name): self.assertIs(passed, True, run.stdout + run.stderr)
+
     def test_actual_order_out_in_mini_and_hidden_ancestor(self):
-        video = (ROOT / 'MyWallpaperX/Modules/VideoLibrary/UI/AppKitLibraryGridView.swift').read_text()
-        video_demand = (ROOT / 'MyWallpaperX/Modules/VideoLibrary/UI/AppKitLibraryGridView+Prefetch.swift').read_text()
         steam = ROOT / 'MyWallpaperX/Modules/SteamWorkshop/UI'
         classes = []
-        for index, source in enumerate([video, (steam / 'AppKitSteamWorkshopBrowserGridView.swift').read_text(),
-                                        (steam / 'AppKitSteamWorkshopDownloadsGridView.swift').read_text()]):
+        for index, source in [(1, (steam / 'AppKitSteamWorkshopBrowserGridView.swift').read_text())]:
             signatures = ['    override func viewDidMoveToWindow(', '    override func viewDidHide(',
                           '    override func viewDidUnhide(']
             pieces = [method(source, signature) for signature in signatures]
-            demand = video_demand if index == 0 else source
-            signatures = ['    var thumbnailDemandIsVisible:', '    func scheduleViewportPrefetch(',
-                          '    func cancelViewportPrefetch('] if index == 0 else [
-                          '    private var thumbnailDemandIsVisible:', '    private func cancelPreviewPrefetch(',
+            demand = source
+            signatures = ['    private var thumbnailDemandIsVisible:', '    private func cancelPreviewPrefetch(',
                           '    private func prioritizeVisibleItemsForHydration(' if index == 1 else '    private func schedulePreviewPrefetch(',
                           '    private func syncVisiblePreviewAnimationStates(']
             pieces += [method(demand, signature) for signature in signatures]
@@ -61,7 +80,7 @@ class GridWindowThumbnailLifecycleTests(unittest.TestCase):
             old = 'self.syncVisiblePreviewAnimationStates(isVisible: self.thumbnailDemandIsVisible)'
             bad = 'self.syncVisiblePreviewAnimationStates(isVisible: !window.isMiniaturized)'
             mutant_classes = []
-            for index, body in enumerate(classes):
+            for index, body in [(1, classes[0])]:
                 if index > 0:
                     guard = 'item.setPreviewVisible(isVisible && thumbnailDemandIsVisible)'
                     self.assertEqual(body.count(guard), 1)
@@ -82,7 +101,7 @@ class GridWindowThumbnailLifecycleTests(unittest.TestCase):
             self.assertEqual(mutant_run.returncode, 0, mutant_run.stdout + mutant_run.stderr)
             mutant_checks = json.loads(mutant_run.stdout)
             self.assertEqual({name for name, passed in mutant_checks.items() if not passed}, {
-                '1-hiddenAncestorCannotResumeAfterDemini', '2-hiddenAncestorCannotResumeAfterDemini',
+                '1-hiddenAncestorCannotResumeAfterDemini',
             })
             if proof := os.environ.get('MWX_GRID_WINDOW_PROOF_DIR'):
                 target = Path(proof)

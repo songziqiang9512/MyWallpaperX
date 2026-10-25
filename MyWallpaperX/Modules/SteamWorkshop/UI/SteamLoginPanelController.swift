@@ -39,6 +39,9 @@ final class SteamLoginPanelController: NSWindowController, NSWindowDelegate {
     private var codeField: NSTextField { panelView.codeField }
 
     private var zoomWindow: NSWindow?
+    private var acceptsInput: Bool {
+        window?.isVisible == true && WallpaperLibrarySheetPresentation.permitsInput(in: window)
+    }
 
     private override init(window: NSWindow?) {
         super.init(window: nil)
@@ -83,12 +86,12 @@ final class SteamLoginPanelController: NSWindowController, NSWindowDelegate {
 
     /// 二维码放大窗：只复用当前挑战的图，独立关闭，不影响面板认证（§3.2）。
     @objc private func showZoomWindow() {
-        guard let image = qrImageView.image else { return }
+        guard acceptsInput, let image = qrImageView.image else { return }
         if let existing = zoomWindow, existing.isVisible {
             existing.makeKeyAndOrderFront(nil)
             return
         }
-        let window = NSWindow(
+        let window = WallpaperLibraryModalPanel(
             contentRect: NSRect(x: 0, y: 0, width: 320, height: 344),
             styleMask: [.titled, .closable],
             backing: .buffered,
@@ -96,7 +99,6 @@ final class SteamLoginPanelController: NSWindowController, NSWindowDelegate {
         )
         window.title = "二维码"
         window.level = .normal
-        self.window?.addChildWindow(window, ordered: .above)
         window.isReleasedWhenClosed = false
         let imageView = SteamLoginQRCodeImageView(frame: NSRect(x: 20, y: 12, width: 280, height: 280))
         imageView.image = image
@@ -109,12 +111,11 @@ final class SteamLoginPanelController: NSWindowController, NSWindowDelegate {
         content.addSubview(imageView)
         content.addSubview(hint)
         window.contentView = content
-        zoomWindow = window
-        window.center()
-        window.makeKeyAndOrderFront(nil)
+        if WallpaperLibrarySheetPresentation.present(window, in: self.window) { zoomWindow = window }
     }
 
     @objc private func rememberToggled() {
+        guard acceptsInput else { return }
         // 记住登录是偏好（非敏感），可存 UserDefaults；token 持久化在 TokenStore。
         UserDefaults.standard.set(
             rememberCheck.state == .on,
@@ -129,22 +130,26 @@ final class SteamLoginPanelController: NSWindowController, NSWindowDelegate {
     /// 唯一入口：未登录时面板已存在则聚焦，否则创建并打开。
     func show(auth: SteamAuthRoute) {
         if let window, window.isVisible {
-            window.makeKeyAndOrderFront(nil)
+            WallpaperLibrarySheetPresentation.topWindow(in: window).makeKeyAndOrderFront(nil)
             return
         }
+        guard let parent = NSApp.windows.first(where: {
+            $0.identifier?.rawValue == "MainWindow" && $0.isVisible
+        }), WallpaperLibrarySheetPresentation.permitsInput(in: parent) else { return }
         cancellables.forEach { $0.cancel() }
         cancellables.removeAll()
         self.auth = auth
         observe(auth: auth)
 
-        let window = SteamLoginWindow(
+        let window = WallpaperLibraryModalPanel(
             contentRect: NSRect(x: 0, y: 0, width: SteamLoginPanelView.width, height: SteamLoginPanelView.height),
             styleMask: [.borderless], backing: .buffered, defer: false
         )
         window.isOpaque = false
         window.backgroundColor = .clear
         window.hasShadow = true
-        window.isMovableByWindowBackground = true
+        window.isMovable = false
+        window.isMovableByWindowBackground = false
         window.hidesOnDeactivate = false
         window.level = .normal
         window.title = "登录 Steam"
@@ -154,6 +159,10 @@ final class SteamLoginPanelController: NSWindowController, NSWindowDelegate {
 
         window.contentView = panelView
         resetForNewAttempt()
+        guard WallpaperLibrarySheetPresentation.present(window, in: parent) else {
+            self.window = nil; cancellables.removeAll(); self.auth = nil
+            return
+        }
         if auth.isOnline {
             // 已在线的「切换账号」：进密码页（避免空白二维码页），说明会替换当前
             // 会话；新登录在 helper 侧顶替旧会话，成功后 steamId/accountName 更新。
@@ -164,20 +173,10 @@ final class SteamLoginPanelController: NSWindowController, NSWindowDelegate {
         } else {
             startQRLogin()
         }
-        let parent = NSApp.windows.first { $0.identifier?.rawValue == "MainWindow" }
-        if let parent {
-            parent.addChildWindow(window, ordered: .above)
-            window.setFrameOrigin(NSPoint(x: parent.frame.midX - window.frame.width / 2,
-                                          y: parent.frame.midY - window.frame.height / 2))
-        } else {
-            window.center()
-        }
-        window.makeKeyAndOrderFront(nil)
         window.makeFirstResponder(auth.isOnline ? usernameField : refreshQRButton)
     }
 
     func windowWillClose(_ notification: Notification) {
-        if let window { window.parent?.removeChildWindow(window) }
         // 关闭面板 = 取消认证；迟到的成功回调不会再打开窗口（observe 中判断可见性）。
         // 不保存上次输入的秘密（§3.2）。
         panelView.clearSecrets()
@@ -188,6 +187,7 @@ final class SteamLoginPanelController: NSWindowController, NSWindowDelegate {
     }
 
     @objc private func cancelAndClose() {
+        guard acceptsInput else { return }
         window?.close()
     }
 
@@ -280,6 +280,7 @@ final class SteamLoginPanelController: NSWindowController, NSWindowDelegate {
     // MARK: - 动作
 
     @objc private func modeSwitched() {
+        guard acceptsInput else { return }
         // 先同步作废旧 attempt，再切页；远端取消只携带旧身份。
         setStatus("")
         loginButton.isEnabled = true
@@ -295,6 +296,7 @@ final class SteamLoginPanelController: NSWindowController, NSWindowDelegate {
     }
 
     @objc private func refreshQR() {
+        guard acceptsInput else { return }
         cancelThenStart { [weak self] in self?.startQRLogin() }
     }
 
@@ -308,7 +310,7 @@ final class SteamLoginPanelController: NSWindowController, NSWindowDelegate {
     }
 
     @objc private func submitPassword() {
-        guard loginButton.isEnabled, let auth else { return }
+        guard acceptsInput, loginButton.isEnabled, let auth else { return }
         let username = usernameField.stringValue.trimmingCharacters(in: .whitespacesAndNewlines)
         let password = passwordField.stringValue
         if username.isEmpty {
@@ -459,7 +461,7 @@ final class SteamLoginPanelController: NSWindowController, NSWindowDelegate {
     }
 
     @objc private func submitGuardCode() {
-        guard panelView.guardSubmitButton.isEnabled, let auth else { return }
+        guard acceptsInput, panelView.guardSubmitButton.isEnabled, let auth else { return }
         let code = codeField.stringValue.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !code.isEmpty else {
             setStatus("请输入验证码。")

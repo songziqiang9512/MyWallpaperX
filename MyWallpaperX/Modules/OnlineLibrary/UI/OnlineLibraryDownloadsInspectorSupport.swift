@@ -4,53 +4,7 @@
 //
 
 import AppKit
-import AVFoundation
 import QuartzCore
-
-nonisolated struct OnlineLibraryDownloadedAssetMetadata: Sendable {
-    let fileSize: Int
-    let durationSeconds: Int
-    let resolutionString: String?
-
-    static func load(from url: URL, fileSize: Int? = nil) async -> OnlineLibraryDownloadedAssetMetadata {
-        let fileSize = fileSize ?? (try? url.resourceValues(forKeys: [.fileSizeKey]))?.fileSize ?? 0
-        let asset = AVURLAsset(url: url)
-        return OnlineLibraryDownloadedAssetMetadata(
-            fileSize: fileSize,
-            durationSeconds: await durationSeconds(for: asset),
-            resolutionString: await resolutionString(for: asset)
-        )
-    }
-
-    static func formatDuration(_ seconds: Int) -> String {
-        let minutes = seconds / 60
-        let remain = seconds % 60
-        if minutes > 0, remain > 0 { return "\(minutes)m\(remain)s" }
-        if minutes > 0 { return "\(minutes)m" }
-        return "\(max(0, seconds))s"
-    }
-
-    private static func durationSeconds(for asset: AVAsset) async -> Int {
-        guard let duration = try? await asset.load(.duration) else { return 0 }
-        let seconds = duration.seconds
-        guard seconds.isFinite else { return 0 }
-        return max(0, Int(seconds.rounded()))
-    }
-
-    private static func resolutionString(for asset: AVAsset) async -> String? {
-        guard let tracks = try? await asset.loadTracks(withMediaType: .video),
-              let track = tracks.first,
-              let naturalSize = try? await track.load(.naturalSize),
-              let preferredTransform = try? await track.load(.preferredTransform) else {
-            return nil
-        }
-        let transformed = naturalSize.applying(preferredTransform)
-        let width = Int(abs(transformed.width).rounded())
-        let height = Int(abs(transformed.height).rounded())
-        guard width > 0, height > 0 else { return nil }
-        return "\(width)×\(height)"
-    }
-}
 
 struct OnlineLibraryDownloadsInspectorSnapshot {
     let id: Int
@@ -65,15 +19,11 @@ struct OnlineLibraryDownloadsInspectorSnapshot {
     let fileURL: URL
     let previewImage: NSImage?
 
-    static func load(itemID: Int) async -> OnlineLibraryDownloadsInspectorSnapshot? {
-        let url = OnlineLibraryService.downloadDirectory.appendingPathComponent("online_\(itemID).mp4")
-        guard FileManager.default.fileExists(atPath: url.path) else { return nil }
-
-        let attributes = (try? FileManager.default.attributesOfItem(atPath: url.path)) ?? [:]
-        let creationDate = attributes[.creationDate] as? Date
-        let metadata = await OnlineLibraryDownloadedAssetMetadata.load(
-            from: url, fileSize: (attributes[.size] as? NSNumber)?.intValue)
-
+    @MainActor static func load(itemID: Int, service: OnlineLibraryService? = nil) -> OnlineLibraryDownloadsInspectorSnapshot? {
+        let service = service ?? .shared
+        guard let entry = service.downloadedContent.entries.first(where: { $0.id == itemID }),
+              entry.isAvailable else { return nil }
+        let url = entry.localURL
         let formatter = DateFormatter()
         formatter.dateStyle = .medium
         formatter.timeStyle = .medium
@@ -82,16 +32,14 @@ struct OnlineLibraryDownloadsInspectorSnapshot {
             id: itemID,
             title: url.lastPathComponent,
             fileExtension: url.pathExtension.uppercased(),
-            fileSizeText: ByteCountFormatter.string(fromByteCount: Int64(metadata.fileSize), countStyle: .file),
-            durationText: metadata.durationSeconds > 0 ? OnlineLibraryDownloadedAssetMetadata.formatDuration(metadata.durationSeconds) : "未知",
-            resolutionText: metadata.resolutionString ?? "未知",
-            creationDateText: creationDate.map(formatter.string(from:)) ?? "未知",
+            fileSizeText: ByteCountFormatter.string(fromByteCount: Int64(entry.fileSize), countStyle: .file),
+            durationText: entry.duration.map(OnlineLibraryDownloadedAssetMetadata.formatDuration) ?? "未知",
+            resolutionText: entry.resolutionString ?? "未知",
+            creationDateText: entry.creationDate.map(formatter.string(from:)) ?? "未知",
             platformText: "Pixabay",
             path: url.path,
             fileURL: url,
-            previewImage: OLDownloadedThumbnailStore.sharedCache.cachedImage(
-                forKey: OLDownloadedThumbnailStore.cacheKey(for: url)
-            )
+            previewImage: entry.thumbnailSourceKey.flatMap { OLDownloadedThumbnailStore.sharedCache.cachedImage(forKey: $0) }
         )
     }
 }

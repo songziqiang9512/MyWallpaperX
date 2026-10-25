@@ -105,7 +105,7 @@ import Foundation
         progress = SOURCE.read_text()
         downloads = (ROOT / "MyWallpaperX/Modules/SteamWorkshop/Core/SteamWorkshopService+Downloads.swift").read_text()
         cell = (ROOT / "MyWallpaperX/Modules/SteamWorkshop/UI/AppKitSteamWorkshopBrowserItem.swift").read_text()
-        support = (ROOT / "MyWallpaperX/Modules/SteamWorkshop/UI/AppKitSteamWorkshopBrowserItemSupportViews.swift").read_text()
+        support = (ROOT / "MyWallpaperX/Shared/Components/WallpaperCardSupportViews.swift").read_text()
         self.assertNotRegex(progress, r"final class SteamWorkshopDownloadProgressStore\s*:\s*ObservableObject")
         self.assertNotIn("@Published", progress)
         observer_body = downloads.split("let observer = steamServiceClient.addEventObserver", 1)[1].split("let task = Task", 1)[0]

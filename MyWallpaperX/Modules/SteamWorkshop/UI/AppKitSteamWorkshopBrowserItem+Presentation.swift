@@ -2,28 +2,29 @@ import AppKit
 import QuartzCore
 
 extension AppKitSteamWorkshopBrowserItem {
+    /// A local organization heart is independent of Steam account membership.
+    /// Nil exposes only Steam account subscription, never local favorites.
+    struct OrganizationPresentation {
+        let isFavorite: Bool
+        let canFavorite: Bool
+        var isPlaying = false
+        var canPlay = true
+        var canDownload = true
+        var canCancel = true
+        var onFavorite: (() -> Void)?
+        var onPrimary: (() -> Void)?
+    }
+
     /// Shared appearance instances: `NSAppearance(named:)` was being rebuilt on
     /// every themed pass per card.
     static let darkAppearance = NSAppearance(named: .darkAqua)
     static let lightAppearance = NSAppearance(named: .aqua)
 
-    func metrics(for cardSize: CGSize) -> Metrics {
-        let scale = max(0.68, min(1.18, cardSize.width / Layout.referenceCardWidth))
-        return Metrics(
-            scale: scale,
-            barHorizontalInset: round(Layout.barHorizontalInset * scale),
-            barBottomInset: round(Layout.barBottomInset * scale),
-            barHeight: round(Layout.barHeight * scale),
-            iconButtonSize: round(Layout.iconButtonSize * scale),
-            badgeSize: round(Layout.statusBadgeSize * scale),
-            barEdgeInset: round(Layout.barEdgeInset * scale),
-            barSpacing: round(Layout.barSpacing * scale),
-            marqueeSideInset: round(Layout.marqueeSideInset * scale),
-            titleFont: .systemFont(ofSize: 12.5 * scale, weight: .medium)
-        )
+    func metrics(for cardSize: CGSize) -> WallpaperCardBarMetrics {
+        WallpaperCardBarMetrics(cardWidth: cardSize.width)
     }
 
-    func applyMetrics(_ metrics: Metrics) {
+    func applyMetrics(_ metrics: WallpaperCardBarMetrics) {
         let targetBarRadius = max(
             8,
             min(Layout.cardCornerRadius, floor((metrics.barHeight - Layout.minBarCornerInset) * 0.5))
@@ -87,6 +88,7 @@ extension AppKitSteamWorkshopBrowserItem {
         previewImageView.imageAlignment = .alignCenter
         syncPreviewAnimationState()
         previewContainer.addSubview(previewImageView)
+        imageView = previewImageView
         previewContainer.addSubview(previewPlaceholderView)
 
         multiSelectBadgeView.wantsLayer = true
@@ -125,7 +127,7 @@ extension AppKitSteamWorkshopBrowserItem {
             button.imagePosition = .imageOnly
             button.imageScaling = .scaleProportionallyDown
         }
-        detailButton.image = NSImage(systemSymbolName: "heart", accessibilityDescription: "订阅")
+        detailButton.image = NSImage(systemSymbolName: "bookmark", accessibilityDescription: "订阅")
         detailButton.target = self
         detailButton.action = #selector(handleSubscribeToggle)
         overlayBar.addSubview(detailButton)
@@ -242,7 +244,7 @@ extension AppKitSteamWorkshopBrowserItem {
     }
 
     func updateContinuousAnimationState(barVisible: Bool? = nil) {
-        let isBarVisible = barVisible ?? currentBarVisibility
+        let isBarVisible = (barVisible ?? currentBarVisibility) && isPreviewVisible
         titleMarqueeView.setActive(isBarVisible)
         overlayBar.setProgressAnimationVisible(isBarVisible)
     }
@@ -251,6 +253,7 @@ extension AppKitSteamWorkshopBrowserItem {
         previewState.setImageDemandActive(visible)
         guard isPreviewVisible != visible else { return }
         isPreviewVisible = visible
+        updateContinuousAnimationState()
         syncPreviewAnimationState()
     }
 
@@ -313,7 +316,7 @@ extension AppKitSteamWorkshopBrowserItem {
         updateContinuousAnimationState(barVisible: shouldRevealBar)
     }
 
-    private func barAccentStyle(for state: BarState) -> SteamWorkshopGlassBarView.AccentStyle {
+    private func barAccentStyle(for state: BarState) -> WallpaperCardGlassBarView.AccentStyle {
         switch state {
         case .connecting, .preparing, .transferring, .validating, .saving:
             return .downloading

@@ -495,7 +495,10 @@ enum DebugSceneDaemonClientRunner {
         let service = SteamWorkshopService.shared
         guard prepareUserTextureSequence(record: record) else { return false }
         if propertyOverrides.isEmpty {
-            service.requestSceneRender(record)
+            WallpaperManager.shared.requestDiagnosticPlayback(reference: .init(provider: .steamWorkshop, sourceID: record.id),
+                                                               runtime: .scene) { pending in
+                service.requestSceneRender(record, libraryPending: pending)
+            }
             return true
         }
         return service.debugRequestSceneRender(

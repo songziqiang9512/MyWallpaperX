@@ -34,7 +34,6 @@ struct SteamWorkshopDownloadRecord: Equatable {
 
 @MainActor final class DownloadCountProbe {
     var downloads: [SteamWorkshopDownloadRecord] = []
-    var displayedDownloads: [SteamWorkshopDownloadRecord] = []
     // DOWNLOAD_QUERIES
 }
 
@@ -143,20 +142,15 @@ struct SteamWorkshopDownloadRecord: Equatable {
             }
         }
         let records = counts.downloads
-        precondition(counts.downloadsCount == 4, "ready unknown records belong only to the total")
-        precondition(counts.visibleVideoDownloadsCount == 1)
-        precondition(counts.visibleWebDownloadsCount == 1)
-        precondition(counts.visibleSceneDownloadsCount == 1)
+        // The retired source UI counters now belong to unified Query/Toolbar.
+        // Keep the live record lookup contract across every status/type pair.
         for record in records {
             precondition((counts.downloadRecord(for: record.id) != nil) == (record.status == .ready))
         }
         precondition(counts.downloadRecord(for: "missing") == nil)
-        counts.displayedDownloads = Array(records.suffix(4))
-        precondition(counts.downloadsCount == 4, "browse filtering does not alter the library counts")
-        precondition(counts.downloads == records, "counting must not mutate or reorder records")
+        precondition(counts.downloads == records, "lookup must not mutate or reorder records")
         counts.downloads = []
-        precondition(counts.downloadsCount == 0 && counts.visibleVideoDownloadsCount == 0
-            && counts.visibleWebDownloadsCount == 0 && counts.visibleSceneDownloadsCount == 0)
+        precondition(counts.downloadRecord(for: "0-0") == nil)
 
         func history(_ job: String, _ attempt: Int, _ outcome: SteamDownloadHistoryOutcome,
                      _ time: TimeInterval, account: String = "A") -> SteamDownloadHistoryEntry {
@@ -186,7 +180,7 @@ struct SteamWorkshopDownloadRecord: Equatable {
         precondition(summaries[0].attempts.map(\.attempt) == [2, 1])
         precondition(summaries[0].latestOutcome == .completed)
         precondition(summaries[0].recordID == "item-retry")
-        print("Download queries/projections: account isolation, states, first tied failure, ready counts and stable ordering PASS")
+        print("Download queries/projections: account isolation, states, first tied failure, ready record lookup and stable ordering PASS")
     }
 }
 '''
@@ -195,8 +189,6 @@ struct SteamWorkshopDownloadRecord: Equatable {
         harness = harness.replace("// JOB_QUERIES", "\n".join(method(job_store, signature) for signature in [
             "    func failedJob(", "    var queuedCount:"]))
         harness = harness.replace("// DOWNLOAD_QUERIES", "\n".join(method(accessors, signature) for signature in [
-            "    var visibleVideoDownloadsCount:", "    var visibleWebDownloadsCount:",
-            "    var visibleSceneDownloadsCount:", "    var downloadsCount:",
             "    func latestDownloadRecord(", "    func downloadRecord("]))
         with tempfile.TemporaryDirectory(prefix="mwx-steam-task-projection-") as directory:
             root = pathlib.Path(directory)
@@ -247,13 +239,15 @@ struct SteamWorkshopDownloadRecord: Equatable {
         self.assertIn("var downloadTasksPopoverController", controller)
         self.assertIn("existingDownloadTasksPopoverController?.close()", controller)
         self.assertIn("menuFormRepresentation", controller)
-        self.assertIn("downloadTasksButton.window != nil", actions)
-        self.assertIn("positioningRect: anchor", actions)
+        self.assertIn("toggle(relativeTo: downloadTasksToolbarItem, in: window)", actions)
+        self.assertIn("popover.show(relativeTo: toolbarItem)", ui)
         self.assertIn(".steamDownloadTasks", layouts)
-        self.assertIn(".steamDownloadTasks", actions)
         self.assertLess(layouts.index(".steamAccount"), layouts.index(".steamDownloadTasks"))
-        downloads_layout = layouts.split("var downloadsIdentifiers", 1)[1]
-        self.assertLess(downloads_layout.index(".steamAccount"), downloads_layout.index(".steamDownloadTasks"))
+        # The retired source-only downloads layout had no remaining consumer.
+        # Its account-before-tasks behavior now runs through the real Window
+        # toolbar gate; native task overflow/anchor runs through the complete
+        # remote toolbar controller gate. Keep the independent task lifecycle
+        # and projection assertions here.
 
 
 if __name__ == "__main__":

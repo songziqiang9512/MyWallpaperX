@@ -35,6 +35,13 @@ struct Job { enum State { case failed, queued }; let id: String; let workshopIte
     func openWorkshopDetailPage(for item: SteamWorkshopBrowserItem) { commands.append("web:" + item.id) }
     func presentSteamLoginForUserAction(context: String) { commands.append("guidance") }
 }
+@MainActor final class BrowserMenuProjection {
+    let service:SteamWorkshopService
+    var makeOrganizationMenu:((SteamWorkshopBrowserItem)->NSMenu?)?
+    init(_ service:SteamWorkshopService){self.service=service}
+    func menu(for item:SteamWorkshopBrowserItem)->NSMenu{itemMenu(for:item)}
+    // ACTUAL_BROWSER_ITEM_MENU
+}
 @main struct MenuHarness {
     @MainActor static func main() {
         _ = NSApplication.shared
@@ -71,6 +78,29 @@ struct Job { enum State { case failed, queued }; let id: String; let workshopIte
         service.steamAuth.isOnline = false
         invoke(SteamWorkshopItemMenu.make(item: item, service: service), "加入订阅")
         precondition(service.commands.last == "guidance" && service.steamSubscriptions.writes == 0)
+        let projection=BrowserMenuProjection(service)
+        let sourceOnly=SteamWorkshopItemMenu.make(item:item,service:service)
+        let noOrganization=projection.menu(for:item)
+        precondition(noOrganization.items.map(\.title) == sourceOnly.items.map(\.title),"undownloaded browser preserves original account/task/author menu")
+        var organized:[String]=[]
+        projection.makeOrganizationMenu={fixedItem in
+            let menu=NSMenu()
+            menu.addItem(ActionMenuItem(title:"特别喜爱",symbol:"heart"){organized.append("favorite:"+fixedItem.id)})
+            menu.addItem(ActionMenuItem(title:"添加到列表…",symbol:"text.badge.plus"){organized.append("playlist:"+fixedItem.id)})
+            return menu
+        }
+        let combined=projection.menu(for:item)
+        precondition(Array(combined.items.prefix(sourceOnly.items.count)).map(\.title) == sourceOnly.items.map(\.title)
+            && combined.items[sourceOnly.items.count].isSeparatorItem
+            && combined.items.suffix(2).map(\.title) == ["特别喜爱","添加到列表…"],"native browser appends local organization without replacing source menu")
+        invoke(combined,"特别喜爱");invoke(combined,"添加到列表…")
+        precondition(organized == ["favorite:"+item.id,"playlist:"+item.id])
+        service.steamAuth.isOnline=true;service.steamSubscriptions.value = .known(false)
+        let subscription=projection.menu(for:item)
+        invoke(subscription,"加入订阅")
+        precondition(service.steamSubscriptions.writes == 1 && organized.count == 2,"subscription remains independent from local heart")
+        invoke(subscription,"查看作者工坊")
+        precondition(service.commands.last == "author:"+item.id,"source author command survives local organization extension")
         print("Item menu: item, account, subscription, attempt and queued identity dispatch PASS")
     }
     @MainActor static func invoke(_ menu: NSMenu, _ title: String) {

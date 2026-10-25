@@ -1,6 +1,7 @@
 """Exercise real SQLite transactions and the product manager's bounded save owner."""
 import json
 import os
+import sqlite3
 from pathlib import Path
 import subprocess
 import tempfile
@@ -19,7 +20,7 @@ class VideoIndexOrderedSaveTests(unittest.TestCase):
         persistence = (CORE / "WallpaperManager+Persistence.swift").read_text()
         manager = (CORE / "WallpaperManager.swift").read_text()
         store = (CORE / "WallpaperIndexStore.swift").read_text()
-        startup = (CORE / "WallpaperManager+InitialIndexLoad.swift").read_text()
+        startup = (ROOT / "MyWallpaperX/Models/WallpaperIndexStartupChanges.swift").read_text() + "\n" + (CORE / "WallpaperManager+InitialIndexLoad.swift").read_text()
         fixture = (ROOT / "script/tests/fixtures/VideoIndexOrderedSaveHarness.swift").read_text()
         fields = "\n".join(next(line for line in manager.splitlines() if name in line) for name in [
             "var wallpaperIndexSaveRevision:", "var wallpaperIndexSaveEpoch:",
@@ -30,41 +31,43 @@ class VideoIndexOrderedSaveTests(unittest.TestCase):
         ])
         state = declaration(manager, "    struct WallpaperIndexSaveSnapshot") + "\n" + fields
         observer = declaration(manager, "    @Published var wallpapers:").replace("@Published ", "")
-        state += "\n" + observer + "\n" + declaration(manager, "    func normalizeRecentWallpapers(")
-        state += "\n" + declaration(manager, "    func constrainRecentWallpapersToLibrary(")
-        selection = (CORE / "WallpaperManager+Selection.swift").read_text()
-        state += "\n" + declaration(selection, "    func syncSelectedWallpaperInspectorIfNeeded(")
+        state += "\n" + observer
         methods = "\n".join(declaration(persistence, signature) for signature in [
             "    var defaults:", "    private var wallpaperIndexStore:",
             "    func saveWallpapers(", "    private func submitPendingWallpaperIndexSave(",
             "    private func applyWallpaperIndexSaveResult(", "    private func flushWallpaperIndex(",
+            "    func persistWallpaperIndexNow(",
             "    private func invalidateWallpaperIndexPersistence(", "    func flushPersistentState(",
             "    func loadWallpapers(", "    func deduplicatedWallpapersByPath(",
-            "    func loadRecentWallpapers(",
-            "    func saveRecentWallpapers(",
             "    private func loadCodableValue<", "    func saveCodableValue<",
             "    private func decode<", "    private func encode<",
         ])
         imports = (CORE / "WallpaperManager+ImportProcessing.swift").read_text()
+        bundled = (CORE / "WallpaperManager+BundledVideos.swift").read_text()
+        fixture = fixture.replace("// PRODUCTION_BUNDLED_COPY", declaration(bundled, "    func migratedBundledVideoWallpaper("))
         presentation = (CORE / "WallpaperManager+ImportPresentation.swift").read_text()
         for signature in ["    private struct ImportCounters", "    private struct PreparedImportEntry",
                           "    private struct ImportPreparationResult", "    private func applyPreparedImportResult(",
-                          "    private func recordInitialIndexImportContext(", "    private func applyContextMetadataIfNeeded(",
-                          "    private func makePreparedWallpaper(", "    private func appendWallpapersInBatches(",
+                          "    private func makePreparedWallpaper(", "    private func makeImportedWallpaper(", "    private func appendWallpapersInBatches(",
                           "    private func makeImportSummary("]:
             methods += "\n" + declaration(imports, signature)
         methods += "\n" + declaration(presentation, "    func importFailureBreakdown(")
+        methods += "\n" + declaration(manager, "    private func mergeWallpaper(")
         support = (CORE / "WallpaperLibrarySupport.swift").read_text()
         import_types = declaration(support, "struct ImportSummary") + "\n" + declaration(support, "enum ImportContext")
         playback = ROOT / "MyWallpaperX/Core/PlaybackControl"
         import_types += "\n" + (playback / "PlaybackResourceLifetime.swift").read_text()
-        import_types += "\n" + (playback / "ImportedVideoAutoplayGate.swift").read_text()
+        import_types += "\n" + (ROOT / "MyWallpaperX/Models/WallpaperReference.swift").read_text()
+        import_types += "\n" + (ROOT / "MyWallpaperX/Models/WallpaperContent.swift").read_text()
+        import_types += "\n" + (ROOT / "MyWallpaperX/Models/WallpaperSourceImportResult.swift").read_text()
+        for name in ["WallpaperRuntimeSwitch.swift", "PlaybackSwitchTransaction.swift", "ImportedVideoPlaybackAdmission.swift", "ImportedVideoAutoplayGate.swift"]:
+            import_types += "\n" + (playback / name).read_text()
         # Isolate the filesystem and CFPreferences leaves explicitly; HOME alone
         # does not define a macOS application's preferences domain.
         methods = methods.replace("var defaults: UserDefaults { .standard }",
                                   'var defaults: UserDefaults { UserDefaults(suiteName: ProcessInfo.processInfo.environment["MWX_VIDEO_INDEX_TEST_DOMAIN"]!)! }')
         store = store.replace(declaration(store, "    private init("),
-                              '    private init() { dbURL = URL(fileURLWithPath: ProcessInfo.processInfo.environment["MWX_VIDEO_INDEX_TEST_ROOT"]!).appendingPathComponent("index.sqlite3") }')
+                              '    private init() { migrationReadOnly = Self.startupMigrationReadOnly; dbURL = URL(fileURLWithPath: ProcessInfo.processInfo.environment["MWX_VIDEO_INDEX_TEST_ROOT"]!).appendingPathComponent("index.sqlite3") }')
         # Observe transaction entry and control only the storage queue / SQLite
         # connection in the test copy. The production transaction body is intact.
         marker = "    private func saveWallpapersInternal(_ wallpapers: [VideoWallpaper]) throws {"
@@ -132,9 +135,23 @@ extension WallpaperIndexStore {
             for modes in [["startup"], ["bounded"], ["callbacks"], ["fallback-write", "fallback-read"],
                           ["empty-write", "empty-read"], ["bad-fallback"], ["startup-merge"],
                           ["startup-failure-write", "startup-failure-read"], ["startup-retry"],
-                          ["startup-empty"], ["startup-global"], ["startup-import-context"], ["startup-size"], ["startup-corrupt"], ["read-interrupt"]]:
+                          ["startup-empty"], ["startup-global"], ["startup-import-context"], ["startup-size"], ["startup-corrupt"], ["read-interrupt"],
+                          ["migration-readonly"], ["migration-legacy-index"], ["migration-missing-index"],
+                          ["first-indexed"], ["first-indexed-sql-write", "first-indexed-sql-read"],
+                          ["first-indexed-fallback-write", "first-indexed-fallback-read"], ["first-indexed-legacy"]]:
                 home = work / modes[0]
                 home.mkdir()
+                if modes[0] in ["migration-readonly", "migration-legacy-index", "first-indexed-legacy"]:
+                    with sqlite3.connect(home / "index.sqlite3") as db:
+                        db.executescript("""CREATE TABLE wallpapers(sort_index INTEGER,id TEXT PRIMARY KEY,title TEXT,path TEXT,
+                            thumbnail_path TEXT,static_frame_path TEXT,is_favorite INTEGER,last_used REAL,tags_json TEXT,
+                            file_size INTEGER,duration REAL,resolution TEXT);CREATE TABLE meta(key TEXT PRIMARY KEY,value TEXT);
+                            INSERT INTO meta VALUES('library_initialized','1');
+                            INSERT INTO wallpapers VALUES(0,'A','A','/fixture/A.mp4',NULL,NULL,0,0,'[]',1,NULL,NULL);
+                            INSERT INTO wallpapers VALUES(1,'B','B','/fixture/B.mp4',NULL,NULL,0,0,'[]',1,NULL,NULL);""")
+                        if modes[0] == "migration-legacy-index":
+                            db.executescript("ALTER TABLE wallpapers DROP COLUMN file_size;ALTER TABLE wallpapers DROP COLUMN duration;"
+                                             "ALTER TABLE wallpapers DROP COLUMN resolution;DROP TABLE meta;")
                 env = dict(os.environ, HOME=str(home), CFFIXED_USER_HOME=str(home),
                            MWX_VIDEO_INDEX_TEST_ROOT=str(home), MWX_VIDEO_INDEX_TEST_DOMAIN="MWX.VideoIndex.Test." + uuid.uuid4().hex)
                 for mode in modes:

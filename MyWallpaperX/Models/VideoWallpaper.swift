@@ -9,7 +9,7 @@
 
 import Foundation
 
-public struct VideoWallpaper: Identifiable, Equatable, Codable {
+nonisolated public struct VideoWallpaper: Identifiable, Equatable, Codable, Sendable {
     public let id: String
     public let title: String
     public let path: String
@@ -17,6 +17,9 @@ public struct VideoWallpaper: Identifiable, Equatable, Codable {
     public var staticFramePath: String?
     public var isFavorite: Bool
     public var lastUsed: Date
+    /// Original source admission time. Legacy records remain unknown; neither
+    /// playback nor restoring a path manufactures a historical import date.
+    public var firstIndexedAt: Date?
     public var tags: [String] = []
     /// 文件大小缓存，导入后后台填充。nil 表示尚未读取，排序时视为 Int64.max。
     public var fileSize: Int64?
@@ -39,7 +42,8 @@ public struct VideoWallpaper: Identifiable, Equatable, Codable {
         tags: [String] = [],
         fileSize: Int64? = nil,
         duration: Int? = nil,
-        resolution: String? = nil
+        resolution: String? = nil,
+        firstIndexedAt: Date? = nil
     ) {
         self.id = id
         self.title = title
@@ -52,6 +56,7 @@ public struct VideoWallpaper: Identifiable, Equatable, Codable {
         self.fileSize = fileSize
         self.duration = duration
         self.resolution = resolution
+        self.firstIndexedAt = firstIndexedAt
     }
 
     public var displayTitle: String {
@@ -66,6 +71,6 @@ public struct VideoWallpaper: Identifiable, Equatable, Codable {
 extension VideoWallpaper {
     enum CodingKeys: String, CodingKey {
         case id, title, path, thumbnailPath, staticFramePath
-        case isFavorite, lastUsed, tags, fileSize, duration, resolution
+        case isFavorite, lastUsed, tags, fileSize, duration, resolution, firstIndexedAt
     }
 }

@@ -8,6 +8,14 @@ import Combine
 
 @main
 enum MyWallpaperXApplication {
+    /// App owns this one launch result. Shell receives it explicitly after
+    /// startup; it is never inferred from an empty relationship snapshot.
+    @MainActor private(set) static var libraryWorkspace: WallpaperLibraryWorkspace?
+    @MainActor private(set) static var personalSettings: PersonalSettingsImportCoordinator?
+    @MainActor private static var personalSettingsSubscriptions = Set<AnyCancellable>()
+    @MainActor private static var personalSettingsRecoveryURL: URL?
+    @MainActor private static var isPreparingLibraryTermination = false
+    @MainActor private(set) static var userCollectionsStartup: LibraryCollectionsStartupOutcome?
 #if DEBUG
     private static var runsIsolatedWebWorkshopSample: Bool {
         ProcessInfo.processInfo.arguments.contains("--mwx-debug-run-web-workshop-id")
@@ -76,8 +84,6 @@ enum MyWallpaperXApplication {
             withExtendedLifetime(runtime) { app.run() }
             return
         }
-        let delegate = AppDelegate()
-        app.delegate = delegate
 #if DEBUG
         let usesDirectPlaybackHarness = (DebugWebPlaybackRunner.runsIsolatedWebWorkshopSample
             && !DebugWebPlaybackRunner.requiresProductCoordinator)
@@ -87,6 +93,35 @@ enum MyWallpaperXApplication {
 #else
         let usesDirectPlaybackHarness = false
 #endif
+        if !usesDirectPlaybackHarness {
+            do {
+                let paths = try LibraryCollectionsStartupPaths.applicationPaths()
+                let needsViewPreferencesSeed = UserDefaults.standard.object(forKey: WallpaperLibraryPresentation.settingsKey) == nil
+                userCollectionsStartup = try LibraryCollectionsStartupAdmission.waitForResult {
+                    try await LibraryCollectionsStartupAdmission.prepare(paths: paths, needsViewPreferencesSeed: needsViewPreferencesSeed)
+                }
+            } catch {
+                let alert = NSAlert()
+                alert.messageText = "资料库启动未完成"
+                alert.informativeText = error.localizedDescription
+                _ = runAppAlert(alert)
+                return
+            }
+        }
+        if !usesDirectPlaybackHarness, let paths = try? LibraryCollectionsStartupPaths.applicationPaths() {
+            let recoveryURL = paths.publication.finalDatabaseURL.deletingLastPathComponent().appendingPathComponent("personal-settings-import.json")
+            personalSettingsRecoveryURL = recoveryURL
+            let pending = FileManager.default.fileExists(atPath: recoveryURL.path)
+            // Before either singleton can run destructive missing-file cleanup.
+            WallpaperManager.defersMissingFileCleanupForPersonalSettingsRecovery = pending
+            SILService.defersMissingFileCleanupForPersonalSettingsRecovery = pending
+        }
+        let recoveryMessage = userCollectionsStartup?.recoveryMessage
+        WallpaperManager.startupMigrationRecoveryMessage = recoveryMessage
+        WallpaperIndexStore.startupMigrationReadOnly = recoveryMessage != nil
+        SILService.startupMigrationRecoveryMessage = recoveryMessage
+        let delegate = AppDelegate()
+        app.delegate = delegate
         let videoPlaybackHandler = VideoPlaybackCommandHandler()
         PlaybackCommandMultiplexer.shared.register(videoPlaybackHandler)
         // E2c: web 与 video 共享 WallpaperEngine 执行端（按活跃 kind 路由），
@@ -112,9 +147,11 @@ enum MyWallpaperXApplication {
             adapter.mayPrepareIdleProcess = {
                 !SceneDaemonClient.shared.hasRetainedOrRetiringTransport
             }
-            SteamWorkshopService.shared.prepareWebPlaybackProcess = { [weak adapter] in
+            SteamWorkshopService.shared.prepareWebPlaybackProcess = { [weak adapter] pending in
+                let manager = WallpaperManager.shared
+                guard pending.ticket.runtime == .web, manager.acceptsLibraryPlayback(pending) else { return nil }
                 let id = adapter?.availablePreparedRequestID ?? UUID()
-                let epoch = WallpaperManager.shared.beginPlaybackIntent(runtime: .web)
+                let epoch = pending.ticket.epoch
                 WallpaperEngine.shared.adoptIntentEpoch(epoch)
                 adapter?.prepareProcess(requestID: id)
                 return (
@@ -123,17 +160,36 @@ enum MyWallpaperXApplication {
                         adapter?.cancelPreparedProcess(requestID: id)
                         if WallpaperManager.shared.playbackIntentEpoch == epoch,
                            !WallpaperManager.shared.hasTransferredWebPreparation(epoch: epoch) {
-                            WallpaperManager.shared.restoreCommittedPlaybackIntent()
+                            manager.switchFailed(pending.ticket, reason: "Web 资源准备失败，已保留原壁纸")
                         }
                     },
-                    isCurrent: { WallpaperManager.shared.playbackIntentEpoch == epoch },
+                    isCurrent: { manager.acceptsLibraryPlayback(pending) },
                     intentEpoch: epoch
                 )
             }
         }
-        SteamWorkshopService.shared.prepareScenePlaybackIntent = { recordID, newSelection in
+        let prepareImportedVideo: (WallpaperReference, WallpaperPlaybackSequence.Pending?) -> ImportedVideoPlaybackAdmission? = { reference, pending in
+            WallpaperManager.shared.admitImportedVideoPlayback(reference: reference, libraryPending: pending)
+        }
+        SteamWorkshopService.shared.prepareVideoPlaybackIntent = prepareImportedVideo
+        OnlineLibraryService.shared.prepareVideoPlaybackIntent = prepareImportedVideo
+        let requestLibraryPlayback: (WallpaperReference) -> Void = { reference in
+            libraryWorkspace?.requestSingle(reference)
+        }
+        SteamWorkshopService.shared.requestLibraryPlayback = requestLibraryPlayback
+        OnlineLibraryService.shared.requestLibraryPlayback = requestLibraryPlayback
+        let prepareLibraryRestoration: (WallpaperReference) -> (() -> Void)? = { reference in
+            guard let workspace = libraryWorkspace else { return nil }
+            return WallpaperLibraryCommands.makeExplicitLibraryRestorationReceipt(for: reference, in: workspace)
+        }
+        SteamWorkshopService.shared.prepareExplicitLibraryRestoration = prepareLibraryRestoration
+        OnlineLibraryService.shared.prepareExplicitLibraryRestoration = prepareLibraryRestoration
+        SteamWorkshopService.shared.prepareSceneDownloadRemoval = { recordID, completion in
+            WallpaperManager.shared.prepareSceneDownloadRemoval(recordID: recordID, completion: completion)
+        }
+        SteamWorkshopService.shared.prepareScenePlaybackIntent = { recordID, newSelection, pending in
             let manager = WallpaperManager.shared
-            guard let ticket = manager.claimScenePlaybackIntent(recordID: recordID, newSelection: newSelection) else { return nil }
+            guard let ticket = manager.claimScenePlaybackIntent(recordID: recordID, newSelection: newSelection, libraryPending: pending) else { return nil }
             return (intentEpoch: ticket.epoch,
                 isCurrent: { manager.playbackSwitch.pending?.selection.ticket == ticket
                     || (!newSelection && manager.playbackSwitch.committed?.ticket == ticket && manager.playbackSwitch.pending == nil) },
@@ -198,8 +254,85 @@ enum MyWallpaperXApplication {
             NSLog("MWX STARTUP: launch replay suppressed for isolated product-entry measurement")
         }
 #endif
-        if !usesDirectPlaybackHarness { WallpaperManager.shared.configureRuntimeSwitching() }
+        if !usesDirectPlaybackHarness, let startup = userCollectionsStartup {
+            WallpaperManager.shared.configureRuntimeSwitching()
+            libraryWorkspace = WallpaperLibraryWorkspace(startup: startup, manager: .shared, images: .shared,
+                                                         steam: .shared, online: .shared, defaults: .standard)
+            configurePersonalSettings()
+        }
         app.run()
+    }
+
+    @MainActor private static func configurePersonalSettings() {
+        guard let workspace = libraryWorkspace, let collections = workspace.collections, let url = personalSettingsRecoveryURL else { return }
+        let coordinator = PersonalSettingsImportCoordinator(manager: .shared, images: .shared, collections: collections,
+            recoveryURL: url,
+            readVideoSort: { [weak workspace] in
+                guard let workspace else { throw UserCollectionsError.staleResetEpoch }
+                return try workspace.presentation.videoSortPreference()
+            }, validateVideoSort: { [weak workspace] patch, epoch in
+                guard let workspace else { throw UserCollectionsError.staleResetEpoch }
+                try workspace.presentation.validateVideoSortPatch(patch, resetEpoch: epoch)
+            }, applyVideoSort: { [weak workspace] patch, epoch in
+                guard let workspace else { throw UserCollectionsError.staleResetEpoch }
+                try workspace.presentation.applyVideoSortPatch(patch, resetEpoch: epoch)
+            }, beforeApply: { WallpaperManager.shared.stopCurrentPlayback() })
+        personalSettings = coordinator
+        workspace.setPersonalSettingsReady(coordinator.allowsEditing)
+        coordinator.$isApplying.combineLatest(coordinator.$recoveryMessage).receive(on: DispatchQueue.main)
+            .sink { [weak workspace] applying, recovery in workspace?.setPersonalSettingsReady(!applying && recovery == nil && !isPreparingLibraryTermination) }
+            .store(in: &personalSettingsSubscriptions)
+        SettingsWindowController.shared.configurePersonalSettings(coordinator, reset: { resetLibrary() })
+        WallpaperManager.shared.$didFinishInitialIndexLoad.filter { $0 }.prefix(1)
+            .sink { [weak coordinator, weak workspace] _ in
+                Task { @MainActor in
+                    do {
+                        guard let coordinator, let collections = workspace?.collections else { return }
+                        let epoch = collections.snapshot.resetEpoch
+                        _ = try await coordinator.resumeIfNeeded()
+                        guard coordinator.allowsEditing, collections.snapshot.resetEpoch == epoch else { return }
+                        try await collections.pruneUnreferencedPlaylistCoverAssets(expectedEpoch: epoch)
+                    }
+                    catch { workspace?.presentation.report(error) }
+                }
+            }.store(in: &personalSettingsSubscriptions)
+    }
+
+    @MainActor private static func resetLibrary() {
+        guard let workspace = libraryWorkspace, let collections = workspace.collections, let profile = personalSettings else { return }
+        workspace.presentation.setEditingAllowed(false)
+        Task { @MainActor in
+            do {
+                try await collections.reset(beforeStoreReset: {
+                    profile.cancelForReset()
+                    // The existing owner revokes source/ticket callbacks and
+                    // tells restoration while the OLD relationship epoch exists.
+                    WallpaperManager.shared.resetToFreshInstallState()
+                })
+                try profile.clearRecoveryAfterReset()
+                workspace.presentation.resetViewState()
+                workspace.setPersonalSettingsReady(true)
+            } catch {
+                workspace.setPersonalSettingsReady(profile.allowsEditing)
+                workspace.presentation.report(error)
+                presentAppAlert(makeAppAlert(title: "重置未完成", message: error.localizedDescription), in: MainWindowCoordinator.mainWindow())
+            }
+        }
+    }
+
+    @MainActor static func prepareLibraryForTermination() {
+        isPreparingLibraryTermination = true
+        personalSettings?.prepareForTermination()
+        libraryWorkspace?.setPersonalSettingsReady(false)
+    }
+
+    @MainActor static func cancelLibraryTermination() {
+        isPreparingLibraryTermination = false
+        libraryWorkspace?.setPersonalSettingsReady(personalSettings?.allowsEditing ?? true)
+    }
+
+    @MainActor static func flushLibraryBeforeTermination() async -> String? {
+        return await libraryWorkspace?.flush()
     }
 
     /// downloads 投影订阅（工坊 web 持久化 store 回收）：生命周期与进程一致。

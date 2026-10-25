@@ -4,7 +4,7 @@ import CoreImage
 /// Presentation only. Authentication attempts and credentials remain owned by
 /// SteamLoginPanelController and SteamAuthRoute.
 @MainActor
-final class SteamLoginPanelView: NSView, NSTextFieldDelegate {
+final class SteamLoginPanelView: WallpaperLibrarySheetSurface, NSTextFieldDelegate {
     enum Page {
         case qr, password, guardInput(GuardKind), completed
         enum GuardKind {
@@ -36,8 +36,6 @@ final class SteamLoginPanelView: NSView, NSTextFieldDelegate {
     private let qrFailureLabel = NSTextField(wrappingLabelWithString: "二维码已失效\n请重新生成")
     let statusLabel = NSTextField(wrappingLabelWithString: "")
 
-    private let glass = NSGlassEffectView()
-    private let overlay = NSView()
     private let content = NSStackView()
     private let body = NSView()
     private let qrPage = NSStackView()
@@ -67,27 +65,6 @@ final class SteamLoginPanelView: NSView, NSTextFieldDelegate {
     }
 
     private func setup() {
-        wantsLayer = true
-        layer?.cornerRadius = 22
-        layer?.masksToBounds = true
-        glass.wantsLayer = true
-        glass.layer?.cornerRadius = 22
-        glass.layer?.masksToBounds = true
-        glass.cornerRadius = 22
-        glass.style = .regular
-        overlay.wantsLayer = true
-        overlay.layer?.cornerRadius = 22
-        overlay.layer?.borderWidth = 1
-        for surface in [glass, overlay] {
-            surface.translatesAutoresizingMaskIntoConstraints = false
-            addSubview(surface)
-            NSLayoutConstraint.activate([
-                surface.leadingAnchor.constraint(equalTo: leadingAnchor),
-                surface.trailingAnchor.constraint(equalTo: trailingAnchor),
-                surface.topAnchor.constraint(equalTo: topAnchor),
-                surface.bottomAnchor.constraint(equalTo: bottomAnchor)
-            ])
-        }
         configureStack(content, spacing: 12)
         content.alignment = .centerX
         addSubview(content)
@@ -442,23 +419,12 @@ final class SteamLoginPanelView: NSView, NSTextFieldDelegate {
         child.widthAnchor.constraint(equalTo: stack.widthAnchor).isActive = true
     }
     private func updateAppearance() {
-        let dark = InspectorGlassPalette.isDarkMode(for: self)
-        glass.tintColor = InspectorGlassPalette.baseTint(isDark: dark)
-        glass.layer?.backgroundColor = InspectorGlassPalette.innerFill(isDark: dark).cgColor
-        overlay.layer?.backgroundColor = InspectorGlassPalette.panelFill(isDark: dark).cgColor
-        overlay.layer?.borderColor = InspectorGlassPalette.panelStroke(isDark: dark).cgColor
+        let dark = effectiveAppearance.bestMatch(from: [.darkAqua, .aqua]) == .darkAqua
         for surface in fieldSurfaces {
             surface.layer?.backgroundColor = NSColor.black.withAlphaComponent(dark ? 0.20 : 0.04).cgColor
             surface.layer?.borderColor = (dark ? NSColor.white : NSColor.black).withAlphaComponent(dark ? 0.16 : 0.10).cgColor
         }
     }
-}
-
-final class SteamLoginWindow: NSPanel {
-    override func cancelOperation(_ sender: Any?) { close() }
-    override func performClose(_ sender: Any?) { close() }
-    override var canBecomeKey: Bool { true }
-    override var canBecomeMain: Bool { false }
 }
 
 final class SteamLoginQRCodeImageView: NSImageView {

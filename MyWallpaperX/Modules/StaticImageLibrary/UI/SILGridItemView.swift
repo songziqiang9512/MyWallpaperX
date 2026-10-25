@@ -5,100 +5,10 @@
 import AppKit
 import QuartzCore
 
-// MARK: - SILCollectionView
-
-final class SILCollectionView: NSCollectionView, GridCollectionViewProtocol {
-    var onBackgroundLeftClick: (() -> Void)?
-    var contextMenuProvider: ((IndexPath?) -> NSMenu?)?
-    var cardInteractionHandler: (() -> Void)?
-    /// 返回 true 时吞掉本次点击（不进入系统选择流程）。
-    var primaryClickHandler: ((IndexPath) -> Bool)?
-    var isBoxSelectionEnabled = false
-    var boxSelectionBeginHandler: ((IndexPath?) -> Bool)?
-    var boxSelectionUpdateHandler: ((NSRect) -> Void)?
-    var boxSelectionEndHandler: (() -> Void)?
-    private(set) var lastPrimaryClickIndexPath: IndexPath?
-
-    override func mouseDown(with event: NSEvent) {
-        let point = convert(event.locationInWindow, from: nil)
-        let indexPath = indexPathForItem(at: point)
-        guard event.type == .leftMouseDown else { super.mouseDown(with: event); return }
-        lastPrimaryClickIndexPath = indexPath
-        if isBoxSelectionEnabled, event.clickCount == 1,
-           boxSelectionBeginHandler?(indexPath) == true {
-            handleBoxSelectionLoop(startPoint: point); return
-        }
-        if indexPath != nil {
-            cardInteractionHandler?()
-        }
-        if let indexPath, primaryClickHandler?(indexPath) == true {
-            return
-        }
-        super.mouseDown(with: event)
-    }
-
-    private func handleBoxSelectionLoop(startPoint: NSPoint) {
-        guard let window else { boxSelectionEndHandler?(); return }
-        boxSelectionUpdateHandler?(selectionRect(from: startPoint, to: startPoint))
-        while true {
-            guard let next = window.nextEvent(matching: [.leftMouseDragged, .leftMouseUp]) else {
-                boxSelectionEndHandler?(); return
-            }
-            let pt = convert(next.locationInWindow, from: nil)
-            boxSelectionUpdateHandler?(selectionRect(from: startPoint, to: pt))
-            if next.type == .leftMouseUp {
-                boxSelectionEndHandler?(); lastPrimaryClickIndexPath = nil; return
-            }
-        }
-    }
-
-    private func selectionRect(from s: NSPoint, to e: NSPoint) -> NSRect {
-        NSRect(origin: NSPoint(x: min(s.x, e.x), y: min(s.y, e.y)),
-               size: NSSize(width: abs(s.x - e.x), height: abs(s.y - e.y)))
-    }
-
-    override func mouseUp(with event: NSEvent) {
-        super.mouseUp(with: event)
-        guard event.type == .leftMouseUp else { return }
-        let point = convert(event.locationInWindow, from: nil)
-        if lastPrimaryClickIndexPath == nil, indexPathForItem(at: point) == nil {
-            onBackgroundLeftClick?()
-        }
-        lastPrimaryClickIndexPath = nil
-    }
-
-    override func menu(for event: NSEvent) -> NSMenu? {
-        contextMenuProvider?(indexPathForItem(at: convert(event.locationInWindow, from: nil)))
-    }
-
-    override func keyDown(with event: NSEvent) {
-        let noMod = event.modifierFlags.intersection([.command, .control, .option, .shift]).isEmpty
-        if noMod {
-            switch event.keyCode {
-            case 123, 124, 125, 126:
-                SILService.shared.moveSingleSelectionByArrowKey(event.keyCode); return
-            default:
-                break
-            }
-        }
-        // ⌘A：多选模式下全选
-        if event.keyCode == 0,
-           event.modifierFlags.intersection([.command]) == .command,
-           event.modifierFlags.intersection([.control, .option, .shift]).isEmpty,
-           SILService.shared.isMultiSelectMode {
-            SILService.shared.selectAll(); return
-        }
-        super.keyDown(with: event)
-    }
-}
-
-// MARK: - SILGridItem
-
-final class SILGridItem: NSCollectionViewItem, WallpaperGridHoverItem {
+// Shared square image card used by the App library adapter.
+final class SILGridItem: WallpaperCardCollectionViewItem, WallpaperGridHoverItem {
     private struct LayoutInputs: Equatable {
         let size: NSSize
-        let title: String
-        let metadata: String
         let placeholder: String
     }
     private var lastLayoutInputs: LayoutInputs?
@@ -114,11 +24,23 @@ final class SILGridItem: NSCollectionViewItem, WallpaperGridHoverItem {
     private let selectionTint    = NSView()
     private let hoverOutline     = NSView()
     private let overlayView      = NSView()
-    private let gradientLayer    = CAGradientLayer()
-    private let titleLabel       = NSTextField(labelWithString: "")
-    private let metaLabel        = NSTextField(labelWithString: "")
+    private var currentTitle = ""
+    private var currentMetadata = ""
+    private var controlBar: WallpaperCardControlsView?
+    private var controlBarFrame = NSRect.zero
+    private var barVisibilityRevision: UInt64 = 0
     private let multiSelectBadge = NSView()
     private let multiSelectIcon  = NSImageView()
+
+    var onApplyRequested: ((String) -> Void)? {
+        didSet { controlBar?.playButton.isEnabled = onApplyRequested != nil }
+    }
+    /// Nil until the relation owner is connected; no decorative, inert heart.
+    var onToggleFavorite: ((String) -> Void)? {
+        didSet { controlBar?.favoriteButton.isHidden = onToggleFavorite == nil }
+    }
+    private var isFavoriteState = false
+    private var isAppliedState = false
 
     var wallpaperID: String?
     private var imageTaskID: UUID?
@@ -148,7 +70,7 @@ final class SILGridItem: NSCollectionViewItem, WallpaperGridHoverItem {
     }
 
     override func loadView() {
-        let v = NSView()
+        let v = WallpaperCardInteractionView()
         v.translatesAutoresizingMaskIntoConstraints = true
         view = v
         setupViews()
@@ -160,42 +82,26 @@ final class SILGridItem: NSCollectionViewItem, WallpaperGridHoverItem {
         layoutSubviewsManually()
     }
 
-    private func fontSizeForWidth(_ width: CGFloat) -> (title: CGFloat, meta: CGFloat) {
-        switch width {
-        case ..<160:
-            return (9, 8)
-        case 160..<260:
-            return (11, 10)
-        default:
-            return (13, 11)
-        }
-    }
-
     private func layoutSubviewsManually() {
-        let inputs = LayoutInputs(size: view.bounds.size, title: titleLabel.stringValue,
-            metadata: metaLabel.stringValue, placeholder: placeholderLabel.stringValue)
+        let inputs = LayoutInputs(size: view.bounds.size, placeholder: placeholderLabel.stringValue)
         guard lastLayoutInputs != inputs else {
-            checkInitialHoverState()
+            refreshGridHover(isScrolling: view.isGridHoverSuppressed)
             return
         }
         lastLayoutInputs = inputs
         let b = view.bounds
-        let fontSizes = fontSizeForWidth(b.width)
-        titleLabel.font = .systemFont(ofSize: fontSizes.title, weight: .medium)
-        metaLabel.font = .monospacedDigitSystemFont(ofSize: fontSizes.meta, weight: .regular)
         imageContainer.frame = b
-        thumbnailView.frame = imageContainer.bounds
+        updateThumbnailFrame()
         selectionTint.frame = imageContainer.bounds
         hoverOutline.frame = imageContainer.bounds.insetBy(dx: 1, dy: 1)
-
-        // 仅同步 overlay 与圆角容器边界，不做全屏阴影效果
         overlayView.frame = imageContainer.bounds
-        gradientLayer.frame = overlayView.bounds
-        
-        let pad: CGFloat = 8
-        metaLabel.frame = NSRect(x: pad, y: pad + 2, width: b.width - pad * 2, height: fontSizes.meta + 2)
-        
-        titleLabel.frame = NSRect(x: pad, y: metaLabel.frame.maxY + 2, width: b.width - pad * 2, height: fontSizes.title + 3)
+        imageContainer.layer?.cornerRadius = 14
+        hoverOutline.layer?.cornerRadius = 13
+        let metrics = WallpaperCardBarMetrics(cardWidth: b.width)
+        controlBarFrame = NSRect(x: metrics.barHorizontalInset, y: metrics.barBottomInset,
+                                width: max(0, b.width - metrics.barHorizontalInset * 2), height: metrics.barHeight)
+        controlBar?.frame = controlBarFrame
+        controlBar?.apply(metrics: metrics)
 
         let labelSize = placeholderLabel.stringValue.size(
             withAttributes: [.font: placeholderLabel.font ?? NSFont.systemFont(ofSize: 12)]
@@ -215,18 +121,23 @@ final class SILGridItem: NSCollectionViewItem, WallpaperGridHoverItem {
             y: (badgeSize - iconSize) / 2,
             width: iconSize, height: iconSize)
         // 确保 layer 在正确尺寸上刷新
-        checkInitialHoverState()
+        refreshGridHover(isScrolling: view.isGridHoverSuppressed)
         refreshThemeAwareAppearance()
     }
 
-    private func checkInitialHoverState() {
-        guard !view.isGridHoverSuppressed else { return }
-        let isHoveringNow = view.isGridPointerInside
-        if isHoveringNow && !isHovering {
-            isHovering = true
-            applyHoverVisibility(true, animated: false)
+    private func updateThumbnailFrame() {
+        let bounds = imageContainer.bounds
+        guard let size = thumbnailView.image?.size, size.width > 0, size.height > 0 else {
+            thumbnailView.frame = bounds
+            return
         }
+        let scale = max(bounds.width / size.width, bounds.height / size.height)
+        let fitted = NSSize(width: size.width * scale, height: size.height * scale)
+        thumbnailView.frame = NSRect(x: (bounds.width - fitted.width) / 2,
+                                     y: (bounds.height - fitted.height) / 2,
+                                     width: fitted.width, height: fitted.height)
     }
+
 
     override func prepareForReuse() {
         super.prepareForReuse()
@@ -246,8 +157,14 @@ final class SILGridItem: NSCollectionViewItem, WallpaperGridHoverItem {
         multiSelectBadge.isHidden = true; multiSelectIcon.isHidden = true
         hoverOutline.alphaValue = 0; isHoverOutlineVisible = false
         selectionTint.alphaValue = 0
-        titleLabel.alphaValue = 0; metaLabel.alphaValue = 0; overlayView.alphaValue = 0
-        titleLabel.stringValue = ""; metaLabel.stringValue = ""
+        barVisibilityRevision &+= 1
+        controlBar?.setActive(false)
+        controlBar?.isHidden = true
+        controlBar?.removeFromSuperview()
+        currentTitle = ""; currentMetadata = ""
+        onApplyRequested = nil; onToggleFavorite = nil
+        isFavoriteState = false; isAppliedState = false
+        view.toolTip = nil
         refreshThemeAwareAppearance()
     }
 
@@ -256,10 +173,13 @@ final class SILGridItem: NSCollectionViewItem, WallpaperGridHoverItem {
         isSelected: Bool,
         isMultiSelectMode: Bool,
         thumbnailVisible: Bool,
+        isFavorite: Bool = false,
+        isPlaying: Bool = false,
         thumbnailLoader: @escaping (ThumbnailCacheRequestCancellation, @escaping (SILThumbnailLoadResult) -> Void) -> Void
     ) {
         wallpaperID = wallpaper.id
-        titleLabel.stringValue = wallpaper.title
+        isThumbnailVisible = thumbnailVisible
+        currentTitle = wallpaper.title
         
         var metaLines: [String] = []
         if let size = wallpaper.fileSize {
@@ -269,14 +189,17 @@ final class SILGridItem: NSCollectionViewItem, WallpaperGridHoverItem {
         if let w = wallpaper.pixelWidth, let h = wallpaper.pixelHeight {
             metaLines.append("\(w) × \(h)")
         }
-        metaLabel.stringValue = metaLines.joined(separator: "  ")
+        currentMetadata = metaLines.joined(separator: "  ")
+        isFavoriteState = isFavorite
+        isAppliedState = isPlaying
+        view.toolTip = nil
+        updateControlBarContent()
 
         applySelectionState(isSelected: isSelected, multiSelectMode: isMultiSelectMode)
         thumbnailCancellation?.cancel()
         thumbnailCancellation = nil
         self.thumbnailLoader = thumbnailLoader
         thumbnailRequestFinished = false
-        isThumbnailVisible = thumbnailVisible
         loadingPlaceholderWork?.cancel()
         loadingPlaceholderWork = nil
         applyHoverVisibility(isHovering, animated: false)
@@ -288,6 +211,7 @@ final class SILGridItem: NSCollectionViewItem, WallpaperGridHoverItem {
 
     func setThumbnailVisible(_ visible: Bool) {
         isThumbnailVisible = visible
+        applyHoverVisibility(isHovering, animated: false)
         if !visible {
             thumbnailCancellation?.cancel()
             thumbnailCancellation = nil
@@ -331,16 +255,19 @@ final class SILGridItem: NSCollectionViewItem, WallpaperGridHoverItem {
                 self.placeholderLabel.stringValue = "缩略图不可用"
                 self.placeholderLabel.isHidden = false
             }
+            self.lastLayoutInputs = nil
+            self.layoutSubviewsManually()
         }
     }
 
     func applySelectionState(isSelected: Bool, multiSelectMode: Bool) {
         isMultiSelect = multiSelectMode; isSelectedState = isSelected
+        applyHoverVisibility(isHovering, animated: false)
         // 强制在主线程下一个 runloop 刷新，确保 frame 已经由 apply(_:) 设置完毕
         DispatchQueue.main.async { [weak self] in
             guard let self else { return }
             self.refreshThemeAwareAppearance()
-            self.updateMultiSelectBadge(selected: isSelected)
+            self.updateMultiSelectBadge(selected: self.isSelectedState)
             if self.imageContainer.bounds.width > 0 {
                 let badgeSize: CGFloat = 24
                 self.multiSelectBadge.frame = NSRect(
@@ -354,6 +281,18 @@ final class SILGridItem: NSCollectionViewItem, WallpaperGridHoverItem {
                     width: iconSize, height: iconSize)
             }
         }
+    }
+
+    /// Relationship/playback refreshes never acquire a new thumbnail lease.
+    func applyFavoriteState(isFavorite: Bool) {
+        isFavoriteState = isFavorite
+        updateControlBarContent()
+    }
+
+    func applyPlayingState(isPlaying: Bool) {
+        isAppliedState = isPlaying
+        updateControlBarContent()
+        applyHoverVisibility(isHovering, animated: false)
     }
 
     // MARK: - Hover
@@ -373,7 +312,7 @@ final class SILGridItem: NSCollectionViewItem, WallpaperGridHoverItem {
     }
     override func mouseExited(with event: NSEvent) {
         guard !view.isGridHoverSuppressed else { return }
-        guard Self.hoverTrackingActivated else { return }
+        guard Self.hoverTrackingActivated || isHovering else { return }
         isHovering = false; applyHoverPresentation(false)
     }
     override func mouseMoved(with event: NSEvent) {
@@ -395,20 +334,55 @@ final class SILGridItem: NSCollectionViewItem, WallpaperGridHoverItem {
     }
 
     private func applyHoverVisibility(_ visible: Bool, animated: Bool) {
-        let alpha: CGFloat = (visible && !isMultiSelect) ? 1 : 0
-        if animated {
-            NSAnimationContext.runAnimationGroup { ctx in
-                ctx.duration = visible ? UIInteractionAnimation.cardHoverExpandDuration : UIInteractionAnimation.cardHoverCollapseDuration
-                ctx.timingFunction = visible ? UIInteractionAnimation.cardEnterTiming : UIInteractionAnimation.cardExitTiming
-                titleLabel.animator().alphaValue = alpha
-                metaLabel.animator().alphaValue = alpha
-                overlayView.animator().alphaValue = alpha
-            }
-        } else {
-            titleLabel.alphaValue = alpha
-            metaLabel.alphaValue = alpha
-            overlayView.alphaValue = alpha
+        let showBar = (visible || isAppliedState) && !isMultiSelect
+        if showBar { prepareControlBarIfNeeded() }
+        guard let bar = controlBar else { return }
+        barVisibilityRevision &+= 1
+        let revision = barVisibilityRevision
+        if showBar {
+            if bar.superview == nil { overlayView.addSubview(bar) }
+            bar.isHidden = false
         }
+        bar.setActive(showBar && visible && isThumbnailVisible)
+        let finish = { [weak self, weak bar] in
+            guard let self, let bar, self.barVisibilityRevision == revision, !showBar else { return }
+            bar.isHidden = true
+            bar.removeFromSuperview()
+        }
+        if animated && bar.superview != nil {
+            NSAnimationContext.runAnimationGroup { context in
+                context.duration = visible ? UIInteractionAnimation.cardHoverExpandDuration : UIInteractionAnimation.cardHoverCollapseDuration
+                context.timingFunction = visible ? UIInteractionAnimation.cardEnterTiming : UIInteractionAnimation.cardExitTiming
+                bar.animator().alphaValue = showBar ? 1 : 0
+            } completionHandler: { DispatchQueue.main.async(execute: finish) }
+        } else {
+            bar.alphaValue = showBar ? 1 : 0
+            finish()
+        }
+    }
+
+    private func prepareControlBarIfNeeded() {
+        guard controlBar == nil else { return }
+        let bar = WallpaperCardControlsView(frame: controlBarFrame)
+        bar.onPlay = { [weak self] in
+            guard let self, !self.isMultiSelect, let id = self.wallpaperID else { return }
+            self.onApplyRequested?(id)
+        }
+        bar.onFavorite = { [weak self] in
+            guard let self, !self.isMultiSelect, let id = self.wallpaperID else { return }
+            self.onToggleFavorite?(id)
+        }
+        controlBar = bar
+        bar.apply(metrics: WallpaperCardBarMetrics(cardWidth: imageContainer.bounds.width))
+        updateControlBarContent()
+    }
+
+    private func updateControlBarContent() {
+        controlBar?.apply(title: currentTitle, metadata: currentMetadata)
+        controlBar?.isFavorite = isFavoriteState
+        controlBar?.primaryState = isAppliedState ? .applied : .apply
+        controlBar?.playButton.isEnabled = onApplyRequested != nil
+        controlBar?.favoriteButton.isHidden = onToggleFavorite == nil
     }
 
     private func applyHoverOutline(_ hovered: Bool, duration: CFTimeInterval, timing: CAMediaTimingFunction) {
@@ -429,8 +403,7 @@ final class SILGridItem: NSCollectionViewItem, WallpaperGridHoverItem {
         layer.borderWidth = isSelectedState ? 2 : 1
         // 不显示蓝色遮罩，只用描边表示选中
         selectionTint.alphaValue = 0
-        let hoverColor: NSColor = view.isDarkAppearance ? .white : .controlAccentColor
-        hoverOutline.layer?.borderColor = hoverColor.cgColor
+        hoverOutline.layer?.borderColor = NSColor.white.cgColor
     }
 
     // MARK: - Setup
@@ -471,31 +444,6 @@ final class SILGridItem: NSCollectionViewItem, WallpaperGridHoverItem {
 
         overlayView.wantsLayer = true
         overlayView.layer?.backgroundColor = NSColor.clear.cgColor
-        overlayView.layer?.addSublayer(gradientLayer)
-        overlayView.alphaValue = 0
-        // 底部信息渐变：仅在底部形成对比，提升文字可读性
-        gradientLayer.colors = [
-            NSColor.clear.cgColor,
-            NSColor.black.withAlphaComponent(0.05).cgColor,
-            NSColor.black.withAlphaComponent(0.72).cgColor
-        ]
-        gradientLayer.locations = [0.0, 0.62, 1.0]
-        gradientLayer.startPoint = CGPoint(x: 0.5, y: 1.0)
-        gradientLayer.endPoint = CGPoint(x: 0.5, y: 0.0)
-        gradientLayer.actions = ["bounds": NSNull(), "position": NSNull()]
-        gradientLayer.needsDisplayOnBoundsChange = true
-        gradientLayer.autoresizingMask = [.layerWidthSizable, .layerHeightSizable]
-
-        titleLabel.textColor = .white
-        titleLabel.font = .systemFont(ofSize: 11, weight: .medium)
-        titleLabel.lineBreakMode = .byTruncatingTail
-        titleLabel.alignment = .center
-        titleLabel.alphaValue = 0
-
-        metaLabel.textColor = NSColor.white.withAlphaComponent(0.80)
-        metaLabel.font = .monospacedDigitSystemFont(ofSize: 9, weight: .regular)
-        metaLabel.alignment = .center
-        metaLabel.alphaValue = 0
 
         multiSelectBadge.wantsLayer = true
         multiSelectBadge.layer?.cornerRadius = 12
@@ -508,11 +456,10 @@ final class SILGridItem: NSCollectionViewItem, WallpaperGridHoverItem {
 
         view.addSubview(imageContainer)
         imageContainer.addSubview(thumbnailView)
+        imageView = thumbnailView
         imageContainer.addSubview(selectionTint)
-        imageContainer.addSubview(overlayView)
-        overlayView.addSubview(titleLabel)
-        overlayView.addSubview(metaLabel)
         imageContainer.addSubview(hoverOutline)
+        imageContainer.addSubview(overlayView)
         imageContainer.addSubview(placeholderLabel)
         imageContainer.addSubview(multiSelectBadge)
         multiSelectBadge.addSubview(multiSelectIcon)

@@ -12,10 +12,12 @@
     var isHovering = false
     let thumbnailImageView = NSImageView()
     let placeholderLabel = NSTextField(labelWithString: "生成中...")
-    let favoriteBadgeContainer = NSView()
-    let favoriteBadge = NSImageView()
-    let titleLabel = NSTextField(labelWithString: "")
-    let metaLabel = NSTextField(labelWithString: "")
+    var isFavoriteState = false
+    let view = NSView()
+    var currentTitle = ""
+    var currentMetadata = ""
+    func updateControlBarContent(isFavorite: Bool) {}
+    func layoutThumbnail() {}
     func applySelectionState(isSelected: Bool, multiSelectMode: Bool) {}
     func updatePlayButtonVisibility() {}
     func applyHoverVisibility(_ value: Bool, animated: Bool) {}

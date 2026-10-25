@@ -14,11 +14,22 @@ import QuartzCore
             styleMask: [.titled], backing: .buffered, defer: false)
         window.isReleasedWhenClosed = false
         let root = NSView(frame: NSRect(x: 0, y: 0, width: 480, height: 260))
-        let sidebar = NSView(frame: NSRect(x: 0, y: 0, width: 140, height: 260))
+        let systemBase = NSView(frame: NSRect(x: 0, y: 0, width: 140, height: 260))
+        systemBase.wantsLayer = true
+        systemBase.layer?.backgroundColor = NSColor.windowBackgroundColor.cgColor
+        let sidebar = AppKitListTintSurface(frame: systemBase.bounds)
+        sidebar.ignoresHitTesting = true
+        sidebar.setAccessibilityElement(false)
+        systemBase.addSubview(sidebar)
+        let scroll = NSScrollView(frame: systemBase.bounds)
+        scroll.drawsBackground = false
+        let document = NSView(frame: systemBase.bounds)
+        scroll.documentView = document
+        systemBase.addSubview(scroll)
         let main = AppKitListTintSurface(frame: NSRect(x: 140, y: 0, width: 340, height: 260))
         let button = NSButton(title: "系统按钮", target: nil, action: nil)
         button.frame = NSRect(x: 25, y: 60, width: 120, height: 30)
-        main.addSubview(button); root.addSubview(sidebar); root.addSubview(main); window.contentView = root
+        main.addSubview(button); root.addSubview(systemBase); root.addSubview(main); window.contentView = root
         root.appearance = NSAppearance(named: .aqua)
         sidebar.wantsLayer = true; main.wantsLayer = true
         sidebar.layer!.backgroundColor = NSColor.clear.cgColor; main.layer!.backgroundColor = NSColor.clear.cgColor
@@ -26,6 +37,15 @@ import QuartzCore
         let layers = roots.map { $0.layer! }
         let children = roots.map(\.subviews), accessibility = roots.map { $0.isAccessibilityElement() }
         let frames = [sidebar.frame, main.frame, button.frame]
+        func hierarchy(_ views: [NSView]) -> [[String: Any]] {
+            views.map { view in
+                ["type": String(describing: type(of: view)), "frame": NSStringFromRect(view.frame),
+                 "layer": view.layer.map { String(describing: ObjectIdentifier($0)) } ?? "nil",
+                 "children": view.subviews.map { ["type": String(describing: type(of: $0)),
+                    "identity": String(describing: ObjectIdentifier($0)), "frame": NSStringFromRect($0.frame)] }]
+            }
+        }
+        timingDiagnostics["hierarchyBeforeInstall"] = hierarchy(roots)
         let buttonTint = button.contentTintColor, accent = NSColor.controlAccentColor
         var options = AppKitListBackgroundTint.DisplayOptions(allowsTint: true, reduceMotion: false)
         var pendingSamples: [(ListThumbnailTintColor?) -> Void] = []
@@ -33,6 +53,15 @@ import QuartzCore
             displayOptions: { options })
         owner.install(sidebar: sidebar, main: main)
         check("installAddsNoSubviewOrLayer", roots.map(\.subviews) == children && roots.map { $0.layer! } == layers)
+        // The Sidebar gate separately checks the product's opaque system draw.
+        // This hierarchy isolates the unchanged real CALayer projection.
+        check("onePassiveTintHostSitsBetweenPlainSystemBaseAndOriginalTransparentScroll", systemBase.subviews.filter { $0 is AppKitListTintSurface }.count == 1
+            && systemBase.subviews.firstIndex(of: sidebar)! < systemBase.subviews.firstIndex(of: scroll)!
+            && !scroll.drawsBackground && !(systemBase is NSVisualEffectView)
+            && systemBase.layer?.backgroundColor?.alpha == 1)
+        check("passiveSidebarTintCannotInterceptScrollDocumentHitOrAccessibility", sidebar.hitTest(.zero) == nil
+            && !sidebar.isAccessibilityElement() && scroll.documentView === document
+            && systemBase.hitTest(NSPoint(x: 50, y: 100))?.isDescendant(of: scroll) == true)
         let key = AppKitListBackgroundTint.animationKey
         func pump(_ seconds: TimeInterval) {
             CATransaction.flush()
@@ -92,6 +121,7 @@ import QuartzCore
             pendingSamples.removeLast()(color)
         }
         window.orderFront(nil); pump(0.08)
+        timingDiagnostics["hierarchyFirstVisible"] = hierarchy(roots)
         let a = source("A"); owner.bind(a); complete(red)
         check("realWindowStartsSystemBackgroundAnimation", window.isVisible && roots.allSatisfy {
             animation($0)?.keyPath == "backgroundColor" && animation($0)?.duration == 0.75
@@ -152,14 +182,14 @@ import QuartzCore
             && finalAnimation?.repeatDuration == 0 && finalAnimation?.isRemovedOnCompletion == true)
         if let layer = main.layer, let retained = animation(main) {
             let now = CACurrentMediaTime()
-            timingDiagnostics = ["isRemovedOnCompletion": retained.isRemovedOnCompletion,
+            timingDiagnostics.merge(["isRemovedOnCompletion": retained.isRemovedOnCompletion,
                 "fillMode": retained.fillMode.rawValue, "beginTime": retained.beginTime,
                 "speed": retained.speed, "timeOffset": retained.timeOffset, "duration": retained.duration,
                 "repeatCount": retained.repeatCount, "repeatDuration": retained.repeatDuration,
                 "layerSpeed": layer.speed, "layerTimeOffset": layer.timeOffset,
                 "mediaTime": now, "layerLocalTime": layer.convertTime(now, from: nil),
                 "windowVisible": window.isVisible, "windowOcclusionVisible": window.occlusionState.contains(.visible),
-                "appRunning": NSApp.isRunning, "animationKeys": layer.animationKeys() ?? []]
+                "appRunning": NSApp.isRunning, "animationKeys": layer.animationKeys() ?? []], uniquingKeysWith: { _, next in next })
         }
         timingDiagnostics["terminalColorElapsed"] = Date().timeIntervalSince(finalRetargetStarted)
         // Native same-key replacements can retain a finished animation object
@@ -202,8 +232,11 @@ import QuartzCore
         let g = source("G"); owner.bind(g); complete(green); pump(0.06)
         check("appearanceCounterexampleHasRunningAnimation", animation(main) != nil)
         root.appearance = NSAppearance(named: .darkAqua); pump(0.02)
+        timingDiagnostics["rootDark"] = roots.map { ["rgba": model($0), "appearance": $0.effectiveAppearance.name.rawValue] as [String: Any] }
         check("appearanceReprojectsWithoutAnimation", roots.allSatisfy { animation($0) == nil && abs(model($0)[3] - 0.12) < 0.002 })
         root.appearance = NSAppearance(named: .aqua); pump(0.02)
+        timingDiagnostics["rootLight"] = roots.map { ["rgba": model($0), "appearance": $0.effectiveAppearance.name.rawValue] as [String: Any] }
+        timingDiagnostics["hierarchyAfterTransitions"] = hierarchy(roots)
         check("appearanceRestoresLightAlpha", roots.allSatisfy { animation($0) == nil && abs(model($0)[3] - 0.09) < 0.002 })
         check("allTransitionsPreserveChildrenLayersAndFrames", roots.map(\.subviews) == children && roots.map { $0.layer! } == layers
             && [sidebar.frame, main.frame, button.frame] == frames)

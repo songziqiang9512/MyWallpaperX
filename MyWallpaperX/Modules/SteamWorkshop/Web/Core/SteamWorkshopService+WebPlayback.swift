@@ -26,7 +26,13 @@ extension SteamWorkshopService {
         }
     }
 
-    func setAsWallpaper(_ record: SteamWorkshopDownloadRecord) {
+    @discardableResult
+    func setAsWallpaper(_ record: SteamWorkshopDownloadRecord,
+                        libraryPending: WallpaperPlaybackSequence.Pending? = nil) -> Bool {
+        guard let libraryPending else {
+            requestLibraryPlayback?(WallpaperReference(provider: .steamWorkshop, sourceID: record.id))
+            return false
+        }
         // New selection revokes stale import autoplay before async preparation,
         // independently of the later visible-output handoff notification.
         ImportedVideoAutoplayGate.shared.invalidate()
@@ -49,16 +55,17 @@ extension SteamWorkshopService {
                 guard let self, response == .alertSecondButtonReturn else { return }
                 self.requestMissingDependencyDownload(for: record)
             }
-            return
+            return false
         }
 
         // Start the empty renderer before validation/cache/resource preparation;
         // these stages already consume part of the click-to-play critical path.
         // Every early return below releases it without loading author content.
-        let processPreparation = record.contentType == .web ? prepareWebPlaybackProcess?() : nil
+        let processPreparation = record.contentType == .web ? prepareWebPlaybackProcess?(libraryPending) : nil
         // The product intent callback inside preparation may synchronously
         // advance this owner. Sample only after that admission is complete.
         let launchGeneration = webLaunchIntentGeneration
+        if record.contentType == .web && processPreparation == nil { return false }
         let requestID = processPreparation?.requestID ?? UUID()
         let cancelProcessPreparation = processPreparation?.cancel
         cancelWebProcessPreparation = cancelProcessPreparation
@@ -74,12 +81,11 @@ extension SteamWorkshopService {
             downloadError = record.contentType == .web
                 ? "当前 WEB 样本仍存在运行阻断问题，暂时不能直接播放。"
                 : "当前项目暂时不可播放。"
-            return
+            return false
         }
 
         if record.contentType == .scene {
-            requestSceneRender(record)
-            return
+            return requestSceneRender(record, libraryPending: libraryPending)
         }
 
         if record.contentType == .web {
@@ -121,6 +127,7 @@ extension SteamWorkshopService {
                     object: nil,
                     userInfo: [
                         "requestID": requestID,
+                        "libraryPending": libraryPending,
                         "intentEpoch": processPreparation?.intentEpoch as Any,
                         "recordID": record.id,
                         "entryURL": playbackContext.effectiveEntryURL,
@@ -136,7 +143,7 @@ extension SteamWorkshopService {
                 self.statusMessage = "已将 \(record.title) 发送到 HTML 网页壁纸实验宿主"
                 self.scheduleLaunchPendingFallbackClear(recordID: record.id)
             }
-            return
+            return true
         }
 
         // The Video import consumer retains this version until import finishes.
@@ -146,23 +153,29 @@ extension SteamWorkshopService {
         } catch {
             clearLaunchPending(matching: record.id)
             downloadError = error.localizedDescription
-            return
+            return false
         }
 
         guard let videoURL = record.videoURL else {
             clearLaunchPending(matching: record.id)
             downloadError = "没有找到可播放的视频文件。"
-            return
+            return false
         }
-        let autoplayToken = ImportedVideoAutoplayGate.shared.claim()
+        guard let admission = prepareVideoPlaybackIntent?(
+            WallpaperReference(provider: .steamWorkshop, sourceID: record.id), libraryPending) else {
+            clearLaunchPending(matching: record.id)
+            downloadError = "视频播放入口尚未就绪。"
+            return false
+        }
         ImportedVideoPlaybackRequest(
             localURL: videoURL,
-            autoplayToken: autoplayToken,
+            admission: admission,
             resourceLifetime: resourceLifetime
         )
             .post(name: .steamWorkshopVideoReadyToPlay)
         statusMessage = "已将 \(record.title) 发送到视频库并准备播放"
         scheduleLaunchPendingFallbackClear(recordID: record.id)
+        return true
     }
 
     // MARK: - Launch pending（M0.5）

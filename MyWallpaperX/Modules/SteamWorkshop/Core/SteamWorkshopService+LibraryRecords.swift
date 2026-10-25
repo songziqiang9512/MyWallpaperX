@@ -438,6 +438,7 @@ extension SteamWorkshopService {
         id: String,
         title: String,
         status: SteamWorkshopDownloadRecord.Status,
+        accountSteamID: String,
         sizeText: String? = nil
     ) {
         if let index = downloads.firstIndex(where: { $0.id == id }) {
@@ -466,7 +467,8 @@ extension SteamWorkshopService {
                 dependencyItemID: previous.dependencyItemID,
                 dependencyStatus: previous.dependencyStatus,
                 createdAt: previous.createdAt,
-                sizeBytes: previous.sizeBytes
+                sizeBytes: previous.sizeBytes,
+                intentAccountSteamID: accountSteamID
             )
             return
         }
@@ -493,7 +495,8 @@ extension SteamWorkshopService {
                 browserItem: browserItemForDownload(id: id),
                 contentType: .unknown,
                 dependencyItemID: nil,
-                dependencyStatus: .none
+                dependencyStatus: .none,
+                intentAccountSteamID: accountSteamID
             ),
             at: 0
         )

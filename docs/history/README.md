@@ -16,6 +16,9 @@
 
 | 截止日期 | 专题 | 类型 | 文件 | 独有价值 | 当前权威 |
 |---|---|---|---|---|---|
+| 2026-10-25 | App主窗口 / 播放列表 | 基础实现与初版审计 | [主窗口基础记录](development/main-window-playlists-foundation-2026-10-25.md) | 改造前源码快照、P/W施工安排、B1–B5有界证据与初版审计；不决定当前任务或最终验收 | [主界面改造方案](../development/main-window-playlists-redesign.md) |
+| 2026-10-25 | App主窗口 / U/A/N15 | 新10项之前的完整候选 | [前轮UI与N15记录](development/main-window-playlists-ui-n15-2026-10-25.md) | 保原目标、实现、有限验证与真实异常终态；旧堆叠/无返回/取色不再现役 | [新10项与模态方案](../development/main-window-playlists-redesign.md#user-ui-revision-10) |
+| 2026-10-25 | App主窗口 / UI R0–R4 | 上轮实施与限定验证 | [R0–R4记录](development/main-window-playlists-ui-r0-r4-2026-10-25.md) | 原A审计快照、真实失败负控与原生回归/Debug/试用边界；不定义新15项规则 | [当前主界面方案](../development/main-window-playlists-redesign.md#user-ui-revision-10) |
 | 2026-10-25 | Scene / Web 启动专项 | 最终结算 | [冷暖启动专项结算](cross-topic/wallpaper-startup-optimization-completed-2026-10-25.md) | 单一设计/失败/STOP历史及最终限定验收；旧门不改 | [启动合同](../scene/architecture/scene-launch-responsiveness-contract.md)、[Web模型](../web/web-project-json-runtime-model.md) |
 | 2026-10-25 | Scene / Web | 启动D16 | [统一运行包名](cross-topic/wallpaper-startup-d16-2026-10-25.md) | 修正对照输入、旧fixture反例与真实签名staging；污染名称控制保原点，不授性能因果 | [启动合同](../scene/architecture/scene-launch-responsiveness-contract.md)、[Web模型](../web/web-project-json-runtime-model.md) |
 | 2026-10-24 | Scene / Web | 启动D12 | [凭据与配对形状](cross-topic/wallpaper-startup-d12-2026-10-24.md) | 双loopback cookie先红后绿、真实Web六暖成组；P5入口STOP与原seek/C1限定证据 | [启动合同](../scene/architecture/scene-launch-responsiveness-contract.md)、[Web模型](../web/web-project-json-runtime-model.md)、[Web状态](../web/current-state.md) |

@@ -632,7 +632,7 @@ final class AppKitSettingsContainerView: NSView {
                 alert.informativeText = "尚未获准读取 Apple Music。请在系统设置的「隐私与安全性 → 自动化」中允许 MyWallpaperX 访问音乐，然后重新开启「壁纸歌曲信息」。"
                 alert.addButton(withTitle: "打开系统设置")
                 alert.addButton(withTitle: "稍后")
-                alert.beginSheetModal(for: window) { response in
+                presentAppAlert(alert, in: window) { response in
                     guard response == .alertFirstButtonReturn else { return }
                     NSWorkspace.shared.open(URL(string: "x-apple.systempreferences:com.apple.preference.security?Privacy_Automation")!)
                 }
@@ -790,19 +790,19 @@ final class AppKitSettingsContainerView: NSView {
 
         presentSavePanel(panel) { [weak self] targetURL in
             guard let self, let targetURL else { return }
-            do {
-                let summary = try self.dependency.actions.exportPersonalSettings(targetURL)
-                let done = makeAppAlert(
-                    title: "导出完成",
-                    message: "已导出 \(summary.wallpaperCount) 条壁纸配置，\(summary.tagCount) 个标签。"
-                )
-                presentAppAlert(done, in: self.preferredHostWindow())
-            } catch {
-                let failed = makeAppAlert(
-                    title: "导出失败",
-                    message: error.localizedDescription
-                )
-                presentAppAlert(failed, in: self.preferredHostWindow())
+            self.exportProfileButton.isEnabled = false
+            self.importProfileButton.isEnabled = false
+            Task { @MainActor in
+                defer { self.exportProfileButton.isEnabled = true; self.importProfileButton.isEnabled = true }
+                do {
+                    let summary = try await self.dependency.actions.exportPersonalSettings(targetURL)
+                    let done = makeAppAlert(title: "导出完成",
+                        message: "已导出 \(summary.wallpaperCount) 条壁纸配置，\(summary.tagCount) 个播放列表。")
+                    presentAppAlert(done, in: self.preferredHostWindow())
+                } catch {
+                    let failed = makeAppAlert(title: "导出失败", message: error.localizedDescription)
+                    presentAppAlert(failed, in: self.preferredHostWindow())
+                }
             }
         }
     }
@@ -820,29 +820,28 @@ final class AppKitSettingsContainerView: NSView {
             let hostWindow = self.preferredHostWindow()
             let confirm = makeAppAlert(
                 title: "导入个人设置",
-                message: "将恢复设置项、标签和收藏信息；同路径项目会覆盖为导入配置，缺失文件会保留并提示检查路径。",
+                message: "将合并设置、播放列表和特别喜爱；同 UUID 列表应用导入信息，保留现有成员后追加新成员。缺失文件保留为不可用引用，不下载或播放。",
                 buttons: ["导入", "取消"]
             )
             presentAppAlert(confirm, in: hostWindow) { [weak self] confirmResponse in
                 guard let self, confirmResponse == .alertFirstButtonReturn else { return }
-                do {
-                    let summary = try self.dependency.actions.importPersonalSettings(sourceURL)
-                    let done = makeAppAlert(
-                        title: "导入完成",
-                        message: """
-                        更新项目：\(summary.mergedWallpaperCount) 个
-                        新增项目：\(summary.createdWallpaperCount) 个
-                        标签总数：\(summary.tagCount) 个
-                        缺失路径：\(summary.missingPathCount) 个
-                        """
-                    )
-                    presentAppAlert(done, in: hostWindow)
-                } catch {
-                    let failed = makeAppAlert(
-                        title: "导入失败",
-                        message: error.localizedDescription
-                    )
-                    presentAppAlert(failed, in: hostWindow)
+                self.exportProfileButton.isEnabled = false
+                self.importProfileButton.isEnabled = false
+                Task { @MainActor in
+                    defer { self.exportProfileButton.isEnabled = true; self.importProfileButton.isEnabled = true }
+                    do {
+                        let summary = try await self.dependency.actions.importPersonalSettings(sourceURL)
+                        let done = makeAppAlert(title: "导入完成", message: """
+                            更新项目：\(summary.mergedWallpaperCount) 个
+                            新增项目：\(summary.createdWallpaperCount) 个
+                            导入播放列表：\(summary.tagCount) 个
+                            缺失路径：\(summary.missingPathCount) 个
+                            """)
+                        presentAppAlert(done, in: self.preferredHostWindow())
+                    } catch {
+                        let failed = makeAppAlert(title: "导入未完成", message: error.localizedDescription)
+                        presentAppAlert(failed, in: self.preferredHostWindow())
+                    }
                 }
             }
         }
@@ -905,7 +904,7 @@ final class AppKitSettingsContainerView: NSView {
         let hostWindow = preferredHostWindow()
         let alert = makeAppAlert(
             title: "重置设置",
-            message: "将清空视频库和图片库的所有壁纸、标签和最近使用，并恢复所有设置为初次安装状态。此操作不可撤销，确定要继续吗？",
+            message: "将清空视频库和图片库的入库记录，以及全部播放列表、特别喜爱和最近使用记录，并将设置恢复为初次安装状态。不会删除原始媒体或已下载文件。此操作不可撤销，确定要继续吗？",
             buttons: ["确定", "取消"]
         )
         presentAppAlert(alert, in: hostWindow) { [weak self] response in

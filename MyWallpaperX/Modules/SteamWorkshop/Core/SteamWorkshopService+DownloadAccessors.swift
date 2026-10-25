@@ -30,28 +30,6 @@ extension SteamWorkshopService {
         return hasVideo || record.contentType == .scene
     }
 
-    var filteredDownloads: [SteamWorkshopDownloadRecord] {
-        displayedDownloads
-    }
-
-    var visibleVideoDownloadsCount: Int {
-        downloads.lazy.filter { $0.status == .ready && $0.contentType == .video }.count
-    }
-
-    var visibleWebDownloadsCount: Int {
-        downloads.lazy.filter { $0.status == .ready && $0.contentType == .web }.count
-    }
-
-    var visibleSceneDownloadsCount: Int {
-        downloads.lazy.filter { $0.status == .ready && $0.contentType == .scene }.count
-    }
-
-    func firstDisplayedDownloadID(in ids: Set<String>) -> String? {
-        displayedDownloads.first { ids.contains($0.id) }?.id
-    }
-
-    var downloadsCount: Int { downloads.lazy.filter { $0.status == .ready }.count }
-
     var activeFilterDisplayParts: [String] {
         var parts: [String] = []
         parts.append(
@@ -91,48 +69,7 @@ extension SteamWorkshopService {
     }
 
     func latestDownloadRecord(for itemID: String) -> SteamWorkshopDownloadRecord? {
-        downloads.first(where: { $0.id == itemID })
-    }
-
-    var selectedDownloadRecord: SteamWorkshopDownloadRecord? {
-        guard let selectedDownloadID else { return nil }
-        return latestDownloadRecord(for: selectedDownloadID)
-    }
-
-    var effectiveSelectedDownloadIDs: Set<String> {
-        if isDownloadsMultiSelectMode {
-            return selectedDownloadIDs
-        }
-        if let selectedDownloadID {
-            return [selectedDownloadID]
-        }
-        return []
-    }
-
-    var canDeleteSelectedDownload: Bool {
-        let selectedIDs = effectiveSelectedDownloadIDs
-        guard !selectedIDs.isEmpty else { return false }
-        return selectedIDs.allSatisfy { id in
-            guard let record = latestDownloadRecord(for: id) else { return false }
-            switch record.status {
-            case .ready, .failed:
-                return true
-            case .queued, .downloading:
-                return false
-            }
-        }
-    }
-
-    var canShowSelectedDownloadInfo: Bool {
-        !isDownloadsMultiSelectMode && selectedDownloadRecord != nil
-    }
-
-    var canRevealSelectedDownload: Bool {
-        !isDownloadsMultiSelectMode && selectedDownloadRecord != nil
-    }
-
-    var canSelectAllDownloads: Bool {
-        isDownloadsMultiSelectMode && !displayedDownloads.isEmpty
+        downloads.first(where: { $0.id.utf8.elementsEqual(itemID.utf8) })
     }
 
     func downloadRecord(for itemID: String) -> SteamWorkshopDownloadRecord? {

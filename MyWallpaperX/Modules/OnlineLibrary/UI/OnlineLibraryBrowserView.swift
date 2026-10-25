@@ -8,10 +8,22 @@ import Combine
 
 final class OnlineLibraryBrowserView: NSView, NSTextFieldDelegate, ListThumbnailTintProviding {
     let listThumbnailTintSource = ListThumbnailTintSource()
+    var preferredColumns = 5 {
+        didSet { currentGrid?.preferredColumns = preferredColumns }
+    }
+    var clipWidth: CGFloat { currentGrid?.window == nil ? 0 : currentGrid?.clipWidth ?? 0 }
+    var onClipWidthChange: ((CGFloat) -> Void)? {
+        didSet { onClipWidthChange?(clipWidth) }
+    }
+    var makeOrganization: ((OnlineLibraryVideoItem) -> WallpaperInspectorActions?)? {
+        didSet { currentGrid?.makeOrganization = makeOrganization }
+    }
+    func refreshOrganization() { currentGrid?.refreshOrganization() }
     private let service = OnlineLibraryService.shared
     private let contentHost = NSView()
     private var currentState: OnlineLibraryBrowserContentState?
     private var gridStack: NSStackView?
+    private weak var currentGrid: AppKitOLBrowserContainerView?
     private var gridBannerView: NSView?
     private var toastView: OnlineLibraryDownloadToastView?
     private var toastDismissTask: Task<Void, Never>?
@@ -40,6 +52,7 @@ final class OnlineLibraryBrowserView: NSView, NSTextFieldDelegate, ListThumbnail
 
     override func viewDidMoveToWindow() {
         super.viewDidMoveToWindow()
+        onClipWidthChange?(clipWidth)
         guard window != nil else { return }
         triggerInitialSearchIfNeeded()
     }
@@ -136,6 +149,8 @@ final class OnlineLibraryBrowserView: NSView, NSTextFieldDelegate, ListThumbnail
 
         listThumbnailTintSource.forward(from: nil)
         currentState = nextState
+        currentGrid = nil
+        onClipWidthChange?(0)
         gridStack = nil
         gridBannerView = nil
         contentHost.subviews.forEach { $0.removeFromSuperview() }
@@ -285,6 +300,13 @@ final class OnlineLibraryBrowserView: NSView, NSTextFieldDelegate, ListThumbnail
             onDownload: { [weak self] item in self?.service.download(item: item) },
             onSetAsWallpaper: { [weak self] item in self?.service.downloadAndSet(item: item) }
         )
+        grid.makeOrganization = makeOrganization
+        grid.preferredColumns = preferredColumns
+        grid.onClipWidthChange = { [weak self, weak grid] width in
+            guard let self, self.currentGrid === grid else { return }
+            self.onClipWidthChange?(width)
+        }
+        currentGrid = grid
         listThumbnailTintSource.forward(from: grid.listThumbnailTintSource)
         grid.translatesAutoresizingMaskIntoConstraints = false
         stack.addArrangedSubview(grid)

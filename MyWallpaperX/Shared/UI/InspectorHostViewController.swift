@@ -169,6 +169,10 @@ final class InspectorHostCardView: NSView {
         progressIndicator.isHidden = hostedContentView != nil
         hostedContentView == nil ? progressIndicator.startAnimation(nil) : progressIndicator.stopAnimation(nil)
         refreshAppearance()
+        // New source children enter the already visible card at its actual
+        // width, rather than painting once with their zero-size initial frame.
+        superview?.layoutSubtreeIfNeeded()
+        layoutSubtreeIfNeeded()
     }
 
     func refreshAppearance() {

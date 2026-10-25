@@ -9,6 +9,7 @@ SOURCES = ROOT / 'MyWallpaperX/Core/PlaybackControl'
 PROPERTY = ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Systems/Properties/SceneUserProperty.swift"
 HARNESS = r'''
 import Foundation
+import Combine
 final class Handler: PlaybackEngineControlling {
     let engineKind: PlaybackEngineKind
     var isPlaying: Bool
@@ -99,6 +100,59 @@ final class Handler: PlaybackEngineControlling {
         mirror = PlaybackIntentEpoch.adopted(mirror: mirror, product: counter.begin())
         precondition(mirror == 6, "newer product epoch must win")
         precondition(counter.value == 6)
+        let observed = PlaybackCommandMultiplexer()
+        var snapshots: [PlaybackPauseSnapshot] = []
+        var gettersMatchDeliveredValue = true
+        let subscription = observed.pauseSnapshots.sink { value in
+            snapshots.append(value)
+            gettersMatchDeliveredValue = gettersMatchDeliveredValue && observed.pauseSnapshot == value
+        }
+        precondition(snapshots == [.init(revision: 0, isUserPaused: false, isSystemPaused: false)])
+        observed.setSystemPaused(true)
+        observed.dispatch(.pause)
+        precondition(snapshots.map(\.revision) == [0,1,2])
+        precondition(snapshots.last!.isUserPaused && snapshots.last!.isSystemPaused && snapshots.last!.isPaused,
+            "independent user pause must publish even while system pause keeps effective OR unchanged")
+        observed.dispatch(.resume)
+        precondition(!snapshots.last!.isUserPaused && snapshots.last!.isSystemPaused && observed.isPlaybackPaused)
+        observed.setSystemPaused(false)
+        precondition(snapshots.last == .init(revision: 4, isUserPaused: false, isSystemPaused: false))
+        observed.setSystemPaused(false)
+        observed.dispatch(.resume)
+        precondition(snapshots.count == 5 && gettersMatchDeliveredValue, "unchanged bits do not invent revisions")
+        var late: PlaybackPauseSnapshot?
+        observed.setSystemPaused(true)
+        let lateSubscription = observed.pauseSnapshots.sink { late = $0 }
+        precondition(late == .init(revision: 5, isUserPaused: false, isSystemPaused: true))
+        let newlyRegistered = Handler(.video, playing: true)
+        observed.register(newlyRegistered)
+        precondition(!newlyRegistered.isPlaying && snapshots.count == 6,
+            "register replays effective pause without manufacturing a policy change")
+        lateSubscription.cancel(); subscription.cancel()
+        for _ in 0..<100 {
+            let reentrant = PlaybackCommandMultiplexer()
+            let reentrantHandler = Handler(.video, playing: true)
+            reentrant.register(reentrantHandler)
+            var firstRevisions: [UInt64] = [], secondRevisions: [UInt64] = []
+            var matchesAuthority = true
+            let first = reentrant.pauseSnapshots.sink { value in
+                firstRevisions.append(value.revision)
+                matchesAuthority = matchesAuthority && value == reentrant.pauseSnapshot
+                if value.revision == 1 { reentrant.dispatch(.resume) }
+            }
+            let second = reentrant.pauseSnapshots.sink { value in
+                secondRevisions.append(value.revision)
+                matchesAuthority = matchesAuthority && value == reentrant.pauseSnapshot
+                if value.revision == 1 { reentrant.dispatch(.resume) }
+            }
+            reentrant.dispatch(.pause)
+            precondition(firstRevisions == firstRevisions.sorted() && secondRevisions == secondRevisions.sorted(),
+                "Synchronous pause reentry must never deliver an older snapshot after the current one")
+            precondition(firstRevisions.last == 2 && secondRevisions.last == 2 && matchesAuthority)
+            precondition(!reentrant.isUserPaused && !reentrant.isPlaybackPaused && reentrantHandler.isPlaying,
+                "The outer command must also deliver the effective current pause to the original handler")
+            first.cancel(); second.cancel()
+        }
         print("playback-dispatch-pass")
     }
 }

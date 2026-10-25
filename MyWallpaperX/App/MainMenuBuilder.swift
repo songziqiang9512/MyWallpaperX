@@ -5,6 +5,66 @@
 
 import AppKit
 
+@MainActor enum MainMenuCommand: String, CaseIterable {
+    case about, settings, closeWindow, createPlaylist, importFiles, undo, redo
+    case selectAll, toggleSelection, deleteSelected, search, zoomIn, zoomOut
+    case applyWallpaper, nextWallpaper, previousWallpaper, favorite, addToPlaylist, info, preview, revealOrRefresh
+    case videos, images, downloads, recent, workshop, subscriptions, pixabay, playlists, favorites
+
+    var identifier: NSUserInterfaceItemIdentifier { .init("MyWallpaperX.Menu." + rawValue) }
+    var page: WallpaperLibraryPage? {
+        switch self {
+        case .videos: return .videos
+        case .images: return .images
+        case .downloads: return .downloads
+        case .recent: return .recent
+        case .workshop: return .workshop
+        case .subscriptions: return .workshopSubscriptions
+        case .pixabay: return .pixabay
+        case .playlists: return .playlists
+        case .favorites: return .favorites
+        default: return nil
+        }
+    }
+    var action: Selector {
+        switch self {
+        case .about: return #selector(AppDelegate.showAboutMenuAction(_:))
+        case .settings: return #selector(AppDelegate.showSettingsMenuAction(_:))
+        case .closeWindow: return #selector(AppDelegate.closeWindowMenuAction(_:))
+        case .createPlaylist: return #selector(AppDelegate.createPlaylistMenuAction(_:))
+        case .importFiles: return #selector(AppDelegate.importMenuAction(_:))
+        case .undo: return #selector(AppDelegate.undoMenuAction(_:))
+        case .redo: return #selector(AppDelegate.redoMenuAction(_:))
+        case .selectAll: return #selector(AppDelegate.selectAllMenuAction(_:))
+        case .toggleSelection: return #selector(AppDelegate.toggleMultiSelectMenuAction(_:))
+        case .deleteSelected: return #selector(AppDelegate.deleteSelectedMenuAction(_:))
+        case .search: return #selector(AppDelegate.focusSearchMenuAction(_:))
+        case .zoomIn: return #selector(AppDelegate.zoomInMenuAction(_:))
+        case .zoomOut: return #selector(AppDelegate.zoomOutMenuAction(_:))
+        case .applyWallpaper: return #selector(AppDelegate.setAsWallpaperMenuAction(_:))
+        case .nextWallpaper: return #selector(AppDelegate.nextWallpaperMenuAction(_:))
+        case .previousWallpaper: return #selector(AppDelegate.previousWallpaperMenuAction(_:))
+        case .favorite: return #selector(AppDelegate.toggleFavoriteMenuAction(_:))
+        case .addToPlaylist: return #selector(AppDelegate.addToPlaylistMenuAction(_:))
+        case .info: return #selector(AppDelegate.showInfoMenuAction(_:))
+        case .preview: return #selector(AppDelegate.previewMenuAction(_:))
+        case .revealOrRefresh: return #selector(AppDelegate.revealInFinderMenuAction(_:))
+        default: return #selector(AppDelegate.navigateLibraryPageMenuAction(_:))
+        }
+    }
+    static func resolve(_ item: NSMenuItem) -> Self? {
+        if let identifier = item.identifier {
+            if let command = allCases.first(where: { $0.identifier == identifier }) { return command }
+            // AppKit supplies an action-name identifier when none was assigned.
+            // Accept that native identity; an unrelated explicit ID stays unknown.
+            guard let action = item.action, identifier.rawValue == NSStringFromSelector(action) else { return nil }
+        }
+        // Selector fallback supports standard overflow items without matching
+        // any translated or mutable display title. Page entries require IDs.
+        return allCases.first { $0.page == nil && $0.action == item.action }
+    }
+}
+
 @MainActor
 enum MainMenuBuilder {
     static func installMainMenu() {
@@ -78,8 +138,8 @@ enum MainMenuBuilder {
     private static func addFileMenu(to mainMenu: NSMenu) {
         let menu = NSMenu(title: "文件")
         menu.addItem(
-            title: "新建标签",
-            action: #selector(AppDelegate.createTagMenuAction(_:)),
+            title: "新建播放列表…",
+            action: #selector(AppDelegate.createPlaylistMenuAction(_:)),
             keyEquivalent: "n"
         )
         menu.addItem(.separator())
@@ -93,6 +153,9 @@ enum MainMenuBuilder {
 
     private static func addEditMenu(to mainMenu: NSMenu) {
         let menu = NSMenu(title: "编辑")
+        menu.addItem(title: "撤销", action: #selector(AppDelegate.undoMenuAction(_:)), keyEquivalent: "z")
+        menu.addItem(title: "重做", action: #selector(AppDelegate.redoMenuAction(_:)), keyEquivalent: "z", modifierMask: [.command, .shift])
+        menu.addItem(.separator())
         menu.addItem(
             title: "剪切",
             action: #selector(NSText.cut(_:)),
@@ -149,6 +212,14 @@ enum MainMenuBuilder {
             action: #selector(AppDelegate.zoomOutMenuAction(_:)),
             keyEquivalent: "-"
         )
+        menu.addItem(.separator())
+        let navigation = NSMenu(title: "前往")
+        for (command, title) in [(MainMenuCommand.videos, "我的视频"), (.images, "我的图片"), (.downloads, "我的下载"),
+                                  (.recent, "最近使用"), (.workshop, "创意工坊"), (.subscriptions, "工坊订阅"),
+                                  (.pixabay, "Pixabay"), (.playlists, "所有播放列表"), (.favorites, "特别喜爱")] {
+            navigation.addItem(title: title, action: command.action, keyEquivalent: "", command: command)
+        }
+        menu.addItem(withTitle: "前往", submenu: navigation)
         mainMenu.addItem(withTitle: "显示", submenu: menu)
     }
 
@@ -173,13 +244,13 @@ enum MainMenuBuilder {
         )
         menu.addItem(.separator())
         menu.addItem(
-            title: "收藏 / 取消收藏",
+            title: "特别喜爱 / 取消特别喜爱",
             action: #selector(AppDelegate.toggleFavoriteMenuAction(_:)),
             keyEquivalent: "d"
         )
         menu.addItem(
-            title: "添加标签",
-            action: #selector(AppDelegate.addTagMenuAction(_:)),
+            title: "添加到列表…",
+            action: #selector(AppDelegate.addToPlaylistMenuAction(_:)),
             keyEquivalent: "t"
         )
         menu.addItem(
@@ -238,11 +309,13 @@ private extension NSMenu {
         keyEquivalent: String,
         modifierMask: NSEvent.ModifierFlags = [.command],
         target: AnyObject? = NSApp.delegate as AnyObject?,
-        systemImageName: String? = nil
+        systemImageName: String? = nil,
+        command: MainMenuCommand? = nil
     ) {
         let item = NSMenuItem(title: title, action: action, keyEquivalent: keyEquivalent)
         item.keyEquivalentModifierMask = modifierMask
         item.target = target
+        item.identifier = (command ?? MainMenuCommand.allCases.first { $0.page == nil && $0.action == action })?.identifier
         if let systemImageName,
            let image = NSImage(systemSymbolName: systemImageName, accessibilityDescription: title) {
             image.isTemplate = true

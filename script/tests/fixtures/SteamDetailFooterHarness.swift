@@ -80,7 +80,7 @@ import AppKit
                 for peer in tags.documentView!.subviews where peer !== chip { precondition(!chip.frame.intersects(peer.frame)) }
             }
         }
-        let bar = SteamWorkshopGlassBarView(frame: NSRect(x: 0, y: 0, width: 200, height: 40))
+        let bar = WallpaperCardGlassBarView(frame: NSRect(x: 0, y: 0, width: 200, height: 40))
         bar.layer?.cornerRadius = 12
         bar.applyProgress(style: .downloading, fraction: 0.5, indeterminate: false, animated: false)
         bar.layoutSubtreeIfNeeded()

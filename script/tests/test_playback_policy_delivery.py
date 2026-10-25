@@ -169,6 +169,9 @@ final class Sounds {
 }
 final class Host {
     var sceneClock = Clock()
+    struct Cohort { var isHeld = false }
+    var initialPresentationCohort = Cohort()
+    var awaitsInitialPresentation = false
     var isVisible = true
     var isOutputActive = true
     var launchContext: Int? = 1
@@ -189,6 +192,11 @@ final class Host {
 }
 @main enum Harness {
     static func main() {
+        let heldHost = Host()
+        heldHost.initialPresentationCohort.isHeld = true
+        heldHost.startFrameDriver()
+        precondition(heldHost.frames == 0 && heldHost.timers == 0,
+            "An unadmitted presentation cohort must not draw or start a frame timer")
         let host = Host()
         host.startFrameDriver()
         precondition(host.frames == 1 && host.timers == 0 && host.sceneClock.isPaused)
@@ -222,7 +230,7 @@ final class Host {
 }
 '''.replace("// METHODS", "\n".join([
             method(driver, "func startFrameDriver("),
-            method(driver, "private func scheduleFrameDriver("),
+            method(driver, "func scheduleFrameDriver("),
             method(pause, "func setPlaybackPaused("),
         ])).replace("enum ScenePerformanceCounterHub {", "struct ScenePerformanceCounterHub {")
         with tempfile.TemporaryDirectory(prefix="mwx-scene-pause-admission-") as directory:

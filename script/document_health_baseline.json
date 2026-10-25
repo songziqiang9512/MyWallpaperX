@@ -5,20 +5,20 @@
   "maxReviewAgeDays": 60,
   "bodies": {
     "docs/architecture/appkit-migration.md": {
-      "lines": 217,
-      "bytes": 20641
+      "lines": 213,
+      "bytes": 20856
     },
     "docs/architecture/playback-lifecycle-transaction-design.md": {
       "lines": 50,
-      "bytes": 8990
+      "bytes": 9065
     },
     "docs/architecture/repository-map.md": {
-      "lines": 32,
-      "bytes": 6253
+      "lines": 33,
+      "bytes": 6787
     },
     "docs/architecture/steam-workshop-acquisition-contract.md": {
       "lines": 80,
-      "bytes": 17747
+      "bytes": 17744
     },
     "docs/architecture/system-audio-spectrum-design.md": {
       "lines": 34,
@@ -30,7 +30,7 @@
     },
     "docs/development/apple-silicon-optimization-plan.md": {
       "lines": 554,
-      "bytes": 116385
+      "bytes": 116551
     },
     "docs/development/code-slimming-program.md": {
       "lines": 451,
@@ -323,6 +323,10 @@
     "docs/web/web-wallpaper-benchmark-standard.md": {
       "lines": 86,
       "bytes": 8377
+    },
+    "docs/development/main-window-playlists-redesign.md": {
+      "lines": 596,
+      "bytes": 117102
     }
   },
   "archives": [
@@ -1212,6 +1216,50 @@
       ],
       "originalLines": 480,
       "originalBytes": 133199
+    },
+    {
+      "source": "docs/development/main-window-playlists-redesign.md",
+      "archive": "docs/history/development/main-window-playlists-foundation-2026-10-25.md",
+      "anchors": [
+        "22-2026-10-24-源码核对结果",
+        "持续执行工作卡唯一完成状态",
+        "已验收b1-视频方形卡与共享呈现",
+        "基础实施记录b2-关系基础与-b3-呈现铺开2026-10-25",
+        "基础实施记录b4-启动准入与页面目录接线基础",
+        "基础交付记录b5-统一网格来源播放与主窗口装配尚未最终验收",
+        "74-提取-steam-卡片的具体方法"
+      ],
+      "preservedBodySHA256": "b2df0e25629b526e0ec3f4b2fa8d3136a0488b35f10261d68224fb5a515fd337",
+      "originalBodySHA256": "180ec813275c27b185af098dac4f1e649e4dac7ee2520fb3b6ed6ef035c4d92a",
+      "originalLines": 167,
+      "originalBytes": 38851
+    },
+    {
+      "source": "docs/development/main-window-playlists-redesign.md",
+      "archive": "docs/history/development/main-window-playlists-ui-r0-r4-2026-10-25.md",
+      "anchors": [
+        "r0-r4-audit-snapshot",
+        "r0-r4-validation-record",
+        "r0-r4-implementation-paths"
+      ],
+      "preservedBodySHA256": "276ad00f810df6be00559392d9a1a9423ecbc6d38d45d8e74245d5cdef277e82",
+      "originalBodySHA256": "25802a1fd449d73fa3e27dd7675218c7169fbbfbc830dd641666c4b689236ad2",
+      "originalLines": 64,
+      "originalBytes": 37219
+    },
+    {
+      "source": "docs/development/main-window-playlists-redesign.md",
+      "archive": "docs/history/development/main-window-playlists-ui-n15-2026-10-25.md",
+      "anchors": [
+        "ui-refinement",
+        "user-ui-corrections",
+        "ui-audit-findings",
+        "user-ui-revision-15"
+      ],
+      "preservedBodySHA256": "d750d1e991119366694746ab29b244b84e703203d3e8098c093f22d87327f863",
+      "originalBodySHA256": "83351af135dfd7ca7eb5242160adee17d5dcf34aaf35288edf6e40a417684e78",
+      "originalLines": 92,
+      "originalBytes": 24093
     }
   ],
   "snapshots": [
@@ -1230,19 +1278,19 @@
     {
       "section": "bodies",
       "path": "docs/architecture/playback-lifecycle-transaction-design.md",
-      "before": "921a3156ee08b340637c2abe8c1f2da970fcd04e64fa279847684658b809a5bd",
-      "after": "99603a77f6b5ebc57cfcaf0eb16f35e14628ef78777f7683d561d2868adc8bf9",
-      "owner": "原播放事务与父进程生命周期",
-      "reason": "保留原三引擎事务与短时Scene重入合同，补事件注册/独立退出期限和恢复前频谱播种，替换重复轮询/补配说法；不新增运行或性能验收。",
-      "decision": "docs/development/validation-simplification-plan.md#全仓后继事件分片与重复桥接"
+      "before": "99603a77f6b5ebc57cfcaf0eb16f35e14628ef78777f7683d561d2868adc8bf9",
+      "after": "a8670ce20145ff769ac341b2b18a6c99ee6ebd2d253bf9547bb0d294e9b198f9",
+      "owner": "main-window-playlists-explicit-stop",
+      "reason": "保留原三引擎事务与短时Scene重入合同，补事件注册/独立退出期限和恢复前频谱播种，替换重复轮询/补配说法；不新增运行或性能验收。 实际Stop暴露通用清理提前删除退休执行映射；补唯一回执归属约束及真实组合反例，不增加生命周期owner。 按f2b启动合同合并，保父退出事件、恢复前频谱播种、D23短时重入与实际退出边界。",
+      "decision": "docs/development/main-window-playlists-redesign.md#documentation-decision"
     },
     {
       "section": "bodies",
       "path": "docs/architecture/steam-workshop-acquisition-contract.md",
-      "before": "ece660ca6b5aabfaf83f079b76f48c6fe8ce613cb7373bb7738d654fbfe58276",
-      "after": "93b175d938856717223ad6637f5df598a70f11848d0d5a6f122ac1af1eef53bd",
+      "before": "93b175d938856717223ad6637f5df598a70f11848d0d5a6f122ac1af1eef53bd",
+      "after": "ed0516f202b631dc73daa6a7a8c1e2f85821f5beb58d61bad46ea3b6fd5b8f50",
       "owner": "原下载/库发布事务",
-      "reason": "区分正常receipt下载摘要与旧v1当前内容迁移，完整性沿原复制流、metadata CAS与租约执行；普通播放不重核历史目录，不扩大账号或发布验收。",
+      "reason": "区分正常receipt下载摘要与旧v1当前内容迁移，完整性沿原复制流、metadata CAS与租约执行；普通播放不重核历史目录，不扩大账号或发布验收。 保启动发布/读取语义并同步UI图片方格独立缩放；按合并后的实际正文登记。",
       "decision": "docs/development/validation-simplification-plan.md#p7下载与旧目录迁移直接消费当前结果"
     },
     {
@@ -1361,6 +1409,69 @@
       "owner": "Scene 当前能力与资源读取导航",
       "reason": "以当前单一 Root 读取合同替换已退役解包路径导航；P8 运行仍待验，不沿用旧提取互斥数据作现链性能证明。",
       "decision": "docs/development/validation-simplification-plan.md#审查方法与完成条件"
+    },
+    {
+      "section": "bodies",
+      "path": "docs/architecture/appkit-migration.md",
+      "before": "89cc7e712ae599716b1916d7f0528eb16c31bda33b2102a607456f8c6d814e26",
+      "after": "37ef47c2675506f1263d0f463a07b392de0ba23577eac83e25d05c7ef6bce060",
+      "owner": "main-window-playlists-design",
+      "reason": "同步实际主窗口/源UI退休职责，保历史批次与未验收边界。",
+      "decision": "docs/development/main-window-playlists-redesign.md#documentation-decision"
+    },
+    {
+      "section": "bodies",
+      "path": "docs/architecture/repository-map.md",
+      "before": "1fe0d24c627dd3495ed737dc20e76cbc5d70092a8e6d3d555dcb065b1b7f1df9",
+      "after": "0247ea7a10878bd9710cec9c00878f9b361c5dafada978865e1f3fb73f9307bc",
+      "owner": "main-window-playlists-design",
+      "reason": "同步实际主窗口/源UI退休职责，保历史批次与未验收边界。",
+      "decision": "docs/development/main-window-playlists-redesign.md#documentation-decision"
+    },
+    {
+      "section": "bodies",
+      "path": "docs/development/apple-silicon-optimization-plan.md",
+      "before": "3769b832b216646674ed5ac16bbc2ade02d6c156d440747f0d6a64a99e867a45",
+      "after": "23565c923029a42637a1e14549fc3aa383421c594bf1ad2d67da5a636815e7ac",
+      "owner": "main-window-playlists-design",
+      "reason": "原独立Grid退休后同步T11真实worker与共享窗口验证入口，不改其他优化结论或宣称性能提升。",
+      "decision": "docs/development/main-window-playlists-redesign.md#documentation-decision"
+    },
+    {
+      "section": "bodies",
+      "path": "docs/development/main-window-playlists-redesign.md",
+      "before": "74234e98afe7498fb5daf1f36ac2d78acc339464f950703b8c019892f982b90b",
+      "after": "9d7be5cd00d20d01472ed7877784bc749faddada0267a5cb5f70c8e9d698e260",
+      "owner": "main-window-playlists-design",
+      "reason": "同步Q01–Q09当前裁决与启动专项唯一链路整合、回归及最新授权；压缩已完成过程，硬限600行不变，保W22待验。",
+      "decision": "docs/development/main-window-playlists-redesign.md#documentation-decision"
+    },
+    {
+      "section": "archives",
+      "path": "docs/history/development/main-window-playlists-foundation-2026-10-25.md",
+      "before": "74234e98afe7498fb5daf1f36ac2d78acc339464f950703b8c019892f982b90b",
+      "after": "48b95cf6b0541192c4dbc5be0de84d1e90277add7446a7de1f554edf653a331f",
+      "owner": "main-window-playlists-design",
+      "reason": "Archive completed foundation and initial audit records with permanent redirects; consolidate duplicate toolbar/execution guidance and retain current safety/UI acceptance authority below the unchanged 600-line hard limit.",
+      "decision": "docs/development/main-window-playlists-redesign.md#documentation-decision"
+    },
+    {
+      "section": "archives",
+      "path": "docs/history/development/main-window-playlists-ui-r0-r4-2026-10-25.md",
+      "before": "74234e98afe7498fb5daf1f36ac2d78acc339464f950703b8c019892f982b90b",
+      "after": "7344dfe4924f98522f453e8239bb8a27e65239446676d0ce1afd7bb328c7bcaa",
+      "owner": "main-window-ui-revision-15",
+      "reason": "Preserve complete prior R0–R4 audit/implementation/validation while current authority replaces conflicting rules for the new15 user requirements.",
+      "decision": "docs/development/main-window-playlists-redesign.md#documentation-decision"
+    },
+    {
+      "section": "archives",
+      "path": "docs/history/development/main-window-playlists-ui-n15-2026-10-25.md",
+      "before": "74234e98afe7498fb5daf1f36ac2d78acc339464f950703b8c019892f982b90b",
+      "after": "e7b2eafb08d27427398a302e3b08f358ed6e3b546d181a46eb864c21bcd0c585",
+      "owner": "main-window-playlists-design",
+      "reason": "完整保留新10项之前U/A/N15方案及候选收据，避免旧堆叠/取消返回/取色与当前裁决混用；历史banner注明真实崩溃终态。",
+      "decision": "docs/development/main-window-playlists-redesign.md#documentation-decision"
     }
   ]
 }

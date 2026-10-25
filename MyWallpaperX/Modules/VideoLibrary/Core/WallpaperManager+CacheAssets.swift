@@ -28,17 +28,7 @@ extension WallpaperManager {
                 self.currentWallpaper = currentWallpaper
             }
 
-            if !recentlyUsedWallpapers.isEmpty {
-                recentlyUsedWallpapers = recentlyUsedWallpapers.map { wallpaper in
-                    var cleared = wallpaper
-                    cleared.thumbnailPath = nil
-                    cleared.staticFramePath = nil
-                    return cleared
-                }
-            }
-
             saveWallpapers()
-            saveRecentWallpapers()
             persistCurrentWallpaperSnapshot()
         }
     }
@@ -53,7 +43,7 @@ extension WallpaperManager {
 
         let normalized = normalizedPath(path)
 
-        // 资产回写要同步主库、当前播放项和最近使用快照，避免三处状态出现不同步。
+        // Derived assets update the source index/current runtime; history resolves these facts by reference.
         if let index = wallpapers.firstIndex(where: { normalizedPath($0.path) == normalized }) {
             _ = applyAssetPaths(
                 to: &wallpapers[index],
@@ -73,23 +63,6 @@ extension WallpaperManager {
             }
         }
 
-        if !recentlyUsedWallpapers.isEmpty {
-            var didUpdateRecent = false
-            recentlyUsedWallpapers = recentlyUsedWallpapers.map { wallpaper in
-                guard normalizedPath(wallpaper.path) == normalized else { return wallpaper }
-                var updated = wallpaper
-                let didChange = applyAssetPaths(
-                    to: &updated,
-                    thumbnailPath: thumbnailPath,
-                    staticFramePath: staticFramePath
-                )
-                didUpdateRecent = didUpdateRecent || didChange
-                return updated
-            }
-            if didUpdateRecent {
-                saveRecentWallpapers()
-            }
-        }
     }
 
     func ensurePreviewAssetsForWallpaper(_ wallpaper: VideoWallpaper) {

@@ -34,12 +34,6 @@ struct SILWallpaper: Identifiable, Codable, Hashable {
     var lastUsed: Date
     var addedAt: Date
 
-    /// 图片宽高比（width/height），无尺寸信息时返回 16/9 作为默认值
-    var aspectRatio: CGFloat {
-        guard let w = pixelWidth, let h = pixelHeight, h > 0 else { return 16.0 / 9.0 }
-        return CGFloat(w) / CGFloat(h)
-    }
-
     init(path: String) {
         self.id = UUID().uuidString
         self.path = path
@@ -60,55 +54,26 @@ struct SILWallpaper: Identifiable, Codable, Hashable {
     }
 }
 
-enum SILSortMode: String, CaseIterable, Codable {
-    case none
-    case name
-    case lastUsed
-    case fileSize
-    case addedAt
-
-    var displayName: String {
-        switch self {
-        case .none:     return "默认顺序"
-        case .name:     return "文件名称"
-        case .lastUsed: return "最近使用"
-        case .fileSize: return "文件大小"
-        case .addedAt:  return "添加时间"
-        }
-    }
-}
-
-struct SILSortState: Codable, Equatable {
-    var mode: SILSortMode = .none
-    var ascending: Bool = true
-}
-
 // MARK: - SILService
 
 final class SILService: ObservableObject {
 
+    static var startupMigrationRecoveryMessage: String?
+    static var defersMissingFileCleanupForPersonalSettingsRecovery = false
     static let shared = SILService()
+    let migrationRecoveryMessage: String?
+    var allowsLibraryMutation: Bool { migrationRecoveryMessage == nil }
+
+    private func admitLibraryMutation(in window: NSWindow? = nil) -> Bool {
+        guard let migrationRecoveryMessage else { return true }
+        let alert = makeAppAlert(title: "资料库需要恢复", message: migrationRecoveryMessage + "\n当前可继续浏览和播放已入库壁纸；请先恢复资料库再导入、删除或整理。",
+                                 style: .warning, buttons: ["知道了"])
+        presentAppAlert(alert, in: window)
+        return false
+    }
 
     @Published var wallpapers: [SILWallpaper] = []
-    @Published var selectedID: String? = nil
-    @Published var selectedIDs: Set<String> = []
-    @Published var inspectedWallpaperID: String? = nil
-    @Published var isMultiSelectMode: Bool = false
-    @Published var gridZoomOffset: Int = 0
-    @Published var searchQuery: String = ""
-    @Published var sortState: SILSortState = SILSortState()
-    /// 当前网格实际列数，由 SILGridContainerView 在 layout 时写入，供方向键导航使用
-    var visibleGridColumnCount: Int = 4
-    /// 图片库专属标签列表（与视频库 WallpaperManager.tags 完全独立）
-    @Published var silTags: [String] = []
-    /// 当前激活的侧边栏标签上下文；nil 表示「我的图片」全库，非 nil 表示标签子视图
-    /// 由 SILToolbarController 在收到 staticImageLibraryModeDidChange 通知时维护
-    var currentContextTag: String? = nil
-
     private let persistenceURL: URL
-    private let zoomOffsetKey = "SILGridZoomOffset"
-    private let sortStateKey  = "SILSortState"
-    private let silTagsKey    = "SILTags"
     private let initialMissingFilesAlertRetryLimit = 5
     private var metadataLoadGeneration: UInt64 = 0
     nonisolated private struct MissingImageDimensions: Sendable {
@@ -122,20 +87,13 @@ final class SILService: ObservableObject {
     var silPersistenceURL: URL { persistenceURL }
 
     private init() {
+        migrationRecoveryMessage = Self.startupMigrationRecoveryMessage
         let appSupport = FileManager.default
             .urls(for: .applicationSupportDirectory, in: .userDomainMask).first!
             .appendingPathComponent(Bundle.main.bundleIdentifier ?? "MyWallpaperX")
         try? FileManager.default.createDirectory(at: appSupport, withIntermediateDirectories: true)
         self.persistenceURL = appSupport.appendingPathComponent("sil_wallpapers.json")
         load()
-        gridZoomOffset = UserDefaults.standard.integer(forKey: zoomOffsetKey)
-        if let data = UserDefaults.standard.data(forKey: sortStateKey),
-           let state = try? JSONDecoder().decode(SILSortState.self, from: data) {
-            sortState = state
-        }
-        if let saved = UserDefaults.standard.stringArray(forKey: silTagsKey) {
-            silTags = saved
-        }
         reconcileMissingFilesOnLaunch()
     }
 
@@ -199,40 +157,39 @@ final class SILService: ObservableObject {
     }
 
     func save() {
-        guard let data = try? JSONEncoder().encode(wallpapers) else { return }
-        try? data.write(to: persistenceURL, options: .atomic)
+        guard migrationRecoveryMessage == nil else { return }
+        try? persistWallpaperMetadata(wallpapers)
     }
 
-    func saveZoomOffset() {
-        UserDefaults.standard.set(gridZoomOffset, forKey: zoomOffsetKey)
-    }
-
-    func saveSortState() {
-        if let data = try? JSONEncoder().encode(sortState) {
-            UserDefaults.standard.set(data, forKey: sortStateKey)
+    /// Same JSON owner for normal saves and an acknowledged settings import.
+    func persistWallpaperMetadata(_ values: [SILWallpaper], synchronize: Bool = false) throws {
+        guard allowsLibraryMutation else {
+            throw CocoaError(.fileWriteNoPermission, userInfo: [NSLocalizedDescriptionKey: migrationRecoveryMessage ?? "资料库需要恢复"])
         }
-    }
-
-    func saveSILTags() {
-        UserDefaults.standard.set(silTags, forKey: silTagsKey)
+        let data = try JSONEncoder().encode(values)
+        try data.write(to: persistenceURL, options: .atomic)
+        guard synchronize else { return }
+        let handle = try FileHandle(forWritingTo: persistenceURL)
+        defer { try? handle.close() }
+        try handle.synchronize()
     }
 
     private func reconcileMissingFilesOnLaunch() {
+        guard migrationRecoveryMessage == nil, !Self.defersMissingFileCleanupForPersonalSettingsRecovery else { return }
         let fm = FileManager.default
         let removed = wallpapers.filter { !fm.fileExists(atPath: $0.path) }
         guard !removed.isEmpty else { return }
 
         let removedIDs = Set(removed.map(\.id))
         wallpapers.removeAll { removedIDs.contains($0.id) }
-        selectedIDs.subtract(removedIDs)
-        if let selectedID, removedIDs.contains(selectedID) {
-            self.selectedID = nil
-        }
-        if let inspectedWallpaperID, removedIDs.contains(inspectedWallpaperID) {
-            self.inspectedWallpaperID = nil
-        }
         save()
         scheduleInitialMissingFilesAlert(for: removed, attempt: 0)
+    }
+
+    func resumeMissingFileCleanupAfterSettingsRecovery() {
+        guard Self.defersMissingFileCleanupForPersonalSettingsRecovery else { return }
+        Self.defersMissingFileCleanupForPersonalSettingsRecovery = false
+        reconcileMissingFilesOnLaunch()
     }
 
     private func scheduleInitialMissingFilesAlert(for removed: [SILWallpaper], attempt: Int) {
@@ -264,236 +221,9 @@ final class SILService: ObservableObject {
         }
     }
 
-    // MARK: - 图片专属标签 CRUD
-
-    /// 新建图片标签，名称去空白后不能为空且不能重复，成功返回规范化名称
-    @discardableResult
-    func createSILTag(_ name: String) -> String? {
-        let trimmed = name.trimmingCharacters(in: .whitespaces)
-        guard !trimmed.isEmpty, !silTags.contains(trimmed) else { return nil }
-        silTags.append(trimmed)
-        saveSILTags()
-        return trimmed
-    }
-
-    /// 重命名图片标签，同时更新所有壁纸上的标签引用，返回新名称
-    @discardableResult
-    func renameSILTag(_ oldName: String, to newName: String) -> String? {
-        let trimmed = newName.trimmingCharacters(in: .whitespaces)
-        guard !trimmed.isEmpty, trimmed != oldName, !silTags.contains(trimmed) else { return nil }
-        guard let idx = silTags.firstIndex(of: oldName) else { return nil }
-        silTags[idx] = trimmed
-        // 同步更新壁纸上的标签引用
-        for i in wallpapers.indices {
-            if let tagIdx = wallpapers[i].tags.firstIndex(of: oldName) {
-                wallpapers[i].tags[tagIdx] = trimmed
-            }
-        }
-        saveSILTags()
-        save()
-        return trimmed
-    }
-
-    /// 删除图片标签，同时从所有壁纸上移除该标签引用
-    func deleteSILTag(_ name: String) {
-        silTags.removeAll { $0 == name }
-        for i in wallpapers.indices {
-            wallpapers[i].tags.removeAll { $0 == name }
-        }
-        saveSILTags()
-        save()
-    }
-
-    /// 拖拽排序后保存新顺序（只允许已存在的标签，不新增也不删除）
-    func reorderSILTags(_ newOrder: [String]) {
-        let existing = Set(silTags)
-        let filtered = newOrder.filter { existing.contains($0) }
-        guard filtered != silTags else { return }
-        silTags = filtered
-        saveSILTags()
-    }
-
-    /// 给选中的壁纸添加标签（单选/多选均支持），完成后自动退出多选模式
-    func addSILTag(_ tag: String, toSelected ids: Set<String>) {
-        guard silTags.contains(tag) else { return }
-        for i in wallpapers.indices where ids.contains(wallpapers[i].id) {
-            if !wallpapers[i].tags.contains(tag) {
-                wallpapers[i].tags.append(tag)
-            }
-        }
-        save()
-        clearSelectionState()
-    }
-
-    /// 当前选中壁纸的有效 ID 集合（多选模式用 selectedIDs，单选模式用 selectedID）
-    var effectiveSelectedIDs: Set<String> {
-        if isMultiSelectMode {
-            return selectedIDs
-        } else if let id = selectedID {
-            return Set([id])
-        } else {
-            return []
-        }
-    }
-
-    /// 同 effectiveSelectedIDs，用不同名称避免 MainWindowCoordinator 中的类型推断歧义
-    var silSelectedIDs: Set<String> {
-        effectiveSelectedIDs
-    }
-
-    /// 是否有选中（供 MainWindowCoordinator 用，避免 effectiveSelectedIDs 的类型歧义）
-    var hasAnySelection: Bool {
-        if isMultiSelectMode { return !selectedIDs.isEmpty }
-        return selectedID != nil
-    }
-
-    /// 当前唯一有效选中项。
-    /// 单选模式返回 `selectedID`，多选模式仅在恰好选中一项时返回该项。
-    var singleEffectiveSelectedID: String? {
-        if isMultiSelectMode {
-            guard selectedIDs.count == 1 else { return nil }
-            return selectedIDs.first
-        }
-        return selectedID
-    }
-
-    // MARK: - 计算属性
-
-    var sortedWallpapers: [SILWallpaper] {
-        sortedWallpapers(forSILTag: nil)
-    }
-
-    /// Filter the active tag before sorting; untagged callers keep the same projection.
-    func sortedWallpapers(forSILTag tag: String?) -> [SILWallpaper] {
-        let query = searchQuery.trimmingCharacters(in: .whitespaces).lowercased()
-        let tagged = tag.map { tag in wallpapers.filter { $0.tags.contains(tag) } } ?? wallpapers
-        let filtered: [SILWallpaper]
-        if query.isEmpty {
-            filtered = tagged
-        } else {
-            filtered = tagged.filter {
-                $0.title.lowercased().contains(query) ||
-                $0.path.lowercased().contains(query)
-            }
-        }
-        guard sortState.mode != .none else { return filtered }
-        return filtered.sorted { a, b in
-            let asc = sortState.ascending
-            switch sortState.mode {
-            case .none:     return false
-            case .name:     return asc ? a.title < b.title : a.title > b.title
-            case .lastUsed: return asc ? a.lastUsed < b.lastUsed : a.lastUsed > b.lastUsed
-            case .fileSize:
-                let as_ = a.fileSize ?? 0; let bs = b.fileSize ?? 0
-                return asc ? as_ < bs : as_ > bs
-            case .addedAt:  return asc ? a.addedAt < b.addedAt : a.addedAt > b.addedAt
-            }
-        }
-    }
-
     var currentActiveWallpaperPath: String? {
         guard let screen = NSScreen.main else { return nil }
         return NSWorkspace.shared.desktopImageURL(for: screen)?.path
-    }
-
-    // MARK: - 选择
-
-    func setSingleSelection(_ id: String) {
-        guard !isMultiSelectMode else { return }
-        selectedID = id
-        syncSelectedWallpaperInspectorIfNeeded()
-    }
-
-    func replaceMultiSelection(with ids: Set<String>) {
-        selectedIDs = ids
-        syncSelectedWallpaperInspectorIfNeeded()
-    }
-
-    func selectAll() {
-        selectedIDs = Set(sortedWallpapers.map(\.id))
-        syncSelectedWallpaperInspectorIfNeeded()
-    }
-
-    func deselectAll() {
-        selectedIDs = []
-        syncSelectedWallpaperInspectorIfNeeded()
-    }
-
-    func clearSingleSelection() {
-        selectedID = nil
-        syncSelectedWallpaperInspectorIfNeeded()
-    }
-
-    func enterMultiSelectMode() {
-        isMultiSelectMode = true
-        selectedIDs = []
-        selectedID = nil
-        syncSelectedWallpaperInspectorIfNeeded()
-    }
-
-    func exitMultiSelectMode() {
-        isMultiSelectMode = false
-        selectedIDs = []
-        syncSelectedWallpaperInspectorIfNeeded()
-    }
-
-    /// 切换列表或执行批量操作后统一调用，效果与视频库 clearSelectionState() 一致
-    func clearSelectionState() {
-        isMultiSelectMode = false
-        selectedIDs = []
-        selectedID = nil
-        syncSelectedWallpaperInspectorIfNeeded()
-    }
-
-    func moveSingleSelectionByArrowKey(_ keyCode: UInt16) {
-        guard !isMultiSelectMode else { return }
-        // 与网格显示列表保持一致（AppKitDetailHostViewController.updateSILGrid）：
-        // 标签上下文只在该标签内导航，无标签上下文时回退全库
-        let list = sortedWallpapers(forSILTag: currentContextTag)
-        guard !list.isEmpty else { return }
-        guard let current = selectedID, let idx = list.firstIndex(where: { $0.id == current }) else {
-            selectedID = list.first?.id
-            syncSelectedWallpaperInspectorIfNeeded()
-            return
-        }
-        let cols = max(1, visibleGridColumnCount)
-        let newIdx: Int
-        switch keyCode {
-        case 123: newIdx = max(0, idx - 1)                    // ←
-        case 124: newIdx = min(list.count - 1, idx + 1)       // →
-        case 125: newIdx = min(list.count - 1, idx + cols)    // ↓
-        case 126: newIdx = max(0, idx - cols)                 // ↑
-        default: return
-        }
-        selectedID = list[newIdx].id
-        syncSelectedWallpaperInspectorIfNeeded()
-    }
-
-    var selectedWallpaperForInspector: SILWallpaper? {
-        guard let inspectedWallpaperID else { return nil }
-        return wallpapers.first { $0.id == inspectedWallpaperID }
-    }
-
-    func presentInspectorForSelectedWallpaper() {
-        guard let selectedID = singleEffectiveSelectedID,
-              wallpapers.contains(where: { $0.id == selectedID }) else {
-            return
-        }
-        inspectedWallpaperID = selectedID
-    }
-
-    func dismissSelectedWallpaperInspector() {
-        inspectedWallpaperID = nil
-    }
-
-    func syncSelectedWallpaperInspectorIfNeeded() {
-        guard inspectedWallpaperID != nil else { return }
-        guard let selectedID = singleEffectiveSelectedID,
-              wallpapers.contains(where: { $0.id == selectedID }) else {
-            inspectedWallpaperID = nil
-            return
-        }
-        inspectedWallpaperID = selectedID
     }
 
     // MARK: - 导入
@@ -509,76 +239,115 @@ final class SILService: ObservableObject {
         return allowedUTTypes.contains { type.conforms(to: $0) }
     }
 
-    func importImages(from urls: [URL], presentingIn window: NSWindow? = nil) {
+    func importImages(from urls: [URL], presentingIn window: NSWindow? = nil,
+                      presentsSummary: Bool = true, completion: ((WallpaperSourceImportResult) -> Void)? = nil) {
+        guard admitLibraryMutation(in: window) else { return }
+        let importEpoch = metadataLoadGeneration
         // 枚举目录、逐文件读元数据都在后台执行，主线程只做落库与 UI 刷新
         DispatchQueue.global(qos: .userInitiated).async { [weak self] in
             guard let self else { return }
             var fileURLs: [URL] = []
+            var rejected: [WallpaperSourceImportResult.Item] = []
             let fm = FileManager.default
             for url in urls {
                 var isDir: ObjCBool = false
                 if fm.fileExists(atPath: url.path, isDirectory: &isDir), isDir.boolValue {
+                    let previousCount = fileURLs.count
                     if let enumerator = fm.enumerator(at: url, includingPropertiesForKeys: nil) {
                         for case let fileURL as URL in enumerator where Self.isSupportedImage(fileURL) {
                             fileURLs.append(fileURL)
                         }
                     }
+                    if previousCount == fileURLs.count {
+                        rejected.append(.init(sourceURL: url, disposition: .failed, organizationItem: nil,
+                                              failureMessage: "目录无法读取或没有支持的图片"))
+                    }
                 } else if Self.isSupportedImage(url) {
                     fileURLs.append(url)
+                } else {
+                    rejected.append(.init(sourceURL: url, disposition: .failed, organizationItem: nil, failureMessage: "不支持的图片格式"))
                 }
             }
             let requestedCount = fileURLs.count
-            var candidates: [(url: URL, wallpaper: SILWallpaper)] = []
+            var candidates: [(url: URL, wallpaper: SILWallpaper, available: Bool)] = []
             candidates.reserveCapacity(requestedCount)
-            for url in fileURLs where fm.fileExists(atPath: url.path) {
-                candidates.append((url, SILWallpaper(path: url.path)))
+            for url in fileURLs {
+                var isDirectory: ObjCBool = false
+                if fm.fileExists(atPath: url.path, isDirectory: &isDirectory), !isDirectory.boolValue {
+                    candidates.append((url, SILWallpaper(path: url.path), fm.isReadableFile(atPath: url.path)))
+                } else {
+                    rejected.append(.init(sourceURL: url, disposition: .failed, organizationItem: nil,
+                                          failureMessage: isDirectory.boolValue ? "该路径是目录，不是图片文件" : "文件不存在"))
+                }
             }
             let missingCount = requestedCount - candidates.count
             DispatchQueue.main.async { [weak self] in
-                self?.finishImport(candidates: candidates,
+                guard let self, self.metadataLoadGeneration == importEpoch else { return }
+                self.finishImport(candidates: candidates, importEpoch: importEpoch,
                                    requestedCount: requestedCount,
                                    missingCount: missingCount,
-                                   presentingIn: window)
+                                   presentingIn: window,
+                                   presentsSummary: presentsSummary, rejected: rejected, completion: completion)
             }
         }
     }
 
-    /// 后台元数据读取完成后的主线程落库：按归一化路径去重、补标签、保存并弹出结果
+    /// Commit source metadata on the main thread; membership is a separate Store transaction.
     private func finishImport(
-        candidates: [(url: URL, wallpaper: SILWallpaper)],
+        candidates: [(url: URL, wallpaper: SILWallpaper, available: Bool)], importEpoch: UInt64,
         requestedCount: Int,
         missingCount: Int,
-        presentingIn window: NSWindow?
+        presentingIn window: NSWindow?,
+        presentsSummary: Bool, rejected: [WallpaperSourceImportResult.Item], completion: ((WallpaperSourceImportResult) -> Void)?
     ) {
-        let tag = currentContextTag
+        guard metadataLoadGeneration == importEpoch else { return }
+        var staged = wallpapers
         var indexByNormalizedPath: [String: Int] = [:]
         for (index, wallpaper) in wallpapers.enumerated() {
             let key = Self.normalizedPath(wallpaper.path)
             if indexByNormalizedPath[key] == nil { indexByNormalizedPath[key] = index }
         }
         var added = 0
+        var addedPaths = Set<String>()
         var duplicateCount = 0
         for candidate in candidates {
+            guard metadataLoadGeneration == importEpoch else { return }
             let key = Self.normalizedPath(candidate.url.path)
-            if let index = indexByNormalizedPath[key] {
-                // 如果文件已存在于总库，检查是否需要补充当前标签索引
-                if let tag, !wallpapers[index].tags.contains(tag) {
-                    wallpapers[index].tags.append(tag)
-                    added += 1 // 视为成功"索引"到当前标签
-                }
+            if indexByNormalizedPath[key] != nil {
                 duplicateCount += 1
                 continue
             }
-            indexByNormalizedPath[key] = wallpapers.count
-            var newWallpaper = candidate.wallpaper
-            if let tag {
-                newWallpaper.tags.append(tag)
-            }
-            wallpapers.append(newWallpaper)
+            indexByNormalizedPath[key] = staged.count
+            staged.append(candidate.wallpaper)
+            addedPaths.insert(key)
             added += 1
         }
 
-        if added > 0 { save() }
+        guard metadataLoadGeneration == importEpoch else { return }
+        var persistenceFailure: String?
+        if completion != nil, !candidates.isEmpty {
+            // An explicit organization/relocation command must not receive a
+            // successful source receipt before this same JSON owner saves it.
+            do {
+                try persistWallpaperMetadata(staged, synchronize: true)
+                guard metadataLoadGeneration == importEpoch else { return }
+                wallpapers = staged
+            } catch {
+                // Atomic write may have succeeded before its durability ACK
+                // failed. Keep this source owner's memory aligned with the
+                // readable disk fact, but never grant organization success.
+                if let data = try? Data(contentsOf: persistenceURL),
+                   let saved = try? JSONDecoder().decode([SILWallpaper].self, from: data) {
+                    wallpapers = saved
+                }
+                persistenceFailure = "图片资料库未获保存确认：" + error.localizedDescription
+                added = 0
+            }
+        } else {
+            wallpapers = staged
+            if added > 0 { save() }
+        }
+        guard metadataLoadGeneration == importEpoch else { return }
         // 构建结果弹窗
         var lines: [String] = [
             "总选择：\(requestedCount) 个",
@@ -588,64 +357,91 @@ final class SILService: ObservableObject {
         if duplicateCount > 0 { lines.append("\(duplicateCount) 个文件已存在于列表中") }
         if missingCount > 0  { lines.append("\(missingCount) 个文件不存在") }
         if skipped > 0       { lines.append("未处理：\(skipped) 个") }
-        let alert = makeAppAlert(title: "导入结果", message: lines.joined(separator: "\n"))
-        presentAppAlert(alert, in: window ?? appModalHostWindow())
+        if let persistenceFailure { lines.append(persistenceFailure) }
+        if presentsSummary {
+            let alert = makeAppAlert(title: "导入结果", message: lines.joined(separator: "\n"))
+            presentAppAlert(alert, in: window ?? appModalHostWindow())
+        }
+        guard metadataLoadGeneration == importEpoch else { return }
+        if let completion {
+            var reportedNew = Set<String>()
+            let accepted = candidates.map { candidate -> WallpaperSourceImportResult.Item in
+                if let persistenceFailure {
+                    return .init(sourceURL: candidate.url, disposition: .failed, organizationItem: nil,
+                                 failureMessage: persistenceFailure)
+                }
+                let key = Self.normalizedPath(candidate.url.path)
+                guard let index = indexByNormalizedPath[key], wallpapers.indices.contains(index) else {
+                    return .init(sourceURL: candidate.url, disposition: .failed, organizationItem: nil,
+                                 failureMessage: "资料库内容已变化，未完成入库")
+                }
+                let item = wallpapers[index]
+                let disposition: WallpaperSourceImportResult.Disposition = addedPaths.contains(key) && reportedNew.insert(key).inserted ? .added : .existing
+                return .init(sourceURL: candidate.url, disposition: disposition,
+                    organizationItem: .init(reference: .init(provider: .staticImageLibrary, sourceID: item.id),
+                        locator: .init(path: item.path, titleHint: item.title, mediaKind: .image),
+                        isPublishedLocally: true, isAvailable: candidate.available),
+                    failureMessage: candidate.available ? nil : "图片已入库但无法读取，未加入列表")
+            }
+            completion(.init(items: accepted + rejected))
+        }
     }
 
     private static func normalizedPath(_ path: String) -> String {
         URL(fileURLWithPath: path).resolvingSymlinksInPath().standardizedFileURL.path
     }
 
-    func importFromPanel(presentingIn window: NSWindow? = nil) {
-        let panel = NSOpenPanel()
-        panel.allowsMultipleSelection = true
-        panel.canChooseDirectories = true
-        panel.canChooseFiles = true
-        panel.allowedContentTypes = Self.allowedUTTypes
-        panel.title = "选择图片壁纸"
-        if let window {
-            panel.beginSheetModal(for: window) { [weak self] response in
-                guard response == .OK else { return }
-                self?.importImages(from: panel.urls, presentingIn: window)
-            }
-        } else {
-            guard panel.runModal() == .OK else { return }
-            importImages(from: panel.urls, presentingIn: nil)
-        }
-    }
-
     // MARK: - 删除
 
-    /// 从总库移除（同时清除所有标签引用），删除前先找临近项作为新选中目标
-    func remove(ids: Set<String>) {
-        let nextID = resolveNextSelectionID(removingIDs: ids)
-        wallpapers.removeAll { ids.contains($0.id) }
-        selectedIDs.subtract(ids)
-        selectedID = nextID
-        if isMultiSelectMode { isMultiSelectMode = false }
-        syncSelectedWallpaperInspectorIfNeeded()
-        save()
-    }
-
-    /// 仅从指定标签中移除索引，不删除总库记录，完成后自动退出多选模式
-    func removeFromSILTag(_ tag: String, ids: Set<String>) {
-        // 标签页移除只是去掉索引，不影响总库，无需跳选中，直接清掉即可
-        for i in wallpapers.indices where ids.contains(wallpapers[i].id) {
-            wallpapers[i].tags.removeAll { $0 == tag }
+    /// Delete only explicitly confirmed regular source files. Keeping source
+    /// facts lets retained relationships become unavailable instead of vanish.
+    func deleteSourceFiles(ids: [String], isInUse: @escaping (URL) -> Bool,
+                           completion: @escaping (WallpaperSourceDeletionResult) -> Void) {
+        let generation = metadataLoadGeneration
+        var results: [WallpaperSourceDeletionResult.Item] = []
+        var requests: [(WallpaperReference, WallpaperSourceFileDeletion.Prepared)] = []
+        for id in Set(ids.map { Data($0.utf8) }) {
+            guard let item = wallpapers.first(where: { Data($0.id.utf8) == id }) else { continue }
+            let reference = WallpaperReference(provider: .staticImageLibrary, sourceID: item.id)
+            let url = URL(fileURLWithPath: item.path).standardizedFileURL
+            do {
+                guard allowsLibraryMutation else { throw CocoaError(.fileWriteNoPermission) }
+                guard !isInUse(url) else {
+                    throw CocoaError(.fileWriteNoPermission, userInfo: [NSLocalizedDescriptionKey: "源图片正在播放或准备，请先停止播放后重试"])
+                }
+                requests.append((reference, try WallpaperSourceFileDeletion.prepare(url)))
+            } catch {
+                results.append(.init(reference: reference, sourceURL: url, succeeded: false, sourceFileDeleted: false,
+                    failureMessage: error.localizedDescription))
+            }
         }
-        clearSelectionState()
-        save()
-    }
-
-    /// 删除前在当前排序列表里找到被删项的临近项（优先取后继，否则取前驱）
-    private func resolveNextSelectionID(removingIDs: Set<String>) -> String? {
-        guard !isMultiSelectMode, let currentID = selectedID,
-              removingIDs.contains(currentID) else { return selectedID }
-        let list = sortedWallpapers
-        guard let idx = list.firstIndex(where: { $0.id == currentID }) else { return nil }
-        let next = list[(idx + 1)...].first { !removingIDs.contains($0.id) }
-        let prev = list[..<idx].last  { !removingIDs.contains($0.id) }
-        return (next ?? prev)?.id
+        guard !requests.isEmpty else { completion(.init(items: results)); return }
+        DispatchQueue.global(qos: .utility).async { [weak self] in
+            guard let self else { return }
+            var results = results
+            var outcomes: [Data: WallpaperSourceFileDeletion.Outcome] = [:]
+            for (reference, request) in requests {
+                let key = Data(request.url.path.utf8), prior = outcomes[key]
+                let unlinked = DispatchQueue.main.sync {
+                    guard self.metadataLoadGeneration == generation && self.allowsLibraryMutation
+                        && self.wallpapers.contains(where: { $0.id.utf8.elementsEqual(reference.sourceID.utf8) && Self.normalizedPath($0.path) == Self.normalizedPath(request.url.path) })
+                        && !isInUse(request.url) else {
+                        return WallpaperSourceFileDeletion.Outcome(sourceFileDeleted: false,
+                            failureMessage: "资料库或播放状态已变化，未删除源文件")
+                    }
+                    // The original playback admission is MainActor-isolated.
+                    // Nothing can accept this source between this guard and unlink.
+                    return prior ?? WallpaperSourceFileDeletion.unlinkPrepared(request)
+                }
+                let outcome = unlinked.succeeded && prior == nil
+                    ? WallpaperSourceFileDeletion.synchronizeDirectory(after: request) : unlinked
+                outcomes[key] = outcome
+                results.append(.init(reference: reference, sourceURL: request.url, succeeded: outcome.succeeded,
+                    sourceFileDeleted: outcome.sourceFileDeleted, failureMessage: outcome.failureMessage))
+            }
+            let report = WallpaperSourceDeletionResult(items: results)
+            DispatchQueue.main.async { completion(report) }
+        }
     }
 
 }

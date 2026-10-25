@@ -22,7 +22,8 @@ extension MainWindowCoordinator {
                 resourceLifetime: notification.userInfo?["resourceLifetime"] as? PlaybackResourceLifetime,
                 intentEpoch: notification.userInfo?["intentEpoch"] as? UInt64,
                 resourceGrants: notification.userInfo?["resourceGrants"] as? [WebWallpaperResourceGrant] ?? [],
-                allowedNetworkHosts: notification.userInfo?["allowedNetworkHosts"] as? Set<String> ?? [])
+                allowedNetworkHosts: notification.userInfo?["allowedNetworkHosts"] as? Set<String> ?? [],
+                libraryPending: notification.userInfo?["libraryPending"] as? WallpaperPlaybackSequence.Pending)
         }
         observe(.steamWorkshopSceneReadyToRender) { notification in
             guard let request = notification.userInfo?["request"] as? SteamWorkshopScenePlaybackRequest else { return }
@@ -32,7 +33,8 @@ extension MainWindowCoordinator {
                 recordID: request.recordID)
             load.source = request.source
             load.userShortcuts = request.userShortcuts
-            manager.setSceneWallpaper(load, resourceLifetime: request.resourceLifetime, intentEpoch: request.intentEpoch)
+            manager.setSceneWallpaper(load, resourceLifetime: request.resourceLifetime, intentEpoch: request.intentEpoch,
+                                      libraryPending: request.libraryPending)
         }
         observe(.sceneWallpaperLaunchStateDidChange) { notification in
             guard let state = notification.object as? SceneWallpaperLaunchState else { return }
@@ -50,12 +52,10 @@ extension MainWindowCoordinator {
         }
         observe(.staticImageWallpaperReadyToApply) { notification in
             guard let url = notification.userInfo?["imageURL"] as? URL else { return }
-            manager.setStaticWallpaper(url)
+            guard let image = SILService.shared.wallpapers.first(where: { $0.path.utf8.elementsEqual(url.path.utf8) }) else { return }
+            _ = manager.requestLibraryPlayback(reference: .init(provider: .staticImageLibrary, sourceID: image.id))
         }
-        observe(.steamWorkshopModeDidChange) { notification in
-            isSteamDownloadsMode = notification.userInfo?["enabled"] as? Bool == true
-                && notification.userInfo?["isDownloads"] as? Bool == true
-        }
+
     }
 
     private static func observe(_ name: Notification.Name, handler: @escaping @MainActor (Notification) -> Void) {

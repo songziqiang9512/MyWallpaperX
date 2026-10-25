@@ -6,14 +6,11 @@ import Foundation
 struct AppSettingsActions {
     var applyEngineSettings: (_ reloadWallpaper: Bool) -> Void = { _ in }
     var clearAllCaches: () -> Void = {}
-    var exportPersonalSettings: (_ url: URL) throws -> PersonalSettingsExportSummary = { _ in
-        PersonalSettingsExportSummary(wallpaperCount: 0, tagCount: 0)
+    var exportPersonalSettings: (_ url: URL) async throws -> PersonalSettingsExportSummary = { _ in
+        throw PersonalSettingsError.recoveryRequired("设置导出尚未就绪")
     }
-    var importPersonalSettings: (_ url: URL) throws -> PersonalSettingsImportSummary = { _ in
-        PersonalSettingsImportSummary(
-            mergedWallpaperCount: 0, createdWallpaperCount: 0,
-            missingPathCount: 0, tagCount: 0
-        )
+    var importPersonalSettings: (_ url: URL) async throws -> PersonalSettingsImportSummary = { _ in
+        throw PersonalSettingsError.recoveryRequired("设置导入尚未就绪")
     }
     var refreshAutoSwitchTimerIfNeeded: () -> Void = {}
     var resetToFreshInstallState: () -> Void = {}

@@ -118,7 +118,7 @@ enum SILInspectorViews {
 }
 
 final class SILInspectorPreviewSurfaceView: NSView {
-    private let image: NSImage?
+    private var image: NSImage?
     private let placeholderView = NSImageView()
 
     init(image: NSImage?) {
@@ -130,6 +130,12 @@ final class SILInspectorPreviewSurfaceView: NSView {
     @available(*, unavailable)
     required init?(coder: NSCoder) {
         nil
+    }
+
+    func updateImage(_ image: NSImage?) {
+        self.image = image
+        placeholderView.isHidden = image != nil
+        needsDisplay = true
     }
 
     override func draw(_ dirtyRect: NSRect) {

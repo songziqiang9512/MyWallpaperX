@@ -7,6 +7,10 @@ The controllable cache-image/data transports deliver cancelled and out-of-order
 replies. This gate does not exercise HTTP, thumbnail decoding or cache policy, and
 does not measure scrolling performance.
 
+The Downloads click case compiles the complete shared production GridController
+and the real card. It dispatches real window mouse events across the native
+button and its neighbors; only application actions are recording leaves.
+
 Window pointer and backing scale are controlled inputs on a real NSWindow.
 Activation/visibility remain actual AppKit state; no real display migration is
 claimed by the injected 1x-to-2x backing callback case.
@@ -31,16 +35,34 @@ ROOT = Path(__file__).resolve().parents[2]
 UI = ROOT / "MyWallpaperX/Modules/OnlineLibrary/UI"
 SHARED = ROOT / "MyWallpaperX/Shared/UI"
 CARDS = [UI / "AppKitOLBrowserItem.swift", UI / "AppKitOLDownloadsItem.swift"]
+BROWSER = Path(os.environ.get("MWX_ONLINE_BROWSER_GRID_SOURCE", UI / "AppKitOLBrowserGridView.swift"))
 DEPENDENCIES = [
+    ROOT / "MyWallpaperX/Modules/OnlineLibrary/Core/OnlineLibraryDownloadedContent.swift",
     ROOT / "MyWallpaperX/Modules/OnlineLibrary/Core/OnlineLibraryModels.swift",
     SHARED / "AppearanceAwareContainerView.swift",
     SHARED / "NSViewExtensions.swift",
     SHARED / "UIInteractionAnimation.swift",
     SHARED / "WallpaperGridScrollView.swift",
     SHARED / "GridThumbnailDecoder.swift",
+    SHARED / "ModuleFocusable.swift",
+    SHARED / "ListThumbnailTintSource.swift",
+    ROOT / "MyWallpaperX/Shared/Components/WallpaperCardInteractionView.swift",
+    ROOT / "MyWallpaperX/Shared/Components/WallpaperCardSupportViews.swift",
+    ROOT / "MyWallpaperX/Shared/Components/WallpaperCardControlsView.swift",
+    ROOT / "MyWallpaperX/Shared/Components/ActionMenuItem.swift",
+    ROOT / "MyWallpaperX/Shared/Components/WallpaperLibrarySymbols.swift",
+    SHARED / "WallpaperInspectorActions.swift",
     ROOT / "script/tests/fixtures/GridCardInteractionChecks.swift",
+    ROOT / "script/tests/fixtures/WallpaperLibraryGridCardReflowChecks.swift",
+    ROOT / "script/tests/fixtures/PixabayCardPresentationChecks.swift",
 ]
 FIXTURE = ROOT / "script/tests/fixtures/GridCardLifecycleChecks.swift"
+CLICK_SOURCES = [ROOT / "MyWallpaperX" / name for name in (
+    "Models/WallpaperReference.swift", "Models/WallpaperContent.swift", "Models/WallpaperLibraryPage.swift",
+    "Shared/Components/WallpaperLibraryGridMetrics.swift", "Shared/UI/BoxSelectionState.swift",
+    "Shared/UI/GridThumbnailPrefetchDemand.swift",
+    "Shell/WallpaperLibraryGridController.swift")]
+DEPENDENCIES += CLICK_SOURCES
 
 
 def card_copy(source: Path) -> tuple[str, list[str]]:
@@ -52,6 +74,12 @@ def card_copy(source: Path) -> tuple[str, list[str]]:
     text = re.sub(r"\bprivate\s+", "", text)
     text = text.replace(marker, "private")
     transforms = ["remove private access except the file-private NSImage extension"]
+    if source.name == "AppKitOLBrowserItem.swift":
+        external_open = "NSWorkspace.shared.open(url)"
+        if text.count(external_open) != 1:
+            raise AssertionError("Browser webpage-opening leaf is no longer unique")
+        text = text.replace(external_open, "PixabayMenuWorkspace.open(url)")
+        transforms.append("record the external NSWorkspace webpage-open leaf only")
     if source.name == "AppKitOLDownloadsItem.swift":
         old = "static let sharedCache = ThumbnailCache("
         if text.count(old) != 1:
@@ -91,7 +119,7 @@ class GridCardLifecycleTests(unittest.TestCase):
         )
         for name in ("home", "tmp"):
             (cls.work / name).mkdir()
-        originals = CARDS + DEPENDENCIES + [FIXTURE]
+        originals = CARDS + [BROWSER] + DEPENDENCIES + [FIXTURE] + CLICK_SOURCES
         inputs = {str(path): hashlib.sha256(path.read_bytes()).hexdigest() for path in originals}
         copies, transformations = [], {}
         for source in CARDS:
@@ -99,6 +127,10 @@ class GridCardLifecycleTests(unittest.TestCase):
             copy = cls.work / source.name
             copy.write_text(contents)
             copies.append(copy)
+        browser = cls.work / "AppKitOLBrowserGridView.swift"
+        browser.write_text(BROWSER.read_text().replace("private ", ""))
+        copies.append(browser)
+        transformations[str(BROWSER)] = ["expose private container state for native publication observations"]
         command = ["xcrun", "--sdk", "macosx", "swiftc", "-parse-as-library",
                    "-default-isolation", "MainActor",
                    *map(str, DEPENDENCIES + copies + [FIXTURE]),
@@ -151,9 +183,20 @@ class GridCardLifecycleTests(unittest.TestCase):
         self.assertTrue(output, "native App did not produce its completed result: " + errors)
         facts = json.loads(output)
         self.assertTrue(facts["checks"], "native checks must not be empty")
+        if name == "card-reflow":
+            self.assertEqual(len(facts["checks"]), 17)
         for check, passed in facts["checks"].items():
             with self.subTest(case=name, check=check):
                 self.assertIs(passed, True, facts["details"].get(check, ""))
+
+    def test_pixabay_shared_square_controls_real_hit_testing_and_reuse(self):
+        self.check_case("pixabay-square-controls")
+
+    def test_pixabay_native_square_geometry_resize_and_visible_queries(self):
+        self.check_case("pixabay-square-layout")
+
+    def test_downloads_native_buttons_are_the_only_primary_action_hit_owner(self):
+        self.check_case("pixabay-native-click-owner")
 
     def test_native_collection_registration_and_actual_item_pool_reuse(self):
         self.check_case("native-pool")
@@ -166,6 +209,9 @@ class GridCardLifecycleTests(unittest.TestCase):
 
     def test_browser_same_id_content_layout_size_and_reuse(self):
         self.check_case("browser-layout")
+
+    def test_browser_container_updates_mounted_same_id_metadata_and_fixed_actions(self):
+        self.check_case("browser-container-metadata")
 
     def test_downloads_content_placeholder_layout_and_selection_playing(self):
         self.check_case("downloads-layout")
@@ -181,6 +227,9 @@ class GridCardLifecycleTests(unittest.TestCase):
 
     def test_active_whole_cards_keep_size_and_white_outline_across_hover_exit_restore_and_card_responder_click(self):
         self.check_case("card-interactions")
+
+    def test_downloaded_cards_recompute_hover_after_native_three_four_five_column_reflow(self):
+        self.check_case("card-reflow")
 
     def test_same_size_backing_change_invalidates_real_cards_and_upgrades_thumbnail_request(self):
         self.check_case("backing-scale")

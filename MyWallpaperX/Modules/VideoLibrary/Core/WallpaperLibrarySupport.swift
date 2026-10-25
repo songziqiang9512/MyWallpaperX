@@ -46,18 +46,10 @@ struct ImportSummary {
 
 enum ImportContext: Equatable {
     case library
-    case favorites
-    case tag(String)
     case onlinePlayback  // 在线库静默导入并立即播放，不弹任何提示
     case steamPlayback   // Steam 创意工坊静默导入并立即播放，不弹任何提示
 }
 
-enum WallpaperRemovalScope {
-    case library
-    case recentlyUsed
-    case favorites
-    case tag(String)
-}
 
 enum ManualNavigationDirection {
     case previous
@@ -73,32 +65,6 @@ struct WallpaperDeletionFailure: Identifiable {
     var displayText: String {
         let fileName = title.isEmpty ? URL(fileURLWithPath: path).lastPathComponent : title
         return "\(fileName)：\(reason)"
-    }
-}
-
-struct WallpaperDeletionSummary {
-    let requestedCount: Int
-    let removedCount: Int
-    let failures: [WallpaperDeletionFailure]
-
-    var hasFailures: Bool { !failures.isEmpty }
-
-    var informativeText: String {
-        var lines: [String] = [
-            "已处理：\(removedCount) 个"
-        ]
-
-        if hasFailures {
-            lines.append("失败：\(failures.count) 个")
-            lines.append("")
-            let previewFailures = failures.prefix(6).map(\.displayText)
-            lines.append(contentsOf: previewFailures)
-            if failures.count > previewFailures.count {
-                lines.append("还有 \(failures.count - previewFailures.count) 个失败未显示")
-            }
-        }
-
-        return lines.joined(separator: "\n")
     }
 }
 
@@ -128,6 +94,13 @@ func loadWallpaperInspectorDetails(
     dateFormatter.dateStyle = .medium
     dateFormatter.timeStyle = .medium
     let addedDateText = dateFormatter.string(from: creationDate)
+
+    // Publish the complete layout template before the view is mounted. AV
+    // fills values later, without adding/removing metadata or path sections.
+    completion(WallpaperInspectorDetails(fileSizeText: fileSizeText, formatText: formatText,
+        durationText: wallpaper.duration.map { formattedDuration(Double($0)) } ?? "读取中…",
+        codecText: "读取中…", resolutionText: wallpaper.resolution ?? "读取中…",
+        addedDateText: addedDateText, pathText: path))
 
     return Task {
         let asset = AVURLAsset(url: url)

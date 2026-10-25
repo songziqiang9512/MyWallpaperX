@@ -7,24 +7,24 @@ import AppKit
 
 final class OnlineLibraryDownloadsInspectorView: NSView {
     private let itemID: Int
+    private let service: OnlineLibraryService
+    private var libraryActions: WallpaperInspectorActions?
     private var snapshot: OnlineLibraryDownloadsInspectorSnapshot?
-    private var isLoadingSnapshot = true
-    private var snapshotLoadTask: Task<Void, Never>?
     private let rootStack = NSStackView()
     private let scrollView = InspectorFadingScrollView()
     private let documentContainer = NSView()
     private let contentStack = NSStackView()
     private var footerView: NSView?
 
-    init(itemID: Int) {
+    init(itemID: Int, service: OnlineLibraryService? = nil, libraryActions: WallpaperInspectorActions? = nil) {
+        self.service = service ?? .shared
+        self.libraryActions = libraryActions
         self.itemID = itemID
         super.init(frame: .zero)
+        // The downloaded-content owner has already prepared these values.
+        // Build the final centered layout before mounting; no loading-size pass.
+        snapshot = OnlineLibraryDownloadsInspectorSnapshot.load(itemID: itemID, service: self.service)
         setup()
-        loadSnapshot()
-    }
-
-    deinit {
-        snapshotLoadTask?.cancel()
     }
 
     @available(*, unavailable)
@@ -114,19 +114,6 @@ final class OnlineLibraryDownloadsInspectorView: NSView {
             contentStack.topAnchor.constraint(greaterThanOrEqualTo: documentContainer.topAnchor),
             contentStack.bottomAnchor.constraint(lessThanOrEqualTo: documentContainer.bottomAnchor)
         ])
-    }
-
-    private func loadSnapshot() {
-        snapshotLoadTask = Task { [weak self, itemID] in
-            let loadedSnapshot = await OnlineLibraryDownloadsInspectorSnapshot.load(itemID: itemID)
-            guard !Task.isCancelled else { return }
-            await MainActor.run {
-                guard let self else { return }
-                self.snapshot = loadedSnapshot
-                self.isLoadingSnapshot = false
-                self.rebuildContent()
-            }
-        }
     }
 
     private func rebuildContent() {
@@ -302,7 +289,7 @@ final class OnlineLibraryDownloadsInspectorView: NSView {
         stack.addArrangedSubview(icon)
 
         let label = OnlineLibraryDownloadsInspectorViews.makeLabel(
-            isLoadingSnapshot ? "正在读取下载项信息。" : "当前下载项文件可能已被移动或删除。",
+            "当前下载项文件可能已被移动或删除。",
             font: .systemFont(ofSize: 12),
             color: .secondaryLabelColor
         )
@@ -330,7 +317,7 @@ final class OnlineLibraryDownloadsInspectorView: NSView {
             target: self,
             action: #selector(revealInFinder)
         )
-        setButton.isEnabled = snapshot != nil
+        setButton.isEnabled = libraryActions?.state.canPerformPrimary ?? (snapshot != nil)
         revealButton.isEnabled = snapshot != nil
 
         let footer = NSView()
@@ -359,9 +346,19 @@ final class OnlineLibraryDownloadsInspectorView: NSView {
         OnlineLibraryDownloadsInspectorViews.makeDivider()
     }
 
+    func updateLibraryActions(_ actions: WallpaperInspectorActions) {
+        let changed = libraryActions?.state != actions.state
+        libraryActions = actions
+        if changed { rebuildContent() }
+    }
+
     @objc private func setAsWallpaper() {
+        if let libraryActions {
+            guard libraryActions.state.canPerformPrimary else { return }
+            libraryActions.onPrimary(); return
+        }
         guard snapshot != nil else { return }
-        OnlineLibraryService.shared.setLocalFileAsWallpaper(id: itemID)
+        service.setLocalFileAsWallpaper(id: itemID)
     }
 
     @objc private func revealInFinder() {

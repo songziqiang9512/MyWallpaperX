@@ -1,17 +1,48 @@
+import Combine
+
+nonisolated struct PlaybackPauseSnapshot: Equatable, Sendable {
+    let revision: UInt64
+    let isUserPaused: Bool
+    let isSystemPaused: Bool
+    var isPaused: Bool { isUserPaused || isSystemPaused }
+}
+
 /// 壁纸引擎命令多路分发器：持有各引擎处理端，支持定向与广播。
 /// UI/设置/状态栏只与本类型交互（程序文档 M0.1）；注册点在
 /// App 装配（MyWallpaperXApplication）。
 final class PlaybackCommandMultiplexer {
     static let shared = PlaybackCommandMultiplexer()
 
-    private(set) var isUserPaused = false
-    private(set) var isSystemPaused = false
-    var isPlaybackPaused: Bool { isUserPaused || isSystemPaused }
+    private let pauseSubject = CurrentValueSubject<PlaybackPauseSnapshot, Never>(
+        .init(revision: 0, isUserPaused: false, isSystemPaused: false))
+    var pauseSnapshot: PlaybackPauseSnapshot { pauseSubject.value }
+    var pauseSnapshots: AnyPublisher<PlaybackPauseSnapshot, Never> {
+        pauseSubject.filter { [weak self] value in
+            // A subscriber can synchronously issue a newer user/system intent.
+            // Combine then resumes the outer send at its remaining subscribers;
+            // that superseded value must not put their timer/pause UI behind
+            // the authority. Each subscriber receives only current snapshots.
+            self?.pauseSnapshot.revision == value.revision
+        }.eraseToAnyPublisher()
+    }
+    var isUserPaused: Bool { pauseSnapshot.isUserPaused }
+    var isSystemPaused: Bool { pauseSnapshot.isSystemPaused }
+    var isPlaybackPaused: Bool { pauseSnapshot.isPaused }
 
     func setSystemPaused(_ paused: Bool) {
         let previous = isPlaybackPaused
-        isSystemPaused = paused
+        updatePause(system: paused)
         if previous != isPlaybackPaused { dispatch(.setPlaybackPaused(isPlaybackPaused)) }
+    }
+
+    private func updatePause(user: Bool? = nil, system: Bool? = nil) {
+        let current = pauseSnapshot
+        let nextUser = user ?? current.isUserPaused, nextSystem = system ?? current.isSystemPaused
+        guard current.isUserPaused != nextUser || current.isSystemPaused != nextSystem else { return }
+        // Publish the independent intent bits even if their effective OR did
+        // not change. CurrentValueSubject also gives a late subscriber its
+        // current initial value, after the authority has adopted it.
+        pauseSubject.value = .init(revision: current.revision &+ 1, isUserPaused: nextUser, isSystemPaused: nextSystem)
     }
 
     private var handlers: [PlaybackEngineKind: PlaybackEngineControlling] = [:]
@@ -68,7 +99,7 @@ final class PlaybackCommandMultiplexer {
         let effective: WallpaperEngineCommand
         switch command {
         case .pause, .resume:
-            isUserPaused = command == .pause
+            updatePause(user: command == .pause)
             effective = .setPlaybackPaused(isPlaybackPaused)
         default:
             effective = command

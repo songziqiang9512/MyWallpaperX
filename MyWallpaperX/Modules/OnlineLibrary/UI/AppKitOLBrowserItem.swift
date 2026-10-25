@@ -22,96 +22,7 @@ private extension NSImage {
     }
 }
 
-final class OLCircularProgressView: NSView {
-    private let backgroundLayer = CAShapeLayer()
-    private let trackLayer = CAShapeLayer()
-    private let progressLayer = CAShapeLayer()
-    private let textLayer = CATextLayer()
-    private var progressValue: Double = 0
 
-    override init(frame frameRect: NSRect) {
-        super.init(frame: frameRect)
-        commonInit()
-    }
-
-    required init?(coder: NSCoder) {
-        super.init(coder: coder)
-        commonInit()
-    }
-
-    private func commonInit() {
-        wantsLayer = true
-        layer?.backgroundColor = NSColor.clear.cgColor
-
-        backgroundLayer.fillColor = NSColor.black.withAlphaComponent(0.46).cgColor
-        backgroundLayer.strokeColor = NSColor.clear.cgColor
-        backgroundLayer.lineWidth = 0
-        layer?.addSublayer(backgroundLayer)
-
-        trackLayer.fillColor = NSColor.clear.cgColor
-        trackLayer.strokeColor = NSColor.white.withAlphaComponent(0.18).cgColor
-        trackLayer.lineWidth = 3.6
-        layer?.addSublayer(trackLayer)
-
-        progressLayer.fillColor = NSColor.clear.cgColor
-        progressLayer.strokeColor = NSColor.white.cgColor
-        progressLayer.lineWidth = 4.2
-        progressLayer.lineCap = .round
-        progressLayer.strokeEnd = 0
-        layer?.addSublayer(progressLayer)
-
-        textLayer.alignmentMode = .center
-        textLayer.contentsScale = NSScreen.main?.backingScaleFactor ?? 2
-        textLayer.foregroundColor = NSColor.white.cgColor
-        layer?.addSublayer(textLayer)
-    }
-
-    override func layout() {
-        super.layout()
-        let rect = bounds.insetBy(dx: 1.5, dy: 1.5)
-        let center = CGPoint(x: rect.midX, y: rect.midY)
-        let radius = max(7, min(rect.width, rect.height) / 2 - 3.2)
-        let ringPath = CGMutablePath()
-        ringPath.addArc(
-            center: center,
-            radius: radius,
-            startAngle: -.pi / 2,
-            endAngle: .pi * 3 / 2,
-            clockwise: false
-        )
-        let circlePath = CGPath(
-            ellipseIn: CGRect(
-                x: center.x - radius - 4.4,
-                y: center.y - radius - 4.4,
-                width: (radius + 4.4) * 2,
-                height: (radius + 4.4) * 2
-            ),
-            transform: nil
-        )
-        backgroundLayer.frame = bounds
-        backgroundLayer.path = circlePath
-        trackLayer.frame = bounds
-        trackLayer.path = ringPath
-        trackLayer.strokeEnd = 1
-        progressLayer.frame = bounds
-        progressLayer.path = ringPath
-        progressLayer.strokeEnd = CGFloat(progressValue)
-        progressLayer.strokeColor = NSColor.white.cgColor
-
-        let fontSize = max(8, bounds.width * 0.23)
-        textLayer.font = NSFont.monospacedDigitSystemFont(ofSize: fontSize, weight: .semibold)
-        textLayer.fontSize = fontSize
-        textLayer.foregroundColor = NSColor.white.cgColor
-        let textHeight = fontSize + 4
-        textLayer.frame = CGRect(x: 0, y: floor((bounds.height - textHeight) / 2.0), width: bounds.width, height: textHeight)
-    }
-
-    func setProgress(_ progress: Double) {
-        progressValue = min(1, max(0, progress))
-        textLayer.string = "\(Int((progressValue * 100).rounded()))"
-        needsLayout = true
-    }
-}
 
 final class AppKitOLBrowserItem: NSCollectionViewItem, WallpaperGridHoverItem {
     private struct LayoutInputs: Equatable {
@@ -127,7 +38,6 @@ final class AppKitOLBrowserItem: NSCollectionViewItem, WallpaperGridHoverItem {
     private static var hoverTrackingActivated = false
     static func resetHoverTrackingActivation() { hoverTrackingActivated = false }
 
-    private let shadowView = NSView()
     private let imageContainer     = AppearanceAwareContainerView()
     private let hoverTracking = WallpaperGridHoverTracking()
     private let thumbnailView      = NSImageView()
@@ -137,13 +47,19 @@ final class AppKitOLBrowserItem: NSCollectionViewItem, WallpaperGridHoverItem {
     private let hoverOutlineView   = NSView()
     private let durationBadgeView  = NSView()
     private let durationBadgeTextLayer = CATextLayer()
-    private let gradientLayer      = CAGradientLayer()
-    private let titleLabel         = NSTextField(labelWithString: "")
-    private let metaLabel          = NSTextField(labelWithString: "")
-    private let downloadBtn        = NSButton()
-    private let setWallpaperBtn    = NSButton()
-    private let downloadingSpinner = NSProgressIndicator()
-    private let downloadProgressView = OLCircularProgressView(frame: .zero)
+    private var currentTitle = ""
+    private var currentMetadata = ""
+    private let controlBar = WallpaperCardControlsView()
+    private var setWallpaperBtn: NSButton { controlBar.playButton }
+    private var currentDownloadProgress: Double?
+    private var barVisibilityRevision: UInt64 = 0
+    private var organization: WallpaperInspectorActions?
+    // A UI binding survives same-item status/metadata echoes, but never native
+    // reuse or display retirement. It is independent of thumbnail requests.
+    private var contextMenuBindingID = UUID()
+    private var primaryActionFrame: NSRect {
+        setWallpaperBtn.convert(setWallpaperBtn.bounds, to: overlayView)
+    }
     private let downloadedBadge    = NSImageView()
     private let completionBadgeView = NSView()
     private let completionBadgeIcon = NSImageView()
@@ -166,18 +82,18 @@ final class AppKitOLBrowserItem: NSCollectionViewItem, WallpaperGridHoverItem {
     private var completionHideWorkItem: DispatchWorkItem?
     private var completionRevealWorkItem: DispatchWorkItem?
     private var isCompletionAnimating = false
-    private var lastSymbolPointSize: CGFloat = 0
     private var onDownload:       (() -> Void)?
     private var onSetAsWallpaper: (() -> Void)?
     private var hoverVisible      = false
 
     override init(nibName: NSNib.Name?, bundle: Bundle?) { super.init(nibName: nil, bundle: nil) }
     required init?(coder: NSCoder) { super.init(coder: coder) }
-    override func loadView() { view = NSView(); buildViewHierarchy() }
+    override func loadView() { view = WallpaperCardInteractionView(); buildViewHierarchy() }
 
     // MARK: - 复用
     override func prepareForReuse() {
         super.prepareForReuse()
+        contextMenuBindingID = UUID()
         lastLayoutInputs = nil
         thumbnailRequestID = UUID()
         completionAnimationID = UUID()
@@ -201,9 +117,9 @@ final class AppKitOLBrowserItem: NSCollectionViewItem, WallpaperGridHoverItem {
         completionHideWorkItem = nil
         placeholderView.isHidden = true
         spinner.stopAnimation(nil)
-        titleLabel.stringValue = ""
+        currentTitle = ""
         durationBadgeTextLayer.string = nil
-        metaLabel.stringValue = ""
+        currentMetadata = ""
         setDownloadState(isDownloading: false, isDownloaded: false, downloadProgress: nil)
         isHovering = false; hoverVisible = false
         isDownloadedState = false
@@ -213,6 +129,8 @@ final class AppKitOLBrowserItem: NSCollectionViewItem, WallpaperGridHoverItem {
         completionBadgeView.isHidden = true
         completionBadgeView.layer?.transform = CATransform3DIdentity
         onDownload = nil; onSetAsWallpaper = nil
+        organization = nil
+        updateControlBarContent()
         applyHoverVisibility(false, animated: false)
         refreshTheme()
     }
@@ -222,6 +140,7 @@ final class AppKitOLBrowserItem: NSCollectionViewItem, WallpaperGridHoverItem {
         item: OnlineLibraryVideoItem,
         isDownloading: Bool, isDownloaded: Bool, downloadProgress: Double?,
         thumbnailDemandActive: Bool? = nil,
+        organization: WallpaperInspectorActions? = nil,
         onDownload: @escaping () -> Void,
         onSetAsWallpaper: @escaping () -> Void
     ) {
@@ -230,12 +149,14 @@ final class AppKitOLBrowserItem: NSCollectionViewItem, WallpaperGridHoverItem {
         if !isThumbnailDemandActive { endDisplayingThumbnail() }
         self.onDownload = onDownload
         self.onSetAsWallpaper = onSetAsWallpaper
+        self.organization = organization
+        if item.id != currentItemID { contextMenuBindingID = UUID() }
         let imageChanged = item.id != currentItemID || currentThumbnailURL != item.previewThumbnailURL
         currentItemID = item.id
         if presentedItem != item {
             presentedItem = item
             currentPageURL = item.pageURL
-            titleLabel.stringValue = item.displayTitle
+            currentTitle = item.displayTitle
             let durationText = Self.formatDuration(item.duration)
             durationBadgeTextLayer.string = durationText
             var metaParts: [String] = []
@@ -246,7 +167,7 @@ final class AppKitOLBrowserItem: NSCollectionViewItem, WallpaperGridHoverItem {
             if let res = item.resolutionString {
                 metaParts.append(res)
             }
-            metaLabel.stringValue = metaParts.joined(separator: "  ")
+            currentMetadata = metaParts.joined(separator: "  ")
             view.needsLayout = true
         }
         if imageChanged {
@@ -268,6 +189,14 @@ final class AppKitOLBrowserItem: NSCollectionViewItem, WallpaperGridHoverItem {
         )
     }
 
+    func updateOrganization(_ actions: WallpaperInspectorActions?, for itemID: Int) {
+        // A relationship echo may arrive while a diffable source update still
+        // displays the old item at this path. Never attach B's actions to A.
+        guard currentItemID == itemID else { return }
+        organization = actions
+        updateControlBarContent()
+    }
+
     private static func formatDuration(_ seconds: Int) -> String {
         let minutes = seconds / 60
         let remain = seconds % 60
@@ -280,31 +209,44 @@ final class AppKitOLBrowserItem: NSCollectionViewItem, WallpaperGridHoverItem {
         let wasDownloading = isDownloadingState
         isDownloadingState = isDownloading
         isDownloadedState = isDownloaded
-        let progress = downloadProgress ?? 0
-        downloadProgressView.isHidden = !isDownloading
-        downloadProgressView.setProgress(progress)
-        downloadProgressView.alphaValue = isDownloading ? 1 : (hoverVisible ? 1 : 0)
-        downloadingSpinner.isHidden = true
-        downloadingSpinner.stopAnimation(nil)
-        if isDownloaded && isCompletionAnimating {
-            downloadBtn.isHidden = true
-            setWallpaperBtn.isHidden = true
-            downloadedBadge.isHidden = true
-        } else {
-            downloadedBadge.isHidden = !isDownloaded
-            downloadBtn.isHidden     = isDownloading || isDownloaded
-            setWallpaperBtn.isHidden = isDownloading
-        }
+        currentDownloadProgress = downloadProgress
         durationBadgeView.layer?.backgroundColor = (
             isDownloaded
                 ? NSColor.systemGreen.blended(withFraction: 0.38, of: .black)?.withAlphaComponent(0.82)
                     ?? NSColor.systemGreen.withAlphaComponent(0.82)
                 : NSColor.black.withAlphaComponent(0.55)
         ).cgColor
-        if isDownloaded && wasDownloading {
-            showCompletionBadge()
-        }
+        if isDownloaded && wasDownloading { showCompletionBadge() }
+        updateControlBarContent()
+        applyHoverVisibility(hoverVisible, animated: false)
         view.needsLayout = true
+    }
+
+    private func updateControlBarContent() {
+        controlBar.apply(title: currentTitle, metadata: currentMetadata)
+        controlBar.isFavorite = organization?.state.isFavorite ?? false
+        controlBar.favoriteButton.isHidden = organization == nil
+        controlBar.favoriteButton.isEnabled = organization?.state.canFavorite == true
+        setWallpaperBtn.isHidden = isCompletionAnimating
+        setWallpaperBtn.isEnabled = !isDownloadingState
+        let title = isDownloadingState ? "下载中" : (isDownloadedState ? "设为壁纸" : "下载到本地")
+        if isDownloadingState {
+            setWallpaperBtn.imagePosition = .noImage
+            setWallpaperBtn.title = currentDownloadProgress.map { "\(Int((min(1,max(0,$0))*100).rounded()))%" } ?? "…"
+            setWallpaperBtn.font = .monospacedDigitSystemFont(ofSize: 11, weight: .medium)
+        } else {
+            setWallpaperBtn.imagePosition = .imageOnly
+            setWallpaperBtn.title = ""
+            setWallpaperBtn.image = NSImage(systemSymbolName: isDownloadedState ? "play.fill" : "arrow.down",
+                                            accessibilityDescription: title)
+        }
+        setWallpaperBtn.toolTip = title
+        setWallpaperBtn.setAccessibilityLabel(title)
+        downloadedBadge.isHidden = !isDownloadedState || isCompletionAnimating || organization != nil
+        controlBar.glass.applyProgress(style: isDownloadingState ? .downloading : .neutral,
+            fraction: isDownloadingState ? currentDownloadProgress : nil,
+            indeterminate: isDownloadingState && currentDownloadProgress == nil, animated: false)
+        view.toolTip = nil
     }
 
     private func showCompletionBadge() {
@@ -313,12 +255,11 @@ final class AppKitOLBrowserItem: NSCollectionViewItem, WallpaperGridHoverItem {
         completionHideWorkItem?.cancel()
         completionRevealWorkItem?.cancel()
         isCompletionAnimating = true
-        downloadBtn.isHidden = true
         setWallpaperBtn.isHidden = true
         downloadedBadge.isHidden = true
         completionBadgeView.isHidden = false
         completionBadgeView.alphaValue = 1
-        completionBadgeView.frame.origin = setWallpaperBtn.frame.origin
+        completionBadgeView.frame.origin = primaryActionFrame.origin
         CATransaction.begin()
         CATransaction.setDisableActions(true)
         completionBadgeView.layer?.transform = CATransform3DMakeScale(0.72, 0.72, 1)
@@ -348,6 +289,8 @@ final class AppKitOLBrowserItem: NSCollectionViewItem, WallpaperGridHoverItem {
             self.isCompletionAnimating = false
             self.downloadedBadge.isHidden = false
             self.setWallpaperBtn.isHidden = false
+            self.updateControlBarContent()
+            self.applyHoverVisibility(self.hoverVisible, animated: false)
         }
         completionRevealWorkItem = revealWork
         DispatchQueue.main.asyncAfter(deadline: .now() + bounceDuration + max(0, moveDuration - revealLead), execute: revealWork)
@@ -378,6 +321,8 @@ final class AppKitOLBrowserItem: NSCollectionViewItem, WallpaperGridHoverItem {
             self.completionBadgeView.alphaValue = 1
             self.downloadedBadge.isHidden = false
             self.setWallpaperBtn.isHidden = false
+            self.updateControlBarContent()
+            self.applyHoverVisibility(self.hoverVisible, animated: false)
         }
         completionHideWorkItem = hideWork
         DispatchQueue.main.asyncAfter(deadline: .now() + bounceDuration + moveDuration + 0.18, execute: hideWork)
@@ -401,6 +346,7 @@ final class AppKitOLBrowserItem: NSCollectionViewItem, WallpaperGridHoverItem {
         }
         if let ready = OLThumbnailCache.shared.readyImage(for: url, maxPixelSize: pixelLimit) {
             thumbnailView.image = ready
+            layoutThumbnail()
             placeholderView.isHidden = true
             spinner.stopAnimation(nil)
             return
@@ -434,6 +380,7 @@ final class AppKitOLBrowserItem: NSCollectionViewItem, WallpaperGridHoverItem {
                 guard let self, self.currentItemID == id, self.thumbnailRequestID == requestID else { return }
                 self.thumbnailLoadingWork?.cancel(); self.thumbnailLoadingWork = nil
                 self.thumbnailView.image = img
+                self.layoutThumbnail()
                 self.placeholderView.isHidden = true
                 self.spinner.stopAnimation(nil)
             }
@@ -441,7 +388,11 @@ final class AppKitOLBrowserItem: NSCollectionViewItem, WallpaperGridHoverItem {
     }
 
     func endDisplayingThumbnail() {
+        // Called by the original Grid's didEndDisplaying/hide/detach paths.
+        contextMenuBindingID = UUID()
         isThumbnailDemandActive = false
+        controlBar.setActive(false)
+        controlBar.glass.setProgressAnimationVisible(false)
         thumbnailTask?.cancel()
         thumbnailTask = nil
         thumbnailLoadingWork?.cancel(); thumbnailLoadingWork = nil
@@ -451,6 +402,7 @@ final class AppKitOLBrowserItem: NSCollectionViewItem, WallpaperGridHoverItem {
 
     func beginDisplayingThumbnail() {
         isThumbnailDemandActive = true
+        applyHoverVisibility(hoverVisible, animated: false)
         guard thumbnailView.image == nil, thumbnailTask == nil, let url = currentThumbnailURL else { return }
         if let failedGeneration = terminalThumbnailFailureGeneration {
             let requestID = thumbnailRequestID
@@ -462,9 +414,6 @@ final class AppKitOLBrowserItem: NSCollectionViewItem, WallpaperGridHoverItem {
         } else { loadThumbnail(url: url) }
     }
 
-    @objc private func handleDownload()     { onDownload?() }
-    @objc private func handleSetWallpaper() { onSetAsWallpaper?() }
-
     // MARK: - 右键菜单（UI-4）
 
     override func rightMouseDown(with event: NSEvent) {
@@ -475,14 +424,14 @@ final class AppKitOLBrowserItem: NSCollectionViewItem, WallpaperGridHoverItem {
     private func buildContextMenu() -> NSMenu? {
         guard currentItemID != -1 else { return nil }
         let menu = NSMenu()
+        menu.autoenablesItems = false
 
         // 下载 / 已下载状态
         menu.addItem(
             makeContextMenuItem(
                 title: "下载到本地",
                 symbolName: "arrow.down.circle",
-                action: #selector(handleDownload),
-                isEnabled: onDownload != nil
+                action: onDownload
             )
         )
 
@@ -491,22 +440,48 @@ final class AppKitOLBrowserItem: NSCollectionViewItem, WallpaperGridHoverItem {
             makeContextMenuItem(
                 title: "设为壁纸",
                 symbolName: "display",
-                action: #selector(handleSetWallpaper),
-                isEnabled: onSetAsWallpaper != nil
+                action: onSetAsWallpaper
             )
         )
 
         menu.addItem(.separator())
 
         // 在 Pixabay 上查看
+        let openPage: (() -> Void)? = currentPageURL.flatMap { URL(string: $0) }.map { url in
+            { _ = NSWorkspace.shared.open(url) }
+        }
         menu.addItem(
             makeContextMenuItem(
                 title: "在 Pixabay 上查看",
                 symbolName: "arrow.up.right.square",
-                action: #selector(handleOpenInPixabay),
-                isEnabled: true
+                action: openPage
             )
         )
+
+        if let organization {
+            let id = currentItemID, bindingID = contextMenuBindingID
+            menu.addItem(.separator())
+            let favorite = ActionMenuItem(title: organization.state.isFavorite ? "取消特别喜爱" : "加入特别喜爱",
+                symbol: organization.state.isFavorite ? "heart.fill" : "heart") { [weak self] in
+                    guard let self, self.currentItemID == id, self.contextMenuBindingID == bindingID,
+                          self.organization?.state.canFavorite == true, organization.state.canFavorite else { return }
+                    organization.onToggleFavorite()
+                }
+            favorite.isEnabled = organization.state.canFavorite
+            menu.addItem(favorite)
+            let playlist = NSMenuItem(title: "添加到播放列表", action: nil, keyEquivalent: "")
+            playlist.image = NSImage(systemSymbolName: WallpaperLibrarySymbols.playlist, accessibilityDescription: nil)
+            playlist.submenu = organization.makePlaylistMenu?({ [weak self] in
+                guard let self else { return false }
+                return self.currentItemID == id && self.contextMenuBindingID == bindingID &&
+                    self.organization?.state.canOrganize == true && organization.state.canOrganize
+            })
+            playlist.isEnabled = organization.state.canOrganize && playlist.submenu != nil
+            menu.addItem(playlist)
+            if let restore = organization.onRestoreLibrary {
+                menu.addItem(makeContextMenuItem(title: "重新加入我的下载", symbolName: "arrow.down.to.line", action: restore))
+            }
+        }
 
         return menu
     }
@@ -514,20 +489,16 @@ final class AppKitOLBrowserItem: NSCollectionViewItem, WallpaperGridHoverItem {
     private func makeContextMenuItem(
         title: String,
         symbolName: String,
-        action: Selector,
-        isEnabled: Bool
+        action: (() -> Void)?
     ) -> NSMenuItem {
-        let item = NSMenuItem(title: title, action: action, keyEquivalent: "")
-        item.target = self
-        item.image = NSImage.olSymbol(symbolName, pointSize: 14, weight: .regular)
-        item.isEnabled = isEnabled
+        let id = currentItemID, bindingID = contextMenuBindingID
+        let item = ActionMenuItem(title: title, symbol: symbolName) { [weak self] in
+            guard let self, self.currentItemID == id, self.contextMenuBindingID == bindingID else { return }
+            action?()
+        }
+        item.image = item.image?.withSymbolConfiguration(.init(pointSize: 14, weight: .regular))
+        item.isEnabled = action != nil
         return item
-    }
-
-    @objc private func handleOpenInPixabay() {
-        // pageURL 通过 configure 时暂存
-        guard let urlString = currentPageURL, let url = URL(string: urlString) else { return }
-        NSWorkspace.shared.open(url)
     }
 
     // MARK: - 构建层级（只设固定属性，尺寸全在 layout 里算）
@@ -539,7 +510,7 @@ final class AppKitOLBrowserItem: NSCollectionViewItem, WallpaperGridHoverItem {
         imageContainer.layer?.masksToBounds = true
         imageContainer.layer?.borderWidth = 1
 
-        thumbnailView.imageScaling = .scaleAxesIndependently
+        thumbnailView.imageScaling = .scaleProportionallyUpOrDown
 
         placeholderView.wantsLayer = true
         placeholderView.layer?.backgroundColor = NSColor.controlBackgroundColor.cgColor
@@ -563,43 +534,16 @@ final class AppKitOLBrowserItem: NSCollectionViewItem, WallpaperGridHoverItem {
         durationBadgeTextLayer.isWrapped = false
         durationBadgeView.layer?.addSublayer(durationBadgeTextLayer)
 
-        // 底部信息渐变：仅在底部形成对比，提升文字可读性
-        gradientLayer.colors = [
-            NSColor.clear.cgColor,
-            NSColor.black.withAlphaComponent(0.05).cgColor,
-            NSColor.black.withAlphaComponent(0.72).cgColor
-        ]
-        gradientLayer.locations = [0.0, 0.62, 1.0]
-        gradientLayer.startPoint = CGPoint(x: 0.5, y: 1.0)
-        gradientLayer.endPoint   = CGPoint(x: 0.5, y: 0.0)
-        gradientLayer.actions = ["bounds": NSNull(), "position": NSNull()]
-        gradientLayer.needsDisplayOnBoundsChange = true
-        gradientLayer.autoresizingMask = [.layerWidthSizable, .layerHeightSizable]
+        controlBar.onPlay = { [weak self] in
+            guard let self, !self.isDownloadingState, self.currentItemID >= 0 else { return }
+            if self.isDownloadedState { self.onSetAsWallpaper?() } else { self.onDownload?() }
+        }
+        controlBar.onFavorite = { [weak self] in
+            guard let self, self.currentItemID >= 0, let actions = self.organization, actions.state.canFavorite else { return }
+            actions.onToggleFavorite()
+        }
+        controlBar.favoriteButton.isHidden = true
 
-        titleLabel.textColor = .white; titleLabel.alignment = .left
-        titleLabel.maximumNumberOfLines = 1; titleLabel.lineBreakMode = .byClipping
-        titleLabel.cell?.wraps = false; titleLabel.cell?.isScrollable = false
-        titleLabel.wantsLayer = true  // 提前启用，确保 layer 在 viewDidLayout 时已存在
-
-        metaLabel.textColor = NSColor.white.withAlphaComponent(0.80); metaLabel.alignment = .left
-        metaLabel.maximumNumberOfLines = 1; metaLabel.lineBreakMode = .byClipping
-        metaLabel.cell?.wraps = false; metaLabel.cell?.isScrollable = false
-        metaLabel.wantsLayer = true
-
-        downloadBtn.image = NSImage.olSymbol("arrow.down.circle.fill", pointSize: 16, weight: .regular, accessibilityDescription: "下载")
-        downloadBtn.imageScaling = .scaleProportionallyUpOrDown
-        downloadBtn.isBordered = false; downloadBtn.contentTintColor = .white
-        downloadBtn.target = self; downloadBtn.action = #selector(handleDownload); downloadBtn.toolTip = "下载到本地"
-
-        setWallpaperBtn.image = NSImage.olSymbol("display", pointSize: 16, weight: .regular, accessibilityDescription: "设为壁纸")
-        setWallpaperBtn.imageScaling = .scaleProportionallyUpOrDown
-        setWallpaperBtn.isBordered = false; setWallpaperBtn.contentTintColor = .white
-        setWallpaperBtn.target = self; setWallpaperBtn.action = #selector(handleSetWallpaper); setWallpaperBtn.toolTip = "设为壁纸"
-
-        downloadingSpinner.style = .spinning; downloadingSpinner.controlSize = .small
-        downloadingSpinner.isIndeterminate = true; downloadingSpinner.isHidden = true
-
-        downloadProgressView.isHidden = true
         completionBadgeView.wantsLayer = true
         completionBadgeView.layer?.backgroundColor = NSColor.systemGreen.cgColor
         completionBadgeView.layer?.shadowColor = NSColor.black.cgColor
@@ -620,19 +564,13 @@ final class AppKitOLBrowserItem: NSCollectionViewItem, WallpaperGridHoverItem {
         view.addSubview(imageContainer)
         imageContainer.addSubview(thumbnailView)
         imageContainer.addSubview(placeholderView)
+        imageContainer.addSubview(hoverOutlineView)
         imageContainer.addSubview(overlayView)
-        overlayView.layer?.addSublayer(gradientLayer)
+        overlayView.addSubview(controlBar)
         overlayView.addSubview(durationBadgeView)
-        overlayView.addSubview(titleLabel)
-        overlayView.addSubview(metaLabel)
-        overlayView.addSubview(downloadBtn)
-        overlayView.addSubview(setWallpaperBtn)
-        overlayView.addSubview(downloadProgressView)
-        overlayView.addSubview(downloadingSpinner)
         overlayView.addSubview(downloadedBadge)
         overlayView.addSubview(completionBadgeView)
         completionBadgeView.addSubview(completionBadgeIcon)
-        imageContainer.addSubview(hoverOutlineView)
 
         hoverTracking.update(in: imageContainer, owner: self)
         imageContainer.appearanceDidChangeHandler = { [weak self] in self?.refreshTheme() }
@@ -655,8 +593,8 @@ final class AppKitOLBrowserItem: NSCollectionViewItem, WallpaperGridHoverItem {
     override func viewDidLayout() {
         super.viewDidLayout()
         hoverTracking.update(in: imageContainer, owner: self)
-        let inputs = LayoutInputs(size: view.bounds.size, title: titleLabel.stringValue,
-            metadata: metaLabel.stringValue, duration: (durationBadgeTextLayer.string as? String) ?? "", backingScale: view.window?.backingScaleFactor ?? 2)
+        let inputs = LayoutInputs(size: view.bounds.size, title: currentTitle,
+            metadata: currentMetadata, duration: (durationBadgeTextLayer.string as? String) ?? "", backingScale: view.window?.backingScaleFactor ?? 2)
         guard lastLayoutInputs != inputs else {
             checkInitialHoverState()
             return
@@ -668,35 +606,25 @@ final class AppKitOLBrowserItem: NSCollectionViewItem, WallpaperGridHoverItem {
            GridThumbnailDecoder.pixelLimit(width: w, scale: view.window?.backingScaleFactor ?? 2) > requestedPixelLimit {
             loadThumbnail(url: url)
         }
-        let h = floor(w * 9.0 / 16.0)
+        let h = w
 
-        // imageContainer: 16:9，顶部对齐
+        // Square preview; the original image stays unchanged for other consumers.
         imageContainer.frame = NSRect(x: 0, y: view.bounds.height - h, width: w, height: h)
 
-        let radius = max(6, w * 0.045)
+        let radius: CGFloat = 14
         imageContainer.layer?.cornerRadius = radius
 
         hoverOutlineView.layer?.cornerRadius = max(5, radius - 1)
 
-        thumbnailView.frame = imageContainer.bounds
+        layoutThumbnail()
         placeholderView.frame = imageContainer.bounds
         overlayView.frame = imageContainer.bounds
         let spinSz: CGFloat = min(20, w * 0.12)
         spinner.frame = NSRect(x: (w-spinSz)/2, y: (h-spinSz)/2, width: spinSz, height: spinSz)
         hoverOutlineView.frame = NSRect(x: 1, y: 1, width: w-2, height: h-2)
 
-        let (titleSz, metaSz, badgeSz) = fontSizeForWidth(w)
-        let pad = max(6, w * 0.05)   // 内边距，随卡片等比缩放
-        let btnBaseSz = max(18, w * 0.13) // 按钮基础边长（实际会与文本区高度对齐）
-        let gap   = max(4, w * 0.03)  // 按钮间距
-        let textBlockYOffset = max(2, w * 0.012)
-
-        // 字体（只在档位变化时重设，避免每帧重建）
-        if titleLabel.font?.pointSize != titleSz {
-            titleLabel.font    = .systemFont(ofSize: titleSz, weight: .medium)
-            metaLabel.font     = .monospacedDigitSystemFont(ofSize: metaSz, weight: .regular)
-        }
-
+        let (_, _, badgeSz) = fontSizeForWidth(w)
+        let pad = max(6, w * 0.05)
         // 时长角标（左上角，非 hover）
         let badgeHPad = max(7, w * 0.040)
         let badgeVPad = max(4, w * 0.020)
@@ -721,65 +649,19 @@ final class AppKitOLBrowserItem: NSCollectionViewItem, WallpaperGridHoverItem {
             height: ceil(badgeTextSz.height) + 2
         )
 
-        // 标题行（上）/ 元数据行（下）
-        let titleH = titleSz + 3
-        let provisionalDlX = w - pad - btnBaseSz - pad - btnBaseSz
-        let textMaxW = provisionalDlX - pad - gap  // 先用基础按钮宽度估算
-        titleLabel.frame = NSRect(
-            x: pad,
-            y: pad + titleSz + gap - textBlockYOffset,
-            width: max(10, textMaxW),
-            height: titleH
-        )
-
-        // meta 行（标题下方）
-        let metaH = metaSz + 2
-        let metaY = pad - textBlockYOffset
-        metaLabel.frame = NSRect(x: pad, y: metaY, width: max(10, textMaxW), height: metaH)
-
-        // 按钮区：顶部对齐标题行顶部，底部对齐元数据行底部；右边距与两按钮间距一致
-        let actionTop = titleLabel.frame.maxY
-        let actionBottom = metaLabel.frame.minY
-        let btnSz = max(btnBaseSz, actionTop - actionBottom)
-        let actionGap = pad
-        let setWpX = w - actionGap - btnSz
-        let setWpY = actionBottom
-        let dlX = setWpX - actionGap - btnSz
-
-        setWallpaperBtn.frame = NSRect(x: setWpX, y: setWpY, width: btnSz, height: btnSz)
-        downloadBtn.frame = NSRect(x: dlX, y: setWpY, width: btnSz, height: btnSz)
-        downloadingSpinner.frame = NSRect(x: setWpX, y: setWpY, width: btnSz, height: btnSz)
-        downloadProgressView.frame = NSRect(x: setWpX, y: setWpY, width: btnSz, height: btnSz)
-        downloadedBadge.frame = NSRect(x: dlX, y: setWpY, width: btnSz, height: btnSz)
-
-        completionBadgeView.frame = NSRect(x: setWpX, y: setWpY, width: btnSz, height: btnSz)
-        completionBadgeView.layer?.cornerRadius = btnSz / 2
-        let iconSize = btnSz * 0.52
-        completionBadgeIcon.frame = NSRect(
-            x: floor((btnSz - iconSize) / 2),
-            y: floor((btnSz - iconSize) / 2),
-            width: iconSize,
-            height: iconSize
-        )
-        if abs(lastSymbolPointSize - btnSz) > 0.5 {
-            let symbolPt = max(12, btnSz * 0.82)
-            downloadBtn.image = NSImage.olSymbol("arrow.down.circle.fill", pointSize: symbolPt, weight: .regular, accessibilityDescription: "下载")
-            setWallpaperBtn.image = NSImage.olSymbol("display", pointSize: symbolPt * 0.9, weight: .regular, accessibilityDescription: "设为壁纸")
-            downloadedBadge.image = NSImage.olSymbol("checkmark.circle.fill", pointSize: symbolPt * 0.88, weight: .semibold, accessibilityDescription: "已下载")
-            completionBadgeIcon.image = NSImage.olSymbol("checkmark", pointSize: max(11, iconSize * 0.88), weight: .black, accessibilityDescription: "下载完成")
-            lastSymbolPointSize = btnSz
-        }
-
-        // 按钮尺寸变化后，回写两行文本可用宽度
-        let finalTextWidth = max(10, dlX - pad - gap)
-        titleLabel.frame.size.width = finalTextWidth
-        metaLabel.frame.size.width = finalTextWidth
-
-        // 仅同步 overlay 与圆角容器边界，不做全屏阴影效果
-        overlayView.frame = imageContainer.bounds
-        gradientLayer.frame = overlayView.bounds
-
-        applyTextFadeMasksIfNeeded()
+        let metrics = WallpaperCardBarMetrics(cardWidth: w)
+        controlBar.frame = NSRect(x: metrics.barHorizontalInset, y: metrics.barBottomInset,
+            width: max(0,w-metrics.barHorizontalInset*2), height: metrics.barHeight)
+        controlBar.apply(metrics: metrics)
+        controlBar.layoutSubtreeIfNeeded()
+        let actionFrame = primaryActionFrame
+        downloadedBadge.frame = controlBar.favoriteButton.convert(controlBar.favoriteButton.bounds, to: overlayView)
+        if !isCompletionAnimating { completionBadgeView.frame = actionFrame }
+        completionBadgeView.layer?.cornerRadius = actionFrame.height/2
+        let iconSize = actionFrame.height*0.52
+        completionBadgeIcon.frame = NSRect(x: (actionFrame.width-iconSize)/2, y: (actionFrame.height-iconSize)/2,
+                                           width: iconSize, height: iconSize)
+        updateControlBarContent()
 
         // 检查当前鼠标是否已经在卡片范围内（解决导入新文件时不显示 meta 的问题）
         checkInitialHoverState()
@@ -794,64 +676,52 @@ final class AppKitOLBrowserItem: NSCollectionViewItem, WallpaperGridHoverItem {
         }
     }
 
-    private func applyTextFadeMasksIfNeeded() {
-        applyFadeMaskIfNeeded(to: titleLabel)
-        applyFadeMaskIfNeeded(to: metaLabel)
-    }
 
-    private func applyFadeMaskIfNeeded(to label: NSTextField) {
-        let textW = label.attributedStringValue.size().width
-        let viewW = label.frame.width
-        guard viewW > 0 else {
-            label.layer?.mask = nil
-            return
-        }
-        if textW > viewW - 6 {
-            let fadeW = min(32, viewW * 0.25)
-            let start = 1.0 - fadeW / viewW
-            let mask = CAGradientLayer()
-            mask.colors = [NSColor.black.cgColor, NSColor.clear.cgColor]
-            mask.startPoint = CGPoint(x: start, y: 0.5)
-            mask.endPoint = CGPoint(x: 1.0, y: 0.5)
-            mask.frame = CGRect(origin: .zero, size: CGSize(width: viewW, height: label.frame.height))
-            label.wantsLayer = true
-            label.layer?.mask = mask
-        } else {
-            label.layer?.mask = nil
-        }
-    }
+
+
 
     private func applyHoverVisibility(_ visible: Bool, animated: Bool) {
         hoverVisible = visible
-        let alpha: CGFloat = visible ? 1 : 0
-        let badgeAlpha: CGFloat = visible ? 0 : 1
-        let gradientOpacity: Float = visible ? 1.0 : 0.0
-        if animated {
-            let dur = visible ? UIInteractionAnimation.cardHoverExpandDuration : UIInteractionAnimation.cardHoverCollapseDuration
-            let tim = visible ? UIInteractionAnimation.cardEnterTiming : UIInteractionAnimation.cardExitTiming
-            NSAnimationContext.runAnimationGroup { ctx in
-                ctx.duration = dur; ctx.timingFunction = tim
-                titleLabel.animator().alphaValue  = alpha
-                metaLabel.animator().alphaValue   = alpha
-                downloadBtn.animator().alphaValue  = alpha
-                setWallpaperBtn.animator().alphaValue = alpha
-                downloadProgressView.animator().alphaValue = isDownloadingState ? 1 : alpha
-                downloadingSpinner.animator().alphaValue = 0
-                downloadedBadge.animator().alphaValue = alpha
-                durationBadgeView.animator().alphaValue = badgeAlpha
-                gradientLayer.opacity = gradientOpacity
-            }
-        } else {
-            titleLabel.alphaValue  = alpha
-            metaLabel.alphaValue   = alpha
-            downloadBtn.alphaValue  = alpha
-            setWallpaperBtn.alphaValue = alpha
-            downloadProgressView.alphaValue = isDownloadingState ? 1 : alpha
-            downloadingSpinner.alphaValue = 0
-            downloadedBadge.alphaValue = alpha
-            durationBadgeView.alphaValue = badgeAlpha
-            gradientLayer.opacity = gradientOpacity
+        let show = visible || isDownloadingState || isCompletionAnimating
+        barVisibilityRevision &+= 1
+        let revision = barVisibilityRevision
+        if show {
+            if controlBar.superview == nil { overlayView.addSubview(controlBar, positioned: .below, relativeTo: downloadedBadge) }
+            controlBar.isHidden = false
         }
+        controlBar.setActive(show && visible && isThumbnailDemandActive)
+        controlBar.glass.setProgressAnimationVisible(show && isThumbnailDemandActive)
+        let finish = { [weak self] in
+            guard let self, self.barVisibilityRevision == revision, !show else { return }
+            self.controlBar.isHidden = true
+            self.controlBar.removeFromSuperview()
+        }
+        if animated && controlBar.superview != nil {
+            NSAnimationContext.runAnimationGroup { context in
+                context.duration = visible ? UIInteractionAnimation.cardHoverExpandDuration : UIInteractionAnimation.cardHoverCollapseDuration
+                context.timingFunction = visible ? UIInteractionAnimation.cardEnterTiming : UIInteractionAnimation.cardExitTiming
+                controlBar.animator().alphaValue = show ? 1 : 0
+                downloadedBadge.animator().alphaValue = visible ? 1 : 0
+                durationBadgeView.animator().alphaValue = visible ? 0 : 1
+            } completionHandler: { DispatchQueue.main.async(execute: finish) }
+        } else {
+            controlBar.alphaValue = show ? 1 : 0
+            downloadedBadge.alphaValue = visible ? 1 : 0
+            durationBadgeView.alphaValue = visible ? 0 : 1
+            finish()
+        }
+    }
+
+    private func layoutThumbnail() {
+        let bounds = imageContainer.bounds
+        guard let size = thumbnailView.image?.size, size.width > 0, size.height > 0 else {
+            thumbnailView.frame = bounds
+            return
+        }
+        let scale = max(bounds.width/size.width, bounds.height/size.height)
+        let fitted = NSSize(width: size.width*scale, height: size.height*scale)
+        thumbnailView.frame = NSRect(x: (bounds.width-fitted.width)/2, y: (bounds.height-fitted.height)/2,
+                                     width: fitted.width, height: fitted.height)
     }
 
     // MARK: - Hover
@@ -903,7 +773,6 @@ final class AppKitOLBrowserItem: NSCollectionViewItem, WallpaperGridHoverItem {
     private func refreshTheme() {
         guard let layer = imageContainer.layer else { return }
         layer.borderColor = NSColor.separatorColor.cgColor
-        hoverOutlineView.layer?.borderColor = view.isDarkAppearance
-            ? NSColor.white.cgColor : NSColor.controlAccentColor.cgColor
+        hoverOutlineView.layer?.borderColor = NSColor.white.cgColor
     }
 }

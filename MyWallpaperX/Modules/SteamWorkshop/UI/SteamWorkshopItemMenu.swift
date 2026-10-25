@@ -10,7 +10,7 @@ enum SteamWorkshopItemMenu {
         let epoch = service.steamServiceClient.accountEpoch
         func add(_ title: String, _ symbol: String, enabled: Bool = true,
                  accountBound: Bool = false, action: @escaping () -> Void) {
-            let entry = SteamWorkshopMenuItem(title: title, symbol: symbol) {
+            let entry = ActionMenuItem(title: title, symbol: symbol) {
                 guard !accountBound || service.steamServiceClient.accountEpoch == epoch else { return }
                 action()
             }
@@ -86,7 +86,7 @@ enum SteamWorkshopItemMenu {
             case .writing, .reconciling: title = "正在核对订阅…"; enabled = false
             }
         }
-        let entry = SteamWorkshopMenuItem(title: title, symbol: "bookmark") {
+        let entry = ActionMenuItem(title: title, symbol: "bookmark") {
             guard service.steamServiceClient.accountEpoch == epoch else { return }
             guard service.steamAuth.isOnline else { service.presentSteamLoginForUserAction(context: "订阅"); return }
             guard service.steamSubscriptions.state(for: item.id) == state else { return }
@@ -105,17 +105,4 @@ enum SteamWorkshopItemMenu {
         NSPasteboard.general.clearContents()
         NSPasteboard.general.setString(text, forType: .string)
     }
-}
-
-@MainActor
-final class SteamWorkshopMenuItem: NSMenuItem {
-    private let handler: () -> Void
-    init(title: String, symbol: String, handler: @escaping () -> Void) {
-        self.handler = handler
-        super.init(title: title, action: #selector(invoke), keyEquivalent: "")
-        target = self
-        image = NSImage(systemSymbolName: symbol, accessibilityDescription: nil)
-    }
-    required init(coder: NSCoder) { fatalError("init(coder:) has not been implemented") }
-    @objc private func invoke() { handler() }
 }

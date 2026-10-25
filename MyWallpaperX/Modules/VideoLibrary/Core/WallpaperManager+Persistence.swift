@@ -20,21 +20,18 @@ extension WallpaperManager {
     }
 
     func scheduleWallpapersAutoPersist() {
+        guard !preservesLegacyMigrationInputs else { return }
         // Initial publication already commits one complete snapshot explicitly.
         guard !initialIndexInternalPublication else { return }
         wallpapersAutoSaveWorkItem?.cancel()
         let workItem = DispatchWorkItem { [weak self] in
             guard let self else { return }
             self.saveWallpapers()
-            self.constrainRecentWallpapersToLibrary()
-            self.saveRecentWallpapers()
             // 库内容变化（导入/删除/SQLite 回填）后重臂自动切换 timer。
             // $wallpapers sink 在 @Published willSet 期触发，当时读到
             // 的还是旧库，必须等本 workItem 执行（新库已生效）再评估，
             // 否则"空库开启自动切换→导入壁纸"后 timer 继续静默死亡
-            // （与 restoreMostRecentVideoAfterNonVideoRuntime、web 回退
-            // 两处 refresh 调用同一修复模式）。timer 已在跑且间隔未变
-            // 时不扰动，轮换节奏不受影响。
+            // 仅刷新已提交来源的时钟，不从初载/空库制造新播放来源。
             self.refreshAutoSwitchTimerIfNeeded()
         }
         wallpapersAutoSaveWorkItem = workItem
@@ -42,22 +39,9 @@ extension WallpaperManager {
         DispatchQueue.main.asyncAfter(deadline: .now() + 0.25, execute: workItem)
     }
 
-    func scheduleRecentWallpapersAutoPersist() {
-        // 最近使用是高频写入数据，单独短延迟合并，避免每次切换都落盘。
-        recentWallpapersAutoSaveWorkItem?.cancel()
-        let workItem = DispatchWorkItem { [weak self] in
-            self?.saveRecentWallpapers()
-        }
-        recentWallpapersAutoSaveWorkItem = workItem
-        DispatchQueue.main.asyncAfter(deadline: .now() + 0.2, execute: workItem)
-    }
 
     func loadSavedState() {
-        // 启动恢复顺序固定：先最近使用，再当前壁纸，再播放状态，确保兜底链路可用。
-        // 加载最近播放列表
-        loadRecentWallpapers()
-
-        // 加载当前壁纸（依赖最近播放列表作为兜底来源）
+        // App restoration resolves the saved runtime after source publication.
         loadCurrentWallpaper()
 
         // 加载播放状态
@@ -66,19 +50,6 @@ extension WallpaperManager {
         loadLastWorkshopPlaybackRecordID()
     }
 
-    func loadTags() {
-        // 标签列表先读持久化值；没有的话再用默认标签种子补齐。
-        let storedTags: [String]? = loadCodableValue(forKey: tagsKey)
-        let wallpaperTags = wallpapers.flatMap(\.tags)
-
-        if let storedTags {
-            // 已持久化的 tags 保留用户排序；默认标签只在首次安装或缺失时作为种子。
-            tags = normalizedTagList(storedTags + wallpaperTags)
-            return
-        }
-
-        tags = normalizedTagList(WallpaperManager.defaultTags + wallpaperTags)
-    }
 
     func loadWallpapers() {
         beginInitialIndexLoad()
@@ -96,9 +67,11 @@ extension WallpaperManager {
 
     func scheduleMissingIndexedSourceFilesScan() {
         missingIndexedSourceScanWorkItem?.cancel()
+        guard !preservesLegacyMigrationInputs,
+              !Self.defersMissingFileCleanupForPersonalSettingsRecovery else { return }
 
         let workItem = DispatchWorkItem { [weak self] in
-            guard let self else { return }
+            guard let self, !Self.defersMissingFileCleanupForPersonalSettingsRecovery else { return }
             let snapshot = self.wallpapers
             guard !snapshot.isEmpty else { return }
 
@@ -108,7 +81,7 @@ extension WallpaperManager {
                 guard !missingWallpapers.isEmpty else { return }
 
                 DispatchQueue.main.async { [weak self] in
-                    guard let self else { return }
+                    guard let self, !Self.defersMissingFileCleanupForPersonalSettingsRecovery else { return }
                     self.purgeMissingIndexedWallpapersFromLibrary(
                         missingWallpapers,
                         notifyUser: true
@@ -145,6 +118,7 @@ extension WallpaperManager {
     }
 
     func saveWallpapers() {
+        guard !preservesLegacyMigrationInputs else { return }
         guard didFinishInitialIndexLoad else {
             persistInitialIndexChanges()
             retryInitialIndexLoadIfNeeded()
@@ -158,6 +132,7 @@ extension WallpaperManager {
     }
 
     private func submitPendingWallpaperIndexSave() {
+        guard !preservesLegacyMigrationInputs else { return }
         guard wallpaperIndexSaveInFlight == nil, let request = pendingWallpaperIndexSave else { return }
         pendingWallpaperIndexSave = nil
         wallpaperIndexSaveInFlight = request
@@ -184,19 +159,35 @@ extension WallpaperManager {
     }
 
     private func flushWallpaperIndex() {
+        guard !preservesLegacyMigrationInputs else { return }
         // A failed read retains the old DB and a versioned delta, never a partial full snapshot.
         guard settleInitialIndexForFlush() else { return }
+        let snapshot = wallpapers
+        do {
+            try persistWallpaperIndexNow(snapshot)
+        } catch {
+            applyWallpaperIndexSaveResult(.failure(error), snapshot: snapshot)
+        }
+    }
+
+    /// Explicit profile import and exit share the original serial SQLite owner.
+    /// Revoke the old MainActor completion slots before the synchronous queue
+    /// barrier, so an older pending snapshot cannot overwrite the imported one.
+    func persistWallpaperIndexNow(_ snapshot: [VideoWallpaper]) throws {
+        guard allowsLibraryMutation else {
+            throw CocoaError(.fileWriteNoPermission, userInfo: [NSLocalizedDescriptionKey: migrationRecoveryMessage ?? "资料库需要恢复"])
+        }
+        guard didFinishInitialIndexLoad else {
+            throw CocoaError(.fileReadUnknown, userInfo: [NSLocalizedDescriptionKey: "资料库仍在载入，请载入完成后再保存完整索引。"])
+        }
+        wallpapersAutoSaveWorkItem?.cancel()
+        wallpapersAutoSaveWorkItem = nil
         // 最新值排在已提交事务之后；退出不能等回主队列的旧 completion。
         wallpaperIndexSaveRevision &+= 1
         pendingWallpaperIndexSave = nil
         wallpaperIndexSaveInFlight = nil
-        let snapshot = wallpapers
-        do {
-            try wallpaperIndexStore.saveWallpapers(snapshot)
-            applyWallpaperIndexSaveResult(.success(()), snapshot: snapshot)
-        } catch {
-            applyWallpaperIndexSaveResult(.failure(error), snapshot: snapshot)
-        }
+        try wallpaperIndexStore.saveWallpapers(snapshot)
+        applyWallpaperIndexSaveResult(.success(()), snapshot: snapshot)
     }
 
     private func invalidateWallpaperIndexPersistence() {
@@ -207,123 +198,6 @@ extension WallpaperManager {
         // 旧事务仍占原槽直至完成，避免连续 reset 堆积并行保存。
     }
 
-    func saveTags() {
-        // 标签单独持久化，避免和壁纸索引绑成一坨。
-        saveCodableValue(tags, forKey: tagsKey)
-    }
-
-    /// web/scene 启动重放计划：App 装配层消费（Modules 不直呼 SteamWorkshop
-    /// 单例），按 recordID 走原工坊 launch 入口。
-    struct WorkshopLaunchReplayPlan {
-        let recordID: String
-        let restorePausedIntent: Bool
-    }
-
-    func restorePlaybackState() {
-        // 启动恢复播放关闭：不播放任何壁纸（静态图由系统层自保留）。
-        // init 里先于本函数跑过的 refreshAutoSwitchTimerIfNeeded 可能已按
-        // 加载的 currentWallpaper 拉起自动切换 timer——必须停掉，否则
-        // timer 到期会把壁纸播起来，违反"启动不播放任何壁纸"。
-        guard settings.restorePlaybackOnLaunch else {
-            stopAutoSwitchTimer()
-            // 清掉已加载的"当前项"快照：多屏重载/间隔调整等二级路径会按
-            // currentWallpaper 重放或重臂 timer，把从未播放的壁纸播起来。
-            // runtime/工坊 recordID 保留——用户重新打开开关后，下次启动
-            // 仍能按原身份恢复。
-            currentWallpaper = nil
-            isPlaying = false
-            return
-        }
-        // loadSavedState 已在先恢复持久化 isPlaying；退出前处于暂停的
-        // 用户，重启后应回到暂停而不是自动播放。
-        let wasPausedBeforeQuit = !isPlaying
-        // web/scene 有持久化的单品身份时走真重放：计划交给 App 装配层，
-        // 此处跳过视频降级；单品已删除时由装配层回落降级路径。
-        if activeWallpaperRuntime == .web || activeWallpaperRuntime == .scene {
-            if let recordID = lastWorkshopPlaybackRecordID, !recordID.isEmpty {
-                workshopLaunchReplayPlan = WorkshopLaunchReplayPlan(
-                    recordID: recordID,
-                    restorePausedIntent: wasPausedBeforeQuit
-                )
-                isPlaying = !wasPausedBeforeQuit
-                return
-            }
-            // 无单品身份（旧版本升级/诊断路径）：降级恢复最近可用视频。
-            restoreMostRecentVideoAfterNonVideoRuntime()
-            if wasPausedBeforeQuit { restorePlaybackPausedIntent() }
-            return
-        }
-        guard activeWallpaperRuntime == .video else {
-            if wasPausedBeforeQuit { isPlaying = false }
-            return
-        }
-        // 恢复播放状态只负责恢复当前播放项，不重新编排最近使用或标签状态。
-        if let currentWallpaper = currentWallpaper {
-            // 启动恢复只恢复播放，不重排最近使用列表，避免额外写盘和列表抖动。
-            setAsWallpaper(
-                currentWallpaper,
-                userInitiated: false,
-                recordHistory: false,
-                updateRecentList: false
-            )
-        } else if !wallpapers.isEmpty {
-            // 兜底：如果没有保存的当前壁纸，使用第一个壁纸
-            let firstWallpaper = wallpapers[0]
-            currentWallpaper = firstWallpaper
-            // 启动恢复只恢复播放，不重排最近使用列表，避免额外写盘和列表抖动。
-            setAsWallpaper(
-                firstWallpaper,
-                userInitiated: false,
-                recordHistory: false,
-                updateRecentList: false
-            )
-        }
-        if wasPausedBeforeQuit { restorePlaybackPausedIntent() }
-    }
-
-    /// App 装配层在启动末尾消费一次；无计划或已消费返回 nil。
-    @discardableResult
-    func consumeWorkshopLaunchReplayPlan() -> WorkshopLaunchReplayPlan? {
-        defer { workshopLaunchReplayPlan = nil }
-        return workshopLaunchReplayPlan
-    }
-
-    /// 重放单品已删除/不可用时的降级入口（保持既有兜底语义）。
-    func fallBackToMostRecentVideoAfterWorkshopReplay(
-        restorePausedIntent: Bool
-    ) {
-        restoreMostRecentVideoAfterNonVideoRuntime()
-        if restorePausedIntent { restorePlaybackPausedIntent() }
-    }
-
-    /// 把退出前的用户暂停意图重新投影到控制面：经 multiplexer 走
-    /// `.pause`，三引擎与 isUserPaused 状态一并恢复。无条件投影——
-    /// 引擎侧守卫运行时身份/会话存活性，恢复瞬间 daemon 尚未拉起的
-    /// 竞态下 scene handler 会记录 isPaused 供 replay 补发，比按
-    /// isPlaying 判定更忠实于"退出前是暂停"的意图。
-    func restorePlaybackPausedIntent() {
-        PlaybackCommandMultiplexer.shared.dispatch(.pause)
-        isPlaying = false
-    }
-
-    func restoreMostRecentVideoAfterNonVideoRuntime() {
-        // recentlyUsedWallpapers 头部（index 0）是最近使用的壁纸。
-        let candidate = recentlyUsedWallpapers.first {
-            normalizedSourcePathExists($0.path)
-        } ?? wallpapers.first { normalizedSourcePathExists($0.path) }
-        guard let candidate else { return }
-        currentWallpaper = candidate
-        setAsWallpaper(
-            candidate,
-            userInitiated: false,
-            recordHistory: false,
-            updateRecentList: false
-        )
-        // init 的 refreshAutoSwitchTimerIfNeeded 跑在本分支前，当时
-        // currentWallpaper 尚为 nil（web/scene 清过快照）；降级恢复后
-        // 必须重建 timer，否则轮换策略静默死亡。
-        refreshAutoSwitchTimerIfNeeded()
-    }
 
     func loadSettings() {
         // 设置是轻量配置，优先从 UserDefaults 读取；没有就使用默认值。
@@ -341,19 +215,23 @@ extension WallpaperManager {
         PlaybackPolicyController.shared.updateSettings(settings)
     }
 
-    func loadCurrentWallpaper() {
-        // 当前壁纸是快照引用：先尝试恢复原项，失败再从最近使用列表兜底。
-        guard let savedWallpaper: VideoWallpaper = loadCodableValue(forKey: currentWallpaperKey) else {
-            return
+    /// Explicit import needs an acknowledgement, unlike the normal debounced
+    /// writer. It uses the same UserDefaults key and cancels the old work item.
+    func persistSettingsNow(_ snapshot: WallpaperSettings) throws {
+        let data = try JSONEncoder().encode(snapshot)
+        settingsAutoSaveWorkItem?.cancel()
+        settingsAutoSaveWorkItem = nil
+        defaults.set(data, forKey: settingsKey)
+        guard defaults.synchronize(), defaults.data(forKey: settingsKey) == data else {
+            throw CocoaError(.fileWriteUnknown)
         }
+    }
 
-        if let resolved = resolveExistingWallpaperFromSnapshot(savedWallpaper) {
-            currentWallpaper = resolved
-            if resolved.path != savedWallpaper.path { saveCurrentWallpaper() }
-        } else {
-            // 壁纸文件不存在，尝试从最近播放列表中找
-            loadFromRecentWallpapers()
-        }
+    func loadCurrentWallpaper() {
+        // A legacy success snapshot is a replay hint, never an import command.
+        // The App waits for the authoritative index before resolving its ID.
+        guard let savedWallpaper: VideoWallpaper = loadCodableValue(forKey: currentWallpaperKey) else { return }
+        currentWallpaper = migratedBundledVideoWallpaper(savedWallpaper)
     }
 
     func saveCurrentWallpaper() {
@@ -361,52 +239,8 @@ extension WallpaperManager {
         persistCurrentWallpaperSnapshot()
     }
 
-    func loadRecentWallpapers() {
-        guard let data = defaults.data(forKey: recentWallpapersKey),
-              let savedWallpapers = decode([VideoWallpaper].self, from: data) else {
-            return
-        }
 
-        // 最近使用是快照数据，启动时必须先做存在性清洗，再决定是否回写。
-        recentlyUsedWallpapers = savedWallpapers.map(migratedBundledVideoWallpaper)
-        guard didFinishInitialIndexLoad else { return }
-        normalizeRecentWallpapers(limit: WallpaperManager.recentWallpapersLimit, requireExistingFiles: true)
 
-        // 仅在清洗后的结果与原持久化内容不一致时才回写，减少冷启动无意义写盘。
-        if let normalizedData = encode(recentlyUsedWallpapers),
-           normalizedData != data {
-            defaults.set(normalizedData, forKey: recentWallpapersKey)
-        }
-    }
-
-    func saveRecentWallpapers() {
-        // 最近使用整体写回快照，供冷启动恢复和列表回填使用。
-        saveCodableValue(recentlyUsedWallpapers, forKey: recentWallpapersKey)
-    }
-
-    func updateRecentWallpapers(_ wallpaper: VideoWallpaper) {
-        // 最近使用只在“确实属于当前库”时更新，防止历史快照混入外部路径。
-        if !(wallpapers.indices.contains(currentIndex) && wallpapers[currentIndex].id == wallpaper.id),
-           !wallpapers.contains(where: { $0.id == wallpaper.id }) {
-            return
-        }
-        let normalized = normalizedPath(wallpaper.path)
-        if let first = recentlyUsedWallpapers.first,
-           normalizedPath(first.path) == normalized {
-            if first != wallpaper {
-                recentlyUsedWallpapers[0] = wallpaper
-                scheduleRecentWallpapersAutoPersist()
-            }
-            return
-        }
-        // 移除已存在的相同壁纸
-        recentlyUsedWallpapers.removeAll { normalizedPath($0.path) == normalized }
-        // 添加到列表开头
-        recentlyUsedWallpapers.insert(wallpaper, at: 0)
-        normalizeRecentWallpapers(limit: WallpaperManager.recentWallpapersLimit, requireExistingFiles: false)
-        // 高频切换时合并写盘，避免每次切换都触发持久化。
-        scheduleRecentWallpapersAutoPersist()
-    }
 
     func loadPlaybackState() {
         // 播放状态只有在持久化键存在时才覆盖内存态，避免首次启动被默认 false 误伤。
@@ -436,33 +270,14 @@ extension WallpaperManager {
         saveCodableValue(activeWallpaperRuntime, forKey: activeWallpaperRuntimeKey)
     }
 
-    func loadFromRecentWallpapers() {
-        // 当前壁纸丢失时，从最近使用里按可恢复快照兜底。
-        // 从最近播放列表中找第一个可用的壁纸
-        for wallpaper in recentlyUsedWallpapers {
-            if let resolved = resolveExistingWallpaperFromSnapshot(wallpaper) {
-                currentWallpaper = resolved
-                return
-            }
-        }
-        // 如果最近播放列表也没有可用的，使用兜底逻辑
-        if !wallpapers.isEmpty {
-            currentWallpaper = wallpapers[0]
-        }
-    }
-
     func flushPersistentState() {
-        // 退出前统一刷盘，保证 settings / tags / walls / recent / playback 都同步落地。
+        // Flush source index, runtime intent and preferences. Store flushes relationships/history separately.
         settingsAutoSaveWorkItem?.cancel()
         settingsAutoSaveWorkItem = nil
         wallpapersAutoSaveWorkItem?.cancel()
         wallpapersAutoSaveWorkItem = nil
-        recentWallpapersAutoSaveWorkItem?.cancel()
-        recentWallpapersAutoSaveWorkItem = nil
         saveSettings()
-        saveTags()
         flushWallpaperIndex()
-        saveRecentWallpapers()
         savePlaybackState()
         saveActiveWallpaperRuntime()
         persistCurrentWallpaperSnapshot()
@@ -483,6 +298,8 @@ extension WallpaperManager {
     }
 
     func saveCodableValue<T: Encodable>(_ value: T, forKey key: String) {
+        if preservesLegacyMigrationInputs,
+           [wallpapersKey, initialIndexChangesKey].contains(key) { return }
         // 写盘前先做编码和去重，减少相同数据反复写入。
         guard let data = encode(value) else { return }
         if defaults.data(forKey: key) == data {
@@ -500,14 +317,13 @@ extension WallpaperManager {
     }
 
     func resetToFreshInstallState() {
+        guard allowsLibraryMutation else { reportMigrationReadOnly(); return }
         // 这里的语义是“重新安装级重置”，所以必须清掉库、缓存、最近使用、标签和运行中状态。
         invalidateWallpaperIndexPersistence()
         settingsAutoSaveWorkItem?.cancel()
         settingsAutoSaveWorkItem = nil
         wallpapersAutoSaveWorkItem?.cancel()
         wallpapersAutoSaveWorkItem = nil
-        recentWallpapersAutoSaveWorkItem?.cancel()
-        recentWallpapersAutoSaveWorkItem = nil
         pendingSystemWallpaperSyncWorkItem?.cancel()
         pendingSystemWallpaperSyncWorkItem = nil
         pendingManualNavigationWorkItem?.cancel()
@@ -517,37 +333,26 @@ extension WallpaperManager {
         missingIndexedSourceScanWorkItem?.cancel()
         missingIndexedSourceScanWorkItem = nil
 
-        clearSelectionState()
-        selectedCategory = .myWallpapers
-        selectedTag = nil
-        searchQuery = ""
-        isSearchFieldActive = false
-        isDragSelecting = false
         currentIndex = 0
         isPlaying = true
         lastInteractiveWallpaperSetTime = 0
         lastManualNavigationAt = 0
         pendingManualNavigationDirection = nil
-        pendingManualNavigationUserInitiated = false
         // #7 Manager 侧去重变量已移除，Engine 侧统一去重。
-        playbackHistoryPaths.removeAll()
 
         settings = defaultSettings
         previousAudibleVolume = defaultSettings.volume
         // 全新安装级重置也必须清除独立静音意图；默认音量恢复 50% 后不能继续静音。
         PlaybackMuteState.shared.setMuted(false)
-        tags = WallpaperManager.defaultTags
         wallpapers.removeAll()
-        recentlyUsedWallpapers.removeAll()
         currentWallpaper = nil
         lastWorkshopPlaybackRecordID = nil
-        workshopLaunchReplayPlan = nil
 
         // 重置是"重新安装级"：停掉任何运行中的壁纸——web/scene 不能在
         // 重置后继续播放，runtime 标记也不能被 flush 再次持久化（否则
         // 下次启动落入 web/scene 空转分支）。停止会把 isPlaying 压成
         // false，但初次安装语义是自动播放：恢复播放态再进示例注入，
-        // 否则 restorePlaybackState 会把刚恢复的示例按"退出前暂停"误暂停。
+        // App 唯一恢复 owner 随后在新目录/关系投影就绪后接纳示例。
         if activeWallpaperRuntime == .scene {
             SceneDaemonClient.shared.stop(postsLaunchState: false)
         }
@@ -561,10 +366,10 @@ extension WallpaperManager {
         PlaybackCommandMultiplexer.shared.dispatch(
             .setPerformanceProfile(maxFPS: PlaybackPerformanceProfile.standard.maxFPS)
         )
-        gridZoomOffset = 0
-        UserDefaults.standard.removeObject(forKey: "gridZoomOffset")
-        perSelectionSortStates.removeAll()
-        UserDefaults.standard.removeObject(forKey: perSelectionSortStatesKey)
+        // Retired preferences are removed only by explicit fresh-install reset.
+        for key in ["WallpaperTags", "RecentWallpapers", "PerSelectionSortStates", "gridZoomOffset"] {
+            UserDefaults.standard.removeObject(forKey: key)
+        }
 
         clearPreviewCacheArtifacts()
         WallpaperIndexStore.shared.resetStore()
@@ -573,17 +378,13 @@ extension WallpaperManager {
         let sil = SILService.shared
         sil.invalidatePendingMetadataLoad()
         sil.wallpapers.removeAll()
-        sil.silTags.removeAll()
-        sil.sortState = SILSortState()
-        sil.gridZoomOffset = 0
-        sil.clearSelectionState()
         UserDefaults.standard.removeObject(forKey: "SILTags")
         UserDefaults.standard.removeObject(forKey: "SILSortState")
         UserDefaults.standard.removeObject(forKey: "SILGridZoomOffset")
         try? FileManager.default.removeItem(at: sil.silPersistenceURL)
 
         loadSampleData()
-        restorePlaybackState()
+        libraryPlaybackResetRequested?()
         applyEngineSettings(reloadWallpaper: false)
         updateLoginItemStatus()
         flushPersistentState()
@@ -606,17 +407,4 @@ extension WallpaperManager {
         try? FileManager.default.createDirectory(at: staticFrameCacheDirectory, withIntermediateDirectories: true)
     }
 
-    func normalizedTagList(_ values: [String]) -> [String] {
-        var seen = Set<String>()
-        var output: [String] = []
-        output.reserveCapacity(values.count)
-        for value in values {
-            let trimmed = value.trimmingCharacters(in: .whitespacesAndNewlines)
-            if trimmed.isEmpty { continue }
-            if seen.insert(trimmed).inserted {
-                output.append(trimmed)
-            }
-        }
-        return output
-    }
 }

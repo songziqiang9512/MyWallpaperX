@@ -11,7 +11,8 @@ import ImageIO
                 card.currentDisplayContext = context
                 checks.merge(gridCardInteractionChecks(item: card, cardRoot: card.cardView,
                     outline: card.hoverOutlineView, isHovering: { card.isHovering },
-                    label: context == .browser ? "steam-browser" : "steam-downloads")) { _, new in new }
+                    label: context == .browser ? "steam-browser" : "steam-downloads",
+                    dragImageView: card.previewImageView, layoutDragImage: { card.updatePreviewImageFrame() })) { _, new in new }
             }
             print(String(data: try JSONSerialization.data(withJSONObject: checks, options: [.sortedKeys]), encoding: .utf8)!)
             return
@@ -149,6 +150,89 @@ import ImageIO
                 try bitmap.representation(using: .png, properties: [:])!.write(to: output.appendingPathComponent("preview.png"))
             }
         }
+        let axCard = AppKitSteamWorkshopBrowserItem()
+        let axRoot = axCard.view as! WallpaperCardInteractionView
+        axCard.view.frame = NSRect(x: 0, y: 0, width: 250, height: 180)
+        let axItem = SteamWorkshopBrowserItem(id: "ax-local", title: "无缩略图场景", author: "author",
+            authorProfileURL: nil, authorWorkshopURL: nil, hasAdultContent: false,
+            summary: "", descriptionText: "", tags: [], workshopTypeText: "Scene", ageRatingText: nil,
+            genreText: nil, categoryText: nil, dependencyIDs: [], previewImageURL: nil, previewVideoURL: nil,
+            previewAssetKind: .unknown, fileSizeText: nil, resolutionText: nil, postedText: nil,
+            updatedText: nil, favoritesText: nil, subscriptionsText: nil, scoreText: nil,
+            lifetimeFavoritesText: nil, lifetimeSubscriptionsText: nil, visibilityText: nil,
+            moderationText: nil, detailFields: [], detailURL: URL(string: "https://example.invalid/item/ax-local")!)
+        var originalOpens = 0, selectionActivations = 0
+        func configureAX(_ context: AppKitSteamWorkshopBrowserItem.DisplayContext, source: SteamWorkshopBrowserItem? = nil,
+                         allowsDetails: Bool = true, full: Bool = false, menu: (() -> NSMenu?)? = nil) {
+            let action: (() -> Void)? = allowsDetails ? { originalOpens += 1 } : nil
+            if full {
+                axCard.configure(displayContext: context, item: source ?? axItem, downloadRecord: nil,
+                    downloadProgressStore: SteamWorkshopDownloadProgressStore(), isDownloading: false,
+                    isDownloaded: false, isMultiSelectMode: context == .downloads, isKeyboardFocused: false,
+                    makeMenu: menu, onOpen: action, onDownload: {}, onSetAsWallpaper: {}, onCancelDownload: {})
+            } else {
+                axCard.configureMetadataOnly(displayContext: context, item: source ?? axItem, downloadRecord: nil,
+                    downloadProgressStore: SteamWorkshopDownloadProgressStore(), isDownloading: false,
+                    isDownloaded: false, isMultiSelectMode: context == .downloads, isKeyboardFocused: false,
+                    makeMenu: menu, onOpen: action, onDownload: {}, onSetAsWallpaper: {}, onCancelDownload: {})
+            }
+        }
+        configureAX(.downloads)
+        axRoot.onAccessibilityActivate = { selectionActivations += 1; return true }
+        var passiveStatesActivate = true
+        for state in [SteamWorkshopPreviewPlaceholderView.State.loading, .retrying, .unavailable] {
+            axCard.previewPlaceholderView.setState(state)
+            axCard.view.layoutSubtreeIfNeeded()
+            passiveStatesActivate = axRoot.accessibilityPerformPress() && passiveStatesActivate
+        }
+        checks["actualSteamPlaceholderStatesUseSharedAXSelectionInsteadOfProviderDetails"] = passiveStatesActivate
+            && selectionActivations == 3 && originalOpens == 0
+        axRoot.onAccessibilityActivate = { false }
+        checks["revokedSharedSteamAXActionNeverFallsThroughToOldProviderOpen"] = !axRoot.accessibilityPerformPress() && originalOpens == 0
+        axCard.prepareForReuse()
+        checks["reusedUnconfiguredSteamCardDoesNotClaimSuccessfulAXPress"] = !axRoot.accessibilityPerformPress() && originalOpens == 0
+        configureAX(.browser)
+        checks["remoteSteamBrowserRetainsItsOriginalAXOpenAfterLocalReuse"] = axRoot.accessibilityPerformPress() && originalOpens == 1
+        let remoteDetails = axRoot.accessibilityCustomActions()!.first { $0.name == "查看详情" }!
+        checks["configuredSteamDetailsCustomActionExecutesItsOriginalAction"] = remoteDetails.handler?() == true && originalOpens == 2
+        configureAX(.downloads)
+        checks["heldSteamDetailsCustomActionCannotCrossDisplayContext"] = remoteDetails.handler?() == false && originalOpens == 2
+        configureAX(.browser)
+        let sameContextDetails = axRoot.accessibilityCustomActions()!.first { $0.name == "查看详情" }!
+        var otherJSON = try JSONSerialization.jsonObject(with: JSONEncoder().encode(axItem)) as! [String: Any]
+        otherJSON["id"] = "ax-other"; otherJSON["title"] = "另一张壁纸"
+        let otherItem = try JSONDecoder().decode(SteamWorkshopBrowserItem.self, from: JSONSerialization.data(withJSONObject: otherJSON))
+        configureAX(.browser, source: otherItem)
+        checks["heldSteamDetailsCustomActionCannotRedirectToReusedSource"] = sameContextDetails.handler?() == false && originalOpens == 2
+        let priorDetails = axRoot.accessibilityCustomActions()!.first { $0.name == "查看详情" }!
+        axCard.prepareForReuse()
+        checks["retiredRemoteSteamAXPressHasNoActionAndReportsFalse"] = !axRoot.accessibilityPerformPress() && originalOpens == 2
+        checks["retiredSteamCustomActionsAreRemovedAndHeldHandlerReportsFalse"] = (axRoot.accessibilityCustomActions() ?? []).isEmpty
+            && priorDetails.handler?() == false && originalOpens == 2
+        configureAX(.downloads, allowsDetails: false)
+        checks["pickerMetadataOnlySteamCardWithoutInspectorDoesNotExposeNoOpDetails"] = (axRoot.accessibilityCustomActions() ?? []).isEmpty
+            && !axRoot.accessibilityPerformPress() && originalOpens == 2
+        configureAX(.downloads, allowsDetails: false, full: true)
+        checks["fullSteamCardConfigurationAlsoOmitsAbsentDetails"] = (axRoot.accessibilityCustomActions() ?? []).isEmpty
+            && !axRoot.accessibilityPerformPress() && originalOpens == 2
+        configureAX(.browser, full: true)
+        let fullDetails = axRoot.accessibilityCustomActions()!.first { $0.name == "查看详情" }!
+        checks["fullSteamBrowserKeepsWorkingDetailsAlongsideItsOriginalPrimaryAction"] = fullDetails.handler?() == true
+            && axRoot.accessibilityPerformPress() && originalOpens == 4
+        let menuEvent = NSEvent.mouseEvent(with: .rightMouseDown, location: .zero, modifierFlags: [], timestamp: 0,
+            windowNumber: 0, context: nil, eventNumber: 1, clickCount: 1, pressure: 1)!
+        let organizationMenu = NSMenu()
+        organizationMenu.addItem(NSMenuItem(title: "添加到列表…", action: nil, keyEquivalent: ""))
+        var menuRequests = 0
+        configureAX(.browser, full: true, menu: { menuRequests += 1; return organizationMenu })
+        checks["steamCardRootContextMenuUsesTheInjectedBrowserMenu"] = axRoot.menu(for: menuEvent) === organizationMenu && menuRequests == 1
+        configureAX(.browser, menu: { menuRequests += 1; return nil })
+        let menuAction = axRoot.accessibilityCustomActions()!.first { $0.name == "作品操作菜单" }!
+        checks["steamAXMenuUsesCurrentInjectedFactoryWithoutFallingBackToSourceOnlyMenu"] = menuAction.handler?() == false && menuRequests == 2
+        configureAX(.browser, source: otherItem, menu: { menuRequests += 1; return nil })
+        checks["heldSteamAXMenuCannotOpenReusedBrowserCardsOrganizationMenu"] = menuAction.handler?() == false && menuRequests == 2
+        axCard.prepareForReuse()
+        checks["steamReuseRevokesInjectedContextMenuAndHeldAXMenuHandler"] = menuAction.handler?() == false && menuRequests == 2
         window.orderOut(nil)
         print(String(data: try JSONSerialization.data(withJSONObject: checks, options: [.sortedKeys]), encoding: .utf8)!)
     }

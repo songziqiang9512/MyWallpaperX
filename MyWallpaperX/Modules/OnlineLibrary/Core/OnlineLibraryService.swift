@@ -3,7 +3,7 @@
 //  MyWallpaperX — Modules/OnlineLibrary/Core
 //
 //  在线图库数据层：Pixabay API 搜索、分页、分类定义、状态发布。
-//  依赖：Foundation、Combine（零 Shared/Models 依赖）
+//  依赖：Foundation、Combine 与共享播放准入值；不直接依赖播放 Manager/renderer。
 //  切换其他图库服务只需替换 buildURL / fetchPage / 数据映射部分。
 //
 
@@ -172,6 +172,10 @@ private extension OLHit {
 @MainActor
 final class OnlineLibraryService: ObservableObject {
     static let shared = OnlineLibraryService()
+    /// App owns product intent admission; downloading alone never calls this.
+    var requestLibraryPlayback: ((WallpaperReference) -> Void)?
+    var prepareExplicitLibraryRestoration: ((WallpaperReference) -> (() -> Void)?)?
+    var prepareVideoPlaybackIntent: ((WallpaperReference, WallpaperPlaybackSequence.Pending?) -> ImportedVideoPlaybackAdmission?)?
     private enum Constants {
         static let visibleThumbnailPrefetchLimit = 18
     }
@@ -183,7 +187,7 @@ final class OnlineLibraryService: ObservableObject {
     @Published var hasMore:      Bool   = false
     @Published var totalHits:    Int    = 0
 
-    private(set) var currentParams = OnlineLibrarySearchParams()
+    @Published private(set) var currentParams = OnlineLibrarySearchParams()
     private var currentPage: Int = 1
     private(set) var hasLoadedOnce: Bool = false
 
@@ -208,11 +212,6 @@ final class OnlineLibraryService: ObservableObject {
     // MARK: 工具栏驱动状态（工具栏写入，BrowserView 读取）
     @Published var toolbarCategory: OnlineLibraryCategory = .all
     @Published var toolbarQuery:    String = ""
-
-    // MARK: 缩放（独立于视频库 gridZoomOffset，UserDefaults 持久化）
-    @Published var zoomOffset: Int = UserDefaults.standard.integer(forKey: "onlineLibrary.gridZoomOffset") {
-        didSet { UserDefaults.standard.set(zoomOffset, forKey: "onlineLibrary.gridZoomOffset") }
-    }
 
     // MARK: API Key
     private static let apiKeyDefaultsKey = "OnlineLibraryAPIKey"
@@ -240,25 +239,84 @@ final class OnlineLibraryService: ObservableObject {
     private var thumbnailPrefetches: [Int: ThumbnailPrefetch] = [:]
     private var itemIndexByID: [Int: Int] = [:]
     private var previousVisibleStart: Int?
-    private init() {
-        restoreDownloadedIDs()
+    private var downloadedContentTask: Task<Void, Never>?
+    private var downloadedContentGeneration: UInt64 = 0
+    private var initialDownloadedScanCompleted = false
+    @Published private(set) var downloadedContent = OnlineLibraryDownloadedContentSnapshot(revision: 0, entries: [], status: .initial)
+
+    private init() { refreshDownloadedContent() }
+
+    deinit { downloadedContentTask?.cancel() }
+
+    /// The only directory/AV metadata owner. Presentation and transfer ticks
+    /// consume the published value and never request another scan implicitly.
+    func refreshDownloadedContent() {
+        downloadedContentTask?.cancel()
+        downloadedContentGeneration &+= 1
+        let generation = downloadedContentGeneration
+        publishDownloadedContent(downloadedContent.entries, status: .init(phase: .loading,
+            hasSuccessfulScan: downloadedContent.status.hasSuccessfulScan))
+        let directory = Self.downloadDirectory
+        let previous = downloadedContent.entries
+        let worker = Task.detached(priority: .utility) {
+            try await OnlineLibraryDownloadedContent.scan(in: directory, reusing: previous)
+        }
+        downloadedContentTask = Task { [weak self] in
+            do {
+                let result = try await withTaskCancellationHandler { try await worker.value } onCancel: { worker.cancel() }
+                guard !Task.isCancelled, let self, self.downloadedContentGeneration == generation else { return }
+                self.initialDownloadedScanCompleted = true
+                self.publishDownloadedContent(result.entries, completedScan: true,
+                    status: .init(phase: .ready(warnings: result.warnings), hasSuccessfulScan: true))
+            } catch is CancellationError {
+                // A cancelled/replaced scan owns no publication or error.
+            } catch {
+                guard !Task.isCancelled, let self, self.downloadedContentGeneration == generation else { return }
+                self.initialDownloadedScanCompleted = true
+                // Failure ends the initial lookup wait, but does not turn an
+                // unknown source into a successful empty library or revoke a
+                // previous successful source's playback readiness.
+                self.publishDownloadedContent(self.downloadedContent.entries, status: .init(
+                    phase: .failed(message: "无法读取已下载 Pixabay 内容：" + error.localizedDescription),
+                    hasSuccessfulScan: self.downloadedContent.status.hasSuccessfulScan))
+            }
+        }
     }
 
-    /// 启动时扫描本地目录，将已存在的下载文件 ID 恢复到 downloadedIDs（OL-03）
-    private func restoreDownloadedIDs() {
-        let dir = Self.downloadDirectory
-        guard let files = try? FileManager.default.contentsOfDirectory(
-            at: dir, includingPropertiesForKeys: nil
-        ) else { return }
-        let ids = files.compactMap { url -> Int? in
-            let name = url.lastPathComponent           // "online_12345.mp4"
-            guard name.hasPrefix("online_"), name.hasSuffix(".mp4") else { return nil }
-            let idStr = name
-                .dropFirst("online_".count)
-                .dropLast(".mp4".count)
-            return Int(idStr)
+    private func publishDownloadedContent(_ entries: [OLDownloadedEntry], completedScan: Bool = false,
+                                         status: WallpaperSourceScanStatus? = nil) {
+        let contentChanged = downloadedContent.entries != entries || (completedScan && downloadedContent.revision == 0)
+        let next = OnlineLibraryDownloadedContentSnapshot(
+            revision: contentChanged ? downloadedContent.revision &+ 1 : downloadedContent.revision,
+            entries: entries, status: status ?? downloadedContent.status)
+        if downloadedContent != next { downloadedContent = next }
+        let availableIDs = Set(entries.filter(\.isAvailable).map(\.id))
+        if downloadedIDs != availableIDs { downloadedIDs = availableIDs }
+    }
+
+    /// User-action fallback during the first async scan (and after external
+    /// changes). This is deliberately not called by rendering or progress.
+    private func existingDownloadedURL(id: Int) -> URL? {
+        let known = downloadedContent.entries.first { $0.id == id }?.localURL
+        let canonical = Self.downloadDirectory.appendingPathComponent("online_\(id).mp4")
+        for url in [known, canonical].compactMap({ $0 }) {
+            var isDirectory: ObjCBool = false
+            if FileManager.default.fileExists(atPath: url.path, isDirectory: &isDirectory),
+               !isDirectory.boolValue, FileManager.default.isReadableFile(atPath: url.path) { return url }
         }
-        downloadedIDs = Set(ids)
+        return nil
+    }
+
+    /// Only explicit playback uses this synchronous user-action validation.
+    /// Query/cell/progress callers consume the published worker snapshot.
+    func libraryContentItemForExplicitPlayback(id: Int) -> WallpaperContentItem? {
+        guard let url = existingDownloadedURL(id: id) else { return nil }
+        let published = downloadedContent.entries.first {
+            $0.id == id && $0.localURL.standardizedFileURL == url.standardizedFileURL
+        }
+        let facts = WallpaperContentLocalFacts(isPublishedLocally: true, isAvailable: true,
+            canPlay: true, canDelete: true, localURL: url, resourceRevision: published?.thumbnailSourceKey)
+        return PixabayLibraryContentProjection.project(download: published, sourceID: id, facts: facts)
     }
 
     // MARK: - 公开接口
@@ -306,7 +364,7 @@ final class OnlineLibraryService: ObservableObject {
     // MARK: - 下载状态
     @Published var downloadingIDs: Set<Int> = []
     @Published var downloadProgressByID: [Int: Double] = [:]
-    @Published var downloadedIDs:  Set<Int> = []
+    @Published private(set) var downloadedIDs: Set<Int> = []
     @Published var downloadError:  String?  = nil
     /// OL-04：仅下载完成后的成功提示（文件存储路径），UI 层消费后置 nil
     @Published var downloadSuccessMessage: String? = nil
@@ -359,31 +417,64 @@ final class OnlineLibraryService: ObservableObject {
     /// 仅下载——用户裁决（2026-09-26）：下载完成后不自动切换播放，
     /// 下载只是下载，用户稍后再点一次即播放。通知名
     /// onlineVideoReadyToPlay 定义在 Shell/ContentViewSupport.swift。
-    func downloadAndSet(item: OnlineLibraryVideoItem) {
-        if downloadedIDs.contains(item.id) {
-            postReadyToPlay(id: item.id, autoplayToken: ImportedVideoAutoplayGate.shared.claim())
+    func downloadAndSet(item: OnlineLibraryVideoItem, libraryPending: WallpaperPlaybackSequence.Pending? = nil) {
+        if downloadedIDs.contains(item.id) || existingDownloadedURL(id: item.id) != nil {
+            postReadyToPlay(id: item.id, libraryPending: libraryPending)
             return
         }
         startDownload(item: item)
     }
 
     /// OL-05：已下载文件直接设为壁纸（从本地路径发通知，无需重新下载）
-    private func postReadyToPlay(id: Int, autoplayToken: ImportedVideoAutoplayGate.Token) {
-        let local = Self.downloadDirectory.appendingPathComponent("online_\(id).mp4")
-        guard FileManager.default.fileExists(atPath: local.path) else {
-            // 文件不存在（可能被外部删除），移出已下载集合
-            downloadedIDs.remove(id)
-            return
+    @discardableResult
+    private func postReadyToPlay(id: Int, libraryPending: WallpaperPlaybackSequence.Pending? = nil) -> Bool {
+        guard let libraryPending else {
+            requestLibraryPlayback?(WallpaperReference(provider: .pixabay, sourceID: String(id)))
+            return false
         }
-        ImportedVideoPlaybackRequest(localURL: local, autoplayToken: autoplayToken)
+        guard let local = existingDownloadedURL(id: id) else {
+            var entries = downloadedContent.entries
+            if let index = entries.firstIndex(where: { $0.id == id }) { entries[index].isAvailable = false }
+            publishDownloadedContent(entries)
+            refreshDownloadedContent()
+            return false
+        }
+        guard let admission = prepareVideoPlaybackIntent?(
+            WallpaperReference(provider: .pixabay, sourceID: String(id)), libraryPending) else {
+            downloadError = "视频播放入口尚未就绪。"
+            return false
+        }
+        ImportedVideoPlaybackRequest(localURL: local, admission: admission)
             .post(name: .onlineVideoReadyToPlay)
+        return true
     }
 
     private func startDownload(item: OnlineLibraryVideoItem) {
-        guard !downloadingIDs.contains(item.id), let source = item.bestVideoDownload else { return }
+        guard !downloadingIDs.contains(item.id) else { return }
+        let restoration = prepareExplicitLibraryRestoration?(.init(provider: .pixabay, sourceID: String(item.id)))
+        if existingDownloadedURL(id: item.id) != nil {
+            restoration?()
+            refreshDownloadedContent()
+            return
+        }
+        guard let source = item.bestVideoDownload else { return }
         downloadingIDs.insert(item.id)
         downloadProgressByID[item.id] = 0
         Task {
+            // Legacy filenames such as online_0007.mp4 are resolved only by
+            // the source scan. A click during that first scan must not create
+            // a second same-ID file merely because the canonical path is absent.
+            while !initialDownloadedScanCompleted, let pending = downloadedContentTask {
+                let generation = downloadedContentGeneration
+                await pending.value
+                if generation == downloadedContentGeneration { break }
+            }
+            if existingDownloadedURL(id: item.id) != nil {
+                downloadingIDs.remove(item.id)
+                downloadProgressByID[item.id] = nil
+                restoration?()
+                return
+            }
             do {
                 _ = try await fetchAndMove(
                     from: source.url,
@@ -391,9 +482,10 @@ final class OnlineLibraryService: ObservableObject {
                     name: "online_\(item.id).mp4",
                     itemID: item.id
                 )
+                restoration?()
                 downloadingIDs.remove(item.id)
                 downloadProgressByID[item.id] = nil
-                downloadedIDs.insert(item.id)
+                refreshDownloadedContent()
                 lastDownloadedItemID = item.id
                 downloadSuccessMessage = "已保存到 \"影片/MyWallpaperX/在线图库\""
             } catch {
@@ -454,18 +546,52 @@ final class OnlineLibraryService: ObservableObject {
             .appendingPathComponent("在线图库",      isDirectory: true)
     }
 
-    /// 删除本地已下载文件
-    func deleteLocalFile(at url: URL) {
-        try? FileManager.default.removeItem(at: url)
-        // 从文件名反解 ID，移出 downloadedIDs
-        let name = url.lastPathComponent
-        let idStr = name.dropFirst("online_".count).dropLast(".mp4".count)
-        if let id = Int(idStr) { downloadedIDs.remove(id) }
+    /// Revoke the old scan before deletion; only successful removals leave
+    /// the local publication. Missing files count as already removed.
+    @discardableResult
+    func deleteLocalFiles(at urls: [URL], isInUse: ((URL) -> Bool)? = nil) -> [OnlineLibraryLocalDeletionResult] {
+        downloadedContentTask?.cancel()
+        downloadedContentGeneration &+= 1
+        var results: [OnlineLibraryLocalDeletionResult] = []
+        for url in urls {
+            let failure: String?
+            var deleted = false
+            do {
+                let directory = Self.downloadDirectory.resolvingSymlinksInPath().standardizedFileURL
+                guard url.isFileURL, OnlineLibraryDownloadedContent.itemID(for: url) != nil,
+                      Data(url.deletingLastPathComponent().resolvingSymlinksInPath().standardizedFileURL.path.utf8) == Data(directory.path.utf8),
+                      isInUse?(url) != true else {
+                    throw CocoaError(.fileWriteNoPermission, userInfo: [NSLocalizedDescriptionKey: "源文件不属于当前下载目录，或正在播放/准备；请先停止后重试"])
+                }
+                do {
+                    let prepared = try WallpaperSourceFileDeletion.prepare(url)
+                    let outcome = WallpaperSourceFileDeletion.remove(prepared)
+                    deleted = outcome.sourceFileDeleted
+                    failure = outcome.failureMessage
+                } catch let error as NSError where error.domain == NSPOSIXErrorDomain && error.code == Int(POSIXErrorCode.ENOENT.rawValue) {
+                    // A readable, present owner directory distinguishes an
+                    // already removed child from an offline/missing volume.
+                    let values = try FileManager.default.attributesOfItem(atPath: directory.path)
+                    guard values[.type] as? FileAttributeType == .typeDirectory,
+                          FileManager.default.isReadableFile(atPath: directory.path) else { throw error }
+                    failure = nil
+                }
+            } catch { failure = error.localizedDescription }
+            results.append(.init(localURL: url, id: OnlineLibraryDownloadedContent.itemID(for: url), failureMessage: failure,
+                sourceFileDeleted: deleted))
+        }
+        let removed = Set(results.filter(\.succeeded).map { Data($0.localURL.standardizedFileURL.path.utf8) })
+        publishDownloadedContent(downloadedContent.entries.filter {
+            !removed.contains(Data($0.localURL.standardizedFileURL.path.utf8))
+        })
+        refreshDownloadedContent()
+        return results
     }
 
     /// 从本地已下载文件直接设为壁纸（下载管理面板调用）
-    func setLocalFileAsWallpaper(id: Int) {
-        postReadyToPlay(id: id, autoplayToken: ImportedVideoAutoplayGate.shared.claim())
+    @discardableResult
+    func setLocalFileAsWallpaper(id: Int, libraryPending: WallpaperPlaybackSequence.Pending? = nil) -> Bool {
+        postReadyToPlay(id: id, libraryPending: libraryPending)
     }
 
     /// OL-12：便利搜索方法，用当前状态填充缺省值，消除调用方重复构建 OnlineLibrarySearchParams
@@ -486,30 +612,46 @@ final class OnlineLibraryService: ObservableObject {
     // MARK: - 私有
 
     private func fetchPage(page: Int, appending: Bool) {
-        guard hasValidAPIKey else { errorMessage = "请先填写 Pixabay API Key"; return }
-        guard let url = buildURL(params: currentParams, page: page) else { errorMessage = "URL 构建失败"; return }
+        guard hasValidAPIKey else { isLoading = false; errorMessage = "请先填写 Pixabay API Key"; return }
+        let params = currentParams
+        guard let url = buildURL(params: params, page: page) else { isLoading = false; errorMessage = "URL 构建失败"; return }
 
         isLoading    = true
         errorMessage = nil
 
         searchTask = Task { [weak self] in
             guard let self else { return }
+            // Search/reset cancels the prior task before admitting its next
+            // request. A cancelled completion must not clear that request's
+            // loading state, including URLSession's URLError.cancelled path.
+            defer { if !Task.isCancelled { self.isLoading = false } }
             do {
                 let (data, response) = try await self.session.data(from: url)
                 if Task.isCancelled { return }
                 guard let http = response as? HTTPURLResponse else {
-                    self.errorMessage = "无效响应"; self.isLoading = false; return
+                    self.errorMessage = "无效响应"; return
                 }
                 switch http.statusCode {
                 case 200:
                     let decoded  = try JSONDecoder().decode(OLResponse.self, from: data)
                     let newItems = decoded.hits.map { $0.toItem() }
+                    var nextItems: [OnlineLibraryVideoItem] = []
+                    var nextIndex: [Int: Int] = [:]
+                    // Page overlap and repeated hits share one stable row:
+                    // preserve first position, accept the latest metadata.
+                    for value in (appending ? self.items : []) + newItems {
+                        if let index = nextIndex[value.id] { nextItems[index] = value }
+                        else { nextIndex[value.id] = nextItems.count; nextItems.append(value) }
+                    }
                     self.currentPage = page
                     self.totalHits   = decoded.totalHits
-                    self.hasMore     = (page * self.currentParams.perPage) < decoded.totalHits
-                    self.items       = appending ? self.items + newItems : newItems
-                    self.itemIndexByID = Dictionary(uniqueKeysWithValues:
-                        self.items.enumerated().map { ($0.element.id, $0.offset) })
+                    self.hasMore     = (page * params.perPage) < decoded.totalHits
+                    // @Published emits in willSet. During that callback both
+                    // stored values must still describe the old array; install
+                    // its precomputed index immediately after the array setter,
+                    // with no suspension before deferred UI delivery.
+                    self.items = nextItems
+                    self.itemIndexByID = nextIndex
                 case 400:       self.errorMessage = "API Key 无效或不完整，请重新填写"
                 case 401, 403:  self.errorMessage = "API Key 无效，请重新填写"
                 case 429:       self.errorMessage = "请求过于频繁，请稍后再试"
@@ -520,7 +662,6 @@ final class OnlineLibraryService: ObservableObject {
             } catch {
                 if !Task.isCancelled { self.errorMessage = "网络错误：\(error.localizedDescription)" }
             }
-            self.isLoading = false
         }
     }
 

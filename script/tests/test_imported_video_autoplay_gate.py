@@ -11,15 +11,19 @@ CONTROL = REPO_ROOT / "MyWallpaperX/Core/PlaybackControl"
 MANAGER = REPO_ROOT / "MyWallpaperX/Modules/VideoLibrary/Core"
 GATE_SOURCES = [CONTROL / name for name in (
     "PlaybackResourceLifetime.swift", "ImportedVideoAutoplayGate.swift", "WallpaperRuntimeSwitch.swift",
-)]
+    "PlaybackSwitchTransaction.swift", "ImportedVideoPlaybackAdmission.swift",
+    "WallpaperPlaybackSequence.swift", "WallpaperRotationDeadline.swift",
+)] + [REPO_ROOT / "MyWallpaperX/Models/WallpaperReference.swift",
+     REPO_ROOT / "MyWallpaperX/Models/WallpaperLibraryPage.swift"]
 
 # Storage, persistence, native endpoint actions and process IPC are leaves.
 # Selection, commit, failure, timer policy and EOF delivery are production code.
 SUPPORT = r'''
 import Foundation
 import Combine
+import QuartzCore
 @MainActor enum Trace {static var values:[String]=[]}
-struct VideoWallpaper {let path:String}
+struct VideoWallpaper {let path:String;var id:String{path}}
 @MainActor final class PlaybackCommandMultiplexer {
     static let shared=PlaybackCommandMultiplexer();var isPlaybackPaused=false
 }
@@ -60,7 +64,7 @@ struct VideoWallpaper {let path:String}
     // ENGINE_METHOD
 }
 extension Notification.Name {static let wallpaperSwitchDidFail=Self("switch-failed")}
-@MainActor final class WallpaperManager {
+@MainActor final class WallpaperManager: ObservableObject {
     static let shared=WallpaperManager()
     let objectWillChange=ObservableObjectPublisher()
     var playbackIntentDidAdvance:((WallpaperRuntimeKind?)->Void)?
@@ -73,12 +77,20 @@ extension Notification.Name {static let wallpaperSwitchDidFail=Self("switch-fail
         var timeUnit=Unit.seconds,videoFillMode=Fill.fill
     }
     var settings=Settings()
+    var libraryPlaybackSequence=WallpaperPlaybackSequence()
+    var libraryRotationDeadline=WallpaperRotationDeadline()
+    var libraryPlaybackSnapshotProvider:((WallpaperReference?,WallpaperPlaybackSequence.Source,WallpaperPlaybackCause)->WallpaperPlaybackSequence.Snapshot?)?
+    var libraryPlaybackDispatcher:((WallpaperPlaybackSequence.Pending)->Bool)?
+    var libraryPlaybackCommitted:((WallpaperPlaybackSequence.Commit)->Void)?
+    var libraryPlaybackStopped:(()->Void)?
+    var libraryPlaybackFailed:((WallpaperPlaybackSequence.Pending)->Void)?
     var playbackSwitch=PlaybackSwitchTransaction()
     var switchEndpoints:[UUID:PlaybackSwitchEndpoint]=[:]
     var switchSelections:[UUID:RuntimeSwitchSelection]=[:]
     var switchDeadline:DispatchWorkItem?,pendingSystemWallpaperSyncWorkItem:DispatchWorkItem?
-    var switchEffectQueue:[PlaybackSwitchTransaction.Effect]=[]
+    var switchEffectQueue:[(effect:PlaybackSwitchTransaction.Effect,originEpoch:UInt64)]=[]
     var drainingSwitchEffects=false
+    var switchSettlementObservers:[PlaybackSwitchTicket:[()->Void]]=[:]
     var playbackIntentEpoch:UInt64{playbackSwitch.epoch}
     var requestedRuntime:WallpaperRuntimeKind?{playbackSwitch.requestedRuntime}
     var pendingWallpaper:VideoWallpaper?,currentWallpaper:VideoWallpaper?
@@ -96,6 +108,10 @@ extension Notification.Name {static let wallpaperSwitchDidFail=Self("switch-fail
     func normalizedPath(_ path:String)->String{path}
     func timerDidFire(){timerFires += 1}
     func persistCurrentWallpaperSnapshot(){snapshots += 1;onPersist?()}
+    @discardableResult func advanceLibraryPlayback(cause:WallpaperPlaybackCause)->Bool{timerFires += 1;return false}
+    func stopCurrentPlayback(){_ = beginPlaybackIntent();currentWallpaper=nil;pendingWallpaper=nil;isPlaying=false;stopAutoSwitchTimer()}
+    func updateCurrentWallpaperIndex(for id:String){}
+    func recordInitialIndexUserSelection(_ wallpaper:VideoWallpaper){}
     func syncSystemWallpaper(with wallpaper:VideoWallpaper){}
     func scheduleRuntimeFrameSystemWallpaperSync(kind:WallpaperRuntimeKind,recordID:String){}
     func handlePlaybackEnded(forPath path:String){endedPaths.append(path)}
@@ -120,17 +136,21 @@ extension Notification.Name {static let wallpaperSwitchDidFail=Self("switch-fail
 }
 @MainActor func candidate(_ manager:WallpaperManager,_ runtime:WallpaperRuntimeKind,
                           path:String="/new-video")->NativeEndpoint {
-    let ticket:PlaybackSwitchTicket
-    if runtime == .video {
-        manager.pendingWallpaper = .init(path:path)
-        manager.prepareVideoSwitch(.init(path:path))
-        ticket=WallpaperEngine.shared.lastPreparedVideoTicket!
-    } else {
-        _=manager.beginPlaybackIntent(runtime:runtime)
-        ticket=manager.playbackSwitch.pending!.selection.ticket
-        if runtime == .web {manager.switchSelections[ticket.id] = .web("web")}
-        else {manager.switchSelections[ticket.id] = .scene("scene")}
+    let reference=WallpaperReference(provider:runtime == .video ? .videoLibrary : runtime == .systemStill ? .staticImageLibrary : .steamWorkshop,
+        sourceID:runtime.rawValue + path)
+    let videoEntries=manager.wallpapers.map { WallpaperPlaybackSequence.Entry(
+        reference:.init(provider:.videoLibrary,sourceID:"video" + $0.path),runtime:.video,isPlayable:true) }
+    let snapshot=try! WallpaperPlaybackSequence.Snapshot(source:.global,revision:1,
+        entries:videoEntries + [.init(reference:reference,runtime:runtime,isPlayable:true)])
+    manager.libraryPlaybackDispatcher={ pending in
+        if runtime == .video {
+            manager.pendingWallpaper = .init(path:path)
+            manager.prepareVideoSwitch(.init(path:path),libraryPending:pending)
+        } else if runtime == .web {manager.switchSelections[pending.ticket.id] = .web("web")}
+        else {manager.switchSelections[pending.ticket.id] = .scene("scene")}
+        return true
     }
+    let ticket=manager.requestLibraryPlayback(reference:reference,from:snapshot)!
     let native=NativeEndpoint(ticket)
     if runtime == .video {
         native.onFinalize={
@@ -156,19 +176,23 @@ def product_harness():
     events = (MANAGER / "WallpaperManager+PlaybackEvents.swift").read_text()
     methods = [method(manager, signature) for signature in (
         "func beginPlaybackIntent(runtime: WallpaperRuntimeKind? = nil) -> UInt64",
-        "func restoreCommittedPlaybackIntent()",
     )]
     methods += [method(routing, signature) for signature in (
-        "func admitsDeferredVideoEnd(", "func prepareVideoSwitch(", "func switchPrepared(", "func switchVisible(", "func switchFailed(",
+        "func requestLibraryPlayback(reference: WallpaperReference, from snapshot:",
+        "func requestLibraryPlayback(reference: WallpaperReference, source:",
+        "func dispatchLibraryPlayback(", "func acceptsLibraryPlayback(",
+        "func admitsDeferredVideoEnd(", "func admitImportedVideoPlayback(", "func acceptsImportedVideoPlayback(",
+        "func failImportedVideoPlayback(", "func prepareVideoSwitch(", "func switchPrepared(", "func switchVisible(", "func switchFailed(",
         "func scheduleSwitchDeadline(", "func runSwitchEffects(", "private func commitSwitch(",
-        "private func pruneSwitchSelection(",
+        "private func pruneSwitchSelection(", "private func finishSwitchSettlementObservers(",
     )]
     methods += [method(settings, signature) for signature in (
-        "func shouldRunAutoSwitchTimer()", "func startAutoSwitchTimer()", "func stopAutoSwitchTimer()",
+        "var libraryRotationInterval:", "var libraryRotationEligible:", "func rescheduleLibraryRotationTimer()",
+        "func startAutoSwitchTimer()", "func stopAutoSwitchTimer()",
         "func refreshAutoSwitchTimerIfNeeded(",
     )]
     methods += [method(events, signature) for signature in (
-        "func observePlaybackEvents(", "private func handleEnginePlaybackFailure(",
+        "func observePlaybackEvents(",
     )]
     engine = (REPO_ROOT / "MyWallpaperX/Core/Playback/WallpaperEngine+DaemonEvents.swift").read_text()
     return SUPPORT.replace("// SELECTION", method(routing, "enum RuntimeSwitchSelection")) \
@@ -185,7 +209,7 @@ class ImportedVideoAutoplayGateTests(unittest.TestCase):
             # Snapshot shared sources so another lane's integration save cannot
             # invalidate an in-progress Swift compilation.
             sources=[]
-            for original in [*GATE_SOURCES, CONTROL / "PlaybackSwitchTransaction.swift"]:
+            for original in GATE_SOURCES:
                 copy=folder / original.name
                 copy.write_bytes(original.read_bytes());sources.append(str(copy))
             built=subprocess.run(["xcrun","swiftc","-swift-version","5","-parse-as-library",
@@ -201,7 +225,9 @@ class ImportedVideoAutoplayGateTests(unittest.TestCase):
     @MainActor static func main() {
         let manager=WallpaperManager()
         let committed=candidate(manager,.video,path:"/old-video");committed.show(manager)
-        precondition(manager.shouldRunAutoSwitchTimer() && manager.autoSwitchTimer != nil)
+        precondition(manager.libraryPlaybackSequence.committed?.ticket == committed.ticket
+            && manager.libraryPlaybackSequence.pending == nil && manager.playbackSwitch.pending == nil
+            && manager.libraryRotationDeadline.isRunning && manager.autoSwitchTimer?.isValid == true)
         let scene=candidate(manager,.scene)
         let oldAutoplay=ImportedVideoAutoplayGate.shared.claim(),oldEpoch=manager.playbackIntentEpoch
         var installedBeforeCancel=false
@@ -212,20 +238,24 @@ class ImportedVideoAutoplayGateTests(unittest.TestCase):
         precondition(!ImportedVideoAutoplayGate.shared.isCurrent(oldAutoplay))
         precondition(manager.pendingWallpaper == nil && manager.autoSwitchTimer == nil)
         manager.refreshAutoSwitchTimerIfNeeded()
-        precondition(!manager.shouldRunAutoSwitchTimer() && manager.autoSwitchTimer == nil,
+        precondition(manager.playbackSwitch.pending?.selection.ticket.runtime == .web
+            && !manager.libraryRotationDeadline.isRunning && manager.autoSwitchTimer == nil,
             "settings refresh cannot restart retained Video timer while Web is pending")
-        manager.restoreCommittedPlaybackIntent()
+        manager.switchFailed(manager.playbackSwitch.pending!.selection.ticket,reason:"controlled cancellation")
         precondition(manager.requestedRuntime == .video && manager.activeWallpaperRuntime == .video
             && manager.currentWallpaper?.path == "/old-video" && manager.autoSwitchTimer != nil)
         let failedVideo=candidate(manager,.video)
         manager.refreshAutoSwitchTimerIfNeeded()
-        precondition(!manager.shouldRunAutoSwitchTimer() && manager.autoSwitchTimer == nil)
+        precondition(manager.playbackSwitch.pending?.selection.ticket == failedVideo.ticket
+            && !manager.libraryRotationDeadline.isRunning && manager.autoSwitchTimer == nil)
         manager.switchFailed(failedVideo.ticket,reason:"video failed")
         precondition(manager.pendingWallpaper == nil && manager.autoSwitchTimer != nil
             && manager.currentWallpaper?.path == "/old-video")
         let committedScene=candidate(manager,.scene);committedScene.show(manager)
-        _=manager.beginPlaybackIntent(runtime:.web);manager.restoreCommittedPlaybackIntent()
-        precondition(manager.requestedRuntime == .scene && manager.autoSwitchTimer == nil)
+        _=manager.beginPlaybackIntent(runtime:.web);manager.switchFailed(manager.playbackSwitch.pending!.selection.ticket,reason:"controlled cancellation")
+        precondition(manager.requestedRuntime == .scene && manager.autoSwitchTimer != nil
+            && manager.libraryPlaybackSequence.committed?.ticket.runtime == .scene,
+            "Scene now receives the same source-bound automatic rotation clock")
         manager.stopAutoSwitchTimer()
         print("preparation-intent-restore-pass")
     }
@@ -402,14 +432,18 @@ struct Record {let id="fixture"}
             decodedRequest = ImportedVideoPlaybackRequest(notification: notification)
         }
         let lifetime = TestLifetime()
+        let admission = ImportedVideoPlaybackAdmission(
+            ticket: PlaybackSwitchTicket(epoch: 1, id: UUID(), runtime: .video),
+            autoplayToken: currentSameItem, reference: WallpaperReference(provider: .pixabay, sourceID: "42"))
         ImportedVideoPlaybackRequest(
             localURL: URL(fileURLWithPath: "/tmp/latest.mp4"),
-            autoplayToken: currentSameItem,
+            admission: admission,
             resourceLifetime: lifetime
         ).post(name: Notification.Name("AutoplayGateTest"))
         NotificationCenter.default.removeObserver(observer)
         precondition(decodedRequest?.localURL.path == "/tmp/latest.mp4")
-        precondition(decodedRequest?.autoplayToken == currentSameItem)
+        precondition(decodedRequest?.admission == admission)
+        precondition(decodedRequest?.admission.autoplayToken == currentSameItem)
         precondition(decodedRequest?.resourceLifetime === lifetime)
 
         print("imported-video-autoplay-gate-pass")

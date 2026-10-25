@@ -31,6 +31,7 @@ class SteamDetailLayoutTests(unittest.TestCase):
                 ui / 'SteamWorkshopPreviewState.swift', ui / 'SteamWorkshopItemDetailPreviewSupport.swift',
                 core / 'SteamWorkshopDownloadProgress.swift', core / 'SteamWorkshopDetailRefreshSupport.swift',
                 ROOT / 'MyWallpaperX/Shared/UI/InspectorFooterMetrics.swift',
+                ROOT / 'MyWallpaperX/Shared/UI/WallpaperInspectorActions.swift',
                 ROOT / 'MyWallpaperX/Shared/UI/InspectorFadingScrollView.swift',
                 ROOT / 'MyWallpaperX/Core/SteamWorkshopScene/Systems/Properties/SceneUserProperty.swift']
             originals = {}
@@ -51,7 +52,7 @@ class SteamDetailLayoutTests(unittest.TestCase):
             validation = read(ROOT / 'MyWallpaperX/Modules/SteamWorkshop/Web/Core/SteamWorkshopWebValidationModels.swift')
             fragments += [declaration(validation, prefix) for prefix in [
                 'enum SteamWorkshopWebDependencyStatus']]
-            fragments.append(declaration(read(ui / 'AppKitSteamWorkshopBrowserItemSupportViews.swift'), 'enum SteamWorkshopDownloadProgressPalette'))
+            fragments.append(declaration(read(ROOT / 'MyWallpaperX/Shared/Components/WallpaperCardSupportViews.swift'), 'enum WallpaperCardProgressPalette'))
             service = read(ROOT / 'MyWallpaperX/Modules/SteamWorkshop/Scene/SteamWorkshopSceneService+SceneProperties.swift')
             fragments.append('extension SteamWorkshopService {\n' + '\n\n'.join(declaration(service, prefix) for prefix in [
                 'private enum ScenePropertyOverrideStore', '    func scenePropertyOverrides(',
@@ -91,9 +92,9 @@ class SteamDetailLayoutTests(unittest.TestCase):
     def test_long_primary_actions_and_narrow_widths(self):
         with tempfile.TemporaryDirectory(prefix='mwx-steam-detail-layout-', dir='/private/tmp') as temporary:
             binary = pathlib.Path(temporary) / 'footer'
-            support = (ROOT / 'MyWallpaperX/Modules/SteamWorkshop/UI/AppKitSteamWorkshopBrowserItemSupportViews.swift').read_text()
+            support = (ROOT / 'MyWallpaperX/Shared/Components/WallpaperCardSupportViews.swift').read_text()
             bar = pathlib.Path(temporary) / 'ActualGlassBar.swift'
-            bar.write_text('import AppKit\nimport QuartzCore\n' + support[support.index('enum SteamWorkshopDownloadProgressPalette'):])
+            bar.write_text('import AppKit\nimport QuartzCore\n' + support[support.index('enum WallpaperCardProgressPalette'):])
             build = subprocess.run(['xcrun', 'swiftc', '-parse-as-library',
                 str(ROOT / 'MyWallpaperX/Shared/UI/InspectorFooterMetrics.swift'),
                 str(ROOT / 'MyWallpaperX/Modules/SteamWorkshop/UI/SteamWorkshopDetailFooterView.swift'),

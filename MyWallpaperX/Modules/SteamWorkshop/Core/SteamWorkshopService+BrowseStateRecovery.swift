@@ -1,6 +1,8 @@
 import Foundation
 
 extension SteamWorkshopService {
+    /// Uncovered document viewport coordinates: zero is the real top even
+    /// when AppKit places the native clip origin below an overlapping toolbar.
     func updateBrowserScrollMetrics(
         offsetY: CGFloat,
         contentHeight _: CGFloat,
@@ -49,12 +51,6 @@ extension SteamWorkshopService {
         currentPageTitle = "Steam 创意工坊"
         activeDownloadItemIDs.removeAll()
         downloads = []
-        downloadsQuery = ""
-        downloadsSortMode = .createdAt
-        downloadsSortAscending = false
-        isDownloadsMultiSelectMode = false
-        selectedDownloadID = nil
-        selectedDownloadIDs = []
         selectedDownloadInspectorItem = nil
         selectedDownloadDetailItem = nil
         selectedDownloadDetailError = nil
@@ -64,7 +60,6 @@ extension SteamWorkshopService {
         // 置 cancelled 并销毁排队意图；派生进度态清空即可，任务自身由
         // 下载管线收尾。
         downloadProgressStore.removeAll()
-        zoomOffset = 0
 
         browseContext = .discovery
         discoveryBrowseSnapshot = nil
@@ -82,7 +77,11 @@ extension SteamWorkshopService {
 
         navigationVersion += 1
         currentPageTitle = browseContext.title
-        statusMessage = "Steam 创意工坊已恢复到初始状态。下次进入时会重新加载。"
+        statusMessage = "Steam 创意工坊已恢复到初始状态。"
+        // The unified grid no longer owns a didMoveToWindow reload. Cache
+        // clearing is the explicit refresh intent; use the original single-flight
+        // source scan once, independently of later queries or page changes.
+        reloadInstalledItems()
     }
 
     private func clearSteamWorkshopCacheDirectory(_ url: URL) {

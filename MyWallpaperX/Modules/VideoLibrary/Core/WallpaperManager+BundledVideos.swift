@@ -30,14 +30,9 @@ extension WallpaperManager {
             tags: wallpaper.tags,
             fileSize: wallpaper.fileSize,
             duration: wallpaper.duration,
-            resolution: wallpaper.resolution
+            resolution: wallpaper.resolution,
+            firstIndexedAt: wallpaper.firstIndexedAt
         )
     }
 
-    func resolveExistingWallpaperFromSnapshot(_ persistedWallpaper: VideoWallpaper) -> VideoWallpaper? {
-        let wallpaper = migratedBundledVideoWallpaper(persistedWallpaper)
-        guard normalizedSourcePathExists(wallpaper.path) else { return nil }
-        let storedID = upsertWallpaper(wallpaper)
-        return wallpapers.first(where: { $0.id == storedID }) ?? wallpaper
-    }
 }

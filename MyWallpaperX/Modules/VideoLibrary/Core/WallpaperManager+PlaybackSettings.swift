@@ -5,18 +5,13 @@
 
 import Foundation
 import ServiceManagement
+import QuartzCore
 
 extension WallpaperManager {
     enum PlaybackMode {
         case loop
         case random
         case sequential
-    }
-
-    // 重置设置为默认值
-    public func resetSettings() {
-        // 重置必须走“首次安装状态”入口，不能只改局部字段，否则会遗留标签/列表/缓存状态。
-        resetToFreshInstallState()
     }
 
     func updateVolume(_ volume: Double) {
@@ -60,8 +55,12 @@ extension WallpaperManager {
                 WallpaperEngine.shared.updateWebDisplayConfiguration(
                     multiDisplayEnabled: settings.multiDisplayEnabled
                 )
+            } else if let session = libraryPlaybackSequence.committed {
+                _ = requestLibraryPlayback(reference: session.reference, from: session.snapshot, cause: .settingsReload)
+                return
             } else if let currentWallpaper {
-                setAsWallpaper(currentWallpaper)
+                _ = requestLibraryPlayback(reference: .init(provider: .videoLibrary, sourceID: currentWallpaper.id),
+                                           cause: .settingsReload)
                 return
             }
         }
@@ -71,55 +70,60 @@ extension WallpaperManager {
         PlaybackCommandMultiplexer.shared.dispatch(.setVolume(Float(settings.volume)))
     }
 
-    // 启动自动切换 timer（始终从 0 重新计时）
-    func startAutoSwitchTimer() {
-        settings.randomInterval = max(1, min(settings.randomInterval, 100000))
-        guard shouldRunAutoSwitchTimer() else {
-            stopAutoSwitchTimer()
-            return
-        }
+    // The existing Timer consumes the single pure monotonic deadline.
+    var libraryRotationInterval: TimeInterval {
+        Double(max(1, min(settings.randomInterval, 100000))) * Double(settings.timeUnit.secondsValue)
+    }
+
+    var libraryRotationEligible: Bool {
+        guard settings.autoSwitchEnabled, isSwitchingPlaybackMode(), !libraryPlaybackSequence.isExhausted,
+              let session = libraryPlaybackSequence.committed else { return false }
+        return session.snapshot.entries.contains { $0.isPlayable && $0.reference != session.reference }
+    }
+
+    func rescheduleLibraryRotationTimer() {
         stopAutoSwitchTimer()
-        let timeInterval = Double(settings.randomInterval) * Double(settings.timeUnit.secondsValue)
-        let timer = Timer(timeInterval: timeInterval, repeats: true) { [weak self] _ in
-            self?.timerDidFire()
+        let now = CACurrentMediaTime()
+        libraryRotationDeadline.configure(now: now, interval: libraryRotationInterval,
+            eligible: libraryRotationEligible)
+        libraryRotationDeadline.setPause(effective: PlaybackCommandMultiplexer.shared.isPlaybackPaused, now: now)
+        guard let session = libraryPlaybackSequence.committed,
+              playbackSwitch.committed?.ticket == session.ticket,
+              let deadline = libraryRotationDeadline.deadline,
+              libraryPlaybackSequence.pending == nil, playbackSwitch.pending == nil else { return }
+        let generation = libraryPlaybackSequence.rotationGeneration
+        let timer = Timer(timeInterval: max(0.001, deadline - now), repeats: false) { [weak self] _ in
+            guard let self, self.libraryPlaybackSequence.rotationGeneration == generation,
+                  self.libraryRotationDeadline.takeDue(now: CACurrentMediaTime(), scheduledDeadline: deadline) else { return }
+            self.autoSwitchTimer = nil
+            self.advanceLibraryPlayback(cause: .timer)
         }
         RunLoop.main.add(timer, forMode: .common)
         autoSwitchTimer = timer
     }
 
+    func startAutoSwitchTimer() {
+        rescheduleLibraryRotationTimer()
+    }
+
     // 销毁 timer
     func stopAutoSwitchTimer() {
+        libraryRotationDeadline.configure(now: CACurrentMediaTime(), interval: libraryRotationInterval,
+            eligible: libraryRotationEligible)
         autoSwitchTimer?.invalidate()
         autoSwitchTimer = nil
     }
 
-    // timer 到期：切换下一张，timer repeats:true 自动续计，不需要重建。
-    private func timerDidFire() {
-        guard shouldRunAutoSwitchTimer() else {
-            stopAutoSwitchTimer()
-            return
-        }
-        advanceWallpaperForCurrentMode(triggeredByTimer: true)
+
+
+    // All policy callers preserve the current session budget.
+    func refreshAutoSwitchTimerIfNeeded() {
+        rescheduleLibraryRotationTimer()
     }
 
-    // 兼容旧调用点，统一走 startAutoSwitchTimer
-    func refreshAutoSwitchTimerIfNeeded(forceRestart: Bool = false) {
-        if forceRestart || autoSwitchTimer == nil {
-            startAutoSwitchTimer()
-        } else {
-            // 检查时间间隔是否变了，变了就重建
-            let timeInterval = Double(settings.randomInterval) * Double(settings.timeUnit.secondsValue)
-            if let t = autoSwitchTimer, abs(t.timeInterval - timeInterval) > 0.001 {
-                startAutoSwitchTimer()
-            } else if !shouldRunAutoSwitchTimer() {
-                stopAutoSwitchTimer()
-            }
-        }
-    }
-
-    func syncAutoSwitchPlaybackPolicy(forceTimerRestart: Bool = false) {
+    func syncAutoSwitchPlaybackPolicy() {
         // 只管 timer，不动引擎，不重载视频。
-        refreshAutoSwitchTimerIfNeeded(forceRestart: forceTimerRestart)
+        refreshAutoSwitchTimerIfNeeded()
     }
 
     func setLoopPlaybackEnabled(_ enabled: Bool) {
@@ -141,7 +145,7 @@ extension WallpaperManager {
             settings.randomPlayback = false
             ensureAtLeastOnePlaybackMode()
         }
-        // 模式切换时重建 timer，从 0 开始计时，不动引擎。
+        // Settings preserve elapsed display time in the shared deadline.
         startAutoSwitchTimer()
     }
 
@@ -152,7 +156,7 @@ extension WallpaperManager {
             settings.sequentialPlayback = false
             ensureAtLeastOnePlaybackMode()
         }
-        // 模式切换时重建 timer，从 0 开始计时，不动引擎。
+        // Settings preserve elapsed display time in the shared deadline.
         startAutoSwitchTimer()
     }
 
@@ -178,13 +182,6 @@ extension WallpaperManager {
 
     func isSwitchingPlaybackMode() -> Bool {
         playbackMode() != .loop
-    }
-
-    func shouldRunAutoSwitchTimer() -> Bool {
-        // 只有“启用自动切换 + 有壁纸 + 处于可切换模式”时才启动 timer。
-        requestedRuntime == .video && activeWallpaperRuntime == .video
-            && pendingWallpaper == nil && settings.autoSwitchEnabled
-            && !wallpapers.isEmpty && effectiveCurrentWallpaper != nil && isSwitchingPlaybackMode()
     }
 
     func shouldLoopCurrentItemInEngine(settings source: WallpaperSettings? = nil) -> Bool {
@@ -265,10 +262,10 @@ extension WallpaperManager {
             break
         case .playPause:
             let command: WallpaperEngineCommand =
-                PlaybackCommandMultiplexer.shared.isAnyEnginePlaying
-                ? .pause : .resume
+                PlaybackCommandMultiplexer.shared.pauseSnapshot.isUserPaused ? .resume : .pause
             PlaybackCommandMultiplexer.shared.dispatch(command)
-            isPlaying = PlaybackCommandMultiplexer.shared.isAnyEnginePlaying
+            isPlaying = playbackSwitch.committed.map { $0.ticket.runtime != .systemStill } == true
+                && !PlaybackCommandMultiplexer.shared.pauseSnapshot.isPaused
         case .muteToggle:
             // M0.2：跨引擎决策读公共静音权威，而非 video 派生态。
             PlaybackCommandMultiplexer.shared.dispatch(

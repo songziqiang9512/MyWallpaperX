@@ -1,8 +1,11 @@
 """Exercise production UI projection owners with real Combine/main-queue delivery.
 
 The fixture replaces native grid rendering and product services with recording
-boundaries. Subscription bodies, Shell routing/scheduling, Sidebar derivation,
-and Online progress/visibility/data-source provider bodies come from production.
+boundaries. Online subscription, progress, visibility, organization factory/echo
+and data-source provider bodies come from production. The real card gate covers
+thumbnail identity and wrong-item rejection; this gate records the producer's
+target receipt across deferred native application. Retired Shell/tag owners are covered by the new library
+presentation, query, grid, sidebar and inspector gates.
 This is an event/output regression gate, not a visual or wall-clock benchmark.
 """
 import json
@@ -25,11 +28,6 @@ def methods(source, signatures):
 
 class UIProjectionEfficiencyTests(unittest.TestCase):
     def test_production_projection_outputs_and_bounded_work(self):
-        shell = (APP / 'Shell/AppKitDetailHostViewController.swift').read_text()
-        sidebar = (APP / 'Shell/SidebarViews.swift').read_text()
-        selection = (APP / 'Shell/WallpaperSelectionContext.swift').read_text()
-        video = (APP / 'Modules/VideoLibrary/Core/WallpaperManager+Selection.swift').read_text()
-        sil = (APP / 'Modules/StaticImageLibrary/Core/SILService.swift').read_text()
         online = (APP / 'Modules/OnlineLibrary/UI/AppKitOLBrowserGridView.swift').read_text()
         template = (ROOT / 'script/tests/fixtures/UIProjectionEfficiencyHarness.swift').read_text()
 
@@ -41,40 +39,14 @@ class UIProjectionEfficiencyTests(unittest.TestCase):
             'private lazy var ', 'lazy var ').replace(
             'NSCollectionViewDiffableDataSource<', 'RecordingDataSource<') + '()'
 
-        # Count calls at the derivation boundary without replacing its algorithm.
-        video_sort = method(video, '    func sortedWallpapers(')
-        opening = video_sort.index('{')
-        video_sort = video_sort[:opening + 1] + '\n        derivations += 1' + video_sort[opening + 1:]
-        sil_sort = method(sil, '    func sortedWallpapers(forSILTag')
-        opening = sil_sort.index('{')
-        sil_sort = sil_sort[:opening + 1] + '\n        derivations += 1' + sil_sort[opening + 1:]
-        comparison = 'return filtered.sorted { a, b in'
-        self.assertEqual(sil_sort.count(comparison), 1)
-        sil_sort = sil_sort.replace(comparison, comparison + '\n            comparisons += 1')
-
         fragments = {
-            '// VIDEO_PROJECTION_METHODS': video_sort + '\n' + methods(video, [
-                '    var normalizedSearchQuery:', '    func filterWallpapers(',
-                '    var selectedWallpaperForQuickLook:']),
-            '// SIL_PROJECTION_METHODS': method(sil, '    var sortedWallpapers:') + '\n' + sil_sort
-                + '\n' + method(sil, '    func moveSingleSelectionByArrowKey('),
-            '// SELECTION_SOURCE': method(selection, '    func sourceWallpapers('),
-            '// SHELL_METHODS': methods(shell, [
-                '    func update(selectedItem:', '    private func observeVideoLibraryState(',
-                '    private func makeHostedController(', '    private func makeSILGridContainer(',
-                '    private func scheduleCurrentLibraryGridUpdate(',
-                '    private func updateCurrentVideoGridIfNeeded(', '    private func updateVideoGrid(',
-                '    private func updateCurrentSILGridIfNeeded(',
-                '    private func updateCurrentSILGridSelectionStateIfNeeded(',
-                '    private func updateSILGrid(', '    private func replaceHostedController(']),
-            '// SIDEBAR_METHODS': methods(sidebar, [
-                '    private func sidebarLibraryStats(', '    private func currentTagOrder(',
-                '    private func makeSidebarSnapshotSignature(', '    private func rebuildNodes(']),
             '// ONLINE_BINDINGS': bindings,
             '// ONLINE_PROVIDER': provider,
+            '// ONLINE_ORGANIZATION_FACTORY': method(online, '    var makeOrganization:'),
             '// ONLINE_METHODS': methods(online, [
                 '    private func applyItems(', '    private func publishListThumbnailTint(', '    private func refreshDownloadProgress(',
                 '    private func reloadVisibleItems(', '    private func isItemDownloaded(',
+                '    func refreshOrganization(',
                 '    private func updateVisibleThumbnailPriorities(',
                 '    private func applyThumbnailDemand(']),
         }
@@ -88,8 +60,8 @@ class UIProjectionEfficiencyTests(unittest.TestCase):
             binary = work / 'ui-projection'
             build = subprocess.run([
                 'xcrun', 'swiftc', '-parse-as-library', str(source),
-                str(APP / 'Shell/AppKitSidebarNode.swift'),
                 str(APP / 'Shared/UI/ListThumbnailTintSource.swift'),
+                str(APP / 'Shared/UI/WallpaperInspectorActions.swift'),
                 str(ROOT / 'script/tests/fixtures/ListThumbnailTintCacheLeaves.swift'),
                 '-module-cache-path', str(work / 'modules'), '-o', str(binary),
             ], capture_output=True, text=True, timeout=120)
@@ -106,7 +78,14 @@ class UIProjectionEfficiencyTests(unittest.TestCase):
                 output.mkdir(parents=True, exist_ok=True)
                 (output / 'checks.json').write_text(json.dumps(checks, indent=2) + '\n')
                 (output / 'runtime.log').write_text(run.stderr)
-            self.assertGreaterEqual(len(checks), 20)
+            self.assertEqual(set(checks), {'onlineLowFrequencyStatusDoesNotGuessExternalFileAvailability', 'onlineSourcePublicationRefreshesUnrelatedExternalDownload', 'onlineChangedVisibleWindowUpdatesPriorityInIndexOrder', 'onlineNewItemsGenerationInvalidatesSameVisibleIDPriorityWindow', 'onlineQueuedOldIDProgressCannotReconfigureReplacementAtSameIndex', 'onlineProgressRemovalClearsPreviousValue', 'onlineCompletionKeepsFullLowFrequencyStateRefresh', 'onlineRemovedOldProgressKeyDoesNotTouchReplacementCell', 'onlineRepeatedVisibleWindowSendsOneOrderedPriorityUpdate', 'onlineNewlyVisibleCellUsesCurrentStateWithoutNewProgressEvent', 'onlineThrottledBurstDeliversLatestProgress', 'onlineCombineProviderAndCellActionsDoNotRetainContainer', 'onlineProgressARefreshesAWithoutReconfiguringB', 'onlineReleasedContainerIsNotRevivedByQueuedProgress', 'onlineUnchangedProgressDoesNoCellWork'} | {
+                'onlineOrganizationFactorySuppliesOnlyEligibleVisibleCards',
+                'onlineDownloadedIDsAloneCannotCreateOrganization',
+                'onlineRelationshipEchoUsesVisibleIDsWithoutReconfiguration',
+                'onlineOrganizationFactoryWithdrawalRevokesWithoutReconfiguration',
+                'onlineOrganizationEchoCarriesNewIDAcrossDeferredSnapshot',
+                'onlineDeferredProviderUsesCurrentOrganizationWhenNewCellArrives',
+            })
             for name, passed in checks.items():
                 with self.subTest(name=name):
                     self.assertTrue(passed)

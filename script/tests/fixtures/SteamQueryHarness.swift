@@ -41,6 +41,18 @@ final class QueryTransport: SteamServiceTransporting {
 
 @main struct SteamQueryHarness {
     @MainActor static func main() async throws {
+        let parserCases: [(String, String?)] = [
+            (" 00123456\n", "00123456"), ("https://steamcommunity.com/sharedfiles/filedetails/?id=123456789", "123456789"),
+            ("https://example.test/?x=1&ID=123456789&other=2", "123456789"), ("prefix\nID=123456", "123456"),
+            ("id=١٢٣٤٥٦", "١٢٣٤٥٦"), ("١٢٣٤٥٦", nil), ("12345", nil), ("id=12345", nil),
+            ("grid=123456", nil), ("/id=123456", nil), ("id=123456suffix", nil), ("   ", nil)
+        ]
+        for (input, expected) in parserCases {
+            precondition(WallpaperProvider.workshopItemIDSearchID(from: input) == expected,
+                         "shared ID search normalization changed: \(input)")
+            precondition(Projection.workshopItemIDSearchID(from: input) == expected,
+                         "source parser must delegate to the shared normalization: \(input)")
+        }
         let wire = QueryTransport()
         let client = SteamServiceClient(executablePath: "/fake", transportFactory: { _ in wire })
         let query = SteamWorkshopQueryClient(client: client)
@@ -101,6 +113,15 @@ final class QueryTransport: SteamServiceTransporting {
         precondition(partial.partialErrors.first?.publishedFileId == "7")
 
         let browse = SteamKitBrowseStore(queryClient: query)
+        let searchProjection = Projection(browse)
+        searchProjection.browseContext.isAuthorWorkshop = true
+        searchProjection.shouldUseSteamKitPersonal = false
+        searchProjection.shouldUseSteamKitStructuredBrowse = false
+        searchProjection.browserItems = [.init(id: "123456789"), .init(id: "987654321")]
+        searchProjection.browserQuery = "https://steamcommunity.com/sharedfiles/filedetails/?ID=123456789"
+        searchProjection.updateDisplayedBrowserItems()
+        precondition(searchProjection.displayedBrowserItems.map(\.id) == ["123456789"],
+                     "the real browser projection must consume the shared URL parser")
         let key = browse.makePersonalKey(source: .mySubscriptions, accountSteamID: "a", contentMode: .all,
             filters: .none, search: "", window: .allTime, personalSort: .fileSize)
         browse.resetFor(key: key)

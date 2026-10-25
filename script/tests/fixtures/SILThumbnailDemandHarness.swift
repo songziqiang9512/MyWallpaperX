@@ -3,11 +3,7 @@ import Foundation
 import ImageIO
 import UniformTypeIdentifiers
 
-// PRODUCTION_MODEL
-// PRODUCTION_RESULT
-// PRODUCTION_IMAGE_LEAVES
-
-private nonisolated final class SILSignatureReads: @unchecked Sendable {
+nonisolated final class SILSignatureReads: @unchecked Sendable {
     static let shared = SILSignatureReads()
     private let lock = NSLock()
     private var reads = 0
@@ -16,55 +12,73 @@ private nonisolated final class SILSignatureReads: @unchecked Sendable {
     var count: Int { lock.lock(); defer { lock.unlock() }; return reads }
 }
 
-@MainActor private final class VisibleItems {
-    var visible = [10, 11, 12, 13, 14, 15]
-    var displayedItems: [NSCollectionViewItem] = []
-    func indexPathsForVisibleItems() -> Set<IndexPath> {
-        Set(visible.map { IndexPath(item: $0, section: 0) })
+@MainActor enum SILLoadObservation {
+    static let cache = ThumbnailCache(countLimit: 24, namespace: "sil-demand-fixture")
+    static var requests: [String: ThumbnailCacheRequestCancellation] = [:]
+    static var prefetchRequests: [String: ThumbnailCacheRequestCancellation] = [:]
+    static var completed = Set<ObjectIdentifier>()
+    static func finished(_ cancellation: ThumbnailCacheRequestCancellation) { completed.insert(ObjectIdentifier(cancellation)) }
+    static func started(_ path: String, _ cancellation: ThumbnailCacheRequestCancellation,
+                        priority: ThumbnailCacheRequestPriority) {
+        requests[path] = cancellation
+        if priority == .prefetch { prefetchRequests[path] = cancellation }
     }
-    func visibleItems() -> [NSCollectionViewItem] { displayedItems }
 }
-
 @MainActor private final class PrefetchGrid: NSView {
-    struct Record { let path: String }
-    let collectionView = VisibleItems()
-    let thumbnailCache = ThumbnailCache(countLimit: 8, namespace: "sil-demand-fixture")
-    var orderedIDs: [String] = []
-    var lastAppliedIDs: [String] = []
-    var wallpapersByID: [String: Record] = [:]
-    var isScrollToTopAnimating = false
-    var failedThumbnailSignatures = Set<String>()
-    var missingPathWindowObservers = [NSObjectProtocol]()
-    // PRODUCTION_GRID_STATE
+    let images = SILService()
+    let adapter: WallpaperLibraryCellAdapter
+    let controller: WallpaperLibraryGridController
+    var orderedIDs: [String] { images.wallpapers.map(\.id) }
+    var items: [WallpaperContentItem] = []
+    var visible: [WallpaperContentItem] = [], nearby: [WallpaperContentItem] = []
+    var thumbnailCache: ThumbnailCache { adapter.imageThumbnails.cache }
+    var tokens: [String: ThumbnailCacheRequestCancellation] {
+        Dictionary(uniqueKeysWithValues: adapter.prefetches.keys.compactMap { reference in
+            guard let record = images.wallpapers.first(where: { reference.sourceID == $0.id }),
+                  let token = SILLoadObservation.prefetchRequests[record.path] else { return nil }
+            return (reference.sourceID, token)
+        })
+    }
+    var pendingWork: DispatchWorkItem? { controller.viewportWork }
     init(paths: [String]) {
+        adapter = WallpaperLibraryCellAdapter(manager: WallpaperManager(), images: images,
+            steam: SteamWorkshopService(), online: OnlineLibraryService(), isFavorite: { _ in false },
+            isPlaying: { _ in false }, makePrimaryAction: { _ in nil }, makeFavoriteAction: { _ in {} })
+        let adapter = self.adapter
+        controller = WallpaperLibraryGridController { adapter.makeCell(collection: $0, indexPath: $1, content: $2, state: $3) }
         super.init(frame: NSRect(x: 0, y: 0, width: 800, height: 500))
-        orderedIDs = paths.indices.map(String.init)
-        lastAppliedIDs = orderedIDs
-        wallpapersByID = Dictionary(uniqueKeysWithValues: zip(orderedIDs, paths).map { ($0, Record(path: $1)) })
+        controller.updateCell = { adapter.updateCell($0, content: $1, state: $2) }
+        controller.setCellVisible = { adapter.setVisible($0, $1) }
+        controller.onViewport = { [weak self] visible, nearby in
+            self?.visible = visible; self?.nearby = nearby
+            adapter.updateViewport(visible: visible, prefetch: nearby)
+        }
+        controller.loadViewIfNeeded(); controller.view.frame = bounds
+        addSubview(controller.view)
+        images.wallpapers = paths.enumerated().map { index, path in var value = SILWallpaper(path: path); value.id = String(index); return value }
+        update()
     }
     required init?(coder: NSCoder) { nil }
-    deinit {
-        missingPathWindowObservers.forEach { NotificationCenter.default.removeObserver($0) }
+    func update() {
+        items = images.wallpapers.map { StaticImageLibraryContentProjection.project($0, facts: .init(
+            isPublishedLocally: true, isAvailable: true, canPlay: true, canDelete: true, localURL: URL(fileURLWithPath: $0.path))) }
+        controller.update(page: .images, items: items, selection: controller.selection,
+            preferredColumns: 5, permitsDragging: false, scrollAnchor: nil)
+        controller.view.layoutSubtreeIfNeeded(); controller.layout.prepare()
     }
-    var tokens: [String: ThumbnailCacheRequestCancellation] { thumbnailPrefetchTokens.mapValues(\.token) }
-    var pendingWork: DispatchWorkItem? { thumbnailPrefetchWork }
-    func fire() { prefetchNearbyThumbnails() }
-    func schedule() { scheduleThumbnailPrefetch() }
-    func cancel() { cancelThumbnailPrefetch() }
-    func loadVisible(path: String, token: ThumbnailCacheRequestCancellation = .init(),
-                     completion: @escaping (SILThumbnailLoadResult) -> Void) {
-        let w = Record(path: path)
-        let load: (ThumbnailCacheRequestCancellation, @escaping (SILThumbnailLoadResult) -> Void) -> Void =
-            // PRODUCTION_VISIBLE_LOADER
-        load(token, completion)
+    func scroll(to index: Int) {
+        let frame = controller.layout.layoutAttributesForItem(at: IndexPath(item: index, section: 0))!.frame
+        controller.scrollView.contentView.scroll(to: NSPoint(x: 0, y: frame.minY))
+        controller.scrollView.reflectScrolledClipView(controller.scrollView.contentView)
+        fire()
     }
-    // Unrelated filesystem-probe/toplevel-scroll leaves; demand methods are unmodified.
-    func updateMissingPathProbeTimer() {}
-    func scheduleRestingScrollOriginCapture() {}
-    // PRODUCTION_GRID_METHODS
+    func fire() { controller.publishViewport() }
+    func schedule() { controller.scheduleViewport() }
+    func cancel() { controller.cancelViewport() }
 }
 
 @main private enum Checks {
+    static func imagesIndex(_ records: [SILWallpaper], id: String) -> Int { records.firstIndex { $0.id == id }! }
     @MainActor static func pump(_ interval: TimeInterval) {
         RunLoop.main.run(until: Date().addingTimeInterval(interval))
     }
@@ -83,24 +97,23 @@ private nonisolated final class SILSignatureReads: @unchecked Sendable {
         CGImageDestinationAddImage(destination, context.makeImage()!, nil)
         precondition(CGImageDestinationFinalize(destination))
     }
-    @MainActor static func failureCacheChecks(root: URL, original: URL, host: NSView) throws -> [String: Bool] {
+    @MainActor static func failureCacheChecks(root: URL, original: URL) throws -> [String: Bool] {
         var checks: [String: Bool] = [:]
         let fm = FileManager.default, probe = SILSignatureReads.shared
         let visible = root.appendingPathComponent("visible-miss.png")
         let repaired = root.appendingPathComponent("replaced-failure.png")
+        let prefetch = root.appendingPathComponent("prefetch-failure.png")
         let bytes = try Data(contentsOf: original)
         try bytes.write(to: visible)
         try Data(repeating: 0x7f, count: bytes.count).write(to: repaired)
         let before = Date(timeIntervalSince1970: 1_700_000_000.125)
         let after = Date(timeIntervalSince1970: 1_700_000_000.875)
         try fm.setAttributes([.modificationDate: before], ofItemAtPath: repaired.path)
-        let grid = PrefetchGrid(paths: [original.path, repaired.path])
-        grid.collectionView.visible = [0]
-        defer { grid.cancel(); grid.removeFromSuperview() }
-        func load(_ path: String) -> SILThumbnailLoadResult {
+        let provider = SILThumbnailProvider(cache: ThumbnailCache(countLimit: 8, namespace: "sil-failure-demand"))
+        func load(_ path: String, priority: ThumbnailCacheRequestPriority = .visible) -> SILThumbnailLoadResult {
             var result: SILThumbnailLoadResult?
-            grid.loadVisible(path: path) { result = $0 }
-            wait("visible production loader completes") { result != nil }
+            provider.load(path: path, priority: priority, cancellation: .init()) { result = $0 }
+            wait("real SIL provider completes") { result != nil }
             return result!
         }
         probe.reset()
@@ -113,13 +126,13 @@ private nonisolated final class SILSignatureReads: @unchecked Sendable {
         }
         probe.reset()
         if case .unavailable = load(repaired.path) {
-            checks["decodeFailureRecordsCurrentSignature"] = probe.count == 1 && grid.failedThumbnailSignatures.count == 1
+            checks["decodeFailureRecordsCurrentSignature"] = probe.count == 1 && provider.recordedFailureSignatures.count == 1
         }
         let failedSignature = silGridThumbnailFailureSignature(atPath: repaired.path)!
         probe.reset()
         if case .unavailable = load(repaired.path) {
             checks["unchangedFailureSkipsDecode"] = probe.count == 1
-                && grid.failedThumbnailSignatures.contains(failedSignature)
+                && provider.recordedFailureSignatures.contains(failedSignature)
         }
         try bytes.write(to: repaired)
         try fm.setAttributes([.modificationDate: after], ofItemAtPath: repaired.path)
@@ -129,35 +142,62 @@ private nonisolated final class SILSignatureReads: @unchecked Sendable {
             checks["sameSecondSameSizeReplacementInvalidatesFailure"] = failedSignature != nextSignature
                 && Int64(before.timeIntervalSince1970) == Int64(after.timeIntervalSince1970) && probe.count == 1
         }
-        grid.thumbnailCache.remove(forKey: repaired.path)
-        // A prior transient decode failure may have left this still-valid
-        // revision in the negative cache. Prefetch must respect that fact.
-        grid.failedThumbnailSignatures = [nextSignature]
+        // Create the prefetch negative entry through a real decode failure.
+        // Repairing bytes while preserving path/size/mtime must still suppress
+        // work; changing only subsecond mtime then restores decode eligibility.
+        try Data(repeating: 0x7f, count: bytes.count).write(to: prefetch)
+        try fm.setAttributes([.modificationDate: before], ofItemAtPath: prefetch.path)
+        guard case .unavailable = load(prefetch.path) else { preconditionFailure("prefetch failure seed must really fail ImageIO") }
+        let prefetchSignature = silGridThumbnailFailureSignature(atPath: prefetch.path)!
+        precondition(provider.recordedFailureSignatures.contains(prefetchSignature))
+        try bytes.write(to: prefetch)
+        try fm.setAttributes([.modificationDate: before], ofItemAtPath: prefetch.path)
         probe.reset()
-        host.addSubview(grid)
-        grid.fire()
-        wait("prefetch consults known failure") { probe.count == 1 }
-        pump(0.03)
-        checks["prefetchFailureSkipsDecode"] = grid.thumbnailCache.cachedImage(forKey: repaired.path) == nil
-            && probe.count == 1
-        grid.cancel()
-        try fm.setAttributes([.modificationDate: before], ofItemAtPath: repaired.path)
+        if case .unavailable = load(prefetch.path, priority: .prefetch) {
+            checks["prefetchFailureSkipsDecode"] = provider.cache.cachedImage(forKey: prefetch.path) == nil
+                && probe.count == 1 && provider.recordedFailureSignatures.contains(prefetchSignature)
+        }
+        try fm.setAttributes([.modificationDate: after], ofItemAtPath: prefetch.path)
+        let replacementSignature = silGridThumbnailFailureSignature(atPath: prefetch.path)!
         probe.reset()
-        grid.fire()
-        wait("same-second replacement prefetch decodes") { grid.thumbnailCache.cachedImage(forKey: repaired.path) != nil }
-        checks["prefetchReplacementUsesPreciseSignature"] = probe.count == 1
-        grid.cancel()
+        if case .image = load(prefetch.path, priority: .prefetch) {
+            checks["prefetchReplacementUsesPreciseSignature"] = probe.count == 1
+                && provider.cache.cachedImage(forKey: prefetch.path) != nil && prefetchSignature != replacementSignature
+                && Int64(before.timeIntervalSince1970) == Int64(after.timeIntervalSince1970)
+        }
         var cancelledCompleted = false
         let token = ThumbnailCacheRequestCancellation(); token.cancel()
         probe.reset()
-        grid.loadVisible(path: root.appendingPathComponent("cancelled.png").path, token: token) { _ in
-            cancelledCompleted = true
-        }
+        provider.load(path: root.appendingPathComponent("cancelled.png").path, cancellation: token) { _ in cancelledCompleted = true }
         pump(0.03)
         checks["cancelledVisibleMissDoesNotCompleteOrReadSignature"] = !cancelledCompleted && probe.count == 0
         return checks
     }
     @MainActor static func main() throws {
+        if CommandLine.arguments.dropFirst().first == "--card-reflow" {
+            initializeNativeAppHarness()
+            let checks = wallpaperGridCardReflowChecks(label: "static-image", provider: .staticImageLibrary,
+                itemClass: SILGridItem.self, reuseIdentifier: SILGridItem.reuseID,
+                resetColdTracking: SILGridItem.resetHoverTracking,
+                makeCard: { collection, path, state, playing in
+                    let card = collection.makeItem(withIdentifier: SILGridItem.reuseID, for: path) as! SILGridItem
+                    let model = try! JSONDecoder().decode(SILWallpaper.self, from: Data("""
+                        {"id":"reflow-\(path.item)","path":"fixture-reflow-\(path.item).png","title":"reflow","tags":[],"lastUsed":0,"addedAt":0}
+                        """.utf8))
+                    card.configure(wallpaper: model, isSelected: state.isSelected, isMultiSelectMode: state.isSelecting,
+                        thumbnailVisible: false, isPlaying: playing) { _, _ in
+                            preconditionFailure("hidden reflow fixture must not load thumbnails")
+                        }
+                    return card
+                }, updateState: { cell, state, playing in
+                    let card = cell as! SILGridItem
+                    card.applySelectionState(isSelected: state.isSelected, multiSelectMode: state.isSelecting)
+                    card.applyPlayingState(isPlaying: playing)
+                }, isHovering: { ($0 as! SILGridItem).isHovering },
+                bar: { ($0 as! SILGridItem).controlBar })
+            print(String(data: try JSONEncoder().encode(checks), encoding: .utf8)!)
+            return
+        }
         if CommandLine.arguments.dropFirst().first == "--card-interactions" {
             initializeNativeAppHarness()
             let item = SILGridItem(); _ = item.view
@@ -169,7 +209,8 @@ private nonisolated final class SILSignatureReads: @unchecked Sendable {
                 preconditionFailure("hidden interaction fixture must not load thumbnails")
             }
             let checks = gridCardInteractionChecks(item: item, cardRoot: item.imageContainer,
-                outline: item.hoverOutline, isHovering: { item.isHovering }, label: "static-image")
+                outline: item.hoverOutline, isHovering: { item.isHovering }, label: "static-image",
+                dragImageView: item.thumbnailView, layoutDragImage: { item.updateThumbnailFrame() })
             print(String(data: try JSONEncoder().encode(checks), encoding: .utf8)!)
             return
         }
@@ -194,61 +235,104 @@ private nonisolated final class SILSignatureReads: @unchecked Sendable {
         window.contentView = host
         window.orderFrontRegardless()
         defer { grid.cancel(); window.orderOut(nil); window.close() }
-        grid.fire()
-        let firstTokens = grid.tokens
-        checks["nearbyDemandIsBounded"] = firstTokens.count == 6
-        checks["forwardNearestIsIncluded"] = firstTokens["16"] != nil
-        checks["backwardNearestIsIncluded"] = firstTokens["9"] != nil
-        checks["visibleItemsDoNotStartPrefetch"] = (10...15).allSatisfy { firstTokens[String($0)] == nil }
+        grid.scroll(to: 9)
+        wait("native initial viewport settles") { grid.pendingWork == nil && !grid.visible.isEmpty }
+        wait("initial visible consumers finish") {
+            SILLoadObservation.requests.values.allSatisfy { $0.cancelled || SILLoadObservation.completed.contains(ObjectIdentifier($0)) }
+        }
+        // Isolate one settled viewport, rather than retaining near leases from
+        // AppKit's initial layout at the top before the requested scroll.
+        grid.cancel(); grid.fire()
+        var firstTokens = grid.tokens
+        let visibleIDs = grid.visible.compactMap { Int($0.reference.sourceID) }.sorted()
+        precondition(!visibleIDs.isEmpty)
+        let forward = visibleIDs.last! + 1, backward = visibleIDs.first! - 1
+        checks["nearbyDemandIsBounded"] = firstTokens.count == min(24, WallpaperLibraryGridMetrics(clipWidth: grid.controller.scrollView.contentView.bounds.width, preferredColumns: 5).columns * 2)
+        checks["forwardNearestIsIncluded"] = firstTokens[String(forward)] != nil
+        checks["backwardNearestIsIncluded"] = firstTokens[String(backward)] != nil
+        checks["visibleItemsDoNotStartPrefetch"] = visibleIDs.allSatisfy { firstTokens[String($0)] == nil }
         wait("nearby decoded images") {
             firstTokens.keys.allSatisfy { grid.thumbnailCache.cachedImage(forKey: paths[Int($0)!]) != nil }
         }
         checks["emptyFailureSetPrefetchDoesNotReadSignature"] = SILSignatureReads.shared.count == 0
-        pump(0.02)
-        let ready = grid.thumbnailCache.cachedImage(forKey: paths[16])!
-        // NSImage(cgImage:size:.zero) may expose a Retina bitmap rep; its
-        // logical size retains the bounded ImageIO image dimensions.
+        // The real unified grid also decodes visible cards. Let that initial
+        // batch settle, then warm the current two nearby rows before asserting a
+        // stable viewport keeps leases. Capacity eviction is tested explicitly
+        // below with a separate consumer, rather than confused with this setup.
+        wait("initial visible and nearby consumers finish") {
+            SILLoadObservation.requests.values.allSatisfy { $0.cancelled || SILLoadObservation.completed.contains(ObjectIdentifier($0)) }
+        }
+        grid.fire(); firstTokens = grid.tokens
+        wait("settled nearby images remain warm") {
+            firstTokens.keys.allSatisfy { grid.thumbnailCache.cachedImage(forKey: paths[Int($0)!]) != nil }
+        }
+        let ready = grid.thumbnailCache.cachedImage(forKey: paths[forward])!
         checks["nearbyImageIsDownsampled"] = ready.size.width == 512 && ready.size.height <= 512
         for _ in 0..<20 { grid.fire() }
         checks["unchangedViewportRetainsLeases"] = firstTokens.allSatisfy { grid.tokens[$0.key] === $0.value }
         var extraLoads = 0
-        for index in 0..<12 {
+        for index in 0..<36 {
             grid.thumbnailCache.load(forKey: "other-consumer-\(index)", loader: { ready }) { _ in extraLoads += 1 }
         }
-        wait("other consumers finish") { extraLoads == 12 }
-        checks["testActuallyEvictsNearbyImages"] = grid.thumbnailCache.cachedImage(forKey: paths[16]) == nil
+        wait("other consumers finish") { extraLoads == 36 }
+        checks["testActuallyEvictsNearbyImages"] = grid.thumbnailCache.cachedImage(forKey: paths[forward]) == nil
         grid.fire()
-        let handoffToken = grid.tokens["16"]
-        wait("evicted near images reheat") { grid.thumbnailCache.cachedImage(forKey: paths[16]) != nil }
-        checks["completedEvictedDemandCanReheat"] = handoffToken !== firstTokens["16"] && firstTokens["16"]?.cancelled == true
-        grid.collectionView.visible = Array(16...21)
-        grid.fire()
-        checks["nearbyBecomingVisibleRetainsProducer"] = grid.tokens["16"] === handoffToken
-            && handoffToken?.cancelled == false
-        checks["farOldRequestsAreCancelled"] = firstTokens["7"]?.cancelled == true
-        grid.collectionView.visible = Array(4...9)
-        grid.fire()
-        checks["reverseScrollPreparesBothNearestSides"] = grid.tokens["3"] != nil && grid.tokens["10"] != nil
-        checks["boundedAfterReverse"] = grid.tokens.count <= 12
-        let old = grid.tokens["3"]!
-        grid.wallpapersByID["3"] = .init(path: original.path)
-        grid.fire()
-        checks["changedSourceRevokesOldLease"] = old.cancelled && grid.tokens["3"] !== old
+        let handoffToken = grid.tokens[String(forward)]
+        wait("evicted near images reheat") { grid.thumbnailCache.cachedImage(forKey: paths[forward]) != nil }
+        checks["completedEvictedDemandCanReheat"] = handoffToken !== firstTokens[String(forward)] && firstTokens[String(forward)]?.cancelled == true
+        let beforeForwardScroll = grid.tokens
+        grid.scroll(to: forward)
+        checks["nearbyBecomingVisibleRetainsProducer"] = grid.visible.contains { $0.reference.sourceID == String(forward) }
+            && grid.tokens[String(forward)] === handoffToken && handoffToken?.cancelled == false
+        let nextDemand = Set((grid.visible + grid.nearby).map { $0.providerReference.sourceID })
+        let departed = Set(beforeForwardScroll.keys).subtracting(nextDemand)
+        precondition(!departed.isEmpty, "scroll must move at least one current nearby lease out of demand")
+        checks["farOldRequestsAreCancelled"] = departed.allSatisfy { beforeForwardScroll[$0]?.cancelled == true }
+        let beforeReverseTokens = grid.tokens
+        let reverseColumns = WallpaperLibraryGridMetrics(
+            clipWidth: grid.controller.scrollView.contentView.bounds.width, preferredColumns: 5).columns
+        let reverseIndex = reverseColumns * 2
+        precondition(reverseIndex < forward, "fixture must actually reverse from the forward viewport")
+        grid.scroll(to: reverseIndex)
+        let reverseIDs = grid.visible.compactMap { Int($0.reference.sourceID) }.sorted()
+        precondition(reverseIDs.first! > 0 && reverseIDs.last! + 1 < paths.count,
+            "nearest-side checks require an actual offscreen item on both sides")
+        checks["reverseScrollPreparesBothNearestSides"] = grid.tokens[String(reverseIDs.first! - 1)] != nil
+            && grid.tokens[String(reverseIDs.last! + 1)] != nil
+            && grid.nearby.first?.reference.sourceID == String(reverseIDs.first! - 1)
+        let reverseLimit = min(24, reverseColumns * 2)
+        let reverseVisible = Set(grid.visible.map { $0.providerReference.sourceID })
+        let reverseNearby = Set(grid.nearby.map { $0.providerReference.sourceID })
+        let reverseDemand = Set((grid.visible + grid.nearby).map { $0.providerReference.sourceID })
+        let reverseLeases = Set(grid.tokens.keys)
+        checks["boundedAfterReverse"] = reverseNearby.count == min(reverseLimit, paths.count - reverseIDs.count)
+            && reverseLeases.isSubset(of: reverseDemand)
+            && reverseLeases.subtracting(reverseVisible).count <= reverseLimit
+            && reverseLeases.subtracting(reverseNearby).allSatisfy { id in
+                reverseVisible.contains(id) && beforeReverseTokens[id] === grid.tokens[id]
+                    && grid.tokens[id]?.cancelled == false
+            }
+        let changed = grid.nearby.first!.reference.sourceID
+        let old = grid.tokens[changed]!
+        let changedIndex = imagesIndex(grid.images.wallpapers, id: changed)
+        grid.images.wallpapers[changedIndex].path = original.path
+        grid.update(); grid.fire()
+        checks["changedSourceRevokesOldLease"] = old.cancelled && grid.tokens[changed] !== old
         let beforeClear = grid.tokens
         grid.cancel()
         checks["cancelReleasesEveryLease"] = grid.tokens.isEmpty && beforeClear.values.allSatisfy(\.cancelled)
         grid.schedule()
         let scheduled = grid.pendingWork
         for _ in 0..<50 { grid.schedule() }
-        checks["continuousInputDoesNotResetThrottle"] = grid.pendingWork === scheduled
+        checks["continuousInputDoesNotResetThrottle"] = scheduled != nil && grid.pendingWork === scheduled
         wait("coalesced demand fires") { !grid.tokens.isEmpty }
         checks["scheduledWorkCompletes"] = grid.pendingWork == nil
-        let windowCard = SILGridItem()
-        _ = windowCard.view
-        grid.addSubview(windowCard.view)
-        grid.collectionView.displayedItems = [windowCard]
+        let firstVisible = grid.visible.first!.reference
+        let firstIndex = grid.items.firstIndex { $0.reference == firstVisible }!
+        let windowCard = grid.controller.collection.item(at: IndexPath(item: firstIndex, section: 0)) as! SILGridItem
         var windowCardToken: ThumbnailCacheRequestCancellation?
-        windowCard.configure(wallpaper: SILWallpaper(path: paths[0]), isSelected: false,
+        windowCard.setThumbnailVisible(false)
+        windowCard.configure(wallpaper: grid.images.wallpapers[firstIndex], isSelected: false,
             isMultiSelectMode: false, thumbnailVisible: true) { request, _ in windowCardToken = request }
         let orderedOutCardToken = windowCardToken
         let orderedOutTokens = grid.tokens
@@ -268,13 +352,10 @@ private nonisolated final class SILSignatureReads: @unchecked Sendable {
         host.isHidden = false
         wait("native ancestor reveal resumes demand") { !grid.tokens.isEmpty }
         checks["ancestorRevealResumesDemand"] = !grid.tokens.isEmpty
-        grid.lastAppliedIDs = []
+        grid.controller.update(page: .images, items: [], selection: .init(), preferredColumns: 5, permitsDragging: false, scrollAnchor: nil)
         grid.fire()
-        checks["pendingSnapshotDoesNotPrefetchWrongIDs"] = grid.tokens.isEmpty
-        grid.lastAppliedIDs = grid.orderedIDs
-        grid.collectionView.visible = []
-        grid.fire()
-        checks["emptyViewportDoesNotStartWork"] = grid.tokens.isEmpty
+        checks["synchronousEmptyTopologyRevokesAllOldIDRequests"] = grid.tokens.isEmpty && grid.visible.isEmpty && grid.nearby.isEmpty
+        checks["emptyViewportDoesNotStartWork"] = grid.pendingWork == nil || grid.tokens.isEmpty
 
         let record = SILWallpaper(path: paths[0])
         let item = SILGridItem()
@@ -328,7 +409,7 @@ private nonisolated final class SILSignatureReads: @unchecked Sendable {
         item.setThumbnailVisible(true)
         checks["showAfterHiddenReconfigureLoadsLatestOnly"] = hiddenLoadCount == 1 && item.wallpaperID == replacement.id
         callback?(.image(ready))
-        checks.merge(try failureCacheChecks(root: root, original: original, host: host)) { _, new in new }
+        checks.merge(try failureCacheChecks(root: root, original: original)) { _, new in new }
         print(String(data: try JSONEncoder().encode(checks), encoding: .utf8)!)
     }
 }

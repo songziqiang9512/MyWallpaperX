@@ -15,7 +15,7 @@ final class SettingsWindowController: NSWindowController, NSWindowDelegate {
     private var hasShownWindow = false
 
     private init() {
-        let window = MainAppWindow(contentViewController: contentController)
+        let window = NSWindow(contentViewController: contentController)
         window.identifier = NSUserInterfaceItemIdentifier("SettingsWindow")
         window.title = "设置"
         window.styleMask = [.titled, .closable, .miniaturizable, .resizable, .fullSizeContentView]
@@ -59,6 +59,13 @@ final class SettingsWindowController: NSWindowController, NSWindowDelegate {
         window.makeKeyAndOrderFront(nil)
     }
 
+    /// The App supplies the same recovery owner used during startup/reset.
+    func configurePersonalSettings(_ coordinator: PersonalSettingsImportCoordinator,
+                                  reset: @escaping @MainActor () -> Void) {
+        contentController.personalSettings = coordinator
+        contentController.resetAction = reset
+    }
+
     private func updateWindowSize() {
         guard let window else { return }
         let mainWindow = MainWindowCoordinator.mainWindow()
@@ -86,6 +93,8 @@ final class SettingsWindowController: NSWindowController, NSWindowDelegate {
 private final class SettingsContentViewController: NSViewController {
     private var cancellables = Set<AnyCancellable>()
     private var isSyncingSettings = false
+    weak var personalSettings: PersonalSettingsImportCoordinator?
+    var resetAction: (@MainActor () -> Void)?
 
     private lazy var settingsActions: AppSettingsActions = {
         let manager = WallpaperManager.shared
@@ -106,10 +115,16 @@ private final class SettingsContentViewController: NSViewController {
                 Task { await OLThumbnailCache.shared.clearAll() }
                 SteamWorkshopService.shared.clearAllCachedState()
             },
-            exportPersonalSettings: { try manager.exportPersonalSettings(to: $0) },
-            importPersonalSettings: { try manager.importPersonalSettings(from: $0) },
+            exportPersonalSettings: { [weak self] url in
+                guard let coordinator = self?.personalSettings else { throw PersonalSettingsError.recoveryRequired("设置导出尚未就绪") }
+                return try await coordinator.exportPersonalSettings(to: url)
+            },
+            importPersonalSettings: { [weak self] url in
+                guard let coordinator = self?.personalSettings else { throw PersonalSettingsError.recoveryRequired("设置导入尚未就绪") }
+                return try await coordinator.importPersonalSettings(from: url)
+            },
             refreshAutoSwitchTimerIfNeeded: { manager.refreshAutoSwitchTimerIfNeeded() },
-            resetToFreshInstallState: { manager.resetToFreshInstallState() },
+            resetToFreshInstallState: { [weak self] in self?.resetAction?() },
             setLoopPlaybackEnabled: { manager.setLoopPlaybackEnabled($0) },
             setRandomPlaybackEnabled: { manager.setRandomPlaybackEnabled($0) },
             setSequentialPlaybackEnabled: { manager.setSequentialPlaybackEnabled($0) },

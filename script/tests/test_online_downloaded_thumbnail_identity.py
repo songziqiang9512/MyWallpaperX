@@ -18,6 +18,7 @@ from script.tests.test_ui_request_schedulers import declaration
 
 ROOT = Path(__file__).resolve().parents[2]
 SOURCE = ROOT / 'MyWallpaperX/Modules/OnlineLibrary/UI/AppKitOLDownloadsItem.swift'
+CORE = ROOT / 'MyWallpaperX/Modules/OnlineLibrary/Core/OnlineLibraryDownloadedContent.swift'
 FIXTURE = ROOT / 'script/tests/fixtures/OnlineDownloadedIdentityHarness.swift'
 CACHE = ROOT / 'MyWallpaperX/Shared/UI/ThumbnailCache.swift'
 MEMORY = ROOT / 'MyWallpaperX/Shared/UI/DecodedThumbnailMemoryCache.swift'
@@ -35,11 +36,12 @@ class OnlineDownloadedThumbnailIdentityTests(unittest.TestCase):
             self.assertEqual(store.count(leaf), 1)
             store = store.replace(leaf, 'await IdentityMediaGate.shared.frame()')
             observe = 'var fileURL = url.standardizedFileURL'
-            self.assertEqual(store.count(observe), 1)
-            store = store.replace(observe, 'IdentityProbe.shared.record(url.path)\n        ' + observe)
+            identity = declaration(CORE.read_text(), 'nonisolated enum OnlineLibraryDownloadedFileIdentity')
+            self.assertEqual(identity.count(observe), 1)
+            identity = identity.replace(observe, 'IdentityProbe.shared.record(url.path)\n        ' + observe)
             harness = work / 'Harness.swift'
-            harness.write_text('import AppKit\nimport Foundation\n' + store + '\n' + FIXTURE.read_text())
-            sources = [SOURCE, FIXTURE, CACHE, MEMORY]
+            harness.write_text('import AppKit\nimport Foundation\n' + identity + '\n' + store + '\n' + FIXTURE.read_text())
+            sources = [SOURCE, CORE, FIXTURE, CACHE, MEMORY]
             inputs = {str(path): hashlib.sha256(path.read_bytes()).hexdigest() for path in sources}
             command = ['xcrun', 'swiftc', '-parse-as-library', '-default-isolation', 'MainActor',
                 str(MEMORY), str(CACHE), str(harness), '-module-cache-path', str(work / 'modules'), '-o', str(work / 'checks')]

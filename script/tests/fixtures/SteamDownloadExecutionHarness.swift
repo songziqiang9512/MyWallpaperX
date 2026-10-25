@@ -5,7 +5,6 @@ extension Notification.Name {
     static let steamWorkshopSceneDownloadCompleted = Notification.Name("SteamWorkshopSceneDownloadCompleted")
 }
 struct SteamWorkshopBrowserItem: Codable { let id: String; let title: String; var fileSizeText: String? { nil } }
-struct SteamWorkshopPendingDownloadRequest { let id: String; let pageTitle: String?; let item: SteamWorkshopBrowserItem? }
 struct SteamWorkshopDownloadRecord {
     enum Dependency { case none, missing(String) }
     enum Status: Equatable { case queued, downloading, ready, failed(String) }
@@ -239,6 +238,13 @@ final class Transport: SteamServiceTransporting {
 }
 @MainActor final class WallpaperManager { static let shared = WallpaperManager(); func stopCurrentPlayback() {} }
 @MainActor final class SteamWorkshopService {
+    // Product Manager ticket settlement is controlled here; the real service
+    // must await its receipt before reclaiming the real version lease/files.
+    var prepareSceneDownloadRemoval: ((String, @escaping (Bool) -> Void) -> Void)? = { _, done in
+        SceneDaemonClient.shared.stopped = true
+        SceneDaemonClient.shared.completion = { done(true) }
+    }
+    let stagingCleanupBarrier = SteamDownloadCleanupBarrier()
     var removingDownloadIDs: Set<String> = []
     // 2305fea3 把暂停集合的用法加进了 +Downloads.swift（属性在主类上）；
     // 该 fixture 的最小服务类需要同名属性才能编译整个文件。
@@ -264,8 +270,23 @@ final class Transport: SteamServiceTransporting {
     var statusMessage = ""; var downloadError: String?
     var isAuthenticating = false; var isLoginSheetPresented = false
     enum Phase { case credentials, awaitingGuardCode }; var authPhase = Phase.credentials
-    var steamJobItemPayloads: [String: SteamWorkshopBrowserItem] = [:]
-    var downloads: [SteamWorkshopDownloadRecord] = []; var selectedDownloadID: String?; var selectedDownloadIDs: Set<String> = []; var isDownloadsMultiSelectMode = false
+    var steamJobItemPayloads: [String: SteamWorkshopPendingDownloadRequest] = [:]
+    var prepareExplicitLibraryRestoration: ((WallpaperReference) -> (() -> Void)?)?
+    var downloads: [SteamWorkshopDownloadRecord] = []
+    var selectedDownloadInspectorItem: SteamWorkshopBrowserItem?
+    var selectedDownloadDetailItem: SteamWorkshopBrowserItem?
+    var selectedDownloadDetailError: String?
+    var isRefreshingSelectedDownloadDetailItem = false
+    var detailCancellations = 0
+    func cancelSelectedItemDetailRefresh() { detailCancellations += 1 }
+    var hasCompletedInstalledLibraryLoad = false
+    var installedLibraryScanGeneration = 0
+    final class ScanFlight { var isInFlight = false; var rescanRequested = false }
+    let installedLibraryScanFlight = ScanFlight()
+    var cachePreloads = 0, reclamationRequests = 0, catchupScans = 0
+    func preloadWebRuntimeCaches(for records: [SteamWorkshopDownloadRecord]) { cachePreloads += 1 }
+    func scheduleLibraryVersionReclamation() { reclamationRequests += 1 }
+    func startInstalledLibraryScan(managed: [String: SteamWorkshopDownloadMetadataSnapshot]) { catchupScans += 1 }
     var reloads = 0
     init(base: URL, transport: Transport) {
         steamServiceClient = SteamServiceClient(executablePath: "/fake", transportFactory: { _ in transport })
@@ -275,10 +296,9 @@ final class Transport: SteamServiceTransporting {
         steamDownloadStagingRootURL = base.appendingPathComponent("staging", isDirectory: true)
     }
     func browserItemForDownload(id: String) -> SteamWorkshopBrowserItem? { nil }
-    func latestDownloadRecord(for id: String) -> SteamWorkshopDownloadRecord? { downloads.first { $0.id == id } }
     func presentSteamLoginForUserAction(context: String) { statusMessage = "login required" }
     func appendSteamAuthDebugLog(_ message: String) {}
-    func upsertTransientRecord(id: String, title: String, status: SteamWorkshopDownloadRecord.Status, sizeText: String) {
+    func upsertTransientRecord(id: String, title: String, status: SteamWorkshopDownloadRecord.Status, accountSteamID: String, sizeText: String) {
         let record = SteamWorkshopDownloadRecord(id: id, title: title, sizeText: sizeText, status: status)
         if let index = downloads.firstIndex(where: { $0.id == id }) {
             downloads[index] = record
@@ -321,7 +341,7 @@ final class Transport: SteamServiceTransporting {
         transport.failJobStoreBeforeAllocatedEvent = mode == "staging-save-failure"; transport.rejectStagingAcknowledgementWithIntegrity = mode == "staging-ack-timeout"
         transport.allocatedEventHasWrongAccountEpoch = mode == "allocated-wrong-account-epoch"; transport.allocatedEventOmitsAccountEpoch = mode == "allocated-missing-account-epoch"
         transport.allocatedEventHasWrongBirth = mode == "allocated-wrong-birth"; transport.terminalReceiptHasWrongBirth = mode == "terminal-wrong-birth"
-        transport.hold = mode.hasPrefix("ready-update-delete") || ["cancel", "switch", "concurrent-cancel", "concurrent-success",
+        transport.hold = mode.hasPrefix("late-cleanup-") || mode.hasPrefix("ready-update-delete") || ["cancel", "switch", "concurrent-cancel", "concurrent-success",
             "prebind-replacement", "legacy-v4-partial-retry", "allocated-wrong-account-epoch",
             "allocated-missing-account-epoch", "allocated-wrong-birth"].contains(mode)
         transport.replaceStagingBeforeProgress = mode == "prebind-replacement"
@@ -366,7 +386,9 @@ final class Transport: SteamServiceTransporting {
             try Data("replacement".utf8).write(to: oldURL.appendingPathComponent("sentinel"))
         }
         let service = SteamWorkshopService(base: base, transport: transport)
+        if try await service.runOpaqueDeletionFixtureIfNeeded(mode: mode) { return }
         if try await service.runReadyUpdateDeletionFixtureIfNeeded(mode: mode, transport: transport) { return }
+        if try await service.runLateCleanupFixtureIfNeeded(mode: mode, transport: transport) { return }
         if mode.hasPrefix("migration-") {
             let library = service.steamDownloadLibraryRootURL
             let legacyName = "11111111-1111-4111-8111-111111111111"

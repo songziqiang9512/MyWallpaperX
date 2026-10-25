@@ -7,7 +7,7 @@ import CoreImage
         app.setActivationPolicy(.accessory)
         let output = CommandLine.arguments.count > 1 ? URL(fileURLWithPath: CommandLine.arguments[1]) : nil
         let panel = SteamLoginPanelView()
-        let window = SteamLoginWindow(contentRect: NSRect(x: 0, y: 0, width: SteamLoginPanelView.width, height: SteamLoginPanelView.height),
+        let window = WallpaperLibraryModalPanel(contentRect: NSRect(x: 0, y: 0, width: SteamLoginPanelView.width, height: SteamLoginPanelView.height),
                                       styleMask: [.borderless], backing: .buffered, defer: false)
         window.isReleasedWhenClosed = false
         window.contentView = panel

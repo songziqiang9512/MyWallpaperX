@@ -1,34 +1,45 @@
 import AppKit
 import Foundation
 
+// This storage gate does not accept a playback Pending. Actual sequence/ticket
+// behavior is covered by its focused gate; only the typed boundary is needed.
+nonisolated enum WallpaperPlaybackSequence {
+    struct Pending: Equatable, Sendable {}
+}
+
+enum BundledVideoLibrary {
+    static func migratedURL(forPersistedPath path: String) -> URL? {
+        path == "/fixture/bundled-old.mp4" ? URL(fileURLWithPath: "/fixture/bundled-current.mp4") : nil
+    }
+}
+
 /// Only unrelated settings/playback and bundled-resource leaves are replaced.
 /// Save/load/flush/revocation bodies and the SQLite store come from production.
 @MainActor final class WallpaperManager {
-    static let recentWallpapersLimit = 25
+    var migrationRecoveryMessage: String?
+    var preservesLegacyMigrationInputs: Bool { migrationRecoveryMessage != nil }
+    var allowsLibraryMutation: Bool { !preservesLegacyMigrationInputs }
+    static var defersMissingFileCleanupForPersonalSettingsRecovery = false
     enum RuntimeSwitchSelection { case video(VideoWallpaper); case other }
     var switchSelections: [UUID: RuntimeSwitchSelection] = [:]
     var currentWallpaper: VideoWallpaper?
     var pendingWallpaper: VideoWallpaper?
-    var selectedWallpaperId: String?
-    var selectedWallpaperIds = Set<String>()
-    var inspectedWallpaperID: String?
-    var isMultiSelectMode = false
     var currentIndex = 0
-    var recentlyUsedWallpapers: [VideoWallpaper] = []
     let recentWallpapersKey = "RecentWallpapers"
     var unreadableRecoveryCount = 0
     var importSummaries: [ImportSummary] = []
     var scheduledImportURLs: [URL] = []
     var autoplayRequests = 0
+    var libraryBackingPublished: ((WallpaperContentBackingPublication) -> Void)?
     let wallpapersKey = "Wallpapers"
     var settingsAutoSaveWorkItem: DispatchWorkItem?
     var wallpapersAutoSaveWorkItem: DispatchWorkItem?
-    var recentWallpapersAutoSaveWorkItem: DispatchWorkItem?
     // PRODUCTION_STATE
     // PRODUCTION_METHODS
 
-    func migratedBundledVideoWallpaper(_ value: VideoWallpaper) -> VideoWallpaper { value }
+    // PRODUCTION_BUNDLED_COPY
     func migratedBundledVideoIndex(_ value: [VideoWallpaper]) -> [VideoWallpaper] { value }
+    nonisolated func normalizedSourcePathExists(_ path: String) -> Bool { path != "/fixture/bundled-old.mp4" }
     func scheduleMissingIndexedSourceFilesScan() {}
     func scanForMissingMetadata() {}
     func normalizedPath(_ path: String) -> String { URL(fileURLWithPath: path).standardizedFileURL.path }
@@ -37,17 +48,26 @@ import Foundation
     func refreshAutoSwitchTimerIfNeeded() {}
     func presentImportSummary(_ summary: ImportSummary, in window: NSWindow?) { importSummaries.append(summary) }
     func scheduleImportedAssetsProcessing(_ urls: [URL]) { scheduledImportURLs.append(contentsOf: urls) }
-    func setAsWallpaper(_ value: VideoWallpaper, userInitiated: Bool) { autoplayRequests += 1 }
+    func setAsWallpaper(_ value: VideoWallpaper, userInitiated: Bool = true, admission: ImportedVideoPlaybackAdmission? = nil) { autoplayRequests += 1 }
+    // This storage/context harness never submits a playback admission. The
+    // actual acceptance/failure transaction is exercised by its focused gate.
+    func acceptsImportedVideoPlayback(_ admission: ImportedVideoPlaybackAdmission) -> Bool { false }
+    func failImportedVideoPlayback(_ admission: ImportedVideoPlaybackAdmission, reason: String) {}
     func applyExistingImportForAudit(path: String, context: ImportContext, preparedBranch: Bool) {
         let entry = PreparedImportEntry(sourceURL: URL(fileURLWithPath: path), title: "filename",
                                        normalizedPath: path, cachedThumbnailPath: nil, cachedStaticFramePath: nil)
         let result = ImportPreparationResult(requestedCount: 1,
                                              preparedImports: preparedBranch ? [entry] : [],
                                              existingPathsToLink: preparedBranch ? [] : [path], counters: ImportCounters())
-        applyPreparedImportResult(result, presentingIn: nil, context: context, autoplayToken: nil, resourceLifetime: nil)
+        applyPreparedImportResult(result, presentingIn: nil, context: context, indexEpoch: wallpaperIndexSaveEpoch,
+                                  admission: nil, resourceLifetime: nil,
+                                  presentsSummary: true, orderedPaths: [path], completion: nil)
     }
+    func existingThumbnailPath(for url: URL) -> String? { nil }
+    func existingStaticFramePath(for url: URL) -> String? { nil }
+    func sampleFactoryForAudit(_ path: String) -> VideoWallpaper { makeImportedWallpaper(from: URL(fileURLWithPath: path), title: "sample") }
+    func mergeForAudit(_ incoming: VideoWallpaper, into existing: inout VideoWallpaper) { mergeWallpaper(incoming, into: &existing) }
     func saveSettings() {}
-    func saveTags() {}
     func savePlaybackState() {}
     func saveActiveWallpaperRuntime() {}
     func persistCurrentWallpaperSnapshot() {}
@@ -75,8 +95,10 @@ import Foundation
     @MainActor static func pump() { RunLoop.main.run(until: Date().addingTimeInterval(0.04)) }
     @MainActor static func main() throws {
         let mode = CommandLine.arguments[1]
+        WallpaperIndexStore.startupMigrationReadOnly = mode.hasPrefix("migration-")
         let store = WallpaperIndexStore.shared
         let manager = WallpaperManager()
+        if mode.hasPrefix("migration-") { manager.migrationRecoveryMessage = "Startup migration failed" }
         defer {
             if ProcessInfo.processInfo.environment["MWX_VIDEO_INDEX_TEST_CLEANUP"] == "1" {
                 manager.defaults.removePersistentDomain(forName: ProcessInfo.processInfo.environment["MWX_VIDEO_INDEX_TEST_DOMAIN"]!)
@@ -84,10 +106,128 @@ import Foundation
         }
         let a = record("A"), b = record("B"), c = record("C")
         var checks: [String: Bool] = [:]
+        // Source persistence must not resurrect retired relationship/view
+        // writers. Settings/runtime save methods above remain controlled
+        // unrelated leaves; this does not forbid their legitimate App owners.
+        let retiredKeys = ["WallpaperTags", "RecentWallpapers", "PerSelectionSortStates", "gridZoomOffset",
+                           "SILTags", "SILSortState", "SILGridZoomOffset"]
+        let frozenKeys = ["WallpaperSettings", "PerSelectionSortStates", "SILSortState", "gridZoomOffset", "SILGridZoomOffset",
+                          "CurrentWallpaper", "PlaybackState", "ActiveWallpaperRuntime", "LastWorkshopPlaybackRecordID"]
+        let sentinelKeys = Set(retiredKeys + frozenKeys)
+        for key in sentinelKeys { manager.defaults.set(Data(("raw sentinel " + key).utf8), forKey: key) }
+        var sentinelValues = Dictionary(uniqueKeysWithValues: sentinelKeys.map { ($0, manager.defaults.data(forKey: $0)!) })
         if !mode.hasPrefix("startup") && !mode.hasSuffix("-read") && mode != "bad-fallback" {
             manager.didFinishInitialIndexLoad = true
         }
         switch mode {
+        case "migration-readonly", "migration-legacy-index":
+            let url = URL(fileURLWithPath: ProcessInfo.processInfo.environment["MWX_VIDEO_INDEX_TEST_ROOT"]!).appendingPathComponent("index.sqlite3")
+            let before = try Data(contentsOf: url)
+            var journal = WallpaperIndexStartupChanges()
+            journal.record(path: b.path, old: b, new: nil)
+            journal.record(path: c.path, old: nil, new: c)
+            let encoded = try JSONEncoder().encode(journal)
+            let recent = try JSONEncoder().encode([a, b])
+            manager.defaults.set(encoded, forKey: manager.initialIndexChangesKey)
+            manager.defaults.set(recent, forKey: manager.recentWallpapersKey)
+            sentinelValues[manager.recentWallpapersKey] = recent
+            manager.startInitialLoad()
+            wait("recovery read-only did not materialize old index") { manager.didFinishInitialIndexLoad }
+            checks["failedMigrationStillReadsAndMergesJournal"] = manager.wallpapers.map(\.id) == ["A", "C"]
+            let afterReadonlyRead = try Data(contentsOf: url)
+            checks["readonlyLegacySchemaDoesNotInventAdmissionOrAlterDatabase"] = manager.wallpapers.allSatisfy { $0.firstIndexedAt == nil }
+                && afterReadonlyRead == before
+            manager.saveWallpapers(); manager.flushPersistentState()
+            checks["failedMigrationFlushCannotRewriteSourceIndex"] = try Data(contentsOf: url) == before
+            checks["failedMigrationKeepsOriginalJournalAndRecentBytes"] = manager.defaults.data(forKey: manager.initialIndexChangesKey) == encoded
+                && manager.defaults.data(forKey: manager.recentWallpapersKey) == recent
+            do { try store.saveWallpapers([]); checks["failedMigrationIndexRejectsExplicitWrite"] = false }
+            catch { checks["failedMigrationIndexRejectsExplicitWrite"] = true }
+            store.resetStore()
+            checks["failedMigrationIndexResetDoesNotDeleteSource"] = try Data(contentsOf: url) == before
+        case "migration-missing-index":
+            manager.startInitialLoad(); _ = try? store.loadWallpapers(); pump()
+            manager.saveWallpapers(); manager.flushPersistentState()
+            let url = URL(fileURLWithPath: ProcessInfo.processInfo.environment["MWX_VIDEO_INDEX_TEST_ROOT"]!).appendingPathComponent("index.sqlite3")
+            checks["failedMigrationReadDoesNotCreateMissingOldIndex"] = !FileManager.default.fileExists(atPath: url.path)
+                && !manager.didFinishInitialIndexLoad && manager.fallback == nil
+        case "first-indexed":
+            let date = Date(timeIntervalSince1970: 1_700_000_000.375)
+            var dated = record("dated"); dated.firstIndexedAt = date
+            let oldJSON = try JSONEncoder().encode(a)
+            checks["legacyCodableWithoutAdmissionTimeStaysUnknown"] = try JSONDecoder().decode(VideoWallpaper.self, from: oldJSON).firstIndexedAt == nil
+                && (JSONSerialization.jsonObject(with: oldJSON) as! [String: Any])["firstIndexedAt"] == nil
+            try store.saveWallpapers([a, dated])
+            checks["originalSQLitePersistsKnownAdmissionAndNullIndependentlyOfLastUsed"] = try store.loadWallpapers() == [a, dated]
+                && dated.lastUsed != date
+            let before = Date()
+            manager.wallpapers = []
+            manager.applyExistingImportForAudit(path: "/fixture/new-admission.mp4", context: .library, preparedBranch: true)
+            let imported = manager.wallpapers[0], after = Date()
+            checks["realPreparedImportRecordsItsAdmissionClock"] = imported.firstIndexedAt.map { $0 >= before && $0 <= after } == true
+            let sample = manager.sampleFactoryForAudit("/fixture/sample.mp4")
+            checks["sampleFactoryRecordsRealNewAdmission"] = sample.firstIndexedAt.map { $0 >= before && $0 <= Date() } == true
+            manager.applyExistingImportForAudit(path: imported.path, context: .library, preparedBranch: true)
+            checks["duplicatePreparedImportPreservesOriginalAdmission"] = manager.wallpapers.count == 1
+                && manager.wallpapers[0].firstIndexedAt == imported.firstIndexedAt
+            var mergedKnown = dated, mergedUnknown = a
+            manager.mergeForAudit(imported, into: &mergedKnown); manager.mergeForAudit(imported, into: &mergedUnknown)
+            checks["ordinaryUpsertAndDerivedUpdatesKeepKnownAndUnknownAdmission"] = mergedKnown.firstIndexedAt == date && mergedUnknown.firstIndexedAt == nil
+            var oldBundled = record("dated", path: "/fixture/bundled-old.mp4"); oldBundled.firstIndexedAt = date
+            let bundledCopy = manager.migratedBundledVideoWallpaper(oldBundled)
+            var expectedBundled = record("dated", path: "/fixture/bundled-current.mp4"); expectedBundled.firstIndexedAt = date
+            oldBundled.firstIndexedAt = nil
+            checks["bundledPathMigrationPreservesKnownAndUnknownSourceMetadata"] = bundledCopy == expectedBundled
+                && manager.migratedBundledVideoWallpaper(oldBundled).firstIndexedAt == nil
+            var early = record("provisional", path: a.path); early.firstIndexedAt = date
+            var journal = WallpaperIndexStartupChanges(); journal.record(path: a.path, old: nil, new: early)
+            journal = try JSONDecoder().decode(WallpaperIndexStartupChanges.self, from: JSONEncoder().encode(journal))
+            checks["unseenLegacyBaselineCannotBeDatedByProvisionalDuplicate"] = journal.merged(with: [a], normalize: manager.normalizedPath).first?.firstIndexedAt == nil
+                && journal.merged(with: [a], normalize: manager.normalizedPath).first?.id == a.id
+            checks["journalKeepsAdmissionForTrulyNewPath"] = journal.merged(with: [], normalize: manager.normalizedPath).first?.firstIndexedAt == date
+            var knownBaseline = a; knownBaseline.firstIndexedAt = Date(timeIntervalSince1970: 40)
+            checks["persistedJournalCannotReplaceKnownBaselineAdmission"] = journal.merged(with: [knownBaseline], normalize: manager.normalizedPath).first?.firstIndexedAt == knownBaseline.firstIndexedAt
+            var explicit = a; explicit.firstIndexedAt = date
+            var patch = WallpaperIndexStartupChanges(); patch.record(path: a.path, old: a, new: explicit)
+            checks["explicitUnknownMetadataPatchKeepsJournalAdmission"] = patch.merged(with: [a], normalize: manager.normalizedPath).first?.firstIndexedAt == date
+            // Exercise the original queued initial-load merge, not only the pure journal.
+            try store.saveWallpapers([a])
+            let entered = DispatchSemaphore(value: 0), release = DispatchSemaphore(value: 0)
+            store.holdQueueForAudit(entered: entered, release: release)
+            precondition(entered.wait(timeout: .now() + 3) == .success)
+            let loading = WallpaperManager(); loading.startInitialLoad()
+            loading.applyExistingImportForAudit(path: a.path, context: .library, preparedBranch: true)
+            checks["provisionalImportBeforeSQLiteHasItsOwnUncommittedClock"] = loading.wallpapers.first?.firstIndexedAt != nil
+            release.signal()
+            wait("admission merge did not finish") { loading.didFinishInitialIndexLoad && loading.idle }
+            checks["realInitialLoadPreservesUnseenLegacyUnknownAndIdentity"] = try loading.wallpapers.first?.id == a.id
+                && loading.wallpapers.first?.firstIndexedAt == nil && store.loadWallpapers().first?.firstIndexedAt == nil
+        case "first-indexed-sql-write":
+            var dated = b; dated.firstIndexedAt = Date(timeIntervalSinceReferenceDate: 800_000_000.0000001)
+            try store.saveWallpapers([a, dated])
+            checks["durableSQLiteContainsMixedKnownAndUnknownAdmission"] = try store.loadWallpapers() == [a, dated]
+        case "first-indexed-sql-read":
+            var dated = b; dated.firstIndexedAt = Date(timeIntervalSinceReferenceDate: 800_000_000.0000001)
+            checks["processRestartRetainsSQLiteAdmissionWithOddReferenceDateULP"] = try store.loadWallpapers() == [a, dated]
+        case "first-indexed-fallback-write":
+            try store.saveWallpapers([a]); try store.setReadOnlyForAudit(true)
+            var dated = record("dated"); dated.firstIndexedAt = Date(timeIntervalSince1970: 1_700_000_000.375)
+            manager.wallpapers = [dated]; manager.flushPersistentState()
+            checks["failedSaveFallbackRetainsAdmissionTimestamp"] = manager.fallback == [dated]
+            manager.defaults.synchronize()
+        case "first-indexed-fallback-read":
+            let expected = Date(timeIntervalSince1970: 1_700_000_000.375)
+            checks["processRestartDecodesAdmissionFromCompleteFallback"] = manager.fallback?.first?.firstIndexedAt == expected
+            manager.startInitialLoad()
+            wait("admission fallback did not commit") { manager.idle && manager.fallback == nil }
+            checks["completeFallbackAdmissionSurvivesSQLitePublication"] = try store.loadWallpapers().first?.firstIndexedAt == expected
+                && manager.wallpapers.first?.firstIndexedAt == expected
+        case "first-indexed-legacy":
+            let original = try store.loadWallpapers()
+            checks["writableLegacySchemaAddsNullableAdmissionWithoutInventingHistory"] = original.count == 2 && original.allSatisfy { $0.firstIndexedAt == nil }
+            var dated = original[0]; dated.firstIndexedAt = Date(timeIntervalSince1970: 10)
+            try store.saveWallpapers([dated, original[1]])
+            checks["upgradedLegacySchemaPersistsKnownAndUnknownAdmission"] = try store.loadWallpapers() == [dated, original[1]]
         case "startup":
             try store.saveWallpapers([a])
             let entered = DispatchSemaphore(value: 0), release = DispatchSemaphore(value: 0)
@@ -230,8 +370,6 @@ import Foundation
             temporary.duration = 12
             manager.wallpapers = [temporary]
             manager.currentWallpaper = temporary; manager.pendingWallpaper = temporary
-            manager.selectedWallpaperId = temporary.id; manager.selectedWallpaperIds = [temporary.id]
-            manager.inspectedWallpaperID = temporary.id
             let ticket = UUID(); manager.switchSelections[ticket] = .video(temporary)
             wait("same-path merge did not finish") { manager.didFinishInitialIndexLoad && manager.idle }
             let samePath = manager.wallpapers.first { $0.path == a.path }!
@@ -240,15 +378,17 @@ import Foundation
                 checks["futureCommitUsesStableIdentity"] = selected.id == a.id
             }
             checks["allVisibleReferencesRebindWithoutPlayback"] = manager.currentWallpaper?.id == a.id
-                && manager.pendingWallpaper?.id == a.id && manager.selectedWallpaperId == a.id
-                && manager.selectedWallpaperIds == [a.id] && manager.inspectedWallpaperID == a.id
+                && manager.pendingWallpaper?.id == a.id && manager.currentIndex == 0 && manager.autoplayRequests == 0
 
             let subject = WallpaperManager()
             subject.startInitialLoad(); _ = try store.loadWallpapers()
             var imported = record("profile-id", path: a.path)
             imported = VideoWallpaper(id: imported.id, title: "user title", path: imported.path, tags: ["new"])
             subject.wallpapers = [imported]
-            subject.recordInitialIndexExplicitEdit(imported, fields: [.favorite, .title], addedTags: ["new"])
+            // A persisted old explicit-edit journal still has a live decoder
+            // and merger, although the former UI write producer is retired.
+            subject.initialIndexChanges.record(path: a.path, old: imported, new: imported,
+                fields: [.favorite, .title], tags: ["new": true])
             subject.wallpapers[0].isFavorite = true
             subject.wallpapers[0].isFavorite = false // final equals provisional baseline; still an explicit edit
             wait("explicit preferences did not merge") { subject.didFinishInitialIndexLoad && subject.idle }
@@ -336,9 +476,11 @@ import Foundation
             try store.saveWallpapers([old, unseen])
             manager.startInitialLoad(); _ = try store.loadWallpapers()
             manager.wallpapers = [old]
-            manager.recentlyUsedWallpapers = [old, unseen]
-            manager.constrainRecentWallpapersToLibrary(); manager.saveRecentWallpapers()
-            checks["unresolvedLibraryCannotPruneRecent"] = manager.recentlyUsedWallpapers.count == 2
+            let recentBytes = try JSONEncoder().encode([old, unseen])
+            manager.defaults.set(recentBytes, forKey: manager.recentWallpapersKey)
+            sentinelValues[manager.recentWallpapersKey] = recentBytes
+            manager.saveWallpapers()
+            checks["unresolvedSourceSaveCannotPruneRetiredRecentBytes"] = manager.defaults.data(forKey: manager.recentWallpapersKey) == recentBytes
             manager.withInitialIndexGlobalMutation(.renameTag("old", "new")) { manager.wallpapers[0].tags = ["new", "z"] }
             manager.wallpapers[0].tags.append("old")
             manager.withInitialIndexGlobalMutation(.removeTag("z")) { manager.wallpapers[0].tags.removeAll { $0 == "z" } }
@@ -347,7 +489,7 @@ import Foundation
             let merged = manager.wallpapers
             checks["globalActionsReachUnseenRowsAndKeepLaterTagAddition"] = merged[0].tags == ["new", "old"]
                 && merged[1].tags == ["new"] && merged.allSatisfy { $0.thumbnailPath == nil && $0.staticFramePath == nil }
-            checks["recentSurvivesCompleteMergeWithCanonicalRows"] = manager.recentlyUsedWallpapers.map(\.id) == [a.id, c.id]
+            checks["retiredRecentBytesSurviveCompleteSourceMerge"] = manager.defaults.data(forKey: manager.recentWallpapersKey) == recentBytes
             let deleting = WallpaperManager()
             deleting.startInitialLoad(); _ = try store.loadWallpapers()
             deleting.wallpapers = [old]
@@ -361,7 +503,7 @@ import Foundation
 
         case "startup-import-context":
             for preparedBranch in [false, true] {
-                for context in [ImportContext.favorites, .tag("import-tag"), .library] {
+                for context in [ImportContext.library, .onlinePlayback, .steamPlayback] {
                     var stored = a; stored.tags = ["kept"]
                     try store.saveWallpapers([stored])
                     let subject = WallpaperManager()
@@ -376,12 +518,13 @@ import Foundation
                     wait("no-op import context did not settle") { subject.didFinishInitialIndexLoad && subject.idle }
                     let merged = subject.wallpapers[0]
                     let label = (preparedBranch ? "preparedExisting" : "existingLink") + "-" + String(describing: context)
-                    checks[label + "ExplicitContextSurvivesNoOpProvisionalValue"] = merged.id == a.id
-                        && merged.title == a.title && merged.isFavorite == (context == .favorites)
-                        && merged.tags == (context == .tag("import-tag") ? ["kept", "import-tag"] : ["kept"])
+                    checks[label + "SourceImportPreservesStableLegacyValuesWithoutRelationshipWrite"] = merged.id == a.id
+                        && merged.title == a.title && !merged.isFavorite && merged.tags == ["kept"]
                     checks[label + "NoDuplicateAssetsOrAutoplayAndOriginalSummary"] = subject.wallpapers.count == 1
                         && subject.scheduledImportURLs.isEmpty && subject.autoplayRequests == 0
-                        && subject.importSummaries.last?.linkedCount == 0 && subject.importSummaries.last?.skippedCount == 1
+                        && (context == .library
+                            ? subject.importSummaries.last?.linkedCount == 0 && subject.importSummaries.last?.skippedCount == 1
+                            : subject.importSummaries.isEmpty)
                 }
             }
 
@@ -417,6 +560,9 @@ import Foundation
             checks["interruptedReadDoesNotMutateCompleteDatabase"] = try store.loadWallpapers().count == 200
 
         default: fatalError("unknown scenario")
+        }
+        checks["sourcePersistenceLeavesRetiredPreferencesAndFrozenAuxiliarySentinelsUntouched"] = sentinelValues.allSatisfy {
+            manager.defaults.data(forKey: $0.key) == $0.value
         }
         print(String(data: try JSONEncoder().encode(checks), encoding: .utf8)!)
     }

@@ -6,12 +6,11 @@
 import Foundation
 
 final class ImportedVideoAutoplayGate: @unchecked Sendable {
-    struct Token: Equatable, Sendable {
+    nonisolated struct Token: Equatable, Sendable {
         fileprivate let generation: UInt64
     }
 
     static let shared = ImportedVideoAutoplayGate()
-    static let notificationUserInfoKey = "importedVideoAutoplayToken"
     static let resourceLifetimeUserInfoKey = "importedVideoResourceLifetime"
 
     private let lock = NSLock()
@@ -39,26 +38,26 @@ final class ImportedVideoAutoplayGate: @unchecked Sendable {
 
 struct ImportedVideoPlaybackRequest {
     let localURL: URL
-    let autoplayToken: ImportedVideoAutoplayGate.Token
+    let admission: ImportedVideoPlaybackAdmission
     let resourceLifetime: PlaybackResourceLifetime?
 
     init(
         localURL: URL,
-        autoplayToken: ImportedVideoAutoplayGate.Token,
+        admission: ImportedVideoPlaybackAdmission,
         resourceLifetime: PlaybackResourceLifetime? = nil
     ) {
         self.localURL = localURL
-        self.autoplayToken = autoplayToken
+        self.admission = admission
         self.resourceLifetime = resourceLifetime
     }
 
     init?(notification: Notification) {
         guard let localURL = notification.userInfo?["localURL"] as? URL,
-              let autoplayToken = notification.userInfo?[ImportedVideoAutoplayGate.notificationUserInfoKey]
-                as? ImportedVideoAutoplayGate.Token else { return nil }
+              let admission = notification.userInfo?[ImportedVideoPlaybackAdmission.notificationUserInfoKey]
+                as? ImportedVideoPlaybackAdmission else { return nil }
         self.init(
             localURL: localURL,
-            autoplayToken: autoplayToken,
+            admission: admission,
             resourceLifetime: notification.userInfo?[ImportedVideoAutoplayGate.resourceLifetimeUserInfoKey]
                 as? PlaybackResourceLifetime
         )
@@ -70,7 +69,7 @@ struct ImportedVideoPlaybackRequest {
             object: nil,
             userInfo: [
                 "localURL": localURL,
-                ImportedVideoAutoplayGate.notificationUserInfoKey: autoplayToken,
+                ImportedVideoPlaybackAdmission.notificationUserInfoKey: admission,
                 ImportedVideoAutoplayGate.resourceLifetimeUserInfoKey: resourceLifetime as Any
             ]
         )

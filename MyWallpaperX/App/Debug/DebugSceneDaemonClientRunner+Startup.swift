@@ -223,8 +223,12 @@ private final class DebugSceneStartupRun {
             exportedVideoURL: nil, updatedAt: Date(), sizeText: "", status: .ready,
             browserItem: nil, contentType: .scene, dependencyItemID: nil, dependencyStatus: .none)
         current = .init(index: index, recordID: recordID, rootPath: root.path, entryUptimeMicros: Self.now())
-        SteamWorkshopService.shared.setAsWallpaper(record)
-        guard let ticket = WallpaperManager.shared.playbackSwitch.pending?.selection.ticket,
+        let manager = WallpaperManager.shared
+        manager.requestDiagnosticPlayback(reference: .init(provider: .steamWorkshop, sourceID: record.id),
+                                          runtime: .scene) { pending in
+            SteamWorkshopService.shared.setAsWallpaper(record, libraryPending: pending)
+        }
+        guard let ticket = manager.playbackSwitch.pending?.selection.ticket,
               ticket.runtime == .scene else {
             current?.fail("product-selection-not-admitted")
             finishCurrentAndStop(reason: "Scene product selection was not admitted")
@@ -337,10 +341,13 @@ private final class DebugSceneStartupRun {
             finish(reason: "Bundled Video2 is unavailable"); return
         }
         videoFacts = ["entryUptimeMicros": Self.now(), "path": url.path]
-        WallpaperManager.shared.setAsWallpaper(
-            VideoWallpaper(title: "Scene reentry interstitial", path: url.path),
-            userInitiated: true, recordHistory: false, updateRecentList: false)
         let manager = WallpaperManager.shared
+        let wallpaper = VideoWallpaper(title: "Scene reentry interstitial", path: url.path)
+        manager.requestDiagnosticPlayback(reference: .init(provider: .videoLibrary, sourceID: wallpaper.id),
+                                          runtime: .video, cause: .restore) { pending in
+            manager.setAsWallpaper(wallpaper, libraryPending: pending)
+            return true
+        }
         guard let ticket = manager.playbackSwitch.pending?.selection.ticket,
               ticket.runtime == .video else {
             finish(reason: "Video product selection was not admitted"); return

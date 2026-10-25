@@ -445,8 +445,7 @@ final class SteamWorkshopScenePropertyEditorView: NSView, NSCollectionViewDataSo
             field.stringValue = reference?.kind == .webURL ? reference!.url.absoluteString : "https://"
             field.setAccessibilityLabel("HTTP 或 HTTPS 网址")
             alert.accessoryView = field
-            shortcutSelection = (requestID, index, alert.window)
-            alert.beginSheetModal(for: window) { [weak self, weak window] response in
+            let presentedWindow = presentAppAlert(alert, in: window) { [weak self, weak window] response in
                 guard response == .alertFirstButtonReturn else { finish(.cancel, nil); return }
                 guard let self, let window, self.window === window,
                       self.shortcutSelection?.id == requestID,
@@ -460,6 +459,7 @@ final class SteamWorkshopScenePropertyEditorView: NSView, NSCollectionViewDataSo
                 }
                 finish(.OK, url)
             }
+            shortcutSelection = (requestID, index, presentedWindow)
         } else {
             let panel = NSOpenPanel()
             panel.canChooseFiles = true

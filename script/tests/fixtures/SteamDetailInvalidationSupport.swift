@@ -89,7 +89,8 @@ final class SteamWorkshopService {
     func requestDownloadForBrowserItem(_ item: SteamWorkshopBrowserItem) {}
     func cancelDownload(itemID: String) {}
     func requestMissingDependencyDownload(for record: SteamWorkshopDownloadRecord) {}
-    func setAsWallpaper(_ record: SteamWorkshopDownloadRecord) {}
+    var wallpaperRequests = 0
+    func setAsWallpaper(_ record: SteamWorkshopDownloadRecord) { wallpaperRequests += 1 }
     func openAuthorWorkshopFromLocalDownloadMetadata(for item: SteamWorkshopBrowserItem) {}
     func openAuthorWorksPage(for item: SteamWorkshopBrowserItem) {}
     func openWorkshopDetailPage(for item: SteamWorkshopBrowserItem) {}

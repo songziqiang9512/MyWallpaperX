@@ -2,106 +2,6 @@ import Foundation
 import AppKit
 
 extension SteamWorkshopService {
-    func selectDownload(itemID: String?) {
-        let visibleIDs = Set(displayedDownloads.map(\.id))
-        let resolvedItemID = itemID.flatMap { visibleIDs.contains($0) ? $0 : nil }
-        let nextSelectedIDs = !isDownloadsMultiSelectMode
-            ? (resolvedItemID.map { [$0] } ?? [])
-            : selectedDownloadIDs
-        applyDownloadSelectionState(
-            primaryID: resolvedItemID,
-            selectedIDs: nextSelectedIDs,
-            forceSingleSelection: !isDownloadsMultiSelectMode
-        )
-    }
-
-    func replaceSelectedDownloads(with ids: Set<String>, primaryID: String? = nil) {
-        let visibleIDs = Set(displayedDownloads.map(\.id))
-        let sanitized = ids.intersection(visibleIDs)
-        let resolvedPrimaryID: String?
-        if isDownloadsMultiSelectMode {
-            if let primaryID, sanitized.contains(primaryID) {
-                resolvedPrimaryID = primaryID
-            } else {
-                resolvedPrimaryID = firstDisplayedDownloadID(in: sanitized)
-            }
-        } else {
-            resolvedPrimaryID = primaryID ?? firstDisplayedDownloadID(in: sanitized)
-        }
-        let resolvedSelectedIDs = isDownloadsMultiSelectMode
-            ? sanitized
-            : (resolvedPrimaryID.map { [$0] } ?? [])
-        applyDownloadSelectionState(
-            primaryID: resolvedPrimaryID,
-            selectedIDs: resolvedSelectedIDs,
-            forceSingleSelection: !isDownloadsMultiSelectMode
-        )
-    }
-
-    func toggleDownloadsMultiSelectMode() {
-        if isDownloadsMultiSelectMode {
-            exitDownloadsMultiSelectMode()
-        } else {
-            enterDownloadsMultiSelectMode()
-        }
-    }
-
-    func enterDownloadsMultiSelectMode() {
-        isDownloadsMultiSelectMode = true
-        selectedDownloadID = nil
-        selectedDownloadIDs.removeAll()
-        syncDownloadsInspectorSelectionIfNeeded()
-    }
-
-    func exitDownloadsMultiSelectMode() {
-        isDownloadsMultiSelectMode = false
-        selectedDownloadID = nil
-        selectedDownloadIDs.removeAll()
-        syncDownloadsInspectorSelectionIfNeeded()
-    }
-
-    func deleteSelectedDownload() {
-        let targetIDs = Array(effectiveSelectedDownloadIDs.subtracting(removingDownloadIDs))
-        guard !targetIDs.isEmpty else { return }
-        deleteDownloads(itemIDs: targetIDs)
-        // End the accepted bulk command now, so its asynchronous completion
-        // cannot later clear a new selection session started by the user.
-        if isDownloadsMultiSelectMode { exitDownloadsMultiSelectMode() }
-    }
-
-    func selectAllDownloads() {
-        guard canSelectAllDownloads else { return }
-        let ids = Set(displayedDownloads.map(\.id))
-        replaceSelectedDownloads(with: ids, primaryID: selectedDownloadID ?? displayedDownloads.first?.id)
-    }
-
-    func revealSelectedDownload() {
-        guard let record = selectedDownloadRecord else { return }
-        revealItem(record)
-    }
-
-    func presentSelectedDownloadInfo() {
-        guard let record = selectedDownloadRecord else { return }
-        let item = resolvedDownloadInspectorItem(for: record)
-        if selectedDownloadInspectorItem?.id == item.id {
-            dismissDownloadInspector()
-        } else {
-            presentDownloadInspector(item)
-        }
-    }
-
-    func presentDownloadInfo(for itemID: String) {
-        guard let record = latestDownloadRecord(for: itemID) else { return }
-        let item = resolvedDownloadInspectorItem(for: record)
-        DispatchQueue.main.async { [weak self] in
-            guard let self else { return }
-            if self.selectedDownloadInspectorItem?.id == item.id {
-                self.dismissDownloadInspector()
-            } else {
-                self.presentDownloadInspector(item)
-            }
-        }
-    }
 
     func dismissDownloadInspector() {
         if selectedDownloadInspectorItem != nil { cancelSelectedItemDetailRefresh() }
@@ -111,70 +11,11 @@ extension SteamWorkshopService {
         isRefreshingSelectedDownloadDetailItem = false
     }
 
-    func clearDownloadSelectionAndInspector() {
-        selectedDownloadID = nil
-        selectedDownloadIDs.removeAll()
-        syncDownloadsInspectorSelectionIfNeeded()
-    }
-
-    func syncDownloadsInspectorSelectionIfNeeded() {
-        guard !isDownloadsMultiSelectMode,
-              let record = selectedDownloadRecord else {
-            dismissDownloadInspector()
-            return
-        }
-
-        guard selectedDownloadInspectorItem != nil else {
-            return
-        }
-
-        let item = resolvedDownloadInspectorItem(for: record)
-        if selectedDownloadInspectorItem?.id == item.id {
-            selectedDownloadInspectorItem = item
-            selectedDownloadDetailItem = item
-            return
-        }
-        presentDownloadInspector(item)
-    }
-
-    func publishDownloadSelectionState(
-        primaryID: String?,
-        selectedIDs: Set<String>,
-        deferPublishing: Bool
-    ) {
-        downloadSelectionPublicationVersion += 1
-        let publicationVersion = downloadSelectionPublicationVersion
-        if deferPublishing {
-            let previousPrimaryID = selectedDownloadID
-            let previousSelectedIDs = selectedDownloadIDs
-            let previousMultiSelectMode = isDownloadsMultiSelectMode
-            Task { @MainActor [weak self] in
-                guard let self, self.downloadSelectionPublicationVersion == publicationVersion,
-                      self.selectedDownloadID == previousPrimaryID,
-                      self.selectedDownloadIDs == previousSelectedIDs,
-                      self.isDownloadsMultiSelectMode == previousMultiSelectMode else { return }
-                guard self.selectedDownloadID != primaryID || self.selectedDownloadIDs != selectedIDs else {
-                    return
-                }
-                self.selectedDownloadID = primaryID
-                self.selectedDownloadIDs = selectedIDs
-                self.syncDownloadsInspectorSelectionIfNeeded()
-            }
-        } else {
-            guard selectedDownloadID != primaryID || selectedDownloadIDs != selectedIDs else {
-                return
-            }
-            selectedDownloadID = primaryID
-            selectedDownloadIDs = selectedIDs
-            syncDownloadsInspectorSelectionIfNeeded()
-        }
-    }
-
     func deleteDownload(itemID: String) {
         deleteDownloads(itemIDs: [itemID])
     }
 
-    private func presentDownloadInspector(_ item: SteamWorkshopBrowserItem) {
+    func presentDownloadInspector(_ item: SteamWorkshopBrowserItem) {
         if selectedDownloadInspectorItem?.id != item.id || selectedBrowserItem != nil {
             cancelSelectedItemDetailRefresh()
             selectedBrowserItem = nil
@@ -202,55 +43,43 @@ extension SteamWorkshopService {
         )
     }
 
-    private func resolvedDownloadInspectorItem(for record: SteamWorkshopDownloadRecord) -> SteamWorkshopBrowserItem {
-        if let detailItem = selectedDownloadDetailItem,
-           detailItem.id == record.id {
-            return detailItem
+    func deleteDownloads(itemIDs: [String], completion: (([String: Bool]) -> Void)? = nil) {
+        guard Set(itemIDs.map { WallpaperReference(provider: .steamWorkshop, sourceID: $0) }).count == Set(itemIDs).count else {
+            statusMessage = "删除未开始：旧回执接口不能区分这些文件身份。"
+            completion?([:])
+            return
         }
-        return record.displayItemForToolbar
+        deleteSourceFiles(itemIDs: itemIDs) { result in
+            var legacy: [String: Bool] = [:]
+            // Compatibility for original callers. Typed product consumers keep
+            // exact provider/UTF8 identity and never use this lossy String map.
+            for item in result.items { legacy[item.reference.sourceID] = item.succeeded }
+            completion?(legacy)
+        }
     }
 
-    private func applyDownloadSelectionState(
-        primaryID: String?,
-        selectedIDs: Set<String>,
-        forceSingleSelection: Bool
-    ) {
-        let visibleIDs = Set(displayedDownloads.map(\.id))
-        let sanitizedPrimaryID = primaryID.flatMap { visibleIDs.contains($0) ? $0 : nil }
-        let normalizedSelectedIDs = forceSingleSelection
-            ? (sanitizedPrimaryID.map { [$0] } ?? [])
-            : selectedIDs.intersection(visibleIDs)
-        let resolvedPrimaryID: String?
-        if let sanitizedPrimaryID {
-            resolvedPrimaryID = sanitizedPrimaryID
-        } else if forceSingleSelection {
-            resolvedPrimaryID = nil
-        } else {
-            resolvedPrimaryID = firstDisplayedDownloadID(in: normalizedSelectedIDs)
-        }
-        // Explicit commands publish their intent immediately. A later library
-        // sanitization must see this target, not derive a clear from an old one.
-        publishDownloadSelectionState(
-            primaryID: resolvedPrimaryID,
-            selectedIDs: normalizedSelectedIDs,
-            deferPublishing: false
-        )
-    }
-
-    private func deleteDownloads(itemIDs: [String]) {
-        let ids = Set(itemIDs).subtracting(removingDownloadIDs)
-        guard !ids.isEmpty else { return }
+    func deleteSourceFiles(itemIDs: [String], completion: @escaping (WallpaperSourceDeletionResult) -> Void) {
+        var seen = Set<WallpaperReference>()
+        let ids = itemIDs.filter { seen.insert(.init(provider: .steamWorkshop, sourceID: $0)).inserted && !removingDownloadIDs.contains($0) }
+        guard !ids.isEmpty else { completion(.init(items: [])); return }
         removingDownloadIDs.formUnion(ids)
         for id in ids { removeWebRuntimeCaches(for: id) }
         Task { [weak self] in
             guard let self else { return }
             defer { self.removingDownloadIDs.subtract(ids) }
-            var removed = 0
+            var results: [WallpaperSourceDeletionResult.Item] = []
             for id in ids {
-                if await self.deleteDownloadIfPossible(itemID: id) { removed += 1 }
+                let record = self.latestDownloadRecord(for: id)
+                let url = record?.exportedVideoURL ?? record?.sourceVideoURL ?? record?.folderURL ?? self.steamDownloadLibraryRootURL
+                let succeeded = await self.deleteDownloadIfPossible(itemID: id)
+                results.append(.init(reference: .init(provider: .steamWorkshop, sourceID: id), sourceURL: url,
+                    succeeded: succeeded, sourceFileDeleted: succeeded && record?.status == .ready,
+                    failureMessage: succeeded ? nil : "Steam 源文件删除未完成；资源可能仍在使用或版本已变化"))
             }
             self.reloadInstalledItems()
+            let removed = results.filter(\.succeeded).count
             if removed == ids.count { self.statusMessage = "已删除 \(removed) 个壁纸及本地文件" }
+            completion(.init(items: results))
         }
     }
 
@@ -298,8 +127,16 @@ extension SteamWorkshopService {
             cancelDownloadImmediately(itemID: itemID, showFeedback: false)
         }
         if record.contentType == .scene, SceneDaemonClient.shared.hasIntent(for: record.id) {
-            await withCheckedContinuation { continuation in
-                SceneDaemonClient.shared.shutdown(postsLaunchState: true) { continuation.resume() }
+            guard let prepareSceneDownloadRemoval else {
+                statusMessage = "删除失败：Scene 播放控制尚未就绪，请稍后重试。"
+                return false
+            }
+            let released = await withCheckedContinuation { continuation in
+                prepareSceneDownloadRemoval(record.id) { continuation.resume(returning: $0) }
+            }
+            guard released else {
+                statusMessage = "删除失败：壁纸资源仍在切换，请完成切换后重试。"
+                return false
             }
         } else if isRecordCurrentlyPlaying(record) {
             WallpaperManager.shared.stopCurrentPlayback()
@@ -350,15 +187,7 @@ extension SteamWorkshopService {
             return false
         }
 
-        downloads.removeAll { $0.id == itemID }
-        if selectedDownloadID == itemID {
-            selectedDownloadID = nil
-        }
-        selectedDownloadIDs.remove(itemID)
-        if !isDownloadsMultiSelectMode {
-            selectedDownloadIDs = selectedDownloadID.map { [$0] } ?? []
-        }
-        syncDownloadsInspectorSelectionIfNeeded()
+        downloads.removeAll { $0.id.utf8.elementsEqual(itemID.utf8) }
         return true
     }
 
@@ -366,7 +195,7 @@ extension SteamWorkshopService {
         _ snapshot: SteamWorkshopDownloadMetadataSnapshot,
         matches record: SteamWorkshopDownloadRecord
     ) -> Bool {
-        guard snapshot.commit == nil, snapshot.item.id == record.id else { return false }
+        guard snapshot.commit == nil, snapshot.item.id.utf8.elementsEqual(record.id.utf8) else { return false }
         switch record.contentType {
         case .video:
             guard let snapshotURL = snapshot.exportedVideoURL,

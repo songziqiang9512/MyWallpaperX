@@ -17,12 +17,15 @@ final class VideoLibraryInspectorView: NSView {
     private weak var favoriteButton: InspectorFooterButton?
     private weak var setAsWallpaperButton: InspectorFooterButton?
     private var cancellables = Set<AnyCancellable>()
+    private var libraryActions: WallpaperInspectorActions
+    private weak var playlistButton: InspectorFooterButton?
 
     private var currentWallpaper: VideoWallpaper {
-        wallpaperManager.wallpapers.first { $0.id == wallpaperID } ?? initialWallpaper
+        wallpaperManager.wallpapers.first { $0.id.utf8.elementsEqual(wallpaperID.utf8) } ?? initialWallpaper
     }
 
-    init(wallpaper: VideoWallpaper, wallpaperManager: WallpaperManager) {
+    init(wallpaper: VideoWallpaper, wallpaperManager: WallpaperManager, libraryActions: WallpaperInspectorActions) {
+        self.libraryActions = libraryActions
         self.wallpaperID = wallpaper.id
         self.initialWallpaper = wallpaper
         self.wallpaperManager = wallpaperManager
@@ -31,6 +34,7 @@ final class VideoLibraryInspectorView: NSView {
         observeManager()
         loadDetails()
         loadPreviewImage()
+        refreshFooterActions()
     }
 
     @available(*, unavailable)
@@ -56,9 +60,8 @@ final class VideoLibraryInspectorView: NSView {
 
     /// 预览图异步加载：走 VideoLibraryThumbnailStore 共享缓存（后台解码、主线程补图），
     /// 不再在主线程同步 NSImage(contentsOfFile:) 整图解码。
-    private var previewImage: NSImage?
-    /// 预览加载完成后才允许展示「未找到缩略图」提示，加载中的占位不算缺失
-    private var hasFinishedPreviewLoad = false
+    private let previewSurface = VideoLibraryInspectorPreviewSurfaceView(image: nil)
+    private lazy var previewHeightConstraint = previewSurface.heightAnchor.constraint(equalToConstant: 156)
     /// 预览异步加载代数：每次重载自增，旧代数的迟到完成不得覆盖新一轮结果
     /// （快速资源替换/缩略图补齐并发时，旧请求的图片会张冠李戴到新资源上）。
     private var previewLoadGeneration = 0
@@ -76,7 +79,6 @@ final class VideoLibraryInspectorView: NSView {
         previewLoadGeneration += 1
         let generation = previewLoadGeneration
         // 重载开始回到「加载中」：占位不算缺失，缺失提示由本轮完成时裁决
-        hasFinishedPreviewLoad = false
         lastPreviewLoadIdentity = PreviewAssetIdentity(
             path: currentWallpaper.path,
             thumbnailPath: currentWallpaper.thumbnailPath,
@@ -100,9 +102,7 @@ final class VideoLibraryInspectorView: NSView {
                     guard let self = weakSelf, self.previewLoadGeneration == generation else { return }
                     // 本轮结论是「无预览」：旧图必须清空，否则资源替换后旧资源的
                     // 预览会一直挂在面板上
-                    self.previewImage = nil
-                    self.hasFinishedPreviewLoad = true
-                    self.rebuildContent()
+                    self.previewSurface.updateImage(nil, missing: true)
                 }
                 return
             }
@@ -119,9 +119,7 @@ final class VideoLibraryInspectorView: NSView {
                 // ThumbnailCache 内存命中会在调用线程同步回调，统一收敛回主线程。
                 DispatchQueue.main.async {
                     guard let self = weakSelf, self.previewLoadGeneration == generation else { return }
-                    self.previewImage = image
-                    self.hasFinishedPreviewLoad = true
-                    self.rebuildContent()
+                    self.previewSurface.updateImage(image, missing: image == nil)
                 }
             })
         }
@@ -180,9 +178,6 @@ final class VideoLibraryInspectorView: NSView {
         var items: [(icon: String, text: String)] = []
         if !fileExists {
             items.append(("exclamationmark.triangle.fill", "源文件不存在，详情信息可能不是最新状态"))
-        }
-        if hasFinishedPreviewLoad, previewImage == nil {
-            items.append(("photo.on.rectangle.angled", "当前未找到缩略图，正在使用占位预览"))
         }
         return items
     }
@@ -303,12 +298,10 @@ final class VideoLibraryInspectorView: NSView {
     private func makePreviewSection() -> NSView {
         let stack = VideoLibraryInspectorViews.makeVerticalStack(spacing: 8)
 
-        let preview = VideoLibraryInspectorPreviewSurfaceView(image: previewImage)
+        let preview = previewSurface
         stack.addArrangedSubview(preview)
-        NSLayoutConstraint.activate([
-            preview.heightAnchor.constraint(equalToConstant: 156),
-            preview.widthAnchor.constraint(equalTo: stack.widthAnchor)
-        ])
+        previewHeightConstraint.isActive = true
+        preview.widthAnchor.constraint(equalTo: stack.widthAnchor).isActive = true
 
         let title = VideoLibraryInspectorViews.makeLabel(
             currentWallpaper.displayTitle,
@@ -326,6 +319,8 @@ final class VideoLibraryInspectorView: NSView {
                 color: .secondaryLabelColor
             )
             facts.maximumNumberOfLines = 2
+            // Reserve the existing two-line budget while AV values resolve.
+            facts.heightAnchor.constraint(equalToConstant: ceil(facts.font!.ascender - facts.font!.descender + facts.font!.leading) * 2).isActive = true
             stack.addArrangedSubview(facts)
         }
 
@@ -347,11 +342,12 @@ final class VideoLibraryInspectorView: NSView {
     private func makeTagsSection() -> NSView {
         let stack = VideoLibraryInspectorViews.makeVerticalStack(spacing: 14)
         stack.addArrangedSubview(VideoLibraryInspectorViews.makeDivider())
-        stack.addArrangedSubview(VideoLibraryInspectorViews.makeSectionTitle("标签"))
+        let names = libraryActions.state.playlistNames
+        stack.addArrangedSubview(VideoLibraryInspectorViews.makeSectionTitle("播放列表"))
 
-        if currentWallpaper.tags.isEmpty {
+        if names.isEmpty {
             stack.addArrangedSubview(
-                VideoLibraryInspectorViews.makeLabel("当前未加入任何标签", font: .systemFont(ofSize: 13), color: .secondaryLabelColor)
+                VideoLibraryInspectorViews.makeLabel("当前未加入任何播放列表", font: .systemFont(ofSize: 13), color: .secondaryLabelColor)
             )
         } else {
             let row = NSStackView()
@@ -359,7 +355,7 @@ final class VideoLibraryInspectorView: NSView {
             row.alignment = .centerY
             row.spacing = 8
             row.translatesAutoresizingMaskIntoConstraints = false
-            currentWallpaper.tags.forEach { row.addArrangedSubview(InspectorBadgeView(text: $0, truncatesText: true)) }
+            names.forEach { row.addArrangedSubview(InspectorBadgeView(text: $0, truncatesText: true)) }
             stack.addArrangedSubview(row)
         }
 
@@ -418,18 +414,19 @@ final class VideoLibraryInspectorView: NSView {
             action: #selector(revealInFinder)
         )
         let favoriteButton = VideoLibraryInspectorViews.makeIconButton(
-            symbolName: currentWallpaper.isFavorite ? "heart.fill" : "heart",
-            title: currentWallpaper.isFavorite ? "取消收藏" : "收藏",
+            symbolName: libraryActions.state.isFavorite ? "heart.fill" : "heart",
+            title: libraryActions.state.isFavorite ? "取消特别喜爱" : "特别喜爱",
             target: self,
             action: #selector(toggleFavorite)
         )
         self.favoriteButton = favoriteButton
         let tagButton = VideoLibraryInspectorViews.makeIconButton(
             symbolName: "tag",
-            title: "添加标签",
+            title: "添加到列表",
             target: self,
             action: #selector(presentTagPicker)
         )
+        self.playlistButton = tagButton
 
         let textGroup = NSView()
         textGroup.translatesAutoresizingMaskIntoConstraints = false
@@ -493,17 +490,28 @@ final class VideoLibraryInspectorView: NSView {
         return stack
     }
 
+    func updateLibraryActions(_ actions: WallpaperInspectorActions) {
+        let changed = libraryActions.state != actions.state
+        libraryActions = actions
+        if changed { rebuildContent() }
+        refreshFooterActions()
+    }
+
     private func refreshFooterActions() {
-        let title = currentWallpaper.isFavorite ? "取消收藏" : "收藏"
+        let favorite = libraryActions.state.isFavorite
+        let title = favorite ? "取消特别喜爱" : "特别喜爱"
         favoriteButton?.setSymbol(
-            currentWallpaper.isFavorite ? "heart.fill" : "heart",
+            favorite ? "heart.fill" : "heart",
             accessibilityDescription: title
         )
         favoriteButton?.toolTip = title
         favoriteButton?.setAccessibilityLabel(title)
         // 设为壁纸/停止播放互斥：当前正在播放这张壁纸时按钮切换为停止形态
         // （与卡片徽章同一互斥语义）。
-        let isPlaying = wallpaperManager.effectiveCurrentWallpaper?.path == currentWallpaper.path
+        let isPlaying = libraryActions.state.isPlaying
+        favoriteButton?.isEnabled = libraryActions.state.canFavorite
+        playlistButton?.isEnabled = libraryActions.state.canOrganize
+        setAsWallpaperButton?.isEnabled = libraryActions.state.canPerformPrimary
         setAsWallpaperButton?.setTitle(isPlaying ? "停止播放" : "设为壁纸")
         setAsWallpaperButton?.setSymbol(
             isPlaying ? "stop.fill" : "photo.fill",
@@ -525,12 +533,8 @@ final class VideoLibraryInspectorView: NSView {
     }
 
     @objc private func setAsWallpaper() {
-        // 播放/停止互斥：面板按钮与卡片徽章同一语义——正在播放时点击即停止。
-        if wallpaperManager.effectiveCurrentWallpaper?.path == currentWallpaper.path {
-            wallpaperManager.stopCurrentPlayback()
-            return
-        }
-        wallpaperManager.requestSetAsWallpaper(currentWallpaper)
+        guard libraryActions.state.canPerformPrimary else { return }
+        libraryActions.onPrimary()
     }
 
     @objc private func revealInFinder() {
@@ -538,22 +542,13 @@ final class VideoLibraryInspectorView: NSView {
     }
 
     @objc private func toggleFavorite() {
-        UIActionHelper.toggleFavoriteSelection(
-            manager: wallpaperManager,
-            selection: wallpaperManager.currentSelectionContext
-        )
-        // $wallpapers 订阅是唯一重建源：toggleFavoriteSelection 同步写入
-        // manager.wallpapers 后订阅回调会 rebuild + refreshFooterActions，
-        // 这里再手动刷一次会造成同帧双重建（重复读盘解码 + 路径 label 选中态丢失）。
+        guard libraryActions.state.canFavorite else { return }
+        libraryActions.onToggleFavorite()
     }
 
     @objc private func presentTagPicker() {
-        UIActionHelper.presentTagPicker(
-            manager: wallpaperManager,
-            window: window
-        ) { [weak self] in
-            self?.rebuildContent()
-        }
+        guard libraryActions.state.canOrganize else { return }
+        libraryActions.onChoosePlaylist(playlistButton)
     }
 }
 

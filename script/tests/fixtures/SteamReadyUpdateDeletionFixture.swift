@@ -6,18 +6,17 @@ enum SteamReadyUpdateDeletionFixtureState {
     static var legacyFolderURL = URL(fileURLWithPath: "/private/tmp/unmanaged")
     static var contentType = SteamWorkshopDownloadContentType.web
     static var videoURL: URL?
+    static var videoURLs: [Data: URL] = [:]
 }
 
 extension SteamWorkshopDownloadRecord {
     var contentType: SteamWorkshopDownloadContentType { SteamReadyUpdateDeletionFixtureState.contentType }
-    var exportedVideoURL: URL? { SteamReadyUpdateDeletionFixtureState.videoURL }
-    var sourceVideoURL: URL? { SteamReadyUpdateDeletionFixtureState.videoURL }
+    var exportedVideoURL: URL? { SteamReadyUpdateDeletionFixtureState.videoURLs[Data(id.utf8)] ?? SteamReadyUpdateDeletionFixtureState.videoURL }
+    var sourceVideoURL: URL? { exportedVideoURL }
     var folderURL: URL { SteamReadyUpdateDeletionFixtureState.legacyFolderURL }
 }
 
 extension SteamWorkshopService {
-    func syncDownloadsInspectorSelectionIfNeeded() {}
-
     func runReadyUpdateDeletionFixtureIfNeeded(mode: String, transport: Transport) async throws -> Bool {
         guard mode.hasPrefix("ready-update-delete") else { return false }
         try await runReadyUpdateDeletionFixture(mode: mode, transport: transport)
@@ -99,6 +98,42 @@ extension SteamWorkshopService {
             id: "123456", title: "old ready", sizeText: "1 KB", status: .ready
         )
         downloads = [ready]
+        if mode.hasSuffix("inspector-other") {
+            let other = SteamWorkshopBrowserItem(id: "654321", title: "Inspector B")
+            selectedDownloadInspectorItem = other
+            selectedDownloadDetailItem = other
+            selectedDownloadDetailError = "B metadata status"
+            isRefreshingSelectedDownloadDetailItem = true
+            var results: [[String: Bool]] = []
+            deleteDownloads(itemIDs: [ready.id]) { results.append($0) }
+            while removingDownloadIDs.contains(ready.id) { await Task.yield() }
+            precondition(results.count == 1 && results[0][ready.id] == true && downloads.isEmpty)
+            precondition(!FileManager.default.fileExists(atPath: content.path))
+            precondition(selectedDownloadInspectorItem?.id == other.id && selectedDownloadDetailItem?.id == other.id
+                && selectedDownloadDetailError == "B metadata status" && isRefreshingSelectedDownloadDetailItem
+                && detailCancellations == 0, "deleting A must not dismiss the current unrelated B inspector")
+            installedLibraryScanGeneration = 2
+            installedLibraryScanFlight.isInFlight = true
+            finishInstalledLibraryScan(generation: 1, records: [ready])
+            precondition(downloads.isEmpty && !installedLibraryScanFlight.isInFlight && catchupScans == 0,
+                "a stale source scan must not revive the removed A")
+            let current = SteamWorkshopDownloadRecord(id: other.id, title: other.title, sizeText: "2 KB", status: .ready)
+            installedLibraryScanFlight.isInFlight = true
+            finishInstalledLibraryScan(generation: 2, records: [current])
+            precondition(downloads.map(\.id) == [other.id] && hasCompletedInstalledLibraryLoad
+                && cachePreloads == 1 && reclamationRequests == 1,
+                "a current source reload must keep its original publication/cache/reclamation work")
+            precondition(selectedDownloadInspectorItem?.id == other.id && selectedDownloadDetailItem?.id == other.id
+                && selectedDownloadDetailError == "B metadata status" && isRefreshingSelectedDownloadDetailItem
+                && detailCancellations == 0, "source reload cannot clear a new inspector using retired selection state")
+            dismissDownloadInspector()
+            precondition(selectedDownloadInspectorItem == nil && selectedDownloadDetailItem == nil
+                && selectedDownloadDetailError == nil && !isRefreshingSelectedDownloadDetailItem
+                && detailCancellations == 1, "explicit inspector close must still cancel the original detail owner")
+            await steamServiceClient.stop(shutdownTimeout: 0)
+            print("EXECUTION PASS: \(mode)")
+            return
+        }
         if localOnly {
             try FileManager.default.removeItem(at: downloadMetadataIndexDirectoryURL())
             // Missing index means no per-item pointer; it must still block whole-library GC.
@@ -113,16 +148,20 @@ extension SteamWorkshopService {
             return
         }
         var playbackLease: PlaybackResourceLifetime?
-        if mode.hasSuffix("scene") {
+        if mode.contains("-scene") {
             SteamReadyUpdateDeletionFixtureState.contentType = .scene
             SceneDaemonClient.shared.recordID = ready.id
-            playbackLease = steamLibraryVersionLeaseRegistry.acquire(commit)
-            Task { @MainActor in
-                while !SceneDaemonClient.shared.stopped { await Task.yield() }
-                precondition(FileManager.default.fileExists(atPath: content.path))
-                precondition(!self.steamLibraryVersionLeaseRegistry.protectedStorageIdentities().isEmpty)
-                playbackLease = nil
-                SceneDaemonClient.shared.completion?()
+            if mode.hasSuffix("scene-busy") {
+                prepareSceneDownloadRemoval = { _, done in done(false) }
+            } else {
+                playbackLease = steamLibraryVersionLeaseRegistry.acquire(commit)
+                Task { @MainActor in
+                    while !SceneDaemonClient.shared.stopped { await Task.yield() }
+                    precondition(FileManager.default.fileExists(atPath: content.path))
+                    precondition(!self.steamLibraryVersionLeaseRegistry.protectedStorageIdentities().isEmpty)
+                    playbackLease = nil
+                    SceneDaemonClient.shared.completion?()
+                }
             }
         }
         downloadWorkshopItem(id: "123456", pageTitle: "update")
@@ -192,6 +231,17 @@ extension SteamWorkshopService {
 
         deleteDownload(itemID: "123456")
         while removingDownloadIDs.contains("123456") { await Task.yield() }
+        if mode.hasSuffix("scene-busy") {
+            precondition(statusMessage.contains("仍在切换"), statusMessage)
+            precondition(downloads.count == 1 && downloads[0].status == .ready)
+            precondition(FileManager.default.fileExists(atPath: content.path))
+            precondition(!SceneDaemonClient.shared.stopped, "busy cannot stop another Scene ticket")
+            let preserved = try loadManagedDownloadSnapshots(requireComplete: true)["123456"]
+            precondition(preserved?.commit == snapshot.commit, "busy must preserve ready publication without tombstone")
+            try await finishReadyUpdateDeletionFixtureCancellation(key: key, transport: transport)
+            print("EXECUTION PASS: \(mode)")
+            return
+        }
         if publishFailure {
             try FileManager.default.setAttributes(
                 [.posixPermissions: 0o700],

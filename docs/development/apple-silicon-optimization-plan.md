@@ -518,7 +518,7 @@ U2本轮资格后只推进局部旧 metadata 补齐：JSON读取／解码与库�
 | T6 media | `test_scene_system_media_provider`、`test_web_system_media`、`test_scene_system_media_ipc`、`test_scene_system_media_source`；补Web封面需求／晚订阅与转换计数 |
 | T7 Web | `test_web_playback_pause`、`test_web_compat_parity`、`test_playback_switch_endpoints`；未覆盖token原生生命周期、全部频谱endpoint背压，须补真实owner门 |
 | T10 UI算法 | `test_ui_library_algorithms`、`test_ui_projection_efficiency`、`test_library_toolbar_behaviors`；不证明SQLite/SIL持久化、目录校准、视频generator正确，须各补行为harness |
-| T11探针 | `test_ui_visible_path_probe`、`test_ui_projection_efficiency`；现探针重点为Video，补SIL／窗口停启 |
+| T11探针 | 原Video/SIL独立Grid已退；由`test_library_visible_source_lifecycle`、`test_wallpaper_library_catalog`与`test_grid_window_thumbnail_lifecycle`接管真实文件worker/单flight/窗口租约，`test_library_keyboard_navigation`补释放反例；不据此声称性能提升 |
 | T12详情 | `test_steam_detail_navigation`、`test_steam_detail_layout`；保隔离HOME和实际cache消费者 |
 | T13下载 | `test_steam_download_history`、`test_steam_download_sorting`、`test_steam_library_interactions`、`test_steam_grid_updates` |
 | T14进程 | `test_daemon_process_transport`、`test_playback_process_isolation`、`test_daemon_process_lifetime`；预热TTL精确边界仍需补 |

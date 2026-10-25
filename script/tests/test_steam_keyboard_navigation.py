@@ -8,8 +8,6 @@ import unittest
 ROOT = pathlib.Path(__file__).resolve().parents[2]
 UI = ROOT / "MyWallpaperX/Modules/SteamWorkshop/UI"
 KEYBOARD = UI / "SteamWorkshopGridKeyboardNavigation.swift"
-MAIN_WINDOW = ROOT / "MyWallpaperX/App/MainWindowController.swift"
-DOWNLOADS_SUPPORT = UI / "AppKitSteamWorkshopDownloadsSupport.swift"
 
 
 class SteamKeyboardNavigationTests(unittest.TestCase):
@@ -56,67 +54,20 @@ import Foundation
             )
             subprocess.run([str(binary)], check=True, timeout=15)
 
-    def test_browser_and_downloads_share_the_navigation_owner(self):
+    def test_live_browser_wires_its_navigation_owner(self):
         browser = (UI / "AppKitSteamWorkshopBrowserGridView.swift").read_text()
-        downloads = (UI / "AppKitSteamWorkshopDownloadsGridView.swift").read_text()
         item = (UI / "AppKitSteamWorkshopBrowserItem.swift").read_text()
-
         self.assertIn("private var keyboardFocusedID: String?", browser)
         self.assertIn("isKeyboardFocused: keyboardFocusedID == id", browser)
         self.assertIn("SteamWorkshopGridKeyboardNavigation.destinationIndex", browser)
         self.assertIn("return handlePrimaryActionKey()", browser)
         self.assertIn("onOpen(item)", browser)
         self.assertIn("return handleEscapeKey()", browser)
-        self.assertIn("SteamWorkshopGridKeyboardNavigation.destinationIndex", downloads)
-        self.assertIn("SteamWorkshopGridKeyboardNavigation.isPrimaryActionKey", downloads)
         self.assertEqual(browser.count("guard !event.isARepeat else { return true }"), 1)
-        # a05c21ab 给下载网格的多选分支加了独立的 Return 键处理：多选与普通
-        # 分支各护一次 isARepeat，合法并存。
-        self.assertEqual(downloads.count("guard !event.isARepeat else { return true }"), 2)
-
         focus_setter = item.split("func setKeyboardFocus(_ focused: Bool)", 1)[1].split("\n    }", 1)[0]
         self.assertIn("currentIsKeyboardFocused = focused", focus_setter)
-
-        focus_item = browser.split("private func focusItem(at index: Int)", 1)[1].split(
-            "private func handleArrowKey", 1
-        )[0]
+        focus_item = browser.split("private func focusItem(at index: Int)", 1)[1].split("private func handleArrowKey", 1)[0]
         self.assertNotIn("service.", focus_item)
-
-    def test_browser_space_cannot_fall_through_to_local_wallpaper_quick_look(self):
-        window = MAIN_WINDOW.read_text()
-        handler = window.split("private func handleQuickLookKeyDown", 1)[1].split(
-            "private func isEditingTextInput", 1
-        )[0]
-        downloads = handler.index("activeModule == .steamWorkshop && SteamWorkshopDownloadsBridge.shared.isActive")
-        browser_stop = handler.index("if activeModule == .steamWorkshop {", downloads)
-        generic_preview = handler.index("quickLookPreviewController.openPreview", browser_stop)
-        self.assertLess(downloads, browser_stop)
-        self.assertLess(browser_stop, generic_preview)
-        self.assertIn("return false", handler[browser_stop:generic_preview])
-
-    def test_downloads_escape_closes_only_the_active_steam_surface(self):
-        window = MAIN_WINDOW.read_text()
-        downloads = (UI / "AppKitSteamWorkshopDownloadsGridView.swift").read_text()
-        support = DOWNLOADS_SUPPORT.read_text()
-
-        handler = window.split("private func handleQuickLookKeyDown", 1)[1].split(
-            "private func isEditingTextInput", 1
-        )[0]
-        steam_branch = handler.split(
-            "activeModule == .steamWorkshop && SteamWorkshopDownloadsBridge.shared.isActive", 1
-        )[1].split("if activeModule == .steamWorkshop {", 1)[0]
-        self.assertIn("SteamWorkshopDownloadsQuickLookController.shared.isVisible", steam_branch)
-        self.assertIn("else { return false }", steam_branch)
-        self.assertIn("var isVisible: Bool", support)
-        self.assertIn("QLPreviewPanel.sharedPreviewPanelExists()", support)
-
-        escape = downloads.split("private func handleEscapeKey()", 1)[1].split(
-            "private func handleArrowKey", 1
-        )[0]
-        self.assertIn("service.exitDownloadsMultiSelectMode()", escape)
-        self.assertIn("service.selectedDownloadInspectorItem != nil", escape)
-        self.assertIn("InspectorHostActions.postClose()", escape)
-        self.assertIn("return handleEscapeKey()", downloads)
 
 
 if __name__ == "__main__":

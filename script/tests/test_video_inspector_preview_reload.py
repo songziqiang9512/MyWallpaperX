@@ -31,6 +31,11 @@ FOOTER_METRICS_SOURCE = REPOSITORY_ROOT / "MyWallpaperX/Shared/UI/InspectorFoote
 INSPECTOR_SUPPORT_SOURCE = REPOSITORY_ROOT / "MyWallpaperX/Modules/VideoLibrary/UI/VideoLibraryInspectorSupport.swift"
 INSPECTOR_VIEW_SOURCE = REPOSITORY_ROOT / "MyWallpaperX/Modules/VideoLibrary/UI/VideoLibraryInspectorView.swift"
 INSPECTOR_HARNESS_SOURCE = REPOSITORY_ROOT / "script/tests/fixtures/VideoInspectorPreviewHarness.swift"
+INSPECTOR_SOURCES = [VIDEO_WALLPAPER_SOURCE,
+    REPOSITORY_ROOT / "MyWallpaperX/Shared/UI/DecodedThumbnailMemoryCache.swift", THUMBNAIL_CACHE_SOURCE,
+    FADING_SCROLL_SOURCE, FOOTER_METRICS_SOURCE, REPOSITORY_ROOT / "MyWallpaperX/Shared/UI/InspectorBadgeView.swift",
+    INSPECTOR_SUPPORT_SOURCE, INSPECTOR_VIEW_SOURCE, REPOSITORY_ROOT / "MyWallpaperX/Shared/UI/WallpaperInspectorActions.swift",
+    INSPECTOR_HARNESS_SOURCE]
 
 class VideoInspectorPreviewReloadTests(unittest.TestCase):
     def test_preview_reloads_when_resources_arrive(self) -> None:
@@ -43,15 +48,7 @@ class VideoInspectorPreviewReloadTests(unittest.TestCase):
                     "xcrun",
                     "swiftc",
                     "-parse-as-library",
-                    str(VIDEO_WALLPAPER_SOURCE),
-                    str(REPOSITORY_ROOT / "MyWallpaperX/Shared/UI/DecodedThumbnailMemoryCache.swift"),
-                    str(THUMBNAIL_CACHE_SOURCE),
-                    str(FADING_SCROLL_SOURCE),
-                    str(FOOTER_METRICS_SOURCE),
-                    str(REPOSITORY_ROOT / "MyWallpaperX/Shared/UI/InspectorBadgeView.swift"),
-                    str(INSPECTOR_SUPPORT_SOURCE),
-                    str(INSPECTOR_VIEW_SOURCE),
-                    str(INSPECTOR_HARNESS_SOURCE),
+                    *map(str, INSPECTOR_SOURCES),
                     "-module-cache-path",
                     str(module_cache),
                     "-o",
@@ -79,9 +76,13 @@ class VideoInspectorPreviewReloadTests(unittest.TestCase):
             self.assertEqual(run.returncode, 0, output)
 
             required_scenarios = (
+                "s10-missing-preview-message-fits-without-covering-its-placeholder",
+                "s10-preview-constraints-do-not-grow-on-metadata-or-source-echoes",
+                "s10-metadata-and-missing-preview-keep-native-preview-frame",
+                "s10-thumbnail-arrival-updates-only-the-same-fixed-preview",
                 "s1-initial-missing-notice",
                 "s1-initial-placeholder-visible",
-                "s1-original-tag-projected",
+                "s1-required-store-membership-only",
                 "s2-preview-reloads-on-thumbnail-ready",
                 "s3-unrelated-publish-keeps-preview",
                 "s4-replacement-clears-stale-preview",
@@ -92,6 +93,10 @@ class VideoInspectorPreviewReloadTests(unittest.TestCase):
                 "s8-same-path-derived-assets-cleared",
                 "s7-closed-panel-view-released",
                 "s7-late-callback-after-close-safe",
+                "s9-injected-membership-replaces-old-tags-with-new-store-names",
+                "s9-fixed-actions-never-write-old-selection-owners",
+                "s9-readonly-injected-actions-refuse-organization",
+                "s9-original-hidden-inspector-scrollbars-preserved",
             )
             results: dict[str, str] = {}
             for line in run.stdout.splitlines():
@@ -103,6 +108,17 @@ class VideoInspectorPreviewReloadTests(unittest.TestCase):
             failed = {name: verdict for name, verdict in results.items() if verdict != "PASS"}
             self.assertEqual(failed, {}, output)
             self.assertIn("ALL SCENARIOS PASS", run.stdout)
+
+    def test_unbound_video_inspector_cannot_be_constructed(self) -> None:
+        with tempfile.TemporaryDirectory(prefix="mwx-inspector-required-actions-", dir="/private/tmp") as directory:
+            work = pathlib.Path(directory)
+            misuse = work / "UnboundInspector.swift"
+            misuse.write_text("import AppKit\n@MainActor func cannotBindLegacyOwner(_ value:VideoWallpaper,_ manager:WallpaperManager) {\n"
+                "_ = VideoLibraryInspectorView(wallpaper:value,wallpaperManager:manager)\n}\n")
+            check = subprocess.run(["xcrun", "swiftc", "-parse-as-library", "-typecheck", *map(str, INSPECTOR_SOURCES), str(misuse),
+                "-module-cache-path", str(work / "modules")], capture_output=True, text=True, timeout=120)
+            self.assertNotEqual(check.returncode, 0, check.stdout + check.stderr)
+            self.assertIn("missing argument for parameter 'libraryActions'", check.stderr)
 
 
 

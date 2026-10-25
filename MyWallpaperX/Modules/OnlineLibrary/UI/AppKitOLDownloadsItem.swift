@@ -11,19 +11,7 @@ import AppKit
 import AVFoundation
 import QuartzCore
 
-private extension NSImage {
-    static func olSymbol(
-        _ name: String,
-        pointSize: CGFloat,
-        weight: NSFont.Weight = .regular,
-        scale: NSImage.SymbolScale = .medium,
-        accessibilityDescription: String? = nil
-    ) -> NSImage? {
-        guard let base = NSImage(systemSymbolName: name, accessibilityDescription: accessibilityDescription) else { return nil }
-        let cfg = NSImage.SymbolConfiguration(pointSize: pointSize, weight: weight, scale: scale)
-        return base.withSymbolConfiguration(cfg)
-    }
-}
+
 
 // MARK: - 下载项缩略图共享缓存（收编共享 ThumbnailCache，替换旧内存-only 平行实现）
 
@@ -42,15 +30,7 @@ enum OLDownloadedThumbnailStore {
     /// 旧键缓存（含失败负缓存）不会以 stale 内容复活。
     /// 模式同 steamWorkshopLocalPreviewCacheKey / SteamWorkshopDownloadThumbnailPipeline.cacheKey。
     nonisolated static func cacheKey(for url: URL) -> String {
-        var fileURL = url.standardizedFileURL
-        fileURL.removeAllCachedResourceValues()
-        let resourceValues = try? fileURL.resourceValues(forKeys: [
-            .contentModificationDateKey,
-            .fileSizeKey
-        ])
-        let modificationTime = resourceValues?.contentModificationDate?.timeIntervalSince1970 ?? 0
-        let fileSize = resourceValues?.fileSize ?? 0
-        return "ol-downloaded-preview:\(fileURL.path):\(fileSize):\(modificationTime)"
+        OnlineLibraryDownloadedFileIdentity.key(for: url)
     }
 }
 
@@ -134,160 +114,13 @@ extension OLDownloadedThumbnailStore {
     }
 }
 
-// MARK: - 数据模型
-
-struct OLDownloadedEntry: Equatable {
-    let id: Int
-    let localURL: URL
-    let fileSize: Int
-    var duration: Int?
-    var resolutionString: String?
-    var thumbnailSourceKey: String? = nil
-
-    var displayTitle: String {
-        localURL.lastPathComponent
-    }
-
-    var durationString: String {
-        guard let duration else { return "" }
-        return AppKitOLDownloadsItem.formatDuration(duration)
-    }
-
-    var fileSizeString: String? {
-        guard fileSize > 0 else { return nil }
-        let mb = Double(fileSize) / (1024 * 1024)
-        if mb >= 1024 {
-            return String(format: "%.1fGB", mb / 1024)
-        }
-        if mb >= 100 {
-            return String(format: "%.0fMB", mb)
-        }
-        if mb >= 10 {
-            return String(format: "%.1fMB", mb)
-        }
-        return String(format: "%.2fMB", mb)
-    }
-
-    var metaLine: String {
-        [fileSizeString, durationString.isEmpty ? nil : durationString, resolutionString]
-            .compactMap { $0 }
-            .joined(separator: "  ")
-    }
-}
-
 // MARK: - 视频库同款播放按钮
 
-private final class OLDownloadsPlayBadgeView: NSView {
-    var isPlaying: Bool = false {
-        didSet {
-            guard oldValue != isPlaying else { return }
-            updateGlyphAppearance()
-        }
-    }
 
-    private let backdropView = NSVisualEffectView()
-    private let glyphView = NSImageView()
-    private let glossLayer = CAGradientLayer()
-
-    override init(frame frameRect: NSRect) {
-        super.init(frame: frameRect)
-        setupView()
-    }
-
-    required init?(coder: NSCoder) {
-        super.init(coder: coder)
-        setupView()
-    }
-
-    override func hitTest(_ point: NSPoint) -> NSView? {
-        nil
-    }
-
-    private func setupView() {
-        wantsLayer = true
-        layer?.backgroundColor = NSColor.clear.cgColor
-        layer?.shadowColor = NSColor.black.cgColor
-        layer?.shadowOpacity = 0.16
-        layer?.shadowRadius = 4
-        layer?.shadowOffset = CGSize(width: 0, height: 1)
-
-        backdropView.material = .menu
-        backdropView.blendingMode = .behindWindow
-        backdropView.state = .active
-        backdropView.wantsLayer = true
-        backdropView.translatesAutoresizingMaskIntoConstraints = false
-        backdropView.isEmphasized = true
-        backdropView.alphaValue = 0.90
-
-        glyphView.image = NSImage(systemSymbolName: "play.fill", accessibilityDescription: "设为壁纸")
-        glyphView.symbolConfiguration = NSImage.SymbolConfiguration(pointSize: 12.5, weight: .semibold)
-        glyphView.contentTintColor = .white
-        glyphView.imageScaling = .scaleProportionallyDown
-        glyphView.translatesAutoresizingMaskIntoConstraints = false
-        glyphView.wantsLayer = true
-        glyphView.layer?.shadowColor = NSColor.black.cgColor
-        glyphView.layer?.shadowOpacity = 0.06
-        glyphView.layer?.shadowRadius = 1
-        glyphView.layer?.shadowOffset = .zero
-
-        addSubview(backdropView)
-        addSubview(glyphView)
-
-        NSLayoutConstraint.activate([
-            backdropView.leadingAnchor.constraint(equalTo: leadingAnchor),
-            backdropView.trailingAnchor.constraint(equalTo: trailingAnchor),
-            backdropView.topAnchor.constraint(equalTo: topAnchor),
-            backdropView.bottomAnchor.constraint(equalTo: bottomAnchor),
-
-            glyphView.centerXAnchor.constraint(equalTo: centerXAnchor),
-            glyphView.centerYAnchor.constraint(equalTo: centerYAnchor),
-            glyphView.widthAnchor.constraint(equalToConstant: 14),
-            glyphView.heightAnchor.constraint(equalToConstant: 14),
-        ])
-
-        layer?.borderWidth = 1
-        layer?.borderColor = NSColor.white.withAlphaComponent(0.50).cgColor
-
-        glossLayer.colors = [
-            NSColor.white.withAlphaComponent(0.28).cgColor,
-            NSColor.white.withAlphaComponent(0.10).cgColor,
-            NSColor.white.withAlphaComponent(0.02).cgColor,
-            NSColor.clear.cgColor
-        ]
-        glossLayer.locations = [0.0, 0.22, 0.58, 1.0]
-        glossLayer.startPoint = CGPoint(x: 0.18, y: 0.96)
-        glossLayer.endPoint = CGPoint(x: 0.76, y: 0.06)
-        layer?.addSublayer(glossLayer)
-        updateGlyphAppearance()
-    }
-
-    override func layout() {
-        super.layout()
-        let radius = min(bounds.width, bounds.height) / 2
-        if abs((layer?.cornerRadius ?? 0) - radius) > 0.5 {
-            layer?.cornerRadius = radius
-            backdropView.layer?.cornerRadius = radius
-            backdropView.layer?.masksToBounds = true
-        }
-        layer?.shadowPath = CGPath(ellipseIn: bounds.insetBy(dx: 1, dy: 1), transform: nil)
-        glossLayer.frame = bounds
-    }
-
-    private func updateGlyphAppearance() {
-        let darkModeBoost: CGFloat = effectiveAppearance.bestMatch(from: [.darkAqua, .aqua]) == .darkAqua ? 0.06 : 0.0
-        backdropView.alphaValue = min(1.0, isPlaying ? (1.0 + darkModeBoost) : (0.90 + darkModeBoost))
-        layer?.borderColor = NSColor.white.withAlphaComponent(0.50).cgColor
-        layer?.shadowOpacity = isPlaying ? 0.18 : 0.16
-        glossLayer.opacity = isPlaying ? 1.0 : 0.90
-        glyphView.contentTintColor = isPlaying ? .systemRed : .white
-        glyphView.layer?.shadowColor = NSColor.black.cgColor
-        glyphView.layer?.shadowOpacity = isPlaying ? 0.14 : 0.06
-    }
-}
 
 // MARK: - 卡片
 
-final class AppKitOLDownloadsItem: NSCollectionViewItem, WallpaperGridHoverItem {
+final class AppKitOLDownloadsItem: WallpaperCardCollectionViewItem, WallpaperGridHoverItem {
     private struct LayoutInputs: Equatable {
         let size: NSSize
         let title: String
@@ -311,11 +144,17 @@ final class AppKitOLDownloadsItem: NSCollectionViewItem, WallpaperGridHoverItem 
     private let selectionTintView = NSView()
     private let hoverOutlineView = NSView()
     private let overlayView = NSView()
-    private let gradientLayer = CAGradientLayer()
-    private let titleLabel = NSTextField(labelWithString: "")
-    private let metaLabel = NSTextField(labelWithString: "")
-    private var playActionButton: OLDownloadsPlayBadgeView?
-    private var playActionFrame = NSRect.zero
+    private var currentTitle = ""
+    private var currentMetadata = ""
+    private var controlBar: WallpaperCardControlsView?
+    private var controlBarFrame = NSRect.zero
+    private var barVisibilityRevision: UInt64 = 0
+    var onPrimaryAction: ((Int) -> Void)? {
+        didSet { controlBar?.playButton.isEnabled = onPrimaryAction != nil }
+    }
+    var onToggleFavorite: ((Int) -> Void)? {
+        didSet { controlBar?.favoriteButton.isHidden = onToggleFavorite == nil }
+    }
     private let multiSelectBadge = NSView()
     private let multiSelectBadgeIcon = NSImageView()
 
@@ -330,6 +169,8 @@ final class AppKitOLDownloadsItem: NSCollectionViewItem, WallpaperGridHoverItem 
     private var currentEntryID = -1
     private var isSelectedState = false
     private var isPlaying = false
+    private var isFavoriteState = false
+    private var primaryShowsStop = false
 
     override init(nibName: NSNib.Name?, bundle: Bundle?) {
         super.init(nibName: nil, bundle: nil)
@@ -339,16 +180,9 @@ final class AppKitOLDownloadsItem: NSCollectionViewItem, WallpaperGridHoverItem 
         super.init(coder: coder)
     }
 
-    static func formatDuration(_ seconds: Int) -> String {
-        let minutes = seconds / 60
-        let remain = seconds % 60
-        if minutes > 0, remain > 0 { return "\(minutes)m\(remain)s" }
-        if minutes > 0 { return "\(minutes)m" }
-        return "\(max(0, seconds))s"
-    }
 
     override func loadView() {
-        view = NSView()
+        view = WallpaperCardInteractionView()
         buildViewHierarchy()
     }
 
@@ -365,19 +199,19 @@ final class AppKitOLDownloadsItem: NSCollectionViewItem, WallpaperGridHoverItem 
         thumbnailView.image = nil
         placeholderLabel.stringValue = "加载中..."
         placeholderLabel.isHidden = false
-        titleLabel.stringValue = ""
-        metaLabel.stringValue = ""
-        titleLabel.layer?.mask = nil
+        currentTitle = ""
+        currentMetadata = ""
         isHovering = false
         isSelectedState = false
         isMultiSelectMode = false
-        isPlaying = false
+        isPlaying = false; isFavoriteState = false; primaryShowsStop = false
         hoverOutlineView.alphaValue = 0
         isHoverOutlineVisible = false
         selectionTintView.alphaValue = 0
         multiSelectBadge.isHidden = true
         multiSelectBadgeIcon.isHidden = true
-        playActionButton?.isPlaying = false
+        controlBar?.playButton.contentTintColor = .labelColor
+        onPrimaryAction = nil; onToggleFavorite = nil
         applyHoverVisibility(false, animated: false)
         refreshTheme()
     }
@@ -402,8 +236,9 @@ final class AppKitOLDownloadsItem: NSCollectionViewItem, WallpaperGridHoverItem 
             || presentedEntry?.fileSize != entry.fileSize || presentedEntry?.thumbnailSourceKey != entry.thumbnailSourceKey
         presentedEntry = entry
         currentEntryID = entry.id
-        titleLabel.stringValue = entry.displayTitle
-        metaLabel.stringValue = entry.metaLine
+        currentTitle = entry.displayTitle
+        currentMetadata = entry.metaLine
+        updateControlBarContent()
         view.needsLayout = true
 
         guard imageChanged else {
@@ -423,6 +258,7 @@ final class AppKitOLDownloadsItem: NSCollectionViewItem, WallpaperGridHoverItem 
         let cacheKey = OLDownloadedThumbnailStore.cacheKey(for: entry.localURL)
         if let cached = OLDownloadedThumbnailStore.sharedCache.cachedImage(forKey: cacheKey) {
             thumbnailView.image = cached
+            layoutThumbnail()
             placeholderLabel.isHidden = true
             return
         }
@@ -450,6 +286,7 @@ final class AppKitOLDownloadsItem: NSCollectionViewItem, WallpaperGridHoverItem 
             item.thumbnailLoadingWork?.cancel(); item.thumbnailLoadingWork = nil
             if let image {
                 item.thumbnailView.image = image
+                item.layoutThumbnail()
                 item.placeholderLabel.isHidden = true
             } else {
                 // 生成失败：结束加载态，呈现静态失败文案，
@@ -461,6 +298,7 @@ final class AppKitOLDownloadsItem: NSCollectionViewItem, WallpaperGridHoverItem 
 
     func endDisplayingThumbnail() {
         isThumbnailDemandActive = false
+        controlBar?.setActive(false)
         thumbnailCancellation?.cancel()
         thumbnailCancellation = nil
         thumbnailLoadingWork?.cancel(); thumbnailLoadingWork = nil
@@ -469,6 +307,7 @@ final class AppKitOLDownloadsItem: NSCollectionViewItem, WallpaperGridHoverItem 
 
     func beginDisplayingThumbnail() {
         isThumbnailDemandActive = true
+        applyHoverVisibility(isHovering, animated: false)
         guard thumbnailView.image == nil, thumbnailCancellation == nil, let entry = presentedEntry else { return }
         presentedEntry = nil
         configure(entry: entry, isSelected: isSelectedState, isMultiSelectMode: isMultiSelectMode, isPlaying: isPlaying)
@@ -491,7 +330,7 @@ final class AppKitOLDownloadsItem: NSCollectionViewItem, WallpaperGridHoverItem 
         imageContainer.layer?.masksToBounds = true
         imageContainer.layer?.borderWidth = 1
 
-        thumbnailView.imageScaling = .scaleAxesIndependently
+        thumbnailView.imageScaling = .scaleProportionallyUpOrDown
 
         placeholderLabel.alignment = .center
         placeholderLabel.textColor = .secondaryLabelColor
@@ -502,38 +341,10 @@ final class AppKitOLDownloadsItem: NSCollectionViewItem, WallpaperGridHoverItem 
 
         overlayView.wantsLayer = true
         overlayView.layer?.backgroundColor = NSColor.clear.cgColor
-        overlayView.layer?.addSublayer(gradientLayer)
-        // 底部信息渐变：仅在底部形成对比，提升文字可读性
-        gradientLayer.colors = [
-            NSColor.clear.cgColor,
-            NSColor.black.withAlphaComponent(0.05).cgColor,
-            NSColor.black.withAlphaComponent(0.72).cgColor
-        ]
-        gradientLayer.locations = [0.0, 0.62, 1.0]
-        gradientLayer.startPoint = CGPoint(x: 0.5, y: 1.0)
-        gradientLayer.endPoint   = CGPoint(x: 0.5, y: 0.0)
-        gradientLayer.actions = ["bounds": NSNull(), "position": NSNull()]
-        gradientLayer.needsDisplayOnBoundsChange = true
-        gradientLayer.autoresizingMask = [.layerWidthSizable, .layerHeightSizable]
-
         hoverOutlineView.wantsLayer = true
         hoverOutlineView.layer?.borderWidth = 1
         hoverOutlineView.layer?.backgroundColor = NSColor.clear.cgColor
         hoverOutlineView.alphaValue = 0
-
-        titleLabel.textColor = .white
-        titleLabel.alignment = .left
-        titleLabel.maximumNumberOfLines = 1
-        titleLabel.lineBreakMode = .byClipping
-        titleLabel.cell?.wraps = false
-        titleLabel.cell?.isScrollable = false
-        titleLabel.wantsLayer = true
-
-        metaLabel.textColor = NSColor.white.withAlphaComponent(0.80)
-        metaLabel.alignment = .left
-        metaLabel.maximumNumberOfLines = 1
-        metaLabel.lineBreakMode = .byClipping
-        metaLabel.wantsLayer = true
 
         multiSelectBadge.wantsLayer = true
         multiSelectBadge.layer?.masksToBounds = true
@@ -545,17 +356,15 @@ final class AppKitOLDownloadsItem: NSCollectionViewItem, WallpaperGridHoverItem 
         multiSelectBadgeIcon.translatesAutoresizingMaskIntoConstraints = false
         multiSelectBadgeIcon.isHidden = true
 
-        playActionButton?.isHidden = true
 
         view.addSubview(imageContainer)
         imageContainer.addSubview(thumbnailView)
+        imageView = thumbnailView
         imageContainer.addSubview(selectionTintView)
-        imageContainer.addSubview(overlayView)
-        overlayView.addSubview(titleLabel)
-        overlayView.addSubview(metaLabel)
         imageContainer.addSubview(multiSelectBadge)
         multiSelectBadge.addSubview(multiSelectBadgeIcon)
         imageContainer.addSubview(hoverOutlineView)
+        imageContainer.addSubview(overlayView)
         imageContainer.addSubview(placeholderLabel)
 
         hoverTracking.update(in: imageContainer, owner: self)
@@ -568,40 +377,31 @@ final class AppKitOLDownloadsItem: NSCollectionViewItem, WallpaperGridHoverItem 
         refreshTheme()
     }
 
-    private func fontSizeForWidth(_ width: CGFloat) -> (title: CGFloat, meta: CGFloat) {
-        switch width {
-        case ..<160:
-            return (9, 8)
-        case 160..<260:
-            return (11, 10)
-        default:
-            return (13, 11)
-        }
-    }
+
 
     override func viewDidLayout() {
         super.viewDidLayout()
         hoverTracking.update(in: imageContainer, owner: self)
-        let inputs = LayoutInputs(size: view.bounds.size, title: titleLabel.stringValue,
-            metadata: metaLabel.stringValue, placeholder: placeholderLabel.stringValue)
+        let inputs = LayoutInputs(size: view.bounds.size, title: currentTitle,
+            metadata: currentMetadata, placeholder: placeholderLabel.stringValue)
         guard lastLayoutInputs != inputs else {
-            checkInitialHoverState()
+            refreshGridHover(isScrolling: view.isGridHoverSuppressed)
             return
         }
         lastLayoutInputs = inputs
 
         let width = view.bounds.width
         guard width > 0 else { return }
-        let height = floor(width * 9.0 / 16.0)
+        let height = width
 
         imageContainer.frame = NSRect(x: 0, y: view.bounds.height - height, width: width, height: height)
 
-        let radius = max(6, width * 0.045)
+        let radius: CGFloat = 14
         imageContainer.layer?.cornerRadius = radius
 
         hoverOutlineView.layer?.cornerRadius = max(5, radius - 1)
 
-        thumbnailView.frame = imageContainer.bounds
+        layoutThumbnail()
         selectionTintView.frame = imageContainer.bounds
         overlayView.frame = imageContainer.bounds
         hoverOutlineView.frame = NSRect(x: 1, y: 1, width: width - 2, height: height - 2)
@@ -616,46 +416,15 @@ final class AppKitOLDownloadsItem: NSCollectionViewItem, WallpaperGridHoverItem 
             height: ceil(placeholderSize.height)
         )
 
-        let (titleSize, metaSize) = fontSizeForWidth(width)
-        let pad = max(6, width * 0.05)
-        let gap = 2.0
+        let metrics = WallpaperCardBarMetrics(cardWidth: width)
+        controlBarFrame = NSRect(x: metrics.barHorizontalInset, y: metrics.barBottomInset,
+            width: max(0, width - metrics.barHorizontalInset * 2), height: metrics.barHeight)
+        controlBar?.frame = controlBarFrame
+        controlBar?.apply(metrics: metrics)
+        updateControlBarContent()
 
-        if titleLabel.font?.pointSize != titleSize {
-            titleLabel.font = .systemFont(ofSize: titleSize, weight: .medium)
-            metaLabel.font = .monospacedDigitSystemFont(ofSize: metaSize, weight: .regular)
-        }
-
-        let buttonSize: CGFloat = max(22, min(32, width * 0.12))
-        let actionTrailingInset: CGFloat = max(8, width * 0.04)
-        let buttonX = width - actionTrailingInset - buttonSize
-        let buttonY: CGFloat = max(8, width * 0.04)
-        playActionFrame = NSRect(x: buttonX, y: buttonY, width: buttonSize, height: buttonSize)
-        playActionButton?.frame = playActionFrame
-
-        let textMaxWidth = buttonX - pad - 12
-
-        metaLabel.frame = NSRect(
-            x: pad,
-            y: buttonY,
-            width: textMaxWidth,
-            height: metaSize + 2
-        )
-
-        titleLabel.frame = NSRect(
-            x: pad,
-            y: metaLabel.frame.maxY + gap,
-            width: textMaxWidth,
-            height: titleSize + 3
-        )
-
-        // 仅同步 overlay 与圆角容器边界，不做全屏阴影效果
-        overlayView.frame = imageContainer.bounds
-        gradientLayer.frame = overlayView.bounds
-
-        applyTitleFadeMaskIfNeeded()
-
-        // 检查当前鼠标是否已经在卡片范围内（解决导入新文件时不显示 meta 的问题）
-        checkInitialHoverState()
+        // 布局改变后按当前指针位置双向同步 hover。
+        refreshGridHover(isScrolling: view.isGridHoverSuppressed)
 
         let multiSelectSize: CGFloat = 24
         multiSelectBadge.frame = NSRect(
@@ -675,77 +444,85 @@ final class AppKitOLDownloadsItem: NSCollectionViewItem, WallpaperGridHoverItem 
         )
     }
 
-    private func checkInitialHoverState() {
-        guard !view.isGridHoverSuppressed else { return }
-        let isHoveringNow = view.isGridPointerInside
-        if isHoveringNow && !isHovering {
-            isHovering = true
-            applyHoverVisibility(true, animated: false)
-        }
-    }
 
-    private func applyTitleFadeMaskIfNeeded() {
-        applyFadeMask(to: titleLabel)
-        applyFadeMask(to: metaLabel)
-    }
 
-    private func applyFadeMask(to label: NSTextField) {
-        let textWidth = label.attributedStringValue.size().width
-        let viewWidth = label.frame.width
-        guard viewWidth > 0 else {
-            label.layer?.mask = nil
-            return
-        }
-        if textWidth > viewWidth - 4 {
-            let mask = CAGradientLayer()
-            mask.colors = [NSColor.black.cgColor, NSColor.clear.cgColor]
-            mask.startPoint = CGPoint(x: 0.85, y: 0.5)
-            mask.endPoint = CGPoint(x: 1.0, y: 0.5)
-            mask.frame = label.bounds
-            label.layer?.mask = mask
-        } else {
-            label.layer?.mask = nil
-        }
-    }
+
+
 
     /// Keep the glass-backed control out of an idle card's initial hierarchy.
-    /// The collection owns its action/AX route; this view only draws the badge.
-    private func preparePlayActionButtonIfNeeded() {
-        guard playActionButton == nil else { return }
-        let button = OLDownloadsPlayBadgeView(frame: playActionFrame)
-        button.isPlaying = isPlaying
-        button.alphaValue = 0
-        overlayView.addSubview(button)
-        playActionButton = button
+    /// Native buttons own hit testing; the collection supplies current-ID actions.
+    private func prepareControlBarIfNeeded() {
+        guard controlBar == nil else { return }
+        let bar = WallpaperCardControlsView(frame: controlBarFrame)
+        bar.onPlay = { [weak self] in
+            guard let self, !self.isMultiSelectMode, self.presentedEntry != nil else { return }
+            self.onPrimaryAction?(self.currentEntryID)
+        }
+        bar.onFavorite = { [weak self] in
+            guard let self, !self.isMultiSelectMode, self.presentedEntry != nil else { return }
+            self.onToggleFavorite?(self.currentEntryID)
+        }
+        controlBar = bar
+        bar.apply(metrics: WallpaperCardBarMetrics(cardWidth: imageContainer.bounds.width))
+        bar.layoutSubtreeIfNeeded()
+        updateControlBarContent()
+    }
+
+    private func updateControlBarContent() {
+        controlBar?.apply(title: currentTitle, metadata: currentMetadata)
+        controlBar?.favoriteButton.isHidden = onToggleFavorite == nil
+        controlBar?.playButton.isEnabled = onPrimaryAction != nil
+        controlBar?.isFavorite = isFavoriteState
+        controlBar?.primaryState = primaryShowsStop && isPlaying ? .playing : .apply
+        controlBar?.playButton.contentTintColor = isPlaying ? .controlAccentColor : .labelColor
+        view.toolTip = nil
+    }
+
+    /// Only the mixed-library adapter binds a real play/stop command owner.
+    func applyOrganizationState(isFavorite: Bool, primaryShowsStop: Bool) {
+        isFavoriteState = isFavorite
+        self.primaryShowsStop = primaryShowsStop
+        updateControlBarContent()
+    }
+
+    private func layoutThumbnail() {
+        let bounds = imageContainer.bounds
+        guard let size = thumbnailView.image?.size, size.width > 0, size.height > 0 else {
+            thumbnailView.frame = bounds
+            return
+        }
+        let scale = max(bounds.width / size.width, bounds.height / size.height)
+        let fitted = NSSize(width: size.width * scale, height: size.height * scale)
+        thumbnailView.frame = NSRect(x: (bounds.width-fitted.width)/2, y: (bounds.height-fitted.height)/2,
+                                     width: fitted.width, height: fitted.height)
     }
 
     private func applyHoverVisibility(_ visible: Bool, animated: Bool) {
-        // 多选模式下不显示底部信息层，保持卡片干净
-        let infoVisible = visible && !isMultiSelectMode
-        let alpha: CGFloat = infoVisible ? 1 : 0
-        let gradientOpacity: Float = infoVisible ? 1 : 0
-        let playAlpha: CGFloat = ((visible || isPlaying) && !isMultiSelectMode) ? 1 : 0
-        if playAlpha > 0 { preparePlayActionButtonIfNeeded() }
-
-        if animated {
-            let duration = visible ? UIInteractionAnimation.cardHoverExpandDuration : UIInteractionAnimation.cardHoverCollapseDuration
-            let timing = visible ? UIInteractionAnimation.cardEnterTiming : UIInteractionAnimation.cardExitTiming
-            NSAnimationContext.runAnimationGroup { context in
-                context.duration = duration
-                context.timingFunction = timing
-                titleLabel.animator().alphaValue = alpha
-                metaLabel.animator().alphaValue = alpha
-                playActionButton?.animator().alphaValue = playAlpha
-                gradientLayer.opacity = gradientOpacity
-            }
-        } else {
-            titleLabel.alphaValue = alpha
-            metaLabel.alphaValue = alpha
-            playActionButton?.alphaValue = playAlpha
-            gradientLayer.opacity = gradientOpacity
+        let show = (visible || isPlaying) && !isMultiSelectMode
+        if show { prepareControlBarIfNeeded() }
+        guard let bar = controlBar else { return }
+        barVisibilityRevision &+= 1
+        let revision = barVisibilityRevision
+        if show {
+            if bar.superview == nil { overlayView.addSubview(bar) }
+            bar.isHidden = false
         }
-
-        playActionButton?.isHidden = (!visible && !isPlaying) || isMultiSelectMode
+        bar.setActive(show && visible && isThumbnailDemandActive)
+        let finish = { [weak self, weak bar] in
+            guard let self, let bar, self.barVisibilityRevision == revision, !show else { return }
+            bar.isHidden = true
+            bar.removeFromSuperview()
+        }
+        if animated && bar.superview != nil {
+            NSAnimationContext.runAnimationGroup { context in
+                context.duration = visible ? UIInteractionAnimation.cardHoverExpandDuration : UIInteractionAnimation.cardHoverCollapseDuration
+                context.timingFunction = visible ? UIInteractionAnimation.cardEnterTiming : UIInteractionAnimation.cardExitTiming
+                bar.animator().alphaValue = show ? 1 : 0
+            } completionHandler: { DispatchQueue.main.async(execute: finish) }
+        } else {
+            bar.alphaValue = show ? 1 : 0
+            finish()
+        }
     }
 
     func refreshGridHover(isScrolling: Bool) {
@@ -765,7 +542,7 @@ final class AppKitOLDownloadsItem: NSCollectionViewItem, WallpaperGridHoverItem 
 
     override func mouseExited(with event: NSEvent) {
         guard !view.isGridHoverSuppressed else { return }
-        guard Self.hoverTrackingActivated else { return }
+        guard Self.hoverTrackingActivated || isHovering else { return }
         isHovering = false
         applyHoverState(false)
     }
@@ -808,7 +585,7 @@ final class AppKitOLDownloadsItem: NSCollectionViewItem, WallpaperGridHoverItem 
     func applyPlayingState(isPlaying: Bool) {
         guard self.isPlaying != isPlaying else { return }
         self.isPlaying = isPlaying
-        playActionButton?.isPlaying = isPlaying
+        updateControlBarContent()
         applyHoverVisibility(isHovering, animated: false)
     }
 
@@ -828,11 +605,6 @@ final class AppKitOLDownloadsItem: NSCollectionViewItem, WallpaperGridHoverItem 
         }
     }
 
-    func shouldTriggerPlayAction(at pointInItem: NSPoint) -> Bool {
-        guard let playActionButton, !playActionButton.isHidden else { return false }
-        return playActionButton.frame.insetBy(dx: -8, dy: -8).contains(pointInItem)
-    }
-
     private func applyHoverOutline(_ hovered: Bool, duration: CFTimeInterval, timing: CAMediaTimingFunction) {
         let targetAlpha: CGFloat = hovered ? 1 : 0
         guard isHoverOutlineVisible != hovered || abs(hoverOutlineView.alphaValue - targetAlpha) > 0.0001 else { return }
@@ -848,8 +620,6 @@ final class AppKitOLDownloadsItem: NSCollectionViewItem, WallpaperGridHoverItem 
         guard let layer = imageContainer.layer else { return }
         layer.borderColor = (isSelectedState ? NSColor.controlAccentColor : NSColor.separatorColor).cgColor
         selectionTintView.layer?.backgroundColor = NSColor.controlAccentColor.withAlphaComponent(0.2).cgColor
-        hoverOutlineView.layer?.borderColor = view.isDarkAppearance
-            ? NSColor.white.cgColor
-            : NSColor.controlAccentColor.cgColor
+        hoverOutlineView.layer?.borderColor = NSColor.white.cgColor
     }
 }

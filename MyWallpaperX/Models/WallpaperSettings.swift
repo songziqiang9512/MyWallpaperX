@@ -212,16 +212,6 @@ public enum WallpaperSortMode: String, Codable, CaseIterable, Identifiable {
     }
 }
 
-/// 每个列表独立存储的排序状态，key 为 WallpaperSelectionContext.scrollPersistenceKey。
-public struct SortState: Codable, Equatable {
-    public var mode: WallpaperSortMode
-    public var ascending: Bool
-
-    public init(mode: WallpaperSortMode = .none, ascending: Bool = true) {
-        self.mode = mode
-        self.ascending = ascending
-    }
-}
 
 public enum SystemAudioSpectrumStyle: String, Codable, CaseIterable, Identifiable {
     case balanced

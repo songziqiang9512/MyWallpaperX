@@ -168,7 +168,10 @@ enum DebugWebProcessIsolationRunner {
             let previous = host.activeRequest?.id
             let cacheBefore = startupCacheFacts(service: service, record: record)
             let started = ProcessInfo.processInfo.systemUptime
-            service.setAsWallpaper(record)
+            WallpaperManager.shared.requestDiagnosticPlayback(reference: .init(provider: .steamWorkshop, sourceID: record.id),
+                                                               runtime: .web) { pending in
+                service.setAsWallpaper(record, libraryPending: pending)
+            }
             let selectedEpoch = manager.playbackIntentEpoch
             var completed = false
             let deadline = started + 45
@@ -291,11 +294,11 @@ enum DebugWebProcessIsolationRunner {
         return false
     }
 
-    private static func postWeb(root: URL, entry: String = "index.html", recordID: String = "debug-process-isolation", requestID: UUID = UUID()) {
-        NotificationCenter.default.post(name: .steamWorkshopWebWallpaperReadyToPlay, object: nil,
-            userInfo: ["requestID": requestID, "entryURL": root.appendingPathComponent(entry), "rootURL": root,
-                "propertiesJSON": "{}", "recordID": recordID, "language": "en-us",
-                "runtimeProfile": WallpaperEngine.WebRuntimeProfile.diagnostic])
+    private static func postWeb(root: URL, entry: String = "index.html", recordID: String = "debug-process-isolation",
+                                requestID: UUID = UUID(),
+                                preparation: WallpaperLibraryPlaybackRouting.DiagnosticWebPreparation? = nil) {
+        WallpaperLibraryPlaybackRouting.postDiagnosticWeb(entryURL: root.appendingPathComponent(entry), rootURL: root,
+            recordID: recordID, requestID: requestID, preparation: preparation)
     }
 
     private static func run(reportURL: URL) async {
@@ -351,10 +354,10 @@ enum DebugWebProcessIsolationRunner {
             checks["idlePrewarmHasNoUserRequest"] = idlePIDs.count == 1
                 && !host.hasPendingRequest && host.activeRequest == nil && host.activeRecordIDs.isEmpty
                 && host.inUsePersistentDataStoreIdentifiers.isEmpty
-            let adoptedIdle = SteamWorkshopService.shared.prepareWebPlaybackProcess?()
+            let adoptedIdle = WallpaperLibraryPlaybackRouting.prepareDiagnosticWebProcess()
             checks["idlePrewarmAdoptedOriginalIdentity"] = adoptedIdle?.requestID == idleID
                 && host.liveProcessIdentifiers == idlePIDs && host.hasPendingRequest
-            postWeb(root: root, requestID: idleID)
+            postWeb(root: root, requestID: idleID, preparation: adoptedIdle)
             guard await waitUntil({ host.activeRequest?.id == idleID }) else { return }
             // Cross the original idle deadline after full launch. A cancelled old
             // prewarm timeout must never retire the now-active content process.
@@ -397,7 +400,7 @@ enum DebugWebProcessIsolationRunner {
         checks["preparedCancellation"] = await waitUntil {
             host.liveProcessIdentifiers.isEmpty && cancelledPID.map { kill($0, 0) != 0 && errno == ESRCH } == true
         }
-        let stopPreparation = SteamWorkshopService.shared.prepareWebPlaybackProcess?()
+        let stopPreparation = WallpaperLibraryPlaybackRouting.prepareDiagnosticWebProcess()
         let stoppedPreparedPID = host.liveProcessIdentifiers.first
         WallpaperManager.shared.stopCurrentPlayback()
         checks["preparedStopInvalidation"] = await waitUntil {
@@ -452,7 +455,7 @@ enum DebugWebProcessIsolationRunner {
         // validation return must restore the actual active request projection.
         postWeb(root: root, requestID: UUID())
         let staleAutoplay = ImportedVideoAutoplayGate.shared.claim()
-        let unusedPreparation = SteamWorkshopService.shared.prepareWebPlaybackProcess?()
+        let unusedPreparation = WallpaperLibraryPlaybackRouting.prepareDiagnosticWebProcess()
         checks["newIntentRevokedAutoplay"] = !ImportedVideoAutoplayGate.shared.isCurrent(staleAutoplay)
         unusedPreparation?.cancel()
         checks["cancelledCandidateRestoredProjection"] = await waitUntil {
@@ -463,7 +466,7 @@ enum DebugWebProcessIsolationRunner {
         let badVideoURL = root.appendingPathComponent("corrupt.mp4")
         try? Data("not a playable media asset".utf8).write(to: badVideoURL)
         let badVideo = VideoWallpaper(title: "Invalid video candidate", path: badVideoURL.path)
-        WallpaperManager.shared.setAsWallpaper(badVideo, userInitiated: true)
+        WallpaperManager.shared.requestDiagnosticVideo(badVideo)
         checks["badVideoRestoredWeb"] = await waitUntil {
             WallpaperManager.shared.pendingWallpaper == nil
                 && WallpaperManager.shared.activeWallpaperRuntime == .web
@@ -477,7 +480,7 @@ enum DebugWebProcessIsolationRunner {
         }
         guard let videoURL = BundledVideoLibrary.videoURL(named: "Video2") else { return }
         let video = VideoWallpaper(title: "Isolation video", path: videoURL.path)
-        WallpaperManager.shared.setAsWallpaper(video, userInitiated: true)
+        WallpaperManager.shared.requestDiagnosticVideo(video)
         let supersededVideoPIDs = engine.displaySessions.values.map { $0.process.processIdentifier }
         postWeb(root: root)
         checks["webVideoWebCancelledCandidate"] = await waitUntil {
@@ -488,7 +491,7 @@ enum DebugWebProcessIsolationRunner {
         // The Video overlay is an independent, default-off public setting.
         // Web listener demand must not accidentally satisfy this assertion.
         WallpaperManager.shared.settings.systemAudioSpectrumEnabled = true
-        WallpaperManager.shared.setAsWallpaper(video, userInitiated: true)
+        WallpaperManager.shared.requestDiagnosticVideo(video)
         checks["webToVideo"] = await waitUntil {
             WallpaperManager.shared.activeWallpaperRuntime == .video
                 && host.liveProcessIdentifiers.isEmpty && !engine.displaySessions.isEmpty
@@ -499,10 +502,10 @@ enum DebugWebProcessIsolationRunner {
         if let alternateURL = BundledVideoLibrary.videoURL(named: "Video3") {
             let alternate = VideoWallpaper(title: "Alternate isolation video", path: alternateURL.path)
             let oldPlayback = engine.activeVideoPlayback?.id
-            WallpaperManager.shared.setAsWallpaper(alternate, userInitiated: true)
+            WallpaperManager.shared.requestDiagnosticVideo(alternate)
             let replaced = await waitUntil { engine.currentWallpaper?.path == alternate.path
                 && WallpaperManager.shared.pendingWallpaper == nil && engine.activeVideoPlayback?.id != oldPlayback }
-            WallpaperManager.shared.setAsWallpaper(video, userInitiated: true)
+            WallpaperManager.shared.requestDiagnosticVideo(video)
             checks["videoToVideo"] = await waitUntil { replaced && engine.currentWallpaper?.path == video.path
                 && WallpaperManager.shared.pendingWallpaper == nil }
         } else { checks["videoToVideo"] = false }
@@ -518,7 +521,7 @@ enum DebugWebProcessIsolationRunner {
         let originalLibrary = WallpaperManager.shared.wallpapers
         WallpaperManager.shared.wallpapers = [video]
         postWeb(root: root)
-        WallpaperManager.shared.setAsWallpaper(badVideo, userInitiated: true)
+        WallpaperManager.shared.requestDiagnosticVideo(badVideo)
         checks["videoWebBadVideoKeptCommittedVideo"] = await waitUntil {
             WallpaperManager.shared.pendingWallpaper == nil && !host.hasPendingRequest
                 && host.activeRequest == nil && engine.currentPlaybackContentKind == .video
@@ -551,7 +554,7 @@ enum DebugWebProcessIsolationRunner {
                     && host.liveProcessIdentifiers.isEmpty
                     && SceneDaemonClient.shared.activeRecordID == "debug-isolation-scene"
             }
-            WallpaperManager.shared.setAsWallpaper(video, userInitiated: true)
+            WallpaperManager.shared.requestDiagnosticVideo(video)
             let cancelledVideoPIDs = engine.displaySessions.values.map { $0.process.processIdentifier }
             postScene()
             checks["webVideoSceneCancelledCandidate"] = engine.currentPlaybackContentKind == .web
@@ -567,7 +570,7 @@ enum DebugWebProcessIsolationRunner {
                     && SceneDaemonClient.shared.activeRequestID == activeSceneRequest
                     && WallpaperManager.shared.activeWallpaperRuntime == .scene
             }
-            WallpaperManager.shared.setAsWallpaper(video, userInitiated: true)
+            WallpaperManager.shared.requestDiagnosticVideo(video)
             checks["sceneToVideo"] = await waitUntil {
                 WallpaperManager.shared.activeWallpaperRuntime == .video
                     && SceneDaemonClient.shared.activeIntent == nil

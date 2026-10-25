@@ -8,7 +8,8 @@ final class AppKitSteamWorkshopItemDetailView: NSView {
         static let footerHeight: CGFloat = SteamWorkshopDetailFooterView.height
     }
 
-    let service = SteamWorkshopService.shared
+    let service: SteamWorkshopService
+    private var libraryActions: WallpaperInspectorActions?
     private let initialItem: SteamWorkshopBrowserItem
     var currentItem: SteamWorkshopBrowserItem
     var cancellables = Set<AnyCancellable>()
@@ -25,7 +26,6 @@ final class AppKitSteamWorkshopItemDetailView: NSView {
     private let footerView = SteamWorkshopDetailFooterView()
     private let previewView = SteamWorkshopPreviewImageContainerView()
     private lazy var previewHeightConstraint = previewView.heightAnchor.constraint(equalToConstant: 156)
-    private var isRestoringScrollPosition = false
     private var renderedDisplayState: DisplayState?
 
     /// Only the active, ready Scene branch proves these in-memory inputs
@@ -47,7 +47,9 @@ final class AppKitSteamWorkshopItemDetailView: NSView {
         let subscriptionHint: String?
     }
 
-    init(item: SteamWorkshopBrowserItem) {
+    init(item: SteamWorkshopBrowserItem, service: SteamWorkshopService? = nil, libraryActions: WallpaperInspectorActions? = nil) {
+        self.service = service ?? .shared
+        self.libraryActions = libraryActions
         self.initialItem = item
         self.currentItem = item
         super.init(frame: .zero)
@@ -264,18 +266,13 @@ final class AppKitSteamWorkshopItemDetailView: NSView {
     }
 
     private func restoreScrollPositionIfNeeded(_ origin: NSPoint) {
-        guard !isRestoringScrollPosition else { return }
-        isRestoringScrollPosition = true
-        DispatchQueue.main.async { [weak self] in
-            guard let self else { return }
-            let documentHeight = self.scrollView.documentView?.bounds.height ?? 0
-            let clipHeight = self.scrollView.contentView.bounds.height
-            let maxY = max(0, documentHeight - clipHeight)
-            let clampedOrigin = NSPoint(x: origin.x, y: min(max(origin.y, 0), maxY))
-            self.scrollView.contentView.scroll(to: clampedOrigin)
-            self.scrollView.reflectScrolledClipView(self.scrollView.contentView)
-            self.isRestoringScrollPosition = false
-        }
+        // Finish the new document geometry in the same event turn. Deferring
+        // this correction displayed the intermediate origin for one frame.
+        layoutSubtreeIfNeeded()
+        let documentHeight = scrollView.documentView?.bounds.height ?? 0
+        let maxY = max(0, documentHeight - scrollView.contentView.bounds.height)
+        scrollView.contentView.scroll(to: NSPoint(x: origin.x, y: min(max(origin.y, 0), maxY)))
+        scrollView.reflectScrolledClipView(scrollView.contentView)
     }
 
     private func pinContentSectionsToFullWidth() {
@@ -343,7 +340,7 @@ final class AppKitSteamWorkshopItemDetailView: NSView {
 
     private func progressPaletteTone(
         for phase: SteamWorkshopDownloadProgressSnapshot.Phase
-    ) -> SteamWorkshopDownloadProgressPalette.Tone {
+    ) -> WallpaperCardProgressPalette.Tone {
         switch phase {
         case .connecting, .preparing, .transferring, .validating, .saving:
             return .transfer
@@ -440,10 +437,10 @@ final class AppKitSteamWorkshopItemDetailView: NSView {
         let title: String
         let symbol: String
         var enabled = true
-        if !service.steamAuth.isOnline { title = "订阅"; symbol = "plus" }
+        if !service.steamAuth.isOnline { title = "订阅"; symbol = "bookmark" }
         else {
             switch state {
-            case .known(let subscribed): title = subscribed ? "已订阅" : "订阅"; symbol = subscribed ? "checkmark" : "plus"
+            case .known(let subscribed): title = subscribed ? "已订阅" : "订阅"; symbol = subscribed ? "bookmark.fill" : "bookmark"
             case .unknown:
                 title = "查询中…"; symbol = "clock"; enabled = false
                 let id = currentItem.id
@@ -494,11 +491,21 @@ final class AppKitSteamWorkshopItemDetailView: NSView {
     }
 
 
+    func updateLibraryActions(_ actions: WallpaperInspectorActions?) {
+        let changed = libraryActions?.state != actions?.state
+        libraryActions = actions
+        if changed { rebuild(preservingScrollPosition: true) }
+    }
+
     private var isCurrentWallpaper: Bool {
-        latestDownloadRecord.map { service.isRecordCurrentlyPlaying($0) } ?? false
+        libraryActions?.state.isPlaying ?? (latestDownloadRecord.map { service.isRecordCurrentlyPlaying($0) } ?? false)
     }
 
     @objc private func stopCurrentWallpaper() {
+        if let libraryActions {
+            guard libraryActions.state.canPerformPrimary else { return }
+            libraryActions.onPrimary(); return
+        }
         guard isCurrentWallpaper, let record = latestDownloadRecord else { rebuild(); return }
         // Web currently shares the Video command handler and WallpaperEngine owner.
         let consumed = PlaybackCommandMultiplexer.shared.dispatch(.stop, to: record.contentType == .scene ? .scene : (record.contentType == .web ? .web : .video))
@@ -508,7 +515,9 @@ final class AppKitSteamWorkshopItemDetailView: NSView {
 
     private func primaryFooterButton() -> InspectorFooterButton {
         if isCurrentWallpaper {
-            return footerButton(title: "停止播放", symbolName: "stop.fill", kind: .secondary, target: self, action: #selector(stopCurrentWallpaper))
+            let button = footerButton(title: "停止播放", symbolName: "stop.fill", kind: .secondary, target: self, action: #selector(stopCurrentWallpaper))
+            button.isEnabled = libraryActions?.state.canPerformPrimary ?? true
+            return button
         }
 
         // 下载中：保留原「下载壁纸」按钮，进度以从左到右的颜色填充表达
@@ -575,13 +584,15 @@ final class AppKitSteamWorkshopItemDetailView: NSView {
                 button.isEnabled = false
                 return button
             }
-            return footerButton(
+            let button = footerButton(
                 title: "设为壁纸",
                 symbolName: record.contentType == .scene ? "play.circle.fill" : "photo.fill",
                 kind: .primary,
                 target: self,
                 action: #selector(setAsWallpaper)
             )
+            button.isEnabled = libraryActions?.state.canPerformPrimary ?? true
+            return button
         }
 
         let button = footerButton(
@@ -618,6 +629,10 @@ final class AppKitSteamWorkshopItemDetailView: NSView {
     }
 
     @objc private func setAsWallpaper() {
+        if let libraryActions {
+            guard libraryActions.state.canPerformPrimary else { return }
+            libraryActions.onPrimary(); return
+        }
         guard let record = latestDownloadRecord ?? downloadRecord else { return }
         service.setAsWallpaper(record)
     }

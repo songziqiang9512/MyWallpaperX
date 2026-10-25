@@ -177,9 +177,64 @@ private func wheel(phase: Int64 = 0, momentum: Int64 = 0,
     return native
 }
 
+private final class PullCountDocument: NSView {
+    override var isFlipped: Bool { true }
+}
+
+/// Only the controlled geometry mode selects this before the original product
+/// observers attach. Native input and every older mode use AppKit's normal clip.
+enum GridScrollClipProbe { static var usesControlledGeometry = false }
+final class GridScrollGeometryClip: NSClipView {
+    override func constrainBoundsRect(_ proposedBounds: NSRect) -> NSRect { proposedBounds }
+}
+
+private final class PullCountToolbar: NSObject, NSToolbarDelegate {
+    func toolbarDefaultItemIdentifiers(_ toolbar: NSToolbar) -> [NSToolbarItem.Identifier] { [.init("count")] }
+    func toolbarAllowedItemIdentifiers(_ toolbar: NSToolbar) -> [NSToolbarItem.Identifier] { [.init("count")] }
+    func toolbar(_ toolbar: NSToolbar, itemForItemIdentifier itemIdentifier: NSToolbarItem.Identifier,
+                 willBeInsertedIntoToolbar flag: Bool) -> NSToolbarItem? {
+        let item = NSToolbarItem(itemIdentifier: itemIdentifier)
+        item.view = NSButton(title: "Native toolbar", target: nil, action: nil)
+        return item
+    }
+}
+
+private final class PullCountFixture {
+    let window = PointerWindow(contentRect: NSRect(x: 100, y: 100, width: 420, height: 320),
+        styleMask: [.titled, .resizable, .fullSizeContentView], backing: .buffered, defer: false)
+    let scroll = WallpaperGridScrollView(frame: NSRect(x: 0, y: 0, width: 420, height: 320))
+    let document: PullCountDocument
+    let toolbarDelegate = PullCountToolbar()
+    var permitsInput = true
+
+    init(height: CGFloat) throws {
+        document = PullCountDocument(frame: NSRect(x: 0, y: 0, width: 400, height: height))
+        window.isReleasedWhenClosed = false
+        window.toolbarStyle = .unified
+        let toolbar = NSToolbar(identifier: "pull-count-native")
+        toolbar.delegate = toolbarDelegate
+        window.toolbar = toolbar
+        window.contentView = scroll
+        window.setContentSize(NSSize(width: 420, height: 320))
+        scroll.hasVerticalScroller = true
+        scroll.hasHorizontalScroller = false
+        scroll.documentView = document
+        scroll.permitsPullCountInput = { [weak self] in self?.permitsInput == true }
+        scroll.pullCountText = "共 42 张壁纸"
+        window.orderFrontRegardless(); window.makeKey(); NSApp.activate()
+        pump(0.1)
+        scroll.layoutSubtreeIfNeeded()
+        guard window.screen != nil, label != nil else { throw FixtureFailure.unavailable("native pull-count surface") }
+    }
+
+    var label: NSTextField? { scroll.subviews.compactMap { $0 as? NSTextField }.first }
+    func cleanup() { scroll.removeFromSuperview(); window.orderOut(nil); window.close() }
+}
+
 private struct Checks {
     var values: [String: Bool] = [:]
     var details: [String: String] = [:]
+    var observations: [String: Any] = [:]
 
     mutating func expect(_ name: String, _ condition: @autoclosure () -> Bool, _ detail: String = "") {
         values[name] = condition()
@@ -454,6 +509,146 @@ private struct Checks {
         expect("idle click keyboard and multi-selection do not begin suppression", !fixture.scroll.isGridScrolling
             && item.actions == 2 && fixture.collection.selectionIndexPaths.count == 2)
     }
+
+    mutating func pullCountGeometry() throws {
+        GridScrollClipProbe.usesControlledGeometry = true
+        defer { GridScrollClipProbe.usesControlledGeometry = false }
+        for height: CGFloat in [0, 64, 1_200] {
+            let fixture = try PullCountFixture(height: height)
+            defer { fixture.cleanup() }
+            let scroll = fixture.scroll
+            guard let label = fixture.label else { throw FixtureFailure.unavailable("count label") }
+            for inset: CGFloat in [0, 56] {
+                let name = "height\(Int(height))-inset\(Int(inset))"
+                // Controlled bounds are a geometry/notification oracle only.
+                // The separate input case never sets overscrolled bounds.
+                scroll.automaticallyAdjustsContentInsets = false
+                scroll.contentInsets = NSEdgeInsets(top: inset, left: 3, bottom: 7, right: 5)
+                scroll.contentView.setBoundsOrigin(NSPoint(x: 0, y: scroll.gridDocumentTopY))
+                let frame = fixture.document.frame, insets = scroll.contentInsets
+                expect(name + "-idle-label-hidden-and-count-accessible", label.isHidden
+                    && scroll.accessibilityHelp() == "共 42 张壁纸" && !label.isAccessibilityElement())
+                NotificationCenter.default.post(name: NSScrollView.willStartLiveScrollNotification, object: scroll)
+                scroll.contentView.setBoundsOrigin(NSPoint(x: 0, y: scroll.gridDocumentTopY - 64))
+                expect(name + "-bounds-notification-shows-nonhit-count-in-native-gap", !label.isHidden
+                    && scroll.contentView is GridScrollGeometryClip
+                    && abs(scroll.gridDocumentTopY - scroll.contentView.bounds.minY - 64) < 0.5
+                    && label.stringValue == "共 42 张壁纸" && label.hitTest(label.frame.origin) == nil
+                    && label.frame.minY >= scroll.bounds.minY && label.frame.maxY <= scroll.bounds.maxY,
+                    "clip=\(scroll.contentView.bounds) label=\(label.frame) root=\(scroll.bounds)")
+                expect(name + "-pull-does-not-change-document-or-insets", fixture.document.frame == frame
+                    && scroll.contentInsets.top == insets.top && scroll.contentInsets.bottom == insets.bottom
+                    && scroll.contentInsets.left == insets.left && scroll.contentInsets.right == insets.right)
+                fixture.permitsInput = false
+                NotificationCenter.default.post(name: NSWindow.willBeginSheetNotification, object: fixture.window)
+                let deniedOrigin = scroll.contentView.bounds.origin
+                scroll.scrollWheel(with: try wheel())
+                expect(name + "-modal-admission-hides-count-and-rejects-new-wheel", label.isHidden
+                    && scroll.contentView.bounds.origin == deniedOrigin)
+                fixture.permitsInput = true
+                NotificationCenter.default.post(name: NSWindow.didEndSheetNotification, object: fixture.window)
+                expect(name + "-admission-return-can-reveal-existing-native-gap", !label.isHidden)
+                NotificationCenter.default.post(name: NSScrollView.didEndLiveScrollNotification, object: scroll)
+                pump(0.16)
+                expect(name + "-settlement-hides-count-without-moving-native-anchor", label.isHidden
+                    && scroll.contentView.bounds.origin == deniedOrigin && !scroll.isGridScrolling)
+                scroll.contentView.setBoundsOrigin(NSPoint(x: 0, y: scroll.gridDocumentTopY))
+                expect(name + "-programmatic-return-does-not-show-count", label.isHidden && !scroll.isGridScrolling)
+            }
+            scroll.pullCountText = nil
+            NotificationCenter.default.post(name: NSScrollView.willStartLiveScrollNotification, object: scroll)
+            scroll.contentView.setBoundsOrigin(NSPoint(x: 0, y: scroll.gridDocumentTopY - 64))
+            expect("height\(Int(height))-unknown-count-is-not-fabricated-zero", label.isHidden
+                && scroll.accessibilityHelp() == nil)
+        }
+    }
+
+    mutating func pullCountNativeInput() throws {
+        // Constructed public NSEvents, not identities of physical devices.
+        // In particular CUA's observed continuous wheel had no phase at all.
+        let packets: [(name: String, continuous: Bool, phased: Bool)] = [
+            ("continuous-phased", true, true), ("discrete-phaseless", false, false),
+            ("continuous-phaseless", true, false),
+        ]
+        for height: CGFloat in [0, 64, 1_200] {
+            for packet in packets {
+                let fixture = try PullCountFixture(height: height)
+                defer { fixture.cleanup() }
+                let scroll = fixture.scroll
+                guard let label = fixture.label else { throw FixtureFailure.unavailable("native count label") }
+                let name = "height\(Int(height))-" + packet.name
+                let frame = fixture.document.frame, insets = scroll.contentInsets, originalClip = scroll.contentView
+                let origin = scroll.contentView.bounds.origin
+                expect(name + "-native-input-keeps-unmodified-AppKit-clip", !(scroll.contentView is GridScrollGeometryClip))
+                var minimumY = origin.y, countWasVisible = false
+                var eligibleSamples = 0, correctEligibleSamples = 0
+                var allSamplesRespectGap = true, originalGeometryPreserved = true
+                var eventFacts: [[String: Any]] = []
+                func deliver(_ delta: Int32, phase: Int64, expectedPhase: NSEvent.Phase) throws {
+                    guard let cg = CGEvent(scrollWheelEvent2Source: nil, units: packet.continuous ? .pixel : .line,
+                        wheelCount: 1, wheel1: delta, wheel2: 0, wheel3: 0) else {
+                        throw FixtureFailure.unavailable("pull wheel")
+                    }
+                    cg.setIntegerValueField(.scrollWheelEventIsContinuous, value: packet.continuous ? 1 : 0)
+                    cg.setIntegerValueField(.scrollWheelEventScrollPhase, value: phase)
+                    guard let event = NSEvent(cgEvent: cg), event.phase == expectedPhase,
+                          event.momentumPhase.isEmpty, event.hasPreciseScrollingDeltas == packet.continuous else {
+                        throw FixtureFailure.unavailable("pull wheel native precision/phase decode")
+                    }
+                    scroll.scrollWheel(with: event)
+                    pump(0.015)
+                    minimumY = min(minimumY, scroll.contentView.bounds.minY)
+                    countWasVisible = countWasVisible || !label.isHidden
+                    let gap = scroll.gridDocumentTopY - scroll.contentView.bounds.minY
+                    let clip = scroll.convert(scroll.contentView.bounds, from: scroll.contentView)
+                    let top = scroll.isFlipped ? clip.minY + insets.top : clip.maxY - insets.top
+                    let lower = scroll.isFlipped ? top : top - gap
+                    let upper = scroll.isFlipped ? top + gap : top
+                    if gap >= 24 {
+                        eligibleSamples += 1
+                        let correct = scroll.isGridScrolling && !label.isHidden && label.stringValue == "共 42 张壁纸"
+                            && label.bounds.width > 0 && label.bounds.height > 0 && label.hitTest(label.frame.origin) == nil
+                            && label.frame.minY >= lower && label.frame.maxY <= upper
+                        if correct { correctEligibleSamples += 1 }
+                        allSamplesRespectGap = allSamplesRespectGap && correct
+                    } else {
+                        allSamplesRespectGap = allSamplesRespectGap && label.isHidden
+                    }
+                    originalGeometryPreserved = originalGeometryPreserved && scroll.contentView === originalClip
+                        && fixture.document.frame == frame && scroll.contentInsets.top == insets.top
+                        && scroll.contentInsets.left == insets.left && scroll.contentInsets.bottom == insets.bottom
+                        && scroll.contentInsets.right == insets.right
+                    eventFacts.append(["delta": event.scrollingDeltaY, "phase": event.phase.rawValue,
+                        "momentum": event.momentumPhase.rawValue, "gap": gap,
+                        "precise": event.hasPreciseScrollingDeltas, "clipY": scroll.contentView.bounds.minY,
+                        "labelVisible": !label.isHidden, "labelFrame": NSStringFromRect(label.frame),
+                        "labelText": label.stringValue])
+                }
+                try deliver(32, phase: packet.phased ? 1 : 0, expectedPhase: packet.phased ? .began : [])
+                for _ in 0..<6 { try deliver(32, phase: packet.phased ? 2 : 0, expectedPhase: packet.phased ? .changed : []) }
+                try deliver(0, phase: packet.phased ? 4 : 0, expectedPhase: packet.phased ? .ended : [])
+                pump(0.6)
+                let gap = scroll.gridDocumentTopY - minimumY
+                observations[name] = ["events": eventFacts, "nativeInset": insets.top, "startY": origin.y,
+                    "maximumNativeGap": gap, "countWasVisible": countWasVisible,
+                    "settledY": scroll.contentView.bounds.minY, "settledHidden": label.isHidden,
+                    "settledAtNativeTopObserved": abs(scroll.contentView.bounds.minY - scroll.gridDocumentTopY) < 0.5,
+                    "eligibleRenderSamples": eligibleSamples, "correctEligibleRenderSamples": correctEligibleSamples,
+                    "scope": "constructed event packet; elastic gap and exact native return are framework observations, not physical-device validation"]
+                expect(name + "-uses-real-native-toolbar-inset-and-elasticity", insets.top > 0
+                    && scroll.automaticallyAdjustsContentInsets && scroll.verticalScrollElasticity == .allowed)
+                expect(name + "-all-event-turns-preserve-original-clip-document-and-insets", originalGeometryPreserved
+                    && scroll.contentView === originalClip && fixture.document.frame == frame && scroll.contentInsets.top == insets.top)
+                expect(name + "-packet-quiet-completion-hides-count-and-ends-scroll-owner", label.isHidden && !scroll.isGridScrolling,
+                    "start=\(origin.y) maxGap=\(gap) settled=\(scroll.contentView.bounds.minY) top=\(scroll.gridDocumentTopY)")
+                // Positive rendering coverage is independently mandatory in
+                // all six controlled-geometry cases, even if this OS packet
+                // never creates a usable gap. Never call zero samples parity.
+                expect(name + "-every-observed-gap-sample-obeys-the-rendering-contract", eventFacts.count == 8 && allSamplesRespectGap,
+                    "maxGap=\(gap) eligible=\(eligibleSamples) correct=\(correctEligibleSamples)")
+            }
+        }
+    }
 }
 
 @main
@@ -480,10 +675,16 @@ private enum GridScrollChecks {
         case "wheel": try checks.phaseLessWheel()
         case "cancellation": try checks.cancellation()
         case "interaction": try checks.interaction()
+        case "pull-count-geometry": try checks.pullCountGeometry()
+        case "pull-count-native-input": try checks.pullCountNativeInput()
         default: throw FixtureFailure.unavailable("unknown native test case")
         }
-        let result: [String: Any] = ["checks": checks.values, "details": checks.details,
+        var result: [String: Any] = ["checks": checks.values, "details": checks.details, "observations": checks.observations,
             "scope": "isolated native AppKit events and hit testing; no frame-rate claim"]
+        if mode == "pull-count-native-input" {
+            result["scope"] = "constructed public NSEvent packets; no physical mouse or trackpad validation"
+            result["hardwareAcceptance"] = "not-verified"
+        }
         FileHandle.standardOutput.write(try JSONSerialization.data(withJSONObject: result, options: [.sortedKeys]))
     }
 }

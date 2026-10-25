@@ -4,6 +4,10 @@ import AppKit
 final class AppKitListTintSurface: NSView {
     var onWindowChange: ((NSWindow?) -> Void)?
     var onAppearanceChange: (() -> Void)?
+    var ignoresHitTesting = false
+    override func hitTest(_ point: NSPoint) -> NSView? {
+        ignoresHitTesting ? nil : super.hitTest(point)
+    }
     override func viewDidMoveToWindow() {
         super.viewDidMoveToWindow()
         onWindowChange?(window)
@@ -22,7 +26,7 @@ final class AppKitListTintSurface: NSView {
         var reduceMotion: Bool
     }
     static let animationKey = "listThumbnailTint"
-    private weak var sidebar: NSView?
+    private weak var sidebar: AppKitListTintSurface?
     private weak var main: AppKitListTintSurface?
     private let sample: Sampler
     private let displayOptions: () -> DisplayOptions
@@ -65,19 +69,32 @@ final class AppKitListTintSurface: NSView {
         workspaceObservers.forEach(NSWorkspace.shared.notificationCenter.removeObserver)
     }
 
-    func install(sidebar sidebarHost: NSView, main mainHost: AppKitListTintSurface) {
+    func install(sidebar sidebarHost: AppKitListTintSurface, main mainHost: AppKitListTintSurface) {
+        installHosts(sidebar: sidebarHost, main: mainHost)
+    }
+
+    /// Sheets mirror the main window's source without manufacturing a sidebar
+    /// or a separate sampling path. They keep an independent visibility lease.
+    func install(main mainHost: AppKitListTintSurface) {
+        installHosts(sidebar: nil, main: mainHost)
+    }
+
+    private func installHosts(sidebar sidebarHost: AppKitListTintSurface?, main mainHost: AppKitListTintSurface) {
         sidebar = sidebarHost
         main = mainHost
-        // Both product roots already have backing layers. No overlay view or
-        // extra material is installed, and their children/hit testing are intact.
-        sidebarHost.wantsLayer = true
+        // Sidebar composition supplies one passive surface below its original
+        // scroll view. Native scroll backing layers own their own background.
+        // Installing this projection adds no view or material to either host.
+        sidebarHost?.wantsLayer = true
         mainHost.wantsLayer = true
+        sidebarHost?.onAppearanceChange = { [weak self] in self?.project(animated: false) }
         mainHost.onWindowChange = { [weak self] in self?.bindWindow($0) }
         mainHost.onAppearanceChange = { [weak self] in self?.project(animated: false) }
         bindWindow(mainHost.window)
     }
 
     func bind(_ next: ListThumbnailTintSource?) {
+        guard source !== next else { return }
         stopObservingSource?()
         source = next
         stopObservingSource = next?.observe { [weak self] in self?.refresh() }
@@ -155,7 +172,8 @@ final class AppKitListTintSurface: NSView {
             tint = NSColor(srgbRed: 0, green: 0, blue: 0, alpha: 0)
         }
         let animate = animated && isActive && !options.reduceMotion
-        for view in [sidebar, main].compactMap({ $0 }) {
+        let hosts: [NSView?] = [sidebar, main]
+        for view in hosts.compactMap({ $0 }) {
             var resolved = tint.cgColor
             view.effectiveAppearance.performAsCurrentDrawingAppearance {
                 resolved = (tint.usingColorSpace(.sRGB) ?? tint).cgColor

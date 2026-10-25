@@ -34,6 +34,15 @@ final class AppKitOLBrowserContainerView: NSView, ModuleFocusable, ListThumbnail
     private let service: OnlineLibraryService
     var onDownload:       (OnlineLibraryVideoItem) -> Void
     var onSetAsWallpaper: (OnlineLibraryVideoItem) -> Void
+    var makeOrganization: ((OnlineLibraryVideoItem) -> WallpaperInspectorActions?)? {
+        didSet { refreshOrganization() }
+    }
+    var preferredColumns = 5 {
+        didSet { if preferredColumns != oldValue { scheduleLayoutItemSizeUpdate() } }
+    }
+    var clipWidth: CGFloat { scrollView.contentView.bounds.width }
+    var onClipWidthChange: ((CGFloat) -> Void)?
+    private var lastReportedClipWidth: CGFloat?
 
     private var cancellables = Set<AnyCancellable>()
     private var orderedIDs: [Int] = []
@@ -48,7 +57,7 @@ final class AppKitOLBrowserContainerView: NSView, ModuleFocusable, ListThumbnail
         window?.isVisible == true && window?.isMiniaturized == false && !isHiddenOrHasHiddenAncestor
     }
 
-    private let scrollView: NSScrollView = {
+    private let scrollView: WallpaperGridScrollView = {
         let s = WallpaperGridScrollView()
         s.drawsBackground = false
         s.hasVerticalScroller = true
@@ -67,9 +76,11 @@ final class AppKitOLBrowserContainerView: NSView, ModuleFocusable, ListThumbnail
 
     private lazy var flowLayout: NSCollectionViewFlowLayout = {
         let l = NSCollectionViewFlowLayout()
-        l.minimumInteritemSpacing = 8
-        l.minimumLineSpacing = 16
-        l.sectionInset = NSEdgeInsets(top: 8, left: 8, bottom: 48, right: 8)
+        l.minimumInteritemSpacing = WallpaperLibraryGridMetrics.horizontalSpacing
+        l.minimumLineSpacing = WallpaperLibraryGridMetrics.verticalSpacing
+        l.sectionInset = NSEdgeInsets(top: WallpaperLibraryGridMetrics.topInset,
+            left: WallpaperLibraryGridMetrics.edgeInset, bottom: WallpaperLibraryGridMetrics.bottomInset,
+            right: WallpaperLibraryGridMetrics.edgeInset)
         return l
     }()
 
@@ -87,6 +98,7 @@ final class AppKitOLBrowserContainerView: NSView, ModuleFocusable, ListThumbnail
                 isDownloaded:  self.isItemDownloaded(id),
                 downloadProgress: svc.downloadProgressByID[id],
                 thumbnailDemandActive: self.canLoadThumbnails,
+                organization: self.makeOrganization?(item),
                 onDownload:       { [weak self] in self?.onDownload(item) },
                 onSetAsWallpaper: { [weak self] in self?.onSetAsWallpaper(item) }
             )
@@ -134,6 +146,8 @@ final class AppKitOLBrowserContainerView: NSView, ModuleFocusable, ListThumbnail
             scrollView.bottomAnchor.constraint(equalTo: bottomAnchor),
         ])
 
+        service.refreshDownloadedContent()
+
         // 订阅 items 变化
         service.$items
             .receive(on: DispatchQueue.main)
@@ -157,12 +171,6 @@ final class AppKitOLBrowserContainerView: NSView, ModuleFocusable, ListThumbnail
             .receive(on: DispatchQueue.main)
             .throttle(for: .milliseconds(200), scheduler: DispatchQueue.main, latest: true)
             .sink { [weak self] progress in self?.refreshDownloadProgress(progress) }
-            .store(in: &cancellables)
-
-        // 订阅 zoomOffset
-        service.$zoomOffset
-            .receive(on: DispatchQueue.main)
-            .sink { [weak self] _ in self?.scheduleLayoutItemSizeUpdate() }
             .store(in: &cancellables)
 
         // 监听滚动，接近底部时触发下一页
@@ -198,12 +206,26 @@ final class AppKitOLBrowserContainerView: NSView, ModuleFocusable, ListThumbnail
     // MARK: - 数据
 
     private func applyItems(_ items: [OnlineLibraryVideoItem]) {
-        lastPrioritizedVisibleIDs = nil
         var byID: [Int: OnlineLibraryVideoItem] = [:]
         byID.reserveCapacity(items.count)
         for item in items { byID[item.id] = item }
+        let nextIDs = items.map(\.id)
+        let changedIDs = Set(items.compactMap { item -> Int? in
+            guard let previous = itemsByID[item.id], previous != item else { return nil }
+            return item.id
+        })
+        let topologyChanged = orderedIDs != nextIDs
+        guard topologyChanged || !changedIDs.isEmpty else { return }
+
         itemsByID = byID
-        orderedIDs = items.map { $0.id }
+        lastPrioritizedVisibleIDs = nil
+        guard topologyChanged else {
+            publishListThumbnailTint()
+            reloadVisibleItems(forIDs: changedIDs)
+            updateVisibleThumbnailPriorities()
+            return
+        }
+        orderedIDs = nextIDs
         publishListThumbnailTint()
 
         var snap = NSDiffableDataSourceSnapshot<Section, Int>()
@@ -211,7 +233,11 @@ final class AppKitOLBrowserContainerView: NSView, ModuleFocusable, ListThumbnail
         snap.appendItems(orderedIDs, toSection: .main)
         let animated = lastLoadedCount != 0 && items.count > lastLoadedCount
         lastLoadedCount = items.count
-        dataSource.apply(snap, animatingDifferences: animated)
+        dataSource.apply(snap, animatingDifferences: animated) { [weak self] in
+            // Animated topology changes do not reconfigure retained rows.
+            // Read current DTOs/native identifiers if a later apply won first.
+            if !changedIDs.isEmpty { self?.reloadVisibleItems(forIDs: changedIDs) }
+        }
         updateVisibleThumbnailPriorities()
     }
 
@@ -229,9 +255,7 @@ final class AppKitOLBrowserContainerView: NSView, ModuleFocusable, ListThumbnail
         guard !visible.isEmpty else { return }
         // 轻量刷新：直接重新 configure 可见 cell
         for ip in visible {
-            guard ip.item < orderedIDs.count else { continue }
-            let id = orderedIDs[ip.item]
-            guard ids?.contains(id) != false,
+            guard let id = dataSource.itemIdentifier(for: ip), ids?.contains(id) != false,
                   let cell = collectionView.item(at: ip) as? AppKitOLBrowserItem,
                   let item = itemsByID[id] else { continue }
             cell.configure(
@@ -240,18 +264,25 @@ final class AppKitOLBrowserContainerView: NSView, ModuleFocusable, ListThumbnail
                 isDownloaded:  self.isItemDownloaded(id),
                 downloadProgress: self.service.downloadProgressByID[id],
                 thumbnailDemandActive: self.canLoadThumbnails,
+                organization: self.makeOrganization?(item),
                 onDownload:       { [weak self] in self?.onDownload(item) },
                 onSetAsWallpaper: { [weak self] in self?.onSetAsWallpaper(item) }
             )
         }
     }
 
+    /// Relationship publications change only the existing visible card's
+    /// injected actions. Thumbnail identity and demand remain source-owned.
+    func refreshOrganization() {
+        for path in collectionView.indexPathsForVisibleItems() {
+            guard path.item < orderedIDs.count, let item = itemsByID[orderedIDs[path.item]],
+                  let cell = collectionView.item(at: path) as? AppKitOLBrowserItem else { continue }
+            cell.updateOrganization(makeOrganization?(item), for: item.id)
+        }
+    }
+
     private func isItemDownloaded(_ id: Int) -> Bool {
-        if service.downloadedIDs.contains(id) { return true }
-        let localURL = OnlineLibraryService.downloadDirectory.appendingPathComponent("online_\(id).mp4")
-        guard FileManager.default.fileExists(atPath: localURL.path) else { return false }
-        service.downloadedIDs.insert(id)
-        return true
+        service.downloadedIDs.contains(id)
     }
 
     // MARK: - 无限加载
@@ -365,19 +396,22 @@ final class AppKitOLBrowserContainerView: NSView, ModuleFocusable, ListThumbnail
     private func updateLayoutItemSize() {
         let layoutWidth = min(bounds.width, scrollView.contentView.bounds.width)
         guard layoutWidth.isFinite, layoutWidth > 1 else { return }
-        let metrics = OnlineLibraryGridLayoutSupport.metrics(
-            boundsWidth: layoutWidth,
-            zoomOffset: service.zoomOffset,
-            sectionInset: flowLayout.sectionInset
-        )
-        flowLayout.minimumInteritemSpacing = metrics.interitemSpacing
-        flowLayout.minimumLineSpacing = metrics.lineSpacing
-        let newSize = metrics.itemSize
+        if window != nil { reportClipWidth(layoutWidth) }
+        let metrics = WallpaperLibraryGridMetrics(clipWidth: layoutWidth, preferredColumns: preferredColumns)
+        flowLayout.minimumInteritemSpacing = WallpaperLibraryGridMetrics.horizontalSpacing
+        flowLayout.minimumLineSpacing = WallpaperLibraryGridMetrics.verticalSpacing
+        let newSize = NSSize(width: metrics.coverSide, height: metrics.coverSide)
         guard flowLayout.itemSize != newSize else { return }
         flowLayout.itemSize = newSize
         updateVisibleThumbnailPriorities()
         // 布局变化与悬停视觉同步生效，避免渐变层在缩放期间出现跟随滞后。
         collectionView.collectionViewLayout?.invalidateLayout()
+    }
+
+    private func reportClipWidth(_ width: CGFloat) {
+        guard width.isFinite, width >= 0, lastReportedClipWidth != width else { return }
+        lastReportedClipWidth = width
+        onClipWidthChange?(width)
     }
 
     private func scheduleLayoutItemSizeUpdate() {

@@ -690,7 +690,8 @@
         "MyWallpaperX/Modules/SteamWorkshop/UI/AppKitSteamWorkshopBrowserView.swift",
         "script/tests/fixtures/SteamDownloadExecutionHarness.swift",
         "script/tests/fixtures/SteamReadyUpdateDeletionFixture.swift",
-        "script/tests/fixtures/SteamServiceClientLifecycleHarness.swift"
+        "script/tests/fixtures/SteamServiceClientLifecycleHarness.swift",
+        "script/tests/fixtures/SteamDownloadLateCleanupFixture.swift"
       ],
       "modules": [
         "test_steam_client_lifecycle",
@@ -2727,7 +2728,7 @@
       "patterns": [
         "MyWallpaperX/Modules/SteamWorkshop/UI/AppKitSteamWorkshopBrowserItem.swift",
         "MyWallpaperX/Modules/SteamWorkshop/UI/AppKitSteamWorkshopBrowserItem+Presentation.swift",
-        "MyWallpaperX/Modules/SteamWorkshop/UI/AppKitSteamWorkshopBrowserItemSupportViews.swift",
+        "MyWallpaperX/Shared/Components/WallpaperCardSupportViews.swift",
         "MyWallpaperX/Modules/SteamWorkshop/UI/SteamWorkshopPreviewState.swift",
         "MyWallpaperX/Modules/SteamWorkshop/UI/SteamWorkshopItemDetailPreviewSupport.swift",
         "MyWallpaperX/Modules/SteamWorkshop/UI/SteamWorkshopItemDetailSheet.swift",
@@ -2737,7 +2738,8 @@
         "script/tests/fixtures/SteamDetailInvalidationHarness.swift",
         "script/tests/fixtures/SteamDetailInvalidationSupport.swift",
         "script/tests/fixtures/SteamPreviewLifecycleHarness.swift",
-        "script/tests/fixtures/SteamPreviewStateChecks.swift"
+        "script/tests/fixtures/SteamPreviewStateChecks.swift",
+        "MyWallpaperX/Modules/SteamWorkshop/UI/AppKitSteamWorkshopBrowserItemSupportViews.swift"
       ],
       "modules": [
         "test_steam_list_thumbnail_animation",
@@ -3601,7 +3603,6 @@
       "id": "ui-library-metadata-layout",
       "patterns": [
         "MyWallpaperX/Modules/VideoLibrary/Core/WallpaperManager+ImportProcessing.swift",
-        "MyWallpaperX/Modules/StaticImageLibrary/UI/SILWaterfallLayout.swift",
         "script/tests/test_ui_library_algorithms.py",
         "script/tests/fixtures/UILibraryAlgorithmsHarness.swift"
       ],
@@ -3621,14 +3622,20 @@
       ]
     },
     {
-      "id": "ui-visible-path-probe",
+      "id": "library-visible-source-lifecycle",
       "patterns": [
-        "MyWallpaperX/Modules/VideoLibrary/UI/AppKitLibraryGridView.swift",
-        "script/tests/test_ui_visible_path_probe.py",
-        "script/tests/fixtures/UIVisiblePathProbeHarness.swift"
+        "MyWallpaperX/App/WallpaperLibraryCatalogController.swift",
+        "MyWallpaperX/Modules/VideoLibrary/Core/WallpaperManager+LibraryContent.swift",
+        "MyWallpaperX/Modules/StaticImageLibrary/Core/SILService+LibraryContent.swift",
+        "MyWallpaperX/Modules/VideoLibrary/UI/AppKitLibraryGridSupport.swift",
+        "script/tests/library_catalog_fixture.py",
+        "script/tests/test_library_visible_source_lifecycle.py",
+        "script/tests/fixtures/LibraryVisibleSourceLifecycleHarness.swift"
       ],
       "modules": [
-        "test_ui_visible_path_probe"
+        "test_library_visible_source_lifecycle",
+        "test_wallpaper_library_catalog",
+        "test_video_thumbnail_prefetch"
       ]
     },
     {
@@ -3739,7 +3746,8 @@
         "MyWallpaperX/Modules/SteamWorkshop/Web/Core/SteamWorkshopService+WebPlayback.swift",
         "MyWallpaperX/Core/SteamWorkshopWeb/Host/DedicatedWebWallpaperHostCompatibilityScript+HostBridge.swift",
         "MyWallpaperX/Core/SteamWorkshopWeb/Host/DedicatedWebWallpaperHostCompatibilityScript+BootstrapFoundation.swift",
-        "script/playback_process_isolation_benchmark.py"
+        "script/playback_process_isolation_benchmark.py",
+        "MyWallpaperX/App/Debug/DebugWebFailureStateRunner.swift"
       ],
       "modules": [
         "test_playback_process_isolation",
@@ -3808,6 +3816,7 @@
         "script/tests/test_playback_*",
         "script/tests/test_daemon_process_lifetime.py",
         "script/tests/fixtures/playback-lifecycle/**",
+        "script/tests/fixtures/PlaybackExplicitStopHarness.swift",
         "script/tests/test_grid_playback_publication.py",
         "script/tests/fixtures/GridPlaybackPublicationChecks.swift"
       ],
@@ -4350,11 +4359,19 @@
         "script/tests/test_grid_thumbnail_decoder.py",
         "script/tests/fixtures/GridScrollInteractionChecks.swift",
         "script/tests/fixtures/GridCardLifecycleChecks.swift",
-        "MyWallpaperX/Modules/SteamWorkshop/UI/AppKitSteamWorkshopBrowserItemSupportViews.swift"
+        "MyWallpaperX/Shared/Components/WallpaperCardSupportViews.swift",
+        "MyWallpaperX/Shared/Components/WallpaperCardControlsView.swift",
+        "script/tests/test_wallpaper_card_controls.py",
+        "script/tests/fixtures/WallpaperCardControlsHarness.swift",
+        "MyWallpaperX/Modules/VideoLibrary/UI/AppKitLibraryGridView+Cells.swift",
+        "MyWallpaperX/Modules/SteamWorkshop/UI/AppKitSteamWorkshopBrowserItemSupportViews.swift",
+        "MyWallpaperX/Modules/OnlineLibrary/UI/OnlineLibraryBrowserView.swift",
+        "MyWallpaperX/Modules/SteamWorkshop/UI/AppKitSteamWorkshopBrowserView.swift"
       ],
       "modules": [
         "test_grid_scroll_interaction",
         "test_grid_card_lifecycle",
+        "test_wallpaper_card_controls",
         "test_grid_thumbnail_decoder",
         "test_steam_list_thumbnail_animation",
         "test_steam_download_card_progress_diff",
@@ -4362,7 +4379,8 @@
         "test_ui_projection_efficiency",
         "test_sil_metadata_loading",
         "test_grid_playback_publication",
-        "test_thumbnail_cache_leases"
+        "test_thumbnail_cache_leases",
+        "test_video_thumbnail_prefetch"
       ]
     },
     {
@@ -4415,7 +4433,6 @@
         "script/tests/fixtures/SteamPreviewSchedulingChecks.swift",
         "script/tests/test_grid_window_thumbnail_lifecycle.py",
         "script/tests/fixtures/GridWindowThumbnailLifecycleHarness.swift",
-        "script/tests/fixtures/UIPathProbeWindowLifecycleHarness.swift",
         "script/tests/test_online_grid_thumbnail_demand.py",
         "script/tests/fixtures/OnlineGridThumbnailDemandHarness.swift",
         "script/tests/fixtures/OnlineDownloadedIdentityHarness.swift",
@@ -4423,7 +4440,12 @@
         "script/tests/fixtures/GridCardInteractionChecks.swift",
         "script/tests/fixtures/VideoCardInteractionHarness.swift",
         "script/tests/native_app_harness.py",
-        "script/tests/fixtures/NativeAppHarness.swift"
+        "script/tests/fixtures/NativeAppHarness.swift",
+        "script/tests/library_catalog_fixture.py",
+        "script/tests/test_library_visible_source_lifecycle.py",
+        "script/tests/fixtures/LibraryVisibleSourceLifecycleHarness.swift",
+        "script/tests/test_library_keyboard_navigation.py",
+        "script/tests/fixtures/LibraryKeyboardNavigationHarness.swift"
       ],
       "modules": [
         "test_thumbnail_return_reuse",
@@ -4440,12 +4462,12 @@
         "test_steam_grid_updates",
         "test_grid_playback_publication",
         "test_sil_metadata_loading",
-        "test_ui_path_probe_window_lifecycle",
-        "test_ui_sil_visible_path_probe",
         "test_grid_window_thumbnail_lifecycle",
         "test_online_grid_thumbnail_demand",
         "test_steam_preview_lifecycle",
-        "test_online_downloaded_thumbnail_identity"
+        "test_online_downloaded_thumbnail_identity",
+        "test_library_visible_source_lifecycle",
+        "test_library_keyboard_navigation"
       ]
     },
     {
@@ -4463,15 +4485,23 @@
       "patterns": [
         "MyWallpaperX/App/MainWindowMenuCommands.swift",
         "MyWallpaperX/Modules/VideoLibrary/Core/WallpaperManager.swift",
-        "MyWallpaperX/Modules/VideoLibrary/Core/WallpaperManager+Selection.swift",
-        "script/tests/test_video_selection_navigation.py",
-        "script/tests/fixtures/VideoSelectionNavigationHarness.swift"
+        "MyWallpaperX/Shell/WallpaperLibraryGridController.swift",
+        "MyWallpaperX/Shell/WallpaperLibraryPresentation.swift",
+        "MyWallpaperX/Core/LibraryCollections/WallpaperLibraryQuery.swift",
+        "MyWallpaperX/Core/LibraryCollections/WallpaperLibraryViewPreferencesMigration.swift",
+        "script/tests/test_library_keyboard_navigation.py",
+        "script/tests/fixtures/LibraryKeyboardNavigationHarness.swift",
+        "MyWallpaperX/Modules/VideoLibrary/Core/WallpaperManager+Selection.swift"
       ],
       "modules": [
         "test_ui_projection_efficiency",
         "test_library_toolbar_behaviors",
         "test_video_inspector_preview_reload",
-        "test_video_selection_navigation"
+        "test_library_keyboard_navigation",
+        "test_wallpaper_library_query",
+        "test_wallpaper_library_presentation",
+        "test_wallpaper_library_view_preferences",
+        "test_wallpaper_playlist_picker"
       ]
     },
     {
@@ -4676,6 +4706,578 @@
         "test_steam_grid_updates",
         "test_ui_projection_efficiency",
         "test_sil_metadata_loading"
+      ]
+    },
+    {
+      "id": "user-library-collections",
+      "patterns": [
+        "MyWallpaperX/Core/LibraryCollections/*.swift",
+        "MyWallpaperX/Models/WallpaperReference.swift",
+        "MyWallpaperX/Models/WallpaperIndexStartupChanges.swift",
+        "MyWallpaperX/Models/WallpaperContent.swift",
+        "MyWallpaperX/Models/VideoWallpaper.swift",
+        "MyWallpaperX/Modules/VideoLibrary/Core/VideoLibraryContentProjection.swift",
+        "MyWallpaperX/Modules/StaticImageLibrary/Core/StaticImageLibraryContentProjection.swift",
+        "MyWallpaperX/Modules/SteamWorkshop/Core/SteamWorkshopLibraryContentProjection.swift",
+        "MyWallpaperX/Modules/OnlineLibrary/Core/PixabayLibraryContentProjection.swift",
+        "script/tests/test_user_collections_store.py",
+        "script/tests/test_user_collections_sqlite_fault.py",
+        "script/tests/test_legacy_library_snapshot.py",
+        "script/tests/test_library_collections_migration.py",
+        "script/tests/test_library_collections_publication.py",
+        "script/tests/test_wallpaper_content_projection.py",
+        "script/tests/test_video_index_ordered_save.py",
+        "script/tests/fixtures/UserCollectionsStoreHarness.swift",
+        "script/tests/fixtures/UserCollectionsSQLiteFault.c",
+        "script/tests/fixtures/UserCollectionsSQLiteFaultHarness.swift",
+        "script/tests/fixtures/LegacyLibrarySnapshotHarness.swift",
+        "script/tests/fixtures/LibraryCollectionsMigrationHarness.swift",
+        "script/tests/fixtures/LibraryCollectionsPublicationHarness.swift",
+        "script/tests/fixtures/WallpaperContentProjectionHarness.swift",
+        "MyWallpaperX/Models/WallpaperLibraryPage.swift",
+        "script/tests/test_wallpaper_library_query.py",
+        "script/tests/fixtures/WallpaperLibraryQueryHarness.swift",
+        "script/tests/test_user_collections_controller.py",
+        "script/tests/fixtures/UserCollectionsControllerHarness.swift",
+        "script/tests/test_library_collections_startup.py",
+        "script/tests/fixtures/LibraryCollectionsStartupHarness.swift",
+        "script/tests/test_library_playlist_metadata.py",
+        "script/tests/fixtures/LibraryPlaylistMetadataHarness.swift",
+        "script/tests/fixtures/PlaylistMetadataSQLiteFault.c"
+      ],
+      "modules": [
+        "test_user_collections_store",
+        "test_user_collections_sqlite_fault",
+        "test_legacy_library_snapshot",
+        "test_library_collections_migration",
+        "test_library_collections_publication",
+        "test_wallpaper_content_projection",
+        "test_video_index_ordered_save",
+        "test_wallpaper_library_query",
+        "test_user_collections_controller",
+        "test_library_collections_startup",
+        "test_library_playlist_metadata"
+      ]
+    },
+    {
+      "id": "sil-native-square-cards",
+      "patterns": [
+        "MyWallpaperX/Modules/StaticImageLibrary/UI/SILWaterfallLayout.swift",
+        "MyWallpaperX/Modules/StaticImageLibrary/UI/SILGridItemView.swift",
+        "MyWallpaperX/Modules/StaticImageLibrary/UI/SILGridContainerView.swift",
+        "script/tests/test_sil_square_cards.py",
+        "script/tests/fixtures/SILSquareCardHarness.swift"
+      ],
+      "modules": [
+        "test_sil_square_cards",
+        "test_sil_thumbnail_demand",
+        "test_sil_metadata_loading",
+        "test_ui_library_algorithms"
+      ]
+    },
+    {
+      "id": "imported-video-ticket-admission",
+      "patterns": [
+        "MyWallpaperX/Core/PlaybackControl/ImportedVideoPlaybackAdmission.swift",
+        "MyWallpaperX/Core/PlaybackControl/ImportedVideoAutoplayGate.swift",
+        "MyWallpaperX/App/ImportedVideoPlaybackObserver.swift",
+        "MyWallpaperX/App/MyWallpaperXApplication.swift",
+        "MyWallpaperX/Modules/VideoLibrary/Core/WallpaperManager+ImportProcessing.swift",
+        "MyWallpaperX/Modules/VideoLibrary/Core/WallpaperManager+RuntimeSwitching.swift",
+        "MyWallpaperX/Modules/VideoLibrary/Core/WallpaperManager+WallpaperApplication.swift",
+        "MyWallpaperX/Modules/VideoLibrary/Core/WallpaperManager+Removal.swift",
+        "MyWallpaperX/Modules/VideoLibrary/Core/WallpaperManager.swift",
+        "MyWallpaperX/Modules/OnlineLibrary/Core/OnlineLibraryService.swift",
+        "MyWallpaperX/Modules/SteamWorkshop/Core/SteamWorkshopService.swift",
+        "MyWallpaperX/Modules/SteamWorkshop/Web/Core/SteamWorkshopService+WebPlayback.swift",
+        "script/tests/test_imported_video_admission.py",
+        "script/tests/fixtures/ImportedVideoAdmissionHarness.swift",
+        "script/tests/fixtures/ImportedVideoAdmissionSupport.swift",
+        "script/tests/test_imported_video_autoplay_gate.py"
+      ],
+      "modules": [
+        "test_imported_video_admission",
+        "test_imported_video_autoplay_gate",
+        "test_video_index_ordered_save",
+        "test_playback_switch_transaction",
+        "test_playback_switch_endpoints",
+        "test_steam_playback_lifetime",
+        "test_wallpaper_library_playback",
+        "test_wallpaper_playback_sequence"
+      ]
+    },
+    {
+      "id": "pixabay-native-square-cards",
+      "patterns": [
+        "MyWallpaperX/Modules/OnlineLibrary/UI/AppKitOLBrowserItem.swift",
+        "MyWallpaperX/Modules/OnlineLibrary/UI/AppKitOLDownloadsItem.swift",
+        "MyWallpaperX/Modules/OnlineLibrary/UI/AppKitOLDownloadsGridView.swift",
+        "MyWallpaperX/Modules/OnlineLibrary/UI/OnlineLibraryGridLayoutSupport.swift",
+        "script/tests/fixtures/PixabayCardPresentationChecks.swift"
+      ],
+      "modules": [
+        "test_grid_card_lifecycle",
+        "test_online_downloaded_thumbnail_identity",
+        "test_online_downloaded_thumbnail_generation",
+        "test_online_thumbnail_scheduling",
+        "test_library_toolbar_behaviors"
+      ]
+    },
+    {
+      "id": "main-library-page-presentation",
+      "patterns": [
+        "MyWallpaperX/Shell/WallpaperLibraryPresentation.swift",
+        "MyWallpaperX/Shell/AppKitPlaylistDirectoryController.swift",
+        "MyWallpaperX/Shell/PlaylistOrganizationActions.swift",
+        "MyWallpaperX/Shell/WallpaperPlaylistCreationNotice.swift",
+        "MyWallpaperX/Shared/Components/WallpaperLibraryGridMetrics.swift",
+        "MyWallpaperX/Models/WallpaperLibraryPage.swift",
+        "MyWallpaperX/Core/LibraryCollections/WallpaperLibraryQuery.swift",
+        "script/tests/test_wallpaper_library_presentation.py",
+        "script/tests/fixtures/WallpaperLibraryPresentationHarness.swift",
+        "script/tests/test_playlist_directory.py",
+        "script/tests/fixtures/PlaylistDirectoryHarness.swift",
+        "script/tests/fixtures/PlaylistDirectoryReorderChecks.swift",
+        "MyWallpaperX/Shell/WallpaperLibrarySidebarController.swift",
+        "MyWallpaperX/Shell/WallpaperLibraryGridController.swift",
+        "script/tests/test_wallpaper_library_sidebar.py",
+        "script/tests/fixtures/WallpaperLibrarySidebarHarness.swift",
+        "script/tests/test_wallpaper_library_grid.py",
+        "script/tests/fixtures/WallpaperLibraryGridHarness.swift",
+        "MyWallpaperX/Core/LibraryCollections/WallpaperLibraryViewPreferencesMigration.swift",
+        "script/tests/test_wallpaper_library_view_preferences.py",
+        "script/tests/fixtures/WallpaperLibraryViewPreferencesHarness.swift",
+        "script/tests/test_ui_visible_path_probe.py",
+        "script/tests/test_ui_sil_visible_path_probe.py",
+        "script/tests/test_ui_path_probe_window_lifecycle.py",
+        "script/tests/test_video_selection_navigation.py",
+        "script/tests/fixtures/UIVisiblePathProbeHarness.swift",
+        "script/tests/fixtures/UISILVisiblePathProbeHarness.swift",
+        "script/tests/fixtures/UIPathProbeWindowLifecycleHarness.swift",
+        "script/tests/fixtures/VideoSelectionNavigationHarness.swift",
+        "script/tests/fixtures/WallpaperLibraryGridDragChecks.swift",
+        "script/tests/test_playlist_directory_navigation.py",
+        "script/tests/fixtures/PlaylistDirectoryNavigationHarness.swift",
+        "script/tests/fixtures/PlaylistDirectoryAnimationChecks.swift"
+      ],
+      "modules": [
+        "test_wallpaper_library_presentation",
+        "test_playlist_directory",
+        "test_wallpaper_library_query",
+        "test_user_collections_controller",
+        "test_wallpaper_library_sidebar",
+        "test_wallpaper_library_grid",
+        "test_wallpaper_library_view_preferences",
+        "test_playlist_directory_navigation"
+      ]
+    },
+    {
+      "id": "main-library-live-catalog",
+      "patterns": [
+        "MyWallpaperX/App/WallpaperLibraryCatalogController.swift",
+        "MyWallpaperX/Modules/VideoLibrary/Core/WallpaperManager+LibraryContent.swift",
+        "MyWallpaperX/Modules/StaticImageLibrary/Core/SILService+LibraryContent.swift",
+        "MyWallpaperX/Modules/SteamWorkshop/Core/SteamWorkshopService+LibraryContent.swift",
+        "MyWallpaperX/Modules/SteamWorkshop/Web/Core/SteamWorkshopService+WebValidation.swift",
+        "script/tests/test_wallpaper_library_catalog.py",
+        "script/tests/fixtures/WallpaperLibraryCatalogHarness.swift",
+        "MyWallpaperX/Modules/SteamWorkshop/Core/SteamWorkshopService+BrowserSupport.swift"
+      ],
+      "modules": [
+        "test_wallpaper_library_catalog",
+        "test_wallpaper_content_projection",
+        "test_steam_queries"
+      ]
+    },
+    {
+      "id": "main-library-startup-admission",
+      "patterns": [
+        "MyWallpaperX/App/MyWallpaperXApplication.swift",
+        "MyWallpaperX/Shell/UIActionHelper.swift",
+        "MyWallpaperX/Shell/SidebarViews+DataSource.swift",
+        "MyWallpaperX/Shell/SidebarViews+Delegate.swift",
+        "MyWallpaperX/Modules/VideoLibrary/UI/AppKitLibraryGridView+Cells.swift"
+      ],
+      "modules": [
+        "test_library_collections_startup",
+        "test_video_thumbnail_prefetch",
+        "test_library_toolbar_behaviors"
+      ]
+    },
+    {
+      "id": "library-profile-recovery-readonly",
+      "patterns": [
+        "MyWallpaperX/Modules/VideoLibrary/Core/WallpaperManager+ProfileSettings.swift",
+        "script/tests/test_library_profile_readonly.py",
+        "script/tests/fixtures/LibraryProfileReadOnlyHarness.swift",
+        "MyWallpaperX/Shell/UIActionHelper.swift",
+        "MyWallpaperX/Modules/VideoLibrary/Core/WallpaperManager+ImportPresentation.swift"
+      ],
+      "modules": [
+        "test_library_profile_readonly"
+      ]
+    },
+    {
+      "id": "main-library-downloaded-source",
+      "patterns": [
+        "MyWallpaperX/Modules/OnlineLibrary/Core/OnlineLibraryDownloadedContent.swift",
+        "MyWallpaperX/Modules/OnlineLibrary/Core/OnlineLibraryService.swift",
+        "script/tests/test_online_downloaded_content.py",
+        "script/tests/fixtures/OnlineDownloadedContentHarness.swift",
+        "script/tests/test_online_library_pagination.py",
+        "script/tests/fixtures/OnlineLibraryPaginationHarness.swift"
+      ],
+      "modules": [
+        "test_online_downloaded_content",
+        "test_online_downloaded_thumbnail_identity",
+        "test_imported_video_admission",
+        "test_online_library_pagination"
+      ]
+    },
+    {
+      "id": "main-library-playback-sequence",
+      "patterns": [
+        "MyWallpaperX/Core/PlaybackControl/WallpaperPlaybackSequence.swift",
+        "MyWallpaperX/Core/PlaybackControl/WallpaperRotationDeadline.swift",
+        "script/tests/test_wallpaper_playback_sequence.py",
+        "script/tests/fixtures/WallpaperPlaybackSequenceHarness.swift"
+      ],
+      "modules": [
+        "test_wallpaper_playback_sequence",
+        "test_playback_command_multiplexer"
+      ]
+    },
+    {
+      "id": "main-library-cell-adapter",
+      "patterns": [
+        "MyWallpaperX/App/WallpaperLibraryCellAdapter.swift",
+        "MyWallpaperX/Modules/StaticImageLibrary/UI/SILThumbnailProvider.swift",
+        "MyWallpaperX/Shared/Components/WallpaperCardInteractionView.swift",
+        "script/tests/test_wallpaper_library_cell_adapter.py",
+        "script/tests/test_grid_card_lifecycle.py",
+        "script/tests/test_sil_thumbnail_demand.py",
+        "script/tests/fixtures/WallpaperLibraryCellAdapterHarness.swift",
+        "script/tests/fixtures/SILThumbnailDemandHarness.swift",
+        "script/tests/fixtures/NativeAppHarness.swift",
+        "MyWallpaperX/Modules/OnlineLibrary/UI/AppKitOLDownloadsSupport.swift",
+        "MyWallpaperX/Modules/StaticImageLibrary/UI/SILQuickLookController.swift",
+        "MyWallpaperX/Modules/SteamWorkshop/UI/AppKitSteamWorkshopDownloadsSupport.swift",
+        "MyWallpaperX/Modules/SteamWorkshop/UI/AppKitSteamWorkshopDownloadsView.swift",
+        "script/tests/fixtures/VideoVisiblePreviewRepairChecks.swift",
+        "script/tests/sil_unified_grid_fixture.py"
+      ],
+      "modules": [
+        "test_wallpaper_library_cell_adapter",
+        "test_grid_card_lifecycle",
+        "test_sil_thumbnail_demand",
+        "test_video_thumbnail_prefetch",
+        "test_online_grid_thumbnail_demand"
+      ]
+    },
+    {
+      "id": "main-library-workspace-playback",
+      "patterns": [
+        "MyWallpaperX/App/WallpaperLibraryWorkspace.swift",
+        "MyWallpaperX/App/WallpaperLibraryPlaybackRouting.swift",
+        "MyWallpaperX/App/WallpaperLibraryPlaybackRestoration.swift",
+        "script/tests/test_wallpaper_library_workspace.py",
+        "script/tests/test_wallpaper_library_playback.py",
+        "script/tests/test_wallpaper_playback_restoration.py",
+        "script/tests/test_wallpaper_library_import.py",
+        "script/tests/fixtures/WallpaperLibraryWorkspaceHarness.swift",
+        "script/tests/fixtures/WallpaperLibraryPlaybackHarness.swift",
+        "script/tests/fixtures/WallpaperPlaybackRestorationHarness.swift",
+        "script/tests/fixtures/WallpaperLibraryWorkspaceAliasHarness.swift",
+        "script/tests/fixtures/WallpaperLibraryImportHarness.swift",
+        "MyWallpaperX/App/CrossRuntimeWallpaperNavigator.swift",
+        "MyWallpaperX/Modules/VideoLibrary/Core/WallpaperManager+PlaybackControl.swift",
+        "MyWallpaperX/Modules/VideoLibrary/Core/WallpaperManager+PlaybackEvents.swift"
+      ],
+      "modules": [
+        "test_wallpaper_library_workspace",
+        "test_wallpaper_library_playback",
+        "test_wallpaper_playback_restoration",
+        "test_wallpaper_library_import"
+      ]
+    },
+    {
+      "id": "main-library-fixed-commands",
+      "patterns": [
+        "MyWallpaperX/App/WallpaperLibraryCommands.swift",
+        "MyWallpaperX/App/WallpaperLibraryRelationshipUndo.swift",
+        "MyWallpaperX/Shared/Components/ActionMenuItem.swift",
+        "script/tests/test_wallpaper_library_command_transactions.py",
+        "script/tests/test_user_collections_controller.py",
+        "script/tests/test_main_menu_commands.py",
+        "script/tests/fixtures/WallpaperLibraryCommandTransactionsHarness.swift",
+        "script/tests/fixtures/WallpaperLibraryCompositionProjectionChecks.swift",
+        "script/tests/fixtures/UserCollectionsControllerHarness.swift",
+        "script/tests/fixtures/MainMenuCommandsHarness.swift",
+        "MyWallpaperX/Shared/WallpaperSourceFileDeletion.swift"
+      ],
+      "modules": [
+        "test_wallpaper_library_command_transactions",
+        "test_user_collections_controller",
+        "test_main_menu_commands",
+        "test_video_removal_receipts",
+        "test_online_downloaded_content"
+      ]
+    },
+    {
+      "id": "main-library-import-receipts",
+      "patterns": [
+        "MyWallpaperX/App/WallpaperLibraryImportCoordinator.swift",
+        "MyWallpaperX/Models/WallpaperSourceImportResult.swift",
+        "MyWallpaperX/Models/WallpaperReference.swift",
+        "MyWallpaperX/Core/LibraryCollections/UserCollectionsStore.swift",
+        "MyWallpaperX/Modules/StaticImageLibrary/Core/SILService.swift",
+        "script/tests/test_wallpaper_library_relocation.py",
+        "script/tests/fixtures/WallpaperLibraryRelocationHarness.swift",
+        "script/tests/test_wallpaper_library_import.py",
+        "script/tests/test_imported_video_admission.py",
+        "script/tests/fixtures/WallpaperLibraryWorkspaceHarness.swift",
+        "script/tests/fixtures/WallpaperLibraryWorkspaceAliasHarness.swift",
+        "script/tests/fixtures/WallpaperLibraryImportHarness.swift",
+        "script/tests/fixtures/ImportedVideoAdmissionHarness.swift"
+      ],
+      "modules": [
+        "test_wallpaper_library_import",
+        "test_wallpaper_library_relocation",
+        "test_imported_video_admission"
+      ]
+    },
+    {
+      "id": "main-library-inspector",
+      "patterns": [
+        "MyWallpaperX/App/WallpaperLibraryInspectorCoordinator.swift",
+        "MyWallpaperX/App/WallpaperLibraryDownloadRecovery.swift",
+        "MyWallpaperX/Modules/SteamWorkshop/Core/SteamWorkshopService+Integration.swift",
+        "MyWallpaperX/Modules/SteamWorkshop/Core/SteamWorkshopService+Downloads.swift",
+        "MyWallpaperX/Modules/OnlineLibrary/Core/OnlineLibraryService+SourcePage.swift",
+        "script/tests/test_wallpaper_library_download_recovery.py",
+        "script/tests/fixtures/WallpaperLibraryDownloadRecoveryHarness.swift",
+        "MyWallpaperX/Shared/UI/WallpaperInspectorActions.swift",
+        "script/tests/test_wallpaper_library_inspector.py",
+        "script/tests/test_video_inspector_preview_reload.py",
+        "script/tests/test_steam_detail_layout.py",
+        "script/tests/fixtures/WallpaperLibraryInspectorHarness.swift",
+        "script/tests/fixtures/WallpaperInspectorOrganizationHarness.swift",
+        "script/tests/fixtures/VideoInspectorPreviewHarness.swift",
+        "script/tests/fixtures/SteamDetailInvalidationHarness.swift",
+        "script/tests/fixtures/SteamDetailFooterHarness.swift",
+        "MyWallpaperX/Modules/OnlineLibrary/UI/OnlineLibraryDownloadsInspectorSupport.swift",
+        "MyWallpaperX/Modules/OnlineLibrary/UI/OnlineLibraryDownloadsInspectorView.swift",
+        "MyWallpaperX/Modules/StaticImageLibrary/UI/SILInspectorView.swift",
+        "MyWallpaperX/Modules/SteamWorkshop/UI/SteamWorkshopItemMenu.swift",
+        "script/tests/test_steam_item_menu.py",
+        "script/tests/fixtures/SteamItemMenuHarness.swift",
+        "MyWallpaperX/Modules/VideoLibrary/Core/WallpaperLibrarySupport.swift",
+        "MyWallpaperX/Modules/VideoLibrary/UI/VideoLibraryInspectorView.swift",
+        "MyWallpaperX/Modules/VideoLibrary/UI/VideoLibraryInspectorSupport.swift",
+        "MyWallpaperX/Modules/StaticImageLibrary/UI/SILInspectorSupport.swift",
+        "script/tests/test_video_inspector_metadata.py",
+        "script/tests/fixtures/VideoInspectorMetadataHarness.swift"
+      ],
+      "modules": [
+        "test_wallpaper_library_inspector",
+        "test_wallpaper_library_download_recovery",
+        "test_video_inspector_preview_reload",
+        "test_steam_detail_layout",
+        "test_steam_item_menu",
+        "test_video_inspector_metadata"
+      ]
+    },
+    {
+      "id": "main-library-personal-settings",
+      "patterns": [
+        "MyWallpaperX/App/PersonalSettingsImportCoordinator.swift",
+        "MyWallpaperX/Models/PersonalSettingsPayload.swift",
+        "MyWallpaperX/Core/LibraryCollections/LibraryPersonalSettings.swift",
+        "MyWallpaperX/Modules/StaticImageLibrary/Core/SILService+PersonalSettings.swift",
+        "script/tests/test_personal_settings_import.py",
+        "script/tests/test_library_personal_settings_store.py",
+        "script/tests/test_library_profile_readonly.py",
+        "script/tests/fixtures/PersonalSettingsImportHarness.swift",
+        "script/tests/fixtures/LibraryPersonalSettingsStoreHarness.swift",
+        "script/tests/fixtures/LibraryProfileReadOnlyHarness.swift",
+        "MyWallpaperX/Models/WallpaperControls.swift",
+        "MyWallpaperX/Models/WallpaperSettings.swift",
+        "MyWallpaperX/Shared/Settings/AppSettingsPanelDependency.swift",
+        "script/tests/fixtures/PersonalSettingsVideoSortHarness.swift"
+      ],
+      "modules": [
+        "test_personal_settings_import",
+        "test_library_personal_settings_store",
+        "test_library_profile_readonly"
+      ]
+    },
+    {
+      "id": "main-library-window-composition",
+      "patterns": [
+        "MyWallpaperX/App/WallpaperLibraryWindowComposition.swift",
+        "MyWallpaperX/App/WallpaperPlaylistPickerController.swift",
+        "MyWallpaperX/App/MainWindowController.swift",
+        "MyWallpaperX/Shell/AppKitMainSplitView.swift",
+        "MyWallpaperX/Shell/AppKitDetailHostViewController.swift",
+        "MyWallpaperX/Shell/WallpaperLibraryPageChrome.swift",
+        "script/tests/test_steam_library_interactions.py",
+        "script/tests/test_wallpaper_library_presentation.py",
+        "script/tests/test_wallpaper_library_grid.py",
+        "script/tests/test_playlist_directory.py",
+        "script/tests/test_wallpaper_library_command_transactions.py",
+        "script/tests/test_list_thumbnail_tint.py",
+        "script/tests/fixtures/WallpaperLibraryPresentationHarness.swift",
+        "script/tests/fixtures/NativeAppHarness.swift",
+        "script/tests/fixtures/WallpaperLibraryGridHarness.swift",
+        "script/tests/fixtures/PlaylistDirectoryHarness.swift",
+        "script/tests/fixtures/WallpaperLibraryCommandTransactionsHarness.swift",
+        "MyWallpaperX/App/SettingsWindowController.swift",
+        "MyWallpaperX/Shell/AppKitMainSplitView+ModuleRouting.swift",
+        "MyWallpaperX/Shell/AppKitMainSplitView+SteamSelection.swift",
+        "MyWallpaperX/Shell/AppKitSidebarNode.swift",
+        "MyWallpaperX/Shell/ContentViewSupport.swift",
+        "MyWallpaperX/Shell/WallpaperSelectionContext.swift",
+        "script/tests/fixtures/WallpaperLibraryGridViewportHarness.swift",
+        "script/tests/test_wallpaper_library_page_chrome.py",
+        "script/tests/fixtures/WallpaperLibraryPageChromeHarness.swift",
+        "script/tests/test_wallpaper_playlist_picker.py",
+        "script/tests/fixtures/WallpaperPlaylistPickerHarness.swift",
+        "MyWallpaperX/Shell/WallpaperPlaylistEditorController.swift",
+        "MyWallpaperX/Shared/Components/WallpaperLibraryControlStyle.swift",
+        "script/tests/test_wallpaper_playlist_editor.py",
+        "script/tests/fixtures/WallpaperPlaylistEditorHarness.swift",
+        "script/tests/fixtures/WallpaperPlaylistHeaderChecks.swift"
+      ],
+      "modules": [
+        "test_steam_library_interactions",
+        "test_wallpaper_library_presentation",
+        "test_wallpaper_library_grid",
+        "test_playlist_directory",
+        "test_wallpaper_library_command_transactions",
+        "test_list_thumbnail_tint",
+        "test_wallpaper_library_sidebar",
+        "test_wallpaper_library_page_chrome",
+        "test_wallpaper_playlist_picker",
+        "test_wallpaper_playlist_editor"
+      ]
+    },
+    {
+      "id": "main-library-window-toolbar",
+      "patterns": [
+        "MyWallpaperX/App/WallpaperLibraryWindowToolbar.swift",
+        "MyWallpaperX/Shared/Components/WallpaperLibraryZoomControl.swift",
+        "script/tests/test_library_window_toolbar.py",
+        "script/tests/fixtures/LibraryWindowToolbarHarness.swift",
+        "MyWallpaperX/Modules/OnlineLibrary/Toolbar/OnlineLibraryToolbarController.swift",
+        "MyWallpaperX/Modules/StaticImageLibrary/Toolbar/SILToolbarController.swift",
+        "MyWallpaperX/Modules/VideoLibrary/Toolbar/VideoLibraryToolbarController.swift",
+        "MyWallpaperX/Modules/SteamWorkshop/Toolbar/SteamWorkshopToolbarIdentifiers.swift"
+      ],
+      "modules": [
+        "test_library_window_toolbar"
+      ]
+    },
+    {
+      "id": "main-library-remote-toolbar",
+      "patterns": [
+        "MyWallpaperX/Shared/Components/WallpaperLibraryZoomControl.swift",
+        "MyWallpaperX/Shared/UI/ToolbarMenuPopover.swift",
+        "MyWallpaperX/Modules/SteamWorkshop/Toolbar/SteamWorkshopToolbarController*.swift",
+        "MyWallpaperX/Modules/OnlineLibrary/Toolbar/OnlineLibraryToolbarController.swift",
+        "script/tests/test_library_remote_toolbar.py",
+        "script/tests/fixtures/LibraryRemoteToolbarHarness.swift",
+        "script/tests/fixtures/RemoteZoomHarness.swift",
+        "MyWallpaperX/Modules/SteamWorkshop/Core/SteamWorkshopService.swift",
+        "script/tests/fixtures/LibraryToolbarSignoutHarness.swift"
+      ],
+      "modules": [
+        "test_library_remote_toolbar",
+        "test_steam_grid_updates"
+      ]
+    },
+    {
+      "id": "main-library-main-menu",
+      "patterns": [
+        "MyWallpaperX/App/MainMenuBuilder.swift",
+        "MyWallpaperX/App/MainWindowMenuCommands.swift",
+        "script/tests/test_main_menu_commands.py",
+        "script/tests/fixtures/MainMenuCommandsHarness.swift"
+      ],
+      "modules": [
+        "test_main_menu_commands"
+      ]
+    },
+    {
+      "id": "main-library-artwork-demand",
+      "patterns": [
+        "MyWallpaperX/App/WallpaperLibraryArtworkProvider.swift",
+        "MyWallpaperX/Shared/UI/WallpaperArtworkDemandObservation.swift",
+        "script/tests/test_wallpaper_library_artwork.py",
+        "script/tests/test_wallpaper_library_sidebar.py",
+        "script/tests/test_playlist_directory.py",
+        "script/tests/fixtures/WallpaperLibraryArtworkHarness.swift",
+        "script/tests/fixtures/NativeAppHarness.swift",
+        "script/tests/fixtures/WallpaperLibrarySidebarHarness.swift",
+        "script/tests/fixtures/PlaylistDirectoryHarness.swift",
+        "MyWallpaperX/Shared/UI/WallpaperPlaylistArtwork.swift"
+      ],
+      "modules": [
+        "test_wallpaper_library_artwork",
+        "test_wallpaper_library_sidebar",
+        "test_playlist_directory"
+      ]
+    },
+    {
+      "id": "main-library-termination",
+      "patterns": [
+        "MyWallpaperX/App/AppDelegate.swift",
+        "script/tests/test_library_termination.py",
+        "script/tests/test_scene_debug_capture_shutdown.py",
+        "script/tests/fixtures/LibraryTerminationHarness.swift"
+      ],
+      "modules": [
+        "test_library_termination",
+        "test_scene_debug_capture_shutdown"
+      ]
+    },
+    {
+      "id": "video-source-removal-receipts",
+      "patterns": [
+        "MyWallpaperX/Modules/VideoLibrary/Core/WallpaperManager+Removal.swift",
+        "MyWallpaperX/Modules/VideoLibrary/Core/WallpaperManager+CacheAssets.swift",
+        "script/tests/test_video_removal_receipts.py",
+        "script/tests/fixtures/VideoRemovalReceiptsHarness.swift"
+      ],
+      "modules": [
+        "test_video_removal_receipts",
+        "test_video_thumbnail_prefetch",
+        "test_video_index_ordered_save"
+      ]
+    },
+    {
+      "id": "main-library-modal-presentation",
+      "patterns": [
+        "MyWallpaperX/Shared/UI/ModalPresentation.swift",
+        "MyWallpaperX/Shared/UI/AppCenteredAlertPresentation.swift",
+        "MyWallpaperX/Shared/UI/WallpaperLibrarySheetPresentation.swift",
+        "script/tests/test_app_modal_presentation.py",
+        "script/tests/fixtures/AppModalPresentationHarness.swift",
+        "script/tests/fixtures/WallpaperLibraryModalInputChecks.swift",
+        "script/tests/fixtures/SteamLoginModalHarness.swift",
+        "script/tests/test_steam_login_modal.py",
+        "MyWallpaperX/Modules/SteamWorkshop/UI/SteamLoginPanelController.swift",
+        "MyWallpaperX/Modules/SteamWorkshop/UI/SteamLoginPanelView.swift"
+      ],
+      "modules": [
+        "test_app_modal_presentation",
+        "test_wallpaper_playlist_editor",
+        "test_wallpaper_playlist_picker",
+        "test_main_menu_commands",
+        "test_library_window_toolbar",
+        "test_library_profile_readonly",
+        "test_scene_user_shortcut_properties",
+        "test_scene_native_property_list",
+        "test_steam_login_modal"
       ]
     }
   ],

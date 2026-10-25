@@ -63,7 +63,8 @@ import Foundation
             styleMask: [.titled], backing: .buffered, defer: false)
         window.isReleasedWhenClosed = false
         let root = NSView(frame: NSRect(x: 0, y: 0, width: 440, height: 300))
-        let sidebar = NSView(frame: NSRect(x: 0, y: 0, width: 120, height: 300))
+        let sidebar = AppKitListTintSurface(frame: NSRect(x: 0, y: 0, width: 120, height: 300))
+        sidebar.ignoresHitTesting = true
         let main = AppKitListTintSurface(frame: NSRect(x: 120, y: 0, width: 320, height: 300))
         let button = NSButton(title: "系统按钮", target: nil, action: nil)
         button.bezelStyle = .rounded; button.frame = NSRect(x: 30, y: 40, width: 110, height: 30)
@@ -75,7 +76,7 @@ import Foundation
         let originalFrames = [sidebar.frame, main.frame, button.frame]
         let originalTint = button.contentTintColor
         let originalAccent = NSColor.controlAccentColor
-        var sampleCalls = 0, loadCancels = 0, sampleCancels = 0
+        var sampleCalls = 0, loadCalls = 0, loadCancels = 0, sampleCancels = 0
         var deferredSamples: [(ListThumbnailTintColor?) -> Void] = []
         var deferSampling = false
         let red = ListThumbnailTintColor(red: 1, green: 0, blue: 0)
@@ -87,23 +88,34 @@ import Foundation
         }, displayOptions: { .init(allowsTint: true, reduceMotion: true) })
         controller.install(sidebar: sidebar, main: main)
         let roots: [NSView] = [sidebar, main]
+        var appearanceDiagnostics: [String: Any] = [:]
         func components(_ view: NSView) -> [CGFloat] {
-            guard let color = view.layer?.backgroundColor, let c = NSColor(cgColor: color)?.usingColorSpace(.deviceRGB) else { return [] }
+            guard let color = view.layer?.backgroundColor, let c = NSColor(cgColor: color)?.usingColorSpace(.deviceRGB) else { return [-1, -1, -1, -1] }
             return [c.redComponent, c.greenComponent, c.blueComponent, c.alphaComponent]
         }
+        func recordAppearance(_ stage: String) {
+            appearanceDiagnostics[stage] = roots.map { view in
+                ["type": String(describing: type(of: view)), "rgba": components(view),
+                 "appearance": view.effectiveAppearance.name.rawValue,
+                 "layer": view.layer.map { String(describing: ObjectIdentifier($0)) } ?? "nil",
+                 "frame": NSStringFromRect(view.frame)] as [String: Any]
+            }
+        }
         func isClear() -> Bool { roots.allSatisfy { components($0).last == 0 } }
-        func freshHosts() -> (NSView, AppKitListTintSurface) {
-            let side = NSView(frame: NSRect(x: 0, y: 0, width: 10, height: 10))
+        func freshHosts() -> (AppKitListTintSurface, AppKitListTintSurface) {
+            let side = AppKitListTintSurface(frame: NSRect(x: 0, y: 0, width: 10, height: 10))
+            side.ignoresHitTesting = true
             let main = AppKitListTintSurface(frame: NSRect(x: 10, y: 0, width: 10, height: 10))
             side.wantsLayer = true; main.wantsLayer = true
             root.addSubview(side); root.addSubview(main)
             return (side, main)
         }
         let active = ListThumbnailTintSource()
-        active.update(id: "sync") { done in done(redImage); return { loadCancels += 1 } }
+        active.update(id: "sync") { done in loadCalls += 1; done(redImage); return { loadCancels += 1 } }
         controller.bind(active)
         check("hiddenWindowDoesNotLoad", sampleCalls == 0 && isClear())
         window.orderFront(nil); settle(); root.layoutSubtreeIfNeeded()
+        recordAppearance("firstVisible")
         check("syncLoadAndSamplerComplete", sampleCalls == 1 && roots.allSatisfy { components($0)[0] > 0.98 && components($0)[3] > 0 })
         let beforeCached = sampleCalls
         controller.bind(active)
@@ -117,11 +129,29 @@ import Foundation
         controller.bind(active)
         check("oldestRevisionIsEvictedFromBoundedCache", sampleCalls == beforeEvicted + 1)
         root.appearance = NSAppearance(named: .aqua); settle()
+        recordAppearance("rootLight")
         let light = components(roots[0])
         root.appearance = NSAppearance(named: .darkAqua); settle()
+        recordAppearance("rootDark")
         let dark = components(roots[0])
         root.appearance = NSAppearance(named: .aqua); settle()
+        recordAppearance("rootLightRestored")
         check("nativeAppearanceAlphaAndRestore", abs(light[3] - 0.09) < 0.01 && abs(dark[3] - 0.12) < 0.01 && components(roots[0]) == light)
+        let appearanceCounts = [loadCalls, sampleCalls, loadCancels, sampleCancels]
+        let appearanceRevision = active.request?.revision
+        sidebar.appearance = NSAppearance(named: .darkAqua); settle()
+        recordAppearance("sidebarDark")
+        check("sidebarOwnAppearanceReprojectsWithoutChangingMainAppearance", abs(components(sidebar)[3] - 0.12) < 0.01
+            && abs(components(main)[3] - 0.09) < 0.01)
+        sidebar.appearance = NSAppearance(named: .aqua)
+        main.appearance = NSAppearance(named: .darkAqua); settle()
+        recordAppearance("mainDark")
+        check("mainOwnAppearanceReprojectsWithoutChangingSidebarAppearance", abs(components(main)[3] - 0.12) < 0.01
+            && abs(components(sidebar)[3] - 0.09) < 0.01)
+        sidebar.appearance = nil; main.appearance = nil; settle()
+        recordAppearance("ownOverridesCleared")
+        check("independentAppearanceChangesNeverReloadResampleOrRevokeCurrentSource", appearanceCounts == [loadCalls, sampleCalls, loadCancels, sampleCancels]
+            && active.request?.revision == appearanceRevision && components(sidebar) == light && components(main) == light)
         check("passiveLayerPreservesLayout", [sidebar.frame, main.frame, button.frame] == originalFrames)
         check("passiveLayerPreservesHitAndAccessibility", root.hitTest(button.convert(button.bounds.center, to: root)) === button
             && [sidebar.subviews, main.subviews] == originalChildren
@@ -247,6 +277,46 @@ import Foundation
             && policyRoots.allSatisfy { components($0)[0] > 0.98 && components($0)[3] > 0 })
         policyOwner.bind(nil)
 
+        let sheet = NSWindow(contentRect: NSRect(x: 14000, y: 14000, width: 220, height: 180),
+            styleMask: [.titled], backing: .buffered, defer: false)
+        sheet.isReleasedWhenClosed = false
+        let sheetSurface = AppKitListTintSurface(frame: NSRect(x: 0, y: 0, width: 220, height: 180))
+        sheetSurface.appearance = NSAppearance(named: .aqua)
+        let sheetButton = NSButton(title: "原生控件", target: nil, action: nil)
+        sheetButton.frame = NSRect(x: 20, y: 30, width: 100, height: 30)
+        sheetSurface.addSubview(sheetButton); sheet.contentView = sheetSurface
+        let sheetChildren = sheetSurface.subviews, sheetButtonFrame = sheetButton.frame
+        var sheetLoads = 0, sheetSampleCancels = 0
+        var sheetSamples: [(ListThumbnailTintColor?) -> Void] = []
+        let sheetOwner = AppKitListBackgroundTint(sample: { _, done in
+            sheetSamples.append(done); return { sheetSampleCancels += 1 }
+        }, displayOptions: { .init(allowsTint: true, reduceMotion: true) })
+        sheetOwner.install(main: sheetSurface)
+        let sheetSource = ListThumbnailTintSource()
+        sheetSource.update(id: "shared-main-only") { done in sheetLoads += 1; done(redImage); return {} }
+        let sheetRevision = sheetSource.request?.revision
+        sheetOwner.bind(sheetSource)
+        check("mainOnlyInstallCreatesNoPhantomSidebarOrContent", sheetSurface.subviews == sheetChildren
+            && sheetButton.frame == sheetButtonFrame && sheetLoads == 0 && components(sheetSurface)[3] == 0)
+        sheet.orderFront(nil); settle()
+        check("mainOnlyVisibilityLoadsTheOriginalBoundSource", sheetLoads == 1 && sheetSamples.count == 1
+            && sheetSource.request?.revision == sheetRevision)
+        sheetSamples.removeLast()(red)
+        check("mainOnlyProjectsSameLightTintWithoutChangingHitOrLayout", components(sheetSurface)[0] > 0.98
+            && abs(components(sheetSurface)[3] - 0.09) < 0.01 && sheetSurface.subviews == sheetChildren
+            && sheetButton.frame == sheetButtonFrame && sheetSurface.hitTest(sheetButton.frame.center) === sheetButton)
+        window.orderOut(nil); settle()
+        check("mainOnlyLeaseDoesNotFollowAnotherWindowVisibility", components(sheetSurface)[0] > 0.98
+            && sheetLoads == 1 && sheetSource.request?.revision == sheetRevision)
+        sheetSource.invalidate()
+        let sheetLateSample = sheetSamples.removeLast()
+        let cancelsBeforeSheetHide = sheetSampleCancels
+        sheet.orderOut(nil); settle(); sheetLateSample(blue)
+        check("mainOnlyHiddenWindowCancelsAndRejectsLateSample", sheetSampleCancels == cancelsBeforeSheetHide + 1
+            && components(sheetSurface)[3] == 0 && sheetSource.request?.revision != sheetRevision)
+        sheetOwner.bind(nil); sheet.contentView = nil; sheet.close()
+        window.orderFront(nil); settle()
+
         // The unmodified default policy must agree with this machine's current
         // NSWorkspace values; only the sampling leaf is recorded here.
         let workspace = NSWorkspace.shared
@@ -273,7 +343,8 @@ import Foundation
         defaultOwner.bind(nil)
         window.contentView = nil; window.close()
         FileHandle.standardOutput.write(try JSONSerialization.data(withJSONObject: ["checks": checks,
-            "accessibilitySuppressed": accessibilitySuppressesTint, "systemReducesMotion": systemReducesMotion], options: [.sortedKeys]))
+            "accessibilitySuppressed": accessibilitySuppressesTint, "systemReducesMotion": systemReducesMotion,
+            "appearanceDiagnostics": appearanceDiagnostics], options: [.sortedKeys]))
     }
 }
 

@@ -30,6 +30,10 @@ class SteamPreviewLifecycleTests(unittest.TestCase):
             sources = [*SOURCES, UI / "SteamWorkshopItemDetailPreviewSupport.swift",
                        ROOT / "script/tests/fixtures/GridCardInteractionChecks.swift",
                        ROOT / "script/tests/fixtures/NativeAppHarness.swift"]
+            sources += [ROOT / "MyWallpaperX" / name for name in (
+                "Models/WallpaperReference.swift", "Models/WallpaperContent.swift", "Models/WallpaperLibraryPage.swift",
+                "Shared/Components/WallpaperLibraryGridMetrics.swift", "Shared/UI/BoxSelectionState.swift",
+                "Shared/UI/GridThumbnailPrefetchDemand.swift", "Shell/WallpaperLibraryGridController.swift")]
             # Execute the real row preview method without account/job UI leaves.
             row = (UI / "SteamWorkshopDownloadTasksPopover.swift").read_text()
             start = row.index("    private func loadPreviewIfNeeded(itemID: String) {")
@@ -76,7 +80,7 @@ class SteamPreviewLifecycleTests(unittest.TestCase):
                                          proof_environment="MWX_PREVIEW_PROOF_DIR")
             self.assertEqual(interaction.launch_returncode, 0, interaction.stdout + interaction.stderr)
             interaction_checks = json.loads(interaction.stdout)
-            self.assertEqual(len(interaction_checks), 18)
+            self.assertEqual(len(interaction_checks), 32)
             for name, passed in interaction_checks.items():
                 with self.subTest(name=name):
                     self.assertIs(passed, True)

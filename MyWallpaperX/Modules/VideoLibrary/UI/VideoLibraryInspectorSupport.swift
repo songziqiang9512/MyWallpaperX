@@ -81,6 +81,7 @@ enum VideoLibraryInspectorViews {
         stack.addArrangedSubview(makeLabel(label, font: .systemFont(ofSize: 11, weight: .medium), color: .secondaryLabelColor))
         let valueLabel = makeLabel(value, font: .systemFont(ofSize: 13, weight: .semibold), color: .labelColor)
         valueLabel.maximumNumberOfLines = 2
+        valueLabel.heightAnchor.constraint(equalToConstant: ceil(valueLabel.font!.ascender - valueLabel.font!.descender + valueLabel.font!.leading) * 2).isActive = true
         valueLabel.isSelectable = true
         stack.addArrangedSubview(valueLabel)
         return stack
@@ -159,8 +160,9 @@ enum VideoLibraryInspectorViews {
 }
 
 final class VideoLibraryInspectorPreviewSurfaceView: NSView {
-    private let image: NSImage?
+    private var image: NSImage?
     private let placeholderView = NSImageView()
+    private let missingLabel = NSTextField(wrappingLabelWithString: "当前未找到缩略图，正在使用占位预览")
 
     init(image: NSImage?) {
         self.image = image
@@ -171,6 +173,13 @@ final class VideoLibraryInspectorPreviewSurfaceView: NSView {
     @available(*, unavailable)
     required init?(coder: NSCoder) {
         nil
+    }
+
+    func updateImage(_ image: NSImage?, missing: Bool = false) {
+        self.image = image
+        placeholderView.isHidden = image != nil
+        missingLabel.isHidden = !missing || image != nil
+        needsDisplay = true
     }
 
     override func draw(_ dirtyRect: NSRect) {
@@ -210,7 +219,17 @@ final class VideoLibraryInspectorPreviewSurfaceView: NSView {
         placeholderView.isHidden = image != nil
 
         addSubview(placeholderView)
+        missingLabel.font = .systemFont(ofSize: 11)
+        missingLabel.textColor = .secondaryLabelColor
+        missingLabel.alignment = .center
+        missingLabel.maximumNumberOfLines = 2
+        missingLabel.translatesAutoresizingMaskIntoConstraints = false
+        missingLabel.isHidden = true
+        addSubview(missingLabel)
         NSLayoutConstraint.activate([
+            missingLabel.leadingAnchor.constraint(equalTo: leadingAnchor, constant: 12),
+            missingLabel.trailingAnchor.constraint(equalTo: trailingAnchor, constant: -12),
+            missingLabel.topAnchor.constraint(equalTo: placeholderView.bottomAnchor, constant: 6),
             placeholderView.centerXAnchor.constraint(equalTo: centerXAnchor),
             placeholderView.centerYAnchor.constraint(equalTo: centerYAnchor),
             placeholderView.widthAnchor.constraint(equalToConstant: 36),

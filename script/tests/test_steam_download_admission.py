@@ -35,6 +35,7 @@ import Foundation
 struct SteamWorkshopBrowserItem {}
 struct SteamWorkshopPendingDownloadRequest {
     let id: String; let pageTitle: String?; let item: SteamWorkshopBrowserItem?
+    var libraryRestoration: (() -> Void)? = nil
 }
 @MainActor final class Auth {
     var steamId: String?
@@ -58,9 +59,12 @@ struct SteamWorkshopPendingDownloadRequest {
     var authPhase = Phase.credentials
     var isAuthenticating = false
     var isDownloadWorkflowBusy = false
-    var steamJobItemPayloads: [String: SteamWorkshopBrowserItem] = [:]
+    var steamJobItemPayloads: [String: SteamWorkshopPendingDownloadRequest] = [:]
+    var prepareExplicitLibraryRestoration: ((WallpaperReference) -> (() -> Void)?)?
     var started = 0
+    var startedRestorations: [(() -> Void)?] = []
     var projected = 0
+    var projectedAccounts: [String] = []
     var guidance = 0
     init(_ url: URL) { downloadJobStore = SteamDownloadJobStore(persistenceURL: url) }
     func presentSteamLoginForUserAction(context: String) { guidance += 1; isLoginSheetPresented = true }
@@ -69,16 +73,17 @@ struct SteamWorkshopPendingDownloadRequest {
     func isQueuedDownloadRequest(id: String) -> Bool { downloadJobStore.isQueuedOrRunning(workshopItemId: id) }
     func beginDownloadWorkflow(_ request: SteamWorkshopPendingDownloadRequest) {
         started += 1
+        startedRestorations.append(request.libraryRestoration)
         activeDownloadItemIDs.insert(request.id)
         activeDownloadTasks[request.id] = Task {}
     }
     enum Status { case queued }
-    func upsertTransientRecord(id: String, title: String, status: Status, sizeText: String) { projected += 1 }
+    func upsertTransientRecord(id: String, title: String, status: Status, accountSteamID: String, sizeText: String) { projected += 1; projectedAccounts.append(accountSteamID) }
     func downloadStatusSizeText(for id: String) -> String { "" }
 }
 extension SteamWorkshopService {
 METHODS
-    func enqueueDirect() { enqueueDownloadRequest(id: "123456", pageTitle: nil, item: SteamWorkshopBrowserItem()) }
+    func enqueueDirect() { enqueueDownloadRequest(.init(id: "123456", pageTitle: nil, item: SteamWorkshopBrowserItem())) }
     func resumeQueue() { processNextQueuedDownloadIfPossible() }
 }
 @main struct Harness {
@@ -98,13 +103,19 @@ METHODS
             precondition(s.started == 0, "login cannot revive a rejected click")
         }
         let queued = service("queued.json")
+        var prepared = 0, restored = 0
+        queued.prepareExplicitLibraryRestoration = { reference in
+            precondition(reference == .init(provider: .steamWorkshop, sourceID: "123456"))
+            prepared += 1
+            return { restored += 1 }
+        }
         queued.steamAuth.steamId = "A"; queued.isDownloadWorkflowBusy = true
         queued.activeDownloadItemIDs = ["999999"]
         queued.activeDownloadTasks = ["busy-a": Task {}, "busy-b": Task {}]
         queued.downloadWorkshopItem(id: "123456")
         queued.downloadWorkshopItem(id: "123456")
         precondition(queued.downloadJobStore.jobs.count == 1 && queued.projected == 1)
-        precondition(queued.downloadJobStore.jobs[0].accountSteamId == "A")
+        precondition(queued.downloadJobStore.jobs[0].accountSteamId == "A" && queued.projectedAccounts == ["A"])
         // Simulate a recovered queue (no executor). Signed-out and another account cannot pop it.
         queued.steamAuth.steamId = nil
         queued.activeDownloadItemIDs.removeAll()
@@ -119,6 +130,10 @@ METHODS
         queued.steamAuth.steamId = "A"
         queued.resumeQueue()
         precondition(queued.started == 1 && queued.downloadJobStore.jobs[0].attempt == 1)
+        precondition(prepared == 1 && restored == 0 && queued.startedRestorations.count == 1,
+            "queue must preserve one original explicit receipt without consuming it during admission")
+        queued.startedRestorations[0]?()
+        precondition(restored == 1, "dequeued executor must receive the original request receipt")
         let immediate = service("immediate.json")
         immediate.steamAuth.steamId = "A"
         immediate.downloadWorkshopItem(id: "654321")
@@ -141,6 +156,7 @@ METHODS
             dependencies = [
                 ROOT / "MyWallpaperX/Core/SteamWorkshopStorage/ScenePlaybackSource.swift",
                 ROOT / "MyWallpaperX/Core/SteamWorkshopStorage/SteamWorkshopStorageTree.swift",
+                ROOT / "MyWallpaperX/Models/WallpaperReference.swift",
                 ROOT / "MyWallpaperX/Core/DaemonKit/DaemonNewlineJSON.swift",
                 ROOT / "MyWallpaperX/Core/DaemonKit/DaemonProcessTransport.swift",
                 *[CORE / name for name in ("SteamServiceProtocol.swift", "SteamServiceClient.swift",

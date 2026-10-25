@@ -16,16 +16,18 @@ final class WallpaperManager {
     let entered = DispatchSemaphore(value: 0)
     let release = DispatchSemaphore(value: 0)
     private let lock = NSLock()
-    private var counts: [String: Int] = [:]
+    private var counts: [Data: Int] = [:]
+    var wallpapers: [VideoWallpaper] = []
+    var preparedIDs: [String] = []
     var blockedID: String?
-    func count(_ id: String) -> Int { lock.lock(); defer { lock.unlock() }; return counts[id, default: 0] }
+    func count(_ id: String) -> Int { lock.lock(); defer { lock.unlock() }; return counts[Data(id.utf8), default: 0] }
     func normalizedPath(_ path: String) -> String { path }
     func normalizedSourcePathExists(_ path: String) -> Bool { !path.contains("absent") }
     func isThumbnailGenerationInFlight(for path: String) -> Bool { false }
     func hasRecentThumbnailGenerationFailure(for path: String) -> Bool { false }
-    func ensurePreviewAssetsForWallpaper(_ wallpaper: VideoWallpaper) {}
+    func ensurePreviewAssetsForWallpaper(_ wallpaper: VideoWallpaper) { preparedIDs.append(wallpaper.id) }
     func resolvedThumbnailPath(for wallpaper: VideoWallpaper) -> String? {
-        lock.lock(); counts[wallpaper.id, default: 0] += 1
+        lock.lock(); counts[Data(wallpaper.id.utf8), default: 0] += 1
         let block = blockedID == wallpaper.id
         if block { blockedID = nil }
         lock.unlock()
@@ -114,6 +116,19 @@ final class WallpaperManager {
             && !card.placeholderLabel.isHidden && card.thumbnailImageView.image == nil
         RunLoop.main.run(until: Date().addingTimeInterval(0.14))
         checks["failureCannotBeOverwrittenByDelayedLoading"] = card.placeholderLabel.stringValue == "请检查文件路径"
+        let unicodeA = VideoWallpaper(id: "é", path: root + "/nfc.mp4", thumbnailPath: path + ".nfc")
+        let unicodeB = VideoWallpaper(id: "e\u{301}", path: root + "/nfd.mp4", thumbnailPath: path + ".nfd")
+        try FileManager.default.copyItem(atPath: path, toPath: unicodeA.thumbnailPath!)
+        try FileManager.default.copyItem(atPath: path, toPath: unicodeB.thumbnailPath!)
+        manager.blockedID = unicodeA.id
+        provider.replacePrefetch(with: [unicodeA])
+        checks["opaquePrefetchFirstValidationStarts"] = manager.entered.wait(timeout: .now() + 2) == .success
+        provider.replacePrefetch(with: [unicodeA, unicodeB])
+        manager.release.signal()
+        checks["opaqueUnicodePrefetchLeasesDoNotCancelEachOther"] = pump {
+            VideoLibraryThumbnailStore.sharedCache.cachedImage(forKey: unicodeA.thumbnailPath!) != nil
+                && VideoLibraryThumbnailStore.sharedCache.cachedImage(forKey: unicodeB.thumbnailPath!) != nil
+        } && manager.count(unicodeA.id) == 1 && manager.count(unicodeB.id) == 1
         try FileManager.default.removeItem(atPath: path)
         var finished = false
         provider.loadThumbnail(for: a) { image = $0; finished = true }

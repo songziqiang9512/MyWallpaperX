@@ -26,6 +26,8 @@ import subprocess
 import tempfile
 import unittest
 
+from script.tests.native_app_harness import prepare_native_app, run_native_app
+
 
 ROOT = pathlib.Path(__file__).resolve().parents[2]
 UI = ROOT / "MyWallpaperX/Modules/SteamWorkshop/UI"
@@ -33,13 +35,15 @@ CORE = ROOT / "MyWallpaperX/Modules/SteamWorkshop/Core"
 SHARED_UI = ROOT / "MyWallpaperX/Shared/UI"
 
 SOURCES = [
+    ROOT / "script/tests/fixtures/NativeAppHarness.swift",
     SHARED_UI / "DecodedThumbnailMemoryCache.swift",
     SHARED_UI / "GridThumbnailDecoder.swift",
     CORE / "SteamWorkshopPreviewSource.swift",
     SHARED_UI / "WallpaperGridScrollView.swift",
     UI / "AppKitSteamWorkshopBrowserItem.swift",
     UI / "AppKitSteamWorkshopBrowserItem+Presentation.swift",
-    UI / "AppKitSteamWorkshopBrowserItemSupportViews.swift",
+    ROOT / "MyWallpaperX/Shared/Components/WallpaperCardInteractionView.swift",
+    ROOT / "MyWallpaperX/Shared/Components/WallpaperCardSupportViews.swift",
     UI / "SteamWorkshopPreviewPlaceholderView.swift",
     UI / "SteamWorkshopPreviewState.swift",
     CORE / "SteamWorkshopPreviewImageSupport.swift",
@@ -78,10 +82,11 @@ final class SteamWorkshopService {
 }
 
 final class SteamAuthProbe {
-    var isOnline: Bool { false }
+    var isOnline = false
 }
 
 enum SteamSubscriptionProbeState: Equatable {
+    case unknown
     case known(Bool)
     case loading
     case writing
@@ -91,8 +96,10 @@ enum SteamSubscriptionProbeState: Equatable {
 final class SteamSubscriptionsProbe {
     @Published var states: [String: SteamSubscriptionProbeState] = [:]
     func state(for id: String) -> SteamSubscriptionProbeState { states[id] ?? .known(false) }
-    func toggle(_ id: String) {}
-    func refresh(_ id: String) {}
+    var toggles: [String] = []
+    var refreshes: [String] = []
+    func toggle(_ id: String) { toggles.append(id) }
+    func refresh(_ id: String) { refreshes.append(id) }
 }
 
 enum SteamWorkshopItemMenu {
@@ -120,10 +127,15 @@ HARNESS = r'''
 import AppKit
 import Foundation
 
+private final class ProgressProbeWindow: NSWindow {
+    var probePointer = NSPoint(x: -10_000, y: -10_000)
+    override var mouseLocationOutsideOfEventStream: NSPoint { probePointer }
+}
+
 @main struct Harness {
     @MainActor static func main() {
-        _ = NSApplication.shared
-        let window = NSWindow(
+        initializeNativeAppHarness()
+        let window = ProgressProbeWindow(
             contentRect: NSRect(x: 0, y: 0, width: 320, height: 260),
             styleMask: [.titled],
             backing: .buffered,
@@ -135,7 +147,7 @@ import Foundation
         window.orderFrontRegardless()
 
         // -- GlassBar: an unchanged indeterminate sweep is never restarted --
-        let bar = SteamWorkshopGlassBarView(frame: NSRect(x: 0, y: 0, width: 200, height: 28))
+        let bar = WallpaperCardGlassBarView(frame: NSRect(x: 0, y: 0, width: 200, height: 28))
         container.addSubview(bar)
         bar.layoutSubtreeIfNeeded()
         bar.setProgressAnimationVisible(true)
@@ -191,6 +203,7 @@ import Foundation
         let card = AppKitSteamWorkshopBrowserItem()
         card.view.frame = NSRect(x: 30, y: 40, width: 250, height: 180)
         container.addSubview(card.view)
+        card.setPreviewVisible(true)
         card.view.layoutSubtreeIfNeeded()
 
         let store = SteamWorkshopDownloadProgressStore()
@@ -241,6 +254,17 @@ import Foundation
         configureCard()
         precondition(card.titleMarqueeView.activeMarqueeAnimation === marqueeAt10,
                      "a duplicate snapshot delivery disturbed the marquee")
+
+        card.setPreviewVisible(false)
+        precondition(card.titleMarqueeView.activeMarqueeAnimation == nil
+                     && card.overlayBar.activeIndeterminateAnimation == nil,
+                     "the original display lifecycle must revoke both repeating animations")
+        configureCard()
+        precondition(card.titleMarqueeView.activeMarqueeAnimation == nil,
+                     "offscreen metadata/progress replay must not revive title animation")
+        card.setPreviewVisible(true)
+        precondition(card.titleMarqueeView.activeMarqueeAnimation != nil,
+                     "ready display demand must resume the retained title without reconfiguration")
 
         // Determinate completion leaves the sweep stopped.
         _ = store.receiveHelperEvent(
@@ -306,15 +330,72 @@ import Foundation
         card.viewDidLayout()
         service.steamSubscriptions.states[item.id] = .known(true)
         card.refreshSubscribeHeart()
-        precondition(card.detailButton.accessibilityLabel() == "取消订阅：\(item.title)", "heart test must enter subscribed browser chrome")
-        assertSymbolSize(card.detailButton.image, named: "heart.fill")
+        precondition(card.detailButton.accessibilityLabel() == "取消订阅：\(item.title)", "bookmark test must enter subscribed browser chrome")
+        assertSymbolSize(card.detailButton.image, named: "bookmark.fill")
+        service.steamAuth.isOnline = true
+        card.detailButton.performClick(nil)
+        precondition(service.steamSubscriptions.toggles == [item.id], "account bookmark must retain the original subscription owner")
         service.steamSubscriptions.states[item.id] = .known(false)
         card.refreshSubscribeHeart()
-        precondition(card.detailButton.accessibilityLabel() == "订阅：\(item.title)", "heart test must enter unsubscribed browser chrome")
-        assertSymbolSize(card.detailButton.image, named: "heart")
+        precondition(card.detailButton.accessibilityLabel() == "订阅：\(item.title)", "bookmark test must enter unsubscribed browser chrome")
+        assertSymbolSize(card.detailButton.image, named: "bookmark")
+        service.steamSubscriptions.states[item.id] = .unknown
+        card.handleSubscribeToggle()
+        precondition(service.steamSubscriptions.refreshes == [item.id], "unknown account membership must refresh rather than toggle")
+        var remoteFavorites = 0, remotePrimaries = 0
+        card.configure(displayContext: .browser, isPlaying: true, item: item, downloadRecord: ready,
+            downloadProgressStore: store, isDownloading: false, isDownloaded: true, isKeyboardFocused: false,
+            organization: .init(isFavorite: true, canFavorite: true, canPlay: true, canDownload: false, canCancel: false,
+                onFavorite: { remoteFavorites += 1 }, onPrimary: { remotePrimaries += 1 }),
+            onOpen: {}, onDownload: {}, onSetAsWallpaper: {}, onCancelDownload: {})
+        assertSymbolSize(card.detailButton.image, named: "heart.fill")
+        assertSymbolSize(card.statusBadgeButton.image, named: "stop.fill")
+        card.detailButton.performClick(nil); card.statusBadgeButton.performClick(nil)
+        precondition(remoteFavorites == 1 && remotePrimaries == 1 && service.steamSubscriptions.toggles == [item.id]
+                     && service.steamSubscriptions.refreshes == [item.id], "downloaded browser heart/primary must never call the account owner")
+        service.steamAuth.isOnline = false
+        var localFavorites = 0, localStops = 0
+        func organizationCard(canFavorite: Bool, canPlay: Bool, multiSelect: Bool = false) {
+            card.configure(displayContext: .downloads, isPlaying: true, item: item, downloadRecord: ready,
+                downloadProgressStore: store, isDownloading: false, isDownloaded: true,
+                isMultiSelectMode: multiSelect, isKeyboardFocused: false,
+                organization: .init(isFavorite: true, canFavorite: canFavorite, canPlay: canPlay,
+                    canDownload: false, canCancel: false, onFavorite: { localFavorites += 1 },
+                    onPrimary: { localStops += 1 }),
+                onOpen: {}, onDownload: {}, onSetAsWallpaper: {}, onCancelDownload: {})
+        }
+        organizationCard(canFavorite: true, canPlay: true)
+        card.detailButton.performClick(nil); card.statusBadgeButton.performClick(nil)
+        precondition(localFavorites == 1 && localStops == 1,
+                     "organization heart and stop must use their injected current-content commands")
+        precondition(card.detailButton.accessibilityLabel()?.contains("特别喜爱") == true,
+                     "organization heart must never advertise Steam account subscription: \(String(describing: card.detailButton.accessibilityLabel()))")
+        organizationCard(canFavorite: false, canPlay: false)
+        card.detailButton.performClick(nil); card.statusBadgeButton.performClick(nil)
+        precondition(card.detailButton.isHidden && !card.statusBadgeButton.isEnabled
+                     && localFavorites == 1 && localStops == 1, "revoked source capabilities must disable both real controls")
+        organizationCard(canFavorite: true, canPlay: true)
+        precondition(!card.detailButton.isHidden && card.detailButton.isEnabled && card.statusBadgeButton.isEnabled,
+                     "unchanged favorite state must still restore revoked capability chrome")
+        card.applyOrganizationState(.init(isFavorite: false, canFavorite: true,
+            onFavorite: { localFavorites += 1 }, onPrimary: { localStops += 1 }),
+            isPlaying: false, isMultiSelectMode: false, isKeyboardFocused: true)
+        precondition(card.detailButton.accessibilityLabel()?.contains("特别喜爱") == true
+                     && card.statusBadgeButton.accessibilityLabel()?.contains("设为壁纸") == true,
+                     "state-only organization updates must reach the original native controls")
+        organizationCard(canFavorite: true, canPlay: true, multiSelect: true)
+        card.detailButton.performClick(nil); card.statusBadgeButton.performClick(nil)
+        precondition(localFavorites == 1 && localStops == 1, "multiselect must reject detached organization actions")
+        card.prepareForReuse()
+        card.detailButton.performClick(nil); card.statusBadgeButton.performClick(nil)
+        precondition(localFavorites == 1 && localStops == 1, "reuse must revoke old organization callbacks")
+        card.setPreviewVisible(true)
+        launchCard()
+
         // Retired per-button tracking identity is covered by real hit regions,
         // target/action delivery and disabled -> enabled transitions instead.
-        let proof = ProcessInfo.processInfo.environment["MWX_STEAM_NATIVE_BUTTON_PROOF_DIR"]
+        if !CommandLine.arguments.contains("--cli-only") {
+        let proof = CommandLine.arguments.dropFirst().first
             .map { URL(fileURLWithPath: $0, isDirectory: true) }
         var buttonFrames: [String: [[CGFloat]]] = [:]
         func capture(_ name: String) {
@@ -324,11 +405,16 @@ import Foundation
             card.view.cacheDisplay(in: card.view.bounds, to: bitmap)
             try! bitmap.representation(using: .png, properties: [:])!.write(to: proof.appendingPathComponent(name + ".png"))
         }
+        NSApp.activate()
+        let activeDeadline = Date().addingTimeInterval(2)
+        while !NSApp.isActive, Date() < activeDeadline { RunLoop.main.run(until: Date().addingTimeInterval(0.005)) }
+        precondition(NSApp.isActive && window.isVisible, "native button hit tests need a visible active App")
         for dark in [false, true] {
             window.appearance = NSAppearance(named: dark ? .darkAqua : .aqua)
             for width: CGFloat in [200, 280, 380] {
                 card.view.frame.size = NSSize(width: width, height: 220)
                 launchCard()
+                window.probePointer = card.view.convert(NSPoint(x: card.view.bounds.midX, y: card.view.bounds.midY), to: nil)
                 card.isHovering = true
                 card.applyHoverStyle(animated: false)
                 card.viewDidLayout()
@@ -341,6 +427,9 @@ import Foundation
                     for point in [NSPoint(x: 1, y: 1), NSPoint(x: button.bounds.midX, y: button.bounds.midY),
                                   NSPoint(x: button.bounds.maxX - 1, y: button.bounds.maxY - 1)] {
                         let hit = card.view.hitTest(button.convert(point, to: card.view.superview))
+                        if hit !== button && hit?.isDescendant(of: button) != true {
+                            fputs("hit diagnostic: dark=\(dark) width=\(width) button=\(button.frame) point=\(point) hit=\(String(describing: hit)) bar=\(card.overlayBar.frame) visibility=\(card.currentBarVisibility) alpha=\(card.overlayBar.alphaValue)\n", stderr)
+                        }
                         precondition(hit === button || hit?.isDescendant(of: button) == true,
                             "button's full rectangle must retain the action, not open the card")
                     }
@@ -379,6 +468,7 @@ import Foundation
             try! JSONSerialization.data(withJSONObject: buttonFrames, options: [.prettyPrinted, .sortedKeys])
                 .write(to: proof.appendingPathComponent("button-frames.json"))
         }
+        }
         print("Steam download card progress diffing PASS")
     }
 }
@@ -388,12 +478,12 @@ import Foundation
 class SteamDownloadCardProgressDiffTests(unittest.TestCase):
     def test_progress_ticks_never_restart_card_animations(self) -> None:
         with tempfile.TemporaryDirectory(
-            prefix="mwx-steam-progress-diff-"
+            prefix="mwx-steam-progress-diff-", dir="/private/tmp"
         ) as directory:
             root = pathlib.Path(directory)
             support = root / "Support.swift"
             harness = root / "Harness.swift"
-            binary = root / "progress-diff-probe"
+            binary = prepare_native_app(root, "ProgressDiffProbe")
             support.write_text(SUPPORT, encoding="utf-8")
             harness.write_text(HARNESS, encoding="utf-8")
             identities = {str(path): hashlib.sha256(path.read_bytes()).hexdigest() for path in SOURCES}
@@ -423,8 +513,9 @@ class SteamDownloadCardProgressDiffTests(unittest.TestCase):
             run = subprocess.run(
                 # Literal command head; the probe binary is a tempdir
                 # artifact of the compilation above, never external input.
-                ["/usr/bin/env", str(binary)],
+                ["/usr/bin/env", str(binary), "--cli-only"],
                 cwd=ROOT,
+                env=dict(os.environ, HOME=str(root / "home"), CFFIXED_USER_HOME=str(root / "home")),
                 capture_output=True,
                 text=True,
                 timeout=60,
@@ -437,6 +528,14 @@ class SteamDownloadCardProgressDiffTests(unittest.TestCase):
                 (target / "runtime.log").write_text(run.stdout + run.stderr)
             self.assertEqual(run.returncode, 0, run.stderr or run.stdout)
             self.assertIn("PASS", run.stdout)
+            destination = os.environ.get("MWX_STEAM_NATIVE_BUTTON_PROOF_DIR")
+            if destination:
+                pathlib.Path(destination).mkdir(parents=True, exist_ok=True)
+            native = run_native_app(binary, [destination] if destination else [], timeout=60)
+            if destination:
+                (pathlib.Path(destination) / "native-runtime.log").write_text(native.stdout + native.stderr)
+            self.assertEqual(native.launch_returncode, 0, native.stdout + native.stderr)
+            self.assertIn("Steam download card progress diffing PASS", native.stdout, native.stderr)
 
 
 if __name__ == "__main__":

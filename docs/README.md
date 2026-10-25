@@ -38,6 +38,7 @@
 
 - [播放进程生命周期与统一切换事务](architecture/playback-lifecycle-transaction-design.md)：三引擎退出、可见确认、取消和退休边界。
 - [AppKit 迁移](architecture/appkit-migration.md)：当前 SwiftUI 残留和迁移门。
+- [主界面与混合播放列表改造](development/main-window-playlists-redesign.md)：Apple Music 风格的侧栏、统一卡片和逐页工具栏规范，以及关系迁移、跨类型轮换与分批验收；分批实施与验收见专项。
 - [代码精简专项](development/code-slimming-program.md)：无消费者链路、重复计算和校验策略的分批范围与验收。
 - [Web 专题入口](web/README.md)：Web 当前状态、稳定合同和历史导航。
 - [Web 现役状态](web/current-state.md)：当前 Web runtime 事实和待验收项。

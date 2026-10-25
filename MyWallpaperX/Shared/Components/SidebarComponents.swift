@@ -8,8 +8,6 @@ import AppKit
 final class SidebarOutlineView: NSOutlineView {
     var rowContextMenuProvider: ((Int) -> NSMenu?)?
     var blankAreaMenuProvider: (() -> NSMenu?)?
-    var draggingUpdatedHandler: ((NSPoint) -> Void)?
-    var draggingSessionEndedHandler: ((NSDragOperation) -> Void)?
     var sameSelectionClickHandler: ((Int) -> Void)?
 
     private var mouseDownRow: Int = -1
@@ -60,23 +58,14 @@ final class SidebarOutlineView: NSOutlineView {
 
     override func draggingSession(
         _ session: NSDraggingSession,
-        endedAt screenPoint: NSPoint,
-        operation: NSDragOperation
+        willBeginAt screenPoint: NSPoint
     ) {
-        super.draggingSession(session, endedAt: screenPoint, operation: operation)
-        draggingSessionEndedHandler?(operation)
-    }
-
-    override func draggingSession(
-        _ session: NSDraggingSession,
-        sourceOperationMaskFor context: NSDraggingContext
-    ) -> NSDragOperation {
-        .move
-    }
-
-    override func draggingUpdated(_ sender: NSDraggingInfo) -> NSDragOperation {
-        draggingUpdatedHandler?(sender.draggingLocation)
-        return .move
+        // NSOutlineView may consume the tracking loop itself, without calling
+        // mouseDragged. A native drag must revoke the same-selection click.
+        didBeginDragGesture = true
+        pendingSameSelectionClickWorkItem?.cancel()
+        pendingSameSelectionClickWorkItem = nil
+        super.draggingSession(session, willBeginAt: screenPoint)
     }
 
     override func mouseDown(with event: NSEvent) {
@@ -160,21 +149,16 @@ final class SidebarOutlineView: NSOutlineView {
 }
 
 final class SidebarRowView: NSTableRowView {
-    var suppressSelectionDuringDrag = false
-
     // Keep the native neutral selection while focus moves into the new page.
     override var isEmphasized: Bool {
         get { false }
         set { super.isEmphasized = false }
     }
-
-    override func drawSelection(in dirtyRect: NSRect) {
-        guard !suppressSelectionDuringDrag else { return }
-        super.drawSelection(in: dirtyRect)
-    }
 }
 
 final class SidebarRowCellView: NSTableCellView {
+    private static let iconSide: CGFloat = 22
+    private let iconSlot = NSView()
     private let iconView = NSImageView()
     private let titleLabel = NSTextField(labelWithString: "")
     private let countLabel = NSTextField(labelWithString: "")
@@ -190,14 +174,18 @@ final class SidebarRowCellView: NSTableCellView {
         nil
     }
 
-    func configure(title: String, symbolName: String?, count: Int?) {
+    func configure(title: String, symbolName: String?, count: Int?, coverImage: NSImage? = nil,
+                   symbolTint: NSColor? = nil) {
         // 行视图只吃纯数据快照，不保留额外派生状态，便于 outlineView 重建时直接复用。
-        // 复用池可能携带上一任行被拖拽置 0 的腾空态（alphaValue 唯一写点在
-        // setDraggingPresentation），重新装配内容时一并复位，避免整行不可见；
-        // 拖拽源行在拖拽期间不会走 configure，腾空呈现不受影响。
-        alphaValue = 1
         titleLabel.stringValue = title
-        if let symbolName, let image = NSImage(systemSymbolName: symbolName, accessibilityDescription: nil) {
+        iconView.contentTintColor = coverImage == nil ? (symbolTint ?? .secondaryLabelColor) : nil
+        iconView.wantsLayer = coverImage != nil
+        iconView.layer?.cornerRadius = coverImage == nil ? 0 : 3
+        iconView.layer?.masksToBounds = coverImage != nil
+        if let coverImage {
+            iconView.image = coverImage
+            iconView.isHidden = false
+        } else if let symbolName, let image = NSImage(systemSymbolName: symbolName, accessibilityDescription: nil) {
             iconView.image = image
             iconView.isHidden = false
         } else {
@@ -214,11 +202,6 @@ final class SidebarRowCellView: NSTableCellView {
         }
     }
 
-    func setDraggingPresentation(_ isDragging: Bool) {
-        // 拖拽中的源行在视觉上临时腾空，避免与拖拽图像形成“双影”。
-        alphaValue = isDragging ? 0 : 1
-    }
-
     private func setup() {
         // 这个 cell 只负责图标、标题、计数三段式布局，样式尽量保持原生 source list 的直觉。
         wantsLayer = true
@@ -227,10 +210,11 @@ final class SidebarRowCellView: NSTableCellView {
         textField = titleLabel
         imageView = iconView
         iconView.contentTintColor = .secondaryLabelColor
-        iconView.symbolConfiguration = NSImage.SymbolConfiguration(pointSize: 12, weight: .regular)
+        iconView.imageScaling = .scaleProportionallyUpOrDown
         iconView.translatesAutoresizingMaskIntoConstraints = false
+        iconSlot.translatesAutoresizingMaskIntoConstraints = false
+        iconSlot.addSubview(iconView)
 
-        titleLabel.font = .systemFont(ofSize: 13, weight: .regular)
         titleLabel.textColor = .labelColor
         titleLabel.lineBreakMode = .byTruncatingTail
         titleLabel.translatesAutoresizingMaskIntoConstraints = false
@@ -246,14 +230,18 @@ final class SidebarRowCellView: NSTableCellView {
         container.translatesAutoresizingMaskIntoConstraints = false
 
         addSubview(container)
-        container.addArrangedSubview(iconView)
+        container.addArrangedSubview(iconSlot)
         container.addArrangedSubview(titleLabel)
         container.addArrangedSubview(NSView())
         container.addArrangedSubview(countLabel)
 
         NSLayoutConstraint.activate([
-            iconView.widthAnchor.constraint(equalToConstant: 14),
-            iconView.heightAnchor.constraint(equalToConstant: 14),
+            iconView.widthAnchor.constraint(equalToConstant: Self.iconSide),
+            iconView.heightAnchor.constraint(equalToConstant: Self.iconSide),
+            iconSlot.widthAnchor.constraint(equalToConstant: Self.iconSide),
+            iconSlot.heightAnchor.constraint(equalToConstant: Self.iconSide),
+            iconView.centerXAnchor.constraint(equalTo: iconSlot.centerXAnchor),
+            iconView.centerYAnchor.constraint(equalTo: iconSlot.centerYAnchor),
             countLabel.widthAnchor.constraint(greaterThanOrEqualToConstant: 16),
             container.leadingAnchor.constraint(equalTo: leadingAnchor, constant: 6),
             container.trailingAnchor.constraint(equalTo: trailingAnchor, constant: -8),

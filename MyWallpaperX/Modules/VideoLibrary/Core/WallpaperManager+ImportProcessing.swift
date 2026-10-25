@@ -15,6 +15,7 @@ extension WallpaperManager {
         var linked = 0
         var missing = 0
         var unreadable = 0
+        var failures: [String: String] = [:]
     }
 
     private enum ImportSourceValidationResult {
@@ -53,18 +54,48 @@ extension WallpaperManager {
         // 内置示例从签名 Bundle 中的 Videos.zip 首次解压到 Application Support。
         for videoURL in BundledVideoLibrary.videoURLs {
             let title = videoURL.deletingPathExtension().lastPathComponent
-            let newWallpaper = makeImportedWallpaper(from: videoURL, title: title, context: .library)
+            let newWallpaper = makeImportedWallpaper(from: videoURL, title: title)
             _ = upsertWallpaper(newWallpaper)
             if !didFinishInitialIndexLoad { initialIndexSeedWallpapers.append(newWallpaper) }
             schedulePreviewAssetGeneration(for: videoURL)
         }
     }
     func processImportedVideos(from urls: [URL], presentingIn window: NSWindow?, context: ImportContext,
-                               autoplayToken: ImportedVideoAutoplayGate.Token? = nil,
-                               resourceLifetime: PlaybackResourceLifetime? = nil) {
-        guard !urls.isEmpty else { return }
+                               admission: ImportedVideoPlaybackAdmission? = nil,
+                               resourceLifetime: PlaybackResourceLifetime? = nil,
+                               presentsSummary: Bool = true, completion: ((WallpaperSourceImportResult) -> Void)? = nil) {
+        guard allowsLibraryMutation else {
+            if let admission {
+                guard acceptsImportedVideoPlayback(admission) else {
+                    failImportedVideoPlayback(admission, reason: "视频播放请求已取消")
+                    return
+                }
+                let matchesSource = (context == .onlinePlayback && admission.reference.provider == .pixabay)
+                    || (context == .steamPlayback && admission.reference.provider == .steamWorkshop)
+                if matchesSource, urls.count == 1, let url = urls.first,
+                   let existing = wallpapers.first(where: { normalizedPath($0.path) == normalizedPath(url.path) }) {
+                    // Reuse the existing indexed resource and the original
+                    // ticket; recovery mode must not import or rewrite history.
+                    withExtendedLifetime(resourceLifetime) {
+                        setAsWallpaper(existing, admission: admission)
+                    }
+                    return
+                }
+                failImportedVideoPlayback(admission, reason: "需要先恢复资料库再导入播放。")
+            }
+            reportMigrationReadOnly(in: window)
+            return
+        }
+        guard !urls.isEmpty else {
+            if let admission { failImportedVideoPlayback(admission, reason: "没有可导入的视频，已保留原壁纸") }
+            return
+        }
+        let indexEpoch = wallpaperIndexSaveEpoch
         let existingPathsSnapshot = Set(wallpapers.map { normalizedPath($0.path) })
-        let generation = autoplayToken == nil ? beginImportPreparationRequest() : nil
+        // Independent explicit organization imports complete in the original
+        // serial queue. The old single-selection preparation slot still
+        // supersedes its own legacy requests, never another import command.
+        let generation = admission == nil && completion == nil ? beginImportPreparationRequest() : nil
 
         // 导入先做后台预处理，再回主线程应用结果，避免导入大批量文件时阻塞前台交互。
         let workItem = DispatchWorkItem { [weak self] in
@@ -78,17 +109,20 @@ extension WallpaperManager {
             }
             DispatchQueue.main.async { [weak self] in
                 guard let self else { return }
+                guard self.wallpaperIndexSaveEpoch == indexEpoch else { return }
                 if let generation, !self.isImportPreparationRequestCurrent(generation) { return }
                 self.applyPreparedImportResult(
                     prepared,
                     presentingIn: window,
                     context: context,
-                    autoplayToken: autoplayToken,
-                    resourceLifetime: resourceLifetime
+                    indexEpoch: indexEpoch,
+                    admission: admission,
+                    resourceLifetime: resourceLifetime,
+                    presentsSummary: presentsSummary, orderedPaths: urls.map { self.normalizedPath($0.path) }, completion: completion
                 )
             }
         }
-        if autoplayToken == nil { setImportPreparationWorkItem(workItem) }
+        if generation != nil { setImportPreparationWorkItem(workItem) }
         importPreparationQueue.async(execute: workItem)
     }
 
@@ -113,6 +147,7 @@ extension WallpaperManager {
 
     private func scheduleImportedAssetsProcessing(_ urls: [URL]) {
         guard !urls.isEmpty else { return }
+        let indexEpoch = wallpaperIndexSaveEpoch
         let normalizedURLs = urls.map { URL(fileURLWithPath: normalizedPath($0.path)) }
 
         importAssetPipelineQueue.async { [weak self] in
@@ -138,7 +173,8 @@ extension WallpaperManager {
                     guard self.pathExists(url.path) else { return }
                     guard let staticFramePath = self.generateStaticFrame(for: url) else { return }
                     DispatchQueue.main.async { [weak self] in
-                        self?.updateWallpaperAssetPaths(forPath: url.path, staticFramePath: staticFramePath)
+                        guard let self, self.wallpaperIndexSaveEpoch == indexEpoch else { return }
+                        self.updateWallpaperAssetPaths(forPath: url.path, staticFramePath: staticFramePath)
                     }
                 }
             }
@@ -148,6 +184,7 @@ extension WallpaperManager {
                 let metadataUpdates = await Self.collectImportedAssetMetadata(for: normalizedURLs)
                 guard !metadataUpdates.isEmpty else { return }
                 await MainActor.run {
+                    guard self.wallpaperIndexSaveEpoch == indexEpoch else { return }
                     self.applyImportedAssetMetadataUpdates(metadataUpdates)
                 }
             }
@@ -267,8 +304,10 @@ extension WallpaperManager {
                         )
                     case .missing:
                         counters.missing += 1
+                        counters.failures[normalizedPath(url.path)] = "文件不存在"
                     case .unreadable:
                         counters.unreadable += 1
+                        counters.failures[normalizedPath(url.path)] = "文件无法读取"
                     }
                 }
             }
@@ -311,9 +350,12 @@ extension WallpaperManager {
         _ prepared: ImportPreparationResult,
         presentingIn window: NSWindow?,
         context: ImportContext,
-        autoplayToken: ImportedVideoAutoplayGate.Token?,
-        resourceLifetime: PlaybackResourceLifetime?
+        indexEpoch: UInt64,
+        admission: ImportedVideoPlaybackAdmission?,
+        resourceLifetime: PlaybackResourceLifetime?,
+        presentsSummary: Bool, orderedPaths: [String], completion: ((WallpaperSourceImportResult) -> Void)?
     ) {
+        guard wallpaperIndexSaveEpoch == indexEpoch, allowsLibraryMutation else { return }
         // 应用阶段只在主线程改模型，后台预处理结果不直接碰 @Published 属性。
         var counters = prepared.counters
         var playableExistingPaths = prepared.existingPathsToLink
@@ -327,38 +369,30 @@ extension WallpaperManager {
         var insertedURLs: [URL] = []
         insertedURLs.reserveCapacity(prepared.preparedImports.count)
         for path in prepared.existingPathsToLink {
-            guard let index = indexByPath[path] else {
+            guard wallpaperIndexSaveEpoch == indexEpoch else { return }
+            guard indexByPath[path] != nil else {
                 counters.duplicate += 1
                 continue
             }
-            if applyContextMetadataIfNeeded(context, to: &wallpapers[index]) {
-                counters.linked += 1
-            } else {
-                counters.duplicate += 1
-            }
-            recordInitialIndexImportContext(context, wallpaper: wallpapers[index])
+            counters.duplicate += 1
         }
 
         for entry in prepared.preparedImports {
-            if let index = indexByPath[entry.normalizedPath] {
-                if applyContextMetadataIfNeeded(context, to: &wallpapers[index]) {
-                    counters.linked += 1
-                } else {
-                    counters.duplicate += 1
-                }
-                recordInitialIndexImportContext(context, wallpaper: wallpapers[index])
+            guard wallpaperIndexSaveEpoch == indexEpoch else { return }
+            if indexByPath[entry.normalizedPath] != nil {
+                counters.duplicate += 1
                 playableExistingPaths.append(entry.normalizedPath)
                 continue
             }
 
-            let wallpaper = makePreparedWallpaper(entry, context: context)
+            let wallpaper = makePreparedWallpaper(entry)
             newWallpapers.append(wallpaper)
             insertedURLs.append(entry.sourceURL)
             indexByPath[entry.normalizedPath] = wallpapers.count + newWallpapers.count - 1
         }
 
         // onlinePlayback / steamPlayback 静默导入，不弹任何提示
-        if context != .onlinePlayback && context != .steamPlayback {
+        if presentsSummary, context != .onlinePlayback && context != .steamPlayback {
             presentImportSummary(
                 makeImportSummary(
                     requestedCount: prepared.requestedCount,
@@ -369,21 +403,40 @@ extension WallpaperManager {
             )
         }
 
+        guard wallpaperIndexSaveEpoch == indexEpoch else { return }
         if !newWallpapers.isEmpty {
             wallpapers.reserveCapacity(wallpapers.count + newWallpapers.count)
         }
         appendWallpapersInBatches(newWallpapers)
-        for wallpaper in newWallpapers {
-            recordInitialIndexImportContext(context, wallpaper: wallpaper)
-        }
+        guard wallpaperIndexSaveEpoch == indexEpoch else { return }
 
+        let importedBacking = newWallpapers.first ?? playableExistingPaths.first.flatMap { path in
+            wallpapers.first(where: { normalizedPath($0.path) == path })
+        }
+        // The successful import publisher supplies provenance independently of
+        // playback admission. Stop cancels playback, not an accepted download.
+        if let admission, prepared.requestedCount == 1, let importedBacking,
+           (context == .onlinePlayback && admission.reference.provider == .pixabay)
+            || (context == .steamPlayback && admission.reference.provider == .steamWorkshop) {
+            libraryBackingPublished?(WallpaperContentBackingPublication(backingVideoID: importedBacking.id,
+                publishedReference: admission.reference, proof: .publishedDownload))
+        }
+        guard wallpaperIndexSaveEpoch == indexEpoch else { return }
         // 在线库静默导入后立即播放：优先播放新导入的，已存在则从库中找
-        if let autoplayToken, ImportedVideoAutoplayGate.shared.isCurrent(autoplayToken) {
-            if let first = newWallpapers.first {
-                setAsWallpaper(first, userInitiated: true)
-            } else if let path = playableExistingPaths.first,
-                      let existing = wallpapers.first(where: { normalizedPath($0.path) == path }) {
-                setAsWallpaper(existing, userInitiated: true)
+        if let admission {
+            if acceptsImportedVideoPlayback(admission) {
+                if let first = newWallpapers.first {
+                    setAsWallpaper(first, admission: admission)
+                } else if let path = playableExistingPaths.first,
+                          let existing = wallpapers.first(where: { normalizedPath($0.path) == path }) {
+                    setAsWallpaper(existing, admission: admission)
+                } else {
+                    failImportedVideoPlayback(admission, reason: "视频无法导入或已不可用，已保留原壁纸")
+                }
+            } else {
+                // Silent import remains valid after Stop/a newer choice, but its
+                // old admission never gets a fresh ticket or starts playback.
+                failImportedVideoPlayback(admission, reason: "视频播放请求已取消")
             }
         }
 
@@ -393,17 +446,27 @@ extension WallpaperManager {
         // WallpaperManager.wallpapers and is included in Steam version GC's
         // persistent-path protection set.
         withExtendedLifetime(resourceLifetime) {}
-    }
-
-    private func recordInitialIndexImportContext(_ context: ImportContext, wallpaper: VideoWallpaper) {
-        switch context {
-        case .favorites:
-            recordInitialIndexExplicitEdit(wallpaper, fields: [.favorite])
-        case .tag(let tag):
-            recordInitialIndexExplicitEdit(wallpaper, fields: [], addedTags: [tag])
-        default: break
+        guard wallpaperIndexSaveEpoch == indexEpoch else { return }
+        if let completion {
+            let accepted = Set(playableExistingPaths + newWallpapers.map { normalizedPath($0.path) })
+            let added = Set(newWallpapers.map { normalizedPath($0.path) })
+            var reportedNew = Set<String>()
+            let results = orderedPaths.map { path -> WallpaperSourceImportResult.Item in
+                let url = URL(fileURLWithPath: path)
+                guard accepted.contains(path), let item = wallpapers.first(where: { normalizedPath($0.path) == path }) else {
+                    return .init(sourceURL: url, disposition: .failed, organizationItem: nil,
+                                 failureMessage: counters.failures[path] ?? "资料库内容已变化，未完成入库")
+                }
+                let disposition: WallpaperSourceImportResult.Disposition = added.contains(path) && reportedNew.insert(path).inserted ? .added : .existing
+                return .init(sourceURL: url, disposition: disposition,
+                    organizationItem: .init(reference: .init(provider: .videoLibrary, sourceID: item.id),
+                        locator: .init(path: item.path, titleHint: item.title, mediaKind: .video),
+                        isPublishedLocally: true, isAvailable: true), failureMessage: nil)
+            }
+            completion(.init(items: results))
         }
     }
+
 
     private func schedulePreviewAssetGeneration(for url: URL) {
         scheduleStaticFrameGeneration(for: url)
@@ -425,25 +488,25 @@ extension WallpaperManager {
         return .valid(normalizedURL)
     }
 
-    private func makeImportedWallpaper(from url: URL, title: String, context: ImportContext) -> VideoWallpaper {
-        var wallpaper = VideoWallpaper(
+    private func makeImportedWallpaper(from url: URL, title: String) -> VideoWallpaper {
+        let wallpaper = VideoWallpaper(
             title: title,
             path: url.path,
             thumbnailPath: existingThumbnailPath(for: url),
-            staticFramePath: existingStaticFramePath(for: url)
+            staticFramePath: existingStaticFramePath(for: url),
+            firstIndexedAt: Date()
         )
-        _ = applyContextMetadataIfNeeded(context, to: &wallpaper)
         return wallpaper
     }
 
-    private func makePreparedWallpaper(_ entry: PreparedImportEntry, context: ImportContext) -> VideoWallpaper {
-        var wallpaper = VideoWallpaper(
+    private func makePreparedWallpaper(_ entry: PreparedImportEntry) -> VideoWallpaper {
+        let wallpaper = VideoWallpaper(
             title: entry.title,
             path: entry.sourceURL.path,
             thumbnailPath: entry.cachedThumbnailPath,
-            staticFramePath: entry.cachedStaticFramePath
+            staticFramePath: entry.cachedStaticFramePath,
+            firstIndexedAt: Date()
         )
-        _ = applyContextMetadataIfNeeded(context, to: &wallpaper)
         return wallpaper
     }
 
@@ -452,27 +515,6 @@ extension WallpaperManager {
         // 一次性 append 触发单次 @Published 通知，避免递归 async 在 main queue 累积大量调度帧。
         // 之前的分批递归方案在大批量导入（>80 条）时会在主队列堆积数十次调度，与渲染帧竞争。
         wallpapers.append(contentsOf: wallpapersToAppend)
-    }
-
-    @discardableResult
-    private func applyContextMetadataIfNeeded(_ context: ImportContext, to wallpaper: inout VideoWallpaper) -> Bool {
-        // 导入到某个分类时，只补上下文需要的标签，不覆盖用户已有收藏 / 标签的主状态。
-        switch context {
-        case .library:
-            return false
-        case .onlinePlayback:
-            return false  // 静默入库，不附加任何标签
-        case .steamPlayback:
-            return false  // 静默入库，不附加任何标签
-        case .favorites:
-            guard !wallpaper.isFavorite else { return false }
-            wallpaper.isFavorite = true
-            return true
-        case .tag(let tag):
-            guard !wallpaper.tags.contains(tag) else { return false }
-            wallpaper.tags.append(tag)
-            return true
-        }
     }
 
     /// 扫描全库并异步修补缺失的元数据（时长、分辨率等）

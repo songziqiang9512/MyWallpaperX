@@ -43,18 +43,7 @@ enum DebugWebFailureStateRunner {
     }
 
     private static func postWebLaunch(entryURL: URL, rootURL: URL, recordID: String) {
-        NotificationCenter.default.post(
-            name: .steamWorkshopWebWallpaperReadyToPlay,
-            object: nil,
-            userInfo: [
-                "entryURL": entryURL,
-                "rootURL": rootURL,
-                "propertiesJSON": "{}",
-                "recordID": recordID,
-                "language": "en-us",
-                "runtimeProfile": WallpaperEngine.WebRuntimeProfile.diagnostic
-            ]
-        )
+        WallpaperLibraryPlaybackRouting.postDiagnosticWeb(entryURL: entryURL, rootURL: rootURL, recordID: recordID)
     }
 
     private static var navigationChecks: [String: Bool] = [:]
@@ -134,7 +123,7 @@ enum DebugWebFailureStateRunner {
         guard let videoURL = BundledVideoLibrary.videoURL(named: "Video2") else {
             finish(preconditionFailure: "bundled-video-missing"); return
         }
-        manager.setAsWallpaper(VideoWallpaper(title: "Failure Gate Video", path: videoURL.path), userInitiated: true)
+        manager.requestDiagnosticVideo(VideoWallpaper(title: "Failure Gate Video", path: videoURL.path))
         let allChecks = checks.merging(navigationChecks) { _, new in new }.merging([
             "terminalCleared": terminalCleared,
             "hostCleared": host.activeRequest == nil && host.liveProcessIdentifiers.isEmpty,

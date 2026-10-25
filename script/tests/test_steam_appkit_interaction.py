@@ -23,7 +23,7 @@ import AppKit
     static let panelSize = NSSize(width: 400, height: 460)
 }
 final class FlippedView: NSView { override var isFlipped: Bool { true } }
-final class SteamWorkshopGlassBarView: NSView {
+final class WallpaperCardGlassBarView: NSView {
     func setProgressAnimationVisible(_ visible: Bool) {}
 }
 @MainActor final class LayoutController: NSViewController {

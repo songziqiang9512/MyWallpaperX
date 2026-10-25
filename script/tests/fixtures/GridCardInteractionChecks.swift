@@ -12,7 +12,8 @@ import QuartzCore
 /// button dispatch remain covered by their existing owner gates.
 @MainActor func gridCardInteractionChecks(
     item: NSCollectionViewItem, cardRoot: NSView, outline: NSView,
-    isHovering: () -> Bool, label: String
+    isHovering: () -> Bool, label: String,
+    dragImageView: NSImageView? = nil, layoutDragImage: (() -> Void)? = nil
 ) -> [String: Bool] {
     let previousSuperview = item.view.superview
     let previousFrame = item.view.frame
@@ -132,5 +133,215 @@ import QuartzCore
     checks[label + ".restored-hover-keeps-identity-without-transform-animation"] = observe(0.38)
     diagnose("after-restored-observation")
     checks[label + ".restored-hover-shows-white-outline"] = isHovering() && whiteOutline()
+    if let dragImageView, let layoutDragImage {
+        checks.merge(cardNativeDragImageChecks(item: item, thumbnail: dragImageView,
+            layoutThumbnail: layoutDragImage, label: label)) { _, new in new }
+    }
     return checks
+}
+
+@MainActor private final class CardNativeDragImageProbe: NSObject, NSCollectionViewDelegate {
+    let owner: WallpaperLibraryGridController
+    let card: NSCollectionViewItem
+    let thumbnail: NSImageView
+    let readyImage: NSImage
+    weak var mountedParent: NSView?
+    var starts = 0, ends = 0
+    var components: [NSDraggingImageComponent] = []
+    var firstTurnPreservesSource: Bool?
+    var endedDiagnostic = "not-ended", firstTurnDiagnostic = "not-sampled"
+    var firstTurnTimer: Timer?
+    init(owner: WallpaperLibraryGridController, card: NSCollectionViewItem, thumbnail: NSImageView, image: NSImage) {
+        self.owner = owner; self.card = card; self.thumbnail = thumbnail; readyImage = image
+    }
+    override func responds(to selector: Selector!) -> Bool { super.responds(to: selector) || owner.responds(to: selector) }
+    override func forwardingTarget(for selector: Selector!) -> Any? { owner }
+    func collectionView(_ collectionView: NSCollectionView, draggingSession session: NSDraggingSession,
+                        willBeginAt point: NSPoint, forItemsAt paths: Set<IndexPath>) {
+        (owner as NSCollectionViewDelegate).collectionView?(collectionView, draggingSession: session,
+            willBeginAt: point, forItemsAt: paths)
+        starts += 1
+        session.enumerateDraggingItems(options: [], for: collectionView, classes: [NSPasteboardItem.self], searchOptions: [:]) { item, _, _ in
+            components += item.imageComponents ?? []
+        }
+    }
+    func collectionView(_ collectionView: NSCollectionView, draggingSession session: NSDraggingSession,
+                        endedAt point: NSPoint, dragOperation operation: NSDragOperation) {
+        (owner as NSCollectionViewDelegate).collectionView?(collectionView, draggingSession: session,
+            endedAt: point, dragOperation: operation)
+        ends += 1
+        endedDiagnostic = sampleSource(in: collectionView).diagnostic
+        // Observe the first later native turn, after the ended callback returns.
+        // Do not force a layout, display, layer commit or thumbnail refresh.
+        let timer = Timer(timeInterval: 0, repeats: false) { [weak self, weak collectionView] _ in
+            MainActor.assumeIsolated {
+                guard let self, let collectionView else { return }
+                let sample = self.sampleSource(in: collectionView)
+                self.firstTurnPreservesSource = sample.preserved
+                self.firstTurnDiagnostic = sample.diagnostic
+                self.firstTurnTimer = nil
+            }
+        }
+        firstTurnTimer = timer
+        RunLoop.main.add(timer, forMode: .common)
+    }
+    private func sampleSource(in collection: NSCollectionView) -> (preserved: Bool, diagnostic: String) {
+        var node: NSView? = thumbnail
+        var opaque = true, values: [String] = []
+        while let current = node, current !== collection {
+            let model = current.layer?.opacity, presentation = current.layer?.presentation()?.opacity
+            opaque = opaque && !current.isHidden && current.alphaValue == 1
+                && model.map({ $0 == 1 }) != false && presentation.map({ $0 == 1 }) != false
+            values.append("\(type(of: current)):hidden=\(current.isHidden),alpha=\(current.alphaValue),layer=\(String(describing: model)),presentation=\(String(describing: presentation))")
+            node = current.superview
+        }
+        let mounted = card.view.superview === mountedParent && mountedParent != nil && node === collection
+        let sameImage = thumbnail.image === readyImage
+        return (mounted && sameImage && opaque && card.view.layer != nil && !thumbnail.isHiddenOrHasHiddenAncestor,
+                "mounted=\(mounted) sameImage=\(sameImage) " + values.joined(separator: ";"))
+    }
+}
+
+/// The production Grid's real native collection asks the complete provider item
+/// for its drag image and applies its actual cancellation policy.
+/// Only the already-ready source pixels are controlled here; no decoder,
+/// network, App selection or relationship command is replaced or invoked.
+@MainActor private func cardNativeDragImageChecks(item: NSCollectionViewItem, thumbnail: NSImageView,
+                                                layoutThumbnail: () -> Void, label: String) -> [String: Bool] {
+    let previousParent = item.view.superview, previousFrame = item.view.frame
+    let previousImage = thumbnail.image, previousSelection = item.isSelected
+    let root = item.view as? WallpaperCardInteractionView
+    let previousActivation = root?.onAccessibilityActivate
+    let previousElement = item.view.isAccessibilityElement(), previousRole = item.view.accessibilityRole()
+    let previousLabel = item.view.accessibilityLabel()
+    let image = NSImage(size: NSSize(width: 400, height: 180))
+    image.lockFocus()
+    NSColor(deviceRed: 0.16, green: 0.73, blue: 0.46, alpha: 1).setFill()
+    NSRect(x: 0, y: 0, width: 400, height: 180).fill()
+    NSColor(deviceRed: 0.86, green: 0.14, blue: 0.20, alpha: 1).setFill()
+    NSRect(x: 0, y: 0, width: 100, height: 180).fill()
+    NSColor(deviceRed: 0.12, green: 0.26, blue: 0.86, alpha: 1).setFill()
+    NSRect(x: 300, y: 0, width: 100, height: 180).fill()
+    NSColor(deviceRed: 0.91, green: 0.78, blue: 0.12, alpha: 1).setFill()
+    NSRect(x: 100, y: 140, width: 200, height: 40).fill()
+    NSColor(deviceRed: 0.76, green: 0.18, blue: 0.81, alpha: 1).setFill()
+    NSRect(x: 100, y: 0, width: 200, height: 40).fill()
+    image.unlockFocus()
+    thumbnail.image = image
+    let owner = WallpaperLibraryGridController { _, _, _, _ in item }
+    owner.loadViewIfNeeded()
+    owner.onSelection = { _, _ in UUID() }
+    let collection = owner.collection
+    let probe = CardNativeDragImageProbe(owner: owner, card: item, thumbnail: thumbnail, image: image)
+    collection.delegate = probe
+    let window = NSWindow(contentRect: NSRect(x: 160, y: 160, width: 600, height: 350),
+        styleMask: [.titled, .closable], backing: .buffered, defer: false)
+    window.isReleasedWhenClosed = false; window.contentViewController = owner
+    window.setContentSize(NSSize(width: 600, height: 350))
+    window.makeKeyAndOrderFront(nil); NSApp.activate()
+    defer {
+        window.orderOut(nil)
+        item.view.removeFromSuperview(); item.view.frame = previousFrame
+        previousParent?.addSubview(item.view)
+        item.isSelected = previousSelection; thumbnail.image = previousImage
+        layoutThumbnail()
+        collection.dataSource = nil; collection.delegate = nil
+        probe.firstTurnTimer?.invalidate()
+        window.close()
+        root?.onAccessibilityActivate = previousActivation
+        item.view.setAccessibilityElement(previousElement); item.view.setAccessibilityRole(previousRole)
+        item.view.setAccessibilityLabel(previousLabel)
+        withExtendedLifetime(probe) {}
+    }
+    let activation = Date().addingTimeInterval(3)
+    while !NSApp.isActive || !window.isKeyWindow {
+        precondition(Date() < activation, "native card drag host never became active/key")
+        RunLoop.main.run(until: Date().addingTimeInterval(0.005))
+    }
+    window.contentView?.layoutSubtreeIfNeeded(); owner.scrollView.layoutSubtreeIfNeeded()
+    let reference = WallpaperReference(provider: .videoLibrary, sourceID: "native-card-" + label)
+    let value = WallpaperContentItem(reference: reference, providerReference: reference,
+        locator: .init(mediaKind: .video), title: label, kind: .video,
+        publishedAvailability: .available, capabilities: [.organize], metadata: .init(),
+        acquisition: .idle, update: .idle, aliases: [])
+    owner.update(page: .videos, items: [value], selection: .init(), preferredColumns: 3,
+        permitsDragging: true, scrollAnchor: nil)
+    window.contentView?.layoutSubtreeIfNeeded(); collection.layoutSubtreeIfNeeded()
+    item.viewDidLayout(); layoutThumbnail()
+    precondition(collection.item(at: IndexPath(item: 0, section: 0)) === item && item.view.window === window,
+        "real provider card was not mounted by the native collection")
+    let parent = item.view.superview, frame = item.view.frame
+    probe.mountedParent = parent
+    let start = item.view.convert(NSPoint(x: item.view.bounds.midX, y: item.view.bounds.midY), to: nil)
+    let moved = NSPoint(x: start.x + 35, y: start.y + 15)
+    let now = ProcessInfo.processInfo.systemUptime
+    func mouse(_ type: NSEvent.EventType, _ point: NSPoint, _ time: TimeInterval) -> NSEvent {
+        NSEvent.mouseEvent(with: type, location: point, modifierFlags: [], timestamp: time,
+            windowNumber: window.windowNumber, context: nil, eventNumber: 61, clickCount: 1,
+            pressure: type == .leftMouseUp ? 0 : 1)!
+    }
+    NSApp.postEvent(mouse(.leftMouseUp, moved, now + 0.03), atStart: true)
+    NSApp.postEvent(mouse(.leftMouseDragged, moved, now + 0.02), atStart: true)
+    window.sendEvent(mouse(.leftMouseDown, start, now))
+    let ending = Date().addingTimeInterval(2)
+    while probe.firstTurnPreservesSource == nil, Date() < ending {
+        while let event = NSApp.nextEvent(matching: .any, until: .distantPast, inMode: .default, dequeue: true) { NSApp.sendEvent(event) }
+        RunLoop.main.run(until: Date().addingTimeInterval(0.005))
+    }
+    let bounds = NSRect(origin: .zero, size: frame.size)
+    let snapshot = NSImage(size: bounds.size)
+    snapshot.lockFocus()
+    for component in probe.components {
+        (component.contents as? NSImage)?.draw(in: component.frame, from: .zero, operation: .sourceOver, fraction: 1)
+    }
+    snapshot.unlockFocus()
+    func pixel(_ image: NSImage, x: Double, y: Double) -> NSColor? {
+        guard let cg = image.cgImage(forProposedRect: nil, context: nil, hints: nil) else { return nil }
+        let rep = NSBitmapImageRep(cgImage: cg)
+        return rep.colorAt(x: min(rep.pixelsWide - 1, Int(Double(rep.pixelsWide) * x)),
+            y: min(rep.pixelsHigh - 1, Int(Double(rep.pixelsHigh) * y)))?.usingColorSpace(.deviceRGB)
+    }
+    func matches(_ expected: NSColor?, _ color: NSColor?) -> Bool {
+        guard let expected, let color else { return false }
+        return zip([expected.redComponent, expected.greenComponent, expected.blueComponent, expected.alphaComponent],
+                   [color.redComponent, color.greenComponent, color.blueComponent, color.alphaComponent])
+            .allSatisfy { pair in abs(pair.0 - pair.1) <= CGFloat(1) / 255 }
+    }
+    func rgba(_ color: NSColor?) -> String {
+        guard let color else { return "nil" }
+        return "\(color.redComponent),\(color.greenComponent),\(color.blueComponent),\(color.alphaComponent)"
+    }
+    let geometry = probe.components.map { "\($0.key.rawValue):\($0.frame):\(type(of: $0.contents as Any))" }.joined(separator: ",")
+    FileHandle.standardError.write(Data("native-card-drag[\(label)] starts=\(probe.starts) ends=\(probe.ends) card=\(bounds) thumbnail=\(thumbnail.frame) nativeOutlet=\(item.imageView === thumbnail) components=\(geometry)\n".utf8))
+    FileHandle.standardError.write(Data("native-card-drag[\(label)] ended=\(probe.endedDiagnostic)\nfirst-native-turn=\(probe.firstTurnDiagnostic)\n".utf8))
+    let pixelValues = [0.15, 0.5, 0.85].map {
+        "y=\($0) source=\(rgba(pixel(image, x: 0.5, y: $0))) drag=\(rgba(pixel(snapshot, x: 0.5, y: $0)))"
+    }
+    FileHandle.standardError.write(Data(("native-card-drag[\(label)] " + pixelValues.joined(separator: "; ") + "\n").utf8))
+    return [
+        label + ".native-drag-uses-the-current-ready-thumbnail-outlet": probe.starts == 1 && probe.ends == 1
+            && item.imageView === thumbnail && probe.components.count == 1 && probe.components.first?.key == .icon,
+        label + ".native-drag-cover-stays-inside-the-live-card": !probe.components.isEmpty
+            && probe.components.allSatisfy { bounds.contains($0.frame) && !$0.frame.isEmpty },
+        label + ".native-drag-preview-excludes-the-glass-bar": [0.15, 0.5, 0.85].allSatisfy {
+            matches(pixel(image, x: 0.5, y: $0), pixel(snapshot, x: 0.5, y: $0))
+        },
+        label + ".native-drag-completion-preserves-source-pixels-and-mount": thumbnail.image === image
+            && item.view.superview === parent && parent != nil && item.view.frame == frame
+            && !item.view.isHidden && item.view.alphaValue == 1,
+        label + ".first-native-turn-after-drag-keeps-live-source-opaque-and-ready": probe.firstTurnPreservesSource == true,
+        // A square center crop of this 400x180 fixture keeps source x=110...290.
+        // Neither outside 100px edge marker belongs in the resulting cover.
+        label + ".native-drag-center-crops-wide-pixels-instead-of-stretching-edge-markers":
+            frame.width == frame.height && frame.width > 0
+            && matches(pixel(image, x: 0.5, y: 0.5), pixel(snapshot, x: 0.1, y: 0.5))
+            && matches(pixel(image, x: 0.5, y: 0.5), pixel(snapshot, x: 0.9, y: 0.5)),
+        label + ".nonuniform-source-has-distinct-opaque-edge-and-orientation-markers": {
+            guard let left = pixel(image, x: 0.05, y: 0.5), let right = pixel(image, x: 0.95, y: 0.5),
+                  let top = pixel(image, x: 0.5, y: 0.05), let bottom = pixel(image, x: 0.5, y: 0.95) else { return false }
+            return left.redComponent > left.blueComponent && right.blueComponent > right.redComponent
+                && top.greenComponent > top.blueComponent && bottom.blueComponent > bottom.greenComponent
+                && [left, right, top, bottom].allSatisfy { $0.alphaComponent == 1 }
+        }()
+    ]
 }

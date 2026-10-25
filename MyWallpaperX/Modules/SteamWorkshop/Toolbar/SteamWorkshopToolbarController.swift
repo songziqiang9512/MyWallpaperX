@@ -7,18 +7,13 @@ import AppKit
 import Combine
 
 final class SteamWorkshopToolbarController: NSObject, NSSearchFieldDelegate {
-    enum Title {
-        static let browser = "Steam 创意工坊"
-        static let downloads = "Steam 下载"
-    }
 
     weak var toolbar: NSToolbar?
     weak var window: NSWindow?
-    var localModeIdentifiers: [NSToolbarItem.Identifier] = []
     var titleUpdateHandler: ((String) -> Void)?
+    var makeZoomAction: ((Int) -> (() -> Void)?)?
 
-    /// 普通菜单按钮（账号/下载筛选/下载排序）的统一 popover 呈现器。
-    /// 普通菜单按钮（账号/下载筛选/下载排序）的统一 popover 呈现器。
+    /// 账号和浏览菜单共用的 popover 呈现器。
     private(set) lazy var menuPopover = ToolbarMenuPopoverPresenter(
         fallbackAnchorProvider: { [weak self] in self?.window?.contentView }
     )
@@ -45,15 +40,11 @@ final class SteamWorkshopToolbarController: NSObject, NSSearchFieldDelegate {
         .sidebarTrackingSeparator,
         NSToolbarItem.Identifier("ToolbarTitle"),
         .flexibleSpace,
-        .steamAccount,
-        .space,
-        .steamDownloadTasks,
-        .space,
-        .steamSort,
+        .steamAccount, .steamDownloadTasks,
         .space,
         .steamTrendingWindow,
         .space,
-        .steamFilter,
+        .steamSort, .steamFilter,
         .space,
         .steamZoom,
         .space,
@@ -64,11 +55,9 @@ final class SteamWorkshopToolbarController: NSObject, NSSearchFieldDelegate {
         .sidebarTrackingSeparator,
         NSToolbarItem.Identifier("ToolbarTitle"),
         .flexibleSpace,
+        .steamAccount, .steamDownloadTasks,
+        .space,
         .steamAuthorBack,
-        .space,
-        .steamAccount,
-        .space,
-        .steamDownloadTasks,
         .space,
         .steamZoom,
         .space,
@@ -115,13 +104,6 @@ final class SteamWorkshopToolbarController: NSObject, NSSearchFieldDelegate {
             self?.syncBrowserContextControls()
         }
         observers.append(browseContextObserver)
-
-        SteamWorkshopService.shared.$zoomOffset
-            .receive(on: RunLoop.main)
-            .sink { [weak self] _ in
-                self?.configureZoomItem()
-            }
-            .store(in: &cancellables)
 
         // SK2.2：账号按钮随新登录路线状态刷新。
         SteamWorkshopService.shared.steamAuth.$phase
@@ -201,41 +183,6 @@ final class SteamWorkshopToolbarController: NSObject, NSSearchFieldDelegate {
             }
             .store(in: &cancellables)
 
-        Publishers.CombineLatest(
-            SteamWorkshopService.shared.$selectedDownloadID,
-            SteamWorkshopService.shared.$downloads
-        )
-        .receive(on: RunLoop.main)
-        .sink { [weak self] _, _ in
-            self?.configureDownloadsDeleteItem()
-        }
-        .store(in: &cancellables)
-
-        SteamWorkshopService.shared.$isDownloadsMultiSelectMode
-            .receive(on: RunLoop.main)
-            .sink { [weak self] _ in
-                self?.configureDownloadsSelectItem()
-                self?.configureDownloadsDeleteItem()
-            }
-            .store(in: &cancellables)
-
-        Publishers.CombineLatest(
-            SteamWorkshopService.shared.$downloadsSortMode,
-            SteamWorkshopService.shared.$downloadsSortAscending
-        )
-        .receive(on: RunLoop.main)
-        .sink { [weak self] _, _ in
-            self?.configureDownloadsSortItem()
-        }
-        .store(in: &cancellables)
-
-        SteamWorkshopService.shared.$downloadsDisplayMode
-            .receive(on: RunLoop.main)
-            .sink { [weak self] _ in
-                self?.configureDownloadsFilterItem()
-            }
-            .store(in: &cancellables)
-
         SteamWorkshopService.shared.$facetFilters
             .receive(on: RunLoop.main)
             .sink { [weak self] _ in
@@ -256,21 +203,13 @@ final class SteamWorkshopToolbarController: NSObject, NSSearchFieldDelegate {
         isSteamWorkshopMode = true
         isDownloadsMode = isDownloads
 
-        if isDownloads {
-            configureDownloadsTitleItem()
-            configureAuthItems()
-            configureDownloadsSelectItem()
-            configureDownloadsDeleteItem()
-            configureDownloadsFilterItem()
-            configureDownloadsSortItem()
-            syncDownloadsSearchField()
-        } else {
+        if !isDownloads {
             titleUpdateHandler?(SteamWorkshopService.shared.browserSectionTitle)
             syncBrowserContextControls()
-            configureAuthItems()
         }
+        configureAuthItems()
         configureDownloadTasksItem()
-        configureZoomItem()
+        zoomToolbarItem.menuFormRepresentation = zoomControl.menuRepresentation()
     }
 
     /// 选择类控件统一为「当前值 + 下拉三角面板」按钮（与其他工具栏菜单
@@ -299,158 +238,12 @@ final class SteamWorkshopToolbarController: NSObject, NSSearchFieldDelegate {
         return item
     }()
 
-    lazy var downloadsTitleLabel: NSTextField = {
-        let label = NSTextField(labelWithString: Title.downloads)
-        label.font = .systemFont(ofSize: 16, weight: .bold)
-        label.textColor = .labelColor
-        label.lineBreakMode = .byTruncatingTail
-        label.translatesAutoresizingMaskIntoConstraints = false
-        return label
-    }()
-
-    lazy var downloadsTitleContainer: NSView = {
-        let container = NSView(frame: NSRect(x: 0, y: 0, width: 180, height: 28))
-        container.translatesAutoresizingMaskIntoConstraints = false
-        container.addSubview(downloadsTitleLabel)
-        NSLayoutConstraint.activate([
-            downloadsTitleLabel.leadingAnchor.constraint(equalTo: container.leadingAnchor),
-            downloadsTitleLabel.trailingAnchor.constraint(equalTo: container.trailingAnchor),
-            downloadsTitleLabel.centerYAnchor.constraint(equalTo: container.centerYAnchor),
-            container.widthAnchor.constraint(equalToConstant: 180),
-            container.heightAnchor.constraint(equalToConstant: 28)
-        ])
-        return container
-    }()
-
-    lazy var downloadsTitleItem: NSToolbarItem = {
-        let item = NSToolbarItem(itemIdentifier: .steamDownloadsTitle)
-        item.label = "当前目录"
-        item.paletteLabel = "当前目录"
-        item.autovalidates = false
-        item.isBordered = false
-        item.view = downloadsTitleContainer
-        return item
-    }()
-
-    lazy var downloadsDeleteItem: NSToolbarItem = {
-        let item = NSToolbarItem(itemIdentifier: .steamDownloadsDelete)
-        item.label = "删除"
-        item.paletteLabel = "删除"
-        item.toolTip = "删除当前选中的下载项"
-        item.autovalidates = false
-        item.image = NSImage(systemSymbolName: "trash", accessibilityDescription: "删除")
-        item.target = self
-        item.action = #selector(handleDeleteSelectedDownload)
-        return item
-    }()
-
-    lazy var downloadsSelectItem: NSToolbarItem = {
-        let item = NSToolbarItem(itemIdentifier: .steamDownloadsSelect)
-        item.label = "选择"
-        item.paletteLabel = "选择"
-        item.toolTip = "进入选择模式"
-        item.autovalidates = false
-        item.image = NSImage(systemSymbolName: "checkmark.circle", accessibilityDescription: "选择")
-        item.target = self
-        item.action = #selector(handleToggleDownloadsSelectMode)
-        return item
-    }()
-
-    lazy var downloadsSearchField: NSSearchField = {
-        let field = NSSearchField(frame: .zero)
-        field.delegate = self
-        field.placeholderString = "搜索"
-        field.sendsSearchStringImmediately = true
-        field.sendsWholeSearchString = false
-        field.recentsAutosaveName = nil
-        field.maximumRecents = 0
-        field.cell?.usesSingleLineMode = true
-        field.cell?.wraps = false
-        field.cell?.isScrollable = true
-        field.translatesAutoresizingMaskIntoConstraints = false
-        field.setContentCompressionResistancePriority(.defaultLow, for: .horizontal)
-        field.setContentHuggingPriority(.defaultLow, for: .horizontal)
-        return field
-    }()
-
-    lazy var downloadsSearchContainerView: NSView = {
-        let container = NSView(frame: NSRect(x: 0, y: 0, width: 165, height: 28))
-        container.translatesAutoresizingMaskIntoConstraints = false
-        container.addSubview(downloadsSearchField)
-        NSLayoutConstraint.activate([
-            downloadsSearchField.leadingAnchor.constraint(equalTo: container.leadingAnchor),
-            downloadsSearchField.trailingAnchor.constraint(equalTo: container.trailingAnchor),
-            downloadsSearchField.centerYAnchor.constraint(equalTo: container.centerYAnchor),
-            container.widthAnchor.constraint(equalToConstant: 165),
-            container.heightAnchor.constraint(equalToConstant: 28)
-        ])
-        return container
-    }()
-
-    lazy var downloadsSearchItem: NSToolbarItem = {
-        let item = NSToolbarItem(itemIdentifier: .steamDownloadsSearch)
-        item.label = "搜索下载项"
-        item.paletteLabel = "搜索下载项"
-        item.toolTip = "搜索下载项"
-        item.autovalidates = false
-        item.view = downloadsSearchContainerView
-        return item
-    }()
-
-    lazy var downloadsFilterButton: NSButton = {
-        let button = NSButton(title: "全部", target: self, action: #selector(handleDownloadsFilterAction(_:)))
-        button.bezelStyle = .rounded
-        button.image = NSImage(systemSymbolName: "line.3.horizontal.decrease.circle", accessibilityDescription: "筛选下载项")
-        button.imagePosition = .imageLeading
-        button.toolTip = "筛选下载项类型"
-        return button
-    }()
-
-    lazy var downloadsFilterItem: NSToolbarItem = {
-        let item = NSToolbarItem(itemIdentifier: .steamDownloadsFilter)
-        item.label = "筛选"
-        item.paletteLabel = "筛选"
-        item.toolTip = "筛选下载项类型"
-        item.autovalidates = false
-        item.view = downloadsFilterButton
-        return item
-    }()
-
-    lazy var downloadsSortMenuButton: NSButton = {
-        let button = NSButton(frame: NSRect(x: 0, y: 0, width: 28, height: 28))
-        button.bezelStyle = .texturedRounded
-        button.isBordered = true
-        button.image = NSImage(systemSymbolName: "line.3.horizontal.decrease", accessibilityDescription: "排序")
-        button.imageScaling = .scaleProportionallyDown
-        button.target = self
-        button.action = #selector(handleDownloadsSortAction(_:))
-        button.toolTip = "排序方式"
-        return button
-    }()
-
-    lazy var downloadsSortItem: NSToolbarItem = {
-        let item = NSToolbarItem(itemIdentifier: .steamDownloadsSort)
-        item.label = "排序"
-        item.paletteLabel = "排序"
-        item.toolTip = "排序方式"
-        item.autovalidates = false
-        item.view = downloadsSortMenuButton
-        return item
-    }()
-
-    lazy var zoomControl: NSSegmentedControl = {
-        let control = NSSegmentedControl(
-            images: [
-                NSImage(systemSymbolName: "minus.magnifyingglass", accessibilityDescription: "缩小") ?? NSImage(),
-                NSImage(systemSymbolName: "plus.magnifyingglass", accessibilityDescription: "放大") ?? NSImage()
-            ],
-            trackingMode: .momentary,
-            target: self,
-            action: #selector(handleZoomAction(_:))
-        )
-        control.segmentStyle = .capsule
-        control.setWidth(28, forSegment: 0)
-        control.setWidth(28, forSegment: 1)
+    lazy var zoomControl: WallpaperLibraryZoomControl = {
+        let control = WallpaperLibraryZoomControl()
+        control.makeAction = { [weak self] delta in
+            guard let self, self.isSteamWorkshopMode, !self.isDownloadsMode else { return nil }
+            return self.makeZoomAction?(delta)
+        }
         return control
     }()
 
@@ -461,6 +254,7 @@ final class SteamWorkshopToolbarController: NSObject, NSSearchFieldDelegate {
         item.toolTip = "调整条目卡片大小"
         item.autovalidates = false
         item.view = zoomControl
+        item.visibilityPriority = .low
         return item
     }()
 
@@ -547,27 +341,15 @@ final class SteamWorkshopToolbarController: NSObject, NSSearchFieldDelegate {
         return field
     }()
 
-    lazy var searchContainerView: NSView = {
-        let container = NSView(frame: NSRect(x: 0, y: 0, width: 180, height: 28))
-        container.translatesAutoresizingMaskIntoConstraints = false
-        container.addSubview(searchField)
-        NSLayoutConstraint.activate([
-            searchField.leadingAnchor.constraint(equalTo: container.leadingAnchor),
-            searchField.trailingAnchor.constraint(equalTo: container.trailingAnchor),
-            searchField.centerYAnchor.constraint(equalTo: container.centerYAnchor),
-            container.widthAnchor.constraint(equalToConstant: 180),
-            container.heightAnchor.constraint(equalToConstant: 28)
-        ])
-        return container
-    }()
-
-    lazy var searchToolbarItem: NSToolbarItem = {
-        let item = NSToolbarItem(itemIdentifier: .steamSearch)
+    lazy var searchToolbarItem: NSSearchToolbarItem = {
+        let item = NSSearchToolbarItem(itemIdentifier: .steamSearch)
         item.label = "搜索创意工坊"
         item.paletteLabel = "搜索创意工坊"
         item.toolTip = "搜索创意工坊"
         item.autovalidates = false
-        item.view = searchContainerView
+        item.searchField = searchField
+        item.preferredWidthForSearchField = 240
+        item.visibilityPriority = .high
         return item
     }()
 

@@ -1,268 +1,196 @@
 import Foundation
 import Combine
 
-struct VideoWallpaper { let path: String }
-struct SteamWorkshopDownloadRecord {
-    enum ContentType { case unknown, video, web, scene }
-    let id: String
-    let contentType: ContentType
-    var videoURL: URL? { contentType == .video ? URL(fileURLWithPath: "/\(id)") : nil }
-    var exportedVideoURL: URL? { nil }
-    var sourceVideoURL: URL? { nil }
+// The original transaction/Manager/Sequence methods and Workspace publisher are
+// production. Only provider preparation, renderer bookkeeping and metadata I/O
+// are recording leaves. No media, desktop or process renderer runs here.
+@MainActor final class PublicationTimer {
+    var isValid = true
+    init(timeInterval: TimeInterval, repeats: Bool, block: @escaping (PublicationTimer) -> Void) {}
+    static func add(_ timer: PublicationTimer) {}
+    func invalidate() { isValid = false }
 }
-final class ImportedVideoAutoplayGate {
-    static let shared = ImportedVideoAutoplayGate()
-    func invalidate() {}
+@MainActor final class SteamWorkshopService {}
+@MainActor final class OnlineLibraryService {}
+@MainActor final class SILService {}
+extension WallpaperEngine { func stopPlayback() { activeVideoPlayback = nil; activeVideoExecution = nil } }
+extension SceneDaemonClient { func stop() {} }
+@MainActor final class RecordedCollections {
+    var successes: [(WallpaperReference, UInt64)] = []
+    func recordSuccessfulUse(_ reference: WallpaperReference, locator: WallpaperLocator?, sequence: UInt64) { successes.append((reference, sequence)) }
 }
-final class PlaybackCommandMultiplexer {
-    static let shared = PlaybackCommandMultiplexer()
-    var isPlaybackPaused = false
+@MainActor final class RecordedRestoration {
+    func onCommitted(_ commit: WallpaperPlaybackSequence.Commit) {}
+    func onStopped() {}
+    func onFailed(_ pending: WallpaperPlaybackSequence.Pending) {}
+    func reset() {}
 }
-@MainActor final class WallpaperEngine {
-    static let shared = WallpaperEngine()
-    var currentContentPath: String?
-    var currentPlaybackContentKind: SteamWorkshopDownloadRecord.ContentType?
-    var currentWebRecordID: String?
-    func replayDeferredVideoEndIfNeeded() {}
-    func cancelSwitch(ticket: PlaybackSwitchTicket, completion: () -> Void) { completion() }
-    func adoptIntentEpoch(_ epoch: UInt64) {}
-    func stopPlayback() {
-        currentContentPath = nil
-        currentPlaybackContentKind = nil
-        currentWebRecordID = nil
+@MainActor enum ExecutionFacts { static var active: WallpaperReference? }
+@MainActor enum WallpaperLibraryPlaybackRouting {
+    static func dispatch(_ pending: WallpaperPlaybackSequence.Pending, content: WallpaperContentItem, manager: WallpaperManager,
+                         workshop: SteamWorkshopService, online: OnlineLibraryService, images: SILService,
+                         relationships: UserCollectionsSnapshot) -> Bool {
+        switch pending.ticket.runtime {
+        case .video: manager.switchSelections[pending.ticket.id] = .video(.init(path: content.reference.sourceID))
+        case .web: manager.switchSelections[pending.ticket.id] = .web(content.reference.sourceID)
+        case .scene: manager.switchSelections[pending.ticket.id] = .scene(content.reference.sourceID)
+        case .systemStill: manager.switchSelections[pending.ticket.id] = .systemStill(URL(fileURLWithPath: content.reference.sourceID))
+        }
+        return true
     }
 }
-@MainActor final class SceneDaemonClient {
-    static let shared = SceneDaemonClient()
-    var activeRecordID: String?
-    func cancelSwitch(ticket: PlaybackSwitchTicket, completion: () -> Void) { completion() }
-    func stop() { activeRecordID = nil }
+@MainActor final class WallpaperLibraryWorkspace {
+    let manager: WallpaperManager
+    let steam = SteamWorkshopService(), online = OnlineLibraryService(), images = SILService()
+    let collections: RecordedCollections? = RecordedCollections()
+    let restoration = RecordedRestoration()
+    let playbackChanges = PassthroughSubject<Void, Never>()
+    var relationships = UserCollectionsSnapshot(revision: 0, resetEpoch: UUID(), migrationManifestID: nil, playlists: [], members: [], favorites: [], recent: [], aliases: [], locators: [])
+    let items: [WallpaperContentItem]
+    init(_ manager: WallpaperManager, items: [WallpaperContentItem]) { self.manager = manager; self.items = items; installPlaybackBindings() }
+    func playbackSnapshot(reference: WallpaperReference?, source: WallpaperPlaybackSequence.Source,
+                          cause: WallpaperPlaybackCause) -> WallpaperPlaybackSequence.Snapshot? { nil }
+    func playbackContent(for reference: WallpaperReference) throws -> WallpaperContentItem { try content(for: reference) }
+    func content(for reference: WallpaperReference) throws -> WallpaperContentItem { items.first { $0.reference == reference }! }
+    func refreshPlaybackAvailability() {}
+    func acceptBacking(_ publication: WallpaperContentBackingPublication) {}
+    // WORKSPACE_BINDINGS
 }
-@MainActor final class WallpaperManager: ObservableObject {
-    enum RuntimeSwitchSelection {
-        case video(VideoWallpaper), web(String?), scene(String?), systemStill(URL)
-    }
-    struct Settings { var syncSystemWallpaper = false }
-    static var shared: WallpaperManager!
-    @Published var currentWallpaper: VideoWallpaper?
-    @Published var pendingWallpaper: VideoWallpaper?
-    @Published var lastWorkshopPlaybackRecordID: String?
-    @Published var activeWallpaperRuntime = WallpaperRuntimeKind.video
-    @Published var isPlaying = false
-    var effectiveCurrentWallpaper: VideoWallpaper? { pendingWallpaper ?? currentWallpaper }
-    var playbackSwitch = PlaybackSwitchTransaction()
-    var requestedRuntime: WallpaperRuntimeKind? { playbackSwitch.requestedRuntime }
-    var switchEndpoints: [UUID: PlaybackSwitchEndpoint] = [:]
-    var switchSelections: [UUID: RuntimeSwitchSelection] = [:]
-    var switchEffectQueue: [PlaybackSwitchTransaction.Effect] = []
-    var drainingSwitchEffects = false
-    var switchDeadline: DispatchWorkItem?
-    var pendingSystemWallpaperSyncWorkItem: DispatchWorkItem?
-    var settings = Settings()
-    var playbackIntentDidAdvance: ((WallpaperRuntimeKind?) -> Void)?
-    func scheduleSwitchDeadline(_ ticket: PlaybackSwitchTicket) {}
-    func refreshAutoSwitchTimerIfNeeded(forceRestart: Bool = false) {}
-    func stopAutoSwitchTimer() {}
-    func persistCurrentWallpaperSnapshot() {}
-    func syncSystemWallpaper(with wallpaper: VideoWallpaper) {}
-    func scheduleRuntimeFrameSystemWallpaperSync(kind: WallpaperRuntimeKind, recordID: String) {}
-    func switchFailed(_ ticket: PlaybackSwitchTicket, reason: String) {
-        runSwitchEffects(playbackSwitch.failed(ticket, reason: reason))
-    }
-    // MANAGER_METHODS
-}
-extension Notification.Name {
-    static let sceneWallpaperLaunchStateDidChange = Notification.Name("scene-launch")
-    static let wallpaperSwitchDidFail = Notification.Name("switch-failed")
-}
-@MainActor final class SteamWorkshopService {
-    var downloads: [SteamWorkshopDownloadRecord] = []
-    func isActiveWebRecord(_ record: SteamWorkshopDownloadRecord) -> Bool {
-        WallpaperEngine.shared.currentPlaybackContentKind == .web
-            && WallpaperEngine.shared.currentWebRecordID == record.id
-    }
-    // PLAYING_ACCESSOR
-}
+// CARD_STATE_PROJECTION
+
 @MainActor final class GridObserver {
-    let service: SteamWorkshopService
+    let workspace: WallpaperLibraryWorkspace
+    let manager: WallpaperManager
     var cancellables = Set<AnyCancellable>()
-    var visiblePlaying: Set<String> = []
+    var visiblePlaying: Set<WallpaperReference> = []
     var refreshes = 0
-    var synchronousReads: [Set<String>] = []
-    var renderedStates: [Set<String>] = []
-    init(_ service: SteamWorkshopService) {
-        self.service = service
+    var synchronousReads: [Set<WallpaperReference>] = []
+    var renderedStates: [Set<WallpaperReference>] = []
+    init(_ workspace: WallpaperLibraryWorkspace) {
+        self.workspace = workspace; manager = workspace.manager
         // GRID_SUBSCRIPTION
-        WallpaperManager.shared.objectWillChange
-            .sink { [weak self] _ in
-                guard let self else { return }
-                self.synchronousReads.append(Set(self.service.downloads
-                    .filter { self.service.isRecordCurrentlyPlaying($0) }.map(\.id)))
-            }
-            .store(in: &cancellables)
+        workspace.playbackChanges.sink { [weak self] in
+            guard let self else { return }; self.synchronousReads.append(self.readProjection())
+        }.store(in: &cancellables)
     }
-    func refreshVisibleDownloadItems() {
-        refreshes += 1
-        visiblePlaying = Set(service.downloads.filter { service.isRecordCurrentlyPlaying($0) }.map(\.id))
-        renderedStates.append(visiblePlaying)
+    func readProjection() -> Set<WallpaperReference> {
+        let committed = manager.libraryPlaybackSequence.committed
+        let projection = try! WallpaperLibraryCardStateProjection(items: workspace.items, relationships: workspace.relationships,
+            committedReference: committed?.reference, sequenceTicket: committed?.ticket, runtimeTicket: manager.playbackSwitch.committed?.ticket)
+        return Set(workspace.items.filter { projection.isPlaying($0.reference) }.map(\.reference))
     }
+    func render() { refreshes += 1; visiblePlaying = readProjection(); renderedStates.append(visiblePlaying) }
 }
-@MainActor final class Endpoint {
+@MainActor final class PublicationEndpoint {
     let id = UUID()
     let ticket: PlaybackSwitchTicket
-    let record: SteamWorkshopDownloadRecord
+    let reference: WallpaperReference
     var retirement: (() -> Void)?
     var delayedRetirement = true
     var finalized = false
-    init(_ record: SteamWorkshopDownloadRecord, _ ticket: PlaybackSwitchTicket) {
-        self.record = record
-        self.ticket = ticket
-    }
+    init(_ reference: WallpaperReference, _ ticket: PlaybackSwitchTicket) { self.reference = reference; self.ticket = ticket }
     var endpoint: PlaybackSwitchEndpoint {
-        .init(id: id, activate: {}, finalize: { [self] in
-            finalized = true
-            WallpaperEngine.shared.stopPlayback()
-            SceneDaemonClient.shared.stop()
-            if record.contentType == .scene { SceneDaemonClient.shared.activeRecordID = record.id }
-            else {
-                WallpaperEngine.shared.currentContentPath = "/\(record.id)"
-                WallpaperEngine.shared.currentPlaybackContentKind = record.contentType
-                WallpaperEngine.shared.currentWebRecordID = record.contentType == .web ? record.id : nil
-            }
-        }, cancel: { $0() }, setOutputActive: { _, done in done(true) }, retire: { [self] _, done in
-            if delayedRetirement { retirement = done }
-            else { done() }
-        })
+        .init(id: id, activate: {}, finalize: { [self] in finalized = true; ExecutionFacts.active = reference },
+            cancel: { $0() }, setOutputActive: { _, done in done(true) }, retire: { [self] _, done in
+                if delayedRetirement { retirement = done } else { done() }
+            })
     }
     func finishRetirement() {
-        let callback = retirement
-        retirement = nil
-        if SceneDaemonClient.shared.activeRecordID == record.id { SceneDaemonClient.shared.stop() }
-        if WallpaperEngine.shared.currentContentPath == "/\(record.id)" { WallpaperEngine.shared.stopPlayback() }
+        let callback = retirement; retirement = nil
+        if ExecutionFacts.active == reference { ExecutionFacts.active = nil }
         callback?()
     }
 }
-@main enum Harness {
+@main enum GridPlaybackPublicationChecks {
+    static func reference(_ id: String, _ kind: WallpaperRuntimeKind) -> WallpaperReference {
+        .init(provider: kind == .video ? .videoLibrary : kind == .systemStill ? .staticImageLibrary : .steamWorkshop,
+              sourceID: id + "." + kind.rawValue)
+    }
+    static func item(_ reference: WallpaperReference, _ kind: WallpaperRuntimeKind) -> WallpaperContentItem {
+        .init(reference: reference, providerReference: reference, locator: .init(), title: reference.sourceID,
+            kind: kind == .video ? .video : kind == .web ? .web : kind == .scene ? .scene : .image,
+            publishedAvailability: .available, capabilities: [.play], metadata: .init(), acquisition: .idle, update: .idle, aliases: [])
+    }
     @MainActor static func main() async throws {
         var cases = 0
         func drain() async throws { try await Task.sleep(nanoseconds: 25_000_000) }
-        for source in [WallpaperRuntimeKind.video, .web, .scene] {
-            for target in [WallpaperRuntimeKind.video, .web, .scene] {
-                WallpaperEngine.shared.stopPlayback()
-                SceneDaemonClient.shared.stop()
+        for source in [WallpaperRuntimeKind.video, .web, .scene, .systemStill] {
+            for target in [WallpaperRuntimeKind.video, .web, .scene, .systemStill] {
+                ExecutionFacts.active = nil
                 let manager = WallpaperManager()
-                WallpaperManager.shared = manager
-                let service = SteamWorkshopService()
-                let a = SteamWorkshopDownloadRecord(id: "A", contentType: .init(source))
-                let b = SteamWorkshopDownloadRecord(id: "B", contentType: .init(target))
-                let c = SteamWorkshopDownloadRecord(id: "C", contentType: .init(target))
-                service.downloads = [a, b, c]
-                // The same grid owns All/search/type-filter views, regardless
-                // of which records are visible or whether selection is enabled.
-                let grid = GridObserver(service)
-                let secondGrid = GridObserver(service)
-                func begin(_ record: SteamWorkshopDownloadRecord, _ kind: WallpaperRuntimeKind) -> Endpoint {
-                    manager.beginPlaybackIntent(runtime: kind)
-                    let ticket = manager.playbackSwitch.pending!.selection.ticket
-                    switch kind {
-                    case .video: manager.switchSelections[ticket.id] = .video(.init(path: "/\(record.id)"))
-                    case .web: manager.switchSelections[ticket.id] = .web(record.id)
-                    case .scene: manager.switchSelections[ticket.id] = .scene(record.id)
-                    case .systemStill: fatalError()
-                    }
-                    let endpoint = Endpoint(record, ticket)
-                    manager.switchEndpoints[endpoint.id] = endpoint.endpoint
-                    manager.runSwitchEffects(manager.playbackSwitch.prepared(ticket, executionID: endpoint.id))
+                let a = reference("A", source), b = reference("B", target), c = reference("C", target)
+                let items = [item(a, source), item(b, target), item(c, target)]
+                let workspace = WallpaperLibraryWorkspace(manager, items: items)
+                let grid = GridObserver(workspace), secondGrid = GridObserver(workspace)
+                let snapshot = try WallpaperPlaybackSequence.Snapshot(source: .global, revision: 1,
+                    entries: zip([a, b, c], [source, target, target]).map { .init(reference: $0.0, runtime: $0.1, isPlayable: true) })
+                func begin(_ reference: WallpaperReference) -> PublicationEndpoint {
+                    let ticket = manager.requestLibraryPlayback(reference: reference, from: snapshot)!
+                    let endpoint = PublicationEndpoint(reference, ticket)
+                    manager.switchPrepared(ticket, endpoint: endpoint.endpoint)
                     return endpoint
                 }
-                func visible(_ value: Endpoint) {
-                    manager.runSwitchEffects(manager.playbackSwitch.visible(value.ticket, executionID: value.id))
-                }
-                let first = begin(a, source)
-                visible(first)
-                try await drain()
-                precondition(grid.visiblePlaying == ["A"], "initial finalized selection was not published")
-                let next = begin(b, target)
-                visible(next)
-                try await drain()
-                precondition(manager.playbackSwitch.committed?.ticket == next.ticket && !next.finalized)
-                precondition(grid.visiblePlaying == ["A"], "candidate changed the actual execution projection")
-                let reads = grid.refreshes
-                let synchronousReads = grid.synchronousReads.count
-                first.finishRetirement()
-                precondition(Array(grid.synchronousReads.dropFirst(synchronousReads)) == [["B"]],
-                    "handoff published an incomplete execution projection")
-                try await drain()
-                precondition(next.finalized)
-                precondition(grid.visiblePlaying == ["B"] && secondGrid.visiblePlaying == ["B"],
-                    "delayed finalize left the previous card playing: \(source)->\(target)")
-                precondition(grid.refreshes == reads + 1, "finalization must trigger one distinct playing update")
-
-                // A failed candidate and stale visibility must retain B.
-                let rejected = begin(a, source)
-                manager.switchFailed(rejected.ticket, reason: "injected candidate failure")
-                visible(rejected)
-                try await drain()
-                precondition(grid.visiblePlaying == ["B"] && !rejected.finalized)
-                // B -> stale A -> C: the newer request is the only finalizer.
-                let stale = begin(a, source)
-                let latest = begin(c, target)
-                visible(stale)
-                visible(latest)
-                try await drain()
-                precondition(!stale.finalized && !latest.finalized && grid.visiblePlaying == ["B"])
-                next.finishRetirement()
-                try await drain()
-                precondition(latest.finalized && grid.visiblePlaying == ["C"])
+                func visible(_ endpoint: PublicationEndpoint) { manager.switchVisible(endpoint.ticket, executionID: endpoint.id) }
+                let first = begin(a); visible(first); try await drain()
+                precondition(grid.visiblePlaying == [a] && first.finalized, "initial committed selection was not published")
+                let next = begin(b); try await drain()
+                precondition(grid.visiblePlaying == [a] && manager.libraryPlaybackSequence.pending?.ticket == next.ticket,
+                    "unseen pending candidate changed the playing card")
+                visible(next); try await drain()
+                // Canonical lifecycle: desktop-visible confirmation -> unique
+                // transaction/Sequence commit -> old cleanup -> finalize. The
+                // old private-grid engine mirror waiting for cleanup is retired.
+                precondition(manager.playbackSwitch.committed?.ticket == next.ticket
+                    && manager.libraryPlaybackSequence.committed?.ticket == next.ticket && !next.finalized)
+                precondition(grid.visiblePlaying == [b] && secondGrid.visiblePlaying == [b] && ExecutionFacts.active == a,
+                    "retiring engine bookkeeping took ownership away from the successful commit")
+                precondition(workspace.collections!.successes.count == 2)
+                let reads = grid.refreshes, successes = workspace.collections!.successes.count
+                first.finishRetirement(); try await drain()
+                precondition(next.finalized && ExecutionFacts.active == b && grid.visiblePlaying == [b])
+                precondition(grid.refreshes == reads && workspace.collections!.successes.count == successes,
+                    "retirement/finalize duplicated the committed UI or recent publication")
+                let rejected = begin(a)
+                manager.switchFailed(rejected.ticket, reason: "injected candidate failure"); visible(rejected); try await drain()
+                precondition(grid.visiblePlaying == [b] && !rejected.finalized && workspace.collections!.successes.count == successes)
+                let stale = begin(a), latest = begin(c)
+                visible(stale); try await drain()
+                precondition(!stale.finalized && grid.visiblePlaying == [b])
+                visible(latest); try await drain()
+                precondition(!stale.finalized && !latest.finalized && grid.visiblePlaying == [c])
+                let latestSuccesses = workspace.collections!.successes.count
+                next.finishRetirement(); try await drain()
+                precondition(latest.finalized && grid.visiblePlaying == [c] && workspace.collections!.successes.count == latestSuccesses)
                 latest.delayedRetirement = false
-                manager.stopCurrentPlayback()
-                try await drain()
-                precondition(grid.visiblePlaying.isEmpty && secondGrid.visiblePlaying.isEmpty,
-                    "Stop retained a stale playing card")
-
-                // A terminal output loss also clears native facts only when
-                // its exact retirement completes, without a new finalizer.
-                let lost = begin(a, source)
-                visible(lost)
-                try await drain()
-                precondition(grid.visiblePlaying == ["A"])
-                manager.runSwitchEffects(manager.playbackSwitch.lost(lost.ticket, reason: "injected output loss"))
-                try await drain()
-                precondition(manager.playbackSwitch.committed == nil && grid.visiblePlaying == ["A"])
-                lost.finishRetirement()
-                try await drain()
-                precondition(grid.visiblePlaying.isEmpty && secondGrid.visiblePlaying.isEmpty,
-                    "terminal retirement left a stale playing card: \(source)")
-
-                // A visible successor waiting behind an output-loss barrier
-                // commits/finalizes in that same completion. The queued UI
-                // subscriber must not render a transient empty playing set.
-                let retiring = begin(a, source)
-                visible(retiring)
-                try await drain()
-                let waiting = begin(b, target)
+                manager.stopCurrentPlayback(); try await drain()
+                precondition(grid.visiblePlaying.isEmpty && secondGrid.visiblePlaying.isEmpty, "Stop retained a stale playing card")
+                let lost = begin(a); visible(lost); try await drain()
+                precondition(grid.visiblePlaying == [a])
+                manager.runSwitchEffects(manager.playbackSwitch.lost(lost.ticket, reason: "injected output loss")); try await drain()
+                precondition(manager.playbackSwitch.committed == nil && grid.visiblePlaying.isEmpty,
+                    "lost output without a source successor invented an active playing card")
+                let lostSuccesses = workspace.collections!.successes.count
+                lost.finishRetirement(); try await drain()
+                precondition(grid.visiblePlaying.isEmpty && secondGrid.visiblePlaying.isEmpty
+                    && workspace.collections!.successes.count == lostSuccesses, "terminal retirement resurrected or duplicated publication")
+                let retiring = begin(a); visible(retiring); try await drain()
+                let waiting = begin(b)
                 manager.runSwitchEffects(manager.playbackSwitch.lost(retiring.ticket, reason: "loss with newer selection"))
-                visible(waiting)
                 try await drain()
-                precondition(!waiting.finalized && grid.visiblePlaying == ["A"])
+                precondition(!waiting.finalized && grid.visiblePlaying == [a])
                 let rendered = grid.renderedStates.count
+                visible(waiting); try await drain()
+                precondition(grid.visiblePlaying == [a] && !waiting.finalized,
+                    "an output-loss barrier published an uncommitted successor")
                 retiring.finishRetirement()
-                precondition(waiting.finalized && grid.synchronousReads.last == ["B"])
+                precondition(waiting.finalized && grid.synchronousReads.last == [b])
                 try await drain()
-                precondition(Array(grid.renderedStates.dropFirst(rendered)) == [["B"]],
-                    "retirement rendered an empty or stale intermediate card state")
-                waiting.delayedRetirement = false
-                manager.stopCurrentPlayback()
-                try await drain()
+                precondition(Array(grid.renderedStates.dropFirst(rendered)) == [[b]], "retirement rendered an empty or stale intermediate card state")
+                waiting.delayedRetirement = false; manager.stopCurrentPlayback(); try await drain()
                 precondition(grid.visiblePlaying.isEmpty)
                 cases += 1
             }
         }
-        print("playback publication passed: \(cases) engine pairs, delayed handoff, failure, supersession, Stop and output loss")
-    }
-}
-extension SteamWorkshopDownloadRecord.ContentType {
-    init(_ kind: WallpaperRuntimeKind) {
-        switch kind { case .video: self = .video; case .web: self = .web; case .scene: self = .scene; case .systemStill: self = .unknown }
+        print("playback publication passed: \(cases) runtime pairs, committed UI authority, delayed finalize, failure, supersession, Stop and output loss")
     }
 }

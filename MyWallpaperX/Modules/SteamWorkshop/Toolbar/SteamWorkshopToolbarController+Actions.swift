@@ -7,143 +7,142 @@ import AppKit
 
 extension SteamWorkshopToolbarController {
     @objc func handleSortAction(_ sender: NSButton) {
-        let service = SteamWorkshopService.shared
-        guard !service.isBrowsingAuthorWorkshop else {
+        guard !SteamWorkshopService.shared.isBrowsingAuthorWorkshop else {
             syncBrowserContextControls()
             return
         }
-        menuPopover.toggle(anchor: sender) { [weak self] in
-            guard let self else { return [] }
-            if service.source.isPersonal {
-                return SteamWorkshopPersonalSort.allCases.map { sort in
-                    ToolbarMenuPopoverPresenter.Row(
-                        title: sort.displayName,
-                        kind: .check,
-                        isChecked: service.personalSort == sort,
-                        handler: { [weak self] in
-                            SteamWorkshopService.shared.personalSort = sort
-                            self?.syncSortPopup()
-                        }
-                    )
-                }
-            }
-            return SteamWorkshopSource.publicSources.map { source in
-                ToolbarMenuPopoverPresenter.Row(
-                    title: source.displayName,
-                    kind: .check,
-                    isChecked: service.source == source,
+        menuPopover.toggle(anchor: sender) { [weak self] in self?.sortRows() ?? [] }
+    }
+
+    func sortRows() -> [ToolbarMenuPopoverPresenter.Row] {
+        let service = SteamWorkshopService.shared
+        let enabled = !service.isBrowsingAuthorWorkshop
+        if service.source.isPersonal {
+            return SteamWorkshopPersonalSort.allCases.map { sort in
+                .init(title: sort.displayName, kind: .check, isChecked: service.personalSort == sort, isEnabled: enabled,
                     handler: { [weak self] in
-                        SteamWorkshopService.shared.source = source
-                        self?.syncSortPopup()
-                        self?.syncTrendingWindowPopup()
-                    }
-                )
+                        guard let self, self.isSteamWorkshopMode, !self.isDownloadsMode,
+                              !service.isBrowsingAuthorWorkshop, service.source.isPersonal else { return }
+                        service.personalSort = sort
+                        self.syncSortPopup()
+                    })
             }
+        }
+        return SteamWorkshopSource.publicSources.map { source in
+            .init(title: source.displayName, kind: .check, isChecked: service.source == source, isEnabled: enabled,
+                handler: { [weak self] in
+                    guard let self, self.isSteamWorkshopMode, !self.isDownloadsMode,
+                          !service.isBrowsingAuthorWorkshop, !service.source.isPersonal else { return }
+                    service.source = source
+                    self.syncSortPopup()
+                    self.syncTrendingWindowPopup()
+                })
         }
     }
 
     @objc func handlePersonalListAction(_ sender: NSButton) {
+        guard !SteamWorkshopService.shared.isBrowsingAuthorWorkshop else { return }
+        menuPopover.toggle(anchor: sender) { [weak self] in self?.personalListRows() ?? [] }
+    }
+
+    func personalListRows() -> [ToolbarMenuPopoverPresenter.Row] {
         let service = SteamWorkshopService.shared
-        guard !service.isBrowsingAuthorWorkshop else { return }
-        menuPopover.toggle(anchor: sender) { [weak self] in
-            SteamWorkshopSource.personalSources.map { source in
-                ToolbarMenuPopoverPresenter.Row(
-                    title: source.toolbarDisplayName,
-                    kind: .check,
-                    isChecked: service.source == source,
-                    handler: { [weak self] in
-                        SteamWorkshopService.shared.source = source
-                        self?.syncPersonalListPopup()
-                        self?.syncSortPopup()
-                    }
-                )
-            }
+        return SteamWorkshopSource.personalSources.map { source in
+            .init(title: source == .myFavorites ? "Steam 收藏" : source.toolbarDisplayName, kind: .check, isChecked: service.source == source,
+                isEnabled: service.source.isPersonal && !service.isBrowsingAuthorWorkshop,
+                handler: { [weak self] in
+                    guard let self, self.isSteamWorkshopMode, !self.isDownloadsMode,
+                          service.source.isPersonal, !service.isBrowsingAuthorWorkshop else { return }
+                    service.source = source
+                    self.syncPersonalListPopup()
+                    self.syncSortPopup()
+                })
         }
     }
 
     @objc func handleTrendingWindowAction(_ sender: NSButton) {
-        let service = SteamWorkshopService.shared
-        guard !service.isBrowsingAuthorWorkshop else {
+        guard !SteamWorkshopService.shared.isBrowsingAuthorWorkshop else {
             syncBrowserContextControls()
             return
         }
-        menuPopover.toggle(anchor: sender) { [weak self] in
-            SteamWorkshopTrendingWindow.allCases.map { window in
-                ToolbarMenuPopoverPresenter.Row(
-                    title: window.displayName,
-                    kind: .check,
-                    isChecked: service.trendingWindow == window,
-                    handler: { [weak self] in
-                        SteamWorkshopService.shared.trendingWindow = window
-                        self?.syncTrendingWindowPopup()
-                    }
-                )
-            }
+        menuPopover.toggle(anchor: sender) { [weak self] in self?.trendingWindowRows() ?? [] }
+    }
+
+    func trendingWindowRows() -> [ToolbarMenuPopoverPresenter.Row] {
+        let service = SteamWorkshopService.shared
+        return SteamWorkshopTrendingWindow.allCases.map { window in
+            .init(title: window.displayName, kind: .check, isChecked: service.trendingWindow == window,
+                isEnabled: service.source.supportsTimeRange && !service.isBrowsingAuthorWorkshop,
+                handler: { [weak self] in
+                    guard let self, self.isSteamWorkshopMode, !self.isDownloadsMode,
+                          service.source.supportsTimeRange, !service.isBrowsingAuthorWorkshop else { return }
+                    service.trendingWindow = window
+                    self.syncTrendingWindowPopup()
+                })
         }
     }
 
     @objc func handleDownloadTasks() {
-        guard isSteamWorkshopMode else { return }
-        if downloadTasksButton.window != nil {
-            downloadTasksPopoverController.toggle(relativeTo: downloadTasksButton)
-            return
-        }
-        // The toolbar's menu-form item has no attached button. Anchor its
-        // popover to the owning window's top trailing edge instead.
-        DispatchQueue.main.async { [weak self] in
-            guard let self, let contentView = self.window?.contentView else { return }
-            let anchor = NSRect(
-                x: max(0, contentView.bounds.maxX - 32),
-                y: contentView.bounds.maxY,
-                width: 1,
-                height: 1
-            )
-            self.downloadTasksPopoverController.toggle(relativeTo: contentView, positioningRect: anchor)
-        }
+        guard isSteamWorkshopMode, let window else { return }
+        downloadTasksPopoverController.toggle(relativeTo: downloadTasksToolbarItem, in: window)
     }
 
     @objc func handleBackToDiscovery() {
+        guard isSteamWorkshopMode, SteamWorkshopService.shared.isBrowsingAuthorWorkshop else { return }
         SteamWorkshopService.shared.returnToDiscoveryBrowse()
     }
 
     @objc func handleAccountMenu() {
-        let service = SteamWorkshopService.shared
-        let auth = service.steamAuth
-        menuPopover.toggle(anchor: accountButton) { [weak self] in
-            var rows: [ToolbarMenuPopoverPresenter.Row] = []
-            // SK2.2：唯一账号入口（§3.1）——未登录只有「登录 Steam」；已登录仅
-            // 账号信息/切换账号/退出登录。没有社区账号独立入口。
-            if auth.isOnline {
-                rows.append(ToolbarMenuPopoverPresenter.Row(
-                    title: "Steam：\(auth.accountName ?? "已登录")",
-                    kind: .info
-                ))
-                if let steamId = auth.steamId {
-                    rows.append(ToolbarMenuPopoverPresenter.Row(title: "SteamID：\(steamId)", kind: .info))
-                }
-                rows.append(.separator())
-                rows.append(ToolbarMenuPopoverPresenter.Row(
-                    title: "切换账号",
-                    kind: .action,
-                    handler: { [weak self] in self?.handlePresentLogin() }
-                ))
-                rows.append(ToolbarMenuPopoverPresenter.Row(
-                    title: "退出登录",
-                    kind: .action,
-                    handler: { [weak self] in self?.handleLogout() }
-                ))
-            } else {
-                rows.append(ToolbarMenuPopoverPresenter.Row(
-                    title: auth.expired ? "重新登录" : "登录 Steam",
-                    kind: .action,
-                    handler: { [weak self] in self?.handlePresentLogin() }
-                ))
+        guard isSteamWorkshopMode, accountActionsEnabled else { return }
+        menuPopover.toggle(anchor: accountButton) { [weak self] in self?.accountRows() ?? [] }
+    }
+
+    func accountRows() -> [ToolbarMenuPopoverPresenter.Row] {
+        let auth = SteamWorkshopService.shared.steamAuth
+        let accountID = auth.steamId
+        var rows: [ToolbarMenuPopoverPresenter.Row] = []
+        // SK2.2：唯一账号入口（§3.1）——未登录只有「登录 Steam」；已登录仅
+        // 账号信息/切换账号/退出登录。没有社区账号独立入口。
+        if auth.isOnline {
+            rows.append(ToolbarMenuPopoverPresenter.Row(
+                title: "Steam：\(auth.accountName ?? "已登录")",
+                kind: .info
+            ))
+            if let steamId = auth.steamId {
+                rows.append(ToolbarMenuPopoverPresenter.Row(title: "SteamID：\(steamId)", kind: .info))
             }
-            return rows
+            rows.append(.separator())
+            rows.append(ToolbarMenuPopoverPresenter.Row(
+                title: "切换账号",
+                kind: .action,
+                handler: { [weak self] in
+                    guard auth.isOnline, auth.steamId == accountID else { return }
+                    self?.handlePresentLogin()
+                }
+            ))
+            rows.append(ToolbarMenuPopoverPresenter.Row(
+                title: "退出登录",
+                kind: .action,
+                handler: { [weak self] in
+                    guard auth.isOnline, auth.steamId == accountID else { return }
+                    self?.handleLogout()
+                }
+            ))
+        } else {
+            rows.append(ToolbarMenuPopoverPresenter.Row(
+                title: auth.expired ? "重新登录" : "登录 Steam",
+                kind: .action,
+                handler: { [weak self] in
+                    guard !auth.isOnline, auth.steamId == accountID else { return }
+                    self?.handlePresentLogin()
+                }
+            ))
         }
+        return rows
     }
 
     @objc func handleFilterMenu() {
+        guard isSteamWorkshopMode, !isDownloadsMode else { return }
         let service = SteamWorkshopService.shared
         guard !service.isBrowsingAuthorWorkshop else {
             syncBrowserContextControls()
@@ -153,24 +152,8 @@ extension SteamWorkshopToolbarController {
             filterPanelPopover.performClose(nil)
             return
         }
-        // 工具栏溢出成菜单项时按钮不在窗口内，退化为锚窗口右上角
-        //（与下载任务面板的溢出锚点同构）。
-        let anchorView: NSView
-        let positioningRect: NSRect
-        if filterButton.window != nil {
-            anchorView = filterButton
-            positioningRect = filterButton.bounds
-        } else if let contentView = window?.contentView {
-            anchorView = contentView
-            positioningRect = NSRect(
-                x: max(0, contentView.bounds.maxX - 32),
-                y: contentView.bounds.maxY,
-                width: 1,
-                height: 1
-            )
-        } else {
-            return
-        }
+        guard let window, let toolbar = filterToolbarItem.toolbar,
+              toolbar === window.toolbar, let contentView = window.contentView else { return }
         filterPanelPopover.contentViewController = filterPanelController
         // 面板高度按分面内容拟合；先确保 loadView 已跑，否则读到的是默认值。
         filterPanelController.loadViewIfNeeded()
@@ -178,95 +161,19 @@ extension SteamWorkshopToolbarController {
             width: SteamWorkshopFilterPanelController.panelWidth,
             height: filterPanelController.preferredPanelHeight
         )
-        filterScrollDismissal.watch(relativeTo: anchorView)
-        filterPanelPopover.show(
-            relativeTo: positioningRect,
-            of: anchorView,
-            preferredEdge: .maxY
-        )
+        filterScrollDismissal.watch(relativeTo: contentView)
+        filterPanelPopover.show(relativeTo: filterToolbarItem)
     }
 
     @objc func handlePresentLogin() {
+        guard isSteamWorkshopMode, accountActionsEnabled else { return }
         // SK2.2：唯一登录入口 = 模块持有的登录面板（二维码/账号密码）。
         SteamWorkshopService.shared.showLoginPanel()
     }
 
     @objc func handleLogout() {
+        guard isSteamWorkshopMode, accountActionsEnabled, SteamWorkshopService.shared.steamAuth.isOnline else { return }
         SteamWorkshopService.shared.signOutEverywhere()
-    }
-
-    @objc func handleDeleteSelectedDownload() {
-        SteamWorkshopService.shared.deleteSelectedDownload()
-        configureDownloadsDeleteItem()
-    }
-
-    @objc func handleToggleDownloadsSelectMode() {
-        SteamWorkshopService.shared.toggleDownloadsMultiSelectMode()
-        configureDownloadsSelectItem()
-        configureDownloadsDeleteItem()
-    }
-
-    @objc func handleShowSelectedDownloadInfo() {
-        SteamWorkshopService.shared.presentSelectedDownloadInfo()
-    }
-
-    @objc func handleDownloadsFilterAction(_ sender: NSButton) {
-        let service = SteamWorkshopService.shared
-        menuPopover.toggle(anchor: sender) { [weak self] in
-            SteamWorkshopDownloadsDisplayMode.allCases.map { mode in
-                ToolbarMenuPopoverPresenter.Row(
-                    title: mode.title,
-                    kind: .check,
-                    isChecked: service.downloadsDisplayMode == mode,
-                    handler: {
-                        service.downloadsDisplayMode = mode
-                        self?.configureDownloadsFilterItem()
-                    }
-                )
-            }
-        }
-    }
-
-    @objc func handleDownloadsSortAction(_ sender: NSButton) {
-        let service = SteamWorkshopService.shared
-        menuPopover.toggle(anchor: sender) { [weak self] in
-            var rows: [ToolbarMenuPopoverPresenter.Row] = SteamWorkshopDownloadsSortMode.allCases.map { mode in
-                ToolbarMenuPopoverPresenter.Row(
-                    title: mode.displayName,
-                    kind: .check,
-                    isChecked: service.downloadsSortMode == mode,
-                    handler: {
-                        if service.downloadsSortMode != mode {
-                            service.downloadsSortAscending = mode == .title
-                        }
-                        service.downloadsSortMode = mode
-                        self?.configureDownloadsSortItem()
-                    }
-                )
-            }
-            rows.append(.separator())
-            rows.append(ToolbarMenuPopoverPresenter.Row(
-                title: service.downloadsSortAscending ? "升序" : "降序",
-                kind: .check,
-                isChecked: true,
-                handler: {
-                    service.downloadsSortAscending.toggle()
-                    self?.configureDownloadsSortItem()
-                }
-            ))
-            rows.append(.separator())
-            rows.append(ToolbarMenuPopoverPresenter.Row(
-                title: "成人内容",
-                kind: .check,
-                isChecked: service.downloadsShowsAdultContent,
-                handler: { service.downloadsShowsAdultContent.toggle() }
-            ))
-            return rows
-        }
-    }
-
-    @objc func handleZoomAction(_ sender: NSSegmentedControl) {
-        performZoom(delta: sender.selectedSegment == 0 ? -1 : 1)
     }
 
     func controlTextDidChange(_ obj: Notification) {
@@ -277,9 +184,7 @@ extension SteamWorkshopToolbarController {
         let workItem = DispatchWorkItem { [weak self, weak field] in
             guard let self, let field else { return }
             self.searchDebounceWorkItems[key] = nil
-            if field === self.downloadsSearchField {
-                SteamWorkshopService.shared.downloadsQuery = text
-            } else if field === self.searchField {
+            if field === self.searchField {
                 SteamWorkshopService.shared.browserQuery = text
             }
         }
@@ -287,23 +192,4 @@ extension SteamWorkshopToolbarController {
         DispatchQueue.main.asyncAfter(deadline: .now() + 0.25, execute: workItem)
     }
 
-    var allowedItemIdentifiers: [NSToolbarItem.Identifier] {
-        [
-            .steamAuthorBack,
-            .steamSort,
-            .steamTrendingWindow,
-            .steamFilter,
-            .steamAccount,
-            .steamDownloadTasks,
-            .steamZoom,
-            .steamSearch,
-            .steamDownloadsTitle,
-            .steamDownloadsSelect,
-            .steamDownloadsDelete,
-            .steamDownloadsSort,
-            .steamDownloadsSearch,
-            .space,
-            .flexibleSpace
-        ]
-    }
 }

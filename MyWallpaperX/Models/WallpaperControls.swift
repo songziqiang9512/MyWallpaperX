@@ -2,27 +2,11 @@
 //  WallpaperControls.swift
 //  MyWallpaperX
 //
-//  用户控制词汇：壁纸库侧栏分类（Category）、F1-F12 功能键与系统
-//  热键动作。Category 被 Shell 侧栏/选择上下文与 App 协调器消费；
-//  热键两枚举被 Core 的 GlobalHotkeyManager 与 Shared 设置面板/
-//  Modules 共享（Models 底层值类型层，见 WallpaperSettings.swift 头注）。
+//  F1-F12 功能键与系统热键动作，供 Core、Modules 与 Shared 设置使用。
 //
 
 import Foundation
 
-public enum Category: String, CaseIterable, Identifiable, Hashable {
-    case myWallpapers, favorites, recentlyUsed, tags, settings
-    public var id: String { rawValue }
-    public var displayName: String {
-        switch self {
-        case .myWallpapers: return "我的壁纸"
-        case .favorites: return "特别喜爱"
-        case .recentlyUsed: return "最近使用"
-        case .tags: return "标签"
-        case .settings: return "设置"
-        }
-    }
-}
 
 public enum FunctionKeyShortcut: String, Codable, CaseIterable, Identifiable {
     case none

@@ -43,9 +43,11 @@ extension SteamWorkshopService {
             }
             return
         }
+        let request = SteamWorkshopPendingDownloadRequest(id: id, pageTitle: pageTitle, item: requestItem,
+            libraryRestoration: prepareExplicitLibraryRestoration?(.init(provider: .steamWorkshop, sourceID: id)))
 
         guard !isDownloadWorkflowBusy else {
-            enqueueDownloadRequest(id: id, pageTitle: pageTitle, item: requestItem)
+            enqueueDownloadRequest(request)
             return
         }
 
@@ -54,10 +56,10 @@ extension SteamWorkshopService {
         // 新点击永久饿死。
         processNextQueuedDownloadIfPossible()
         if activeDownloadTasks.count >= maximumConcurrentDownloads {
-            enqueueDownloadRequest(id: id, pageTitle: pageTitle, item: requestItem)
+            enqueueDownloadRequest(request)
             return
         }
-        startDownloadRequest(SteamWorkshopPendingDownloadRequest(id: id, pageTitle: pageTitle, item: requestItem))
+        startDownloadRequest(request)
     }
 
     /// 同步准入必须发生在 JobStore、瞬态卡片及执行器副作用之前。
@@ -74,7 +76,7 @@ extension SteamWorkshopService {
         !isQueuedDownloadRequest(id: id)
     }
 
-    private func isValidWorkshopItemID(_ itemID: String) -> Bool {
+    func isValidWorkshopItemID(_ itemID: String) -> Bool {
         itemID.count >= 6
             && itemID.unicodeScalars.allSatisfy { scalar in
                 scalar.value >= 48 && scalar.value <= 57
@@ -155,7 +157,7 @@ extension SteamWorkshopService {
         activeDownloadJobKeysByItemID[request.id] = key
         statusMessage = "正在通过 Steam 下载 \(job.title)…"
         upsertTransientRecord(id: request.id, title: job.title, status: .downloading,
-                              sizeText: downloadStatusSizeText(for: request.id))
+                              accountSteamID: job.accountSteamId, sizeText: downloadStatusSizeText(for: request.id))
         let observer = steamServiceClient.addEventObserver { [weak self] frame in
             guard let self, self.activeDownloadJobKeysByItemID[request.id] == key,
                   self.steamServiceClient.accountEpoch == epoch,
@@ -367,6 +369,7 @@ extension SteamWorkshopService {
                 // No suspension between the final identity check and the metadata rename.
                 try checkCurrent()
                 try self.publishDownloadedVersion(request, commit: commit, libraryRoot: library)
+                request.libraryRestoration?()
                 // The metadata rename is authoritative even if writing the job completion fails.
                 let recorded = self.downloadJobStore.apply(.completed, toID: job.id) != nil
                 self.removeTransientRecord(id: request.id)
@@ -402,6 +405,7 @@ extension SteamWorkshopService {
                             id: request.id,
                             title: job.title,
                             status: .queued,
+                            accountSteamID: job.accountSteamId,
                             sizeText: self.downloadStatusSizeText(for: request.id)
                         )
                         self.statusMessage = "已暂停 \(job.title)，可稍后继续。"
@@ -429,7 +433,7 @@ extension SteamWorkshopService {
                    cleanupJob.stagingPath != nil {
                     do {
                         try await self.removeOwnedDownloadStaging(cleanupJob)
-                        if invalidRecovery {
+                        if invalidRecovery, self.downloadJobStore.job(id: job.id)?.attempt == job.attempt {
                             _ = self.downloadJobStore.apply(.recoveryInvalidated, toID: job.id)
                         }
                     } catch {
@@ -443,11 +447,18 @@ extension SteamWorkshopService {
                         }
                     }
                 }
+                // Physical cleanup belongs to the captured lease even after
+                // a new request is admitted. Its late result must not settle a
+                // newer attempt or project into another account's current row.
+                guard self.downloadJobStore.job(id: job.id)?.attempt == job.attempt else { return }
                 let failureMessage = self.downloadFailureMessage(terminalError)
                 _ = self.downloadJobStore.apply(
                     cancelled ? .cancelled : .failed(failureMessage),
                     toID: job.id
                 )
+                guard self.activeDownloadJobKeysByItemID[request.id] == key,
+                      self.steamServiceClient.accountEpoch == epoch,
+                      self.steamAuth.steamId == job.accountSteamId else { return }
                 if cancelled {
                     self.removeTransientRecord(id: request.id)
                     self.downloadProgressStore.clear(itemID: request.id, jobKey: key)
@@ -459,6 +470,7 @@ extension SteamWorkshopService {
                         id: request.id,
                         title: job.title,
                         status: .failed(failureMessage),
+                        accountSteamID: job.accountSteamId,
                         sizeText: self.downloadStatusSizeText(for: request.id)
                     )
                     self.downloadError = failureMessage
@@ -670,8 +682,9 @@ extension SteamWorkshopService {
         }
     }
 
-    private func enqueueDownloadRequest(id: String, pageTitle: String?, item: SteamWorkshopBrowserItem?) {
+    private func enqueueDownloadRequest(_ request: SteamWorkshopPendingDownloadRequest) {
         guard let account = downloadAdmissionAccount() else { return }
+        let id = request.id, pageTitle = request.pageTitle
         let title = pageTitle ?? "Workshop #\(id)"
         // SK4.1：入队真值在 JobStore——同项去重，重复点击/跨来源点击只一个任务。
         let (_, isNew) = downloadJobStore.enqueue(
@@ -683,18 +696,18 @@ extension SteamWorkshopService {
             statusMessage = "下载任务无法保存，未加入队列。"
             return
         }
-        // 执行载荷不入任务文件：会话内内存映射，出队时取回。
-        if let item {
-            steamJobItemPayloads[id] = item
-        }
         guard isNew else {
             statusMessage = "\(title) 已在下载队列中。"
             return
         }
+        // The existing request payload lifetime also carries the admitted
+        // restoration receipt. Nothing is reconstructed by scans or restart.
+        steamJobItemPayloads[id] = request
         upsertTransientRecord(
             id: id,
             title: title,
             status: .queued,
+            accountSteamID: account,
             sizeText: downloadStatusSizeText(for: id)
         )
         statusMessage = "已将 \(title) 加入下载队列。"
@@ -712,10 +725,10 @@ extension SteamWorkshopService {
                 excluding: pausedDownloadItemIDs
               ) {
             let before = activeDownloadTasks.count
-            startDownloadRequest(SteamWorkshopPendingDownloadRequest(
+            startDownloadRequest(steamJobItemPayloads[next.workshopItemId] ?? SteamWorkshopPendingDownloadRequest(
                 id: next.workshopItemId,
                 pageTitle: next.title,
-                item: steamJobItemPayloads[next.workshopItemId]
+                item: nil
             ))
             if activeDownloadTasks.count == before { break }
         }

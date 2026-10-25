@@ -45,16 +45,22 @@ class SteamDownloadExecutionTests(unittest.TestCase):
         ))
         migration = extract_function(source, '    private func scheduleLegacyLibraryPublicationMigration(')
         methods.append(migration.replace('    private func ', '    func ', 1))
+        for signature in ('    private func applyInstalledLibraryRecords(', '    private func finishInstalledLibraryScan('):
+            methods.append(extract_function(source, signature).replace('    private func ', '    func ', 1))
         selection = (CORE / 'SteamWorkshopService+DownloadSelection.swift').read_text()
         for signature in (
             '    func deleteDownload(itemID:',
-            '    private func deleteDownloads(',
+            '    func deleteDownloads(',
+            '    func deleteSourceFiles(',
             '    private func deleteDownloadIfPossible(',
             '    private func legacyDownloadSnapshot(',
+            '    func dismissDownloadInspector(',
         ):
             method = extract_function(selection, signature)
             methods.append(method.replace('    private func ', '    func ', 1))
         records = (CORE / 'SteamWorkshopService+LibraryRecords.swift').read_text()
+        accessors = (CORE / 'SteamWorkshopService+DownloadAccessors.swift').read_text()
+        methods.append(extract_function(accessors, '    func latestDownloadRecord('))
         methods.append(extract_function(records, '    nonisolated static func localCreationDate('))
         metadata = (CORE / 'SteamWorkshopAPIModels.swift').read_text()
         date_resolution = extract_function(metadata, '    func resolvedFirstDownloadDate(')
@@ -66,10 +72,25 @@ class SteamDownloadExecutionTests(unittest.TestCase):
             '".mywallpaperx-steam-metadata", isDirectory: true) }\n'
             + '\n'.join(methods) + '\n}\nextension SteamWorkshopDownloadMetadataSnapshot {\n' + date_resolution + '\n}'
         )
+        # Hold only the asynchronous cleanup input leaf. The complete product
+        # executor and descriptor-bound cleanup bodies below remain unchanged.
+        downloads = (CORE / 'SteamWorkshopService+Downloads.swift').read_text()
+        boundary = '                        try await self.removeOwnedDownloadStaging(cleanupJob)'
+        if downloads.count(boundary) != 1:
+            raise AssertionError('expected the one original catch cleanup boundary')
+        downloads = downloads.replace(boundary,
+            '                        await self.stagingCleanupBarrier.wait(for: cleanupJob)\n' + boundary)
+        executor = folder / 'Downloads.swift'
+        executor.write_text(downloads)
         cls.binary = folder / 'execution'
         subprocess.run(['xcrun', 'swiftc', '-parse-as-library', *map(str, SOURCES),
-                        str(CORE / 'SteamWorkshopService+Downloads.swift'), str(publisher),
+                        str(ROOT / 'MyWallpaperX/Models/WallpaperReference.swift'),
+                        str(ROOT / 'MyWallpaperX/Models/WallpaperSourceImportResult.swift'),
+                        str(CORE / 'SteamWorkshopServiceSupport.swift'),
+                        str(executor), str(publisher),
                         str(ROOT / 'script/tests/fixtures/SteamReadyUpdateDeletionFixture.swift'),
+                        str(ROOT / 'script/tests/fixtures/SteamOpaqueDeletionFixture.swift'),
+                        str(ROOT / 'script/tests/fixtures/SteamDownloadLateCleanupFixture.swift'),
                         str(ROOT / 'script/tests/fixtures/SteamDownloadExecutionHarness.swift'), '-o', str(cls.binary)],
                        check=True, timeout=120)
 
@@ -86,7 +107,7 @@ class SteamDownloadExecutionTests(unittest.TestCase):
             for name, value in files.items():
                 (stage / name).write_bytes(value)
             second_stage = root / 'staging' / ('job-' + 'b' * 32)
-            if mode in ('concurrent-cancel', 'concurrent-success', 'missing-resume-fresh'):
+            if mode.startswith('late-cleanup-') or mode in ('concurrent-cancel', 'concurrent-success', 'missing-resume-fresh'):
                 second_stage.mkdir(parents=True)
                 for name, value in files.items():
                     (second_stage / name).write_bytes(value)
@@ -256,12 +277,26 @@ class SteamDownloadExecutionTests(unittest.TestCase):
     def test_legacy_publication_retries_transient_type_root_failure(self):
         self.run_case('migration-retry')
 
-
-if __name__ == '__main__':
-    unittest.main()
+    def test_late_cleanup_cannot_project_into_new_request_or_new_attempt(self):
+        for mode in ('late-cleanup-new-job', 'late-cleanup-new-attempt', 'late-cleanup-new-account'):
+            with self.subTest(mode=mode):
+                self.run_case(mode)
 
     def test_delete_local_only_content_without_index(self):
         self.run_case('ready-update-delete-local-only')
 
     def test_delete_scene_waits_for_consumer_release(self):
         self.run_case('ready-update-delete-scene')
+
+    def test_delete_and_late_source_reload_do_not_close_another_current_inspector(self):
+        self.run_case('ready-update-delete-inspector-other')
+
+    def test_busy_scene_removal_preserves_ready_pointer_and_content(self):
+        self.run_case('ready-update-delete-scene-busy')
+
+    def test_opaque_source_ids_delete_only_the_exact_file_and_keep_partial_results(self):
+        self.run_case('opaque-source-delete')
+
+
+if __name__ == '__main__':
+    unittest.main()

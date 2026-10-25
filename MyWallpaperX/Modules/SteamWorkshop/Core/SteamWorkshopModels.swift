@@ -1,22 +1,5 @@
 import Foundation
 
-enum SteamWorkshopDownloadsSortMode: String, CaseIterable, Equatable {
-    case createdAt
-    case title
-    case size
-
-    var displayName: String {
-        switch self {
-        case .createdAt:
-            return "创建时间"
-        case .title:
-            return "作品名称"
-        case .size:
-            return "文件大小"
-        }
-    }
-}
-
 nonisolated enum SteamWorkshopDownloadContentType: String, CaseIterable, Equatable {
     case video
     case web
@@ -33,39 +16,6 @@ nonisolated enum SteamWorkshopDownloadContentType: String, CaseIterable, Equatab
             return "场景壁纸"
         case .unknown:
             return "未知类型"
-        }
-    }
-}
-
-enum SteamWorkshopDownloadsDisplayMode: String, CaseIterable, Equatable {
-    case all
-    case video
-    case web
-    case scene
-
-    var title: String {
-        switch self {
-        case .all:
-            return "全部"
-        case .video:
-            return "视频"
-        case .web:
-            return "Web"
-        case .scene:
-            return "场景"
-        }
-    }
-
-    var emptyStateText: String {
-        switch self {
-        case .all:
-            return "当前 workshop 目录里还没有已下载项目"
-        case .video:
-            return "当前 workshop 目录里还没有已下载的视频项目"
-        case .web:
-            return "当前 workshop 目录里还没有已下载的WEB壁纸项目"
-        case .scene:
-            return "当前 workshop 目录里还没有已下载的Scene项目"
         }
     }
 }
@@ -166,6 +116,9 @@ nonisolated struct SteamWorkshopDownloadRecord: Identifiable, Equatable {
     var createdAt: Date? = nil
     /// Exact local sample bytes; sizeText is only the formatted presentation.
     var sizeBytes: Int64? = nil
+    /// Transient JobStore-derived intent, rather than a published local row.
+    /// The account is provenance only; JobStore remains its durable owner.
+    var intentAccountSteamID: String? = nil
 
     var videoURL: URL? {
         if let exportedVideoURL,

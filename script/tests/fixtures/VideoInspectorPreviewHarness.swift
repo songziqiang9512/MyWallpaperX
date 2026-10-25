@@ -19,12 +19,14 @@ import Foundation
 struct InspectorSelectionStub {}
 
 enum UIActionHelper {
-    static func toggleFavoriteSelection(manager: WallpaperManager, selection: InspectorSelectionStub) {}
+    static var favoriteWrites = 0
+    static var tagWrites = 0
+    static func toggleFavoriteSelection(manager: WallpaperManager, selection: InspectorSelectionStub) { favoriteWrites += 1 }
     static func presentTagPicker(
         manager: WallpaperManager,
         window: NSWindow?,
         completion: @escaping () -> Void
-    ) {}
+    ) { tagWrites += 1 }
 }
 
 struct WallpaperInspectorDetails: Equatable {
@@ -42,15 +44,17 @@ func loadWallpaperInspectorDetails(
     for wallpaper: VideoWallpaper,
     completion: @escaping (WallpaperInspectorDetails) -> Void
 ) -> Task<Void, Never> {
-    Task {
+    completion(WallpaperInspectorDetails(fileSizeText: "1 MB", formatText: "MP4", durationText: "读取中…",
+        codecText: "读取中…", resolutionText: "读取中…", addedDateText: "2026年10月25日 20:30", pathText: wallpaper.path))
+    return Task {
         await MainActor.run {
             completion(WallpaperInspectorDetails(
-                fileSizeText: "",
-                formatText: "",
-                durationText: "",
-                codecText: "",
-                resolutionText: "",
-                addedDateText: "",
+                fileSizeText: "1 MB",
+                formatText: "MP4",
+                durationText: "0:30",
+                codecText: "High Efficiency Video Coding Long Value",
+                resolutionText: "3840×2160",
+                addedDateText: "2026年10月25日 20:30",
                 pathText: wallpaper.path
             ))
         }
@@ -147,8 +151,9 @@ final class WallpaperManager: ObservableObject {
     }
 
     func markCardInteraction() {}
-    func stopCurrentPlayback() {}
-    func requestSetAsWallpaper(_ wallpaper: VideoWallpaper) {}
+    var primaryWrites = 0
+    func stopCurrentPlayback() { primaryWrites += 1 }
+    func requestSetAsWallpaper(_ wallpaper: VideoWallpaper) { primaryWrites += 1 }
 }
 
 // MARK: - 断言辅助
@@ -191,7 +196,7 @@ private func firstSubview(of root: NSView, matching test: (NSView) -> Bool) -> N
 /// 「未找到缩略图」提示是否可见（面板唯一的预览缺失提示词条）。
 private func noticeVisible(in root: NSView) -> Bool {
     firstSubview(of: root) { view in
-        (view as? NSTextField)?.stringValue.contains("未找到缩略图") == true
+        (view as? NSTextField)?.stringValue.contains("未找到缩略图") == true && !view.isHiddenOrHasHiddenAncestor
     } != nil
 }
 
@@ -299,7 +304,10 @@ enum Harness {
         let container = NSView(frame: NSRect(x: 0, y: 0, width: 368, height: 640))
         window.contentView = container
 
-        let inspector = VideoLibraryInspectorView(wallpaper: wallpaperA, wallpaperManager: manager)
+        let previewActions = WallpaperInspectorActions(state: .init(isPlaying: false, isFavorite: false,
+            canPerformPrimary: false, canFavorite: false, canOrganize: false, playlistNames: ["已迁移列表"]),
+            onPrimary: {}, onToggleFavorite: {}, onChoosePlaylist: { _ in })
+        let inspector = VideoLibraryInspectorView(wallpaper: wallpaperA, wallpaperManager: manager, libraryActions: previewActions)
         container.addSubview(inspector)
         NSLayoutConstraint.activate([
             inspector.leadingAnchor.constraint(equalTo: container.leadingAnchor),
@@ -308,13 +316,30 @@ enum Harness {
             inspector.bottomAnchor.constraint(equalTo: container.bottomAnchor)
         ])
         container.layoutSubtreeIfNeeded()
+        let initialPreview = firstSubview(of: inspector) { $0 is VideoLibraryInspectorPreviewSurfaceView }!
+        let initialFrame = initialPreview.convert(initialPreview.bounds, to: container)
+        let initialPreviewConstraintCount = initialPreview.constraints.count
 
         // 场景 1：初始缺图——「未找到缩略图」提示出现，占位可见
         let initialNotice = waitFor(timeout: 4.0) { noticeVisible(in: inspector) }
         check(initialNotice, "s1-initial-missing-notice")
         check(placeholderVisible(in: inspector), "s1-initial-placeholder-visible")
-        check(firstSubview(of: inspector) { ($0 as? NSTextField)?.stringValue == "保留原标签" } != nil,
-              "s1-original-tag-projected")
+        container.layoutSubtreeIfNeeded()
+        let missingSurface = firstSubview(of: inspector) { $0 is VideoLibraryInspectorPreviewSurfaceView }!
+        let missingText = firstSubview(of: missingSurface) { ($0 as? NSTextField)?.stringValue.contains("未找到缩略图") == true }!
+        let missingGlyph = firstSubview(of: missingSurface) { $0 is NSImageView }!
+        let textRect = missingText.convert(missingText.bounds, to: missingSurface)
+        let glyphRect = missingGlyph.convert(missingGlyph.bounds, to: missingSurface)
+        check(missingSurface.bounds.contains(textRect) && !textRect.intersects(glyphRect),
+              "s10-missing-preview-message-fits-without-covering-its-placeholder")
+        container.layoutSubtreeIfNeeded()
+        let metadataPreview = firstSubview(of: inspector) { $0 is VideoLibraryInspectorPreviewSurfaceView }!
+        let metadataFrame = metadataPreview.convert(metadataPreview.bounds, to: container)
+        print("DETAIL metadata-layout before=\(initialFrame) after=\(metadataFrame)")
+        check(initialPreview === metadataPreview && initialFrame == metadataFrame, "s10-metadata-and-missing-preview-keep-native-preview-frame")
+        check(firstSubview(of: inspector) { ($0 as? NSTextField)?.stringValue == "已迁移列表" } != nil
+            && firstSubview(of: inspector) { ($0 as? NSTextField)?.stringValue == "保留原标签" } == nil,
+              "s1-required-store-membership-only")
 
         // 场景 2：缩略图生成完成（磁盘补齐 + thumbnailReady 事件）→ 不重开面板即显示
         manager.setResolvedThumbnail(thumbRed, for: videoA)
@@ -323,6 +348,10 @@ enum Harness {
         let redPixel = centerPixel(in: inspector)
         print("DETAIL s2-pixel \(redPixel.map { "\($0.red) \($0.green) \($0.blue)" } ?? "nil")")
         check(reloaded && looksRed(redPixel), "s2-preview-reloads-on-thumbnail-ready")
+        container.layoutSubtreeIfNeeded()
+        let filledPreview = firstSubview(of: inspector) { $0 is VideoLibraryInspectorPreviewSurfaceView }!
+        check(filledPreview === initialPreview && filledPreview.convert(filledPreview.bounds, to: container) == initialFrame,
+              "s10-thumbnail-arrival-updates-only-the-same-fixed-preview")
 
         // 场景 3：无关 publish（收藏切换，资产身份不变）不重复读取预览
         _ = manager.drainResolveLog()
@@ -332,6 +361,9 @@ enum Harness {
         drain(0.5)
         check(!noticeVisible(in: inspector) && looksRed(centerPixel(in: inspector))
               && manager.drainResolveLog().isEmpty, "s3-unrelated-publish-keeps-preview")
+
+        check(initialPreview.constraints.count == initialPreviewConstraintCount,
+              "s10-preview-constraints-do-not-grow-on-metadata-or-source-echoes")
 
         // 场景 4：资源替换（同 id 换源路径，新源无预览）→ 旧图清空、缺失提示回归
         manager.setResolvedThumbnail(nil, for: videoD)
@@ -389,7 +421,7 @@ enum Harness {
         autoreleasepool {
             let second = VideoLibraryInspectorView(
                 wallpaper: VideoWallpaper(id: "card-e", title: "E", path: videoE),
-                wallpaperManager: manager
+                wallpaperManager: manager, libraryActions: previewActions
             )
             weakInspector = second
             container.addSubview(second)
@@ -402,6 +434,47 @@ enum Harness {
         drain(1.0)
         check(released, "s7-closed-panel-view-released")
         check(true, "s7-late-callback-after-close-safe")
+
+        var newFavorite = 0, newMembership = 0, newPrimary = 0
+        let actions = WallpaperInspectorActions(state: .init(isPlaying: false, isFavorite: true, canPerformPrimary: true,
+            canFavorite: true, canOrganize: true, playlistNames: ["New Store List"]), onPrimary: { newPrimary += 1 },
+            onToggleFavorite: { newFavorite += 1 }, onChoosePlaylist: { _ in newMembership += 1 })
+        let organized = VideoLibraryInspectorView(wallpaper: wallpaperA, wallpaperManager: manager, libraryActions: actions)
+        container.addSubview(organized)
+        organized.updateLibraryActions(actions)
+        check(firstSubview(of: organized) { ($0 as? NSTextField)?.stringValue == "New Store List" } != nil
+            && firstSubview(of: organized) { ($0 as? NSTextField)?.stringValue == "保留原标签" } == nil,
+            "s9-injected-membership-replaces-old-tags-with-new-store-names")
+        _ = organized.perform(NSSelectorFromString("toggleFavorite"))
+        _ = organized.perform(NSSelectorFromString("presentTagPicker"))
+        _ = organized.perform(NSSelectorFromString("setAsWallpaper"))
+        check(newFavorite == 1 && newMembership == 1 && newPrimary == 1 && UIActionHelper.favoriteWrites == 0
+            && UIActionHelper.tagWrites == 0 && manager.primaryWrites == 0, "s9-fixed-actions-never-write-old-selection-owners")
+        let readonly = WallpaperInspectorActions(state: .init(isPlaying: false, isFavorite: true, canPerformPrimary: true,
+            canFavorite: false, canOrganize: false, playlistNames: ["New Store List"]), onPrimary: { newPrimary += 1 },
+            onToggleFavorite: { newFavorite += 1 }, onChoosePlaylist: { _ in newMembership += 1 })
+        organized.updateLibraryActions(readonly)
+        _ = organized.perform(NSSelectorFromString("toggleFavorite"))
+        _ = organized.perform(NSSelectorFromString("presentTagPicker"))
+        check(newFavorite == 1 && newMembership == 1 && UIActionHelper.favoriteWrites == 0 && UIActionHelper.tagWrites == 0,
+            "s9-readonly-injected-actions-refuse-organization")
+        check(firstSubview(of: organized) { ($0 as? NSScrollView).map { !$0.hasVerticalScroller && !$0.hasHorizontalScroller } == true } != nil,
+            "s9-original-hidden-inspector-scrollbars-preserved")
+        let offlineFavorite = WallpaperInspectorActions(state: .init(isPlaying: false, isFavorite: true, canPerformPrimary: false,
+            canFavorite: true, canOrganize: false, playlistNames: ["New Store List"]), onPrimary: { newPrimary += 1 },
+            onToggleFavorite: { newFavorite += 1 }, onChoosePlaylist: { _ in newMembership += 1 })
+        organized.updateLibraryActions(offlineFavorite)
+        let favoriteControl = firstSubview(of: organized) { ($0 as? InspectorFooterButton)?.action == NSSelectorFromString("toggleFavorite") } as? InspectorFooterButton
+        let playlistControl = firstSubview(of: organized) { ($0 as? InspectorFooterButton)?.action == NSSelectorFromString("presentTagPicker") } as? InspectorFooterButton
+        let offlinePress = favoriteControl?.accessibilityPerformPress() == true
+        _ = organized.perform(NSSelectorFromString("presentTagPicker"))
+        check(favoriteControl?.isEnabled == true && offlinePress && newFavorite == 2 && playlistControl?.isEnabled == false
+            && newMembership == 1 && newPrimary == 1, "s9-native-offline-favorite-removes-without-enabling-list-or-playback")
+        organized.updateLibraryActions(readonly)
+        let readonlyFavoriteControl = firstSubview(of: organized) { ($0 as? InspectorFooterButton)?.action == NSSelectorFromString("toggleFavorite") } as? InspectorFooterButton
+        check(readonlyFavoriteControl?.isEnabled == false && readonlyFavoriteControl?.accessibilityPerformPress() == false
+            && newFavorite == 2, "s9-native-readonly-favorite-refuses-accessibility-press")
+        organized.removeFromSuperview()
 
         if failureNames.isEmpty {
             print("ALL SCENARIOS PASS")

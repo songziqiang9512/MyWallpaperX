@@ -8,7 +8,16 @@ import AppKit
 import UniformTypeIdentifiers
 
 extension WallpaperManager {
+    func reportMigrationReadOnly(in window: NSWindow? = nil) {
+        guard let migrationRecoveryMessage else { return }
+        let alert = makeAppAlert(title: "资料库需要恢复",
+            message: migrationRecoveryMessage + "\n当前可继续浏览和播放已入库壁纸；导入、删除和整理需要恢复资料库后再操作。",
+            style: .warning, buttons: ["知道了"])
+        presentAppAlert(alert, in: window)
+    }
+
     func importVideos(presentingIn window: NSWindow? = nil, context: ImportContext = .library) {
+        guard allowsLibraryMutation else { reportMigrationReadOnly(in: window ?? appModalHostWindow()); return }
         // 这个入口只负责“选文件 + 启动导入”，真正的数据处理交给 ImportProcessing。
         let panel = makeImportOpenPanel()
         let hostWindow = window ?? appModalHostWindow()

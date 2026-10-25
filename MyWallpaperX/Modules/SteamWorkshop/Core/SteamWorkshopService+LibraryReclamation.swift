@@ -278,8 +278,7 @@ extension SteamWorkshopService {
 
         let wallpaperManager = WallpaperManager.shared
         let referencedVideoPaths = wallpaperManager.wallpapers.map(\.path)
-            + wallpaperManager.recentlyUsedWallpapers.map(\.path)
-            + [wallpaperManager.currentWallpaper?.path].compactMap { $0 }
+            + [wallpaperManager.currentWallpaper?.path, wallpaperManager.pendingWallpaper?.path].compactMap { $0 }
         for path in referencedVideoPaths {
             if let identity = SteamWorkshopLibraryTransaction.storageIdentity(
                 containing: URL(fileURLWithPath: path),

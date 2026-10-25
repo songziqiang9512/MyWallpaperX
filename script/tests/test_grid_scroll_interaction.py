@@ -50,9 +50,20 @@ class GridScrollInteractionTests(unittest.TestCase):
         for name in ("home", "tmp"):
             (cls.work / name).mkdir()
         inputs = {str(path): hashlib.sha256(path.read_bytes()).hexdigest()
-                  for path in (PRODUCTION, FIXTURE)}
+                  for path in (PRODUCTION, FIXTURE, Path(__file__))}
+        original = PRODUCTION.read_text()
+        marker = "    private func observeLiveScroll() {\n"
+        if original.count(marker) != 1:
+            raise AssertionError("the production observer installation marker must be unique")
+        instrumented = original.replace(marker, marker + """        // Geometry-only fixture injection before the original observers attach.
+        if GridScrollClipProbe.usesControlledGeometry {
+            contentView = GridScrollGeometryClip(frame: contentView.frame)
+        }
+""")
+        production_copy = cls.work / PRODUCTION.name
+        production_copy.write_text(instrumented)
         command = ["xcrun", "--sdk", "macosx", "swiftc", "-parse-as-library",
-                   "-default-isolation", "MainActor", str(PRODUCTION), str(FIXTURE),
+                   "-default-isolation", "MainActor", str(production_copy), str(FIXTURE),
                    "-module-cache-path", str(cls.work / "swift-modules"),
                    "-framework", "AppKit", "-o", str(cls.binary)]
         build = subprocess.run(command, capture_output=True, text=True,
@@ -65,12 +76,14 @@ class GridScrollInteractionTests(unittest.TestCase):
             (cls.proof / "compile.log").write_text(build.stdout + build.stderr)
             (cls.proof / "inputs.json").write_text(json.dumps({
                 "inputs": inputs, "command": command,
+                "productionCopySHA256": hashlib.sha256(instrumented.encode()).hexdigest(),
+                "instrumentation": "Geometry mode only: native NSClipView unconstrained-bounds leaf before unchanged observer installation; native-input/old modes use the original clip",
                 "scope": "standalone AppKit interaction; no frame-rate or App-wide claim",
             }, indent=2) + "\n")
         if build.returncode:
             raise AssertionError(build.stdout + build.stderr)
         if inputs != {str(path): hashlib.sha256(path.read_bytes()).hexdigest()
-                      for path in (PRODUCTION, FIXTURE)}:
+                      for path in (PRODUCTION, FIXTURE, Path(__file__))}:
             raise AssertionError("a compiled input changed during the native harness build")
 
     def check_case(self, name: str) -> None:
@@ -106,6 +119,21 @@ class GridScrollInteractionTests(unittest.TestCase):
         self.assertEqual(run.returncode, 0, output + errors + run.stderr)
         self.assertTrue(output, "native App did not produce its completed result: " + errors)
         facts = json.loads(output)
+        if name == "pull-count-native-input":
+            self.assertEqual(facts["hardwareAcceptance"], "not-verified")
+            self.assertIn("no physical mouse or trackpad validation", facts["scope"])
+            cases = {f"height{height}-{packet}" for height in (0, 64, 1200)
+                     for packet in ("continuous-phased", "discrete-phaseless", "continuous-phaseless")}
+            self.assertEqual(set(facts["observations"]), cases)
+            for observed in facts["observations"].values():
+                self.assertEqual(len(observed["events"]), 8)
+                self.assertIn("maximumNativeGap", observed)
+                self.assertIn("settledY", observed)
+                self.assertIn("eligibleRenderSamples", observed)
+        elif name == "pull-count-geometry":
+            positive = "-bounds-notification-shows-nonhit-count-in-native-gap"
+            self.assertEqual({check for check in facts["checks"] if check.endswith(positive)},
+                             {f"height{height}-inset{inset}{positive}" for height in (0, 64, 1200) for inset in (0, 56)})
         self.assertTrue(facts["checks"], "native checks must not be empty")
         for check, passed in facts["checks"].items():
             with self.subTest(case=name, check=check):
@@ -137,6 +165,12 @@ class GridScrollInteractionTests(unittest.TestCase):
 
     def test_hit_targets_clicks_and_native_selection_remain_available(self):
         self.check_case("interaction")
+
+    def test_pull_count_uses_only_observed_native_gap_and_preserves_layout_and_admission(self):
+        self.check_case("pull-count-geometry")
+
+    def test_constructed_wheel_packets_preserve_native_contract_and_record_elasticity(self):
+        self.check_case("pull-count-native-input")
 
 
 if __name__ == "__main__":

@@ -13,82 +13,9 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSMenuItemValidation {
  private var didPrepareProductTermination = false
  private(set) var terminationReplyPending = false
 
- private func normalizedMenuTitle(_ menuItem: NSMenuItem) -> String {
- menuItem.title.replacingOccurrences(of: " ", with: "")
- }
-
- private func textViewFirstResponder() -> NSTextView? {
- guard let keyWindow = NSApp.keyWindow else { return nil }
- return keyWindow.firstResponder as? NSTextView
- }
-
- private func editableTextViewFirstResponder() -> NSTextView? {
- guard let textView = textViewFirstResponder(), textView.isEditable else { return nil }
- return textView
- }
-
- // MARK: - 菜单验证（AppKit 每次菜单显示前自动调用，正确处理模块切换后的可用状态）
+ // Native validation follows stable identifiers/selectors and current PageID.
  func validateMenuItem(_ menuItem: NSMenuItem) -> Bool {
- let module = MainWindowCoordinator.activeModule
-
- // 导入菜单项标题随模块动态变化，在线库下禁用
- if menuItem.title == "导入" || menuItem.title == "导入视频" || menuItem.title == "导入图片" {
- if module == .staticImageLibrary {
- menuItem.title = "导入图片"
- return true
- } else if module == .onlineLibrary || module == .steamWorkshop {
- menuItem.title = "导入"
- return false
- } else {
- menuItem.title = "导入视频"
- return true
- }
- }
-
- if normalizedMenuTitle(menuItem) == "查看文件" || normalizedMenuTitle(menuItem) == "刷新" {
- menuItem.title = MainWindowCoordinator.revealInFinderMenuTitle
- return MainWindowCoordinator.canRevealInFinder
- }
-
- switch normalizedMenuTitle(menuItem) {
- case "切换下一张", "切换上一张":
- // 跨引擎统一轮换（视频库+工坊 web/scene），与热键/状态栏同源，
- // 不再受视频库激活状态门控。
- // 必须保持启用：菜单键等价匹配后事件即被菜单系统消费，禁用项并不能把
- // Cmd+←/→ 作为 keyDown 还给文本系统；文本焦点下的光标移动路由
- // 在对应 action 内完成（同「全选/删除选中」的既有转发模式）。
- return true
-
- case "设为当前壁纸", "收藏/取消收藏":
- return MainWindowCoordinator.canUseVideoLibraryOnlyCommands
-
- case "进入/退出多选":
- return MainWindowCoordinator.canToggleMultiSelect
-
- case "全选":
- if textViewFirstResponder() != nil {
- return true
- }
- return MainWindowCoordinator.canSelectAll
-
- case "删除选中":
- if editableTextViewFirstResponder() != nil {
- return true
- }
- return MainWindowCoordinator.canDeleteSelected
-
- case "添加标签":
- return MainWindowCoordinator.canAddTag
-
- case "查看信息":
- return MainWindowCoordinator.canShowInfo
-
- case "预览":
- return MainWindowCoordinator.canPreview
-
- default:
- return true
- }
+ MainWindowMenuCommands.validate(menuItem)
  }
 
  func applicationDidFinishLaunching(_ notification: Notification) {
@@ -121,10 +48,6 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSMenuItemValidation {
  if let helpPath = Bundle.main.path(forResource: "MyWallpaperXHelp", ofType: nil) {
  NSHelpManager.shared.registerBooks(in: Bundle(path: helpPath) ?? .main)
  }
- // 启动重放：上次是 web/scene 壁纸时按单品身份走原工坊入口恢复
- // （Modules 不直呼 SteamWorkshop 单例，装配层执行；单品已删除时由
- // manager 回落降级路径）。
- replayWorkshopLaunchIfPlanned()
  scheduleInitialMainWindowActivation()
 #if DEBUG
  DebugWebPlaybackRunner.scheduleWorkshopPlaybackIfRequested()
@@ -205,10 +128,27 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSMenuItemValidation {
 #endif
  guard !terminationReplyPending else { return .terminateLater }
  terminationReplyPending = true
+ MyWallpaperXApplication.prepareLibraryForTermination()
+ Task { @MainActor [weak self] in
+ guard let self else {
+ MyWallpaperXApplication.cancelLibraryTermination()
+ sender.reply(toApplicationShouldTerminate: false)
+ return
+ }
+ if let error = await MyWallpaperXApplication.flushLibraryBeforeTermination() {
+ self.terminationReplyPending = false
+ MyWallpaperXApplication.cancelLibraryTermination()
+ sender.reply(toApplicationShouldTerminate: false)
+ presentAppAlert(makeAppAlert(title: "资料库尚未保存", message: error + "\n请重试退出。"), in: MainWindowCoordinator.mainWindow())
+ return
+ }
+ // No await separates the successful metadata barrier from revoking the
+ // original playback authority. A cancelled quit never closes admission.
  DaemonPlaybackProcessRegistry.shared.closeAdmission()
- prepareProductTermination()
+ self.prepareProductTermination()
  SceneDaemonClient.shared.shutdown()
- replyAfterPlaybackProcessesExit(sender)
+ self.replyAfterPlaybackProcessesExit(sender)
+ }
  return .terminateLater
  }
 
@@ -274,32 +214,6 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSMenuItemValidation {
  WallpaperEngine.shared.cleanup()
  }
 
- /// 消费 manager 在启动恢复期产出的 web/scene 重放计划：按 recordID 走
- /// SteamWorkshopService.setAsWallpaper 统一入口（依赖检查/资源生命
- /// 周期/通知发射全复用）；退出前暂停的意图随启动投影（scene 侧
- /// isPaused 记录 + replay 补发，web 侧引擎在 host ready 后补暂停）。
- /// 记录经 installedRecordForLaunchReplay 快路径定向构造——工坊 service
- /// init 已不再同步整库扫描，这里只为重放这一条记录付 IO；miss 仍走
- /// 既有降级路径。
- private func replayWorkshopLaunchIfPlanned() {
- guard let plan = WallpaperManager.shared.consumeWorkshopLaunchReplayPlan() else {
- return
- }
- let workshop = SteamWorkshopService.shared
- if let record = workshop.installedRecordForLaunchReplay(itemID: plan.recordID),
- record.contentType == .web || record.contentType == .scene {
- workshop.setAsWallpaper(record)
- if plan.restorePausedIntent {
- PlaybackCommandMultiplexer.shared.dispatch(.pause)
- WallpaperManager.shared.isPlaying = false
- }
- return
- }
- WallpaperManager.shared.fallBackToMostRecentVideoAfterWorkshopReplay(
- restorePausedIntent: plan.restorePausedIntent
- )
- }
-
  /// 工坊整库扫描延后补跑：主窗口激活后让出一轮 runloop（首帧先起），
  /// 再执行完整 reloadInstalledItems()。补跑前 downloads 投影只含重放快
  /// 路径并入的单条记录；菜单验证在工坊下载页之外短路，下载页另有
@@ -354,88 +268,25 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSMenuItemValidation {
  SettingsWindowController.shared.showWindow()
  }
 
- @objc func createTagMenuAction(_ sender: Any?) {
- MainWindowCoordinator.menuCreateTag()
- }
-
- @objc func importMenuAction(_ sender: Any?) {
- MainWindowCoordinator.menuImport()
- }
-
- @objc func selectAllMenuAction(_ sender: Any?) {
- if let textView = textViewFirstResponder() {
- textView.selectAll(sender)
- return
- }
- MainWindowCoordinator.menuSelectAll()
- }
-
- @objc func toggleMultiSelectMenuAction(_ sender: Any?) {
- MainWindowCoordinator.menuToggleMultiSelect()
- }
-
- @objc func deleteSelectedMenuAction(_ sender: Any?) {
- if let textView = editableTextViewFirstResponder() {
- textView.delete(sender)
- return
- }
- MainWindowCoordinator.menuDeleteSelected()
- }
-
- @objc func focusSearchMenuAction(_ sender: Any?) {
- MainWindowCoordinator.menuFocusSearch()
- }
-
- @objc func zoomInMenuAction(_ sender: Any?) {
- MainWindowCoordinator.performZoom(delta: 1)
- }
-
- @objc func zoomOutMenuAction(_ sender: Any?) {
- MainWindowCoordinator.performZoom(delta: -1)
- }
-
- @objc func setAsWallpaperMenuAction(_ sender: Any?) {
- MainWindowCoordinator.menuSetAsWallpaper()
- }
-
- @objc func nextWallpaperMenuAction(_ sender: Any?) {
- // Cmd+→ 在可编辑文本框内是标准「移到行尾」光标移动，路由给文本视图，
- // 不劫持为切换壁纸。
- if let textView = editableTextViewFirstResponder() {
- textView.moveToEndOfLine(sender)
- return
- }
- MainWindowCoordinator.menuNavigate(.next)
- }
-
- @objc func previousWallpaperMenuAction(_ sender: Any?) {
- // Cmd+← 在可编辑文本框内是标准「移到行首」光标移动，路由给文本视图。
- if let textView = editableTextViewFirstResponder() {
- textView.moveToBeginningOfLine(sender)
- return
- }
- MainWindowCoordinator.menuNavigate(.previous)
- }
-
- @objc func toggleFavoriteMenuAction(_ sender: Any?) {
- MainWindowCoordinator.menuToggleFavorite()
- }
-
- @objc func addTagMenuAction(_ sender: Any?) {
- MainWindowCoordinator.menuAddTag()
- }
-
- @objc func showInfoMenuAction(_ sender: Any?) {
- MainWindowCoordinator.menuShowInfo()
- }
-
- @objc func previewMenuAction(_ sender: Any?) {
- MainWindowCoordinator.menuPreview()
- }
-
- @objc func revealInFinderMenuAction(_ sender: Any?) {
- MainWindowCoordinator.menuRevealInFinder()
- }
+ @objc func createPlaylistMenuAction(_ sender: Any?) { MainWindowMenuCommands.menuCreatePlaylist() }
+ @objc func importMenuAction(_ sender: Any?) { MainWindowMenuCommands.menuImport() }
+ @objc func undoMenuAction(_ sender: Any?) { MainWindowMenuCommands.menuUndo() }
+ @objc func redoMenuAction(_ sender: Any?) { MainWindowMenuCommands.menuRedo() }
+ @objc func selectAllMenuAction(_ sender: Any?) { MainWindowMenuCommands.menuSelectAll(sender) }
+ @objc func toggleMultiSelectMenuAction(_ sender: Any?) { MainWindowMenuCommands.menuToggleSelection() }
+ @objc func deleteSelectedMenuAction(_ sender: Any?) { MainWindowMenuCommands.menuDeleteSelected(sender) }
+ @objc func focusSearchMenuAction(_ sender: Any?) { MainWindowMenuCommands.menuSearch() }
+ @objc func zoomInMenuAction(_ sender: Any?) { MainWindowMenuCommands.menuZoom(1) }
+ @objc func zoomOutMenuAction(_ sender: Any?) { MainWindowMenuCommands.menuZoom(-1) }
+ @objc func setAsWallpaperMenuAction(_ sender: Any?) { MainWindowMenuCommands.menuApplyWallpaper(sender) }
+ @objc func nextWallpaperMenuAction(_ sender: Any?) { MainWindowMenuCommands.menuNavigate(.next, sender: sender) }
+ @objc func previousWallpaperMenuAction(_ sender: Any?) { MainWindowMenuCommands.menuNavigate(.previous, sender: sender) }
+ @objc func toggleFavoriteMenuAction(_ sender: Any?) { MainWindowMenuCommands.menuFavorite(sender) }
+ @objc func addToPlaylistMenuAction(_ sender: Any?) { MainWindowMenuCommands.menuAddToPlaylist(sender) }
+ @objc func showInfoMenuAction(_ sender: Any?) { MainWindowMenuCommands.menuInfo() }
+ @objc func previewMenuAction(_ sender: Any?) { MainWindowMenuCommands.menuPreview(sender) }
+ @objc func revealInFinderMenuAction(_ sender: Any?) { MainWindowMenuCommands.menuRevealOrRefresh() }
+ @objc func navigateLibraryPageMenuAction(_ sender: NSMenuItem) { MainWindowMenuCommands.menuNavigatePage(sender) }
 
  @objc func closeWindowMenuAction(_ sender: Any?) {
  NSApp.keyWindow?.performClose(nil)

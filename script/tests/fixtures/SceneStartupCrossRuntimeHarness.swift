@@ -12,6 +12,10 @@ import Foundation
 }
 enum WallpaperRuntimeKind { case scene, video }
 struct PlaybackSwitchTicket: Equatable { let epoch: UInt64; let id: UUID; let runtime: WallpaperRuntimeKind }
+enum WallpaperProvider { case steamWorkshop, videoLibrary }
+struct WallpaperReference { let provider: WallpaperProvider; let sourceID: String }
+enum WallpaperPlaybackSequence { struct Pending { let ticket: PlaybackSwitchTicket } }
+enum WallpaperPlaybackCause { case userSelection, restore }
 struct PlaybackSwitchState {
     struct Selection { let ticket: PlaybackSwitchTicket; let executionID: UUID? }
     struct Pending { let selection: Selection }
@@ -19,7 +23,7 @@ struct PlaybackSwitchState {
     var activity: UUID?
     var cancellations: [UUID: Bool] = [:], retirements: [UUID: Bool] = [:]
 }
-struct VideoWallpaper { let title: String; let path: String }
+struct VideoWallpaper { let id = UUID().uuidString; let title: String; let path: String }
 struct PlaybackPerformanceProfile {
     let maxFPS: Int
     init?(rawValue: Int) { guard rawValue == 30 else { return nil }; maxFPS = rawValue }
@@ -125,10 +129,19 @@ enum DebugWebPlaybackRunner { static let hasIsolatedStartupEnvironment = true }
     var settings = HarnessSettings(), playbackSwitch = PlaybackSwitchState()
     var switchEndpoints: [UUID: Bool] = [:]
     var activeWallpaperRuntime: WallpaperRuntimeKind = .scene
-    func setAsWallpaper(_ wallpaper: VideoWallpaper, userInitiated: Bool,
-                        recordHistory: Bool, updateRecentList: Bool) {
+    @discardableResult
+    func requestDiagnosticPlayback(reference: WallpaperReference, runtime: WallpaperRuntimeKind,
+                                   cause: WallpaperPlaybackCause = .userSelection,
+                                   prepare: (WallpaperPlaybackSequence.Pending) -> Bool) -> PlaybackSwitchTicket? {
+        precondition(cause == (runtime == .video ? .restore : .userSelection),
+                     "Video interstitial must not record recent; Scene measures user selection")
+        let ticket = HarnessState.ticket(runtime)
+        playbackSwitch.pending = .init(selection: .init(ticket: ticket, executionID: nil))
+        return prepare(.init(ticket: ticket)) ? ticket : nil
+    }
+    func setAsWallpaper(_ wallpaper: VideoWallpaper, libraryPending: WallpaperPlaybackSequence.Pending) {
         HarnessState.selections.append("video")
-        let ticket = HarnessState.ticket(.video), execution = UUID()
+        let ticket = libraryPending.ticket, execution = UUID()
         playbackSwitch.pending = .init(selection: .init(ticket: ticket, executionID: execution))
         DispatchQueue.main.async {
             if HarnessState.scenario == "video-failure" {
@@ -181,10 +194,10 @@ enum DebugWebPlaybackRunner { static let hasIsolatedStartupEnvironment = true }
 }
 @MainActor final class SteamWorkshopService {
     static let shared = SteamWorkshopService()
-    func setAsWallpaper(_ record: SteamWorkshopDownloadRecord) {
+    func setAsWallpaper(_ record: SteamWorkshopDownloadRecord, libraryPending: WallpaperPlaybackSequence.Pending) -> Bool {
         HarnessState.selections.append("scene"); HarnessState.sceneCount += 1
         let client = SceneDaemonClient.shared, manager = WallpaperManager.shared
-        let ticket = HarnessState.ticket(.scene), request = UUID(), execution = UUID()
+        let ticket = libraryPending.ticket, request = UUID(), execution = UUID()
         let second = HarnessState.sceneCount == 2, fresh = second && HarnessState.scenario == "baseline"
         let generation: UInt64 = fresh ? 2 : 1, pid: Int32 = fresh ? 43 : 42
         manager.playbackSwitch.pending = .init(selection: .init(ticket: ticket, executionID: execution))
@@ -214,6 +227,7 @@ enum DebugWebPlaybackRunner { static let hasIsolatedStartupEnvironment = true }
                 intentEpoch: ticket.epoch, requestID: request, executionID: execution,
                 transportGeneration: generation, daemonPID: pid, uptimeMicros: HarnessState.now()))
         }
+        return true
     }
 }
 extension Notification.Name {

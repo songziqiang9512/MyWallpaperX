@@ -155,8 +155,7 @@ enum DebugWebRuntimeSwitchRunner {
         settings.pauseWhenIdle = false
         PlaybackPolicyController.shared.updateSettings(settings)
         WallpaperManager.shared.settings.multiDisplayEnabled = false
-        WallpaperManager.shared.setAsWallpaper(VideoWallpaper(title: title, path: url.path),
-            recordHistory: false, updateRecentList: false)
+        WallpaperManager.shared.requestDiagnosticVideo(VideoWallpaper(title: title, path: url.path))
     }
 
     private static func logPreconditionFailure(_ reason: String) {

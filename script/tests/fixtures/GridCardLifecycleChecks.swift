@@ -95,7 +95,7 @@ nonisolated final class ThumbnailCacheRequestCancellation: @unchecked Sendable {
     }
 }
 
-enum OLThumbnailRequestPriority { case visible }
+enum OLThumbnailRequestPriority { case visible, prefetch }
 
 @MainActor final class OLThumbnailRequestCoordinator {
     static let shared = OLThumbnailRequestCoordinator()
@@ -345,14 +345,13 @@ func samePoint(_ lhs: NSPoint, _ rhs: NSPoint) -> Bool { close(lhs.x, rhs.x) && 
 
 @MainActor func idleHoverPresentation(_ item: NSCollectionViewItem) -> Bool {
     if let card = item as? AppKitOLBrowserItem {
-        return !card.isHovering && !card.hoverVisible && close(card.titleLabel.alphaValue, 0)
-            && close(card.metaLabel.alphaValue, 0) && card.gradientLayer.opacity == 0
+        return !card.isHovering && !card.hoverVisible && close(card.controlBar.alphaValue, 0)
+            && card.controlBar.superview == nil
             && card.imageContainer.layer.map({ CATransform3DIsIdentity($0.transform) }) == true
     }
     if let card = item as? AppKitOLDownloadsItem {
-        return !card.isHovering && close(card.titleLabel.alphaValue, 0)
-            && close(card.metaLabel.alphaValue, 0) && close(card.playActionButton?.alphaValue ?? 0, 0)
-            && card.gradientLayer.opacity == 0 && card.imageContainer.layer.map({ CATransform3DIsIdentity($0.transform) }) == true
+        return !card.isHovering && close(card.controlBar?.alphaValue ?? 0, 0)
+            && card.controlBar?.superview == nil && card.imageContainer.layer.map({ CATransform3DIsIdentity($0.transform) }) == true
     }
     return false
 }
@@ -633,66 +632,13 @@ func samePoint(_ lhs: NSPoint, _ rhs: NSPoint) -> Bool { close(lhs.x, rhs.x) && 
             facts.expect(label + ".current-A-presentation-survives-late-B", card.thumbnailView.image === newImage
                 && card.placeholderLabel.isHidden && card.currentEntryID == 1)
             facts.expect(label + ".selection-playing-survive-late-replies", card.isSelectedState
-                && card.isMultiSelectMode && card.isPlaying && (card.playActionButton?.isPlaying ?? card.isMultiSelectMode))
+                && card.isMultiSelectMode && card.isPlaying && !card.multiSelectBadge.isHidden
+                && (card.controlBar.map { $0.isHidden && $0.playButton.contentTintColor == .controlAccentColor } ?? true))
         }
     }
 }
 
-@MainActor func browserLayout(_ facts: Facts) {
-    let host = CardHost(.browser)
-    defer { host.finish() }
-    guard let card = host.first() as? AppKitOLBrowserItem else { facts.expect("registered-browser", false); return }
-    card.view.frame.size = NSSize(width: 230, height: 180)
-    let original = browserModel(4, tags: String(repeating: "very long original title ", count: 8), thumbnail: "layout")
-    let cacheBefore = Set(OLThumbnailCache.shared.pending.keys)
-    configure(card, original, downloaded: true)
-    layout(card)
-    let ready = waitUntil { !Set(OLThumbnailCache.shared.pending.keys).subtracting(cacheBefore).isEmpty }
-    facts.expect("cache-request-reaches-real-card", ready)
-    guard let ticket = Set(OLThumbnailCache.shared.pending.keys).subtracting(cacheBefore).first else { return }
-    let decoded = image(5)
-    OLThumbnailCache.shared.deliver(ticket, image: decoded)
-    facts.expect("cache-hit-published", waitUntil { card.thumbnailView.image === decoded })
-    let mask = card.titleLabel.layer?.mask
-    facts.expect("long-title-actually-has-mask", mask != nil)
-    for _ in 0..<5 { card.viewDidLayout() }
-    facts.expect("identical-layout-preserves-mask-object", mask != nil && card.titleLabel.layer?.mask === mask)
-    let oldDurationWidth = card.durationBadgeView.frame.width
-    let generation = card.thumbnailRequestID
-    let requestCount = OLThumbnailCache.shared.history.count
-    let changed = browserModel(4, tags: String(repeating: "replacement title ", count: 10), duration: 3661,
-        thumbnail: "layout", bytes: 219_152_384, width: 3840)
-    card.isSelected = true
-    configure(card, changed, downloaded: true)
-    layout(card)
-    facts.expect("same-ID-title-updates", card.titleLabel.stringValue == changed.displayTitle)
-    facts.expect("same-ID-metadata-updates", card.metaLabel.stringValue.contains("3840×1080")
-        && card.metaLabel.stringValue.contains("61m1s") && card.currentPageURL == changed.pageURL)
-    facts.expect("same-size-duration-reflows", card.durationBadgeView.frame.width > oldDurationWidth)
-    facts.expect("metadata-change-keeps-image-request", card.thumbnailRequestID == generation
-        && OLThumbnailCache.shared.history.count == requestCount && card.thumbnailView.image === decoded)
-    facts.expect("content-change-preserves-selection-and-downloaded", card.isSelected && card.isDownloadedState
-        && !card.downloadedBadge.isHidden)
-    let changedMask = card.titleLabel.layer?.mask
-    facts.expect("changed-text-keeps-valid-fade-mask", changedMask != nil
-        && changedMask?.frame == card.titleLabel.bounds)
-    card.viewDidLayout()
-    facts.expect("changed-layout-is-cached", changedMask != nil && card.titleLabel.layer?.mask === changedMask)
-    let oldPixels = card.requestedPixelLimit
-    card.view.frame.size = NSSize(width: 420, height: 280)
-    layout(card)
-    facts.expect("resize-updates-real-16-by-9-container", close(card.imageContainer.frame.width, 420)
-        && close(card.imageContainer.frame.height, 236) && close(card.imageContainer.frame.maxY, 280))
-    facts.expect("larger-card-requests-larger-thumbnail", card.requestedPixelLimit > oldPixels)
-    card.prepareForReuse()
-    configure(card, browserModel(5, tags: "short", duration: 2, thumbnail: nil))
-    layout(card)
-    facts.expect("reuse-at-identical-size-rebuilds-content-layout", card.lastLayoutInputs?.size == card.view.bounds.size
-        && card.titleLabel.stringValue == "short" && card.titleLabel.layer?.mask == nil
-        && (card.durationBadgeTextLayer.string as? String) == "2s")
-    facts.expect("reuse-placeholder-fills-resized-image", !card.placeholderView.isHidden
-        && card.placeholderView.frame == card.imageContainer.bounds)
-}
+
 
 @MainActor func visibilityRequests(_ facts: Facts) {
     let host = CardHost(.browser)
@@ -811,83 +757,7 @@ func samePoint(_ lhs: NSPoint, _ rhs: NSPoint) -> Bool { close(lhs.x, rhs.x) && 
     facts.expect("download-failure-is-not-replaced-by-loading", download.placeholderLabel.stringValue == "无法生成预览")
 }
 
-@MainActor func downloadsLayout(_ facts: Facts) {
-    let host = CardHost(.downloads)
-    defer { host.finish() }
-    guard let card = host.first() as? AppKitOLDownloadsItem else { facts.expect("registered-downloads", false); return }
-    let transport = OLDownloadedThumbnailStore.sharedCache
-    card.prepareForReuse()
-    card.view.frame.size = NSSize(width: 230, height: 180)
-    facts.expect("idle-card-does-not-create-glass-play-badge", card.playActionButton == nil)
-    let original = downloadModel(7, name: String(repeating: "long original title ", count: 6) + ".mp4")
-    card.configure(entry: original, isSelected: true, isMultiSelectMode: true, isPlaying: true)
-    let first = transport.history.last!.0
-    layout(card)
-    facts.expect("multi-select-playing-keeps-hidden-badge-unbuilt", card.playActionButton == nil)
-    card.applySelectionState(false, multiSelectMode: false)
-    guard let firstBadge = card.playActionButton else { facts.expect("playing-first-shows-badge", false); return }
-    facts.expect("playing-first-shows-badge", !firstBadge.isHidden && firstBadge.alphaValue == 1 && firstBadge.isPlaying)
-    let hitPoint = NSPoint(x: firstBadge.frame.midX, y: firstBadge.frame.midY)
-    facts.expect("lazy-badge-has-current-frame-and-hit-target", firstBadge.frame.width > 20 && card.shouldTriggerPlayAction(at: hitPoint))
-    card.applySelectionState(true, multiSelectMode: true)
-    facts.expect("multi-select-hides-and-disables-badge-target", firstBadge.isHidden && !card.shouldTriggerPlayAction(at: hitPoint))
-    let mask = card.titleLabel.layer?.mask
-    facts.expect("long-title-actually-has-mask", mask != nil)
-    for _ in 0..<5 { card.viewDidLayout() }
-    facts.expect("identical-layout-preserves-mask-object", mask != nil && card.titleLabel.layer?.mask === mask)
-    let decoded = image(6)
-    transport.deliver(first, image: decoded)
-    let generation = card.thumbnailRequestID, requests = transport.history.count
-    let metadataOnly = downloadModel(7, name: original.localURL.lastPathComponent, duration: 3661, resolution: "3840×2160")
-    card.configure(entry: metadataOnly, isSelected: true, isMultiSelectMode: true, isPlaying: true)
-    layout(card)
-    facts.expect("same-ID-metadata-updates", card.metaLabel.stringValue.contains("61m1s") && card.metaLabel.stringValue.contains("3840×2160"))
-    facts.expect("metadata-only-keeps-image-request", card.thumbnailRequestID == generation
-        && transport.history.count == requests && card.thumbnailView.image === decoded)
-    facts.expect("metadata-keeps-selection-playing-presentation", card.isSelectedState && card.isMultiSelectMode
-        && card.isPlaying && (card.playActionButton?.isPlaying ?? card.isMultiSelectMode) && !card.multiSelectBadge.isHidden
-        && !card.multiSelectBadgeIcon.isHidden && close(card.imageContainer.layer?.borderWidth ?? 0, 2)
-        && close(card.selectionTintView.alphaValue, 0.2))
-    let unchangedMask = card.titleLabel.layer?.mask
-    card.configure(entry: metadataOnly, isSelected: false, isMultiSelectMode: false, isPlaying: false)
-    card.viewDidLayout()
-    facts.expect("equal-content-still-applies-selection-playing", !card.isSelectedState && !card.isMultiSelectMode
-        && !card.isPlaying && card.playActionButton?.isPlaying != true && card.multiSelectBadge.isHidden)
-    facts.expect("equal-content-keeps-mask-object", unchangedMask != nil && card.titleLabel.layer?.mask === unchangedMask)
-    let renamed = downloadModel(7, name: String(repeating: "replacement title ", count: 7) + ".mp4", duration: 3661)
-    card.configure(entry: renamed, isSelected: true, isMultiSelectMode: true, isPlaying: true)
-    layout(card)
-    facts.expect("same-ID-local-title-updates-at-same-size", card.titleLabel.stringValue == renamed.displayTitle
-        && card.thumbnailRequestID != generation && transport.history.count == requests + 1)
-    let beforeFailureFrame = card.placeholderLabel.frame
-    let renameRequest = transport.history.last!.0
-    transport.deliver(renameRequest, image: nil)
-    layout(card)
-    let failureFrame = card.placeholderLabel.frame
-    facts.expect("same-size-failure-placeholder-reflows", card.placeholderLabel.stringValue == "无法生成预览"
-        && !card.placeholderLabel.isHidden && failureFrame.width != beforeFailureFrame.width)
-    facts.expect("failure-placeholder-is-centered", abs(failureFrame.midX - card.imageContainer.bounds.midX) <= 0.5
-        && abs(failureFrame.midY - card.imageContainer.bounds.midY) <= 0.5)
-    let failedGeneration = card.thumbnailRequestID
-    let changedBytes = downloadModel(7, name: renamed.localURL.lastPathComponent, bytes: 2_097_152, duration: 3661)
-    card.configure(entry: changedBytes, isSelected: true, isMultiSelectMode: true, isPlaying: true)
-    facts.expect("same-ID-file-size-change-invalidates-thumbnail", card.thumbnailRequestID != failedGeneration
-        && card.placeholderLabel.stringValue == "加载中...")
-    card.view.frame.size = NSSize(width: 360, height: 250)
-    layout(card)
-    facts.expect("resize-updates-real-16-by-9-container", close(card.imageContainer.frame.width, 360)
-        && close(card.imageContainer.frame.height, 202) && close(card.imageContainer.frame.maxY, 250))
-    card.prepareForReuse()
-    facts.expect("reuse-retains-one-badge-without-new-allocation", card.playActionButton === firstBadge)
-    facts.expect("prepare-clears-selection-playing", !card.isSelectedState && !card.isPlaying && card.playActionButton?.isPlaying != true)
-    card.configure(entry: original, isSelected: true, isMultiSelectMode: true, isPlaying: true)
-    layout(card)
-    facts.expect("same-size-after-reuse-rebuilds-layout", card.lastLayoutInputs?.size == card.view.bounds.size
-        && card.titleLabel.layer?.mask != nil && card.titleLabel.stringValue == original.displayTitle
-        && card.placeholderLabel.stringValue == "加载中...")
-    facts.expect("reused-selection-playing-applied", card.isSelectedState && card.isPlaying && (card.playActionButton?.isPlaying ?? card.isMultiSelectMode)
-        && !card.multiSelectBadge.isHidden && !card.multiSelectBadgeIcon.isHidden)
-}
+
 
 @MainActor func beginCompletion(_ card: AppKitOLBrowserItem, id: Int) {
     let item = browserModel(id, thumbnail: nil)
@@ -904,7 +774,7 @@ func samePoint(_ lhs: NSPoint, _ rhs: NSPoint) -> Bool { close(lhs.x, rhs.x) && 
     beginCompletion(card, id: 1)
     let oldID = card.completionAnimationID
     let oldStart = ProcessInfo.processInfo.systemUptime
-    let startOrigin = card.setWallpaperBtn.frame.origin
+    let startOrigin = card.primaryActionFrame.origin
     facts.expect("native-animation-window-is-active-and-visible", NSApp.isActive && host.window.isVisible,
         "active=\(NSApp.isActive), visible=\(host.window.isVisible)")
     facts.expect("real-badge-started", !card.completionBadgeView.isHidden
@@ -937,7 +807,7 @@ func samePoint(_ lhs: NSPoint, _ rhs: NSPoint) -> Bool { close(lhs.x, rhs.x) && 
         && !card.completionBadgeView.isHidden && close(card.completionBadgeView.alphaValue, 1))
     if phase == "delayed" {
         pump(0.23) // Old A's .34 block is past; B's .34 block is still pending.
-        facts.expect("old-delayed-move-cannot-move-B", samePoint(card.completionBadgeView.frame.origin, card.setWallpaperBtn.frame.origin)
+        facts.expect("old-delayed-move-cannot-move-B", samePoint(card.completionBadgeView.frame.origin, card.primaryActionFrame.origin)
             && close(card.completionBadgeView.alphaValue, 1) && !card.completionBadgeView.isHidden)
         pump(0.16) // A's .52 reveal is past; B's own reveal is still pending.
         facts.expect("old-reveal-cannot-reveal-B-early", card.isCompletionAnimating && card.downloadedBadge.isHidden)
@@ -972,11 +842,31 @@ func samePoint(_ lhs: NSPoint, _ rhs: NSPoint) -> Bool { close(lhs.x, rhs.x) && 
         let name = CommandLine.arguments.dropFirst().first ?? ""
         let facts = Facts()
         switch name {
+        case "card-reflow":
+            let checks = wallpaperGridCardReflowChecks(label: "online-downloads", provider: .pixabay,
+                itemClass: AppKitOLDownloadsItem.self, reuseIdentifier: AppKitOLDownloadsItem.reuseIdentifier,
+                resetColdTracking: AppKitOLDownloadsItem.resetHoverTrackingActivation,
+                makeCard: { collection, path, state, playing in
+                    let card = collection.makeItem(withIdentifier: AppKitOLDownloadsItem.reuseIdentifier, for: path) as! AppKitOLDownloadsItem
+                    card.configure(entry: downloadModel(20_000 + path.item), isSelected: state.isSelected,
+                        isMultiSelectMode: state.isSelecting, isPlaying: playing, thumbnailDemandActive: false)
+                    return card
+                }, updateState: { cell, state, playing in
+                    let card = cell as! AppKitOLDownloadsItem
+                    card.applySelectionState(state.isSelected, multiSelectMode: state.isSelecting)
+                    card.applyPlayingState(isPlaying: playing)
+                }, isHovering: { ($0 as! AppKitOLDownloadsItem).isHovering },
+                bar: { ($0 as! AppKitOLDownloadsItem).controlBar })
+            for (key, passed) in checks { facts.expect(key, passed) }
+        case "pixabay-square-controls": pixabaySquareControls(facts)
+        case "pixabay-square-layout": pixabaySquareLayout(facts)
         case "native-pool": nativePool(facts)
         case "browser-replies": browserReplies(facts)
         case "downloads-replies": downloadsReplies(facts)
         case "browser-layout": browserLayout(facts)
+        case "browser-container-metadata": pixabayBrowserContainerMetadata(facts)
         case "downloads-layout": downloadsLayout(facts)
+        case "pixabay-native-click-owner": pixabayNativeClickOwner(facts)
         case "loading-delay": loadingDelay(facts)
         case "visibility-requests": visibilityRequests(facts)
         case "real-card-scroll": realCardScrollHover(facts)
@@ -988,7 +878,8 @@ func samePoint(_ lhs: NSPoint, _ rhs: NSPoint) -> Bool { close(lhs.x, rhs.x) && 
             let downloads = AppKitOLDownloadsItem(); _ = downloads.view
             downloads.configure(entry: downloadModel(10_002, name: "interaction.mp4"), isSelected: false, isMultiSelectMode: false, isPlaying: false)
             for (key, value) in gridCardInteractionChecks(item: downloads, cardRoot: downloads.imageContainer,
-                outline: downloads.hoverOutlineView, isHovering: { downloads.isHovering }, label: "online-downloads") { facts.expect(key, value) }
+                outline: downloads.hoverOutlineView, isHovering: { downloads.isHovering }, label: "online-downloads",
+                dragImageView: downloads.thumbnailView, layoutDragImage: { downloads.layoutThumbnail() }) { facts.expect(key, value) }
         case "backing-scale": backingScaleRequests(facts)
         case "animation-delayed": animationCase("delayed", facts)
         case "animation-move": animationCase("move", facts)

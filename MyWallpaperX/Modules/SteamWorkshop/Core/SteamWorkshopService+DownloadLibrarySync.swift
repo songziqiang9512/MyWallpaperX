@@ -77,21 +77,7 @@ extension SteamWorkshopService {
 
     private func applyInstalledLibraryRecords(_ records: [SteamWorkshopDownloadRecord]) {
         downloads = records
-        let nextPrimaryID: String? = {
-            if let selectedDownloadID,
-               downloads.contains(where: { $0.id == selectedDownloadID }) {
-                return selectedDownloadID
-            }
-            return nil
-        }()
-        let nextSelectedIDs = selectedDownloadIDs.filter { id in
-            downloads.contains(where: { $0.id == id })
-        }
-        publishDownloadSelectionState(
-            primaryID: nextPrimaryID,
-            selectedIDs: nextSelectedIDs,
-            deferPublishing: true
-        )
+        hasCompletedInstalledLibraryLoad = true
         scheduleLibraryVersionReclamation()
     }
 

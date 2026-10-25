@@ -47,10 +47,9 @@ final class SteamWorkshopService: ObservableObject {
     /// `SteamKitBrowseStore` 唯一持有。非 nil 时网格底部提供显式重试。
     @Published var browserLoadMoreFailureMessage: String?
     @Published var downloads: [SteamWorkshopDownloadRecord] = [] {
-        didSet { refreshDisplayedDownloads() }
+        didSet { refreshDownloadIntentProjection() }
     }
     var removingDownloadIDs: Set<String> = []
-    @Published private(set) var displayedDownloads: [SteamWorkshopDownloadRecord] = []
     /// M0.5：最近一次"设为壁纸/播放"pending 的记录 ID。点击立即置位
     /// （≤1 runloop turn 渲染加载态）；Scene launch 终态或 runtime 切换
     /// 通知清除；video/web 发送后另有 1.5s 兜底清除。
@@ -61,11 +60,18 @@ final class SteamWorkshopService: ObservableObject {
     /// 旧请求的迟到通知覆盖用户的最后选择（完成序倒置）。
     private(set) var webLaunchIntentGeneration: UInt64 = 0
     /// App composition injects a cancellable, request-scoped renderer preparation.
-    var prepareWebPlaybackProcess: (() -> (requestID: UUID, cancel: () -> Void, isCurrent: () -> Bool, intentEpoch: UInt64))?
+    @Published var hasCompletedInstalledLibraryLoad = false
+    var requestLibraryPlayback: ((WallpaperReference) -> Void)?
+    var prepareExplicitLibraryRestoration: ((WallpaperReference) -> (() -> Void)?)?
+    var prepareWebPlaybackProcess: ((WallpaperPlaybackSequence.Pending) -> (requestID: UUID, cancel: () -> Void, isCurrent: () -> Bool, intentEpoch: UInt64)?)?
     var cancelWebProcessPreparation: (() -> Void)?
     var webLaunchPreparationTask: Task<Void, Never>?
+    /// App injects the existing product Video ticket before import preparation.
+    var prepareVideoPlaybackIntent: ((WallpaperReference, WallpaperPlaybackSequence.Pending?) -> ImportedVideoPlaybackAdmission?)?
     /// Claims the product selection before asynchronous Scene resource lookup.
-    var prepareScenePlaybackIntent: ((String, Bool) -> (intentEpoch: UInt64, isCurrent: () -> Bool, cancel: () -> Void)?)?
+    /// Waits for exact product tickets to release Scene download resources.
+    var prepareSceneDownloadRemoval: ((String, @escaping (Bool) -> Void) -> Void)?
+    var prepareScenePlaybackIntent: ((String, Bool, WallpaperPlaybackSequence.Pending?) -> (intentEpoch: UInt64, isCurrent: () -> Bool, cancel: () -> Void)?)?
 
     /// 递增点击代际并返回新值（仅 setAsWallpaper 入口调用；跨文件扩展
     /// 不能直接写 private(set) 字段）。
@@ -125,22 +131,7 @@ final class SteamWorkshopService: ObservableObject {
     @Published var facetFilters: SteamWorkshopBrowseFacetFilters = .none {
         didSet { if !suppressAutomaticBrowseNavigation { navigateToBrowse() } }
     }
-    @Published var downloadsQuery: String = "" {
-        didSet { refreshDisplayedDownloads() }
-    }
-    @Published var downloadsDisplayMode: SteamWorkshopDownloadsDisplayMode = .all {
-        didSet { refreshDisplayedDownloads() }
-    }
-    @Published var downloadsSortMode: SteamWorkshopDownloadsSortMode = .createdAt {
-        didSet { refreshDisplayedDownloads() }
-    }
-    @Published var downloadsSortAscending: Bool = false {
-        didSet { refreshDisplayedDownloads() }
-    }
-    @Published var downloadsShowsAdultContent = true {
-        didSet { refreshDisplayedDownloads() }
-    }
-    @Published var zoomOffset: Int = 0
+    @Published var downloadsShowsAdultContent = true
     @Published var statusMessage: String = "浏览页使用 SteamKit 结构化数据展示 Wallpaper Engine 创意工坊内容。"
     @Published var currentWorkshopItemID: String?
     @Published var currentPageTitle: String = "Steam 创意工坊"
@@ -200,7 +191,7 @@ final class SteamWorkshopService: ObservableObject {
     var helperIdleReaper: SteamHelperIdleReaper?
 
     /// SK4.1：出队重建执行请求所需的内存载荷映射（不入任务文件）。
-    var steamJobItemPayloads: [String: SteamWorkshopBrowserItem] = [:]
+    var steamJobItemPayloads: [String: SteamWorkshopPendingDownloadRequest] = [:]
 
     /// SK2.3：唯一登录面板入口。重复调用聚焦同一面板，不产生第二个认证流。
     func showLoginPanel() {
@@ -259,6 +250,7 @@ final class SteamWorkshopService: ObservableObject {
     /// SK2.3：退出登录 = 新路线登出（epoch 递增+令牌清理）。
     /// 有活动/排队任务时先说明一次；本地文件与当前壁纸不受影响。
     func signOutEverywhere() {
+        let accountEpoch = steamAuth.client.accountEpoch, accountID = steamAuth.steamId
         let hasActiveDownloads = !activeDownloadTasks.isEmpty || downloadJobStore.queuedCount > 0
         if hasActiveDownloads {
             let alert = NSAlert()
@@ -266,10 +258,12 @@ final class SteamWorkshopService: ObservableObject {
             alert.informativeText = "进行中和排队中的下载任务将被停止；已下载的文件和当前壁纸不受影响。"
             alert.addButton(withTitle: "退出登录")
             alert.addButton(withTitle: "取消")
-            if alert.runModal() != .alertFirstButtonReturn { return }
+            if runAppAlert(alert) != .alertFirstButtonReturn { return }
         }
+        guard steamAuth.client.accountEpoch == accountEpoch, steamAuth.steamId == accountID else { return }
         Task { @MainActor [weak self] in
-            guard let self else { return }
+            guard let self, self.steamAuth.client.accountEpoch == accountEpoch,
+                  self.steamAuth.steamId == accountID else { return }
             self.cancelDownloadImmediately(showFeedback: false)
             // SK4.1：队列真值在 JobStore——取消全部任务并清理对应投影。
             self.pausedDownloadItemIDs.removeAll()
@@ -281,7 +275,7 @@ final class SteamWorkshopService: ObservableObject {
                 self.downloadError = "取消队列未能保存；任务执行已停止，请检查磁盘后重试。"
             }
             let cleared = await self.steamAuth.signOut()
-            guard self.steamAuth.phase == .idle else { return }
+            guard self.steamAuth.client.accountEpoch == accountEpoch + 1, self.steamAuth.phase == .idle else { return }
             self.statusMessage = cleared ? "已退出 Steam 登录。"
                 : "已退出并禁止自动恢复，但 Keychain 中的旧令牌清理失败。"
         }
@@ -294,13 +288,9 @@ final class SteamWorkshopService: ObservableObject {
         showLoginPanel()
     }
 
-    // MARK: - Download selection state
+    // MARK: - Download and Inspector state
 
     @Published var activeDownloadItemIDs: Set<String> = []
-    @Published var isDownloadsMultiSelectMode = false
-    @Published var selectedDownloadID: String?
-    @Published var selectedDownloadIDs: Set<String> = []
-    var downloadSelectionPublicationVersion = 0
     /// F15 残留修复：失败提示以代数而非文本区分——并发同根因的两条同文
     /// 失败也会各自推进 revision，弹窗完成回调按 revision 判定续播/清空，
     /// 不再依赖「文本不同 = 新失败」。
@@ -433,7 +423,7 @@ final class SteamWorkshopService: ObservableObject {
         // 不再在 init 同步执行：启动重放只需要单条记录（走
         // installedRecordForLaunchReplay 快路径），完整扫描由装配层在主窗口
         // 激活后经 performStartupLibraryReloadIfNeeded 补跑。
-        refreshDisplayedDownloads()
+        refreshDownloadIntentProjection()
         // Public discovery is demand-loaded by prepareForBrowserEntry(). Keep
         // local-library startup free of helper/network work; an authorized
         // saved-session restore above remains the sole intentional exception.
@@ -445,13 +435,16 @@ final class SteamWorkshopService: ObservableObject {
     }
 
     /// D7：JobStore 是失败意图的持久 owner（弹窗清除、删除移除意图、重试推进
-    /// attempt 都只改 JobStore），这些变化不经过 `downloads` didSet，必须单独
-    /// 订阅以维持下载页失败投影同源刷新。
+    /// attempt 都只改 JobStore），这些变化不经过 `downloads` didSet。历史清除
+    /// 与过期修剪也可能只发布 history，因此两类事件合流后刷新同一源投影。
     private func observeDownloadJobStoreForProjection() {
-        downloadJobStore.$jobs
+        Publishers.Merge(
+            downloadJobStore.$jobs.map { _ in () },
+            downloadJobStore.$history.map { _ in () }
+        )
             .receive(on: RunLoop.main)
             .sink { [weak self] _ in
-                self?.refreshDisplayedDownloads()
+                self?.refreshDownloadIntentProjection()
             }
             .store(in: &cancellables)
     }
@@ -483,9 +476,7 @@ final class SteamWorkshopService: ObservableObject {
     }
 
     /// 完整整库扫描补跑开关：init 已不再同步扫描，装配层在主窗口激活让出
-    /// 首帧后调用本方法补跑一次；先到者赢，重复调用为 no-op。工坊下载页
-    /// viewDidMoveToWindow 的 downloadsCount==0 自愈重载走 reloadInstalledItems
-    /// 原入口、不经本开关，极端竞态下最多多跑一次整库扫描，无正确性影响。
+    /// 首帧后调用本方法补跑一次；先到者赢，重复调用为 no-op。
     private var isStartupLibraryReloadPending = true
 
     func performStartupLibraryReloadIfNeeded() {
@@ -525,7 +516,7 @@ final class SteamWorkshopService: ObservableObject {
                 guard let self else { return }
                 // 账号身份变化即刷新下载页失败投影：合成与历史判定都按现役账号
                 // 隔离，旧账号的失败意图不得展示给新账号（D7 跨账号不接管）。
-                self.refreshDisplayedDownloads()
+                self.refreshDownloadIntentProjection()
                 self.invalidatePersonalBrowseSnapshot(discard: true)
                 guard self.source.isPersonal else { return }
                 self.navigateToBrowse()
@@ -533,20 +524,11 @@ final class SteamWorkshopService: ObservableObject {
             .store(in: &cancellables)
     }
 
-    private func refreshDisplayedDownloads() {
-        // D7 单一投影：先把现役账号的失败意图合成进 downloads（选中/删除/详情
-        // 因此走同一条 record 路径），再做过滤排序。值相等守卫防止
-        // downloads didSet → refresh 自激：写回触发的重入趟在此处发现无差异
-        // 即收敛，深度恒为 2。
+    private func refreshDownloadIntentProjection() {
+        // JobStore remains the sole durable intent owner. Publish only changed
+        // source facts; unified Query owns page filtering, search and sorting.
+        // downloads didSet reentry converges after the merged value is installed.
         let merged = downloadsWithFailedIntents(from: downloads)
-        if merged != downloads {
-            downloads = merged
-            return
-        }
-        let projected = filteredAndSortedMergedDownloads(from: merged)
-        if displayedDownloads != projected {
-            displayedDownloads = projected
-        }
-        sanitizeDownloadSelectionAgainstDisplayedDownloads()
+        if merged != downloads { downloads = merged }
     }
 }

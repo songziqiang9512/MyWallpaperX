@@ -4,27 +4,16 @@ import Combine
 struct GridEntry: Equatable { let id: String; var title: String = "Wallpaper" }
 typealias SteamWorkshopBrowserItem = GridEntry
 typealias SteamWorkshopDownloadRecord = GridEntry
-enum SteamWorkshopDownloadGridSupport {
-    static func fallbackDisplayItem(for record: GridEntry) -> GridEntry { record }
-}
-
 @MainActor final class GridService {
     var previewReloadToken = 0
     func latestDownloadRecord(for id: String) -> SteamWorkshopDownloadRecord? { nil }
     @Published var displayedBrowserItems: [GridEntry] = []
-    var browserLoadMoreFailureMessage: String?
-    var isLoadingMoreBrowserItems = false
-    var hasMoreBrowserItems = false
+    @Published var browserLoadMoreFailureMessage: String?
+    @Published var isLoadingMoreBrowserItems = false
+    @Published var hasMoreBrowserItems = false
     @Published var pendingBrowserScrollRestoreOffset: CGFloat?
-    var pendingDownloadsScrollRestoreOffsetY: CGFloat?
-    var displayedDownloads: [GridEntry] = []
-    var selectedDownloadID: String?
-    var selectedDownloadIDs: Set<String> = []
-    var isDownloadsMultiSelectMode = false
-    var downloadSelectionPublicationVersion = 0
-    func syncDownloadsInspectorSelectionIfNeeded() {}
-    func consumePendingBrowserScrollRestoreOffset() { pendingBrowserScrollRestoreOffset = nil }
-    // SELECTION_METHODS
+    var onConsume: (() -> Void)?
+    func consumePendingBrowserScrollRestoreOffset() { onConsume?(); pendingBrowserScrollRestoreOffset = nil }
 }
 
 enum GridSection { case main, status }
@@ -34,6 +23,7 @@ enum GridSection { case main, status }
     var heldCompletions: [() -> Void] = []
     init(_ source: NSCollectionViewDiffableDataSource<GridSection, String>) { self.source = source }
     func snapshot() -> NSDiffableDataSourceSnapshot<GridSection, String> { source.snapshot() }
+    func itemIdentifier(for path: IndexPath) -> String? { source.itemIdentifier(for: path) }
     func apply(_ snapshot: NSDiffableDataSourceSnapshot<GridSection, String>, animatingDifferences: Bool,
                completion: @escaping () -> Void) {
         source.apply(snapshot, animatingDifferences: animatingDifferences) { [weak self] in
@@ -62,9 +52,15 @@ final class GridCell: NSCollectionViewItem {
     let listThumbnailTintSource = ListThumbnailTintSource()
     typealias Section = GridSection
     let service = GridService()
-    let scrollView = NSScrollView()
+    let scrollView = WallpaperGridScrollView()
     let collectionView = NSCollectionView()
-    let flowLayout = SteamWorkshopGridLayoutSupport.makeFlowLayout()
+    let flowLayout: NSCollectionViewFlowLayout = {
+        let layout = NSCollectionViewFlowLayout()
+        layout.minimumInteritemSpacing = WallpaperLibraryGridMetrics.horizontalSpacing
+        layout.minimumLineSpacing = WallpaperLibraryGridMetrics.verticalSpacing
+        layout.sectionInset = SteamWorkshopGridLayoutSupport.sectionInset
+        return layout
+    }()
     var orderedIDs: [String] = []
     var keyboardFocusedID: String?
     var focusScrolls = 0
@@ -99,15 +95,17 @@ final class GridCell: NSCollectionViewItem {
     }
 }
 
-@MainActor final class BrowserProbe: GridProbe {
+@MainActor final class BrowserProbe: GridProbe, NSCollectionViewDelegateFlowLayout {
     var itemsByID: [String: GridEntry] = [:]
     var footerState = SteamWorkshopBrowserFooterSupport.State.hidden
     var pendingItems: [GridEntry]?
     var isItemsApplyScheduled = false
     var isApplyingSnapshot = false
+    var pendingLayoutItemSizeUpdate = false
     var hasResolvedInitialItemSize = true
     var cancellables = Set<AnyCancellable>()
     func bind() {
+        collectionView.delegate = self
         // BROWSER_BINDINGS
     }
     func updateLayoutItemSize() -> Bool { hasResolvedInitialItemSize }
@@ -122,19 +120,6 @@ final class GridCell: NSCollectionViewItem {
     // BROWSER_METHODS
 }
 
-@MainActor final class DownloadsProbe: GridProbe {
-    var recordsByID: [String: GridEntry] = [:]
-    var previousOrderedIDs: [String] = []
-    var pendingRecords: [GridEntry]?
-    var isRecordsApplyScheduled = false
-    var isApplyingRecords = false
-    let emptyLabel = NSTextField(labelWithString: "")
-    func currentEmptyStateText() -> String { "Empty" }
-    func refreshVisibleDownloadItems(for ids: Set<String>) { metadataRefreshes += 1 }
-    func schedulePreviewPrefetch() {}
-    // DOWNLOAD_METHODS
-}
-
 @main struct SteamGridUpdateHarness {
     @MainActor static func main() throws {
         _ = NSApplication.shared
@@ -146,8 +131,7 @@ final class GridCell: NSCollectionViewItem {
         window.contentView = root
         window.orderFrontRegardless()
         let browser = BrowserProbe(frame: NSRect(x: 0, y: 0, width: 340, height: 320))
-        let downloads = DownloadsProbe(frame: NSRect(x: 350, y: 0, width: 340, height: 320))
-        root.addSubview(browser); root.addSubview(downloads)
+        root.addSubview(browser)
         browser.bind()
         let all = (1...36).map { GridEntry(id: String(format: "%02d", $0)) }
         var checks: [String: Bool] = [:]
@@ -159,13 +143,9 @@ final class GridCell: NSCollectionViewItem {
         }
         func idle() -> Bool {
             !browser.isApplyingSnapshot && !browser.isItemsApplyScheduled && browser.pendingItems == nil
-                && !downloads.isApplyingRecords && !downloads.isRecordsApplyScheduled && downloads.pendingRecords == nil
         }
         func update(_ entries: [GridEntry]) {
             browser.service.displayedBrowserItems = entries
-            downloads.service.displayedDownloads = entries
-            downloads.service.sanitizeDownloadSelectionAgainstDisplayedDownloads()
-            downloads.applyRecords(entries)
         }
         func capture(_ name: String) throws {
             guard let path = ProcessInfo.processInfo.environment["MWX_STEAM_GRID_PROOF_DIR"] else { return }
@@ -179,43 +159,39 @@ final class GridCell: NSCollectionViewItem {
         }
         update(Array(all.prefix(3)))
         update(all)
-        checks["sameTurnUpdatesCoalesceToLatest"] = browser.actualIDs().isEmpty && downloads.actualIDs().isEmpty
-            && pump { idle() && browser.actualIDs() == all.map(\.id) && downloads.actualIDs() == all.map(\.id) }
-        browser.keyboardFocusedID = "16"; downloads.keyboardFocusedID = "16"
-        downloads.service.selectDownload(itemID: "16")
-        checks["realSingleSelectionEstablished"] = pump { downloads.service.selectedDownloadID == "16" && downloads.service.selectedDownloadIDs == ["16"] }
+        checks["sameTurnUpdatesCoalesceToLatest"] = browser.actualIDs().isEmpty
+            && pump { idle() && browser.actualIDs() == all.map(\.id) }
+        browser.keyboardFocusedID = "16"
         browser.scrollView.contentView.setBoundsOrigin(NSPoint(x: 0, y: 330))
-        downloads.scrollView.contentView.setBoundsOrigin(NSPoint(x: 0, y: 330))
         try capture("before-removal")
-        let browserScrolls = browser.focusScrolls, downloadScrolls = downloads.focusScrolls
+        let browserScrolls = browser.focusScrolls
         let removed = all.filter { $0.id != "16" }
         update(removed)
-        checks["singleRemovalCompletes"] = pump { idle() && browser.actualIDs() == removed.map(\.id) && downloads.actualIDs() == removed.map(\.id) }
-        checks["removedSingleSelectionMovesWithFocus"] = pump { downloads.service.selectedDownloadID == "17" && downloads.service.selectedDownloadIDs == ["17"] }
-        checks["removedFocusMovesToAdjacentSurvivor"] = browser.keyboardFocusedID == "17" && downloads.keyboardFocusedID == "17"
-        checks["removalNeverScrollsFocusToFirstCard"] = browser.focusScrolls == browserScrolls && downloads.focusScrolls == downloadScrolls
-        checks["bothNativeGridsReflowInOriginalOrder"] = browser.reflowIsInOrder() && downloads.reflowIsInOrder()
+        checks["singleRemovalCompletes"] = pump { idle() && browser.actualIDs() == removed.map(\.id) }
+        checks["removedFocusMovesToAdjacentSurvivor"] = browser.keyboardFocusedID == "17"
+        checks["removalNeverScrollsFocusToFirstCard"] = browser.focusScrolls == browserScrolls
+        checks["browserNativeGridReflowsInOriginalOrder"] = browser.reflowIsInOrder()
         try capture("after-removal")
         // Delay the production completion after native completion to exercise
         // latest-pending serialization without substituting the native apply.
         let first = removed.filter { $0.id != "20" }
-        browser.dataSource.holdCompletions = true; downloads.dataSource.holdCompletions = true
+        browser.dataSource.holdCompletions = true
         update(first)
         checks["nativeApplyCompletionCanArriveLate"] = pump {
-            !browser.dataSource.heldCompletions.isEmpty && !downloads.dataSource.heldCompletions.isEmpty
+            !browser.dataSource.heldCompletions.isEmpty
         }
-        let activeBrowserIDs = browser.orderedIDs, activeDownloadIDs = downloads.orderedIDs
+        let activeBrowserIDs = browser.orderedIDs
         let second = first.filter { $0.id != "21" }
         var latest = second.filter { $0.id != "22" }
         latest[0].title = "Latest metadata"
         update(second); update(latest)
-        checks["pendingEventsDoNotMutateActiveSnapshotModel"] = browser.orderedIDs == activeBrowserIDs && downloads.orderedIDs == activeDownloadIDs
-        _ = pump { !browser.isItemsApplyScheduled && !downloads.isRecordsApplyScheduled }
-        checks["inFlightApplyRetainsLatestPendingUpdate"] = browser.pendingItems == latest && downloads.pendingRecords == latest
-            && browser.orderedIDs == first.map(\.id) && downloads.orderedIDs == first.map(\.id)
-        browser.dataSource.release(); downloads.dataSource.release()
-        checks["queuedRemovalUsesLatestSnapshotAndMetadata"] = pump { idle() && browser.actualIDs() == latest.map(\.id) && downloads.actualIDs() == latest.map(\.id) }
-            && browser.itemsByID["01"]?.title == "Latest metadata" && downloads.recordsByID["01"]?.title == "Latest metadata"
+        checks["pendingEventsDoNotMutateActiveSnapshotModel"] = browser.orderedIDs == activeBrowserIDs
+        _ = pump { browser.pendingItems == latest && !browser.isItemsApplyScheduled }
+        checks["inFlightApplyRetainsLatestPendingUpdate"] = browser.pendingItems == latest
+            && browser.orderedIDs == first.map(\.id)
+        browser.dataSource.release()
+        checks["queuedRemovalUsesLatestSnapshotAndMetadata"] = pump { idle() && browser.actualIDs() == latest.map(\.id) }
+            && browser.itemsByID["01"]?.title == "Latest metadata"
         // The old short author document cannot clamp/consume a saved offset
         // before the restored long discovery snapshot has laid out.
         update(Array(all.prefix(2)))
@@ -226,55 +202,58 @@ final class GridCell: NSCollectionViewItem {
             idle() && browser.actualIDs().count == all.count && browser.service.pendingBrowserScrollRestoreOffset == nil
                 && abs(browser.scrollView.contentView.bounds.origin.y - 700) < 1
         }
-        update(all)
-        _ = pump { idle() && downloads.actualIDs().count == all.count }
-        downloads.service.isDownloadsMultiSelectMode = true
-        downloads.service.selectedDownloadID = "17"
-        downloads.service.selectedDownloadIDs = ["17", "18"]
-        downloads.keyboardFocusedID = "17"
-        update(all.filter { $0.id != "17" })
-        checks["multiSelectionOnlyKeepsSurvivors"] = pump {
-            idle() && downloads.keyboardFocusedID == "18" && downloads.service.selectedDownloadID == "18"
-                && downloads.service.selectedDownloadIDs == ["18"]
+        // The real source can publish a second navigation before the first
+        // receive(on:) offset callback has reached this view. Do not infer
+        // readiness solely from container flags before new-items delivery.
+        update(Array(all.prefix(2)))
+        _ = pump { idle() && browser.actualIDs().count == 2 }
+        var consumedInCurrentFeed = true
+        browser.service.onConsume = { [weak browser] in
+            guard let browser else { return }
+            consumedInCurrentFeed = consumedInCurrentFeed
+                && browser.actualIDs() == browser.service.displayedBrowserItems.map(\.id)
         }
-        // Explicit selections are visible to later sanitization immediately;
-        // stale deferred library cleanup cannot overwrite a newer command.
-        downloads.service.isDownloadsMultiSelectMode = false
-        downloads.service.selectDownload(itemID: "19")
-        downloads.service.selectDownload(itemID: "20")
-        checks["latestSelectionWins"] = downloads.service.selectedDownloadID == "20"
-        downloads.service.selectDownload(itemID: "21")
-        downloads.service.selectDownload(itemID: "20")
-        RunLoop.main.run(until: Date().addingTimeInterval(0.05))
-        checks["selectingCurrentItemKeepsLatestIntent"] = downloads.service.selectedDownloadID == "20"
-        downloads.service.selectedDownloadID = "missing"
-        downloads.service.selectedDownloadIDs = ["missing"]
-        downloads.service.sanitizeDownloadSelectionAgainstDisplayedDownloads()
-        downloads.service.selectDownload(itemID: "21")
-        downloads.service.sanitizeDownloadSelectionAgainstDisplayedDownloads()
-        RunLoop.main.run(until: Date().addingTimeInterval(0.05))
-        checks["sanitizationUsesLatestSelectionIntent"] = downloads.service.selectedDownloadID == "21" && downloads.service.selectedDownloadIDs == ["21"]
-        downloads.service.publishDownloadSelectionState(primaryID: "22", selectedIDs: ["22"], deferPublishing: true)
-        downloads.service.selectedDownloadID = nil; downloads.service.selectedDownloadIDs = []
-        _ = pump { idle() }
-        RunLoop.main.run(until: Date().addingTimeInterval(0.05))
-        checks["directClearRetiresDeferredSelection"] = downloads.service.selectedDownloadID == nil && downloads.service.selectedDownloadIDs.isEmpty
-        downloads.service.selectDownload(itemID: "21")
-        downloads.keyboardFocusedID = nil
-        let beforeReattachScrolls = downloads.focusScrolls
-        downloads.ensureKeyboardFocus()
-        checks["reattachPreservesSelectionWithoutScrollingToFirst"] = downloads.keyboardFocusedID == "21"
-            && downloads.service.selectedDownloadID == "21" && downloads.focusScrolls == beforeReattachScrolls
-        downloads.scrollView.automaticallyAdjustsContentInsets = false
-        downloads.scrollView.contentInsets = NSEdgeInsets(top: 52, left: 0, bottom: 17, right: 0)
-        downloads.service.pendingDownloadsScrollRestoreOffsetY = -52
-        downloads.restoreAuthorReturnScrollIfNeeded()
-        checks["authorReturnRestoresNativeInsetTop"] = abs(downloads.scrollView.contentView.bounds.minY + 52) < 0.5
-            && downloads.service.pendingDownloadsScrollRestoreOffsetY == nil
-        downloads.service.pendingDownloadsScrollRestoreOffsetY = 99999
-        downloads.restoreAuthorReturnScrollIfNeeded()
-        checks["authorReturnClampsToNativeBottom"] = downloads.scrollView.contentView.bounds.maxY
-            <= downloads.collectionView.bounds.height + 17.5
+        browser.service.pendingBrowserScrollRestoreOffset = 100
+        update(all)
+        browser.service.pendingBrowserScrollRestoreOffset = 700
+        checks["oldOffsetDeliveryCannotConsumeNewTargetInOldShortDocument"] = pump {
+            idle() && browser.actualIDs() == all.map(\.id) && browser.service.pendingBrowserScrollRestoreOffset == nil
+                && abs(browser.scrollView.contentView.bounds.minY - 700) < 1
+        } && consumedInCurrentFeed
+        update(Array(all.prefix(2)))
+        _ = pump { idle() && browser.actualIDs().count == 2 }
+        consumedInCurrentFeed = true
+        browser.service.pendingBrowserScrollRestoreOffset = 650
+        update(all)
+        checks["pendingBeforeItemsDeliveryWaitsForActualFeedLayout"] = pump {
+            idle() && browser.actualIDs() == all.map(\.id) && browser.service.pendingBrowserScrollRestoreOffset == nil
+                && abs(browser.scrollView.contentView.bounds.minY - 650) < 1
+        } && consumedInCurrentFeed
+        browser.service.onConsume = nil
+        browser.service.hasMoreBrowserItems = true
+        browser.service.browserLoadMoreFailureMessage = nil
+        update(all)
+        _ = pump { idle() && browser.footerState == .ready }
+        browser.collectionView.layoutSubtreeIfNeeded()
+        let readyHeight = browser.collectionView.bounds.height
+        let newFooterTarget = readyHeight - browser.scrollView.contentView.bounds.height + 8
+        var consumedWithCurrentFooter = true
+        browser.service.onConsume = { [weak browser] in
+            guard let browser else { return }
+            consumedWithCurrentFooter = consumedWithCurrentFooter
+                && browser.footerState == .failed("footer changed")
+                && browser.collectionView.bounds.height > readyHeight + 10
+        }
+        browser.service.pendingBrowserScrollRestoreOffset = 100
+        browser.service.browserLoadMoreFailureMessage = "footer changed"
+        update(all)
+        browser.service.pendingBrowserScrollRestoreOffset = newFooterTarget
+        checks["sameIDsWaitForCurrentFooterGeometryBeforeConsumingOffset"] = pump {
+            idle() && browser.service.pendingBrowserScrollRestoreOffset == nil
+                && abs(browser.scrollView.gridViewportRect.minY - newFooterTarget) < 1
+        } && consumedWithCurrentFooter
+        browser.service.onConsume = nil
+        browser.service.browserLoadMoreFailureMessage = nil
         browser.service.hasMoreBrowserItems = true
         update([])
         checks["emptyFeedCanShowContinuationFooter"] = pump { idle() && browser.dataSource.snapshot().itemIdentifiers == [SteamWorkshopBrowserFooterSupport.itemID] }

@@ -38,6 +38,14 @@ nonisolated func ProbeImageSourceCreateWithURL(_ url: CFURL, _ options: CFDictio
 }
 @MainActor var completedBatches = 0
 @MainActor final class MetadataProbe {
+    var migrationRecoveryMessage: String?
+    var allowsLibraryMutation: Bool { migrationRecoveryMessage == nil }
+    static var defersMissingFileCleanupForPersonalSettingsRecovery = false
+    var selectedIDs: Set<String> = []
+    var selectedID: String?
+    var inspectedWallpaperID: String?
+    func scheduleInitialMissingFilesAlert(for removed: [SILWallpaper], attempt: Int) {}
+    func reconcileForAudit() { reconcileMissingFilesOnLaunch() }
     var publications = 0
     var wallpapers: [SILWallpaper] = [] { didSet { publications += 1 } }
     var saves = 0
@@ -55,101 +63,22 @@ nonisolated func ProbeImageSourceCreateWithURL(_ url: CFURL, _ options: CFDictio
     }
 }
 
-@MainActor final class MetadataCell {
-    var wallpaperID: String?
-    let titleLabel = NSTextField(labelWithString: "")
-    let metaLabel = NSTextField(labelWithString: "")
-    func configure(wallpaper: SILWallpaper) {
-        // PRODUCTION_CELL_METADATA
-    }
+@MainActor enum SILCardObservation { static var configurations = 0 }
+@MainActor final class CountingFlowLayout: NSCollectionViewFlowLayout {
+    private(set) var invalidations = 0
+    override func invalidateLayout() { invalidations += 1; super.invalidateLayout() }
+}
+@MainActor final class CountingLibraryCollectionView: WallpaperLibraryCollectionView {
+    private(set) var reloads = 0
+    private(set) var reloaded = Set<IndexPath>()
+    override func reloadData() { reloads += 1; super.reloadData() }
+    override func reloadItems(at paths: Set<IndexPath>) { reloaded.formUnion(paths); super.reloadItems(at: paths) }
 }
 @MainActor final class MetadataItems: NSObject, NSCollectionViewDataSource {
-    var count = 0
+    var count = 2
     func numberOfSections(in collectionView: NSCollectionView) -> Int { 1 }
     func collectionView(_ collectionView: NSCollectionView, numberOfItemsInSection section: Int) -> Int { count }
-    func collectionView(_ collectionView: NSCollectionView, itemForRepresentedObjectAt indexPath: IndexPath) -> NSCollectionViewItem {
-        NSCollectionViewItem()
-    }
-}
-@MainActor final class MetadataLayout {
-    let actual = SILWaterfallLayout()
-    var invalidations = 0
-    func invalidateLayout() { invalidations += 1; actual.invalidateLayout(); actual.prepare() }
-}
-@MainActor final class MetadataCollection {
-    let native = NSCollectionView(frame: NSRect(x: 0, y: 0, width: 800, height: 600))
-    let items = MetadataItems()
-    var visible: Set<IndexPath> = [IndexPath(item: 0, section: 0)]
-    var reloaded = Set<IndexPath>()
-    var configure: ((IndexPath) -> Void)?
-    init() { native.dataSource = items }
-    func indexPathsForVisibleItems() -> Set<IndexPath> { visible }
-    func reloadItems(at paths: Set<IndexPath>) {
-        reloaded.formUnion(paths)
-        paths.forEach { configure?($0) }
-    }
-}
-@MainActor final class MetadataDataSource {
-    var applies = 0
-    var holdCompletion = false
-    var completions: [() -> Void] = []
-    let applyItems: ([String]) -> Void
-    init(_ applyItems: @escaping ([String]) -> Void) { self.applyItems = applyItems }
-    func apply(_ snapshot: NSDiffableDataSourceSnapshot<MetadataGrid.Section, String>, animatingDifferences: Bool, completion: @escaping () -> Void) {
-        applies += 1; applyItems(snapshot.itemIdentifiers)
-        if holdCompletion { completions.append(completion) } else { completion() }
-    }
-    func releaseCompletion() {
-        holdCompletion = false
-        let pending = completions; completions = []
-        pending.forEach { $0() }
-    }
-}
-@MainActor final class MetadataGrid {
-    let listThumbnailTintSource = ListThumbnailTintSource()
-    let thumbnailCache = TintRecordingThumbnailCache()
-    enum Section: Hashable { case main }
-    let collectionView = MetadataCollection()
-    let waterfallLayout = MetadataLayout()
-    let emptyLabel = NSTextField()
-    var wallpapersByID: [String: SILWallpaper] = [:]
-    var orderedIDs: [String] = []
-    var orderedIndexByID: [String: Int] = [:]
-    var pendingIDs: [String] = []
-    var lastAppliedIDs: [String] = []
-    var pendingDimensionReloadIDs = Set<String>()
-    var isSnapshotScheduled = false
-    var isApplyingSnapshot = false
-    var cells: [String: MetadataCell] = [:]
-    lazy var dataSource = MetadataDataSource { [weak self] ids in
-        guard let self else { return }
-        collectionView.items.count = ids.count
-        collectionView.native.reloadData()
-        for id in ids {
-            let cell = cells[id] ?? MetadataCell()
-            if let value = wallpapersByID[id] { cell.configure(wallpaper: value) }
-            cells[id] = cell
-        }
-        waterfallLayout.actual.prepare()
-    }
-    init() {
-        collectionView.native.collectionViewLayout = waterfallLayout.actual
-        waterfallLayout.actual.aspectRatioProvider = { [weak self] path in
-            guard let self, orderedIDs.indices.contains(path.item),
-                  let value = wallpapersByID[orderedIDs[path.item]] else { return 16 / 9 }
-            return value.aspectRatio
-        }
-        collectionView.configure = { [weak self] path in
-            guard let self, orderedIDs.indices.contains(path.item),
-                  let value = wallpapersByID[orderedIDs[path.item]] else { return }
-            cells[value.id]?.configure(wallpaper: value)
-        }
-    }
-    func scheduleSyncSelection() {}
-    func scheduleVisibleRefresh() {}
-    func scheduleRestingScrollOriginCapture() {}
-    func scheduleThumbnailPrefetch() {}
-    // PRODUCTION_GRID_METHODS
+    func collectionView(_ collectionView: NSCollectionView, itemForRepresentedObjectAt indexPath: IndexPath) -> NSCollectionViewItem { NSCollectionViewItem() }
 }
 
 @main enum SILMetadataLoadingChecks {
@@ -297,55 +226,89 @@ nonisolated func ProbeImageSourceCreateWithURL(_ url: CFURL, _ options: CFDictio
         checks["completeMetadataRequiresNoBackgroundBatchOrSave"] = ready.wallpapers == [complete]
             && completedBatches == readyBatch && ready.saves == 0
 
-        let grid = MetadataGrid()
-        grid.update(wallpapers: [a, b])
-        wait("initial grid snapshot did not settle") { grid.lastAppliedIDs == ["A", "B"] }
-        let columns = grid.waterfallLayout.actual.columnCount
-        let initialFrame = grid.waterfallLayout.actual.layoutAttributesForItem(at: IndexPath(item: 0, section: 0))!.frame
-        checks["initialMissingDimensionsUseFallbackAndEmptySizeText"] = grid.cells["A"]!.metaLabel.stringValue
-            .contains("×") == false && abs(initialFrame.width / initialFrame.height - 16 / 9) < 0.001
+        _ = NSApplication.shared
+        NSApp.setActivationPolicy(.prohibited)
+        let images = SILService()
+        let adapter = WallpaperLibraryCellAdapter(manager: WallpaperManager(), images: images,
+            steam: SteamWorkshopService(), online: OnlineLibraryService(), isFavorite: { _ in false },
+            isPlaying: { _ in false }, makePrimaryAction: { _ in nil }, makeFavoriteAction: { _ in {} })
+        let grid = WallpaperLibraryGridController { collection, index, content, state in
+            adapter.makeCell(collection: collection, indexPath: index, content: content, state: state)
+        }
+        grid.updateCell = { adapter.updateCell($0, content: $1, state: $2) }
+        grid.setCellVisible = { adapter.setVisible($0, $1) }
+        grid.loadViewIfNeeded(); grid.view.frame = NSRect(x: 0, y: 0, width: 800, height: 600)
+        grid.view.layoutSubtreeIfNeeded()
+        func content(_ values: [SILWallpaper]) -> [WallpaperContentItem] {
+            images.wallpapers = values
+            return values.map { StaticImageLibraryContentProjection.project($0, facts: .init(
+                isPublishedLocally: true, isAvailable: true, canPlay: true, canDelete: true,
+                localURL: URL(fileURLWithPath: $0.path))) }
+        }
+        let first = content([a, b])
+        grid.update(page: .images, items: first, selection: .init(), preferredColumns: 5, permitsDragging: false, scrollAnchor: nil)
+        grid.layout.prepare()
+        let initialFrame = grid.layout.layoutAttributesForItem(at: IndexPath(item: 0, section: 0))!.frame
+        // A native collection gives the real App adapter its original reuse
+        // path. The explicit card stays offscreen; no thumbnail decoder runs.
+        let cards = NSCollectionView(frame: NSRect(x: 0, y: 0, width: 800, height: 600)), dataSource = MetadataItems()
+        cards.dataSource = dataSource; cards.collectionViewLayout = NSCollectionViewFlowLayout(); cards.reloadData()
+        let state = WallpaperLibraryGridController.CellState(isSelected: false, isSelecting: false, isFocused: false)
+        let cell = adapter.makeCell(collection: cards, indexPath: IndexPath(item: 0, section: 0), content: first[0], state: state) as! SILGridItem
+        cell.view.frame = NSRect(x: 0, y: 0, width: initialFrame.width, height: initialFrame.height)
+        cell.viewDidLayout(); cell.applyHoverVisibility(true, animated: false)
+        checks["initialMissingDimensionsKeepSquareAndEmptySizeText"] = !cell.currentMetadata.contains("×")
+            && initialFrame.width == initialFrame.height
+        let structuralReloads = grid.collection.reloads
         var portrait = a; portrait.pixelWidth = 8; portrait.pixelHeight = 12
         var offscreen = b; offscreen.pixelWidth = 12; offscreen.pixelHeight = 8
-        grid.update(wallpapers: [portrait, offscreen])
-        wait("same-ID grid metadata did not reload") { grid.cells["A"]!.metaLabel.stringValue.contains("8 × 12") }
-        let finalFrame = grid.waterfallLayout.actual.layoutAttributesForItem(at: IndexPath(item: 0, section: 0))!.frame
-        checks["sameIDsAndColumnCountRefreshRealWaterfallGeometry"] = grid.waterfallLayout.actual.columnCount == columns
-            && finalFrame.height > initialFrame.height && abs(finalFrame.width / finalFrame.height - 8.0 / 12.0) < 0.001
-        checks["metadataReloadsOnlyChangedVisibleCellsWithoutStructuralSnapshot"] = grid.dataSource.applies == 1
-            && grid.collectionView.reloaded == [IndexPath(item: 0, section: 0)]
-        let invalidations = grid.waterfallLayout.invalidations
-        grid.collectionView.reloaded.removeAll()
-        grid.update(wallpapers: [portrait, offscreen])
-        wait("identical grid input did not settle") { !grid.isSnapshotScheduled }
-        checks["identicalMetadataSkipsLayoutReloadAndSnapshot"] = grid.waterfallLayout.invalidations == invalidations
-            && grid.collectionView.reloaded.isEmpty && grid.dataSource.applies == 1
-
-        let pendingGrid = MetadataGrid()
-        pendingGrid.dataSource.holdCompletion = true
-        pendingGrid.update(wallpapers: [a, b])
-        wait("held snapshot did not start") { pendingGrid.isApplyingSnapshot }
-        pendingGrid.update(wallpapers: [portrait, offscreen])
-        wait("same-topology metadata update did not schedule") { !pendingGrid.isSnapshotScheduled }
-        checks["metadataWaitsForPendingSnapshotBeforeReloadingCells"] = pendingGrid.collectionView.reloaded.isEmpty
-            && pendingGrid.dataSource.applies == 1 && pendingGrid.lastAppliedIDs.isEmpty
-        pendingGrid.dataSource.releaseCompletion()
-        checks["snapshotCompletionFlushesLatestVisibleMetadataOnce"] = pendingGrid.lastAppliedIDs == ["A", "B"]
-            && pendingGrid.dataSource.applies == 1 && pendingGrid.cells["A"]!.metaLabel.stringValue.contains("8 × 12")
-            && pendingGrid.collectionView.reloaded == [IndexPath(item: 0, section: 0)]
-
-        let topologyGrid = MetadataGrid()
-        topologyGrid.dataSource.holdCompletion = true
-        topologyGrid.update(wallpapers: [a])
-        wait("old topology did not begin") { topologyGrid.isApplyingSnapshot }
-        topologyGrid.update(wallpapers: [offscreen, portrait])
-        wait("new topology did not pend") { !topologyGrid.isSnapshotScheduled }
-        checks["metadataForNewTopologyCannotReloadOldIndices"] = topologyGrid.collectionView.reloaded.isEmpty
-            && topologyGrid.dataSource.applies == 1
-        topologyGrid.dataSource.releaseCompletion()
-        wait("latest topology did not apply after old completion") { topologyGrid.lastAppliedIDs == ["B", "A"] }
-        checks["latestTopologyRetainsSerialSnapshotAndCurrentMetadata"] = topologyGrid.dataSource.applies == 2
-            && topologyGrid.cells["A"]!.metaLabel.stringValue.contains("8 × 12")
-            && topologyGrid.collectionView.reloaded == Set([IndexPath(item: 1, section: 0)]).intersection(topologyGrid.collectionView.visible)
+        let patched = content([portrait, offscreen])
+        grid.update(page: .images, items: patched, selection: grid.selection, preferredColumns: 5, permitsDragging: false, scrollAnchor: nil)
+        adapter.updateCell(cell, content: patched[0], state: state)
+        let finalFrame = grid.layout.layoutAttributesForItem(at: IndexPath(item: 0, section: 0))!.frame
+        let metadataDiagnostic: [String] = [
+            "same-id-metadata initial=\(initialFrame) final=\(finalFrame) geometryEqual=\(finalFrame == initialFrame)",
+            "sourceID=\(portrait.id) width=\(String(describing: portrait.pixelWidth)) height=\(String(describing: portrait.pixelHeight))",
+            "projectedResolution=\(String(describing: patched[0].metadata.resolutionText)) cardMetadata=\(cell.currentMetadata)",
+            "barExists=\(cell.controlBar != nil) barTip=\(String(describing: cell.controlBar?.toolTip)) titleHelp=\(String(describing: cell.controlBar?.titleView.accessibilityHelp()))",
+            "cardFrame=\(cell.view.frame) coverBounds=\(cell.imageContainer.bounds) clip=\(grid.scrollView.contentView.bounds)",
+            "configurations=\(SILCardObservation.configurations) reloads=\(grid.collection.reloads) itemReloads=\(grid.collection.reloaded)"
+        ]
+        FileHandle.standardError.write(Data((metadataDiagnostic.joined(separator: "\n") + "\n").utf8))
+        checks["sameIDsRefreshMetadataWithoutChangingSquareGeometry"] = finalFrame == initialFrame
+            && cell.currentMetadata.contains("8 × 12")
+            && cell.controlBar?.titleView.accessibilityHelp() == cell.currentMetadata
+            && cell.controlBar?.toolTip == nil && cell.controlBar?.titleView.toolTip == nil
+        checks["metadataUpdatesReuseTheRealCardWithoutStructuralReload"] = grid.collection.reloads == structuralReloads
+            && grid.collection.reloaded.isEmpty && grid.items == patched
+        let invalidations = grid.layout.invalidations, configures = SILCardObservation.configurations
+        grid.update(page: .images, items: patched, selection: grid.selection, preferredColumns: 5, permitsDragging: false, scrollAnchor: nil)
+        adapter.updateCell(cell, content: patched[0], state: state)
+        checks["identicalMetadataSkipsLayoutReloadAndSnapshot"] = grid.layout.invalidations == invalidations
+            && grid.collection.reloads == structuralReloads && grid.collection.reloaded.isEmpty
+            && SILCardObservation.configurations == configures && grid.layout.layoutAttributesForItem(at: IndexPath(item: 0, section: 0))!.frame == finalFrame
+        // The replacement grid has synchronous native reloads, so there is no
+        // retired diffable completion to hold. Rapid updates must retain the
+        // latest topology and metadata without addressing old indices.
+        let beforeTopology = grid.collection.reloads
+        grid.update(page: .images, items: [first[0]], selection: grid.selection, preferredColumns: 5, permitsDragging: false, scrollAnchor: nil)
+        grid.update(page: .images, items: [patched[1], patched[0]], selection: grid.selection, preferredColumns: 5, permitsDragging: false, scrollAnchor: nil)
+        let afterTopology = grid.collection.reloads
+        grid.update(page: .images, items: [patched[1], patched[0]], selection: grid.selection, preferredColumns: 5, permitsDragging: false, scrollAnchor: nil)
+        checks["rapidTopologyChangesPublishTheLatestNativeOrderAndMetadata"] = grid.items == [patched[1], patched[0]]
+            && afterTopology == beforeTopology + 2 && grid.collection.reloads == afterTopology
+            && grid.items[1].metadata.resolutionText == "8×12" && grid.collection.reloaded.isEmpty
+        let offline = record("offline-recovery", index.deletingLastPathComponent().appendingPathComponent("missing-image.png").path)
+        try persist([offline], at: index)
+        let preserved = try Data(contentsOf: index)
+        let recovery = MetadataProbe(index), recoveryBatch = completedBatches
+        recovery.migrationRecoveryMessage = "Migration needs recovery"
+        recovery.load()
+        wait("read-only metadata callback did not settle") { completedBatches > recoveryBatch }
+        recovery.reconcileForAudit()
+        recovery.save()
+        checks["failedMigrationSILKeepsOfflineRecordAndOriginalBytes"] = try recovery.wallpapers == [offline]
+            && Data(contentsOf: index) == preserved
         print(String(data: try JSONEncoder().encode(checks), encoding: .utf8)!)
     }
 }

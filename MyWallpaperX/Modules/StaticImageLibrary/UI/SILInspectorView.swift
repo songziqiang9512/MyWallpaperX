@@ -9,17 +9,24 @@ final class SILInspectorView: NSView {
     private let wallpaperID: String
     private var contentStack: NSStackView?
     private var footerStack: NSStackView?
+    private let service: SILService
+    private var libraryActions: WallpaperInspectorActions
+    private weak var primaryButton: InspectorFooterButton?
+    private weak var playlistButton: InspectorFooterButton?
 
     private var wallpaper: SILWallpaper {
-        SILService.shared.wallpapers.first { $0.id == wallpaperID } ?? initialWallpaper
+        service.wallpapers.first { $0.id.utf8.elementsEqual(wallpaperID.utf8) } ?? initialWallpaper
     }
     private let initialWallpaper: SILWallpaper
 
-    init(wallpaper: SILWallpaper) {
+    init(wallpaper: SILWallpaper, service: SILService? = nil, libraryActions: WallpaperInspectorActions) {
+        self.service = service ?? .shared
+        self.libraryActions = libraryActions
         self.wallpaperID = wallpaper.id
         self.initialWallpaper = wallpaper
         super.init(frame: .zero)
         setup()
+        updateLibraryActions(libraryActions)
     }
 
     @available(*, unavailable)
@@ -28,7 +35,8 @@ final class SILInspectorView: NSView {
     }
 
     /// 预览图异步加载（共享缓存内存命中同步回调，其余后台解码后主线程补图）
-    private var previewImage: NSImage?
+    private let previewSurface = SILInspectorPreviewSurfaceView(image: nil)
+    private lazy var previewHeightConstraint = previewSurface.heightAnchor.constraint(equalToConstant: 156)
 
     private func loadPreviewImage() {
         let sourcePath = wallpaper.path
@@ -47,8 +55,7 @@ final class SILInspectorView: NSView {
         }, completion: { image in
             DispatchQueue.main.async {
                 guard let self = weakSelf else { return }
-                self.previewImage = image
-                self.rebuildContent()
+                self.previewSurface.updateImage(image)
             }
         })
     }
@@ -74,7 +81,7 @@ final class SILInspectorView: NSView {
         if !FileManager.default.fileExists(atPath: wallpaper.path) {
             result.append(("exclamationmark.triangle.fill", "原始图片文件当前不可用"))
         }
-        if SILService.shared.currentActiveWallpaperPath == wallpaper.path {
+        if service.currentActiveWallpaperPath == wallpaper.path {
             result.append(("photo.fill", "当前桌面正在使用这张图片"))
         }
         return result
@@ -164,13 +171,11 @@ final class SILInspectorView: NSView {
     private func makePreviewSection() -> NSView {
         let stack = SILInspectorViews.makeVerticalStack(spacing: 8)
 
-        let preview = SILInspectorPreviewSurfaceView(image: previewImage)
+        let preview = previewSurface
         preview.translatesAutoresizingMaskIntoConstraints = false
         stack.addArrangedSubview(preview)
-        NSLayoutConstraint.activate([
-            preview.heightAnchor.constraint(equalToConstant: 156),
-            preview.widthAnchor.constraint(equalTo: stack.widthAnchor)
-        ])
+        previewHeightConstraint.isActive = true
+        preview.widthAnchor.constraint(equalTo: stack.widthAnchor).isActive = true
 
         let title = SILInspectorViews.makeLabel(
             wallpaper.title,
@@ -219,11 +224,12 @@ final class SILInspectorView: NSView {
     private func makeTagsSection() -> NSView {
         let stack = SILInspectorViews.makeVerticalStack(spacing: 14)
         stack.addArrangedSubview(SILInspectorViews.makeDivider())
-        stack.addArrangedSubview(SILInspectorViews.makeSectionTitle("标签"))
+        let names = libraryActions.state.playlistNames
+        stack.addArrangedSubview(SILInspectorViews.makeSectionTitle("播放列表"))
 
-        if wallpaper.tags.isEmpty {
+        if names.isEmpty {
             stack.addArrangedSubview(
-                SILInspectorViews.makeLabel("当前未加入任何标签", font: .systemFont(ofSize: 13), color: .secondaryLabelColor)
+                SILInspectorViews.makeLabel("当前未加入任何播放列表", font: .systemFont(ofSize: 13), color: .secondaryLabelColor)
             )
         } else {
             let row = NSStackView()
@@ -231,7 +237,7 @@ final class SILInspectorView: NSView {
             row.alignment = .centerY
             row.spacing = 8
             row.translatesAutoresizingMaskIntoConstraints = false
-            wallpaper.tags.forEach { row.addArrangedSubview(InspectorBadgeView(text: $0)) }
+            names.forEach { row.addArrangedSubview(InspectorBadgeView(text: $0)) }
             stack.addArrangedSubview(row)
         }
 
@@ -256,8 +262,8 @@ final class SILInspectorView: NSView {
         stack.distribution = .fillEqually
         stack.translatesAutoresizingMaskIntoConstraints = false
 
-        // 主操作：设为壁纸（经 staticImageWallpaperReadyToApply 统一入口
-        // 应用系统桌面）；查看文件/添加标签收缩为次级宽度。
+        // Apply and membership dispatch through the injected canonical commands;
+        // metadata, preview and the original three-button geometry stay local.
         let wallpaperButton = SILInspectorViews.makeFooterButton(
             title: "设为壁纸",
             symbolName: "photo.fill",
@@ -265,7 +271,8 @@ final class SILInspectorView: NSView {
             action: #selector(setAsDesktopWallpaper),
             kind: .primary
         )
-        wallpaperButton.isEnabled = FileManager.default.fileExists(atPath: wallpaper.path)
+        primaryButton = wallpaperButton
+        wallpaperButton.isEnabled = libraryActions.state.canPerformPrimary
         let revealButton = SILInspectorViews.makeFooterButton(
             title: "查看文件",
             symbolName: "folder.fill",
@@ -278,9 +285,11 @@ final class SILInspectorView: NSView {
             target: self,
             action: #selector(presentTagPicker)
         )
-        tagButton.isEnabled = !SILService.shared.silTags.isEmpty
-        tagButton.setAccessibilityLabel("添加标签")
-        tagButton.toolTip = "添加标签"
+        playlistButton = tagButton
+        tagButton.isEnabled = libraryActions.state.canOrganize
+        let tagTitle = "添加到列表"
+        tagButton.setAccessibilityLabel(tagTitle)
+        tagButton.toolTip = tagTitle
 
         let buttonGroup = NSView()
         buttonGroup.translatesAutoresizingMaskIntoConstraints = false
@@ -321,14 +330,20 @@ final class SILInspectorView: NSView {
         return stack
     }
 
-    /// 与网格右键菜单同一入口：经 MainWindowCoordinator 的静态图应用通道
-    /// 统一写系统桌面并收尾动态 runtime。
+    /// The App supplies the same fixed-reference commands as the grid/menu.
+    func updateLibraryActions(_ actions: WallpaperInspectorActions) {
+        let changed = libraryActions.state != actions.state
+        libraryActions = actions
+        primaryButton?.isEnabled = actions.state.canPerformPrimary
+        primaryButton?.setTitle(actions.state.isPlaying ? "已应用" : "设为壁纸")
+        primaryButton?.setSymbol(actions.state.isPlaying ? "checkmark.circle.fill" : "photo.fill", accessibilityDescription: actions.state.isPlaying ? "已应用" : "设为壁纸")
+        playlistButton?.isEnabled = actions.state.canOrganize
+        if changed { rebuildContent() }
+    }
+
     @objc private func setAsDesktopWallpaper() {
-        NotificationCenter.default.post(
-            name: .staticImageWallpaperReadyToApply,
-            object: nil,
-            userInfo: ["imageURL": URL(fileURLWithPath: wallpaper.path)]
-        )
+        guard libraryActions.state.canPerformPrimary else { return }
+        libraryActions.onPrimary()
     }
 
     private var fileSizeText: String? {
@@ -359,28 +374,8 @@ final class SILInspectorView: NSView {
     }
 
     @objc private func presentTagPicker() {
-        let service = SILService.shared
-        guard !service.silTags.isEmpty else { return }
-
-        let picker = NSPopUpButton(frame: NSRect(x: 0, y: 0, width: 220, height: 24))
-        picker.addItems(withTitles: service.silTags)
-        picker.selectItem(at: 0)
-
-        let alert = makeAppAlert(
-            title: "添加图片标签",
-            message: "请选择要添加的标签",
-            buttons: ["确定", "取消"],
-            accessoryView: picker
-        )
-
-        presentAppAlert(alert, in: appModalHostWindow()) { [weak self] response in
-            guard let self,
-                  response == .alertFirstButtonReturn,
-                  let tag = picker.titleOfSelectedItem,
-                  !tag.isEmpty else { return }
-            SILService.shared.addSILTag(tag, toSelected: [self.wallpaperID])
-            self.rebuildContent()
-        }
+        guard libraryActions.state.canOrganize else { return }
+        libraryActions.onChoosePlaylist(playlistButton)
     }
 }
 

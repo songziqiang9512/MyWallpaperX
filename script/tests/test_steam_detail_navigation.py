@@ -53,7 +53,7 @@ class SteamDetailNavigationTests(unittest.TestCase):
                 *[method((CORE/'SteamWorkshopService+BrowseFetching.swift').read_text(), start)
                   for start in ['    func prepareForBrowserEntry(', '    func navigateToBrowse(']],
                 *[method(download, start) for start in ['    func dismissDownloadInspector(',
-                    '    private func presentDownloadInspector(']],
+                    '    func presentDownloadInspector(']],
                 method(loading, '    var allowsAutomaticBrowserContinuation:'),
                 method(loading, '    func retryLoadingMoreBrowserItems('),
                 method((CORE/'SteamWorkshopService+LibraryRecords.swift').read_text(), '    nonisolated static func creatorID(')
@@ -65,6 +65,7 @@ class SteamDetailNavigationTests(unittest.TestCase):
             actual.write_text('\n'.join(fragments))
             sources = [ROOT/'MyWallpaperX/Core/DaemonKit/DaemonNewlineJSON.swift',
                 ROOT/'MyWallpaperX/Core/DaemonKit/DaemonProcessTransport.swift',
+                ROOT/'MyWallpaperX/Shared/UI/WallpaperGridScrollView.swift',
                 *[CORE/name for name in ['SteamServiceProtocol.swift', 'SteamServiceClient.swift',
                     'SteamWorkshopQueryClient.swift', 'SteamWorkshopSubscriptionStore.swift',
                     'SteamWorkshopBrowseFilters.swift', 'SteamWorkshopAgeRatingSupport.swift',

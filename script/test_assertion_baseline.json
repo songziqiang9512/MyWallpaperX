@@ -898,20 +898,6 @@
     },
     {
       "path": "script/tests/test_scene_resolved_material_execution_capability.py",
-      "scope": "SceneResolvedMaterialExecutionCapabilityTests.test_uniform_and_geometry_sources_are_prepared_before_frames",
-      "method": "assertIn",
-      "literal": "struct FrameInputContract: Equatable",
-      "count": 1
-    },
-    {
-      "path": "script/tests/test_scene_resolved_material_execution_capability.py",
-      "scope": "SceneResolvedMaterialExecutionCapabilityTests.test_uniform_and_geometry_sources_are_prepared_before_frames",
-      "method": "assertIn",
-      "literal": "struct SceneResolvedMaterialPreparedUniformBinding: Hashable",
-      "count": 1
-    },
-    {
-      "path": "script/tests/test_scene_resolved_material_execution_capability.py",
       "scope": "SceneResolvedMaterialExecutionCapabilityTests.test_unknown_execution_family_cannot_create_dedicated_owner",
       "method": "assertNotIn",
       "literal": "case .admittedDedicated, .admittedFallback",
@@ -1510,13 +1496,6 @@
       "scope": "SteamDownloadTasksPopoverTests.test_popover_uses_existing_owners_and_bounded_observation",
       "method": "assertIn",
       "literal": "var downloadTasksPopoverController",
-      "count": 1
-    },
-    {
-      "path": "script/tests/test_steam_keyboard_navigation.py",
-      "scope": "SteamKeyboardNavigationTests.test_downloads_escape_closes_only_the_active_steam_surface",
-      "method": "assertIn",
-      "literal": "var isVisible: Bool",
       "count": 1
     },
     {

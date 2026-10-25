@@ -15,10 +15,4 @@ extension NSToolbarItem.Identifier {
     static let steamDownloadTasks = NSToolbarItem.Identifier("ToolbarSteamDownloadTasks")
     static let steamZoom = NSToolbarItem.Identifier("ToolbarSteamZoom")
     static let steamSearch = NSToolbarItem.Identifier("ToolbarSteamSearch")
-    static let steamDownloadsTitle = NSToolbarItem.Identifier("ToolbarSteamDownloadsTitle")
-    static let steamDownloadsSelect = NSToolbarItem.Identifier("ToolbarSteamDownloadsSelect")
-    static let steamDownloadsDelete = NSToolbarItem.Identifier("ToolbarSteamDownloadsDelete")
-    static let steamDownloadsFilter = NSToolbarItem.Identifier("ToolbarSteamDownloadsFilter")
-    static let steamDownloadsSort = NSToolbarItem.Identifier("ToolbarSteamDownloadsSort")
-    static let steamDownloadsSearch = NSToolbarItem.Identifier("ToolbarSteamDownloadsSearch")
 }

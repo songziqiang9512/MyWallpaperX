@@ -37,6 +37,27 @@ final class ToolbarMenuPopoverPresenter: NSObject, NSPopoverDelegate {
         }
     }
 
+    /// Overflow invokes the same enum-backed rows as the anchored popover.
+    /// Native menu items retain their command; no detached sender is invented.
+    static func menuRepresentation(title: String, rows: [Row]) -> NSMenuItem {
+        let entry = NSMenuItem(title: title, action: nil, keyEquivalent: "")
+        let menu = NSMenu()
+        menu.autoenablesItems = false
+        for row in rows {
+            if row.kind == .separator { menu.addItem(.separator()); continue }
+            let actionable = row.kind == .action || row.kind == .check
+            let item = ActionMenuItem(title: row.title, symbol: "") {
+                guard actionable, row.isEnabled else { return }
+                row.handler?()
+            }
+            item.isEnabled = actionable && row.isEnabled && row.handler != nil
+            item.state = row.isChecked ? .on : .off
+            menu.addItem(item)
+        }
+        entry.submenu = menu
+        return entry
+    }
+
     private let popover = NSPopover()
     private lazy var scrollDismissal = ToolbarPopoverScrollDismissal(popover: popover)
     private weak var anchoredView: NSView?

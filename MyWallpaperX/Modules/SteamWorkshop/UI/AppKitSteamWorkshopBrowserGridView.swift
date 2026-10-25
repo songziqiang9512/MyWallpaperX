@@ -41,6 +41,26 @@ final class AppKitSteamWorkshopBrowserContainerView: NSView, ModuleFocusable, NS
     var onDownload: (SteamWorkshopBrowserItem) -> Void
     var onSetAsWallpaper: (SteamWorkshopDownloadRecord) -> Void
     var onCancelDownload: (SteamWorkshopBrowserItem) -> Void
+    var makeOrganization: ((SteamWorkshopBrowserItem) -> AppKitSteamWorkshopBrowserItem.OrganizationPresentation?)? {
+        didSet { refreshLibraryActions() }
+    }
+    var makeOrganizationMenu: ((SteamWorkshopBrowserItem) -> NSMenu?)?
+    var preferredColumns = 5 {
+        didSet { if preferredColumns != oldValue { scheduleLayoutItemSizeUpdate() } }
+    }
+    var clipWidth: CGFloat { scrollView.contentView.bounds.width }
+    var onClipWidthChange: ((CGFloat) -> Void)?
+    private var lastReportedClipWidth: CGFloat?
+
+    /// Relationships/playback are supplied by App. Source metadata and the
+    /// original thumbnail demand remain unchanged by this presentation refresh.
+    func refreshLibraryActions() {
+        for path in collectionView.indexPathsForVisibleItems() {
+            guard let cell = collectionView.item(at: path) as? AppKitSteamWorkshopBrowserItem,
+                  let id = dataSource.itemIdentifier(for: path) else { continue }
+            configureMetadataCell(cell, for: id)
+        }
+    }
 
     private var cancellables = Set<AnyCancellable>()
     private var itemsByID: [String: SteamWorkshopBrowserItem] = [:]
@@ -61,7 +81,7 @@ final class AppKitSteamWorkshopBrowserContainerView: NSView, ModuleFocusable, NS
     private var pendingLayoutItemSizeUpdate = false
     private var pendingItems: [SteamWorkshopBrowserItem]?
 
-    private let scrollView: NSScrollView = {
+    private let scrollView: WallpaperGridScrollView = {
         let scrollView = WallpaperGridScrollView()
         scrollView.drawsBackground = false
         scrollView.hasVerticalScroller = true
@@ -94,7 +114,7 @@ final class AppKitSteamWorkshopBrowserContainerView: NSView, ModuleFocusable, NS
             self.keyboardFocusedID = id
             self.updateKeyboardFocusItem(withID: previous, focused: false)
             self.updateKeyboardFocusItem(withID: id, focused: true)
-            return SteamWorkshopItemMenu.make(item: item, service: self.service)
+            return self.itemMenu(for: item)
         }
         collectionView.primaryClickHandler = { [weak self] path in
             guard let self, let id = self.dataSource.itemIdentifier(for: path) else { return false }
@@ -103,10 +123,22 @@ final class AppKitSteamWorkshopBrowserContainerView: NSView, ModuleFocusable, NS
         return collectionView
     }()
 
+    private func itemMenu(for item: SteamWorkshopBrowserItem) -> NSMenu {
+        let menu = SteamWorkshopItemMenu.make(item: item, service: service)
+        if let organization = makeOrganizationMenu?(item), !organization.items.isEmpty {
+            menu.addItem(.separator())
+            for entry in organization.items {
+                organization.removeItem(entry)
+                menu.addItem(entry)
+            }
+        }
+        return menu
+    }
+
     private lazy var flowLayout: NSCollectionViewFlowLayout = {
         let layout = SteamWorkshopBrowserFlowLayout()
-        layout.minimumInteritemSpacing = SteamWorkshopGridLayoutSupport.baseSpacing
-        layout.minimumLineSpacing = SteamWorkshopGridLayoutSupport.baseSpacing
+        layout.minimumInteritemSpacing = WallpaperLibraryGridMetrics.horizontalSpacing
+        layout.minimumLineSpacing = WallpaperLibraryGridMetrics.verticalSpacing
         layout.sectionInset = SteamWorkshopGridLayoutSupport.sectionInset
         return layout
     }()
@@ -168,6 +200,7 @@ final class AppKitSteamWorkshopBrowserContainerView: NSView, ModuleFocusable, NS
 
     override func viewDidMoveToWindow() {
         super.viewDidMoveToWindow()
+        if window == nil { reportClipWidth(0) }
         thumbnailWindowVisibilityObservation = nil
         if let window {
             thumbnailWindowVisibilityObservation = window.observe(\.isVisible, options: [.new]) { [weak self] window, _ in
@@ -220,11 +253,6 @@ final class AppKitSteamWorkshopBrowserContainerView: NSView, ModuleFocusable, NS
         service.$displayedBrowserItems
             .receive(on: DispatchQueue.main)
             .sink { [weak self] in self?.applyItems($0) }
-            .store(in: &cancellables)
-
-        service.$zoomOffset
-            .receive(on: DispatchQueue.main)
-            .sink { [weak self] _ in self?.scheduleLayoutItemSizeUpdate() }
             .store(in: &cancellables)
 
         service.$activeDownloadItemIDs
@@ -287,10 +315,7 @@ final class AppKitSteamWorkshopBrowserContainerView: NSView, ModuleFocusable, NS
 
         service.$pendingBrowserScrollRestoreOffset
             .receive(on: DispatchQueue.main)
-            .sink { [weak self] offsetY in
-                guard let self, let offsetY else { return }
-                self.restoreScrollOffset(offsetY)
-            }
+            .sink { [weak self] _ in self?.restorePendingScrollOffsetIfReady() }
             .store(in: &cancellables)
 
         // 下拉刷新的收口：feed 刷新结束（含失败/登录指引等同步结束路径）
@@ -469,14 +494,21 @@ final class AppKitSteamWorkshopBrowserContainerView: NSView, ModuleFocusable, NS
 
     private func configureCell(_ cell: AppKitSteamWorkshopBrowserItem, for id: String) {
         guard let item = itemsByID[id] else { return }
+        let organization = makeOrganization?(item)
         cell.configure(
             displayContext: .browser,
+            isPlaying: organization?.isPlaying ?? false,
             item: item,
             downloadRecord: service.latestDownloadRecord(for: id),
             downloadProgressStore: service.downloadProgressStore,
             isDownloading: service.isDownloading(itemID: id),
             isDownloaded: service.isDownloaded(itemID: id),
             isKeyboardFocused: keyboardFocusedID == id,
+            organization: organization,
+            makeMenu: { [weak self] in
+                guard let self, let current = self.itemsByID[id] else { return nil }
+                return self.itemMenu(for: current)
+            },
             onOpen: { [weak self] in _ = self?.openItem(withID: id) },
             onDownload: { [weak self] in self?.onDownload(item) },
             onSetAsWallpaper: { [weak self] in
@@ -489,14 +521,21 @@ final class AppKitSteamWorkshopBrowserContainerView: NSView, ModuleFocusable, NS
 
     private func configureMetadataCell(_ cell: AppKitSteamWorkshopBrowserItem, for id: String) {
         guard let item = itemsByID[id] else { return }
+        let organization = makeOrganization?(item)
         cell.configureMetadataOnly(
             displayContext: .browser,
+            isPlaying: organization?.isPlaying ?? false,
             item: item,
             downloadRecord: service.latestDownloadRecord(for: id),
             downloadProgressStore: service.downloadProgressStore,
             isDownloading: service.isDownloading(itemID: id),
             isDownloaded: service.isDownloaded(itemID: id),
             isKeyboardFocused: keyboardFocusedID == id,
+            organization: organization,
+            makeMenu: { [weak self] in
+                guard let self, let current = self.itemsByID[id] else { return nil }
+                return self.itemMenu(for: current)
+            },
             onOpen: { [weak self] in _ = self?.openItem(withID: id) },
             onDownload: { [weak self] in self?.onDownload(item) },
             onSetAsWallpaper: { [weak self] in
@@ -537,11 +576,10 @@ final class AppKitSteamWorkshopBrowserContainerView: NSView, ModuleFocusable, NS
         guard !orderedIDs.isEmpty else { return }
         guard let documentView = scrollView.documentView else { return }
         let contentHeight = documentView.frame.height
-        let viewportHeight = scrollView.contentView.bounds.height
-        let offsetY = scrollView.contentView.bounds.origin.y
-        guard contentHeight > 0, viewportHeight > 0 else { return }
-        let preloadDistance = max(720, viewportHeight * 2.5)
-        if contentHeight - offsetY - viewportHeight < preloadDistance {
+        let viewport = scrollView.gridViewportRect
+        guard contentHeight > 0, !viewport.isEmpty else { return }
+        let preloadDistance = max(720, scrollView.contentView.bounds.height * 2.5)
+        if contentHeight - viewport.maxY < preloadDistance {
             service.loadMoreBrowserItemsIfNeeded()
         }
     }
@@ -599,12 +637,15 @@ final class AppKitSteamWorkshopBrowserContainerView: NSView, ModuleFocusable, NS
         guard let indexPath = indexPathForItemID(id),
               let attributes = flowLayout.layoutAttributesForItem(at: indexPath) else { return }
         let itemFrame = attributes.frame
-        let visibleRect = scrollView.contentView.bounds
+        let visibleRect = scrollView.gridViewportRect
         guard !visibleRect.contains(itemFrame) else { return }
         let targetY = itemFrame.minY < visibleRect.minY
             ? max(0, itemFrame.minY - 4)
             : itemFrame.maxY - visibleRect.height + 4
-        scrollView.contentView.setBoundsOrigin(NSPoint(x: visibleRect.origin.x, y: targetY))
+        let top = scrollView.gridDocumentTopY
+        let bottom = max(top, collectionView.bounds.height - scrollView.contentView.bounds.height + scrollView.contentInsets.bottom)
+        let nativeY = min(bottom, max(top, targetY - scrollView.contentInsets.top))
+        scrollView.contentView.setBoundsOrigin(NSPoint(x: scrollView.contentView.bounds.origin.x, y: nativeY))
         scrollView.reflectScrolledClipView(scrollView.contentView)
     }
 
@@ -673,23 +714,27 @@ final class AppKitSteamWorkshopBrowserContainerView: NSView, ModuleFocusable, NS
     @discardableResult
     private func updateLayoutItemSize() -> Bool {
         guard !isApplyingSnapshot else { return false }
-        guard let layoutWidth = resolvedLayoutWidth() else { return false }
-        let metrics = SteamWorkshopGridLayoutSupport.metrics(
-            boundsWidth: layoutWidth,
-            zoomOffset: service.zoomOffset,
-            sectionInset: flowLayout.sectionInset
-        )
+        guard let layoutWidth = resolvedLayoutWidth() else { reportClipWidth(0); return false }
+        let viewportWidthChanged = lastReportedClipWidth != layoutWidth
+        reportClipWidth(layoutWidth)
+        let metrics = WallpaperLibraryGridMetrics(clipWidth: layoutWidth, preferredColumns: preferredColumns)
         currentColumnCount = metrics.columns
-        let newSize = metrics.itemSize
-        guard flowLayout.itemSize != newSize
-                || flowLayout.minimumInteritemSpacing != metrics.interitemSpacing
-                || flowLayout.minimumLineSpacing != metrics.lineSpacing else { return true }
-        flowLayout.minimumInteritemSpacing = metrics.interitemSpacing
-        flowLayout.minimumLineSpacing = metrics.lineSpacing
+        let newSize = NSSize(width: metrics.coverSide, height: metrics.coverSide)
+        guard viewportWidthChanged || flowLayout.itemSize != newSize
+                || flowLayout.minimumInteritemSpacing != WallpaperLibraryGridMetrics.horizontalSpacing
+                || flowLayout.minimumLineSpacing != WallpaperLibraryGridMetrics.verticalSpacing else { return true }
+        flowLayout.minimumInteritemSpacing = WallpaperLibraryGridMetrics.horizontalSpacing
+        flowLayout.minimumLineSpacing = WallpaperLibraryGridMetrics.verticalSpacing
         flowLayout.itemSize = newSize
         flowLayout.invalidateLayout()
         prioritizeVisibleItemsForHydration()
         return true
+    }
+
+    private func reportClipWidth(_ width: CGFloat) {
+        guard width.isFinite, width >= 0, lastReportedClipWidth != width else { return }
+        lastReportedClipWidth = width
+        onClipWidthChange?(width)
     }
 
     private func scheduleLayoutItemSizeUpdate() {
@@ -700,6 +745,7 @@ final class AppKitSteamWorkshopBrowserContainerView: NSView, ModuleFocusable, NS
             self.pendingLayoutItemSizeUpdate = false
             self.updateLayoutItemSize()
             self.applyPendingItemsIfReady()
+            self.restorePendingScrollOffsetIfReady()
         }
     }
 
@@ -721,13 +767,23 @@ final class AppKitSteamWorkshopBrowserContainerView: NSView, ModuleFocusable, NS
             }
             return
         }
-        // The items publisher queues its snapshot before the offset publisher.
-        // Keep the service token until that snapshot and its layout are ready.
-        guard window != nil, !isItemsApplyScheduled, !isApplyingSnapshot, pendingItems == nil,
+        // Independent publishers can deliver an old offset before the current
+        // feed reaches this view. Keep the source token for its actual layout.
+        guard window != nil, !isItemsApplyScheduled, !isApplyingSnapshot, !pendingLayoutItemSizeUpdate, pendingItems == nil,
               let documentView = scrollView.documentView else { return }
+        let viewport = scrollView.gridViewportRect
+        guard viewport.width > 1, viewport.height > 0,
+              orderedIDs == service.displayedBrowserItems.map(\.id),
+              footerState == SteamWorkshopBrowserFooterSupport.resolvedState(
+                failureMessage: service.browserLoadMoreFailureMessage,
+                isLoadingMore: service.isLoadingMoreBrowserItems,
+                hasMore: service.hasMoreBrowserItems, itemIDs: orderedIDs) else { return }
         collectionView.layoutSubtreeIfNeeded()
-        let maxOffsetY = max(0, documentView.bounds.height - scrollView.contentView.bounds.height)
-        let clampedOffsetY = min(max(0, offsetY), maxOffsetY)
+        // Source snapshots persist the uncovered document viewport, not the
+        // native clip origin (whose true top is negative below a toolbar).
+        let top = scrollView.gridDocumentTopY
+        let maxOffsetY = max(top, documentView.bounds.height - scrollView.contentView.bounds.height + scrollView.contentInsets.bottom)
+        let clampedOffsetY = min(max(top, offsetY - scrollView.contentInsets.top), maxOffsetY)
         scrollView.contentView.setBoundsOrigin(NSPoint(x: 0, y: clampedOffsetY))
         scrollView.reflectScrolledClipView(scrollView.contentView)
         updateBrowserScrollMetrics()
@@ -742,10 +798,12 @@ final class AppKitSteamWorkshopBrowserContainerView: NSView, ModuleFocusable, NS
             return
         }
         guard window != nil, let documentView = scrollView.documentView else { return }
+        let viewport = scrollView.gridViewportRect
+        guard !viewport.isEmpty else { return }
         service.updateBrowserScrollMetrics(
-            offsetY: scrollView.contentView.bounds.origin.y,
+            offsetY: max(0, viewport.minY),
             contentHeight: documentView.frame.height,
-            viewportHeight: scrollView.contentView.bounds.height
+            viewportHeight: viewport.height
         )
     }
 

@@ -9,17 +9,31 @@ struct BrowserMetadata: Equatable {
 struct SteamWorkshopDownloadRecord: Equatable {
     enum Status: Equatable { case ready, failed(String), queued, downloading }
     enum ContentType { case video, web, scene, unknown }
+    enum DependencyStatus { case none }
     let id: String
     var title = "Wallpaper"
     var description = ""
     var tags: [String] = []
-    var browserItem: BrowserMetadata?
-    var status = Status.ready
-    var contentType = ContentType.video
+    var folderURL = URL(fileURLWithPath: "/private/tmp/source-facts")
+    var projectFileURL: URL? = nil
+    var ownEntryHTMLURL: URL? = nil
+    var dependencyHostEntryHTMLURL: URL? = nil
+    var dependencyHostFolderURL: URL? = nil
+    var entryHTMLURL: URL? = nil
+    var resolvedWebRootURL: URL? = nil
+    var previewURL: URL? = nil
+    var sourceVideoURL: URL? = nil
+    var exportedVideoURL: URL? = nil
     var updatedAt = Date(timeIntervalSince1970: 1)
+    var sizeText = "10"
+    var status = Status.ready
+    var browserItem: BrowserMetadata?
+    var contentType = ContentType.video
+    var dependencyItemID: String? = nil
+    var dependencyStatus = DependencyStatus.none
     var createdAt: Date? = nil
     var sizeBytes: Int64? = nil
-    var sizeText = "10"
+    var intentAccountSteamID: String? = nil
 }
 enum SteamDownloadJobState { case failed, queued, running, staged, committing, cancelled, completed }
 struct SteamDownloadJob {
@@ -27,158 +41,44 @@ struct SteamDownloadJob {
     let workshopItemId: String
     var state: SteamDownloadJobState
 }
-struct IntentHistory {
+struct IntentHistory: Equatable {
     enum Outcome { case failed, completed, cancelled }
     let accountSteamId: String
     let workshopItemId: String
     let outcome: Outcome
 }
 final class IntentStore {
-    var jobs: [SteamDownloadJob] = []
-    private var storedHistory = [IntentHistory(accountSteamId: "A", workshopItemId: "retry", outcome: .failed)]
+    @Published var jobs: [SteamDownloadJob] = []
+    @Published var history = [IntentHistory(accountSteamId: "A", workshopItemId: "retry", outcome: .failed)]
     private(set) var historyReadCount = 0
-    var history: [IntentHistory] {
-        get { historyReadCount += 1; return storedHistory }
-        set { storedHistory = newValue }
-    }
+    var historyForProjection: [IntentHistory] { historyReadCount += 1; return history }
 }
-final class IntentAuth { var steamId: String? = "A" }
+final class IntentAuth { @Published var steamId: String? = "A" }
 @MainActor final class SteamWorkshopService {
     static let shared = SteamWorkshopService()
     // DOWNLOADS_PROPERTY
-    @Published var displayedDownloads: [SteamWorkshopDownloadRecord] = []
-    var downloadsDisplayMode = SteamWorkshopDownloadsDisplayMode.all
-    var downloadsSortMode = SteamWorkshopDownloadsSortMode.createdAt
-    var downloadsSortAscending = false
-    var downloadsQuery = ""
-    var isDownloadsMultiSelectMode = false
-    var selectedDownloadID: String?
-    var selectedDownloadIDs: Set<String> = []
-    var removingDownloadIDs: Set<String> = []
-    var deleteRequests: [Set<String>] = []
-    var downloadSelectionPublicationVersion = 0
-    func syncDownloadsInspectorSelectionIfNeeded() {}
-    func deleteDownloads(itemIDs: [String]) { deleteRequests.append(Set(itemIDs)) }
     var mergeCalls = 0
     let downloadJobStore = IntentStore()
     let steamAuth = IntentAuth()
+    let libraryRootURL = URL(fileURLWithPath: "/private/tmp/source-facts")
+    var requestedBrowserItems: [String: BrowserMetadata] = [:]
+    func browserItemForDownload(id: String) -> BrowserMetadata? { requestedBrowserItems[id] }
+    var cancellables: Set<AnyCancellable> = []
+    func observeProjectionInputs() { observeDownloadJobStoreForProjection() }
+    func visibleRecords(_ records: [SteamWorkshopDownloadRecord], account: String? = "A") -> [SteamWorkshopDownloadRecord] {
+        let excluded = excludedDownloadReferences(in: records,
+            showsAdultContent: downloadsShowsAdultContent, accountSteamID: account)
+        return records.filter { !excluded.contains(.init(provider: .steamWorkshop, sourceID: $0.id)) }
+    }
     // Record-construction leaves adapt the real intent projection to the small
     // value model above; account/history/dedup and publication bodies are real.
     func synthesizedFailedIntentRecord(from job: SteamDownloadJob) -> SteamWorkshopDownloadRecord {
-        .init(id: job.workshopItemId, status: .failed("fixture"), contentType: .unknown)
+        .init(id: job.workshopItemId, status: .failed("fixture"), contentType: .unknown, intentAccountSteamID: job.accountSteamId)
     }
     func synthesizedActiveRetryRecord(from job: SteamDownloadJob) -> SteamWorkshopDownloadRecord {
-        .init(id: job.workshopItemId, status: job.state == .queued ? .queued : .downloading, contentType: .unknown)
+        .init(id: job.workshopItemId, status: job.state == .queued ? .queued : .downloading, contentType: .unknown, intentAccountSteamID: job.accountSteamId)
     }
-    static func parseByteCount(from text: String) -> Int64? { Int64(text) }
-    static func workshopItemIDSearchID(from query: String) -> String? { nil }
     // STEAM_METHODS
-}
-struct OnlineEntry {
-    let id: Int
-    var localURL: URL { URL(fileURLWithPath: "/fixture/online_\(id).mp4") }
-}
-@MainActor final class OnlineDownloadsBridge {
-    static let shared = OnlineDownloadsBridge()
-    func refreshToolbar() {}
-}
-enum ProbeSection: Hashable { case main }
-@MainActor final class HeldSnapshotDataSource {
-    var completions: [() -> Void] = []
-    func apply(_ snapshot: NSDiffableDataSourceSnapshot<ProbeSection, Int>, animatingDifferences: Bool,
-               completion: @escaping () -> Void) { completions.append(completion) }
-    func release() { let callbacks = completions; completions = []; callbacks.forEach { $0() } }
-}
-@MainActor final class OnlineLibraryService {
-    static let shared = OnlineLibraryService()
-    var deletedURLs: [URL] = []
-    func deleteLocalFile(at url: URL) { deletedURLs.append(url) }
-}
-@MainActor final class OnlineProbe {
-    var entries: [OnlineEntry] = [.init(id: 1), .init(id: 2), .init(id: 3)]
-    var entriesByID: [Int: OnlineEntry] { Dictionary(uniqueKeysWithValues: entries.map { ($0.id, $0) }) }
-    var selectedIDs: Set<Int> = [1, 2]
-    var selectedAnchorID: Int? = 1
-    var isMultiSelectMode = true
-    let collectionView = NSCollectionView()
-    var pendingPostDeletionSelectionIndex: Int?
-    var pendingPostDeletionSelectionGeneration: Int?
-    var orderedIDs = [1, 2, 3]
-    var orderedIndexByID: [Int: Int] { Dictionary(uniqueKeysWithValues: orderedIDs.enumerated().map { ($1, $0) }) }
-    var lastAppliedSnapshotIDs: [Int] = []
-    typealias Section = ProbeSection
-    let dataSource = HeldSnapshotDataSource()
-    var reloadEntriesGeneration = 0
-    var deletionBatchReloadGeneration: Int?
-    var reloads = 0
-    var thumbnailDemandSchedules = 0
-    func reloadEntries() {
-        reloads += 1; reloadEntriesGeneration += 1
-        if pendingPostDeletionSelectionIndex != nil { pendingPostDeletionSelectionGeneration = reloadEntriesGeneration }
-    }
-    func refreshVisiblePlaybackItems(forceReload: Bool = false) {}
-    func scrollToSelectedItemIfNeeded() {}
-    func reloadVisibleSelectionItems(forceReload: Bool = false) {}
-    func syncInspectorSelectionIfNeeded() {}
-    func scheduleThumbnailDemand() { thumbnailDemandSchedules += 1 }
-    // ONLINE_METHODS
-}
-struct SILWallpaper { let id: String; var tags = ["tag"] }
-@MainActor final class SILProbe {
-    var wallpapers = [SILWallpaper(id: "a"), SILWallpaper(id: "b")]
-    var sortedWallpapers: [SILWallpaper] { wallpapers }
-    var selectedIDs: Set<String> = ["a"]
-    var selectedID: String?
-    var isMultiSelectMode = true
-    func syncSelectedWallpaperInspectorIfNeeded() {}
-    func save() {}
-    // SIL_METHODS
-}
-struct VideoWallpaper { let id: String; var path: String { id } }
-struct WallpaperDeletionFailure {}
-struct WallpaperDeletionSummary {
-    let requestedCount: Int; let removedCount: Int; let failures: [WallpaperDeletionFailure]
-    var hasFailures: Bool { !failures.isEmpty }
-    var informativeText: String { "fixture" }
-}
-enum WallpaperRemovalScope { case library, recentlyUsed, favorites, tag(String) }
-@MainActor final class VideoProbe {
-    struct RemovalRecord { let id: String; var path: String { id } }
-    var pendingDeletions: [() -> Void] = []
-    var libraryRecords = [VideoWallpaper(id: "a"), VideoWallpaper(id: "b")]
-    func enqueueDeletionTask(_ task: @escaping () -> Void) { pendingDeletions.append(task) }
-    func removalRecord(for wallpaper: VideoWallpaper) -> RemovalRecord { .init(id: wallpaper.id) }
-    func deduplicatedWallpapers(_ items: [VideoWallpaper]) -> [VideoWallpaper] { items }
-    func removeDerivedAssets(for record: RemovalRecord) -> [WallpaperDeletionFailure] { [] }
-    func applyLibraryRemoval(paths: Set<String>, removedIDs: Set<String>) {
-        libraryRecords.removeAll { removedIDs.contains($0.id) }
-        clearSelectionAndPendingState(removedIDs)
-    }
-    func removeRecentlyUsedWallpapers(_ items: [VideoWallpaper]) { clearSelectionState() }
-    func removeFavoriteReferences(_ items: [VideoWallpaper]) { clearSelectionState() }
-    func removeTagReferences(_ items: [VideoWallpaper], tag: String) { clearSelectionState() }
-    var selectedWallpaperId: String?
-    var selectedWallpaperIds: Set<String> = ["a", "b"]
-    var isMultiSelectMode = true
-    // VIDEO_METHODS
-}
-@MainActor final class SteamWorkshopToolbarController: NSObject {
-    let menuPopover = ToolbarMenuPopoverPresenter()
-    func configureDownloadsSortItem() {}
-    // SORT_ACTION
-}
-typealias WallpaperManager = VideoProbe
-@MainActor struct WallpaperSelectionContext {
-    var deletionScope: WallpaperRemovalScope? = .library
-    func sourceWallpapers(from manager: WallpaperManager) -> [VideoWallpaper] { manager.libraryRecords }
-}
-@MainActor enum AlertProbe { static var completion: ((NSApplication.ModalResponse) -> Void)? }
-@MainActor func appModalHostWindow() -> NSWindow? { nil }
-@MainActor func makeAppAlert(title: String, message: String, style: NSAlert.Style, buttons: [String]) -> NSAlert { NSAlert() }
-@MainActor func presentAppAlert(_ alert: NSAlert, in window: NSWindow?,
-                              completion: ((NSApplication.ModalResponse) -> Void)? = nil) { AlertProbe.completion = completion }
-@MainActor enum UIActionHelper {
-    // VIDEO_UI_HELPER
 }
 final class DimmingSurface: NSView, ToolbarGridScrollDismissalSurface {}
 
@@ -188,82 +88,6 @@ final class DimmingSurface: NSView, ToolbarGridScrollDismissalSurface {}
         NSApp.setActivationPolicy(.prohibited)
         var checks: [String: Bool] = [:]
         let service = SteamWorkshopService.shared
-        service.isDownloadsMultiSelectMode = true
-        service.selectedDownloadIDs = ["a", "b"]
-        service.selectedDownloadID = "a"
-        service.deleteSelectedDownload()
-        checks["steamBulkCommandCapturesTargetsAndExitsMode"] = service.deleteRequests == [["a", "b"]]
-            && !service.isDownloadsMultiSelectMode && service.selectedDownloadIDs.isEmpty && service.selectedDownloadID == nil
-        service.isDownloadsMultiSelectMode = true
-        service.selectedDownloadIDs = []
-        service.deleteSelectedDownload()
-        checks["emptyBulkCommandKeepsMode"] = service.isDownloadsMultiSelectMode && service.deleteRequests.count == 1
-        service.selectedDownloadIDs = ["a"]; service.removingDownloadIDs = ["a"]
-        service.deleteSelectedDownload()
-        checks["duplicatePendingDeleteDoesNotExitNewMode"] = service.isDownloadsMultiSelectMode && service.deleteRequests.count == 1
-        let online = OnlineProbe()
-        online.collectionView.allowsMultipleSelection = true
-        online.deleteSelected()
-        checks["onlineBulkDeleteExitsModeAndUpdatesNativeSelection"] = !online.isMultiSelectMode
-            && !online.collectionView.allowsMultipleSelection && online.selectedIDs.isEmpty && online.reloads == 1
-            && OnlineLibraryService.shared.deletedURLs.count == 2
-        checks["onlineBulkDeleteTargetsSelectedURLsOnly"] = Set(OnlineLibraryService.shared.deletedURLs)
-            == Set([URL(fileURLWithPath: "/fixture/online_1.mp4"), URL(fileURLWithPath: "/fixture/online_2.mp4")])
-        let sil = SILProbe(); sil.remove(ids: ["a"])
-        checks["staticImageLibraryAlreadyExitsBulkMode"] = !sil.isMultiSelectMode && sil.wallpapers.map(\.id) == ["b"]
-        let tag = SILProbe(); tag.removeFromSILTag("tag", ids: ["a"])
-        checks["staticImageTagRemovalExitsBulkMode"] = !tag.isMultiSelectMode && tag.selectedIDs.isEmpty
-            && tag.wallpapers.count == 2 && tag.wallpapers[0].tags.isEmpty
-        let video = VideoProbe()
-        video.removeWallpapers([VideoWallpaper(id: "a")], in: .library)
-        checks["videoBulkCommandExitsBeforeQueuedCleanup"] = !video.isMultiSelectMode && video.selectedWallpaperIds.isEmpty
-        video.isMultiSelectMode = true; video.selectedWallpaperIds = ["b"]
-        video.pendingDeletions.forEach { $0() }
-        RunLoop.main.run(until: Date().addingTimeInterval(0.05))
-        checks["oldVideoDeletionPreservesNewMultiSelectSession"] = video.isMultiSelectMode && video.selectedWallpaperIds == ["b"]
-        let confirming = VideoProbe()
-        confirming.selectedWallpaperIds = ["a"]
-        confirming.removeWallpapers([VideoWallpaper(id: "a")], in: .library)
-        confirming.isMultiSelectMode = true; confirming.selectedWallpaperIds = ["a"]
-        UIActionHelper.performDelete(manager: confirming, selection: WallpaperSelectionContext(), window: nil)
-        let confirmation = AlertProbe.completion
-        confirming.pendingDeletions.forEach { $0() }
-        RunLoop.main.run(until: Date().addingTimeInterval(0.05))
-        confirmation?(.alertFirstButtonReturn)
-        checks["vanishedConfirmationTargetsDoNotExitNewMode"] = confirming.isMultiSelectMode
-            && confirming.selectedWallpaperIds.isEmpty && confirming.pendingDeletions.count == 1
-        let canceled = VideoProbe()
-        UIActionHelper.performDelete(manager: canceled, selection: WallpaperSelectionContext(), window: nil)
-        AlertProbe.completion?(.alertSecondButtonReturn)
-        checks["cancelingVideoDeleteKeepsSelectionModeAndTargets"] = canceled.isMultiSelectMode
-            && canceled.selectedWallpaperIds == ["a", "b"] && canceled.pendingDeletions.isEmpty
-        // Both delayed callbacks run production snapshot completion/resolution.
-        // An older snapshot cannot consume the newer deletion's index; explicit
-        // selection then cancels it even if a later scan completes afterwards.
-        let queued = OnlineProbe()
-        queued.applySnapshot(ids: [1, 2, 3])
-        let thumbnailDemandBeforeCompletion = queued.thumbnailDemandSchedules
-        queued.deleteSelected()
-        queued.dataSource.release()
-        checks["olderOnlineSnapshotCannotConsumeDeletionRestore"] = queued.pendingPostDeletionSelectionIndex != nil
-        checks["onlineSnapshotSchedulesThumbnailDemandOnlyAfterCompletion"] = thumbnailDemandBeforeCompletion == 0
-            && queued.thumbnailDemandSchedules == 1
-        queued.toggleMultiSelect(); queued.orderedIDs = [3, 4]; queued.selectAll()
-        queued.applySnapshot(ids: [3, 4])
-        DispatchQueue.main.async { queued.dataSource.release() }
-        RunLoop.main.run(until: Date().addingTimeInterval(0.05))
-        checks["oldOnlineDeletionPreservesNewMultiSelectSession"] = queued.isMultiSelectMode && queued.selectedIDs == [3, 4]
-        queued.pendingPostDeletionSelectionIndex = 0
-        queued.pendingPostDeletionSelectionGeneration = queued.reloadEntriesGeneration
-        queued.syncSelectionFromQuickLook(id: 3)
-        queued.applySnapshot(ids: [2, 3]); queued.dataSource.release()
-        checks["explicitOnlineSelectionCancelsOldRestore"] = queued.selectedIDs == [3]
-        let adjacent = OnlineProbe(); adjacent.isMultiSelectMode = false
-        adjacent.selectedIDs = [2]; adjacent.selectedAnchorID = 2
-        adjacent.deleteSelected(); adjacent.orderedIDs = [1, 3]
-        adjacent.applySnapshot(ids: [1, 3]); adjacent.dataSource.release()
-        checks["ordinaryOnlineDeletionStillSelectsAdjacentCard"] = adjacent.selectedIDs == [3]
-        service.isDownloadsMultiSelectMode = false
         service.downloads = [
             .init(id: "clean", browserItem: .init(tags: ["Everyone"])),
             .init(id: "mature", browserItem: .init(tags: ["Mature"])),
@@ -271,35 +95,27 @@ final class DimmingSurface: NSView, ToolbarGridScrollDismissalSurface {}
             .init(id: "legacy", browserItem: .init(hasAdultContent: true)),
             .init(id: "local", tags: ["Mature", "Nudity"]),
             .init(id: "near", title: "Mature and Nudity title", browserItem: .init(tags: ["Mature Nature", "NotNudity"])),
-            .init(id: "failed", browserItem: .init(tags: ["Nudity"]), status: .failed("fixture")),
-            .init(id: "retry", browserItem: .init(tags: ["Mature"]), status: .downloading),
+            .init(id: "failed", status: .failed("fixture"), browserItem: .init(tags: ["Nudity"])),
+            .init(id: "retry", status: .downloading, browserItem: .init(tags: ["Mature"])),
             .init(id: "new-download", status: .queued)]
         checks["adultContentDefaultsToShown"] = service.downloadsShowsAdultContent
-            && service.filteredAndSortedDownloads(from: service.downloads).count == 8
-        service.selectedDownloadID = "nudity"; service.selectedDownloadIDs = ["nudity"]
+            && service.visibleRecords(service.downloads).count == 8
         service.downloadsShowsAdultContent = false
-        checks["officialAdultAndNudityAreHiddenWithoutGuessingLocalTags"] = Set(service.displayedDownloads.map(\.id)) == ["clean", "local", "near"]
+        checks["officialAdultAndNudityAreHiddenWithoutGuessingLocalTags"] = Set(service.visibleRecords(service.downloads).map(\.id)) == ["clean", "local", "near"]
         RunLoop.main.run(until: Date().addingTimeInterval(0.05))
-        checks["hiddenAdultSelectionIsSanitized"] = service.selectedDownloadID == nil && service.selectedDownloadIDs.isEmpty
         service.downloadsShowsAdultContent = true
-        checks["reenablingRestoresWholeExistingProjection"] = service.displayedDownloads.count == 8
+        checks["reenablingRestoresWholeExistingProjection"] = service.visibleRecords(service.downloads).count == 8
 
         var publications = 0
-        let projectionSubscription = service.$displayedDownloads.dropFirst().sink { _ in publications += 1 }
+        let projectionSubscription = service.$downloads.dropFirst().sink { _ in publications += 1 }
         service.mergeCalls = 0
-        for _ in 0..<20 { service.refreshDisplayedDownloads() }
+        for _ in 0..<20 { service.refreshDownloadIntentProjection() }
         checks["unchangedDownloadProjectionPublishesNothingAndMergesOncePerRefresh"] = publications == 0
             && service.mergeCalls == 20
-        service.selectedDownloadID = "outside-projection"
-        service.selectedDownloadIDs = ["outside-projection"]
-        service.refreshDisplayedDownloads()
-        RunLoop.main.run(until: Date().addingTimeInterval(0.05))
-        checks["unchangedProjectionStillSanitizesSelection"] = publications == 0
-            && service.selectedDownloadID == nil && service.selectedDownloadIDs.isEmpty
         service.mergeCalls = 0
         service.downloads[0].title = "Updated metadata"
-        checks["metadataChangePublishesProjectionSynchronouslyWithoutSecondMerge"] = publications == 1
-            && service.displayedDownloads.contains { $0.title == "Updated metadata" } && service.mergeCalls == 1
+        checks["metadataChangePublishesSourceSynchronouslyWithoutSecondMerge"] = publications == 1
+            && service.downloads.contains { $0.title == "Updated metadata" } && service.mergeCalls == 1
         projectionSubscription.cancel()
 
         let intent = SteamWorkshopService()
@@ -311,26 +127,26 @@ final class DimmingSurface: NSView, ToolbarGridScrollDismissalSurface {}
             .init(accountSteamId: "A", workshopItemId: "retry", state: .queued),
             .init(accountSteamId: "A", workshopItemId: "new-task", state: .running)]
         var intentPublications = 0
-        let intentSubscription = intent.$displayedDownloads.dropFirst().sink { _ in intentPublications += 1 }
+        let intentSubscription = intent.$downloads.dropFirst().sink { _ in intentPublications += 1 }
         let ready = SteamWorkshopDownloadRecord(id: "ready", title: "Keep ready metadata")
         intent.downloads = [ready]
-        checks["newFailedIntentsConvergeInOneDidSetReentryAndOnePublication"] = intent.mergeCalls == 2
-            && intentPublications == 1 && intent.downloads.count == 3
-            && Set(intent.displayedDownloads.map(\.id)) == ["ready", "failure", "retry"]
+        checks["newFailedIntentsConvergeInOneDidSetReentryAndSourcePublications"] = intent.mergeCalls == 2
+            && intentPublications == 2 && intent.downloads.count == 3
+            && Set(intent.visibleRecords(intent.downloads).map(\.id)) == ["ready", "failure", "retry"]
         checks["readyMetadataAndDuplicateFailedIntentRemainSingleCards"] = intent.downloads.first { $0.id == "ready" } == ready
             && intent.downloads.filter { $0.id == "failure" }.count == 1
         intent.mergeCalls = 0
-        intent.refreshDisplayedDownloads()
-        checks["settledFailedIntentRefreshMergesOnceWithoutRepublishing"] = intent.mergeCalls == 1 && intentPublications == 1
+        intent.refreshDownloadIntentProjection()
+        checks["settledFailedIntentRefreshMergesOnceWithoutRepublishing"] = intent.mergeCalls == 1 && intentPublications == 2
         intent.downloadJobStore.history = []
-        intent.refreshDisplayedDownloads()
-        checks["clearedHistoryHidesActiveRetryButPreservesFailedIntent"] = Set(intent.displayedDownloads.map(\.id))
+        intent.refreshDownloadIntentProjection()
+        checks["clearedHistoryHidesActiveRetryButPreservesFailedIntent"] = Set(intent.visibleRecords(intent.downloads).map(\.id))
             == ["ready", "failure"] && intentPublications == 2
         intent.steamAuth.steamId = "B"
-        let accountB = intent.filteredAndSortedDownloads(from: [ready])
+        let accountB = intent.visibleRecords(intent.downloadsWithFailedIntents(from: [ready]), account: intent.steamAuth.steamId)
         checks["projectionSynthesizesOnlyCurrentAccountIntents"] = Set(accountB.map(\.id)) == ["ready", "other-account"]
         intent.steamAuth.steamId = nil
-        checks["signedOutProjectionCannotSynthesizeFailedIntents"] = intent.filteredAndSortedDownloads(from: [ready]) == [ready]
+        checks["signedOutProjectionCannotSynthesizeFailedIntents"] = intent.visibleRecords(intent.downloadsWithFailedIntents(from: [ready]), account: intent.steamAuth.steamId) == [ready]
         intentSubscription.cancel()
 
         // Count reads at the real history input; projection and synthesis bodies
@@ -366,7 +182,7 @@ final class DimmingSurface: NSView, ToolbarGridScrollDismissalSurface {}
             .init(id: "cancelled-only", status: .queued),
             .init(id: "failed-card", status: .failed("retained"))]
         let mergedRetries = measuredHistory("mergedManyRetries", on: historyProbe) {
-            historyProbe.filteredAndSortedMergedDownloads(from: retryRecords)
+            historyProbe.visibleRecords(retryRecords)
         }
         checks["mixedAccountHistoryKeepsOnlyCurrentAccountFailedRetries"] = Set(mergedRetries.map(\.id))
             == ["ready", "retry-one", "retry-two", "failed-then-success", "failed-card"]
@@ -422,7 +238,7 @@ final class DimmingSurface: NSView, ToolbarGridScrollDismissalSurface {}
         for (label, history) in missHistories {
             retryMissProbe.downloadJobStore.history = history
             let projected = measuredHistory(label + "Merged", on: retryMissProbe) {
-                retryMissProbe.filteredAndSortedMergedDownloads(from: retryMissRecords)
+                retryMissProbe.visibleRecords(retryMissRecords)
             }
             let synthesized = measuredHistory(label + "Synthesis", on: retryMissProbe) {
                 retryMissProbe.downloadsWithFailedIntents(from: [])
@@ -440,17 +256,12 @@ final class DimmingSurface: NSView, ToolbarGridScrollDismissalSurface {}
         let noRetryProbe = SteamWorkshopService()
         let settledRecords: [SteamWorkshopDownloadRecord] = [ready, .init(id: "failed-card", status: .failed("retained"))]
         let settled = measuredHistory("mergedNoEligibleRetry", on: noRetryProbe) {
-            noRetryProbe.filteredAndSortedMergedDownloads(from: settledRecords)
+            noRetryProbe.visibleRecords(settledRecords)
         }
-        noRetryProbe.downloadsDisplayMode = .web
-        let modeFiltered = measuredHistory("mergedModeFilteredRetries", on: noRetryProbe) {
-            noRetryProbe.filteredAndSortedMergedDownloads(from: retryRecords)
-        }
-        noRetryProbe.downloadsDisplayMode = .all
         noRetryProbe.downloadsShowsAdultContent = false
         let adultFiltered = measuredHistory("mergedAdultFilteredRetry", on: noRetryProbe) {
-            noRetryProbe.filteredAndSortedMergedDownloads(from: [
-                .init(id: "retry", browserItem: .init(tags: ["Mature"]), status: .queued)])
+            noRetryProbe.visibleRecords([
+                .init(id: "retry", status: .queued, browserItem: .init(tags: ["Mature"]))])
         }
         noRetryProbe.downloadJobStore.jobs = [
             .init(accountSteamId: "A", workshopItemId: "ready", state: .queued),
@@ -461,9 +272,9 @@ final class DimmingSurface: NSView, ToolbarGridScrollDismissalSurface {}
             noRetryProbe.downloadsWithFailedIntents(from: [ready])
         }
         checks["nonRetryAndFilteredPathsKeepTheirExistingOutputs"] = Set(settled.map(\.id)) == ["ready", "failed-card"]
-            && modeFiltered.isEmpty && adultFiltered.isEmpty
+            && adultFiltered.isEmpty
             && Set(noEligibleSynthesis.map(\.id)) == ["ready", "failure"]
-        checks["noEligibleRetryPathsNeverReadHistory"] = ["mergedNoEligibleRetry", "mergedModeFilteredRetries",
+        checks["noEligibleRetryPathsNeverReadHistory"] = ["mergedNoEligibleRetry",
             "mergedAdultFilteredRetry", "synthesisNoEligibleRetry"].allSatisfy { historyReadMetrics[$0] == 0 }
 
         let mutableHistory = SteamWorkshopService()
@@ -473,7 +284,7 @@ final class DimmingSurface: NSView, ToolbarGridScrollDismissalSurface {}
             .init(accountSteamId: "B", workshopItemId: "shared", state: .queued)]
         func currentRetries(_ name: String) -> (projection: [SteamWorkshopDownloadRecord], synthesis: [SteamWorkshopDownloadRecord]) {
             let projected = measuredHistory(name, on: mutableHistory) {
-                mutableHistory.filteredAndSortedMergedDownloads(from: [sharedRetry])
+                mutableHistory.visibleRecords([sharedRetry], account: mutableHistory.steamAuth.steamId)
             }
             let synthesized = measuredHistory(name + "Synthesis", on: mutableHistory) {
                 mutableHistory.downloadsWithFailedIntents(from: [])
@@ -500,7 +311,7 @@ final class DimmingSurface: NSView, ToolbarGridScrollDismissalSurface {}
         for (label, account) in [("nilAccount", Optional<String>.none), ("emptyAccount", Optional(""))] {
             mutableHistory.steamAuth.steamId = account
             let projected = measuredHistory(label + "Merged", on: mutableHistory) {
-                mutableHistory.filteredAndSortedMergedDownloads(from: retryRecords)
+                mutableHistory.visibleRecords(retryRecords, account: account)
             }
             mutableHistory.downloadJobStore.jobs = [.init(accountSteamId: "A", workshopItemId: "shared", state: .queued)]
             let synthesized = measuredHistory(label + "Synthesis", on: mutableHistory) {
@@ -513,7 +324,146 @@ final class DimmingSurface: NSView, ToolbarGridScrollDismissalSurface {}
         checks["nilAndEmptyAccountPathsNeverReadHistory"] = ["nilAccountMerged", "nilAccountSynthesis",
             "emptyAccountMerged", "emptyAccountSynthesis"].allSatisfy { historyReadMetrics[$0] == 0 }
 
-        let previousDownloads = service.downloads
+        let historyEvents = SteamWorkshopService()
+        historyEvents.downloadJobStore.history = []
+        historyEvents.downloadJobStore.jobs = [.init(accountSteamId: "A", workshopItemId: "first", state: .queued)]
+        historyEvents.observeProjectionInputs()
+        RunLoop.main.run(until: Date().addingTimeInterval(0.05))
+        checks["initialQueueStaysPopoverOnlyBeforeAnyFailure"] = historyEvents.downloads.isEmpty
+        var historyPublications = 0
+        let historySub = historyEvents.$downloads.dropFirst().sink { _ in historyPublications += 1 }
+        historyEvents.downloadJobStore.history = [.init(accountSteamId: "A", workshopItemId: "first", outcome: .failed)]
+        RunLoop.main.run(until: Date().addingTimeInterval(0.05))
+        checks["historyOnlyPublicationSynthesizesRetryFromTheOriginalOwner"] = historyEvents.downloads.map(\.id) == ["first"]
+            && historyEvents.visibleRecords(historyEvents.downloads).map(\.id) == ["first"] && historyPublications == 1
+        historyEvents.downloadJobStore.history = []
+        RunLoop.main.run(until: Date().addingTimeInterval(0.05))
+        checks["clearingPublishedHistoryHidesRetryWithoutDroppingAdmittedSourceFacts"] = historyEvents.downloads.map(\.id) == ["first"]
+            && historyEvents.visibleRecords(historyEvents.downloads).isEmpty
+            && historyEvents.downloadJobStore.jobs.count == 1 && historyEvents.downloadJobStore.jobs[0].state == .queued
+            && historyPublications == 1
+        historyEvents.downloadJobStore.history = [.init(accountSteamId: "B", workshopItemId: "first", outcome: .failed)]
+        RunLoop.main.run(until: Date().addingTimeInterval(0.05))
+        checks["foreignPublishedHistoryCannotMakeCurrentAccountRetryVisible"] = historyEvents.visibleRecords(historyEvents.downloads).isEmpty
+            && historyPublications == 1
+        historySub.cancel()
+
+        let accountInput = SteamWorkshopService()
+        accountInput.downloadJobStore.history = [.init(accountSteamId: "A", workshopItemId: "shared", outcome: .failed)]
+        let accountRows: [SteamWorkshopDownloadRecord] = [.init(id: "shared", status: .queued), ready]
+        var observedOldGetter = false, nextAccountExcluded = false, signedOutExcluded = false
+        let accountSub = accountInput.steamAuth.$steamId.dropFirst().sink { account in
+            let exclusions = accountInput.excludedDownloadReferences(in: accountRows,
+                showsAdultContent: true, accountSteamID: account)
+            if account == "B" {
+                observedOldGetter = accountInput.steamAuth.steamId == "A"
+                nextAccountExcluded = exclusions == [.init(provider: .steamWorkshop, sourceID: "shared")]
+            } else if account == nil {
+                signedOutExcluded = exclusions == [.init(provider: .steamWorkshop, sourceID: "shared")]
+            }
+        }
+        accountInput.steamAuth.steamId = "B"
+        let beforeSignedOutReadCount = accountInput.downloadJobStore.historyReadCount
+        accountInput.steamAuth.steamId = nil
+        checks["publishedNextAccountOverridesPreviousGetterDuringWillSet"] = observedOldGetter && nextAccountExcluded
+        checks["publishedSignedOutAccountNeverBorrowsPreviousIdentityOrHistory"] = signedOutExcluded
+            && accountInput.downloadJobStore.historyReadCount == beforeSignedOutReadCount
+        accountSub.cancel()
+
+        let accountSwitch = SteamWorkshopService()
+        let publishedRow = SteamWorkshopDownloadRecord(id: "published", title: "Shared local output")
+        let legacyFailure = SteamWorkshopDownloadRecord(id: "legacy-failure", status: .failed("source parse failure"))
+        accountSwitch.downloadJobStore.jobs = [
+            .init(accountSteamId: "A", workshopItemId: "A-only", state: .failed),
+            .init(accountSteamId: "B", workshopItemId: "B-only", state: .failed),
+            .init(accountSteamId: "A", workshopItemId: "published", state: .failed),
+            .init(accountSteamId: "B", workshopItemId: "published", state: .failed)]
+        accountSwitch.downloads = [publishedRow, legacyFailure]
+        let accountAInstalled = accountSwitch.downloads
+        checks["accountARefreshInstallsExplicitlyTaggedIntentBesideUntouchedPublishedRows"] = Set(accountAInstalled.map(\.id))
+            == ["published", "legacy-failure", "A-only"]
+            && accountAInstalled.first { $0.id == "A-only" }?.intentAccountSteamID == "A"
+            && accountAInstalled.first { $0.id == "published" } == publishedRow
+        let transientBExclusions = accountSwitch.excludedDownloadReferences(in: accountAInstalled,
+            showsAdultContent: true, accountSteamID: "B")
+        checks["nextAccountExcludesOldDerivedFailureBeforeDeferredRefresh"] = transientBExclusions
+            == [.init(provider: .steamWorkshop, sourceID: "A-only")]
+        accountSwitch.steamAuth.steamId = "B"
+        accountSwitch.refreshDownloadIntentProjection()
+        checks["accountBRefreshReplacesOldDerivedRowsUsingTheSameInstalledInput"] = Set(accountSwitch.downloads.map(\.id))
+            == ["published", "legacy-failure", "B-only"]
+            && accountSwitch.downloads.first { $0.id == "B-only" }?.intentAccountSteamID == "B"
+            && accountSwitch.downloads.first { $0.id == "published" } == publishedRow
+        accountSwitch.steamAuth.steamId = nil
+        accountSwitch.refreshDownloadIntentProjection()
+        checks["logoutRetractsOnlyTaggedIntentAndPreservesPublishedAndRealFailure"] = accountSwitch.downloads == [publishedRow, legacyFailure]
+        accountSwitch.steamAuth.steamId = "B"
+        accountSwitch.refreshDownloadIntentProjection()
+        accountSwitch.downloadJobStore.jobs = []
+        accountSwitch.refreshDownloadIntentProjection()
+        checks["removedJobRetractsItsDerivedFailureWithoutDeletingSourceRows"] = accountSwitch.downloads == [publishedRow, legacyFailure]
+        accountSwitch.steamAuth.steamId = "A"
+        accountSwitch.downloadJobStore.jobs = [.init(accountSteamId: "A", workshopItemId: "becomes-published", state: .failed)]
+        accountSwitch.refreshDownloadIntentProjection()
+        let realReplacement = SteamWorkshopDownloadRecord(id: "becomes-published", title: "Now locally published")
+        accountSwitch.downloads = [realReplacement, publishedRow, legacyFailure]
+        accountSwitch.steamAuth.steamId = "B"
+        accountSwitch.refreshDownloadIntentProjection()
+        checks["sameIDPublishedReplacementIsNeverRetractedAsOldIntent"] = accountSwitch.downloads
+            == [realReplacement, publishedRow, legacyFailure] && realReplacement.intentAccountSteamID == nil
+
+        let transient = SteamWorkshopService()
+        transient.downloadJobStore.jobs = [.init(accountSteamId: "A", workshopItemId: "live", state: .running)]
+        let browserMetadata = BrowserMetadata(author: "Actual transient author", tags: ["Scenic"])
+        transient.requestedBrowserItems["live"] = browserMetadata
+        transient.upsertTransientRecord(id: "live", title: "Downloading", status: .downloading,
+            accountSteamID: "A", sizeText: "37%")
+        let startedRow = transient.downloads.first { $0.id == "live" }
+        checks["actualTransientAdmissionCarriesAccountAndRetainsItsBrowserMetadata"] = startedRow?.intentAccountSteamID == "A"
+            && startedRow?.browserItem == browserMetadata && startedRow?.sizeText == "37%" && startedRow?.status == .downloading
+        var richRow = startedRow!
+        richRow.previewURL = URL(fileURLWithPath: "/private/tmp/source-facts/preview.jpg")
+        richRow.sourceVideoURL = URL(fileURLWithPath: "/private/tmp/source-facts/source.mp4")
+        richRow.projectFileURL = URL(fileURLWithPath: "/private/tmp/source-facts/project.json")
+        richRow.createdAt = Date(timeIntervalSince1970: 25); richRow.sizeBytes = 987654
+        transient.downloads = [richRow]
+        transient.downloadJobStore.jobs = [.init(accountSteamId: "A", workshopItemId: "live", state: .failed)]
+        transient.upsertTransientRecord(id: "live", title: "replacement", status: .failed("network failure"),
+            accountSteamID: "A", sizeText: "Failed at 37%")
+        let failedRow = transient.downloads.first { $0.id == "live" }
+        checks["actualTransientFailureKeepsAccountResourcesAndSourceMetadata"] = failedRow?.intentAccountSteamID == "A"
+            && failedRow?.browserItem == richRow.browserItem && failedRow?.previewURL == richRow.previewURL
+            && failedRow?.sourceVideoURL == richRow.sourceVideoURL && failedRow?.projectFileURL == richRow.projectFileURL
+            && failedRow?.createdAt == richRow.createdAt && failedRow?.sizeBytes == richRow.sizeBytes
+            && failedRow?.sizeText == "Failed at 37%" && failedRow?.status == .failed("network failure")
+        transient.steamAuth.steamId = "B"
+        transient.refreshDownloadIntentProjection()
+        checks["switchAccountRetractsActualTransientFailureBeforeAnyLibraryReload"] = transient.downloads.isEmpty
+        transient.downloadJobStore.jobs = [.init(accountSteamId: "B", workshopItemId: "live", state: .running)]
+        transient.upsertTransientRecord(id: "live", title: "B download", status: .downloading, accountSteamID: "B", sizeText: "8%")
+        transient.downloadJobStore.jobs = [.init(accountSteamId: "B", workshopItemId: "live", state: .cancelled)]
+        transient.refreshDownloadIntentProjection()
+        checks["cancelledJobCannotKeepAnAdmittedTransientRowAlive"] = transient.downloads.isEmpty
+        transient.downloads = [publishedRow]
+        transient.upsertTransientRecord(id: publishedRow.id, title: "Must not replace local output", status: .failed("update failure"),
+            accountSteamID: "A", sizeText: "bad")
+        checks["actualTransientProducerNeverOverwritesARealReadyRow"] = transient.downloads == [publishedRow]
+
+        var queryState = WallpaperLibraryQueryState()
+        func sortedIDs() throws -> [String] {
+            let items = service.downloads.map { record in
+                let reference = WallpaperReference(provider: .steamWorkshop, sourceID: record.id)
+                return WallpaperContentItem(reference: reference, providerReference: reference,
+                    locator: .init(), title: record.title, kind: .video,
+                    publishedAvailability: .available, capabilities: [.inspect, .play, .organize],
+                    metadata: .init(fileSizeBytes: record.sizeBytes, createdAt: record.createdAt,
+                                    modifiedAt: record.updatedAt), acquisition: .idle, update: .idle, aliases: [])
+            }
+            let relationships = UserCollectionsSnapshot(revision: 1, resetEpoch: UUID(), migrationManifestID: "fixture",
+                playlists: [], members: [], favorites: [], recent: [], aliases: [], locators: [])
+            return try WallpaperLibraryQuery.project(page: .downloads, state: queryState,
+                catalog: .init(downloads: items), relationships: relationships).items.map { $0.reference.sourceID }
+        }
         func sortable(_ id: String, _ title: String, _ date: TimeInterval, _ bytes: Int64) -> SteamWorkshopDownloadRecord {
             var record = SteamWorkshopDownloadRecord(id: id, title: title)
             record.createdAt = Date(timeIntervalSince1970: date)
@@ -526,31 +476,50 @@ final class DimmingSurface: NSView, ToolbarGridScrollDismissalSurface {}
         folded.updatedAt = Date(timeIntervalSince1970: 9000)
         let unknown = SteamWorkshopDownloadRecord(id: "unknown", title: "zz unknown", sizeText: "9999GB")
         service.downloads = [z, unknown, folded, a]
-        service.downloadsSortMode = .createdAt; service.downloadsSortAscending = false
-        let beforeModification = service.filteredAndSortedDownloads(from: service.downloads).map(\.id)
+        queryState = .init(sort: .createdAt, ascending: false)
+        let beforeModification = try sortedIDs()
         z.updatedAt = Date(timeIntervalSince1970: 99999)
         service.downloads[0] = z
-        checks["creationSortDoesNotUseModificationDate"] = beforeModification == ["b", "a", "z", "unknown"]
-            && service.filteredAndSortedDownloads(from: service.downloads).map(\.id) == beforeModification
-        service.downloadsSortMode = .title; service.downloadsSortAscending = true
-        let alphabetical = service.filteredAndSortedDownloads(from: service.downloads).map(\.id)
-        service.downloadsSortAscending = false
-        checks["titleSortIsAZWithExactReverse"] = alphabetical == ["a", "b", "z", "unknown"]
-            && service.filteredAndSortedDownloads(from: service.downloads).map(\.id) == alphabetical.reversed()
-        service.downloadsSortMode = .size; service.downloadsSortAscending = true
-        let sizeAscending = service.filteredAndSortedDownloads(from: service.downloads).map(\.id)
-        service.downloadsSortAscending = false
-        checks["sizeSortUsesExactBytesInsteadOfFormattedText"] = sizeAscending == ["z", "a", "b", "unknown"]
-            && service.filteredAndSortedDownloads(from: service.downloads).map(\.id) == ["b", "a", "z", "unknown"]
+        checks["creationSortDoesNotUseModificationDate"] = try beforeModification == ["b", "a", "z", "unknown"]
+            && (try sortedIDs()) == beforeModification
+        queryState = .init(sort: .name, ascending: true)
+        let alphabetical = try sortedIDs()
+        queryState.ascending = false
+        checks["titleSortIsAZWithExactReverse"] = try alphabetical == ["a", "b", "z", "unknown"]
+            && (try sortedIDs()) == alphabetical.reversed()
+        queryState = .init(sort: .fileSize, ascending: true)
+        let sizeAscending = try sortedIDs()
+        queryState.ascending = false
+        checks["sizeSortUsesExactBytesInsteadOfFormattedText"] = try sizeAscending == ["z", "a", "b", "unknown"]
+            && (try sortedIDs()) == ["b", "a", "z", "unknown"]
         service.downloads = [sortable("3", "Work 10", 1, 1), sortable("2", "work 2", 1, 1),
             sortable("01", "Same", 1, 1), sortable("1", "same", 1, 1)]
-        service.downloadsSortMode = .title; service.downloadsSortAscending = true
-        let numericOrder = service.filteredAndSortedDownloads(from: service.downloads).map(\.id)
-        service.downloadsSortAscending = false
-        checks["numericTitlesAndEqualTitlesHaveDeterministicReverse"] = numericOrder == ["01", "1", "2", "3"]
-            && service.filteredAndSortedDownloads(from: service.downloads).map(\.id) == numericOrder.reversed()
-        service.downloads = previousDownloads
-        service.downloadsSortMode = .createdAt; service.downloadsSortAscending = false
+        queryState = .init(sort: .name, ascending: true)
+        let numericOrder = try sortedIDs()
+        queryState.ascending = false
+        checks["numericTitlesAndEqualTitlesHaveDeterministicReverse"] = try numericOrder == ["01", "1", "2", "3"]
+            && (try sortedIDs()) == numericOrder.reversed()
+
+        // Pure source/query checks can run without creating any AppKit window.
+        if CommandLine.arguments.contains("--source-only") {
+            print(String(data: try JSONSerialization.data(withJSONObject: checks, options: [.sortedKeys]), encoding: .utf8)!)
+            return
+        }
+
+        var rowEvents: [Int] = []
+        let nativeRows: [ToolbarMenuPopoverPresenter.Row] = [
+            .header("原选项"), .init(title: "不可用", kind: .action, isEnabled: false, handler: { rowEvents.append(0) }),
+            .init(title: "当前选项", kind: .check, isChecked: true, handler: { rowEvents.append(1) }),
+            .separator(), .init(title: "状态", kind: .info),
+            .init(title: "执行", kind: .action, handler: { rowEvents.append(2) })]
+        let nativeMenu = ToolbarMenuPopoverPresenter.menuRepresentation(title: "原入口", rows: nativeRows).submenu!
+        checks["native-overflow-preserves-row-order-checkmark-separator-and-info-state"] = nativeMenu.items.map(\.title) == ["原选项", "不可用", "当前选项", "", "状态", "执行"]
+            && nativeMenu.items[2].state == .on && nativeMenu.items[3].isSeparatorItem
+            && !nativeMenu.items[0].isEnabled && !nativeMenu.items[1].isEnabled && !nativeMenu.items[4].isEnabled
+        nativeMenu.performActionForItem(at: 2); nativeMenu.performActionForItem(at: 5)
+        checks["native-overflow-dispatches-original-row-closures-once-without-a-sender"] = rowEvents == [1, 2]
+        if let action = nativeMenu.items[1].action { NSApp.sendAction(action, to: nativeMenu.items[1].target, from: nativeMenu.items[1]) }
+        checks["disabled-native-overflow-cannot-bypass-original-row-qualification"] = rowEvents == [1, 2]
 
         let window = NSWindow(contentRect: NSRect(x: 14000, y: 14000, width: 640, height: 400),
             styleMask: [.titled], backing: .buffered, defer: false)
@@ -593,46 +562,6 @@ final class DimmingSurface: NSView, ToolbarGridScrollDismissalSurface {}
         dismissal.dismissIfGridScroll(in: window, target: grid)
         checks["closedPanelCanBeReopenedAndClosedAgain"] = !popover.isShown
 
-        let toolbar = SteamWorkshopToolbarController()
-        toolbar.handleDownloadsSortAction(anchor)
-        func allButtons(_ view: NSView) -> [NSButton] {
-            (view as? NSButton).map { [$0] } ?? view.subviews.flatMap(allButtons)
-        }
-        let buttons = NSApp.windows.filter { $0 !== window && $0.isVisible }
-            .compactMap(\.contentView).flatMap(allButtons)
-        let adult = buttons.first { $0.title == "成人内容" }
-        checks["adultOptionIsLastSortMenuRow"] = adult != nil && buttons.last === adult
-        checks["sortMenuUsesRequestedLabelsAndOneCurrentDirection"] = buttons.map(\.title) == ["创建时间", "作品名称", "文件大小", "降序", "成人内容"]
-        adult?.performClick(nil)
-        checks["adultMenuCheckboxRunsLiveProjectionAndStaysOpen"] = !service.downloadsShowsAdultContent
-            && service.displayedDownloads.count == 3 && toolbar.menuPopover.isShown
-        func menuButtons() -> [NSButton] {
-            NSApp.windows.filter { $0 !== window && $0.isVisible }.compactMap(\.contentView).flatMap(allButtons)
-        }
-        menuButtons().first { $0.title == "作品名称" }?.performClick(nil)
-        checks["selectingTitleStartsWithAZ"] = service.downloadsSortMode == .title && service.downloadsSortAscending
-            && menuButtons().filter { $0.title == "升序" || $0.title == "降序" }.map(\.title) == ["升序"]
-        menuButtons().first { $0.title == "升序" }?.performClick(nil)
-        checks["oneDirectionRowTogglesAndDisplaysCurrentOrder"] = !service.downloadsSortAscending
-            && menuButtons().filter { $0.title == "升序" || $0.title == "降序" }.map(\.title) == ["降序"]
-        menuButtons().first { $0.title == "作品名称" }?.performClick(nil)
-        checks["selectingCurrentModeKeepsDirection"] = !service.downloadsSortAscending
-        menuButtons().first { $0.title == "文件大小" }?.performClick(nil)
-        checks["selectingSizeDefaultsToLargestFirst"] = service.downloadsSortMode == .size && !service.downloadsSortAscending
-        menuButtons().first { $0.title == "降序" }?.performClick(nil)
-        menuButtons().first { $0.title == "创建时间" }?.performClick(nil)
-        checks["selectingCreationDefaultsToNewestFirst"] = service.downloadsSortMode == .createdAt && !service.downloadsSortAscending
-        if let directory = ProcessInfo.processInfo.environment["MWX_LIBRARY_TOOLBAR_PROOF_DIR"],
-           let panel = menuButtons().first?.window?.contentView {
-            panel.layoutSubtreeIfNeeded()
-            if let bitmap = panel.bitmapImageRepForCachingDisplay(in: panel.bounds) {
-                panel.cacheDisplay(in: panel.bounds, to: bitmap)
-                let url = URL(fileURLWithPath: directory, isDirectory: true)
-                try FileManager.default.createDirectory(at: url, withIntermediateDirectories: true)
-                try bitmap.representation(using: .png, properties: [:])?.write(to: url.appendingPathComponent("download-sort-menu.png"))
-            }
-        }
-        toolbar.menuPopover.close()
         window.close()
         let historyMetricsData = try JSONSerialization.data(withJSONObject: ["historyReads": historyReadMetrics], options: [.sortedKeys])
         FileHandle.standardError.write(historyMetricsData + Data("\n".utf8))

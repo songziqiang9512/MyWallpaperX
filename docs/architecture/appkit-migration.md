@@ -4,7 +4,7 @@
 
 > 状态：现役迁移目标与剩余工作入口
 >
-> 最近核对：2026-10-22（未接入 SwiftUI 代码退役）。下文保留 2026-05-17 批次记录；当前源码状态以下节为准，静态扫描不代替 UI 验收。
+> 最近核对：2026-10-25（统一主窗口装配与旧源 UI 退出，整体验收仍待专项）。下文保留 2026-05-17 批次记录；当前源码状态以下节为准，静态扫描不代替 UI 验收。
 >
 > 长期权威：本计划与[技术栈与架构路线边界](technology-stack-boundaries.md)共同确定最终 UI 为 Swift + AppKit。迁移完成前只维护下列 SwiftUI 残留，不新增 SwiftUI 产品面、设置页、桌面宿主或 hosting bridge；若要改变 0 SwiftUI 目标，必须先修改长期技术路线，而不是在功能批次中隐式扩张。
 
@@ -12,7 +12,7 @@
 
 ## 当前判断
 
-2026-10-22 源码核查：App 生命周期、Shell、菜单、网格、Inspector、Scene 属性窗口与 Steam 详情均已走 AppKit。最后两个 SwiftUI 文件中的 bridge 与详情辅助组件没有产品消费者，现已退役；`InspectorHostPresentation` 仍供 AppKit 使用并保留。产品源码的 `import SwiftUI`、`NSHostingView` 与 `NSHostingController` 已清零。此结论只说明源码依赖；构建与实际操作验收归[代码精简专项](../development/code-slimming-program.md)，不重写现役 Shell 或网格。
+2026-10-22 源码核查：App 生命周期、Shell、菜单、网格、Inspector、Scene 属性窗口与 Steam 详情均已走 AppKit。最后两个 SwiftUI 文件中的 bridge 与详情辅助组件没有产品消费者，现已退役；`InspectorHostPresentation` 仍供 AppKit 使用并保留。产品源码的 `import SwiftUI`、`NSHostingView` 与 `NSHostingController` 已清零。此结论只说明源码依赖；构建与实际操作验收归[代码精简专项](../development/code-slimming-program.md)，主窗口后续统一改造的实施与验收归[播放列表专项](../development/main-window-playlists-redesign.md)，下述历史批次不定义当前 owner。
 
 ## 最终结构
 
@@ -26,20 +26,16 @@
 ### Shell 层
 
 - 主窗口内容控制器为 AppKit `NSSplitViewController`。
-- 左侧为 `AppKitSidebarContainerView`，使用 `NSOutlineView` source list 样式。
-- 右侧为 `AppKitDetailHostViewController`，按 `SelectedItem` 切换各模块 `NSViewController` / `NSView`。
-- Shell 维护当前 `SelectedItem`、模块切换通知、Quick Look 同步、空白点击清选、模块焦点转移。
+- 左侧为 `WallpaperLibrarySidebarController`，使用 `NSOutlineView` source list 样式。
+- `WallpaperLibraryWindowComposition` 装配统一 Grid、列表目录与原远端浏览；`AppKitDetailHostViewController` 仅挂载子控制器。
+- `WallpaperLibraryPresentation` 持有页面/query/selection；App Commands、InspectorCoordinator 分别处理固定引用命令、QL/详情；旧 `SelectedItem` 及源选择槽已退役。
 - Shell 不持有 SwiftUI `Binding`、`@State`、`@EnvironmentObject`。
 
 ### 模块层
 
-- 每个模块对 Shell 暴露 AppKit 入口：
-  - 视频库：`VideoLibraryViewController` 或 `VideoLibraryContainerView`
-  - 图片库：`StaticImageLibraryViewController`
-  - 在线库：`OnlineLibraryBrowserViewController` / `OnlineLibraryDownloadsViewController`
-  - Steam：`SteamWorkshopBrowserViewController` / `SteamWorkshopDownloadsViewController`
-- 模块内部继续尊重现有服务边界。跨模块仍然只通过 Notification 或既有 Coordinator 中转。
-- 现有 AppKit 网格容器优先复用，不重新造一套渲染系统。
+- 本地/下载/关系内容共用 `WallpaperLibraryGridController`，`WallpaperLibraryCellAdapter` 复用各来源卡片和唯一缓存；原浏览页继续由各远端服务分页。
+- 模块保留导入、元数据、下载、文件与引擎职责；源旧 Grid/Toolbar/QL 与 tag/favorite/recent 写侧退出，历史输入解码仍供迁移使用。
+- App Workspace 连接唯一 Catalog、Store 与 Manager 原播放票据；共享值跨层，不在 Shell 重建服务或媒体索引。
 
 ### Inspector
 

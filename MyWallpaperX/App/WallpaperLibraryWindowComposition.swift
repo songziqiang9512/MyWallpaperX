@@ -1,0 +1,825 @@
+import AppKit
+import Combine
+
+/// The App layer joins the value-based Shell with the existing source owners.
+/// It never mirrors selection into four services or owns playback transactions.
+@MainActor final class WallpaperLibraryWindowComposition {
+    let workspace: WallpaperLibraryWorkspace
+    private let manager: WallpaperManager
+    private let images: SILService
+    private let steam: SteamWorkshopService
+    private let online: OnlineLibraryService
+    private let sidebar = WallpaperLibrarySidebarController()
+    private let detail = AppKitDetailHostViewController()
+    private let directory = AppKitPlaylistDirectoryController()
+    private let header = WallpaperPlaylistHeaderView()
+    private let creationNotice = WallpaperPlaylistCreationNotice()
+    private var subscriptions = Set<AnyCancellable>()
+    private var windowVisibility: NSKeyValueObservation?
+    private var windowObservers: [NSObjectProtocol] = []
+    private var lastPage: WallpaperLibraryPage?
+    private var lastDirectoryRevision: (UInt64, Int64, UUID)?
+    private var allEntries: [WallpaperPlaylistDirectoryEntry] = []
+    private var covers: [UUID: WallpaperPlaylistArtwork] = [:]
+    private let sidebarDemand = UUID(), directoryDemand = UUID(), gridDemand = UUID()
+    private let headerDemand = UUID()
+    private var sourceSnapshot: WallpaperPlaybackSequence.Snapshot?
+    private var cardState: WallpaperLibraryCardStateProjection?
+    private var downloadedContent: [WallpaperReference: WallpaperContentItem] = [:]
+    private var playlistNames: [WallpaperReference: [String]] = [:]
+    private var lastRenderSignature: RenderSignature?
+    private var picker: WallpaperPlaylistPickerController?
+    var onGridLayoutChanged: (() -> Void)?
+    var onNavigationContextChanged: (() -> Void)?
+    private struct DirectoryReturnContext: Equatable {
+        let playlistID: UUID
+        let resetEpoch: UUID
+        let admission = UUID()
+    }
+    private var directoryReturnContext: DirectoryReturnContext? {
+        didSet { if oldValue != directoryReturnContext { onNavigationContextChanged?() } }
+    }
+
+    func makeDirectoryReturnAction() -> (() -> Void)? {
+        guard let context = directoryReturnContext,
+              workspace.presentation.page == .playlist(context.playlistID),
+              workspace.relationships.resetEpoch == context.resetEpoch,
+              workspace.relationships.playlists.contains(where: { $0.id == context.playlistID }) else { return nil }
+        return { [weak self] in
+            guard let self, self.directoryReturnContext == context,
+                  self.makeDirectoryReturnAction() != nil, self.permitsInput else { return }
+            self.navigate(to: .playlists)
+        }
+    }
+
+    private func invalidateDirectoryReturnContext() {
+        guard let context = directoryReturnContext else { return }
+        if workspace.presentation.page != .playlist(context.playlistID)
+            || workspace.relationships.resetEpoch != context.resetEpoch
+            || !workspace.relationships.playlists.contains(where: { $0.id == context.playlistID }) {
+            directoryReturnContext = nil
+        }
+    }
+
+    private var permitsInput: Bool { WallpaperLibrarySheetPresentation.permitsInput(in: split.view.window) }
+
+
+    var gridClipWidth: CGFloat {
+        switch workspace.presentation.page {
+        case .workshop, .workshopSubscriptions: return steamBrowserContent.clipWidth
+        case .pixabay: return onlineBrowserContent.clipWidth
+        case .playlists: return directory.clipWidth
+        default: return grid.isViewLoaded ? grid.scrollView.contentView.bounds.width : 0
+        }
+    }
+
+    private struct RenderSignature: Equatable {
+        let page: WallpaperLibraryPage
+        var query: WallpaperLibraryQueryState
+        let items: [WallpaperContentItem]
+        let selection: WallpaperLibrarySelectionState
+        let catalogRevision: UInt64
+        let projectionRevision: UInt64
+        let relationshipsRevision: Int64
+        let resetEpoch: UUID
+        let sequenceReference: WallpaperReference?
+        let sequenceTicket: PlaybackSwitchTicket?
+        let ticket: PlaybackSwitchTicket?
+        let canEdit: Bool
+        let recoveryNotice: String?
+        let operationError: String?
+        let visible: Bool
+
+        func hasSameCardInputs(as other: Self) -> Bool {
+            var query = self.query, otherQuery = other.query
+            query.preferredColumns = 5; otherQuery.preferredColumns = 5
+            query.scrollAnchor = nil; otherQuery.scrollAnchor = nil
+            query.scrollOffset = nil; otherQuery.scrollOffset = nil
+            query.scrollAtTop = nil; otherQuery.scrollAtTop = nil
+            return page == other.page && catalogRevision == other.catalogRevision && projectionRevision == other.projectionRevision
+                && relationshipsRevision == other.relationshipsRevision && resetEpoch == other.resetEpoch
+                && sequenceReference == other.sequenceReference && sequenceTicket == other.sequenceTicket && ticket == other.ticket
+                && query == otherQuery && items == other.items
+        }
+    }
+
+    lazy var split: AppKitMainSplitViewController = {
+        let chrome = self.chrome
+        return AppKitMainSplitViewController(sidebar: sidebar, content: chrome, sidebarTintHost: sidebar.backgroundTintHost,
+            permitsNoticeInteraction: { [weak chrome] in chrome?.permitsNoticeInteraction(at: $0) ?? false })
+    }()
+    lazy var commands = WallpaperLibraryCommands(workspace: workspace, manager: manager, images: images,
+        steam: steam, online: online, hostWindow: { [weak self] in self?.split.view.window })
+    lazy var inspector = WallpaperLibraryInspectorCoordinator(workspace: workspace, manager: manager, images: images,
+        steam: steam, online: online,
+        makePrimaryAction: { [weak self] content in
+            guard let self else { return nil }
+            // Pixabay's existing primary label is always "设为壁纸".
+            return content.providerReference.provider == .pixabay
+                ? self.commands.makeApplyAction(for: content) : self.commands.makePrimaryAction(for: content)
+        }, makeFavoriteAction: { [weak self] in self?.makeCardFavoriteAction($0) },
+        canOrganize: { [weak self] in self?.commands.canOrganize == true },
+        availabilityChanges: commands.availabilityChanges,
+        onChoosePlaylist: { [weak self] ref, anchor in self?.commands.choosePlaylist([ref], anchor: anchor) })
+    private lazy var adapter = WallpaperLibraryCellAdapter(manager: manager, images: images, steam: steam, online: online,
+        isFavorite: { [weak self] in self?.cardState?.isFavorite($0) ?? false },
+        isPlaying: { [weak self] in self?.cardState?.isPlaying($0) ?? false },
+        makePrimaryAction: { [weak self] in self?.makeCardPrimaryAction($0) },
+        makeFavoriteAction: { [weak self] in self?.makeCardFavoriteAction($0) },
+        onInspect: { [weak self] in self?.inspector.inspect(content: $0) })
+    private lazy var grid = WallpaperLibraryGridController { [weak self] collection, path, content, state in
+        guard let self else { return NSCollectionViewItem() }
+        return self.adapter.makeCell(collection: collection, indexPath: path, content: content, state: state)
+    }
+    private lazy var chrome = WallpaperLibraryPageChrome(content: detail)
+    private lazy var steamBrowserContent: AppKitSteamWorkshopBrowserView = {
+        let view = AppKitSteamWorkshopBrowserView()
+        view.makeOrganization = { [weak self] in self?.remoteOrganization(for: $0) }
+        view.makeInspectorActions = { [weak self] in self?.remoteInspectorActions(for: $0) }
+        view.makeOrganizationMenu = { [weak self] in self?.remoteOrganizationMenu(for: $0) }
+        return view
+    }()
+    private lazy var steamBrowser = WallpaperLibraryViewController(steamBrowserContent)
+    private lazy var onlineBrowserContent: OnlineLibraryBrowserView = {
+        let view = OnlineLibraryBrowserView()
+        view.makeOrganization = { [weak self] in self?.onlineOrganization(for: $0) }
+        return view
+    }()
+    private lazy var onlineBrowser = WallpaperLibraryViewController(onlineBrowserContent)
+    private lazy var artwork = WallpaperLibraryArtworkProvider(manager: manager, images: images, steam: steam, online: online)
+
+    init(workspace: WallpaperLibraryWorkspace, manager: WallpaperManager, images: SILService,
+         steam: SteamWorkshopService, online: OnlineLibraryService) {
+        self.workspace = workspace; self.manager = manager; self.images = images; self.steam = steam; self.online = online
+    }
+
+    var canDeleteSelectedPlaylist: Bool {
+        permitsInput && workspace.presentation.page == .playlists && commands.canOrganize && directory.canDeleteSelectedPlaylist
+    }
+
+    func deleteSelectedPlaylist() {
+        guard canDeleteSelectedPlaylist else { return }
+        directory.deleteSelectedPlaylist()
+    }
+
+    func start() {
+        split.loadViewIfNeeded()
+        configureActions()
+        if let window = split.view.window {
+            windowVisibility = window.observe(\.isVisible, options: [.new]) { [weak self] _, _ in
+                MainActor.assumeIsolated { self?.render() }
+            }
+            for name in [NSWindow.didMiniaturizeNotification, NSWindow.didDeminiaturizeNotification] {
+                windowObservers.append(NotificationCenter.default.addObserver(forName: name, object: window, queue: .main) { [weak self] _ in
+                    MainActor.assumeIsolated { self?.render() }
+                })
+            }
+        }
+        workspace.presentation.$state.receive(on: DispatchQueue.main).sink { [weak self] _ in self?.render() }
+            .store(in: &subscriptions)
+        workspace.catalog.visibleLocalFactsRefreshed.receive(on: DispatchQueue.main).sink { [weak self] in
+            self?.adapter.repairVisiblePreviews()
+        }.store(in: &subscriptions)
+        workspace.playbackChanges.receive(on: DispatchQueue.main).sink { [weak self] in self?.render() }
+            .store(in: &subscriptions)
+        commands.availabilityChanges.sink { [weak self] in self?.render() }.store(in: &subscriptions)
+        NotificationCenter.default.publisher(for: .appKitSelectItemRequested).receive(on: DispatchQueue.main)
+            .sink { [weak self] in self?.handleNavigation($0) }.store(in: &subscriptions)
+        NotificationCenter.default.publisher(for: .appOpenSettingsRequested).receive(on: DispatchQueue.main)
+            .sink { _ in SettingsWindowController.shared.showWindow() }.store(in: &subscriptions)
+        NotificationCenter.default.publisher(for: .wallpaperManagerDidResetToFreshInstallState).receive(on: DispatchQueue.main)
+            .sink { [weak self] _ in self?.sidebar.resetSidebarState() }.store(in: &subscriptions)
+        render()
+    }
+
+    deinit { windowObservers.forEach(NotificationCenter.default.removeObserver) }
+
+    private var isVisible: Bool { split.view.window?.isVisible == true && split.view.window?.isMiniaturized == false }
+
+    private func configureActions() {
+        let permitsPullCountInput = { [weak self] in self?.permitsInput == true }
+        grid.scrollView.permitsPullCountInput = permitsPullCountInput
+        directory.permitsPullCountInput = permitsPullCountInput
+        commands.playlists?.coverPreview = { [weak self] id in
+            guard let cover = self?.covers[id], !cover.isCustom else { return nil }
+            return cover.image
+        }
+        commands.playlists?.permitsEditing = { [weak self] in self?.commands.canOrganize == true }
+        commands.playlists?.availabilityChanges = commands.availabilityChanges
+            .merge(with: workspace.presentation.$state.map { _ in () })
+            .eraseToAnyPublisher()
+        commands.playlists?.onWillPresent = { [weak self] in self?.inspector.closePreview() }
+        commands.playlists?.onOpen = { [weak self] id in
+            guard let self else { return }
+            self.openPlaylist(id, fromDirectory: self.workspace.presentation.page == .playlists)
+        }
+        sidebar.onNavigate = { [weak self] page in
+            guard let self, self.permitsInput else { return }; self.navigate(to: page)
+        }
+        sidebar.onPlaylistAction = { [weak self] in self?.performPlaylistAction($0) }
+        sidebar.onAddReferences = { [weak self] refs, id in self?.addReferences(refs, to: id) ?? false }
+        directory.onScrollAnchor = { [weak self] id, offset, atTop in
+            self?.workspace.presentation.setDirectoryScrollAnchor(id, offset: offset, atTop: atTop)
+        }
+        grid.onClipWidthChange = { [weak self] _ in self?.onGridLayoutChanged?() }
+        directory.onClipWidthChange = { [weak self] _ in self?.onGridLayoutChanged?() }
+        steamBrowserContent.onClipWidthChange = { [weak self] _ in self?.onGridLayoutChanged?() }
+        onlineBrowserContent.onClipWidthChange = { [weak self] _ in self?.onGridLayoutChanged?() }
+        sidebar.onReorder = { [weak self] ids, completion in
+            self?.reorderPlaylists(ids, completion: completion) ?? completion(.failure(UserCollectionsError.staleResetEpoch))
+        }
+        directory.onAction = { [weak self] in self?.performPlaylistAction($0, fromDirectory: true) }
+        directory.onReorder = { [weak self] ids, completion in
+            self?.reorderPlaylists(ids, completion: completion) ?? completion(.failure(UserCollectionsError.staleResetEpoch))
+        }
+        sidebar.onCoverDemand = { [weak self] ids in guard let self else { return }; self.artwork.setDemand(sourceToken: self.sidebarDemand, playlistIDs: ids) }
+        directory.onCoverDemand = { [weak self] ids in guard let self else { return }; self.artwork.setDemand(sourceToken: self.directoryDemand, playlistIDs: ids) }
+        artwork.loadCustomCover = { [weak workspace] id, completion in
+            guard let collections = workspace?.collections else { completion(nil); return {} }
+            let epoch = collections.snapshot.resetEpoch
+            let task = Task { @MainActor in
+                let asset = try? await collections.playlistCoverAsset(id: id, expectedEpoch: epoch)
+                guard !Task.isCancelled, collections.snapshot.resetEpoch == epoch else { return }
+                completion(asset.flatMap { NSImage(data: $0.imageData) })
+            }
+            return { task.cancel() }
+        }
+        artwork.onCoversChanged = { [weak self] in self?.covers = $0; self?.renderCovers() }
+        commands.onInspect = { [weak self] in self?.inspector.inspect(content: $0) }
+        commands.onPreview = { [weak self] in _ = self?.inspector.preview(content: $0) }
+        commands.onCloseInspector = { [weak self] in self?.inspector.closeInspector(); self?.inspector.closePreview() }
+        commands.onAddWallpapers = { [weak self] in self?.showPicker(for: $0) }
+        commands.playlists?.onCreatedFromMembers = { [weak self] id in self?.showCreatedPlaylistNotice(id) }
+        grid.updateCell = { [weak self] in self?.adapter.updateCell($0, content: $1, state: $2) }
+        grid.needsCellReplacement = { [weak self] in self?.adapter.needsCellReplacement($0, content: $1) ?? false }
+        grid.setCellVisible = { [weak self] in self?.adapter.setVisible($0, $1) }
+        grid.onViewport = { [weak self] visible, prefetch in
+            guard let self else { return }
+            self.adapter.updateViewport(visible: visible, prefetch: prefetch)
+            self.workspace.catalog.setVisibleReferences(Set(visible.map(\.providerReference)), sourceToken: self.gridDemand)
+        }
+        grid.onSelection = { [weak self] refs, focus in
+            guard let self, self.permitsInput else { return nil }
+            let model = self.workspace.presentation
+            guard model.setSelection(refs, focused: focus, isSelecting: model.selectionState.isSelecting) else { return nil }
+            return model.selectionState.sessionID
+        }
+        grid.onInspect = { [weak self] content in
+            guard let self, self.permitsInput else { return }
+            self.inspector.inspect(content: content)
+        }
+        grid.onPrimaryAction = { [weak self] in self?.makeCardPrimaryAction($0)?() }
+        grid.onQuickLook = { [weak self] in _ = self?.inspector.preview(content: $0) }
+        grid.onDelete = { [weak self] in self?.commands.remove($0) }
+        grid.onEscape = { [weak self] in self?.escape() }
+        grid.onScrollAnchor = { [weak self] page, reference, offset, atTop in
+            self?.workspace.presentation.setScrollAnchor(reference, offset: offset, atTop: atTop, page: page)
+        }
+        grid.menuProvider = { [weak self] items in
+            guard let self, self.permitsInput, let menu = self.commands.contextMenu(for: items) else { return nil }
+            menu.requireAppActionPermission { [weak self] in self?.permitsInput == true }
+            return menu
+        }
+        inspector.onMoveSelection = { [weak self] key in
+            guard let self, self.permitsInput, let event = NSEvent.keyEvent(with: .keyDown, location: .zero, modifierFlags: [], timestamp: 0,
+                windowNumber: self.split.view.window?.windowNumber ?? 0, context: nil, characters: "", charactersIgnoringModifiers: "", isARepeat: false, keyCode: key) else { return }
+            self.grid.collection.keyDown(with: event)
+        }
+        split.onRestoreContentFocus = { [weak self] in self?.restoreContentFocus() }
+    }
+
+    func navigate(to page: WallpaperLibraryPage, preservingSteamContext: Bool = false) {
+        directoryReturnContext = nil
+        navigatePage(to: page, preservingSteamContext: preservingSteamContext)
+    }
+
+    private func navigatePage(to page: WallpaperLibraryPage, preservingSteamContext: Bool = false) {
+        if page == .workshop || page == .workshopSubscriptions, !preservingSteamContext {
+            let exitingAuthor = steam.isBrowsingAuthorWorkshop
+            if exitingAuthor { steam.returnToDiscoveryBrowse(selectOrigin: false) }
+            // Reselecting an ordinary browser must not reset its current
+            // search/facets or reissue entry work. The author subpage is an
+            // explicit exception because it shares Workshop's sidebar row.
+            if page == workspace.presentation.page, !exitingAuthor { return }
+            steam.pendingDownloadsScrollRestoreOffsetY = nil
+            steam.enterBrowseSection(page == .workshopSubscriptions ? .personal : .discovery)
+            steam.prepareForBrowserEntry()
+        }
+        if page == workspace.presentation.page, !page.isRemoteBrowse, page != .playlists {
+            grid.scrollToTop()
+            return
+        }
+        _ = workspace.presentation.switchPage(page)
+    }
+
+    private func openPlaylist(_ id: UUID, fromDirectory: Bool) {
+        guard workspace.relationships.playlists.contains(where: { $0.id == id }) else { return }
+        directoryReturnContext = fromDirectory && workspace.presentation.page == .playlists
+            ? DirectoryReturnContext(playlistID: id, resetEpoch: workspace.relationships.resetEpoch) : nil
+        navigatePage(to: .playlist(id))
+    }
+
+    private func performPlaylistAction(_ action: PlaylistOrganizationAction, fromDirectory: Bool = false) {
+        guard permitsInput else { return }
+        if case .open(let id) = action { openPlaylist(id, fromDirectory: fromDirectory); return }
+        guard commands.canOrganize else { return }
+        commands.playlists?.handle(action)
+    }
+
+    private func reorderPlaylists(_ ids: [UUID], completion: @escaping (Result<Int64, Error>) -> Void) {
+        guard permitsInput, commands.canOrganize, let actions = commands.playlists else {
+            completion(.failure(UserCollectionsError.staleResetEpoch)); return
+        }
+        actions.reorder(ids, completion: completion)
+    }
+
+    private func handleNavigation(_ note: Notification) {
+        let page: WallpaperLibraryPage
+        switch note.userInfo?["selectedItem"] as? String {
+        case "steamWorkshop": page = .workshop
+        case "steamSubscribed": page = .workshopSubscriptions
+        case "steamDownloads", "onlineDownloads": page = .downloads
+        case "onlineLibrary": page = .pixabay
+        case "staticImageLibrary": page = .images
+        default: return
+        }
+        navigate(to: page, preservingSteamContext: note.userInfo?["preserveSteamBrowseContext"] as? Bool == true)
+    }
+
+    private func render() {
+        let model = workspace.presentation, state = model.state
+        let relationships = workspace.relationships, catalog = workspace.catalog.catalog
+        var query = state.query
+        query.scrollAnchor = nil
+        query.scrollOffset = nil
+        query.scrollAtTop = nil
+        let committed = manager.libraryPlaybackSequence.committed
+        let signature = RenderSignature(page: state.page, query: query, items: state.queryResult.items, selection: state.selectionState,
+            catalogRevision: catalog.revision, projectionRevision: workspace.projectionRevision,
+            relationshipsRevision: relationships.revision, resetEpoch: relationships.resetEpoch,
+            sequenceReference: committed?.reference, sequenceTicket: committed?.ticket,
+            ticket: manager.playbackSwitch.committed?.ticket, canEdit: commands.canOrganize,
+            recoveryNotice: workspace.recoveryMessage, operationError: state.lastError, visible: isVisible)
+        // A scroll anchor is a receipt from the already-scrolled native view.
+        // Its echo persists the anchor without rebuilding every visible card.
+        guard signature != lastRenderSignature else { return }
+        let previousSignature = lastRenderSignature
+        let didReset = lastRenderSignature.map { $0.resetEpoch != relationships.resetEpoch } ?? false
+        if didReset { grid.invalidateScrollReceipt(); directory.invalidateScrollReceipt() }
+        invalidateDirectoryReturnContext()
+        if state.page != lastPage || didReset { creationNotice.dismiss() }
+        lastRenderSignature = signature
+        configureFileDrop(for: state.page)
+        let entering = state.page != lastPage || didReset
+        if entering {
+            if lastPage == nil, state.page == .workshop || state.page == .workshopSubscriptions {
+                steam.enterBrowseSection(state.page == .workshopSubscriptions ? .personal : .discovery)
+                steam.prepareForBrowserEntry()
+            }
+            inspector.closeInspector(); inspector.closePreview()
+            NotificationCenter.default.post(name: .inspectorHostCloseRequested, object: nil)
+            lastPage = state.page
+            publishRemoteMode(state.page)
+        }
+        updateDirectoryFacts()
+        let headerIDs: Set<UUID>
+        if case .playlist(let id) = state.page, isVisible { headerIDs = [id] } else { headerIDs = [] }
+        artwork.setDemand(sourceToken: headerDemand, playlistIDs: headerIDs)
+        renderCovers()
+        updatePageChrome(state)
+        if state.page == .playlists {
+            detail.present(directory)
+            if entering {
+                directory.restoreScrollAnchor(state.directoryScrollAnchor, offset: state.directoryScrollOffset,
+                    atTop: state.directoryScrollAtTop)
+            }
+            artwork.updateCurrentDirectory(firstPlaylistID: isVisible ? state.directoryEntries.first?.id : nil)
+            bindTint(artwork.currentListTintSource)
+            return
+        }
+        prepareCardState(state, catalog: catalog, relationships: relationships, signature: signature, previousSignature: previousSignature)
+        if state.page.isRemoteBrowse {
+            if state.page == .pixabay { onlineBrowserContent.preferredColumns = state.query.preferredColumns }
+            else { steamBrowserContent.preferredColumns = state.query.preferredColumns }
+            let browser = state.page == .pixabay ? onlineBrowser : steamBrowser
+            detail.present(browser)
+            if state.page == .pixabay { onlineBrowserContent.refreshOrganization() }
+            else { steamBrowserContent.refreshLibraryActions() }
+            bindTint(ListThumbnailTintSource.mounted(in: browser.view))
+            return
+        }
+        let hasHeader: Bool
+        if case .playlist = state.page { hasHeader = true } else { hasHeader = false }
+        grid.update(page: state.page, items: state.queryResult.items, selection: state.selectionState,
+            preferredColumns: state.query.preferredColumns, permitsDragging: commands.canOrganize,
+            scrollAnchor: state.query.scrollAnchor, scrollOffset: state.query.scrollOffset, scrollAtTop: state.query.scrollAtTop,
+            resetScroll: didReset, header: hasHeader ? (header, header.preferredHeight(forWidth:)) : nil)
+        detail.present(grid)
+        let selected = state.selectionState.references.count == 1 ? state.queryResult.items.first { state.selectionState.references.contains($0.reference) } : nil
+        inspector.syncSelection(content: state.selectionState.isSelecting ? nil : selected)
+        artwork.updateCurrentList(first: isVisible ? state.queryResult.items.first : nil)
+        bindTint(artwork.currentListTintSource)
+    }
+
+    private func bindTint(_ source: ListThumbnailTintSource?) {
+        split.bindTint(source)
+    }
+
+    private func configureFileDrop(for page: WallpaperLibraryPage) {
+        grid.onImportFiles = nil
+        switch page {
+        case .videos, .images, .playlist: break
+        default: return
+        }
+        guard commands.canOrganize else { return }
+        let epoch = workspace.relationships.resetEpoch
+        grid.onImportFiles = { [weak self] urls in
+            guard let self, self.permitsInput, self.workspace.presentation.page == page,
+                  self.workspace.relationships.resetEpoch == epoch, self.commands.canImport else { return false }
+            self.commands.importFiles(urls)
+            return true
+        }
+    }
+
+    private func prepareCardState(_ state: WallpaperLibraryPresentationState, catalog: WallpaperLibraryCatalog,
+                                  relationships: UserCollectionsSnapshot, signature: RenderSignature, previousSignature: RenderSignature?) {
+        if cardState != nil, let previousSignature, signature.hasSameCardInputs(as: previousSignature) { return }
+        do {
+            var seen = Set<WallpaperReference>()
+            let references = (state.queryResult.items.map(\.reference) + catalog.downloads.map(\.reference)).filter { seen.insert($0).inserted }
+            let resolved = try WallpaperLibraryQuery.resolve(references, catalog: catalog, relationships: relationships)
+            let byReference = Dictionary(zip(references, resolved), uniquingKeysWith: { first, _ in first })
+            downloadedContent = Dictionary(catalog.downloads.compactMap { item in
+                byReference[item.reference].map { (item.providerReference, $0) }
+            }, uniquingKeysWith: { first, _ in first })
+            let committed = manager.libraryPlaybackSequence.committed
+            let projection = try WallpaperLibraryCardStateProjection(items: state.queryResult.items + resolved, relationships: relationships,
+                committedReference: committed?.reference, sequenceTicket: committed?.ticket, runtimeTicket: manager.playbackSwitch.committed?.ticket,
+                additionalReferences: relationships.members.map(\.reference))
+            cardState = projection
+            let names = Dictionary(relationships.playlists.map { ($0.id, $0.name) }, uniquingKeysWith: { first, _ in first })
+            playlistNames = [:]
+            for member in relationships.members {
+                if let name = names[member.playlistID] { playlistNames[projection.canonical(member.reference), default: []].append(name) }
+            }
+            let sourceItems = state.queryResult.items.compactMap { byReference[$0.reference] }
+            sourceSnapshot = try state.page.isRemoteBrowse ? nil : sourceItems.first.map {
+                try workspace.capturePlaybackSnapshot(for: $0.reference,
+                    resolvedProjection: (catalog.revision, relationships.revision, relationships.resetEpoch, sourceItems))
+            }
+        } catch {
+            cardState = nil; sourceSnapshot = nil; downloadedContent = [:]; playlistNames = [:]
+            workspace.presentation.report(error)
+        }
+    }
+
+    private func makeCardPrimaryAction(_ content: WallpaperContentItem) -> (() -> Void)? {
+        guard let cardState else { return nil }
+        return commands.makePrimaryAction(for: content, from: sourceSnapshot,
+            renderedPlaying: cardState.isPlaying(content.reference), renderedTicket: cardState.committedTicket)
+    }
+
+    private func makeCardFavoriteAction(_ content: WallpaperContentItem) -> (() -> Void)? {
+        guard let cardState else { return nil }
+        let action = cardState.favoriteActionState(for: content, canEdit: commands.canOrganize)
+        guard action.canExecute else { return nil }
+        let page = workspace.presentation.page, epoch = workspace.relationships.resetEpoch
+        let sessionID = workspace.presentation.selectionState.sessionID
+        return { [weak self] in
+            guard let self, self.permitsInput, self.workspace.presentation.page == page,
+                  self.workspace.relationships.resetEpoch == epoch,
+                  self.workspace.presentation.selectionState.sessionID == sessionID else { return }
+            self.commands.toggleFavorite([content.reference], expectingRemoval: action.isRemoving)
+        }
+    }
+
+    private func onlineOrganization(for item: OnlineLibraryVideoItem) -> WallpaperInspectorActions? {
+        guard workspace.presentation.page == .pixabay else { return nil }
+        let provider = WallpaperReference(provider: .pixabay, sourceID: String(item.id))
+        guard let content = downloadedContent[provider], content.publishedAvailability.isPublishedLocally, let cardState else { return nil }
+        let page = workspace.presentation.page, epoch = workspace.relationships.resetEpoch
+        let sessionID = workspace.presentation.selectionState.sessionID
+        let primary = remotePrimaryAction(content, page: page, epoch: epoch, sessionID: sessionID)
+        let favorite = makeCardFavoriteAction(content)
+        return .init(state: .init(isPlaying: cardState.isPlaying(content.reference), isFavorite: cardState.isFavorite(content.reference),
+            canPerformPrimary: primary != nil, canFavorite: favorite != nil,
+            canOrganize: commands.canOrganize && content.capabilities.contains(.organize),
+            playlistNames: playlistNames[cardState.canonical(content.reference)] ?? []),
+            onPrimary: { primary?() }, onToggleFavorite: { favorite?() }, onChoosePlaylist: { [weak self] anchor in
+                guard let self, self.acceptsRemoteAction(page: page, epoch: epoch, sessionID: sessionID) else { return }
+                self.commands.choosePlaylist([content.reference], anchor: anchor)
+            }, makePlaylistMenu: { [weak self] permitsAction in
+                guard let self, self.acceptsRemoteAction(page: page, epoch: epoch, sessionID: sessionID) else { return nil }
+                return self.commands.makePlaylistMenu([content.reference], permitsAction: permitsAction)
+            }, onRestoreLibrary: commands.makeRestoreLibraryAction(for: content))
+    }
+
+    private func remoteOrganization(for item: SteamWorkshopBrowserItem) -> AppKitSteamWorkshopBrowserItem.OrganizationPresentation? {
+        guard workspace.presentation.page == .workshop || workspace.presentation.page == .workshopSubscriptions else { return nil }
+        let provider = WallpaperReference(provider: .steamWorkshop, sourceID: item.id)
+        guard let content = downloadedContent[provider], content.publishedAvailability.isPublishedLocally, let cardState else { return nil }
+        let page = workspace.presentation.page, epoch = workspace.relationships.resetEpoch
+        let sessionID = workspace.presentation.selectionState.sessionID
+        let primary = remotePrimaryAction(content, page: page, epoch: epoch, sessionID: sessionID)
+        let favorite = makeCardFavoriteAction(content)
+        return .init(isFavorite: cardState.isFavorite(content.reference),
+            canFavorite: favorite != nil,
+            isPlaying: cardState.isPlaying(content.reference), canPlay: primary != nil,
+            canDownload: !content.capabilities.intersection([.download, .retryDownload, .retryUpdate]).isEmpty,
+            canCancel: content.capabilities.contains(.cancelDownload), onFavorite: { favorite?() }, onPrimary: primary)
+    }
+
+    private func remoteOrganizationMenu(for item: SteamWorkshopBrowserItem) -> NSMenu? {
+        let provider = WallpaperReference(provider: .steamWorkshop, sourceID: item.id)
+        guard let content = downloadedContent[provider], content.publishedAvailability.isPublishedLocally,
+              let organization = remoteOrganization(for: item) else { return nil }
+        let page = workspace.presentation.page, epoch = workspace.relationships.resetEpoch
+        let sessionID = workspace.presentation.selectionState.sessionID
+        let menu = NSMenu()
+        menu.autoenablesItems = false
+        let favorite = ActionMenuItem(title: organization.isFavorite ? "取消特别喜爱" : "特别喜爱", symbol: "heart") {
+            organization.onFavorite?()
+        }
+        favorite.isEnabled = organization.canFavorite
+        menu.addItem(favorite)
+        let playlist = NSMenuItem(title: "添加到列表", action: nil, keyEquivalent: "")
+        playlist.image = NSImage(systemSymbolName: "text.badge.plus", accessibilityDescription: nil)
+        playlist.submenu = commands.makePlaylistMenu([content.reference], permitsAction: { [weak self] in
+            self?.acceptsRemoteAction(page: page, epoch: epoch, sessionID: sessionID) == true
+        })
+        playlist.isEnabled = commands.canOrganize && content.capabilities.contains(.organize) && playlist.submenu != nil
+        menu.addItem(playlist)
+        if let restore = commands.makeRestoreLibraryAction(for: content) {
+            menu.addItem(ActionMenuItem(title: "重新加入我的下载", symbol: "arrow.down.to.line", handler: restore))
+        }
+        return menu
+    }
+
+    func selectedBrowserOrganizationActions() -> WallpaperInspectorActions? {
+        guard let item = steam.selectedBrowserItem else { return nil }
+        return remoteInspectorActions(for: item)
+    }
+
+    private func acceptsRemoteAction(page: WallpaperLibraryPage, epoch: UUID, sessionID: UUID, selectedID: String? = nil) -> Bool {
+        guard permitsInput, workspace.presentation.page == page, page.isRemoteBrowse,
+              workspace.relationships.resetEpoch == epoch, workspace.presentation.selectionState.sessionID == sessionID else { return false }
+        return selectedID.map { steam.selectedBrowserItem?.id.utf8.elementsEqual($0.utf8) == true } ?? true
+    }
+
+    private func remotePrimaryAction(_ content: WallpaperContentItem, page: WallpaperLibraryPage, epoch: UUID, sessionID: UUID,
+                                     selectedID: String? = nil) -> (() -> Void)? {
+        guard let cardState else { return nil }
+        if cardState.isPlaying(content.reference), content.kind != .image,
+           content.providerReference.provider != .pixabay, let ticket = cardState.committedTicket {
+            return { [weak self] in
+                guard let self, self.acceptsRemoteAction(page: page, epoch: epoch, sessionID: sessionID, selectedID: selectedID) else { return }
+                self.commands.stop(content.reference, expectedTicket: ticket)
+            }
+        }
+        guard content.capabilities.contains(.play) else { return nil }
+        return { [weak self] in
+            guard let self, self.acceptsRemoteAction(page: page, epoch: epoch, sessionID: sessionID, selectedID: selectedID) else { return }
+            self.workspace.requestSingle(content.reference)
+        }
+    }
+
+    private func remoteInspectorActions(for item: SteamWorkshopBrowserItem) -> WallpaperInspectorActions? {
+        guard workspace.presentation.page == .workshop || workspace.presentation.page == .workshopSubscriptions else { return nil }
+        let provider = WallpaperReference(provider: .steamWorkshop, sourceID: item.id)
+        guard let content = downloadedContent[provider], content.publishedAvailability.isPublishedLocally, let cardState else { return nil }
+        let page = workspace.presentation.page, epoch = workspace.relationships.resetEpoch
+        let sessionID = workspace.presentation.selectionState.sessionID
+        let primary = remotePrimaryAction(content, page: page, epoch: epoch, sessionID: sessionID, selectedID: item.id)
+        let favorite = makeCardFavoriteAction(content)
+        return .init(state: .init(isPlaying: cardState.isPlaying(content.reference), isFavorite: cardState.isFavorite(content.reference),
+            canPerformPrimary: primary != nil, canFavorite: favorite != nil,
+            canOrganize: commands.canOrganize && content.capabilities.contains(.organize),
+            playlistNames: playlistNames[cardState.canonical(content.reference)] ?? []), onPrimary: { primary?() },
+            onToggleFavorite: { [weak self] in
+                guard let self, self.acceptsRemoteAction(page: page, epoch: epoch, sessionID: sessionID, selectedID: item.id) else { return }
+                favorite?()
+            }, onChoosePlaylist: { [weak self] anchor in
+                guard let self, self.acceptsRemoteAction(page: page, epoch: epoch, sessionID: sessionID, selectedID: item.id) else { return }
+                self.commands.choosePlaylist([content.reference], anchor: anchor)
+            })
+    }
+
+    private func updateDirectoryFacts() {
+        let revision = (workspace.catalog.catalog.revision, workspace.relationships.revision, workspace.relationships.resetEpoch)
+        guard lastDirectoryRevision?.0 != revision.0 || lastDirectoryRevision?.1 != revision.1
+                || lastDirectoryRevision?.2 != revision.2 else { return }
+        lastDirectoryRevision = revision
+        do {
+            allEntries = try WallpaperLibraryQuery.directory(state: .init(), catalog: workspace.catalog.catalog, relationships: workspace.relationships)
+            artwork.update(entries: allEntries, resetEpoch: workspace.relationships.resetEpoch,
+                customCovers: Dictionary(uniqueKeysWithValues: workspace.relationships.playlists.compactMap { row in
+                row.customCoverAssetID.map { (row.id, $0) }
+            }), resolve: { [weak workspace] refs in
+                guard let workspace else { return [] }
+                return (try? WallpaperLibraryQuery.resolve(refs, catalog: workspace.catalog.catalog, relationships: workspace.relationships)) ?? []
+            })
+        } catch { workspace.presentation.report(error) }
+    }
+
+    private func renderCovers() {
+        let state = workspace.presentation.state
+        let count = state.page == .playlists ? workspace.relationships.playlists.count : state.queryResult.unfilteredCount
+        sidebar.update(page: state.page, playlists: workspace.relationships.playlists, counts: state.page.isRemoteBrowse ? [:] : [state.page: count],
+            covers: covers.compactMapValues(\.image), canEdit: commands.canOrganize, resetEpoch: workspace.relationships.resetEpoch, relationshipsRevision: workspace.relationships.revision)
+        if state.page == .playlists {
+            directory.update(entries: state.directoryEntries, covers: covers, preferredColumns: state.query.preferredColumns,
+                permitsReordering: commands.canOrganize && workspace.presentation.permitsDirectoryReordering, canEdit: commands.canOrganize, resetEpoch: workspace.relationships.resetEpoch, relationshipsRevision: workspace.presentation.relationshipsRevision)
+        }
+        if case .playlist = state.page { updateHeader(state) }
+    }
+
+    private func updateHeader(_ state: WallpaperLibraryPresentationState) {
+        guard case .playlist(let id) = state.page, let entry = allEntries.first(where: { $0.id == id }) else { return }
+        let playable = state.queryResult.items.filter { $0.capabilities.contains(.play) }.count
+        let query = state.query
+        let filtered = !query.search.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+            || query.provider != nil || query.kind != nil || query.status != .all
+        let summary = filtered ? "显示 \(state.queryResult.items.count) / 共 \(entry.count) 张壁纸" : "\(entry.count) 张壁纸"
+        header.update(name: entry.name, summary: summary, image: covers[id]?.image, canPlay: playable > 0, canAdd: commands.canOrganize,
+            descriptionText: workspace.relationships.playlists.first(where: { $0.id == id })?.descriptionText, playableCount: playable,
+            play: { [weak self] in
+                guard let self, self.permitsInput else { return }
+                self.commands.playDisplayed()
+            }, random: { [weak self] in
+                guard let self, self.permitsInput else { return }
+                self.commands.playDisplayed(random: true)
+            },
+            add: { [weak self] in self?.showPicker(for: id) })
+    }
+
+    private func updatePageChrome(_ state: WallpaperLibraryPresentationState) {
+        let page = state.page, epoch = workspace.relationships.resetEpoch
+        func action(_ title: String, _ perform: @escaping (WallpaperLibraryWindowComposition) -> Void) -> (String, () -> Void) {
+            (title, { [weak self] in
+                guard let self, self.permitsInput, self.workspace.presentation.page == page,
+                      self.workspace.relationships.resetEpoch == epoch else { return }
+                perform(self)
+            })
+        }
+        let filtered = !state.query.search.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty || state.query.provider != nil || state.query.kind != nil || state.query.status != .all
+        var message: String?, actions: [(String, () -> Void)] = []
+        var notices = [workspace.recoveryMessage, state.lastError].compactMap { $0 }.filter { !$0.isEmpty }
+        var noticeActions: [(String, () -> Void)] = []
+        let dependencies = (try? WallpaperLibraryQuery.requiredProviders(page: state.page, state: state.query, relationships: workspace.relationships)) ?? []
+        if state.page == .playlists {
+            let total = workspace.relationships.playlists.count, visible = state.directoryEntries.count
+            directory.setPullCountText(visible == total ? "共 \(total) 个播放列表" : "显示 \(visible) / 共 \(total) 个播放列表")
+        } else if case .playlist = page {
+            grid.scrollView.pullCountText = nil
+        } else if !state.page.isRemoteBrowse {
+            let total = state.queryResult.unfilteredCount, visible = state.queryResult.items.count
+            let fullCountKnown: Bool
+            switch page {
+            case .videos, .images, .downloads:
+                // The total precedes provider filtering. Keep the original
+                // filtered dependencies below for empty/loading feedback.
+                let allProviders = (try? WallpaperLibraryQuery.requiredProviders(page: page, state: .init(), relationships: workspace.relationships)) ?? []
+                fullCountKnown = allProviders.isSubset(of: workspace.catalog.catalog.loadedProviders)
+            default:
+                // Relation pages include unresolved canonical placeholders.
+                fullCountKnown = true
+            }
+            if fullCountKnown {
+                grid.scrollView.pullCountText = visible == total ? "共 \(total) 张壁纸" : "显示 \(visible) / 共 \(total) 张壁纸"
+            } else {
+                grid.scrollView.pullCountText = total > 0 ? (filtered ? "显示 \(visible) / 已加载 \(total) 张壁纸" : "已加载 \(total) 张壁纸") : nil
+            }
+        }
+        var scanFailed = false
+        // Remote browsing keeps its existing search/loading/error owner. These
+        // statuses describe only the local downloaded content used by a page.
+        if dependencies.contains(.pixabay), let scan = workspace.catalog.catalog.sourceScanStatuses[.pixabay] {
+            switch scan.phase {
+            case .loading:
+                if scan.hasSuccessfulScan { notices.append("正在刷新 Pixabay 已下载的壁纸…") }
+            case .ready(let warnings):
+                if !warnings.isEmpty { notices.append("Pixabay 已下载内容：" + warnings.joined(separator: "；")) }
+            case .failed(let reason):
+                scanFailed = true
+                notices.append((scan.hasSuccessfulScan ? "刷新失败，保留现有内容。" : "") + reason)
+                noticeActions.append(action("重试载入") { $0.online.refreshDownloadedContent() })
+            }
+        }
+        if state.page == .playlists {
+            if state.directoryEntries.isEmpty, !state.query.search.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+                message = "没有符合条件的播放列表"
+                actions = [action("清除搜索") { composition in
+                    var query = composition.workspace.presentation.queryState
+                    query.search = ""
+                    _ = composition.workspace.presentation.setQueryState(query)
+                }]
+            }
+        } else if !state.page.isRemoteBrowse, state.queryResult.items.isEmpty {
+            if scanFailed { message = "暂时没有可显示的壁纸" }
+            else if !dependencies.isSubset(of: workspace.catalog.catalog.loadedProviders) { message = "正在载入壁纸…" }
+            else if filtered {
+                message = "没有符合条件的壁纸"
+                actions = [action("清除筛选") { composition in
+                    var query = composition.workspace.presentation.queryState
+                    query.search = ""; query.provider = nil; query.kind = nil; query.status = .all
+                    _ = composition.workspace.presentation.setQueryState(query)
+                }]
+            } else {
+                switch state.page {
+                case .videos, .images:
+                    message = state.page == .images ? "导入图片，建立你的壁纸资料库" : "导入视频，建立你的壁纸资料库"
+                    if commands.canImport {
+                        actions = [action(state.page == .images ? "导入图片" : "导入视频") { composition in
+                            guard composition.commands.canImport else { return }
+                            composition.commands.importFiles()
+                        }]
+                    }
+                case .downloads:
+                    message = "下载的壁纸将显示在这里"
+                    actions = [action("浏览创意工坊") { $0.navigate(to: .workshop) }, action("浏览 Pixabay") { $0.navigate(to: .pixabay) }]
+                case .recent: message = "播放过的壁纸将显示在这里"
+                case .favorites: message = "点击壁纸上的心形加入特别喜爱"
+                case .playlist:
+                    message = "从顶部添加壁纸，开始建立这个播放列表"
+                default: break
+                }
+            }
+        }
+        chrome.update(notices: notices, empty: message, noticeActions: noticeActions, actions: actions)
+    }
+
+    private func publishRemoteMode(_ page: WallpaperLibraryPage) {
+        NotificationCenter.default.post(name: .steamWorkshopModeDidChange, object: nil,
+            userInfo: ["enabled": page == .workshop || page == .workshopSubscriptions || page == .downloads, "isDownloads": page == .downloads])
+        NotificationCenter.default.post(name: .onlineLibraryModeDidChange, object: nil, userInfo: ["enabled": page == .pixabay, "isDownloads": false])
+        NotificationCenter.default.post(name: .staticImageLibraryModeDidChange, object: nil, userInfo: ["enabled": false])
+    }
+
+    private func addReferences(_ references: [WallpaperReference], to id: UUID) -> Bool {
+        guard permitsInput, commands.canOrganize, !references.isEmpty, let collections = workspace.collections,
+              collections.snapshot.playlists.contains(where: { $0.id == id }),
+              let values = try? WallpaperLibraryQuery.resolve(references, catalog: workspace.catalog.catalog, relationships: workspace.relationships),
+              values.allSatisfy({ $0.capabilities.contains(.organize) }) else { return false }
+        let epoch = collections.snapshot.resetEpoch
+        Task { @MainActor [weak self] in
+            do {
+                try await collections.perform(.addMembers(id, values.map(\.organizationItem), Date()), undoName: "添加到列表", expectedEpoch: epoch)
+                guard collections.snapshot.resetEpoch == epoch, !collections.isResetting else { return }
+                self?.workspace.didEditMembers(of: .playlist(id))
+            } catch { if collections.snapshot.resetEpoch == epoch { self?.workspace.presentation.report(error) } }
+        }
+        return true
+    }
+
+    private func showPicker(for id: UUID) {
+        guard permitsInput, commands.canOrganize, picker == nil else { return }
+        let picker = WallpaperPlaylistPickerController(workspace: workspace, manager: manager, images: images, steam: steam,
+            online: online, target: id, hostWindow: { [weak self] in self?.split.view.window })
+        self.picker = picker
+        picker.onClose = { [weak self] in self?.picker = nil }
+        inspector.closePreview()
+        picker.show()
+    }
+
+    private func showCreatedPlaylistNotice(_ id: UUID) {
+        guard let playlist = workspace.relationships.playlists.first(where: { $0.id == id }),
+              let window = split.view.window else { return }
+        let epoch = workspace.relationships.resetEpoch
+        let page = workspace.presentation.page
+        creationNotice.show(name: playlist.name, in: window) { [weak self] in
+            guard let self, self.workspace.relationships.resetEpoch == epoch,
+                  self.workspace.collections?.isResetting != true, self.workspace.presentation.page == page,
+                  self.workspace.relationships.playlists.contains(where: { $0.id == id }) else { return }
+            self.navigate(to: .playlist(id))
+        }
+    }
+
+    func restoreContentFocus() {
+        guard !workspace.presentation.page.isRemoteBrowse, workspace.presentation.page != .playlists else { return }
+        grid.collection.window?.makeFirstResponder(grid.collection)
+    }
+
+    func escape() {
+        if inspector.isPreviewVisible { inspector.closePreview() }
+        else if inspector.inspectedReference != nil { inspector.closeInspector() }
+        else if workspace.presentation.selectionState.isSelecting { commands.toggleSelectionMode() }
+    }
+
+    func close() {
+        creationNotice.dismiss()
+        inspector.closeInspector(); inspector.closePreview()
+        artwork.setDemand(sourceToken: sidebarDemand, playlistIDs: [])
+        artwork.setDemand(sourceToken: directoryDemand, playlistIDs: [])
+        artwork.setDemand(sourceToken: headerDemand, playlistIDs: [])
+        artwork.updateCurrentList(first: nil)
+        workspace.catalog.setVisibleReferences([], sourceToken: gridDemand)
+        adapter.updateViewport(visible: [], prefetch: [])
+        picker?.close()
+        commands.playlists?.close()
+        directoryReturnContext = nil
+        windowVisibility = nil
+        windowObservers.forEach(NotificationCenter.default.removeObserver)
+        windowObservers = []
+        subscriptions.removeAll()
+    }
+}
