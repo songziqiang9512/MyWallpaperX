@@ -25,14 +25,34 @@ class WallpaperLibraryWorkspaceTests(unittest.TestCase):
                  "MyWallpaperX/Core/PlaybackControl/WallpaperRuntimeSwitch.swift",
                  "MyWallpaperX/Core/PlaybackControl/PlaybackSwitchTransaction.swift",
                  "MyWallpaperX/Core/PlaybackControl/WallpaperPlaybackSequence.swift",
+                 "MyWallpaperX/Core/PlaybackControl/WallpaperRotationDeadline.swift",
                  "MyWallpaperX/Shell/WallpaperLibraryPresentation.swift",
                  "MyWallpaperX/App/WallpaperLibraryWorkspace.swift",
                  "script/tests/fixtures/WallpaperLibraryWorkspaceHarness.swift"]
         extra = ["MyWallpaperX/Core/LibraryCollections/LibraryCollectionsStartupAdmission.swift",
-                 "MyWallpaperX/Core/LibraryCollections/LibraryCollectionsMigrationPublication.swift"]
+                 "MyWallpaperX/Core/LibraryCollections/LibraryCollectionsMigrationPublication.swift",
+                 "MyWallpaperX/Modules/VideoLibrary/Core/WallpaperManager+PlaybackControl.swift",
+                 "MyWallpaperX/Modules/VideoLibrary/Core/WallpaperManager+PlaybackSettings.swift",
+                 "script/tests/fixtures/WallpaperLibraryRotationSourceChecks.swift"]
         hashes = {p: hashlib.sha256((ROOT / p).read_bytes()).hexdigest() for p in paths + extra}
         fixture = (ROOT / paths[-1]).read_text().replace("// STARTUP_OUTCOME", declaration((ROOT / extra[0]).read_text(), "nonisolated enum LibraryCollectionsStartupOutcome:"))
         fixture = fixture.replace("// PUBLICATION_VALUE", declaration((ROOT / extra[1]).read_text(), "nonisolated struct LibraryCollectionsMigrationPublicationResult:"))
+        navigation, settings = (ROOT / extra[2]).read_text(), (ROOT / extra[3]).read_text()
+        advance_signature = '    @discardableResult\n    func advanceLibraryPlayback('
+        self.assertEqual(navigation.count(advance_signature), 1)
+        rotation = '\n'.join(declaration(navigation, signature) for signature in (
+            '    var librarySequenceMode:', advance_signature))
+        rotation += '\n' + '\n'.join(declaration(settings, signature) for signature in (
+            '    var libraryRotationInterval:', '    var libraryRotationEligible:', '    func rescheduleLibraryRotationTimer(',
+            '    func stopAutoSwitchTimer(', '    func refreshAutoSwitchTimerIfNeeded('))
+        for marker in ('let timer = Timer(timeInterval:', 'RunLoop.main.add(timer, forMode: .common)'):
+            self.assertEqual(rotation.count(marker), 1, marker)
+        self.assertEqual(fixture.count('// ACTUAL_SOURCE_ROTATION'), 1)
+        rotation = rotation.replace('let timer = Timer(timeInterval:', 'let timer = WorkspaceRotationTimer(timeInterval:')
+        rotation = rotation.replace('RunLoop.main.add(timer, forMode: .common)', 'WorkspaceRotationTimer.add(timer)')
+        rotation = rotation.replace('CACurrentMediaTime()', 'WorkspaceRotationClock.now')
+        fixture = fixture.replace('// ACTUAL_SOURCE_ROTATION', rotation)
+        fixture += '\n' + (ROOT / extra[4]).read_text()
         with tempfile.TemporaryDirectory(prefix="mwx-library-workspace-", dir="/private/tmp") as directory:
             work = Path(directory)
             for path in paths[:-1]:

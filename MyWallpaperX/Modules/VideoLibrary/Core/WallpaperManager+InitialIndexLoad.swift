@@ -198,7 +198,7 @@ extension WallpaperManager {
     func reportUnreadableInitialIndexChanges() {
         DispatchQueue.main.async {
             let alert = makeAppAlert(title: "部分视频库变更无法恢复",
-                                     message: "启动恢复记录已损坏或来自不支持的版本。原始记录已保留，现有视频库不会被清空；这些记录中的变更可能需要重新操作。",
+                                     message: "无法读取启动恢复记录。原始记录和视频库均已保留，未恢复的操作需重试。",
                                      style: .warning, buttons: ["知道了"])
             presentAppAlert(alert, in: nil)
         }

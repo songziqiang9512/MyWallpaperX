@@ -215,7 +215,7 @@ import ImageIO
             try requireGeneration(epoch, resetEpoch: recovery.plan.resetEpoch)
             try validateSources(recovery.plan)
             let current = PersonalSettingsPreferences(from: manager.settings)
-            guard current == recovery.plan.beforePreferences || current == recovery.plan.targetPreferences else {
+            guard recovery.plan.beforePreferences.matchesForRecovery(current) || recovery.plan.targetPreferences.matchesForRecovery(current) else {
                 throw PersonalSettingsError.preferencesChanged
             }
             if let patch = recovery.videoSortPatch { try validateVideoSort(patch, recovery.plan.resetEpoch) }

@@ -46,7 +46,26 @@ import CoreImage
                 if name == "password" {
                     precondition(panel.usernameField.superview!.bounds.height == 40)
                     precondition(panel.passwordField.superview!.bounds.height == 40)
+                    for field in [panel.usernameField as NSTextField, panel.passwordField] {
+                        let surface = field.superview as! WallpaperFormFieldSurface
+                        precondition(!field.isBordered && !field.isBezeled && !field.drawsBackground && field.focusRingType == .exterior)
+                        precondition(surface.layer?.cornerRadius == 10 && surface.layer?.borderWidth == 0.8)
+                        precondition(field.focusRingMaskBounds == field.convert(surface.bounds, from: surface))
+                    }
                     precondition(window.makeFirstResponder(panel.usernameField))
+                    let nativeEditor = panel.usernameField.currentEditor() as! NSTextView
+                    nativeEditor.setMarkedText("中文", selectedRange: NSRange(location: 2, length: 0), replacementRange: NSRange(location: NSNotFound, length: 0))
+                    precondition(nativeEditor.hasMarkedText() && nativeEditor.isFieldEditor)
+                    nativeEditor.unmarkText(); window.makeFirstResponder(nil)
+                    panel.passwordField.stringValue = "fixture-secret"
+                    let reveal = descendants(panel).compactMap { $0 as? NSButton }.first { $0.toolTip == "显示密码" }!
+                    reveal.performClick(nil)
+                    let visible = descendants(panel).compactMap { $0 as? WallpaperFormTextField }.first { $0.accessibilityLabel() == "密码（可见）" }!
+                    precondition(!visible.isHidden && panel.passwordField.isHidden && visible.stringValue == panel.passwordField.stringValue)
+                    precondition(visible.superview === panel.passwordField.superview && !visible.drawsBackground)
+                    reveal.performClick(nil)
+                    precondition(visible.isHidden && !panel.passwordField.isHidden && panel.passwordField.stringValue == "fixture-secret")
+                    panel.clearSecrets()
                 }
                 if let output {
                     let bitmap = panel.bitmapImageRepForCachingDisplay(in: panel.bounds)!

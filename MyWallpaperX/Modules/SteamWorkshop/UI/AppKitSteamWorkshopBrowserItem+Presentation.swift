@@ -8,6 +8,7 @@ extension AppKitSteamWorkshopBrowserItem {
         let isFavorite: Bool
         let canFavorite: Bool
         var isPlaying = false
+        var isSwitching = false
         var canPlay = true
         var canDownload = true
         var canCancel = true
@@ -159,7 +160,7 @@ extension AppKitSteamWorkshopBrowserItem {
 
     func refreshThemeAwareAppearance() {
         guard let layer = cardView.layer else { return }
-        let isDarkMode = view.effectiveAppearance.bestMatch(from: [.darkAqua, .aqua]) == .darkAqua
+        let isDarkMode = cardView.effectiveAppearance.bestMatch(from: [.darkAqua, .aqua]) == .darkAqua
         let inputs = ThemedChromeInputs(
             isDarkMode: isDarkMode,
             isHovering: isHovering,
@@ -176,30 +177,24 @@ extension AppKitSteamWorkshopBrowserItem {
             ? NSColor(calibratedWhite: 1.0, alpha: 0.98)
             : NSColor(calibratedWhite: 0.08, alpha: 0.92)
         let hoverOutlineColor = NSColor.white.withAlphaComponent(isDarkMode ? 0.56 : 0.72)
-        let selectedOutlineColor = NSColor.controlAccentColor.withAlphaComponent(isDarkMode ? 0.92 : 0.84)
-
-        layer.backgroundColor = NSColor.clear.cgColor
-        let ringColor: NSColor
-        if isHovering {
-            ringColor = NSColor.white.withAlphaComponent(0.12)
-        } else {
-            ringColor = NSColor.white.withAlphaComponent(0.028)
+        cardView.effectiveAppearance.performAsCurrentDrawingAppearance {
+            let selectedOutlineColor = NSColor.controlAccentColor.withAlphaComponent(isDarkMode ? 0.92 : 0.84)
+            layer.backgroundColor = NSColor.clear.cgColor
+            let ringColor = NSColor.white.withAlphaComponent(isHovering ? 0.12 : 0.028)
+            layer.borderColor = ringColor.cgColor
+            hoverOutlineView.layer?.borderColor = (isSelectionHighlighted ? selectedOutlineColor : hoverOutlineColor).cgColor
+            previewContainer.layer?.backgroundColor = NSColor.windowBackgroundColor.withAlphaComponent(0.14).cgColor
+            multiSelectBadgeView.layer?.backgroundColor = (isSelectionHighlighted
+                ? NSColor.controlAccentColor : NSColor.black.withAlphaComponent(0.42)).cgColor
         }
-        layer.borderColor = ringColor.cgColor
         layer.shadowOpacity = isHovering ? 0.05 : 0.025
         layer.shadowRadius = isHovering ? 7 : 6
         layer.shadowOffset = CGSize(width: 0, height: -1)
-        hoverOutlineView.layer?.borderColor = (isSelectionHighlighted ? selectedOutlineColor : hoverOutlineColor).cgColor
         hoverOutlineView.layer?.borderWidth = isSelectionHighlighted ? 1.6 : 1
-
-        previewContainer.layer?.backgroundColor = NSColor.windowBackgroundColor.withAlphaComponent(0.14).cgColor
 
         let showsSelectionBadge = currentDisplayContext == .downloads && isMultiSelectMode
         multiSelectBadgeView.isHidden = !showsSelectionBadge
         if showsSelectionBadge {
-            multiSelectBadgeView.layer?.backgroundColor = isSelectionHighlighted
-                ? NSColor.controlAccentColor.cgColor
-                : NSColor.black.withAlphaComponent(0.42).cgColor
             multiSelectBadgeView.layer?.borderColor = NSColor.white.withAlphaComponent(0.28).cgColor
             multiSelectBadgeView.layer?.borderWidth = isSelectionHighlighted ? 0 : 1
             multiSelectBadgeIcon.isHidden = !isSelectionHighlighted
@@ -237,7 +232,6 @@ extension AppKitSteamWorkshopBrowserItem {
         titleMarqueeView.textColor = fixedForeground
         titleMarqueeView.appearance = overlayBar.appearance
 
-        statusBadgeButton.contentTintColor = fixedForeground
         statusBadgeButton.appearance = overlayBar.appearance
         refreshSubscribeHeart()
         updateContinuousAnimationState()

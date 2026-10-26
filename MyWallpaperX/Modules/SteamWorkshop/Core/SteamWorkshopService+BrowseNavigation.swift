@@ -1,7 +1,29 @@
 import Foundation
 
 extension SteamWorkshopService {
-    func enterBrowseSection(_ section: SteamWorkshopBrowseSection) {
+    var canReturnFromBrowse: Bool { isBrowsingAuthorWorkshop || source.isPersonal }
+
+    func showMySubscriptions() {
+        guard steamAuth.isOnline else { return }
+        dismissDownloadInspector()
+        if isBrowsingAuthorWorkshop { returnToDiscoveryBrowse(selectOrigin: false) }
+        enterBrowseSection(.personal)
+        prepareForBrowserEntry()
+        requestSteamWorkshopBrowserSelection()
+    }
+
+    func returnFromBrowseSubpage() {
+        if isBrowsingAuthorWorkshop {
+            returnToDiscoveryBrowse()
+        } else if source.isPersonal {
+            enterBrowseSection(.discovery)
+            prepareForBrowserEntry()
+            requestSteamWorkshopBrowserSelection()
+        }
+    }
+
+    func enterBrowseSection(_ section: SteamWorkshopBrowseSection, loadIfNeeded: Bool = true) {
+        guard section != .personal || steamAuth.isOnline else { return }
         let current: SteamWorkshopBrowseSection = source.isPersonal ? .personal : .discovery
         guard current != section else { return }
         dismissItemDetail()
@@ -25,7 +47,7 @@ extension SteamWorkshopService {
             facetFilters = saved.facetFilters
             personalSort = saved.personalSort
             trendingWindow = saved.trendingWindow
-            restoreDiscoveryBrowseSnapshot(saved, restoredQuery: saved.browserQuery)
+            restoreDiscoveryBrowseSnapshot(saved, restoredQuery: saved.browserQuery, resumeInterruptedLoad: loadIfNeeded)
             return
         }
         source = section == .personal ? .mySubscriptions : .featured
@@ -37,7 +59,7 @@ extension SteamWorkshopService {
         browserState = .idle
         currentBrowserScrollOffsetY = 0
         pendingBrowserScrollRestoreOffset = 0
-        navigateToBrowse()
+        if loadIfNeeded { navigateToBrowse() }
     }
 
     func invalidatePersonalBrowseSnapshot(discard: Bool = false) {
@@ -290,8 +312,8 @@ extension SteamWorkshopService {
         NotificationCenter.default.post(
             name: .appKitSelectItemRequested,
             object: nil,
-            // Author results always belong to Workshop. The independent return
-            // destination retains Downloads/Subscriptions without changing this host.
+            // Personal and author results share Workshop. The bounded return
+            // snapshots retain their source state without a second Shell page.
             userInfo: ["selectedItem": "steamWorkshop",
                        "preserveSteamBrowseContext": true]
         )

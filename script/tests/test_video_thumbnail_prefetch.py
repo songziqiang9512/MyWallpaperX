@@ -34,9 +34,10 @@ def prepare_video_thumbnail_generator_sources(tree: Path, work: Path, fixture: P
     manager = core / 'WallpaperManager.swift'
     persistence = core / 'WallpaperManager+Persistence.swift'
     static_frames = core / 'WallpaperManager+StaticFramePipeline.swift'
+    application = core / 'WallpaperManager+WallpaperApplication.swift'
     model = tree / 'MyWallpaperX/Models/VideoWallpaper.swift'
     fixture = fixture or tree / 'script/tests/fixtures/VideoThumbnailGeneratorChecks.swift'
-    inputs = [pipeline, manager, persistence, static_frames, model, fixture]
+    inputs = [pipeline, manager, persistence, static_frames, application, model, fixture]
     hashes = {str(path): hashlib.sha256(path.read_bytes()).hexdigest() for path in inputs}
     manager_source = manager.read_text()
     fields = []
@@ -54,7 +55,8 @@ def prepare_video_thumbnail_generator_sources(tree: Path, work: Path, fixture: P
         '        VideoThumbnailObservations.shared.normalized()\n        return ' + normalize_leaf.strip())
     harness = fixture.read_text().replace('// ACTUAL_CACHE_FIELDS', '\n'.join(fields))
     harness = harness.replace('// ACTUAL_PATH_METHODS', normalizer + '\n' + declaration(manager_source, '    func pathExists('))
-    harness = harness.replace('// ACTUAL_CLEAR_METHOD', declaration(persistence.read_text(), '    func clearPreviewCacheArtifacts('))
+    harness = harness.replace('// ACTUAL_CLEAR_METHOD', declaration(persistence.read_text(), '    func clearPreviewCacheArtifacts(')
+        + '\n' + declaration(application.read_text(), '    func clearUnprotectedStaticFrameFiles('))
     harness = harness.replace('// ACTUAL_STATIC_FRAME_OUTPUT', declaration(static_frames.read_text(), '    func staticFrameOutputURL('))
     observed = pipeline.read_text()
     entry = '    func generateCGImage(using generator: AVAssetImageGenerator, at time: CMTime) -> CGImage? {'

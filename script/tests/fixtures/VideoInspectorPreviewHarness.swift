@@ -11,6 +11,7 @@
 // 场景输出 `RESULT <name> PASS|FAIL`，由 test_video_inspector_preview_reload 断言。
 
 import AppKit
+import QuartzCore
 import Combine
 import Foundation
 
@@ -319,6 +320,15 @@ enum Harness {
         let initialPreview = firstSubview(of: inspector) { $0 is VideoLibraryInspectorPreviewSurfaceView }!
         let initialFrame = initialPreview.convert(initialPreview.bounds, to: container)
         let initialPreviewConstraintCount = initialPreview.constraints.count
+        let detailScroll = firstSubview(of: inspector) { $0 is InspectorFadingScrollView } as! InspectorFadingScrollView
+        let detailDocument = detailScroll.documentView!
+        let initialViewport = detailDocument.convert(detailScroll.contentView.bounds, from: detailScroll.contentView)
+        let initialImageRect = initialPreview.convert(initialPreview.bounds, to: detailDocument)
+        let topColors = (detailScroll.layer?.mask as? CAGradientLayer)?.colors as? [CGColor]
+        check(detailDocument.isFlipped && initialViewport.contains(initialImageRect)
+            && abs(initialImageRect.minY - initialViewport.minY - 8) <= 1 / window.backingScaleFactor
+            && topColors?.first?.alpha == 1,
+            "s11-first-video-preview-starts-at-safe-unfaded-top")
 
         // 场景 1：初始缺图——「未找到缩略图」提示出现，占位可见
         let initialNotice = waitFor(timeout: 4.0) { noticeVisible(in: inspector) }
@@ -414,6 +424,24 @@ enum Harness {
         manager.wallpapers = [VideoWallpaper(id: "card-a", title: "A", path: videoD)]
         check(waitFor(timeout: 4.0) { noticeVisible(in: inspector) && placeholderVisible(in: inspector) },
               "s8-same-path-derived-assets-cleared")
+
+        let originalSize = window.contentView!.bounds.size
+        window.setContentSize(NSSize(width: originalSize.width, height: 320))
+        container.layoutSubtreeIfNeeded()
+        let maximumOffset = detailDocument.bounds.height - detailScroll.contentView.bounds.height
+        detailScroll.contentView.scroll(to: NSPoint(x: 0, y: min(37, maximumOffset)))
+        detailScroll.reflectScrolledClipView(detailScroll.contentView)
+        let scrolledColors = (detailScroll.layer?.mask as? CAGradientLayer)?.colors as? [CGColor]
+        detailScroll.contentView.scroll(to: .zero)
+        detailScroll.reflectScrolledClipView(detailScroll.contentView)
+        let returnedColors = (detailScroll.layer?.mask as? CAGradientLayer)?.colors as? [CGColor]
+        let returnedViewport = detailDocument.convert(detailScroll.contentView.bounds, from: detailScroll.contentView)
+        let returnedImageRect = initialPreview.convert(initialPreview.bounds, to: detailDocument)
+        check(maximumOffset >= 37 && scrolledColors?.first?.alpha == 0 && returnedColors?.first?.alpha == 1
+            && returnedViewport.contains(returnedImageRect) && returnedImageRect.minY == 8
+            && initialPreview === firstSubview(of: inspector) { $0 is VideoLibraryInspectorPreviewSurfaceView },
+            "s11-native-video-scroll-enables-fade-only-away-from-top")
+        window.setContentSize(originalSize); container.layoutSubtreeIfNeeded()
 
         // 场景 7：面板关闭（视图释放）后的迟到回调安全
         manager.blockResolvedThumbnail(for: videoE)

@@ -80,6 +80,8 @@ class VideoInspectorPreviewReloadTests(unittest.TestCase):
                 "s10-preview-constraints-do-not-grow-on-metadata-or-source-echoes",
                 "s10-metadata-and-missing-preview-keep-native-preview-frame",
                 "s10-thumbnail-arrival-updates-only-the-same-fixed-preview",
+                "s11-first-video-preview-starts-at-safe-unfaded-top",
+                "s11-native-video-scroll-enables-fade-only-away-from-top",
                 "s1-initial-missing-notice",
                 "s1-initial-placeholder-visible",
                 "s1-required-store-membership-only",

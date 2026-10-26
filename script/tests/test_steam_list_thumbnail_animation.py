@@ -59,6 +59,7 @@ import Foundation
 // these bodies run except as compile-time witnesses.
 
 final class SteamWorkshopService {
+    var navigationVersion = 0
     static let shared = SteamWorkshopService()
     let steamAuth = SteamAuthProbe()
     let steamSubscriptions = SteamSubscriptionsProbe()
@@ -99,7 +100,7 @@ final class SteamSubscriptionsProbe {
 }
 
 enum SteamWorkshopItemMenu {
-    static func make(item: SteamWorkshopBrowserItem, service: SteamWorkshopService) -> NSMenu {
+    static func make(item: SteamWorkshopBrowserItem, service: SteamWorkshopService, navigationVersion: Int? = nil) -> NSMenu {
         NSMenu()
     }
 }

@@ -240,40 +240,42 @@ final class InspectorFooterButton: NSControl {
             return
         }
 
-        let enabledAlpha: CGFloat = isEnabled ? 1 : 0.45
-        let pressedFactor: CGFloat = isPressed ? 0.88 : 1
-        let isDarkMode = resolvedIsDarkMode()
-        let fill: NSColor
-        let text: NSColor
-        let border: NSColor
+        effectiveAppearance.performAsCurrentDrawingAppearance {
+            let enabledAlpha: CGFloat = isEnabled ? 1 : 0.45
+            let pressedFactor: CGFloat = isPressed ? 0.88 : 1
+            let isDarkMode = resolvedIsDarkMode()
+            let fill: NSColor
+            let text: NSColor
+            let border: NSColor
 
-        switch kind {
-        case .primary:
-            fill = NSColor.controlAccentColor.withAlphaComponent((isDarkMode ? 0.95 : 0.88) * enabledAlpha * pressedFactor)
-            text = .white.withAlphaComponent(enabledAlpha)
-            border = NSColor.controlAccentColor.withAlphaComponent(0.42 * enabledAlpha)
-        case .secondary:
-            fill = isDarkMode
-                ? NSColor.black.withAlphaComponent(0.26 * enabledAlpha * pressedFactor)
-                : NSColor.black.withAlphaComponent(0.06 * enabledAlpha * pressedFactor)
-            text = (isDarkMode ? NSColor.white : NSColor.black)
-                .withAlphaComponent(enabledAlpha)
-            border = (isDarkMode ? NSColor.white : NSColor.black)
-                .withAlphaComponent((isDarkMode ? 0.16 : 0.08) * enabledAlpha)
-        case .danger:
-            fill = NSColor.systemRed.withAlphaComponent((isDarkMode ? 0.74 : 0.66) * enabledAlpha * pressedFactor)
-            text = .white.withAlphaComponent(enabledAlpha)
-            border = NSColor.systemRed.withAlphaComponent(0.26 * enabledAlpha)
+            switch kind {
+            case .primary:
+                fill = NSColor.controlAccentColor.withAlphaComponent((isDarkMode ? 0.95 : 0.88) * enabledAlpha * pressedFactor)
+                text = .white.withAlphaComponent(enabledAlpha)
+                border = NSColor.controlAccentColor.withAlphaComponent(0.42 * enabledAlpha)
+            case .secondary:
+                fill = isDarkMode
+                    ? NSColor.black.withAlphaComponent(0.26 * enabledAlpha * pressedFactor)
+                    : NSColor.black.withAlphaComponent(0.06 * enabledAlpha * pressedFactor)
+                text = (isDarkMode ? NSColor.white : NSColor.black)
+                    .withAlphaComponent(enabledAlpha)
+                border = (isDarkMode ? NSColor.white : NSColor.black)
+                    .withAlphaComponent((isDarkMode ? 0.16 : 0.08) * enabledAlpha)
+            case .danger:
+                fill = NSColor.systemRed.withAlphaComponent((isDarkMode ? 0.74 : 0.66) * enabledAlpha * pressedFactor)
+                text = .white.withAlphaComponent(enabledAlpha)
+                border = NSColor.systemRed.withAlphaComponent(0.26 * enabledAlpha)
+            }
+
+            iconView.contentTintColor = text
+            iconView.symbolConfiguration = NSImage.SymbolConfiguration(
+                pointSize: rawTitle.isEmpty ? 17 : 14,
+                weight: .semibold
+            )
+            titleLabel.textColor = text
+            layer?.backgroundColor = fill.cgColor
+            layer?.borderColor = (isHovering && isEnabled ? NSColor.controlAccentColor.withAlphaComponent(0.5) : border).cgColor
         }
-
-        iconView.contentTintColor = text
-        iconView.symbolConfiguration = NSImage.SymbolConfiguration(
-            pointSize: rawTitle.isEmpty ? 17 : 14,
-            weight: .semibold
-        )
-        titleLabel.textColor = text
-        layer?.backgroundColor = fill.cgColor
-        layer?.borderColor = (isHovering && isEnabled ? NSColor.controlAccentColor.withAlphaComponent(0.5) : border).cgColor
     }
 
     private func updateIconImage() {

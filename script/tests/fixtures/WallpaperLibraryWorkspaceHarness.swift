@@ -1,5 +1,6 @@
 import Combine
 import Foundation
+import QuartzCore
 
 // STARTUP_OUTCOME
 // PUBLICATION_VALUE
@@ -17,17 +18,35 @@ import Foundation
     var libraryPlaybackSnapshotProvider: ((WallpaperReference?, WallpaperPlaybackSequence.Source, WallpaperPlaybackCause) -> WallpaperPlaybackSequence.Snapshot?)?
     var libraryPlaybackDispatcher: ((WallpaperPlaybackSequence.Pending) -> Bool)?
     var libraryPlaybackCommitted: ((WallpaperPlaybackSequence.Commit) -> Void)?
+    var libraryPlaybackPendingChanged: (() -> Void)?
     var libraryPlaybackStopped: (() -> Void)?
     var libraryPlaybackFailed: ((WallpaperPlaybackSequence.Pending) -> Void)?
     var libraryPlaybackResetRequested: (() -> Void)?
     var libraryBackingPublished: ((WallpaperContentBackingPublication) -> Void)?
     var sourceUpdates: [WallpaperPlaybackSequence.SourceUpdateReason] = []
     var sourceSnapshots: [(WallpaperPlaybackSequence.Snapshot, PlaybackSwitchTicket?)] = []
+    struct Settings {
+        enum Unit { case seconds; var secondsValue: Int { 1 } }
+        var autoSwitchEnabled = true, randomInterval = 1
+        var timeUnit = Unit.seconds
+    }
+    var settings = Settings()
+    var mode = WallpaperPlaybackSequence.Mode.sequential
+    var libraryRotationDeadline = WallpaperRotationDeadline()
+    var autoSwitchTimer: WorkspaceRotationTimer?
+    func playbackMode() -> WallpaperPlaybackSequence.Mode { mode }
+    func isSwitchingPlaybackMode() -> Bool { mode != .loop }
+    // ACTUAL_SOURCE_ROTATION
     @discardableResult
     func requestLibraryPlayback(reference: WallpaperReference, from snapshot: WallpaperPlaybackSequence.Snapshot,
                                 cause: WallpaperPlaybackCause) -> PlaybackSwitchTicket? {
         guard let proposal = libraryPlaybackSequence.proposeSelection(reference, from: snapshot, cause: cause),
               let runtime = proposal.entry.runtime else { return nil }
+        return dispatchLibraryPlayback(proposal, runtime: runtime)
+    }
+    private func dispatchLibraryPlayback(_ proposal: WallpaperPlaybackSequence.Proposal,
+                                        runtime: WallpaperRuntimeKind? = nil) -> PlaybackSwitchTicket? {
+        guard let runtime = runtime ?? proposal.entry.runtime else { return nil }
         let ticket = playbackSwitch.begin(runtime).0
         guard libraryPlaybackSequence.stage(proposal, ticket: ticket), let pending = libraryPlaybackSequence.pending,
               libraryPlaybackDispatcher?(pending) == true else { return nil }
@@ -42,11 +61,25 @@ import Foundation
     func presentPreparedTarget() {
         guard let pending = libraryPlaybackSequence.pending else { return }
         let execution = UUID()
-        _ = playbackSwitch.prepared(pending.ticket, executionID: execution)
-        // With no native old endpoint this value-only harness can present the
-        // first target directly. Later source tests need only the same ticket.
-        if playbackSwitch.pending?.phase == .activating { _ = playbackSwitch.visible(pending.ticket, executionID: execution) }
-        if let commit = libraryPlaybackSequence.commit(pending.ticket) { libraryPlaybackCommitted?(commit) }
+        var effects = playbackSwitch.prepared(pending.ticket, executionID: execution)
+        // The real transaction/sequence run; only native output/exit ACKs are
+        // immediate leaves. This permits source-bound timer successors too.
+        while !effects.isEmpty {
+            switch effects.removeFirst() {
+            case .output(let operation): effects += playbackSwitch.activityCompleted(operation, succeeded: true)
+            case .activate(let selection): effects += playbackSwitch.visible(selection.ticket, executionID: selection.executionID!)
+            case .cancel(let barrier, _): effects += playbackSwitch.cancelled(barrier)
+            case .retire(let barrier, _), .handoff(let barrier, _, _): effects += playbackSwitch.retired(barrier)
+            case .commit(let selection, let recovery):
+                if let commit = libraryPlaybackSequence.commit(selection.ticket, recovery: recovery) {
+                    libraryRotationDeadline.commitSuccess(now: WorkspaceRotationClock.now, interval: libraryRotationInterval,
+                        eligible: libraryRotationEligible)
+                    libraryPlaybackCommitted?(commit)
+                    refreshAutoSwitchTimerIfNeeded()
+                }
+            default: break
+            }
+        }
     }
 }
 @MainActor final class SILService {}
@@ -83,6 +116,7 @@ import Foundation
 
 @MainActor final class PlaybackCommandMultiplexer {
     static let shared = PlaybackCommandMultiplexer()
+    var isPlaybackPaused = false
     var pauseSnapshots: AnyPublisher<WorkspacePause, Never> { Just(WorkspacePause(isUserPaused: false)).eraseToAnyPublisher() }
 }
 struct WorkspacePause { let isUserPaused: Bool }
@@ -287,6 +321,7 @@ struct WorkspacePause { let isUserPaused: Bool }
                 && settled.first?.isPlayable == true && settled.dropFirst().first?.isPlayable == true
                 && settled.dropFirst(2).allSatisfy { !$0.isPlayable }
         }
+        checks.merge(try await runWorkspaceRotationSourceChecks(root: database.deletingLastPathComponent()), uniquingKeysWith: { _, newer in newer })
         print(String(data: try JSONSerialization.data(withJSONObject: checks, options: [.sortedKeys]), encoding: .utf8)!)
     }
 }

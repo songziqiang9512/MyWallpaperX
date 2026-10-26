@@ -103,6 +103,25 @@ extension Notification.Name {
         let manager = WallpaperManager()
         defer { manager.defaults.removePersistentDomain(forName: ProcessInfo.processInfo.environment["MWX_PROFILE_TEST_DOMAIN"]!) }
         var checks: [String: Bool] = [:]
+        var nativeBackground = WallpaperSettings()
+        nativeBackground.libraryBackgroundStyle = .macOSNative
+        nativeBackground.volume = 73
+        let restoredBackground = try JSONDecoder().decode(WallpaperSettings.self, from: JSONEncoder().encode(nativeBackground))
+        checks["BackgroundStylePersistsWithoutChangingOtherSettings"] = restoredBackground == nativeBackground
+        for value in ["{}", "{\"libraryBackgroundStyle\":\"future-style\",\"volume\":31}", "{\"libraryBackgroundStyle\":42,\"volume\":31}"] {
+            let decoded = try JSONDecoder().decode(WallpaperSettings.self, from: Data(value.utf8))
+            checks["MissingOrUnknownBackgroundStyleDefaultsLocally-\(value)"] = decoded.libraryBackgroundStyle == .listCoverTint
+                && decoded.volume == (value == "{}" ? 50 : 31)
+        }
+        let oldPreferences = try JSONDecoder().decode(PersonalSettingsPreferences.self, from: Data("{}".utf8))
+        checks["OldProfilePreservesLocalBackgroundStyle"] = oldPreferences.applying(to: nativeBackground).libraryBackgroundStyle == .macOSNative
+        let exportedBackground = try JSONDecoder().decode(PersonalSettingsPreferences.self,
+            from: JSONEncoder().encode(PersonalSettingsPreferences(from: nativeBackground)))
+        checks["ProfileRoundTripRestoresExplicitBackgroundStyle"] = exportedBackground.applying(to: WallpaperSettings()).libraryBackgroundStyle == .macOSNative
+        let futurePreferences = try JSONDecoder().decode(PersonalSettingsPreferences.self,
+            from: Data("{\"libraryBackgroundStyle\":\"future-style\",\"volume\":19}".utf8))
+        let futureApplied = futurePreferences.applying(to: nativeBackground)
+        checks["UnknownProfileBackgroundStylePreservesLocalStyleAndOtherChanges"] = futureApplied.libraryBackgroundStyle == .macOSNative && futureApplied.volume == 19
         let originalDate = Date(timeIntervalSince1970: 30)
         let a = VideoWallpaper(id: "A", title: "Original", path: root.appendingPathComponent("missing-A.mp4").path,
             thumbnailPath: "/derived/thumbnail", isFavorite: true, lastUsed: originalDate, tags: ["retired"], duration: 50,
@@ -333,6 +352,88 @@ extension Notification.Name {
         try restarted.clearRecoveryAfterReset()
         checks["ResetEpochRetiresOldRecoveryWithoutReimport"] = restarted.allowsEditing
             && !FileManager.default.fileExists(atPath: recoveryURL.path) && controller.snapshot.playlists.isEmpty
+
+        // Reopen an actual failed import journal with exactly the pre-T07
+        // preference shape. No background key was present in either snapshot.
+        do {
+            let originalSettings = manager.settings
+            defer { manager.settings = originalSettings; manager.defaults.failSynchronization = false }
+            let compatibilityURL = root.appendingPathComponent("background-recovery.json")
+            let compatibilityProfile = root.appendingPathComponent("background-profile.json")
+            manager.settings.libraryBackgroundStyle = .listCoverTint
+            let compatibility = makeCoordinator(compatibilityURL)
+            var oldTarget = PersonalSettingsPreferences(from: manager.settings); oldTarget.volume = 24
+            try write(.init(exportedAt: originalDate, preferences: oldTarget, sources: [], collections: .init()), to: compatibilityProfile)
+            manager.defaults.failSynchronization = true
+            var oldWriteFailed = false
+            do { _ = try await compatibility.importPersonalSettings(from: compatibilityProfile) }
+            catch { oldWriteFailed = true }
+            manager.defaults.failSynchronization = false
+            checks["OldJournalComesFromRealFailedPreferenceDurability"] = oldWriteFailed
+                && manager.settings.volume == originalSettings.volume && !compatibility.allowsEditing
+            var oldJournal = try JSONSerialization.jsonObject(with: Data(contentsOf: compatibilityURL)) as! [String: Any]
+            var oldPlan = oldJournal["plan"] as! [String: Any]
+            for key in ["beforePreferences", "targetPreferences"] {
+                var preferences = oldPlan[key] as! [String: Any]
+                preferences.removeValue(forKey: "libraryBackgroundStyle")
+                oldPlan[key] = preferences
+            }
+            oldJournal["plan"] = oldPlan
+            try JSONSerialization.data(withJSONObject: oldJournal).write(to: compatibilityURL, options: .atomic)
+            manager.settings.libraryBackgroundStyle = .macOSNative
+            let oldRelaunch = makeCoordinator(compatibilityURL)
+            checks["OldJournalReopenKeepsRecoveryBarrierBeforeResume"] = !oldRelaunch.allowsEditing
+                && (oldPlan["beforePreferences"] as? [String: Any])?["libraryBackgroundStyle"] == nil
+                && (oldPlan["targetPreferences"] as? [String: Any])?["libraryBackgroundStyle"] == nil
+            let oldJournalBytes = try Data(contentsOf: compatibilityURL)
+            manager.settings.volume = originalSettings.volume + 1
+            do { _ = try await oldRelaunch.resumeIfNeeded(); checks["OldJournalStillRejectsLaterEditsToExistingPreferenceFields"] = false }
+            catch PersonalSettingsError.preferencesChanged {
+                let afterConflict = try Data(contentsOf: compatibilityURL)
+                checks["OldJournalStillRejectsLaterEditsToExistingPreferenceFields"] = manager.settings.volume == originalSettings.volume + 1
+                    && manager.settings.libraryBackgroundStyle == .macOSNative && afterConflict == oldJournalBytes
+            }
+            manager.settings.volume = originalSettings.volume
+            _ = try await oldRelaunch.resumeIfNeeded()
+            let savedAfterOldRecovery = try JSONDecoder().decode(WallpaperSettings.self, from: manager.defaults.data(forKey: manager.settingsKey)!)
+            checks["OldJournalResumePreservesLocalBackgroundAndDurablyAppliesOtherPreferences"] = oldRelaunch.allowsEditing
+                && manager.settings.libraryBackgroundStyle == .macOSNative && manager.settings.volume == 24
+                && savedAfterOldRecovery.libraryBackgroundStyle == .macOSNative && savedAfterOldRecovery.volume == 24
+                && !FileManager.default.fileExists(atPath: compatibilityURL.path)
+
+            // A current journal explicitly owns its background choice. A later
+            // local edit must still fail both CAS boundaries without rewriting.
+            var explicitTarget = PersonalSettingsPreferences(from: manager.settings); explicitTarget.volume = 25
+            try write(.init(exportedAt: originalDate, preferences: explicitTarget, sources: [], collections: .init()), to: compatibilityProfile)
+            manager.defaults.failSynchronization = true
+            var explicitWriteFailed = false
+            do { _ = try await oldRelaunch.importPersonalSettings(from: compatibilityProfile) }
+            catch { explicitWriteFailed = true }
+            manager.defaults.failSynchronization = false
+            let explicitJournal = try Data(contentsOf: compatibilityURL)
+            checks["ExplicitStyleJournalAlsoComesFromRealFailedDurability"] = explicitWriteFailed && !oldRelaunch.allowsEditing
+            let beforeStyleEdit = PersonalSettingsPreferences(from: manager.settings)
+            manager.settings.libraryBackgroundStyle = .listCoverTint
+            let explicitRelaunch = makeCoordinator(compatibilityURL)
+            do { _ = try await explicitRelaunch.resumeIfNeeded(); checks["ExplicitJournalRejectsLaterBackgroundEditWithoutChangingRecovery"] = false }
+            catch PersonalSettingsError.preferencesChanged {
+                let afterConflict = try Data(contentsOf: compatibilityURL)
+                checks["ExplicitJournalRejectsLaterBackgroundEditWithoutChangingRecovery"] = manager.settings.libraryBackgroundStyle == .listCoverTint
+                    && manager.settings.volume == 24 && !explicitRelaunch.allowsEditing
+                    && afterConflict == explicitJournal
+            }
+            do {
+                try manager.applyPersonalSettingsPreferences(expected: beforeStyleEdit, target: explicitTarget)
+                checks["DirectPreferenceOwnerAlsoRejectsExplicitLaterBackgroundEdit"] = false
+            } catch PersonalSettingsError.preferencesChanged {
+                checks["DirectPreferenceOwnerAlsoRejectsExplicitLaterBackgroundEdit"] = manager.settings.libraryBackgroundStyle == .listCoverTint
+                    && manager.settings.volume == 24
+            }
+            manager.settings.libraryBackgroundStyle = .macOSNative
+            _ = try await explicitRelaunch.resumeIfNeeded()
+            checks["ExplicitJournalResumesAfterOriginalBackgroundChoiceIsRestored"] = explicitRelaunch.allowsEditing
+                && manager.settings.libraryBackgroundStyle == .macOSNative && manager.settings.volume == 25
+        }
 
         // Legacy tags include empty, isolated, NFC-equivalent and case distinct.
         let legacy = try LibraryPersonalSettings.decode(Data("""

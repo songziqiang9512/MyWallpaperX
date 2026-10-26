@@ -59,6 +59,36 @@ import QuartzCore
             guard let bytes = bitmap.bitmapData else { return nil }
             return Data(bytes: bytes, count: bitmap.bytesPerRow * bitmap.pixelsHigh)
         }
+        func edgeAlpha(_ scroll: NSScrollView, top: Bool) -> CGFloat? {
+            guard let mask = scroll.layer?.mask, scroll.bounds.width > 0, scroll.bounds.height > 0,
+                  let bitmap = scroll.bitmapImageRepForCachingDisplay(in: scroll.bounds) else { return nil }
+            // Capture the native view tree: rendering the bare mask omits its
+            // flipped AppKit ancestor and reverses the physical edge mapping.
+            scroll.cacheDisplay(in: scroll.bounds, to: bitmap)
+            let scaleX = CGFloat(bitmap.pixelsWide) / scroll.bounds.width
+            let scaleY = CGFloat(bitmap.pixelsHigh) / scroll.bounds.height
+            let distanceFromTop = scroll.isFlipped ? mask.frame.minY - scroll.bounds.minY : scroll.bounds.maxY - mask.frame.maxY
+            let x = Int(floor((mask.frame.midX - scroll.bounds.minX) * scaleX))
+            let y = top ? Int(round(distanceFromTop * scaleY)) : Int(round((distanceFromTop + mask.frame.height) * scaleY)) - 1
+            guard (0..<bitmap.pixelsWide).contains(x), (0..<bitmap.pixelsHigh).contains(y) else { return nil }
+            return bitmap.colorAt(x: x, y: y)?.alphaComponent
+        }
+        func edges(_ scroll: NSScrollView, topFades: Bool, bottomFades: Bool) -> Bool {
+            guard let top = edgeAlpha(scroll, top: true), let bottom = edgeAlpha(scroll, top: false) else { return false }
+            let passed = (topFades ? top < 0.5 : top == 1) && (bottomFades ? bottom < 0.5 : bottom == 1)
+            if !passed, let document = scroll.documentView, let mask = scroll.layer?.mask as? CAGradientLayer {
+                let colors = (mask.colors as? [CGColor])?.map(\.alpha) ?? []
+                let diagnostic: [String] = ["fade-native-edges", "expectedTop=\(topFades)", "expectedBottom=\(bottomFades)",
+                    "topPixelAlpha=\(top)", "bottomPixelAlpha=\(bottom)", "colors=\(colors)",
+                    "scrollFlipped=\(scroll.isFlipped)", "layerFlipped=\(scroll.layer?.isGeometryFlipped == true)",
+                    "maskFlipped=\(mask.isGeometryFlipped)", "start=\(mask.startPoint)", "end=\(mask.endPoint)",
+                    "maskFrame=\(mask.frame)", "maskBounds=\(mask.bounds)", "clip=\(scroll.contentView.bounds)",
+                    "viewport=\(document.convert(scroll.contentView.bounds, from: scroll.contentView))", "insets=\(scroll.contentInsets)",
+                    "documentFlipped=\(document.isFlipped)", "documentBounds=\(document.bounds)"]
+                FileHandle.standardError.write(Data((diagnostic.joined(separator: " ") + "\n").utf8))
+            }
+            return passed
+        }
         func event(_ type: NSEvent.EventType, at point: NSPoint) -> NSEvent {
             if type == .mouseEntered || type == .mouseExited {
                 return NSEvent.enterExitEvent(with: type, location: point, modifierFlags: [], timestamp: 0,
@@ -237,23 +267,61 @@ import QuartzCore
         for ratio in [CGFloat(0), 0.035] {
             let scroll = InspectorFadingScrollView(fadeRatio: ratio)
             scroll.frame = NSRect(x: 0, y: 0, width: 250, height: 150)
-            let document = NSView(frame: NSRect(x: 0, y: 0, width: 250, height: 1200))
+            // A known opaque canvas also makes both mask edges observable
+            // when the short document leaves part of the viewport empty.
+            scroll.drawsBackground = true
+            scroll.backgroundColor = .systemBlue
+            let document = InspectorContentDocumentView(frame: NSRect(x: 0, y: 0, width: 250, height: 1200))
             document.wantsLayer = true
             document.layer?.backgroundColor = NSColor.systemBlue.cgColor
             scroll.documentView = document
             root.addSubview(scroll)
             scroll.layoutSubtreeIfNeeded()
-            let expected: [NSNumber] = [0, NSNumber(value: Double(ratio)), NSNumber(value: Double(1 - ratio)), 1]
             for offset in [CGFloat(0), 100, 750] {
                 scroll.contentView.scroll(to: NSPoint(x: 0, y: offset))
                 scroll.reflectScrolledClipView(scroll.contentView)
-                checks["fade-\(ratio)-\(offset)"] = (scroll.layer?.mask as? CAGradientLayer)?.locations == expected
+                checks["fade-\(ratio)-\(offset)"] = edges(scroll,
+                    topFades: ratio > 0 && offset > 0, bottomFades: ratio > 0)
                 image("fade-\(ratio)-\(offset)", scroll)
             }
             scroll.frame.size = NSSize(width: 300, height: 180)
             scroll.layoutSubtreeIfNeeded()
             checks["fade-resize-\(ratio)"] = scroll.layer?.mask?.frame == scroll.bounds
             image("fade-resize-\(ratio)", scroll)
+            let bottomY = document.bounds.maxY - scroll.contentView.bounds.height
+            scroll.contentView.scroll(to: NSPoint(x: 0, y: bottomY))
+            scroll.reflectScrolledClipView(scroll.contentView)
+            checks["fade-native-bottom-\(ratio)"] = edges(scroll, topFades: ratio > 0, bottomFades: false)
+
+            scroll.automaticallyAdjustsContentInsets = false
+            scroll.contentInsets = NSEdgeInsets(top: 12, left: 0, bottom: 6, right: 0)
+            scroll.contentView.scroll(to: NSPoint(x: 0, y: -12))
+            scroll.reflectScrolledClipView(scroll.contentView)
+            let insetTop = edges(scroll, topFades: false, bottomFades: ratio > 0)
+            scroll.contentView.scroll(to: NSPoint(x: 0, y: bottomY + 6))
+            scroll.reflectScrolledClipView(scroll.contentView)
+            let nativeClip = scroll.convert(scroll.contentView.bounds, from: scroll.contentView)
+            let expectedMask = NSRect(x: nativeClip.minX, y: nativeClip.minY + (scroll.isFlipped ? 12 : 6),
+                width: nativeClip.width, height: nativeClip.height - 18)
+            checks["fade-native-insets-\(ratio)"] = insetTop && edges(scroll, topFades: ratio > 0, bottomFades: false)
+                && scroll.layer?.mask?.frame == expectedMask
+            scroll.contentInsets = NSEdgeInsetsZero
+
+            let unflipped = NSView(frame: document.frame)
+            unflipped.wantsLayer = true
+            unflipped.layer?.backgroundColor = NSColor.systemBlue.cgColor
+            scroll.documentView = unflipped
+            scroll.contentView.scroll(to: NSPoint(x: 0, y: bottomY))
+            scroll.reflectScrolledClipView(scroll.contentView)
+            let unflippedTop = edges(scroll, topFades: false, bottomFades: ratio > 0)
+            scroll.contentView.scroll(to: .zero)
+            scroll.reflectScrolledClipView(scroll.contentView)
+            checks["fade-unflipped-document-\(ratio)"] = unflippedTop && edges(scroll, topFades: ratio > 0, bottomFades: false)
+
+            scroll.documentView = InspectorContentDocumentView(frame: NSRect(x: 0, y: 0, width: 300, height: 80))
+            scroll.contentView.scroll(to: .zero)
+            scroll.layoutSubtreeIfNeeded()
+            checks["fade-short-document-\(ratio)"] = edges(scroll, topFades: false, bottomFades: false)
             scroll.removeFromSuperview()
         }
         let reference = NSButton(title: "Reference", target: target, action: #selector(ActionTarget.invoke(_:)))

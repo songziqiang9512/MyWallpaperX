@@ -56,7 +56,7 @@ extension WallpaperManager {
             throw CocoaError(.fileWriteNoPermission, userInfo: [NSLocalizedDescriptionKey: migrationRecoveryMessage ?? "资料库需要恢复"])
         }
         let current = PersonalSettingsPreferences(from: settings)
-        guard current == expected || current == target else { throw PersonalSettingsError.preferencesChanged }
+        guard expected.matchesForRecovery(current) || target.matchesForRecovery(current) else { throw PersonalSettingsError.preferencesChanged }
         let updated = target.applying(to: settings)
         try persistSettingsNow(updated)
         settings = updated

@@ -440,11 +440,14 @@ final class SteamWorkshopScenePropertyEditorView: NSView, NSCollectionViewDataSo
             alert.informativeText = "仅支持 HTTP 或 HTTPS 网址，不支持命令或其他协议。"
             alert.addButton(withTitle: "保存")
             alert.addButton(withTitle: "取消")
-            let field = NSTextField(frame: NSRect(x: 0, y: 0, width: 360, height: 24))
+            let field = WallpaperFormTextField(frame: NSRect(x: 0, y: 0, width: 360, height: 24))
             let reference = service.sceneShortcutReference(forKey: context.definitions[index].key, record: record)
             field.stringValue = reference?.kind == .webURL ? reference!.url.absoluteString : "https://"
             field.setAccessibilityLabel("HTTP 或 HTTPS 网址")
-            alert.accessoryView = field
+            let surface = WallpaperFormFieldStyle.wrapping(field)
+            surface.widthAnchor.constraint(equalToConstant: 360).isActive = true
+            alert.accessoryView = surface
+            alert.window.initialFirstResponder = field
             let presentedWindow = presentAppAlert(alert, in: window) { [weak self, weak window] response in
                 guard response == .alertFirstButtonReturn else { finish(.cancel, nil); return }
                 guard let self, let window, self.window === window,
@@ -613,11 +616,11 @@ final class SteamWorkshopScenePropertyEditorView: NSView, NSCollectionViewDataSo
                 content.addArrangedSubview(label)
                 slider = control; summary = label
             case .textInput:
-                let control = NSTextField(string: "")
+                let control = WallpaperFormTextField(string: "")
                 control.delegate = self
                 control.target = self
                 control.action = #selector(textChanged)
-                content.addArrangedSubview(control)
+                content.addArrangedSubview(WallpaperFormFieldStyle.wrapping(control))
                 field = control
             case .color:
                 let well = PropertyColorWell(frame: NSRect(x: 0, y: 0, width: 42, height: 26))

@@ -1,4 +1,4 @@
-"""Real Shared card controls, with observers at font measurement and symbol setup."""
+"""Real Shared card colors and controls, with font/symbol work observers."""
 import hashlib
 import json
 from pathlib import Path
@@ -17,6 +17,7 @@ class WallpaperCardControlsTests(unittest.TestCase):
     def test_native_font_metrics_symbols_and_original_commands(self):
         paths = ["MyWallpaperX/Shared/Components/WallpaperCardSupportViews.swift",
                  "MyWallpaperX/Shared/Components/WallpaperCardControlsView.swift",
+                 "MyWallpaperX/Shared/UI/InspectorFooterMetrics.swift",
                  "script/tests/fixtures/NativeAppHarness.swift",
                  "script/tests/fixtures/WallpaperCardControlsHarness.swift"]
         observed = paths + [str(Path(__file__).relative_to(ROOT)), "script/tests/native_app_harness.py",

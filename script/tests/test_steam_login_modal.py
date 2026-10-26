@@ -21,8 +21,8 @@ class SteamLoginModalTests(unittest.TestCase):
     def test_original_login_controller_owns_native_modal_input_and_nested_lifetime(self):
         paths = [ROOT / path for path in (
             'MyWallpaperX/Shared/UI/WallpaperLibrarySheetPresentation.swift',
+            'MyWallpaperX/Shared/Components/WallpaperFormFieldStyle.swift',
             'MyWallpaperX/Shared/UI/ModalPresentation.swift',
-            'MyWallpaperX/Shared/UI/AppCenteredAlertPresentation.swift',
             'MyWallpaperX/Modules/SteamWorkshop/UI/SteamLoginPanelController.swift',
             'MyWallpaperX/Modules/SteamWorkshop/UI/SteamLoginPanelView.swift',
             'script/tests/fixtures/SteamLoginModalHarness.swift',

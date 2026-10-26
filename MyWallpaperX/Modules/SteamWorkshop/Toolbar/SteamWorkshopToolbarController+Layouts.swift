@@ -39,6 +39,8 @@ extension SteamWorkshopToolbarController {
             .flexibleSpace,
             .steamAccount, .steamDownloadTasks,
             .space,
+            .steamAuthorBack,
+            .space,
             .steamPersonalList,
             .space,
             .steamSort, .steamFilter,

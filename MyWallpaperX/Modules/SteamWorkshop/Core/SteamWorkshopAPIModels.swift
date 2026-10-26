@@ -7,7 +7,7 @@ enum SteamWorkshopAuthorReturnDestination {
     var selectionKey: String {
         switch self {
         case .discovery: return "steamWorkshop"
-        case .personal: return "steamSubscribed"
+        case .personal: return "steamWorkshop"
         case .downloads: return "steamDownloads"
         }
     }

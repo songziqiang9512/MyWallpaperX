@@ -21,10 +21,10 @@ class WallpaperLibrarySidebarTests(unittest.TestCase):
                  "MyWallpaperX/Core/LibraryCollections/UserCollectionsStore.swift",
                  "MyWallpaperX/Core/LibraryCollections/UserCollectionsController.swift",
                  "MyWallpaperX/Shared/Components/SidebarComponents.swift", "MyWallpaperX/Shared/UI/ModalPresentation.swift",
-                 "MyWallpaperX/Shared/UI/AppCenteredAlertPresentation.swift",
                  "MyWallpaperX/Shared/UI/WallpaperLibrarySheetPresentation.swift",
                  "MyWallpaperX/Shared/Components/WallpaperLibrarySymbols.swift",
                  "MyWallpaperX/Shared/Components/WallpaperLibraryControlStyle.swift",
+                 "MyWallpaperX/Shared/Components/WallpaperFormFieldStyle.swift",
                  "MyWallpaperX/Shared/UI/ListThumbnailTintSource.swift", "MyWallpaperX/Shell/AppKitListBackgroundTint.swift",
                  "MyWallpaperX/Shared/UI/WallpaperArtworkDemandObservation.swift",
                  "MyWallpaperX/Shared/Components/WallpaperLibraryGridMetrics.swift",
@@ -69,6 +69,7 @@ class WallpaperLibrarySidebarTests(unittest.TestCase):
             self.assertEqual(build.returncode, 0, build.stdout + build.stderr)
             run = run_native_app(binary, timeout=40)
             self.assertEqual(run.launch_returncode, 0, run.stdout + run.stderr)
+            self.assertTrue(run.stdout.strip(), "Native sidebar result missing:\n" + run.stderr)
             checks = json.loads(run.stdout)
             self.assertTrue(checks)
             for name, passed in checks.items():

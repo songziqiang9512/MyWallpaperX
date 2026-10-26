@@ -270,7 +270,7 @@ final class SteamWorkshopToolbarController: NSObject, NSSearchFieldDelegate {
         let item = NSToolbarItem(itemIdentifier: .steamAuthorBack)
         item.label = "返回"
         item.paletteLabel = "返回"
-        item.toolTip = "从作者工坊返回工坊首页"
+        item.toolTip = "返回上一级工坊浏览"
         item.autovalidates = false
         item.view = authorBackButton
         return item

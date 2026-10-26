@@ -5,6 +5,7 @@ import AppKit
 struct WallpaperInspectorActions {
     struct State: Equatable {
         let isPlaying: Bool
+        var isSwitching = false
         let isFavorite: Bool
         let canPerformPrimary: Bool
         let canFavorite: Bool

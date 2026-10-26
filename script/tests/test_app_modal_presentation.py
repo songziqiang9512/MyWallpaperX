@@ -1,4 +1,4 @@
-"""Actual centered App alert panels, native modal sessions, hosts and responses."""
+"""System NSAlert windows, native modal sessions, hosts and responses."""
 import hashlib
 import json
 from pathlib import Path
@@ -14,10 +14,9 @@ ROOT = Path(__file__).resolve().parents[2]
 
 
 class AppModalPresentationTests(unittest.TestCase):
-    def test_real_centered_alerts_keep_native_modal_and_response_contracts(self):
+    def test_system_alerts_keep_native_modal_and_response_contracts(self):
         sources = [ROOT / path for path in (
             'MyWallpaperX/Shared/UI/ModalPresentation.swift',
-            'MyWallpaperX/Shared/UI/AppCenteredAlertPresentation.swift',
             'MyWallpaperX/Shared/UI/WallpaperLibrarySheetPresentation.swift',
             'script/tests/fixtures/AppModalPresentationHarness.swift',
             'script/tests/fixtures/NativeAppHarness.swift')]

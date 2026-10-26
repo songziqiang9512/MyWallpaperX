@@ -175,23 +175,72 @@ extension WallpaperPlaylistEditorController {
             + "verticalResize=\(descriptionView.isVerticallyResizable), horizontalResize=\(descriptionView.isHorizontallyResizable), "
             + "autoresizingMask=\(descriptionView.autoresizingMask.rawValue)\n"
         FileHandle.standardError.write(Data(descriptionGeometry.utf8))
-        checks["native-description-document-has-real-readable-width-and-height"] = descriptionView.frame.width > 300
+        checks["native-description-document-has-real-readable-width-and-height"] = descriptionView.frame.width > 200
             && abs(descriptionView.frame.width - descriptionClip.bounds.width) <= 1
             && descriptionView.frame.height >= descriptionClip.bounds.height
             && descriptionClip.bounds.height > 0 && descriptionClip.bounds.size == descriptionScroll.contentSize
-            && descriptionScroll.frame.height == 60 && descriptionScroll.borderType == .bezelBorder
+            && descriptionScroll.frame.height == 60 && descriptionScroll.borderType == .noBorder
+            && descriptionScroll.superview is WallpaperFormFieldSurface && !descriptionScroll.drawsBackground && !descriptionView.drawsBackground
             && descriptionView.textContainer?.widthTracksTextView == true
         let body = panel.contentView!.subviews.compactMap { $0 as? NSStackView }.first!
         let rootBounds = panel.contentView!.bounds
         checks["editor-body-and-action-controls-fit-its-real-panel"] = body.fittingSize.height <= rootBounds.height - 31
-            && [name(panel) as NSView, descriptionView.enclosingScrollView!, preview(panel), button(panel, "完成"), button(panel, "取消")].allSatisfy {
+            && [name(panel) as NSView, descriptionView.enclosingScrollView!, preview(panel), button(panel, "完成"), button(panel, "取消"),
+                button(panel, "选择封面…"), button(panel, "恢复自动封面")].allSatisfy {
                 rootBounds.contains($0.convert($0.bounds, to: panel.contentView))
             }
-        checks["compact-music-editor-keeps-360-width-112-square-cover-without-a-520-height-floor"] = abs(rootBounds.width - 360) <= 0.5
+        checks["narrow-music-editor-keeps-285-width-112-square-cover-without-a-520-height-floor"] = abs(rootBounds.width - 285) <= 0.5
             && rootBounds.height > 320 && rootBounds.height < 480
             && abs(rootBounds.height - body.fittingSize.height - 32) <= 0.5
             && abs(preview(panel).frame.width - 112) <= 0.5 && abs(preview(panel).frame.height - 112) <= 0.5
             && name(panel).font?.pointSize == 16
+        let nameSurface = name(panel).superview as! WallpaperFormFieldSurface
+        let descriptionSurface = descriptionScroll.superview as! WallpaperFormFieldSurface
+        checks["name-and-description-share-light-rounded-surfaces-with-native-focus-rings"] = !name(panel).isBezeled
+            && !name(panel).isBordered && !name(panel).drawsBackground && name(panel).focusRingType == .exterior
+            && descriptionView.focusRingType == .exterior && nameSurface.layer?.cornerRadius == 10
+            && descriptionSurface.layer?.cornerRadius == 10
+            && name(panel).focusRingMaskBounds == name(panel).convert(nameSurface.bounds, from: nameSurface)
+            && descriptionView.focusRingMaskBounds == descriptionView.convert(descriptionSurface.bounds, from: descriptionSurface)
+            && name(panel).accessibilityLabel() == "播放列表名称"
+            && descriptionView.accessibilityLabel() == "播放列表描述，可选"
+        var appearancesMatch = true, accessibilityFallbacks = true
+        for appearanceName in [NSAppearance.Name.aqua, .darkAqua] {
+            let appearance = NSAppearance(named: appearanceName)!
+            let expected = WallpaperFormFieldStyle.colors(in: appearance,
+                reduceTransparency: NSWorkspace.shared.accessibilityDisplayShouldReduceTransparency,
+                increaseContrast: NSWorkspace.shared.accessibilityDisplayShouldIncreaseContrast)
+            for surface in [nameSurface, descriptionSurface] {
+                surface.appearance = appearance
+                appearance.performAsCurrentDrawingAppearance {
+                    appearancesMatch = appearancesMatch && surface.layer?.backgroundColor == expected.fill.cgColor
+                        && surface.layer?.borderColor == expected.border.cgColor
+                }
+            }
+            appearance.performAsCurrentDrawingAppearance {
+                accessibilityFallbacks = accessibilityFallbacks
+                    && WallpaperFormFieldStyle.colors(in: appearance, reduceTransparency: true, increaseContrast: false).fill.cgColor.alpha == 1
+                    && WallpaperFormFieldStyle.colors(in: appearance, reduceTransparency: false, increaseContrast: true).fill.cgColor.alpha == 1
+            }
+        }
+        nameSurface.appearance = nil; descriptionSurface.appearance = nil
+        checks["form-surface-own-appearance-tracks-light-dark-and-accessibility-opaque-fallbacks"] = appearancesMatch && accessibilityFallbacks
+        let originalName = name(panel).stringValue
+        let editingAdmitted = panel.makeFirstResponder(name(panel))
+        if let fieldEditor = name(panel).currentEditor() as? NSTextView {
+            fieldEditor.setMarkedText("中文", selectedRange: NSRange(location: 2, length: 0),
+                replacementRange: NSRange(location: 0, length: fieldEditor.string.utf16.count))
+            checks["styled-name-retains-the-native-field-editor-and-marked-text-protocol"] = editingAdmitted
+                && fieldEditor.isFieldEditor && fieldEditor.hasMarkedText() && fieldEditor.string == "中文"
+                && collections.snapshot == beforeDraft
+            fieldEditor.unmarkText()
+        } else { checks["styled-name-retains-the-native-field-editor-and-marked-text-protocol"] = false }
+        panel.makeFirstResponder(nil); setName(panel, originalName)
+        let longName = String(repeating: "较长的列表名称 🖼️ ", count: 12)
+        setName(panel, longName)
+        panel.contentView?.layoutSubtreeIfNeeded()
+        checks["narrow-editor-preserves-long-unicode-draft-without-widening-or-losing-save"] = name(panel).stringValue == longName
+            && abs(panel.contentView!.bounds.width - 285) <= 0.5 && button(panel, "完成").isEnabled
         let longFailure = Array(repeating: "完整失败说明可复制；请保留草稿，重新选择封面或稍后重试。", count: 20).joined(separator: "\n")
         draft.nativeFixtureReport(longFailure)
         panel.contentView?.layoutSubtreeIfNeeded()

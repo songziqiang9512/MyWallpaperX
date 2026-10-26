@@ -455,6 +455,15 @@
       ]
     },
     {
+      "path": "docs/history/development/main-window-playlists-q01-q09-integration-2026-10-26.md",
+      "role": "historical-evidence",
+      "entrypoint": "docs/history/README.md",
+      "commandPolicy": "historical-only",
+      "currentAuthorities": [
+        "docs/development/main-window-playlists-redesign.md"
+      ]
+    },
+    {
       "path": "docs/history/development/main-window-playlists-ui-n15-2026-10-25.md",
       "role": "historical-evidence",
       "entrypoint": "docs/history/README.md",
@@ -465,6 +474,15 @@
     },
     {
       "path": "docs/history/development/main-window-playlists-ui-r0-r4-2026-10-25.md",
+      "role": "historical-evidence",
+      "entrypoint": "docs/history/README.md",
+      "commandPolicy": "historical-only",
+      "currentAuthorities": [
+        "docs/development/main-window-playlists-redesign.md"
+      ]
+    },
+    {
+      "path": "docs/history/development/main-window-ui-feedback-p01-p05-2026-10-26.md",
       "role": "historical-evidence",
       "entrypoint": "docs/history/README.md",
       "commandPolicy": "historical-only",
@@ -4992,7 +5010,12 @@
         "混合列表",
         "Apple Music",
         "我的下载",
-        "资料库"
+        "资料库",
+        "背景模式",
+        "详情安全距离",
+        "我的订阅",
+        "表单输入外观",
+        "紧凑确认"
       ],
       "documents": [
         "docs/development/main-window-playlists-redesign.md",
@@ -5012,9 +5035,11 @@
         "MyWallpaperX/App/WallpaperLibraryWorkspace.swift",
         "MyWallpaperX/App/WallpaperLibraryWindowComposition.swift",
         "MyWallpaperX/Shared/UI/WallpaperLibrarySheetPresentation.swift",
-        "MyWallpaperX/Shared/UI/AppCenteredAlertPresentation.swift"
+        "MyWallpaperX/Shared/UI/ModalPresentation.swift",
+        "MyWallpaperX/Shared/UI/InspectorFadingScrollView.swift",
+        "MyWallpaperX/Shared/Components/WallpaperFormFieldStyle.swift"
       ],
-      "verification": "按当前工作卡选择迁移/关系/查询/共享网格/混合轮换真实行为门；Debug构建、原生界面操作与真实四类型交接分开验收，构建或事务fixture不能冒充实际桌面输出。",
+      "verification": "按当前工作卡选择迁移/关系/查询/共享网格/混合轮换真实行为门；§19核心/相邻回归和独立交审通过，已基于23a382c6a完成整合近门与Debug/签名；各阶段边界见该节。编译、原生交互、真实账号与四类型桌面交接分开验收，fixture不冒充桌面输出。",
       "owner": "App/Shell main-window and user-library relationships",
       "firstRead": "docs/development/main-window-playlists-redesign.md#design-overview",
       "nearestTestGroups": [
@@ -5026,7 +5051,10 @@
         "main-library-window-toolbar",
         "main-library-modal-presentation",
         "main-library-inspector",
-        "main-library-downloaded-source"
+        "main-library-downloaded-source",
+        "main-library-remote-toolbar",
+        "steam-detail-author-navigation",
+        "main-library-main-menu"
       ],
       "verificationPhases": [
         {

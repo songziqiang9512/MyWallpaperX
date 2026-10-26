@@ -20,7 +20,6 @@ class LibraryProfileReadOnlyTests(unittest.TestCase):
                  "script/tests/fixtures/LibraryProfileReadOnlyHarness.swift",
                  "MyWallpaperX/Shared/UI/ModalPresentation.swift",
                  "MyWallpaperX/Modules/VideoLibrary/Core/WallpaperManager+ImportPresentation.swift",
-                 "MyWallpaperX/Shared/UI/AppCenteredAlertPresentation.swift",
                  "MyWallpaperX/Shared/UI/WallpaperLibrarySheetPresentation.swift"]
         identities = {p: hashlib.sha256((ROOT / p).read_bytes()).hexdigest() for p in paths}
         fixture = (ROOT / paths[2]).read_text()
@@ -31,7 +30,7 @@ class LibraryProfileReadOnlyTests(unittest.TestCase):
             source.write_text(fixture)
             binary = work / "checks"
             build = subprocess.run(["xcrun", "swiftc", *SWIFT_ISOLATION_FLAGS, "-warnings-as-errors", "-parse-as-library",
-                str(ROOT / paths[0]), str(ROOT / paths[1]), str(ROOT / paths[3]), str(ROOT / paths[5]), str(ROOT / paths[6]), str(source), "-module-cache-path", str(work / "modules"),
+                str(ROOT / paths[0]), str(ROOT / paths[1]), str(ROOT / paths[3]), str(ROOT / paths[5]), str(source), "-module-cache-path", str(work / "modules"),
                 "-o", str(binary)], capture_output=True, text=True, timeout=120)
             self.assertEqual(build.returncode, 0, build.stdout + build.stderr)
             run = subprocess.run([str(binary), str(work)], capture_output=True, text=True, timeout=20)

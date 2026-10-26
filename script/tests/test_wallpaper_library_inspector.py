@@ -22,6 +22,8 @@ class WallpaperLibraryInspectorTests(unittest.TestCase):
         paths = [ROOT / "MyWallpaperX" / name for name in (
             "Shared/UI/WallpaperInspectorActions.swift", "Shared/UI/InspectorFooterMetrics.swift",
             "Shared/UI/InspectorBadgeView.swift", "Shared/UI/InspectorFadingScrollView.swift",
+            "Shared/UI/ModuleFocusable.swift", "Shared/UI/InspectorHost.swift", "Shared/UI/InspectorHostBridge.swift",
+            "Shared/UI/InspectorHostActions.swift", "Shared/UI/InspectorHostViewController.swift",
             "Modules/StaticImageLibrary/UI/SILInspectorSupport.swift", "Modules/StaticImageLibrary/UI/SILInspectorView.swift",
             "Modules/OnlineLibrary/UI/OnlineLibraryDownloadsInspectorSupport.swift", "Modules/OnlineLibrary/UI/OnlineLibraryDownloadsInspectorView.swift")]
         paths.append(ROOT / "script/tests/fixtures/WallpaperInspectorOrganizationHarness.swift")
@@ -101,6 +103,8 @@ class WallpaperLibraryInspectorTests(unittest.TestCase):
         sources = [ROOT / "MyWallpaperX" / name for name in (
             "Shared/UI/WallpaperInspectorActions.swift", "Shared/UI/InspectorFooterMetrics.swift",
             "Shared/UI/InspectorBadgeView.swift", "Shared/UI/InspectorFadingScrollView.swift",
+            "Shared/UI/ModuleFocusable.swift", "Shared/UI/InspectorHost.swift", "Shared/UI/InspectorHostBridge.swift",
+            "Shared/UI/InspectorHostActions.swift", "Shared/UI/InspectorHostViewController.swift",
             "Modules/StaticImageLibrary/UI/SILInspectorSupport.swift", "Modules/StaticImageLibrary/UI/SILInspectorView.swift",
             "Modules/OnlineLibrary/UI/OnlineLibraryDownloadsInspectorSupport.swift", "Modules/OnlineLibrary/UI/OnlineLibraryDownloadsInspectorView.swift")]
         sources.append(ROOT / "script/tests/fixtures/WallpaperInspectorOrganizationHarness.swift")

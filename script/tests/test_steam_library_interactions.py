@@ -25,16 +25,10 @@ class SteamLibraryInteractionTests(unittest.TestCase):
         downloads = (CORE / 'SteamWorkshopService+Downloads.swift').read_text()
         harness = r'''
 import AppKit
-@MainActor final class Auth { var steamId: String? = "A" }
+@MainActor final class Auth { var steamId: String? = "A"; var isOnline = true }
 enum Source { case featured, mySubscriptions; var isPersonal: Bool { self == .mySubscriptions } }
 enum Choice { case all, none }
 enum SteamWorkshopBrowseSection { case personal, discovery }
-enum SelectedItem {
-    case steamWorkshop, steamSubscribed, steamDownloads, onlineLibrary, onlineDownloads, staticImageLibrary
-    struct Context { var scrollPersistenceKey = "steam" }
-    var selectionContext: Context { Context() }
-    var isInSteamWorkshopContext: Bool { self == .steamWorkshop || self == .steamSubscribed }
-}
 extension Notification.Name { static let appKitSelectItemRequested = Notification.Name("select"); static let appKitRequestScrollToTopForCurrentSelection = Notification.Name("top") }
 @MainActor final class SteamWorkshopService {
     static var current: SteamWorkshopService!
@@ -48,12 +42,14 @@ extension Notification.Name { static let appKitSelectItemRequested = Notificatio
     var browserEntryChecks = 0
     var pendingDownloadsScrollRestoreOffsetY: CGFloat?
     var isBrowsingAuthorWorkshop = true
+    var canReturnFromBrowse: Bool { isBrowsingAuthorWorkshop || source.isPersonal }
     var suppressAutomaticBrowseNavigation = false
     var browserContentMode = Choice.all
     var facetFilters = Choice.none
     init(_ root: URL) { downloadJobStore = SteamDownloadJobStore(persistenceURL: root.appendingPathComponent("jobs.json")) }
     func returnToDiscoveryBrowse(selectOrigin: Bool = true) { isBrowsingAuthorWorkshop = false }
     func enterBrowseSection(_ section: SteamWorkshopBrowseSection) { source = section == .personal ? .mySubscriptions : .featured }
+    func showMySubscriptions() { if steamAuth.isOnline { enterBrowseSection(.personal); requestSteamWorkshopBrowserSelection() } }
     func setBrowserQuery(_ query: String) {}
     func prepareForBrowserEntry() { browserEntryChecks += 1 }
     func removeTransientRecord(id: String) {}
@@ -157,6 +153,14 @@ extension Notification.Name { static let appKitSelectItemRequested = Notificatio
         precondition(service.browserEntryChecks == 1, "ordinary same-row clicks keep their scroll-to-top behavior")
         precondition(shell.grid.scrollToTopCalls == 0,
             "reselecting the remote browser must keep its original early-return path")
+        service.showMySubscriptions()
+        precondition(shell.selected == .workshop && service.source.isPersonal,
+            "personal entry retains the existing Workshop browser host")
+        shell.navigate(to: .workshop)
+        service.steamAuth.isOnline = false
+        service.showMySubscriptions()
+        precondition(shell.selected == .workshop && !service.source.isPersonal,
+            "signed-out personal entry does not navigate or start authentication")
         NotificationCenter.default.removeObserver(observer)
 
         shell.navigate(to: .downloads)

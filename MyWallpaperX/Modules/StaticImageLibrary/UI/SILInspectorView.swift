@@ -107,7 +107,7 @@ final class SILInspectorView: NSView {
         let contentStack = makeContentStack()
         self.contentStack = contentStack
         rebuildContent()
-        let documentContainer = NSView()
+        let documentContainer = InspectorContentDocumentView()
         documentContainer.translatesAutoresizingMaskIntoConstraints = false
         documentContainer.addSubview(contentStack)
         scrollView.documentView = documentContainer
@@ -129,8 +129,7 @@ final class SILInspectorView: NSView {
             documentContainer.heightAnchor.constraint(greaterThanOrEqualTo: scrollView.contentView.heightAnchor),
             contentStack.leadingAnchor.constraint(equalTo: documentContainer.leadingAnchor),
             contentStack.trailingAnchor.constraint(equalTo: documentContainer.trailingAnchor),
-            contentStack.centerYAnchor.constraint(equalTo: documentContainer.centerYAnchor),
-            contentStack.topAnchor.constraint(greaterThanOrEqualTo: documentContainer.topAnchor),
+            contentStack.topAnchor.constraint(equalTo: documentContainer.topAnchor),
             contentStack.bottomAnchor.constraint(lessThanOrEqualTo: documentContainer.bottomAnchor),
             footerStack.widthAnchor.constraint(equalTo: rootStack.widthAnchor)
         ])
@@ -143,7 +142,7 @@ final class SILInspectorView: NSView {
         stack.orientation = .vertical
         stack.alignment = .leading
         stack.spacing = 16
-        stack.edgeInsets = NSEdgeInsets(top: 0, left: 2, bottom: 0, right: 2)
+        stack.edgeInsets = NSEdgeInsets(top: InspectorFadingScrollView.contentTopInset, left: 2, bottom: 0, right: 2)
         stack.translatesAutoresizingMaskIntoConstraints = false
         return stack
     }

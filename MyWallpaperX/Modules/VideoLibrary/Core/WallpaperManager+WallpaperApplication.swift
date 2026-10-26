@@ -101,8 +101,11 @@ extension WallpaperManager {
         let workspace = NSWorkspace.shared
         var didApplyAnyScreen = false
         for screen in NSScreen.screens {
+            let previousURL = workspace.desktopImageURL(for: screen)
+            let previousOptions = workspace.desktopImageOptions(for: screen) ?? [:]
             do {
                 try workspace.setDesktopImageURL(imageURL, for: screen, options: [:])
+                rememberSystemDesktopWrite(imageURL, on: screen, previousURL: previousURL, options: previousOptions)
                 didApplyAnyScreen = true
             } catch {
                 // 系统壁纸同步失败时静默忽略，不影响视频壁纸播放。
@@ -111,15 +114,63 @@ extension WallpaperManager {
         return didApplyAnyScreen
     }
 
-    /// 清理历史同步副本（保留刚写入的这份）。副本是可重建派生数据，
-    /// 清缓存目录时一并消失。
+    /// A process-local baseline over the existing desktop writer. Repeated
+    /// pictures and later sync frames never replace the user's first settings.
+    func rememberSystemDesktopWrite(_ url: URL, on screen: NSScreen, previousURL: URL?,
+                                    options: [NSWorkspace.DesktopImageOptionKey: Any]) {
+        guard let number = screen.deviceDescription[NSDeviceDescriptionKey("NSScreenNumber")] as? NSNumber else { return }
+        let id = number.uint32Value
+        let actualOptions = NSWorkspace.shared.desktopImageOptions(for: screen) ?? [:]
+        if systemDesktopWallpapers[id] != nil {
+            systemDesktopWallpapers[id]?.lastWrittenURL = url
+            systemDesktopWallpapers[id]?.lastWrittenOptions = actualOptions
+        } else {
+            systemDesktopWallpapers[id] = .init(originalURL: previousURL, originalOptions: options,
+                lastWrittenURL: url, lastWrittenOptions: actualOptions)
+        }
+    }
+
+    /// Only a successful static-image application grants exit restoration.
+    /// Dynamic-only runs preserve their existing exit behavior. A subsequent
+    /// external desktop choice is not an App-owned value to replace.
+    func restoreSystemDesktopWallpaperOnTermination() {
+        defer { systemDesktopWallpapers.removeAll(); didApplySystemStillThisRun = false }
+        guard didApplySystemStillThisRun, !settings.syncSystemWallpaper else { return }
+        let workspace = NSWorkspace.shared
+        for screen in NSScreen.screens {
+            guard let number = screen.deviceDescription[NSDeviceDescriptionKey("NSScreenNumber")] as? NSNumber,
+                  let saved = systemDesktopWallpapers[number.uint32Value], let original = saved.originalURL,
+                  workspace.desktopImageURL(for: screen) == saved.lastWrittenURL,
+                  NSDictionary(dictionary: workspace.desktopImageOptions(for: screen) ?? [:])
+                    .isEqual(NSDictionary(dictionary: saved.lastWrittenOptions)) else { continue }
+            do { try workspace.setDesktopImageURL(original, for: screen, options: saved.originalOptions) }
+            catch { NSLog("MWX desktop restoration failed: %@", error.localizedDescription) }
+        }
+    }
+
+    /// At most two URLs per display, never a library or copied user media.
+    /// Existing cache cleanup must not remove the baseline or current desktop.
+    var protectedSystemDesktopURLs: Set<URL> {
+        Set(systemDesktopWallpapers.values.flatMap { [$0.originalURL, $0.lastWrittenURL].compactMap { $0 } })
+    }
+
+    func clearUnprotectedStaticFrameFiles() {
+        let protected = protectedSystemDesktopURLs
+        let directory = staticFrameCacheDirectory
+        if protected.isEmpty { try? FileManager.default.removeItem(at: directory); return }
+        let files = (try? FileManager.default.contentsOfDirectory(at: directory, includingPropertiesForKeys: nil)) ?? []
+        for file in files where !protected.contains(file) { try? FileManager.default.removeItem(at: file) }
+    }
+
+    /// Retain only the current sync copy and the bounded desktop ownership URLs.
     private func removePreviousDesktopCopies(keeping current: URL) {
         let contents = (try? FileManager.default.contentsOfDirectory(
             at: staticFrameCacheDirectory,
             includingPropertiesForKeys: nil
         )) ?? []
+        let protected = protectedSystemDesktopURLs
         for item in contents where item.lastPathComponent.hasPrefix("system-wallpaper-active-") {
-            guard item != current else { continue }
+            guard item != current, !protected.contains(item) else { continue }
             try? FileManager.default.removeItem(at: item)
         }
     }
@@ -321,7 +372,7 @@ extension WallpaperManager {
         let preview = titles.prefix(5).joined(separator: "\n")
         let remaining = max(0, titles.count - 5)
         let suffix = remaining > 0 ? "\n还有 \(remaining) 个未显示" : ""
-        let message = "检测到索引中的源文件已缺失：\n\(preview)\(suffix)\n\n请在列表中删除或重新导入这些项目。"
+        let message = "源文件已缺失，可重新定位或导入：\n\(preview)\(suffix)"
 
         let alert = makeAppAlert(
             title: "发现失效文件",
@@ -337,7 +388,7 @@ extension WallpaperManager {
         let preview = titles.prefix(5).joined(separator: "\n")
         let remaining = max(0, titles.count - 5)
         let suffix = remaining > 0 ? "\n还有 \(remaining) 个未显示" : ""
-        let message = "启动扫描发现以下源文件已缺失，系统已自动将它们从视频库移除：\n\(preview)\(suffix)\n\n对应缩略图与静帧缓存也已一并清理。"
+        let message = "已从视频库移除缺失文件：\n\(preview)\(suffix)"
 
         let alert = makeAppAlert(
             title: "已移除失效文件",

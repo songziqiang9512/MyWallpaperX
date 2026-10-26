@@ -58,6 +58,7 @@ nonisolated struct PersonalSettingsPreferences: Codable, Equatable, Sendable {
     var playbackRateEnabled: Bool?
     var sortMode: String?
     var sortAscending: Bool?
+    var libraryBackgroundStyle: String?
     var videoLibrarySort: WallpaperLibraryVideoSortPreference?
     var systemAudioSpectrumEnabled: Bool?
     var systemAudioSpectrumStyle: String?
@@ -90,6 +91,7 @@ nonisolated struct PersonalSettingsPreferences: Codable, Equatable, Sendable {
         playbackRateEnabled = settings.playbackRateEnabled
         sortMode = settings.sortMode.rawValue
         sortAscending = settings.sortAscending
+        libraryBackgroundStyle = settings.libraryBackgroundStyle.rawValue
         systemAudioSpectrumEnabled = settings.systemAudioSpectrumEnabled
         systemAudioSpectrumStyle = settings.systemAudioSpectrumStyle.rawValue
         systemAudioSpectrumSensitivity = settings.systemAudioSpectrumSensitivity.rawValue
@@ -98,6 +100,15 @@ nonisolated struct PersonalSettingsPreferences: Codable, Equatable, Sendable {
         systemAudioSpectrumOffsetY = settings.systemAudioSpectrumOffsetY
         systemAudioSpectrumBarCount = settings.systemAudioSpectrumBarCount
         systemAudioSpectrumPeakCapsEnabled = settings.systemAudioSpectrumPeakCapsEnabled
+    }
+
+    /// Recovery written before the background preference existed has no claim
+    /// over that field. All older fields and explicit background values retain
+    /// the original full-snapshot conflict check.
+    func matchesForRecovery(_ current: Self) -> Bool {
+        var comparable = current
+        if libraryBackgroundStyle == nil { comparable.libraryBackgroundStyle = nil }
+        return self == comparable
     }
 
     @MainActor func applying(to current: WallpaperSettings) -> WallpaperSettings {
@@ -123,6 +134,9 @@ nonisolated struct PersonalSettingsPreferences: Codable, Equatable, Sendable {
         if let playbackRateEnabled { result.playbackRateEnabled = playbackRateEnabled }
         if let sortMode, let value = WallpaperSortMode(rawValue: sortMode) { result.sortMode = value }
         if let sortAscending { result.sortAscending = sortAscending }
+        if let libraryBackgroundStyle, let value = LibraryBackgroundStyle(rawValue: libraryBackgroundStyle) {
+            result.libraryBackgroundStyle = value
+        }
         if let systemAudioSpectrumEnabled { result.systemAudioSpectrumEnabled = systemAudioSpectrumEnabled }
         if let systemAudioSpectrumStyle, let value = SystemAudioSpectrumStyle(rawValue: systemAudioSpectrumStyle) { result.systemAudioSpectrumStyle = value }
         if let systemAudioSpectrumSensitivity, let value = SystemAudioSpectrumSensitivity(rawValue: systemAudioSpectrumSensitivity) { result.systemAudioSpectrumSensitivity = value }

@@ -63,6 +63,7 @@ extension SceneDaemonClient { func stop() {} }
     let manager: WallpaperManager
     var cancellables = Set<AnyCancellable>()
     var visiblePlaying: Set<WallpaperReference> = []
+    var visibleSwitching: Set<WallpaperReference> = []
     var refreshes = 0
     var synchronousReads: [Set<WallpaperReference>] = []
     var renderedStates: [Set<WallpaperReference>] = []
@@ -73,13 +74,23 @@ extension SceneDaemonClient { func stop() {} }
             guard let self else { return }; self.synchronousReads.append(self.readProjection())
         }.store(in: &cancellables)
     }
-    func readProjection() -> Set<WallpaperReference> {
+    func projection() -> WallpaperLibraryCardStateProjection {
         let committed = manager.libraryPlaybackSequence.committed
-        let projection = try! WallpaperLibraryCardStateProjection(items: workspace.items, relationships: workspace.relationships,
-            committedReference: committed?.reference, sequenceTicket: committed?.ticket, runtimeTicket: manager.playbackSwitch.committed?.ticket)
+        let pending = manager.libraryPlaybackSequence.pending
+        return try! WallpaperLibraryCardStateProjection(items: workspace.items, relationships: workspace.relationships,
+            committedReference: committed?.reference, sequenceTicket: committed?.ticket, runtimeTicket: manager.playbackSwitch.committed?.ticket,
+            pendingReference: pending?.proposal.entry.reference, pendingSequenceTicket: pending?.ticket,
+            pendingRuntimeTicket: manager.playbackSwitch.pending?.selection.ticket)
+    }
+    func readProjection() -> Set<WallpaperReference> {
+        let projection = projection()
         return Set(workspace.items.filter { projection.isPlaying($0.reference) }.map(\.reference))
     }
-    func render() { refreshes += 1; visiblePlaying = readProjection(); renderedStates.append(visiblePlaying) }
+    func render() {
+        refreshes += 1; visiblePlaying = readProjection(); renderedStates.append(visiblePlaying)
+        let projection = projection()
+        visibleSwitching = Set(workspace.items.filter { projection.isSwitching($0.reference) }.map(\.reference))
+    }
 }
 @MainActor final class PublicationEndpoint {
     let id = UUID()
@@ -87,11 +98,15 @@ extension SceneDaemonClient { func stop() {} }
     let reference: WallpaperReference
     var retirement: (() -> Void)?
     var delayedRetirement = true
+    var delayedCancellation = false
+    var cancellation: (() -> Void)?
     var finalized = false
     init(_ reference: WallpaperReference, _ ticket: PlaybackSwitchTicket) { self.reference = reference; self.ticket = ticket }
     var endpoint: PlaybackSwitchEndpoint {
         .init(id: id, activate: {}, finalize: { [self] in finalized = true; ExecutionFacts.active = reference },
-            cancel: { $0() }, setOutputActive: { _, done in done(true) }, retire: { [self] _, done in
+            cancel: { [self] done in
+                if delayedCancellation { cancellation = done } else { done() }
+            }, setOutputActive: { _, done in done(true) }, retire: { [self] _, done in
                 if delayedRetirement { retirement = done } else { done() }
             })
     }
@@ -125,7 +140,17 @@ extension SceneDaemonClient { func stop() {} }
                 let snapshot = try WallpaperPlaybackSequence.Snapshot(source: .global, revision: 1,
                     entries: zip([a, b, c], [source, target, target]).map { .init(reference: $0.0, runtime: $0.1, isPlayable: true) })
                 func begin(_ reference: WallpaperReference) -> PublicationEndpoint {
+                    let originalDispatch = manager.libraryPlaybackDispatcher!
+                    var observedBeforePreparation = false
+                    manager.libraryPlaybackDispatcher = { pending in
+                        precondition(grid.visibleSwitching == [reference] && secondGrid.visibleSwitching == [reference],
+                            "accepted target was not published before source preparation")
+                        observedBeforePreparation = true
+                        return originalDispatch(pending)
+                    }
                     let ticket = manager.requestLibraryPlayback(reference: reference, from: snapshot)!
+                    manager.libraryPlaybackDispatcher = originalDispatch
+                    precondition(observedBeforePreparation && grid.visibleSwitching == [reference])
                     let endpoint = PublicationEndpoint(reference, ticket)
                     manager.switchPrepared(ticket, endpoint: endpoint.endpoint)
                     return endpoint
@@ -137,6 +162,8 @@ extension SceneDaemonClient { func stop() {} }
                 precondition(grid.visiblePlaying == [a] && manager.libraryPlaybackSequence.pending?.ticket == next.ticket,
                     "unseen pending candidate changed the playing card")
                 visible(next); try await drain()
+                precondition(grid.visibleSwitching.isEmpty && secondGrid.visibleSwitching.isEmpty,
+                    "successful commit retained a switching badge")
                 // Canonical lifecycle: desktop-visible confirmation -> unique
                 // transaction/Sequence commit -> old cleanup -> finalize. The
                 // old private-grid engine mirror waiting for cleanup is retired.
@@ -152,9 +179,13 @@ extension SceneDaemonClient { func stop() {} }
                     "retirement/finalize duplicated the committed UI or recent publication")
                 let rejected = begin(a)
                 manager.switchFailed(rejected.ticket, reason: "injected candidate failure"); visible(rejected); try await drain()
+                precondition(grid.visibleSwitching.isEmpty && secondGrid.visibleSwitching.isEmpty,
+                    "failure retained a switching badge")
                 precondition(grid.visiblePlaying == [b] && !rejected.finalized && workspace.collections!.successes.count == successes)
                 let stale = begin(a), latest = begin(c)
                 visible(stale); try await drain()
+                precondition(grid.visibleSwitching == [c] && secondGrid.visibleSwitching == [c],
+                    "stale output cleared the newer switching target")
                 precondition(!stale.finalized && grid.visiblePlaying == [b])
                 visible(latest); try await drain()
                 precondition(!stale.finalized && !latest.finalized && grid.visiblePlaying == [c])
@@ -163,6 +194,8 @@ extension SceneDaemonClient { func stop() {} }
                 precondition(latest.finalized && grid.visiblePlaying == [c] && workspace.collections!.successes.count == latestSuccesses)
                 latest.delayedRetirement = false
                 manager.stopCurrentPlayback(); try await drain()
+                precondition(grid.visibleSwitching.isEmpty && secondGrid.visibleSwitching.isEmpty,
+                    "Stop retained a switching target")
                 precondition(grid.visiblePlaying.isEmpty && secondGrid.visiblePlaying.isEmpty, "Stop retained a stale playing card")
                 let lost = begin(a); visible(lost); try await drain()
                 precondition(grid.visiblePlaying == [a])
@@ -190,6 +223,36 @@ extension SceneDaemonClient { func stop() {} }
                 precondition(grid.visiblePlaying.isEmpty)
                 cases += 1
             }
+        }
+        // Explicit Scene removal cancels its sequence before transaction failure;
+        // it must revoke the visible pending state before its async ACK/file I/O.
+        do {
+            let manager = WallpaperManager()
+            let a = reference("removal-A", .video), b = reference("removal-B", .scene)
+            let workspace = WallpaperLibraryWorkspace(manager, items: [item(a, .video), item(b, .scene)])
+            let grid = GridObserver(workspace)
+            let snapshot = try WallpaperPlaybackSequence.Snapshot(source: .global, revision: 1,
+                entries: [.init(reference: a, runtime: .video, isPlayable: true),
+                          .init(reference: b, runtime: .scene, isPlayable: true)])
+            let first = PublicationEndpoint(a, manager.requestLibraryPlayback(reference: a, from: snapshot)!)
+            first.delayedRetirement = false
+            manager.switchPrepared(first.ticket, endpoint: first.endpoint)
+            manager.switchVisible(first.ticket, executionID: first.id)
+            let pending = PublicationEndpoint(b, manager.requestLibraryPlayback(reference: b, from: snapshot)!)
+            pending.delayedCancellation = true
+            manager.switchPrepared(pending.ticket, endpoint: pending.endpoint)
+            precondition(grid.visiblePlaying == [a] && grid.visibleSwitching == [b])
+            var removal: Bool?
+            manager.prepareSceneDownloadRemoval(recordID: b.sourceID) { removal = $0 }
+            precondition(removal == nil && pending.cancellation != nil,
+                "removal did not wait for the real candidate cancellation ACK")
+            precondition(grid.visibleSwitching.isEmpty && grid.visiblePlaying == [a],
+                "explicit pending removal waited for catalog/file publication to clear its hourglass")
+            manager.switchVisible(pending.ticket, executionID: pending.id)
+            precondition(grid.visibleSwitching.isEmpty && grid.visiblePlaying == [a] && !pending.finalized)
+            pending.cancellation?(); pending.cancellation = nil
+            precondition(removal == true && grid.visiblePlaying == [a])
+            manager.stopCurrentPlayback()
         }
         print("playback publication passed: \(cases) runtime pairs, committed UI authority, delayed finalize, failure, supersession, Stop and output loss")
     }

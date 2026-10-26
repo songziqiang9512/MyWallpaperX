@@ -16,16 +16,18 @@ class SteamDetailNavigationTests(unittest.TestCase):
         nav = (CORE / 'SteamWorkshopService+BrowseNavigation.swift').read_text()
         download = (CORE / 'SteamWorkshopService+DownloadSelection.swift').read_text()
         loading = (CORE / 'SteamWorkshopService+BrowsePageLoading.swift').read_text()
+        recovery = (CORE / 'SteamWorkshopService+BrowseStateRecovery.swift').read_text()
         models = (CORE / 'SteamWorkshopModels.swift').read_text()
         api = (CORE / 'SteamWorkshopAPIModels.swift').read_text()
         with tempfile.TemporaryDirectory(prefix='mwx-detail-navigation-', dir='/private/tmp') as temporary:
             work = Path(temporary)
-            fragments = ['import AppKit\nimport Foundation']
+            fragments = ['import AppKit\nimport Combine\nimport Foundation']
             fragments += [method(models, start) for start in [
                 'nonisolated enum SteamWorkshopPreviewAssetKind',
                 'nonisolated struct SteamWorkshopDetailField', 'nonisolated struct SteamWorkshopBrowserItem']]
             fragments += [method(api, start) for start in ['enum SteamWorkshopBrowseContext',
                 'struct SteamWorkshopDiscoveryBrowseSnapshot', 'enum SteamWorkshopAuthorReturnDestination',
+                'enum SteamWorkshopBrowseSection',
                 'nonisolated struct SteamWorkshopDetailCacheSnapshot']]
             cache = (CORE/'SteamWorkshopService+LibraryRecords.swift').read_text()
             fragments.append('enum DiskCacheProbe {\n'
@@ -45,7 +47,10 @@ class SteamDetailNavigationTests(unittest.TestCase):
                     '    func refreshSelectedDownloadInspectorDetailIfNeeded(',
                     '    func persistRefreshedDownloadMetadata(',
                     '    private func refreshSelectedBrowserItemDetailIfNeeded(']],
-                *[method(nav, start) for start in ['    func showAuthorWorkshop(',
+                *[method(nav, start) for start in ['    var canReturnFromBrowse:',
+                    '    func showMySubscriptions(', '    func returnFromBrowseSubpage(',
+                    '    func enterBrowseSection(', '    func invalidatePersonalBrowseSnapshot(',
+                    '    func showAuthorWorkshop(',
                     '    func returnToDiscoveryBrowse(', '    func requestSteamWorkshopBrowserSelection(',
                     '    func updateDisplayedBrowserItems(',
                     '    func makeDiscoveryBrowseSnapshot(', '    func restoreDiscoveryBrowseSnapshot(']],
@@ -54,6 +59,9 @@ class SteamDetailNavigationTests(unittest.TestCase):
                   for start in ['    func prepareForBrowserEntry(', '    func navigateToBrowse(']],
                 *[method(download, start) for start in ['    func dismissDownloadInspector(',
                     '    func presentDownloadInspector(']],
+                method((CORE/'SteamWorkshopService.swift').read_text(), '    private func observeSteamAccountIdentityForPersonalSources('),
+                method(recovery, '    func updateBrowserScrollMetrics('),
+                method(recovery, '    func consumePendingBrowserScrollRestoreOffset('),
                 method(loading, '    var allowsAutomaticBrowserContinuation:'),
                 method(loading, '    func retryLoadingMoreBrowserItems('),
                 method((CORE/'SteamWorkshopService+LibraryRecords.swift').read_text(), '    nonisolated static func creatorID(')

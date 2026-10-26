@@ -33,14 +33,15 @@ final class SILGridItem: WallpaperCardCollectionViewItem, WallpaperGridHoverItem
     private let multiSelectIcon  = NSImageView()
 
     var onApplyRequested: ((String) -> Void)? {
-        didSet { controlBar?.playButton.isEnabled = onApplyRequested != nil }
+        didSet { controlBar?.playButton.isEnabled = onApplyRequested != nil && !isSwitching }
     }
     /// Nil until the relation owner is connected; no decorative, inert heart.
     var onToggleFavorite: ((String) -> Void)? {
         didSet { controlBar?.favoriteButton.isHidden = onToggleFavorite == nil }
     }
     private var isFavoriteState = false
-    private var isAppliedState = false
+    private var isPlayingState = false
+    private var isSwitching = false
 
     var wallpaperID: String?
     private var imageTaskID: UUID?
@@ -163,7 +164,8 @@ final class SILGridItem: WallpaperCardCollectionViewItem, WallpaperGridHoverItem
         controlBar?.removeFromSuperview()
         currentTitle = ""; currentMetadata = ""
         onApplyRequested = nil; onToggleFavorite = nil
-        isFavoriteState = false; isAppliedState = false
+        isFavoriteState = false; isPlayingState = false; isSwitching = false
+        controlBar?.primaryState = .apply
         view.toolTip = nil
         refreshThemeAwareAppearance()
     }
@@ -177,6 +179,7 @@ final class SILGridItem: WallpaperCardCollectionViewItem, WallpaperGridHoverItem
         isPlaying: Bool = false,
         thumbnailLoader: @escaping (ThumbnailCacheRequestCancellation, @escaping (SILThumbnailLoadResult) -> Void) -> Void
     ) {
+        if wallpaperID != wallpaper.id { isSwitching = false }
         wallpaperID = wallpaper.id
         isThumbnailVisible = thumbnailVisible
         currentTitle = wallpaper.title
@@ -191,7 +194,7 @@ final class SILGridItem: WallpaperCardCollectionViewItem, WallpaperGridHoverItem
         }
         currentMetadata = metaLines.joined(separator: "  ")
         isFavoriteState = isFavorite
-        isAppliedState = isPlaying
+        isPlayingState = isPlaying
         view.toolTip = nil
         updateControlBarContent()
 
@@ -290,7 +293,14 @@ final class SILGridItem: WallpaperCardCollectionViewItem, WallpaperGridHoverItem
     }
 
     func applyPlayingState(isPlaying: Bool) {
-        isAppliedState = isPlaying
+        isPlayingState = isPlaying
+        updateControlBarContent()
+        applyHoverVisibility(isHovering, animated: false)
+    }
+
+    func applySwitchingState(isSwitching: Bool) {
+        guard self.isSwitching != isSwitching else { return }
+        self.isSwitching = isSwitching
         updateControlBarContent()
         applyHoverVisibility(isHovering, animated: false)
     }
@@ -334,7 +344,7 @@ final class SILGridItem: WallpaperCardCollectionViewItem, WallpaperGridHoverItem
     }
 
     private func applyHoverVisibility(_ visible: Bool, animated: Bool) {
-        let showBar = (visible || isAppliedState) && !isMultiSelect
+        let showBar = (visible || isPlayingState || isSwitching) && !isMultiSelect
         if showBar { prepareControlBarIfNeeded() }
         guard let bar = controlBar else { return }
         barVisibilityRevision &+= 1
@@ -380,8 +390,8 @@ final class SILGridItem: WallpaperCardCollectionViewItem, WallpaperGridHoverItem
     private func updateControlBarContent() {
         controlBar?.apply(title: currentTitle, metadata: currentMetadata)
         controlBar?.isFavorite = isFavoriteState
-        controlBar?.primaryState = isAppliedState ? .applied : .apply
-        controlBar?.playButton.isEnabled = onApplyRequested != nil
+        controlBar?.primaryState = isSwitching ? .switching : (isPlayingState ? .playing : .apply)
+        controlBar?.playButton.isEnabled = onApplyRequested != nil && !isSwitching
         controlBar?.favoriteButton.isHidden = onToggleFavorite == nil
     }
 
@@ -399,11 +409,16 @@ final class SILGridItem: WallpaperCardCollectionViewItem, WallpaperGridHoverItem
 
     private func refreshThemeAwareAppearance() {
         guard let layer = imageContainer.layer else { return }
-        layer.borderColor = (isSelectedState ? NSColor.controlAccentColor : NSColor.separatorColor).cgColor
+        imageContainer.effectiveAppearance.performAsCurrentDrawingAppearance {
+            layer.backgroundColor = NSColor.windowBackgroundColor.cgColor
+            layer.borderColor = (isSelectedState ? NSColor.controlAccentColor : NSColor.separatorColor).cgColor
+            multiSelectBadge.layer?.backgroundColor = (isSelectedState
+                ? NSColor.controlAccentColor : NSColor.black.withAlphaComponent(0.42)).cgColor
+            hoverOutline.layer?.borderColor = NSColor.white.cgColor
+        }
         layer.borderWidth = isSelectedState ? 2 : 1
         // 不显示蓝色遮罩，只用描边表示选中
         selectionTint.alphaValue = 0
-        hoverOutline.layer?.borderColor = NSColor.white.cgColor
     }
 
     // MARK: - Setup
@@ -411,9 +426,10 @@ final class SILGridItem: WallpaperCardCollectionViewItem, WallpaperGridHoverItem
     private func updateMultiSelectBadge(selected: Bool) {
         multiSelectBadge.isHidden = !isMultiSelect
         guard isMultiSelect else { return }
-        multiSelectBadge.layer?.backgroundColor = selected
-            ? NSColor.controlAccentColor.cgColor
-            : NSColor.black.withAlphaComponent(0.42).cgColor
+        imageContainer.effectiveAppearance.performAsCurrentDrawingAppearance {
+            multiSelectBadge.layer?.backgroundColor = (selected
+                ? NSColor.controlAccentColor : NSColor.black.withAlphaComponent(0.42)).cgColor
+        }
         multiSelectIcon.isHidden = !selected
     }
 

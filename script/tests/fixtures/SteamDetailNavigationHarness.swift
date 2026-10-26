@@ -1,6 +1,7 @@
 extension Notification.Name { static let appKitSelectItemRequested = Notification.Name("select") }
 import AppKit
 import Foundation
+import Combine
 
 // Only external leaves (disk publication, Shell and preview networking) are
 // inert. Tests compile the production query, conversion, refresh and routing.
@@ -18,6 +19,8 @@ import Foundation
     var personalSort = SteamWorkshopPersonalSort.subscriptionDate
     var browserState = SteamWorkshopBrowserLoadState.loaded
     var browseContext = SteamWorkshopBrowseContext.discovery
+    var isBrowsingAuthorWorkshop: Bool { browseContext.isAuthorWorkshop }
+    var retainedBrowseSections: [SteamWorkshopBrowseSection: SteamWorkshopDiscoveryBrowseSnapshot] = [:]
     var browserQuery = "", currentPageTitle = "", statusMessage = ""
     var currentWorkshopItemID: String?
     var selectedBrowserItem: SteamWorkshopBrowserItem?
@@ -42,7 +45,14 @@ import Foundation
     var consecutiveEmptyLoadMorePages = 0
     var fetches = 0, focusRequests = 0, publications = 0, continuationRequests = 0
     var savedItem: Data?
-    struct Auth { var isOnline = true; var steamId: String? = "account" }
+    final class Auth {
+        var isOnline = true
+        @Published var steamId: String? = "account"
+    }
+    var cancellables = Set<AnyCancellable>()
+    var isBrowsePanelOpen = true
+    var intentRefreshes = 0
+    func refreshDownloadIntentProjection() { intentRefreshes += 1 }
     var steamAuth = Auth()
     lazy var steamSubscriptions = SteamWorkshopSubscriptionStore(
         identity: { 1 }, read: { _ in false }, write: { _, _ in })
@@ -367,7 +377,100 @@ import Foundation
         precondition(selectedRoute == "steamWorkshop" && downloadOrigin.authorWorkshopReturnDestination == .personal,
             "a direct subscription author entry uses Workshop but remembers subscription origin")
         downloadOrigin.returnToDiscoveryBrowse()
-        precondition(selectedRoute == "steamSubscribed", "Back returns to Subscriptions independently of the author host")
+        precondition(selectedRoute == "steamWorkshop" && downloadOrigin.source.isPersonal,
+            "Back restores personal content within the same Workshop host")
+        // Public and personal sections reuse the real store snapshots. Author
+        // navigation adds one bounded level, not another Shell page owner.
+        let nested = SteamWorkshopService(query)
+        nested.browserContentMode = .all
+        nested.source = .recent
+        nested.browserQuery = "public query"
+        let publicKey = nested.steamKitBrowseStore.makeKey(source: .recent, contentMode: .all,
+            filters: .none, search: nested.browserQuery, window: .month)
+        nested.trendingWindow = .month
+        nested.steamKitBrowseStore.resetFor(key: publicKey)
+        reply = page(1, [value(brief.id)], more: true)
+        _ = try await nested.steamKitBrowseStore.fetch(page: 1, generation: nested.steamKitBrowseStore.bumpGeneration())
+        nested.browserItems = [brief]; nested.browserState = .loaded; nested.hasMoreBrowserItems = true
+        nested.currentBrowserScrollOffsetY = 312
+        nested.showMySubscriptions()
+        precondition(nested.source == .mySubscriptions && selectedRoute == "steamWorkshop" && nested.canReturnFromBrowse)
+        precondition(nested.pendingBrowserScrollRestoreOffset == 0, "new personal entry requests the real top")
+        nested.updateBrowserScrollMetrics(offsetY: 0, contentHeight: 2000, viewportHeight: 600)
+        nested.consumePendingBrowserScrollRestoreOffset()
+        precondition(nested.pendingBrowserScrollRestoreOffset == nil)
+        nested.source = .myFavorites
+        nested.personalSort = .fileSize
+        nested.facetFilters = filters
+        nested.browserQuery = "personal query"
+        let personalKey = nested.steamKitBrowseStore.makePersonalKey(source: .myFavorites,
+            accountSteamID: nested.steamAuth.steamId, contentMode: .all, filters: filters,
+            search: nested.browserQuery, window: .month, personalSort: .fileSize)
+        nested.steamKitBrowseStore.resetFor(key: personalKey)
+        wire.respond = { request in
+            if request["command"] as? String == "listFavorites" {
+                return ["page": 1, "total": 9, "hasMore": true, "ids": [brief.id]]
+            }
+            return page(0, [value(brief.id)])
+        }
+        _ = try await nested.steamKitBrowseStore.fetchPersonal(page: 1, generation: nested.steamKitBrowseStore.bumpGeneration())
+        wire.respond = { _ in reply }
+        nested.browserItems = [brief]; nested.browserState = .loaded; nested.hasMoreBrowserItems = true
+        // This source-only harness has no mounted Grid. Acknowledge the same
+        // restore receipt as the real Grid before publishing a later user scroll.
+        nested.updateBrowserScrollMetrics(offsetY: 624, contentHeight: 2000, viewportHeight: 600)
+        precondition(nested.currentBrowserScrollOffsetY == 624 && nested.pendingBrowserScrollRestoreOffset == nil)
+        nested.showAuthorWorkshop(for: detailed)
+        precondition(nested.discoveryBrowseSnapshot?.scrollOffsetY == 624,
+            "the consumed top restore cannot override a later user scroll in the retained personal snapshot")
+        precondition(nested.authorWorkshopReturnDestination == .personal && nested.browseContext.isAuthorWorkshop)
+        let afterAuthorFetch = nested.fetches
+        nested.returnFromBrowseSubpage()
+        let returnFacts: [String] = [
+            "source=\(nested.source)", "context=\(nested.browseContext)", "canReturn=\(nested.canReturnFromBrowse)",
+            "query=\(nested.browserQuery)", "sort=\(nested.personalSort)", "filtersMatch=\(nested.facetFilters == filters)",
+            "keyMatches=\(nested.steamKitBrowseStore.currentKey == personalKey)",
+            "pending=\(String(describing: nested.pendingBrowserScrollRestoreOffset))", "current=\(nested.currentBrowserScrollOffsetY)",
+            "items=\(nested.browserItems.map(\.id))", "hasMore=\(nested.hasMoreBrowserItems)", "route=\(selectedRoute ?? "nil")"
+        ]
+        FileHandle.standardError.write(Data(("NestedPersonalReturn " + returnFacts.joined(separator: " ") + "\n").utf8))
+        precondition(nested.source == .myFavorites && !nested.browseContext.isAuthorWorkshop && nested.canReturnFromBrowse
+            && nested.browserQuery == "personal query" && nested.personalSort == .fileSize && nested.facetFilters == filters
+            && nested.steamKitBrowseStore.currentKey == personalKey && nested.pendingBrowserScrollRestoreOffset == 624
+            && nested.browserItems == [brief] && nested.hasMoreBrowserItems && selectedRoute == "steamWorkshop")
+        nested.returnFromBrowseSubpage()
+        precondition(nested.source == .recent && !nested.canReturnFromBrowse && nested.browserQuery == "public query"
+            && nested.facetFilters == .none && nested.steamKitBrowseStore.currentKey == publicKey
+            && nested.pendingBrowserScrollRestoreOffset == 312 && nested.fetches == afterAuthorFetch,
+            "personal → author → personal → public restores both original feed snapshots without a refetch")
+        nested.updateBrowserScrollMetrics(offsetY: 312, contentHeight: 2000, viewportHeight: 600)
+        nested.consumePendingBrowserScrollRestoreOffset()
+        precondition(nested.currentBrowserScrollOffsetY == 312 && nested.pendingBrowserScrollRestoreOffset == nil)
+        nested.steamAuth.isOnline = false
+        let offlineVersion = nested.navigationVersion, offlineFetches = nested.fetches
+        nested.showMySubscriptions()
+        nested.enterBrowseSection(.personal)
+        precondition(nested.source == .recent && nested.navigationVersion == offlineVersion && nested.fetches == offlineFetches,
+            "signed-out direct entry cannot create a personal page or trigger login/network work")
+        nested.steamAuth.isOnline = true
+        nested.selectedDownloadInspectorItem = detailed
+        nested.showMySubscriptions()
+        precondition(nested.source == .myFavorites && nested.browserItems == [brief] && nested.selectedDownloadInspectorItem == nil,
+            "explicit personal entry clears a retained Downloads inspector origin")
+        nested.observeSteamAccountIdentityForPersonalSources()
+        nested.steamAuth.isOnline = false
+        nested.steamAuth.steamId = nil
+        func deliverAccountPublication() {
+            let deadline = Date().addingTimeInterval(1)
+            while nested.source.isPersonal && Date() < deadline {
+                RunLoop.current.run(until: Date().addingTimeInterval(0.005))
+            }
+        }
+        deliverAccountPublication()
+        precondition(nested.intentRefreshes == 1 && !nested.source.isPersonal && !nested.canReturnFromBrowse
+            && nested.retainedBrowseSections[.personal] == nil && nested.discoveryBrowseSnapshot == nil
+            && nested.steamKitBrowseStore.currentKey == publicKey && nested.browserQuery == "public query",
+            "real account publisher discards private snapshots and restores the original public feed on logout")
         NotificationCenter.default.removeObserver(observer)
         print("detail/navigation PASS: full metadata repair, optional fields, sharing, filter isolation, idempotency and restoration")
         await client.stop(shutdownTimeout: 0.1)

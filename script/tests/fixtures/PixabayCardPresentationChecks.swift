@@ -294,11 +294,62 @@ import QuartzCore
     browser.applyHoverVisibility(true, animated: true)
     pump(0.4)
     facts.expect("browser-late-fade-cannot-detach-reentered-bar", bar.superview != nil && !bar.isHidden && bar.alphaValue == 1)
+    var browserStopCalls = 0
+    func browserPlayback(_ switching: Bool, playing: Bool) -> WallpaperInspectorActions {
+        .init(state: .init(isPlaying: playing, isSwitching: switching, isFavorite: false, canPerformPrimary: !switching,
+            canFavorite: true, canOrganize: true, playlistNames: []), onPrimary: { browserStopCalls += 1 },
+            onToggleFavorite: { favorite.append(model.id) }, onChoosePlaylist: { _ in })
+    }
+    let pendingBrowserRequest = browser.thumbnailRequestID, pendingBrowserLoads = OLThumbnailCache.shared.history.count
+    func browserPlaybackDetails() -> String {
+        let fields: [String] = [
+            "state=\(bar.primaryState)", "hidden=\(bar.isHidden)", "mounted=\(bar.superview != nil)",
+            "alpha=\(bar.alphaValue)", "buttonHidden=\(bar.playButton.isHidden)",
+            "enabled=\(bar.playButton.isEnabled)", "AX=\(bar.playButton.accessibilityLabel() ?? "nil")",
+            "imagePosition=\(bar.playButton.imagePosition.rawValue)", "title=\(String(reflecting: bar.playButton.title))",
+            "played=\(played)", "downloaded=\(downloaded)",
+            "request=\(browser.thumbnailRequestID) expected=\(pendingBrowserRequest)",
+            "loads=\(OLThumbnailCache.shared.history.count) expected=\(pendingBrowserLoads)",
+            "completionHidden=\(browser.completionBadgeView.isHidden)",
+            "completionAnimating=\(browser.isCompletionAnimating)", "sourceDownloading=\(browser.isDownloadingState)"
+        ]
+        return fields.joined(separator: ", ")
+    }
+    updateBrowser(downloading: true, progress: 0.61)
+    facts.expect("pending-transition-starts-with-the-real-percentage-only-download-button", bar.playButton.imagePosition == .noImage
+        && bar.playButton.title == "61%" && !bar.playButton.isEnabled)
+    browser.applyHoverVisibility(false, animated: false)
+    browser.updateOrganization(browserPlayback(true, playing: true), for: model.id)
+    bar.playButton.performClick(nil)
+    facts.expect("browser-Core-pending-pins-shared-hourglass-and-blocks-repeat-without-thumbnail-work", bar.primaryState == .switching
+        && !bar.isHidden && bar.superview != nil && bar.alphaValue == 1 && !bar.playButton.isEnabled
+        && bar.playButton.accessibilityLabel() == "正在切换壁纸" && bar.playButton.imagePosition == .imageOnly
+        && bar.playButton.title.isEmpty && played == [501] && downloaded == [501]
+        && browser.thumbnailRequestID == pendingBrowserRequest && OLThumbnailCache.shared.history.count == pendingBrowserLoads,
+        browserPlaybackDetails())
+    browser.updateOrganization(browserPlayback(false, playing: true), for: model.id)
+    facts.expect("browser-success-pins-native-stop-after-organization-only-echo", bar.primaryState == .playing
+        && !bar.isHidden && bar.superview != nil && bar.playButton.isEnabled && bar.playButton.accessibilityLabel() == "停止播放"
+        && bar.playButton.imagePosition == .imageOnly && bar.playButton.title.isEmpty, browserPlaybackDetails())
+    bar.playButton.performClick(nil)
+    facts.expect("browser-successful-Stop-uses-fixed-Core-action-without-reapplying-or-downloading", browserStopCalls == 1
+        && played == [501] && downloaded == [501])
+    browser.configure(item: model, isDownloading: false, isDownloaded: true, downloadProgress: nil,
+        organization: browserPlayback(false, playing: true), onDownload: { downloaded.append(model.id) },
+        onSetAsWallpaper: { played.append(model.id) })
+    facts.expect("late-download-completion-echo-cannot-cover-or-restore-percentage-over-Core-Stop", bar.primaryState == .playing
+        && bar.playButton.imagePosition == .imageOnly && bar.playButton.title.isEmpty && !bar.playButton.isHidden
+        && browser.completionBadgeView.isHidden && bar.playButton.isEnabled, browserPlaybackDetails())
+    pump(0.9)
+    browser.updateOrganization(browserPlayback(false, playing: false), for: model.id)
+    facts.expect("browser-cancelled-or-stopped-pending-returns-to-original-idle-without-hover", bar.primaryState == .apply
+        && bar.isHidden && bar.superview == nil)
+    browser.updateOrganization(browserPlayback(true, playing: false), for: model.id)
     browser.prepareForReuse()
     bar.playButton.performClick(nil)
     bar.favoriteButton.performClick(nil)
     facts.expect("browser-reuse-revokes-old-actions", played == [501] && downloaded == [501] && favorite == [501]
-        && browser.organization == nil && bar.superview == nil)
+        && browser.organization == nil && bar.superview == nil && bar.primaryState == .apply)
 
     var chosen: [Int] = [], injectedPrimaryCalls = 0
     func organization(_ id: Int, favorite isFavorite: Bool, canFavorite: Bool = true, canOrganize: Bool = true) -> WallpaperInspectorActions {
@@ -408,6 +459,19 @@ import QuartzCore
         .withSymbolConfiguration(.init(pointSize: max(11, stopMetrics.iconButtonSize * 0.56), weight: .medium))!
     facts.expect("download-organization-keeps-actual-stop-image-and-tooltip", localBar.playButton.toolTip == "停止播放"
         && stopSymbol.tiffRepresentation != nil && localBar.playButton.image?.tiffRepresentation == stopSymbol.tiffRepresentation)
+    download.applyHoverVisibility(false, animated: false)
+    download.applySwitchingState(isSwitching: true)
+    download.onPrimaryAction = { localPlayed.append($0) }
+    localBar.playButton.performClick(nil)
+    facts.expect("download-Core-pending-pins-hourglass-and-rejects-repeat-without-thumbnail-work", localBar.primaryState == .switching
+        && !localBar.isHidden && localBar.alphaValue == 1 && localBar.superview != nil && !localBar.playButton.isEnabled
+        && localBar.playButton.accessibilityLabel() == "正在切换壁纸" && localPlayed == [801]
+        && download.thumbnailRequestID == organizationRequest && OLDownloadedThumbnailStore.sharedCache.history.count == organizationLoads)
+    download.applyPlayingState(isPlaying: false)
+    facts.expect("download-pending-wins-over-playing-echo", localBar.primaryState == .switching && !localBar.playButton.isEnabled)
+    download.applyPlayingState(isPlaying: true)
+    download.applySwitchingState(isSwitching: false)
+    facts.expect("download-pending-completion-restores-native-stop", localBar.primaryState == .playing && localBar.playButton.isEnabled)
     let nonRedChrome = PixabayNativeAccentProbe.withNonRedAccent {
         download.applyOrganizationState(isFavorite: false, primaryShowsStop: false)
         download.applyOrganizationState(isFavorite: true, primaryShowsStop: true)
@@ -461,11 +525,12 @@ import QuartzCore
     download.refreshTheme()
     let border = NSColor(cgColor: download.hoverOutlineView.layer!.borderColor!)!.usingColorSpace(.deviceRGB)!
     facts.expect("light-appearance-keeps-white-outline", border.redComponent > 0.99 && border.greenComponent > 0.99 && border.blueComponent > 0.99)
+    download.applySwitchingState(isSwitching: true)
     download.prepareForReuse()
     localBar.playButton.performClick(nil)
     localBar.favoriteButton.performClick(nil)
     facts.expect("download-reuse-revokes-fixed-ID-actions", download.onPrimaryAction == nil && download.onToggleFavorite == nil
-        && localPlayed == [801,802] && localFavorite == [801,802])
+        && localPlayed == [801,802] && localFavorite == [801,802] && !download.isSwitching && localBar.primaryState == .apply)
     var negativePlayed: [Int] = [], negativeFavorite: [Int] = []
     download.onPrimaryAction = { negativePlayed.append($0) }
     download.onToggleFavorite = { negativeFavorite.append($0) }

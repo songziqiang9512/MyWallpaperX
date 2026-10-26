@@ -79,7 +79,7 @@ import AppKit
         case .favorite:
             item.representedObject = nil
             item.title = "特别喜爱"
-            if page == .workshop || page == .workshopSubscriptions {
+            if page == .workshop {
                 guard let actions = controller?.selectedBrowserOrganizationActions(), actions.state.canFavorite else { return false }
                 item.title = actions.state.isFavorite ? "取消特别喜爱" : "特别喜爱"
                 item.representedObject = actions.onToggleFavorite
@@ -92,7 +92,7 @@ import AppKit
             return true
         case .addToPlaylist:
             item.representedObject = nil
-            if page == .workshop || page == .workshopSubscriptions {
+            if page == .workshop {
                 guard let actions = controller?.selectedBrowserOrganizationActions(), actions.state.canOrganize else { return false }
                 item.representedObject = { actions.onChoosePlaylist(nil) }
                 return true
@@ -183,7 +183,7 @@ import AppKit
     }
     static func menuRevealOrRefresh() {
         switch page {
-        case .workshop, .workshopSubscriptions: SteamWorkshopService.shared.refresh()
+        case .workshop: SteamWorkshopService.shared.refresh()
         case .pixabay: OnlineLibraryService.shared.refresh()
         default: commands?.reveal()
         }

@@ -216,7 +216,7 @@ private final class ChromeToolbar: NSObject, NSToolbarDelegate {
         checks["empty-playlist-center-explains-header-add-without-a-duplicate-button"] = button("添加壁纸") == nil
             && label("从顶部添加壁纸，开始建立这个播放列表") != nil && probe.pickers.isEmpty
 
-        for page in [WallpaperLibraryPage.workshop, .workshopSubscriptions, .pixabay] {
+        for page in [WallpaperLibraryPage.workshop, .pixabay] {
             let source = NSViewController(); source.view = NSView()
             let sourceError = NSTextField(labelWithString: "来源自己的错误")
             source.view.addSubview(sourceError)

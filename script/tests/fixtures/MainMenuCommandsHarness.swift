@@ -217,15 +217,20 @@ final class AppDelegate:NSObject,NSApplicationDelegate,NSMenuItemValidation {
         _ = send(.favorite)
         checks["held-local-favorite-menu-cannot-survive-a-page-change"] = controller.libraryCommands.favorites == beforeHeldLocalFavorite
         controller.libraryPresentation.page = .images
-        for page in [WallpaperLibraryPage.workshop,.workshopSubscriptions,.pixabay] {
+        for page in [WallpaperLibraryPage.workshop,.pixabay] {
+            let steamRefreshes = SteamWorkshopService.shared.refreshes
+            let onlineRefreshes = OnlineLibraryService.shared.refreshes
             controller.libraryPresentation.page=page;controller.libraryCommands.canImport=false;controller.libraryCommands.canToggleSelection=false
             checks["remote-import-and-bulk-selection-disabled-\(page.persistenceKey)"] = !delegate.validateMenuItem(item(.importFiles)) && !delegate.validateMenuItem(item(.toggleSelection))
             checks["remote-search-zoom-and-refresh-still-enabled-\(page.persistenceKey)"] = delegate.validateMenuItem(item(.search))
                 && delegate.validateMenuItem(item(.zoomIn)) && delegate.validateMenuItem(item(.revealOrRefresh)) && item(.revealOrRefresh).title == "刷新"
             _ = send(.search);_ = send(.zoomIn);_ = send(.zoomOut);_ = send(.revealOrRefresh)
+            checks["refresh-dispatches-only-to-current-source-\(page.persistenceKey)"] =
+                SteamWorkshopService.shared.refreshes - steamRefreshes == (page == .workshop ? 1 : 0)
+                && OnlineLibraryService.shared.refreshes - onlineRefreshes == (page == .pixabay ? 1 : 0)
         }
-        checks["remote-actions-retain-original-source-refresh-owners"] = SteamWorkshopService.shared.refreshes == 2 && OnlineLibraryService.shared.refreshes == 1
-            && controller.searches == 3 && controller.zooms == [1,-1,1,-1,1,-1]
+        checks["remote-actions-retain-original-source-refresh-owners"] = SteamWorkshopService.shared.refreshes == 1 && OnlineLibraryService.shared.refreshes == 1
+            && controller.searches == 2 && controller.zooms == [1,-1,1,-1]
         var browserFavorites:[String]=[],browserPlaylists:[String]=[]
         var browserID="download-A"
         controller.libraryPresentation.page = .workshop
@@ -255,7 +260,7 @@ final class AppDelegate:NSObject,NSApplicationDelegate,NSMenuItemValidation {
         _ = send(.favorite);_ = send(.addToPlaylist)
         checks["old-browser-main-menu-after-page-change-cannot-fall-through-to-local-selection"] = browserFavorites.count == 2 && browserPlaylists.count == 2
             && controller.libraryCommands.favorites == localOrganizationCounts.0 && controller.libraryCommands.adds == localOrganizationCounts.1
-        controller.libraryPresentation.page = .workshopSubscriptions;controller.browserActions=nil
+        controller.libraryPresentation.page = .workshop;controller.browserActions=nil
         checks["undownloaded-browser-selection-disables-main-menu-organization"] = !delegate.validateMenuItem(item(.favorite)) && !delegate.validateMenuItem(item(.addToPlaylist))
         _ = send(.favorite);_ = send(.addToPlaylist)
         checks["unpublished-browser-main-menu-cannot-use-stale-local-command-selection"] = controller.libraryCommands.favorites == localOrganizationCounts.0

@@ -43,6 +43,7 @@ final class AppKitListTintSurface: NSView {
     private var windowObservers: [NSObjectProtocol] = []
     private var workspaceObservers: [NSObjectProtocol] = []
     private var isActive = false
+    private var usesThumbnailTint = true
 
     init(sample: Sampler? = nil, displayOptions: (() -> DisplayOptions)? = nil) {
         self.sample = sample ?? Self.sampleThumbnail
@@ -70,24 +71,14 @@ final class AppKitListTintSurface: NSView {
     }
 
     func install(sidebar sidebarHost: AppKitListTintSurface, main mainHost: AppKitListTintSurface) {
-        installHosts(sidebar: sidebarHost, main: mainHost)
-    }
-
-    /// Sheets mirror the main window's source without manufacturing a sidebar
-    /// or a separate sampling path. They keep an independent visibility lease.
-    func install(main mainHost: AppKitListTintSurface) {
-        installHosts(sidebar: nil, main: mainHost)
-    }
-
-    private func installHosts(sidebar sidebarHost: AppKitListTintSurface?, main mainHost: AppKitListTintSurface) {
         sidebar = sidebarHost
         main = mainHost
         // Sidebar composition supplies one passive surface below its original
         // scroll view. Native scroll backing layers own their own background.
         // Installing this projection adds no view or material to either host.
-        sidebarHost?.wantsLayer = true
+        sidebarHost.wantsLayer = true
         mainHost.wantsLayer = true
-        sidebarHost?.onAppearanceChange = { [weak self] in self?.project(animated: false) }
+        sidebarHost.onAppearanceChange = { [weak self] in self?.project(animated: false) }
         mainHost.onWindowChange = { [weak self] in self?.bindWindow($0) }
         mainHost.onAppearanceChange = { [weak self] in self?.project(animated: false) }
         bindWindow(mainHost.window)
@@ -99,6 +90,13 @@ final class AppKitListTintSurface: NSView {
         source = next
         stopObservingSource = next?.observe { [weak self] in self?.refresh() }
         refresh() // The first snapshot may have been published before mounting.
+    }
+
+    func setUsesThumbnailTint(_ enabled: Bool) {
+        guard usesThumbnailTint != enabled else { return }
+        usesThumbnailTint = enabled
+        syncVisibility()
+        if !enabled { project(animated: false) }
     }
 
     private func bindWindow(_ next: NSWindow?) {
@@ -122,7 +120,7 @@ final class AppKitListTintSurface: NSView {
 
     private func syncVisibility() {
         let active = window?.isVisible == true && window?.isMiniaturized == false && !NSApp.isHidden
-            && displayOptions().allowsTint
+            && usesThumbnailTint && displayOptions().allowsTint
         guard active != isActive else { return }
         isActive = active
         refresh()

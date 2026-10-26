@@ -3,6 +3,7 @@
 Native renderer, provider file preparation, desktop workspace and Timer delivery
 are controlled leaves. This does not render media or claim visual/runtime parity.
 """
+import hashlib
 import json
 from pathlib import Path
 import subprocess
@@ -23,6 +24,7 @@ class WallpaperLibraryPlaybackTests(unittest.TestCase):
         source = source.replace('var autoSwitchEnabled=true,randomInterval=', 'var volume:Double=100\n        var autoSwitchEnabled=true,randomInterval=')
         source = source.replace('func stopCurrentPlayback(){_ = beginPlaybackIntent();currentWallpaper=nil;pendingWallpaper=nil;isPlaying=false;stopAutoSwitchTimer()}', '')
         source = source.replace('@discardableResult func advanceLibraryPlayback(cause:WallpaperPlaybackCause)->Bool{timerFires += 1;return false}', '')
+        source = source.replace('func restoreSystemDesktopWallpaperOnTermination(){Trace.values.append("restoreDesktop")}', '')
         fields = '''
     enum PlaybackMode { case loop, sequential, random }
     var mode=PlaybackMode.sequential
@@ -34,6 +36,19 @@ class WallpaperLibraryPlaybackTests(unittest.TestCase):
 '''
         source = source.replace('@MainActor final class WallpaperManager: ObservableObject {',
                                 '@MainActor final class WallpaperManager: ObservableObject {' + fields)
+        manager_source = (MANAGER / 'WallpaperManager.swift').read_text()
+        desktop_fields = declaration(manager_source, '    struct SystemDesktopWallpaper') + '''
+    var systemDesktopWallpapers: [UInt32: SystemDesktopWallpaper] = [:]
+    var didApplySystemStillThisRun = false
+    var staticFrameCacheDirectory = URL(fileURLWithPath: "/private/tmp/unconfigured-desktop-cache")
+    var thumbnailCacheDirectory = URL(fileURLWithPath: "/private/tmp/unconfigured-thumbnail-cache")
+    func bumpCacheGeneration() {}
+    func clearThumbnailMemoryCache() {}
+    func clearThumbnailInFlight() {}
+    func clearStaticFrameSchedule() {}
+'''
+        source = source.replace('@MainActor final class WallpaperManager: ObservableObject {',
+                                '@MainActor final class WallpaperManager: ObservableObject {' + desktop_fields)
         routing = (MANAGER / 'WallpaperManager+RuntimeSwitching.swift').read_text()
         application = (MANAGER / 'WallpaperManager+WallpaperApplication.swift').read_text()
         removal = (MANAGER / 'WallpaperManager+Removal.swift').read_text()
@@ -58,14 +73,43 @@ class WallpaperLibraryPlaybackTests(unittest.TestCase):
         self.assertEqual(still.count('NSScreen.screens'), 1)
         still = still.replace('NSWorkspace.shared', 'DesktopLeaf.shared').replace('NSScreen.screens', 'DesktopLeaf.screens')
         methods += '\n' + still
+        desktop_methods = '\n'.join(declaration(application, signature) for signature in (
+            '    func rememberSystemDesktopWrite(', '    func restoreSystemDesktopWallpaperOnTermination(',
+            '    var protectedSystemDesktopURLs:', '    func clearUnprotectedStaticFrameFiles(',
+            '    private func applySourceImageDirectly(', '    private func removePreviousDesktopCopies('))
+        # Only the native workspace/display boundary and private test visibility
+        # change. All ownership, rollback and restoration policy is production.
+        desktop_methods = desktop_methods.replace('NSWorkspace.shared', 'DesktopLeaf.shared').replace(
+            'NSScreen.screens', 'DesktopLeaf.screens').replace('on screen: NSScreen', 'on screen: DesktopScreen')
+        for name in ('applySourceImageDirectly', 'removePreviousDesktopCopies'):
+            marker = '    private func ' + name + '('
+            self.assertEqual(desktop_methods.count(marker), 1)
+            desktop_methods = desktop_methods.replace(marker, '    func ' + name + '(', 1)
+        persistence_path = MANAGER / 'WallpaperManager+Persistence.swift'
+        desktop_methods += '\n' + declaration(persistence_path.read_text(), '    func clearPreviewCacheArtifacts(')
+        cleanup_marker = '    private func removeFileIfExists('
+        cleanup = declaration(removal, cleanup_marker)
+        self.assertEqual(cleanup.count(cleanup_marker), 1)
+        desktop_methods += '\n' + cleanup.replace(cleanup_marker, '    func removeFileIfExists(', 1)
+        methods += '\n' + desktop_methods
         source += '\nextension WallpaperManager {\n' + methods + '\n}\n'
         # Keep the original Timer callback and all admission checks. Replace
         # scheduling/delivery only so a cancelled callback can be forced late.
         source = source.replace('var autoSwitchTimer:Timer?', 'var autoSwitchTimer:DeliveryTimer?')
         source = source.replace('let timer = Timer(timeInterval:', 'let timer = DeliveryTimer(timeInterval:')
         source = source.replace('RunLoop.main.add(timer, forMode: .common)', 'DeliveryTimer.add(timer)')
-        fixture = (ROOT / 'script/tests/fixtures/WallpaperLibraryPlaybackHarness.swift').read_text()
+        fixture_path = ROOT / 'script/tests/fixtures/WallpaperLibraryPlaybackHarness.swift'
+        desktop_fixture = ROOT / 'script/tests/fixtures/SystemDesktopWallpaperChecks.swift'
+        support_path = MANAGER / 'WallpaperLibrarySupport.swift'
+        fixture = declaration(support_path.read_text(), 'struct WallpaperDeletionFailure') + '\n'
+        fixture += fixture_path.read_text() + '\n' + desktop_fixture.read_text()
         app = ROOT / 'MyWallpaperX/App/WallpaperLibraryPlaybackRouting.swift'
+        observed = [*GATE_SOURCES, MANAGER / 'WallpaperManager.swift', MANAGER / 'WallpaperManager+RuntimeSwitching.swift',
+            MANAGER / 'WallpaperManager+WallpaperApplication.swift', MANAGER / 'WallpaperManager+Removal.swift',
+            MANAGER / 'WallpaperManager+PlaybackControl.swift', MANAGER / 'WallpaperManager+PlaybackSettings.swift',
+            persistence_path, support_path, app, fixture_path, desktop_fixture, Path(__file__),
+            ROOT / 'script/tests/test_imported_video_autoplay_gate.py']
+        hashes = {str(path): hashlib.sha256(path.read_bytes()).hexdigest() for path in observed}
         with tempfile.TemporaryDirectory(prefix='mwx-library-playback-', dir='/private/tmp') as temporary:
             work = Path(temporary)
             paths = []
@@ -87,6 +131,7 @@ class WallpaperLibraryPlaybackTests(unittest.TestCase):
             for name, passed in checks.items():
                 with self.subTest(name=name): self.assertIs(passed, True)
             print(json.dumps(checks, sort_keys=True))
+        self.assertEqual(hashes, {str(path): hashlib.sha256(path.read_bytes()).hexdigest() for path in observed})
 
 
 if __name__ == '__main__': unittest.main()

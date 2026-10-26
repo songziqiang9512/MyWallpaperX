@@ -40,11 +40,13 @@ enum AuthDisplayState { case online, connecting, awaitingInput, expired, failed,
     var queries: [String] = []
     var activeFilterSummary = "全部"
     var authorWorkshopReturnDestination: (title: String, marker: Int)? = ("返回创意工坊", 0)
-    var loginCalls = 0, logoutCalls = 0, backCalls = 0
+    var loginCalls = 0, logoutCalls = 0, backCalls = 0, subscriptionsCalls = 0
+    var canReturnFromBrowse: Bool { isBrowsingAuthorWorkshop || source.isPersonal }
     var retryRequests: [String] = [], discardedJobs: [String] = []
     func showLoginPanel() { loginCalls += 1 }
     func signOutEverywhere() { logoutCalls += 1 }
-    func returnToDiscoveryBrowse() { backCalls += 1; isBrowsingAuthorWorkshop = false }
+    func returnFromBrowseSubpage() { backCalls += 1; isBrowsingAuthorWorkshop = false }
+    func showMySubscriptions() { subscriptionsCalls += 1 }
     func downloadWorkshopItem(id: String, pageTitle: String) { retryRequests.append(id) }
     func discardFailedDownload(jobID: String) { discardedJobs.append(jobID) }
 }
@@ -286,13 +288,15 @@ extension Notification.Name {
         checks["steam-native-overflow-chooses-the-original-time-window-enum"] = service.trendingWindow == .month
         service.source = .mySubscriptions; steam.syncPersonalListPopup(); steam.syncSortPopup()
         await install(steam.browserIdentifiers, factory: steam.makeItem(for:))
-        checks["steam-personal-list-has-five-native-groups-and-keeps-sort-filter"] = groups() == [[.steamAccount, .steamDownloadTasks],
-            [.steamPersonalList], [.steamSort, .steamFilter], [.steamZoom], [.steamSearch]]
+        checks["steam-personal-subpage-keeps-return-and-all-original-controls"] = groups() == [[.steamAccount, .steamDownloadTasks],
+            [.steamAuthorBack], [.steamPersonalList], [.steamSort, .steamFilter], [.steamZoom], [.steamSearch]] && steam.authorBackToolbarItem.isEnabled
+            && steam.authorBackButton.toolTip == "返回创意工坊"
         menu(steam.personalListToolbarItem).performActionForItem(at: SteamWorkshopSource.personalSources.firstIndex(of: .myFavorites)!)
         menu(steam.sortToolbarItem).performActionForItem(at: SteamWorkshopPersonalSort.allCases.firstIndex(of: .fileSize)!)
         checks["steam-personal-overflow-retains-steam-favorites-and-personal-sort"] = service.source == .myFavorites && service.personalSort == .fileSize
             && steam.personalListButton.title == "Steam 收藏" && menu(steam.personalListToolbarItem).items[1].title == "Steam 收藏"
         service.steamAuth.phase = .signedOut; steam.configureAuthItems()
+        checks["signed-out-avatar-does-not-expose-personal-subscriptions"] = !menu(steam.accountToolbarItem).items.contains { $0.title == "我的订阅" }
         let heldLogin = menu(steam.accountToolbarItem).items[0]
         service.steamAuth.phase = .connecting; steam.configureAuthItems()
         if let action = heldLogin.action { NSApp.sendAction(action, to: heldLogin.target, from: heldLogin) }
@@ -306,20 +310,34 @@ extension Notification.Name {
         checks["steam-native-overflow-retains-the-original-login-entry"] = service.loginCalls == 1
         service.steamAuth.phase = .online; steam.configureAuthItems()
         let signedInMenu = menu(steam.accountToolbarItem)
+        func perform(_ menu: NSMenu, _ title: String) {
+            precondition(menu.items.contains { $0.title == title }, "Missing original account command: \(title)")
+            menu.performActionForItem(at: menu.items.firstIndex { $0.title == title }!)
+        }
+        perform(signedInMenu, "我的订阅")
+        checks["signed-in-avatar-enters-the-existing-personal-browser-owner"] = service.subscriptionsCalls == 1
         service.steamAuth.phase = .connecting; steam.configureAuthItems()
-        signedInMenu.performActionForItem(at: 4)
+        perform(signedInMenu, "退出登录")
         checks["held-current-account-logout-is-temporarily-revoked-during-auth-busy"] = service.logoutCalls == 0
         service.steamAuth.phase = .online; service.steamAuth.accountName = "Updated same account"
         steam.configureAuthItems()
-        signedInMenu.performActionForItem(at: 3); signedInMenu.performActionForItem(at: 4)
+        perform(signedInMenu, "切换账号"); perform(signedInMenu, "退出登录")
         checks["steam-native-overflow-retains-switch-account-and-signout"] = service.loginCalls == 2 && service.logoutCalls == 1
         checks["same-account-auth-and-metadata-echo-preserve-held-switch-and-signout"] = service.loginCalls == 2 && service.logoutCalls == 1
         service.steamAuth.steamId = "987654321"; steam.configureAuthItems()
-        signedInMenu.performActionForItem(at: 3); signedInMenu.performActionForItem(at: 4)
+        perform(signedInMenu, "切换账号"); perform(signedInMenu, "退出登录")
         checks["held-account-a-menu-cannot-switch-or-sign-out-account-b"] = service.loginCalls == 2 && service.logoutCalls == 1
+        perform(signedInMenu, "我的订阅")
+        checks["held-personal-entry-cannot-open-another-account"] = service.subscriptionsCalls == 1
         let currentAccountMenu = menu(steam.accountToolbarItem)
-        currentAccountMenu.performActionForItem(at: 3); currentAccountMenu.performActionForItem(at: 4)
+        perform(currentAccountMenu, "切换账号"); perform(currentAccountMenu, "退出登录")
         checks["fresh-account-b-menu-retains-original-switch-and-signout-commands"] = service.loginCalls == 3 && service.logoutCalls == 2
+        service.steamAuth.phase = .signedOut
+        perform(currentAccountMenu, "我的订阅")
+        checks["held-personal-entry-is-revoked-after-signout"] = service.subscriptionsCalls == 1
+        service.steamAuth.phase = .online
+        perform(currentAccountMenu, "我的订阅")
+        checks["same-account-current-personal-entry-remains-usable"] = service.subscriptionsCalls == 2
         service.isBrowsingAuthorWorkshop = true; steam.configureAuthorBackItem()
         await install(steam.browserIdentifiers, factory: steam.makeItem(for:))
         checks["steam-author-subroute-has-return-without-unsupported-sort-filter-groups"] = groups() == [[.steamAccount, .steamDownloadTasks],

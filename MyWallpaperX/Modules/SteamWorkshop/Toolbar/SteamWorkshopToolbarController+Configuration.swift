@@ -81,16 +81,17 @@ extension SteamWorkshopToolbarController {
     }
 
     func configureAuthorBackItem() {
-        let isBrowsingAuthorWorkshop = SteamWorkshopService.shared.isBrowsingAuthorWorkshop
-        authorBackToolbarItem.isEnabled = isBrowsingAuthorWorkshop
-        authorBackButton.isEnabled = isBrowsingAuthorWorkshop
-        authorBackButton.alphaValue = isBrowsingAuthorWorkshop ? 1.0 : 0.45
-        authorBackButton.toolTip = isBrowsingAuthorWorkshop
-            ? (SteamWorkshopService.shared.authorWorkshopReturnDestination?.title ?? "返回创意工坊")
-            : "当前不在作者工坊模式"
+        let service = SteamWorkshopService.shared
+        let canReturn = service.canReturnFromBrowse
+        authorBackToolbarItem.isEnabled = canReturn
+        authorBackButton.isEnabled = canReturn
+        authorBackButton.alphaValue = canReturn ? 1.0 : 0.45
+        authorBackButton.toolTip = canReturn
+            ? (service.isBrowsingAuthorWorkshop ? service.authorWorkshopReturnDestination?.title ?? "返回创意工坊" : "返回创意工坊")
+            : "当前不在二级浏览页"
         authorBackToolbarItem.toolTip = authorBackButton.toolTip
-        let back = ActionMenuItem(title: "返回创意工坊", symbol: "chevron.backward") { [weak self] in self?.handleBackToDiscovery() }
-        back.isEnabled = isBrowsingAuthorWorkshop
+        let back = ActionMenuItem(title: authorBackButton.toolTip ?? "返回创意工坊", symbol: "chevron.backward") { [weak self] in self?.handleBackToDiscovery() }
+        back.isEnabled = canReturn
         authorBackToolbarItem.menuFormRepresentation = back
     }
 

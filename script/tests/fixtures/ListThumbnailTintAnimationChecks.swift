@@ -238,6 +238,20 @@ import QuartzCore
         timingDiagnostics["rootLight"] = roots.map { ["rgba": model($0), "appearance": $0.effectiveAppearance.name.rawValue] as [String: Any] }
         timingDiagnostics["hierarchyAfterTransitions"] = hierarchy(roots)
         check("appearanceRestoresLightAlpha", roots.allSatisfy { animation($0) == nil && abs(model($0)[3] - 0.09) < 0.002 })
+        let modeTransition = source("mode-transition"); owner.bind(modeTransition); complete(red); pump(0.06)
+        check("modeSwitchCounterexampleHasRealRunningColorAnimation", animation(main) != nil)
+        owner.setUsesThumbnailTint(false)
+        check("nativeModeImmediatelyClearsBothColorsAndOwnAnimations", roots.allSatisfy { animation($0) == nil && model($0)[3] == 0 }
+            && main.layer?.animation(forKey: "unrelated-test-animation") != nil)
+        let newestModeSource = source("latest-page-in-native"); owner.bind(newestModeSource)
+        check("nativeModeDoesNotSampleNewSources", pendingSamples.isEmpty && roots.allSatisfy { model($0)[3] == 0 })
+        owner.setUsesThumbnailTint(true)
+        check("tintModeReopensCurrentSource", pendingSamples.count == 1)
+        complete(blue)
+        check("tintModeRestoresOriginalNativeFadeDuration", animation(main)?.duration == 0.75 && model(main)[2] > 0.98)
+        options.reduceMotion = true; notify()
+        owner.setUsesThumbnailTint(false); owner.setUsesThumbnailTint(true)
+        check("modeRestorationStillHonorsReduceMotion", roots.allSatisfy { animation($0) == nil && model($0)[2] > 0.98 })
         check("allTransitionsPreserveChildrenLayersAndFrames", roots.map(\.subviews) == children && roots.map { $0.layer! } == layers
             && [sidebar.frame, main.frame, button.frame] == frames)
         check("allTransitionsPreserveButtonHitAndAccessibility", root.hitTest(button.convert(NSPoint(x: button.bounds.midX, y: button.bounds.midY), to: root)) === button

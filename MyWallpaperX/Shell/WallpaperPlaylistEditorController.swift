@@ -14,11 +14,11 @@ import UniformTypeIdentifiers
     private let epoch: UUID
     private let hostWindow: () -> NSWindow?
     private let permitsEditing: () -> Bool
-    private let panel = WallpaperLibraryModalPanel(contentRect: NSRect(x: 0, y: 0, width: 360, height: 400),
+    private let panel = WallpaperLibraryModalPanel(contentRect: NSRect(x: 0, y: 0, width: 285, height: 400),
         styleMask: [.borderless], backing: .buffered, defer: false)
     private let preview = PlaylistEditorCoverView()
-    private let name = NSTextField(string: "")
-    private let descriptionInput = NSTextView()
+    private let name = WallpaperFormTextField(string: "")
+    private let descriptionInput = WallpaperFormTextView()
     private let errorLabel = NSTextField(wrappingLabelWithString: "")
     private let errorScroll = NSScrollView()
     private var errorHeight: NSLayoutConstraint!
@@ -71,31 +71,42 @@ import UniformTypeIdentifiers
         let imageActions = NSStackView(views: [choose, automatic]); imageActions.spacing = 12
         name.stringValue = original?.name ?? "未命名列表"
         name.font = .systemFont(ofSize: 16)
-        name.bezelStyle = .roundedBezel
         name.delegate = self
         name.setAccessibilityLabel("播放列表名称")
-        name.heightAnchor.constraint(greaterThanOrEqualToConstant: 34).isActive = true
+        let nameSurface = WallpaperFormFieldStyle.wrapping(name, height: 34)
         let descriptionTitle = NSTextField(labelWithString: "描述（可选）")
         descriptionTitle.textColor = .secondaryLabelColor
         descriptionInput.isRichText = false
         descriptionInput.font = .systemFont(ofSize: 14)
         descriptionInput.string = original?.descriptionText ?? ""
         descriptionInput.textColor = .labelColor
-        descriptionInput.backgroundColor = .textBackgroundColor
+        descriptionInput.drawsBackground = false
+        descriptionInput.focusRingType = .exterior
         descriptionInput.isVerticallyResizable = true
         descriptionInput.isHorizontallyResizable = false
         descriptionInput.autoresizingMask = [.width]
-        descriptionInput.minSize = NSSize(width: 0, height: 58)
+        descriptionInput.minSize = NSSize(width: 0, height: 60)
         descriptionInput.maxSize = NSSize(width: CGFloat.greatestFiniteMagnitude, height: CGFloat.greatestFiniteMagnitude)
-        descriptionInput.textContainer?.containerSize = NSSize(width: 320, height: CGFloat.greatestFiniteMagnitude)
+        descriptionInput.textContainer?.containerSize = NSSize(width: panel.frame.width - 40, height: CGFloat.greatestFiniteMagnitude)
         descriptionInput.textContainer?.widthTracksTextView = true
         descriptionInput.setAccessibilityLabel("播放列表描述，可选")
         let descriptionScroll = NSScrollView()
-        descriptionScroll.borderType = .bezelBorder
+        descriptionScroll.borderType = .noBorder
+        descriptionScroll.drawsBackground = false
         descriptionScroll.hasVerticalScroller = true
         descriptionScroll.autohidesScrollers = true
         descriptionScroll.documentView = descriptionInput
-        descriptionScroll.heightAnchor.constraint(equalToConstant: 60).isActive = true
+        let descriptionSurface = WallpaperFormFieldSurface()
+        descriptionSurface.translatesAutoresizingMaskIntoConstraints = false
+        descriptionScroll.translatesAutoresizingMaskIntoConstraints = false
+        descriptionSurface.addSubview(descriptionScroll)
+        NSLayoutConstraint.activate([
+            descriptionSurface.heightAnchor.constraint(equalToConstant: 60),
+            descriptionScroll.leadingAnchor.constraint(equalTo: descriptionSurface.leadingAnchor),
+            descriptionScroll.trailingAnchor.constraint(equalTo: descriptionSurface.trailingAnchor),
+            descriptionScroll.topAnchor.constraint(equalTo: descriptionSurface.topAnchor),
+            descriptionScroll.bottomAnchor.constraint(equalTo: descriptionSurface.bottomAnchor)
+        ])
         errorLabel.textColor = .systemRed
         errorLabel.maximumNumberOfLines = 0
         errorLabel.isSelectable = true
@@ -113,7 +124,7 @@ import UniformTypeIdentifiers
         save.target = self; save.action = #selector(accept(_:)); save.keyEquivalent = "\r"
         for button in [choose, automatic, cancel, save] { WallpaperLibraryControlStyle.sheetCapsule(button) }
         let footer = NSStackView(views: [cancel, NSView(), save]); footer.spacing = 12
-        body = NSStackView(views: [heading, preview, imageActions, name, descriptionTitle, descriptionScroll, errorScroll, footer])
+        body = NSStackView(views: [heading, preview, imageActions, nameSurface, descriptionTitle, descriptionSurface, errorScroll, footer])
         body.orientation = .vertical; body.alignment = .centerX; body.spacing = 10
         body.detachesHiddenViews = true
         body.translatesAutoresizingMaskIntoConstraints = false
@@ -124,7 +135,7 @@ import UniformTypeIdentifiers
             body.topAnchor.constraint(equalTo: root.topAnchor, constant: 16),
             body.bottomAnchor.constraint(equalTo: root.bottomAnchor, constant: -16)
         ])
-        let fullWidth: [NSView] = [name, descriptionTitle, descriptionScroll, errorScroll, footer]
+        let fullWidth: [NSView] = [nameSurface, descriptionTitle, descriptionSurface, errorScroll, footer]
         for field in fullWidth {
             field.widthAnchor.constraint(equalTo: body.widthAnchor).isActive = true
         }
@@ -255,7 +266,8 @@ import UniformTypeIdentifiers
         errorLabel.toolTip = message
         errorLabel.isHidden = false
         errorScroll.isHidden = false
-        let width: CGFloat = 320
+        panel.contentView?.layoutSubtreeIfNeeded()
+        let width = errorScroll.contentSize.width
         let height = ceil((message as NSString).boundingRect(with: NSSize(width: width - 16, height: .greatestFiniteMagnitude),
             options: [.usesLineFragmentOrigin, .usesFontLeading], attributes: [.font: errorLabel.font ?? NSFont.systemFont(ofSize: 13)]).height) + 4
         errorLabel.preferredMaxLayoutWidth = width - 16
@@ -273,7 +285,7 @@ import UniformTypeIdentifiers
         guard let root = panel.contentView else { return }
         root.layoutSubtreeIfNeeded()
         let height = ceil(body.fittingSize.height + 32)
-        if abs(root.bounds.height - height) > 0.5 { panel.setContentSize(NSSize(width: 360, height: height)) }
+        if abs(root.bounds.height - height) > 0.5 { panel.setContentSize(NSSize(width: root.bounds.width, height: height)) }
         root.layoutSubtreeIfNeeded()
     }
     @objc private func cancel(_ sender: Any?) {

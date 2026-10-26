@@ -11,7 +11,7 @@ extension WallpaperManager {
     func reportMigrationReadOnly(in window: NSWindow? = nil) {
         guard let migrationRecoveryMessage else { return }
         let alert = makeAppAlert(title: "资料库需要恢复",
-            message: migrationRecoveryMessage + "\n当前可继续浏览和播放已入库壁纸；导入、删除和整理需要恢复资料库后再操作。",
+            message: migrationRecoveryMessage + "\n仍可浏览和播放，恢复资料库后再导入或整理。",
             style: .warning, buttons: ["知道了"])
         presentAppAlert(alert, in: window)
     }

@@ -292,7 +292,26 @@ import AppKit
         checks["video.portrait-thumbnail-fills-square-with-centered-crop"] = abs(portrait.width / portrait.height - 180.0 / 320) < 0.001
             && portrait.height > playingCard.imageContainer.bounds.height && portrait.width == playingCard.imageContainer.bounds.width
             && abs(portrait.midY - playingCard.imageContainer.bounds.midY) < 0.001
+        var pendingPlays = 0
+        playingCard.onPlayRequested = { _ in pendingPlays += 1 }
+        let pendingImage = playingCard.thumbnailImageView.image
+        playingCard.applySwitchingState(isSwitching: true)
+        let pendingBar = playingCard.controlBar!
+        checks["video.pending-pins-hourglass-without-hover-or-thumbnail-work"] = pendingBar.primaryState == .switching
+            && !pendingBar.isHidden && pendingBar.alphaValue == 1 && pendingBar.superview != nil
+            && !pendingBar.playButton.isEnabled && pendingBar.playButton.accessibilityLabel() == "正在切换壁纸"
+            && playingCard.thumbnailImageView.image === pendingImage
+        playingCard.onPlayRequested = { _ in pendingPlays += 1 }
+        pendingBar.playButton.performClick(nil)
+        playingCard.applyPlayingState(isPlaying: true)
+        checks["video.pending-rejects-repeated-primary-and-wins-over-playing-echo"] = pendingPlays == 0
+            && pendingBar.primaryState == .switching && !pendingBar.playButton.isEnabled
+        playingCard.applySwitchingState(isSwitching: false)
+        checks["video.pending-completion-restores-native-stop"] = pendingBar.primaryState == .playing && pendingBar.playButton.isEnabled
+        playingCard.applySwitchingState(isSwitching: true)
         playingCard.prepareForReuse()
+        checks["video.reuse-retires-pending-presentation"] = !playingCard.isSwitching && pendingBar.primaryState == .apply
+            && pendingBar.isHidden && pendingBar.superview == nil && playingCard.onPlayRequested == nil
         provider.cancelAllPrefetch()
         checks.merge(videoNativeClickChecks()) { _, new in new }
         print(String(data: try JSONSerialization.data(withJSONObject: checks, options: [.sortedKeys]), encoding: .utf8)!)

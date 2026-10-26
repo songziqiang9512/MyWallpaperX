@@ -88,8 +88,8 @@ extension SteamWorkshopToolbarController {
     }
 
     @objc func handleBackToDiscovery() {
-        guard isSteamWorkshopMode, SteamWorkshopService.shared.isBrowsingAuthorWorkshop else { return }
-        SteamWorkshopService.shared.returnToDiscoveryBrowse()
+        guard isSteamWorkshopMode, SteamWorkshopService.shared.canReturnFromBrowse else { return }
+        SteamWorkshopService.shared.returnFromBrowseSubpage()
     }
 
     @objc func handleAccountMenu() {
@@ -101,8 +101,7 @@ extension SteamWorkshopToolbarController {
         let auth = SteamWorkshopService.shared.steamAuth
         let accountID = auth.steamId
         var rows: [ToolbarMenuPopoverPresenter.Row] = []
-        // SK2.2：唯一账号入口（§3.1）——未登录只有「登录 Steam」；已登录仅
-        // 账号信息/切换账号/退出登录。没有社区账号独立入口。
+        // Personal browsing is an authenticated subpage of this same browser.
         if auth.isOnline {
             rows.append(ToolbarMenuPopoverPresenter.Row(
                 title: "Steam：\(auth.accountName ?? "已登录")",
@@ -111,6 +110,11 @@ extension SteamWorkshopToolbarController {
             if let steamId = auth.steamId {
                 rows.append(ToolbarMenuPopoverPresenter.Row(title: "SteamID：\(steamId)", kind: .info))
             }
+            rows.append(.separator())
+            rows.append(ToolbarMenuPopoverPresenter.Row(title: "我的订阅", kind: .action, handler: { [weak self] in
+                guard let self, self.isSteamWorkshopMode, auth.isOnline, auth.steamId == accountID else { return }
+                SteamWorkshopService.shared.showMySubscriptions()
+            }))
             rows.append(.separator())
             rows.append(ToolbarMenuPopoverPresenter.Row(
                 title: "切换账号",

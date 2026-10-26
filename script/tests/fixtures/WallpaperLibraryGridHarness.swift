@@ -561,7 +561,7 @@ private final class GridUnifiedToolbarProbe: NSObject, NSToolbarDelegate {
         }
         checks["every-local-page-publishes-current-video-image-steam-and-pixabay-references-for-sidebar-add"] = localPagesAcceptEveryProvider
         var remotePagesRejectDrag = true
-        for nonLibraryPage in [WallpaperLibraryPage.workshop, .workshopSubscriptions, .pixabay, .playlists] {
+        for nonLibraryPage in [WallpaperLibraryPage.workshop, .pixabay, .playlists] {
             update(nonLibraryPage, selection: WallpaperLibrarySelectionState(), items: Array(values.prefix(4)))
             remotePagesRejectDrag = remotePagesRejectDrag
                 && controller.collectionView(collection, pasteboardWriterForItemAt: IndexPath(item: 0, section: 0)) == nil

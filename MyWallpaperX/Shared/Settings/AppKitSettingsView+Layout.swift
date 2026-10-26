@@ -295,7 +295,14 @@ extension AppKitSettingsContainerView {
     }
 
     private func setupDisplaySection() {
-        // 显示区只处理屏幕适配和画面比例，不混入播放策略。
+        // 显示区处理窗口外观、屏幕适配和画面比例，不混入播放策略。
+        for (index, style) in LibraryBackgroundStyle.allCases.enumerated() {
+            libraryBackgroundPopup.addItem(withTitle: style.title)
+            libraryBackgroundPopup.lastItem?.tag = index
+            libraryBackgroundPopup.lastItem?.representedObject = style
+        }
+        displaySection.addRow(makeSettingRow(title: "主窗口背景", iconSystemName: "rectangle.on.rectangle",
+            trailing: libraryBackgroundPopup))
         multiDisplaySwitch.toolTip = "在所有显示器上显示壁纸（视频/Web/Scene）"
         displaySection.addRow(makeSettingRow(title: "多屏适配", iconSystemName: "rectangle.on.rectangle", trailing: multiDisplaySwitch))
 
@@ -350,7 +357,7 @@ extension AppKitSettingsContainerView {
         switches.forEach { $0.controlSize = .mini }
         hotkeyEnableSwitches.values.forEach { $0.controlSize = .mini }
 
-        let popups: [NSPopUpButton] = [timeUnitPopup, idleTimeoutPopup] + hotkeyPopups.values
+        let popups: [NSPopUpButton] = [timeUnitPopup, idleTimeoutPopup, libraryBackgroundPopup] + hotkeyPopups.values
             + [systemAudioSpectrumBarCountPopup]
         popups.forEach { $0.controlSize = .small }
 

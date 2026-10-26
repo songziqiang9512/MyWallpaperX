@@ -197,7 +197,7 @@ extension WallpaperManager {
         failures: inout [WallpaperDeletionFailure]
     ) {
         // 这里只尝试删除缓存文件；源视频路径不应该走到这里。
-        guard let path, pathExists(path) else { return }
+        guard let path, !protectedSystemDesktopURLs.contains(URL(fileURLWithPath: path)), pathExists(path) else { return }
         do {
             try FileManager.default.removeItem(atPath: path)
         } catch {

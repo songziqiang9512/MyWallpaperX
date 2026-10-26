@@ -132,6 +132,7 @@ final class AppKitSettingsContainerView: NSView {
     )
 
     let multiDisplaySwitch = NSSwitch()
+    let libraryBackgroundPopup = NSPopUpButton()
     let fillModeFitButton = NSButton(radioButtonWithTitle: VideoFillMode.aspectFit.rawValue, target: nil, action: nil)
     let fillModeFillButton = NSButton(radioButtonWithTitle: VideoFillMode.aspectFill.rawValue, target: nil, action: nil)
 
@@ -267,6 +268,7 @@ final class AppKitSettingsContainerView: NSView {
 
         multiDisplaySwitch.state = settings.multiDisplayEnabled ? .on : .off
         selectFillMode(settings.videoFillMode)
+        libraryBackgroundPopup.selectItem(withTag: LibraryBackgroundStyle.allCases.firstIndex(of: settings.libraryBackgroundStyle) ?? 0)
 
         refreshHotkeyRowsIfInputsChanged()
         applyVisibleSections()
@@ -451,6 +453,8 @@ final class AppKitSettingsContainerView: NSView {
 
         multiDisplaySwitch.target = self
         multiDisplaySwitch.action = #selector(handleMultiDisplayToggle)
+        libraryBackgroundPopup.target = self
+        libraryBackgroundPopup.action = #selector(handleLibraryBackgroundChange)
         fillModeFitButton.target = self
         fillModeFitButton.action = #selector(handleFillModeChange(_:))
         fillModeFillButton.target = self
@@ -627,11 +631,9 @@ final class AppKitSettingsContainerView: NSView {
             DispatchQueue.main.async { [weak self] in
                 guard let self, self.sceneMediaAuthorizationCheckID == checkID,
                       SceneMediaSourcePreference.isEnabled, let window = self.window, window.isVisible else { return }
-                let alert = NSAlert()
-                alert.messageText = "允许读取 Apple Music"
-                alert.informativeText = "尚未获准读取 Apple Music。请在系统设置的「隐私与安全性 → 自动化」中允许 MyWallpaperX 访问音乐，然后重新开启「壁纸歌曲信息」。"
-                alert.addButton(withTitle: "打开系统设置")
-                alert.addButton(withTitle: "稍后")
+                let alert = makeAppAlert(title: "允许读取 Apple Music",
+                    message: "请在「隐私与安全性 → 自动化」中允许访问音乐。授权后重新开启「壁纸歌曲信息」。",
+                    buttons: ["打开系统设置", "稍后"])
                 presentAppAlert(alert, in: window) { response in
                     guard response == .alertFirstButtonReturn else { return }
                     NSWorkspace.shared.open(URL(string: "x-apple.systempreferences:com.apple.preference.security?Privacy_Automation")!)
@@ -762,11 +764,16 @@ final class AppKitSettingsContainerView: NSView {
         dependency.settings.videoFillMode = mode
     }
 
+    @objc private func handleLibraryBackgroundChange() {
+        guard !isUpdatingUI, let style = libraryBackgroundPopup.selectedItem?.representedObject as? LibraryBackgroundStyle else { return }
+        dependency.settings.libraryBackgroundStyle = style
+    }
+
     @objc private func handleClearCache() {
         let hostWindow = preferredHostWindow()
         let alert = makeAppAlert(
             title: "清空缓存",
-            message: "将删除视频库和图片库的所有缩略图与视频静帧缓存，并清空在线图库的缩略图缓存，同时重置 Steam 创意工坊的列表/详情缓存与当前浏览状态；不会删除已导入的视频、图片和已下载的工坊文件，也不会清除当前设置。",
+            message: "将清空缩略图、视频静帧和在线浏览缓存，并重置工坊浏览状态。媒体、下载文件和设置均保留。",
             buttons: ["清空", "取消"]
         )
         presentAppAlert(alert, in: hostWindow) { [weak self] response in
@@ -820,7 +827,7 @@ final class AppKitSettingsContainerView: NSView {
             let hostWindow = self.preferredHostWindow()
             let confirm = makeAppAlert(
                 title: "导入个人设置",
-                message: "将合并设置、播放列表和特别喜爱；同 UUID 列表应用导入信息，保留现有成员后追加新成员。缺失文件保留为不可用引用，不下载或播放。",
+                message: "将合并设置、列表和喜爱，同 UUID 列表更新信息并追加成员。缺失文件保留引用，不下载或播放。",
                 buttons: ["导入", "取消"]
             )
             presentAppAlert(confirm, in: hostWindow) { [weak self] confirmResponse in
@@ -832,10 +839,8 @@ final class AppKitSettingsContainerView: NSView {
                     do {
                         let summary = try await self.dependency.actions.importPersonalSettings(sourceURL)
                         let done = makeAppAlert(title: "导入完成", message: """
-                            更新项目：\(summary.mergedWallpaperCount) 个
-                            新增项目：\(summary.createdWallpaperCount) 个
-                            导入播放列表：\(summary.tagCount) 个
-                            缺失路径：\(summary.missingPathCount) 个
+                            已更新 \(summary.mergedWallpaperCount) 项、新增 \(summary.createdWallpaperCount) 项，导入 \(summary.tagCount) 个播放列表。
+                            \(summary.missingPathCount) 个缺失路径已保留引用。
                             """)
                         presentAppAlert(done, in: self.preferredHostWindow())
                     } catch {
@@ -904,7 +909,7 @@ final class AppKitSettingsContainerView: NSView {
         let hostWindow = preferredHostWindow()
         let alert = makeAppAlert(
             title: "重置设置",
-            message: "将清空视频库和图片库的入库记录，以及全部播放列表、特别喜爱和最近使用记录，并将设置恢复为初次安装状态。不会删除原始媒体或已下载文件。此操作不可撤销，确定要继续吗？",
+            message: "将清空入库记录、播放列表、喜爱和最近使用，并恢复默认设置。媒体与下载文件保留，此操作不可撤销。",
             buttons: ["确定", "取消"]
         )
         presentAppAlert(alert, in: hostWindow) { [weak self] response in

@@ -395,14 +395,14 @@ extension WallpaperManager {
 
 extension WallpaperManager {
     func clearPreviewCacheArtifacts() {
-        // 预览缓存是纯派生数据，重置时直接删目录并重建，避免旧缓存残留误命中。
+        // 预览缓存可重建；仅保留当前桌面或退出恢复基线仍引用的文件。
         bumpCacheGeneration()
         clearThumbnailMemoryCache()
         clearThumbnailInFlight()
         clearStaticFrameSchedule()
 
         try? FileManager.default.removeItem(at: thumbnailCacheDirectory)
-        try? FileManager.default.removeItem(at: staticFrameCacheDirectory)
+        clearUnprotectedStaticFrameFiles()
         try? FileManager.default.createDirectory(at: thumbnailCacheDirectory, withIntermediateDirectories: true)
         try? FileManager.default.createDirectory(at: staticFrameCacheDirectory, withIntermediateDirectories: true)
     }

@@ -1,4 +1,5 @@
 import AppKit
+import QuartzCore
 import Combine
 import Foundation
 
@@ -47,6 +48,10 @@ import Foundation
         let visibleContentRect = initialScroll.documentVisibleRect
         checks["initialTopContentIsFullyVisible"] = firstContentRect.minY >= visibleContentRect.minY - 1
             && firstContentRect.maxY <= visibleContentRect.maxY + 1
+        let initialFadeColors = (initialScroll.layer?.mask as? CAGradientLayer)?.colors as? [CGColor]
+        checks["steamUsesSharedTopInsetWithoutFadingTheInitialPreview"] = initialScroll is InspectorFadingScrollView
+            && initialScroll.documentView?.isFlipped == true && abs(firstContentRect.minY - visibleContentRect.minY - 8) <= 1
+            && initialFadeColors?.first?.alpha == 1
         checks["detailScrollbarsStayAbsent"] = !initialScroll.hasVerticalScroller && !initialScroll.hasHorizontalScroller
         checks["downloadDetailPrefersLocalOverRemoteMetadata"] = FixturePreview.localLoads == [URL(fileURLWithPath: "/fixture/local-preview.gif")]
         let initialPreviewState = previewState(detail)
@@ -96,6 +101,7 @@ import Foundation
         checks["realSteamSameTurnScrollProbeHasANonzeroScrollableDocument"] = maxOffset >= 37
         let offset = NSPoint(x: 0, y: min(maxOffset, 37))
         scroll.contentView.scroll(to: offset); scroll.reflectScrolledClipView(scroll.contentView)
+        let scrolledFadeColors = (scroll.layer?.mask as? CAGradientLayer)?.colors as? [CGColor]
         detail.configure(item: service.selectedDownloadDetailItem!)
         let immediateFrame = sourcePreview.convert(sourcePreview.bounds, to: detail)
         let immediateOffset = scroll.contentView.bounds.origin
@@ -103,6 +109,11 @@ import Foundation
         checks["realSteamPreviewHasFinalGeometryBeforeTheNextRunLoop"] = immediateFrame == sourcePreview.convert(sourcePreview.bounds, to: detail)
             && immediateFrame.width > 0 && immediateFrame.height == 156
         checks["realSteamScrollRestoresWithinTheSameRebuild"] = immediateOffset == offset && scroll.contentView.bounds.origin == offset
+        scroll.contentView.scroll(to: .zero); scroll.reflectScrolledClipView(scroll.contentView)
+        let topFadeColors = (scroll.layer?.mask as? CAGradientLayer)?.colors as? [CGColor]
+        let restoredFirst = roots(detail)[0].convert(roots(detail)[0].bounds, to: scroll.documentView!)
+        checks["steamSharedFadeTracksNativeScrollAndReturnToTop"] = scrolledFadeColors?.first?.alpha == 0
+            && topFadeColors?.first?.alpha == 1 && abs(restoredFirst.minY - scroll.documentVisibleRect.minY - 8) <= 1
         window.setContentSize(originalContentSize); settle(detail)
 
         checks["rawReadyRecordSizeInvalidates"] = changes { service.record = makeRecord(size: "9 MB") } && labels(detail).contains("9 MB")

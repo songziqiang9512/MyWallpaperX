@@ -235,19 +235,20 @@ final class OnlineLibraryBrowserView: NSView, NSTextFieldDelegate, ListThumbnail
         inputRow.spacing = 8
         inputRow.translatesAutoresizingMaskIntoConstraints = false
 
-        let field = NSSecureTextField()
+        let field = WallpaperFormSecureField()
         field.placeholderString = "粘贴 API Key"
         field.stringValue = apiKeyInput
         field.delegate = self
         field.translatesAutoresizingMaskIntoConstraints = false
-        field.widthAnchor.constraint(equalToConstant: 260).isActive = true
+        let fieldSurface = WallpaperFormFieldStyle.wrapping(field)
+        fieldSurface.widthAnchor.constraint(equalToConstant: 260).isActive = true
         apiKeyField = field
 
         let saveButton = OnlineLibraryBrowserViews.makeButton(title: "保存", target: self, action: #selector(saveAPIKeyFromPrompt))
         saveButton.isEnabled = !apiKeyInput.trimmingCharacters(in: .whitespaces).isEmpty
         saveAPIKeyButton = saveButton
 
-        inputRow.addArrangedSubview(field)
+        inputRow.addArrangedSubview(fieldSurface)
         inputRow.addArrangedSubview(saveButton)
         stack.addArrangedSubview(inputRow)
         return stack
@@ -364,15 +365,18 @@ final class OnlineLibraryBrowserView: NSView, NSTextFieldDelegate, ListThumbnail
     }
 
     @objc private func presentAPIKeyEdit() {
-        let field = NSSecureTextField(frame: NSRect(x: 0, y: 0, width: 280, height: 24))
+        let field = WallpaperFormSecureField(frame: NSRect(x: 0, y: 0, width: 280, height: 24))
         field.placeholderString = "输入新 API Key"
+        let surface = WallpaperFormFieldStyle.wrapping(field)
+        surface.widthAnchor.constraint(equalToConstant: 280).isActive = true
 
         let alert = makeAppAlert(
             title: "更改 API Key",
             message: "当前 Key 已遮蔽显示，输入新 Key 后保存即可生效。",
             buttons: ["保存", "取消"],
-            accessoryView: field
+            accessoryView: surface
         )
+        alert.window.initialFirstResponder = field
         presentAppAlert(alert, in: window ?? appModalHostWindow()) { [weak self] response in
             guard let self, response == .alertFirstButtonReturn else { return }
             let trimmed = field.stringValue.trimmingCharacters(in: .whitespaces)

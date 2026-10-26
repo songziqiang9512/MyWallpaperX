@@ -160,6 +160,34 @@ import Foundation
             && roots.allSatisfy { $0.alphaValue == 1 && $0.layer?.opacity == 1 })
         check("controlsRetainSystemAccent", button.contentTintColor == originalTint && NSColor.controlAccentColor == originalAccent)
 
+        let beforeNativeMode = [loadCalls, sampleCalls]
+        controller.setUsesThumbnailTint(false)
+        active.invalidate()
+        let nativeModeSource = ListThumbnailTintSource()
+        nativeModeSource.update(id: "new-page-during-native") { done in
+            loadCalls += 1; done(redImage); return { loadCancels += 1 }
+        }
+        controller.bind(nativeModeSource)
+        check("nativeModeClearsTintAndDoesNotLoadOrSampleCurrentOrNewPage", isClear() && [loadCalls, sampleCalls] == beforeNativeMode)
+        controller.setUsesThumbnailTint(true)
+        check("returningToTintLoadsCurrentPageInsteadOfPreviousPage", [loadCalls, sampleCalls] == beforeNativeMode.map { $0 + 1 }
+            && components(main)[0] > 0.98 && components(main)[3] > 0)
+        let resumedWork = [loadCalls, sampleCalls, loadCancels, sampleCancels]
+        controller.setUsesThumbnailTint(true)
+        check("unchangedBackgroundStyleDoesNotRepeatWork", resumedWork == [loadCalls, sampleCalls, loadCancels, sampleCancels])
+        controller.setUsesThumbnailTint(false); controller.setUsesThumbnailTint(true)
+        check("returningToSameRevisionUsesExistingColorCache", resumedWork[0] == loadCalls && resumedWork[1] == sampleCalls && !isClear())
+        deferSampling = true
+        nativeModeSource.invalidate()
+        let retiredModeSample = deferredSamples.removeLast(), cancelsBeforeNative = sampleCancels
+        controller.setUsesThumbnailTint(false)
+        retiredModeSample(blue)
+        check("nativeModeCancelsAndRejectsLateColorReply", sampleCancels == cancelsBeforeNative + 1 && isClear())
+        controller.setUsesThumbnailTint(true)
+        let resumedModeSample = deferredSamples.removeLast()
+        resumedModeSample(red)
+        check("returningToTintAcceptsOnlyCurrentSample", components(main)[0] > 0.98 && components(main)[2] < 0.02)
+
         deferSampling = true
         let a = ListThumbnailTintSource(), b = ListThumbnailTintSource()
         var lateLoad: ((NSImage?) -> Void)?
@@ -284,36 +312,41 @@ import Foundation
         sheetSurface.appearance = NSAppearance(named: .aqua)
         let sheetButton = NSButton(title: "原生控件", target: nil, action: nil)
         sheetButton.frame = NSRect(x: 20, y: 30, width: 100, height: 30)
-        sheetSurface.addSubview(sheetButton); sheet.contentView = sheetSurface
+        let secondRoot = NSView(frame: NSRect(x: 0, y: 0, width: 300, height: 180))
+        let secondSidebar = AppKitListTintSurface(frame: NSRect(x: 0, y: 0, width: 80, height: 180))
+        secondSidebar.appearance = NSAppearance(named: .aqua)
+        sheetSurface.frame.origin.x = 80
+        secondRoot.addSubview(secondSidebar); secondRoot.addSubview(sheetSurface)
+        sheetSurface.addSubview(sheetButton); sheet.contentView = secondRoot
         let sheetChildren = sheetSurface.subviews, sheetButtonFrame = sheetButton.frame
         var sheetLoads = 0, sheetSampleCancels = 0
         var sheetSamples: [(ListThumbnailTintColor?) -> Void] = []
         let sheetOwner = AppKitListBackgroundTint(sample: { _, done in
             sheetSamples.append(done); return { sheetSampleCancels += 1 }
         }, displayOptions: { .init(allowsTint: true, reduceMotion: true) })
-        sheetOwner.install(main: sheetSurface)
+        sheetOwner.install(sidebar: secondSidebar, main: sheetSurface)
         let sheetSource = ListThumbnailTintSource()
-        sheetSource.update(id: "shared-main-only") { done in sheetLoads += 1; done(redImage); return {} }
+        sheetSource.update(id: "second-window") { done in sheetLoads += 1; done(redImage); return {} }
         let sheetRevision = sheetSource.request?.revision
         sheetOwner.bind(sheetSource)
-        check("mainOnlyInstallCreatesNoPhantomSidebarOrContent", sheetSurface.subviews == sheetChildren
+        check("secondWindowInstallCreatesNoPhantomSidebarOrContent", sheetSurface.subviews == sheetChildren
             && sheetButton.frame == sheetButtonFrame && sheetLoads == 0 && components(sheetSurface)[3] == 0)
         sheet.orderFront(nil); settle()
-        check("mainOnlyVisibilityLoadsTheOriginalBoundSource", sheetLoads == 1 && sheetSamples.count == 1
+        check("secondWindowVisibilityLoadsTheOriginalBoundSource", sheetLoads == 1 && sheetSamples.count == 1
             && sheetSource.request?.revision == sheetRevision)
         sheetSamples.removeLast()(red)
-        check("mainOnlyProjectsSameLightTintWithoutChangingHitOrLayout", components(sheetSurface)[0] > 0.98
-            && abs(components(sheetSurface)[3] - 0.09) < 0.01 && sheetSurface.subviews == sheetChildren
-            && sheetButton.frame == sheetButtonFrame && sheetSurface.hitTest(sheetButton.frame.center) === sheetButton)
+        check("secondWindowProjectsSameLightTintWithoutChangingHitOrLayout", components(sheetSurface)[0] > 0.98
+            && abs(components(sheetSurface)[3] - 0.09) < 0.01 && components(secondSidebar) == components(sheetSurface) && sheetSurface.subviews == sheetChildren
+            && sheetButton.frame == sheetButtonFrame && secondRoot.hitTest(sheetButton.convert(sheetButton.bounds.center, to: secondRoot)) === sheetButton)
         window.orderOut(nil); settle()
-        check("mainOnlyLeaseDoesNotFollowAnotherWindowVisibility", components(sheetSurface)[0] > 0.98
+        check("secondWindowLeaseDoesNotFollowAnotherWindowVisibility", components(sheetSurface)[0] > 0.98
             && sheetLoads == 1 && sheetSource.request?.revision == sheetRevision)
         sheetSource.invalidate()
         let sheetLateSample = sheetSamples.removeLast()
         let cancelsBeforeSheetHide = sheetSampleCancels
         sheet.orderOut(nil); settle(); sheetLateSample(blue)
-        check("mainOnlyHiddenWindowCancelsAndRejectsLateSample", sheetSampleCancels == cancelsBeforeSheetHide + 1
-            && components(sheetSurface)[3] == 0 && sheetSource.request?.revision != sheetRevision)
+        check("secondWindowHiddenWindowCancelsAndRejectsLateSample", sheetSampleCancels == cancelsBeforeSheetHide + 1
+            && components(sheetSurface)[3] == 0 && components(secondSidebar)[3] == 0 && sheetSource.request?.revision != sheetRevision)
         sheetOwner.bind(nil); sheet.contentView = nil; sheet.close()
         window.orderFront(nil); settle()
 

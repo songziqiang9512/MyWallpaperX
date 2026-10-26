@@ -24,6 +24,9 @@ class GridPlaybackPublicationTests(unittest.TestCase):
         removal = (MANAGER / 'WallpaperManager+Removal.swift').read_text()
         source += '\nextension WallpaperManager {\n' + '\n'.join(declaration(removal, signature) for signature in (
             '    func clearCurrentWallpaperReference(', '    func stopCurrentPlayback(')) + '\n}\n'
+        routing = (MANAGER / 'WallpaperManager+RuntimeSwitching.swift').read_text()
+        source += '\nextension WallpaperManager {\n' + '\n'.join(declaration(routing, signature) for signature in (
+            '    func prepareSceneDownloadRemoval(', '    private func sceneSelection(')) + '\n}\n'
         source = source.replace('@MainActor final class WallpaperManager: ObservableObject {', '''@MainActor final class WallpaperManager: ObservableObject {
     var pendingManualNavigationWorkItem:DispatchWorkItem?
     var pendingManualNavigationDirection:Int?
@@ -34,7 +37,7 @@ class GridPlaybackPublicationTests(unittest.TestCase):
         workspace = (product / 'App/WallpaperLibraryWorkspace.swift').read_text()
         commands = (product / 'App/WallpaperLibraryCommands.swift').read_text()
         composition = (product / 'App/WallpaperLibraryWindowComposition.swift').read_text()
-        start = composition.index('        workspace.playbackChanges.receive(on: DispatchQueue.main)')
+        start = composition.index('        workspace.playbackChanges.sink')
         end = composition.index('.store(in: &subscriptions)', start) + len('.store(in: &subscriptions)')
         subscription = composition[start:end].replace('&subscriptions', '&cancellables')
         fixture = (ROOT / 'script/tests/fixtures/GridPlaybackPublicationChecks.swift').read_text()

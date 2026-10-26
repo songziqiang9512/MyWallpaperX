@@ -16,6 +16,7 @@ struct Job { enum State { case failed, queued }; let id: String; let workshopIte
     func refresh(_ id: String) { reads += 1 }
 }
 @MainActor final class SteamWorkshopService {
+    var navigationVersion = 0
     let steamServiceClient = Client(); let steamAuth = Auth(); let steamSubscriptions = Subscriptions()
     let downloadProgressStore = ProgressStore(); let downloadJobStore = Jobs()
     var downloading = false; var queued = false; var record: Record?; var commands: [String] = []
@@ -101,6 +102,27 @@ struct Job { enum State { case failed, queued }; let id: String; let workshopIte
         precondition(service.steamSubscriptions.writes == 1 && organized.count == 2,"subscription remains independent from local heart")
         invoke(subscription,"查看作者工坊")
         precondition(service.commands.last == "author:"+item.id,"source author command survives local organization extension")
+        let navigationService = SteamWorkshopService()
+        navigationService.record = Record(id: item.id, status: .ready)
+        let browser = BrowserMenuProjection(navigationService)
+        let oldFeedMenu = browser.menu(for: item)
+        navigationService.navigationVersion += 1
+        for title in ["查看详情", "设为壁纸", "查看作者工坊", "打开工坊页面", "加入订阅"] { invoke(oldFeedMenu, title) }
+        precondition(navigationService.commands.isEmpty && navigationService.steamSubscriptions.writes == 0,
+            "same-ID public → personal navigation revokes every held browser menu command")
+        let currentFeedMenu = browser.menu(for: item)
+        for title in ["查看详情", "设为壁纸", "查看作者工坊", "打开工坊页面", "加入订阅"] { invoke(currentFeedMenu, title) }
+        precondition(navigationService.commands == ["detail:"+item.id, "play:"+item.id, "author:"+item.id, "web:"+item.id]
+            && navigationService.steamSubscriptions.writes == 1, "current personal menu retains all original commands")
+        let localMenu = SteamWorkshopItemMenu.make(item: item, service: navigationService, includePrimary: false)
+        navigationService.navigationVersion += 1
+        invoke(currentFeedMenu, "查看详情"); invoke(currentFeedMenu, "加入订阅")
+        precondition(navigationService.commands.count == 4 && navigationService.steamSubscriptions.writes == 1,
+            "returning to public does not revive a held personal menu")
+        invoke(localMenu, "查看作者工坊"); invoke(localMenu, "加入订阅")
+        precondition(navigationService.commands.last == "author:"+item.id && navigationService.commands.count == 5
+            && navigationService.steamSubscriptions.writes == 2,
+            "Downloads source commands are independent of invisible browser navigation")
         print("Item menu: item, account, subscription, attempt and queued identity dispatch PASS")
     }
     @MainActor static func invoke(_ menu: NSMenu, _ title: String) {

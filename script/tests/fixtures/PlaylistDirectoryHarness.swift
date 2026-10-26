@@ -847,6 +847,12 @@ private final class DirectoryUnifiedToolbarProbe: NSObject, NSToolbarDelegate {
         let deleteSheet = window.attachedSheet!
         checks["native-delete-confirmation-retains-selected-target-and-accessible-cue"] = deleteRequests == [.delete(cancelID)]
             && controller.selectedPlaylistID == cancelID && selectionPresentation(cancelItem, selected: true)
+        let removalButtons = descendants(deleteSheet.contentView!, of: NSButton.self).filter { !$0.title.isEmpty }
+        checks["playlist-confirmation-uses-short-remove-cancel-actions-and-preserves-members-scope"] = Set(removalButtons.map(\.title)) == ["移除", "取消"]
+            && removalButtons.first { $0.title == "移除" }?.keyEquivalent == "\r"
+            && descendants(deleteSheet.contentView!, of: NSTextField.self).contains {
+                $0.stringValue == "仅移除此列表，保留其中 0 张壁纸和其他列表。"
+            }
         let cancelButton = descendants(deleteSheet.contentView!, of: NSButton.self).first { $0.title == "取消" }!
         cancelButton.performClick(nil)
         pump { window.attachedSheet == nil }

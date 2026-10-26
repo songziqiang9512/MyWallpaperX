@@ -235,7 +235,7 @@ extension NSToolbarItem.Identifier {
         var checks: [String: Bool] = [:]
         func settle() { window.contentView?.layoutSubtreeIfNeeded(); RunLoop.main.run(until: Date().addingTimeInterval(0.015)) }
         func page(_ value: WallpaperLibraryPage) {
-            if value == .workshop || value == .workshopSubscriptions { SteamWorkshopService.shared.browserSectionTitle = value.title() }
+            if value == .workshop { SteamWorkshopService.shared.browserSectionTitle = value.title() }
             _ = workspace.presentation.switchPage(value); controller.refresh(); settle()
         }
         func item(_ raw: String) -> NSToolbarItem { controller.toolbar.items.first { $0.itemIdentifier.rawValue == raw }! }
@@ -496,11 +496,12 @@ extension NSToolbarItem.Identifier {
         let steamBeforeResize = SteamWorkshopToolbarController.latest.layoutUpdates
         NotificationCenter.default.post(name: NSWindow.didResizeNotification, object: window)
         checks["active-steam-controls-recompute-layout-from-the-window-owner"] = SteamWorkshopToolbarController.latest.layoutUpdates == steamBeforeResize + 1
-        page(.workshopSubscriptions)
-        let subscriptionsDensity = workspace.presentation.queryState
+        page(.videos)
+        let localDensity = workspace.presentation.queryState
         staleSteamZoom?()
-        checks["old-steam-zoom-action-cannot-mutate-another-steam-page"] = workspace.presentation.queryState == subscriptionsDensity
-        checks["workshop-subscriptions-reuse-original-source-control-identity"] = item("fixture-steam-search") === sourceItem
+        checks["old-steam-zoom-action-cannot-mutate-another-page"] = workspace.presentation.queryState == localDensity
+        page(.workshop)
+        checks["workshop-reentry-reuses-original-source-control-identity"] = item("fixture-steam-search") === sourceItem
         page(.pixabay)
         controller.focusSearch(); controller.performZoom(delta: -1)
         checks["pixabay-retains-settings-category-search-with-one-page-column-owner"] = OnlineLibraryToolbarController.latest.focused == 1

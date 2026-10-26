@@ -62,11 +62,17 @@
     var sourceBindingIsCurrent = true
     let menu = commands!.makePlaylistMenu([ref], permitsAction: { sourceBindingIsCurrent })
     let leaf = menu?.items.last
+    let organizationBefore = collections.snapshot.organizationState
+    let hadNoDraft = WallpaperPlaylistEditorController.current == nil
     sourceBindingIsCurrent = false
     if let leaf, let action = leaf.action { _ = NSApplication.shared.sendAction(action, to: leaf.target, from: leaf) }
-    checks["native-playlist-submenu-leaf-rechecks-the-provider-binding-before-executing"] = leaf != nil && commands!.playlistActions.isEmpty
+    checks["native-playlist-submenu-leaf-rechecks-the-provider-binding-before-executing"] = leaf != nil && hadNoDraft
+        && WallpaperPlaylistEditorController.current == nil && collections.snapshot.organizationState == organizationBefore
     sourceBindingIsCurrent = true
     if let leaf, let action = leaf.action { _ = NSApplication.shared.sendAction(action, to: leaf.target, from: leaf) }
-    checks["native-playlist-submenu-leaf-keeps-its-original-fixed-reference"] = commands!.playlistActions == [[ref]]
+    let created = try await WallpaperPlaylistEditorController.current?.save(name: "Fixed provider binding")
+    checks["native-playlist-submenu-leaf-keeps-its-original-fixed-reference"] = created.map { id in
+        collections.snapshot.members.filter { $0.playlistID == id }.map(\.reference) == [ref]
+    } == true
     return checks
 }

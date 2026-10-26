@@ -4,7 +4,6 @@ import Combine
 final class AppKitSteamWorkshopItemDetailView: NSView {
     private enum Metrics {
         static let contentSpacing: CGFloat = 16
-        static let contentTopInset: CGFloat = 8
         static let footerHeight: CGFloat = SteamWorkshopDetailFooterView.height
     }
 
@@ -20,8 +19,8 @@ final class AppKitSteamWorkshopItemDetailView: NSView {
     private var didBuildInitialContent = false
 
     private let rootStack = NSStackView()
-    private let scrollView = NSScrollView()
-    private let documentContainer = SteamWorkshopDetailDocumentView()
+    private let scrollView = InspectorFadingScrollView()
+    private let documentContainer = InspectorContentDocumentView()
     private let contentStack = NSStackView()
     private let footerView = SteamWorkshopDetailFooterView()
     private let previewView = SteamWorkshopPreviewImageContainerView()
@@ -181,7 +180,7 @@ final class AppKitSteamWorkshopItemDetailView: NSView {
         contentStack.orientation = .vertical
         contentStack.alignment = .leading
         contentStack.spacing = Metrics.contentSpacing
-        contentStack.edgeInsets = NSEdgeInsets(top: Metrics.contentTopInset, left: 0, bottom: 16, right: 0)
+        contentStack.edgeInsets = NSEdgeInsets(top: InspectorFadingScrollView.contentTopInset, left: 0, bottom: 16, right: 0)
         contentStack.translatesAutoresizingMaskIntoConstraints = false
 
         documentContainer.translatesAutoresizingMaskIntoConstraints = false
@@ -810,8 +809,4 @@ private final class ClosureButton: NSButton {
     @objc private func runAction() {
         actionHandler()
     }
-}
-
-private final class SteamWorkshopDetailDocumentView: NSView {
-    override var isFlipped: Bool { true }
 }

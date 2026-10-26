@@ -21,11 +21,11 @@ final class SteamLoginPanelView: WallpaperLibrarySheetSurface, NSTextFieldDelega
     let qrImageView = SteamLoginQRCodeImageView()
     let refreshQRButton = NSButton(title: "刷新二维码", target: nil, action: nil)
     let zoomQRButton = NSButton(title: "放大查看", target: nil, action: nil)
-    let usernameField = SteamLoginTextField()
-    let passwordField = SteamLoginSecureField()
-    private let revealedPasswordField = SteamLoginTextField()
+    let usernameField = WallpaperFormTextField()
+    let passwordField = WallpaperFormSecureField()
+    private let revealedPasswordField = WallpaperFormTextField()
     private let revealButton = NSButton(title: "", target: nil, action: nil)
-    let codeField = SteamLoginTextField()
+    let codeField = WallpaperFormTextField()
     let rememberCheck = NSButton(checkboxWithTitle: "记住登录，下次自动恢复", target: nil, action: nil)
     let loginButton = NSButton(title: "登录 Steam", target: nil, action: nil)
     let guardSubmitButton = NSButton(title: "提交验证码", target: nil, action: nil)
@@ -46,7 +46,6 @@ final class SteamLoginPanelView: WallpaperLibrarySheetSurface, NSTextFieldDelega
     private let qrPlaceholder = NSProgressIndicator()
     private let qrTile = NSView()
     private var codeGroup: NSView!
-    private var fieldSurfaces: [NSView] = []
 
     override init(frame: NSRect) {
         super.init(frame: frame)
@@ -54,15 +53,6 @@ final class SteamLoginPanelView: WallpaperLibrarySheetSurface, NSTextFieldDelega
     }
     convenience init() { self.init(frame: .zero) }
     required init?(coder: NSCoder) { nil }
-
-    override func viewDidChangeEffectiveAppearance() {
-        super.viewDidChangeEffectiveAppearance()
-        updateAppearance()
-    }
-    override func viewDidMoveToWindow() {
-        super.viewDidMoveToWindow()
-        updateAppearance()
-    }
 
     private func setup() {
         configureStack(content, spacing: 12)
@@ -151,7 +141,6 @@ final class SteamLoginPanelView: WallpaperLibrarySheetSurface, NSTextFieldDelega
             cancelButton.topAnchor.constraint(equalTo: topAnchor, constant: 10)
         ])
         showPage(.qr)
-        updateAppearance()
     }
 
     private func buildQRPage() {
@@ -209,8 +198,7 @@ final class SteamLoginPanelView: WallpaperLibrarySheetSurface, NSTextFieldDelega
         addFullWidth(fieldGroup(passwordField, title: "密码", placeholder: "输入 Steam 密码", symbol: "key"), to: passwordPage)
         if let surface = passwordField.superview {
             // Both editors occupy the same bounds; the secure editor owns the submitted value.
-            revealedPasswordField.isBordered = false
-            revealedPasswordField.drawsBackground = false
+            WallpaperFormFieldStyle.configure(revealedPasswordField)
             revealedPasswordField.font = passwordField.font
             revealedPasswordField.placeholderString = passwordField.placeholderString
             revealedPasswordField.setAccessibilityLabel("密码（可见）")
@@ -371,20 +359,13 @@ final class SteamLoginPanelView: WallpaperLibrarySheetSurface, NSTextFieldDelega
         label.font = .systemFont(ofSize: 11, weight: .semibold)
         label.textColor = .secondaryLabelColor
         group.addArrangedSubview(label)
-        let surface = NSView()
-        surface.wantsLayer = true
-        surface.layer?.cornerRadius = 10
-        surface.layer?.borderWidth = 0.8
-        fieldSurfaces.append(surface)
+        let surface = WallpaperFormFieldSurface()
         let icon = NSImageView(image: NSImage(systemSymbolName: symbol, accessibilityDescription: nil)!)
         icon.contentTintColor = .secondaryLabelColor
         icon.symbolConfiguration = .init(pointSize: 14, weight: .regular)
         field.placeholderString = placeholder
         field.font = .systemFont(ofSize: 14)
-        field.isBordered = false
-        field.isBezeled = false
-        field.drawsBackground = false
-        field.focusRingType = .exterior
+        WallpaperFormFieldStyle.configure(field)
         field.setAccessibilityLabel(title)
         for view in [icon, field] { view.translatesAutoresizingMaskIntoConstraints = false; surface.addSubview(view) }
         NSLayoutConstraint.activate([
@@ -418,13 +399,6 @@ final class SteamLoginPanelView: WallpaperLibrarySheetSurface, NSTextFieldDelega
         stack.addArrangedSubview(child)
         child.widthAnchor.constraint(equalTo: stack.widthAnchor).isActive = true
     }
-    private func updateAppearance() {
-        let dark = effectiveAppearance.bestMatch(from: [.darkAqua, .aqua]) == .darkAqua
-        for surface in fieldSurfaces {
-            surface.layer?.backgroundColor = NSColor.black.withAlphaComponent(dark ? 0.20 : 0.04).cgColor
-            surface.layer?.borderColor = (dark ? NSColor.white : NSColor.black).withAlphaComponent(dark ? 0.16 : 0.10).cgColor
-        }
-    }
 }
 
 final class SteamLoginQRCodeImageView: NSImageView {
@@ -444,25 +418,5 @@ final class SteamLoginQRCodeImageView: NSImageView {
     override func draw(_ dirtyRect: NSRect) {
         NSGraphicsContext.current?.imageInterpolation = .none
         super.draw(dirtyRect)
-    }
-}
-
-/// The focus ring follows the rounded input surface, not the text editor's
-/// smaller rectangular bounds inside it.
-final class SteamLoginTextField: NSTextField {
-    override var focusRingMaskBounds: NSRect {
-        superview.map { convert($0.bounds, from: $0) } ?? bounds
-    }
-    override func drawFocusRingMask() {
-        NSBezierPath(roundedRect: focusRingMaskBounds, xRadius: 10, yRadius: 10).fill()
-    }
-}
-
-final class SteamLoginSecureField: NSSecureTextField {
-    override var focusRingMaskBounds: NSRect {
-        superview.map { convert($0.bounds, from: $0) } ?? bounds
-    }
-    override func drawFocusRingMask() {
-        NSBezierPath(roundedRect: focusRingMaskBounds, xRadius: 10, yRadius: 10).fill()
     }
 }

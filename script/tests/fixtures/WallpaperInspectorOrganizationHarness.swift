@@ -1,5 +1,6 @@
 import AppKit
 import ImageIO
+import QuartzCore
 
 // Original UI and native footer controls run in this gate; source media/cache
 // and alert leaves record demand without touching a real library or decoder.
@@ -79,22 +80,74 @@ extension Notification.Name { static let staticImageWallpaperReadyToApply = Noti
         SILThumbnailStore.sharedCache.result = NSImage(size: NSSize(width: 16, height: 8), flipped: false) { rect in
             NSColor(calibratedRed: 0.05, green: 0.9, blue: 0.1, alpha: 1).setFill(); rect.fill(); return true
         }
+        let window = NSWindow(contentRect: NSRect(x: 80, y: 40, width: 800, height: 900),
+            styleMask: [.titled, .closable, .resizable, .fullSizeContentView], backing: .buffered, defer: false)
+        window.isReleasedWhenClosed = false
+        window.toolbar = NSToolbar(identifier: "actual-inspector-layout")
+        window.toolbarStyle = .unified
+        let hostStore = InspectorHostStore()
+        let hostController = InspectorHostViewController(store: hostStore)
+        window.contentViewController = hostController
+        let host = hostController.view
+        // AppKit adopts the controller's initial fitting size on installation.
+        // Establish the intended native viewport before starting source loads.
+        window.setContentSize(NSSize(width: 800, height: 900))
+        window.orderFront(nil)
+        defer { window.close() }
+        let layoutDeadline = Date().addingTimeInterval(2)
+        var previousGeometry: [NSRect]?
+        var nativeWindowReady = false
+        repeat {
+            host.layoutSubtreeIfNeeded()
+            pump()
+            // AppKit may constrain the requested height to the visible screen.
+            // Observe its actual unobscured viewport and two settled native
+            // turns; the later actualShort check still proves spare body room.
+            let layout = host.convert(window.contentLayoutRect, from: nil)
+            let geometry = [window.frame, window.contentLayoutRect, host.bounds]
+            nativeWindowReady = previousGeometry == geometry && window.isVisible && host.window === window
+                && layout.width >= InspectorHostRequest.defaultPreferredWidth && layout.height > 0
+                && host.bounds.contains(layout)
+            previousGeometry = geometry
+        } while !nativeWindowReady && Date() < layoutDeadline
         let imageView = SILInspectorView(wallpaper: image, service: images, libraryActions: actions())
         let onlineView = OnlineLibraryDownloadsInspectorView(itemID: 7, service: online, libraryActions: actions())
-        let window = NSWindow(contentRect: NSRect(x: 0, y: 0, width: 368, height: 640), styleMask: [.titled], backing: .buffered, defer: false)
-        let host = NSView(); window.contentView = host
         func mount(_ view: NSView) {
-            host.subviews.forEach { $0.removeFromSuperview() }
-            host.addSubview(view)
-            NSLayoutConstraint.activate([view.leadingAnchor.constraint(equalTo: host.leadingAnchor), view.trailingAnchor.constraint(equalTo: host.trailingAnchor),
-                view.topAnchor.constraint(equalTo: host.topAnchor), view.bottomAnchor.constraint(equalTo: host.bottomAnchor)])
+            let module: ModuleIdentifier = view is SILInspectorView ? .staticImageLibrary : .onlineLibrary
+            let request = InspectorHostRequest(token: .init(module: module, cardID: "fixed-layout"), title: "详情", chromeStyle: .infoPanel)
+            hostStore.present(request)
+            hostStore.mountContent(InspectorHostMountRequest(userInfo: [
+                InspectorHostUserInfoKey.module: module.rawValue,
+                InspectorHostUserInfoKey.cardID: request.token.cardID,
+                InspectorHostUserInfoKey.hostedView: view])!)
             host.layoutSubtreeIfNeeded()
+        }
+        func topAligned(_ view: NSView, preview: NSView, short: Bool) -> Bool {
+            guard let scroll = views(view).compactMap({ $0 as? InspectorFadingScrollView }).first,
+                  let document = scroll.documentView, let content = document.subviews.first as? NSStackView,
+                  let mask = scroll.layer?.mask as? CAGradientLayer,
+                  let colors = mask.colors as? [CGColor], colors.count == 4 else { return false }
+            let viewport = document.convert(scroll.contentView.bounds, from: scroll.contentView)
+            let firstImage = preview.convert(preview.bounds, to: document)
+            let pixel = 1 / window.backingScaleFactor
+            let actualShort = content.frame.height < viewport.height - pixel
+            let diagnostics: [String] = ["inspector-top", "source=\(type(of: view))", "short=\(actualShort)",
+                "document=\(document.bounds)", "viewport=\(viewport)", "content=\(content.frame)",
+                "preview=\(firstImage)", "safeArea=\(host.safeAreaLayoutGuide.frame)", "sourceFrame=\(view.convert(view.bounds, to: host))"]
+            FileHandle.standardError.write(Data((diagnostics.joined(separator: " ") + "\n").utf8))
+            return document.isFlipped && actualShort == short && viewport.contains(firstImage)
+                && abs(firstImage.minY - viewport.minY - 8) <= pixel
+                && document.bounds.height >= scroll.contentView.bounds.height - pixel
+                && colors.first?.alpha == 1 && colors[1].alpha == 1
+                && preview.bounds.height == 156
+                && views(view).compactMap({ $0 as? InspectorFooterButton }).allSatisfy({ !$0.isDescendant(of: scroll) })
         }
         mount(imageView)
         let imagePreview = views(imageView).first { $0 is SILInspectorPreviewSurfaceView }!
         let imageFrame = imagePreview.convert(imagePreview.bounds, to: host)
         pump(); host.layoutSubtreeIfNeeded()
         var checks: [String: Bool] = [:]
+        checks["real-shell-window-has-a-settled-native-viewport-before-source-loads"] = nativeWindowReady
         checks["real-image-completion-retains-preview-object-and-native-frame"] = imagePreview === views(imageView).first { $0 is SILInspectorPreviewSurfaceView }
             && imageFrame == imagePreview.convert(imagePreview.bounds, to: host)
         let bitmap = imagePreview.bitmapImageRepForCachingDisplay(in: imagePreview.bounds)!
@@ -139,6 +192,11 @@ extension Notification.Name { static let staticImageWallpaperReadyToApply = Noti
         checks["controlled-image-source-has-opaque-green-pixels"] = suppliedIsOpaqueGreen
         checks["real-image-success-draws-the-new-image-and-hides-placeholder"] = suppliedIsOpaqueGreen && previewMatchesSupplied
             && views(imagePreview).compactMap { $0 as? NSImageView }.allSatisfy(\.isHidden)
+        checks["real-shell-short-image-content-starts-eight-points-below-unfaded-top"] = topAligned(imageView, preview: imagePreview, short: true)
+        window.setContentSize(NSSize(width: 800, height: 460)); host.layoutSubtreeIfNeeded(); pump()
+        checks["real-shell-long-image-content-keeps-top-preview-and-footer-outside-mask"] = topAligned(imageView, preview: imagePreview, short: false)
+            && imagePreview === views(imageView).first { $0 is SILInspectorPreviewSurfaceView }
+        window.setContentSize(NSSize(width: 800, height: 900)); host.layoutSubtreeIfNeeded()
         mount(onlineView)
         let onlinePreview = views(onlineView).first { $0 is OnlineLibraryDownloadsPreviewSurfaceView }!
         let onlineFrame = onlinePreview.convert(onlinePreview.bounds, to: host)
@@ -146,6 +204,10 @@ extension Notification.Name { static let staticImageWallpaperReadyToApply = Noti
         pump(); host.layoutSubtreeIfNeeded()
         checks["real-pixabay-has-no-second-loading-layout-or-preview-replacement"] = onlinePreview === views(onlineView).first { $0 is OnlineLibraryDownloadsPreviewSurfaceView }
             && onlineFrame == onlinePreview.convert(onlinePreview.bounds, to: host)
+        checks["real-shell-short-pixabay-content-starts-at-the-same-unfaded-top"] = topAligned(onlineView, preview: onlinePreview, short: true)
+        window.setContentSize(NSSize(width: 800, height: 420)); host.layoutSubtreeIfNeeded(); pump()
+        checks["real-shell-long-pixabay-content-does-not-recenter-on-resize"] = topAligned(onlineView, preview: onlinePreview, short: false)
+        window.setContentSize(NSSize(width: 800, height: 900)); host.layoutSubtreeIfNeeded()
         checks["image-membership-shows-new-store-names-and-no-old-tag"] = views(imageView).contains { ($0 as? NSTextField)?.stringValue == "New Mixed List" }
             && !views(imageView).contains { ($0 as? NSTextField)?.stringValue == "Old SIL Tag" }
         let imagePrimary = button(imageView, "setAsDesktopWallpaper")!, imageMembers = button(imageView, "presentTagPicker")!

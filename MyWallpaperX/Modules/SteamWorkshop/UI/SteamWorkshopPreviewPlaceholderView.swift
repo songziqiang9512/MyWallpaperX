@@ -47,6 +47,22 @@ final class SteamWorkshopPreviewPlaceholderView: NSView {
         )
     }
 
+    override func viewDidChangeEffectiveAppearance() {
+        super.viewDidChangeEffectiveAppearance()
+        refreshBackgroundColor()
+    }
+
+    override func viewDidMoveToWindow() {
+        super.viewDidMoveToWindow()
+        refreshBackgroundColor()
+    }
+
+    private func refreshBackgroundColor() {
+        effectiveAppearance.performAsCurrentDrawingAppearance {
+            backgroundView.layer?.backgroundColor = NSColor.windowBackgroundColor.withAlphaComponent(0.72).cgColor
+        }
+    }
+
     func setState(_ state: State) {
         guard state != currentState else { return }
         currentState = state
@@ -79,7 +95,7 @@ final class SteamWorkshopPreviewPlaceholderView: NSView {
         layer?.backgroundColor = NSColor.clear.cgColor
 
         backgroundView.wantsLayer = true
-        backgroundView.layer?.backgroundColor = NSColor.windowBackgroundColor.withAlphaComponent(0.72).cgColor
+        refreshBackgroundColor()
         addSubview(backgroundView)
 
         spinner.style = .spinning

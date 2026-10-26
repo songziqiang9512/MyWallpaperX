@@ -504,8 +504,8 @@ final class SteamWorkshopService: ObservableObject {
     }
 
     /// SK3.3（§3.3/§3.2）：账号身份变化（登录成功/登出/在线换号）即失效当前
-    /// 个人来源视图——旧账号的私有列表与空态不得展示给新账号；登录后当前
-    /// 个人来源立即同账号重读。navigateToBrowse 递增 navigationVersion，
+    /// 个人来源视图——旧账号的私有列表与空态不得展示给新账号；在线换号沿
+    /// 原来源重读，登出回公共来源。navigateToBrowse 递增 navigationVersion，
     /// 在飞的旧账号取页/追加页按 navigationVersion+generation 双守卫判废。
     private func observeSteamAccountIdentityForPersonalSources() {
         steamAuth.$steamId
@@ -519,7 +519,12 @@ final class SteamWorkshopService: ObservableObject {
                 self.refreshDownloadIntentProjection()
                 self.invalidatePersonalBrowseSnapshot(discard: true)
                 guard self.source.isPersonal else { return }
-                self.navigateToBrowse()
+                if !self.steamAuth.isOnline {
+                    if self.isBrowsingAuthorWorkshop { self.returnToDiscoveryBrowse(selectOrigin: false) }
+                    self.enterBrowseSection(.discovery, loadIfNeeded: self.isBrowsePanelOpen)
+                } else {
+                    self.navigateToBrowse()
+                }
             }
             .store(in: &cancellables)
     }

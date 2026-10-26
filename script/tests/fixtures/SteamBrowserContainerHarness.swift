@@ -8,9 +8,10 @@ enum InspectorHostActions { @MainActor static func postClose() {} }
 struct SteamWorkshopBrowserItem: Equatable { let id: String; var title = "Wallpaper" }
 struct SteamWorkshopDownloadRecord {}
 enum SteamWorkshopItemMenu {
-    @MainActor static func make(item: SteamWorkshopBrowserItem, service: SteamWorkshopService) -> NSMenu { NSMenu() }
+    @MainActor static func make(item: SteamWorkshopBrowserItem, service: SteamWorkshopService, navigationVersion: Int? = nil) -> NSMenu { NSMenu() }
 }
 @MainActor final class SteamWorkshopService {
+    var navigationVersion = 0
     @Published var displayedBrowserItems: [SteamWorkshopBrowserItem] = []
     @Published var activeDownloadItemIDs: Set<String> = []
     @Published var downloads: [SteamWorkshopDownloadRecord] = []

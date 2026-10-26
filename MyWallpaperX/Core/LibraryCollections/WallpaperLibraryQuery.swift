@@ -38,7 +38,7 @@ nonisolated enum WallpaperLibraryQuery {
             references = []; providers = []
         case .favorites: references = relationships.favorites.map(\.reference); providers = []
         case .playlist(let id): references = relationships.members.filter { $0.playlistID == id }.map(\.reference); providers = []
-        case .playlists, .workshop, .workshopSubscriptions, .pixabay: references = []; providers = []
+        case .playlists, .workshop, .pixabay: references = []; providers = []
         }
         var result = providers
         if page == .recent || !references.isEmpty {
@@ -146,7 +146,7 @@ nonisolated enum WallpaperLibraryQuery {
                 for member in members { addedAt[try canonical(member.reference)] = member.addedAt }
             }
             candidates = try unique(members.map { try resolve($0.reference) })
-        case .playlists, .workshop, .workshopSubscriptions, .pixabay:
+        case .playlists, .workshop, .pixabay:
             // Directory and server-paginated browser pages use their own typed
             // projections, rather than silently sorting them as local items.
             candidates = []

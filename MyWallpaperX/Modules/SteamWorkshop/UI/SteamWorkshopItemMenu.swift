@@ -4,13 +4,14 @@ import AppKit
 @MainActor
 enum SteamWorkshopItemMenu {
     static func make(item: SteamWorkshopBrowserItem, service: SteamWorkshopService,
-                     includePrimary: Bool = true) -> NSMenu {
+                     includePrimary: Bool = true, navigationVersion: Int? = nil) -> NSMenu {
         let menu = NSMenu()
         menu.autoenablesItems = false
         let epoch = service.steamServiceClient.accountEpoch
         func add(_ title: String, _ symbol: String, enabled: Bool = true,
                  accountBound: Bool = false, action: @escaping () -> Void) {
             let entry = ActionMenuItem(title: title, symbol: symbol) {
+                if let navigationVersion, service.navigationVersion != navigationVersion { return }
                 guard !accountBound || service.steamServiceClient.accountEpoch == epoch else { return }
                 action()
             }
@@ -53,7 +54,7 @@ enum SteamWorkshopItemMenu {
             add("放弃失败任务", "xmark.bin", accountBound: true) { service.discardFailedDownload(jobID: job.id) }
         }
         if !menu.items.isEmpty { menu.addItem(.separator()) }
-        menu.addItem(subscription(item: item, service: service))
+        menu.addItem(subscription(item: item, service: service, navigationVersion: navigationVersion))
         menu.addItem(.separator())
         add("查看作者工坊", "person.crop.circle", enabled: SteamWorkshopService.resolvedAuthorWorkshopURL(for: item) != nil) {
             service.openAuthorWorksPage(for: item)
@@ -71,7 +72,7 @@ enum SteamWorkshopItemMenu {
         return menu
     }
 
-    static func subscription(item: SteamWorkshopBrowserItem, service: SteamWorkshopService) -> NSMenuItem {
+    static func subscription(item: SteamWorkshopBrowserItem, service: SteamWorkshopService, navigationVersion: Int? = nil) -> NSMenuItem {
         let epoch = service.steamServiceClient.accountEpoch
         let online = service.steamAuth.isOnline
         let state = service.steamSubscriptions.state(for: item.id)
@@ -87,6 +88,7 @@ enum SteamWorkshopItemMenu {
             }
         }
         let entry = ActionMenuItem(title: title, symbol: "bookmark") {
+            if let navigationVersion, service.navigationVersion != navigationVersion { return }
             guard service.steamServiceClient.accountEpoch == epoch else { return }
             guard service.steamAuth.isOnline else { service.presentSteamLoginForUserAction(context: "订阅"); return }
             guard service.steamSubscriptions.state(for: item.id) == state else { return }

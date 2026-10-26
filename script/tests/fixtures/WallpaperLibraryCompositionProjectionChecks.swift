@@ -40,7 +40,8 @@
     let selection = WallpaperLibrarySelectionState(), epoch = UUID()
     func oldSignature(_ projection: UInt64, canEdit: Bool = true, notice: String? = nil, error: String? = nil) -> RenderSignature {
         .init(page: .videos, query: .init(), items: [], selection: selection, catalogRevision: 2, projectionRevision: projection,
-            relationshipsRevision: 7, resetEpoch: epoch, sequenceReference: nil, sequenceTicket: nil, ticket: nil, canEdit: canEdit,
+            relationshipsRevision: 7, resetEpoch: epoch, sequenceReference: nil, sequenceTicket: nil, ticket: nil,
+            pendingReference: nil, pendingSequenceTicket: nil, pendingRuntimeTicket: nil, canEdit: canEdit,
             recoveryNotice: notice, operationError: error, visible: true)
     }
     checks["late-accepted-projection-is-distinct-from-early-render-of-same-source-revision"] = oldSignature(1) != oldSignature(2)
@@ -66,11 +67,14 @@
     func signature(_ state: WallpaperLibraryPresentationState, catalogRevision: UInt64 = 2, projectionRevision: UInt64 = 3,
                    relationshipsRevision: Int64 = 7, resetEpoch: UUID? = nil, sequenceReference: WallpaperReference? = nil,
                    sequenceTicket: PlaybackSwitchTicket? = nil, runtimeTicket: PlaybackSwitchTicket? = nil,
+                   pendingReference: WallpaperReference? = nil, pendingSequenceTicket: PlaybackSwitchTicket? = nil,
+                   pendingRuntimeTicket: PlaybackSwitchTicket? = nil,
                    canEdit: Bool = true, notice: String? = nil, error: String? = nil, visible: Bool = true) -> RenderSignature {
         .init(page: state.page, query: state.query, items: state.queryResult.items, selection: state.selectionState,
             catalogRevision: catalogRevision, projectionRevision: projectionRevision, relationshipsRevision: relationshipsRevision,
             resetEpoch: resetEpoch ?? epoch, sequenceReference: sequenceReference, sequenceTicket: sequenceTicket,
-            ticket: runtimeTicket, canEdit: canEdit, recoveryNotice: notice, operationError: error, visible: visible)
+            ticket: runtimeTicket, pendingReference: pendingReference, pendingSequenceTicket: pendingSequenceTicket,
+            pendingRuntimeTicket: pendingRuntimeTicket, canEdit: canEdit, recoveryNotice: notice, operationError: error, visible: visible)
     }
     let first = signature(state)
     let composition = ProjectionComposition()
@@ -127,7 +131,10 @@
         !signature(state, resetEpoch: UUID()).hasSameCardInputs(as: scrolled),
         !signature(state, sequenceReference: a).hasSameCardInputs(as: scrolled),
         !signature(state, sequenceTicket: ticket).hasSameCardInputs(as: scrolled),
-        !signature(state, runtimeTicket: ticket).hasSameCardInputs(as: scrolled)]
+        !signature(state, runtimeTicket: ticket).hasSameCardInputs(as: scrolled),
+        !signature(state, pendingReference: b).hasSameCardInputs(as: scrolled),
+        !signature(state, pendingSequenceTicket: ticket).hasSameCardInputs(as: scrolled),
+        !signature(state, pendingRuntimeTicket: ticket).hasSameCardInputs(as: scrolled)]
     checks["card-data-key-retains-all-owner-revisions-epoch-and-playback-identities"] = ownerChanges.allSatisfy { $0 }
     var queryVariants = [WallpaperLibraryQueryState]()
     var query = state.query; query.search = "Changed"; queryVariants.append(query)
@@ -156,4 +163,71 @@
     checks["same-inputs-retry-after-failure-instead-of-reusing-a-failed-projection"] = composition.cardState != nil
         && composition.sourceSnapshot != nil && WallpaperLibraryQuery.resolverInitializationCount == afterFailure + 2
         && composition.workspace.captures == 4
+}
+
+
+@MainActor private final class RemoteNavigationRefreshLeaf {
+    var refreshes = 0
+    var onRefresh: (() -> Void)?
+    func refreshLibraryActions() { refreshes += 1; onRefresh?() }
+}
+
+// Actual Composition factories run in CommandTransactions. Only renderer and
+// command-write leaves are recording; the navigation token is the service's
+// existing owner, not another page/session identity invented by this fixture.
+@MainActor private func steamNavigationActionChecks(app: NSApplication) async throws -> [String: Bool] {
+    let ref = WallpaperReference(provider: .steamWorkshop, sourceID: "same-card")
+    let content = WallpaperContentItem(reference: ref, providerReference: ref, locator: .init(),
+        title: "Same card in public and personal feeds", kind: .video, publishedAvailability: .available,
+        capabilities: [.play, .organize], metadata: .init(), acquisition: .idle, update: .idle, aliases: [])
+    let relationships = UserCollectionsSnapshot(revision: 1, resetEpoch: UUID(), migrationManifestID: nil,
+        playlists: [], members: [], favorites: [], recent: [], aliases: [], locators: [])
+    let source = try WallpaperPlaybackSequence.Snapshot(source: .single(ref), revision: 1,
+        entries: [.init(reference: ref, runtime: .video, isPlayable: true)])
+    let manager = WallpaperManager(), workspace = RemoteWorkspace(relationships)
+    let commands = WallpaperLibraryCommands(manager, CommandWorkspace(manager, source))
+    let composition = RemoteComposition(workspace, commands)
+    composition.downloadedContent[ref] = content
+    composition.steam.selectedBrowserItem = .init(id: ref.sourceID)
+    composition.cardState = try WallpaperLibraryCardStateProjection(items: [content], relationships: relationships,
+        committedReference: nil, sequenceTicket: nil, runtimeTicket: nil)
+    func invoke(_ menu: NSMenu) {
+        for item in menu.items {
+            let entry = item.submenu?.items.first ?? item
+            if let action = entry.action { _ = app.sendAction(action, to: entry.target, from: entry) }
+        }
+    }
+    let publicCard = composition.organization(.init(id: ref.sourceID))!
+    let publicInspector = composition.inspector(.init(id: ref.sourceID))!
+    let publicMenu = composition.menu(.init(id: ref.sourceID))!
+    let originalSession = workspace.presentation.selectionState.sessionID
+    var currentCard = publicCard
+    composition.steamBrowserContent.onRefresh = { [weak composition] in
+        if let updated = composition?.organization(.init(id: ref.sourceID)) { currentCard = updated }
+    }
+    composition.steam.navigationVersion += 1
+    publicCard.onFavorite?(); publicCard.onPrimary?()
+    publicInspector.onToggleFavorite(); publicInspector.onChoosePlaylist(nil); publicInspector.onPrimary()
+    invoke(publicMenu)
+    var checks = ["same-id-personal-entry-revokes-public-card-inspector-and-submenu-actions":
+        commands.favoriteActions.isEmpty && commands.playlistActions.isEmpty && workspace.requests.isEmpty
+        && workspace.presentation.page == .workshop && workspace.presentation.selectionState.sessionID == originalSession]
+    // Drive only the original main-queue delivery of the actual subscription.
+    // The retained item and DTO are identical across both browser contexts.
+    let deadline = Date().addingTimeInterval(1)
+    while composition.steamBrowserContent.refreshes == 0 && Date() < deadline {
+        try await Task.sleep(nanoseconds: 1_000_000)
+    }
+    checks["same-dto-navigation-refreshes-current-card-actions-through-existing-publisher"] =
+        composition.steamBrowserContent.refreshes == 1 && composition.downloadedContent[ref] == content
+    let personalCard = currentCard
+    let personalMenu = composition.menu(.init(id: ref.sourceID))!
+    personalCard.onFavorite?(); personalCard.onPrimary?(); invoke(personalMenu)
+    checks["fresh-personal-actions-use-the-same-source-ref-without-a-second-page-owner"] =
+        commands.favoriteActions == [[ref], [ref]] && commands.playlistActions == [[ref]] && workspace.requests == [ref]
+    composition.steam.navigationVersion += 1
+    personalCard.onFavorite?(); personalCard.onPrimary?(); invoke(personalMenu)
+    checks["personal-author-return-does-not-resurrect-held-actions-for-the-same-id"] =
+        commands.favoriteActions.count == 2 && commands.playlistActions.count == 1 && workspace.requests == [ref]
+    return checks
 }

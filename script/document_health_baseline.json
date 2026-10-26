@@ -14,7 +14,7 @@
     },
     "docs/architecture/repository-map.md": {
       "lines": 33,
-      "bytes": 6787
+      "bytes": 7054
     },
     "docs/architecture/steam-workshop-acquisition-contract.md": {
       "lines": 80,
@@ -325,8 +325,8 @@
       "bytes": 8377
     },
     "docs/development/main-window-playlists-redesign.md": {
-      "lines": 596,
-      "bytes": 117102
+      "lines": 599,
+      "bytes": 116266
     },
     "docs/development/status-bar-panel-redesign.md": {
       "lines": 117,
@@ -1264,6 +1264,26 @@
       "originalBodySHA256": "83351af135dfd7ca7eb5242160adee17d5dcf34aaf35288edf6e40a417684e78",
       "originalLines": 92,
       "originalBytes": 24093
+    },
+    {
+      "source": "docs/development/main-window-playlists-redesign.md",
+      "archive": "docs/history/development/main-window-playlists-q01-q09-integration-2026-10-26.md",
+      "anchors": [
+        "151-前轮断点与证据边界",
+        "153-前轮验证与当前停止条件",
+        "154-上一候选交付未提交",
+        "q01-q09-integration-record"
+      ],
+      "preservedBodySHA256": "604105489667d5db3e4427851c57b14a247597e7dace442178249ac8e186f076"
+    },
+    {
+      "source": "docs/development/main-window-playlists-redesign.md",
+      "archive": "docs/history/development/main-window-ui-feedback-p01-p05-2026-10-26.md",
+      "anchors": [
+        "user-ui-revision-nine",
+        "user-ui-feedback-round"
+      ],
+      "preservedBodySHA256": "21b89daed9d9206cb720500f180b309c4ff71889861cfdea4b3652eb3dfe6fd1"
     }
   ],
   "snapshots": [
@@ -1399,8 +1419,8 @@
     {
       "section": "bodies",
       "path": "docs/architecture/repository-map.md",
-      "before": "1fe0d24c627dd3495ed737dc20e76cbc5d70092a8e6d3d555dcb065b1b7f1df9",
-      "after": "0247ea7a10878bd9710cec9c00878f9b361c5dafada978865e1f3fb73f9307bc",
+      "before": "0247ea7a10878bd9710cec9c00878f9b361c5dafada978865e1f3fb73f9307bc",
+      "after": "00a9f87e82154f598602f637e5ad9c7d54e3fdb2f18db7b7a8685f7ec5784a02",
       "owner": "main-window-playlists-design",
       "reason": "同步实际主窗口/源UI退休职责，保历史批次与未验收边界。",
       "decision": "docs/development/main-window-playlists-redesign.md#documentation-decision"
@@ -1417,11 +1437,11 @@
     {
       "section": "bodies",
       "path": "docs/development/main-window-playlists-redesign.md",
-      "before": "74234e98afe7498fb5daf1f36ac2d78acc339464f950703b8c019892f982b90b",
-      "after": "9d7be5cd00d20d01472ed7877784bc749faddada0267a5cb5f70c8e9d698e260",
-      "owner": "main-window-playlists-design",
-      "reason": "同步Q01–Q09当前裁决与启动专项唯一链路整合、回归及最新授权；压缩已完成过程，硬限600行不变，保W22待验。",
-      "decision": "docs/development/main-window-playlists-redesign.md#documentation-decision"
+      "before": "9d7be5cd00d20d01472ed7877784bc749faddada0267a5cb5f70c8e9d698e260",
+      "after": "53148dfe4e3a1377efeffc2a0e7b219ae303173b8a3be163250c510821b016ca",
+      "owner": "main-window-ui-compact-input-subscriptions",
+      "reason": "压缩旧过程至原文归档，保留当前视觉与功能规则，更新F01–F04实施、最近回归、Debug及有序整合边界；正文预算收紧至当前实际值，600行上限不变。",
+      "decision": "docs/development/main-window-playlists-redesign.md#compact-input-subscriptions-round"
     },
     {
       "section": "archives",
@@ -1521,6 +1541,24 @@
       "after": "97fecc8a58a28bae5c4f56102b5006bbba88d0946b284593b999e2e80106c4b4",
       "reason": "P20退役模型64部件/4096路径固定政策；同步实际Root/Builder/native正反例、原输入对照、当前边界和治理指针，其他预算不变。",
       "decision": "docs/development/validation-simplification-plan.md#p20-mdl-policy-retirement"
+    },
+    {
+      "section": "archives",
+      "path": "docs/history/development/main-window-playlists-q01-q09-integration-2026-10-26.md",
+      "before": "74234e98afe7498fb5daf1f36ac2d78acc339464f950703b8c019892f982b90b",
+      "after": "f15b9f6b526d1ee0a1faf8011ffac7a1a04012aeed1af2b258270bc2fa3cb635",
+      "owner": "main-window-playlists-ui-feedback",
+      "reason": "归档已完成的候选/交审过程，当前五项反馈替换冲突标准并同步真实用户操作链；不提高600行硬限，不提交。",
+      "decision": "docs/development/main-window-playlists-redesign.md#documentation-decision"
+    },
+    {
+      "section": "archives",
+      "path": "docs/history/development/main-window-ui-feedback-p01-p05-2026-10-26.md",
+      "before": "74234e98afe7498fb5daf1f36ac2d78acc339464f950703b8c019892f982b90b",
+      "after": "c997953c29ca3b492526bbdfe4804865797848475702abcceccc45324a5bae92",
+      "owner": "main-window-ui-polish",
+      "reason": "前轮已实现反馈归档，新八项用户目标修正共享详情、原生确认、图片退出和背景偏好；不提高600行硬限。",
+      "decision": "docs/development/main-window-playlists-redesign.md#inspector-playback-appearance-round"
     }
   ]
 }

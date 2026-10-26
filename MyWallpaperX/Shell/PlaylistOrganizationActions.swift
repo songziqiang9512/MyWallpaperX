@@ -36,8 +36,8 @@ nonisolated enum PlaylistOrganizationAction: Equatable, Sendable {
         }
     }
 
-    func create(members: [WallpaperOrganizationItem] = []) {
-        showEditor(playlist: nil, members: members)
+    func create(members: [WallpaperOrganizationItem] = [], completion: (() -> Void)? = nil) {
+        showEditor(playlist: nil, members: members, completion: completion)
     }
 
     func rename(_ id: UUID) {
@@ -45,7 +45,7 @@ nonisolated enum PlaylistOrganizationAction: Equatable, Sendable {
         showEditor(playlist: playlist, members: [])
     }
 
-    private func showEditor(playlist: WallpaperPlaylist?, members: [WallpaperOrganizationItem]) {
+    private func showEditor(playlist: WallpaperPlaylist?, members: [WallpaperOrganizationItem], completion: (() -> Void)? = nil) {
         guard WallpaperLibrarySheetPresentation.permitsInput(in: hostWindow()), editor == nil, !collections.isResetting, permitsEditing() else { return }
         let sheet = WallpaperPlaylistEditorController(collections: collections, playlist: playlist, members: members,
             automaticImage: playlist.flatMap { coverPreview?($0.id) },
@@ -54,6 +54,7 @@ nonisolated enum PlaylistOrganizationAction: Equatable, Sendable {
         sheet.onClose = { [weak self] in self?.editor = nil }
         sheet.onSaved = { [weak self] id in
             guard let self else { return }
+            completion?()
             if playlist != nil { self.onDidEdit?(id, false) }
             else if members.isEmpty { self.onOpen?(id) }
             else { self.onCreatedFromMembers?(id) }
@@ -74,8 +75,8 @@ nonisolated enum PlaylistOrganizationAction: Equatable, Sendable {
         let epoch = collections.snapshot.resetEpoch
         let count = collections.snapshot.members.filter { $0.playlistID == id }.count
         let alert = makeAppAlert(title: "删除“\(playlist.name)”？",
-            message: "仅移除播放列表。保留 \(count) 张原始壁纸、下载、特别喜爱和最近使用记录。",
-            style: .warning, buttons: ["删除列表", "取消"])
+            message: "仅移除此列表，保留其中 \(count) 张壁纸和其他列表。",
+            style: .warning, buttons: ["移除", "取消"])
         presentAppAlert(alert, in: hostWindow()) { [weak self] response in
             guard let self, response == .alertFirstButtonReturn else { return }
             self.run(epoch: epoch, operation: { try await self.collections.perform(.deletePlaylist(id), undoName: "删除列表") }) { _ in self.onDidEdit?(id, true) }
@@ -110,9 +111,12 @@ nonisolated enum PlaylistOrganizationAction: Equatable, Sendable {
         }
     }
 
-    func add(_ items: [WallpaperOrganizationItem], to id: UUID) {
+    func add(_ items: [WallpaperOrganizationItem], to id: UUID, completion: (() -> Void)? = nil) {
         let epoch = collections.snapshot.resetEpoch
-        run(epoch: epoch, operation: { try await self.collections.perform(.addMembers(id, items, Date()), undoName: "添加到列表") }) { _ in self.onDidEdit?(id, false) }
+        run(epoch: epoch, operation: { try await self.collections.perform(.addMembers(id, items, Date()), undoName: "添加到列表") }) { _ in
+            completion?()
+            self.onDidEdit?(id, false)
+        }
     }
 
     private func run<T>(epoch: UUID, operation: @escaping @MainActor () async throws -> T,
@@ -129,6 +133,7 @@ nonisolated enum PlaylistOrganizationAction: Equatable, Sendable {
                 guard permitsEditing() else { return }
                 completion?(value)
             } catch {
+                guard collections.snapshot.resetEpoch == epoch, !collections.isResetting else { return }
                 let alert = makeAppAlert(title: "播放列表操作未完成", message: error.localizedDescription, buttons: ["好"])
                 presentAppAlert(alert, in: hostWindow())
             }

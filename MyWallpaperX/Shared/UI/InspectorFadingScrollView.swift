@@ -7,6 +7,7 @@ import AppKit
 import QuartzCore
 
 class InspectorFadingScrollView: NSScrollView {
+    static let contentTopInset: CGFloat = 8
     private let fadeMask = CAGradientLayer()
     private let fadeRatio: CGFloat
 
@@ -30,20 +31,17 @@ class InspectorFadingScrollView: NSScrollView {
 
     override func layout() {
         super.layout()
-        fadeMask.frame = bounds
+        updateFadeMask()
+    }
+
+    override func reflectScrolledClipView(_ clipView: NSClipView) {
+        super.reflectScrolledClipView(clipView)
+        updateFadeMask()
     }
 
     private func setupFadeMask() {
         wantsLayer = true
         contentView.wantsLayer = true
-        fadeMask.startPoint = CGPoint(x: 0.5, y: 0)
-        fadeMask.endPoint = CGPoint(x: 0.5, y: 1)
-        fadeMask.colors = [
-            NSColor.clear.cgColor,
-            NSColor.black.cgColor,
-            NSColor.black.cgColor,
-            NSColor.clear.cgColor
-        ]
         layer?.mask = fadeMask
         fadeMask.locations = [
             0,
@@ -51,5 +49,49 @@ class InspectorFadingScrollView: NSScrollView {
             NSNumber(value: Double(1 - fadeRatio)),
             1
         ]
+        updateFadeMask()
     }
+
+    private func updateFadeMask() {
+        var fadesTop = false
+        var fadesBottom = false
+        let inset = contentInsets
+        var maskFrame = convert(contentView.bounds, from: contentView)
+        maskFrame.origin.x += inset.left
+        maskFrame.origin.y += isFlipped ? inset.top : inset.bottom
+        maskFrame.size.width = max(0, maskFrame.width - inset.left - inset.right)
+        maskFrame.size.height = max(0, maskFrame.height - inset.top - inset.bottom)
+        if let document = documentView {
+            let viewport = document.convert(contentView.bounds, from: contentView)
+            let pixel = 0.5 / (window?.backingScaleFactor ?? 1)
+            if viewport.height > inset.top + inset.bottom {
+                if document.isFlipped {
+                    fadesTop = viewport.minY + inset.top > document.bounds.minY + pixel
+                    fadesBottom = viewport.maxY - inset.bottom < document.bounds.maxY - pixel
+                } else {
+                    fadesTop = viewport.maxY - inset.top < document.bounds.maxY - pixel
+                    fadesBottom = viewport.minY + inset.bottom > document.bounds.minY + pixel
+                }
+            }
+        }
+        // The mask follows the scroll view's physical top, independently of
+        // the document's coordinate direction. Header and footer are siblings.
+        CATransaction.begin()
+        CATransaction.setDisableActions(true)
+        fadeMask.frame = maskFrame
+        fadeMask.startPoint = CGPoint(x: 0.5, y: isFlipped ? 0 : 1)
+        fadeMask.endPoint = CGPoint(x: 0.5, y: isFlipped ? 1 : 0)
+        fadeMask.colors = [
+            fadesTop && fadeRatio > 0 ? NSColor.clear.cgColor : NSColor.black.cgColor,
+            NSColor.black.cgColor,
+            NSColor.black.cgColor,
+            fadesBottom && fadeRatio > 0 ? NSColor.clear.cgColor : NSColor.black.cgColor
+        ]
+        CATransaction.commit()
+    }
+}
+
+/// A common document direction makes initial Inspector content start at its top.
+final class InspectorContentDocumentView: NSView {
+    override var isFlipped: Bool { true }
 }

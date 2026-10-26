@@ -210,6 +210,7 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSMenuItemValidation {
  let epoch = WallpaperManager.shared.beginPlaybackIntent()
  WallpaperEngine.shared.adoptIntentEpoch(epoch)
  SteamWorkshopService.shared.advanceWebLaunchIntentGeneration()
+ WallpaperManager.shared.restoreSystemDesktopWallpaperOnTermination()
  WallpaperManager.shared.flushPersistentState()
  WallpaperEngine.shared.cleanup()
  }

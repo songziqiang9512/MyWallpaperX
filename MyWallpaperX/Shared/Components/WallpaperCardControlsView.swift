@@ -4,7 +4,7 @@ import QuartzCore
 /// Presentation only. The source adapter supplies current state and commands;
 /// this view does not resolve identities, select items or write user data.
 final class WallpaperCardControlsView: NSView {
-    enum PrimaryState { case apply, playing, applied }
+    enum PrimaryState { case apply, switching, playing }
 
     let glass = WallpaperCardGlassBarView()
     let titleView = WallpaperCardMarqueeTextView()
@@ -93,8 +93,8 @@ final class WallpaperCardControlsView: NSView {
             playTitle = "设为壁纸"; playSymbol = "play.fill"; playColor = .labelColor
         case .playing:
             playTitle = "停止播放"; playSymbol = "stop.fill"; playColor = .controlAccentColor
-        case .applied:
-            playTitle = "已应用，点按重新应用"; playSymbol = "checkmark"; playColor = .controlAccentColor
+        case .switching:
+            playTitle = "正在切换壁纸"; playSymbol = "hourglass"; playColor = .labelColor
         }
         playButton.image = NSImage(systemSymbolName: playSymbol,
             accessibilityDescription: playTitle)?.withSymbolConfiguration(configuration)

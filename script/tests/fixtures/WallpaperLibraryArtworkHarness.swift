@@ -157,6 +157,28 @@ final class ArtworkRequests {
         checks["sort-changing-first-updates-original-tint-identity"] = firstTint != provider.currentListTintSource.request!.revision
         provider.updateCurrentList(first: nil)
         checks["empty-page-clears-tint-to-native-background"] = provider.currentListTintSource.request == nil
+        let modeRequests = ArtworkRequests(), modeProvider = WallpaperLibraryArtworkProvider(loader: { modeRequests.load($0, $1) })
+        var modeRendered: [UUID: WallpaperPlaylistArtwork] = [:]
+        modeProvider.onCoversChanged = { modeRendered = $0 }
+        modeProvider.update(entries: [second]) { refs in refs.compactMap { catalog[$0] } }
+        modeProvider.updateCurrentDirectory(firstPlaylistID: secondID)
+        let modeOnlyRequest = modeRequests.requests[0]
+        modeProvider.updateCurrentDirectory(firstPlaylistID: nil)
+        modeOnlyRequest.completion(red)
+        checks["native-mode-releases-directory-tint-only-lease-and-rejects-late-cover"] = modeOnlyRequest.cancelled
+            && modeProvider.currentListTintSource.request == nil && modeRendered.isEmpty
+        let realVisibleDemand = UUID()
+        modeProvider.setDemand(sourceToken: realVisibleDemand, playlistIDs: [secondID])
+        let realVisibleRequest = modeRequests.requests[1]
+        modeProvider.updateCurrentDirectory(firstPlaylistID: secondID)
+        modeProvider.updateCurrentDirectory(firstPlaylistID: nil)
+        checks["native-mode-keeps-real-visible-directory-cover-lease"] = !realVisibleRequest.cancelled && modeRequests.requests.count == 2
+        modeProvider.updateCurrentDirectory(firstPlaylistID: secondID)
+        checks["returning-to-tint-shares-existing-visible-cover-without-reloading"] = !realVisibleRequest.cancelled
+            && modeProvider.currentListTintSource.request?.identity.itemID == "playlist-cover:" + secondID.uuidString && modeRequests.requests.count == 2
+        modeProvider.updateCurrentDirectory(firstPlaylistID: nil)
+        modeProvider.setDemand(sourceToken: realVisibleDemand, playlistIDs: [])
+        checks["native-mode-last-real-demand-retirement-releases-original-lease"] = realVisibleRequest.cancelled
         provider.updateCurrentList(first: item("é")); let unicodeRevision = provider.currentListTintSource.request!.revision
         provider.updateCurrentList(first: item("e\u{301}"))
         checks["opaque-unicode-source-identity-is-not-canonicalized"] = unicodeRevision != provider.currentListTintSource.request!.revision

@@ -550,13 +550,6 @@
       "path": "script/tests/test_scene_particle_simulator.py",
       "scope": "SceneParticleSimulatorTests.test_operator_execution_plans_are_prepared_once",
       "method": "assertIn",
-      "literal": "let minimum = plan.sphereDistanceMinimum",
-      "count": 1
-    },
-    {
-      "path": "script/tests/test_scene_particle_simulator.py",
-      "scope": "SceneParticleSimulatorTests.test_operator_execution_plans_are_prepared_once",
-      "method": "assertIn",
       "literal": "let periodicEmissionAdmission",
       "count": 1
     },
@@ -676,21 +669,7 @@
       "path": "script/tests/test_scene_puppet_mesh.py",
       "scope": "PuppetMeshWorldGeometryContractTests.test_static_and_animated_puppets_share_world_geometry_mapping",
       "method": "assertIn",
-      "literal": "case absent",
-      "count": 1
-    },
-    {
-      "path": "script/tests/test_scene_puppet_mesh.py",
-      "scope": "PuppetMeshWorldGeometryContractTests.test_static_and_animated_puppets_share_world_geometry_mapping",
-      "method": "assertIn",
       "literal": "case exactSamplingTexture",
-      "count": 1
-    },
-    {
-      "path": "script/tests/test_scene_puppet_mesh.py",
-      "scope": "PuppetMeshWorldGeometryContractTests.test_static_and_animated_puppets_share_world_geometry_mapping",
-      "method": "assertIn",
-      "literal": "case rejected",
       "count": 1
     },
     {

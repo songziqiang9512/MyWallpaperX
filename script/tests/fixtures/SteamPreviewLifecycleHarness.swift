@@ -187,6 +187,30 @@ import ImageIO
         }
         checks["actualSteamPlaceholderStatesUseSharedAXSelectionInsteadOfProviderDetails"] = passiveStatesActivate
             && selectionActivations == 3 && originalOpens == 0
+        container.addSubview(axCard.view)
+        let samePlaceholder = axCard.previewPlaceholderView
+        for (phase, appearance) in [NSAppearance.Name.darkAqua, .aqua, .darkAqua].enumerated() {
+            window.appearance = NSAppearance(named: appearance)!
+            RunLoop.main.run(until: Date().addingTimeInterval(0.04))
+            let background = samePlaceholder.subviews.first
+            var expected: NSColor?
+            samePlaceholder.effectiveAppearance.performAsCurrentDrawingAppearance {
+                expected = NSColor.windowBackgroundColor.withAlphaComponent(0.72).usingColorSpace(.deviceRGB)
+            }
+            let actual = background?.layer?.backgroundColor.flatMap { NSColor(cgColor: $0)?.usingColorSpace(.deviceRGB) }
+            let matches: Bool
+            if let actual, let expected {
+                let lhs = [actual.redComponent, actual.greenComponent, actual.blueComponent, actual.alphaComponent]
+                let rhs = [expected.redComponent, expected.greenComponent, expected.blueComponent, expected.alphaComponent]
+                matches = zip(lhs, rhs).allSatisfy { abs($0.0 - $0.1) <= 1 / 255 }
+            } else { matches = false }
+            let key = "steamPlaceholderBackgroundTracksNative\(appearance.rawValue)Phase\(phase)WithoutChangingItsState"
+            checks[key] = matches && !samePlaceholder.isHidden
+                && samePlaceholder.subviews.compactMap { $0 as? NSTextField }.first?.stringValue == "暂无缩略图"
+                && samePlaceholder.subviews.compactMap { $0 as? NSProgressIndicator }.first?.isHidden == true
+                && samePlaceholder === axCard.previewPlaceholderView
+        }
+        axCard.view.removeFromSuperview()
         axRoot.onAccessibilityActivate = { false }
         checks["revokedSharedSteamAXActionNeverFallsThroughToOldProviderOpen"] = !axRoot.accessibilityPerformPress() && originalOpens == 0
         axCard.prepareForReuse()

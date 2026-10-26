@@ -101,6 +101,10 @@ final class ForeignPreviewOwner: NSObject, QLPreviewPanelDataSource {
 
 @main struct WallpaperLibraryInspectorHarness {
     @MainActor static func pump() async { try? await Task.sleep(for: .milliseconds(35)) }
+    @MainActor static func nativeLayoutTurn(_ view: NSView) {
+        view.layoutSubtreeIfNeeded()
+        RunLoop.main.run(until: Date().addingTimeInterval(0.01))
+    }
     @MainActor static func main() {
         let app = NSApplication.shared
         Task { @MainActor in
@@ -218,8 +222,20 @@ final class ForeignPreviewOwner: NSObject, QLPreviewPanelDataSource {
         primaryGeneration += 1
         videoView.actions.onPrimary()
         checks["rendered-primary-never-reclassifies-action-on-click"] = primaryFactoryCalls == priorFactoryCalls && primary == [video]
-        try? await Task.sleep(for: .milliseconds(300))
-        split.view.layoutSubtreeIfNeeded()
+        // Stable-geometry probes start after the real entrance has completed.
+        // The later replacement assertions remain synchronous and still reject
+        // a replacement that starts another entrance or remounts its content.
+        let entranceDeadline = Date().addingTimeInterval(2)
+        var entranceSettled = false
+        repeat {
+            nativeLayoutTurn(split.view)
+            let visibleFrame = animationHost.layer?.presentation()?.frame ?? animationHost.frame
+            entranceSettled = abs(trailing.constant) <= 0.5
+                && abs(animationHost.frame.maxX - overlay.bounds.maxX) <= 0.5
+                && abs(visibleFrame.maxX - overlay.bounds.maxX) <= 0.5
+            if !entranceSettled { await pump() }
+        } while !entranceSettled && Date() < entranceDeadline
+        checks["native-inspector-entrance-settles-before-stable-geometry-probes"] = entranceSettled
         let closeCountBeforeReplacement = probe.closes.count
         let hostParent = host.parent, originalTrailing = trailing.constant
         recordHost("before-selected-ref-replacement")

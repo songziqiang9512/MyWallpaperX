@@ -78,6 +78,7 @@ private final class SceneDaemonClient {
 }
 
 private final class WallpaperManager {
+    var protectedSystemDesktopURLs = Set<URL>()
     let deletionQueue = DispatchQueue(label: "mwx.tests.video-removal", qos: .utility)
     let probe = DerivedFileProbe()
     var wallpapers: [VideoWallpaper] = []

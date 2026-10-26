@@ -7,6 +7,7 @@ import ImageIO
 // Only storage/state leaves are supplied. The complete CachePipeline extension,
 // original path methods and actual clearPreviewCacheArtifacts body are compiled.
 nonisolated final class WallpaperManager: @unchecked Sendable {
+    var protectedSystemDesktopURLs = Set<URL>()
     // ACTUAL_CACHE_FIELDS
     let thumbnailCacheDirectory: URL
     let staticFrameCacheDirectory: URL

@@ -63,7 +63,13 @@ final class WallpaperCardMarqueeTextView: NSView {
 
     override func viewDidMoveToWindow() {
         super.viewDidMoveToWindow()
+        updateTextLayerAppearance()
         needsLayout = true
+    }
+
+    override func viewDidChangeEffectiveAppearance() {
+        super.viewDidChangeEffectiveAppearance()
+        updateTextLayerAppearance()
     }
 
     func setActive(_ active: Bool) {
@@ -109,12 +115,17 @@ final class WallpaperCardMarqueeTextView: NSView {
     }
 
     private func updateTextLayerAppearance() {
-        let cgColor = textColor.cgColor
-        let fontRef = font as CTFont
-        [leadingTextLayer, trailingTextLayer].forEach { layer in
-            layer.font = fontRef
-            layer.fontSize = font.pointSize
-            layer.foregroundColor = cgColor
+        effectiveAppearance.performAsCurrentDrawingAppearance {
+            let cgColor = textColor.cgColor
+            let fontRef = font as CTFont
+            CATransaction.begin()
+            CATransaction.setDisableActions(true)
+            for layer in [leadingTextLayer, trailingTextLayer] {
+                layer.font = fontRef
+                layer.fontSize = font.pointSize
+                layer.foregroundColor = cgColor
+            }
+            CATransaction.commit()
         }
     }
 
@@ -335,6 +346,7 @@ final class WallpaperCardGlassBarView: NSGlassEffectView {
 
     override func viewDidChangeEffectiveAppearance() {
         super.viewDidChangeEffectiveAppearance()
+        materialKey = nil
         updateMaterial()
     }
 
@@ -353,7 +365,6 @@ final class WallpaperCardGlassBarView: NSGlassEffectView {
             case .failed: return .failure
             }
         }()
-        let accentBaseColor = WallpaperCardProgressPalette.color(for: tone, darkMode: isDarkMode)
         let usesStatusFill = accentStyle != .neutral && accentStyle != .ready
 
         style = .regular
@@ -361,15 +372,17 @@ final class WallpaperCardGlassBarView: NSGlassEffectView {
             ? NSColor(calibratedWhite: 0.10, alpha: 0.82)
             : NSColor(calibratedWhite: 1.0, alpha: 0.72)
 
-        layer?.backgroundColor = NSColor.clear.cgColor
-        let neutral = WallpaperCardProgressPalette.color(for: .neutral, darkMode: isDarkMode)
-        layer?.borderColor = neutral.withAlphaComponent(isDarkMode ? 0.34 : 0.22).cgColor
-
-        fillLayer.colors = [
-            accentBaseColor.withAlphaComponent(usesStatusFill ? 0.88 : 0.34).cgColor,
-            accentBaseColor.withAlphaComponent(usesStatusFill ? 0.72 : 0.18).cgColor,
-            accentBaseColor.withAlphaComponent(usesStatusFill ? 0.84 : 0.08).cgColor
-        ]
+        effectiveAppearance.performAsCurrentDrawingAppearance {
+            layer?.backgroundColor = NSColor.clear.cgColor
+            let neutral = WallpaperCardProgressPalette.color(for: .neutral, darkMode: isDarkMode)
+            layer?.borderColor = neutral.withAlphaComponent(isDarkMode ? 0.34 : 0.22).cgColor
+            let accentBaseColor = WallpaperCardProgressPalette.color(for: tone, darkMode: isDarkMode)
+            fillLayer.colors = [
+                accentBaseColor.withAlphaComponent(usesStatusFill ? 0.88 : 0.34).cgColor,
+                accentBaseColor.withAlphaComponent(usesStatusFill ? 0.72 : 0.18).cgColor,
+                accentBaseColor.withAlphaComponent(usesStatusFill ? 0.84 : 0.08).cgColor
+            ]
+        }
         fillLayer.locations = [0, 0.55, 1]
 
         glossLayer.isHidden = false

@@ -13,6 +13,7 @@ class SteamLoginLayoutTests(unittest.TestCase):
             binary = folder / 'layout'
             subprocess.run(['xcrun', 'swiftc', '-parse-as-library',
                 str(ROOT / 'MyWallpaperX/Shared/UI/WallpaperLibrarySheetPresentation.swift'),
+                str(ROOT / 'MyWallpaperX/Shared/Components/WallpaperFormFieldStyle.swift'),
                 str(ROOT / 'MyWallpaperX/Modules/SteamWorkshop/UI/SteamLoginPanelView.swift'),
                 str(ROOT / 'script/tests/fixtures/SteamLoginLayoutHarness.swift'), '-o', str(binary)],
                 check=True, capture_output=True, text=True, timeout=60)

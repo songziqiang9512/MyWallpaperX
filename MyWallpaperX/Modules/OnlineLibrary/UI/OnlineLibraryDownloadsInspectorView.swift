@@ -12,7 +12,7 @@ final class OnlineLibraryDownloadsInspectorView: NSView {
     private var snapshot: OnlineLibraryDownloadsInspectorSnapshot?
     private let rootStack = NSStackView()
     private let scrollView = InspectorFadingScrollView()
-    private let documentContainer = NSView()
+    private let documentContainer = InspectorContentDocumentView()
     private let contentStack = NSStackView()
     private var footerView: NSView?
 
@@ -22,7 +22,7 @@ final class OnlineLibraryDownloadsInspectorView: NSView {
         self.itemID = itemID
         super.init(frame: .zero)
         // The downloaded-content owner has already prepared these values.
-        // Build the final centered layout before mounting; no loading-size pass.
+        // Build the final top-aligned layout before mounting; no loading-size pass.
         snapshot = OnlineLibraryDownloadsInspectorSnapshot.load(itemID: itemID, service: self.service)
         setup()
     }
@@ -89,7 +89,7 @@ final class OnlineLibraryDownloadsInspectorView: NSView {
         contentStack.orientation = .vertical
         contentStack.alignment = .leading
         contentStack.spacing = 16
-        contentStack.edgeInsets = NSEdgeInsets(top: 0, left: 2, bottom: 0, right: 2)
+        contentStack.edgeInsets = NSEdgeInsets(top: InspectorFadingScrollView.contentTopInset, left: 2, bottom: 0, right: 2)
         contentStack.translatesAutoresizingMaskIntoConstraints = false
 
         documentContainer.translatesAutoresizingMaskIntoConstraints = false
@@ -110,8 +110,7 @@ final class OnlineLibraryDownloadsInspectorView: NSView {
             documentContainer.heightAnchor.constraint(greaterThanOrEqualTo: scrollView.contentView.heightAnchor),
             contentStack.leadingAnchor.constraint(equalTo: documentContainer.leadingAnchor),
             contentStack.trailingAnchor.constraint(equalTo: documentContainer.trailingAnchor),
-            contentStack.centerYAnchor.constraint(equalTo: documentContainer.centerYAnchor),
-            contentStack.topAnchor.constraint(greaterThanOrEqualTo: documentContainer.topAnchor),
+            contentStack.topAnchor.constraint(equalTo: documentContainer.topAnchor),
             contentStack.bottomAnchor.constraint(lessThanOrEqualTo: documentContainer.bottomAnchor)
         ])
     }

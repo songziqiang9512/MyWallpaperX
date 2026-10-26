@@ -227,6 +227,55 @@ import Foundation
             envelope["queries"] = [["page": pageObject, "query": query]]
             return try data(envelope)
         }
+        var pagePayloadsRejected = true
+        for payload in [42, NSNull(), []] as [Any] {
+            for key in ["workshop", "workshopSubscriptions"] {
+                let bytes = try data([key: payload])
+                pagePayloadsRejected = pagePayloadsRejected && (try? JSONDecoder().decode(WallpaperLibraryPage.self, from: bytes)) == nil
+            }
+        }
+        checks["retired-and-current-page-codecs-still-reject-nonobject-enum-payloads"] = pagePayloadsRejected
+        var currentPagesRoundTrip = true
+        for page in [WallpaperLibraryPage.videos, .images, .downloads, .recent, .workshop, .pixabay, .playlists, .favorites, .playlist(shared)] {
+            let decoded = try JSONDecoder().decode(WallpaperLibraryPage.self, from: JSONEncoder().encode(page))
+            currentPagesRoundTrip = currentPagesRoundTrip && decoded == page
+        }
+        checks["all-current-page-cases-keep-the-original-associated-value-codec"] = currentPagesRoundTrip
+        let publicQuery = WallpaperLibraryQueryState(search: "public", sort: .name, preferredColumns: 6,
+            scrollAnchor: a, scrollOffset: 14, scrollAtTop: false)
+        let privateQuery = WallpaperLibraryQueryState(search: "private", provider: .steamWorkshop, kind: .scene,
+            status: .failed, sort: .fileSize, ascending: false, preferredColumns: 3,
+            scrollAnchor: b, scrollOffset: -12, scrollAtTop: false)
+        let publicEntry: [String: Any] = ["page": ["workshop": [:]], "query": try object(publicQuery)]
+        let oldPersonalEntry: [String: Any] = ["page": ["workshopSubscriptions": [:]], "query": try object(privateQuery)]
+        func oldSubscriptionsEnvelope(_ entries: [[String: Any]]) throws -> Data {
+            try data(["version": 2, "page": ["workshopSubscriptions": [:]], "queries": entries])
+        }
+        var publicAlwaysWins = true
+        for entries in [[publicEntry, oldPersonalEntry], [oldPersonalEntry, publicEntry]] {
+            defaults.set(try oldSubscriptionsEnvelope(entries), forKey: WallpaperLibraryPresentation.settingsKey)
+            let restored = WallpaperLibraryPresentation(collections: nil, defaults: defaults)
+            let canonicalBytes = defaults.data(forKey: WallpaperLibraryPresentation.settingsKey)!
+            let reopened = WallpaperLibraryPresentation(collections: nil, defaults: defaults)
+            publicAlwaysWins = publicAlwaysWins && restored.page == .workshop && restored.queryState == publicQuery
+                && restored.lastError == nil && reopened.queryState == publicQuery
+                && !String(decoding: canonicalBytes, as: UTF8.self).contains("workshopSubscriptions")
+        }
+        checks["legacy-subscriptions-folds-into-public-session-independently-of-array-order"] = publicAlwaysWins
+        defaults.set(try oldSubscriptionsEnvelope([oldPersonalEntry]), forKey: WallpaperLibraryPresentation.settingsKey)
+        let personalOnly = WallpaperLibraryPresentation(collections: nil, defaults: defaults)
+        checks["legacy-personal-only-session-migrates-geometry-without-private-search-or-facets"] = personalOnly.page == .workshop
+            && personalOnly.lastError == nil && personalOnly.queryState == .init(preferredColumns: 3,
+                scrollAnchor: b, scrollOffset: -12, scrollAtTop: false)
+        var duplicateSessionsRejected = true
+        for entries in [[publicEntry, publicEntry], [oldPersonalEntry, oldPersonalEntry]] {
+            let duplicateBytes = try oldSubscriptionsEnvelope(entries)
+            defaults.set(duplicateBytes, forKey: WallpaperLibraryPresentation.settingsKey)
+            let rejected = WallpaperLibraryPresentation(collections: nil, defaults: defaults)
+            duplicateSessionsRejected = duplicateSessionsRejected && rejected.lastError != nil
+                && defaults.data(forKey: WallpaperLibraryPresentation.settingsKey) == duplicateBytes
+        }
+        checks["legacy-folding-does-not-admit-genuine-duplicate-page-records"] = duplicateSessionsRejected
         var invalidStatesStayReadOnly = true
         for badValue in [2, 7, "5", true] as [Any] {
             var invalidQuery = queryObject; invalidQuery["preferredColumns"] = badValue

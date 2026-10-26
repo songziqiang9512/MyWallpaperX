@@ -107,8 +107,10 @@ final class WallpaperGridHoverTracking {
 class AppearanceAwareContainerView: NSView { var appearanceDidChangeHandler: (() -> Void)? }
 class RecordingCard: NSCollectionViewItem {
     var configurations = 0; var visible = false; var favorite = false; var playing = false
+    var switching = false
     var presentedTitle = ""; var selectedState = false; var selecting = false
     override func loadView() { view = NSView() }
+    func applySwitchingState(isSwitching: Bool) { switching = isSwitching }
 }
 final class AppKitWallpaperItem: RecordingCard {
     static let reuseIdentifier = NSUserInterfaceItemIdentifier("video")
@@ -155,6 +157,7 @@ final class AppKitSteamWorkshopBrowserItem: RecordingCard {
     enum DisplayContext { case downloads }
     struct OrganizationPresentation {
         let isFavorite: Bool; let canFavorite: Bool
+        var isSwitching = false
         var canPlay = true; var canDownload = true; var canCancel = true
         var onFavorite: (() -> Void)?; var onPrimary: (() -> Void)?
     }
@@ -201,10 +204,10 @@ final class AdapterCollectionDataSource: NSObject, NSCollectionViewDataSource {
                            .init(id: "video:opaque", title: "legacy steam", status: .ready)]
         online.downloadedContent.entries = [.init(id: 1, localURL: URL(fileURLWithPath: "/online")),
                                             .init(id: -1, localURL: URL(fileURLWithPath: "/negative"))]
-        var favorites = Set<WallpaperReference>(), playing = Set<WallpaperReference>()
+        var favorites = Set<WallpaperReference>(), playing = Set<WallpaperReference>(), switching = Set<WallpaperReference>()
         var primary: [WallpaperContentItem] = [], favorite: [WallpaperContentItem] = [], inspections: [WallpaperContentItem] = []
         let adapter = WallpaperLibraryCellAdapter(manager: manager, images: images, steam: steam, online: online,
-            isFavorite: { favorites.contains($0) }, isPlaying: { playing.contains($0) },
+            isFavorite: { favorites.contains($0) }, isPlaying: { playing.contains($0) }, isSwitching: { switching.contains($0) },
             makePrimaryAction: { content in { primary.append(content) } }, makeFavoriteAction: { content in
                 guard content.capabilities.contains(.organize) || favorites.contains(content.reference) else { return nil }
                 return { favorite.append(content) }
@@ -251,6 +254,27 @@ final class AdapterCollectionDataSource: NSObject, NSCollectionViewDataSource {
         adapter.updateCell(workshop, content: s, state: selected)
         checks["steamStateUpdatesDoNotRebindPreviewOrProgress"] = workshop.configurations == steamConfigurations
             && workshop.organization?.isFavorite == true && workshop.playing && workshop.selectedState
+        switching = favorites
+        let primaryBeforeSwitching = primary.count
+        for (card, content) in [(video, v), (image, i), (pixabay, o), (workshop, s)] {
+            adapter.updateCell(card, content: content, state: selected)
+        }
+        video.onPlayRequested?("1"); image.onApplyRequested?("1"); pixabay.onPrimaryAction?(1); workshop.organization?.onPrimary?()
+        checks["allProvidersReceivePendingBeforeRebindingAndCannotReissuePrimary"] = video.switching && image.switching && pixabay.switching
+            && workshop.organization?.isSwitching == true && workshop.organization?.canPlay == false
+            && video.onPlayRequested == nil && image.onApplyRequested == nil && pixabay.onPrimaryAction == nil
+            && primary.count == primaryBeforeSwitching
+        checks["pendingOnlyDoesNotReconfigureAnyProviderMedia"] = [video.configurations, image.configurations, pixabay.configurations] == counts
+            && workshop.configurations == steamConfigurations
+        let firstPendingImage = make(i) as! SILGridItem
+        checks["firstConfiguredPendingCellReceivesSameProjection"] = firstPendingImage.switching && firstPendingImage.onApplyRequested == nil
+        switching.removeAll()
+        for (card, content) in [(video, v), (image, i), (pixabay, o), (workshop, s)] {
+            adapter.updateCell(card, content: content, state: selected)
+        }
+        checks["settledPendingClearsAllProvidersAndRestoresOriginalPrimary"] = !video.switching && !image.switching && !pixabay.switching
+            && workshop.organization?.isSwitching == false && workshop.organization?.canPlay == true
+            && video.onPlayRequested != nil && image.onApplyRequested != nil && pixabay.onPrimaryAction != nil
         let oldPrimary = video.onPlayRequested
         playing.removeAll()
         favorites.remove(v.reference)

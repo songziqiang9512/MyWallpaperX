@@ -6,13 +6,17 @@ import ImageIO
 // PRODUCTION_RESULT
 
 /// The system wallpaper writer is a leaf. Both transaction inputs and the
-/// original Commands primary factory are real values/methods, so an applied
-/// image cannot silently become Stop when its native button is pressed again.
+/// original Commands primary factory are real values/methods. The Stop leaf
+/// records dispatch and revokes the real reducers; it never writes a desktop.
 @MainActor final class WallpaperManager {
     var playbackSwitch = PlaybackSwitchTransaction()
     var libraryPlaybackSequence = WallpaperPlaybackSequence()
     var stops = 0
-    func stopCurrentPlayback() { stops += 1 }
+    func stopCurrentPlayback() {
+        stops += 1
+        libraryPlaybackSequence.stop()
+        _ = playbackSwitch.stop()
+    }
 }
 @MainActor final class AppliedImageWorkspace {
     let manager: WallpaperManager
@@ -171,9 +175,18 @@ struct SILSquareCardHarness {
         card.applyFavoriteState(isFavorite: true)
         card.applyPlayingState(isPlaying: true)
         checks["organization-state-updates-native-icons-without-redecoding"] = thumbnailLoads == 1
-            && card.thumbnailView.image === appliedImage && bar.isFavorite && bar.primaryState == .applied
-            && bar.playButton.accessibilityLabel() == "已应用，点按重新应用"
+            && card.thumbnailView.image === appliedImage && bar.isFavorite && bar.primaryState == .playing
+            && bar.playButton.accessibilityLabel() == "停止播放"
+        card.applySwitchingState(isSwitching: true)
+        card.onApplyRequested = { applied.append($0) }
+        bar.playButton.performClick(nil)
+        checks["pending-image-pins-hourglass-and-rejects-repeat-without-thumbnail-work"] = bar.primaryState == .switching
+            && !bar.isHidden && bar.superview != nil && !bar.playButton.isEnabled && applied.count == 1
+            && bar.playButton.accessibilityLabel() == "正在切换壁纸" && thumbnailLoads == 1
+            && card.thumbnailView.image === appliedImage
         card.applyPlayingState(isPlaying: false)
+        checks["pending-image-wins-over-playing-echo"] = bar.primaryState == .switching && !bar.playButton.isEnabled
+        card.applySwitchingState(isSwitching: false)
         card.applySelectionState(isSelected: true, multiSelectMode: true)
         bar.playButton.performClick(nil)
         bar.favoriteButton.performClick(nil)
@@ -219,11 +232,13 @@ struct SILSquareCardHarness {
         card.mouseMoved(with: moved)
         checks["new-image-demand-restores-existing-loader-and-title-animation"] = thumbnailLoads == 2
             && card.thumbnailView.image === image && card.isHovering && (bar.titleView.activeMarqueeAnimation != nil) == allowsMotion
+        card.applySwitchingState(isSwitching: true)
         card.prepareForReuse()
         bar.playButton.performClick(nil)
         bar.favoriteButton.performClick(nil)
         checks["reuse-cancels-card-actions-and-marquee-visibility"] = card.onApplyRequested == nil
             && card.onToggleFavorite == nil && bar.superview == nil && applied.count == 1 && favorites.count == 1
+            && !card.isSwitching && bar.primaryState == .apply
 
         do {
             let reference = WallpaperReference(provider: .staticImageLibrary, sourceID: wallpaper.id)
@@ -250,9 +265,10 @@ struct SILSquareCardHarness {
             let appliedCard = SILGridItem()
             appliedCard.view.frame = NSRect(x: 0, y: 0, width: 240, height: 240)
             grid.addSubview(appliedCard.view)
+            let fixedStop = commands.makePrimaryAction(for: content)!
             appliedCard.onApplyRequested = { id in
                 precondition(id == reference.sourceID)
-                commands.makePrimaryAction(for: content)?()
+                fixedStop()
             }
             appliedCard.onToggleFavorite = { _ in }
             appliedCard.configure(wallpaper: wallpaper, isSelected: false, isMultiSelectMode: false, thumbnailVisible: true,
@@ -260,24 +276,28 @@ struct SILSquareCardHarness {
             appliedCard.viewDidLayout()
             let appliedBar = appliedCard.controlBar!
             let metrics = WallpaperCardBarMetrics(cardWidth: appliedCard.imageContainer.bounds.width)
-            let checkmark = NSImage(systemSymbolName: "checkmark", accessibilityDescription: nil)!
+            let stopSymbol = NSImage(systemSymbolName: "stop.fill", accessibilityDescription: nil)!
                 .withSymbolConfiguration(.init(pointSize: max(11, metrics.iconButtonSize * 0.56), weight: .medium))!
-            checks["applied-image-keeps-native-bar-with-checkmark-and-system-accent"] = appliedBar.primaryState == .applied
+            checks["applied-image-keeps-native-bar-with-stop-and-system-accent"] = appliedBar.primaryState == .playing
                 && !appliedBar.isHidden && appliedBar.alphaValue == 1 && appliedBar.superview != nil
                 && appliedBar.playButton.contentTintColor == .controlAccentColor
-                && checkmark.tiffRepresentation != nil && appliedBar.playButton.image?.tiffRepresentation == checkmark.tiffRepresentation
-            checks["applied-image-native-accessibility-describes-reapplication-without-stop"] = appliedBar.playButton.accessibilityLabel() == "已应用，点按重新应用"
-                && appliedBar.playButton.toolTip == "已应用，点按重新应用" && appliedBar.playButton.isEnabled
+                && stopSymbol.tiffRepresentation != nil && appliedBar.playButton.image?.tiffRepresentation == stopSymbol.tiffRepresentation
+            checks["applied-image-native-accessibility-describes-stop"] = appliedBar.playButton.accessibilityLabel() == "停止播放"
+                && appliedBar.playButton.toolTip == "停止播放" && appliedBar.playButton.isEnabled
             appliedBar.playButton.performClick(nil)
             appliedBar.playButton.performClick(nil)
-            checks["applied-image-repress-uses-original-primary-factory-to-apply-never-stop"] = workspace.applications.count == 2
-                && workspace.applications.allSatisfy { $0.0 == reference && $0.1 == source } && manager.stops == 0
-                && manager.playbackSwitch.committed?.ticket == ticket && manager.libraryPlaybackSequence.committed?.ticket == ticket
-            checks["image-reapplication-preserves-favorite-and-playlist-membership"] = workspace.relationships == relationships
-                && appliedBar.isFavorite && appliedBar.primaryState == .applied
+            checks["applied-image-stop-uses-original-primary-factory-and-revokes-held-stop"] = workspace.applications.isEmpty
+                && manager.stops == 1 && manager.playbackSwitch.committed == nil && manager.libraryPlaybackSequence.committed == nil
+            checks["image-stop-preserves-favorite-and-playlist-membership"] = workspace.relationships == relationships
+                && appliedBar.isFavorite && appliedBar.primaryState == .playing
             appliedCard.applyPlayingState(isPlaying: false)
-            checks["image-unapplied-state-restores-apply-label-without-losing-favorite"] = appliedBar.primaryState == .apply
+            checks["stopped-image-restores-apply-label-without-losing-favorite"] = appliedBar.primaryState == .apply
                 && appliedBar.playButton.accessibilityLabel() == "设为壁纸" && appliedBar.isFavorite
+            let fixedApply = commands.makePrimaryAction(for: content)!
+            appliedCard.onApplyRequested = { _ in fixedApply() }
+            appliedBar.playButton.performClick(nil)
+            checks["stopped-image-can-apply-again-from-the-original-source-without-another-stop"] = manager.stops == 1
+                && workspace.applications.count == 1 && workspace.applications[0].0 == reference && workspace.applications[0].1 == source
             appliedCard.prepareForReuse()
         }
 

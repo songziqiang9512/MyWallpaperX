@@ -26,8 +26,9 @@ class WallpaperPlaylistEditorTests(unittest.TestCase):
             "Models/WallpaperReference.swift", "Core/LibraryCollections/UserCollectionsStore.swift",
             "Core/LibraryCollections/UserCollectionsController.swift",
             "Shared/Components/WallpaperLibrarySymbols.swift", "Shared/Components/WallpaperLibraryControlStyle.swift",
+            "Shared/Components/WallpaperFormFieldStyle.swift",
             "Shared/UI/ListThumbnailTintSource.swift", "Shared/UI/WallpaperLibrarySheetPresentation.swift",
-            "Shared/UI/ModalPresentation.swift", "Shared/UI/AppCenteredAlertPresentation.swift")]
+            "Shared/UI/ModalPresentation.swift")]
         native = ROOT / "script/tests/fixtures/NativeAppHarness.swift"
         editor = Path(os.environ.get("MWX_PLAYLIST_EDITOR_SOURCE",
             ROOT / "MyWallpaperX/Shell/WallpaperPlaylistEditorController.swift")).resolve()

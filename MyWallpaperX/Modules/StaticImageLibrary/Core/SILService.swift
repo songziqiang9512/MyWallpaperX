@@ -66,7 +66,7 @@ final class SILService: ObservableObject {
 
     private func admitLibraryMutation(in window: NSWindow? = nil) -> Bool {
         guard let migrationRecoveryMessage else { return true }
-        let alert = makeAppAlert(title: "资料库需要恢复", message: migrationRecoveryMessage + "\n当前可继续浏览和播放已入库壁纸；请先恢复资料库再导入、删除或整理。",
+        let alert = makeAppAlert(title: "资料库需要恢复", message: migrationRecoveryMessage + "\n仍可浏览和播放，恢复资料库后再导入或整理。",
                                  style: .warning, buttons: ["知道了"])
         presentAppAlert(alert, in: window)
         return false

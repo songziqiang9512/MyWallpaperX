@@ -14,9 +14,9 @@ nonisolated struct WallpaperLibraryPresentationState: Sendable {
     var allowsEditing = true
 }
 
-/// A deletion may finish after both source projection and user navigation.
-/// This receipt identifies only the original view action, never source truth.
-nonisolated struct WallpaperLibraryRemovalReceipt: Sendable {
+/// Organization may finish after source projection or user navigation. This
+/// receipt identifies only the original selection intent, never source truth.
+nonisolated struct WallpaperLibrarySelectionReceipt: Sendable {
     fileprivate let id = UUID()
 }
 
@@ -54,18 +54,37 @@ nonisolated struct WallpaperLibraryRemovalReceipt: Sendable {
         var query = WallpaperLibraryQueryState()
         var selection = WallpaperLibrarySelectionState()
     }
-    private struct PendingRemoval {
+    private struct PendingSelectionOperation {
         let page: WallpaperLibraryPage
         let resetEpoch: UUID
         let displayed: [WallpaperReference]
         let targets: Set<WallpaperReference>
         let selection: WallpaperLibrarySelectionState
+        let waitsForRemoval: Bool
         var expectedSessionID: UUID
         var succeeded: Set<WallpaperReference>?
     }
     private struct SavedQuery: Codable {
         let page: WallpaperLibraryPage
         let query: WallpaperLibraryQueryState
+        let wasSubscriptions: Bool
+        private enum CodingKeys: String, CodingKey { case page, query }
+        private enum LegacyPageKey: String, CodingKey { case workshopSubscriptions }
+        init(page: WallpaperLibraryPage, query: WallpaperLibraryQueryState) {
+            self.page = page; self.query = query; wasSubscriptions = false
+        }
+        init(from decoder: Decoder) throws {
+            let values = try decoder.container(keyedBy: CodingKeys.self)
+            let pageDecoder = try values.superDecoder(forKey: .page)
+            wasSubscriptions = try pageDecoder.container(keyedBy: LegacyPageKey.self).contains(.workshopSubscriptions)
+            page = try WallpaperLibraryPage(from: pageDecoder)
+            query = try values.decode(WallpaperLibraryQueryState.self, forKey: .query)
+        }
+        func encode(to encoder: Encoder) throws {
+            var values = encoder.container(keyedBy: CodingKeys.self)
+            try values.encode(page, forKey: .page)
+            try values.encode(query, forKey: .query)
+        }
     }
     private struct SavedState: Codable {
         let version: Int
@@ -84,7 +103,7 @@ nonisolated struct WallpaperLibraryRemovalReceipt: Sendable {
     var relationshipsRevision: Int64? { relationships?.revision }
     private var relationships: UserCollectionsSnapshot?
     private var relationshipsKnown = true
-    private var pendingRemovals: [UUID: PendingRemoval] = [:]
+    private var pendingRemovals: [UUID: PendingSelectionOperation] = [:]
 
     init(collections: UserCollectionsController?, defaults: UserDefaults,
          migratedQueries: [WallpaperLibraryPage: WallpaperLibraryQueryState] = [:], migrationWarning: String? = nil) {
@@ -282,22 +301,48 @@ nonisolated struct WallpaperLibraryRemovalReceipt: Sendable {
     /// Capture the displayed order before the confirmation sheet. A context
     /// menu on an unselected card still removes that card, but never borrows
     /// somebody else's selection to force an adjacent selection afterwards.
-    func beginRemoval(_ references: Set<WallpaperReference>, from page: WallpaperLibraryPage) -> WallpaperLibraryRemovalReceipt? {
+    func beginRemoval(_ references: Set<WallpaperReference>, from page: WallpaperLibraryPage) -> WallpaperLibrarySelectionReceipt? {
         guard page == self.page, !references.isEmpty, !page.isRemoteBrowse,
               let relationships else { return nil }
         // A newer explicit removal is another user intent. Do not retain a
         // backlog of old selection adjustments while a same-ID row reappears.
         pendingRemovals.removeAll()
-        let receipt = WallpaperLibraryRemovalReceipt()
-        pendingRemovals[receipt.id] = PendingRemoval(page: page, resetEpoch: relationships.resetEpoch,
+        let receipt = WallpaperLibrarySelectionReceipt()
+        pendingRemovals[receipt.id] = PendingSelectionOperation(page: page, resetEpoch: relationships.resetEpoch,
             displayed: queryResult.items.map(\.reference), targets: references, selection: selectionState,
+            waitsForRemoval: true, expectedSessionID: selectionState.sessionID)
+        return receipt
+    }
+
+    /// Only an operation on the current multi-selection may finish that mode.
+    /// Projection reconciliation advances this same receipt; a new user
+    /// selection, page visit or reset revokes it through the existing owner.
+    func beginOrganizationOperation(_ references: Set<WallpaperReference>) -> WallpaperLibrarySelectionReceipt? {
+        guard selectionState.isSelecting, !references.isEmpty, references == selectionState.references,
+              let relationships else { return nil }
+        pendingRemovals.removeAll()
+        let receipt = WallpaperLibrarySelectionReceipt()
+        pendingRemovals[receipt.id] = PendingSelectionOperation(page: page, resetEpoch: relationships.resetEpoch,
+            displayed: [], targets: references, selection: selectionState, waitsForRemoval: false,
             expectedSessionID: selectionState.sessionID)
         return receipt
     }
 
+    func completeOrganizationOperation(_ receipt: WallpaperLibrarySelectionReceipt?, succeeded: Bool) {
+        guard let receipt, let pending = pendingRemovals.removeValue(forKey: receipt.id),
+              !pending.waitsForRemoval, succeeded, pending.page == page,
+              pending.resetEpoch == relationships?.resetEpoch,
+              pending.expectedSessionID == selectionState.sessionID else { return }
+        let selection = selectionState
+        let focus = selection.focusedReference.flatMap { selection.references.contains($0) ? $0 : nil }
+            ?? queryResult.items.first(where: { selection.references.contains($0.reference) })?.reference
+        _ = setSelection(focus.map { [$0] } ?? [], focused: focus, isSelecting: false,
+            expectedSessionID: pending.expectedSessionID)
+    }
+
     /// Services/Store report actual successes. Selection waits for their real
     /// projection to omit those references; this does not hide or edit a row.
-    func completeRemoval(_ receipt: WallpaperLibraryRemovalReceipt?, succeeded: Set<WallpaperReference>) {
+    func completeRemoval(_ receipt: WallpaperLibrarySelectionReceipt?, succeeded: Set<WallpaperReference>) {
         guard let receipt, var pending = pendingRemovals[receipt.id] else { return }
         guard pending.page == page, pending.resetEpoch == relationships?.resetEpoch,
               pending.expectedSessionID == selectionState.sessionID else {
@@ -331,7 +376,7 @@ nonisolated struct WallpaperLibraryRemovalReceipt: Sendable {
 
     private func settleRemovals(in session: inout Session, page: WallpaperLibraryPage, items: [WallpaperContentItem],
                                 catalog: WallpaperLibraryCatalog, relationships: UserCollectionsSnapshot) throws {
-        let eligible = pendingRemovals.filter { $0.value.page == page && $0.value.resetEpoch == relationships.resetEpoch
+        let eligible = pendingRemovals.filter { $0.value.waitsForRemoval && $0.value.page == page && $0.value.resetEpoch == relationships.resetEpoch
             && $0.value.expectedSessionID == session.selection.sessionID && $0.value.succeeded != nil }
         guard !eligible.isEmpty else { return }
         // Filters are not deletion evidence. Check the unfiltered page using
@@ -355,7 +400,8 @@ nonisolated struct WallpaperLibraryRemovalReceipt: Sendable {
             let originalFocus = original.focusedReference.flatMap { aliases[$0] }
             next.focusedReference = originalFocus.flatMap { next.references.contains($0) ? $0 : nil }
                 ?? ordered.first(where: { next.references.contains($0) })
-            next.isSelecting = original.isSelecting
+            let targets = Set(pending.targets.compactMap { aliases[$0] })
+            next.isSelecting = original.isSelecting && (succeeded != targets || targets != selected)
             if !original.isSelecting, pending.targets.count == 1, selected.count == 1,
                let target = pending.targets.first.flatMap({ aliases[$0] }), selected.contains(target),
                succeeded.contains(target), let index = ordered.firstIndex(of: target) {
@@ -451,9 +497,20 @@ nonisolated struct WallpaperLibraryRemovalReceipt: Sendable {
             let saved = try JSONDecoder().decode(SavedState.self, from: data)
             guard saved.version == 1 || saved.version == 2, saved.directoryScrollOffset?.isFinite != false else { throw SettingsFailure.invalid }
             var restored: [WallpaperLibraryPage: Session] = [:]
+            var legacySubscriptions: WallpaperLibraryQueryState?
             for item in saved.queries {
-                guard restored[item.page] == nil, item.query.scrollAnchor?.sourceID.isEmpty != true else { throw SettingsFailure.invalid }
+                guard item.query.scrollAnchor?.sourceID.isEmpty != true else { throw SettingsFailure.invalid }
+                if item.wasSubscriptions {
+                    guard legacySubscriptions == nil else { throw SettingsFailure.invalid }
+                    legacySubscriptions = item.query
+                    continue
+                }
+                guard restored[item.page] == nil else { throw SettingsFailure.invalid }
                 restored[item.page] = Session(query: item.query)
+            }
+            if restored[.workshop] == nil, let legacy = legacySubscriptions {
+                restored[.workshop] = Session(query: .init(preferredColumns: legacy.preferredColumns,
+                    scrollAnchor: legacy.scrollAnchor, scrollOffset: legacy.scrollOffset, scrollAtTop: legacy.scrollAtTop))
             }
             sessions = restored
             lastSavedData = data
@@ -464,7 +521,7 @@ nonisolated struct WallpaperLibraryRemovalReceipt: Sendable {
             next.directoryScrollOffset = saved.version == 1 ? nil : saved.directoryScrollOffset
             next.directoryScrollAtTop = saved.version == 1 ? nil : saved.directoryScrollAtTop
             state = next
-            if saved.version == 1 { persistSettings() }
+            if saved.version == 1 || legacySubscriptions != nil { persistSettings() }
         } catch {
             // Keep the original bytes for a future supported reader/recovery.
             mayWriteSettings = false

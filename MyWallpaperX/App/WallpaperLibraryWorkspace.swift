@@ -102,6 +102,7 @@ import Foundation
     }
 
     private func installPlaybackBindings() {
+        manager.libraryPlaybackPendingChanged = { [weak self] in self?.playbackChanges.send() }
         manager.libraryPlaybackSnapshotProvider = { [weak self] reference, source, cause in
             self?.playbackSnapshot(reference: reference, source: source, cause: cause)
         }

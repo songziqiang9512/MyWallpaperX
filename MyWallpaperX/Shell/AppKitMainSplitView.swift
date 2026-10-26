@@ -52,6 +52,11 @@ final class AppKitMainSplitViewController: NSSplitViewController {
         listBackgroundTint.bind(source)
     }
 
+    func setUsesThumbnailTint(_ enabled: Bool) {
+        loadViewIfNeeded()
+        listBackgroundTint.setUsesThumbnailTint(enabled)
+    }
+
     private func configureSplitItems() {
         guard splitViewItems.isEmpty else { return }
 

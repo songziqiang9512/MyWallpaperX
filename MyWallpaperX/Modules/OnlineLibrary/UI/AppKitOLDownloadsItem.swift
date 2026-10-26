@@ -150,7 +150,7 @@ final class AppKitOLDownloadsItem: WallpaperCardCollectionViewItem, WallpaperGri
     private var controlBarFrame = NSRect.zero
     private var barVisibilityRevision: UInt64 = 0
     var onPrimaryAction: ((Int) -> Void)? {
-        didSet { controlBar?.playButton.isEnabled = onPrimaryAction != nil }
+        didSet { controlBar?.playButton.isEnabled = onPrimaryAction != nil && !isSwitching }
     }
     var onToggleFavorite: ((Int) -> Void)? {
         didSet { controlBar?.favoriteButton.isHidden = onToggleFavorite == nil }
@@ -169,6 +169,7 @@ final class AppKitOLDownloadsItem: WallpaperCardCollectionViewItem, WallpaperGri
     private var currentEntryID = -1
     private var isSelectedState = false
     private var isPlaying = false
+    private var isSwitching = false
     private var isFavoriteState = false
     private var primaryShowsStop = false
 
@@ -204,7 +205,7 @@ final class AppKitOLDownloadsItem: WallpaperCardCollectionViewItem, WallpaperGri
         isHovering = false
         isSelectedState = false
         isMultiSelectMode = false
-        isPlaying = false; isFavoriteState = false; primaryShowsStop = false
+        isPlaying = false; isSwitching = false; isFavoriteState = false; primaryShowsStop = false
         hoverOutlineView.alphaValue = 0
         isHoverOutlineVisible = false
         selectionTintView.alphaValue = 0
@@ -212,6 +213,7 @@ final class AppKitOLDownloadsItem: WallpaperCardCollectionViewItem, WallpaperGri
         multiSelectBadgeIcon.isHidden = true
         controlBar?.playButton.contentTintColor = .labelColor
         onPrimaryAction = nil; onToggleFavorite = nil
+        updateControlBarContent()
         applyHoverVisibility(false, animated: false)
         refreshTheme()
     }
@@ -224,6 +226,7 @@ final class AppKitOLDownloadsItem: WallpaperCardCollectionViewItem, WallpaperGri
         thumbnailDemandActive: Bool? = nil
     ) {
         let wasActive = isThumbnailDemandActive
+        if currentEntryID != entry.id { isSwitching = false }
         if let thumbnailDemandActive { isThumbnailDemandActive = thumbnailDemandActive }
         if !isThumbnailDemandActive { endDisplayingThumbnail() }
         applySelectionState(isSelected, multiSelectMode: isMultiSelectMode)
@@ -471,10 +474,10 @@ final class AppKitOLDownloadsItem: WallpaperCardCollectionViewItem, WallpaperGri
     private func updateControlBarContent() {
         controlBar?.apply(title: currentTitle, metadata: currentMetadata)
         controlBar?.favoriteButton.isHidden = onToggleFavorite == nil
-        controlBar?.playButton.isEnabled = onPrimaryAction != nil
+        controlBar?.playButton.isEnabled = onPrimaryAction != nil && !isSwitching
         controlBar?.isFavorite = isFavoriteState
-        controlBar?.primaryState = primaryShowsStop && isPlaying ? .playing : .apply
-        controlBar?.playButton.contentTintColor = isPlaying ? .controlAccentColor : .labelColor
+        controlBar?.primaryState = isSwitching ? .switching : (primaryShowsStop && isPlaying ? .playing : .apply)
+        controlBar?.playButton.contentTintColor = isPlaying && !isSwitching ? .controlAccentColor : .labelColor
         view.toolTip = nil
     }
 
@@ -498,7 +501,7 @@ final class AppKitOLDownloadsItem: WallpaperCardCollectionViewItem, WallpaperGri
     }
 
     private func applyHoverVisibility(_ visible: Bool, animated: Bool) {
-        let show = (visible || isPlaying) && !isMultiSelectMode
+        let show = (visible || isPlaying || isSwitching) && !isMultiSelectMode
         if show { prepareControlBarIfNeeded() }
         guard let bar = controlBar else { return }
         barVisibilityRevision &+= 1
@@ -589,18 +592,26 @@ final class AppKitOLDownloadsItem: WallpaperCardCollectionViewItem, WallpaperGri
         applyHoverVisibility(isHovering, animated: false)
     }
 
+    func applySwitchingState(isSwitching: Bool) {
+        guard self.isSwitching != isSwitching else { return }
+        self.isSwitching = isSwitching
+        updateControlBarContent()
+        applyHoverVisibility(isHovering, animated: false)
+    }
+
     private func updateMultiSelectBadge(selected: Bool) {
         multiSelectBadge.isHidden = !isMultiSelectMode
         guard isMultiSelectMode else {
             multiSelectBadgeIcon.isHidden = true
             return
         }
-
+        imageContainer.effectiveAppearance.performAsCurrentDrawingAppearance {
+            multiSelectBadge.layer?.backgroundColor = (selected
+                ? NSColor.controlAccentColor : NSColor.black.withAlphaComponent(0.42)).cgColor
+        }
         if selected {
-            multiSelectBadge.layer?.backgroundColor = NSColor.controlAccentColor.cgColor
             multiSelectBadgeIcon.isHidden = false
         } else {
-            multiSelectBadge.layer?.backgroundColor = NSColor.black.withAlphaComponent(0.42).cgColor
             multiSelectBadgeIcon.isHidden = true
         }
     }
@@ -618,8 +629,13 @@ final class AppKitOLDownloadsItem: WallpaperCardCollectionViewItem, WallpaperGri
 
     private func refreshTheme() {
         guard let layer = imageContainer.layer else { return }
-        layer.borderColor = (isSelectedState ? NSColor.controlAccentColor : NSColor.separatorColor).cgColor
-        selectionTintView.layer?.backgroundColor = NSColor.controlAccentColor.withAlphaComponent(0.2).cgColor
-        hoverOutlineView.layer?.borderColor = NSColor.white.cgColor
+        imageContainer.effectiveAppearance.performAsCurrentDrawingAppearance {
+            layer.backgroundColor = NSColor.windowBackgroundColor.cgColor
+            layer.borderColor = (isSelectedState ? NSColor.controlAccentColor : NSColor.separatorColor).cgColor
+            selectionTintView.layer?.backgroundColor = NSColor.controlAccentColor.withAlphaComponent(0.2).cgColor
+            multiSelectBadge.layer?.backgroundColor = (isSelectedState
+                ? NSColor.controlAccentColor : NSColor.black.withAlphaComponent(0.42)).cgColor
+            hoverOutlineView.layer?.borderColor = NSColor.white.cgColor
+        }
     }
 }

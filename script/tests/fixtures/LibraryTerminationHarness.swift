@@ -10,6 +10,8 @@ import SQLite3
     var playbackSwitch = PlaybackSwitchTransaction()
     var sequence = WallpaperPlaybackSequence()
     var flushes = 0
+    var desktopRestorations = 0
+    func restoreSystemDesktopWallpaperOnTermination() { desktopRestorations += 1 }
     var playbackIntentEpoch: UInt64 { playbackSwitch.epoch }
     @discardableResult func beginPlaybackIntent() -> UInt64 { sequence.stop(); run(playbackSwitch.stop()); return playbackSwitch.epoch }
     func flushPersistentState() { flushes += 1 }
@@ -162,6 +164,7 @@ nonisolated final class TestSQLGate: @unchecked Sendable {
                 && SceneDaemonClient.shared.shutdowns == 0 && manager.playbackSwitch.committed?.ticket == originalTicket
             checks["failed-quit-restores-editing-and-reports-one-error"] = workspace.editingAllowed && !delegate.terminationReplyPending
                 && ProbeApplication.alerts.count == 1
+            checks["failed-quit-does-not-release-system-desktop-ownership"] = manager.desktopRestorations == 0
             try manager.play(b)
             checks["new-explicit-play-after-cancelled-quit-commits-new-original-ticket"] = manager.sequence.committed?.reference == b
                 && manager.playbackSwitch.committed?.ticket != originalTicket
@@ -176,6 +179,7 @@ nonisolated final class TestSQLGate: @unchecked Sendable {
                 && !DaemonPlaybackProcessRegistry.shared.acceptsNewProcesses && delegate.didPrepareProductTermination
                 && delegate.statusBarController == nil && WallpaperEngine.shared.cleanups == 1
                 && SceneDaemonClient.shared.shutdowns == 1 && DaemonPlaybackProcessRegistry.shared.drainCalls == 1
+            checks["successful-quit-restores-desktop-once-after-the-durable-flush"] = manager.desktopRestorations == 1
         }
         print(String(data: try JSONSerialization.data(withJSONObject: checks, options: [.sortedKeys]), encoding: .utf8)!)
     }

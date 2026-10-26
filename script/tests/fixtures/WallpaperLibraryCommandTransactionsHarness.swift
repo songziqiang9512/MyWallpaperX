@@ -65,8 +65,8 @@ import Foundation
 @MainActor private final class PlaylistRecordingLeaf {
     let record: ([WallpaperReference]) -> Void
     init(_ record: @escaping ([WallpaperReference]) -> Void) { self.record = record }
-    func add(_ items: [WallpaperOrganizationItem], to id: UUID) { record(items.map(\.reference)) }
-    func create(members: [WallpaperOrganizationItem]) { record(members.map(\.reference)) }
+    func add(_ items: [WallpaperOrganizationItem], to id: UUID, completion: (() -> Void)? = nil) { record(items.map(\.reference)); completion?() }
+    func create(members: [WallpaperOrganizationItem], completion: (() -> Void)? = nil) { record(members.map(\.reference)); completion?() }
 }
 @MainActor private enum WallpaperLibraryDownloadRecovery {
     static func makePrimaryAction(for item: WallpaperContentItem, workspace: CommandWorkspace,
@@ -98,10 +98,12 @@ private struct OnlineLibraryVideoItem { let id: Int }
 private enum AppKitSteamWorkshopBrowserItem {
     // ACTUAL_STEAM_ORGANIZATION
 }
-@MainActor private final class RemoteSteam { var selectedBrowserItem: SteamWorkshopBrowserItem? }
+@MainActor private final class RemoteSteam { var selectedBrowserItem: SteamWorkshopBrowserItem?; @Published var navigationVersion = 0 }
 @MainActor private final class RemotePresentation {
     var page = WallpaperLibraryPage.workshop
     var selectionState = WallpaperLibrarySelectionState()
+    func beginOrganizationOperation(_ references: Set<WallpaperReference>) -> WallpaperLibrarySelectionReceipt? { nil }
+    func completeOrganizationOperation(_ receipt: WallpaperLibrarySelectionReceipt?, succeeded: Bool) {}
 }
 @MainActor private final class RemoteWorkspace {
     let presentation = RemotePresentation()
@@ -115,11 +117,16 @@ private enum AppKitSteamWorkshopBrowserItem {
     // Modal admission is a controlled leaf here; native sheets have their own gate.
     var permitsInput = true
     let steam = RemoteSteam()
+    private var subscriptions = Set<AnyCancellable>()
+    let steamBrowserContent = RemoteNavigationRefreshLeaf()
     let commands: WallpaperLibraryCommands
     var downloadedContent: [WallpaperReference: WallpaperContentItem] = [:]
     var cardState: WallpaperLibraryCardStateProjection?
     var playlistNames: [WallpaperReference: [String]] = [:]
-    init(_ workspace: RemoteWorkspace, _ commands: WallpaperLibraryCommands) { self.workspace = workspace; self.commands = commands }
+    init(_ workspace: RemoteWorkspace, _ commands: WallpaperLibraryCommands) {
+        self.workspace = workspace; self.commands = commands
+        // ACTUAL_STEAM_NAVIGATION_BINDING
+    }
     func organization(_ item: SteamWorkshopBrowserItem) -> AppKitSteamWorkshopBrowserItem.OrganizationPresentation? { remoteOrganization(for: item) }
     func inspector(_ item: SteamWorkshopBrowserItem) -> WallpaperInspectorActions? { remoteInspectorActions(for: item) }
     func menu(_ item: SteamWorkshopBrowserItem) -> NSMenu? { remoteOrganizationMenu(for: item) }
@@ -186,9 +193,11 @@ private final class RecentAlert {
 }
 @MainActor private final class RecentPresentation {
     var page = WallpaperLibraryPage.recent
+    var selectionState = WallpaperLibrarySelectionState()
     var errors = 0
     func report(_ error: Error) { errors += 1 }
-    func completeRemoval(_ receipt: WallpaperLibraryRemovalReceipt?, succeeded: Set<WallpaperReference>) {}
+    func beginOrganizationOperation(_ references: Set<WallpaperReference>) -> WallpaperLibrarySelectionReceipt? { nil }
+    func completeOrganizationOperation(_ receipt: WallpaperLibrarySelectionReceipt?, succeeded: Bool) {}
 }
 @MainActor private final class RecentWorkspace {
     let collections: UserCollectionsController?
@@ -313,16 +322,22 @@ private struct RemovalFileResult {
     let hostWindow: () -> NSWindow? = { nil }
     var canOrganize = true
     var admittedWrites = 0
-    var playlistActions: [[WallpaperReference]] = []
-    private lazy var playlists: PlaylistRecordingLeaf? = .init { [weak self] in self?.playlistActions.append($0) }
+    private var playlists: PlaylistOrganizationActions?
     var selection: [WallpaperContentItem] {
         workspace.presentation.queryResult.items.filter { workspace.presentation.selectionState.references.contains($0.reference) }
     }
-    init(_ workspace: RemovalWorkspace) { self.workspace = workspace }
+    init(_ workspace: RemovalWorkspace) {
+        self.workspace = workspace
+        let actions = PlaylistOrganizationActions(collections: workspace.collections!, hostWindow: { nil })
+        actions.onDidEdit = { [weak workspace] id, _ in workspace?.didEditMembers(of: .playlist(id)) }
+        actions.permitsEditing = { [weak self] in self?.canOrganize == true }
+        playlists = actions
+    }
     // ACTUAL_REMOVAL_COMMANDS
     // ACTUAL_RESTORATION_COMMANDS
     // ACTUAL_PLAYLIST_MENU
     // ACTUAL_FAVORITE_COMMANDS
+    // ACTUAL_RECENT_ACTIONS
 }
 
 @main private enum WallpaperLibraryCommandTransactionsChecks {
@@ -499,7 +514,7 @@ private struct RemovalFileResult {
             workspace.presentation.page = .videos
             invoke(menu, 0); invoke(menu, 1)
             checks["browser-context-held-menu-rejects-page-change"] = commands.favoriteActions.count == 1 && commands.playlistActions.count == 1
-            workspace.presentation.page = .workshopSubscriptions
+            workspace.presentation.page = .workshop
             let sessionMenu = composition.menu(item)!
             workspace.presentation.selectionState.sessionID = UUID()
             invoke(sessionMenu, 0); invoke(sessionMenu, 1)
@@ -583,7 +598,7 @@ private struct RemovalFileResult {
             checks["held-file-drop-refuses-new-input-from-a-covered-main-window"] = !composition.grid.accept(drag)
                 && composition.commands.imports.count == modalImportCount
             composition.permitsInput = true
-            for page in [WallpaperLibraryPage.downloads, .recent, .favorites, .playlists, .workshop, .workshopSubscriptions, .pixabay] {
+            for page in [WallpaperLibraryPage.downloads, .recent, .favorites, .playlists, .workshop, .pixabay] {
                 composition.configure(page)
                 let before = composition.commands.imports.count
                 checks["external-file-drop-never-advertises-or-accepts-disallowed-page-\(page.persistenceKey)"] = composition.grid.validate(drag).isEmpty
@@ -773,7 +788,7 @@ private struct RemovalFileResult {
                 checks["manual-organization-preserves-real-directory-scroll-receipt"] = view.presentation.directoryScrollAnchor == id
                     && view.presentation.directoryScrollOffset == 7 && view.presentation.directoryScrollAtTop == false
             }
-            for page in [WallpaperLibraryPage.videos, .images, .downloads, .recent, .favorites, .playlist(id), .workshop, .workshopSubscriptions, .pixabay] {
+            for page in [WallpaperLibraryPage.videos, .images, .downloads, .recent, .favorites, .playlist(id), .workshop, .pixabay] {
                 view.presentation.switchPage(page)
                 var accepted = true
                 if case .playlist = page {
@@ -856,6 +871,12 @@ private struct RemovalFileResult {
             view.presentation.setSelection([steam, pixabay], focused: steam, isSelecting: true)
             commands.online.failingNames = [firstURL.lastPathComponent]
             commands.remove()
+            let sourceOption = RecentAlertProbe.alert?.accessoryView as? NSButton
+            checks["compact-removal-keeps-scope-count-short-actions-and-natural-checkbox-width"] = RecentAlertProbe.alert?.buttons == ["移除", "取消"]
+                && RecentAlertProbe.alert?.title == "从我的下载移除 2 项？"
+                && RecentAlertProbe.alert?.message == "仅从我的下载移除，源文件和其他列表保留。勾选会删除源文件，无法撤销。"
+                && sourceOption?.alignment == .left && sourceOption?.state == .off
+                && (sourceOption?.frame.width ?? 0) > 0 && (sourceOption?.frame.width ?? 320) < 320
             checks["delete-confirmation-defers-source-writes-and-preserves-fixed-targets"] = commands.steam.requested.isEmpty
                 && commands.online.requested.isEmpty && FileManager.default.fileExists(atPath: firstURL.path)
                 && (RecentAlertProbe.alert?.accessoryView as? NSButton)?.state == .off
@@ -966,6 +987,8 @@ private struct RemovalFileResult {
                 && controller.snapshot.favorites.map(\.reference) == [vb]
         }
         checks.merge(try await runLibraryRestorationChecks(root: root), uniquingKeysWith: { _, newer in newer })
+        checks.merge(try await runOrganizationCompletionChecks(root: root), uniquingKeysWith: { _, newer in newer })
+        checks.merge(try await steamNavigationActionChecks(app: app)) { _, new in new }
         print(String(data:try JSONSerialization.data(withJSONObject:checks,options:[.sortedKeys]),encoding:.utf8)!)
     }
 }

@@ -43,6 +43,8 @@ class WallpaperLibraryCommandTransactionsTests(unittest.TestCase):
             '    var canBeginManualOrdering:', '    func beginManualOrdering(')))
         fixture = fixture.replace('// ACTUAL_RECENT_MENU', '\n'.join(declaration(commands, signature) for signature in (
             '    func makeRecentMenu(', '    private func clearRecent(', '    private func perform(')))
+        fixture = fixture.replace('// ACTUAL_RECENT_ACTIONS', '\n'.join(declaration(commands, signature) for signature in (
+            '    func makeRecentMenu(', '    private func clearRecent(')))
         removal_methods = '\n'.join(declaration(commands, signature) for signature in (
             '    private func removalTitle(', '    func remove(', '    private func removeConfirmed(',
             '    private func deleteSourceFiles('))
@@ -60,9 +62,21 @@ class WallpaperLibraryCommandTransactionsTests(unittest.TestCase):
             'in workspace: WallpaperLibraryWorkspace', 'in workspace: RemovalWorkspace'))
         restoration_fixture = ROOT / 'script/tests/fixtures/WallpaperLibraryRestorationChecks.swift'
         fixture += '\n' + restoration_fixture.read_text()
+        organization_path = ROOT / 'MyWallpaperX/Shell/PlaylistOrganizationActions.swift'
+        completion_fixture = ROOT / 'script/tests/fixtures/WallpaperLibraryOrganizationCompletionChecks.swift'
+        # The real action owner and SQLite transactions run here. The editor
+        # is a controlled draft UI; its native lifecycle has a separate gate.
+        fixture += '\n' + organization_path.read_text() + '\n' + completion_fixture.read_text()
         composition_path = ROOT / 'MyWallpaperX/App/WallpaperLibraryWindowComposition.swift'
         steam_path = ROOT / 'MyWallpaperX/Modules/SteamWorkshop/UI/AppKitSteamWorkshopBrowserItem+Presentation.swift'
         composition = composition_path.read_text()
+        binding_start = '        steam.$navigationVersion.dropFirst()'
+        binding_end = '.store(in: &subscriptions)'
+        self.assertEqual(composition.count(binding_start), 1)
+        start = composition.index(binding_start)
+        end = composition.index(binding_end, start) + len(binding_end)
+        self.assertEqual(fixture.count('// ACTUAL_STEAM_NAVIGATION_BINDING'), 1)
+        fixture = fixture.replace('// ACTUAL_STEAM_NAVIGATION_BINDING', composition[start:end])
         projection_fixture = ROOT / 'script/tests/fixtures/WallpaperLibraryCompositionProjectionChecks.swift'
         fixture += '\n' + projection_fixture.read_text()
         fixture = fixture.replace('// ACTUAL_CARD_STATE_PREPARATION', declaration(composition, '    private func prepareCardState('))
@@ -83,7 +97,8 @@ class WallpaperLibraryCommandTransactionsTests(unittest.TestCase):
         fixture = fixture.replace('// ACTUAL_STEAM_ORGANIZATION', declaration(steam_path.read_text(), '    struct OrganizationPresentation'))
         inputs = paths + [ROOT / 'MyWallpaperX/App/WallpaperLibraryCommands.swift',
                           ROOT / 'script/tests/fixtures/WallpaperLibraryCommandTransactionsHarness.swift', composition_path, steam_path,
-                          grid_path, grid_fixture_path, restoration_fixture, projection_fixture]
+                          grid_path, grid_fixture_path, restoration_fixture, projection_fixture,
+                          organization_path, completion_fixture]
         identities = {str(p): hashlib.sha256(p.read_bytes()).hexdigest() for p in inputs}
         with tempfile.TemporaryDirectory(prefix='mwx-command-transactions-', dir='/private/tmp') as directory:
             work = Path(directory)

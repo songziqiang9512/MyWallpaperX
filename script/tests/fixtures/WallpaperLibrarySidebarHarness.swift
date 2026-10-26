@@ -143,9 +143,9 @@ enum MainWindowCoordinator { static func mainWindow() -> NSWindow? { nil } }
             return alignment.size == NSSize(width: 22, height: 22) && slot.bounds.size == NSSize(width: 22, height: 22)
                 && alignment.midX == slot.bounds.midX && alignment.midY == slot.bounds.midY
         }
-        let library = item(0), browse = item(5), playlistGroup = item(9)
+        let library = item(0), browse = item(5), playlistGroup = item(8)
         let titles = (0..<outline.numberOfRows).map { cell($0).textField!.stringValue }
-        checks["three-groups-have-exact-fixed-order-and-empty-duplicate-name-playlists"] = titles == ["资料库", "我的视频", "我的图片", "我的下载", "最近使用", "浏览", "创意工坊", "工坊订阅", "Pixabay", "播放列表", "所有播放列表", "特别喜爱", first.name, second.name]
+        checks["three-groups-have-exact-fixed-order-and-empty-duplicate-name-playlists"] = titles == ["资料库", "我的视频", "我的图片", "我的下载", "最近使用", "浏览", "创意工坊", "Pixabay", "播放列表", "所有播放列表", "特别喜爱", first.name, second.name]
         checks["group-rows-cannot-navigate"] = !controller.outlineView(outline, shouldSelectItem: library)
             && !controller.outlineView(outline, shouldSelectItem: browse) && navigation.isEmpty
         checks["sidebar-uses-opaque-system-base-and-neutral-selection-row"] = !(controller.view is NSVisualEffectView) && controller.view.isOpaque
@@ -157,7 +157,16 @@ enum MainWindowCoordinator { static func mainWindow() -> NSWindow? { nil } }
             && !originalScroll.drawsBackground && originalScroll.documentView === outline && tintIndex < scrollIndex
             && descendants(controller.view, NSScrollView.self).count == 1 && descendants(controller.view, AppKitListTintSurface.self).count == 1
             && tint.hitTest(.zero) == nil && !tint.isAccessibilityElement()
-        let emptyPlaylistCell = cell(12)
+        let originalSidebarChildren = controller.view.subviews
+        let originalSidebarSelection = outline.selectedRow
+        controller.setUsesThumbnailTint(false)
+        checks["native-background-mode-removes-only-opaque-cover-without-replacing-sidebar"] = !controller.view.isOpaque
+            && controller.view.subviews == originalSidebarChildren && outline.enclosingScrollView === originalScroll
+            && outline.selectedRow == originalSidebarSelection && !originalScroll.drawsBackground
+        controller.setUsesThumbnailTint(true)
+        checks["tint-background-mode-restores-original-opaque-system-base"] = controller.view.isOpaque
+            && controller.view.subviews == originalSidebarChildren && outline.selectedRow == originalSidebarSelection
+        let emptyPlaylistCell = cell(11)
         controller.view.layoutSubtreeIfNeeded()
         let emptyTitleX = titleX(emptyPlaylistCell)
         let originalRowHeight = outline.rect(ofRow: 12).height
@@ -197,10 +206,10 @@ enum MainWindowCoordinator { static func mainWindow() -> NSWindow? { nil } }
             && uniformIconIsCentered(emptyPlaylistCell)
             && NSImage(systemSymbolName: WallpaperLibrarySymbols.playlist, accessibilityDescription: nil) != nil
         checks["every-fixed-page-and-playlist-icon-uses-the-same-visible-22-point-alignment-slot"] = (0..<outline.numberOfRows)
-            .filter { ![0, 5, 9].contains($0) }.allSatisfy { uniformIconIsCentered(cell($0)) }
+            .filter { ![0, 5, 8].contains($0) }.allSatisfy { uniformIconIsCentered(cell($0)) }
         checks["sidebar-symbols-match-independent-mounted-native-source-list-configuration"] = usesPlaylistSymbol(emptyPlaylistCell.imageView, nativePixels: nativePixels)
         checks["sidebar-labels-match-independent-native-font-semantics-with-original-hit-height"] = fontMatchesNative && originalRowHeight == 30
-        let directoryIcon = cell(10).imageView
+        let directoryIcon = cell(9).imageView
         let expectedGrid = directoryIcon?.symbolConfiguration.flatMap {
             NSImage(systemSymbolName: "square.grid.3x3", accessibilityDescription: nil)?.withSymbolConfiguration($0)?.tiffRepresentation
         }
@@ -210,10 +219,10 @@ enum MainWindowCoordinator { static func mainWindow() -> NSWindow? { nil } }
         checks["all-playlists-entry-uses-native-three-by-three-grid-symbol"] = expectedGrid != nil
             && actualGrid == expectedGrid
         checks["counts-are-accessible-without-visible-numeric-column"] = cell(1).accessibilityLabel() == "我的视频，7 张壁纸"
-            && cell(3).accessibilityLabel() == "我的下载" && cell(13).accessibilityLabel() == second.name + "，0 张壁纸"
+            && cell(3).accessibilityLabel() == "我的下载" && cell(12).accessibilityLabel() == second.name + "，0 张壁纸"
             && !descendants(cell(1), NSTextField.self).contains { !$0.isHidden && $0.stringValue == "7" }
-        checks["directory-accessibility-count-uses-playlist-unit-without-visible-count-label"] = cell(10).accessibilityLabel() == "所有播放列表，2 个播放列表"
-            && cell(10).textField?.stringValue == "所有播放列表"
+        checks["directory-accessibility-count-uses-playlist-unit-without-visible-count-label"] = cell(9).accessibilityLabel() == "所有播放列表，2 个播放列表"
+            && cell(9).textField?.stringValue == "所有播放列表"
         func event(_ type: NSEvent.EventType, row: Int, at offset: NSPoint = .zero, time: TimeInterval = 0) -> NSEvent {
             let rect = outline.rect(ofRow: row)
             let point = outline.convert(NSPoint(x: max(80, rect.midX) + offset.x, y: rect.midY + offset.y), to: nil)
@@ -238,7 +247,7 @@ enum MainWindowCoordinator { static func mainWindow() -> NSWindow? { nil } }
         checks["native-keyboard-arrow-requests-adjacent-page"] = navigation.last == .downloads
         let beforeContextNavigation = navigation
         let selectedBeforeContext = outline.selectedRowIndexes
-        let menu = outline.menu(for: event(.rightMouseDown, row: 12))!
+        let menu = outline.menu(for: event(.rightMouseDown, row: 11))!
         checks["right-click-captures-menu-without-selection-or-navigation"] = navigation == beforeContextNavigation
             && outline.selectedRowIndexes == selectedBeforeContext
             && menu.items.map(\.title) == ["打开播放列表", "编辑列表…", "复制列表", "", "删除列表…"]

@@ -7,6 +7,7 @@
 //
 
 import Foundation
+import AppKit
 import Combine
 import QuartzCore
 
@@ -87,6 +88,7 @@ class WallpaperManager: ObservableObject {
     var libraryRotationDeadline = WallpaperRotationDeadline()
     var libraryPlaybackSnapshotProvider: ((WallpaperReference?, WallpaperPlaybackSequence.Source, WallpaperPlaybackCause) -> WallpaperPlaybackSequence.Snapshot?)?
     var libraryPlaybackDispatcher: ((WallpaperPlaybackSequence.Pending) -> Bool)?
+    var libraryPlaybackPendingChanged: (() -> Void)?
     var libraryPlaybackCommitted: ((WallpaperPlaybackSequence.Commit) -> Void)?
     var libraryPlaybackStopped: (() -> Void)?
     var libraryPlaybackFailed: ((WallpaperPlaybackSequence.Pending) -> Void)?
@@ -172,6 +174,14 @@ class WallpaperManager: ObservableObject {
     var pendingWallpaperIndexSave: WallpaperIndexSaveSnapshot?
     var settingsAutoSaveWorkItem: DispatchWorkItem?
     var pendingSystemWallpaperSyncWorkItem: DispatchWorkItem?
+    struct SystemDesktopWallpaper {
+        let originalURL: URL?
+        let originalOptions: [NSWorkspace.DesktopImageOptionKey: Any]
+        var lastWrittenURL: URL
+        var lastWrittenOptions: [NSWorkspace.DesktopImageOptionKey: Any]
+    }
+    var systemDesktopWallpapers: [UInt32: SystemDesktopWallpaper] = [:]
+    var didApplySystemStillThisRun = false
     let importPreparationQueue = DispatchQueue(label: "com.mywallpaper.import.prepare", qos: .userInitiated)
     let importAssetPipelineQueue = DispatchQueue(label: "com.mywallpaper.import.assets", qos: .utility)
     let importPreparationStateLock = NSLock()

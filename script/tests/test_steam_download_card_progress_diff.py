@@ -63,6 +63,7 @@ import Combine
 import Foundation
 
 final class SteamWorkshopService {
+    var navigationVersion = 0
     static let shared = SteamWorkshopService()
     let steamAuth = SteamAuthProbe()
     let steamSubscriptions = SteamSubscriptionsProbe()
@@ -103,7 +104,7 @@ final class SteamSubscriptionsProbe {
 }
 
 enum SteamWorkshopItemMenu {
-    static func make(item: SteamWorkshopBrowserItem, service: SteamWorkshopService) -> NSMenu {
+    static func make(item: SteamWorkshopBrowserItem, service: SteamWorkshopService, navigationVersion: Int? = nil) -> NSMenu {
         NSMenu()
     }
 }
@@ -312,6 +313,15 @@ private final class ProgressProbeWindow: NSWindow {
         precondition(card.currentBarVisibility, "pending launch must pin the bar before playback starts")
         precondition(card.statusBadgeButton.accessibilityLabel()?.contains("正在切换") == true,
                      "pending keeps the launch badge; stop styling still waits for playback")
+        card.cardView.effectiveAppearance.performAsCurrentDrawingAppearance {
+            func rgba(_ color: NSColor?) -> String {
+                guard let rgb = color?.usingColorSpace(.deviceRGB) else { return "nil" }
+                return "\(rgb.redComponent),\(rgb.greenComponent),\(rgb.blueComponent),\(rgb.alphaComponent)"
+            }
+            FileHandle.standardError.write(Data(("SteamPending enabled=\(card.statusBadgeButton.isEnabled) orgPending=\(String(describing: card.organizationPresentation?.isSwitching)) barVisible=\(card.currentBarVisibility) appearance=\(card.cardView.effectiveAppearance.name.rawValue) tint=\(String(describing: card.statusBadgeButton.contentTintColor)) actualRGBA=\(rgba(card.statusBadgeButton.contentTintColor)) labelRGBA=\(rgba(.labelColor))\n").utf8))
+        }
+        precondition(!card.statusBadgeButton.isEnabled && card.statusBadgeButton.contentTintColor == .labelColor,
+                     "pending launch must disable a repeated native primary click and retain a readable native label color")
         launchCard(multiSelect: true)
         precondition(!card.currentBarVisibility, "multi-select still suppresses the bar")
         service.launchPendingID = "another-record"
@@ -383,6 +393,20 @@ private final class ProgressProbeWindow: NSWindow {
         precondition(card.detailButton.accessibilityLabel()?.contains("特别喜爱") == true
                      && card.statusBadgeButton.accessibilityLabel()?.contains("设为壁纸") == true,
                      "state-only organization updates must reach the original native controls")
+        card.applyOrganizationState(.init(isFavorite: false, canFavorite: true, isSwitching: true,
+            canPlay: true, onPrimary: { localStops += 1 }),
+            isPlaying: true, isMultiSelectMode: false, isKeyboardFocused: false)
+        assertSymbolSize(card.statusBadgeButton.image, named: "hourglass")
+        card.statusBadgeButton.performClick(nil)
+        precondition(card.currentBarVisibility && !card.statusBadgeButton.isEnabled && localStops == 1,
+                     "Core pending must override old Stop and disable the real primary even before capability echo")
+        service.launchPendingID = item.id
+        card.applyOrganizationState(.init(isFavorite: false, canFavorite: true,
+            onPrimary: { localStops += 1 }), isPlaying: true, isMultiSelectMode: false, isKeyboardFocused: false)
+        assertSymbolSize(card.statusBadgeButton.image, named: "stop.fill")
+        precondition(card.statusBadgeButton.isEnabled && card.currentBarVisibility && card.statusBadgeButton.contentTintColor == .controlAccentColor,
+                     "the Core organization receipt must supersede the stale source launch badge")
+        service.launchPendingID = nil
         organizationCard(canFavorite: true, canPlay: true, multiSelect: true)
         card.detailButton.performClick(nil); card.statusBadgeButton.performClick(nil)
         precondition(localFavorites == 1 && localStops == 1, "multiselect must reject detached organization actions")

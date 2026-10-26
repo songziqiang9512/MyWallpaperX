@@ -39,6 +39,7 @@ final class WallpaperLibrarySidebarController: NSViewController, NSOutlineViewDa
     private var canEdit = false
     private var isApplyingSelection = false
     private let scrollView = NSScrollView()
+    private let background = PlaylistSidebarDemandView()
     private let tintSurface = AppKitListTintSurface()
     var backgroundTintHost: AppKitListTintSurface { loadViewIfNeeded(); return tintSurface }
     private let outline = SidebarOutlineView()
@@ -54,7 +55,6 @@ final class WallpaperLibrarySidebarController: NSViewController, NSOutlineViewDa
     required init?(coder: NSCoder) { nil }
 
     override func loadView() {
-        let background = PlaylistSidebarDemandView()
         view = background
         background.onVisibilityChange = { [weak self] in self?.updateCoverDemand() }
         background.onWindowChange = { [weak self] in self?.artworkObservation?.windowDidChange() }
@@ -120,6 +120,10 @@ final class WallpaperLibrarySidebarController: NSViewController, NSOutlineViewDa
     }
 
     override func viewDidLayout() { super.viewDidLayout(); updateCoverDemand() }
+
+    func setUsesThumbnailTint(_ enabled: Bool) {
+        background.usesOpaqueBackground = enabled
+    }
 
     func resetSidebarState() {
         defaults.removeObject(forKey: Self.stateKey)
@@ -222,7 +226,7 @@ final class WallpaperLibrarySidebarController: NSViewController, NSOutlineViewDa
     private func pages(in group: Group) -> [WallpaperLibraryPage] {
         switch group {
         case .library: return [.videos, .images, .downloads, .recent]
-        case .browse: return [.workshop, .workshopSubscriptions, .pixabay]
+        case .browse: return [.workshop, .pixabay]
         case .playlists: return [.playlists, .favorites] + playlists.map { .playlist($0.id) }
         }
     }
@@ -303,7 +307,6 @@ final class WallpaperLibrarySidebarController: NSViewController, NSOutlineViewDa
         case .downloads: return "arrow.down.circle"
         case .recent: return "clock.arrow.circlepath"
         case .workshop: return "shippingbox"
-        case .workshopSubscriptions: return "bookmark"
         case .pixabay: return "globe"
         case .playlists: return "square.grid.3x3"
         case .favorites: return "heart"
@@ -483,8 +486,12 @@ final class WallpaperLibrarySidebarController: NSViewController, NSOutlineViewDa
 private final class PlaylistSidebarDemandView: NSView {
     var onVisibilityChange: (() -> Void)?
     var onWindowChange: (() -> Void)?
-    override var isOpaque: Bool { true }
+    var usesOpaqueBackground = true {
+        didSet { if oldValue != usesOpaqueBackground { needsDisplay = true } }
+    }
+    override var isOpaque: Bool { usesOpaqueBackground }
     override func draw(_ dirtyRect: NSRect) {
+        guard usesOpaqueBackground else { return }
         NSColor.windowBackgroundColor.setFill()
         dirtyRect.fill()
     }

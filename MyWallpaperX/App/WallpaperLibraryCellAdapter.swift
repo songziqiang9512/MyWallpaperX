@@ -42,18 +42,21 @@ import AppKit
     private var prefetches: [WallpaperReference: Prefetch] = [:]
     private let isFavorite: (WallpaperReference) -> Bool
     private let isPlaying: (WallpaperReference) -> Bool
+    private let isSwitching: (WallpaperReference) -> Bool
     private let makePrimaryAction: (WallpaperContentItem) -> (() -> Void)?
     private let makeFavoriteAction: ((WallpaperContentItem) -> (() -> Void)?)?
     private let onInspect: ((WallpaperContentItem) -> Void)?
 
     init(manager: WallpaperManager, images: SILService, steam: SteamWorkshopService, online: OnlineLibraryService,
          isFavorite: @escaping (WallpaperReference) -> Bool, isPlaying: @escaping (WallpaperReference) -> Bool,
+         isSwitching: @escaping (WallpaperReference) -> Bool = { _ in false },
          makePrimaryAction: @escaping (WallpaperContentItem) -> (() -> Void)?,
          makeFavoriteAction: ((WallpaperContentItem) -> (() -> Void)?)? = nil,
          onInspect: ((WallpaperContentItem) -> Void)? = nil) {
         self.manager = manager; self.images = images; self.steam = steam; self.online = online
         videoThumbnails = AppKitThumbnailProvider(wallpaperManager: manager)
         self.isFavorite = isFavorite; self.isPlaying = isPlaying
+        self.isSwitching = isSwitching
         self.makePrimaryAction = makePrimaryAction; self.makeFavoriteAction = makeFavoriteAction; self.onInspect = onInspect
     }
 
@@ -221,8 +224,9 @@ import AppKit
                            state: WallpaperLibraryGridController.CellState, reloadContent: Bool) {
         let content = binding.content, provider = content.providerReference
         let playing = isPlaying(content.reference)
+        let switching = isSwitching(content.reference)
         let favorite = isFavorite(content.reference)
-        let action = content.capabilities.contains(.play) || playing ? makePrimaryAction(content) : nil
+        let action = !switching && (content.capabilities.contains(.play) || playing) ? makePrimaryAction(content) : nil
         let canPlay = action != nil
         let favoriteAction = makeFavoriteAction?(content)
         let canFavorite = favoriteAction != nil
@@ -248,6 +252,7 @@ import AppKit
                 card.applyFavoriteState(isFavorite: favorite)
                 card.applyPlayingState(isPlaying: playing)
             }
+            card.applySwitchingState(isSwitching: switching)
         case (.image(let row), let card as SILGridItem):
             card.onApplyRequested = canPlay ? { _ in primary() } : nil
             card.onToggleFavorite = canFavorite ? { _ in toggleFavorite() } : nil
@@ -262,11 +267,12 @@ import AppKit
                 card.applyFavoriteState(isFavorite: favorite)
                 card.applyPlayingState(isPlaying: playing)
             }
+            card.applySwitchingState(isSwitching: switching)
         case (.steam(let row), let card as AppKitSteamWorkshopBrowserItem):
             let item = row.displayItem ?? SteamWorkshopDownloadGridSupport.fallbackDisplayItem(for: row)
             let canDownload = !content.capabilities.intersection([.download, .retryDownload, .retryUpdate]).isEmpty
             let presentation = AppKitSteamWorkshopBrowserItem.OrganizationPresentation(
-                isFavorite: favorite, canFavorite: canFavorite, canPlay: canPlay,
+                isFavorite: favorite, canFavorite: canFavorite, isSwitching: switching, canPlay: canPlay,
                 canDownload: canDownload, canCancel: content.capabilities.contains(.cancelDownload),
                 onFavorite: toggleFavorite, onPrimary: primary)
             if !reloadContent {
@@ -304,6 +310,7 @@ import AppKit
                 card.applySelectionState(state.isSelected, multiSelectMode: state.isSelecting)
                 card.applyPlayingState(isPlaying: playing)
             }
+            card.applySwitchingState(isSwitching: switching)
         case (.missing, let card as WallpaperLibraryUnavailableItem):
             card.configure(content: content, selected: state.isSelected, selecting: state.isSelecting)
         default: break
@@ -378,8 +385,10 @@ final class WallpaperLibraryUnavailableItem: NSCollectionViewItem, WallpaperGrid
         selection.isHidden = true; refreshAppearance()
     }
     private func refreshAppearance() {
-        card.layer?.backgroundColor = NSColor.controlBackgroundColor.cgColor
-        card.layer?.borderColor = (selectedState ? NSColor.controlAccentColor : hovered ? .white : .separatorColor).cgColor
-        card.layer?.borderWidth = selectedState ? 2 : 1
+        card.effectiveAppearance.performAsCurrentDrawingAppearance {
+            card.layer?.backgroundColor = NSColor.controlBackgroundColor.cgColor
+            card.layer?.borderColor = (selectedState ? NSColor.controlAccentColor : hovered ? .white : .separatorColor).cgColor
+            card.layer?.borderWidth = selectedState ? 2 : 1
+        }
     }
 }

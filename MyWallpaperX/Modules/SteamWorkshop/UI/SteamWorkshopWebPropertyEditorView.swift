@@ -292,7 +292,12 @@ final class SteamWorkshopWebPropertyEditorView: NSView {
             return colorControl(value: value, definition: definition, record: record, summaryLabel: summaryLabel)
         case .text, .unknown:
             let target = makeActionTarget(record: record, definition: definition, summaryLabel: summaryLabel)
-            return textField(textValue(value, definition: definition), placeholder: displayContent(definition).text, target: target, action: #selector(WebPropertyActionTarget.textChanged(_:)))
+            let stringInput = value.stringValue != nil && definition.defaultValue.stringValue != nil
+            let field = textField(textValue(value, definition: definition), placeholder: displayContent(definition).text,
+                stringInput: stringInput, target: target, action: #selector(WebPropertyActionTarget.textChanged(_:)))
+            guard stringInput else { return field }
+            field.setAccessibilityLabel(displayContent(definition).text)
+            return WallpaperFormFieldStyle.wrapping(field)
         }
     }
 
@@ -348,8 +353,8 @@ final class SteamWorkshopWebPropertyEditorView: NSView {
         DispatchQueue.main.async { [weak self] in self?.rebuild(preservingScrollPosition: true) }
     }
 
-    private func textField(_ value: String, placeholder: String, target: AnyObject, action: Selector) -> NSTextField {
-        let field = NSTextField(string: value)
+    private func textField(_ value: String, placeholder: String, stringInput: Bool, target: AnyObject, action: Selector) -> NSTextField {
+        let field: NSTextField = stringInput ? WallpaperFormTextField(string: value) : NSTextField(string: value)
         field.placeholderString = placeholder
         field.target = target
         field.action = action

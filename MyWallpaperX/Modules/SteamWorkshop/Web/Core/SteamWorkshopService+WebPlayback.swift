@@ -16,7 +16,7 @@ extension SteamWorkshopService {
     func promptDeleteIncompatibleWebSample(_ record: SteamWorkshopDownloadRecord) {
         let alert = makeAppAlert(
             title: "样本不兼容",
-            message: "`\(record.title)` 已确认在系统 Safari 中也无法正常运行，当前按 Safari 基线视为不兼容。\n\n为避免继续触发高负载或卡顿，建议直接删除这个样本。",
+            message: "“\(record.title)”暂不兼容，可能导致卡顿。要删除本地样本吗？",
             style: .warning,
             buttons: ["保留", "删除样本"]
         )
@@ -47,7 +47,7 @@ extension SteamWorkshopService {
             clearLaunchPending(matching: record.id)
             let alert = makeAppAlert(
                 title: "缺少依赖项",
-                message: "`\(record.title)` 缺少依赖项 `\(itemID)`，当前无法直接播放。\n\n你可以现在下载这个依赖项，下载完成后再重新播放。",
+                message: "“\(record.title)”缺少依赖项 \(itemID)。下载完成后可重新播放。",
                 style: .warning,
                 buttons: ["取消", "下载依赖项"]
             )

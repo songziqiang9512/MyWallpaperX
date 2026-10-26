@@ -195,6 +195,7 @@ final class AppKitOLBrowserItem: NSCollectionViewItem, WallpaperGridHoverItem {
         guard currentItemID == itemID else { return }
         organization = actions
         updateControlBarContent()
+        applyHoverVisibility(hoverVisible, animated: false)
     }
 
     private static func formatDuration(_ seconds: Int) -> String {
@@ -210,12 +211,7 @@ final class AppKitOLBrowserItem: NSCollectionViewItem, WallpaperGridHoverItem {
         isDownloadingState = isDownloading
         isDownloadedState = isDownloaded
         currentDownloadProgress = downloadProgress
-        durationBadgeView.layer?.backgroundColor = (
-            isDownloaded
-                ? NSColor.systemGreen.blended(withFraction: 0.38, of: .black)?.withAlphaComponent(0.82)
-                    ?? NSColor.systemGreen.withAlphaComponent(0.82)
-                : NSColor.black.withAlphaComponent(0.55)
-        ).cgColor
+        refreshTheme()
         if isDownloaded && wasDownloading { showCompletionBadge() }
         updateControlBarContent()
         applyHoverVisibility(hoverVisible, animated: false)
@@ -227,21 +223,30 @@ final class AppKitOLBrowserItem: NSCollectionViewItem, WallpaperGridHoverItem {
         controlBar.isFavorite = organization?.state.isFavorite ?? false
         controlBar.favoriteButton.isHidden = organization == nil
         controlBar.favoriteButton.isEnabled = organization?.state.canFavorite == true
-        setWallpaperBtn.isHidden = isCompletionAnimating
-        setWallpaperBtn.isEnabled = !isDownloadingState
+        let isSwitching = organization?.state.isSwitching == true
+        let isPlaying = organization?.state.isPlaying == true
+        setWallpaperBtn.isHidden = isCompletionAnimating && !isSwitching && !isPlaying
+        setWallpaperBtn.isEnabled = !isSwitching && (isPlaying || !isDownloadingState)
         let title = isDownloadingState ? "下载中" : (isDownloadedState ? "设为壁纸" : "下载到本地")
-        if isDownloadingState {
-            setWallpaperBtn.imagePosition = .noImage
-            setWallpaperBtn.title = currentDownloadProgress.map { "\(Int((min(1,max(0,$0))*100).rounded()))%" } ?? "…"
-            setWallpaperBtn.font = .monospacedDigitSystemFont(ofSize: 11, weight: .medium)
-        } else {
-            setWallpaperBtn.imagePosition = .imageOnly
+        controlBar.primaryState = isSwitching ? .switching : (isPlaying ? .playing : .apply)
+        if isSwitching || isPlaying {
             setWallpaperBtn.title = ""
-            setWallpaperBtn.image = NSImage(systemSymbolName: isDownloadedState ? "play.fill" : "arrow.down",
-                                            accessibilityDescription: title)
+            setWallpaperBtn.imagePosition = .imageOnly
+            completionBadgeView.isHidden = true
+        } else {
+            if isDownloadingState {
+                setWallpaperBtn.title = currentDownloadProgress.map { "\(Int((min(1,max(0,$0))*100).rounded()))%" } ?? "…"
+                setWallpaperBtn.font = .monospacedDigitSystemFont(ofSize: 11, weight: .medium)
+                setWallpaperBtn.imagePosition = .noImage
+            } else {
+                setWallpaperBtn.title = ""
+                setWallpaperBtn.image = NSImage(systemSymbolName: isDownloadedState ? "play.fill" : "arrow.down",
+                                                accessibilityDescription: title)
+                setWallpaperBtn.imagePosition = .imageOnly
+            }
+            setWallpaperBtn.toolTip = title
+            setWallpaperBtn.setAccessibilityLabel(title)
         }
-        setWallpaperBtn.toolTip = title
-        setWallpaperBtn.setAccessibilityLabel(title)
         downloadedBadge.isHidden = !isDownloadedState || isCompletionAnimating || organization != nil
         controlBar.glass.applyProgress(style: isDownloadingState ? .downloading : .neutral,
             fraction: isDownloadingState ? currentDownloadProgress : nil,
@@ -535,8 +540,11 @@ final class AppKitOLBrowserItem: NSCollectionViewItem, WallpaperGridHoverItem {
         durationBadgeView.layer?.addSublayer(durationBadgeTextLayer)
 
         controlBar.onPlay = { [weak self] in
-            guard let self, !self.isDownloadingState, self.currentItemID >= 0 else { return }
-            if self.isDownloadedState { self.onSetAsWallpaper?() } else { self.onDownload?() }
+            guard let self, self.organization?.state.isSwitching != true, self.currentItemID >= 0,
+                  self.organization?.state.isPlaying == true || !self.isDownloadingState else { return }
+            if let organization = self.organization, organization.state.isPlaying { organization.onPrimary() }
+            else if self.isDownloadedState { self.onSetAsWallpaper?() }
+            else { self.onDownload?() }
         }
         controlBar.onFavorite = { [weak self] in
             guard let self, self.currentItemID >= 0, let actions = self.organization, actions.state.canFavorite else { return }
@@ -683,6 +691,7 @@ final class AppKitOLBrowserItem: NSCollectionViewItem, WallpaperGridHoverItem {
     private func applyHoverVisibility(_ visible: Bool, animated: Bool) {
         hoverVisible = visible
         let show = visible || isDownloadingState || isCompletionAnimating
+            || organization?.state.isSwitching == true || organization?.state.isPlaying == true
         barVisibilityRevision &+= 1
         let revision = barVisibilityRevision
         if show {
@@ -772,7 +781,16 @@ final class AppKitOLBrowserItem: NSCollectionViewItem, WallpaperGridHoverItem {
     // MARK: - 主题
     private func refreshTheme() {
         guard let layer = imageContainer.layer else { return }
-        layer.borderColor = NSColor.separatorColor.cgColor
-        hoverOutlineView.layer?.borderColor = NSColor.white.cgColor
+        imageContainer.effectiveAppearance.performAsCurrentDrawingAppearance {
+            layer.borderColor = NSColor.separatorColor.cgColor
+            placeholderView.layer?.backgroundColor = NSColor.controlBackgroundColor.cgColor
+            completionBadgeView.layer?.backgroundColor = NSColor.systemGreen.cgColor
+            completionBadgeIcon.contentTintColor = NSColor.systemGreen.blended(withFraction: 0.55, of: .black) ?? .black
+            durationBadgeView.layer?.backgroundColor = (isDownloadedState
+                ? NSColor.systemGreen.blended(withFraction: 0.38, of: .black)?.withAlphaComponent(0.82)
+                    ?? NSColor.systemGreen.withAlphaComponent(0.82)
+                : NSColor.black.withAlphaComponent(0.55)).cgColor
+            hoverOutlineView.layer?.borderColor = NSColor.white.cgColor
+        }
     }
 }

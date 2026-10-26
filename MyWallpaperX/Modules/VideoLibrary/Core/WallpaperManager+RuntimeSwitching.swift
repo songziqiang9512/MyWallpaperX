@@ -48,6 +48,9 @@ extension WallpaperManager {
             switchFailed(ticket, reason: "播放来源已变化，已保留原壁纸")
             return nil
         }
+        // Publish the accepted target before source preparation. UI consumes
+        // the original ticket; it never guesses pending from a timer or file.
+        libraryPlaybackPendingChanged?()
         guard dispatch(pending) else {
             switchFailed(ticket, reason: "壁纸当前不可用，已保留原壁纸")
             return nil
@@ -244,13 +247,25 @@ extension WallpaperManager {
             guard !screens.isEmpty, failures.isEmpty else {
                 for index in applied {
                     let (screen, oldURL, options) = previous[index]
-                    guard let oldURL else { failures.append("无法恢复原系统壁纸"); continue }
-                    do { try workspace.setDesktopImageURL(oldURL, for: screen, options: options) }
-                    catch { failures.append("恢复失败：\(error.localizedDescription)") }
+                    if let oldURL {
+                        do {
+                            try workspace.setDesktopImageURL(oldURL, for: screen, options: options)
+                            continue
+                        } catch { failures.append("恢复失败：\(error.localizedDescription)") }
+                    } else { failures.append("无法恢复原系统壁纸") }
+                    // This screen still contains a successful App image write.
+                    // Keep its first baseline even though the whole selection
+                    // failed and must not become the committed wallpaper.
+                    self.rememberSystemDesktopWrite(url, on: screen, previousURL: oldURL, options: options)
+                    self.didApplySystemStillThisRun = true
                 }
                 self.switchFailed(ticket, reason: "设置系统壁纸失败：\(failures.joined(separator: "；"))")
                 return
             }
+            for (screen, oldURL, options) in previous {
+                self.rememberSystemDesktopWrite(url, on: screen, previousURL: oldURL, options: options)
+            }
+            self.didApplySystemStillThisRun = true
             self.switchVisible(ticket, executionID: id)
         }, finalize: {}, cancel: { $0() }, setOutputActive: { _, done in done(true) }, retire: { _, done in done() })
         switchPrepared(ticket, endpoint: endpoint)
@@ -495,8 +510,9 @@ extension WallpaperManager {
         else if let pending, removesPending {
             // An explicit removal is not a failed automatic candidate/replay.
             // Revoke its sequence attempt before the original failed effects.
-            _ = libraryPlaybackSequence.cancel(pending.ticket)
+            let cancelled = libraryPlaybackSequence.cancel(pending.ticket)
             switchFailed(pending.ticket, reason: "已取消正在删除的 Scene 壁纸准备")
+            if cancelled { libraryPlaybackPendingChanged?() }
         }
         for ticket in tickets { finishSwitchSettlementObservers(ticket) }
     }

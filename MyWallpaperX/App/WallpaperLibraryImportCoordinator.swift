@@ -172,7 +172,7 @@ import UniformTypeIdentifiers
                     guard self.relocationGeneration == generation, collections.snapshot.resetEpoch == epoch,
                           !collections.isResetting, self.workspace.presentation.page == page else { return }
                     let alert = makeAppAlert(title: "文件未关联", message: error.localizedDescription
-                        + "\n成功入库的文件仍保留在资料库中；原播放列表、特别喜爱和最近使用不会因此丢失。")
+                        + "\n已入库内容和原列表均保留。")
                     presentAppAlert(alert, in: self.hostWindow())
                 }
             }

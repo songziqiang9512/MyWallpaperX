@@ -48,6 +48,7 @@ public struct WallpaperSettings: Codable, Equatable {
     var systemAudioSpectrumPeakCapsEnabled: Bool = true
     var sortMode: WallpaperSortMode = .none // 壁纸排序方式
     var sortAscending: Bool = true // 排序方向：true=升序，false=降序
+    var libraryBackgroundStyle: LibraryBackgroundStyle = .listCoverTint
 
     init() {}
 
@@ -94,6 +95,8 @@ public struct WallpaperSettings: Codable, Equatable {
         systemAudioSpectrumPeakCapsEnabled = try container.decodeIfPresent(Bool.self, forKey: .systemAudioSpectrumPeakCapsEnabled) ?? defaults.systemAudioSpectrumPeakCapsEnabled
         sortMode = try container.decodeIfPresent(WallpaperSortMode.self, forKey: .sortMode) ?? defaults.sortMode
         sortAscending = try container.decodeIfPresent(Bool.self, forKey: .sortAscending) ?? defaults.sortAscending
+        libraryBackgroundStyle = (try? container.decode(String.self, forKey: .libraryBackgroundStyle))
+            .flatMap(LibraryBackgroundStyle.init(rawValue:)) ?? defaults.libraryBackgroundStyle
     }
 
     enum CodingKeys: String, CodingKey {
@@ -136,6 +139,19 @@ public struct WallpaperSettings: Codable, Equatable {
         case systemAudioSpectrumPeakCapsEnabled
         case sortMode
         case sortAscending
+        case libraryBackgroundStyle
+    }
+}
+
+public enum LibraryBackgroundStyle: String, Codable, CaseIterable, Sendable {
+    case listCoverTint
+    case macOSNative
+
+    var title: String {
+        switch self {
+        case .listCoverTint: return "列表封面取色"
+        case .macOSNative: return "macOS原生"
+        }
     }
 }
 

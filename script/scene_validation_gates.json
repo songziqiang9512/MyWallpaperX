@@ -2761,7 +2761,8 @@
         "script/tests/fixtures/SteamDetailInvalidationSupport.swift",
         "script/tests/fixtures/SteamPreviewLifecycleHarness.swift",
         "script/tests/fixtures/SteamPreviewStateChecks.swift",
-        "MyWallpaperX/Modules/SteamWorkshop/UI/AppKitSteamWorkshopBrowserItemSupportViews.swift"
+        "MyWallpaperX/Modules/SteamWorkshop/UI/AppKitSteamWorkshopBrowserItemSupportViews.swift",
+        "MyWallpaperX/Modules/SteamWorkshop/UI/SteamWorkshopPreviewPlaceholderView.swift"
       ],
       "modules": [
         "test_steam_list_thumbnail_animation",
@@ -3704,7 +3705,9 @@
         "MyWallpaperX/Modules/SteamWorkshop/Toolbar/SteamWorkshopToolbarController+Configuration.swift",
         "MyWallpaperX/Modules/SteamWorkshop/Core/SteamWorkshopService+BrowseStateRecovery.swift",
         "MyWallpaperX/Modules/SteamWorkshop/Core/SteamWorkshopService+BrowsePageLoading.swift",
-        "MyWallpaperX/Modules/SteamWorkshop/UI/AppKitSteamWorkshopBrowserGridView.swift"
+        "MyWallpaperX/Modules/SteamWorkshop/UI/AppKitSteamWorkshopBrowserGridView.swift",
+        "MyWallpaperX/Modules/SteamWorkshop/Core/SteamWorkshopAPIModels.swift",
+        "MyWallpaperX/Modules/SteamWorkshop/Core/SteamWorkshopService.swift"
       ],
       "modules": [
         "test_steam_detail_navigation",
@@ -5043,7 +5046,11 @@
         "script/tests/fixtures/WallpaperLibraryImportHarness.swift",
         "MyWallpaperX/App/CrossRuntimeWallpaperNavigator.swift",
         "MyWallpaperX/Modules/VideoLibrary/Core/WallpaperManager+PlaybackControl.swift",
-        "MyWallpaperX/Modules/VideoLibrary/Core/WallpaperManager+PlaybackEvents.swift"
+        "MyWallpaperX/Modules/VideoLibrary/Core/WallpaperManager+PlaybackEvents.swift",
+        "script/tests/fixtures/SystemDesktopWallpaperChecks.swift",
+        "script/tests/fixtures/WallpaperLibraryRotationSourceChecks.swift",
+        "MyWallpaperX/Modules/VideoLibrary/Core/WallpaperManager+WallpaperApplication.swift",
+        "MyWallpaperX/Modules/VideoLibrary/Core/WallpaperManager+RuntimeSwitching.swift"
       ],
       "modules": [
         "test_wallpaper_library_workspace",
@@ -5062,6 +5069,8 @@
         "script/tests/test_user_collections_controller.py",
         "script/tests/test_main_menu_commands.py",
         "script/tests/fixtures/WallpaperLibraryCommandTransactionsHarness.swift",
+        "script/tests/fixtures/WallpaperLibraryRestorationChecks.swift",
+        "script/tests/fixtures/WallpaperLibraryOrganizationCompletionChecks.swift",
         "script/tests/fixtures/WallpaperLibraryCompositionProjectionChecks.swift",
         "script/tests/fixtures/UserCollectionsControllerHarness.swift",
         "script/tests/fixtures/MainMenuCommandsHarness.swift",
@@ -5183,6 +5192,8 @@
         "script/tests/fixtures/WallpaperLibraryGridHarness.swift",
         "script/tests/fixtures/PlaylistDirectoryHarness.swift",
         "script/tests/fixtures/WallpaperLibraryCommandTransactionsHarness.swift",
+        "script/tests/fixtures/WallpaperLibraryRestorationChecks.swift",
+        "script/tests/fixtures/WallpaperLibraryOrganizationCompletionChecks.swift",
         "MyWallpaperX/App/SettingsWindowController.swift",
         "MyWallpaperX/Shell/AppKitMainSplitView+ModuleRouting.swift",
         "MyWallpaperX/Shell/AppKitMainSplitView+SteamSelection.swift",
@@ -5198,7 +5209,14 @@
         "MyWallpaperX/Shared/Components/WallpaperLibraryControlStyle.swift",
         "script/tests/test_wallpaper_playlist_editor.py",
         "script/tests/fixtures/WallpaperPlaylistEditorHarness.swift",
-        "script/tests/fixtures/WallpaperPlaylistHeaderChecks.swift"
+        "script/tests/fixtures/WallpaperPlaylistHeaderChecks.swift",
+        "script/tests/test_library_background_style.py",
+        "script/tests/fixtures/LibraryBackgroundStyleHarness.swift",
+        "MyWallpaperX/Models/WallpaperSettings.swift",
+        "MyWallpaperX/Shared/Settings/AppKitSettingsView.swift",
+        "MyWallpaperX/Shared/Settings/AppKitSettingsView+Layout.swift",
+        "MyWallpaperX/Shell/AppKitListBackgroundTint.swift",
+        "script/tests/fixtures/WallpaperLibraryCompositionProjectionChecks.swift"
       ],
       "modules": [
         "test_steam_library_interactions",
@@ -5210,7 +5228,8 @@
         "test_wallpaper_library_sidebar",
         "test_wallpaper_library_page_chrome",
         "test_wallpaper_playlist_picker",
-        "test_wallpaper_playlist_editor"
+        "test_wallpaper_playlist_editor",
+        "test_library_background_style"
       ]
     },
     {
@@ -5318,7 +5337,16 @@
         "script/tests/fixtures/SteamLoginModalHarness.swift",
         "script/tests/test_steam_login_modal.py",
         "MyWallpaperX/Modules/SteamWorkshop/UI/SteamLoginPanelController.swift",
-        "MyWallpaperX/Modules/SteamWorkshop/UI/SteamLoginPanelView.swift"
+        "MyWallpaperX/Modules/SteamWorkshop/UI/SteamLoginPanelView.swift",
+        "MyWallpaperX/Shared/Components/WallpaperFormFieldStyle.swift",
+        "MyWallpaperX/Modules/OnlineLibrary/UI/OnlineLibraryBrowserView.swift",
+        "MyWallpaperX/Modules/SteamWorkshop/Scene/SteamWorkshopScenePropertyEditorView.swift",
+        "MyWallpaperX/Modules/SteamWorkshop/UI/SteamWorkshopWebPropertyEditorView.swift",
+        "script/tests/test_wallpaper_form_fields.py",
+        "script/tests/fixtures/WallpaperFormFieldHarness.swift",
+        "script/tests/test_steam_login_layout.py",
+        "script/tests/fixtures/SteamLoginLayoutHarness.swift",
+        "script/tests/fixtures/WebPropertyPresentationChecks.swift"
       ],
       "modules": [
         "test_app_modal_presentation",
@@ -5329,7 +5357,9 @@
         "test_library_profile_readonly",
         "test_scene_user_shortcut_properties",
         "test_scene_native_property_list",
-        "test_steam_login_modal"
+        "test_steam_login_modal",
+        "test_wallpaper_form_fields",
+        "test_steam_login_layout"
       ]
     },
     {

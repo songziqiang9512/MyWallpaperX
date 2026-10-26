@@ -94,7 +94,7 @@ import Combine
     func makePrimaryAction(for content: WallpaperContentItem,
                            from capturedSource: WallpaperPlaybackSequence.Snapshot? = nil,
                            renderedPlaying: Bool? = nil, renderedTicket: PlaybackSwitchTicket? = nil) -> (() -> Void)? {
-        if renderedPlaying ?? workspace.isPlaying(content.reference), content.kind != .image,
+        if renderedPlaying ?? workspace.isPlaying(content.reference),
            let ticket = renderedPlaying == nil ? manager.playbackSwitch.committed?.ticket : renderedTicket {
             return { [weak self] in self?.stop(content.reference, expectedTicket: ticket) }
         }
@@ -152,7 +152,7 @@ import Combine
         guard action.canExecute, expectingRemoval == nil || expectingRemoval == action.isRemoving else { return }
         let enabled = !action.isRemoving
         perform(items.map { .setFavorite($0.organizationItem, enabled, Date()) }, name: enabled ? "特别喜爱" : "取消特别喜爱",
-                page: .favorites, collections: collections)
+                page: .favorites, collections: collections, selectedReferences: Set(items.map(\.reference)))
     }
 
     private func resolveSelection(_ references: [WallpaperReference]?) -> [WallpaperContentItem]? {
@@ -180,7 +180,10 @@ import Combine
                       self.workspace.presentation.page == page, self.workspace.presentation.selectionState.sessionID == session,
                       let current = self.resolveSelection(items.map(\.reference)) else { return }
                 guard current.count == items.count, current.allSatisfy({ $0.capabilities.contains(.organize) }) else { return }
-                self.playlists?.add(current.map(\.organizationItem), to: list.id)
+                let receipt = self.workspace.presentation.beginOrganizationOperation(Set(current.map(\.reference)))
+                self.playlists?.add(current.map(\.organizationItem), to: list.id) { [weak self] in
+                    self?.workspace.presentation.completeOrganizationOperation(receipt, succeeded: true)
+                }
             })
         }
         if !menu.items.isEmpty { menu.addItem(.separator()) }
@@ -189,7 +192,10 @@ import Combine
                   self.workspace.presentation.page == page, self.workspace.presentation.selectionState.sessionID == session,
                   let current = self.resolveSelection(items.map(\.reference)) else { return }
             guard current.count == items.count, current.allSatisfy({ $0.capabilities.contains(.organize) }) else { return }
-            self.playlists?.create(members: current.map(\.organizationItem))
+            let receipt = self.workspace.presentation.beginOrganizationOperation(Set(current.map(\.reference)))
+            self.playlists?.create(members: current.map(\.organizationItem)) { [weak self] in
+                self?.workspace.presentation.completeOrganizationOperation(receipt, succeeded: true)
+            }
         })
         return menu
     }
@@ -199,7 +205,8 @@ import Combine
         let epoch = workspace.relationships.resetEpoch
         let menu = NSMenu()
         let item = ActionMenuItem(title: "清空最近使用…", symbol: "clock.badge.xmark") { [weak self] in
-            guard let self, self.workspace.relationships.resetEpoch == epoch else { return }
+            guard let self, self.workspace.relationships.resetEpoch == epoch,
+                  self.workspace.presentation.page == .recent else { return }
             self.clearRecent()
         }
         item.isEnabled = canOrganize && !workspace.relationships.recent.isEmpty
@@ -211,12 +218,16 @@ import Combine
     private func clearRecent() {
         guard canOrganize, let collections = workspace.collections, !workspace.relationships.recent.isEmpty else { return }
         let epoch = workspace.relationships.resetEpoch
+        let page = workspace.presentation.page, session = workspace.presentation.selectionState.sessionID
+        let selected = workspace.presentation.selectionState.references
         let alert = makeAppAlert(title: "清空最近使用？", message: "仅清除播放记录。原始壁纸、播放列表和特别喜爱均会保留。",
             style: .warning, buttons: ["清空最近使用", "取消"])
         presentAppAlert(alert, in: hostWindow()) { [weak self] response in
             guard let self, response == .alertFirstButtonReturn, self.canOrganize,
-                  self.workspace.relationships.resetEpoch == epoch else { return }
-            self.perform([.clearRecent], name: nil, page: .recent, collections: collections)
+                  self.workspace.relationships.resetEpoch == epoch, self.workspace.presentation.page == page,
+                  self.workspace.presentation.selectionState.sessionID == session else { return }
+            self.perform([.clearRecent], name: nil, page: .recent, collections: collections,
+                selectedReferences: selected)
         }
     }
 
@@ -312,16 +323,18 @@ import Combine
         let title = removalTitle(for: page)
         let scope: String
         switch page {
-        case .favorites: scope = "仅取消所选内容的特别喜爱。"
-        case .recent: scope = "仅移除所选播放记录。"
-        case .playlist: scope = "仅从当前播放列表移除所选内容。"
-        default: scope = "仅从当前资料库移除所选内容；重新扫描和重启不会重新加入。"
+        case .favorites: scope = "仅取消喜爱，源文件和其他列表保留。"
+        case .recent: scope = "仅移除播放记录，源文件和其他列表保留。"
+        case .playlist: scope = "仅从当前列表移除，源文件和其他列表保留。"
+        case .downloads: scope = "仅从我的下载移除，源文件和其他列表保留。"
+        default: scope = "仅从资料库移除，源文件和其他列表保留。"
         }
-        let message = scope + "\n默认保留磁盘源文件和其他列表。勾选下方选项会实际删除源文件；文件删除不能在 App 中撤销，也不保证进入废纸篓。"
-        let alert = makeAppAlert(title: "\(title) \(fixed.count) 项？", message: message, style: .warning, buttons: [title, "取消"])
+        let message = scope + "勾选会删除源文件，无法撤销。"
+        let alert = makeAppAlert(title: "\(title) \(fixed.count) 项？", message: message, style: .warning, buttons: ["移除", "取消"])
         let deleteFiles = NSButton(checkboxWithTitle: "删除磁盘的源文件", target: nil, action: nil)
         deleteFiles.state = .off
         deleteFiles.sizeToFit()
+        deleteFiles.alignment = .left
         alert.accessoryView = deleteFiles
         presentAppAlert(alert, in: hostWindow()) { [weak self] response in
             guard let self else { return }
@@ -337,7 +350,7 @@ import Combine
     }
 
     private func removeConfirmed(_ items: [WallpaperContentItem], page: WallpaperLibraryPage,
-                                 receipt: WallpaperLibraryRemovalReceipt?, epoch: UUID, deleteSourceFiles: Bool) {
+                                 receipt: WallpaperLibrarySelectionReceipt?, epoch: UUID, deleteSourceFiles: Bool) {
         guard let collections = workspace.collections else { return }
         Task { @MainActor [weak self] in
             guard let self, collections.snapshot.resetEpoch == epoch, !collections.isResetting else { return }
@@ -474,19 +487,19 @@ import Combine
     }
 
     private func perform(_ commands: [UserCollectionsCommand], name: String?, page: WallpaperLibraryPage,
-                         collections: UserCollectionsController, removal: WallpaperLibraryRemovalReceipt? = nil,
-                         removedReferences: Set<WallpaperReference> = []) {
+                         collections: UserCollectionsController, selectedReferences: Set<WallpaperReference>) {
         let epoch = collections.snapshot.resetEpoch
+        let receipt = workspace.presentation.beginOrganizationOperation(selectedReferences)
         Task { @MainActor [weak self] in
             guard let self else { return }
             do {
                 try await collections.perform(commands, undoName: name, expectedEpoch: epoch)
                 guard collections.snapshot.resetEpoch == epoch, !collections.isResetting else { return }
-                self.workspace.presentation.completeRemoval(removal, succeeded: removedReferences)
+                self.workspace.presentation.completeOrganizationOperation(receipt, succeeded: true)
                 self.workspace.didEditMembers(of: page)
             } catch {
                 guard collections.snapshot.resetEpoch == epoch, !collections.isResetting else { return }
-                self.workspace.presentation.completeRemoval(removal, succeeded: [])
+                self.workspace.presentation.completeOrganizationOperation(receipt, succeeded: false)
                 self.workspace.presentation.report(error)
             }
         }
@@ -591,16 +604,23 @@ nonisolated struct WallpaperLibraryCardStateProjection {
     private let canonicalReferences: [WallpaperReference: WallpaperReference]
     private let favorites: Set<WallpaperReference>
     private let playingReference: WallpaperReference?
+    private let switchingReference: WallpaperReference?
     let committedTicket: PlaybackSwitchTicket?
 
     init(items: [WallpaperContentItem], relationships: UserCollectionsSnapshot,
          committedReference: WallpaperReference?, sequenceTicket: PlaybackSwitchTicket?, runtimeTicket: PlaybackSwitchTicket?,
-         additionalReferences: [WallpaperReference] = []) throws {
+         additionalReferences: [WallpaperReference] = [],
+         pendingReference: WallpaperReference? = nil, pendingSequenceTicket: PlaybackSwitchTicket? = nil,
+         pendingRuntimeTicket: PlaybackSwitchTicket? = nil) throws {
         var references = Set(items.map(\.reference) + relationships.favorites.map(\.reference) + additionalReferences)
         if let committedReference { references.insert(committedReference) }
+        if let pendingReference { references.insert(pendingReference) }
         let canonical = try WallpaperLibraryQuery.canonicalReferences(references, relationships: relationships)
         canonicalReferences = canonical
         favorites = Set(relationships.favorites.map { canonical[$0.reference] ?? $0.reference })
+        if let pendingReference, let pendingSequenceTicket, pendingSequenceTicket == pendingRuntimeTicket {
+            switchingReference = canonical[pendingReference] ?? pendingReference
+        } else { switchingReference = nil }
         if let committedReference, let sequenceTicket, sequenceTicket == runtimeTicket {
             playingReference = canonical[committedReference] ?? committedReference
             committedTicket = sequenceTicket
@@ -617,4 +637,5 @@ nonisolated struct WallpaperLibraryCardStateProjection {
             allOrganizable: content.capabilities.contains(.organize))
     }
     func isPlaying(_ reference: WallpaperReference) -> Bool { playingReference == canonical(reference) }
+    func isSwitching(_ reference: WallpaperReference) -> Bool { switchingReference == canonical(reference) }
 }

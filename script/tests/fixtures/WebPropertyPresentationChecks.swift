@@ -63,6 +63,13 @@
                 precondition(webRows[row].title.stringValue == text && sceneRow.title.stringValue == text)
                 precondition(webRows[row].style == sceneRow.style && webRows[row].title.font == sceneRow.title.font)
                 precondition(abs(webRows[row].bounds.height - sceneRow.bounds.height) < 1, "same title/type must have the same row height")
+                if row == 4 {
+                    for textRow in [webRows[row], sceneRow] {
+                        let field = descendants(textRow, NSTextField.self).first { $0.isEditable }!
+                        precondition(field.superview is WallpaperFormFieldSurface && !field.isBordered && !field.drawsBackground)
+                        precondition(field.stringValue == "raw text" && field.delegate != nil && field.focusRingType == .exterior)
+                    }
+                }
                 if row == 3 {
                     for choiceRow in [webRows[row], sceneRow] {
                         let popup = descendants(choiceRow, NSPopUpButton.self).first!
@@ -239,6 +246,22 @@
         precondition(service.webValues["enabled"] == .bool(true)
             && descendants(hidden, WorkshopPropertyRowView.self).count == 1,
             "reset must restore the self-hidden control")
+        let numeric = SteamWorkshopWebPropertyDefinition(key: "numericText", title: "Numeric text", kind: .text,
+            runtimeType: "text", order: 0, minimumValue: nil, maximumValue: nil, allowsFractionalValues: true,
+            fractionalPrecision: nil, displayCondition: nil, directoryMode: nil, fileType: nil,
+            defaultValue: .number(12.5), options: [])
+        service.webDescriptor = .init(propertyDefinitions: [numeric]); service.webValues = [numeric.key: .number(12.5)]
+        service.webEvents = []
+        let numericEditor = SteamWorkshopWebPropertyEditorView(record: .init(id: "numeric", title: "numeric"))
+        let numericField = descendants(numericEditor, NSTextField.self).first { $0.isEditable }!
+        let nativeNumeric = NSTextField(string: numericField.stringValue)
+        precondition(!(numericField.superview is WallpaperFormFieldSurface)
+            && numericField.isBezeled == nativeNumeric.isBezeled && numericField.isBordered == nativeNumeric.isBordered
+            && numericField.bezelStyle == nativeNumeric.bezelStyle && numericField.formatter === nativeNumeric.formatter,
+            "numeric text retains its native control style and formatter")
+        numericField.stringValue = "42.5"; numericField.sendAction(numericField.action, to: numericField.target)
+        precondition(service.webEvents.last?.0 == numeric.key && service.webEvents.last?.1 == .string("42.5"),
+            "authored text input with a numeric default keeps its original string submission")
         service.webDescriptor = .init(propertyDefinitions: [])
         let empty = SteamWorkshopWebPropertyEditorView(record: .init(id: "empty", title: "empty"))
         precondition(empty.presentsOnlyMessage && empty.emptyStateMessage!.contains("\n"))

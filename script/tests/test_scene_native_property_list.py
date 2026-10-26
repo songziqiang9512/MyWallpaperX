@@ -222,6 +222,8 @@ extension NSCollectionView {
         let initialCount = table.itemCount
         let toggle = control("master", NSButton.self)
         let formatField = descendants(table.realizedCell(row("format")), NSTextField.self).first { $0.isEditable }!
+        precondition(formatField.superview is WallpaperFormFieldSurface && !formatField.isBezeled && !formatField.drawsBackground,
+            "ordinary Scene string input keeps its native editor in the shared translucent surface")
         precondition(window.makeFirstResponder(formatField))
         let textEditor = formatField.currentEditor() as! NSTextView
         textEditor.setSelectedRange(NSRange(location: 2, length: 0))
@@ -936,6 +938,7 @@ class NativeScenePropertyListTests(unittest.TestCase):
             editor.write_text(EDITOR.read_text().replace('NSOpenPanel()', 'PickerProbe()'))
             (Path(folder) / 'WorkshopPropertyDisplayStrings.json').write_bytes((ROOT / 'MyWallpaperX/Resources/WorkshopPropertyDisplayStrings.json').read_bytes())
             sources = [ROOT / 'MyWallpaperX/Shared/WorkshopPropertyDisplayResolver.swift',
+                       ROOT / 'MyWallpaperX/Shared/Components/WallpaperFormFieldStyle.swift',
                        ROOT / 'MyWallpaperX/Core/PlaybackControl/ScenePlaybackShortcut.swift',
                        ROOT / 'MyWallpaperX/Core/SteamWorkshopScene/Runtime/Session/SceneDesktopWallpaperLaunchModels.swift',
                        ROOT / 'MyWallpaperX/Core/SteamWorkshopScene/Systems/Properties/SceneUserProperty.swift',

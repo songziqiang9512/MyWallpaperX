@@ -59,7 +59,7 @@ import Combine
         searchField.sendsSearchStringImmediately = true
         searchField.sendsWholeSearchString = false
         steam.titleUpdateHandler = { [weak self] _ in
-            guard let self, [.workshop, .workshopSubscriptions].contains(self.workspace.presentation.page) else { return }
+            guard let self, [.workshop].contains(self.workspace.presentation.page) else { return }
             self.refresh()
         }
         online.titleUpdateHandler = { [weak self] _ in self?.refresh() }
@@ -97,14 +97,14 @@ import Combine
     private var title: String {
         let page = workspace.presentation.page
         if case .playlist(let id) = page { return page.title(playlistName: workspace.relationships.playlists.first { $0.id == id }?.name) }
-        if page == .workshop || page == .workshopSubscriptions { return SteamWorkshopService.shared.browserSectionTitle }
+        if page == .workshop { return SteamWorkshopService.shared.browserSectionTitle }
         return page.title()
     }
 
     private var identifiers: [NSToolbarItem.Identifier] {
         let page = workspace.presentation.page
         let prefix: [NSToolbarItem.Identifier] = [.sidebarTrackingSeparator, Action.title.id, .flexibleSpace]
-        if page == .workshop || page == .workshopSubscriptions {
+        if page == .workshop {
             return prefix + steam.browserIdentifiers.filter { $0 != .sidebarTrackingSeparator && $0 != Action.title.id && $0 != .flexibleSpace }
         }
         if page == .pixabay {
@@ -194,7 +194,7 @@ import Combine
         items[.zoom]?.menuFormRepresentation = zoomControl.menuRepresentation()
         switch workspace.presentation.page {
         case .pixabay: online.updateCategoryScrollWidth(); online.configureZoom(preferredColumns: columns, clipWidth: width)
-        case .workshop, .workshopSubscriptions: steam.configureZoom(preferredColumns: columns, clipWidth: width)
+        case .workshop: steam.configureZoom(preferredColumns: columns, clipWidth: width)
         default: break
         }
     }
@@ -389,7 +389,7 @@ import Combine
 
     func focusSearch() {
         let page = workspace.presentation.page
-        if page == .workshop || page == .workshopSubscriptions { steam.focusSearch(); return }
+        if page == .workshop { steam.focusSearch(); return }
         if page == .pixabay { online.focusSearch(); return }
         (items[.search] as? NSSearchToolbarItem)?.beginSearchInteraction()
     }

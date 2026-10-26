@@ -82,6 +82,7 @@ extension Notification.Name {static let wallpaperSwitchDidFail=Self("switch-fail
     var libraryPlaybackSnapshotProvider:((WallpaperReference?,WallpaperPlaybackSequence.Source,WallpaperPlaybackCause)->WallpaperPlaybackSequence.Snapshot?)?
     var libraryPlaybackDispatcher:((WallpaperPlaybackSequence.Pending)->Bool)?
     var libraryPlaybackCommitted:((WallpaperPlaybackSequence.Commit)->Void)?
+    var libraryPlaybackPendingChanged:(()->Void)?
     var libraryPlaybackStopped:(()->Void)?
     var libraryPlaybackFailed:((WallpaperPlaybackSequence.Pending)->Void)?
     var playbackSwitch=PlaybackSwitchTransaction()
@@ -117,6 +118,7 @@ extension Notification.Name {static let wallpaperSwitchDidFail=Self("switch-fail
     func handlePlaybackEnded(forPath path:String){endedPaths.append(path)}
     func handlePlaybackFailure(forPath path:String){failedPaths.append(path)}
     func flushPersistentState(){onFlush?();Trace.values.append("flush")}
+    func restoreSystemDesktopWallpaperOnTermination(){Trace.values.append("restoreDesktop")}
     // MANAGER_METHODS
 }
 @MainActor final class NativeEndpoint {
@@ -317,9 +319,9 @@ struct Record {let id="fixture"}
         let deferred=Task{@MainActor in await Task.yield();service.complete(pendingGeneration,preparation)}
         let app=AppDelegate();app.prepareProductTermination();await deferred.value
         precondition(service.launches == 1 && cancellations == 1 && engine.epoch == manager.playbackIntentEpoch)
-        precondition(Trace.values == ["cancelEndpoint","adopt","steamCancel","flush","cleanup"])
+        precondition(Trace.values == ["cancelEndpoint","adopt","steamCancel","restoreDesktop","flush","cleanup"])
         app.prepareProductTermination()
-        precondition(engine.cleanups == 1 && cancellations == 1 && Trace.values.count == 5)
+        precondition(engine.cleanups == 1 && cancellations == 1 && Trace.values.count == 6)
         print("termination-revoke-pass")
     }
 }

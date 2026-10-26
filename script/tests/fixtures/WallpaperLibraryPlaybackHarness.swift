@@ -36,16 +36,24 @@ extension Notification.Name {static let onlineDownloadsPlaybackPathDidChange=Sel
     func invalidate(){isValid=false}
     func deliverEvenIfCancelled(){action(self)}
 }
+struct DesktopScreen {
+    let id: Int
+    var deviceDescription: [NSDeviceDescriptionKey: Any] { [NSDeviceDescriptionKey("NSScreenNumber"): NSNumber(value: id)] }
+}
 @MainActor final class DesktopLeaf {
     static let shared=DesktopLeaf()
-    static let screens=[0,1]
+    static var screens=[DesktopScreen(id: 0), DesktopScreen(id: 1)]
     var urls:[Int:URL]=[:]
+    var options: [Int: [NSWorkspace.DesktopImageOptionKey: Any]] = [:]
+    var attempts: [(Int, URL)] = []
+    var failURLs = Set<URL>()
     var failScreen:Int?
-    func desktopImageURL(for screen:Int)->URL?{urls[screen]}
-    func desktopImageOptions(for screen:Int)->[String:Any]?{[:]}
-    func setDesktopImageURL(_ url:URL,for screen:Int,options:[String:Any])throws {
-        if failScreen == screen {throw CocoaError(.fileWriteUnknown)}
-        urls[screen]=url
+    func desktopImageURL(for screen: DesktopScreen)->URL?{urls[screen.id]}
+    func desktopImageOptions(for screen: DesktopScreen)->[NSWorkspace.DesktopImageOptionKey: Any]?{options[screen.id] ?? [:]}
+    func setDesktopImageURL(_ url:URL,for screen: DesktopScreen,options: [NSWorkspace.DesktopImageOptionKey: Any])throws {
+        attempts.append((screen.id, url))
+        if failScreen == screen.id || failURLs.contains(url) {throw CocoaError(.fileWriteUnknown)}
+        urls[screen.id]=url; self.options[screen.id] = options
     }
 }
 struct SILWallpaper {let id:String;let path:String}
@@ -455,6 +463,7 @@ struct SteamWorkshopDownloadRecord {
                 manager.stopCurrentPlayback()
             }
         }
+        checks.merge(try runSystemDesktopWallpaperChecks(root: root), uniquingKeysWith: { _, newer in newer })
         print(String(decoding:try JSONEncoder().encode(checks),as:UTF8.self))
     }
 }

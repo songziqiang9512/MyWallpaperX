@@ -175,6 +175,7 @@ final class AppKitSteamWorkshopBrowserItem: WallpaperCardCollectionViewItem, Wal
         makeMenu = nil
         (view as? WallpaperCardInteractionView)?.onAccessibilityActivate = { false }
         organizationPresentation = nil
+        isLaunchPendingBadge = false
         detailButton.isHidden = false
         currentActionKind = .download
         prefersCircularPlayBadge = false
@@ -604,10 +605,11 @@ final class AppKitSteamWorkshopBrowserItem: WallpaperCardCollectionViewItem, Wal
         } else if overlayBar.layer?.backgroundColor != NSColor.clear.cgColor {
             overlayBar.layer?.backgroundColor = NSColor.clear.cgColor
         }
-        isLaunchPendingBadge = downloadRecord.map {
+        isLaunchPendingBadge = organizationPresentation?.isSwitching ?? downloadRecord.map {
             SteamWorkshopService.shared.isLaunchPending($0.id)
         } ?? false
         if isLaunchPendingBadge {
+            currentActionKind = .setAsWallpaper
             shouldPersistBarVisibility = true
         }
         applyStatusBadgeAppearance(
@@ -752,11 +754,11 @@ final class AppKitSteamWorkshopBrowserItem: WallpaperCardCollectionViewItem, Wal
         switch actionKind {
         case .download:
             symbolName = "square.and.arrow.down"
-            tintColor = .white
+            tintColor = .labelColor
             accessibilityLabel = "下载：\(itemTitle)"
         case .cancel:
             symbolName = "xmark"
-            tintColor = .white
+            tintColor = .labelColor
             accessibilityLabel = "取消下载：\(itemTitle)"
         case .setAsWallpaper:
             if isLaunchPending {
@@ -766,18 +768,18 @@ final class AppKitSteamWorkshopBrowserItem: WallpaperCardCollectionViewItem, Wal
                 symbolName = "play.fill"
                 accessibilityLabel = "设为壁纸：\(itemTitle)"
             }
-            tintColor = .white
+            tintColor = .labelColor
         case .retry:
             symbolName = "square.and.arrow.down"
-            tintColor = .white
+            tintColor = .labelColor
             accessibilityLabel = "重新下载：\(itemTitle)"
         case .saving:
             symbolName = "checkmark.circle"
-            tintColor = .white
+            tintColor = .labelColor
             accessibilityLabel = "正在保存：\(itemTitle)"
         case .stop:
             symbolName = "stop.fill"
-            tintColor = .white
+            tintColor = .controlAccentColor
             accessibilityLabel = "停止播放：\(itemTitle)"
         }
 
@@ -793,7 +795,7 @@ final class AppKitSteamWorkshopBrowserItem: WallpaperCardCollectionViewItem, Wal
             case .saving: allowed = false
             }
         } else { allowed = actionKind != .saving }
-        statusBadgeButton.isEnabled = allowed
+        statusBadgeButton.isEnabled = allowed && !isLaunchPending
         updateContinuousAnimationState()
     }
 
@@ -936,7 +938,8 @@ final class AppKitSteamWorkshopBrowserItem: WallpaperCardCollectionViewItem, Wal
     private func currentContextMenu() -> NSMenu? {
         guard currentDisplayContext == .browser, let item = currentItem else { return nil }
         if let makeMenu { return makeMenu() }
-        return SteamWorkshopItemMenu.make(item: item, service: SteamWorkshopService.shared)
+        return SteamWorkshopItemMenu.make(item: item, service: SteamWorkshopService.shared,
+            navigationVersion: SteamWorkshopService.shared.navigationVersion)
     }
 
     func setPrefersCircularPlayBadge(_ prefersCircularPlayBadge: Bool) {

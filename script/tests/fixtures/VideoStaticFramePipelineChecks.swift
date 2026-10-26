@@ -8,6 +8,7 @@ import ImageIO
 // state shell. Desktop application records its argument; NSWorkspace is never
 // called. Original AV generation, queues, epochs and sync callback bodies run.
 nonisolated final class WallpaperManager: @unchecked Sendable {
+    var protectedSystemDesktopURLs = Set<URL>()
     // ACTUAL_CACHE_FIELDS
     // ACTUAL_STATIC_QUEUE
     let thumbnailCacheDirectory: URL

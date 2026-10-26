@@ -124,7 +124,7 @@ final class AppKitSteamWorkshopBrowserContainerView: NSView, ModuleFocusable, NS
     }()
 
     private func itemMenu(for item: SteamWorkshopBrowserItem) -> NSMenu {
-        let menu = SteamWorkshopItemMenu.make(item: item, service: service)
+        let menu = SteamWorkshopItemMenu.make(item: item, service: service, navigationVersion: service.navigationVersion)
         if let organization = makeOrganizationMenu?(item), !organization.items.isEmpty {
             menu.addItem(.separator())
             for entry in organization.items {
@@ -904,7 +904,7 @@ extension AppKitSteamWorkshopBrowserContainerView: SteamWorkshopKeyboardDelegate
         if event.keyCode == 96 && event.modifierFlags.contains(.shift),
            let id = keyboardFocusedID, let item = itemsByID[id],
            let path = indexPathForItemID(id), let frame = flowLayout.layoutAttributesForItem(at: path)?.frame {
-            SteamWorkshopItemMenu.make(item: item, service: service).popUp(positioning: nil, at: NSPoint(x: frame.midX, y: frame.midY), in: collectionView)
+            SteamWorkshopItemMenu.make(item: item, service: service, navigationVersion: service.navigationVersion).popUp(positioning: nil, at: NSPoint(x: frame.midX, y: frame.midY), in: collectionView)
             return true
         }
         let disallowedModifiers: NSEvent.ModifierFlags = [.command, .control, .option]

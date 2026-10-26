@@ -23,7 +23,7 @@ extension WallpaperProvider {
 /// Navigation identity is independent of a mutable title or a source module.
 nonisolated enum WallpaperLibraryPage: Hashable, Codable, Sendable {
     case videos, images, downloads, recent
-    case workshop, workshopSubscriptions, pixabay
+    case workshop, pixabay
     case playlists, favorites
     case playlist(UUID)
 
@@ -34,7 +34,6 @@ nonisolated enum WallpaperLibraryPage: Hashable, Codable, Sendable {
         case .downloads: return "我的下载"
         case .recent: return "最近使用"
         case .workshop: return "创意工坊"
-        case .workshopSubscriptions: return "工坊订阅"
         case .pixabay: return "Pixabay"
         case .playlists: return "所有播放列表"
         case .favorites: return "特别喜爱"
@@ -49,7 +48,6 @@ nonisolated enum WallpaperLibraryPage: Hashable, Codable, Sendable {
         case .downloads: return "library.downloads"
         case .recent: return "library.recent"
         case .workshop: return "browse.workshop"
-        case .workshopSubscriptions: return "browse.subscriptions"
         case .pixabay: return "browse.pixabay"
         case .playlists: return "playlists.all"
         case .favorites: return "playlists.favorites"
@@ -59,9 +57,61 @@ nonisolated enum WallpaperLibraryPage: Hashable, Codable, Sendable {
 
     var isRemoteBrowse: Bool {
         switch self {
-        case .workshop, .workshopSubscriptions, .pixabay: return true
+        case .workshop, .pixabay: return true
         default: return false
         }
+    }
+
+    // The retired subscriptions page is read-only compatibility. Personal
+    // browsing now belongs to Steam's existing context, not a Shell page.
+    private enum CodingKeys: String, CodingKey {
+        case videos, images, downloads, recent, workshop, workshopSubscriptions, pixabay, playlists, favorites, playlist
+    }
+    private enum PlaylistKey: String, CodingKey { case _0 }
+    private struct Empty: Codable {}
+
+    init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        guard container.allKeys.count == 1, let key = container.allKeys.first else {
+            throw DecodingError.dataCorrupted(.init(codingPath: decoder.codingPath, debugDescription: "Invalid library page"))
+        }
+        if key == .playlist {
+            let value = try container.nestedContainer(keyedBy: PlaylistKey.self, forKey: key)
+            self = .playlist(try value.decode(UUID.self, forKey: ._0))
+            return
+        }
+        _ = try container.nestedContainer(keyedBy: PlaylistKey.self, forKey: key)
+        switch key {
+        case .videos: self = .videos
+        case .images: self = .images
+        case .downloads: self = .downloads
+        case .recent: self = .recent
+        case .workshop, .workshopSubscriptions: self = .workshop
+        case .pixabay: self = .pixabay
+        case .playlists: self = .playlists
+        case .favorites: self = .favorites
+        case .playlist: preconditionFailure("handled above")
+        }
+    }
+
+    func encode(to encoder: Encoder) throws {
+        var container = encoder.container(keyedBy: CodingKeys.self)
+        let key: CodingKeys
+        switch self {
+        case .videos: key = .videos
+        case .images: key = .images
+        case .downloads: key = .downloads
+        case .recent: key = .recent
+        case .workshop: key = .workshop
+        case .pixabay: key = .pixabay
+        case .playlists: key = .playlists
+        case .favorites: key = .favorites
+        case .playlist(let id):
+            var value = container.nestedContainer(keyedBy: PlaylistKey.self, forKey: .playlist)
+            try value.encode(id, forKey: ._0)
+            return
+        }
+        try container.encode(Empty(), forKey: key)
     }
 }
 

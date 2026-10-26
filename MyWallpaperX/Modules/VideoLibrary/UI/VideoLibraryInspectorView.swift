@@ -202,7 +202,7 @@ final class VideoLibraryInspectorView: NSView {
         let contentStack = makeContentStack()
         self.contentStack = contentStack
         rebuildContent()
-        let documentContainer = NSView()
+        let documentContainer = InspectorContentDocumentView()
         documentContainer.translatesAutoresizingMaskIntoConstraints = false
         documentContainer.addSubview(contentStack)
         scrollView.documentView = documentContainer
@@ -223,8 +223,7 @@ final class VideoLibraryInspectorView: NSView {
             documentContainer.heightAnchor.constraint(greaterThanOrEqualTo: scrollView.contentView.heightAnchor),
             contentStack.leadingAnchor.constraint(equalTo: documentContainer.leadingAnchor),
             contentStack.trailingAnchor.constraint(equalTo: documentContainer.trailingAnchor),
-            contentStack.centerYAnchor.constraint(equalTo: documentContainer.centerYAnchor),
-            contentStack.topAnchor.constraint(greaterThanOrEqualTo: documentContainer.topAnchor),
+            contentStack.topAnchor.constraint(equalTo: documentContainer.topAnchor),
             contentStack.bottomAnchor.constraint(lessThanOrEqualTo: documentContainer.bottomAnchor),
             footerActions.widthAnchor.constraint(equalTo: rootStack.widthAnchor)
         ])
@@ -268,7 +267,7 @@ final class VideoLibraryInspectorView: NSView {
 
     private func makeContentStack() -> NSStackView {
         let stack = VideoLibraryInspectorViews.makeVerticalStack(spacing: 16)
-        stack.edgeInsets = NSEdgeInsets(top: 0, left: 2, bottom: 0, right: 2)
+        stack.edgeInsets = NSEdgeInsets(top: InspectorFadingScrollView.contentTopInset, left: 2, bottom: 0, right: 2)
         return stack
     }
 
