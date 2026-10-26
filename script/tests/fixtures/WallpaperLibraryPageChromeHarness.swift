@@ -34,6 +34,11 @@ extension Notification.Name { static let inspectorHostCloseRequested = Self("chr
     func importFiles() { imports += 1 }
     func playDisplayed(random: Bool = false) { displayedPlayRequests.append(random) }
 }
+@MainActor private final class OnlineImageLibrary {
+    static let shared = OnlineImageLibrary()
+    var refreshes = 0
+    func refreshLocal() { refreshes += 1 }
+}
 @MainActor private final class ChromeOnline {
     var refreshes = 0
     func refreshDownloadedContent() { refreshes += 1 }
@@ -398,9 +403,25 @@ private final class ChromeToolbar: NSObject, NSToolbarDelegate {
         partialDownloads.query.provider = .steamWorkshop
         partialDownloads.queryResult = .init(items: Array(values.prefix(1)), unfilteredCount: 3)
         probe.apply(partialDownloads)
-        checks["both-ready-download-providers-can-report-the-complete-unfiltered-total"] = grid.scrollView.pullCountText == "显示 1 / 共 3 张壁纸"
+        checks["older-two-download-providers-do-not-claim-the-new-image-scan-is-ready"] = grid.scrollView.pullCountText == "显示 1 / 已加载 3 张壁纸"
+        probe.workspace.catalog.catalog.loadedProviders.formUnion([.wallhaven, .pixiv])
+        probe.apply(partialDownloads)
+        checks["all-ready-download-providers-can-report-the-complete-unfiltered-total"] = grid.scrollView.pullCountText == "显示 1 / 共 3 张壁纸"
         probe.apply(state(.downloads))
-        checks["both-successful-empty-download-providers-have-known-zero"] = grid.scrollView.pullCountText == "共 0 张壁纸"
+        checks["all-successful-empty-download-providers-have-known-zero"] = grid.scrollView.pullCountText == "共 0 张壁纸"
+        let manifestError = "Controlled shared image manifest failure"
+        let imageFailure = WallpaperSourceScanStatus(phase: .failed(message: manifestError), hasSuccessfulScan: false)
+        probe.workspace.catalog.catalog.sourceScanStatuses[.wallhaven] = imageFailure
+        probe.workspace.catalog.catalog.sourceScanStatuses[.pixiv] = imageFailure
+        probe.apply(state(.downloads)); settle()
+        let imageRetries = descendants(chrome.view, NSButton.self).filter { $0.title == "重试载入在线图片" }
+        let imageRefreshes = OnlineImageLibrary.shared.refreshes
+        imageRetries.first?.performClick(nil)
+        checks["shared-image-manifest-failure-uses-one-notice-and-the-local-refresh-owner"] = imageRetries.count == 1
+            && descendants(chrome.view, NSTextField.self).filter { $0.stringValue == manifestError }.count == 1
+            && OnlineImageLibrary.shared.refreshes == imageRefreshes + 1
+        probe.workspace.catalog.catalog.sourceScanStatuses.removeValue(forKey: .wallhaven)
+        probe.workspace.catalog.catalog.sourceScanStatuses.removeValue(forKey: .pixiv)
         probe.workspace.catalog.catalog.loadedProviders = []
         for page in [WallpaperLibraryPage.recent, .favorites] {
             var relation = state(page)

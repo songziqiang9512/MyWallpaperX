@@ -40,6 +40,18 @@ import AppKit
                       let source = online.items.first(where: { $0.id == id }) else { return }
                 online.download(item: source)
             }
+        case .wallhaven, .pixiv:
+            let library = OnlineImageLibrary.shared
+            guard library.record(for: reference) != nil,
+                  downloadable(item) || eligible(reference, in: workspace) != nil else { return nil }
+            return { [weak workspace, weak library] in
+                guard let workspace, let library, workspace.relationships.resetEpoch == epoch,
+                      workspace.presentation.page == page, workspace.presentation.canEditCollections,
+                      workspace.collections?.isResetting == false,
+                      let current = try? workspace.content(for: reference), current.reference == reference, !current.capabilities.contains(.play),
+                      matchesSourceIdentity(current, in: workspace), library.record(for: reference) != nil else { return }
+                library.retry(reference)
+            }
         default: return nil
         }
     }
@@ -81,6 +93,18 @@ import AppKit
                       workspace.presentation.page == page, eligible(reference, in: workspace) != nil else { return }
                 online.openVideoSourcePage(id: id)
             })
+        case .wallhaven, .pixiv:
+            let library = OnlineImageLibrary.shared
+            guard library.record(for: reference) != nil else { return nil }
+            if let download = makePrimaryAction(for: item, workspace: workspace, steam: steam, online: online) {
+                menu.addItem(ActionMenuItem(title: "重新下载", symbol: "arrow.down.circle", handler: download))
+            }
+            menu.addItem(ActionMenuItem(title: "查看原网页", symbol: "safari") { [weak workspace, weak library] in
+                guard let workspace, let library, workspace.relationships.resetEpoch == epoch,
+                      workspace.presentation.page == page, eligible(reference, in: workspace) != nil,
+                      let record = library.record(for: reference) else { return }
+                NSWorkspace.shared.open(record.sourceURL)
+            })
         default: return nil
         }
         return menu
@@ -102,10 +126,13 @@ import AppKit
     private static func eligible(_ reference: WallpaperReference, in workspace: WallpaperLibraryWorkspace) -> WallpaperContentItem? {
         guard workspace.presentation.canEditCollections,
               workspace.collections?.isResetting == false,
-              reference.provider == .steamWorkshop || reference.provider == .pixabay,
+              [.steamWorkshop, .pixabay, .wallhaven, .pixiv].contains(reference.provider),
               let current = try? workspace.content(for: reference),
               current.reference == reference, matchesSourceIdentity(current, in: workspace),
               current.publishedAvailability == .unavailable else { return nil }
+        if reference.provider == .wallhaven || reference.provider == .pixiv {
+            return OnlineImageLibrary.shared.record(for: reference) != nil ? current : nil
+        }
         let state = workspace.relationships
         let related = state.members.map(\.reference) + state.favorites.map(\.reference) + state.recent.map(\.reference)
         guard let canonical = try? WallpaperLibraryQuery.canonicalReferences(Set(related), relationships: state),

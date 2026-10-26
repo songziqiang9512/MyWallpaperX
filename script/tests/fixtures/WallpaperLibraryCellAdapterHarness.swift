@@ -1,4 +1,5 @@
 import AppKit
+import Combine
 
 // Owners and media transports are recording leaves. The complete production
 // App adapter, its native makeItem path and value models are compiled unchanged.
@@ -112,6 +113,58 @@ class RecordingCard: NSCollectionViewItem {
     override func loadView() { view = NSView() }
     func applySwitchingState(isSwitching: Bool) { switching = isSwitching }
 }
+private enum RecordingProgressStyle { case downloading, neutral }
+private final class RecordingImageGlass {
+    var fraction: Double?
+    func applyProgress(style: RecordingProgressStyle, fraction: Double?, indeterminate: Bool, animated: Bool) { self.fraction = fraction }
+}
+private final class RecordingImageBar {
+    let playButton = NSButton()
+    let glass = RecordingImageGlass()
+    var onPlay: (() -> Void)?
+}
+final class OnlineImageGridItem: RecordingCard {
+    static let reuseIdentifier = NSUserInterfaceItemIdentifier("online-image")
+    private let bar: RecordingImageBar? = RecordingImageBar()
+    private var busy = false
+    private var onPrimary: (() -> Void)?
+    private(set) var transferUpdates = 0
+    private(set) var fraction: Double?
+    var canPerformPrimary: Bool { bar?.playButton.isEnabled == true }
+    var heldPrimary: (() -> Void)? { bar?.onPlay }
+    func activatePrimary() { if canPerformPrimary { bar?.onPlay?() } }
+    func setThumbnailVisible(_ value: Bool) { visible = value }
+    func configure(content: WallpaperContentItem, request: Any?, selected: Bool, selecting: Bool,
+                   favorite: Bool, playing: Bool, switching: Bool = false, busy: Bool = false, fraction: Double? = nil, refreshToken: UUID? = nil,
+                   onPrimary: (() -> Void)?, onFavorite: (() -> Void)?) {
+        configurations += 1; presentedTitle = content.title; selectedState = selected
+        self.favorite = favorite; self.playing = playing; self.selecting = selecting; self.switching = switching
+        self.onPrimary = onPrimary; bar?.onPlay = onPrimary; applyTransfer(busy: busy, fraction: fraction)
+    }
+    private func updateVisibility() { transferUpdates += 1 }
+    // ACTUAL_IMAGE_TRANSFER
+}
+private final class ImageCancelMenuWorkspace {
+    struct Relationships { var resetEpoch = UUID() }
+    struct Presentation {
+        struct Selection { var sessionID = UUID() }
+        var page = WallpaperLibraryPage.downloads
+        var selectionState = Selection()
+    }
+    var relationships = Relationships()
+    var presentation = Presentation()
+}
+private final class ImageCancelMenuProbe {
+    let workspace = ImageCancelMenuWorkspace()
+    func makeMenu(_ item: WallpaperContentItem) -> NSMenu {
+        let menu = NSMenu(); menu.autoenablesItems = false
+        let epoch = workspace.relationships.resetEpoch, page = workspace.presentation.page
+        let session = workspace.presentation.selectionState.sessionID
+        // ACTUAL_MENU_ADD
+        // ACTUAL_IMAGE_CANCEL
+        return menu
+    }
+}
 final class AppKitWallpaperItem: RecordingCard {
     static let reuseIdentifier = NSUserInterfaceItemIdentifier("video")
     var onPlayRequested: ((String) -> Void)?; var onFavoriteRequested: ((String) -> Void)?
@@ -194,7 +247,7 @@ final class AdapterCollectionDataSource: NSObject, NSCollectionViewDataSource {
             publishedAvailability: capabilities.contains(.play) ? .available : .unavailable,
             capabilities: capabilities, metadata: .init(), acquisition: .idle, update: .idle, aliases: [])
     }
-    @MainActor static func main() throws {
+    @MainActor static func main() async throws {
         _ = NSApplication.shared
         let manager = WallpaperManager(), images = SILService(), steam = SteamWorkshopService(), online = OnlineLibraryService()
         manager.wallpapers = [.init(id: "1", title: "video", path: "/video"),
@@ -466,6 +519,57 @@ final class AdapterCollectionDataSource: NSObject, NSCollectionViewDataSource {
         let pickerVideo = pickerAdapter.makeCell(collection: pickerCollection, indexPath: IndexPath(item: 0, section: 0),
             content: v, state: state) as! AppKitWallpaperItem
         checks["picker-video-also-retains-no-favorite-command-without-owner"] = pickerVideo.onFavoriteRequested == nil
+        let library = OnlineImageLibrary.shared
+        let wallID = OnlineImageAssetID(source: .wallhaven, artworkID: "opaque-wall")
+        let pageID = OnlineImageAssetID(source: .pixiv, artworkID: "42", pageIndex: 2)
+        let hiddenID = OnlineImageAssetID(source: .pixiv, artworkID: "42", pageIndex: 3)
+        let records = [wallID, pageID, hiddenID].map { id in
+            OnlineImageLocalRecord(assetID: id, title: id.artworkID, sourceURL: URL(string: "https://example.invalid/" + id.artworkID)!,
+                author: nil, authorID: nil, tags: [], relativePath: UUID().uuidString + ".png", pixelWidth: 1, pixelHeight: 1,
+                fileSizeBytes: 1, firstDownloadedAt: Date(), revision: UUID())
+        }
+        library.snapshot = .init(records: records, unavailable: Set(records.map(\.id)))
+        let retryRows = records.map { OnlineImageContentProjection.local($0, url: library.localURL(for: $0)!, available: false) }
+        let wallCard = make(retryRows[0]) as! OnlineImageGridItem
+        let hiddenCard = make(retryRows[2]) as! OnlineImageGridItem
+        let retryCount = primary.count
+        wallCard.activatePrimary()
+        checks["missing-online-image-card-admits-retry-without-fabricating-play"] = !retryRows[0].capabilities.contains(.play)
+            && wallCard.canPerformPrimary && primary.count == retryCount + 1 && primary.last?.reference == wallID.reference
+        adapter.setVisible(wallCard, true); adapter.setVisible(hiddenCard, false)
+        let configured = wallCard.configurations, hiddenUpdates = hiddenCard.transferUpdates
+        resetSourceReads()
+        library.progress = [wallID: 0.4, hiddenID: 0.8]
+        try await Task.sleep(for: .milliseconds(20))
+        checks["online-image-progress-updates-only-visible-bound-card-without-reprojection"] = wallCard.fraction == 0.4
+            && !wallCard.canPerformPrimary && wallCard.configurations == configured && hiddenCard.transferUpdates == hiddenUpdates
+            && [manager.sourceReads, images.sourceReads, steam.sourceReads, online.sourceReads] == [0, 0, 0, 0]
+        let busyCount = primary.count; wallCard.activatePrimary()
+        checks["busy-online-image-card-does-not-admit-a-second-retry"] = primary.count == busyCount
+        let heldWallRetry = wallCard.heldPrimary
+        adapter.updateCell(wallCard, content: retryRows[1], state: state)
+        heldWallRetry?()
+        checks["held-online-image-retry-cannot-target-reused-source-or-page"] = primary.count == busyCount
+        library.progress = [wallID: 0.6, pageID: 0.9]
+        try await Task.sleep(for: .milliseconds(20))
+        checks["reused-online-image-card-consumes-only-current-page-progress"] = wallCard.fraction == 0.9 && !wallCard.canPerformPrimary
+        library.progress = [wallID: 0.7]
+        try await Task.sleep(for: .milliseconds(20))
+        wallCard.activatePrimary()
+        checks["online-image-progress-completion-reenables-exact-current-page-retry"] = wallCard.fraction == nil
+            && wallCard.canPerformPrimary && primary.last?.reference == pageID.reference
+        let menuProbe = ImageCancelMenuProbe()
+        library.progress = [pageID: 0.3, hiddenID: 0.5]; library.cancellations = []
+        let cancelMenu = menuProbe.makeMenu(retryRows[1]), cancelItem = cancelMenu.items.first!
+        adapter.updateCell(wallCard, content: retryRows[2], state: state)
+        _ = NSApp.sendAction(cancelItem.action!, to: cancelItem.target, from: cancelItem)
+        checks["held-cancel-menu-keeps-exact-asset-page-after-card-reuse"] = library.cancellations == [pageID]
+        menuProbe.workspace.presentation.selectionState.sessionID = UUID()
+        _ = NSApp.sendAction(cancelItem.action!, to: cancelItem.target, from: cancelItem)
+        checks["old-cancel-menu-cannot-borrow-later-selection-session"] = library.cancellations == [pageID]
+        library.progress = [:]
+        checks["idle-online-image-has-no-cancel-menu-action"] = menuProbe.makeMenu(retryRows[1]).items.isEmpty
+        library.snapshot = .init()
         let data = try JSONSerialization.data(withJSONObject: checks, options: [.sortedKeys])
         print(String(decoding: data, as: UTF8.self))
     }

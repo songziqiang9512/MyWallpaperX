@@ -1,3 +1,4 @@
+import AppKit
 import Foundation
 import Combine
 
@@ -10,6 +11,7 @@ import Combine
     static func add(_ timer: PublicationTimer) {}
     func invalidate() { isValid = false }
 }
+extension WallpaperManager { func isLocalSourceFileInUse(_ path: String) -> Bool { false } }
 @MainActor final class SteamWorkshopService {}
 @MainActor final class OnlineLibraryService {}
 @MainActor final class SILService {}
@@ -52,6 +54,7 @@ extension SceneDaemonClient { func stop() {} }
                           cause: WallpaperPlaybackCause) -> WallpaperPlaybackSequence.Snapshot? { nil }
     func playbackContent(for reference: WallpaperReference) throws -> WallpaperContentItem { try content(for: reference) }
     func content(for reference: WallpaperReference) throws -> WallpaperContentItem { items.first { $0.reference == reference }! }
+    func requestSingle(_ reference: WallpaperReference) {}
     func refreshPlaybackAvailability() {}
     func acceptBacking(_ publication: WallpaperContentBackingPublication) {}
     // WORKSPACE_BINDINGS

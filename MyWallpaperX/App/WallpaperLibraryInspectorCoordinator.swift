@@ -27,6 +27,8 @@ import QuickLookUI
     private var observedResetEpoch: UUID
     private weak var ownedPreviewPanel: QLPreviewPanel?
     private(set) var previewReference: WallpaperReference?
+    var isSwitching: ((WallpaperReference) -> Bool)?
+    var onOnlineImageAuthor: ((String) -> Void)?
     private(set) var previewURL: URL?
 
     var inspectedReference: WallpaperReference? { inspection?.content.reference }
@@ -57,6 +59,15 @@ import QuickLookUI
     }
 
     func inspect(content: WallpaperContentItem) {
+        inspect(content: content, artwork: nil, onAuthor: nil)
+    }
+
+    func inspectOnlineArtwork(_ artwork: OnlineImageArtwork, onAuthor: ((String) -> Void)? = nil) {
+        let content = OnlineImageLibrary.shared.content(for: artwork.firstAssetID.reference) ?? OnlineImageContentProjection.remote(artwork)
+        inspect(content: content, artwork: artwork, onAuthor: onAuthor)
+    }
+
+    private func inspect(content: WallpaperContentItem, artwork: OnlineImageArtwork?, onAuthor: ((String) -> Void)?) {
         _ = revokeForResetIfNeeded()
         let current = resolved(content)
         if let previous = inspection, previous.content.reference == current.reference,
@@ -71,7 +82,20 @@ import QuickLookUI
         let module = module(for: current.providerReference.provider)
         let token = InspectorCardToken(module: module, cardID: current.reference.storageKey + ":" + UUID().uuidString)
         let actions = actions(for: current, token: token)
-        let hosted = makeView(for: current, actions: actions)
+        let hosted: NSView
+        if let assetID = OnlineImageAssetID(reference: current.providerReference) {
+            let record = OnlineImageLibrary.shared.record(for: current.providerReference)
+            let sourceBase = URL(string: assetID.source == .wallhaven ? "https://wallhaven.cc/w/" : "https://www.pixiv.net/artworks/")!
+            let value = artwork ?? OnlineImageArtwork(source: assetID.source, artworkID: assetID.artworkID,
+                title: current.title, sourceURL: record?.sourceURL ?? current.metadata.sourceURL ?? sourceBase.appendingPathComponent(assetID.artworkID),
+                author: current.metadata.author)
+            hosted = OnlineImageInspectorView(artwork: value, library: .shared,
+                makeLibraryActions: { [weak self] reference in
+                    guard let self, self.inspection?.token == token,
+                          let local = OnlineImageLibrary.shared.content(for: reference) else { return nil }
+                    return self.actions(for: local, token: token)
+                }, onAuthor: onAuthor ?? (assetID.source == .pixiv ? onOnlineImageAuthor : nil), initialPageIndex: assetID.pageIndex)
+        } else { hosted = makeView(for: current, actions: actions) }
         inspection = Inspection(token: token, content: current, view: hosted)
         InspectorHostActions.postOpen(module: module, presentation: .infoPanel(cardID: token.cardID,
             title: current.title, subtitle: current.providerReference.provider.libraryDisplayName,
@@ -86,9 +110,9 @@ import QuickLookUI
 
     /// Called with the accepted fixed-ref selection. Catalog events never open
     /// a hidden Inspector or preview; they can only update an existing lease.
-    func syncSelection(content: WallpaperContentItem?) {
+    func syncSelection(content: WallpaperContentItem?, artwork: OnlineImageArtwork? = nil, onAuthor: ((String) -> Void)? = nil) {
         guard let content else { closeInspector(); closePreview(); return }
-        if inspection != nil { inspect(content: content) }
+        if inspection != nil { inspect(content: content, artwork: artwork, onAuthor: onAuthor) }
         if isPreviewVisible { updateVisiblePreview(content: content) }
     }
 
@@ -126,6 +150,9 @@ import QuickLookUI
     }
 
     private func resolved(_ content: WallpaperContentItem) -> WallpaperContentItem {
+        if OnlineImageAssetID(reference: content.providerReference) != nil {
+            return OnlineImageLibrary.shared.content(for: content.providerReference) ?? content
+        }
         // Server-only browser results retain their original source detail DTO.
         guard content.publishedAvailability != .remote else { return content }
         return (try? workspace.content(for: content.reference)) ?? content
@@ -159,8 +186,8 @@ import QuickLookUI
         let names = relationships.playlists.filter { members.contains($0.id) }.map(\.name)
         let primary = makePrimaryAction(content)
         let favorite = makeFavoriteAction(content)
-        let state = WallpaperInspectorActions.State(isPlaying: workspace.isPlaying(reference), isFavorite: workspace.isFavorite(reference),
-            canPerformPrimary: primary != nil, canFavorite: favorite != nil,
+        let state = WallpaperInspectorActions.State(isPlaying: workspace.isPlaying(reference), isSwitching: isSwitching?(reference) == true, isFavorite: workspace.isFavorite(reference),
+            canPerformPrimary: primary != nil && isSwitching?(reference) != true, canFavorite: favorite != nil,
             canOrganize: canOrganize() && content.capabilities.contains(.organize), playlistNames: names)
         return WallpaperInspectorActions(state: state, onPrimary: { [weak self] in
             guard let self, self.inspection?.token == token, self.workspace.relationships.resetEpoch == epoch else { return }
@@ -182,6 +209,7 @@ import QuickLookUI
         case let view as SILInspectorView: view.updateLibraryActions(actions)
         case let view as OnlineLibraryDownloadsInspectorView: view.updateLibraryActions(actions)
         case let view as AppKitSteamWorkshopItemDetailView: view.updateLibraryActions(actions)
+        case let view as OnlineImageInspectorView: view.updateLibraryActions(actions)
         default: break
         }
     }
@@ -200,6 +228,7 @@ import QuickLookUI
             let id = Int(source.sourceID)
             let found = id.map { id in String(id).utf8.elementsEqual(source.sourceID.utf8) && online.downloadedContent.entries.contains { $0.id == id } } ?? false
             return found ? view is OnlineLibraryDownloadsInspectorView : view is NSStackView
+        case .wallhaven, .pixiv: return view is OnlineImageInspectorView
         }
     }
 
@@ -226,6 +255,7 @@ import QuickLookUI
                online.downloadedContent.entries.contains(where: { $0.id == id }) {
                 return OnlineLibraryDownloadsInspectorView(itemID: id, service: online, libraryActions: actions)
             }
+        case .wallhaven, .pixiv: break // Constructed above with the page-aware image identity.
         }
         let stack = NSStackView()
         stack.orientation = .vertical
@@ -247,6 +277,8 @@ import QuickLookUI
         case .staticImageLibrary: return .staticImageLibrary
         case .steamWorkshop: return .steamWorkshop
         case .pixabay: return .onlineLibrary
+        case .wallhaven: return .wallhaven
+        case .pixiv: return .pixiv
         }
     }
 

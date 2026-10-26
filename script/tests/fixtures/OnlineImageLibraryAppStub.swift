@@ -1,0 +1,39 @@
+import Combine
+import Foundation
+
+/// Controlled acquisition leaf for real App routing fixtures. It never opens
+/// a session, reads user files or applies a desktop image.
+@MainActor final class OnlineImageLibrary: ObservableObject {
+    static let shared = OnlineImageLibrary()
+    @Published var snapshot = OnlineImageLocalSnapshot()
+    @Published var progress: [OnlineImageAssetID: Double] = [:]
+    var root = URL(fileURLWithPath: "/fixture-owned-online-images", isDirectory: true)
+    var requestLibraryPlayback: ((WallpaperReference) -> Void)?
+    var captureApplyIntent: (() -> (() -> Bool))?
+    var isFileInUse: ((String) -> Bool)?
+    var refreshes = 0
+    var retries: [WallpaperReference] = []
+    var deletions: [WallpaperReference] = []
+    var cancellations: [OnlineImageAssetID] = []
+    var deletion: ((WallpaperReference) async throws -> Void)?
+
+    func refreshLocal() { refreshes += 1 }
+    func record(for reference: WallpaperReference) -> OnlineImageLocalRecord? {
+        snapshot.records.first { $0.assetID.reference == reference }
+    }
+    func localURL(for record: OnlineImageLocalRecord) -> URL? { root.appendingPathComponent(record.relativePath) }
+    func content(for reference: WallpaperReference) -> WallpaperContentItem? {
+        guard let record = record(for: reference), let url = localURL(for: record) else { return nil }
+        return OnlineImageContentProjection.local(record, url: url, available: !snapshot.unavailable.contains(record.id))
+    }
+    func retry(_ reference: WallpaperReference) { retries.append(reference) }
+    func cancel(_ id: OnlineImageAssetID) { cancellations.append(id) }
+    func delete(_ reference: WallpaperReference, expectedRevision: UUID? = nil,
+                permitsDeletion: @escaping () -> Bool = { true }) async throws {
+        guard permitsDeletion(), expectedRevision == nil || expectedRevision == record(for: reference)?.revision else {
+            throw OnlineImageError.message("下载记录已变化")
+        }
+        deletions.append(reference)
+        try await deletion?(reference)
+    }
+}

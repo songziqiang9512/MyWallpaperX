@@ -130,6 +130,9 @@ final class AppKitThumbnailProvider {
     func updateVisiblePreviewDemand(with: [VideoWallpaper]) {}
 }
 enum SILThumbnailLoadResult { case image(NSImage), unavailable }
+final class OnlineImageGridItem: NSCollectionViewItem {
+    static let reuseIdentifier = NSUserInterfaceItemIdentifier("fixture-online-image")
+}
 final class SILThumbnailProvider {
     let cache = DownloadedCache()
     func load(path: String, priority: ThumbnailCacheRequestPriority, cancellation: ThumbnailCacheRequestCancellation,

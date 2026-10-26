@@ -92,8 +92,10 @@ class OnlineDownloadTransferTests(unittest.TestCase):
 
         service_path = CORE / 'OnlineLibraryService.swift'
         model_path = CORE / 'OnlineLibraryModels.swift'
+        transport_path = ROOT / 'MyWallpaperX/Shared/WallpaperFileTransfer.swift'
+        reference_path = ROOT / 'MyWallpaperX/Models/WallpaperReference.swift'
         service = service_path.read_text()
-        delegate = declaration(service, 'nonisolated private final class OLDownloadTaskDelegate:')
+        delegate = declaration(transport_path.read_text(), 'nonisolated final class WallpaperFileTransfer:')
         move = '            try FileManager.default.moveItem(at: location, to: stagingURL)'
         self.assertEqual(delegate.count(move), 1)
         delegate = delegate.replace(move,
@@ -103,7 +105,7 @@ class OnlineDownloadTransferTests(unittest.TestCase):
             '    func download(item:', '    func downloadAndSet(item:',
             '    private func postReadyToPlay(', '    private func startDownload(',
             '    private func fetchAndMove(', '    private func downloadFile(',
-            '    static var downloadDirectory:',
+            '    private func existingDownloadedURL(', '    static var downloadDirectory:',
         ])
         adoption = 'rename(tmp.path, dest.path)'
         self.assertEqual(methods.count(adoption), 1)
@@ -117,10 +119,10 @@ class OnlineDownloadTransferTests(unittest.TestCase):
             environment = dict(os.environ, HOME=str(work / 'home'), CFFIXED_USER_HOME=str(work / 'home'),
                                TMPDIR=str(work / 'tmp') + '/')
             harness = work / 'Harness.swift'; harness.write_text(source)
-            inputs = [service_path, model_path, FIXTURE, Path(__file__)]
+            inputs = [service_path, model_path, transport_path, reference_path, FIXTURE, Path(__file__)]
             identities = {str(path): hashlib.sha256(path.read_bytes()).hexdigest() for path in inputs}
             command = ['xcrun', 'swiftc', '-swift-version', '5', '-default-isolation', 'MainActor',
-                       '-parse-as-library', str(model_path), str(harness),
+                       '-parse-as-library', str(model_path), str(reference_path), str(harness),
                        '-module-cache-path', str(work / 'modules'), '-o', str(work / 'transfer')]
             compiled = subprocess.run(command, env=environment, capture_output=True, text=True, timeout=150)
             self.assertEqual(compiled.returncode, 0, compiled.stdout + compiled.stderr)

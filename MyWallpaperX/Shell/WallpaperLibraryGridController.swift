@@ -384,7 +384,7 @@ import AppKit
     }
 
     private func bindAccessibilityActivation(_ cell: NSCollectionViewItem, content: WallpaperContentItem) {
-        guard let root = cell.view as? WallpaperCardInteractionView, let page, !page.isRemoteBrowse else { return }
+        guard let root = cell.view as? WallpaperCardInteractionView, let page, !page.isRemoteBrowse || page == .wallhaven || page == .pixiv else { return }
         root.setAccessibilityElement(true)
         root.setAccessibilityRole(.group)
         root.setAccessibilityLabel(content.title)

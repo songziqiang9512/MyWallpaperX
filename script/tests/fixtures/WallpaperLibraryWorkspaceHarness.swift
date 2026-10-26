@@ -4,6 +4,7 @@ import QuartzCore
 
 // STARTUP_OUTCOME
 // PUBLICATION_VALUE
+// IMPORT_GATE
 
 // The copied production Task increments this only on exit. Waiting on the
 // receipt proves a duplicate callback actually ran before asserting no write.
@@ -15,6 +16,8 @@ import QuartzCore
 @MainActor final class WallpaperManager {
     var libraryPlaybackSequence = WallpaperPlaybackSequence()
     var playbackSwitch = PlaybackSwitchTransaction()
+    var playbackIntentEpoch: UInt64 { playbackSwitch.epoch }
+    func isLocalSourceFileInUse(_ path: String) -> Bool { false }
     var libraryPlaybackSnapshotProvider: ((WallpaperReference?, WallpaperPlaybackSequence.Source, WallpaperPlaybackCause) -> WallpaperPlaybackSequence.Snapshot?)?
     var libraryPlaybackDispatcher: ((WallpaperPlaybackSequence.Pending) -> Bool)?
     var libraryPlaybackCommitted: ((WallpaperPlaybackSequence.Commit) -> Void)?
@@ -322,6 +325,19 @@ struct WorkspacePause { let isUserPaused: Bool }
                 && settled.dropFirst(2).allSatisfy { !$0.isPlayable }
         }
         checks.merge(try await runWorkspaceRotationSourceChecks(root: database.deletingLastPathComponent()), uniquingKeysWith: { _, newer in newer })
+        let applyManager = WallpaperManager()
+        let applyWorkspace = WallpaperLibraryWorkspace(startup: .ready(.init(store: store, snapshot: initial, disposition: .published)),
+            manager: applyManager, images: SILService(), steam: SteamWorkshopService(), online: OnlineLibraryService(), defaults: defaults)
+        let initialEpoch = applyManager.playbackIntentEpoch
+        let firstImageIntent = OnlineImageLibrary.shared.captureApplyIntent!()
+        checks["download-and-apply-capture-does-not-begin-or-stop-a-product-intent"] = firstImageIntent()
+            && applyManager.playbackIntentEpoch == initialEpoch && applyManager.libraryPlaybackSequence.pending == nil
+        let secondImageIntent = OnlineImageLibrary.shared.captureApplyIntent!()
+        checks["new-image-download-intent-revokes-old-gate-without-changing-current-playback"] = !firstImageIntent()
+            && secondImageIntent() && applyManager.playbackIntentEpoch == initialEpoch
+        _ = applyManager.playbackSwitch.begin(.video)
+        checks["later-product-selection-revokes-pending-image-application"] = !secondImageIntent()
+        _ = applyWorkspace
         print(String(data: try JSONSerialization.data(withJSONObject: checks, options: [.sortedKeys]), encoding: .utf8)!)
     }
 }

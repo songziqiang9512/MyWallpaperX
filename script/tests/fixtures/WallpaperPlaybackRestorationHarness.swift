@@ -358,6 +358,24 @@ private struct SavedPlayback: Codable {
             checks["stopped-global-manual-replay-retains-original-source"] = stoppedReady
                 && p.requests.count == 2 && p.requests.last?.proposal.snapshot.source == .global
         }
+        for provider in [WallpaperProvider.wallhaven, .pixiv] {
+            let p = RestorationProbe(); defer { p.close() }
+            let reference = WallpaperReference(provider: provider, sourceID: provider == .pixiv ? "42:p2" : "Ab001")
+            p.add(reference, .image)
+            p.save(source: .page(.downloads), ref: reference, query: .init(provider: provider))
+            p.start(); p.ready([provider])
+            checks["filtered-image-download-restores-from-local-provider-without-other-source-or-login-" + provider.rawValue] = p.requests.count == 1
+                && p.requests[0].proposal.entry.reference == reference && p.requests[0].ticket.runtime == .systemStill
+        }
+        do {
+            let p = RestorationProbe(); defer { p.close() }
+            p.save(source: .page(.downloads), ref: p.web, query: .init())
+            p.start(); p.ready([.steamWorkshop, .pixabay])
+            checks["unfiltered-download-restore-waits-for-new-local-image-scan-not-anonymous-api"] = p.requests.isEmpty
+            p.ready([.steamWorkshop, .pixabay, .wallhaven, .pixiv])
+            checks["successful-empty-local-image-scan-unblocks-original-download-restoration"] = p.requests.count == 1
+                && p.requests[0].proposal.entry.reference == p.web
+        }
         print(String(data:try JSONSerialization.data(withJSONObject:checks,options:[.sortedKeys]),encoding:.utf8)!)
     }
 }

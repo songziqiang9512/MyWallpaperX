@@ -149,6 +149,22 @@ import AppKit
         precondition(host.makeFirstResponder(mainGrid))
         key("f", code: 3)
         checks["main-window-positive-control-reaches-real-menu-key-equivalent"] = controller.searches == 1
+        // Capture the real online-image menu lease before a login/Key-style
+        // child modal takes input. This controlled onPrimary has no guard of
+        // its own, so only the production menu consumer can revoke it.
+        var retainedImageApplies = 0
+        controller.libraryPresentation.page = .pixiv
+        controller.browserActions = .init(state: .init(isPlaying: false, isFavorite: false,
+            canPerformPrimary: true, canFavorite: false, canOrganize: false, playlistNames: []),
+            onPrimary: { retainedImageApplies += 1 }, onToggleFavorite: {}, onChoosePlaylist: { _ in })
+        let imageApplyValidated = delegate.validateMenuItem(item(.applyWallpaper))
+        let retainedImageApply = NSMenuItem(title: "Retained image apply", action: item(.applyWallpaper).action, keyEquivalent: "")
+        retainedImageApply.target = item(.applyWallpaper).target
+        retainedImageApply.representedObject = item(.applyWallpaper).representedObject
+        _ = app.sendAction(retainedImageApply.action!, to: retainedImageApply.target, from: retainedImageApply)
+        let retainedImageWasLive = imageApplyValidated && retainedImageApplies == 1
+        controller.libraryPresentation.page = .images
+        controller.browserActions = nil
         let before = (controller.libraryCommands.selectAllCalls, controller.libraryCommands.deletes,
             controller.libraryCommands.favorites, controller.libraryCommands.applies, controller.libraryCommands.previews,
             controller.libraryCommands.imports, controller.libraryCommands.infos, controller.libraryCommands.reveals,
@@ -202,6 +218,9 @@ import AppKit
         _ = app.sendAction(item(.applyWallpaper).action!, to: item(.applyWallpaper).target, from: item(.applyWallpaper))
         checks["sheet-without-default-never-borrows-background-apply"] = !missingDefault
             && buttons.adds == 1 && controller.libraryCommands.applies == before.3
+        _ = app.sendAction(retainedImageApply.action!, to: retainedImageApply.target, from: retainedImageApply)
+        checks["retained-online-image-apply-cannot-run-after-account-or-key-modal-takes-input"] = retainedImageWasLive
+            && retainedImageApplies == 1 && controller.libraryCommands.applies == before.3 && buttons.adds == 1
         sheet.defaultButtonCell = add.cell as? NSButtonCell
         let scoped: [MainMenuCommand] = [.createPlaylist, .importFiles, .toggleSelection, .deleteSelected, .search,
             .zoomIn, .zoomOut, .favorite, .addToPlaylist, .info, .preview, .revealOrRefresh]

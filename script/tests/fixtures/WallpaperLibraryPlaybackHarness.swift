@@ -150,6 +150,38 @@ struct SteamWorkshopDownloadRecord {
             manager.switchPrepared(ticket,endpoint:endpoint.endpoint)
             endpoint.show(manager)
         }
+        for source in OnlineImageSource.allCases {
+            let library = OnlineImageLibrary.shared
+            library.root = root
+            let record = OnlineImageLocalRecord(assetID: .init(source: source, artworkID: "42", pageIndex: source == .pixiv ? 2 : 0),
+                title: "Original image", sourceURL: URL(string: "https://example.org/42")!, author: nil, authorID: nil, tags: [],
+                relativePath: "image.png", pixelWidth: 3, pixelHeight: 3, fileSizeBytes: 1, firstDownloadedAt: Date(), revision: UUID())
+            library.snapshot = .init(records: [record])
+            let imageContent = library.content(for: record.id.reference)!
+            let imageSource = try WallpaperPlaybackSequence.Snapshot(source: .single(record.id.reference), revision: 1,
+                entries: [.init(reference: record.id.reference, runtime: .systemStill, isPlayable: true, resourceRevision: record.revision.uuidString)])
+            let (manager, steam, online, images) = setup()
+            manager.libraryPlaybackDispatcher = { pending in
+                WallpaperLibraryPlaybackRouting.dispatch(pending, content: imageContent, manager: manager, workshop: steam, online: online, images: images)
+            }
+            let ticket = manager.requestLibraryPlayback(reference: record.id.reference, from: imageSource)
+            checks["online-image-original-systemStill-route-" + source.rawValue] = ticket?.runtime == .systemStill
+                && manager.libraryPlaybackSequence.committed?.reference == record.id.reference
+                && DesktopLeaf.screens.allSatisfy { DesktopLeaf.shared.urls[$0.id] == imageURL }
+                && manager.wallpapers.count == 1 && images.wallpapers.count == 1
+            library.snapshot.records = [.init(assetID: record.id, title: record.title, sourceURL: record.sourceURL,
+                author: nil, authorID: nil, tags: [], relativePath: "image.png", pixelWidth: 3, pixelHeight: 3,
+                fileSizeBytes: 1, firstDownloadedAt: record.firstDownloadedAt, revision: UUID())]
+            let (staleManager, staleSteam, staleOnline, staleImages) = setup()
+            staleManager.libraryPlaybackDispatcher = { pending in
+                WallpaperLibraryPlaybackRouting.dispatch(pending, content: imageContent, manager: staleManager,
+                    workshop: staleSteam, online: staleOnline, images: staleImages)
+            }
+            checks["online-image-stale-revision-refuses-the-original-ticket-" + source.rawValue] =
+                staleManager.requestLibraryPlayback(reference: record.id.reference, from: imageSource) == nil
+                && staleManager.playbackSwitch.committed == nil
+        }
+        OnlineImageLibrary.shared.snapshot = .init()
         for from in runtimes {
             for to in runtimes where from != to {
                 let(manager,_,_,_)=setup()

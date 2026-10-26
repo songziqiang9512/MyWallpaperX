@@ -74,20 +74,42 @@ class WallpaperLibraryImportTests(unittest.TestCase):
     def test_workspace_alias_pending_and_deleted_captured_source(self):
         paths = ['MyWallpaperX/' + p for p in (
             'Models/WallpaperReference.swift', 'Models/WallpaperContent.swift', 'Models/WallpaperLibraryPage.swift',
+            'Core/OnlineImages/OnlineImageModels.swift', 'Core/OnlineImages/OnlineImageContentProjection.swift',
             'Core/LibraryCollections/UserCollectionsStore.swift', 'Core/LibraryCollections/UserCollectionsController.swift',
             'Core/LibraryCollections/LibraryCollectionsMigration.swift', 'Core/LibraryCollections/WallpaperLibraryViewPreferencesMigration.swift',
             'Core/LibraryCollections/WallpaperLibraryQuery.swift', 'Core/PlaybackControl/WallpaperRuntimeSwitch.swift',
             'Core/PlaybackControl/PlaybackSwitchTransaction.swift', 'Core/PlaybackControl/WallpaperPlaybackSequence.swift',
+            'Core/PlaybackControl/WallpaperRotationDeadline.swift',
             'Shell/WallpaperLibraryPresentation.swift', 'App/WallpaperLibraryWorkspace.swift')]
+        paths.append('script/tests/fixtures/OnlineImageLibraryAppStub.swift')
         leaf_path = ROOT / 'script/tests/fixtures/WallpaperLibraryWorkspaceHarness.swift'
         fixture_path = ROOT / 'script/tests/fixtures/WallpaperLibraryWorkspaceAliasHarness.swift'
         startup_path = ROOT / 'MyWallpaperX/Core/LibraryCollections/LibraryCollectionsStartupAdmission.swift'
         publication_path = ROOT / 'MyWallpaperX/Core/LibraryCollections/LibraryCollectionsMigrationPublication.swift'
-        inputs = [ROOT / p for p in paths] + [leaf_path, fixture_path, startup_path, publication_path]
+        gate_path = ROOT / 'MyWallpaperX/Core/PlaybackControl/ImportedVideoAutoplayGate.swift'
+        navigation_path = ROOT / 'MyWallpaperX/Modules/VideoLibrary/Core/WallpaperManager+PlaybackControl.swift'
+        settings_path = ROOT / 'MyWallpaperX/Modules/VideoLibrary/Core/WallpaperManager+PlaybackSettings.swift'
+        rotation_path = ROOT / 'script/tests/fixtures/WallpaperLibraryRotationSourceChecks.swift'
+        inputs = [ROOT / p for p in paths] + [leaf_path, fixture_path, startup_path, publication_path, gate_path,
+                                            navigation_path, settings_path, rotation_path]
         hashes = {str(p): hashlib.sha256(p.read_bytes()).hexdigest() for p in inputs}
         prelude = leaf_path.read_text().split('@main struct WallpaperLibraryWorkspaceHarness')[0]
         prelude = prelude.replace('// STARTUP_OUTCOME', declaration(startup_path.read_text(), 'nonisolated enum LibraryCollectionsStartupOutcome:'))
         prelude = prelude.replace('// PUBLICATION_VALUE', declaration(publication_path.read_text(), 'nonisolated struct LibraryCollectionsMigrationPublicationResult:'))
+        prelude = prelude.replace('// IMPORT_GATE', declaration(gate_path.read_text(), 'final class ImportedVideoAutoplayGate:'))
+        navigation, settings = navigation_path.read_text(), settings_path.read_text()
+        rotation = '\n'.join(declaration(navigation, signature) for signature in (
+            '    var librarySequenceMode:', '    @discardableResult\n    func advanceLibraryPlayback('))
+        rotation += '\n' + '\n'.join(declaration(settings, signature) for signature in (
+            '    var libraryRotationInterval:', '    var libraryRotationEligible:', '    func rescheduleLibraryRotationTimer(',
+            '    func stopAutoSwitchTimer(', '    func refreshAutoSwitchTimerIfNeeded('))
+        for marker in ('let timer = Timer(timeInterval:', 'RunLoop.main.add(timer, forMode: .common)'):
+            self.assertEqual(rotation.count(marker), 1, marker)
+        self.assertEqual(prelude.count('// ACTUAL_SOURCE_ROTATION'), 1)
+        rotation = rotation.replace('let timer = Timer(timeInterval:', 'let timer = WorkspaceRotationTimer(timeInterval:')
+        rotation = rotation.replace('RunLoop.main.add(timer, forMode: .common)', 'WorkspaceRotationTimer.add(timer)')
+        rotation = rotation.replace('CACurrentMediaTime()', 'WorkspaceRotationClock.now')
+        prelude = prelude.replace('// ACTUAL_SOURCE_ROTATION', rotation) + '\n' + rotation_path.read_text()
         with tempfile.TemporaryDirectory(prefix='mwx-workspace-alias-', dir='/private/tmp') as directory:
             work = Path(directory)
             source = work / 'Checks.swift'; source.write_text(prelude + '\n' + fixture_path.read_text())

@@ -114,6 +114,9 @@ class WallpaperLibraryPlaybackTests(unittest.TestCase):
             work = Path(temporary)
             paths = []
             for original in [*GATE_SOURCES, ROOT / 'MyWallpaperX/Models/WallpaperContent.swift',
+                             ROOT / 'MyWallpaperX/Core/OnlineImages/OnlineImageModels.swift',
+                             ROOT / 'MyWallpaperX/Core/OnlineImages/OnlineImageContentProjection.swift',
+                             ROOT / 'script/tests/fixtures/OnlineImageLibraryAppStub.swift',
                              ROOT / 'MyWallpaperX/Core/LibraryCollections/WallpaperLibraryQuery.swift', app]:
                 copied = work / original.name
                 copied.write_bytes(original.read_bytes()); paths.append(str(copied))

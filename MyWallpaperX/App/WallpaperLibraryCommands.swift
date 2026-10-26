@@ -94,6 +94,10 @@ import Combine
     func makePrimaryAction(for content: WallpaperContentItem,
                            from capturedSource: WallpaperPlaybackSequence.Snapshot? = nil,
                            renderedPlaying: Bool? = nil, renderedTicket: PlaybackSwitchTicket? = nil) -> (() -> Void)? {
+        if content.kind == .image, content.providerReference.provider == .wallhaven || content.providerReference.provider == .pixiv {
+            return makeApplyAction(for: content, from: capturedSource)
+                ?? WallpaperLibraryDownloadRecovery.makePrimaryAction(for: content, workspace: workspace, steam: steam, online: online)
+        }
         if renderedPlaying ?? workspace.isPlaying(content.reference),
            let ticket = renderedPlaying == nil ? manager.playbackSwitch.committed?.ticket : renderedTicket {
             return { [weak self] in self?.stop(content.reference, expectedTicket: ticket) }
@@ -290,7 +294,7 @@ import Combine
                     switch reference.provider {
                     case .videoLibrary: page = .videos
                     case .staticImageLibrary: page = .images
-                    case .steamWorkshop, .pixabay: page = .downloads
+                    case .steamWorkshop, .pixabay, .wallhaven, .pixiv: page = .downloads
                     }
                     workspace?.didEditMembers(of: page)
                 } catch {
@@ -407,7 +411,7 @@ import Combine
             let url = URL(fileURLWithPath: item.locator.path ?? "")
             if item.reference.provider == .videoLibrary || item.reference.provider == .staticImageLibrary {
                 let path = url.resolvingSymlinksInPath().standardizedFileURL.path
-                let ownedRoots = [steam.steamDownloadLibraryRootURL, type(of: online).downloadDirectory]
+                let ownedRoots = [steam.steamDownloadLibraryRootURL, type(of: online).downloadDirectory, OnlineImageLibrary.shared.root]
                 if ownedRoots.contains(where: {
                     let root = $0.resolvingSymlinksInPath().standardizedFileURL.path
                     return path == root || path.hasPrefix(root + "/")
@@ -430,7 +434,7 @@ import Combine
         func provider(_ item: WallpaperContentItem) -> WallpaperProvider {
             // A proven remote identity must retain that source's owned-tree
             // transaction, even when its available pixel backing is a Video row.
-            [.steamWorkshop, .pixabay].contains(item.reference.provider) ? item.reference.provider : item.providerReference.provider
+            [.steamWorkshop, .pixabay, .wallhaven, .pixiv].contains(item.reference.provider) ? item.reference.provider : item.providerReference.provider
         }
         for source in WallpaperProvider.allCases {
             guard workspace.relationships.resetEpoch == epoch, workspace.collections?.isResetting == false else { break }
@@ -480,6 +484,24 @@ import Combine
                     let result = byPath[Data(url.path.utf8)]
                     results.append(.init(reference: item.reference, sourceURL: url, succeeded: result?.succeeded == true,
                         sourceFileDeleted: result?.sourceFileDeleted == true, failureMessage: result?.failureMessage ?? (result == nil ? "下载文件已变化" : nil)))
+                }
+            case .wallhaven, .pixiv:
+                for item in group {
+                    guard workspace.relationships.resetEpoch == epoch, workspace.collections?.isResetting == false else { break }
+                    let url = URL(fileURLWithPath: item.locator.path!)
+                    do {
+                        guard let revision = item.metadata.resourceRevision.flatMap(UUID.init(uuidString:)) else {
+                            throw OnlineImageError.message("下载记录已变化，请重新打开列表后再删除。")
+                        }
+                        try await OnlineImageLibrary.shared.delete(item.reference, expectedRevision: revision,
+                            permitsDeletion: { [weak workspace = self.workspace] in
+                                workspace?.relationships.resetEpoch == epoch && workspace?.collections?.isResetting == false
+                            })
+                        results.append(.init(reference: item.reference, sourceURL: url, succeeded: true, sourceFileDeleted: true, failureMessage: nil))
+                    } catch {
+                        results.append(.init(reference: item.reference, sourceURL: url, succeeded: false,
+                            sourceFileDeleted: !FileManager.default.fileExists(atPath: url.path), failureMessage: error.localizedDescription))
+                    }
                 }
             }
         }
@@ -542,6 +564,10 @@ import Combine
             if let recovery = WallpaperLibraryDownloadRecovery.makeMenu(for: item, workspace: workspace, steam: steam, online: online) {
                 for entry in recovery.items { recovery.removeItem(entry); menu.addItem(entry) }
             }
+            if let assetID = OnlineImageAssetID(reference: item.providerReference),
+               OnlineImageLibrary.shared.progress[assetID] != nil {
+                add("取消下载", "xmark") { OnlineImageLibrary.shared.cancel(assetID) }
+            }
         }
         add(favoriteAction.title, favoriteAction.isRemoving ? "heart.fill" : "heart", enabled: favoriteAction.canExecute) { favorite?() }
         let playlistItem = NSMenuItem(title: "添加到列表", action: nil, keyEquivalent: "")
@@ -576,8 +602,10 @@ import Combine
                 }
             }
         }
-        menu.addItem(.separator())
-        add(removalTitle(for: page), "trash", enabled: canOrganize) { [weak self] in self?.remove(items, from: page) }
+        if !workspace.presentation.page.isRemoteBrowse {
+            menu.addItem(.separator())
+            add(removalTitle(for: page), "trash", enabled: canOrganize) { [weak self] in self?.remove(items, from: page) }
+        }
         return menu
     }
 }

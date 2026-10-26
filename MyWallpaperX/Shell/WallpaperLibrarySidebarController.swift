@@ -226,7 +226,7 @@ final class WallpaperLibrarySidebarController: NSViewController, NSOutlineViewDa
     private func pages(in group: Group) -> [WallpaperLibraryPage] {
         switch group {
         case .library: return [.videos, .images, .downloads, .recent]
-        case .browse: return [.workshop, .pixabay]
+        case .browse: return [.workshop, .wallhaven, .pixiv, .pixabay]
         case .playlists: return [.playlists, .favorites] + playlists.map { .playlist($0.id) }
         }
     }
@@ -308,6 +308,8 @@ final class WallpaperLibrarySidebarController: NSViewController, NSOutlineViewDa
         case .recent: return "clock.arrow.circlepath"
         case .workshop: return "shippingbox"
         case .pixabay: return "globe"
+        case .wallhaven: return "photo"
+        case .pixiv: return "paintpalette"
         case .playlists: return "square.grid.3x3"
         case .favorites: return "heart"
         case .playlist: return WallpaperLibrarySymbols.playlist

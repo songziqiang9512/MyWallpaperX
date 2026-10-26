@@ -51,19 +51,19 @@ nonisolated final class TransferProbe: @unchecked Sendable {
 
 // DOWNLOAD_DELEGATE
 
-@MainActor final class ImportedVideoAutoplayGate {
-    typealias Token = Int
-    static let shared = ImportedVideoAutoplayGate()
-    func claim() -> Int { 1 }
-}
+// Recording leaves for the current library playback/publication boundary.
+@MainActor enum WallpaperPlaybackSequence { struct Pending {} }
+@MainActor struct ImportedVideoPlaybackAdmission {}
 @MainActor struct ImportedVideoPlaybackRequest {
     let localURL: URL
-    let autoplayToken: Int
+    let admission: ImportedVideoPlaybackAdmission
     func post(name: Notification.Name) { OnlineLibraryService.playRequests.append(localURL) }
 }
 extension Notification.Name { static let onlineVideoReadyToPlay = Notification.Name("owned-online-play") }
 
 @MainActor final class OnlineLibraryService {
+    struct DownloadedEntry { let id: Int; let localURL: URL; var isAvailable = true }
+    struct DownloadedContent { var entries: [DownloadedEntry] = [] }
     static var playRequests: [URL] = []
     @Published var downloadingIDs = Set<Int>()
     @Published var downloadProgressByID: [Int: Double] = [:]
@@ -71,6 +71,38 @@ extension Notification.Name { static let onlineVideoReadyToPlay = Notification.N
     var lastDownloadedItemID: Int?
     var downloadSuccessMessage: String?
     var downloadError: String?
+    var requestLibraryPlayback: ((WallpaperReference) -> Void)?
+    var prepareExplicitLibraryRestoration: ((WallpaperReference) -> (() -> Void)?)?
+    var prepareVideoPlaybackIntent: ((WallpaperReference, WallpaperPlaybackSequence.Pending?) -> ImportedVideoPlaybackAdmission?)? = { _, _ in .init() }
+    var downloadedContent = DownloadedContent()
+    var downloadedContentTask: Task<Void, Never>?
+    var downloadedContentGeneration: UInt64 = 0
+    var initialDownloadedScanCompleted = true
+
+    init() {
+        requestLibraryPlayback = { [weak self] reference in
+            guard reference.provider == .pixabay, let id = Int(reference.sourceID) else { return }
+            self?.postReadyToPlay(id: id, libraryPending: .init())
+        }
+    }
+
+    func refreshDownloadedContent() {
+        let files = (try? FileManager.default.contentsOfDirectory(at: Self.downloadDirectory,
+            includingPropertiesForKeys: [.isRegularFileKey])) ?? []
+        let entries: [DownloadedEntry] = files.compactMap { url in
+            let name = url.deletingPathExtension().lastPathComponent
+            guard url.pathExtension == "mp4", name.hasPrefix("online_"),
+                  let id = Int(name.dropFirst("online_".count)),
+                  (try? url.resourceValues(forKeys: [.isRegularFileKey]).isRegularFile) == true else { return nil }
+            return .init(id: id, localURL: url)
+        }
+        publishDownloadedContent(entries)
+    }
+
+    func publishDownloadedContent(_ entries: [DownloadedEntry]) {
+        downloadedContent.entries = entries
+        downloadedIDs = Set(entries.filter(\.isAvailable).map(\.id))
+    }
     // SERVICE_METHODS
 }
 
@@ -123,7 +155,7 @@ extension Notification.Name { static let onlineVideoReadyToPlay = Notification.N
             && relative.bestVideoDownload?.expectedBytes == nil, "selection must not add a URL admission or invent a length")
 
         var callbackProgress: [Double] = []
-        let progressDelegate = OLDownloadTaskDelegate(expectedBytes: 1,
+        let progressDelegate = WallpaperFileTransfer(expectedBytes: 1,
             stagingURL: destination.appendingPathComponent(".unit-progress.pending"), progressHandler: { callbackProgress.append($0) })
         let dormant = URLSession.shared.downloadTask(with: URL(string: base + "/unused")!)
         defer { dormant.cancel() }
@@ -136,7 +168,7 @@ extension Notification.Name { static let onlineVideoReadyToPlay = Notification.N
         try await until { callbackProgress.count == 2 }
         precondition(callbackProgress == [0.25, 1], "GET length wins; small immediate progress ticks remain coalesced")
         var fallbackProgress: [Double] = []
-        let fallbackDelegate = OLDownloadTaskDelegate(expectedBytes: 100,
+        let fallbackDelegate = WallpaperFileTransfer(expectedBytes: 100,
             stagingURL: destination.appendingPathComponent(".unit-fallback.pending"), progressHandler: { fallbackProgress.append($0) })
         fallbackDelegate.urlSession(.shared, downloadTask: dormant, didWriteData: 25,
             totalBytesWritten: 25, totalBytesExpectedToWrite: -1)
@@ -152,7 +184,8 @@ extension Notification.Name { static let onlineVideoReadyToPlay = Notification.N
         precondition(payload.count == 524_288)
         precondition(progress[10, default: []].allSatisfy { $0 >= 0 && $0 <= 1 })
         service.downloadAndSet(item: item(10, path: "/known", size: 1))
-        precondition(OnlineLibraryService.playRequests == [downloaded], "explicit second action must play the local file")
+        precondition(OnlineLibraryService.playRequests.map { $0.resolvingSymlinksInPath().standardizedFileURL } == [downloaded],
+            "explicit second action must play the local file: \(OnlineLibraryService.playRequests), expected \(downloaded)")
         service.download(item: item(11, path: "/unknown", size: 0))
         try await until { !service.downloadingIDs.contains(11) }
         precondition(service.downloadedIDs.contains(11))

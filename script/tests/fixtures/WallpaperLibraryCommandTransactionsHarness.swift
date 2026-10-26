@@ -54,7 +54,7 @@ import Foundation
         plays.append((ref,source));_ = manager.select(ref,source:source ?? displayed)
     }
 }
-// This gate covers available-content fixed primary actions and local drop
+// This gate covers fixed primary actions, recovery delegation and local drop
 // admission. Local/remote recovery execute in their dedicated real-owner gates.
 @MainActor private final class WallpaperLibraryImportCoordinator {
     static func canRelocate(_ content: WallpaperContentItem, relationships: UserCollectionsSnapshot) -> Bool { false }
@@ -70,7 +70,7 @@ import Foundation
 }
 @MainActor private enum WallpaperLibraryDownloadRecovery {
     static func makePrimaryAction(for item: WallpaperContentItem, workspace: CommandWorkspace,
-        steam: CommandSteam, online: CommandOnline) -> (() -> Void)? { nil }
+        steam: CommandSteam, online: CommandOnline) -> (() -> Void)? { OnlineImageCommandRecoveryProbe.action(for: item) }
 }
 @MainActor private final class WallpaperLibraryCommands {
     let manager:WallpaperManager
@@ -99,6 +99,9 @@ private enum AppKitSteamWorkshopBrowserItem {
     // ACTUAL_STEAM_ORGANIZATION
 }
 @MainActor private final class RemoteSteam { var selectedBrowserItem: SteamWorkshopBrowserItem?; @Published var navigationVersion = 0 }
+@MainActor private struct RemoteOnlineImages {
+    func selectedOrganizationActions() -> WallpaperInspectorActions? { nil }
+}
 @MainActor private final class RemotePresentation {
     var page = WallpaperLibraryPage.workshop
     var selectionState = WallpaperLibrarySelectionState()
@@ -113,6 +116,7 @@ private enum AppKitSteamWorkshopBrowserItem {
     func requestSingle(_ ref: WallpaperReference) { requests.append(ref) }
 }
 @MainActor private final class RemoteComposition {
+    let onlineImages = RemoteOnlineImages()
     let workspace: RemoteWorkspace
     // Modal admission is a controlled leaf here; native sheets have their own gate.
     var permitsInput = true
@@ -985,6 +989,8 @@ private struct RemovalFileResult {
             checks["recent-store-removal-uses-same-receipt-and-preserves-other-relations"] = recentView.presentation.selectionState.references == [vb]
                 && controller.snapshot.members.filter { $0.playlistID == id }.map(\.reference) == [vb]
                 && controller.snapshot.favorites.map(\.reference) == [vb]
+            checks.merge(try await runOnlineImageRemovalChecks(root: root, controller: controller,
+                workspace: { workspace($0, page: $1) }), uniquingKeysWith: { _, newer in newer })
         }
         checks.merge(try await runLibraryRestorationChecks(root: root), uniquingKeysWith: { _, newer in newer })
         checks.merge(try await runOrganizationCompletionChecks(root: root), uniquingKeysWith: { _, newer in newer })

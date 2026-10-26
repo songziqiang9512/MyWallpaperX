@@ -269,6 +269,37 @@ struct OnlineLibraryVideoItem: Equatable { let id: Int; let metadataVersion: Int
             invoke(pageOnly, "查看 Pixabay 原网页")
             checks["removed-pixabay-relationship-revokes-held-source-page-action"] = online.pages.count == 1
         }
+        for source in OnlineImageSource.allCases {
+            let library = OnlineImageLibrary.shared
+            let record = OnlineImageLocalRecord(assetID: .init(source: source, artworkID: "42", pageIndex: source == .pixiv ? 2 : 0),
+                title: "Missing page", sourceURL: URL(string: "https://example.org/42")!, author: nil, authorID: nil, tags: [],
+                relativePath: "missing.png", pixelWidth: 3, pixelHeight: 3, fileSizeBytes: 1, firstDownloadedAt: Date(), revision: UUID())
+            library.snapshot = .init(records: [record], unavailable: [record.id])
+            library.retries = []
+            let (workspace, steam, online) = setup(record.id.reference)
+            let action = WallpaperLibraryDownloadRecovery.makePrimaryAction(for: try workspace.content(for: record.id.reference),
+                workspace: workspace, steam: steam, online: online)
+            action?()
+            let recoveryMenu = try menu(workspace, steam, online, record.id.reference)
+            checks["online-image-recovery-uses-local-record-without-remote-browser-results-" + source.rawValue] = action != nil
+                && library.retries == [record.id.reference] && online.items.isEmpty && workspace.plays.isEmpty
+                && recoveryMenu?.items.map(\.title) == ["重新下载", "查看原网页"]
+            let before = workspace.relationships
+            workspace.relationships = .init(revision: before.revision + 1, resetEpoch: UUID(), migrationManifestID: nil,
+                playlists: [], members: [], favorites: before.favorites, recent: [], aliases: [], locators: before.locators)
+            action?()
+            checks["online-image-recovery-held-action-is-revoked-by-reset-" + source.rawValue] = library.retries == [record.id.reference]
+            let epoch = workspace.relationships.resetEpoch
+            workspace.relationships = .init(revision: before.revision + 2, resetEpoch: epoch, migrationManifestID: nil,
+                playlists: [], members: [], favorites: [], recent: [], aliases: [], locators: before.locators)
+            let manifestOnly = WallpaperLibraryDownloadRecovery.makePrimaryAction(for: try workspace.content(for: record.id.reference),
+                workspace: workspace, steam: steam, online: online)
+            let manifestMenu = try menu(workspace, steam, online, record.id.reference)
+            manifestOnly?()
+            checks["online-image-manifest-record-admits-recovery-without-favorite-membership-or-history-" + source.rawValue] = manifestOnly != nil
+                && manifestMenu?.items.map(\.title) == ["重新下载", "查看原网页"]
+                && library.retries == [record.id.reference, record.id.reference] && workspace.plays.isEmpty
+        }
         print(String(data: try JSONSerialization.data(withJSONObject: checks, options: [.sortedKeys]), encoding: .utf8)!)
     }
 }

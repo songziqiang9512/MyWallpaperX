@@ -40,6 +40,13 @@ enum WallpaperLibraryPlaybackRouting {
             guard content.kind == .video, pending.ticket.runtime == .video,
                   let id = Int(owner.sourceID), String(id).utf8.elementsEqual(owner.sourceID.utf8) else { return false }
             return online.setLocalFileAsWallpaper(id: id, libraryPending: pending)
+        case .wallhaven, .pixiv:
+            let library = OnlineImageLibrary.shared
+            guard content.kind == .image, pending.ticket.runtime == .systemStill,
+                  let record = library.record(for: owner), record.revision.uuidString == content.metadata.resourceRevision,
+                  let url = library.localURL(for: record) else { return false }
+            manager.setStaticWallpaper(url, libraryPending: pending)
+            return true
         }
     }
 }

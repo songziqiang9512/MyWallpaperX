@@ -87,7 +87,7 @@ import ImageIO
         let legacyVideos = manager.wallpapers
         let worker = Task.detached(priority: .utility) {
             let payload = try LibraryPersonalSettings.decode(Data(contentsOf: url))
-            if payload.schemaVersion == 7 { try Self.validateCustomCoverCopies(payload.collections?.coverAssets ?? []) }
+            if payload.schemaVersion >= 7 { try Self.validateCustomCoverCopies(payload.collections?.coverAssets ?? []) }
             let paths = LibraryPersonalSettings.paths(in: payload, sources: sources)
             var normalized: [String: String] = [:]
             for path in paths {

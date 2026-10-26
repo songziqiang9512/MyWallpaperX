@@ -4,7 +4,46 @@
 //
 
 import AppKit
+import CryptoKit
 import Foundation
+
+/// An opaque scope follows one source/session lifetime. Credentials never form cache keys.
+nonisolated struct OLThumbnailRequest: Sendable {
+    let url: URL
+    let scopeID: String?
+    let session: WallpaperNetworkSession?
+    let referer: URL?
+    let cacheURL: URL
+
+    init(url: URL, scopeID: String? = nil, session: WallpaperNetworkSession? = nil, referer: URL? = nil) {
+        self.url = url; self.scopeID = scopeID; self.session = session; self.referer = referer
+        if let scopeID {
+            let scope = SHA256.hash(data: Data(scopeID.utf8)).map { String(format: "%02x", $0) }.joined()
+            let resource = SHA256.hash(data: Data(url.absoluteString.utf8)).map { String(format: "%02x", $0) }.joined()
+            cacheURL = URL(string: "mwx-thumbnail://\(scope)/\(resource)")!
+        } else { cacheURL = url }
+    }
+
+    var hasValidTransport: Bool {
+        if let scopeID { return !scopeID.isEmpty && session != nil }
+        return session == nil && referer == nil
+    }
+}
+
+/// Scoped transports may redirect only inside their original origin.
+nonisolated private final class OLThumbnailRedirectPolicy: NSObject, URLSessionTaskDelegate {
+    let origin: URL
+    init(origin: URL) { self.origin = origin }
+    func urlSession(_ session: URLSession, task: URLSessionTask, willPerformHTTPRedirection response: HTTPURLResponse,
+                    newRequest request: URLRequest, completionHandler: @escaping (URLRequest?) -> Void) {
+        let target = request.url
+        let originPort = origin.port ?? (origin.scheme == "https" ? 443 : 80)
+        let targetPort = target?.port ?? (target?.scheme == "https" ? 443 : 80)
+        let sameOrigin = target?.scheme == origin.scheme && target?.host?.lowercased() == origin.host?.lowercased()
+            && targetPort == originPort
+        completionHandler(sameOrigin ? request : nil)
+    }
+}
 
 nonisolated enum OLThumbnailRequestPriority: Sendable {
     case visible
@@ -42,15 +81,16 @@ actor OLThumbnailRequestCoordinator {
         let id: UUID
         let task: Task<Void, Never>
         let priority: OLThumbnailPriorityState
+        let scopeID: String?
         var consumers: [UUID: CheckedContinuation<Data?, Never>]
     }
 
     static let shared = OLThumbnailRequestCoordinator()
-    private let session: URLSession
+    private let session: WallpaperNetworkSession
     private let scheduler = OLThumbnailRequestScheduler()
     private var inFlight: [String: InFlightRequest] = [:]
 
-    init(session: URLSession? = nil) {
+    init(session: WallpaperNetworkSession? = nil) {
         if let session { self.session = session; return }
         let configuration = URLSessionConfiguration.default
         configuration.httpMaximumConnectionsPerHost = 6
@@ -58,12 +98,17 @@ actor OLThumbnailRequestCoordinator {
         configuration.timeoutIntervalForRequest = 12
         configuration.timeoutIntervalForResource = 16
         configuration.waitsForConnectivity = false
-        self.session = URLSession(configuration: configuration)
+        self.session = WallpaperNetworkSession(configuration: configuration)
     }
 
     func loadData(from url: URL, priority: OLThumbnailRequestPriority) async -> Data? {
+        await loadData(for: OLThumbnailRequest(url: url), priority: priority)
+    }
+
+    func loadData(for source: OLThumbnailRequest, priority: OLThumbnailRequestPriority) async -> Data? {
+        guard source.hasValidTransport else { return nil }
         let consumerID = UUID()
-        let key = url.absoluteString
+        let key = source.cacheURL.absoluteString
         return await withTaskCancellationHandler {
             guard !Task.isCancelled else { return nil }
             return await withCheckedContinuation { continuation in
@@ -79,14 +124,19 @@ actor OLThumbnailRequestCoordinator {
                 }
                 let requestID = UUID()
                 let priorityState = OLThumbnailPriorityState(priority)
-                let task = Task { [session, scheduler] in
+                let transport = source.session ?? session
+                let task = Task { [scheduler] in
                     let result = await scheduler.run(id: requestID, priority: priority,
                         currentPriority: { priorityState.current() }) {
                         do {
-                            var request = URLRequest(url: url)
+                            var request = URLRequest(url: source.url)
                             request.timeoutInterval = priorityState.current().timeoutInterval
                             request.networkServiceType = priorityState.current().networkServiceType
-                            let (data, response) = try await session.data(for: request)
+                            if let referer = source.referer {
+                                request.setValue(referer.absoluteString, forHTTPHeaderField: "Referer")
+                            }
+                            let policy = source.scopeID == nil ? nil : OLThumbnailRedirectPolicy(origin: source.url)
+                            let (data, response) = try await transport.data(for: request, delegate: policy)
                             guard !Task.isCancelled,
                                   let http = response as? HTTPURLResponse,
                                   (200..<300).contains(http.statusCode) else { return nil as Data? }
@@ -95,11 +145,20 @@ actor OLThumbnailRequestCoordinator {
                     }
                     finish(key: key, requestID: requestID, data: result ?? nil)
                 }
-                inFlight[key] = InFlightRequest(id: requestID, task: task, priority: priorityState,
+                inFlight[key] = InFlightRequest(id: requestID, task: task, priority: priorityState, scopeID: source.scopeID,
                     consumers: [consumerID: continuation])
             }
         } onCancel: {
             Task { await self.cancelConsumer(consumerID, forKey: key) }
+        }
+    }
+
+    func invalidate(scopeID: String) {
+        let keys = inFlight.compactMap { $0.value.scopeID == scopeID ? $0.key : nil }
+        for key in keys {
+            guard let request = inFlight.removeValue(forKey: key) else { continue }
+            request.task.cancel()
+            request.consumers.values.forEach { $0.resume(returning: nil) }
         }
     }
 
@@ -232,13 +291,27 @@ actor OLThumbnailCache {
         decodedImageCache.object(forKey: "\(url.absoluteString)@\(maxPixelSize)" as NSString)
     }
 
+    nonisolated func readyImage(for request: OLThumbnailRequest, maxPixelSize: Int) -> NSImage? {
+        guard request.hasValidTransport else { return nil }
+        return readyImage(for: request.cacheURL, maxPixelSize: maxPixelSize)
+    }
+
     private let requestCoordinator: OLThumbnailRequestCoordinator
     private var cacheGeneration = 0
+    private struct ScopeStamp: Hashable, Sendable { let id: String; let revision: UUID }
+    private struct ScopeState {
+        let revision = UUID()
+        let keyPrefix: String
+        var urls: Set<URL> = []
+    }
+    private var scopes: [String: ScopeState] = [:]
+    private var invalidatingScopes: [String: Int] = [:]
     private struct DecodeKey: Hashable, Sendable {
         let url: URL
         let pixelSize: Int
         let generation: Int
         let data: Data
+        let scope: ScopeStamp?
     }
     private struct DecodeRequest {
         let id: UUID
@@ -261,9 +334,9 @@ actor OLThumbnailCache {
     }
 
     /// 取缓存（内存 → 磁盘），返回 nil 表示无缓存
-    func cachedData(for url: URL) -> Data? {
+    func cachedData(for url: URL, scopeID: String? = nil) -> Data? {
         let key = url.absoluteString as NSString
-        if let data = memCache.object(forKey: key) { return data as Data }
+        if let data = memCache.object(forKey: key) { registerRaw(url, scopeID: scopeID); return data as Data }
         let file = cacheFile(for: url)
         guard let attrs = try? FileManager.default.attributesOfItem(atPath: file.path),
               let modified = attrs[.modificationDate] as? Date,
@@ -271,16 +344,66 @@ actor OLThumbnailCache {
               let data = try? Data(contentsOf: file)
         else { return nil }
         memCache.setObject(data as NSData, forKey: key, cost: data.count)
+        registerRaw(url, scopeID: scopeID)
         return data
     }
 
     func publicationGeneration() -> Int { cacheGeneration }
 
+    /// Only URLs registered by this scope are removed; other sources keep their cache and leases.
+    func invalidate(scopeID: String) async {
+        invalidatingScopes[scopeID, default: 0] += 1
+        if let scope = scopes.removeValue(forKey: scopeID) {
+            for url in scope.urls {
+                memCache.removeObject(forKey: url.absoluteString as NSString)
+            }
+            decodedImageCache.removeObjects(withKeyPrefix: scope.keyPrefix)
+            // Disk eviction already bounds these files. Inspect names once on
+            // account change instead of retaining every URL ever requested.
+            for file in (try? FileManager.default.contentsOfDirectory(at: cacheDir, includingPropertiesForKeys: nil)) ?? [] {
+                let name = file.lastPathComponent.replacingOccurrences(of: "_", with: "/").replacingOccurrences(of: "-", with: "+")
+                guard let data = Data(base64Encoded: name), let key = String(data: data, encoding: .utf8),
+                      key.hasPrefix(scope.keyPrefix) else { continue }
+                try? FileManager.default.removeItem(at: file)
+            }
+        }
+        let keys = decoding.keys.filter { $0.scope?.id == scopeID }
+        for key in keys {
+            guard let request = decoding.removeValue(forKey: key) else { continue }
+            request.operation.cancel()
+            request.consumers.values.forEach { $0.resume(returning: nil) }
+        }
+        await requestCoordinator.invalidate(scopeID: scopeID)
+        if let count = invalidatingScopes[scopeID], count > 1 { invalidatingScopes[scopeID] = count - 1 }
+        else { invalidatingScopes.removeValue(forKey: scopeID) }
+    }
+
+    private func register(_ request: OLThumbnailRequest) -> ScopeStamp? {
+        guard let id = request.scopeID else { return nil }
+        if scopes[id] == nil { scopes[id] = ScopeState(keyPrefix: "mwx-thumbnail://\(request.cacheURL.host!)/") }
+        return ScopeStamp(id: id, revision: scopes[id]!.revision)
+    }
+
+    private func registerRaw(_ url: URL, scopeID: String?) {
+        guard let id = scopeID, scopes[id] != nil else { return }
+        scopes[id]?.urls.insert(url)
+        // NSCache is configured for 300 entries. Compact receipts only after a
+        // second working set, using memory facts without filesystem polling.
+        if let urls = scopes[id]?.urls, urls.count > 600 {
+            scopes[id]?.urls = Set(urls.filter { memCache.object(forKey: $0.absoluteString as NSString) != nil })
+        }
+    }
+
+    private func isCurrent(_ scope: ScopeStamp?) -> Bool {
+        scope.map { scopes[$0.id]?.revision == $0.revision } ?? true
+    }
+
     /// Requests capture this generation before waiting for the network.
-    func store(data: Data, for url: URL, generation: Int) {
+    func store(data: Data, for url: URL, generation: Int, scopeID: String? = nil) {
         guard generation == cacheGeneration else { return }
         let key = url.absoluteString as NSString
         memCache.setObject(data as NSData, forKey: key, cost: data.count)
+        registerRaw(url, scopeID: scopeID)
         let file = cacheFile(for: url)
         try? data.write(to: file, options: .atomic)
         // 同次限频扫描先删除过期文件，再对剩余缓存执行原容量淘汰。
@@ -299,6 +422,7 @@ actor OLThumbnailCache {
         }
         memCache.removeAllObjects()
         decodedImageCache.removeAllObjects()
+        scopes.removeAll()
         try? FileManager.default.removeItem(at: cacheDir)
         try? FileManager.default.createDirectory(at: cacheDir, withIntermediateDirectories: true)
     }
@@ -307,27 +431,41 @@ actor OLThumbnailCache {
 
     /// Captures the clear epoch before either disk or network work begins.
     func image(for url: URL, maxPixelSize: Int, priority: OLThumbnailRequestPriority) async -> NSImage? {
+        await image(for: OLThumbnailRequest(url: url), maxPixelSize: maxPixelSize, priority: priority)
+    }
+
+    func image(for request: OLThumbnailRequest, maxPixelSize: Int, priority: OLThumbnailRequestPriority) async -> NSImage? {
+        guard request.hasValidTransport, request.scopeID.map({ invalidatingScopes[$0] == nil }) ?? true else { return nil }
+        let scope = register(request)
+        let url = request.cacheURL
         let generation = cacheGeneration
-        if let image = await cachedImage(for: url, maxPixelSize: maxPixelSize, priority: priority) {
-            return !Task.isCancelled && generation == cacheGeneration ? image : nil
+        if let image = await cachedImage(for: url, maxPixelSize: maxPixelSize, priority: priority, scope: scope) {
+            return !Task.isCancelled && generation == cacheGeneration && isCurrent(scope) ? image : nil
         }
-        guard !Task.isCancelled, generation == cacheGeneration,
-              let data = await requestCoordinator.loadData(from: url, priority: priority),
-              !Task.isCancelled, generation == cacheGeneration else { return nil }
-        return await storeAndDecode(data: data, for: url, maxPixelSize: maxPixelSize,
-            generation: generation, priority: priority)
+        guard !Task.isCancelled, generation == cacheGeneration, isCurrent(scope),
+              let data = await requestCoordinator.loadData(for: request, priority: priority),
+              !Task.isCancelled, generation == cacheGeneration, isCurrent(scope),
+              let image = await decode(data, for: url, maxPixelSize: maxPixelSize, generation: generation,
+                priority: priority, persistsSourceData: true, scope: scope),
+              !Task.isCancelled, generation == cacheGeneration, isCurrent(scope) else { return nil }
+        return image
     }
 
     func cachedImage(for url: URL, maxPixelSize: Int = 800,
         priority: OLThumbnailRequestPriority = .visible) async -> NSImage? {
-        guard !Task.isCancelled else { return nil }
+        await cachedImage(for: url, maxPixelSize: maxPixelSize, priority: priority, scope: nil)
+    }
+
+    private func cachedImage(for url: URL, maxPixelSize: Int,
+        priority: OLThumbnailRequestPriority, scope: ScopeStamp?) async -> NSImage? {
+        guard !Task.isCancelled, isCurrent(scope) else { return nil }
         let key = "\(url.absoluteString)@\(maxPixelSize)" as NSString
         if let image = decodedImageCache.object(forKey: key) { return image }
         let generation = cacheGeneration
-        guard let data = cachedData(for: url),
+        guard let data = cachedData(for: url, scopeID: scope?.id),
               let image = await decode(data, for: url, maxPixelSize: maxPixelSize,
-                generation: generation, priority: priority, persistsSourceData: false),
-              !Task.isCancelled, generation == cacheGeneration else { return nil }
+                generation: generation, priority: priority, persistsSourceData: false, scope: scope),
+              !Task.isCancelled, generation == cacheGeneration, isCurrent(scope) else { return nil }
         return image
     }
 
@@ -341,11 +479,11 @@ actor OLThumbnailCache {
     }
 
     private func decode(_ data: Data, for url: URL, maxPixelSize: Int, generation: Int,
-        priority: OLThumbnailRequestPriority, persistsSourceData: Bool) async -> NSImage? {
-        let key = DecodeKey(url: url, pixelSize: maxPixelSize, generation: generation, data: data)
+        priority: OLThumbnailRequestPriority, persistsSourceData: Bool, scope: ScopeStamp? = nil) async -> NSImage? {
+        let key = DecodeKey(url: url, pixelSize: maxPixelSize, generation: generation, data: data, scope: scope)
         let consumerID = UUID()
         return await withTaskCancellationHandler {
-            guard !Task.isCancelled, generation == cacheGeneration else { return nil }
+            guard !Task.isCancelled, generation == cacheGeneration, isCurrent(scope) else { return nil }
             return await withCheckedContinuation { continuation in
                 if var request = decoding[key] {
                     request.consumers[consumerID] = continuation
@@ -383,14 +521,14 @@ actor OLThumbnailCache {
 
     private func finishDecode(key: DecodeKey, requestID: UUID, image: NSImage?) {
         guard let request = decoding[key], request.id == requestID else { return }
-        let result = key.generation == cacheGeneration ? image : nil
+        let result = key.generation == cacheGeneration && isCurrent(key.scope) ? image : nil
         if let result {
             // Publish once before resuming any consumer. This closes the gap in
             // which a new card could start the same decode before its first
             // consumer had resumed and populated the ready tier.
             decodedImageCache.setObject(result, forKey: "\(key.url.absoluteString)@\(key.pixelSize)" as NSString,
                 cost: Self.decodedImageCost(result))
-            if request.persistsSourceData { store(data: key.data, for: key.url, generation: key.generation) }
+            if request.persistsSourceData { store(data: key.data, for: key.url, generation: key.generation, scopeID: key.scope?.id) }
         }
         decoding.removeValue(forKey: key)
         request.consumers.values.forEach { $0.resume(returning: result) }

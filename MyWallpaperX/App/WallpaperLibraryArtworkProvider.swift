@@ -81,6 +81,15 @@ import AppKit
                 let cancellation = ThumbnailCacheRequestCancellation()
                 OLDownloadedThumbnailStore.prefetch(row, cancellation: cancellation) { _, image in completion(image) }
                 return { cancellation.cancel() }
+            case .wallhaven, .pixiv:
+                let library = OnlineImageLibrary.shared
+                guard let record = library.record(for: reference), record.revision.uuidString == content.metadata.resourceRevision,
+                      let url = library.localURL(for: record) else { completion(nil); return {} }
+                let cancellation = ThumbnailCacheRequestCancellation()
+                stills.load(path: url.path, priority: .prefetch, cancellation: cancellation) { result in
+                    if case .image(let image) = result { completion(image) } else { completion(nil) }
+                }
+                return { cancellation.cancel() }
             }
         }
     }

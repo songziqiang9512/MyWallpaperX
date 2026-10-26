@@ -3,7 +3,7 @@ import Foundation
 /// Provider namespaces and opaque source IDs define identity. Media kind,
 /// filenames and paths may change without changing a user's relationships.
 nonisolated enum WallpaperProvider: String, Codable, CaseIterable, Sendable {
-    case videoLibrary, staticImageLibrary, steamWorkshop, pixabay
+    case videoLibrary, staticImageLibrary, steamWorkshop, pixabay, wallhaven, pixiv
 
     /// Search normalization only. It neither validates remote actions nor
     /// changes opaque reference identity, including leading zeros.
@@ -313,7 +313,7 @@ extension UserCollectionsSnapshot {
 
 /// Explicit settings restore can retain offline references. This value cannot
 /// contain recent history, playback/session state, credentials or wallpaper
-/// media. Schema 7 carries only the App-owned, bounded custom cover copies.
+/// media. Schema 7 and later carry only the App-owned, bounded custom cover copies.
 nonisolated struct LibraryCollectionsPersonalSettingsImport: Codable, Equatable, Sendable {
     struct FavoriteState: Codable, Equatable, Sendable {
         let reference: WallpaperReference

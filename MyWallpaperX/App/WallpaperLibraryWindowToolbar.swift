@@ -26,6 +26,7 @@ import Combine
     let toolbar: NSToolbar
     private let steam: SteamWorkshopToolbarController
     private let online: OnlineLibraryToolbarController
+    private let imageTools: OnlineImageToolbarController
     private lazy var zoomControl: WallpaperLibraryZoomControl = {
         let control = WallpaperLibraryZoomControl()
         control.makeAction = { [weak self] in self?.makeZoomAction(delta: $0) }
@@ -33,7 +34,8 @@ import Combine
     }()
 
     init(window: NSWindow, workspace: WallpaperLibraryWorkspace, commands: WallpaperLibraryCommands,
-         gridWidth: @escaping () -> CGFloat, makeDirectoryReturnAction: @escaping () -> (() -> Void)? = { nil }) {
+         gridWidth: @escaping () -> CGFloat, makeDirectoryReturnAction: @escaping () -> (() -> Void)? = { nil },
+         onlineImages: WallpaperLibraryOnlineImages) {
         self.window = window; self.workspace = workspace; self.commands = commands
         self.gridWidth = gridWidth
         self.makeDirectoryReturnAction = makeDirectoryReturnAction
@@ -41,6 +43,7 @@ import Combine
         self.toolbar = toolbar
         steam = SteamWorkshopToolbarController(toolbar: toolbar, window: window)
         online = OnlineLibraryToolbarController(window: window)
+        imageTools = OnlineImageToolbarController(images: onlineImages, workspace: workspace, window: window)
         super.init()
         toolbar.delegate = self
         toolbar.displayMode = .iconOnly
@@ -63,6 +66,7 @@ import Combine
             self.refresh()
         }
         online.titleUpdateHandler = { [weak self] _ in self?.refresh() }
+        onlineImages.onChange = { [weak self] in self?.refresh() }
         steam.makeZoomAction = { [weak self] in self?.makeZoomAction(delta: $0) }
         online.makeZoomAction = { [weak self] in self?.makeZoomAction(delta: $0) }
         commands.onFocusSearch = { [weak self] in self?.focusSearch() }
@@ -110,6 +114,7 @@ import Combine
         if page == .pixabay {
             return prefix + online.onlineIdentifiers.filter { $0 != .sidebarTrackingSeparator && $0 != Action.title.id && $0 != .flexibleSpace }
         }
+        if page == .wallhaven || page == .pixiv { return prefix + imageTools.identifiers }
         let groups: [[Action]]
         switch page {
         case .videos, .images: groups = [[.importFiles, .select, .addToPlaylist], [.previous, .next], [.remove, .favorite, .more], [.sort], [.zoom], [.search]]
@@ -133,6 +138,7 @@ import Combine
     }
 
     func refresh() {
+        imageTools.refresh()
         let state = workspace.presentation.selectionState
         let requested = identifiers
         if requested != lastIdentifiers {
@@ -230,7 +236,7 @@ import Combine
     func toolbarAllowedItemIdentifiers(_ toolbar: NSToolbar) -> [NSToolbarItem.Identifier] { identifiers }
     func toolbarDefaultItemIdentifiers(_ toolbar: NSToolbar) -> [NSToolbarItem.Identifier] { identifiers }
     func toolbar(_ toolbar: NSToolbar, itemForItemIdentifier id: NSToolbarItem.Identifier, willBeInsertedIntoToolbar flag: Bool) -> NSToolbarItem? {
-        guard let action = Action(rawValue: id.rawValue) else { return steam.makeItem(for: id) ?? online.makeItem(for: id) }
+        guard let action = Action(rawValue: id.rawValue) else { return steam.makeItem(for: id) ?? online.makeItem(for: id) ?? imageTools.makeItem(for: id) }
         if let existing = items[action] { return existing }
         let item: NSToolbarItem
         if action == .back {
@@ -391,6 +397,7 @@ import Combine
         let page = workspace.presentation.page
         if page == .workshop { steam.focusSearch(); return }
         if page == .pixabay { online.focusSearch(); return }
+        if page == .wallhaven || page == .pixiv { imageTools.focusSearch(); return }
         (items[.search] as? NSSearchToolbarItem)?.beginSearchInteraction()
     }
 
@@ -411,6 +418,11 @@ import Combine
         default: return
         }
         menu.removeAllItems()
+        // The native toolbar pull-down consumes its first item as the title.
+        // Reserve it so the first real command (e.g. All Sources) stays visible.
+        let title = NSMenuItem(title: label(action), action: nil, keyEquivalent: "")
+        title.isEnabled = false
+        menu.addItem(title)
         // These private factories all enter through this gate. Their handlers
         // retain the fixed page/epoch checks without repeating modal admission.
         source.requireAppActionPermission { [weak self] in self?.permitsInput == true }
@@ -533,13 +545,12 @@ import Combine
             menu.addItem(item)
         }
         add("全部来源", selected: query.provider == nil) { $0.provider = nil }
-        let providers: [WallpaperProvider] = page == .downloads ? [.steamWorkshop, .pixabay] : WallpaperProvider.allCases
+        let providers: [WallpaperProvider] = page == .downloads ? [.steamWorkshop, .wallhaven, .pixiv, .pixabay] : WallpaperProvider.allCases
         for provider in providers { add(provider.libraryDisplayName, selected: query.provider == provider) { $0.provider = provider } }
         menu.addItem(.separator())
         let counts = workspace.presentation.mediaKindCounts
         add("全部类型（\(counts.values.reduce(0, +))）", selected: query.kind == nil) { $0.kind = nil }
         for (kind, title) in [(WallpaperMediaKind.image, "图片"), (.video, "视频"), (.web, "Web"), (.scene, "Scene")] {
-            if page == .downloads, kind == .image { continue }
             add("\(title)（\(counts[kind, default: 0])）", selected: query.kind == kind) { $0.kind = kind }
         }
         menu.addItem(.separator())

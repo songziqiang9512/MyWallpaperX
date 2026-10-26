@@ -23,7 +23,7 @@ struct SteamWorkshopDownloadRecord: Equatable {
 }
 enum WallpaperMediaKind { case image, video, web, scene, unknown }
 struct WallpaperReference: Hashable {
-    enum Provider { case videoLibrary, staticImageLibrary, steamWorkshop, pixabay }
+    enum Provider { case videoLibrary, staticImageLibrary, steamWorkshop, pixabay, wallhaven, pixiv }
     let provider: Provider
     let sourceID: String
 }

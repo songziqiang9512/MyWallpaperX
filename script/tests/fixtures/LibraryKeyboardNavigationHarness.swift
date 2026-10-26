@@ -28,7 +28,7 @@ private final class KeyboardCell: NSCollectionViewItem {
         // Opaque provider identities share their numeric component deliberately.
         // The accepted display order is the navigation input; Query owns sorting.
         let values = (0..<40).map { index -> WallpaperContentItem in
-            let ref = WallpaperReference(provider: WallpaperProvider.allCases[index % 4], sourceID: String(index / 4))
+            let ref = WallpaperReference(provider: WallpaperProvider.allCases[index % WallpaperProvider.allCases.count], sourceID: String(index / WallpaperProvider.allCases.count))
             return .init(reference: ref, providerReference: ref, locator: .init(mediaKind: .video),
                 title: "Item \(index)", kind: .video, publishedAvailability: .available,
                 capabilities: [.inspect, .play], metadata: .init(), acquisition: .idle, update: .idle, aliases: [])

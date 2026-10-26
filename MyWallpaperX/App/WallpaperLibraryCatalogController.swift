@@ -12,6 +12,7 @@ import Foundation
     private let images: SILService
     private let steam: SteamWorkshopService
     private let online: OnlineLibraryService
+    private let onlineImages = OnlineImageLibrary.shared
     private var subscriptions = Set<AnyCancellable>()
     private var videoTask: Task<Void, Never>?
     private var imageTask: Task<Void, Never>?
@@ -58,6 +59,9 @@ import Foundation
             $0.entries == $1.entries && ($0.revision == 0) == ($1.revision == 0) && $0.status == $1.status
         }.sink { [weak self] snapshot in
             self?.replaceOnline(snapshot)
+        }.store(in: &subscriptions)
+        onlineImages.$snapshot.removeDuplicates().sink { [weak self] snapshot in
+            self?.replaceOnlineImages(snapshot)
         }.store(in: &subscriptions)
         Publishers.CombineLatest4(steam.$downloads, steam.downloadJobStore.$jobs, steam.steamAuth.$steamId, steam.$hasCompletedInstalledLibraryLoad)
             .removeDuplicates { lhs, rhs in
@@ -148,6 +152,7 @@ import Foundation
         refreshImages = true
         refreshSteam = true
         online.refreshDownloadedContent()
+        onlineImages.refreshLocal()
         replaceVideos(manager.wallpapers, loaded: manager.didFinishInitialIndexLoad)
         replaceImages(images.wallpapers)
         replaceSteam(steam.downloads, jobs: steam.downloadJobStore.jobs, account: steam.steamAuth.steamId,
@@ -244,6 +249,18 @@ import Foundation
         publish(items, provider: .pixabay, revision: revision, loaded: snapshot.status.hasSuccessfulScan, scanStatus: snapshot.status)
     }
 
+    private func replaceOnlineImages(_ snapshot: OnlineImageLocalSnapshot) {
+        let records = Dictionary(grouping: snapshot.records, by: { $0.assetID.source })
+        for source in OnlineImageSource.allCases {
+            let items = (records[source] ?? []).compactMap { record -> WallpaperContentItem? in
+                guard let url = onlineImages.localURL(for: record) else { return nil }
+                return OnlineImageContentProjection.local(record, url: url, available: !snapshot.unavailable.contains(record.id))
+            }
+            publish(items, provider: source.provider, revision: nextRevision(source.provider),
+                loaded: snapshot.status.hasSuccessfulScan, scanStatus: snapshot.status)
+        }
+    }
+
     @discardableResult private func publish(_ items: [WallpaperContentItem], provider: WallpaperProvider, revision: UInt64,
                                           loaded: Bool = true, scanStatus: WallpaperSourceScanStatus? = nil) -> Bool {
         guard revisions[provider] == revision else { return false }
@@ -252,8 +269,10 @@ import Foundation
         switch provider {
         case .videoLibrary: next.videos = items
         case .staticImageLibrary: next.images = items
-        case .steamWorkshop: next.downloads = items + catalog.downloads.filter { $0.providerReference.provider == .pixabay }
-        case .pixabay: next.downloads = catalog.downloads.filter { $0.providerReference.provider == .steamWorkshop } + items
+        case .steamWorkshop, .pixabay, .wallhaven, .pixiv:
+            var sources = Dictionary(grouping: catalog.downloads, by: { $0.providerReference.provider })
+            sources[provider] = items
+            next.downloads = [.steamWorkshop, .pixabay, .wallhaven, .pixiv].flatMap { sources[$0] ?? [] }
         }
         if loaded { next.loadedProviders.insert(provider) }
         if let scanStatus { next.sourceScanStatuses[provider] = scanStatus }

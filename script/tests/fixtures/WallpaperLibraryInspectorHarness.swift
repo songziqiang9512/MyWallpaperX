@@ -55,6 +55,66 @@ final class OnlineLibraryDownloadsInspectorView: RecordingInspectorView {
     init(itemID: Int, service: OnlineLibraryService, libraryActions: WallpaperInspectorActions) { super.init(libraryActions) }
     required init?(coder: NSCoder) { nil }
 }
+// Source layout/acquisition is a leaf here. The actual Coordinator supplies the
+// page identity, DTO and token-bound actions; no detail/preview request is made.
+final class OnlineImageInspectorView: NSView {
+    let artwork: OnlineImageArtwork
+    let initialPageIndex: Int
+    let onAuthor: ((String) -> Void)?
+    var actions: WallpaperInspectorActions?
+    init(artwork: OnlineImageArtwork, library: OnlineImageLibrary,
+         makeLibraryActions: @escaping (WallpaperReference) -> WallpaperInspectorActions?,
+         onAuthor: ((String) -> Void)? = nil, initialPageIndex: Int = 0) {
+        self.artwork = artwork; self.initialPageIndex = initialPageIndex; self.onAuthor = onAuthor
+        super.init(frame: .zero)
+    }
+    required init?(coder: NSCoder) { nil }
+    func updateLibraryActions(_ value: WallpaperInspectorActions) { actions = value }
+}
+private final class ImageSelectionGridLeaf {
+    var onSelection: ((Set<WallpaperReference>, WallpaperReference?) -> UUID?)?
+}
+private final class ImageSelectionBrowserLeaf {
+    private struct Selection {
+        var references = Set<WallpaperReference>()
+        var focusedReference: WallpaperReference?
+        var sessionID = UUID()
+    }
+    private var selection = Selection()
+    var acceptsInput = true
+    let grid = ImageSelectionGridLeaf()
+    var contents: [WallpaperReference: WallpaperContentItem] = [:]
+    var onSelectionChange: ((WallpaperContentItem?) -> Void)?
+    var selectedContent: WallpaperContentItem? {
+        selection.references.count == 1 ? selection.references.first.flatMap { contents[$0] } : nil
+    }
+    func bindGrid() {
+        // ACTUAL_IMAGE_BROWSER_SELECTION
+    }
+    func select(_ reference: WallpaperReference?) {
+        let references = reference.map { Set([$0]) } ?? []
+        _ = grid.onSelection?(references, reference)
+    }
+}
+private final class ImageSelectionSessionLeaf {
+    struct State { var items: [OnlineImageArtwork] = [] }
+    var state = State()
+    var authors: [String] = []
+    func openAuthor(_ id: String) { authors.append(id) }
+}
+private final class ImageSelectionAssemblyProbe {
+    let inspector: WallpaperLibraryInspectorCoordinator
+    let pixiv = ImageSelectionSessionLeaf()
+    init(_ inspector: WallpaperLibraryInspectorCoordinator) { self.inspector = inspector }
+    func bind(_ browser: ImageSelectionBrowserLeaf, session: ImageSelectionSessionLeaf, source: OnlineImageSource) {
+        // ACTUAL_IMAGE_SELECTION_ASSEMBLY
+    }
+    // The real App bridge methods are exercised with the real Session by
+    // OnlineImageBrowseHarness; this leaf records the Inspector callback only.
+    func openAuthor(_ id: String, from page: WallpaperLibraryPage) {
+        inspector.closeInspector(); inspector.closePreview(); pixiv.openAuthor(id)
+    }
+}
 final class InspectorPresentation: ObservableObject { @Published var state = 0; var canEditCollections = true }
 final class WallpaperLibraryWorkspace {
     let presentation = InspectorPresentation()
@@ -320,6 +380,75 @@ final class ForeignPreviewOwner: NSObject, QLPreviewPanelDataSource {
         checks["cross-provider-preview-retains-same-native-owner-and-new-fixed-ref"] = panel.dataSource === coordinator && coordinator.previewReference == image
         let arrow = NSEvent.keyEvent(with: .keyDown, location: .zero, modifierFlags: [], timestamp: 0, windowNumber: panel.windowNumber, context: nil, characters: "", charactersIgnoringModifiers: "", isARepeat: false, keyCode: 124)!
         checks["quicklook-arrow-delegates-to-current-grid-not-source-global-selection"] = coordinator.previewPanel(panel, handle: arrow) && arrows == [124]
+        let library = OnlineImageLibrary.shared
+        library.root = directory
+        let imageIDs = [OnlineImageAssetID(source: .pixiv, artworkID: "42"), .init(source: .pixiv, artworkID: "42", pageIndex: 2),
+                        .init(source: .pixiv, artworkID: "43")]
+        let imageRecords = try imageIDs.enumerated().map { index, id in
+            let relativePath = "online-\(index).png"
+            try Data(contentsOf: file).write(to: directory.appendingPathComponent(relativePath))
+            return OnlineImageLocalRecord(assetID: id, title: id.artworkID, sourceURL: URL(string: "https://example.invalid/" + id.artworkID)!,
+                author: "artist", authorID: "77", tags: [], relativePath: relativePath, pixelWidth: 8, pixelHeight: 8,
+                fileSizeBytes: 1, firstDownloadedAt: Date(), revision: UUID())
+        }
+        library.snapshot = .init(records: imageRecords)
+        let imageContents = imageRecords.map { OnlineImageContentProjection.local($0, url: library.localURL(for: $0)!, available: true) }
+        workspace.catalog.downloads += imageContents
+        var localAuthors: [String] = []
+        coordinator.onOnlineImageAuthor = { localAuthors.append($0) }
+        coordinator.inspect(content: imageContents[1]); await pump()
+        let pageView = probe.mounts.last!.1 as! OnlineImageInspectorView
+        checks["downloaded-pixiv-page-keeps-page-reference-and-inspector-index"] = coordinator.inspectedReference == imageIDs[1].reference
+            && pageView.initialPageIndex == 2 && pageView.artwork.artworkID == "42"
+        pageView.onAuthor?("77")
+        checks["local-pixiv-inspector-uses-injected-author-navigation-without-browse-dto"] = pageView.onAuthor != nil && localAuthors == ["77"]
+        let shells = ["42", "43", "44"].map { id in
+            OnlineImageArtwork(source: .pixiv, artworkID: id, title: "remote-" + id,
+                sourceURL: URL(string: "https://example.invalid/" + id)!, author: "remote artist", authorID: "88", kind: .image)
+        }
+        let browser = ImageSelectionBrowserLeaf(), assembly = ImageSelectionAssemblyProbe(coordinator)
+        assembly.pixiv.state.items = shells
+        browser.contents = Dictionary(imageContents.map { ($0.reference, $0) }, uniquingKeysWith: { _, newer in newer })
+        let remoteImage = OnlineImageContentProjection.remote(shells[2])
+        browser.contents[remoteImage.reference] = remoteImage
+        browser.bindGrid(); assembly.bind(browser, session: assembly.pixiv, source: .pixiv)
+        coordinator.inspectOnlineArtwork(shells[0]); await pump()
+        _ = coordinator.preview(content: imageContents[0]); await pump()
+        coordinator.onMoveSelection = { _ in browser.select(imageIDs[2].reference) }
+        _ = coordinator.previewPanel(panel, handle: arrow); await pump()
+        let selectedImageView = probe.mounts.last!.1 as! OnlineImageInspectorView
+        checks["real-image-selection-callback-updates-existing-quicklook-fixed-reference"] = coordinator.previewReference == imageIDs[2].reference
+            && coordinator.previewURL == library.localURL(for: imageRecords[2]) && panel.dataSource === coordinator
+        checks["image-selection-sync-preserves-real-artwork-and-author-callback"] = selectedImageView.artwork == shells[1]
+            && selectedImageView.initialPageIndex == 0 && selectedImageView.onAuthor != nil
+        let acceptedImageReference = browser.selectedContent?.reference
+        let acceptedImageToken = coordinator.inspectorToken
+        browser.acceptsInput = false
+        browser.select(remoteImage.reference); await pump()
+        checks["image-selection-callback-keeps-current-preview-and-inspector-while-modal-input-is-blocked"] = browser.selectedContent?.reference == acceptedImageReference
+            && coordinator.inspectorToken == acceptedImageToken && coordinator.previewReference == imageIDs[2].reference
+        browser.acceptsInput = true
+        selectedImageView.onAuthor?("88")
+        checks["image-selection-author-action-keeps-the-existing-source-session"] = assembly.pixiv.authors == ["88"]
+        _ = coordinator.preview(content: imageContents[2]); await pump()
+        browser.select(remoteImage.reference); await pump()
+        checks["image-selection-without-local-preview-closes-existing-quicklook"] = coordinator.previewURL == nil && panel.dataSource !== coordinator
+        _ = coordinator.preview(content: imageContents[2]); await pump()
+        browser.select(nil); await pump()
+        checks["empty-image-selection-callback-closes-inspector-and-quicklook"] = coordinator.previewURL == nil && coordinator.inspectorToken == nil
+            && panel.dataSource !== coordinator
+        let stableSelection = Set([imageIDs[0].reference])
+        let initialSelectionToken = browser.grid.onSelection?(stableSelection, imageIDs[0].reference)
+        let repeatedSelectionToken = browser.grid.onSelection?(stableSelection, imageIDs[0].reference)
+        let changedFocusToken = browser.grid.onSelection?(stableSelection, nil)
+        let changedReferencesToken = browser.grid.onSelection?(Set([imageIDs[2].reference]), nil)
+        checks["image-selection-session-token-is-stable-for-identical-references-and-focus"] = initialSelectionToken != nil
+            && repeatedSelectionToken == initialSelectionToken
+        checks["image-selection-session-token-revokes-old-focus-only-actions"] = changedFocusToken != nil
+            && changedFocusToken != repeatedSelectionToken
+        checks["image-selection-session-token-revokes-old-reference-only-actions"] = changedReferencesToken != nil
+            && changedReferencesToken != changedFocusToken
+        library.snapshot = .init()
         checks["web-scene-do-not-masquerade-as-quicklook-video"] = !coordinator.preview(content: webValue) && coordinator.previewURL == nil && coordinator.inspectedReference == web
         _ = coordinator.preview(content: imageValue); await pump()
         coordinator.syncSelection(content: nil)

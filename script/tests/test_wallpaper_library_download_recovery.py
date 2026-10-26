@@ -32,7 +32,10 @@ class WallpaperLibraryDownloadRecoveryTests(unittest.TestCase):
             "MyWallpaperX/Core/PlaybackControl/WallpaperPlaybackSequence.swift",
             "script/tests/fixtures/WallpaperLibraryDownloadRecoveryHarness.swift", "script/tests/test_wallpaper_library_download_recovery.py",
         ]
-        before = {path: hashlib.sha256((ROOT / path).read_bytes()).hexdigest() for path in paths}
+        support = ["MyWallpaperX/Core/OnlineImages/OnlineImageModels.swift",
+                   "MyWallpaperX/Core/OnlineImages/OnlineImageContentProjection.swift",
+                   "script/tests/fixtures/OnlineImageLibraryAppStub.swift"]
+        before = {path: hashlib.sha256((ROOT / path).read_bytes()).hexdigest() for path in paths + support}
         fixture = (ROOT / paths[-2]).read_text()
         fixture = fixture.replace("// ACTUAL_STEAM_ID_VALIDATION", declaration((ROOT / paths[6]).read_text(), "    func isValidWorkshopItemID("))
         fixture = fixture.replace("// ACTUAL_STEAM_RECOVERY_URL", declaration((ROOT / paths[7]).read_text(), "    func recoveryWorkshopDetailURL("))
@@ -43,7 +46,7 @@ class WallpaperLibraryDownloadRecoveryTests(unittest.TestCase):
         with tempfile.TemporaryDirectory(prefix="mwx-download-recovery-", dir="/private/tmp") as directory:
             work = Path(directory)
             sources = []
-            for path in paths[:6] + paths[10:13]:
+            for path in paths[:6] + paths[10:13] + support:
                 target = work / Path(path).name
                 shutil.copy2(ROOT / path, target)
                 sources.append(str(target))
@@ -63,7 +66,7 @@ class WallpaperLibraryDownloadRecoveryTests(unittest.TestCase):
             for name, passed in checks.items():
                 self.assertIs(passed, True, name)
             print(json.dumps(checks, sort_keys=True))
-        self.assertEqual(before, {path: hashlib.sha256((ROOT / path).read_bytes()).hexdigest() for path in paths})
+        self.assertEqual(before, {path: hashlib.sha256((ROOT / path).read_bytes()).hexdigest() for path in paths + support})
 
 
 if __name__ == "__main__":

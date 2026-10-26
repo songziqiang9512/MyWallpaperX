@@ -1,9 +1,10 @@
 """Production OnlineLibrary actors: HTTP leases, queue cancellation/promotion and decode/clear epochs.
 
-The actual decoder and decoded memory owner are retained. Only maintenance trim
-is stubbed; URLProtocol controls HTTP replies, and a suspended real decode queue
-makes cancellation and single-flight assertions deterministic. No user media,
-external network, UI performance claim or app activation is involved.
+The actual network lifetime, decoder and decoded memory owner are retained.
+Only maintenance trim is stubbed; URLProtocol controls HTTP replies, a suspended
+real decode queue controls publication, and the real tint source retains a loader
+until its shared transport retires. No user media, external network, UI
+performance claim or app activation is involved.
 """
 import hashlib
 import json
@@ -16,9 +17,10 @@ import unittest
 
 ROOT = Path(__file__).resolve().parents[2]
 PIPELINE = ROOT / 'MyWallpaperX/Modules/OnlineLibrary/Core/OnlineLibraryThumbnailPipeline.swift'
-SOURCES = [PIPELINE,
+SOURCES = [ROOT / 'MyWallpaperX/Shared/WallpaperNetworkSession.swift', PIPELINE,
            ROOT / 'MyWallpaperX/Shared/UI/GridThumbnailDecoder.swift',
            ROOT / 'MyWallpaperX/Shared/UI/DecodedThumbnailMemoryCache.swift',
+           ROOT / 'MyWallpaperX/Shared/UI/ListThumbnailTintSource.swift',
            ROOT / 'script/tests/fixtures/OnlineThumbnailSchedulingHarness.swift']
 
 
@@ -56,7 +58,9 @@ class OnlineThumbnailSchedulingTests(unittest.TestCase):
             self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
             facts = json.loads(result.stdout)
             self.assertEqual(set(facts), {'networkConsumerLeases', 'pendingCancellationAndPromotion',
-                                         'boundedCoalescedDecode', 'fullRequestClearEpoch', 'diskReadContract'})
+                                         'boundedCoalescedDecode', 'fullRequestClearEpoch', 'diskReadContract',
+                                         'scopedTransportAndInvalidation', 'scopedRedirectPolicy',
+                                         'retiredScopedTransportAfterQueueAndTintDelay'})
             self.assertTrue(all(facts.values()), facts)
 
 

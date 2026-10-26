@@ -212,6 +212,30 @@ import Foundation
         backingCatalog.downloads.removeAll { $0.reference == searchSteam }
         checks["proven-backing-fallback-remains-searchable-by-canonical-Steam-ID"] = try searched(.playlist(searchList.id), "id=123456789", catalog: backingCatalog) == [searchSteam]
         checks["proven-Steam-alias-does-not-import-backing-local-tags-as-Steam-metadata"] = try searched(.playlist(searchList.id), "RetiredLocalTag", catalog: backingCatalog).isEmpty
+        let wallhaven = ref(.wallhaven, "Ab001"), pixivPage = ref(.pixiv, "001234:p2")
+        let onlineImages = WallpaperLibraryCatalog(downloads: [
+            item(wallhaven, "Still", kind: .image), item(pixivPage, "Still", kind: .image)])
+        let downloadedImages = try WallpaperLibraryQuery.project(page: .downloads, state: .init(kind: .image),
+            catalog: onlineImages, relationships: relations)
+        checks["new-online-image-sources-retain-distinct-opaque-identity-in-downloads"] = Set(downloadedImages.items.map(\.reference)) == [wallhaven, pixivPage]
+            && WallpaperReference(storageKey: wallhaven.storageKey) == wallhaven
+            && WallpaperReference(storageKey: pixivPage.storageKey) == pixivPage
+            && wallhaven != ref(.wallhaven, "ab001") && pixivPage != ref(.pixiv, "1234:p2")
+            && pixivPage != ref(.pixiv, "001234:p0")
+        checks["downloads-provider-filters-and-source-name-search-include-online-images"] = try WallpaperLibraryQuery.project(
+            page: .downloads, state: .init(search: "wallhaven", provider: .wallhaven), catalog: onlineImages,
+            relationships: relations).items.map(\.reference) == [wallhaven]
+            && WallpaperLibraryQuery.project(page: .downloads, state: .init(search: "pixiv", provider: .pixiv),
+                catalog: onlineImages, relationships: relations).items.map(\.reference) == [pixivPage]
+        checks["download-readiness-includes-local-online-publications-and-respects-provider-filter"] = try WallpaperLibraryQuery.requiredProviders(
+            page: .downloads, state: .init(), relationships: relations) == [.steamWorkshop, .pixabay, .wallhaven, .pixiv]
+            && WallpaperLibraryQuery.requiredProviders(page: .downloads, state: .init(provider: .pixiv), relationships: relations) == [.pixiv]
+        checks["new-browser-pages-have-independent-navigation-and-no-local-catalog-or-login-dependencies"] = try [WallpaperLibraryPage.wallhaven, .pixiv].allSatisfy {
+            let result = try WallpaperLibraryQuery.project(page: $0, state: .init(), catalog: onlineImages, relationships: relations)
+            let dependencies = try WallpaperLibraryQuery.requiredProviders(page: $0, state: .init(), relationships: relations)
+            return $0.isRemoteBrowse && result.items.isEmpty && result.unfilteredCount == 0
+                && dependencies.isEmpty
+        } && WallpaperLibraryPage.wallhaven.persistenceKey == "browse.wallhaven" && WallpaperLibraryPage.pixiv.persistenceKey == "browse.pixiv"
         func auxiliaryReads() -> [Int] {
             [WallpaperLibraryQuery.membershipReads, WallpaperLibraryQuery.favoriteDateReads, WallpaperLibraryQuery.recentDateReads]
         }
@@ -244,7 +268,7 @@ import Foundation
         checks["recent-readiness-shares-visible-canonical-limit-without-building-dtos"] = dependencies == Set(visibleRecent.items.map { $0.reference.provider })
             && WallpaperLibraryQuery.resolverInitializations == dependencyInit + 1 && WallpaperLibraryQuery.locatorReads == dependencyLocators
         let nonlocalInit = WallpaperLibraryQuery.resolverInitializations
-        checks["directory-and-remote-pages-do-not-build-unused-local-projections"] = try [WallpaperLibraryPage.playlists, .workshop, .pixabay].allSatisfy {
+        checks["directory-and-remote-pages-do-not-build-unused-local-projections"] = try [WallpaperLibraryPage.playlists, .workshop, .pixabay, .wallhaven, .pixiv].allSatisfy {
             try project($0).items.isEmpty
         } && WallpaperLibraryQuery.resolverInitializations == nonlocalInit
         do {

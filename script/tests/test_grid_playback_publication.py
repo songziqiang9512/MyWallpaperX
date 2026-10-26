@@ -51,7 +51,9 @@ class GridPlaybackPublicationTests(unittest.TestCase):
             folder = Path(directory)
             harness = folder / 'Harness.swift'; harness.write_text(source + '\n' + fixture)
             executable = folder / 'checks'
-            paths = [*GATE_SOURCES, product / 'Models/WallpaperContent.swift', product / 'Core/LibraryCollections/WallpaperLibraryQuery.swift']
+            paths = [*GATE_SOURCES, product / 'Models/WallpaperContent.swift', product / 'Core/LibraryCollections/WallpaperLibraryQuery.swift',
+                     product / 'Core/OnlineImages/OnlineImageModels.swift', product / 'Core/OnlineImages/OnlineImageContentProjection.swift',
+                     ROOT / 'script/tests/fixtures/OnlineImageLibraryAppStub.swift']
             copies = []
             for path in paths:
                 copy = folder / path.name; copy.write_bytes(path.read_bytes()); copies.append(str(copy))

@@ -26,8 +26,10 @@ HELPER = ROOT / 'MyWallpaperX/Shared/UI/GridThumbnailPrefetchDemand.swift'
 FIXTURE = ROOT / 'script/tests/fixtures/OnlineGridThumbnailDemandHarness.swift'
 GRID_SOURCES = [ROOT / 'MyWallpaperX' / name for name in (
     'Models/WallpaperReference.swift', 'Models/WallpaperContent.swift', 'Models/WallpaperLibraryPage.swift',
+    'Core/OnlineImages/OnlineImageModels.swift', 'Core/OnlineImages/OnlineImageContentProjection.swift',
     'Shared/Components/WallpaperLibraryGridMetrics.swift', 'Shared/Components/WallpaperCardInteractionView.swift',
     'Shared/UI/WallpaperGridScrollView.swift', 'Shared/UI/BoxSelectionState.swift')]
+GRID_SOURCES.append(ROOT / 'script/tests/fixtures/OnlineImageLibraryAppStub.swift')
 SOURCES = [SERVICE, BROWSER, ADAPTER, GRID, HELPER, FIXTURE, *GRID_SOURCES]
 
 

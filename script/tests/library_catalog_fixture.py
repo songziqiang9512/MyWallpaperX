@@ -34,8 +34,8 @@ def assemble_catalog_fixture(main_fixture=None):
         "// JOB_VALUE": declaration(source("MyWallpaperX/Modules/SteamWorkshop/Core/SteamWorkshopJobStore.swift"), "struct SteamDownloadJob:"),
         "// WEB_PROJECT_GENERAL": declaration(source("MyWallpaperX/Modules/SteamWorkshop/Core/SteamWorkshopAPIModels.swift"), "nonisolated struct SteamWorkshopProjectGeneral:"),
         "// WEB_PROJECT": declaration(source("MyWallpaperX/Modules/SteamWorkshop/Core/SteamWorkshopAPIModels.swift"), "nonisolated struct SteamWorkshopProject:"),
-        "// WEB_ENTRY_VALIDATION": declaration(source("MyWallpaperX/Modules/SteamWorkshop/Web/Core/SteamWorkshopService+WebValidation.swift"), "    nonisolated func computeWebLaunchEntryIsValid("),
-        "// DECLARED_WEB_ENTRY": declaration(source("MyWallpaperX/Modules/SteamWorkshop/Web/Core/SteamWorkshopService+WebProjectSupport.swift"), "    nonisolated func declaredWebEntryRelativePath("),
+        "// WEB_ENTRY_VALIDATION": declaration(source("MyWallpaperX/Modules/SteamWorkshop/Web/Core/SteamWorkshopService+WebValidation.swift"), "    nonisolated func webLaunchEntryIsValid("),
+        "// DECLARED_WEB_ENTRY": declaration(source("MyWallpaperX/Modules/SteamWorkshop/Web/Core/SteamWorkshopService+WebProjectSupport.swift"), "    nonisolated static func declaredWebEntryRelativePath("),
         "// LOAD_WEB_PROJECT": declaration(source("MyWallpaperX/Modules/SteamWorkshop/Core/SteamWorkshopService+LibraryRecords.swift"), "    nonisolated static func loadWorkshopProject("),
         "// STEAM_LAUNCH_ADMISSION": declaration(source("MyWallpaperX/Modules/SteamWorkshop/Core/SteamWorkshopService+DownloadAccessors.swift"), "    func canLaunchDownloadRecord("),
     }
@@ -44,6 +44,9 @@ def assemble_catalog_fixture(main_fixture=None):
     paths = [
         "MyWallpaperX/Models/VideoWallpaper.swift", "MyWallpaperX/Models/WallpaperReference.swift",
         "MyWallpaperX/Models/WallpaperContent.swift",
+        "MyWallpaperX/Core/OnlineImages/OnlineImageModels.swift",
+        "MyWallpaperX/Core/OnlineImages/OnlineImageContentProjection.swift",
+        "script/tests/fixtures/OnlineImageLibraryAppStub.swift",
         "MyWallpaperX/Modules/OnlineLibrary/Core/OnlineLibraryModels.swift",
         "MyWallpaperX/Modules/OnlineLibrary/Core/OnlineLibraryDownloadedContent.swift",
         "MyWallpaperX/Modules/OnlineLibrary/Core/PixabayLibraryContentProjection.swift",

@@ -1,3 +1,4 @@
+import AppKit
 import Combine
 import Foundation
 
@@ -103,6 +104,28 @@ import Foundation
 
     private func installPlaybackBindings() {
         manager.libraryPlaybackPendingChanged = { [weak self] in self?.playbackChanges.send() }
+        let onlineImages = OnlineImageLibrary.shared
+        onlineImages.requestLibraryPlayback = { [weak self] reference in self?.requestSingle(reference) }
+        onlineImages.captureApplyIntent = { [weak self] in
+            guard let self else { return { false } }
+            let token = ImportedVideoAutoplayGate.shared.claim()
+            let epoch = self.manager.playbackIntentEpoch
+            return { [weak self] in
+                guard let self else { return false }
+                return self.manager.playbackIntentEpoch == epoch && ImportedVideoAutoplayGate.shared.isCurrent(token)
+            }
+        }
+        onlineImages.isFileInUse = { [weak self] path in
+            guard let self else { return true }
+            if self.manager.isLocalSourceFileInUse(path) { return true }
+            let target = URL(fileURLWithPath: path).standardizedFileURL.resolvingSymlinksInPath()
+            let screens = NSScreen.screens
+            guard !screens.isEmpty else { return true }
+            return screens.contains { screen in
+                guard let current = NSWorkspace.shared.desktopImageURL(for: screen) else { return true }
+                return current.standardizedFileURL.resolvingSymlinksInPath() == target
+            }
+        }
         manager.libraryPlaybackSnapshotProvider = { [weak self] reference, source, cause in
             self?.playbackSnapshot(reference: reference, source: source, cause: cause)
         }
@@ -143,6 +166,7 @@ import Foundation
         case .pixabay: immediate = Int(canonical.sourceID).flatMap { id in
             String(id).utf8.elementsEqual(canonical.sourceID.utf8) ? online.libraryContentItemForExplicitPlayback(id: id) : nil
         }
+        case .wallhaven, .pixiv: immediate = OnlineImageLibrary.shared.content(for: canonical)
         default: immediate = nil
         }
         guard let immediate else { return projected }

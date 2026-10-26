@@ -1,7 +1,9 @@
 """Actual mixed Inspector composition/host tokens and native Quick Look ownership.
 
 Source metadata/layout leaves record actions here; actual Video preview and Steam
-layout/invalidation gates remain separate. No library, decoder or renderer runs.
+layout/invalidation gates remain separate. Image selection uses the real Browser
+and App selection callback bodies plus real Coordinator/Quick Look. Image detail
+layout, WebKit, network, decoding and wallpaper application are not covered here.
 """
 import hashlib
 import json
@@ -45,17 +47,21 @@ class WallpaperLibraryInspectorTests(unittest.TestCase):
     def test_fixed_identity_host_and_native_preview(self):
         sources = [ROOT / "MyWallpaperX" / name for name in (
             "Models/WallpaperReference.swift", "Models/WallpaperContent.swift", "Models/WallpaperLibraryPage.swift",
+            "Core/OnlineImages/OnlineImageModels.swift", "Core/OnlineImages/OnlineImageContentProjection.swift",
             "Core/LibraryCollections/WallpaperLibraryQuery.swift", "Shared/UI/WallpaperInspectorActions.swift",
             "Shared/UI/InspectorHost.swift", "Shared/UI/InspectorHostActions.swift", "Shared/UI/InspectorHostBridge.swift",
             "Shared/UI/InspectorHostViewController.swift", "Shared/UI/ListThumbnailTintSource.swift",
             "Shell/AppKitListBackgroundTint.swift", "Shell/AppKitMainSplitView.swift",
             "App/WallpaperLibraryInspectorCoordinator.swift")]
+        sources.append(ROOT / "script/tests/fixtures/OnlineImageLibraryAppStub.swift")
         harness = ROOT / "script/tests/fixtures/WallpaperLibraryInspectorHarness.swift"
         module = ROOT / "MyWallpaperX/Shared/UI/ModuleFocusable.swift"
         commands = ROOT / "MyWallpaperX/App/WallpaperLibraryCommands.swift"
         undo = ROOT / "MyWallpaperX/App/WallpaperLibraryRelationshipUndo.swift"
         popover = ROOT / "MyWallpaperX/Shared/UI/ToolbarMenuPopover.swift"
-        dependencies = sources + [harness, module, commands, undo, popover]
+        image_browser = ROOT / "MyWallpaperX/Shared/UI/OnlineImageBrowserController.swift"
+        image_assembly = ROOT / "MyWallpaperX/App/WallpaperLibraryOnlineImages.swift"
+        dependencies = sources + [harness, module, commands, undo, popover, image_browser, image_assembly]
         hashes = {str(p): hashlib.sha256(p.read_bytes()).hexdigest() for p in dependencies}
         with tempfile.TemporaryDirectory(prefix="mwx-inspector-", dir="/private/tmp") as directory:
             work = Path(directory)
@@ -76,6 +82,10 @@ class WallpaperLibraryInspectorTests(unittest.TestCase):
                         commands.read_text(), "nonisolated struct WallpaperLibraryFavoriteActionState"))
                     actual = actual.replace("// ACTUAL_RELATIONSHIP_UNDO_MANAGER", declaration(
                         undo.read_text(), "@MainActor final class RelationshipUndoManager:"))
+                    actual = actual.replace("// ACTUAL_IMAGE_BROWSER_SELECTION", declaration(
+                        image_browser.read_text(), "        grid.onSelection ="))
+                    actual = actual.replace("// ACTUAL_IMAGE_SELECTION_ASSEMBLY", declaration(
+                        image_assembly.read_text(), "        browser.onSelectionChange ="))
                     target.write_text(actual)
                 else:
                     target.write_bytes(source.read_bytes())

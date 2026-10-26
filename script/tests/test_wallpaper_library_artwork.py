@@ -20,6 +20,8 @@ class WallpaperLibraryArtworkTests(unittest.TestCase):
         paths = [ROOT / name for name in (
             "MyWallpaperX/Models/WallpaperReference.swift", "MyWallpaperX/Models/WallpaperContent.swift",
             "MyWallpaperX/Models/WallpaperLibraryPage.swift", "MyWallpaperX/Shared/UI/WallpaperPlaylistArtwork.swift", "MyWallpaperX/Shared/UI/ListThumbnailTintSource.swift",
+            "MyWallpaperX/Core/OnlineImages/OnlineImageModels.swift", "MyWallpaperX/Core/OnlineImages/OnlineImageContentProjection.swift",
+            "script/tests/fixtures/OnlineImageLibraryAppStub.swift",
             "MyWallpaperX/App/WallpaperLibraryArtworkProvider.swift", "script/tests/fixtures/WallpaperLibraryArtworkHarness.swift")]
         hashes = {str(p): hashlib.sha256(p.read_bytes()).hexdigest() for p in paths}
         with tempfile.TemporaryDirectory(prefix="mwx-artwork-", dir="/private/tmp") as directory:

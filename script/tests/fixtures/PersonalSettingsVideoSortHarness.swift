@@ -72,7 +72,7 @@ extension PersonalSettingsImportHarness {
         let sortJSON = prefsJSON["videoLibrarySort"] as! [String: Any]
         checks["ExportReadsVideoSessionRatherThanStaleManagerGlobalOrActiveImagePage"] = exported.preferences.videoLibrarySort
             == .init(mode: .fileSize, ascending: false) && exported.preferences.sortMode == nil && exported.preferences.sortAscending == nil
-        checks["SchemaSevenRetainsOnlyVideoSortAndNeverExportsViewNavigationFiltersOrPlayback"] = exported.schemaVersion == 7
+        checks["SchemaEightRetainsOnlyVideoSortAndNeverExportsViewNavigationFiltersOrPlayback"] = exported.schemaVersion == 8
             && Set(sortJSON.keys) == ["mode", "ascending"] && json["page"] == nil && json["history"] == nil
             && json["playbackSource"] == nil && prefsJSON["search"] == nil && prefsJSON["zoomOffset"] == nil
             && prefsJSON["preferredColumns"] == nil && prefsJSON["scrollAnchor"] == nil && prefsJSON["scrollOffset"] == nil

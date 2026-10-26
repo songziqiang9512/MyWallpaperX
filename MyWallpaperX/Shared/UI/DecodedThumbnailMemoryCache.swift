@@ -59,6 +59,15 @@ nonisolated final class DecodedThumbnailMemoryCache: @unchecked Sendable {
         if let entry = entries.removeValue(forKey: key) { detach(entry); totalCost -= entry.cost }
     }
 
+    /// Account invalidation visits only the bounded resident tier, never a history of requests.
+    func removeObjects(withKeyPrefix prefix: String) {
+        lock.lock(); defer { lock.unlock() }
+        for key in entries.keys.filter({ ($0 as String).hasPrefix(prefix) }) {
+            guard let entry = entries.removeValue(forKey: key) else { continue }
+            detach(entry); totalCost -= entry.cost
+        }
+    }
+
     func removeAllObjects() {
         lock.lock(); defer { lock.unlock() }
         // Break the chain iteratively, avoiding a recursive release for a large budget.

@@ -6,7 +6,7 @@
 import AppKit
 import Combine
 
-final class OnlineLibraryBrowserView: NSView, NSTextFieldDelegate, ListThumbnailTintProviding {
+final class OnlineLibraryBrowserView: NSView, ListThumbnailTintProviding {
     let listThumbnailTintSource = ListThumbnailTintSource()
     var preferredColumns = 5 {
         didSet { currentGrid?.preferredColumns = preferredColumns }
@@ -28,15 +28,12 @@ final class OnlineLibraryBrowserView: NSView, NSTextFieldDelegate, ListThumbnail
     private var toastView: OnlineLibraryDownloadToastView?
     private var toastDismissTask: Task<Void, Never>?
     private var cancellables = Set<AnyCancellable>()
-    private weak var apiKeyField: NSSecureTextField?
-    private weak var saveAPIKeyButton: NSButton?
-    private var apiKeyInput = ""
+    private var keyPanel: WallpaperAPIKeyPanelController?
 
     override init(frame frameRect: NSRect) {
         super.init(frame: frameRect)
         setup()
         observeService()
-        apiKeyInput = service.apiKey
         triggerInitialSearchIfNeeded()
         syncContent(force: true)
     }
@@ -113,7 +110,6 @@ final class OnlineLibraryBrowserView: NSView, NSTextFieldDelegate, ListThumbnail
             .receive(on: DispatchQueue.main)
             .sink { [weak self] _ in
                 self?.service.clearAPIKeyAndReset()
-                self?.apiKeyInput = ""
                 self?.syncContent(force: true)
             }
             .store(in: &cancellables)
@@ -220,37 +216,10 @@ final class OnlineLibraryBrowserView: NSView, NSTextFieldDelegate, ListThumbnail
         stack.addArrangedSubview(message)
         message.widthAnchor.constraint(lessThanOrEqualToConstant: 360).isActive = true
 
-        let docsButton = OnlineLibraryBrowserViews.makeButton(
-            title: "前往 Pixabay 获取 API Key",
-            target: self,
-            action: #selector(openPixabayDocs)
-        )
-        docsButton.bezelStyle = .rounded
-        docsButton.keyEquivalent = "\r"
-        stack.addArrangedSubview(docsButton)
-
-        let inputRow = NSStackView()
-        inputRow.orientation = .horizontal
-        inputRow.alignment = .centerY
-        inputRow.spacing = 8
-        inputRow.translatesAutoresizingMaskIntoConstraints = false
-
-        let field = WallpaperFormSecureField()
-        field.placeholderString = "粘贴 API Key"
-        field.stringValue = apiKeyInput
-        field.delegate = self
-        field.translatesAutoresizingMaskIntoConstraints = false
-        let fieldSurface = WallpaperFormFieldStyle.wrapping(field)
-        fieldSurface.widthAnchor.constraint(equalToConstant: 260).isActive = true
-        apiKeyField = field
-
-        let saveButton = OnlineLibraryBrowserViews.makeButton(title: "保存", target: self, action: #selector(saveAPIKeyFromPrompt))
-        saveButton.isEnabled = !apiKeyInput.trimmingCharacters(in: .whitespaces).isEmpty
-        saveAPIKeyButton = saveButton
-
-        inputRow.addArrangedSubview(fieldSurface)
-        inputRow.addArrangedSubview(saveButton)
-        stack.addArrangedSubview(inputRow)
+        let button = OnlineLibraryBrowserViews.makeButton(title: "填写 API Key", target: self, action: #selector(presentAPIKeyEdit))
+        button.bezelStyle = .rounded
+        button.keyEquivalent = "\r"
+        stack.addArrangedSubview(button)
         return stack
     }
 
@@ -333,25 +302,6 @@ final class OnlineLibraryBrowserView: NSView, NSTextFieldDelegate, ListThumbnail
         }
     }
 
-    func controlTextDidChange(_ obj: Notification) {
-        guard let field = obj.object as? NSSecureTextField, field === apiKeyField else { return }
-        apiKeyInput = field.stringValue
-        saveAPIKeyButton?.isEnabled = !apiKeyInput.trimmingCharacters(in: .whitespaces).isEmpty
-    }
-
-    @objc private func openPixabayDocs() {
-        guard let url = URL(string: "https://pixabay.com/api/docs/") else { return }
-        NSWorkspace.shared.open(url)
-    }
-
-    @objc private func saveAPIKeyFromPrompt() {
-        let trimmed = apiKeyInput.trimmingCharacters(in: .whitespaces)
-        guard !trimmed.isEmpty else { return }
-        service.apiKey = trimmed
-        triggerInitialSearchIfNeeded()
-        syncContent(force: true)
-    }
-
     @objc private func retrySearch() {
         service.searchWithCurrentContext()
     }
@@ -365,26 +315,24 @@ final class OnlineLibraryBrowserView: NSView, NSTextFieldDelegate, ListThumbnail
     }
 
     @objc private func presentAPIKeyEdit() {
-        let field = WallpaperFormSecureField(frame: NSRect(x: 0, y: 0, width: 280, height: 24))
-        field.placeholderString = "输入新 API Key"
-        let surface = WallpaperFormFieldStyle.wrapping(field)
-        surface.widthAnchor.constraint(equalToConstant: 280).isActive = true
-
-        let alert = makeAppAlert(
-            title: "更改 API Key",
-            message: "当前 Key 已遮蔽显示，输入新 Key 后保存即可生效。",
-            buttons: ["保存", "取消"],
-            accessoryView: surface
-        )
-        alert.window.initialFirstResponder = field
-        presentAppAlert(alert, in: window ?? appModalHostWindow()) { [weak self] response in
-            guard let self, response == .alertFirstButtonReturn else { return }
-            let trimmed = field.stringValue.trimmingCharacters(in: .whitespaces)
-            guard !trimmed.isEmpty else { return }
-            self.service.apiKey = trimmed
-            self.service.resetLoadedState()
-            self.triggerInitialSearchIfNeeded()
-            self.syncContent(force: true)
+        guard let host = window ?? appModalHostWindow() else { return }
+        if keyPanel == nil {
+            keyPanel = WallpaperAPIKeyPanelController(title: "Pixabay API Key",
+                message: "填写 Pixabay 账号的 API Key 后即可浏览和下载视频。保存后会刷新当前列表。",
+                helpURL: URL(string: "https://pixabay.com/api/docs/")!, hasStoredKey: service.hasValidAPIKey) { [weak self] key in
+                    guard let self else { return }
+                    if let key {
+                        service.apiKey = key
+                        service.resetLoadedState()
+                        triggerInitialSearchIfNeeded()
+                    } else { service.clearAPIKeyAndReset() }
+                    syncContent(force: true)
+                }
+        }
+        guard let controller = keyPanel else { return }
+        controller.present(in: host) { [weak self, weak controller] in
+            guard let self, let controller, keyPanel === controller else { return }
+            keyPanel = nil
         }
     }
 

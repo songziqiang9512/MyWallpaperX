@@ -262,7 +262,7 @@ nonisolated struct PersonalSettingsPayload: Codable, Sendable {
 
     init(exportedAt: Date, preferences: PersonalSettingsPreferences,
          sources: [PersonalSettingsLocalSource], collections: LibraryCollectionsPersonalSettingsImport) {
-        schemaVersion = 7
+        schemaVersion = 8
         self.exportedAt = exportedAt
         self.preferences = preferences
         self.sources = sources
@@ -277,13 +277,13 @@ nonisolated struct PersonalSettingsPayload: Codable, Sendable {
     init(from decoder: Decoder) throws {
         let values = try decoder.container(keyedBy: CodingKeys.self)
         schemaVersion = try values.decodeIfPresent(Int.self, forKey: .schemaVersion) ?? 1
-        guard (1...7).contains(schemaVersion) else { throw PersonalSettingsError.unsupportedSchema(schemaVersion) }
+        guard (1...8).contains(schemaVersion) else { throw PersonalSettingsError.unsupportedSchema(schemaVersion) }
         exportedAt = try values.decodeIfPresent(Date.self, forKey: .exportedAt) ?? .distantPast
         preferences = try values.decode(PersonalSettingsPreferences.self, forKey: .preferences)
         sources = try values.decodeIfPresent([PersonalSettingsLocalSource].self, forKey: .sources) ?? []
         collections = try values.decodeIfPresent(LibraryCollectionsPersonalSettingsImport.self, forKey: .collections)
         if schemaVersion >= 6, collections == nil { throw PersonalSettingsError.invalidPayload("collections") }
-        if schemaVersion == 7, collections?.playlistMetadataIsExplicit != true || collections?.libraryExclusionStates == nil {
+        if schemaVersion >= 7, collections?.playlistMetadataIsExplicit != true || collections?.libraryExclusionStates == nil {
             throw PersonalSettingsError.invalidPayload("列表元数据或库隐藏状态")
         }
         tags = try values.decodeIfPresent([String].self, forKey: .tags) ?? []

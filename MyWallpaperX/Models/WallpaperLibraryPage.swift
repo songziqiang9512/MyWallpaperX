@@ -7,6 +7,8 @@ extension WallpaperProvider {
         case .staticImageLibrary: return "本地图片"
         case .steamWorkshop: return "Steam 创意工坊"
         case .pixabay: return "Pixabay"
+        case .wallhaven: return "Wallhaven"
+        case .pixiv: return "Pixiv"
         }
     }
 
@@ -15,7 +17,7 @@ extension WallpaperProvider {
         case .videoLibrary: return [rawValue, libraryDisplayName, "我的视频", "视频库"]
         case .staticImageLibrary: return [rawValue, libraryDisplayName, "我的图片", "图片库"]
         case .steamWorkshop: return [rawValue, libraryDisplayName, "工坊订阅"]
-        case .pixabay: return [rawValue, libraryDisplayName]
+        case .pixabay, .wallhaven, .pixiv: return [rawValue, libraryDisplayName]
         }
     }
 }
@@ -23,7 +25,7 @@ extension WallpaperProvider {
 /// Navigation identity is independent of a mutable title or a source module.
 nonisolated enum WallpaperLibraryPage: Hashable, Codable, Sendable {
     case videos, images, downloads, recent
-    case workshop, pixabay
+    case workshop, pixabay, wallhaven, pixiv
     case playlists, favorites
     case playlist(UUID)
 
@@ -35,6 +37,8 @@ nonisolated enum WallpaperLibraryPage: Hashable, Codable, Sendable {
         case .recent: return "最近使用"
         case .workshop: return "创意工坊"
         case .pixabay: return "Pixabay"
+        case .wallhaven: return "Wallhaven"
+        case .pixiv: return "Pixiv"
         case .playlists: return "所有播放列表"
         case .favorites: return "特别喜爱"
         case .playlist: return playlistName ?? "播放列表"
@@ -49,6 +53,8 @@ nonisolated enum WallpaperLibraryPage: Hashable, Codable, Sendable {
         case .recent: return "library.recent"
         case .workshop: return "browse.workshop"
         case .pixabay: return "browse.pixabay"
+        case .wallhaven: return "browse.wallhaven"
+        case .pixiv: return "browse.pixiv"
         case .playlists: return "playlists.all"
         case .favorites: return "playlists.favorites"
         case .playlist(let id): return "playlist." + id.uuidString
@@ -57,7 +63,7 @@ nonisolated enum WallpaperLibraryPage: Hashable, Codable, Sendable {
 
     var isRemoteBrowse: Bool {
         switch self {
-        case .workshop, .pixabay: return true
+        case .workshop, .pixabay, .wallhaven, .pixiv: return true
         default: return false
         }
     }
@@ -65,7 +71,7 @@ nonisolated enum WallpaperLibraryPage: Hashable, Codable, Sendable {
     // The retired subscriptions page is read-only compatibility. Personal
     // browsing now belongs to Steam's existing context, not a Shell page.
     private enum CodingKeys: String, CodingKey {
-        case videos, images, downloads, recent, workshop, workshopSubscriptions, pixabay, playlists, favorites, playlist
+        case videos, images, downloads, recent, workshop, workshopSubscriptions, pixabay, wallhaven, pixiv, playlists, favorites, playlist
     }
     private enum PlaylistKey: String, CodingKey { case _0 }
     private struct Empty: Codable {}
@@ -88,6 +94,8 @@ nonisolated enum WallpaperLibraryPage: Hashable, Codable, Sendable {
         case .recent: self = .recent
         case .workshop, .workshopSubscriptions: self = .workshop
         case .pixabay: self = .pixabay
+        case .wallhaven: self = .wallhaven
+        case .pixiv: self = .pixiv
         case .playlists: self = .playlists
         case .favorites: self = .favorites
         case .playlist: preconditionFailure("handled above")
@@ -104,6 +112,8 @@ nonisolated enum WallpaperLibraryPage: Hashable, Codable, Sendable {
         case .recent: key = .recent
         case .workshop: key = .workshop
         case .pixabay: key = .pixabay
+        case .wallhaven: key = .wallhaven
+        case .pixiv: key = .pixiv
         case .playlists: key = .playlists
         case .favorites: key = .favorites
         case .playlist(let id):

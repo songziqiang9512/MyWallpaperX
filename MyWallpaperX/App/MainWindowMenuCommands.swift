@@ -66,10 +66,15 @@ import AppKit
         case .zoomIn: return picker.map { $0.canZoom(1) } ?? (controller?.canZoomLibrary(1) == true)
         case .zoomOut: return picker.map { $0.canZoom(-1) } ?? (controller?.canZoomLibrary(-1) == true)
         case .applyWallpaper:
+            item.representedObject = nil
             item.title = "设为壁纸"
             if editableText != nil { return true }
             if let defaultButton { item.title = defaultButton.title; return true }
             if textView != nil { return false }
+            if page == .wallhaven || page == .pixiv {
+                guard let actions = controller?.selectedBrowserOrganizationActions(), actions.state.canPerformPrimary else { return false }
+                item.representedObject = actions.onPrimary; return true
+            }
             guard let selection = commands?.selection, selection.count == 1 else { return false }
             return selection[0].capabilities.contains(.play)
         case .nextWallpaper, .previousWallpaper:
@@ -79,7 +84,7 @@ import AppKit
         case .favorite:
             item.representedObject = nil
             item.title = "特别喜爱"
-            if page == .workshop {
+            if page == .workshop || page == .wallhaven || page == .pixiv {
                 guard let actions = controller?.selectedBrowserOrganizationActions(), actions.state.canFavorite else { return false }
                 item.title = actions.state.isFavorite ? "取消特别喜爱" : "特别喜爱"
                 item.representedObject = actions.onToggleFavorite
@@ -92,7 +97,7 @@ import AppKit
             return true
         case .addToPlaylist:
             item.representedObject = nil
-            if page == .workshop {
+            if page == .workshop || page == .wallhaven || page == .pixiv {
                 guard let actions = controller?.selectedBrowserOrganizationActions(), actions.state.canOrganize else { return false }
                 item.representedObject = { actions.onChoosePlaylist(nil) }
                 return true
@@ -101,10 +106,12 @@ import AppKit
             let selection = commands.selection
             return !selection.isEmpty && selection.allSatisfy { $0.capabilities.contains(.organize) }
         case .info:
+            if page == .wallhaven || page == .pixiv { return controller?.selectedOnlineImageContent != nil }
             guard let selection = commands?.selection, selection.count == 1 else { return false }
             return selection[0].capabilities.contains(.inspect)
         case .preview:
             if textView != nil { return editableText != nil }
+            if page == .wallhaven || page == .pixiv { return controller?.selectedOnlineImageContent?.capabilities.contains(.quickLook) == true }
             guard let selection = commands?.selection, selection.count == 1 else { return false }
             return selection[0].capabilities.contains(.quickLook) || selection[0].kind == .web || selection[0].kind == .scene
         case .revealOrRefresh:
@@ -147,6 +154,8 @@ import AppKit
         }
         if let defaultButton { defaultButton.performClick(sender); return }
         guard textView == nil else { return }
+        guard controller != nil else { return }
+        if let action = (sender as? NSMenuItem)?.representedObject as? (() -> Void) { action(); return }
         guard let commands else { return }
         let selection = commands.selection
         guard selection.count == 1 else { return }
@@ -173,18 +182,23 @@ import AppKit
         guard page?.isRemoteBrowse != true else { return }
         commands?.choosePlaylist()
     }
-    static func menuInfo() { commands?.inspectSelection() }
+    static func menuInfo() {
+        if page == .wallhaven || page == .pixiv { controller?.inspectSelectedOnlineImage() }
+        else { commands?.inspectSelection() }
+    }
     static func menuPreview(_ sender: Any?) {
         if let textView {
             if textView.isEditable { textView.insertText(" ", replacementRange: NSRange(location: NSNotFound, length: 0)) }
             return
         }
-        commands?.previewSelection()
+        if page == .wallhaven || page == .pixiv { controller?.previewSelectedOnlineImage() }
+        else { commands?.previewSelection() }
     }
     static func menuRevealOrRefresh() {
         switch page {
         case .workshop: SteamWorkshopService.shared.refresh()
         case .pixabay: OnlineLibraryService.shared.refresh()
+        case .wallhaven, .pixiv: controller?.refreshOnlineImages()
         default: commands?.reveal()
         }
     }

@@ -87,6 +87,11 @@ final class MainWindowController:NSWindowController {
     var canZoomIn=true,canZoomOut=true
     var canDeleteSelectedPlaylist=false,playlistDeleteCalls=0
     var browserActions:WallpaperInspectorActions?
+    var selectedOnlineImageContent: WallpaperContentItem?
+    var imageInspections = 0, imagePreviews = 0, imageRefreshes = 0
+    func inspectSelectedOnlineImage() { imageInspections += 1 }
+    func previewSelectedOnlineImage() { imagePreviews += 1 }
+    func refreshOnlineImages() { imageRefreshes += 1 }
     func selectedBrowserOrganizationActions()->WallpaperInspectorActions?{browserActions}
     func focusLibrarySearch(){searches += 1}
     func performLibraryZoom(_ value:Int){zooms.append(value)}
@@ -217,9 +222,10 @@ final class AppDelegate:NSObject,NSApplicationDelegate,NSMenuItemValidation {
         _ = send(.favorite)
         checks["held-local-favorite-menu-cannot-survive-a-page-change"] = controller.libraryCommands.favorites == beforeHeldLocalFavorite
         controller.libraryPresentation.page = .images
-        for page in [WallpaperLibraryPage.workshop,.pixabay] {
+        for page in [WallpaperLibraryPage.workshop,.pixabay,.wallhaven,.pixiv] {
             let steamRefreshes = SteamWorkshopService.shared.refreshes
             let onlineRefreshes = OnlineLibraryService.shared.refreshes
+            let imageRefreshes = controller.imageRefreshes
             controller.libraryPresentation.page=page;controller.libraryCommands.canImport=false;controller.libraryCommands.canToggleSelection=false
             checks["remote-import-and-bulk-selection-disabled-\(page.persistenceKey)"] = !delegate.validateMenuItem(item(.importFiles)) && !delegate.validateMenuItem(item(.toggleSelection))
             checks["remote-search-zoom-and-refresh-still-enabled-\(page.persistenceKey)"] = delegate.validateMenuItem(item(.search))
@@ -228,9 +234,10 @@ final class AppDelegate:NSObject,NSApplicationDelegate,NSMenuItemValidation {
             checks["refresh-dispatches-only-to-current-source-\(page.persistenceKey)"] =
                 SteamWorkshopService.shared.refreshes - steamRefreshes == (page == .workshop ? 1 : 0)
                 && OnlineLibraryService.shared.refreshes - onlineRefreshes == (page == .pixabay ? 1 : 0)
+                && controller.imageRefreshes - imageRefreshes == ((page == .wallhaven || page == .pixiv) ? 1 : 0)
         }
         checks["remote-actions-retain-original-source-refresh-owners"] = SteamWorkshopService.shared.refreshes == 1 && OnlineLibraryService.shared.refreshes == 1
-            && controller.searches == 2 && controller.zooms == [1,-1,1,-1]
+            && controller.imageRefreshes == 2 && controller.searches == 4 && controller.zooms == [1,-1,1,-1,1,-1,1,-1]
         var browserFavorites:[String]=[],browserPlaylists:[String]=[]
         var browserID="download-A"
         controller.libraryPresentation.page = .workshop

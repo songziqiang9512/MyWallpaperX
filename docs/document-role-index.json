@@ -10,9 +10,11 @@
       "docs/development/apple-silicon-optimization-plan.md",
       "docs/development/code-slimming-program.md",
       "docs/development/main-window-playlists-redesign.md",
+      "docs/development/pixiv-online-browser-design.md",
       "docs/development/repository-workflow.md",
       "docs/development/status-bar-panel-redesign.md",
       "docs/development/validation-simplification-plan.md",
+      "docs/development/wallhaven-online-browser-design.md",
       "docs/release/release-signing.md",
       "docs/scene/architecture/gpu-stage-timestamp-diagnostics.md",
       "docs/scene/architecture/refactor-baseline.md",
@@ -207,6 +209,12 @@
       "retirementCondition": "主界面、混合用户关系和轮换各阶段完成验收或由用户结束专项后，稳定职责交回所属合同并归档；未实施设计不宣称现有能力。"
     },
     {
+      "path": "docs/development/pixiv-online-browser-design.md",
+      "role": "active-plan",
+      "entrypoint": "docs/README.md",
+      "retirementCondition": "来源接入完成且真实操作/独立审查通过后，长期共享职责移交既有合同，来源事实保留专题文档，本专项执行顺序退役。"
+    },
+    {
       "path": "docs/development/repository-improvement.md",
       "role": "navigation",
       "entrypoint": "docs/README.md",
@@ -243,6 +251,12 @@
       "role": "active-plan",
       "entrypoint": "docs/README.md",
       "retirementCondition": "先完成Scene/Web全范围、再完成全仓审查，所有有依据同类问题处理并完成回归/前后对照/独立复审；稳定职责迁回对应原合同且用户结束本专项后归档。"
+    },
+    {
+      "path": "docs/development/wallhaven-online-browser-design.md",
+      "role": "active-plan",
+      "entrypoint": "docs/README.md",
+      "retirementCondition": "来源接入完成且真实操作/独立审查通过后，长期共享职责移交既有合同，来源事实保留专题文档，本专项执行顺序退役。"
     },
     {
       "path": "docs/development/wallpaper-startup-optimization-plan.md",

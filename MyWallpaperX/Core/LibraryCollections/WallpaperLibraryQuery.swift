@@ -31,14 +31,14 @@ nonisolated enum WallpaperLibraryQuery {
         switch page {
         case .videos: providers = [.videoLibrary]; references = []
         case .images: providers = [.staticImageLibrary]; references = []
-        case .downloads: providers = [.steamWorkshop, .pixabay]; references = []
+        case .downloads: providers = [.steamWorkshop, .pixabay, .wallhaven, .pixiv]; references = []
         case .recent:
             // Use the same canonical deduplication-before-limit rule as the
             // visible history. Raw aliases must not consume the 50-item cap.
             references = []; providers = []
         case .favorites: references = relationships.favorites.map(\.reference); providers = []
         case .playlist(let id): references = relationships.members.filter { $0.playlistID == id }.map(\.reference); providers = []
-        case .playlists, .workshop, .pixabay: references = []; providers = []
+        case .playlists, .workshop, .pixabay, .wallhaven, .pixiv: references = []; providers = []
         }
         var result = providers
         if page == .recent || !references.isEmpty {
@@ -146,7 +146,7 @@ nonisolated enum WallpaperLibraryQuery {
                 for member in members { addedAt[try canonical(member.reference)] = member.addedAt }
             }
             candidates = try unique(members.map { try resolve($0.reference) })
-        case .playlists, .workshop, .pixabay:
+        case .playlists, .workshop, .pixabay, .wallhaven, .pixiv:
             // Directory and server-paginated browser pages use their own typed
             // projections, rather than silently sorting them as local items.
             candidates = []

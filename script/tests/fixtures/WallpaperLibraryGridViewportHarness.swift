@@ -20,7 +20,7 @@ private final class ViewportCell: NSCollectionViewItem {
         initializeNativeAppHarness()
         var checks: [String: Bool] = [:]
         let items = (0..<200).map { index -> WallpaperContentItem in
-            let reference = WallpaperReference(provider: WallpaperProvider.allCases[index % 4], sourceID: "\(index)")
+            let reference = WallpaperReference(provider: WallpaperProvider.allCases[index % WallpaperProvider.allCases.count], sourceID: "\(index)")
             return .init(reference: reference, providerReference: reference, locator: .init(mediaKind: .video),
                 title: "\(index)", kind: .video, publishedAvailability: .available, capabilities: [.inspect, .play],
                 metadata: .init(), acquisition: .idle, update: .idle, aliases: [])

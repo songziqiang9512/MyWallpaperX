@@ -265,7 +265,7 @@ private nonisolated struct WallpaperPlaybackRestorationEnvelope: Codable, Equata
                 switch page {
                 case .videos: providers = [.videoLibrary]
                 case .images: providers = [.staticImageLibrary]
-                case .downloads: providers = [.steamWorkshop, .pixabay]
+                case .downloads: providers = [.steamWorkshop, .pixabay, .wallhaven, .pixiv]
                 default: providers = try dependencyProvider(source, saved.sourceQuery)
                 }
                 if let filtered = saved.sourceQuery?.provider { providers.formIntersection([filtered]) }

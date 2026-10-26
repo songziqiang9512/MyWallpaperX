@@ -69,6 +69,7 @@ import Combine
         switch workspace.presentation.page {
         case .workshop: return steamBrowserContent.clipWidth
         case .pixabay: return onlineBrowserContent.clipWidth
+        case .wallhaven, .pixiv: return onlineImages.browser(for: workspace.presentation.page)?.clipWidth ?? 0
         case .playlists: return directory.clipWidth
         default: return grid.isViewLoaded ? grid.scrollView.contentView.bounds.width : 0
         }
@@ -153,6 +154,12 @@ import Combine
         return view
     }()
     private lazy var onlineBrowser = WallpaperLibraryViewController(onlineBrowserContent)
+    lazy var onlineImages: WallpaperLibraryOnlineImages = {
+        let value = WallpaperLibraryOnlineImages(workspace: workspace, commands: commands, inspector: inspector)
+        value.isPlaying = { [weak self] in self?.cardState?.isPlaying($0) == true }
+        value.isSwitching = { [weak self] in self?.cardState?.isSwitching($0) == true }
+        return value
+    }()
     private lazy var artwork = WallpaperLibraryArtworkProvider(manager: manager, images: images, steam: steam, online: online)
 
     init(workspace: WallpaperLibraryWorkspace, manager: WallpaperManager, images: SILService,
@@ -295,10 +302,22 @@ import Combine
             menu.requireAppActionPermission { [weak self] in self?.permitsInput == true }
             return menu
         }
+        inspector.isSwitching = { [weak self] in self?.cardState?.isSwitching($0) == true }
         inspector.onMoveSelection = { [weak self] key in
             guard let self, self.permitsInput, let event = NSEvent.keyEvent(with: .keyDown, location: .zero, modifierFlags: [], timestamp: 0,
                 windowNumber: self.split.view.window?.windowNumber ?? 0, context: nil, characters: "", charactersIgnoringModifiers: "", isARepeat: false, keyCode: key) else { return }
-            self.grid.collection.keyDown(with: event)
+            if let browser = self.onlineImages.browser(for: self.workspace.presentation.page) { browser.moveSelection(with: event) }
+            else { self.grid.collection.keyDown(with: event) }
+        }
+        onlineImages.onNavigate = { [weak self] page in
+            guard let self, self.permitsInput else { return }
+            if case .playlist(let id) = page, !self.workspace.relationships.playlists.contains(where: { $0.id == id }) {
+                self.navigate(to: .playlists)
+            } else { self.navigate(to: page) }
+        }
+        inspector.onOnlineImageAuthor = { [weak self] id in
+            guard let self, self.permitsInput else { return }
+            self.onlineImages.openAuthor(id, from: self.workspace.presentation.page)
         }
         split.onRestoreContentFocus = { [weak self] in self?.restoreContentFocus() }
     }
@@ -354,6 +373,8 @@ import Combine
         case "steamWorkshop": page = .workshop
         case "steamDownloads", "onlineDownloads": page = .downloads
         case "onlineLibrary": page = .pixabay
+        case "wallhaven": page = .wallhaven
+        case "pixiv": page = .pixiv
         case "staticImageLibrary": page = .images
         default: return
         }
@@ -416,6 +437,16 @@ import Combine
         }
         prepareCardState(state, catalog: catalog, relationships: relationships, signature: signature, previousSignature: previousSignature)
         if state.page.isRemoteBrowse {
+            if let browser = onlineImages.browser(for: state.page) {
+                onlineImages.window = split.view.window
+                onlineImages.onClipWidthChange = { [weak self] in self?.onGridLayoutChanged?() }
+                browser.preferredColumns = state.query.preferredColumns
+                detail.present(browser)
+                onlineImages.setVisible(isVisible, page: state.page)
+                browser.refreshOrganization()
+                bindTint(browser.listThumbnailTintSource)
+                return
+            }
             if state.page == .pixabay { onlineBrowserContent.preferredColumns = state.query.preferredColumns }
             else { steamBrowserContent.preferredColumns = state.query.preferredColumns }
             let browser = state.page == .pixabay ? onlineBrowser : steamBrowser
@@ -597,6 +628,9 @@ import Combine
     }
 
     func selectedBrowserOrganizationActions() -> WallpaperInspectorActions? {
+        if workspace.presentation.page == .wallhaven || workspace.presentation.page == .pixiv {
+            return onlineImages.selectedOrganizationActions()
+        }
         guard let item = steam.selectedBrowserItem else { return nil }
         return remoteInspectorActions(for: item)
     }
@@ -748,6 +782,19 @@ import Combine
                 noticeActions.append(action("重试载入") { $0.online.refreshDownloadedContent() })
             }
         }
+        if let provider = dependencies.first(where: { $0 == .wallhaven || $0 == .pixiv }),
+           let scan = workspace.catalog.catalog.sourceScanStatuses[provider] {
+            switch scan.phase {
+            case .loading:
+                if scan.hasSuccessfulScan { notices.append("正在刷新已下载的在线图片…") }
+            case .ready(let warnings):
+                if !warnings.isEmpty { notices.append("在线图片：" + warnings.joined(separator: "；")) }
+            case .failed(let reason):
+                scanFailed = true
+                notices.append((scan.hasSuccessfulScan ? "刷新失败，保留现有内容。" : "") + reason)
+                noticeActions.append(action("重试载入在线图片") { _ in OnlineImageLibrary.shared.refreshLocal() })
+            }
+        }
         if state.page == .playlists {
             if state.directoryEntries.isEmpty, !state.query.search.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
                 message = "没有符合条件的播放列表"
@@ -838,6 +885,7 @@ import Combine
     }
 
     func restoreContentFocus() {
+        if let browser = onlineImages.browser(for: workspace.presentation.page) { browser.requestFocus(); return }
         guard !workspace.presentation.page.isRemoteBrowse, workspace.presentation.page != .playlists else { return }
         grid.collection.window?.makeFirstResponder(grid.collection)
     }
@@ -849,6 +897,7 @@ import Combine
     }
 
     func close() {
+        onlineImages.close()
         creationNotice.dismiss()
         inspector.closeInspector(); inspector.closePreview()
         artwork.setDemand(sourceToken: sidebarDemand, playlistIDs: [])

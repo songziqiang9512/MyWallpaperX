@@ -20,6 +20,7 @@ class WallpaperLibraryCommandTransactionsTests(unittest.TestCase):
     def test_native_fixed_action_and_real_organization_undo(self):
         paths = [ROOT / 'MyWallpaperX' / p for p in (
             'Models/WallpaperReference.swift', 'Models/WallpaperContent.swift', 'Models/WallpaperLibraryPage.swift',
+            'Core/OnlineImages/OnlineImageModels.swift', 'Core/OnlineImages/OnlineImageContentProjection.swift',
             'Models/WallpaperSourceImportResult.swift',
             'Core/LibraryCollections/UserCollectionsStore.swift', 'Core/LibraryCollections/UserCollectionsController.swift',
             'Core/LibraryCollections/WallpaperLibraryQuery.swift',
@@ -30,6 +31,7 @@ class WallpaperLibraryCommandTransactionsTests(unittest.TestCase):
             'Shared/UI/WallpaperInspectorActions.swift',
             'App/WallpaperLibraryRelationshipUndo.swift')]
         commands = (ROOT / 'MyWallpaperX/App/WallpaperLibraryCommands.swift').read_text()
+        paths.append(ROOT / 'script/tests/fixtures/OnlineImageLibraryAppStub.swift')
         factory = '\n'.join(declaration(commands, signature) for signature in (
             '    func makePrimaryAction(', '    func makeApplyAction(', '    func stop('))
         fixture = (ROOT / 'script/tests/fixtures/WallpaperLibraryCommandTransactionsHarness.swift').read_text()
@@ -61,7 +63,8 @@ class WallpaperLibraryCommandTransactionsTests(unittest.TestCase):
         fixture = fixture.replace('// ACTUAL_RESTORATION_COMMANDS', restoration.replace(
             'in workspace: WallpaperLibraryWorkspace', 'in workspace: RemovalWorkspace'))
         restoration_fixture = ROOT / 'script/tests/fixtures/WallpaperLibraryRestorationChecks.swift'
-        fixture += '\n' + restoration_fixture.read_text()
+        image_removal_fixture = ROOT / 'script/tests/fixtures/OnlineImageCommandRemovalChecks.swift'
+        fixture += '\n' + restoration_fixture.read_text() + '\n' + image_removal_fixture.read_text()
         organization_path = ROOT / 'MyWallpaperX/Shell/PlaylistOrganizationActions.swift'
         completion_fixture = ROOT / 'script/tests/fixtures/WallpaperLibraryOrganizationCompletionChecks.swift'
         # The real action owner and SQLite transactions run here. The editor
@@ -97,7 +100,7 @@ class WallpaperLibraryCommandTransactionsTests(unittest.TestCase):
         fixture = fixture.replace('// ACTUAL_STEAM_ORGANIZATION', declaration(steam_path.read_text(), '    struct OrganizationPresentation'))
         inputs = paths + [ROOT / 'MyWallpaperX/App/WallpaperLibraryCommands.swift',
                           ROOT / 'script/tests/fixtures/WallpaperLibraryCommandTransactionsHarness.swift', composition_path, steam_path,
-                          grid_path, grid_fixture_path, restoration_fixture, projection_fixture,
+                          grid_path, grid_fixture_path, restoration_fixture, image_removal_fixture, projection_fixture,
                           organization_path, completion_fixture]
         identities = {str(p): hashlib.sha256(p.read_bytes()).hexdigest() for p in inputs}
         with tempfile.TemporaryDirectory(prefix='mwx-command-transactions-', dir='/private/tmp') as directory:

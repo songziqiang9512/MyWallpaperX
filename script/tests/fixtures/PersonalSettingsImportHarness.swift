@@ -170,6 +170,36 @@ extension Notification.Name {
             && patchPlan.sourcePatches.map { $0.target.reference } == patchSources.map(\.reference)
         checks["SourcePatchLocatorMembershipDeduplicatesRemappedPathsWithoutCollapsingOpaqueIDs"] = patchPlan.collections.locators.count == 302
             && patchPlan.collections.locators.suffix(2).map(\.reference) == patchSources.suffix(2).map(\.reference)
+        let onlineRefs = [ref("Ab001", .wallhaven), ref("001234:p0", .pixiv), ref("001234:p2", .pixiv)]
+        let onlineList = WallpaperPlaylist(name: "Offline online images", sidebarRank: 0)
+        let onlineMembers = onlineRefs.enumerated().map {
+            WallpaperPlaylistMember(playlistID: onlineList.id, reference: $0.element, position: $0.offset, addedAt: originalDate)
+        }
+        let onlineLocators = onlineRefs.map { WallpaperReferenceLocator(reference: $0,
+            locator: .init(path: "/offline/" + $0.storageKey, titleHint: "Saved image", mediaKind: .image)) }
+        let onlineState = UserCollectionsSnapshot(revision: 1, resetEpoch: UUID(), migrationManifestID: nil,
+            playlists: [onlineList], members: onlineMembers,
+            favorites: onlineRefs.map { .init(reference: $0, favoritedAt: originalDate) }, recent: [], aliases: [], locators: onlineLocators)
+        let onlinePayload = try LibraryPersonalSettings.export(sources: [], preferences: .init(from: manager.settings), state: onlineState)
+        let onlineBytes = try LibraryPersonalSettings.encode(onlinePayload)
+        let onlineDecoded = try LibraryPersonalSettings.decode(onlineBytes)
+        let onlinePlan = try LibraryPersonalSettings.plan(onlineDecoded, sources: [],
+            beforePreferences: .init(from: manager.settings), targetPreferences: .init(from: manager.settings),
+            state: initial, normalizedPaths: [:], missingPathCount: onlineRefs.count)
+        checks["SchemaEightPreservesOpaqueOnlineImagePageRelationsWithoutCreatingSILSources"] = onlineDecoded.schemaVersion == 8
+            && onlinePlan.sourcePatches.isEmpty && onlinePlan.collections.members == onlineMembers
+            && onlinePlan.collections.favoriteStates.map(\.reference) == onlineRefs && onlinePlan.collections.locators == onlineLocators
+        var credentialObject = try JSONSerialization.jsonObject(with: onlineBytes) as! [String: Any]
+        credentialObject["pixivCookie"] = "fixture-cookie-must-not-export"
+        credentialObject["wallhavenAPIKey"] = "fixture-key-must-not-export"
+        let withoutCredentials = try LibraryPersonalSettings.encode(LibraryPersonalSettings.decode(JSONSerialization.data(withJSONObject: credentialObject)))
+        checks["OnlineCredentialsHaveNoPersonalSettingsRepresentation"] = !String(decoding: withoutCredentials, as: UTF8.self).contains("fixture-cookie-must-not-export")
+            && !String(decoding: withoutCredentials, as: UTF8.self).contains("fixture-key-must-not-export")
+        credentialObject["schemaVersion"] = 9
+        do {
+            _ = try LibraryPersonalSettings.decode(JSONSerialization.data(withJSONObject: credentialObject))
+            checks["NextPersonalSettingsSchemaIsRejected"] = false
+        } catch PersonalSettingsError.unsupportedSchema(9) { checks["NextPersonalSettingsSchemaIsRejected"] = true }
         manager.settings.systemHotkeysEnabled = true; manager.settings.previousWallpaperHotkey = .f3
         manager.settings.restorePlaybackOnLaunch = false
         for version in 1...5 {
@@ -204,7 +234,7 @@ extension Notification.Name {
         let exported = try LibraryPersonalSettings.decode(Data(contentsOf: exportURL))
         let object = try JSONSerialization.jsonObject(with: Data(contentsOf: exportURL)) as! [String: Any]
         let exportedJSON = String(decoding: try Data(contentsOf: exportURL), as: UTF8.self)
-        checks["SchemaSevenExportExcludesRuntimeHistoryCredentialsAndWallpaperMedia"] = exported.schemaVersion == 7
+        checks["SchemaEightExportExcludesRuntimeHistoryCredentialsAndWallpaperMedia"] = exported.schemaVersion == 8
             && object["recent"] == nil && object["currentWallpaper"] == nil && object["session"] == nil
             && (object["preferences"] as? [String: Any])?["systemHotkeysEnabled"] == nil
             && !exportedJSON.contains("/derived/thumbnail")
@@ -250,7 +280,7 @@ extension Notification.Name {
             && afterProfileBytes == profileBytes
         let count = manager.wallpapers.count
         _ = try await coordinator.importPersonalSettings(from: profile)
-        checks["RepeatedSchemaSevenImportDoesNotDuplicateSourcePlaylistOrMembers"] = manager.wallpapers.count == count
+        checks["RepeatedSchemaEightImportDoesNotDuplicateSourcePlaylistOrMembers"] = manager.wallpapers.count == count
             && images.wallpapers.count == 1 && controller.snapshot.playlists.count == 2 && controller.snapshot.members.count == 3
         let beforeUnknown = manager.wallpapers
         let future = root.appendingPathComponent("future.json")
@@ -669,10 +699,19 @@ extension Notification.Name {
         _ = try await importer.exportPersonalSettings(to: profile)
         let portableBytes = try Data(contentsOf: profile)
         let portable = try LibraryPersonalSettings.decode(portableBytes)
-        checks["SchemaSevenExportsOnlyReferencedControlledCoverCopiesAndExplicitHideStates"] = portable.schemaVersion == 7
+        checks["SchemaEightExportsOnlyReferencedControlledCoverCopiesAndExplicitHideStates"] = portable.schemaVersion == 8
             && portable.collections?.coverAssets == [asset] && portable.collections?.playlists.first?.descriptionText == "A description"
             && portable.collections?.libraryExclusionStates?.contains { $0.reference == hidden && $0.isExcluded } == true
             && portable.collections?.expectedLibraryExclusions == nil
+        var schemaSeven = try JSONSerialization.jsonObject(with: portableBytes) as! [String: Any]
+        schemaSeven["schemaVersion"] = 7
+        let schemaSevenBytes = try JSONSerialization.data(withJSONObject: schemaSeven)
+        try schemaSevenBytes.write(to: profile)
+        _ = try await importer.importPersonalSettings(from: profile)
+        checks["SchemaSevenStillImportsExplicitCoverDescriptionAndHideStatesWithoutRewritingInput"] = try controller.snapshot.playlists.first { $0.id == id }?.customCoverAssetID == asset.id
+            && controller.snapshot.playlists.first { $0.id == id }?.descriptionText == "A description"
+            && controller.snapshot.excludedLibraryReferences.contains { $0.reference == hidden }
+            && Data(contentsOf: profile) == schemaSevenBytes
         for version in 1...5 {
             try Data("{\"schemaVersion\":\(version),\"preferences\":{},\"tags\":[\"Portable cover\"],\"entries\":[]}".utf8).write(to: profile)
             _ = try await importer.importPersonalSettings(from: profile)
@@ -715,7 +754,7 @@ extension Notification.Name {
             _ = try await importer.importPersonalSettings(from: profile)
             let persisted = try await controller.playlistCoverAsset(id: copy.id, expectedEpoch: controller.snapshot.resetEpoch)
             let pixels = persisted.flatMap { NSBitmapImageRep(data: $0.imageData) }
-            checks["SchemaSevenImports" + label + "ThroughRealCoverValidation"] = persisted == copy
+            checks["SchemaEightImports" + label + "ThroughRealCoverValidation"] = persisted == copy
                 && controller.snapshot.playlists.first { $0.id == id }?.customCoverAssetID == copy.id
                 && pixels?.pixelsWide == width && pixels?.pixelsHigh == height && pixels?.colorAt(x: 0, y: 0)?.alphaComponent == 0
         }
@@ -730,7 +769,7 @@ extension Notification.Name {
             sources: [], collections: .init(playlists: [automatic], libraryExclusionStates: [.init(reference: hidden, isExcluded: false)]))
         try write(clearPayload, to: profile)
         _ = try await importer.importPersonalSettings(from: profile)
-        checks["SchemaSevenExplicitAutomaticAndFalseHideAreAppliedByOriginalImportChain"] = controller.snapshot.playlists.first { $0.id == id }?.customCoverAssetID == nil
+        checks["SchemaEightExplicitAutomaticAndFalseHideAreAppliedByOriginalImportChain"] = controller.snapshot.playlists.first { $0.id == id }?.customCoverAssetID == nil
             && controller.snapshot.playlists.first { $0.id == id }?.descriptionText == nil && controller.snapshot.excludedLibraryReferences.isEmpty
         _ = try await controller.editPlaylistMetadata(id: id, expected: controller.snapshot.playlists[0].metadata,
             replacement: .init(name: "Automatic fractional"), at: fractionalDate, expectedEpoch: controller.snapshot.resetEpoch)
@@ -761,9 +800,9 @@ extension Notification.Name {
             try write(.init(exportedAt: Date(), preferences: .init(from: manager.settings), sources: [], collections: badCollections), to: profile)
             do {
                 _ = try await importer.importPersonalSettings(from: profile)
-                checks["SchemaSevenRejects" + label + "BeforeRecoveryOrRelationshipWrites"] = false
+                checks["SchemaEightRejects" + label + "BeforeRecoveryOrRelationshipWrites"] = false
             } catch PersonalSettingsError.invalidPayload(_) {
-                checks["SchemaSevenRejects" + label + "BeforeRecoveryOrRelationshipWrites"] = controller.snapshot == beforeBad
+                checks["SchemaEightRejects" + label + "BeforeRecoveryOrRelationshipWrites"] = controller.snapshot == beforeBad
                     && !FileManager.default.fileExists(atPath: recovery.path) && importer.allowsEditing
             }
         }

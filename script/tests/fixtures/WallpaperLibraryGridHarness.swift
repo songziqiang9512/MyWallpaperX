@@ -209,7 +209,7 @@ private final class GridUnifiedToolbarProbe: NSObject, NSToolbarDelegate {
         FileHandle.standardError.write(Data("grid-stage \(mode)\n".utf8))
         var checks: [String: Bool] = [:]
         let values = (0..<80).map { index -> WallpaperContentItem in
-            let provider = WallpaperProvider.allCases[index % 4]
+            let provider = WallpaperProvider.allCases[index % WallpaperProvider.allCases.count]
             let reference = WallpaperReference(provider: provider, sourceID: "item-\(index)")
             return WallpaperContentItem(reference: reference, providerReference: reference,
                 locator: .init(mediaKind: .video), title: "壁纸 \(index)", kind: .video,
@@ -288,8 +288,8 @@ private final class GridUnifiedToolbarProbe: NSObject, NSToolbarDelegate {
         flow.prepare()
         let metrics = WallpaperLibraryGridMetrics(clipWidth: controller.scrollView.contentView.bounds.width, preferredColumns: 5)
         let firstFrame = flow.layoutAttributesForItem(at: IndexPath(item: 0, section: 0))!.frame
-        checks["one-native-grid-presents-all-four-provider-identities-in-source-order"] = collection.numberOfItems(inSection: 0) == 80
-            && controller.items.prefix(4).map(\.reference.provider) == WallpaperProvider.allCases
+        checks["one-native-grid-presents-all-provider-identities-in-source-order"] = collection.numberOfItems(inSection: 0) == 80
+            && controller.items.prefix(WallpaperProvider.allCases.count).map(\.reference.provider) == WallpaperProvider.allCases
         checks["square-cells-use-the-shared-cover-size-and-music-content-insets"] = firstFrame.width == metrics.coverSide
             && firstFrame.width == firstFrame.height && firstFrame.minX == metrics.horizontalInset && firstFrame.minY == 8
         let secondFrame = flow.layoutAttributesForItem(at: IndexPath(item: 1, section: 0))!.frame
@@ -547,8 +547,8 @@ private final class GridUnifiedToolbarProbe: NSObject, NSToolbarDelegate {
         defer { quickAddBoard.releaseGlobally() }
         var localPagesAcceptEveryProvider = true
         for localPage in [WallpaperLibraryPage.videos, .images, .downloads, .recent, .favorites, dragPage] {
-            update(localPage, selection: WallpaperLibrarySelectionState(), items: Array(values.prefix(4)))
-            for index in 0..<4 {
+            update(localPage, selection: WallpaperLibrarySelectionState(), items: Array(values.prefix(WallpaperProvider.allCases.count)))
+            for index in WallpaperProvider.allCases.indices {
                 quickAddBoard.clearContents()
                 guard let source = controller.collectionView(collection, pasteboardWriterForItemAt: IndexPath(item: index, section: 0)) else {
                     localPagesAcceptEveryProvider = false; continue
@@ -559,9 +559,9 @@ private final class GridUnifiedToolbarProbe: NSObject, NSToolbarDelegate {
                     && controller.referencesForPlaylistDrop(from: current) == [values[index].reference]
             }
         }
-        checks["every-local-page-publishes-current-video-image-steam-and-pixabay-references-for-sidebar-add"] = localPagesAcceptEveryProvider
+        checks["every-local-page-publishes-all-current-provider-references-for-sidebar-add"] = localPagesAcceptEveryProvider
         var remotePagesRejectDrag = true
-        for nonLibraryPage in [WallpaperLibraryPage.workshop, .pixabay, .playlists] {
+        for nonLibraryPage in [WallpaperLibraryPage.workshop, .pixabay, .wallhaven, .pixiv, .playlists] {
             update(nonLibraryPage, selection: WallpaperLibrarySelectionState(), items: Array(values.prefix(4)))
             remotePagesRejectDrag = remotePagesRejectDrag
                 && controller.collectionView(collection, pasteboardWriterForItemAt: IndexPath(item: 0, section: 0)) == nil
@@ -610,11 +610,11 @@ private final class GridUnifiedToolbarProbe: NSObject, NSToolbarDelegate {
 
         // AX activation uses the same accepted selection owner, with no
         // coordinate synthesis, provider dispatch or playback side effect.
-        update(.downloads, selection: WallpaperLibrarySelectionState(), items: Array(values.prefix(4)))
+        update(.downloads, selection: WallpaperLibrarySelectionState(), items: Array(values.prefix(WallpaperProvider.allCases.count)))
         func accessibilityRoot(_ index: Int = 0) -> WallpaperCardInteractionView {
             collection.item(at: IndexPath(item: index, section: 0))!.view as! WallpaperCardInteractionView
         }
-        checks["all-four-provider-cards-expose-their-current-native-accessibility-group-and-title"] = (0..<4).allSatisfy {
+        checks["all-provider-cards-expose-their-current-native-accessibility-group-and-title"] = WallpaperProvider.allCases.indices.allSatisfy {
             let root = accessibilityRoot($0)
             return root.isAccessibilityElement() && root.accessibilityRole() == .group && root.accessibilityLabel() == values[$0].title
         }

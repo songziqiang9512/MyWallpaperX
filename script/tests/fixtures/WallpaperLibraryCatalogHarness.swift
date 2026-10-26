@@ -94,7 +94,6 @@ final class SteamWorkshopService {
     // DECLARED_WEB_ENTRY
     // LOAD_WEB_PROJECT
     // STEAM_LAUNCH_ADMISSION
-    func webLaunchEntryIsValid(for record: SteamWorkshopDownloadRecord) -> Bool { computeWebLaunchEntryIsValid(for: record) }
     nonisolated func loadDecodedWebProject(for record: SteamWorkshopDownloadRecord) -> SteamWorkshopProject? {
         Self.loadWorkshopProject(from: record.projectFileURL)
     }
@@ -140,6 +139,7 @@ extension SteamWorkshopDownloadRecord { var isSceneLaunchable: Bool { false } }
         manager.didFinishInitialIndexLoad = true
         steam.hasCompletedInstalledLibraryLoad = true
         online.downloadedContent = .init(revision: 1, entries: [], status: .init(phase: .ready(warnings: []), hasSuccessfulScan: true))
+        OnlineImageLibrary.shared.snapshot = .init(status: .init(phase: .ready(warnings: []), hasSuccessfulScan: true), revision: 1)
         checks["source-completion-including-a-successfully-empty-online-library-publishes-one-consistent-value"] = await wait {
             controller.catalog.loadedProviders == Set(WallpaperProvider.allCases) && controller.catalog.revision > beforeReadiness
         }
@@ -344,11 +344,17 @@ extension SteamWorkshopDownloadRecord { var isSceneLaunchable: Bool { false } }
             entryHTMLURL: entry, resolvedWebRootURL: webRoot, previewURL: nil, sourceVideoURL: nil, exportedVideoURL: nil,
             updatedAt: Date(), sizeText: "", status: .ready, browserItem: nil, contentType: .web,
             dependencyItemID: nil, dependencyStatus: .none)
-        let invalidWeb = await steam.libraryContentItems(from: [web], jobs: [], account: nil, reusing: [], previousRecords: [])
-        checks["web-reuses-original-declared-entry-admission-not-just-any-html-file"] = invalidWeb[0].publishedAvailability == .unavailable
-            && !invalidWeb[0].capabilities.contains(.play)
+        let selectedWeb = await steam.libraryContentItems(from: [web], jobs: [], account: nil, reusing: [], previousRecords: [])
+        checks["web-admission-uses-existing-selected-entry-without-rediscovering-declaration"] = selectedWeb[0].publishedAvailability == .available
+            && selectedWeb[0].capabilities.contains(.play)
+        try FileManager.default.removeItem(at: entry)
         try Data("<html>declared</html>".utf8).write(to: webRoot.appendingPathComponent("declared.html"))
-        let validWeb = await steam.libraryContentItems(from: [web], jobs: [], account: nil, reusing: invalidWeb,
+        let missingWeb = await steam.libraryContentItems(from: [web], jobs: [], account: nil, reusing: selectedWeb,
+                                                        previousRecords: [web], refreshAll: true)
+        checks["web-admission-rejects-missing-selected-entry-despite-other-html"] = missingWeb[0].publishedAvailability == .unavailable
+            && !missingWeb[0].capabilities.contains(.play)
+        try Data("<html>selected</html>".utf8).write(to: entry)
+        let validWeb = await steam.libraryContentItems(from: [web], jobs: [], account: nil, reusing: missingWeb,
                                                       previousRecords: [web], refreshAll: true)
         checks["valid-web-remains-playable-through-original-provider-admission"] = validWeb[0].kind == .web
             && validWeb[0].capabilities.contains([.play, .organize])
@@ -520,6 +526,29 @@ extension SteamWorkshopDownloadRecord { var isSceneLaunchable: Bool { false } }
             lateSubscriber.catalog.loadedProviders.contains(.pixabay)
             && lateSubscriber.catalog.sourceScanStatuses[.pixabay] == warmLoading
             && lateSubscriber.catalog.downloads.count == 1
+        func onlineRecord(_ source: OnlineImageSource, page: Int = 0) -> OnlineImageLocalRecord {
+            .init(assetID: .init(source: source, artworkID: "42", pageIndex: page), title: "Same online title",
+                sourceURL: URL(string: "https://example.org/42")!, author: nil, authorID: nil, tags: [],
+                relativePath: source.rawValue + "/fixture.png", pixelWidth: 40, pixelHeight: 30,
+                fileSizeBytes: 3, firstDownloadedAt: Date(timeIntervalSince1970: 9), revision: UUID())
+        }
+        let wallhaven = onlineRecord(.wallhaven), pixiv = onlineRecord(.pixiv, page: 2)
+        let earlierDownloads = Set(controller.catalog.downloads.map(\.reference))
+        OnlineImageLibrary.shared.snapshot = .init(records: [wallhaven, pixiv], unavailable: [pixiv.id],
+            status: .init(phase: .ready(warnings: []), hasSuccessfulScan: true), revision: 2)
+        checks["online-image-snapshot-publishes-each-provider-without-dropping-existing-downloads"] =
+            earlierDownloads.isSubset(of: Set(controller.catalog.downloads.map(\.reference)))
+            && controller.catalog.downloads.contains { $0.reference == wallhaven.id.reference && $0.kind == .image && $0.capabilities.contains(.play) }
+            && controller.catalog.downloads.contains { $0.reference == pixiv.id.reference && $0.publishedAvailability == .unavailable && !$0.capabilities.contains(.play) }
+            && controller.catalog.loadedProviders.isSuperset(of: [.wallhaven, .pixiv])
+        steam.downloads = []
+        _ = await wait { controller.catalog.downloads.allSatisfy { $0.reference.provider != .steamWorkshop } }
+        checks["later-steam-and-pixabay-publications-preserve-new-image-provider-subsets"] = controller.catalog.downloads.contains { $0.reference == wallhaven.id.reference }
+            && controller.catalog.downloads.contains { $0.reference == pixiv.id.reference }
+        let otherProviders = controller.catalog.downloads.filter { $0.reference.provider != .wallhaven && $0.reference.provider != .pixiv }
+        OnlineImageLibrary.shared.snapshot = .init(status: .init(phase: .ready(warnings: []), hasSuccessfulScan: true), revision: 3)
+        checks["successful-empty-image-scan-clears-only-image-subsets-without-network-readiness"] = controller.catalog.downloads == otherProviders
+            && controller.catalog.loadedProviders.isSuperset(of: [.wallhaven, .pixiv])
         print(String(decoding: try JSONEncoder().encode(checks), as: UTF8.self))
     }
 

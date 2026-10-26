@@ -4,6 +4,7 @@ import Foundation
 @MainActor private final class NavigationSteamLeaf {
     enum Section: Equatable { case personal, discovery }
     var isBrowsingAuthorWorkshop = false
+    var canReturnFromBrowse: Bool { isBrowsingAuthorWorkshop }
     var pendingDownloadsScrollRestoreOffsetY: Double? = 42
     var events: [String] = []
     func returnToDiscoveryBrowse(selectOrigin: Bool) {

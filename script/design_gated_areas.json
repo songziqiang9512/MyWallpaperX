@@ -1509,6 +1509,56 @@
         "MyWallpaperX/App/WallpaperLibraryPlaybackRestoration.swift"
       ],
       "contentPatterns": []
+    },
+    {
+      "id": "wallhaven-online-images",
+      "title": "Wallhaven在线浏览与两来源共用图片获取发布",
+      "owner": "Core/OnlineImages + Modules/Wallhaven",
+      "status": "approved",
+      "designDoc": "docs/development/wallhaven-online-browser-design.md",
+      "design_notes": "2026-10-26按用户批准方案实施，已基于UI专项2fb50b5f1重新接线；浏览顺序Steam/Wallhaven/Pixiv/Pixabay，下载统一投影与来源筛选；图片publication/网格/缓存与systemStill沿原owner，Pixabay视频不迁移。2026-10-27用户授权提交并合入codex/engine-refactor-program，不推送或安装；真实Key及受限内容不冒充已验证。",
+      "matchPatterns": [
+        "MyWallpaperX/Modules/Wallhaven/*",
+        "MyWallpaperX/Core/OnlineImages/*",
+        "MyWallpaperX/Shared/UI/OnlineImage*.swift",
+        "MyWallpaperX/Shared/WallpaperFileTransfer.swift",
+        "MyWallpaperX/Shared/WallpaperNetworkSession.swift",
+        "MyWallpaperX/Models/WallpaperReference.swift",
+        "MyWallpaperX/Models/WallpaperLibraryPage.swift",
+        "MyWallpaperX/Models/PersonalSettingsPayload.swift",
+        "MyWallpaperX/Core/LibraryCollections/LibraryPersonalSettings*.swift",
+        "MyWallpaperX/Core/LibraryCollections/WallpaperLibraryQuery.swift",
+        "MyWallpaperX/App/OnlineImage*.swift",
+        "MyWallpaperX/App/WallpaperLibraryCatalogController.swift",
+        "MyWallpaperX/App/WallpaperLibraryWindowComposition.swift",
+        "MyWallpaperX/App/WallpaperLibraryWindowToolbar.swift",
+        "MyWallpaperX/App/WallpaperLibraryPlaybackRouting.swift",
+        "MyWallpaperX/App/WallpaperLibraryWorkspace.swift",
+        "MyWallpaperX/App/WallpaperLibraryDownloadRecovery.swift",
+        "MyWallpaperX/App/WallpaperLibraryInspectorCoordinator.swift",
+        "MyWallpaperX/App/WallpaperLibraryCellAdapter.swift",
+        "MyWallpaperX/App/WallpaperLibraryArtworkProvider.swift",
+        "MyWallpaperX/App/WallpaperLibraryCommands.swift",
+        "MyWallpaperX/App/WallpaperLibraryPlaybackRestoration.swift",
+        "MyWallpaperX/Shell/WallpaperLibrarySidebarController.swift",
+        "MyWallpaperX/Modules/OnlineLibrary/Core/OnlineLibraryThumbnailPipeline.swift",
+        "MyWallpaperX/Modules/OnlineLibrary/Core/OnlineLibraryService.swift",
+        "MyWallpaperX/Shared/UI/WallpaperAPIKeyPanelController.swift",
+        "MyWallpaperX/App/WallpaperLibraryOnlineImages.swift"
+      ],
+      "contentPatterns": []
+    },
+    {
+      "id": "pixiv-online-images",
+      "title": "Pixiv在线浏览与隔离会话及多页图片",
+      "owner": "Modules/Pixiv",
+      "status": "approved",
+      "designDoc": "docs/development/pixiv-online-browser-design.md",
+      "design_notes": "2026-10-26按用户批准方案实施并按新HEAD复接；隔离WebKit会话、typed作品与页资产、匿名浏览和共享原图发布已接入。真实登录/受限内容仍未实操，不以Cookie或匿名成功宣称已认证。2026-10-27用户授权提交并合入codex/engine-refactor-program，不推送或安装。",
+      "matchPatterns": [
+        "MyWallpaperX/Modules/Pixiv/*"
+      ],
+      "contentPatterns": []
     }
   ]
 }

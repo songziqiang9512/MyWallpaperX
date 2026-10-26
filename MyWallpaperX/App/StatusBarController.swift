@@ -140,7 +140,7 @@ final class StatusBarController: NSObject, NSPopoverDelegate {
             switch reference.provider {
             case .videoLibrary: values = catalog.videos
             case .staticImageLibrary: values = catalog.images
-            case .steamWorkshop, .pixabay: values = catalog.downloads
+            case .steamWorkshop, .pixabay, .wallhaven, .pixiv: values = catalog.downloads
             }
             // Display only one already-published value. The canonical resolver
             // and source-readiness rules remain on the deliberate replay action.

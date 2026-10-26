@@ -36,7 +36,8 @@ final class MainWindowController: NSWindowController, NSWindowDelegate {
         window.backgroundColor = .windowBackgroundColor
         toolbar = WallpaperLibraryWindowToolbar(window: window, workspace: workspace, commands: composition.commands,
             gridWidth: { [weak composition] in composition?.gridClipWidth ?? 0 },
-            makeDirectoryReturnAction: { [weak composition] in composition?.makeDirectoryReturnAction() })
+            makeDirectoryReturnAction: { [weak composition] in composition?.makeDirectoryReturnAction() },
+            onlineImages: composition.onlineImages)
         super.init(window: window)
         shouldCascadeWindows = false
         window.delegate = self
@@ -71,6 +72,10 @@ final class MainWindowController: NSWindowController, NSWindowDelegate {
     func canZoomLibrary(_ delta: Int) -> Bool { toolbar.canZoom(delta: delta) }
     func focusLibrarySearch() { toolbar.focusSearch() }
     func navigateLibraryPage(_ page: WallpaperLibraryPage) { composition.navigate(to: page) }
+    func refreshOnlineImages() { composition.onlineImages.refreshCurrent() }
+    var selectedOnlineImageContent: WallpaperContentItem? { composition.onlineImages.selectedContent }
+    func inspectSelectedOnlineImage() { composition.onlineImages.inspectSelected() }
+    func previewSelectedOnlineImage() { composition.onlineImages.previewSelected() }
 
     override func acceptsPreviewPanelControl(_ panel: QLPreviewPanel!) -> Bool {
         composition.inspector.acceptsPreviewPanelControl(panel)

@@ -123,7 +123,7 @@ nonisolated enum LibraryPersonalSettings {
                 let alias = mapped($0.alias), canonical = mapped($0.canonical)
                 return alias == canonical ? nil : .init(alias: alias, canonical: canonical, proof: .restoredSourceRecord)
             }
-            if payload.schemaVersion == 7 {
+            if payload.schemaVersion >= 7 {
                 collections.playlistMetadataIsExplicit = true
                 collections.libraryExclusionStates = incoming.libraryExclusionStates?.map {
                     .init(reference: mapped($0.reference), isExcluded: $0.isExcluded)

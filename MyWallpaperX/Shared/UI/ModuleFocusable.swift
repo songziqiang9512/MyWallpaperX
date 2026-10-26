@@ -60,4 +60,6 @@ enum ModuleIdentifier: String {
     case staticImageLibrary = "staticImageLibrary"
     case onlineLibrary      = "onlineLibrary"
     case steamWorkshop      = "steamWorkshop"
+    case wallhaven          = "wallhaven"
+    case pixiv              = "pixiv"
 }

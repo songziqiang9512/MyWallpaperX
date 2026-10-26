@@ -9,7 +9,7 @@ import AppKit
     case about, settings, closeWindow, createPlaylist, importFiles, undo, redo
     case selectAll, toggleSelection, deleteSelected, search, zoomIn, zoomOut
     case applyWallpaper, nextWallpaper, previousWallpaper, favorite, addToPlaylist, info, preview, revealOrRefresh
-    case videos, images, downloads, recent, workshop, pixabay, playlists, favorites
+    case videos, images, downloads, recent, workshop, pixabay, wallhaven, pixiv, playlists, favorites
 
     var identifier: NSUserInterfaceItemIdentifier { .init("MyWallpaperX.Menu." + rawValue) }
     var page: WallpaperLibraryPage? {
@@ -20,6 +20,8 @@ import AppKit
         case .recent: return .recent
         case .workshop: return .workshop
         case .pixabay: return .pixabay
+        case .wallhaven: return .wallhaven
+        case .pixiv: return .pixiv
         case .playlists: return .playlists
         case .favorites: return .favorites
         default: return nil
@@ -215,7 +217,7 @@ enum MainMenuBuilder {
         let navigation = NSMenu(title: "前往")
         for (command, title) in [(MainMenuCommand.videos, "我的视频"), (.images, "我的图片"), (.downloads, "我的下载"),
                                   (.recent, "最近使用"), (.workshop, "创意工坊"),
-                                  (.pixabay, "Pixabay"), (.playlists, "所有播放列表"), (.favorites, "特别喜爱")] {
+                                  (.wallhaven, "Wallhaven"), (.pixiv, "Pixiv"), (.pixabay, "Pixabay"), (.playlists, "所有播放列表"), (.favorites, "特别喜爱")] {
             navigation.addItem(title: title, action: command.action, keyEquivalent: "", command: command)
         }
         menu.addItem(withTitle: "前往", submenu: navigation)

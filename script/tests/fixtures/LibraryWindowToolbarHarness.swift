@@ -114,6 +114,24 @@ extension NSToolbarItem.Identifier {
         return menu
     }
 }
+// Acquisition/session behavior stays in its Core gate; this leaf records
+// the production window toolbar's source dispatch and native item ownership.
+@MainActor final class WallpaperLibraryOnlineImages { var onChange: (() -> Void)? }
+@MainActor final class OnlineImageToolbarController {
+    static var latest: OnlineImageToolbarController!
+    let identifiers: [NSToolbarItem.Identifier] = [.init("fixture-image-filter"), .init("fixture-image-search")]
+    var focused = 0
+    private var items: [NSToolbarItem.Identifier: NSToolbarItem] = [:]
+    init(images: WallpaperLibraryOnlineImages, workspace: WallpaperLibraryWorkspace, window: NSWindow?) { Self.latest = self }
+    func refresh() {}
+    func focusSearch() { focused += 1 }
+    func makeItem(for id: NSToolbarItem.Identifier) -> NSToolbarItem? {
+        guard identifiers.contains(id) else { return nil }
+        if let old = items[id] { return old }
+        let item = NSToolbarItem(itemIdentifier: id); item.label = id.rawValue
+        items[id] = item; return item
+    }
+}
 @MainActor final class SteamWorkshopService {
     static let shared = SteamWorkshopService()
     var downloadsShowsAdultContent = false
@@ -201,7 +219,7 @@ extension NSToolbarItem.Identifier {
         var clipWidth: CGFloat = 900
         var returnAction: (() -> Void)?
         let controller = WallpaperLibraryWindowToolbar(window: window, workspace: workspace, commands: commands, gridWidth: { clipWidth },
-            makeDirectoryReturnAction: { returnAction })
+            makeDirectoryReturnAction: { returnAction }, onlineImages: WallpaperLibraryOnlineImages())
         app.activate()
         window.makeKeyAndOrderFront(nil)
         let initialKeyDeadline = Date().addingTimeInterval(5)
@@ -358,6 +376,9 @@ extension NSToolbarItem.Identifier {
         invoke(localMore, "刷新文件状态")
         checks["downloads-refresh-is-reachable-through-the-sole-workspace-source-entry"] = workspace.sourceRefreshes == 1
         let filters = menu("filter")
+        checks["downloads-offers-all-four-local-download-provider-filters"] = ["Steam 创意工坊", "Pixabay", "Wallhaven", "Pixiv"].allSatisfy { title in
+            filters.items.contains { $0.title == title }
+        }
         checks["type-counts-use-current-page-and-preserve-other-filters"] = filters.items.contains { $0.title == "全部类型（2）" }
             && filters.items.contains { $0.title == "视频（1）" } && filters.items.contains { $0.title == "Scene（1）" }
         invoke(filters, "Pixabay")
@@ -372,6 +393,9 @@ extension NSToolbarItem.Identifier {
         checks["active-filter-and-current-sort-remain-readable-without-opening-menus"] = item("filter").toolTip?.contains("Pixabay") == true
             && item("filter").toolTip?.contains("可播放") == true && item("sort").toolTip?.contains("名称") == true
         checks["local-title-help-distinguishes-current-results-from-the-unfiltered-page"] = titleMetadataMatches("我的下载", summary: "显示 1 / 共 2 张壁纸")
+        invoke(filtered, "全部来源")
+        checks["all-sources-restores-provider-union-without-clearing-kind-or-status"] = workspace.presentation.queryState.provider == nil
+            && workspace.presentation.queryState.kind == .video && workspace.presentation.queryState.status == .playable
         let oldProviderItem = filtered.items.first { $0.title == "Steam 创意工坊" }!
         try await collections.reset(); workspace.refresh(); controller.refresh()
         let resetQuery = workspace.presentation.queryState
@@ -511,6 +535,15 @@ extension NSToolbarItem.Identifier {
         NotificationCenter.default.post(name: NSWindow.didResizeNotification, object: window)
         checks["active-pixabay-controls-recompute-category-width-and-zoom"] = OnlineLibraryToolbarController.latest.layoutUpdates == onlineBeforeResize + 1
             && OnlineLibraryToolbarController.latest.categoryWidthUpdates == categoryBeforeResize + 1
+        for imagePage in [WallpaperLibraryPage.wallhaven, .pixiv] {
+            page(imagePage)
+            let focused = OnlineImageToolbarController.latest.focused
+            controller.focusSearch()
+            checks["online-image-browser-uses-source-items-and-search-\(imagePage.persistenceKey)"] = titleMetadataMatches(imagePage.title())
+                && OnlineImageToolbarController.latest.focused == focused + 1
+                && controller.toolbar.items.contains { $0.itemIdentifier.rawValue == "fixture-image-search" }
+                && !controller.toolbar.items.contains { $0.itemIdentifier.rawValue == "search" || $0.itemIdentifier.rawValue == "importFiles" }
+        }
         page(.videos)
         let localOnlineLayouts = OnlineLibraryToolbarController.latest.layoutUpdates
         let localSteamLayouts = SteamWorkshopToolbarController.latest.layoutUpdates
