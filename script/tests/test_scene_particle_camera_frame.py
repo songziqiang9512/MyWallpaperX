@@ -144,8 +144,12 @@ enum Harness {
                 "generalFOVKeepsCanvasPolicy": generalOnly.perspectiveViewProjection == omitted.perspectiveViewProjection,
                 "cursorLocal": hit.map(vector3) as Any? ?? NSNull(),
                 "legacyCursorLocal": legacyHit.map(vector3) as Any? ?? NSNull(),
-                "requiredEffectProjection": SceneLayerCursorGeometry.effectTextureProjectionInverse(mvp, required: true) != nil,
-                "legacyRequiredEffectProjection": SceneLayerCursorGeometry.effectTextureProjectionInverse(legacyMVP, required: true) != nil,
+                "requiredEffectProjection": SceneLayerCursorGeometry.effectTextureProjectionInverse(
+                    inverseModelViewProjection: SceneLayerCursorGeometry.preciseInverseModelViewProjection(mvp),
+                    required: true) != nil,
+                "legacyRequiredEffectProjection": SceneLayerCursorGeometry.effectTextureProjectionInverse(
+                    inverseModelViewProjection: SceneLayerCursorGeometry.preciseInverseModelViewProjection(legacyMVP),
+                    required: true) != nil,
                 "farNDC": ndc(omitted.perspectiveViewProjection, SIMD4(size.x * 0.5, size.y * 0.5, -10_000, 1))[2],
             ]
         }

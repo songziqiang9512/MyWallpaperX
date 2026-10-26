@@ -36,7 +36,6 @@ extension WallpaperDaemon {
 
         videoPreparation?.targetScreenFrame = screen.frame
 
-        configureWindowForVideoRendering()
         window.setFrame(screen.frame, display: true)
         if currentVideoPath != nil {
             window.level = WallpaperDaemon.desktopWindowLevel
@@ -46,12 +45,6 @@ extension WallpaperDaemon {
         updateLayerFrames()
 
         let fallbackGravity: CALayerContentsGravity = .resizeAspectFill
-        CATransaction.begin()
-        CATransaction.setDisableActions(true)
-        primaryLayer.videoGravity = .resizeAspectFill
-        secondaryLayer.videoGravity = .resizeAspectFill
-        CATransaction.commit()
-
         showFallback(framePath: framePath, gravity: fallbackGravity, fillMode: fillMode)
 
         let incomingPlayer = inactivePlayer
@@ -125,66 +118,6 @@ extension WallpaperDaemon {
         CATransaction.setAnimationTimingFunction(timing)
         layer.frame = targetFrame
         CATransaction.commit()
-    }
-
-    func animateFillModeTransitionIfNeeded(to newGravity: AVLayerVideoGravity, bounds: CGRect) {
-        let layer = activeLayer
-        guard layer.opacity > 0,
-              layer.videoGravity != newGravity,
-              let videoSize = naturalVideoSize(from: layer),
-              videoSize.width > 0, videoSize.height > 0,
-              bounds.width > 0, bounds.height > 0 else { return }
-
-        let fromRect = renderedRect(for: layer.videoGravity, videoSize: videoSize, bounds: bounds)
-        let toRect = renderedRect(for: newGravity, videoSize: videoSize, bounds: bounds)
-        guard fromRect.width > 0, toRect.width > 0 else { return }
-
-        let scaleX = fromRect.width / toRect.width
-        let scaleY = fromRect.height / toRect.height
-        let tx = fromRect.midX - toRect.midX
-        let ty = fromRect.midY - toRect.midY
-        let startTransform = CATransform3DTranslate(CATransform3DMakeScale(scaleX, scaleY, 1), tx / scaleX, ty / scaleY, 0)
-
-        let anim = CABasicAnimation(keyPath: "transform")
-        anim.fromValue = startTransform
-        anim.toValue = CATransform3DIdentity
-        anim.duration = 0.32
-        anim.timingFunction = CAMediaTimingFunction(controlPoints: 0.4, 0.0, 0.2, 1.0)
-        anim.fillMode = .backwards
-        anim.isRemovedOnCompletion = true
-
-        CATransaction.begin()
-        CATransaction.setDisableActions(true)
-        layer.transform = CATransform3DIdentity
-        CATransaction.commit()
-
-        layer.add(anim, forKey: "fillModeTransition")
-    }
-
-    func renderedRect(for gravity: AVLayerVideoGravity, videoSize: CGSize, bounds: CGRect) -> CGRect {
-        let boundsAspect = bounds.width / bounds.height
-        let videoAspect = videoSize.width / videoSize.height
-
-        switch gravity {
-        case .resizeAspect:
-            if videoAspect > boundsAspect {
-                let h = bounds.width / videoAspect
-                return CGRect(x: 0, y: (bounds.height - h) / 2, width: bounds.width, height: h)
-            } else {
-                let w = bounds.height * videoAspect
-                return CGRect(x: (bounds.width - w) / 2, y: 0, width: w, height: bounds.height)
-            }
-        case .resizeAspectFill:
-            if videoAspect > boundsAspect {
-                let w = bounds.height * videoAspect
-                return CGRect(x: (bounds.width - w) / 2, y: 0, width: w, height: bounds.height)
-            } else {
-                let h = bounds.width / videoAspect
-                return CGRect(x: 0, y: (bounds.height - h) / 2, width: bounds.width, height: h)
-            }
-        default:
-            return bounds
-        }
     }
 
     func naturalVideoSize(from layer: AVPlayerLayer) -> CGSize? {

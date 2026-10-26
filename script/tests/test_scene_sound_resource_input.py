@@ -17,6 +17,7 @@ from .scene_pkg_fixture import make_package
 
 ROOT = Path(__file__).resolve().parents[2]
 SCENE = ROOT / "MyWallpaperX/Core/SteamWorkshopScene"
+PATH_FIXTURE = Path(__file__).with_name("fixtures") / "SceneSoundPathChecks.swift"
 SOURCES = [SCENE / name for name in (
     "../SteamWorkshopStorage/ScenePlaybackSource.swift",
     "Resources/Assets/SceneResourceIdentity.swift",
@@ -27,7 +28,7 @@ SOURCES = [SCENE / name for name in (
     "Systems/Media/SceneSoundPlaybackProgram.swift",
     "Systems/Media/SceneSoundPlaybackRegistry.swift",
     "Format/ScenePkgReader.swift",
-)]
+)] + [PATH_FIXTURE]
 # Only document/dynamic value carriers remain doubled. All resource selection,
 # copying, file lifetime, Sound preparation and AV playback owners are real.
 CARRIERS = STUB_SOURCE.split("struct SceneResource {", 1)[0]
@@ -648,6 +649,9 @@ import Foundation
         var facts: [String: Bool]
         switch mode {
         case "selection": facts = try selection(base)
+        case "paths-directory": facts = try pathSelection(base, virtualPackage: false)
+        case "paths-package": facts = try pathSelection(base, virtualPackage: true)
+        case "paths-boundary": facts = try pathBoundaryChecks(base)
         case "unavailable": facts = try unavailable(base)
         case "cancel", "callback", "replace", "truncate": facts = try failures(base, kind: mode)
         case "retarget": facts = try retarget(base)
@@ -755,6 +759,20 @@ class SceneSoundResourceInputTests(unittest.TestCase):
             ("scene.json", b'{"version":3,"objects":[]}'),
             ("sounds/owned.wav", pcm.getvalue()),
         ]))
+        def silent_wav(samples):
+            data = io.BytesIO()
+            with wave.open(data, "wb") as stream:
+                stream.setnchannels(1)
+                stream.setsampwidth(2)
+                stream.setframerate(8_000)
+                stream.writeframes(b"\0\0" * samples)
+            return data.getvalue()
+        (cls.directory / "path-spellings.pkg").write_bytes(make_package([
+            ("audio/renamed.wav", silent_wav(2400)),
+            ("audio/raw\\leaf.wav", silent_wav(3360)),
+            ("Audio/Mixed.WAV", silent_wav(1760)),
+            ("audio/inner/proof.bin", b"directory"),
+        ]))
         pcm = io.BytesIO()
         with wave.open(pcm, "wb") as stream:
             stream.setnchannels(1)
@@ -841,6 +859,15 @@ class SceneSoundResourceInputTests(unittest.TestCase):
 
     def test_selected_root_raw_name_suffix_and_same_launch_source_dedup(self):
         self.run_mode("selection")
+
+    def test_relative_spellings_keep_directory_root_aliases_and_stock_selection(self):
+        self.run_mode("paths-directory")
+
+    def test_relative_spellings_use_virtual_package_and_preserve_source_change(self):
+        self.run_mode("paths-package")
+
+    def test_parent_queries_follow_actual_symlink_and_reject_only_invalid_source(self):
+        self.run_mode("paths-boundary")
 
     def test_selected_missing_keeps_slot_and_does_not_try_other_root_or_path(self):
         self.run_mode("unavailable")

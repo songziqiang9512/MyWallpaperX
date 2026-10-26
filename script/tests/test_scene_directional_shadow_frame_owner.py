@@ -17,11 +17,14 @@ from script.tests import test_scene_directional_shadow as shadow_fixture
 from script.tests import test_scene_offscreen_texture_pool as pool_fixture
 from script.tests import test_scene_particle_rendering as particle_fixture
 from script.tests import test_scene_static_model_pipeline as model_fixture
+from script.scene_swift_source_sets import scene_swift_sources
 
 REPO = Path(__file__).resolve().parents[2]
 SCENE = REPO / 'MyWallpaperX/Core/SteamWorkshopScene'
 SOURCES = list(dict.fromkeys([
+    *scene_swift_sources("scene_resource_input"),
     *pool_fixture.SWIFT_SOURCES,
+    *model_fixture.MODEL_SUPPORT_SOURCES,
     *(p for p in particle_fixture.SWIFT_SOURCES if p.parent.name != 'fixtures'),
     *(getattr(model_fixture, name) for name in [
         'MODEL_SOURCE', 'DIRECTIONAL_LIGHT_SOURCE', 'POINT_LIGHT_SOURCE',
@@ -272,7 +275,7 @@ MAIN = r'''
    let vertices=[SIMD3(x,y,0),SIMD3(x+width,y,0),SIMD3(x+width,y+width,0),SIMD3(x,y+width,0)].map {
     SceneMdlStaticModel.Vertex(position:$0,normal:SIMD3(0,0,1),tangent:SIMD4(1,0,0,1),uv:SIMD2(0.5,0.5))
    }
-   return pipeline.makeMesh(vertices:vertices,indices:[0,2,1,0,3,2])!
+   return pipeline.makeMesh(model: SceneStaticModelFixture.model(vertices:vertices,indices:[0,2,1,0,3,2]))!
   }
   let meshA=quad(4,4,20),meshB=quad(36,4,20)
   func material(_ color:SIMD3<Float>)->SceneStaticModelMaterial {
@@ -413,7 +416,7 @@ extension SIMD4 where Scalar == Float {var xyz:SIMD3<Float> {SIMD3(x,y,z)}}
     usesPerspective:family=="canvas" || family=="native-ortho" ? false:true)
   let positions:[SIMD3<Float>]=[SIMD3(-1,-1,0),SIMD3(1,-1,0),SIMD3(1,1,0),SIMD3(-1,1,0)]
   let vertices=positions.map{SceneMdlStaticModel.Vertex(position:$0,normal:SIMD3(0,0,1),tangent:SIMD4(1,0,0,1),uv:SIMD2(repeating:0.5))}
-  let mesh=pipeline.makeMesh(vertices:vertices,indices:reverse ? [0,2,1,0,3,2]:[0,1,2,0,2,3])!
+  let mesh=pipeline.makeMesh(model: SceneStaticModelFixture.model(vertices:vertices,indices:reverse ? [0,2,1,0,3,2]:[0,1,2,0,2,3]))!
   let td=MTLTextureDescriptor.texture2DDescriptor(pixelFormat:.rgba8Unorm,width:1,height:1,mipmapped:false)
   td.storageMode = .shared;td.usage = .shaderRead
   let white=device.makeTexture(descriptor:td)!,pixel:[UInt8]=[255,255,255,255]
@@ -429,7 +432,7 @@ extension SIMD4 where Scalar == Float {var xyz:SIMD3<Float> {SIMD3(x,y,z)}}
   if family=="native" {
    // Native, explicit canvas and utility casters share one encoder/map. Peers
    // use authored canvas front winding; reverse changes submission order too.
-   let peerMesh=pipeline.makeMesh(vertices:vertices,indices:[0,2,1,0,3,2])!
+   let peerMesh=pipeline.makeMesh(model: SceneStaticModelFixture.model(vertices:vertices,indices:[0,2,1,0,3,2]))!
    var peerMaterial=material;peerMaterial.cullMode = .back
    for id in [2,3] {
     entries[id]=[.init(materialPath:"own-peer",dynamicMaterialPath:"",
@@ -507,7 +510,10 @@ class SceneModelShadowCameraFamilyTests(unittest.TestCase):
         self.assertEqual(len(report['rows']), 120)
         for row in report['rows']:
             native = row['family'] == 'native'
-            expected = row['noCull'] or (not row['reverse'] if native else row['reverse'])
+            # Canvas/fitted geometry has the authored-Y reflection. It pairs
+            # with CCW admission just as native geometry pairs with CW.
+            front_indices = row['family'] in ('native', 'canvas', 'fitted')
+            expected = row['noCull'] or (not row['reverse'] if front_indices else row['reverse'])
             self.assertTrue(row['completed'], row)
             self.assertEqual(len(row['peerDepth']), 2 if native else 0, row)
             for depth in row['peerDepth']:

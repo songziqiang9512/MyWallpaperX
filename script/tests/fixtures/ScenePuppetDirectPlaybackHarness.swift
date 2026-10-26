@@ -121,9 +121,10 @@ struct Subject {
 }
 func makeSubject(_ device: Device, lateSingular: Bool = false, channel: String? = nil,
              renamed: Bool = false,
+             latePosition: SIMD3<Float>? = nil,
              physics: [SceneMdlPuppetRig.TranslationPhysics?] = [nil, nil]) throws -> Subject {
     let vertices = (0..<2).map { index in
-        SceneMdlStaticModel.Vertex(position: SIMD3(Float(index + 1), 2, 3),
+        SceneMdlStaticModel.Vertex(position: index == 1 ? latePosition ?? SIMD3(2, 2, 3) : SIMD3(1, 2, 3),
             normal: SIMD3(2, 1, 0), tangent: SIMD4(1, -2, 1, -1), uv: SIMD2(0.25, 0.75))
     }
     let identity = columns(matrix_identity_float4x4)
@@ -188,6 +189,75 @@ func read(_ mesh: SceneStaticModelMesh?) -> [SceneMdlStaticModel.Vertex]? {
         .assumingMemoryBound(to: SceneMdlStaticModel.Vertex.self), count: mesh.vertexCount))
 }
 
+func finiteOutputFallbackChecks(_ device: Device) throws -> [String: Bool] {
+    // Every bind channel and matrix is finite. Only the second current skin
+    // output overflows, after a different first vertex has already been written.
+    let cases: [(String, SIMD3<Float>, SIMD3<Float>)] = [
+        ("latePositionOverflowFallback", SIMD3(0, 0, 3), SIMD3(1, 1, 3e38)),
+        ("lateNormalOverflowFallback", .zero, SIMD3(1e-40, 1, 1)),
+        ("lateTangentOverflowFallback", .zero, SIMD3(1, 3e38, 1))
+    ]
+    var rows: [String: Bool] = [:]
+    for (name, position, scale) in cases {
+        let subject = try makeSubject(device, latePosition: position)
+        var matrix = matrix_identity_float4x4
+        matrix.columns.0.x = scale.x; matrix.columns.1.y = scale.y; matrix.columns.2.z = scale.z
+        var partial = subject.vertices
+        var local = Array(repeating: matrix_identity_float4x4, count: subject.evaluator.boneCount)
+        var skin = local, world = local
+        var lateFailure = false
+        do {
+            try partial.withUnsafeMutableBufferPointer {
+                try subject.evaluator.writeDeformedVertices(bindVertices: subject.vertices,
+                    selection: subject.selection, frameSamples: singleFrame(1).samples, into: $0,
+                    localMatricesScratch: &local, skinMatricesScratch: &skin,
+                    worldMatricesScratch: &world, boneOverrides: [1: matrix])
+            }
+        } catch let failure as ScenePuppetAnimationEvaluator.DirectSkinningFailure {
+            lateFailure = failure == .invalidVertex(1)
+        }
+        let firstWasWritten = partial[0].position == SIMD3(1, 2, 7)
+            && partial[0].normal == subject.vertices[0].normal
+            && partial[0].tangent == subject.vertices[0].tangent
+            && partial[0].uv == subject.vertices[0].uv && partial[1] == subject.vertices[1]
+        subject.state.apply(scriptBoneMutations: [.init(layerID: 42, boneIndex: 1,
+            matrix: columns(matrix).map(Double.init))])
+        let command = Command(device), tx = encode(subject, singleFrame(1), command)
+        guard let mesh = subject.state.directModelMesh(on: command) else {
+            rows[name] = false; tx.cancel(); continue
+        }
+        let bindBytes = subject.vertices.withUnsafeBytes { Data($0) }
+        let outputBytes = Data(bytes: mesh.vertexBuffer.contents(), count: bindBytes.count)
+        let wholeBind = subject.state.directModelPoseStatus == .bindFallback(.invalidSkinFrame)
+            && outputBytes == bindBytes && read(mesh) == subject.vertices
+            && mesh.boundsMinimum == SIMD3(0, 0, position.z)
+            && mesh.boundsMaximum == SIMD3(1, 2, 3)
+        tx.cancel()
+        subject.state.apply(scriptBoneMutations: [.init(layerID: 42, boneIndex: 1,
+            matrix: columns(matrix_identity_float4x4).map(Double.init))])
+        let restored = Command(device), restoredTX = encode(subject, singleFrame(1), restored)
+        let resumed = read(subject.state.directModelMesh(on: restored))
+        rows[name] = lateFailure && firstWasWritten && wholeBind
+            && subject.state.directModelPoseStatus == .animated
+            && resumed?[0].position == SIMD3(1, 2, 7) && resumed?[1] == subject.vertices[1]
+        restoredTX.cancel()
+    }
+    let subject = try makeSubject(device, latePosition: .zero)
+    var scale = matrix_identity_float4x4
+    scale.columns.0.x = 2; scale.columns.1.y = 3; scale.columns.2.z = 4
+    subject.state.apply(scriptBoneMutations: [.init(layerID: 42, boneIndex: 1,
+        matrix: columns(scale).map(Double.init))])
+    let command = Command(device), tx = encode(subject, singleFrame(1), command)
+    let mesh = subject.state.directModelMesh(on: command), values = read(mesh)
+    let expected = SceneMdlStaticModel.Vertex(position: .zero,
+        normal: SIMD3(1, Float(1.0 / 3.0), 0), tangent: SIMD4(2, -6, 4, -1), uv: SIMD2(0.25, 0.75))
+    rows["finiteAffineOutputAndCurrentBounds"] = subject.state.directModelPoseStatus == .animated
+        && values?[0].position == SIMD3(1, 2, 7) && values?[1] == expected
+        && mesh?.boundsMinimum == SIMD3<Float>.zero && mesh?.boundsMaximum == SIMD3(1, 2, 7)
+    tx.cancel()
+    return rows
+}
+
 func physicsSubsetChecks(_ device: Device) throws -> Bool {
     let configurations: [SceneMdlPuppetRig.TranslationPhysics?] = [nil,
         .init(spring: true, stiffness: 70, friction: 5, inertia: 5, maxDistance: 50), nil,
@@ -231,6 +301,7 @@ func physicsSubsetChecks(_ device: Device) throws -> Bool {
     static func main() throws {
         var rows: [String: Bool] = [:]
         let device = Device()
+        rows.merge(try finiteOutputFallbackChecks(device)) { _, current in current }
         rows["multiplePhysicsBones"] = try physicsSubsetChecks(device)
         let subject = try makeSubject(device)
         let command = Command(device)

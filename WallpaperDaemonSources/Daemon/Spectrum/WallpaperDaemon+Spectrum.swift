@@ -12,8 +12,6 @@ extension WallpaperDaemon {
         spectrumContainerLayer.opacity = 0
         spectrumContainerLayer.masksToBounds = false
         window.contentView?.layer?.addSublayer(spectrumContainerLayer)
-        rebuildSpectrumLayers()
-        updateSpectrumLayout()
     }
 
     func rebuildSpectrumLayers() {
@@ -57,7 +55,9 @@ extension WallpaperDaemon {
             let normalizedBarCount = max(12, min(48, barCount))
             if normalizedBarCount != spectrumBarCount {
                 spectrumBarCount = normalizedBarCount
-                rebuildSpectrumLayers()
+                if !spectrumBarLayers.isEmpty {
+                    rebuildSpectrumLayers()
+                }
                 requiresLayout = true
             }
         }
@@ -102,6 +102,12 @@ extension WallpaperDaemon {
 
     func setSpectrumEnabled(_ enabled: Bool) {
         spectrumEnabled = enabled
+        if enabled && spectrumBarLayers.isEmpty {
+            let pendingLevels = spectrumLevels
+            rebuildSpectrumLayers()
+            updateSpectrumLayout()
+            updateSpectrumLevels(pendingLevels)
+        }
         if !enabled {
             spectrumPeakLevels = Array(repeating: 0, count: spectrumBarCount)
         }
@@ -132,6 +138,7 @@ extension WallpaperDaemon {
     }
 
     func updateSpectrumLayout() {
+        guard !spectrumBarLayers.isEmpty else { return }
         guard let contentBounds = window.contentView?.bounds else { return }
         guard let screen = WallpaperDaemon.screen(for: displayID) else { return }
 
@@ -165,6 +172,7 @@ extension WallpaperDaemon {
     }
 
     func applySpectrumLevels() {
+        guard !spectrumBarLayers.isEmpty else { return }
         let minimumHeight: CGFloat = 2
         let maximumHeight = max(20, spectrumContainerLayer.bounds.height - 6)
         let hasActiveSpectrum = spectrumEnabled && spectrumLevels.contains { $0 > 0 }

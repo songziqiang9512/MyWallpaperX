@@ -101,9 +101,9 @@ private final class WallpaperManager {
     func saveWallpapers() { saves.append(Thread.isMainThread) }
     func normalizedPath(_ path: String) -> String { URL(fileURLWithPath: path).resolvingSymlinksInPath().standardizedFileURL.path }
     func pathExists(_ path: String) -> Bool { probe.exists(path) }
-    func thumbnailOutputURL(for url: URL) -> URL { url.appendingPathExtension("generated-thumb") }
-    func staticFrameOutputURL(for url: URL) -> URL { url.appendingPathExtension("generated-frame") }
-    func cacheKey(for url: URL) -> String { url.path }
+    func thumbnailOutputURL(forKey key: String) -> URL { URL(fileURLWithPath: key).appendingPathExtension("generated-thumb") }
+    func staticFrameOutputURL(forKey key: String) -> URL { URL(fileURLWithPath: key).appendingPathExtension("generated-frame") }
+    func cacheKey(forNormalizedPath path: String) -> String { path }
     func setCachedThumbnailPath(_ path: String?, for key: String) {}
     func clearThumbnailGenerationFailure(for path: String) {}
     func removeThumbnailInFlight(for path: String) {}

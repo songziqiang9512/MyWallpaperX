@@ -1,9 +1,11 @@
 #!/usr/bin/env python3
-"""Actual stream/transaction state with a CPU command-buffer protocol leaf.
+"""Actual stream/transaction state with CPU leaves and a separate real Metal gate.
 
-No Metal device, command queue, shader, or GPU command is created by this gate.
-The same Swift fixture also provides an opt-in real-Metal check for the caller's
-existing pipeline/queue; this unittest never invokes that entry.
+The CPU methods create no device, command queue, shader, or GPU command.
+Finite channels belong to Reader/Skinning; the direct-playback gate exercises
+late invalid output and complete bind fallback through the actual producer.
+The Metal method decodes its own MDL through Reader, submits a GPU blit and
+checks actual bytes, bounds, pending cancellation and completed slot reuse.
 """
 from __future__ import annotations
 
@@ -112,8 +114,64 @@ class SceneStaticModelVertexStreamTests(unittest.TestCase):
     def test_uncommitted_arm_cancel_releases_command_buffer_and_transaction(self):
         self.check_group("uncommittedArmCancelLifetime")
 
-    def test_mesh_channels_bounds_identity_and_input_rejections(self):
+    def test_mesh_channels_bounds_identity_and_storage_input_rejections(self):
         self.check_group("validationAndMeshView")
+
+    def test_real_metal_reads_verified_vertices_and_resolves_submitted_lease(self):
+        from script.tests.test_scene_static_model_reader import SWIFT_SOURCES, build_model
+
+        with tempfile.TemporaryDirectory(prefix="scene-model-stream-metal-") as temporary:
+            folder = Path(temporary)
+            destination = os.environ.get("MWX_MODEL_STREAM_EVIDENCE")
+            evidence = Path(destination) / "metal" if destination else None
+            if evidence:
+                evidence.mkdir(parents=True, exist_ok=True)
+            inputs = [*SWIFT_SOURCES, STREAM, TRANSACTION, PIPELINE, FIXTURE, Path(__file__)]
+            before = {str(path): hashlib.sha256(path.read_bytes()).hexdigest() for path in inputs}
+            pipeline = PIPELINE.read_text()
+            mesh = pipeline[pipeline.index("struct SceneStaticModelMesh {"):
+                            pipeline.index("private struct SceneStaticModelShadowUniforms")]
+            factory = pipeline[pipeline.index("    func makeVertexStream("):
+                               pipeline.index("    /// Encodes into the caller's current render pass.")]
+            abi = pipeline[pipeline.index("    private static let hasExpectedVertexABI ="):
+                           pipeline.index("    /// Swift/MSL constant-buffer ABI.")]
+            harness = folder / "Harness.swift"
+            harness.write_text(FIXTURE.read_text().replace("// PRODUCT_MESH", mesh)
+                               .replace("// PRODUCT_FACTORY", factory).replace("// PRODUCT_ABI", abi))
+            model = folder / "verified.mdl"
+            model.write_bytes(build_model(bounds=(-10, -10, -10, 10, 10, 10), vertices=[
+                ((-2, 3, -4), (2, -3, 4), (-5, 6, -7, -1), (.125, .875)),
+                ((5, -6, 7), (0, 0, 0), (0, 0, 0, 0), (.625, .25)),
+                ((1, 2, 3), (0, 0, 1), (1, 0, 0, 1), (.5, .5))]))
+            sources = [*SWIFT_SOURCES, STREAM, TRANSACTION, harness]
+            binary = folder / "metal-checks"
+            command = ["swiftc", "-O", "-swift-version", "5", "-module-cache-path", str(folder / "modules"),
+                       *map(str, sources), "-o", str(binary)]
+            compiled = subprocess.run(command, capture_output=True, text=True, timeout=120)
+            if evidence:
+                (evidence / "Harness.swift").write_text(harness.read_text())
+                (evidence / "compile.stdout").write_text(compiled.stdout)
+                (evidence / "compile.stderr").write_text(compiled.stderr)
+                (evidence / "inputs.json").write_text(json.dumps({"gpuCommands": True,
+                    "command": command, "sources": before, "timeoutSeconds": 30,
+                    "scope": "actual GPU buffer readback/storage lease; no draw or visual claim"}, indent=2) + "\n")
+            self.assertEqual(compiled.returncode, 0, compiled.stdout + compiled.stderr)
+            ran = subprocess.run([str(binary), str(model)], capture_output=True, text=True, timeout=30)
+            if evidence:
+                (evidence / "run.stdout").write_text(ran.stdout)
+                (evidence / "run.stderr").write_text(ran.stderr)
+            self.assertEqual(ran.returncode, 0, ran.stdout + ran.stderr)
+            after = {str(path): hashlib.sha256(path.read_bytes()).hexdigest() for path in inputs}
+            self.assertEqual(after, before, "source changed during actual Metal gate")
+            rows = json.loads(ran.stdout)
+            if "skipped" in rows:
+                self.skipTest(rows["skipped"])
+            for key in ("gpuCompleted", "allBufferBytes", "currentBounds", "pendingLease",
+                        "completionRevokedLease", "slotReused", "cancelledNext"):
+                with self.subTest(check=key):
+                    self.assertTrue(rows[key], rows)
+            if evidence:
+                (evidence / "checks.json").write_text(json.dumps(rows, indent=2) + "\n")
 
 
 if __name__ == "__main__":

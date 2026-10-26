@@ -621,9 +621,9 @@
       "lastReviewed": "2026-10-26",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "151351922da2769a58d90dbf9e97bd9b6fe75c74faa7f67bf734b92453e9a553",
+        "sourceSHA256": "d927476596ca9f482546dd1830dac77a80021825913b648446fd705453f04e18",
         "method": "document_registry --audit + document_health --check",
-        "scope": "仅复核当前正文hash、文档角色、入口及现役/历史指针；精简方案拥有本轮实施与验证状态，历史结算保留原边界。",
+        "scope": "P20模型数量/路径准入合同及有界Builder/Root/native结果指针同步；仅复核当前正文、角色与导航，其余能力和历史边界保留。",
         "limitations": "这是导航与文档治理复核，不代表源码、编译、运行、视觉、性能、真实账号或发布复验；不重授旧证据的适用范围。"
       }
     },
@@ -663,10 +663,10 @@
       "lastReviewed": "2026-10-26",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "cdfe1c78e55b37f48c8c40403897baef79b9d581fd3bc81147ba6ce9a368326e",
+        "sourceSHA256": "73ecb5bfc1c0454c5e2967a0b7fcf46dab86521ac0bc5718a28784ced0e8fe1b",
         "method": "document_registry --audit + document_health --check",
-        "scope": "仅复核当前正文hash、文档角色、入口及现役/历史指针；精简方案拥有本轮实施与验证状态，历史结算保留原边界。",
-        "limitations": "这是导航与文档治理复核，不代表源码、编译、运行、视觉、性能、真实账号或发布复验；不重授旧证据的适用范围。"
+        "scope": "复核当前正文hash、入口、角色及职责：Video纯诊断事件和镜像退出Release，实际prepared/ready/失败/活动ACK与物理退出保原owner；本批实施/验证结果归精简方案。",
+        "limitations": "这是文档治理复核；不据日期或导航重新授予作者视觉、完整App冷暖、官方一致性、发布或历史证据范围。"
       }
     },
     {
@@ -743,12 +743,12 @@
       "role": "current-state",
       "entrypoint": "docs/scene/capabilities/README.md",
       "purpose": "限定专题的实现状态、偏差或证据；运行结论须复核身份和边界，不决定任务顺序。",
-      "lastReviewed": "2026-10-23",
+      "lastReviewed": "2026-10-26",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "4fe0b6c80e61f3c59b7d56a4602c7870e70d995e92d76c9e3baee6a9ee736f03",
+        "sourceSHA256": "c1187133c89fbd2cb46d5af15542d207596a4eec42bc80399b370b068a400c09",
         "method": "document_registry --audit + document_health --check",
-        "scope": "默认albedo独立槽及Chroma中性载体有界后验入口；复核原owner/能力边界，未升级完整stock材质。",
+        "scope": "P20模型数量/路径准入合同及有界Builder/Root/native结果指针同步；仅复核当前正文、角色与导航，其余能力和历史边界保留。",
         "limitations": "原生/官方及真实短窗见历史收据；无已证Cloud修复、整体parity、Release或性能收益。"
       }
     },
@@ -763,12 +763,12 @@
       "role": "current-state",
       "entrypoint": "README.md",
       "purpose": "限定专题的实现状态、偏差或证据；运行结论须复核身份和边界，不决定任务顺序。",
-      "lastReviewed": "2026-10-22",
+      "lastReviewed": "2026-10-26",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "0abc42da80f15212014a4f516c703f160d9b08263508601ae3b9e0cc6f5414de",
+        "sourceSHA256": "50a597283d905f2e6ab909e9f5b204ff464b4639224ba7375f24d9524a6f13bd",
         "method": "document_registry --audit + document_health --check",
-        "scope": "当前局部源/隐藏准备职责与固定实际运行已同步；本收据只复核导航与文档角色。",
+        "scope": "P20模型数量/路径准入合同及有界Builder/Root/native结果指针同步；仅复核当前正文、角色与导航，其余能力和历史边界保留。",
         "limitations": "仅顶层正交普通成员且无utility后代；官方精确grid/FBO、完整HDR/alpha/属性/整景及性能未验。"
       }
     },
@@ -777,13 +777,13 @@
       "role": "stable-contract",
       "entrypoint": "docs/scene/capabilities/README.md",
       "currentStateAuthority": "docs/scene/capabilities/advanced-object-coverage.md",
-      "lastReviewed": "2026-10-19",
+      "lastReviewed": "2026-10-26",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "32b540c157f8d971fbfcd53efca2796969e987c898c5f1c4a2f1deaa82248730",
+        "sourceSHA256": "d892fefb2852e10407163f120355ce668e0117126c7d97758db3a285bc610878",
         "method": "document_registry --audit + document_health --check",
-        "scope": "Strict80B direct bind channels/mandatoryrig/shareddepth and actual329 subject recovery; static361/Puppet339 bounded neighbors; retain animation and particle feedback.",
-        "limitations": "No defaultclip/reference/whole-sample/officialsamephase/HDR/performance claim."
+        "scope": "复核当前正文hash、入口、角色及职责：同次ModelIR上传、tight bounds与资源路径沿原Root；本批实施/验证结果归精简方案。",
+        "limitations": "这是文档治理复核；不据日期或导航重新授予作者视觉、完整App冷暖、官方一致性、发布或历史证据范围。"
       }
     },
     {
@@ -4281,7 +4281,7 @@
       "lastReviewed": "2026-10-26",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "9dc72317943b654a81a75cc8a0a65089e6365d59e5cd5f7c7bd41726b5c21749",
+        "sourceSHA256": "a67ae9ea93c7713afc71c393858494283865618975c0aa6e3b6585d502628b0d",
         "method": "document_registry --audit + document_health --check",
         "scope": "仅复核当前正文hash、文档角色、入口及现役/历史指针；精简方案拥有本轮实施与验证状态，历史结算保留原边界。",
         "limitations": "这是导航与文档治理复核，不代表源码、编译、运行、视觉、性能、真实账号或发布复验；不重授旧证据的适用范围。"
@@ -4349,7 +4349,7 @@
       "lastReviewed": "2026-10-26",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "2a405c252d12c90335e0d6830a817fc47cfb88bc1e8398866b2d89205aa264f3",
+        "sourceSHA256": "3ed0a2a7493e9669a765450f7beeb82a4c64d189a4a5b5953a018864e28ecd7f",
         "method": "document_registry --audit + document_health --check",
         "scope": "仅复核当前正文hash、文档角色、入口及现役/历史指针；精简方案拥有本轮实施与验证状态，历史结算保留原边界。",
         "limitations": "这是导航与文档治理复核，不代表源码、编译、运行、视觉、性能、真实账号或发布复验；不重授旧证据的适用范围。"

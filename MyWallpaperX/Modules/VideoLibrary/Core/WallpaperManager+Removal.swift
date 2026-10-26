@@ -94,11 +94,12 @@ extension WallpaperManager {
         removeFileIfExists(atPath: record.staticFramePath, title: record.title, failures: &failures)
 
         let fileURL = URL(fileURLWithPath: record.path)
-        removeFileIfExists(atPath: thumbnailOutputURL(for: fileURL).path, title: record.title, failures: &failures)
-        removeFileIfExists(atPath: staticFrameOutputURL(for: fileURL).path, title: record.title, failures: &failures)
+        let normalized = normalizedPath(fileURL.path)
+        let cacheKey = cacheKey(forNormalizedPath: normalized)
+        removeFileIfExists(atPath: thumbnailOutputURL(forKey: cacheKey).path, title: record.title, failures: &failures)
+        removeFileIfExists(atPath: staticFrameOutputURL(forKey: cacheKey).path, title: record.title, failures: &failures)
 
-        setCachedThumbnailPath(nil, for: cacheKey(for: fileURL))
-        let normalized = normalizedPath(record.path)
+        setCachedThumbnailPath(nil, for: cacheKey)
         clearThumbnailGenerationFailure(for: normalized)
         removeThumbnailInFlight(for: normalized)
         finishStaticFrameSchedule(for: normalized)

@@ -34,6 +34,8 @@ def cases():
     add("zero-parameter", "#define ZERO() 7.0\nfloat result = ZERO\n();")
     add("block-comment", DEFINITION + "float result = USER_FN /* gap */ (2.0);")
     add("line-comment", DEFINITION + "float result = USER_FN // gap\n(2.0);")
+    add("unicode-comment", DEFINITION + "float result = USER_FN /*e\u0301👩‍🚀*/\n(2.0);")
+    add("long-comment", DEFINITION + "float result = USER_FN /*" + "x" * 8192 + "*/\n(2.0);")
     add("blank-lines", DEFINITION + "float result = USER_FN\n\n\n(2.0);")
     add("equivalent-expression", DEFINITION + "float result = USER_FN\n((1.0 + 1.0));")
     add("identifier-boundary", "#define TY(x) x\nTY(float)u_Value;")
@@ -156,6 +158,14 @@ class SceneShaderMacroContinuationTests(unittest.TestCase):
         self.assertEqual(self.code("nested"), "floatresult=((((1.0)+1.0))+1.0);")
         self.assertEqual(self.code("zero-parameter"), "floatresult=7.0;")
         self.assertEqual(self.code("equivalent-expression"), "floatresult=(((1.0+1.0))+1.0);")
+
+    def test_unicode_and_long_comment_keep_expansion_and_physical_lines(self):
+        for name, comment in (("unicode-comment", "/*e\u0301👩‍🚀*/"),
+                              ("long-comment", "/*" + "x" * 8192 + "*/")):
+            with self.subTest(case=name):
+                self.assertEqual(self.code(name), "floatresult=((2.0)+1.0);")
+                self.assertIn(comment, self.rows[name]["source"])
+                self.assertEqual([item["sourceLine"] for item in self.rows[name]["sourceMap"]], [2, 3])
 
     def test_bare_unknown_inactive_and_protected_neighbors(self):
         self.assertEqual(self.code("bare"), "floatresult=USER_FN;")

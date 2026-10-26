@@ -482,12 +482,10 @@ final class DedicatedWebWallpaperHostPlaceholderAdapter: NSObject, WallpaperEngi
     }
 
     final class DirectoryWatcher {
-        let path: String
         let fileDescriptor: Int32
         let source: DispatchSourceFileSystemObject
 
-        init(path: String, fileDescriptor: Int32, source: DispatchSourceFileSystemObject) {
-            self.path = path
+        init(fileDescriptor: Int32, source: DispatchSourceFileSystemObject) {
             self.fileDescriptor = fileDescriptor
             self.source = source
         }
@@ -557,7 +555,7 @@ final class DedicatedWebWallpaperHostPlaceholderAdapter: NSObject, WallpaperEngi
     var randomFileSnapshotsByDirectoryPath: [String: DirectorySnapshot] = [:]
     var randomFileSnapshotRefreshedAtByDirectoryPath: [String: TimeInterval] = [:]
     var randomFileEnumeratingDirectoryPaths = Set<String>()
-    var directoryWatchersByProperty: [String: DirectoryWatcher] = [:]
+    var directoryWatchersByDirectory: [String: DirectoryWatcher] = [:]
     var directoryWatchTimer: DispatchSourceTimer?
     let directorySyncQueue = DispatchQueue(label: "com.songziqiang.MyWallpaperX.web-directory-sync", qos: .utility)
     var directorySyncRequestID: UInt64 = 0

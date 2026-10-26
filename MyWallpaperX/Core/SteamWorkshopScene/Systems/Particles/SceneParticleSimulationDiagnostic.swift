@@ -1,5 +1,6 @@
 import Foundation
 
+#if DEBUG
 nonisolated enum SceneParticleSimulationDiagnosticKind: String, Hashable, Sendable {
     case prewarmBudgetExceeded
     case prewarmInvalidDuration
@@ -61,6 +62,7 @@ nonisolated struct SceneParticleSimulationDiagnostic: Hashable, Sendable {
     let kind: SceneParticleSimulationDiagnosticKind
     let componentName: String?
 }
+#endif
 
 extension SceneParticleInitializer {
     nonisolated var boundedColorList: [SIMD3<Double>]? {
@@ -79,6 +81,7 @@ extension SceneParticleInitializer {
     }
 }
 
+#if DEBUG
 extension SceneParticleSimulationMath {
     nonisolated static func diagnostics(
         _ definition: SceneParticleDefinition,
@@ -289,3 +292,4 @@ extension SceneParticleSimulationMath {
         return result
     }
 }
+#endif

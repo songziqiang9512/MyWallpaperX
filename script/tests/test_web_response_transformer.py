@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import shutil
+import json
 import subprocess
 import tempfile
 import textwrap
@@ -22,6 +23,167 @@ TRANSFORMER_SOURCES = [
     ROOT / "MyWallpaperX/Core/SteamWorkshopWeb/Support/WebWallpaperHTMLTransformer.swift",
     ROOT / "MyWallpaperX/Core/SteamWorkshopWeb/Support/WebWallpaperCSSImportTransformer.swift",
 ]
+
+
+def remote_stylesheet_behavior_script(production: str, debug: bool) -> str:
+    """Execute the Swift-composed recovery script against controlled DOM/events."""
+    return r'''
+const vm = require('node:vm'), assert = require('node:assert/strict');
+function page(layer = null) {
+  let clock = 0, clockCalls = 0, nextTimer = 0, mutation;
+  const timers = new Map(), scheduled = [], logs = [], capturedStates = [];
+  const links = [], styles = [], documentEvents = new Map();
+  const location = {href: 'mwx-local://wallpaper/index.html'};
+  class Element {
+    constructor(name) { this.nodeName = name.toUpperCase(); this.attributes = new Map(); this.events = new Map(); this.isConnected = false; this.sheet = null; }
+    setAttribute(name, value) { this.attributes.set(name, String(value)); }
+    getAttribute(name) { return this.attributes.get(name) ?? null; }
+    hasAttribute(name) { return this.attributes.has(name); }
+    removeAttribute(name) { this.attributes.delete(name); }
+    addEventListener(type, callback) { const set = this.events.get(type) ?? new Set(); set.add(callback); this.events.set(type, set); }
+    removeEventListener(type, callback) { this.events.get(type)?.delete(callback); }
+    fire(type) { for (const callback of [...(this.events.get(type) ?? [])]) callback({target: this}); }
+    remove() { this.isConnected = false; }
+    querySelectorAll() { return []; }
+    querySelector() { return null; }
+  }
+  class Link extends Element {
+    constructor() { super('link'); this.relList = {contains: name => this.rel.split(/\s+/).includes(name)}; }
+    get rel() { return this.getAttribute('rel') ?? ''; }
+    set rel(value) { this.setAttribute('rel', value); }
+    get as() { return this.getAttribute('as') ?? ''; }
+    set as(value) { this.setAttribute('as', value); }
+    get href() { return new URL(this.getAttribute('href') ?? '', location.href).href; }
+    set href(value) { this.setAttribute('href', value); }
+  }
+  const link = new Link();
+  link.rel = 'preload'; link.as = 'style'; link.href = 'https://fonts.googleapis.com/original.css';
+  link.setAttribute('data-mwx-deferred-stylesheet', 'stylesheet');
+  link.setAttribute('crossorigin', 'anonymous'); link.setAttribute('integrity', 'sha256-authored');
+  if (layer !== null) link.setAttribute('data-mwx-import-layer', layer);
+  link.isConnected = true; links.push(link);
+  const head = {appendChild(node) { node.isConnected = true; return node; }};
+  const document = {nodeName: '#document', location, head, documentElement: head, styleSheets: [], adoptedStyleSheets: [],
+    createElement(name) {
+      if (name === 'link') { const node = new Link(); links.push(node); return node; }
+      assert.equal(name, 'style'); const node = new Element('style'); styles.push(node); return node;
+    },
+    addEventListener(type, callback) { const list = documentEvents.get(type) ?? []; list.push(callback); documentEvents.set(type, list); },
+    querySelectorAll(selector) { assert.equal(selector, 'link[data-mwx-deferred-stylesheet]'); return links.filter(node => node.isConnected && node.hasAttribute('data-mwx-deferred-stylesheet')); },
+    querySelector() { return null; }
+  };
+  class ObservedWeakMap extends WeakMap { set(key, value) { capturedStates.push(value); return super.set(key, value); } }
+  const context = {document, URL, HTMLLinkElement: Link, WeakMap: ObservedWeakMap,
+    MutationObserver: class { constructor(callback) { mutation = callback; } observe() {} },
+    performance: {now() { clockCalls++; return clock; }}, Date: {now: () => clock},
+    webkit: {messageHandlers: {wallpaperHostLog: {postMessage(value) { logs.push(value); }}}},
+    setTimeout(callback, delay) { const id = ++nextTimer; timers.set(id, {callback, deadline: clock + delay}); scheduled.push(delay); return id; },
+    clearTimeout(id) { timers.delete(id); }
+  };
+  context.window = context;
+  vm.createContext(context); vm.runInContext(PRODUCTION, context);
+  const advance = milliseconds => {
+    const target = clock + milliseconds;
+    let deliveries = 0;
+    while (true) {
+      const next = [...timers].filter(([, timer]) => timer.deadline <= target)
+        .sort((a, b) => a[1].deadline - b[1].deadline)[0];
+      if (!next) break;
+      assert.ok(++deliveries < 10000, 'controlled timer queue did not settle');
+      timers.delete(next[0]); clock = next[1].deadline; next[1].callback();
+    }
+    clock = target;
+  };
+  return {link, links, styles, timers, scheduled, logs, capturedStates, advance,
+    state: () => capturedStates.at(-1), clockCalls: () => clockCalls,
+    fire(type) { for (const callback of documentEvents.get(type) ?? []) callback({target: link}); },
+    attribute() { mutation([{type: 'attributes', target: link}]); },
+    remove() { link.remove(); mutation([{type: 'childList', removedNodes: [link], addedNodes: []}]); },
+    probes: () => links.filter(node => node.hasAttribute('data-mwx-remote-stylesheet-probe')),
+    activeProbes: () => links.filter(node => node.isConnected && node.hasAttribute('data-mwx-remote-stylesheet-probe'))
+  };
+}
+
+const waiting = page();
+assert.equal(waiting.state().phase, 'initial');
+for (const field of ['startedAt', 'degraded', 'degradedTimer']) assert.equal(Object.hasOwn(waiting.state(), field), DEBUG);
+assert.deepEqual(waiting.scheduled, DEBUG ? [3000] : []);
+assert.equal(waiting.clockCalls(), DEBUG ? 1 : 0, 'Release must not sample an unused diagnostic start time');
+waiting.advance(4000);
+assert.equal(waiting.state().phase, 'initial', 'degraded logging never drives recovery');
+assert.equal(waiting.logs.some(log => log.type === 'resource.remote-stylesheet.degraded'), DEBUG);
+waiting.link.sheet = {}; waiting.fire('load');
+assert.equal(waiting.state().phase, 'applied');
+assert.equal(waiting.link.rel, 'stylesheet'); assert.equal(waiting.timers.size, 0);
+assert.equal(waiting.logs.some(log => log.type === 'resource.remote-stylesheet.recovered'), DEBUG);
+assert.equal(waiting.logs.length > 0, DEBUG, 'Release has no logger even when a native log handler exists');
+
+const retry = page(); retry.fire('error');
+assert.equal(retry.state().phase, 'waiting-retry');
+retry.advance(1999); assert.equal(retry.probes().length, 0);
+retry.advance(1); assert.equal(retry.activeProbes().length, 1);
+const firstProbe = retry.probes()[0];
+assert.equal(firstProbe.getAttribute('crossorigin'), 'anonymous');
+assert.equal(firstProbe.getAttribute('integrity'), 'sha256-authored');
+retry.advance(14999); assert.equal(firstProbe.isConnected, true);
+retry.advance(1); assert.equal(firstProbe.isConnected, false, 'real request deadline remains 15 seconds');
+assert.equal(firstProbe.events.get('load').size, 0); assert.equal(firstProbe.events.get('error').size, 0);
+retry.advance(3999); assert.equal(retry.probes().length, 1);
+retry.advance(1); const secondProbe = retry.probes()[1];
+assert.equal(secondProbe.isConnected, true); retry.link.sheet = {}; secondProbe.fire('load');
+assert.equal(retry.state().phase, 'applied'); assert.equal(retry.link.rel, 'stylesheet');
+assert.ok(new URL(retry.link.href).searchParams.get('__mwx_retry').startsWith('2_'));
+assert.equal(retry.activeProbes().length, 0); assert.equal(retry.timers.size, 0);
+
+const exhausted = page(); exhausted.fire('error');
+for (const [index, delay] of [2000, 4000, 8000, 16000, 30000].entries()) {
+  exhausted.advance(delay); assert.equal(exhausted.probes().length, index + 1);
+  exhausted.probes()[index].fire('error');
+}
+assert.equal(exhausted.state().phase, 'failed'); assert.equal(exhausted.link.rel, 'stylesheet');
+assert.equal(exhausted.link.hasAttribute('data-mwx-deferred-stylesheet'), false);
+assert.equal(exhausted.activeProbes().length, 0); assert.equal(exhausted.timers.size, 0);
+
+for (const layer of ['theme', '']) {
+  const applied = page(layer); applied.fire('load');
+  assert.equal(applied.styles.length, 1);
+  const style = applied.styles[0];
+  assert.equal(style.textContent, `@import url("https://fonts.googleapis.com/original.css") ${layer ? 'layer(theme)' : 'layer'};`);
+  assert.equal(applied.link.rel, 'preload', 'layer recovery never applies an unlayered stylesheet');
+  style.sheet = {cssRules: [{styleSheet: {cssRules: [{}]}}]}; applied.advance(50);
+  assert.equal(applied.state().phase, 'applied'); assert.equal(applied.timers.size, 0);
+  assert.equal(applied.link.hasAttribute('data-mwx-deferred-stylesheet'), true);
+  const timedOut = page(layer); timedOut.fire('load'); timedOut.advance(4999);
+  assert.equal(timedOut.state().phase, 'activating'); timedOut.advance(1);
+  assert.equal(timedOut.state().phase, 'failed'); assert.equal(timedOut.link.rel, 'preload');
+  assert.equal(timedOut.styles[0].isConnected, true, 'late CSS can still apply within its original layer');
+  assert.equal(timedOut.timers.size, 0);
+}
+const activation = page(); activation.fire('load'); activation.advance(4999);
+assert.equal(activation.state().phase, 'activating'); activation.advance(1);
+assert.equal(activation.state().phase, 'failed'); assert.equal(activation.timers.size, 0);
+
+const switched = page(); switched.fire('error'); switched.advance(2000);
+const oldProbe = switched.probes()[0], oldLoaded = [...oldProbe.events.get('load')][0];
+const oldState = switched.state(); switched.link.href = 'https://fonts.googleapis.com/replaced.css'; switched.attribute();
+assert.equal(oldState.phase, 'cancelled'); assert.equal(oldProbe.isConnected, false);
+oldLoaded(); assert.equal(switched.state().phase, 'initial');
+switched.link.sheet = {}; switched.fire('load');
+assert.equal(switched.state().phase, 'applied'); assert.equal(switched.timers.size, 0);
+assert.equal(switched.link.href, 'https://fonts.googleapis.com/replaced.css');
+
+const removed = page(); removed.fire('error'); removed.advance(2000);
+const pending = removed.probes()[0], lateFailure = [...pending.events.get('error')][0];
+removed.remove(); lateFailure(); removed.advance(60000);
+assert.equal(removed.state().phase, 'cancelled'); assert.equal(removed.activeProbes().length, 0);
+assert.equal(removed.timers.size, 0); assert.equal(removed.probes().length, 1);
+const waitingRemoved = page(); waitingRemoved.fire('error'); waitingRemoved.remove(); waitingRemoved.advance(60000);
+assert.equal(waitingRemoved.state().phase, 'cancelled'); assert.equal(waitingRemoved.probes().length, 0);
+assert.equal(waitingRemoved.timers.size, 0, 'removal also cancels an unstarted retry');
+const layerRemoved = page('theme'); layerRemoved.fire('load'); layerRemoved.styles[0].remove(); layerRemoved.advance(50);
+assert.equal(layerRemoved.state().phase, 'cancelled'); assert.equal(layerRemoved.timers.size, 0);
+console.log('remote-stylesheet-state-machine-pass');
+'''.replace("PRODUCTION", json.dumps(production)).replace("DEBUG", json.dumps(debug))
 
 
 class WebResponseTransformerTests(unittest.TestCase):

@@ -16,14 +16,18 @@ from pathlib import Path
 if __package__:
     from .test_scene_particle_assets import SWIFT_SOURCES as ASSET_SOURCES
     from .test_scene_particle_runtime import SWIFT_SOURCES as RUNTIME_SOURCES
+    from .scene_particle_runtime_configuration_cases import NO_TIMESTAMP_OBSERVATION_SUPPORT
 else:
     from test_scene_particle_assets import SWIFT_SOURCES as ASSET_SOURCES
     from test_scene_particle_runtime import SWIFT_SOURCES as RUNTIME_SOURCES
+    from scene_particle_runtime_configuration_cases import NO_TIMESTAMP_OBSERVATION_SUPPORT
 
 FIXTURES = Path(__file__).resolve().parent / "fixtures"
 BASE_HARNESS = FIXTURES / "SceneParticleRuntimeHarness.swift"
 COVERAGE_HARNESS = FIXTURES / "SceneParticleMaterialCoverageHarness.swift"
-SWIFT_SOURCES = list(dict.fromkeys([*RUNTIME_SOURCES, *ASSET_SOURCES]))
+# Imported groups can spell the same file through Scene/../Storage or Storage.
+# Resolve full paths before de-duplication; distinct files never collapse by name.
+SWIFT_SOURCES = list(dict.fromkeys(path.resolve() for path in [*RUNTIME_SOURCES, *ASSET_SOURCES]))
 HARNESS_MAIN = '''    static func main() throws {
         guard CommandLine.arguments.count == 2 else { throw HarnessError.missingMode }
         switch CommandLine.arguments[1] {
@@ -49,10 +53,10 @@ class SceneParticleMaterialCoverageTests(unittest.TestCase):
         start = source.index("    static func main() throws {")
         end = source.index("    static func renderDescriptor(", start)
         harness = directory / BASE_HARNESS.name
-        harness.write_text(source[:start] + HARNESS_MAIN + source[end:])
+        harness.write_text(NO_TIMESTAMP_OBSERVATION_SUPPORT + source[:start] + HARNESS_MAIN + source[end:])
         cls.binary = directory / "particle-coverage"
         cls.compilation = subprocess.run([
-            swiftc, *(str(path) for path in SWIFT_SOURCES), str(harness),
+            swiftc, "-D", "DEBUG", *(str(path) for path in SWIFT_SOURCES), str(harness),
             str(COVERAGE_HARNESS), "-framework", "Metal", "-framework", "CoreGraphics",
             "-framework", "ImageIO", "-module-cache-path", str(directory / "module-cache"),
             "-o", str(cls.binary),

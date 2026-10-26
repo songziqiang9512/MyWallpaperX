@@ -192,7 +192,7 @@ extension DedicatedWebWallpaperHostPlaceholderAdapter {
         recordDiagnostic(
             type: "lifecycle.teardown",
             severity: .info,
-            message: "surfaces=\(surfaces.count) loopbacks=\(loopbackServers.count) watchers=\(directoryWatchersByProperty.count) monitors=\(activeMonitorCount) pointerTimer=\(pointerPollingTimer == nil ? 0 : 1)",
+            message: "surfaces=\(surfaces.count) loopbacks=\(loopbackServers.count) watchers=\(directoryWatchersByDirectory.count) monitors=\(activeMonitorCount) pointerTimer=\(pointerPollingTimer == nil ? 0 : 1)",
             screenID: nil,
             url: nil
         )

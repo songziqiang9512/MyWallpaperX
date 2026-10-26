@@ -209,7 +209,7 @@ class SceneParticleAudioDeclarationTests(unittest.TestCase):
             PERIODIC_SOURCE,
         ]
         compilation = subprocess.run(
-            ["swiftc", *[str(path) for path in sources], str(harness), "-o", str(binary)],
+            ["swiftc", "-D", "DEBUG", *[str(path) for path in sources], str(harness), "-o", str(binary)],
             capture_output=True,
             text=True,
         )

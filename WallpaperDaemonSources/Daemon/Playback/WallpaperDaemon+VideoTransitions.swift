@@ -28,10 +28,6 @@ extension WallpaperDaemon {
         }
 
         guard !isFirstPlay else {
-            currentVideoPath = videoPath
-            currentRequestID = requestID
-            window.level = PlaybackSurfaceVisibility.activationLevel(normal: Self.desktopWindowLevel)
-            window.orderFrontRegardless()
             CATransaction.begin()
             CATransaction.setDisableActions(true)
             incomingLayer.opacity = 1
@@ -164,8 +160,6 @@ extension WallpaperDaemon {
         incomingLayer.add(inScaleAnim, forKey: "switchInTransform")
         incomingLayer.add(inOpacityAnim, forKey: "switchInOpacity")
 
-        currentVideoPath = videoPath
-        currentRequestID = requestID
         confirmVideoActivationWhenVisible(requestID: requestID)
         DispatchQueue.main.asyncAfter(deadline: .now() + animDuration) { [weak self] in
             guard let self, self.switchToken == token,

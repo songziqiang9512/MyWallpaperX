@@ -91,7 +91,7 @@ final class SceneMetalRenderer {
    let vertices=[SIMD3(x,4,0),SIMD3(x+20,4,0),SIMD3(x+20,24,0),SIMD3(x,24,0)].map {
     SceneMdlStaticModel.Vertex(position:SIMD3($0.x,-$0.y,$0.z),normal:SIMD3(0,0,1),tangent:SIMD4(1,0,0,1),uv:SIMD2(repeating:0.5))
    }
-   return pipeline.makeMesh(vertices:vertices,indices:[0,2,1,0,3,2])!
+   return pipeline.makeMesh(model: SceneStaticModelFixture.model(vertices:vertices,indices:[0,2,1,0,3,2]))!
   }
   let a=quad(4),b=quad(36),reference=SceneNamedTextureReference(providerLayerID:11,variant:.primary)
   func entry(_ mesh:SceneStaticModelMesh,_ color:SIMD3<Float>,named:Bool=false)->ScenePreparedStaticModelResources.Entry {

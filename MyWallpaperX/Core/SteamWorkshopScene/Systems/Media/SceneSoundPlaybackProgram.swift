@@ -176,7 +176,17 @@ struct SceneSoundPlaybackProgram {
                     skippedSources.append(failure)
                     continue
                 }
-                guard let handle = resourceView.resolvedResource(forReference: path) else {
+                let selected: SceneResourceView.Handle?
+                do {
+                    selected = try resourceView.literalEntry(relativePath: path, selection: .indexedReference)
+                } catch SceneResourceView.ReadError.invalidPath {
+                    skippedSources.append((.malformedSourceList, path))
+                    continue
+                } catch SceneResourceView.ReadError.symlinkEscape {
+                    skippedSources.append((.malformedSourceList, path))
+                    continue
+                }
+                guard let handle = selected else {
                     skippedSources.append((.resourceUnavailable, path))
                     continue
                 }
@@ -302,16 +312,11 @@ struct SceneSoundPlaybackProgram {
     private static let nativeOggPlaybackAvailable =
         AVURLAsset.isPlayableExtendedMIMEType("audio/ogg")
 
-    /// Each attempted source checks path legality before format capability;
-    /// loop/single selection stops at the first available resource.
+    /// Root owns path interpretation. This only describes platform formats;
+    /// actual decode failure remains local to the selected playback source.
     private static func sourceFailure(
         _ path: String
     ) -> (reason: Diagnostic.Reason, detail: String)? {
-        let components = path.split(separator: "/", omittingEmptySubsequences: false)
-        guard !path.hasPrefix("/"),
-              components.allSatisfy({ !$0.isEmpty && $0 != "." && $0 != ".." }) else {
-            return (.malformedSourceList, path)
-        }
         let supportedExtensions: Set<String> = ["flac", "mp3", "wav"]
         let fileExtension = sourceExtension(of: path)
         guard supportedExtensions.contains(fileExtension)

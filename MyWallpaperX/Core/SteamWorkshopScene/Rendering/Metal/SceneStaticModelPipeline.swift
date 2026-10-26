@@ -228,23 +228,17 @@ struct SceneStaticModelPipeline {
         shadowDepthState = device.makeDepthStencilState(descriptor: shadowDepth)
     }
 
-    /// Uploads immutable decoded geometry after validating the fixed Swift/MSL
-    /// ABI and every index. Invalid geometry never reaches a GPU draw.
-    func makeMesh(
-        vertices: [SceneMdlStaticModel.Vertex],
-        indices: [UInt32]
-    ) -> SceneStaticModelMesh? {
-        guard Self.hasExpectedVertexABI,
-              !vertices.isEmpty,
-              indices.count >= 3,
-              indices.count.isMultiple(of: 3),
-              indices.allSatisfy({ Int($0) < vertices.count }) else {
-            return nil
-        }
+    /// Uploads the Reader's immutable geometry. Format owns nonempty triangles
+    /// and index ranges; this owner checks the Swift/MSL ABI and GPU allocation.
+    func makeMesh(model: SceneMdlStaticModel) -> SceneStaticModelMesh? {
+        guard Self.hasExpectedVertexABI else { return nil }
+        let vertices = model.vertices
+        let indices = model.indices
 
         let vertexLength = vertices.count
             * MemoryLayout<SceneMdlStaticModel.Vertex>.stride
-        let usesWideIndices = indices.contains { $0 > UInt16.max }
+        let usesWideIndices = model.indexElementSize == 4
+            && indices.contains { $0 > UInt16.max }
         let indexData = usesWideIndices
             ? indices.withUnsafeBytes { Data($0) }
             : indices.map(UInt16.init).withUnsafeBytes { Data($0) }
@@ -266,11 +260,17 @@ struct SceneStaticModelPipeline {
         }
         vertexBuffer.label = "Scene static model vertices"
         indexBuffer.label = "Scene static model indices"
+        var boundsMinimum = vertices[0].position
+        var boundsMaximum = boundsMinimum
+        for vertex in vertices.dropFirst() {
+            boundsMinimum = simd_min(boundsMinimum, vertex.position)
+            boundsMaximum = simd_max(boundsMaximum, vertex.position)
+        }
         return SceneStaticModelMesh(
             vertexBuffer: vertexBuffer,
             indexBuffer: indexBuffer,
-            boundsMinimum: vertices.reduce(vertices[0].position) { simd_min($0, $1.position) },
-            boundsMaximum: vertices.reduce(vertices[0].position) { simd_max($0, $1.position) },
+            boundsMinimum: boundsMinimum,
+            boundsMaximum: boundsMaximum,
             vertexCount: vertices.count,
             indexCount: indices.count,
             indexType: usesWideIndices ? .uint32 : .uint16

@@ -2,7 +2,7 @@
 
 > 状态：Web 当前状态唯一入口
 >
-> 源码复核：2026-10-22（未接入会话模型退役）；2026-10-18（独立播放进程）；共享暂停链路复核：2026-09-28；宿主缺陷与导航合同：2026-09-30；收尾修复（loopback 会话因子 / frame 硬门 / 暂停回合 / store 回收归文档）：2026-09-30；Web 引擎缺口批（mwx-local 百分号合同 / fetchall 去抖 / XHR open 清理 / loopback 上限 / @import 限定符）：2026-10-09
+> 源码复核：2026-10-26（共享目录监听与 Release 纯日志剥离，当前验证边界见[精简方案](../development/validation-simplification-plan.md)）；2026-10-22（未接入会话模型退役）；2026-10-18（独立播放进程）；共享暂停链路复核：2026-09-28；宿主缺陷与导航合同：2026-09-30；收尾修复（loopback 会话因子 / frame 硬门 / 暂停回合 / store 回收归文档）：2026-09-30；Web 引擎缺口批（mwx-local 百分号合同 / fetchall 去抖 / XHR open 清理 / loopback 上限 / @import 限定符）：2026-10-09
 >
 > 证据边界：2026-09-28 共享暂停批已完成 Debug 构建、实际 WKWebView 暂停测试与隔离 Scene 子进程验证；没有重跑 Web 样本矩阵。2026-09-30 宿主缺陷批按 229a6b25 / c5719a0d 的记录完成免签名 Debug checkpoint 构建（退出码 0）与 F01/F29/F40 的 node vm 拼接 15 段注入脚本实跑，但没有在同一身份跑运行门（无 App 运行、无样本门）。导航/兼容脚本收敛批与收尾修复批（同一工作树，未提交）批内实际执行：`py_compile`、`swiftc -parse`、门禁选择器干跑（inner/checkpoint），以及**真实 WKWebView harness 实跑**——`test_web_compat_parity`（F01/F19/F29/F40/frames 全过）、`test_web_playback_pause`（暂停/恢复、帧边界与 AudioContext 暂停回合）、`test_web_navigation_policy`、`test_web_response_transformer`、`test_web_static_content_signals`、`test_web_display_conditions`。未执行 App 构建、`swiftc` 类型检查（只有语法解析）、`checkpoint` 构建与任何样本门。
 
@@ -59,7 +59,7 @@ Web Combo使用显式原生菜单项保留同标题不同值，按原option iden
 
 - 原始 `project.json`、目录和资源布局保持只读；本地 descriptor/cache 是派生执行数据，不反向改写样本。
 - loopback（`httpLoopback`）按本token路径或本租约cookie准入，原root/grants仍校验：入口HTML下发`SameSite=Strict`、Path=/ cookie，供`fetch('/x')`等无前缀资源；缺本cookie的无前缀请求403。cookie不按端口隔离，名称须按原lease token区分；surface退出仅从其原WK store精确删除本name/domain/path，不清其他租约。异步删除不证明在途Set-Cookie排空，也不授跨端口文档隔离。落点`WebWallpaperLoopbackServer.authorizedRequestPath(_:cookieHeader:)`和原`removeSurface`。
-- 兼容脚本的 frame 门（顶层 frame 才发屏幕级信号）是行为边界的第一层；宿主对任何 frame 都能直投的 `window.webkit.messageHandlers.*` 消息按 `WKScriptMessage.frameInfo` 二次判定：`wallpaperHostInteractiveRegions` 与 `wallpaperHostRandomFile` 只接受主 frame，`wallpaperHostLog` 的 `dom.ready` 副作用只认主 frame（日志按来源 frame 标记），网络桥接的在飞配额按 frame 分桶，子 frame 不得耗尽顶层配额。
+- 自动交互区域只在主 frame 调度，子 frame 不排空 RAF/timer，真实媒体刷新仍覆盖各 frame。任意 frame 可直投原生 handler，故宿主按 `WKScriptMessage.frameInfo` 保留消费边界：交互区域、随机文件及日志 `dom.ready` 副作用只认主 frame；日志标来源 frame，网络在飞配额按 frame 分桶。Release 不维护纯属性日志的 signature 去重表或计数，实际 callback、容错与晚注册重放保留。远程样式的 Release 纯日志状态、elapsed 与 3 秒 degraded timer 也已编译剥离；真实请求/重试、5 秒激活期限、layer 恢复和取消不变，不存在因此省去 3 秒播放等待。
 - 暂停快照按宿主暂停「回合」记录，不按每次应用的观测状态重写：同一暂停被重复应用（种子期、`dom.ready`、DCL/`load` 兜底重放、`applyPausedState`）时，宿主自己的 `suspend()` 不得被记成作者挂起；`AudioContext` 与媒体节点在恢复时只重放未被作者暂停者。DCL 与 `load` 是同一属性重放的互斥兜底（先到者取走一次性标志并撤销另一侧），不是两次重放。
 - Web 与视频、Scene 的产品状态分离，但共享高层播放切换、显示器、系统中断和音频采集合同。显式暂停由 WebKit 原生媒体门与所有 frame 的页面调度门执行，冻结 RAF、定时器、CSS/Web Animations；恢复保留作者自行暂停的动画。调度门不接管 Web Worker 等独立执行域，不承诺冻结任意后台计算。
 - 每个播放 request 使用显式 identity；旧 navigation、旧 surface、旧 property replay 和旧异步回调不得修改新 request。

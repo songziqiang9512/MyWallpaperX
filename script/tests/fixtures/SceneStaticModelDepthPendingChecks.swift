@@ -42,7 +42,7 @@ import Dispatch
    SceneMdlStaticModel.Vertex(position: $0, normal: SIMD3(0, 0, 1),
     tangent: SIMD4(1, 0, 0, 1), uv: SIMD2(repeating: 0.5))
   }
-  let mesh = pipeline.makeMesh(vertices: vertices, indices: [0, 1, 2, 0, 2, 3])!
+  let mesh = pipeline.makeMesh(model: SceneStaticModelFixture.model(vertices: vertices, indices: [0, 1, 2, 0, 2, 3]))!
   func entry(_ color: SIMD3<Float>) -> ScenePreparedStaticModelResources.Entry {
    var material = SceneStaticModelMaterial(color: color, opacity: 1,
     receivesLighting: false, textureAlphaIsOpacity: false, textureAlphaIsTintMask: false,

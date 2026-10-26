@@ -435,89 +435,6 @@ class WebAudioDemandTests(unittest.TestCase):
         result = subprocess.run(["node", "-e", script], capture_output=True, text=True, timeout=15)
         self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
 
-    def test_pending_properties_share_one_timer_and_keep_late_alias_registration(self):
-        bridge = (HOST / "DedicatedWebWallpaperHostCompatibilityScript+HostBridge.swift").read_text()
-        properties = bridge[bridge.index("  window.__myWallpaperStablePropertySignature ="):
-                            bridge.index("  window.__myWallpaperApplyGeneralProperties =")]
-        scheduling = source_block((HOST / "DedicatedWebWallpaperHostCompatibilityScript+Scheduling.swift").read_text(),
-                                  "window.__myWallpaperRunAfterSettledFrames = function(callback)")
-        script = r'''
-const vm = require('node:vm'), assert = require('node:assert/strict');
-function page(listener) {
-  let nextID = 0, rafCount = 0;
-  const timers = new Map(), frames = [], calls = [];
-  const context = { hostLogger: null, document: { readyState: 'complete' },
-    setTimeout(fn, delay) { const id = ++nextID; timers.set(id, { fn, delay }); return id; },
-    clearTimeout(id) { timers.delete(id); },
-    requestAnimationFrame(fn) { rafCount++; frames.push(fn); return ++nextID; },
-    dispatchEvent() {}, CustomEvent: class {}, Event: class {},
-    wallpaperPropertyListener: listener,
-    __myWallpaperNormalizePropertyBag: value => value
-  };
-  context.window = context;
-  vm.createContext(context);
-  vm.runInContext(PRODUCTION, context);
-  const runTimer = delay => {
-    const entry = Array.from(timers).find(([id, timer]) => timer.delay === delay);
-    assert.ok(entry, 'expected timer delay=' + delay);
-    timers.delete(entry[0]); entry[1].fn();
-  };
-  const settled = () => {
-    while (frames.length) frames.shift()(0);
-    runTimer(0);
-  };
-  return { context, calls, timers, frames, runTimer, settled, rafCount: () => rafCount };
-}
-const delivered = [];
-const main = page({ applyUserProperties: value => delivered.push(value.speed.value) });
-main.context.__myWallpaperApplyProperties({ speed: { value: 1 } });
-main.runTimer(0);
-assert.equal(main.frames.length, 1);
-for (let value = 2; value <= 20; value++) {
-  main.context.__myWallpaperApplyProperties({ speed: { value } });
-}
-assert.equal(main.frames.length, 1, 'updates while frames settle share the existing timer owner');
-assert.equal(main.timers.size, 1, 'only the one existing settled-frame fallback remains');
-main.settled();
-assert.deepEqual(delivered, [20], 'one complete callback consumes the current property bag');
-assert.equal(main.context.__myWallpaperPropertyReplayState.pendingProperties, null);
-assert.equal(main.timers.size, 0);
-
-const alreadyConsumed = [];
-const empty = page({ applyUserProperties: value => alreadyConsumed.push(value.speed.value) });
-empty.context.__myWallpaperApplyProperties({ speed: { value: 7 } });
-empty.context.__myWallpaperDrainPendingProperties();
-assert.deepEqual(alreadyConsumed, [7]);
-empty.runTimer(0);
-assert.equal(empty.rafCount(), 0, 'an emptied pending queue creates no RAF or fallback chain');
-assert.equal(empty.timers.size, 0);
-
-const alias = {}, late = [], waiting = page(alias);
-waiting.context.__myWallpaperApplyProperties({ renamedSetting: { value: 'current' } });
-waiting.runTimer(0); waiting.settled();
-for (let attempt = 0; attempt < 3; attempt++) {
-  waiting.runTimer(80); waiting.settled();
-}
-assert.equal(waiting.context.__myWallpaperPropertyReplayState.pendingSignature.length > 0, true);
-Object.defineProperty(alias, 'applyUserProperties', {
-  configurable: true, value: value => late.push(value.renamedSetting.value)
-});
-waiting.runTimer(80); waiting.settled();
-assert.deepEqual(late, ['current'], 'late defineProperty on a captured alias remains supported');
-assert.equal(waiting.timers.size, 0);
-assert.equal(waiting.context.__myWallpaperPropertyReplayState.pendingProperties, null);
-
-const stalledCalls = [], stalled = page({ applyUserProperties: value => stalledCalls.push(value.mode.value) });
-stalled.context.__myWallpaperApplyProperties({ mode: { value: 'fallback' } });
-stalled.runTimer(0); stalled.runTimer(250);
-assert.deepEqual(stalledCalls, ['fallback'], 'stalled author RAF retains the existing fallback');
-console.log('web-pending-property-replay-pass');
-'''.replace("PRODUCTION", json.dumps(scheduling + ";\n" + properties))
-        result = subprocess.run(["node", "-e", script], capture_output=True, text=True, timeout=15)
-        self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
-        self.assertIn("web-pending-property-replay-pass", result.stdout)
-
-
     def test_media_control_deduplicates_objects_and_preserves_author_setters(self):
         bridge = (HOST / "DedicatedWebWallpaperHostCompatibilityScript+HostBridge.swift").read_text()
         discovery = source_block((HOST / "DedicatedWebWallpaperHostCompatibilityScript+MediaDiscovery.swift").read_text(),
@@ -615,3 +532,151 @@ console.log('web-media-control-object-deduplication-pass');
         result = subprocess.run(["node", "-e", script], capture_output=True, text=True, timeout=15)
         self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
         self.assertIn("web-media-control-object-deduplication-pass", result.stdout)
+
+
+def property_replay_behavior_script(properties: str, scheduling: str, debug: bool) -> str:
+    """Exercise actual Swift-composed replay JS in Debug and Release.
+
+    The Release isolation gate supplies product strings. Keep the scheduling and
+    late-registration fixture here without interpreting Swift interpolation.
+    """
+    return r'''
+const vm = require('node:vm'), assert = require('node:assert/strict');
+function page(listener) {
+  let nextID = 0, rafCount = 0;
+  const timers = new Map(), frames = [], events = [], logs = [];
+  const context = { hostLogger: DEBUG ? { post(type, message) { logs.push({type, message}); } } : undefined,
+    document: { readyState: 'complete' },
+    setTimeout(fn, delay) { const id = ++nextID; timers.set(id, { fn, delay }); return id; },
+    clearTimeout(id) { timers.delete(id); },
+    requestAnimationFrame(fn) { rafCount++; frames.push(fn); return ++nextID; },
+    dispatchEvent(event) { events.push(event); },
+    CustomEvent: class { constructor(type, init) { this.type = type; this.detail = init.detail; } },
+    Event: class { constructor(type) { this.type = type; } },
+    wallpaperPropertyListener: listener,
+    __myWallpaperNormalizePropertyBag: value => value
+  };
+  context.window = context;
+  vm.createContext(context);
+  vm.runInContext(PRODUCTION, context);
+  const runTimer = delay => {
+    const entry = Array.from(timers).find(([id, timer]) => timer.delay === delay);
+    assert.ok(entry, 'expected timer delay=' + delay);
+    timers.delete(entry[0]); entry[1].fn();
+  };
+  const settled = () => {
+    while (frames.length) frames.shift()(0);
+    runTimer(0);
+  };
+  return { context, logs, events, timers, frames, runTimer, settled, rafCount: () => rafCount };
+}
+const delivered = [];
+const main = page({ applyUserProperties: value => delivered.push(value.speed.value) });
+main.context.__myWallpaperApplyProperties({ speed: { value: 1 } });
+main.runTimer(0);
+assert.equal(main.frames.length, 1);
+for (let value = 2; value <= 20; value++) {
+  main.context.__myWallpaperApplyProperties({ speed: { value } });
+}
+assert.equal(main.frames.length, 1, 'updates while frames settle share the existing timer owner');
+assert.equal(main.timers.size, 1, 'only the one existing settled-frame fallback remains');
+main.settled();
+assert.deepEqual(delivered, [20], 'one complete callback consumes the current property bag');
+assert.equal(main.context.__myWallpaperPropertyReplayState.pendingProperties, null);
+assert.equal(main.timers.size, 0);
+
+const alreadyConsumed = [];
+const empty = page({ applyUserProperties: value => alreadyConsumed.push(value.speed.value) });
+empty.context.__myWallpaperApplyProperties({ speed: { value: 7 } });
+empty.context.__myWallpaperDrainPendingProperties();
+assert.deepEqual(alreadyConsumed, [7]);
+empty.runTimer(0);
+assert.equal(empty.rafCount(), 0, 'an emptied pending queue creates no RAF or fallback chain');
+assert.equal(empty.timers.size, 0);
+
+const alias = {}, late = [], waiting = page(alias);
+waiting.context.__myWallpaperApplyProperties({ renamedSetting: { value: 'current' } });
+waiting.runTimer(0); waiting.settled();
+for (let attempt = 0; attempt < 3; attempt++) {
+  waiting.runTimer(80); waiting.settled();
+}
+assert.equal(waiting.context.__myWallpaperPropertyReplayState.pendingSignature.length > 0, true);
+Object.defineProperty(alias, 'applyUserProperties', {
+  configurable: true, value: value => late.push(value.renamedSetting.value)
+});
+waiting.runTimer(80); waiting.settled();
+assert.deepEqual(late, ['current'], 'late defineProperty on a captured alias remains supported');
+assert.equal(waiting.timers.size, 0);
+assert.equal(waiting.context.__myWallpaperPropertyReplayState.pendingProperties, null);
+
+const stalledCalls = [], stalled = page({ applyUserProperties: value => stalledCalls.push(value.mode.value) });
+stalled.context.__myWallpaperApplyProperties({ mode: { value: 'fallback' } });
+stalled.runTimer(0); stalled.runTimer(250);
+assert.deepEqual(stalledCalls, ['fallback'], 'stalled author RAF retains the existing fallback');
+
+const isolatedCalls = [];
+let brokenCalls = 0;
+const isolated = page({ applyUserProperties(value) {
+  if (Object.keys(value).length !== 1) throw new Error('Cannot read properties of undefined');
+  const [key, property] = Object.entries(value)[0];
+  if (key === 'broken') { brokenCalls++; throw new Error('author isolated failure'); }
+  if (key === 'tint' && !Array.isArray(property.value)) throw new Error('push is not a function');
+  isolatedCalls.push([key, property.value]);
+} });
+isolated.context.__myWallpaperApplyProperties({
+  speed: { value: 0.75 }, broken: { value: true }, tint: { type: 'color', value: '0.1 0.2 0.3' }
+});
+isolated.runTimer(0); isolated.settled();
+for (const delay of [80, 140, 220, 340, 520, 780, 1100, 1400, 1800, 2200, 2600, 3000]) {
+  isolated.runTimer(delay); isolated.settled();
+}
+assert.deepEqual(JSON.parse(JSON.stringify(isolatedCalls)), [['speed', 0.75], ['tint', [0.1, 0.2, 0.3]]],
+  'exhausted initialization retries still isolate properties and preserve color-array compatibility');
+assert.equal(isolated.context.__myWallpaperPropertyReplayState.pendingProperties, null);
+assert.equal(isolated.timers.size, 0);
+assert.equal(isolated.events.filter(event => event.type === 'wallpaper-properties-applied').length, 1);
+assert.equal(isolated.logs.filter(log => log.type === 'properties.skipped').length, DEBUG ? 1 : 0);
+assert.equal(isolated.logs.some(log => log.type === 'properties.applied.partial' && log.message === 'applied=2 skipped=1'), DEBUG);
+assert.equal(Object.hasOwn(isolated.context.__myWallpaperPropertyReplayState, 'reportedSkips'), DEBUG,
+  'Release has no diagnostic history even after a real isolated callback failure');
+vm.runInContext(`myWallpaperApplyPropertiesIndividually({broken:{value:true}}, window.wallpaperPropertyListener,
+  window.wallpaperPropertyListener.applyUserProperties, window.__myWallpaperLastAppliedUserPropertySignature);
+  myWallpaperApplyPropertiesIndividually({broken:{value:true}}, window.wallpaperPropertyListener,
+  window.wallpaperPropertyListener.applyUserProperties, window.__myWallpaperLastAppliedUserPropertySignature);`, isolated.context);
+assert.equal(brokenCalls, 3, 'diagnostic deduplication cannot gate author callbacks');
+assert.equal(isolated.logs.filter(log => log.type === 'properties.skipped').length, DEBUG ? 1 : 0);
+
+const colorCalls = [];
+const color = page({ applyUserProperties(value) {
+  colorCalls.push(value.tint.value);
+  if (!Array.isArray(value.tint.value)) throw new Error('push is not a function');
+} });
+color.context.__myWallpaperApplyProperties({ tint: { type: 'color', value: '0.2 0.4 0.6' } });
+color.runTimer(0); color.settled();
+assert.deepEqual(JSON.parse(JSON.stringify(colorCalls)), ['0.2 0.4 0.6', [0.2, 0.4, 0.6]]);
+assert.equal(color.timers.size, 0, 'color compatibility does not start initialization retries');
+assert.equal(color.events.filter(event => event.type === 'wallpaper-properties-applied').length, 1);
+
+let sideEffects = 0, asynchronousCalls = 0;
+const asynchronous = page({ applyUserProperties() {
+  asynchronousCalls++;
+  asynchronous.context.setTimeout(() => { sideEffects++; }, 17);
+  throw new Error('Cannot read properties of undefined');
+} });
+asynchronous.context.__myWallpaperApplyProperties({ delayed: { value: true } });
+asynchronous.runTimer(0); asynchronous.settled(); asynchronous.runTimer(17);
+assert.equal(sideEffects, 1);
+assert.equal(asynchronousCalls, 1, 'initialization failure after scheduling work cannot repeat author side effects');
+assert.equal(asynchronous.timers.size, 0);
+assert.equal(asynchronous.context.__myWallpaperPropertyReplayState.pendingProperties, null);
+
+let failedCalls = 0;
+const failed = page({ applyUserProperties() { failedCalls++; throw new Error('author property failed'); } });
+failed.context.__myWallpaperApplyProperties({ renamedMode: { value: true } });
+failed.runTimer(0); failed.settled(); failed.settled();
+assert.equal(failedCalls, 1, 'non-initialization failure does not loop callbacks');
+assert.equal(failed.events.filter(event => event.type === 'resize').length, 1,
+  'resize compatibility survives diagnostic stripping');
+assert.equal(failed.timers.size, 0);
+console.log('web-pending-property-replay-pass');
+'''.replace("PRODUCTION", json.dumps(scheduling + ";\n" + properties)).replace("DEBUG", json.dumps(debug))

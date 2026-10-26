@@ -66,7 +66,7 @@ class SystemAudioSpectrumRecoveryTests(unittest.TestCase):
                     style: SystemAudioSpectrumStyle,
                     sensitivity: SystemAudioSpectrumSensitivity
                 ) {}
-                func analyze(left: [Float], right: [Float]) -> [Float] { [] }
+                func analyze(_ levels: SystemAudioSceneSpectrumAnalyzer.Levels) -> [Float] { [] }
             }
 
             final class SystemAudioWebSpectrumAnalyzer {
@@ -165,7 +165,7 @@ class SystemAudioSpectrumRecoveryTests(unittest.TestCase):
                         expect(start+chunkSize >= windowCount,"partial windows must not be published")
                         expect((start/chunkSize)%5 != 3,"busy worker must not receive a snapshot")
                         let latest = Array(pcm[(start+chunkSize-windowCount)..<(start+chunkSize)])
-                        let expected = reference.analyze(signedChannels:[latest],sampleRate:rate,
+                        let expected = reference.analyze(SystemAudioCapturedFrame(signedChannels:[latest]),sampleRate:rate,
                             timestamp:1+Double(start+chunkSize)/Double(rate))
                         let error = zip(published.value.last!,expected.left64+expected.right64).map { abs($0-$1) }.max()!
                         maxError = max(maxError,error)

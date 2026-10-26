@@ -292,14 +292,20 @@ extension Harness {
                 for _ in 0..<2 { batches = childRuntime.advance(by: 1.0 / 60) }
                 let child = batches.filter { $0.particlePath == childPath }.flatMap(\.instances)
                 let systems = childRuntime.frameSnapshot().layers.compactMap(\.child).flatMap(\.systems)
-                let diagnostics = systems.flatMap { $0.simulator.diagnostics }.map { $0.kind.rawValue }
                 let inert = !child.isEmpty && child.allSatisfy {
                     $0.velocityAndTrail.x == 0 && $0.velocityAndTrail.y == 0 && $0.velocityAndTrail.z == 0
                 }
                 let healthyParent = batches.contains { $0.particlePath == parentPath && !$0.instances.isEmpty }
-                return (inert && healthyParent && diagnostics.contains("controlPointForceUnsupported"),
-                    ["childCount": child.count, "healthyParent": healthyParent, "diagnostics": diagnostics,
-                     "velocities": child.map { [$0.velocityAndTrail.x, $0.velocityAndTrail.y, $0.velocityAndTrail.z] }])
+                var facts: [String: Any] = [
+                    "childCount": child.count, "healthyParent": healthyParent,
+                    "velocities": child.map { [$0.velocityAndTrail.x, $0.velocityAndTrail.y, $0.velocityAndTrail.z] },
+                ]
+#if DEBUG
+                let diagnostics = systems.flatMap { $0.simulator.diagnostics }.map { $0.kind.rawValue }
+                facts["diagnostics"] = diagnostics
+                facts["unsupportedForceReported"] = diagnostics.contains("controlPointForceUnsupported")
+#endif
+                return (inert && healthyParent, facts)
             }
             func components(_ value: SIMD3<Float>?) -> [Float] { value.map { [$0.x, $0.y, $0.z] } ?? [] }
             let childWorld = try childForceIsInert(flags: 2), childDefault = try childForceIsInert(flags: 0)

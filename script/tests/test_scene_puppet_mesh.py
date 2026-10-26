@@ -751,9 +751,6 @@ class PuppetMeshWorldGeometryContractTests(unittest.TestCase):
         self.assertNotIn("makeTexture", recomposer)
         self.assertIn("allowsMissingMeshTextureProduct: true", load)
         self.assertIn("puppetOutcome.allowsMissingMeshTextureProduct", view)
-        self.assertEqual(load.count("allowsMissingMeshTextureProduct: true"), 1)
-        self.assertIn("case absent", load)
-        self.assertIn("case rejected", load)
         self.assertIn("puppet mesh path rejected", load)
         self.assertIn("desiredSize = selectedSource.candidate?.mappedSize", preflight)
         self.assertIn("?.effectSourceExtentContract ?? .scalableStandard", preflight)
@@ -766,9 +763,6 @@ class PuppetMeshWorldGeometryContractTests(unittest.TestCase):
         self.assertIn("sourceTexture = source.texture", preflight)
         self.assertNotIn("SceneGeometryCapture", preflight)
         self.assertNotIn("viewportToAuthoredUV", preflight)
-        self.assertIn(
-            "sourceMVP = geometryMVP(layer, geometry)", preflight
-        )
         self.assertNotIn("capturesGeometry", graph_composition)
         self.assertNotIn("compositesFullViewport", graph_composition)
         self.assertIn("finalTexture,", compositor)
@@ -791,10 +785,6 @@ class PuppetMeshWorldGeometryContractTests(unittest.TestCase):
         self.assertIn("atlasTexture: MTLTexture", recomposer)
         self.assertIn("samplingTexture: atlasTexture", recomposer)
         self.assertIn("geometryModelMatrix(", preflight)
-        self.assertIn(
-            "SceneLayerCursorGeometry.effectTextureProjectionInverse(\n                        effectProjectionMVP,",
-            preflight,
-        )
         self.assertIn(
             "claim.frameInputContract.effectTextureProjectionSource",
             preflight,

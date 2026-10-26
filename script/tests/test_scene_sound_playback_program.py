@@ -18,6 +18,14 @@ PROGRAM_SOURCE = (
 REGISTRY_SOURCE = (
     REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Systems/Media/SceneSoundPlaybackRegistry.swift"
 )
+REGISTRY_SWIFT_SOURCES = [
+    PROGRAM_SOURCE, REGISTRY_SOURCE,
+    *(REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene" / path for path in [
+        "Systems/Properties/SceneDynamicSnapshot.swift", "Systems/Media/SceneAudioSpectrum.swift",
+        "Runtime/Frame/SceneSurfacePointerState.swift", "Runtime/Frame/SceneFrameContext.swift",
+    ]),
+    REPOSITORY_ROOT / "MyWallpaperX/Core/PlaybackControl/ScenePlaybackShortcut.swift",
+]
 
 
 def record_process(name, process):
@@ -106,11 +114,15 @@ struct SceneResourceView {
         var relativePath: String { url.lastPathComponent }
     }
     enum FileInput: Hashable { case resource(Handle) }
-    enum ReadError: Error { case missing, unreadable, sourceChanged, invalidHandle, symlinkEscape }
+    enum ReadError: Error { case missing, unreadable, sourceChanged, invalidHandle, invalidPath, symlinkEscape }
+    enum EntrySelection { case authoredLiteral, indexedReference }
     let resourcesByReference: [String: URL]
 
-    func resolvedResource(forReference reference: String) -> Handle? {
-        resourcesByReference[reference].map { Handle(url: $0) }
+    func literalEntry(relativePath reference: String, selection: EntrySelection = .authoredLiteral) throws -> Handle? {
+        // Controlled Root outcomes only. Real spelling/traversal, alias and
+        // byte-consumption behavior is covered by the actual Root fixture.
+        if ["../escape.flac", "../escape.ogg"].contains(reference) { throw ReadError.symlinkEscape }
+        return resourcesByReference[reference].map { Handle(url: $0) }
     }
 
     func displayPath(for url: URL) -> String { url.path }
@@ -549,9 +561,11 @@ class SceneSoundPlaybackProgramTests(unittest.TestCase):
         self.assertEqual(layer_diagnostics(self.payload, 218),
                          [first, ("resourceUnavailable", "audio/missing.wav")])
 
-    def test_ogg_path_legality_precedes_platform_and_resource_admission(self) -> None:
+    def test_unsupported_ogg_skips_root_and_supported_ogg_keeps_path_failure_local(self) -> None:
         self.assertNotIn(215, self.payload["admittedLayerIDs"])
-        self.assertEqual(layer_diagnostics(self.payload, 215), [("malformedSourceList", "../escape.ogg")])
+        self.assertEqual(layer_diagnostics(self.payload, 215),
+                         [("malformedSourceList", "../escape.ogg")] if self.payload["platformOggPlayable"]
+                         else [("audioFormatUnsupported", "ogg")])
 
     def test_non_loop_mode_is_rejected_with_the_typed_reason(self) -> None:
         self.assertNotIn(303, self.payload["admittedLayerIDs"])
@@ -647,13 +661,7 @@ class SceneSoundPlaybackRegistryPlaybackTests(unittest.TestCase):
         compilation = subprocess.run(
             [
                 "swiftc",
-                str(PROGRAM_SOURCE),
-                str(REGISTRY_SOURCE),
-                str(REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Systems/Properties/SceneDynamicSnapshot.swift"),
-                str(REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Systems/Media/SceneAudioSpectrum.swift"),
-                str(REPOSITORY_ROOT / "MyWallpaperX/Core/PlaybackControl/ScenePlaybackShortcut.swift"),
-                str(REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Runtime/Frame/SceneSurfacePointerState.swift"),
-                str(REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Runtime/Frame/SceneFrameContext.swift"),
+                *map(str, REGISTRY_SWIFT_SOURCES),
                 str(stub),
                 str(harness),
                 "-module-cache-path",

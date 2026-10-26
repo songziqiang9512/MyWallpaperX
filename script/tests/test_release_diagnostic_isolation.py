@@ -4,7 +4,11 @@ This checks the exclusion boundary rather than assuming an optimized Debug App
 represents distribution. Full App playback/IPC still requires runtime evidence.
 """
 from pathlib import Path
+import hashlib
 import json
+import os
+import re
+import shutil
 import subprocess
 import tempfile
 import unittest
@@ -47,6 +51,102 @@ import Foundation
 
 
 class ReleaseDiagnosticIsolationTests(unittest.TestCase):
+    def test_shared_audio_keeps_real_configuration_without_diagnostic_frame_or_release_readback(self):
+        source = ROOT / "MyWallpaperX/Core/Playback/SystemAudioCaptureDeviceFactory.swift"
+        capture = ROOT / "MyWallpaperX/Core/Playback/SystemAudioCaptureBuffer.swift"
+        checks = ROOT / "script/tests/fixtures/SystemAudioDiagnosticBoundaryChecks.swift"
+        parent = os.environ.get("MWX_AUDIO_MEDIA_DIAGNOSTIC_EVIDENCE")
+        if parent:
+            Path(parent).mkdir(parents=True, exist_ok=True)
+        reports = []
+        for debug in (False, True):
+            directory = Path(tempfile.mkdtemp(prefix="shared-audio-diagnostic-", dir=parent))
+            try:
+                copied = directory / source.name
+                text = source.read_text()
+                for name in ("AudioObjectGetPropertyData", "AudioObjectSetPropertyData"):
+                    self.assertRegex(text, rf"\b{name}\b")
+                    text = re.sub(rf"\b{name}\b", "fixture" + name, text)
+                copied.write_text(text)
+                inputs = [source, capture, checks, copied]
+                before = {str(path): hashlib.sha256(path.read_bytes()).hexdigest() for path in inputs}
+                binary = directory / "check"
+                command = ["xcrun", "--sdk", "macosx", "swiftc", "-parse-as-library",
+                           "-swift-version", "6", "-default-isolation", "MainActor",
+                           "-O", "-whole-module-optimization", *(["-D", "DEBUG"] if debug else []),
+                           str(capture), str(copied), str(checks), "-module-cache-path",
+                           str(directory / "modules"), "-o", str(binary)]
+                home = directory / "home"
+                home.mkdir()
+                environment = dict(os.environ, HOME=str(home), CFFIXED_USER_HOME=str(home))
+                compiled = subprocess.run(command, cwd=ROOT, env=environment,
+                                          capture_output=True, text=True, timeout=120)
+                (directory / "compile.json").write_text(json.dumps({
+                    "command": command, "returncode": compiled.returncode,
+                    "stdout": compiled.stdout, "stderr": compiled.stderr, "sourceSHA256": before,
+                    "sourceAdaptation": "Only property I/O identifiers redirected; no real device access.",
+                }, indent=2))
+                self.assertEqual(compiled.returncode, 0, compiled.stderr)
+                result = subprocess.run([str(binary)], cwd=directory, env=environment,
+                                        capture_output=True, text=True, timeout=15)
+                after = {str(path): hashlib.sha256(path.read_bytes()).hexdigest() for path in inputs}
+                (directory / "result.json").write_text(json.dumps({
+                    "returncode": result.returncode, "stdout": result.stdout, "stderr": result.stderr,
+                    "sourceSHA256Before": before, "sourceSHA256After": after,
+                }, indent=2))
+                self.assertEqual(before, after)
+                self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+                self.assertEqual("MWX AUDIO CAPTURE: buffer" in result.stderr, debug)
+                report = json.loads(result.stdout)
+                self.assertEqual(report["debug"], debug)
+                reports.append(report)
+            finally:
+                if not parent:
+                    shutil.rmtree(directory)
+        self.assertEqual(reports[0]["signedChannels"], reports[1]["signedChannels"])
+        for release, debug in zip(reports[0]["propertyRows"], reports[1]["propertyRows"]):
+            self.assertEqual(release["name"], debug["name"])
+            self.assertEqual(release["requested"], debug["requested"])
+            self.assertEqual(release["finalFrames"], debug["finalFrames"])
+
+    def test_system_media_release_has_no_log_state_calls_or_interpolation_before_optimization(self):
+        from script.tests import test_scene_system_media_provider as provider
+        support, separator, _ = provider.HARNESS.partition("@main struct Main")
+        self.assertTrue(separator)
+        parent = os.environ.get("MWX_AUDIO_MEDIA_DIAGNOSTIC_EVIDENCE")
+        if parent:
+            Path(parent).mkdir(parents=True, exist_ok=True)
+        for debug in (False, True):
+            directory = Path(tempfile.mkdtemp(prefix="shared-media-diagnostic-", dir=parent))
+            try:
+                harness, output = directory / "Support.swift", directory / "diagnostics.sil"
+                harness.write_text(support)
+                inputs = [*provider.SOURCE_PATHS, harness]
+                before = {str(path): hashlib.sha256(path.read_bytes()).hexdigest() for path in inputs}
+                command = ["xcrun", "swiftc", "-swift-version", "6", "-default-isolation", "MainActor",
+                           "-parse-as-library", "-Onone", "-whole-module-optimization", "-emit-silgen",
+                           *(["-D", "DEBUG"] if debug else []), *map(str, inputs),
+                           "-module-name", "SharedMediaDiagnosticGate", "-module-cache-path",
+                           str(directory / "modules"), "-o", str(output)]
+                compiled = subprocess.run(command, cwd=ROOT, capture_output=True, text=True, timeout=120)
+                after = {str(path): hashlib.sha256(path.read_bytes()).hexdigest() for path in inputs}
+                (directory / "compile.json").write_text(json.dumps({
+                    "command": command, "returncode": compiled.returncode,
+                    "stdout": compiled.stdout, "stderr": compiled.stderr,
+                    "sourceSHA256Before": before, "sourceSHA256After": after,
+                }, indent=2))
+                self.assertEqual(before, after)
+                self.assertEqual(compiled.returncode, 0, compiled.stderr)
+                sil = output.read_text()
+                self.assertIn("sil_stage raw", sil)
+                for marker in ["var lastStatus:", "SystemMediaService.report(_:)",
+                               "MWX shared media source: source=%@ status=%@",
+                               '"authorization-"', '"apple-unavailable-"']:
+                    self.assertEqual(marker in sil, debug, marker)
+            finally:
+                if not parent:
+                    shutil.rmtree(directory)
+
     def compile_and_run(self, debug: bool) -> tuple[str, str]:
         with tempfile.TemporaryDirectory(prefix="mwx-diagnostic-exclusion-") as raw:
             directory = Path(raw)
@@ -89,10 +189,62 @@ class ReleaseDiagnosticIsolationTests(unittest.TestCase):
         self.assertIn("debug-observation-pass", output)
         self.assertIn("diagnostic payload", output)
 
+    def test_sound_playing_observer_is_debug_only_without_changing_player_state(self):
+        from script.tests.test_scene_sound_playback_program import REGISTRY_SWIFT_SOURCES, STUB_SOURCE
+        _, separator, carriers = STUB_SOURCE.partition("struct SceneScriptMediaPlaybackCommand")
+        self.assertTrue(separator)
+        harness = r'''
+        import AVFoundation
+        import Foundation
+        @main enum Check {
+            static func main() {
+                let program = SceneSoundPlaybackProgram(bindings: [.init(
+                    layerID: 7, resources: [.init(file: nil, displayPath: "selected-unavailable.wav")],
+                    playbackMode: .single, startsSilent: true, authoredVolume: 0.5,
+                    volumePropertyKey: nil)], diagnostics: [])
+                let registry = SceneSoundPlaybackRegistry(program: program, epoch: 9)
+                registry.start(paused: true, userValues: [:])
+                precondition(registry.sceneScriptSnapshots() == [7: false])
+                let sources = Mirror(reflecting: registry).children.first { $0.label == "sources" }!.value
+                let pair = Mirror(reflecting: sources).children.first!.value
+                let source = Array(Mirror(reflecting: pair).children)[1].value
+                let observation = Mirror(reflecting: source).children.first { $0.label == "timeControlObservation" }
+        #if DEBUG
+                precondition(observation != nil && !Mirror(reflecting: observation!.value).children.isEmpty,
+                             "Debug must install its actual playing-log KVO token")
+        #else
+                precondition(observation == nil, "Release must not store or install a log-only KVO token")
+        #endif
+                registry.stop()
+                precondition(registry.sceneScriptSnapshots().isEmpty)
+                print("sound-observation-isolation-pass")
+            }
+        }
+        '''
+        for debug in (False, True):
+            with self.subTest(debug=debug), tempfile.TemporaryDirectory(prefix="mwx-sound-observation-") as raw:
+                directory = Path(raw)
+                stub, main, binary = directory / "Carriers.swift", directory / "Harness.swift", directory / "check"
+                stub.write_text("import AVFoundation\nimport Foundation\n" + separator + carriers)
+                main.write_text(harness)
+                flags = ["-D", "DEBUG"] if debug else []
+                compiled = subprocess.run(
+                    ["xcrun", "swiftc", "-parse-as-library", "-O", *flags, *map(str, REGISTRY_SWIFT_SOURCES),
+                     str(stub), str(main), "-module-cache-path", str(directory / "modules"), "-o", str(binary)],
+                    capture_output=True, text=True, timeout=90,
+                )
+                self.assertEqual(compiled.returncode, 0, compiled.stderr)
+                executed = subprocess.run([str(binary)], capture_output=True, text=True, timeout=15)
+                self.assertEqual(executed.returncode, 0, executed.stdout + executed.stderr)
+                self.assertIn("sound-observation-isolation-pass", executed.stdout)
+
     def test_web_media_logging_source_and_observers_are_debug_only(self):
+        from script.tests.test_web_audio_demand import property_replay_behavior_script
+        from script.tests.test_web_response_transformer import remote_stylesheet_behavior_script
         host = ROOT / "MyWallpaperX/Core/SteamWorkshopWeb/Host"
         sources = [host / ("DedicatedWebWallpaperHostCompatibilityScript+" + part + ".swift")
-                   for part in ["BootstrapFoundation", "MediaObservers", "InteractionAndRuntimeMedia", "InteractionAndRuntimeLogging"]]
+                   for part in ["BootstrapFoundation", "MediaObservers", "InteractionAndRuntimeMedia",
+                                "InteractionAndRuntimeLogging", "HostBridge", "Scheduling", "RemoteStylesheets"]]
         harness = r'''
         import Foundation
         @main enum Check {
@@ -101,6 +253,7 @@ class ReleaseDiagnosticIsolationTests(unittest.TestCase):
                 let media = webCompatibilityScriptMediaObservers
                 let interaction = webCompatibilityScriptInteractionAndRuntimeMedia
                 let logging = webCompatibilityScriptInteractionAndRuntimeLogging
+                let properties = webCompatibilityScriptHostBridge
         #if DEBUG
                 precondition(foundation.contains("const lastLogTimes = new Map()"))
                 precondition(logging.contains("const serializedConsoleArgs"))
@@ -108,6 +261,9 @@ class ReleaseDiagnosticIsolationTests(unittest.TestCase):
                 precondition(logging.contains("__mwxXHRLoggingInstalled"))
                 precondition(media.contains("first-media-node-found"))
                 precondition(media.contains("postMediaState('media.initial'"))
+                precondition(properties.contains("reportedSkips"))
+                precondition(properties.contains("let appliedCount = 0"))
+                precondition(properties.contains("properties.applied.partial"))
                 precondition(media.components(separatedBy: "node.addEventListener('playing'").count == 2,
                              "Debug keeps one media event observer")
         #else
@@ -125,6 +281,10 @@ class ReleaseDiagnosticIsolationTests(unittest.TestCase):
                                     "node.addEventListener('playing'", "media.initial"] {
                     precondition(!media.contains(loggingOnly), "Release contains unused media logging")
                 }
+                for loggingOnly in ["reportedSkips", "myWallpaperReportSkippedProperty", "appliedCount",
+                                    "skippedCount", "isolatedResult", "properties.applied.partial"] {
+                    precondition(!properties.contains(loggingOnly), "Release contains property log bookkeeping")
+                }
         #endif
                 for playbackConsumer in ["const networkRequestHandler", "const hostNetworkRequest",
                                          "const base64ToUint8Array", "XMLHttpRequest.prototype.send ="] {
@@ -139,9 +299,15 @@ class ReleaseDiagnosticIsolationTests(unittest.TestCase):
                 precondition(media.contains("node.playbackRate = hostPlaybackRate"))
                 precondition(media.contains("attachWallpaperMediaNodesFromRoot"))
                 precondition(interaction.contains("originalPlay.apply(this, args)"))
+                precondition(properties.contains("callback.call(listener, singleProperty)"))
+                precondition(properties.contains("myWallpaperSchedulePendingPropertyApply(80)"))
+                precondition(properties.contains("myWallpaperColorArrayCompatibleProperty(value)"))
                 print("foundation-script=" + String(data: try! JSONEncoder().encode(foundation), encoding: .utf8)!)
                 print("xhr-script=" + String(data: try! JSONEncoder().encode(logging), encoding: .utf8)!)
+                print("property-script=" + String(data: try! JSONEncoder().encode(properties), encoding: .utf8)!)
+                print("scheduling-script=" + String(data: try! JSONEncoder().encode(webCompatibilityScriptScheduling), encoding: .utf8)!)
                 print("media-script-isolation-pass")
+                print("remote-script=" + String(data: try! JSONEncoder().encode(webRemoteStylesheetCompatibilityScript), encoding: .utf8)!)
             }
         }
         '''
@@ -160,10 +326,28 @@ class ReleaseDiagnosticIsolationTests(unittest.TestCase):
                 executed = subprocess.run([str(binary)], capture_output=True, text=True, timeout=15)
                 self.assertEqual(executed.returncode, 0, executed.stdout + executed.stderr)
                 self.assertIn("media-script-isolation-pass", executed.stdout)
+                remote = json.loads(next(line.removeprefix("remote-script=") for line in executed.stdout.splitlines()
+                                         if line.startswith("remote-script=")))
+                observed_remote = subprocess.run(
+                    ["node", "-e", remote_stylesheet_behavior_script(remote, debug)],
+                    capture_output=True, text=True, timeout=15,
+                )
+                self.assertEqual(observed_remote.returncode, 0, observed_remote.stdout + observed_remote.stderr)
+                self.assertIn("remote-stylesheet-state-machine-pass", observed_remote.stdout)
                 logging = json.loads(next(line.removeprefix("xhr-script=") for line in executed.stdout.splitlines()
                                           if line.startswith("xhr-script=")))
                 foundation = json.loads(next(line.removeprefix("foundation-script=") for line in executed.stdout.splitlines()
                                              if line.startswith("foundation-script=")))
+                properties = json.loads(next(line.removeprefix("property-script=") for line in executed.stdout.splitlines()
+                                             if line.startswith("property-script=")))
+                scheduling = json.loads(next(line.removeprefix("scheduling-script=") for line in executed.stdout.splitlines()
+                                             if line.startswith("scheduling-script=")))
+                properties = properties[properties.index("  window.__myWallpaperStablePropertySignature ="):
+                                        properties.index("  window.__myWallpaperApplyGeneralProperties =")]
+                replay = subprocess.run(["node", "-e", property_replay_behavior_script(properties, scheduling, debug)],
+                                        capture_output=True, text=True, timeout=15)
+                self.assertEqual(replay.returncode, 0, replay.stdout + replay.stderr)
+                self.assertIn("web-pending-property-replay-pass", replay.stdout)
                 logger = foundation[foundation.index("  const hostLogger ="):foundation.index("  resumeAudioContexts();")]
                 console_logging = logging[:logging.index("  const networkRequestHandler =")]
                 # These are actual Debug/Release Swift-composed JS values. The

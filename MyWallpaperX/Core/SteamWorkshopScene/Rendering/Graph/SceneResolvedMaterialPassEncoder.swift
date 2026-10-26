@@ -403,54 +403,21 @@ final class SceneResolvedMaterialPassEncoder {
         _ program: SceneResolvedMaterialProgram,
         target: MTLTexture
     ) -> [Binding]? {
-        let frontend = program.frontendProgram.textureBindings
         let slots = program.semanticIdentity.shader.textureSlots
-        guard program.textureSlots.count == 8,
-              program.semanticIdentity.textureSlots.count == 8,
-              program.exactIdentity.textureSlots.count == 8,
-              frontend.allSatisfy({
-                  (0 ..< 8).contains($0.slot) && $0.name == "g_Texture\($0.slot)"
-              }),
-              program.textureSlots.enumerated().compactMap({
-                  $0.element == nil ? nil : $0.offset
-              }) == slots,
-              program.semanticIdentity.textureSlots.enumerated().compactMap({
-                  $0.element == nil ? nil : $0.offset
-              }) == slots,
-              program.exactIdentity.textureSlots.enumerated().compactMap({
-                  $0.element == nil ? nil : $0.offset
-              }) == slots else {
-            return nil
-        }
-
         var result: [Binding] = []
         for slotIndex in slots {
-            guard let slot = program.textureSlots[slotIndex],
-                  let exact = program.exactIdentity.textureSlots[slotIndex],
-                  slot.index == slotIndex,
-                  slot.resource.publication.isComplete,
-                  slot.resource.publication.candidate.sampling
-                      .isResolvedForMaterialProgram,
-                  let binding = SceneTextureSlotBinding(
-                      slotIndex: slotIndex,
-                      candidate: slot.resource.publication.candidate
-                  ),
-                  binding.texture.device.registryID == device.registryID,
-                  exact.deviceRegistryID == device.registryID,
-                  exact.textureObjectIdentifier == ObjectIdentifier(binding.texture),
-                  exact.pixelFormatRawValue == binding.texture.pixelFormat.rawValue,
-                  exact.physicalExtent == [binding.texture.width, binding.texture.height],
-                  exact.mipLevelCount == binding.texture.mipmapLevelCount,
-                  exact.sampling == binding.sampling,
-                  exact.samplingRawFlags == binding.sampling.rawFlags,
-                  ObjectIdentifier(binding.texture) != ObjectIdentifier(target) else {
+            guard let slot = program.textureSlots[slotIndex] else { return nil }
+            let candidate = slot.resource.publication.candidate
+            let texture = candidate.texture
+            guard texture.device.registryID == device.registryID,
+                  ObjectIdentifier(texture) != ObjectIdentifier(target) else {
                 return nil
             }
             result.append(.init(
                 slot: slotIndex,
-                texture: binding.texture,
-                sampler: samplers.state(for: binding.sampling),
-                sampling: binding.sampling
+                texture: texture,
+                sampler: samplers.state(for: candidate.sampling),
+                sampling: candidate.sampling
             ))
         }
         return result

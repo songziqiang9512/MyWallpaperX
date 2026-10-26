@@ -38,14 +38,6 @@ def run_spot(source_paths, support, **kwargs):
         if after!=identity:raise AssertionError(f'test/helper source changed: {root}')
 
 
-def alpha_builder_support(builder):
-    """Use the builder fixture's actual data-only environment declaration."""
-    force=(builder.SOURCE_ROOT/'Systems/Particles/SceneParticleControlPointForce.swift').read_text()
-    start=force.index('nonisolated struct SceneParticleControlPointForceEnvironment:')
-    environment=force[start:force.index('\n}',start)+2]
-    return environment+'\n'+builder.HARNESS_SOURCE.split('@main',1)[0]
-
-
 def _sub(a, b):
     return [x-y for x, y in zip(a, b)]
 
@@ -124,7 +116,7 @@ def sources():
         'MODEL_SOURCE', 'SAMPLING_SOURCE', 'UV_TRANSFORM_SOURCE', 'DIRECTIONAL_LIGHT_SOURCE',
         'POINT_LIGHT_SOURCE', 'SPOT_LIGHT_SOURCE', 'LIGHT_SOURCE', 'VISIBILITY_SOURCE', 'DYNAMIC_SNAPSHOT_SOURCE',
         'DYNAMIC_LAYER_VALUES_SOURCE', 'PERFORMANCE_COUNTER_SOURCE', 'MATERIAL_SOURCE', 'PIPELINE_SOURCE']]
-    return result + [SCENE/'Resources/Textures/SceneResourceBudget.swift',
+    return result + [*model.MODEL_SUPPORT_SOURCES, SCENE/'Resources/Textures/SceneResourceBudget.swift',
                      SCENE/'Rendering/Metal/SceneStaticModelShadow.swift',
                      SCENE/'Runtime/Frame/SceneStaticModelMaterialBindings.swift']
 
@@ -146,7 +138,7 @@ DEPTH_MAIN = r'''
    let triangles=row["draw_triangles"] as! [[[Double]]]
    // Actual mesh uses front-facing winding toward this light. No cull override.
    let vertices=triangles.flatMap { $0 }.map { p in SceneMdlStaticModel.Vertex(position:SIMD3(Float(p[0]),Float(p[1]),Float(p[2])),normal:SIMD3(0,0,-1),tangent:SIMD4(1,0,0,1),uv:SIMD2(0.5,0.5)) }
-   let mesh=pipeline.makeMesh(vertices:vertices,indices:Array(0..<UInt32(vertices.count)))!
+   let mesh=pipeline.makeMesh(model: SceneStaticModelFixture.model(vertices:vertices,indices:Array(0..<UInt32(vertices.count))))!
    let td=MTLTextureDescriptor.texture2DDescriptor(pixelFormat:.depth32Float,width:size,height:size,mipmapped:false);td.storageMode = .private;td.usage = [.renderTarget,.shaderRead]
    let target=d.makeTexture(descriptor:td)!,cb=queue.makeCommandBuffer()!
    let rp=MTLRenderPassDescriptor();rp.depthAttachment.texture=target;rp.depthAttachment.loadAction = .clear;rp.depthAttachment.storeAction = .store;rp.depthAttachment.clearDepth=1
@@ -419,7 +411,7 @@ class SceneSpotModelAuthoredConeTests(unittest.TestCase):
 }
 '''
         selected = [model.DIRECTIONAL_LIGHT_SOURCE, model.POINT_LIGHT_SOURCE,
-                    model.SPOT_LIGHT_SOURCE, model.LIGHT_SOURCE, model.VISIBILITY_SOURCE,
+                    model.SPOT_LIGHT_SOURCE, model.LIGHT_SOURCE, model.LIGHTING_INPUT_SOURCE, model.VISIBILITY_SOURCE,
                     model.DYNAMIC_SNAPSHOT_SOURCE, model.DYNAMIC_LAYER_VALUES_SOURCE,
                     SCENE/'Rendering/Metal/SceneStaticModelShadow.swift']
         report = run_spot(selected, 'import Foundation\nimport Metal\nimport simd\n'
@@ -484,6 +476,7 @@ SNAPSHOT_MAIN = r'''
 class SceneSpotModelShadowSnapshotTests(unittest.TestCase):
     def test_actual_current_snapshot_order_budget_cast_and_transforms(self):
         selected=[model.DIRECTIONAL_LIGHT_SOURCE,model.POINT_LIGHT_SOURCE,model.SPOT_LIGHT_SOURCE,
+                  model.LIGHTING_INPUT_SOURCE,
                   model.LIGHT_SOURCE,model.VISIBILITY_SOURCE,model.DYNAMIC_SNAPSHOT_SOURCE,model.DYNAMIC_LAYER_VALUES_SOURCE]
         report=run_spot(selected,'import Foundation\nimport simd\n'+model.LIGHTING_STUB+SNAPSHOT_MAIN,label='spot-snapshot')
         for name,passed in report.items():
@@ -497,7 +490,7 @@ MULTI_MAIN = r'''
   let td=MTLTextureDescriptor.texture2DDescriptor(pixelFormat:.rgba32Float,width:1,height:1,mipmapped:false);td.storageMode = .shared;td.usage = .shaderRead
   let albedo=d.makeTexture(descriptor:td)!;var texels:[Float]=[0.6,0.4,0.2,1];albedo.replace(region:MTLRegionMake2D(0,0,1,1),mipmapLevel:0,withBytes:&texels,bytesPerRow:16)
   let material=SceneStaticModelMaterial(color:SIMD3(repeating:1),opacity:1,receivesLighting:true,textureAlphaIsOpacity:false,textureAlphaIsTintMask:false,emissiveColor:.zero,emissiveBrightness:0,brightness:1,usesHDRBrightness:false,viewTint:nil)
-  func mesh(_ tris:[[[Double]]])->SceneStaticModelMesh { let v=tris.flatMap{$0}.map{p in SceneMdlStaticModel.Vertex(position:SIMD3(Float(p[0]),Float(p[1]),Float(p[2])),normal:SIMD3(0,0,1),tangent:SIMD4(1,0,0,1),uv:SIMD2(0.5,0.5))};return pipeline.makeMesh(vertices:v,indices:Array(0..<UInt32(v.count)))! }
+  func mesh(_ tris:[[[Double]]])->SceneStaticModelMesh { let v=tris.flatMap{$0}.map{p in SceneMdlStaticModel.Vertex(position:SIMD3(Float(p[0]),Float(p[1]),Float(p[2])),normal:SIMD3(0,0,1),tangent:SIMD4(1,0,0,1),uv:SIMD2(0.5,0.5))};return pipeline.makeMesh(model: SceneStaticModelFixture.model(vertices:v,indices:Array(0..<UInt32(v.count))))! }
   let receiver=mesh([[[10,10,0],[150,86,0],[150,10,0]],[[10,10,0],[10,86,0],[150,86,0]]])
   let lightPositions:[SIMD3<Float>]=[SIMD3(80,48,40),SIMD3(100,48,40),SIMD3(80,68,40),SIMD3(100,68,40)]
   let colors:[SIMD3<Float>]=[SIMD3(1,0.2,0.1),SIMD3(0.1,1,0.2),SIMD3(0.2,0.1,1),SIMD3(0.8,0.6,0.4)]
@@ -790,7 +783,9 @@ def named_spot_main():
     code=named.named_receivers_main()
     code=code.replace('let layers=[caster,provider,receiverA,receiverB]','let layers=[provider,caster,receiverA,receiverB]')
     code=code.replace('staticModelConsumerProviders:[2:11,3:11]','staticModelConsumerProviders:[1:11,2:11,3:11]')
-    code=code.replace('"caster",false','"caster",true')
+    caster_entry='entry(quad(20,20,16,24,10),false)'
+    assert code.count(caster_entry)==1, 'named spot fixture must select its one caster entry'
+    code=code.replace(caster_entry,'entry(quad(20,20,16,24,10),true)',1)
     code=code.replace('activeNamedModels:[2,3]','activeNamedModels:[1,2,3]')
     code=code.replace('let sharedCurrent=[2,3].allSatisfy','let sharedCurrent=[1,2,3].allSatisfy')
     code=code.replace('let light=SceneLightSnapshot.Directional(layerID:7,castsShadow:true,directionTowardLight:SIMD3(1,0,1),color:SIMD3(repeating:1),intensity:0.5)', 'let light=SceneLightSnapshot.Spot(layerID:7,castsShadow:true,position:SIMD3(116,32,100),directionFromLight:simd_normalize(SIMD3(-1,0,-1)),color:SIMD3(repeating:1),intensity:1,radius:300,innerConeCosine:cos(Float.pi/6),outerConeCosine:cos(Float.pi/4),outerConeDegrees:45)')
@@ -811,7 +806,7 @@ class SceneSpotModelShadowNamedTests(unittest.TestCase):
             self.assertFalse(any((t:=world_hit(point,_sub(light,point),tri)) is not None and t<1 for tri in triangles))
         report=run_spot(named.ADMISSION_SOURCES,named.admission_support()+named_spot_main(),label='spot-named',
             metal_sources=[SCENE/'Rendering/Composition'/n for n in ['SceneImageLayer.metal','SceneStaticModel.metal','SceneLitImageLayer.metal']],
-            input_value={'light':light,'caster':triangles,'shadowROI':[[16,28,0],[16,36,0]],'healthyROI':[[8,12,0],[8,52,0]]})
+            input_value={'light':light,'caster':triangles,'shadowROI':[[16,28,0],[16,36,0]],'healthyROI':[[8,12,0],[8,52,0]]},swift_flags=('-DDEBUG',))
         named.assert_named_receiver_rows(self,report['rows'])
 
 
@@ -905,7 +900,7 @@ class SceneSpotModelShadowPartialFailureTests(unittest.TestCase):
  }
 }
 '''
-        producer=run_spot(builder.SWIFT_SOURCES,alpha_builder_support(builder)+main,
+        producer=run_spot(builder.SWIFT_SOURCES,builder.HARNESS_SOURCE.split('@main',1)[0]+main,
                           label='spot-overflow-producer',input_value=str(root))
         self.assertTrue(producer['doubleFinite']);self.assertFalse(producer['floatFinite'])
         # Real CPU builder -> typed descriptor value -> prepared material boundary.

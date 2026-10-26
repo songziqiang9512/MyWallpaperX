@@ -43,7 +43,9 @@ final class SystemMediaService {
     private var authorizationChecked = false
     private var authorized = false
     private var musicSnapshot: SystemMusicPlayerSource.Snapshot?
+#if DEBUG
     private var lastStatus: String?
+#endif
     private var hasPublished = false
     private let systemSource = SystemMediaSource()
     private var systemSession: SystemMediaSource.Snapshot?
@@ -215,7 +217,9 @@ final class SystemMediaService {
                 self.authorizationChecked = true
                 self.authorized = false
                 self.clearMusicSupplement()
+#if DEBUG
                 self.report("authorization-\(authorization)")
+#endif
                 return
             case .unavailable:
                 // A failed consent attempt must not reopen a system prompt
@@ -225,7 +229,9 @@ final class SystemMediaService {
                     self.authorized = false
                 }
                 self.clearMusicSupplement()
+#if DEBUG
                 self.report("authorization-\(authorization)")
+#endif
                 return
             }
             // A system prompt can outlive the scene or user preference.
@@ -290,20 +296,32 @@ final class SystemMediaService {
                 activeSource = .appleMusic
                 hasPublished = true
                 publishSnapshot()
+#if DEBUG
                 report("published")
+#endif
             } else {
                 clearMusicSupplement()
+#if DEBUG
                 report("apple-invalid-session")
+#endif
             }
         case .noSession:
             clearMusicSupplement()
+#if DEBUG
             report("apple-no-session")
+#endif
+#if DEBUG
         case let .failure(failure):
             clearMusicSupplement()
             report("apple-unavailable-\(failure)")
+#else
+        case .failure:
+            clearMusicSupplement()
+#endif
         }
     }
 
+#if DEBUG
     private func report(_ status: String) {
         guard lastStatus != status else { return }
         lastStatus = status
@@ -313,10 +331,9 @@ final class SystemMediaService {
         case .system: source = "system"
         case .none: source = "none"
         }
-#if DEBUG
         NSLog("MWX shared media source: source=%@ status=%@", source, status)
-#endif
     }
+#endif
 
     private func publishSystemSession(_ value: SystemMediaSource.Snapshot) {
         // The two APIs have unrelated opaque track IDs. Supplement metadata only
@@ -341,10 +358,14 @@ final class SystemMediaService {
         if accepted {
             hasPublished = true
             publishSnapshot()
+#if DEBUG
             report(value.artworkFailure == nil ? "published" : "published-without-artwork")
+#endif
         } else {
             clearPublishedSession()
+#if DEBUG
             report("invalid-session")
+#endif
         }
     }
 
@@ -373,11 +394,15 @@ final class SystemMediaService {
                 // Music track. Public fallback is only for builds without the
                 // system backend, not transient query or transport failures.
                 usesMusicFallback = failure == .missingResource
+#if DEBUG
                 report("unavailable-\(failure)")
+#endif
                 scheduleSystemRestart(after: failure)
             } else {
                 systemRetryDelay = 2
+#if DEBUG
                 report("no-session")
+#endif
             }
         }
         if musicSelection != oldSelection {

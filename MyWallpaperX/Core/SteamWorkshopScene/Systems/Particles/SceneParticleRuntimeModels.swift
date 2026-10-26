@@ -2,6 +2,7 @@ import Foundation
 import Metal
 import simd
 
+#if DEBUG
 enum SceneParticleRuntimeDiagnosticKind: String, Codable, Sendable {
     case missingDefinition
     case invalidDefinition
@@ -33,12 +34,16 @@ struct SceneParticleRuntimeDiagnostic: Codable, Equatable, Hashable, Sendable {
     let detail: String?
 }
 
+#endif
+
 struct SceneParticleLayerImageEmitterCompilation {
     let mapsByLayerID: [Int: SceneParticleLayerImageEmissionMap]
-    let diagnostics: [SceneParticleRuntimeDiagnostic]
+#if DEBUG
+    var diagnostics: [SceneParticleRuntimeDiagnostic] = []
+#endif
 
     static let empty = SceneParticleLayerImageEmitterCompilation(
-        mapsByLayerID: [:], diagnostics: []
+        mapsByLayerID: [:]
     )
 }
 
@@ -126,6 +131,8 @@ extension SceneParticleRuntime {
         /// the freeze back with the particles, and a replayed frame
         /// re-derives it from the same inputs.
         let frozenWorldSpaceLayerIDs: Set<Int>
-        let adoptedWorldSpaceLayerIDs: Set<Int>
+#if DEBUG
+        var adoptedWorldSpaceLayerIDs: Set<Int> = []
+#endif
     }
 }

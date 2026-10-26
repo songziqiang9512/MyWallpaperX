@@ -32,13 +32,16 @@ extension Harness {
         let positions = layerBatches.flatMap { $0.instances.map {
             [$0.positionAndSize.x, $0.positionAndSize.y, $0.positionAndSize.z]
         } }
-        return [
+        var facts1: [String: Any] = [
             "demandedLayerIDs": Array(runtime.pointerControlPointLayerIDs),
             "activeLayerIDs": runtime.activeLayerIDs,
             "positionCount": positions.count,
             "positions": positions,
-            "diagnosticKinds": runtime.diagnostics.map(\.kind.rawValue),
         ]
+#if DEBUG
+        facts1["diagnosticKinds"] = runtime.diagnostics.map(\.kind.rawValue)
+#endif
+        return facts1
     }
 
     /// Audio response gates emission through authored bounds alone: the
@@ -119,11 +122,14 @@ extension Harness {
         let positions = (batches.first { $0.layerID == 131 })?.instances.map {
             [$0.positionAndSize.x, $0.positionAndSize.y, $0.positionAndSize.z]
         } ?? []
-        return [
+        var facts2: [String: Any] = [
             "demandedLayerIDs": Array(runtime.pointerControlPointLayerIDs),
             "positions": positions,
-            "diagnosticKinds": runtime.diagnostics.map(\.kind.rawValue),
         ]
+#if DEBUG
+        facts2["diagnosticKinds"] = runtime.diagnostics.map(\.kind.rawValue)
+#endif
+        return facts2
     }
 
     static func syntheticWorldSpacePointerForce() throws -> [String: Any] {
@@ -200,12 +206,15 @@ extension Harness {
         // origin accelerate away from the pointer (negative X).
         let withPointer = positionsAfterAdvances(pointer: SIMD3(60, 0, 0))
         let withoutPointer = positionsAfterAdvances(pointer: nil)
-        return [
+        var facts3: [String: Any] = [
             "demandedLayerIDs": demand,
             "withPointerPositions": withPointer,
             "withoutPointerPositions": withoutPointer,
-            "diagnosticKinds": runtime.diagnostics.map(\.kind.rawValue),
         ]
+#if DEBUG
+        facts3["diagnosticKinds"] = runtime.diagnostics.map(\.kind.rawValue)
+#endif
+        return facts3
     }
 
     static func syntheticWorldSpaceRopeTrail() throws -> [String: Any] {
@@ -265,16 +274,19 @@ extension Harness {
         let positions = ropeInstances.prefix(4).map {
             [$0.positionAndSize.x, $0.positionAndSize.y, $0.positionAndSize.z]
         }
-        return [
+        var facts4: [String: Any] = [
             "activeLayerIDs": runtime.activeLayerIDs,
             "instanceCount": ropeInstances.count,
             "firstPositions": positions,
             "demandedLayerIDs": Array(runtime.pointerControlPointLayerIDs),
-            "diagnosticKinds": runtime.diagnostics.map(\.kind.rawValue),
-            "ropeDiagnostic": runtime.diagnostics.contains {
-                $0.kind == .ropeRendererUnsupported && $0.layerID == 111
-            },
         ]
+#if DEBUG
+        facts4["diagnosticKinds"] = runtime.diagnostics.map(\.kind.rawValue)
+        facts4["ropeDiagnostic"] = runtime.diagnostics.contains {
+            $0.kind == .ropeRendererUnsupported && $0.layerID == 111
+        }
+#endif
+        return facts4
     }
 
     static func syntheticAudioBoundsGate() throws -> [String: Any] {
@@ -411,11 +423,14 @@ extension Harness {
         let positions = (batches.first { $0.layerID == 91 })?.instances.map {
             [$0.positionAndSize.x, $0.positionAndSize.y, $0.positionAndSize.z]
         } ?? []
-        return [
+        var facts5: [String: Any] = [
             "pointerDemandLayerIDs": Array(runtime.pointerControlPointLayerIDs),
             "positions": positions,
-            "diagnosticKinds": runtime.diagnostics.map(\.kind.rawValue),
         ]
+#if DEBUG
+        facts5["diagnosticKinds"] = runtime.diagnostics.map(\.kind.rawValue)
+#endif
+        return facts5
     }
 
 }

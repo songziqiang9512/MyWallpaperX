@@ -21,6 +21,8 @@ class AudioSpectrumResponseTests(unittest.TestCase):
             subprocess.run([
                 compiler, "-O", "-module-cache-path", str(Path(directory) / "modules"),
                 str(ROOT / "MyWallpaperX/Core/Playback/SystemAudioSceneSpectrumAnalyzer.swift"),
+                str(ROOT / "MyWallpaperX/Core/Playback/SystemAudioCaptureBuffer.swift"),
+                str(ROOT / "script/tests/fixtures/SystemAudioSpectrumTestCapture.swift"),
                 str(ROOT / "MyWallpaperX/Core/Playback/SystemAudioCaptureDeviceFactory.swift"),
                 str(ROOT / "script/tests/fixtures/SystemAudioSpectrumResponseHarness.swift"),
                 "-o", str(binary),
@@ -41,7 +43,9 @@ class AudioSpectrumResponseTests(unittest.TestCase):
         self.assertTrue(all(a < b for a, b in zip(levels[1:6], levels[2:7])))
         self.assertTrue(all(0 <= value <= 0.96 for value in levels))
         self.assertEqual(levels[0], 0)
-        self.assertEqual(levels[-3:], [0, 0, 0])  # NaN, infinity, negative
+        self.assertEqual(levels[-1], 0)  # non-positive amplitude remains silent
+        self.assertTrue(self.result["rawNonFiniteFinite"])
+        self.assertTrue(self.result["extremePCMFinite"])
         self.assertLess(self.result["independentBassDelta"], 0.002)
         self.assertLess(self.result["independentTrebleDelta"], 0.002)
         self.assertGreater(self.result["lowResponseDelta"], 0.2)
@@ -65,7 +69,7 @@ class AudioSpectrumResponseTests(unittest.TestCase):
 
     def test_stale_time_and_format_cannot_replace_current_state(self) -> None:
         self.assertTrue(self.result["staleUnchanged"])
-        self.assertTrue(self.result["staleHistoryUnchanged"])
+        self.assertTrue(self.result["staleStateUnchanged"])
 
     def test_fractional_format_boundary_rebuilds_window(self) -> None:
         self.assertEqual(self.result["fractionalWindowCounts"], [4096, 4097])

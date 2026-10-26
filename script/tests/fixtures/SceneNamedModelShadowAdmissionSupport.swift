@@ -40,6 +40,15 @@ struct SceneImageLayerDrawRequest {
 // owners; graph preflight and both admission phases remain outside its scope.
 // Their signatures are synchronized, and every attempted call traps.
 final class SceneResolvedMaterialRuntimeBridge {
+ // No graph claim can be constructed by this plain sizing/lighting fixture.
+ // New admission signatures typecheck; any attempted consumption must trap.
+ enum ClaimedExecution {
+  enum DependencyOwnership: Equatable {case none}
+  var supportsTerminalMaterialReplay:Bool {fatalError("graph claim outside sizing probe")}
+  var supportsPlacementSpaceTerminalReplay:Bool {fatalError("graph claim outside sizing probe")}
+  var dependencyOwnership:DependencyOwnership {fatalError("graph claim outside sizing probe")}
+  var admittedGraphs:[SceneAuthoredEffectRenderPlan] {fatalError("graph claim outside sizing probe")}
+ }
  struct FramePreparationRequest {let targetPlan:SceneResolvedMaterialFrameTargetPlan}
  // This prepared-profile fixture has no authored environment sampler demand.
  func requiresSceneEnvironment(layerID:Int)->Bool {false}

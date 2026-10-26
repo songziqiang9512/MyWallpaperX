@@ -281,7 +281,7 @@ class SceneParticlePositionAroundTests(unittest.TestCase):
         source = directory / "Harness.swift"
         source.write_text(HARNESS)
         binary = directory / "harness"
-        build = subprocess.run([compiler, "-module-cache-path", str(directory / "modules"),
+        build = subprocess.run([compiler, "-D", "DEBUG", "-module-cache-path", str(directory / "modules"),
                                 *map(str, SWIFT_SOURCES), str(source), "-o", str(binary)],
                                capture_output=True, text=True, timeout=150)
         if build.returncode:

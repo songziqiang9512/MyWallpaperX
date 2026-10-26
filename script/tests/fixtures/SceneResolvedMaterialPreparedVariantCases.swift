@@ -92,7 +92,8 @@ private func scenePreparedVariantFailurePriorityCases(
         byteSize: frontend.uniformLayout.byteSize
     )
     func changed(layout: SceneAuthoredShaderUniformLayout? = nil,
-                 mismatchedBinding: Bool = false) -> Frontend {
+                 mismatchedBinding: Bool = false,
+                 zeroPaddedBinding: Bool = false) -> Frontend {
         .init(
             metalSource: frontend.metalSource,
             vertexFunctionName: frontend.vertexFunctionName,
@@ -100,7 +101,8 @@ private func scenePreparedVariantFailurePriorityCases(
             uniformBufferIndex: frontend.uniformBufferIndex,
             uniformLayout: layout ?? frontend.uniformLayout,
             textureBindings: frontend.textureBindings.map {
-                .init(name: mismatchedBinding ? "selfFixtureWrongSampler" : $0.name,
+                .init(name: mismatchedBinding ? "selfFixtureWrongSampler"
+                        : zeroPaddedBinding ? "g_Texture0\($0.slot)" : $0.name,
                       slot: $0.slot, channelUse: $0.channelUse)
             },
             staticLoopWork: frontend.staticLoopWork, colorTransfer: frontend.colorTransfer,
@@ -113,7 +115,7 @@ private func scenePreparedVariantFailurePriorityCases(
         readinessMask: variant.readinessMask, textureFormats: variant.textureFormats
     )!
     func token(_ candidate: Frontend, shader: SceneShaderPreparedProgram,
-               missingSampler: Bool = false) -> String {
+               missingSampler: Bool = false, includeDetails: Bool = false) -> String {
         do {
             _ = try SceneResolvedMaterialVariantCache.finalizeVariantBindings(
                 template: template, variantKey: key, prepared: shader,
@@ -131,7 +133,8 @@ private func scenePreparedVariantFailurePriorityCases(
             )
             return "success"
         } catch let failure as SceneResolvedMaterialFailure {
-            return "\(failure.phase.rawValue)/\(failure.code.rawValue)"
+            let token = "\(failure.phase.rawValue)/\(failure.code.rawValue)"
+            return includeDetails ? token + "|" + failure.boundedDetails.joined(separator: "|") : token
         } catch { return "untyped" }
     }
     let frontendFailure = "frontend/shaderFrontendFailed"
@@ -149,6 +152,15 @@ private func scenePreparedVariantFailurePriorityCases(
             missingSampler: true) == samplerFailure,
         "validABIStillReportsMismatchedSampler": token(changed(mismatchedBinding: true),
             shader: prepared) == samplerFailure,
+        "validABIRejectsZeroPaddedSampler": token(changed(zeroPaddedBinding: true),
+            shader: prepared) == samplerFailure,
+        "invalidLayoutPrecedesZeroPaddedSampler": token(changed(layout: invalidLayout,
+            zeroPaddedBinding: true), shader: prepared) == frontendFailure,
+        "staleSchemaPrecedesZeroPaddedSampler": token(changed(zeroPaddedBinding: true),
+            shader: stale) == frontendFailure,
+        "missingSamplerPrecedesPreparedNameFailure": token(changed(zeroPaddedBinding: true),
+            shader: prepared, missingSampler: true, includeDetails: true)
+            .hasPrefix(samplerFailure + "|sampler-missing|"),
         "typedFailureThenOriginalAdmissionRecovers": token(frontend, shader: prepared) == "success",
     ]
 }

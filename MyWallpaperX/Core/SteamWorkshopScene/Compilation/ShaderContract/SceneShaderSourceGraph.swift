@@ -3,7 +3,7 @@ import Foundation
 
 nonisolated struct SceneShaderLexicalLine {
     enum SegmentKind { case code, quoted, blockComment, lineComment }
-    struct Segment { let kind: SegmentKind; let text: String }
+    struct Segment { let kind: SegmentKind; var text: String }
 
     let segments: [Segment]
 
@@ -28,8 +28,8 @@ nonisolated enum SceneShaderLexicalScanner {
         var segments: [SceneShaderLexicalLine.Segment] = []
         func append(_ kind: SceneShaderLexicalLine.SegmentKind, _ text: String) {
             guard !text.isEmpty else { return }
-            if let last = segments.last, last.kind == kind {
-                segments[segments.count - 1] = .init(kind: kind, text: last.text + text)
+            if segments.last?.kind == kind {
+                segments[segments.count - 1].text.append(contentsOf: text)
             } else {
                 segments.append(.init(kind: kind, text: text))
             }

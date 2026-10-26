@@ -1,13 +1,19 @@
 """Production Video provider demand leases, with controlled asset validation."""
+from __future__ import annotations
+
 import json
+import hashlib
 import os
 from pathlib import Path
 import re
+import shutil
 import subprocess
+import sys
 import tempfile
 import unittest
 
 from script.tests.native_app_harness import prepare_native_app, run_native_app
+from script.tests.test_ui_library_algorithms import declaration
 
 ROOT = Path(__file__).resolve().parents[2]
 
@@ -19,6 +25,82 @@ SWIFT_ISOLATION_FLAGS = ["-swift-version", "5", "-default-isolation", "MainActor
                     "InferIsolatedConformances", "NonisolatedNonsendingByDefault"]
     for argument in ["-enable-upcoming-feature", feature]
 ]
+
+
+def prepare_video_thumbnail_generator_sources(tree: Path, work: Path, fixture: Path | None = None):
+    """Compile real generator/path/clear owners; observe only copied API leaves."""
+    core = tree / 'MyWallpaperX/Modules/VideoLibrary/Core'
+    pipeline = core / 'WallpaperManager+CachePipeline.swift'
+    manager = core / 'WallpaperManager.swift'
+    persistence = core / 'WallpaperManager+Persistence.swift'
+    static_frames = core / 'WallpaperManager+StaticFramePipeline.swift'
+    model = tree / 'MyWallpaperX/Models/VideoWallpaper.swift'
+    fixture = fixture or tree / 'script/tests/fixtures/VideoThumbnailGeneratorChecks.swift'
+    inputs = [pipeline, manager, persistence, static_frames, model, fixture]
+    hashes = {str(path): hashlib.sha256(path.read_bytes()).hexdigest() for path in inputs}
+    manager_source = manager.read_text()
+    fields = []
+    for name in ['thumbnailQueue', 'thumbnailCache', 'thumbnailCacheLock', 'thumbnailGenerationLimiter',
+                 'thumbnailInFlightHandlers', 'thumbnailInFlightLock', 'scheduledStaticFramePaths',
+                 'staticFrameScheduleLock', 'cacheGeneration', 'cacheGenerationLock',
+                 'thumbnailGenerationFailures', 'thumbnailGenerationFailureLock', 'thumbnailFailureRetryCooldown']:
+        lines = re.findall(r'^    (?:let|var) ' + name + r'\b.*$', manager_source, re.MULTILINE)
+        if len(lines) != 1: raise AssertionError('unique original cache field required: ' + name)
+        fields.append('    ' + lines[0].strip())
+    normalizer = declaration(manager_source, '    func normalizedPath(')
+    normalize_leaf = '        URL(fileURLWithPath: path).resolvingSymlinksInPath().standardizedFileURL.path'
+    if normalizer.count(normalize_leaf) != 1: raise AssertionError('unique original normalization leaf required')
+    normalizer = normalizer.replace(normalize_leaf,
+        '        VideoThumbnailObservations.shared.normalized()\n        return ' + normalize_leaf.strip())
+    harness = fixture.read_text().replace('// ACTUAL_CACHE_FIELDS', '\n'.join(fields))
+    harness = harness.replace('// ACTUAL_PATH_METHODS', normalizer + '\n' + declaration(manager_source, '    func pathExists('))
+    harness = harness.replace('// ACTUAL_CLEAR_METHOD', declaration(persistence.read_text(), '    func clearPreviewCacheArtifacts('))
+    harness = harness.replace('// ACTUAL_STATIC_FRAME_OUTPUT', declaration(static_frames.read_text(), '    func staticFrameOutputURL('))
+    observed = pipeline.read_text()
+    entry = '    func generateCGImage(using generator: AVAssetImageGenerator, at time: CMTime) -> CGImage? {'
+    hash_leaf = '        let digest = SHA256.hash(data: Data(normalized.utf8))'
+    if observed.count(entry) != 1 or observed.count(hash_leaf) != 1:
+        raise AssertionError('unique real AV and key observation leaves required')
+    observed = observed.replace(entry, entry + '\n        VideoThumbnailObservations.shared.beginDecode(generator)\n'
+        '        defer { VideoThumbnailObservations.shared.endDecode() }')
+    observed = observed.replace(hash_leaf, '        VideoThumbnailObservations.shared.hashed()\n' + hash_leaf)
+    source = work / pipeline.name; source.write_text(observed)
+    support = work / 'VideoThumbnailGeneratorChecks.swift'; support.write_text(harness)
+    frozen_model = work / model.name; shutil.copy2(model, frozen_model)
+    return [source, frozen_model, support], hashes
+
+
+def prepare_video_static_frame_sources(tree: Path, work: Path, fixtures: Path | None = None):
+    """Real StaticFrame/AV, sync callback and removal; only desktop/state leaves."""
+    fixtures = fixtures or tree
+    folder = fixtures / 'script/tests/fixtures'
+    common = folder / 'VideoThumbnailGeneratorChecks.swift'
+    fixture = folder / 'VideoStaticFramePipelineChecks.swift'
+    shared = '\n'.join(declaration(common.read_text(), name) for name in (
+        'nonisolated final class DecodeHold', 'nonisolated final class VideoThumbnailObservations',
+        'nonisolated final class ThumbnailCompletions'))
+    combined = work / 'VideoStaticFrameCombined.swift'
+    combined.write_text(fixture.read_text() + '\n' + shared)
+    sources, hashes = prepare_video_thumbnail_generator_sources(tree, work, combined)
+    core = tree / 'MyWallpaperX/Modules/VideoLibrary/Core'
+    manager = core / 'WallpaperManager.swift'
+    application = core / 'WallpaperManager+WallpaperApplication.swift'
+    removal = core / 'WallpaperManager+Removal.swift'
+    types = core / 'WallpaperLibrarySupport.swift'
+    queues = re.findall(r'^    let staticFrameQueue\b.*$', manager.read_text(), re.MULTILINE)
+    if len(queues) != 1: raise AssertionError('one actual static frame queue required')
+    support = sources[-1]
+    body = support.read_text().replace('// ACTUAL_STATIC_QUEUE', queues[0])
+    body = body.replace('// ACTUAL_SYNC_METHOD', declaration(application.read_text(), '    func syncSystemWallpaper('))
+    body = body.replace('// ACTUAL_REMOVAL_METHODS', '\n'.join(declaration(removal.read_text(), name) for name in (
+        '    struct RemovalRecord', '    func removeDerivedAssets(', '    private func removeFileIfExists(')))
+    body = body.replace('// ACTUAL_DELETION_FAILURE', declaration(types.read_text(), 'struct WallpaperDeletionFailure'))
+    support.write_text(body)
+    static = core / 'WallpaperManager+StaticFramePipeline.swift'
+    actual_static = work / static.name; shutil.copy2(static, actual_static)
+    for path in [common, fixture, application, removal, types]:
+        hashes[str(path)] = hashlib.sha256(path.read_bytes()).hexdigest()
+    return [*sources, actual_static], hashes
 
 
 class VideoThumbnailPrefetchTests(unittest.TestCase):
@@ -156,6 +238,111 @@ class VideoThumbnailPrefetchTests(unittest.TestCase):
             self.assertEqual(len(reflow_checks), 17)
             for name, passed in reflow_checks.items():
                 with self.subTest(name=name): self.assertIs(passed, True, reflow.stderr)
+
+
+@unittest.skipUnless(sys.platform == 'darwin' and shutil.which('ffmpeg'),
+                     'macOS and ffmpeg owned fixture generator required')
+class VideoThumbnailGeneratorTests(unittest.TestCase):
+    def test_real_generator_cache_aliases_clear_generation_and_jpeg_results(self):
+        proof = os.environ.get('MWX_VIDEO_THUMBNAIL_GENERATOR_PROOF_DIR')
+        with tempfile.TemporaryDirectory(prefix='mwx-video-generator-', dir='/private/tmp') as directory:
+            root = Path(directory)
+            clip = root / 'owned.mp4'
+            generated = subprocess.run(['ffmpeg', '-nostdin', '-v', 'error', '-f', 'lavfi',
+                '-i', 'testsrc2=size=512x288:rate=2', '-t', '2', '-c:v', 'libx264',
+                '-pix_fmt', 'yuv420p', '-crf', '20', '-preset', 'fast', '-threads', '1', str(clip)],
+                capture_output=True, text=True, timeout=15)
+            self.assertEqual(generated.returncode, 0, generated.stdout + generated.stderr)
+            configuration_results = []
+            for configuration, flags in [('debug', ['-D', 'DEBUG']), ('release', ['-O', '-whole-module-optimization'])]:
+                with self.subTest(configuration=configuration):
+                    work = root / configuration; work.mkdir()
+                    home = work / 'home'; home.mkdir()
+                    for name in ['first.mp4', 'renamed.mp4', 'stale.mp4', 'clear.mp4']:
+                        shutil.copyfile(clip, work / name)
+                    (work / 'invalid.mp4').write_bytes(b'owned invalid video fixture')
+                    sources, hashes = prepare_video_thumbnail_generator_sources(ROOT, work)
+                    binary = work / 'generator'
+                    command = ['xcrun', 'swiftc', *SWIFT_ISOLATION_FLAGS, *flags, '-parse-as-library',
+                        *map(str, sources), '-module-cache-path', str(work / 'modules'), '-o', str(binary)]
+                    compiled = subprocess.run(command, capture_output=True, text=True, timeout=150)
+                    if proof:
+                        output = Path(proof) / configuration; output.mkdir(parents=True, exist_ok=True)
+                        (output / 'compile.json').write_text(json.dumps({'command': command, 'returncode': compiled.returncode,
+                            'stdout': compiled.stdout, 'stderr': compiled.stderr, 'inputSHA256': hashes,
+                            'clipSHA256': hashlib.sha256(clip.read_bytes()).hexdigest(),
+                            'observation': 'Original path and SHA entry calls counted; real AV entry paused/observed, its complete body preserved.'}, indent=2))
+                        for source in sources: shutil.copy2(source, output / source.name)
+                    self.assertEqual(compiled.returncode, 0, compiled.stdout + compiled.stderr)
+                    run = subprocess.run([str(binary), str(work)], capture_output=True, text=True, timeout=90,
+                        env=dict(os.environ, HOME=str(home), CFFIXED_USER_HOME=str(home)))
+                    if proof:
+                        (output / 'runtime.json').write_text(json.dumps({'returncode': run.returncode,
+                            'stdout': run.stdout, 'stderr': run.stderr}, indent=2))
+                    self.assertEqual(run.returncode, 0, run.stdout + run.stderr)
+                    result = json.loads(run.stdout)
+                    self.assertTrue(result['checks'])
+                    for name, passed in result['checks'].items():
+                        with self.subTest(configuration=configuration, check=name): self.assertIs(passed, True, result)
+                    self.assertEqual(result['work'], {'coldThreeRequests': {'normalizations': 3, 'hashes': 3},
+                        'memoryHit': {'normalizations': 1, 'hashes': 1}, 'diskHit': {'normalizations': 1, 'hashes': 1},
+                        'resolvedDisk': {'normalizations': 1, 'hashes': 1}})
+                    self.assertEqual(hashes, {path: hashlib.sha256(Path(path).read_bytes()).hexdigest() for path in hashes})
+                    configuration_results.append(result)
+            self.assertEqual(configuration_results[0], configuration_results[1])
+
+
+@unittest.skipUnless(sys.platform == 'darwin' and shutil.which('ffmpeg'),
+                     'macOS and ffmpeg owned fixture generator required')
+class VideoStaticFramePipelineTests(unittest.TestCase):
+    def test_actual_static_worker_queue_retarget_generation_sync_and_removal(self):
+        proof = os.environ.get('MWX_VIDEO_STATIC_FRAME_PROOF_DIR')
+        with tempfile.TemporaryDirectory(prefix='mwx-video-static-frame-', dir='/private/tmp') as directory:
+            root = Path(directory)
+            seeds = []
+            for name, filters in [('a', []), ('b', ['-vf', 'hue=h=120'])]:
+                seed = root / (name + '.mp4'); seeds.append(seed)
+                generated = subprocess.run(['ffmpeg', '-nostdin', '-v', 'error', '-f', 'lavfi',
+                    '-i', 'testsrc2=size=512x288:rate=2', '-t', '2', *filters, '-c:v', 'libx264',
+                    '-pix_fmt', 'yuv420p', '-crf', '20', '-preset', 'fast', '-threads', '1', str(seed)],
+                    capture_output=True, text=True, timeout=15)
+                self.assertEqual(generated.returncode, 0, generated.stdout + generated.stderr)
+            results = []
+            for configuration, flags in [('debug', ['-D', 'DEBUG']), ('release', ['-O', '-whole-module-optimization'])]:
+                work = root / configuration; work.mkdir()
+                home = work / 'home'; home.mkdir()
+                for seed in seeds: shutil.copy2(seed, work / seed.name)
+                (work / 'invalid.mp4').write_bytes(b'owned corrupt static frame source')
+                sources, hashes = prepare_video_static_frame_sources(ROOT, work)
+                binary = work / 'static-frame'
+                command = ['xcrun', 'swiftc', *SWIFT_ISOLATION_FLAGS, *flags, '-parse-as-library',
+                    *map(str, sources), '-module-cache-path', str(work / 'modules'), '-o', str(binary)]
+                built = subprocess.run(command, capture_output=True, text=True, timeout=150)
+                output = Path(proof) / configuration if proof else None
+                if output:
+                    output.mkdir(parents=True, exist_ok=True)
+                    (output / 'compile.json').write_text(json.dumps({'command': command,
+                        'returncode': built.returncode, 'stdout': built.stdout, 'stderr': built.stderr,
+                        'inputs': hashes, 'seedSHA256': [hashlib.sha256(s.read_bytes()).hexdigest() for s in seeds]}, indent=2))
+                    for source in sources: shutil.copy2(source, output / source.name)
+                self.assertEqual(built.returncode, 0, built.stdout + built.stderr)
+                run = subprocess.run([str(binary), str(work)], capture_output=True, text=True, timeout=90,
+                    env=dict(os.environ, HOME=str(home), CFFIXED_USER_HOME=str(home)))
+                if output:
+                    (output / 'runtime.json').write_text(json.dumps({'returncode': run.returncode,
+                        'stdout': run.stdout, 'stderr': run.stderr}, indent=2))
+                self.assertEqual(run.returncode, 0, run.stdout + run.stderr)
+                result = json.loads(run.stdout)
+                self.assertTrue(result['checks'])
+                for name, passed in result['checks'].items():
+                    with self.subTest(configuration=configuration, check=name): self.assertIs(passed, True, result)
+                self.assertEqual(result['work'], {
+                    'scheduleTwoSynchronousMisses': {'normalizations': 2, 'hashes': 2},
+                    'systemSyncSynchronousMiss': {'normalizations': 1, 'hashes': 1},
+                    'derivedRemoval': {'normalizations': 1, 'hashes': 1}})
+                self.assertEqual(hashes, {path: hashlib.sha256(Path(path).read_bytes()).hexdigest() for path in hashes})
+                results.append(result)
+            self.assertEqual(results[0], results[1])
 
 
 if __name__ == '__main__':

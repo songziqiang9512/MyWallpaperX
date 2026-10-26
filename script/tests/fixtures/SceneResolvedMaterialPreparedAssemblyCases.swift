@@ -155,6 +155,15 @@ func scenePreparedAssemblyRegressionCases(
         .init(name: "fixtureSecondSampler", slot: 1, channelUse: .wholeVector),
         firstBinding
     ])
+    func bindingsNamed(_ name: String) -> SceneAuthoredShaderProgram {
+        alteredFrontend(bindings: frontend.textureBindings.map { binding in
+            .init(name: binding.slot == firstBinding.slot ? name : binding.name,
+                  slot: binding.slot, channelUse: binding.channelUse)
+        })
+    }
+    let wrongName = bindingsNamed("renamedAuthorSampler")
+    let zeroPaddedName = bindingsNamed("g_Texture0\(firstBinding.slot)")
+    let canonicalName = bindingsNamed("g_Texture\(firstBinding.slot)")
     func renamedResource(_ path: String) -> Program? {
         guard let path = SceneVFSAssetPath(path) else { return nil }
         let identity = SceneFrameTextureIdentity.asset(.init(
@@ -192,6 +201,9 @@ func scenePreparedAssemblyRegressionCases(
         "preparedFactoryRejectsDuplicateSlots": prepare(duplicateBindings) == nil,
         "preparedFactoryRejectsOutOfRangeSlot": prepare(invalidBindings) == nil,
         "preparedFactoryRejectsUnsortedSlots": prepare(unsortedBindings) == nil,
+        "preparedFactoryRejectsWrongSamplerName": prepare(wrongName) == nil,
+        "preparedFactoryRejectsZeroPaddedSamplerName": prepare(zeroPaddedName) == nil,
+        "preparedFactoryAcceptsCanonicalSamplerName": prepare(canonicalName) != nil,
         "preparedRawAndFrameAssemblyAgree": raw?.exactIdentity == first.exactIdentity,
         "preparedSerialFramesKeepStaticShaderAndState": (1 ... 60).allSatisfy {
             guard let next = assemble(frame(uniforms(Float($0) / 100))) else { return false }

@@ -9,10 +9,13 @@ nonisolated enum SceneParticleLayerImageEmitterCompiler {
     ) -> SceneParticleLayerImageEmitterCompilation {
         let layersByID = Dictionary(uniqueKeysWithValues: descriptor.layers.map { ($0.id, $0) })
         var maps: [Int: SceneParticleLayerImageEmissionMap] = [:]
+#if DEBUG
         var diagnostics: [SceneParticleRuntimeDiagnostic] = []
+#endif
         for layer in descriptor.layers where layer.contentKind == "particle" {
             let imageDependencies = layer.authoredDependencies.filter { $0.type == "emitterimage" }
             guard !imageDependencies.isEmpty else { continue }
+#if DEBUG
             let path = layer.particlePath ?? ""
             func reject(_ detail: String) {
                 diagnostics.append(.init(
@@ -22,49 +25,65 @@ nonisolated enum SceneParticleLayerImageEmitterCompiler {
                     detail: detail
                 ))
             }
+#endif
             guard imageDependencies.count == 1,
                   layer.authoredDependencies.count == 1,
                   layer.dependencyLayerIDs.isEmpty,
                   imageDependencies[0].index == 0 else {
+#if DEBUG
                 reject("unsupportedDependencyProfile")
+#endif
                 continue
             }
             guard supportsStaticConsumer(layer) else {
+#if DEBUG
                 reject("dynamicConsumer")
+#endif
                 continue
             }
             let providerID = imageDependencies[0].layerID
             guard let provider = layersByID[providerID] else {
+#if DEBUG
                 reject("missingSourceLayer:\(providerID)")
+#endif
                 continue
             }
             guard supportsStaticSource(provider),
                   !animatedSourceLayerIDs.contains(providerID) else {
+#if DEBUG
                 reject("dynamicOrEffectfulSource:\(providerID)")
+#endif
                 continue
             }
             guard staticTransformMatches(layer, provider) else {
+#if DEBUG
                 reject("transformMismatch:\(providerID)")
+#endif
                 continue
             }
             guard let size = vector2(provider.sizeWH),
                   let texture = texturesByLayerID[providerID] else {
+#if DEBUG
                 reject("missingSourceTextureOrSize:\(providerID)")
+#endif
                 continue
             }
             guard let map = SceneParticleLayerImageEmissionMap(
                 texture: texture,
                 sourceSize: size
             ) else {
+#if DEBUG
                 reject("unsupportedOrEmptyEmissionBitmap:\(providerID)")
+#endif
                 continue
             }
             maps[layer.id] = map
         }
-        return SceneParticleLayerImageEmitterCompilation(
-            mapsByLayerID: maps,
-            diagnostics: diagnostics
-        )
+        var result = SceneParticleLayerImageEmitterCompilation(mapsByLayerID: maps)
+#if DEBUG
+        result.diagnostics = diagnostics
+#endif
+        return result
     }
 
     private nonisolated static func supportsStaticSource(

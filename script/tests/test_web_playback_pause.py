@@ -3,6 +3,7 @@ from pathlib import Path
 import subprocess
 import base64
 import io
+import json
 import wave
 import tempfile
 import unittest
@@ -328,6 +329,121 @@ final class ProbeRecorder: NSObject, WKScriptMessageHandler {
 
 
 class WebPlaybackPauseTests(unittest.TestCase):
+    def test_real_scheduler_clock_remaining_time_and_cancellation(self):
+        source = (ROOT / "MyWallpaperX/Core/SteamWorkshopWeb/Host/WebWallpaperPlaybackScript.swift").read_text()
+        production = source.split('let webWallpaperPlaybackScript = #"""', 1)[1].rsplit('"""#', 1)[0]
+        fixture = r'''
+const vm = require('node:vm'), assert = require('node:assert/strict');
+function page(initialPaused = false) {
+  let clock = 0, clockCalls = 0, nativeID = 1000;
+  const timers = new Map(), frames = new Map();
+  class Animation { pause() {} play() {} }
+  class Element { animate() { return new Animation(); } }
+  const context = {
+    Animation, Element, CSSAnimation: class extends Animation {}, ShadowRoot: class {},
+    MutationObserver: class { observe() {} disconnect() {} },
+    performance: { now() { clockCalls++; return clock; } },
+    document: { head: { appendChild() {} }, querySelectorAll() { return []; },
+      createElement() { return { setAttribute() {}, remove() {} }; },
+      addEventListener() {}, getAnimations() { return []; } },
+    requestAnimationFrame(callback) { const id = ++nativeID; frames.set(id, callback); return id; },
+    cancelAnimationFrame(id) { frames.delete(id); },
+    setTimeout(callback, delay) {
+      const id = ++nativeID; timers.set(id, { callback, deadline: clock + delay }); return id;
+    },
+    clearTimeout(id) { timers.delete(id); },
+    frames: [], addEventListener() {}
+  };
+  context.window = context; context.parent = context;
+  vm.createContext(context);
+  vm.runInContext(PRODUCTION.replace('__MWX_INITIAL_PAUSED__', String(initialPaused)), context);
+  const advance = milliseconds => {
+    const target = clock + milliseconds;
+    let deliveries = 0;
+    while (true) {
+      const next = [...timers].filter(([, timer]) => timer.deadline <= target)
+        .sort((left, right) => left[1].deadline - right[1].deadline)[0];
+      if (!next) break;
+      assert.ok(++deliveries < 1000, 'native timer fixture must not loop forever');
+      timers.delete(next[0]); clock = next[1].deadline; next[1].callback();
+    }
+    clock = target;
+  };
+  return { context, timers, frames, advance, clock: () => clock, clockCalls: () => clockCalls,
+    remaining: () => [...timers.values()].map(timer => timer.deadline - clock).sort((a,b) => a-b),
+    frame(stamp) { const next = frames.entries().next().value; assert.ok(next); frames.delete(next[0]); next[1](stamp); },
+    pause: value => context.__myWallpaperSetPagePaused(value) };
+}
+
+const raf = page(), stamps = [];
+assert.equal(raf.clockCalls(), 0);
+function tick(stamp) {
+  stamps.push(stamp);
+  if (stamps.length < 3) raf.context.requestAnimationFrame(tick);
+}
+raf.context.requestAnimationFrame(tick);
+assert.equal(raf.clockCalls(), 1, 'one clock read belongs to the actual arm, never entry construction');
+for (const stamp of [16, 32, 48]) raf.frame(stamp);
+assert.deepEqual(stamps, [16, 32, 48]);
+assert.equal(raf.clockCalls(), 3, 'each recurring author RAF only reads its actual scheduling time');
+const cancelledRAF = raf.context.requestAnimationFrame(() => assert.fail('cancelled RAF fired'));
+const beforeCancel = raf.clockCalls();
+raf.context.cancelAnimationFrame(String(cancelledRAF));
+assert.equal(raf.frames.size, 0);
+assert.equal(raf.clockCalls(), beforeCancel, 'cancellation does not sample a clock');
+
+const timer = page(), delivered = [];
+timer.context.setTimeout(value => delivered.push([value, timer.clock()]), 100, 'original');
+assert.equal(timer.clockCalls(), 1);
+timer.advance(30); timer.pause(true);
+assert.equal(timer.clockCalls(), 2, 'pause consumes the actual arm time once');
+timer.pause(true);
+assert.equal(timer.clockCalls(), 2, 'repeated pause cannot subtract elapsed time twice');
+timer.advance(10000);
+assert.deepEqual(delivered, [], 'elapsed wall time while paused cannot complete author work');
+timer.context.setTimeout(value => delivered.push([value, timer.clock()]), 40, 'paused-new');
+const cancelledTimer = timer.context.setTimeout(() => assert.fail('cancelled held timer fired'), 5);
+timer.context.clearInterval(String(cancelledTimer));
+assert.equal(timer.clockCalls(), 2, 'work created while paused has no scheduling timestamp yet');
+timer.pause(false);
+assert.equal(timer.clockCalls(), 4, 'resume arms the original and newly created timer exactly once');
+assert.deepEqual(timer.remaining(), [40, 70], '100ms timer paused after 30ms retains 70ms');
+timer.advance(39); assert.deepEqual(delivered, []);
+timer.advance(1); assert.deepEqual(delivered, [['paused-new', 10070]]);
+timer.advance(29); assert.equal(delivered.length, 1);
+timer.advance(1); assert.deepEqual(delivered, [['paused-new', 10070], ['original', 10100]]);
+assert.equal(timer.timers.size, 0);
+assert.equal(timer.clockCalls(), 4);
+
+const interval = page(), ticks = [];
+let intervalID = interval.context.setInterval(() => {
+  ticks.push(interval.clock());
+  if (ticks.length === 3) interval.context.clearTimeout(String(intervalID));
+}, 50);
+interval.advance(20); interval.pause(true); interval.advance(500); interval.pause(false);
+assert.deepEqual(interval.remaining(), [30]);
+interval.advance(29); assert.deepEqual(ticks, []);
+interval.advance(1); interval.advance(100);
+assert.deepEqual(ticks, [550, 600, 650], 'resume preserves the first remainder then the authored interval delay');
+assert.equal(interval.clockCalls(), 5, 'initial arm, pause, resume and two interval rearms each read once');
+assert.equal(interval.timers.size, 0, 'cancel inside an interval callback must prevent its next arm');
+
+const held = page(true), heldCalls = [];
+held.context.requestAnimationFrame(stamp => heldCalls.push(['raf', stamp]));
+held.context.setTimeout(() => heldCalls.push(['timer']), 25);
+assert.equal(held.clockCalls(), 0, 'initially paused work never captures an unused initial clock');
+held.advance(1000); assert.deepEqual(heldCalls, []);
+held.pause(false);
+assert.equal(held.clockCalls(), 2);
+held.frame(1001); held.advance(25);
+assert.deepEqual(heldCalls, [['raf', 1001], ['timer']]);
+assert.equal(held.timers.size, 0);
+console.log('web-scheduler-clock-and-pause-pass');
+'''.replace("PRODUCTION", json.dumps(production))
+        result = subprocess.run(["node", "-e", fixture], capture_output=True, text=True, timeout=15)
+        self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+        self.assertIn("web-scheduler-clock-and-pause-pass", result.stdout)
+
     def test_real_webkit_pause_resume(self):
         with tempfile.TemporaryDirectory(prefix="mwx-webkit-pause-") as directory:
             path = Path(directory)
@@ -347,7 +463,7 @@ class WebPlaybackPauseTests(unittest.TestCase):
             harness = HARNESS.replace("// ADAPTER_METHODS", adapter).replace("__MEDIA__", base64.b64encode(audio.getvalue()).decode())
             (path / "Harness.swift").write_text(harness)
             source = host / "WebWallpaperPlaybackScript.swift"
-            result = subprocess.run(["xcrun", "swiftc", "-parse-as-library", str(source), str(host / "WebMediaPlaybackGate.swift"),
+            result = subprocess.run(["xcrun", "swiftc", "-parse-as-library", "-D", "DEBUG", str(source), str(host / "WebMediaPlaybackGate.swift"),
                 *map(str, sorted(host.glob("DedicatedWebWallpaperHostCompatibilityScript+*.swift"))),
                 str(path / "Harness.swift"), "-o", str(path / "harness")],
                 capture_output=True, text=True, timeout=90)

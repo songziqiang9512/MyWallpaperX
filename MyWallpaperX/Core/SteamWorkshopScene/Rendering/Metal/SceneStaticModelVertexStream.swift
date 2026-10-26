@@ -51,6 +51,8 @@ final class SceneStaticModelVertexStream: @unchecked Sendable {
     }
 
     /// Called by the existing source-update phase, before any model encoder.
+    /// DirectModel supplies immutable Reader vertices or a complete Skinning
+    /// result; those producers own finite-channel checks. Bounds use this pose.
     /// No storage allocation or completion handler is added to ordinary frames.
     func updateBinding(
         vertices: [SceneMdlStaticModel.Vertex],
@@ -62,7 +64,7 @@ final class SceneStaticModelVertexStream: @unchecked Sendable {
               commandBuffer.device === device,
               transaction.belongs(to: commandBuffer) else { return .failure(.invalidCommandBuffer) }
         guard vertices.count == mesh.vertexCount,
-              let bounds = Self.validatedBounds(vertices) else {
+              let bounds = Self.bounds(vertices) else {
             return .failure(.invalidVertices)
         }
         lock.lock()
@@ -122,19 +124,13 @@ final class SceneStaticModelVertexStream: @unchecked Sendable {
         slots[slotIndex].reservation = nil
     }
 
-    private static func validatedBounds(
+    private static func bounds(
         _ vertices: [SceneMdlStaticModel.Vertex]
     ) -> (minimum: SIMD3<Float>, maximum: SIMD3<Float>)? {
         guard let first = vertices.first else { return nil }
         var minimum = first.position
         var maximum = first.position
         for vertex in vertices {
-            guard vertex.position.x.isFinite, vertex.position.y.isFinite,
-                  vertex.position.z.isFinite, vertex.normal.x.isFinite,
-                  vertex.normal.y.isFinite, vertex.normal.z.isFinite,
-                  vertex.tangent.x.isFinite, vertex.tangent.y.isFinite,
-                  vertex.tangent.z.isFinite, vertex.tangent.w.isFinite,
-                  vertex.uv.x.isFinite, vertex.uv.y.isFinite else { return nil }
             minimum = simd_min(minimum, vertex.position)
             maximum = simd_max(maximum, vertex.position)
         }

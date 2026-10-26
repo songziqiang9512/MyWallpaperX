@@ -842,7 +842,8 @@
         "script/tests/fixtures/SceneSoundPlaybackRegistryHarness.swift",
         "MyWallpaperX/Core/SteamWorkshopScene/Resources/Providers/SceneVideoOwnedFile.swift",
         "script/tests/test_scene_sound_script_commands.py",
-        "script/tests/test_scene_sound_resource_input.py"
+        "script/tests/test_scene_sound_resource_input.py",
+        "script/tests/fixtures/SceneSoundPathChecks.swift"
       ],
       "modules": [
         "test_scene_script_sound_volume",
@@ -2259,6 +2260,20 @@
       ]
     },
     {
+      "id": "particle-sphere-emission",
+      "patterns": [
+        "MyWallpaperX/Core/SteamWorkshopScene/Systems/Particles/SceneParticlePeriodicEmission.swift",
+        "MyWallpaperX/Core/SteamWorkshopScene/Systems/Particles/SceneParticleSimulator+Random.swift",
+        "script/tests/test_scene_particle_simulator.py",
+        "script/tests/fixtures/SceneParticleSphereSamplingChecks.swift"
+      ],
+      "modules": [
+        "test_scene_particle_simulator",
+        "test_scene_particle_playback_simulator",
+        "test_scene_particle_playback_transaction"
+      ]
+    },
+    {
       "id": "particle-remap",
       "patterns": [
         "MyWallpaperX/Core/SteamWorkshopScene/Systems/Particles/SceneParticleRemapValue.swift",
@@ -2439,13 +2454,19 @@
         "MyWallpaperX/Core/Playback/SystemAudioCaptureBuffer.swift",
         "MyWallpaperX/Core/Playback/SystemAudioSpectrumService.swift",
         "MyWallpaperX/Core/SteamWorkshopScene/Systems/Media/SceneAudioSpectrum.swift",
-        "script/tests/fixtures/SceneAudioSpectrumInputHarness.swift"
+        "script/tests/fixtures/SceneAudioSpectrumInputHarness.swift",
+        "MyWallpaperX/Core/Playback/SystemAudioCaptureDeviceFactory.swift",
+        "MyWallpaperX/Core/Playback/SystemAudioOverlaySpectrumAnalyzer.swift",
+        "script/tests/fixtures/SystemAudioSpectrumTestCapture.swift",
+        "script/tests/fixtures/SystemAudioSpectrumResponseHarness.swift",
+        "script/tests/test_audio_spectrum_response.py"
       ],
       "modules": [
         "test_scene_audio_capture_scope",
         "test_scene_audio_spectrum_input",
         "test_system_audio_spectrum",
-        "test_system_audio_spectrum_recovery"
+        "test_system_audio_spectrum_recovery",
+        "test_audio_spectrum_response"
       ]
     },
     {
@@ -2632,7 +2653,8 @@
         "test_scene_direct_function_scalar_conversion",
         "test_scene_shader_compiler_product_manifest",
         "test_scene_shader_compiler_straight_alpha_preserving_contract",
-        "test_scene_shader_compiler_request_contract"
+        "test_scene_shader_compiler_request_contract",
+        "test_scene_generic_shader_prepared_normalization"
       ]
     },
     {
@@ -2899,7 +2921,12 @@
         "script/tests/test_scene_point_model_shadow.py",
         "script/tests/test_scene_static_model_blending.py",
         "script/tests/fixtures/SceneStaticModelBlendChecks.swift",
-        "script/tests/fixtures/SceneStaticModelDepthPendingChecks.swift"
+        "script/tests/fixtures/SceneStaticModelDepthPendingChecks.swift",
+        "script/tests/fixtures/SceneStaticModelFixture.swift",
+        "script/tests/fixtures/SceneStaticModelUploadChecks.swift",
+        "script/tests/fixtures/SceneStaticModelMaterialSelectionChecks.swift",
+        "script/tests/fixtures/SceneStaticModelPartsNativeChecks.swift",
+        "script/tests/fixtures/SceneStaticModelPartsDependencyChecks.swift"
       ],
       "modules": [
         "test_scene_static_model_reader",
@@ -3818,7 +3845,17 @@
         "script/tests/fixtures/playback-lifecycle/**",
         "script/tests/fixtures/PlaybackExplicitStopHarness.swift",
         "script/tests/test_grid_playback_publication.py",
-        "script/tests/fixtures/GridPlaybackPublicationChecks.swift"
+        "script/tests/fixtures/GridPlaybackPublicationChecks.swift",
+        "script/tests/fixtures/PlaybackSwitchEndpointChecks.swift",
+        "script/tests/fixtures/VideoSpectrumLayerLifecycleChecks.swift",
+        "WallpaperDaemonSources/Daemon/Spectrum/WallpaperDaemon+Spectrum.swift",
+        "WallpaperDaemonSources/Daemon/Core/WallpaperDaemon.swift",
+        "WallpaperDaemonSources/Daemon/Playback/WallpaperDaemon+Commands.swift",
+        "WallpaperDaemonSources/Daemon/Playback/WallpaperDaemon+VideoVisibility.swift",
+        "MyWallpaperX/Core/Playback/WallpaperEngine+DaemonEvents.swift",
+        "script/tests/test_video_preparation_cancellation.py",
+        "WallpaperDaemonSources/Daemon/Playback/WallpaperDaemon+Video.swift",
+        "WallpaperDaemonSources/Daemon/Playback/WallpaperDaemon+VideoTransitions.swift"
       ],
       "modules": [
         "test_daemon_process_lifetime",
@@ -3847,14 +3884,17 @@
         "script/tests/test_scene_shader_cache_identity.py",
         "script/tests/test_scene_shader_dependency_cache_identity.py",
         "script/tests/fixtures/SceneShaderDependencyCacheChecks.swift",
-        "script/tests/test_scene_generic_shader_artifact_recovery.py"
+        "script/tests/test_scene_generic_shader_artifact_recovery.py",
+        "script/tests/test_scene_generic_shader_prepared_normalization.py",
+        "script/tests/fixtures/SceneGenericShaderPreparedNormalizationChecks.swift"
       ],
       "modules": [
         "test_scene_shader_cache_identity",
         "test_scene_shader_dependency_cache_identity",
         "test_scene_generic_shader_artifact_recovery",
         "test_scene_persistent_cache_behavior",
-        "test_scene_shader_compiler_request_contract"
+        "test_scene_shader_compiler_request_contract",
+        "test_scene_generic_shader_prepared_normalization"
       ]
     },
     {
@@ -3869,6 +3909,7 @@
         "MyWallpaperX/Core/SteamWorkshopWeb/Host/DedicatedWebWallpaperHostCompatibilityScript*.swift",
         "WallpaperDaemonSources/Daemon/Core/DaemonLogging.swift",
         "script/tests/test_release_diagnostic_isolation.py",
+        "script/tests/test_web_audio_demand.py",
         "SteamService/Program.cs",
         "SteamService/SteamService.csproj",
         "script/publish-steam-helper.sh",
@@ -3886,7 +3927,12 @@
         "MyWallpaperX/Core/SteamWorkshopScene/Resources/Assets/SceneAssetCatalog.swift",
         "MyWallpaperX/Core/SteamWorkshopScene/Compilation/ShaderPreparation/SceneGenericShaderCompiler.swift",
         "script/tests/test_scene_compiler_release_evidence.py",
-        "script/tests/fixtures/SceneGraphExecutionTelemetryHarness.swift"
+        "script/tests/fixtures/SceneGraphExecutionTelemetryHarness.swift",
+        "MyWallpaperX/Core/Playback/SystemAudioCaptureBuffer.swift",
+        "MyWallpaperX/Core/Playback/SystemAudioCaptureDeviceFactory.swift",
+        "MyWallpaperX/Core/Playback/SystemAudioSpectrumService.swift",
+        "MyWallpaperX/Core/Playback/SystemMedia/SystemMediaService.swift",
+        "script/tests/fixtures/SystemAudioDiagnosticBoundaryChecks.swift"
       ],
       "modules": [
         "test_release_diagnostic_isolation",
@@ -5284,6 +5330,33 @@
         "test_scene_user_shortcut_properties",
         "test_scene_native_property_list",
         "test_steam_login_modal"
+      ]
+    },
+    {
+      "id": "video-thumbnail-generation",
+      "patterns": [
+        "MyWallpaperX/Modules/VideoLibrary/Core/WallpaperManager+CachePipeline.swift",
+        "MyWallpaperX/Modules/VideoLibrary/Core/WallpaperManager+StaticFramePipeline.swift",
+        "script/tests/fixtures/VideoThumbnailGeneratorChecks.swift",
+        "script/tests/fixtures/VideoStaticFramePipelineChecks.swift"
+      ],
+      "modules": [
+        "test_video_thumbnail_prefetch",
+        "test_video_removal_receipts"
+      ]
+    },
+    {
+      "id": "steam-legacy-record-discovery",
+      "patterns": [
+        "MyWallpaperX/Modules/SteamWorkshop/Core/SteamWorkshopService+LibraryRecords.swift",
+        "script/tests/test_steam_library_legacy_discovery.py",
+        "script/tests/fixtures/SteamLibraryLegacyDiscoveryChecks.swift"
+      ],
+      "modules": [
+        "test_steam_library_legacy_discovery",
+        "test_steam_html_entry_resolution",
+        "test_steam_library_interactions",
+        "test_steam_library_reload_coalescing"
       ]
     }
   ],

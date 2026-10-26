@@ -498,7 +498,7 @@ final class WebDaemonRuntime: NSObject, NSApplicationDelegate {
             pointerTimer: host.pointerPollingTimer == nil ? 0 : 1,
             surfaces: host.surfaces.count,
             watchTimer: host.directoryWatchTimer == nil ? 0 : 1,
-            watchers: host.directoryWatchersByProperty.count, startupTiming: startupTiming)))
+            watchers: host.directoryWatchersByDirectory.count, startupTiming: startupTiming)))
     }
 #endif
 #if DEBUG

@@ -20,14 +20,17 @@ extension Harness {
         _ = runtime.advance(by: 0.5)
         let batches = runtime.advance(by: 1.0 / 60.0)
         let childPath = "particles/workshop/2562725207/presets/shootingstarglow.json"
-        return [
+        var facts1: [String: Any] = [
             "activeLayerIDs": runtime.activeLayerIDs,
             "childInstanceCount": batches.first { $0.particlePath == childPath }?.instances.count ?? 0,
             "childTextureWidth": batches.first { $0.particlePath == childPath }?.texture.width ?? 0,
-            "layer264ChildUnsupported": runtime.diagnostics.contains {
-                $0.layerID == 264 && $0.kind == .childSystemsUnsupported
-            },
         ]
+#if DEBUG
+        facts1["layer264ChildUnsupported"] = runtime.diagnostics.contains {
+            $0.layerID == 264 && $0.kind == .childSystemsUnsupported
+        }
+#endif
+        return facts1
     }
 
     static func realEventDeathSample(
@@ -61,7 +64,7 @@ extension Harness {
         let hitBatches = firstHitBatches
         let hitInstances = hitBatches.flatMap(\.instances)
         let pixels = renderEventDeathBatches(hitBatches, device: device)
-        return [
+        var facts2: [String: Any] = [
             "firstHitFrame": firstHitFrame,
             "hitInstanceCount": hitInstances.count,
             "hitMaximumAlpha": hitInstances.map(\.rotationAndAlpha.w).max() ?? -1,
@@ -80,13 +83,16 @@ extension Harness {
             "hitUsesTrail": hitBatches.contains {
                 ($0.instances.first?.velocityAndTrail.w ?? -1) >= 0
             },
-            "layer529ChildUnsupported": runtime.diagnostics.contains {
-                $0.layerID == 529 && $0.kind == .childSystemsUnsupported
-            },
-            "layer529SimulationDetails": runtime.diagnostics.compactMap {
-                $0.layerID == 529 && $0.kind == .simulationLimitation ? $0.detail : nil
-            },
         ]
+#if DEBUG
+        facts2["layer529ChildUnsupported"] = runtime.diagnostics.contains {
+            $0.layerID == 529 && $0.kind == .childSystemsUnsupported
+        }
+        facts2["layer529SimulationDetails"] = runtime.diagnostics.compactMap {
+            $0.layerID == 529 && $0.kind == .simulationLimitation ? $0.detail : nil
+        }
+#endif
+        return facts2
     }
 
     static func renderEventDeathBatches(
@@ -398,17 +404,25 @@ extension Harness {
         _ = churnRuntime.advance(by: 1.0 / 60.0, audioInput: activeAudioInput)
         let churnRollbackSnapshot = churnRuntime.frameSnapshot()
         _ = churnRuntime.advance(by: 1.0 / 60.0, audioInput: activeAudioInput)
+#if DEBUG
         let rejectedChurnObservations = churnRuntime.consumeAudioEvaluationObservations()
+#endif
         churnRuntime.restoreFrame(churnRollbackSnapshot)
+#if DEBUG
         let churnObservationsAfterRestore = churnRuntime
             .consumeAudioEvaluationObservations()
+#endif
         _ = churnRuntime.advance(by: 1.0 / 60.0, audioInput: activeAudioInput)
+#if DEBUG
         let retryChurnObservations = churnRuntime.consumeAudioEvaluationObservations()
         var laterChurnObservationCount = 0
+#endif
         for _ in 0..<6 {
             _ = churnRuntime.advance(by: 1.0 / 60.0, audioInput: activeAudioInput)
+#if DEBUG
             laterChurnObservationCount += churnRuntime
                 .consumeAudioEvaluationObservations().count
+#endif
         }
         var childCounts: [Int] = []
         var childPositions: [Float] = []
@@ -462,7 +476,7 @@ extension Harness {
                 inheritedDeathColors.append([color.x, color.y, color.z])
             }
         }
-        return [
+        var facts3: [String: Any] = [
             "windowCounts": windowCounts,
             "childCounts": childCounts,
             "childPositions": childPositions,
@@ -472,36 +486,39 @@ extension Harness {
             "budgetCounts": budgetCounts,
             "inheritedFollowMatches": inheritedFollowMatches,
             "inheritedDeathColors": inheritedDeathColors,
-            "eventColorMarkers": runtime.diagnostics.compactMap {
-                $0.kind == .simulationLimitation && $0.detail?.contains("eventColor") == true
-                    ? $0.detail : nil
-            },
-            "invalidEventColorDetails": runtime.diagnostics.compactMap {
-                $0.layerID == 17 && $0.kind == .childSystemsUnsupported
-                    && $0.detail?.contains("eventColor") == true ? $0.detail : nil
-            },
-            "childUnsupportedLayers": runtime.diagnostics.compactMap {
-                $0.kind == .childSystemsUnsupported && ![13, 17].contains($0.layerID)
-                    ? $0.layerID : nil
-            },
-            "budgetDetails": runtime.diagnostics.compactMap {
-                $0.layerID == 12 && $0.kind == .simulationLimitation ? $0.detail : nil
-            },
-            "audioChildDetails": runtime.diagnostics.compactMap {
-                $0.layerID == 13 && $0.kind == .childSystemsUnsupported ? $0.detail : nil
-            },
             "hasAudioConsumer": runtime.hasAudioConsumer,
             "activeChildAudioInput": activeChildAudioInput,
-            "rejectedChurnObservationCount": rejectedChurnObservations.count,
-            "churnObservationsAfterRestore": churnObservationsAfterRestore.count,
-            "retryChurnObservationCount": retryChurnObservations.count,
-            "retryChurnObservationPaths": retryChurnObservations.map(\.particlePath),
-            "laterChurnObservationCount": laterChurnObservationCount,
-            "childScaleDetails": runtime.diagnostics.compactMap {
-                $0.kind == .simulationLimitation && $0.detail?.contains("childScaleBounded") == true
-                    ? $0.detail : nil
-            },
         ]
+#if DEBUG
+        facts3["rejectedChurnObservationCount"] = rejectedChurnObservations.count
+        facts3["churnObservationsAfterRestore"] = churnObservationsAfterRestore.count
+        facts3["retryChurnObservationCount"] = retryChurnObservations.count
+        facts3["retryChurnObservationPaths"] = retryChurnObservations.map(\.particlePath)
+        facts3["laterChurnObservationCount"] = laterChurnObservationCount
+        facts3["eventColorMarkers"] = runtime.diagnostics.compactMap {
+            $0.kind == .simulationLimitation && $0.detail?.contains("eventColor") == true
+                ? $0.detail : nil
+        }
+        facts3["invalidEventColorDetails"] = runtime.diagnostics.compactMap {
+            $0.layerID == 17 && $0.kind == .childSystemsUnsupported
+                && $0.detail?.contains("eventColor") == true ? $0.detail : nil
+        }
+        facts3["childUnsupportedLayers"] = runtime.diagnostics.compactMap {
+            $0.kind == .childSystemsUnsupported && ![13, 17].contains($0.layerID)
+                ? $0.layerID : nil
+        }
+        facts3["budgetDetails"] = runtime.diagnostics.compactMap {
+            $0.layerID == 12 && $0.kind == .simulationLimitation ? $0.detail : nil
+        }
+        facts3["audioChildDetails"] = runtime.diagnostics.compactMap {
+            $0.layerID == 13 && $0.kind == .childSystemsUnsupported ? $0.detail : nil
+        }
+        facts3["childScaleDetails"] = runtime.diagnostics.compactMap {
+            $0.kind == .simulationLimitation && $0.detail?.contains("childScaleBounded") == true
+                ? $0.detail : nil
+        }
+#endif
+        return facts3
     }
 
 }

@@ -19,14 +19,16 @@ class WebInteractiveRegionProjectionTests(unittest.TestCase):
     def test_real_projection_deduplicates_and_skips_subframe_work(self):
         register = source_block((HOST / 'DedicatedWebWallpaperHostCompatibilityScript+HostBridge.swift').read_text(),
                                 'window.__myWallpaperRegisterInteractiveRegions = function(payload)')
-        project = source_block((HOST / 'DedicatedWebWallpaperHostCompatibilityScript+DOMLifecycleMutation.swift').read_text(),
-                               'const wallpaperAutoRegisterInteractiveRegions = () =>')
+        mutation = (HOST / 'DedicatedWebWallpaperHostCompatibilityScript+DOMLifecycleMutation.swift').read_text()
+        project = source_block(mutation, 'const wallpaperAutoRegisterInteractiveRegions = () =>')
+        schedule = source_block(mutation, 'const wallpaperScheduleInteractiveRegionRefresh = (() =>') + ')();'
+        lifecycle = source_block(mutation, 'const wallpaperScheduleLifecycleRefresh = (() =>') + ')();'
         script = r'''
 const vm = require('node:vm');
 const assert = require('node:assert/strict');
-function fixture(topFrame) {
-  const messages = [];
-  let queries = 0;
+function fixture(topFrame, hasRAF = true) {
+  const messages = [], frames = [], timers = [];
+  let queries = 0, rafCalls = 0, timerCalls = 0, mediaDemand = 0;
   let rect = { left: 100, top: 160, right: 300, bottom: 240, width: 200, height: 80 };
   let draggable = false;
   const element = {
@@ -42,19 +44,35 @@ function fixture(topFrame) {
     __myWallpaperInteractiveRegionState: { lastSignature: '', lastAutoRegisterAt: 0 },
     webkit: { messageHandlers: { wallpaperHostInteractiveRegions: { postMessage(payload) { messages.push(payload); } } } },
     CustomEvent: class { constructor(name, options) { this.name = name; this.detail = options.detail; } },
-    dispatchEvent() {}
+    dispatchEvent() {},
+    wallpaperRefreshMediaDemand() { mediaDemand++; },
+    setTimeout(callback, delay) { timerCalls++; timers.push({callback, delay}); }
   };
+  if (hasRAF) context.requestAnimationFrame = callback => { rafCalls++; frames.push(callback); };
   context.window = context;
   vm.createContext(context);
   vm.runInContext(PRODUCTION, context);
+  const schedule = () => vm.runInContext('wallpaperScheduleInteractiveRegionRefresh()', context);
+  const flush = () => {
+    while (frames.length) frames.shift()();
+    while (timers.length) {
+      const timer = timers.shift(); assert.equal(timer.delay, 16); timer.callback();
+    }
+  };
   return { context, messages, queries: () => queries,
-    project: () => vm.runInContext('wallpaperAutoRegisterInteractiveRegions()', context),
+    frames, timers, schedule, flush, rafCalls: () => rafCalls, timerCalls: () => timerCalls,
+    mediaDemand: () => mediaDemand,
+    lifecycle: () => vm.runInContext('wallpaperScheduleLifecycleRefresh()', context),
+    project: () => { schedule(); flush(); },
     move: () => { rect = { ...rect, left: 100.00005, right: 300.00005 }; },
     drag: () => { draggable = true; }
   };
 }
 const main = fixture(true);
-main.project();
+for (let i = 0; i < 20; i++) main.schedule();
+assert.equal(main.frames.length, 1, 'main frame event bursts retain one scheduled projection');
+assert.equal(main.queries(), 0, 'main frame projection remains deferred');
+main.flush();
 assert.equal(main.messages.length, 1);
 const initial = JSON.parse(JSON.stringify(main.messages[0].regions[0]));
 assert.deepEqual(initial, { id: 'button-default-1', x: 0.1, y: 0.2, width: 0.2, height: 0.1,
@@ -79,8 +97,26 @@ const child = fixture(false);
 for (let i = 0; i < 20; i++) child.project();
 assert.equal(child.queries(), 0, 'subframe auto projection exits before the DOM scan');
 assert.equal(child.messages.length, 0, 'subframe auto regions have no host consumer');
+assert.equal(child.rafCalls(), 0, 'subframe registration creates no empty RAF');
+assert.equal(child.timerCalls(), 0);
+child.context.__myWallpaperRegisterInteractiveRegions({ source: 'page-script', regions: [initial] });
+assert.equal(child.messages.length, 0, 'public subframe registration keeps its existing coordinate boundary');
+child.lifecycle(); child.schedule(); child.flush();
+assert.equal(child.mediaDemand(), 1, 'actual child-frame media demand still schedules and executes');
+assert.equal(child.rafCalls(), 1, 'only the actual media consumer schedules work in a child frame');
+
+const fallback = fixture(true, false);
+for (let i = 0; i < 20; i++) fallback.schedule();
+assert.equal(fallback.timers.length, 1, 'main frame still coalesces without author RAF');
+fallback.flush();
+assert.equal(fallback.messages.length, 1);
+const childFallback = fixture(false, false);
+for (let i = 0; i < 20; i++) childFallback.schedule();
+assert.equal(childFallback.timerCalls(), 0, 'subframe registration creates no empty fallback timer');
+childFallback.lifecycle(); childFallback.flush();
+assert.equal(childFallback.mediaDemand(), 1, 'child media retains the timer fallback');
 console.log('web-interactive-region-projection-pass');
-'''.replace('PRODUCTION', json.dumps(register + ';\n' + project + ';'))
+'''.replace('PRODUCTION', json.dumps(register + ';\n' + project + ';\n' + schedule + '\n' + lifecycle))
         result = subprocess.run(['node', '-e', script], capture_output=True, text=True, timeout=15)
         self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
         self.assertIn('web-interactive-region-projection-pass', result.stdout)

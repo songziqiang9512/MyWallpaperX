@@ -34,9 +34,15 @@ MAP_SOURCES = [
 
 from script.tests import test_scene_solid_layers as descriptor_fixture
 from script.tests import test_scene_bc_texture_uploader as upload_fixture
+from script.tests.scene_particle_runtime_configuration_cases import NO_TIMESTAMP_OBSERVATION_SUPPORT
+from script.scene_swift_source_sets import scene_swift_sources
 
-SOURCES = list(dict.fromkeys([
+SOURCES = list(dict.fromkeys(path.resolve() for path in [
     *MAP_SOURCES, *descriptor_fixture.SWIFT_SOURCES, *upload_fixture.SWIFT_SOURCES,
+    *scene_swift_sources("authored_shader_frontend_support"),
+    SOURCE_ROOT / "Resources/Assets/SceneModelResourceIdentity.swift",
+    SOURCE_ROOT / "Compilation/ShaderContract/SceneBuiltinShaderIdentity.swift",
+    SOURCE_ROOT / "Compilation/Material/SceneMaterialRenderState+Compilation.swift",
     SOURCE_ROOT / "Format/SceneBCTextureDecoder.swift",
     SOURCE_ROOT / "Systems/Particles/SceneParticleDefinitionParser+InstanceOverride.swift",
     SOURCE_ROOT / "Systems/Particles/SceneParticleLayerImageEmitterCompiler.swift",
@@ -47,10 +53,21 @@ DESCRIPTOR_SUPPORT = descriptor_fixture.HARNESS_SOURCE.split("@main", 1)[0].repl
     "struct SceneParticleInstanceOverride: Codable {}\n\n"
     "struct SceneParticleDefinitionParser {\n"
     "    func parseInstanceOverride(_ raw: Any?) -> SceneParticleInstanceOverride? { nil }\n"
-    "}\n", "")
+    "}\n", "").replace(
+    "var shaderContracts: [Never] { [] }",
+    "var shaderContracts: [SceneShaderContract] { [] }",
+).replace(
+    "let puppetAttachments: [SceneMdlPuppetAttachment]",
+    "let puppetAttachments: [SceneMdlPuppetAttachment]\n        var passthrough: Bool? = nil",
+)
+# This fixture passes an empty model/material/shader catalog to the real
+# descriptor builder. Keep that explicit empty input while matching its current
+# DTO types. Identity matching and material-state compilation remain product
+# sources; no shader compiler/diagnostic platform or alternate emitter is added.
 RUNTIME_DECLARATIONS = (SOURCE_ROOT / "Systems/Particles/SceneParticleRuntimeModels.swift").read_text().split(
     "struct SceneParticleDrawBatch", 1)[0]
-HARNESS_SOURCE = (DESCRIPTOR_SUPPORT + upload_fixture.HARNESS.split("@main", 1)[0]
+HARNESS_SOURCE = (NO_TIMESTAMP_OBSERVATION_SUPPORT + DESCRIPTOR_SUPPORT
+                  + upload_fixture.HARNESS.split("@main", 1)[0]
                   + RUNTIME_DECLARATIONS + r'''
 @main enum Harness {
     enum Failure: Error { case allocation, decode, compile }
@@ -112,22 +129,28 @@ HARNESS_SOURCE = (DESCRIPTOR_SUPPORT + upload_fixture.HARNESS.split("@main", 1)[
                 for _ in 0..<1024 {
                     sameSamples = sameSamples && actual.sample(using: &first) == reference.sample(using: &second)
                 }
-                referenceResults[label] = referenceCompilation.diagnostics.isEmpty
-                    && actual.positions == reference.positions && sameSamples
+                referenceResults[label] = actual.positions == reference.positions && sameSamples
+#if DEBUG
+                referenceResults[label] = referenceResults[label]! && referenceCompilation.diagnostics.isEmpty
+#endif
             }
             let renamed = try makeDescriptor(root: root,provider: 11,consumer: 29,name: "Renamed image")
             let renamedCompilation = SceneParticleLayerImageEmitterCompiler.compile(
                 descriptor: renamed,texturesByLayerID: [11:texture])
             let positiveCount = stride(from: 3, to: decoded.rgba.count, by: 4)
                 .filter { decoded.rgba[$0] > 0 }.count
-            cases[name] = ["nativeSource": !device.supportsBCTextureCompression || texture.pixelFormat == pixelFormat,
-                "diagnosticsEmpty": compilation.diagnostics.isEmpty,
+            var facts: [String: Any] = [
+                "nativeSource": !device.supportsBCTextureCompression || texture.pixelFormat == pixelFormat,
                 "positivePixelCount": positiveCount,"positionsCount": actual.positions.count,
                 "references": referenceResults,
                 "renamedIdentitySamePositions": renamedCompilation.mapsByLayerID[29]?.positions == actual.positions,
                 "animatedSourceRejected": SceneParticleLayerImageEmitterCompiler.compile(
                     descriptor: descriptor,texturesByLayerID: [1:texture],animatedSourceLayerIDs: [1])
                     .mapsByLayerID[2] == nil]
+#if DEBUG
+            facts["diagnosticsEmpty"] = compilation.diagnostics.isEmpty
+#endif
+            cases[name] = facts
         }
         results["cases"] = cases
         var rejections: [String: Bool] = [:]
@@ -154,15 +177,22 @@ HARNESS_SOURCE = (DESCRIPTOR_SUPPORT + upload_fixture.HARNESS.split("@main", 1)[
             container: transparentBC,pixelFormat: .bc1_rgba,purpose: .straightAlbedo,device: device)
             else { throw Failure.allocation }
         results["transparentBCRejected"] = rejected(descriptor: descriptor,texture: transparent)
+        results["compilationHasDiagnosticStorage"] = Mirror(reflecting: SceneParticleLayerImageEmitterCompilation.empty)
+            .children.contains { $0.label == "diagnostics" }
         print(String(decoding: try JSONSerialization.data(withJSONObject: results),as: UTF8.self))
     }
 
     static func rejected(descriptor: SceneRenderDescriptor,texture: MTLTexture) -> Bool {
         let value = SceneParticleLayerImageEmitterCompiler.compile(
             descriptor: descriptor,texturesByLayerID: [1:texture])
-        return value.mapsByLayerID[2] == nil && value.diagnostics.count == 1
+        guard value.mapsByLayerID[2] == nil else { return false }
+#if DEBUG
+        return value.diagnostics.count == 1
             && value.diagnostics[0].kind == .layerImageEmitterUnsupported
             && value.diagnostics[0].detail == "unsupportedOrEmptyEmissionBitmap:1"
+#else
+        return true
+#endif
     }
 
     static func makeRGBA(device: MTLDevice,format: MTLPixelFormat,width: Int,height: Int,
@@ -213,27 +243,40 @@ class SceneParticleLayerImageEmitterTests(unittest.TestCase):
         directory = Path(cls.temporary.name)
         harness = directory / "Harness.swift"
         harness.write_text(HARNESS_SOURCE, encoding="utf-8")
-        binary = directory / "layer-image"
         frozen_sources = []
         for source in SOURCES:
             frozen = directory / source.name
             shutil.copy2(source,frozen);frozen_sources.append(frozen)
-        compiled = subprocess.run(
-            ["swiftc", *(str(path) for path in frozen_sources), str(harness),
-             "-module-cache-path",str(directory/"module-cache"),"-o",str(binary)],
-            capture_output=True,text=True,timeout=180)
-        if compiled.returncode:
-            raise AssertionError(compiled.stderr)
-        completed = subprocess.run([str(binary)],capture_output=True,text=True,timeout=60)
-        if completed.returncode:
-            raise AssertionError(completed.stderr)
-        if not completed.stdout.strip():
-            raise unittest.SkipTest("Metal device is unavailable")
-        cls.result = json.loads(completed.stdout)
+        cls.outputs = {}
+        for configuration, flags in (("debug", ["-D", "DEBUG"]), ("release", ["-O"])):
+            binary = directory / f"layer-image-{configuration}"
+            compiled = subprocess.run(
+                ["swiftc", *flags, *(str(path) for path in frozen_sources), str(harness),
+                 "-module-cache-path",str(directory/"module-cache"),"-o",str(binary)],
+                capture_output=True,text=True,timeout=180)
+            if compiled.returncode:
+                raise AssertionError(f"{configuration}: {compiled.stderr}")
+            completed = subprocess.run([str(binary)],capture_output=True,text=True,timeout=60)
+            if completed.returncode:
+                raise AssertionError(f"{configuration}: {completed.stderr}")
+            if not completed.stdout.strip():
+                raise unittest.SkipTest("Metal device is unavailable")
+            cls.outputs[configuration] = json.loads(completed.stdout)
+        cls.result = cls.outputs["debug"]
 
     @classmethod
     def tearDownClass(cls) -> None:
         cls.temporary.cleanup()
+
+    def test_release_omits_reports_and_preserves_actual_emission_maps(self) -> None:
+        debug = json.loads(json.dumps(self.outputs["debug"]))
+        release = self.outputs["release"]
+        self.assertTrue(debug.pop("compilationHasDiagnosticStorage"))
+        self.assertFalse(release["compilationHasDiagnosticStorage"])
+        for value in debug["cases"].values():
+            self.assertTrue(value.pop("diagnosticsEmpty"))
+        self.assertEqual({key: value for key, value in release.items()
+                          if key != "compilationHasDiagnosticStorage"}, debug)
 
     def test_alpha_pixels_map_to_centered_layer_local_positions(self) -> None:
         self.assertEqual(self.result["positions"], [[-15,5,0],[15,-5,0]])

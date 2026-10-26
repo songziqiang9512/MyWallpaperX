@@ -22,9 +22,15 @@ DYNAMIC_SNAPSHOT_SOURCE = REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScen
 BINDINGS_SOURCE = SCENE_ROOT / "Runtime/Frame/SceneStaticModelMaterialBindings.swift"
 DYNAMIC_LAYER_VALUES_SOURCE = REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Systems/Properties/SceneDynamicLayerValues.swift"
 MODEL_SOURCE = SCENE_ROOT / "Format/SceneMdlStaticModel.swift"
+LIGHTING_INPUT_SOURCE = SCENE_ROOT / "Rendering/Lighting/SceneAuthoredShaderLightingInputs.swift"
 MODEL_SUPPORT_SOURCES = [SCENE_ROOT / "Format" / name for name in [
     "SceneMdlPuppetMeshReader.swift", "SceneMdlPuppetRigReader.swift",
-]]
+]] + [
+    LIGHTING_INPUT_SOURCE,
+    SCENE_ROOT / "Rendering/Metal/SceneStaticModelVertexStream.swift",
+    SCENE_ROOT / "Rendering/Frame/SceneSourceUpdateTransaction.swift",
+    REPOSITORY_ROOT / "script/tests/fixtures/SceneStaticModelFixture.swift",
+]
 SAMPLING_SOURCE = REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Resources/Textures/SceneTextureSampling.swift"
 UV_TRANSFORM_SOURCE = REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Resources/Textures/SceneTextureUVTransform.swift"
 LIGHT_SOURCE = REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Lighting/SceneLightSnapshot.swift"
@@ -107,6 +113,61 @@ struct SceneRenderDescriptor {
 
 
 class SceneStaticModelPipelineTests(unittest.TestCase):
+    def test_reader_geometry_upload_preserves_gpu_bytes_tight_bounds_and_index_width(self) -> None:
+        from script.tests.test_scene_directional_shadow import run_swift
+        from script.tests.test_scene_static_model_reader import DEFAULT_VERTICES, build_model
+
+        sources = [MODEL_SOURCE, *MODEL_SUPPORT_SOURCES,
+                   SCENE_ROOT / "Format/SceneMdlStaticModelReader.swift",
+                   SAMPLING_SOURCE, UV_TRANSFORM_SOURCE, DIRECTIONAL_LIGHT_SOURCE,
+                   POINT_LIGHT_SOURCE, SPOT_LIGHT_SOURCE, LIGHT_SOURCE, VISIBILITY_SOURCE,
+                   DYNAMIC_SNAPSHOT_SOURCE, DYNAMIC_LAYER_VALUES_SOURCE, PERFORMANCE_COUNTER_SOURCE,
+                   BINDINGS_SOURCE, MATERIAL_SOURCE, PIPELINE_SOURCE, SHADOW_SOURCE,
+                   SCENE_ROOT / "Resources/Textures/SceneResourceBudget.swift"]
+        harness = (REPOSITORY_ROOT / "script/tests/fixtures/SceneStaticModelUploadChecks.swift").read_text()
+        cases = [
+            ("source16", 3, 0, (0, 1, 2), 2),
+            ("source32-shrinks", 3, 1, (2, 0, 1), 2),
+            ("uint16-65535", 65_536, 0, (0, 65_534, 65_535), 2),
+            ("uint32-65536", 65_537, 1, (0, 65_535, 65_536), 4),
+            ("large-source16-small-indices", 65_537, 0, (0, 1, 2), 2),
+            ("large-source32-small-indices", 65_537, 1, (2, 1, 0), 2),
+            ("signed-zero-bounds", 3, 0, (0, 1, 2), 2),
+        ]
+        with tempfile.TemporaryDirectory(prefix="mwx-model-upload-") as tmp:
+            inputs = []
+            for name, count, flag, indices, width in cases:
+                vertices = [DEFAULT_VERTICES[index % 3] for index in range(count)]
+                if count > 3:
+                    # Full vertex storage owns bounds, even when these last
+                    # extreme vertices are absent from the triangle indices.
+                    vertices[-2] = ((-71., -83., -97.), (2., -3., 4.), (-5., 6., -7., -1.), (.125, .875))
+                    vertices[-1] = ((101., 113., 127.), (0., 0., 0.), (0., 0., 0., 0.), (.625, .25))
+                    minimum, maximum = [-71, -83, -97], [101, 113, 127]
+                    if "small-indices" in name:
+                        self.assertTrue(all(index < count - 2 for index in indices))
+                else:
+                    minimum, maximum = [-1, -1, 0], [1, 1, 0]
+                if name == "signed-zero-bounds":
+                    positions = [(-0., 0., -0.), (0., -0., -0.), (-0., 0., 0.)]
+                    vertices = [(position, *vertex[1:]) for position, vertex in zip(positions, vertices)]
+                    minimum = maximum = [0, 0, 0]
+                path = Path(tmp) / f"{name}.mdl"
+                path.write_bytes(build_model(vertices=vertices, indices=indices, index_flag=flag,
+                                             bounds=(-1_000, -1_000, -1_000, 1_000, 1_000, 1_000)))
+                inputs.append({"name": name, "path": str(path), "indexBytes": width,
+                               "minimum": minimum, "maximum": maximum})
+            report = run_swift(sources, LIGHTING_STUB + harness, label="model-upload",
+                               metal_sources=[METAL_SOURCE], input_value=inputs)
+        self.assertEqual([row["name"] for row in report["rows"]], [case[0] for case in cases])
+        for row, (_, count, _, _, width) in zip(report["rows"], cases):
+            with self.subTest(name=row["name"]):
+                self.assertEqual(row["vertexCount"], count, row)
+                self.assertEqual(row["indexBytes"], width, row)
+                for check in ("gpuCompleted", "allVertexBytes", "allIndexBytes", "indexType",
+                              "tightBounds", "boundsBitsMatchOriginal", "counts", "authoredBoundsWereLoose"):
+                    self.assertTrue(row[check], row)
+
     def test_shared_sampler_preserves_nearest_address_and_mips_with_anisotropic_quality(self) -> None:
         from script.tests.test_scene_directional_shadow import run_swift
 
@@ -651,6 +712,7 @@ enum MaterialHarness {
                     str(DYNAMIC_LAYER_VALUES_SOURCE),
                     str(VISIBILITY_SOURCE),
                     str(LIGHT_SOURCE),
+                    str(LIGHTING_INPUT_SOURCE),
                     str(SCENE_ROOT / "Rendering/Geometry/SceneMatrix.swift"),
                     str(SCENE_ROOT / "Rendering/Geometry/SceneLayerWorldFrameResolver.swift"),
                     str(SCENE_ROOT / "Rendering/Geometry/SceneLayerDynamicWorldFrameResolver.swift"),

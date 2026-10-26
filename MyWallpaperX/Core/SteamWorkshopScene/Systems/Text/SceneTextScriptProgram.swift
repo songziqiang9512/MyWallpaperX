@@ -28,6 +28,7 @@ nonisolated struct SceneTextScriptProgram: Equatable, Sendable {
         nonisolated var target: SceneDynamicTarget { definition.target }
     }
 
+#if DEBUG
     nonisolated struct Diagnostic: Equatable, Sendable {
         enum Code: String {
             case unknownProfile
@@ -37,11 +38,16 @@ nonisolated struct SceneTextScriptProgram: Equatable, Sendable {
         let code: Code
         let sourceSHA256: String
     }
+#endif
 
     let bindings: [Binding]
+#if DEBUG
     let diagnostics: [Diagnostic]
 
     nonisolated static let empty = SceneTextScriptProgram(bindings: [], diagnostics: [])
+#else
+    nonisolated static let empty = SceneTextScriptProgram(bindings: [])
+#endif
 }
 
 /// Typed media metadata observed by text scripts. Generation zero means that no

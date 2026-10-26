@@ -8,7 +8,6 @@ nonisolated enum SceneMdlStaticModelReadError: Error, CustomStringConvertible,
     case unsupportedHeaderFormat(UInt32)
     case unsupportedMeshCount(UInt32)
     case unsupportedMaterialCount(UInt32)
-    case materialSegmentBudgetExceeded(UInt32)
     case invalidMaterialPath
     case unsupportedIndexFlag(UInt32)
     case invalidBounds
@@ -35,8 +34,6 @@ nonisolated enum SceneMdlStaticModelReadError: Error, CustomStringConvertible,
             return "unsupported static mdl mesh count \(value)"
         case .unsupportedMaterialCount(let value):
             return "unsupported static mdl material count \(value)"
-        case .materialSegmentBudgetExceeded(let value):
-            return "static mdl material segment work budget exceeded: \(value)"
         case .invalidMaterialPath:
             return "invalid static mdl material path"
         case .unsupportedIndexFlag(let value):
@@ -82,9 +79,6 @@ nonisolated enum SceneMdlStaticModelReader {
     private static let riggedBindFormat: UInt32 = 0x0180000f
     private static let boundsHeaderTrailerByteCount = 7
     private static let derivedBoundsTrailerByteCount = 1
-    private static let maximumPathByteCount = 4_096
-    /// Per-model load work budget, not a format maximum.
-    private static let maximumMaterialSegmentCount: UInt32 = 64
     private static let maximumVertexByteCount: UInt32 = 256 * 1_024 * 1_024
     private static let maximumIndexByteCount: UInt32 = 32 * 1_024 * 1_024
     private static let maximumAbsoluteValue: Float = 1_000_000
@@ -247,9 +241,6 @@ nonisolated enum SceneMdlStaticModelReader {
               materialCount == 1 || (version == boundsHeaderVersion && !bindOnly) else {
             throw SceneMdlStaticModelReadError.unsupportedMaterialCount(materialCount)
         }
-        guard materialCount <= maximumMaterialSegmentCount else {
-            throw SceneMdlStaticModelReadError.materialSegmentBudgetExceeded(materialCount)
-        }
         let materialPath = try readMaterialPath(cursor: &cursor)
         return .init(
             version: version, headerFormat: headerFormat,
@@ -260,29 +251,21 @@ nonisolated enum SceneMdlStaticModelReader {
     }
 
     private static func readMaterialPath(cursor: inout Cursor) throws -> String {
-        let bytes = try cursor.readNullTerminatedBytes(
-            maximumCount: maximumPathByteCount,
-            section: "material path"
-        )
+        let bytes = try cursor.readNullTerminatedBytes(section: "material path")
         guard let rawPath = String(bytes: bytes, encoding: .utf8) else {
             throw SceneMdlStaticModelReadError.invalidMaterialPath
         }
         let normalized = rawPath.replacingOccurrences(of: "\\", with: "/")
-        let components = normalized.split(
-            separator: "/",
-            omittingEmptySubsequences: false
-        )
+        let components = normalized.split(separator: "/")
         guard normalized.isEmpty == false,
               normalized.hasPrefix("/") == false,
               normalized.hasSuffix("/") == false,
-              normalized.contains(":") == false,
+              components.last != ".",
               normalized.unicodeScalars.allSatisfy({ $0.value >= 0x20 }),
-              components.allSatisfy({
-                  $0.isEmpty == false && $0 != "." && $0 != ".."
-              }) else {
+              components.contains("..") == false else {
             throw SceneMdlStaticModelReadError.invalidMaterialPath
         }
-        return normalized
+        return components.filter { $0 != "." }.joined(separator: "/")
     }
 
     private static func readBounds(
@@ -426,14 +409,9 @@ nonisolated enum SceneMdlStaticModelReader {
             return Data(data[offset..<(offset + count)])
         }
 
-        mutating func readNullTerminatedBytes(
-            maximumCount: Int,
-            section: String
-        ) throws -> Data {
-            let availableCount = min(maximumCount + 1, data.count - offset)
-            guard availableCount > 0,
-                  let end = data[offset..<(offset + availableCount)]
-                    .firstIndex(of: 0) else {
+        mutating func readNullTerminatedBytes(section: String) throws -> Data {
+            guard offset < data.count,
+                  let end = data[offset..<data.count].firstIndex(of: 0) else {
                 throw SceneMdlStaticModelReadError.truncated(section: section)
             }
             let value = Data(data[offset..<end])

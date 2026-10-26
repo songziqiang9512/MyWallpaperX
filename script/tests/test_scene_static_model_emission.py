@@ -278,7 +278,7 @@ PIXEL_MAIN = r'''
                 SceneMdlStaticModel.Vertex(position: $0, normal: vector(input["normal"] as? [Double] ?? [0, 0, 1]),
                     tangent: SIMD4(1, 0, 0, 1), uv: SIMD2(0.5, 0.5))
             }
-            let mesh = pipeline.makeMesh(vertices: vertices, indices: [0, 1, 2, 0, 2, 3])!
+            let mesh = pipeline.makeMesh(model: SceneStaticModelFixture.model(vertices: vertices, indices: [0, 1, 2, 0, 2, 3]))!
             let albedo = texture(input["albedo"] as! [Double], alpha: 1)
             let mask: MTLTexture? = (input["hasMask"] as! Bool)
                 ? texture([0, 0, 0], alpha: Float(input["maskAlpha"] as! Double)) : nil
@@ -394,6 +394,7 @@ class SceneStaticModelEmissionTests(unittest.TestCase):
             "DYNAMIC_LAYER_VALUES_SOURCE", "PERFORMANCE_COUNTER_SOURCE", "MATERIAL_SOURCE", "PIPELINE_SOURCE", "SHADOW_SOURCE",
         ]]
         sources += [
+            *model_fixture.MODEL_SUPPORT_SOURCES,
             SCENE / "Runtime/Frame/SceneStaticModelMaterialBindings.swift",
             SCENE / "Resources/Textures/SceneResourceBudget.swift",
         ]

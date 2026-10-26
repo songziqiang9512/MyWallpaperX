@@ -1,5 +1,7 @@
 """Execute the production publisher and inbox with a controlled platform edge."""
 from pathlib import Path
+import hashlib
+import json
 import os
 import shutil
 import subprocess
@@ -8,6 +10,11 @@ import unittest
 
 ROOT = Path(__file__).resolve().parents[2]
 MEDIA = ROOT / 'MyWallpaperX/Core/Playback/SystemMedia'
+SOURCE_PATHS = [MEDIA / name for name in (
+    'SystemMediaArtworkPalette.swift', 'SystemMediaSnapshotStore.swift',
+    'SystemMediaSnapshot.swift', 'SystemMediaWebArtwork.swift', 'SystemMediaService.swift')]
+SOURCE_PATHS.append(ROOT / 'MyWallpaperX/Core/SteamWorkshopScene/Systems/Media/SceneMediaThumbnailInbox.swift')
+CONFIGURATIONS = (('debug', ('-D', 'DEBUG')), ('release', ('-O',)))
 HARNESS = r'''
 import AppKit
 import Foundation
@@ -151,6 +158,12 @@ nonisolated final class WebArtworkProbe: @unchecked Sendable {
         let provider = name.hasPrefix("web-artwork-demand")
             ? SystemMediaService(inbox: inbox, prepareWebArtwork: { artworkProbe.prepare($0) })
             : SystemMediaService(inbox: inbox)
+        let fields = Set(Mirror(reflecting: provider).children.compactMap(\.label))
+#if DEBUG
+        precondition(fields.contains("lastStatus"), "Debug must retain source status observation")
+#else
+        precondition(!fields.contains("lastStatus"), "Release must not retain source status observation")
+#endif
         let first = UUID(), second = UUID()
         if !["lifecycle", "stale", "permission", "fallback-invalid", "atomic"].contains(name) {
             SystemMediaSource.initial = nil
@@ -636,24 +649,50 @@ class SystemMediaServiceTests(unittest.TestCase):
     def setUpClass(cls):
         if not shutil.which('swiftc'):
             raise unittest.SkipTest('swiftc unavailable')
-        cls.temp = tempfile.TemporaryDirectory(prefix='mwx-system-media-provider-')
-        cls.addClassCleanup(cls.temp.cleanup)
-        root = Path(cls.temp.name)
+        evidence = os.environ.get('MWX_SYSTEM_MEDIA_PROVIDER_EVIDENCE')
+        if evidence:
+            Path(evidence).mkdir(parents=True, exist_ok=True)
+        root = Path(tempfile.mkdtemp(prefix='mwx-system-media-provider-', dir=evidence))
+        cls.root = root
+        if not evidence:
+            cls.addClassCleanup(shutil.rmtree, root)
         harness = root / 'Harness.swift'
         harness.write_text(HARNESS)
-        cls.binary = root / 'provider'
+        cls.before = {str(p): hashlib.sha256(p.read_bytes()).hexdigest()
+                      for p in [Path(__file__), *SOURCE_PATHS, harness]}
+        (root / 'source-identity.json').write_text(json.dumps(cls.before, indent=2))
+        cls.binaries = {}
         env = os.environ.copy()
         env['CLANG_MODULE_CACHE_PATH'] = str(root / 'clang-cache')
-        result = subprocess.run(['swiftc', '-swift-version', '6', '-default-isolation', 'MainActor',
-            str(MEDIA / 'SystemMediaArtworkPalette.swift'), str(MEDIA / 'SystemMediaSnapshotStore.swift'), str(MEDIA / 'SystemMediaSnapshot.swift'), str(MEDIA / 'SystemMediaWebArtwork.swift'), str(ROOT / 'MyWallpaperX/Core/SteamWorkshopScene/Systems/Media/SceneMediaThumbnailInbox.swift'), str(MEDIA / 'SystemMediaService.swift'),
-            str(harness), '-o', str(cls.binary)], env=env, capture_output=True, text=True, timeout=60)
-        if result.returncode:
-            raise AssertionError(result.stderr)
+        for name, flags in CONFIGURATIONS:
+            binary = root / ('provider-' + name)
+            command = ['swiftc', '-swift-version', '6', '-default-isolation', 'MainActor', *flags,
+                '-module-cache-path', str(root / ('swift-cache-' + name)),
+                *map(str, SOURCE_PATHS), str(harness), '-o', str(binary)]
+            result = subprocess.run(command, env=env, capture_output=True, text=True, timeout=120)
+            (root / ('compile-' + name + '.json')).write_text(json.dumps({
+                'command': command, 'returncode': result.returncode,
+                'stdout': result.stdout, 'stderr': result.stderr}, indent=2))
+            if result.returncode:
+                raise AssertionError(f'{name} compile failed: {root}\n{result.stderr}')
+            cls.binaries[name] = binary
 
     def check_case(self, name):
-        result = subprocess.run([str(self.binary), name], capture_output=True, text=True, timeout=18)
-        self.assertEqual(result.returncode, 0, result.stderr)
-        self.assertIn('PASS ' + name, result.stdout)
+        outputs = []
+        for configuration, binary in self.binaries.items():
+            with self.subTest(configuration=configuration, mode=name):
+                result = subprocess.run([str(binary), name], capture_output=True, text=True, timeout=18)
+                (self.root / f'{configuration}-{name}.json').write_text(json.dumps({
+                    'returncode': result.returncode, 'stdout': result.stdout, 'stderr': result.stderr}, indent=2))
+                outputs.append(result.stdout)
+                self.assertEqual(result.returncode, 0, result.stderr)
+                self.assertIn('PASS ' + name, result.stdout)
+                if configuration == 'debug' and name in ('publication', 'supplement-failure'):
+                    self.assertIn('MWX shared media source:', result.stderr)
+        self.assertEqual(len(outputs), len(CONFIGURATIONS))
+        self.assertEqual(outputs[0], outputs[1])
+        self.assertEqual({path: hashlib.sha256(Path(path).read_bytes()).hexdigest()
+                          for path in self.before}, self.before, 'source changed during validation')
 
     def test_status_only_demand_and_late_preference(self):
         self.check_case('status-only')

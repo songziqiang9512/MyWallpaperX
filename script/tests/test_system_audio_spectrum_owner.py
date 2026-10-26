@@ -5,6 +5,9 @@ opens an audio device. Web setup, demand observation and display scanning are
 recording leaves. The production initializer, stored fields and callback factory
 are inserted unchanged, so the former placeholder remains a two-constructor
 counterexample when this gate is overlaid on the previous implementation.
+The Manager gate uses real library request/Sequence/preparation admission;
+provider availability and native IPC remain recording leaves. Workspace
+startup restoration is outside this focused projection gate.
 """
 import json
 import os
@@ -16,6 +19,7 @@ import unittest
 
 from script.tests.test_web_compat_parity import source_block
 from script.tests.test_steam_library_interactions import method
+from script.tests.test_imported_video_autoplay_gate import GATE_SOURCES
 
 
 ROOT = Path(__file__).resolve().parents[2]
@@ -198,7 +202,7 @@ extension WallpaperEngine {
 
 
 class SystemAudioSpectrumOwnerTests(unittest.TestCase):
-    def test_manager_seeds_spectrum_once_before_restore_and_projects_real_changes(self):
+    def test_manager_seeds_spectrum_once_and_projects_real_changes_into_play_payloads(self):
         core = ROOT / 'MyWallpaperX/Modules/VideoLibrary/Core'
         settings = (core / 'WallpaperManager+PlaybackSettings.swift').read_text()
         manager = (core / 'WallpaperManager.swift').read_text()
@@ -215,6 +219,7 @@ class SystemAudioSpectrumOwnerTests(unittest.TestCase):
         harness = r'''
 import Foundation
 import Combine
+import QuartzCore
 enum Runtime { case video, web, scene, other }
 struct VideoWallpaper { let id: String; let path: String; var staticFramePath: String? = nil }
 enum PlaybackSurfaceVisibility { struct Evidence: Codable {} }
@@ -235,8 +240,9 @@ struct HotkeySettingsSnapshot: Equatable { init(settings: WallpaperSettings) {} 
 @MainActor final class SceneDaemonClient {
     static let shared = SceneDaemonClient()
     var stopPlaybackRequested: (() -> Void)?
-    var switchPrepared: ((Int, Int) -> Void)?, switchVisible: ((Int, UUID) -> Void)?
-    var switchFailed: ((Int, String) -> Void)?, switchLost: ((Int, String) -> Void)?
+    var switchPrepared: ((PlaybackSwitchTicket, PlaybackSwitchEndpoint) -> Void)?
+    var switchVisible: ((PlaybackSwitchTicket, UUID) -> Void)?
+    var switchFailed: ((PlaybackSwitchTicket, String) -> Void)?, switchLost: ((PlaybackSwitchTicket, String) -> Void)?
     var multiDisplayEnabled = false
     func setMultiDisplayEnabled(_ value: Bool) { multiDisplayEnabled = value }
 }
@@ -252,8 +258,9 @@ struct HotkeySettingsSnapshot: Equatable { init(settings: WallpaperSettings) {} 
     struct Delivery { var currentOverlayLevels: [Float] = [] }
     static let shared = WallpaperEngine()
     var videoEndDeliveryAdmission: (() -> Bool)?
-    var switchPrepared: ((Int, Int) -> Void)?, switchVisible: ((Int, UUID) -> Void)?
-    var switchFailed: ((Int, String) -> Void)?, switchLost: ((Int, String) -> Void)?
+    var switchPrepared: ((PlaybackSwitchTicket, PlaybackSwitchEndpoint) -> Void)?
+    var switchVisible: ((PlaybackSwitchTicket, UUID) -> Void)?
+    var switchFailed: ((PlaybackSwitchTicket, String) -> Void)?, switchLost: ((PlaybackSwitchTicket, String) -> Void)?
     var currentSystemAudioSpectrumEnabled = false
     var currentSystemAudioSpectrumBarCount = 28, currentSystemAudioSpectrumColorHex = "default"
     var currentSystemAudioSpectrumOffsetX: Float = 0, currentSystemAudioSpectrumOffsetY: Float = 0
@@ -275,6 +282,14 @@ struct HotkeySettingsSnapshot: Equatable { init(settings: WallpaperSettings) {} 
     func setFillMode(_ value: String) {}
     func setLoopCurrentItem(_ value: Bool) {}
     func updateWebDisplayConfiguration(multiDisplayEnabled: Bool) {}
+    // Native process/IPC is a recording leaf; the play payload below is real.
+    func prepareVideoSwitch(_ wallpaper: VideoWallpaper, ticket: PlaybackSwitchTicket,
+        multiDisplayEnabled: Bool, videoFillMode: String, shouldLoopCurrentItem: Bool) {
+        precondition(ticket.runtime == .video)
+        for session in displaySessions.values {
+            send(playCommand(wallpaper, request: Int(ticket.epoch)), to: session)
+        }
+    }
     func playCommand(_ wallpaper: VideoWallpaper, request: Int) -> DaemonCommand {
         let path = wallpaper.path, videoFillMode = "aspectFill", shouldLoopCurrentItem = true
         struct Execution { let path: String }
@@ -295,20 +310,27 @@ extension Notification.Name {
     var activeWallpaperRuntime = Runtime.other
     var currentWallpaper: VideoWallpaper?, pendingWallpaper: VideoWallpaper?
     var playbackSourceContext = 0, currentSelectionContext = 0
-    var restoredConfigurations: [DaemonCommand] = []
+    var libraryPlaybackSequence = WallpaperPlaybackSequence()
+    var libraryRotationDeadline = WallpaperRotationDeadline()
+    var libraryPlaybackSnapshotProvider: ((WallpaperReference?, WallpaperPlaybackSequence.Source,
+        WallpaperPlaybackCause) -> WallpaperPlaybackSequence.Snapshot?)?
+    var libraryPlaybackDispatcher: ((WallpaperPlaybackSequence.Pending) -> Bool)?
+    var playbackSwitch = PlaybackSwitchTransaction()
+    var playbackIntentEpoch: UInt64 { playbackSwitch.epoch }
+    var playbackIntentDidAdvance: ((WallpaperRuntimeKind?) -> Void)?
+    var switchSelections: [UUID: RuntimeSwitchSelection] = [:]
     func bindSettings() {
         // SETTINGS_BINDINGS
     }
-    func restorePlaybackState() {
-        restoredConfigurations.append(WallpaperEngine.shared.playCommand(
-            .init(id: "restore", path: "/not-read"), request: 0))
-    }
     func sanitizeSystemHotkeySettingsIfNeeded() {}
     func scheduleSettingsAutoPersist() {}
-    func switchPrepared(_ ticket: Int, endpoint: Int) {}
-    func switchVisible(_ ticket: Int, executionID: UUID) {}
-    func switchFailed(_ ticket: Int, reason: String) {}
-    func switchLost(_ ticket: Int, reason: String) {}
+    func switchPrepared(_ ticket: PlaybackSwitchTicket, endpoint: PlaybackSwitchEndpoint) {}
+    func switchVisible(_ ticket: PlaybackSwitchTicket, executionID: UUID) {}
+    func switchFailed(_ ticket: PlaybackSwitchTicket, reason: String) { preconditionFailure(reason) }
+    func switchLost(_ ticket: PlaybackSwitchTicket, reason: String) {}
+    // This gate stops at preparation; endpoint effects/deadlines do not run.
+    func runSwitchEffects(_ effects: [PlaybackSwitchTransaction.Effect]) {}
+    func scheduleSwitchDeadline(_ ticket: PlaybackSwitchTicket) {}
     func stopCurrentPlayback() {}
     func admitsDeferredVideoEnd() -> Bool { true }
     func normalizedPath(_ value: String) -> String { value }
@@ -319,13 +341,8 @@ extension Notification.Name {
     func updateCurrentWallpaperIndex(for id: String) {}
     func updateRecentWallpapers(_ wallpaper: VideoWallpaper) {}
     func startAutoSwitchTimer() {}
-    func shouldLoopCurrentItemInEngine(settings: WallpaperSettings?) -> Bool { true }
-    func prepareVideoSwitch(_ wallpaper: VideoWallpaper) {
-        let engine = WallpaperEngine.shared
-        for session in engine.displaySessions.values {
-            engine.send(engine.playCommand(wallpaper, request: 1), to: session)
-        }
-    }
+    func stopAutoSwitchTimer() {}
+    func shouldLoopCurrentItemInEngine(settings: WallpaperSettings? = nil) -> Bool { true }
     // MANAGER_METHODS
 }
 @main enum Harness {
@@ -347,6 +364,19 @@ extension Notification.Name {
                 engine.displaySessions = [:]; engine.systemAudioSpectrumService.changes = []
                 engine.currentPlaybackContentKind = initial
                 let manager = WallpaperManager(); manager.activeWallpaperRuntime = initial
+                let reference = WallpaperReference(provider: .videoLibrary, sourceID: movie.id)
+                // Provider availability is supplied; original request/dispatch,
+                // Sequence, pending admission and Manager prepare remain real.
+                manager.libraryPlaybackSnapshotProvider = { requested, source, _ in
+                    guard requested == reference, source == .single(reference) else { return nil }
+                    return try! WallpaperPlaybackSequence.Snapshot(source: source, revision: 1,
+                        entries: [.init(reference: reference, runtime: .video, isPlayable: true)])
+                }
+                manager.libraryPlaybackDispatcher = { [weak manager] pending in
+                    guard let manager, pending.proposal.entry.reference == reference else { return false }
+                    manager.setAsWallpaper(movie, libraryPending: pending)
+                    return true
+                }
                 manager.settings.systemAudioSpectrumEnabled = enabled
                 manager.settings.systemAudioSpectrumStyle = .banded
                 manager.settings.systemAudioSpectrumSensitivity = .lively
@@ -358,10 +388,13 @@ extension Notification.Name {
                 manager.settings.multiDisplayEnabled = false
                 manager.bindSettings()
                 manager.configureRuntimeSwitching(); manager.configureRuntimeSwitching()
+                // Capture the actual post-configuration play payload; this
+                // does not exercise Workspace startup restoration.
+                let seededPlayCommand = engine.playCommand(
+                    .init(id: "seeded-play", path: "/not-read"), request: 0)
                 precondition(engine.systemAudioSpectrumService.changes.count == 1,
-                    "restore must use one complete seed before any runtime starts")
-                precondition(manager.restoredConfigurations.count == 1
-                    && matches(manager.restoredConfigurations[0], manager.settings))
+                    "configuration must seed the engine once before play")
+                precondition(matches(seededPlayCommand, manager.settings))
                 precondition(SceneDaemonClient.shared.multiDisplayEnabled == false)
                 let configured = engine.systemAudioSpectrumService.changes[0]
                 precondition(configured.0 == .banded && configured.1 == .lively && configured.2 == 36)
@@ -414,7 +447,14 @@ extension Notification.Name {
             '    func applyPlaybackRateToEngine(', '    func applySystemAudioSpectrumToEngine(',
             '    func seedEngineProjectionFromPersistedSettings(', '    func projectEngineSettingsIfChanged(',
             '    func projectLoopPolicyToEngine(', '    func applyEngineSettings(',
-        ]) + '\n' + method(switching, '    func configureRuntimeSwitching(') + '\n' + method(application, '    func setAsWallpaper(')
+        ]) + '\n' + '\n'.join(method(switching, signature) for signature in [
+            '    func configureRuntimeSwitching(', '    enum RuntimeSwitchSelection',
+            '    func requestLibraryPlayback(reference: WallpaperReference, from snapshot:',
+            '    func requestLibraryPlayback(reference: WallpaperReference, source:',
+            '    func dispatchLibraryPlayback(', '    func acceptsLibraryPlayback(',
+            '    func acceptsImportedVideoPlayback(', '    func prepareVideoSwitch(',
+        ]) + '\n' + method(manager, '    func beginPlaybackIntent(') \
+            + '\n' + method(application, '    func setAsWallpaper(')
         for marker, fragment in [
             ('// SETTINGS_BINDINGS', bindings), ('// MANAGER_METHODS', methods),
             ('// CONFIGURE_SPECTRUM', method(audio, '    public func configureSystemAudioSpectrum(')),
@@ -425,7 +465,8 @@ extension Notification.Name {
             work = Path(directory)
             source = work / 'Harness.swift'; source.write_text(harness)
             binary = work / 'projection'
-            compiled = subprocess.run(['xcrun', 'swiftc', '-parse-as-library',
+            compiled = subprocess.run(['xcrun', 'swiftc', '-swift-version', '5', '-parse-as-library',
+                *map(str, GATE_SOURCES),
                 str(ROOT / 'MyWallpaperX/Models/WallpaperSettings.swift'),
                 str(ROOT / 'MyWallpaperX/Models/WallpaperControls.swift'),
                 str(PLAYBACK / 'DaemonProtocol.swift'), str(source),

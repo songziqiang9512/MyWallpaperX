@@ -59,7 +59,7 @@ import Foundation
 
     static func observe(_ sim: SceneParticleSimulator, _ trail: SceneParticleTrailRenderPlan)
         -> [String: Any] {
-        ["count": sim.particles.count, "time": sim.simulationTime,
+        var value: [String: Any] = ["count": sim.particles.count, "time": sim.simulationTime,
          "ids": sim.particles.map(\.id), "ages": sim.particles.map(\.age),
          "velocities": sim.particles.map { vector($0.velocity) },
          "positions": sim.particles.map { vector($0.position) },
@@ -68,9 +68,12 @@ import Foundation
          "randomState": sim.frameSnapshot().random.state,
          "gpuFinite": sim.particles.allSatisfy {
              SceneParticleSimulationMath.isGPUFinite($0.position)
-                && SceneParticleSimulationMath.isGPUFinite($0.velocity) },
-         "diagnostics": sim.diagnostics.map { ["kind": $0.kind.rawValue,
-                                               "component": $0.componentName ?? ""] }]
+                && SceneParticleSimulationMath.isGPUFinite($0.velocity) }]
+#if DEBUG
+        value["diagnostics"] = sim.diagnostics.map { ["kind": $0.kind.rawValue,
+                                                     "component": $0.componentName ?? ""] }
+#endif
+        return value
     }
 
     static func main() throws {
@@ -120,11 +123,13 @@ import Foundation
             do { _ = try explicit(sim) }
             catch SceneParticleEmissionFailure.unavailable { rejected = true }
             let after = sim.frameSnapshot()
-            invalidAxes.append(["normal": normal, "rejected": rejected,
-                "unchanged": after.particles == before.particles && after.random.state == before.random.state
+            var unchanged = after.particles == before.particles && after.random.state == before.random.state
                     && after.nextParticleID == before.nextParticleID && after.playback == before.playback
-                    && after.simulationTime == before.simulationTime && after.diagnostics == before.diagnostics
-                    && after.birthEvents == before.birthEvents])
+                    && after.simulationTime == before.simulationTime && after.birthEvents == before.birthEvents
+#if DEBUG
+            unchanged = unchanged && after.diagnostics == before.diagnostics
+#endif
+            invalidAxes.append(["normal": normal, "rejected": rejected, "unchanged": unchanged])
         }
         let payload: [String: Any] = ["cases": cases, "axisCases": axisCases,
             "invalidAxes": invalidAxes, "explicitPositive": positive.state.particles.map { vector($0.velocity) },
@@ -154,14 +159,26 @@ class SceneParticleTurbulentForwardTests(unittest.TestCase):
         directory = Path(cls.temp.name)
         harness = directory / "Harness.swift"
         harness.write_text(HARNESS)
-        binary = directory / "turbulent-forward"
-        compiled = subprocess.run([compiler, *map(str, sources), str(harness), "-o", str(binary)],
-                                  capture_output=True, text=True, timeout=120)
-        if compiled.returncode:
-            raise RuntimeError(compiled.stderr)
-        completed = subprocess.run([str(binary)], check=True, capture_output=True,
-                                   text=True, timeout=30)
-        cls.result = json.loads(completed.stdout)
+        results = {}
+        for mode, flags in [("debug", ["-D", "DEBUG"]), ("release", [])]:
+            binary = directory / ("turbulent-forward-" + mode)
+            compiled = subprocess.run([compiler, "-O", *flags, *map(str, sources), str(harness), "-o", str(binary)],
+                                      capture_output=True, text=True, timeout=120)
+            if compiled.returncode:
+                raise RuntimeError(compiled.stderr)
+            completed = subprocess.run([str(binary)], check=True, capture_output=True,
+                                       text=True, timeout=30)
+            results[mode] = json.loads(completed.stdout)
+        cls.result, cls.release_result = results["debug"], results["release"]
+
+    def test_release_preserves_output_events_random_time_and_failure_rollback(self):
+        def without_reports(value):
+            if isinstance(value, dict):
+                return {key: without_reports(item) for key, item in value.items() if key != "diagnostics"}
+            if isinstance(value, list):
+                return [without_reports(item) for item in value]
+            return value
+        self.assertEqual(self.release_result, without_reports(self.result))
 
     def assert_vector(self, actual, expected):
         self.assertEqual(len(actual), len(expected))

@@ -68,9 +68,11 @@ extension Harness {
                     + (name == "static" ? count(batches, path: "small") : 0))
             }
             output[name] = peak
+#if DEBUG
             output[name + "Diagnostics"] = value.diagnostics.compactMap {
                 $0.kind == .simulationLimitation ? $0.detail : nil
             }
+#endif
             let systems = value.frameSnapshot().layers.first?.child?.systems ?? []
             output[name + "Capacity"] = [1, 2].map { depth in
                 systems.filter { $0.depth == depth }.reduce(0) { $0 + $1.simulator.maximumParticleCount }
@@ -594,25 +596,28 @@ extension Harness {
                 $0.particlePath == "particles/budget-nested-trail.json"
             }?.instances.count ?? 0)
         }
-        return [
+        var facts1: [String: Any] = [
             "trailCounts": trailCounts,
             "trailOrigins": trailOrigins,
             "headPositions": headPositions,
             "budgetTrailCounts": budgetTrailCounts,
-            "depthDetails": runtime.diagnostics.compactMap {
-                $0.layerID == 21 && $0.kind == .childSystemsUnsupported ? $0.detail : nil
-            },
-            "staticDetails": runtime.diagnostics.compactMap {
-                $0.layerID == 22 && $0.kind == .childSystemsUnsupported ? $0.detail : nil
-            },
-            "budgetDetails": runtime.diagnostics.compactMap {
-                $0.layerID == 23 && $0.kind == .simulationLimitation ? $0.detail : nil
-            },
-            "nestedUnsupportedLayers": runtime.diagnostics.compactMap {
-                $0.kind == .childSystemsUnsupported && $0.layerID != 21 && $0.layerID != 22
-                    ? $0.layerID : nil
-            },
         ]
+#if DEBUG
+        facts1["depthDetails"] = runtime.diagnostics.compactMap {
+            $0.layerID == 21 && $0.kind == .childSystemsUnsupported ? $0.detail : nil
+        }
+        facts1["staticDetails"] = runtime.diagnostics.compactMap {
+            $0.layerID == 22 && $0.kind == .childSystemsUnsupported ? $0.detail : nil
+        }
+        facts1["budgetDetails"] = runtime.diagnostics.compactMap {
+            $0.layerID == 23 && $0.kind == .simulationLimitation ? $0.detail : nil
+        }
+        facts1["nestedUnsupportedLayers"] = runtime.diagnostics.compactMap {
+            $0.kind == .childSystemsUnsupported && $0.layerID != 21 && $0.layerID != 22
+                ? $0.layerID : nil
+        }
+#endif
+        return facts1
     }
 
     static func realNestedMatrix(
@@ -651,11 +656,13 @@ extension Harness {
                 trailVelocityY.append(contentsOf: batch.instances.map(\.velocityAndTrail.y))
             }
         }
+#if DEBUG
         let staticRejections = runtime.diagnostics.filter {
             $0.kind == .childSystemsUnsupported
                 && ($0.detail ?? "").contains("matrix_code_copy1.json")
         }
-        return [
+#endif
+        var facts2: [String: Any] = [
             "headCount": headCount,
             "trailCount": trailCount,
             "trailBatchCount": trailBatchCount,
@@ -664,13 +671,16 @@ extension Harness {
             "trailYRange": [trailY.min() ?? 0, trailY.max() ?? 0],
             "trailSizeRange": [trailSize.min() ?? 0, trailSize.max() ?? 0],
             "trailVelocityYRange": [trailVelocityY.min() ?? 0, trailVelocityY.max() ?? 0],
-            "staticRejections": staticRejections.count,
             "activeLayerIDs": runtime.activeLayerIDs,
-            "nestedBudgetDetails": runtime.diagnostics.compactMap { value in
-                (value.detail ?? "").contains("nestedAggregateSystemBudget")
-                    ? (value.detail ?? "") : nil
-            },
         ]
+#if DEBUG
+        facts2["staticRejections"] = staticRejections.count
+        facts2["nestedBudgetDetails"] = runtime.diagnostics.compactMap { value in
+            (value.detail ?? "").contains("nestedAggregateSystemBudget")
+                ? (value.detail ?? "") : nil
+        }
+#endif
+        return facts2
     }
 
     static func delayedChildren(edges: Bool = false) throws -> [String: Any] {

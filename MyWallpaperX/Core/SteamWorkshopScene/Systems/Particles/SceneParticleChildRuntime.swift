@@ -41,19 +41,23 @@ final class SceneParticleChildRuntime {
     private static let maximumSystemsPerDepth = 64
 
     let unsupportedDetails: [String]
+#if DEBUG
     let performanceDetails: [String]
+#endif
     let handlesAllChildren: Bool
     /// Launch-stable demand used by the host to avoid projecting the pointer
     /// for particle layers whose prepared child graph cannot consume it.
     let hasPointerControlPointConsumer: Bool
     /// Includes dormant/event templates before their first particle exists.
     let requiresAlphaToCoverage: Bool
+#if DEBUG
     /// One-line launch summary for the DEBUG evidence path: how many child
     /// systems the expansion produced versus how many declarations it saw.
     var expansionSummary: String {
         "templates=\(templates.count) unsupported=\(unsupportedDetails.count) "
             + "systems=\(systems.count) handlesAllChildren=\(handlesAllChildren)"
     }
+#endif
 
     var hasTemplates: Bool {
         !templates.isEmpty
@@ -83,8 +87,11 @@ final class SceneParticleChildRuntime {
     }
 
     private let layerID: Int
+#if DEBUG
     private var didLogInstanceCensus = false
     private var censusTimeAccumulator: TimeInterval = 0
+    private var frameLimitations: Set<String> = []
+#endif
     private let device: MTLDevice
     private let templates: [SceneParticleChildTemplate]
     private let templatesByIndex: [Int: SceneParticleChildTemplate]
@@ -152,7 +159,9 @@ final class SceneParticleChildRuntime {
             !$0.pointerControlPointIdentities.isEmpty
         }
         nestedParentPaths = Set(templates.compactMap(\.parentAssetPath))
+#if DEBUG
         var performance = expansion.performanceDetails
+#endif
         let staticTemplates = templates.filter { $0.trigger == .staticChild }
         var staticCapacity = Self.maximumParticlesPerDepth
         var staticRopeExpansionCapacity =
@@ -160,8 +169,10 @@ final class SceneParticleChildRuntime {
         for (offset, template) in staticTemplates.enumerated() {
             guard systems.count < Self.maximumSystemsPerDepth,
                   template.particleBudget <= staticCapacity else {
+#if DEBUG
                 let detail = Self.budgetDetail(depth: template.depth)
                 if !performance.contains(detail) { performance.append(detail) }
+#endif
                 continue
             }
             let ropeExpansion = template.rope.map {
@@ -169,9 +180,11 @@ final class SceneParticleChildRuntime {
                     - SceneParticleChildTemplateSupport.maximumRopeSegmentsPerTemplate, 0)
             } ?? 0
             guard ropeExpansion <= staticRopeExpansionCapacity else {
+#if DEBUG
                 let detail = "staticRopeExpansionBudget:segments="
                     + "\(SceneParticleChildTemplateSupport.maximumStaticRopeExpansionSegments)"
                 if !performance.contains(detail) { performance.append(detail) }
+#endif
                 continue
             }
             staticCapacity -= template.particleBudget
@@ -194,7 +207,9 @@ final class SceneParticleChildRuntime {
             ))
             nextSystemID &+= 1
         }
+#if DEBUG
         performanceDetails = performance
+#endif
     }
 
     func advance(
@@ -211,7 +226,9 @@ final class SceneParticleChildRuntime {
         worldSpaceFrameOverride: SceneParticleWorldSpaceFrame? = nil,
         isVisible: Bool = true
     ) -> SceneParticleChildAdvanceResult {
-        var limitations: Set<String> = []
+#if DEBUG
+        frameLimitations.removeAll(keepingCapacity: true)
+#endif
         var retiredRenderSystems: [SceneParticleChildSystem] = []
         let parentFrames = advanceDepthOne(
             by: frameDelta,
@@ -227,15 +244,15 @@ final class SceneParticleChildRuntime {
         retireCompletedSystems(depth: 1, into: &retiredRenderSystems)
         spawn(
             from: spawnEvents, trigger: .spawn, depth: 1, parentPath: nil,
-            scopeID: nil, parentOrigin: .zero, dynamicInstanceValues: dynamicInstanceValues, limitations: &limitations
+            scopeID: nil, parentOrigin: .zero, dynamicInstanceValues: dynamicInstanceValues
         )
         spawn(
             from: deathEvents, trigger: .death, depth: 1, parentPath: nil,
-            scopeID: nil, parentOrigin: .zero, dynamicInstanceValues: dynamicInstanceValues, limitations: &limitations
+            scopeID: nil, parentOrigin: .zero, dynamicInstanceValues: dynamicInstanceValues
         )
         reconcileFollowers(
             parentParticles, depth: 1, parentPath: nil,
-            scopeID: nil, parentOrigin: .zero, dynamicInstanceValues: dynamicInstanceValues, limitations: &limitations
+            scopeID: nil, parentOrigin: .zero, dynamicInstanceValues: dynamicInstanceValues
         )
         advanceDepthTwo(
             by: frameDelta,
@@ -247,15 +264,18 @@ final class SceneParticleChildRuntime {
             audioInput: audioInput,
             worldSpaceFrameOverride: worldSpaceFrameOverride,
             retiredRenderSystems: &retiredRenderSystems,
-            limitations: &limitations,
             allowsEmission: isVisible
         )
 
         guard isVisible else {
             for key in instanceScratch.keys { instanceScratch[key]?.removeAll(keepingCapacity: true) }
+#if DEBUG
             return SceneParticleChildAdvanceResult(
-                batches: [], bufferFailurePaths: [], limitationDetails: limitations.sorted()
+                batches: [], limitationDetails: frameLimitations.sorted()
             )
+#else
+            return SceneParticleChildAdvanceResult(batches: [])
+#endif
         }
 
         // Retirement is collected by depth, while system IDs preserve authored
@@ -276,12 +296,6 @@ final class SceneParticleChildRuntime {
         )
         var batches: [SceneParticleDrawBatch] = []
         batches.reserveCapacity(templates.count)
-        let failures: [String] = []
-        // DEBUG probe: throttled spawn/instance census (~1s of sim time) with
-        // the built batch count, to distinguish bursty lifecycle windows from
-        // batch-creation gaps at snapshot time.
-        censusTimeAccumulator += frameDelta
-        let censusDue = !didLogInstanceCensus || censusTimeAccumulator >= 1
         for template in templates {
             guard let instances = instanceScratch[template.index], !instances.isEmpty else {
                 continue
@@ -302,27 +316,32 @@ final class SceneParticleChildRuntime {
                 sizeIsWorldSpace: template.definition.flags.isWorldSpace
             ))
         }
+#if DEBUG
+        // Throttled spawn/instance census (~1s of sim time) distinguishes
+        // bursty lifecycle windows from batch-creation gaps at snapshot time.
+        censusTimeAccumulator += frameDelta
+        let censusDue = !didLogInstanceCensus || censusTimeAccumulator >= 1
         if censusDue {
             didLogInstanceCensus = true
             censusTimeAccumulator = 0
             let spawned = templates.compactMap { instanceScratch[$0.index]?.count }
             let systemParticleCounts = systems.map { $0.simulator.particles.count }
             let systemParticleTotal = systemParticleCounts.reduce(0, +)
-#if DEBUG
             NSLog(
-                "MWX DEBUG SCENE: phase=particle-child-census layer=%d templates=%d systems=%d systemParticles=%d spawnedTotal=%d emptyTemplates=%d nonEmptySystems=%d batches=%d bufferFailures=%d",
+                "MWX DEBUG SCENE: phase=particle-child-census layer=%d templates=%d systems=%d systemParticles=%d spawnedTotal=%d emptyTemplates=%d nonEmptySystems=%d batches=%d",
                 layerID, templates.count, systems.count,
                 systemParticleTotal, spawned.reduce(0, +), spawned.count,
                 systemParticleCounts.filter { $0 > 0 }.count,
-                batches.count, failures.count
+                batches.count
             )
-#endif
         }
         return SceneParticleChildAdvanceResult(
             batches: batches,
-            bufferFailurePaths: failures,
-            limitationDetails: limitations.sorted()
+            limitationDetails: frameLimitations.sorted()
         )
+#else
+        return SceneParticleChildAdvanceResult(batches: batches)
+#endif
     }
 
     func frameSnapshot() -> FrameSnapshot {
@@ -387,6 +406,7 @@ final class SceneParticleChildRuntime {
         systems.removeAll(keepingCapacity: false)
         instanceScratch.removeAll(keepingCapacity: false)
 #if DEBUG
+        frameLimitations.removeAll(keepingCapacity: false)
         observedAudioComponentsByTemplate.removeAll(keepingCapacity: false)
         pendingAudioEvaluationObservations.removeAll(keepingCapacity: false)
 #endif
@@ -468,7 +488,6 @@ final class SceneParticleChildRuntime {
         audioInput: SceneParticleAudioInput,
         worldSpaceFrameOverride: SceneParticleWorldSpaceFrame? = nil,
         retiredRenderSystems: inout [SceneParticleChildSystem],
-        limitations: inout Set<String>,
         allowsEmission: Bool
     ) {
         guard !nestedParentPaths.isEmpty else { return }
@@ -530,17 +549,17 @@ final class SceneParticleChildRuntime {
             spawn(
                 from: frame.births, trigger: .spawn, depth: 2, parentPath: frame.path,
                 scopeID: frame.systemID, parentOrigin: frame.origin,
-                dynamicInstanceValues: dynamicInstanceValues, limitations: &limitations
+                dynamicInstanceValues: dynamicInstanceValues
             )
             spawn(
                 from: frame.deaths, trigger: .death, depth: 2, parentPath: frame.path,
                 scopeID: frame.systemID, parentOrigin: frame.origin,
-                dynamicInstanceValues: dynamicInstanceValues, limitations: &limitations
+                dynamicInstanceValues: dynamicInstanceValues
             )
             reconcileFollowers(
                 frame.particles, depth: 2, parentPath: frame.path,
                 scopeID: frame.systemID, parentOrigin: frame.origin,
-                dynamicInstanceValues: dynamicInstanceValues, limitations: &limitations
+                dynamicInstanceValues: dynamicInstanceValues
             )
         }
     }
@@ -634,8 +653,7 @@ final class SceneParticleChildRuntime {
         parentPath: String?,
         scopeID: UInt64?,
         parentOrigin: SIMD3<Double>,
-        dynamicInstanceValues: SceneDynamicParticleValues?,
-        limitations: inout Set<String>
+        dynamicInstanceValues: SceneDynamicParticleValues?
     ) {
         guard !events.isEmpty else { return }
         let selectionKey = TemplateSelectionKey(
@@ -657,7 +675,9 @@ final class SceneParticleChildRuntime {
                 else { continue }
                 guard allocation.systems < Self.maximumSystemsPerDepth,
                       template.particleBudget <= Self.maximumParticlesPerDepth - allocation.particles else {
-                    limitations.insert(Self.budgetDetail(depth: depth))
+#if DEBUG
+                    frameLimitations.insert(Self.budgetDetail(depth: depth))
+#endif
                     continue
                 }
                 appendSystem(
@@ -681,8 +701,7 @@ final class SceneParticleChildRuntime {
         parentPath: String?,
         scopeID: UInt64?,
         parentOrigin: SIMD3<Double>,
-        dynamicInstanceValues: SceneDynamicParticleValues?,
-        limitations: inout Set<String>
+        dynamicInstanceValues: SceneDynamicParticleValues?
     ) {
         guard !parents.isEmpty else { return }
         let selectionKey = TemplateSelectionKey(
@@ -702,7 +721,9 @@ final class SceneParticleChildRuntime {
                 else { continue }
                 guard allocation.systems < Self.maximumSystemsPerDepth,
                       template.particleBudget <= Self.maximumParticlesPerDepth - allocation.particles else {
-                    limitations.insert(Self.budgetDetail(depth: depth))
+#if DEBUG
+                    frameLimitations.insert(Self.budgetDetail(depth: depth))
+#endif
                     continue
                 }
                 followedIDs.insert(parent.id)
@@ -777,6 +798,7 @@ final class SceneParticleChildRuntime {
         return allocation
     }
 
+#if DEBUG
     private static func budgetDetail(depth: Int) -> String {
         depth <= 1
             ? "aggregateSystemBudget:systems=\(maximumSystemsPerDepth):particleCapacity="
@@ -784,4 +806,5 @@ final class SceneParticleChildRuntime {
             : "nestedAggregateSystemBudget:depth=2:systems=\(maximumSystemsPerDepth)"
             + ":particleCapacity=\(maximumParticlesPerDepth)"
     }
+#endif
 }

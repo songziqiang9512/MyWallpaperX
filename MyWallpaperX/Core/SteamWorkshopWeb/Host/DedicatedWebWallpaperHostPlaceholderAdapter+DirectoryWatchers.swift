@@ -3,10 +3,12 @@ import WebKit
 import Darwin
 
 extension DedicatedWebWallpaperHostPlaceholderAdapter {
-    func startDirectoryWatcher(for propertyName: String, path: String) {
+    func startDirectoryWatcher(at path: String) {
         guard let request = currentRequest,
               let authorized = WebWallpaperResourceGrant.authorizedURL(URL(fileURLWithPath: path), kind: .directory,
                 rootURL: request.rootURL, grants: request.resourceGrants) else { return }
+        let canonicalPath = authorized.path
+        guard directoryWatchersByDirectory[canonicalPath] == nil else { return }
         let fileDescriptor = open(authorized.path, O_EVTONLY)
         guard fileDescriptor >= 0 else { return }
 
@@ -15,26 +17,26 @@ extension DedicatedWebWallpaperHostPlaceholderAdapter {
             eventMask: [.write, .delete, .rename, .attrib, .extend, .link, .revoke],
             queue: .main
         )
-        let watcher = DirectoryWatcher(path: path, fileDescriptor: fileDescriptor, source: source)
+        let watcher = DirectoryWatcher(fileDescriptor: fileDescriptor, source: source)
         source.setEventHandler { [weak self] in
             self?.pollFetchAllDirectoryProperties()
         }
         source.setCancelHandler {
             close(fileDescriptor)
         }
-        directoryWatchersByProperty[propertyName] = watcher
+        directoryWatchersByDirectory[canonicalPath] = watcher
         source.resume()
     }
 
-    func stopDirectoryWatcher(for propertyName: String) {
-        guard let watcher = directoryWatchersByProperty.removeValue(forKey: propertyName) else { return }
+    func stopDirectoryWatcher(at path: String) {
+        guard let watcher = directoryWatchersByDirectory.removeValue(forKey: path) else { return }
         watcher.source.setEventHandler {}
         watcher.source.cancel()
     }
 
     func stopAllDirectoryWatchers() {
-        for propertyName in Array(directoryWatchersByProperty.keys) {
-            stopDirectoryWatcher(for: propertyName)
+        for path in Array(directoryWatchersByDirectory.keys) {
+            stopDirectoryWatcher(at: path)
         }
     }
 

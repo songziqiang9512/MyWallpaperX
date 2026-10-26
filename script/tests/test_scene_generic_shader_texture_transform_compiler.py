@@ -116,7 +116,7 @@ class SceneGenericShaderTextureTransformCompilerTests(unittest.TestCase):
             *(path for path in bundle.rglob("*") if path.is_file())]
         before = source_hashes(inputs)
         command = [
-            "xcrun", "--sdk", "macosx", "swiftc", "-parse-as-library",
+            "xcrun", "--sdk", "macosx", "swiftc", "-parse-as-library", "-D", "SCENE_GRAPH_TESTING",
             str(support), *map(str, sources), str(harness),
             "-framework", "Metal", "-framework", "CoreGraphics", "-framework", "Security",
             "-module-cache-path", str(root / "module-cache"), "-o", str(binary),

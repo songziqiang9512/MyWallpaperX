@@ -55,6 +55,8 @@ SWIFT_SOURCES = [
 ]
 
 
+SPHERE_SAMPLING_SOURCE = Path(__file__).with_name("fixtures") / "SceneParticleSphereSamplingChecks.swift"
+
 HARNESS_SOURCE = r'''
 import Foundation
 import simd
@@ -83,7 +85,7 @@ enum Harness {
         } else if CommandLine.arguments.dropFirst().first == "signed-drag-safety" {
             try printJSON(signedDragSafetyResults())
         } else if CommandLine.arguments.count == 2, CommandLine.arguments[1] == "sphere-sampling" {
-            try printJSON(sphereSamplingResults())
+            try printJSON(SceneParticleSphereSamplingChecks.run())
         } else if CommandLine.arguments.count == 2,
            CommandLine.arguments[1] == "position-around-control-point" {
             try printJSON(positionAroundControlPointResults())
@@ -648,69 +650,6 @@ enum Harness {
                 && simulation.diagnostics.contains { $0.kind == .invalidOperatorState })
         }
         return ["rows": rows, "positionOnly": positionOnly]
-    }
-
-    private static func sphereSamplingResults() throws -> [String: Any] {
-        func make(_ directions: SIMD3<Double>, count: Int = 20_000,
-                  seed: UInt64 = 52, minimum: Double = 10,
-                  maximum: Double = 10, sign: String = "0 0 0",
-                  speed: Double = 0, rate: Double = 0, instantaneous: Int? = nil) throws -> SceneParticleSimulator {
-            let root: [String: Any] = [
-                "material": "p.json", "maxcount": count,
-                "emitter": [["name": "sphererandom", "instantaneous": instantaneous ?? count, "rate": rate,
-                    "origin": "0 0 0", "directions": "\(directions.x) \(directions.y) \(directions.z)",
-                    "sign": sign, "distancemin": minimum, "distancemax": maximum,
-                    "speedmin": speed, "speedmax": speed]],
-                "initializer": [["name": "lifetimerandom", "min": 10, "max": 10]],
-                "renderer": [["name": "sprite"]]
-            ]
-            let data = try JSONSerialization.data(withJSONObject: root)
-            let definition = try SceneParticleDefinitionParser().parse(data: data)
-            let simulation = SceneParticleSimulator(definition: definition, seed: seed)
-            simulation.advance(by: 1.0 / 60)
-            return simulation
-        }
-        var rows: [[String: Any]] = []
-        for mask in 0...7 {
-            let directions = SIMD3<Double>(mask & 1 == 0 ? 0 : 1,
-                mask & 2 == 0 ? 0 : 1, mask & 4 == 0 ? 0 : 1)
-            let simulation = try make(directions)
-            var mean = SIMD3<Double>.zero, second = SIMD3<Double>.zero
-            var minRadius = Double.infinity, maxRadius = 0.0, axisAtoms = 0
-            for particle in simulation.particles {
-                let v = particle.position / 10
-                let radius = simd_length(v)
-                minRadius = min(minRadius, radius); maxRadius = max(maxRadius, radius)
-                mean += v; second += v * v
-                if (0..<3).filter({ v[$0] != 0 }).count == 1 { axisAtoms += 1 }
-            }
-            let n = Double(simulation.particles.count)
-            rows.append(["mask": mask, "count": simulation.particles.count,
-                "minimumRadius": minRadius, "maximumRadius": maxRadius,
-                "mean": [mean.x/n, mean.y/n, mean.z/n],
-                "secondMoment": [second.x/n, second.y/n, second.z/n], "axisAtoms": axisAtoms])
-        }
-        let counterexample = try make(SIMD3(0, 1, 1), count: 1, seed: 262085)
-        let velocity = try make(SIMD3(0, 1, 1), count: 1, seed: 262085, speed: 7)
-        let volume = try make(SIMD3(1, 1, 1), minimum: 2, maximum: 4)
-        let volumeFactors = volume.particles.map { (pow(simd_length($0.position), 3) - 8) / 56 }
-        let signed = try make(SIMD3(2, 0, 3), count: 128, sign: "-1 0 1")
-        let replay = try make(SIMD3(1, 1, 1), count: 20, rate: 60, instantaneous: 1)
-        let snapshot = replay.frameSnapshot()
-        replay.advance(by: 0.1); let expected = replay.particles
-        replay.restoreFrame(snapshot); replay.advance(by: 0.1)
-        let again = try make(SIMD3(0, 1, 1), count: 1, seed: 262085)
-        return ["rows": rows, "counterexampleRadius": simd_length(counterexample.particles[0].position),
-            "counterexampleSpeed": simd_length(velocity.particles[0].velocity),
-            "counterexampleRadialSpeed": simd_length(velocity.particles[0].velocity - velocity.particles[0].position * 0.7),
-            "volumeFactorMean": volumeFactors.reduce(0,+) / Double(volumeFactors.count),
-            "volumeFactorMin": volumeFactors.min()!, "volumeFactorMax": volumeFactors.max()!,
-            "signedShell": signed.particles.allSatisfy {
-                $0.position.x <= 0 && $0.position.z >= 0 && $0.position.y == 0
-                && abs(simd_length($0.position / SIMD3(2, 1, 3)) - 10) < 1e-9
-            },
-            "deterministic": counterexample.particles == again.particles,
-            "rollback": replay.particles == expected && expected.count > 1]
     }
 
     private static func emitterPointerResults() throws -> [String: Any] {
@@ -3471,7 +3410,8 @@ class SceneParticleSimulatorTests(unittest.TestCase):
         harness.write_text(HARNESS_SOURCE, encoding="utf-8")
         cls.binary = directory / "scene-particle-runtime"
         subprocess.run(
-            [swiftc, *(str(path) for path in SWIFT_SOURCES), str(harness), "-o", str(cls.binary)],
+            [swiftc, "-D", "DEBUG", *(str(path) for path in SWIFT_SOURCES), str(SPHERE_SAMPLING_SOURCE),
+             str(harness), "-o", str(cls.binary)],
             check=True,
             capture_output=True,
             text=True,
@@ -3572,6 +3512,42 @@ class SceneParticleSimulatorTests(unittest.TestCase):
         self.assertTrue(result["signedShell"])
         self.assertTrue(result["deterministic"])
         self.assertTrue(result["rollback"])
+        expected_names = {f"mask-{mask}" for mask in range(8)} | {
+            "defaults", "below-threshold", "at-threshold", "above-threshold",
+            "negative-below-threshold", "negative-at-threshold", "negative-above-threshold",
+            "signed-zero", "negative-direction-sign", "reverse-range", "negative-distance-clamp",
+            "equal-shell", "subnormal-shell", "power-overflow", "infinite-maximum",
+            "nan-minimum", "nan-maximum",
+        }
+        oracle_rows = {row["name"]: row for row in result["oracleRows"]}
+        self.assertEqual(set(oracle_rows), expected_names)
+        for name, row in oracle_rows.items():
+            with self.subTest(oracle=name):
+                self.assertEqual(row["samples"], 64)
+                for field in ("bitsOrNaNClassMatch", "rngAfterEachSampleMatches", "drawCountMatches",
+                              "nextRandomMatches", "nextIDUnchanged"):
+                    self.assertTrue(row[field], (field, row))
+                self.assertEqual(row["firstMismatch"], {})
+        for mask in range(8):
+            self.assertEqual(oracle_rows[f"mask-{mask}"]["mask"], mask)
+        for name in ("below-threshold", "at-threshold", "negative-below-threshold",
+                     "negative-at-threshold"):
+            self.assertIn(oracle_rows[name]["mask"], (2, 4))
+        self.assertEqual(oracle_rows["above-threshold"]["mask"], 3)
+        self.assertEqual(oracle_rows["negative-above-threshold"]["mask"], 5)
+        self.assertEqual(oracle_rows["signed-zero"]["mask"], 0)
+        birth_rows = {row["name"]: row for row in result["birthRows"]}
+        self.assertEqual(set(birth_rows), expected_names)
+        for name, row in birth_rows.items():
+            with self.subTest(birth=name):
+                for field in ("positionsMatch", "identitiesMatch", "birthEventsMatch", "nextIDMatches",
+                              "rngMatches", "nextRandomMatches", "rollbackMatches"):
+                    self.assertTrue(row[field], (field, row))
+                self.assertEqual(row["accepted"] + row["rejected"], 8)
+        for name in ("power-overflow", "infinite-maximum"):
+            self.assertGreater(oracle_rows[name]["nonfiniteValues"], 0)
+            self.assertEqual(birth_rows[name]["accepted"], 0)
+            self.assertEqual(birth_rows[name]["rejected"], 8)
 
     def test_periodic_emission_consumes_rate_and_count_with_bounded_work(self) -> None:
         result = self.run_harness("periodic-overrides")
@@ -4105,7 +4081,6 @@ class SceneParticleSimulatorTests(unittest.TestCase):
         # `emissionAudioScale` 的调用形状不再断言：AGENTS §4 禁止把源码文本/参数标签
         # 当作通过条件，且该调用的 emitterIndex 归属由 spawn plan 自己表达。
         self.assertIn("let directions = plan.directions", random_source)
-        self.assertIn("let minimum = plan.sphereDistanceMinimum", random_source)
         self.assertIn("let minimum = plan.boxDistanceMinimum", random_source)
         self.assertNotIn(
             "controlPointsByID?[source]\\n            ?? controlPoints.first",

@@ -32,9 +32,11 @@ extension Harness {
             cacheDirectory: cache,
             device: device
         ) else { throw HarnessError.noParticlePipeline }
+#if DEBUG
         let playbackReport = playback.loadReportLines(descriptor: descriptor)
+#endif
 
-        return [
+        var facts1: [String: Any] = [
             "activeLayerIDs": runtime.activeLayerIDs,
             "batchLayerIDs": initial.map(\.layerID),
             "initialCount": initialInstances.count,
@@ -51,12 +53,15 @@ extension Harness {
             "overrideCount": scalar(override?.count),
             "overrideLifetime": scalar(override?.lifetime),
             "overrideSize": scalar(override?.size),
-            "diagnosticKinds": runtime.diagnostics.map { $0.kind.rawValue },
-            "playbackLoadedLine": playbackReport.first { $0.hasPrefix("particle loaded:") } ?? "",
-            "missingBatchLoadedLine": SceneParticlePlaybackState.loadedSummaryLine(
-                batchLayerIDs: [], visibleLayerCount: 1
-            ),
         ]
+#if DEBUG
+        facts1["diagnosticKinds"] = runtime.diagnostics.map { $0.kind.rawValue }
+        facts1["playbackLoadedLine"] = playbackReport.first { $0.hasPrefix("particle loaded:") } ?? ""
+        facts1["missingBatchLoadedLine"] = SceneParticlePlaybackState.loadedSummaryLine(
+            batchLayerIDs: [], visibleLayerCount: 1
+        )
+#endif
+        return facts1
     }
 
     static func realRefractionSample(
@@ -75,7 +80,7 @@ extension Harness {
             )
         )
         let batches = runtime.advance(by: 0)
-        return [
+        var facts2: [String: Any] = [
             "batchLayerIDs": batches.map(\.layerID),
             "refractionLayerIDs": batches.filter { $0.refraction != nil }.map(\.layerID),
             "sameTextureIdentity": batches.filter { $0.refraction != nil }.allSatisfy {
@@ -86,9 +91,12 @@ extension Harness {
                 $0.refraction?.usesStaticNormalCandidate == true
             }.map(\.layerID),
             "amounts": batches.compactMap { $0.refraction?.amount },
-            "diagnostics": runtime.diagnostics.map(\.kind.rawValue),
-            "diagnosticDetails": runtime.diagnostics.map { $0.detail ?? "" },
         ]
+#if DEBUG
+        facts2["diagnostics"] = runtime.diagnostics.map(\.kind.rawValue)
+        facts2["diagnosticDetails"] = runtime.diagnostics.map { $0.detail ?? "" }
+#endif
+        return facts2
     }
 
     static func realRefractionChildSample(
@@ -123,15 +131,18 @@ extension Harness {
                 $0.refraction?.usesStaticNormalCandidate == false
             }.map(\.particlePath))
         }
-        return [
+        var facts3: [String: Any] = [
             "firstFrame": firstFrame,
             "paths": paths.sorted(),
             "candidatePaths": candidatePaths.sorted(),
             "legacyPaths": legacyPaths.sorted(),
-            "refractionUnsupported": runtime.diagnostics.filter {
-                $0.kind == .refractionUnsupported
-            }.map { $0.detail ?? "" },
         ]
+#if DEBUG
+        facts3["refractionUnsupported"] = runtime.diagnostics.filter {
+            $0.kind == .refractionUnsupported
+        }.map { $0.detail ?? "" }
+#endif
+        return facts3
     }
 
     static func realWaterImpactSample(
@@ -203,7 +214,7 @@ extension Harness {
                 }
             }
         }
-        return [
+        var facts4: [String: Any] = [
             "activeFrames": Dictionary(uniqueKeysWithValues: targetLayers.sorted().map {
                 (String($0), activeFrames[$0, default: 0])
             }),
@@ -223,22 +234,25 @@ extension Harness {
             ),
             "minimumTrailStretch": minimumTrailStretch.isFinite ? minimumTrailStretch : -1,
             "maximumTrailStretch": maximumTrailStretch,
-            "trailChildUnsupported": runtime.diagnostics.compactMap { diagnostic in
-                diagnostic.kind == .childSystemsUnsupported
-                    && (diagnostic.detail ?? "").contains(trailChildPath)
-                    ? (diagnostic.detail ?? "") : nil
-            },
-            "ropeUnsupported": runtime.diagnostics.compactMap { diagnostic in
-                diagnostic.kind == .childSystemsUnsupported
-                    && ropePaths.contains(where: {
-                        (diagnostic.detail ?? "").contains($0)
-                    })
-                    ? (diagnostic.detail ?? "") : nil
-            },
-            "refractionUnsupported": runtime.diagnostics.filter {
-                $0.kind == .refractionUnsupported
-            }.map { $0.detail ?? "" },
         ]
+#if DEBUG
+        facts4["trailChildUnsupported"] = runtime.diagnostics.compactMap { diagnostic in
+            diagnostic.kind == .childSystemsUnsupported
+                && (diagnostic.detail ?? "").contains(trailChildPath)
+                ? (diagnostic.detail ?? "") : nil
+        }
+        facts4["ropeUnsupported"] = runtime.diagnostics.compactMap { diagnostic in
+            diagnostic.kind == .childSystemsUnsupported
+                && ropePaths.contains(where: {
+                    (diagnostic.detail ?? "").contains($0)
+                })
+                ? (diagnostic.detail ?? "") : nil
+        }
+        facts4["refractionUnsupported"] = runtime.diagnostics.filter {
+            $0.kind == .refractionUnsupported
+        }.map { $0.detail ?? "" }
+#endif
+        return facts4
     }
 
     static func realContinuousProfiles(cachePath: String) throws -> [String: Any] {
@@ -283,15 +297,18 @@ extension Harness {
         let childBatches = runtime.advance(by: 0.5).filter {
             [513, 534].contains($0.layerID) && $0.particlePath == childPath
         }
-        return [
+        var facts5: [String: Any] = [
             "childLayerIDs": childBatches.map(\.layerID).sorted(),
             "childInstanceCounts": childBatches.map(\.instances.count).sorted(),
             "childTextureWidths": childBatches.map(\.texture.width).sorted(),
-            "unsupportedLayerIDs": runtime.diagnostics.compactMap {
-                [513, 534].contains($0.layerID) && $0.kind == .childSystemsUnsupported
-                    ? $0.layerID : nil
-            }.sorted(),
         ]
+#if DEBUG
+        facts5["unsupportedLayerIDs"] = runtime.diagnostics.compactMap {
+            [513, 534].contains($0.layerID) && $0.kind == .childSystemsUnsupported
+                ? $0.layerID : nil
+        }.sorted()
+#endif
+        return facts5
     }
 
 }

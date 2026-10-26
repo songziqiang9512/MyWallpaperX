@@ -689,7 +689,7 @@ final class SceneDesktopWallpaperSession {
         }
         do {
             let sim=try simulator(start:0), old=sim.frameSnapshot()
-            sim.restoreFrame(.init(playback:old.playback,particles:old.particles,diagnostics:old.diagnostics,
+            var saturated = SceneParticleSimulator.FrameSnapshot(playback:old.playback,particles:old.particles,
                 transientRenderBirths:old.transientRenderBirths,birthEvents:old.birthEvents,deathEvents:old.deathEvents,
                 simulationTime:old.simulationTime,activeInstanceOverride:old.activeInstanceOverride,activeWorldSpaceFrame:old.activeWorldSpaceFrame,
                 controlPointForceFrame:old.controlPointForceFrame,
@@ -697,7 +697,13 @@ final class SceneDesktopWallpaperSession {
                 nextParticleID:UInt64.max,normalizedLives:old.normalizedLives,dynamicControlPoints:old.dynamicControlPoints,
                 dynamicControlPointAngles:old.dynamicControlPointAngles,audioInput:old.audioInput,
                 eventColorContext:old.eventColorContext,stepSnapshotRecorder:old.stepSnapshotRecorder,
-                positionOscillationCache:old.positionOscillationCache))
+                positionOscillationCache:old.positionOscillationCache)
+#if DEBUG
+            saturated.diagnostics = old.diagnostics
+#endif
+            sim.restoreFrame(saturated)
+            result["release-simulator-diagnostic-storage-absent"] = !Mirror(reflecting: sim).children.contains { $0.label == "diagnostics" }
+            result["release-snapshot-diagnostic-storage-absent"] = !Mirror(reflecting: saturated).children.contains { $0.label == "diagnostics" }
             let (d,tx)=try emissionScope([sim])
             let author=try owner(d,"export function update(v){thisLayer.pause();try{thisLayer.emitParticles(1);}catch(e){}return v;}")
             do {_=try evaluate(author);result["caught-id-overflow-rejects-owner"]=false}

@@ -49,13 +49,7 @@ extension WallpaperManager {
         }
 
         let url = URL(fileURLWithPath: wallpaper.path)
-        if let cachedPath = existingStaticFramePath(for: url) {
-            updateWallpaperAssetPaths(forPath: wallpaper.path, staticFramePath: cachedPath)
-            applySystemWallpaperSync(from: cachedPath)
-            return
-        }
-
-        // 静帧尚未生成，异步生成后再同步系统壁纸。
+        // 静帧 owner 统一查询缓存，未命中才异步生成。
         generateStaticFrameIfNeeded(for: url) { [weak self] path in
             guard let self, let path else { return }
             // 确认用户当前壁纸未切走

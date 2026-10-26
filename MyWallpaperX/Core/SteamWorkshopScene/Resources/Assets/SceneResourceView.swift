@@ -457,7 +457,7 @@ nonisolated struct SceneResourceView: Sendable {
                 }
                 boundary = root.appendingPathComponent(normalized).standardizedFileURL
             } else { boundary = root }
-            let candidate = literal ? url.appendingPathComponent(path) : root.appendingPathComponent(path).standardizedFileURL
+            let candidate = literal ? root.appendingPathComponent(path) : root.appendingPathComponent(path).standardizedFileURL
             let resolvedBoundary = directory == nil
                 ? resolvedRoot : boundary.resolvingSymlinksInPath().standardizedFileURL
             let resolvedCandidate = candidate.resolvingSymlinksInPath().standardizedFileURL
@@ -494,9 +494,6 @@ nonisolated struct SceneResourceView: Sendable {
                 throw ReadError.unreadable
             }
             let identity = try FileIdentity(path: candidate.path, value: value)
-            guard try validatePath(handle.relativePath, literal: handle.isLiteralEntry) == candidate else {
-                throw ReadError.sourceChanged
-            }
             return .file(identity)
         }
 
@@ -726,15 +723,61 @@ nonisolated struct SceneResourceView: Sendable {
             packageRoot: packageRootURL.map { Root(source: .package, url: $0.standardizedFileURL) }, stockRoot: stockRoot)
     }
 
-    /// Authored files have literal package -> loose precedence, with no stock
-    /// fallback. Bare package directories are not file candidates; explicit
-    /// directory spellings stay selected. Selected file failures never retry.
-    nonisolated func literalEntry(relativePath: String) throws -> Handle? {
-        for root in roots where root.source != .stock {
-            guard let handle = try root.existingLiteralHandle(relativePath: relativePath) else { continue }
-            if root.packageBacking != nil, handle.indexedResource == nil,
-               !handle.relativePath.hasSuffix("/") { continue }
-            return handle
+    enum EntrySelection: Sendable {
+        case authoredLiteral
+        case indexedReference
+    }
+
+    /// Literal author entries exclude stock. Indexed file references retain
+    /// aliases/case and stock's assets/ prefix, then use this same Root's real
+    /// spelling. Parent components always keep Root's filesystem semantics.
+    nonisolated func literalEntry(
+        relativePath: String, selection: EntrySelection = .authoredLiteral
+    ) throws -> Handle? {
+        let path: String, indexedPath: String?, stockPath: String?
+        switch selection {
+        case .authoredLiteral:
+            path = relativePath; indexedPath = nil; stockPath = nil
+        case .indexedReference:
+            path = relativePath.replacingOccurrences(of: "\\", with: "/")
+            let components = path.split(separator: "/", omittingEmptySubsequences: false)
+            // Dot/empty separators name the same indexed virtual leaf. Do not
+            // fold parent traversal or turn an explicit directory into a file.
+            if !path.hasPrefix("/"), !path.utf8.contains(0),
+               !components.contains(".."),
+               let last = components.last, !last.isEmpty, last != "." {
+                indexedPath = components.filter { !$0.isEmpty && $0 != "." }.joined(separator: "/")
+            } else { indexedPath = nil }
+            if let first = components.first(where: { !$0.isEmpty && $0 != "." }),
+               first.localizedLowercase == "assets", first.endIndex < path.endIndex {
+                // Preserve the remainder, including // and ../, as a relative
+                // Root query. The virtual assets prefix is not a filesystem dir.
+                stockPath = "." + String(path[first.endIndex...])
+            } else { stockPath = nil }
+        }
+        for root in roots {
+            if case .authoredLiteral = selection, root.source == .stock { continue }
+            if let indexedPath {
+                if let resource = root.resource(relativePath: indexedPath) {
+                    return Handle(owner: root, indexedResource: resource, isLiteralEntry: true,
+                        relativePath: resource.relativePath, wasSelectedEntry: true)
+                }
+                if root.source == .stock, indexedPath.localizedLowercase.hasPrefix("assets/"),
+                   let resource = root.resource(relativePath: String(indexedPath.dropFirst("assets/".count))) {
+                    return Handle(owner: root, indexedResource: resource, isLiteralEntry: true,
+                        relativePath: resource.relativePath, wasSelectedEntry: true)
+                }
+                // Existing canonical references keep their index-only miss.
+                // The literal branch adds only previously rejected spellings.
+                if indexedPath == path { continue }
+            }
+            if let handle = try root.existingLiteralHandle(relativePath: path) {
+                if root.packageBacking != nil, handle.indexedResource == nil,
+                   !handle.relativePath.hasSuffix("/") { continue }
+                return handle
+            }
+            if root.source == .stock, let stockPath,
+               let handle = try root.existingLiteralHandle(relativePath: stockPath) { return handle }
         }
         return nil
     }

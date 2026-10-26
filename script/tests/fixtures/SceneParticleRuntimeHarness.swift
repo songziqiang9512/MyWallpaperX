@@ -222,6 +222,23 @@ enum Harness {
     static func main() throws {
         guard CommandLine.arguments.count >= 2 else { throw HarnessError.missingMode }
         switch CommandLine.arguments[1] {
+        case "configuration-storage":
+            guard let device = MTLCreateSystemDefaultDevice() else { throw HarnessError.noMetal }
+            let runtime = SceneParticleRuntime(descriptor: .init(
+                layers: [], renderOrderLayerIDs: [], materialPasses: []),
+                cacheDirectory: FileManager.default.temporaryDirectory, device: device)
+            let fields = Set(Mirror(reflecting: runtime).children.compactMap(\.label))
+            let snapshotFields = Set(Mirror(reflecting: runtime.frameSnapshot()).children.compactMap(\.label))
+            let compilationFields = Set(Mirror(reflecting: SceneParticleLayerImageEmitterCompilation.empty)
+                .children.compactMap(\.label))
+            let definition = SceneParticleDefinitionParser().parse(root: [:])
+            try printJSON([
+                "runtimeDiagnostics": fields.contains("diagnostics"),
+                "runtimeAdoptionReport": fields.contains("liveWorldSpaceAdoptedLayerIDs"),
+                "snapshotAdoptionReport": snapshotFields.contains("adoptedWorldSpaceLayerIDs"),
+                "compilationDiagnostics": compilationFields.contains("diagnostics"),
+                "definitionDiagnostics": Mirror(reflecting: definition).children.contains { $0.label == "diagnostics" },
+            ])
         case "playback-control":
             try printJSON(playbackControl())
         case "delayed-children":
@@ -643,8 +660,7 @@ extension SceneParticleRuntime {
         resourceView: SceneResourceView? = nil,
         stockTextureBundleURL: URL? = SceneStockTextureResolver.defaultBundleRoot(),
         textureLoader: SceneTextureLoader = SceneTextureLoader(),
-        layerImageEmissionMaps: [Int: SceneParticleLayerImageEmissionMap] = [:],
-        initialDiagnostics: [SceneParticleRuntimeDiagnostic] = [],
+        layerImage: SceneParticleLayerImageEmitterCompilation = .empty,
         staticWorldSpaceFrames: [Int: SceneParticleWorldSpaceFrame]? = nil,
         staticWorldSpaceChains: [Int: Set<Int>]? = nil,
         preparedParticleVisibilityLayerIDs: Set<Int> = [],
@@ -658,8 +674,8 @@ extension SceneParticleRuntime {
             preparedParticleVisibilityLayerIDs: preparedParticleVisibilityLayerIDs,
             stockTextureBundleURL: stockTextureBundleURL)
         self.init(descriptor: descriptor, preparedAssets: assets, device: device,
-            textureLoader: textureLoader, layerImageEmissionMaps: layerImageEmissionMaps,
-            initialDiagnostics: initialDiagnostics, staticWorldSpaceFrames: staticWorldSpaceFrames,
+            textureLoader: textureLoader, layerImage: layerImage,
+            staticWorldSpaceFrames: staticWorldSpaceFrames,
             staticWorldSpaceChains: staticWorldSpaceChains,
             preparedParticleVisibilityLayerIDs: preparedParticleVisibilityLayerIDs,
             initialDynamicValues: initialDynamicValues, initialPlayback: initialPlayback)

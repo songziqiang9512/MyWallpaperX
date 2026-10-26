@@ -34,7 +34,7 @@ let webWallpaperPlaybackScript = #"""
   const schedule = (frame, repeating, callback, delay, args) => {
     const milliseconds = Math.max(0, Number(delay) || 0);
     const entry = { id: ++nextID, frame, repeating, callback, args,
-      delay: milliseconds, remaining: milliseconds, nativeID: null, started: now() };
+      delay: milliseconds, remaining: milliseconds, nativeID: null, started: 0 };
     work.set(entry.id, entry);
     arm(entry);
     return entry.id;

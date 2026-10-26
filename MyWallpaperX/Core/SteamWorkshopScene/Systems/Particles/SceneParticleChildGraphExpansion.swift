@@ -46,10 +46,12 @@ enum SceneParticleChildGraphExpansion {
     static let maximumDepth = 2
 
     struct Expansion {
-        let templates: [SceneParticleChildTemplate]
-        let unsupportedDetails: [String]
-        let performanceDetails: [String]
-        let handledRootChildren: Int
+        var templates: [SceneParticleChildTemplate] = []
+        var unsupportedDetails: [String] = []
+#if DEBUG
+        var performanceDetails: [String] = []
+#endif
+        var handledRootChildren = 0
     }
 
     private enum Evaluation {
@@ -67,10 +69,7 @@ enum SceneParticleChildGraphExpansion {
         worldSpaceFrame: SceneParticleWorldSpaceFrame?,
         rootInstanceOverride: SceneParticleInstanceOverride?
     ) -> Expansion {
-        var templates: [SceneParticleChildTemplate] = []
-        var unsupported: [String] = []
-        var performance: [String] = []
-        var handledRootChildren = 0
+        var result = Expansion()
         var expandedParentPaths: Set<String> = []
         var nextTemplateIndex = 0
 
@@ -88,13 +87,13 @@ enum SceneParticleChildGraphExpansion {
                 builtInTextureRegistry: builtInTextureRegistry,
                 device: device,
                 worldSpaceFrame: worldSpaceFrame,
-                performance: &performance
+                result: &result
             )
             switch evaluation {
             case .skipped:
-                handledRootChildren += 1
+                result.handledRootChildren += 1
             case let .rejected(detail):
-                unsupported.append(detail)
+                result.unsupportedDetails.append(detail)
             case let .accepted(template, asset):
                 nextTemplateIndex += 1
                 if !asset.definition.children.isEmpty,
@@ -114,29 +113,24 @@ enum SceneParticleChildGraphExpansion {
                             builtInTextureRegistry: builtInTextureRegistry,
                             device: device,
                             worldSpaceFrame: worldSpaceFrame,
-                            performance: &performance
+                            result: &result
                         )
                         switch nestedEvaluation {
                         case .skipped:
                             continue
                         case let .rejected(detail):
-                            unsupported.append(detail)
+                            result.unsupportedDetails.append(detail)
                         case let .accepted(nestedTemplate, _):
                             nextTemplateIndex += 1
-                            templates.append(nestedTemplate)
+                            result.templates.append(nestedTemplate)
                         }
                     }
                 }
-                templates.append(template)
-                handledRootChildren += 1
+                result.templates.append(template)
+                result.handledRootChildren += 1
             }
         }
-        return Expansion(
-            templates: templates,
-            unsupportedDetails: unsupported,
-            performanceDetails: performance,
-            handledRootChildren: handledRootChildren
-        )
+        return result
     }
 
     // swiftlint:disable:next function_parameter_count
@@ -153,7 +147,7 @@ enum SceneParticleChildGraphExpansion {
         builtInTextureRegistry: SceneParticleBuiltInTextureRegistry,
         device: MTLDevice,
         worldSpaceFrame: SceneParticleWorldSpaceFrame?,
-        performance: inout [String]
+        result: inout Expansion
     ) -> Evaluation {
         let label = child.path ?? "child#\(declarationIndex)"
         let trigger: SceneParticleChildTrigger
@@ -214,8 +208,13 @@ enum SceneParticleChildGraphExpansion {
         ) {
         case .disabled:
             break
+#if DEBUG
         case let .supported(markers):
-            performance.append(contentsOf: markers.map { "\(path):\($0)" })
+            result.performanceDetails.append(contentsOf: markers.map { "\(path):\($0)" })
+#else
+        case .supported:
+            break
+#endif
         case let .unsupported(detail):
             return .rejected("\(path):\(detail)")
         }
@@ -227,9 +226,11 @@ enum SceneParticleChildGraphExpansion {
                   asset.definition.children.isEmpty,
                   !asset.definition.operators.contains(where: \.isWorldSpaceMovement)
             else { return .rejected("\(path):childScaleOutsideBoundedProfile") }
-            performance.append(
+#if DEBUG
+            result.performanceDetails.append(
                 "\(path):childScaleBounded:scale=\(transform.scale.x),\(transform.scale.y),\(transform.scale.z)"
             )
+#endif
         }
         let controlPointOverride: SceneParticleInstanceOverride?
         switch SceneParticleChildTemplateSupport.rawParentControlPointOverride(
@@ -240,12 +241,19 @@ enum SceneParticleChildGraphExpansion {
         ) {
         case .disabled:
             controlPointOverride = nil
+#if DEBUG
         case let .ignoredUnused(count):
             controlPointOverride = nil
-            performance.append("\(path):unusedParentControlPointMappings:mappings=\(count)")
+            result.performanceDetails.append("\(path):unusedParentControlPointMappings:mappings=\(count)")
         case let .supported(value, count):
             controlPointOverride = value
-            performance.append("\(path):rawParentControlPointCopyBounded:mappings=\(count)")
+            result.performanceDetails.append("\(path):rawParentControlPointCopyBounded:mappings=\(count)")
+#else
+        case .ignoredUnused:
+            controlPointOverride = nil
+        case let .supported(value, _):
+            controlPointOverride = value
+#endif
         case let .unsupported(detail):
             return .rejected("\(path):\(detail)")
         }

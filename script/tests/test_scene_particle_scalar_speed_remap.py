@@ -198,7 +198,7 @@ class SceneParticleScalarSpeedRemapTests(unittest.TestCase):
         if override:
             selected = Path(override).resolve(strict=True)
             sources = [selected if source.name == "SceneParticleSimulator.swift" else source for source in sources]
-        compiled = subprocess.run([compiler, *map(str, sources), str(harness), "-o", str(binary)],
+        compiled = subprocess.run([compiler, "-D", "DEBUG", *map(str, sources), str(harness), "-o", str(binary)],
                                   capture_output=True, text=True, timeout=120)
         if compiled.returncode:
             raise RuntimeError(compiled.stderr)

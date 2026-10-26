@@ -70,7 +70,7 @@
 
 文件访问授权与属性 payload 分离。只有主 App 已解析的项目/依赖 namespace 和用户书签可产生 typed grant；`file` 精确到文件，`directory` 才允许合法后代。原属性值、未解析路径和作者 sentinel 保留数据语义，不能反向成为授权，也不能为了拒绝访问而清空作者值。磁盘 execution cache 不保存授权，播放前仍由原 binding/bookmark owner 重新解析当前授权。
 
-属性更新整体替换授权快照，request 与资源 revision 同时约束资源读取、random/fetchall 枚举、watcher 和异步结果发布。普通值更新不刷新资源代际；授权改变时，仅撤销实际失去授权的资源，仍获授权的媒体流应继续交付。路径规范化、symlink containment 与 regular-file 检查仍在消费入口执行。
+属性更新整体替换授权快照。request/revision 约束实际读取、枚举、watcher 及异步发布；普通值不刷新代际，撤权只中止失权资源。fetchall 保逐属性快照/通知，同 canonical 目录共用 watcher，末引用移除才关闭；切目录、撤权与 symlink 改指向按当前授权重配。消费入口保路径规范化、入根与 regular-file 检查。
 
 播放每次按当前属性与授权组装最小 payload，不维护没有实际消费者的 execution 清单。纯 analysis memo/磁盘缓存使用此前实际依赖的文件 revision 与 locale/schema/入口事实失效，不在暖命中前重新全文扫描和哈希；变动、损坏或缺失只回原解析核重算。可选保存不阻塞播放；缓存不自授资源权限，也不要求本地目录永远等于历史入库内容。数据流与退出归[后台解析合同](cold-descriptor-parse-offload-design.md)。
 

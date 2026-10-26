@@ -21,22 +21,6 @@ extension WallpaperEngine {
         }
     }
 
-    func resizedSpectrumLevels(_ levels: [Float], count: Int) -> [Float] {
-        guard count > 0 else { return [] }
-        guard !levels.isEmpty else { return Array(repeating: 0, count: count) }
-        if levels.count == count {
-            return levels.map { min(max($0, 0), 1) }
-        }
-
-        var output = Array(repeating: Float(0), count: count)
-        let scale = Double(levels.count) / Double(count)
-        for index in 0..<count {
-            let sourceIndex = min(levels.count - 1, Int((Double(index) * scale).rounded(.down)))
-            output[index] = min(max(levels[sourceIndex], 0), 1)
-        }
-        return output
-    }
-
     func consumeDaemonEvents(from data: Data, for session: DisplayDaemonSession) {
         guard displaySessions[session.displayID] === session else { return }
         for line in session.outputFrames.append(data) {
@@ -50,11 +34,13 @@ extension WallpaperEngine {
 
     private func handleDaemonEvent(_ event: DaemonEvent, for session: DisplayDaemonSession) {
         switch event.type {
+#if DEBUG
         case "launched": session.launched = true
         case "accepted":
             if event.requestID == session.latestRequestedPlayRequestID {
                 session.latestAcceptedPlayRequestID = event.requestID
             }
+#endif
         case "prepared": videoDidPrepare(event, session: session)
         case "ready": videoDidBecomeVisible(event, session: session)
         case "cancelled": videoDidCancel(event, session: session)

@@ -719,7 +719,14 @@ nonisolated final class SystemAudioSpectrumService: NSObject, @unchecked Sendabl
         let sampleRate = Float(max(1, tapStreamFormat.mSampleRate))
 #if DEBUG
         if !hasLoggedCapturedData {
-            let peak = frame.rectifiedMono.max() ?? 0
+            var peak: Float = 0
+            for frameIndex in frame.signedChannels[0].indices {
+                var magnitude: Float = 0
+                for channel in frame.signedChannels {
+                    magnitude += abs(channel[frameIndex])
+                }
+                peak = max(peak, magnitude / Float(frame.signedChannels.count))
+            }
             if peak >= 0.0001 {
                 hasLoggedCapturedData = true
                 NSLog(
@@ -738,12 +745,7 @@ nonisolated final class SystemAudioSpectrumService: NSObject, @unchecked Sendabl
         }
         let bands = sceneAnalyzer.analyze(frame, sampleRate: sampleRate, timestamp: pendingCaptureTimestamp)
         if overlayEnabled {
-            onLevels?(
-                overlayAnalyzer.analyze(
-                    left: bands.left64,
-                    right: bands.right64
-                )
-            )
+            onLevels?(overlayAnalyzer.analyze(bands))
         }
         if webEnabled {
             onWebLevels?(webAnalyzer.analyze(bands))

@@ -25,7 +25,6 @@ nonisolated final class SystemAudioOverlaySpectrumAnalyzer {
     ) {
         self.style = style
         self.sensitivity = sensitivity
-        reset()
     }
 
     @discardableResult
@@ -36,13 +35,12 @@ nonisolated final class SystemAudioOverlaySpectrumAnalyzer {
         return Array(repeating: 0, count: barCount)
     }
 
-    func analyze(left: [Float], right: [Float]) -> [Float] {
-        let count = min(left.count, right.count)
+    func analyze(_ levels: SystemAudioSceneSpectrumAnalyzer.Levels) -> [Float] {
+        let left = levels.left64, right = levels.right64
+        let count = left.count
         guard count > 0 else { return reset() }
         let stereo = (0..<count).map { index -> Float in
-            let l = left[index].isFinite ? min(1, max(0, left[index])) : 0
-            let r = right[index].isFinite ? min(1, max(0, right[index])) : 0
-            return (l + r) * 0.5
+            (left[index] + right[index]) * 0.5
         }
         let projected = SystemAudioSceneSpectrumAnalyzer.resample(stereo, count: barCount)
         let sensitivityGain: Float
@@ -52,6 +50,7 @@ nonisolated final class SystemAudioOverlaySpectrumAnalyzer {
         case .lively: sensitivityGain = style == .balanced ? 1.16 : 1.18
         }
         let gain = sensitivityGain * (style == .balanced ? 1 : 1.05)
+        if gain == 1 { return projected }
         // A static bounded contrast adjustment preserves zero/one endpoints,
         // avoids clipping loud bars and adds no second temporal state.
         return projected.map { gain * $0 / (1 + (gain - 1) * $0) }

@@ -185,7 +185,7 @@ extension Harness {
         // current world frame keeps the system simulating through that frame.
         func liveRuntime(
             worldFrame: simd_float4x4
-        ) -> (positions: [[Float]], followsCurrent: Bool, frozen: Bool) {
+        ) -> [String: Any] {
             let live = SceneParticleRuntime(
                 descriptor: descriptor,
                 cacheDirectory: directory,
@@ -202,19 +202,20 @@ extension Harness {
                     )
                 )
             }
-            return (
-                livePositions,
-                live.diagnostics.contains {
-                    $0.kind == .simulationLimitation
-                        && $0.layerID == 71
-                        && $0.detail == "world-space frame follows current transform"
-                },
-                live.diagnostics.contains {
-                    $0.kind == .simulationLimitation
-                        && $0.layerID == 71
-                        && $0.detail == "world-space frame frozen after runtime transform write"
-                }
-            )
+            var facts: [String: Any] = ["positions": livePositions]
+#if DEBUG
+            facts["followsCurrent"] = live.diagnostics.contains {
+                $0.kind == .simulationLimitation
+                    && $0.layerID == 71
+                    && $0.detail == "world-space frame follows current transform"
+            }
+            facts["frozen"] = live.diagnostics.contains {
+                $0.kind == .simulationLimitation
+                    && $0.layerID == 71
+                    && $0.detail == "world-space frame frozen after runtime transform write"
+            }
+#endif
+            return facts
         }
         let liveIdentity = liveRuntime(
             worldFrame: matrix_identity_float4x4
@@ -225,24 +226,27 @@ extension Harness {
                 SIMD4(0, 0, 1, 0), SIMD4(0, 0, 0, 1)
             ))
         )
-        return [
+        var facts1: [String: Any] = [
             "movingLayerActive": moving.contains { $0.layerID == 71 },
             "movingPositions": positions(moving),
             "frozenPositions": positions(frozen),
             "frozenAgainPositions": positions(frozenAgain),
-            "freezeDiagnostic": runtime.diagnostics.contains {
-                $0.kind == .simulationLimitation
-                    && $0.layerID == 71
-                    && $0.detail == "world-space frame frozen after runtime transform write"
-            },
-            "diagnosticKinds": runtime.diagnostics.map(\.kind.rawValue),
-            "liveIdentityPositions": liveIdentity.positions,
-            "liveIdentityFollowsCurrent": liveIdentity.followsCurrent,
-            "liveIdentityFrozen": liveIdentity.frozen,
-            "liveRotatedPositions": liveRotated.positions,
-            "liveRotatedFollowsCurrent": liveRotated.followsCurrent,
-            "liveRotatedFrozen": liveRotated.frozen,
+            "liveIdentityPositions": liveIdentity["positions"]!,
+            "liveRotatedPositions": liveRotated["positions"]!,
         ]
+#if DEBUG
+        facts1["freezeDiagnostic"] = runtime.diagnostics.contains {
+            $0.kind == .simulationLimitation
+                && $0.layerID == 71
+                && $0.detail == "world-space frame frozen after runtime transform write"
+        }
+        facts1["diagnosticKinds"] = runtime.diagnostics.map(\.kind.rawValue)
+        facts1["liveIdentityFollowsCurrent"] = liveIdentity["followsCurrent"]
+        facts1["liveIdentityFrozen"] = liveIdentity["frozen"]
+        facts1["liveRotatedFollowsCurrent"] = liveRotated["followsCurrent"]
+        facts1["liveRotatedFrozen"] = liveRotated["frozen"]
+#endif
+        return facts1
     }
 
     static func syntheticWorldSpaceFreezeRecovery() throws -> [String: Any] {
@@ -475,7 +479,7 @@ extension Harness {
             by: frameDelta, dynamicValues: lane80,
             layerWorldFrames: [81: matrix_identity_float4x4]
         )
-        return [
+        var facts2: [String: Any] = [
             "unrelatedWriteKeepsInvalidFrozen": motion(unrelatedHeld, layerID: 81)
                 == motion(unrelatedFrozen, layerID: 81),
             "unrelatedWriteResumes": motion(unrelatedResumed, layerID: 81)
@@ -490,20 +494,10 @@ extension Harness {
                 == motion(beforeDegenerate, layerID: 81),
             "recoveryResumes": motion(restoredFrame, layerID: 81)
                 > motion(degenerateFrame, layerID: 81) + 0.5,
-            "resumeDiagnostic": recovery.diagnostics.contains {
-                $0.kind == .simulationLimitation
-                    && $0.layerID == 81
-                    && $0.detail == "world-space frame resumed after transform recovered"
-            },
             "rollbackResumes": motion(afterRestore, layerID: 81)
                 > motion(preRollback, layerID: 81) + 0.5,
             "localKeepsMoving": motion(localLane, layerID: 82)
                 > motion(localStart, layerID: 82) + 0.5,
-            "localFreezeDiagnosticAbsent": !localUnderScript.diagnostics.contains {
-                $0.kind == .simulationLimitation
-                    && $0.layerID == 82
-                    && $0.detail == "world-space frame frozen after runtime transform write"
-            },
             "chainedFrozenHoldsPrevious": motion(chainedFrozen, layerID: 84)
                 == motion(chainedSteady, layerID: 84),
             "chainedRecoveryResumes": motion(chainedRestored, layerID: 84)
@@ -516,14 +510,27 @@ extension Harness {
                 > motion(vanishingFrozen, layerID: 81) + 0.5,
             "vanishingWriteStaysUnfrozen": motion(vanishingNext, layerID: 81)
                 > motion(vanishingResumed, layerID: 81) + 0.5,
-            "vanishingWriteResumeDiagnostic": vanishing.diagnostics.contains {
-                $0.kind == .simulationLimitation
-                    && $0.layerID == 81
-                    && $0.detail == "world-space frame resumed after transform recovered"
-            },
             "conservativeHoldKeepsPrevious": motion(conservativeHeld, layerID: 81)
                 == motion(conservativeFrozen, layerID: 81),
         ]
+#if DEBUG
+        facts2["resumeDiagnostic"] = recovery.diagnostics.contains {
+            $0.kind == .simulationLimitation
+                && $0.layerID == 81
+                && $0.detail == "world-space frame resumed after transform recovered"
+        }
+        facts2["localFreezeDiagnosticAbsent"] = !localUnderScript.diagnostics.contains {
+            $0.kind == .simulationLimitation
+                && $0.layerID == 82
+                && $0.detail == "world-space frame frozen after runtime transform write"
+        }
+        facts2["vanishingWriteResumeDiagnostic"] = vanishing.diagnostics.contains {
+            $0.kind == .simulationLimitation
+                && $0.layerID == 81
+                && $0.detail == "world-space frame resumed after transform recovered"
+        }
+#endif
+        return facts2
     }
 
 }

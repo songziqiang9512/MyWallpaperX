@@ -40,6 +40,7 @@ from scene_swift_source_sets import scene_swift_sources  # noqa: E402
 
 
 SWIFT_SOURCES = [
+    *scene_swift_sources("scene_resource_input"),
     Path(__file__).resolve().parents[2] / "MyWallpaperX/Core/SteamWorkshopScene/Resources/Textures/SceneResourceBudget.swift",
     SCENE_ROOT / "Format/SceneJSONValue.swift",
     SCENE_ROOT / "Format/SceneBCTextureDecoder.swift",
@@ -267,7 +268,7 @@ private func runGenericProbe() throws -> ProbeOutput {
         "graph-content-key-miss")
     let backgroundInput = makeGenericInput(marker: "probe-a", backgroundColorSlots: [3])
     let backgroundAnalysis = SceneResolvedMaterialGenericShaderArtifactCache
-        .computeAnalysis(input: backgroundInput)
+        .computeAnalysis(input: backgroundInput).analysis
     try expect(into: &output,
         backgroundInput != input
             && SceneGenericShaderAnalysisCache.inputDigest(of: backgroundInput)
@@ -277,9 +278,9 @@ private func runGenericProbe() throws -> ProbeOutput {
             && backgroundAnalysis.defaultBoundaryColorSlots == [0, 1, 3],
         "background-color-fact-key-and-abi")
     let colorAnalysis = SceneResolvedMaterialGenericShaderArtifactCache
-        .computeAnalysis(input: input)
+        .computeAnalysis(input: input).analysis
     let dataAnalysis = SceneResolvedMaterialGenericShaderArtifactCache
-        .computeAnalysis(input: dataInput)
+        .computeAnalysis(input: dataInput).analysis
     try expect(into: &output,
         colorAnalysis.defaultBoundaryColorSlots == [0, 1]
             && dataAnalysis.defaultBoundaryColorSlots == [1],

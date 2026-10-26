@@ -64,7 +64,6 @@ let webCompatibilityScriptDOMLifecycleMutation = #"""
       };
     })();
     const wallpaperAutoRegisterInteractiveRegions = () => {
-      if (wallpaperIsTopFrame !== true) return;
       try {
         if (typeof window.__myWallpaperRegisterInteractiveRegions !== 'function') return;
         const rootWidth = Math.max(window.innerWidth || 0, 1);
@@ -125,6 +124,7 @@ let webCompatibilityScriptDOMLifecycleMutation = #"""
     const wallpaperScheduleInteractiveRegionRefresh = (() => {
       let scheduled = false;
       return () => {
+        if (wallpaperIsTopFrame !== true) return;
         if (scheduled) return;
         scheduled = true;
         const flush = () => {

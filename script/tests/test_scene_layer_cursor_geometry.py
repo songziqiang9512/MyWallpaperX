@@ -19,6 +19,19 @@ SWIFT_SOURCES = [
     REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Systems/Particles/SceneParticlePointerProjection.swift",
 ]
 
+def instrument_inverse_count(source: str) -> str:
+    """Count the real inverse leaf in a temporary test copy, never product code."""
+    start = source.index("static func preciseInverseModelViewProjection(")
+    body = source.index("{", start) + 1
+    return (
+        "nonisolated enum SceneCursorInverseProbe { "
+        "nonisolated(unsafe) static var count = 0 }\n"
+        + source[:body]
+        + "\n        SceneCursorInverseProbe.count += 1"
+        + source[body:]
+    )
+
+
 HARNESS_SOURCE = r'''
 import Foundation
 import simd
@@ -50,6 +63,18 @@ struct SceneMetalRenderer {
 
 @main
 enum Harness {
+    // Test-only reference sequence: an independent inverse for each former
+    // effect request. No obsolete matrix-taking effect API remains in product.
+    static func independentEffectProjection(
+        _ matrix: simd_float4x4, required: Bool
+    ) -> simd_float4x4? {
+        guard required else { return matrix_identity_float4x4 }
+        return SceneLayerCursorGeometry.effectTextureProjectionInverse(
+            inverseModelViewProjection: SceneLayerCursorGeometry.preciseInverseModelViewProjection(matrix),
+            required: true
+        )
+    }
+
     static func pair(_ value: SIMD2<Float>?) -> [Float] {
         guard let value else { return [] }
         return [value.x, value.y]
@@ -94,8 +119,7 @@ enum Harness {
             center: .zero,
             up: SIMD3(0, 1, 0)
         )
-        let singularUnusedProjection = SceneLayerCursorGeometry
-            .effectTextureProjectionInverse(singular, required: false)
+        let singularUnusedProjection = independentEffectProjection(singular, required: false)
         let inverseRestoresKnownPoint: Bool = {
             guard let inverse = SceneLayerCursorGeometry.inverseModelViewProjection(
                 transformedMVP
@@ -105,8 +129,7 @@ enum Harness {
                 && abs(restored.y / restored.w - local.y) < 0.00001
         }()
         let effectTextureProjection: [Float] = {
-            guard let inverse = SceneLayerCursorGeometry
-                .effectTextureProjectionInverse(
+            guard let inverse = independentEffectProjection(
                     effectCardMVP,
                     required: true
                 ) else { return [] }
@@ -188,7 +211,105 @@ enum Harness {
             return simd_length(SIMD2(clip.x, clip.y) / clip.w - normalized)
         }
 
+        var nearWZero = matrix_identity_float4x4
+        nearWZero.columns.2 = SIMD4(0, 0, 0, 1)
+        nearWZero.columns.3 = SIMD4(0, 0, 1, 0)
+        var farWZero = matrix_identity_float4x4
+        farWZero.columns.2.w = 1
+        var parallelRay = matrix_identity_float4x4
+        parallelRay.columns.0 = SIMD4(0, 0, 1, 0)
+        parallelRay.columns.2 = SIMD4(1, 0, 0, 0)
+        var pointDependentW = matrix_identity_float4x4
+        pointDependentW.columns.0.w = -1
+        let queryCases: [(String, simd_float4x4, SIMD2<Float>, SIMD2<Float>)] = [
+            ("identity-outside", matrix_identity_float4x4, .zero, SIMD2(1.5, -1.5)),
+            ("rotated-scaled", transformedMVP, normalized, .zero),
+            ("new-frame", movedFrame, normalized, .zero),
+            ("large-depth", largeDepthProjection, .zero, SIMD2(0.1, -0.2)),
+            ("current-nan", transformedMVP, SIMD2(.nan, 0), normalized),
+            ("previous-infinity", transformedMVP, normalized, SIMD2(.infinity, 0)),
+            ("current-invalid-w", pointDependentW, SIMD2(-1, 0), .zero),
+            ("previous-invalid-w", pointDependentW, .zero, SIMD2(-1, 0)),
+            ("near-zero-w", nearWZero, .zero, SIMD2(0.1, -0.2)),
+            ("far-zero-w", farWZero, .zero, SIMD2(0.1, -0.2)),
+            ("parallel-ray", parallelRay, .zero, SIMD2(0.1, -0.2)),
+            ("singular", singular, .zero, .zero),
+            ("nonfinite-matrix", nonfinite, .zero, .zero),
+            ("inverse-float-overflow", inverseOverflow, .zero, .zero),
+            ("effect-float-overflow", effectOverflow, .zero, .zero),
+        ]
+        typealias Projection = (
+            effect: simd_float4x4?, current: SIMD2<Float>?, previous: SIMD2<Float>?
+        )
+        func projection(_ matrix: simd_float4x4, current: SIMD2<Float>,
+                        previous: SIMD2<Float>, required: Bool, shared: Bool) -> Projection {
+            if shared {
+                let inverse = SceneLayerCursorGeometry.preciseInverseModelViewProjection(matrix)
+                guard let effect = SceneLayerCursorGeometry.effectTextureProjectionInverse(
+                    inverseModelViewProjection: inverse, required: required
+                ) else { return (nil, nil, nil) }
+                return (effect, SceneLayerCursorGeometry.layerUV(
+                    mouseNormalized: current, inverseModelViewProjection: inverse),
+                    SceneLayerCursorGeometry.layerUV(
+                        mouseNormalized: previous, inverseModelViewProjection: inverse))
+            }
+            guard let effect = independentEffectProjection(
+                matrix, required: required
+            ) else { return (nil, nil, nil) }
+            return (effect, SceneLayerCursorGeometry.layerUV(
+                mouseNormalized: current, modelViewProjection: matrix),
+                SceneLayerCursorGeometry.layerUV(
+                    mouseNormalized: previous, modelViewProjection: matrix))
+        }
+        func same(_ lhs: Projection, _ rhs: Projection) -> Bool {
+            lhs.effect == rhs.effect && lhs.current == rhs.current && lhs.previous == rhs.previous
+        }
+        let sharedInverseQueries: [[String: Any]] = queryCases.map { name, matrix, current, previous in
+            SceneCursorInverseProbe.count = 0
+            let inverse = SceneLayerCursorGeometry.preciseInverseModelViewProjection(matrix)
+            let currentUV = SceneLayerCursorGeometry.layerUV(
+                mouseNormalized: current, inverseModelViewProjection: inverse)
+            let previousUV = SceneLayerCursorGeometry.layerUV(
+                mouseNormalized: previous, inverseModelViewProjection: inverse)
+            let pairCount = SceneCursorInverseProbe.count
+            SceneCursorInverseProbe.count = 0
+            let originalCurrent = SceneLayerCursorGeometry.layerUV(
+                mouseNormalized: current, modelViewProjection: matrix)
+            let originalPrevious = SceneLayerCursorGeometry.layerUV(
+                mouseNormalized: previous, modelViewProjection: matrix)
+            let singleCount = SceneCursorInverseProbe.count
+            SceneCursorInverseProbe.count = 0
+            let required = projection(matrix, current: current, previous: previous,
+                required: true, shared: true)
+            let requiredCount = SceneCursorInverseProbe.count
+            SceneCursorInverseProbe.count = 0
+            let originalRequired = projection(matrix, current: current, previous: previous,
+                required: true, shared: false)
+            let originalRequiredCount = SceneCursorInverseProbe.count
+            SceneCursorInverseProbe.count = 0
+            let unused = projection(matrix, current: current, previous: previous,
+                required: false, shared: true)
+            let unusedCount = SceneCursorInverseProbe.count
+            SceneCursorInverseProbe.count = 0
+            let originalUnused = projection(matrix, current: current, previous: previous,
+                required: false, shared: false)
+            let originalUnusedCount = SceneCursorInverseProbe.count
+            return [
+                "name": name,
+                "pairMatchesSingles": currentUV == originalCurrent && previousUV == originalPrevious,
+                "currentAvailable": currentUV != nil, "previousAvailable": previousUV != nil,
+                "pairInverseCount": pairCount, "singleInverseCount": singleCount,
+                "requiredMatchesOriginal": same(required, originalRequired),
+                "requiredAvailable": required.effect != nil,
+                "requiredInverseCount": requiredCount, "originalRequiredInverseCount": originalRequiredCount,
+                "unusedMatchesOriginal": same(unused, originalUnused),
+                "unusedUsesIdentity": unused.effect == matrix_identity_float4x4,
+                "unusedInverseCount": unusedCount, "originalUnusedInverseCount": originalUnusedCount,
+            ]
+        }
+
         let result: [String: Any] = [
+            "sharedInverseQueries": sharedInverseQueries,
             "hostFirst": triple(hostFirst[7]),
             "hostNextError": screenError(hostNext[7], model: movedFrame),
             "staleFrameError": screenError(hostFirst[7], model: movedFrame),
@@ -251,11 +372,10 @@ enum Harness {
                 mouseNormalized: .zero, modelViewProjection: nonfinite) == nil,
             "inverseFloatOverflowRejected": SceneLayerCursorGeometry.inverseModelViewProjection(inverseOverflow) == nil,
             "effectFloatOverflowRejected": SceneLayerCursorGeometry.inverseModelViewProjection(effectOverflow) != nil
-                && SceneLayerCursorGeometry.effectTextureProjectionInverse(effectOverflow, required: true) == nil,
+                && independentEffectProjection(effectOverflow, required: true) == nil,
             "singularUnusedProjectionUsesIdentity":
                 singularUnusedProjection == matrix_identity_float4x4,
-            "singularRequiredProjectionRejected": SceneLayerCursorGeometry
-                .effectTextureProjectionInverse(
+            "singularRequiredProjectionRejected": independentEffectProjection(
                     singular,
                     required: true
                 ) == nil,
@@ -265,7 +385,7 @@ enum Harness {
                     modelViewProjection: largeDepthProjection
                 ) != nil,
             "invertibleRequiredProjectionIsAvailable":
-                SceneLayerCursorGeometry.effectTextureProjectionInverse(
+                independentEffectProjection(
                     transformedMVP,
                     required: true
                 ) != nil,
@@ -298,6 +418,9 @@ class SceneLayerCursorGeometryTests(unittest.TestCase):
         root = Path(cls.temporary_directory.name)
         harness = root / "Harness.swift"
         harness.write_text(HARNESS_SOURCE, encoding="utf-8")
+        geometry = next(path for path in SWIFT_SOURCES if path.name == "SceneLayerCursorGeometry.swift")
+        instrumented = root / geometry.name
+        instrumented.write_text(instrument_inverse_count(geometry.read_text()), encoding="utf-8")
         cls.binary = root / "cursor-geometry"
         compilation = subprocess.run(
             [
@@ -305,7 +428,7 @@ class SceneLayerCursorGeometryTests(unittest.TestCase):
                 "--sdk",
                 "macosx",
                 "swiftc",
-                *(str(path) for path in SWIFT_SOURCES),
+                *(str(instrumented if path == geometry else path) for path in SWIFT_SOURCES),
                 str(harness),
                 "-o",
                 str(cls.binary),
@@ -422,6 +545,41 @@ class SceneLayerCursorGeometryTests(unittest.TestCase):
         self.assertTrue(
             self.result["invertibleRequiredProjectionIsAvailable"]
         )
+
+
+    def test_current_and_previous_queries_share_one_inverse_and_match_single_point_results(self) -> None:
+        for case in self.result["sharedInverseQueries"]:
+            with self.subTest(case=case["name"]):
+                self.assertTrue(case["pairMatchesSingles"], case)
+                self.assertEqual(case["pairInverseCount"], 1, case)
+                self.assertEqual(case["singleInverseCount"], 2, case)
+
+    def test_shared_projection_keeps_independent_point_failures_and_numeric_boundaries(self) -> None:
+        cases = {case["name"]: case for case in self.result["sharedInverseQueries"]}
+        for name in ("current-nan", "current-invalid-w"):
+            self.assertFalse(cases[name]["currentAvailable"], cases[name])
+            self.assertTrue(cases[name]["previousAvailable"], cases[name])
+        for name in ("previous-infinity", "previous-invalid-w"):
+            self.assertTrue(cases[name]["currentAvailable"], cases[name])
+            self.assertFalse(cases[name]["previousAvailable"], cases[name])
+        for name in ("near-zero-w", "far-zero-w", "parallel-ray", "singular", "nonfinite-matrix"):
+            self.assertFalse(cases[name]["currentAvailable"], cases[name])
+            self.assertFalse(cases[name]["previousAvailable"], cases[name])
+        for name in ("inverse-float-overflow", "effect-float-overflow"):
+            self.assertTrue(cases[name]["currentAvailable"], cases[name])
+            self.assertTrue(cases[name]["previousAvailable"], cases[name])
+            self.assertFalse(cases[name]["requiredAvailable"], cases[name])
+
+    def test_preflight_effect_projection_and_both_points_share_one_inverse(self) -> None:
+        for case in self.result["sharedInverseQueries"]:
+            with self.subTest(case=case["name"]):
+                self.assertTrue(case["requiredMatchesOriginal"], case)
+                self.assertTrue(case["unusedMatchesOriginal"], case)
+                self.assertTrue(case["unusedUsesIdentity"], case)
+                self.assertEqual(case["requiredInverseCount"], 1, case)
+                self.assertEqual(case["unusedInverseCount"], 1, case)
+                self.assertEqual(case["originalRequiredInverseCount"], 3 if case["requiredAvailable"] else 1, case)
+                self.assertEqual(case["originalUnusedInverseCount"], 2, case)
 
 
 if __name__ == "__main__":

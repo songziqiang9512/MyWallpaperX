@@ -3,16 +3,81 @@
 //  MyWallpaperX
 //
 
-let webRemoteStylesheetCompatibilityScript = #"""
-(() => {
-  if (window.__mwxRemoteStylesheetCompatibilityInstalled === true) return;
-  window.__mwxRemoteStylesheetCompatibilityInstalled = true;
+#if DEBUG
+private let webRemoteStylesheetDiagnosticHelpers = #"""
   const handler = window.webkit && window.webkit.messageHandlers && window.webkit.messageHandlers.wallpaperHostLog;
   const post = handler ? (type, message) => {
     if (!handler || typeof handler.postMessage !== 'function') return;
     try { handler.postMessage({ type, message: `frame=${document.location.href} ${String(message || '')}`.slice(0, 600) }); } catch (_) {}
   } : undefined;
   const degradedTimeoutMS = 3000;
+  const hostForHref = (href) => {
+    try { return new URL(href, document.location.href).host || 'unknown'; } catch (_) { return 'unknown'; }
+  };
+  const markDegraded = (link, state, reason) => {
+    if (state.degraded) return;
+    state.degraded = true;
+    const elapsedMS = Math.max(0, Math.round(performance.now() - state.startedAt));
+    post?.('resource.remote-stylesheet.degraded', `host=${hostForHref(state.href)} reason=${reason} elapsedMs=${elapsedMS}`);
+  };
+"""#
+private let webRemoteStylesheetCancelDiagnostic = #"""
+    window.clearTimeout(state.degradedTimer);
+    state.degradedTimer = 0;
+"""#
+private let webRemoteStylesheetDiagnosticState = #"""
+      startedAt: performance.now(),
+      degraded: false,
+      degradedTimer: 0,
+"""#
+private let webRemoteStylesheetStartDiagnostic = #"""
+    state.degradedTimer = window.setTimeout(() => {
+      if (isCurrentDeferredState(link, state) && !state.settled) markDegraded(link, state, 'timeout');
+    }, degradedTimeoutMS);
+    post?.('resource.remote-stylesheet.deferred', `host=${hostForHref(href)}`);
+"""#
+private let webRemoteStylesheetFailureDiagnostic = #"""
+    post?.(
+      'resource.remote-stylesheet.failed',
+      `host=${hostForHref(state.href)} reason=${reason} attempts=${state.retryCount} authoredRelRestored=${wasDeferred && state.importLayer === null}`
+    );
+"""#
+private let webRemoteStylesheetAppliedDiagnostic = #"""
+    const elapsedMS = Math.max(0, Math.round(performance.now() - state.startedAt));
+    const layerSuffix = state.importLayer === null || state.importLayer === undefined
+      ? ''
+      : ` layer=${state.importLayer === '' ? '(anonymous)' : state.importLayer}`;
+    post?.(
+      state.degraded ? 'resource.remote-stylesheet.recovered' : 'resource.remote-stylesheet.activated',
+      `host=${hostForHref(state.href)} elapsedMs=${elapsedMS} attempts=${state.retryCount} rel=${String(link.rel || '')}${layerSuffix} applied=true`
+    );
+"""#
+private let webRemoteStylesheetDegradeDiagnostic = #"""
+    markDegraded(link, state, reason);
+"""#
+private let webRemoteStylesheetRetryDiagnostic = #"""
+    post?.(
+      'resource.remote-stylesheet.retry',
+      `host=${hostForHref(state.href)} attempt=${attempt}/${maximumRetries} delayMs=${delayMS} reason=${reason}`
+    );
+"""#
+#else
+private let webRemoteStylesheetDiagnosticHelpers = ""
+private let webRemoteStylesheetCancelDiagnostic = ""
+private let webRemoteStylesheetDiagnosticState = ""
+private let webRemoteStylesheetStartDiagnostic = ""
+private let webRemoteStylesheetFailureDiagnostic = ""
+private let webRemoteStylesheetAppliedDiagnostic = ""
+private let webRemoteStylesheetDegradeDiagnostic = ""
+private let webRemoteStylesheetRetryDiagnostic = ""
+#endif
+
+let webRemoteStylesheetCompatibilityScript = #"""
+(() => {
+  if (window.__mwxRemoteStylesheetCompatibilityInstalled === true) return;
+  window.__mwxRemoteStylesheetCompatibilityInstalled = true;
+
+"""# + webRemoteStylesheetDiagnosticHelpers + #"""
   const activationTimeoutMS = 5000;
   const retryRequestTimeoutMS = 15000;
   const retryBaseDelayMS = 2000;
@@ -34,18 +99,14 @@ let webRemoteStylesheetCompatibilityScript = #"""
   const resolvedHref = (link) => {
     try { return new URL(link.href, document.location.href).href; } catch (_) { return String(link.href || ''); }
   };
-  const hostForHref = (href) => {
-    try { return new URL(href, document.location.href).host || 'unknown'; } catch (_) { return 'unknown'; }
-  };
   const isCurrentDeferredState = (link, state) => states.get(link) === state &&
     link.isConnected && isDeferredLink(link) && resolvedHref(link) === state.href &&
     link.getAttribute('data-mwx-deferred-stylesheet') === state.originalRel;
 
   const cancelWork = (state) => {
-    window.clearTimeout(state.degradedTimer);
+"""# + webRemoteStylesheetCancelDiagnostic + #"""
     window.clearTimeout(state.retryTimer);
     window.clearTimeout(state.activationTimer);
-    state.degradedTimer = 0;
     state.retryTimer = 0;
     state.activationTimer = 0;
     if (state.cancelProbe) state.cancelProbe();
@@ -58,12 +119,6 @@ let webRemoteStylesheetCompatibilityScript = #"""
     state.settled = true;
     state.phase = 'cancelled';
     states.delete(link);
-  };
-  const markDegraded = (link, state, reason) => {
-    if (state.degraded) return;
-    state.degraded = true;
-    const elapsedMS = Math.max(0, Math.round(performance.now() - state.startedAt));
-    post?.('resource.remote-stylesheet.degraded', `host=${hostForHref(state.href)} reason=${reason} elapsedMs=${elapsedMS}`);
   };
   const ensureState = (link) => {
     if (!isDeferredLink(link)) return null;
@@ -80,21 +135,18 @@ let webRemoteStylesheetCompatibilityScript = #"""
       href,
       originalRel,
       importLayer,
-      startedAt: performance.now(),
       phase: 'initial',
       settled: false,
-      degraded: false,
       retryCount: 0,
-      degradedTimer: 0,
+
+"""# + webRemoteStylesheetDiagnosticState + #"""
       retryTimer: 0,
       activationTimer: 0,
       cancelProbe: null
     };
     states.set(link, state);
-    state.degradedTimer = window.setTimeout(() => {
-      if (isCurrentDeferredState(link, state) && !state.settled) markDegraded(link, state, 'timeout');
-    }, degradedTimeoutMS);
-    post?.('resource.remote-stylesheet.deferred', `host=${hostForHref(href)}`);
+
+"""# + webRemoteStylesheetStartDiagnostic + #"""
     return state;
   };
 
@@ -113,24 +165,16 @@ let webRemoteStylesheetCompatibilityScript = #"""
     // 污染级联（比不应用更糟）。已插入的恢复 style 不主动移除——网络后到
     // 时样式仍会进正确的层并应用（多恢复优于少恢复）。
     if (wasDeferred && state.importLayer === null) restoreAuthoredRel(link, state);
-    post?.(
-      'resource.remote-stylesheet.failed',
-      `host=${hostForHref(state.href)} reason=${reason} attempts=${state.retryCount} authoredRelRestored=${wasDeferred && state.importLayer === null}`
-    );
+
+"""# + webRemoteStylesheetFailureDiagnostic + #"""
   };
   const finishApplied = (link, state) => {
     if (states.get(link) !== state || state.settled) return;
     cancelWork(state);
     state.settled = true;
     state.phase = 'applied';
-    const elapsedMS = Math.max(0, Math.round(performance.now() - state.startedAt));
-    const layerSuffix = state.importLayer === null || state.importLayer === undefined
-      ? ''
-      : ` layer=${state.importLayer === '' ? '(anonymous)' : state.importLayer}`;
-    post?.(
-      state.degraded ? 'resource.remote-stylesheet.recovered' : 'resource.remote-stylesheet.activated',
-      `host=${hostForHref(state.href)} elapsedMs=${elapsedMS} attempts=${state.retryCount} rel=${String(link.rel || '')}${layerSuffix} applied=true`
-    );
+
+"""# + webRemoteStylesheetAppliedDiagnostic + #"""
   };
   const beginActivation = (link, state) => {
     if (!isCurrentDeferredState(link, state) || state.settled) return;
@@ -201,7 +245,8 @@ let webRemoteStylesheetCompatibilityScript = #"""
   };
   const scheduleRetry = (link, state, reason) => {
     if (!isCurrentDeferredState(link, state) || state.settled) return;
-    markDegraded(link, state, reason);
+
+"""# + webRemoteStylesheetDegradeDiagnostic + #"""
     if (state.retryCount >= maximumRetries) {
       finishFinalFailure(link, state, `retry_exhausted:${reason}`);
       return;
@@ -209,10 +254,8 @@ let webRemoteStylesheetCompatibilityScript = #"""
     const attempt = state.retryCount + 1;
     const delayMS = Math.min(retryMaximumDelayMS, retryBaseDelayMS * (2 ** (attempt - 1)));
     state.phase = 'waiting-retry';
-    post?.(
-      'resource.remote-stylesheet.retry',
-      `host=${hostForHref(state.href)} attempt=${attempt}/${maximumRetries} delayMs=${delayMS} reason=${reason}`
-    );
+
+"""# + webRemoteStylesheetRetryDiagnostic + #"""
     state.retryTimer = window.setTimeout(() => startRetry(link, state, attempt), delayMS);
   };
   const startRetry = (link, state, attempt) => {
@@ -266,7 +309,7 @@ let webRemoteStylesheetCompatibilityScript = #"""
     if (succeeded) {
       beginActivation(link, state);
     } else if (state.phase === 'initial') {
-      window.clearTimeout(state.degradedTimer);
+"""# + webRemoteStylesheetCancelDiagnostic + #"""
       scheduleRetry(link, state, 'preload_error');
     }
   };

@@ -1,3 +1,37 @@
+#if DEBUG
+private let webPropertySkippedDiagnostic = #"""
+  const myWallpaperReportSkippedProperty = function(signature, key, error) {
+    try {
+      const message = myWallpaperPropertyErrorMessage(error) || 'unknown error';
+      const skipKey = [signature || '', key || '', message].join('|');
+      const reported = myWallpaperPropertyReplayState.reportedSkips || {};
+      if (reported[skipKey] === true) return;
+      reported[skipKey] = true;
+      myWallpaperPropertyReplayState.reportedSkips = reported;
+      hostLogger?.post('properties.skipped', `${key}: ${message}`);
+    } catch (_) {}
+  };
+"""#
+private let webPropertyCountDiagnostic = "let appliedCount = 0; let skippedCount = 0;"
+private let webPropertyAppliedDiagnostic = "appliedCount += 1;"
+private let webPropertySkipDiagnostic = "skippedCount += 1; myWallpaperReportSkippedProperty(signature, key, error);"
+private let webPropertyResultDiagnostic = "return { appliedCount, skippedCount };"
+private let webPropertyResultBindingDiagnostic = "const isolatedResult = "
+private let webPropertyPartialDiagnostic = #"""
+      if (isolatedResult.skippedCount > 0) {
+        hostLogger?.post('properties.applied.partial', `applied=${isolatedResult.appliedCount} skipped=${isolatedResult.skippedCount}`);
+      }
+"""#
+#else
+private let webPropertySkippedDiagnostic = ""
+private let webPropertyCountDiagnostic = ""
+private let webPropertyAppliedDiagnostic = ""
+private let webPropertySkipDiagnostic = ""
+private let webPropertyResultDiagnostic = ""
+private let webPropertyResultBindingDiagnostic = ""
+private let webPropertyPartialDiagnostic = ""
+#endif
+
 let webCompatibilityScriptHostBridge = #"""
   window.__myWallpaperRegisterInteractiveRegions = function(payload) {
     const regionSource = String((payload && payload.source) || 'page-script');
@@ -130,8 +164,7 @@ let webCompatibilityScriptHostBridge = #"""
     pendingSignature: '',
     attempt: 0,
     timer: null,
-    loadScheduled: false,
-    reportedSkips: {}
+    loadScheduled: false
   };
   const myWallpaperPropertyRetryDelays = [80, 140, 220, 340, 520, 780, 1100, 1400, 1800, 2200, 2600, 3000];
   const myWallpaperPropertyErrorMessage = function(error) {
@@ -244,26 +277,15 @@ let webCompatibilityScriptHostBridge = #"""
       });
     } catch (_) {}
   };
-  const myWallpaperReportSkippedProperty = function(signature, key, error) {
-    try {
-      const message = myWallpaperPropertyErrorMessage(error) || 'unknown error';
-      const skipKey = [signature || '', key || '', message].join('|');
-      const reported = myWallpaperPropertyReplayState.reportedSkips || {};
-      if (reported[skipKey] === true) return;
-      reported[skipKey] = true;
-      myWallpaperPropertyReplayState.reportedSkips = reported;
-      hostLogger?.post('properties.skipped', `${key}: ${message}`);
-    } catch (_) {}
-  };
+  \#(webPropertySkippedDiagnostic)
   const myWallpaperApplyPropertiesIndividually = function(properties, listener, callback, signature) {
-    let appliedCount = 0;
-    let skippedCount = 0;
+    \#(webPropertyCountDiagnostic)
     for (const [key, value] of Object.entries(properties || {})) {
       const singleProperty = {};
       singleProperty[key] = value;
       try {
         callback.call(listener, singleProperty);
-        appliedCount += 1;
+        \#(webPropertyAppliedDiagnostic)
       } catch (error) {
         const compatibleValue = myWallpaperIsColorArrayCompatibilityError(error)
           ? myWallpaperColorArrayCompatibleProperty(value)
@@ -271,18 +293,17 @@ let webCompatibilityScriptHostBridge = #"""
         if (compatibleValue) {
           try {
             callback.call(listener, { [key]: compatibleValue });
-            appliedCount += 1;
+            \#(webPropertyAppliedDiagnostic)
             hostLogger?.post('properties.compat.color-array', key);
             continue;
           } catch (compatibleError) {
             error = compatibleError;
           }
         }
-        skippedCount += 1;
-        myWallpaperReportSkippedProperty(signature, key, error);
+        \#(webPropertySkipDiagnostic)
       }
     }
-    return { appliedCount, skippedCount };
+    \#(webPropertyResultDiagnostic)
   };
   window.__myWallpaperDrainPendingProperties = function() {
     const state = myWallpaperPropertyReplayState;
@@ -404,7 +425,7 @@ let webCompatibilityScriptHostBridge = #"""
         return;
       }
 
-      const isolatedResult = myWallpaperApplyPropertiesIndividually(
+      \#(webPropertyResultBindingDiagnostic)myWallpaperApplyPropertiesIndividually(
         safeProperties,
         listener,
         userPropertyCallback,
@@ -420,9 +441,7 @@ let webCompatibilityScriptHostBridge = #"""
           detail: safeProperties
         }));
       } catch (_) {}
-      if (isolatedResult.skippedCount > 0) {
-        hostLogger?.post('properties.applied.partial', `applied=${isolatedResult.appliedCount} skipped=${isolatedResult.skippedCount}`);
-      }
+      \#(webPropertyPartialDiagnostic)
     }
   };
   window.__myWallpaperApplyProperties = function(properties) {

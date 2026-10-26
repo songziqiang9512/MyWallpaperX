@@ -48,6 +48,7 @@ class SceneAudioSpectrumInputTests(unittest.TestCase):
                 str(SNAPSHOT_SOURCE),
                 str(CAPTURE_BUFFER_SOURCE),
                 str(ANALYZER_SOURCE),
+                str(REPOSITORY_ROOT / "script/tests/fixtures/SystemAudioSpectrumTestCapture.swift"),
                 str(harness),
                 "-o",
                 str(binary),
@@ -312,9 +313,9 @@ class SceneAudioSpectrumInputTests(unittest.TestCase):
             "尾音应连续衰减而不是每个采集 tick 硬切闪烁",
         )
 
-    def test_first_partial_window_fails_closed_until_primed(self) -> None:
+    def test_capture_produces_no_frame_until_complete_window(self) -> None:
         analyzer = self.result["analyzer"]
-        self.assertTrue(analyzer["firstPartialSilent"])
+        self.assertTrue(analyzer["firstPartialHasNoFrame"])
         self.assertTrue(analyzer["secondPartialNonZero"])
 
     def test_analysis_is_deterministic_for_the_same_input(self) -> None:
@@ -347,7 +348,7 @@ class SceneAudioSpectrumInputTests(unittest.TestCase):
         self.assertEqual(
             analyzer["invalidRateLeft"], [0.0] * 16, "非法采样率必须归零"
         )
-        self.assertEqual(analyzer["emptyLeft"], [0.0] * 16, "空输入必须归零")
+        self.assertTrue(analyzer["emptyCaptureHasNoFrame"], "空缓冲不得伪造分析帧")
         self.assertTrue(
             analyzer["highRateNonZero"],
             "高采样率分析窗必须有界截断，不能因超过FFT容量而让整链归零",

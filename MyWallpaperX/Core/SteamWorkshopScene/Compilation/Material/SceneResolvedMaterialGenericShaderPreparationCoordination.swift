@@ -504,19 +504,27 @@ nonisolated extension SceneResolvedMaterialGenericShaderArtifactCache {
     /// contract for the frontend/preparation tiers).
     static func resolvedAnalysis(
         for input: SceneResolvedMaterialGenericShaderResolutionCache.Input
-    ) -> (analysis: SceneGenericShaderAnalysis, fromCache: Bool) {
+    ) -> (
+        analysis: SceneGenericShaderAnalysis, fromCache: Bool,
+        normalizedSources: SceneGenericShaderSourceNormalizer.Pair?
+    ) {
         if let cached = SceneGenericShaderAnalysisCache.load(input: input) {
-            return (cached, true)
+            return (cached, true, nil)
         }
-        return (computeAnalysis(input: input), false)
+        let computed = computeAnalysis(input: input)
+        return (computed.analysis, false, computed.normalizedSources)
     }
 
     /// The deterministic analyzer-family prefix of a generic-shader route
     /// resolution. Extracted verbatim from the artifact-cache resolve path;
-    /// its outputs are exactly the facts the persistent analysis tier caches.
+    /// Only the analysis facts are persisted. A successful normalization stays
+    /// local to this preparation and can feed its actual compiler miss.
     static func computeAnalysis(
         input: SceneResolvedMaterialGenericShaderResolutionCache.Input
-    ) -> SceneGenericShaderAnalysis {
+    ) -> (
+        analysis: SceneGenericShaderAnalysis,
+        normalizedSources: SceneGenericShaderSourceNormalizer.Pair?
+    ) {
         let vertexSource = input.vertexSource
         let fragmentSource = input.fragmentSource
         let sourceColorTransfer = input.sourceColorTransfer
@@ -584,38 +592,34 @@ nonisolated extension SceneResolvedMaterialGenericShaderArtifactCache {
                 )
         let blendSourceSlots = SceneAuthoredShaderColorTransferAnalyzer
             .blendSourceSlots(sourceAnalysis: colorSourceAnalysis)
-        let associatedOverBlendFact =
-            SceneAuthoredShaderAssociatedOverBlendAnalyzer.analyze(
-                fragmentSource: fragmentSource
+        let associatedOverBlendFact = colorSourceAnalysis.flatMap {
+            SceneAuthoredShaderAssociatedOverBlendAnalyzer.analyze($0.fragment)
+        }
+        let normalizedSampleSumSourceSlot = colorSourceAnalysis.flatMap {
+            SceneAuthoredShaderNormalizedSampleSumAnalyzer.analyze(
+                outputUses: $0.outputUses, fragment: $0.fragment, main: $0.main
             )
-        let normalizedSampleSumSourceSlot =
-            SceneAuthoredShaderNormalizedSampleSumAnalyzer.sourceSlot(
-                fragmentSource: fragmentSource
-            )
+        }
         let alphaWeightedSampleAverageSourceSlot =
             SceneAuthoredShaderAlphaWeightedSampleAverageAnalyzer.analyze(
                 fragmentSource: fragmentSource
             )?.textureSlot
-        let preservedAlphaRGBFilterFact =
-            SceneAuthoredShaderPreservedAlphaRGBFilterAnalyzer.analyzeAny(
-                fragmentSource: fragmentSource
-            )
-        let typedDataRGBFilterFact =
-            SceneAuthoredShaderTypedDataRGBFilterAnalyzer.analyze(
-                fragmentSource: fragmentSource
-            )
-        let sameAlphaReconstructedRGBFilterFact =
-            SceneAuthoredShaderSameAlphaReconstructedRGBFilterAnalyzer.analyze(
-                fragmentSource: fragmentSource
-            )
+        let preservedAlphaRGBFilterFact = colorSourceAnalysis.flatMap {
+            SceneAuthoredShaderPreservedAlphaRGBFilterAnalyzer.analyzeAny($0.fragment)
+        }
+        let typedDataRGBFilterFact = colorSourceAnalysis.flatMap {
+            SceneAuthoredShaderTypedDataRGBFilterAnalyzer.analyze($0.fragment)
+        }
+        let sameAlphaReconstructedRGBFilterFact = colorSourceAnalysis.flatMap {
+            SceneAuthoredShaderSameAlphaReconstructedRGBFilterAnalyzer.analyze($0.fragment)
+        }
         let straightRGBScalarAlphaFact = SceneAuthoredShaderColorTransferAnalyzer
             .straightRGBScalarAlphaFact(sourceAnalysis: colorSourceAnalysis)
         let preservedAlphaRGBFilterTextureSlots =
             preservedAlphaRGBFilterFact?.sampledTextureSlots ?? []
-        let previousBlurredCompositeSourceFact =
-            SceneAuthoredShaderPreviousBlurredCompositeAnalyzer.analyze(
-                fragmentSource: fragmentSource
-            )
+        let previousBlurredCompositeSourceFact = colorSourceAnalysis.flatMap {
+            SceneAuthoredShaderPreviousBlurredCompositeAnalyzer.analyze($0.fragment)
+        }
         let normalizedRouteFacts: SceneGenericShaderSourceNormalizer.Pair?
         switch SceneGenericShaderSourceNormalizer.normalize(
             vertexSource: vertexSource,
@@ -774,12 +778,13 @@ nonisolated extension SceneResolvedMaterialGenericShaderArtifactCache {
                 .union(premultipliedColorAuxiliarySlots)
                 .union(input.sceneBackgroundColorSlots)
             : []
-        return SceneGenericShaderAnalysis(
+        let analysis = SceneGenericShaderAnalysis(
             profile: profile,
             colorTransfer: colorTransfer,
             expectedColorTransfer: expectedColorTransfer,
             premultipliedColorInputSlots: premultipliedColorInputSlots,
             defaultBoundaryColorSlots: defaultBoundaryColorSlots
         )
+        return (analysis, normalizedRouteFacts)
     }
 }

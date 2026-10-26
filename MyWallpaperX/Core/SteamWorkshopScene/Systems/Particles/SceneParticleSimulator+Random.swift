@@ -86,7 +86,6 @@ extension SceneParticleSimulator {
         // Direct sampling has bounded work and no retry-exhaustion axis.
         // Keep the existing active-axis threshold and radial distribution.
         let mask = plan.sphereAxisMask
-        let dimensions = max(mask.nonzeroBitCount, 1)
         let unit: SIMD3<Double>
         switch mask {
         case 7:
@@ -108,11 +107,9 @@ extension SceneParticleSimulator {
         default:
             unit = .zero
         }
-        let minimum = plan.sphereDistanceMinimum
-        let maximum = plan.sphereDistanceMaximum
         let radius = pow(
-            random.value(pow(minimum, Double(dimensions)), pow(maximum, Double(dimensions))),
-            1 / Double(dimensions)
+            random.value(plan.sphereRadiusPowerMinimum, plan.sphereRadiusPowerMaximum),
+            plan.sphereRadiusInverseDimension
         )
         var absoluteDirections = directions
         for component in 0..<3 { absoluteDirections[component] = abs(absoluteDirections[component]) }

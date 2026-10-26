@@ -186,6 +186,7 @@ POOL_MAIN = r'''
 
 
 def run_swift(sources, support, *, label, metal_sources=(), input_value=None, swift_flags=()):
+    sources = list(dict.fromkeys(Path(path).resolve() for path in sources))
     snapshot = os.environ.get('MWX_DIRECTIONAL_SHADOW_PRODUCT_SNAPSHOT')
     if snapshot:
         def frozen(path):
@@ -295,7 +296,7 @@ PIXEL_MAIN = r'''
   }
   func mesh(_ triangles: [[[Double]]]) -> SceneStaticModelMesh {
    let vertices = triangles.flatMap { $0 }.map { p in SceneMdlStaticModel.Vertex(position: SIMD3(Float(p[0]),Float(p[1]),Float(p[2])), normal: SIMD3(0,0,1), tangent: SIMD4(1,0,0,1), uv: SIMD2(0.5,0.5)) }
-   return pipeline.makeMesh(vertices:vertices,indices:Array(0..<UInt32(vertices.count)))!
+   return pipeline.makeMesh(model: SceneStaticModelFixture.model(vertices:vertices,indices:Array(0..<UInt32(vertices.count))))!
   }
   let albedo = texture(1)
   let emissionMask = texture(0.25)
@@ -385,6 +386,7 @@ class SceneDirectionalShadowPixelTests(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
         sources = [getattr(model_fixture, name) for name in ['MODEL_SOURCE', 'SAMPLING_SOURCE', 'UV_TRANSFORM_SOURCE', 'DIRECTIONAL_LIGHT_SOURCE', 'POINT_LIGHT_SOURCE', 'SPOT_LIGHT_SOURCE', 'LIGHT_SOURCE', 'VISIBILITY_SOURCE', 'DYNAMIC_SNAPSHOT_SOURCE', 'DYNAMIC_LAYER_VALUES_SOURCE', 'PERFORMANCE_COUNTER_SOURCE', 'MATERIAL_SOURCE', 'PIPELINE_SOURCE', 'SHADOW_SOURCE']] + [SCENE/'Runtime/Frame/SceneStaticModelMaterialBindings.swift']
+        sources += model_fixture.MODEL_SUPPORT_SOURCES
         sources.append(SCENE/'Resources/Textures/SceneResourceBudget.swift')
         cls.vectors = freeze_vectors()
         for name, u, flags, alpha in [('frame-left', .25, 3, 0), ('frame-right', .75, 3, .75),
@@ -688,7 +690,7 @@ class SceneDirectionalShadowCasterPlaneTests(unittest.TestCase):
     def setUpClass(cls):
         cls.vectors=skinny_plane_vectors()
         sources=[getattr(model_fixture,name) for name in ['MODEL_SOURCE','SAMPLING_SOURCE','UV_TRANSFORM_SOURCE','DIRECTIONAL_LIGHT_SOURCE','POINT_LIGHT_SOURCE','SPOT_LIGHT_SOURCE','LIGHT_SOURCE','VISIBILITY_SOURCE','DYNAMIC_SNAPSHOT_SOURCE','DYNAMIC_LAYER_VALUES_SOURCE','PERFORMANCE_COUNTER_SOURCE','MATERIAL_SOURCE','PIPELINE_SOURCE','SHADOW_SOURCE']]
-        sources += [SCENE/'Runtime/Frame/SceneStaticModelMaterialBindings.swift',SCENE/'Resources/Textures/SceneResourceBudget.swift']
+        sources += [*model_fixture.MODEL_SUPPORT_SOURCES, SCENE/'Runtime/Frame/SceneStaticModelMaterialBindings.swift',SCENE/'Resources/Textures/SceneResourceBudget.swift']
         cls.report=run_swift(sources,'import Foundation\nimport Metal\nimport simd\n'+model_fixture.LIGHTING_STUB+skinny_plane_main(),label='skinny-caster-plane',metal_sources=[model_fixture.METAL_SOURCE],input_value=cls.vectors)
 
     def test_coplanar_self_signed_gap_and_culled_or_covered_thin_sheet(self):
@@ -762,7 +764,7 @@ class SceneDirectionalShadowAuthoredTests(unittest.TestCase):
         for name, content in entries.items():
             path = root/name; path.parent.mkdir(parents=True,exist_ok=True); path.write_bytes(content)
         sources = list(builder.SWIFT_SOURCES)
-        for path in [model_fixture.LIGHT_SOURCE, model_fixture.DYNAMIC_LAYER_VALUES_SOURCE]:
+        for path in [model_fixture.LIGHT_SOURCE, model_fixture.LIGHTING_INPUT_SOURCE, model_fixture.DYNAMIC_LAYER_VALUES_SOURCE]:
             if path not in sources: sources.append(path)
         cls.report = run_swift(sources, 'import simd\n'+builder.HARNESS_SOURCE.split('@main',1)[0]+PARSER_MAIN, label='authored', input_value=str(root))
 

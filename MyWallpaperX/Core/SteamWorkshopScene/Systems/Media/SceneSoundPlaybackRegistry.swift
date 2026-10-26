@@ -18,7 +18,6 @@ final class SceneSoundPlaybackRegistry {
         private var looper: AVPlayerLooper?
         private var currentItemObservation: NSKeyValueObservation?
         private var itemStatusObservation: NSKeyValueObservation?
-        private var timeControlObservation: NSKeyValueObservation?
         private var endObservation: NSObjectProtocol?
         private var managedItem: AVPlayerItem?
         private var itemGeneration: UInt64 = 0
@@ -34,6 +33,7 @@ final class SceneSoundPlaybackRegistry {
         private var masterVolume = 1.0
         private var isMuted = false
 #if DEBUG
+        private var timeControlObservation: NSKeyValueObservation?
         private static let capturesEvidence = ProcessInfo.processInfo.arguments
             .contains("--mwx-debug-scene-root")
         private var volumeEvidenceCount = 0
@@ -65,20 +65,20 @@ final class SceneSoundPlaybackRegistry {
             } else {
                 replaceItem()
             }
+#if DEBUG
             timeControlObservation = player.observe(\.timeControlStatus, options: [.new]) {
                 [weak self] _, change in
                 guard change.newValue == .playing else { return }
                 DispatchQueue.main.async { [weak self] in
                     guard let self, !self.stopped, self.epoch == epoch,
                           self.player.timeControlStatus == .playing else { return }
-#if DEBUG
-                          NSLog(
+                    NSLog(
                         "MWX Scene sound: layer=%d epoch=%llu phase=playing source=%@ volume=%.6f",
                         binding.layerID, epoch, self.currentResource.displayPath, self.player.volume
                     )
-#endif
                 }
             }
+#endif
         }
 
         func start(paused: Bool) {
@@ -292,7 +292,9 @@ final class SceneSoundPlaybackRegistry {
             itemGeneration &+= 1
             itemStatusObservation?.invalidate()
             currentItemObservation?.invalidate()
+#if DEBUG
             timeControlObservation?.invalidate()
+#endif
             if let endObservation { NotificationCenter.default.removeObserver(endObservation) }
             endObservation = nil
             managedItem = nil

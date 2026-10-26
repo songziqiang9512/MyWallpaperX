@@ -133,7 +133,8 @@ extension Notification.Name {static let wallpaperSwitchDidFail=Self("switch-fail
             checks["repeated-generic-stop-keeps-one-live-retirement-owner"] = Set(manager.playbackSwitch.retirements.keys) == originalBarriers
                 && engine.videoExecutions[execution.id] === execution
                 && execution.retirementCompletions.count == 1 && settlements == 0
-            engine.videoSessionDidExit(WallpaperEngine.DisplayDaemonSession(99), wasCurrent: false)
+            engine.videoSessionDidExit(WallpaperEngine.DisplayDaemonSession(displayID: 99,
+                transport: .init(executableURL: URL(fileURLWithPath: "/unused"), arguments: [])), wasCurrent: false)
             sessions[0].transport.end()
             checks["first-display-exit-and-foreign-session-cannot-ack-last-display"] = settlements == 0
                 && manager.playbackSwitch.retirements.count == 1 && manager.switchEndpoints[execution.id] != nil

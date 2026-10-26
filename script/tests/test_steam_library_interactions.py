@@ -20,6 +20,7 @@ class SteamLibraryInteractionTests(unittest.TestCase):
         ui = (CORE.parent / 'UI/SteamWorkshopDownloadTasksPopover.swift').read_text()
         navigation = (CORE / 'SteamWorkshopService+BrowseNavigation.swift').read_text()
         shell = (ROOT / 'MyWallpaperX/App/WallpaperLibraryWindowComposition.swift').read_text()
+        pages = (ROOT / 'MyWallpaperX/Models/WallpaperLibraryPage.swift').read_text()
         records = (CORE / 'SteamWorkshopService+LibraryRecords.swift').read_text()
         downloads = (CORE / 'SteamWorkshopService+Downloads.swift').read_text()
         harness = r'''
@@ -70,15 +71,32 @@ extension Notification.Name { static let appKitSelectItemRequested = Notificatio
 }
 @MainActor final class Presentation {
     var page = WallpaperLibraryPage.downloads
-    func switchPage(_ page: WallpaperLibraryPage) -> Bool { self.page = page; return true }
+    private(set) var switchTargets: [WallpaperLibraryPage] = []
+    func switchPage(_ page: WallpaperLibraryPage) -> Bool {
+        switchTargets.append(page)
+        guard self.page != page else { return false }
+        self.page = page
+        return true
+    }
 }
 @MainActor final class Workspace { let presentation = Presentation() }
-enum WallpaperLibraryPage { case workshop, workshopSubscriptions, downloads, pixabay, images }
+@MainActor final class Grid {
+    private(set) var scrollToTopCalls = 0
+    func scrollToTop() { scrollToTopCalls += 1 }
+}
+''' + method(pages, 'nonisolated enum WallpaperLibraryPage:') + r'''
 @MainActor final class WallpaperLibraryWindowComposition {
     let workspace = Workspace()
+    let grid = Grid()
     var steam: SteamWorkshopService { .shared }
     var selected: WallpaperLibraryPage { workspace.presentation.page }
-''' + method(shell, '    func navigate(') + '\n' + method(shell, '    private func handleNavigation(') + r'''
+    var onNavigationContextChanged: (() -> Void)?
+''' + method(shell, '    private struct DirectoryReturnContext:') + '\n' + method(shell, '    private var directoryReturnContext:') + r'''
+    func establishDirectoryReturnContext() {
+        directoryReturnContext = DirectoryReturnContext(playlistID: UUID(), resetEpoch: UUID())
+    }
+    var hasDirectoryReturnContext: Bool { directoryReturnContext != nil }
+''' + method(shell, '    func navigate(') + '\n' + method(shell, '    private func navigatePage(') + '\n' + method(shell, '    private func handleNavigation(') + r'''
 }
 @main struct Harness {
     @MainActor static func main() throws {
@@ -118,12 +136,17 @@ enum WallpaperLibraryPage { case workshop, workshopSubscriptions, downloads, pix
         precondition(actions.retryButton.isHidden && actions.retryHandler == nil)
 
         let shell = WallpaperLibraryWindowComposition()
+        shell.establishDirectoryReturnContext()
+        var contextChanges = 0
+        shell.onNavigationContextChanged = { contextChanges += 1 }
         let observer = NotificationCenter.default.addObserver(forName: .appKitSelectItemRequested,
             object: nil, queue: nil) { note in
                 MainActor.assumeIsolated { shell.handleNavigation(note) }
             }
         service.requestSteamWorkshopBrowserSelection()
         precondition(shell.selected == .workshop && service.isBrowsingAuthorWorkshop)
+        precondition(!shell.hasDirectoryReturnContext && contextChanges == 1,
+            "actual navigate must clear the directory return context before preserving the author browser")
         service.source = .mySubscriptions
         service.requestSteamWorkshopBrowserSelection()
         precondition(shell.selected == .workshop && service.isBrowsingAuthorWorkshop)
@@ -132,7 +155,23 @@ enum WallpaperLibraryPage { case workshop, workshopSubscriptions, downloads, pix
             "reselecting the current author host must exit author mode and prepare the visible browser")
         shell.navigate(to: .workshop)
         precondition(service.browserEntryChecks == 1, "ordinary same-row clicks keep their scroll-to-top behavior")
+        precondition(shell.grid.scrollToTopCalls == 0,
+            "reselecting the remote browser must keep its original early-return path")
         NotificationCenter.default.removeObserver(observer)
+
+        shell.navigate(to: .downloads)
+        let switchesBeforeReselect = shell.workspace.presentation.switchTargets.count
+        shell.establishDirectoryReturnContext()
+        shell.navigate(to: .downloads)
+        precondition(shell.selected == .downloads && shell.grid.scrollToTopCalls == 1
+            && shell.workspace.presentation.switchTargets.count == switchesBeforeReselect
+            && !shell.hasDirectoryReturnContext,
+            "the real local-page branch scrolls the existing grid without switching page or retaining directory context")
+        shell.navigate(to: .playlists)
+        shell.navigate(to: .playlists)
+        precondition(shell.selected == .playlists && shell.grid.scrollToTopCalls == 1
+            && Array(shell.workspace.presentation.switchTargets.suffix(2)) == [.playlists, .playlists],
+            "the playlists directory keeps its original presentation route rather than scrolling the wallpaper grid")
 
         let content = root.appendingPathComponent("Scene/123456")
         try FileManager.default.createDirectory(at: content, withIntermediateDirectories: true)

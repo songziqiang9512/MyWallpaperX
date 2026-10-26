@@ -33,7 +33,7 @@ MirageWallpaper 只提供 `candidate / active / standby`、request generation、
 
 ### 3.0 发布构建的诊断边界
 
-正式 Release 从编译输入、实现与 IPC 入口排除开发观测链：启动/逐帧计时、带锁性能计数、signpost、GPU census/完成日志、周期资源统计、诊断 IPC、Web 事件缓存/通知及脚本日志桥均由 `DEBUG` 编译条件隔离。Steam helper 的 `Probe/` 与 `*SelfTest.cs` 不参与 Release 编译，`probe`／`selftest` 和 Web `inspect`／诊断事件只在 Debug 提供；Scene／Web 详情隐藏诊断面板及其专属样本报告、完整 Web 依赖诊断扫描与报告缓存已退役；普通 Web 发布播放不开放 Web Inspector。Scene 的资源引用与能力缺口汇总、effect 报告和 descriptor 诊断投影也只在 Debug 构造，真实资源解析与编译准入继续执行。产品 Web 启动准入只检查入口与依赖可用事实，不调用样本诊断；runtime profile 仍由产品 descriptor 风险事实决定。Scene 属性准备由现有独立 owner 处理，不再持有详情诊断 consumer。着色器归一化源码与编译后 MSL 的证据目录解析和写盘也仅在 Debug 构建；默认 App 的固定编译工具沿原 Bundle owner 首次解析并严格核签名，后续复用同一结果；不为每个 shader 启动 `--version` 子进程，实际编译保退出码、超时、内存和输出/ABI 边界。Debug 保留现有显式证据入口，helper 随 App 的构建配置发布；不能用运行时开关冒充 Release 编译隔离，也不能在空日志调用前计算 payload 或注册 observer/timer。发布验收核对实际无 `DEBUG` 的构建、主 App／Video helper 符号、Steam 程序集类型与成员、开发命令拒绝及普通播放运行，而不是带 DEBUG 的优化诊断配置。
+正式 Release 从编译输入、实现与 IPC 入口排除开发观测链：启动/逐帧计时、带锁性能计数、signpost、GPU census/完成日志、周期资源统计、诊断 IPC、Web 事件缓存/通知及脚本日志桥均由 `DEBUG` 编译条件隔离。Steam helper 的 `Probe/` 与 `*SelfTest.cs` 不参与 Release 编译，`probe`／`selftest` 和 Web `inspect`／诊断事件只在 Debug 提供；Scene／Web 详情隐藏诊断面板及其专属样本报告、完整 Web 依赖诊断扫描与报告缓存已退役；普通 Web 发布播放不开放 Web Inspector。Scene 的资源引用与能力缺口汇总、effect 报告和 descriptor 诊断投影也只在 Debug 构造，真实资源解析与编译准入继续执行。产品 Web 启动准入只检查入口与依赖可用事实，不调用样本诊断；runtime profile 仍由产品 descriptor 风险事实决定。Scene 属性准备由现有独立 owner 处理，不再持有详情诊断 consumer。声音 timeControlStatus 的纯日志 KVO、未知文本脚本的 SHA/报告只在 Debug 生成和注册；实际播放器状态、回退及用户可见错误不依赖它们。Video helper 的 launched/accepted 事件及父端仅供调试的请求镜像也只在 Debug；实际 prepared/ready/failed/cancelled、活动状态 ACK 和物理退出继续沿原身份链。共享音频 buffer 配置后的纯日志 actualFrames 读回、系统媒体 report 的状态存储/调用/字符串插值也只在 Debug 存在；实际 CoreAudio 范围/设置、媒体授权/来源/发布及清空继续由原 owner 执行。粒子 Simulator/Runtime 的纯运行报告及快照字段、成功 marker 和 child census 也只在 Debug 生成；Definition/graph 的真实执行判定、容量、事件、随机、worldspace 与 rope history 不依赖运行报告，继续留在原 owner。着色器归一化源码与编译后 MSL 的证据目录解析和写盘也仅在 Debug 构建；默认 App 的固定编译工具沿原 Bundle owner 首次解析并严格核签名，后续复用同一结果；不为每个 shader 启动 `--version` 子进程，实际编译保退出码、超时、内存和输出/ABI 边界。Debug 保留现有显式证据入口，helper 随 App 的构建配置发布；不能用运行时开关冒充 Release 编译隔离，也不能在空日志调用前计算 payload 或注册 observer/timer。发布验收核对实际无 `DEBUG` 的构建、主 App／Video helper 符号、Steam 程序集类型与成员、开发命令拒绝及普通播放运行，而不是带 DEBUG 的优化诊断配置。
 
 播放请求/代次、首帧与可见确认、资源预算、GPU drain、错误返回和局部降级是产品控制，继续由原 owner 执行；它们不能依赖统计或诊断返回值。共享渲染签名只可保留无观测实现的占位类型；已有只做 GPU 观测的参数通道在 Release 使用无状态且可内联消除的值，不分配观测对象、加锁或安装 GPU handler。失败原因仍作为用户可见 typed 状态返回。
 
@@ -83,7 +83,7 @@ Program capability 准备沿用该 token，在领取下一 layer、stage 或 mat
 
 ResourceView 的 handle 由具体 Root 产生并持有同一来源；目录资源以当前文件 revision 识别缓存，包资源以实际打开包的文件 revision、当前索引及条目范围识别缓存。包在同一 Reader/FD 解析索引一次，全部名称沿同一 Root 按需读取，不做全量 snapshot、哈希或物理解包。坏存储名和越界 payload 表项在 Root 原同一次投影中局部略去，不因未用坏项拒整包；Reader 保完整表结构边界。分隔符/Unicode canonical 等价的 exact 目标确定性选择首个安全可读条目，后续同目标条目不投影、不读取或比较内容；身份与字节均由所选条目确定。大小写邻居不合组，保 exact 优先及原排序折叠；文件与同名目录可共存。Scene/字体的 literal 文件查找沿原根顺序略过裸包目录，显式 /、/.、/.. 仍保目录意图并拒读，不误读同名或低根文件；已选有效范围文件内容坏不改选后条或低根。实际路径入根、格式/范围/长度、同 FD 稳定性、预算和取消由原消费处负责。旧 receipt 或派生缓存缺坏不构成播放许可，陈旧提取文件不参与选根；已选条目失败不得重选另一来源。
 
-来源已打开后发生替换或读取中变化、越界及非法 handle 仍保留 typed 失败；普通可选资源失败按原最小单元处理。父端原 Request/Task 持 lease 到后台实际 join，取消不得先退租。固定 stock Root 共享不可变事实，不持请求 lease、取消或错误状态；正常首帧和缓存命中路径不承担证据采集或历史完整性审计。
+目录 metadata 查询只作一次入根解析和 `lstat`，下一独立查询重取 revision。实际 FD 读取保 expected identity、读中变化、越界及非法 handle 的 typed 失败；可选资源失败局部处理。父端 Request/Task 持 lease 到实际 join，取消不先退租。固定 stock Root 共享不可变事实，不持请求 lease、取消或错误状态；首帧与缓存命中不承担证据采集或历史完整性审计。
 
 AssetCatalog沿原Loader局部引用闭包读模型、材质、effect和shader，保完整文件名索引、隐藏/潜在层、动态及材质脚本、MDL材质与粒子根/子依赖，不预读未引用作者正文。粒子递归定义沿同ResourceView在SourceFacts阶段由原GraphLoader读/解析一次，短值沿原launch交原Host throwing prepare消费并清理，普通坏定义局部；硬错与取消在候选发布前沿原失败链上抛。LaunchContext携带定义图，surface只消费它构建自身playback、纹理GPU与模拟状态，不能在非throwing帧设置中吞错或重读定义。图携带所选纹理Input与Root引用，只属同launch准备结果，不直接成为跨launch纯产物缓存。
 
@@ -161,6 +161,8 @@ ResourceView 唯一决定 package/loose/stock 顺序，index-backed handle 保�
 
 动态文字在途 token 跨 unregister/reset 不复用，连续新值保原单在途进度；Store 在原锁内关闭准入并将原 queue 尾 fence 与入队线性化；每屏退休须等字体 CPU、GPU 及已有 export 终态。共享 baseImages 仅在全 clearContext 关闭，其 deferred 尾在清 context 前纳原 Session 退休 group，先 stop 后 drain 也不丢。全停先等这些 CPU/退休工作，再提交最终 surface GPU barrier；GPU drain 不替代 CPU 确认，exited.gpuDrained 不扩为 AV drain。
 
+Sound 在查询来源前跳过格式能力明确不支持的候选。路径选择归同一 ResourceView/Root，保索引别名、exact/case、stock/assets 与原选根顺序；./ 和重复分隔可指同一索引叶，.. 交 Root 的真实文件系统/包目录解析，不在 Sound 文本折叠。首次选择仅 invalidPath/symlinkEscape 局部拒本源；sourceChanged、invalidHandle 及取消即使发生在选择阶段也沿原事务上抛，选中后硬错不换根或吞掉。原作者 literal 默认不选 stock。
+
 Sound 选中作者 Handle 后沿同 Root/FD 流式写入原 App 私有文件，实际读取稳定性与 close 成功才交付，失败清 partial。包路径在 snapshot 入口确认一次当前包 revision/条目身份，再查仍被 Program/实际 AVAsset 保活的成功文件；命中只检查完成私有输出的 revision 与取消，不在借用前后再次检查原作者文件。miss 的 readChunks 在原 prepare 闭包比较入口 expected identity，并保实际同 FD 读取期间的范围、稳定性与取消；writer.finish 后不再查原来源。读取完成后的作者改写不废本次完整私有 snapshot，下一独立请求仍按当前来源选身份，陈旧 Handle 不得借旧文件兜底。这不免除未来媒体 FD 或分段读取的原边界。
 
 Sound 成功复用以当前打开包的文件 revision/条目身份、实际私有写域、suffix 与原磁盘账本实例共同分区。成功表仅弱持文件及其完成 revision，不存 Root/grant/版本 lease、失败或延长文件寿命；目录保原单次 stream。私有 output 缺失/变动只撤复用并由当前合法 Handle 重建。不保证跨停播/进程命中，并发 miss 保各自生产，不合并在途工作。普通不可用保原槽位，来源硬错/取消不得重选低根。
@@ -174,6 +176,10 @@ Host在既有launch直接构造App私有cache根，经privateMediaCacheDirectory
 项目固定 MSL 必须构建期编译。Workshop 作者 shader 只在 preparation 阶段按当前内容需求编译和 preflight；不得在 draw/pass encode 热路径首次同步编译，也不为未使用的完整 catalog 做无界 eager compile。
 
 作者 shader 的 CPU 跨进程缓存只保存已经 accepted 的前端 Program 与 preparation 产物。identity 至少覆盖完整作者 source/source graph、combo、inactive/optional provider、资源 readiness/format、render contract 和 frontend/compiler schema；读取时核对当前 key/identity、payload digest、stage/backend 和产物自报 identity 一次；副本已等于当前 key 时不再对副本重算同一个 SHA。device/backend 磁盘产物另受 OS/compiler/GPU/attachment 身份、损坏回退和容量合同约束，不与 CPU 层混同。失败结果、诊断、超时和损坏文件不落成 success，读取异常统一作为 miss 并在后台重建。淘汰只影响性能，不能改变输出或失败语义。
+
+同次 generic analysis miss 的六个源分析器直接消费原严格 fragment Unit/main/outputUses，不重做相同 lexer/syntax；raw 与 normalized 语义分开，实际 compiler 预算不变，不增跨 variant memo。该次已成功的 normalized Pair 直接交原 Compiler miss 消费，持久 analysis 命中不保留或补造 Pair；不重复归一化，也不把 Pair 另存为凭证。Compiler 先解析原 Bundle，仍按真实配置核 raw 输入与 normalized 输出预算；route 无 Pair 时走原编译尝试，不把 route 失败升级为拒编，key/作者导出继续使用原 raw 源。lexical scanner 在原 Segment 内追加同类文本，不逐字符重建累计字符串；引号、注释、Unicode 和跨行状态保持原语义。同一帧当前/上一指针及所需 effect projection 复用该 caller 的同一 Double 逆矩阵，各点仍独立处理投影失败，不跨帧缓存。
+
+DirectModel 发布直接消费 Reader 已验证的不可变 bind 或 Skinning 完整成功的当前顶点，不在 VertexStream 重复逐通道 finite 检查；Skinning 后段失败始终选整份 bind，不发布半写 scratch。发布仍从当前 position 求精确 bounds，保数量、设备、commandBuffer、generation 与存储 lease 的原边界。球形粒子在原 EmitterSpawnPlan 准备维度、半径幂端点和倒数，出生只执行随机半径采样和原变换；动态输入、RNG 调用顺序、ID、事件、回滚及不安全出生的局部拒绝保持原 owner，不建另一信任标记或缓存。
 
 同 launch/device 的成功 MTLLibrary/PSO 可由现有 prepared-device owner 共享，完整 compile key 与 single-flight 不变；每屏 encoder token/reset、graph/history、binding 与 publication 独立。最后一次 drain 后释放，跨 launch 保温需另有收益/驻留证据。
 

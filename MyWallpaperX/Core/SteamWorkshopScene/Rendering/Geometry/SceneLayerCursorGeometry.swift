@@ -63,9 +63,22 @@ nonisolated enum SceneLayerCursorGeometry {
         mouseNormalized: SIMD2<Float>,
         modelViewProjection: simd_float4x4
     ) -> SIMD2<Float>? {
+        layerUV(
+            mouseNormalized: mouseNormalized,
+            inverseModelViewProjection: preciseInverseModelViewProjection(modelViewProjection)
+        )
+    }
+
+    /// Current and previous pointers share this inverse only within their
+    /// caller's current MVP. Each point keeps its own projection failure.
+    static func layerUV(
+        mouseNormalized: SIMD2<Float>,
+        inverseModelViewProjection: simd_double4x4?
+    ) -> SIMD2<Float>? {
+        guard let inverseModelViewProjection else { return nil }
         guard let local = layerPoint(
             mouseNormalized: mouseNormalized,
-            modelViewProjection: modelViewProjection
+            inverse: inverseModelViewProjection
         ) else { return nil }
         let uv = SIMD2(local.x + 0.5, 0.5 - local.y)
         return uv.x.isFinite && uv.y.isFinite ? uv : nil
@@ -78,6 +91,13 @@ nonisolated enum SceneLayerCursorGeometry {
         guard let inverse = preciseInverseModelViewProjection(modelViewProjection) else {
             return nil
         }
+        return layerPoint(mouseNormalized: mouseNormalized, inverse: inverse)
+    }
+
+    private static func layerPoint(
+        mouseNormalized: SIMD2<Float>,
+        inverse: simd_double4x4
+    ) -> SIMD3<Float>? {
         guard let near = localPoint(
             SIMD4(Double(mouseNormalized.x), Double(mouseNormalized.y), 0, 1),
             inverse: inverse
@@ -101,6 +121,12 @@ nonisolated enum SceneLayerCursorGeometry {
         guard let precise = preciseInverseModelViewProjection(modelViewProjection) else {
             return nil
         }
+        return floatInverseModelViewProjection(precise)
+    }
+
+    private static func floatInverseModelViewProjection(
+        _ precise: simd_double4x4
+    ) -> simd_float4x4? {
         let inverse = simd_float4x4(columns: (
             SIMD4<Float>(precise.columns.0), SIMD4<Float>(precise.columns.1),
             SIMD4<Float>(precise.columns.2), SIMD4<Float>(precise.columns.3)
@@ -114,7 +140,7 @@ nonisolated enum SceneLayerCursorGeometry {
     /// A large far/near ratio makes Float inversion lose the distinction
     /// between depth rows. Keep both admission and CPU ray intersection in
     /// Double; the shader ABI still receives the same finite Float matrix.
-    private static func preciseInverseModelViewProjection(
+    static func preciseInverseModelViewProjection(
         _ modelViewProjection: simd_float4x4
     ) -> simd_double4x4? {
         let precise = simd_double4x4(columns: (
@@ -158,11 +184,12 @@ nonisolated enum SceneLayerCursorGeometry {
     /// Identity is supplied only when the admitted execution graph has proven
     /// that no effect projection uniform is read.
     static func effectTextureProjectionInverse(
-        _ modelViewProjection: simd_float4x4,
+        inverseModelViewProjection: simd_double4x4?,
         required: Bool
     ) -> simd_float4x4? {
         guard required else { return matrix_identity_float4x4 }
-        guard let inverse = inverseModelViewProjection(modelViewProjection) else {
+        guard let inverseModelViewProjection,
+              let inverse = floatInverseModelViewProjection(inverseModelViewProjection) else {
             return nil
         }
         let centeredLocalToEffectTexture = simd_float4x4(

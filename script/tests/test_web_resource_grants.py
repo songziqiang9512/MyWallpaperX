@@ -134,7 +134,7 @@ final class DedicatedWebWallpaperHostPlaceholderAdapter {
     var deferredDirectorySyncWorkItem: DispatchWorkItem?
     var directorySnapshotsByProperty: [String: DirectorySnapshot] = [:]
     var directoryAccessErrorsByProperty: [DirectoryAccessErrorKey: String] = [:]
-    var directoryWatchersByProperty: [String: DirectoryWatcher] = [:]
+    var directoryWatchersByDirectory: [String: DirectoryWatcher] = [:]
     var directoryWatchTimer: DispatchSourceTimer?
     var randomFileSnapshotsByDirectoryPath: [String: DirectorySnapshot] = [:]
     var randomFileSnapshotRefreshedAtByDirectoryPath: [String: TimeInterval] = [:]
@@ -317,9 +317,10 @@ enum WebWallpaperHostSupport {
         host.views = [view]
         host.currentRequest = launch
         host.syncFetchAllDirectoryProperties(using: json)
-        spin { host.directoryWatchersByProperty.count == 1 }
+        spin { host.directoryWatchersByDirectory.count == 1 }
         check(!host.directorySnapshotsByProperty.values.contains { $0.filesByPath[sibling.path] != nil }, "fetchall symlink containment")
-        let preservedWatcher = host.directoryWatchersByProperty["renamedSlides"]!
+        let watchedDirectoryPath = directory.resolvingSymlinksInPath().standardizedFileURL.path
+        let preservedWatcher = host.directoryWatchersByDirectory[watchedDirectoryPath]!
         let directoryEventFile = directory.appendingPathComponent("event-after-color.png")
         try Data("directory-event".utf8).write(to: directoryEventFile)
         host.pollFetchAllDirectoryProperties()
@@ -333,7 +334,7 @@ enum WebWallpaperHostSupport {
             propertiesJSON: colorJSON, resourceGrants: [directoryGrant])))
         check(host.directorySyncRequestID == syncBeforeColor && host.currentRequest?.resourceRevision == 0,
             "ordinary edit must not start resource work or advance resource authority")
-        check(host.directoryWatchersByProperty["renamedSlides"] === preservedWatcher,
+        check(host.directoryWatchersByDirectory[watchedDirectoryPath] === preservedWatcher,
             "ordinary edit must not reopen the directory watcher")
         delayedDirectoryEvent.perform()
         delayedDirectoryEvent.cancel()
@@ -341,7 +342,7 @@ enum WebWallpaperHostSupport {
             "deferred directory event must consume the current bag after a normal property edit")
         spin { host.directorySnapshotsByProperty["renamedSlides"]?.filesByPath[directoryEventFile.path] != nil }
         check(host.published > publicationBeforeEvent, "directory event must be published without waiting for a periodic poll")
-        check(host.directoryWatchersByProperty["renamedSlides"] === preservedWatcher,
+        check(host.directoryWatchersByDirectory[watchedDirectoryPath] === preservedWatcher,
             "deferred synchronization retains the same watcher")
         let ordinaryGate = DispatchSemaphore(value: 0)
         host.directorySyncQueue.async { ordinaryGate.wait() }
@@ -355,12 +356,12 @@ enum WebWallpaperHostSupport {
             host.handle(.applyProperties(.init(requestID: requestID, revision: UInt64(revision), resourceRevision: 0,
                 propertiesJSON: json, resourceGrants: [directoryGrant])))
         }
-        check(host.directoryWatchersByProperty["renamedSlides"] === preservedWatcher, "ordinary updates retain watcher")
+        check(host.directoryWatchersByDirectory[watchedDirectoryPath] === preservedWatcher, "ordinary updates retain watcher")
         ordinaryGate.signal()
         spin { host.directorySnapshotsByProperty["renamedSlides"]?.filesByPath[afterOrdinaryFile.path] != nil }
         check(host.randomFileSnapshotsByDirectoryPath.isEmpty, "fetchall publishes only its original shared snapshot")
         check(host.resolveRandomFilePath(forPropertyNamed: "renamedSlides") != nil, "fetchall random selection consumes that committed snapshot")
-        check(host.directoryWatchersByProperty["renamedSlides"] === preservedWatcher, "ordinary updates do not starve directory work")
+        check(host.directoryWatchersByDirectory[watchedDirectoryPath] === preservedWatcher, "ordinary updates do not starve directory work")
         let queueGate = DispatchSemaphore(value: 0)
         host.directorySyncQueue.async { queueGate.wait() }
         host.syncFetchAllDirectoryProperties(using: json)
@@ -379,10 +380,10 @@ enum WebWallpaperHostSupport {
         revokedDirectoryEvent.perform()
         revokedDirectoryEvent.cancel()
         check(host.directorySyncRequestID == syncAfterClear, "deferred directory event must reject revoked resource authority")
-        check(host.directoryWatchersByProperty.isEmpty && host.randomFileSnapshotsByDirectoryPath.isEmpty, "clear immediately revokes producers")
+        check(host.directoryWatchersByDirectory.isEmpty && host.randomFileSnapshotsByDirectoryPath.isEmpty, "clear immediately revokes producers")
         queueGate.signal()
         spin { host.directorySnapshotsByProperty["renamedSlides"]?.filesByPath.isEmpty == true }
-        check(host.directoryWatchersByProperty.isEmpty, "late fetchall cannot reinstall watcher")
+        check(host.directoryWatchersByDirectory.isEmpty, "late fetchall cannot reinstall watcher")
         host.handle(.applyProperties(.init(requestID: requestID, revision: 0, resourceRevision: 0, propertiesJSON: json, resourceGrants: [directoryGrant])))
         host.handle(.applyProperties(.init(requestID: UUID(), revision: 100, resourceRevision: 0, propertiesJSON: json, resourceGrants: [directoryGrant])))
         host.handle(.applyProperties(.init(requestID: requestID, revision: 100, resourceRevision: 0, propertiesJSON: json, resourceGrants: [directoryGrant])))

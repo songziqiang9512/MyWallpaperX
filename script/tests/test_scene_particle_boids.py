@@ -151,7 +151,7 @@ class SceneParticleBoidsTests(unittest.TestCase):
         harness.write_text(HARNESS_SOURCE, encoding="utf-8")
         binary = directory / "scene-particle-boids"
         compilation = subprocess.run(
-            ["swiftc", *map(str, SWIFT_SOURCES), str(harness), "-o", str(binary)],
+            ["swiftc", "-D", "DEBUG", *map(str, SWIFT_SOURCES), str(harness), "-o", str(binary)],
             capture_output=True,
             text=True,
         )

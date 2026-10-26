@@ -1,6 +1,46 @@
 import Foundation
 
 extension SceneParticleRuntime {
+    /// Official particle containers parse `renderer` and `children` as
+    /// independent collections. We admit only the bounded form whose root has
+    /// no renderer and whose complete root-child set is static and executable;
+    /// event children still require a root simulator and therefore fail closed.
+    func admitsChildOnlyContainer(
+        _ definition: SceneParticleDefinition,
+        childRuntime: SceneParticleChildRuntime,
+        layerID: Int,
+        path: String
+    ) -> Bool {
+        let rendererMalformed = definition.diagnostics.contains {
+            $0.path == "renderer" || $0.path.hasPrefix("renderer[")
+        }
+        let staticChildren = !definition.children.isEmpty
+            && definition.children.allSatisfy {
+                guard let type = $0.type?.trimmingCharacters(
+                    in: .whitespacesAndNewlines
+                ).localizedLowercase else { return true }
+                return type.isEmpty || type == "static"
+            }
+        let accepted = !rendererMalformed
+            && staticChildren
+            && childRuntime.hasTemplates
+            && childRuntime.handlesAllChildren
+            && childRuntime.unsupportedDetails.isEmpty
+        guard accepted else {
+#if DEBUG
+            addDiagnostic(
+                kind: .missingSpriteRenderer,
+                layerID: layerID,
+                path: path,
+                detail: definition.children.isEmpty
+                    ? nil : "rootRendererAbsentOutsideStrictStaticChildContainer"
+            )
+#endif
+            return false
+        }
+        return true
+    }
+
     func admitsLayerImageEmitters(
         _ definition: SceneParticleDefinition,
         map: SceneParticleLayerImageEmissionMap?,
@@ -11,6 +51,7 @@ extension SceneParticleRuntime {
             return true
         }
         let accepted = map != nil && Self.supportsLayerImageEmitterProfile(definition)
+#if DEBUG
         if !accepted && !diagnostics.contains(where: {
             $0.kind == .layerImageEmitterUnsupported && $0.layerID == layerID
         }) {
@@ -19,6 +60,7 @@ extension SceneParticleRuntime {
                 detail: map == nil ? "emissionMapUnavailable" : "unsupportedEmitterProfile"
             )
         }
+#endif
         return accepted
     }
 
@@ -93,12 +135,14 @@ extension SceneParticleRuntime {
         }
         if containsRope || containsRopeTrail,
            definition.renderers.count != 1 || malformedRendererCollection {
+#if DEBUG
             addDiagnostic(
                 kind: containsRope ? .ropeRendererUnsupported : .trailRendererUnsupported,
                 layerID: layerID,
                 path: path,
                 detail: containsRope ? "rope:unsupportedProfile" : "ropetrail:unsupportedProfile"
             )
+#endif
             return nil
         }
         var supported: (
@@ -107,14 +151,20 @@ extension SceneParticleRuntime {
             SceneParticleRopePlan?,
             SceneParticleRopeTrailPlan?
         )?
+#if DEBUG
         var sawKnownRenderer = false
+#endif
         for renderer in definition.renderers {
             switch renderer.kind {
             case .sprite:
+#if DEBUG
                 sawKnownRenderer = true
+#endif
                 if supported == nil { supported = (renderer, nil, nil, nil) }
             case .spriteTrail:
+#if DEBUG
                 sawKnownRenderer = true
+#endif
                 if let trail = SceneParticleTrailRenderPlan(
                     length: renderer.length,
                     minimumLength: renderer.minimumLength,
@@ -123,15 +173,19 @@ extension SceneParticleRuntime {
                 ) {
                     if supported == nil { supported = (renderer, trail, nil, nil) }
                 } else {
+#if DEBUG
                     addDiagnostic(
                         kind: .trailRendererUnsupported,
                         layerID: layerID,
                         path: path,
                         detail: "spritetrail:invalidLength"
                     )
+#endif
                 }
             case .rope:
+#if DEBUG
                 sawKnownRenderer = true
+#endif
                 if let rope = SceneParticleRopePlan(
                     renderer: renderer,
                     rendererCount: definition.renderers.count,
@@ -139,15 +193,19 @@ extension SceneParticleRuntime {
                 ) {
                     if supported == nil { supported = (renderer, nil, rope, nil) }
                 } else {
+#if DEBUG
                     addDiagnostic(
                         kind: .ropeRendererUnsupported,
                         layerID: layerID,
                         path: path,
                         detail: "rope:unsupportedProfile"
                     )
+#endif
                 }
             case .ropeTrail:
+#if DEBUG
                 sawKnownRenderer = true
+#endif
                 if let ropeTrail = SceneParticleRopeTrailPlan(
                     renderer: renderer,
                     rendererCount: definition.renderers.count,
@@ -155,20 +213,27 @@ extension SceneParticleRuntime {
                 ) {
                     if supported == nil { supported = (renderer, nil, nil, ropeTrail) }
                 } else {
+#if DEBUG
                     addDiagnostic(
                         kind: .trailRendererUnsupported,
                         layerID: layerID,
                         path: path,
                         detail: "ropetrail:unsupportedProfile"
                     )
+#endif
                 }
             case let .unsupported(name):
+#if DEBUG
                 addDiagnostic(kind: .missingSpriteRenderer, layerID: layerID, path: path, detail: name)
+#endif
+                break
             }
         }
+#if DEBUG
         if supported == nil && !sawKnownRenderer {
             addDiagnostic(kind: .missingSpriteRenderer, layerID: layerID, path: path)
         }
+#endif
         return supported
     }
 
@@ -182,24 +247,29 @@ extension SceneParticleRuntime {
     ) -> Bool {
         guard animation != nil else { return true }
         if rope != nil && !wholeSourceRope {
+#if DEBUG
             addDiagnostic(
                 kind: .ropeRendererUnsupported,
                 layerID: layerID,
                 path: path,
                 detail: "rope:animatedTexture"
             )
+#endif
             return false
         }
         guard ropeTrail != nil else { return true }
+#if DEBUG
         addDiagnostic(
             kind: .trailRendererUnsupported,
             layerID: layerID,
             path: path,
             detail: "ropetrail:animatedTexture"
         )
+#endif
         return false
     }
 
+#if DEBUG
     func appendSimulationDiagnostics(
         _ values: [SceneParticleSimulationDiagnostic],
         layerID: Int,
@@ -223,6 +293,8 @@ extension SceneParticleRuntime {
         }
     }
 
+#endif
+
     static func orderedLayers(in descriptor: SceneRenderDescriptor) -> [SceneRenderDescriptor.Layer] {
         let byID = Dictionary(uniqueKeysWithValues: descriptor.layers.map { ($0.id, $0) })
         var seen: Set<Int> = []
@@ -233,11 +305,14 @@ extension SceneParticleRuntime {
         return ordered + descriptor.layers.filter { seen.insert($0.id).inserted }
     }
 
+#if DEBUG
     static func runtimeKind(
         _ value: SceneParticleAssetDiagnostic.Kind
     ) -> SceneParticleRuntimeDiagnosticKind {
         SceneParticleRuntimeDiagnosticKind(rawValue: value.rawValue) ?? .missingDefinition
     }
+
+#endif
 
     static func frameTransform(
         _ frame: SceneTexContainer.SpriteFrame

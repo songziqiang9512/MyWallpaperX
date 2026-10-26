@@ -299,6 +299,7 @@ nonisolated extension SceneParticleOperator {
     }
 }
 
+#if DEBUG
 nonisolated extension SceneParticleSimulationMath {
     static func audioDiagnostics(
         _ definition: SceneParticleDefinition
@@ -339,3 +340,4 @@ nonisolated extension SceneParticleSimulationMath {
         return result
     }
 }
+#endif

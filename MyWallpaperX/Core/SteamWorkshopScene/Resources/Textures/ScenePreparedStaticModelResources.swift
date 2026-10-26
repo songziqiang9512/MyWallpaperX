@@ -131,6 +131,8 @@ struct ScenePreparedStaticModelResources {
             var rejectedModelPaths: Set<String> = []
             var entries: [Int: [Entry]] = [:]
             var animations: [Int: Animation] = [:]
+            var materialPassesByPath: [SceneVFSAssetPath: SceneRenderDescriptor.MaterialPassDescriptor] = [:]
+            var materialPassCursor = descriptor.materialPasses.startIndex
             for layer in layers {
                 try cancellationCheck()
                 guard let modelPath = layer.staticModelPath else { continue }
@@ -148,9 +150,7 @@ struct ScenePreparedStaticModelResources {
                     // Material links and geometry use the one completed CPU
                     // snapshot. This owner only uploads it; it never rereads.
                     preparedGeometries = source.parts.compactMap { part in
-                        guard let mesh = pipeline.makeMesh(
-                            vertices: part.vertices, indices: part.indices
-                        ) else { return nil }
+                        guard let mesh = pipeline.makeMesh(model: part) else { return nil }
                         return PreparedGeometry(
                             materialPath: part.materialPath,
                             mesh: mesh,
@@ -188,11 +188,19 @@ struct ScenePreparedStaticModelResources {
                 for preparedGeometry in preparedGeometries {
                     guard let materialIdentity = SceneVFSAssetPath(
                         preparedGeometry.materialPath
-                    ),
-                          let pass = descriptor.materialPasses.first(where: {
-                        SceneVFSAssetPath($0.materialPath) == materialIdentity
-                            && $0.passIndex == 0
-                    }) else { continue }
+                    ) else { continue }
+                    // Keep the original first pass-zero match, stopping before
+                    // an unused suffix while retaining the scanned prefix.
+                    while materialPassesByPath[materialIdentity] == nil,
+                          materialPassCursor < descriptor.materialPasses.endIndex {
+                        let pass = descriptor.materialPasses[materialPassCursor]
+                        materialPassCursor += 1
+                        guard pass.passIndex == 0,
+                              let path = SceneVFSAssetPath(pass.materialPath),
+                              materialPassesByPath[path] == nil else { continue }
+                        materialPassesByPath[path] = pass
+                    }
+                    guard let pass = materialPassesByPath[materialIdentity] else { continue }
 #if DEBUG
                     if SceneDesktopWallpaperHost.usesDebugEvidenceWindow,
                        let bindings = pass.staticModelMaterialBindings {

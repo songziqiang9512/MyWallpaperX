@@ -50,9 +50,116 @@ private struct Output: Codable {
     let nonFiniteDigestMatchesProfileSentinel: Bool
 }
 
+// The pre-P13 implementation is a test-only oracle for exact lexical output.
+// It returns the current value type but retains its original accumulation code.
+private enum OriginalShaderLexicalScanner {
+    static func scan(_ line: String, inBlockComment: inout Bool) -> SceneShaderLexicalLine {
+        var segments: [SceneShaderLexicalLine.Segment] = []
+        func append(_ kind: SceneShaderLexicalLine.SegmentKind, _ text: String) {
+            guard !text.isEmpty else { return }
+            if let last = segments.last, last.kind == kind {
+                segments[segments.count - 1] = .init(kind: kind, text: last.text + text)
+            } else {
+                segments.append(.init(kind: kind, text: text))
+            }
+        }
+
+        var index = line.startIndex
+        while index < line.endIndex {
+            let next = line.index(after: index)
+            let pair = next < line.endIndex ? String(line[index ... next]) : ""
+            if inBlockComment {
+                append(.blockComment, String(line[index]))
+                index = next
+                if pair == "*/" {
+                    append(.blockComment, "/")
+                    index = line.index(after: next)
+                    inBlockComment = false
+                }
+                continue
+            }
+            if pair == "//" {
+                append(.lineComment, String(line[index...]))
+                break
+            }
+            if pair == "/*" {
+                append(.blockComment, "/*")
+                index = line.index(after: next)
+                inBlockComment = true
+                continue
+            }
+            let character = line[index]
+            if character == "\"" || character == "'" {
+                let start = index
+                let quote = character
+                var escaped = false
+                repeat {
+                    let value = line[index]
+                    index = line.index(after: index)
+                    if escaped { escaped = false }
+                    else if value == "\\" { escaped = true }
+                    else if value == quote, index > line.index(after: start) { break }
+                } while index < line.endIndex
+                append(.quoted, String(line[start ..< index]))
+                continue
+            }
+            append(.code, String(character))
+            index = next
+        }
+        return .init(segments: segments)
+    }
+}
+
+private struct LexicalInput: Decodable {
+    struct Case: Decodable {
+        let name: String
+        let lines: [String]
+        let initialBlockComment: Bool
+    }
+    let cases: [Case]
+}
+private struct LexicalSnapshot: Codable {
+    struct Segment: Codable { let kind: String; let text: String }
+    let segments: [Segment]
+    let code: String
+    let raw: String?
+    let inBlockComment: Bool
+    init(_ value: SceneShaderLexicalLine, inBlockComment: Bool) {
+        segments = value.segments.map { Segment(kind: String(describing: $0.kind), text: $0.text) }
+        code = value.code
+        raw = value.lineCommentRaw
+        self.inBlockComment = inBlockComment
+    }
+}
+private struct LexicalRow: Codable {
+    let name: String
+    let actual: [LexicalSnapshot]
+    let oracle: [LexicalSnapshot]
+}
+private func lexicalRows(_ url: URL) throws -> [LexicalRow] {
+    let input = try JSONDecoder().decode(LexicalInput.self, from: Data(contentsOf: url))
+    return input.cases.map { item in
+        var actualState = item.initialBlockComment
+        var oracleState = item.initialBlockComment
+        var actual: [LexicalSnapshot] = [], oracle: [LexicalSnapshot] = []
+        for line in item.lines {
+            let current = SceneShaderLexicalScanner.scan(line, inBlockComment: &actualState)
+            let previous = OriginalShaderLexicalScanner.scan(line, inBlockComment: &oracleState)
+            actual.append(LexicalSnapshot(current, inBlockComment: actualState))
+            oracle.append(LexicalSnapshot(previous, inBlockComment: oracleState))
+        }
+        return LexicalRow(name: item.name, actual: actual, oracle: oracle)
+    }
+}
+
 @main
 private struct ShaderContractHarness {
     static func main() throws {
+        if CommandLine.arguments[1] == "--lexical" {
+            let rows = try lexicalRows(URL(fileURLWithPath: CommandLine.arguments[2]))
+            FileHandle.standardOutput.write(try JSONEncoder().encode(rows))
+            return
+        }
         let rootURL = URL(fileURLWithPath: CommandLine.arguments[1], isDirectory: true)
         let references = [
             "effects/good",
@@ -219,6 +326,62 @@ class SceneShaderContractTests(unittest.TestCase):
     @classmethod
     def tearDownClass(cls):
         cls.build_directory.cleanup()
+
+    def test_lexical_segments_match_original_function_and_keep_projection(self):
+        cases = []
+
+        def add(name, *lines, initial=False):
+            cases.append(dict(name=name, lines=lines, initialBlockComment=initial))
+
+        add("empty", "")
+        add("ordinary", "float value = left / right + 2.0;")
+        add("line-comment", "// /* is text, not a block")
+        add("block-and-tail", "before/* hidden */after // tail")
+        add("quotes", '\"/* quoted */ // still quoted\" + \'/\' // actual')
+        add("escaped-quote", r'"quote\" // inside" /* outside */ tail')
+        add("adjacent-quotes", '\"a\"\'b\'\"c\"')
+        add("cross-line", "prefix/* hidden", '\" // #define still hidden', "*/real // tail")
+        add("initial-comment", "", "inside*/next", initial=True)
+        add("unterminated-comment", "code /* comment", "still hidden")
+        add("unterminated-quote", '\"not closed /* still quoted')
+        add("unicode", 'α = "e\u0301👩‍🚀 //"; /*e\u0301👩‍🚀*/ β //尾')
+        add("directive", '#define VALUE 1 // [COMBO] {"combo":"LEVEL","default":1}')
+        add("carriage-return", "\t#define FLAG 1\r")
+        for text in ("/", "//", "/*", "*/", "**/", "/*/**/*/x"):
+            add("delimiter-" + text, text)
+        add("long-code", "value_" + "a" * 8192)
+        add("long-comment", "/*" + "x" * 8192 + "*/ tail")
+        add("long-unicode-comment", "/*" + "e\u0301👩‍🚀" * 512 + "*/ next")
+        with tempfile.TemporaryDirectory() as temporary:
+            path = Path(temporary) / "lexical-input.json"
+            path.write_text(json.dumps(dict(cases=cases), ensure_ascii=False))
+            completed = subprocess.run([str(self.binary), "--lexical", str(path)],
+                                       cwd=REPO_ROOT, check=True, capture_output=True, text=True)
+        rows = json.loads(completed.stdout)
+        self.assertEqual([row["name"] for row in rows], [item["name"] for item in cases])
+        for row in rows:
+            with self.subTest(case=row["name"]):
+                self.assertEqual(row["actual"], row["oracle"])
+        observed = {row["name"]: row["actual"] for row in rows}
+        self.assertEqual(observed["empty"][0], dict(segments=[], code="", inBlockComment=False))
+        quoted = observed["quotes"][0]
+        self.assertEqual([part["kind"] for part in quoted["segments"]],
+                         ["quoted", "code", "quoted", "code", "lineComment"])
+        self.assertEqual(quoted["code"], '\"/* quoted */ // still quoted\" + \'/\' ')
+        self.assertEqual(quoted["raw"], "// actual")
+        adjacent = observed["adjacent-quotes"][0]
+        self.assertEqual(adjacent["segments"], [dict(kind="quoted", text='\"a\"\'b\'\"c\"')])
+        self.assertEqual([line["inBlockComment"] for line in observed["cross-line"]], [True, True, False])
+        self.assertEqual(observed["cross-line"][-1]["code"], "  real ")
+        self.assertEqual([line["inBlockComment"] for line in observed["initial-comment"]], [True, False])
+        self.assertTrue(observed["unterminated-comment"][-1]["inBlockComment"])
+        self.assertFalse(observed["unterminated-quote"][0]["inBlockComment"])
+        unicode = observed["unicode"][0]
+        self.assertEqual(unicode["code"], 'α = "e\u0301👩‍🚀 //"; ' + " " * 6 + " β ")
+        self.assertEqual(unicode["raw"], "//尾")
+        self.assertEqual(observed["carriage-return"][0]["code"], "\t#define FLAG 1\r")
+        self.assertEqual(observed["long-code"][0]["code"], "value_" + "a" * 8192)
+        self.assertEqual(observed["long-comment"][0]["code"], " " * 8196 + " tail")
 
     def test_canonical_digest_boundary_yields_no_digest(self):
         """Shared canonical projection boundary.

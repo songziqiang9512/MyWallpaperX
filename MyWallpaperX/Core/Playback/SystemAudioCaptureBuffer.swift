@@ -7,7 +7,6 @@ import AudioToolbox
 import CoreAudio
 
 nonisolated struct SystemAudioCapturedFrame {
-    let rectifiedMono: [Float]
     let signedChannels: [[Float]]
 }
 
@@ -193,18 +192,7 @@ nonisolated final class SystemAudioCaptureBuffer {
         }
         guard !channels.isEmpty else { return nil }
 
-        var rectifiedMono = Array(repeating: Float(0), count: capturedFrameCount)
-        for frameIndex in 0..<capturedFrameCount {
-            var magnitude: Float = 0
-            for channel in channels {
-                magnitude += abs(channel[frameIndex])
-            }
-            rectifiedMono[frameIndex] = magnitude / Float(channels.count)
-        }
-        return SystemAudioCapturedFrame(
-            rectifiedMono: rectifiedMono,
-            signedChannels: channels
-        )
+        return SystemAudioCapturedFrame(signedChannels: channels)
     }
 
     func reset() {

@@ -211,13 +211,12 @@ final class SceneStaticModelPipeline {
                 && binding.mesh.vertexCount == 3 && binding.mesh.indexCount == 3
                 && binding.mesh.boundsMinimum == SIMD3(-2, -6, -4)
                 && binding.mesh.boundsMaximum == SIMD3(5, 3, 7)
-            var bad = vertices
-            bad[0] = Vertex(position: vertices[0].position, normal: vertices[0].normal,
-                tangent: SIMD4(1, 0, Float.nan, 1), uv: vertices[0].uv)
-            let badChannels = rejected(storage.updateBinding(vertices: bad, poseRevision: 1,
-                on: cb, transaction: tx), .invalidVertices)
+            // Reader owns immutable channels; Skinning/DirectModel tests cover
+            // bad current output and complete bind fallback at the producer.
             let count = rejected(storage.updateBinding(vertices: Array(vertices.dropLast()),
                 poseRevision: 1, on: cb, transaction: tx), .invalidVertices)
+            let empty = rejected(storage.updateBinding(vertices: [], poseRevision: 1,
+                on: cb, transaction: tx), .invalidVertices)
             let foreign = CommandBuffer(Device())
             let wrongDevice = rejected(storage.updateBinding(vertices: vertices,
                 poseRevision: 1, on: foreign, transaction: tx), .invalidCommandBuffer)
@@ -242,7 +241,7 @@ final class SceneStaticModelPipeline {
             case .failure(.invalidMesh): invalidMesh = true
             default: invalidMesh = false
             }
-            checks["validationAndMeshView"] = preserved && badChannels && count && wrongDevice
+            checks["validationAndMeshView"] = preserved && count && empty && wrongDevice
                 && queued && allocationFailure && invalidMesh && !binding.isValid(for: otherCB)
                 && wrongTransaction && unbound && wrongArm
             tx.cancel()
@@ -274,20 +273,87 @@ final class SceneStaticModelPipeline {
 #else
 import Metal
 
-/// Prepared for the existing Metal harness owner; not called by the CPU gate.
-/// The caller supplies its real prepared model/pipeline and may use the returned
-/// binding.mesh in its existing color/depth/shadow draws before committing.
-enum SceneStaticModelVertexStreamMetalChecks {
-    static func reserve(
-        pipeline: SceneStaticModelPipeline, mesh: SceneStaticModelMesh,
-        vertices: [SceneMdlStaticModel.Vertex], poseRevision: UInt64,
-        commandBuffer: MTLCommandBuffer, transaction: SceneSourceUpdateTransaction
-    ) throws -> (stream: SceneStaticModelVertexStream, binding: SceneStaticModelVertexStream.Binding) {
-        let stream = try pipeline.makeVertexStream(mesh: mesh).get()
-        let binding = try stream.updateBinding(vertices: vertices, poseRevision: poseRevision,
-            on: commandBuffer, transaction: transaction).get()
-        precondition(binding.isValid(for: commandBuffer))
-        return (stream, binding)
+// PRODUCT_MESH
+final class SceneStaticModelPipeline {
+    let device: MTLDevice
+    init(_ device: MTLDevice) { self.device = device }
+// PRODUCT_FACTORY
+// PRODUCT_ABI
+}
+extension MTLDevice {
+    func makeSceneBuffer(length: Int, options: MTLResourceOptions) -> MTLBuffer? {
+        makeBuffer(length: length, options: options)
+    }
+}
+
+/// Real GPU bytes and submitted lease lifetime. An event holds the blit until
+/// the CPU has proved that cancelling a submitted transaction cannot recycle it.
+@main enum MetalHarness {
+    static func main() throws {
+        guard let device = MTLCreateSystemDefaultDevice(),
+              let queue = device.makeCommandQueue(), let event = device.makeSharedEvent() else {
+            print("{\"skipped\":\"Metal device/queue/shared event unavailable\"}")
+            return
+        }
+        defer { event.signaledValue = 1 }
+        let model = try SceneMdlStaticModelReader.readParts(
+            data: Data(contentsOf: URL(fileURLWithPath: CommandLine.arguments[1])))[0]
+        let vertices = model.vertices
+        let expectedBytes = vertices.withUnsafeBytes { Data($0) }
+        let base = SceneStaticModelMesh(
+            vertexBuffer: device.makeBuffer(length: expectedBytes.count, options: .storageModeShared)!,
+            indexBuffer: device.makeBuffer(length: 6, options: .storageModeShared)!,
+            boundsMinimum: SIMD3(repeating: -10), boundsMaximum: SIMD3(repeating: 10),
+            vertexCount: vertices.count, indexCount: 3, indexType: .uint16)
+        let stream = try SceneStaticModelPipeline(device).makeVertexStream(mesh: base).get()
+        let commands = (0..<4).map { _ in queue.makeCommandBuffer()! }
+        let transactions = commands.map { SceneSourceUpdateTransaction(on: $0) }
+        let bindings = try (0..<3).map { index in
+            try stream.updateBinding(vertices: vertices, poseRevision: UInt64(index),
+                on: commands[index], transaction: transactions[index]).get()
+        }
+        let readback = device.makeBuffer(length: expectedBytes.count, options: .storageModeShared)!
+        let command = commands[0], transaction = transactions[0], binding = bindings[0]
+        command.encodeWaitForEvent(event, value: 1)
+        let blit = command.makeBlitCommandEncoder()!
+        blit.copy(from: binding.mesh.vertexBuffer, sourceOffset: 0,
+            to: readback, destinationOffset: 0, size: expectedBytes.count)
+        blit.endEncoding()
+        let resolved = DispatchSemaphore(value: 0)
+        transaction.registerResolution(completed: { resolved.signal() }, rollback: { resolved.signal() })
+        transaction.arm(on: command)
+        command.commit()
+        transaction.didSubmit()
+        transaction.cancel()
+        let pendingLease = binding.isValid(for: command)
+            && command.status != .completed && command.status != .error
+        let full = stream.updateBinding(vertices: vertices, poseRevision: 4,
+            on: commands[3], transaction: transactions[3])
+        let busy: Bool
+        if case .failure(.busy) = full { busy = true } else { busy = false }
+        event.signaledValue = 1
+        guard resolved.wait(timeout: .now() + 10) == .success else {
+            throw NSError(domain: "SceneStaticModelVertexStreamMetalTest", code: 1,
+                userInfo: [NSLocalizedDescriptionKey: "source resolution timed out"])
+        }
+        let outputBytes = Data(bytes: readback.contents(), count: expectedBytes.count)
+        let completionRevokedLease = !binding.isValid(for: command)
+        let next = try stream.updateBinding(vertices: vertices, poseRevision: 5,
+            on: commands[3], transaction: transactions[3]).get()
+        let slotReused = next.mesh.vertexBuffer === binding.mesh.vertexBuffer
+            && next.isValid(for: commands[3]) && !binding.isValid(for: commands[3])
+        transactions[3].cancel()
+        let cancelledNext = !next.isValid(for: commands[3])
+        transactions[1].cancel(); transactions[2].cancel()
+        let rows = ["gpuCompleted": command.status == .completed && command.error == nil,
+            "allBufferBytes": outputBytes == expectedBytes,
+            "currentBounds": binding.mesh.boundsMinimum == SIMD3(-2, -6, -4)
+                && binding.mesh.boundsMaximum == SIMD3(5, 3, 7),
+            "pendingLease": pendingLease && busy,
+            "completionRevokedLease": completionRevokedLease,
+            "slotReused": slotReused, "cancelledNext": cancelledNext]
+        print(String(data: try JSONSerialization.data(withJSONObject: rows, options: [.sortedKeys]),
+            encoding: .utf8)!)
     }
 }
 #endif

@@ -12,7 +12,9 @@ nonisolated extension SceneParticleSimulator {
     struct FrameSnapshot {
         let playback: SceneParticlePlaybackSnapshot
         var particles: [SceneParticleState]
-        let diagnostics: [SceneParticleSimulationDiagnostic]
+#if DEBUG
+        var diagnostics: [SceneParticleSimulationDiagnostic] = []
+#endif
         var transientRenderBirths: [SceneParticleState]
         var birthEvents: [SceneParticleState]
         var deathEvents: [SceneParticleState]
@@ -171,14 +173,14 @@ nonisolated extension SceneParticleSimulator.FrameSnapshot {
             + 2 * emitters.capacity * MemoryLayout<SceneParticleEmitterState>.stride
         let buckets = (positionOscillationCache.capacity + dynamicControlPoints.capacity
             + dynamicControlPointAngles.capacity) * 512
-        let notices = 2 * (diagnostics.capacity + diagnostics.count + 8) * 256
 #if DEBUG
         let observationBytes = (observedNonSilentAudioComponents.capacity + initializers) * 512
             + 2 * (pendingAudioEvaluationObservations.capacity + initializers) * 256
+            + 2 * (diagnostics.capacity + diagnostics.count + 8) * 256
 #else
         let observationBytes = 0
 #endif
-        return MemoryLayout<Self>.stride + 1024 + arrays + buckets + notices
+        return MemoryLayout<Self>.stride + 1024 + arrays + buckets
             + observationBytes + (stepSnapshotRecorder?.emissionStorageBytes ?? 0)
     }
 }

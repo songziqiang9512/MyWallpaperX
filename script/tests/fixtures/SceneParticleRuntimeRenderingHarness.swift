@@ -81,11 +81,15 @@ extension Harness {
         advance(117)
         let rising = observation()
         advance(6)
-        return ["rising": rising, "falling": observation(),
+        var facts1: [String: Any] = ["rising": rising, "falling": observation(),
                 "activeLayerIDs": runtime.activeLayerIDs,
                 "rootCount": runtime.lifecycleSnapshot.rootParticleCount,
                 "childCount": runtime.lifecycleSnapshot.childParticleCount,
-                "diagnosticKinds": runtime.diagnostics.map(\.kind.rawValue)]
+        ]
+#if DEBUG
+        facts1["diagnosticKinds"] = runtime.diagnostics.map(\.kind.rawValue)
+#endif
+        return facts1
     }
 
     static func instanceBufferBudget() throws -> [String: Any] {
@@ -205,7 +209,7 @@ extension Harness {
         } else {
             refractionSampling = [:]
         }
-        return [
+        var facts2: [String: Any] = [
             "activeLayerIDs": runtime.activeLayerIDs,
             "textureWidth": root?.texture.width ?? 0,
             "textureHeight": root?.texture.height ?? 0,
@@ -219,8 +223,11 @@ extension Harness {
                 [$0.frame0B.z, $0.frame0B.w]
             } ?? [],
             "refractionSampling": refractionSampling,
-            "diagnosticKinds": runtime.diagnostics.map(\.kind.rawValue),
         ]
+#if DEBUG
+        facts2["diagnosticKinds"] = runtime.diagnostics.map(\.kind.rawValue)
+#endif
+        return facts2
     }
 
     static func syntheticLayerAlpha() throws -> [String: Any] {
@@ -658,7 +665,7 @@ extension Harness {
         )
         _ = runtime.advance(by: 0.25)
         let batches = runtime.advance(by: 0.25)
-        return [
+        var facts3: [String: Any] = [
             "activeLayerIDs": runtime.activeLayerIDs,
             "batchLayerIDs": batches.map(\.layerID),
             "zeroInstanceAlphaGPUValues": batches.filter { $0.layerID == 10 }
@@ -689,13 +696,6 @@ extension Harness {
                     "velocity": [$0.velocityAndTrail.x, $0.velocityAndTrail.y, $0.velocityAndTrail.z],
                 ]
             } ?? [:],
-            "staticChildScaleBounded": runtime.diagnostics.contains {
-                $0.layerID == 9
-                    && $0.detail == "particles/scale-child.json:childScaleBounded:scale=2.0,2.0,2.0"
-            },
-            "staticChildUnsupportedDetails": runtime.diagnostics.compactMap {
-                $0.layerID == 9 && $0.kind == .childSystemsUnsupported ? $0.detail : nil
-            },
             "batchTextureSizes": batches.reduce(into: [String: [Int]]()) {
                 $0[String($1.layerID)] = [$1.texture.width, $1.texture.height]
             },
@@ -723,24 +723,34 @@ extension Harness {
             "adjustedControlPointCopyLoaded": batches.contains {
                 $0.particlePath == "particles/adjusted-copy-child.json"
             },
-            "rawControlPointCopyBounded": runtime.diagnostics.contains {
-                $0.detail == "particles/raw-copy-child.json:rawParentControlPointCopyBounded:mappings=1"
-            },
             "rawControlPointCopyLayerIDs": batches.filter {
                 $0.particlePath == "particles/raw-copy-child.json"
             }.map(\.layerID),
-            "diagnostics": runtime.diagnostics.map {
-                [
-                    "kind": $0.kind.rawValue,
-                    "layer": $0.layerID as Any,
-                    "path": $0.particlePath,
-                    "detail": $0.detail as Any,
-                ]
-            },
-            "hiddenMentioned": runtime.diagnostics.contains {
-                $0.layerID == 5 || $0.particlePath.contains("hidden-never-loaded")
-            },
         ]
+#if DEBUG
+        facts3["staticChildScaleBounded"] = runtime.diagnostics.contains {
+            $0.layerID == 9
+                && $0.detail == "particles/scale-child.json:childScaleBounded:scale=2.0,2.0,2.0"
+        }
+        facts3["staticChildUnsupportedDetails"] = runtime.diagnostics.compactMap {
+            $0.layerID == 9 && $0.kind == .childSystemsUnsupported ? $0.detail : nil
+        }
+        facts3["rawControlPointCopyBounded"] = runtime.diagnostics.contains {
+            $0.detail == "particles/raw-copy-child.json:rawParentControlPointCopyBounded:mappings=1"
+        }
+        facts3["diagnostics"] = runtime.diagnostics.map {
+            [
+                "kind": $0.kind.rawValue,
+                "layer": $0.layerID as Any,
+                "path": $0.particlePath,
+                "detail": $0.detail as Any,
+            ]
+        }
+        facts3["hiddenMentioned"] = runtime.diagnostics.contains {
+            $0.layerID == 5 || $0.particlePath.contains("hidden-never-loaded")
+        }
+#endif
+        return facts3
     }
 
     static func syntheticBatchEvidence() throws -> [String: Any] {
@@ -763,27 +773,38 @@ extension Harness {
         guard let playback = SceneParticlePlaybackState(
             descriptor: descriptor, cacheDirectory: directory, device: device
         ) else { throw HarnessError.noParticlePipeline }
+#if DEBUG
         let initial = playback.loadReportLines(descriptor: descriptor)
+#endif
         let rejected = playback.advance(by: 1.0 / 30.0)
+#if DEBUG
         let beforeCommit = playback.committedNonemptyBatchLayerIDs.sorted()
         let discarded = playback.loadReportLines(descriptor: descriptor)
+#endif
         // CPU simulation is committed without requiring any GPU submission.
+#if DEBUG
         let afterDiscard = playback.committedNonemptyBatchLayerIDs.sorted()
+#endif
         let retried = playback.advance(by: 1.0 / 30.0)
+#if DEBUG
         let committed = playback.committedNonemptyBatchLayerIDs.sorted()
+#endif
         for _ in 0..<20 {
                 _ = playback.advance(by: 1.0 / 30.0)
             }
-        return [
-            "initial": initial,
+        var facts: [String: Any] = [
             "rejectedCount": rejected.reduce(0) { $0 + $1.instances.count },
             "retriedCount": retried.reduce(0) { $0 + $1.instances.count },
-            "beforeCommit": beforeCommit,
-            "afterDiscard": afterDiscard,
-            "discarded": discarded,
-            "committed": committed,
-            "dormant": playback.loadReportLines(descriptor: descriptor),
         ]
+#if DEBUG
+        facts["beforeCommit"] = beforeCommit
+        facts["afterDiscard"] = afterDiscard
+        facts["committed"] = committed
+        facts["initial"] = initial
+        facts["discarded"] = discarded
+        facts["dormant"] = playback.loadReportLines(descriptor: descriptor)
+#endif
+        return facts
     }
 
 }

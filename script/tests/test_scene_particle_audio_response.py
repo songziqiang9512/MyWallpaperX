@@ -147,7 +147,6 @@ enum Harness {
             "emitterPartitioned": activeEmitter.particles == partitionedEmitter.particles,
             "authorOffEmitterCount": authorOffEmitter.particles.count,
             "invalidEmitterCount": invalidEmitter.particles.count,
-            "invalidEmitterDiagnostics": invalidEmitter.diagnostics.map(\.kind.rawValue),
             "initializerSilent": vector(silentInitializer.particles[0].velocity),
             "initializerActive": vector(activeInitializer.particles[0].velocity),
             "zeroPhaseStable": zeroPhaseSilent.particles == zeroPhaseActive.particles,
@@ -156,9 +155,14 @@ enum Harness {
             "turbulenceActive": vector(activeTurbulence.particles[0].velocity),
             "vortexSilent": vector(silentVortex.particles[0].velocity),
             "vortexActive": vector(activeVortex.particles[0].velocity),
-            "vortexDiagnostics": activeVortex.diagnostics.map(\.kind.rawValue).sorted(),
+            "simulatorHasDiagnosticStorage": Mirror(reflecting: activeEmitter).children
+                .contains { $0.label == "diagnostics" },
+            "snapshotHasDiagnosticStorage": Mirror(reflecting: activeEmitter.frameSnapshot()).children
+                .contains { $0.label == "diagnostics" },
         ]
 #if DEBUG
+        payload["invalidEmitterDiagnostics"] = invalidEmitter.diagnostics.map(\.kind.rawValue)
+        payload["vortexDiagnostics"] = activeVortex.diagnostics.map(\.kind.rawValue).sorted()
         payload["publishedSilenceSelectedNonZero"] = publishedSilenceEvaluation.selectedNonZeroInputCount
         payload["publishedSilenceObservationCount"] = publishedSilenceInitializer.consumeAudioEvaluationObservations().count
         payload["audioObservations"] = [
@@ -289,7 +293,7 @@ class SceneParticleAudioResponseTests(unittest.TestCase):
         harness = directory / "Harness.swift"
         harness.write_text(HARNESS_SOURCE, encoding="utf-8")
         results = {}
-        for mode, flags in [("debug", ["-D", "DEBUG"]), ("release", ["-O"])]:
+        for mode, flags in [("debug", ["-O", "-D", "DEBUG"]), ("release", ["-O"])]:
             binary = directory / ("scene-particle-audio-response-" + mode)
             compilation = subprocess.run(
                 ["/usr/bin/swiftc", *flags, *map(str, SWIFT_SOURCES), str(harness), "-o", str(binary)],
@@ -316,10 +320,15 @@ class SceneParticleAudioResponseTests(unittest.TestCase):
 
     def test_release_has_identical_audio_and_simulation_results_without_observation(self) -> None:
         observation_keys = {"publishedSilenceSelectedNonZero", "publishedSilenceObservationCount",
-            "audioObservations", "rejectedObservationCount", "observationsAfterRestore", "retryObservations"}
+            "audioObservations", "rejectedObservationCount", "observationsAfterRestore", "retryObservations",
+            "invalidEmitterDiagnostics", "vortexDiagnostics"}
+        storage_keys = {"simulatorHasDiagnosticStorage", "snapshotHasDiagnosticStorage"}
         self.assertTrue(observation_keys.isdisjoint(self.release_result))
-        self.assertEqual(self.release_result, {key: value for key, value in self.result.items()
-            if key not in observation_keys})
+        for key in storage_keys:
+            self.assertTrue(self.result[key], "Debug positive control must retain diagnostic storage")
+            self.assertFalse(self.release_result[key], "Release must omit diagnostic storage")
+        self.assertEqual({key: value for key, value in self.release_result.items() if key not in storage_keys},
+            {key: value for key, value in self.result.items() if key not in observation_keys | storage_keys})
 
     def test_emitter_is_silent_without_audio_and_partition_stable(self) -> None:
         self.assertEqual(self.result["silentEmitterCount"], 0)

@@ -6,9 +6,9 @@
 
 ## 职责与数据流
 
-原 Format 模型 reader 完整验证所消费的 mesh envelope、材料/part、XYZ、normal、tangent、UV 与索引，并复用同一 rig 验证 owner 核准骨层级和权重 → 同一 metadata/readParts 事实 → RuntimeSourceFacts → PreparedStaticModelResources → 原 StaticModelPipeline/shared scene depth → 唯一 compositor。immutable bind mesh 无新 pose、clock、renderer、资源池或普通帧解析；不经会丢Z/normal/material的二维 image Puppet 上传链，也不制造第二 LBS。
+原 Format 模型 reader 完整验证所消费的 mesh envelope、材料/part、XYZ、normal、tangent、UV 与索引，并复用同一 rig 验证 owner 核准骨层级和权重 → 同次 readParts 的不可变 ModelIR → RuntimeSourceFacts → PreparedStaticModelResources → 原 StaticModelPipeline/shared scene depth → 唯一 compositor。immutable bind mesh 无新 pose、clock、renderer、资源池或普通帧解析；不经会丢Z/normal/material的二维 image Puppet 上传链，也不制造第二 LBS。
 
-现 rig reader 若只需要 version/stride/vertex span，可提取一个被 mesh 与 direct reader 共用的最小 layout 事实，使原验证实现复用，不构造重复顶点数组或复制 parser。metadata 与真实 geometry 入口必须执行相同验证；需要缓存时复用已有 launch/resource 权威，不另建无界模型缓存。
+GPU 上传直接消费原 ModelIR，不重查 Reader 已证明的非空、三角形数量和索引范围。源索引宽度为 2 时直接窄打包；源为 4 时按实际值决定是否可缩成 16 位，不能用顶点总数猜宽度。原上传 owner 一趟求全部顶点的 tight bounds，包含未引用点；作者 envelope 不能替代它。ABI、实际 GPU 分配及预算失败仍沿原 owner 局部拒绝；不新增“已验证”凭证、重复顶点模型或缓存。
 
 ## 有界准入与失败
 
@@ -18,6 +18,6 @@
 
 ## 验收与退出
 
-先以非零Z、非平凡normal/tangent和多面遮挡的自有模型证明原通道与shared depth，覆盖资源改名/等价实例、错误索引/权重、未知flag/part、截断及非有限通道反例；metadata与geometry结果一致。再用原模型实际prepare/encode/GPU/末合成与可归因主体ROI，保留动画失败；各取既有static和image Puppet健康邻例，不以白色替身或非黑判断成功。
+先以非零Z、非平凡normal/tangent和多面遮挡的自有模型证明原通道与shared depth，覆盖资源改名/等价实例、错误索引/权重、未知flag/part、截断及非有限通道反例；单次模型事实与 GPU 字节一致。上传门另核 65535/65536、32 位源可窄化、大顶点数而小索引、未引用极值和 ±0 bounds 位模式。再用原模型实际prepare/encode/GPU/末合成与可归因主体ROI，保留动画失败；各取既有static和image Puppet健康邻例，不以白色替身或非黑判断成功。
 
 无法证明完整所消费envelope/通道即不进入Rendering；实际bind画面仍为散片、错误几何或无明显主体收益则不关闭用户缺口，转入reference/默认动画能力。所有旧路径退出与能力结论只按实际证据更新，不扩成整体光照、动画/交互、官方同相位或性能验收。

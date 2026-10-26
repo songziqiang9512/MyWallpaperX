@@ -548,8 +548,8 @@ PUBLICATION_FUNCTIONS=r'''
  static func publication(_ d:MTLDevice,_ q:MTLCommandQueue)throws->[[String:Any]] {
   let model=SceneStaticModelPipeline(device:d)!,image=SceneImageLayerPipeline(device:d)!
   let vertices=[SIMD3<Float>(4,4,0),SIMD3(24,4,0),SIMD3(24,24,0),SIMD3(4,24,0)].map {
-   SceneMdlStaticModel.Vertex(position:$0,normal:SIMD3(0,0,1),tangent:SIMD4(1,0,0,1),uv:SIMD2(repeating:0.5))}
-  let mesh=model.makeMesh(vertices:vertices,indices:[0,2,1,0,3,2])!
+   SceneMdlStaticModel.Vertex(position:SIMD3($0.x,-$0.y,$0.z),normal:SIMD3(0,0,1),tangent:SIMD4(1,0,0,1),uv:SIMD2(repeating:0.5))}
+  let mesh=model.makeMesh(model: SceneStaticModelFixture.model(vertices:vertices,indices:[0,2,1,0,3,2]))!
   let named=SceneNamedTextureReference(providerLayerID:11,variant:.primary)
   let consumer=SceneRenderDescriptor.Layer(id:2)
   var provider=SceneRenderDescriptor.Layer(id:11,visible:false,contentKind:"image")
@@ -704,8 +704,8 @@ final class SceneImageLayerCompositor {
 
 def mixed_main():
     from script.tests import test_scene_snapshot_capacity as previous
-    s=previous.FRAME_MAIN.replace('SceneMdlStaticModel.Vertex(position:$0,','SceneMdlStaticModel.Vertex(position:SIMD3($0.x,-$0.y,$0.z),')
-    # Author Y-up model vertices meet production local F; no image/particle change.
+    s=previous.FRAME_MAIN
+    # The shared fixture supplies the author scale for canonical-down vertices.
     # Preserve the established original encoders and exact output oracle.
     s=s.replace('let renderer=SceneMetalRenderer(device:d,resources:.init(pipeline:model,entries:[1:[entry]]))',
       'let descriptor=SceneRenderDescriptor(layers:[])\n  let renderer=SceneMetalRenderer(device:d,resources:.init(pipeline:model,entries:[1:[entry]]),descriptor:descriptor)')
@@ -719,7 +719,7 @@ def mixed_main():
       transitionCount:0,effects:[],terminalMember:.zero,terminalOutputIdentity:markerSource),
     fullFramePair:.init(descriptor:.init(extent:.init(width:target.width,height:target.height),
       format:.rgbaBackbuffer,addressMode:.clampToEdge),zeroSlot:0,oneSlot:1),
-    pairStorage:.owned,stages:[],slots:[],residentByteCost:0,historyByteCost:0),orderingContext:nil)
+    pairStorage:.owned,stages:[],slots:[],residentByteCost:0,historyByteCost:0,capabilityID:nil),orderingContext:nil)
   let plans:[Int:SceneResolvedMaterialFrameTargetPlan]=utility
     ? [7:.init(token:.init(),allocation:markerAllocation)]
     : [6:.init(token:.init(),allocation:markerAllocation)]
@@ -818,7 +818,7 @@ NAMED_RECEIVER_FUNCTIONS=r'''
   let model=SceneStaticModelPipeline(device:d)!,image=SceneImageLayerPipeline(device:d)!
   func quad(_ x:Float,_ y:Float,_ width:Float,_ height:Float,_ z:Float)->SceneStaticModelMesh {
    let positions=[SIMD3(x,y,z),SIMD3(x+width,y,z),SIMD3(x+width,y+height,z),SIMD3(x,y+height,z)]
-   return model.makeMesh(vertices:positions.map{.init(position:$0,normal:SIMD3(0,0,1),tangent:SIMD4(1,0,0,1),uv:SIMD2(repeating:0.5))},indices:[0,2,1,0,3,2])!
+   return model.makeMesh(model: SceneStaticModelFixture.model(vertices:positions.map{.init(position:SIMD3($0.x,-$0.y,$0.z),normal:SIMD3(0,0,1),tangent:SIMD4(1,0,0,1),uv:SIMD2(repeating:0.5))},indices:[0,2,1,0,3,2]))!
   }
   let reference=SceneNamedTextureReference(providerLayerID:11,variant:.primary)
   let provider=SceneRenderDescriptor.Layer(id:11,visible:false,contentKind:"image")

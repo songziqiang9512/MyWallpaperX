@@ -53,8 +53,10 @@ final class SteamWorkshopDownloadThumbnailPipeline {
                 self.finish(key: key, image: nil)
                 return
             }
+            // 本次请求的内存、磁盘和生成结果共用入口已捕获的源文件身份。
+            let outputURL = Self.cacheRootURL.appendingPathComponent(key).appendingPathExtension("jpg")
             // 优先复用已落盘缩略图：磁盘读+解码在本后台队列执行，不占主线程配置链路。
-            if let cached = self.diskCachedThumbnail(for: videoURL, key: key) {
+            if let cached = self.diskCachedThumbnail(at: outputURL, key: key) {
                 self.finish(key: key, image: cached)
                 return
             }
@@ -62,7 +64,7 @@ final class SteamWorkshopDownloadThumbnailPipeline {
 
             let image = self.createThumbnail(for: videoURL)
             if let image {
-                self.persistThumbnail(image, for: videoURL)
+                self.persistThumbnail(image, at: outputURL)
                 self.memoryCache.setObject(image, forKey: key as NSString, cost: Self.memoryCost(of: image))
             } else {
                 self.failureCache.setObject(NSNumber(value: true), forKey: key as NSString)
@@ -72,8 +74,7 @@ final class SteamWorkshopDownloadThumbnailPipeline {
     }
 
     /// 从磁盘读取已生成缩略图并做可疑检测；命中时写入内存缓存。
-    private func diskCachedThumbnail(for videoURL: URL, key: String) -> NSImage? {
-        let outputURL = thumbnailOutputURL(for: videoURL)
+    private func diskCachedThumbnail(at outputURL: URL, key: String) -> NSImage? {
         guard let image = NSImage(contentsOf: outputURL),
               !steamWorkshopPreviewImageLooksSuspicious(image) else {
             return nil
@@ -134,8 +135,7 @@ final class SteamWorkshopDownloadThumbnailPipeline {
         return result
     }
 
-    private func persistThumbnail(_ image: NSImage, for videoURL: URL) {
-        let outputURL = thumbnailOutputURL(for: videoURL)
+    private func persistThumbnail(_ image: NSImage, at outputURL: URL) {
         try? FileManager.default.createDirectory(
             at: outputURL.deletingLastPathComponent(),
             withIntermediateDirectories: true
@@ -147,12 +147,6 @@ final class SteamWorkshopDownloadThumbnailPipeline {
         // 接入 ThumbnailCache 共享磁盘淘汰（256MB 总量上限 + 60s 限频 LRU 扫描）；
         // key 含 mtime+size，源文件更新后旧键文件由本淘汰按最后使用时间回收
         ThumbnailCache.trimDiskCache(directory: Self.cacheRootURL, sizeLimit: 256 * 1024 * 1024)
-    }
-
-    private func thumbnailOutputURL(for videoURL: URL) -> URL {
-        Self.cacheRootURL
-            .appendingPathComponent(cacheKey(for: videoURL))
-            .appendingPathExtension("jpg")
     }
 
     private func cacheKey(for videoURL: URL) -> String {

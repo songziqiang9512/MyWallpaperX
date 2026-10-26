@@ -46,13 +46,18 @@ nonisolated extension SceneResolvedMaterialProgram {
                               details: slots.map(String.init))
             }
             var seen = Set<Int>()
-            for slot in slots {
+            for binding in frontend.textureBindings {
+                let slot = binding.slot
                 guard seen.insert(slot).inserted else {
                     throw Failure(phase: .invariant, code: .samplerBindingDuplicateSlot, slot: slot)
                 }
                 guard (0 ..< 8).contains(slot) else {
                     throw Failure(phase: .invariant, code: .samplerBindingIdentityMismatch,
                                   slot: slot, details: ["slot-out-of-range"])
+                }
+                guard binding.name == "g_Texture\(slot)" else {
+                    throw Failure(phase: .invariant, code: .samplerBindingIdentityMismatch,
+                                  slot: slot, details: ["sampler-name-or-slot", binding.name, "g_Texture\(slot)"])
                 }
             }
             guard renderState.supportsResolvedMaterialFullscreenOverwrite else {

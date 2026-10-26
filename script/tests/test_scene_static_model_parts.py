@@ -4,7 +4,10 @@
 The native resource probe supplies descriptor fields and a deterministic texture
 transport at the outside boundary. Reader, resource prepare, material extraction,
 mesh upload, native accounting, frame draw/depth and Metal are production code.
-The separate actual builder probe and App exercise the authored disk chain.
+Policy cases explicitly hand actual Builder-selected model/layer/pass fields and
+Root material/PNG bytes to the native target on the same owned tree. The native
+target reopens the real Root and prepares its own CPU snapshot; this is not the
+App's in-memory descriptor handoff or the full production texture decoder.
 """
 import hashlib
 import json
@@ -49,19 +52,24 @@ def join_parts(blobs):
     return bytes(result) + b'\0'*7
 
 
-def native_fixture(count, *, bad=False, overlap=False):
+def native_fixture(count, *, bad=False, overlap=False, equivalent_paths=False, renamed=False):
     entries = {}
     parts = []
     expected = []
+    height = max(128, ((count + 7) // 8) * 16)
+    model_path = 'models/Renamed sixty-five Ω.mdl' if renamed else 'models/parts.mdl'
     for i in range(count):
         x, y = (i % 8)*16+8, (i//8)*16+8
         if overlap:
             x, y = 32, 32
-        path = f'materials/part{i:03}.json'
-        geometry = quad(x-5,x+5,y-5,y+5,float(i) if overlap else 0,path)
+        path = f'materials/Renamed Ω {i:03}.json' if renamed else f'materials/part{i:03}.json'
+        spelling = path
+        if equivalent_paths:
+            spelling = ('./'+path, path.replace('/', '//./'), path.replace('/', '\\.\\'))[i % 3]
+        geometry = quad(x-5,x+5,y-5,y+5,float(i) if overlap else 0,spelling)
         parts.append(geometry)
-        # 64 independent byte colors; none equal the clear pixel or each other.
-        rgba = [32 + (i % 4)*64, 32 + ((i//4) % 4)*64, 32+(i//16)*64, 255]
+        # Preserve all original 64 colors; the 65th is a separate bounded color.
+        rgba = [32 + (i % 4)*64, 32 + ((i//4) % 4)*64, 32+(i//16)*64, 255] if i < 64 else [255,128,255,255]
         if overlap:
             rgba = PALETTE[i % 8]
         entries[f'materials/part{i:03}.rgba'] = bytes(rgba)
@@ -75,20 +83,52 @@ def native_fixture(count, *, bad=False, overlap=False):
     model = join_parts(parts)
     if bad:
         model = model[:-13]
-    entries['models/parts.mdl'] = model
+    entries[model_path] = model
     entries['models/peer.mdl'] = quad(140,152,4,16,0,'materials/peer.json')
     entries['materials/peer.rgba'] = bytes([255,255,255,255])
     entries['materials/peer.png'] = png([255,255,255,255])
     entries['materials/peer.json'] = json.dumps({'passes':[{'shader':'genericimage',
         'textures':['materials/peer.png'],'combos':{'LIGHTING':0}}]}).encode()
-    scene={'version':3,'general':{'orthogonalprojection':{'width':160,'height':128}},'objects':[
-        {'id':1,'model':'models/peer.mdl','origin':'0 128 0','perspective':False},
-        {'id':2,'model':'models/parts.mdl','origin':'0 128 0','perspective':False}]}
+    scene={'version':3,'general':{'orthogonalprojection':{'width':160,'height':height}},'objects':[
+        {'id':1,'model':'models/peer.mdl','origin':f'0 {height} 0','perspective':False},
+        {'id':2,'model':model_path,'origin':f'0 {height} 0','perspective':False}]}
     for obj in scene['objects']:
         obj['scale']='1 -1 1'  # Legacy canonical-down quad carrier, not the basis oracle.
     entries['scene.json']=json.dumps(scene).encode()
     entries['project.json']=json.dumps({'type':'scene','file':'scene.json'}).encode()
     return entries, expected
+
+
+
+def policy_fixtures():
+    variants = {name: native_fixture(65, **options) for name, options in {
+        'parts65': {}, 'renamed65': {'renamed': True},
+        'equivalent65': {'equivalent_paths': True}, 'latebad65': {'bad': True}}.items()}
+    entries, expected = native_fixture(65)
+    entries['models/peer.mdl'] = quad(0, 160, 0, 144, -10, 'materials/peer.json')
+    peer = json.loads(entries['materials/peer.json'])
+    peer['passes'][0]['constantshadervalues'] = {'alpha': 0}
+    entries['materials/peer.json'] = json.dumps(peer).encode()
+    variants['parts65-shadow'] = entries, expected
+    for name in ['long-dots', 'long-pkg', 'long-dots-pkg-bad']:
+        entries, expected = native_fixture(1)
+        canonical = 'materials/' + 'Ω' * 2050 + '.json' if name == 'long-pkg' else 'materials/part000.json'
+        spelling = canonical if name == 'long-pkg' else './' * 2100 + 'materials//./part000.json'
+        entries['models/parts.mdl'] = quad(3, 13, 3, 13, 0, spelling)
+        if name == 'long-pkg':
+            material = entries.pop('materials/part000.json')
+            entries['scene.pkg'] = make_package([(canonical, material)])
+        elif name == 'long-dots-pkg-bad':
+            entries['scene.pkg'] = make_package([(canonical, b'not material JSON')])
+        expected[0]['material'] = canonical
+        variants[name] = entries, expected
+    return variants
+
+
+def actual_builder_rows(root, names):
+    report = native.run_swift(list(dict.fromkeys([*builder.SWIFT_SOURCES, *reader.SWIFT_SOURCES])),
+        builder_support(), label='parts-dependencies', input_value={'root': str(root), 'names': ','.join(names)})
+    return {row['name']: row for row in report['rows']}
 
 
 def animation_attachment_fixture(mode):
@@ -221,7 +261,9 @@ def freeze_inputs(label, variants):
         for relative,data in entries.items():
             path=target/relative;path.parent.mkdir(parents=True,exist_ok=True);path.write_bytes(data)
         manifest[name]={'expected':expected,'inputs':{p:sha(target/p) for p in entries}}
-    sources=[Path(__file__),Path(reader.__file__),Path(frame.__file__),Path(native.__file__)]
+    sources=[Path(__file__),Path(reader.__file__),Path(frame.__file__),Path(native.__file__),
+        REPO/'script/tests/fixtures/SceneStaticModelPartsNativeChecks.swift',
+        REPO/'script/tests/fixtures/SceneStaticModelPartsDependencyChecks.swift']
     for p in sources:(root/('source-'+p.name)).write_bytes(p.read_bytes())
     manifest['testSources']={str(p):sha(p) for p in sources}
     (root/'protocol.json').write_text(json.dumps(manifest,indent=2))
@@ -229,21 +271,7 @@ def freeze_inputs(label, variants):
     return root
 
 
-BUILDER_MAIN=r'''
-@main enum PartsDependencies {
- static func main() throws {
-  let input=try JSONSerialization.jsonObject(with:Data(contentsOf:URL(fileURLWithPath:CommandLine.arguments[1]))) as! [String:String]
-  let root=URL(fileURLWithPath:input["root"]!);var rows:[[String:Any]]=[]
-  for name in ["parts5","parts8","parts64","bad8"] {
-   let model=try SceneRuntimeModelBuilder().build(rootURL:root.appendingPathComponent(name))
-   let d=model.renderDescriptor
-   rows.append(["name":name,"links":d.modelMaterialLinks.filter{$0.modelPath=="models/parts.mdl"}.map(\.materialPath),
-      "passes":d.materialPasses.filter{$0.materialPath.hasPrefix("materials/part")}.map{["material":$0.materialPath,"textures":$0.textureSlots.map{$0 ?? ""},"combos":$0.combos] as [String:Any]}])
-  }
-  print(String(decoding:try JSONSerialization.data(withJSONObject:["rows":rows]),as:UTF8.self))
- }
-}
-'''
+BUILDER_MAIN = (REPO/'script/tests/fixtures/SceneStaticModelPartsDependencyChecks.swift').read_text()
 
 
 def builder_support():
@@ -251,22 +279,116 @@ def builder_support():
 
 
 class SceneModelPartsDependencyTests(unittest.TestCase):
+    def test_posix_material_names_reach_actual_reader_vfs_and_material_passes(self):
+        drive, renamed, peer = 'materials/C:/paint.json', 'materials/Alternate Name:blue/coat.json', 'materials/peer.json'
+        escape = 'materials/C:/escape.json'
+        variants = [
+            ('modern', reader.build_model(material=drive.encode()), [drive], False),
+            ('legacy', reader.build_legacy_model(material=rb'materials\C:\paint.json'), [drive], False),
+            ('packaged', reader.build_model(material=drive.encode()), [drive], True),
+            ('later', join_parts([reader.build_model(material=peer.encode()),
+                reader.build_model(material=rb'materials\C:\paint.json')]), [peer, drive], True),
+            ('renamed', reader.build_model(material=renamed.encode()), [renamed], False),
+            ('dots-modern', reader.build_model(material=b'././materials/./C:/paint.json'), [drive], False),
+            ('separators-legacy', reader.build_legacy_model(material=b'materials//C:///paint.json'), [drive], True),
+            ('backslash-dots', reader.build_model(material=rb'.\materials\\C:\.\paint.json'), [drive], True),
+            ('renamed-dots', reader.build_legacy_model(material=b'./materials/./Alternate Name:blue//coat.json'), [renamed], False),
+            ('later-dots', join_parts([reader.build_model(material=peer.encode()),
+                reader.build_model(material=b'materials//./C:/paint.json')]), [peer, drive], False),
+            ('symlink', join_parts([reader.build_model(material=peer.encode()),
+                reader.build_model(material=escape.encode())]), [peer, escape], False),
+        ]
+        main = r'''
+@main enum PosixMaterialDependencies {
+ static func main() throws {
+  let input=try JSONSerialization.jsonObject(with:Data(contentsOf:URL(fileURLWithPath:CommandLine.arguments[1]))) as! [String:String]
+  let root=URL(fileURLWithPath:input["root"]!);var rows:[[String:Any]]=[]
+  for name in input["names"]!.components(separatedBy:",") {
+   let content=root.appendingPathComponent(name)
+   let model=try SceneRuntimeModelBuilder().build(rootURL:content)
+   let links=model.renderDescriptor.modelMaterialLinks.filter{$0.modelPath=="models/input.mdl"}.compactMap(\.materialPath)
+   let passes=model.renderDescriptor.materialPasses.filter{links.contains($0.materialPath)}
+   let textureBytes=try passes.flatMap(\.texturePaths).map { path in
+    [UInt8](try model.resourceView.resolvedResource(relativePath:path)!.readBytes())
+   }
+   var escapeRejected=false
+   if name=="symlink" {
+    let author=SceneResourceView.Root(source:.loose,url:content)
+    if let handle=author.handle(relativePath:"materials/C:/escape.json",exact:true) {
+     do {_ = try handle.readBytes()}
+     catch SceneResourceView.ReadError.symlinkEscape {escapeRejected=true}
+    }
+   }
+   rows.append(["name":name,"links":links,"escapeRejected":escapeRejected,"textureBytes":textureBytes,
+       "passes":passes.map{["path":$0.materialPath,"textures":$0.textureSlots.map{$0 ?? ""},
+           "alpha":$0.constantShaderValues["alpha"]?.components ?? []] as [String:Any]}])
+  }
+  print(String(decoding:try JSONSerialization.data(withJSONObject:["rows":rows]),as:UTF8.self))
+ }
+}
+'''
+        with tempfile.TemporaryDirectory(prefix='mwx-posix-mdl-materials-') as temporary:
+            root = Path(temporary)
+            material = json.dumps({'passes': [{'shader': 'genericimage', 'textures': ['materials/color.png'],
+                'combos': {'LIGHTING': 0}, 'constantshadervalues': {'alpha': .375}}]}).encode()
+            outside = root/'outside.json'
+            outside.write_text(json.dumps({'passes': [{'shader': 'genericimage',
+                'textures': ['materials/outside.png'], 'combos': {'LIGHTING': 0}}]}))
+            for name, geometry, paths, packaged in variants:
+                folder = root/name;folder.mkdir()
+                entries = {'scene.json': json.dumps({'version': 3, 'general': {'orthogonalprojection':
+                    {'width': 32, 'height': 32}}, 'objects': [{'id': 1, 'model': 'models/input.mdl'}]}).encode(),
+                    'models/input.mdl': geometry, 'materials/color.png': png([64, 128, 192, 255])}
+                entries.update({path: material for path in paths if path != escape})
+                (folder/'project.json').write_text(json.dumps({'type': 'scene', 'file': 'scene.json'}))
+                if packaged:
+                    (folder/'scene.pkg').write_bytes(make_package(list(entries.items())))
+                else:
+                    for path, data in entries.items():
+                        target=folder/path;target.parent.mkdir(parents=True,exist_ok=True);target.write_bytes(data)
+                if name == 'symlink':
+                    target=folder/escape;target.parent.mkdir(parents=True,exist_ok=True);target.symlink_to(outside)
+            support = builder.HARNESS_SOURCE.split('@main', 1)[0] + main
+            sources = list(dict.fromkeys([*builder.SWIFT_SOURCES, *reader.SWIFT_SOURCES]))
+            report = native.run_swift(sources, support, label='posix-mdl-materials', input_value={
+                'root': str(root), 'names': ','.join(row[0] for row in variants)})
+            rows = {row['name']: row for row in report['rows']}
+            self.assertEqual(set(rows), {row[0] for row in variants})
+            for name, _, paths, _ in variants:
+                with self.subTest(name=name):
+                    row = rows[name];expected = [path for path in paths if path != escape]
+                    self.assertEqual(row['links'], paths)
+                    self.assertEqual(row['textureBytes'], [list(png([64, 128, 192, 255])) for _ in expected])
+                    self.assertEqual({p['path'] for p in row['passes']}, set(expected))
+                    for item in row['passes']:
+                        self.assertEqual(item['textures'], ['materials/color.png'])
+                        self.assertEqual(item['alpha'], [.375])
+            self.assertTrue(rows['symlink']['escapeRejected'])
+
     def test_actual_builder_complete_validated_material_dependencies(self):
-        root=freeze_inputs('dependencies',{**{f'parts{n}':native_fixture(n) for n in [5,8,64]},'bad8':native_fixture(8,bad=True)})
-        report=native.run_swift(list(dict.fromkeys([*builder.SWIFT_SOURCES,*reader.SWIFT_SOURCES])),builder_support(),
-            label='parts-dependencies',input_value={'root':str(root)})
-        for row in report['rows']:
-            if row['name']=='bad8':
-                self.assertEqual(row['links'],[])
-                # The global disk material catalog survives an unrelated model rejection.
-                self.assertEqual(len(row['passes']),8)
-                continue
-            count=int(row['name'][5:]);expected=[f'materials/part{i:03}.json' for i in range(count)]
-            self.assertEqual(row['links'],expected)
-            self.assertEqual({p['material'] for p in row['passes']},set(expected))
-            for p in row['passes']:
-                self.assertEqual(p['textures'],[p['material'].replace('.json','.png')])
-                self.assertEqual(p['combos']['LIGHTING'],0)
+        variants = {**{f'parts{n}': native_fixture(n) for n in [5,8,64]},
+                    'bad8': native_fixture(8,bad=True), **policy_fixtures()}
+        root = freeze_inputs('dependencies', variants)
+        rows = actual_builder_rows(root, variants)
+        self.assertEqual(set(rows), set(variants))
+        for name, row in rows.items():
+            with self.subTest(name=name):
+                rejected = name in ('bad8', 'latebad65')
+                expected = [] if rejected else [p['material'] for p in variants[name][1]]
+                self.assertEqual(row['links'], expected)
+                selected_bad = name == 'long-dots-pkg-bad'
+                self.assertEqual({p['material'] for p in row['passes']}, set() if selected_bad else set(expected))
+                for item in row['passes']:
+                    index = expected.index(item['material'])
+                    self.assertEqual(item['textures'], [f'materials/part{index:03}.png'])
+                    self.assertEqual(item['combos']['LIGHTING'], 0)
+                    self.assertEqual(item['passIndex'], 0)
+                    self.assertEqual(item['textureBytes'], [list(variants[name][0][f'materials/part{index:03}.png'])])
+                if rejected:
+                    # A rejected model publishes no dependencies or passes;
+                    # unreferenced material files are not scanned.
+                    self.assertEqual(row['passes'], [])
+
 
 
 # Native transport only. All material flags/extraction, reader, mesh upload and
@@ -398,158 +520,10 @@ NATIVE_SOURCES=list(dict.fromkeys([*frame.SOURCES,*reader.SWIFT_SOURCES,*puppet.
     SCENE/'Rendering/Geometry/SceneLayerDynamicWorldFrameResolver.swift',
     SCENE/'Systems/Puppet/ScenePuppetAttachmentFrameSnapshot.swift',
     REPO/'script/tests/fixtures/SceneStaticModelAnimationAttachmentChecks.swift',
+    REPO/'script/tests/fixtures/SceneStaticModelMaterialSelectionChecks.swift',
     REPO/'script/tests/fixtures/SceneStaticModelVertexBasisChecks.swift']))
 
-NATIVE_MAIN=r'''
-@main enum PartsResourceProbe {
- static func main() throws {
-  guard let device=MTLCreateSystemDefaultDevice(),let queue=device.makeCommandQueue() else {fatalError("Metal unavailable")}
-  let input=try JSONSerialization.jsonObject(with:Data(contentsOf:URL(fileURLWithPath:CommandLine.arguments[1]))) as! [String:String]
-  let root=URL(fileURLWithPath:input["root"]!)
-  var rows:[[String:Any]]=[]
-  for (name,fixture) in [("parts5","parts5"),("parts8","parts8"),("parts64","parts64"),
-                          ("bad8","bad8"),("quota","parts8"),("recovery","parts8"),("snapshot","parts8"),("overlap","overlap"),
-                          ("defaults","defaults"),("emission","emission"),
-                          ("blends","blends"),("blends-false","blends") ] {
-   let before=SceneResourceBudget.shared.snapshot.residentBytes
-   var row=try autoreleasepool {try run(name,root.appendingPathComponent(fixture),device,queue)}
-   row["budgetBefore"]=before;row["budgetAfter"]=SceneResourceBudget.shared.snapshot.residentBytes
-   rows.append(row)
-  }
-  let basis=try SceneStaticModelVertexBasisChecks.run(root:root,device:device,queue:queue)
-  let attachments=try SceneStaticModelAnimationAttachmentChecks.run(root:root,device:device)
-  print(String(decoding:try JSONSerialization.data(withJSONObject:["rows":rows,"basis":basis,"attachments":attachments]),as:UTF8.self))
- }
- static func run(_ mode:String,_ root:URL,_ device:MTLDevice,_ queue:MTLCommandQueue)throws->[String:Any] {
-  let files=try FileManager.default.contentsOfDirectory(at:root.appendingPathComponent("materials"),includingPropertiesForKeys:nil).filter{$0.pathExtension=="json"}
-  let passes=try files.map {url -> SceneRenderDescriptor.MaterialPassDescriptor in
-   let object=try JSONSerialization.jsonObject(with:Data(contentsOf:url)) as! [String:Any]
-   let pass=(object["passes"] as! [[String:Any]])[0]
-   let constants=(pass["constantshadervalues"] as? [String:Any] ?? [:]).mapValues { raw in
-       let wrapper=raw as? [String:Any];let value=wrapper?["value"] ?? raw
-       return SceneDocument.ShaderValue(components:(value as? [Double]) ?? [(value as! NSNumber).doubleValue],
-           userBinding:wrapper?["user"] as? String,scriptSource:wrapper?["script"] as? String)
-   }
-   var result = SceneRenderDescriptor.MaterialPassDescriptor(materialPath:"materials/"+url.lastPathComponent,
-       textureSlots:(pass["textures"] as? [Any] ?? []).map{$0 as? String},
-       combos:pass["combos"] as! [String:Int],constantShaderValues:constants,depthWrite:pass["depthwrite"] as? String)
-   result.staticModelDefaultAlbedoAssetPath = pass["defaultAlbedo"] as? String
-   result.blending = pass["blending"] as? String
-   if pass["rejectedMaterial"] as? Bool == true {
-       result.staticModelMaterialBindings = .init(state:.rejected,bindings:[],rejectionReason:"fixture-rejected-value")
-   }
-   return result
-  }
-  var layers=[SceneRenderDescriptor.Layer(id:1,staticModelPath:"models/peer.mdl"),.init(id:2,staticModelPath:"models/parts.mdl")]
-  if mode=="blends-false" {layers[1].modelShadowCastIntent = .disabled}
-  // Older material/depth fixtures store canonical-down geometry. Their explicit
-  // author negative-Y scale preserves the old numeric oracle, not a basis rule.
-  for index in layers.indices {layers[index].originXYZ=[0,128,0];layers[index].scaleXYZ=[1,-1,1]}
-  var descriptor=SceneRenderDescriptor(lighting:nil,layers:layers,renderOrderLayerIDs:[1,2],materialPasses:passes)
-  descriptor.camera = .init(eye:[0,0,0],center:[0,0,-1],up:[0,1,0],orthoWidth:160,
-      orthoHeight:128,fovDegrees:nil,perspectiveOverrideFOVDegrees:nil,nearZ:0.01,farZ:1000)
-  let loader=try SceneTextureLoader(root:root,device:device)
-  let meshCost=device.heapBufferSizeAndAlign(length:4*MemoryLayout<SceneMdlStaticModel.Vertex>.stride,options:.storageModeShared).size
-       + device.heapBufferSizeAndAlign(length:6*MemoryLayout<UInt32>.stride,options:.storageModeShared).size
-  let rejectionBefore=SceneResourceBudget.shared.snapshot.rejectionCount
-  var held=0
-  if mode=="quota" {
-   held=SceneResourceBudget.shared.maximumBytes-SceneResourceBudget.shared.snapshot.residentBytes-3*meshCost
-   precondition(SceneResourceBudget.shared.reserve(held,kind:.gpu))
-  }
-  defer {if held>0 {SceneResourceBudget.shared.release(held,kind:.gpu)}}
-  let resourceView=SceneResourceView(root:root)
-  var preparedSources=try prepareModelSources(descriptor,view:resourceView)
-  let modelDirectory=root.appendingPathComponent("models")
-  let movedModels=root.appendingPathComponent("models-after-capture")
-  if mode=="snapshot" {try FileManager.default.moveItem(at:modelDirectory,to:movedModels)}
-  defer {if mode=="snapshot" {try! FileManager.default.moveItem(at:movedModels,to:modelDirectory)}}
-  let resources=try ScenePreparedStaticModelResources.prepare(descriptor:descriptor,resourceView:resourceView,device:device,
-      textureLoader:loader,preparedSources:&preparedSources,cancellationCheck:{})
-  precondition(preparedSources.isEmpty,"GPU owner must consume the transient CPU inputs")
-  let rejected=SceneResourceBudget.shared.snapshot.rejectionCount-rejectionBefore
-  if held>0 {SceneResourceBudget.shared.release(held,kind:.gpu);held=0}
-  let renderer=SceneMetalRenderer(device:device,resources:resources)
-  renderer.renderDescriptor=descriptor
-  let dynamic=SceneDynamicSnapshot.empty(frameIndex:1,generation:1)
-  let world=SceneLayerWorldFrameResolver.compute(descriptor:descriptor,
-      byID:Dictionary(uniqueKeysWithValues:layers.map{($0.id,$0)}))
-  let camera=SceneParticleCameraFrame(camera:.init(eye:[0,0,0],center:[0,0,-1],up:[0,1,0],orthoWidth:160,
-      orthoHeight:128,fovDegrees:nil,perspectiveOverrideFOVDegrees:nil,nearZ:0.01,farZ:1000),viewportSize:CGSize(width:160,height:128))
-  let lighting=SceneLightSnapshot(ambient:.zero,skylight: .zero,directional:[],point:[],spot:[],overflowCount:0)
-  let td=MTLTextureDescriptor.texture2DDescriptor(pixelFormat:.bgra8Unorm,width:160,height:128,mipmapped:false)
-  td.storageMode = .shared;td.usage=[.renderTarget,.shaderRead]
-  let target=device.makeTexture(descriptor:td)!
-  var shadowDepths:[[Float]]=[]
-  if mode.hasPrefix("blends") {
-   for kind in ["directional","spot","point"] {
-    let light:SceneLightSnapshot.ShadowLight
-    if kind=="directional" {light = .directional(.init(layerID:7,castsShadow:true,directionTowardLight:SIMD3(0,0,1),color:SIMD3(repeating:1),intensity:1))}
-    else if kind=="spot" {light = .spot(.init(layerID:7,castsShadow:true,position:SIMD3(40,8,100),directionFromLight:SIMD3(0,0,-1),color:SIMD3(repeating:1),intensity:1,radius:200,innerConeCosine:0.9,outerConeCosine:cos(.pi/4),outerConeDegrees:45))}
-    else {light = .point(.init(layerID:7,castsShadow:true,position:SIMD3(40,8,100),color:SIMD3(repeating:1),intensity:1,radius:200))}
-    let cb=queue.makeCommandBuffer()!
-    let state=SceneMetalRenderer.StaticModelFrame(commandBuffer:cb)
-    let pass=SceneMainPassEncoder(commandBuffer:cb,target:target,clearColor:MTLClearColorMake(0,0,0,1),clearEnabled:true)
-    let pool=SceneOffscreenTexturePool(device:device,pixelFormat:.bgra8Unorm,residentByteBudget:64*1024*1024)
-    var leases:[SceneParticleDepthTargetLease]=[]
-    let visible=Set(layers.map(\.id))
-    let candidates=renderer.shadowDrawCandidates(orderedLayers:layers,visible:visible,worldFrames:world,snapshot:dynamic,groups:nil)!
-    renderer.prepareModelShadow(state:state,candidates:candidates,lights:[light],orderedLayers:layers,visible:visible,batches:[:],particlePipeline:nil,mainPass:pass,groups:nil,pool:pool,commandBuffer:cb,leases:&leases,mandatoryCapacity:{true},recordsEvidence:false,cameraFrame:camera)
-    let shadow=state.shadows.first!,map=shadow.texture,blit=cb.makeBlitCommandEncoder()!
-    var buffers:[MTLBuffer]=[]
-    for part in resources[2]! {
-     let point=(part.mesh.boundsMinimum+part.mesh.boundsMaximum)*0.5
-     let clip:SIMD3<Float>,face:Int
-     switch shadow.projection {
-     case .directional(let p):let q=p.worldToClip*SIMD4(point,1);clip=SIMD3(q.x,q.y,q.z);face=0
-     case .spot(let p):let q=p.worldToLight*SIMD4(point-p.position,0);clip=SIMD3(q.x/(q.z*p.tanHalfAngle),q.y/(q.z*p.tanHalfAngle),0);face=0
-     case .point(let p):let ray=point-p.position;face=5;let q=ScenePointShadowProjection.worldToFaces[face]*SIMD4(ray,0);clip=SIMD3(q.x/q.z,q.y/q.z,0)
-     }
-     let v=shadow.projection.viewport(face:face,width:map.width,height:map.height)
-     let x=Int(v.originX+(Double(clip.x)+1)*v.width*0.5),y=Int(v.originY+(1-Double(clip.y))*v.height*0.5)
-     precondition(x>=0 && x<map.width && y>=0 && y<map.height)
-     let buffer=device.makeBuffer(length:256,options:.storageModeShared)!
-     blit.copy(from:map,sourceSlice:0,sourceLevel:0,sourceOrigin:.init(x:x,y:y,z:0),sourceSize:.init(width:1,height:1,depth:1),to:buffer,destinationOffset:0,destinationBytesPerRow:256,destinationBytesPerImage:256)
-     buffers.append(buffer)
-    }
-    blit.endEncoding();precondition(pass.finishEnsuringClear())
-    leases.forEach{$0.arm(on:cb)};state.arm(on:cb);cb.commit();cb.waitUntilCompleted()
-    precondition(cb.status == .completed && cb.error == nil)
-    shadowDepths.append(buffers.map{$0.contents().bindMemory(to:Float.self,capacity:1).pointee})
-   }
-  }
-  var frames:[[[Int]]]=[];var leaseCounts:[Int]=[]
-  for _ in 0..<2 {
-   let cb=queue.makeCommandBuffer()!
-   let pass=SceneMainPassEncoder(commandBuffer:cb,target:target,clearColor:MTLClearColorMake(0,0,0,1),clearEnabled:true)
-   let state=SceneMetalRenderer.StaticModelFrame(commandBuffer:cb);var leases:[SceneParticleDepthTargetLease]=[]
-   for layer in layers {
-    _=renderer.drawStaticModel(layer:layer,state:state,worldFrames:world,frameContext:.init(dynamicValues:dynamic),cameraFrame:camera,
-       lighting:lighting,pass:pass,commandBuffer:cb,leases:&leases)
-   }
-   precondition(pass.finishEnsuringClear());leaseCounts.append(leases.count)
-   leases.forEach{$0.arm(on:cb)};state.arm(on:cb);cb.commit();cb.waitUntilCompleted()
-   precondition(cb.status == .completed && cb.error == nil)
-   var bytes=[UInt8](repeating:0,count:160*128*4)
-   target.getBytes(&bytes,bytesPerRow:160*4,from:MTLRegionMake2D(0,0,160,128),mipmapLevel:0)
-   func rgba(_ x:Int,_ y:Int)->[Int] {let i=(y*160+x)*4;return [Int(bytes[i+2]),Int(bytes[i+1]),Int(bytes[i]),Int(bytes[i+3])]}
-   var pixels=(0..<64).map{rgba(($0%8)*16+8,($0/8)*16+8)}
-   pixels.append(rgba(146,10));pixels.append(rgba(32,32));frames.append(pixels)
-  }
-  let parts=resources[2] ?? []
-  let row:[String:Any]=["mode":mode,"parts":parts.map(\.materialPath),
-      "materials":parts.map{[$0.material.color.x,$0.material.color.y,$0.material.color.z,$0.material.opacity]},
-      "materialBlending":parts.map{$0.materialBlending?.rawValue ?? "unresolved"},"shadowDepths":shadowDepths,
-      "textureIDs":parts.map{String(describing:$0.albedo!.identity)},
-      "maskIDs":parts.map{$0.emissiveMask.map{String(describing:$0.identity)} ?? ""},
-      "maskPurposes":parts.map{$0.emissiveMask.map{String(describing:$0.purpose)} ?? ""},
-      "emissionSeeds":parts.map{$0.material.emissiveBrightness},"textureRequests":loader.requests,
-      "meshIndexCounts":parts.map{$0.mesh.indexCount},"peerParts":resources[1]?.count ?? 0,"rejections":rejected,
-      "frames":frames,"leaseCounts":leaseCounts,"completed":true,"encoded":renderer.dependencyRuntime.encoded[2] ?? false]
-  return row
- }
-}
-'''
+NATIVE_MAIN = (REPO/'script/tests/fixtures/SceneStaticModelPartsNativeChecks.swift').read_text()
 
 
 class SceneStaticModelSurfaceAdmissionTests(unittest.TestCase):
@@ -612,16 +586,30 @@ class SceneModelPartsNativeTests(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
         cls.root=freeze_inputs('native',{**{f'parts{n}':native_fixture(n) for n in [5,8,64]},
+            'spelled':native_fixture(5,equivalent_paths=True),
             'bad8':native_fixture(8,bad=True),'overlap':native_fixture(2,overlap=True),
             'defaults':default_albedo_fixture(),'emission':emission_mask_fixture(),
             'blends':blending_fixture(),
             **{'attachment-'+mode:animation_attachment_fixture(mode) for mode in
                ['absent','nonempty','empty','bad-count','bad-name','bad-bone','bad-matrix']},
-            'basis':vertex_basis_fixture(),'basis-renamed':vertex_basis_fixture(True)})
+            'basis':vertex_basis_fixture(),'basis-renamed':vertex_basis_fixture(True), **policy_fixtures()})
+        cls.builder_rows = actual_builder_rows(cls.root, policy_fixtures())
+        handoff = {}
+        for name, row in cls.builder_rows.items():
+            target = cls.root/name/'builder-handoff.json'
+            target.write_text(json.dumps(row, ensure_ascii=False, indent=2))
+            handoff[name] = sha(target)
+        protocol = json.loads((cls.root/'protocol.json').read_text())
+        protocol['builderHandoff'] = handoff
+        (cls.root/'protocol.json').write_text(json.dumps(protocol, indent=2))
         cls.report=native.run_swift(NATIVE_SOURCES,resource_support()+NATIVE_MAIN,label='parts-native',
             metal_sources=[MODEL_METAL],input_value={'root':str(cls.root)})
         cls.rows={r['mode']:r for r in cls.report['rows']}
         cls.basis=cls.report['basis']
+
+    def test_material_pass_first_wins_and_local_failures(self):
+        self.assertEqual(len(self.report['selection']), 14)
+        self.assertTrue(all(self.report['selection'].values()), self.report['selection'])
 
     def test_attachment_parse_failure_preserves_bind_geometry_and_peer(self):
         self.assertEqual(len(self.report['attachments']), 7)
@@ -660,16 +648,73 @@ class SceneModelPartsNativeTests(unittest.TestCase):
         self.assertTrue(any(row['native'] for row in self.basis))
 
     def test_actual_resource_owner_prepares_and_main_loop_consumes_all_5_8_64(self):
-        for count in [5,8,64]:
-            row=self.rows[f'parts{count}'];expected=native_fixture(count)[1]
+        for name,count in [('parts5',5),('parts8',8),('parts64',64),('spelled',5)]:
+            row=self.rows[name];expected=native_fixture(count)[1]
             self.assertEqual(row['parts'],[p['material'] for p in expected])
             self.assertEqual(len(set(row['textureIDs'])),count)
             self.assertEqual(row['meshIndexCounts'],[6]*count)
             self.assertTrue(row['encoded']);self.assertTrue(row['completed'])
+            self.assertEqual(len(row['frames'][0]), 64)
+            self.assertEqual(len(row['parts']), len(expected))
             for actual,want in zip(row['frames'][0],expected):
                 for a,b in zip(actual,want['rgba']):self.assertLessEqual(abs(a-b),1,(count,actual,want))
             self.assertEqual(row['frames'][0],row['frames'][1])
             self.assertEqual(row['leaseCounts'],[1,1])
+        for key in ('frames', 'peerFrames', 'overlapFrames'):
+            self.assertEqual(self.rows['spelled'][key], self.rows['parts5'][key])
+
+    def test_65_parts_builder_dependencies_and_every_main_pass_roi(self):
+        variants = policy_fixtures()
+        for name in ['parts65', 'renamed65', 'equivalent65']:
+            row, expected = self.rows[name], variants[name][1]
+            with self.subTest(name=name):
+                self.assertEqual(row['builderLinks'], [p['material'] for p in expected])
+                self.assertEqual(row['parts'], row['builderLinks'])
+                self.assertEqual((row['canvasHeight'], row['gridCount']), (144,65))
+                self.assertEqual(row['meshIndexCounts'], [6]*65)
+                self.assertEqual(len(set(row['textureIDs'])), 65)
+                self.assertTrue(row['encoded'] and row['completed'])
+                self.assertEqual(row['leaseCounts'], [1,1])
+                self.assertEqual(len(row['frames'][0]), len(expected))
+                for actual, wanted in zip(row['frames'][0], expected):
+                    for a, b in zip(actual, wanted['rgba']): self.assertLessEqual(abs(a-b), 1)
+                self.assertEqual(row['frames'][0], row['frames'][1])
+                self.assertEqual(row['peerFrames'], [[255,255,255,255]]*2)
+                self.assertTrue(set(row['parts']).issubset(row['nativeMaterialReads']))
+        for name in ['renamed65', 'equivalent65']:
+            self.assertEqual(self.rows[name]['frames'], self.rows['parts65']['frames'])
+        bad = self.rows['latebad65']
+        self.assertEqual(bad['builderLinks'], [])
+        self.assertEqual(bad['parts'], [])
+        self.assertEqual(bad['frames'], [[[0,0,0,255]]*65]*2)
+        self.assertEqual(bad['peerFrames'], [[255,255,255,255]]*2)
+
+    def test_long_material_spellings_and_virtual_package_reach_real_pixels(self):
+        for name in ['long-dots', 'long-pkg']:
+            row = self.rows[name]
+            expected = policy_fixtures()[name][1][0]
+            with self.subTest(name=name):
+                self.assertEqual(row['parts'], [expected['material']])
+                self.assertEqual(row['builderLinks'], row['parts'])
+                self.assertIn(expected['material'], row['nativeMaterialReads'])
+                self.assertEqual(row['frames'][0][0], expected['rgba'])
+                self.assertEqual(row['frames'][0], row['frames'][1])
+                self.assertEqual(row['peerFrames'], [[255,255,255,255]]*2)
+        bad = self.rows['long-dots-pkg-bad']
+        self.assertEqual(bad['builderLinks'], ['materials/part000.json'])
+        self.assertEqual(bad['parts'], [])
+        self.assertEqual(bad['frames'], [[[0,0,0,255]]*64]*2)
+        self.assertEqual(bad['peerFrames'], [[255,255,255,255]]*2)
+
+    def test_65th_part_cast_intent_reaches_bounded_directional_depth(self):
+        on, off = self.rows['parts65-shadow'], self.rows['parts65-shadow-false']
+        for key in ('frames', 'peerFrames', 'overlapFrames'):
+            self.assertEqual(on[key], off[key])
+        self.assertEqual(len(on['parts']), 65)
+        self.assertEqual(len(on['shadowDepths']), 1)
+        self.assertEqual(len(on['shadowDepths'][0]), 65)
+        self.assertTrue(all(value < 1 for value in on['shadowDepths'][0]), on['shadowDepths'])
+        self.assertEqual(off['shadowDepths'], [[1]*65])
 
     def test_prepared_mixed_blending_and_layer_cast_intent_reach_three_shadow_maps(self):
         enabled, disabled = self.rows['blends'], self.rows['blends-false']
@@ -677,8 +722,11 @@ class SceneModelPartsNativeTests(unittest.TestCase):
             self.assertEqual(row['materialBlending'], ['normal', 'translucent', 'additive', 'unresolved', 'unresolved'])
             self.assertEqual(len(row['parts']), 5)
             self.assertTrue(row['completed'])
-        self.assertEqual(enabled['frames'], disabled['frames'])
-        self.assertEqual(enabled['frames'][0], self.rows['parts5']['frames'][0][:64] + [[0, 0, 0, 255], [0, 0, 0, 255]])
+        for key in ('frames', 'peerFrames', 'overlapFrames'):
+            self.assertEqual(enabled[key], disabled[key])
+        self.assertEqual(enabled['frames'][0], self.rows['parts5']['frames'][0][:64])
+        self.assertEqual(enabled['peerFrames'], [[0,0,0,255]]*2)
+        self.assertEqual(enabled['overlapFrames'], [[0,0,0,255]]*2)
         for depths in enabled['shadowDepths']:
             self.assertEqual(depths[1], 1)
             self.assertTrue(all(depths[i] < 1 for i in [0, 2, 3, 4]), depths)
@@ -691,28 +739,34 @@ class SceneModelPartsNativeTests(unittest.TestCase):
         self.assertGreater(row['rejections'],0)
         self.assertEqual(row['peerParts'],1)
         self.assertEqual(row['frames'][0][:2],full['frames'][0][:2])
-        self.assertEqual(row['frames'][0][64],[255,255,255,255])
+        self.assertEqual(row['peerFrames'][0],[255,255,255,255])
         self.assertEqual(row['frames'][0][2:8],[[0,0,0,255]]*6)
         self.assertEqual(full['parts'],self.rows['parts8']['parts'])
-        self.assertEqual(full['frames'],self.rows['parts8']['frames'])
-        for r in self.report['rows']:self.assertEqual(r['budgetAfter'],r['budgetBefore'],r['mode'])
+        for key in ('frames', 'peerFrames', 'overlapFrames'):
+            self.assertEqual(full[key], self.rows['parts8'][key])
+        for r in self.report['rows']:
+            self.assertEqual(r['budgetAfter'], r['budgetBefore'], r['mode'])
+            for key in ('peerFrames', 'overlapFrames'):
+                self.assertEqual(len(r[key]), 2)
+                self.assertEqual(r[key][0], r[key][1], (r['mode'], key))
 
     def test_gpu_consumes_same_cpu_snapshot_after_author_models_move(self):
         row=self.rows['snapshot']
         self.assertEqual(row['parts'],self.rows['parts8']['parts'])
-        self.assertEqual(row['frames'],self.rows['parts8']['frames'])
+        for key in ('frames', 'peerFrames', 'overlapFrames'):
+            self.assertEqual(row[key], self.rows['parts8'][key])
         self.assertEqual(row['peerParts'],1)
 
     def test_bad_later_structure_rejects_model_but_peer_still_draws(self):
         row=self.rows['bad8'];self.assertEqual(row['parts'],[])
         self.assertEqual(row['frames'][0][:64],[[0,0,0,255]]*64)
-        self.assertEqual(row['frames'][0][64],[255,255,255,255])
+        self.assertEqual(row['peerFrames'][0],[255,255,255,255])
         self.assertEqual(row['frames'][0],row['frames'][1])
 
     def test_authored_segment_order_and_opacity_are_consumed(self):
         row=self.rows['overlap'];self.assertEqual(row['materials'],[[1,1,1,.5]]*2)
         # Authored red then green, each coverage .5, over black: .25 red + .5 green.
-        for actual,want in zip(row['frames'][0][65],[64,128,0,255]):self.assertLessEqual(abs(actual-want),1)
+        for actual,want in zip(row['overlapFrames'][0],[64,128,0,255]):self.assertLessEqual(abs(actual-want),1)
         self.assertEqual(row['frames'][0],row['frames'][1])
 
     def test_default_albedo_reaches_model_pixels_without_hiding_explicit_failure(self):
@@ -741,7 +795,7 @@ class SceneModelPartsNativeTests(unittest.TestCase):
         for i in range(6): self.assertEqual(row['frames'][0][i], expected[i]['rgba'])
         self.assertEqual(row['frames'][0][6], [0,0,0,255])
         self.assertEqual(row['peerParts'], 1)
-        self.assertEqual(row['frames'][0][64], [255,255,255,255])
+        self.assertEqual(row['peerFrames'][0], [255,255,255,255])
         self.assertEqual(row['frames'][0], row['frames'][1])
         self.assertEqual(row['budgetBefore'], row['budgetAfter'])
 

@@ -1,6 +1,9 @@
 """Video two-slot prepare/commit/finalize and cross-runtime cancellation gates."""
 
 from pathlib import Path
+import hashlib
+import json
+import os
 import subprocess
 import tempfile
 import unittest
@@ -16,6 +19,7 @@ import AppKit
 import AVFoundation
 import CoreVideo
 import Darwin
+import QuartzCore
 
 @main enum Harness {
     static func main() {
@@ -24,10 +28,36 @@ import Darwin
               let number = screen.deviceDescription[NSDeviceDescriptionKey("NSScreenNumber")] as? NSNumber,
               let daemon = WallpaperDaemon(displayID: number.uint32Value) else { preconditionFailure("no display") }
         daemon.window.ignoresMouseEvents = true
+        var renderingFacts: [String: Bool] = [:]
+        func renderingFact(_ name: String, _ passed: Bool) {
+            renderingFacts[name] = passed
+            precondition(passed, name)
+        }
+        func fixedRendering(_ name: String) {
+            renderingFact(name, daemon.window.isOpaque && daemon.window.backgroundColor == NSColor.black
+                && daemon.window.contentView?.wantsLayer == true
+                && daemon.window.contentView?.layer?.backgroundColor?.components == NSColor.black.cgColor.components
+                && daemon.primaryLayer.videoGravity == .resizeAspectFill
+                && daemon.secondaryLayer.videoGravity == .resizeAspectFill)
+        }
+        func setFillMode(_ mode: String) {
+            daemon.handle(DaemonCommand(action: "setFillMode", videoPath: nil, framePath: nil,
+                propertiesJSON: nil, fillMode: mode, shouldLoopCurrentItem: nil,
+                volume: nil, playbackRate: nil, spectrumEnabled: nil, spectrumLevels: nil,
+                spectrumBarCount: nil, spectrumColorHex: nil, spectrumOffsetX: nil,
+                spectrumOffsetY: nil, spectrumPeakCapsEnabled: nil, requestID: nil))
+        }
+        fixedRendering("initializedFixedProperties")
         defer {
             daemon.window.orderOut(nil)
             for player in daemon.players { player.pause(); player.removeAllItems() }
         }
+        let spectrumFacts = VideoSpectrumLayerLifecycleChecks.run(daemon)
+        print("spectrum-lifecycle-facts=" + String(data:
+            try! JSONSerialization.data(withJSONObject: spectrumFacts, options: [.sortedKeys]), encoding: .utf8)!)
+        fflush(stdout)
+        let fixtureRoot = URL(fileURLWithPath:
+            ProcessInfo.processInfo.environment["MWX_VIDEO_FIXTURE_ROOT"]!, isDirectory: true)
         func item() -> AVPlayerItem { AVPlayerItem(asset: AVMutableComposition()) }
         func prepare(_ id: Int, path: String) {
             daemon.cancelVideoPreparation()
@@ -51,17 +81,77 @@ import Darwin
         daemon.currentVideoPath = "A"; daemon.currentRequestID = 1
         daemon.primaryLayer.opacity = 1
         prepare(2, path: "B")
+        daemon.window.contentView!.layoutSubtreeIfNeeded()
+        let bounds = daemon.window.contentView!.bounds
+        let outgoingLayer = daemon.primaryLayer
+        let candidateLayer = daemon.secondaryLayer
+        let insetFrame = bounds.insetBy(dx: bounds.width / 8, dy: bounds.height / 8)
+        func framesMatch(_ lhs: CGRect, _ rhs: CGRect) -> Bool {
+            abs(lhs.minX - rhs.minX) < 0.01 && abs(lhs.minY - rhs.minY) < 0.01
+                && abs(lhs.width - rhs.width) < 0.01 && abs(lhs.height - rhs.height) < 0.01
+        }
+        func outgoingLayoutIsSettled() -> Bool {
+            guard let presentation = outgoingLayer.presentation() else { return false }
+            return framesMatch(outgoingLayer.frame, insetFrame) && framesMatch(presentation.frame, insetFrame)
+        }
+        func frameValue(_ value: CGRect?) -> Any {
+            guard let value else { return NSNull() }
+            return ["x": Double(value.minX), "y": Double(value.minY),
+                    "width": Double(value.width), "height": Double(value.height)]
+        }
+        func transitionDiagnostic(_ stage: String) {
+            let facts: [String: Any] = ["stage": stage,
+                "request": daemon.currentRequestID.map { $0 as Any } ?? NSNull(),
+                "path": daemon.currentVideoPath.map { $0 as Any } ?? NSNull(),
+                "slot": daemon.activeSlot == .primary ? "primary" : "secondary",
+                "modelFrame": frameValue(outgoingLayer.frame),
+                "presentationFrame": frameValue(outgoingLayer.presentation()?.frame),
+                "insetFrame": frameValue(insetFrame), "targetFrame": frameValue(bounds),
+                "candidateModelFrame": frameValue(candidateLayer.frame),
+                "animationKeys": candidateLayer.animationKeys() ?? [],
+                "level": daemon.window.level.rawValue,
+                "expectedLevel": PlaybackSurfaceVisibility.activationLevel(normal: WallpaperDaemon.desktopWindowLevel).rawValue,
+                "requestMatches": daemon.currentRequestID == 2,
+                "transformAnimationPresent": candidateLayer.animation(forKey: "switchInPosition") != nil,
+                "layoutSettled": outgoingLayoutIsSettled()]
+            print("video-transition-diagnostic=" + String(data:
+                try! JSONSerialization.data(withJSONObject: facts, options: [.sortedKeys]), encoding: .utf8)!)
+            fflush(stdout)
+        }
+        // Production deliberately reads the presentation frame. Establish the
+        // fixture's smaller outgoing frame in that real tree before committing.
+        CATransaction.begin()
+        CATransaction.setDisableActions(true)
+        outgoingLayer.removeAllAnimations()
+        outgoingLayer.frame = insetFrame
+        CATransaction.commit()
+        CATransaction.flush()
+        daemon.window.displayIfNeeded()
+        let layoutDeadline = Date().addingTimeInterval(2)
+        while !outgoingLayoutIsSettled() && Date() < layoutDeadline {
+            RunLoop.current.run(until: Date().addingTimeInterval(0.005))
+        }
+        transitionDiagnostic("before-animated-commit")
+        precondition(outgoingLayoutIsSettled(), "fixture outgoing presentation did not settle to its inset frame")
         let tokenB = daemon.switchToken
         daemon.commitVideoPreparation(requestID: 2)
+        transitionDiagnostic("after-animated-commit")
         precondition(daemon.currentVideoPath == "B" && daemon.activeSlot == .secondary)
+        renderingFact("animatedCommitPublishesCurrentOutput", daemon.currentRequestID == 2
+            && daemon.activeLayer.animation(forKey: "switchInPosition") != nil
+            && daemon.window.level == PlaybackSurfaceVisibility.activationLevel(normal: WallpaperDaemon.desktopWindowLevel))
         precondition(daemon.videoPreparation?.transitionComplete == false,
-            "a real crossfade must retain its animation completion")
+            "an animated switch must retain its animation completion")
         daemon.completeVideoTransition(token: tokenB)
         precondition(daemon.primaryPlayer.currentItem === original, "old A released before finalize")
         daemon.cancelVideoPreparation(requestID: 2)
         precondition(daemon.currentVideoPath == "A" && daemon.activeSlot == .primary)
         precondition(daemon.primaryPlayer.currentItem === original && daemon.secondaryPlayer.currentItem == nil)
         precondition(daemon.primaryLayer.opacity == 1 && daemon.secondaryLayer.opacity == 0)
+        renderingFact("animatedCancelRestoresGeometry", daemon.currentRequestID == 1
+            && daemon.activeLayer.frame == daemon.window.contentView!.bounds
+            && daemon.window.level == WallpaperDaemon.desktopWindowLevel)
+        fixedRendering("fixedPropertiesAfterAnimatedCancel")
 
         prepare(3, path: "C")
         let tokenC = daemon.switchToken
@@ -82,6 +172,10 @@ import Darwin
         daemon.currentVideoPath = nil; daemon.currentRequestID = nil
         prepare(5, path: "first")
         daemon.commitVideoPreparation(requestID: 5)
+        renderingFact("firstCommitPublishesCurrentOutput", daemon.currentVideoPath == "first"
+            && daemon.currentRequestID == 5 && daemon.activeLayer.opacity == 1
+            && daemon.inactiveLayer.opacity == 0 && daemon.fallbackLayer.opacity == 0
+            && daemon.window.level == PlaybackSurfaceVisibility.activationLevel(normal: WallpaperDaemon.desktopWindowLevel))
         precondition(daemon.videoPreparation?.transitionComplete == true,
             "first play has no animation and must not wait for a crossfade timer")
         precondition(daemon.videoPreparation?.visibilityConfirmed == false,
@@ -103,7 +197,7 @@ import Darwin
 
         // Exercise actual decoder/layer readiness below the current desktop,
         // including policy-paused first playback (no time-based success gate).
-        let fixture = URL(fileURLWithPath: NSTemporaryDirectory())
+        let fixture = fixtureRoot
             .appendingPathComponent("mwx-video-\(UUID().uuidString).mov")
         defer { try? FileManager.default.removeItem(at: fixture) }
         do {
@@ -150,16 +244,26 @@ import Darwin
             RunLoop.current.run(until: Date().addingTimeInterval(0.6))
             precondition(preparedTime < 0.03 && abs(daemon.inactivePlayer.currentTime().seconds - preparedTime) < 0.01,
                 "short candidate ran to its end before commit")
-            daemon.handle(DaemonCommand(action: "setFillMode", videoPath: nil, framePath: nil,
-                propertiesJSON: nil, fillMode: "aspectFit", shouldLoopCurrentItem: nil,
-                volume: nil, playbackRate: nil, spectrumEnabled: nil, spectrumLevels: nil,
-                spectrumBarCount: nil, spectrumColorHex: nil, spectrumOffsetX: nil,
-                spectrumOffsetY: nil, spectrumPeakCapsEnabled: nil, requestID: nil))
+            setFillMode("aspectFit")
             daemon.commitVideoPreparation(requestID: 8)
             precondition(daemon.videoPreparation?.transitionComplete == true,
                 "real paused and playing first frames must not inherit a crossfade delay")
             precondition(daemon.activeLayer.frame.size != daemon.window.contentView?.bounds.size,
                 "commit used a frame prepared before the new fill mode: mode=\(daemon.currentFillMode) item=\(String(describing: daemon.activePlayer.currentItem?.presentationSize)) actual=\(daemon.activeLayer.frame) bounds=\(String(describing: daemon.window.contentView?.bounds))")
+            fixedRendering(paused ? "pausedFirstPlayKeepsFixedProperties" : "playingFirstPlayKeepsFixedProperties")
+            daemon.window.setFrame(CGRect(origin: screen.frame.origin,
+                size: CGSize(width: screen.frame.width * 0.8, height: screen.frame.height * 0.7)), display: true)
+            setFillMode("aspectFill")
+            let filledResizedBounds = daemon.activeLayer.frame == daemon.window.contentView!.bounds
+            setFillMode("aspectFit")
+            let resizedBounds = daemon.window.contentView!.bounds
+            let fittedFrame = daemon.activeLayer.frame
+            renderingFact(paused ? "pausedResizePreservesFillGeometry" : "playingResizePreservesFillGeometry",
+                filledResizedBounds && abs(fittedFrame.width - fittedFrame.height) < 0.01
+                    && fittedFrame.width <= resizedBounds.width + 0.01
+                    && fittedFrame.height <= resizedBounds.height + 0.01)
+            daemon.window.setFrame(screen.frame, display: true)
+            setFillMode("aspectFit")
             RunLoop.current.run(until: Date().addingTimeInterval(0.08))
             precondition(daemon.activePlayer.currentTime().seconds < 0.25, "commit started near the end")
             if !paused {
@@ -183,7 +287,7 @@ import Darwin
         finalizeSlot(9)
         daemon.completeVideoTransition(token: daemon.switchToken)
         let committedItem = daemon.activePlayer.currentItem
-        let corrupt = URL(fileURLWithPath: NSTemporaryDirectory())
+        let corrupt = fixtureRoot
             .appendingPathComponent("mwx-corrupt-video-\(UUID().uuidString).mov")
         defer { try? FileManager.default.removeItem(at: corrupt) }
         try! Data("not-a-video-container".utf8).write(to: corrupt)
@@ -220,11 +324,11 @@ import Darwin
             try? JSONDecoder().decode(DaemonEvent.self, from: Data($0))
         }
         precondition(failures.contains { $0.type == "failed" && $0.requestID == 10
-            && $0.videoPath == corrupt.path && $0.cohortID == corruptCohort
+            && $0.videoPath == nil && $0.cohortID == corruptCohort
             && $0.preparationGeneration != nil && $0.activationID == nil },
             "existing corrupt video lost its typed preparation identity")
         precondition(failures.contains { $0.type == "failed" && $0.requestID == 11
-            && $0.message == "video_not_found" && $0.cohortID == missingCohort
+            && $0.message == "video_not_found" && $0.videoPath == nil && $0.cohortID == missingCohort
             && $0.preparationGeneration != nil && $0.activationID == nil },
             "pre-readiness file rejection lost its typed preparation identity")
         for (requestID, cohort, activation) in [(10, corruptCohort, corruptCancellation), (11, missingCohort, missingCancellation)] {
@@ -236,6 +340,33 @@ import Darwin
         precondition(daemon.videoPreparation == nil && daemon.currentVideoPath == fixture.path
             && daemon.currentRequestID == 9 && daemon.activePlayer.currentItem === committedItem,
             "corrupt existing candidate replaced or damaged committed A")
+        // Execute the actual command receiver and stdout encoder. Diagnostics
+        // are optional; failure and activity correlation are product IPC.
+        let commandCohort = UUID()
+        let activityID = UUID()
+        func handle(_ fields: [String: Any]) {
+            daemon.handle(try! JSONDecoder().decode(DaemonCommand.self,
+                from: JSONSerialization.data(withJSONObject: fields)))
+        }
+        let missingCommandPath = fixtureRoot
+            .appendingPathComponent("mwx-missing-command-\(UUID().uuidString).mov").path
+        handle(["action": "play", "videoPath": missingCommandPath, "requestID": 9001,
+                "cohortID": commandCohort.uuidString])
+        precondition(daemon.currentRequestID == 9 && daemon.activePlayer.currentItem === committedItem)
+        precondition(daemon.outputActivityAllowed)
+        handle(["action": "setOutputActivity", "requestID": 9, "outputActive": false])
+        precondition(daemon.outputActivityAllowed, "missing activity identity must not change output")
+        handle(["action": "setOutputActivity", "requestID": 9002, "outputActive": false,
+                "activityID": activityID.uuidString])
+        precondition(daemon.outputActivityAllowed, "a stale request must not revoke the current output")
+        handle(["action": "setOutputActivity", "requestID": 9, "outputActive": false,
+                "activityID": activityID.uuidString])
+        precondition(!daemon.outputActivityAllowed && daemon.activePlayer.volume == 0)
+        print("helper-command-facts=" + String(data: try! JSONSerialization.data(withJSONObject: [
+            "cohortID": commandCohort.uuidString, "activityID": activityID.uuidString,
+            "videoPath": missingCommandPath], options: [.sortedKeys]), encoding: .utf8)!)
+        print("video-rendering-facts=" + String(data:
+            try! JSONSerialization.data(withJSONObject: renderingFacts, options: [.sortedKeys]), encoding: .utf8)!)
         print("video-slot-cancellation-pass")
     }
 }
@@ -244,23 +375,84 @@ import Darwin
 
 class VideoPreparationCancellationTests(unittest.TestCase):
     def compile_run(self, sources: list[Path], harness: str, marker: str) -> None:
-        with tempfile.TemporaryDirectory(prefix="mwx-video-preparation-") as directory:
-            root = Path(directory)
-            source = root / "Harness.swift"
-            source.write_text(harness)
-            binary = root / "harness"
-            compiled = subprocess.run(["xcrun", "swiftc", "-parse-as-library", *map(str, sources),
-                                       str(source), "-o", str(binary)], capture_output=True, text=True, timeout=60)
-            self.assertEqual(compiled.returncode, 0, compiled.stderr)
-            result = subprocess.run([str(binary)], capture_output=True, text=True, timeout=25)
-            self.assertEqual(result.returncode, 0, result.stderr)
-            self.assertIn(marker, result.stdout)
+        configured = os.environ.get("MWX_VIDEO_PREPARATION_EVIDENCE")
+        retained = Path(configured) if configured else None
+        if retained:
+            retained.mkdir(parents=True, exist_ok=True)
+        context = tempfile.TemporaryDirectory(prefix="mwx-video-preparation-") if retained is None else None
+        directory = Path(context.name) if context else retained
+        try:
+            rendering_by_configuration = {}
+            for configuration, flags in (("debug", ["-D", "DEBUG"]), ("release", [])):
+                root = directory / configuration
+                root.mkdir()
+                for child in ("home", "tmp", "modules"):
+                    (root / child).mkdir()
+                environment = dict(os.environ, HOME=str(root / "home"), CFFIXED_USER_HOME=str(root / "home"),
+                                   TMPDIR=str(root / "tmp") + "/", MWX_VIDEO_FIXTURE_ROOT=str(root / "tmp"),
+                                   CLANG_MODULE_CACHE_PATH=str(root / "modules"))
+                source = root / "Harness.swift"
+                source.write_text(harness)
+                binary = root / "harness"
+                command = ["xcrun", "swiftc", "-parse-as-library", *flags, *map(str, sources),
+                           str(source), "-o", str(binary)]
+                compiled = subprocess.run(command, capture_output=True, text=True, timeout=120, env=environment)
+                (root / "compile.log").write_text(compiled.stdout + compiled.stderr)
+                self.assertEqual(compiled.returncode, 0, compiled.stderr)
+                result = subprocess.run([str(binary)], capture_output=True, text=True, timeout=40, env=environment)
+                (root / "stdout.log").write_text(result.stdout)
+                (root / "stderr.log").write_text(result.stderr)
+                self.assertEqual(result.returncode, 0, result.stderr)
+                self.assertIn(marker, result.stdout)
+                lines = result.stdout.splitlines()
+                events = [json.loads(line) for line in lines if line.startswith('{"')]
+                facts = json.loads(next(line.split("=", 1)[1] for line in lines
+                                        if line.startswith("helper-command-facts=")))
+                spectrum = json.loads(next(line.split("=", 1)[1] for line in lines
+                                           if line.startswith("spectrum-lifecycle-facts=")))
+                self.assertEqual(sum(e["type"] == "launched" for e in events), int(configuration == "debug"))
+                self.assertEqual(sum(e["type"] == "accepted" for e in events), int(configuration == "debug"))
+                if configuration == "debug":
+                    accepted = next(e for e in events if e["type"] == "accepted")
+                    self.assertEqual((accepted["requestID"], accepted["videoPath"]), (9001, facts["videoPath"]))
+                failed = [e for e in events if e["type"] == "failed" and e.get("requestID") == 9001]
+                self.assertEqual(len(failed), 1)
+                self.assertEqual((failed[0]["message"], failed[0]["cohortID"], failed[0].get("videoPath")),
+                                 ("video_not_found", facts["cohortID"], None))
+                self.assertGreater(failed[0]["preparationGeneration"], 0)
+                acknowledged = [e for e in events if e["type"] == "outputActivityChanged"]
+                self.assertEqual(len(acknowledged), 1)
+                self.assertEqual((acknowledged[0]["requestID"], acknowledged[0]["activityID"],
+                                  acknowledged[0]["outputActive"]), (9, facts["activityID"], False))
+                self.assertTrue(any(e["type"] == "prepared" and e.get("requestID") == 8 for e in events))
+                self.assertTrue(all(e.get("videoPath") is None for e in events
+                                    if e["type"] in {"prepared", "ready", "failed", "activationDeferred"}))
+                self.assertEqual(spectrum["cold"], {"bars": 0, "peaks": 0, "children": 0})
+                rendering = json.loads(next(line.split("=", 1)[1] for line in lines
+                                            if line.startswith("video-rendering-facts=")))
+                self.assertTrue({"initializedFixedProperties", "animatedCommitPublishesCurrentOutput",
+                    "animatedCancelRestoresGeometry", "fixedPropertiesAfterAnimatedCancel",
+                    "firstCommitPublishesCurrentOutput", "pausedFirstPlayKeepsFixedProperties",
+                    "playingFirstPlayKeepsFixedProperties", "pausedResizePreservesFillGeometry",
+                    "playingResizePreservesFillGeometry"}.issubset(rendering))
+                self.assertTrue(all(rendering.values()), rendering)
+                rendering_by_configuration[configuration] = rendering
+                (root / "result.json").write_text(json.dumps({"configuration": configuration, "command": command,
+                    "sourceSHA256": {str(p.relative_to(ROOT)): hashlib.sha256(p.read_bytes()).hexdigest()
+                                     for p in sources}, "diagnosticEvents": {name: sum(e["type"] == name for e in events)
+                                     for name in ("launched", "accepted")}, "events": events,
+                    "spectrum": spectrum, "rendering": rendering, "passed": True}, indent=2) + "\n")
+            self.assertEqual(rendering_by_configuration["debug"], rendering_by_configuration["release"])
+        finally:
+            if context:
+                context.cleanup()
 
     def test_helper_retains_previous_slot_until_finalized(self) -> None:
         sources = list((DAEMON / "Daemon").rglob("*.swift"))
         sources += [ENGINE / "DaemonProtocol.swift", ROOT / "MyWallpaperX/Core/DaemonKit/DaemonNewlineJSON.swift",
                     ROOT / "MyWallpaperX/Core/DaemonKit/DaemonParentLifetime.swift",
-                    ROOT / "MyWallpaperX/Core/PlaybackControl/PlaybackSurfaceVisibility.swift"]
+                    ROOT / "MyWallpaperX/Core/PlaybackControl/PlaybackSurfaceVisibility.swift",
+                    ROOT / "script/tests/fixtures/VideoSpectrumLayerLifecycleChecks.swift"]
         self.compile_run(sources, HELPER_HARNESS, "video-slot-cancellation-pass")
 
     # Parent transaction/cancellation/retirement now executes the actual typed

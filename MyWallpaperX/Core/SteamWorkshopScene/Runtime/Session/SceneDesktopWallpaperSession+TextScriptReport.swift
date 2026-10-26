@@ -1,5 +1,6 @@
 import Foundation
 
+#if DEBUG
 extension SceneDesktopWallpaperSession {
     nonisolated static func textScriptReportLines(
         program: SceneTextScriptProgram
@@ -55,7 +56,6 @@ extension SceneDesktopWallpaperSession {
         try? (existing + separator + lines.joined(separator: "\n") + "\n")
             .write(to: logURL, atomically: true, encoding: .utf8)
     }
-#if DEBUG
     func logDebugDynamicLayerVisibilityIfChanged(
         descriptor: SceneRenderDescriptor,
         snapshot: SceneDynamicSnapshot,
@@ -90,5 +90,5 @@ extension SceneDesktopWallpaperSession {
             )
         }
     }
-#endif
 }
+#endif

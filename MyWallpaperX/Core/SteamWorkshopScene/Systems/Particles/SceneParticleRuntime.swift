@@ -11,7 +11,9 @@ final class SceneParticleRuntime {
 
     private let device: MTLDevice
     private var layers: [SceneParticleLayerRuntime] = []
+#if DEBUG
     private(set) var diagnostics: [SceneParticleRuntimeDiagnostic] = []
+#endif
     /// Eligible world-space layer -> ancestor-chain members. A dynamic-snapshot
     /// transform write into any member invalidates that system's launch-static
     /// world frame; the system then simulates with a zero delta so its last
@@ -222,8 +224,7 @@ final class SceneParticleRuntime {
         preparedAssets graph: SceneParticleAssetGraph,
         device: MTLDevice,
         textureLoader: SceneTextureLoader = SceneTextureLoader(),
-        layerImageEmissionMaps: [Int: SceneParticleLayerImageEmissionMap] = [:],
-        initialDiagnostics: [SceneParticleRuntimeDiagnostic] = [],
+        layerImage: SceneParticleLayerImageEmitterCompilation = .empty,
         staticWorldSpaceFrames: [Int: SceneParticleWorldSpaceFrame]? = nil,
         staticWorldSpaceChains: [Int: Set<Int>]? = nil,
         preparedParticleVisibilityLayerIDs: Set<Int> = [],
@@ -233,7 +234,10 @@ final class SceneParticleRuntime {
         self.device = device
         self.descriptor = descriptor
         visibilityLayersByID = Dictionary(uniqueKeysWithValues: descriptor.layers.map { ($0.id, $0) })
-        diagnostics = initialDiagnostics
+        let layerImageEmissionMaps = layerImage.mapsByLayerID
+#if DEBUG
+        diagnostics = layerImage.diagnostics
+#endif
         let staticWorldSpaceFrames = staticWorldSpaceFrames
             ?? descriptor.staticParticleWorldSpaceFrames
         worldSpaceChains = staticWorldSpaceChains
@@ -253,6 +257,7 @@ final class SceneParticleRuntime {
             snapshot: initialDynamicValues,
             staticFrames: SceneLayerWorldFrameResolver.compute(
                 descriptor: descriptor, byID: visibilityLayersByID)) : [:]
+#if DEBUG
         let layersByPath = Dictionary(
             grouping: particleLayers,
             by: { SceneParticleAssetGraphLoader.normalizedPath($0.particlePath ?? "") }
@@ -278,27 +283,33 @@ final class SceneParticleRuntime {
             }
         }
 
+#endif
+
         let builtInTextureRegistry = SceneParticleBuiltInTextureRegistry(device: device)
         var pointerDemandLayerIDs = Set<Int>()
         var worldSpaceDemandLayerIDs = Set<Int>()
         for layer in particleLayers {
             guard let rawPath = layer.particlePath else {
+#if DEBUG
                 addDiagnostic(
                     kind: .missingDefinition,
                     layerID: layer.id,
                     path: "",
                     detail: "particle layer has no definition reference"
                 )
+#endif
                 continue
             }
             let path = SceneParticleAssetGraphLoader.normalizedPath(rawPath)
             guard let asset = graph.assetsByPath[path] else {
+#if DEBUG
                 addDiagnostic(
                     kind: .missingDefinition,
                     layerID: layer.id,
                     path: path,
                     detail: "definition asset missing from the loaded particle graph"
                 )
+#endif
                 continue
             }
             let layerImageMap = layerImageEmissionMaps[layer.id]
@@ -308,22 +319,26 @@ final class SceneParticleRuntime {
                 } : nil
             let worldSpaceFrame = staticWorldSpaceFrames[layer.id] ?? translation?.frame
             guard !asset.definition.flags.isWorldSpace || worldSpaceFrame != nil else {
+#if DEBUG
                 addDiagnostic(
                     kind: .worldSpaceUnsupported,
                     layerID: layer.id,
                     path: path,
                     detail: "dynamicSystemTransform"
                 )
+#endif
                 continue
             }
             guard !asset.definition.operators.contains(where: \.isWorldSpaceMovement)
                     || worldSpaceFrame != nil else {
+#if DEBUG
                 addDiagnostic(
                     kind: .worldSpaceMovementUnsupported,
                     layerID: layer.id,
                     path: path,
                     detail: "dynamicSystemTransform"
                 )
+#endif
                 continue
             }
             let childRuntime = SceneParticleChildRuntime(
@@ -337,6 +352,7 @@ final class SceneParticleRuntime {
                 rootInstanceOverride: layer.particleInstanceOverride,
                 initialDynamicInstanceValues: initialDynamicValues.particleInstanceValues(layerID: layer.id)
             )
+#if DEBUG
             for detail in childRuntime.unsupportedDetails {
                 addDiagnostic(
                     kind: .childSystemsUnsupported,
@@ -353,6 +369,7 @@ final class SceneParticleRuntime {
                     detail: detail
                 )
             }
+#endif
             let retainedChildRuntime = childRuntime.hasTemplates ? childRuntime : nil
             if asset.definition.renderers.isEmpty {
                 guard admitsChildOnlyContainer(
@@ -402,12 +419,14 @@ final class SceneParticleRuntime {
                     textureLoader: textureLoader,
                     builtInTextureRegistry: builtInTextureRegistry
                   ) else { continue }
+#if DEBUG
             appendSimulationDiagnostics(
                 rootRender.simulator.diagnostics,
                 layerID: layer.id,
                 path: path,
                 handlesAllChildren: childRuntime.handlesAllChildren
             )
+#endif
             layers.append(SceneParticleLayerRuntime(
                 layerID: layer.id,
                 particlePath: path,
@@ -446,7 +465,9 @@ final class SceneParticleRuntime {
     /// the snapshot fell back to the authored transform — resumes
     /// simulation. Lane-less frames that still cannot construct a frame
     /// keep the previous-current freeze.
+#if DEBUG
     private var liveWorldSpaceAdoptedLayerIDs: Set<Int> = []
+#endif
     private func resolveCurrentWorldSpaceFrames(
         dynamicValues: SceneDynamicSnapshot,
         layerWorldFrames: [Int: simd_float4x4]
@@ -456,14 +477,18 @@ final class SceneParticleRuntime {
             if let current = layerWorldFrames[layerID], let frame = plan.frame(currentWorldFrame: current) {
                 liveFrames[layerID] = frame
                 if frozenWorldSpaceLayerIDs.remove(layerID) != nil {
+#if DEBUG
                     addDiagnostic(kind: .simulationLimitation, layerID: layerID,
                         path: layers.first { $0.layerID == layerID }?.particlePath ?? "",
                         detail: "world-space root translation resumed")
+#endif
                 }
             } else if frozenWorldSpaceLayerIDs.insert(layerID).inserted {
+#if DEBUG
                 addDiagnostic(kind: .simulationLimitation, layerID: layerID,
                     path: layers.first { $0.layerID == layerID }?.particlePath ?? "",
                     detail: "world-space root translation frozen: invalid current frame")
+#endif
             }
         }
         guard !worldSpaceChains.isEmpty else { return liveFrames }
@@ -473,20 +498,25 @@ final class SceneParticleRuntime {
         where worldSpaceRequiringLayerIDs.contains(layerID)
             && (frozenWorldSpaceLayerIDs.contains(layerID)
                 || !chain.isDisjoint(with: transformLayerIDs)) {
+#if DEBUG
             let path = layers.first { $0.layerID == layerID }?.particlePath ?? ""
+#endif
             if let current = layerWorldFrames[layerID],
                let frame = SceneParticleWorldSpaceFrame(worldFrame: current) {
                 if frozenWorldSpaceLayerIDs.remove(layerID) != nil {
+#if DEBUG
                     addDiagnostic(
                         kind: .simulationLimitation,
                         layerID: layerID,
                         path: path,
                         detail: "world-space frame resumed after transform recovered"
                     )
+#endif
                 }
                 // A vanished write returns this chain to its prepared static
                 // frame. Other chains' active lanes must not prevent recovery.
                 guard !chain.isDisjoint(with: transformLayerIDs) else { continue }
+#if DEBUG
                 if liveWorldSpaceAdoptedLayerIDs.insert(layerID).inserted {
                     addDiagnostic(
                         kind: .simulationLimitation,
@@ -495,14 +525,17 @@ final class SceneParticleRuntime {
                         detail: "world-space frame follows current transform"
                     )
                 }
+#endif
                 liveFrames[layerID] = frame
             } else if frozenWorldSpaceLayerIDs.insert(layerID).inserted {
+#if DEBUG
                 addDiagnostic(
                     kind: .simulationLimitation,
                     layerID: layerID,
                     path: path,
                     detail: "world-space frame frozen after runtime transform write"
                 )
+#endif
             }
         }
         return liveFrames
@@ -614,13 +647,7 @@ final class SceneParticleRuntime {
                 )
 #endif
                 batches.append(contentsOf: result.batches)
-                for path in result.bufferFailurePaths {
-                    addDiagnostic(
-                        kind: .instanceBufferAllocationFailed,
-                        layerID: layers[index].layerID,
-                        path: path
-                    )
-                }
+#if DEBUG
                 for detail in result.limitationDetails {
                     addDiagnostic(
                         kind: .simulationLimitation,
@@ -629,6 +656,7 @@ final class SceneParticleRuntime {
                         detail: detail
                     )
                 }
+#endif
             }
             guard isVisible, var root = layers[index].rootRender else { continue }
             rebuildGPUInstances(root: &root)
@@ -669,10 +697,10 @@ final class SceneParticleRuntime {
                 child: layer.childRuntime?.frameSnapshot(),
                 wasVisible: layer.wasVisible
             )
-        }, frozenWorldSpaceLayerIDs: frozenWorldSpaceLayerIDs,
-           adoptedWorldSpaceLayerIDs: liveWorldSpaceAdoptedLayerIDs)
+        }, frozenWorldSpaceLayerIDs: frozenWorldSpaceLayerIDs)
 #if DEBUG
         snapshot.pendingAudioEvaluationObservations = pendingAudioEvaluationObservations
+        snapshot.adoptedWorldSpaceLayerIDs = liveWorldSpaceAdoptedLayerIDs
 #endif
         return snapshot
     }
@@ -696,7 +724,9 @@ final class SceneParticleRuntime {
         pendingAudioEvaluationObservations = snapshot.pendingAudioEvaluationObservations
 #endif
         frozenWorldSpaceLayerIDs = snapshot.frozenWorldSpaceLayerIDs
+#if DEBUG
         liveWorldSpaceAdoptedLayerIDs = snapshot.adoptedWorldSpaceLayerIDs
+#endif
     }
 
 #if DEBUG
@@ -790,6 +820,7 @@ final class SceneParticleRuntime {
         }
     }
 
+#if DEBUG
     var childRuntimeSummaries: [String] {
         layers.compactMap { layer in
             layer.childRuntime.map {
@@ -806,44 +837,7 @@ final class SceneParticleRuntime {
         )
         if !diagnostics.contains(value) { diagnostics.append(value) }
     }
-
-    /// Official particle containers parse `renderer` and `children` as
-    /// independent collections. We admit only the bounded form whose root has
-    /// no renderer and whose complete root-child set is static and executable;
-    /// event children still require a root simulator and therefore fail closed.
-    private func admitsChildOnlyContainer(
-        _ definition: SceneParticleDefinition,
-        childRuntime: SceneParticleChildRuntime,
-        layerID: Int,
-        path: String
-    ) -> Bool {
-        let rendererMalformed = definition.diagnostics.contains {
-            $0.path == "renderer" || $0.path.hasPrefix("renderer[")
-        }
-        let staticChildren = !definition.children.isEmpty
-            && definition.children.allSatisfy {
-                guard let type = $0.type?.trimmingCharacters(
-                    in: .whitespacesAndNewlines
-                ).localizedLowercase else { return true }
-                return type.isEmpty || type == "static"
-            }
-        let accepted = !rendererMalformed
-            && staticChildren
-            && childRuntime.hasTemplates
-            && childRuntime.handlesAllChildren
-            && childRuntime.unsupportedDetails.isEmpty
-        guard accepted else {
-            addDiagnostic(
-                kind: .missingSpriteRenderer,
-                layerID: layerID,
-                path: path,
-                detail: definition.children.isEmpty
-                    ? nil : "rootRendererAbsentOutsideStrictStaticChildContainer"
-            )
-            return false
-        }
-        return true
-    }
+#endif
 
     // swiftlint:disable:next function_parameter_count
     private func makeRootRenderRuntime(
@@ -882,12 +876,14 @@ final class SceneParticleRuntime {
                     textureLoader: textureLoader,
                     device: device
                 ) else {
+#if DEBUG
                     addDiagnostic(
                         kind: .refractionUnsupported,
                         layerID: layer.id,
                         path: path,
                         detail: "textureProfileUnsupported"
                     )
+#endif
                     return nil
                 }
                 texture = loaded.color
@@ -906,10 +902,12 @@ final class SceneParticleRuntime {
                     rope: render.rope,
                     definition: asset.definition
                 ) else {
+#if DEBUG
                     addDiagnostic(
                         kind: .textureLoadFailed, layerID: layer.id, path: path,
                         detail: "particleColorTexturePreparationFailed"
                     )
+#endif
                     return nil
                 }
                 texture = loaded.texture
@@ -921,8 +919,10 @@ final class SceneParticleRuntime {
                 wholeSourceRope = loaded.wholeSourceRope
             }
         } catch {
+#if DEBUG
             addDiagnostic(kind: .textureLoadFailed, layerID: layer.id, path: path,
                           detail: "resourceReadFailed:\(error)")
+#endif
             return nil
         }
         guard supportsPathRendererTexture(

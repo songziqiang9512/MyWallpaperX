@@ -296,17 +296,14 @@ extension DedicatedWebWallpaperHostPlaceholderAdapter {
     }
 
     func reconfigureDirectoryWatchers(with watchedDirectoriesByProperty: [String: String]) {
-        let obsoletePropertyNames = Set(directoryWatchersByProperty.keys).subtracting(watchedDirectoriesByProperty.keys)
-        for propertyName in obsoletePropertyNames {
-            stopDirectoryWatcher(for: propertyName)
+        let paths = Set(watchedDirectoriesByProperty.values)
+        let obsoletePaths = Set(directoryWatchersByDirectory.keys).subtracting(paths)
+        for path in obsoletePaths {
+            stopDirectoryWatcher(at: path)
         }
 
-        for (propertyName, path) in watchedDirectoriesByProperty {
-            if let existingWatcher = directoryWatchersByProperty[propertyName], existingWatcher.path == path {
-                continue
-            }
-            stopDirectoryWatcher(for: propertyName)
-            startDirectoryWatcher(for: propertyName, path: path)
+        for path in paths where directoryWatchersByDirectory[path] == nil {
+            startDirectoryWatcher(at: path)
         }
     }
 

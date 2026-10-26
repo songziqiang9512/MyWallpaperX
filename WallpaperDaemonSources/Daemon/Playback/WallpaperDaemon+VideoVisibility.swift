@@ -23,7 +23,7 @@ extension WallpaperDaemon {
                               visibility: [PlaybackSurfaceVisibility.Evidence]? = nil) {
         guard let preparation = preparation ?? videoPreparation else { return }
         var event = DaemonEvent(type: type, displayID: displayID, requestID: preparation.requestID,
-            message: message, videoPath: preparation.videoPath, contentKind: "video")
+            message: message, videoPath: nil, contentKind: "video")
         event.activationID = preparation.activationID
         event.preparationGeneration = UInt64(preparation.token)
         event.cohortID = preparation.cohortID
@@ -122,13 +122,12 @@ extension WallpaperDaemon {
     }
 
     func setOutputActivity(_ command: DaemonCommand) {
-        guard let active = command.outputActive, let id = command.activityID else { return }
+        guard let active = command.outputActive, command.activityID != nil else { return }
         let ownsActive = (command.requestID == nil || command.requestID == currentRequestID)
             && (command.cohortID == nil || command.cohortID == currentVideoCohortID)
         let ownsRetained = !active && command.requestID == videoPreparation?.previousRequestID
             && (command.cohortID == nil || command.cohortID == videoPreparation?.previousCohortID)
         guard ownsActive || ownsRetained else { return }
-        currentActivityID = id
         if ownsActive {
             outputActivityAllowed = active
             for player in players { player.volume = 0; player.pause() }

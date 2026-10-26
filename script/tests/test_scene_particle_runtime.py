@@ -3,10 +3,8 @@
 from __future__ import annotations
 
 import json
-import shutil
 import subprocess
 import sys
-import tempfile
 import unittest
 from pathlib import Path
 
@@ -16,9 +14,15 @@ sys.path.insert(0, str(SCRIPT_DIR))
 if __package__:
     from .scene_particle_runtime_author_sample_cases import SceneParticleAuthorSampleCases
     from .scene_particle_runtime_world_space_cases import SceneParticleWorldSpaceCases
+    from .scene_particle_runtime_configuration_cases import (
+        SceneParticleRuntimeConfigurationCases, compile_runtime_configurations,
+    )
 else:
     from scene_particle_runtime_author_sample_cases import SceneParticleAuthorSampleCases
     from scene_particle_runtime_world_space_cases import SceneParticleWorldSpaceCases
+    from scene_particle_runtime_configuration_cases import (
+        SceneParticleRuntimeConfigurationCases, compile_runtime_configurations,
+    )
 
 
 REPOSITORY_ROOT = Path(__file__).resolve().parents[2]
@@ -149,67 +153,17 @@ HARNESS_SOURCES = [
 
 
 class SceneParticleRuntimeTests(
-    SceneParticleAuthorSampleCases, SceneParticleWorldSpaceCases, unittest.TestCase
+    SceneParticleAuthorSampleCases, SceneParticleWorldSpaceCases,
+    SceneParticleRuntimeConfigurationCases, unittest.TestCase
 ):
     @classmethod
     def setUpClass(cls) -> None:
-        swiftc = shutil.which("swiftc")
-        if swiftc is None:
-            raise unittest.SkipTest("swiftc is unavailable")
-        cls.temporary_directory = tempfile.TemporaryDirectory(prefix="mwx-particle-runtime-")
-        directory = Path(cls.temporary_directory.name)
-        cls.binary = directory / "scene-particle-runtime"
-        # Compile the complete production particle model/parallax methods. This
-        # cuts unrelated image/geometry responsibilities, never their decisions.
-        model_source = (SOURCE_ROOT / "Rendering/Frame/SceneMetalRenderer+LayerTransforms.swift").read_text()
-        def method(marker: str) -> str:
-            start = model_source.index(marker)
-            body = model_source.index("{", start)
-            depth = 1
-            end = body + 1
-            while depth:
-                depth += (model_source[end] == "{") - (model_source[end] == "}")
-                end += 1
-            return model_source[start:end]
-        model_methods = "extension SceneMetalRenderer {\n" + "\n".join(
-            method(marker) for marker in ["    func particleModelMatrix(", "    private func parallaxOffset("]
-        ) + "\n}\n"
-        harness_sources = []
-        for source in HARNESS_SOURCES:
-            if source.name == "SceneParticleRuntimeHarness.swift":
-                copied = directory / source.name
-                copied.write_text(source.read_text().replace("// PRODUCTION_PARTICLE_MODEL_METHODS", model_methods))
-                harness_sources.append(copied)
-            else:
-                harness_sources.append(source)
-        compilation = subprocess.run(
-            [
-                swiftc,
-                "-D", "DEBUG",
-                *(str(path) for path in SWIFT_SOURCES),
-                *(str(path) for path in harness_sources),
-                "-framework", "Metal",
-                "-framework", "CoreGraphics",
-                "-framework", "ImageIO",
-                "-module-cache-path", str(directory / "module-cache"),
-                "-o", str(cls.binary),
-            ],
-            capture_output=True,
-            text=True,
-        )
-        if compilation.returncode != 0:
-            raise RuntimeError(compilation.stderr)
+        compile_runtime_configurations(cls, SOURCE_ROOT, SWIFT_SOURCES, HARNESS_SOURCES)
 
-    @classmethod
-    def tearDownClass(cls) -> None:
-        cls.temporary_directory.cleanup()
-
-    def run_harness(self, *arguments: str) -> dict[str, object]:
+    def run_harness(self, *arguments: str, configuration: str = "debug") -> dict[str, object]:
         completed = subprocess.run(
-            [str(self.binary), *arguments],
-            check=True,
-            capture_output=True,
-            text=True,
+            [str(self.binaries[configuration]), *arguments],
+            check=True, capture_output=True, text=True,
         )
         return json.loads(completed.stdout)
 
@@ -502,6 +456,8 @@ class SceneParticleRuntimeTests(
                              "missingCurrentFrameSkipsForce", "forceRecovers",
                              "childWorldNotAdmitted", "childMissingDefaultNotInherited"):
                     self.assertTrue(row[fact], fact)
+                for name in ("childWorldFacts", "childDefaultFacts"):
+                    self.assertTrue(row[name]["unsupportedForceReported"])
 
     def test_dynamic_control_point_angles_reach_root_and_child_emitters(self) -> None:
         result = self.run_harness("dynamic-control-point-angle-synthetic")

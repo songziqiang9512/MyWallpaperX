@@ -14,6 +14,7 @@ SPECTRUM_SOURCES = [
     ROOT / "MyWallpaperX/Core/Playback/SystemAudioSceneSpectrumAnalyzer.swift",
     ROOT / "MyWallpaperX/Core/Playback/SystemAudioOverlaySpectrumAnalyzer.swift",
     ROOT / "MyWallpaperX/Core/Playback/SystemAudioWebSpectrumAnalyzer.swift",
+    ROOT / "script/tests/fixtures/SystemAudioSpectrumTestCapture.swift",
 ]
 SERVICE_SOURCE = ROOT / "MyWallpaperX/Core/Playback/SystemAudioSpectrumService.swift"
 ENGINE_SOURCE = ROOT / "MyWallpaperX/Core/Playback/WallpaperEngine+SystemAudioSpectrum.swift"
@@ -244,14 +245,9 @@ assert.equal(loggedEvents.filter(name => name === 'audio.listener.error').length
             let right: [Float] = [-0.5, 0.5, -0.5, 0.5]
             let interleaved = zip(left, right).flatMap { [$0.0, $0.1] }
             let floatInterleaved = capturedFloatInterleaved(interleaved, channelCount: 2)
+            expect(floatInterleaved.signedChannels.count == 2, "capture retains both signed channels")
             expectArrayNear(floatInterleaved.signedChannels[0], left, tolerance: 0, "Float32 left")
             expectArrayNear(floatInterleaved.signedChannels[1], right, tolerance: 0, "Float32 right")
-            expectArrayNear(
-                floatInterleaved.rectifiedMono,
-                [0.375, 0.375, 0.625, 0.625],
-                tolerance: 0,
-                "rectified mono"
-            )
 
             let floatNoninterleaved = capturedFloatNoninterleaved(left: left, right: right)
             expectArrayNear(
@@ -288,7 +284,16 @@ assert.equal(loggedEvents.filter(name => name === 'audio.listener.error').length
 
             let invalidPCM = capturedFloatInterleaved([Float.nan, Float.infinity], channelCount: 1)
             expect(invalidPCM.signedChannels[0] == [0, 0], "capture should sanitize non-finite PCM")
-            expect(invalidPCM.rectifiedMono == [0, 0], "rectified mono should remain finite")
+            let signedEdges = capturedFloatInterleaved([-Float.zero, -1, 1, -.infinity], channelCount: 1)
+            expect(signedEdges.signedChannels[0].map(\.bitPattern)
+                == [-Float.zero, -1, 1, Float.zero].map(\.bitPattern),
+                "finite signed samples and negative zero retain their exact bits")
+            let int16Edges = capturedInt16Interleaved([.min, .max, -1, 0], channelCount: 1)
+            expect(int16Edges.signedChannels[0] == [-1, Float(Int16.max) / 32_768, -1 / 32_768, 0],
+                "Int16 signed endpoints retain their exact normalization")
+            let int32Edges = capturedInt32Interleaved([.min, .max, -1, 0], channelCount: 1)
+            expect(int32Edges.signedChannels[0] == [-1, Float(Int32.max) / 2_147_483_648, -1 / 2_147_483_648, 0],
+                "Int32 signed endpoints retain their exact normalization")
 
             let sampleRate: Float = 48_000
             let sampleCount = 4096
@@ -341,6 +346,37 @@ assert.equal(loggedEvents.filter(name => name === 'audio.listener.error').length
                 }
             }
 
+            func arrays(_ levels: SystemAudioSceneSpectrumAnalyzer.Levels) -> [[Float]] {
+                [levels.left, levels.right, levels.left32, levels.right32, levels.left64, levels.right64]
+            }
+            let pcmLeft = sine(frequency: 750)
+            let pcmRight = sine(frequency: 4_000, phase: .pi)
+            let pcmStereo = zip(pcmLeft, pcmRight).flatMap { [$0.0, $0.1] }
+            let fullInt16 = pcmStereo.map { Int16(($0 * 32_768).rounded()) }
+            let fullInt32 = pcmStereo.map { Int32(($0 * 2_147_483_648).rounded()) }
+            let decodedFormats = [
+                capturedFloatInterleaved(pcmStereo, channelCount: 2),
+                capturedFloatNoninterleaved(left: pcmLeft, right: pcmRight),
+                capturedInt16Interleaved(fullInt16, channelCount: 2),
+                capturedInt32Interleaved(fullInt32, channelCount: 2),
+            ]
+            let expectedFormats = [
+                [pcmLeft, pcmRight], [pcmLeft, pcmRight],
+                (0..<2).map { channel in stride(from: channel, to: fullInt16.count, by: 2)
+                    .map { Float(fullInt16[$0]) / 32_768 } },
+                (0..<2).map { channel in stride(from: channel, to: fullInt32.count, by: 2)
+                    .map { Float(fullInt32[$0]) / 2_147_483_648 } },
+            ]
+            var sixBandBits: [[[UInt32]]] = []
+            for (frame, expected) in zip(decodedFormats, expectedFormats) {
+                expect(frame.signedChannels.map { $0.map(\.bitPattern) }
+                    == expected.map { $0.map(\.bitPattern) }, "full-window signed PCM bits")
+                let actual = SystemAudioSceneSpectrumAnalyzer()!.analyze(frame, sampleRate: sampleRate, timestamp: 1)
+                let reference = SystemAudioSceneSpectrumAnalyzer()!.analyze(SystemAudioSpectrumTestCapture.frame(expected, sampleRate: sampleRate), sampleRate: sampleRate, timestamp: 1)
+                expect(arrays(actual) == arrays(reference), "all six spectra consume the exact signed PCM")
+                sixBandBits.append(arrays(actual).map { $0.map(\.bitPattern) })
+            }
+
             func peakIndex(_ levels: [Float], channel: Int) -> Int {
                 let start = channel * SystemAudioWebSpectrumAnalyzer.channelBandCount
                 let end = start + SystemAudioWebSpectrumAnalyzer.channelBandCount
@@ -352,7 +388,7 @@ assert.equal(loggedEvents.filter(name => name === 'audio.listener.error').length
             func webLevels(_ channels: [[Float]]) -> [Float] {
                 canonicalAnalyzer.reset()
                 return webAnalyzer.analyze(
-                    canonicalAnalyzer.analyze(signedChannels: channels, sampleRate: sampleRate)
+                    canonicalAnalyzer.analyze(SystemAudioSpectrumTestCapture.frame(channels, sampleRate: sampleRate), sampleRate: sampleRate)
                 )
             }
 
@@ -382,7 +418,7 @@ assert.equal(loggedEvents.filter(name => name === 'audio.listener.error').length
                         Float(0.8) * sin(2 * .pi * frequency * Float(index) / rate)
                     }
                     sweepAnalyzer.reset()
-                    let levels = sweepAnalyzer.analyze(signedChannels: [pcm], sampleRate: rate)
+                    let levels = sweepAnalyzer.analyze(SystemAudioSpectrumTestCapture.frame([pcm], sampleRate: rate), sampleRate: rate)
                     maxima = zip(maxima, levels.left64).map(max)
                     frequency *= 1.04
                 }
@@ -401,7 +437,7 @@ assert.equal(loggedEvents.filter(name => name === 'audio.listener.error').length
                     let pcm = (0..<SystemAudioSceneSpectrumAnalyzer.analysisWindowCount(sampleRate: rate)).map { index in
                         Float(0.02) * sin(2 * .pi * frequency * Float(index) / rate)
                     }
-                    let bands = analyzer.analyze(signedChannels: [pcm], sampleRate: rate)
+                    let bands = analyzer.analyze(SystemAudioSpectrumTestCapture.frame([pcm], sampleRate: rate), sampleRate: rate)
                     peaks.append(bands.left64.max()!)
                 }
                 expect(peaks.dropFirst().min()! > peaks.first! * 0.85,
@@ -421,16 +457,25 @@ assert.equal(loggedEvents.filter(name => name === 'audio.listener.error').length
                     "fixed decibel response must retain low-band volume changes at \(frequency) Hz")
             }
             let noiseAnalyzer = SystemAudioSceneSpectrumAnalyzer()!
+            let noiseCapture = SystemAudioSpectrumTestCapture()
             var noiseSeed: UInt32 = 17
-            for _ in 0..<24 {
+            var noiseWindowCount = 0
+            for block in 0..<24 {
                 let noise: [Float] = (0..<400).map { _ in
                     noiseSeed = noiseSeed &* 1_664_525 &+ 1_013_904_223
                     return (Float(noiseSeed >> 8) / Float(0x00ff_ffff) * 2 - 1) * 0.000_5
                 }
-                let levels = noiseAnalyzer.analyze(signedChannels: [noise], sampleRate: sampleRate)
+                expect(noiseCapture.append([noise], sampleRate: sampleRate), "noise callback must enter the real ring")
+                guard let frame = noiseCapture.latestFrame(sampleRate: sampleRate) else {
+                    expect((block + 1) * noise.count < sampleCount, "only an incomplete noise window may lack a snapshot")
+                    continue
+                }
+                noiseWindowCount += 1
+                let levels = noiseAnalyzer.analyze(frame, sampleRate: sampleRate)
                 expect(levels.left64.allSatisfy { $0 < 0.15 },
                     "bounded low-level broadband noise must remain visually small; peak=\(levels.left64.max()!)")
             }
+            expect(noiseWindowCount == 14, "all fourteen complete noise windows must be analyzed")
             let dc = webLevels([[Float](repeating: 0.7, count: sampleCount)])
             expect(dc.allSatisfy { $0 == 0 }, "constant DC must not excite positive-frequency bands")
             let zeroPCM = [Float](repeating: 0, count: sampleCount)
@@ -491,8 +536,7 @@ assert.equal(loggedEvents.filter(name => name === 'audio.listener.error').length
             )
 
             canonicalAnalyzer.reset()
-            let canonicalAttack = canonicalAnalyzer.analyze(
-                signedChannels: [sine(frequency: 1_000, amplitude: 0.8)],
+            let canonicalAttack = canonicalAnalyzer.analyze(SystemAudioSpectrumTestCapture.frame([sine(frequency: 1_000, amplitude: 0.8)], sampleRate: sampleRate),
                 sampleRate: sampleRate
             )
             expect(
@@ -518,8 +562,7 @@ assert.equal(loggedEvents.filter(name => name === 'audio.listener.error').length
             let ramp96 = SystemAudioSceneSpectrumAnalyzer.resample(ramp, count: 96)
             expectNear(ramp96[0], 0, tolerance: 0.000001, "upsampling retains source identity")
             expectNear(ramp96[95], 1, tolerance: 0.000001, "upsampling retains last source identity")
-            let canonicalRelease = canonicalAnalyzer.analyze(
-                signedChannels: [[Float](repeating: 0, count: sampleCount)],
+            let canonicalRelease = canonicalAnalyzer.analyze(SystemAudioSpectrumTestCapture.frame([[Float](repeating: 0, count: sampleCount)], sampleRate: sampleRate),
                 sampleRate: sampleRate
             )
             expect(
@@ -529,8 +572,7 @@ assert.equal(loggedEvents.filter(name => name === 'audio.listener.error').length
             )
             var releaseTail = canonicalRelease.left64.max()!
             for _ in 0..<3 {
-                releaseTail = canonicalAnalyzer.analyze(
-                    signedChannels: [[Float](repeating: 0, count: sampleCount)],
+                releaseTail = canonicalAnalyzer.analyze(SystemAudioSpectrumTestCapture.frame([[Float](repeating: 0, count: sampleCount)], sampleRate: sampleRate),
                     sampleRate: sampleRate
                 ).left64.max()!
             }
@@ -557,16 +599,16 @@ assert.equal(loggedEvents.filter(name => name === 'audio.listener.error').length
                 "Web levels must contain only finite positive values"
             )
 
+            func completedLevels(left: [Float], right: [Float]) -> SystemAudioSceneSpectrumAnalyzer.Levels {
+                .init(left64: SystemAudioSceneSpectrumAnalyzer.resample(left, count: 64),
+                      right64: SystemAudioSceneSpectrumAnalyzer.resample(right, count: 64))
+            }
             let overlay = SystemAudioOverlaySpectrumAnalyzer(barCount: 16)
             canonicalAnalyzer.reset()
-            let overlayLevels = canonicalAnalyzer.analyze(
-                signedChannels: [sine(frequency: 750, amplitude: 0.4)],
+            let overlayLevels = canonicalAnalyzer.analyze(SystemAudioSpectrumTestCapture.frame([sine(frequency: 750, amplitude: 0.4)], sampleRate: sampleRate),
                 sampleRate: sampleRate
             )
-            let balanced = overlay.analyze(
-                left: overlayLevels.left64,
-                right: overlayLevels.right64
-            )
+            let balanced = overlay.analyze(overlayLevels)
             expect(balanced.count == 16, "Overlay must preserve configured bar count")
             expectArrayNear(balanced, overlayLevels.left, tolerance: 0.000001,
                 "Default mono Video projection must match the same Scene height resolution")
@@ -576,10 +618,7 @@ assert.equal(loggedEvents.filter(name => name === 'audio.listener.error').length
                 + [Float](repeating: 0.7, count: 16)
                 + [Float](repeating: 0.2, count: 16)
             let freshOverlay = SystemAudioOverlaySpectrumAnalyzer(barCount: 16)
-            let shaped = freshOverlay.analyze(
-                left: shapedInput,
-                right: shapedInput
-            )
+            let shaped = freshOverlay.analyze(completedLevels(left: shapedInput, right: shapedInput))
             expect(shaped[0] < shaped[4], "Overlay must retain a rising low-to-mid band")
             expect(shaped[4] < shaped[8], "Overlay must retain the stronger upper band")
             expect(shaped[12] < shaped[8], "Overlay must retain a falling right band")
@@ -588,24 +627,16 @@ assert.equal(loggedEvents.filter(name => name === 'audio.listener.error').length
                 "A fresh loud frame must not clip every bar to the same height"
             )
             _ = freshOverlay.reset()
-            let alternating = freshOverlay.analyze(
-                left: (0..<16).map { $0.isMultiple(of: 2) ? 0.7 : 0 },
-                right: (0..<16).map { $0.isMultiple(of: 2) ? 0.7 : 0 }
-            )
+            let alternatingInput = (0..<16).map { Float($0.isMultiple(of: 2) ? 0.7 : 0) }
+            let alternating = freshOverlay.analyze(completedLevels(left: alternatingInput, right: alternatingInput))
             expect(
                 alternating.allSatisfy { $0.isFinite && $0 >= 0 && $0 <= 1 }
                     && alternating[0] > alternating[1] * 3,
                 "Overlay must preserve independent neighboring bars"
             )
             overlay.updateConfiguration(style: .banded, sensitivity: .normal)
-            let banded = overlay.analyze(
-                left: overlayLevels.left64,
-                right: overlayLevels.right64
-            )
-            let repeatedBanded = overlay.analyze(
-                left: overlayLevels.left64,
-                right: overlayLevels.right64
-            )
+            let banded = overlay.analyze(overlayLevels)
+            let repeatedBanded = overlay.analyze(overlayLevels)
             expectArrayNear(
                 repeatedBanded,
                 banded,
@@ -613,12 +644,12 @@ assert.equal(loggedEvents.filter(name => name === 'audio.listener.error').length
                 "Overlay projection must not add a second temporal envelope"
             )
             overlay.updateConfiguration(style: .banded, sensitivity: .lively)
-            let hot = overlay.analyze(left: [0.8], right: [0.8])[0]
-            let hotter = overlay.analyze(left: [0.9], right: [0.9])[0]
+            let hot = overlay.analyze(completedLevels(left: [0.8], right: [0.8]))[0]
+            let hotter = overlay.analyze(completedLevels(left: [0.9], right: [0.9]))[0]
             expect(hot < hotter && hotter < 1, "lively overlay must preserve strong-input headroom")
             overlay.updateConfiguration(style: .balanced, sensitivity: .normal)
-            let moderate = overlay.analyze(left: [0.4], right: [0.4])[0]
-            let strong = overlay.analyze(left: [0.6], right: [0.6])[0]
+            let moderate = overlay.analyze(completedLevels(left: [0.4], right: [0.4]))[0]
+            let strong = overlay.analyze(completedLevels(left: [0.6], right: [0.6]))[0]
             expect((strong - moderate) * 82 > 4,
                 "canonical height changes must remain visible by at least four native pixels")
             // Native styling must preserve the shared height-domain release,
@@ -629,44 +660,49 @@ assert.equal(loggedEvents.filter(name => name === 'audio.listener.error').length
             let loudHigh = sine(frequency: 8_000, amplitude: 1)
             var nativeStart: Float = 0
             for tick in 0...30 {
-                let level = nativeDecayAnalyzer.analyze(signedChannels: [loudHigh], sampleRate: sampleRate, timestamp: Double(tick) / 30)
-                nativeStart = nativeDecayOverlay.analyze(left: level.left64, right: level.right64).max()!
+                let level = nativeDecayAnalyzer.analyze(SystemAudioSpectrumTestCapture.frame([loudHigh], sampleRate: sampleRate), sampleRate: sampleRate, timestamp: Double(tick) / 30)
+                nativeStart = nativeDecayOverlay.analyze(level).max()!
             }
             var nativeTail: Float = 0
             for tick in 1...12 {
-                let level = nativeDecayAnalyzer.analyze(signedChannels: [zeroPCM], sampleRate: sampleRate, timestamp: 1 + Double(tick) / 30)
-                nativeTail = nativeDecayOverlay.analyze(left: level.left64, right: level.right64).max()!
+                let level = nativeDecayAnalyzer.analyze(SystemAudioSpectrumTestCapture.frame([zeroPCM], sampleRate: sampleRate), sampleRate: sampleRate, timestamp: 1 + Double(tick) / 30)
+                nativeTail = nativeDecayOverlay.analyze(level).max()!
             }
             expect(nativeTail / nativeStart < 0.1, "native compensated loud tone must visibly release within 400ms")
-            let silentOverlay = overlay.analyze(
-                left: [Float](repeating: 0, count: 64),
-                right: [Float](repeating: 0, count: 64)
-            )
+            let silentOverlay = overlay.analyze(completedLevels(left: [Float](repeating: 0, count: 64), right: [Float](repeating: 0, count: 64)))
             expect(silentOverlay.allSatisfy { $0 == 0 }, "Overlay silence must clear immediately")
             expect(overlay.reset().allSatisfy { $0 == 0 }, "Overlay reset must return silence")
 
+            let proof: [String: Any] = [
+                "signedPCM": decodedFormats.map { $0.signedChannels.map { $0.map(\.bitPattern) } },
+                "sixBandBits": sixBandBits,
+                "continuousWindow": windowCopy.decodedFrame!.signedChannels.map { $0.map(\.bitPattern) },
+                "signedEdges": signedEdges.signedChannels[0].map(\.bitPattern),
+            ]
             print("System audio spectrum tests passed")
+            print(String(decoding: try JSONSerialization.data(withJSONObject: proof, options: [.sortedKeys]), as: UTF8.self))
             '''
         )
 
         with tempfile.TemporaryDirectory(prefix="mwx-system-audio-tests-") as directory:
             temporary = Path(directory)
             harness_path = temporary / "main.swift"
-            binary_path = temporary / "SystemAudioSpectrumTests"
             harness_path.write_text(harness, encoding="utf-8")
-            subprocess.run(
-                [swiftc, *(str(path) for path in SPECTRUM_SOURCES), str(harness_path), "-o", str(binary_path)],
-                cwd=ROOT,
-                check=True,
-            )
-            completed = subprocess.run(
-                [str(binary_path)],
-                cwd=ROOT,
-                capture_output=True,
-                text=True,
-            )
-            self.assertEqual(completed.returncode, 0, completed.stdout + completed.stderr)
-            self.assertIn("tests passed", completed.stdout)
+            reports = {}
+            for configuration, flags in (("debug", ["-D", "DEBUG"]), ("release", [])):
+                with self.subTest(configuration=configuration):
+                    binary_path = temporary / f"SystemAudioSpectrumTests-{configuration}"
+                    compiled = subprocess.run(
+                        [swiftc, *flags, *(str(path) for path in SPECTRUM_SOURCES), str(harness_path), "-o", str(binary_path)],
+                        cwd=ROOT, capture_output=True, text=True,
+                    )
+                    self.assertEqual(compiled.returncode, 0, compiled.stdout + compiled.stderr)
+                    completed = subprocess.run([str(binary_path)], cwd=ROOT, capture_output=True, text=True)
+                    self.assertEqual(completed.returncode, 0, completed.stdout + completed.stderr)
+                    self.assertIn("tests passed", completed.stdout)
+                    reports[configuration] = completed.stdout
+            self.assertEqual(reports["debug"], reports["release"],
+                             "Both configurations must preserve every signed sample and all six spectra")
 
     def test_scene_frames_preserve_capture_generation_and_scope(self) -> None:
         source = SERVICE_SOURCE.read_text(encoding="utf-8")

@@ -65,7 +65,6 @@ final class WallpaperDaemon: NSObject {
     var activationVisibilityWorkItem: DispatchWorkItem?
     var activationVisibilityDeadline: DispatchWorkItem?
     var outputActivityAllowed = true
-    var currentActivityID: UUID?
     var lastVideoCancellation: DaemonCommand?
     var currentVolume: Float = 0.5
     var playbackRate: Float = 1.0
@@ -142,7 +141,9 @@ final class WallpaperDaemon: NSObject {
         setupSpectrumLayers()
 
         window.orderFrontRegardless()
+#if DEBUG
         emit(type: "launched", requestID: nil, message: nil, videoPath: nil)
+#endif
 
         NotificationCenter.default.addObserver(
             self,

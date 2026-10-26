@@ -27,8 +27,9 @@ nonisolated struct SceneParticleEmitterSpawnPlan: Sendable {
     let directions: SIMD3<Double>
     let sign: SIMD3<Double>
     let sphereAxisMask: UInt8
-    let sphereDistanceMinimum: Double
-    let sphereDistanceMaximum: Double
+    let sphereRadiusPowerMinimum: Double
+    let sphereRadiusPowerMaximum: Double
+    let sphereRadiusInverseDimension: Double
     let boxDistanceMinimum: SIMD3<Double>
     let boxDistanceMaximum: SIMD3<Double>
     let speedMinimum: Double?
@@ -60,15 +61,23 @@ nonisolated struct SceneParticleEmitterSpawnPlan: Sendable {
             | (abs(directions.y) > 1e-6 ? 2 : 0)
             | (abs(directions.z) > 1e-6 ? 4 : 0)
 
-        let sphereMinimum = max(
-            0,
-            SceneParticleSimulationMath.scalar(value.distanceMinimum, fallback: 0)
-        )
-        sphereDistanceMinimum = sphereMinimum
-        sphereDistanceMaximum = max(
-            sphereMinimum,
-            SceneParticleSimulationMath.scalar(value.distanceMaximum, fallback: 256)
-        )
+        if case .sphereRandom = value.kind {
+            let dimensions = Double(max(sphereAxisMask.nonzeroBitCount, 1))
+            let minimum = max(
+                0, SceneParticleSimulationMath.scalar(value.distanceMinimum, fallback: 0)
+            )
+            let maximum = max(
+                minimum, SceneParticleSimulationMath.scalar(value.distanceMaximum, fallback: 256)
+            )
+            sphereRadiusPowerMinimum = pow(minimum, dimensions)
+            sphereRadiusPowerMaximum = pow(maximum, dimensions)
+            sphereRadiusInverseDimension = 1 / dimensions
+        } else {
+            // Other shapes never consume radial sampling or prepare its powers.
+            sphereRadiusPowerMinimum = 0
+            sphereRadiusPowerMaximum = 0
+            sphereRadiusInverseDimension = 1
+        }
         boxDistanceMinimum = SceneParticleSimulationMath.vector(
             value.distanceMinimum, fallback: .zero
         )

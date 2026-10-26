@@ -58,15 +58,18 @@ import Darwin
 
     static func observe(_ sim: SceneParticleSimulator) -> [String: Any] {
         let state = sim.frameSnapshot()
-        return ["ids": sim.particles.map(\.id), "count": sim.particles.count,
+        var value: [String: Any] = ["ids": sim.particles.map(\.id), "count": sim.particles.count,
                 "velocities": sim.particles.map { vector($0.velocity) },
                 "positions": sim.particles.map { vector($0.position) },
                 "ages": sim.particles.map(\.age), "time": sim.simulationTime,
                 "randomState": state.random.state, "nextID": state.nextParticleID,
                 "gpuFinite": sim.particles.allSatisfy {
                     SceneParticleSimulationMath.isGPUFinite($0.velocity)
-                        && SceneParticleSimulationMath.isGPUFinite($0.position) },
-                "diagnostics": sim.diagnostics.map(\.kind.rawValue)]
+                        && SceneParticleSimulationMath.isGPUFinite($0.position) }]
+#if DEBUG
+        value["diagnostics"] = sim.diagnostics.map(\.kind.rawValue)
+#endif
+        return value
     }
 
     static func run(_ mask: Any, initial: String = "3 -2 1", steps: Int = 1,
@@ -208,15 +211,27 @@ class SceneParticleTurbulenceMaskTests(unittest.TestCase):
         directory = Path(cls.directory.name)
         harness = directory / "Harness.swift"
         harness.write_text(HARNESS, encoding="utf-8")
-        binary = directory / "turbulence-mask"
-        compiled = subprocess.run([compiler, *map(str, sources), str(harness),
-            "-module-cache-path", str(directory / "module-cache"), "-o", str(binary)],
-            capture_output=True, text=True, timeout=120)
-        if compiled.returncode:
-            raise RuntimeError(compiled.stderr)
-        completed = subprocess.run([str(binary)], check=True, capture_output=True,
-                                   text=True, timeout=30)
-        cls.result = json.loads(completed.stdout)
+        results = {}
+        for mode, flags in [("debug", ["-D", "DEBUG"]), ("release", [])]:
+            binary = directory / ("turbulence-mask-" + mode)
+            compiled = subprocess.run([compiler, "-O", *flags, *map(str, sources), str(harness),
+                "-module-cache-path", str(directory / ("module-cache-" + mode)), "-o", str(binary)],
+                capture_output=True, text=True, timeout=120)
+            if compiled.returncode:
+                raise RuntimeError(compiled.stderr)
+            completed = subprocess.run([str(binary)], check=True, capture_output=True,
+                                       text=True, timeout=30)
+            results[mode] = json.loads(completed.stdout)
+        cls.result, cls.release_result = results["debug"], results["release"]
+
+    def test_release_preserves_mask_sampling_particles_rng_and_operator_order(self):
+        def without_reports(value):
+            if isinstance(value, dict):
+                return {key: without_reports(item) for key, item in value.items() if key != "diagnostics"}
+            if isinstance(value, list):
+                return [without_reports(item) for item in value]
+            return value
+        self.assertEqual(self.release_result, without_reports(self.result))
 
     def assert_vector(self, actual, expected):
         self.assertEqual(len(actual), len(expected))

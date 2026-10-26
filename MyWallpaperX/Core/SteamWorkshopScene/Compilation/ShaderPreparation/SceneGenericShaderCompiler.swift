@@ -32,6 +32,7 @@ nonisolated enum SceneGenericShaderCompiler {
         colorBoundary: SceneShaderColorBoundary? = nil,
         boundTextureSlots: Set<Int> = [],
         cacheRoot: URL,
+        normalizedSources: SceneGenericShaderSourceNormalizer.Pair? = nil,
         bundle: Bundle = .main
     ) -> Result<URL, Failure> {
         let configuration: SceneGenericShaderCompilerBundle.Configuration
@@ -41,14 +42,25 @@ nonisolated enum SceneGenericShaderCompiler {
             return .failure(.configuration(String(describing: failure)))
         }
         let normalized: SceneGenericShaderSourceNormalizer.Pair
-        switch SceneGenericShaderSourceNormalizer.normalize(
-            vertexSource: vertexSource,
-            fragmentSource: fragmentSource,
-            maximumStageSourceBytes: configuration.limits.maximumStageSourceBytes
-        ) {
-        case let .success(value): normalized = value
-        case let .failure(failure):
-            return .failure(.normalization(String(describing: failure)))
+        if let normalizedSources {
+            // Route analysis and the compiler have independent input budgets.
+            // The same-call Pair does not replace the compiler's raw bound.
+            guard vertexSource.utf8.count <= configuration.limits.maximumStageSourceBytes,
+                  fragmentSource.utf8.count <= configuration.limits.maximumStageSourceBytes else {
+                return .failure(.normalization(String(describing:
+                    SceneGenericShaderSourceNormalizer.Failure.sourceTooLarge)))
+            }
+            normalized = normalizedSources
+        } else {
+            switch SceneGenericShaderSourceNormalizer.normalize(
+                vertexSource: vertexSource,
+                fragmentSource: fragmentSource,
+                maximumStageSourceBytes: configuration.limits.maximumStageSourceBytes
+            ) {
+            case let .success(value): normalized = value
+            case let .failure(failure):
+                return .failure(.normalization(String(describing: failure)))
+            }
         }
 #if DEBUG
         if ProcessInfo.processInfo.arguments.contains("--mwx-debug-scene-evidence-dir") {

@@ -100,10 +100,10 @@ extension WallpaperEngine {
             session.nextRequestID += 1
             let request = session.nextRequestID
             execution.requests[display] = request
+#if DEBUG
             session.latestRequestedPlayRequestID = request
-            session.latestPreparedPlayRequestID = nil
-            session.latestCommittedPlayRequestID = nil
             session.latestReadyPlayRequestID = nil
+#endif
             var command = DaemonCommand(action: "play", videoPath: execution.path,
                 framePath: wallpaper.staticFramePath, propertiesJSON: nil,
                 fillMode: videoFillMode, shouldLoopCurrentItem: shouldLoopCurrentItem,
@@ -151,10 +151,8 @@ extension WallpaperEngine {
     func videoDidPrepare(_ event: DaemonEvent, session: DisplayDaemonSession) {
         guard let execution = videoExecution(for: event, session: session),
               videoCandidate === execution, !execution.cancelling,
-              event.videoPath.map(normalizedPath) == execution.path,
               let generation = event.preparationGeneration else { return }
         execution.generations[session.displayID] = generation
-        session.latestPreparedPlayRequestID = event.requestID
         guard execution.generations.count == execution.sessions.count,
               !execution.didReportPrepared else { return }
         execution.didReportPrepared = true
@@ -170,8 +168,7 @@ extension WallpaperEngine {
                       !execution.cancelling, !execution.activated else { return }
                 execution.activated = true
                 self.armVideoTimeout(execution, seconds: 8)
-                for (display, session) in execution.sessions {
-                    session.latestCommittedPlayRequestID = execution.requests[display]
+                for session in execution.sessions.values {
                     self.sendVideoExecutionControl("commitVideo", execution: execution, session: session)
                 }
             },
@@ -203,7 +200,9 @@ extension WallpaperEngine {
               evidence[0].expectedPID == session.process.processIdentifier,
               PlaybackSurfaceVisibility.evaluate(evidence[0]) == .confirmed else { return }
         execution.visibleDisplays.insert(session.displayID)
+#if DEBUG
         session.latestReadyPlayRequestID = event.requestID
+#endif
         guard execution.visibleDisplays.count == execution.sessions.count else { return }
         execution.timeout?.cancel(); execution.timeout = nil
         if let switchVisible { switchVisible(execution.ticket, execution.id) }

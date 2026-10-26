@@ -395,7 +395,8 @@ routeTelemetry.record(
                     defaultBoundaryColorSlots: defaultBoundaryColorSlots,
                     colorBoundary: colorBoundary,
                     boundTextureSlots: activeTextureSlots,
-                    cacheRoot: root
+                    cacheRoot: root,
+                    normalizedSources: resolvedAnalysisOutcome.normalizedSources
                 )
             }
         )

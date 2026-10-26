@@ -15,8 +15,7 @@ extension WallpaperManager {
     }
 
     func migratedBundledVideoWallpaper(_ wallpaper: VideoWallpaper) -> VideoWallpaper {
-        guard !normalizedSourcePathExists(wallpaper.path),
-              let migratedURL = BundledVideoLibrary.migratedURL(forPersistedPath: wallpaper.path) else {
+        guard let migratedURL = BundledVideoLibrary.migratedURL(forPersistedPath: wallpaper.path) else {
             return wallpaper
         }
         return VideoWallpaper(

@@ -19,7 +19,9 @@ extension WallpaperDaemon {
         case "setOutputActivity": setOutputActivity(command)
         case "play":
             guard let videoPath = command.videoPath else { return }
+#if DEBUG
             emit(type: "accepted", requestID: command.requestID, message: nil, videoPath: videoPath, contentKind: "video")
+#endif
             if let playbackRate = command.playbackRate {
                 self.playbackRate = max(playbackRate, 0.1)
             }
@@ -184,10 +186,4 @@ extension WallpaperDaemon {
         }
     }
 
-    func configureWindowForVideoRendering() {
-        window.backgroundColor = .black
-        window.isOpaque = true
-        window.contentView?.wantsLayer = true
-        window.contentView?.layer?.backgroundColor = NSColor.black.cgColor
-    }
 }

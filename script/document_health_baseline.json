@@ -21,8 +21,8 @@
       "bytes": 17744
     },
     "docs/architecture/system-audio-spectrum-design.md": {
-      "lines": 34,
-      "bytes": 4438
+      "lines": 40,
+      "bytes": 5740
     },
     "docs/architecture/technology-stack-boundaries.md": {
       "lines": 259,
@@ -41,8 +41,8 @@
       "bytes": 14139
     },
     "docs/development/validation-simplification-plan.md": {
-      "lines": 220,
-      "bytes": 47762
+      "lines": 526,
+      "bytes": 133266
     },
     "docs/release/bundle-content.md": {
       "lines": 61,
@@ -66,7 +66,7 @@
     },
     "docs/scene/architecture/runtime-architecture.md": {
       "lines": 600,
-      "bytes": 134517
+      "bytes": 134673
     },
     "docs/scene/architecture/runtime-as-built-map.md": {
       "lines": 158,
@@ -77,8 +77,8 @@
       "bytes": 5956
     },
     "docs/scene/architecture/scene-launch-responsiveness-contract.md": {
-      "lines": 252,
-      "bytes": 42193
+      "lines": 258,
+      "bytes": 45184
     },
     "docs/scene/architecture/scene-resource-admission.md": {
       "lines": 90,
@@ -102,7 +102,7 @@
     },
     "docs/scene/capabilities/advanced-object-coverage.md": {
       "lines": 388,
-      "bytes": 81263
+      "bytes": 81466
     },
     "docs/scene/capabilities/alpha-display-fallback-design.md": {
       "lines": 124,
@@ -110,11 +110,11 @@
     },
     "docs/scene/capabilities/coverage-ledger.md": {
       "lines": 371,
-      "bytes": 176179
+      "bytes": 176439
     },
     "docs/scene/capabilities/direct-model-bind-geometry.md": {
       "lines": 23,
-      "bytes": 3055
+      "bytes": 3319
     },
     "docs/scene/capabilities/direct-model-skeletal-animation.md": {
       "lines": 88,
@@ -294,7 +294,7 @@
     },
     "docs/web/current-state.md": {
       "lines": 140,
-      "bytes": 53285
+      "bytes": 53633
     },
     "docs/web/dedicated-host-process-design.md": {
       "lines": 80,
@@ -318,7 +318,7 @@
     },
     "docs/web/web-project-json-runtime-model.md": {
       "lines": 178,
-      "bytes": 6103
+      "bytes": 6125
     },
     "docs/web/web-wallpaper-benchmark-standard.md": {
       "lines": 86,
@@ -1299,15 +1299,6 @@
     },
     {
       "section": "bodies",
-      "path": "docs/development/validation-simplification-plan.md",
-      "before": "74234e98afe7498fb5daf1f36ac2d78acc339464f950703b8c019892f982b90b",
-      "after": "c3cdd1a91db53198594290f570c787711424b896e875ad773368d113e7a27268",
-      "owner": "全仓校验与链路精简",
-      "reason": "按用户指定范围登记唯一现役精简方案及当前实际正文预算；目标/数据流/失败/退出/覆盖和验证边界在同一权威维护，不以历史结算或门数代表完成。",
-      "decision": "docs/development/validation-simplification-plan.md#审查方法与完成条件"
-    },
-    {
-      "section": "bodies",
       "path": "docs/development/wallpaper-startup-optimization-plan.md",
       "before": "85095be2b1e4271568fa2a4b5c93c1760f595f03ba899b5cf774a6c643023c43",
       "after": "74234e98afe7498fb5daf1f36ac2d78acc339464f950703b8c019892f982b90b",
@@ -1318,11 +1309,11 @@
     {
       "section": "bodies",
       "path": "docs/scene/architecture/runtime-architecture.md",
-      "before": "8f6909dc9bee4b7b6af671329aec0e0863476dba38ecb70046929dc4ddb05146",
-      "after": "4f9eb7fc04d43e36f36d64f34dd3bb8f40afbd6e8179212138d9ef6380785bf3",
+      "before": "4f9eb7fc04d43e36f36d64f34dd3bb8f40afbd6e8179212138d9ef6380785bf3",
+      "after": "851be0006cec6ef0eb85d82cf9a45f1a6b6494b34f75fd7bfa665374291ba640",
       "owner": "Scene模型准备与运行架构",
-      "reason": "替换已退役MDL metadata全扫说法，记录原SourceFacts一次读取/解析与短生命周期PreparedSource交接；原解析/局部失败和GPU职责保持，不预支视觉或性能结论。",
-      "decision": "docs/development/validation-simplification-plan.md#mdl-一次读取与解析"
+      "reason": "P20退役模型64部件/4096路径固定政策；同步实际Root/Builder/native正反例、原输入对照、当前边界和治理指针，其他预算不变。",
+      "decision": "docs/development/validation-simplification-plan.md#p20-mdl-policy-retirement"
     },
     {
       "section": "bodies",
@@ -1332,15 +1323,6 @@
       "owner": "Scene现役源码职责导航",
       "reason": "用当前来源挂载、引用闭包、模型/字体与快照消费职责替换历史认证和重复准备描述；本次按实际正文收紧此前未提交预算，不重授旧运行资格。",
       "decision": "docs/development/validation-simplification-plan.md#已证问题与裁决"
-    },
-    {
-      "section": "bodies",
-      "path": "docs/scene/architecture/scene-launch-responsiveness-contract.md",
-      "before": "2a0fcc69f23e53f3225b08a7f224fd3176b8ca25c1faa217c284e1c8cbe8a737",
-      "after": "d5c7881941947003560d2a23975491d1f8592029617796b932186f642af89eff",
-      "owner": "Scene启动/资源生命周期合同",
-      "reason": "合并已实现来源与完整快照边界、预算下未来读取、同load字体复用和Sound入口一次身份；退出历史摘要许可与重复校验说法，保FD/取消/租约，不宣称跨屏字体共享或实际提速。",
-      "decision": "docs/development/validation-simplification-plan.md#下一批纹理-snapshot-完成后不重查作者文件"
     },
     {
       "section": "bodies",
@@ -1380,15 +1362,6 @@
     },
     {
       "section": "bodies",
-      "path": "docs/web/current-state.md",
-      "before": "ca6e48eaa48baad4d38179e9d0121297becd0a1564075b24e0af9310dd0329f8",
-      "after": "bedb7ae020ad3bb8a55c4b17af3ec49673df945b2f642e32d400bb2de2bfe8fc",
-      "owner": "Web当前状态与证据导航",
-      "reason": "区分历史专项结果与当前单FD资源、目录/hosts/datastore及请求生命周期职责，保原限定证据和未覆盖项，不复制专项队列。",
-      "decision": "docs/development/validation-simplification-plan.md#当前验证边界2026-10-26"
-    },
-    {
-      "section": "bodies",
       "path": "docs/web/dedicated-host-process-design.md",
       "before": "f2403aa66064e2b12c0dedc9e9ddc9dfcd962823187bc544db93112d02e7c17e",
       "after": "a3ca3489e93d45f5b4eb0fd6b8333f09743b3e07f733391fac9849099c305ee1",
@@ -1408,11 +1381,11 @@
     {
       "section": "bodies",
       "path": "docs/scene/capabilities/advanced-object-coverage.md",
-      "before": "2489c7eaaeaeaf7bc4d2e077ab2da74f1a482608906f40824e43e8a519342306",
-      "after": "8a0a7f7d0be8c438e771e10bfa0dfbe42451b221d56e46da495adf8ef994a4b6",
+      "before": "8a0a7f7d0be8c438e771e10bfa0dfbe42451b221d56e46da495adf8ef994a4b6",
+      "after": "4ae23a17b3e97cba88122f785769a61e438306575051046df0a66e12477451e8",
       "owner": "Scene 当前能力与资源读取导航",
-      "reason": "以当前单一 Root 读取合同替换已退役解包路径导航；P8 运行仍待验，不沿用旧提取互斥数据作现链性能证明。",
-      "decision": "docs/development/validation-simplification-plan.md#审查方法与完成条件"
+      "reason": "P20退役模型64部件/4096路径固定政策；同步实际Root/Builder/native正反例、原输入对照、当前边界和治理指针，其他预算不变。",
+      "decision": "docs/development/validation-simplification-plan.md#p20-mdl-policy-retirement"
     },
     {
       "section": "bodies",
@@ -1485,6 +1458,69 @@
       "owner": "App/StatusBarController",
       "reason": "用户确认概念图后新增状态栏产品面专项设计；范围和退役条件已明确，不放宽其他预算。",
       "decision": "docs/development/status-bar-panel-redesign.md#文档登记与范围"
+    },
+    {
+      "section": "bodies",
+      "path": "docs/web/current-state.md",
+      "before": "bedb7ae020ad3bb8a55c4b17af3ec49673df945b2f642e32d400bb2de2bfe8fc",
+      "after": "6d5213ed5d9533fad955a264ce22e78ee8d152a646f145174dd6ff38e37094db",
+      "owner": "Scene/Web validation simplification",
+      "reason": "P10–P12同次减工和Release纯诊断整链剥离；同步实际回归、10项未验、片段对照及双配置App结算，退役旧产物，其他预算不变。",
+      "decision": "docs/development/validation-simplification-plan.md"
+    },
+    {
+      "section": "bodies",
+      "path": "docs/web/web-project-json-runtime-model.md",
+      "before": "43710cfb8d5241ce51f00e88191b7a3d89aa508ae84b1c415fb55c11c07fa2dd",
+      "after": "a71f1e4d757c36478e7021002f0a4606a2c8cceacbadd2a160fa326fd4d41c33",
+      "owner": "Scene/Web validation simplification",
+      "reason": "P10–P12同次减工和Release纯诊断整链剥离；同步实际回归、10项未验、片段对照及双配置App结算，退役旧产物，其他预算不变。",
+      "decision": "docs/development/validation-simplification-plan.md"
+    },
+    {
+      "section": "bodies",
+      "path": "docs/development/validation-simplification-plan.md",
+      "before": "c3cdd1a91db53198594290f570c787711424b896e875ad773368d113e7a27268",
+      "after": "aa076129c89c7385f51603511b8869e574a50ca3a962a779bbdde6ec19ea458b",
+      "owner": "Scene/Web validation simplification",
+      "reason": "P20退役模型政策并补Reader/Root/GPU；P21保App实际功能与未接受提速原值；P22补同次投影/Video减工、实际前后输出、必要原生门、Debug及暂停合并交接，后继留在原计划；其他正文预算不变。",
+      "decision": "docs/development/validation-simplification-plan.md#p22-host-row-and-video-request-work"
+    },
+    {
+      "section": "bodies",
+      "path": "docs/scene/architecture/scene-launch-responsiveness-contract.md",
+      "before": "d5c7881941947003560d2a23975491d1f8592029617796b932186f642af89eff",
+      "after": "58d7a94f40960a292d5fb8ab5b2d3f991c4e6acc9c2fc5e0ad61265c2964d405",
+      "owner": "Scene/Web validation simplification",
+      "reason": "P10–P17同次减工；同步Video按需子层、纯诊断IPC退出Release、真实迁移/双配置/工作量证据与后继队列，其他预算不变。",
+      "decision": "docs/development/validation-simplification-plan.md"
+    },
+    {
+      "section": "bodies",
+      "path": "docs/scene/capabilities/direct-model-bind-geometry.md",
+      "before": "9b894dddf16c6732ae49df705d966c3f02bb4f5b0d1807f31a2d168417b2e616",
+      "after": "ac1e385b3d245cb629749bce96403b397882ae0b75be5abf384e50289ea60edc",
+      "owner": "Scene/Web validation simplification",
+      "reason": "P10–P14同次减工、纯诊断剥离及已有owner复用；同步ModelIR上传和合法资源路径、必要回归/对照/未验与产物结算，其他预算不变。",
+      "decision": "docs/development/validation-simplification-plan.md"
+    },
+    {
+      "section": "bodies",
+      "path": "docs/architecture/system-audio-spectrum-design.md",
+      "owner": "shared-playback-audio",
+      "decision": "docs/development/validation-simplification-plan.md",
+      "before": "f5bdb1c83f171f85ad93497139cf6671628ec2b09fbce6f23278803d3c1512b9",
+      "after": "1cdaf2f3cbf8a565186ff3ba4ec30507501cd741f02e68738b8d74d3a327b4da",
+      "reason": "P10–P18同次减工；同步完整音频窗/按需频带及缩略图请求局部键复用、实际值与工作量对照、双配置回归和后继边界，其他预算不变。"
+    },
+    {
+      "section": "bodies",
+      "path": "docs/scene/capabilities/coverage-ledger.md",
+      "owner": "Scene/Web validation simplification",
+      "before": "9c8aa7c5bbf8561897baca3d874f4264ddf931ee5c8a99d30a6ac42b7f8368df",
+      "after": "97fecc8a58a28bae5c4f56102b5006bbba88d0946b284593b999e2e80106c4b4",
+      "reason": "P20退役模型64部件/4096路径固定政策；同步实际Root/Builder/native正反例、原输入对照、当前边界和治理指针，其他预算不变。",
+      "decision": "docs/development/validation-simplification-plan.md#p20-mdl-policy-retirement"
     }
   ]
 }

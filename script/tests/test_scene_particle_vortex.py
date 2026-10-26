@@ -344,7 +344,7 @@ class SceneParticleVortexTests(unittest.TestCase):
         data.write_text(json.dumps(fixtures(), indent=2))
         paths = [*SWIFT_SOURCES, harness, data, Path(__file__)]
         hashes = {str(p): hashlib.sha256(p.read_bytes()).hexdigest() for p in paths}
-        command = ["swiftc", *map(str, SWIFT_SOURCES), str(harness), "-o", str(binary)]
+        command = ["swiftc", "-D", "DEBUG", *map(str, SWIFT_SOURCES), str(harness), "-o", str(binary)]
         compiled = subprocess.run(command, capture_output=True, text=True)
         (cls.root / "compile.log").write_text(compiled.stdout + compiled.stderr)
         if compiled.returncode:

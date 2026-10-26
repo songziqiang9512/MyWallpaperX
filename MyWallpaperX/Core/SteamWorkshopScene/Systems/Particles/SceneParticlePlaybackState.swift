@@ -45,8 +45,7 @@ final class SceneParticlePlaybackState {
             preparedAssets: preparedAssets,
             device: device,
             textureLoader: textureLoader,
-            layerImageEmissionMaps: layerImage.mapsByLayerID,
-            initialDiagnostics: layerImage.diagnostics,
+            layerImage: layerImage,
             staticWorldSpaceFrames: descriptor.staticParticleWorldSpaceFrames,
             preparedParticleVisibilityLayerIDs:
                 preparedParticleVisibilityLayerIDs,

@@ -18,7 +18,7 @@ private enum SceneShaderMacroContinuationChecks {
                     withIntermediateDirectories: true)
                 try source.write(to: url, atomically: true, encoding: .utf8)
             }
-            let graph = SceneShaderSourceGraphBuilder().build(
+            let graph = try SceneShaderSourceGraphBuilder().build(
                 roots: [.init(label: "fragment", virtualPath: rootPath)],
                 resourceView: SceneResourceView(projectRootURL: directory, packageRootURL: nil))
             let environment = try SceneShaderVariantEnvironment(stage: .fragment, combos: [])
@@ -64,7 +64,7 @@ private enum SceneShaderMacroContinuationChecks {
             case let .failure(failure):
                 row["status"] = "failure"
                 row["diagnostics"] = failure.diagnostics.map {
-                    ["code": $0.code.rawValue, "path": $0.relativePath ?? "",
+                    ["code": $0.code.rawValue, "path": $0.relativePath,
                      "line": $0.line ?? -1] as [String: Any]
                 }
             }

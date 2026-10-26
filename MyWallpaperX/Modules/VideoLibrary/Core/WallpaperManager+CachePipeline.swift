@@ -135,18 +135,19 @@ extension WallpaperManager {
         staticFrameScheduleLock.unlock()
     }
 
-    func cacheKey(for url: URL) -> String {
-        let normalized = normalizedPath(url.path)
+    func cacheKey(forNormalizedPath normalized: String) -> String {
         let digest = SHA256.hash(data: Data(normalized.utf8))
         return digest.map { String(format: "%02x", $0) }.joined()
     }
 
-    func thumbnailOutputURL(for url: URL) -> URL {
-        thumbnailCacheDirectory.appendingPathComponent("\(cacheKey(for: url))_thumb.jpg")
+    func thumbnailOutputURL(forKey key: String) -> URL {
+        thumbnailCacheDirectory.appendingPathComponent("\(key)_thumb.jpg")
     }
 
     func existingThumbnailPath(for url: URL) -> String? {
-        existingCachePath(for: url, output: thumbnailOutputURL(for:))
+        let key = cacheKey(forNormalizedPath: normalizedPath(url.path))
+        let path = thumbnailOutputURL(forKey: key).path
+        return pathExists(path) ? path : nil
     }
 
     func resolvedThumbnailPath(for wallpaper: VideoWallpaper) -> String? {
@@ -156,20 +157,20 @@ extension WallpaperManager {
         }
 
         let sourceURL = URL(fileURLWithPath: wallpaper.path)
-        let key = cacheKey(for: sourceURL)
+        let key = cacheKey(forNormalizedPath: normalizedPath(sourceURL.path))
         if let memoryPath = cachedThumbnailPath(for: key),
            pathExists(memoryPath) {
             return memoryPath
         }
 
-        return existingThumbnailPath(for: sourceURL)
+        let path = thumbnailOutputURL(forKey: key).path
+        return pathExists(path) ? path : nil
     }
 
     func generateThumbnail(for url: URL, completion: @escaping (String?) -> Void) {
         let capturedGeneration = currentCacheGeneration()
-        // 生成缓存键
-        let cacheKey = cacheKey(for: url)
         let normalized = normalizedPath(url.path)
+        let cacheKey = cacheKey(forNormalizedPath: normalized)
 
         // 检查缓存
         if let cachedPath = cachedThumbnailPath(for: cacheKey) {
@@ -183,10 +184,11 @@ extension WallpaperManager {
         }
 
         // 检查磁盘缓存（跨重启仍可命中），避免重复解码生成缩略图。
-        let diskCachedPath = thumbnailOutputURL(for: url).path
+        let outputURL = thumbnailOutputURL(forKey: cacheKey)
+        let diskCachedPath = outputURL.path
         if pathExists(diskCachedPath) {
             setCachedThumbnailPath(diskCachedPath, for: cacheKey)
-            clearThumbnailGenerationFailure(for: normalizedPath(url.path))
+            clearThumbnailGenerationFailure(for: normalized)
             completion(diskCachedPath)
             return
         }
@@ -235,17 +237,16 @@ extension WallpaperManager {
                         break
                     }
                     if let cgImage = self.generateCGImage(using: imageGenerator, at: time) {
-                        let saveURL = self.thumbnailOutputURL(for: url)
                         let rep = NSBitmapImageRep(cgImage: cgImage)
                         if let data = rep.representation(using: .jpeg, properties: [.compressionFactor: 0.7]) {
                             do {
                                 guard self.currentCacheGeneration() == capturedGeneration else {
                                     break
                                 }
-                                try data.write(to: saveURL)
-                                self.setCachedThumbnailPath(saveURL.path, for: cacheKey)
+                                try data.write(to: outputURL)
+                                self.setCachedThumbnailPath(outputURL.path, for: cacheKey)
                                 self.clearThumbnailGenerationFailure(for: normalized)
-                                outputPath = saveURL.path
+                                outputPath = outputURL.path
                                 break
                             } catch {
                             }
@@ -273,8 +274,4 @@ extension WallpaperManager {
         return result
     }
 
-    func existingCachePath(for url: URL, output: (URL) -> URL) -> String? {
-        let path = output(url).path
-        return pathExists(path) ? path : nil
-    }
 }

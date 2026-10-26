@@ -410,7 +410,8 @@ enum Harness {
             "hiddenPreparedValue": string(preparedValues[hiddenTarget]),
             "hiddenQuickJSOwnedCount": quickJSOwned.bindings.count,
             "bindingCount": validProgram.bindings.count,
-            "diagnosticCount": validProgram.diagnostics.count,
+            "diagnosticCount": diagnosticCodes(validProgram).count,
+            "reportOnlyStatePresent": Mirror(reflecting: validProgram).children.contains { $0.label == "diagnostics" },
             "clock24": string(values[.text(layerID: 101, field: .content)]),
             "clock12": string(values[.text(layerID: 102, field: .content)]),
             "calendarLabel": string(values[.text(layerID: 103, field: .content)]),
@@ -431,7 +432,7 @@ enum Harness {
                 ?? "missing",
             "mediaProperties": [
                 "bindingCount": mediaProgram.bindings.count,
-                "diagnosticCount": mediaProgram.diagnostics.count,
+                "diagnosticCount": diagnosticCodes(mediaProgram).count,
                 "profiles": mediaProgram.bindings.map(\.profile.rawValue),
                 "beforeTitle": string(
                     mediaBeforeEvent[.text(layerID: 106, field: .content)]
@@ -580,13 +581,21 @@ enum Harness {
         )
         return [
             "bindingCount": program.bindings.count,
-            "diagnostics": program.diagnostics.map { $0.code.rawValue },
+            "diagnostics": diagnosticCodes(program),
             "runtimeValue": string(runtimeValues[target]),
             "authoredFallback": authoredText,
             "resolved": string(resolution.snapshot[target]?.value),
             "source": resolution.snapshot[target]?.source.rawValue ?? "missing",
             "resolutionDiagnostics": resolution.diagnostics.count,
         ]
+    }
+
+    static func diagnosticCodes(_ program: SceneTextScriptProgram) -> [String] {
+#if DEBUG
+        program.diagnostics.map { $0.code.rawValue }
+#else
+        []
+#endif
     }
 
     static func utcDate(
@@ -632,16 +641,25 @@ class SceneTextScriptRuntimeTests(unittest.TestCase):
         directory = Path(cls.temporary_directory.name)
         harness = directory / "Harness.swift"
         harness.write_text(HARNESS, encoding="utf-8")
-        binary = directory / "text-script-runtime"
-        compilation = subprocess.run(
-            ["swiftc", *(str(path) for path in SWIFT_SOURCES), str(harness), "-o", str(binary)],
-            capture_output=True,
-            text=True,
-        )
-        if compilation.returncode != 0:
-            raise RuntimeError(compilation.stderr)
-        execution = subprocess.run([str(binary)], capture_output=True, text=True, check=True)
-        cls.payload = json.loads(execution.stdout)
+        cls.payloads = {}
+        cls.symbols = {}
+        for debug in (False, True):
+            name = "debug" if debug else "release"
+            binary = directory / ("text-script-runtime-" + name)
+            flags = ["-D", "DEBUG"] if debug else []
+            compilation = subprocess.run(
+                ["swiftc", "-O", *flags, *(str(path) for path in SWIFT_SOURCES), str(harness),
+                 "-module-cache-path", str(directory / ("modules-" + name)), "-o", str(binary)],
+                capture_output=True, text=True,
+            )
+            if compilation.returncode != 0:
+                raise RuntimeError(compilation.stderr)
+            execution = subprocess.run([str(binary)], capture_output=True, text=True, check=True)
+            cls.payloads[debug] = json.loads(execution.stdout)
+            cls.symbols[debug] = subprocess.run(
+                ["nm", str(binary)], capture_output=True, text=True, check=True
+            ).stdout
+        cls.payload = cls.payloads[True]
 
     @classmethod
     def tearDownClass(cls) -> None:
@@ -651,6 +669,21 @@ class SceneTextScriptRuntimeTests(unittest.TestCase):
         self.assertEqual(self.payload["hiddenUnpreparedCount"], 0)
         self.assertEqual(self.payload["hiddenPreparedValue"], "PREPARED CHILD")
         self.assertEqual(self.payload["hiddenQuickJSOwnedCount"], 0)
+
+    def test_release_omits_report_state_and_hash_without_changing_execution_or_fallback(self) -> None:
+        def playback_values(value):
+            if isinstance(value, dict):
+                return {key: playback_values(item) for key, item in value.items()
+                        if key not in {"diagnosticCount", "diagnostics", "reportOnlyStatePresent"}}
+            if isinstance(value, list):
+                return [playback_values(item) for item in value]
+            return value
+
+        self.assertTrue(self.payloads[True]["reportOnlyStatePresent"])
+        self.assertFalse(self.payloads[False]["reportOnlyStatePresent"])
+        self.assertEqual(playback_values(self.payloads[False]), playback_values(self.payloads[True]))
+        self.assertIn("SHA256", self.symbols[True])
+        self.assertNotIn("SHA256", self.symbols[False])
 
     def test_project_owned_subset_clock_and_calendar_execute(self) -> None:
         self.assertEqual(self.payload["bindingCount"], 5)

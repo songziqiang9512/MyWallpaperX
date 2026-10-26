@@ -16,32 +16,32 @@ nonisolated final class SystemAudioSceneSpectrumAnalyzer {
     static let maximumFrameCount = 16_384
 
     struct Levels {
-        let left: [Float]
-        let right: [Float]
-        let left32: [Float]
-        let right32: [Float]
         let left64: [Float]
         let right64: [Float]
+        var left: [Float] { SystemAudioSceneSpectrumAnalyzer.resample(left64, count: SystemAudioSceneSpectrumAnalyzer.bandCount) }
+        var right: [Float] { SystemAudioSceneSpectrumAnalyzer.resample(right64, count: SystemAudioSceneSpectrumAnalyzer.bandCount) }
+        var left32: [Float] { SystemAudioSceneSpectrumAnalyzer.resample(left64, count: SystemAudioSceneSpectrumAnalyzer.mediumBandCount) }
+        var right32: [Float] { SystemAudioSceneSpectrumAnalyzer.resample(right64, count: SystemAudioSceneSpectrumAnalyzer.mediumBandCount) }
     }
 
     /// Fractional area mean: both coarse resolutions and Video retain the same
     /// display scale. Adding more source bands must not multiply a bar's height.
+    /// Inputs are completed finite display heights from this analyzer.
     static func resample(_ levels: [Float], count: Int) -> [Float] {
         guard count > 0 else { return [] }
         guard !levels.isEmpty else { return Array(repeating: 0, count: count) }
-        let finite = levels.map { $0.isFinite ? min(1, max(0, $0)) : 0 }
-        if count == finite.count { return finite }
-        if count > finite.count {
-            return (0..<count).map { finite[min(finite.count - 1, $0 * finite.count / count)] }
+        if count == levels.count { return levels }
+        if count > levels.count {
+            return (0..<count).map { levels[min(levels.count - 1, $0 * levels.count / count)] }
         }
-        let width = Double(finite.count) / Double(count)
+        let width = Double(levels.count) / Double(count)
         return (0..<count).map { index in
             let lower = Double(index) * width
             let upper = Double(index + 1) * width
             var total: Double = 0
-            for source in Int(lower)..<min(finite.count, Int(upper.rounded(.up))) {
+            for source in Int(lower)..<min(levels.count, Int(upper.rounded(.up))) {
                 let overlap = max(0, min(upper, Double(source + 1)) - max(lower, Double(source)))
-                total += Double(finite[source]) * overlap
+                total += Double(levels[source]) * overlap
             }
             return Float(total / width)
         }
@@ -52,7 +52,7 @@ nonisolated final class SystemAudioSceneSpectrumAnalyzer {
     /// smoothstep shoulder avoids a hard bright ceiling in author visuals.
     static func displayLevels(_ amplitudes: [Float]) -> [Float] {
         amplitudes.map { amplitude in
-            guard amplitude.isFinite, amplitude > 0 else { return 0 }
+            guard amplitude > 0 else { return 0 }
             let decibels = 20 * log10(Double(amplitude))
             let unit = min(1, max(0, (decibels + 100) / 90))
             return Float(0.96 * unit * unit * (3 - 2 * unit))
@@ -64,8 +64,8 @@ nonisolated final class SystemAudioSceneSpectrumAnalyzer {
     private static let attackSeconds: Float = 0.030
     private static let releaseSeconds: Float = 0.140
     private let fftSetup: FFTSetup
-    private var rollingChannels: [[Float]] = []
-    private var rollingSampleRate: Float = 0
+    private var analysisSampleRate: Float = 0
+    private var analysisChannelCount = 0
     private var window: [Float] = []
     private var fftSize = 0
     // The capture worker serializes this analyzer. Scratch never escapes into
@@ -88,8 +88,8 @@ nonisolated final class SystemAudioSceneSpectrumAnalyzer {
     deinit { vDSP_destroy_fftsetup(fftSetup) }
 
     func reset() {
-        rollingChannels.removeAll(keepingCapacity: true)
-        rollingSampleRate = 0
+        analysisSampleRate = 0
+        analysisChannelCount = 0
         leftEnvelope = Self.zeroBands
         rightEnvelope = Self.zeroBands
         lastTimestamp = nil
@@ -100,61 +100,42 @@ nonisolated final class SystemAudioSceneSpectrumAnalyzer {
         sampleRate: Float,
         timestamp: TimeInterval? = nil
     ) -> Levels {
-        analyze(signedChannels: frame.signedChannels, sampleRate: sampleRate, timestamp: timestamp)
-    }
-
-    func analyze(
-        signedChannels: [[Float]],
-        sampleRate: Float,
-        timestamp: TimeInterval? = nil
-    ) -> Levels {
         // Reject late captures before a different format can reset the clock,
-        // history or height envelopes of the current stream.
+        // FFT preparation or height envelopes of the current stream.
         if let timestamp, timestamp.isFinite, let lastTimestamp, timestamp <= lastTimestamp {
             return levelsFromEnvelopes()
         }
         guard sampleRate.isFinite, sampleRate > 0,
-              let first = signedChannels.first, !first.isEmpty else {
+              let first = frame.signedChannels.first, !first.isEmpty else {
             reset()
             return Self.zeroLevels
         }
-        let inputs = Array(signedChannels.prefix(2))
+        // CaptureBuffer owns raw validation and the complete worker snapshot.
+        // The serial service hands this analyzer the current whole window.
+        let inputs = frame.signedChannels.prefix(2)
         let windowCount = Self.analysisWindowCount(sampleRate: sampleRate)
-        if rollingSampleRate != sampleRate || rollingChannels.count != inputs.count {
+        if analysisSampleRate != sampleRate || analysisChannelCount != inputs.count {
             reset()
-            rollingSampleRate = sampleRate
-            rollingChannels = Array(repeating: [], count: inputs.count)
+            analysisSampleRate = sampleRate
+            analysisChannelCount = inputs.count
             prepareAnalysis(windowCount: windowCount, sampleRate: sampleRate)
         }
-        for index in inputs.indices {
-            let input = inputs[index]
-            if input.count >= windowCount {
-                rollingChannels[index] = input.suffix(windowCount).map { $0.isFinite ? $0 : 0 }
-            } else {
-                rollingChannels[index].append(contentsOf: input.map { $0.isFinite ? $0 : 0 })
-                if rollingChannels[index].count > windowCount {
-                    rollingChannels[index].removeFirst(rollingChannels[index].count - windowCount)
-                }
-            }
-        }
-        guard rollingChannels.allSatisfy({ $0.count == windowCount }),
-              bandWeights.count == Self.extendedBandCount else { return Self.zeroLevels }
+        guard bandWeights.count == Self.extendedBandCount else { return Self.zeroLevels }
         // Capture time, rather than worker scheduling, owns envelope advancement.
         // Callers without a clock are deterministic offline 30 Hz analyses.
         let elapsed: Float
         if let timestamp, timestamp.isFinite {
-            if let lastTimestamp, timestamp <= lastTimestamp { return levelsFromEnvelopes() }
             elapsed = Float(min(1, max(0, timestamp - (lastTimestamp ?? (timestamp - 1 / 30)))))
             lastTimestamp = timestamp
         } else {
             elapsed = 1 / 30
         }
-        let left = Self.displayLevels(frequencyAmplitudes(rollingChannels[0]))
+        let left = Self.displayLevels(frequencyAmplitudes(inputs[0]))
         updateEnvelope(&leftEnvelope, heights: left, elapsed: elapsed)
         if inputs.count == 1 {
             rightEnvelope = leftEnvelope
         } else {
-            let right = Self.displayLevels(frequencyAmplitudes(rollingChannels[1]))
+            let right = Self.displayLevels(frequencyAmplitudes(inputs[1]))
             updateEnvelope(&rightEnvelope, heights: right, elapsed: elapsed)
         }
         return levelsFromEnvelopes()
@@ -259,17 +240,11 @@ nonisolated final class SystemAudioSceneSpectrumAnalyzer {
     }
 
     private func levelsFromEnvelopes() -> Levels {
-        Levels(left: Self.resample(leftEnvelope, count: Self.bandCount),
-               right: Self.resample(rightEnvelope, count: Self.bandCount),
-               left32: Self.resample(leftEnvelope, count: Self.mediumBandCount),
-               right32: Self.resample(rightEnvelope, count: Self.mediumBandCount),
-               left64: leftEnvelope, right64: rightEnvelope)
+        Levels(left64: leftEnvelope, right64: rightEnvelope)
     }
 
     private static var zeroBands: [Float] { Array(repeating: 0, count: extendedBandCount) }
     private static var zeroLevels: Levels {
-        Levels(left: Array(repeating: 0, count: bandCount), right: Array(repeating: 0, count: bandCount),
-               left32: Array(repeating: 0, count: mediumBandCount), right32: Array(repeating: 0, count: mediumBandCount),
-               left64: zeroBands, right64: zeroBands)
+        Levels(left64: zeroBands, right64: zeroBands)
     }
 }

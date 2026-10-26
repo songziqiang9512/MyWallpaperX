@@ -770,9 +770,11 @@ extension SceneMetalRenderer {
             case .emittedOutputGeometry:
                 outputMVP
             }
+            let cursorInverse = SceneLayerCursorGeometry
+                .preciseInverseModelViewProjection(effectProjectionMVP)
             guard let effectTextureProjectionMatrixInverse =
                     SceneLayerCursorGeometry.effectTextureProjectionInverse(
-                        effectProjectionMVP,
+                        inverseModelViewProjection: cursorInverse,
                         required: claim.frameInputContract
                             .requiresInvertibleEffectTextureProjection
                     ) else {
@@ -780,11 +782,11 @@ extension SceneMetalRenderer {
             }
             let cursor = SceneLayerCursorGeometry.layerUV(
                 mouseNormalized: frameContext.pointer.current,
-                modelViewProjection: effectProjectionMVP
+                inverseModelViewProjection: cursorInverse
             )
             let previousCursor = SceneLayerCursorGeometry.layerUV(
                 mouseNormalized: frameContext.pointer.previous,
-                modelViewProjection: effectProjectionMVP
+                inverseModelViewProjection: cursorInverse
             )
             let effectDrawColor = SceneDynamicLayerValues.color(
                 layerID: layerID,

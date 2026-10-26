@@ -11,7 +11,7 @@
         let vertices = [SIMD3<Float>(-0.5, -0.5, 1), SIMD3(0.5, -0.5, 1), SIMD3(0, 0.5, 1)].map {
             SceneMdlStaticModel.Vertex(position: $0, normal: SIMD3(0, 0, -1), tangent: SIMD4(1, 0, 0, 1), uv: SIMD2(0.5, 0.5))
         }
-        let mesh = pipeline.makeMesh(vertices: vertices, indices: [0, 1, 2])!
+        let mesh = pipeline.makeMesh(model: SceneStaticModelFixture.model(vertices: vertices, indices: [0, 1, 2]))!
         let textureDescriptor = MTLTextureDescriptor.texture2DDescriptor(pixelFormat: .rgba32Float, width: 1, height: 1, mipmapped: false)
         textureDescriptor.storageMode = .shared; textureDescriptor.usage = .shaderRead
         let texture = device.makeTexture(descriptor: textureDescriptor)!

@@ -33,13 +33,13 @@ public final class WallpaperEngine: NSObject {
         let transport: DaemonProcessTransport
         var outputFrames = DaemonNewlineFrameBuffer()
         var nextRequestID = 0
+#if DEBUG
         var latestRequestedPlayRequestID: Int?
         var latestAcceptedPlayRequestID: Int?
         var latestReadyPlayRequestID: Int?
-        var latestPreparedPlayRequestID: Int?
-        var latestCommittedPlayRequestID: Int?
-        var latestFinalizedPlayRequestID: Int?
         var launched = false
+#endif
+        var latestFinalizedPlayRequestID: Int?
 
         // 退避计数：连续崩溃次数，成功播放后清零。
         var consecutiveCrashCount: Int = 0

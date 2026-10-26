@@ -2,8 +2,9 @@ import Foundation
 
 struct SceneParticleChildAdvanceResult {
     let batches: [SceneParticleDrawBatch]
-    let bufferFailurePaths: [String]
+#if DEBUG
     let limitationDetails: [String]
+#endif
 }
 
 #if DEBUG

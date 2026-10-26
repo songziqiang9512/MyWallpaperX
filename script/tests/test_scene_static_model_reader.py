@@ -39,7 +39,9 @@ enum Harness {
                 // the same checked reader behavior as an ordinary file buffer.
                 let data = ProcessInfo.processInfo.environment["MWX_READER_SLICE"] == "1"
                     ? (Data([0xA5]) + loaded).dropFirst() : loaded
-                let parts = try SceneMdlStaticModelReader.readParts(data: data)
+                let parts = ProcessInfo.processInfo.environment["MWX_READER_SINGLE"] == "1"
+                    ? [try SceneMdlStaticModelReader.read(data: data)]
+                    : try SceneMdlStaticModelReader.readParts(data: data)
                 let model = parts[0]
                 entry["materialPaths"] = parts.map(\.materialPath)
                 if ProcessInfo.processInfo.environment["MWX_READER_COMPACT"] == "1" {
@@ -112,9 +114,6 @@ enum Harness {
             } catch let error as SceneMdlStaticModelReadError {
                 entry["ok"] = false
                 entry["error"] = error.description
-                if case let .materialSegmentBudgetExceeded(count) = error {
-                    entry["workBudgetCount"] = Int(count)
-                }
                 if case let .unsupportedMaterialCount(count) = error {
                     entry["unsupportedCount"] = Int(count)
                 }
@@ -151,6 +150,9 @@ DEFAULT_VERTICES = [
         (0.5, 1.0),
     ),
 ]
+VERTEX_CHANNELS = ("position.x", "position.y", "position.z", "normal.x", "normal.y", "normal.z",
+                   "tangent.x", "tangent.y", "tangent.z", "tangent.w", "uv.x", "uv.y")
+NONFINITE_VALUES = (("nan", float("nan")), ("inf", float("inf")), ("negative-inf", -float("inf")))
 
 
 def build_model(
@@ -273,6 +275,188 @@ def write_large_valid_model(path: Path) -> tuple[int, int]:
     return vertex_count, len(header)
 
 
+def reader_fixtures():
+    """Self-authored byte corpus shared by the CPU gate and task-only comparison."""
+    first = build_model(material_count=2, material=b"materials/first.json")[:-7]
+    second = build_model(index_flag=1, material=b"materials/second.json")[21:]
+    multipart = first + b"\0" * 6 + second
+    fixtures = {
+        "empty.mdl": b"",
+        "parts.mdl": multipart,
+        "bad-separator.mdl": first + b"\0" * 5 + b"\1" + second,
+        "short-second.mdl": multipart[:-12],
+        "bad-second-index.mdl": first + b"\0" * 6 + build_model(
+            index_flag=1, indices=(0, 1, 99))[21:],
+        "valid.mdl": build_model(),
+        "legacy-valid.mdl": build_legacy_model(),
+        "windows-material.mdl": build_model(
+            material=b"materials\\models\\fixture\\default.json"
+        ),
+        "old-version.mdl": build_model(magic=b"MDLV0015\0"),
+        "bad-nul.mdl": build_model(magic=b"MDLV0023X"),
+        "bad-header-format.mdl": build_model(header_format=14),
+        "multi-mesh.mdl": build_model(mesh_count=2),
+        "short-declared-65.mdl": build_model(material_count=65)[:-7],
+        "short-declared-huge.mdl": build_model(material_count=0xffffffff)[:-7],
+        "zero-material.mdl": build_model(material_count=0),
+        "legacy-multipart.mdl": build_model(magic=b"MDLV0016\0", material_count=2),
+        "unsafe-material.mdl": build_model(material=b"../escape.json"),
+        "invalid-utf8-material.mdl": build_model(material=b"materials/\xff.json"),
+        "uint32-indices.mdl": build_model(index_flag=1),
+        "wide-indices.mdl": build_model(index_flag=1,
+            vertices=DEFAULT_VERTICES * 21846, indices=(0, 65536, 65537)),
+        "unknown-indices.mdl": build_model(index_flag=2),
+        "bad-wide-index.mdl": build_model(index_flag=1, indices=(0, 1, 0xffffffff)),
+        "partial-wide-triangle.mdl": build_model(index_flag=1, indices=(0, 1)),
+        "nan-bounds.mdl": build_model(
+            bounds=(float("nan"), -1, -1, 1, 1, 1)
+        ),
+        "inverted-bounds.mdl": build_model(bounds=(2, -1, -1, 1, 1, 1)),
+        "bad-vertex-format.mdl": build_model(vertex_format=7),
+        "empty-vertices.mdl": build_model(vertices=[]),
+        "bad-vertex-bytes.mdl": build_model(declared_vertex_byte_count=47),
+        "vertex-budget.mdl": build_model(
+            declared_vertex_byte_count=268_435_488
+        ),
+        "nan-vertex.mdl": build_model(
+            vertices=[
+                (
+                    (float("nan"), -1, 0),
+                    (0, 0, 1),
+                    (1, 0, 0, -1),
+                    (0, 0),
+                ),
+                *DEFAULT_VERTICES[1:],
+            ]
+        ),
+        "outside-bounds.mdl": build_model(
+            vertices=[
+                (
+                    (-2, -1, 0),
+                    (0, 0, 1),
+                    (1, 0, 0, -1),
+                    (0, 0),
+                ),
+                *DEFAULT_VERTICES[1:],
+            ]
+        ),
+        "extreme-channel.mdl": build_model(
+            vertices=[
+                (
+                    (-1, -1, 0),
+                    (2_000_000, 0, 1),
+                    (1, 0, 0, -1),
+                    (0, 0),
+                ),
+                *DEFAULT_VERTICES[1:],
+            ]
+        ),
+        "bad-index.mdl": build_model(indices=(0, 1, 3)),
+        "non-triangle-indices.mdl": build_model(indices=(0, 1)),
+        "index-budget.mdl": build_model(
+            declared_index_byte_count=33_554_436
+        ),
+        "nonzero-trailer.mdl": build_model(trailer=b"\0" * 6 + b"\1"),
+        "extra-tail.mdl": build_model(trailer=b"\0" * 8),
+        "legacy-nonzero-trailer.mdl": build_legacy_model(trailer=b"\1"),
+        "legacy-extra-tail.mdl": build_legacy_model(trailer=b"\0\0"),
+        "truncated.mdl": build_model()[:-1],
+    }
+    for count in (4, 5, 8, 64, 65):
+        fixtures[f"complete-{count}.mdl"] = build_parts(count)
+    fixtures["complete-65-renamed.mdl"] = build_parts(65).replace(
+        b"materials/parts/p", "materials/renamed Ω/coat".encode())
+    fixtures["complete-65-equivalent.mdl"] = build_parts(65).replace(
+        b"materials/parts/p", b"././materials//./parts/p")
+    fixtures.update({
+        "late-truncated.mdl": build_parts(8)[:-13],
+        "late-index.mdl": build_parts(8, last_changes={"indices": (0, 1, 99)}),
+        "late-path.mdl": build_parts(8, last_changes={"material": b"../escape.json"}),
+        "late-finite.mdl": build_parts(8, last_changes={"vertices": [
+            ((float("nan"), 0., 0.), *DEFAULT_VERTICES[0][1:]), *DEFAULT_VERTICES[1:]]}),
+        "late-trailer.mdl": build_parts(8)[:-1] + b"\1",
+        # Each later declaration fits the individual byte limit, but adding
+        # already validated first-part bytes crosses the unchanged model budget.
+        "cumulative-vertex.mdl": build_parts(2, last_changes={"declared_vertex_byte_count": 268_435_440}),
+        "cumulative-index.mdl": (build_model(material_count=2, indices=(0,1,2)*4)[:-7]
+            + b"\0"*6 + build_model(index_flag=1, declared_index_byte_count=33_554_424)[21:]),
+    })
+    for label, changes in (
+        ("index", {"indices": (0, 1, 99)}),
+        ("path", {"material": b"../escape.json"}),
+        ("finite", {"vertices": [
+            ((float("nan"), 0., 0.), *DEFAULT_VERTICES[0][1:]), *DEFAULT_VERTICES[1:]]}),
+    ):
+        fixtures[f"late-65-{label}.mdl"] = build_parts(65, last_changes=changes)
+    fixtures["late-65-truncated.mdl"] = build_parts(65)[:-13]
+    fixtures["late-65-trailer.mdl"] = build_parts(65)[:-1] + b"\1"
+    posix_material_paths = {}
+    for profile, make in (("0023", build_model), ("0016", build_legacy_model)):
+        for label, path, canonical in (
+            ("drive-component", "materials/C:/paint.json", "materials/C:/paint.json"),
+            ("colon-leaf", "materials/file:paint.json", "materials/file:paint.json"),
+            ("backslashes", r"materials\C:\paint.json", "materials/C:/paint.json"),
+            ("renamed", "materials/theme:blue/coat Ω.json", "materials/theme:blue/coat Ω.json"),
+            ("leading-dots", "././materials/C:/paint.json", "materials/C:/paint.json"),
+            ("repeated-separators", "materials//C:////paint.json", "materials/C:/paint.json"),
+            ("internal-dots", "materials/./C:/./paint.json", "materials/C:/paint.json"),
+            ("mixed-backslashes", r".\.\materials\\.\C:\paint.json", "materials/C:/paint.json"),
+            ("dot-name", "materials/.hidden/file..name.json", "materials/.hidden/file..name.json"),
+            ("renamed-dots", "./materials//Theme Ω/./coating:blue.json", "materials/Theme Ω/coating:blue.json"),
+            ("previous-length-boundary", "materials/" + "a" * (4096 - len("materials/")),
+             "materials/" + "a" * (4096 - len("materials/"))),
+            ("long-canonical", "materials/" + "a" * 8192, "materials/" + "a" * 8192),
+            ("long-unicode", "materials/Theme Ω/" + "地" * 1800 + ":paint.json",
+             "materials/Theme Ω/" + "地" * 1800 + ":paint.json"),
+            ("long-leading-dots", "./" * 8192 + "materials/C:/paint.json", "materials/C:/paint.json"),
+            ("long-internal-dots", "materials/" + "./" * 4096 + "paint.json", "materials/paint.json"),
+            ("long-mixed-slashes", ".\\" * 4096 + "materials\\\\.\\C:\\paint.json",
+             "materials/C:/paint.json"),
+        ):
+            name = f"posix-{profile}-{label}.mdl"
+            fixtures[name] = make(material=path.encode())
+            posix_material_paths[name] = [canonical]
+        for label, path in (
+            ("absolute", b"/materials/C:/paint.json"),
+            ("escape", b"../materials/C:/paint.json"),
+            ("bad-utf8", b"materials/C:/\xff.json"),
+            ("control", b"materials/C:/bad\x1f.json"),
+            ("trailing-slash", b"materials/C:/paint.json/"),
+            ("trailing-dot", b"materials/C:/paint.json/."),
+            ("trailing-separators", b"materials/C:/paint.json//"),
+            ("dot-only", b"."),
+            ("all-dots", b"././."),
+            ("internal-parent", b"materials/sub/../C:/paint.json"),
+            ("parent-after-dot", b"materials/./../C:/paint.json"),
+            ("double-absolute", b"//materials/C:/paint.json"),
+        ):
+            fixtures[f"invalid-posix-{profile}-{label}.mdl"] = make(material=path)
+        fixtures[f"missing-nul-{profile}.mdl"] = make()[:21] + b"materials/" + b"a" * 8192
+        fixtures[f"long-invalid-utf8-{profile}.mdl"] = make(material=b"materials/" + b"a" * 8192 + b"\xff")
+        fixtures[f"long-parent-{profile}.mdl"] = make(material=b"materials/" + b"./" * 4096 + b"../escape.json")
+        fixtures[f"long-control-{profile}.mdl"] = make(material=b"materials/" + b"a" * 8192 + b"\x1f.json")
+        fixtures[f"long-truncated-{profile}.mdl"] = make(material=b"materials/" + b"a" * 8192)[:-12]
+    for label, path, canonical in (
+            ("drive", r"materials\C:\paint.json", "materials/C:/paint.json"),
+            ("renamed", "materials/New Name:α/other.json", "materials/New Name:α/other.json"),
+            ("dots", "materials//./C:/paint.json", "materials/C:/paint.json"),
+            ("backslash-dots", r".\materials\\.\New Name:β\coat.json", "materials/New Name:β/coat.json")):
+        name = f"posix-later-{label}.mdl"
+        first = build_model(material_count=2, material=b"materials/first.json")[:-7]
+        fixtures[name] = first + b"\0" * 6 + build_model(material=path.encode())[21:]
+        posix_material_paths[name] = ["materials/first.json", canonical]
+    for profile, builder in (("0023", build_model), ("0016", build_legacy_model)):
+        for channel, name in enumerate(VERTEX_CHANNELS):
+            for label, value in NONFINITE_VALUES:
+                fields = list(sum(DEFAULT_VERTICES[-1], ()))
+                fields[channel] = value
+                vertex = (tuple(fields[:3]), tuple(fields[3:6]),
+                          tuple(fields[6:10]), tuple(fields[10:12]))
+                fixtures[f"nonfinite-{profile}-{name}-{label}.mdl"] = builder(
+                    vertices=[*DEFAULT_VERTICES[:-1], vertex])
+    return fixtures, posix_material_paths
+
+
 class SceneMdlStaticModelReaderTests(unittest.TestCase):
     maxDiff = None
 
@@ -296,106 +480,7 @@ class SceneMdlStaticModelReaderTests(unittest.TestCase):
         if compilation.returncode != 0:
             raise AssertionError(f"harness compilation failed:\n{compilation.stderr}")
 
-        first = build_model(material_count=2, material=b"materials/first.json")[:-7]
-        second = build_model(index_flag=1, material=b"materials/second.json")[21:]
-        multipart = first + b"\0" * 6 + second
-        fixtures = {
-            "empty.mdl": b"",
-            "parts.mdl": multipart,
-            "bad-separator.mdl": first + b"\0" * 5 + b"\1" + second,
-            "short-second.mdl": multipart[:-12],
-            "bad-second-index.mdl": first + b"\0" * 6 + build_model(
-                index_flag=1, indices=(0, 1, 99))[21:],
-            "valid.mdl": build_model(),
-            "legacy-valid.mdl": build_legacy_model(),
-            "windows-material.mdl": build_model(
-                material=b"materials\\models\\fixture\\default.json"
-            ),
-            "old-version.mdl": build_model(magic=b"MDLV0015\0"),
-            "bad-nul.mdl": build_model(magic=b"MDLV0023X"),
-            "bad-header-format.mdl": build_model(header_format=14),
-            "multi-mesh.mdl": build_model(mesh_count=2),
-            "over-work-budget.mdl": build_model(material_count=65),
-            "huge-work-budget.mdl": build_model(material_count=0xffffffff),
-            "zero-material.mdl": build_model(material_count=0),
-            "legacy-multipart.mdl": build_model(magic=b"MDLV0016\0", material_count=2),
-            "unsafe-material.mdl": build_model(material=b"../escape.json"),
-            "invalid-utf8-material.mdl": build_model(material=b"materials/\xff.json"),
-            "uint32-indices.mdl": build_model(index_flag=1),
-            "wide-indices.mdl": build_model(index_flag=1,
-                vertices=DEFAULT_VERTICES * 21846, indices=(0, 65536, 65537)),
-            "unknown-indices.mdl": build_model(index_flag=2),
-            "bad-wide-index.mdl": build_model(index_flag=1, indices=(0, 1, 0xffffffff)),
-            "partial-wide-triangle.mdl": build_model(index_flag=1, indices=(0, 1)),
-            "nan-bounds.mdl": build_model(
-                bounds=(float("nan"), -1, -1, 1, 1, 1)
-            ),
-            "inverted-bounds.mdl": build_model(bounds=(2, -1, -1, 1, 1, 1)),
-            "bad-vertex-format.mdl": build_model(vertex_format=7),
-            "empty-vertices.mdl": build_model(vertices=[]),
-            "bad-vertex-bytes.mdl": build_model(declared_vertex_byte_count=47),
-            "vertex-budget.mdl": build_model(
-                declared_vertex_byte_count=268_435_488
-            ),
-            "nan-vertex.mdl": build_model(
-                vertices=[
-                    (
-                        (float("nan"), -1, 0),
-                        (0, 0, 1),
-                        (1, 0, 0, -1),
-                        (0, 0),
-                    ),
-                    *DEFAULT_VERTICES[1:],
-                ]
-            ),
-            "outside-bounds.mdl": build_model(
-                vertices=[
-                    (
-                        (-2, -1, 0),
-                        (0, 0, 1),
-                        (1, 0, 0, -1),
-                        (0, 0),
-                    ),
-                    *DEFAULT_VERTICES[1:],
-                ]
-            ),
-            "extreme-channel.mdl": build_model(
-                vertices=[
-                    (
-                        (-1, -1, 0),
-                        (2_000_000, 0, 1),
-                        (1, 0, 0, -1),
-                        (0, 0),
-                    ),
-                    *DEFAULT_VERTICES[1:],
-                ]
-            ),
-            "bad-index.mdl": build_model(indices=(0, 1, 3)),
-            "non-triangle-indices.mdl": build_model(indices=(0, 1)),
-            "index-budget.mdl": build_model(
-                declared_index_byte_count=33_554_436
-            ),
-            "nonzero-trailer.mdl": build_model(trailer=b"\0" * 6 + b"\1"),
-            "extra-tail.mdl": build_model(trailer=b"\0" * 8),
-            "legacy-nonzero-trailer.mdl": build_legacy_model(trailer=b"\1"),
-            "legacy-extra-tail.mdl": build_legacy_model(trailer=b"\0\0"),
-            "truncated.mdl": build_model()[:-1],
-        }
-        for count in (4, 5, 8, 64, 65):
-            fixtures[f"complete-{count}.mdl"] = build_parts(count)
-        fixtures.update({
-            "late-truncated.mdl": build_parts(8)[:-13],
-            "late-index.mdl": build_parts(8, last_changes={"indices": (0, 1, 99)}),
-            "late-path.mdl": build_parts(8, last_changes={"material": b"../escape.json"}),
-            "late-finite.mdl": build_parts(8, last_changes={"vertices": [
-                ((float("nan"), 0., 0.), *DEFAULT_VERTICES[0][1:]), *DEFAULT_VERTICES[1:]]}),
-            "late-trailer.mdl": build_parts(8)[:-1] + b"\1",
-            # Each later declaration fits the individual byte limit, but adding
-            # already validated first-part bytes crosses the unchanged model budget.
-            "cumulative-vertex.mdl": build_parts(2, last_changes={"declared_vertex_byte_count": 268_435_440}),
-            "cumulative-index.mdl": (build_model(material_count=2, indices=(0,1,2)*4)[:-7]
-                + b"\0"*6 + build_model(index_flag=1, declared_index_byte_count=33_554_424)[21:]),
-        })
+        fixtures, cls.posix_material_paths = reader_fixtures()
         for name, value in fixtures.items():
             (root / name).write_bytes(value)
         completed = subprocess.run(
@@ -421,6 +506,14 @@ class SceneMdlStaticModelReaderTests(unittest.TestCase):
         cls.sliced_results = {
             result["file"]: result for result in json.loads(sliced.stdout)
         }
+        single = subprocess.run(
+            [str(cls.binary), str(root / "valid.mdl"), str(root / "complete-65.mdl")],
+            cwd=REPOSITORY_ROOT, capture_output=True, text=True, timeout=60,
+            env={**os.environ, "MWX_READER_SINGLE": "1"},
+        )
+        if single.returncode != 0:
+            raise AssertionError(f"single-model harness run failed:\n{single.stderr}")
+        cls.single_results = {result["file"]: result for result in json.loads(single.stdout)}
 
     def test_geometry_above_retired_budget_validates_and_decodes_through_its_tail(self):
         path = Path(self._tmp.name) / "large-valid.mdl"
@@ -478,7 +571,7 @@ class SceneMdlStaticModelReaderTests(unittest.TestCase):
 
 
     def test_complete_segments_preserve_every_part(self):
-        for count in (4, 5, 8, 64):
+        for count in (4, 5, 8, 64, 65):
             row = self.results[f"complete-{count}.mdl"]
             self.assertTrue(row["ok"], row)
             expected = [{"material": f"materials/parts/p{i:03}.json",
@@ -488,14 +581,35 @@ class SceneMdlStaticModelReaderTests(unittest.TestCase):
             self.assertEqual(row["parts"], expected)
             self.assertEqual(row["materialPaths"], [p["material"] for p in expected])
 
-    def test_work_limit_is_typed_and_distinct_from_format_rejection(self):
-        for name, count in (("complete-65.mdl",65), ("over-work-budget.mdl",65),
-                            ("huge-work-budget.mdl",0xffffffff)):
+    def test_65_parts_preserve_renamed_and_equivalent_materials(self):
+        original = self.results["complete-65.mdl"]
+        equivalent = dict(self.results["complete-65-equivalent.mdl"], file=original["file"])
+        self.assertEqual(equivalent, original)
+        renamed = self.results["complete-65-renamed.mdl"]
+        expected = dict(original, file=renamed["file"])
+        expected["materialPath"] = "materials/renamed Ω/coat000.json"
+        expected["materialPaths"] = [f"materials/renamed Ω/coat{i:03}.json" for i in range(65)]
+        expected["parts"] = [dict(part, material=expected["materialPaths"][i])
+                             for i, part in enumerate(original["parts"])]
+        self.assertEqual(renamed, expected)
+
+    def test_single_model_api_still_requires_one_complete_part(self):
+        self.assertEqual(self.single_results["valid.mdl"], self.results["valid.mdl"])
+        rejected = self.single_results["complete-65.mdl"]
+        self.assertFalse(rejected["ok"], rejected)
+        self.assertEqual(rejected["unsupportedCount"], 65)
+        self.assertNotIn("parts", rejected)
+        self.assertNotIn("materialPaths", rejected)
+
+    def test_declared_parts_still_require_bytes_and_supported_profile(self):
+        for name in ("short-declared-65.mdl", "short-declared-huge.mdl"):
             row = self.results[name]
             self.assertFalse(row["ok"], row)
-            self.assertEqual(row["workBudgetCount"], count)
+            self.assertIn("truncated", row["error"])
             self.assertNotIn("unsupportedCount", row)
-        for name, count in (("zero-material.mdl",0), ("legacy-multipart.mdl",2)):
+            self.assertNotIn("parts", row)
+            self.assertNotIn("materialPaths", row)
+        for name, count in (("zero-material.mdl", 0), ("legacy-multipart.mdl", 2)):
             self.assertEqual(self.results[name]["unsupportedCount"], count)
 
     def test_late_corruption_and_cumulative_budget_reject_complete_parts(self):
@@ -504,6 +618,13 @@ class SceneMdlStaticModelReaderTests(unittest.TestCase):
                 ("late-trailer.mdl","trailer"), ("cumulative-vertex.mdl","vertex byte budget"),
                 ("cumulative-index.mdl","index byte budget")):
             row = self.results[name]
+            self.assertFalse(row["ok"], row)
+            self.assertIn(message, row["error"])
+            self.assertNotIn("materialPaths", row)
+            self.assertNotIn("parts", row)
+        for label, message in (("truncated", "truncated"), ("index", "index 99"),
+                               ("path", "material path"), ("finite", "non-finite"), ("trailer", "trailer")):
+            row = self.results[f"late-65-{label}.mdl"]
             self.assertFalse(row["ok"], row)
             self.assertIn(message, row["error"])
             self.assertNotIn("materialPaths", row)
@@ -539,6 +660,52 @@ class SceneMdlStaticModelReaderTests(unittest.TestCase):
         result = self.results["windows-material.mdl"]
         self.assertTrue(result["ok"], result)
         self.assertEqual(result["materialPath"], "materials/models/fixture/default.json")
+
+    def test_posix_colon_material_names_preserve_parts_and_adjacent_path_failures(self) -> None:
+        for name, expected in self.posix_material_paths.items():
+            with self.subTest(name=name):
+                result = self.results[name]
+                self.assertTrue(result["ok"], result)
+                self.assertEqual(result["materialPaths"], expected)
+                self.assertEqual(result["indices"], [0, 1, 2])
+                self.assertEqual(self.sliced_results[name], result)
+        for profile in ("0023", "0016"):
+            for label in ("absolute", "escape", "bad-utf8", "control",
+                          "trailing-slash", "trailing-dot", "trailing-separators", "dot-only", "all-dots",
+                          "internal-parent", "parent-after-dot", "double-absolute"):
+                name = f"invalid-posix-{profile}-{label}.mdl"
+                with self.subTest(name=name):
+                    result = self.results[name]
+                    self.assertFalse(result["ok"], result)
+                    self.assertIn("material path", result["error"])
+                    self.assertNotIn("materialPaths", result)
+                    self.assertEqual(self.sliced_results[name], result)
+
+    def test_long_material_paths_keep_real_delimiter_utf8_and_geometry_boundaries(self):
+        for profile in ("0023", "0016"):
+            for label in ("long-canonical", "long-unicode", "long-leading-dots",
+                          "long-internal-dots", "long-mixed-slashes"):
+                name = f"posix-{profile}-{label}.mdl"
+                row = self.results[name]
+                self.assertTrue(row["ok"], row)
+                self.assertEqual(row["materialPaths"], self.posix_material_paths[name])
+                if label in ("long-canonical", "long-unicode"):
+                    self.assertGreater(len(row["materialPath"].encode()), 4096)
+                else:
+                    self.assertLess(len(row["materialPath"].encode()), 64)
+                baseline = self.results["valid.mdl" if profile == "0023" else "legacy-valid.mdl"]
+                for key in ("vertices", "indices", "boundsMinimum", "boundsMaximum", "triangleCount"):
+                    self.assertEqual(row[key], baseline[key])
+            for prefix, message in (("missing-nul", "truncated in material path"),
+                                    ("long-invalid-utf8", "invalid static mdl material path"),
+                                    ("long-parent", "invalid static mdl material path"),
+                                    ("long-control", "invalid static mdl material path"),
+                                    ("long-truncated", "truncated")):
+                row = self.results[f"{prefix}-{profile}.mdl"]
+                self.assertFalse(row["ok"], row)
+                self.assertIn(message, row["error"])
+                self.assertNotIn("parts", row)
+                self.assertNotIn("materialPaths", row)
 
     def test_legacy_profile_derives_bounds_from_validated_vertices(self) -> None:
         result = self.results["legacy-valid.mdl"]
@@ -605,6 +772,17 @@ class SceneMdlStaticModelReaderTests(unittest.TestCase):
                 result = self.results[name]
                 self.assertFalse(result["ok"], result)
                 self.assertIn(token, result["error"])
+
+    def test_each_immutable_vertex_channel_rejects_nonfinite_values(self) -> None:
+        for profile in ("0023", "0016"):
+            for channel in VERTEX_CHANNELS:
+                for label, _ in NONFINITE_VALUES:
+                    name = f"nonfinite-{profile}-{channel}-{label}.mdl"
+                    with self.subTest(profile=profile, channel=channel, value=label):
+                        result = self.results[name]
+                        self.assertFalse(result["ok"], result)
+                        self.assertIn("non-finite", result["error"])
+                        self.assertEqual(self.sliced_results[name], result)
 
     def test_empty_or_invalid_geometry_fails_closed(self) -> None:
         for name, token in (

@@ -158,7 +158,7 @@ DEPTH_MAIN=r'''
    let projection=ScenePointShadowProjection(light:light)
    let triangles=row["drawTriangles"] as! [[[Double]]]
    let vertices=triangles.flatMap{$0}.map{p in SceneMdlStaticModel.Vertex(position:SIMD3(Float(p[0]),Float(p[1]),Float(p[2])),normal:SIMD3(0,0,-1),tangent:SIMD4(1,0,0,1),uv:SIMD2(0.5,0.5))}
-   let mesh=pipeline.makeMesh(vertices:vertices,indices:Array(0..<UInt32(vertices.count)))!
+   let mesh=pipeline.makeMesh(model: SceneStaticModelFixture.model(vertices:vertices,indices:Array(0..<UInt32(vertices.count))))!
    let targetDesc=MTLTextureDescriptor.texture2DDescriptor(pixelFormat:.depth32Float,width:3*size,height:2*size,mipmapped:false);targetDesc.storageMode = .private;targetDesc.usage = [.renderTarget,.shaderRead]
    let target=d.makeTexture(descriptor:targetDesc)!,cb=queue.makeCommandBuffer()!
    let rp=MTLRenderPassDescriptor();rp.depthAttachment.texture=target;rp.depthAttachment.loadAction = .clear;rp.depthAttachment.storeAction = .store;rp.depthAttachment.clearDepth=1
@@ -234,7 +234,7 @@ RADIANCE_MAIN=r'''
   func vector(_ a:[Double])->SIMD3<Float>{SIMD3(Float(a[0]),Float(a[1]),Float(a[2]))}
   func texture(_ a:Float)->MTLTexture {let d=MTLTextureDescriptor.texture2DDescriptor(pixelFormat:.rgba32Float,width:1,height:1,mipmapped:false);d.storageMode = .shared;d.usage = .shaderRead;let t=device.makeTexture(descriptor:d)!;var v:[Float]=[1,1,1,a];t.replace(region:MTLRegionMake2D(0,0,1,1),mipmapLevel:0,withBytes:&v,bytesPerRow:16);return t}
   func material(_ emission:Float)->SceneStaticModelMaterial {.init(color:SIMD3(repeating:1),opacity:1,receivesLighting:true,textureAlphaIsOpacity:false,textureAlphaIsTintMask:false,emissiveColor:SIMD3(repeating:emission),emissiveBrightness:1,brightness:1,usesHDRBrightness:false,viewTint:nil)}
-  func mesh(_ tris:[[[Double]]],normal:SIMD3<Float>)->SceneStaticModelMesh {let v=tris.flatMap{$0}.map{p in SceneMdlStaticModel.Vertex(position:vector(p),normal:normal,tangent:SIMD4(1,0,0,1),uv:SIMD2(0.5,0.5))};return pipeline.makeMesh(vertices:v,indices:Array(0..<UInt32(v.count)))!}
+  func mesh(_ tris:[[[Double]]],normal:SIMD3<Float>)->SceneStaticModelMesh {let v=tris.flatMap{$0}.map{p in SceneMdlStaticModel.Vertex(position:vector(p),normal:normal,tangent:SIMD4(1,0,0,1),uv:SIMD2(0.5,0.5))};return pipeline.makeMesh(model: SceneStaticModelFixture.model(vertices:v,indices:Array(0..<UInt32(v.count))))!}
   let albedo=texture(1),emissionMask=texture(0.25)
   var rows:[[String:Any]]=[]
   for input in inputs {
@@ -536,7 +536,7 @@ class ScenePointModelShadowPartialFailureTests(unittest.TestCase):
  }
 }
 '''
-        producer=run_point(builder.SWIFT_SOURCES,spot.alpha_builder_support(builder)+main,
+        producer=run_point(builder.SWIFT_SOURCES,builder.HARNESS_SOURCE.split('@main',1)[0]+main,
                           label='point-overflow-producer',input_value=str(root))
         self.assertTrue(producer['doubleFinite']);self.assertFalse(producer['floatFinite'])
         # Real CPU builder -> typed descriptor value -> prepared material boundary.
@@ -548,7 +548,7 @@ class ScenePointModelShadowPartialFailureTests(unittest.TestCase):
 
 from script.tests import test_scene_alpha_display_builder_fixture as builder
 POINT_AUTHORED_SOURCES=list(builder.SWIFT_SOURCES)
-for relative in ['Rendering/Lighting/SceneLightSnapshot.swift','Systems/Properties/SceneDynamicLayerValues.swift','Rendering/Geometry/SceneLayerDynamicWorldFrameResolver.swift']:
+for relative in ['Rendering/Lighting/SceneLightSnapshot.swift','Rendering/Lighting/SceneAuthoredShaderLightingInputs.swift','Systems/Properties/SceneDynamicLayerValues.swift','Rendering/Geometry/SceneLayerDynamicWorldFrameResolver.swift']:
     path=shared.SCENE/relative
     if path not in POINT_AUTHORED_SOURCES:POINT_AUTHORED_SOURCES.append(path)
 POINT_AUTHORED_MAIN=r'''
@@ -650,6 +650,8 @@ class ScenePointModelShadowOptionalPipelineTests(unittest.TestCase):
     root=Path(tempfile.mkdtemp(prefix='point-missing-function-',dir=parent))
     # The library omits an entry, without changing any executed algorithm.
     source=root/'StaticModel.metal'
+    for header in (model.FOG_HEADER, model.SURFACE_HEADER):
+     (root/header.name).write_bytes(header.read_bytes())
     source.write_text(model.METAL_SOURCE.read_text().replace(entry+'(', 'testUnavailableShadowEntry('))
     harness=point_frame_harness().replace('["original","full","four-points","quota0","quota1","quota2","quota3","logical","gap","flight"]','["original","full","four-points"]')
     report=run_point(spot.f.SOURCES,harness,label='point-optional-pso-'+name,metal_sources=[source],input_value={'missingEntry':entry,'expectedMixedIDs':expected,'expectedFourPointIDs':four})

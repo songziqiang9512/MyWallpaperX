@@ -8,30 +8,33 @@ import AVFoundation
 import AppKit
 
 extension WallpaperManager {
-    func staticFrameOutputURL(for url: URL) -> URL {
+    func staticFrameOutputURL(forKey key: String) -> URL {
         // 静帧路径和缩略图路径分开，避免不同派生资产互相覆盖。
-        staticFrameCacheDirectory.appendingPathComponent("\(cacheKey(for: url))_frame.jpg")
+        staticFrameCacheDirectory.appendingPathComponent("\(key)_frame.jpg")
     }
 
     func existingStaticFramePath(for url: URL) -> String? {
         // 先命中磁盘缓存再决定是否进入后台提取，减少重复解码。
-        existingCachePath(for: url, output: staticFrameOutputURL(for:))
+        let key = cacheKey(forNormalizedPath: normalizedPath(url.path))
+        let path = staticFrameOutputURL(forKey: key).path
+        return pathExists(path) ? path : nil
     }
 
     func scheduleStaticFrameGeneration(for url: URL) {
         // 静帧生成走延迟调度，优先让缩略图先出来，避免导入后卡住主线程感知。
         guard pathExists(url.path) else { return }
         let capturedGeneration = currentCacheGeneration()
+        let normalized = normalizedPath(url.path)
+        let outputPath = staticFrameOutputURL(forKey: cacheKey(forNormalizedPath: normalized)).path
 
-        if let cachedPath = existingStaticFramePath(for: url) {
+        if pathExists(outputPath) {
             DispatchQueue.main.async { [weak self] in
                 guard let self, self.currentCacheGeneration() == capturedGeneration else { return }
-                self.updateWallpaperAssetPaths(forPath: url.path, staticFramePath: cachedPath)
+                self.updateWallpaperAssetPaths(forPath: url.path, staticFramePath: outputPath)
             }
             return
         }
 
-        let normalized = normalizedPath(url.path)
         guard beginStaticFrameSchedule(for: normalized) else { return }
 
         staticFrameQueue.asyncAfter(deadline: .now() + 1.5) { [weak self] in
@@ -56,6 +59,7 @@ extension WallpaperManager {
         // 按需生成接口用于补齐单个条目，不会阻塞完整队列。
         let capturedGeneration = currentCacheGeneration()
         if let cachedPath = existingStaticFramePath(for: url) {
+            updateWallpaperAssetPaths(forPath: url.path, staticFramePath: cachedPath)
             completion(cachedPath)
             return
         }
@@ -86,7 +90,8 @@ extension WallpaperManager {
             return nil
         }
 
-        let outputURL = staticFrameOutputURL(for: url)
+        let key = cacheKey(forNormalizedPath: normalizedPath(url.path))
+        let outputURL = staticFrameOutputURL(forKey: key)
         if pathExists(outputURL.path) {
             return outputURL.path
         }

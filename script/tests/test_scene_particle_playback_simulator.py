@@ -299,7 +299,12 @@ import Foundation
         catch { result["explicit-lifetime-zero-restores"] = invalidBirth.particles.isEmpty
             && invalidBirth.frameSnapshot().random.state==invalidBefore.random.state
             && invalidBirth.frameSnapshot().nextParticleID==invalidBefore.nextParticleID
-            && invalidBirth.diagnostics==invalidBefore.diagnostics && invalidBirth.birthEvents.isEmpty }
+            && invalidBirth.birthEvents.isEmpty
+#if DEBUG
+            result["explicit-lifetime-zero-restores"] = result["explicit-lifetime-zero-restores"]!
+                && invalidBirth.diagnostics==invalidBefore.diagnostics
+#endif
+        }
         let overrideSim=try make(initial:.init(intent:.stopped))
         let zeroLifetime=SceneParticleDefinitionParser().parseInstanceOverride(["lifetime":0])
         do {_=try explicit(overrideSim,count:1,context:.init(instanceOverride:zeroLifetime));result["explicit-call-time-zero-rejects"]=false}
@@ -321,7 +326,10 @@ import Foundation
                     && randomSim.frameSnapshot().nextParticleID==before.nextParticleID
                     && randomSim.frameSnapshot().random.state==before.random.state
                     && randomSim.birthEvents.isEmpty
+#if DEBUG
+                result["explicit-random-late-failure-restores-all"] = result["explicit-random-late-failure-restores-all"]!
                     && randomSim.diagnostics==before.diagnostics
+#endif
                 break
             }
         }
@@ -357,17 +365,23 @@ import Foundation
             }
             func release(_ bytes:Int){active-=bytes}
             func actualArrayStorage(_ snapshot:SceneParticleSimulator.FrameSnapshot)->Int {
-                let states=[snapshot.particles,snapshot.birthEvents,snapshot.deathEvents,snapshot.transientRenderBirths]
+                var bytes=[snapshot.particles,snapshot.birthEvents,snapshot.deathEvents,snapshot.transientRenderBirths]
                     .reduce(0){$0+$1.capacity*MemoryLayout<SceneParticleState>.stride}
-                return states+snapshot.pendingAudioEvaluationObservations.capacity*MemoryLayout<SceneParticleAudioEvaluationObservation>.stride
+#if DEBUG
+                bytes += snapshot.pendingAudioEvaluationObservations.capacity*MemoryLayout<SceneParticleAudioEvaluationObservation>.stride
+#endif
+                return bytes
             }
             let one=try sim.preparePlaybackCandidate(commands:[(.init(layerID:42,action:.emit,revision:2,count:1),.init(audio:audio))],charge:charge,release:release)
             let firstActive=active
             let two=try sim.preparePlaybackCandidate(starting:one.state,commands:[(.init(layerID:42,action:.emit,revision:3,count:1),.init(audio:audio))],charge:charge,release:release)
             result["real-capacity-audio-reservation"] = committed.particles.count==1024 && one.state.particles.count==1025 && two.state.particles.count==1026
-                && one.state.pendingAudioEvaluationObservations.count==20
                 && one.reservedBytes>=actualArrayStorage(one.state) && two.reservedBytes>=actualArrayStorage(two.state)
                 && peak==one.reservedBytes+two.reservedBytes && firstActive==one.reservedBytes && chargedWork>0 && chargedWork<=100_000
+#if DEBUG
+            result["real-capacity-audio-reservation"] = result["real-capacity-audio-reservation"]!
+                && one.state.pendingAudioEvaluationObservations.count==20
+#endif
             limit=active
             do {_=try sim.preparePlaybackCandidate(starting:two.state,commands:[(.init(layerID:42,action:.emit,revision:4,count:1),.init(audio:audio))],charge:charge,release:release);result["real-capacity-refused-before-cow"]=false}
             catch {result["real-capacity-refused-before-cow"] = active==one.reservedBytes+two.reservedBytes
@@ -387,16 +401,20 @@ class SceneParticlePlaybackSimulatorTests(unittest.TestCase):
             directory = Path(temporary)
             harness = directory / "Harness.swift"
             harness.write_text(HARNESS)
-            binary = directory / "fixture"
-            compile_result = subprocess.run([shutil.which("swiftc"), "-D", "DEBUG", *map(str, SWIFT_SOURCES), str(harness), "-o", str(binary)], capture_output=True, text=True)
-            self.assertEqual(compile_result.returncode, 0, compile_result.stderr)
-            run = subprocess.run([str(binary)], capture_output=True, text=True)
-            self.assertEqual(run.returncode, 0, run.stderr)
-            print(run.stdout + run.stderr)
-            results = json.loads(run.stdout)
-            for name, passed in results.items():
-                with self.subTest(name=name):
-                    self.assertTrue(passed, name)
+            payloads = {}
+            for mode, flags in [("debug", ["-D", "DEBUG"]), ("release", [])]:
+                binary = directory / ("fixture-" + mode)
+                compile_result = subprocess.run([shutil.which("swiftc"), "-O", *flags,
+                    *map(str, SWIFT_SOURCES), str(harness), "-o", str(binary)], capture_output=True, text=True)
+                self.assertEqual(compile_result.returncode, 0, compile_result.stderr)
+                run = subprocess.run([str(binary)], capture_output=True, text=True)
+                self.assertEqual(run.returncode, 0, run.stderr)
+                print(mode + ": " + run.stdout + run.stderr)
+                payloads[mode] = json.loads(run.stdout)
+                for name, passed in payloads[mode].items():
+                    with self.subTest(mode=mode, name=name):
+                        self.assertTrue(passed, name)
+            self.assertEqual(payloads["release"], payloads["debug"])
 
 if __name__ == "__main__":
     unittest.main()

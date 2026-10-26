@@ -10,7 +10,11 @@ enum SceneParticleChildControlPointCopyAdmission {
 
 enum SceneParticleChildEventColorAdmission {
     case disabled
+#if DEBUG
     case supported([String])
+#else
+    case supported
+#endif
     case unsupported(String)
 }
 
@@ -100,6 +104,7 @@ enum SceneParticleChildTemplateSupport {
         guard operators.isEmpty || trigger == .follow else {
             return .unsupported("eventColorOperatorOutsideFollowChild")
         }
+#if DEBUG
         var markers: [String] = []
         if !initializers.isEmpty {
             markers.append("eventColorInitializerBounded:setcolor")
@@ -108,6 +113,9 @@ enum SceneParticleChildTemplateSupport {
             markers.append("eventColorOperatorBounded:setcolor")
         }
         return .supported(markers)
+#else
+        return .supported
+#endif
     }
 
     static func rawParentControlPointOverride(

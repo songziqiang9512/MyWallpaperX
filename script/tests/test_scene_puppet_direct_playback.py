@@ -132,6 +132,13 @@ class ScenePuppetDirectPlaybackTests(unittest.TestCase):
         self.check("channelVisibility")
         self.check("invalidFrame")
 
+    def test_late_nonfinite_skin_output_publishes_complete_bind_bytes_then_recovers(self):
+        for key in ("latePositionOverflowFallback", "lateNormalOverflowFallback",
+                    "lateTangentOverflowFallback"):
+            with self.subTest(case=key):
+                self.check(key)
+        self.check("finiteAffineOutputAndCurrentBounds")
+
     def test_busy_cancel_failed_completion_and_surface_ownership(self):
         self.check("busyAndResolution")
         self.check("surfaceIsolation")

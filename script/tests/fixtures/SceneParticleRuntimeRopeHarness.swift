@@ -143,10 +143,12 @@ extension Harness {
                 $0.layerID == 31
             }
         }
+#if DEBUG
         let diagnosticDetails = coarseRuntime.diagnostics.map {
             "\($0.kind.rawValue):\($0.layerID ?? -1):\($0.detail ?? "")"
         }
-        return [
+#endif
+        var facts1: [String: Any] = [
             "activeLayerIDs": coarseRuntime.activeLayerIDs,
             "prewarmedInstanceCount": prewarmedBatch?.instances.count ?? -1,
             "prewarmedAllSegmentsMoveForward": prewarmedBatch?.instances.allSatisfy {
@@ -165,11 +167,14 @@ extension Harness {
             "objectRendererLoaded": coarseRuntime.activeLayerIDs.contains(36),
             "onlyMalformedRendererLoaded": coarseRuntime.activeLayerIDs.contains(37),
             "emptyRendererLoaded": coarseRuntime.activeLayerIDs.contains(38),
-            "diagnosticDetails": diagnosticDetails,
-            "missingSpriteRenderer": coarseRuntime.diagnostics.contains {
-                $0.kind == .missingSpriteRenderer
-            },
         ]
+#if DEBUG
+        facts1["diagnosticDetails"] = diagnosticDetails
+        facts1["missingSpriteRenderer"] = coarseRuntime.diagnostics.contains {
+            $0.kind == .missingSpriteRenderer
+        }
+#endif
+        return facts1
     }
 
     static func syntheticRope() throws -> [String: Any] {
@@ -327,10 +332,12 @@ extension Harness {
         let scrollingBatch = batches.first { $0.layerID == 46 }
         let childBatch = batches.first { $0.particlePath == "particles/rope-child.json" }
         let instances = batch?.instances ?? []
+#if DEBUG
         let diagnosticDetails = runtime.diagnostics.map {
             "\($0.kind.rawValue):\($0.layerID ?? -1):\($0.detail ?? "")"
         }
-        return [
+#endif
+        var facts2: [String: Any] = [
             "activeLayerIDs": runtime.activeLayerIDs,
             "instanceCount": instances.count,
             "twoFrameWholeSource": twoFrameBatch.map {
@@ -367,8 +374,11 @@ extension Harness {
                 $0.positionAndSize.x >= 40 && $0.positionAndSize.y >= 20
             } ?? false,
             "childRopeUVStartsWithPhase": (childBatch?.instances.first?.frame0B.z ?? 0) > 0,
-            "diagnosticDetails": diagnosticDetails,
         ]
+#if DEBUG
+        facts2["diagnosticDetails"] = diagnosticDetails
+#endif
+        return facts2
     }
 
     static func syntheticStaticScaledRope() throws -> [String: Any] {
@@ -515,7 +525,9 @@ extension Harness {
             batch.instanceBuffer.update(device: device, instances: batch.instances)
                 && batch.instanceBuffer.count == batch.instances.count
         }
+#if DEBUG
         let diagnostics = runtime.diagnostics.map { "\($0.layerID ?? -1):\($0.detail ?? "")" }
+#endif
         runtime.teardown()
         let shortPath = "particles/short-scaled-ribbon.json"
         try writeJSON([
@@ -561,7 +573,7 @@ extension Harness {
         let naturalReplayMatches = completedSequence.rows == replayedSequence.rows
             && completedSequence.geometry == replayedSequence.geometry
         naturalRuntime.teardown()
-        return [
+        var facts3: [String: Any] = [
             "observed": observed,
             "geometryPositions": geometry.map {
                 [$0.positionAndSize.x, $0.positionAndSize.y, $0.positionAndSize.z]
@@ -578,12 +590,15 @@ extension Harness {
                 [$0.velocityAndTrail.x, $0.velocityAndTrail.y, $0.velocityAndTrail.z]
             },
             "replayMatches": replayMatches, "uploadsMatch": uploadsMatch,
-            "diagnostics": diagnostics,
             "afterTeardownChildSystems": runtime.lifecycleSnapshot.childSystemCount,
             "afterTeardownChildParticles": runtime.lifecycleSnapshot.childParticleCount,
             "naturalRetirementCadences": completedSequence.rows,
             "naturalRetirementReplayMatches": naturalReplayMatches,
         ]
+#if DEBUG
+        facts3["diagnostics"] = diagnostics
+#endif
+        return facts3
     }
 
     static func ropeTrailSignature(
@@ -704,10 +719,14 @@ extension Harness {
                     return ["path": name, "bytes": data.count,
                         "sha256": SHA256.hash(data: data).map { String(format: "%02x", $0) }.joined()]
                 }
-            results.append(["variant": stem, "baseID": baseID,
+            var facts4: [String: Any] = ["variant": stem, "baseID": baseID,
                 "activeLayerIDs": runtime.activeLayerIDs,
-                "diagnostics": runtime.diagnostics.map { "\($0.kind.rawValue):\($0.layerID ?? -1):\($0.detail ?? "")" },
-                "phases": phases, "inputIdentities": identities])
+                "phases": phases, "inputIdentities": identities,
+            ]
+#if DEBUG
+            facts4["diagnostics"] = runtime.diagnostics.map { "\($0.kind.rawValue):\($0.layerID ?? -1):\($0.detail ?? "")" }
+#endif
+            results.append(facts4)
         }
         return results
     }

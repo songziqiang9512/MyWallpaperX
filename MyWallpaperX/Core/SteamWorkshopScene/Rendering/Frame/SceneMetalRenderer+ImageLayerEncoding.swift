@@ -102,13 +102,14 @@ extension SceneMetalRenderer {
             modelX: model.columns.0,
             modelY: model.columns.1
         ) : .init()
+        let cursorInverse = SceneLayerCursorGeometry.preciseInverseModelViewProjection(mvp)
         let cursorUV = SceneLayerCursorGeometry.layerUV(
             mouseNormalized: frameContext.pointer.current,
-            modelViewProjection: mvp
+            inverseModelViewProjection: cursorInverse
         )
         let previousCursorUV = SceneLayerCursorGeometry.layerUV(
             mouseNormalized: frameContext.pointer.previous,
-            modelViewProjection: mvp
+            inverseModelViewProjection: cursorInverse
         )
         let effectSourceExtent: SceneLayerEffectSourceExtent?
         if layer.contentKind == "solid", let resolvedFramePlan {

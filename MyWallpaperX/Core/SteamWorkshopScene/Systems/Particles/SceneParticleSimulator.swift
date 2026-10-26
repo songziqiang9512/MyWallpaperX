@@ -13,7 +13,9 @@ nonisolated final class SceneParticleSimulator: @unchecked Sendable {
 
     let fixedTimeStep: Double
     let maximumParticleCount: Int
+#if DEBUG
     private(set) var diagnostics: [SceneParticleSimulationDiagnostic]
+#endif
     var particles: [SceneParticleState] = []
     /// Birth-state samples whose complete authored lifetime fell inside the
     /// current display callback. They remain lifecycle-dead and event-visible;
@@ -184,10 +186,12 @@ nonisolated final class SceneParticleSimulator: @unchecked Sendable {
         self.fixedTimeStep = fixedTimeStep.isFinite && fixedTimeStep > 0 ? fixedTimeStep : 1.0 / 60.0
         let authoredMaximum = min(max(definition.maximumCount ?? 1, 0), 20_000)
         maximumParticleCount = min(authoredMaximum, max(particleBudget ?? authoredMaximum, 0))
+#if DEBUG
         diagnostics = SceneParticleSimulationMath.diagnostics(
             definition, instanceOverride, eventColorContext: eventColorContext,
             controlPointForceEnvironment: controlPointForceEnvironment
         )
+#endif
         emitters = definition.emitters.indices.map {
             SceneParticleEmitterState(seed: seed, emitterIndex: $0)
         }
@@ -304,7 +308,6 @@ nonisolated final class SceneParticleSimulator: @unchecked Sendable {
         var snapshot = FrameSnapshot(
             playback: playback,
             particles: particles,
-            diagnostics: diagnostics,
             transientRenderBirths: transientRenderBirths,
             birthEvents: birthEvents,
             deathEvents: deathEvents,
@@ -326,6 +329,7 @@ nonisolated final class SceneParticleSimulator: @unchecked Sendable {
             positionOscillationCache: positionOscillationCache
         )
 #if DEBUG
+        snapshot.diagnostics = diagnostics
         snapshot.observedNonSilentAudioComponents = observedNonSilentAudioComponents
         snapshot.pendingAudioEvaluationObservations = pendingAudioEvaluationObservations
 #endif
@@ -335,7 +339,6 @@ nonisolated final class SceneParticleSimulator: @unchecked Sendable {
     nonisolated func restoreFrame(_ snapshot: FrameSnapshot) {
         playback = snapshot.playback
         particles = snapshot.particles
-        diagnostics = snapshot.diagnostics
         transientRenderBirths = snapshot.transientRenderBirths
         birthEvents = snapshot.birthEvents
         deathEvents = snapshot.deathEvents
@@ -353,6 +356,7 @@ nonisolated final class SceneParticleSimulator: @unchecked Sendable {
         dynamicControlPointAngles = snapshot.dynamicControlPointAngles
         audioInput = snapshot.audioInput
 #if DEBUG
+        diagnostics = snapshot.diagnostics
         observedNonSilentAudioComponents = snapshot.observedNonSilentAudioComponents
         pendingAudioEvaluationObservations = snapshot.pendingAudioEvaluationObservations
 #endif
@@ -412,7 +416,9 @@ nonisolated final class SceneParticleSimulator: @unchecked Sendable {
         let requestedSteps = (duration / fixedTimeStep).rounded(.up)
         guard duration.isFinite, duration > 0, requestedSteps.isFinite,
               requestedSteps < Double(Int.max) else {
+#if DEBUG
             diagnostics.append(.init(kind: .prewarmInvalidDuration, componentName: nil))
+#endif
             return
         }
         // Preserve the existing 240-step envelope for frame-created children.
@@ -452,12 +458,14 @@ nonisolated final class SceneParticleSimulator: @unchecked Sendable {
             deathEvents.removeAll(keepingCapacity: true)
             remaining -= slice
         }
+#if DEBUG
         if Int(requestedSteps) > limit {
             diagnostics.append(.init(
                 kind: .prewarmBudgetExceeded,
                 componentName: "requested=\(duration),simulated=\(simulationTime),steps=\(count)"
             ))
         }
+#endif
     }
 
     private nonisolated func step(by frameDuration: Double) {
@@ -466,10 +474,12 @@ nonisolated final class SceneParticleSimulator: @unchecked Sendable {
         let duration = frameDuration * max(0, overrideScalar(activeInstanceOverride?.rate))
         guard duration != 0 else { return }
         guard duration.isFinite, Float(simulationTime + duration).isFinite else {
+#if DEBUG
             let diagnostic = SceneParticleSimulationDiagnostic(
                 kind: .invalidSimulationTime, componentName: "rate"
             )
             if !diagnostics.contains(diagnostic) { diagnostics.append(diagnostic) }
+#endif
             return
         }
         if playback.intent == .playing {
@@ -538,10 +548,12 @@ nonisolated final class SceneParticleSimulator: @unchecked Sendable {
         // currently partial window can be visited by an accepted step.
         if case let .supported(periodic) = spawnPlan.periodicEmissionAdmission,
            duration > min(periodic.minimumDuration, periodic.minimumDelay) * 1024 {
+#if DEBUG
             let diagnostic = SceneParticleSimulationDiagnostic(
                 kind: .invalidEmitterState, componentName: "periodic-budget:\(index)"
             )
             if !diagnostics.contains(diagnostic) { diagnostics.append(diagnostic) }
+#endif
             return
         }
         guard let activeDuration = emitters[index].scheduledActiveDuration(
@@ -563,10 +575,12 @@ nonisolated final class SceneParticleSimulator: @unchecked Sendable {
             let rate = scaledRate.isFinite ? max(0, scaledRate) : 0
             let accumulated = emitters[index].remainder + rate * activeDuration
             guard accumulated.isFinite else {
+#if DEBUG
                 let diagnostic = SceneParticleSimulationDiagnostic(
                     kind: .invalidEmitterState, componentName: "emission:\(index)"
                 )
                 if !diagnostics.contains(diagnostic) { diagnostics.append(diagnostic) }
+#endif
                 return
             }
             let integral = floor(accumulated + 1e-12)
@@ -683,10 +697,12 @@ nonisolated final class SceneParticleSimulator: @unchecked Sendable {
             && SceneParticleSimulationMath.isGPUFinite(particle.angularVelocity) {
             return true
         }
+#if DEBUG
         let diagnostic = SceneParticleSimulationDiagnostic(
             kind: .invalidEmitterState, componentName: "particle-initialization"
         )
         if !diagnostics.contains(diagnostic) { diagnostics.append(diagnostic) }
+#endif
         return false
     }
 
@@ -699,10 +715,12 @@ nonisolated final class SceneParticleSimulator: @unchecked Sendable {
             && SceneParticleSimulationMath.isGPUFinite(position) {
             return true
         }
+#if DEBUG
         let diagnostic = SceneParticleSimulationDiagnostic(
             kind: .invalidOperatorState, componentName: component
         )
         if !diagnostics.contains(diagnostic) { diagnostics.append(diagnostic) }
+#endif
         return false
     }
 

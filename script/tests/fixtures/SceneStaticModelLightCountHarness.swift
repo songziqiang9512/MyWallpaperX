@@ -11,9 +11,9 @@ import simd
         }
         let pipeline = SceneStaticModelPipeline(device: device, colorPixelFormat: .rgba16Float)!
         let positions: [SIMD3<Float>] = [SIMD3(-1, -1, 0.5), SIMD3(3, -1, 0.5), SIMD3(-1, 3, 0.5)]
-        let mesh = pipeline.makeMesh(vertices: positions.map {
+        let mesh = pipeline.makeMesh(model: SceneStaticModelFixture.model(vertices: positions.map {
             .init(position: $0, normal: SIMD3(0, 0, 1), tangent: SIMD4(1, 0, 0, 1), uv: .zero)
-        }, indices: [0, 1, 2])!
+        }, indices: [0, 1, 2]))!
         let colorDescriptor = MTLTextureDescriptor.texture2DDescriptor(
             pixelFormat: .rgba16Float, width: 8, height: 8, mipmapped: false)
         colorDescriptor.storageMode = .shared

@@ -16,7 +16,13 @@ SOURCES=[SCENE/p for p in [
  'Resources/Textures/SceneResourceBudget.swift','Diagnostics/ScenePerformanceCounterHub.swift',
  'Diagnostics/SceneGPUCensus.swift','Rendering/Composition/SceneFramebufferSnapshot.swift',
  'Rendering/Composition/SceneMainPassEncoder.swift']]
-HARNESS=r'''
+TIMESTAMP_FIXTURE=REPO/'script/tests/fixtures/SceneColorBlendCaptureRegionHarness.swift'
+_timestamp_fixture=TIMESTAMP_FIXTURE.read_text()
+# Reuse the existing no-request observation leaf. render/blit still create
+# real Metal encoders; this copy/capacity gate does not measure timestamps.
+TIMESTAMP_SUPPORT=_timestamp_fixture[_timestamp_fixture.index('enum SceneGPUStageTimestampHook {'):
+                                    _timestamp_fixture.index('struct SceneGeometryProduct {')]
+HARNESS='import Metal\n'+TIMESTAMP_SUPPORT+r'''
 import Foundation
 import Metal
 final class SceneGraphRenderTargetResidencyPin {func release() {fatalError("unused peripheral pin")}}
@@ -154,7 +160,7 @@ class SceneSnapshotCapacityTests(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
         parent=Path(os.environ.get('MWX_SNAPSHOT_EVIDENCE','/private/tmp/mwx-rf12'));parent.mkdir(parents=True,exist_ok=True)
-        cls.identity={str(p):hashlib.sha256(p.read_bytes()).hexdigest() for p in [Path(__file__),*SOURCES]}
+        cls.identity={str(p):hashlib.sha256(p.read_bytes()).hexdigest() for p in [Path(__file__),TIMESTAMP_FIXTURE,*SOURCES]}
         root=Path(tempfile.mkdtemp(prefix='snapshot-test-identity-',dir=parent));(root/'sources.json').write_text(json.dumps(cls.identity,indent=2))
         cls.result=run_swift(SOURCES,HARNESS,label='snapshot-capacity',swift_flags=('-DDEBUG',))
         assert all(hashlib.sha256(Path(p).read_bytes()).hexdigest()==h for p,h in cls.identity.items()),'source identity drift'
@@ -248,7 +254,7 @@ FRAME_MAIN=r'''
   let vertices=[SIMD3<Float>(4,4,0),SIMD3(20,4,0),SIMD3(20,20,0),SIMD3(4,20,0)].map {
    SceneMdlStaticModel.Vertex(position:$0,normal:SIMD3(0,0,1),tangent:SIMD4(1,0,0,1),uv:SIMD2(repeating:0.5))
   }
-  let mesh=model.makeMesh(vertices:vertices,indices:[0,2,1,0,3,2])!
+  let mesh=model.makeMesh(model: SceneStaticModelFixture.model(vertices:vertices,indices:[0,2,1,0,3,2]))!
   let material=SceneStaticModelMaterial(color:SIMD3(1,0,0),opacity:1,receivesLighting:true,textureAlphaIsOpacity:true,textureAlphaIsTintMask:false,emissiveColor:.zero,emissiveBrightness:0,brightness:1,usesHDRBrightness:false,viewTint:nil)
   let entry=ScenePreparedStaticModelResources.Entry(materialPath:"self",dynamicMaterialPath:"",mesh:mesh,albedo:PreparedTexture(texture:white),material:material)
   let renderer=SceneMetalRenderer(device:d,resources:.init(pipeline:model,entries:[1:[entry]]))
@@ -265,7 +271,10 @@ FRAME_MAIN=r'''
   let batches:[Int:[SceneParticleDrawBatch]]=hidden || utility ? [:]:[42:[batch]]
   let cb=q.makeCommandBuffer()!,pass=SceneMainPassEncoder(commandBuffer:cb,target:target,clearColor:MTLClearColorMake(0.5,0.25,0.75,1),clearEnabled:true)
   let camera=SceneParticleCameraFrame(camera:.init(eye:[0,0,0],center:[0,0,-1],up:[0,1,0],orthoWidth:64,orthoHeight:64,fovDegrees:nil,perspectiveOverrideFOVDegrees:nil,nearZ:0.01,farZ:1000),viewportSize:CGSize(width:64,height:64))
-  let world=Dictionary(uniqueKeysWithValues:layers.map{($0.id,matrix_identity_float4x4)})
+  var world=Dictionary(uniqueKeysWithValues:layers.map{($0.id,matrix_identity_float4x4)})
+  // This synthetic quad stores canonical-down coordinates. Its author scale
+  // compensates the model owner's Y-up vertex conversion into canvas space.
+  world[1]=SceneMatrix.scale(SIMD3(1,-1,1))
   let light=SceneLightSnapshot.Directional(layerID:9,castsShadow:true,directionTowardLight:SIMD3(0,0,1),color:SIMD3(repeating:1),intensity:0.5)
   let lighting=SceneLightSnapshot(ambient:SIMD3(repeating:0.5),skylight: .zero,directional:[light],point:[],spot:[],overflowCount:0)
   let pool=SceneOffscreenTexturePool(device:d,pixelFormat:.bgra8Unorm,residentByteBudget:8*1024*1024)
