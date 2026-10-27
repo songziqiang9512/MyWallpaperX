@@ -973,10 +973,10 @@
       "lastReviewed": "2026-10-28",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "0cfea069cc9f9fa1de3ce73a0e7db20cdaaf10a271f39e708a76649ba232e2df",
+        "sourceSHA256": "6370d54afa2626f740545ad74ac7958efeb76f047a6fed70cd4c4f9a77d1ac0b",
         "method": "document_registry --audit + document_health --check",
-        "scope": "仅同步本批Vec3.reflect和Slider Bool-seed的已证行为与边界；实际运行、失败及身份集中统一历史，其他能力顺序不改。",
-        "limitations": "导航/正文审计不代运行验收；本批有界运行见历史，不认面板Reset、IPC、官方parity或性能收益。"
+        "scope": "保留本批SceneScript证据边界，同步两377双视频用户确认、22秒跨loop正控及Host提交限制；其余正文只做导航审计。",
+        "limitations": "导航/正文审计不代其余运行复验；双视频仅本窗口有界正常，不认官方同phase/parity、逐帧GPU映射、长稳或性能收益。"
       }
     },
     {
@@ -4096,6 +4096,19 @@
       ],
       "cutoffDate": "2026-10-16",
       "uniqueValue": "固定官方24case的Vec3/Vec2缺维数值与独立中性交接、共享ValueHost四方法修复、真实VM及TEXT滞后fixture修正；原包1128首错消失与S3、同窗热改及独立314实图分列，保位置motion/整样本/parity未知和缓存不同无性能结论。"
+    },
+    {
+      "path": "docs/scene/history/video-pair-current-recheck-2026-10-28.md",
+      "role": "historical-evidence",
+      "entrypoint": "docs/scene/history/README.md",
+      "commandPolicy": "historical-only",
+      "currentAuthorities": [
+        "docs/scene/capabilities/runtime-evidence-current.md",
+        "docs/scene/capabilities/scene-sample-debug-ledger.md",
+        "docs/scene/roadmap/scene-open-breakpoint-queue.md"
+      ],
+      "cutoffDate": "2026-10-28",
+      "uniqueValue": "用户确认两377双视频/Xray正常、18秒PTS与22秒跨loop正控、Host提交及单帧跨圈边界，无产品或性能改动。"
     },
     {
       "path": "docs/scene/history/windows-wallpaper-engine-2.8.42-scene-reference-audit-2026-07-25.md",

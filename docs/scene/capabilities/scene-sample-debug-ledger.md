@@ -200,7 +200,7 @@ ready/after PNG SHA-256 为 `123a2da5fef286da492a61b00d96b01def2d74e1bed1a1a7266
 | 3748311238 | 主体人物消失 | 当前HEAD加载`5000×2200`五级atlas和MDLV0023 mesh，9项effect均保持精确atlas尺寸，完整人物持续可见 | strict PASS；本断点关闭，人工整体验收未更新 |
 | 2797913147 | 主体人物消失 | 当前HEAD严格读取52-byte `MDLV0014 + MDLS0002` bind/script geometry，5项effect保持`1406×2500` atlas，完整人物持续进入唯一compositor | strict PASS；本断点关闭，人工整体验收未更新 |
 | 2932631210 / 2813231542 / 3788467391 | 主体人物消失 | 当前签名App定向刷新3/3 strict PASS；普通image/solid Program graph、GPU、compositor、next-frame全部闭合，原分辨率截图确认人物完整持续 | 本断点关闭；人工整体验收未更新 |
-| 3775355045 / 3775373546 | 遮罩下的两层视频数秒后不同步，下层卡顿并落后 | `be9858e` 维护者观察；需比较两层 provider item time、publication 与 mask graph completion | 待复现、待归因 |
+| 3775355045 / 3775373546 | 旧双视频卡顿/落后反馈 | 2026-10-28用户确认及22s跨loop图有界正常，见[复核](../history/video-pair-current-recheck-2026-10-28.md) | 本反馈关闭；不作官方parity |
 | 2684431262 | 合成场景出现异常紫色块 | `be9858e` 维护者观察；需先确定资源解码、format/content contract 或 compositor 首断点 | 待复现、待归因 |
 | 3749463715 | 启动时胸部跳动，胸/身体及手/手臂绑定不同步 | 静态bind attachment未消费current bone pose与同帧shared-pair非原子驻留均已修正；当前MDAT动态follow、真实drag/return、16层graph、四个utility capture和唯一compositor闭合 | fresh strict PASS；人工acceptance与性能仍开放 |
 

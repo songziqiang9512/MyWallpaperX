@@ -1133,12 +1133,12 @@ copied-background+双成员+根invert实际验背景孔、半透明、X/Y越界�
 
 正式包 `.artifacts/scene-evidence/runs/vec3-equals-344-20261021/`保原report/log、五张必要原图、红门/green收据、身份与实图独审；普通14天。归档242行只替344和302、其他240行及顺序不变，目录分母356、人工337 unreviewed/19 fail/0 pass不变；历史混合身份不当全量当前复测。原全量census缓存仍351行，本轮用已有两静态行限定normalizer输入，不重扫样本或改census工具。临时HOME/样本与停用图/重复副本清理，仅保一份最新App及既有增量cache供下一批。
 
-<a id="video-position-publication-20261022"></a>
+<a id="video-position-publication-20261022"></a><a id="video-pair-current-recheck-20261028"></a>
 ## 2026-10-22：视频定位完成、已取像素与呈现提交分责
 
 - [合同](material-video-assets.md#video-position-publication)复用唯一Source/item定位状态；真实seek完成后按最新Scene plan重锚，不再把旧解码序列当目标新帧。普通拒帧只撤提交，保实际backend anchor/EOF；首次start单独回滚。原快照回滚路径删除，至多一份未发布decoded payload供精确目标重试，新定位/commit/stop清理，generation仍仅commit。原priming、同item/UUID迟到拒绝、loop相位及局部last-ready保持。
 - 未改Source的自有红0–4s/蓝4–10s载体，seek6首新generation25仍红；初版定位候选同输入首新26为蓝。该版seek2超时保留，其后固定旧版commit/discard双臂均成功，不能唯一归因该超时。最终Source`c9e89ad6…53764`通过9种首像素/覆盖命令/拒帧场景、两种无后续prepare自然EOF及原暂停/loop等门；联合最近15方法通过，已绿不重复。WebM及重复命令旧门把display deadline当源PTS网格的断言撤除，所有实际帧保留，像素/时钟/EOF/取消门继续执行，不用时间容差挑帧。独立代码审查无must-fix；结构门3项失败在未改HEAD同样存在，等值复核保留，不作本批绿门。
-- 固定fd71880d5加本批overlay，优化Debug构建0警告/错误、签名通过，App`36395ab0…94175`。原包3775373546默认双视频各339次发布、各一次真实EOF，隐藏21被22的实际X-ray Program/GPU/末合成及次帧消费；独立3662390671的WebM185发布359次、一次EOF，人物/日期背景保持。两者各12s、退出0、stop1→0/GPUdrain、原包哈希不变，主画面原图已查看。377的after实际约2.25s，非请求6s；两组截图均在EOF前，后续发布由日志另证。366既有mask/scale脚本诊断保留，矩阵/preview相似度不当整景支持或官方同phase；最终实图独审无must-fix；正式主包`.artifacts/scene-evidence/runs/video-position-publication-20261022/`及独立WebM包`.artifacts/scene-evidence/runs/video-position-publication-webm-20261022/`各≤32MiB/14天。未验Release、HDR/多屏、长稳、真实音频或性能；337秒级空档/动态实例和dormant仍开放，356分母及人工裁决不变。
+- 固定fd71880d5加overlay的签名Debug原377双视频各339次发布/一次EOF，隐藏21经Xray消费；独立3662390671 WebM185发布359次/一次EOF。两者12s、exit0/GPUdrain；原图均在EOF前，377 after实际约2.25s，不能作跨loop图。正式包 `video-position-publication-20261022` 与 `video-position-publication-webm-20261022` 保原身份与边界；2026-10-28用户确认两377及Xray正常，22s遮罩跨loop图有界正常、反馈退出；[复核](../history/video-pair-current-recheck-2026-10-28.md)保Host提交/单帧跨圈、原图及归档边界，不作官方parity。未验Release/HDR、多屏、长稳或性能，337供帧空档与dormant不随此关闭。
 
 <a id="video-publication-demand-20261021"></a>
 ## 2026-10-21：视频多路需求、供帧空档及提取候选撤回

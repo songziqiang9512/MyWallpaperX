@@ -150,7 +150,7 @@
     },
     "docs/scene/capabilities/runtime-evidence-current.md": {
       "lines": 600,
-      "bytes": 219104
+      "bytes": 218855
     },
     "docs/scene/capabilities/runtime-input-property-coverage.md": {
       "lines": 600,
@@ -178,7 +178,7 @@
     },
     "docs/scene/capabilities/scene-sample-debug-ledger.md": {
       "lines": 534,
-      "bytes": 127870
+      "bytes": 127865
     },
     "docs/scene/capabilities/scenescript-api-coverage.md": {
       "lines": 418,
@@ -277,8 +277,8 @@
       "bytes": 22423
     },
     "docs/scene/roadmap/scene-open-breakpoint-queue.md": {
-      "lines": 165,
-      "bytes": 33649
+      "lines": 170,
+      "bytes": 34564
     },
     "docs/web/cold-descriptor-parse-offload-design.md": {
       "lines": 30,
@@ -1442,15 +1442,6 @@
     },
     {
       "section": "bodies",
-      "path": "docs/scene/capabilities/runtime-evidence-current.md",
-      "before": "fdbb9dc95d5afc06eae596628a9e0164b1c468d9f7016d758faa7ce5d111d723",
-      "after": "23a8d5af4ba73e720e84e911b699ea62736371765b6128c89cda5a6567ac0042",
-      "owner": "Scene运行证据索引",
-      "reason": "仅补旧冷暖专项单一历史与当前职责入口，不重资格历史矩阵、性能或正式发布；保原证据等级及档案边界。",
-      "decision": "docs/development/wallpaper-startup-optimization-plan.md#decision"
-    },
-    {
-      "section": "bodies",
       "path": "docs/scene/roadmap/performance-convergence-card.md",
       "before": "1eaf31cac58289626d7639d442d7ca145ec9d29e6f322e6d2af08a306e517047",
       "after": "fea8d0e8f7875d4e629081a03120fceaa0a2fccf7029b29f4d6506dfdc7aa78b",
@@ -1673,6 +1664,15 @@
       "owner": "Scene/Web engine simplification",
       "reason": "P36-P43 current consumer-based simplification verified; retire final three same-producer self-proofs with actual counterfactual results, preserve decoded/dynamic boundaries, reconcile current scope and uncommitted review handoff once. User-authorized Git handoff updates only current prose; product/tests remain exact audited P43 bytes.",
       "decision": "docs/development/validation-simplification-plan.md#p43-producer-self-proofs-and-scope-closeout"
+    },
+    {
+      "section": "bodies",
+      "path": "docs/scene/roadmap/scene-open-breakpoint-queue.md",
+      "before": "5aed58cae6de4e15ae602117f0ebb40bfc6d908b19e8bb208341e019dd9f02f6",
+      "after": "5e16824d9f0430f05a45a74ace6008f35c3d1a0f5868bb1cb506c458d2e06d0e",
+      "owner": "Scene bounded video reconciliation and current user feedback",
+      "reason": "按2026-10-28用户集中必修反馈合并原队列子现象、纠正318归因边界并仅新增三条未实证反馈；两377正常退出，其他旧账与分母不变。",
+      "decision": "docs/scene/roadmap/scene-open-breakpoint-queue.md#user-required-20261028"
     }
   ]
 }
