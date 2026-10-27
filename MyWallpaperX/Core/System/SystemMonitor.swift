@@ -44,7 +44,7 @@ final class SystemMonitor {
     private var lastNetSampleTime: Date = .distantPast
 
     // CPU 上次采样的 ticks
-    private var lastCPUTicks: (user: UInt64, sys: UInt64, idle: UInt64, nice: UInt64) = (0, 0, 0, 0)
+    private var lastCPUTicks: (user: UInt32, sys: UInt32, idle: UInt32, nice: UInt32) = (0, 0, 0, 0)
 
     private init() {}
 
@@ -72,15 +72,16 @@ final class SystemMonitor {
         }
         guard result == KERN_SUCCESS else { return stats.cpuUsage }
 
-        let user = UInt64(info.cpu_ticks.0)
-        let sys  = UInt64(info.cpu_ticks.1)
-        let idle = UInt64(info.cpu_ticks.2)
-        let nice = UInt64(info.cpu_ticks.3)
+        let user = info.cpu_ticks.0
+        let sys  = info.cpu_ticks.1
+        let idle = info.cpu_ticks.2
+        let nice = info.cpu_ticks.3
 
-        let dUser  = user &- lastCPUTicks.user
-        let dSys   = sys  &- lastCPUTicks.sys
-        let dIdle  = idle &- lastCPUTicks.idle
-        let dNice  = nice &- lastCPUTicks.nice
+        // Mach ticks wrap at their native 32-bit width; widen only the deltas.
+        let dUser  = UInt64(user &- lastCPUTicks.user)
+        let dSys   = UInt64(sys  &- lastCPUTicks.sys)
+        let dIdle  = UInt64(idle &- lastCPUTicks.idle)
+        let dNice  = UInt64(nice &- lastCPUTicks.nice)
         let dTotal = dUser + dSys + dIdle + dNice
 
         lastCPUTicks = (user, sys, idle, nice)

@@ -42,6 +42,7 @@
 - [Pixiv在线浏览接入](development/pixiv-online-browser-design.md)：隔离登录会话、排行/搜索/作者、多页图片及共享库接入步骤。
 - [AppKit 迁移](architecture/appkit-migration.md)：当前 SwiftUI 残留和迁移门。
 - [主界面与混合播放列表改造](development/main-window-playlists-redesign.md)：Apple Music 风格的侧栏、统一卡片和逐页工具栏规范，以及关系迁移、跨类型轮换与分批验收；分批实施与验收见专项。
+- [UI正确性与调度审计结算](history/cross-topic/ui-quality-audit-completed-2026-10-27.md)：2026-10-27工作卡、限定回归与未验边界；稳定职责归AppKit合同。
 - [代码精简专项](development/code-slimming-program.md)：无消费者链路、重复计算和校验策略的分批范围与验收。
 - [Web 专题入口](web/README.md)：Web 当前状态、稳定合同和历史导航。
 - [Web 现役状态](web/current-state.md)：当前 Web runtime 事实和待验收项。

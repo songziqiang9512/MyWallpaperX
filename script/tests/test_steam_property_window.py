@@ -149,7 +149,22 @@ final class TraversalView: NSView, WorkshopPropertyKeyTraversal {
         main.contentView!.addSubview(detail)
         main.orderFront(nil)
         let owner = SteamWorkshopPropertyPanelController.shared
-        owner.show(title: "属性调节", subtitle: "测试", content: NSView())
+        // Actual Steam and video detail anchors use 356pt and 368pt. The
+        // standalone window owns its content width; a second required 360pt
+        // constraint on the content root conflicts with those real anchors.
+        for width in [CGFloat(356), 368, 360] {
+            detail.setFrameSize(NSSize(width: width, height: 680))
+            owner.show(title: "属性调节", subtitle: "测试", content: NSView())
+            let panel = owner.window!
+            panel.contentView!.layoutSubtreeIfNeeded()
+            let anchor = main.convertToScreen(detail.convert(detail.bounds, to: nil))
+            precondition(panel.frame.size == anchor.size)
+            precondition(panel.contentView!.bounds.width == anchor.width,
+                         "property content must match the actual inspector width")
+            precondition(panel.minSize == anchor.size && panel.maxSize == anchor.size)
+            precondition(abs(panel.frame.maxX + 12 - anchor.minX) < 1)
+            if width != 360 { owner.close() }
+        }
         let panel = owner.window!
         let anchor = main.convertToScreen(detail.convert(detail.bounds, to: nil))
         precondition(panel.level == .normal && panel.parent == nil)

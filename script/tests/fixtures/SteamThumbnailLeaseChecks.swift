@@ -269,7 +269,6 @@ final class LeaseWriteSequence: @unchecked Sendable {
             diskGate.release()
             checks[label + "OldWriteFinishes"] = pump { diskGate.finished }
             RunLoop.main.run(until: Date().addingTimeInterval(0.05))
-            diskCache.removeAll()
             var persisted: Data?
             diskCache.loadRawDataAsync(forKey: "same-key", loader: { nil }) { persisted = $0 }
             checks[label + "LateWriteCannotOverwriteNewDiskData"] = pump { persisted != nil } && persisted == blue && !oldDelivered
@@ -295,7 +294,7 @@ final class LeaseWriteSequence: @unchecked Sendable {
                 decoder: steamWorkshopPreviewImage(from:)) { completed = $0 != nil }
             let label = clearDirectory ? "derivedDirectoryClear" : "derivedKeyInvalidation"
             checks[label + "StagesBothFilesBeforePublication"] = pump { gate.waiting }
-            if clearDirectory { derived.clearDiskCache() }
+            if clearDirectory { derived.clearAll() }
             else { derived.remove(forKey: "still"); derived.remove(forKey: "raw") }
             gate.release()
             checks[label + "PreservesExistingConsumer"] = pump { completed }

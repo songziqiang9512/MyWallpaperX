@@ -26,7 +26,7 @@
 <section class="guide-section" id="video">
 <div class="section-heading"><h2>Video · A moving picture</h2><span class="tag">VIDEO WALLPAPERS</span></div>
 <p class="lead">Landscapes, animation clips and seamless loops. A video file supplies the picture, making this the most direct way to get started.</p>
-<div class="two-column"><div><h3>What you can do</h3><ul><li>Import local files in My Videos, then organize them with favorites, tags and recently used items.</li><li>Choose loop, sequential or random playback in settings, with automatic switching when needed.</li><li>Adjust playback speed and choose whether the video fits inside or fills the display.</li></ul></div><div><h3>Make it work well</h3><ul><li>Match the video’s proportions to your display. Fill can crop the edges; Fit can leave empty borders.</li><li>Pick clips with a natural transition between the last and first frames for a smoother loop.</li><li>The codec inside an MP4 or MOV must also be supported by macOS. Try the file in a system video player if it will not play.</li></ul></div></div>
+<div class="two-column"><div><h3>What you can do</h3><ul><li>Import local files in My Videos, then organize them with Favorites, playlists and Recently Used.</li><li>Choose loop, sequential or random playback in settings, with automatic switching when needed.</li><li>Adjust playback speed and choose whether the video fits inside or fills the display.</li></ul></div><div><h3>Make it work well</h3><ul><li>Match the video’s proportions to your display. Fill can crop the edges; Fit can leave empty borders.</li><li>Pick clips with a natural transition between the last and first frames for a smoother loop.</li><li>The codec inside an MP4 or MOV must also be supported by macOS. Try the file in a system video player if it will not play.</li></ul></div></div>
 <aside class="tip">
 <strong>Playback settings, rather than author properties</strong>Videos use the app’s volume, speed and playback mode settings. They do not have the author-defined property panels found in Web and Scene projects. Video speed and fill mode are specific to video.
 </aside>
@@ -36,7 +36,7 @@
 <section class="guide-section" id="web">
 <div class="section-heading"><h2>Web · A desktop with a live view</h2><span class="tag web">WEB WALLPAPERS</span></div>
 <p class="lead">Clocks, information displays, web animations and interactive layouts. Each project combines a web page with its resources; the author decides what it does.</p>
-<div class="two-column"><div><h3>What you can do</h3><ul><li>Filter Workshop content by Web, download a project, then play it from Downloaded.</li><li>Open Properties in the item details to change the colors, text, switches and other options the author exposes.</li><li>Supported projects can respond to the pointer or audio, when the author has included those behaviors.</li></ul></div><div><h3>Useful habits</h3><ul><li>Start with the default properties, then change one setting at a time.</li><li>Weather, remote images and other online content may need a connection, even after the project has downloaded.</li><li>For a blank or incomplete page, open Playback Diagnostics in the details and check the entry point, resources and dependencies.</li></ul></div></div>
+<div class="two-column"><div><h3>What you can do</h3><ul><li>Filter Workshop content by Web, download a project, then play it from My Downloads.</li><li>Open Properties in the item details to change the colors, text, switches and other options the author exposes.</li><li>Supported projects can respond to the pointer or audio, when the author has included those behaviors.</li></ul></div><div><h3>Useful habits</h3><ul><li>Start with the default properties, then change one setting at a time.</li><li>Weather, remote images and other online content may need a connection, even after the project has downloaded.</li><li>For a blank or incomplete page, check download tasks and any failure or missing-dependency message in the list. Keep the item link and symptoms when reporting a problem.</li></ul></div></div>
 <aside class="tip">
 <strong>Keep the whole project together</strong>A Web wallpaper is usually more than one HTML file. Do not move individual pages, images or scripts out of its folder. Presets that depend on another project need that base content too. Compatibility varies between projects.
 </aside>
@@ -46,7 +46,7 @@
 <section class="guide-section" id="scene">
 <div class="section-heading"><h2>Scene · A world built in real time</h2><span class="tag scene">REAL-TIME SCENES</span></div>
 <p class="lead">Layers, materials and animation are composed as the wallpaper runs. Supported projects can include depth, particles, dynamic text and reactive effects instead of a prerecorded video.</p>
-<div class="two-column"><div><h3>What you can do</h3><ul><li>Filter Workshop content by Scene, download an item and apply it to the desktop.</li><li>Use Properties to change author-provided colors, switches, values, text or image options.</li><li>Control playback, pause and volume through the shared controls, with energy-saving policies when needed.</li></ul></div><div><h3>Useful habits</h3><ul><li>Choose 30 under Maximum Frame Rate (Scene Engine) to reduce the runtime budget; 60 allows a higher frame-rate ceiling.</li><li>Try the default appearance before adjusting effects. Performance also depends on the complexity of the project.</li><li>For missing layers or unexpected effects, check Playback Diagnostics and keep the item link when reporting the issue.</li></ul></div></div>
+<div class="two-column"><div><h3>What you can do</h3><ul><li>Filter Workshop content by Scene, download an item and apply it to the desktop.</li><li>Use Properties to change author-provided colors, switches, values, text or image options.</li><li>Control playback, pause and volume through the shared controls, with energy-saving policies when needed.</li></ul></div><div><h3>Useful habits</h3><ul><li>Choose 30 under Maximum Frame Rate (Scene Engine) to reduce the runtime budget; 60 allows a higher frame-rate ceiling.</li><li>Try the default appearance before adjusting effects. Performance also depends on the complexity of the project.</li><li>For missing layers or unexpected effects, compare the default properties and keep the item link, screenshot and symptoms when reporting the issue.</li></ul></div></div>
 <aside class="tip">
 <strong>Compatibility is project-specific</strong>Scene compatibility is still being developed. A completed download does not guarantee every effect, script or interaction, or an exact match with Wallpaper Engine. An absent property may simply mean the author did not expose it.
 </aside>
@@ -75,19 +75,19 @@ My videos
 <tbody>
 
 <tr>
-<th scope="row">Circled plus · Import</th><td data-label="What it does">Choose local video files. In selection mode this control becomes Select all.</td>
+<th scope="row">Plus · Import</th><td data-label="What it does">Choose local video files. Use Select to enter multiple selection.</td>
 </tr>
 
 <tr>
-<th scope="row">Circled check · Select</th><td data-label="What it does">Enter or leave selection mode for batch favorites, tags or removal.</td>
+<th scope="row">Circled check · Select</th><td data-label="What it does">Enter or leave selection mode to favorite items, add them to playlists or remove them in batches.</td>
 </tr>
 
 <tr>
-<th scope="row">Left / right arrows</th><td data-label="What it does">Switch installed Video, Web and Scene wallpapers, automatically skipping items with missing dependencies or that cannot be played; these are not page controls.</td>
+<th scope="row">Left / right arrows</th><td data-label="What it does">Follow the current playback sequence through playable images, Video, Web or Scene wallpapers; these are not page controls.</td>
 </tr>
 
 <tr>
-<th scope="row">Trash · Delete</th><td data-label="What it does">In My videos, remove library records and generated caches while keeping source videos. In favorites, recents or a tag, remove only that reference.</td>
+<th scope="row">Trash · Remove</th><td data-label="What it does">Remove items from My Videos while keeping source files and other playlists by default. Files are deleted only when Delete source files from disk is checked; that cannot be undone.</td>
 </tr>
 
 <tr>
@@ -95,7 +95,7 @@ My videos
 </tr>
 
 <tr>
-<th scope="row">Tag · Edit tags</th><td data-label="What it does">Assign tags to selected videos. Create a tag first if none exist.</td>
+<th scope="row">Add to playlist</th><td data-label="What it does">Add selected videos to one or more playlists. Create a playlist from the sidebar or All Playlists.</td>
 </tr>
 
 <tr>
@@ -127,15 +127,15 @@ My images
 <tbody>
 
 <tr>
-<th scope="row">Circled plus · Import</th><td data-label="What it does">Choose local images. In selection mode this becomes Select all / Deselect all.</td>
+<th scope="row">Plus · Import</th><td data-label="What it does">Choose local images. Use Select to enter multiple selection.</td>
 </tr>
 
 <tr>
-<th scope="row">Select / Trash</th><td data-label="What it does">Select multiple images. Delete removes library records, keeping original files; in a tag it removes only the tag association.</td>
+<th scope="row">Select / Trash</th><td data-label="What it does">Select multiple images. Removal affects My Images only and keeps originals and other playlists by default. Check Delete source files from disk to delete the originals.</td>
 </tr>
 
 <tr>
-<th scope="row">Tag</th><td data-label="What it does">Assign tags to selected images. Right-click the sidebar to create an image tag if needed.</td>
+<th scope="row">Add to playlist</th><td data-label="What it does">Add selected images to playlists. The same playlist can contain videos and downloaded Web or Scene wallpapers.</td>
 </tr>
 
 <tr>
@@ -191,42 +191,6 @@ Pixabay · Browse
 <details>
 
 <summary>
-Pixabay · Downloads
-</summary>
-<div class="answer"><div class="table-wrap">
-<table>
-
-<thead>
-
-<tr>
-<th scope="col">Control</th><th scope="col">What it does</th>
-</tr>
-
-</thead>
-
-<tbody>
-
-<tr>
-<th scope="row">Select / Trash</th><td data-label="What it does">Select one or more downloads. Deletion removes downloaded files; read the confirmation carefully.</td>
-</tr>
-
-<tr>
-<th scope="row">Reveal in Finder</th><td data-label="What it does">Locate the selected downloaded file in Finder.</td>
-</tr>
-
-<tr>
-<th scope="row">Sort / thumbnail ± / Search</th><td data-label="What it does">Organize the downloaded list; this does not search Pixabay online.</td>
-</tr>
-
-</tbody>
-
-</table>
-</div></div>
-</details>
-
-<details>
-
-<summary>
 Workshop · Browse and personal lists
 </summary>
 <div class="answer"><div class="table-wrap">
@@ -243,7 +207,7 @@ Workshop · Browse and personal lists
 <tbody>
 
 <tr>
-<th scope="row">Steam account</th><td data-label="What it does">Open sign-in when offline, or view the account, switch accounts and sign out when online.</td>
+<th scope="row">Steam account</th><td data-label="What it does">Open sign-in when offline. Once signed in, open My Subscriptions, switch accounts or sign out.</td>
 </tr>
 
 <tr>
@@ -251,7 +215,7 @@ Workshop · Browse and personal lists
 </tr>
 
 <tr>
-<th scope="row">Source / Personal list</th><td data-label="What it does">Browse Most popular, Newest, Most subscribed or Last updated; personal lists switch between subscriptions and favorites.</td>
+<th scope="row">Source</th><td data-label="What it does">Browse Most popular, Newest, Most subscribed or Last updated. My Subscriptions is in the Steam account menu and requires sign-in; it is separate from local Favorites.</td>
 </tr>
 
 <tr>
@@ -267,7 +231,7 @@ Workshop · Browse and personal lists
 </tr>
 
 <tr>
-<th scope="row">Back arrow · Return to browse</th><td data-label="What it does">After opening an author’s workshop from their name in details, return to the main feed here. Search on an author page filters that author’s works.</td>
+<th scope="row">Back arrow</th><td data-label="What it does">Return from an author’s workshop or My Subscriptions to the previous browse page. Search on an author page filters that author’s works.</td>
 </tr>
 
 </tbody>
@@ -279,7 +243,7 @@ Workshop · Browse and personal lists
 <details>
 
 <summary>
-Workshop · Downloads
+My Downloads
 </summary>
 <div class="answer"><div class="table-wrap">
 <table>
@@ -299,19 +263,19 @@ Workshop · Downloads
 </tr>
 
 <tr>
-<th scope="row">Select / Trash</th><td data-label="What it does">Enter multi-select for batch actions. Deleting downloaded content also deletes its local files. Manage active tasks in the task panel.</td>
+<th scope="row">Select / Trash</th><td data-label="What it does">Manage downloads from Workshop, Pixabay and other sources together. Removal keeps source files and other playlists by default; only Delete source files from disk deletes the files. Manage active tasks in the task panel.</td>
 </tr>
 
 <tr>
-<th scope="row">Filter</th><td data-label="What it does">Show all, Video, Web, Scene, or items with missing dependencies.</td>
+<th scope="row">Filter</th><td data-label="What it does">Filter by source; image, Video, Web or Scene type; and playable, unavailable, downloading or updating, or failed status. Adult-content visibility has its own option.</td>
 </tr>
 
 <tr>
-<th scope="row">Sort</th><td data-label="What it does">Order by update time, name or size, in ascending or descending order.</td>
+<th scope="row">Sort</th><td data-label="What it does">Sort by local record time, name, file size or last successful use, in ascending or descending order.</td>
 </tr>
 
 <tr>
-<th scope="row">Thumbnail ± / Search</th><td data-label="What it does">Resize cards; filter local downloads by title, description, tags, author or ID. Searching does not start a download.</td>
+<th scope="row">Thumbnail ± / Search</th><td data-label="What it does">Resize cards; search by title, source name or playlist name. Workshop items also support descriptions, Workshop tags, author and Steam item IDs. Searching does not start a download.</td>
 </tr>
 
 </tbody>
@@ -321,9 +285,9 @@ Workshop · Downloads
 </details>
 
 <aside class="tip">
-<strong>Inside item details</strong>Properties for Web and Scene opens the author’s controls; Playback diagnostics shows loading and runtime information. An author’s name opens their workshop. Unsubscribing changes the Steam subscription without deleting local files or stopping current playback. Toolbars change with the module; not every button is shown at once.
+<strong>Inside item details</strong>Properties for Web and Scene opens the author’s controls; Reveal in Finder locates local files; an author’s name opens their workshop. Hearts mean local Favorites, while Steam subscriptions use a separate bookmark action. Unsubscribing keeps local files and current playback.
 </aside>
-<p>The MyWallpaperX menu bar icon also opens the main window, imports videos, switches wallpapers, controls play/pause and mute, opens settings and quits.</p>
+<p>The MyWallpaperX menu bar icon opens the main window, switches wallpapers, controls play/pause, mute and volume, opens Properties or settings, and quits.</p>
 </section>
 
 <section class="guide-section" id="search-tips">
@@ -362,7 +326,7 @@ Workshop · Downloads
 </table>
 </div>
 <aside class="tip">
-<strong>Item ID ≠ account SteamID</strong>Use the number from the Workshop item’s detail link. A direct lookup does not guarantee public access or a download. For empty keyword results, clear the query and reduce filters. Search in Downloads only filters local content; it accepts ID forms but does not fetch items from Steam.
+<strong>Item ID ≠ account SteamID</strong>Use the number from the Workshop item’s detail link. A direct lookup does not guarantee public access or a download. For empty keyword results, clear the query and reduce filters. Search in My Downloads only filters local content; it accepts ID forms but does not fetch items from Steam.
 </aside>
 
 </section>
@@ -370,10 +334,10 @@ Workshop · Downloads
 <section class="guide-section" id="workshop">
 <div class="section-heading"><h2>Workshop &amp; downloads</h2><span class="tag">DISCOVER &amp; MANAGE</span></div>
 <p class="lead">Use your Steam account to browse projects, manage subscriptions and download wallpapers. Video, Web and Scene share this workflow.</p>
-<div class="flow" aria-label="Download steps"><span>Sign in to Steam</span><b aria-hidden="true">→</b><span>Search &amp; filter</span><b aria-hidden="true">→</b><span>Download</span><b aria-hidden="true">→</b><span>Play from Downloaded</span></div>
+<div class="flow" aria-label="Download steps"><span>Search &amp; filter</span><b aria-hidden="true">→</b><span>Sign in when prompted</span><b aria-hidden="true">→</b><span>Download</span><b aria-hidden="true">→</b><span>Play from My Downloads</span></div>
 <div class="two-column"><div><h3>Find the right project</h3><ul><li>Open the Steam account control in the toolbar and follow the QR or account verification prompts.</li><li>Choose a content type before searching a theme. My Subscriptions shows the account’s subscribed items.</li><li>Open an item’s details to learn more or explore its author’s work.</li></ul></div><div><h3>Understand the queue</h3><ul><li>The toolbar’s download button shows queued tasks, progress and failure messages.</li><li>Failed items have a Retry button. Address any connection, sign-in or storage issue before retrying.</li><li>Clear All removes completed, failed and cancelled history. It leaves active tasks running and keeps downloaded files.</li></ul></div></div>
 <aside class="tip">
-<strong>History, files and subscriptions are separate</strong>Deleting an item from Workshop → Downloaded removes its corresponding local content. Unsubscribing keeps local files. To tidy task history only, use Clear All in the download panel.
+<strong>Removal, source-file deletion and subscriptions are separate</strong>Removing an item from My Downloads keeps its disk files and other playlists by default. Only Delete source files from disk deletes files, which cannot be undone. Unsubscribing keeps local files; Clear All in the download panel only clears task history.
 </aside>
 <h3 class="subheading">Controls inside Download tasks</h3><div class="table-wrap">
 <table>
@@ -412,9 +376,9 @@ Workshop · Downloads
 
 <section class="guide-section" id="library">
 <div class="section-heading"><h2>A place for every collection</h2><span class="tag">YOUR LIBRARIES</span></div>
-<div class="module-list"><div><h3>My Videos</h3><p>Manage imported videos. Favorites keeps everyday choices close, Recently Used brings back previous wallpapers, and tags organize by mood or purpose.</p></div><div><h3>My Images</h3><p>Still images have their own library and tags. Apply an image directly when you want a quiet desktop without animated playback.</p></div><div><h3>Pixabay</h3><p>Discover online content and manage it in this module’s Downloaded list. If an API key is requested, configure it through the key control in the toolbar.</p></div><div><h3>Workshop downloads</h3><p>Manage downloaded Video, Web and Scene items together. Moving or deleting files outside the app can make a project unavailable; download it again rather than restoring only part of its resources.</p></div></div>
+<div class="module-list"><div><h3>My Videos / My Images</h3><p>Import and manage local videos and images separately. Drag a wallpaper card to a playlist in the sidebar to add it quickly.</p></div><div><h3>My Downloads</h3><p>Manage downloaded content from Workshop, Pixabay and other online sources together. Browse to discover projects; use the library to play and organize them.</p></div><div><h3>All Playlists</h3><p>The first card creates a playlist. Mix images, videos, Web and Scene wallpapers; right-click a playlist to edit its name, cover and description.</p></div><div><h3>Favorites / Recently Used</h3><p>Favorites collects heart-marked local and downloaded wallpapers. Recently Used keeps the latest 50 distinct successfully played wallpapers. Download online results before adding them.</p></div></div>
 <aside class="tip">
-<strong>Select a library before taking an action</strong>Import, search, filter and delete act on the current module. File → Import works in libraries that support importing; it is not a universal importer for Web or Scene files.
+<strong>Removal affects the relationship on the current page</strong>In Favorites it clears the heart; in Recently Used it removes the playback record; in a custom playlist it removes that membership. Source files and other playlists are kept by default. File → Import accepts local videos or images, not Web or Scene projects.
 </aside>
 
 </section>
@@ -482,7 +446,7 @@ Workshop · Downloads
 </tr>
 
 <tr>
-<th scope="row"><kbd>⌘ N</kbd></th><td data-label="Action">New tag</td><td data-label="Where and how">Create a tag in a module that supports tags.</td>
+<th scope="row"><kbd>⌘ N</kbd></th><td data-label="Action">New playlist</td><td data-label="Where and how">Open the playlist editor. You can also create one from the sidebar context menu or the first card in All Playlists.</td>
 </tr>
 
 <tr>
@@ -494,11 +458,11 @@ Workshop · Downloads
 </tr>
 
 <tr>
-<th scope="row"><kbd>⌘ A</kbd></th><td data-label="Action">Select all</td><td data-label="Where and how">Select text in a text field, or items in a supported list. Enter selection mode first in Workshop Downloads.</td>
+<th scope="row"><kbd>⌘ A</kbd></th><td data-label="Action">Select all</td><td data-label="Where and how">Select text in a text field, or items in a supported library or playlist.</td>
 </tr>
 
 <tr>
-<th scope="row"><kbd>⌘ ⌫</kbd></th><td data-label="Action">Delete selected</td><td data-label="Where and how">Follow the current module’s deletion rules; imported originals and online downloads are treated differently.</td>
+<th scope="row"><kbd>⌘ ⌫</kbd></th><td data-label="Action">Remove selected</td><td data-label="Where and how">Open a confirmation. Source files are kept by default; remove only the current library entry or page relationship. Files are deleted only when the checkbox is selected.</td>
 </tr>
 
 <tr>
@@ -510,7 +474,7 @@ Workshop · Downloads
 </tr>
 
 <tr>
-<th scope="row"><kbd>⌘ → / ⌘ ←</kbd></th><td data-label="Action">Next / previous wallpaper</td><td data-label="Where and how">Switch installed Video, Web and Scene wallpapers, automatically skipping items with missing dependencies or that cannot be played; not browser history.</td>
+<th scope="row"><kbd>⌘ → / ⌘ ←</kbd></th><td data-label="Action">Next / previous wallpaper</td><td data-label="Where and how">Follow the current playback sequence through playable images, Video, Web or Scene wallpapers; not browser history.</td>
 </tr>
 
 <tr>
@@ -518,7 +482,7 @@ Workshop · Downloads
 </tr>
 
 <tr>
-<th scope="row"><kbd>⌘ T</kbd></th><td data-label="Action">Add tag</td><td data-label="Where and how">Assign tags to the current selection where supported.</td>
+<th scope="row"><kbd>⌘ T</kbd></th><td data-label="Action">Add to playlist</td><td data-label="Where and how">Add selected local or downloaded wallpapers to playlists.</td>
 </tr>
 
 <tr>
@@ -766,7 +730,7 @@ Download stopped but staging cleanup failed
 <aside class="tip">
 <strong>Wait for Completed, even at 100%</strong>Transfer is followed by validation and saving. Queued, connecting or saving tasks may not show a continuous speed. Resolve the cause before Retry. Clear all removes finished task history while keeping active tasks and downloaded files.
 </aside>
-<p>If a completed Web or Scene item is missing a dependency, use the Missing dependencies filter or its details to inspect the required base item. This differs from an HTTP transfer failure. Reports should include app version and running location, item link/ID, time, full error, whether one or all items fail, and network/proxy use.</p>
+<p>If a completed Web or Scene item is missing a dependency, select Unavailable in My Downloads or open its details to inspect the required base item. This differs from an HTTP transfer failure. Reports should include app version and running location, item link/ID, time, full error, whether one or all items fail, and network/proxy use.</p>
 </section>
 
 <section class="guide-section" id="faq">
@@ -784,7 +748,7 @@ The wallpaper stopped moving. Has the app frozen?
 <summary>
 Why is a Web wallpaper blank or missing some content?
 </summary>
-<p>Make sure the download is complete and check Playback Diagnostics for entry-point or dependency messages. Weather, remote images and other services may be unavailable offline. A lone HTML file may not contain the entire project.</p>
+<p>Make sure the download is complete and check download tasks and any failure or missing-dependency message in the list. Weather, remote images and other services may be unavailable offline. A lone HTML file may not contain the entire project.</p>
 </details>
 
 <details>
@@ -792,7 +756,7 @@ Why is a Web wallpaper blank or missing some content?
 <summary>
 A Scene plays, but looks different from the Workshop preview.
 </summary>
-<p>Check your property changes against the author’s defaults and read the diagnostics. Some effects, scripts and interactions may not yet be fully compatible. Include the item link, app version, a screenshot and the affected part of the picture in your report.</p>
+<p>Check your property changes against the author’s defaults. Some effects, scripts and interactions may not yet be fully compatible. Include the item link, app version, a screenshot and the affected part of the picture in your report.</p>
 </details>
 
 <details>
@@ -808,7 +772,7 @@ A download failed with a 503 error. What should I do?
 <summary>
 Why is a wallpaper still present after clearing the queue?
 </summary>
-<p>Task history and local content are managed separately. Clear All keeps downloaded files. Remove a Workshop wallpaper from its Downloaded list to delete local content; unsubscribing also keeps those files.</p>
+<p>Task history and local content are managed separately. Clear All keeps downloaded files. Remove wallpapers in My Downloads; source files remain unless Delete source files from disk is checked. Unsubscribing also keeps local files.</p>
 </details>
 
 <details>

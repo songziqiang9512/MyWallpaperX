@@ -6,6 +6,7 @@ import tempfile
 import unittest
 
 from script.tests.test_scene_property_live_routing import method_body
+from script.tests.test_video_thumbnail_prefetch import SWIFT_ISOLATION_FLAGS
 
 ROOT = Path(__file__).resolve().parents[2]
 MODULE = ROOT / 'MyWallpaperX/Modules/SteamWorkshop'
@@ -41,6 +42,7 @@ struct NativeWebDescriptor {
     private var reply: ((NSApplication.ModalResponse) -> Void)?
     var cancellations = 0
     override var url: URL? { URL(fileURLWithPath: "/own/selected.png") }
+    override func runModal() -> NSApplication.ModalResponse { .OK }
     override func beginSheetModal(for window: NSWindow, completionHandler handler: @escaping (NSApplication.ModalResponse) -> Void) {
         reply = handler
         Self.opened.append(self)
@@ -286,9 +288,18 @@ extension NSCollectionView {
         popup.selectItem(at: 1); popup.sendAction(popup.action, to: popup.target)
         precondition(service.events.last?.0 == "choice" && service.events.last?.1 == .string("B"))
         let slider = control("rate", WorkshopPropertySlider.self)
+        let beforeQuantizedEcho = service.events.count
+        slider.doubleValue = 0.62; slider.sendAction(slider.action, to: slider.target)
+        precondition(service.events.count == beforeQuantizedEcho && slider.doubleValue == 0.5,
+            "raw movement quantized to the accepted value must snap without another Scene submission")
+        slider.doubleValue = 0.26; slider.sendAction(slider.action, to: slider.target)
         slider.doubleValue = 0.62; slider.sendAction(slider.action, to: slider.target)
         slider.doubleValue = 0.74; slider.sendAction(slider.action, to: slider.target)
         precondition(service.events.suffix(2).map(\.1) == [.number(0.5), .number(0.75)], "continuous Scene step")
+        let afterQuantizedChange = service.events.count
+        slider.doubleValue = 0.76; slider.sendAction(slider.action, to: slider.target)
+        precondition(service.events.count == afterQuantizedChange && slider.doubleValue == 0.75,
+            "a new raw value in the same step must not repeat the accepted Scene edit")
         let bounds = slider.convert(slider.bounds, to: scroll.contentView)
         precondition(bounds.minX >= 0 && bounds.maxX <= scroll.contentView.bounds.width + 0.5, "control clipping")
         let note = row(String(repeating: "长说明 ", count: 60).trimmingCharacters(in: .whitespaces))
@@ -936,6 +947,8 @@ class NativeScenePropertyListTests(unittest.TestCase):
             # Substitute only the system dialog leaf so its asynchronous reply
             # can be delivered after hidden/closed; nonce/window/row owner stays production.
             editor.write_text(EDITOR.read_text().replace('NSOpenPanel()', 'PickerProbe()'))
+            web_editor = Path(folder) / 'WebEditor.swift'
+            web_editor.write_text((MODULE / 'UI/SteamWorkshopWebPropertyEditorView.swift').read_text().replace('NSOpenPanel()', 'PickerProbe()'))
             (Path(folder) / 'WorkshopPropertyDisplayStrings.json').write_bytes((ROOT / 'MyWallpaperX/Resources/WorkshopPropertyDisplayStrings.json').read_bytes())
             sources = [ROOT / 'MyWallpaperX/Shared/WorkshopPropertyDisplayResolver.swift',
                        ROOT / 'MyWallpaperX/Shared/Components/WallpaperFormFieldStyle.swift',
@@ -949,10 +962,10 @@ class NativeScenePropertyListTests(unittest.TestCase):
                        MODULE / 'Web/Core/SteamWorkshopService+WebDisplayConditionParsing.swift',
                        ROOT / 'MyWallpaperX/Shared/UI/InspectorFadingScrollView.swift',
                        ROOT / 'MyWallpaperX/Shared/UI/WorkshopPropertyPanelViews.swift',
-                       MODULE / 'UI/SteamWorkshopWebPropertyEditorView.swift',
+                       web_editor,
                        MODULE / 'UI/WorkshopPropertySlider.swift', editor, path]
             binary = Path(folder) / 'Probe'
-            compiled = subprocess.run(['xcrun', 'swiftc', '-Onone', '-parse-as-library', *map(str, sources), '-o', str(binary)],
+            compiled = subprocess.run(['xcrun', 'swiftc', *SWIFT_ISOLATION_FLAGS, '-Onone', '-parse-as-library', *map(str, sources), '-o', str(binary)],
                                       capture_output=True, text=True, timeout=90)
             self.assertEqual(compiled.returncode, 0, compiled.stderr)
             result = subprocess.run([str(binary)], capture_output=True, text=True, timeout=30)

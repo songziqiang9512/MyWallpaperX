@@ -16,6 +16,96 @@ ROOT = Path(__file__).resolve().parents[2]
 
 
 class LibraryRemoteToolbarTests(unittest.TestCase):
+    def test_online_image_menu_disables_duplicate_starts_during_transfer(self):
+        app = ROOT / 'MyWallpaperX/App/WallpaperLibraryOnlineImages.swift'
+        commands = ROOT / 'MyWallpaperX/App/WallpaperLibraryCommands.swift'
+        recovery = ROOT / 'MyWallpaperX/App/WallpaperLibraryDownloadRecovery.swift'
+        fixture = ROOT / 'script/tests/fixtures/OnlineImageMenuHarness.swift'
+        sources = [ROOT / 'MyWallpaperX' / path for path in [
+            'Shared/Components/ActionMenuItem.swift', 'Models/WallpaperReference.swift',
+            'Models/WallpaperContent.swift', 'Core/OnlineImages/OnlineImageModels.swift',
+            'Core/OnlineImages/OnlineImageContentProjection.swift']]
+        observed = [app, commands, recovery, fixture, *sources, Path(__file__),
+                    ROOT / 'script/tests/test_steam_library_interactions.py',
+                    ROOT / 'script/tests/test_ui_library_algorithms.py']
+        hashes = {str(path): hashlib.sha256(path.read_bytes()).hexdigest() for path in observed}
+        actual = '\n'.join(method(app.read_text(), name) for name in (
+            '    private func menu(', '    private func downloadFirst('))
+        self.assertEqual(actual.count('NSWorkspace.shared.open('), 1)
+        actual = actual.replace('NSWorkspace.shared.open(', 'MenuBrowser.open(')
+        actual_recovery = declaration(recovery.read_text(), '@MainActor enum WallpaperLibraryDownloadRecovery')
+        self.assertEqual(actual_recovery.count('NSWorkspace.shared.open('), 1)
+        actual_recovery = actual_recovery.replace('@MainActor enum ', '@MainActor private enum ', 1)
+        actual_recovery = actual_recovery.replace('NSWorkspace.shared.open(', 'MenuBrowser.open(')
+        template = fixture.read_text()
+        self.assertEqual(template.count('// ACTUAL_IMAGE_MENU'), 1)
+        for marker, body in {
+            '// ACTUAL_LIBRARY_FAVORITE_STATE': declaration(commands.read_text(), 'nonisolated struct WallpaperLibraryFavoriteActionState'),
+            '// ACTUAL_LIBRARY_CONTEXT_MENU': declaration(commands.read_text(), '    func contextMenu('),
+            '// ACTUAL_LIBRARY_DOWNLOAD_RECOVERY': actual_recovery,
+        }.items():
+            self.assertEqual(template.count(marker), 1)
+            template = template.replace(marker, body)
+        with tempfile.TemporaryDirectory(prefix='mwx-online-image-menu-', dir='/private/tmp') as directory:
+            work = Path(directory)
+            frozen = []
+            for path in sources:
+                target = work / path.name; shutil.copy2(path, target); frozen.append(str(target))
+            harness = work / 'Checks.swift'
+            harness.write_text(template.replace('// ACTUAL_IMAGE_MENU', actual))
+            binary = work / 'checks'
+            built = subprocess.run(['xcrun', 'swiftc', *SWIFT_ISOLATION_FLAGS, '-warnings-as-errors', '-parse-as-library',
+                *frozen, str(harness), '-module-cache-path', str(work / 'modules'), '-o', str(binary)],
+                capture_output=True, text=True, timeout=120)
+            self.assertEqual(built.returncode, 0, built.stdout + built.stderr)
+            run = subprocess.run([str(binary)], capture_output=True, text=True, timeout=15)
+            self.assertEqual(run.returncode, 0, run.stdout + run.stderr)
+            self.assertTrue(run.stdout.strip(), run.stderr)
+            checks = json.loads(run.stdout)
+            self.assertTrue(checks)
+            for source in ('wallhaven', 'pixiv'):
+                for scenario in (
+                    'idle-menu-starts-both-original-download-intents',
+                    'idle-actions-keep-the-clicked-artwork-and-apply-meaning',
+                    'busy-menu-disables-start-actions-and-keeps-cancel-source-author',
+                    'cancel-dispatches-to-the-existing-transfer-and-restores-starts',
+                    'held-menu-cannot-start-on-a-different-page',
+                    'owned-modal-input-domain-revokes-held-download',
+                    'published-content-keeps-native-library-actions-without-download-duplicates',
+                    'remote-idle-has-one-source-page',
+                    'remote-busy-has-one-source-page',
+                    'composed-recovery-retries-the-fixed-reference',
+                    'held-page-revokes-recovery-and-source-page',
+                    'epoch-and-modal-revoke-recovery-without-losing-webpage',
+                    'read-only-recovery-fallback-retains-one-online-source-page',
+                    'read-only-source-page-remains-usable',
+                    'read-only-busy-keeps-one-cancel',
+                    'ordinary-library-keeps-original-recovery-page-and-retry',
+                    'ordinary-library-recovery-page-keeps-reference',
+                ):
+                    self.assertIs(checks[f'{source}-{scenario}'], True, run.stdout + run.stderr)
+                for availability in ('available', 'unavailable'):
+                    for scenario in (
+                        'idle-retains-shared-actions-without-transfer-duplicates',
+                        'busy-has-one-shared-cancel-and-keeps-original-actions',
+                        'cancel-dispatches-once-to-the-fixed-asset',
+                        'held-page-revokes-shared-cancel',
+                        'modal-domain-revokes-shared-cancel',
+                        'selection-session-revokes-shared-cancel',
+                        'reset-revokes-shared-cancel',
+                        'next-menu-retains-one-cancel',
+                        'idle-has-one-source-page-and-preserves-retry',
+                        'busy-has-one-source-page-and-preserves-retry',
+                        'source-page-keeps-clicked-artwork',
+                    ):
+                        self.assertIs(checks[f'{source}-local-{availability}-{scenario}'], True,
+                                      run.stdout + run.stderr)
+            self.assertIs(checks['pixiv-author-command-remains-available'], True, run.stdout + run.stderr)
+            for name, passed in checks.items():
+                with self.subTest(name=name): self.assertIs(passed, True, run.stdout + run.stderr)
+            print(json.dumps(checks, sort_keys=True))
+        self.assertEqual(hashes, {str(path): hashlib.sha256(path.read_bytes()).hexdigest() for path in observed})
+
     def test_signout_service_keeps_confirmed_account_intent(self):
         service = ROOT / 'MyWallpaperX/Modules/SteamWorkshop/Core/SteamWorkshopService.swift'
         fixture = ROOT / 'script/tests/fixtures/LibraryToolbarSignoutHarness.swift'

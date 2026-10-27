@@ -100,11 +100,19 @@ enum ScanGate {
     private(set) var clears = 0
     func clear() { clears += 1 }
 }
+@MainActor enum CacheClearTrace { static var events: [String] = [] }
+@MainActor final class SteamWorkshopDownloadThumbnailPipeline {
+    static let shared = SteamWorkshopDownloadThumbnailPipeline()
+    private(set) var invalidations = 0
+    func invalidateCachedResults() {
+        invalidations += 1
+        CacheClearTrace.events.append("generated.invalidate")
+    }
+}
 @MainActor final class SteamWorkshopPreviewImageCache {
     static let shared = SteamWorkshopPreviewImageCache()
-    private(set) var memoryClears = 0, diskClears = 0
-    func removeAll() { memoryClears += 1 }
-    func clearDiskCache() { diskClears += 1 }
+    private(set) var clears = 0
+    func clearAll() { clears += 1; CacheClearTrace.events.append("preview.clear") }
 }
 @MainActor final class CacheClearProgress {
     private(set) var clears = 0
@@ -148,7 +156,10 @@ enum CacheClearOption {
     var detailCancellations = 0, cacheDeletionRequests: [URL] = []
     var cacheDirectoryURL: URL { steamDownloadLibraryRootURL.appendingPathComponent("cache") }
     static func detailCacheDirectoryURL() -> URL { URL(fileURLWithPath: "/private/tmp/fixture-steam-detail-cache") }
-    func clearSteamWorkshopCacheDirectory(_ url: URL) { cacheDeletionRequests.append(url) }
+    func clearSteamWorkshopCacheDirectory(_ url: URL) {
+        cacheDeletionRequests.append(url)
+        CacheClearTrace.events.append(url == cacheDirectoryURL ? "delete.root" : "delete.details")
+    }
     func cancelSelectedItemDetailRefresh() { detailCancellations += 1 }
     init(libraryRoot: URL) {
         steamDownloadLibraryRootURL = libraryRoot
@@ -248,7 +259,10 @@ enum CacheClearOption {
         precondition(browseTask.isCancelled && service.browserFetchTask == nil && service.detailCancellations == 1)
         precondition(service.browserItems.isEmpty && service.displayedBrowserItems.isEmpty && service.retainedBrowseSections.isEmpty)
         precondition(service.cacheDeletionRequests == [service.cacheDirectoryURL, SteamWorkshopService.detailCacheDirectoryURL()])
-        precondition(SteamWorkshopPreviewImageCache.shared.memoryClears == 1 && SteamWorkshopPreviewImageCache.shared.diskClears == 1)
+        precondition(SteamWorkshopPreviewImageCache.shared.clears == 1)
+        precondition(SteamWorkshopDownloadThumbnailPipeline.shared.invalidations == 1
+            && CacheClearTrace.events == ["generated.invalidate", "delete.root", "delete.details", "preview.clear"],
+            "the original service invalidates generated results before deleting its disk root, once")
         precondition(service.steamAuth.accountID == "kept-account" && service.steamAuth.cancellations == 1)
         precondition(service.downloadJobStore.jobs == [retainedJob])
         let jobBytesAfter = try Data(contentsOf: base.appendingPathComponent("jobs.json"))

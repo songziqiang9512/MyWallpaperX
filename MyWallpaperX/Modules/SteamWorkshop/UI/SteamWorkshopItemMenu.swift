@@ -4,7 +4,7 @@ import AppKit
 @MainActor
 enum SteamWorkshopItemMenu {
     static func make(item: SteamWorkshopBrowserItem, service: SteamWorkshopService,
-                     includePrimary: Bool = true, navigationVersion: Int? = nil) -> NSMenu {
+                     includePrimary: Bool = true, includeReveal: Bool = true, navigationVersion: Int? = nil) -> NSMenu {
         let menu = NSMenu()
         menu.autoenablesItems = false
         let epoch = service.steamServiceClient.accountEpoch
@@ -62,7 +62,7 @@ enum SteamWorkshopItemMenu {
         add("打开工坊页面", "safari") { service.openWorkshopDetailPage(for: item) }
         add("复制作品链接", "link") { copy(item.detailURL.absoluteString) }
         add("复制作品 ID", "number") { copy(item.id) }
-        if service.latestDownloadRecord(for: item.id)?.status == .ready {
+        if includeReveal, service.latestDownloadRecord(for: item.id)?.status == .ready {
             menu.addItem(.separator())
             add("在 Finder 中显示", "folder") {
                 guard let current = service.latestDownloadRecord(for: item.id), current.status == .ready else { return }

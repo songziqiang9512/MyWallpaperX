@@ -123,6 +123,18 @@ struct Job { enum State { case failed, queued }; let id: String; let workshopIte
         precondition(navigationService.commands.last == "author:"+item.id && navigationService.commands.count == 5
             && navigationService.steamSubscriptions.writes == 2,
             "Downloads source commands are independent of invisible browser navigation")
+        let standalone = SteamWorkshopItemMenu.make(item: item, service: navigationService)
+        let readySourceOnly = SteamWorkshopItemMenu.make(item: item, service: navigationService, includePrimary: false)
+        let embedded = SteamWorkshopItemMenu.make(item: item, service: navigationService, includePrimary: false, includeReveal: false)
+        precondition(standalone.items.filter { $0.title == "在 Finder 中显示" }.count == 1
+            && readySourceOnly.items.filter { $0.title == "在 Finder 中显示" }.count == 1,
+            "standalone browser and source-only menus retain their original ready-download reveal")
+        precondition(!embedded.items.contains { $0.title == "在 Finder 中显示" }
+            && embedded.items.contains { $0.title == "查看作者工坊" }, "only composition suppresses source-owned reveal")
+        navigationService.record?.status = .failed
+        precondition(!SteamWorkshopItemMenu.make(item: item, service: navigationService).items.contains { $0.title == "在 Finder 中显示" },
+            "failed source downloads still have no standalone reveal")
+        runLibraryMenuCompositionChecks()
         print("Item menu: item, account, subscription, attempt and queued identity dispatch PASS")
     }
     @MainActor static func invoke(_ menu: NSMenu, _ title: String) {

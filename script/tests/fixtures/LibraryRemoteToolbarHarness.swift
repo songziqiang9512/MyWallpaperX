@@ -37,6 +37,7 @@ enum AuthDisplayState { case online, connecting, awaitingInput, expired, failed,
     @Published var facetFilters = 0
     var personalSort = SteamWorkshopPersonalSort.name
     var browserQuery = "" { didSet { queries.append(browserQuery) } }
+    var navigationVersion = 0
     var queries: [String] = []
     var activeFilterSummary = "全部"
     var authorWorkshopReturnDestination: (title: String, marker: Int)? = ("返回创意工坊", 0)
@@ -76,12 +77,14 @@ enum AuthDisplayState { case online, connecting, awaitingInput, expired, failed,
     @Published var toolbarQuery = ""
     @Published var currentParams = OnlineLibrarySearchParams()
     var apiKey = "fixture-key"
+    var hasLoadedOnce = false
     var searches: [OnlineLibrarySearchParams] = []
     var refreshes = 0
     func searchWithCurrentContext(query: String? = nil, category: OnlineLibraryCategory? = nil, order: OnlineLibraryOrder? = nil) {
-        if let query { currentParams.query = query }
+        currentParams.query = query ?? toolbarQuery
         if let category { currentParams.category = category }
         if let order { currentParams.order = order }
+        hasLoadedOnce = true
         searches.append(currentParams)
     }
     func refresh() { refreshes += 1 }
@@ -370,8 +373,53 @@ extension Notification.Name {
         await settle(0.30)
         checks["steam-original-search-debounce-merges-to-the-latest-query"] = service.queries == ["last"]
         if checks["steam-original-search-debounce-merges-to-the-latest-query"] != true {
-            diagnostic("Steam debounce: queries=\(service.queries), pending=\(steam.searchDebounceWorkItems.count), field=\(steam.searchField.stringValue)")
+            diagnostic("Steam debounce: queries=\(service.queries), pending=\(steam.searchDebounceWorkItem != nil), field=\(steam.searchField.stringValue)")
         }
+        let beforeNavigation = service.queries.count
+        steam.searchField.stringValue = "old discovery draft"
+        steam.controlTextDidChange(.init(name: NSControl.textDidChangeNotification, object: steam.searchField))
+        service.navigationVersion += 1
+        service.browserQuery = "new author context"
+        await settle(0.30)
+        checks["steam-pending-discovery-query-cannot-filter-a-new-author-or-feed"] = service.queries.count == beforeNavigation + 1
+            && service.browserQuery == "new author context" && steam.searchDebounceWorkItem == nil
+        steam.searchField.stringValue = "fresh author draft"
+        steam.controlTextDidChange(.init(name: NSControl.textDidChangeNotification, object: steam.searchField))
+        await settle(0.30)
+        checks["steam-current-navigation-keeps-the-original-search-consumer"] = service.queries.count == beforeNavigation + 2
+            && service.browserQuery == "fresh author draft"
+        let beforeLeavingSteam = service.queries.count
+        steam.searchField.stringValue = "retired page draft"
+        steam.controlTextDidChange(.init(name: NSControl.textDidChangeNotification, object: steam.searchField))
+        NotificationCenter.default.post(name: .steamWorkshopModeDidChange, object: nil, userInfo: ["enabled": false])
+        await settle(0.30)
+        checks["steam-leaving-retires-the-deadline-without-dropping-the-unsubmitted-draft"] = service.queries.count == beforeLeavingSteam
+            && steam.searchDebounceWorkItem == nil && steam.pendingSearchInput?.text == "retired page draft"
+        NotificationCenter.default.post(name: .steamWorkshopModeDidChange, object: nil, userInfo: ["enabled": true, "isDownloads": false])
+        await settle(0.30)
+        checks["steam-return-to-the-same-navigation-consumes-the-draft-once"] = service.queries.count == beforeLeavingSteam + 1
+            && service.browserQuery == "retired page draft" && steam.searchField.stringValue == "retired page draft"
+            && steam.searchDebounceWorkItem == nil && steam.pendingSearchInput == nil
+        let beforeDownloads = service.queries.count
+        steam.searchField.stringValue = "draft before downloads"
+        steam.controlTextDidChange(.init(name: NSControl.textDidChangeNotification, object: steam.searchField))
+        NotificationCenter.default.post(name: .steamWorkshopModeDidChange, object: nil, userInfo: ["enabled": true, "isDownloads": true])
+        await settle(0.30)
+        checks["steam-downloads-does-not-submit-the-previous-browser-draft"] = service.queries.count == beforeDownloads
+        NotificationCenter.default.post(name: .steamWorkshopModeDidChange, object: nil, userInfo: ["enabled": true, "isDownloads": false])
+        checks["steam-return-from-downloads-keeps-the-same-browser-draft"] = service.queries.count == beforeDownloads + 1
+            && service.browserQuery == "draft before downloads" && steam.pendingSearchInput == nil
+        let beforeChangedNavigation = service.queries.count
+        steam.searchField.stringValue = "obsolete navigation draft"
+        steam.controlTextDidChange(.init(name: NSControl.textDidChangeNotification, object: steam.searchField))
+        NotificationCenter.default.post(name: .steamWorkshopModeDidChange, object: nil, userInfo: ["enabled": false])
+        service.navigationVersion += 1
+        service.browserQuery = "new feed query"
+        NotificationCenter.default.post(name: .steamWorkshopModeDidChange, object: nil, userInfo: ["enabled": true, "isDownloads": false])
+        await settle(0.30)
+        checks["steam-return-after-real-navigation-retires-the-previous-draft"] = service.queries.count == beforeChangedNavigation + 1
+            && service.browserQuery == "new feed query" && steam.searchField.stringValue == "new feed query"
+            && steam.pendingSearchInput == nil
         service.source = .featured
         await install(steam.browserIdentifiers, factory: steam.makeItem(for:))
         window.setContentSize(NSSize(width: 600, height: 500)); await settle()
@@ -523,6 +571,22 @@ extension Notification.Name {
         if checks["pixabay-original-search-debounce-merges-to-the-latest-query"] != true {
             diagnostic("Pixabay debounce: prior=\(priorSearchCount), count=\(onlineService.searches.count), queries=\(onlineService.searches.map(\.query)), field=\(online.searchField.stringValue), context=\(onlineService.toolbarQuery)")
         }
+        let beforeImmediateCategory = onlineService.searches.count
+        online.searchField.stringValue = "draft with category"
+        online.controlTextDidChange(.init(name: NSControl.textDidChangeNotification, object: online.searchField))
+        menu(online.categoryToolbarItem).performActionForItem(at: OnlineLibraryCategory.allCases.firstIndex(of: .all)!)
+        await settle(0.45)
+        checks["pixabay-immediate-category-consumes-the-current-draft-without-a-second-debounce-request"] =
+            onlineService.searches.count == beforeImmediateCategory + 1 && onlineService.searches.last?.query == "draft with category"
+            && onlineService.searches.last?.category == .all
+        let beforeImmediateOrder = onlineService.searches.count
+        online.searchField.stringValue = "draft with order"
+        online.controlTextDidChange(.init(name: NSControl.textDidChangeNotification, object: online.searchField))
+        menu(online.orderToolbarItem).performActionForItem(at: OnlineLibraryOrder.allCases.firstIndex(of: .popular)!)
+        await settle(0.45)
+        checks["pixabay-immediate-order-consumes-the-current-draft-without-a-second-debounce-request"] =
+            onlineService.searches.count == beforeImmediateOrder + 1 && onlineService.searches.last?.query == "draft with order"
+            && onlineService.searches.last?.order == .popular
         let countBeforeSourceEcho = onlineService.searches.count
         onlineService.toolbarCategory = .all
         onlineService.currentParams.order = .popular
@@ -559,11 +623,31 @@ extension Notification.Name {
             && [online.categoryToolbarItem, online.orderToolbarItem, online.settingsToolbarItem].allSatisfy { $0.menuFormRepresentation?.submenu?.items.contains { $0.isEnabled } == true }
         checks["pixabay-collapsed-search-expands-the-original-native-field"] = await searchInteraction(online.searchToolbarItem, label: "Pixabay", begin: online.focusSearch)
         let heldCategory = menu(online.categoryToolbarItem).items[0]
+        let submittedQuery = onlineService.currentParams.query
+        online.searchField.stringValue = "draft retained for return"
+        online.controlTextDidChange(.init(name: NSControl.textDidChangeNotification, object: online.searchField))
         NotificationCenter.default.post(name: .onlineLibraryModeDidChange, object: nil, userInfo: ["enabled": false])
         let countBeforeLeaving = onlineService.searches.count
         NSApp.sendAction(heldCategory.action!, to: heldCategory.target, from: heldCategory)
         apiMenu.performActionForItem(at: 2)
         checks["leaving-pixabay-revokes-held-source-menu-actions"] = onlineService.searches.count == countBeforeLeaving && apiClears == 1
+        await settle(0.45)
+        checks["pixabay-leaving-retires-pending-network-work-without-dropping-the-draft"] = onlineService.searches.count == countBeforeLeaving
+            && onlineService.toolbarQuery == "draft retained for return" && onlineService.currentParams.query == submittedQuery
+        NotificationCenter.default.post(name: .onlineLibraryModeDidChange, object: nil, userInfo: ["enabled": true])
+        await settle(0.45)
+        checks["pixabay-return-submits-the-unfulfilled-draft-once-through-the-original-owner"] = onlineService.searches.count == countBeforeLeaving + 1
+            && onlineService.searches.last?.query == "draft retained for return"
+        NotificationCenter.default.post(name: .onlineLibraryModeDidChange, object: nil, userInfo: ["enabled": false])
+        NotificationCenter.default.post(name: .onlineLibraryModeDidChange, object: nil, userInfo: ["enabled": true])
+        await settle(0.45)
+        checks["pixabay-fulfilled-query-does-not-request-again-on-a-page-roundtrip"] = onlineService.searches.count == countBeforeLeaving + 1
+        NotificationCenter.default.post(name: .onlineLibraryModeDidChange, object: nil, userInfo: ["enabled": false])
+        onlineService.hasLoadedOnce = false
+        onlineService.toolbarQuery = "initial draft"
+        NotificationCenter.default.post(name: .onlineLibraryModeDidChange, object: nil, userInfo: ["enabled": true])
+        await settle()
+        checks["pixabay-first-load-stays-with-the-original-browser-initialization-owner"] = onlineService.searches.count == countBeforeLeaving + 1
         let stock = NSSearchToolbarItem(itemIdentifier: .init("native-stock-search"))
         stock.preferredWidthForSearchField = 240; stock.visibilityPriority = .high
         await install(online.onlineIdentifiers.map { $0 == .olSearch ? stock.itemIdentifier : $0 }) { id in

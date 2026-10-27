@@ -6,7 +6,7 @@
   "bodies": {
     "docs/architecture/appkit-migration.md": {
       "lines": 213,
-      "bytes": 20856
+      "bytes": 20793
     },
     "docs/architecture/playback-lifecycle-transaction-design.md": {
       "lines": 50,
@@ -30,7 +30,7 @@
     },
     "docs/development/apple-silicon-optimization-plan.md": {
       "lines": 554,
-      "bytes": 116551
+      "bytes": 116578
     },
     "docs/development/code-slimming-program.md": {
       "lines": 451,
@@ -102,7 +102,7 @@
     },
     "docs/scene/capabilities/advanced-object-coverage.md": {
       "lines": 388,
-      "bytes": 81466
+      "bytes": 81456
     },
     "docs/scene/capabilities/alpha-display-fallback-design.md": {
       "lines": 124,
@@ -126,7 +126,7 @@
     },
     "docs/scene/capabilities/lighting-sample-inventory.md": {
       "lines": 126,
-      "bytes": 10796
+      "bytes": 10776
     },
     "docs/scene/capabilities/material-video-assets.md": {
       "lines": 37,
@@ -326,7 +326,7 @@
     },
     "docs/development/main-window-playlists-redesign.md": {
       "lines": 599,
-      "bytes": 116266
+      "bytes": 116265
     },
     "docs/development/status-bar-panel-redesign.md": {
       "lines": 117,
@@ -1217,7 +1217,7 @@
       "source": "docs/development/wallpaper-startup-optimization-plan.md",
       "archive": "docs/history/cross-topic/wallpaper-startup-optimization-completed-2026-10-25.md",
       "originalBodySHA256": "47fe0c7f084b6fab3c630a6739ec09928b7597b9a79ff1c3c30e30a7145ef210",
-      "preservedBodySHA256": "4f9ec75dea43d876e7f5b6bf67ab6799e741ab8f75ed4932cfadca7ff153583e",
+      "preservedBodySHA256": "055d15beea3dfc4c3ae50c183dcb5b955e647d13c8476f5960036647fd456db9",
       "anchors": [
         "decision",
         "d23-idle-admission",
@@ -1351,6 +1351,17 @@
       "originalBodySHA256": "d6b6ade8f0a90f6571ebdeeeb840e04e55461b056841a92fed0d6124c5e5e3c3",
       "originalLines": 600,
       "originalBytes": 154390
+    },
+    {
+      "source": "docs/development/ui-quality-audit.md",
+      "archive": "docs/history/cross-topic/ui-quality-audit-completed-2026-10-27.md",
+      "anchors": [
+        "scope",
+        "coverage",
+        "work-cards",
+        "evidence"
+      ],
+      "preservedBodySHA256": "64be77fdf43ae1b3e511d8257ac4c29c7ab64a1d9fb8e5656565ec3eec004a29"
     }
   ],
   "snapshots": [
@@ -1459,29 +1470,29 @@
     {
       "section": "archives",
       "path": "docs/history/cross-topic/wallpaper-startup-optimization-completed-2026-10-25.md",
-      "before": "74234e98afe7498fb5daf1f36ac2d78acc339464f950703b8c019892f982b90b",
-      "after": "37c63274d434e8a3141286496ad0ab73134b6e6b1191065d46fa090fab6e57d3",
-      "owner": "旧启动专项档案保留",
-      "reason": "登记唯一原专项保存载荷、原文身份与六个永久锚点；当前纠正方案另有现役权威，原失败/STOP及未覆盖结果不被导航复核改写。",
-      "decision": "docs/development/wallpaper-startup-optimization-plan.md#decision"
+      "before": "37c63274d434e8a3141286496ad0ab73134b6e6b1191065d46fa090fab6e57d3",
+      "after": "0be320ad856ec3bc144a4e86f3ee3eca3eff8aed148db4eaede620b8e817124b",
+      "owner": "UI audit documentation closeout",
+      "reason": "真实全仓链接门发现既有退役源码/忽略本机产物链接；只改路径表达并保原能力/历史事实，精确登记正文预算及同步受保护载荷身份。",
+      "decision": "docs/development/ui-quality-audit.md#evidence"
     },
     {
       "section": "bodies",
       "path": "docs/scene/capabilities/advanced-object-coverage.md",
-      "before": "8a0a7f7d0be8c438e771e10bfa0dfbe42451b221d56e46da495adf8ef994a4b6",
-      "after": "4ae23a17b3e97cba88122f785769a61e438306575051046df0a66e12477451e8",
-      "owner": "Scene 当前能力与资源读取导航",
-      "reason": "P20退役模型64部件/4096路径固定政策；同步实际Root/Builder/native正反例、原输入对照、当前边界和治理指针，其他预算不变。",
-      "decision": "docs/development/validation-simplification-plan.md#p20-mdl-policy-retirement"
+      "before": "4ae23a17b3e97cba88122f785769a61e438306575051046df0a66e12477451e8",
+      "after": "d36707b19940004cd8edfe7893b5daa3897abf10edfd52ee8e13b00574f660b8",
+      "owner": "UI audit documentation closeout",
+      "reason": "真实全仓链接门发现既有退役源码/忽略本机产物链接；只改路径表达并保原能力/历史事实，精确登记正文预算及同步受保护载荷身份。",
+      "decision": "docs/development/ui-quality-audit.md#evidence"
     },
     {
       "section": "bodies",
       "path": "docs/architecture/appkit-migration.md",
-      "before": "89cc7e712ae599716b1916d7f0528eb16c31bda33b2102a607456f8c6d814e26",
-      "after": "37ef47c2675506f1263d0f463a07b392de0ba23577eac83e25d05c7ef6bce060",
-      "owner": "main-window-playlists-design",
-      "reason": "同步实际主窗口/源UI退休职责，保历史批次与未验收边界。",
-      "decision": "docs/development/main-window-playlists-redesign.md#documentation-decision"
+      "before": "37ef47c2675506f1263d0f463a07b392de0ba23577eac83e25d05c7ef6bce060",
+      "after": "c83800387b8a6df0b11593c5f942f49927aaa879a69884a058d4f04f58124482",
+      "owner": "UI correctness and scheduling audit",
+      "reason": "同步唯一缩略图producer、显式全清与失败裁决职责，退役旧双分支设计和旧scan-hint暖图例外；正文净减少并收紧预算。",
+      "decision": "docs/development/ui-quality-audit.md#scope"
     },
     {
       "section": "bodies",
@@ -1495,20 +1506,20 @@
     {
       "section": "bodies",
       "path": "docs/development/apple-silicon-optimization-plan.md",
-      "before": "3769b832b216646674ed5ac16bbc2ade02d6c156d440747f0d6a64a99e867a45",
-      "after": "23565c923029a42637a1e14549fc3aa383421c594bf1ad2d67da5a636815e7ac",
-      "owner": "main-window-playlists-design",
-      "reason": "原独立Grid退休后同步T11真实worker与共享窗口验证入口，不改其他优化结论或宣称性能提升。",
-      "decision": "docs/development/main-window-playlists-redesign.md#documentation-decision"
+      "before": "23565c923029a42637a1e14549fc3aa383421c594bf1ad2d67da5a636815e7ac",
+      "after": "c09aa27626c7d2b0bb9141f79dc08139f4541ef283a056e69d762106981ddf7f",
+      "owner": "UI audit documentation closeout",
+      "reason": "真实全仓链接门发现既有退役源码/忽略本机产物链接；只改路径表达并保原能力/历史事实，精确登记正文预算及同步受保护载荷身份。",
+      "decision": "docs/development/ui-quality-audit.md#evidence"
     },
     {
       "section": "bodies",
       "path": "docs/development/main-window-playlists-redesign.md",
-      "before": "9d7be5cd00d20d01472ed7877784bc749faddada0267a5cb5f70c8e9d698e260",
-      "after": "53148dfe4e3a1377efeffc2a0e7b219ae303173b8a3be163250c510821b016ca",
-      "owner": "main-window-ui-compact-input-subscriptions",
-      "reason": "压缩旧过程至原文归档，保留当前视觉与功能规则，更新F01–F04实施、最近回归、Debug及有序整合边界；正文预算收紧至当前实际值，600行上限不变。",
-      "decision": "docs/development/main-window-playlists-redesign.md#compact-input-subscriptions-round"
+      "before": "53148dfe4e3a1377efeffc2a0e7b219ae303173b8a3be163250c510821b016ca",
+      "after": "f4be28a4a945d1b6160d19b407aac1ae7e84ac974fe717f2e78d6665d3134a38",
+      "owner": "UI correctness and scheduling audit",
+      "reason": "主界面规则保留唯一视觉权威，后续UI审计已结算归档，正文入口同步历史记录。",
+      "decision": "docs/development/ui-quality-audit.md#scope"
     },
     {
       "section": "archives",
@@ -1644,6 +1655,15 @@
       "owner": "repository-maintainer",
       "reason": "P0–P27 completed narrative preserved once, relative links reversibly relocated; active plan retains current requirements/coverage and actual pending work.",
       "decision": "docs/development/validation-simplification-plan.md#文档职责与归档决策"
+    },
+    {
+      "section": "archives",
+      "path": "docs/history/cross-topic/ui-quality-audit-completed-2026-10-27.md",
+      "before": "74234e98afe7498fb5daf1f36ac2d78acc339464f950703b8c019892f982b90b",
+      "after": "f06d90f47a5ce4970d4212196810b9586f9f3a4d4518702eac81c431bf49612c",
+      "owner": "UI correctness and scheduling audit",
+      "reason": "本轮已证问题/独审/相称门及Debug闭合，稳定职责回AppKit合同，完整工作卡与失败边界归档，原URL四锚点保留。",
+      "decision": "docs/development/ui-quality-audit.md#scope"
     }
   ]
 }

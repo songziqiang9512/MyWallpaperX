@@ -175,15 +175,18 @@ nonisolated final class ThumbnailCache: @unchecked Sendable {
 
     /// Memory hits deliver synchronously. Short disk reads never wait behind
     /// a slow synchronous video generator. A nil cancellation pins legacy work.
+    /// cachesFailure controls negative lookup/creation; a successful cached
+    /// image still retires an older failure for the same key.
     func load(
         forKey key: String,
         priority: ThumbnailCacheRequestPriority = .visible,
         cancellation: (any ThumbnailCacheLoadCancellation)? = nil,
+        cachesFailure: Bool = true,
         loader: @escaping () -> NSImage?,
         completion: @escaping (NSImage?) -> Void
     ) {
         loadSynchronously(forKey: key, priority: priority, cancellation: cancellation,
-            cachesFailure: true, decoder: Self.decodeStoredImage, generate: {
+            cachesFailure: cachesFailure, decoder: Self.decodeStoredImage, generate: {
                 let image = loader()
                 return (image, image.flatMap(Self.jpegData))
             }, completion: completion)
@@ -515,8 +518,10 @@ nonisolated final class ThumbnailCache: @unchecked Sendable {
         if request.allowsCaching {
             if let staged { _ = rename(staged.path, outputURL.path) }
             if let rawStaged, let sourceDataURL { _ = rename(rawStaged.path, sourceDataURL.path) }
-            if let image { imageCache.setObject(image, forKey: key as NSString, cost: Self.memoryCost(of: image)) }
-            else if cachesFailure { failureCache?.setObject(NSNumber(value: true), forKey: key as NSString) }
+            if let image {
+                failureCache?.removeObject(forKey: key as NSString)
+                imageCache.setObject(image, forKey: key as NSString, cost: Self.memoryCost(of: image))
+            } else if cachesFailure { failureCache?.setObject(NSNumber(value: true), forKey: key as NSString) }
         }
         let completions = Array(request.imageCompletions.values)
         request.imageCompletions.removeAll()
@@ -619,9 +624,16 @@ nonisolated final class ThumbnailCache: @unchecked Sendable {
         }
     }
 
-    /// 清空内存缓存（磁盘缓存保留）
-    func removeAll() {
+    /// Explicitly clear this namespace as one transaction. Existing consumers
+    /// still finish, while their old producers cannot refill any cache tier.
+    func clearAll() {
+        lock.lock()
+        defer { lock.unlock() }
+        for request in requests.values { request.allowsCaching = false }
         imageCache.removeAllObjects()
+        failureCache?.removeAllObjects()
+        try? FileManager.default.removeItem(at: diskCacheDir)
+        try? FileManager.default.createDirectory(at: diskCacheDir, withIntermediateDirectories: true)
     }
 
     func remove(forKey key: String) {
@@ -633,6 +645,7 @@ nonisolated final class ThumbnailCache: @unchecked Sendable {
         requests[.raw(key)]?.allowsCaching = false
         for request in requests.values where request.sourceDataKey == key { request.allowsCaching = false }
         imageCache.removeObject(forKey: key as NSString)
+        failureCache?.removeObject(forKey: key as NSString)
         try? FileManager.default.removeItem(at: diskCacheURL(for: key))
     }
 
@@ -641,15 +654,14 @@ nonisolated final class ThumbnailCache: @unchecked Sendable {
         imageCache.object(forKey: key as NSString)
     }
 
-    /// 清空本实例 namespace 的磁盘缓存（实例级，「清除缓存」显式清单逐目录调用）。
-    /// 不提供静态整根清除入口：整根删除会连带删掉其他 namespace 子目录，
-    /// 而实例 init 每进程仅执行一次、无目录重建路径，清除后磁盘写入会静默失败。
-    func clearDiskCache() {
-        lock.lock()
-        defer { lock.unlock() }
-        for request in requests.values { request.allowsCaching = false }
-        try? FileManager.default.removeItem(at: diskCacheDir)
-        try? FileManager.default.createDirectory(at: diskCacheDir, withIntermediateDirectories: true)
+    /// A completed image or negative result is warm; an invalidated producer's
+    /// uncached nil is retryable. This query never reads disk or starts work.
+    func hasCachedResult(forKey key: String) -> Bool {
+        imageCache.object(forKey: key as NSString) != nil || failureCache?.object(forKey: key as NSString) != nil
+    }
+
+    func hasCachedFailure(forKey key: String) -> Bool {
+        failureCache?.object(forKey: key as NSString) != nil
     }
 
     /// 共享磁盘惰性淘汰：总量上限 + 限频扫描 + LRU 淘汰。

@@ -13,6 +13,10 @@ final class SILInspectorView: NSView {
     private var libraryActions: WallpaperInspectorActions
     private weak var primaryButton: InspectorFooterButton?
     private weak var playlistButton: InspectorFooterButton?
+    private var renderedWallpaper: SILWallpaper?
+    private var previewPath: String?
+    private var previewCancellation: ThumbnailCacheRequestCancellation?
+    private var hasMounted = false
 
     private var wallpaper: SILWallpaper {
         service.wallpapers.first { $0.id.utf8.elementsEqual(wallpaperID.utf8) } ?? initialWallpaper
@@ -34,15 +38,32 @@ final class SILInspectorView: NSView {
         nil
     }
 
+    deinit { previewCancellation?.cancel() }
+
+    override func viewDidMoveToWindow() {
+        super.viewDidMoveToWindow()
+        if window != nil {
+            hasMounted = true
+            if previewCancellation?.cancelled == true { loadPreviewImage() }
+        } else if hasMounted {
+            previewCancellation?.cancel()
+        }
+    }
+
     /// 预览图异步加载（共享缓存内存命中同步回调，其余后台解码后主线程补图）
     private let previewSurface = SILInspectorPreviewSurfaceView(image: nil)
     private lazy var previewHeightConstraint = previewSurface.heightAnchor.constraint(equalToConstant: 156)
 
     private func loadPreviewImage() {
+        guard !hasMounted || window != nil else { return }
+        previewCancellation?.cancel()
+        let cancellation = ThumbnailCacheRequestCancellation()
+        previewCancellation = cancellation
         let sourcePath = wallpaper.path
+        previewPath = sourcePath
         // 与 SIL 网格共用同一缓存键（图片路径）：网格已解码 512px 版本时直接命中，
         // 未命中才在本 loader 里按 Inspector 预览所需尺寸（156pt 高 → 800px）后台降采样解码。
-        SILThumbnailStore.sharedCache.load(forKey: sourcePath, loader: {
+        SILThumbnailStore.sharedCache.load(forKey: sourcePath, cancellation: cancellation, cachesFailure: false, loader: {
             guard let source = CGImageSourceCreateWithURL(URL(fileURLWithPath: sourcePath) as CFURL, nil) else { return nil }
             let options: [CFString: Any] = [
                 kCGImageSourceThumbnailMaxPixelSize: 800,
@@ -52,7 +73,8 @@ final class SILInspectorView: NSView {
             guard let cgImage = CGImageSourceCreateThumbnailAtIndex(source, 0, options as CFDictionary) else { return nil }
             return NSImage(cgImage: cgImage, size: .zero)
         }, completion: { [weak self] image in
-            self?.previewSurface.updateImage(image)
+            guard let self else { return }
+            self.previewSurface.updateImage(image)
         })
     }
 
@@ -145,6 +167,7 @@ final class SILInspectorView: NSView {
 
     private func rebuildContent() {
         guard let contentStack else { return }
+        renderedWallpaper = wallpaper
         contentStack.arrangedSubviews.forEach {
             contentStack.removeArrangedSubview($0)
             $0.removeFromSuperview()
@@ -333,7 +356,8 @@ final class SILInspectorView: NSView {
         primaryButton?.setTitle(actions.state.isPlaying ? "已应用" : "设为壁纸")
         primaryButton?.setSymbol(actions.state.isPlaying ? "checkmark.circle.fill" : "photo.fill", accessibilityDescription: actions.state.isPlaying ? "已应用" : "设为壁纸")
         playlistButton?.isEnabled = actions.state.canOrganize
-        if changed { rebuildContent() }
+        if changed || renderedWallpaper != wallpaper { rebuildContent() }
+        if previewPath != wallpaper.path { loadPreviewImage() }
     }
 
     @objc private func setAsDesktopWallpaper() {

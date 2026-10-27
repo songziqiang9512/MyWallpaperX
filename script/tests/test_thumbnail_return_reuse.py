@@ -63,6 +63,14 @@ class ThumbnailReturnReuseTests(unittest.TestCase):
             prefetch_copy = work / prefetch_source.name
             prefetch_copy.write_text(observed)
             sources[sources.index(prefetch_source)] = prefetch_copy
+            # Keep the eight local and twelve GIF disk-return assertions as
+            # memory-only eviction of the original decoded owner.
+            cache_source = shared / "ThumbnailCache.swift"
+            cache = cache_source.read_text()
+            self.assertEqual(cache.count("private let imageCache:"), 1)
+            cache_copy = work / "ThumbnailCache.swift"
+            cache_copy.write_text(cache.replace("private let imageCache:", "let imageCache:", 1))
+            sources[sources.index(cache_source)] = cache_copy
             build = subprocess.run(["xcrun", "swiftc", *SWIFT_ISOLATION_FLAGS, "-warnings-as-errors", "-parse-as-library", *map(str, sources),
                 "-module-cache-path", str(work / "modules"), "-o", str(work / "checks")],
                 capture_output=True, text=True, timeout=120)

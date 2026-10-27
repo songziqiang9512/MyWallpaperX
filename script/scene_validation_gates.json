@@ -2430,7 +2430,8 @@
         "script/tests/fixtures/SceneRetiredCallbackLiveUpdateChecks.swift",
         "script/tests/fixtures/ScenePropertyPresentationChecks.swift",
         "script/tests/fixtures/WebPropertyPresentationChecks.swift",
-        "MyWallpaperX/Shared/UI/WorkshopPropertyPanelViews.swift"
+        "MyWallpaperX/Shared/UI/WorkshopPropertyPanelViews.swift",
+        "script/tests/test_steam_property_window.py"
       ],
       "modules": [
         "test_scene_detail_diagnostics_on_demand",
@@ -4980,7 +4981,8 @@
         "script/tests/test_online_downloaded_content.py",
         "script/tests/fixtures/OnlineDownloadedContentHarness.swift",
         "script/tests/test_online_library_pagination.py",
-        "script/tests/fixtures/OnlineLibraryPaginationHarness.swift"
+        "script/tests/fixtures/OnlineLibraryPaginationHarness.swift",
+        "MyWallpaperX/Modules/OnlineLibrary/UI/AppKitOLDownloadsItem.swift"
       ],
       "modules": [
         "test_online_downloaded_content",
@@ -5137,7 +5139,9 @@
         "MyWallpaperX/Modules/VideoLibrary/UI/VideoLibraryInspectorSupport.swift",
         "MyWallpaperX/Modules/StaticImageLibrary/UI/SILInspectorSupport.swift",
         "script/tests/test_video_inspector_metadata.py",
-        "script/tests/fixtures/VideoInspectorMetadataHarness.swift"
+        "script/tests/fixtures/VideoInspectorMetadataHarness.swift",
+        "script/tests/fixtures/WallpaperLibraryMenuCompositionChecks.swift",
+        "MyWallpaperX/Modules/OnlineLibrary/UI/AppKitOLDownloadsItem.swift"
       ],
       "modules": [
         "test_wallpaper_library_inspector",
@@ -5259,7 +5263,9 @@
         "script/tests/fixtures/LibraryRemoteToolbarHarness.swift",
         "script/tests/fixtures/RemoteZoomHarness.swift",
         "MyWallpaperX/Modules/SteamWorkshop/Core/SteamWorkshopService.swift",
-        "script/tests/fixtures/LibraryToolbarSignoutHarness.swift"
+        "script/tests/fixtures/LibraryToolbarSignoutHarness.swift",
+        "script/tests/fixtures/OnlineImageMenuHarness.swift",
+        "MyWallpaperX/App/WallpaperLibraryOnlineImages.swift"
       ],
       "modules": [
         "test_library_remote_toolbar",
@@ -5387,6 +5393,44 @@
         "test_steam_html_entry_resolution",
         "test_steam_library_interactions",
         "test_steam_library_reload_coalescing"
+      ]
+    },
+    {
+      "id": "settings-cache-actions",
+      "patterns": [
+        "MyWallpaperX/App/SettingsWindowController.swift",
+        "MyWallpaperX/Shared/Settings/AppSettingsPanelDependency.swift",
+        "MyWallpaperX/Shared/Settings/AppKitSettingsView.swift",
+        "script/tests/test_settings_cache_actions.py",
+        "script/tests/fixtures/SettingsCacheActionsHarness.swift"
+      ],
+      "modules": [
+        "test_settings_cache_actions"
+      ]
+    },
+    {
+      "id": "system-monitor-stats",
+      "patterns": [
+        "MyWallpaperX/Core/System/SystemMonitor.swift",
+        "script/tests/test_system_monitor_stats.py",
+        "script/tests/fixtures/SystemMonitorStatsHarness.swift"
+      ],
+      "modules": [
+        "test_system_monitor_stats",
+        "test_status_bar_icon_projection"
+      ]
+    },
+    {
+      "id": "ui-volume-actions",
+      "patterns": [
+        "MyWallpaperX/App/StatusBarController.swift",
+        "MyWallpaperX/Shared/Settings/AppKitSettingsView.swift",
+        "script/tests/test_ui_volume_actions.py",
+        "script/tests/fixtures/UIVolumeActionsHarness.swift"
+      ],
+      "modules": [
+        "test_ui_volume_actions",
+        "test_playback_command_multiplexer"
       ]
     }
   ],

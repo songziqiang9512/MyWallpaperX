@@ -5,8 +5,11 @@ import AppKit
 // execute the production files, without starting an engine or a system item.
 struct VideoWallpaper: Codable, Equatable {
     let id: String
-    let displayTitle: String
+    var displayTitle: String
     var path = "/fixture/video.mp4"
+    var thumbnailPath: String?
+    var isFavorite = false
+    var duration: Int?
 }
 struct SteamWorkshopDownloadRecord: Equatable {
     enum Kind { case video, web, scene }
@@ -14,12 +17,13 @@ struct SteamWorkshopDownloadRecord: Equatable {
     enum Dependency: Equatable { case ready, missing(String) }
     struct Browser: Equatable { let previewImageURL: URL? }
     let id: String
-    let title: String
+    var title: String
     let contentType: Kind
     var status = Status.ready
     var dependencyStatus = Dependency.ready
     var previewURL: URL? = URL(fileURLWithPath: "/fixture/cover.jpg")
     var browserItem: Browser?
+    var updatedAt = Date(timeIntervalSince1970: 1)
 }
 enum WallpaperMediaKind { case image, video, web, scene, unknown }
 struct WallpaperReference: Hashable {
@@ -28,9 +32,9 @@ struct WallpaperReference: Hashable {
     let sourceID: String
 }
 struct WallpaperContentItem: Equatable {
-    struct Metadata: Equatable { var thumbnailPath: String?; var previewURL: URL? }
+    struct Metadata: Equatable { var thumbnailPath: String?; var previewURL: URL?; var resourceRevision: String? }
     struct Locator: Equatable { var path: String? }
-    let title: String
+    var title: String
     let providerReference: WallpaperReference
     let kind: WallpaperMediaKind
     var reference: WallpaperReference { providerReference }
@@ -114,6 +118,7 @@ nonisolated final class SteamWorkshopPreviewLoadCancellation: @unchecked Sendabl
 @MainActor enum FixtureImageLoads {
     static var completions: [(NSImage?) -> Void] = []
     static var cancellations: [SteamWorkshopPreviewLoadCancellation] = []
+    static var urls: [URL] = []
 }
 nonisolated enum SteamWorkshopPreviewImageCache {
     static let shared: FixtureImageCache = {
@@ -129,17 +134,20 @@ nonisolated func steamWorkshopLoadPreviewImage(from url: URL, maxPixelSize: Int,
     DispatchQueue.main.async {
         FixtureImageLoads.completions.append(completion)
         FixtureImageLoads.cancellations.append(cancellation)
+        FixtureImageLoads.urls.append(url)
     }
 }
 nonisolated func steamWorkshopPreviewImageIsUsable(_ image: NSImage) -> Bool { image.size.width > 4 && image.size.height > 4 }
 final class AppKitThumbnailProvider {
     static var completions: [(NSImage?) -> Void] = []
     static var cancellations: [ThumbnailCacheRequestCancellation] = []
+    static var wallpapers: [VideoWallpaper] = []
     init(wallpaperManager: WallpaperManager) {}
     func loadThumbnail(for item: VideoWallpaper, completion: @escaping (NSImage?) -> Void) -> ThumbnailCacheRequestCancellation {
         let cancellation = ThumbnailCacheRequestCancellation()
         Self.cancellations.append(cancellation)
         Self.completions.append(completion)
+        Self.wallpapers.append(item)
         return cancellation
     }
 }
@@ -481,6 +489,144 @@ final class SteamWorkshopPreviewState {
         delayedGeneration("/generated-after-close.jpg")
         precondition(AppKitThumbnailProvider.completions.count == readsBeforeClose && imageView.image == nil,
                      "late generation cannot reacquire a closed panel's image consumer")
+
+        let coverController = StatusBarPanelViewController()
+        func applyCover(_ content: StatusBarPanelPresentation.Content, token: Int = 17) {
+            coverController.apply(.init(content: content, isStandby: false, playbackMode: .loop,
+                isPlaying: true, isUserPaused: false, isSystemPaused: false, isSwitching: false,
+                isRotating: false, isMuted: false, volume: 50, canNavigate: false), refreshToken: token)
+        }
+        let firstVideoRead = AppKitThumbnailProvider.completions.count
+        applyCover(.video(video))
+        pumpUntil { AppKitThumbnailProvider.completions.count == firstVideoRead + 1 }
+        let stableCover = coverController.panel.cover.subviews.compactMap { $0 as? NSImageView }.first!
+        var editedVideo = video
+        editedVideo.displayTitle = "改名后的壁纸"
+        editedVideo.isFavorite = true
+        editedVideo.duration = 42
+        applyCover(.video(editedVideo))
+        precondition(!AppKitThumbnailProvider.cancellations[firstVideoRead].cancelled,
+                     "metadata echo must retain an in-flight video image consumer")
+        AppKitThumbnailProvider.completions[firstVideoRead](readyImage)
+        precondition(stableCover.image === readyImage && coverController.panel.titleLabel.stringValue == editedVideo.displayTitle,
+                     "metadata updates the title while accepting the original resource request")
+        editedVideo.displayTitle = "再次改名"
+        applyCover(.video(editedVideo))
+        precondition(stableCover.image === readyImage && AppKitThumbnailProvider.completions.count == firstVideoRead + 1,
+                     "an already visible video cover cannot flash or reread for metadata")
+        coverController.thumbnailBecameReady(at: editedVideo.path)
+        pumpUntil { AppKitThumbnailProvider.completions.count == firstVideoRead + 2 }
+        precondition(AppKitThumbnailProvider.wallpapers.last == editedVideo,
+                     "same-resource metadata retains the latest snapshot for derived-image readiness")
+        AppKitThumbnailProvider.completions.last!(readyImage)
+
+        applyCover(.video(editedVideo), token: 18)
+        precondition(stableCover.image == nil && AppKitThumbnailProvider.cancellations.last!.cancelled,
+                     "an explicit refresh must still revoke the previous video request")
+        pumpUntil { AppKitThumbnailProvider.completions.count == firstVideoRead + 3 }
+        AppKitThumbnailProvider.completions.last!(readyImage)
+        editedVideo.thumbnailPath = "/fixture/new-derived.jpg"
+        applyCover(.video(editedVideo), token: 18)
+        precondition(stableCover.image == nil)
+        pumpUntil { AppKitThumbnailProvider.completions.count == firstVideoRead + 4 }
+        precondition(AppKitThumbnailProvider.wallpapers.last?.thumbnailPath == editedVideo.thumbnailPath,
+                     "a changed derived asset path must enter the actual thumbnail provider")
+        let supersededDerivedRead = AppKitThumbnailProvider.completions.last!
+        editedVideo.path = "/fixture/replaced-video.mp4"
+        applyCover(.video(editedVideo), token: 18)
+        pumpUntil { AppKitThumbnailProvider.completions.count == firstVideoRead + 5 }
+        supersededDerivedRead(imageA)
+        precondition(stableCover.image == nil && AppKitThumbnailProvider.wallpapers.last?.path == editedVideo.path,
+                     "source-path changes cannot accept a prior derived asset's late result")
+        AppKitThumbnailProvider.completions.last!(readyImage)
+        coverController.releasePreview()
+
+        let firstWorkshopRead = FixtureImageLoads.completions.count
+        applyCover(.workshop(record))
+        pumpUntil { FixtureImageLoads.completions.count == firstWorkshopRead + 1 }
+        FixtureImageLoads.completions[firstWorkshopRead](readyImage)
+        pumpUntil { stableCover.image === readyImage }
+        var editedRecord = record
+        editedRecord.title = "更新标题而非封面"
+        editedRecord.dependencyStatus = .missing("optional metadata")
+        applyCover(.workshop(editedRecord))
+        precondition(stableCover.image === readyImage && !FixtureImageLoads.cancellations[firstWorkshopRead].cancelled
+                     && FixtureImageLoads.completions.count == firstWorkshopRead + 1,
+                     "workshop metadata cannot clear or reread an unchanged local preview")
+        editedRecord.updatedAt = Date(timeIntervalSince1970: 2)
+        applyCover(.workshop(editedRecord))
+        precondition(stableCover.image == nil,
+                     "a ready publication version change must reload a stable preview URL")
+        pumpUntil { FixtureImageLoads.completions.count == firstWorkshopRead + 2 }
+        FixtureImageLoads.completions.last!(readyImage)
+        pumpUntil { stableCover.image === readyImage }
+        editedRecord.browserItem = .init(previewImageURL: URL(string: "https://example.invalid/new-fallback.jpg"))
+        applyCover(.workshop(editedRecord))
+        precondition(stableCover.image == nil,
+                     "a changed fallback remains part of the actual image request identity")
+        pumpUntil { FixtureImageLoads.completions.count == firstWorkshopRead + 3 }
+        FixtureImageLoads.completions[firstWorkshopRead](imageA)
+        var oldWorkshopFlushed = false
+        DispatchQueue.main.async { oldWorkshopFlushed = true }
+        pumpUntil { oldWorkshopFlushed }
+        precondition(stableCover.image == nil, "superseded local image callbacks remain generation-bound")
+        FixtureImageLoads.completions.last!(readyImage)
+        pumpUntil { stableCover.image === readyImage }
+        coverController.releasePreview()
+
+        let rememberedReference = WallpaperReference(provider: .pixiv, sourceID: "remembered-image")
+        var remembered = WallpaperContentItem(title: "上次的图片", providerReference: rememberedReference, kind: .image)
+        remembered.metadata.thumbnailPath = "/fixture/remembered-thumb.jpg"
+        remembered.metadata.previewURL = URL(string: "https://example.invalid/remembered.jpg")
+        remembered.locator.path = "/fixture/remembered-original.jpg"
+        let firstRememberedRead = FixtureImageLoads.completions.count
+        applyCover(.remembered(rememberedReference, remembered))
+        pumpUntil { FixtureImageLoads.completions.count == firstRememberedRead + 1 }
+        precondition(FixtureImageLoads.urls.last?.path == remembered.metadata.thumbnailPath)
+        remembered.title = "记忆图片改名"
+        applyCover(.remembered(rememberedReference, remembered))
+        precondition(!FixtureImageLoads.cancellations[firstRememberedRead].cancelled,
+                     "remembered metadata must keep the current candidate request")
+        FixtureImageLoads.completions.last!(nil)
+        pumpUntil { FixtureImageLoads.completions.count == firstRememberedRead + 2 }
+        precondition(FixtureImageLoads.urls.last?.path == remembered.locator.path,
+                     "remembered images retain local-thumbnail then local-original fallback order")
+        FixtureImageLoads.completions.last!(readyImage)
+        pumpUntil { stableCover.image === readyImage }
+        remembered.locator.path = "/fixture/changed-remembered-original.jpg"
+        applyCover(.remembered(rememberedReference, remembered))
+        precondition(stableCover.image == nil,
+                     "a changed remembered image candidate must reload even when the first URL is unchanged")
+        pumpUntil { FixtureImageLoads.completions.count == firstRememberedRead + 3 }
+        FixtureImageLoads.completions.last!(readyImage)
+        pumpUntil { stableCover.image === readyImage }
+        remembered.metadata.resourceRevision = "published-image-v2"
+        applyCover(.remembered(rememberedReference, remembered))
+        precondition(stableCover.image == nil,
+                     "the source owner's explicit resource revision must invalidate stable remembered URLs")
+        pumpUntil { FixtureImageLoads.completions.count == firstRememberedRead + 4 }
+        FixtureImageLoads.completions.last!(readyImage)
+        pumpUntil { stableCover.image === readyImage }
+        applyCover(.still(URL(fileURLWithPath: "/fixture/different-still.jpg")))
+        precondition(stableCover.image == nil)
+        pumpUntil { FixtureImageLoads.completions.count == firstRememberedRead + 5 }
+        precondition(FixtureImageLoads.urls.last?.path == "/fixture/different-still.jpg")
+        FixtureImageLoads.completions.last!(readyImage)
+        pumpUntil { stableCover.image === readyImage }
+        applyCover(.none)
+        precondition(stableCover.image == nil, "no selection still clears the old image")
+        var transientRecord = record
+        transientRecord.status = .queued
+        let firstTransientRead = FixtureImageLoads.completions.count
+        applyCover(.workshop(transientRecord))
+        pumpUntil { FixtureImageLoads.completions.count == firstTransientRead + 1 }
+        transientRecord.updatedAt = Date(timeIntervalSince1970: 99)
+        applyCover(.workshop(transientRecord))
+        precondition(!FixtureImageLoads.cancellations[firstTransientRead].cancelled,
+                     "transfer progress timestamps cannot replace the same image request")
+        FixtureImageLoads.completions.last!(readyImage)
+        pumpUntil { stableCover.image === readyImage }
+        coverController.releasePreview()
         print("status-panel-checks-passed")
     }
 }

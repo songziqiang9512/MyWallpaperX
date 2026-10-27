@@ -1,6 +1,6 @@
 """Actual downloaded-store source identity + shared cache, with controlled async frame leaf.
 
-The full store and its prefetch method are extracted unchanged; only the AV frame
+The full store and its prioritized load method are extracted unchanged; only the AV frame
 leaf is replaced by a deterministic gate. Fingerprint entry is instrumented to
 observe its calling thread, preserving the real URL metadata query. Real shared
 cache, cancellation, publication and generation scheduling run in an isolated HOME.
@@ -64,7 +64,10 @@ class OnlineDownloadedThumbnailIdentityTests(unittest.TestCase):
                 (proof / 'stderr.log').write_text(result.stderr)
             self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
             facts = json.loads(result.stdout)
-            self.assertEqual(len(facts), 6)
+            self.assertEqual(set(facts), {'scanReplacementUsesActualIdentity', 'sameKeyVisibleSurvivesPrefetchCancel',
+                'activeReplacementFinishesUncachedAndRetries', 'queuedReplacementFinishesBeforeSampling',
+                'currentWarmKeyResolvesOnceWithoutAV', 'warmOldHintUsesCurrentSource',
+                'prefetchAndVisibleShareLiveIdentity', 'cachedFailureAndSingleKeyInvalidationUseOriginalResult', 'fingerprintOffMain'})
             self.assertTrue(all(facts.values()), facts)
 
 

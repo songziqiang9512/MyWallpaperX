@@ -87,6 +87,7 @@ final class OnlineLibraryToolbarController: NSObject, NSSearchFieldDelegate {
     }
 
     deinit {
+        searchDebounceTask?.cancel()
         observers.forEach { NotificationCenter.default.removeObserver($0) }
     }
 
@@ -116,8 +117,19 @@ final class OnlineLibraryToolbarController: NSObject, NSSearchFieldDelegate {
     // MARK: - 模式切换
 
     private func switchMode(online: Bool) {
+        let entering = online && !isOnlineLibraryMode
         isOnlineLibraryMode = online
-        guard online else { menuPopover.close(); return }
+        guard online else {
+            searchDebounceTask?.cancel(); searchDebounceTask = nil
+            menuPopover.close()
+            return
+        }
+        let service = OnlineLibraryService.shared
+        // Preserve a draft left before its debounce fired, but submit it only
+        // when the user returns to this source, through the original query owner.
+        if entering, service.hasLoadedOnce, service.toolbarQuery != service.currentParams.query {
+            service.searchWithCurrentContext()
+        }
         titleUpdateHandler?(Title.browser)
         syncCategoryControl()
         syncSearchField()
@@ -344,6 +356,7 @@ extension OnlineLibraryToolbarController {
 
     private func chooseCategory(_ category: OnlineLibraryCategory) {
         guard isOnlineLibraryMode else { return }
+        searchDebounceTask?.cancel(); searchDebounceTask = nil
         OnlineLibraryService.shared.toolbarCategory = category
         OnlineLibraryService.shared.searchWithCurrentContext(category: category)
         syncCategoryControl()
@@ -357,6 +370,7 @@ extension OnlineLibraryToolbarController {
 
     private func chooseOrder(_ order: OnlineLibraryOrder) {
         guard isOnlineLibraryMode else { return }
+        searchDebounceTask?.cancel(); searchDebounceTask = nil
         OnlineLibraryService.shared.searchWithCurrentContext(order: order)
         syncOrderControl()
     }
@@ -398,7 +412,7 @@ extension OnlineLibraryToolbarController {
 
     // NSSearchFieldDelegate：与视频库实现对齐，用 delegate 替代 target/action
     func controlTextDidChange(_ obj: Notification) {
-        guard let field = obj.object as? NSSearchField else { return }
+        guard isOnlineLibraryMode, let field = obj.object as? NSSearchField, field === searchField else { return }
         let query = field.stringValue.trimmingCharacters(in: .whitespaces)
         let service = OnlineLibraryService.shared
         service.toolbarQuery = query
@@ -413,12 +427,6 @@ extension OnlineLibraryToolbarController {
                   !apiKey.trimmingCharacters(in: .whitespaces).isEmpty else { return }
             service.searchWithCurrentContext(query: query)
         }
-    }
-
-    func controlTextDidEndEditing(_ obj: Notification) {
-        // 搜索框失焦时取消防抖任务，避免退出后仍触发请求
-        // 注意：不在此处取消搜索，只取消延迟任务
-        _ = obj // 无需额外处理
     }
 
     /// 切换到在线模式时同步控件状态，避免重建后选中项丢失

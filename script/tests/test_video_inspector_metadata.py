@@ -1,9 +1,11 @@
 """Actual Video Inspector metadata helper's immediate template and async terminal.
 
-Compiles the unchanged production DTO/helper and format/resolution/codec bodies
+Compiles the production DTO/helper and unchanged format/resolution/codec bodies
 with the real VideoWallpaper model and AVFoundation. Inputs are a self-written
 invalid video and a small generated PNG in a temporary HOME. This proves layout
-facts before return, fallback terminal values and immediate cancellation; it
+facts before return, fallback terminal values and immediate cancellation. One
+test-copy scheduling hook pauses after real AV work, before MainActor delivery,
+to prove cancellation at that boundary without substituting AV results; it
 does not establish valid-media codec/duration accuracy or native Inspector UI.
 """
 import hashlib
@@ -26,7 +28,11 @@ class VideoInspectorMetadataTests(unittest.TestCase):
     def test_real_helper_publishes_complete_template_before_return_and_honors_cancellation(self):
         source = SUPPORT.read_text()
         production = "import Foundation\nimport AVFoundation\n" + declaration(source, "struct WallpaperInspectorDetails:")
-        production += "\n@discardableResult\n" + declaration(source, "func loadWallpaperInspectorDetails(")
+        helper_body = declaration(source, "func loadWallpaperInspectorDetails(")
+        boundary = "        await MainActor.run {"
+        self.assertEqual(helper_body.count(boundary), 1)
+        helper_body = helper_body.replace(boundary, "        await InspectorMetadataDeliveryProbe.waitIfHeld(path)\n" + boundary, 1)
+        production += "\n@discardableResult\n" + helper_body
         production += "\n" + "\n".join(declaration(source, signature) for signature in (
             "private func formattedDuration(", "private func videoResolutionText(", "private func videoCodecText("))
         paths = [SUPPORT, MODEL, FIXTURE, Path(__file__).resolve(), ROOT / "script/tests/test_ui_library_algorithms.py"]
@@ -45,7 +51,7 @@ class VideoInspectorMetadataTests(unittest.TestCase):
                 Path(destination).mkdir(parents=True, exist_ok=True)
                 proof = Path(tempfile.mkdtemp(prefix="metadata-", dir=destination))
                 (proof / "inputs.json").write_text(json.dumps({"inputs": inputs, "command": command, "scope": __doc__,
-                    "transforms": ["extract unchanged production declarations; no metadata/cache/cancellation stub"]}, indent=2))
+                    "transforms": ["extract production declarations; insert awaitable scheduling probe immediately before final MainActor delivery; no AV result or cancellation substitution"]}, indent=2))
                 (proof / "compile.log").write_text(build.stdout + build.stderr)
             self.assertEqual(build.returncode, 0, build.stdout + build.stderr)
             run = subprocess.run([str(work / "checks"), str(work)], capture_output=True, text=True, env=env, timeout=45)

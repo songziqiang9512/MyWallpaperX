@@ -57,7 +57,8 @@ import AppKit
     }
 
     static func makeMenu(for item: WallpaperContentItem, workspace: WallpaperLibraryWorkspace,
-                         steam: SteamWorkshopService, online: OnlineLibraryService) -> NSMenu? {
+                         steam: SteamWorkshopService, online: OnlineLibraryService,
+                         includeSourcePage: Bool = true) -> NSMenu? {
         let reference = item.reference
         guard eligible(reference, in: workspace) != nil else { return nil }
         let epoch = workspace.relationships.resetEpoch
@@ -74,12 +75,14 @@ import AppKit
             if let download = makePrimaryAction(for: item, workspace: workspace, steam: steam, online: online) {
                 menu.addItem(ActionMenuItem(title: "重新下载", symbol: "arrow.down.circle", handler: download))
             }
-            menu.addItem(ActionMenuItem(title: "查看创意工坊页面", symbol: "safari") { [weak workspace, weak steam] in
-                guard let workspace, let steam, workspace.relationships.resetEpoch == epoch,
-                      workspace.presentation.page == page, steam.steamServiceClient.accountEpoch == account,
-                      eligible(reference, in: workspace) != nil else { return }
-                steam.openWorkshopDetailPage(itemID: reference.sourceID)
-            })
+            if includeSourcePage {
+                menu.addItem(ActionMenuItem(title: "查看创意工坊页面", symbol: "safari") { [weak workspace, weak steam] in
+                    guard let workspace, let steam, workspace.relationships.resetEpoch == epoch,
+                          workspace.presentation.page == page, steam.steamServiceClient.accountEpoch == account,
+                          eligible(reference, in: workspace) != nil else { return }
+                    steam.openWorkshopDetailPage(itemID: reference.sourceID)
+                })
+            }
         case .pixabay:
             guard let id = Int(reference.sourceID), id > 0,
                   String(id).utf8.elementsEqual(reference.sourceID.utf8) else { return nil }
@@ -88,23 +91,27 @@ import AppKit
             if let download = makePrimaryAction(for: item, workspace: workspace, steam: steam, online: online) {
                 menu.addItem(ActionMenuItem(title: "重新下载", symbol: "arrow.down.circle", handler: download))
             }
-            menu.addItem(ActionMenuItem(title: "查看 Pixabay 原网页", symbol: "safari") { [weak workspace, weak online] in
-                guard let workspace, let online, workspace.relationships.resetEpoch == epoch,
-                      workspace.presentation.page == page, eligible(reference, in: workspace) != nil else { return }
-                online.openVideoSourcePage(id: id)
-            })
+            if includeSourcePage {
+                menu.addItem(ActionMenuItem(title: "查看 Pixabay 原网页", symbol: "safari") { [weak workspace, weak online] in
+                    guard let workspace, let online, workspace.relationships.resetEpoch == epoch,
+                          workspace.presentation.page == page, eligible(reference, in: workspace) != nil else { return }
+                    online.openVideoSourcePage(id: id)
+                })
+            }
         case .wallhaven, .pixiv:
             let library = OnlineImageLibrary.shared
             guard library.record(for: reference) != nil else { return nil }
             if let download = makePrimaryAction(for: item, workspace: workspace, steam: steam, online: online) {
                 menu.addItem(ActionMenuItem(title: "重新下载", symbol: "arrow.down.circle", handler: download))
             }
-            menu.addItem(ActionMenuItem(title: "查看原网页", symbol: "safari") { [weak workspace, weak library] in
-                guard let workspace, let library, workspace.relationships.resetEpoch == epoch,
-                      workspace.presentation.page == page, eligible(reference, in: workspace) != nil,
-                      let record = library.record(for: reference) else { return }
-                NSWorkspace.shared.open(record.sourceURL)
-            })
+            if includeSourcePage {
+                menu.addItem(ActionMenuItem(title: "查看原网页", symbol: "safari") { [weak workspace, weak library] in
+                    guard let workspace, let library, workspace.relationships.resetEpoch == epoch,
+                          workspace.presentation.page == page, eligible(reference, in: workspace) != nil,
+                          let record = library.record(for: reference) else { return }
+                    NSWorkspace.shared.open(record.sourceURL)
+                })
+            }
         default: return nil
         }
         return menu

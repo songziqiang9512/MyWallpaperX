@@ -128,8 +128,8 @@ P0b 实际签名构建、短窗口轨迹、五组交替、真实作者音频与�
 
 本批未证明：字节/CPU/Metal 创建计数、managed 资源路径、全部作者音频及 Scene 能力、双屏/最低设备、跨引擎六方向、Release 运行及最终 30 分钟稳态；Web prepared 前长尾仍未闭合。后续按目标阶段触达相应输入，不为 P0 扩全量矩阵。
 
-本机证据由正式 promoter 提取到忽略目录：普通包 [.artifacts/scene-evidence/runs/wallpaper-startup-p0-p3a-20261024](../../../.artifacts/scene-evidence/runs/wallpaper-startup-p0-p3a-20261024/batch/report.json)，默认保留14天，约13.1MB。入口的 `samples.label` 保留原路径，数值 `id` 映射 manifest 中已提取文件；`p0-isolated-*` 是有效基线，`p3a-scene-*` / `p0b-web-comparison` 是完整交替对比，另含真实反例、几何轨迹、音频和三次有效构建日志/源码身份。早期生产身份报告明确标为 `measurementEligible=false`，旧 `passed` 字段不能恢复其资格。没有提取私有偏好值、媒体、App、HOME 或缓存。
+本机证据由正式 promoter 提取到忽略目录：普通包 `.artifacts/scene-evidence/runs/wallpaper-startup-p0-p3a-20261024/batch/report.json`，默认保留14天，约13.1MB。入口的 `samples.label` 保留原路径，数值 `id` 映射 manifest 中已提取文件；`p0-isolated-*` 是有效基线，`p3a-scene-*` / `p0b-web-comparison` 是完整交替对比，另含真实反例、几何轨迹、音频和三次有效构建日志/源码身份。早期生产身份报告明确标为 `measurementEligible=false`，旧 `passed` 字段不能恢复其资格。没有提取私有偏好值、媒体、App、HOME 或缓存。
 
-未解决 Web prepared 长尾的整批原始点、对应 W0 native/app.log 和构建身份另有[保护包](../../../.artifacts/scene-evidence/runs/wallpaper-startup-web-prepare-unresolved-20261024/slow-web-prepare/report.json)，约2.5MB，带明确 `protect-reason`，不自动到期；归因或修复后重提普通包再退役。两包逐文件摘要复核通过后，已删除37项停止使用的临时测试目录/日志与未使用输入，约20.2MB，精确收据在 `/private/tmp/mwx-startup-optimization-fbRhFY/batch-cleanup-receipt.json`。独审没有新增代码阻断。
+未解决 Web prepared 长尾的整批原始点、对应 W0 native/app.log 和构建身份另有保护包 `.artifacts/scene-evidence/runs/wallpaper-startup-web-prepare-unresolved-20261024/slow-web-prepare/report.json`，约2.5MB，带明确 `protect-reason`，不自动到期；归因或修复后重提普通包再退役。两包逐文件摘要复核通过后，已删除37项停止使用的临时测试目录/日志与未使用输入，约20.2MB，精确收据在 `/private/tmp/mwx-startup-optimization-fbRhFY/batch-cleanup-receipt.json`。独审没有新增代码阻断。
 
 持续专项仍保留任务根 `/private/tmp/mwx-startup-optimization-fbRhFY/` 中唯一 `DerivedData`（最新候选）、`p0-baseline-app`（原有效基线）、`p3a-baseline-app`（Web直接前驱）和已取得资格的固定路径 Scene/Web/fixture 副本，供下一批及专项最终比较；停止使用后逐项清理。私有恢复备份仅在该根留待审核，权限0600，不在证据包中。本批没有安装 App、暂存、提交或推送；goal 继续进行，P1/P2及其余采用阶段尚未完成。

@@ -16,8 +16,10 @@ import Combine
     struct Payload { let refreshToken: String, accountName: String, steamId: String }
     enum TokenSaveResult { case notAttempted, saved, failed }
     static let rememberPreferenceKey = "Fixture.rememberSteam"
-    static var isRestoreAuthorized: Bool { false }
-    static func load() -> Payload? { nil }
+    static var isRestoreAuthorized = false
+    static var savedSession: Payload?
+    static var sessionReads = 0
+    static func load() -> Payload? { sessionReads += 1; return savedSession }
 }
 @MainActor enum SteamServiceClient { enum RequestError: Error { case helperError(String, String) } }
 @MainActor final class SteamWorkshopService {
@@ -34,10 +36,11 @@ import Combine
         qrStarts += 1; phase = .qrChallenge(url: "https://example.invalid/owned-current-challenge"); return true
     }
     func loginPassword(username: String, password: String) async throws -> Bool {
-        passwordStarts += 1; phase = .authenticating; return true
+        passwordStarts += 1; isOnline = false; tokenSaveResult = .notAttempted
+        phase = .authenticating; return true
     }
     func restore(refreshToken: String, accountName: String, expectedSteamId: String) async throws -> Bool {
-        restoreStarts += 1; return false
+        restoreStarts += 1; phase = .connecting; return false
     }
     func submit(code: String) async { submittedCodes += 1 }
 }
@@ -137,6 +140,116 @@ import Combine
         auth.phase = .online(steamId: "fixture-account", accountName: "Fixture")
         try await Task.sleep(for: .milliseconds(40))
         checks["late-auth-publication-cannot-reopen-the-closed-login"] = controller.window === panel && !panel.isVisible && panel.parent == nil
+
+        auth.isOnline = true; auth.accountName = "Fixture"; auth.tokenSaveResult = .saved
+        let qrBeforeSwitch = auth.qrStarts, passwordBeforeSwitch = auth.passwordStarts
+        controller.show(auth: auth)
+        let switching = controller.window!, switchingView = switching.contentView as! SteamLoginPanelView
+        try await Task.sleep(for: .milliseconds(80))
+        checks["already-online-switch-account-keeps-the-password-page-without-replaying-old-success"] = switching.isVisible
+            && switching.parent === host && switchingView.modeSegment.selectedSegment == 1
+            && !switchingView.loginButton.isHidden && !switchingView.usernameField.isHiddenOrHasHiddenAncestor
+            && switchingView.doneButton.isHidden && auth.qrStarts == qrBeforeSwitch && auth.passwordStarts == passwordBeforeSwitch
+        switchingView.usernameField.stringValue = "new-account"
+        switchingView.passwordField.stringValue = "fixture-password"
+        switchingView.loginButton.performClick(nil)
+        try await wait("switch-account password did not begin a new authentication") { auth.passwordStarts == passwordBeforeSwitch + 1 }
+        auth.phase = .awaitingDeviceCode(previousCodeWasIncorrect: false)
+        try await wait("new authentication did not present its Guard input") { !switchingView.codeField.isHiddenOrHasHiddenAncestor }
+        switchingView.codeField.stringValue = "123456"
+        switchingView.guardSubmitButton.performClick(nil)
+        try await wait("new Guard code was not submitted") { auth.submittedCodes == 1 }
+        checks["switch-account-new-guard-transition-and-submission-remain-live"] = switching.isVisible
+            && switchingView.statusLabel.stringValue == "正在提交验证码…" && auth.qrStarts == qrBeforeSwitch
+        auth.isOnline = true; auth.accountName = "New Fixture"; auth.tokenSaveResult = .saved
+        auth.phase = .online(steamId: "new-fixture-account", accountName: "New Fixture")
+        try await wait("a new successful authentication did not close the switch-account panel") { !switching.isVisible && switching.parent == nil }
+        checks["switch-account-new-authentication-success-still-closes-the-panel"] = !switching.isVisible
+            && auth.passwordStarts == passwordBeforeSwitch + 1
+
+        auth.tokenSaveResult = .failed
+        controller.show(auth: auth)
+        let previousSaveFailure = controller.window!, failedView = previousSaveFailure.contentView as! SteamLoginPanelView
+        try await Task.sleep(for: .milliseconds(80))
+        checks["already-online-previous-token-save-failure-does-not-replace-the-new-password-page"] = previousSaveFailure.isVisible
+            && !failedView.loginButton.isHidden && failedView.doneButton.isHidden
+            && failedView.modeSegment.selectedSegment == 1 && auth.qrStarts == qrBeforeSwitch
+        failedView.usernameField.stringValue = "another-account"
+        failedView.passwordField.stringValue = "fixture-password"
+        failedView.loginButton.performClick(nil)
+        try await wait("authentication after an old save failure did not begin") { auth.passwordStarts == passwordBeforeSwitch + 2 }
+        auth.isOnline = true; auth.tokenSaveResult = .failed
+        auth.phase = .online(steamId: "unsaved-fixture-account", accountName: "Unsaved Fixture")
+        try await wait("new token-save failure did not retain its completion feedback") { !failedView.doneButton.isHidden }
+        checks["new-authentication-token-save-failure-still-requires-explicit-completion"] = previousSaveFailure.isVisible
+            && failedView.loginButton.isHidden && failedView.statusLabel.stringValue == "本次会话可正常使用。"
+        failedView.doneButton.performClick(nil)
+        try await wait("explicit completion did not close the successful unsaved session") { !previousSaveFailure.isVisible }
+
+        auth.isOnline = false; auth.tokenSaveResult = .notAttempted
+        auth.phase = .failed(code: "network", message: "fixture disconnected")
+        SteamWorkshopTokenStore.isRestoreAuthorized = true
+        SteamWorkshopTokenStore.savedSession = .init(refreshToken: "fixture-token", accountName: "Fixture", steamId: "fixture-account")
+        UserDefaults.standard.set(true, forKey: SteamWorkshopTokenStore.rememberPreferenceKey)
+        let restoresBefore = auth.restoreStarts, readsBeforeRestore = SteamWorkshopTokenStore.sessionReads
+        controller.show(auth: auth)
+        let restoring = controller.window!
+        try await wait("restorable session did not use its original restore action") { auth.restoreStarts == restoresBefore + 1 }
+        let restoreView = restoring.contentView as! SteamLoginPanelView
+        auth.phase = .awaitingDeviceConfirmation
+        try await wait("restore did not retain the new device-confirmation transition") {
+            restoreView.statusLabel.stringValue == "请在 Steam 手机应用中确认本次登录"
+        }
+        checks["silent-restore-new-guard-transition-remains-visible"] = restoring.isVisible
+            && restoreView.loginButton.isHidden && restoreView.codeField.isHiddenOrHasHiddenAncestor
+        auth.isOnline = true; auth.phase = .online(steamId: "fixture-account", accountName: "Fixture")
+        try await wait("restored session success did not close the original panel") { !restoring.isVisible && restoring.parent == nil }
+        let restoreStartedOnce = auth.restoreStarts == restoresBefore + 1
+        let restoreReadOnce = SteamWorkshopTokenStore.sessionReads == readsBeforeRestore + 1
+        let restoreKeptQRCount = auth.qrStarts == qrBeforeSwitch
+        let restoreClosed = !restoring.isVisible && restoring.parent == nil
+        let restoredStatus = SteamWorkshopService.shared.statusMessage
+        FileHandle.standardError.write(Data(("steam-restore-success-diagnostic startedOnce=\(restoreStartedOnce) readOnce=\(restoreReadOnce) qrCountUnchanged=\(restoreKeptQRCount) closed=\(restoreClosed) status=\(restoredStatus.debugDescription)\n").utf8))
+        checks["silent-restore-success-retains-original-completion-and-status-feedback"] = restoreStartedOnce
+            && restoreReadOnce && restoreKeptQRCount && restoreClosed && restoredStatus == "已恢复 Steam 登录。"
+
+        auth.isOnline = false; auth.phase = .failed(code: "network", message: "old disconnected attempt")
+        let beforeFailedRestore = auth.restoreStarts
+        controller.show(auth: auth)
+        let networkFailure = controller.window!, networkFailureView = networkFailure.contentView as! SteamLoginPanelView
+        try await wait("network-failure restore did not begin") { auth.restoreStarts == beforeFailedRestore + 1 }
+        auth.phase = .failed(code: "network", message: "new restore network failure")
+        let retainedSessionMessage = "暂时无法恢复上次登录（网络原因）；已保留登录信息，可扫码登录或稍后重试。"
+        try await wait("new restore network failure did not use its retained-session feedback") {
+            networkFailureView.statusLabel.stringValue == retainedSessionMessage
+        }
+        FileHandle.standardError.write(Data(("steam-restore-network-failure-diagnostic started=\(auth.restoreStarts) expected=\(beforeFailedRestore + 1) visible=\(networkFailure.isVisible) owned=\(networkFailure.parent === host) status=\(networkFailureView.statusLabel.stringValue.debugDescription)\n").utf8))
+        checks["silent-restore-new-network-failure-keeps-panel-and-reports-retained-session"] = networkFailure.isVisible
+            && networkFailure.parent === host && auth.restoreStarts == beforeFailedRestore + 1
+            && SteamWorkshopTokenStore.savedSession != nil && auth.qrStarts == qrBeforeSwitch
+            && networkFailureView.statusLabel.stringValue == retainedSessionMessage
+        networkFailureView.cancelButton.performClick(nil)
+        try await wait("failed restore did not close on explicit cancel") { !networkFailure.isVisible }
+
+        auth.phase = .failed(code: "network", message: "old disconnected attempt")
+        let beforeExpiredRestore = auth.restoreStarts
+        controller.show(auth: auth)
+        let expiredRestore = controller.window!, expiredView = expiredRestore.contentView as! SteamLoginPanelView
+        try await wait("expired-session restore did not begin") { auth.restoreStarts == beforeExpiredRestore + 1 }
+        auth.expired = true
+        auth.phase = .failed(code: "authExpired", message: "new restore credential rejection")
+        try await wait("new restore credential rejection did not show the original expired-session feedback") {
+            expiredView.statusLabel.stringValue == "保存的登录已失效，请重新扫码登录。"
+        }
+        FileHandle.standardError.write(Data(("steam-restore-expired-failure-diagnostic started=\(auth.restoreStarts) expected=\(beforeExpiredRestore + 1) visible=\(expiredRestore.isVisible) owned=\(expiredRestore.parent === host) status=\(expiredView.statusLabel.stringValue.debugDescription)\n").utf8))
+        checks["silent-restore-new-credential-failure-keeps-panel-and-requires-new-login"] = expiredRestore.isVisible
+            && expiredRestore.parent === host && auth.restoreStarts == beforeExpiredRestore + 1
+            && expiredView.statusLabel.stringValue == "保存的登录已失效，请重新扫码登录。"
+        expiredView.cancelButton.performClick(nil)
+        try await wait("expired restore did not close on explicit cancel") { !expiredRestore.isVisible }
+        SteamWorkshopTokenStore.savedSession = nil; SteamWorkshopTokenStore.isRestoreAuthorized = false
+        UserDefaults.standard.removeObject(forKey: SteamWorkshopTokenStore.rememberPreferenceKey)
+        auth.isOnline = false; auth.expired = false; auth.tokenSaveResult = .notAttempted
         auth.phase = .idle
         controller.show(auth: auth)
         try await wait("second original login never opened") { controller.window !== panel && controller.window?.isVisible == true }

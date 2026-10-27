@@ -8,6 +8,7 @@
     var isThumbnailDemandPaused = false
     var thumbnailRequestIsPending = false
     var isPlaying = false
+    var isSwitching = false
     var isMultiSelectMode = false
     var isHovering = false
     let thumbnailImageView = NSImageView()

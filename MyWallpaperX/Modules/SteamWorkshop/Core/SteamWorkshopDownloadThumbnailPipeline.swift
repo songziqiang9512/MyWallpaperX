@@ -2,6 +2,7 @@ import Foundation
 import AppKit
 import AVFoundation
 import CryptoKit
+import Darwin
 
 final class SteamWorkshopDownloadThumbnailPipeline {
     static let shared = SteamWorkshopDownloadThumbnailPipeline()
@@ -11,7 +12,12 @@ final class SteamWorkshopDownloadThumbnailPipeline {
         qos: .utility
     )
     private let lock = NSLock()
-    private var inFlight: [String: [(NSImage?) -> Void]] = [:]
+    private final class Job {
+        var completions: [(NSImage?) -> Void]
+        var cacheable = true
+        init(_ completion: @escaping (NSImage?) -> Void) { completions = [completion] }
+    }
+    private var inFlight: [String: Job] = [:]
     /// 已生成缩略图的内存缓存：卡片配置链路重复刷新时不再磁盘读+解码。
     private let memoryCache = DecodedThumbnailMemoryCache(countLimit: 320, totalCostLimit: 64 * 1024 * 1024)
     /// 失败负缓存：损坏/可疑视频记录一次结论，避免每次刷新重复 IO 与 AVAsset 重试。
@@ -20,6 +26,16 @@ final class SteamWorkshopDownloadThumbnailPipeline {
 
     private init() {
         failureCache.countLimit = 256
+    }
+
+    /// The service deletes its disk root after this invalidation. Admitted
+    /// consumers still receive their result; old jobs cannot refill any cache.
+    func invalidateCachedResults() {
+        lock.lock()
+        defer { lock.unlock() }
+        for job in inFlight.values { job.cacheable = false }
+        memoryCache.removeAllObjects()
+        failureCache.removeAllObjects()
     }
 
     func generateThumbnail(for videoURL: URL, completion: @escaping (NSImage?) -> Void) {
@@ -39,12 +55,12 @@ final class SteamWorkshopDownloadThumbnailPipeline {
         }
 
         lock.lock()
-        if inFlight[key] != nil {
-            inFlight[key]?.append(completion)
+        if let job = inFlight[key] {
+            job.completions.append(completion)
             lock.unlock()
             return
         }
-        inFlight[key] = [completion]
+        inFlight[key] = Job(completion)
         lock.unlock()
 
         workQueue.async {
@@ -56,46 +72,56 @@ final class SteamWorkshopDownloadThumbnailPipeline {
             // 本次请求的内存、磁盘和生成结果共用入口已捕获的源文件身份。
             let outputURL = Self.cacheRootURL.appendingPathComponent(key).appendingPathExtension("jpg")
             // 优先复用已落盘缩略图：磁盘读+解码在本后台队列执行，不占主线程配置链路。
-            if let cached = self.diskCachedThumbnail(at: outputURL, key: key) {
+            if let cached = self.diskCachedThumbnail(at: outputURL) {
                 self.finish(key: key, image: cached)
                 return
             }
 
 
             let image = self.createThumbnail(for: videoURL)
-            if let image {
-                self.persistThumbnail(image, at: outputURL)
-                self.memoryCache.setObject(image, forKey: key as NSString, cost: Self.memoryCost(of: image))
-            } else {
-                self.failureCache.setObject(NSNumber(value: true), forKey: key as NSString)
-            }
-            self.finish(key: key, image: image)
+            let staged = image.flatMap { self.stageThumbnail($0, at: outputURL) }
+            self.finish(key: key, image: image, staged: staged, cachesFailure: true)
         }
     }
 
-    /// 从磁盘读取已生成缩略图并做可疑检测；命中时写入内存缓存。
-    private func diskCachedThumbnail(at outputURL: URL, key: String) -> NSImage? {
+    /// 从磁盘读取已生成缩略图并做可疑检测，统一完成入口负责缓存发布。
+    private func diskCachedThumbnail(at outputURL: URL) -> NSImage? {
         guard let image = NSImage(contentsOf: outputURL),
               !steamWorkshopPreviewImageLooksSuspicious(image) else {
             return nil
         }
-        memoryCache.setObject(image, forKey: key as NSString, cost: Self.memoryCost(of: image))
         return image
     }
 
-    private static func memoryCost(of image: NSImage) -> Int {
+    nonisolated private static func memoryCost(of image: NSImage) -> Int {
         guard let cgImage = image.cgImage(forProposedRect: nil, context: nil, hints: nil) else { return 0 }
         return cgImage.bytesPerRow * cgImage.height
     }
 
-    private func finish(key: String, image: NSImage?) {
+    private func finish(key: String, image: NSImage?, staged: URL? = nil, cachesFailure: Bool = false) {
+        let cost = image.map(Self.memoryCost) ?? 0
+        let output = Self.cacheRootURL.appendingPathComponent(key).appendingPathExtension("jpg")
+        var published = false
         lock.lock()
-        let completions = inFlight.removeValue(forKey: key) ?? []
+        let job = inFlight.removeValue(forKey: key)
+        if job?.cacheable == true {
+            if let image {
+                if let staged { published = rename(staged.path, output.path) == 0 }
+                memoryCache.setObject(image, forKey: key as NSString, cost: cost)
+            } else if cachesFailure {
+                failureCache.setObject(NSNumber(value: true), forKey: key as NSString)
+            }
+        }
+        let completions = job?.completions ?? []
         lock.unlock()
 
+        if let staged { try? FileManager.default.removeItem(at: staged) }
         guard !completions.isEmpty else { return }
         DispatchQueue.main.async {
             completions.forEach { $0(image) }
+        }
+        if published {
+            ThumbnailCache.trimDiskCache(directory: Self.cacheRootURL, sizeLimit: 256 * 1024 * 1024)
         }
     }
 
@@ -135,18 +161,19 @@ final class SteamWorkshopDownloadThumbnailPipeline {
         return result
     }
 
-    private func persistThumbnail(_ image: NSImage, at outputURL: URL) {
+    /// JPEG preparation stays on the original worker queue. Only the final
+    /// rename and memory/failure publication consume the job under its lock.
+    private func stageThumbnail(_ image: NSImage, at outputURL: URL) -> URL? {
         try? FileManager.default.createDirectory(
             at: outputURL.deletingLastPathComponent(),
             withIntermediateDirectories: true
         )
-        guard let cgImage = image.cgImage(forProposedRect: nil, context: nil, hints: nil) else { return }
+        guard let cgImage = image.cgImage(forProposedRect: nil, context: nil, hints: nil) else { return nil }
         let bitmap = NSBitmapImageRep(cgImage: cgImage)
-        guard let data = bitmap.representation(using: .jpeg, properties: [.compressionFactor: 0.82]) else { return }
-        try? data.write(to: outputURL, options: [.atomic])
-        // 接入 ThumbnailCache 共享磁盘淘汰（256MB 总量上限 + 60s 限频 LRU 扫描）；
-        // key 含 mtime+size，源文件更新后旧键文件由本淘汰按最后使用时间回收
-        ThumbnailCache.trimDiskCache(directory: Self.cacheRootURL, sizeLimit: 256 * 1024 * 1024)
+        guard let data = bitmap.representation(using: .jpeg, properties: [.compressionFactor: 0.82]) else { return nil }
+        let staged = outputURL.deletingLastPathComponent().appendingPathComponent(".thumbnail-\(UUID().uuidString).pending")
+        do { try data.write(to: staged); return staged }
+        catch { try? FileManager.default.removeItem(at: staged); return nil }
     }
 
     private func cacheKey(for videoURL: URL) -> String {

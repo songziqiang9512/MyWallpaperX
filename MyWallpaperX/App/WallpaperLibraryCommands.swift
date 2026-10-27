@@ -75,9 +75,10 @@ import Combine
             committedReference: nil, sequenceTicket: nil, runtimeTicket: nil)
     }
 
-    func makeFavoriteAction(_ references: [WallpaperReference]? = nil) -> (() -> Void)? {
-        guard let items = resolveSelection(references) else { return nil }
-        let action = favoriteActionState(for: items)
+    func makeFavoriteAction(_ references: [WallpaperReference]? = nil,
+                            resolved: (items: [WallpaperContentItem], state: WallpaperLibraryFavoriteActionState)? = nil) -> (() -> Void)? {
+        guard let items = resolved?.items ?? resolveSelection(references) else { return nil }
+        let action = resolved?.state ?? favoriteActionState(for: items)
         guard action.canExecute else { return nil }
         let fixed = items.map(\.reference), page = workspace.presentation.page
         let epoch = workspace.relationships.resetEpoch, sessionID = workspace.presentation.selectionState.sessionID
@@ -527,11 +528,11 @@ import Combine
         }
     }
 
-    func contextMenu(for items: [WallpaperContentItem]) -> NSMenu? {
+    func contextMenu(for items: [WallpaperContentItem], includeRecoverySourcePage: Bool = true) -> NSMenu? {
         guard !items.isEmpty else { return nil }
         let menu = NSMenu(); menu.autoenablesItems = false
         let favoriteAction = favoriteActionState(for: items)
-        let favorite = makeFavoriteAction(items.map(\.reference))
+        let favorite = makeFavoriteAction(resolved: (items, favoriteAction))
         let epoch = workspace.relationships.resetEpoch
         let page = workspace.presentation.page
         let session = workspace.presentation.selectionState.sessionID
@@ -561,7 +562,8 @@ import Combine
                     self?.imports.chooseReplacement(for: item.reference)
                 }
             }
-            if let recovery = WallpaperLibraryDownloadRecovery.makeMenu(for: item, workspace: workspace, steam: steam, online: online) {
+            if let recovery = WallpaperLibraryDownloadRecovery.makeMenu(for: item, workspace: workspace,
+                steam: steam, online: online, includeSourcePage: includeRecoverySourcePage) {
                 for entry in recovery.items { recovery.removeItem(entry); menu.addItem(entry) }
             }
             if let assetID = OnlineImageAssetID(reference: item.providerReference),
@@ -579,7 +581,8 @@ import Combine
         if items.count == 1, let item = items.first, item.providerReference.provider == .steamWorkshop,
            let record = steam.latestDownloadRecord(for: item.providerReference.sourceID) {
             menu.addItem(.separator())
-            let source = SteamWorkshopItemMenu.make(item: record.displayItemForToolbar, service: steam, includePrimary: false)
+            let source = SteamWorkshopItemMenu.make(item: record.displayItemForToolbar, service: steam,
+                includePrimary: false, includeReveal: false)
             for entry in source.items { source.removeItem(entry); menu.addItem(entry) }
             if item.capabilities.contains(.retryUpdate) || item.capabilities.contains(.retryDownload) {
                 add(item.capabilities.contains(.retryUpdate) ? "重试更新" : "重试下载", "arrow.clockwise") { [weak self] in

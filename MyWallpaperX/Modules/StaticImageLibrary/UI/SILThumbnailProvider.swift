@@ -44,7 +44,9 @@ private final class SILDecodeFailureSignature: @unchecked Sendable {
 
 final class SILThumbnailProvider {
     let cache: ThumbnailCache
-    private var failedThumbnailSignatures: Set<String> = []
+    /// Source identity only. The shared cache owns whether a failure still
+    /// exists; clearing it must also make an unchanged source retryable.
+    private var failureSourceSignatures: [String: String] = [:]
 
     init(cache: ThumbnailCache = SILThumbnailStore.sharedCache) { self.cache = cache }
 
@@ -57,7 +59,8 @@ final class SILThumbnailProvider {
             return
         }
         // 未命中：文件存在性与失败签名 stat 在后台执行，避免逐 cell 主线程文件系统 IO
-        let checksFailureSignature = !self.failedThumbnailSignatures.isEmpty
+        let checksFailureSignature = cache.hasCachedFailure(forKey: path)
+        if !checksFailureSignature { failureSourceSignatures.removeValue(forKey: path) }
         DispatchQueue.global(qos: priority == .prefetch ? .utility : .userInitiated).async { [weak self] in
             guard !cancellation.cancelled else { return }
             let exists = FileManager.default.fileExists(atPath: path)
@@ -72,12 +75,14 @@ final class SILThumbnailProvider {
                     completion(.missingFile)
                     return
                 }
-                if let signature, self.failedThumbnailSignatures.contains(signature) {
-                    completion(.unavailable)
-                    return
+                if self.cache.hasCachedFailure(forKey: path),
+                   signature == nil || self.failureSourceSignatures[path] != signature {
+                    // Another producer may have failed without this provider's
+                    // source identity. Do not guess that it describes this file.
+                    self.cache.remove(forKey: path)
                 }
-                // 签名复用：completion 直接使用闭包捕获的后台签名，失败时由
-                // loader 在 decodeQueue 解码失败处重算带回，不再主线程 stat
+                // 新失败的源身份只由实际 loader 在失败处带回；加入其他
+                // producer 的 completion 不猜签名，也不在主线程 stat。
                 let decodeFailureSignature = SILDecodeFailureSignature()
                 self.cache.load(forKey: path, priority: priority, cancellation: cancellation, loader: {
                     let decodeFailure: () -> NSImage? = {
@@ -92,15 +97,12 @@ final class SILThumbnailProvider {
                         completion(image.map(SILThumbnailLoadResult.image) ?? .unavailable)
                         return
                     }
-                    // 成功 remove 后台预载签名（文件替换窗口内更精确）；
-                    // 失败优先 insert decodeQueue 解码时刻重算的签名
-                    let failureSignature = decodeFailureSignature.stored ?? signature
-                    if let failureSignature {
-                        if image != nil {
-                            self.failedThumbnailSignatures.remove(failureSignature)
-                        } else {
-                            self.failedThumbnailSignatures.insert(failureSignature)
-                        }
+                    if image != nil || !self.cache.hasCachedFailure(forKey: path) {
+                        self.failureSourceSignatures.removeValue(forKey: path)
+                    } else if let failureSignature = decodeFailureSignature.stored {
+                        // Only this loader can identify its failed source. A
+                        // joined producer's nil must not acquire a guessed memo.
+                        self.failureSourceSignatures[path] = failureSignature
                     }
                     completion(image.map(SILThumbnailLoadResult.image) ?? .unavailable)
                 })

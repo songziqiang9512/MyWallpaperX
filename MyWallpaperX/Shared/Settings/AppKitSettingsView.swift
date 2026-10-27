@@ -579,7 +579,9 @@ final class AppKitSettingsContainerView: NSView {
         volumeValueLabel.stringValue = "\(clampedVolume)%"
         dependency.actions.updateVolume(Double(clampedVolume))
         // 音量与静音是两个公共意图：滑杆只更新主音量，0 边界再同步静音。
-        PlaybackCommandMultiplexer.shared.dispatch(.setMuted(clampedVolume == 0))
+        if PlaybackMuteState.shared.isMuted != (clampedVolume == 0) {
+            PlaybackCommandMultiplexer.shared.dispatch(.setMuted(clampedVolume == 0))
+        }
     }
 
     @objc private func handleMuteToggle() {
@@ -778,12 +780,19 @@ final class AppKitSettingsContainerView: NSView {
         )
         presentAppAlert(alert, in: hostWindow) { [weak self] response in
             guard let self, response == .alertFirstButtonReturn else { return }
-            self.dependency.actions.clearAllCaches()
-            let result = makeAppAlert(
-                title: "缓存已清空",
-                message: "下次浏览视频库、图片库、在线图库或 Steam 创意工坊时会重新生成缓存。"
-            )
-            presentAppAlert(result, in: hostWindow)
+            let title = self.clearCacheButton.title
+            self.clearCacheButton.isEnabled = false
+            self.clearCacheButton.title = "清理中…"
+            Task { @MainActor in
+                defer {
+                    self.clearCacheButton.isEnabled = true
+                    self.clearCacheButton.title = title
+                }
+                await self.dependency.actions.clearAllCaches()
+                guard hostWindow?.isVisible != false else { return }
+                let result = makeAppAlert(title: "缓存已清空", message: "下次浏览时会按需重新生成。")
+                presentAppAlert(result, in: hostWindow)
+            }
         }
     }
 
@@ -797,18 +806,21 @@ final class AppKitSettingsContainerView: NSView {
 
         presentSavePanel(panel) { [weak self] targetURL in
             guard let self, let targetURL else { return }
+            let hostWindow = self.preferredHostWindow()
             self.exportProfileButton.isEnabled = false
             self.importProfileButton.isEnabled = false
             Task { @MainActor in
                 defer { self.exportProfileButton.isEnabled = true; self.importProfileButton.isEnabled = true }
                 do {
                     let summary = try await self.dependency.actions.exportPersonalSettings(targetURL)
+                    guard let hostWindow, hostWindow.isVisible else { return }
                     let done = makeAppAlert(title: "导出完成",
                         message: "已导出 \(summary.wallpaperCount) 条壁纸配置，\(summary.tagCount) 个播放列表。")
-                    presentAppAlert(done, in: self.preferredHostWindow())
+                    presentAppAlert(done, in: hostWindow)
                 } catch {
+                    guard let hostWindow, hostWindow.isVisible else { return }
                     let failed = makeAppAlert(title: "导出失败", message: error.localizedDescription)
-                    presentAppAlert(failed, in: self.preferredHostWindow())
+                    presentAppAlert(failed, in: hostWindow)
                 }
             }
         }
@@ -838,14 +850,16 @@ final class AppKitSettingsContainerView: NSView {
                     defer { self.exportProfileButton.isEnabled = true; self.importProfileButton.isEnabled = true }
                     do {
                         let summary = try await self.dependency.actions.importPersonalSettings(sourceURL)
+                        guard let hostWindow, hostWindow.isVisible else { return }
                         let done = makeAppAlert(title: "导入完成", message: """
                             已更新 \(summary.mergedWallpaperCount) 项、新增 \(summary.createdWallpaperCount) 项，导入 \(summary.tagCount) 个播放列表。
                             \(summary.missingPathCount) 个缺失路径已保留引用。
                             """)
-                        presentAppAlert(done, in: self.preferredHostWindow())
+                        presentAppAlert(done, in: hostWindow)
                     } catch {
+                        guard let hostWindow, hostWindow.isVisible else { return }
                         let failed = makeAppAlert(title: "导入未完成", message: error.localizedDescription)
-                        presentAppAlert(failed, in: self.preferredHostWindow())
+                        presentAppAlert(failed, in: hostWindow)
                     }
                 }
             }

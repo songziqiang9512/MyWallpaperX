@@ -432,7 +432,9 @@ import QuartzCore
     download.prepareForReuse()
     download.view.frame.size = NSSize(width: 240, height: 242)
     let entry = downloadModel(801, name: "local video.mp4")
+    let beforeLocalRequest = OLDownloadedThumbnailStore.sharedCache.history.count
     download.configure(entry: entry, isSelected: false, isMultiSelectMode: false, isPlaying: true)
+    precondition(waitUntil { OLDownloadedThumbnailStore.sharedCache.history.count == beforeLocalRequest + 1 })
     layout(download)
     var localPlayed: [Int] = [], localFavorite: [Int] = []
     download.onPrimaryAction = { localPlayed.append($0) }
@@ -739,7 +741,9 @@ import QuartzCore
     card.view.frame.size = NSSize(width: 230, height: 232)
     facts.expect("idle-card-does-not-create-glass-play-badge", card.controlBar == nil)
     let original = downloadModel(7, name: String(repeating: "long original title ", count: 6) + ".mp4")
+    let beforeOriginal = transport.history.count
     card.configure(entry: original, isSelected: true, isMultiSelectMode: true, isPlaying: true)
+    precondition(waitUntil { transport.history.count == beforeOriginal + 1 })
     let first = transport.history.last!.0
     layout(card)
     facts.expect("multi-select-playing-keeps-hidden-badge-unbuilt", card.controlBar == nil)
@@ -788,6 +792,7 @@ import QuartzCore
     facts.expect("equal-content-keeps-mask-object", unchangedMask != nil && card.controlBar?.titleView.layer?.mask === unchangedMask)
     let renamed = downloadModel(7, name: String(repeating: "replacement title ", count: 7) + ".mp4", duration: 3661)
     card.configure(entry: renamed, isSelected: true, isMultiSelectMode: true, isPlaying: true)
+    precondition(waitUntil { transport.history.count == requests + 1 })
     layout(card)
     facts.expect("same-ID-local-title-updates-at-same-size", card.currentTitle == renamed.displayTitle
         && firstBadge.titleView.text == renamed.displayTitle && firstBadge.titleView.toolTip == nil

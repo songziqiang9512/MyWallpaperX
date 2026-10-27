@@ -93,10 +93,6 @@ extension Notification.Name { static let onlineVideoReadyToPlay = Self("source-r
     // SOURCE_OWNER
 }
 
-@MainActor enum OLDownloadedThumbnailStore {
-    final class Cache { func cachedImage(forKey key: String) -> NSImage? { nil } }
-    static let sharedCache = Cache()
-}
 // INSPECTOR_SNAPSHOT
 
 @main struct OnlineDownloadedContentHarness {

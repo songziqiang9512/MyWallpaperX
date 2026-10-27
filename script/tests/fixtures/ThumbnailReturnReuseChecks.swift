@@ -101,7 +101,7 @@ nonisolated func checkedPrefetchKey(for url: URL, maxPixelSize: Int) -> String {
             fallbackStore.load(forKey: "existing-thumbnail") {
                 generationCounter.increment("extract"); return red
             } completion: { image = $0 }
-            _ = pump { image != nil }; fallbackStore.removeAll()
+            _ = pump { image != nil }; fallbackStore.imageCache.removeAllObjects()
         }
         checks["sharedLocalDiskCacheAvoidsRepeatedSourceExtraction"] = generationCounter.count("extract") == 1
 
@@ -153,7 +153,7 @@ nonisolated func checkedPrefetchKey(for url: URL, maxPixelSize: Int) -> String {
         }
         loadReturned = true
         checks["warmMemoryReturnsSynchronously"] = synchronous
-        for _ in 0..<12 { cache.removeAll(); _ = load() }
+        for _ in 0..<12 { cache.imageCache.removeAllObjects(); _ = load() }
         checks["twelveDiskReturnsNeverRefetchOrRescanGIF"] = counter.count("network") == 1
             && counter.count("original-decode") == 1 && counter.count("still-decode") == 12
         checks["coldAndDiskImageCallbacksStayOnMainAndCompleteOnce"] = counter.count("image-callback") == 13
@@ -287,7 +287,7 @@ nonisolated func checkedPrefetchKey(for url: URL, maxPixelSize: Int) -> String {
         try FileManager.default.removeItem(at: local)
         state.configure(previewURL: local, fallbackImageURL: remote.appendingPathComponent("missing-fallback.gif"), fallbackVideoURL: nil)
         checks["deletedLocalDoesNotReviveOldStaticCache"] = pump { state.image != nil && state.placeholder == .hidden }
-        cache.removeAll(); cache.clearDiskCache()
+        cache.clearAll()
         _ = load()
         checks["explicitClearRequiresFreshSource"] = counter.count("network") == 2
         state.reset()

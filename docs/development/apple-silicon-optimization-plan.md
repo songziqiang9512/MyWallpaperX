@@ -430,7 +430,7 @@ U2本轮资格后只推进局部旧 metadata 补齐：JSON读取／解码与库�
 
 ### U3｜P2：可见路径探针停启与 SIL single-flight
 
-- **F／owner**：[Video grid](../../MyWallpaperX/Modules/VideoLibrary/UI/AppKitLibraryGridView.swift) 885 行、[SIL grid](../../MyWallpaperX/Modules/StaticImageLibrary/UI/SILGridContainerView.swift) 444 行每 2 s 后台查可见项；Video 已有在飞门，SIL 缺。未见按窗口可见性停表，旧 controller 离场则释放。
+- **历史F（2026-10-20）**：旧 `AppKitLibraryGridView.swift` 885行、`SILGridContainerView.swift` 444行当时每2s后台查可见项，Video有在飞门、SIL缺；未按窗口可见性停表，离场释放。旧owner已退役；[当前统一网格](../../MyWallpaperX/Shell/WallpaperLibraryGridController.swift)须按现链重核，不据旧文件续做。
 - **最小改法／依据**：SIL 补同 owner 在飞和完成身份复核；真正离窗／最小化时停现 timer，重新可见即时探测。全遮挡是否停先验证通知可靠性，不把桌面 renderer 也一并停掉。A6；不新建全库 watcher。
 - **反例／验收**：T11 目前偏 Video，补 SIL、在飞离窗再回、同 ID 换路径、排序、外部删除／恢复。正常／慢卷观察 10 min 可见与最小化的批次数及叠加。
 - **停止**：恢复反馈退步或只能靠新全局观察平台实现；2 s 是活跃检测周期，不能直接设长周期掩盖问题。

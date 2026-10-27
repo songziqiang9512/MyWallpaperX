@@ -139,7 +139,8 @@ final class SteamLoginPanelController: NSWindowController, NSWindowDelegate {
         cancellables.forEach { $0.cancel() }
         cancellables.removeAll()
         self.auth = auth
-        observe(auth: auth)
+        let savedSession = Self.restorableSavedSession(for: auth)
+        observe(auth: auth, replacingInitialFailure: savedSession != nil)
 
         let window = WallpaperLibraryModalPanel(
             contentRect: NSRect(x: 0, y: 0, width: SteamLoginPanelView.width, height: SteamLoginPanelView.height),
@@ -168,7 +169,7 @@ final class SteamLoginPanelController: NSWindowController, NSWindowDelegate {
             // 会话；新登录在 helper 侧顶替旧会话，成功后 steamId/accountName 更新。
             showPage(.password)
             setStatus("当前已登录 \(auth.accountName ?? "Steam 账号")；重新登录将切换账号。")
-        } else if let saved = Self.restorableSavedSession(for: auth) {
+        } else if let saved = savedSession {
             startSilentRestore(saved)
         } else {
             startQRLogin()
@@ -193,8 +194,17 @@ final class SteamLoginPanelController: NSWindowController, NSWindowDelegate {
 
     // MARK: - 状态观察
 
-    private func observe(auth: SteamAuthRoute) {
+    private func observe(auth: SteamAuthRoute, replacingInitialFailure: Bool) {
+        // show() already presents the password page for an existing account.
+        // A saved-session restore also replaces its old network failure. Neither
+        // initial terminal value completes this panel's new operation; retain
+        // all other initial states and every subsequent auth transition.
+        let initialTerminalReplay: Int
+        if replacingInitialFailure { initialTerminalReplay = 1 }
+        else if auth.isOnline, case .online = auth.phase { initialTerminalReplay = 1 }
+        else { initialTerminalReplay = 0 }
         auth.$phase
+            .dropFirst(initialTerminalReplay)
             .receive(on: RunLoop.main)
             .sink { [weak self] phase in
                 guard let self, let window = self.window, window.isVisible,

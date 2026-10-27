@@ -79,7 +79,7 @@ import AppKit
                 guard let id = Int(reference.sourceID), String(id).utf8.elementsEqual(reference.sourceID.utf8),
                       let row = online.downloadedContent.entries.first(where: { $0.id == id }) else { completion(nil); return {} }
                 let cancellation = ThumbnailCacheRequestCancellation()
-                OLDownloadedThumbnailStore.prefetch(row, cancellation: cancellation) { _, image in completion(image) }
+                OLDownloadedThumbnailStore.loadThumbnail(row, priority: .prefetch, cancellation: cancellation) { _, image in completion(image) }
                 return { cancellation.cancel() }
             case .wallhaven, .pixiv:
                 let library = OnlineImageLibrary.shared

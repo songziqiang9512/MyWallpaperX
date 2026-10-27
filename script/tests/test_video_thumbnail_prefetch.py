@@ -145,6 +145,14 @@ class VideoThumbnailPrefetchTests(unittest.TestCase):
             shared = ROOT / 'MyWallpaperX/Shared/UI'
             sources = [actual, shared / 'GridThumbnailDecoder.swift', shared / 'DecodedThumbnailMemoryCache.swift',
                        shared / 'ThumbnailCache.swift', ROOT / 'script/tests/fixtures/VideoThumbnailPrefetchChecks.swift']
+            # Preserve the original memory-pressure/reheat case without adding
+            # a product memory-only cache API solely for this fixture.
+            cache_source = shared / 'ThumbnailCache.swift'
+            cache = cache_source.read_text()
+            self.assertEqual(cache.count('private let imageCache:'), 1)
+            cache_copy = work / 'ThumbnailCache.swift'
+            cache_copy.write_text(cache.replace('private let imageCache:', 'let imageCache:', 1))
+            sources[sources.index(cache_source)] = cache_copy
             binary = work / 'checks'
             build = subprocess.run(['xcrun', 'swiftc', *SWIFT_ISOLATION_FLAGS, '-warnings-as-errors', '-parse-as-library', *map(str, sources),
                 '-module-cache-path', str(work / 'modules'), '-o', str(binary)],

@@ -112,7 +112,7 @@ God Rays 与 Light Shafts 交叉 **4** 个：`3448877775`、`3566880847`、`3807
 
 ## 可复算证据
 
-正式元数据证据包：[lighting-inventory-20261023 manifest](../../../.artifacts/scene-evidence/runs/lighting-inventory-20261023/manifest.json)、[metadata ZIP](../../../.artifacts/scene-evidence/runs/lighting-inventory-20261023/supporting/samples/0/runtime_evidence.zip)。ZIP仅含 `census.json`、`receipt.md`、`metadata_census_scan.py`、`review-census.json`、输入身份摘要与内容清单；完整逐类ID、交叉、定位和所读JSON SHA256保存在census。独审接受这一有界静态清单，包完整性校验通过；transport路径中的 `runtime_evidence` 不表示运行已执行，report明确 `passed=null`。默认保留14天，不含媒体、原包或probe输出，也不是第二份统计权威。
+正式元数据证据包：lighting-inventory-20261023 manifest `.artifacts/scene-evidence/runs/lighting-inventory-20261023/manifest.json`、metadata ZIP `.artifacts/scene-evidence/runs/lighting-inventory-20261023/supporting/samples/0/runtime_evidence.zip`。ZIP仅含 `census.json`、`receipt.md`、`metadata_census_scan.py`、`review-census.json`、输入身份摘要与内容清单；完整逐类ID、交叉、定位和所读JSON SHA256保存在census。独审接受这一有界静态清单，包完整性校验通过；transport路径中的 `runtime_evidence` 不表示运行已执行，report明确 `passed=null`。默认保留14天，不含媒体、原包或probe输出，也不是第二份统计权威。
 
 | 文件 | SHA256 |
 |---|---|

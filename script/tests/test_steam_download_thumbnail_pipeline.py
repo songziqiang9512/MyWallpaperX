@@ -1,4 +1,4 @@
-"""Real video extraction, coalescing, request-local identity and disk/memory/failure returns."""
+"""Real video extraction, identity and cache returns, plus opt-in nil/held invalidation cases."""
 import hashlib
 import json
 import os
@@ -32,13 +32,22 @@ MUTATION_CHECKS = {'generationUsesCapturedKeyAfterMetadataChange', 'coldSaveReta
                    'nextMtimeRequestUsesFreshIdentity', 'sameSizeMtimeReplacementUsesFreshInode',
                    'sameInodeMtimeSizeChangeUsesFreshIdentity', 'everyRevisionPersistsRealJPEG',
                    'mutationRequestsEachReadOneFreshIdentity', 'allMutationCompletionsOnceOnMain'}
+INVALIDATION_CHECKS = {'completedFailureStillDeduplicatesBeforeInvalidation',
+    'explicitInvalidationLetsSameKeyGenerateRealFrame', 'newResultStillWarmsMemory',
+    'invalidationLeavesDiskDeletionWithService', 'serviceDiskRemovalCannotLeaveWarmMemory',
+    'inflightSuccessKeepsBothCallbacksOnce', 'inflightSuccessCannotRefillDisk',
+    'inflightSuccessCannotRefillMemory', 'newSuccessJobCachesNormally',
+    'inflightFailureStillCompletesOnce', 'inflightFailureCannotRefillNegativeCache',
+    'newFailureRecoveryCachesNormally', 'invalidationKeepsCapturedIdentityCounts',
+    'invalidationGenerationsStaySerialAndOffMain', 'allInvalidationCompletionsOnceOnMain'}
 
 
 def observed_pipeline(source):
-    """Observe actual owner entries in a task copy; algorithms remain unchanged."""
+    """Observe original entries; only invalidation mode opts into a nil generation leaf."""
     transforms = {
         '    private func createThumbnail(for videoURL: URL) -> NSImage? {':
-            '        GenerationProbe.shared.begin(videoURL)\n        defer { GenerationProbe.shared.end() }',
+            '        GenerationProbe.shared.begin(videoURL)\n        defer { GenerationProbe.shared.end() }\n'
+            '        if GenerationProbe.shared.shouldFail(videoURL) { return nil }',
         '    private func cacheKey(for videoURL: URL) -> String {':
             '        CacheKeyProbe.shared.keyCall(videoURL)',
         '        let key = cacheKey(for: videoURL)':
@@ -87,6 +96,8 @@ class SteamDownloadThumbnailPipelineTests(unittest.TestCase):
             self.assertEqual(generate.returncode, 0, generate.stdout + generate.stderr)
             shutil.copyfile(clip, work / 'second.mp4')
             shutil.copyfile(clip, work / 'changing.mp4')
+            for name in ('clear-failure.mp4', 'clear-flight-success.mp4', 'clear-flight-failure.mp4'):
+                shutil.copyfile(clip, work / name)
             (work / 'bad.mp4').write_bytes(b'owned invalid movie fixture')
             home = work / 'home'
             home.mkdir()
@@ -106,7 +117,8 @@ class SteamDownloadThumbnailPipelineTests(unittest.TestCase):
             save('inputs.json', json.dumps({'inputs': inputs,
                 'clipSHA256': hashlib.sha256(clip.read_bytes()).hexdigest(),
                 'transforms': ['actual generation leaf begin/defer end', 'actual key and metadata API counts',
-                               'capture actual generateThumbnail request key after its original computation'],
+                               'capture actual generateThumbnail request key after its original computation',
+                               'invalidation mode alone can hold the generation leaf or return nil before real AV; recovery uses real AV'],
                 'scope': __doc__}, indent=2) + '\n')
             compilation_sources = [support if path == IMAGE_SUPPORT else path for path in SOURCES]
             build = subprocess.run(['xcrun', 'swiftc', *SWIFT_ISOLATION_FLAGS, '-warnings-as-errors', '-parse-as-library',
@@ -116,7 +128,8 @@ class SteamDownloadThumbnailPipelineTests(unittest.TestCase):
             save('compile.log', build.stdout + build.stderr)
             self.assertEqual(build.returncode, 0, build.stdout + build.stderr)
             self.assertEqual(inputs, fingerprints())
-            for mode, checks in [('cold', CHECKS), ('disk', DISK_CHECKS), ('mutation', MUTATION_CHECKS)]:
+            for mode, checks in [('cold', CHECKS), ('disk', DISK_CHECKS), ('mutation', MUTATION_CHECKS),
+                                 ('invalidation', INVALIDATION_CHECKS)]:
                 result = subprocess.run([str(binary), str(work), mode], env=environment,
                     capture_output=True, text=True, timeout=45)
                 prefix = '' if mode == 'cold' else mode + '-'
@@ -137,6 +150,18 @@ import AppKit
 import Foundation
 import Darwin
 
+nonisolated final class GenerationHold: @unchecked Sendable {
+    private let lock = NSLock()
+    private let gate = DispatchSemaphore(value: 0)
+    private var started = false
+    var entered: Bool { lock.lock(); defer { lock.unlock() }; return started }
+    func wait() {
+        lock.lock(); started = true; lock.unlock()
+        precondition(gate.wait(timeout: .now() + 15) == .success, "invalidation gate timed out")
+    }
+    func release() { gate.signal() }
+}
+
 nonisolated final class GenerationProbe: @unchecked Sendable {
     static let shared = GenerationProbe()
     let firstEntryGate = DispatchSemaphore(value: 0)
@@ -145,14 +170,27 @@ nonisolated final class GenerationProbe: @unchecked Sendable {
     private var active = 0
     private var maximum = 0
     private var allOffMain = true
+    private var failures = Set<String>()
+    private var holds: [String: GenerationHold] = [:]
     func begin(_ url: URL) {
         lock.lock()
         let first = starts.isEmpty
+        let hold = holds.removeValue(forKey: url.path)
         starts[url.path, default: 0] += 1
         active += 1; maximum = max(maximum, active)
         allOffMain = allOffMain && !Thread.isMainThread
         lock.unlock()
         if first { precondition(firstEntryGate.wait(timeout: .now() + 15) == .success, "entry gate timed out") }
+        hold?.wait()
+    }
+    func fail(_ url: URL, enabled: Bool) {
+        lock.lock(); defer { lock.unlock() }
+        if enabled { failures.insert(url.path) } else { failures.remove(url.path) }
+    }
+    func shouldFail(_ url: URL) -> Bool { lock.lock(); defer { lock.unlock() }; return failures.contains(url.path) }
+    func holdNext(_ url: URL) -> GenerationHold {
+        lock.lock(); defer { lock.unlock() }
+        let hold = GenerationHold(); holds[url.path] = hold; return hold
     }
     func end() { lock.lock(); active -= 1; lock.unlock() }
     func count(_ url: URL) -> Int { lock.lock(); defer { lock.unlock() }; return starts[url.path, default: 0] }
@@ -342,6 +380,90 @@ nonisolated final class CompletionProbe: @unchecked Sendable {
                 && keys.captures(changing).allSatisfy { realFrame(NSImage(contentsOf: outputURL($0))) }
             checks["mutationRequestsEachReadOneFreshIdentity"] = keys.hasQueries(4, for: changing)
             checks["allMutationCompletionsOnceOnMain"] = completions.allOnceOnMain(expectedCount: 4)
+            try emit()
+            return
+        }
+        if mode == "invalidation" {
+            let failed = root.appendingPathComponent("clear-failure.mp4")
+            let successFlight = root.appendingPathComponent("clear-flight-success.mp4")
+            let failureFlight = root.appendingPathComponent("clear-flight-failure.mp4")
+            generations.firstEntryGate.signal()
+            func removeServiceDiskRoot() throws {
+                let cacheRoot = disk.deletingLastPathComponent()
+                if FileManager.default.fileExists(atPath: cacheRoot.path) { try FileManager.default.removeItem(at: cacheRoot) }
+            }
+            generations.fail(failed, enabled: true)
+            request("initial-failure", failed)
+            precondition(pump { completions.count("initial-failure") == 1 })
+            request("negative-before-clear", failed)
+            checks["completedFailureStillDeduplicatesBeforeInvalidation"] = pump {
+                completions.count("negative-before-clear") == 1
+            } && completions.image("initial-failure") == nil && completions.image("negative-before-clear") == nil
+                && generations.count(failed) == 1
+            pipeline.invalidateCachedResults()
+            generations.fail(failed, enabled: false)
+            request("same-key-after-clear", failed)
+            checks["explicitInvalidationLetsSameKeyGenerateRealFrame"] = pump {
+                completions.count("same-key-after-clear") == 1
+            } && realFrame(completions.image("same-key-after-clear")) && generations.count(failed) == 2
+                && Set(keys.captures(failed)).count == 1
+            request("warm-after-clear", failed)
+            checks["newResultStillWarmsMemory"] = pump { completions.count("warm-after-clear") == 1 }
+                && completions.image("warm-after-clear") === completions.image("same-key-after-clear")
+                && generations.count(failed) == 2
+            let failedKey = keys.captures(failed).first!
+            pipeline.invalidateCachedResults()
+            checks["invalidationLeavesDiskDeletionWithService"] = realFrame(NSImage(contentsOf: outputURL(failedKey)))
+            try removeServiceDiskRoot()
+            request("after-service-disk-clear", failed)
+            checks["serviceDiskRemovalCannotLeaveWarmMemory"] = pump {
+                completions.count("after-service-disk-clear") == 1
+            } && realFrame(completions.image("after-service-disk-clear")) && generations.count(failed) == 3
+
+            let successHold = generations.holdNext(successFlight)
+            request("old-success", successFlight)
+            precondition(pump { successHold.entered })
+            request("joined-old-success", successFlight)
+            pipeline.invalidateCachedResults()
+            try removeServiceDiskRoot()
+            successHold.release()
+            checks["inflightSuccessKeepsBothCallbacksOnce"] = pump {
+                completions.count("old-success") == 1 && completions.count("joined-old-success") == 1
+            } && realFrame(completions.image("old-success"))
+                && completions.image("old-success") === completions.image("joined-old-success")
+                && generations.count(successFlight) == 1
+            let successKey = keys.captures(successFlight).first!
+            checks["inflightSuccessCannotRefillDisk"] = !FileManager.default.fileExists(atPath: outputURL(successKey).path)
+            request("new-success", successFlight)
+            checks["inflightSuccessCannotRefillMemory"] = pump { completions.count("new-success") == 1 }
+                && realFrame(completions.image("new-success")) && generations.count(successFlight) == 2
+            request("new-success-warm", successFlight)
+            checks["newSuccessJobCachesNormally"] = pump { completions.count("new-success-warm") == 1 }
+                && completions.image("new-success-warm") === completions.image("new-success")
+                && generations.count(successFlight) == 2 && realFrame(NSImage(contentsOf: outputURL(successKey)))
+
+            generations.fail(failureFlight, enabled: true)
+            let failureHold = generations.holdNext(failureFlight)
+            request("old-failure", failureFlight)
+            precondition(pump { failureHold.entered })
+            pipeline.invalidateCachedResults()
+            try removeServiceDiskRoot()
+            failureHold.release()
+            checks["inflightFailureStillCompletesOnce"] = pump { completions.count("old-failure") == 1 }
+                && completions.image("old-failure") == nil && generations.count(failureFlight) == 1
+            generations.fail(failureFlight, enabled: false)
+            request("new-after-failure", failureFlight)
+            checks["inflightFailureCannotRefillNegativeCache"] = pump { completions.count("new-after-failure") == 1 }
+                && realFrame(completions.image("new-after-failure")) && generations.count(failureFlight) == 2
+            let failureKey = keys.captures(failureFlight).first!
+            checks["newFailureRecoveryCachesNormally"] = realFrame(NSImage(contentsOf: outputURL(failureKey)))
+            checks["invalidationKeepsCapturedIdentityCounts"] = keys.hasQueries(5, for: failed)
+                && keys.hasQueries(4, for: successFlight) && keys.hasQueries(2, for: failureFlight)
+                && Set(keys.captures(failed)).count == 1 && Set(keys.captures(successFlight)).count == 1
+                && Set(keys.captures(failureFlight)).count == 1
+            checks["invalidationGenerationsStaySerialAndOffMain"] = generations.serialAndOffMain
+                && generations.metrics["totalStarts"] == 7
+            checks["allInvalidationCompletionsOnceOnMain"] = completions.allOnceOnMain(expectedCount: 11)
             try emit()
             return
         }

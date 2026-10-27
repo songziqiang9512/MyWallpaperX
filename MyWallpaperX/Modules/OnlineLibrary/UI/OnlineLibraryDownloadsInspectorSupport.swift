@@ -7,6 +7,7 @@ import AppKit
 import QuartzCore
 
 struct OnlineLibraryDownloadsInspectorSnapshot {
+    let entry: OLDownloadedEntry
     let id: Int
     let title: String
     let fileExtension: String
@@ -17,30 +18,30 @@ struct OnlineLibraryDownloadsInspectorSnapshot {
     let platformText: String
     let path: String
     let fileURL: URL
-    let previewImage: NSImage?
 
     @MainActor static func load(itemID: Int, service: OnlineLibraryService? = nil) -> OnlineLibraryDownloadsInspectorSnapshot? {
         let service = service ?? .shared
         guard let entry = service.downloadedContent.entries.first(where: { $0.id == itemID }),
               entry.isAvailable else { return nil }
+        return .init(entry: entry)
+    }
+
+    init(entry: OLDownloadedEntry) {
         let url = entry.localURL
         let formatter = DateFormatter()
         formatter.dateStyle = .medium
         formatter.timeStyle = .medium
-
-        return OnlineLibraryDownloadsInspectorSnapshot(
-            id: itemID,
-            title: url.lastPathComponent,
-            fileExtension: url.pathExtension.uppercased(),
-            fileSizeText: ByteCountFormatter.string(fromByteCount: Int64(entry.fileSize), countStyle: .file),
-            durationText: entry.duration.map(OnlineLibraryDownloadedAssetMetadata.formatDuration) ?? "未知",
-            resolutionText: entry.resolutionString ?? "未知",
-            creationDateText: entry.creationDate.map(formatter.string(from:)) ?? "未知",
-            platformText: "Pixabay",
-            path: url.path,
-            fileURL: url,
-            previewImage: entry.thumbnailSourceKey.flatMap { OLDownloadedThumbnailStore.sharedCache.cachedImage(forKey: $0) }
-        )
+        self.entry = entry
+        id = entry.id
+        title = url.lastPathComponent
+        fileExtension = url.pathExtension.uppercased()
+        fileSizeText = ByteCountFormatter.string(fromByteCount: Int64(entry.fileSize), countStyle: .file)
+        durationText = entry.duration.map(OnlineLibraryDownloadedAssetMetadata.formatDuration) ?? "未知"
+        resolutionText = entry.resolutionString ?? "未知"
+        creationDateText = entry.creationDate.map(formatter.string(from:)) ?? "未知"
+        platformText = "Pixabay"
+        path = url.path
+        fileURL = url
     }
 }
 
@@ -100,7 +101,7 @@ enum OnlineLibraryDownloadsInspectorViews {
 }
 
 final class OnlineLibraryDownloadsPreviewSurfaceView: NSView {
-    private let previewImage: NSImage?
+    private var previewImage: NSImage?
     private let placeholderView = NSImageView()
 
     init(itemID: Int, previewImage: NSImage?) {
@@ -112,6 +113,12 @@ final class OnlineLibraryDownloadsPreviewSurfaceView: NSView {
     @available(*, unavailable)
     required init?(coder: NSCoder) {
         nil
+    }
+
+    func updateImage(_ image: NSImage?) {
+        previewImage = image
+        placeholderView.isHidden = image != nil
+        needsDisplay = true
     }
 
     override func draw(_ dirtyRect: NSRect) {

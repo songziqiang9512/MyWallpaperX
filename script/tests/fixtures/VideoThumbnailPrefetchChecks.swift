@@ -69,7 +69,7 @@ final class WallpaperManager {
         }
         checks["removedDemandSkipsQueuedSourceValidation"] = manager.count(b.id) == 0
         RunLoop.main.run(until: Date().addingTimeInterval(0.01))
-        VideoLibraryThumbnailStore.sharedCache.removeAll()
+        VideoLibraryThumbnailStore.sharedCache.imageCache.removeAllObjects()
         provider.replacePrefetch(with: [a])
         checks["completedNearbyLeaseRewarmsAfterMemoryRelease"] = pump {
             VideoLibraryThumbnailStore.sharedCache.cachedImage(forKey: path) != nil

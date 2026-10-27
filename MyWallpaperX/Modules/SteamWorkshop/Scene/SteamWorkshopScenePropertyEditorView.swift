@@ -762,6 +762,7 @@ final class SteamWorkshopScenePropertyEditorView: NSView, NSCollectionViewDataSo
             let value = min(max(range.lowerBound + ((sender.doubleValue - range.lowerBound) / step).rounded() * step,
                                 range.lowerBound), range.upperBound)
             sender.doubleValue = value
+            guard editor.values[definition.key] != .number(value) else { return }
             editor.commit(.number(value), index: index)
         }
         @objc private func textChanged(_ sender: NSTextField) {

@@ -30,9 +30,10 @@ final class SteamWorkshopToolbarController: NSObject, NSSearchFieldDelegate {
     private(set) var isSteamWorkshopMode = false
     private(set) var isDownloadsMode = false
     private var observers: [NSObjectProtocol] = []
-    /// Per-field search debounce state (used by controlTextDidChange in
-    /// +Actions): one keystroke must not trigger one helper round-trip each.
-    var searchDebounceWorkItems: [ObjectIdentifier: DispatchWorkItem] = [:]
+    /// One field owns one unsubmitted draft and deadline. Page exit cancels
+    /// the deadline; returning to the same navigation can consume the draft.
+    var searchDebounceWorkItem: DispatchWorkItem?
+    var pendingSearchInput: (text: String, navigation: Int)?
     private var cancellables = Set<AnyCancellable>()
     private var existingDownloadTasksPopoverController: SteamWorkshopDownloadTasksPopoverController?
 
@@ -81,6 +82,7 @@ final class SteamWorkshopToolbarController: NSObject, NSSearchFieldDelegate {
     }
 
     deinit {
+        searchDebounceWorkItem?.cancel()
         observers.forEach { NotificationCenter.default.removeObserver($0) }
     }
 
@@ -192,6 +194,8 @@ final class SteamWorkshopToolbarController: NSObject, NSSearchFieldDelegate {
     }
 
     private func switchMode(enabled: Bool, isDownloads: Bool) {
+        searchDebounceWorkItem?.cancel()
+        searchDebounceWorkItem = nil
         guard enabled else {
             existingDownloadTasksPopoverController?.close()
             menuPopover.close()
@@ -204,6 +208,7 @@ final class SteamWorkshopToolbarController: NSObject, NSSearchFieldDelegate {
         isDownloadsMode = isDownloads
 
         if !isDownloads {
+            submitPendingSearch()
             titleUpdateHandler?(SteamWorkshopService.shared.browserSectionTitle)
             syncBrowserContextControls()
         }

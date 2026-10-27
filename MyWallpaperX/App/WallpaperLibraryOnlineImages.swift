@@ -215,12 +215,17 @@ import Combine
     private func menu(_ content: WallpaperContentItem, source: OnlineImageSource) -> NSMenu? {
         let session = source == .wallhaven ? wallhaven : pixiv
         guard let artwork = session.state.items.first(where: { $0.firstAssetID.reference == content.providerReference }) else { return nil }
-        let menu = content.publishedAvailability.isPublishedLocally ? commands.contextMenu(for: [content]) ?? NSMenu() : NSMenu()
+        let menu = content.publishedAvailability.isPublishedLocally
+            ? commands.contextMenu(for: [content], includeRecoverySourcePage: false) ?? NSMenu() : NSMenu()
+        menu.autoenablesItems = false
+        let downloading = library.progress[artwork.firstAssetID] != nil
         if content.publishedAvailability == .remote, content.capabilities.contains(.download) {
-            menu.addItem(ActionMenuItem(title: "下载原图", symbol: "arrow.down") { [weak self] in self?.downloadFirst(artwork) })
-            menu.addItem(ActionMenuItem(title: "下载并设为壁纸", symbol: "play.fill") { [weak self] in self?.downloadFirst(artwork, apply: true) })
+            let download = ActionMenuItem(title: "下载原图", symbol: "arrow.down") { [weak self] in self?.downloadFirst(artwork) }
+            let apply = ActionMenuItem(title: "下载并设为壁纸", symbol: "play.fill") { [weak self] in self?.downloadFirst(artwork, apply: true) }
+            download.isEnabled = !downloading; apply.isEnabled = !downloading
+            menu.addItem(download); menu.addItem(apply)
         }
-        if library.progress[artwork.firstAssetID] != nil {
+        if downloading, !content.publishedAvailability.isPublishedLocally {
             menu.addItem(ActionMenuItem(title: "取消下载", symbol: "xmark") { [weak self] in self?.library.cancel(artwork.firstAssetID) })
         }
         menu.addItem(ActionMenuItem(title: "打开原网页", symbol: "safari") { NSWorkspace.shared.open(artwork.sourceURL) })

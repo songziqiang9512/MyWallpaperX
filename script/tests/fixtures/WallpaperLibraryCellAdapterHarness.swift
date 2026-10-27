@@ -61,13 +61,16 @@ final class AppKitThumbnailProvider {
 }
 final class RecordingThumbnailCache {
     var images: [String: NSImage] = [:]
+    var failures: Set<String> = []
     func cachedImage(forKey key: String) -> NSImage? { images[key] }
+    func hasCachedResult(forKey key: String) -> Bool { images[key] != nil || failures.contains(key) }
 }
 enum OLDownloadedThumbnailStore {
     static let sharedCache = RecordingThumbnailCache()
     static var completions: [(String, NSImage?) -> Void] = []
     static var requests: [(Int, ThumbnailCacheRequestCancellation)] = []
-    static func prefetch(_ entry: OLDownloadedEntry, cancellation: ThumbnailCacheRequestCancellation,
+    static func loadThumbnail(_ entry: OLDownloadedEntry, priority: ThumbnailCacheRequestPriority,
+        cancellation: ThumbnailCacheRequestCancellation,
                          completion: @escaping (String, NSImage?) -> Void) { requests.append((entry.id, cancellation)); completions.append(completion) }
 }
 func steamWorkshopPreviewSources(item: SteamWorkshopBrowserItem, record: SteamWorkshopDownloadRecord)
@@ -490,9 +493,22 @@ final class AdapterCollectionDataSource: NSObject, NSCollectionViewDataSource {
         let beforeCanceled = (SILThumbnailProvider.requests.count, OLDownloadedThumbnailStore.requests.count)
         canceledImage.cancel(); canceledOnline.cancel()
         adapter.updateViewport(visible: [], prefetch: [i, o, s])
-        checks["source-invalidated-prefetch-can-retry-without-new-identity-or-viewport"] = SILThumbnailProvider.requests.count == beforeCanceled.0 + 1
+        checks["cancelled-prefetch-consumers-reacquire-without-new-source-identity"] = SILThumbnailProvider.requests.count == beforeCanceled.0 + 1
             && OLDownloadedThumbnailStore.requests.count == beforeCanceled.1 + 1
             && SILThumbnailProvider.requests.last!.2 !== canceledImage && OLDownloadedThumbnailStore.requests.last!.1 !== canceledOnline
+        let uncachedOnline = OLDownloadedThumbnailStore.requests.last!.1
+        let beforeUncached = OLDownloadedThumbnailStore.requests.count
+        OLDownloadedThumbnailStore.completions.last?("source-invalidated-online", nil)
+        adapter.updateViewport(visible: [], prefetch: [i, o, s])
+        checks["online-uncached-nil-completion-reheats-without-source-identity-or-consumer-cancellation-signal"] =
+            uncachedOnline.cancelled && OLDownloadedThumbnailStore.requests.count == beforeUncached + 1
+        OLDownloadedThumbnailStore.sharedCache.failures.insert("broken-online")
+        OLDownloadedThumbnailStore.completions.last?("broken-online", nil)
+        let beforeFailureEcho = OLDownloadedThumbnailStore.requests.count
+        adapter.updateViewport(visible: [], prefetch: [i, o, s])
+        adapter.updateViewport(visible: [], prefetch: [i, o, s])
+        checks["online-real-negative-cache-conclusion-keeps-bad-source-warm-across-viewport-echoes"] =
+            OLDownloadedThumbnailStore.requests.count == beforeFailureEcho
         let resourceImage = SILThumbnailProvider.requests.last!.2
         adapter.updateViewport(visible: [], prefetch: [content(.staticImageLibrary, "1", capabilities: [.inspect])])
         checks["unavailable-content-cannot-acquire-or-retain-prefetch"] = resourceImage.cancelled

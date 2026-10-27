@@ -56,8 +56,8 @@ private enum Failure: Error { case assertion(String) }
         let actualKey = await fingerprint(source)
         try expect(oldKey != actualKey, "fixture replacement must change source fingerprint")
         var result: (String, NSImage?)?
-        OLDownloadedThumbnailStore.prefetch(.init(localURL: source, thumbnailSourceKey: oldKey),
-            cancellation: ThumbnailCacheRequestCancellation()) { result = ($0, $1) }
+        OLDownloadedThumbnailStore.loadThumbnail(.init(localURL: source, thumbnailSourceKey: oldKey),
+            priority: .prefetch, cancellation: ThumbnailCacheRequestCancellation()) { result = ($0, $1) }
         try await wait("replacement miss must complete") { result != nil }
         try expect(result?.0 == actualKey && result?.1 != nil && cache.cachedImage(forKey: oldKey) == nil
             && cache.cachedImage(forKey: actualKey) != nil, "scan hint published replacement pixels under the old key")
@@ -68,7 +68,7 @@ private enum Failure: Error { case assertion(String) }
         await gate.block()
         let near = ThumbnailCacheRequestCancellation()
         var nearDelivered = false
-        OLDownloadedThumbnailStore.prefetch(.init(localURL: shared, thumbnailSourceKey: sharedKey), cancellation: near) { _, _ in nearDelivered = true }
+        OLDownloadedThumbnailStore.loadThumbnail(.init(localURL: shared, thumbnailSourceKey: sharedKey), priority: .prefetch, cancellation: near) { _, _ in nearDelivered = true }
         try await wait("prefetch producer must start") { await gate.waitingCount == 1 }
         let visible = ThumbnailCacheRequestCancellation()
         var visibleImage: NSImage?
@@ -85,21 +85,21 @@ private enum Failure: Error { case assertion(String) }
         let activeOldKey = await fingerprint(active)
         await gate.block()
         let activeToken = ThumbnailCacheRequestCancellation()
-        var staleDelivered = false
-        OLDownloadedThumbnailStore.prefetch(.init(localURL: active, thumbnailSourceKey: activeOldKey), cancellation: activeToken) { _, _ in staleDelivered = true }
+        var staleResults: [(String, NSImage?)] = []
+        OLDownloadedThumbnailStore.loadThumbnail(.init(localURL: active, thumbnailSourceKey: activeOldKey), priority: .prefetch, cancellation: activeToken) { staleResults.append(($0, $1)) }
         try await wait("active source generation must begin") { await gate.waitingCount == 1 }
         try Data(repeating: 5, count: 57).write(to: active, options: .atomic)
         await gate.release()
-        try await wait("source replaced during generation must cancel stale consumer") { activeToken.cancelled }
-        try await Task.sleep(for: .milliseconds(50))
-        try expect(!staleDelivered && cache.cachedImage(forKey: activeOldKey) == nil,
-            "generation published stale-key pixels after source replacement")
+        try await wait("source replaced during generation must finish the active consumer") { staleResults.count == 1 }
+        try expect(!activeToken.cancelled && staleResults[0].0 == activeOldKey && staleResults[0].1 == nil
+            && !cache.hasCachedResult(forKey: activeOldKey),
+            "source replacement must finish once with nil, without pixels or a false negative cache")
         let activeNewKey = await fingerprint(active)
         var retry: (String, NSImage?)?
-        OLDownloadedThumbnailStore.prefetch(.init(localURL: active, thumbnailSourceKey: activeOldKey),
-            cancellation: ThumbnailCacheRequestCancellation()) { retry = ($0, $1) }
+        OLDownloadedThumbnailStore.loadThumbnail(.init(localURL: active, thumbnailSourceKey: activeOldKey),
+            priority: .prefetch, cancellation: ThumbnailCacheRequestCancellation()) { retry = ($0, $1) }
         try await wait("changed source must remain retryable") { retry != nil }
-        try expect(retry?.0 == activeNewKey && retry?.1 != nil, "stale-key cancellation poisoned later replacement")
+        try expect(retry?.0 == activeNewKey && retry?.1 != nil, "stale-key result poisoned later replacement")
 
         await gate.block()
         var blockerDone = false
@@ -110,25 +110,68 @@ private enum Failure: Error { case assertion(String) }
         let queuedKey = await fingerprint(queued)
         let before = IdentityProbe.shared.count(queued.path)
         let queuedToken = ThumbnailCacheRequestCancellation()
-        OLDownloadedThumbnailStore.prefetch(.init(localURL: queued, thumbnailSourceKey: queuedKey), cancellation: queuedToken) { _, _ in staleDelivered = true }
+        var queuedResults: [(String, NSImage?)] = []
+        OLDownloadedThumbnailStore.loadThumbnail(.init(localURL: queued, thumbnailSourceKey: queuedKey), priority: .prefetch, cancellation: queuedToken) { queuedResults.append(($0, $1)) }
         try await wait("queued key resolution must run") { IdentityProbe.shared.count(queued.path) > before }
         try await Task.sleep(for: .milliseconds(60))
         let generatedBefore = await gate.count
         try Data(repeating: 7, count: 79).write(to: queued, options: .atomic)
         await gate.release()
-        try await wait("queued replacement must cancel before sampling") { queuedToken.cancelled && blockerDone }
+        try await wait("queued replacement must terminate before sampling") { queuedResults.count == 1 && blockerDone }
         let generatedAfter = await gate.count
-        try expect(generatedBefore == generatedAfter && cache.cachedImage(forKey: queuedKey) == nil,
-            "stale queued identity still sampled new source or published wrong-key output")
+        try expect(!queuedToken.cancelled && queuedResults[0].0 == queuedKey && queuedResults[0].1 == nil
+            && generatedBefore == generatedAfter && !cache.hasCachedResult(forKey: queuedKey),
+            "stale queued identity sampled a new source, failed to finish or cached a false failure")
 
         let checksBefore = IdentityProbe.shared.count(source.path)
-        try FileManager.default.removeItem(at: source)
+        let framesBeforeWarm = await gate.count
         var readyResult: NSImage?
-        OLDownloadedThumbnailStore.prefetch(.init(localURL: source, thumbnailSourceKey: actualKey),
-            cancellation: ThumbnailCacheRequestCancellation()) { _, image in readyResult = image }
-        try expect(readyResult != nil && IdentityProbe.shared.count(source.path) == checksBefore,
-            "prepared ready-memory hit unnecessarily inspected the filesystem")
-        try expect(IdentityProbe.shared.mainThreadCalls == 0, "prefetch performed source validation on the main thread")
-        print("{\"scanReplacementUsesActualIdentity\":true,\"sameKeyVisibleSurvivesPrefetchCancel\":true,\"activeReplacementRejectsStaleAndRetries\":true,\"queuedReplacementRejectsBeforeSampling\":true,\"readyHintAvoidsFilesystem\":true,\"prefetchFingerprintOffMain\":true}")
+        OLDownloadedThumbnailStore.loadThumbnail(.init(localURL: source, thumbnailSourceKey: actualKey),
+            priority: .prefetch, cancellation: ThumbnailCacheRequestCancellation()) { _, image in readyResult = image }
+        try await wait("current warm key must complete") { readyResult != nil }
+        let framesAfterWarm = await gate.count
+        try expect(IdentityProbe.shared.count(source.path) == checksBefore + 1 && framesAfterWarm == framesBeforeWarm,
+            "warm current source must resolve one live key without another AV generation")
+
+        try Data(repeating: 8, count: 91).write(to: source, options: .atomic)
+        let warmReplacementKey = await fingerprint(source)
+        let beforeWarmReplacement = IdentityProbe.shared.count(source.path)
+        var warmReplacement: (String, NSImage?)?
+        OLDownloadedThumbnailStore.loadThumbnail(.init(localURL: source, thumbnailSourceKey: actualKey),
+            priority: .visible, cancellation: ThumbnailCacheRequestCancellation()) { warmReplacement = ($0, $1) }
+        try await wait("warm old hint must resolve the replacement") { warmReplacement != nil }
+        try expect(warmReplacement?.0 == warmReplacementKey && warmReplacement?.0 != actualKey && warmReplacement?.1 != nil,
+            "a warm old scan hint bypassed the current file identity")
+        try expect(IdentityProbe.shared.count(source.path) == beforeWarmReplacement + 3,
+            "cold replacement must use only admission plus original before/after generation boundaries")
+        let warmPrefetchReads = IdentityProbe.shared.count(source.path)
+        let warmPrefetchFrames = await gate.count
+        var warmPrefetch: (String, NSImage?)?
+        OLDownloadedThumbnailStore.loadThumbnail(.init(localURL: source, thumbnailSourceKey: actualKey),
+            priority: .prefetch, cancellation: ThumbnailCacheRequestCancellation()) { warmPrefetch = ($0, $1) }
+        try await wait("prefetch must share the same current identity semantics") { warmPrefetch != nil }
+        let finalFrames = await gate.count
+        try expect(warmPrefetch?.0 == warmReplacementKey && IdentityProbe.shared.count(source.path) == warmPrefetchReads + 1
+            && finalFrames == warmPrefetchFrames, "priority changed live identity or re-generated a current warm image")
+        let failedKey = "owned-failed-\(UUID().uuidString)"
+        var failedTerminals = 0
+        cache.loadImageAsync(forKey: failedKey, loader: { nil }) { image in
+            precondition(image == nil); failedTerminals += 1
+        }
+        try await wait("real decode nil must cache its terminal conclusion") { failedTerminals == 1 }
+        try expect(cache.hasCachedResult(forKey: failedKey) && cache.cachedImage(forKey: failedKey) == nil,
+            "the original negative cache must count as a warm terminal conclusion")
+        cache.loadImageAsync(forKey: failedKey, loader: { preconditionFailure("negative cache must not regenerate") }) { image in
+            precondition(image == nil); failedTerminals += 1
+        }
+        try expect(failedTerminals == 2 && cache.hasCachedResult(forKey: failedKey), "cached failure did not finish without work")
+        cache.remove(forKey: failedKey)
+        try expect(!cache.hasCachedResult(forKey: failedKey), "single-key invalidation retained its old negative conclusion")
+        var recoveredImage: NSImage?
+        cache.loadImageAsync(forKey: failedKey, loader: { await gate.frame() }) { recoveredImage = $0 }
+        try await wait("explicitly invalidated failure must remain retryable") { recoveredImage != nil }
+        try expect(cache.hasCachedResult(forKey: failedKey), "a recovered image must be a warm original-cache conclusion")
+        try expect(IdentityProbe.shared.mainThreadCalls == 0, "downloaded producer performed source validation on the main thread")
+        print("{\"scanReplacementUsesActualIdentity\":true,\"sameKeyVisibleSurvivesPrefetchCancel\":true,\"activeReplacementFinishesUncachedAndRetries\":true,\"queuedReplacementFinishesBeforeSampling\":true,\"currentWarmKeyResolvesOnceWithoutAV\":true,\"warmOldHintUsesCurrentSource\":true,\"prefetchAndVisibleShareLiveIdentity\":true,\"cachedFailureAndSingleKeyInvalidationUseOriginalResult\":true,\"fingerprintOffMain\":true}")
     }
 }

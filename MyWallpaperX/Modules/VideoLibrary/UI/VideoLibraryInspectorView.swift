@@ -44,13 +44,20 @@ final class VideoLibraryInspectorView: NSView {
 
     deinit {
         loadingTask?.cancel()
+        previewCancellation?.cancel()
     }
 
     override func viewDidMoveToWindow() {
         super.viewDidMoveToWindow()
-        if window == nil {
+        if window != nil {
+            hasMounted = true
+            if previewCancellation?.cancelled == true { loadPreviewImage() }
+            if loadingTask == nil,
+               details?.isLoading != false || loadedDetailsPath != currentWallpaper.path { loadDetails() }
+        } else if hasMounted {
             loadingTask?.cancel()
             loadingTask = nil
+            previewCancellation?.cancel()
         }
     }
 
@@ -62,9 +69,10 @@ final class VideoLibraryInspectorView: NSView {
     /// 不再在主线程同步 NSImage(contentsOfFile:) 整图解码。
     private let previewSurface = VideoLibraryInspectorPreviewSurfaceView(image: nil)
     private lazy var previewHeightConstraint = previewSurface.heightAnchor.constraint(equalToConstant: 156)
-    /// 预览异步加载代数：每次重载自增，旧代数的迟到完成不得覆盖新一轮结果
-    /// （快速资源替换/缩略图补齐并发时，旧请求的图片会张冠李戴到新资源上）。
-    private var previewLoadGeneration = 0
+    /// One consumer lease covers path resolution, queued decode and main-thread
+    /// delivery. Replacing or removing the view cancels only this consumer.
+    private var previewCancellation: ThumbnailCacheRequestCancellation?
+    private var hasMounted = false
     /// 上一次预览加载的资产身份：$wallpapers 的无关 publish（收藏切换等）不重复触发磁盘解码。
     private var lastPreviewLoadIdentity: PreviewAssetIdentity?
 
@@ -76,8 +84,10 @@ final class VideoLibraryInspectorView: NSView {
     }
 
     private func loadPreviewImage() {
-        previewLoadGeneration += 1
-        let generation = previewLoadGeneration
+        guard !hasMounted || window != nil else { return }
+        previewCancellation?.cancel()
+        let cancellation = ThumbnailCacheRequestCancellation()
+        previewCancellation = cancellation
         // 重载开始回到「加载中」：占位不算缺失，缺失提示由本轮完成时裁决
         lastPreviewLoadIdentity = PreviewAssetIdentity(
             path: currentWallpaper.path,
@@ -89,6 +99,7 @@ final class VideoLibraryInspectorView: NSView {
         weak let weakSelf = self
         // 路径解析含文件存在性 stat，放后台执行
         DispatchQueue.global(qos: .userInitiated).async {
+            guard !cancellation.cancelled else { return }
             let thumbPath = manager.resolvedThumbnailPath(for: wallpaper)
             // 缩略图缺失时回退静帧；降采样解码结果用独立键，避免同键不同解码形状互覆
             var staticFramePath: String?
@@ -99,7 +110,7 @@ final class VideoLibraryInspectorView: NSView {
             }
             guard let sourcePath = thumbPath ?? staticFramePath else {
                 DispatchQueue.main.async {
-                    guard let self = weakSelf, self.previewLoadGeneration == generation else { return }
+                    guard let self = weakSelf, !cancellation.cancelled else { return }
                     // 本轮结论是「无预览」：旧图必须清空，否则资源替换后旧资源的
                     // 预览会一直挂在面板上
                     self.previewSurface.updateImage(nil, missing: true)
@@ -110,7 +121,7 @@ final class VideoLibraryInspectorView: NSView {
             let key = isStaticFrameFallback
                 ? "inspector-static-frame:\(sourcePath)"
                 : sourcePath
-            VideoLibraryThumbnailStore.sharedCache.load(forKey: key, loader: {
+            VideoLibraryThumbnailStore.sharedCache.load(forKey: key, cancellation: cancellation, loader: {
                 // 与网格共用缩略图路径键；静帧回退按预览所需尺寸降采样解码
                 isStaticFrameFallback
                     ? Self.downscaledPreviewImage(from: sourcePath)
@@ -118,7 +129,7 @@ final class VideoLibraryInspectorView: NSView {
             }, completion: { image in
                 // ThumbnailCache 内存命中会在调用线程同步回调，统一收敛回主线程。
                 DispatchQueue.main.async {
-                    guard let self = weakSelf, self.previewLoadGeneration == generation else { return }
+                    guard let self = weakSelf, !cancellation.cancelled else { return }
                     self.previewSurface.updateImage(image, missing: image == nil)
                 }
             })
@@ -519,6 +530,7 @@ final class VideoLibraryInspectorView: NSView {
     }
 
     private func loadDetails() {
+        guard !hasMounted || window != nil else { return }
         loadingTask?.cancel()
         details = nil
         loadedDetailsPath = nil

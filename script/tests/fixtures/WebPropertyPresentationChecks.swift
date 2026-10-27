@@ -133,6 +133,57 @@
                 precondition(sceneScroll.verticalScroller?.isHidden == true, "Scene shared-panel scrollbar must stay hidden after style, layout and flash")
                 precondition(descendants(scene, NSButton.self).filter { $0.title == "恢复默认" }.count == 1)
             }
+            let input = descendants(web, NSTextField.self).first { $0.isEditable }!
+            let inputDelegate = input.delegate!
+            let beforeUnchangedText = service.webEvents.count
+            input.sendAction(input.action, to: input.target)
+            inputDelegate.controlTextDidEndEditing?(Notification(name: NSControl.textDidEndEditingNotification, object: input))
+            precondition(service.webEvents.count == beforeUnchangedText,
+                "unchanged Return and end editing must not persist or rebuild Web text")
+            input.stringValue = "temporary live preview"
+            inputDelegate.controlTextDidChange?(Notification(name: NSControl.textDidChangeNotification, object: input))
+            let previewsBeforeCancel = service.webPreviews.count
+            input.stringValue = "raw text"
+            inputDelegate.controlTextDidEndEditing?(Notification(name: NSControl.textDidEndEditingNotification, object: input))
+            precondition(service.webEvents.count == beforeUnchangedText && service.webPreviews.count == previewsBeforeCancel + 1
+                && service.webPreviews.last?.1 == .string("raw text"),
+                "canceling text after a live preview must restore runtime once without a persistent edit")
+            input.sendAction(input.action, to: input.target)
+            inputDelegate.controlTextDidEndEditing?(Notification(name: NSControl.textDidEndEditingNotification, object: input))
+            precondition(service.webEvents.count == beforeUnchangedText && service.webPreviews.count == previewsBeforeCancel + 1,
+                "a repeated end event after cancellation must not reproject the same runtime value")
+            input.scrollToVisible(input.bounds)
+            precondition(windows[0].makeFirstResponder(input))
+            let inputEditor = input.currentEditor() as! NSTextView
+            inputEditor.setMarkedText("候选", selectedRange: NSRange(location: 2, length: 0),
+                replacementRange: NSRange(location: NSNotFound, length: 0))
+            precondition(inputEditor.hasMarkedText())
+            let previewsBeforeMarkedText = service.webPreviews.count
+            let markedText = input.stringValue
+            inputDelegate.controlTextDidChange?(Notification(name: NSControl.textDidChangeNotification, object: input))
+            precondition(service.webEvents.count == beforeUnchangedText && service.webPreviews.count == previewsBeforeMarkedText + 1
+                && service.webPreviews.last?.1 == .string(markedText),
+                "marked text must keep the original live preview payload without a persistent edit")
+            inputEditor.unmarkText()
+            let editedText = "  中文完成 \n"
+            input.stringValue = editedText
+            input.sendAction(input.action, to: input.target)
+            inputDelegate.controlTextDidEndEditing?(Notification(name: NSControl.textDidEndEditingNotification, object: input))
+            precondition(service.webEvents.count == beforeUnchangedText + 1
+                && service.webEvents.last?.0 == "input" && service.webEvents.last?.1 == .string(editedText),
+                "changed text must preserve whitespace and persist once for Return plus end editing")
+            settle(web)
+            service.webValues["input"] = .string("external accepted text")
+            let rebuildTrigger = descendants(web, NSPopUpButton.self).first!
+            rebuildTrigger.selectItem(at: 0); rebuildTrigger.sendAction(rebuildTrigger.action, to: rebuildTrigger.target)
+            settle(web)
+            let projectedInput = descendants(web, NSTextField.self).first { $0.isEditable }!
+            precondition(projectedInput !== input && projectedInput.stringValue == "external accepted text")
+            let beforeProjectedEcho = service.webEvents.count
+            projectedInput.sendAction(projectedInput.action, to: projectedInput.target)
+            projectedInput.delegate?.controlTextDidEndEditing?(Notification(name: NSControl.textDidEndEditingNotification, object: projectedInput))
+            precondition(service.webEvents.count == beforeProjectedEcho,
+                "rebuilding from an external accepted value must retire the old text baseline")
             let popup = descendants(web, NSPopUpButton.self).first!
             precondition(popup.itemArray.map(\.title) == Array(repeating: optionText, count: 2))
             popup.selectItem(at: 1); popup.sendAction(popup.action, to: popup.target)
@@ -164,12 +215,88 @@
         resourceWindow.isReleasedWhenClosed = false; resourceWindow.contentView = resources; resourceWindow.orderFront(nil); settle(resources)
         let resourceRows = descendants(resources, WorkshopPropertyRowView.self)
         precondition(resourceRows.count == 2 && resourceRows.allSatisfy { $0.style == .resource })
+        let chooseFile = descendants(resourceRows[0], NSButton.self).first { $0.title == "选择文件" }!
+        let beforeRepeatedFile = service.webEvents.count
+        chooseFile.performClick(nil); chooseFile.performClick(nil)
+        precondition(service.webEvents.count == beforeRepeatedFile + 2
+            && service.webEvents.suffix(2).allSatisfy { $0.0 == "resource0" && $0.1 == .string("/own/selected.png") },
+            "reselecting the same file must still reach its grant and explicit reapply service entry")
         let clear = descendants(resourceRows[0], NSButton.self).first { $0.toolTip == "清空当前选择" }!
         clear.performClick(nil)
         precondition(service.webEvents.last?.0 == "resource0" && service.webEvents.last?.1 == .string(""))
         settle(resources)
         precondition(service.webValues["resource1"] == .string("/own/folder"), "file clear must not change directory values")
+        let chooseDirectory = descendants(resources, NSButton.self).first { $0.title == "选择文件夹" }!
+        let beforeRepeatedDirectory = service.webEvents.count
+        chooseDirectory.performClick(nil); chooseDirectory.performClick(nil)
+        precondition(service.webEvents.count == beforeRepeatedDirectory + 2
+            && service.webEvents.suffix(2).allSatisfy { $0.0 == "resource1" && $0.1 == .string("/own/selected.png") },
+            "same-directory reauthorization must not use the text commit deduplication")
         resourceWindow.contentView = nil; resourceWindow.close()
+        let numericText = SteamWorkshopWebPropertyDefinition(key: "numeric-text", title: "Legacy text input", kind: .text,
+            runtimeType: "textinput", order: 0, minimumValue: nil, maximumValue: nil, allowsFractionalValues: true,
+            fractionalPrecision: 2, displayCondition: nil, directoryMode: nil, fileType: nil, defaultValue: .number(0.5), options: [])
+        service.webDescriptor = .init(propertyDefinitions: [numericText])
+        service.webValues = [numericText.key: .number(0.5)]
+        let formattedTextEditor = SteamWorkshopWebPropertyEditorView(record: .init(id: "numeric-text", title: "numeric-text"))
+        let numericInput = descendants(formattedTextEditor, NSTextField.self).first { $0.isEditable }!
+        precondition(numericInput.stringValue == "0.50")
+        let beforeNumericText = service.webEvents.count
+        numericInput.sendAction(numericInput.action, to: numericInput.target)
+        numericInput.delegate?.controlTextDidEndEditing?(Notification(name: NSControl.textDidEndEditingNotification, object: numericInput))
+        precondition(service.webEvents.count == beforeNumericText,
+            "unchanged formatted numeric text must not manufacture a number-to-string property edit")
+        numericInput.stringValue = "0.6"
+        numericInput.delegate?.controlTextDidChange?(Notification(name: NSControl.textDidChangeNotification, object: numericInput))
+        precondition(service.webPreviews.last?.1 == .string("0.6"), "real text edits keep their original string preview semantics")
+        numericInput.stringValue = "0.50"
+        numericInput.delegate?.controlTextDidChange?(Notification(name: NSControl.textDidChangeNotification, object: numericInput))
+        precondition(service.webPreviews.last?.1 == .number(0.5),
+            "returning to the accepted display text must restore its original typed runtime value")
+        let previewsAfterTypedRevert = service.webPreviews.count
+        numericInput.delegate?.controlTextDidEndEditing?(Notification(name: NSControl.textDidEndEditingNotification, object: numericInput))
+        precondition(service.webEvents.count == beforeNumericText && service.webPreviews.count == previewsAfterTypedRevert)
+        numericInput.stringValue = "0.7"
+        numericInput.delegate?.controlTextDidChange?(Notification(name: NSControl.textDidChangeNotification, object: numericInput))
+        numericInput.stringValue = "0.50"
+        numericInput.delegate?.controlTextDidEndEditing?(Notification(name: NSControl.textDidEndEditingNotification, object: numericInput))
+        precondition(service.webEvents.count == beforeNumericText && service.webPreviews.count == previewsAfterTypedRevert + 2
+            && service.webPreviews.last?.1 == .number(0.5), "canceling without a final change notification must also restore the typed baseline")
+        numericInput.stringValue = "0.5"
+        numericInput.sendAction(numericInput.action, to: numericInput.target)
+        numericInput.delegate?.controlTextDidEndEditing?(Notification(name: NSControl.textDidEndEditingNotification, object: numericInput))
+        precondition(service.webEvents.count == beforeNumericText + 1 && service.webEvents.last?.1 == .string("0.5"),
+            "a real text edit retains the existing raw string submission semantics")
+        let composedText = "\u{00e9}", decomposedText = "e\u{0301}"
+        precondition(composedText == decomposedText && !composedText.utf8.elementsEqual(decomposedText.utf8))
+        service.webDescriptor = .init(propertyDefinitions: [definitions[4]])
+        service.webValues = ["input": .string(composedText)]
+        let unicodeEditor = SteamWorkshopWebPropertyEditorView(record: .init(id: "unicode-text", title: "unicode-text"))
+        let unicodeInput = descendants(unicodeEditor, NSTextField.self).first { $0.isEditable }!
+        precondition(unicodeInput.stringValue.utf8.elementsEqual(composedText.utf8))
+        let beforeUnicodeText = service.webEvents.count
+        unicodeInput.sendAction(unicodeInput.action, to: unicodeInput.target)
+        unicodeInput.delegate?.controlTextDidEndEditing?(Notification(name: NSControl.textDidEndEditingNotification, object: unicodeInput))
+        precondition(service.webEvents.count == beforeUnicodeText, "identical raw UTF8 text remains an unchanged submission")
+        unicodeInput.stringValue = decomposedText
+        unicodeInput.delegate?.controlTextDidChange?(Notification(name: NSControl.textDidChangeNotification, object: unicodeInput))
+        precondition(service.webPreviews.last?.1.stringValue.map { $0.utf8.elementsEqual(decomposedText.utf8) } == true,
+            "a canonically equivalent but byte-different edit must retain its new preview payload")
+        let beforeUnicodeCancel = service.webPreviews.count
+        unicodeInput.stringValue = composedText
+        unicodeInput.delegate?.controlTextDidEndEditing?(Notification(name: NSControl.textDidEndEditingNotification, object: unicodeInput))
+        precondition(service.webEvents.count == beforeUnicodeText && service.webPreviews.count == beforeUnicodeCancel + 1
+            && service.webPreviews.last?.1.stringValue.map { $0.utf8.elementsEqual(composedText.utf8) } == true,
+            "canceling the different Unicode spelling must restore the original raw bytes once")
+        unicodeInput.delegate?.controlTextDidEndEditing?(Notification(name: NSControl.textDidEndEditingNotification, object: unicodeInput))
+        precondition(service.webEvents.count == beforeUnicodeText && service.webPreviews.count == beforeUnicodeCancel + 1,
+            "an identical raw end event after Unicode cancellation must not project again")
+        unicodeInput.stringValue = decomposedText
+        unicodeInput.sendAction(unicodeInput.action, to: unicodeInput.target)
+        unicodeInput.delegate?.controlTextDidEndEditing?(Notification(name: NSControl.textDidEndEditingNotification, object: unicodeInput))
+        precondition(service.webEvents.count == beforeUnicodeText + 1 && service.webEvents.last?.0 == "input"
+            && service.webEvents.last?.1.stringValue.map { $0.utf8.elementsEqual(decomposedText.utf8) } == true,
+            "Return and end editing must persist the different Unicode raw string exactly once")
         let ruleMarkup = ["Before<hr data-style='section'><b>中文标题</b><HR />After<hr>", "<hr class='only-rule'/>", "文字 &lt;hr&gt;"]
         let ruleCatalog = SceneUserPropertyDefinitionParser().parse(properties: Dictionary(uniqueKeysWithValues: ruleMarkup.indices.map {
             ("rule\($0)", ["type": "text", "text": ruleMarkup[$0], "order": $0] as [String: Any])

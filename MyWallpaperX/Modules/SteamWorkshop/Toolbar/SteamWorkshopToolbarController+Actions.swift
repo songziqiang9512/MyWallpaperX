@@ -181,19 +181,27 @@ extension SteamWorkshopToolbarController {
     }
 
     func controlTextDidChange(_ obj: Notification) {
-        guard let field = obj.object as? NSSearchField else { return }
+        guard isSteamWorkshopMode, !isDownloadsMode,
+              let field = obj.object as? NSSearchField, field === searchField else { return }
         let text = field.stringValue.trimmingCharacters(in: .whitespaces)
-        let key = ObjectIdentifier(field)
-        searchDebounceWorkItems[key]?.cancel()
-        let workItem = DispatchWorkItem { [weak self, weak field] in
-            guard let self, let field else { return }
-            self.searchDebounceWorkItems[key] = nil
-            if field === self.searchField {
-                SteamWorkshopService.shared.browserQuery = text
-            }
+        pendingSearchInput = (text, SteamWorkshopService.shared.navigationVersion)
+        searchDebounceWorkItem?.cancel()
+        let workItem = DispatchWorkItem { [weak self] in
+            self?.submitPendingSearch()
         }
-        searchDebounceWorkItems[key] = workItem
+        searchDebounceWorkItem = workItem
         DispatchQueue.main.asyncAfter(deadline: .now() + 0.25, execute: workItem)
+    }
+
+    /// A same-route page return consumes the retained input once. Author/feed
+    /// navigation retires it because that same field now has a different scope.
+    func submitPendingSearch() {
+        searchDebounceWorkItem = nil
+        guard let input = pendingSearchInput else { return }
+        pendingSearchInput = nil
+        let service = SteamWorkshopService.shared
+        guard service.navigationVersion == input.navigation else { return }
+        service.browserQuery = input.text
     }
 
 }

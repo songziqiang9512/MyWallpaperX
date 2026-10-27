@@ -17,7 +17,8 @@ enum SILThumbnailStore {
         countLimit: 180,
         // 大图库长会话时限制已解码位图驻留（预算总表见 ThumbnailCache.init 注释）
         totalCostLimit: 64 * 1024 * 1024,
-        namespace: "staticimagelibrary"
+        namespace: "staticimagelibrary",
+        usesFailureCache: true
     )
 }
 
@@ -287,7 +288,7 @@ final class SILService: ObservableObject {
                     let key = Data(path.utf8)
                     let metadata = metadataByRawPath[key]
                     let wallpaper = SILWallpaper(path: path, reusingMetadata: metadata)
-                    if metadata == nil { metadataByRawPath[key] = wallpaper }
+                    if case .none = metadata { metadataByRawPath[key] = wallpaper }
                     candidates.append((url, wallpaper, fm.isReadableFile(atPath: path)))
                 } else {
                     rejected.append(.init(sourceURL: url, disposition: .failed, organizationItem: nil,

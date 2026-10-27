@@ -34,6 +34,14 @@ class SteamPreviewLifecycleTests(unittest.TestCase):
                 "Models/WallpaperReference.swift", "Models/WallpaperContent.swift", "Models/WallpaperLibraryPage.swift",
                 "Shared/Components/WallpaperLibraryGridMetrics.swift", "Shared/UI/BoxSelectionState.swift",
                 "Shared/UI/GridThumbnailPrefetchDemand.swift", "Shell/WallpaperLibraryGridController.swift")]
+            # Visible preview preservation is exercised after decoded-memory
+            # eviction; clearing disk here would change that original oracle.
+            cache_source = ROOT / "MyWallpaperX/Shared/UI/ThumbnailCache.swift"
+            cache = cache_source.read_text()
+            self.assertEqual(cache.count("private let imageCache:"), 1)
+            cache_copy = work / "ThumbnailCache.swift"
+            cache_copy.write_text(cache.replace("private let imageCache:", "let imageCache:", 1))
+            sources[sources.index(cache_source)] = cache_copy
             # Execute the real row preview method without account/job UI leaves.
             row = (UI / "SteamWorkshopDownloadTasksPopover.swift").read_text()
             start = row.index("    private func loadPreviewIfNeeded(itemID: String) {")

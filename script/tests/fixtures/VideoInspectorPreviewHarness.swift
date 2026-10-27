@@ -38,17 +38,41 @@ struct WallpaperInspectorDetails: Equatable {
     let resolutionText: String
     let addedDateText: String
     let pathText: String
+    var isLoading = false
 }
 
+@MainActor
+private enum InspectorMetadataProbe {
+    static var starts: [String: Int] = [:]
+    static var terminals: [String: Int] = [:]
+    static var heldPaths: Set<String> = []
+    static var pending: [String: [CheckedContinuation<Void, Never>]] = [:]
+    static func waitIfHeld(_ path: String) async {
+        if heldPaths.contains(path) {
+            await withCheckedContinuation { pending[path, default: []].append($0) }
+        }
+    }
+    static func release(_ path: String) {
+        heldPaths.remove(path)
+        let waiters = pending.removeValue(forKey: path) ?? []
+        waiters.forEach { $0.resume() }
+    }
+}
+
+@MainActor
 @discardableResult
 func loadWallpaperInspectorDetails(
     for wallpaper: VideoWallpaper,
     completion: @escaping (WallpaperInspectorDetails) -> Void
 ) -> Task<Void, Never> {
+    InspectorMetadataProbe.starts[wallpaper.path, default: 0] += 1
     completion(WallpaperInspectorDetails(fileSizeText: "1 MB", formatText: "MP4", durationText: "读取中…",
-        codecText: "读取中…", resolutionText: "读取中…", addedDateText: "2026年10月25日 20:30", pathText: wallpaper.path))
+        codecText: "读取中…", resolutionText: "读取中…", addedDateText: "2026年10月25日 20:30", pathText: wallpaper.path, isLoading: true))
     return Task {
+        await InspectorMetadataProbe.waitIfHeld(wallpaper.path)
         await MainActor.run {
+            guard !Task.isCancelled else { return }
+            InspectorMetadataProbe.terminals[wallpaper.path, default: 0] += 1
             completion(WallpaperInspectorDetails(
                 fileSizeText: "1 MB",
                 formatText: "MP4",
@@ -67,6 +91,36 @@ enum VideoLibraryThumbnailStore {
         label: "com.mywallpaper.test.videolibrary.thumbnail",
         namespace: "videolibrary-inspector-test"
     )
+}
+
+/// Observes real cache API registrations and controlled producer leaves. The
+/// production cache still chooses, coalesces and cancels every queued request.
+nonisolated final class InspectorCacheDemandProbe: @unchecked Sendable {
+    static let shared = InspectorCacheDemandProbe()
+    private struct Registration { let cancellation: (any ThumbnailCacheLoadCancellation)? }
+    private let lock = NSLock()
+    private var registrations: [String: [Registration]] = [:]
+    private var loads: [String: Int] = [:]
+    func registered(_ key: String, cancellation: (any ThumbnailCacheLoadCancellation)?) {
+        lock.lock(); defer { lock.unlock() }
+        registrations[key, default: []].append(.init(cancellation: cancellation))
+    }
+    func registrationCount(_ key: String) -> Int {
+        lock.lock(); defer { lock.unlock() }
+        return registrations[key]?.count ?? 0
+    }
+    func allRegistrationsCancelled(_ key: String) -> Bool {
+        lock.lock(); let values = registrations[key] ?? []; lock.unlock()
+        return !values.isEmpty && values.allSatisfy { $0.cancellation?.cancelled == true }
+    }
+    func loaded(_ key: String) {
+        lock.lock(); defer { lock.unlock() }
+        loads[key, default: 0] += 1
+    }
+    func loadCount(_ key: String) -> Int {
+        lock.lock(); defer { lock.unlock() }
+        return loads[key] ?? 0
+    }
 }
 
 final class WallpaperManager: ObservableObject {
@@ -503,6 +557,128 @@ enum Harness {
         check(readonlyFavoriteControl?.isEnabled == false && readonlyFavoriteControl?.accessibilityPerformPress() == false
             && newFavorite == 2, "s9-native-readonly-favorite-refuses-accessibility-press")
         organized.removeFromSuperview()
+
+        // Hold the actual single generation lane. A separate public consumer
+        // supplies the queued producer leaf, then withdraws once the real view
+        // has joined. No private cache state or product cancellation is mocked.
+        let demandProbe = InspectorCacheDemandProbe.shared
+        let demandCache = VideoLibraryThumbnailStore.sharedCache
+        func makeDemandView(_ key: String, manager: WallpaperManager) -> VideoLibraryInspectorView {
+            let value = VideoWallpaper(id: key, title: "Lease", path: videoA)
+            manager.wallpapers = [value]
+            manager.setResolvedThumbnail(key, for: videoA)
+            let view = VideoLibraryInspectorView(wallpaper: value, wallpaperManager: manager, libraryActions: previewActions)
+            container.addSubview(view)
+            view.frame = container.bounds
+            view.layoutSubtreeIfNeeded()
+            return view
+        }
+        func blockGeneration(_ name: String) -> DispatchSemaphore {
+            let release = DispatchSemaphore(value: 0)
+            demandCache.load(forKey: name, loader: {
+                demandProbe.loaded(name)
+                precondition(release.wait(timeout: .now() + 10) == .success, "generation blocker was not released")
+                return nil
+            }, completion: { _ in })
+            precondition(waitFor(timeout: 3) { demandProbe.loadCount(name) == 1 })
+            return release
+        }
+        let queuedPath = root.appendingPathComponent("cancelled-inspector.jpg").path
+        writeJPEG(queuedPath, red: 0.1, green: 0.8, blue: 0.2, width: 24, height: 24)
+        let queuedRelease = blockGeneration("queue-blocker-\(UUID().uuidString)")
+        let queuedConsumer = ThumbnailCacheRequestCancellation()
+        demandCache.load(forKey: queuedPath, cancellation: queuedConsumer, loader: {
+            demandProbe.loaded(queuedPath)
+            return NSImage(contentsOfFile: queuedPath)
+        }, completion: { _ in })
+        let queuedManager = WallpaperManager()
+        let queuedView = makeDemandView(queuedPath, manager: queuedManager)
+        precondition(waitFor(timeout: 3) { demandProbe.registrationCount(queuedPath) == 2 })
+        queuedConsumer.cancel()
+        queuedView.removeFromSuperview()
+        let requestsBeforeNotification = demandProbe.registrationCount(queuedPath)
+        queuedManager.notifyThumbnailReady(forPath: videoA)
+        drain(0.1)
+        check(demandProbe.registrationCount(queuedPath) == requestsBeforeNotification,
+              "s12-removed-inspector-does-not-reacquire-on-thumbnail-notification")
+        queuedRelease.signal()
+        var queueDrained = false
+        demandCache.load(forKey: "queue-drain-\(UUID().uuidString)", loader: { nil }, completion: { _ in queueDrained = true })
+        precondition(waitFor(timeout: 3) { queueDrained })
+        check(demandProbe.allRegistrationsCancelled(queuedPath) && demandProbe.loadCount(queuedPath) == 0
+            && demandCache.cachedImage(forKey: queuedPath) == nil,
+              "s12-removed-only-consumer-detaches-before-queued-loader")
+
+        let sharedPath = root.appendingPathComponent("shared-inspector.jpg").path
+        writeJPEG(sharedPath, red: 0.1, green: 0.8, blue: 0.2, width: 24, height: 24)
+        let sharedRelease = blockGeneration("shared-blocker-\(UUID().uuidString)")
+        let producerConsumer = ThumbnailCacheRequestCancellation()
+        demandCache.load(forKey: sharedPath, cancellation: producerConsumer, loader: {
+            demandProbe.loaded(sharedPath)
+            return NSImage(contentsOfFile: sharedPath)
+        }, completion: { _ in })
+        let sharedManager = WallpaperManager()
+        let withdrawn = makeDemandView(sharedPath, manager: sharedManager)
+        let remaining = makeDemandView(sharedPath, manager: sharedManager)
+        precondition(waitFor(timeout: 3) { demandProbe.registrationCount(sharedPath) == 3 })
+        producerConsumer.cancel()
+        withdrawn.removeFromSuperview()
+        sharedRelease.signal()
+        precondition(waitFor(timeout: 3) { !placeholderVisible(in: remaining) })
+        check(demandProbe.loadCount(sharedPath) == 1 && looksGreen(centerPixel(in: remaining)),
+              "s12-other-consumer-keeps-the-shared-producer-alive")
+        check(placeholderVisible(in: withdrawn), "s12-removed-consumer-does-not-receive-shared-result")
+        container.addSubview(withdrawn)
+        withdrawn.frame = container.bounds; withdrawn.layoutSubtreeIfNeeded()
+        precondition(waitFor(timeout: 3) { !placeholderVisible(in: withdrawn) })
+        let shownImage = firstSubview(of: withdrawn) { $0 is VideoLibraryInspectorPreviewSurfaceView }
+        withdrawn.removeFromSuperview()
+        container.addSubview(withdrawn); withdrawn.layoutSubtreeIfNeeded()
+        check(!placeholderVisible(in: withdrawn) && demandProbe.loadCount(sharedPath) == 1
+            && shownImage === firstSubview(of: withdrawn) { $0 is VideoLibraryInspectorPreviewSurfaceView },
+              "s12-remount-reacquires-without-clearing-or-decoding-current-image")
+        withdrawn.removeFromSuperview(); remaining.removeFromSuperview()
+
+        let releasedPath = root.appendingPathComponent("released-inspector.jpg").path
+        writeJPEG(releasedPath, red: 0.8, green: 0.1, blue: 0.2, width: 24, height: 24)
+        let releasedManager = WallpaperManager()
+        weak var releasedDemandView: VideoLibraryInspectorView?
+        autoreleasepool {
+            let value = makeDemandView(releasedPath, manager: releasedManager)
+            releasedDemandView = value
+            precondition(waitFor(timeout: 3) { demandProbe.registrationCount(releasedPath) == 1 })
+            value.removeFromSuperview()
+        }
+        drain(0.05)
+        check(releasedDemandView == nil && demandProbe.allRegistrationsCancelled(releasedPath),
+              "s12-released-view-cancels-its-registered-consumer")
+
+        let metadataPath = root.appendingPathComponent("pending-metadata.mp4").path
+        try! Data("pending-metadata".utf8).write(to: URL(fileURLWithPath: metadataPath))
+        let metadataManager = WallpaperManager()
+        let metadataWallpaper = VideoWallpaper(id: "pending-metadata", title: "Metadata", path: metadataPath)
+        metadataManager.wallpapers = [metadataWallpaper]
+        metadataManager.setResolvedThumbnail(thumbGreen, for: metadataPath)
+        InspectorMetadataProbe.heldPaths.insert(metadataPath)
+        let metadataView = VideoLibraryInspectorView(wallpaper: metadataWallpaper, wallpaperManager: metadataManager, libraryActions: previewActions)
+        container.addSubview(metadataView); metadataView.frame = container.bounds
+        precondition(waitFor(timeout: 3) { InspectorMetadataProbe.pending[metadataPath]?.count == 1 })
+        check(InspectorMetadataProbe.starts[metadataPath] == 1,
+              "s13-first-mount-does-not-duplicate-inflight-metadata")
+        metadataView.removeFromSuperview()
+        container.addSubview(metadataView); metadataView.layoutSubtreeIfNeeded()
+        precondition(waitFor(timeout: 3) { InspectorMetadataProbe.pending[metadataPath]?.count == 2 })
+        InspectorMetadataProbe.release(metadataPath)
+        precondition(waitFor(timeout: 3) {
+            firstSubview(of: metadataView) { ($0 as? NSTextField)?.stringValue == "High Efficiency Video Coding Long Value" } != nil
+        })
+        check(InspectorMetadataProbe.starts[metadataPath] == 2 && InspectorMetadataProbe.terminals[metadataPath] == 1,
+              "s13-pending-metadata-remount-restarts-and-reaches-final-values")
+        metadataView.removeFromSuperview()
+        container.addSubview(metadataView); metadataView.layoutSubtreeIfNeeded(); drain(0.05)
+        check(InspectorMetadataProbe.starts[metadataPath] == 2 && InspectorMetadataProbe.terminals[metadataPath] == 1,
+              "s13-completed-metadata-remount-does-not-reread")
+        metadataView.removeFromSuperview()
 
         if failureNames.isEmpty {
             print("ALL SCENARIOS PASS")

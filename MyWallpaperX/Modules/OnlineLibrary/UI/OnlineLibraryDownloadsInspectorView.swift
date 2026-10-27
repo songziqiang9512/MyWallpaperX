@@ -14,22 +14,70 @@ final class OnlineLibraryDownloadsInspectorView: NSView {
     private let scrollView = InspectorFadingScrollView()
     private let documentContainer = InspectorContentDocumentView()
     private let contentStack = NSStackView()
-    private var footerView: NSView?
+    private let previewSurface: OnlineLibraryDownloadsPreviewSurfaceView
+    private lazy var previewHeightConstraint = previewSurface.heightAnchor.constraint(equalToConstant: 156)
+    private weak var primaryButton: InspectorFooterButton?
+    private weak var revealButton: InspectorFooterButton?
+    private var previewCancellation: ThumbnailCacheRequestCancellation?
+    private var hasMounted = false
 
     init(itemID: Int, service: OnlineLibraryService? = nil, libraryActions: WallpaperInspectorActions? = nil) {
         self.service = service ?? .shared
         self.libraryActions = libraryActions
         self.itemID = itemID
+        previewSurface = OnlineLibraryDownloadsPreviewSurfaceView(itemID: itemID, previewImage: nil)
         super.init(frame: .zero)
         // The downloaded-content owner has already prepared these values.
         // Build the final top-aligned layout before mounting; no loading-size pass.
         snapshot = OnlineLibraryDownloadsInspectorSnapshot.load(itemID: itemID, service: self.service)
         setup()
+        loadPreviewImage()
     }
 
     @available(*, unavailable)
     required init?(coder: NSCoder) {
         nil
+    }
+
+    deinit { previewCancellation?.cancel() }
+
+    override func viewDidMoveToWindow() {
+        super.viewDidMoveToWindow()
+        if window != nil {
+            hasMounted = true
+            refreshSnapshotIfNeeded()
+            refreshFooterActions()
+            if previewCancellation?.cancelled == true { loadPreviewImage() }
+        } else if hasMounted {
+            previewCancellation?.cancel()
+        }
+    }
+
+    private func loadPreviewImage() {
+        guard !hasMounted || window != nil else { return }
+        previewCancellation?.cancel()
+        guard let entry = snapshot?.entry else {
+            previewSurface.updateImage(nil)
+            return
+        }
+        let cancellation = ThumbnailCacheRequestCancellation()
+        previewCancellation = cancellation
+        OLDownloadedThumbnailStore.loadThumbnail(entry, priority: .visible, cancellation: cancellation) { [weak self] _, image in
+            guard !cancellation.cancelled else { return }
+            self?.previewSurface.updateImage(image)
+        }
+    }
+
+    private func refreshSnapshotIfNeeded() {
+        let entry = service.downloadedContent.entries.first { $0.id == itemID && $0.isAvailable }
+        guard entry != snapshot?.entry else { return }
+        let previous = snapshot?.entry
+        snapshot = entry.map { OnlineLibraryDownloadsInspectorSnapshot(entry: $0) }
+        rebuildContent()
+        if previous?.localURL != entry?.localURL || previous?.fileSize != entry?.fileSize
+            || previous?.thumbnailSourceKey != entry?.thumbnailSourceKey {
+            loadPreviewImage()
+        }
     }
 
     private var secondaryFactText: String? {
@@ -99,6 +147,9 @@ final class OnlineLibraryDownloadsInspectorView: NSView {
         addSubview(rootStack)
         rootStack.addArrangedSubview(scrollView)
         rebuildContent()
+        let footer = makeFooterActions()
+        rootStack.addArrangedSubview(footer)
+        footer.widthAnchor.constraint(equalTo: rootStack.widthAnchor).isActive = true
 
         NSLayoutConstraint.activate([
             rootStack.leadingAnchor.constraint(equalTo: leadingAnchor),
@@ -121,15 +172,6 @@ final class OnlineLibraryDownloadsInspectorView: NSView {
             $0.removeFromSuperview()
         }
         buildContent(in: contentStack)
-
-        if let footerView {
-            rootStack.removeArrangedSubview(footerView)
-            footerView.removeFromSuperview()
-        }
-        let footer = makeFooterActions()
-        footerView = footer
-        rootStack.addArrangedSubview(footer)
-        footer.widthAnchor.constraint(equalTo: rootStack.widthAnchor).isActive = true
     }
 
     private func buildContent(in stack: NSStackView) {
@@ -164,15 +206,11 @@ final class OnlineLibraryDownloadsInspectorView: NSView {
         stack.spacing = 8
         stack.translatesAutoresizingMaskIntoConstraints = false
 
-        let preview = OnlineLibraryDownloadsPreviewSurfaceView(
-            itemID: itemID,
-            previewImage: snapshot?.previewImage
-        )
-        preview.translatesAutoresizingMaskIntoConstraints = false
-        stack.addArrangedSubview(preview)
+        previewSurface.translatesAutoresizingMaskIntoConstraints = false
+        stack.addArrangedSubview(previewSurface)
         NSLayoutConstraint.activate([
-            preview.heightAnchor.constraint(equalToConstant: 156),
-            preview.widthAnchor.constraint(equalTo: stack.widthAnchor)
+            previewHeightConstraint,
+            previewSurface.widthAnchor.constraint(equalTo: stack.widthAnchor)
         ])
 
         let title = OnlineLibraryDownloadsInspectorViews.makeLabel(
@@ -318,6 +356,8 @@ final class OnlineLibraryDownloadsInspectorView: NSView {
         )
         setButton.isEnabled = libraryActions?.state.canPerformPrimary ?? (snapshot != nil)
         revealButton.isEnabled = snapshot != nil
+        primaryButton = setButton
+        self.revealButton = revealButton
 
         let footer = NSView()
         footer.translatesAutoresizingMaskIntoConstraints = false
@@ -346,9 +386,14 @@ final class OnlineLibraryDownloadsInspectorView: NSView {
     }
 
     func updateLibraryActions(_ actions: WallpaperInspectorActions) {
-        let changed = libraryActions?.state != actions.state
         libraryActions = actions
-        if changed { rebuildContent() }
+        refreshSnapshotIfNeeded()
+        refreshFooterActions()
+    }
+
+    private func refreshFooterActions() {
+        primaryButton?.isEnabled = libraryActions?.state.canPerformPrimary ?? (snapshot != nil)
+        revealButton?.isEnabled = snapshot != nil
     }
 
     @objc private func setAsWallpaper() {

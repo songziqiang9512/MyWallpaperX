@@ -5,7 +5,7 @@ import Foundation
 /// SettingsWindowController 构造时从 WallpaperManager 捕获实现。
 struct AppSettingsActions {
     var applyEngineSettings: (_ reloadWallpaper: Bool) -> Void = { _ in }
-    var clearAllCaches: () -> Void = {}
+    var clearAllCaches: () async -> Void = {}
     var exportPersonalSettings: (_ url: URL) async throws -> PersonalSettingsExportSummary = { _ in
         throw PersonalSettingsError.recoveryRequired("设置导出尚未就绪")
     }

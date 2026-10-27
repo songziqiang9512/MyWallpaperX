@@ -14,9 +14,51 @@ final class StatusBarPanelViewController: NSViewController {
     private let previewQueue = DispatchQueue(label: "com.songziqiang.MyWallpaperX.status-panel.preview", qos: .utility)
     private var videoCancellation: ThumbnailCacheRequestCancellation?
     private var localImageCancellation: SteamWorkshopPreviewLoadCancellation?
-    private var displayedContent: StatusBarPanelPresentation.Content?
+    private var displayedCoverSource: CoverSource?
     private var refreshToken: Int?
     private var imageGeneration: UInt64 = 0
+
+    private enum CoverSource: Equatable {
+        case video(VideoWallpaper)
+        case images([URL], revision: String?)
+
+        init(_ content: StatusBarPanelPresentation.Content) {
+            var urls: [URL]
+            var revision: String? = nil
+            switch content {
+            case .none, .remembered(_, nil):
+                urls = []
+            case let .video(item):
+                self = .video(item)
+                return
+            case let .remembered(_, item?):
+                let thumbnail = item.metadata.thumbnailPath.map { URL(fileURLWithPath: $0) }
+                let imageFile = item.kind == .image ? item.locator.path.map { URL(fileURLWithPath: $0) } : nil
+                urls = [thumbnail, item.metadata.previewURL, imageFile].compactMap { $0 }
+                revision = item.metadata.resourceRevision
+            case let .workshop(item):
+                urls = item.previewURL.map { [$0] } ?? []
+                if let fallback = item.browserItem?.previewImageURL, !urls.contains(fallback) { urls.append(fallback) }
+                // Ready timestamps identify the installed publication; transfer
+                // progress timestamps do not describe an image replacement.
+                if item.status == .ready { revision = String(item.updatedAt.timeIntervalSince1970) }
+            case let .still(url):
+                urls = [url]
+            }
+            self = .images(urls.filter(\.isFileURL) + urls.filter { !$0.isFileURL }, revision: revision)
+        }
+
+        static func == (lhs: Self, rhs: Self) -> Bool {
+            switch (lhs, rhs) {
+            case let (.video(lhs), .video(rhs)):
+                return lhs.path == rhs.path && lhs.thumbnailPath == rhs.thumbnailPath
+            case let (.images(lhs, lhsRevision), .images(rhs, rhsRevision)):
+                return lhs == rhs && lhsRevision == rhsRevision
+            default:
+                return false
+            }
+        }
+    }
 
     override func loadView() {
         view = panel
@@ -38,32 +80,24 @@ final class StatusBarPanelViewController: NSViewController {
     func apply(_ presentation: StatusBarPanelPresentation, refreshToken: Int) {
         loadViewIfNeeded()
         panel.apply(presentation)
-        guard displayedContent != presentation.content || self.refreshToken != refreshToken else { return }
+        let source = CoverSource(presentation.content)
+        let needsPreview = displayedCoverSource != source || self.refreshToken != refreshToken
+        // Retain the latest video snapshot for thumbnail-ready demand, while
+        // title/favorite/usage changes keep the current image and request.
+        displayedCoverSource = source
+        guard needsPreview else { return }
         videoCancellation?.cancel()
         localImageCancellation?.cancel()
         workshopPreview.reset()
         imageGeneration &+= 1
         let expected = imageGeneration
-        displayedContent = presentation.content
         self.refreshToken = refreshToken
         panel.cover.setImage(nil)
-        switch presentation.content {
-        case .none: break
-        case let .remembered(_, item):
-            if let item {
-                let thumbnail = item.metadata.thumbnailPath.map { URL(fileURLWithPath: $0) }
-                let imageFile = item.kind == .image ? item.locator.path.map { URL(fileURLWithPath: $0) } : nil
-                let urls = [thumbnail, item.metadata.previewURL, imageFile].compactMap { $0 }
-                loadImageCover(urls.filter(\.isFileURL) + urls.filter { !$0.isFileURL }, generation: expected)
-            }
+        switch source {
         case let .video(item):
             loadVideoCover(item, generation: expected)
-        case let .workshop(item):
-            var urls = item.previewURL.map { [$0] } ?? []
-            if let fallback = item.browserItem?.previewImageURL, !urls.contains(fallback) { urls.append(fallback) }
-            loadImageCover(urls.filter(\.isFileURL) + urls.filter { !$0.isFileURL }, generation: expected)
-        case let .still(url):
-            loadImageCover([url], generation: expected)
+        case let .images(urls, _):
+            loadImageCover(urls, generation: expected)
         }
     }
 
@@ -74,13 +108,13 @@ final class StatusBarPanelViewController: NSViewController {
         localImageCancellation?.cancel()
         localImageCancellation = nil
         workshopPreview.reset()
-        displayedContent = nil
+        displayedCoverSource = nil
         refreshToken = nil
         panel.cover.setImage(nil)
     }
 
     func thumbnailBecameReady(at normalizedPath: String) {
-        guard case let .video(item) = displayedContent,
+        guard case let .video(item) = displayedCoverSource,
               WallpaperManager.shared.normalizedPath(item.path) == normalizedPath else { return }
         // Only the derived asset changed; the wallpaper model may be identical.
         // Invalidate this consumer, not the shared cache or another card.

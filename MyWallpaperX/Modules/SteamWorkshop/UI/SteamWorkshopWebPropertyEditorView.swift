@@ -292,8 +292,10 @@ final class SteamWorkshopWebPropertyEditorView: NSView {
             return colorControl(value: value, definition: definition, record: record, summaryLabel: summaryLabel)
         case .text, .unknown:
             let target = makeActionTarget(record: record, definition: definition, summaryLabel: summaryLabel)
+            let text = textValue(value, definition: definition)
+            target.committedText = (text, value)
             let stringInput = value.stringValue != nil && definition.defaultValue.stringValue != nil
-            let field = textField(textValue(value, definition: definition), placeholder: displayContent(definition).text,
+            let field = textField(text, placeholder: displayContent(definition).text,
                 stringInput: stringInput, target: target, action: #selector(WebPropertyActionTarget.textChanged(_:)))
             guard stringInput else { return field }
             field.setAccessibilityLabel(displayContent(definition).text)
@@ -436,6 +438,8 @@ final class SteamWorkshopWebPropertyEditorView: NSView {
         let definition: SteamWorkshopWebPropertyDefinition
         let visibleOptions: [SteamWorkshopWebPropertyOption]
         weak var summaryLabel: NSTextField?
+        var committedText: (text: String, value: SteamWorkshopWebPropertyValue)?
+        private var previewedText: String?
         private var pendingColorString: String?
         private var colorPanelCloseObserver: NSObjectProtocol?
         private var pendingColorCommitWorkItem: DispatchWorkItem?
@@ -555,14 +559,34 @@ final class SteamWorkshopWebPropertyEditorView: NSView {
 
         private func previewTextFieldValue(_ rawValue: String) {
             pendingColorString = nil
-            let value = webPropertyValue(from: rawValue)
+            let value: SteamWorkshopWebPropertyValue
+            if let committedText, committedText.text.utf8.elementsEqual(rawValue.utf8) {
+                value = committedText.value
+            } else {
+                value = webPropertyValue(from: rawValue)
+            }
             summaryLabel?.stringValue = view?.valueSummary(value, definition: definition) ?? rawValue
-            view?.updateWebProperty(value, definition: definition, record: record, preview: true)
+            guard let view else { return }
+            view.updateWebProperty(value, definition: definition, record: record, preview: true)
+            previewedText = rawValue
         }
 
         private func commitTextFieldValue(_ rawValue: String) {
             pendingColorString = nil
-            view?.updateWebProperty(webPropertyValue(from: rawValue), definition: definition, record: record)
+            guard let view else { return }
+            if let committedText, rawValue.utf8.elementsEqual(committedText.text.utf8) {
+                // Canceling editing can restore the original field value
+                // without a final change notification. Retire only that preview.
+                if let previewedText, !previewedText.utf8.elementsEqual(rawValue.utf8) {
+                    view.updateWebProperty(committedText.value, definition: definition, record: record, preview: true)
+                }
+                previewedText = nil
+                return
+            }
+            let value = webPropertyValue(from: rawValue)
+            view.updateWebProperty(value, definition: definition, record: record)
+            committedText = (rawValue, value)
+            previewedText = nil
         }
 
         /// 颜色提交的去抖窗：NSColorWell 在 macOS 12+ 弹的是内建色板

@@ -43,7 +43,8 @@ struct OLContent { var entries: [OLDownloadedEntry] = [] }
 final class OnlineLibraryService { var downloadedContent = OLContent() }
 enum OLDownloadedThumbnailStore {
     static var ids: [Int] = []
-    static func prefetch(_ row: OLDownloadedEntry, cancellation: ThumbnailCacheRequestCancellation,
+    static func loadThumbnail(_ row: OLDownloadedEntry, priority: ThumbnailCacheRequestPriority,
+        cancellation: ThumbnailCacheRequestCancellation,
                          completion: @escaping (String, NSImage?) -> Void) { ids.append(row.id); completion("key", .init(size: .init(width: 10, height: 10))) }
 }
 

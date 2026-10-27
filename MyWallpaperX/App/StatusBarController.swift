@@ -181,7 +181,9 @@ final class StatusBarController: NSObject, NSPopoverDelegate {
             PlaybackCommandMultiplexer.shared.dispatch(.setMuted(!PlaybackMuteState.shared.isMuted))
         case let .volume(value):
             wallpaperManager.updateVolume(value)
-            PlaybackCommandMultiplexer.shared.dispatch(.setMuted(value == 0))
+            if PlaybackMuteState.shared.isMuted != (value == 0) {
+                PlaybackCommandMultiplexer.shared.dispatch(.setMuted(value == 0))
+            }
         case .properties:
             let current = capturePresentation()
             guard case let .workshop(record) = presentation?.content,

@@ -19,6 +19,9 @@ import QuartzCore
          namespace: String, usesFailureCache: Bool) {}
 
     func cachedImage(forKey key: String) -> NSImage? { cached[key] }
+    // Controlled transport never executes the source loader. The real cache's
+    // invalidation is exercised by the downloaded identity/Inspector gate.
+    nonisolated func remove(forKey key: String) {}
 
     func load(forKey key: String, loader: @escaping () -> NSImage?,
               completion: @escaping (NSImage?) -> Void) {
@@ -32,6 +35,7 @@ import QuartzCore
     func loadImageAsync(forKey key: String, priority: ThumbnailCacheRequestPriority,
         cancellation: ThumbnailCacheRequestCancellation?, loader: @escaping @Sendable () async -> NSImage?,
         completion: @escaping (NSImage?) -> Void) {
+        if let image = cached[key] { completion(image); return }
         nextID += 1
         pending[nextID] = Pending(key: key, completion: completion)
         history.append((nextID, key))
@@ -47,7 +51,12 @@ import QuartzCore
 }
 
 nonisolated enum ThumbnailCacheRequestPriority { case visible, prefetch }
-nonisolated final class ThumbnailCacheRequestCancellation: @unchecked Sendable { var cancelled: Bool { false }; func cancel() {} }
+nonisolated final class ThumbnailCacheRequestCancellation: @unchecked Sendable {
+    private let lock = NSLock()
+    private var isCancelled = false
+    var cancelled: Bool { lock.lock(); defer { lock.unlock() }; return isCancelled }
+    func cancel() { lock.lock(); isCancelled = true; lock.unlock() }
+}
 
 @MainActor final class OLThumbnailCache {
     static let shared = OLThumbnailCache()
@@ -609,16 +618,21 @@ func samePoint(_ lhs: NSPoint, _ rhs: NSPoint) -> Bool { close(lhs.x, rhs.x) && 
             let a = downloadModel(1, name: "a.mp4"), b = downloadModel(2, name: "b.mp4")
             transport.cached.removeAll()
             card.prepareForReuse()
+            let beforeA = transport.history.count
             card.configure(entry: a, isSelected: false, isMultiSelectMode: false, isPlaying: false)
+            precondition(waitUntil { transport.history.count == beforeA + 1 })
             let oldA = transport.history.last!.0
             let generation = card.thumbnailRequestID
             if reuseBetween { card.prepareForReuse() }
+            let beforeB = transport.history.count
             card.configure(entry: b, isSelected: false, isMultiSelectMode: false, isPlaying: false)
+            precondition(waitUntil { transport.history.count == beforeB + 1 })
             let oldB = transport.history.last!.0
             if reuseBetween { card.prepareForReuse() }
             if memoryHit { transport.cached[OLDownloadedThumbnailStore.cacheKey(for: a.localURL)] = newImage }
             let countBefore = transport.history.count
             card.configure(entry: a, isSelected: true, isMultiSelectMode: true, isPlaying: true)
+            precondition(waitUntil { memoryHit ? card.thumbnailView.image === newImage : transport.history.count == countBefore + 1 })
             let newA = memoryHit ? nil : transport.history.last?.0
             if !memoryHit { facts.expect(label + ".long-loading-reveals-placeholder", waitUntil { !card.placeholderLabel.isHidden }) }
             facts.expect(label + ".new-A-generation-even-on-cache-hit", card.thumbnailRequestID != generation)
@@ -690,9 +704,12 @@ func samePoint(_ lhs: NSPoint, _ rhs: NSPoint) -> Bool { close(lhs.x, rhs.x) && 
     guard let download = downloadHost.first() as? AppKitOLDownloadsItem else { facts.expect("downloads-mounted", false); return }
     let transport = OLDownloadedThumbnailStore.sharedCache
     download.prepareForReuse()
+    let beforeUnfinished = transport.history.count
     download.configure(entry: downloadModel(1203, name: "unfinished.mp4"), isSelected: true, isMultiSelectMode: false, isPlaying: true)
+    precondition(waitUntil { transport.history.count == beforeUnfinished + 1 })
     let oldDownload = transport.history.last!.0
     download.endDisplayingThumbnail(); download.beginDisplayingThumbnail()
+    precondition(waitUntil { transport.history.count == beforeUnfinished + 2 })
     let newDownload = transport.history.last!.0
     facts.expect("download-unfinished-restarts", oldDownload != newDownload)
     transport.deliver(oldDownload, image: image(42))
@@ -709,7 +726,7 @@ func samePoint(_ lhs: NSPoint, _ rhs: NSPoint) -> Bool { close(lhs.x, rhs.x) && 
     pump(0.12)
     facts.expect("hidden-download-configure-starts-no-work", transport.history.count == hiddenDownloads && download.thumbnailView.image == nil)
     download.beginDisplayingThumbnail()
-    facts.expect("show-hidden-download-starts-latest-only", transport.history.count == hiddenDownloads + 1
+    facts.expect("show-hidden-download-starts-latest-only", waitUntil { transport.history.count == hiddenDownloads + 1 }
         && transport.history.last?.1.contains("hidden-current.mp4") == true)
 
 }
@@ -745,12 +762,16 @@ func samePoint(_ lhs: NSPoint, _ rhs: NSPoint) -> Bool { close(lhs.x, rhs.x) && 
     guard let download = downloadHost.first() as? AppKitOLDownloadsItem else { facts.expect("download-mounted", false); return }
     let transport = OLDownloadedThumbnailStore.sharedCache
     download.prepareForReuse()
+    let beforeWarm = transport.history.count
     download.configure(entry: downloadModel(1003, name: "warm.mp4"), isSelected: false, isMultiSelectMode: false, isPlaying: false)
     facts.expect("download-warm-load-initially-quiet", download.placeholderLabel.isHidden)
+    precondition(waitUntil { transport.history.count == beforeWarm + 1 })
     transport.deliver(transport.history.last!.0, image: ready)
     pump(0.15)
     facts.expect("download-ready-has-no-delayed-label", download.thumbnailView.image === ready && download.placeholderLabel.isHidden)
+    let beforeBad = transport.history.count
     download.configure(entry: downloadModel(1004, name: "bad.mp4"), isSelected: false, isMultiSelectMode: false, isPlaying: false)
+    precondition(waitUntil { transport.history.count == beforeBad + 1 })
     transport.deliver(transport.history.last!.0, image: nil)
     facts.expect("download-failure-is-immediate", !download.placeholderLabel.isHidden && download.placeholderLabel.stringValue == "无法生成预览")
     pump(0.15)

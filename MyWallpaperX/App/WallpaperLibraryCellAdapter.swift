@@ -36,8 +36,8 @@ import Combine
     private final class Prefetch {
         let assets: [Data]
         var cancel: () -> Void = {}
-        // Pending/failed producers remain leased. Only a completed success
-        // whose original cache no longer owns pixels needs to be rewarmed.
+        // Pending requests and original cached results remain leased. A
+        // completed result evicted or invalidated by its source is reheated.
         var isWarm: () -> Bool = { true }
         init(assets: [Data]) { self.assets = assets }
     }
@@ -125,9 +125,9 @@ import Combine
                 let cancellation = ThumbnailCacheRequestCancellation()
                 demand.cancel = { cancellation.cancel() }
                 demand.isWarm = { !cancellation.cancelled }
-                OLDownloadedThumbnailStore.prefetch(value, cancellation: cancellation) { [weak demand] key, image in
-                    guard !cancellation.cancelled, image != nil else { return }
-                    demand?.isWarm = { !cancellation.cancelled && OLDownloadedThumbnailStore.sharedCache.cachedImage(forKey: key) != nil }
+                OLDownloadedThumbnailStore.loadThumbnail(value, priority: .prefetch, cancellation: cancellation) { [weak demand] key, _ in
+                    guard !cancellation.cancelled else { return }
+                    demand?.isWarm = { !cancellation.cancelled && OLDownloadedThumbnailStore.sharedCache.hasCachedResult(forKey: key) }
                 }
             case .steam(let value):
                 let item = value.displayItem ?? SteamWorkshopDownloadGridSupport.fallbackDisplayItem(for: value)

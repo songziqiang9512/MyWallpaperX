@@ -639,10 +639,10 @@ assert.equal(isolated.logs.filter(log => log.type === 'properties.skipped').leng
 assert.equal(isolated.logs.some(log => log.type === 'properties.applied.partial' && log.message === 'applied=2 skipped=1'), DEBUG);
 assert.equal(Object.hasOwn(isolated.context.__myWallpaperPropertyReplayState, 'reportedSkips'), DEBUG,
   'Release has no diagnostic history even after a real isolated callback failure');
-vm.runInContext(`myWallpaperApplyPropertiesIndividually({broken:{value:true}}, window.wallpaperPropertyListener,
-  window.wallpaperPropertyListener.applyUserProperties, window.__myWallpaperLastAppliedUserPropertySignature);
-  myWallpaperApplyPropertiesIndividually({broken:{value:true}}, window.wallpaperPropertyListener,
-  window.wallpaperPropertyListener.applyUserProperties, window.__myWallpaperLastAppliedUserPropertySignature);`, isolated.context);
+vm.runInContext('myWallpaperApplyPropertiesIndividually({broken:{value:true}}, window.wallpaperPropertyListener,' +
+  'window.wallpaperPropertyListener.applyUserProperties, window.__myWallpaperLastAppliedUserPropertySignature);' +
+  'myWallpaperApplyPropertiesIndividually({broken:{value:true}}, window.wallpaperPropertyListener,' +
+  'window.wallpaperPropertyListener.applyUserProperties, window.__myWallpaperLastAppliedUserPropertySignature);', isolated.context);
 assert.equal(brokenCalls, 3, 'diagnostic deduplication cannot gate author callbacks');
 assert.equal(isolated.logs.filter(log => log.type === 'properties.skipped').length, DEBUG ? 1 : 0);
 

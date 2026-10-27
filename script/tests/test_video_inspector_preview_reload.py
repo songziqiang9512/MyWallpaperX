@@ -16,10 +16,12 @@ CFFIXED_USER_HOME 隔离，harness 在首次构造共享缓存前断言该根生
 from __future__ import annotations
 
 import os
+import hashlib
 import pathlib
 import subprocess
 import tempfile
 import unittest
+from script.tests.test_ui_library_algorithms import declaration
 
 
 REPOSITORY_ROOT = pathlib.Path(__file__).resolve().parents[2]
@@ -39,16 +41,29 @@ INSPECTOR_SOURCES = [VIDEO_WALLPAPER_SOURCE,
 
 class VideoInspectorPreviewReloadTests(unittest.TestCase):
     def test_preview_reloads_when_resources_arrive(self) -> None:
+        hashes = {str(path): hashlib.sha256(path.read_bytes()).hexdigest() for path in INSPECTOR_SOURCES}
         with tempfile.TemporaryDirectory(prefix="mwx-video-inspector-preview-", dir="/private/tmp") as temporary:
             workdir = pathlib.Path(temporary)
             executable = workdir / "InspectorPreviewHarness"
             module_cache = workdir / "module-cache"
+            sources = []
+            for index, source in enumerate(INSPECTOR_SOURCES):
+                frozen = workdir / f"Source{index}.swift"
+                content = source.read_text()
+                if source == THUMBNAIL_CACHE_SOURCE:
+                    # Observe completion of the real public registration call;
+                    # no queue, cancellation or image result is substituted.
+                    entry = declaration(content, "    func load(")
+                    observed = entry[:-1] + "    InspectorCacheDemandProbe.shared.registered(key, cancellation: cancellation)\n    }"
+                    content = content.replace(entry, observed, 1)
+                frozen.write_text(content)
+                sources.append(frozen)
             build = subprocess.run(
                 [
                     "xcrun",
                     "swiftc",
                     "-parse-as-library",
-                    *map(str, INSPECTOR_SOURCES),
+                    *map(str, sources),
                     "-module-cache-path",
                     str(module_cache),
                     "-o",
@@ -99,6 +114,15 @@ class VideoInspectorPreviewReloadTests(unittest.TestCase):
                 "s9-fixed-actions-never-write-old-selection-owners",
                 "s9-readonly-injected-actions-refuse-organization",
                 "s9-original-hidden-inspector-scrollbars-preserved",
+                "s12-removed-only-consumer-detaches-before-queued-loader",
+                "s12-removed-inspector-does-not-reacquire-on-thumbnail-notification",
+                "s12-other-consumer-keeps-the-shared-producer-alive",
+                "s12-removed-consumer-does-not-receive-shared-result",
+                "s12-remount-reacquires-without-clearing-or-decoding-current-image",
+                "s12-released-view-cancels-its-registered-consumer",
+                "s13-first-mount-does-not-duplicate-inflight-metadata",
+                "s13-pending-metadata-remount-restarts-and-reaches-final-values",
+                "s13-completed-metadata-remount-does-not-reread",
             )
             results: dict[str, str] = {}
             for line in run.stdout.splitlines():
@@ -110,6 +134,7 @@ class VideoInspectorPreviewReloadTests(unittest.TestCase):
             failed = {name: verdict for name, verdict in results.items() if verdict != "PASS"}
             self.assertEqual(failed, {}, output)
             self.assertIn("ALL SCENARIOS PASS", run.stdout)
+        self.assertEqual(hashes, {str(path): hashlib.sha256(path.read_bytes()).hexdigest() for path in INSPECTOR_SOURCES})
 
     def test_unbound_video_inspector_cannot_be_constructed(self) -> None:
         with tempfile.TemporaryDirectory(prefix="mwx-inspector-required-actions-", dir="/private/tmp") as directory:

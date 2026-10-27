@@ -81,7 +81,7 @@ private final class DemandDataGate: @unchecked Sendable {
         var warm: NSImage?
         cache.load(forKey: "warm", loader: { image }) { warm = $0 }
         checks["warmImageSeeded"] = pump { warm != nil }
-        cache.removeAll(); warm = nil
+        cache.imageCache.removeAllObjects(); warm = nil
         let heavy = DemandBlockingGate()
         var heavyFinished = false
         cache.load(forKey: "slow-generator", loader: { heavy.wait(); return image }) { heavyFinished = $0 != nil }
@@ -162,14 +162,14 @@ private final class DemandDataGate: @unchecked Sendable {
             isolated.load(forKey: "invalidated", loader: { gate.wait(); return image }) { delivered = $0 != nil }
             let label = clear ? "clear" : "remove"
             checks[label + "SyncLoadStarted"] = pump { gate.started }
-            if clear { isolated.clearDiskCache() } else { isolated.remove(forKey: "invalidated") }
+            if clear { isolated.clearAll() } else { isolated.remove(forKey: "invalidated") }
             gate.release()
             checks[label + "PreservesExistingSyncConsumer"] = pump { delivered }
             checks[label + "SyncResultDoesNotRepopulateMemory"] = isolated.cachedImage(forKey: "invalidated") == nil
             var readFinished = false, disk: Data?
             isolated.loadRawDataAsync(forKey: "invalidated", loader: { nil }) { disk = $0; readFinished = true }
             checks[label + "SyncResultDoesNotRepopulateDisk"] = pump { readFinished } && disk == nil
-            isolated.clearDiskCache()
+            isolated.clearAll()
         }
         let negative = ThumbnailCache(namespace: "failure-" + UUID().uuidString, usesFailureCache: true)
         let failures = DemandEvents()
@@ -178,6 +178,49 @@ private final class DemandDataGate: @unchecked Sendable {
         checks["firstNilCompletes"] = pump { failureCount == 1 }
         negative.load(forKey: "bad", loader: { failures.record("generated-again"); return image }) { _ in failureCount += 1 }
         checks["nilLoadRetainsOriginalNegativeCacheSemantics"] = failureCount == 2 && failures.values == ["generated"]
+        checks["negativeCacheIsWarmBeforeExplicitClear"] = negative.hasCachedResult(forKey: "bad")
+
+        let neighboring = ThumbnailCache(namespace: "neighbor-" + UUID().uuidString, usesFailureCache: true)
+        var neighborImage: NSImage?, neighborFailure = false
+        neighboring.load(forKey: "neighbor-image", loader: { image }) { neighborImage = $0 }
+        neighboring.load(forKey: "neighbor-failure", loader: { nil }) { _ in neighborFailure = true }
+        checks["neighborNamespaceHasImageAndFailureBeforeClear"] = pump { neighborImage != nil && neighborFailure }
+            && neighboring.hasCachedResult(forKey: "neighbor-failure")
+        negative.clearAll()
+        checks["atomicClearRemovesItsNegativeConclusion"] = !negative.hasCachedResult(forKey: "bad")
+        checks["atomicClearKeepsOtherNamespaceMemoryAndFailure"] = neighboring.cachedImage(forKey: "neighbor-image") != nil
+            && neighboring.hasCachedResult(forKey: "neighbor-failure")
+        neighboring.imageCache.removeAllObjects()
+        neighborImage = nil
+        neighboring.load(forKey: "neighbor-image", loader: { preconditionFailure("another namespace's disk was cleared") }) { neighborImage = $0 }
+        checks["atomicClearKeepsOtherNamespaceDisk"] = pump { neighborImage != nil }
+        var afterClear: NSImage?
+        negative.load(forKey: "bad", loader: { failures.record("generated-after-clear"); return image }) { afterClear = $0 }
+        checks["sameKeySucceedsAfterExplicitClearWithoutChangingIdentity"] = pump { afterClear != nil }
+            && failures.values == ["generated", "generated-after-clear"]
+        negative.imageCache.removeAllObjects()
+        afterClear = nil
+        negative.load(forKey: "bad", loader: { preconditionFailure("clearAll did not recreate its namespace directory") }) { afterClear = $0 }
+        checks["atomicClearRecreatesDirectoryForNewDiskReturns"] = pump { afterClear != nil }
+
+        let clearNil = ThumbnailCache(namespace: "clear-held-nil-" + UUID().uuidString, usesFailureCache: true)
+        let heldNil = DemandBlockingGate(), heldNilToken = ThumbnailCacheRequestCancellation()
+        var heldNilCompletions = 0, heldNilImages = 0
+        clearNil.load(forKey: "same-key", cancellation: heldNilToken, loader: { heldNil.wait(); return nil }) { result in
+            heldNilCompletions += 1
+            if result != nil { heldNilImages += 1 }
+        }
+        checks["oldNilProducerIsHeldBeforeAtomicClear"] = pump { heldNil.started }
+        clearNil.clearAll()
+        heldNil.release()
+        checks["atomicClearPreservesExactlyOneOldNilConsumerCompletion"] = pump { heldNilCompletions == 1 }
+            && heldNilImages == 0 && !heldNilToken.cancelled
+        checks["oldNilProducerCannotRefillFailureAfterAtomicClear"] = !clearNil.hasCachedResult(forKey: "same-key")
+        var heldNilRecovery: NSImage?
+        clearNil.load(forKey: "same-key", loader: { image }) { heldNilRecovery = $0 }
+        checks["sameKeyAfterHeldNilClearCanGenerateAndCacheSuccess"] = pump { heldNilRecovery != nil }
+            && clearNil.hasCachedResult(forKey: "same-key") && heldNilCompletions == 1
+        clearNil.clearAll(); neighboring.clearAll()
 
         let cancelledFailureGate = DemandBlockingGate(), cancelledFailure = ThumbnailCacheRequestCancellation()
         var failureWasDelivered = false, failureRecovered = false
@@ -241,7 +284,7 @@ private final class DemandDataGate: @unchecked Sendable {
         checks["generatedImagesNeverRunAheadOfPublication"] = !congestionEvents.values.contains("ran-ahead")
         for _ in 0..<2 { congestionGate.release() }
         checks["congestionFinishesAfterShortSlotsRelease"] = pump { firstPublished && pendingGenerated == 8 && shortFinished == 2 }
-        congested.clearDiskCache()
+        congested.clearAll()
 
         let handoffGate = DemandBlockingGate(), handoffEvents = DemandEvents()
         let handoff = ThumbnailCache(namespace: "generation-handoff-" + UUID().uuidString,
@@ -262,7 +305,7 @@ private final class DemandDataGate: @unchecked Sendable {
         handoffToken.cancel(); handoffGate.release()
         checks["cancelledHandoffReturnsSlotForNextGenerator"] = pump { followingHandoffFinished }
         checks["cancelledHandoffDoesNotPublishImage"] = !cancelledHandoffDelivered && handoff.cachedImage(forKey: "cancel-before-publish") == nil
-        handoff.clearDiskCache()
+        handoff.clearAll()
 
         let ingress = ThumbnailCache(namespace: "source-ingress-" + UUID().uuidString)
         let inputGates = (0..<4).map { _ in DemandDataGate() }
@@ -304,7 +347,7 @@ private final class DemandDataGate: @unchecked Sendable {
         }
         checks["cancelledQueuedRawDoesNotPublishOrCallback"] = cancelledRawCallbacks == 0
             && ingress.cachedImage(forKey: "pending-raw-0") == nil
-        ingress.clearDiskCache()
+        ingress.clearAll()
 
         let reserved = ThumbnailCache(namespace: "source-priority-" + UUID().uuidString)
         let lowGates = (0..<3).map { _ in DemandDataGate() }, visibleGate = DemandDataGate()
@@ -325,7 +368,7 @@ private final class DemandDataGate: @unchecked Sendable {
         checks["newVisibleSourceUsesOtherReservedSlot"] = pump { visibleGate.waiting }
         lowGates.forEach { $0.release() }; visibleGate.release()
         checks["allReservedSourceConsumersFinish"] = pump { reservedFinished == 5 }
-        reserved.clearDiskCache()
+        reserved.clearAll()
 
         let admissions = ThumbnailCache(namespace: "fixed-source-admission-" + UUID().uuidString)
         let admissionGates = (0..<4).map { _ in DemandDataGate() }, newVisibleGate = DemandDataGate()
@@ -357,7 +400,7 @@ private final class DemandDataGate: @unchecked Sendable {
         }
         admissionGates[2].release(); admissionGates[3].release(); newVisibleGate.release()
         checks["fixedAdmissionsDrainExactlyOnce"] = pump { admissionCompleted == 5 } && !cancelledVisibleDelivered
-        admissions.clearDiskCache()
+        admissions.clearAll()
 
         for joinsBeforeProviderRead in [true, false] {
             let gate = DemandDataGate(), hook = DemandEvents(), observed = DemandEvents()
@@ -379,9 +422,9 @@ private final class DemandDataGate: @unchecked Sendable {
             checks[key + "ProviderReflectsLatestAtRegistration"] = observed.values == [joinsBeforeProviderRead ? "visible" : "prefetch"]
             prefetch.cancel(); visible.cancel()
         }
-        negative.clearDiskCache()
+        negative.clearAll()
         #endif
-        cache.clearDiskCache()
+        cache.clearAll()
         print(String(data: try JSONSerialization.data(withJSONObject: ["checks": checks, "metrics": metrics], options: [.sortedKeys]), encoding: .utf8)!)
     }
 }

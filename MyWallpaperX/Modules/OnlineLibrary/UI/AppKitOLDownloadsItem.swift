@@ -86,28 +86,32 @@ extension OLDownloadedThumbnailStore {
         await OLThumbnailVideoGeneration(url: url).image()
     }
 
-    static func prefetch(_ entry: OLDownloadedEntry, cancellation: ThumbnailCacheRequestCancellation,
+    static func loadThumbnail(_ entry: OLDownloadedEntry, priority: ThumbnailCacheRequestPriority,
+        cancellation: ThumbnailCacheRequestCancellation,
         completion: @escaping (String, NSImage?) -> Void) {
         guard !cancellation.cancelled else { return }
-        // The scan fingerprint is a ready-memory hint only. A queued miss may
-        // read a replacement file, so resolve its actual identity off the UI lane.
-        if let preparedKey = entry.thumbnailSourceKey, let image = sharedCache.cachedImage(forKey: preparedKey) {
-            completion(preparedKey, image)
-            return
-        }
+        // Every consumer resolves the current file off the UI lane. A scan
+        // hint can outlive a same-path replacement, including a warm old image.
         let url = entry.localURL
+        let cache = sharedCache
         Task {
             let key = await Task.detached(priority: .utility) {
                 guard !cancellation.cancelled else { return Optional<String>.none }
                 return cacheKey(for: url)
             }.value
             guard let key, !cancellation.cancelled else { return }
-            sharedCache.loadImageAsync(forKey: key, priority: .prefetch, cancellation: cancellation, loader: {
+            cache.loadImageAsync(forKey: key, priority: priority, cancellation: cancellation, loader: {
                 // The producer may wait behind another generation. Never publish
                 // pixels from a later source revision under this request's key.
-                guard cacheKey(for: url) == key else { cancellation.cancel(); return nil }
+                guard cacheKey(for: url) == key else {
+                    cache.remove(forKey: key)
+                    return nil
+                }
                 let image = await generateThumbnail(from: url)
-                guard cacheKey(for: url) == key else { cancellation.cancel(); return nil }
+                guard cacheKey(for: url) == key else {
+                    cache.remove(forKey: key)
+                    return nil
+                }
                 return image
             }, completion: { image in completion(key, image) })
         }
@@ -256,16 +260,6 @@ final class AppKitOLDownloadsItem: WallpaperCardCollectionViewItem, WallpaperGri
         placeholderLabel.stringValue = "加载中..."
         placeholderLabel.isHidden = true
         guard isThumbnailDemandActive else { return }
-        // Visible cards preserve the live file fingerprint check: an external
-        // replacement can happen before the next library scan refreshes entry.
-        let cacheKey = OLDownloadedThumbnailStore.cacheKey(for: entry.localURL)
-        if let cached = OLDownloadedThumbnailStore.sharedCache.cachedImage(forKey: cacheKey) {
-            thumbnailView.image = cached
-            layoutThumbnail()
-            placeholderLabel.isHidden = true
-            return
-        }
-
         let loadingWork = DispatchWorkItem { [weak self] in
             guard let self, self.thumbnailRequestID == requestID, self.thumbnailView.image == nil else { return }
             self.placeholderLabel.isHidden = false
@@ -273,16 +267,13 @@ final class AppKitOLDownloadsItem: WallpaperCardCollectionViewItem, WallpaperGri
         thumbnailLoadingWork = loadingWork
         DispatchQueue.main.asyncAfter(deadline: .now() + 0.1, execute: loadingWork)
         let id = entry.id
-        let url = entry.localURL
         weak let item = self
         // 共享缓存自带 in-flight 去重与失败负缓存：同键并发只抽一次帧，
         // 失败（损坏/不支持的编码）记录结论后不再重复 AVAsset 重试。
         let cancellation = ThumbnailCacheRequestCancellation()
         thumbnailCancellation = cancellation
-        OLDownloadedThumbnailStore.sharedCache.loadImageAsync(forKey: cacheKey, priority: .visible,
-            cancellation: cancellation, loader: {
-            await OLDownloadedThumbnailStore.generateThumbnail(from: url)
-        }, completion: { image in
+        OLDownloadedThumbnailStore.loadThumbnail(entry, priority: .visible,
+            cancellation: cancellation, completion: { _, image in
             // ThumbnailCache 统一主线程回调；卡片已复用为其他条目时丢弃结果
             guard let item, item.currentEntryID == id, item.thumbnailRequestID == requestID else { return }
             item.thumbnailCancellation = nil

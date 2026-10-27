@@ -68,6 +68,7 @@ struct OLDownloadedEntry: Equatable {
     var pending: [String: [(ThumbnailCacheRequestCancellation, (NSImage?) -> Void)]] = [:]
     var tokens: [String: ThumbnailCacheRequestCancellation] = [:]
     func cachedImage(forKey key: String) -> NSImage? { ready[key] }
+    func hasCachedResult(forKey key: String) -> Bool { ready[key] != nil || failed.contains(key) }
     func load(_ key: String, cancellation: ThumbnailCacheRequestCancellation, completion: @escaping (NSImage?) -> Void) {
         loads[key, default: 0] += 1
         tokens[key] = cancellation
@@ -81,11 +82,17 @@ struct OLDownloadedEntry: Equatable {
         let all = pending.removeValue(forKey: key) ?? []
         for (cancellation, completion) in all where !cancellation.cancelled { completion(image) }
     }
+    func invalidate(_ key: String) {
+        ready.removeValue(forKey: key); failed.remove(key)
+        let all = pending.removeValue(forKey: key) ?? []
+        for (cancellation, completion) in all where !cancellation.cancelled { completion(nil) }
+    }
 }
 @MainActor enum OLDownloadedThumbnailStore {
     static let sharedCache = DownloadedCache()
     static func cacheKey(for url: URL) -> String { url.path }
-    static func prefetch(_ entry: OLDownloadedEntry, cancellation: ThumbnailCacheRequestCancellation,
+    static func loadThumbnail(_ entry: OLDownloadedEntry, priority: ThumbnailCacheRequestPriority,
+        cancellation: ThumbnailCacheRequestCancellation,
         completion: @escaping (String, NSImage?) -> Void) {
         let hint = entry.thumbnailSourceKey ?? entry.localURL.path
         let key = sharedCache.actualKeys[hint] ?? hint
@@ -323,9 +330,15 @@ private enum Failure: Error { case assertion(String) }
         cache.ready.removeValue(forKey: "live-27")
         probe.apply()
         try expect(cache.generations["live-27", default: 0] == 2, "actual key eviction did not reheat")
+        let sourceInvalidatedLease = probe.cancellation(27)!
+        cache.invalidate("live-27")
+        try expect(!sourceInvalidatedLease.cancelled, "source invalidation incorrectly cancelled a consumer")
+        probe.apply()
+        try expect(cache.generations["live-27", default: 0] == 3 && sourceInvalidatedLease.cancelled,
+            "uncached source-invalidated completion did not reheat through the original viewport owner")
         probe.cancellation(27)?.cancel()
         probe.apply()
-        try expect(cache.generations["live-27", default: 0] == 3, "source-invalidated consumer could not retry")
+        try expect(cache.generations["live-27", default: 0] == 4, "cancelled consumer could not retry")
         let unpreparedURL = URL(fileURLWithPath: "/fixture/unprepared-29.mp4")
         probe.set(.init(id: 29, localURL: unpreparedURL, fileSize: 0, thumbnailSourceKey: nil))
         probe.apply()
@@ -344,15 +357,17 @@ private enum Failure: Error { case assertion(String) }
         ancestor.isHidden = true; pump()
         try expect(downloads.demand.prefetches.isEmpty && oldTokens.allSatisfy(\.cancelled)
             && downloadedCard.ends > 0, "ancestor hide did not cancel downloaded near and visible")
-        ancestor.isHidden = false; pump()
-        try expect(!downloads.demand.prefetches.isEmpty && downloadedCard.begins > starts,
-            "unhide did not restore downloaded near and unfinished visible")
+        ancestor.isHidden = false
+        try eventually("unhide restores downloaded near and unfinished visible") {
+            !downloads.demand.prefetches.isEmpty && downloadedCard.begins > starts
+        }
         window.orderOut(nil); pump()
         try expect(downloads.demand.prefetches.isEmpty, "actual orderOut did not pause downloads")
         let orderedDownloadBegins = downloadedCard.begins
-        window.orderFront(nil); pump()
-        try expect(!downloads.demand.prefetches.isEmpty && downloadedCard.begins > orderedDownloadBegins,
-            "actual orderIn did not resume downloads")
+        window.orderFront(nil)
+        try eventually("actual orderIn resumes downloads") {
+            !downloads.demand.prefetches.isEmpty && downloadedCard.begins > orderedDownloadBegins
+        }
         downloads.removeFromSuperview(); pump()
         try expect(downloads.demand.prefetches.isEmpty, "detached downloaded retained interests")
         window.close()

@@ -7,13 +7,65 @@ nonisolated final class SILSignatureReads: @unchecked Sendable {
     static let shared = SILSignatureReads()
     private let lock = NSLock()
     private var reads = 0
+    private var decodes = 0
     func record() { lock.lock(); reads += 1; lock.unlock() }
-    func reset() { lock.lock(); reads = 0; lock.unlock() }
+    func recordDecode() { lock.lock(); decodes += 1; lock.unlock() }
+    func reset() { lock.lock(); reads = 0; decodes = 0; lock.unlock() }
     var count: Int { lock.lock(); defer { lock.unlock() }; return reads }
+    var decodeCount: Int { lock.lock(); defer { lock.unlock() }; return decodes }
+}
+
+// Only a scheduling boundary is held. The original ImageIO decode and source
+// signature have already failed before the production cache publishes nil.
+nonisolated final class SILFailureDeliveryProbe: @unchecked Sendable {
+    static let shared = SILFailureDeliveryProbe()
+    private let lock = NSLock()
+    private var held: [String: DispatchSemaphore] = [:]
+    private var started: Set<String> = []
+    func hold(_ path: String) { lock.lock(); held[path] = DispatchSemaphore(value: 0); lock.unlock() }
+    func waitIfHeld(_ path: String) {
+        lock.lock()
+        let gate = held[path]
+        if gate != nil { started.insert(path) }
+        lock.unlock()
+        if let gate { precondition(gate.wait(timeout: .now() + 8) == .success, "held SIL failure was not released") }
+    }
+    func waiting(_ path: String) -> Bool { lock.lock(); defer { lock.unlock() }; return started.contains(path) }
+    func release(_ path: String) {
+        lock.lock(); let gate = held.removeValue(forKey: path); started.remove(path); lock.unlock()
+        gate?.signal()
+    }
+}
+
+nonisolated final class SILCacheAdmissions: @unchecked Sendable {
+    static let shared = SILCacheAdmissions()
+    private let lock = NSLock()
+    private var policies: [String: [Bool]] = [:]
+    func registered(_ key: String, cachesFailure: Bool) {
+        lock.lock(); policies[key, default: []].append(cachesFailure); lock.unlock()
+    }
+    func values(_ key: String) -> [Bool] { lock.lock(); defer { lock.unlock() }; return policies[key] ?? [] }
+}
+
+@MainActor final class SILInspectorPreviewProbe: NSView {
+    final class Surface {
+        var image: NSImage?
+        var updates = 0
+        func updateImage(_ value: NSImage?) { image = value; updates += 1 }
+    }
+    var wallpaper: SILWallpaper
+    var hasMounted = false
+    var previewPath: String?
+    var previewCancellation: ThumbnailCacheRequestCancellation?
+    let previewSurface = Surface()
+    init(path: String) { wallpaper = SILWallpaper(path: path); super.init(frame: .zero) }
+    required init?(coder: NSCoder) { nil }
+    func load() { loadPreviewImage() }
+    // ACTUAL_INSPECTOR_PREVIEW_LOAD
 }
 
 @MainActor enum SILLoadObservation {
-    static let cache = ThumbnailCache(countLimit: 24, namespace: "sil-demand-fixture")
+    static let cache = ThumbnailCache(countLimit: 24, namespace: "sil-demand-fixture", usesFailureCache: true)
     static var requests: [String: ThumbnailCacheRequestCancellation] = [:]
     static var prefetchRequests: [String: ThumbnailCacheRequestCancellation] = [:]
     static var completed = Set<ObjectIdentifier>()
@@ -109,7 +161,7 @@ nonisolated final class SILSignatureReads: @unchecked Sendable {
         let before = Date(timeIntervalSince1970: 1_700_000_000.125)
         let after = Date(timeIntervalSince1970: 1_700_000_000.875)
         try fm.setAttributes([.modificationDate: before], ofItemAtPath: repaired.path)
-        let provider = SILThumbnailProvider(cache: ThumbnailCache(countLimit: 8, namespace: "sil-failure-demand"))
+        let provider = SILThumbnailProvider(cache: ThumbnailCache(countLimit: 8, namespace: "sil-failure-demand", usesFailureCache: true))
         func load(_ path: String, priority: ThumbnailCacheRequestPriority = .visible) -> SILThumbnailLoadResult {
             var result: SILThumbnailLoadResult?
             provider.load(path: path, priority: priority, cancellation: .init()) { result = $0 }
@@ -131,8 +183,21 @@ nonisolated final class SILSignatureReads: @unchecked Sendable {
         let failedSignature = silGridThumbnailFailureSignature(atPath: repaired.path)!
         probe.reset()
         if case .unavailable = load(repaired.path) {
-            checks["unchangedFailureSkipsDecode"] = probe.count == 1
+            checks["unchangedFailureSkipsDecode"] = probe.count == 1 && probe.decodeCount == 0
+                && provider.cache.hasCachedFailure(forKey: repaired.path)
                 && provider.recordedFailureSignatures.contains(failedSignature)
+        }
+        let unrelated = root.appendingPathComponent("unrelated-cold.png")
+        try bytes.write(to: unrelated)
+        probe.reset()
+        if case .image = load(unrelated.path) {
+            checks["oneFailedPathDoesNotMakeOtherColdPathsReadSignatures"] = probe.count == 0 && probe.decodeCount == 1
+        }
+        probe.reset()
+        var warmResult: SILThumbnailLoadResult?
+        provider.load(path: unrelated.path, cancellation: .init()) { warmResult = $0 }
+        if case .image? = warmResult {
+            checks["warmProviderRemainsSynchronousWithoutSignatureOrDecode"] = probe.count == 0 && probe.decodeCount == 0
         }
         try bytes.write(to: repaired)
         try fm.setAttributes([.modificationDate: after], ofItemAtPath: repaired.path)
@@ -155,7 +220,7 @@ nonisolated final class SILSignatureReads: @unchecked Sendable {
         probe.reset()
         if case .unavailable = load(prefetch.path, priority: .prefetch) {
             checks["prefetchFailureSkipsDecode"] = provider.cache.cachedImage(forKey: prefetch.path) == nil
-                && probe.count == 1 && provider.recordedFailureSignatures.contains(prefetchSignature)
+                && probe.count == 1 && probe.decodeCount == 0 && provider.recordedFailureSignatures.contains(prefetchSignature)
         }
         try fm.setAttributes([.modificationDate: after], ofItemAtPath: prefetch.path)
         let replacementSignature = silGridThumbnailFailureSignature(atPath: prefetch.path)!
@@ -165,6 +230,136 @@ nonisolated final class SILSignatureReads: @unchecked Sendable {
                 && provider.cache.cachedImage(forKey: prefetch.path) != nil && prefetchSignature != replacementSignature
                 && Int64(before.timeIntervalSince1970) == Int64(after.timeIntervalSince1970)
         }
+
+        for clearAll in [true, false] {
+            let unchanged = root.appendingPathComponent(clearAll ? "clear-all-same-source.png" : "remove-same-source.png")
+            try Data(repeating: 0x7f, count: bytes.count).write(to: unchanged)
+            try fm.setAttributes([.modificationDate: before], ofItemAtPath: unchanged.path)
+            guard case .unavailable = load(unchanged.path) else { preconditionFailure("same-source repair must start with a real decode failure") }
+            let identity = silGridThumbnailFailureSignature(atPath: unchanged.path)!
+            try bytes.write(to: unchanged)
+            try fm.setAttributes([.modificationDate: before], ofItemAtPath: unchanged.path)
+            precondition(silGridThumbnailFailureSignature(atPath: unchanged.path) == identity)
+            precondition(provider.cache.hasCachedFailure(forKey: unchanged.path))
+            if clearAll { provider.cache.clearAll() } else { provider.cache.remove(forKey: unchanged.path) }
+            probe.reset()
+            guard case .image = load(unchanged.path) else { preconditionFailure("explicit cache invalidation did not restore the same provider") }
+            checks[clearAll ? "clearAllMakesSameSizeMtimeRepairRetryableInOriginalProvider" : "singleKeyMakesSameSizeMtimeRepairRetryableInOriginalProvider"] =
+                probe.decodeCount == 1 && !provider.cache.hasCachedFailure(forKey: unchanged.path)
+                && !provider.recordedFailureSignatures.contains(identity)
+        }
+
+        let held = root.appendingPathComponent("held-old-failure.png"), heldProbe = SILFailureDeliveryProbe.shared
+        try Data(repeating: 0x7f, count: bytes.count).write(to: held)
+        try fm.setAttributes([.modificationDate: before], ofItemAtPath: held.path)
+        heldProbe.hold(held.path)
+        var oldFailureCompletions = 0
+        provider.load(path: held.path, cancellation: .init()) { result in
+            guard case .unavailable = result else { preconditionFailure("held real ImageIO failure changed result") }
+            oldFailureCompletions += 1
+        }
+        wait("real decode failed before its source-signature delivery") { heldProbe.waiting(held.path) }
+        provider.cache.clearAll()
+        try bytes.write(to: held)
+        try fm.setAttributes([.modificationDate: before], ofItemAtPath: held.path)
+        heldProbe.release(held.path)
+        wait("old failed consumer still finishes once after clear") { oldFailureCompletions == 1 }
+        checks["oldInFlightNilAfterClearCannotRestoreFailureAuthority"] = !provider.cache.hasCachedFailure(forKey: held.path)
+            && !provider.recordedFailureSignatures.contains(silGridThumbnailFailureSignature(atPath: held.path)!)
+        guard case .image = load(held.path) else { preconditionFailure("old nil memo blocked a repaired same-source demand") }
+        checks["sameProviderRecoversAfterClearingHeldOldFailure"] = oldFailureCompletions == 1
+            && provider.cache.cachedImage(forKey: held.path) != nil
+
+        let unknown = root.appendingPathComponent("other-provider-failure.png")
+        try Data(repeating: 0x7f, count: bytes.count).write(to: unknown)
+        try fm.setAttributes([.modificationDate: before], ofItemAtPath: unknown.path)
+        let joinedProvider = SILThumbnailProvider(cache: provider.cache)
+        heldProbe.hold(unknown.path)
+        var ownerNil = 0, joinedNil = 0
+        provider.load(path: unknown.path, cancellation: .init()) { result in
+            guard case .unavailable = result else { preconditionFailure("failure owner must receive nil") }
+            ownerNil += 1
+        }
+        wait("first provider owns the real failure producer") { heldProbe.waiting(unknown.path) }
+        joinedProvider.load(path: unknown.path, cancellation: .init()) { result in
+            guard case .unavailable = result else { preconditionFailure("joined provider must receive the same nil") }
+            joinedNil += 1
+        }
+        wait("second actual provider joined the same cache request") { SILCacheAdmissions.shared.values(unknown.path).count == 2 }
+        heldProbe.release(unknown.path)
+        wait("both providers finish the shared failure exactly once") { ownerNil == 1 && joinedNil == 1 }
+        let unknownIdentity = silGridThumbnailFailureSignature(atPath: unknown.path)!
+        checks["joinedProviderDoesNotGuessAnotherProducersFailureIdentity"] =
+            provider.cache.hasCachedFailure(forKey: unknown.path) && !joinedProvider.recordedFailureSignatures.contains(unknownIdentity)
+        try bytes.write(to: unknown)
+        try fm.setAttributes([.modificationDate: before], ofItemAtPath: unknown.path)
+        probe.reset()
+        var joinedRecovery: SILThumbnailLoadResult?
+        joinedProvider.load(path: unknown.path, cancellation: .init()) { joinedRecovery = $0 }
+        wait("unknown failure identity allows one real demand retry") { joinedRecovery != nil }
+        guard case .image? = joinedRecovery else { preconditionFailure("unknown producer permanently blocked the repaired same-key source") }
+        checks["unknownProducerIdentityRetriesActualImageIOInsteadOfReusingNegative"] = probe.count == 1 && probe.decodeCount == 1
+            && !provider.cache.hasCachedFailure(forKey: unknown.path) && ownerNil == 1 && joinedNil == 1
+
+        for firstCachesFailure in [true, false] {
+            let mixed = root.appendingPathComponent(firstCachesFailure ? "mixed-true-first.png" : "mixed-false-first.png")
+            try Data(repeating: 0x7f, count: bytes.count).write(to: mixed)
+            let mixedCache = ThumbnailCache(namespace: "mixed-policy-" + UUID().uuidString, usesFailureCache: true)
+            let gateKey = mixed.path + "-producer"
+            heldProbe.hold(gateKey)
+            var firstCompletions = 0, secondCompletions = 0
+            mixedCache.load(forKey: mixed.path, cachesFailure: firstCachesFailure, loader: {
+                heldProbe.waitIfHeld(gateKey)
+                return silGridThumbnailImage(atPath: mixed.path)
+            }) { value in precondition(value == nil); firstCompletions += 1 }
+            wait("first mixed-policy producer is held") { heldProbe.waiting(gateKey) }
+            mixedCache.load(forKey: mixed.path, cachesFailure: !firstCachesFailure,
+                loader: { preconditionFailure("mixed policy must not create another same-key producer") }) { value in
+                precondition(value == nil); secondCompletions += 1
+            }
+            heldProbe.release(gateKey)
+            wait("both mixed-policy consumers finish once") { firstCompletions == 1 && secondCompletions == 1 }
+            checks[firstCachesFailure ? "trueThenFalseConsumersShareOneProducerAndBothFinish" : "falseThenTrueConsumersShareOneProducerAndBothFinish"] =
+                mixedCache.hasCachedFailure(forKey: mixed.path) == firstCachesFailure
+            try bytes.write(to: mixed)
+            var independent: NSImage?
+            mixedCache.load(forKey: mixed.path, cachesFailure: false, loader: { silGridThumbnailImage(atPath: mixed.path) }) { independent = $0 }
+            wait("later independent false demand bypasses the original negative conclusion") { independent != nil }
+            checks[firstCachesFailure ? "independentFalseBypassesEarlierTrueFailure" : "independentFalseDoesNotManufactureNegativeCache"] =
+                !mixedCache.hasCachedFailure(forKey: mixed.path) && firstCompletions == 1 && secondCompletions == 1
+            mixedCache.clearAll()
+        }
+
+        let inspectorPath = root.appendingPathComponent("inspector-negative-bypass.png")
+        try Data(repeating: 0x7f, count: bytes.count).write(to: inspectorPath)
+        try fm.setAttributes([.modificationDate: before], ofItemAtPath: inspectorPath.path)
+        let inspectorProvider = SILThumbnailProvider()
+        var inspectorSeed: SILThumbnailLoadResult?
+        inspectorProvider.load(path: inspectorPath.path, cancellation: .init()) { inspectorSeed = $0 }
+        wait("actual SIL store has a real provider failure") { inspectorSeed != nil }
+        precondition(SILThumbnailStore.sharedCache.hasCachedFailure(forKey: inspectorPath.path))
+        let inspector = SILInspectorPreviewProbe(path: inspectorPath.path)
+        inspector.load()
+        wait("actual Inspector false policy still completes its invalid source") { inspector.previewSurface.updates == 1 }
+        checks["inspectorFalsePolicyKeepsItsOwnFailedDemandRetryable"] = inspector.previewSurface.image == nil
+            && SILCacheAdmissions.shared.values(inspectorPath.path) == [true, false]
+        try bytes.write(to: inspectorPath)
+        try fm.setAttributes([.modificationDate: before], ofItemAtPath: inspectorPath.path)
+        inspector.load()
+        wait("actual Inspector preview retries the repaired unchanged source") { inspector.previewSurface.image != nil }
+        let inspectorPixels = inspector.previewSurface.image!.cgImage(forProposedRect: nil, context: nil, hints: nil)!
+        checks["inspectorOriginalPreviewMethodBypassesNegativeCacheAndKeeps800Pixels"] =
+            max(inspectorPixels.width, inspectorPixels.height) == 800
+            && SILCacheAdmissions.shared.values(inspectorPath.path) == [true, false, false]
+            && !SILThumbnailStore.sharedCache.hasCachedFailure(forKey: inspectorPath.path)
+        SILThumbnailStore.sharedCache.imageCache.removeAllObjects()
+        var recoveredDiskImage: NSImage?
+        SILThumbnailStore.sharedCache.load(forKey: inspectorPath.path,
+            loader: { preconditionFailure("successful Inspector disk return must not revive the old negative cache") }) { recoveredDiskImage = $0 }
+        wait("ordinary true demand reads the successful Inspector disk result") { recoveredDiskImage != nil }
+        checks["successfulFalseDemandRetiresOldFailureAcrossMemoryEviction"] =
+            !SILThumbnailStore.sharedCache.hasCachedFailure(forKey: inspectorPath.path)
+            && inspector.previewSurface.updates == 2
         var cancelledCompleted = false
         let token = ThumbnailCacheRequestCancellation(); token.cancel()
         probe.reset()

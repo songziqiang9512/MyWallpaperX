@@ -62,6 +62,15 @@ class SteamLoginModalTests(unittest.TestCase):
                 'login-cancel-clears-secrets-cancels-once-and-rejects-held-closed-controls',
                 'login-close-removes-the-local-monitor-and-restores-native-queue-main-click-drag-and-key',
                 'late-auth-publication-cannot-reopen-the-closed-login',
+                'already-online-switch-account-keeps-the-password-page-without-replaying-old-success',
+                'switch-account-new-guard-transition-and-submission-remain-live',
+                'switch-account-new-authentication-success-still-closes-the-panel',
+                'already-online-previous-token-save-failure-does-not-replace-the-new-password-page',
+                'new-authentication-token-save-failure-still-requires-explicit-completion',
+                'silent-restore-success-retains-original-completion-and-status-feedback',
+                'silent-restore-new-guard-transition-remains-visible',
+                'silent-restore-new-network-failure-keeps-panel-and-reports-retained-session',
+                'silent-restore-new-credential-failure-keeps-panel-and-requires-new-login',
                 'main-close-retires-the-owned-login-and-authentication-once',
             }
             missing = required.difference(checks)

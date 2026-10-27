@@ -79,7 +79,7 @@ import ImageIO
         }
         hover(true)
         checks["gridLoadsRealAnimation"] = pump { animated(item.previewImageView.image) }
-        SteamWorkshopPreviewImageCache.shared.removeAll()
+        SteamWorkshopPreviewImageCache.shared.imageCache.removeAllObjects()
         hover(false)
         checks["evictionDuringHoverPreservesStatic"] = item.previewImageView.image === still && still != nil
         hover(true)
@@ -89,7 +89,7 @@ import ImageIO
         let detail = SteamWorkshopPreviewImageContainerView(frame: NSRect(x: 0, y: 0, width: 280, height: 156))
         detail.configure(itemID: "one", previewImageURL: media, fallbackVideoURL: nil, refreshToken: 0)
         checks["detailLoadsAnimation"] = pump { animated(imageView(detail)?.image) }
-        SteamWorkshopPreviewImageCache.shared.removeAll()
+        SteamWorkshopPreviewImageCache.shared.imageCache.removeAllObjects()
         detail.configure(itemID: "one", previewImageURL: media, fallbackVideoURL: nil, refreshToken: 0)
         checks["sameDetailConfigurationNeverShowsLoading"] = placeholder(detail)?.isHidden == true
         let blackDetail = SteamWorkshopPreviewImageContainerView(frame: detail.frame)
@@ -97,7 +97,7 @@ import ImageIO
         checks["blackImageAcceptedByDetail"] = pump { imageView(blackDetail)?.image != nil && placeholder(blackDetail)?.isHidden == true }
         let first = SteamWorkshopPreviewState()
         let second = SteamWorkshopPreviewState()
-        SteamWorkshopPreviewImageCache.shared.removeAll()
+        SteamWorkshopPreviewImageCache.shared.imageCache.removeAllObjects()
         first.configure(previewURL: media, fallbackVideoURL: nil)
         second.configure(previewURL: media, fallbackVideoURL: nil)
         first.reset()
@@ -108,7 +108,7 @@ import ImageIO
         var diskReady = false
         SteamWorkshopPreviewImageCache.shared.loadRawDataAsync(forKey: remoteKey, loader: { encoded }) { _ in diskReady = true }
         checks["rawGIFDiskFixtureReady"] = pump { diskReady }
-        SteamWorkshopPreviewImageCache.shared.removeAll()
+        SteamWorkshopPreviewImageCache.shared.imageCache.removeAllObjects()
         let row = SteamPopoverPreviewProbe(url: remote)
         row.load()
         checks["popoverUsesStaticDecodeForRawGIF"] = pump {

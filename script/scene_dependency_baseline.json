@@ -374,15 +374,6 @@
     {
       "rule": "rendering-no-compilation-internals",
       "consumer": "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Graph/SceneResolvedMaterialSubmissionCoordinator.swift",
-      "symbol": "SceneResolvedMaterialExecutionCapabilityAdmission",
-      "declaration": "MyWallpaperX/Core/SteamWorkshopScene/Compilation/Material/SceneResolvedMaterialExecutionCapabilityAdmission.swift",
-      "owner": "Scene Compilation / Rendering",
-      "reason": "试点前存在的直接内部类型引用；namespace混合合同与算法亦保守保留，不将当前使用自动公开",
-      "retirement": "由现有preparation owner产出typed合同并移除本直接边，或经独立设计迁移实际职责；同批ratchet删除此todo"
-    },
-    {
-      "rule": "rendering-no-compilation-internals",
-      "consumer": "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Graph/SceneResolvedMaterialSubmissionCoordinator.swift",
       "symbol": "SceneResolvedMaterialExecutionCapabilityCatalog",
       "declaration": "MyWallpaperX/Core/SteamWorkshopScene/Compilation/Material/SceneResolvedMaterialExecutionCapability.swift",
       "owner": "Scene Compilation / Rendering",
@@ -445,12 +436,12 @@
     }
   ],
   "last_ratchet": {
-    "reason": "prepared-frame-uniform-query: actual neutral DTO and Program query retire DirectDraw internal edges and UniformProjection schema edge; no new public exceptions",
+    "reason": "Retire the obsolete submission-coordinator internal admission edge removed by the merged startup simplification; preserve all remaining dependency boundaries.",
     "removed": [
       [
         "rendering-no-compilation-internals",
-        "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Bindings/SceneResolvedMaterialUniformProjection.swift",
-        "SceneResolvedMaterialShaderSchema"
+        "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Graph/SceneResolvedMaterialSubmissionCoordinator.swift",
+        "SceneResolvedMaterialExecutionCapabilityAdmission"
       ]
     ]
   }

@@ -2,6 +2,22 @@ import Foundation
 import CoreGraphics
 import ImageIO
 
+// The test copy pauses after real AV work, immediately before the original
+// MainActor delivery. No AV value or cancellation decision is substituted.
+@MainActor enum InspectorMetadataDeliveryProbe {
+    static var heldPaths: Set<String> = []
+    static var pending: [String: CheckedContinuation<Void, Never>] = [:]
+    static func waitIfHeld(_ path: String) async {
+        if heldPaths.contains(path) {
+            await withCheckedContinuation { pending[path] = $0 }
+        }
+    }
+    static func release(_ path: String) {
+        heldPaths.remove(path)
+        pending.removeValue(forKey: path)?.resume()
+    }
+}
+
 @main struct VideoInspectorMetadataHarness {
     static func writePNG(_ url: URL) {
         let context = CGContext(data: nil, width: 32, height: 16, bitsPerComponent: 8, bytesPerRow: 0,
@@ -37,7 +53,9 @@ import ImageIO
             checks[label + "-initial-template-already-has-all-layout-fields-and-source-path"] = first.pathText == url.path
                 && !first.fileSizeText.isEmpty && !first.formatText.isEmpty && !first.addedDateText.isEmpty
                 && !first.durationText.isEmpty && first.codecText == "读取中…" && !first.resolutionText.isEmpty
-            checks[label + "-known-facts-and-unknown-placeholders-are-preserved"] = first.durationText == (duration == nil ? "读取中…" : "01:05")
+                && first.isLoading
+            // Existing display format pads seconds, not the minutes field.
+            checks[label + "-known-facts-and-unknown-placeholders-are-preserved"] = first.durationText == (duration == nil ? "读取中…" : "1:05")
                 && first.resolutionText == (resolution ?? "读取中…") && first.formatText == url.pathExtension.uppercased()
                 && (label != "unknown-video" || first.fileSizeText == "1.00 MB")
             await task.value
@@ -45,7 +63,8 @@ import ImageIO
             checks[label + "-async-terminal-keeps-source-path-and-prepared-file-facts"] = values.count == 2
                 && terminal.pathText == first.pathText && terminal.fileSizeText == first.fileSizeText
                 && terminal.formatText == first.formatText && terminal.addedDateText == first.addedDateText
-            checks[label + "-unsupported-media-settles-with-fallback-values"] = terminal.durationText == (duration == nil ? "未知" : "01:05")
+                && !terminal.isLoading
+            checks[label + "-unsupported-media-settles-with-fallback-values"] = terminal.durationText == (duration == nil ? "未知" : "1:05")
                 && terminal.resolutionText == (resolution ?? "未知") && terminal.codecText == "未知"
         }
         var cancelledValues: [WallpaperInspectorDetails] = []
@@ -65,6 +84,37 @@ import ImageIO
         await replacement.value
         checks["later-independent-source-settles-without-reviving-the-cancelled-path"] = replacementValues.count == 2
             && replacementValues.allSatisfy { $0.pathText == png.path } && cancelledValues.count == 1
+        let delayed = root.appendingPathComponent("delivery-pending.png")
+        try FileManager.default.copyItem(at: png, to: delayed)
+        InspectorMetadataDeliveryProbe.heldPaths.insert(delayed.path)
+        var delayedValues: [WallpaperInspectorDetails] = []
+        let delayedTask = loadWallpaperInspectorDetails(for: .init(id: "delivery-pending", title: "delivery-pending", path: delayed.path)) {
+            delayedValues.append($0)
+        }
+        let deadline = Date().addingTimeInterval(10)
+        while InspectorMetadataDeliveryProbe.pending[delayed.path] == nil && Date() < deadline {
+            try await Task.sleep(nanoseconds: 5_000_000)
+        }
+        precondition(InspectorMetadataDeliveryProbe.pending[delayed.path] != nil, "real AV work did not reach its delivery boundary")
+        delayedTask.cancel()
+        InspectorMetadataDeliveryProbe.release(delayed.path)
+        await delayedTask.value
+        checks["cancel-after-real-av-work-before-main-actor-delivery-cannot-publish-final"] = delayedValues.count == 1
+            && delayedValues[0].isLoading && delayedValues[0].pathText == delayed.path
+        InspectorMetadataDeliveryProbe.heldPaths.insert(delayed.path)
+        var resumedValues: [WallpaperInspectorDetails] = []
+        let resumedTask = loadWallpaperInspectorDetails(for: .init(id: "delivery-live", title: "delivery-live", path: delayed.path)) {
+            resumedValues.append($0)
+        }
+        let resumedDeadline = Date().addingTimeInterval(10)
+        while InspectorMetadataDeliveryProbe.pending[delayed.path] == nil && Date() < resumedDeadline {
+            try await Task.sleep(nanoseconds: 5_000_000)
+        }
+        precondition(InspectorMetadataDeliveryProbe.pending[delayed.path] != nil, "live AV task did not reach its delivery boundary")
+        InspectorMetadataDeliveryProbe.release(delayed.path)
+        await resumedTask.value
+        checks["same-real-av-delivery-boundary-publishes-final-for-live-consumer"] = resumedValues.count == 2
+            && resumedValues[0].isLoading && !resumedValues[1].isLoading && resumedValues[1].pathText == delayed.path
         print(String(data: try JSONSerialization.data(withJSONObject: checks, options: [.sortedKeys]), encoding: .utf8)!)
     }
 }

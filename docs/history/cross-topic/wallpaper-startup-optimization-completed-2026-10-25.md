@@ -70,7 +70,7 @@
 
 | 现有 owner | 首断点 | 对应步骤 |
 |---|---|---|
-| [ScenePkgCacheExtractor](../../../MyWallpaperX/Core/SteamWorkshopScene/Format/ScenePkgCacheExtractor.swift)、[SourceFacts](../../../MyWallpaperX/Core/SteamWorkshopScene/Runtime/Frame/SceneRuntimeSourceFacts.swift) | 每次准备读整包、包/entry hash；命中仍枚举并逐文件读缓存比较 | P2 |
+| `MyWallpaperX/Core/SteamWorkshopScene/Format/ScenePkgCacheExtractor.swift`（历史旧文件）、[SourceFacts](../../../MyWallpaperX/Core/SteamWorkshopScene/Runtime/Frame/SceneRuntimeSourceFacts.swift) | 每次准备读整包、包/entry hash；命中仍枚举并逐文件读缓存比较 | P2 |
 | [SceneResourceView](../../../MyWallpaperX/Core/SteamWorkshopScene/Resources/Assets/SceneResourceView.swift) | package/loose/stock 每次重建目录索引；Host 还要求 `packageReport.outputURL` | P2、P3 |
 | [SceneDesktopWallpaperHost+Launch](../../../MyWallpaperX/Core/SteamWorkshopScene/Runtime/Session/SceneDesktopWallpaperHost+Launch.swift) | 每次 ModelBuilder；基础作者事实与属性投影尚未形成可复用的独立输入 | P3 |
 | [PassEncoder](../../../MyWallpaperX/Core/SteamWorkshopScene/Rendering/Graph/SceneResolvedMaterialPassEncoder.swift) | authored library/PSO cache 属于实例；多屏可能重复 `makeLibrary(source:)` | P4 |

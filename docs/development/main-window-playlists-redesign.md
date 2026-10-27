@@ -2,7 +2,7 @@
 
 <!-- document-role: active-plan -->
 
-> 状态：2026-10-26 本会话UI改造已完成实现、交审与限定回归；在启动专项23a382c6a之上完成整合验证，交付目标为主仓codex/engine-refactor-program。停止扩展任务，不推送；用户最终视觉、真实账号/桌面/硬件IME边界仍按§19保留，不把合并视为最终验收。
+> 状态：2026-10-26本轮UI交付已合入codex/engine-refactor-program，基于启动专项23a382c6a的整合结算见§19。2026-10-27全仓UI审计已[结算](../history/cross-topic/ui-quality-audit-completed-2026-10-27.md)；本文继续拥有现有视觉/交互规范与原验收边界，不自动重开旧工作卡。
 >
 > 产品目标：用 Apple Music 的侧栏、工具栏、留白和封面组织方式重排主窗口；壁纸卡片统一沿用当前 Steam 方形卡片与内部控制 bar；建立支持图片、视频、Web、Scene 的真正播放列表。AppKit、现有播放事务和各来源服务继续承担各自职责。
 

@@ -37,7 +37,6 @@ final class SteamWorkshopPropertyPanelController: NSWindowController, NSWindowDe
         // shadow belongs to NSWindow and is not clipped by this content layer.
         card.layer?.masksToBounds = true
         panel.contentView = card
-        card.widthAnchor.constraint(equalToConstant: InspectorHostRequest.defaultPreferredWidth).isActive = true
         cardHeightConstraint = card.heightAnchor.constraint(equalToConstant: 620)
         cardHeightConstraint?.isActive = true
         card.compactHeader = true

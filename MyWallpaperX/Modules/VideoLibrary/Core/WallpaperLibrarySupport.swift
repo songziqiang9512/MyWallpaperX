@@ -76,6 +76,7 @@ struct WallpaperInspectorDetails: Equatable {
     let resolutionText: String
     let addedDateText: String
     let pathText: String
+    var isLoading = false
 }
 
 @discardableResult
@@ -100,7 +101,7 @@ func loadWallpaperInspectorDetails(
     completion(WallpaperInspectorDetails(fileSizeText: fileSizeText, formatText: formatText,
         durationText: wallpaper.duration.map { formattedDuration(Double($0)) } ?? "读取中…",
         codecText: "读取中…", resolutionText: wallpaper.resolution ?? "读取中…",
-        addedDateText: addedDateText, pathText: path))
+        addedDateText: addedDateText, pathText: path, isLoading: true))
 
     return Task {
         let asset = AVURLAsset(url: url)
@@ -115,7 +116,6 @@ func loadWallpaperInspectorDetails(
 
         let resolutionText = await videoResolutionText(for: asset, fallback: wallpaper.resolution)
         let codecText = await videoCodecText(for: asset)
-        guard !Task.isCancelled else { return }
 
         let details = WallpaperInspectorDetails(
             fileSizeText: fileSizeText,
@@ -128,6 +128,7 @@ func loadWallpaperInspectorDetails(
         )
 
         await MainActor.run {
+            guard !Task.isCancelled else { return }
             completion(details)
         }
     }

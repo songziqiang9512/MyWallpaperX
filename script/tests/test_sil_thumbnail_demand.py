@@ -19,6 +19,7 @@ import unittest
 
 from script.tests.sil_unified_grid_fixture import assemble
 from script.tests.native_app_harness import prepare_native_app, run_native_app
+from script.tests.test_ui_library_algorithms import declaration
 
 ROOT = Path(__file__).resolve().parents[2]
 SHARED = ROOT / "MyWallpaperX/Shared/UI"
@@ -30,13 +31,31 @@ class SILThumbnailDemandTests(unittest.TestCase):
     def test_real_nearby_decode_and_card_loading_lifetime(self):
         fixture_path = ROOT / "script/tests/fixtures/SILThumbnailDemandHarness.swift"
         fixture = fixture_path.read_text()
+        inspector = SIL / "UI/SILInspectorView.swift"
+        self.assertEqual(fixture.count("// ACTUAL_INSPECTOR_PREVIEW_LOAD"), 1)
+        fixture = fixture.replace("// ACTUAL_INSPECTOR_PREVIEW_LOAD",
+            declaration(inspector.read_text(), "    private func loadPreviewImage("))
         with tempfile.TemporaryDirectory(prefix="mwx-sil-demand-", dir="/private/tmp") as folder:
             work = Path(folder)
             sources, originals = assemble(work, cache_name="SILLoadObservation.cache", observe_loads=True, observe_failure_signatures=True)
             sources += [ROOT / "script/tests/fixtures/GridCardInteractionChecks.swift",
                         ROOT / "script/tests/fixtures/NativeAppHarness.swift",
                         ROOT / "script/tests/fixtures/WallpaperLibraryGridCardReflowChecks.swift"]
-            originals += [fixture_path, Path(__file__).resolve(), *sources[-3:]]
+            originals += [fixture_path, inspector, Path(__file__).resolve(), *sources[-3:]]
+            # Only the decoded owner is exposed for the failure-bypass then
+            # successful disk-return check. Product cache API stays unchanged.
+            cache_source = SHARED / "ThumbnailCache.swift"
+            cache = cache_source.read_text()
+            self.assertEqual(cache.count("private let imageCache:"), 1)
+            method = declaration(cache, "    func load(")
+            boundary = "        loadSynchronously("
+            self.assertEqual(method.count(boundary), 1)
+            observed = method.replace(boundary,
+                "        SILCacheAdmissions.shared.registered(key, cachesFailure: cachesFailure)\n" + boundary, 1)
+            cache = cache.replace(method, observed, 1)
+            cache_copy = work / "ThumbnailCache.swift"
+            cache_copy.write_text(cache.replace("private let imageCache:", "let imageCache:", 1))
+            sources[sources.index(cache_source)] = cache_copy
             inputs = {str(p): hashlib.sha256(p.read_bytes()).hexdigest() for p in originals}
             (work / "Checks.swift").write_text(fixture)
             binary = work / "checks"
@@ -72,6 +91,21 @@ class SILThumbnailDemandTests(unittest.TestCase):
                 "unchangedFailureSkipsDecode", "sameSecondSameSizeReplacementInvalidatesFailure",
                 "prefetchFailureSkipsDecode", "prefetchReplacementUsesPreciseSignature",
                 "cancelledVisibleMissDoesNotCompleteOrReadSignature",
+                "oneFailedPathDoesNotMakeOtherColdPathsReadSignatures",
+                "warmProviderRemainsSynchronousWithoutSignatureOrDecode",
+                "clearAllMakesSameSizeMtimeRepairRetryableInOriginalProvider",
+                "singleKeyMakesSameSizeMtimeRepairRetryableInOriginalProvider",
+                "oldInFlightNilAfterClearCannotRestoreFailureAuthority",
+                "sameProviderRecoversAfterClearingHeldOldFailure",
+                "joinedProviderDoesNotGuessAnotherProducersFailureIdentity",
+                "unknownProducerIdentityRetriesActualImageIOInsteadOfReusingNegative",
+                "trueThenFalseConsumersShareOneProducerAndBothFinish",
+                "falseThenTrueConsumersShareOneProducerAndBothFinish",
+                "independentFalseBypassesEarlierTrueFailure",
+                "independentFalseDoesNotManufactureNegativeCache",
+                "inspectorFalsePolicyKeepsItsOwnFailedDemandRetryable",
+                "inspectorOriginalPreviewMethodBypassesNegativeCacheAndKeeps800Pixels",
+                "successfulFalseDemandRetiresOldFailureAcrossMemoryEviction",
             }.issubset(checks), checks)
             self.assertGreaterEqual(len(checks), 25)
             self.assertEqual(inputs, {str(p): hashlib.sha256(p.read_bytes()).hexdigest()
