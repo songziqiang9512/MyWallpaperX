@@ -26,6 +26,7 @@ enum SceneColorScriptPropertyChecks {
                      host: "origin", builder: "addSlider", body: equivalentStringBody, tail: 0.75,
                      fallback: .number(0.8), seedLiteral: "8e-1", equivalentBuilder: true, facts: &facts)
         try nonColorStringChecks(facts: &facts)
+        try sliderBooleanSeedChecks(facts: &facts)
         for (name, fallback, defaultValue) in [
             ("two-components", "0.1 0.2" as Any, "1 1 1" as Any),
             ("extra-components", "0.1 0.2 0.3 0.4", "1 1 1"),
@@ -236,6 +237,68 @@ enum SceneColorScriptPropertyChecks {
                 facts["non-color-string-\(index)-undeclared-codec-rejected"] = untypedInput
                     .resolve(effectiveValues: [key: .string(value)]) == nil
             } else { facts["non-color-string-\(index)-undeclared-codec-rejected"] = false }
+        }
+    }
+
+    static func sliderBooleanSeedChecks(facts: inout [String: Bool]) throws {
+        for (name, key, slot, layerID, declaration, expression) in [
+            ("slider-bool-seed", "amount", "gain", 811,
+             "export var scriptProperties = createScriptProperties().addSlider({name: 'gain', value: 0.5}).finish();",
+             "scriptProperties.gain === true ? 1 : 0"),
+            ("slider-bool-seed-renamed", "fader", "level", 812,
+             "const editor = createScriptProperties(); editor['addSlider']({value: 5e-1, name: 'level'}); export var scriptProperties = editor.finish();",
+             "+(true === scriptProperties['level'])")
+        ] {
+            let source = """
+                \(declaration)
+                export function update(value) {
+                    if (typeof scriptProperties['\(slot)'] !== 'boolean') throw new Error('input type changed');
+                    if (value.y === 9) throw new Error('controlled owner failure');
+                    return new Vec3(\(expression), 0, 0);
+                }
+                """
+            let input: [String: Any] = ["user": key, "value": false]
+            let document = root(layerID: layerID, host: "origin", slot: slot, input: input, source: source)
+            let catalog = SceneUserPropertyDefinitionParser().parse(properties: [
+                key: ["type": "slider", "value": 0.5, "min": 0.0, "max": 1.0]])
+            let compilation = ScenePropertyBindingCompiler().compile(
+                report: SceneUserPropertyBindingParser().parse(root: document), catalog: catalog)
+            let program = compilation.program
+            let scripts = SceneScriptBindingIRParser.parse(document: document)
+            let runtime = SceneScriptVectorProgram.compile(domain: try SceneScriptQuickJSDomain(),
+                descriptor: descriptor(layerID: layerID), scriptBindings: scripts.bindings,
+                userPropertyDefinitions: catalog.definitions, generation: 1)
+            let output = SceneDynamicTarget.layer(layerID: layerID, field: .origin)
+            let liveTargets = runtime.activeLivePropertyInputTargets
+            facts[name + "-prepared-owner"] = compilation.diagnostics.isEmpty
+                && program.instructions.count == 1 && runtime.bindings.count == 1
+                && runtime.inputTargets.contains(output) && liveTargets.count == 1
+            facts[name + "-distinct-input-domains"] = program.definitions.first?.authoredValue == .scalar(0.5)
+                && runtime.bindings.first?.properties[slot]?.fallback == .bool(false)
+            var state = ScenePropertyLiveUpdateState(program: program,
+                effectiveValues: catalog.defaultValues, activeConsumerTargets: liveTargets,
+                propertyDefinitions: catalog.definitions)
+            let cold = runtime.evaluate(inputs: [output: .vector3(0, 0, 0)],
+                effectivePropertyValues: state.effectiveValues, frame: frame, propertyRevision: state.revision)
+            facts[name + "-cold-vm"] = cold.failures.isEmpty && cold.values[output] == .vector3(1, 0, 0)
+            for (value, expected, revision) in [(0.0, 0.0, UInt64(1)), (0.25, 1.0, 2), (0.5, 1.0, 3)] {
+                let accepted = state.apply(.number(value), forPropertyKey: key)
+                let result = runtime.evaluate(inputs: [output: .vector3(0, 0, 0)],
+                    effectivePropertyValues: state.effectiveValues, frame: frame, propertyRevision: state.revision)
+                facts[name + "-hot-\(value)"] = accepted && state.revision == revision
+                    && program.instructions.first.map { state.userValues[$0.target] == .scalar(value) } == true
+                    && result.failures.isEmpty && result.values[output] == .vector3(expected, 0, 0)
+            }
+            let before = state
+            facts[name + "-repeat-noop"] = state.apply(.number(0.5), forPropertyKey: key)
+                && unchanged(state, before)
+            let failed = runtime.evaluate(inputs: [output: .vector3(0, 9, 0)],
+                effectivePropertyValues: state.effectiveValues, frame: frame, propertyRevision: state.revision)
+            let unavailable = liveTargets.subtracting(runtime.activeLivePropertyInputTargets)
+            facts[name + "-disabled-owner-atomic"] = failed.failures[output] != nil
+                && unavailable == liveTargets && !unavailable.isEmpty
+                && !state.apply(.number(0), forPropertyKey: key, unavailableConsumerTargets: unavailable)
+                && unchanged(state, before)
         }
     }
 

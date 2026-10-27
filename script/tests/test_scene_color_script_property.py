@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Color input domain and actual VM slot assignment, including numeric seeds."""
+"""Declared input domains and actual VM slot assignment with unlike seeds."""
 from __future__ import annotations
 
 import hashlib
@@ -66,6 +66,11 @@ class SceneColorScriptPropertyTests(unittest.TestCase):
                              "disabled-owner-atomic"):
                 self.assertIn(f"{name}-{behavior}", facts)
         self.assertIn("non-color-string-0-cannot-publish", facts)
+        for name in ("slider-bool-seed", "slider-bool-seed-renamed"):
+            for behavior in ("prepared-owner", "distinct-input-domains", "cold-vm",
+                             "hot-0.0", "hot-0.25", "hot-0.5", "repeat-noop",
+                             "disabled-owner-atomic"):
+                self.assertIn(f"{name}-{behavior}", facts)
         self.assertEqual([name for name, passed in facts.items() if passed is not True], [])
 
 

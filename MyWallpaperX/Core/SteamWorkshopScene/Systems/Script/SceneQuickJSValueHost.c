@@ -173,6 +173,8 @@ bool mwx_scene_quickjs_install_value_host(MWXSceneQuickJSDomain *domain) {
         "return new Vec3(this.x*v.x,this.y*v.y,v instanceof Vec2?this.z:this.z*v.z);}"
         "divide(v){if(typeof v==='number'){return new Vec3(this.x/v,this.y/v,this.z/v);}"
         "return new Vec3(this.x/v.x,this.y/v.y,v instanceof Vec2?this.z:this.z/v.z);}"
+        "reflect(normal){const factor=2*(this.x*normal.x+this.y*normal.y+this.z*normal.z);"
+        "return new Vec3(this.x-factor*normal.x,this.y-factor*normal.y,this.z-factor*normal.z);}"
         "mix(v,a){const t=typeof a==='number'?{x:a,y:a,z:a}:a;"
         "return new Vec3(this.x+(v.x-this.x)*t.x,this.y+(v.y-this.y)*t.y,this.z+(v.z-this.z)*t.z);}"
         "isFinite(){return Number.isFinite(this.x)&&Number.isFinite(this.y)&&Number.isFinite(this.z);}"

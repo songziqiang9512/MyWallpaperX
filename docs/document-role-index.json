@@ -973,10 +973,10 @@
       "lastReviewed": "2026-10-28",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "45092b8e1140fe4a25fc98358d6645ac4c73bb228f19c783088d2b85f3b53f5b",
+        "sourceSHA256": "0cfea069cc9f9fa1de3ce73a0e7db20cdaaf10a271f39e708a76649ba232e2df",
         "method": "document_registry --audit + document_health --check",
-        "scope": "仅复核当前正文hash、角色/入口及本轮343材质边界与历史指针；不重新资格旧证据。",
-        "limitations": "这是导航与文档治理复核，不代表源码、编译、运行、视觉、性能、真实账号或发布复验；不重授旧证据的适用范围。"
+        "scope": "仅同步本批Vec3.reflect和Slider Bool-seed的已证行为与边界；实际运行、失败及身份集中统一历史，其他能力顺序不改。",
+        "limitations": "导航/正文审计不代运行验收；本批有界运行见历史，不认面板Reset、IPC、官方parity或性能收益。"
       }
     },
     {
@@ -984,13 +984,13 @@
       "role": "current-state",
       "entrypoint": "docs/scene/capabilities/README.md",
       "purpose": "限定专题的实现状态、偏差或证据；运行结论须复核身份和边界，不决定任务顺序。",
-      "lastReviewed": "2026-10-23",
+      "lastReviewed": "2026-10-28",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "34fad552c27d9540f34dfc593d198115dec0f996150d8e7d9cd2f78d4bd86032",
+        "sourceSHA256": "e7f0cef6e4a0fd33cd289adbe0cb12654f6b3c886cf3fd662c4965aab2259486",
         "method": "document_registry --audit + document_health --check",
-        "scope": "仅默认camera origin setter的唯一typed别名、事务与退休；原304实际偏移热改和独立355开场，保U13其余视觉缺口。",
-        "limitations": "默认XY夹零不认默认像素收益；304旧738 loading FAIL保持。未验官方同属性、组件精确锚定、HDR/多屏或性能；其余主题未重审。"
+        "scope": "仅同步本批Vec3.reflect和Slider Bool-seed的已证行为与边界；实际运行、失败及身份集中统一历史，其他能力顺序不改。",
+        "limitations": "导航/正文审计不代运行验收；本批有界运行见历史，不认面板Reset、IPC、官方parity或性能收益。"
       }
     },
     {
@@ -1096,13 +1096,13 @@
       "role": "current-state",
       "entrypoint": "docs/scene/capabilities/README.md",
       "purpose": "限定专题的实现状态、偏差或证据；运行结论须复核身份和边界，不决定任务顺序。",
-      "lastReviewed": "2026-10-21",
+      "lastReviewed": "2026-10-28",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "25594ff435ef248ef03331ddfb3d13d36a2f3b8369feef9a3ea109b31c38d693",
+        "sourceSHA256": "ac67b3775cbbd122cfbbbf1b002c44df8632cf6554c6918cecfad750d7da1f1c",
         "method": "document_registry --audit + document_health --check",
-        "scope": "仅共享Vec3.equals实际红绿/原344三编辑颜色过渡、独立302构图及对应两条运行/队列；其他240档案行值与顺序保持。",
-        "limitations": "不是完整Vec API、全部152属性或面板/媒体/官方同phase/HDR/Release/性能验收；337unreviewed/19fail/0pass与356目录不变。"
+        "scope": "仅同步本批Vec3.reflect和Slider Bool-seed的已证行为与边界；实际运行、失败及身份集中统一历史，其他能力顺序不改。",
+        "limitations": "导航/正文审计不代运行验收；本批有界运行见历史，不认面板Reset、IPC、官方parity或性能收益。"
       }
     },
     {
@@ -2449,6 +2449,20 @@
       ],
       "cutoffDate": "2026-10-19",
       "uniqueValue": "普通原生平面显式深度读写与剔除的App红绿、唯一帧资源与DTO/解析职责分离；真实333未受益及text默认未知边界。"
+    },
+    {
+      "path": "docs/scene/history/parallel-script-compatibility-2026-10-28.md",
+      "role": "historical-evidence",
+      "entrypoint": "docs/scene/history/README.md",
+      "commandPolicy": "historical-only",
+      "currentAuthorities": [
+        "docs/scene/capabilities/scenescript-api-coverage.md",
+        "docs/scene/capabilities/runtime-input-property-coverage.md",
+        "docs/scene/capabilities/runtime-evidence-current.md",
+        "docs/scene/roadmap/scene-open-breakpoint-queue.md"
+      ],
+      "cutoffDate": "2026-10-28",
+      "uniqueValue": "Vec3 reflect与Slider Bool-seed红绿、真实前后交互、独审与身份，以及撤回CPU/官方Audio STOP的有界结论。"
     },
     {
       "path": "docs/scene/history/particle-initializer-qualification-2026-10-23.md",
@@ -4309,13 +4323,13 @@
       "role": "active-plan",
       "entrypoint": "docs/scene/README.md",
       "retirementCondition": "当队列中的公共 authored target 首断点关闭，后续只剩路线 P0/P3/P4/P5 的系统性验收，且不再需要该派生执行入口时，删除或转为 historical-evidence。",
-      "lastReviewed": "2026-10-24",
+      "lastReviewed": "2026-10-28",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "35a9c4afc5fbefd14f010dd672100cefe93c6d00f520e5573c4086a1b1e94859",
+        "sourceSHA256": "ecc8804fa4d854775ea42307950148998fcccf11925e2292b0fe07db263ae4b1",
         "method": "document_registry --audit + document_health --check",
-        "scope": "Declared texture/RGB graph bounded change: route, queue retirement and archived runtime evidence reconciled with the same source/App identity.",
-        "limitations": "Only this change and navigation reviewed; startup texture selection is not live-panel, full parity, HDR or performance acceptance."
+        "scope": "仅同步本批Vec3.reflect和Slider Bool-seed的已证行为与边界；实际运行、失败及身份集中统一历史，其他能力顺序不改。",
+        "limitations": "导航/正文审计不代运行验收；本批有界运行见历史，不认面板Reset、IPC、官方parity或性能收益。"
       }
     },
     {

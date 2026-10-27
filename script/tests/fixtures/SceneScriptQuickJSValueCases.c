@@ -303,6 +303,65 @@ void mwx_fixture_typed_value_cases(MWXSceneScriptQuickJSFixture *fixture) {
         }
     }
 
+    // Public Vec3.reflect returns a fresh vector for a caller-normalized normal.
+    // These are mathematical contract cases, not official pixel observations.
+    static const struct {
+        const char *input, *normal, *expected;
+    } reflection_cases[] = {
+        {"new Vec3(6,4,2)", "new Vec3(1,0,0)", "new Vec3(-6,4,2)"},
+        {"new Vec3(6,4,2)", "new Vec3(-1,0,0)", "new Vec3(-6,4,2)"},
+        {"new Vec3(-2,-5,1)", "new Vec3(0,-1,0)", "new Vec3(-2,5,1)"},
+        {"new Vec3(1,2,-3)", "new Vec3(0,0,1)", "new Vec3(1,2,3)"},
+        {"new Vec3(5,0,7)", "new Vec3(3/5,4/5,0)", "new Vec3(1.4,-4.8,7)"},
+        {"new Vec3(4,-3,6)", "new Vec3(3/5,4/5,0)", "new Vec3(4,-3,6)"},
+        {"new Vec3()", "new Vec3(0,1,0)", "new Vec3()"},
+    };
+    const double reflection_passed[3] = {1, 1, 1};
+    for (size_t index = 0; index < sizeof(reflection_cases) / sizeof(*reflection_cases); ++index) {
+        for (int renamed = 0; renamed < 2; ++renamed) {
+            char source[1536], label[96];
+            snprintf(source, sizeof(source),
+                "export function update(value){const incident=%s,normal=%s,expected=%s;"
+                "const initial=incident.copy(),normalBefore=normal.copy();const result=%s;"
+                "if(!(result instanceof Vec3)||result===incident||result===normal||"
+                "!incident.equals(initial)||!normal.equals(normalBefore)||"
+                "Math.abs(result.x-expected.x)>1e-12||Math.abs(result.y-expected.y)>1e-12||"
+                "Math.abs(result.z-expected.z)>1e-12||!result.isFinite())throw Error('reflection contract');"
+                "result.x+=1;if(!incident.equals(initial)||!normal.equals(normalBefore))"
+                "throw Error('reflection alias');return new Vec3(1);}",
+                reflection_cases[index].input, reflection_cases[index].normal,
+                reflection_cases[index].expected,
+                renamed ? "(()=>{const moving=incident,axis=normal;return moving['reflect'](axis);})()" : "incident.reflect(normal)");
+            snprintf(label, sizeof(label), "Vec3 reflection case %zu variant %d", index, renamed);
+            MWXSceneQuickJSOwner *owner = mwx_scene_quickjs_owner_create(
+                fixture->domain, source, strlen(source), 141,
+                fixture->diagnostic, sizeof(fixture->diagnostic));
+            fixture->failures += mwx_fixture_check(owner != NULL, label, fixture->diagnostic);
+            if (owner == NULL) continue;
+            fixture->failures += mwx_fixture_update_vec3(owner, 141, vec3_input, "", "{}",
+                MWX_SCENE_QUICKJS_OK, reflection_passed, label);
+            mwx_scene_quickjs_owner_destroy(owner);
+        }
+    }
+
+    // A released origin driver reaches the edge once, then keeps its reflected
+    // velocity for the next callback. Adjacent in-bounds movement never reflects.
+    const char *bounce_source =
+        "let direction=new Vec3(6,4,0);export function update(value){"
+        "const next=value.add(direction);if(next.x>100){next.x=100;"
+        "direction=direction.reflect(new Vec3(-1,0,0));}return next;}";
+    MWXSceneQuickJSOwner *bounce = mwx_scene_quickjs_owner_create(
+        fixture->domain, bounce_source, strlen(bounce_source), 142,
+        fixture->diagnostic, sizeof(fixture->diagnostic));
+    fixture->failures += mwx_fixture_check(bounce != NULL, "Vec3 reflection bounce compile", fixture->diagnostic);
+    if (bounce != NULL) {
+        const double positions[][3] = {{89,50,0}, {95,54,0}, {100,58,0}, {94,62,0}};
+        for (size_t frame = 0; frame < 3; ++frame)
+            fixture->failures += mwx_fixture_update_vec3(bounce, 142, positions[frame], "", "{}",
+                MWX_SCENE_QUICKJS_OK, positions[frame+1], "Vec3 reflection bounce continues across callbacks");
+        mwx_scene_quickjs_owner_destroy(bounce);
+    }
+
     // Constructor lifting and invalid explicit Vec3/scalar inputs are separate
     // from the nominal Vec2 operand rule. No plain-object API is added here.
     static const struct {

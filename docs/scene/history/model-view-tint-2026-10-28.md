@@ -16,9 +16,9 @@
 - 原产品运行扩展后的现役 `test_scene_static_model_emission` 为 RED（20项失败），候选6个行为门全部通过；复用生产 ModelPipeline/MSL，不另造 renderer。
 - 独立手算 RGB/A：facing .5、front .75/back .5、基色 .25/coverage .5，无 mask 输出 `.078125/.5`，exp2/4相同；mask分别 `.0703125/.5`、`.064453125/.5`。负 facing -.5 为 `.046875/.5`；法线等比例/载体标签变体、PMA输入、layer fade及等色反例通过。原 emission/fog/表面灯光/HDR边界继续通过。
 - Debug 基线与候选构建均成功，6217输入各自冻结且构建期间无漂移；候选增量14.69秒。两份 App 分别真 Team `H9QWU9XN8R` 签名并严格验证，benchmark 前后身份一致。
-- 原包343与未参与修法的361各做修前/修后9秒，中心pointer、静音输入，全部exit0、loaded1.0、surface1→0、GPU排空。候选361保罐体、白圈与文字；只证 renderer 相邻健康，不是第二个 Chroma 受益样本。
+- 原包343与未参与修法的361各做修前/修后9秒，固定pointer、静音输入，全部exit0、loaded1.0、surface1→0、GPU排空。候选361保罐体、白圈与文字；只证 renderer 相邻健康，不是第二个 Chroma 受益样本。
 - 默认343两轮 `colour="2"`，Cloud动态back色相同；Earth/Cloud会按update累计旋转，现报告未绑定snapshot frame，故不能把全部像素差异归给tint。完整官方图还存在viewport/时刻差异，不认整景对齐。
-- 仅补两次固定姿态控制：复用同两份已签App和合法启动属性`earthrotation=0`，6秒/中心pointer/静音；各约19.7/19.9秒（含准备与停止），exit0、身份未变、surface1→0/GPU排空。Cloud前三帧world一致。预定全地球ROI的8位可视RGB平均绝对差`.575/.271/.126`，右夜区`.151/.091/.031`；天空对照`0/0/.000026`。这确认局部小幅tint响应，不代表完整夜侧或官方贴合；原始PNG保留，8位统计不冒充线性HDR。
+- 仅补两次固定姿态控制：复用同两份已签App和合法启动属性`earthrotation=0`，6秒/固定pointer/静音；各约19.7/19.9秒（含准备与停止），exit0、身份未变、surface1→0/GPU排空。Cloud前三帧world一致。预定全地球ROI的8位可视RGB平均绝对差`.575/.271/.126`，右夜区`.151/.091/.031`；天空对照`0/0/.000026`。这确认局部小幅tint响应，不代表完整夜侧或官方贴合；原始PNG保留，8位统计不冒充线性HDR。
 - 独立只读审查未发现本diff新P1/P2。遗留 legacy `litColor` 仍有 Half 转换，不能称任意有限HDR安全；masked纹理混合与完整表面参数不由本批扩展。
 
 ## 保留与剩余

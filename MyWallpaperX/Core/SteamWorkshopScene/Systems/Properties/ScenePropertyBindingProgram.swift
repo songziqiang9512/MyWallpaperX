@@ -546,14 +546,15 @@ nonisolated struct ScenePropertyBindingCompiler {
                 ))
                 continue
             }
-            // This checkpoint describes the Color producer, while the VM's
-            // numeric slot retains its own authored fallback independently.
+            // This checkpoint describes the declared producer. The VM input
+            // retains its independently typed authored fallback.
             let inputFallback: SceneUserPropertyValue
-            if case .scriptProperty = binding.target, propertyKind == .color,
-               case .number = fallback,
-               let colorDefault = propertyDefinitions.first?.defaultValue {
-                inputFallback = colorDefault
-            } else { inputFallback = fallback }
+            switch (binding.target, propertyKind, fallback) {
+            case (.scriptProperty, .color, .number), (.scriptProperty, .slider, .bool):
+                inputFallback = propertyDefinitions.first?.defaultValue ?? fallback
+            default:
+                inputFallback = fallback
+            }
             let authoredValue: SceneDynamicValue
             switch Self.convertAuthoredFallback(
                 inputFallback,

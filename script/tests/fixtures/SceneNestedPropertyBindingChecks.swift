@@ -33,6 +33,7 @@ enum SceneNestedPropertyBindingChecks {
             && repeatedState.apply(.string("yyyy-MM"), forPropertyKey: "repeat")
             && repeatedState.revision == 1
         conditionalBooleanChecks(facts: &facts)
+        sliderBooleanFallbackChecks(facts: &facts)
 
         let nested: [String: Any] = ["user": "outer", "value": ["user": "old", "value": "MM|dd"]]
         var extra = nested
@@ -124,6 +125,76 @@ enum SceneNestedPropertyBindingChecks {
             key: ["type": kind, "value": defaultValue, "text": "Pattern"],
             oldKey: ["type": "textinput", "value": "ignored", "text": "Retired"]
         ])
+    }
+
+    static func sliderBooleanFallbackChecks(facts: inout [String: Bool]) {
+        for (key, slot, layerID, nested) in [
+            ("dragAmount", "opacity", 1459, false),
+            ("renamedGain", "level", 806, true)
+        ] {
+            let input: [String: Any] = ["user": key, "value": nested
+                ? ["user": "retired", "value": false] as Any : false as Any]
+            let document: [String: Any] = ["objects": [["id": layerID,
+                "alpha": ["value": 1.0, "scriptproperties": [slot: input],
+                    "script": "export function update(value) { return value; }"]]]]
+            let catalog = SceneUserPropertyDefinitionParser().parse(properties: [
+                key: ["type": "slider", "value": 0.5, "min": 0.0, "max": 1.0]])
+            let report = SceneUserPropertyBindingParser().parse(root: document)
+            let compilation = ScenePropertyBindingCompiler().compile(report: report, catalog: catalog)
+            let program = compilation.program
+            let target = program.instructions.first?.target
+            facts[key + "-bool-seed-stays-authored"] = report.bindings.count == 1
+                && report.bindings.first?.fallbackValue == .bool(false)
+            facts[key + "-numeric-producer"] = compilation.diagnostics.isEmpty
+                && program.instructions.count == 1 && program.instructions.first?.valueType == .scalar
+                && program.definitions.first?.authoredValue == .scalar(0.5)
+                && !program.rebuildRequiredPropertyKeys.contains(key)
+            var state = ScenePropertyLiveUpdateState(program: program,
+                effectiveValues: catalog.defaultValues,
+                activeConsumerTargets: Set(program.instructions.map(\.target)),
+                propertyDefinitions: catalog.definitions)
+            facts[key + "-live"] = state.apply(.number(0.25), forPropertyKey: key)
+                && state.revision == 1 && target.map { state.userValues[$0] == .scalar(0.25) } == true
+            if let raw = SceneJSONValue(jsonObject: input),
+               let resolved = SceneScriptPropertyInputCodec.propertyInput(raw) {
+                facts[key + "-codec"] = resolved.fallback == .bool(false)
+                    && resolved.resolve(effectiveValues: state.effectiveValues) == .bool(true)
+                    && resolved.resolve(effectiveValues: [:]) == .bool(false)
+            } else { facts[key + "-codec"] = false }
+            let before = state
+            for (name, value) in [("type", SceneUserPropertyValue.bool(true)),
+                ("nan", .number(.nan))] {
+                facts[key + "-" + name + "-atomic"] = !state.apply(value, forPropertyKey: key)
+                    && unchanged(state, before)
+            }
+            facts[key + "-mixed-unknown-atomic"] = !state.apply(
+                replacements: [key: .number(0), "unknown": .number(0)],
+                changedPropertyKeys: [key, "unknown"]) && unchanged(state, before)
+            var absent = ScenePropertyLiveUpdateState(program: program,
+                effectiveValues: catalog.defaultValues, activeConsumerTargets: [])
+            let absentBefore = absent
+            facts[key + "-missing-owner-atomic"] = !absent.apply(.number(0), forPropertyKey: key)
+                && unchanged(absent, absentBefore)
+            for (name, defaultValue) in [("bool", false as Any), ("missing", NSNull() as Any)] {
+                let invalidCatalog = SceneUserPropertyDefinitionParser().parse(properties: [
+                    key: ["type": "slider", "value": defaultValue, "min": 0.0, "max": 1.0]])
+                let invalidProgram = ScenePropertyBindingCompiler().compile(
+                    report: report, catalog: invalidCatalog).program
+                facts[key + "-invalid-default-" + name] = invalidProgram.instructions.isEmpty
+                    && invalidProgram.rebuildRequiredPropertyKeys.contains(key)
+            }
+            let duplicateCatalog = SceneUserPropertyCatalog(definitions: catalog.definitions + catalog.definitions)
+            let duplicateProgram = ScenePropertyBindingCompiler().compile(
+                report: report, catalog: duplicateCatalog).program
+            facts[key + "-duplicate-definition"] = duplicateProgram.instructions.isEmpty
+                && duplicateProgram.rebuildRequiredPropertyKeys.contains(key)
+            let direct: [String: Any] = ["objects": [["id": layerID,
+                "alpha": ["user": key, "value": false]]]]
+            let directProgram = ScenePropertyBindingCompiler().compile(
+                report: SceneUserPropertyBindingParser().parse(root: direct), catalog: catalog).program
+            facts[key + "-direct-bool-fallback-unchanged"] = directProgram.instructions.isEmpty
+                && directProgram.rebuildRequiredPropertyKeys.contains(key)
+        }
     }
 
     static func root(input: Any, inputName: String, layerID: Int,
