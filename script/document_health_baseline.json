@@ -150,7 +150,7 @@
     },
     "docs/scene/capabilities/runtime-evidence-current.md": {
       "lines": 600,
-      "bytes": 219277
+      "bytes": 219106
     },
     "docs/scene/capabilities/runtime-input-property-coverage.md": {
       "lines": 600,
@@ -206,7 +206,7 @@
     },
     "docs/scene/roadmap/batch2/2d-lighting-material-design.md": {
       "lines": 584,
-      "bytes": 131843
+      "bytes": 131793
     },
     "docs/scene/roadmap/batch2/composition-render-target-design.md": {
       "lines": 149,
@@ -278,7 +278,7 @@
     },
     "docs/scene/roadmap/scene-open-breakpoint-queue.md": {
       "lines": 165,
-      "bytes": 33722
+      "bytes": 33663
     },
     "docs/web/cold-descriptor-parse-offload-design.md": {
       "lines": 30,

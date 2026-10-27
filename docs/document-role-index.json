@@ -970,12 +970,12 @@
       "role": "stable-contract",
       "entrypoint": "docs/scene/capabilities/README.md",
       "currentStateAuthority": "docs/scene/capabilities/coverage-ledger.md",
-      "lastReviewed": "2026-10-26",
+      "lastReviewed": "2026-10-28",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "0c3940861e0859a4a4abad6e4ea80c84bdd3d3e17772d3509e2463ae32eb2ec8",
+        "sourceSHA256": "45092b8e1140fe4a25fc98358d6645ac4c73bb228f19c783088d2b85f3b53f5b",
         "method": "document_registry --audit + document_health --check",
-        "scope": "仅复核当前正文hash、文档角色、入口及现役/历史指针；精简方案拥有本轮实施与验证状态，历史结算保留原边界。",
+        "scope": "仅复核当前正文hash、角色/入口及本轮343材质边界与历史指针；不重新资格旧证据。",
         "limitations": "这是导航与文档治理复核，不代表源码、编译、运行、视觉、性能、真实账号或发布复验；不重授旧证据的适用范围。"
       }
     },
@@ -2252,6 +2252,16 @@
       ],
       "cutoffDate": "2026-10-19",
       "uniqueValue": "模型域不随几何/单位改变的公共App红绿、真实在飞压力/叠层与错CB生命周期反例；333/343视觉余项及单次资源需求边界。"
+    },
+    {
+      "path": "docs/scene/history/model-view-tint-2026-10-28.md",
+      "role": "historical-evidence",
+      "entrypoint": "docs/scene/history/README.md",
+      "commandPolicy": "historical-only",
+      "currentAuthorities": [
+        "docs/scene/roadmap/batch2/2d-lighting-material-design.md",
+        "docs/scene/roadmap/scene-open-breakpoint-queue.md"
+      ]
     },
     {
       "path": "docs/scene/history/named-input-desktop-startup-2026-10-10.md",

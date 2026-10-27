@@ -48,7 +48,7 @@
 | 1315486372 · 光线宽软/中段渐隐、水波位置 | 先沿实际texture/aspect/sampler/instance/混合找ROI首错；非方Sprite同端尺寸比1只否定基本主轴猜测，strict官方锚点未资格，不重跑方形板或猜×2。[最新边界](../history/light-particle-qualification-2026-10-23.md#light-particle-qualification-20261023) |
 | 3769761761 · 斜光偏弱/缺失 | 原35秒仍缺头发上方斜带；root/child归因板crop与LOW正控失败，B/official未跑。先取得完整注册且可辨贡献，不据无G判child失效，不调size/alpha或重复默认晚窗；`.01`属instanceoverride。[资格](../history/light-particle-qualification-2026-10-23.md#light-particle-qualification-20261023) |
 | 3113287126 · 小提琴粒子方向/数量 | 五系统输出、Count3.02与挂点修复不关闭方向/密度；目录无官方截屏，需独立同phase发射/运动对照，不凭观感调参数。[执行边界](../capabilities/runtime-evidence-current.md#particle-fractional-count-20261022) |
-| 3437487219 · 夜侧光色、闪烁与collision | MR/specular/pigment消费者确缺，但Cloud的r0/彩tint/透明coverage与宽夜侧因果未闭；中性Chroma只有JPEG有界响应，非无损golden。先固定实际consumer/状态，另复验碰撞和间歇全屏时序；不套generic4白名单、调gain或用旧superseded序列关闭。[当前边界](../capabilities/runtime-evidence-current.md#single-slot-default-20261023) |
+| 3437487219 · 夜侧光色、闪烁与collision | MR/specular/pigment消费者、Cloud透明coverage与宽夜侧的因果仍未闭合；中性Chroma只有JPEG有界响应，非无损golden。先固定同状态实际consumer/官方ROI，另复验碰撞和间歇全屏时序；不套generic4白名单或调gain。[当前材质边界](../history/model-view-tint-2026-10-28.md) |
 | 3743305891 · 十字流星尺寸 | 父world/子local各有scale但无重复乘证据；先取得同phase可归属尺寸正控，不改作者flags/scale。 |
 | 3768229922 · 完整开场/过渡 | 短窗PSYCHE GEAR标识已在，只保主体/完整过渡待复验；固定完整默认开场，不能从稳定帧缺标识反推故障。[边界](../capabilities/runtime-evidence-current.md#default-camera-single-20261019) |
 | 3770444459 · 溅水滴黑 | 10-23原包20秒未圈出可归因黑水ROI；待锁source/合成，不猜改blend。旧water目录不可用，新身份见[后验](../history/composition-root-effect-local-source-2026-10-23.md)。 |

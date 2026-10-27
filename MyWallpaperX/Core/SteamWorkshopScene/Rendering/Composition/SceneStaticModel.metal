@@ -503,24 +503,17 @@ fragment half4 sceneStaticModelFragment(
         discard_fragment();
     }
     if (uniforms.viewTintBackAndEnabled.w > 0.5) {
-        float facing = clamp(dot(viewDirection, normal), 0.0, 1.0);
-        float frontWeight = pow(
-            facing,
-            max(uniforms.viewTintFrontAndExponent.w, 0.01)
-        );
-        if (surfaceEnabled) {
-            float3 viewTint = mix(uniforms.viewTintBackAndEnabled.xyz,
-                uniforms.viewTintFrontAndExponent.xyz, frontWeight);
-            surfaceColor *= viewTint;
-            surfaceRadiance *= viewTint;
-        } else {
-            half3 viewTint = mix(
-                half3(uniforms.viewTintBackAndEnabled.xyz),
-                half3(uniforms.viewTintFrontAndExponent.xyz),
-                half(frontWeight)
-            );
-            surfaceColor = float3(half3(surfaceColor) * viewTint);
-        }
+        float facing = dot(viewDirection, normal);
+        // Unmasked front/back tint uses signed facing directly. The exponent
+        // belongs to the masked response, not every view-dependent material.
+        float frontWeight = uniforms.materialFlags.w != 0u
+            ? pow(clamp(facing, 0.0, 1.0),
+                max(uniforms.viewTintFrontAndExponent.w, 0.01))
+            : facing;
+        float3 viewTint = mix(uniforms.viewTintBackAndEnabled.xyz,
+            uniforms.viewTintFrontAndExponent.xyz, frontWeight);
+        surfaceColor *= viewTint;
+        surfaceRadiance *= viewTint;
     }
     float3 litColor = surfaceEnabled ? surfaceColor * lighting + surfaceRadiance
         : float3(half3(surfaceColor) * half3(lighting));
