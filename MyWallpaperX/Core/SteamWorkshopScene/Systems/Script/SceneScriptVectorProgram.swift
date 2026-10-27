@@ -319,6 +319,10 @@ nonisolated final class SceneScriptVectorProgram: @unchecked Sendable {
         }
         return (failures, requiresDomainReconstruction)
     }
+    func disableFailedInitialization(_ target: SceneDynamicTarget) {
+        disabledTargets.insert(target)
+    }
+
     func evaluate(
         inputs: [SceneDynamicTarget: SceneDynamicValue],
         effectivePropertyValues: [String: SceneUserPropertyValue],

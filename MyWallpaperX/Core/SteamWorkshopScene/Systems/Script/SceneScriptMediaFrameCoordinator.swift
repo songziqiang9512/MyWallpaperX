@@ -31,13 +31,10 @@ nonisolated struct SceneScriptMediaFrameCoordinatorResult: Sendable {
     }
 }
 
-/// Executes media-bearing owners through one authored-order view of the
-/// existing scalar, String and vector programs. Each program still owns its VM
-/// handle, generation watermark and typed publication; this coordinator only
-/// removes the old family-order dispatch split. The immutable dispatch view is
-/// prepared with the launch programs; events and owner lifecycle stay live in
-/// those programs on every evaluation.
-nonisolated struct SceneScriptMediaFrameCoordinator: Sendable {
+/// Initializes typed owners before cursor/update, then dispatches media in
+/// authored order. Programs retain their VM handles and publication/lifecycle;
+/// only unfinished initialization work survives the launch-prepared index.
+nonisolated final class SceneScriptMediaFrameCoordinator: @unchecked Sendable {
     private let vectorProgram: SceneScriptVectorProgram
     private let stringProgram: SceneScriptStringProgram
     private let scalarProgram: SceneScriptScalarProgram
@@ -45,6 +42,8 @@ nonisolated struct SceneScriptMediaFrameCoordinator: Sendable {
     private let vectorMediaTargets: Set<SceneDynamicTarget>
     private let stringMediaTargets: Set<SceneDynamicTarget>
     private let scalarMediaTargets: Set<SceneDynamicTarget>
+    private var pendingInitializations: [(registration: SceneScriptMediaOwnerRegistration,
+        owner: SceneScriptValueOwner, properties: [String: SceneScriptPropertyInput])]
 
     init(
         vectorProgram: SceneScriptVectorProgram,
@@ -54,6 +53,13 @@ nonisolated struct SceneScriptMediaFrameCoordinator: Sendable {
         self.vectorProgram = vectorProgram
         self.stringProgram = stringProgram
         self.scalarProgram = scalarProgram
+        pendingInitializations = (vectorProgram.initializationOwners
+            + stringProgram.initializationOwners + scalarProgram.initializationOwners).sorted {
+            if $0.registration.authoredOrdinal != $1.registration.authoredOrdinal {
+                return $0.registration.authoredOrdinal < $1.registration.authoredOrdinal
+            }
+            return $0.registration.family.rawValue < $1.registration.family.rawValue
+        }
         registrations = (
             vectorProgram.mediaOwnerRegistrations
                 + stringProgram.mediaOwnerRegistrations
@@ -75,6 +81,71 @@ nonisolated struct SceneScriptMediaFrameCoordinator: Sendable {
         })
     }
 
+    /// The work index is prepared once; C owns provisional/committed init state.
+    /// Keep successful entries until the existing owner transaction finalizes.
+    func initialize(
+        vectorInputs: [SceneDynamicTarget: SceneDynamicValue],
+        stringInputs: [SceneDynamicTarget: SceneDynamicValue],
+        scalarInputs: [SceneDynamicTarget: SceneDynamicValue],
+        effectivePropertyValues: [String: SceneUserPropertyValue],
+        frame: SceneScriptFrameInput, userPropertiesJSON: String,
+        audioSpectrum: SceneAudioSpectrumSnapshot
+    ) -> (failures: [SceneDynamicTarget: SceneScriptScalarRuntimeFailure], effects: [SceneScriptOwnerEffects]) {
+        var failures: [SceneDynamicTarget: SceneScriptScalarRuntimeFailure] = [:]
+        var effects: [SceneScriptOwnerEffects] = []
+        for entry in pendingInitializations where entry.owner.needsInitialization {
+            let target = entry.registration.target
+            let inputs: [SceneDynamicTarget: SceneDynamicValue]
+            switch entry.registration.family {
+            case .vector: inputs = vectorInputs
+            case .string: inputs = stringInputs
+            case .scalar: inputs = scalarInputs
+            }
+            guard let input = inputs[target], let properties = SceneScriptPropertyInputCodec
+                .scriptPropertiesJSON(entry.properties, effectiveValues: effectivePropertyValues) else { continue }
+            let audio = entry.owner.hasAudioRegistration ? entry.owner.refreshAudio(audioSpectrum) : .success(())
+            let result = audio.flatMap { _ in
+                entry.owner.initializeIfNeeded(input: input, frame: frame,
+                    scriptPropertiesJSON: properties, userPropertiesJSON: userPropertiesJSON,
+                    expectedGeneration: entry.owner.generation, interruptBudget: nil,
+                    retainsValueForNextUpdate: true)
+            }
+            switch result {
+            case let .success(value):
+                if let value {
+                    var effect = SceneScriptOwnerEffects(ownerTarget: target, sourceLayerID: target == .camera(.origin) ? entry.owner.layerID : nil,
+                        materialFunctionMutations: [], animationMutations: [], layerMutations: [], mediaPlaybackCommands: [])
+                    effect.append(value)
+                    if !effect.isEmpty { effects.append(effect) }
+                }
+            case let .failure(failure):
+                failures[target] = failure
+                if failure.permanentlyDisablesOwner {
+                    switch entry.registration.family {
+                    case .vector: vectorProgram.disableFailedInitialization(target)
+                    case .string: stringProgram.disableFailedInitialization(target)
+                    case .scalar: scalarProgram.disableFailedInitialization(target)
+                    }
+                }
+            }
+        }
+        if !failures.isEmpty {
+            pendingInitializations.removeAll { failures[$0.registration.target]?.permanentlyDisablesOwner == true }
+        }
+        return (failures, effects)
+    }
+
+    func finalizeInitializations() {
+        pendingInitializations.removeAll { entry in
+            if !entry.owner.needsInitialization { return true }
+            switch entry.registration.family {
+            case .vector: return vectorProgram.disabledTargets.contains(entry.registration.target)
+            case .string: return stringProgram.disabledTargets.contains(entry.registration.target)
+            case .scalar: return scalarProgram.disabledTargets.contains(entry.registration.target)
+            }
+        }
+    }
+
     func evaluate(
         vectorInputs: [SceneDynamicTarget: SceneDynamicValue],
         stringInputs: [SceneDynamicTarget: SceneDynamicValue],
@@ -84,7 +155,8 @@ nonisolated struct SceneScriptMediaFrameCoordinator: Sendable {
         userPropertiesJSON: String,
         propertyRevision: UInt64? = nil,
         events: SceneScriptMediaFrameEvents,
-        audioSpectrum: SceneAudioSpectrumSnapshot
+        audioSpectrum: SceneAudioSpectrumSnapshot,
+        initializationFailures: [SceneDynamicTarget: SceneScriptScalarRuntimeFailure] = [:]
     ) -> SceneScriptMediaFrameCoordinatorResult {
         var vector = VectorAccumulator()
         var string = StringAccumulator()
@@ -94,6 +166,12 @@ nonisolated struct SceneScriptMediaFrameCoordinator: Sendable {
         var layerMutations: [SceneScriptLayerMutation] = []
         var mediaPlaybackCommands: [SceneScriptMediaPlaybackCommand] = []
         var ownerEffects: [SceneScriptOwnerEffects] = []
+        let failedInitializations = Set(initializationFailures.keys)
+        for (target, failure) in initializationFailures {
+            if vectorProgram.inputTargets.contains(target) { vector.failures[target] = failure }
+            if stringProgram.inputTargets.contains(target) { string.failures[target] = failure }
+            if scalarProgram.inputTargets.contains(target) { scalar.failures[target] = failure }
+        }
         let observedVectorEvents = vectorProgram.observeMediaEvents(events)
         let observedStringEvents = stringProgram.observeMediaEvents(events)
         let observedScalarEvents = scalarProgram.observeMediaEvents(events)
@@ -108,7 +186,7 @@ nonisolated struct SceneScriptMediaFrameCoordinator: Sendable {
             layerMutations.append(contentsOf: layers)
             ownerEffects.append(contentsOf: effects)
         }
-        for registration in registrations {
+        for registration in registrations where !failedInitializations.contains(registration.target) {
             switch registration.family {
             case .vector:
                 let frameResult = vectorProgram.evaluate(
@@ -187,7 +265,7 @@ nonisolated struct SceneScriptMediaFrameCoordinator: Sendable {
             effectivePropertyValues: effectivePropertyValues,
             frame: frame,
             propertyRevision: propertyRevision,
-            excludedTargets: vectorMediaTargets,
+            excludedTargets: failedInitializations.isEmpty ? vectorMediaTargets : vectorMediaTargets.union(failedInitializations),
             observedMediaEvents: observedVectorEvents,
             audioSpectrum: audioSpectrum,
             userPropertiesJSON: userPropertiesJSON
@@ -204,7 +282,7 @@ nonisolated struct SceneScriptMediaFrameCoordinator: Sendable {
             inputs: stringInputs,
             effectivePropertyValues: effectivePropertyValues,
             propertyRevision: propertyRevision,
-            excludedTargets: stringMediaTargets,
+            excludedTargets: failedInitializations.isEmpty ? stringMediaTargets : stringMediaTargets.union(failedInitializations),
             frame: frame,
             userPropertiesJSON: userPropertiesJSON,
             preparedCurrentJSON: userPropertiesJSON,
@@ -223,7 +301,7 @@ nonisolated struct SceneScriptMediaFrameCoordinator: Sendable {
             frame: frame,
             effectivePropertyValues: effectivePropertyValues,
             propertyRevision: propertyRevision,
-            excludedTargets: scalarMediaTargets,
+            excludedTargets: failedInitializations.isEmpty ? scalarMediaTargets : scalarMediaTargets.union(failedInitializations),
             userPropertiesJSON: userPropertiesJSON,
             preparedCurrentJSON: userPropertiesJSON,
             observedMediaEvents: observedScalarEvents,

@@ -182,7 +182,7 @@
     },
     "docs/scene/capabilities/scenescript-api-coverage.md": {
       "lines": 418,
-      "bytes": 115164
+      "bytes": 115476
     },
     "docs/scene/capabilities/static-source-draw-only-degradation.md": {
       "lines": 54,
@@ -250,7 +250,7 @@
     },
     "docs/scene/roadmap/batch2/script-component-api-design.md": {
       "lines": 600,
-      "bytes": 165860
+      "bytes": 167417
     },
     "docs/scene/roadmap/batch2/system-media-input-design.md": {
       "lines": 59,
@@ -277,8 +277,8 @@
       "bytes": 22423
     },
     "docs/scene/roadmap/scene-open-breakpoint-queue.md": {
-      "lines": 170,
-      "bytes": 34564
+      "lines": 172,
+      "bytes": 35020
     },
     "docs/web/cold-descriptor-parse-offload-design.md": {
       "lines": 30,
@@ -1667,12 +1667,30 @@
     },
     {
       "section": "bodies",
+      "path": "docs/scene/roadmap/batch2/script-component-api-design.md",
+      "before": "1e645e91ceef8c75276dcb382e0ec68ce8d11e45ba6824fda235bdd6f38d1fa6",
+      "after": "d8274332b1c3018f3bd2371cee810bfb5d0bbcddb2e0072475355291eda56da4",
+      "owner": "Scene initialization capability closure",
+      "reason": "在原coordinator补准备期init屏障，替换旧初始化说明并记录原事务/重试退出；288全灰实际修复后仅将两类已定位API余项留队。新物理仅存设计，不登记已完成，保600行硬限。",
+      "decision": "docs/scene/history/script-initialization-barrier-2026-10-28.md"
+    },
+    {
+      "section": "bodies",
+      "path": "docs/scene/capabilities/scenescript-api-coverage.md",
+      "before": "bcd92146225bf9c5167b7c7a4f93c8f7514ba47bb26952146ab70bcccc2574d6",
+      "after": "1b85a7198d0a2ee73fd1ac02073ec9cc955a84968d1bebfb9d0a8b070ccc96e9",
+      "owner": "Scene initialization capability closure",
+      "reason": "在原coordinator补准备期init屏障，替换旧初始化说明并记录原事务/重试退出；288全灰实际修复后仅将两类已定位API余项留队。新物理仅存设计，不登记已完成，保600行硬限。",
+      "decision": "docs/scene/history/script-initialization-barrier-2026-10-28.md"
+    },
+    {
+      "section": "bodies",
       "path": "docs/scene/roadmap/scene-open-breakpoint-queue.md",
-      "before": "5aed58cae6de4e15ae602117f0ebb40bfc6d908b19e8bb208341e019dd9f02f6",
-      "after": "5e16824d9f0430f05a45a74ace6008f35c3d1a0f5868bb1cb506c458d2e06d0e",
-      "owner": "Scene bounded video reconciliation and current user feedback",
-      "reason": "按2026-10-28用户集中必修反馈合并原队列子现象、纠正318归因边界并仅新增三条未实证反馈；两377正常退出，其他旧账与分母不变。",
-      "decision": "docs/scene/roadmap/scene-open-breakpoint-queue.md#user-required-20261028"
+      "before": "5e16824d9f0430f05a45a74ace6008f35c3d1a0f5868bb1cb506c458d2e06d0e",
+      "after": "08bebb785ecf79b507c096275be1f6c7f662be302709f64a6bc3180dc21fa6b5",
+      "owner": "Scene initialization capability closure",
+      "reason": "在原coordinator补准备期init屏障，替换旧初始化说明并记录原事务/重试退出；288全灰实际修复后仅将两类已定位API余项留队。新物理仅存设计，不登记已完成，保600行硬限。",
+      "decision": "docs/scene/history/script-initialization-barrier-2026-10-28.md"
     }
   ]
 }

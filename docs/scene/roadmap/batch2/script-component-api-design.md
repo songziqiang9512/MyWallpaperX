@@ -269,11 +269,11 @@ QuickJS domain owns JS object 与 callback roots；现役 Script bridge owns han
 
 普通 JS 自定义对象仍由 VM 管理，不因此变为可渲染对象。2026-10-02 再核[公开 globals](https://docs.wallpaperengine.io/en/scene/scenescript/reference.html)及[IThisPropertyObject](https://docs.wallpaperengine.io/en/scene/scenescript/reference/class/IThisPropertyObject.html)：thisLayer指当前层，thisObject随属性归属动态变化；不能用人工把thisObject设为layer的C夹具代替真实实例参数脚本。component callbacks 首片只接现役 init/update/destroy 生命周期。`registerSceneScriptComponent` / `sceneScriptComponentAPI` 是内部装配命名候选；未找到公开签名的“注册任意组件回调”保持 unsupported，后继须补官方声明与独立合同后才扩大表面。
 
-handle 包含 scene generation、owner kind、object identity 与生命周期 epoch；C 与 Swift 两侧校验。create 先返回本事务 provisional handle，只在该事务内可见；准备失败回滚并撤销 handle，不能有部分 publication。destroy 在安全帧边界撤销，保留 GPU 资源到 completion；destroy callback 最多一次。
+handle 保持原 scene generation、owner/object identity与生命周期 epoch。create 的provisional handle、destroy安全帧撤销及GPU completion生命周期不变。**公共init屏障（2026-10-28，实施中）。** descriptor/resources/handles准备与module装载不执行作者init；共享帧发布真实layer/media/Puppet/particle输入后，所有已准备owner按canonical authoredOrdinal先完成init尝试，再派发cursor/media/update，不能按vector/String/scalar逐族交错init与update。作者shared初值的消费者不能先于其他family的init运行；这属于本项目生命周期合同，不将固定客户端静态记录冒称本轮黑盒结果。
 
-安装发生在 descriptor/resources/handles 准备后、首次 init 前。update 不得递归触发另一轮更新；callback 产生的命令按作者事件顺序 staged。成功 JS 调用不等于已消费：先通过现役 callback/owner admission 的 Swift 验证，C staged mutation 与 Swift typed command 同时接纳或局部 discard；不能只撤 Swift 结果而留下 C 状态。共享 session 已消费的 VM 回调、对象命令和模拟状态服从 [D10](frame-admission-retry-design.md)，后续任一或全部 surface 的 drawable/encode/GPU 失败都不能重放回调或恢复旧命令；JS heap 本身不作为可回滚快照。
+原SceneScriptMediaFrameCoordinator承接该阶段，launch或新owner注册时仅准备待初始化工作索引；C现initialized/initialization_pending仍是唯一真值，无第二scheduler、owner初始化布尔或clock。成功提交后撤工作项，普通帧不扫描全部owner；局部拒绝保待重试项，退休/失活沿原owner退出。使用当前typed输入与properties；init无返回保当前，有返回复用原pendingInitializationValue精确传给首次update并发布一次，不能被下轮authored fallback覆盖。cursor借用同一owner不重跑init；运行时prepared text clone沿原同步init/提交链，adoption不重跑。本片索引限准备期owner，其他动态owner若开放须在其注册边界接续，不宣称现已覆盖。
 
-显式发射调用期输入和最终准入由[D11](particle-playback-state-design.md#显式数量发射后继切片2026-10-02)拥有；native hook只借当前cadence实际runtime。instanceoverride脚本返回值在callback后overlay，不倒灌先前出生，不因最终参数不同拒绝emit。
+init/cursor/update命令按原callback epoch/ordinal合回同一ownerEffects，经原Swift admission与C journal共同接纳或discard；init副作用先收取再执行后继callback，不能被清空或重复提交。坏返回沿原局部retry，本帧不从普通evaluate再尝试同一init；拒绝回退pending初值与初始化timer，永久失活/退休撤销待项，不扩为JS heap回滚。timer注册沿原输入及runtime基线，不在屏障新增timer tick；update不递归重入。后续surface drawable/encode/GPU失败仍服从[D10](frame-admission-retry-design.md)，不能重放已消费回调。显式发射的调用期输入和最终准入仍由[D11](particle-playback-state-design.md#显式数量发射后继切片2026-10-02)拥有；native hook只借当前cadence实际runtime，instanceoverride返回不倒灌先前出生。
 
 **实例alpha后继（2026-10-04）。** 自有官方2.8.0.42黑盒已证`thisLayer.instance.alpha=.25`使灰128的新粒子变32；4秒切换后长寿命旧粒子仍128，绑定返回值同相位。沿现layer handle暴露只读instance句柄，首片仅alpha Number getter/setter；getter取当前代镜像及本callback overlay，缺省1，setter须有限Number并复用现因子消费，不借generic layer alpha。其他instance字段不得假成功写入；普通非粒子、已销毁/旧代句柄局部拒绝。粒子类型与实例可用性独立于播放命令的单emitter/无child准入，不因此拒绝已有正常粒子参数路径。
 
@@ -306,7 +306,7 @@ Scalar/String通过现生命周期bridge内的value-owner协议共用一个退�
 
 **验收与退出。** 真实 QuickJS 门覆盖不同 query/render 的父子与 layer transform、本地/世界 setter 同 callback 读回、未写物理邻骨、rename/等价表达式和失败撤回。原 PlaybackState/Metal 门覆盖一次 setter 后本地复位而世界/网格继续、同 cadence 不二次推进及下一 cadence 正常回弹；隔离 App 验证实际 setter 画面及未参与修法样本。该片不关闭 U40：实际释放链仍须有序 impulse/matrix journal、一次 simulation commit、原输入三轮持续拖动及释放后更新；不得将 getter 修正或原包 ready 记成重复交互恢复。
 
-**既有矩阵命令顺序后继（2026-10-18）。** 同层不同属性 owner 可写同一骨；cursor 按输入事件执行后按 owner 打包，帧驱动直接展开会将 A₁→B₁→A₂ 重排为 A₁→A₂→B₁。保留唯一 owner bundle 接纳/撤回，在原 matrix journal 记录现 domain 的 callback epoch 与 callback 内 ordinal；所有 owner 完成固定点接纳后，仅在原提交边恢复顺序，再交原 PlaybackState。没有新 counter、物理状态或跨 domain 排序，不合并同骨写入；失败 owner 退出不重放健康 peer。真实 VM 证明交错写入、同 callback 多写及拒绝后的保序，原生姿态和独立 Puppet 作实际回归。本片不新增 impulse/reset 或改变 setter/getter/物理公式，不以命令顺序修复关闭 U40。
+**既有矩阵保序与冲量后继。** 10-18已修同层不同owner的A₁→B₁→A₂顺序：原journal记录domain callback epoch/ordinal，在owner固定点接纳后恢复顺序交PlaybackState；不合并同骨写、不重放失败owner，VM/原生回归保持。**10-28冲量扩展待实施：** 同一journal扩为矩阵/冲量typed payload，沿原接纳、撤回及退休，C仅解析有限向量并原样传出，不立即改getter镜像或另建队列。本片在线性kick进入原稳定spring/friction整步后推进，不拆成位移/速度两相或用样本gain补偿；官方含质量/重力的精确数值仍须独立资格。唯一PlaybackState/Motion保存物理位置/速度；沿原canonical parent-first解析，在当前parent/attachment就绪后推进该层一次，再发布挂点供子层，替换先全local物理、再求world的旧顺序，不新建树、clock或solver。世界方向使用当前carrier，保局部距离约束与query/render寿命；setter与冲量仍按原journal顺序。318的ge=true、r=false/t=true单独核可见行为，未支持的重力/角物理不能伪装可用或靠空API维持脚本。验收覆盖原三包三轮骨写、真实几何、释手及邻居，补改名/等价表达、无冲量、无物理骨、坏值/拒绝撤回和独立Puppet；异常消失或ready不代重复拖动恢复。
 
 ## Puppet 动画层后继（2026-10-07）
 

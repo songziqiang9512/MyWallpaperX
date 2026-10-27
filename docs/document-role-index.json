@@ -1099,10 +1099,10 @@
       "lastReviewed": "2026-10-28",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "ac67b3775cbbd122cfbbbf1b002c44df8632cf6554c6918cecfad750d7da1f1c",
+        "sourceSHA256": "249816cf562ca031a2586757bb2be7a174059c0a908c24fc34fef9c799c20c4b",
         "method": "document_registry --audit + document_health --check",
-        "scope": "仅同步本批Vec3.reflect和Slider Bool-seed的已证行为与边界；实际运行、失败及身份集中统一历史，其他能力顺序不改。",
-        "limitations": "导航/正文审计不代运行验收；本批有界运行见历史，不认面板Reset、IPC、官方parity或性能收益。"
+        "scope": "仅跨类型准备期init屏障、288真实灰→合成及独立361；队列退全灰，仅留395跨层动画/Timeline和265相机API。D4冲量段仍为待验的分段设计。",
+        "limitations": "不认完整样本、官方同phase/性能或未完成Puppet物理；其他条目未重审。"
       }
     },
     {
@@ -3659,6 +3659,19 @@
       "uniqueValue": "Swift/C实际优化参数、三轮Os/O3及返回基线、原生语义门、无稳定收益的撤回与HDR预算后继边界"
     },
     {
+      "path": "docs/scene/history/script-initialization-barrier-2026-10-28.md",
+      "role": "historical-evidence",
+      "entrypoint": "docs/scene/history/README.md",
+      "commandPolicy": "historical-only",
+      "currentAuthorities": [
+        "docs/scene/capabilities/scenescript-api-coverage.md",
+        "docs/scene/capabilities/runtime-evidence-current.md",
+        "docs/scene/roadmap/scene-open-breakpoint-queue.md"
+      ],
+      "cutoffDate": "2026-10-28",
+      "uniqueValue": "跨类型初始化屏障的真实全灰→合成画面、事务/返回值与重试、独立样本及未实现动画/相机API边界。"
+    },
+    {
       "path": "docs/scene/history/sdr-white-preservation-implementation-2026-10-06.md",
       "role": "historical-evidence",
       "entrypoint": "docs/scene/history/README.md",
@@ -4238,13 +4251,13 @@
       "role": "active-plan",
       "entrypoint": "docs/scene/roadmap/batch2/batch2-design-index.md",
       "retirementCondition": "公开 API 的限定表面、生命周期与预算通过双侧事务门并归入唯一脚本合同后归档，设计登记随实施关闭。",
-      "lastReviewed": "2026-10-23",
+      "lastReviewed": "2026-10-28",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "141ddb935c0258cfa0bd01a948ac8754675f0fc3e7d6cc3b7a4b43414d539a46",
+        "sourceSHA256": "8227f2860ce1f973e96357e12ef75d9966a1d477918b02f1d0e31e0f44a91aa4",
         "method": "document_registry --audit + document_health --check",
-        "scope": "仅默认camera origin setter的唯一typed别名、事务与退休；原304实际偏移热改和独立355开场，保U13其余视觉缺口。",
-        "limitations": "默认XY夹零不认默认像素收益；304旧738 loading FAIL保持。未验官方同属性、组件精确锚定、HDR/多屏或性能；其余主题未重审。"
+        "scope": "仅跨类型准备期init屏障、288真实灰→合成及独立361；队列退全灰，仅留395跨层动画/Timeline和265相机API。D4冲量段仍为待验的分段设计。",
+        "limitations": "不认完整样本、官方同phase/性能或未完成Puppet物理；其他条目未重审。"
       }
     },
     {
@@ -4339,10 +4352,10 @@
       "lastReviewed": "2026-10-28",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "ecc8804fa4d854775ea42307950148998fcccf11925e2292b0fe07db263ae4b1",
+        "sourceSHA256": "374d1235b6d7ea4cf7196e386ab95f09c969895292a9673e874b83ce6e4f4bf8",
         "method": "document_registry --audit + document_health --check",
-        "scope": "仅同步本批Vec3.reflect和Slider Bool-seed的已证行为与边界；实际运行、失败及身份集中统一历史，其他能力顺序不改。",
-        "limitations": "导航/正文审计不代运行验收；本批有界运行见历史，不认面板Reset、IPC、官方parity或性能收益。"
+        "scope": "仅跨类型准备期init屏障、288真实灰→合成及独立361；队列退全灰，仅留395跨层动画/Timeline和265相机API。D4冲量段仍为待验的分段设计。",
+        "limitations": "不认完整样本、官方同phase/性能或未完成Puppet物理；其他条目未重审。"
       }
     },
     {

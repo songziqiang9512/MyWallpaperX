@@ -84,7 +84,8 @@ nonisolated final class SceneScriptCursorProgram: @unchecked Sendable {
         propertyRevision: UInt64? = nil,
         audioSpectrum: SceneAudioSpectrumSnapshot = .silent,
         userShortcutDispatch: SceneScriptUserShortcutDispatch? = nil,
-        interruptBudget: UInt64? = nil
+        interruptBudget: UInt64? = nil,
+        initializationFailures: [SceneDynamicTarget: SceneScriptScalarRuntimeFailure] = [:]
     ) -> SceneScriptCursorFrameResult {
         hasCandidateDispatch = true
         candidateFailures.removeAll(keepingCapacity: true)
@@ -113,7 +114,10 @@ nonisolated final class SceneScriptCursorProgram: @unchecked Sendable {
                 )
             }
         }
-        var failures: [SceneDynamicTarget: SceneScriptScalarRuntimeFailure] = [:]
+        var failures = initializationFailures.filter { bindingsByTarget[$0.key] != nil }
+        for (target, failure) in failures where failure.permanentlyDisablesOwner {
+            disabledTargets.insert(target)
+        }
         func hasActiveBinding(layerID: Int) -> Bool {
             (bindingsByLayer[layerID] ?? []).contains { binding in
                 !disabledTargets.contains(binding.ownerTarget)

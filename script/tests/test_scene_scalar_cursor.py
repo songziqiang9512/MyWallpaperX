@@ -52,6 +52,18 @@ HARNESS=r'''
   out["materialIdle"]=hit(m).ownerEffects.flatMap(\.materialFunctionMutations).count
   let (bad,bt)=try make("export function cursorEnter(e){throw new Error('bad');}export function update(v){return v;}")
   out["callbackFailure"]=hit(bad).failures[bt]?.code ?? "none"
+  let (initial,initialTarget)=try make("let calls=0;export function init(v){calls++;if(calls===1)return {};return .25;}export function cursorEnter(e){thisLayer.alpha=.75;}export function update(v){return v;}")
+  let initialized=initial.scalarProgram.bindings[0].initializeIfNeeded(input:.scalar(0.5),frame:frame,
+    scriptPropertiesJSON:"",userPropertiesJSON:"{}",expectedGeneration:1,interruptBudget:nil,retainsValueForNextUpdate:true)
+  guard case let .failure(initialFailure)=initialized else { fatalError("expected invalid initializer") }
+  let blocked=initial.cursorProgram.dispatch(batch:.init(samples:[.init(hits:[1:.init(layerID:1,worldPosition:.zero,localPosition:.zero)],pointerPosition:.zero,primaryButtonIsDown:false)],overflowed:false),frame:frame,userPropertiesJSON:"{}",
+    initializationFailures:[initialTarget:initialFailure,.layer(layerID:99,field:.alpha):initialFailure])
+  out["initBlockedFailures"]=blocked.failures.count;out["initBlockedCode"]=blocked.failures[initialTarget]?.code ?? "none"
+  out["initBlockedMutations"]=blocked.layerMutations.count
+  initial.scalarProgram.finalizeLayerMutations(committing:true,rejectedOwnerTargets:[initialTarget]);initial.cursorProgram.finalizeLayerMutations(committing:true,rejectedOwnerTargets:[initialTarget])
+  let recovered=hit(initial);out["initRecoveredFailures"]=recovered.failures.count
+  out["initRecoveredMutations"]=recovered.layerMutations.count;out["initRecoveredValue"]=update(initial,initialTarget)
+  commit(initial)
   print(String(decoding:try JSONSerialization.data(withJSONObject:out,options:[.sortedKeys]),as:UTF8.self))
  }
 }
@@ -70,6 +82,13 @@ class ScalarCursorTests(unittest.TestCase):
   self.assertEqual(self.value['effectFirst'],.75);self.assertEqual(self.value['effectIdle'],-999)
  def test_rejected_event_retries_once_then_stays_quiet(self):
   self.assertEqual(self.value['rejectedCandidate'],.1);self.assertEqual(self.value['retry'],.2);self.assertEqual(self.value['retryIdle'],.2)
+ def test_failed_initialization_blocks_only_its_borrowed_cursor_until_retry(self):
+  self.assertEqual(self.value['initBlockedFailures'],1,self.value)
+  self.assertEqual(self.value['initBlockedCode'],'bad-return',self.value)
+  self.assertEqual(self.value['initBlockedMutations'],0,self.value)
+  self.assertEqual(self.value['initRecoveredFailures'],0,self.value)
+  self.assertEqual(self.value['initRecoveredMutations'],1,self.value)
+  self.assertEqual(self.value['initRecoveredValue'],.25,self.value)
  def test_cursor_exception_remains_local_failure(self):
   self.assertEqual(self.value['callbackFailure'],'exception')
 

@@ -25,6 +25,9 @@
 | N08 · 3337494481 world/负subdivision RopeTrail | 十个visible复制层仍unavailable，原hidden不计缺图；空间/细分语义UNKNOWN。先取可区分正控，不猜abs/clamp、不重复旧白线矩阵；[缓存观察资格](../history/rope-trail-profile-qualification-2026-10-15.md#cache-observer-20261022)失败保留。 |
 | <a id="puppet-physics"></a>U40 · 3749463715 /2998757800 /3187857248一次拖动后失效 | 用户当前必修反馈待同手势实证；三者作者均触及未接入applyBonePhysicsImpulse。318另有ge=true使translationPhysics=nil的独立准入，不能沿旧记录预定为“非释放根因”。[Rig Reader](../../../MyWallpaperX/Core/SteamWorkshopScene/Format/SceneMdlPuppetRigReader.swift)及[Playback](../../../MyWallpaperX/Core/SteamWorkshopScene/Systems/Puppet/ScenePuppetPlaybackState.swift)须分别核输入、持久pose/motion与顺序；不猜单位/gain、velocity或force。原两轮[资格STOP](../history/repeated-puppet-drag-qualification-2026-10-16.md)保留，仅以新可区分状态/运动重入；低帧率另归性能。 |
 
+| SceneScript跨层动画控制 · 2887099508 | 395.visibility初始化首错：普通getLayer句柄缺getAnimationLayer，阻断309/front leg动作定位；其后blush22普通Timeline.setFrame尚未动态到达。沿原prepared动画/Timeline owner补通用跨层句柄与控制，不按名称分派。[边界](../history/script-initialization-barrier-2026-10-28.md) |
+| SceneScript相机读写 · 2887099508 | 无init的265.visibility首次update缺getCameraTransforms，后续setCameraTransforms也缺；作者欲让eye/center随mkj的13秒origin轨迹运动。须沿唯一camera typed链补读写及可归因运动；不把当前静态画面当相机动画已执行。 |
+
 <a id="qv-visual-repairs"></a>
 <a id="qf-2026-10-07-用户点名四样本公共主链修复"></a>
 
@@ -37,7 +40,6 @@
 
 | 样本 / 具体余项 | 下一关闭门与边界 |
 |---|---|
-| 2887099508 · 无法出画面 | 用户当前必修反馈；先固定当前App/原包与默认状态，区分未ready、局部fallback及最终输出，定位真实首错后再实施，不预设shader/资源根因。 |
 | 3779107475 · 可能骨骼动画失效 | 用户当前疑似反馈；先资格实际active clip、pose consumer及同phase运动ROI，不把静态姿态或缺参考直接认作骨骼能力故障。 |
 | 3022080536 · 鼠标静止时缺黑色水墨烟雾 | 用户当前必修反馈；固定静止pointer与进入/移动正控、作者phase及source/合成ROI，区分无出生和有源未合成，不由“黑色”直接猜blend。 |
 | 2919854127 /2927205881 /3175039950 · 音频可见性 | 蓝环未见、曲线右短段、白方雪粒人口0分别保待复验。先同源PCM与作者实际触发条件、出生/像素正控；不把非零总量当目标band、改阈值或共用“发光”修法。 |

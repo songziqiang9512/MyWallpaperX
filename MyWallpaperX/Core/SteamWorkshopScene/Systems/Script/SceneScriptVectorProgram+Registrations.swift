@@ -34,6 +34,15 @@ nonisolated extension SceneScriptVectorProgram {
         Set(mediaOwnerRegistrations.map(\.target))
     }
 
+    var initializationOwners: [(registration: SceneScriptMediaOwnerRegistration,
+        owner: SceneScriptValueOwner, properties: [String: SceneScriptPropertyInput])] {
+        bindings.compactMap { binding in
+            guard !disabledTargets.contains(binding.definition.target), binding.owner.needsInitialization else { return nil }
+            return (.init(authoredOrdinal: binding.authoredOrdinal,
+                target: binding.definition.target, family: .vector), binding.owner, binding.properties)
+        }
+    }
+
     var mediaOwnerRegistrations: [SceneScriptMediaOwnerRegistration] {
         bindings.compactMap { binding in
             guard !disabledTargets.contains(binding.definition.target), binding.handlesMediaPlayback
