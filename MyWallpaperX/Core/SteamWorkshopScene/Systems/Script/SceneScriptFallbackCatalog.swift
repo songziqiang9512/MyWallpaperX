@@ -38,8 +38,9 @@ nonisolated struct SceneScriptFallbackCatalog: Sendable {
                 excludedTargets: stringExcludedTargets
             )
         ).filter { fallbackTargets.contains($0.target) }
-        guard Set(definitions.map(\.target)) == targets,
-              Set(definitions.map(\.target)).count == definitions.count else {
+        let definitionTargets = Set(definitions.map(\.target))
+        guard definitionTargets == targets,
+              definitionTargets.count == definitions.count else {
             return nil
         }
     }

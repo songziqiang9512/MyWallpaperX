@@ -612,6 +612,13 @@ extension Harness {
             allocation: swapAllocation, effectGeneration: 1, resetGeneration: 1))
         let preparedHistory1 = require(State.reduce(preparedExecution: staticHistory,
             allocation: historyAllocation, effectGeneration: 1, resetGeneration: 1))
+        let missingAllocation = State.Allocation(generation: swapAllocation.generation,
+            resources: swapAllocation.resources.filter { $0.key != q1 })
+        var extraResources = swapAllocation.resources
+        extraResources[identity(.framebuffer, effect: key, name: "extra")] = .init(
+            token: .init(rawValue: "swap-extra"), descriptor: endpointDescriptor)
+        let extraAllocation = State.Allocation(generation: swapAllocation.generation,
+            resources: extraResources)
         let preparedChecks: [String: Bool] = [
             "ordinary": require(State.reduce(preparedExecution: staticOrdinary,
                 allocation: ordinaryAllocation, effectGeneration: 1, resetGeneration: 1)) == ordinary,
@@ -636,13 +643,20 @@ extension Harness {
                 allocation: functionAllocation, effectGeneration: 1, resetGeneration: 1,
                 materialFunctionInvocations: [duplicateInvocation, duplicateInvocation])) == functionTransition,
             "node-lookup": staticSwap.nodesByIndex[2]?.kind == .swap,
-            "command-ordinal": staticSwap.commandOrdinalsByNode[2] == 0,
             "binding-order": staticSwap.framebufferBindingsByNode[3]?.map(\.slot) == [0],
             "negative-material-ordinal": failureCode(State.prepareExecution(
                 graph: graph(targets: [], nodes: [material(0, ordinal: -1, target: output, reads: [input])]),
                 plan: ordinaryPlan, pairStep: ordinaryPair)) == "ordinalMismatch",
             "pair-mismatch": failureCode(State.prepareExecution(graph: singleComposeGraph,
                 plan: singleComposePlan, pairStep: mismatchedPair)) == "pairStepMismatch",
+            "missing-allocation": failureCode(State.reduce(preparedExecution: staticSwap,
+                allocation: missingAllocation, effectGeneration: 1, resetGeneration: 1)) == "missingIdentity"
+                && failure(graph: swapGraph, plan: swapPlan, pair: swapPair,
+                    allocation: missingAllocation) == "missingIdentity",
+            "extra-allocation": failureCode(State.reduce(preparedExecution: staticSwap,
+                allocation: extraAllocation, effectGeneration: 1, resetGeneration: 1)) == "missingIdentity"
+                && failure(graph: swapGraph, plan: swapPlan, pair: swapPair,
+                    allocation: extraAllocation) == "missingIdentity",
             "alias": failureCode(State.reduce(preparedExecution: staticSwap,
                 allocation: aliasAllocation, effectGeneration: 1, resetGeneration: 1)) == "physicalAlias",
             "hazard": failureCode(State.reduce(
@@ -660,6 +674,10 @@ extension Harness {
             "fresh-token-reuse": failureCode(State.reduce(preparedExecution: staticHistory,
                 allocation: reusedTokenAllocation, effectGeneration: 1, resetGeneration: 1,
                 previous: preparedHistory1.nextState)) == "freshAllocationTokenReuse",
+            "same-generation-resource-change": failureCode(State.reduce(preparedExecution: staticHistory,
+                allocation: allocation(plan: historyPlan, generation: 1, prefix: "changed-history"),
+                effectGeneration: 1, resetGeneration: 1,
+                previous: preparedHistory1.nextState)) == "allocationGenerationMismatch",
             "history-rehydration-mismatch": failureCode(State.reduce(preparedExecution: staticHistory,
                 allocation: freshHistoryAllocation, effectGeneration: 1, resetGeneration: 1,
                 previous: preparedHistory1.nextState,

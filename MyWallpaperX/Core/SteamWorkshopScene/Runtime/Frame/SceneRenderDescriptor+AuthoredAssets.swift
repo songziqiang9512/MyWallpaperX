@@ -31,7 +31,9 @@ extension SceneRenderDescriptor {
     struct MaterialPassDescriptor: Identifiable, Codable {
         let id: String
         let materialPath: String
-        let materialRawSHA256: String
+#if DEBUG
+        var materialRawSHA256: String = ""
+#endif
         let shaderPathIndependentSHA256: String
         let passIndex: Int
         let shaderPath: String?

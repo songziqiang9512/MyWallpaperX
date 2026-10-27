@@ -155,6 +155,14 @@ private func lexicalRows(_ url: URL) throws -> [LexicalRow] {
 @main
 private struct ShaderContractHarness {
     static func main() throws {
+        if CommandLine.arguments[1] == "--path-names" {
+            let root = URL(fileURLWithPath: CommandLine.arguments[2], isDirectory: true)
+            let references = try JSONDecoder().decode([String].self,
+                from: Data(CommandLine.arguments[3].utf8))
+            let contracts = try SceneShaderContractLoader().load(shaderReferences: references, rootURL: root)
+            FileHandle.standardOutput.write(try JSONEncoder().encode(contracts))
+            return
+        }
         if CommandLine.arguments[1] == "--lexical" {
             let rows = try lexicalRows(URL(fileURLWithPath: CommandLine.arguments[2]))
             FileHandle.standardOutput.write(try JSONEncoder().encode(rows))
@@ -432,6 +440,51 @@ class SceneShaderContractTests(unittest.TestCase):
             payload["nonFiniteDigestMatchesProfileSentinel"],
             "a contract without a digest can never satisfy the stock identity comparison",
         )
+
+    def test_posix_colon_shader_names_and_includes_keep_actual_root_boundaries(self):
+        with tempfile.TemporaryDirectory() as temporary:
+            base = Path(temporary)
+            root = base / "wallpaper"
+            shaders = root / "shaders"
+            for identity in ("C:/probe", "中:/probe", "ordinary/probe", "entry/colon", "entry/parent"):
+                for suffix in (".vert", ".frag"):
+                    path = shaders / (identity + suffix)
+                    path.parent.mkdir(parents=True, exist_ok=True)
+                    path.write_text("void main() {}\n", encoding="utf-8")
+            for name in ("C:/common.glsl", "中:/common.glsl", "ordinary/common.glsl"):
+                path = shaders / name
+                path.write_text("uniform float contained;\n", encoding="utf-8")
+            (shaders / "entry/colon.vert").write_text(
+                '#include "C:/common.glsl"\n#include "中:/common.glsl"\n'
+                '#include "ordinary/common.glsl"\nvoid main() {}\n', encoding="utf-8")
+            outside = base / "outside.glsl"
+            outside.write_text("uniform float outside;\n", encoding="utf-8")
+            (shaders / "entry/parent.vert").write_text(
+                '#include "../../../outside.glsl"\nvoid main() {}\n', encoding="utf-8")
+            (shaders / "C:/symlink.vert").symlink_to(outside)
+            references = ["C:/probe", "中:/probe", "ordinary/probe", "entry/colon",
+                          "entry/parent", "C:/symlink", "../outside/escape", "/outside/absolute", "C:/nul\0probe"]
+            completed = subprocess.run(
+                [str(self.binary), "--path-names", str(root), json.dumps(references)],
+                cwd=REPO_ROOT, check=True, capture_output=True, text=True)
+            rows = {row["identity"]: row for row in json.loads(completed.stdout)}
+        for identity in ("C:/probe", "中:/probe", "ordinary/probe", "entry/colon"):
+            row = rows[identity]
+            self.assertEqual(row["diagnostics"], [], row)
+            self.assertEqual(len(row["stages"]), 2, row)
+            self.assertEqual(row["sourceGraph"]["diagnostics"], [], row)
+        colon = rows["entry/colon"]["sourceGraph"]
+        paths = {node["virtualPath"] for node in colon["nodes"]}
+        self.assertTrue({"shaders/C:/common.glsl", "shaders/中:/common.glsl",
+                         "shaders/ordinary/common.glsl"}.issubset(paths), colon)
+        self.assertIn("pathEscape", self._diagnostic_codes(rows["entry/parent"]))
+        self.assertIn("symlinkEscape", self._diagnostic_codes(rows["C:/symlink"]))
+        for identity in ("../outside/escape", "/outside/absolute"):
+            self.assertIn("pathEscape", self._diagnostic_codes(rows[identity]))
+        self.assertIn("invalidReference", self._diagnostic_codes(rows["C:/nul\0probe"]))
+        for row in rows.values():
+            self.assertFalse(any("outside.glsl" in node["virtualPath"]
+                                 for node in row["sourceGraph"]["nodes"]), row)
 
     def test_loss_preserving_contract_and_fail_closed_boundaries(self):
         with tempfile.TemporaryDirectory() as temporary_directory:

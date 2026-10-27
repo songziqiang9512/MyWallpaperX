@@ -38,7 +38,9 @@ struct SceneAssetCatalog {
         }
 
         let relativePath: String
-        let rawSHA256: String
+#if DEBUG
+        var rawSHA256: String = ""
+#endif
         /// Canonical material JSON with every pass-local shader identity replaced by a
         /// stable marker. Strict planners can use this together with an independently
         /// validated shader path/contract to recognize a byte-identical material shape
@@ -343,14 +345,17 @@ struct SceneAssetCatalogLoader {
                 alphaWriting: pass["alphawriting"] as? String
             )
         }
-        return SceneAssetCatalog.MaterialAsset(
+        var material = SceneAssetCatalog.MaterialAsset(
             relativePath: resource.relativePath,
-            rawSHA256: SHA256.hash(data: data)
-                .map { String(format: "%02x", $0) }
-                .joined(),
             shaderPathIndependentSHA256: shaderPathIndependentSHA256(root),
             passes: passes
         )
+#if DEBUG
+        material.rawSHA256 = SHA256.hash(data: data)
+            .map { String(format: "%02x", $0) }
+            .joined()
+#endif
+        return material
     }
 
     nonisolated private func shaderPathIndependentSHA256(

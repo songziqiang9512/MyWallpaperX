@@ -250,7 +250,6 @@ nonisolated enum SceneResolvedMaterialShaderSchema {
         guard contract.sourceKind == .authoredSource, contract.diagnostics.isEmpty,
               contract.stages.count == 2, Set(contract.stages.map(\.kind)).count == 2,
               let graph = contract.sourceGraph,
-              graph.dependencySHA256 == graph.recomputedDependencySHA256,
               graph.diagnostics.allSatisfy({ $0.code == .shadowedRootContentConflict }),
               Set(graph.nodes.map { $0.virtualPath.lowercased() }).count == graph.nodes.count,
               graph.edges.allSatisfy({
@@ -282,8 +281,6 @@ nonisolated enum SceneResolvedMaterialShaderSchema {
         // The seed intentionally excludes conditionals. A second potential
         // declaration of this same sampler would make the default ambiguous.
         for node in graph.nodes {
-            guard node.byteCount == node.source.utf8.count,
-                  node.rawSHA256 == SceneShaderStableDigest.hash(Data(node.source.utf8)) else { return nil }
             let parsed = SceneShaderContractSourceParser().parse(
                 node.source, stageRelativePath: node.virtualPath
             )

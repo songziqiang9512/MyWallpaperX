@@ -18,6 +18,7 @@ from pathlib import Path
 
 from script.tests.test_scene_puppet_mesh import build_mdl
 from script.tests.test_scene_puppet_direct_playback import EXTRA_SOURCES, PIPELINE, static_model_carrier_source
+from script.tests.scene_pkg_fixture import make_package
 
 
 ROOT = Path(__file__).resolve().parents[2]
@@ -131,7 +132,8 @@ class ScenePuppetPreparationTests(unittest.TestCase):
             raise unittest.SkipTest("swiftc unavailable")
         cls._temporary = tempfile.TemporaryDirectory(prefix="mwx-puppet-preparation-")
         directory = Path(cls._temporary.name)
-        source_paths = [LAYER_LOAD, CASES, PIPELINE, Path(static_model_carrier_source.__code__.co_filename), *(SCENE / item for item in SOURCES)]
+        source_paths = [LAYER_LOAD, CASES, PIPELINE, Path(static_model_carrier_source.__code__.co_filename),
+                        Path(make_package.__code__.co_filename), *(SCENE / item for item in SOURCES)]
         identity = {str(path): hashlib.sha256(path.read_bytes()).hexdigest() for path in source_paths}
         # Keep the complete production file unchanged; append test cases in the
         # same file only to observe its fileprivate immutable CPU products.
@@ -187,6 +189,12 @@ class ScenePuppetPreparationTests(unittest.TestCase):
         inputs.mkdir()
         for name, data in files.items():
             (inputs / name).write_bytes(data)
+        (inputs / "puppet-sources.pkg").write_bytes(make_package([
+            ("packaged.mdl", files["shared.mdl"]),
+            ("bad.mdl", b"selected-bad-package-mesh"),
+            (".hidden/rig.mdl", files["shared.mdl"]),
+            ("folder.mdl/child.bin", b"directory content"),
+        ]))
         (inputs / "directory.mdl").mkdir()
         run = subprocess.run([str(binary), str(inputs)], capture_output=True, text=True, timeout=30)
         if run.returncode:
@@ -211,7 +219,7 @@ class ScenePuppetPreparationTests(unittest.TestCase):
             self.assertEqual(row["default"]["animationIDs"], [], row)
             self.assertEqual(row["default"]["neutralRootX"], 20, row)
 
-    def test_resource_reads_keep_primary_exact_lookup_and_escape_hard_failures(self) -> None:
+    def test_resource_reads_select_authored_vfs_and_keep_selected_failures(self) -> None:
         for name, passed in self.result["resource-read-checks"].items():
             with self.subTest(name=name):
                 self.assertTrue(passed)

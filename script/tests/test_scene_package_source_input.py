@@ -67,7 +67,21 @@ def source_map(paths):
 
 def support(text):
     # The shared builder fixture includes the real MDL parser.
-    return text.split('@main', 1)[0]
+    # Its unused Bloom GPU encoders require this Debug-only outside leaf;
+    # invoking a GPU timestamp is a scope error in this CPU metadata probe.
+    return text.split('@main', 1)[0] + r'''
+#if DEBUG
+enum SceneGPUStageTimestampHook {
+    static func render(_ buffer: MTLCommandBuffer, _ descriptor: MTLRenderPassDescriptor,
+                       role: String) -> MTLRenderCommandEncoder? {
+        fatalError("GPU timestamp is outside the material metadata probe")
+    }
+    static func drew(_ encoder: MTLRenderCommandEncoder) {
+        fatalError("GPU timestamp is outside the material metadata probe")
+    }
+}
+#endif
+'''
 
 
 def fixture():
@@ -111,6 +125,7 @@ class ScenePackageSourceInputTests(unittest.TestCase):
         sources = list(dict.fromkeys([*parts.builder.SWIFT_SOURCES, *parts.reader.SWIFT_SOURCES,
                                      SCENE / 'Runtime/Session/SceneDesktopWallpaperLaunchModels.swift']))
         text = support(parts.builder.HARNESS_SOURCE) + HARNESS.read_text()
+        cls.metadata_sources, cls.metadata_harness = sources, text
         cls.build('current', sources, text, current=True)
         before = os.environ.get(BEFORE_ENV)
         cls.before_root = Path(before).resolve() if before else None
@@ -130,7 +145,7 @@ class ScenePackageSourceInputTests(unittest.TestCase):
             (cls.evidence / (name + '.json')).write_text(json.dumps(value, ensure_ascii=False, indent=2) + '\n')
 
     @classmethod
-    def build(cls, label, sources, text, current=False):
+    def build(cls, label, sources, text, current=False, debug=False):
         harness = cls.work / (label + '.swift')
         harness.write_text(text)
         tracked = [*sources, harness, Path(__file__), HARNESS,
@@ -139,6 +154,8 @@ class ScenePackageSourceInputTests(unittest.TestCase):
         command = ['xcrun', '--sdk', 'macosx', 'swiftc', '-swift-version', '5', '-parse-as-library']
         if current:
             command += ['-D', 'D8_CURRENT']
+        if debug:
+            command += ['-D', 'DEBUG']
         binary = cls.work / label
         command += [*map(str, sources), str(harness), '-module-cache-path', str(cls.work / 'modules'),
                     '-framework', 'Metal', '-o', str(binary)]
@@ -174,7 +191,20 @@ class ScenePackageSourceInputTests(unittest.TestCase):
                                  'sourcesStable': before == after})
         self.assertEqual(before, after)
         self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
-        return json.loads(result.stdout)
+        output = result.stdout
+        if str(arguments[-1]) == 'metadata':
+            lines = [line.removeprefix('material-metadata-result:') for line in output.splitlines()
+                     if line.startswith('material-metadata-result:')]
+            self.assertEqual(len(lines), 1, output)
+            output = lines[0]
+        value = json.loads(output)
+        if label == 'before' and 'authoredDescriptor' in value:
+            # This retired diagnostic member is intentionally absent in the
+            # current Release descriptor; all playback fields still compare.
+            for key in ('authoredDescriptor', 'runtimeDescriptor'):
+                for material in value[key]['materialPasses']:
+                    material.pop('materialRawSHA256', None)
+        return value
 
     def imported(self, label, legacy=False, unused_aliases=False, renamed=False):
         author, entries = fixture()
@@ -263,10 +293,8 @@ class ScenePackageSourceInputTests(unittest.TestCase):
             selected_models = {x['path'] for x in current['catalogModels']}
             selected_materials = set(current['catalogMaterialPaths'])
             predecessor['catalogModels'] = [x for x in predecessor['catalogModels'] if x['path'] in selected_models]
-            old_materials = predecessor['catalogMaterialPaths']
-            predecessor['catalogMaterialRawSHA'] = [value for path, value in zip(old_materials, predecessor['catalogMaterialRawSHA'])
-                if path in selected_materials]
-            predecessor['catalogMaterialPaths'] = [x for x in old_materials if x in selected_materials]
+            predecessor['catalogMaterialPaths'] = [x for x in predecessor['catalogMaterialPaths']
+                                                   if x in selected_materials]
             for key in ('authoredDescriptor', 'runtimeDescriptor'):
                 old_descriptor, descriptor = predecessor[key], current[key]
                 selected_links = {(x['modelPath'], x.get('materialPath')) for x in descriptor['modelMaterialLinks']}
@@ -283,6 +311,132 @@ class ScenePackageSourceInputTests(unittest.TestCase):
             self.assertEqual(current, predecessor)
         self.emit('equivalence-result', {'directoryEqual': True, 'predecessorRequested': bool(self.before_root),
                                          'predecessorActiveProjectionEqual': True if self.before_root else None})
+
+    def test_material_reference_dedup_preserves_all_passes_and_distinct_names(self):
+        shared, spaced = 'materials/p42 cue.json', 'materials/p42 cue .json'
+        for label, references in [('aliases', [shared, shared.upper(), shared.replace('/', '\\')]),
+                                  ('distinct', [shared, spaced]), ('image', [])]:
+            with self.subTest(label=label):
+                entries, _ = parts.native_fixture(1)
+                scene = json.loads(entries['scene.json'])
+                scene['objects'] = [scene['objects'][-1]]
+                if references:
+                    entries['models/parts.mdl'] = parts.join_parts([
+                        parts.reader.build_model(material=path.encode()) for path in references])
+                else:
+                    scene['objects'][0].pop('model')
+                    scene['objects'][0]['image'] = 'models/image.json'
+                    entries['models/image.json'] = json.dumps({'material': shared}).encode()
+                entries['scene.json'] = json.dumps(scene).encode()
+                for index, path in enumerate([shared, spaced]):
+                    entries[path] = json.dumps({'passes': [
+                        {'shader': 'genericimage', 'combos': {'MARKER': index * 10}},
+                        {'shader': 'genericimage', 'combos': {'MARKER': index * 10 + 1}}
+                    ]}).encode()
+                root = self.work / ('material-identities-' + label)
+                for path, data in entries.items():
+                    target = root / path
+                    target.parent.mkdir(parents=True, exist_ok=True)
+                    target.write_bytes(data)
+                value = self.run_native('current', [root, '-', 'projection'], self.work / 'material-home',
+                                        'material-identities-' + label)
+                expected = [shared, spaced] if label == 'distinct' else [shared]
+                self.assertEqual(set(value['catalogMaterialPaths']), set(expected))
+                self.assertEqual(len(value['catalogMaterialPaths']), len(expected))
+                for key in ['authoredDescriptor', 'runtimeDescriptor']:
+                    passes = value[key]['materialPasses']
+                    self.assertEqual(len(passes), len(expected) * 2)
+                    for index, path in enumerate(expected):
+                        selected = [p for p in passes if p['materialPath'] == path]
+                        self.assertEqual([p['passIndex'] for p in selected], [0, 1])
+                        self.assertEqual([p['combos']['MARKER'] for p in selected], [index * 10, index * 10 + 1])
+                        self.assertNotIn('staticModelMaterialBindings', selected[1])
+                        if label == 'image':
+                            self.assertNotIn('staticModelMaterialBindings', selected[0])
+                        else:
+                            self.assertEqual(selected[0]['staticModelMaterialBindings']['state'], 'unavailable')
+                            self.assertEqual(selected[0]['staticModelMaterialBindings']['rejectionReason'],
+                                             'fixture-shader-boundary')
+                self.emit('material-identities-' + label + '-result', value)
+
+    def test_raw_material_metadata_is_debug_only_and_preserves_selected_bytes(self):
+        root, source_file, _, entries = self.imported('metadata')
+        # The author tree contains a valid loose peer; the selected package
+        # bytes, not that peer, must still supply Debug census evidence.
+        self.build('metadata-debug', self.metadata_sources, self.metadata_harness,
+                   current=True, debug=True)
+        results = []
+        diagnostic_keys = ('effectDefinitionDiagnostics', 'missingResources',
+                           'builtInReferenceCount', 'runtimeProvidedReferenceCount',
+                           'firstStageRendererGaps')
+        for label, debug in (('current', False), ('metadata-debug', True)):
+            result = self.run_native(label, [root, source_file, 'metadata'],
+                                     self.work / (label + '-metadata-home'), label + '-metadata')
+            paths = result['catalogMaterialPaths']
+            self.assertTrue(paths)
+            self.assertEqual(result.pop('materialRawFields'), [debug] * len(paths))
+            self.assertEqual(result.pop('passRawFields'),
+                             [debug] * len(result['authoredDescriptor']['materialPasses']))
+            if debug:
+                self.assertEqual(result.pop('catalogMaterialRawSHA'),
+                                 [hashlib.sha256(entries[path]).hexdigest() for path in paths])
+            else:
+                self.assertNotIn('catalogMaterialRawSHA', result)
+            for key in ('authoredDescriptor', 'runtimeDescriptor'):
+                descriptor = result[key]
+                for field in diagnostic_keys:
+                    if debug:
+                        self.assertIn(field, descriptor)
+                        descriptor.pop(field)
+                    else:
+                        self.assertNotIn(field, descriptor)
+                for value in descriptor['materialPasses']:
+                    if debug:
+                        self.assertEqual(value.pop('materialRawSHA256'),
+                                         hashlib.sha256(entries[value['materialPath']]).hexdigest())
+                    else:
+                        self.assertNotIn('materialRawSHA256', value)
+            results.append(result)
+
+            # Inspect the actual unoptimized loader body. The semantic hash
+            # remains required; only the direct original-bytes SHA disappears.
+            build = self.work / (label + '.swift')
+            output = self.work / (label + '.sil')
+            command = ['xcrun', '--sdk', 'macosx', 'swiftc', '-swift-version', '5',
+                       '-parse-as-library', '-whole-module-optimization', '-Onone',
+                       '-D', 'D8_CURRENT', *(['-D', 'DEBUG'] if debug else []),
+                       *map(str, self.metadata_sources), str(build),
+                       '-module-cache-path', str(self.work / 'modules'), '-framework', 'Metal',
+                       '-emit-silgen', '-module-name', 'MaterialMetadataIsolation', '-o', str(output)]
+            emitted = subprocess.run(command, capture_output=True, text=True, timeout=240)
+            self.emit(label + '-sil-build', {'command': command, 'exitCode': emitted.returncode,
+                                           'stdout': emitted.stdout, 'stderr': emitted.stderr})
+            self.assertEqual(emitted.returncode, 0, emitted.stdout + emitted.stderr)
+            body, active, fields = [], False, set()
+            raw_sha = hashlib.sha256()
+            with output.open('rb') as stream:
+                for raw in stream:
+                    raw_sha.update(raw)
+                    line = raw.decode()
+                    if line.startswith('// SceneAssetCatalogLoader.loadMaterial('):
+                        active = True
+                    if active:
+                        body.append(line)
+                        if '} // end sil function' in line:
+                            active = False
+                    for name in ('SceneAssetCatalog.MaterialAsset.rawSHA256',
+                                 'SceneRenderDescriptor.MaterialPassDescriptor.materialRawSHA256'):
+                        if line.startswith('// ' + name + '.'):
+                            fields.add(name)
+            loader = ''.join(body)
+            self.emit(label + '-sil-proof', {'rawSILSHA256': raw_sha.hexdigest(),
+                'rawSILBytes': output.stat().st_size, 'rawFields': sorted(fields),
+                'actualLoaderBody': loader})
+            self.assertTrue(loader, 'actual loadMaterial SIL body is required')
+            self.assertEqual('HashFunction.hash' in loader, debug)
+            self.assertIn('shaderPathIndependentSHA256', loader)
+            self.assertEqual(len(fields), 2 if debug else 0)
+        self.assertEqual(*results)
 
     def test_local_edits_optional_hints_current_revision_and_cancellation(self):
         root, source_file, _, _ = self.imported('integrity')

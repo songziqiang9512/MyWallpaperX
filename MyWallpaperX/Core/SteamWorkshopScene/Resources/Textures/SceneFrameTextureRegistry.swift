@@ -101,13 +101,15 @@ final class SceneFrameTextureRegistry {
         private var keySet: Set<Key> = []
         private var orderedKeys: [Key] = []
 
-        mutating func resolve(
-            _ current: Set<Key>,
+        mutating func resolve<Value>(
+            _ current: Dictionary<Key, Value>.Keys,
             by areInIncreasingOrder: (Key, Key) -> Bool
         ) -> [Key] {
-            guard keySet != current else { return orderedKeys }
-            keySet = current
-            orderedKeys = current.sorted(by: areInIncreasingOrder)
+            if current.count == keySet.count, current.allSatisfy(keySet.contains) {
+                return orderedKeys
+            }
+            keySet = Set(current)
+            orderedKeys = keySet.sorted(by: areInIncreasingOrder)
             return orderedKeys
         }
     }
@@ -195,7 +197,7 @@ final class SceneFrameTextureRegistry {
         priorFrameEntries = persistentEntries
         persistentEntries.removeAll(keepingCapacity: true)
         for layerID in orderedLayerSourceIDs.resolve(
-            Set(layerSources.keys), by: <
+            layerSources.keys, by: <
         ) {
             guard let texture = layerSources[layerID] else { continue }
             let identity = SceneFrameTextureIdentity.layerSource(layerID)
@@ -219,7 +221,7 @@ final class SceneFrameTextureRegistry {
             }
         }
         for identity in orderedAssetIdentities.resolve(
-            Set(assetStates.keys), by: { $0.reportToken < $1.reportToken }
+            assetStates.keys, by: { $0.reportToken < $1.reportToken }
         ) {
             guard let state = assetStates[identity] else { continue }
             publish(state, for: .asset(identity))
@@ -228,19 +230,19 @@ final class SceneFrameTextureRegistry {
             $0.purpose == .premultipliedColor ? $0.propertyKey : nil
         })
         for key in orderedUserPropertyTextureKeys.resolve(
-            Set(userPropertyTextures.keys).subtracting(typedColorPropertyKeys), by: <
-        ) {
+            userPropertyTextures.keys, by: <
+        ) where !typedColorPropertyKeys.contains(key) {
             guard let texture = userPropertyTextures[key] else { continue }
             publishPersistent(texture, for: .userProperty(key))
         }
         for identity in orderedUserPropertyIdentities.resolve(
-            Set(userPropertyStates.keys), by: { $0.reportToken < $1.reportToken }
+            userPropertyStates.keys, by: { $0.reportToken < $1.reportToken }
         ) {
             guard let state = userPropertyStates[identity] else { continue }
             publish(state, for: .materialUserProperty(identity))
         }
         for systemIdentity in orderedSystemTextureIdentities.resolve(
-            Set(systemTextures.keys), by: { $0.reportToken < $1.reportToken }
+            systemTextures.keys, by: { $0.reportToken < $1.reportToken }
         ) {
             guard let texture = systemTextures[systemIdentity] else { continue }
             let identity = SceneFrameTextureIdentity.system(systemIdentity)
@@ -252,7 +254,7 @@ final class SceneFrameTextureRegistry {
             }
         }
         for systemIdentity in orderedSystemProviderIdentities.resolve(
-            Set(systemProviderStates.keys), by: { $0.reportToken < $1.reportToken }
+            systemProviderStates.keys, by: { $0.reportToken < $1.reportToken }
         ) {
             guard let state = systemProviderStates[systemIdentity] else {
                 continue

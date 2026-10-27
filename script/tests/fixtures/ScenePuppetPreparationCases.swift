@@ -124,6 +124,7 @@ private enum ScenePuppetPreparationCases {
         try Data("bad mesh".utf8).write(to: package.appendingPathComponent("bad.mdl"))
         try original.write(to: loose.appendingPathComponent("bad.mdl"))
         try original.write(to: loose.appendingPathComponent("lower-only.mdl"))
+        try FileManager.default.createDirectory(at: package.appendingPathComponent("nested"), withIntermediateDirectories: true)
         let view = SceneResourceView(projectRootURL: loose, packageRootURL: package, stockAssetsRootURL: nil)
         var checks: [String: Bool] = [:]
         let hidden = try ScenePuppetLayerLoad.prepareAsset(meshPath: ".hidden/rig.mdl", resourceView: view, needsAnimations: true)
@@ -132,14 +133,37 @@ private enum ScenePuppetPreparationCases {
         checks["safeDotAndSeparatorVariantKeepsExactFile"] = failure(equivalent)["kind"] as? String == "ready"
         let dottedName = try ScenePuppetLayerLoad.prepareAsset(meshPath: "renamed..rig.mdl", resourceView: view, needsAnimations: true)
         checks["dotsInsideFilenameAreNotTraversal"] = failure(dottedName)["kind"] as? String == "ready"
-        for path in ["../shared.mdl", "nested/../../shared.mdl", "/shared.mdl", "nested/../selected.mdl"] {
+        let containedParent = try ScenePuppetLayerLoad.prepareAsset(meshPath: "nested/../selected.mdl", resourceView: view, needsAnimations: true)
+        checks["containedParentUsesTheActualEntry"] = failure(containedParent)["kind"] as? String == "ready"
+        for path in ["../shared.mdl", "nested/../../shared.mdl", "/shared.mdl", "selected.mdl\0other"] {
             let rejected = try ScenePuppetLayerLoad.prepareAsset(meshPath: path, resourceView: view, needsAnimations: false)
             checks["pathComponentsRemainRejected:" + path] = failure(rejected)["allowsTexture"] as? Bool == false
         }
         let bad = try ScenePuppetLayerLoad.prepareAsset(meshPath: "bad.mdl", resourceView: view, needsAnimations: true)
         checks["badPrimaryDoesNotSelectHealthyLowerRoot"] = failure(bad)["allowsTexture"] as? Bool == false
         let missing = try ScenePuppetLayerLoad.prepareAsset(meshPath: "lower-only.mdl", resourceView: view, needsAnimations: true)
-        checks["missingPrimaryKeepsOriginalMissingFallback"] = failure(missing)["allowsTexture"] as? Bool == true
+        checks["missingPrimaryUsesHealthyLooseEntry"] = failure(missing)["kind"] as? String == "ready"
+        let absent = try ScenePuppetLayerLoad.prepareAsset(meshPath: "absent.mdl", resourceView: view, needsAnimations: true)
+        checks["missingInEveryAuthorRootKeepsTextureFallback"] = failure(absent)["allowsTexture"] as? Bool == true
+        let stock = root.appendingPathComponent("lookup-stock")
+        try FileManager.default.createDirectory(at: stock, withIntermediateDirectories: true)
+        try original.write(to: stock.appendingPathComponent("stock-only.mdl"))
+        try Data("bad loose mesh".utf8).write(to: loose.appendingPathComponent("packaged.mdl"))
+        let mounted = SceneResourceView(
+            projectRoot: .init(source: .loose, url: loose),
+            packageRoot: try .package(openedPackage: ScenePkgReader().openPackage(
+                packageURL: root.appendingPathComponent("puppet-sources.pkg"))),
+            stockRoot: .init(source: .stock, url: stock))
+        for path in ["packaged.mdl", ".hidden/rig.mdl", "./.hidden//rig.mdl", "lower-only.mdl"] {
+            let asset = try ScenePuppetLayerLoad.prepareAsset(meshPath: path, resourceView: mounted, needsAnimations: true)
+            checks["mountedPackageOrLooseIsPrepared:" + path] = failure(asset)["kind"] as? String == "ready"
+        }
+        let selectedBad = try ScenePuppetLayerLoad.prepareAsset(meshPath: "bad.mdl", resourceView: mounted, needsAnimations: true)
+        checks["selectedBadPackageNeverUsesHealthyLoose"] = failure(selectedBad)["allowsTexture"] as? Bool == false
+        let directory = try ScenePuppetLayerLoad.prepareAsset(meshPath: "folder.mdl/", resourceView: mounted, needsAnimations: false)
+        checks["explicitPackageDirectoryIsNotAMesh"] = failure(directory)["allowsTexture"] as? Bool == false
+        let stockOnly = try ScenePuppetLayerLoad.prepareAsset(meshPath: "stock-only.mdl", resourceView: mounted, needsAnimations: true)
+        checks["authorOnlySelectionDoesNotAcquireStockMesh"] = failure(stockOnly)["allowsTexture"] as? Bool == true
         var changed = false
         let descriptor = SceneRenderDescriptor(layers: [sourceLayer(801, mesh: "selected.mdl", animated: true)])
         do {

@@ -8,21 +8,20 @@ let webCompatibilityScriptInteractionAndRuntimeMedia = #"""
         mediaProto.play = function(...args) {
           const missingSource = String(this.__mwxMissingSource || '').trim();
           if (missingSource) {
-            hostLogger?.post('media.play.skipped', `${this.tagName ? String(this.tagName).toLowerCase() : 'media'} missing=${missingSource}`);
-            return Promise.resolve();
-          }
-          const resolvedSource = String(this.currentSrc || this.src || '').trim();
-          const normalizedSource = resolvedSource.toLowerCase();
-          if (
-            !resolvedSource ||
-            normalizedSource === 'null' ||
-            normalizedSource === 'undefined' ||
-            normalizedSource === '(null)' ||
-            normalizedSource === 'about:blank' ||
-            normalizedSource.endsWith('/null')
-          ) {
-            hostLogger?.post('media.play.skipped', `${this.tagName ? String(this.tagName).toLowerCase() : 'media'} src=${resolvedSource || 'none'}`);
-            return Promise.resolve();
+            // innerHTML/replaceChildren may attach a source created before it
+            // had a media parent. Consume its current declaration, not stale
+            // currentSrc (WebKit can retain the failed selection while loading).
+            const declaredSource = String(this.src || '').trim();
+            const hasReplacement = declaredSource ? declaredSource !== missingSource
+              : Array.from(this.querySelectorAll('source')).some((source) => {
+                  const value = String(source.src || source.getAttribute('src') || '').trim();
+                  return value && value !== missingSource;
+                });
+            if (hasReplacement) delete this.__mwxMissingSource;
+            else {
+              hostLogger?.post('media.play.skipped', `${this.tagName ? String(this.tagName).toLowerCase() : 'media'} missing=${missingSource}`);
+              return Promise.resolve();
+            }
           }
           const playResult = originalPlay.apply(this, args);
           if (typeof window.__myWallpaperWrapMediaPlayPromise === 'function') {

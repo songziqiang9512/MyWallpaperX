@@ -88,8 +88,6 @@ nonisolated enum WebDaemonEvent: Codable {
 #endif
     case host(WallpaperEngine.WebWallpaperHostEvent)
     case capturedFrame(UUID, Data?)
-    case prepared(UInt64)
-    case committed(UInt64)
     case preparationCohort(WebDaemonPreparedCohort)
     case activationConfirmed(WebDaemonActivationIdentity, [PlaybackSurfaceVisibility.Evidence])
     case activationDeferred(WebDaemonActivationIdentity, String)

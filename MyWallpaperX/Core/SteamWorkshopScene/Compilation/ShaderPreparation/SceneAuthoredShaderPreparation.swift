@@ -291,11 +291,9 @@ nonisolated enum SceneAuthoredShaderPreparation {
 
         func store(
             _ program: SceneShaderPreparedProgram,
-            key: PreparationCacheKey,
-            contract: SceneShaderContract
+            key: PreparationCacheKey
         ) {
-            guard valid(program, key: key, contract: contract),
-                  let directory = directoryURL(createIfNeeded: true) else { return }
+            guard let directory = directoryURL(createIfNeeded: true) else { return }
             let keySHA256 = SceneShaderStableDigest.hash(key)
             let envelope = Envelope(
                 schemaVersion: schemaVersion,
@@ -489,8 +487,7 @@ nonisolated enum SceneAuthoredShaderPreparation {
             if case let .accepted(program) = result {
                 persistentPreparationCache.store(
                     program,
-                    key: cacheKey,
-                    contract: contract
+                    key: cacheKey
                 )
             }
             return result

@@ -41,8 +41,8 @@
       "bytes": 14139
     },
     "docs/development/validation-simplification-plan.md": {
-      "lines": 136,
-      "bytes": 30306
+      "lines": 263,
+      "bytes": 63549
     },
     "docs/release/bundle-content.md": {
       "lines": 61,
@@ -1664,6 +1664,15 @@
       "owner": "UI correctness and scheduling audit",
       "reason": "本轮已证问题/独审/相称门及Debug闭合，稳定职责回AppKit合同，完整工作卡与失败边界归档，原URL四锚点保留。",
       "decision": "docs/development/ui-quality-audit.md#scope"
+    },
+    {
+      "section": "bodies",
+      "path": "docs/development/validation-simplification-plan.md",
+      "before": "d35e66954986bcacb42482dae4e3bb024acbf2b56851556198408b590504ee57",
+      "after": "ea86a027ec46535d88f2fa238d9bdc0c1d4bf49ba6a7d75fa2def746d981c379",
+      "owner": "Scene/Web engine simplification",
+      "reason": "P36-P43 current consumer-based simplification verified; retire final three same-producer self-proofs with actual counterfactual results, preserve decoded/dynamic boundaries, reconcile current scope and uncommitted review handoff once. User-authorized Git handoff updates only current prose; product/tests remain exact audited P43 bytes.",
+      "decision": "docs/development/validation-simplification-plan.md#p43-producer-self-proofs-and-scope-closeout"
     }
   ]
 }

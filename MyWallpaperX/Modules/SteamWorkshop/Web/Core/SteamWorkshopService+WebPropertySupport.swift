@@ -95,14 +95,13 @@ extension SteamWorkshopService {
         let normalizedKey = key.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
         let isDirectoryDefinition = definition?.kind == .directory
         let isFileDefinition = definition?.kind == .file
-        let looksLikePathPreset = (bindingContext?.pathlikeKeys ?? webShellResourcePathLikeKeys(for: record)).contains(normalizedKey)
         let origin: ResolvedWebResourceBindingOrigin = definition == nil ? .presetFallback : .propertyDefinition
         let kind: ResolvedWebResourceBindingKind
         if isDirectoryDefinition {
             kind = .directory
         } else if isFileDefinition {
             kind = .file
-        } else if looksLikePathPreset {
+        } else if (bindingContext?.pathlikeKeys ?? webShellResourcePathLikeKeys(for: record)).contains(normalizedKey) {
             kind = .pathlikePreset
         } else {
             return nil
@@ -217,35 +216,32 @@ extension SteamWorkshopService {
         return resolvedURL
     }
 
-    func resolvedWebRuntimeValue(
+    func resolvedWebRuntimeProperty(
         forKey key: String,
         definition: SteamWorkshopWebPropertyDefinition,
         rawValue: SteamWorkshopWebPropertyValue,
         record: SteamWorkshopDownloadRecord,
         bindingContext: WebAuthorBindingContext? = nil
-    ) -> SteamWorkshopWebPropertyValue {
-        if definition.kind == .color,
-           case let .string(rawString) = rawValue,
-           let normalizedColor = Self.normalizedWebColorRuntimeString(from: rawString) {
-            return .string(normalizedColor)
-        }
-
-        if let binding = resolvedWebResourceBinding(
+    ) -> (value: SteamWorkshopWebPropertyValue, binding: ResolvedWebResourceBinding?) {
+        let binding = resolvedWebResourceBinding(
             forKey: key,
             definition: definition,
             rawValue: rawValue,
             record: record, bindingContext: bindingContext
-        ), let resolvedURL = binding.resolvedURL {
-            guard definition.kind != .file || Self.webFileURL(resolvedURL, matches: definition.fileType) else {
-                return .string("")
-            }
-            return .string(resolvedURL.path)
+        )
+        if definition.kind == .color,
+           case let .string(rawString) = rawValue,
+           let normalizedColor = Self.normalizedWebColorRuntimeString(from: rawString) {
+            return (.string(normalizedColor), binding)
         }
 
-        guard definition.kind == .file || definition.kind == .directory else {
-            return rawValue
+        if let resolvedURL = binding?.resolvedURL {
+            guard definition.kind != .file || Self.webFileURL(resolvedURL, matches: definition.fileType) else {
+                return (.string(""), binding)
+            }
+            return (.string(resolvedURL.path), binding)
         }
-        return rawValue
+        return (rawValue, binding)
     }
 
     /// This is the only projection from resolved bindings to playback authority.

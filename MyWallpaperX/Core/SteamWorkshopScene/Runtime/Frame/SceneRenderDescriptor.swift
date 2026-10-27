@@ -114,20 +114,15 @@ struct SceneRenderDescriptorBuilder {
         checkCancellation: (() throws -> Void)? = nil
     ) rethrows -> SceneRenderDescriptor? {
         try checkCancellation?()
-        guard Set(sceneDocument.objects.map(\.id)).count == sceneDocument.objects.count,
-              Set(assetCatalog.models.map(\.relativePath)).count == assetCatalog.models.count else {
+        guard Set(sceneDocument.objects.map(\.id)).count == sceneDocument.objects.count else {
             return nil
         }
-        let modelCropOffsetsByPath = Dictionary(
-            uniqueKeysWithValues: assetCatalog.models.map { ($0.relativePath, $0.cropOffsetXY) }
-        )
-        let modelDeclaredSizeWHByPath = Dictionary(
-            uniqueKeysWithValues: assetCatalog.models.compactMap { model in
-                model.declaredSizeWH.map { (model.relativePath, $0) }
+        let modelMetadataByPath = Dictionary(
+            uniqueKeysWithValues: assetCatalog.models.map {
+                ($0.relativePath, (cropOffsetXY: $0.cropOffsetXY,
+                                  declaredSizeWH: $0.declaredSizeWH,
+                                  puppetPath: $0.puppetPath))
             }
-        )
-        let puppetMeshPathsByModelPath = Dictionary(
-            uniqueKeysWithValues: assetCatalog.models.map { ($0.relativePath, $0.puppetPath) }
         )
         let puppetAttachmentsByModelPath = Dictionary(
             uniqueKeysWithValues: assetCatalog.models.map { model in
@@ -196,7 +191,8 @@ struct SceneRenderDescriptorBuilder {
                 )
                 let contentKind = utilityLayer?.kind.rawValue
                     ?? contentKind(for: object, solidModelPaths: solidModelPaths)
-                let puppetMeshPath = object.imagePath.flatMap { puppetMeshPathsByModelPath[$0] } ?? nil
+                let modelMetadata = object.imagePath.flatMap { modelMetadataByPath[$0] }
+                let puppetMeshPath = modelMetadata?.puppetPath
                 var layer = SceneRenderDescriptor.Layer(
                     id: object.id,
                     layerIndex: index,
@@ -261,9 +257,7 @@ struct SceneRenderDescriptorBuilder {
                     originXYZ: padVector(parseVector(object.origin), length: 3, fill: 0),
                     sizeWH: layerSizeWH(
                         explicit: parseVector(object.size),
-                        modelDeclared: object.imagePath.flatMap {
-                            modelDeclaredSizeWHByPath[$0]
-                        }
+                        modelDeclared: modelMetadata?.declaredSizeWH
                     ),
                     scaleXYZ: padVector(parseVector(object.scale), length: 3, fill: 1),
                     anglesXYZ: padVector(parseVector(object.angles), length: 3, fill: 0),
@@ -273,7 +267,7 @@ struct SceneRenderDescriptorBuilder {
                     timelineDiagnostics: object.timelineDiagnostics,
                     particleTimelines: object.particleTimelines,
                     particleTimelineDiagnostics: object.particleTimelineDiagnostics,
-                    modelCropOffsetXY: object.imagePath.flatMap { modelCropOffsetsByPath[$0] } ?? nil,
+                    modelCropOffsetXY: modelMetadata?.cropOffsetXY,
                     puppetMeshPath: puppetMeshPath,
                     text: object.text,
                     textStyle: object.textStyle,
@@ -439,9 +433,6 @@ struct SceneRenderDescriptorBuilder {
         let directMaterials = Set(directStaticModelMaterialLinks.compactMap {
             $0.materialPath.map { $0.replacingOccurrences(of: "\\", with: "/").localizedLowercase }
         })
-        let materialsByPath = Dictionary(grouping: catalog.materials) {
-            $0.relativePath.replacingOccurrences(of: "\\", with: "/").localizedLowercase
-        }
         return try catalog.materials.flatMap { material in
             try checkCancellation?()
             return try material.passes.enumerated().map { index, pass in
@@ -449,7 +440,6 @@ struct SceneRenderDescriptorBuilder {
                 var descriptor = SceneRenderDescriptor.MaterialPassDescriptor(
                     id: "\(material.relativePath)#\(index)",
                     materialPath: material.relativePath,
-                    materialRawSHA256: material.rawSHA256,
                     shaderPathIndependentSHA256: material.shaderPathIndependentSHA256,
                     passIndex: index,
                     shaderPath: pass.shader,
@@ -465,26 +455,22 @@ struct SceneRenderDescriptorBuilder {
                     cullMode: pass.cullMode,
                     alphaWriting: pass.alphaWriting
                 )
-                let path = material.relativePath.replacingOccurrences(of: "\\", with: "/")
-                    .localizedLowercase
-                if index == 0, directMaterials.contains(path) {
-                    if materialsByPath[path]?.count == 1 {
-                        descriptor.staticModelDefaultAlbedoAssetPath =
-                            SceneStaticModelMaterialBindingCompiler.defaultAlbedoAssetPath(
-                                pass: descriptor, shaderContracts: catalog.shaderContracts
-                            )
-                        try checkCancellation?()
-                        descriptor.staticModelMaterialBindings =
-                            SceneStaticModelMaterialBindingCompiler.compile(
-                                pass: descriptor,
-                                shaderContracts: catalog.shaderContracts
-                            )
-                    } else {
-                        descriptor.staticModelMaterialBindings = .init(
-                            state: .unavailable, bindings: [],
-                            rejectionReason: "material-pass-ambiguous"
+#if DEBUG
+                descriptor.materialRawSHA256 = material.rawSHA256
+#endif
+                if index == 0, directMaterials.contains(
+                    material.relativePath.replacingOccurrences(of: "\\", with: "/").localizedLowercase
+                ) {
+                    descriptor.staticModelDefaultAlbedoAssetPath =
+                        SceneStaticModelMaterialBindingCompiler.defaultAlbedoAssetPath(
+                            pass: descriptor, shaderContracts: catalog.shaderContracts
                         )
-                    }
+                    try checkCancellation?()
+                    descriptor.staticModelMaterialBindings =
+                        SceneStaticModelMaterialBindingCompiler.compile(
+                            pass: descriptor,
+                            shaderContracts: catalog.shaderContracts
+                        )
                 }
                 try checkCancellation?()
                 return descriptor

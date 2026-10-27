@@ -731,8 +731,7 @@ let webCompatibilityScriptHostBridge = #"""
             continue;
           }
           const resolvedSource = String(node.currentSrc || node.src || '').trim();
-          const normalizedSource = resolvedSource.toLowerCase();
-          if (!resolvedSource || normalizedSource.endsWith('/null') || normalizedSource === 'null') {
+          if (!resolvedSource) {
             continue;
           }
           const playResult = node.play();

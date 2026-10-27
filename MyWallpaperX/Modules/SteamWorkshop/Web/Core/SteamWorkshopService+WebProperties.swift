@@ -55,7 +55,7 @@ extension SteamWorkshopService {
 
     func previewWebPropertyValue(_ value: SteamWorkshopWebPropertyValue, for definition: SteamWorkshopWebPropertyDefinition, record: SteamWorkshopDownloadRecord) {
         guard isActiveWebRecord(record) else { return }
-        let deltaValue = resolvedWebRuntimeValue(
+        let delta = resolvedWebRuntimeProperty(
             forKey: definition.key,
             definition: definition,
             rawValue: value,
@@ -63,10 +63,9 @@ extension SteamWorkshopService {
         )
         let deltaJSON = resolvedWebRuntimePropertyPayloadJSON(
             for: definition,
-            rawValue: value,
-            runtimeValue: deltaValue,
-            visibleOptions: visibleWebPropertyOptions(for: definition, record: record),
-            record: record
+            runtimeValue: delta.value,
+            binding: delta.binding,
+            visibleOptions: visibleWebPropertyOptions(for: definition, record: record)
         )
         let resourcesChanged = webPropertyChangesResources(definition, record: record)
         var grants = WallpaperEngine.shared.currentWebResourceGrants
@@ -115,7 +114,7 @@ extension SteamWorkshopService {
             return
         }
 
-        let deltaValue = resolvedWebRuntimeValue(
+        let delta = resolvedWebRuntimeProperty(
             forKey: definition.key,
             definition: definition,
             rawValue: committedValue,
@@ -123,10 +122,9 @@ extension SteamWorkshopService {
         )
         let deltaJSON = resolvedWebRuntimePropertyPayloadJSON(
             for: definition,
-            rawValue: committedValue,
-            runtimeValue: deltaValue,
-            visibleOptions: visibleWebPropertyOptions(for: definition, record: record),
-            record: record
+            runtimeValue: delta.value,
+            binding: delta.binding,
+            visibleOptions: visibleWebPropertyOptions(for: definition, record: record)
         )
         WallpaperEngine.shared.updateCurrentWebWallpaperProperties(deltaJSON,
             resourceGrants: grants, resourcesChanged: resourcesChanged)

@@ -311,6 +311,165 @@ CHECKS = r'''
 
 
 class WebAudioDemandTests(unittest.TestCase):
+    def test_media_sources_follow_values_and_actual_failures_not_url_names(self):
+        resource = (HOST / "DedicatedWebWallpaperHostCompatibilityScript+BootstrapResourceRewriting.swift").read_text()
+        interaction = (HOST / "DedicatedWebWallpaperHostCompatibilityScript+InteractionAndRuntimeMedia.swift").read_text()
+        bridge = (HOST / "DedicatedWebWallpaperHostCompatibilityScript+HostBridge.swift").read_text()
+        observers = (HOST / "DedicatedWebWallpaperHostCompatibilityScript+MediaObservers.swift").read_text()
+        blocks = [source_block(resource, marker) + ";" for marker in (
+            "  window.__myWallpaperRewriteLocalFileURL = function",
+            "  const myWallpaperIsMediaOrSourceElement =",
+            "  window.__myWallpaperIsInvalidMediaSourceValue = function",
+            "  const myWallpaperClearInvalidMediaSource =",
+            "  const myWallpaperMediaSourceDidChange =",
+            "  const patchURLBackedProperty =",
+        )]
+        blocks += [
+            "patchURLBackedProperty(HTMLMediaElement.prototype, 'src');",
+            "patchURLBackedProperty(HTMLSourceElement.prototype, 'src');",
+            "const originalSetAttribute = Element.prototype.setAttribute;",
+            source_block(resource, "      Element.prototype.setAttribute = function") + ";",
+            source_block(interaction, "  if (window.HTMLMediaElement && window.HTMLMediaElement.prototype)") ,
+            source_block(observers, "    if (typeof HTMLMediaElement !== 'undefined' && typeof HTMLMediaElement.prototype.play === 'function')"),
+            source_block(observers, "    if (typeof HTMLMediaElement !== 'undefined' && typeof HTMLMediaElement.prototype.pause === 'function')"),
+            source_block(bridge, "  const wallpaperShouldResumeMediaAfterHostPause =") + ";",
+            source_block(bridge, "  window.__myWallpaperSetPaused = function") + ";",
+        ]
+        scheme = (ROOT / "MyWallpaperX/Core/SteamWorkshopWeb/Support/WebWallpaperLocalSchemeHandler.swift").read_text()
+        failure = method(scheme, "    func silenceFailedMediaRequestIfNeeded(")
+        failure = failure.split('let script = """', 1)[1].split('"""', 1)[0]
+        failure = failure.replace('\\(escapedRequestURL)', 'mwx-local://wallpaper/failed.mp4')
+        script = r'''
+const vm = require('node:vm'), assert = require('node:assert/strict');
+const nodes = [], notifications = [];
+class Element {
+  constructor(tag) { this.tagName = tag; this.attributes = new Map(); this.children = []; this.parentElement = null; }
+  setAttribute(name, value) { this.attributes.set(name, String(value)); }
+  getAttribute(name) { return this.attributes.get(name) ?? null; }
+  removeAttribute(name) { this.attributes.delete(name); }
+  querySelectorAll(selector) { assert.equal(selector, 'source'); return this.children; }
+}
+const location = {href: 'mwx-local://wallpaper/index.html'};
+class Media extends Element {
+  constructor() { super('video'); this.playCalls = 0; this.pauseCalls = 0; this.loads = 0; this.paused = false; }
+  get src() { const value = this.getAttribute('src'); return value ? new URL(value, location.href).href : ''; }
+  set src(value) { this.attributes.set('src', String(value)); }
+  get currentSrc() { return this.selectedSource ?? ''; }
+  play() { this.playCalls++; this.paused = false; return Promise.resolve(); }
+  pause() { this.pauseCalls++; this.paused = true; }
+  load() { this.loads++; }
+}
+class Source extends Element {
+  constructor() { super('source'); }
+  get src() { const value = this.getAttribute('src'); return value ? new URL(value, location.href).href : ''; }
+  set src(value) { this.attributes.set('src', String(value)); }
+}
+const context = {URL, Element, HTMLMediaElement: Media, HTMLSourceElement: Source,
+  document: {location, querySelectorAll(selector) { assert.equal(selector, 'audio,video'); return nodes; }},
+  hostLogger: null, rewriteStyleValue: value => value, audioContextInstances: [], audioStreams: [],
+  playbackStateListeners: [paused => notifications.push(paused)],
+  dispatchEvent() {}, __myWallpaperSetPagePaused() {},
+  CustomEvent: function(type, init) { this.type = type; this.detail = init.detail; }};
+context.window = context; vm.createContext(context);
+vm.runInContext(PRODUCTION, context);
+let validSources = 0;
+const legal = ['null', 'undefined', '(null)', 'index.html', 'about:blank', location.href,
+  'renamed/video.mp4', 'media/null', 'media/undefined', 'media/(null)', 'media/index.html',
+  '/media/null', 'mwx-local://wallpaper/media/null',
+  'https://example.invalid/media/null', 'https://example.invalid/media/index.html?variant=2',
+  'file:///tmp/renamed/null', '/private/tmp/renamed/null'];
+for (const value of legal) {
+  assert.equal(context.__myWallpaperIsInvalidMediaSourceValue(value), false, value);
+  const rewritten = context.__myWallpaperRewriteLocalFileURL(value);
+  assert.ok(rewritten, value);
+  if (value.startsWith('file:///') || value.startsWith('/private/')) assert.ok(rewritten.startsWith('mwx-local://wallpaper/__absolute__/'));
+  for (const attribute of [false, true]) {
+    const media = new Media();
+    if (attribute) media.setAttribute('src', value); else media.src = value;
+    assert.equal(media.getAttribute('src'), rewritten);
+    media.play(); assert.equal(media.playCalls, 1, 'original media play receives ' + value);
+    const source = new Source(); source.src = value;
+    assert.equal(source.getAttribute('src'), rewritten, 'source element preserves same URL semantics');
+    validSources++;
+  }
+}
+for (const value of [null, undefined, '', '   ']) {
+  assert.equal(context.__myWallpaperIsInvalidMediaSourceValue(value), true);
+  assert.equal(context.__myWallpaperRewriteLocalFileURL(value), '');
+  const media = new Media(); media.src = value;
+  assert.equal(media.getAttribute('src'), null); media.play();
+  assert.equal(media.playCalls, 1, 'native play owns resource selection and no-source failure');
+}
+const freshParent = new Media(), freshChild = new Source(); freshChild.src = 'media/null';
+freshChild.parentElement = freshParent; freshParent.children = [freshChild];
+assert.equal(freshParent.currentSrc || '', ''); assert.equal(freshParent.src || '', '');
+freshParent.play(); assert.equal(freshParent.playCalls, 1, 'fresh source may be selected by native play');
+const objectMedia = new Media(); objectMedia.srcObject = {};
+assert.equal(objectMedia.src, ''); assert.equal(objectMedia.currentSrc, '');
+objectMedia.play(); assert.equal(objectMedia.playCalls, 1, 'srcObject is handed to native play without a URL');
+objectMedia.pause(); assert.equal(objectMedia.__myWallpaperAuthorPaused, true);
+objectMedia.play(); assert.equal(objectMedia.__myWallpaperAuthorPaused, false);
+assert.equal(objectMedia.playCalls, 2, 'author resume still delegates through both actual wrappers');
+const knownMissing = new Media(); knownMissing.src = 'media/null'; knownMissing.__mwxMissingSource = knownMissing.src;
+knownMissing.play(); assert.equal(knownMissing.playCalls, 0, 'actual failed-source marker still controls play');
+for (const attribute of [false, true]) {
+  const changed = new Media(); changed.src = 'failed.mp4';
+  changed.__mwxMissingSource = changed.src; changed.selectedSource = changed.src;
+  if (attribute) changed.setAttribute('src', 'media/null'); else changed.src = 'media/null';
+  assert.equal(changed.__mwxMissingSource, undefined, 'accepted source invalidates only its old failed marker');
+  changed.play(); assert.equal(changed.playCalls, 1);
+}
+for (const attribute of [false, true]) {
+  const parent = new Media(), child = new Source(); child.src = 'failed.mp4';
+  child.parentElement = parent; parent.children = [child]; parent.selectedSource = child.src;
+  parent.__mwxMissingSource = child.src; child.__mwxMissingSource = child.src;
+  if (attribute) child.setAttribute('src', 'media/undefined'); else child.src = 'media/undefined';
+  assert.equal(child.__mwxMissingSource, undefined); assert.equal(parent.__mwxMissingSource, undefined);
+  parent.play(); assert.equal(parent.playCalls, 1);
+}
+const replaced = new Media(), attachedLater = new Source();
+replaced.__mwxMissingSource = 'mwx-local://wallpaper/failed.mp4'; replaced.selectedSource = replaced.__mwxMissingSource;
+attachedLater.src = 'media/index.html'; replaced.children = [attachedLater]; attachedLater.parentElement = replaced;
+replaced.play(); assert.equal(replaced.playCalls, 1, 'replacement before parent attachment invalidates stale failure at consumption');
+const running = new Media(), authorPaused = new Media();
+running.src = 'media/null'; authorPaused.src = 'media/renamed.mp4'; authorPaused.__myWallpaperAuthorPaused = true;
+nodes.push(running, authorPaused);
+context.__myWallpaperSetPaused(true); context.__myWallpaperSetPaused(false);
+assert.equal(running.pauseCalls, 1); assert.equal(running.playCalls, 1, 'host resume uses legal named URL');
+assert.equal(authorPaused.playCalls, 0, 'host does not resume an author-paused media element');
+assert.deepEqual(notifications, [true, false]);
+const failed = new Media(), failedSource = new Source(), alternative = new Source(), empty = new Source();
+failed.src = 'failed.mp4'; failed.selectedSource = failed.src;
+failedSource.src = 'failed.mp4'; alternative.src = 'media/null';
+failed.children = [failedSource, alternative, empty]; nodes.length = 0; nodes.push(failed);
+vm.runInContext(FAILURE, context);
+assert.equal(failed.__mwxMissingSource, 'mwx-local://wallpaper/failed.mp4');
+assert.equal(failed.getAttribute('src'), null); assert.equal(failedSource.getAttribute('src'), null);
+assert.equal(alternative.getAttribute('src'), 'media/null', 'one real failure does not remove an unrelated valid fallback');
+failed.play(); assert.equal(failed.playCalls, 1, 'remaining authored fallback can be consumed');
+for (const childOnly of [false, true]) {
+  const late = new Media(); late.selectedSource = 'mwx-local://wallpaper/failed.mp4';
+  if (childOnly) { const next = new Source(); next.src = 'media/null'; next.parentElement = late; late.children = [next]; }
+  else late.src = 'media/null';
+  nodes.length = 0; nodes.push(late); vm.runInContext(FAILURE, context);
+  assert.equal(late.__mwxMissingSource, undefined); assert.equal(late.pauseCalls, 0, 'late A failure cannot pause B');
+  late.play(); assert.equal(late.playCalls, 1);
+}
+const stillFailed = new Media(); stillFailed.src = 'failed.mp4'; stillFailed.selectedSource = stillFailed.src;
+nodes.length = 0; nodes.push(stillFailed); vm.runInContext(FAILURE, context);
+stillFailed.play(); assert.equal(stillFailed.playCalls, 0, 'actual current failure without a new declaration stays suppressed');
+assert.equal(stillFailed.__mwxMissingSource, 'mwx-local://wallpaper/failed.mp4');
+console.log(JSON.stringify({validSources, noSourceCases: 4, missingMarker: true, authorPause: true,
+  retainedAlternative: true, sourceChanges: true, lateFailure: true, currentFailure: true}));
+'''.replace('PRODUCTION', json.dumps("\n".join(blocks))).replace('FAILURE', json.dumps(failure))
+        result = subprocess.run(["node", "-e", script], capture_output=True, text=True, timeout=15)
+        self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+        self.assertEqual(json.loads(result.stdout), {
+            "validSources": 34, "noSourceCases": 4, "missingMarker": True,
+            "authorPause": True, "retainedAlternative": True,
+            "sourceChanges": True, "lateFailure": True, "currentFailure": True,
+        })
+
     def test_native_registration_retirement_multidisplay_and_old_callbacks(self):
         types = (HOST / "WebWallpaperHostTypes.swift").read_text()
         registry = source_block(types, "final class WebWallpaperFrameEndpointRegistry")

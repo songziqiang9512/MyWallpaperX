@@ -245,9 +245,11 @@ class SceneStaticModelMaterialBindingTests(unittest.TestCase):
         result = self.result("albedoDefaults")
         for name in ["omitted", "null", "normalOnly", "unconditionalInclude", "tailReadiness",
                      "unrelatedOutOfRange", "unrelatedMalformedDefault", "unrelatedInvalidHidden",
-                     "crossStageDuplicate"]:
+                     "crossStageDuplicate", "graphDigestOnlyChange", "graphRawDigestOnlyChange"]:
             with self.subTest(name=name):
                 self.assertEqual(result[name], "util/white")
+        self.assertEqual(result["graphDigestBindings"], result["ordinaryBindings"])
+        self.assertEqual(result["graphRawBindings"], result["includedBindings"])
         self.assertEqual(result["colored"], "fixtures/colored")
         self.assertEqual(result["renamedIndependent"], "fixtures/repainted-lime")
         # Independent selected-default lookup must not admit the complete
@@ -269,13 +271,15 @@ class SceneStaticModelMaterialBindingTests(unittest.TestCase):
                      "sameSlotAlias", "conditionalSameSlotAlias", "selectedInvalidWithUnrelated",
                      "selectedInvalidHidden",
                      "macroRename", "conditionalMacroAlias", "noDefault", "opacityMode", "format", "internal", "conflict",
-                     "malformedDefault", "invalidAssetPath", "samplerArray", "graphDigestMismatch",
-                     "graphRawMismatch", "annotationComboSampler", "annotationComboType",
+                     "malformedDefault", "invalidAssetPath", "samplerArray", "differentRootSource",
+                     "annotationComboSampler", "annotationComboType",
                      "tokenPasteOtherVertex", "tokenPasteOtherFragment", "emptyPrefixHiddenConditional",
                      "materialNormal", "materialNoise", "graphMaterialAlias", "registeredDataDefault",
                      "registeredNoiseDefault"]:
             with self.subTest(name=name):
                 self.assertIsNone(result[name])
+        self.assertEqual(result["differentRootBindings"]["state"], "unavailable")
+        self.assertEqual(result["differentRootBindings"]["keys"], [])
 
 
 if __name__ == "__main__":

@@ -664,6 +664,20 @@ private enum ProbeEntrypoint {
                 output = try runDemandProbe()
             case "preparation-accepted":
                 output = try runPreparationProbe(rejected: false)
+            case "preparation-tampered-stage":
+                let directory = tierDirectory(root: try cacheRoot(), name: "SceneShaderPreparation-v1")
+                let entry = jsonEntries(directory)[0]
+                var envelope = try JSONSerialization.jsonObject(with: Data(contentsOf: entry)) as! [String: Any]
+                var program = envelope["program"] as! [String: Any]
+                var vertex = program["vertex"] as! [String: Any]
+                vertex["stage"] = "fragment"
+                program["vertex"] = vertex
+                let decoded = try JSONDecoder().decode(SceneShaderPreparedProgram.self,
+                    from: JSONSerialization.data(withJSONObject: program))
+                envelope["program"] = program
+                envelope["programSHA256"] = SceneShaderStableDigest.hash(decoded)
+                try JSONSerialization.data(withJSONObject: envelope).write(to: entry)
+                output = try runPreparationProbe(rejected: false)
             case "preparation-rejected":
                 output = try runPreparationProbe(rejected: true)
             default:
@@ -853,6 +867,11 @@ class ScenePersistentCacheBehaviorTests(unittest.TestCase):
         self.assertEqual(len(entries()), 1)
         self.assertEqual(entries()[0].read_bytes(), published)
         self.assertEqual(entries()[0].stat().st_mtime_ns, published_mtime)
+
+        # A valid payload digest cannot make a decoded fragment into a vertex.
+        semantic = run("preparation-tampered-stage")
+        self.assertEqual(semantic.returncode, 0, semantic.stderr or semantic.stdout)
+        self.assertEqual(entries()[0].read_bytes(), published)
 
         # A corrupted entry is a safe miss: re-preparation heals the file.
         entries()[0].write_bytes(b"\xff" * 64)

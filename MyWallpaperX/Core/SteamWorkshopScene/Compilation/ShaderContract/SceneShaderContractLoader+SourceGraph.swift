@@ -51,14 +51,16 @@ extension SceneShaderContractLoader {
             }
             return lhs.sortComponents.lexicographicallyPrecedes(rhs.sortComponents)
         }
-        let contracts = try keys.flatMap { key in
-            guard let group = groups[key] else { return [SceneShaderContract]() }
+        let projections = try keys.flatMap { key -> [(contract: SceneShaderContract,
+                capturedRootStages: [SceneShaderSourceResolver.CapturedRootStage])] in
+            guard let group = groups[key] else { return [] }
             return try loadRootStageProjection(
                 shaderReferences: group.references,
                 root: group.root, checkCancellation: checkCancellation
             )
         }
-        return try contracts.sorted { $0.identity < $1.identity }.map { contract in
+        return try projections.sorted { $0.contract.identity < $1.contract.identity }.map { projection in
+            let contract = projection.contract
             guard contract.sourceKind == .authoredSource else { return contract }
             let graph = try SceneShaderSourceGraphBuilder().build(
                 roots: [
@@ -71,7 +73,8 @@ extension SceneShaderContractLoader {
                         virtualPath: "shaders/\(contract.identity).frag"
                     ),
                 ],
-                resourceView: resourceView, checkCancellation: checkCancellation
+                resourceView: resourceView, capturedRootStages: projection.capturedRootStages,
+                checkCancellation: checkCancellation
             )
             return SceneShaderContract(
                 identity: contract.identity,

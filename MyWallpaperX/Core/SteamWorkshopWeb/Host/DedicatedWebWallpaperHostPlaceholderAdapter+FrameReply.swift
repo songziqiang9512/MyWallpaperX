@@ -288,8 +288,7 @@ extension DedicatedWebWallpaperHostPlaceholderAdapter {
         guard requestID.isEmpty == false else { return }
         var responsePayload = payload
         responsePayload["requestID"] = requestID
-        guard JSONSerialization.isValidJSONObject(responsePayload),
-              let data = try? JSONSerialization.data(withJSONObject: responsePayload),
+        guard let data = try? JSONSerialization.data(withJSONObject: responsePayload),
               let json = String(data: data, encoding: .utf8) else {
             return
         }

@@ -13,16 +13,16 @@ nonisolated extension SceneParticleCameraFrame {
         let fallbackCamera = descriptor.camera
         guard fallbackCamera.orthoWidth == nil,
               fallbackCamera.orthoHeight == nil else { return nil }
-        guard let layer = descriptor.renderOrderLayerIDs.reversed()
+        guard let layer = descriptor.renderOrderLayerIDs.reversed().lazy
             .compactMap({ layersByID[$0] })
             .first(where: {
-                SceneLayerVisibility.isEffectivelyVisible(
+                $0.cameraPath?.camera.lowercased() == "default"
+                    && SceneLayerVisibility.isEffectivelyVisible(
                     layerID: $0.id,
                     in: descriptor,
                     layersByID: layersByID,
                     snapshot: dynamicValues
                 )
-                    && $0.cameraPath?.camera.lowercased() == "default"
             }),
               let cameraPath = layer.cameraPath,
               let worldFrame = worldFrames[layer.id] else { return nil }

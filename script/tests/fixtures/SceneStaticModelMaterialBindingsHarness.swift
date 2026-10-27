@@ -524,6 +524,19 @@ private func albedoDefaults() -> [String: Any] {
             sourceGraph: .init(roots: graph.roots, nodes: nodes, edges: graph.edges,
                 diagnostics: graph.diagnostics, dependencySHA256: digest))
     }
+    let metadataOnlyDigest = tamperedGraph(white, rawMismatch: false)
+    let metadataOnlyRaw = tamperedGraph(unconditionalInclude, rawMismatch: true)
+    let originalGraph = white.sourceGraph!
+    let differentNodes = originalGraph.nodes.enumerated().map { index, node in
+        let source = index == 0 ? node.source + "\n// independently selected root" : node.source
+        return SceneShaderSourceGraph.Node(virtualPath: node.virtualPath, provenance: node.provenance,
+            source: source, rawSHA256: SceneShaderStableDigest.hash(Data(source.utf8)), byteCount: source.utf8.count)
+    }
+    let differentRoot = SceneShaderContract(identity: white.identity, sourceKind: white.sourceKind,
+        stages: white.stages, diagnostics: white.diagnostics, canonicalSHA256: white.canonicalSHA256,
+        sourceGraph: .init(roots: originalGraph.roots, nodes: differentNodes, edges: originalGraph.edges,
+            diagnostics: originalGraph.diagnostics,
+            dependencySHA256: SceneShaderSourceGraph.dependencySHA256(nodes: differentNodes, edges: originalGraph.edges)))
     let unrelatedFormat = shader(fragmentExtra: """
         \(ordinary)
         uniform sampler2D g_Texture7; // {"combo":"HAS_OTHER","formatcombo":true}
@@ -584,8 +597,14 @@ private func albedoDefaults() -> [String: Any] {
         "conditionalSameName": path(pass(), shader(fragmentExtra: ambiguousSampler)),
         "missingContract": path(contracts: []),
         "duplicateContract": path(contracts: [white, white]),
-        "graphDigestMismatch": path(pass(), tamperedGraph(white, rawMismatch: false)),
-        "graphRawMismatch": path(pass(), tamperedGraph(unconditionalInclude, rawMismatch: true)),
+        "graphDigestOnlyChange": path(pass(), metadataOnlyDigest),
+        "graphRawDigestOnlyChange": path(pass(), metadataOnlyRaw),
+        "ordinaryBindings": summary(compile(pass(), white)),
+        "includedBindings": summary(compile(pass(), unconditionalInclude)),
+        "graphDigestBindings": summary(compile(pass(), metadataOnlyDigest)),
+        "graphRawBindings": summary(compile(pass(), metadataOnlyRaw)),
+        "differentRootSource": path(pass(), differentRoot),
+        "differentRootBindings": summary(compile(pass(), differentRoot)),
         "unrelatedFormatDefault": path(tailAbsent, unrelatedFormat),
         "unrelatedFormatVariantFailure": variantFailure,
         "unrelatedOutOfRange": path(pass(), unrelatedOutOfRange),

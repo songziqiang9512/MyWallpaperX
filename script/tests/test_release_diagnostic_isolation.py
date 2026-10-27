@@ -51,6 +51,158 @@ import Foundation
 
 
 class ReleaseDiagnosticIsolationTests(unittest.TestCase):
+    def test_graph_program_keys_are_debug_only_without_changing_history_pixels(self):
+        from script.tests import test_scene_persistent_history_visual_failure_gpu as history
+        from script.tests import test_scene_resolved_material_graph_executor as graph
+
+        # Reuse every original GPU/history assertion in both configurations.
+        # Reflection checks the compiled stage storage, not source spelling.
+        returned = "        return value\n"
+        self.assertEqual(history.HARNESS.count(returned), 1)
+        harness = history.HARNESS.replace(returned, r'''
+        for stage in value.stages {
+            expect(!Mirror(reflecting: stage).children.contains {
+                $0.label == "programCacheKeys"
+            }, "stage must not retain a second command-key array")
+#if DEBUG
+            let keys = stage.programCacheKeys
+            if let reason = stage.effectLocalFailureReasonCode {
+                expect(keys == ["visual-failure-passthrough:\(reason)"],
+                       "rollback must replace all material keys with its sentinel")
+            } else {
+                expect(keys.count == stage.graph.nodes.filter { $0.kind == .material }.count,
+                       "normal command order supplies every material key")
+            }
+#endif
+        }
+        return value
+''')
+        read = "        return read\n"
+        self.assertEqual(harness.count(read), 1)
+        harness = harness.replace(read, r'''
+#if DEBUG
+        for stage in value.stages {
+            let keys = stage.programCacheKeys
+            let generation = stage.effectOutputResource.resourceGeneration
+            let observation = try! SceneResolvedMaterialGraphObservationBuilder.make(
+                stage, runtimeInstanceIdentity: "graph-key-isolation", frameIndex: generation,
+                transactionID: generation, executionEpoch: 1, mappingGeneration: generation,
+                resetReason: nil, terminalEffect: stage.effect,
+                terminalCompositorConsumed: false, outcome: .succeeded, gpu: .completed
+            )
+            expect(observation.programIdentity == keys.first,
+                   "observation preserves the first material key")
+            expect(observation.programSequenceIdentity == SceneShaderStableDigest.hash(
+                Data(keys.joined(separator: "\n").utf8)), "exact program-sequence digest")
+            let evidence: [String: Any] = ["generation": generation, "keys": keys,
+                "sequence": observation.programSequenceIdentity]
+            let data = try! JSONSerialization.data(withJSONObject: evidence, options: [.sortedKeys])
+            FileHandle.standardError.write(Data(("graph-key-observation:"
+                + String(decoding: data, as: UTF8.self) + "\n").utf8))
+        }
+#endif
+        return read
+''')
+        payload = "        let payload: [String: Any] = [\n"
+        self.assertEqual(harness.count(payload), 1)
+        harness = harness.replace(payload, r'''
+        let staleCommand = queue.makeCommandBuffer()!
+        let stale = prepareFrame(
+            executor: validExecutor, token: validClaim.token,
+            lease: freshLease, index: 75, source: source, pipeline: pipeline,
+            command: staleCommand, previous: freshRecovered.stages[0]
+        )
+        expect(validExecutor.reset(), "reset succeeds")
+        guard case .failure(.stalePreparation) = validExecutor.encodeResult(
+            stale, commandBuffer: staleCommand
+        ) else { fatalError("reset cancels prepared commands") }
+        expect(staleCommand.status == .notEnqueued,
+               "cancelled graph must not be committed")
+''' + payload)
+        writer = "        FileHandle.standardOutput.write(data)"
+        self.assertEqual(harness.count(writer), 1)
+        harness = harness.replace(writer, r'''        FileHandle.standardOutput.write(Data(
+            ("graph-key-result:" + String(decoding: data, as: UTF8.self) + "\n").utf8
+        ))''')
+        sources = list(dict.fromkeys([*graph.CONTRACT_FIXTURE["SWIFT_SOURCES"],
+            SCENE / "Diagnostics/SceneGraphExecutionObservation.swift",
+            SCENE / "Diagnostics/SceneGraphExecutionTelemetry.swift",
+            SCENE / "Rendering/Graph/SceneResolvedMaterialGraphObservationBuilder.swift",
+        ]))
+        parent = os.environ.get("MWX_GRAPH_DIAGNOSTIC_EVIDENCE")
+        if parent:
+            Path(parent).mkdir(parents=True, exist_ok=True)
+        reports = []
+        for debug in (False, True):
+            directory = Path(tempfile.mkdtemp(prefix="graph-key-isolation-", dir=parent))
+            try:
+                support, main = directory / "Support.swift", directory / "Harness.swift"
+                support.write_text(history.SUPPORT)
+                main.write_text(harness)
+                inputs = [support, *sources, main]
+                before = {str(path): hashlib.sha256(path.read_bytes()).hexdigest()
+                          for path in inputs}
+                home = directory / "home"
+                home.mkdir()
+                environment = dict(os.environ, HOME=str(home), CFFIXED_USER_HOME=str(home),
+                                   MWX_SCENE_GENERIC_SHADER_CACHE=str(directory / "shader-cache"),
+                                   MWX_SCENE_PIPELINE_BINARY_ARCHIVE=str(directory / "pipeline-cache"))
+                # No SCENE_GRAPH_TESTING in either arm; Release has no DEBUG.
+                command = ["xcrun", "--sdk", "macosx", "swiftc", "-parse-as-library",
+                           "-Onone", "-whole-module-optimization",
+                           *(["-D", "DEBUG"] if debug else []), *map(str, inputs),
+                           "-framework", "Metal", "-framework", "CoreGraphics",
+                           "-framework", "ImageIO", "-module-cache-path",
+                           str(directory / "modules")]
+                binary = directory / "check"
+                compiled = subprocess.run([*command, "-o", str(binary)], cwd=ROOT,
+                                          env=environment, capture_output=True, text=True, timeout=180)
+                (directory / "compile.json").write_text(json.dumps({
+                    "command": [*command, "-o", str(binary)], "returncode": compiled.returncode,
+                    "stdout": compiled.stdout, "stderr": compiled.stderr, "sourceSHA256": before,
+                }, indent=2))
+                self.assertEqual(compiled.returncode, 0, compiled.stderr)
+                result = subprocess.run([str(binary)], cwd=directory, env=environment,
+                                        capture_output=True, text=True, timeout=30)
+                (directory / "execution.json").write_text(json.dumps({
+                    "returncode": result.returncode, "stdout": result.stdout, "stderr": result.stderr,
+                }, indent=2))
+                self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
+                self.assertEqual("graph-key-observation:" in result.stderr, debug)
+                result_lines = [line.removeprefix("graph-key-result:")
+                                for line in result.stdout.splitlines()
+                                if line.startswith("graph-key-result:")]
+                self.assertEqual(len(result_lines), 1, result.stdout)
+                report = json.loads(result_lines[0])
+                self.assertTrue(report["metalAvailable"], "This gate requires actual Metal execution")
+                reports.append(report)
+
+                # Inspect raw, unoptimized SIL as well as the actual execution,
+                # so absence cannot be attributed only to linker stripping.
+                output = directory / "diagnostics.sil"
+                sil_command = [*command, "-emit-silgen", "-module-name", "GraphKeyIsolation",
+                               "-o", str(output)]
+                emitted = subprocess.run(sil_command, cwd=ROOT, env=environment,
+                                         capture_output=True, text=True, timeout=180)
+                (directory / "sil-compile.json").write_text(json.dumps({
+                    "command": sil_command, "returncode": emitted.returncode,
+                    "stdout": emitted.stdout, "stderr": emitted.stderr,
+                }, indent=2))
+                self.assertEqual(emitted.returncode, 0, emitted.stderr)
+                sil = output.read_text()
+                self.assertIn("sil_stage raw", sil)
+                for marker in ["var programCacheKeys: [String]", "var programCacheKey: String",
+                               '"visual-failure-passthrough:"', '"activation-passthrough:"']:
+                    self.assertEqual(marker in sil, debug, marker)
+                self.assertNotIn("programKeyCount", sil)
+                after = {str(path): hashlib.sha256(path.read_bytes()).hexdigest()
+                         for path in inputs}
+                self.assertEqual(before, after)
+            finally:
+                if not parent:
+                    shutil.rmtree(directory)
+        self.assertEqual(reports[0], reports[1])
+
     def test_shared_audio_keeps_real_configuration_without_diagnostic_frame_or_release_readback(self):
         source = ROOT / "MyWallpaperX/Core/Playback/SystemAudioCaptureDeviceFactory.swift"
         capture = ROOT / "MyWallpaperX/Core/Playback/SystemAudioCaptureBuffer.swift"

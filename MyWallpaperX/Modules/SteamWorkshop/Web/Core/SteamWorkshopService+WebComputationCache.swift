@@ -16,13 +16,6 @@ nonisolated struct CachedWebProjectDescriptor: Codable, Equatable, Sendable {
 }
 
 extension SteamWorkshopService {
-    func invalidateCachedWebRuntime(for recordID: String) {
-        webProjectDescriptorCache.removeValue(forKey: recordID)
-        let analysis = Self.webRuntimeCacheDirectoryURL()
-            .appendingPathComponent("\(Self.webRuntimeCacheFileStem(for: recordID))-analysis.json")
-        SteamWorkshopWebRuntimeCachePublication.shared.invalidate(key: analysis.path)
-    }
-
     func invalidateAllCachedWebRuntime() {
         webProjectDescriptorCache.removeAll()
         SteamWorkshopWebRuntimeCachePublication.shared.invalidateAll()

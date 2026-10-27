@@ -535,6 +535,34 @@ import Foundation
             retained.append(result)
         }
         facts["separateLedgerChargesItsOwnOutput"] = otherBudget.reservedBytes == UInt64(wav(10).count)
+        weak var releasedFile: SceneVideoOwnedFile?
+        var releasedURL: URL?
+        try autoreleasepool {
+            let temporary = try SceneVideoOwnedFile.snapshot(from: handle, cacheDirectory: cache,
+                fileExtension: "aif", diskBudget: budget)
+            releasedFile = temporary; releasedURL = temporary.url
+            let resident = budget.reservedBytes
+            _ = try io("reset")
+            var repeatedHits = true
+            for _ in 0..<3 {
+                let hit = try SceneVideoOwnedFile.snapshot(from: handle, cacheDirectory: cache,
+                    fileExtension: "wav", diskBudget: budget)
+                repeatedHits = repeatedHits && hit === first
+            }
+            facts["singleKeyWarmBorrowKeepsDistinctLiveOutputs"] = try repeatedHits
+                && io("read_bytes") == 0 && io("write_bytes") == 0
+                && budget.reservedBytes == resident && retained.allSatisfy { fm.fileExists(atPath: $0.url.path) }
+            withExtendedLifetime(temporary) {}
+        }
+        guard let releasedURL else { throw FixtureFailure.missing("released private file") }
+        facts["otherWarmBorrowsDoNotPinReleasedEntry"] = releasedFile == nil && !fm.fileExists(atPath: releasedURL.path)
+        _ = try io("reset")
+        let recreated = try SceneVideoOwnedFile.snapshot(from: handle, cacheDirectory: cache,
+            fileExtension: "aif", diskBudget: budget)
+        facts["releasedSelectedKeyRecreatesOnlyItsOwnOutput"] = try recreated.url != releasedURL
+            && Data(contentsOf: recreated.url) == wav(10)
+            && io("read_bytes") == UInt64(wav(10).count) && io("write_bytes") == UInt64(wav(10).count)
+        retained.append(recreated)
         let author = base.appendingPathComponent("packages/scene.pkg")
         try Data(contentsOf: author).write(to: author, options: .atomic)
         let currentRoot = try mounted(base)

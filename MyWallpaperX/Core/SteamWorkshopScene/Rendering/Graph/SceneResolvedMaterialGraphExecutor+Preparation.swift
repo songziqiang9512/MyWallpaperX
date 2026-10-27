@@ -81,15 +81,13 @@ extension SceneResolvedMaterialGraphExecutor {
         pair: inout PairAtom,
         publications: inout [Graph.TextureIdentity: SceneFrameTextureResource],
         commands: inout [Command],
-        programKeys: inout [String],
         effectLocalFailureReasonCode: inout String?,
         effectLocalActivationBypassReasonCode: inout String?
     ) -> Failure? {
         let visualFailureSnapshot = VisualFailureSnapshot(
             pair: pair,
             publications: publications,
-            commandCount: commands.count,
-            programKeyCount: programKeys.count
+            commandCount: commands.count
         )
         if let activation = stageCapability.activationPolicy {
             let decision = activation.evaluate(
@@ -119,7 +117,6 @@ extension SceneResolvedMaterialGraphExecutor {
                     pair: &pair,
                     publications: &publications,
                     commands: &commands,
-                    programKeys: &programKeys,
                     effectLocalActivationBypassReasonCode:
                         &effectLocalActivationBypassReasonCode
                 )
@@ -135,7 +132,6 @@ extension SceneResolvedMaterialGraphExecutor {
                     pair: &pair,
                     publications: &publications,
                     commands: &commands,
-                    programKeys: &programKeys,
                     effectLocalFailureReasonCode:
                         &effectLocalFailureReasonCode
                 )
@@ -153,7 +149,6 @@ extension SceneResolvedMaterialGraphExecutor {
                 pair: &pair,
                 publications: &publications,
                 commands: &commands,
-                programKeys: &programKeys,
                 effectLocalActivationBypassReasonCode:
                     &effectLocalActivationBypassReasonCode
             )
@@ -170,7 +165,6 @@ extension SceneResolvedMaterialGraphExecutor {
                 pair: &pair,
                 publications: &publications,
                 commands: &commands,
-                programKeys: &programKeys,
                 effectLocalFailureReasonCode: &effectLocalFailureReasonCode
             )
         }
@@ -179,7 +173,6 @@ extension SceneResolvedMaterialGraphExecutor {
             transition: transition, graph: graph, pairStep: pairStep, lease: lease,
             snapshot: visualFailureSnapshot, pair: &pair,
             publications: &publications, commands: &commands,
-            programKeys: &programKeys,
             effectLocalFailureReasonCode: &effectLocalFailureReasonCode
         ) {
             return result
@@ -204,8 +197,6 @@ extension SceneResolvedMaterialGraphExecutor {
         let pairNodes = preparedExecution?.pairNodesByIndex ?? Dictionary(uniqueKeysWithValues: pairStep.nodes.map {
             ($0.nodeIndex, $0)
         })
-        var visited = Set<Int>()
-
         for intent in transition.transaction.intents {
             switch intent {
             case let .initialize(identity, resource, reason):
@@ -242,10 +233,6 @@ extension SceneResolvedMaterialGraphExecutor {
             case let .material(nodeIndex, ordinal, bindings, fboTarget):
                 guard let node = nodes[nodeIndex],
                       let pairNode = pairNodes[nodeIndex],
-                      visited.insert(nodeIndex).inserted,
-                      node.kind == .material,
-                      node.materialOrdinal == ordinal,
-                      pairNode.kind == .material,
                       pairNode.currentMemberBeforeNode == pair.member,
                       validate(
                           bindings: bindings,
@@ -254,7 +241,6 @@ extension SceneResolvedMaterialGraphExecutor {
                           pair: pair,
                           publications: publications
                       ), let target = materialTarget(
-                          node: node,
                           pairNode: pairNode,
                           fboTarget: fboTarget,
                           pair: pair,
@@ -399,7 +385,6 @@ extension SceneResolvedMaterialGraphExecutor {
                         pair: &pair,
                         publications: &publications,
                         commands: &commands,
-                        programKeys: &programKeys,
                         effectLocalFailureReasonCode:
                             &effectLocalFailureReasonCode,
                         boundedDetail: failure.boundedDetails.first,
@@ -440,7 +425,6 @@ extension SceneResolvedMaterialGraphExecutor {
                         pair: &pair,
                         publications: &publications,
                         commands: &commands,
-                        programKeys: &programKeys,
                         effectLocalFailureReasonCode:
                             &effectLocalFailureReasonCode,
                         rejection: rejection
@@ -482,7 +466,6 @@ extension SceneResolvedMaterialGraphExecutor {
                         )
                     }
                 }
-                programKeys.append(program.preparedShader.cacheKey)
 #if DEBUG
                 recordTypedUserPropertyUniformPublications(
                     program: program,
@@ -524,10 +507,6 @@ extension SceneResolvedMaterialGraphExecutor {
                 }
 
                 if let fboTarget {
-                    guard node.target == fboTarget.identity,
-                          pairNode.fullFrameWriteMember == nil else {
-                        return .graphStructureRejected
-                    }
                     guard let publication = framebufferResource(
                         lease: lease,
                         identity: fboTarget.identity,
@@ -539,7 +518,6 @@ extension SceneResolvedMaterialGraphExecutor {
                     publications[fboTarget.identity] = publication
                 } else {
                     guard let identity = node.target,
-                          identity == pairStep.outputIdentity,
                           let member = pairNode.fullFrameWriteMember else {
                         return .graphStructureRejected
                     }
@@ -563,9 +541,6 @@ extension SceneResolvedMaterialGraphExecutor {
                     }
                     publications[identity] = publication
                     if pairNode.rotatesAfterNode {
-                        guard member == pairNode.currentMemberAfterNode else {
-                            return .graphStructureRejected
-                        }
                         guard let input = pairResource(
                             lease: lease,
                             identity: pairStep.inputIdentity,
@@ -586,20 +561,14 @@ extension SceneResolvedMaterialGraphExecutor {
                 }
 
             case let .copy(
-                nodeIndex, ordinal, source, sourceResource, target, targetResource
+                _, _, source, sourceResource, target, targetResource
             ):
                 guard validateCommand(
-                    nodeIndex: nodeIndex,
-                    ordinal: ordinal,
                     kind: .copy,
                     source: source,
                     sourceResource: sourceResource,
                     target: target,
                     targetResource: targetResource,
-                    nodes: nodes,
-                    pairNodes: pairNodes,
-                    commandOrdinal: preparedExecution?.commandOrdinalsByNode[nodeIndex],
-                    visited: &visited,
                     publications: publications
                 ), let sourcePublication = publications[source],
                       let content = storableContent(sourcePublication),
@@ -618,20 +587,14 @@ extension SceneResolvedMaterialGraphExecutor {
                 publications[target] = publication
 
             case let .swap(
-                nodeIndex, ordinal, source, sourceResource, target, targetResource
+                _, _, source, sourceResource, target, targetResource
             ):
                 guard validateCommand(
-                    nodeIndex: nodeIndex,
-                    ordinal: ordinal,
                     kind: .swap,
                     source: source,
                     sourceResource: sourceResource,
                     target: target,
                     targetResource: targetResource,
-                    nodes: nodes,
-                    pairNodes: pairNodes,
-                    commandOrdinal: preparedExecution?.commandOrdinalsByNode[nodeIndex],
-                    visited: &visited,
                     publications: publications
                 ), let sourcePublication = publications[source],
                       let targetPublication = publications[target],
@@ -643,11 +606,6 @@ extension SceneResolvedMaterialGraphExecutor {
             }
         }
 
-        guard visited == Set(graph.nodes.map(\.nodeIndex)),
-              programKeys.count == graph.nodes.filter({ $0.kind == .material }).count
-        else {
-            return .graphStructureRejected
-        }
         guard let final = publications[pairStep.outputIdentity],
               let representation = representation(final)
                 ?? (final.publication.candidate.content == .data
@@ -705,49 +663,30 @@ extension SceneResolvedMaterialGraphExecutor {
     }
 
     private func materialTarget(
-        node: Graph.Node,
         pairNode: Pair.NodeStep,
         fboTarget: State.MaterialTarget?,
         pair: PairAtom,
         lease: SceneGraphRenderTargetLease
     ) -> MTLTexture? {
         if let fboTarget {
-            guard node.target == fboTarget.identity,
-                  pairNode.fullFrameWriteMember == nil else { return nil }
             return lease.texturesByToken[fboTarget.resource.token]
         }
-        guard node.target?.kind == .effectOutput,
-              let member = pairNode.fullFrameWriteMember,
+        guard let member = pairNode.fullFrameWriteMember,
               member == pair.member.opposite else { return nil }
         return pairTexture(lease: lease, member: member)
     }
 
     private func validateCommand(
-        nodeIndex: Int,
-        ordinal: Int,
         kind: Graph.NodeKind,
         source: Graph.TextureIdentity,
         sourceResource: State.VersionedResource,
         target: Graph.TextureIdentity,
         targetResource: State.VersionedResource,
-        nodes: [Int: Graph.Node],
-        pairNodes: [Int: Pair.NodeStep],
-        commandOrdinal: Int?,
-        visited: inout Set<Int>,
         publications: [Graph.TextureIdentity: SceneFrameTextureResource]
     ) -> Bool {
-        guard let node = nodes[nodeIndex], let pairNode = pairNodes[nodeIndex],
-              visited.insert(nodeIndex).inserted,
-              node.kind == kind,
-              node.commandSource == source,
-              node.commandTarget == target,
-              pairNode.kind == (kind == .copy ? .copy : .swap),
-              !pairNode.rotatesAfterNode,
-              pairNode.fullFrameReadMember == nil,
-              pairNode.fullFrameWriteMember == nil,
-              publication(
-                  publications[source], matches: sourceResource, identity: source
-              ) else { return false }
+        guard publication(
+            publications[source], matches: sourceResource, identity: source
+        ) else { return false }
         if kind == .swap {
             guard publication(
                 publications[target], matches: targetResource, identity: target
@@ -755,10 +694,7 @@ extension SceneResolvedMaterialGraphExecutor {
         } else {
             guard targetResource.contentGeneration > 0 else { return false }
         }
-        let commandsBefore = commandOrdinal ?? nodes.values.filter {
-            $0.nodeIndex < nodeIndex && ($0.kind == .copy || $0.kind == .swap)
-        }.count
-        return ordinal == commandsBefore
+        return true
     }
 
     func framebufferResource(

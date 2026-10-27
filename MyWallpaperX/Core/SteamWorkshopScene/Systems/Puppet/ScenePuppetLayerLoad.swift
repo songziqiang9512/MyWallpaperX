@@ -67,24 +67,20 @@ enum ScenePuppetLayerLoad {
         cancellationCheck: () throws -> Void = {}
     ) throws -> AssetPreparation {
         try cancellationCheck()
-        // Preserve the former cacheDirectory-only exact lookup, including
-        // hidden paths. A missing primary entry must not select a lower root.
+        // Select one authored VFS entry, including hidden literal paths. An
+        // absent package member may use loose content; a selected bad member
+        // remains authoritative and never falls through after its read.
         guard !meshPath.hasPrefix("/") else {
             return .unavailable(allowsMissingMeshTextureProduct: false,
                 message: "puppet mesh path rejected (\(meshPath))")
         }
-        guard let root = resourceView.roots.first else {
-            return .unavailable(allowsMissingMeshTextureProduct: true,
-                message: "puppet mesh unavailable (\(meshPath))")
-        }
-        let relativePath = meshPath.split(separator: "/", omittingEmptySubsequences: true)
-            .filter { $0 != "." }.joined(separator: "/")
-        guard let handle = root.handle(relativePath: relativePath, exact: true) else {
-            return .unavailable(allowsMissingMeshTextureProduct: false,
-                message: "puppet mesh path rejected (\(meshPath))")
-        }
+        let relativePath = meshPath.replacingOccurrences(of: "\\", with: "/")
         let data: Data
         do {
+            guard let handle = try resourceView.literalEntry(relativePath: relativePath) else {
+                return .unavailable(allowsMissingMeshTextureProduct: true,
+                    message: "puppet mesh unavailable (\(meshPath))")
+            }
             data = try withoutActuallyEscaping(cancellationCheck) { check in
                 try handle.readBytes(checkCancellation: check)
             }

@@ -79,7 +79,7 @@ extension DedicatedWebWallpaperHostPlaceholderAdapter {
     func isSystemMediaEndpointCurrent(_ endpoint: WebWallpaperFrameEndpointRegistry.Endpoint, in webView: WKWebView) -> Bool {
         currentRequest != nil && screenID(for: webView) != nil
             && endpoint.isLeaseValid(now: ProcessInfo.processInfo.systemUptime)
-            && frameEndpointRegistry.endpoints(in: webView).contains { $0 === endpoint }
+            && frameEndpointRegistry.contains(endpoint, in: webView)
     }
 
     /// One in-flight call and one complete latest snapshot per endpoint. Pending

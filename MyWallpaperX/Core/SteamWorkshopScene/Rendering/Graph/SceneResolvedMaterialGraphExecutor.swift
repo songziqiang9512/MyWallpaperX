@@ -55,7 +55,6 @@ final class SceneResolvedMaterialGraphExecutor {
         let graph: Graph
         let pairStep: Pair.EffectStep
         let transition: State.Transition
-        let programCacheKeys: [String]
         let effectLocalFailureReasonCode: String?
         let effectLocalActivationBypassReasonCode: String?
         /// The effect-local fallback discarded a planned persistent target
@@ -75,6 +74,21 @@ final class SceneResolvedMaterialGraphExecutor {
         let effectOutputResource: SceneFrameTextureResource
 
         fileprivate var commands: [Command]
+
+#if DEBUG
+        var programCacheKeys: [String] {
+            if let reason = effectLocalFailureReasonCode {
+                return ["visual-failure-passthrough:\(reason)"]
+            }
+            if let reason = effectLocalActivationBypassReasonCode {
+                return ["activation-passthrough:\(reason)"]
+            }
+            return commands.compactMap { command in
+                guard case let .material(pass) = command else { return nil }
+                return pass.programCacheKey
+            }
+        }
+#endif
     }
 
     struct PreparedGraph {
@@ -393,7 +407,6 @@ final class SceneResolvedMaterialGraphExecutor {
             stageCommands.append(contentsOf: history.commands.map(Command.resource))
 
             var stageTerminalReplay: SceneResolvedMaterialPassEncoder.PreparedPass?
-            var programKeys: [String] = []
             var effectLocalFailureReasonCode: String?
             var effectLocalActivationBypassReasonCode: String?
             if let failure = prepare(
@@ -414,7 +427,6 @@ final class SceneResolvedMaterialGraphExecutor {
                 pair: &pair,
                 publications: &publications,
                 commands: &stageCommands,
-                programKeys: &programKeys,
                 effectLocalFailureReasonCode: &effectLocalFailureReasonCode,
                 effectLocalActivationBypassReasonCode:
                     &effectLocalActivationBypassReasonCode
@@ -468,7 +480,6 @@ final class SceneResolvedMaterialGraphExecutor {
                 graph: graph,
                 pairStep: pairStep,
                 transition: committedTransition,
-                programCacheKeys: programKeys,
                 effectLocalFailureReasonCode: effectLocalFailureReasonCode,
                 effectLocalActivationBypassReasonCode:
                     effectLocalActivationBypassReasonCode,

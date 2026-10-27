@@ -96,8 +96,9 @@ struct SceneGraphRenderTargetLease {
         var textures: [State.PhysicalToken: MTLTexture] = [:]
         var tokenByObject: [ObjectIdentifier: State.PhysicalToken] = [:]
         var logicalOwnerByObject: [ObjectIdentifier: Graph.TextureIdentity] = [:]
+        let physicalTextures = table.orderedPhysicalTextures
         resources.reserveCapacity(identities.count)
-        textures.reserveCapacity(table.residentTextureCount)
+        textures.reserveCapacity(physicalTextures.count)
 
         let pairTextures = [table.fullFramePair.first, table.fullFramePair.second]
         let pairObjects = Set(pairTextures.map(ObjectIdentifier.init))
@@ -115,7 +116,7 @@ struct SceneGraphRenderTargetLease {
         guard pairTextures.allSatisfy({
             textureMatches($0, descriptor: pairDescriptor)
         }) else { return .failure(.descriptorMismatch) }
-        for texture in table.orderedPhysicalTextures {
+        for texture in physicalTextures {
             let object = ObjectIdentifier(texture)
             let token: State.PhysicalToken?
             if pairObjects.contains(object), let tokenForPairTexture {
@@ -131,7 +132,7 @@ struct SceneGraphRenderTargetLease {
             }
             tokenByObject[object] = token
         }
-        guard tokenByObject.count == table.residentTextureCount,
+        guard tokenByObject.count == physicalTextures.count,
               let firstPairToken = tokenByObject[ObjectIdentifier(pairTextures[0])],
               let secondPairToken = tokenByObject[ObjectIdentifier(pairTextures[1])] else {
             return .failure(.missingPhysicalToken)

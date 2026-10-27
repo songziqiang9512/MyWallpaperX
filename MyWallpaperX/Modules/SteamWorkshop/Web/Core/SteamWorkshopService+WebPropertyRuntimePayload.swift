@@ -3,18 +3,11 @@ import Foundation
 extension SteamWorkshopService {
     func resolvedWebRuntimePropertyPayload(
         for definition: SteamWorkshopWebPropertyDefinition,
-        rawValue: SteamWorkshopWebPropertyValue,
         runtimeValue: SteamWorkshopWebPropertyValue,
-        visibleOptions: [SteamWorkshopWebPropertyOption],
-        record: SteamWorkshopDownloadRecord,
-        bindingContext: WebAuthorBindingContext? = nil
+        binding: ResolvedWebResourceBinding?,
+        visibleOptions: [SteamWorkshopWebPropertyOption]
     ) -> [String: Any] {
-        if let binding = resolvedWebResourceBinding(
-            forKey: definition.key,
-            definition: definition,
-            rawValue: rawValue,
-            record: record, bindingContext: bindingContext
-        ), binding.kind == .pathlikePreset {
+        if binding?.kind == .pathlikePreset {
             var payload = Self.webRuntimeFallbackPropertyPayload(forKey: definition.key, value: runtimeValue)
             if !visibleOptions.isEmpty {
                 payload["options"] = visibleOptions.map { option in
@@ -36,19 +29,16 @@ extension SteamWorkshopService {
 
     func resolvedWebRuntimePropertyPayloadJSON(
         for definition: SteamWorkshopWebPropertyDefinition,
-        rawValue: SteamWorkshopWebPropertyValue,
         runtimeValue: SteamWorkshopWebPropertyValue,
-        visibleOptions: [SteamWorkshopWebPropertyOption],
-        record: SteamWorkshopDownloadRecord,
-        bindingContext: WebAuthorBindingContext? = nil
+        binding: ResolvedWebResourceBinding?,
+        visibleOptions: [SteamWorkshopWebPropertyOption]
     ) -> String? {
         let payload = [
             definition.key: resolvedWebRuntimePropertyPayload(
                 for: definition,
-                rawValue: rawValue,
                 runtimeValue: runtimeValue,
-                visibleOptions: visibleOptions,
-                record: record, bindingContext: bindingContext
+                binding: binding,
+                visibleOptions: visibleOptions
             )
         ]
 
@@ -68,11 +58,11 @@ extension SteamWorkshopService {
     ) -> String? {
         let resolvedDefinitions = definitions ?? webPropertyDefinitions(for: record)
         let effectiveValues = valuesOverride ?? effectiveWebPropertyValues(for: record, definitions: resolvedDefinitions)
-        var runtimeResolvedValues = Dictionary(uniqueKeysWithValues: resolvedDefinitions.map { definition in
+        var runtimeProperties = Dictionary(uniqueKeysWithValues: resolvedDefinitions.map { definition in
             let rawValue = effectiveValues[definition.key] ?? definition.defaultValue
             return (
                 definition.key,
-                resolvedWebRuntimeValue(
+                resolvedWebRuntimeProperty(
                     forKey: definition.key,
                     definition: definition,
                     rawValue: rawValue,
@@ -83,24 +73,21 @@ extension SteamWorkshopService {
 
         let pathlikePresetValues = bindingContext?.pathlikePresetValues ?? webShellResourcePathLikePresetValues(for: record)
         let pathlikePresetKeys = Set(pathlikePresetValues.keys)
-        let missingPathlikePresetKeys = pathlikePresetKeys.filter { runtimeResolvedValues[$0] == nil }
+        let missingPathlikePresetKeys = pathlikePresetKeys.filter { runtimeProperties[$0] == nil }
         for key in missingPathlikePresetKeys {
             guard let rawValue = effectiveValues[key] ?? pathlikePresetValues[key] else { continue }
-            if let binding = resolvedWebResourceBinding(
+            let binding = resolvedWebResourceBinding(
                 forKey: key,
                 definition: nil,
                 rawValue: rawValue,
                 record: record, bindingContext: bindingContext
-            ), let resolvedPath = binding.resolvedPath {
-                runtimeResolvedValues[key] = .string(resolvedPath)
-            } else {
-                runtimeResolvedValues[key] = rawValue
-            }
+            )
+            let value = binding.flatMap { $0.resolvedPath }.map(SteamWorkshopWebPropertyValue.string) ?? rawValue
+            runtimeProperties[key] = (value, binding)
         }
 
-        let fallbackPayload = Self.webRuntimePropertyPayloadJSON(definitions: [], values: runtimeResolvedValues)
-        guard !resolvedDefinitions.isEmpty || !runtimeResolvedValues.isEmpty else {
-            return fallbackPayload
+        guard !resolvedDefinitions.isEmpty || !runtimeProperties.isEmpty else {
+            return Self.webRuntimePropertyPayloadJSON(definitions: [], values: runtimeProperties.mapValues { $0.value })
         }
 
         let visibleOptionsByKey = Dictionary(uniqueKeysWithValues: resolvedDefinitions.map { definition in
@@ -116,30 +103,30 @@ extension SteamWorkshopService {
 
         var normalizedProperties: [String: [String: Any]] = [:]
         for definition in resolvedDefinitions where definition.kind != .label && definition.kind != .group {
-            let rawValue = effectiveValues[definition.key] ?? definition.defaultValue
-            let runtimeValue = runtimeResolvedValues[definition.key] ?? definition.defaultValue
+            let property = runtimeProperties[definition.key]
             normalizedProperties[definition.key] = resolvedWebRuntimePropertyPayload(
                 for: definition,
-                rawValue: rawValue,
-                runtimeValue: runtimeValue,
-                visibleOptions: visibleOptionsByKey[definition.key] ?? [],
-                record: record, bindingContext: bindingContext
+                runtimeValue: property?.value ?? definition.defaultValue,
+                binding: property?.binding,
+                visibleOptions: visibleOptionsByKey[definition.key] ?? []
             )
         }
 
         for key in missingPathlikePresetKeys {
             guard normalizedProperties[key] == nil,
-                  let runtimeValue = runtimeResolvedValues[key] else {
+                  let runtimeValue = runtimeProperties[key]?.value else {
                 continue
             }
             normalizedProperties[key] = Self.webRuntimeFallbackPropertyPayload(forKey: key, value: runtimeValue)
         }
 
-        if normalizedProperties.isEmpty { return fallbackPayload }
+        if normalizedProperties.isEmpty {
+            return Self.webRuntimePropertyPayloadJSON(definitions: [], values: runtimeProperties.mapValues { $0.value })
+        }
         guard JSONSerialization.isValidJSONObject(normalizedProperties),
               let normalizedData = try? JSONSerialization.data(withJSONObject: normalizedProperties),
               let json = String(data: normalizedData, encoding: .utf8) else {
-            return fallbackPayload
+            return Self.webRuntimePropertyPayloadJSON(definitions: [], values: runtimeProperties.mapValues { $0.value })
         }
         return json
     }

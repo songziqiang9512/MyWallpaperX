@@ -99,7 +99,7 @@ enum Harness {
         let sidecar = stock.deletingLastPathComponent()
             .appendingPathComponent(SceneResourceIndexBuilder.bundledManifestFilename)
         for path in ["materials/Entry 10.tex", "materials/Entry 2.tex", "materials/İmage.tex",
-                     "materials/ışık.tex", "shaders/entry.vert", "fonts/sample.ttf",
+                     "materials/ışık.tex", "shaders/entry.vert", "fonts/sample.ttf", "C:/valid.tex",
                      ".hidden.tex", ".hidden/inside.tex", "editor.bundle/inside.tex"] {
             try write(path, under: stock, path)
         }
@@ -127,7 +127,7 @@ enum Harness {
             var badHash = envelope; badHash["sha256"] = String(repeating: "0", count: 64)
             cases.append(try JSONSerialization.data(withJSONObject: badHash))
             cases.append(Data(repeating: 32, count: SceneResourceIndexBuilder.maximumBundledManifestBytes + 1))
-            for path in ["", "/absolute", "../escape", "a/../b", "a/./b", "a//b", "a\\b", "C:/bad", "a\0b"] {
+            for path in ["", "/absolute", "../escape", "a/../b", "a/./b", "a//b", "a\\b", "a\0b"] {
                 cases.append(try encoded([["relativePath": path, "fileSize": 1]]))
             }
             cases.append(try encoded([["relativePath": "negative.tex", "fileSize": -1]]))
@@ -539,7 +539,7 @@ class SceneResourceViewTests(unittest.TestCase):
 
     def test_invalid_bundled_manifest_falls_back_to_original_index(self) -> None:
         result = self.run_stock_case("manifest-invalid")
-        self.assertEqual(result.pop("caseCount"), 15)
+        self.assertEqual(result.pop("caseCount"), 14)
         self.assertTrue(all(result.values()), result)
 
     def test_bundled_manifest_rejects_linked_sidecar_inside_same_bundle(self) -> None:

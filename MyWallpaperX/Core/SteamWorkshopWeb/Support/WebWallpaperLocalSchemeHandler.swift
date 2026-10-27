@@ -214,16 +214,18 @@ recordDeny(error)
           const failedURL = "\(escapedRequestURL)";
           const mediaNodes = Array.from(document.querySelectorAll('audio,video'));
           mediaNodes.forEach((node) => {
-            const currentSrc = String(node.currentSrc || node.src || '').trim();
-            if (!currentSrc || currentSrc !== failedURL) return;
+            const declaredSource = String(node.src || '').trim();
+            const sourceNodes = Array.from(node.querySelectorAll('source'));
+            const matchesFailure = declaredSource ? declaredSource === failedURL
+              : sourceNodes.some((source) => String(source.src || source.getAttribute('src') || '').trim() === failedURL);
+            if (!matchesFailure) return;
             try { node.__mwxMissingSource = failedURL; } catch (_) {}
             try { node.pause(); } catch (_) {}
             try { node.removeAttribute('src'); } catch (_) {}
             try {
-              const sourceNodes = Array.from(node.querySelectorAll('source'));
               sourceNodes.forEach((sourceNode) => {
                 const sourceValue = String(sourceNode.currentSrc || sourceNode.src || sourceNode.getAttribute('src') || '').trim();
-                if (sourceValue === failedURL || !sourceValue || sourceValue.toLowerCase().endsWith('/null')) {
+                if (sourceValue === failedURL || !sourceValue) {
                   try { sourceNode.__mwxMissingSource = failedURL; } catch (_) {}
                   try { sourceNode.removeAttribute('src'); } catch (_) {}
                   try { sourceNode.src = ''; } catch (_) {}

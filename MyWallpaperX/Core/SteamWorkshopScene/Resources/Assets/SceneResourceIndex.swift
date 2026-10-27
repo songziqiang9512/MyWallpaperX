@@ -125,8 +125,6 @@ nonisolated struct SceneResourceIndexBuilder {
             let components = path.split(separator: "/", omittingEmptySubsequences: false)
             guard entry.fileSize >= 0, !path.contains("\\"), !path.contains("\0"),
                   components.allSatisfy({ !$0.isEmpty && $0 != "." && $0 != ".." }),
-                  let first = components.first,
-                  !(first.count == 2 && first.last == ":" && first.first?.isLetter == true),
                   paths.insert(path).inserted else { return nil }
         }
         let sorted = entries.sorted {

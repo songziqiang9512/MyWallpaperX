@@ -553,8 +553,6 @@ final class WebDaemonHostAdapter: WallpaperEngine.WebWallpaperHostAdapter {
             }
         case let .capturedFrame(id, data):
             session.captures.removeValue(forKey: id)?(data.flatMap(NSImage.init(data:)))
-        case .prepared, .committed:
-            break // Legacy observations cannot authorize an activation.
         case let .preparationCohort(cohort): receivePreparedCohort(cohort, from: session)
         case let .activationConfirmed(identity, evidence):
             guard candidate === session, !session.isCancelling, !session.visibilityConfirmed,

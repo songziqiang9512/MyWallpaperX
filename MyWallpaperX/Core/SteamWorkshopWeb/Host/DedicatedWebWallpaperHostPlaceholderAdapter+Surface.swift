@@ -251,9 +251,9 @@ extension DedicatedWebWallpaperHostPlaceholderAdapter {
         surface.webView.removeFromSuperview()
         surface.window.orderOut(nil)
         surface.window.close()
+#if DEBUG
         DispatchQueue.main.asyncAfter(deadline: .now() + 1.0) { [weak self, weak webView = surface.webView] in
             guard let self else { return }
-#if DEBUG
             self.recordDiagnostic(
                 type: webView == nil ? "lifecycle.surface.released" : "lifecycle.surface.retained",
                 severity: webView == nil ? .info : .warning,
@@ -261,8 +261,8 @@ extension DedicatedWebWallpaperHostPlaceholderAdapter {
                 screenID: screenID,
                 url: nil
             )
-#endif
         }
+#endif
     }
 
     func resetInteractionState(for screenID: CGDirectDisplayID) {

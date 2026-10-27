@@ -293,7 +293,6 @@ final class WebDaemonRuntime: NSObject, NSApplicationDelegate {
             self.emitObservation()
 #endif
             self.emit(.preparationCohort(.init(generation: generation, surfaces: self.preparedSurfaces)))
-            self.emit(.prepared(generation))
         }
     }
 
@@ -394,7 +393,6 @@ final class WebDaemonRuntime: NSObject, NSApplicationDelegate {
             emitObservation()
 #endif
             emit(.activationConfirmed(identity, evidence))
-            emit(.committed(identity.generation))
             return
         }
         let poll = DispatchWorkItem { [weak self] in self?.checkActivationVisibility(identity) }

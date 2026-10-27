@@ -271,6 +271,64 @@ private func registrySnapshotChecks(_ device: MTLDevice) -> [String: Bool] {
     return checks
 }
 
+private func registryKeyOrderChecks(_ device: MTLDevice) -> [String: Bool] {
+    let ordered = SceneFrameTextureRegistry()
+    let first = texture(device), second = texture(device)
+    ordered.beginFrame(layerSources: Dictionary(uniqueKeysWithValues: [(9, first), (2, second)]))
+    let low = ordered.lookup(.layerSource(2)), high = ordered.lookup(.layerSource(9))
+    let initialDigest = ordered.snapshot().selectionDigest
+    ordered.beginFrame(layerSources: Dictionary(uniqueKeysWithValues: [(2, second), (9, first)]))
+    let insertionOrderPreserved = statusToken(low) < statusToken(high)
+        && same(ordered.lookup(.layerSource(2)), low)
+        && same(ordered.lookup(.layerSource(9)), high)
+        && ordered.snapshot().selectionDigest == initialDigest
+    ordered.beginFrame(layerSources: [4: second, 9: first])
+    let sameCountReplacementPublished = ordered.lookup(.layerSource(2)) == nil
+        && ordered.texture(for: .layerSource(4)) === second
+        && statusToken(ordered.lookup(.layerSource(4))) > statusToken(high)
+        && same(ordered.lookup(.layerSource(9)), high)
+
+    let property = SceneUserPropertyTextureIdentity(propertyKey: "cover", purpose: .premultipliedColor)!
+    let request = Identity.materialUserProperty(property), alias = Identity.userProperty(property.propertyKey)
+    let bare: [String: MTLTexture] = ["other": second, "cover": first]
+    ordered.beginFrame(layerSources: [:], userPropertyTextures: bare)
+    let original = ordered.lookup(alias), other = ordered.lookup(.userProperty("other"))
+    let bareDigest = ordered.snapshot().selectionDigest
+    let states: [(String, SceneTextureProviderState)] = [
+        ("pending", .pending),
+        ("ready", .ready(resource(identity(920), texture: second, generation: 1)
+            .publication.publication(for: request))),
+        ("unavailable", .unavailable), ("absent", .absent),
+    ]
+    var checks = ["frameKeyOrder-insertionOrderPreserved": insertionOrderPreserved,
+        "frameKeyOrder-sameCountReplacementPublished": sameCountReplacementPublished,
+        "frameKeyOrder-barePropertyPublicationOrder": statusToken(original) < statusToken(other)]
+    for (name, state) in states {
+        ordered.beginFrame(layerSources: [:], userPropertyTextures: bare,
+            userPropertyStates: [property: state])
+        let masked: Bool
+        switch (state, ordered.lookup(request), ordered.lookup(alias)) {
+        case (.pending, .pending?, .pending?), (.unavailable, .unavailable?, .unavailable?),
+             (.absent, .absent?, .absent?):
+            masked = true
+        case let (.ready, .ready(typed)?, .ready(legacy)?):
+            masked = typed.publication.texture === second && legacy.publication.texture === second
+                && typed.resourceGeneration == legacy.resourceGeneration
+        default: masked = false
+        }
+        checks["frameKeyOrder-typed_\(name)_masksCurrentBareTexture"] = masked
+            && same(ordered.lookup(.userProperty("other")), other)
+            && ordered.snapshot().selectionDigest != bareDigest
+        ordered.commitFramePublication()
+    }
+    ordered.beginFrame(layerSources: [:], userPropertyTextures: bare)
+    checks["frameKeyOrder-acceptedResetReturnsToBareOnTypedRemoval"] = ordered.lookup(request) == nil
+        && ordered.texture(for: alias) === first
+        && statusToken(ordered.lookup(alias)) > statusToken(original)
+        && ordered.snapshot().selectionDigest == bareDigest
+    return checks
+}
+
 private func statusToken(_ status: Status?) -> UInt64 {
     switch status {
     case let .ready(resource):
@@ -400,6 +458,7 @@ private enum Harness {
             checks["finalViewDoesNotRetainIntermediateAtom"] = lifetimeChecks(device, keepBranch: false)
             checks["explicitBranchRetiresAtLastValue"] = lifetimeChecks(device, keepBranch: true)
             checks.merge(registrySnapshotChecks(device)) { _, new in new }
+            checks.merge(registryKeyOrderChecks(device)) { _, new in new }
             result = ["metalAvailable": true, "checks": checks]
         }
         let data = try JSONSerialization.data(withJSONObject: result, options: [.sortedKeys])

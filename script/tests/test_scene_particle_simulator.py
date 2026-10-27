@@ -1184,10 +1184,10 @@ enum Harness {
             controlPointDefaultAngleJSON, override: replacementOverride, seed: 1, step: 1
         )
         replacementAngle.advance(by: 1)
-        let xyzRotation = SceneParticleSimulationMath.rotateXYZ(
-            SIMD3(1, 2, 3),
-            by: SIMD3(repeating: Double.pi / 2)
-        )
+        let xyzRotation = SceneParticleEmitterControlPointFrame(
+            origin: .zero, sine: .init(repeating: sin(Double.pi / 2)),
+            cosine: .init(repeating: cos(Double.pi / 2))
+        ).direction(for: SIMD3(1, 2, 3))
         let invalidDefinitionAngles = [
             #""angles":"1 2""#,
             #""angles":"nan 0 0""#,

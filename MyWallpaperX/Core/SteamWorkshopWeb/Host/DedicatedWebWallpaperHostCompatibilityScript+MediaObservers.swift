@@ -184,13 +184,6 @@ let webCompatibilityScriptMediaObservers = #"""
     } catch (_) {}
     const registeredMediaNodes = new WeakSet();
     \#(webCompatibilityScriptMediaDiagnosticState)
-    Array.from(document.querySelectorAll('source')).forEach((sourceNode) => {
-      const src = (sourceNode.getAttribute('src') || '').trim();
-      if (!src) {
-        hostLogger?.post('resource.sanitized', `empty-source ${sourceNode.outerHTML}`);
-        sourceNode.remove();
-      }
-    });
     // 作者意图记录：页面自己调用 play()/pause() 才改写 __myWallpaperAuthorPaused。
     // 宿主暂停走 WebKit 原生媒体门（setAllMediaPlaybackSuspended）与兼容层的
     // 原始方法调用，都不经过这两个包装器，因此不会被误记为作者暂停。
@@ -198,24 +191,6 @@ let webCompatibilityScriptMediaObservers = #"""
       const _originalPlay = HTMLMediaElement.prototype.play;
       HTMLMediaElement.prototype.play = function() {
         try { this.__myWallpaperAuthorPaused = false; } catch (_) {}
-        const isInvalidMediaSource =
-          typeof window.__myWallpaperIsInvalidMediaSourceValue === 'function'
-            ? window.__myWallpaperIsInvalidMediaSourceValue
-            : (value) => !String(value || '').trim();
-        const mediaSrc = this.currentSrc || (this.getAttribute && this.getAttribute('src')) || this.src || '';
-        let hasSrc = !!mediaSrc && !isInvalidMediaSource(mediaSrc);
-        if (!hasSrc && typeof this.querySelectorAll === 'function') {
-          try {
-            hasSrc = Array.from(this.querySelectorAll('source')).some((sourceNode) => {
-              const sourceValue = sourceNode.currentSrc || (sourceNode.getAttribute && sourceNode.getAttribute('src')) || sourceNode.src || '';
-              return !!sourceValue && !isInvalidMediaSource(sourceValue);
-            });
-          } catch (_) {}
-        }
-        if (!hasSrc) {
-          hostLogger?.post('resource.sanitized', 'play() skipped: no src on media node');
-          return Promise.resolve();
-        }
         return _originalPlay.apply(this, arguments);
       };
     }

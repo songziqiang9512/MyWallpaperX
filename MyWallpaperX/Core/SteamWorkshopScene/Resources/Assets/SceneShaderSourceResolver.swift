@@ -6,6 +6,7 @@ import Foundation
 nonisolated struct SceneShaderSourceResolver {
     typealias Provenance = SceneShaderSourceGraph.Provenance
     typealias Failure = SceneShaderSourceGraph.ResourceFailure
+    typealias CapturedRootStage = (handle: SceneResourceView.Handle, file: ResolvedFile)
 
     nonisolated struct ResolvedFile: Equatable, Sendable {
         let virtualPath: String
@@ -13,6 +14,7 @@ nonisolated struct SceneShaderSourceResolver {
         let source: String
         let rawSHA256: String
         let byteCount: Int
+        let parsedIncludes: [SceneShaderContract.Include]?
     }
 
     nonisolated enum Resolution: Equatable, Sendable {
@@ -58,6 +60,7 @@ nonisolated struct SceneShaderSourceResolver {
         virtualPath rawPath: String,
         resourceView: SceneResourceView,
         maximumBytes: Int,
+        capturedRootStage: CapturedRootStage? = nil,
         checkCancellation: (() throws -> Void)? = nil
     ) throws -> ResolutionSet {
         try checkCancellation?()
@@ -71,7 +74,8 @@ nonisolated struct SceneShaderSourceResolver {
         // unreadable or disappears. It must never expose a lower-root shader.
         if let selected = resourceView.resolvedResource(relativePath: virtualPath) {
             let resolution = try resolve(virtualPath: virtualPath, root: selected.owner,
-                maximumBytes: maximumBytes, checkCancellation: checkCancellation)
+                maximumBytes: maximumBytes, capturedRootStage: capturedRootStage,
+                checkCancellation: checkCancellation)
             let upperMisses = resourceView.roots.prefix { !$0.owns(selected) }.map {
                 CandidateResolution(provenance: Self.provenance($0.source), resolution: .failed(.missing))
             }
@@ -83,7 +87,8 @@ nonisolated struct SceneShaderSourceResolver {
         var candidates: [CandidateResolution] = []
         for root in resourceView.roots {
             let resolution = try resolve(virtualPath: virtualPath, root: root,
-                maximumBytes: maximumBytes, checkCancellation: checkCancellation)
+                maximumBytes: maximumBytes, capturedRootStage: capturedRootStage,
+                checkCancellation: checkCancellation)
             candidates.append(.init(provenance: Self.provenance(root.source), resolution: resolution))
             if !isMissing(resolution) { return .init(selected: resolution, candidates: candidates) }
         }
@@ -94,9 +99,20 @@ nonisolated struct SceneShaderSourceResolver {
         virtualPath: String,
         root: SceneResourceView.Root,
         maximumBytes: Int,
+        capturedRootStage: CapturedRootStage?,
         checkCancellation: (() throws -> Void)? = nil
     ) throws -> Resolution {
         guard let handle = root.handle(relativePath: virtualPath) else { return .failed(.invalidPath) }
+        if let capturedRootStage,
+           capturedRootStage.handle.owner === handle.owner,
+           capturedRootStage.handle.relativePath.utf8.elementsEqual(handle.relativePath.utf8) {
+            let file = capturedRootStage.file
+            guard file.byteCount <= maximumBytes else { return .failed(.fileTooLarge) }
+            return .resolved(.init(virtualPath: virtualPath,
+                provenance: Self.provenance(root.source), source: file.source,
+                rawSHA256: file.rawSHA256, byteCount: file.byteCount,
+                parsedIncludes: file.parsedIncludes))
+        }
         let data: Data
         do { data = try root.readBytes(handle, maximumBytes: maximumBytes, checkCancellation: checkCancellation) }
         catch let error as SceneResourceView.ReadError {
@@ -114,7 +130,7 @@ nonisolated struct SceneShaderSourceResolver {
         }
         return .resolved(.init(virtualPath: virtualPath,
             provenance: Self.provenance(root.source), source: shaderSource,
-            rawSHA256: sha256(data), byteCount: data.count))
+            rawSHA256: sha256(data), byteCount: data.count, parsedIncludes: nil))
     }
 
     nonisolated private func isMissing(_ resolution: Resolution) -> Bool {
@@ -198,20 +214,12 @@ nonisolated struct SceneShaderSourceResolver {
     nonisolated private static func isSafeRelativeInput(_ path: String) -> Bool {
         guard !path.isEmpty,
               !path.hasPrefix("/"),
-              !hasDrivePrefix(path),
               !path.unicodeScalars.contains(where: {
                   $0.value < 32 || $0.value == 127
               }) else {
             return false
         }
         return true
-    }
-
-    nonisolated private static func hasDrivePrefix(_ path: String) -> Bool {
-        guard path.count >= 2 else { return false }
-        let start = path.startIndex
-        let next = path.index(after: start)
-        return path[start].isLetter && path[next] == ":"
     }
 
     nonisolated static func provenance(_ source: SceneResourceView.Source) -> Provenance {

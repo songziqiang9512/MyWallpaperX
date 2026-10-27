@@ -53,13 +53,14 @@ enum SceneResolvedMaterialGraphObservationBuilder {
                 ?? value.effectLocalFailureReasonCode
                 ?? value.effectLocalActivationBypassReasonCode
         )
+        let programCacheKeys = value.programCacheKeys
         guard nodes.count == value.graph.nodes.count,
-              !value.programCacheKeys.isEmpty else {
+              !programCacheKeys.isEmpty else {
             throw Failure.invalidProgram
         }
 
         let programSequence = SceneShaderStableDigest.hash(
-            Data(value.programCacheKeys.joined(separator: "\n").utf8)
+            Data(programCacheKeys.joined(separator: "\n").utf8)
         )
         let failed = failedReason != nil
         let baseMapping = committedBaseState?.logicalMapping ?? [:]
@@ -80,7 +81,7 @@ enum SceneResolvedMaterialGraphObservationBuilder {
                 descriptorID: effect.descriptorID
             ),
             graphIdentity: SceneShaderStableDigest.hash(value.graph),
-            programIdentity: value.programCacheKeys.first ?? "commands-only",
+            programIdentity: programCacheKeys.first ?? "commands-only",
             programSequenceIdentity: programSequence,
             transactionIdentity: "r4:\(executionEpoch):\(transactionID):\(effect.effectIndex)",
             frameIndex: frameIndex,

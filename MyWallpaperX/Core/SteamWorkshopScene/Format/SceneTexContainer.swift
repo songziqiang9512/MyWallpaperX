@@ -326,10 +326,6 @@ nonisolated struct SceneTexContainerReader {
             images.append(.init(mips: parsedMips))
         }
 
-        guard images.count == imageCount,
-              images.allSatisfy({ !$0.mips.isEmpty }) else {
-            throw ReadError.invalidMipTable
-        }
         if volumeHeader {
             guard imageCount == 1,
                   images[0].mips.count == 1,
