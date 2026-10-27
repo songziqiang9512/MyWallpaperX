@@ -392,8 +392,7 @@ nonisolated final class SystemMediaSnapshotStore: @unchecked Sendable {
     nonisolated private static func isValidMediaProperty(
         _ value: String
     ) -> Bool {
-        guard let data = value.data(using: .utf8),
-              data.count <= maximumMediaPropertyUTF8ByteCount else {
+        guard value.utf8.count <= maximumMediaPropertyUTF8ByteCount else {
             return false
         }
         return !value.unicodeScalars.contains(where: {

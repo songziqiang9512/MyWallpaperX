@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Create or verify an isolated Scene sample snapshot and probe matrix."""
+"""Snapshot authored Scene content, excluding App installation metadata."""
 
 from __future__ import annotations
 
@@ -21,6 +21,7 @@ from scene_capability_census_io import is_sample_directory_name
 
 DERIVED_NAMES = {
     ".DS_Store",
+    ".mywallpaperx-steam-version.json",
     ".mywallpaperx-scene-interpretation.json",
     ".mywallpaperx-scene-preview-log.txt",
 }
@@ -84,9 +85,6 @@ def create_snapshot(args: argparse.Namespace) -> int:
             continue
         project = json.loads(project_path.read_text(encoding="utf-8"))
         package = package_path(sample, project)
-        if package is None:
-            skipped.append({"id": sample.name, "reason": "missing package"})
-            continue
 
         destination = isolated_scene_root / sample.name
         shutil.copytree(
@@ -99,21 +97,24 @@ def create_snapshot(args: argparse.Namespace) -> int:
         sample_manifest = {
             "id": sample.name,
             "title": title,
-            "package_file": package.name,
+            "package_file": package.name if package is not None else None,
             "project_sha256": sha256(project_path),
-            "package_sha256": sha256(package),
+            "package_sha256": sha256(package) if package is not None else None,
             "tree_sha256": tree_hash,
             "file_count": file_count,
             "byte_count": byte_count,
         }
         manifest_samples.append(sample_manifest)
-        matrix_samples.append({
+        matrix_sample = {
             "id": sample.name,
             "title": title,
             "project_sha256": sample_manifest["project_sha256"],
             "package_sha256": sample_manifest["package_sha256"],
             "expected_runtime_evidence_schema": args.runtime_evidence_schema,
-        })
+        }
+        if package is None:
+            matrix_sample.update(package_file=None, tree_sha256=tree_hash)
+        matrix_samples.append(matrix_sample)
 
     manifest = {
         "schema_version": 1,

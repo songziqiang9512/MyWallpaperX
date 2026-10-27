@@ -26,6 +26,9 @@ class PersonalSettingsImportTests(unittest.TestCase):
     def test_video_sort_profile_bridges_live_view_and_recovers_without_overwriting_later_edits(self):
         self.run_profile_harness("video-sort")
 
+    def test_repeated_paths_and_alias_retarget_use_each_import_snapshot(self):
+        self.run_profile_harness("path-reuse")
+
     def run_profile_harness(self, *arguments):
         sources = [ROOT / 'MyWallpaperX' / path for path in (
             'Models/WallpaperControls.swift', 'Models/WallpaperSettings.swift',
@@ -95,7 +98,11 @@ extension WallpaperIndexStore {
                          MWX_PROFILE_TEST_ROOT=str(work), MWX_PROFILE_TEST_DOMAIN='MWX.Profile.' + uuid.uuid4().hex))
             self.assertEqual(run.returncode, 0, run.stdout + run.stderr)
             checks = json.loads(run.stdout)
-            self.assertGreaterEqual(len(checks), 25)
+            if arguments == ("path-reuse",):
+                checks = checks["checks"]
+                self.assertGreaterEqual(len(checks), 10)
+            else:
+                self.assertGreaterEqual(len(checks), 25)
             for name, passed in checks.items():
                 with self.subTest(name=name): self.assertIs(passed, True)
             print(json.dumps(checks, sort_keys=True))

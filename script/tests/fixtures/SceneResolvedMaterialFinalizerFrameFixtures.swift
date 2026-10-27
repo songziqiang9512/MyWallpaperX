@@ -602,7 +602,8 @@ func readyStatus(
     ))
 }
 
-func uniformInputs(parallax: SIMD2<Float> = SIMD2(0.5, -0.25)) -> SceneAuthoredShaderUniformInputs {
+func uniformInputs(parallax: SIMD2<Float> = SIMD2(0.5, -0.25),
+                   projectionInverse: simd_float4x4 = effectProjectionInverse) -> SceneAuthoredShaderUniformInputs {
     .init(
         frameIndex: 1,
         renderSize: CGSize(width: 640, height: 360),
@@ -610,8 +611,7 @@ func uniformInputs(parallax: SIMD2<Float> = SIMD2(0.5, -0.25)) -> SceneAuthoredS
         modelViewProjection: matrix_identity_float4x4,
         layerModelMatrix: layerModelMatrix,
         effectOutputModelViewProjection: effectOutputModelViewProjection,
-        effectTextureProjectionMatrix: effectProjectionInverse.inverse,
-        effectTextureProjectionMatrixInverse: effectProjectionInverse,
+        effectTextureProjectionMatrixInverse: projectionInverse,
         sceneTime: 2,
         dayTime: 0.5,
         frameTime: 1 / 60,
@@ -744,6 +744,7 @@ func finalize(
     userPropertyScaleRange: ClosedRange<Double>? = nil,
     renderState: SceneMaterialRenderState = state(),
     resolvedLayerModelMatrix: simd_float4x4 = layerModelMatrix,
+    projectionInverse: simd_float4x4 = effectProjectionInverse,
     implicitFramebufferIdentity: Graph.TextureIdentity? = nil,
     audioSpectrum: SceneAuthoredShaderAudioSpectrumInputs = .silent,
     variantCache: SceneResolvedMaterialVariantCache? = nil,
@@ -804,7 +805,7 @@ func finalize(
             modelViewProjection: matrix_identity_float4x4,
             layerModelMatrix: resolvedLayerModelMatrix,
             effectOutputModelViewProjection: effectOutputModelViewProjection,
-            effectTextureProjectionMatrixInverse: effectProjectionInverse,
+            effectTextureProjectionMatrixInverse: projectionInverse,
             implicitFramebufferIdentity: implicitFramebufferIdentity
         )
         let cache: SceneResolvedMaterialVariantCache

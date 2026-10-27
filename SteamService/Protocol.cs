@@ -200,11 +200,13 @@ internal sealed class ProtocolDecode
         return groups.ToArray();
     }
 
-    public ulong[] PayloadULongArray(string name) =>
-        PayloadStringArray(name)
-            .Where(s => ulong.TryParse(s, out _))
-            .Select(ulong.Parse)
-            .ToArray();
+    public ulong[] PayloadULongArray(string name)
+    {
+        var values = new List<ulong>();
+        foreach (var text in PayloadStringArray(name))
+            if (ulong.TryParse(text, out var value)) values.Add(value);
+        return values.ToArray();
+    }
 
     public static ProtocolDecode Parse(string frame)
     {

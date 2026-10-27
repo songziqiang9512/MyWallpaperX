@@ -159,8 +159,6 @@ nonisolated struct SceneResolvedMaterialFinalizationInput {
             effectUnitModelMatrix: effectUnitModelMatrix,
             effectOutputModelViewProjection:
                 effectOutputModelViewProjection,
-            effectTextureProjectionMatrix:
-                effectTextureProjectionMatrixInverse.inverse,
             effectTextureProjectionMatrixInverse: effectTextureProjectionMatrixInverse,
             effectDrawAlpha: effectDrawAlpha,
             effectDrawColor: effectDrawColor,
@@ -458,36 +456,31 @@ nonisolated enum SceneResolvedMaterialProgramFinalizer {
         variant: SceneResolvedMaterialCompiledVariant,
         slots: [Program.TextureSlot?]
     ) throws -> [Program.ResolvedUniform] {
-        let fields = variant.frontendProgram.uniformLayout.fields
-        guard variant.preparedUniformBindings.count == fields.count,
-              zip(fields, variant.preparedUniformBindings).allSatisfy({
-                  $0 == $1.field
-              }) else {
-            throw failure(
-                .invariant,
-                .programAssemblyIdentityInvariant,
-                details: ["prepared-uniform-binding-layout-mismatch"]
-            )
-        }
+        var forwardProjectionBytes: Data?
         return try variant.preparedUniformBindings.map { binding in
             let field = binding.field
             switch binding.source {
             case let .host(host):
                 let value: Data
-                switch SceneResolvedMaterialUniformEncoder.resolveHost(
-                    host, type: field.type, inputs: uniformInputs, slots: slots
-                ) {
-                case let .encoded(encoded): value = encoded
-                case .inputUnavailable:
-                    throw failure(
-                        .uniform, .hostUniformInputUnavailable,
-                        details: [field.name]
-                    )
-                case .invalid:
-                    throw failure(
-                        .uniform, .hostUniformBindingInvalid,
-                        details: [field.name]
-                    )
+                if host == .effectTextureProjectionMatrix,
+                   field.type == .float4x4, let encoded = forwardProjectionBytes {
+                    value = encoded
+                } else {
+                    switch SceneResolvedMaterialUniformEncoder.resolveHost(
+                        host, type: field.type, inputs: uniformInputs, slots: slots
+                    ) {
+                    case let .encoded(encoded): value = encoded
+                    case .inputUnavailable:
+                        throw failure(
+                            .uniform, .hostUniformInputUnavailable,
+                            details: [field.name]
+                        )
+                    case .invalid:
+                        throw failure(
+                            .uniform, .hostUniformBindingInvalid,
+                            details: [field.name]
+                        )
+                    }
                 }
                 guard value.count == field.storageByteSize else {
                     throw failure(
@@ -495,6 +488,10 @@ nonisolated enum SceneResolvedMaterialProgramFinalizer {
                         .hostUniformBindingInvalid,
                         details: [field.name]
                     )
+                }
+                if host == .effectTextureProjectionMatrix,
+                   forwardProjectionBytes == nil {
+                    forwardProjectionBytes = value
                 }
                 return .init(
                     field: field,

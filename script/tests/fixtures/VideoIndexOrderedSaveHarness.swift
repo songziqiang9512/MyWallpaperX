@@ -1,4 +1,5 @@
 import AppKit
+import Combine
 import Foundation
 
 // This storage gate does not accept a playback Pending. Actual sequence/ticket
@@ -34,6 +35,17 @@ enum BundledVideoLibrary {
     let wallpapersKey = "Wallpapers"
     var settingsAutoSaveWorkItem: DispatchWorkItem?
     var wallpapersAutoSaveWorkItem: DispatchWorkItem?
+#if VIDEO_INDEX_ASSET_PUBLICATION
+    var cancellables = Set<AnyCancellable>()
+    var auditPublications = 0
+    var auditCurrentPublications = 0
+    var auditScheduleEntries = 0
+    func observeAssetPublication() {
+        $wallpapers.dropFirst().sink { [weak self] _ in self?.auditPublications += 1 }.store(in: &cancellables)
+        $currentWallpaper.dropFirst().sink { [weak self] _ in self?.auditCurrentPublications += 1 }.store(in: &cancellables)
+        // ACTUAL_ASSET_SINK
+    }
+#endif
     // PRODUCTION_STATE
     // PRODUCTION_METHODS
 
@@ -104,6 +116,12 @@ enum BundledVideoLibrary {
                 manager.defaults.removePersistentDomain(forName: ProcessInfo.processInfo.environment["MWX_VIDEO_INDEX_TEST_DOMAIN"]!)
             }
         }
+#if VIDEO_INDEX_ASSET_PUBLICATION
+        if mode == "asset-publication" {
+            try assetPublication(manager, store: store)
+            return
+        }
+#endif
         let a = record("A"), b = record("B"), c = record("C")
         var checks: [String: Bool] = [:]
         // Source persistence must not resurrect retired relationship/view
@@ -567,3 +585,130 @@ enum BundledVideoLibrary {
         print(String(data: try JSONEncoder().encode(checks), encoding: .utf8)!)
     }
 }
+
+#if VIDEO_INDEX_ASSET_PUBLICATION
+extension VideoIndexOrderedSaveChecks {
+    @MainActor static func assetPublication(_ manager: WallpaperManager, store: WallpaperIndexStore) throws {
+        let root = URL(fileURLWithPath: ProcessInfo.processInfo.environment["MWX_VIDEO_INDEX_TEST_ROOT"]!)
+        let source = root.appendingPathComponent("source.mp4"), alias = root.appendingPathComponent("source-alias.mp4")
+        try Data("owned path fixture".utf8).write(to: source)
+        try FileManager.default.createSymbolicLink(at: alias, withDestinationURL: source)
+        var a = record("A", path: source.path), b = record("B", path: root.appendingPathComponent("other.mp4").path)
+        a.thumbnailPath = "thumb-A"; a.staticFramePath = "frame-A"
+        a.tags = ["retained"]; a.isFavorite = true; a.firstIndexedAt = Date(timeIntervalSinceReferenceDate: 123)
+        b.tags = ["peer"]
+        var functional: [String: Any] = [:], work: [String: Any] = [:]
+        func seed(_ rows: [VideoWallpaper], current: VideoWallpaper?) throws {
+            manager.cancellables.removeAll()
+            manager.wallpapersAutoSaveWorkItem?.cancel(); manager.wallpapersAutoSaveWorkItem = nil
+            manager.migrationRecoveryMessage = nil; manager.didFinishInitialIndexLoad = true
+            manager.initialIndexChanges = WallpaperIndexStartupChanges()
+            manager.initialIndexSeedWallpapers = []; manager.initialIndexLoadInFlight = false
+            manager.wallpapers = rows; manager.currentWallpaper = current
+            try store.saveWallpapers(rows); store.clearAudit()
+            manager.auditPublications = 0; manager.auditCurrentPublications = 0; manager.auditScheduleEntries = 0
+            manager.observeAssetPublication()
+        }
+        func settle() {
+            // Exercise the original 250ms scheduling, not a manually invoked save.
+            RunLoop.main.run(until: Date().addingTimeInterval(0.35))
+            wait("asset persistence drained") { manager.idle }
+        }
+        func json<Value: Encodable>(_ value: Value) throws -> Any {
+            try JSONSerialization.jsonObject(with: JSONEncoder().encode(value), options: [.fragmentsAllowed])
+        }
+        func capture(_ phase: String, expectedRows: [VideoWallpaper], expectedCurrent: VideoWallpaper?,
+                     expectedDatabase: [VideoWallpaper]? = nil, extra: [String: Bool] = [:],
+                     extraWork: [String: Int] = [:]) throws {
+            settle()
+            let database = try store.loadWallpapers()
+            var checks = extra
+            checks["rows"] = manager.wallpapers == expectedRows
+            checks["current"] = manager.currentWallpaper == expectedCurrent
+            checks["database"] = database == (expectedDatabase ?? expectedRows)
+            checks["mainThread"] = Thread.isMainThread
+            functional[phase] = ["rows": try json(manager.wallpapers), "current": try json(manager.currentWallpaper),
+                "database": try json(database), "checks": checks]
+            var counts = extraWork
+            counts["publications"] = manager.auditPublications
+            counts["currentPublications"] = manager.auditCurrentPublications
+            counts["scheduleEntries"] = manager.auditScheduleEntries
+            counts["saveEntries"] = store.savedIDsForAudit().count
+            work[phase] = counts
+        }
+        try seed([a, b], current: a)
+        manager.updateWallpaperAssetPaths(forPath: a.path, thumbnailPath: a.thumbnailPath, staticFramePath: a.staticFramePath)
+        try capture("sameValue", expectedRows: [a, b], expectedCurrent: a)
+        try seed([a, b], current: a)
+        manager.updateWallpaperAssetPaths(forPath: a.path)
+        try capture("nilInputs", expectedRows: [a, b], expectedCurrent: a)
+
+        try seed([a, b], current: a)
+        var changed = a; changed.thumbnailPath = "thumb-B"; changed.staticFramePath = "frame-B"
+        manager.updateWallpaperAssetPaths(forPath: a.path, staticFramePath: changed.staticFramePath)
+        manager.updateWallpaperAssetPaths(forPath: a.path, thumbnailPath: changed.thumbnailPath)
+        try capture("changedBatch", expectedRows: [changed, b], expectedCurrent: changed)
+
+        try seed([a, b], current: a)
+        var frameChanged = a; frameChanged.staticFramePath = "frame-B"
+        manager.updateWallpaperAssetPaths(forPath: a.path, staticFramePath: frameChanged.staticFramePath)
+        let originalTimer = manager.wallpapersAutoSaveWorkItem
+        manager.updateWallpaperAssetPaths(forPath: a.path, staticFramePath: frameChanged.staticFramePath)
+        let retainedTimer = originalTimer != nil && originalTimer === manager.wallpapersAutoSaveWorkItem
+            && originalTimer?.isCancelled == false
+        try capture("pendingThenNoop", expectedRows: [frameChanged, b], expectedCurrent: frameChanged,
+            extraWork: ["retainedPendingTimer": retainedTimer ? 1 : 0])
+
+        var unpreparedCurrent = a; unpreparedCurrent.thumbnailPath = nil; unpreparedCurrent.staticFramePath = nil
+        try seed([a, b], current: unpreparedCurrent)
+        manager.updateWallpaperAssetPaths(forPath: a.path, thumbnailPath: a.thumbnailPath, staticFramePath: a.staticFramePath)
+        try capture("currentOnly", expectedRows: [a, b], expectedCurrent: a)
+        try seed([b], current: unpreparedCurrent)
+        manager.updateWallpaperAssetPaths(forPath: a.path, thumbnailPath: a.thumbnailPath, staticFramePath: a.staticFramePath)
+        try capture("absentRowCurrent", expectedRows: [b], expectedCurrent: a)
+
+        try seed([a, b], current: b)
+        DispatchQueue.main.async { manager.updateWallpaperAssetPaths(forPath: a.path, staticFramePath: "late-frame") }
+        manager.wallpapers.removeAll { $0.id == a.id }
+        try capture("removedBeforeCallback", expectedRows: [b], expectedCurrent: b)
+
+        var duplicate = record("alias-peer", path: alias.path); duplicate.staticFramePath = "peer-frame"
+        var duplicateCurrent = duplicate; duplicateCurrent.staticFramePath = "alias-frame"
+        var aliasChanged = a; aliasChanged.staticFramePath = "alias-frame"
+        try seed([a, duplicate, b], current: duplicate)
+        manager.updateWallpaperAssetPaths(forPath: alias.path, staticFramePath: "alias-frame")
+        // Distinct stored spellings resolve to one source. The original
+        // first-match lookup must update only the first indexed row.
+        try capture("aliasFirstMatch", expectedRows: [aliasChanged, duplicate, b], expectedCurrent: duplicateCurrent)
+
+        try seed([a, b], current: a)
+        var empty = a; empty.staticFramePath = ""
+        manager.updateWallpaperAssetPaths(forPath: a.path, staticFramePath: "")
+        try capture("emptyString", expectedRows: [empty, b], expectedCurrent: empty)
+
+        try seed([a, b], current: a)
+        let entered = DispatchSemaphore(value: 0), release = DispatchSemaphore(value: 0)
+        store.holdQueueForAudit(entered: entered, release: release)
+        precondition(entered.wait(timeout: .now() + 5) == .success)
+        manager.didFinishInitialIndexLoad = false
+        manager.retryInitialIndexLoadIfNeeded()
+        manager.updateWallpaperAssetPaths(forPath: a.path, staticFramePath: a.staticFramePath)
+        let noFalseDelta = manager.initialIndexChanges.isEmpty
+        manager.updateWallpaperAssetPaths(forPath: a.path, staticFramePath: frameChanged.staticFramePath)
+        let trueDelta = !manager.initialIndexChanges.isEmpty
+        manager.updateWallpaperAssetPaths(forPath: a.path, staticFramePath: frameChanged.staticFramePath)
+        release.signal()
+        wait("real initial reply merged") { manager.didFinishInitialIndexLoad && manager.idle }
+        try capture("initialLoad", expectedRows: [frameChanged, b], expectedCurrent: frameChanged,
+            extra: ["sameValueCreatesNoDelta": noFalseDelta, "changedValueCreatesDelta": trueDelta,
+                "journalClearedAfterDurableSave": manager.defaults.data(forKey: manager.initialIndexChangesKey) == nil])
+
+        try seed([a, b], current: a)
+        manager.migrationRecoveryMessage = "owned recovery-mode fixture"
+        manager.updateWallpaperAssetPaths(forPath: a.path, staticFramePath: frameChanged.staticFramePath)
+        try capture("readOnly", expectedRows: [frameChanged, b], expectedCurrent: frameChanged, expectedDatabase: [a, b])
+        print(String(data: try JSONSerialization.data(withJSONObject: ["functional": functional, "work": work],
+            options: [.sortedKeys]), encoding: .utf8)!)
+    }
+}
+#endif

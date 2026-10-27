@@ -54,19 +54,25 @@ from script.tests.scene_wallpaper_benchmark_test_support import (
 
 
 class SceneWallpaperLifecycleTests(unittest.TestCase):
-    def test_copy_sample_requires_project_and_package(self) -> None:
+    def test_copy_sample_requires_project_and_copies_loose_authored_content(self) -> None:
         with tempfile.TemporaryDirectory(prefix="mwx-scene-copy-") as directory:
             root = Path(directory)
             source = root / "source"
             source.mkdir()
-            (source / "project.json").write_text("{}", encoding="utf-8")
             with self.assertRaises(FileNotFoundError):
                 benchmark.copy_sample(source, root / "missing")
-
-            (source / "scene.pkg").write_bytes(b"PKGV")
+            (source / "project.json").write_text("{}", encoding="utf-8")
+            (source / "scene.json").write_bytes(b'{"objects":[]}')
+            marker = source / ".mywallpaperx-steam-version.json"
+            marker.write_bytes(b"installation identity")
+            neighbor = source / (marker.name + ".author")
+            neighbor.write_bytes(b"authored content")
             destination = root / "copied"
             benchmark.copy_sample(source, destination)
-            self.assertEqual((destination / "scene.pkg").read_bytes(), b"PKGV")
+            self.assertEqual((destination / "scene.json").read_bytes(), b'{"objects":[]}')
+            self.assertFalse((destination / marker.name).exists())
+            self.assertEqual((destination / neighbor.name).read_bytes(), b"authored content")
+            self.assertEqual(marker.read_bytes(), b"installation identity")
 
     def test_passing_runtime_is_removed_without_keep_flag(self) -> None:
         with tempfile.TemporaryDirectory(prefix="mwx-scene-retention-") as directory:

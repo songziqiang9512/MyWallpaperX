@@ -220,6 +220,7 @@ final class SceneResolvedMaterialFinalizerFixture {
             "mixedSystemNamedProvider": mixedSystemNamedProvider,
             "namedProviderRuntimePurpose": namedProviderRuntimePurpose,
             "effectProjectionRequirements": effectProjectionRequirements,
+            "effectForwardProjectionConsumption": effectForwardProjectionConsumption(device),
             "attenuationEligibilityCases": attenuationEligibility,
             "colorBlendEligibilityCases": colorBlendEligibility,
             "exactCrossStageUniformCases": fixture.preparation.exactCrossStageUniformCases,

@@ -147,6 +147,52 @@ extension Notification.Name {
                 presentation: presentation)
             return
         }
+        if CommandLine.arguments.dropFirst(2).contains("path-reuse") {
+            let firstDirectory = root.appendingPathComponent("first", isDirectory: true)
+            let secondDirectory = root.appendingPathComponent("second", isDirectory: true)
+            for directory in [firstDirectory, secondDirectory] {
+                try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: false)
+                try Data("local media".utf8).write(to: directory.appendingPathComponent("movie.mp4"))
+            }
+            let alias = root.appendingPathComponent("alias", isDirectory: true)
+            try FileManager.default.createSymbolicLink(at: alias, withDestinationURL: firstDirectory)
+            let aliasPath = alias.appendingPathComponent("movie.mp4").path
+            let firstPath = firstDirectory.appendingPathComponent("movie.mp4").resolvingSymlinksInPath().standardizedFileURL.path
+            let secondPath = secondDirectory.appendingPathComponent("movie.mp4").resolvingSymlinksInPath().standardizedFileURL.path
+            let recovery = root.appendingPathComponent("path-recovery.json"), profile = root.appendingPathComponent("path-profile.json")
+            let importer = makeCoordinator(recovery)
+            let declared = source("duplicate-path", aliasPath, "First resolution")
+            var incoming = LibraryCollectionsPersonalSettingsImport()
+            incoming.locators = [.init(reference: declared.reference, locator: .init(path: aliasPath))]
+            try write(.init(exportedAt: originalDate, preferences: .init(from: manager.settings),
+                sources: [declared, declared, source("direct-alias", firstPath, "First resolution")], collections: incoming), to: profile)
+            let firstSummary = try await importer.importPersonalSettings(from: profile)
+            let firstRows = try WallpaperIndexStore.shared.loadWallpapers()
+            checks["RepeatedAndAliasPathsMergeToOriginalFirstReference"] = firstRows == manager.wallpapers
+                && firstRows.count == 2 && firstRows[1].id == declared.reference.sourceID && firstRows[1].path == firstPath
+                && firstSummary.createdWallpaperCount == 1 && firstSummary.missingPathCount == 0
+            try FileManager.default.removeItem(at: alias)
+            try FileManager.default.createSymbolicLink(at: alias, withDestinationURL: secondDirectory)
+            let next = source("next-import", aliasPath, "Fresh resolution")
+            incoming.locators = [.init(reference: next.reference, locator: .init(path: aliasPath))]
+            try write(.init(exportedAt: originalDate, preferences: .init(from: manager.settings),
+                sources: [next, next], collections: incoming), to: profile)
+            let secondSummary = try await importer.importPersonalSettings(from: profile)
+            let secondRows = try WallpaperIndexStore.shared.loadWallpapers()
+            checks["NextImportResolvesRetargetedAliasAgain"] = secondRows == manager.wallpapers && secondRows.count == 3
+                && secondRows[1] == firstRows[1] && secondRows[2].id == next.reference.sourceID && secondRows[2].path == secondPath
+                && secondSummary.createdWallpaperCount == 1 && secondSummary.missingPathCount == 0
+            checks["DeclaredLocatorsKeepBothCurrentSourceIdentities"] = controller.snapshot.locators.contains { $0.reference == declared.reference && $0.locator.path == aliasPath }
+                && controller.snapshot.locators.contains { $0.reference == next.reference && $0.locator.path == aliasPath }
+            checks["SuccessfulRepeatedImportsLeaveNoRecoveryOrPlaybackSideEffects"] = importer.allowsEditing
+                && !FileManager.default.fileExists(atPath: recovery.path) && manager.recentWrites == 0 && manager.timerRefreshes == 0
+            func object<T: Encodable>(_ value: T) throws -> Any { try JSONSerialization.jsonObject(with: JSONEncoder().encode(value)) }
+            let result: [String: Any] = ["checks": checks, "projection": ["firstRows": try object(firstRows),
+                "secondRows": try object(secondRows), "firstSummary": try object(firstSummary), "secondSummary": try object(secondSummary),
+                "locators": try object(controller.snapshot.locators)]]
+            print(String(decoding: try JSONSerialization.data(withJSONObject: result, options: [.sortedKeys]), as: UTF8.self))
+            return
+        }
         let existing = WallpaperPlaylist(name: "Same name", createdAt: originalDate, sidebarRank: 0)
         let local = WallpaperOrganizationItem(reference: ref("A"), locator: .init(path: a.path), isPublishedLocally: true, isAvailable: true)
         let other = WallpaperOrganizationItem(reference: ref("keep"), locator: .init(), isPublishedLocally: true, isAvailable: true)

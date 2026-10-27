@@ -106,7 +106,6 @@ nonisolated struct SceneAuthoredShaderUniformInputs {
     let layerModelMatrix: simd_float4x4
     let effectUnitModelMatrix: simd_float4x4?
     let effectOutputModelViewProjection: simd_float4x4
-    let effectTextureProjectionMatrix: simd_float4x4
     let effectTextureProjectionMatrixInverse: simd_float4x4
     let effectDrawAlpha: Float
     let effectDrawColor: SIMD3<Float>
@@ -130,7 +129,6 @@ nonisolated struct SceneAuthoredShaderUniformInputs {
         layerModelMatrix: simd_float4x4,
         effectUnitModelMatrix: simd_float4x4? = nil,
         effectOutputModelViewProjection: simd_float4x4,
-        effectTextureProjectionMatrix: simd_float4x4 = matrix_identity_float4x4,
         effectTextureProjectionMatrixInverse: simd_float4x4,
         effectDrawAlpha: Float = 1,
         effectDrawColor: SIMD3<Float> = .init(repeating: 1),
@@ -156,7 +154,6 @@ nonisolated struct SceneAuthoredShaderUniformInputs {
         self.effectUnitModelMatrix = effectUnitModelMatrix
         self.effectOutputModelViewProjection =
             effectOutputModelViewProjection
-        self.effectTextureProjectionMatrix = effectTextureProjectionMatrix
         self.effectTextureProjectionMatrixInverse = effectTextureProjectionMatrixInverse
         self.effectDrawAlpha = effectDrawAlpha
         self.effectDrawColor = effectDrawColor

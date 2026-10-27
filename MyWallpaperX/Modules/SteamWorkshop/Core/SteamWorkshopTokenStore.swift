@@ -9,7 +9,7 @@ import Security
 /// SK2.3：新登录路线（SteamKit）的 Keychain 令牌存储。
 ///
 /// 合同（§3.3）：
-/// - refresh token / GuardData 按 Keychain 存（单主账号槽位），原子替换
+/// - refresh token 与恢复所需账号信息按 Keychain 存（单主账号槽位），原子替换
 ///   （update 失败且未找到才 add，绝不先删后写）。
 /// - UserDefaults 只存非敏感项：显示名、保存时间、记住偏好。
 /// - 令牌明文不落日志/UserDefaults/任务历史。
@@ -17,7 +17,6 @@ enum SteamWorkshopTokenStore {
     struct Payload: Codable, Equatable {
         var accountName: String
         var refreshToken: String
-        var guardData: String?
         var steamId: String
         var savedAt: Date
     }

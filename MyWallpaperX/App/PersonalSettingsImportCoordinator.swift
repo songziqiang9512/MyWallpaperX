@@ -90,7 +90,7 @@ import ImageIO
             if payload.schemaVersion >= 7 { try Self.validateCustomCoverCopies(payload.collections?.coverAssets ?? []) }
             let paths = LibraryPersonalSettings.paths(in: payload, sources: sources)
             var normalized: [String: String] = [:]
-            for path in paths {
+            for path in paths where normalized[path] == nil {
                 normalized[path] = URL(fileURLWithPath: path).resolvingSymlinksInPath().standardizedFileURL.path
             }
             let importedPaths = Set((payload.sources.map(\.path) + payload.entries.map(\.path) + payload.silEntries.map(\.path)

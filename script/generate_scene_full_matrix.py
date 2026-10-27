@@ -11,57 +11,12 @@ from scene_matrix_contract import (
     EFFECT_EXECUTION_EXPECTATIONS,
     RESOLVED_MATERIAL_GRAPH_BACKEND,
     RESOLVED_MATERIAL_GRAPH_EXPECTATIONS,
+    RUNTIME_EVIDENCE_METRICS,
     effect_execution_static_demand,
     optional_group_is_active,
 )
 from scene_matrix_suite import compact_suite_payload, load_scene_matrix
 
-
-RUNTIME_EVIDENCE_METRICS = [
-    "schema_version",
-    "shader_contract_count",
-    "shader_contract_authored_count",
-    "shader_contract_builtin_count",
-    "shader_contract_stage_count",
-    "shader_contract_diagnostic_count",
-    "effect_texture_slot_count",
-    "effect_texture_slot_hole_count",
-    "effect_combo_entry_count",
-    "material_texture_slot_count",
-    "material_texture_slot_hole_count",
-    "material_combo_entry_count",
-    "effect_definition_count",
-    "effect_definition_pass_count",
-    "effect_definition_material_pass_count",
-    "effect_definition_fbo_count",
-    "effect_definition_copy_command_count",
-    "effect_definition_swap_command_count",
-    "effect_definition_diagnostic_count",
-    "effect_graph_layer_count",
-    "effect_graph_effect_count",
-    "effect_graph_node_count",
-    "effect_graph_material_node_count",
-    "effect_graph_copy_node_count",
-    "effect_graph_swap_node_count",
-    "effect_graph_render_target_count",
-    "effect_graph_blocker_count",
-    "effect_graph_unblocked_layer_count",
-    "visible_layer_count",
-    "root_layer_count",
-    "child_edge_count",
-    "parent_layer_count",
-    "max_hierarchy_depth",
-    "effective_visible_layer_count",
-    "solid_layer_count",
-    "authored_solid_color_layer_count",
-    "effective_visible_solid_layer_count",
-    "built_in_reference_count",
-    "missing_resource_count",
-    "composition_layer_count",
-    "project_layer_count",
-    "fullscreen_layer_count",
-    "dependency_edge_count",
-]
 
 PRESERVED_KEYS = [
     "maximum_startup_ready_ms",
@@ -239,6 +194,7 @@ def validate_report_identity(
         if not isinstance(hashes, dict) or (
             hashes.get("project_sha256") != old.get("project_sha256")
             or hashes.get("package_sha256") != old.get("package_sha256")
+            or ("tree_sha256" in old and hashes.get("tree_sha256") != old["tree_sha256"])
         ):
             raise ValueError(f"sample {sample_id} source hashes mismatch")
         if result.get("package_file", "scene.pkg") != old.get(
@@ -841,6 +797,8 @@ def matrix_sample(result, old):
     }
     if result.get("package_file") != "scene.pkg":
         sample["package_file"] = result["package_file"]
+    if "tree_sha256" in result["hashes"]:
+        sample["tree_sha256"] = result["hashes"]["tree_sha256"]
 
     for metric in RUNTIME_EVIDENCE_METRICS:
         expectation = "expected_runtime_evidence_schema" if metric == "schema_version" else f"expected_{metric}"

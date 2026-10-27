@@ -270,6 +270,19 @@ class SceneResolvedMaterialProgramFinalizerTests(unittest.TestCase):
             self.result,
         )
 
+    def test_only_forward_projection_hosts_compute_the_original_forward_bytes(self) -> None:
+        result = self.result["effectForwardProjectionConsumption"]
+        required = {"none:ordinary", "none:singular", "none:nonfinite", "inverse:ordinary",
+                    "inverse:singular", "inverse:nonfinite", "forward:ordinary", "forward:singular",
+                    "forward:nonfinite", "dual:ordinary", "dual:signedZero", "arrayPreparationRejected",
+                    "WrongForwardTypeStillRejected"}
+        self.assertTrue(required.issubset(result["checks"]), result)
+        self.assertEqual([name for name, passed in result["checks"].items() if not passed], [], result)
+        rows = {row["name"]: row for row in result["rows"]}
+        self.assertEqual(rows["dual:ordinary"]["forwardFields"], 2, result)
+        self.assertEqual(rows["dual:signedZero"]["forwardFields"], 2, result)
+        self.assertEqual(rows["inverse:singular"]["inverseFields"], 1, result)
+
     def test_mapped_texture_resolution_is_independent_of_candidate_translation(
         self,
     ) -> None:

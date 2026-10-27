@@ -922,6 +922,40 @@ evidence.mkdir(parents=True, exist_ok=True)
                 (Path(result["runtime_sample"]) / "project.json").is_file()
             )
             self.assertTrue((sample / "project.json").is_file())
+            # This route reports source identity; it has never admitted by a matrix hash.
+            (sample / "scene.pkg").unlink()
+            (sample / "scene.json").write_text('{"objects":[]}')
+            marker = sample / ".mywallpaperx-steam-version.json"
+            marker.write_text("installation identity")
+            neighbor = sample / (marker.name + ".author")
+            neighbor.write_text("authored content")
+            loose_output = root / "loose-output"
+            loose_output.mkdir()
+            loose_runtime = loose_output / "runtime"
+            loose_runtime.mkdir()
+            loose = benchmark.run_product_entry_audio_sample(
+                runtime_binary=executable, sample_root=root / "samples",
+                sample={"id": "123", "package_sha256": "not-a-package"},
+                output_dir=loose_output, runtime_root=loose_runtime,
+                duration=7, property_overrides={"mode": "0"},
+            )
+            self.assertTrue(loose["passed"], loose["failures"])
+            self.assertIsNone(loose["hashes"]["package_sha256"])
+            self.assertEqual(len(loose["hashes"]["tree_sha256"]), 64)
+            copied = Path(loose["runtime_sample"])
+            self.assertEqual((copied / "scene.json").read_text(), '{"objects":[]}')
+            self.assertFalse((copied / marker.name).exists())
+            self.assertEqual((copied / neighbor.name).read_text(), "authored content")
+            self.assertEqual(marker.read_text(), "installation identity")
+            (sample / "project.json").unlink()
+            missing = benchmark.run_product_entry_audio_sample(
+                runtime_binary=executable, sample_root=root / "samples", sample={"id": "123"},
+                output_dir=root / "missing-output", runtime_root=root / "missing-runtime",
+                duration=7, property_overrides={},
+            )
+            self.assertEqual(missing["baseline"]["status"], "source-invalid")
+            self.assertIsNone(missing["command"])
+            self.assertEqual(missing["failures"], ["Scene sample project.json is missing"])
 
 
 if __name__ == "__main__":

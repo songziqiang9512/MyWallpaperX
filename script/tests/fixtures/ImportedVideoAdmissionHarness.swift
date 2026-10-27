@@ -50,6 +50,13 @@
             let (manager, service, observer) = setup()
             defer { NotificationCenter.default.removeObserver(observer); manager.stopAutoSwitchTimer() }
             let epoch = manager.playbackIntentEpoch
+            for directory in [manager.thumbnailCacheDirectory, manager.staticFrameCacheDirectory] {
+                try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
+            }
+            let cacheKey = manager.cacheKey(forNormalizedPath: manager.normalizedPath(firstURL.path))
+            let thumbnail = manager.thumbnailOutputURL(forKey: cacheKey), frame = manager.staticFrameOutputURL(forKey: cacheKey)
+            try Data("owned cached thumbnail".utf8).write(to: thumbnail)
+            try Data("owned cached static frame".utf8).write(to: frame)
             service.downloadedIDs = []
             service.downloadAndSet(item: .init(id: 999))
             checks["downloadOnlyDoesNotAdmitOrPlay"] = service.downloadStarts == 1 && manager.playbackIntentEpoch == epoch
@@ -72,6 +79,10 @@
                 WallpaperContentBackingPublication(backingVideoID: manager.pendingWallpaper!.id,
                     publishedReference: .init(provider: .pixabay, sourceID: "1"), proof: .publishedDownload)
             ]
+            let imported = manager.wallpapers.first { $0.path == firstURL.path }
+            checks["actualCacheLookupReachesImportedAndPreparedWallpaper"] = imported?.thumbnailPath == thumbnail.path
+                && imported?.staticFramePath == frame.path && manager.pendingWallpaper?.thumbnailPath == thumbnail.path
+                && manager.pendingWallpaper?.staticFramePath == frame.path && WallpaperEngine.shared.lastPreparedVideoTicket == ticket
         }
         do {
             let (manager, service, observer) = setup()
@@ -143,6 +154,8 @@
             await wait { manager.wallpapers.count == 3 && WallpaperEngine.shared.videoPreparations == preparations + 1 }
             checks["twoQueuedImportsOnlyPrepareLatestOriginalTicket"] = WallpaperEngine.shared.lastPreparedVideoTicket == latest
                 && manager.pendingWallpaper?.path == secondURL.path && manager.playbackIntentEpoch == latest.epoch
+            checks["uncachedLatestSourceDoesNotBorrowPreviousAssetPaths"] = manager.pendingWallpaper?.thumbnailPath == nil
+                && manager.pendingWallpaper?.staticFramePath == nil
         }
         do {
             let (manager, _, observer) = setup()

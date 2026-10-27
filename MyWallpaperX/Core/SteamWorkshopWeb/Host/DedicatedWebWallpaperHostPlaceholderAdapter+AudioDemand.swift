@@ -53,8 +53,8 @@ extension DedicatedWebWallpaperHostPlaceholderAdapter {
     /// only deduplicates publication of the aggregate to the shared capture owner.
     func refreshAudioSpectrumDemand() {
         let now = ProcessInfo.processInfo.systemUptime
-        let demandedScreens = surfaces.values.filter { surface in
-            frameEndpointRegistry.endpoints(in: surface.webView).contains {
+        let demandedScreens = surfaces.values.lazy.filter { surface in
+            self.frameEndpointRegistry.endpoints(in: surface.webView).contains {
                 $0.audioDemandActive && $0.isLeaseValid(now: now)
             }
         }

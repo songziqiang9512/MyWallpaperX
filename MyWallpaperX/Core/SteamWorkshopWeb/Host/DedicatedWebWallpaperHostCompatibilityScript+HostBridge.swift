@@ -12,6 +12,45 @@ private let webPropertySkippedDiagnostic = #"""
     } catch (_) {}
   };
 """#
+private let webAudioSpectrumDeliveryDiagnostic = #"""
+    if (hostLogger && !hasLoggedAudioSpectrumDelivery && audioListeners.length > 0) {
+      const peak = safeLevels.reduce((maximum, value) => Math.max(maximum, value), 0);
+      const half = Math.floor(safeLevels.length / 2);
+      const stereoDelta = half > 0
+        ? safeLevels.slice(0, half).reduce(
+            (total, value, index) => total + Math.abs(value - safeLevels[index + half]),
+            0
+          ) / half
+        : 0;
+      hostLogger?.post(
+        'audio.spectrum.dispatched',
+        `listeners=${audioListeners.length} bins=${safeLevels.length} peak=${peak.toFixed(4)} stereoDelta=${stereoDelta.toFixed(4)}`
+      );
+      firstDeliveredAudioSpectrum = safeLevels.slice();
+      hasLoggedAudioSpectrumDelivery = true;
+    } else if (
+      hostLogger && !hasLoggedAudioSpectrumChange &&
+      audioListeners.length > 0 &&
+      firstDeliveredAudioSpectrum.length === safeLevels.length &&
+      safeLevels.length > 0
+    ) {
+      const meanDelta = safeLevels.reduce(
+        (total, value, index) => total + Math.abs(value - firstDeliveredAudioSpectrum[index]),
+        0
+      ) / safeLevels.length;
+      if (meanDelta >= 0.001) {
+        hostLogger?.post('audio.spectrum.changed', `meanDelta=${meanDelta.toFixed(4)}`);
+        hasLoggedAudioSpectrumChange = true;
+      }
+    }
+"""#
+private let webAudioSpectrumErrorDiagnostic = #"""
+        if (hostLogger && !(failedAudioListeners && failedAudioListeners.has(listener))) {
+          if (!failedAudioListeners) failedAudioListeners = new WeakSet();
+          failedAudioListeners.add(listener);
+          hostLogger?.post('audio.listener.error', error && error.stack ? error.stack : String(error));
+        }
+"""#
 private let webPropertyCountDiagnostic = "let appliedCount = 0; let skippedCount = 0;"
 private let webPropertyAppliedDiagnostic = "appliedCount += 1;"
 private let webPropertySkipDiagnostic = "skippedCount += 1; myWallpaperReportSkippedProperty(signature, key, error);"
@@ -23,6 +62,8 @@ private let webPropertyPartialDiagnostic = #"""
       }
 """#
 #else
+private let webAudioSpectrumDeliveryDiagnostic = ""
+private let webAudioSpectrumErrorDiagnostic = ""
 private let webPropertySkippedDiagnostic = ""
 private let webPropertyCountDiagnostic = ""
 private let webPropertyAppliedDiagnostic = ""
@@ -557,46 +598,13 @@ let webCompatibilityScriptHostBridge = #"""
           return Number.isFinite(numeric) ? Math.max(0, numeric) : 0;
         })
       : [];
-    if (hostLogger && !hasLoggedAudioSpectrumDelivery && audioListeners.length > 0) {
-      const peak = safeLevels.reduce((maximum, value) => Math.max(maximum, value), 0);
-      const half = Math.floor(safeLevels.length / 2);
-      const stereoDelta = half > 0
-        ? safeLevels.slice(0, half).reduce(
-            (total, value, index) => total + Math.abs(value - safeLevels[index + half]),
-            0
-          ) / half
-        : 0;
-      hostLogger?.post(
-        'audio.spectrum.dispatched',
-        `listeners=${audioListeners.length} bins=${safeLevels.length} peak=${peak.toFixed(4)} stereoDelta=${stereoDelta.toFixed(4)}`
-      );
-      firstDeliveredAudioSpectrum = safeLevels.slice();
-      hasLoggedAudioSpectrumDelivery = true;
-    } else if (
-      hostLogger && !hasLoggedAudioSpectrumChange &&
-      audioListeners.length > 0 &&
-      firstDeliveredAudioSpectrum.length === safeLevels.length &&
-      safeLevels.length > 0
-    ) {
-      const meanDelta = safeLevels.reduce(
-        (total, value, index) => total + Math.abs(value - firstDeliveredAudioSpectrum[index]),
-        0
-      ) / safeLevels.length;
-      if (meanDelta >= 0.001) {
-        hostLogger?.post('audio.spectrum.changed', `meanDelta=${meanDelta.toFixed(4)}`);
-        hasLoggedAudioSpectrumChange = true;
-      }
-    }
+    \#(webAudioSpectrumDeliveryDiagnostic)
     try {
       window.dispatchEvent(new CustomEvent('wallpaper-audio-spectrum', { detail: safeLevels }));
     } catch (_) {}
     for (const listener of audioListeners) {
       try { listener(safeLevels); } catch (error) {
-        if (hostLogger && !(failedAudioListeners && failedAudioListeners.has(listener))) {
-          if (!failedAudioListeners) failedAudioListeners = new WeakSet();
-          failedAudioListeners.add(listener);
-          hostLogger?.post('audio.listener.error', error && error.stack ? error.stack : String(error));
-        }
+        \#(webAudioSpectrumErrorDiagnostic)
       }
     }
   };

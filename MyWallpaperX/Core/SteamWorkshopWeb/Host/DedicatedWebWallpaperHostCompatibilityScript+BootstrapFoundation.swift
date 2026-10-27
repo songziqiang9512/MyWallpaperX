@@ -1,6 +1,12 @@
 // The logger has no Release message-handler consumer. Keep only its name
 // for optional calls in the shared playback/resource compatibility script.
 #if DEBUG
+private let webAudioSpectrumDiagnosticState = """
+  let failedAudioListeners;
+  let hasLoggedAudioSpectrumDelivery = false;
+  let hasLoggedAudioSpectrumChange = false;
+  let firstDeliveredAudioSpectrum;
+"""
 private let webCompatibilityScriptHostLogger = #"""
   const hostLogger = (() => {
     const handler = window.webkit && window.webkit.messageHandlers && window.webkit.messageHandlers.wallpaperHostLog;
@@ -71,16 +77,14 @@ private let webCompatibilityScriptHostLogger = #"""
   })();
 """#
 #else
+private let webAudioSpectrumDiagnosticState = ""
 private let webCompatibilityScriptHostLogger = "  const hostLogger = undefined;"
 #endif
 
 let webCompatibilityScriptBootstrapFoundation = #"""
   const audioStreams = [];
   const audioListeners = [];
-  let failedAudioListeners;
-  let hasLoggedAudioSpectrumDelivery = false;
-  let hasLoggedAudioSpectrumChange = false;
-  let firstDeliveredAudioSpectrum;
+  \#(webAudioSpectrumDiagnosticState)
   const volumeListeners = [];
   const mediaStatusListeners = [];
   const mediaPropertiesListeners = [];

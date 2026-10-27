@@ -72,6 +72,12 @@ internal static class WorkshopManifestSelfTest
             var valid = File("project.json", 2, new DepotManifest.ChunkData(new byte[20],
                 SteamKit2.CDN.DepotChunk.AdlerHash(bytes), 0, 2, 2));
             System.IO.File.WriteAllBytes(target, bytes);
+            using (var resumed = new FileStream(lease.OpenFile("project.json", write: false), FileAccess.Read))
+            {
+                if (!SteamSession.IsChunkValid(resumed, valid.Chunks[0], CancellationToken.None))
+                    throw new Exception("valid resumed chunk rejected without a receipt hash consumer");
+                count++;
+            }
             var digest = SteamSession.ValidateStagedFiles([valid], lease, CancellationToken.None);
             if (digest != "e84ca141a76fc927400b3428d5d509be7a7b5319f6d160aa30eb549a73d71832") throw new Exception("cross-language receipt digest mismatch");
             count++;
@@ -82,6 +88,12 @@ internal static class WorkshopManifestSelfTest
             }
             catch (OperationCanceledException) { count++; }
             System.IO.File.WriteAllBytes(target, [0, 0]);
+            using (var resumed = new FileStream(lease.OpenFile("project.json", write: false), FileAccess.Read))
+            {
+                if (SteamSession.IsChunkValid(resumed, valid.Chunks[0], CancellationToken.None))
+                    throw new Exception("corrupt resumed chunk accepted without a receipt hash consumer");
+                count++;
+            }
             try
             {
                 SteamSession.ValidateStagedFiles([valid], lease, CancellationToken.None);
@@ -89,6 +101,12 @@ internal static class WorkshopManifestSelfTest
             }
             catch (InvalidDataException) { count++; }
             System.IO.File.WriteAllBytes(target, [0]);
+            using (var resumed = new FileStream(lease.OpenFile("project.json", write: false), FileAccess.Read))
+            {
+                if (SteamSession.IsChunkValid(resumed, valid.Chunks[0], CancellationToken.None))
+                    throw new Exception("truncated resumed chunk accepted without a receipt hash consumer");
+                count++;
+            }
             try
             {
                 SteamSession.ValidateStagedFiles([valid], lease, CancellationToken.None);

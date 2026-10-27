@@ -89,6 +89,22 @@ nonisolated final class OnlineImageCommitProbe: @unchecked Sendable {
         let directory = try await store.load()
         checks["directory-at-record-path-never-becomes-an-available-image"] = directory.unavailable == [p0.id]
         try files.removeItem(at: missingURL)
+        try files.createSymbolicLink(at: missingURL, withDestinationURL: replacementURL)
+        let linked = try await store.load()
+        checks["in-root-symlink-is-not-an-ordinary-image-leaf"] = linked.unavailable == [p0.id]
+        try files.removeItem(at: missingURL)
+        try files.createSymbolicLink(at: missingURL, withDestinationURL: root.appendingPathComponent("absent/image.png"))
+        do {
+            let dangling = try await store.load()
+            checks["in-root-dangling-symlink-does-not-inherit-ancestor-availability"] = dangling.unavailable == [p0.id]
+        } catch OnlineImageLibraryStore.StoreError.invalidPath {
+            checks["in-root-dangling-symlink-does-not-inherit-ancestor-availability"] = true
+        }
+        try files.removeItem(at: missingURL)
+        try Data("restored-page-zero".utf8).write(to: missingURL)
+        let restored = try await store.load()
+        checks["next-load-recaptures-the-now-regular-leaf"] = restored.records == pages.records && restored.unavailable.isEmpty
+        try files.removeItem(at: missingURL)
 
         func record(at path: String) -> OnlineImageLocalRecord {
             .init(assetID: oldRecord.assetID, title: oldRecord.title, sourceURL: oldRecord.sourceURL,
@@ -103,6 +119,16 @@ nonisolated final class OnlineImageCommitProbe: @unchecked Sendable {
             do { _ = try store.fileURL(for: record(at: path)); checks["relative-path-refuses-" + name] = false }
             catch OnlineImageLibraryStore.StoreError.invalidPath { checks["relative-path-refuses-" + name] = true }
         }
+        let blockedRoot = work.appendingPathComponent("missing-under-file", isDirectory: true)
+        try files.createDirectory(at: blockedRoot, withIntermediateDirectories: false)
+        try Data("ordinary-parent".utf8).write(to: blockedRoot.appendingPathComponent("parent"))
+        var blockedObject = replacementObject
+        var blockedRecords = blockedObject["records"] as! [[String: Any]]
+        blockedRecords[0]["relativePath"] = "parent/missing.png"
+        blockedObject["records"] = blockedRecords
+        try JSONSerialization.data(withJSONObject: blockedObject).write(to: blockedRoot.appendingPathComponent("manifest.json"))
+        let blocked = try await OnlineImageLibraryStore(root: blockedRoot).load()
+        checks["missing-leaf-never-inherits-an-existing-regular-ancestor-type"] = blocked.unavailable == [a.id]
 
         let beforeWriteFailure = try Data(contentsOf: manifestURL)
         let sourceDirectory = root.appendingPathComponent("wallhaven", isDirectory: true)

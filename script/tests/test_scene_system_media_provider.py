@@ -292,6 +292,17 @@ nonisolated final class WebArtworkProbe: @unchecked Sendable {
             let before = inbox.latest()
             var invalid = before; invalid.current = Data()
             precondition(!inbox.replaceSystemSnapshot(invalid) && inbox.latest() == before)
+            for boundary in [String(repeating: "a", count: 4096), String(repeating: "é", count: 2048),
+                             String(repeating: "😀", count: 1024)] {
+                precondition(boundary.utf8.count == 4096)
+                precondition(inbox.publishMediaProperties(title: boundary, artist: "valid"))
+                let accepted = inbox.latest()
+                precondition(accepted.properties?.title == boundary)
+                for rejected in [boundary + "a", "\u{0}", "\u{1f}", "\u{7f}", "\n"] {
+                    precondition(!inbox.publishMediaProperties(title: rejected, artist: "valid"))
+                    precondition(inbox.latest() == accepted, "invalid UTF8 length or control scalar changed the snapshot")
+                }
+            }
             precondition(inbox.publishMediaProperties(title: "A", artist: "A"))
             let firstGeneration = inbox.latest().propertiesGeneration
             precondition(inbox.replaceSystemSnapshot(.empty))

@@ -109,9 +109,21 @@ CACHE_CHECKS = r'''
         let oldDate = try fm.attributesOfItem(atPath: projectURL.path)[.modificationDate] as! Date
         try write(project.replacingOccurrences(of: "\"speed\":7", with: "\"speed\":8"), "project.json")
         try fm.setAttributes([.modificationDate: oldDate], ofItemAtPath: projectURL.path)
+        // Saving an already captured author is optional derived work, even if
+        // the source changes before publication. Its actual consumer decides
+        // whether the hint is current; the writer does not reread dependencies.
+        let oldAuthor = try JSONDecoder().decode(SteamWorkshopWebAnalysisCacheManifest.self, from: analysisOriginal).author
+        try fm.removeItem(at: analysisURL)
+        let staleTicket = SteamWorkshopWebRuntimeCachePublication.shared.begin(key: analysisURL.path)
+        SteamWorkshopService.saveWebAnalysisCache(oldAuthor, inputs: inputs, publication: staleTicket)
+        _ = try await waitForAnalysis()
+        check(SteamWorkshopService.loadCachedAnalysisDescriptor(inputs: inputs) == nil,
+            "published old hint is a miss after current author changes")
         service.webProjectDescriptorCache = [:]
+        trace.reset()
         let edited = await service.prepareWebPlaybackContext(for: record)!
         check(edited.descriptor.defaultValueMap["speed"] == .number(8), "stat revisions reject stale same-size/mtime author input")
+        check(trace.parseCount == 1, "stale hint returns to the actual parser for current author input")
 
         _ = try await waitForAnalysis(expectedSpeed: 8)
 
@@ -161,6 +173,29 @@ CACHE_CHECKS = r'''
         for i in 0..<500 { _ = owner.begin(key: "ephemeral-\(i)") }
         _ = owner.begin(key: "reap")
         check(owner.testLiveSlots <= 2, "registry retains active tickets, not historical records")
+        // No options means the actual result is empty without consulting a
+        // second project/defaults source. Nonempty options still use current
+        // definitions and overrides through the original record wrapper.
+        let optionFolder = root.appendingPathComponent("option-author")
+        try fm.createDirectory(at: optionFolder, withIntermediateDirectories: true)
+        let optionProject = optionFolder.appendingPathComponent("project.json")
+        let optionJSON = #"{"general":{"properties":{"mode":{"type":"slider","value":0},"pick":{"type":"combo","value":"a","options":[{"label":"Always","value":"a"},{"label":"Current","value":"b","condition":"mode == 1"}]}}}}"#
+        try Data(optionJSON.utf8).write(to: optionProject)
+        let optionRecord = SteamWorkshopDownloadRecord(id: "option-check", folderURL: optionFolder,
+            projectFileURL: optionProject, entryURL: optionFolder.appendingPathComponent("index.html"))
+        let pick = service.webPropertyDefinitions(for: optionRecord).first { $0.key == "pick" }!
+        optionReads.reset()
+        check(service.visibleWebPropertyOptions(for: speed, record: optionRecord).isEmpty && optionReads.urls.isEmpty,
+            "empty option result does not read project definitions or presets")
+        check(service.visibleWebPropertyOptions(for: pick, record: optionRecord).map(\.value) == [.string("a")],
+            "nonempty options preserve current project defaults")
+        service.overrides["mode"] = .number(1)
+        check(service.visibleWebPropertyOptions(for: pick, record: optionRecord).map(\.value) == [.string("a"), .string("b")],
+            "nonempty option conditions consume current overrides")
+        service.overrides = [:]
+        try Data(optionJSON.replacingOccurrences(of: "\"value\":0", with: "\"value\":1").utf8).write(to: optionProject)
+        check(service.visibleWebPropertyOptions(for: pick, record: optionRecord).map(\.value) == [.string("a"), .string("b")],
+            "nonempty option conditions re-read changed project defaults")
         print("web-runtime-cache-pass")
     }
 }
@@ -218,6 +253,19 @@ nonisolated let cacheCommit = PublicationGate()
         && a.language == b.language && a.resourceGrants == b.resourceGrants && aj == bj && lhs.descriptor == rhs.descriptor
 }
 '''
+    source += r'''
+nonisolated final class OptionProjectReads: @unchecked Sendable {
+    private let lock = NSLock()
+    private var values: [URL] = []
+    func record(_ url: URL?) { if let url { lock.withLock { values.append(url) } } }
+    func reset() { lock.withLock { values.removeAll() } }
+    var urls: [URL] { lock.withLock { values } }
+}
+nonisolated let optionReads = OptionProjectReads()
+'''
+    loader = "    nonisolated static func loadWebProjectRootStatic(projectFileURL: URL?) -> [String: Any]? {"
+    if source.count(loader) != 1: raise AssertionError("One actual project URL loader required")
+    source = source.replace(loader, loader + "\n        optionReads.record(projectFileURL)", 1)
     return source + CACHE_CHECKS
 
 

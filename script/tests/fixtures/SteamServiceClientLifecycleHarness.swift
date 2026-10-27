@@ -141,6 +141,7 @@ final class FakeSteamIdleReapTiming: SteamIdleReapTiming {
         try await dataFrameLifecycle()
         try await authenticationLifecycle()
         try await accountRouteLifecycle()
+        try tokenPayloadCodec()
         try await stagedReceiptLifecycle()
         commandTaxonomyConformance()
         try await helperIdleReapingLifecycle()
@@ -652,11 +653,16 @@ final class FakeSteamIdleReapTiming: SteamIdleReapTiming {
         func authRequests() -> [[String: Any]] {
             transport.requests.filter { $0["command"] as? String == "loginQR" }
         }
-        func succeed(_ request: [String: Any], token: String) {
+        func succeed(_ request: [String: Any], token: String, legacy: Bool = false) {
+            var secrets: [String: Any] = ["refreshToken": token, "accountName": "real-account"]
+            if legacy {
+                secrets["accessToken"] = "unused-access"
+                secrets["guardData"] = "unused-guard"
+            }
             transport.emit(["v": 1, "type": "result", "requestId": request["requestId"]!,
                             "authAttemptId": request["authAttemptId"]!, "accountEpoch": request["accountEpoch"]!, "ok": true,
                             "data": ["steamId": "76561198000000000", "accountName": "te***"],
-                            "private": ["refreshToken": token]])
+                            "private": secrets])
         }
         let first = Task { try await session.loginQR() }
         while authRequests().count < 1 { await Task.yield() }
@@ -678,9 +684,11 @@ final class FakeSteamIdleReapTiming: SteamIdleReapTiming {
         transport.emit(["v": 1, "type": "event", "event": "authState",
                         "authAttemptId": current["authAttemptId"]!, "state": "qrChallenge", "challengeUrl": "current"])
         precondition(session.phase == .qrChallenge(url: "current"))
-        succeed(current, token: "accepted-secret")
+        succeed(current, token: "accepted-secret", legacy: true)
         _ = try await second.value
-        precondition(session.lastSessionTokens?.refreshToken == "accepted-secret")
+        precondition(session.lastSessionTokens?.refreshToken == "accepted-secret"
+            && session.lastSessionTokens?.accountName == "real-account",
+            "old extra private keys must not alter the consumed session fields")
         precondition(transport.requests.filter { $0["command"] as? String == "cancelAuthentication" }
             .allSatisfy { $0["authAttemptId"] as? String == old["authAttemptId"] as? String },
             "late cancellation must target only old attempt")
@@ -741,32 +749,41 @@ final class FakeSteamIdleReapTiming: SteamIdleReapTiming {
         var restoreAllowed = true
         var deleted = 0
         var savedToken: String?
+        var savedPayloads: [SteamWorkshopTokenStore.Payload] = []
         let route = SteamAuthRoute(client: client, persistence: .init(
             remember: { remember }, setRemember: { remember = $0 },
             setRestoreAuthorized: { restoreAllowed = $0 },
-            save: { savedToken = $0.refreshToken; return true },
+            save: { savedToken = $0.refreshToken; savedPayloads.append($0); return true },
             delete: { deleted += 1; return false }, saveMetadata: { _ in }, clearMetadata: {}))
         func commands(_ name: String) -> [[String: Any]] {
             transport.requests.filter { $0["command"] as? String == name }
         }
-        func succeed(_ request: [String: Any], token: String = "current-token") {
+        func succeed(_ request: [String: Any], token: String = "current-token", legacy: Bool = false) {
+            var secrets: [String: Any] = ["refreshToken": token, "accountName": "account"]
+            if legacy {
+                secrets["accessToken"] = "old-unused-access"
+                secrets["guardData"] = "old-unused-guard"
+            }
             transport.emit(["v": 1, "type": "result", "requestId": request["requestId"]!, "ok": true,
                             "authAttemptId": request["authAttemptId"] ?? "", "accountEpoch": request["accountEpoch"]!,
                             "data": ["steamId": "76561198000000002", "accountName": "ac***"],
-                            "private": ["refreshToken": token, "accountName": "account"]])
+                            "private": secrets])
         }
         let restoring = Task { try await route.restore(refreshToken: "old-token", accountName: "old") }
         while commands("restoreSession").isEmpty { await Task.yield() }
         let oldRestore = commands("restoreSession")[0]
         let login = Task { try await route.loginQR() }
         while commands("loginQR").isEmpty { await Task.yield() }
-        succeed(commands("loginQR")[0])
+        succeed(commands("loginQR")[0], legacy: true)
         _ = try await login.value
         transport.emit(["v": 1, "type": "result", "requestId": oldRestore["requestId"]!, "ok": false,
                         "error": ["code": "authExpired", "message": "old rejection"]])
         do { _ = try await restoring.value; fatalError("old restore adopted") } catch {}
         precondition(route.isOnline && savedToken == "current-token" && deleted == 0 && restoreAllowed,
                      "stale restore rejection cannot delete new credentials")
+        precondition(savedPayloads.count == 1 && savedPayloads[0].accountName == "account"
+            && savedPayloads[0].steamId == "76561198000000002",
+            "old private output saves consumed credentials once; stale restore cannot save")
 
         let mismatched = Task { try await client.request(command: "querySubscriptionStates", timeout: nil) }
         while commands("querySubscriptionStates").isEmpty { await Task.yield() }
@@ -797,6 +814,9 @@ final class FakeSteamIdleReapTiming: SteamIdleReapTiming {
         _ = await signout.value
         precondition(route.isOnline && savedToken == "new-token" && restoreAllowed,
                      "late logout completion cannot erase new account")
+        precondition(savedPayloads.count == 2 && savedPayloads[1].accountName == savedPayloads[0].accountName
+            && savedPayloads[1].steamId == savedPayloads[0].steamId,
+            "minimal private output saves the same account fields once")
         transport.emit(["v": 1, "type": "event", "event": "accountState",
                         "accountEpoch": oldEpoch, "state": "disconnected"])
         precondition(route.isOnline, "stale disconnect ignored")
@@ -807,10 +827,32 @@ final class FakeSteamIdleReapTiming: SteamIdleReapTiming {
         while commands("loginQR").count < 3 { await Task.yield() }
         succeed(commands("loginQR")[2])
         _ = try await thirdLogin.value
+        precondition(savedPayloads.count == 3, "each accepted login retains exactly one save")
         transport.onTermination?(9)
         precondition(!route.isOnline, "helper exit clears online projection")
         await client.stop(shutdownTimeout: 0)
         print("Account route: stale restore, account epoch, failed Keychain deletion, delayed logout, disconnect and helper crash PASS")
+    }
+
+    static func tokenPayloadCodec() throws {
+        let expected = SteamWorkshopTokenStore.Payload(
+            accountName: "codec-account", refreshToken: "codec-refresh",
+            steamId: "76561198000000002", savedAt: Date(timeIntervalSince1970: 1234)
+        )
+        let encoded = try JSONEncoder().encode(expected)
+        let fields = try JSONSerialization.jsonObject(with: encoded) as! [String: Any]
+        precondition(Set(fields.keys) == ["accountName", "refreshToken", "steamId", "savedAt"],
+                     "current payload contains only consumed persisted fields")
+        for guardValue in ["legacy-guard", NSNull()] as [Any] {
+            var legacy = fields
+            legacy["guardData"] = guardValue
+            let legacyData = try JSONSerialization.data(withJSONObject: legacy)
+            let decoded = try JSONDecoder().decode(SteamWorkshopTokenStore.Payload.self, from: legacyData)
+            precondition(decoded == expected, "old guardData must not alter restored credentials")
+            let current = try JSONSerialization.jsonObject(with: JSONEncoder().encode(decoded)) as! [String: Any]
+            precondition(Set(current.keys) == Set(fields.keys), "re-encoding retires the unused old field")
+        }
+        print("Token payload codec: old optional guardData ignored, current fields round-trip without Keychain PASS")
     }
 
     @MainActor static func stagedReceiptLifecycle() async throws {

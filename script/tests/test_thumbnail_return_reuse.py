@@ -82,6 +82,8 @@ class ThumbnailReturnReuseTests(unittest.TestCase):
                 server.shutdown(); server.server_close(); thread.join()
             self.assertEqual(run.returncode, 0, run.stdout + run.stderr)
             facts = json.loads(run.stdout)
+            self.assertTrue({"coldAndDiskImageCallbacksStayOnMainAndCompleteOnce", "rawCallbackStaysOnMainAndCompletesOnce",
+                             "warmMemoryReturnsSynchronously"}.issubset(facts["checks"]), facts)
             for name, passed in facts["checks"].items():
                 with self.subTest(name=name):
                     self.assertTrue(passed)

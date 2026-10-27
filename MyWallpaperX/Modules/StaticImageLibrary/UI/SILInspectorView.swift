@@ -40,7 +40,6 @@ final class SILInspectorView: NSView {
 
     private func loadPreviewImage() {
         let sourcePath = wallpaper.path
-        weak let weakSelf = self
         // 与 SIL 网格共用同一缓存键（图片路径）：网格已解码 512px 版本时直接命中，
         // 未命中才在本 loader 里按 Inspector 预览所需尺寸（156pt 高 → 800px）后台降采样解码。
         SILThumbnailStore.sharedCache.load(forKey: sourcePath, loader: {
@@ -52,11 +51,8 @@ final class SILInspectorView: NSView {
             ]
             guard let cgImage = CGImageSourceCreateThumbnailAtIndex(source, 0, options as CFDictionary) else { return nil }
             return NSImage(cgImage: cgImage, size: .zero)
-        }, completion: { image in
-            DispatchQueue.main.async {
-                guard let self = weakSelf else { return }
-                self.previewSurface.updateImage(image)
-            }
+        }, completion: { [weak self] image in
+            self?.previewSurface.updateImage(image)
         })
     }
 

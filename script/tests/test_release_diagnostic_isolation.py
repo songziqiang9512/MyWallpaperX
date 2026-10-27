@@ -264,12 +264,24 @@ class ReleaseDiagnosticIsolationTests(unittest.TestCase):
                 precondition(properties.contains("reportedSkips"))
                 precondition(properties.contains("let appliedCount = 0"))
                 precondition(properties.contains("properties.applied.partial"))
+                precondition(foundation.contains("let failedAudioListeners;"))
+                precondition(properties.contains("audio.spectrum.dispatched"))
+                precondition(properties.contains("audio.spectrum.changed"))
+                precondition(properties.contains("audio.listener.error"))
                 precondition(media.components(separatedBy: "node.addEventListener('playing'").count == 2,
                              "Debug keeps one media event observer")
         #else
                 precondition(foundation.contains("const hostLogger = undefined;"))
                 precondition(!foundation.contains("lastLogTimes"))
                 precondition(!foundation.contains("noisyTypeIntervals"))
+                for audioOnly in ["failedAudioListeners", "hasLoggedAudioSpectrumDelivery",
+                                  "hasLoggedAudioSpectrumChange", "firstDeliveredAudioSpectrum"] {
+                    precondition(!foundation.contains(audioOnly) && !properties.contains(audioOnly),
+                                 "Release contains audio log bookkeeping")
+                }
+                for audioOnly in ["audio.spectrum.dispatched", "audio.spectrum.changed", "audio.listener.error"] {
+                    precondition(!properties.contains(audioOnly), "Release contains pure audio logging")
+                }
                 for consoleOnly in ["serializedConsoleArgs", "isTransientLoaderReferenceError",
                                     "window.addEventListener('unhandledrejection'", "console[name] ="] {
                     precondition(!logging.contains(consoleOnly), "Release contains unused console logging")
@@ -342,6 +354,11 @@ class ReleaseDiagnosticIsolationTests(unittest.TestCase):
                                              if line.startswith("property-script=")))
                 scheduling = json.loads(next(line.removeprefix("scheduling-script=") for line in executed.stdout.splitlines()
                                              if line.startswith("scheduling-script=")))
+                audio_body = properties[properties.index("  window.__myWallpaperPushAudioSpectrum ="):
+                                        properties.index("  window.__myWallpaperSetGlobalVolume =")]
+                audio_state = "\n".join(line for line in foundation.splitlines() if any(name in line for name in (
+                    "let failedAudioListeners;", "let hasLoggedAudioSpectrumDelivery", "let hasLoggedAudioSpectrumChange",
+                    "let firstDeliveredAudioSpectrum;")))
                 properties = properties[properties.index("  window.__myWallpaperStablePropertySignature ="):
                                         properties.index("  window.__myWallpaperApplyGeneralProperties =")]
                 replay = subprocess.run(["node", "-e", property_replay_behavior_script(properties, scheduling, debug)],
@@ -349,6 +366,30 @@ class ReleaseDiagnosticIsolationTests(unittest.TestCase):
                 self.assertEqual(replay.returncode, 0, replay.stdout + replay.stderr)
                 self.assertIn("web-pending-property-replay-pass", replay.stdout)
                 logger = foundation[foundation.index("  const hostLogger ="):foundation.index("  resumeAudioContexts();")]
+                audio_fixture = r"""
+                const reports=[], delivered=[], events=[];
+                const audioListeners=[()=>{throw Error('author-listener-error');}, value=>delivered.push(value.slice())];
+                const window={webkit:{messageHandlers:{wallpaperHostLog:{postMessage:value=>reports.push(value)}}},
+                  addEventListener(){}, dispatchEvent(event){events.push(event.detail.slice());}};
+                class CustomEvent { constructor(type, options){this.type=type;this.detail=options.detail;} }
+                """
+                audio_fixture += logger + "\n" + audio_state + "\n" + audio_body + r"""
+                window.__myWallpaperPushAudioSpectrum([0.2,-0.4,NaN,Infinity]);
+                window.__myWallpaperPushAudioSpectrum([0.9,0.8,0.7,0.6]);
+                window.__myWallpaperPushAudioSpectrum([0.9,0.8,0.7,0.6]);
+                if(delivered.length!==3 || JSON.stringify(delivered)!==JSON.stringify(events))
+                  throw Error('author event/callback delivery changed');
+                if(JSON.stringify(delivered[0])!=='[0.2,0,0,0]') throw Error('audio normalization changed');
+                const types=reports.map(value=>value.type);
+                """
+                if debug:
+                    audio_fixture += "\nfor(const type of ['audio.spectrum.dispatched','audio.spectrum.changed','audio.listener.error']) if(types.filter(x=>x===type).length!==1) throw Error('Debug diagnostic dedup changed: '+type);\n"
+                else:
+                    audio_fixture += "\nif(types.length) throw Error('Release emitted audio diagnostics');\n"
+                audio_fixture += "process.stdout.write('web-audio-delivery-isolation-pass');"
+                audio_result = subprocess.run(["node", "-e", audio_fixture], capture_output=True, text=True, timeout=15)
+                self.assertEqual(audio_result.returncode, 0, audio_result.stdout + audio_result.stderr)
+                self.assertIn("web-audio-delivery-isolation-pass", audio_result.stdout)
                 console_logging = logging[:logging.index("  const networkRequestHandler =")]
                 # These are actual Debug/Release Swift-composed JS values. The
                 # fixture controls native console/message sinks, not installers.

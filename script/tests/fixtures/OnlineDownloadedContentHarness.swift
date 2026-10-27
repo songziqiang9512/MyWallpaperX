@@ -80,7 +80,7 @@ extension Notification.Name { static let onlineVideoReadyToPlay = Self("source-r
     var prepareVideoPlaybackIntent: ((WallpaperReference, WallpaperPlaybackSequence.Pending?) -> ImportedVideoPlaybackAdmission?)?
     var networkStarts = 0
     var completesFetch = false
-    func fetchAndMove(from url: URL, name: String, itemID: Int) async throws -> URL {
+    func fetchAndMove(from url: URL, expectedBytes: Int64?, name: String, itemID: Int) async throws -> URL {
         networkStarts += 1
         if completesFetch {
             let destination = Self.downloadDirectory.appendingPathComponent(name)

@@ -77,6 +77,11 @@ final class QueryTransport: SteamServiceTransporting {
         precondition(first.items[0].description == "detail-1")
         precondition(first.items[0].subscriptions == 12 && first.items[0].views == 50)
         precondition(first.items[0].dependencyIds == ["20", "21"])
+        var legacyColumns = item("1", 10)
+        legacyColumns["fileType"] = 0; legacyColumns["hcontentFile"] = "123456789"
+        payload = page(1, [legacyColumns])
+        let legacyColumnsPage = try await query.browse(sort: .newest, page: 1)
+        precondition(legacyColumnsPage == first, "unused legacy columns do not change the actual decoded page")
         for key in ["items", "page", "total", "hasMore", "wrongAppDropped"] {
             payload = page(1, [item("1", 10)]); payload.removeValue(forKey: key)
             do { _ = try await query.browse(sort: .newest, page: 1); fatalError("missing field accepted: \(key)") }

@@ -27,7 +27,7 @@
 
 每次认证绑定 `authAttemptId/accountEpoch`，请求还绑定进程/连接 generation；取消、关闭面板、切方式与换号及时撤原尝试。迟到事件不得采纳 token、恢复旧在线状态或影响后继账号。helper ready、网络连接、已保存 token 与账号 online 分域，pong 不证明登录。显式重连与有界自动重启复用同一进程 owner；只读重试、订阅对账与下载恢复各走其原意图，不把崩溃恢复变成写操作重放。
 
-只有记住偏好及恢复授权允许时才进行有界、无 UI 的 token 恢复。refresh token/GuardData 由 Keychain 单主账号槽位原子更新；UserDefaults 仅保显示信息、偏好和恢复授权。退出/换号先撤旧恢复授权，再处理凭据，清理失败须可见；网络失败不凭异常文字删除令牌。密码、验证码、token 不进日志、argv、环境变量、浏览快照或任务历史。
+仅在记住偏好与恢复授权允许时有界恢复 token，不弹 UI。Keychain 单账号槽原子保存 refresh token 与账号信息；UserDefaults 只存显示信息、偏好及恢复授权。退出/换号先撤旧恢复授权再处理凭据，清理失败可见；网络失败不凭异常文字删令牌。密码、验证码、token 不进日志、argv、环境变量、浏览快照或任务历史。
 
 双端使用有界 UTF-8 NDJSON，stdout 仅协议，stderr 为脱敏诊断；SteamID、Workshop ID、manifest ID 使用十进制字符串。协议当前限制单帧 1 MiB、256 个业务 pending 及 8 个保留控制准入；接收登记、超时、取消与唯一 terminal 共同防止重复完成和无限等待。progress 可合并，terminal 不得因节流丢失。
 

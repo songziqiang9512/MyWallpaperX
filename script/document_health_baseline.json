@@ -18,7 +18,7 @@
     },
     "docs/architecture/steam-workshop-acquisition-contract.md": {
       "lines": 80,
-      "bytes": 17744
+      "bytes": 17720
     },
     "docs/architecture/system-audio-spectrum-design.md": {
       "lines": 40,
@@ -41,8 +41,8 @@
       "bytes": 14139
     },
     "docs/development/validation-simplification-plan.md": {
-      "lines": 526,
-      "bytes": 133266
+      "lines": 136,
+      "bytes": 30310
     },
     "docs/release/bundle-content.md": {
       "lines": 61,
@@ -70,7 +70,7 @@
     },
     "docs/scene/architecture/runtime-as-built-map.md": {
       "lines": 158,
-      "bytes": 33250
+      "bytes": 33208
     },
     "docs/scene/architecture/scene-dependency-boundaries.md": {
       "lines": 31,
@@ -90,7 +90,7 @@
     },
     "docs/scene/architecture/scene-startup-pipeline.md": {
       "lines": 37,
-      "bytes": 7119
+      "bytes": 7045
     },
     "docs/scene/architecture/shader-metadata-failure-contract.md": {
       "lines": 71,
@@ -294,7 +294,7 @@
     },
     "docs/web/current-state.md": {
       "lines": 140,
-      "bytes": 53633
+      "bytes": 53607
     },
     "docs/web/dedicated-host-process-design.md": {
       "lines": 80,
@@ -1292,6 +1292,65 @@
         "user-ui-feedback-round"
       ],
       "preservedBodySHA256": "21b89daed9d9206cb720500f180b309c4ff71889861cfdea4b3652eb3dfe6fd1"
+    },
+    {
+      "source": "docs/development/validation-simplification-plan.md",
+      "archive": "docs/history/cross-topic/validation-simplification-p0-p27-2026-10-27.md",
+      "anchors": [
+        "mdl-一次读取与解析",
+        "p10同次来源查询与无消费者工作最近回归与-debug-已过",
+        "p11同次-shader-指针计算复用与纯诊断剥离回归成本与-debug-已过",
+        "p12粒子纯运行诊断与无生产者载荷退役必要回归及双配置-app-已过",
+        "p13高频字符串顶点与出生固定工作的直接复用必要回归成本与-debug-已过",
+        "p14模型上传与资源路径回归原-owner回归对照与-debug-已过",
+        "p15同次-shader-归一化结果直接交给编译器回归对照与-debug-已过",
+        "p16音频与媒体纯诊断工作归实际调试消费者双配置回归对照与-debug-已过",
+        "p17video-首启按需准备与诊断-ipc-退出-release回归减工对照与-debug-已过",
+        "p18完成帧直达频谱分析按需频带与请求内缓存键复用回归对照与-debug-已过",
+        "p19旧库发现按需短路模型材料准备单次索引与-video-首播重复工作退役回归减工对照与-debug-已过",
+        "p20-mdl-policy-retirement",
+        "p20退役-mdl-部件数与路径长度政策保真实资源边界cpu材料gpu前后对照与-debug-已过",
+        "p21-app-startup-verification",
+        "p21当前-app-实际播放与冷暖对照功能通过未接受稳定提速",
+        "p22-host-row-and-video-request-work",
+        "p22宿主仅准备实际依赖事实video-同请求直接复用验证完成goal-暂停交接",
+        "p23-asset-path-publication",
+        "p23派生路径只在实际变化时发布已验证未提交",
+        "p24-import-request-work",
+        "p24导入只准备实际消费者需要的路径与缓存键已验证未提交",
+        "p25-shared-thumbnail-work",
+        "p25共享缩略图只算一次磁盘定位sil-预览直接消费回调已验证未提交",
+        "p26-import-owner-work",
+        "p26导入只发布实际变化旧选文件入口退役已验证未提交",
+        "p27-current-engine-closure",
+        "p27当前引擎验收与可选缓存写入减工已验证未提交",
+        "p3-实现只复用实际已经准备的值",
+        "p4-普通模拟帧的固定事实cpu-已过clipping-可见门待验",
+        "p4-设计资源按实际消费者读取最近行为门已过",
+        "p5-最近验证结果",
+        "p6-最近验证结果",
+        "p7-合并构建结果与剩余验收",
+        "p7-最近验证结果",
+        "p7下载与旧目录迁移直接消费当前结果",
+        "p8兼容命名空间的局部失败与单一读取链旧链已退役最近资源门与成本已验",
+        "p9越界表项局部不挂载文件入口跳过裸包目录坏条目loose-与字体最近门已验",
+        "全仓后继video-首播与共享音频",
+        "全仓后继事件分片与重复桥接",
+        "全仓后继卡片投影与实际目标分离",
+        "后继候选与实施边界",
+        "后继只读发现与覆盖边界",
+        "已实施不可变准备事实与实际动态检查分离",
+        "已实施已完成视频文件的来源确认归请求入口",
+        "已实施纹理-snapshot-完成后不重查作者文件",
+        "已证问题与裁决",
+        "当前验证边界2026-10-26",
+        "本批合入与暂停边界2026-10-26",
+        "编译准备减工"
+      ],
+      "preservedBodySHA256": "f38c4ef203c6e2f2c4ab8f9c70fb411319f9e4814b02dbfc1aacd42bbdbcbd61",
+      "originalBodySHA256": "d6b6ade8f0a90f6571ebdeeeb840e04e55461b056841a92fed0d6124c5e5e3c3",
+      "originalLines": 600,
+      "originalBytes": 154390
     }
   ],
   "snapshots": [
@@ -1507,15 +1566,6 @@
     },
     {
       "section": "bodies",
-      "path": "docs/development/validation-simplification-plan.md",
-      "before": "c3cdd1a91db53198594290f570c787711424b896e875ad773368d113e7a27268",
-      "after": "aa076129c89c7385f51603511b8869e574a50ca3a962a779bbdde6ec19ea458b",
-      "owner": "Scene/Web validation simplification",
-      "reason": "P20退役模型政策并补Reader/Root/GPU；P21保App实际功能与未接受提速原值；P22补同次投影/Video减工、实际前后输出、必要原生门、Debug及暂停合并交接，后继留在原计划；其他正文预算不变。",
-      "decision": "docs/development/validation-simplification-plan.md#p22-host-row-and-video-request-work"
-    },
-    {
-      "section": "bodies",
       "path": "docs/scene/architecture/scene-launch-responsiveness-contract.md",
       "before": "d5c7881941947003560d2a23975491d1f8592029617796b932186f642af89eff",
       "after": "58d7a94f40960a292d5fb8ab5b2d3f991c4e6acc9c2fc5e0ad61265c2964d405",
@@ -1585,6 +1635,15 @@
       "owner": "Modules/Pixiv",
       "reason": "记录已批准的两来源接入设计、新HEAD整合、真实验证及未覆盖边界；仅调整两份新方案的正文预算。",
       "decision": "docs/development/pixiv-online-browser-design.md#10-文档登记与退役"
+    },
+    {
+      "section": "archives",
+      "path": "docs/history/cross-topic/validation-simplification-p0-p27-2026-10-27.md",
+      "before": "74234e98afe7498fb5daf1f36ac2d78acc339464f950703b8c019892f982b90b",
+      "after": "dfda29e8623a664b1e5f011a9f9d679683a58cb19e5224c311665583273c3f1c",
+      "owner": "repository-maintainer",
+      "reason": "P0–P27 completed narrative preserved once, relative links reversibly relocated; active plan retains current requirements/coverage and actual pending work.",
+      "decision": "docs/development/validation-simplification-plan.md#文档职责与归档决策"
     }
   ]
 }

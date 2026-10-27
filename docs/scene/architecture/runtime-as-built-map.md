@@ -4,7 +4,7 @@
 
 > 状态：现役工程参考地图（代码实际接线的事实记录）
 >
-> 复核：2026-10-26。P0/P1 来源/读取接线已有优化 Debug 构建与真实产品入口呈现证据；后继代码仍待最近门与构建，范围见[精简计划](../../development/validation-simplification-plan.md)。其余条目保留各自历史复核边界。
+> 接线复核边界保留各条原日期。本轮精简的当前源码、构建、有界运行和未完范围统一查[精简计划](../../development/validation-simplification-plan.md)；本图不重复保存批次完成状态。
 >
 > 当前能力权威：[能力台账](../capabilities/coverage-ledger.md)。
 >
@@ -76,7 +76,7 @@ SceneScript C host按layer catalog/baseline、native handle、typed value、jour
 | PSO/MTLLibrary | PassEncoder PSO entries 以完整 MetalCompileStateKey 寻址；MTLLibrary 按完整 metalSource 内容寻址并合并并发 in-flight 编译；launch 期 warmup 预编 | pipeline repository | executor 生命周期；reset 只失效 PreparedPass 命令世代，保留不可变编译产物与负缓存 | program-variant；catalog/device 整体替换时随 executor 释放 |
 | layer colorBlend PSO / framebuffer snapshot | 非零blend由worker预热PSO；普通quad按最终MVP保守区域同坐标复制，custom/不可信/折射全屏 | launch repository唯一PSO，各surface独占完整snapshot | PSO场景期；snapshot surface期 | device/repository替换；surface teardown或extent变化；保容量与失效 |
 | source-less direct-draw 放置几何 | SceneResolvedMaterialDirectDrawGeometryCompiler 从不可变 Program 事实编译 | ScenePreparedDirectDrawOutputGeometry（capability 持有） | capability 生命周期 | program-variant；renderer 消费 typed 放置结果，不按 effect 名称选择算法 |
-| 材质静态准备 / 帧Program | variant admission唯一factory准备layout、固定slot/channel-use、shader/prepared/render-state identity及UniformBindings；不可变shader identity只构造时哈希，查询复用、完整字段判等；原失败优先级保留 | 原CompiledVariant持有PreparedAssembly及preparedUniformBindings；Finalizer物化当帧Program | variant期 / 帧期 | variant替换释放静态值；帧内仍验证publication、device、generation、extent/UV、purpose/content/sampling、graph及color/output，不缓存完整Program或跨commandBuffer PreparedPass；pipeline key沿用Program identity并保attachment/sample/writeMask |
+| 材质静态准备 / 帧Program | variant admission唯一factory从同一frontend构建UniformBindings和PreparedAssembly；不可变identity只构造时哈希，查询完整判等；Finalizer直接消费bindings；forward投影仅消费者求逆，同次复用编码 | 原CompiledVariant持有PreparedAssembly及preparedUniformBindings；Finalizer物化当帧Program | variant期 / 帧期 | variant替换释放静态值；帧内仍验证publication、device、generation、extent/UV、purpose/content/sampling、graph及color/output，不缓存完整Program或跨commandBuffer PreparedPass；pipeline key沿用Program identity并保attachment/sample/writeMask |
 | 基础纹理 | FileInput区分已选Root handle与独立外部URL，SourceKey为FileIdentity；PreparedBaseImageResources 后台预解码；deferred 按需 worker（per 世代队列）；loose PNG/JPEG 与内嵌 TEX mip/payload 在每个 SceneTextureLoader 内按完整 SourceKey 复用 ImageIO CGImage 解码，Metal texture 仍按 source/device/purpose 分离；daemon Host 按性能档持有共享 `SceneTextureDecodeCacheBudget`（standard 1GB / efficient 512MB），统计TEX源数据、跨metadata→GPU留存的direct encoded bytes与解码CGImage，超限只跳过中间缓存或短值留存 | imageTextures store（per view）+ loader directImageResources/texEmbeddedImageResources；预算 lease 聚合一次 launch 的 material/base/deferred/user-property loader | view/场景期；loader释放归还预算；deferred仅全clearContext同锁关闭，原queue尾进Session退休group；热降档不驱逐既有纹理 | resource-generation / geometry-extent；文件 size/mtime/device/inode/ctime 任一变化即换 SourceKey；profile 只改准入帽，不新增失效域 |
 | 纹理上传 command queue | launch 创建一个 `SceneTextureUploadCommandQueue`，按 device registryID 缓存成功创建的 queue，创建失败允许后续请求重试；注入 material/base/deferred/static-model/particle/user-property/media-thumbnail/stock-noise 资源消费者 | launchContext 持有的共享 upload queue；renderer 另有 per-surface frame queue | scene/device 生命周期；跨 surface 共享 | device/scene 整体替换；不参与 value-only/resource-generation 帧失效 |
 | 材质资产纹理 | catalog准备静态纹理或视频声明；session由原video registry激活asset源 | 静态catalog；视频经各surface bridge→原帧registry | 场景/source期 | source/device换代；[媒体合同](../capabilities/material-video-assets.md) |

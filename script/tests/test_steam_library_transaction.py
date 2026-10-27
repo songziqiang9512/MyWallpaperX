@@ -42,6 +42,10 @@ import Darwin
     @MainActor static func main() async throws {
         let base = URL(fileURLWithPath: CommandLine.arguments[1])
         let mode = CommandLine.arguments[2]
+        if mode == "published-metadata" {
+            print(try SteamPublishedMetadataChecks.run(base: base))
+            return
+        }
         if mode == "identity-admission" {
             var value = stat()
             value.st_dev = 7
@@ -556,7 +560,8 @@ class SteamLibraryTransactionTests(unittest.TestCase):
         harness = folder / 'Harness.swift'
         harness.write_text(HARNESS)
         cls.binary = folder / 'transaction'
-        subprocess.run(['xcrun', 'swiftc', '-parse-as-library', *map(str, SOURCES), str(harness), '-o', str(cls.binary)],
+        checks = ROOT / 'script/tests/fixtures/SteamPublishedMetadataChecks.swift'
+        subprocess.run(['xcrun', 'swiftc', '-parse-as-library', *map(str, SOURCES), str(checks), str(harness), '-o', str(cls.binary)],
                        check=True, timeout=120)
 
     @classmethod
@@ -615,6 +620,13 @@ class SteamLibraryTransactionTests(unittest.TestCase):
 
     def test_publish_and_preserve_old_playback(self):
         self.scenario()
+
+    def test_published_metadata_targeted_fd_reads_and_complete_failures(self):
+        with tempfile.TemporaryDirectory(prefix='mwx-steam-metadata-', dir='/private/tmp') as temporary:
+            result = subprocess.run([str(self.binary), temporary, 'published-metadata'],
+                                    capture_output=True, text=True, timeout=30)
+            self.assertEqual(result.returncode, 0, result.stderr + result.stdout)
+            self.assertTrue(all(value is True for value in json.loads(result.stdout).values()), result.stdout)
 
     def test_reserved_namespace_survives_library_root_symlink_and_invalid_markers(self):
         with tempfile.TemporaryDirectory(prefix='mwx-steam-reserved-alias-', dir='/private/tmp') as temporary:

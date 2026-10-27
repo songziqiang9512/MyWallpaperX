@@ -105,10 +105,10 @@ nonisolated extension SceneResolvedMaterialVariantCache {
                 sourceColorTransfer: frontend.colorTransfer,
                 frontendBindings: bindings
             )
-        let bindingFactTokens = bindings.map {
-            "\($0.slot):\($0.name):\($0.channelUse.rawValue)"
-        }.sorted()
         guard graphInputFacts == sourceGraphInputFacts else {
+            let bindingFactTokens = bindings.map {
+                "\($0.slot):\($0.name):\($0.channelUse.rawValue)"
+            }.sorted()
             throw failure(
                 .samplerBindingIdentityMismatch,
                 phase: .invariant,

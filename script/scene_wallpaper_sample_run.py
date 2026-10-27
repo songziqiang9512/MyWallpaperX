@@ -78,6 +78,7 @@ from scene_wallpaper_sample_acceptance import sample_result_failures
 from scene_wallpaper_sample_lifecycle import (
     SAMPLE_ROOT_DERIVED_FILES, copy_sample, scene_package_path, sha256,
 )
+from scene_sample_snapshot import tree_manifest
 from scene_wallpaper_typed_publications import (
     media_thumbnail_runtime_metrics, media_thumbnail_store_metrics,
     scene_script_scalar_runtime_metrics, text_script_runtime_metrics,
@@ -169,16 +170,14 @@ def run_sample(
     result_dir.mkdir(parents=True)
     runtime_home.mkdir(parents=True)
     copy_sample(source, runtime_sample)
-    for file_name in SAMPLE_ROOT_DERIVED_FILES:
-        (runtime_sample / file_name).unlink(missing_ok=True)
     package_path = scene_package_path(source)
-    if package_path is None:
-        raise FileNotFoundError(f"Scene sample package is missing: {source}")
 
     hashes = {
         "project_sha256": sha256(source / "project.json"),
-        "package_sha256": sha256(package_path),
+        "package_sha256": sha256(package_path) if package_path is not None else None,
     }
+    if package_path is None:
+        hashes["tree_sha256"] = tree_manifest(source)[0]
     failures: list[str] = []
     for key, actual in hashes.items():
         expected = sample.get(key)
@@ -649,7 +648,7 @@ def run_sample(
         "exit_code": exit_code,
         "timed_out": timed_out,
         "hashes": hashes,
-        "package_file": package_path.name,
+        "package_file": package_path.name if package_path is not None else None,
         "runtime_sample": str(runtime_sample),
         "runtime_home": str(runtime_home),
         "runtime_retained": True,

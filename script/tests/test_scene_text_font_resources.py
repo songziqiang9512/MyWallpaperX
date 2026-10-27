@@ -345,14 +345,17 @@ struct SceneRenderDescriptor {
             packageRoot: nil, stockRoot: nil)
         let names = Set(["shared.otf", "other.otf", "invalid.otf", "after-failure.otf"])
         var openNames = Set<String>(), reads: [String: Int] = [:]
+        var observedPathAliases: [String: String] = [:]
         func observeReads() {
             var current = Set<String>()
             for descriptor in 3..<256 {
                 var path = [CChar](repeating: 0, count: Int(MAXPATHLEN))
                 if fcntl(Int32(descriptor), F_GETPATH, &path) == 0 {
-                    let url = URL(fileURLWithPath: String(cString: path))
+                    let observed = URL(fileURLWithPath: String(cString: path))
+                    let url = observed.resolvingSymlinksInPath().standardizedFileURL
                     if names.contains(url.lastPathComponent), url.path.hasPrefix(root.path + "/") {
                         current.insert(url.lastPathComponent)
+                        if observed.path != url.path { observedPathAliases[observed.path] = url.path }
                     }
                 }
             }
@@ -380,7 +383,7 @@ struct SceneRenderDescriptor {
         precondition(loaded.rasters.count == 7 && loaded.rasters[7] == nil && loaded.rasters[8] != nil,
             "a failed layout must not publish a font or block the next layer")
         precondition(reads == ["shared.otf": 1, "other.otf": 1, "invalid.otf": 1, "after-failure.otf": 2],
-            "only successful same-path initial rasters may supply the font: \(reads)")
+            "only successful same-path initial rasters may supply the font: \(reads); aliases=\(observedPathAliases); fonts=\(loaded.rasters.mapValues { $0.sourceFont.summary })")
         for layer in layers where layer.id != 7 {
             let raster = loaded.rasters[layer.id]!
             let style = layer.textStyle!
@@ -410,6 +413,7 @@ struct SceneRenderDescriptor {
         _ = SceneTextTextureLoader.load(descriptor: .init(layers: [layers[0]]), resourceView: view,
             device: device, recordsDiagnostics: false, checkCancellation: observeReads)
         precondition(reads["shared.otf"] == before + 1)
+        if !observedPathAliases.isEmpty { print("initial-font-observed-path-aliases: \(observedPathAliases)") }
         print("initial-font-raster-reuse-pass")
     }
 }

@@ -1,5 +1,6 @@
 using System.Text;
 using System.Text.Json;
+using System.Globalization;
 
 namespace SteamService;
 
@@ -94,6 +95,46 @@ internal static class ProtocolSelfTest
         var maxDecode = ProtocolDecode.Parse(maxIdRequest);
         var maxId = maxDecode.Ok ? maxDecode.Root.GetProperty("payload").GetProperty("workshopId").GetString() : null;
         Check("uint64-max-id-roundtrip", maxId == "18446744073709551615", maxId ?? "null");
+        var previousCulture = CultureInfo.CurrentCulture;
+        try
+        {
+            CultureInfo.CurrentCulture = CultureInfo.InvariantCulture;
+            object?[] mixedIds = ["0", "18446744073709551615", "  +00042  ", "42", "-0",
+                "", "   ", "-1", "18446744073709551616", "1,000", "1.0", "1e2", "0x10", "NaN",
+                7, null, false, new { value = "42" }, new[] { "42" }];
+            foreach (var command in new[] { "queryDetails", "querySubscriptionStates" })
+            {
+                var decoded = ProtocolDecode.Parse(JsonSerializer.Serialize(new
+                {
+                    v = 1, type = "request", requestId = "uint64-array", command,
+                    payload = new { ids = mixedIds },
+                }));
+                Check("uint64-array-filter-order-and-boundaries:" + command, decoded.Ok
+                    && decoded.PayloadULongArray("ids").SequenceEqual(new ulong[] { 0, ulong.MaxValue, 42, 42, 0 })
+                    && decoded.PayloadStringArray("ids").Length == 13
+                    && decoded.PayloadStringArray("ids").Contains("   "));
+            }
+            object?[] emptyPayloads = [null, new { }, new { ids = (object?)null }, new { ids = 42 },
+                new { ids = "42" }, new { ids = Array.Empty<string>() },
+                new { ids = new object?[] { "", " ", "invalid", "-1", null, 42 } }];
+            Check("uint64-array-empty-and-nonarray-payloads", emptyPayloads.All(payload =>
+            {
+                var decoded = ProtocolDecode.Parse(JsonSerializer.Serialize(new
+                { v = 1, type = "request", requestId = "empty-array", command = "queryDetails", payload }));
+                return decoded.Ok && decoded.PayloadULongArray("ids").Length == 0;
+            }));
+            var signedCulture = (CultureInfo)CultureInfo.InvariantCulture.Clone();
+            signedCulture.NumberFormat.PositiveSign = "positive:";
+            CultureInfo.CurrentCulture = signedCulture;
+            var cultureDecode = ProtocolDecode.Parse(JsonSerializer.Serialize(new
+            {
+                v = 1, type = "request", requestId = "culture-array", command = "queryDetails",
+                payload = new { ids = new[] { "positive:17", "+17", "17", "  positive:0017  " } },
+            }));
+            Check("uint64-array-preserves-current-culture", cultureDecode.Ok
+                && cultureDecode.PayloadULongArray("ids").SequenceEqual(new ulong[] { 17, 17, 17 }));
+        }
+        finally { CultureInfo.CurrentCulture = previousCulture; }
         var resumeRequest = requests.Single(line => line.Contains("\"req-dl-resume-birth-1\""));
         var resumeDecode = ProtocolDecode.Parse(resumeRequest);
         var resumeFields = new[]

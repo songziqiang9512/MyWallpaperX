@@ -158,13 +158,13 @@ extension SteamWorkshopService {
     }
 
     /// The bounded writer consumes captured values only. Playback never awaits
-    /// encoding or disk publication; a stale/deleted source simply skips saving.
+    /// encoding or disk publication. Consumers reject stale hints; the existing
+    /// publication ticket prevents canceled/deleted work from replacing a cache.
     nonisolated static func saveWebAnalysisCache(_ author: CachedWebProjectDescriptor,
         inputs: WebRuntimeCacheManifestInputs, publication: SteamWorkshopWebRuntimeCachePublication.Ticket) {
         guard author.isReusable else { return }
         Task.detached(priority: .utility) {
-            guard author.matches(inputs),
-                  let data = try? JSONEncoder().encode(SteamWorkshopWebAnalysisCacheManifest(
+            guard let data = try? JSONEncoder().encode(SteamWorkshopWebAnalysisCacheManifest(
                     version: SteamWorkshopWebAnalysisCacheManifest.currentVersion, author: author)) else { return }
             SteamWorkshopWebRuntimeCachePublication.shared.publish(data, to: inputs.analysisFileURL, ticket: publication)
         }

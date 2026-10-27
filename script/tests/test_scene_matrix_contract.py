@@ -191,6 +191,33 @@ def benchmark_report(
 
 
 class SceneMatrixContractTests(unittest.TestCase):
+    def test_loose_identity_roundtrips_without_a_package_and_rejects_drift(self) -> None:
+        result = synthetic_result()
+        result["package_file"] = None
+        result["hashes"].update(package_sha256=None, tree_sha256="e" * 64)
+        old_sample = {"id": "fixture", "package_file": None, **result["hashes"]}
+        old = {"schema_version": 1, "name": "loose", "samples": [old_sample]}
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / "matrix.json"
+            path.write_text(json.dumps(old))
+            report = benchmark_report(old, path, [result])
+            matrix_generator.validate_report_identity(report, old, path, require_passed=True)
+            refreshed = matrix_generator.matrix_sample(result, old_sample)
+            self.assertIsNone(refreshed["package_file"])
+            self.assertIsNone(refreshed["package_sha256"])
+            self.assertEqual(refreshed["tree_sha256"], "e" * 64)
+            for field in ("project_sha256", "package_sha256", "tree_sha256"):
+                with self.subTest(field=field):
+                    invalid = copy.deepcopy(report)
+                    invalid["samples"][0]["hashes"][field] = "wrong"
+                    with self.assertRaisesRegex(ValueError, "source hashes mismatch"):
+                        matrix_generator.validate_report_identity(
+                            invalid, old, path, require_passed=True)
+            invalid = copy.deepcopy(report)
+            invalid["samples"][0]["package_file"] = "scene.pkg"
+            with self.assertRaisesRegex(ValueError, "package file mismatch"):
+                matrix_generator.validate_report_identity(invalid, old, path, require_passed=True)
+
     def test_full_refresh_preserves_startup_and_particle_execution_requirements(self) -> None:
         requirements = {
             "maximum_startup_ready_ms": 1200,
