@@ -2,7 +2,8 @@
 
 No window, user library, scanner, decoder or network is started. The new image
 card's actual applyTransfer and Commands' cancel/add blocks run with recording
-card controls; this does not prove image drawing or full menu composition.
+card controls and fixed-reference preview callbacks; this does not prove image
+drawing or full menu composition.
 """
 import hashlib
 import json

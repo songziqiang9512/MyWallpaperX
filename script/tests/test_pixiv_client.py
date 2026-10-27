@@ -1,6 +1,8 @@
 """Compile the actual Pixiv source against deterministic HTTP/schema fixtures.
 
 No external requests, real accounts, stored cookies, WebViews, or App builds.
+Includes typed source filters, bounded author slices and optional identity metadata;
+the held identity response proves cookie preparation never awaits the homepage.
 The shared OnlineImage model is compiled unchanged; source-identity leaves are
 small fixture types because the complete library model has unrelated owners.
 """

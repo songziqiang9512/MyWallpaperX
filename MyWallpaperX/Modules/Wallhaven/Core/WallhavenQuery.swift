@@ -2,7 +2,7 @@ import Foundation
 
 nonisolated struct WallhavenQuery: Hashable, Codable, Sendable {
     enum Sorting: String, CaseIterable, Codable, Sendable {
-        case latest = "date_added", popular = "toplist", relevance, random
+        case latest = "date_added", popular = "toplist", relevance, random, views, favorites
 
         var displayName: String {
             switch self {
@@ -10,17 +10,39 @@ nonisolated struct WallhavenQuery: Hashable, Codable, Sendable {
             case .popular: return "热门"
             case .relevance: return "相关"
             case .random: return "随机"
+            case .views: return "浏览量"
+            case .favorites: return "收藏量"
             }
         }
+    }
+
+    enum Order: String, CaseIterable, Codable, Sendable {
+        case desc, asc
+        var displayName: String { self == .desc ? "降序" : "升序" }
     }
 
     enum TopRange: String, CaseIterable, Codable, Sendable {
         case day = "1d", threeDays = "3d", week = "1w", month = "1M"
         case threeMonths = "3M", sixMonths = "6M", year = "1y"
+
+        var displayName: String {
+            switch self {
+            case .day: return "今天"
+            case .threeDays: return "三天内"
+            case .week: return "本周"
+            case .month: return "本月"
+            case .threeMonths: return "三个月内"
+            case .sixMonths: return "六个月内"
+            case .year: return "一年内"
+            }
+        }
     }
 
     var search = ""
+    /// Wallhaven identifies uploaders by their actual username, not a numeric user ID.
+    var authorUsername: String? = nil
     var sorting: Sorting = .latest
+    var order: Order = .desc
     /// Positions are General / Anime / People and SFW / Sketchy / NSFW.
     var categories = "111"
     var purity = "100"
@@ -30,7 +52,7 @@ nonisolated struct WallhavenQuery: Hashable, Codable, Sendable {
     var color: String? = nil
     var topRange: TopRange = .month
 
-    func queryItems(page: Int) throws -> [URLQueryItem] {
+    func queryItems(page: Int, seed: String? = nil) throws -> [URLQueryItem] {
         guard page > 0, Self.validMask(categories), Self.validMask(purity) else {
             throw OnlineImageError.message("请选择有效的 Wallhaven 分类、分级与页码。")
         }
@@ -45,18 +67,21 @@ nonisolated struct WallhavenQuery: Hashable, Codable, Sendable {
         }
         var items: [URLQueryItem] = [
             .init(name: "categories", value: categories), .init(name: "purity", value: purity),
-            .init(name: "sorting", value: sorting.rawValue), .init(name: "order", value: "desc"),
+            .init(name: "sorting", value: sorting.rawValue), .init(name: "order", value: order.rawValue),
             .init(name: "page", value: String(page))
         ]
-        let text = search.trimmingCharacters(in: .whitespacesAndNewlines)
+        let author = authorUsername?.trimmingCharacters(in: .whitespacesAndNewlines)
+        let text = author.flatMap { $0.isEmpty ? nil : "@" + $0 }
+            ?? search.trimmingCharacters(in: .whitespacesAndNewlines)
         if !text.isEmpty { items.append(.init(name: "q", value: text)) }
         if sorting == .popular { items.append(.init(name: "topRange", value: topRange.rawValue)) }
+        if sorting == .random, let seed, !seed.isEmpty { items.append(.init(name: "seed", value: seed)) }
         if let minimum, !minimum.isEmpty { items.append(.init(name: "atleast", value: minimum)) }
         if !exact.isEmpty { items.append(.init(name: "resolutions", value: exact.joined(separator: ","))) }
         if !ratios.isEmpty { items.append(.init(name: "ratios", value: ratios.joined(separator: ","))) }
         if let color, !color.isEmpty {
             let normalized = color.replacingOccurrences(of: "#", with: "").lowercased()
-            guard Self.colors.contains(normalized) else {
+            guard Self.colorPalette.contains(normalized) else {
                 throw OnlineImageError.message("请选择 Wallhaven 支持的颜色。")
             }
             items.append(.init(name: "colors", value: normalized))
@@ -76,7 +101,8 @@ nonisolated struct WallhavenQuery: Hashable, Codable, Sendable {
         }
     }
 
-    private static let colors: Set<String> = [
+    /// Official single-color choices, kept in display order for the filter menu.
+    static let colorPalette: [String] = [
         "660000", "990000", "cc0000", "cc3333", "ea4c88", "993399", "663399", "333399",
         "0066cc", "0099cc", "66cccc", "77cc33", "669900", "336600", "666600", "999900",
         "cccc33", "ffff00", "ffcc33", "ff9900", "ff6600", "cc6633", "996633", "663300",

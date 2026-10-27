@@ -4,6 +4,8 @@ No App, windows, network, credentials or user media. Inputs are frozen before
 compilation. A same-file fixture extension ages checkedAt in the frozen Session
 copy; every product method remains unchanged. This permits a stale-cache case
 without a five-minute wait or a product-only test seam.
+Both sources use the actual typed author identity and return through loaded or
+inflight origins; only an explicit author refresh invalidates its ID snapshot.
 """
 import hashlib
 import json

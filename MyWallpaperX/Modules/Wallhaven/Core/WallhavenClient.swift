@@ -39,25 +39,35 @@ actor WallhavenClient {
     }
 
     func page(query: WallhavenQuery, request: OnlineImagePageRequest = .init()) async throws -> OnlineImagePage {
-        if query.sorting == .random && request.page != 1 {
-            throw OnlineImageError.message("随机结果暂不支持连续翻页，请刷新获取新一批结果。")
-        }
         if query.purity.last == "1", apiKey == nil {
             throw OnlineImageError.message("访问 NSFW 内容需要填写 Wallhaven API Key。")
         }
-        let items = try query.queryItems(page: request.page)
+        let items = try query.queryItems(page: request.page, seed: request.seed)
+        let random = query.sorting == .random
+        if random, request.page > 1, request.seed?.isEmpty != false {
+            return OnlineImagePage(items: [], next: nil,
+                notice: "缺少随机分页种子，已停止连续翻页；请刷新获取新一批。")
+        }
         let data = try await fetch(path: "/api/v1/search", items: items)
         let response: WallhavenSearchResponse = try decode(data)
         guard response.meta.currentPage == request.page, response.meta.lastPage > 0,
               response.meta.total >= 0 else { throw OnlineImageError.invalidResponse }
+        let seed = response.meta.seed.flatMap { $0.isEmpty ? nil : $0 }
+        // W0 observed the service ignoring seeds. Never append a different random batch.
+        if random, request.page > 1, seed != request.seed {
+            return OnlineImagePage(items: [], next: nil, total: response.meta.total,
+                notice: "Wallhaven 未保持随机分页种子，已停止连续翻页；请刷新获取新一批。")
+        }
         let artworks = response.data.compactMap { $0.artwork() }
-        guard response.data.isEmpty || !artworks.isEmpty else { throw OnlineImageError.invalidResponse }
-        // Live W0 controls returned new seeds for identical seeded requests. Do not promise continuation.
-        let random = query.sorting == .random
+        var notice = artworks.count < response.data.count ? "本页部分作品暂不可读取。" : nil
+        if random, seed == nil {
+            notice = (notice.map { $0 + " " } ?? "") + "Wallhaven 未提供随机分页种子；刷新可获取新一批。"
+        }
         return OnlineImagePage(items: artworks,
-            next: !random && request.page < response.meta.lastPage ? .init(page: request.page + 1) : nil,
+            next: (!random || seed != nil) && request.page < response.meta.lastPage
+                ? .init(page: request.page + 1, seed: random ? seed : nil) : nil,
             total: response.meta.total,
-            notice: random ? "随机结果暂不支持连续翻页；刷新可获取新一批。" : nil)
+            notice: notice)
     }
 
     func detail(id: String) async throws -> OnlineImageArtwork {

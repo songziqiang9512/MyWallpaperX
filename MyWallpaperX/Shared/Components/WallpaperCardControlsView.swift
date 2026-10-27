@@ -9,9 +9,13 @@ final class WallpaperCardControlsView: NSView {
     let glass = WallpaperCardGlassBarView()
     let titleView = WallpaperCardMarqueeTextView()
     let favoriteButton = NSButton()
+    let previewButton = NSButton()
     let playButton = NSButton()
     var onPlay: (() -> Void)?
     var onFavorite: (() -> Void)?
+    var onPreview: (() -> Void)? {
+        didSet { previewButton.isHidden = onPreview == nil; needsLayout = true }
+    }
     var primaryState: PrimaryState = .apply { didSet { if oldValue != primaryState { updateSymbols() } } }
     var isFavorite = false { didSet { if oldValue != isFavorite { updateSymbols() } } }
     private var metrics = WallpaperCardBarMetrics(cardWidth: 250)
@@ -24,7 +28,7 @@ final class WallpaperCardControlsView: NSView {
         layer?.shadowRadius = 20
         layer?.shadowOffset = CGSize(width: 0, height: -1)
         addSubview(glass)
-        for button in [favoriteButton, playButton] {
+        for button in [favoriteButton, previewButton, playButton] {
             button.isBordered = false
             button.bezelStyle = .regularSquare
             button.focusRingType = .none
@@ -35,6 +39,9 @@ final class WallpaperCardControlsView: NSView {
         glass.addSubview(titleView)
         favoriteButton.target = self
         favoriteButton.action = #selector(toggleFavorite)
+        previewButton.target = self
+        previewButton.action = #selector(preview)
+        previewButton.isHidden = true
         playButton.target = self
         playButton.action = #selector(play)
         updateSymbols()
@@ -72,9 +79,11 @@ final class WallpaperCardControlsView: NSView {
         let y = floor((bounds.height - size) * 0.5)
         favoriteButton.frame = NSRect(x: metrics.barEdgeInset, y: y, width: size, height: size)
         playButton.frame = NSRect(x: bounds.width - size - metrics.barEdgeInset, y: y, width: size, height: size)
+        previewButton.frame = NSRect(x: playButton.frame.minX - metrics.barSpacing - size, y: y, width: size, height: size)
+        let trailing = previewButton.isHidden ? playButton.frame.minX : previewButton.frame.minX
         let x = favoriteButton.frame.maxX + metrics.barSpacing + metrics.marqueeSideInset
         titleView.frame = NSRect(x: x, y: 0,
-            width: max(0, playButton.frame.minX - metrics.barSpacing - metrics.marqueeSideInset - x), height: bounds.height)
+            width: max(0, trailing - metrics.barSpacing - metrics.marqueeSideInset - x), height: bounds.height)
     }
 
     private func updateSymbols() {
@@ -85,6 +94,10 @@ final class WallpaperCardControlsView: NSView {
         favoriteButton.contentTintColor = isFavorite ? .controlAccentColor : .labelColor
         favoriteButton.toolTip = favoriteTitle
         favoriteButton.setAccessibilityLabel(favoriteTitle)
+        previewButton.image = NSImage(systemSymbolName: "eye", accessibilityDescription: "临时预览")?.withSymbolConfiguration(configuration)
+        previewButton.contentTintColor = .labelColor
+        previewButton.toolTip = "临时预览（空格）"
+        previewButton.setAccessibilityLabel("临时预览")
         let playTitle: String
         let playSymbol: String
         let playColor: NSColor
@@ -109,4 +122,5 @@ final class WallpaperCardControlsView: NSView {
 
     @objc private func play() { onPlay?() }
     @objc private func toggleFavorite() { onFavorite?() }
+    @objc private func preview() { onPreview?() }
 }

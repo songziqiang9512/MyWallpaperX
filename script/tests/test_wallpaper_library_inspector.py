@@ -2,8 +2,10 @@
 
 Source metadata/layout leaves record actions here; actual Video preview and Steam
 layout/invalidation gates remain separate. Image selection uses the real Browser
-and App selection callback bodies plus real Coordinator/Quick Look. Image detail
-layout, WebKit, network, decoding and wallpaper application are not covered here.
+and App selection callback bodies plus real Coordinator/Quick Look. A controlled
+thumbnail leaf drives remote A/B, close and scope races through actual PNG export
+and the native panel. Image detail layout, WebKit, network and wallpaper application
+are not covered by this composition gate.
 The original image/Pixabay layout gate also runs the real downloaded thumbnail
 store, file fingerprints and shared cache, with only its AV frame leaf controlled
 and public cache registrations/completions observed. Its HOME/cache namespace is isolated.
@@ -19,6 +21,7 @@ import sys
 import tempfile
 import unittest
 from script.tests.test_ui_library_algorithms import declaration
+from script.tests.native_app_harness import prepare_native_app, run_native_app
 
 ROOT = Path(__file__).resolve().parents[2]
 DOWNLOADED_STORE = ROOT / "MyWallpaperX/Modules/OnlineLibrary/UI/AppKitOLDownloadsItem.swift"
@@ -147,6 +150,7 @@ class WallpaperLibraryInspectorTests(unittest.TestCase):
             "Shell/AppKitListBackgroundTint.swift", "Shell/AppKitMainSplitView.swift",
             "App/WallpaperLibraryInspectorCoordinator.swift")]
         sources.append(ROOT / "script/tests/fixtures/OnlineImageLibraryAppStub.swift")
+        sources.append(ROOT / "script/tests/fixtures/NativeAppHarness.swift")
         harness = ROOT / "script/tests/fixtures/WallpaperLibraryInspectorHarness.swift"
         module = ROOT / "MyWallpaperX/Shared/UI/ModuleFocusable.swift"
         commands = ROOT / "MyWallpaperX/App/WallpaperLibraryCommands.swift"
@@ -177,25 +181,24 @@ class WallpaperLibraryInspectorTests(unittest.TestCase):
                         undo.read_text(), "@MainActor final class RelationshipUndoManager:"))
                     actual = actual.replace("// ACTUAL_IMAGE_BROWSER_SELECTION", declaration(
                         image_browser.read_text(), "        grid.onSelection ="))
+                    actual = actual.replace("// ACTUAL_IMAGE_BROWSER_ESCAPE", declaration(
+                        image_browser.read_text(), "        grid.onEscape ="))
                     actual = actual.replace("// ACTUAL_IMAGE_SELECTION_ASSEMBLY", declaration(
                         image_assembly.read_text(), "        browser.onSelectionChange ="))
+                    actual = actual.replace("// ACTUAL_IMAGE_ESCAPE_ASSEMBLY", declaration(
+                        image_assembly.read_text(), "        browser.onEscape ="))
                     target.write_text(actual)
                 else:
                     target.write_bytes(source.read_bytes())
                 frozen.append(target)
-            contents = work / "InspectorChecks.app/Contents"
-            (contents / "MacOS").mkdir(parents=True)
-            (contents / "Info.plist").write_bytes(plistlib.dumps({"CFBundleExecutable": "checks",
-                "CFBundleIdentifier": "com.mywallpaperx.tests.inspector-preview", "CFBundleName": "Inspector Checks", "CFBundlePackageType": "APPL"}))
-            binary = contents / "MacOS/checks"
+            binary = prepare_native_app(work, "InspectorChecks")
             result = subprocess.run(["xcrun", "swiftc", "-parse-as-library", "-swift-version", "5", "-default-isolation", "MainActor",
                 *map(str, frozen), str(helpers), "-module-cache-path", str(work / "modules"), "-o", str(binary)],
                 capture_output=True, text=True, timeout=150)
             self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
-            home = work / "home"; home.mkdir()
-            run = subprocess.run([str(binary), str(work)], capture_output=True, text=True, timeout=40,
-                env=dict(os.environ, HOME=str(home), CFFIXED_USER_HOME=str(home)))
-            self.assertEqual(run.returncode, 0, run.stdout + run.stderr)
+            run = run_native_app(binary, [str(work)], timeout=45)
+            self.assertEqual(run.launch_returncode, 0, run.stdout + run.stderr)
+            self.assertTrue(run.stdout.strip(), run.stderr)
             checks = json.loads(run.stdout)
             self.assertGreaterEqual(len(checks), 21)
             for name, passed in checks.items():

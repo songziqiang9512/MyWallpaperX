@@ -9,12 +9,27 @@ nonisolated enum PixivWorkType: String, CaseIterable, Codable, Sendable {
     case manga
 }
 
+nonisolated enum PixivOrder: String, CaseIterable, Codable, Sendable {
+    case newest = "date_d", oldest = "date"
+}
+
+nonisolated enum PixivAIFilter: String, CaseIterable, Codable, Sendable {
+    case include, hide
+}
+
+nonisolated enum PixivContentFilter: String, CaseIterable, Codable, Sendable {
+    case safe, accountAllowed = "all"
+}
+
 /// Source controls remain separate from the library's local search/sort state.
 nonisolated struct PixivQuery: Hashable, Codable, Sendable {
     var search: String = ""
     var ranking: PixivRankingMode = .daily
     var authorID: String? = nil
     var workType: PixivWorkType = .illustrations
+    var order: PixivOrder = .newest
+    var ai: PixivAIFilter = .include
+    var content: PixivContentFilter = .safe
 
     var searchWord: String { search.trimmingCharacters(in: .whitespacesAndNewlines) }
 }
@@ -35,7 +50,9 @@ nonisolated enum PixivRequestURL {
         return url
     }
 
-    static func search(_ word: String, type: PixivWorkType, page: Int) throws -> URL {
+    static func search(_ word: String, type: PixivWorkType, page: Int,
+                       order: PixivOrder = .newest, ai: PixivAIFilter = .include,
+                       content: PixivContentFilter = .safe) throws -> URL {
         // A word is one path segment. URLComponents.path alone does not escape '/'.
         var allowed = CharacterSet.urlPathAllowed
         allowed.remove(charactersIn: "/%?#")
@@ -47,10 +64,11 @@ nonisolated enum PixivRequestURL {
         components.host = "www.pixiv.net"
         components.percentEncodedPath = "/ajax/search/\(type == .manga ? "manga" : "artworks")/\(segment)"
         components.queryItems = [
-            .init(name: "word", value: word), .init(name: "order", value: "date_d"),
-            .init(name: "mode", value: "safe"), .init(name: "p", value: String(page)),
+            .init(name: "word", value: word), .init(name: "order", value: order.rawValue),
+            .init(name: "mode", value: content.rawValue), .init(name: "p", value: String(page)),
             .init(name: "s_mode", value: "s_tag"), .init(name: "lang", value: "zh")
         ]
+        if ai == .hide { components.queryItems?.append(.init(name: "ai_type", value: "1")) }
         guard let url = components.url else { throw OnlineImageError.invalidResponse }
         return url
     }

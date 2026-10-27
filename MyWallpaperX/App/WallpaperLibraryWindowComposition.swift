@@ -128,14 +128,18 @@ import Combine
         canOrganize: { [weak self] in self?.commands.canOrganize == true },
         availabilityChanges: commands.availabilityChanges,
         onChoosePlaylist: { [weak self] ref, anchor in self?.commands.choosePlaylist([ref], anchor: anchor) })
-    private lazy var adapter = WallpaperLibraryCellAdapter(manager: manager, images: images, steam: steam, online: online,
+    private lazy var adapter: WallpaperLibraryCellAdapter = WallpaperLibraryCellAdapter(manager: manager, images: images, steam: steam, online: online,
         isFavorite: { [weak self] in self?.cardState?.isFavorite($0) ?? false },
         isPlaying: { [weak self] in self?.cardState?.isPlaying($0) ?? false },
         isSwitching: { [weak self] in self?.cardState?.isSwitching($0) ?? false },
         makePrimaryAction: { [weak self] in self?.makeCardPrimaryAction($0) },
         makeFavoriteAction: { [weak self] in self?.makeCardFavoriteAction($0) },
-        onInspect: { [weak self] in self?.inspector.inspect(content: $0) })
-    private lazy var grid = WallpaperLibraryGridController { [weak self] collection, path, content, state in
+        onInspect: { [weak self] in self?.inspector.inspect(content: $0) },
+        onPreview: { [weak self] content in
+            guard let self, permitsInput, grid.select([content.reference], focus: content.reference) else { return }
+            _ = inspector.preview(content: content)
+        })
+    private lazy var grid: WallpaperLibraryGridController = WallpaperLibraryGridController { [weak self] collection, path, content, state in
         guard let self else { return NSCollectionViewItem() }
         return self.adapter.makeCell(collection: collection, indexPath: path, content: content, state: state)
     }
@@ -891,7 +895,7 @@ import Combine
     }
 
     func escape() {
-        if inspector.isPreviewVisible { inspector.closePreview() }
+        if inspector.previewReference != nil { inspector.closePreview() }
         else if inspector.inspectedReference != nil { inspector.closeInspector() }
         else if workspace.presentation.selectionState.isSelecting { commands.toggleSelectionMode() }
     }

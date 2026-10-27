@@ -11,6 +11,8 @@ final class PixivLoginPanelController: NSObject, NSWindowDelegate, WKNavigationD
     private var closingTask: Task<Void, Never>?
     private var originLabel: NSTextField?
     private var statusLabel: NSTextField?
+    private var documentRevision: UInt64 = 0
+    private var documentMetadata: PixivOfficialMetadata = .unknown
 
     init(session: PixivSession) { self.session = session; super.init() }
 
@@ -118,6 +120,7 @@ final class PixivLoginPanelController: NSObject, NSWindowDelegate, WKNavigationD
         panel.contentView = surface
         self.panel = panel
         webView = browser
+        documentMetadata = .unknown
         originLabel = origin
         statusLabel = status
         self.onClose = onClose
@@ -151,6 +154,8 @@ final class PixivLoginPanelController: NSObject, NSWindowDelegate, WKNavigationD
     private func finishClose() {
         guard let panel else { return }
         let completion = onClose
+        let metadata = documentMetadata
+        documentMetadata = .unknown
         onClose = nil
         panel.delegate = nil
         webView?.stopLoading()
@@ -164,7 +169,7 @@ final class PixivLoginPanelController: NSObject, NSWindowDelegate, WKNavigationD
         statusLabel = nil
         let session = session
         closingTask = Task { @MainActor [weak self] in
-            await session.refresh(afterExplicitAccountAction: true)
+            await session.refresh(afterExplicitAccountAction: true, officialMetadata: metadata)
             self?.closingTask = nil
             completion?()
         }
@@ -197,10 +202,20 @@ final class PixivLoginPanelController: NSObject, NSWindowDelegate, WKNavigationD
         return nil
     }
 
+    func webView(_ webView: WKWebView, didStartProvisionalNavigation navigation: WKNavigation!) {
+        if self.webView === webView { documentRevision &+= 1; documentMetadata = .unknown }
+    }
+
     func webView(_ webView: WKWebView, didFinish navigation: WKNavigation!) {
         guard self.webView === webView else { return }
         originLabel?.stringValue = webView.url?.host ?? "Pixiv"
-        // Navigation completion is presentation feedback, never login evidence.
+        guard let url = webView.url, Self.isOfficial(url) else { return }
+        let revision = documentRevision
+        webView.evaluateJavaScript("document.querySelector('meta#meta-global-data')?.content ?? null") { [weak self, weak webView] result, _ in
+            guard let self, let webView, self.webView === webView, webView.url == url,
+                  self.documentRevision == revision else { return }
+            self.documentMetadata = PixivOfficialMetadata.parse(raw: result as? String, url: url)
+        }
     }
 
     func webView(_ webView: WKWebView, didFail navigation: WKNavigation!, withError error: Error) { showNavigationError(webView, error) }

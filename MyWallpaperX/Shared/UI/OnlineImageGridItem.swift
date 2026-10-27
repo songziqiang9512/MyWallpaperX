@@ -18,6 +18,7 @@ final class OnlineImageGridItem: WallpaperCardCollectionViewItem, WallpaperGridH
     private var fraction: Double?
     private var onPrimary: (() -> Void)?
     private var onFavorite: (() -> Void)?
+    private var onPreview: (() -> Void)?
     private var barVisibilityRevision: UInt64 = 0
     private var lastLayoutSize: NSSize?
     private var lastChrome: Chrome?
@@ -66,7 +67,8 @@ final class OnlineImageGridItem: WallpaperCardCollectionViewItem, WallpaperGridH
         retireRequest(); content = nil; request = nil; pixelLimit = 0; hasFailed = false
         thumbnail.image = nil; visible = false; hovering = false
         cardSelected = false; selecting = false; switching = false; playing = false; busy = false
-        onPrimary = nil; onFavorite = nil; fraction = nil; lastLayoutSize = nil; lastChrome = nil
+        onPrimary = nil; onFavorite = nil; onPreview = nil; bar?.onPreview = nil
+        fraction = nil; lastLayoutSize = nil; lastChrome = nil
         barVisibilityRevision &+= 1
         bar?.setActive(false)
         bar?.glass.setProgressAnimationVisible(false); bar?.removeFromSuperview()
@@ -75,7 +77,7 @@ final class OnlineImageGridItem: WallpaperCardCollectionViewItem, WallpaperGridH
 
     func configure(content: WallpaperContentItem, request: OLThumbnailRequest?, selected: Bool, selecting: Bool,
                    favorite: Bool, playing: Bool, switching: Bool = false, busy: Bool = false, fraction: Double? = nil, refreshToken: UUID? = nil,
-                   onPrimary: (() -> Void)?, onFavorite: (() -> Void)?) {
+                   onPrimary: (() -> Void)?, onFavorite: (() -> Void)?, onPreview: (() -> Void)? = nil) {
         loadViewIfNeeded()
         let changed = self.content?.providerReference != content.providerReference
             || self.content?.metadata.resourceRevision != content.metadata.resourceRevision
@@ -88,6 +90,7 @@ final class OnlineImageGridItem: WallpaperCardCollectionViewItem, WallpaperGridH
         self.selecting = selecting; self.playing = playing; self.switching = switching
         self.cardSelected = selected; self.favorite = favorite
         self.onPrimary = onPrimary; self.onFavorite = onFavorite
+        self.onPreview = onPreview
         view.setAccessibilityElement(true); view.setAccessibilityRole(.group)
         view.setAccessibilityLabel(content.title)
         updateControls()
@@ -252,6 +255,11 @@ final class OnlineImageGridItem: WallpaperCardCollectionViewItem, WallpaperGridH
         bar.primaryState = switching ? .switching : content.publishedAvailability.isAvailable ? (playing ? .applied : .apply) : .download
         bar.playButton.isEnabled = onPrimary != nil && !busy && !switching
         bar.favoriteButton.isHidden = onFavorite == nil
+        bar.onPreview = onPreview == nil ? nil : { [weak self] in
+            guard let self, visible, !selecting,
+                  WallpaperLibrarySheetPresentation.permitsInput(in: view.window) else { return }
+            onPreview?()
+        }
         bar.glass.applyProgress(style: busy ? .downloading : .neutral, fraction: busy ? fraction : nil,
             indeterminate: busy && fraction == nil, animated: false)
     }

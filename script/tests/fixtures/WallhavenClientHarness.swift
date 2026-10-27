@@ -67,9 +67,15 @@ nonisolated private final class StubProtocol: URLProtocol, @unchecked Sendable {
     }
 
     static func body(_ value: [String: Any]) throws -> Data { try JSONSerialization.data(withJSONObject: value) }
-    static func page(_ number: Int = 1, last: Int = 2, query: Any = NSNull(), rows: [[String: Any]]? = nil) throws -> Data {
+    static func page(_ number: Int = 1, last: Int = 2, query: Any = NSNull(),
+                     rows: [[String: Any]]? = nil, seed: String? = "new123") throws -> Data {
         try body(["data": rows ?? [item()], "meta": ["current_page": number, "last_page": last,
-            "per_page": 24, "total": 25, "query": query, "seed": "new123"]])
+            "per_page": 24, "total": 25, "query": query, "seed": seed.map { $0 as Any } ?? NSNull()]])
+    }
+
+    static func parameters(_ request: URLRequest) -> [String: String] {
+        Dictionary(uniqueKeysWithValues: URLComponents(url: request.url!, resolvingAgainstBaseURL: false)!
+            .queryItems!.map { ($0.name, $0.value ?? "") })
     }
 
     static func main() async throws {
@@ -88,8 +94,7 @@ nonisolated private final class StubProtocol: URLProtocol, @unchecked Sendable {
         let second = try await client.page(query: query, request: first.next!)
         let requests = StubProtocol.state.requests()
         let encoded = requests[0].url!.absoluteString
-        let items = URLComponents(url: requests[0].url!, resolvingAgainstBaseURL: false)!.queryItems!
-        let parameters = Dictionary(uniqueKeysWithValues: items.map { ($0.name, $0.value ?? "") })
+        let parameters = Self.parameters(requests[0])
         checks["search_operators_and_filters_survive_encoding"] = encoded.contains("%2Bmountains")
             && parameters["q"] == query.search && parameters["topRange"] == "1M"
             && parameters["atleast"] == "1920x1080" && parameters["ratios"] == "16x9" && parameters["colors"] == "424153"
@@ -97,7 +102,7 @@ nonisolated private final class StubProtocol: URLProtocol, @unchecked Sendable {
         checks["anonymous_headers_and_api_origin"] = requests.allSatisfy {
             $0.value(forHTTPHeaderField: "X-API-Key") == nil && $0.url?.host == "wallhaven.cc" && $0.url?.scheme == "https"
         }
-        checks["tag_object_and_text_query_pages_decode"] = first.next?.page == 2 && second.next == nil
+        checks["unused_tag_object_and_text_query_metadata_do_not_reject_pages"] = first.next?.page == 2 && second.next == nil
             && first.total == 25 && second.items.first?.artworkID == "z9y8x7"
         let starts = StubProtocol.state.startTimes()
         checks["single_owner_spaces_api_starts"] = starts.count == 2 && starts[1] - starts[0] >= 0.95
@@ -106,21 +111,112 @@ nonisolated private final class StubProtocol: URLProtocol, @unchecked Sendable {
         checks["original_asset_preserves_identity_metadata_without_network"] = assets.count == 1
             && assets[0].id.reference == WallpaperReference(provider: .wallhaven, sourceID: "a1b2c3")
             && assets[0].originalURL.absoluteString == "https://w.wallhaven.cc/full/a1b2c3.png"
-            && assets[0].author == "fixture author" && assets[0].expectedBytes == 123456
+            && assets[0].author == "fixture author" && assets[0].authorID == "fixture author"
+            && assets[0].expectedBytes == 123456
             && artwork.rating == .safe && artwork.kind == .image && StubProtocol.state.requests().count == 2
         pagingSession.invalidateAndCancel()
 
-        StubProtocol.state.reset([Reply(data: try page(last: 99))])
+        StubProtocol.state.reset([Reply(data: try page(query: ["username": "FixturE_Artist-01"], seed: nil))])
+        let authorSession = session(), authorClient = WallhavenClient(session: authorSession)
+        var authorQuery = WallhavenQuery()
+        authorQuery.authorUsername = "FixturE_Artist-01"
+        authorQuery.search = "id:328"
+        authorQuery.categories = "101"; authorQuery.purity = "110"
+        authorQuery.sorting = .favorites; authorQuery.order = .asc
+        authorQuery.resolutions = ["1920x1080", "2560x1440"]
+        authorQuery.ratios = ["16x9", "21x9"]; authorQuery.color = "#660000"
+        let authorPage = try await authorClient.page(query: authorQuery)
+        let authorParameters = Self.parameters(StubProtocol.state.requests()[0])
+        checks["author_query_preserves_username_and_combines_all_supported_filters"] = authorParameters["q"] == "@FixturE_Artist-01"
+            && authorParameters["categories"] == "101" && authorParameters["purity"] == "110"
+            && authorParameters["sorting"] == "favorites" && authorParameters["order"] == "asc"
+            && authorParameters["resolutions"] == "1920x1080,2560x1440"
+            && authorParameters["ratios"] == "16x9,21x9" && authorParameters["colors"] == "660000"
+            && authorParameters["atleast"] == nil && authorParameters["topRange"] == nil
+            && authorPage.next?.page == 2 && authorPage.next?.seed == nil
+        authorSession.invalidateAndCancel()
+
+        authorQuery.sorting = .popular; authorQuery.topRange = .sixMonths; authorQuery.order = .desc
+        authorQuery.minimumResolution = "3840x2160"; authorQuery.resolutions = []
+        let popularParameters = Dictionary(uniqueKeysWithValues: try authorQuery.queryItems(page: 3)
+            .map { ($0.name, $0.value ?? "") })
+        authorQuery.sorting = .views; authorQuery.authorUsername = nil
+        let viewsParameters = Dictionary(uniqueKeysWithValues: try authorQuery.queryItems(page: 3, seed: "abc123")
+            .map { ($0.name, $0.value ?? "") })
+        checks["author_popular_range_and_minimum_resolution_keep_the_same_query"] = popularParameters["q"] == "@FixturE_Artist-01"
+            && popularParameters["topRange"] == "6M" && popularParameters["order"] == "desc"
+            && popularParameters["atleast"] == "3840x2160" && popularParameters["resolutions"] == nil
+            && popularParameters["page"] == "3"
+        checks["views_and_text_search_do_not_send_inactive_toprange_or_seed"] = viewsParameters["sorting"] == "views"
+            && viewsParameters["q"] == "id:328" && viewsParameters["topRange"] == nil && viewsParameters["seed"] == nil
+
+        let anonymousAuthor = try JSONDecoder().decode(WallhavenDetailResponse.self,
+            from: body(["data": item()])).data.artwork()!
+        var missingUploader = item(); missingUploader.removeValue(forKey: "uploader")
+        var blankUploader = item(); blankUploader["uploader"] = ["username": "  "]
+        let missingAuthor = try JSONDecoder().decode(WallhavenDetailResponse.self,
+            from: body(["data": missingUploader])).data.artwork()!
+        let blankAuthor = try JSONDecoder().decode(WallhavenDetailResponse.self,
+            from: body(["data": blankUploader])).data.artwork()!
+        checks["author_identity_comes_only_from_nonempty_uploader_username"] = anonymousAuthor.authorID == "fixture author"
+            && missingAuthor.author == nil && missingAuthor.authorID == nil
+            && blankAuthor.author == nil && blankAuthor.authorID == nil
+
+        StubProtocol.state.reset([Reply(data: try page(rows: [item("")])), Reply(data: try page(2, rows: [item("last01")]))])
+        let filteredSession = session(), filteredClient = WallhavenClient(session: filteredSession)
+        let filteredPage = try await filteredClient.page(query: .init())
+        let afterFiltered = try await filteredClient.page(query: .init(), request: filteredPage.next!)
+        checks["projection_empty_page_keeps_server_continuation"] = filteredPage.items.isEmpty
+            && filteredPage.next?.page == 2 && filteredPage.total == 25 && filteredPage.notice != nil
+            && afterFiltered.items.first?.artworkID == "last01" && afterFiltered.next == nil
+        filteredSession.invalidateAndCancel()
+
+        StubProtocol.state.reset([Reply(data: try page(rows: [item(""), item("valid1")]))])
+        let partialSession = session(), partialClient = WallhavenClient(session: partialSession)
+        let partialPage = try await partialClient.page(query: .init())
+        checks["projection_skips_only_unreadable_items_and_reports_local_degradation"] = partialPage.items.map(\.artworkID) == ["valid1"]
+            && partialPage.next?.page == 2 && partialPage.notice != nil && StubProtocol.state.requests().count == 1
+        partialSession.invalidateAndCancel()
+
+        StubProtocol.state.reset([Reply(data: try page(last: 3, seed: "abc123")),
+                                  Reply(data: try page(2, last: 3, rows: [item("rand02")], seed: "abc123")),
+                                  Reply(data: try page(3, last: 3, rows: [item("rand03")], seed: "abc123"))])
         let randomSession = session()
         let randomClient = WallhavenClient(session: randomSession)
         var random = WallhavenQuery(); random.sorting = .random
-        let randomPage = try await randomClient.page(query: random)
-        var refused = false
-        do { _ = try await randomClient.page(query: random, request: .init(page: 2, seed: "abc123")) }
-        catch { refused = true }
-        checks["random_is_one_batch_with_notice_and_no_fake_continuation"] = randomPage.next == nil
-            && randomPage.notice != nil && refused && StubProtocol.state.requests().count == 1
+        let randomFirst = try await randomClient.page(query: random)
+        let randomSecond = try await randomClient.page(query: random, request: randomFirst.next!)
+        let randomLast = try await randomClient.page(query: random, request: randomSecond.next!)
+        let randomRequests = StubProtocol.state.requests().map(Self.parameters)
+        checks["random_continuation_preserves_first_seed_until_server_last_page"] = randomFirst.next == OnlineImagePageRequest(page: 2, seed: "abc123")
+            && randomSecond.next == OnlineImagePageRequest(page: 3, seed: "abc123") && randomLast.next == nil
+            && randomSecond.items.first?.artworkID == "rand02" && randomLast.items.first?.artworkID == "rand03"
+            && randomFirst.notice == nil && randomSecond.notice == nil && randomLast.notice == nil
+            && randomRequests.count == 3 && randomRequests[0]["seed"] == nil
+            && randomRequests[1]["seed"] == "abc123" && randomRequests[2]["seed"] == "abc123"
         randomSession.invalidateAndCancel()
+
+        for (suffix, responseSeed) in [("changed", String?("def456")), ("missing", String?.none)] {
+            StubProtocol.state.reset([Reply(data: try page(seed: "abc123")),
+                                      Reply(data: try page(2, rows: [item("wrong1")], seed: responseSeed))])
+            let changedSession = session(), changedClient = WallhavenClient(session: changedSession)
+            let accepted = try await changedClient.page(query: random)
+            let stopped = try await changedClient.page(query: random, request: accepted.next!)
+            checks["random_\(suffix)_response_seed_stops_without_appending_or_retrying"] = accepted.items.first?.artworkID == "a1b2c3"
+                && stopped.items.isEmpty && stopped.next == nil && stopped.notice != nil
+                && StubProtocol.state.requests().count == 2
+            changedSession.invalidateAndCancel()
+        }
+
+        StubProtocol.state.reset([Reply(data: try page(seed: nil))])
+        let seedlessSession = session(), seedlessClient = WallhavenClient(session: seedlessSession)
+        let seedlessFirst = try await seedlessClient.page(query: random)
+        let seedlessNext = try await seedlessClient.page(query: random, request: .init(page: 2))
+        checks["random_missing_initial_seed_shows_one_batch_and_missing_continuation_never_requests"] = seedlessFirst.items.count == 1
+            && seedlessFirst.next == nil && seedlessFirst.notice != nil
+            && seedlessNext.items.isEmpty && seedlessNext.next == nil && seedlessNext.notice != nil
+            && StubProtocol.state.requests().count == 1
+        seedlessSession.invalidateAndCancel()
 
         StubProtocol.state.reset([Reply(data: try body(["data": item("d4e5f6")]))])
         let detailSession = session()

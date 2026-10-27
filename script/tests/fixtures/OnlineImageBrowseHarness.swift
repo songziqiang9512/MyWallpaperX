@@ -99,6 +99,8 @@ private struct BrowseFixtureFailure: LocalizedError {
     let third = OnlineImagePageRequest(page: 3, seed: "fixed-seed", date: "20261025", offset: 48)
     session.enter()
     let initial = try await request(library, count: 1)
+    session.enter(); session.enter(); await Task.yield()
+    checks[prefix + "repeated-entry-coalesces-the-inflight-initial-page"] = library.client.requests.count == 1
     let first = [artwork(source, "11", "first"), artwork(source, "11", "duplicate"), artwork(source, "12")]
     try await respond(library, index: initial, result: .success(.init(items: first, next: second, total: 72)))
     try await waitFor("initial page") { !session.state.isLoading }
@@ -223,49 +225,102 @@ private struct BrowseFixtureFailure: LocalizedError {
     session.leave()
 }
 
-@MainActor private func authorReturn(_ checks: inout [String: Bool]) async throws {
-    let library = OnlineImageLibrary(), session = OnlineImageBrowserSession(source: .pixiv, library: library)
+@MainActor private func authorReturn(_ checks: inout [String: Bool], source: OnlineImageSource) async throws {
+    let library = OnlineImageLibrary(), session = OnlineImageBrowserSession(source: source, library: library)
+    let prefix = source.rawValue + ":"
     var captures = 0, restores = 0
     session.onCaptureReturnScroll = { captures += 1 }
     session.onRestoreReturnScroll = { restores += 1 }
-    let query = PixivQuery(search: "origin search", ranking: .monthly, workType: .illustrations)
+    let query: OnlineImageBrowserSession.Query = source == .pixiv
+        ? .pixiv(PixivQuery(search: "origin search", ranking: .monthly, workType: .illustrations))
+        : .wallhaven(WallhavenQuery(search: "origin search", sorting: .favorites, purity: "110", ratios: ["16x9"]))
     let second = OnlineImagePageRequest(page: 2, date: "20261024", offset: 24)
-    session.setQuery(.pixiv(query))
+    session.setQuery(query)
     let first = try await request(library, count: 1)
-    try await respond(library, index: first, result: .success(.init(items: [artwork(.pixiv, "51")], next: second, total: 100)))
+    try await respond(library, index: first, result: .success(.init(items: [artwork(source, "51")], next: second, total: 100)))
     try await waitFor("origin first page") { !session.state.isLoading }
     session.loadMore()
     let more = try await request(library, count: 2)
     let third = OnlineImagePageRequest(page: 3, date: "20261024", offset: 48)
-    try await respond(library, index: more, result: .success(.init(items: [artwork(.pixiv, "52")], next: third, total: 100)))
+    try await respond(library, index: more, result: .success(.init(items: [artwork(source, "52")], next: third, total: 100)))
     try await waitFor("origin second page") { !session.state.isLoading }
     let origin = session.state
-    session.openAuthor("77")
+    session.openAuthor(.init(source: source == .pixiv ? .wallhaven : .pixiv, id: "77", name: "Wrong source"))
+    checks[prefix + "author-from-another-source-cannot-change-the-query"] = session.state.query == origin.query && !session.hasReturnContext
+    let authorIdentity = OnlineImageAuthor(source: source, id: "77", name: "作者名字")
+    session.openAuthor(authorIdentity)
     let author = try await request(library, count: 3)
-    let authorQuery = PixivQuery(search: "", ranking: .monthly, authorID: "77", workType: .illustrations)
-    checks["author-entry-captures-one-origin-and-clears-only-source-search"] = captures == 1 && session.hasReturnContext
-        && library.client.requests[author].query == .pixiv(authorQuery) && library.client.authorInvalidations == 1
-    try await respond(library, index: author, result: .success(.init(items: [artwork(.pixiv, "53")], next: .init(page: 2))))
+    let authorQuery: OnlineImageBrowserSession.Query
+    switch query {
+    case .pixiv(var value): value.search = ""; value.authorID = "77"; authorQuery = .pixiv(value)
+    case .wallhaven(var value): value.search = ""; value.authorUsername = "77"; authorQuery = .wallhaven(value)
+    }
+    checks[prefix + "author-entry-captures-one-origin-and-clears-only-source-search"] = captures == 1 && session.hasReturnContext
+        && library.client.requests[author].query == authorQuery && library.client.authorInvalidations == 0
+        && session.state.author == authorIdentity && session.state.query.authorIdentifier == authorIdentity.id
+    try await respond(library, index: author, result: .success(.init(items: [artwork(source, "53")], next: .init(page: 2))))
     try await waitFor("author page") { !session.state.isLoading }
-    var manga = authorQuery; manga.workType = .manga
-    session.setQuery(.pixiv(manga))
+    let filteredQuery: OnlineImageBrowserSession.Query
+    switch authorQuery {
+    case .pixiv(var value): value.workType = .manga; value.ai = .hide; filteredQuery = .pixiv(value)
+    case .wallhaven(var value): value.categories = "010"; value.order = .asc; filteredQuery = .wallhaven(value)
+    }
+    session.setQuery(filteredQuery)
     let filtered = try await request(library, count: 4)
-    checks["author-type-filter-preserves-original-return-context"] = session.hasReturnContext && captures == 1
-        && library.client.requests[filtered].query == .pixiv(manga) && library.client.authorInvalidations == 2
-    try await respond(library, index: filtered, result: .success(.init(items: [artwork(.pixiv, "54")], next: nil)))
-    try await waitFor("author manga page") { !session.state.isLoading }
-    session.openAuthor("88")
+    checks[prefix + "author-filter-preserves-label-snapshot-and-original-return-context"] = session.hasReturnContext && captures == 1
+        && library.client.requests[filtered].query == filteredQuery && library.client.authorInvalidations == 0
+        && session.state.author == authorIdentity
+    try await respond(library, index: filtered, result: .success(.init(items: [artwork(source, "54")], next: nil)))
+    try await waitFor("author filtered page") { !session.state.isLoading }
+    session.openAuthor(.init(source: source, id: "77"))
+    await Task.yield()
+    checks[prefix + "same-author-entry-reuses-the-current-context-and-known-name"] = library.client.requests.count == 4
+        && session.state.author == authorIdentity && session.state.query == filteredQuery && captures == 1
+    session.openAuthor(.init(source: source, id: "88", name: "另一位作者"))
     let laterAuthor = try await request(library, count: 5)
     session.goBack()
-    checks["author-back-restores-original-query-pages-and-continuation"] = session.state.query == origin.query
+    checks[prefix + "author-back-restores-original-query-pages-and-continuation"] = session.state.query == origin.query
         && session.state.items == origin.items && session.state.next == origin.next && session.state.firstPageIDs == origin.firstPageIDs
         && session.state.total == origin.total && session.state.checkedAt == origin.checkedAt && session.state.refreshToken == origin.refreshToken
-        && !session.hasReturnContext && captures == 1 && restores == 1 && !session.state.isLoading
-    try await respond(library, index: laterAuthor, result: .success(.init(items: [artwork(.pixiv, "55")], next: nil)))
-    checks["author-response-after-back-cannot-overwrite-restored-origin"] = session.state.query == origin.query
+        && !session.hasReturnContext && captures == 1 && restores == 1 && !session.state.isLoading && session.state.author == nil
+    try await respond(library, index: laterAuthor, result: .success(.init(items: [artwork(source, "55")], next: nil)))
+    checks[prefix + "author-response-after-back-cannot-overwrite-restored-origin"] = session.state.query == origin.query
         && session.state.items == origin.items && session.state.next == origin.next && session.state.error == nil
     session.enter(); await Task.yield()
-    checks["fresh-restored-origin-reentry-does-not-refetch"] = library.client.requests.count == 5
+    checks[prefix + "fresh-restored-origin-reentry-does-not-refetch"] = library.client.requests.count == 5
+    session.openAuthor(authorIdentity)
+    let revisit = try await request(library, count: 6)
+    try await respond(library, index: revisit, result: .success(.init(items: [artwork(source, "56")], next: nil)))
+    try await waitFor("author revisited") { !session.state.isLoading }
+    session.setSearch(" new search ")
+    let search = try await request(library, count: 7)
+    checks[prefix + "editing-search-exits-author-mode-and-clears-its-return-context"] = session.state.query.authorIdentifier == nil
+        && session.state.query.search == "new search" && session.state.author == nil && !session.hasReturnContext
+        && library.client.requests[search].query == session.state.query
+    try await respond(library, index: search, result: .success(.init(items: [], next: nil)))
+    try await waitFor("new search") { !session.state.isLoading }
+    session.leave()
+}
+
+@MainActor private func authorReturnToUnloadedOrigin(_ checks: inout [String: Bool], source: OnlineImageSource) async throws {
+    let library = OnlineImageLibrary(), session = OnlineImageBrowserSession(source: source, library: library)
+    session.setSearch("origin still loading")
+    let origin = try await request(library, count: 1)
+    let query = session.state.query
+    session.openAuthor(.init(source: source, id: "77", name: "作者"))
+    let author = try await request(library, count: 2)
+    session.goBack()
+    let restored = try await request(library, count: 3)
+    checks[source.rawValue + ":author-back-restarts-an-unloaded-origin"] = session.state.query == query
+        && library.client.requests[restored].query == query && session.state.isLoading && !session.state.hasLoaded
+        && !session.hasReturnContext && session.state.author == nil
+    try await respond(library, index: origin, result: .success(.init(items: [artwork(source, "old-origin")], next: nil)))
+    try await respond(library, index: author, result: .success(.init(items: [artwork(source, "old-author")], next: nil)))
+    checks[source.rawValue + ":late-origin-and-author-do-not-overwrite-restarted-origin"] = session.state.items.isEmpty && session.state.isLoading
+    try await respond(library, index: restored, result: .success(.init(items: [artwork(source, "current-origin")], next: nil)))
+    try await waitFor("restored unloaded origin") { !session.state.isLoading }
+    checks[source.rawValue + ":unloaded-origin-eventually-publishes-current-request"] = session.state.hasLoaded
+        && session.state.items.map(\.artworkID) == ["current-origin"]
     session.leave()
 }
 
@@ -283,11 +338,13 @@ private struct BrowseFixtureFailure: LocalizedError {
     checks["old-scope-late-response-cannot-publish-or-clear-current-loading"] = session.state.items.isEmpty && session.state.isLoading
     try await respond(library, index: current, result: .success(.init(items: [artwork(.pixiv, "62")], next: nil)))
     try await waitFor("current scope") { !session.state.isLoading }
-    session.openAuthor("77")
+    session.openAuthor(.init(source: .pixiv, id: "77", name: "作者"))
     let author = try await request(library, count: 3)
     library.pixivScope = "account-c"; session.resetScope()
     checks["explicit-scope-reset-clears-author-origin-and-visible-account-state"] = !session.hasReturnContext
         && session.state.items.isEmpty && session.state.next == nil && !session.state.hasLoaded && !session.state.isLoading
+    checks["scope-reset-preserves-only-the-explicit-author-query-label"] = session.state.author == .init(source: .pixiv, id: "77", name: "作者")
+        && session.state.query.authorIdentifier == "77"
     session.enter()
     let latest = try await request(library, count: 4)
     try await respond(library, index: author, result: .failure(OnlineImageError.message("obsolete account failure")))
@@ -303,6 +360,9 @@ private struct BrowseFixtureFailure: LocalizedError {
     library.pixivScopeAfterPreparation = "restored-cookie-scope"
     session.enter()
     let first = try await request(library, count: 1)
+    session.enter(); await Task.yield()
+    checks["prepared-cookie-scope-does-not-cancel-an-already-current-held-home-page"] = library.client.requests.count == 1
+        && session.state.isLoading
     let next = OnlineImagePageRequest(page: 2, date: "20261025", offset: 24)
     try await respond(library, index: first, result: .success(.init(items: [artwork(.pixiv, "81")], next: next)))
     try await waitFor("prepared cookie home") { !session.state.isLoading }
@@ -371,39 +431,37 @@ private struct BrowseFixtureFailure: LocalizedError {
     session.leave(); session.enter(); await Task.yield()
     checks[prefix + "rebuilt-scope-home-publishes-alone-and-retains-fresh-cache"] = session.state.items.map(\.artworkID) == ["95"]
         && session.state.next == nextD && library.client.requests.count == 6 && !session.state.isLoading
-    if source == .pixiv {
-        session.openAuthor("77")
-        let author = try await request(library, count: 7)
-        try await respond(library, index: author, result: .success(.init(items: [artwork(source, "96")], next: nil)))
-        try await waitFor("scope d author") { !session.state.isLoading }
-        changeScope("scope-e"); session.goBack()
-        checks["author-back-cannot-restore-previous-account-cache-without-ui-reset"] = !session.hasReturnContext
-            && session.state.items.isEmpty && !session.state.isLoading && library.client.requests.count == 7
-    }
+    session.openAuthor(.init(source: source, id: "77", name: "作者"))
+    let author = try await request(library, count: 7)
+    try await respond(library, index: author, result: .success(.init(items: [artwork(source, "96")], next: nil)))
+    try await waitFor("scope d author") { !session.state.isLoading }
+    changeScope("scope-e"); session.goBack()
+    checks[prefix + "author-back-cannot-restore-previous-account-cache-without-ui-reset"] = !session.hasReturnContext
+        && session.state.items.isEmpty && !session.state.isLoading && library.client.requests.count == 7
     session.leave()
 }
 
 @MainActor private func authorBackgroundContinuation(_ checks: inout [String: Bool]) async throws {
     let library = OnlineImageLibrary(), session = OnlineImageBrowserSession(source: .pixiv, library: library)
-    session.openAuthor("77")
+    session.openAuthor(.init(source: .pixiv, id: "77", name: "作者"))
     let first = try await request(library, count: 1)
     let next = OnlineImagePageRequest(page: 2, offset: 24)
     try await respond(library, index: first, result: .success(.init(items: [artwork(.pixiv, "101")], next: next)))
     try await waitFor("author initial snapshot") { !session.state.isLoading }
     session.fixtureExpireCache(); session.enter()
     let background = try await request(library, count: 2)
-    checks["author-background-check-does-not-replace-id-snapshot-under-saved-offset"] = library.client.authorInvalidations == 1
+    checks["author-background-check-does-not-replace-id-snapshot-under-saved-offset"] = library.client.authorInvalidations == 0
     try await respond(library, index: background, result: .success(.init(items: [artwork(.pixiv, "101")], next: next)))
     try await waitFor("author background snapshot") { !session.state.isLoading }
     session.loadMore()
     let more = try await request(library, count: 3)
     checks["author-background-check-keeps-exact-continuation-and-snapshot"] = library.client.requests[more].page == next
-        && library.client.authorInvalidations == 1
+        && library.client.authorInvalidations == 0
     try await respond(library, index: more, result: .success(.init(items: [artwork(.pixiv, "102")], next: nil)))
     try await waitFor("author continuation") { !session.state.isLoading }
     session.refresh()
     let refresh = try await request(library, count: 4)
-    checks["author-explicit-refresh-starts-new-id-snapshot-at-first-page"] = library.client.authorInvalidations == 2
+    checks["author-explicit-refresh-starts-new-id-snapshot-at-first-page"] = library.client.authorInvalidations == 1
         && library.client.requests[refresh].page == .init()
     try await respond(library, index: refresh, result: .success(.init(items: [artwork(.pixiv, "103")], next: nil)))
     try await waitFor("author explicit refresh") { !session.state.isLoading }
@@ -418,7 +476,10 @@ private struct BrowseFixtureFailure: LocalizedError {
         try await queryAndCancellation(&checks)
         try await refreshFailure(&checks)
         try await emptyFilteredPages(&checks)
-        try await authorReturn(&checks)
+        try await authorReturn(&checks, source: .wallhaven)
+        try await authorReturn(&checks, source: .pixiv)
+        try await authorReturnToUnloadedOrigin(&checks, source: .wallhaven)
+        try await authorReturnToUnloadedOrigin(&checks, source: .pixiv)
         try await authorBackgroundContinuation(&checks)
         try await scopeChanges(&checks)
         try await preparedCookieScope(&checks)

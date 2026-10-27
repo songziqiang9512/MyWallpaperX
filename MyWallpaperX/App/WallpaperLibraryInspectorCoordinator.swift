@@ -2,6 +2,8 @@ import AppKit
 import Combine
 import QuickLook
 import QuickLookUI
+import ImageIO
+import UniformTypeIdentifiers
 
 /// One mixed-page Inspector/Quick Look composition. Providers retain metadata,
 /// assets and specialized controls; all organization actions carry a fixed ref.
@@ -28,12 +30,24 @@ import QuickLookUI
     private weak var ownedPreviewPanel: QLPreviewPanel?
     private(set) var previewReference: WallpaperReference?
     var isSwitching: ((WallpaperReference) -> Bool)?
-    var onOnlineImageAuthor: ((String) -> Void)?
+    var onOnlineImageAuthor: ((OnlineImageAuthor) -> Void)?
     private(set) var previewURL: URL?
+    private var previewRevision: String?
+    private var previewTask: Task<Void, Never>?
+    private var previewGeneration = UUID()
+    private var resumedNativePreview: UUID?
+    private var remotePreview: (source: OnlineImageSource, url: URL, scope: String)?
+    private var temporaryPreviewURL: URL?
+    private var displayedTemporaryPreviewURL: URL?
 
     var inspectedReference: WallpaperReference? { inspection?.content.reference }
     var inspectorToken: InspectorCardToken? { inspection?.token }
     var isPreviewVisible: Bool { ownedPreviewPanel?.isVisible == true && ownedPreviewPanel?.dataSource === self }
+
+    deinit {
+        previewTask?.cancel()
+        for url in Set([temporaryPreviewURL, displayedTemporaryPreviewURL].compactMap { $0 }) { try? FileManager.default.removeItem(at: url) }
+    }
 
     init(workspace: WallpaperLibraryWorkspace, manager: WallpaperManager, images: SILService,
          steam: SteamWorkshopService, online: OnlineLibraryService,
@@ -62,12 +76,12 @@ import QuickLookUI
         inspect(content: content, artwork: nil, onAuthor: nil)
     }
 
-    func inspectOnlineArtwork(_ artwork: OnlineImageArtwork, onAuthor: ((String) -> Void)? = nil) {
+    func inspectOnlineArtwork(_ artwork: OnlineImageArtwork, onAuthor: ((OnlineImageAuthor) -> Void)? = nil) {
         let content = OnlineImageLibrary.shared.content(for: artwork.firstAssetID.reference) ?? OnlineImageContentProjection.remote(artwork)
         inspect(content: content, artwork: artwork, onAuthor: onAuthor)
     }
 
-    private func inspect(content: WallpaperContentItem, artwork: OnlineImageArtwork?, onAuthor: ((String) -> Void)?) {
+    private func inspect(content: WallpaperContentItem, artwork: OnlineImageArtwork?, onAuthor: ((OnlineImageAuthor) -> Void)?) {
         _ = revokeForResetIfNeeded()
         let current = resolved(content)
         if let previous = inspection, previous.content.reference == current.reference,
@@ -88,13 +102,13 @@ import QuickLookUI
             let sourceBase = URL(string: assetID.source == .wallhaven ? "https://wallhaven.cc/w/" : "https://www.pixiv.net/artworks/")!
             let value = artwork ?? OnlineImageArtwork(source: assetID.source, artworkID: assetID.artworkID,
                 title: current.title, sourceURL: record?.sourceURL ?? current.metadata.sourceURL ?? sourceBase.appendingPathComponent(assetID.artworkID),
-                author: current.metadata.author)
+                author: current.metadata.author, authorID: record?.authorID)
             hosted = OnlineImageInspectorView(artwork: value, library: .shared,
                 makeLibraryActions: { [weak self] reference in
                     guard let self, self.inspection?.token == token,
                           let local = OnlineImageLibrary.shared.content(for: reference) else { return nil }
                     return self.actions(for: local, token: token)
-                }, onAuthor: onAuthor ?? (assetID.source == .pixiv ? onOnlineImageAuthor : nil), initialPageIndex: assetID.pageIndex)
+                }, onAuthor: onAuthor ?? onOnlineImageAuthor, initialPageIndex: assetID.pageIndex)
         } else { hosted = makeView(for: current, actions: actions) }
         inspection = Inspection(token: token, content: current, view: hosted)
         InspectorHostActions.postOpen(module: module, presentation: .infoPanel(cardID: token.cardID,
@@ -110,10 +124,10 @@ import QuickLookUI
 
     /// Called with the accepted fixed-ref selection. Catalog events never open
     /// a hidden Inspector or preview; they can only update an existing lease.
-    func syncSelection(content: WallpaperContentItem?, artwork: OnlineImageArtwork? = nil, onAuthor: ((String) -> Void)? = nil) {
+    func syncSelection(content: WallpaperContentItem?, artwork: OnlineImageArtwork? = nil, onAuthor: ((OnlineImageAuthor) -> Void)? = nil) {
         guard let content else { closeInspector(); closePreview(); return }
         if inspection != nil { inspect(content: content, artwork: artwork, onAuthor: onAuthor) }
-        if isPreviewVisible { updateVisiblePreview(content: content) }
+        if previewReference != nil { updateVisiblePreview(content: content) }
     }
 
     func closeInspector() {
@@ -170,7 +184,7 @@ import QuickLookUI
     private func refreshInspectedContent() {
         guard !revokeForResetIfNeeded() else { return }
         if let inspection { inspect(content: inspection.content) }
-        if let previewReference, isPreviewVisible, let content = try? workspace.content(for: previewReference) {
+        if let previewReference, let content = try? workspace.content(for: previewReference) {
             updateVisiblePreview(content: content)
         }
     }
@@ -286,24 +300,85 @@ import QuickLookUI
     func preview(content: WallpaperContentItem) -> Bool {
         _ = revokeForResetIfNeeded()
         let current = resolved(content)
-        guard let url = quickLookURL(current) else {
+        if previewReference == current.reference, previewTask != nil || isPreviewVisible {
+            if let local = quickLookURL(current) {
+                if remotePreview == nil, previewURL == local {
+                    updateVisiblePreview(content: current); return true
+                }
+            } else if let remotePreview, remotePreview.url == current.metadata.previewURL,
+                      remotePreview.scope == OnlineImageLibrary.shared.requestScope(remotePreview.source) { return true }
+        }
+        return beginPreview(current)
+    }
+
+    private func beginPreview(_ current: WallpaperContentItem) -> Bool {
+        retirePreviewRequest()
+        if let url = quickLookURL(current) { return presentPreview(reference: current.reference, url: url, revision: current.metadata.resourceRevision) }
+        guard current.kind == .image, current.capabilities.contains(.quickLook),
+              let asset = OnlineImageAssetID(reference: current.providerReference),
+              let url = current.metadata.previewURL else {
             closePreview()
             inspect(content: current)
             return false
         }
-        previewReference = current.reference
+        let library = OnlineImageLibrary.shared
+        let request = library.thumbnailRequest(url: url, source: asset.source)
+        let scope = library.requestScope(asset.source), generation = previewGeneration
+        previewReference = current.reference; remotePreview = (asset.source, url, scope)
+        previewTask = Task { [weak self] in
+            let image = await OLThumbnailCache.shared.image(for: request, maxPixelSize: 2048, priority: .visible)
+            guard let self, !Task.isCancelled, previewGeneration == generation else { return }
+            guard let pixels = image?.cgImage(forProposedRect: nil, context: nil, hints: nil) else {
+                closePreview(); workspace.presentation.report(OnlineImageError.message("预览图暂不可用，请稍后重试。")); return
+            }
+            do {
+                let temporary = try await Task.detached(priority: .userInitiated) { try Self.writePreview(pixels) }.value
+                guard !Task.isCancelled, previewGeneration == generation, library.requestScope(asset.source) == scope else {
+                    try? FileManager.default.removeItem(at: temporary); return
+                }
+                previewTask = nil
+                if !presentPreview(reference: current.reference, url: temporary, revision: current.metadata.resourceRevision, temporary: true) { closePreview() }
+            } catch {
+                guard !Task.isCancelled, previewGeneration == generation else { return }
+                closePreview(); workspace.presentation.report(error)
+            }
+        }
+        return true
+    }
+
+    nonisolated private static func writePreview(_ image: CGImage) throws -> URL {
+        let url = FileManager.default.temporaryDirectory.appendingPathComponent("mwx-quick-preview-\(UUID().uuidString).png")
+        guard let destination = CGImageDestinationCreateWithURL(url as CFURL, UTType.png.identifier as CFString, 1, nil) else {
+            throw OnlineImageError.message("无法准备临时预览。")
+        }
+        CGImageDestinationAddImage(destination, image, nil)
+        guard CGImageDestinationFinalize(destination) else {
+            try? FileManager.default.removeItem(at: url)
+            throw OnlineImageError.message("无法准备临时预览。")
+        }
+        return url
+    }
+
+    private func presentPreview(reference: WallpaperReference, url: URL, revision: String?, temporary: Bool = false) -> Bool {
+        let previousTemporary = temporaryPreviewURL
+        temporaryPreviewURL = temporary ? url : nil
+        if let previousTemporary, previousTemporary != displayedTemporaryPreviewURL, previousTemporary != temporaryPreviewURL {
+            try? FileManager.default.removeItem(at: previousTemporary)
+        }
+        previewReference = reference
         previewURL = url
+        previewRevision = revision
         guard let panel = QLPreviewPanel.shared() else { return false }
-        // The lease changed without a responder change. Let AppKit select the
-        // controlling window and invoke its begin callback before writing data.
+        // AppKit can deliver beginPreviewPanelControl on a later event turn.
+        // Keep the accepted item alive; attach completes that native handoff.
+        showPreview(in: panel)
+        return true
+    }
+
+    private func showPreview(in panel: QLPreviewPanel) {
+        if panel.dataSource === self { reloadPreview(in: panel) }
         panel.makeKeyAndOrderFront(nil)
         panel.updateController()
-        guard panel.dataSource === self else {
-            previewReference = nil; previewURL = nil
-            return false
-        }
-        panel.reloadData()
-        return true
     }
 
     private func quickLookURL(_ content: WallpaperContentItem) -> URL? {
@@ -315,13 +390,23 @@ import QuickLookUI
     }
 
     private func updateVisiblePreview(content: WallpaperContentItem) {
-        guard let panel = ownedPreviewPanel, panel.dataSource === self else { return }
         let current = resolved(content)
-        guard let url = quickLookURL(current) else { closePreview(); return }
-        guard previewReference != current.reference || previewURL != url else { return }
-        previewReference = current.reference
-        previewURL = url
-        panel.reloadData()
+        if let url = quickLookURL(current) {
+            if remotePreview != nil { _ = beginPreview(current); return }
+            guard previewReference != current.reference || previewURL != url || previewRevision != current.metadata.resourceRevision else { return }
+            let sameURL = previewURL == url
+            previewReference = current.reference; previewURL = url; previewRevision = current.metadata.resourceRevision
+            guard let panel = ownedPreviewPanel, panel.dataSource === self else { return }
+            reloadPreview(in: panel, refresh: sameURL)
+            return
+        }
+        if remotePreview != nil || current.publishedAvailability == .remote {
+            guard current.capabilities.contains(.quickLook) else { closePreview(); return }
+            if previewReference == current.reference, let remotePreview, remotePreview.url == current.metadata.previewURL,
+               remotePreview.scope == OnlineImageLibrary.shared.requestScope(remotePreview.source) { return }
+            _ = beginPreview(current); return
+        }
+        closePreview()
     }
 
     override func acceptsPreviewPanelControl(_ panel: QLPreviewPanel!) -> Bool { previewURL != nil }
@@ -331,25 +416,67 @@ import QuickLookUI
         ownedPreviewPanel = panel
         panel.dataSource = self
         panel.delegate = self
+        reloadPreview(in: panel)
     }
 
     func detach(from panel: QLPreviewPanel) {
+        let endedCurrentLease = ownedPreviewPanel === panel
         if panel.dataSource === self { panel.dataSource = nil }
         if panel.delegate === self { panel.delegate = nil }
         if ownedPreviewPanel === panel { ownedPreviewPanel = nil }
+        if endedCurrentLease { closePreview(); return }
+        // A previous close can finish after a new item was accepted. Resume
+        // that request once, after AppKit unwinds the old controller's end.
+        guard !endedCurrentLease, previewURL != nil, resumedNativePreview != previewGeneration else { return }
+        let generation = previewGeneration
+        resumedNativePreview = generation
+        DispatchQueue.main.async { [weak self, weak panel] in
+            guard let self, let panel, previewGeneration == generation, previewURL != nil,
+                  NSApp.isActive, !panel.isVisible, panel.dataSource == nil else { return }
+            showPreview(in: panel)
+        }
     }
 
     func closePreview() {
+        retirePreviewRequest()
+        let temporaryFiles = Set([temporaryPreviewURL, displayedTemporaryPreviewURL].compactMap { $0 })
+        temporaryPreviewURL = nil
+        displayedTemporaryPreviewURL = nil
         let panel = ownedPreviewPanel
         // Revoke before AppKit's synchronous end/control callbacks. They must
         // not reattach this selection while the panel is being ordered out.
         ownedPreviewPanel = nil
         previewReference = nil
         previewURL = nil
+        previewRevision = nil
         if let panel {
-            if panel.dataSource === self { panel.orderOut(nil) }
+            if panel.dataSource === self { panel.close() }
             detach(from: panel)
         }
+        for url in temporaryFiles { try? FileManager.default.removeItem(at: url) }
+    }
+
+    private func reloadPreview(in panel: QLPreviewPanel, refresh: Bool = false) {
+        if refresh { panel.refreshCurrentPreviewItem() } else { panel.reloadData() }
+        let previous = displayedTemporaryPreviewURL
+        displayedTemporaryPreviewURL = temporaryPreviewURL
+        if let previous, previous != displayedTemporaryPreviewURL { try? FileManager.default.removeItem(at: previous) }
+    }
+
+    private func retirePreviewRequest() {
+        previewGeneration = UUID(); previewTask?.cancel(); previewTask = nil
+        resumedNativePreview = nil
+        remotePreview = nil
+    }
+
+    func revokeRemotePreview(source: OnlineImageSource) {
+        if remotePreview?.source == source { closePreview() }
+    }
+
+    func windowWillClose(_ notification: Notification) {
+        guard let panel = notification.object as? QLPreviewPanel, panel === ownedPreviewPanel else { return }
+        ownedPreviewPanel = nil
+        closePreview(); detach(from: panel)
     }
 
     func numberOfPreviewItems(in panel: QLPreviewPanel!) -> Int { previewURL == nil ? 0 : 1 }

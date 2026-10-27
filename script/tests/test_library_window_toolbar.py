@@ -23,6 +23,7 @@ class LibraryWindowToolbarTests(unittest.TestCase):
     def test_native_menu_toolbar_and_fixed_page_query_routing(self):
         relative = [
             'Models/WallpaperReference.swift', 'Models/WallpaperContent.swift', 'Models/WallpaperLibraryPage.swift',
+            'Core/OnlineImages/OnlineImageModels.swift',
             'Core/LibraryCollections/UserCollectionsStore.swift', 'Core/LibraryCollections/UserCollectionsController.swift',
             'Core/LibraryCollections/WallpaperLibraryQuery.swift', 'Shell/WallpaperLibraryPresentation.swift',
             'Shared/Components/ActionMenuItem.swift', 'Shared/Components/WallpaperLibraryGridMetrics.swift',

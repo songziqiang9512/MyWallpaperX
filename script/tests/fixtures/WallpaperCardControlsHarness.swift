@@ -84,6 +84,22 @@ import QuartzCore
         checks["original-native-button-targets-deliver-each-command-once"] = play == 1 && favorite == 1
             && bar.playButton.target === bar && bar.favoriteButton.target === bar
 
+        let ordinaryFrames = [bar.favoriteButton.frame, bar.playButton.frame, bar.titleView.frame]
+        checks["quick-action-is-hidden-and-does-not-change-ordinary-source-layout"] = bar.previewButton.isHidden
+        var previews = 0
+        bar.onPreview = { previews += 1 }; _ = apply(430)
+        bar.previewButton.performClick(nil)
+        checks["optional-quick-action-has-its-own-native-command-and-trailing-slot"] = !bar.previewButton.isHidden
+            && bar.previewButton.frame.maxX < bar.playButton.frame.minX
+            && bar.titleView.frame.maxX < bar.previewButton.frame.minX
+            && previews == 1 && play == 1 && favorite == 1
+        _ = apply(150)
+        checks["narrow-three-button-bar-keeps-all-hit-targets-separate"] = bar.favoriteButton.frame.maxX < bar.previewButton.frame.minX
+            && bar.previewButton.frame.maxX < bar.playButton.frame.minX && bar.titleView.frame.width >= 0
+        bar.onPreview = nil; _ = apply(430)
+        checks["removing-quick-action-restores-the-original-title-and-button-geometry"] = bar.previewButton.isHidden
+            && [bar.favoriteButton.frame, bar.playButton.frame, bar.titleView.frame] == ordinaryFrames
+
         // Observe the actual CATextLayers and their rendered glyphs, rather
         // than assigning a second test-only color to the title.
         func textLayers(in layer: CALayer?) -> [CATextLayer] {

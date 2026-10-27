@@ -1,8 +1,9 @@
 """Compile the real Wallhaven client/query/DTO and shared values against URLProtocol.
 
 No credentials, Internet, App build, Keychain or user media are used. This covers
-request encoding, response projection, pagination, cancellation, credential
-changes and HTTP failures; live W0 observations are separate ignored evidence.
+author/filter encoding, response projection, seed continuity, pagination,
+cancellation, credential changes and HTTP failures; live observations are
+separate ignored evidence.
 """
 import hashlib
 import json

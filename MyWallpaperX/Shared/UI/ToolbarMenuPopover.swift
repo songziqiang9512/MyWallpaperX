@@ -102,7 +102,7 @@ final class ToolbarMenuPopoverPresenter: NSObject, NSPopoverDelegate {
         }
         anchoredView = anchor
         contentProvider = provider
-        reload(provider())
+        reload(provider(), resetScroll: true)
         scrollDismissal.watch(relativeTo: resolvedAnchor)
         popover.show(relativeTo: positioningRect, of: resolvedAnchor, preferredEdge: .maxY)
     }
@@ -111,8 +111,9 @@ final class ToolbarMenuPopoverPresenter: NSObject, NSPopoverDelegate {
         popover.performClose(nil)
     }
 
-    private func reload(_ rows: [Row]) {
-        rowsViewController.reload(rows: rows) { [weak self] row in
+    private func reload(_ rows: [Row], resetScroll: Bool = false) {
+        let availableHeight = (anchoredView?.window?.screen?.visibleFrame.height ?? 720) - 160
+        rowsViewController.reload(rows: rows, maximumHeight: max(180, min(560, availableHeight)), resetScroll: resetScroll) { [weak self] row in
             self?.handleSelection(of: row)
         }
         let contentSize = NSSize(width: rowsViewController.preferredWidth, height: rowsViewController.preferredHeight)
@@ -222,6 +223,8 @@ private final class ToolbarMenuRowsViewController: NSViewController {
     private static let separatorHeight: CGFloat = 5
 
     private let stack = NSStackView()
+    private let scroll = NSScrollView()
+    private let document = ToolbarMenuDocumentView()
     private var selectionHandler: ((ToolbarMenuPopoverPresenter.Row) -> Void)?
     /// 行载荷按视图身份索引（NSButton.objectValue 是按钮状态值，不能携带
     /// 自定义数据）。
@@ -237,17 +240,26 @@ private final class ToolbarMenuRowsViewController: NSViewController {
         stack.alignment = .leading
         stack.spacing = 0
         stack.translatesAutoresizingMaskIntoConstraints = false
-        root.addSubview(stack)
+        scroll.drawsBackground = false
+        scroll.hasVerticalScroller = true; scroll.scrollerStyle = .overlay; scroll.autohidesScrollers = true
+        scroll.horizontalScrollElasticity = .none
+        scroll.documentView = document
+        scroll.translatesAutoresizingMaskIntoConstraints = false
+        root.addSubview(scroll); document.addSubview(stack)
         NSLayoutConstraint.activate([
-            stack.topAnchor.constraint(equalTo: root.topAnchor, constant: 6),
-            stack.leadingAnchor.constraint(equalTo: root.leadingAnchor, constant: 6),
-            stack.trailingAnchor.constraint(equalTo: root.trailingAnchor, constant: -6),
-            stack.bottomAnchor.constraint(equalTo: root.bottomAnchor, constant: -6)
+            scroll.topAnchor.constraint(equalTo: root.topAnchor), scroll.bottomAnchor.constraint(equalTo: root.bottomAnchor),
+            scroll.leadingAnchor.constraint(equalTo: root.leadingAnchor), scroll.trailingAnchor.constraint(equalTo: root.trailingAnchor),
+            stack.topAnchor.constraint(equalTo: document.topAnchor, constant: 6),
+            stack.leadingAnchor.constraint(equalTo: document.leadingAnchor, constant: 6),
+            stack.trailingAnchor.constraint(equalTo: document.trailingAnchor, constant: -6),
+            stack.bottomAnchor.constraint(equalTo: document.bottomAnchor, constant: -6)
         ])
     }
 
-    func reload(rows: [ToolbarMenuPopoverPresenter.Row], selectionHandler: @escaping (ToolbarMenuPopoverPresenter.Row) -> Void) {
+    func reload(rows: [ToolbarMenuPopoverPresenter.Row], maximumHeight: CGFloat, resetScroll: Bool,
+                selectionHandler: @escaping (ToolbarMenuPopoverPresenter.Row) -> Void) {
         loadViewIfNeeded()
+        let offset = resetScroll ? CGFloat.zero : scroll.contentView.bounds.minY
         self.selectionHandler = selectionHandler
         stack.arrangedSubviews.forEach { $0.removeFromSuperview() }
         rowsByButton = [:]
@@ -257,6 +269,7 @@ private final class ToolbarMenuRowsViewController: NSViewController {
             case .separator:
                 let box = NSBox()
                 box.boxType = .separator
+                box.heightAnchor.constraint(equalToConstant: Self.separatorHeight).isActive = true
                 stack.addArrangedSubview(box)
             case .sectionHeader:
                 stack.addArrangedSubview(makeHeaderRow(row.title, widthOut: &widestRow))
@@ -279,7 +292,12 @@ private final class ToolbarMenuRowsViewController: NSViewController {
             }
         }
         contentRowsHeight = 12 + rowHeights.reduce(0, +)
-        preferredHeight = contentRowsHeight
+        preferredHeight = min(contentRowsHeight, maximumHeight)
+        view.setFrameSize(.init(width: preferredWidth, height: preferredHeight))
+        document.frame = .init(x: 0, y: 0, width: preferredWidth, height: contentRowsHeight)
+        view.layoutSubtreeIfNeeded()
+        scroll.contentView.scroll(to: .init(x: 0, y: min(offset, max(0, contentRowsHeight - preferredHeight))))
+        scroll.reflectScrolledClipView(scroll.contentView)
     }
 
     private func makeHeaderRow(_ title: String, widthOut: inout CGFloat) -> NSView {
@@ -359,4 +377,8 @@ private final class ToolbarMenuRowsViewController: NSViewController {
         guard let row = rowsByButton[ObjectIdentifier(sender)] else { return }
         selectionHandler?(row)
     }
+}
+
+private final class ToolbarMenuDocumentView: NSView {
+    override var isFlipped: Bool { true }
 }

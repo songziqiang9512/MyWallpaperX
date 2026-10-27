@@ -9,7 +9,7 @@ actor PixivClient {
     private var lastRequestStart: TimeInterval = -.infinity
     private var retryNotBefore: TimeInterval = 0
     private let minimumRequestInterval: TimeInterval
-    private var authorSnapshot: (query: PixivQuery, ids: [String])?
+    private var authorSnapshot: (author: String, type: PixivWorkType, ids: [String])?
 
     init(session: WallpaperNetworkSession? = nil, minimumRequestInterval: TimeInterval = 1) {
         self.session = session ?? Self.anonymousSession()
@@ -32,12 +32,13 @@ actor PixivClient {
             return try await authorPage(author: author, query: query, request: request)
         }
         if !query.searchWord.isEmpty {
-            let url = try PixivRequestURL.search(query.searchWord, type: query.workType, page: request.page)
+            let url = try PixivRequestURL.search(query.searchWord, type: query.workType, page: request.page,
+                order: query.order, ai: query.ai, content: query.content)
             let response: PixivSearchBody = try await envelope(url)
             let block = response.block
             let next = block.lastPage.map { request.page < $0 } == true
                 ? OnlineImagePageRequest(page: request.page + 1) : nil
-            return OnlineImagePage(items: artworks(block.data.values, type: query.workType), next: next,
+            return OnlineImagePage(items: artworks(block.data.values, query: query), next: next,
                 total: block.total, notice: rejectedNotice(block.data.rejectedCount))
         }
         var parameters: [URLQueryItem] = [
@@ -49,7 +50,7 @@ actor PixivClient {
         let response = try decode(PixivRankingResponse.self, from: data)
         let nextPage = response.next?.value
         let next = nextPage.flatMap { $0 > request.page ? OnlineImagePageRequest(page: $0, date: request.date ?? response.date) : nil }
-        return OnlineImagePage(items: artworks(response.contents.values, type: query.workType),
+        return OnlineImagePage(items: artworks(response.contents.values, query: query),
             next: next, total: response.total, notice: rejectedNotice(response.contents.rejectedCount))
     }
 
@@ -83,23 +84,25 @@ actor PixivClient {
     private func authorPage(author: String, query: PixivQuery, request: OnlineImagePageRequest) async throws -> OnlineImagePage {
         guard PixivRequestURL.validID(author), (request.offset ?? 0) >= 0 else { throw OnlineImageError.invalidResponse }
         let capturedGeneration = generation
-        let ids: [String]
-        if let snapshot = authorSnapshot, snapshot.query == query { ids = snapshot.ids }
+        let snapshotIDs: [String]
+        if let snapshot = authorSnapshot, snapshot.author == author, snapshot.type == query.workType { snapshotIDs = snapshot.ids }
         else {
             let response: PixivAuthorProfile = try await envelope(PixivRequestURL.make(path: "/ajax/user/\(author)/profile/all"))
             try requireCurrent(capturedGeneration)
             let values = query.workType == .manga ? response.manga : response.illustrations
             // IDs are opaque: order numeric decimal strings without converting
             // them to a machine-width integer or changing their identity.
-            ids = Array(Set(values)).sorted {
+            snapshotIDs = Array(Set(values)).sorted {
                 $0.count == $1.count ? $0 > $1 : $0.count > $1.count
             }
-            authorSnapshot = (query, ids)
+            authorSnapshot = (author, query.workType, snapshotIDs)
         }
+        let total = snapshotIDs.count
         let offset = request.offset ?? 0
-        guard offset < ids.count else { return OnlineImagePage(items: [], next: nil, total: ids.count) }
-        let end = min(offset + 24, ids.count)
-        let currentIDs = Array(ids[offset..<end])
+        guard offset < total else { return OnlineImagePage(items: [], next: nil, total: total) }
+        let end = offset + min(24, total - offset)
+        let currentIDs = query.order == .newest ? Array(snapshotIDs[offset..<end])
+            : Array(snapshotIDs[(total - end)..<(total - offset)].reversed())
         var parameters: [URLQueryItem] = [
             .init(name: "work_category", value: query.workType == .manga ? "manga" : "illustManga"),
             .init(name: "is_first_page", value: offset == 0 ? "1" : "0")
@@ -110,18 +113,24 @@ actor PixivClient {
         let items = artworks(currentIDs.compactMap { id in
             guard let value = response.works[id], value.id == id else { return nil }
             return value
-        }, type: query.workType)
+        }, query: query, authorBatch: true)
         return OnlineImagePage(items: items,
-            next: end < ids.count ? .init(page: request.page + 1, offset: end) : nil, total: ids.count)
+            next: end < total ? .init(page: request.page + 1, offset: end) : nil, total: total)
     }
 
-    private func artworks(_ values: [PixivArtworkDTO], type: PixivWorkType) -> [OnlineImageArtwork] {
+    private func artworks(_ values: [PixivArtworkDTO], query: PixivQuery, authorBatch: Bool = false) -> [OnlineImageArtwork] {
         // The source may return unsupported/unknown works; keep those visible as
         // unsupported cards rather than converting them into image assets.
         values.compactMap { value in
-            if value.type?.value == 0, type == .manga { return nil }
-            if value.type?.value == 1, type == .illustrations { return nil }
-            return value.artwork()
+            if value.type?.value == 0, query.workType == .manga { return nil }
+            if value.type?.value == 1, query.workType == .illustrations { return nil }
+            let artwork = value.artwork()
+            if query.ai == .hide, artwork.isAIGenerated != false { return nil }
+            // Search/ranking supply the requested source scope. The author
+            // batch has no mode parameter, so only explicit non-adult metadata
+            // can satisfy this local narrowing; unknown is never called safe.
+            if authorBatch, query.content == .safe, value.xRestrict?.value != 0 { return nil }
+            return artwork
         }
     }
 

@@ -27,6 +27,7 @@ import Combine
     var onInspect: ((OnlineImageArtwork) -> Void)?
     var onSelectionChange: ((WallpaperContentItem?) -> Void)?
     var onPreview: ((WallpaperContentItem) -> Void)?
+    var onEscape: (() -> Void)?
     var onRestoreColumns: ((Int) -> Void)?
     var makePrimary: ((WallpaperContentItem) -> (() -> Void)?)?
     var makeFavorite: ((WallpaperContentItem) -> (() -> Void)?)?
@@ -94,7 +95,7 @@ import Combine
         }
         grid.onEscape = { [weak self] in
             guard self?.acceptsInput == true else { return }
-            NotificationCenter.default.post(name: .inspectorHostCloseRequested, object: nil)
+            self?.onEscape?()
         }
         grid.onSelection = { [weak self] references, focus in
             guard let self, acceptsInput else { return nil }
@@ -183,7 +184,8 @@ import Combine
             permitsDragging: false, scrollAnchor: anchor.0, scrollOffset: anchor.1, scrollAtTop: anchor.2, resetScroll: resetScroll)
         resetScroll = false
         empty.isHidden = !items.isEmpty
-        empty.stringValue = state.isLoading ? "正在加载…" : (state.error ?? (state.hasLoaded ? "没有可显示的作品\n试试其他关键词或筛选条件" : "准备浏览…"))
+        empty.stringValue = state.isLoading ? "正在加载…" : (state.error ?? (state.next != nil
+            ? "本页没有符合条件的作品\n可以继续加载下一页" : (state.hasLoaded ? "没有可显示的作品\n试试其他关键词或筛选条件" : "准备浏览…")))
         status.stringValue = state.error ?? state.notice ?? (state.isLoading ? "正在加载…" : "已显示 \(items.count) 个作品")
         more.title = state.error != nil && state.next == nil ? "重试" : "加载更多"
         more.isHidden = !state.isLoading && state.next == nil && state.error == nil
@@ -217,7 +219,12 @@ import Combine
             switching: isSwitching?(content.reference) == true,
             busy: artwork.map { library.progress[$0.firstAssetID] != nil } == true,
             fraction: artwork.flatMap { library.progress[$0.firstAssetID] }, refreshToken: session.state.refreshToken,
-            onPrimary: primary(content), onFavorite: makeFavorite?(content))
+            onPrimary: primary(content), onFavorite: makeFavorite?(content),
+            onPreview: content.capabilities.contains(.quickLook) ? { [weak self] in
+                guard let self, acceptsInput, let current = contentByReference[content.reference],
+                      grid.select([current.reference], focus: current.reference) else { return }
+                onPreview?(current)
+            } : nil)
     }
 
     private func refreshVisibleTransfers() {
@@ -239,8 +246,9 @@ import Combine
             prefetched[content.reference] = Task { _ = await OLThumbnailCache.shared.image(for: request, maxPixelSize: pixels, priority: .prefetch) }
         }
         if shown, !session.state.isLoading, session.state.next != nil, autoLoadedCount != session.state.items.count,
-           let last = session.state.items.suffix(8).first,
-           visible.contains(where: { $0.reference == last.firstAssetID.reference }) {
+           let last = session.state.items.last,
+           (visible.contains(where: { $0.reference == last.firstAssetID.reference })
+            || nearby.contains(where: { $0.reference == last.firstAssetID.reference })) {
             autoLoadedCount = session.state.items.count
             session.loadMore()
         }

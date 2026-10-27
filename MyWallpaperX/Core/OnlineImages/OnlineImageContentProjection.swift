@@ -19,12 +19,13 @@ nonisolated enum OnlineImageContentProjection {
     static func remote(_ artwork: OnlineImageArtwork) -> WallpaperContentItem {
         var caps: WallpaperContentCapabilities = [.inspect, .openSource]
         if artwork.kind == .image, artwork.isMasked != true { caps.insert(.download) }
+        if artwork.kind == .image, artwork.isMasked != true, (artwork.previewURL ?? artwork.thumbnailURL) != nil { caps.insert(.quickLook) }
         return make(reference: artwork.firstAssetID.reference, title: artwork.title,
             locator: .init(titleHint: artwork.title, mediaKind: artwork.kind == .image ? .image : .unknown,
                 provenance: artwork.sourceURL.absoluteString), availability: .remote, capabilities: caps,
             metadata: .init(author: artwork.author, sourceTags: artwork.tags, fileSizeBytes: artwork.fileSizeBytes,
                 resolutionText: resolution(artwork.width, artwork.height), createdAt: artwork.createdAt,
-                sourceURL: artwork.sourceURL, previewURL: artwork.thumbnailURL ?? artwork.previewURL))
+                sourceURL: artwork.sourceURL, previewURL: artwork.previewURL ?? artwork.thumbnailURL))
     }
 
     private static func resolution(_ width: Int?, _ height: Int?) -> String? {

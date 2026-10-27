@@ -34,6 +34,13 @@ nonisolated struct OnlineImageAssetID: Hashable, Codable, Sendable {
 nonisolated enum OnlineImageKind: String, Codable, Sendable { case image, animation, unknown }
 nonisolated enum OnlineImageRating: String, Codable, Sendable { case safe, sensitive, adult, unknown }
 
+nonisolated struct OnlineImageAuthor: Equatable, Sendable {
+    let source: OnlineImageSource
+    let id: String
+    var name: String? = nil
+    var displayName: String { name.flatMap { $0.isEmpty ? nil : $0 } ?? id }
+}
+
 /// Browsing values are not local publications and never grant organization or playback.
 nonisolated struct OnlineImageArtwork: Identifiable, Equatable, Sendable {
     let source: OnlineImageSource
@@ -52,6 +59,7 @@ nonisolated struct OnlineImageArtwork: Identifiable, Equatable, Sendable {
     var pageCount: Int? = nil
     var kind: OnlineImageKind = .unknown
     var rating: OnlineImageRating = .unknown
+    var isAIGenerated: Bool? = nil
     var isMasked: Bool? = nil
     var createdAt: Date? = nil
     var id: String { source.rawValue + ":" + artworkID }

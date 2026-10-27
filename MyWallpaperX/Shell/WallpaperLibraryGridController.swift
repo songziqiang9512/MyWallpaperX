@@ -500,7 +500,7 @@ import AppKit
     }
 
     @discardableResult
-    private func select(_ references: Set<WallpaperReference>, focus: WallpaperReference?) -> Bool {
+    func select(_ references: Set<WallpaperReference>, focus: WallpaperReference?) -> Bool {
         let previous = selection
         let previousPage = page
         selection.references = references
@@ -522,6 +522,7 @@ import AppKit
             if gestureSessionID != nil { gestureSessionID = receipt }
         }
         applyNativeSelection()
+        if let window = collection.window, window.firstResponder !== collection { window.makeFirstResponder(collection) }
         return true
     }
 

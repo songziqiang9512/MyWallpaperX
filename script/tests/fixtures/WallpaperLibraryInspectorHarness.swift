@@ -60,11 +60,11 @@ final class OnlineLibraryDownloadsInspectorView: RecordingInspectorView {
 final class OnlineImageInspectorView: NSView {
     let artwork: OnlineImageArtwork
     let initialPageIndex: Int
-    let onAuthor: ((String) -> Void)?
+    let onAuthor: ((OnlineImageAuthor) -> Void)?
     var actions: WallpaperInspectorActions?
     init(artwork: OnlineImageArtwork, library: OnlineImageLibrary,
          makeLibraryActions: @escaping (WallpaperReference) -> WallpaperInspectorActions?,
-         onAuthor: ((String) -> Void)? = nil, initialPageIndex: Int = 0) {
+         onAuthor: ((OnlineImageAuthor) -> Void)? = nil, initialPageIndex: Int = 0) {
         self.artwork = artwork; self.initialPageIndex = initialPageIndex; self.onAuthor = onAuthor
         super.init(frame: .zero)
     }
@@ -73,6 +73,7 @@ final class OnlineImageInspectorView: NSView {
 }
 private final class ImageSelectionGridLeaf {
     var onSelection: ((Set<WallpaperReference>, WallpaperReference?) -> UUID?)?
+    var onEscape: (() -> Void)?
 }
 private final class ImageSelectionBrowserLeaf {
     private struct Selection {
@@ -85,11 +86,13 @@ private final class ImageSelectionBrowserLeaf {
     let grid = ImageSelectionGridLeaf()
     var contents: [WallpaperReference: WallpaperContentItem] = [:]
     var onSelectionChange: ((WallpaperContentItem?) -> Void)?
+    var onEscape: (() -> Void)?
     var selectedContent: WallpaperContentItem? {
         selection.references.count == 1 ? selection.references.first.flatMap { contents[$0] } : nil
     }
     func bindGrid() {
         // ACTUAL_IMAGE_BROWSER_SELECTION
+        // ACTUAL_IMAGE_BROWSER_ESCAPE
     }
     func select(_ reference: WallpaperReference?) {
         let references = reference.map { Set([$0]) } ?? []
@@ -99,23 +102,53 @@ private final class ImageSelectionBrowserLeaf {
 private final class ImageSelectionSessionLeaf {
     struct State { var items: [OnlineImageArtwork] = [] }
     var state = State()
-    var authors: [String] = []
-    func openAuthor(_ id: String) { authors.append(id) }
+    var authors: [OnlineImageAuthor] = []
+    func openAuthor(_ author: OnlineImageAuthor) { authors.append(author) }
 }
 private final class ImageSelectionAssemblyProbe {
     let inspector: WallpaperLibraryInspectorCoordinator
     let pixiv = ImageSelectionSessionLeaf()
     init(_ inspector: WallpaperLibraryInspectorCoordinator) { self.inspector = inspector }
     func bind(_ browser: ImageSelectionBrowserLeaf, session: ImageSelectionSessionLeaf, source: OnlineImageSource) {
+        let page: WallpaperLibraryPage = source == .pixiv ? .pixiv : .wallhaven
         // ACTUAL_IMAGE_SELECTION_ASSEMBLY
+        // ACTUAL_IMAGE_ESCAPE_ASSEMBLY
     }
     // The real App bridge methods are exercised with the real Session by
     // OnlineImageBrowseHarness; this leaf records the Inspector callback only.
-    func openAuthor(_ id: String, from page: WallpaperLibraryPage) {
-        inspector.closeInspector(); inspector.closePreview(); pixiv.openAuthor(id)
+    func openAuthor(_ author: OnlineImageAuthor, from page: WallpaperLibraryPage) {
+        inspector.closeInspector(); inspector.closePreview(); pixiv.openAuthor(author)
     }
 }
-final class InspectorPresentation: ObservableObject { @Published var state = 0; var canEditCollections = true }
+final class InspectorPresentation: ObservableObject {
+    @Published var state = 0
+    var canEditCollections = true
+    var errors: [String] = []
+    func report(_ error: Error) { errors.append(error.localizedDescription) }
+}
+
+/// This acquisition leaf deliberately delivers even after cancellation. The
+/// actual Coordinator owns every preview generation, URL and native QL lease.
+@MainActor final class OLThumbnailCache {
+    enum Priority: Equatable { case visible, prefetch }
+    struct Request {
+        let value: OnlineImageFixtureThumbnailRequest
+        let maxPixelSize: Int
+        let priority: Priority
+    }
+    static let shared = OLThumbnailCache()
+    private(set) var requests: [Request] = []
+    private var pending: [Int: CheckedContinuation<NSImage?, Never>] = [:]
+    func image(for request: OnlineImageFixtureThumbnailRequest, maxPixelSize: Int, priority: Priority) async -> NSImage? {
+        let index = requests.count
+        requests.append(.init(value: request, maxPixelSize: maxPixelSize, priority: priority))
+        return await withCheckedContinuation { pending[index] = $0 }
+    }
+    func complete(_ index: Int, image: NSImage?) {
+        guard let continuation = pending.removeValue(forKey: index) else { preconditionFailure("Thumbnail response needs a pending request") }
+        continuation.resume(returning: image)
+    }
+}
 final class WallpaperLibraryWorkspace {
     let presentation = InspectorPresentation()
     var relationships = UserCollectionsSnapshot(revision: 0, resetEpoch: UUID(), migrationManifestID: nil,
@@ -161,11 +194,16 @@ final class ForeignPreviewOwner: NSObject, QLPreviewPanelDataSource {
 
 @main struct WallpaperLibraryInspectorHarness {
     @MainActor static func pump() async { try? await Task.sleep(for: .milliseconds(35)) }
+    @MainActor static func waitUntil(_ label: String, _ condition: () -> Bool) async throws {
+        for _ in 0..<80 { if condition() { return }; await pump() }
+        throw NSError(domain: "InspectorFixture", code: 1, userInfo: [NSLocalizedDescriptionKey: "Timed out: " + label])
+    }
     @MainActor static func nativeLayoutTurn(_ view: NSView) {
         view.layoutSubtreeIfNeeded()
         RunLoop.main.run(until: Date().addingTimeInterval(0.01))
     }
     @MainActor static func main() {
+        initializeNativeAppHarness()
         let app = NSApplication.shared
         Task { @MainActor in
             do { try await run() } catch { fputs("\(error)\n", stderr); exit(1) }
@@ -212,6 +250,7 @@ final class ForeignPreviewOwner: NSObject, QLPreviewPanelDataSource {
             }
         }
         let windowController = PreviewWindowController(window: window)
+        defer { withExtendedLifetime(windowController) {} }
         window.delegate = windowController
         window.makeKeyAndOrderFront(nil)
         app.activate(ignoringOtherApps: true)
@@ -240,6 +279,7 @@ final class ForeignPreviewOwner: NSObject, QLPreviewPanelDataSource {
             .init(canEdit: canEdit, hasItems: true, allFavorite: workspace.isFavorite(content.reference),
                 allOrganizable: content.capabilities.contains(.organize))
         }
+        let availability = PassthroughSubject<Void, Never>()
         let coordinator = WallpaperLibraryInspectorCoordinator(workspace: workspace, manager: manager, images: images, steam: steam, online: online,
             makePrimaryAction: { content in
                 primaryFactoryCalls += 1
@@ -255,7 +295,7 @@ final class ForeignPreviewOwner: NSObject, QLPreviewPanelDataSource {
                     favorites.append(content.reference)
                 }
             }, canOrganize: { workspace.presentation.canEditCollections },
-            availabilityChanges: Empty<Void, Never>().eraseToAnyPublisher(),
+            availabilityChanges: availability.eraseToAnyPublisher(),
             onChoosePlaylist: { ref, _ in memberships.append(ref) })
         windowController.coordinator = coordinator
         let probe = InspectorProbe()
@@ -394,14 +434,15 @@ final class ForeignPreviewOwner: NSObject, QLPreviewPanelDataSource {
         library.snapshot = .init(records: imageRecords)
         let imageContents = imageRecords.map { OnlineImageContentProjection.local($0, url: library.localURL(for: $0)!, available: true) }
         workspace.catalog.downloads += imageContents
-        var localAuthors: [String] = []
+        var localAuthors: [OnlineImageAuthor] = []
         coordinator.onOnlineImageAuthor = { localAuthors.append($0) }
         coordinator.inspect(content: imageContents[1]); await pump()
         let pageView = probe.mounts.last!.1 as! OnlineImageInspectorView
         checks["downloaded-pixiv-page-keeps-page-reference-and-inspector-index"] = coordinator.inspectedReference == imageIDs[1].reference
             && pageView.initialPageIndex == 2 && pageView.artwork.artworkID == "42"
-        pageView.onAuthor?("77")
-        checks["local-pixiv-inspector-uses-injected-author-navigation-without-browse-dto"] = pageView.onAuthor != nil && localAuthors == ["77"]
+        let localAuthor = OnlineImageAuthor(source: .pixiv, id: "77", name: "artist")
+        pageView.onAuthor?(localAuthor)
+        checks["local-pixiv-inspector-uses-injected-author-navigation-without-browse-dto"] = pageView.onAuthor != nil && localAuthors == [localAuthor]
         let shells = ["42", "43", "44"].map { id in
             OnlineImageArtwork(source: .pixiv, artworkID: id, title: "remote-" + id,
                 sourceURL: URL(string: "https://example.invalid/" + id)!, author: "remote artist", authorID: "88", kind: .image)
@@ -428,8 +469,9 @@ final class ForeignPreviewOwner: NSObject, QLPreviewPanelDataSource {
         checks["image-selection-callback-keeps-current-preview-and-inspector-while-modal-input-is-blocked"] = browser.selectedContent?.reference == acceptedImageReference
             && coordinator.inspectorToken == acceptedImageToken && coordinator.previewReference == imageIDs[2].reference
         browser.acceptsInput = true
-        selectedImageView.onAuthor?("88")
-        checks["image-selection-author-action-keeps-the-existing-source-session"] = assembly.pixiv.authors == ["88"]
+        let remoteAuthor = OnlineImageAuthor(source: .pixiv, id: "88", name: "remote artist")
+        selectedImageView.onAuthor?(remoteAuthor)
+        checks["image-selection-author-action-keeps-the-existing-source-session"] = assembly.pixiv.authors == [remoteAuthor]
         _ = coordinator.preview(content: imageContents[2]); await pump()
         browser.select(remoteImage.reference); await pump()
         checks["image-selection-without-local-preview-closes-existing-quicklook"] = coordinator.previewURL == nil && panel.dataSource !== coordinator
@@ -449,6 +491,225 @@ final class ForeignPreviewOwner: NSObject, QLPreviewPanelDataSource {
         checks["image-selection-session-token-revokes-old-reference-only-actions"] = changedReferencesToken != nil
             && changedReferencesToken != changedFocusToken
         library.snapshot = .init()
+
+        let cache = OLThumbnailCache.shared
+        let decodedPreview = NSImage(contentsOf: file)!
+        let remoteA = OnlineImageContentProjection.remote(.init(source: .pixiv, artworkID: "900", title: "Remote A",
+            sourceURL: URL(string: "https://www.pixiv.net/artworks/900")!,
+            previewURL: URL(string: "https://i.pximg.net/fixture-A.jpg"), kind: .image))
+        let remoteB = OnlineImageContentProjection.remote(.init(source: .pixiv, artworkID: "901", title: "Remote B",
+            sourceURL: URL(string: "https://www.pixiv.net/artworks/901")!,
+            previewURL: URL(string: "https://i.pximg.net/fixture-B.jpg"), kind: .image))
+        let beforeQuick = (primary.count, library.downloads.count, library.retries.count, library.snapshot.records.count)
+        coordinator.closePreview()
+        let initialPreviewCount = cache.requests.count
+        checks["remote-quicklook-is-admitted-without-download-or-original-image"] = coordinator.preview(content: remoteA)
+            && coordinator.previewReference == remoteA.reference && coordinator.previewURL == nil
+        try await waitUntil("remote preview A request") { cache.requests.count == initialPreviewCount + 1 }
+        let requestA = initialPreviewCount
+        checks["remote-quicklook-uses-the-original-thumbnail-request-and-visible-bounded-size"] = cache.requests[requestA].value.url == remoteA.metadata.previewURL
+            && cache.requests[requestA].value.source == .pixiv && cache.requests[requestA].maxPixelSize == 2048
+            && cache.requests[requestA].priority == .visible
+        _ = coordinator.preview(content: remoteA); await pump()
+        checks["repeated-explicit-preview-reuses-the-pending-request"] = cache.requests.count == initialPreviewCount + 1
+            && coordinator.previewReference == remoteA.reference && coordinator.previewURL == nil
+        coordinator.syncSelection(content: remoteB)
+        try await waitUntil("remote preview B request") { cache.requests.count == initialPreviewCount + 2 }
+        let requestB = initialPreviewCount + 1
+        cache.complete(requestA, image: decodedPreview); await pump()
+        checks["pending-remote-A-cannot-open-after-selection-moves-to-B"] = coordinator.previewReference == remoteB.reference
+            && coordinator.previewURL == nil && !coordinator.isPreviewVisible
+        cache.complete(requestB, image: decodedPreview)
+        try await waitUntil("remote preview B native panel") { coordinator.isPreviewVisible && coordinator.previewURL != nil }
+        let temporaryB = coordinator.previewURL!
+        checks["remote-preview-publishes-one-temporary-PNG-through-the-existing-quicklook-owner"] = coordinator.previewReference == remoteB.reference
+            && temporaryB.pathExtension == "png" && FileManager.default.isReadableFile(atPath: temporaryB.path)
+            && panel.dataSource === coordinator && panel.delegate === coordinator && coordinator.numberOfPreviewItems(in: panel) == 1
+        let acceptedCount = cache.requests.count
+        _ = coordinator.preview(content: remoteB); await pump()
+        checks["repeated-explicit-preview-reuses-the-current-lease"] = cache.requests.count == acceptedCount
+            && coordinator.previewURL == temporaryB && coordinator.isPreviewVisible
+        coordinator.closePreview()
+        checks["closing-remote-preview-deletes-only-its-owned-temporary-file"] = !FileManager.default.fileExists(atPath: temporaryB.path)
+            && FileManager.default.isReadableFile(atPath: file.path) && coordinator.previewURL == nil
+
+        _ = coordinator.preview(content: remoteA)
+        try await waitUntil("remote close request") { cache.requests.count == acceptedCount + 1 }
+        coordinator.closePreview()
+        cache.complete(acceptedCount, image: decodedPreview); await pump()
+        checks["closing-a-pending-remote-preview-prevents-late-reopening"] = coordinator.previewReference == nil
+            && coordinator.previewURL == nil && !coordinator.isPreviewVisible
+
+        _ = coordinator.preview(content: remoteA)
+        try await waitUntil("remote scope request") { cache.requests.count == acceptedCount + 2 }
+        let scopeRequest = acceptedCount + 1
+        let oldScope = library.requestScope(.pixiv)
+        library.scopes[.pixiv] = "fixture-pixiv-next"
+        coordinator.revokeRemotePreview(source: .pixiv)
+        cache.complete(scopeRequest, image: decodedPreview); await pump()
+        checks["scope-revocation-rejects-late-remote-preview-without-a-native-panel"] = cache.requests[scopeRequest].value.scopeID == oldScope
+            && coordinator.previewReference == nil && coordinator.previewURL == nil && !coordinator.isPreviewVisible
+
+        _ = coordinator.preview(content: remoteB)
+        try await waitUntil("new remote scope request") { cache.requests.count == acceptedCount + 3 }
+        let newScopeRequest = acceptedCount + 2
+        cache.complete(newScopeRequest, image: decodedPreview)
+        try await waitUntil("new scope preview") { coordinator.isPreviewVisible && coordinator.previewURL != nil }
+        let newScopeTemporary = coordinator.previewURL!
+        checks["new-source-scope-can-explicitly-open-its-own-preview"] = cache.requests[newScopeRequest].value.scopeID == library.requestScope(.pixiv)
+            && coordinator.previewReference == remoteB.reference
+        coordinator.syncSelection(content: nil)
+        checks["clearing-selection-releases-remote-preview-and-temporary-image"] = coordinator.previewReference == nil
+            && coordinator.previewURL == nil && !FileManager.default.fileExists(atPath: newScopeTemporary.path)
+
+        _ = coordinator.preview(content: remoteA)
+        try await waitUntil("remote selection-clear request") { cache.requests.count == acceptedCount + 4 }
+        coordinator.syncSelection(content: nil)
+        cache.complete(acceptedCount + 3, image: decodedPreview); await pump()
+        checks["clearing-selection-while-remote-preview-is-pending-cannot-reopen"] = coordinator.previewReference == nil
+            && coordinator.previewURL == nil && !coordinator.isPreviewVisible
+
+        // Keep obsolete A's controlled callback held while B becomes visible.
+        // Closing the actual QL panel must retire both the visible file lease
+        // and every older pending completion without a fixture close callback.
+        let nativeCloseStart = cache.requests.count
+        _ = coordinator.preview(content: remoteA)
+        try await waitUntil("native-close old A request") { cache.requests.count == nativeCloseStart + 1 }
+        coordinator.syncSelection(content: remoteB)
+        try await waitUntil("native-close B request") { cache.requests.count == nativeCloseStart + 2 }
+        cache.complete(nativeCloseStart + 1, image: decodedPreview)
+        do {
+            try await waitUntil("native-close B panel") { coordinator.isPreviewVisible && coordinator.previewURL != nil }
+        } catch {
+            let diagnostics: [String: Any] = ["stage": "native-close-B-timeout",
+                "previewReference": coordinator.previewReference?.storageKey ?? "nil", "previewURL": coordinator.previewURL?.path ?? "nil",
+                "previewVisible": coordinator.isPreviewVisible, "panelVisible": panel.isVisible,
+                "panelOwnDataSource": panel.dataSource === coordinator, "panelOwnDelegate": panel.delegate === coordinator,
+                "panelOwnController": panel.currentController as AnyObject === windowController,
+                "mainWindowKey": window.isKeyWindow, "keyWindowType": String(describing: app.keyWindow.map { type(of: $0) }),
+                "localReferences": library.snapshot.records.map { $0.assetID.reference.storageKey },
+                "requests": cache.requests.map { ["url": $0.value.url.absoluteString, "scope": $0.value.scopeID] },
+                "scope": library.requestScope(.pixiv), "errors": workspace.presentation.errors]
+            FileHandle.standardError.write(try JSONSerialization.data(withJSONObject: diagnostics, options: [.sortedKeys]))
+            FileHandle.standardError.write(Data([10]))
+            throw error
+        }
+        let nativeCloseTemporary = coordinator.previewURL!
+        panel.performClose(nil)
+        for _ in 0..<30 {
+            if coordinator.previewURL == nil && !FileManager.default.fileExists(atPath: nativeCloseTemporary.path) { break }
+            await pump()
+        }
+        checks["native-quicklook-close-revokes-remote-lease-and-removes-temporary-file"] = coordinator.previewReference == nil
+            && coordinator.previewURL == nil && !FileManager.default.fileExists(atPath: nativeCloseTemporary.path)
+        cache.complete(nativeCloseStart, image: decodedPreview); await pump()
+        checks["native-quicklook-close-cannot-be-undone-by-an-older-pending-preview"] = coordinator.previewReference == nil
+            && coordinator.previewURL == nil && !coordinator.isPreviewVisible
+        // A failed native-close assertion must not leave its evidence file or
+        // panel behind and prevent the remaining local-preview checks.
+        coordinator.closePreview()
+
+        let escapedRequest = cache.requests.count
+        _ = coordinator.preview(content: remoteA)
+        try await waitUntil("real-source-Escape pending request") { cache.requests.count == escapedRequest + 1 }
+        browser.acceptsInput = false
+        browser.grid.onEscape?()
+        checks["blocked-source-grid-Escape-does-not-cancel-background-page-state"] = coordinator.previewReference == remoteA.reference
+        browser.acceptsInput = true
+        browser.grid.onEscape?()
+        cache.complete(escapedRequest, image: decodedPreview); await pump()
+        checks["actual-source-grid-and-App-Escape-consumers-cancel-pending-quicklook"] = coordinator.previewReference == nil
+            && coordinator.previewURL == nil && !coordinator.isPreviewVisible
+
+        let changedRemoteA = OnlineImageContentProjection.remote(.init(source: .pixiv, artworkID: "900", title: "Updated remote A",
+            sourceURL: URL(string: "https://www.pixiv.net/artworks/900")!,
+            previewURL: URL(string: "https://i.pximg.net/fixture-A-revision-2.jpg"), kind: .image))
+        let changedResourceStart = cache.requests.count
+        _ = coordinator.preview(content: remoteA)
+        try await waitUntil("old resource pending") { cache.requests.count == changedResourceStart + 1 }
+        _ = coordinator.preview(content: changedRemoteA)
+        try await waitUntil("same-reference new resource request") { cache.requests.count == changedResourceStart + 2 }
+        cache.complete(changedResourceStart, image: decodedPreview); await pump()
+        checks["explicit-same-reference-preview-replaces-a-changed-resource-URL"] = coordinator.previewReference == changedRemoteA.reference
+            && coordinator.previewURL == nil && cache.requests[changedResourceStart + 1].value.url == changedRemoteA.metadata.previewURL
+        cache.complete(changedResourceStart + 1, image: decodedPreview)
+        try await waitUntil("changed resource native preview") { coordinator.isPreviewVisible && coordinator.previewURL != nil }
+        let changedResourceTemporary = coordinator.previewURL!
+        coordinator.syncSelection(content: remoteA)
+        try await waitUntil("selection consumer changed resource") { cache.requests.count == changedResourceStart + 3 }
+        checks["same-reference-selection-keeps-the-visible-file-until-replacement-is-ready"] = FileManager.default.fileExists(atPath: changedResourceTemporary.path)
+            && cache.requests[changedResourceStart + 2].value.url == remoteA.metadata.previewURL
+        cache.complete(changedResourceStart + 2, image: decodedPreview)
+        try await waitUntil("selection resource native preview") {
+            coordinator.isPreviewVisible && coordinator.previewURL != nil && coordinator.previewURL != changedResourceTemporary
+        }
+        checks["same-reference-selection-cleans-the-old-file-after-native-replacement"] = !FileManager.default.fileExists(atPath: changedResourceTemporary.path)
+        coordinator.closePreview()
+        checks["remote-preview-never-downloads-applies-or-publishes-a-local-record"] = primary.count == beforeQuick.0
+            && library.downloads.count == beforeQuick.1 && library.retries.count == beforeQuick.2
+            && library.snapshot.records.count == beforeQuick.3 && library.downloadApplyFlags.isEmpty
+
+        func publishLocalPreview(_ remote: WallpaperContentItem) throws -> URL {
+            let id = OnlineImageAssetID(reference: remote.providerReference)!
+            let path = "published-preview-\(id.artworkID).png"
+            let url = directory.appendingPathComponent(path)
+            try Data(contentsOf: file).write(to: url)
+            let record = OnlineImageLocalRecord(assetID: id, title: remote.title, sourceURL: remote.metadata.sourceURL!,
+                author: nil, authorID: nil, tags: [], relativePath: path, pixelWidth: 8, pixelHeight: 8,
+                fileSizeBytes: 1, firstDownloadedAt: Date(), revision: UUID())
+            library.snapshot = .init(records: library.snapshot.records + [record], revision: library.snapshot.revision + 1)
+            workspace.catalog.downloads.append(OnlineImageContentProjection.local(record, url: url, available: true))
+            availability.send()
+            return url
+        }
+        let visiblePublicationRequest = cache.requests.count
+        _ = coordinator.preview(content: remoteB)
+        try await waitUntil("visible publication preview request") { cache.requests.count == visiblePublicationRequest + 1 }
+        cache.complete(visiblePublicationRequest, image: decodedPreview)
+        try await waitUntil("visible remote before publication") { coordinator.isPreviewVisible && coordinator.previewURL != nil }
+        let replacedTemporary = coordinator.previewURL!
+        let visibleLocal = try publishLocalPreview(remoteB)
+        try await waitUntil("visible same-reference local publication") { coordinator.previewURL == visibleLocal && coordinator.isPreviewVisible && panel.dataSource === coordinator }
+        checks["visible-remote-preview-switches-to-new-same-reference-local-publication"] = coordinator.previewReference == remoteB.reference
+            && panel.dataSource === coordinator && !FileManager.default.fileExists(atPath: replacedTemporary.path)
+        coordinator.closePreview()
+
+        let pendingPublicationRequest = cache.requests.count
+        _ = coordinator.preview(content: remoteA)
+        try await waitUntil("pending publication preview request") { cache.requests.count == pendingPublicationRequest + 1 }
+        let pendingLocal = try publishLocalPreview(remoteA)
+        try await waitUntil("pending same-reference local publication") { coordinator.previewURL == pendingLocal && coordinator.isPreviewVisible && panel.dataSource === coordinator }
+        checks["pending-remote-preview-switches-to-local-publication-without-waiting-for-cache"] = coordinator.previewReference == remoteA.reference
+            && coordinator.isPreviewVisible && panel.dataSource === coordinator
+        cache.complete(pendingPublicationRequest, image: decodedPreview); await pump()
+        checks["late-remote-thumbnail-cannot-replace-the-published-same-reference-local-file"] = coordinator.previewReference == remoteA.reference
+            && coordinator.previewURL == pendingLocal && cache.requests.count == pendingPublicationRequest + 1
+        coordinator.closePreview()
+        library.snapshot = .init()
+        workspace.catalog.downloads.removeAll { [remoteA.reference, remoteB.reference].contains($0.reference) }
+
+        let beforeLocalPreview = cache.requests.count
+        checks["local-quicklook-still-opens-the-local-file-without-cache-acquisition"] = coordinator.preview(content: imageValue)
+            && coordinator.previewURL == file && coordinator.previewReference == image
+        try await waitUntil("local native owner after remote preview") { coordinator.isPreviewVisible && panel.dataSource === coordinator && panel.delegate === coordinator }
+        checks["local-quicklook-keeps-the-existing-native-owner-after-remote-preview"] = cache.requests.count == beforeLocalPreview
+            && panel.dataSource === coordinator && panel.delegate === coordinator
+        let replacementFile = directory.appendingPathComponent("preview-replacement.png")
+        try Data(contentsOf: file).write(to: replacementFile)
+        var replacementLocator = imageValue.locator; replacementLocator.path = replacementFile.path
+        var replacementMetadata = imageValue.metadata; replacementMetadata.resourceRevision = "replacement-revision"
+        let replacementImage = WallpaperContentItem(reference: imageValue.reference, providerReference: imageValue.providerReference,
+            locator: replacementLocator, title: imageValue.title, kind: imageValue.kind, publishedAvailability: imageValue.publishedAvailability,
+            capabilities: imageValue.capabilities, metadata: replacementMetadata, acquisition: imageValue.acquisition,
+            update: imageValue.update, aliases: imageValue.aliases)
+        workspace.catalog.images = [replacementImage]
+        coordinator.syncSelection(content: replacementImage); await pump()
+        try await waitUntil("same-reference local resource replacement") { coordinator.previewURL == replacementFile && panel.dataSource === coordinator && coordinator.isPreviewVisible }
+        checks["same-reference-local-resource-replacement-updates-quicklook-URL"] = coordinator.previewReference == image
+            && coordinator.previewURL == replacementFile && panel.dataSource === coordinator && cache.requests.count == beforeLocalPreview
+        coordinator.closePreview()
+        workspace.catalog.images = [imageValue]
+
         checks["web-scene-do-not-masquerade-as-quicklook-video"] = !coordinator.preview(content: webValue) && coordinator.previewURL == nil && coordinator.inspectedReference == web
         _ = coordinator.preview(content: imageValue); await pump()
         coordinator.syncSelection(content: nil)

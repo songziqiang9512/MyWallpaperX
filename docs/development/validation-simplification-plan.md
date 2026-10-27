@@ -4,7 +4,7 @@
 
 目标：先全面审查 Scene、Web 的启动、资源、纹理、shader、渲染、特效、普通帧、缓存、IPC 和生命周期，再扩到 Video、音频、获取、图库、存储和工具。主动删除对实际功能无帮助的校验、认证、重复计算和嵌套，使链路直接、按需、轻快。用户原话与必要边界由顶层 [AGENTS.md](../../AGENTS.md)约束；不能拿旧实现、旧测试或“更严谨”反向保留无用工作。
 
-状态：本次全范围审查、同类问题修正及回归已完成，Goal 结项。P10–P22 已合入主仓，当前工作树基于 `codex/engine-refactor-program` 的 `492a64dc7`；P23–P35 已完成；2026-10-27 用户授权按“引擎启动改进→UI改进→新模块接入”依次提交、合入该主仓分支，不推送。2026-10-27 用户要求的两段原话已同步主仓和工作树顶层规则，主仓除此未改产品或 HEAD。完整原方案、P0–P27 过程和失败原值转入[历史记录](../history/cross-topic/validation-simplification-p0-p27-2026-10-27.md)，不再从旧批次的“下一步”续接任务。
+状态：全范围审查、P0–P35 修正与回归已结项。2026-10-27 按用户授权，以“启动→UI→新模块”顺序合入主仓 `codex/engine-refactor-program`，不推送；顶层规则保留最新原话。原方案、P0–P27 过程与失败原值见[历史记录](../history/cross-topic/validation-simplification-p0-p27-2026-10-27.md)，不从旧“下一步”自动续工。
 
 ## 审查方法与完成条件
 
@@ -113,11 +113,11 @@ WorkshopQueries 的 ValidateAccountLocked 直接比较当前账号字段，保�
 
 ## 当前裁决与停止项
 
-TEX 已做实际 Reader→Metal 全字节资格：10 案例、28 消费者、200 层通过。常见 padding 尾仅 4B/22,369,620B，当前 owned 作者样本 0B；极端人工例 87,380B≈25%，仍无真实 occurrence。当前撤回常驻 purpose-cache/第二 Reader 改造；未来真实输入出现显著绝对尾字节及实际热点，再在原数据流裁决。请求 subdata 范围不等于物理 memcpy/RSS 或墙钟提速。
-
-P21 整体冷暖计时未通过原噪声/漂移标准，继续保留失败原值，不报告稳定累计提速。局部方法/字节减少已验证，不据此折算 App 首帧百分比。完整官方 parity、跨屏首次字体共享、字体内存指标和 P25 两个前台卡片模式是各自能力/测量边界，没有当前具体风险时不升级为本专项硬门。
+TEX 原 Reader→Metal 门通过10案例、28消费者、200层；常见尾仅4B/22,369,620B，owned作者样本0B，极端人工例87,380B≈25%但无真实 occurrence，因此撤回常驻 purpose-cache/第二 Reader。真实尾字节成为热点再议，subdata范围不冒充物理复制/RSS/提速。P21 冷暖噪声/漂移原值保留，不报告稳定累计首帧收益；官方 parity、跨屏字体共享/内存与P25前台卡片各守原证据边界，不升为无具体风险的硬门。
 
 旧 `test_scene_particle_simulator.py` 4541 行属已知测试结构债，不是播放回归或精简收益；不为缩行数引入 wrapper/碎片编译。P18 自有 MPEG4 夹具的绿 JPEG 旧/新同现，唯一复现仍保留，不把它默默归为本次引入或已修复。已确认无消费者的测试退休残留可直接退出，原有实际断言和其它字段保留。
+
+2026-10-27 组合Debug暴露既有 `SteamWorkshopSceneInspectionController:354` 对 `SourceFactsBuilder` init/build 的两处默认MainActor诊断。仅给Facts/Builder加 `nonisolated` 又暴露ProjectLoader等7处helper诊断，已撤回这两声明；CPU/FD准备仍归原后台worker。后续须按整条CPU依赖边界审查，不重复该两行试验，不迁回主线程或关闭检查。Badge无效borderType与同栈重复weak另以两处小修收口；属性交付、图片/Pixabay及Video详情4门通过，组合Debug成功，不声称零警告。
 
 ## 完成范围、证据与交接
 

@@ -21,24 +21,28 @@ import Combine
     var onClipWidthChange: (() -> Void)?
     var onNavigate: ((WallpaperLibraryPage) -> Void)?
     private var isDisplayed = false
-    private var authorOrigin: (page: WallpaperLibraryPage, resetEpoch: UUID)?
+    private var authorOrigins: [OnlineImageSource: (page: WallpaperLibraryPage, resetEpoch: UUID)] = [:]
 
     init(workspace: WallpaperLibraryWorkspace, commands: WallpaperLibraryCommands, inspector: WallpaperLibraryInspectorCoordinator) {
         self.workspace = workspace; self.commands = commands; self.inspector = inspector
         wallhaven = .init(source: .wallhaven, library: .shared)
         pixiv = .init(source: .pixiv, library: .shared)
         observedPixivScope = library.pixivScope
-        library.$pixivSession.compactMap { $0 }.flatMap { $0.$state.map(\.scopeID).removeDuplicates() }
+        library.$pixivSession.compactMap { $0 }.flatMap { $0.$state.removeDuplicates() }
             .receive(on: DispatchQueue.main).sink { [weak self] _ in
                 guard let self else { return }
                 let scope = library.pixivScope
-                guard scope != observedPixivScope else { return }
-                observedPixivScope = scope; authorOrigin = nil; pixiv.resetScope()
-                if isDisplayed, workspace.presentation.page == .pixiv { pixiv.enter() }
+                if scope != observedPixivScope {
+                    observedPixivScope = scope; authorOrigins[.pixiv] = nil
+                    inspector.revokeRemotePreview(source: .pixiv); pixiv.resetScope()
+                    if isDisplayed, workspace.presentation.page == .pixiv { pixiv.enter() }
+                }
+                onChange?()
             }.store(in: &subscriptions)
         library.$wallhavenCredentialRevision.dropFirst().receive(on: DispatchQueue.main).sink { [weak self] _ in
             guard let self else { return }
             if inspector.inspectedReference?.provider == .wallhaven { inspector.closeInspector() }
+            authorOrigins[.wallhaven] = nil; inspector.revokeRemotePreview(source: .wallhaven)
             wallhaven.resetScope()
             if isDisplayed, workspace.presentation.page == .wallhaven { wallhaven.enter() }
         }.store(in: &subscriptions)
@@ -52,25 +56,43 @@ import Combine
         switch page { case .wallhaven: wallhaven; case .pixiv: pixiv; default: nil }
     }
 
+    var pixivAccountStatus: String {
+        guard let state = library.pixivSession?.state else { return "未登录（匿名浏览）" }
+        switch state.phase {
+        case .anonymous: return "未登录（匿名浏览）"
+        case .checking: return "正在恢复账号信息…"
+        case .unknown: return "会话状态待确认"
+        case .authenticated:
+            guard let identity = state.identity else { return "会话状态待确认" }
+            let name = identity.displayName.flatMap { $0.isEmpty ? nil : $0 }
+            return name.map { "当前账号：\($0)（\(identity.userID)）" } ?? "当前账号：\(identity.userID)"
+        }
+    }
+
     func browser(for page: WallpaperLibraryPage) -> OnlineImageBrowserController? {
         guard let session = session(for: page) else { return nil }
         let source = session.source
         if let browser = browsers[source] { return browser }
         let browser = OnlineImageBrowserController(session: session, library: library)
         browser.onInspect = { [weak self] artwork in
-            self?.inspector.inspectOnlineArtwork(artwork, onAuthor: source == .pixiv ? { [weak self] id in
-                self?.openAuthor(id, from: .pixiv)
-            } : nil)
+            self?.inspector.inspectOnlineArtwork(artwork, onAuthor: { [weak self] author in
+                self?.openAuthor(author, from: page)
+            })
         }
         browser.onPreview = { [weak self] content in _ = self?.inspector.preview(content: content) }
+        browser.onEscape = { [weak self] in
+            guard let self else { return }
+            if inspector.previewReference != nil { inspector.closePreview() }
+            else { inspector.closeInspector() }
+        }
         browser.onSelectionChange = { [weak self, weak session] content in
             guard let self else { return }
             let artwork = content.flatMap { content in
                 session?.state.items.first { $0.firstAssetID.reference == content.providerReference }
             }
-            inspector.syncSelection(content: content, artwork: artwork, onAuthor: source == .pixiv ? { [weak self] id in
-                self?.openAuthor(id, from: .pixiv)
-            } : nil)
+            inspector.syncSelection(content: content, artwork: artwork, onAuthor: { [weak self] author in
+                self?.openAuthor(author, from: page)
+            })
         }
         browser.onRestoreColumns = { [weak self] columns in
             guard let self else { return }
@@ -89,7 +111,7 @@ import Combine
             guard let self else { return }
             if previousQuery != session.state.query {
                 previousQuery = session.state.query
-                if case .pixiv(let query) = session.state.query, query.authorID == nil { authorOrigin = nil }
+                if session.state.query.authorIdentifier == nil { authorOrigins[source] = nil }
                 if workspace.presentation.page == page { inspector.closeInspector(); inspector.closePreview() }
             }
             onChange?()
@@ -102,6 +124,7 @@ import Combine
     func setVisible(_ visible: Bool, page: WallpaperLibraryPage) {
         let changed = isDisplayed != visible; isDisplayed = visible
         for (source, browser) in browsers {
+            if !visible || page != self.page(for: source) { inspector.revokeRemotePreview(source: source) }
             browser.setPageVisible(visible && source == (page == .wallhaven ? .wallhaven : .pixiv))
         }
         if changed { onChange?() }
@@ -110,9 +133,10 @@ import Combine
     func inspectSelected() {
         guard let content = selectedContent, let session = session(for: workspace.presentation.page),
               let artwork = session.state.items.first(where: { $0.firstAssetID.reference == content.providerReference }) else { return }
-        inspector.inspectOnlineArtwork(artwork, onAuthor: session.source == .pixiv ? { [weak self] id in
-            self?.openAuthor(id, from: .pixiv)
-        } : nil)
+        inspector.inspectOnlineArtwork(artwork, onAuthor: { [weak self] author in
+            guard let self else { return }
+            self.openAuthor(author, from: self.workspace.presentation.page)
+        })
     }
     func previewSelected() { if let content = selectedContent { _ = inspector.preview(content: content) } }
     func selectedOrganizationActions() -> WallpaperInspectorActions? {
@@ -134,26 +158,27 @@ import Combine
     }
     func refreshCurrent() { session(for: workspace.presentation.page)?.refresh() }
     func hasReturnContext(for page: WallpaperLibraryPage) -> Bool {
-        session(for: page)?.hasReturnContext == true
-            || (page == .pixiv && authorOrigin?.resetEpoch == workspace.relationships.resetEpoch)
+        guard let session = session(for: page) else { return false }
+        return session.hasReturnContext || authorOrigins[session.source]?.resetEpoch == workspace.relationships.resetEpoch
     }
 
-    func openAuthor(_ id: String, from page: WallpaperLibraryPage) {
-        if page != .pixiv { authorOrigin = (page, workspace.relationships.resetEpoch) }
+    private func page(for source: OnlineImageSource) -> WallpaperLibraryPage { source == .wallhaven ? .wallhaven : .pixiv }
+
+    func openAuthor(_ author: OnlineImageAuthor, from origin: WallpaperLibraryPage) {
+        let target = page(for: author.source)
+        if origin != target { authorOrigins[author.source] = (origin, workspace.relationships.resetEpoch) }
         inspector.closeInspector(); inspector.closePreview()
-        _ = browser(for: .pixiv) // Capture any browse scroll before entering its author query.
-        pixiv.openAuthor(id)
-        if workspace.presentation.page != .pixiv { onNavigate?(.pixiv) }
+        _ = browser(for: target) // Capture this source's current scroll before entering its author query.
+        session(for: target)?.openAuthor(author)
+        if workspace.presentation.page != target { onNavigate?(target) }
         onChange?()
     }
 
     func goBack() {
-        let origin = authorOrigin.flatMap { $0.resetEpoch == workspace.relationships.resetEpoch ? $0.page : nil }
-        if workspace.presentation.page == .pixiv {
-            authorOrigin = nil
-            pixiv.goBack()
-            if let origin { onNavigate?(origin) }
-        } else { session(for: workspace.presentation.page)?.goBack() }
+        guard let session = session(for: workspace.presentation.page) else { return }
+        let origin = authorOrigins.removeValue(forKey: session.source)
+        session.goBack()
+        if let origin, origin.resetEpoch == workspace.relationships.resetEpoch { onNavigate?(origin.page) }
         onChange?()
     }
 
@@ -165,6 +190,7 @@ import Combine
 
     func presentAccount(settings: Bool = false) {
         guard let window else { return }
+        inspector.closePreview()
         if workspace.presentation.page == .wallhaven { presentKey(in: window); return }
         Task { [weak self, weak window] in
             guard let self, let window else { return }
@@ -188,7 +214,7 @@ import Combine
             let previous = library.pixivScope
             await library.logoutPixiv()
             if previous == library.pixivScope {
-                authorOrigin = nil; pixiv.resetScope()
+                authorOrigins[.pixiv] = nil; pixiv.resetScope()
                 if isDisplayed, workspace.presentation.page == .pixiv { pixiv.enter() }
             }
             onChange?()
@@ -228,9 +254,15 @@ import Combine
         if downloading, !content.publishedAvailability.isPublishedLocally {
             menu.addItem(ActionMenuItem(title: "取消下载", symbol: "xmark") { [weak self] in self?.library.cancel(artwork.firstAssetID) })
         }
+        if content.publishedAvailability == .remote, content.capabilities.contains(.quickLook) {
+            menu.addItem(ActionMenuItem(title: "临时预览", symbol: "eye") { [weak self] in _ = self?.inspector.preview(content: content) })
+        }
         menu.addItem(ActionMenuItem(title: "打开原网页", symbol: "safari") { NSWorkspace.shared.open(artwork.sourceURL) })
-        if source == .pixiv, let id = artwork.authorID {
-            menu.addItem(ActionMenuItem(title: "查看作者作品", symbol: "person") { [weak self] in self?.openAuthor(id, from: .pixiv) })
+        if let id = artwork.authorID {
+            menu.addItem(ActionMenuItem(title: "查看作者作品", symbol: "person") { [weak self] in
+                guard let self else { return }
+                openAuthor(.init(source: source, id: id, name: artwork.author), from: page(for: source))
+            })
         }
         menu.requireAppActionPermission { [weak self] in
             guard let self, isDisplayed, workspace.presentation.page == (source == .wallhaven ? .wallhaven : .pixiv) else { return false }

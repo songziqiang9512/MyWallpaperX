@@ -203,3 +203,56 @@ API key以Keychain保存；首次实际需要鉴权时后台读取一次并在�
 修复与五组近门现已通过：`test_wallpaper_network_session`、`test_pixiv_client`、`test_online_thumbnail_scheduling`、`test_online_image_library`、`test_thumbnail_return_reuse`。实际Foundation行为门发现completion-handler task不调用原session完成delegate，已退役该失效桥并使用句柄唯一completion hook；Cookie双向差异合并的职责见[Pixiv方案§3.2](pixiv-online-browser-design.md#32-登录恢复与注销)。受控私有Cookie jar→实际完成hook→隔离WK、同代新旧快照、取消、observer静止与logout反例通过；URLProtocol没有自动安装响应Set-Cookie，因此真实HTTP Cookie轮换没有被fixture证明，也未用手工种Cookie冒充该项通过。
 
 新版隔离App保留原有两个下载记录；Pixiv真实匿名网格50项，关闭官方登录窗口后重新加载并滚动至99项，旧失效session异常未在这轮操作复现。第二轮自动化因接口超时中断，不能据此宣称多轮切换完全稳定。超时期间的单次线程采样主线程在正常事件循环，不等于证明所有时间都无阻塞；原崩溃与本次观察分别保留。Debug/Release构建成功和上述有界证据不代表真实登录、受限内容、全部作品或发布验收。
+
+## 10. 492a64dc7 之后的功能完善
+
+2026-10-27用户要求继续完善分页、作者页、筛选和卡片bar临时预览。本批从`492a64dc7`在原独立树实施，保留并行UI专项；当前仅授权开发，不沿用上一批的Git合并和安装授权。
+
+### 10.1 最小完整结果与取舍
+
+继续采用来源typed Query/client、共享BrowserSession及既有Quick Look owner。两站各建作者窗口、临时图片库或第二套预览面板会重复导航/缓存/输入职责，不采用。参考WaifuX与4KHD的查询参数、作者路径和分页行为，独立实现；不引入逐卡详情、HTML→逐项detail补作者或共享全局Cookie的fallback链。
+
+- Wallhaven：补用户名作者查询和详情/本地作者入口，作者页支持与普通浏览相同的类型、分级、分辨率、比例、单色及排序；增加升降序、浏览量/收藏量和完整热门区间。最低/精确分辨率互斥，菜单只编辑同一Query。
+- Pixiv：补最新/最早、AI显示/隐藏、安全/账号允许内容等已证条件，搜索条件和作者可用条件分开呈现；不伪造Premium热门排序。账号识别和参数细则归[Pixiv方案§12](pixiv-online-browser-design.md#12-后续完善的来源合同)。
+- 原图下载、统一我的下载、喜爱/播放列表及systemStill继续由原owner负责；本批不加站内写操作、动图播放、后台预下载或预编译。
+
+### 10.2 分页与作者上下文
+
+服务端next/lastPage、作者ID快照与当前页请求仍是唯一续页事实。返回页、取消、刷新和条件切换保留现代次，不能以过滤后数量推导到尾。自动续页改为观察真正末项进入可见/近邻区，解决少列时固定“倒数第8项”离开视口而不触发的问题；过滤/去重后无新增时停自动连拉，保留明确的继续加载入口，避免自动扫描整位作者。
+
+Wallhaven随机采用已有PageRequest.seed承接首响应seed；只有后续响应继续回显同一seed才接纳为连续页。缺seed或服务端换seed时保留已显示内容，停止连续翻页并提示刷新，不把另一个随机批次拼进当前列表。此检查直接针对W0已观测的seed被忽略，不新增探测请求或每卡验证。
+
+两来源沿同一机制保存一次作者返回上下文，保留列表、筛选、密度和滚动锚点；本地详情进入作者页时记录真实来源页，返回我的下载时保留其来源筛选。作者身份使用真实username（Wallhaven）或用户ID（Pixiv），昵称仅展示，不猜作者ID。不创建无限导航历史或后台作者索引。
+
+### 10.3 临时Quick Look
+
+卡片bar增加可选Quick按钮，沿用现有尺寸和玻璃bar；旧来源默认布局不变。两新来源浏览页、我的下载及混合列表使用同一预览回调，空格/右键也归现`WallpaperLibraryInspectorCoordinator`。
+
+本地文件直接Quick Look；远端只在明确预览时通过已有缩略图pipeline取得预览图，按需编码临时图供原QLPreviewPanel使用。换项保持同一原生Panel，交接期间最多保留新旧两份租约文件；旧文件在原生reload或真正关闭后删除，不把“选择下一项”误当成关闭整个窗口。不请求原图入库、不写下载manifest、不修改桌面或播放意图，不加新常驻缓存、面板或预取时钟。切换选择、关闭、离页、账号scope变化和reset取消迟到结果并清理本次临时文件；已下载文件不受影响。预览租约沿真实来源、URL、scope和本地resource revision更新；下载发布同ref本地文件后从远端临时图切换到本地原图。请求代次防止A预览迟到覆盖B或关闭后重开，来源网格Esc和QL原生关闭都撤租约。PNG编码/写盘在后台完成，不进入滚动layout。
+
+### 10.4 实施与验证顺序
+
+1. 来源client与Query：参数、作者身份、服务端续页及相邻失败/取消反例。
+2. 共享接线：统一作者上下文、工具栏菜单、真正末项续页和Quick按钮；移除沿途已确认的重复渲染、请求或无消费者门。
+3. 账号展示：沿Pixiv现Cookie/传输owner完成按需身份信息，不挡浏览和本地播放。
+4. 串行最近行为门、Debug构建和隔离原生操作；包含窄列续页、作者筛选与返回、筛选互斥、Quick不入库/不抢桌面、快速切换/取消/scope与退出。compiler/native/AV每轮须与并行专项明确交接并持公共锁串行使用，不以空锁推断资源空闲。
+
+通过后更新本节实际收据和仍未覆盖的真实账号范围；本批不自动提交、推送或替换已安装App。
+
+### 10.5 本批验证收据与保留边界
+
+2026-10-27：上述查询、分页、作者返回、有效筛选和共享Quick按钮已实现。菜单只编辑当前Query，搜索防抖任务结束即撤销；overflow按查询/账号状态复用，不因加载或窗口布局反复生成。作者ID列表按作者/类型复用，显式刷新才重取；没有逐卡作者请求、后台预下载或新增轮询。
+
+两位独立审查者发现的作者标签、过期菜单命令、模式无效字段、账号scope及预览租约边界已修正并复核。真实Quick Look关闭会异步结束旧控制权，不能在`show`返回后马上认定接管失败，也不能用关闭回调中的`isVisible`判定仍有效；现仅在旧原生租约结束后安排一次受当前代次约束的事件续接。立即强制接管、每次换项关闭面板及关闭动画开关均未保留。接受卡片操作后把键盘焦点交给网格，来源Esc与原生关闭沿同一撤销入口。
+
+来源client、共享BrowseSession、Card/Adapter/WindowToolbar最近行为门通过；修正原生交接和等待条件后，Inspector与Toolbar两项最终原生门通过（`native-final.log`，含真正QL窗口关闭、原生长菜单滚动及旧命令反例），共享键盘15项门通过（`grid-focus.log`）。当前产品Debug构建成功（`debug-focus-final.log`），冻结产品哈希与测试App一致；此前失败日志不算通过，本批未做Release构建。
+
+隔离App真实操作：Wallhaven普通页加载48项；本地作者`thedrexter`进入正确来源后在1920×1080条件下加载45项。Pixiv排行50→99→149项，三列滚动触发续页，关键词`風景`搜索得到60项；本地作者`からめる`页加载48项，两站作者返回均回原“我的下载”。最低/精确分辨率互斥及作者内筛选状态已检查。两站bar预览、原生关闭、重开和可见窗口Esc已操作；Quick仅显示远端预览图或本地原文件，未新增下载记录。
+
+未输入真实API key/账号，受限内容、真实账号切换和持久恢复仍未验收；原生fixture不替代这些站点权限事实。自动化在QL窗口交接中立即发送Esc存在输入时序限制，仅证明已送达来源的取消反例及可见窗口Esc；popover自动化滚动未产生位移，实际`scrollWheel`门通过，不声称物理触控板长菜单已验证。首次隔离启动曾自动播放内置Video2，已手动停止，不能把首次App启动说成零桌面副作用。
+
+当前独立bundle/HOME测试App保留于`.artifacts/online-sources/runtime-followup/`，最终日志、哈希和失败链摘要在`.artifacts/online-sources/followup-validation/`；继续复验只留原一份Debug构建缓存。编译/原生/AV资源已交还UI专项；本批不提交、不推送、不改主仓或`/Applications`安装版。
+
+随后用户授权三会话串行提交并合入主仓`codex/engine-refactor-program`，不推送；协商顺序为启动专项→UI专项→新模块接入。本文前述未提交状态是该次授权前的验证收据。新模块先窄提交已验证职责，最后基于前两批新HEAD处理共享API与夹具冲突，统一缩略图加载/完成状态、Quick Look和来源菜单的原owner；新增接口扩展调查不混入这次整合。主仓用户`AGENTS.md`的新要求由首批保留统一，后两批不得以旧版本覆盖；整合后重验受影响行为及Debug构建，再记录最终交接。
+
+2026-10-27第三棒以`4e09128ce`为基准整合。仅在线菜单和Inspector测试说明两处文本冲突；保留UI统一`loadThumbnail(priority:)`与`hasCachedResult`，菜单用`includeRecoverySourcePage:false`保单一网页入口/下载状态，追加原Quick和作者导航；双方实际缓存交付与QL断言均保留。8项整合近门116.733秒通过，两位子代理及另外两会话只读复核无整合新增阻塞；两个旧UI警告的小修另经4项近门47.772秒通过。最终组合Debug成功21.6秒，仍有两处既有Scene actor诊断，尝试与停止裁决只维护于[精简方案](validation-simplification-plan.md#当前裁决与停止项)，不关闭编译检查或扩张Scene链路。本机新版独立Debug App已重建、ad-hoc严格验签并沿原隔离HOME启动；不是Release或安装版验收。

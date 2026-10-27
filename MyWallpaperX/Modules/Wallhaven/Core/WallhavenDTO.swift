@@ -8,23 +8,9 @@ nonisolated struct WallhavenSearchResponse: Decodable {
         let currentPage: Int
         let lastPage: Int
         let total: Int
-        let query: ResolvedQuery?
         let seed: String?
         enum CodingKeys: String, CodingKey {
-            case currentPage = "current_page", lastPage = "last_page", total, query, seed
-        }
-    }
-
-    enum ResolvedQuery: Decodable {
-        case text(String), tag(Int, String)
-        private struct Tag: Decodable { let id: Int; let tag: String }
-        init(from decoder: Decoder) throws {
-            let value = try decoder.singleValueContainer()
-            if let text = try? value.decode(String.self) { self = .text(text) }
-            else {
-                let tag = try value.decode(Tag.self)
-                self = .tag(tag.id, tag.tag)
-            }
+            case currentPage = "current_page", lastPage = "last_page", total, seed
         }
     }
 }
@@ -56,6 +42,8 @@ nonisolated struct WallhavenWallpaperDTO: Decodable {
         guard !id.isEmpty, let sourceURL = Self.webURL(url) else { return nil }
         let thumbnail = Self.webURL(thumbs?.large) ?? Self.webURL(thumbs?.small)
         let original = Self.webURL(path)
+        let username = uploader?.username?.trimmingCharacters(in: .whitespacesAndNewlines)
+        let author = username.flatMap { $0.isEmpty ? nil : $0 }
         let rating: OnlineImageRating
         switch purity {
         case "sfw": rating = .safe
@@ -66,7 +54,7 @@ nonisolated struct WallhavenWallpaperDTO: Decodable {
         return OnlineImageArtwork(source: .wallhaven, artworkID: id, title: "Wallhaven #\(id)",
             sourceURL: sourceURL, thumbnailURL: thumbnail,
             previewURL: Self.webURL(thumbs?.original) ?? thumbnail, originalURL: original,
-            author: uploader?.username, tags: tags?.map(\.name) ?? [],
+            author: author, authorID: author, tags: tags?.map(\.name) ?? [],
             width: dimensionX.flatMap { $0 > 0 ? $0 : nil }, height: dimensionY.flatMap { $0 > 0 ? $0 : nil },
             fileSizeBytes: fileSize.flatMap { $0 > 0 ? $0 : nil }, pageCount: 1,
             kind: fileType?.hasPrefix("image/") == true ? .image : .unknown, rating: rating)

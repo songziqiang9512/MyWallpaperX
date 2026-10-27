@@ -74,6 +74,7 @@ nonisolated struct PixivArtworkDTO: Decodable {
     let xRestrict: PixivInteger?
     let restrict: PixivInteger?
     let sexualLevel: PixivInteger?
+    let aiType: PixivInteger?
     let masked: Bool?
     let locationMask: Bool?
     let thumbnail: String?
@@ -119,6 +120,7 @@ nonisolated struct PixivArtworkDTO: Decodable {
         xRestrict = number("xRestrict")
         restrict = number("restrict")
         sexualLevel = number("sl")
+        aiType = number("aiType")
         masked = (try? values.decodeIfPresent(Bool.self, forKey: Key("isMasked")))
             ?? (try? values.decodeIfPresent(Bool.self, forKey: Key("is_masked")))
         locationMask = try? values.decodeIfPresent(Bool.self, forKey: Key("locationMask"))
@@ -139,6 +141,8 @@ nonisolated struct PixivArtworkDTO: Decodable {
         // potentially-sensitive work's rating. Do not guess sl thresholds.
         let rating: OnlineImageRating = [1, 2].contains(xRestrict?.value ?? -1) ? .adult : .unknown
         let mask = masked == true || locationMask == true
+        let isAI: Bool?
+        switch aiType?.value { case 1: isAI = false; case 2: isAI = true; default: isAI = nil }
         return OnlineImageArtwork(source: .pixiv, artworkID: id, title: title ?? "Pixiv #\(id)",
             sourceURL: URL(string: "https://www.pixiv.net/artworks/\(id)")!,
             thumbnailURL: PixivRequestURL.imageURL(urls?["thumb"] ?? urls?["mini"] ?? thumbnail),
@@ -148,7 +152,7 @@ nonisolated struct PixivArtworkDTO: Decodable {
             width: width?.value.flatMap { $0 > 0 ? $0 : nil },
             height: height?.value.flatMap { $0 > 0 ? $0 : nil },
             pageCount: pageCount?.value.flatMap { $0 > 0 ? $0 : nil }, kind: kind,
-            rating: rating, isMasked: mask ? true : masked,
+            rating: rating, isAIGenerated: isAI, isMasked: mask ? true : masked,
             createdAt: createdAt.flatMap { ISO8601DateFormatter().date(from: $0) })
     }
 }
@@ -193,6 +197,8 @@ nonisolated struct PixivAuthorProfile: Decodable {
         let values = try decoder.container(keyedBy: CodingKeys.self)
         func keys(_ key: CodingKeys) throws -> [String] {
             guard values.contains(key), try !values.decodeNil(forKey: key) else { return [] }
+            // Empty work categories are also represented as [] by the site.
+            if let empty = try? values.nestedUnkeyedContainer(forKey: key), empty.isAtEnd { return [] }
             return try values.nestedContainer(keyedBy: IDKey.self, forKey: key).allKeys.map(\.stringValue)
                 .filter(PixivRequestURL.validID)
         }
@@ -210,5 +216,36 @@ nonisolated struct PixivAuthorWorks: Decodable {
     init(from decoder: Decoder) throws {
         let values = try decoder.container(keyedBy: CodingKeys.self)
         works = try values.decode([String: Entry].self, forKey: .works).compactMapValues(\.value)
+    }
+}
+
+/// Only the official document's current-user payload qualifies as identity.
+/// Author preloads, absent metadata and malformed responses remain unknown.
+nonisolated enum PixivOfficialMetadata: Equatable, Sendable {
+    case authenticated(userID: String, displayName: String?)
+    case anonymous, unknown
+
+    private struct Payload: Decodable {
+        struct User: Decodable { let id: PixivInteger; let name: String? }
+        let userData: User?
+        enum CodingKeys: String, CodingKey { case userData }
+        init(from decoder: Decoder) throws {
+            let values = try decoder.container(keyedBy: CodingKeys.self)
+            // decodeIfPresent alone conflates missing with explicitly null.
+            guard values.contains(.userData) else { throw OnlineImageError.invalidResponse }
+            userData = try values.decodeIfPresent(User.self, forKey: .userData)
+        }
+    }
+
+    static func parse(raw: String?, url: URL) -> Self {
+        guard isOfficialDocument(url), let raw,
+              let payload = try? JSONDecoder().decode(Payload.self, from: Data(raw.utf8)) else { return .unknown }
+        guard let user = payload.userData else { return .anonymous }
+        guard let id = user.id.identifier, PixivRequestURL.validID(id), id.utf8.contains(where: { $0 != 48 }) else { return .unknown }
+        return .authenticated(userID: id, displayName: user.name)
+    }
+
+    static func isOfficialDocument(_ url: URL) -> Bool {
+        url.scheme == "https" && ["www.pixiv.net", "pixiv.net"].contains(url.host?.lowercased() ?? "")
     }
 }

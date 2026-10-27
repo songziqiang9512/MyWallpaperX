@@ -1516,7 +1516,7 @@
       "owner": "Core/OnlineImages + Modules/Wallhaven",
       "status": "approved",
       "designDoc": "docs/development/wallhaven-online-browser-design.md",
-      "design_notes": "2026-10-26按用户批准方案实施，已基于UI专项2fb50b5f1重新接线；浏览顺序Steam/Wallhaven/Pixiv/Pixabay，下载统一投影与来源筛选；图片publication/网格/缓存与systemStill沿原owner，Pixabay视频不迁移。2026-10-27用户授权提交并合入codex/engine-refactor-program，不推送或安装；真实Key及受限内容不冒充已验证。",
+      "design_notes": "2026-10-26按用户批准方案实施，已基于UI专项2fb50b5f1重新接线；浏览顺序Steam/Wallhaven/Pixiv/Pixabay，下载统一投影与来源筛选；图片publication/网格/缓存与systemStill沿原owner，Pixabay视频不迁移。2026-10-27用户授权提交并合入codex/engine-refactor-program，不推送或安装；真实Key及受限内容不冒充已验证。 492a64dc7后续依§10补齐两来源作者/分页/有效筛选与现有Quick Look临时预览；不新增播放链或缓存owner，不继承前批提交/安装权限。",
       "matchPatterns": [
         "MyWallpaperX/Modules/Wallhaven/*",
         "MyWallpaperX/Core/OnlineImages/*",
@@ -1544,7 +1544,10 @@
         "MyWallpaperX/Modules/OnlineLibrary/Core/OnlineLibraryThumbnailPipeline.swift",
         "MyWallpaperX/Modules/OnlineLibrary/Core/OnlineLibraryService.swift",
         "MyWallpaperX/Shared/UI/WallpaperAPIKeyPanelController.swift",
-        "MyWallpaperX/App/WallpaperLibraryOnlineImages.swift"
+        "MyWallpaperX/App/WallpaperLibraryOnlineImages.swift",
+        "MyWallpaperX/Shared/Components/WallpaperCardControlsView.swift",
+        "MyWallpaperX/Shared/UI/ToolbarMenuPopover.swift",
+        "MyWallpaperX/Shell/WallpaperLibraryGridController.swift"
       ],
       "contentPatterns": []
     },

@@ -131,18 +131,21 @@ final class OnlineImageGridItem: RecordingCard {
     private let bar: RecordingImageBar? = RecordingImageBar()
     private var busy = false
     private var onPrimary: (() -> Void)?
+    private var onPreview: (() -> Void)?
     private(set) var transferUpdates = 0
     private(set) var fraction: Double?
     var canPerformPrimary: Bool { bar?.playButton.isEnabled == true }
     var heldPrimary: (() -> Void)? { bar?.onPlay }
+    var heldPreview: (() -> Void)? { onPreview }
     func activatePrimary() { if canPerformPrimary { bar?.onPlay?() } }
     func setThumbnailVisible(_ value: Bool) { visible = value }
     func configure(content: WallpaperContentItem, request: Any?, selected: Bool, selecting: Bool,
                    favorite: Bool, playing: Bool, switching: Bool = false, busy: Bool = false, fraction: Double? = nil, refreshToken: UUID? = nil,
-                   onPrimary: (() -> Void)?, onFavorite: (() -> Void)?) {
+                   onPrimary: (() -> Void)?, onFavorite: (() -> Void)?, onPreview: (() -> Void)? = nil) {
         configurations += 1; presentedTitle = content.title; selectedState = selected
         self.favorite = favorite; self.playing = playing; self.selecting = selecting; self.switching = switching
-        self.onPrimary = onPrimary; bar?.onPlay = onPrimary; applyTransfer(busy: busy, fraction: fraction)
+        self.onPrimary = onPrimary; self.onPreview = onPreview
+        bar?.onPlay = onPrimary; applyTransfer(busy: busy, fraction: fraction)
     }
     private func updateVisibility() { transferUpdates += 1 }
     // ACTUAL_IMAGE_TRANSFER
@@ -261,13 +264,13 @@ final class AdapterCollectionDataSource: NSObject, NSCollectionViewDataSource {
         online.downloadedContent.entries = [.init(id: 1, localURL: URL(fileURLWithPath: "/online")),
                                             .init(id: -1, localURL: URL(fileURLWithPath: "/negative"))]
         var favorites = Set<WallpaperReference>(), playing = Set<WallpaperReference>(), switching = Set<WallpaperReference>()
-        var primary: [WallpaperContentItem] = [], favorite: [WallpaperContentItem] = [], inspections: [WallpaperContentItem] = []
+        var primary: [WallpaperContentItem] = [], favorite: [WallpaperContentItem] = [], inspections: [WallpaperContentItem] = [], previews: [WallpaperContentItem] = []
         let adapter = WallpaperLibraryCellAdapter(manager: manager, images: images, steam: steam, online: online,
             isFavorite: { favorites.contains($0) }, isPlaying: { playing.contains($0) }, isSwitching: { switching.contains($0) },
             makePrimaryAction: { content in { primary.append(content) } }, makeFavoriteAction: { content in
                 guard content.capabilities.contains(.organize) || favorites.contains(content.reference) else { return nil }
                 return { favorite.append(content) }
-            }, onInspect: { inspections.append($0) })
+            }, onInspect: { inspections.append($0) }, onPreview: { previews.append($0) })
         let collection = NSCollectionView(frame: NSRect(x: 0, y: 0, width: 300, height: 300))
         let collectionDataSource = AdapterCollectionDataSource()
         collection.dataSource = collectionDataSource
@@ -585,6 +588,39 @@ final class AdapterCollectionDataSource: NSObject, NSCollectionViewDataSource {
         checks["old-cancel-menu-cannot-borrow-later-selection-session"] = library.cancellations == [pageID]
         library.progress = [:]
         checks["idle-online-image-has-no-cancel-menu-action"] = menuProbe.makeMenu(retryRows[1]).items.isEmpty
+        library.snapshot = .init(records: records)
+        let previewRows = records.map { OnlineImageContentProjection.local($0, url: library.localURL(for: $0)!, available: true) }
+        let previewCard = make(previewRows[0]) as! OnlineImageGridItem
+        let wallPreview = previewCard.heldPreview
+        wallPreview?()
+        checks["image-card-preview-carries-its-fixed-current-asset-reference"] = wallPreview != nil && previews.last?.reference == wallID.reference
+        let previewCount = previews.count
+        adapter.updateCell(previewCard, content: previewRows[1], state: state)
+        wallPreview?()
+        checks["held-image-preview-cannot-borrow-a-reused-source-binding"] = previews.count == previewCount
+        let pagePreview = previewCard.heldPreview
+        pagePreview?()
+        checks["reused-image-preview-targets-the-real-page-asset"] = previews.last?.providerReference == pageID.reference
+        let beforePageReuse = previews.count
+        adapter.updateCell(previewCard, content: previewRows[2], state: state)
+        pagePreview?()
+        checks["held-image-preview-cannot-retarget-a-different-page-of-the-same-work"] = previews.count == beforePageReuse
+        let currentPreview = previewCard.heldPreview
+        let originalPreview = previewRows[2]
+        let renamedPreview = WallpaperContentItem(reference: originalPreview.reference, providerReference: originalPreview.providerReference,
+            locator: originalPreview.locator, title: "Updated current page", kind: originalPreview.kind,
+            publishedAvailability: originalPreview.publishedAvailability, capabilities: originalPreview.capabilities,
+            metadata: originalPreview.metadata, acquisition: originalPreview.acquisition, update: originalPreview.update, aliases: originalPreview.aliases)
+        adapter.updateCell(previewCard, content: renamedPreview, state: state)
+        currentPreview?()
+        checks["current-image-preview-uses-current-metadata-with-the-same-fixed-reference"] = previews.last?.providerReference == hiddenID.reference
+            && previews.last?.title == renamedPreview.title
+        let noPreview = WallpaperContentItem(reference: renamedPreview.reference, providerReference: renamedPreview.providerReference,
+            locator: renamedPreview.locator, title: renamedPreview.title, kind: renamedPreview.kind,
+            publishedAvailability: renamedPreview.publishedAvailability, capabilities: renamedPreview.capabilities.subtracting(.quickLook),
+            metadata: renamedPreview.metadata, acquisition: renamedPreview.acquisition, update: renamedPreview.update, aliases: renamedPreview.aliases)
+        adapter.updateCell(previewCard, content: noPreview, state: state)
+        checks["image-card-without-preview-capability-clears-its-preview-control"] = previewCard.heldPreview == nil
         library.snapshot = .init()
         let data = try JSONSerialization.data(withJSONObject: checks, options: [.sortedKeys])
         print(String(decoding: data, as: UTF8.self))

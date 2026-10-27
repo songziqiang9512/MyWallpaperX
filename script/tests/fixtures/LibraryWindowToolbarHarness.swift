@@ -116,7 +116,17 @@ extension NSToolbarItem.Identifier {
 }
 // Acquisition/session behavior stays in its Core gate; this leaf records
 // the production window toolbar's source dispatch and native item ownership.
-@MainActor final class WallpaperLibraryOnlineImages { var onChange: (() -> Void)? }
+@MainActor final class ToolbarImageSessionLeaf {
+    struct State { var author: OnlineImageAuthor? = nil }
+    var state = State()
+}
+@MainActor final class WallpaperLibraryOnlineImages {
+    var onChange: (() -> Void)?
+    let wallhaven = ToolbarImageSessionLeaf(), pixiv = ToolbarImageSessionLeaf()
+    func session(for page: WallpaperLibraryPage) -> ToolbarImageSessionLeaf? {
+        switch page { case .wallhaven: wallhaven; case .pixiv: pixiv; default: nil }
+    }
+}
 @MainActor final class OnlineImageToolbarController {
     static var latest: OnlineImageToolbarController!
     let identifiers: [NSToolbarItem.Identifier] = [.init("fixture-image-filter"), .init("fixture-image-search")]
@@ -218,8 +228,9 @@ extension NSToolbarItem.Identifier {
         window.isReleasedWhenClosed = false
         var clipWidth: CGFloat = 900
         var returnAction: (() -> Void)?
+        let onlineImages = WallpaperLibraryOnlineImages()
         let controller = WallpaperLibraryWindowToolbar(window: window, workspace: workspace, commands: commands, gridWidth: { clipWidth },
-            makeDirectoryReturnAction: { returnAction }, onlineImages: WallpaperLibraryOnlineImages())
+            makeDirectoryReturnAction: { returnAction }, onlineImages: onlineImages)
         app.activate()
         window.makeKeyAndOrderFront(nil)
         let initialKeyDeadline = Date().addingTimeInterval(5)
@@ -543,6 +554,16 @@ extension NSToolbarItem.Identifier {
                 && OnlineImageToolbarController.latest.focused == focused + 1
                 && controller.toolbar.items.contains { $0.itemIdentifier.rawValue == "fixture-image-search" }
                 && !controller.toolbar.items.contains { $0.itemIdentifier.rawValue == "search" || $0.itemIdentifier.rawValue == "importFiles" }
+            let session = onlineImages.session(for: imagePage)!
+            session.state.author = .init(source: imagePage == .pixiv ? .pixiv : .wallhaven, id: "source-author", name: "当前作者")
+            controller.refresh()
+            checks["online-image-author-title-uses-current-typed-session-\(imagePage.persistenceKey)"] = titleMetadataMatches("当前作者")
+            session.state.author?.name = nil
+            controller.refresh()
+            checks["online-image-author-title-falls-back-to-identity-\(imagePage.persistenceKey)"] = titleMetadataMatches("source-author")
+            session.state.author = nil
+            controller.refresh()
+            checks["online-image-author-return-restores-source-title-\(imagePage.persistenceKey)"] = titleMetadataMatches(imagePage.title())
         }
         page(.videos)
         let localOnlineLayouts = OnlineLibraryToolbarController.latest.layoutUpdates

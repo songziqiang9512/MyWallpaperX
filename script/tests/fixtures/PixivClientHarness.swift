@@ -216,6 +216,117 @@ private struct Checks {
         print("Controlled Pixiv jar -> actual completion hook -> WebKit checks passed; HTTP Set-Cookie remains a separate fixture limitation")
     }
 
+    static func checkOfficialIdentityMetadata() async throws {
+        let official = URL(string: "https://www.pixiv.net/en/")!
+        let accountA = #"{"userData":{"id":"501","name":"账号 A"}}"#
+        let accountB = #"{"userData":{"id":502,"name":"账号 B"}}"#
+        expect(PixivOfficialMetadata.parse(raw: accountA, url: official) == .authenticated(userID: "501", displayName: "账号 A"),
+            "current-user metadata decodes only its own typed identity")
+        expect(PixivOfficialMetadata.parse(raw: #"{"userData":null}"#, url: official) == .anonymous,
+            "explicit null confirms anonymous")
+        let unknownPayloads: [String?] = [nil, "{}", "{broken", #"{"users":{"501":{"id":"501"}}}"#,
+            #"{"userData":{"id":"0"}}"#, #"{"userData":{"id":"author-name"}}"#]
+        for raw in unknownPayloads {
+            expect(PixivOfficialMetadata.parse(raw: raw, url: official) == .unknown,
+                "missing, malformed and author-only payloads cannot authenticate or confirm anonymous")
+        }
+        for url in ["https://evilpixiv.net/", "https://www.pixiv.net.evil.example/", "http://www.pixiv.net/", "https://accounts.pixiv.net/login"] {
+            expect(PixivOfficialMetadata.parse(raw: accountA, url: URL(string: url)!) == .unknown,
+                "only the HTTPS Pixiv main document can provide current-user metadata")
+        }
+
+        let configuration = URLSessionConfiguration.ephemeral
+        configuration.protocolClasses = [FixtureProtocol.self]
+        let isolated = PixivSession(websiteDataStore: .nonPersistent(), networkConfiguration: configuration)
+        let cookie = HTTPCookie(properties: [.domain: ".pixiv.net", .path: "/", .name: "fixture_identity", .value: "candidate"])!
+        FixtureProtocol.responseHeaders = [:]
+        FixtureProtocol.responder = { _ in
+            (200, "text/html", #"<!doctype html><html><head><meta content="{&quot;userData&quot;:{&quot;id&quot;:&quot;501&quot;,&quot;name&quot;:&quot;A &amp; &#x4E2D;&quot;}}" id="meta-global-data"></head></html>"#)
+        }
+        let beforeAnonymous = FixtureProtocol.requests.count
+        await isolated.refresh()
+        expect(FixtureProtocol.requests.count == beforeAnonymous, "anonymous preparation never fetches identity")
+        await isolated.websiteDataStore.httpCookieStore.setCookie(cookie)
+        FixtureProtocol.holdNext = true
+        await isolated.refresh()
+        // refresh has already returned while the optional identity request is
+        // still held. Source browsing can use this prepared transport now.
+        for _ in 0..<100 where FixtureProtocol.held == nil { try await Task.sleep(nanoseconds: 1_000_000) }
+        expect(FixtureProtocol.held?.request.url?.path == "/", "only one background homepage request is pending")
+        let candidateScope = isolated.scopeID
+        let candidateEpoch = isolated.sessionEpoch
+        let held = FixtureProtocol.held!
+        held.complete(); FixtureProtocol.held = nil
+        for _ in 0..<100 where isolated.state.phase == .checking { try await Task.sleep(nanoseconds: 1_000_000) }
+        expect(isolated.state.identity == PixivSession.Identity(userID: "501", displayName: "A & 中"),
+            "background metadata decodes HTML entities without executing the page")
+        expect(isolated.scopeID == candidateScope && isolated.sessionEpoch == candidateEpoch,
+            "first candidate confirmation does not reload source requests or the grid")
+        let beforeRepeatedEntry = FixtureProtocol.requests.count
+        await isolated.refresh(); await isolated.refresh()
+        expect(FixtureProtocol.requests.count == beforeRepeatedEntry, "identity display is checked once per candidate epoch")
+
+        let beforeDocumentClose = FixtureProtocol.requests.count
+        await isolated.refresh(afterExplicitAccountAction: true,
+            officialMetadata: PixivOfficialMetadata.parse(raw: accountA, url: official))
+        expect(isolated.scopeID != candidateScope && isolated.sessionEpoch > candidateEpoch
+            && isolated.state.identity?.displayName == "账号 A",
+            "closing the same known account still revokes scope and retains the current document identity")
+        expect(FixtureProtocol.requests.count == beforeDocumentClose,
+            "known document close does not send an additional homepage request")
+        await isolated.refresh()
+        expect(FixtureProtocol.requests.count == beforeDocumentClose,
+            "ordinary entry after known document close does not repeat optional restoration")
+
+        // A navigation with no current metadata passes unknown, never the prior
+        // document's account. One optional restore may finish as a challenge.
+        let beforeUnknownNavigation = isolated.sessionEpoch
+        FixtureProtocol.responder = { _ in (200, "text/html", "<html>document without current-user metadata</html>") }
+        FixtureProtocol.holdNext = true
+        await isolated.refresh(afterExplicitAccountAction: true, officialMetadata: .unknown)
+        for _ in 0..<100 where FixtureProtocol.held == nil { try await Task.sleep(nanoseconds: 1_000_000) }
+        expect(isolated.sessionEpoch > beforeUnknownNavigation && isolated.state.identity == nil,
+            "unknown new navigation cannot inherit the previous document's account A")
+        expect(FixtureProtocol.held != nil, "unknown document may start one optional homepage restore")
+        FixtureProtocol.held!.complete(); FixtureProtocol.held = nil
+        for _ in 0..<100 where isolated.state.phase == .checking { try await Task.sleep(nanoseconds: 1_000_000) }
+        expect(isolated.state.phase == .unknown && isolated.state.identity == nil,
+            "challenge or absent metadata stays unknown after navigation")
+
+        let oldTransport = isolated.urlSession
+        let beforeAccountB = isolated.sessionEpoch
+        let beforeKnownBRequests = FixtureProtocol.requests.count
+        FixtureProtocol.responder = { _ in (403, "text/html", "<html>homepage is unavailable</html>") }
+        await isolated.refresh(afterExplicitAccountAction: true,
+            officialMetadata: PixivOfficialMetadata.parse(raw: accountB, url: official))
+        await isolated.refresh()
+        expect(isolated.state.identity?.userID == "502" && isolated.sessionEpoch > beforeAccountB,
+            "current document account B survives close in the new scope")
+        expect(FixtureProtocol.requests.count == beforeKnownBRequests,
+            "known account B does not depend on an unavailable homepage or cause a duplicate request")
+        let beforeRetiredRequest = FixtureProtocol.requests.count
+        do {
+            _ = try await oldTransport.data(for: URLRequest(url: official))
+            fatalError("old metadata scope transport created another task")
+        } catch is CancellationError {}
+        expect(FixtureProtocol.requests.count == beforeRetiredRequest, "retired metadata scope never reaches HTTP")
+        await isolated.refresh(afterExplicitAccountAction: true, officialMetadata: .anonymous)
+        await isolated.synchronizeCookies()
+        expect(isolated.state.phase == .anonymous && isolated.state.identity == nil,
+            "explicit anonymous metadata stays anonymous despite non-authentication cookies")
+
+        // A new explicit action starts one more optional restoration. Logout
+        // cancels it and revokes both background and loaded-page publication.
+        FixtureProtocol.holdNext = true
+        await isolated.refresh(afterExplicitAccountAction: true)
+        for _ in 0..<100 where FixtureProtocol.held == nil { try await Task.sleep(nanoseconds: 1_000_000) }
+        expect(FixtureProtocol.held != nil, "late identity background request really started")
+        await isolated.logout()
+        FixtureProtocol.held = nil
+        expect(isolated.state.phase == .anonymous && isolated.state.identity == nil,
+            "pending optional identity restoration cannot undo logout")
+    }
+
     static func main() async throws {
         let transport = session()
         let client = PixivClient(session: transport, minimumRequestInterval: 0)
@@ -230,6 +341,18 @@ private struct Checks {
         expect(end.next == nil, "false is terminal, including empty page")
         expect(URLComponents(url: FixtureProtocol.requests.last!.url!, resolvingAgainstBaseURL: false)?.queryItems?.contains(.init(name: "date", value: "20261025")) == true, "date carried to request")
 
+        query.ai = .hide
+        FixtureProtocol.responder = { _ in
+            (200, "application/json", "{\"contents\":[\(item("113", extra: ",\"aiType\":2")),\(item("114", extra: ",\"aiType\":1")),\(item("115"))],\"next\":2,\"date\":\"20261025\"}")
+        }
+        let narrowedRanking = try await client.page(query: query)
+        expect(narrowedRanking.items.map(\.artworkID) == ["114"] && narrowedRanking.next?.page == 2,
+            "ranking narrowing preserves its source order and continuation")
+        let rankedParameters = URLComponents(url: FixtureProtocol.requests.last!.url!, resolvingAgainstBaseURL: false)!.queryItems!
+        expect(!rankedParameters.contains { ["order", "ai_type", "s_mode"].contains($0.name) },
+            "search-only parameters are never appended to ranking requests")
+        query.ai = .include
+
         query.search = "风景 / #100% OR 空"
         FixtureProtocol.responder = { _ in (200, "application/json", "{\"error\":false,\"body\":{\"illustManga\":{\"data\":[\(item(type: "1")),\(item("101", type: "7")),{\"title\":\"bad\"}],\"total\":999,\"lastPage\":2}}}") }
         let search = try await client.page(query: query)
@@ -241,6 +364,31 @@ private struct Checks {
         expect(searchURL.absoluteString.contains("%2F") && searchURL.absoluteString.contains("%23"), "path metacharacters encoded")
         let decodedQuery = try JSONDecoder().decode(PixivQuery.self, from: JSONEncoder().encode(query))
         expect(decodedQuery == query, "typed query Codable round trip")
+
+        query.order = .oldest; query.ai = .hide; query.content = .accountAllowed
+        FixtureProtocol.responder = { _ in
+            (200, "application/json", "{\"error\":false,\"body\":{\"illustManga\":{\"data\":[\(item("110", extra: ",\"aiType\":1")),\(item("111", extra: ",\"aiType\":2")),\(item("112"))],\"total\":999,\"lastPage\":2}}}")
+        }
+        let sourceFiltered = try await client.page(query: query)
+        let parameters = URLComponents(url: FixtureProtocol.requests.last!.url!, resolvingAgainstBaseURL: false)!.queryItems!
+        expect(parameters.contains(.init(name: "order", value: "date")) && parameters.contains(.init(name: "mode", value: "all"))
+            && parameters.contains(.init(name: "ai_type", value: "1")), "typed source conditions are sent to the search endpoint")
+        expect(sourceFiltered.items.map(\.artworkID) == ["110"] && sourceFiltered.next?.page == 2,
+            "hide AI admits only explicit non-AI and retains the source continuation")
+        let knownAI = try JSONDecoder().decode(PixivArtworkDTO.self, from: Data(item(extra: ",\"aiType\":2").utf8))
+        let unknownAI = try JSONDecoder().decode(PixivArtworkDTO.self, from: Data(item(extra: ",\"aiType\":0").utf8))
+        expect(knownAI.artwork().isAIGenerated == true && unknownAI.artwork().isAIGenerated == nil,
+            "AI declarations preserve true and unknown rather than inventing non-AI")
+        FixtureProtocol.responder = { _ in
+            (200, "application/json", "{\"error\":false,\"body\":{\"illustManga\":{\"data\":[\(item("111", extra: ",\"aiType\":2")),\(item("112"))],\"lastPage\":3}}}")
+        }
+        let beforeEmptyFiltered = FixtureProtocol.requests.count
+        let emptyFiltered = try await client.page(query: query, request: sourceFiltered.next!)
+        expect(emptyFiltered.items.isEmpty && emptyFiltered.next?.page == 3
+            && FixtureProtocol.requests.count == beforeEmptyFiltered + 1, "filtered empty search page never recursively fetches a replacement")
+        let includeURL = try PixivRequestURL.search("test", type: .illustrations, page: 1)
+        expect(URLComponents(url: includeURL, resolvingAgainstBaseURL: false)?.queryItems?.contains { $0.name == "ai_type" } == false,
+            "include AI does not invent an AI-only parameter")
 
         let detailJSON = "{\"error\":false,\"body\":\(item(extra: ",\"pageCount\":2,\"xRestrict\":0,\"sl\":2,\"locationMask\":false,\"urls\":{\"regular\":\"https://i.pximg.net/regular.png\",\"original\":\"https://i.pximg.net/original.png\"}"))}"
         FixtureProtocol.responder = { request in
@@ -282,7 +430,7 @@ private struct Checks {
                 return (200, "application/json", "{\"error\":false,\"body\":{\"illusts\":{\(ids)},\"manga\":null}}")
             }
             let ids = URLComponents(url: request.url!, resolvingAgainstBaseURL: false)!.queryItems!.filter { $0.name == "ids[]" }.compactMap(\.value)
-            let works = ids.reversed().map { "\"\($0)\":\($0 == "102" ? "null" : item($0))" }.joined(separator: ",")
+            let works = ids.reversed().map { "\"\($0)\":\($0 == "102" ? "null" : item($0, extra: ",\"xRestrict\":0,\"aiType\":1"))" }.joined(separator: ",")
             return (200, "application/json", "{\"error\":false,\"body\":{\"works\":{\(works)}}}")
         }
         let beforeAuthor = FixtureProtocol.requests.count
@@ -291,6 +439,25 @@ private struct Checks {
         expect(author1.items.count == 23 && author1.items.first?.artworkID == "125" && author1.items.last?.artworkID == "103", "author restores ID slice order with a missing row")
         expect(author2.items.map(\.artworkID) == ["101", "100"] && author2.next == nil, "author cursor consumes snapshot")
         expect(FixtureProtocol.requests.count - beforeAuthor == 3, "author snapshot fetched once")
+
+        query.order = .oldest; query.ai = .hide; query.content = .accountAllowed
+        let beforeAuthorOrder = FixtureProtocol.requests.count
+        let authorOldest = try await client.page(query: query)
+        expect(authorOldest.items.first?.artworkID == "100" && authorOldest.items.last?.artworkID == "123"
+            && authorOldest.next?.offset == 24, "author oldest ordering uses the same captured IDs and fixed slice")
+        expect(FixtureProtocol.requests.count == beforeAuthorOrder + 1, "author local conditions reuse the ID snapshot")
+        FixtureProtocol.responder = { _ in
+            (200, "application/json", "{\"error\":false,\"body\":{\"works\":{\"100\":\(item(extra: ",\"xRestrict\":1,\"aiType\":1")),\"101\":\(item("101", extra: ",\"aiType\":1"))}}}")
+        }
+        query.content = .safe
+        let emptyAuthor = try await client.page(query: query)
+        expect(emptyAuthor.items.isEmpty && emptyAuthor.next?.offset == 24,
+            "safe author narrowing excludes adult and unknown metadata without scanning the next slice")
+        await client.invalidateAuthorSnapshot()
+        FixtureProtocol.responder = { _ in (200, "application/json", #"{"error":false,"body":{"illusts":[],"manga":{}}}"#) }
+        let emptyAuthorCategory = try await client.page(query: query)
+        expect(emptyAuthorCategory.items.isEmpty && emptyAuthorCategory.next == nil && emptyAuthorCategory.total == 0,
+            "empty array author category is a valid empty snapshot")
 
         FixtureProtocol.responder = { _ in (200, "text/html", "<html>challenge</html>") }
         do { _ = try await client.detail(id: "100"); fatalError("HTML treated as JSON") }
@@ -311,7 +478,10 @@ private struct Checks {
         expect(FixtureProtocol.requests.count == afterRateLimit, "cooldown does not send an immediate retry")
         FixtureProtocol.responseHeaders = [:]
 
-        let isolated = PixivSession(websiteDataStore: .nonPersistent())
+        let isolatedConfiguration = URLSessionConfiguration.ephemeral
+        isolatedConfiguration.protocolClasses = [FixtureProtocol.self]
+        FixtureProtocol.responder = { _ in (200, "text/html", "<html>anonymous document without identity metadata</html>") }
+        let isolated = PixivSession(websiteDataStore: .nonPersistent(), networkConfiguration: isolatedConfiguration)
         await isolated.refresh()
         expect(isolated.state.phase == .anonymous, "empty isolated store is anonymous")
         expect(isolated.urlSession.configuration.httpCookieStorage !== HTTPCookieStorage.shared, "Foundation cookie store is private")
@@ -320,7 +490,7 @@ private struct Checks {
         await isolated.websiteDataStore.httpCookieStore.setCookie(cookie)
         await isolated.websiteDataStore.httpCookieStore.setCookie(evil)
         await isolated.refresh()
-        expect(isolated.state.phase == .unknown, "cookie existence does not authenticate")
+        expect(isolated.state.phase == .unknown || isolated.state.phase == .checking, "cookie existence does not authenticate")
         expect(isolated.urlSession.configuration.httpCookieStorage?.cookies?.contains { $0.name == "PHPSESSID" } == true, "isolated cookie bridges")
         expect(isolated.urlSession.configuration.httpCookieStorage?.cookies?.contains { $0.name == "unrelated" } != true, "exact domain boundary")
         let candidateScope = isolated.scopeID
@@ -343,19 +513,7 @@ private struct Checks {
         expect(isolated.sessionEpoch > oldEpoch && isolated.state.phase == .anonymous && oldSession !== isolated.urlSession, "logout revokes scope and rotates transport")
         let clearedCookies = await isolated.websiteDataStore.httpCookieStore.allCookies()
         expect(clearedCookies.isEmpty, "isolated WebKit data cleared")
-        let proof = IdentityProof()
-        isolated.setIdentityVerifier { _ in await proof.verify() }
-        let pendingIdentity = Task { await isolated.refresh() }
-        for _ in 0..<100 {
-            if await proof.isWaiting { break }
-            try await Task.sleep(nanoseconds: 1_000_000)
-        }
-        let verifierWaiting = await proof.isWaiting
-        expect(verifierWaiting, "identity verifier really pending")
-        await isolated.logout()
-        await proof.finish()
-        await pendingIdentity.value
-        expect(isolated.state.phase == .anonymous && isolated.state.identity == nil, "late identity cannot undo logout")
+        try await checkOfficialIdentityMetadata()
         try await checkNetworkCookieBridge()
         try await checkControlledCookieBridge()
         transport.retire()
@@ -368,16 +526,4 @@ private struct Checks {
 private final class CookieChangeProbe: NSObject, WKHTTPCookieStoreObserver {
     private(set) var count = 0
     func cookiesDidChange(in cookieStore: WKHTTPCookieStore) { count += 1 }
-}
-
-private actor IdentityProof {
-    private var continuation: CheckedContinuation<PixivSession.Identity?, Never>?
-    var isWaiting: Bool { continuation != nil }
-    func verify() async -> PixivSession.Identity? {
-        await withCheckedContinuation { continuation = $0 }
-    }
-    func finish() {
-        continuation?.resume(returning: .init(userID: "999", displayName: "Fixture identity"))
-        continuation = nil
-    }
 }

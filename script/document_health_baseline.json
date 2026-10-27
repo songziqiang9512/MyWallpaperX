@@ -42,7 +42,7 @@
     },
     "docs/development/validation-simplification-plan.md": {
       "lines": 136,
-      "bytes": 30310
+      "bytes": 30306
     },
     "docs/release/bundle-content.md": {
       "lines": 61,
@@ -333,12 +333,12 @@
       "bytes": 18639
     },
     "docs/development/wallhaven-online-browser-design.md": {
-      "lines": 205,
-      "bytes": 28257
+      "lines": 258,
+      "bytes": 37211
     },
     "docs/development/pixiv-online-browser-design.md": {
-      "lines": 153,
-      "bytes": 20465
+      "lines": 163,
+      "bytes": 22405
     }
   },
   "archives": [
@@ -1632,19 +1632,19 @@
     {
       "section": "bodies",
       "path": "docs/development/wallhaven-online-browser-design.md",
-      "before": "74234e98afe7498fb5daf1f36ac2d78acc339464f950703b8c019892f982b90b",
-      "after": "df918405f34a1301b9a7cc459ddfce5e3d5013941a0dd20b90ee84c3f6fc84a7",
+      "before": "df918405f34a1301b9a7cc459ddfce5e3d5013941a0dd20b90ee84c3f6fc84a7",
+      "after": "634dc0b41a95144dcbdbddaa0def24d049123be6c567717f456a10448ecb377d",
       "owner": "Core/OnlineImages + Modules/Wallhaven",
-      "reason": "记录已批准的两来源接入设计、新HEAD整合、真实验证及未覆盖边界；仅调整两份新方案的正文预算。",
+      "reason": "记录两来源接入与492a64dc7后分页、作者、有效筛选及共享Quick Look设计；仅调整两份方案正文预算。",
       "decision": "docs/development/wallhaven-online-browser-design.md#8-文档登记与设计状态"
     },
     {
       "section": "bodies",
       "path": "docs/development/pixiv-online-browser-design.md",
-      "before": "74234e98afe7498fb5daf1f36ac2d78acc339464f950703b8c019892f982b90b",
-      "after": "640c60b207250feff80abf6973f404459d4c9e9773e4072f6acba06ca4f2c6b8",
+      "before": "640c60b207250feff80abf6973f404459d4c9e9773e4072f6acba06ca4f2c6b8",
+      "after": "911be5249124c74fcf90dc6b5c13913730e6cb141ce5e4bbbace96baeb7b8a7b",
       "owner": "Modules/Pixiv",
-      "reason": "记录已批准的两来源接入设计、新HEAD整合、真实验证及未覆盖边界；仅调整两份新方案的正文预算。",
+      "reason": "记录两来源接入与492a64dc7后分页、作者、有效筛选及共享Quick Look设计；仅调整两份方案正文预算。",
       "decision": "docs/development/pixiv-online-browser-design.md#10-文档登记与退役"
     },
     {

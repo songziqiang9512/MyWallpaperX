@@ -27,6 +27,7 @@ import Combine
     private let steam: SteamWorkshopToolbarController
     private let online: OnlineLibraryToolbarController
     private let imageTools: OnlineImageToolbarController
+    private let onlineImages: WallpaperLibraryOnlineImages
     private lazy var zoomControl: WallpaperLibraryZoomControl = {
         let control = WallpaperLibraryZoomControl()
         control.makeAction = { [weak self] in self?.makeZoomAction(delta: $0) }
@@ -37,6 +38,7 @@ import Combine
          gridWidth: @escaping () -> CGFloat, makeDirectoryReturnAction: @escaping () -> (() -> Void)? = { nil },
          onlineImages: WallpaperLibraryOnlineImages) {
         self.window = window; self.workspace = workspace; self.commands = commands
+        self.onlineImages = onlineImages
         self.gridWidth = gridWidth
         self.makeDirectoryReturnAction = makeDirectoryReturnAction
         let toolbar = NSToolbar(identifier: .init("MainWindowToolbar"))
@@ -102,6 +104,7 @@ import Combine
         let page = workspace.presentation.page
         if case .playlist(let id) = page { return page.title(playlistName: workspace.relationships.playlists.first { $0.id == id }?.name) }
         if page == .workshop { return SteamWorkshopService.shared.browserSectionTitle }
+        if let author = onlineImages.session(for: page)?.state.author { return author.displayName }
         return page.title()
     }
 

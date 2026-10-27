@@ -48,6 +48,7 @@ import Combine
     private let makePrimaryAction: (WallpaperContentItem) -> (() -> Void)?
     private let makeFavoriteAction: ((WallpaperContentItem) -> (() -> Void)?)?
     private let onInspect: ((WallpaperContentItem) -> Void)?
+    private let onPreview: ((WallpaperContentItem) -> Void)?
     private var imageTransferSubscription: AnyCancellable?
 
     init(manager: WallpaperManager, images: SILService, steam: SteamWorkshopService, online: OnlineLibraryService,
@@ -55,12 +56,14 @@ import Combine
          isSwitching: @escaping (WallpaperReference) -> Bool = { _ in false },
          makePrimaryAction: @escaping (WallpaperContentItem) -> (() -> Void)?,
          makeFavoriteAction: ((WallpaperContentItem) -> (() -> Void)?)? = nil,
-         onInspect: ((WallpaperContentItem) -> Void)? = nil) {
+         onInspect: ((WallpaperContentItem) -> Void)? = nil,
+         onPreview: ((WallpaperContentItem) -> Void)? = nil) {
         self.manager = manager; self.images = images; self.steam = steam; self.online = online
         videoThumbnails = AppKitThumbnailProvider(wallpaperManager: manager)
         self.isFavorite = isFavorite; self.isPlaying = isPlaying
         self.isSwitching = isSwitching
         self.makePrimaryAction = makePrimaryAction; self.makeFavoriteAction = makeFavoriteAction; self.onInspect = onInspect
+        self.onPreview = onPreview
         imageTransferSubscription = OnlineImageLibrary.shared.$progress.receive(on: DispatchQueue.main).sink { [weak self] progress in
             guard let self else { return }
             for case let cell as OnlineImageGridItem in bindings.keyEnumerator() {
@@ -344,7 +347,13 @@ import Combine
             let fraction = OnlineImageLibrary.shared.progress[record.id]
             card.configure(content: content, request: nil, selected: state.isSelected, selecting: state.isSelecting,
                 favorite: favorite, playing: playing, switching: switching, busy: fraction != nil, fraction: fraction, onPrimary: canPlay ? primary : nil,
-                onFavorite: canFavorite ? toggleFavorite : nil)
+                onFavorite: canFavorite ? toggleFavorite : nil,
+                onPreview: content.capabilities.contains(.quickLook) ? onPreview.map { preview in
+                    { [weak self, weak cell] in
+                        guard let self, let current = self.current(cell, matching: provider) else { return }
+                        preview(current)
+                    }
+                } : nil)
         case (.missing, let card as WallpaperLibraryUnavailableItem):
             card.configure(content: content, selected: state.isSelected, selecting: state.isSelecting)
         default: break

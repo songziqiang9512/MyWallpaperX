@@ -1,6 +1,13 @@
 import Combine
 import Foundation
 
+/// Request facts only; the controlled cache leaf never performs network I/O.
+nonisolated struct OnlineImageFixtureThumbnailRequest: Sendable {
+    let url: URL
+    let source: OnlineImageSource
+    let scopeID: String
+}
+
 /// Controlled acquisition leaf for real App routing fixtures. It never opens
 /// a session, reads user files or applies a desktop image.
 @MainActor final class OnlineImageLibrary: ObservableObject {
@@ -16,7 +23,22 @@ import Foundation
     var deletions: [WallpaperReference] = []
     var cancellations: [OnlineImageAssetID] = []
     var deletion: ((WallpaperReference) async throws -> Void)?
+    var scopes: [OnlineImageSource: String] = [.wallhaven: "fixture-wallhaven", .pixiv: "fixture-pixiv"]
+    var thumbnailRequests: [OnlineImageFixtureThumbnailRequest] = []
+    var downloads: [OnlineImageAssetID] = []
+    var downloadApplyFlags: [Bool] = []
 
+    func requestScope(_ source: OnlineImageSource) -> String { scopes[source] ?? source.rawValue }
+    func thumbnailRequest(url: URL, source: OnlineImageSource) -> OnlineImageFixtureThumbnailRequest {
+        let request = OnlineImageFixtureThumbnailRequest(url: url, source: source, scopeID: requestScope(source))
+        thumbnailRequests.append(request)
+        return request
+    }
+    func downloadArtwork(_ artwork: OnlineImageArtwork, pageIndex: Int = 0, apply: Bool = false) {
+        downloads.append(.init(source: artwork.source, artworkID: artwork.artworkID, pageIndex: pageIndex))
+        downloadApplyFlags.append(apply)
+    }
+    func download(_ asset: OnlineImageAsset, apply: Bool = false) { downloads.append(asset.id); downloadApplyFlags.append(apply) }
     func refreshLocal() { refreshes += 1 }
     func record(for reference: WallpaperReference) -> OnlineImageLocalRecord? {
         snapshot.records.first { $0.assetID.reference == reference }

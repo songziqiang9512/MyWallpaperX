@@ -8,7 +8,7 @@ final class OnlineImageInspectorView: NSView {
     private var artwork: OnlineImageArtwork
     private let library: OnlineImageLibrary
     private let makeLibraryActions: (WallpaperReference) -> WallpaperInspectorActions?
-    private let onAuthor: ((String) -> Void)?
+    private let onAuthor: ((OnlineImageAuthor) -> Void)?
     private let initialReference: WallpaperReference
     private var pageIndex: Int
     private var assets: [OnlineImageAsset] = []
@@ -57,7 +57,7 @@ final class OnlineImageInspectorView: NSView {
 
     init(artwork: OnlineImageArtwork, library: OnlineImageLibrary,
          makeLibraryActions: @escaping (WallpaperReference) -> WallpaperInspectorActions?,
-         onAuthor: ((String) -> Void)? = nil, initialPageIndex: Int = 0) {
+         onAuthor: ((OnlineImageAuthor) -> Void)? = nil, initialPageIndex: Int = 0) {
         self.artwork = artwork; self.library = library
         self.makeLibraryActions = makeLibraryActions; self.onAuthor = onAuthor
         pageIndex = max(0, initialPageIndex)
@@ -232,7 +232,7 @@ final class OnlineImageInspectorView: NSView {
         titleLabel.stringValue = record?.title ?? asset?.title ?? artwork.title
         let author = record?.author ?? asset?.author ?? artwork.author
         authorButton.setTitle(author ?? "作者信息暂缺")
-        authorButton.isEnabled = onAuthor != nil && (record?.authorID ?? asset?.authorID ?? artwork.authorID) != nil
+        authorButton.isEnabled = onAuthor != nil && resolvedAuthor != nil
         let indices = pageIndices
         let position = indices.firstIndex(of: pageIndex) ?? 0
         previousButton.isEnabled = position > 0
@@ -369,8 +369,14 @@ final class OnlineImageInspectorView: NSView {
     }
     @objc private func openAuthor() {
         guard WallpaperLibrarySheetPresentation.permitsInput(in: window),
-              let id = currentRecord?.authorID ?? currentAsset?.authorID ?? artwork.authorID else { return }
-        onAuthor?(id)
+              let author = resolvedAuthor else { return }
+        onAuthor?(author)
+    }
+    private var resolvedAuthor: OnlineImageAuthor? {
+        let name = currentRecord?.author ?? currentAsset?.author ?? artwork.author
+        guard let id = currentRecord?.authorID ?? currentAsset?.authorID ?? artwork.authorID
+            ?? (artwork.source == .wallhaven ? name : nil), !id.isEmpty else { return nil }
+        return .init(source: artwork.source, id: id, name: name)
     }
     private func retire() {
         isRetired = true; loadID = UUID(); previewID = UUID()
