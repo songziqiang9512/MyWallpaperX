@@ -117,6 +117,10 @@ enum BundledVideoLibrary {
             }
         }
 #if VIDEO_INDEX_ASSET_PUBLICATION
+        if mode == "exit-index" {
+            try exitIndex(manager, store: store)
+            return
+        }
         if mode == "asset-publication" {
             try assetPublication(manager, store: store)
             return
@@ -230,7 +234,7 @@ enum BundledVideoLibrary {
         case "first-indexed-fallback-write":
             try store.saveWallpapers([a]); try store.setReadOnlyForAudit(true)
             var dated = record("dated"); dated.firstIndexedAt = Date(timeIntervalSince1970: 1_700_000_000.375)
-            manager.wallpapers = [dated]; manager.flushPersistentState()
+            manager.wallpapers = [dated]; manager.saveWallpapers(); manager.flushPersistentState()
             checks["failedSaveFallbackRetainsAdmissionTimestamp"] = manager.fallback == [dated]
             manager.defaults.synchronize()
         case "first-indexed-fallback-read":
@@ -588,6 +592,58 @@ enum BundledVideoLibrary {
 
 #if VIDEO_INDEX_ASSET_PUBLICATION
 extension VideoIndexOrderedSaveChecks {
+    @MainActor static func exitIndex(_ manager: WallpaperManager, store: WallpaperIndexStore) throws {
+        let rows = (0..<1_200).map { record("video-\($0)") }
+        manager.didFinishInitialIndexLoad = true
+        manager.wallpapers = rows
+        try store.saveWallpapers(rows)
+        manager.observeAssetPublication()
+        var checks: [String: Bool] = [:], writes: [String: Int] = [:]
+        store.clearAudit()
+        manager.flushPersistentState()
+        writes["clean"] = store.savedIDsForAudit().count
+        checks["cleanExitPreservesAll1200Rows"] = try store.loadWallpapers() == rows
+
+        manager.wallpapers.reverse()
+        manager.wallpapers.removeLast()
+        manager.wallpapers[0].tags.append("Edited immediately before exit")
+        let edited = manager.wallpapers
+        checks["realCombineMutationSchedulesDebouncedSave"] = manager.wallpapersAutoSaveWorkItem != nil
+        store.clearAudit()
+        manager.flushPersistentState()
+        RunLoop.main.run(until: Date().addingTimeInterval(0.35))
+        writes["debounced"] = store.savedIDsForAudit().count
+        checks["exitBeforeDebounceRetainsOrderDeletionAndEdit"] = try store.loadWallpapers() == edited
+
+        manager.wallpapers[0].thumbnailPath = "late-thumbnail.jpg"
+        RunLoop.main.run(until: Date().addingTimeInterval(0.35))
+        wait("ordinary save did not settle") { manager.idle }
+        store.clearAudit()
+        manager.flushPersistentState()
+        writes["afterOrdinarySave"] = store.savedIDsForAudit().count
+        checks["settledSaveRetainsLatestThumbnail"] = try store.loadWallpapers() == manager.wallpapers
+
+        try store.setReadOnlyForAudit(true)
+        manager.wallpapers[0].tags.append("Retained failed save")
+        manager.saveWallpapers()
+        wait("failed save did not settle") { manager.idle }
+        checks["failedSaveRetainsFallback"] = manager.fallback == manager.wallpapers
+        try store.setReadOnlyForAudit(false)
+        store.clearAudit()
+        manager.flushPersistentState()
+        writes["retryFailure"] = store.savedIDsForAudit().count
+        checks["exitRetriesFallbackAndClearsOnlyAfterSuccess"] = try manager.fallback == nil
+            && store.loadWallpapers() == manager.wallpapers
+
+        manager.resetIndexForAudit()
+        store.clearAudit()
+        manager.flushPersistentState()
+        writes["reset"] = store.savedIDsForAudit().count
+        checks["resetPersistsAnEmptyLibrary"] = try store.loadWallpapers().isEmpty
+        let result: [String: Any] = ["checks": checks, "writes": writes]
+        print(String(data: try JSONSerialization.data(withJSONObject: result, options: [.sortedKeys]), encoding: .utf8)!)
+    }
+
     @MainActor static func assetPublication(_ manager: WallpaperManager, store: WallpaperIndexStore) throws {
         let root = URL(fileURLWithPath: ProcessInfo.processInfo.environment["MWX_VIDEO_INDEX_TEST_ROOT"]!)
         let source = root.appendingPathComponent("source.mp4"), alias = root.appendingPathComponent("source-alias.mp4")

@@ -26,6 +26,7 @@ extension WallpaperManager {
         wallpapersAutoSaveWorkItem?.cancel()
         let workItem = DispatchWorkItem { [weak self] in
             guard let self else { return }
+            self.wallpapersAutoSaveWorkItem = nil
             self.saveWallpapers()
             // 库内容变化（导入/删除/SQLite 回填）后重臂自动切换 timer。
             // $wallpapers sink 在 @Published willSet 期触发，当时读到
@@ -160,6 +161,13 @@ extension WallpaperManager {
 
     private func flushWallpaperIndex() {
         guard !preservesLegacyMigrationInputs else { return }
+        // Settled saves need no second full-table write at exit. Retain the
+        // original barrier for a debounced edit, unfinished write or recovery.
+        guard !didFinishInitialIndexLoad || wallpapersAutoSaveWorkItem != nil
+            || wallpaperIndexSaveInFlight != nil || pendingWallpaperIndexSave != nil
+            || defaults.object(forKey: wallpapersKey) != nil else { return }
+        wallpapersAutoSaveWorkItem?.cancel()
+        wallpapersAutoSaveWorkItem = nil
         // A failed read retains the old DB and a versioned delta, never a partial full snapshot.
         guard settleInitialIndexForFlush() else { return }
         let snapshot = wallpapers
@@ -274,8 +282,6 @@ extension WallpaperManager {
         // Flush source index, runtime intent and preferences. Store flushes relationships/history separately.
         settingsAutoSaveWorkItem?.cancel()
         settingsAutoSaveWorkItem = nil
-        wallpapersAutoSaveWorkItem?.cancel()
-        wallpapersAutoSaveWorkItem = nil
         saveSettings()
         flushWallpaperIndex()
         savePlaybackState()
