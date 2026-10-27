@@ -212,8 +212,8 @@ final class SteamWorkshopSceneInspectionController {
                             }
                             try cancellation.check()
                         } catch { result = .sourceFailure(error) }
-                        DispatchQueue.main.async { [weak self] in
-                            self?.finishInspection(requestID: requestID, identity: identity,
+                        DispatchQueue.main.async {
+                            self.finishInspection(requestID: requestID, identity: identity,
                                 record: record, result: result)
                             continuation.resume()
                         }

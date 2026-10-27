@@ -6,7 +6,6 @@ final class InspectorBadgeView: NSBox {
         super.init(frame: .zero)
         boxType = .custom
         titlePosition = .noTitle
-        borderType = .lineBorder
         cornerRadius = 13
         fillColor = NSColor.black.withAlphaComponent(0.12)
         borderColor = .separatorColor
