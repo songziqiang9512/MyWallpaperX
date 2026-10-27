@@ -161,12 +161,12 @@
       "role": "stable-contract",
       "entrypoint": "docs/README.md",
       "currentStateAuthority": "docs/architecture/repository-map.md",
-      "lastReviewed": "2026-10-26",
+      "lastReviewed": "2026-10-27",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "d415eb6216e7fb17e00a4b7a0d9bb00ffba9210a6b0dfdc65ed5fe3e81d1ad3f",
+        "sourceSHA256": "1468f7dd8529c622ad282e5c36b45bfbe25afea0eb29550d0879e3868427bda4",
         "method": "document_registry --audit + document_health --check",
-        "scope": "仅复核当前正文hash、文档角色、入口及现役/历史指针；精简方案拥有本轮实施与验证状态，历史结算保留原边界。 合并UI主窗口职责、图片方格及显式Stop回执条款；仅正文与导航复核，不代替专项产品验收。",
+        "scope": "P33核实际登录恢复字段与精简链现状指针；只维护角色/源码与导航绑定，运行适用范围仍由原证据限定。",
         "limitations": "这是导航与文档治理复核，不代表源码、编译、运行、视觉、性能、真实账号或发布复验；不重授旧证据的适用范围。"
       }
     },
@@ -367,6 +367,19 @@
         "docs/README.md",
         "AGENTS.md"
       ]
+    },
+    {
+      "path": "docs/history/cross-topic/validation-simplification-p0-p27-2026-10-27.md",
+      "role": "historical-evidence",
+      "entrypoint": "docs/history/README.md",
+      "commandPolicy": "historical-only",
+      "currentAuthorities": [
+        "docs/development/validation-simplification-plan.md",
+        "docs/scene/architecture/scene-launch-responsiveness-contract.md",
+        "docs/web/web-project-json-runtime-model.md"
+      ],
+      "cutoffDate": "2026-10-27",
+      "uniqueValue": "完整保留原方案及P0–P27实施、失败、取舍与有界验证；当前状态与剩余范围仅由现役精简方案维护。"
     },
     {
       "path": "docs/history/cross-topic/wallpaper-startup-d12-2026-10-24.md",
@@ -664,12 +677,12 @@
       "role": "stable-contract",
       "entrypoint": "docs/scene/README.md",
       "currentStateAuthority": "docs/scene/capabilities/coverage-ledger.md",
-      "lastReviewed": "2026-10-26",
+      "lastReviewed": "2026-10-27",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "9465c6c3217ce204e9c00d556792ea786a0686f60c575f95665b88f91403f302",
+        "sourceSHA256": "262bcba8839f905f86ceedf2dd42ca1392994d23c430647df937f1be8eccfde1",
         "method": "document_registry --audit + document_health --check",
-        "scope": "仅复核当前正文hash、文档角色、入口及现役/历史指针；精简方案拥有本轮实施与验证状态，历史结算保留原边界。",
+        "scope": "P32核原inverse唯一输入与forward实际消费处求逆/同次编码复用；角色和导航绑定，运行结果仍以对应专项证据为准。",
         "limitations": "这是导航与文档治理复核，不代表源码、编译、运行、视觉、性能、真实账号或发布复验；不重授旧证据的适用范围。"
       }
     },
@@ -4310,12 +4323,12 @@
       "role": "current-state",
       "entrypoint": "README.md",
       "purpose": "限定专题的实现状态、偏差或证据；运行结论须复核身份和边界，不决定任务顺序。",
-      "lastReviewed": "2026-10-26",
+      "lastReviewed": "2026-10-27",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "a67ae9ea93c7713afc71c393858494283865618975c0aa6e3b6585d502628b0d",
+        "sourceSHA256": "7aa768a89718968a976fda40a83f963af6c2a42ca83577bec9085f2c31c8beee",
         "method": "document_registry --audit + document_health --check",
-        "scope": "仅复核当前正文hash、文档角色、入口及现役/历史指针；精简方案拥有本轮实施与验证状态，历史结算保留原边界。",
+        "scope": "P33核实际登录恢复字段与精简链现状指针；只维护角色/源码与导航绑定，运行适用范围仍由原证据限定。",
         "limitations": "这是导航与文档治理复核，不代表源码、编译、运行、视觉、性能、真实账号或发布复验；不重授旧证据的适用范围。"
       }
     },

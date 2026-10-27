@@ -172,7 +172,7 @@ nonisolated enum SceneResolvedMaterialUniformEncoder {
             )
         case .effectTextureProjectionMatrix:
             return encodeMatrix(
-                inputs.effectTextureProjectionMatrix,
+                inputs.effectTextureProjectionMatrixInverse.inverse,
                 type: type
             )
         case .effectTextureProjectionMatrixInverse:

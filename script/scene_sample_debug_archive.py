@@ -49,14 +49,15 @@ def sha256_file(path: Path) -> str:
     return digest.hexdigest()
 
 
-def _json(path: Path) -> Mapping[str, Any]:
+def _json(path: Path) -> tuple[Mapping[str, Any], str]:
     try:
-        value = json.loads(path.read_text(encoding="utf-8"))
+        data = path.read_bytes()
+        value = json.loads(data.decode("utf-8"))
     except (OSError, json.JSONDecodeError) as error:
         raise ValueError(f"cannot load JSON {path}: {error}") from error
     if not isinstance(value, Mapping):
         raise ValueError(f"JSON document is not an object: {path}")
-    return value
+    return value, hashlib.sha256(data).hexdigest()
 
 
 def _corpus_manifest(sample_ids: Sequence[str]) -> str:
@@ -116,7 +117,7 @@ def build_archive(
     if not sample_ids:
         raise ValueError(f"no samples found below {samples_root}")
 
-    snapshot = _json(snapshot_path)
+    snapshot, snapshot_sha = _json(snapshot_path)
     static_rows = snapshot.get("samples")
     if not isinstance(static_rows, list):
         raise ValueError(f"census snapshot has no samples array: {snapshot_path}")
@@ -136,11 +137,10 @@ def build_archive(
     raw_by_id: dict[str, tuple[Path, str, int, Mapping[str, Any]]] = {}
     report_meta: list[dict[str, Any]] = []
     for report_path in report_paths:
-        report = _json(report_path)
+        report, report_sha = _json(report_path)
         raw_samples = report.get("samples")
         if not isinstance(raw_samples, list):
             raise ValueError(f"benchmark report has no samples array: {report_path}")
-        report_sha = sha256_file(report_path)
         report_meta.append({
             "path": str(report_path),
             "sha256": report_sha,
@@ -251,7 +251,7 @@ def build_archive(
             "sampleIdManifestSha256": _corpus_manifest(sample_ids),
             "censusSnapshot": {
                 "path": str(snapshot_path),
-                "sha256": sha256_file(snapshot_path),
+                "sha256": snapshot_sha,
                 "sampleCount": len(static_rows),
             },
             "previewOracleRegistry": {

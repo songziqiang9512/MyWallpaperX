@@ -10,6 +10,53 @@ from __future__ import annotations
 from dataclasses import dataclass
 
 
+RUNTIME_EVIDENCE_METRICS = [
+    "schema_version",
+    "shader_contract_count",
+    "shader_contract_authored_count",
+    "shader_contract_builtin_count",
+    "shader_contract_stage_count",
+    "shader_contract_diagnostic_count",
+    "effect_texture_slot_count",
+    "effect_texture_slot_hole_count",
+    "effect_combo_entry_count",
+    "material_texture_slot_count",
+    "material_texture_slot_hole_count",
+    "material_combo_entry_count",
+    "effect_definition_count",
+    "effect_definition_pass_count",
+    "effect_definition_material_pass_count",
+    "effect_definition_fbo_count",
+    "effect_definition_copy_command_count",
+    "effect_definition_swap_command_count",
+    "effect_definition_diagnostic_count",
+    "effect_graph_layer_count",
+    "effect_graph_effect_count",
+    "effect_graph_node_count",
+    "effect_graph_material_node_count",
+    "effect_graph_copy_node_count",
+    "effect_graph_swap_node_count",
+    "effect_graph_render_target_count",
+    "effect_graph_blocker_count",
+    "effect_graph_unblocked_layer_count",
+    "visible_layer_count",
+    "root_layer_count",
+    "child_edge_count",
+    "parent_layer_count",
+    "max_hierarchy_depth",
+    "effective_visible_layer_count",
+    "solid_layer_count",
+    "authored_solid_color_layer_count",
+    "effective_visible_solid_layer_count",
+    "built_in_reference_count",
+    "missing_resource_count",
+    "composition_layer_count",
+    "project_layer_count",
+    "fullscreen_layer_count",
+    "dependency_edge_count",
+]
+
+
 @dataclass(frozen=True)
 class RuntimeExpectation:
     matrix_key: str

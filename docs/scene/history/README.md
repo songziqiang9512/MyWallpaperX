@@ -4,7 +4,7 @@
 
 | 截止日期 | 专题 | 类型 | 文件 | 独有价值 | 当前权威 |
 |---|---|---|---|---|---|
-| 2026-10-25 | Scene / Web 启动专项 | 最终结算 | [冷暖启动专项结算](../../history/cross-topic/wallpaper-startup-optimization-completed-2026-10-25.md) | 最终限定验收、原失败与STOP；不产生新任务 | [启动合同](../architecture/scene-launch-responsiveness-contract.md) |
+跨专题的[冷暖启动专项结算](../../history/cross-topic/wallpaper-startup-optimization-completed-2026-10-25.md)保留最终限定验收、原失败与 STOP；统一登记见[全仓历史索引](../../history/README.md)，不产生新的 Scene 任务。
 | 2026-10-25 | 启动 D31–D39 | RAM与收益采用 | [整产品内存与完成文件复用](scene-startup-d31-2026-10-25.md) | D36/D37减工已采用，D38大输入RAM通过；D39修采样间隔，375短命PID首次读即gone，统计STOP未覆盖；截至D39最终视频长跑/OS待 | [启动合同](../architecture/scene-launch-responsiveness-contract.md) |
 | 2026-10-25 | 启动 D29–D30 | 原因收窄与停止微调 | [seek与native内存边界](scene-startup-d29-2026-10-25.md) | 等待机制属初始HEAD；D30真正HEAD/current同原三红子例6次通过、原失败未归因；无效候选STOP，回整体RAM/系统恢复 | [启动合同](../architecture/scene-launch-responsiveness-contract.md) |
 | 2026-10-25 | 启动 D28 | 媒体回调与峰值边界 | [薄适配及保留失败](scene-startup-d28-2026-10-25.md) | 记录无效池假设、部分内存降低与产品验证边界 | [启动合同](../architecture/scene-launch-responsiveness-contract.md) |

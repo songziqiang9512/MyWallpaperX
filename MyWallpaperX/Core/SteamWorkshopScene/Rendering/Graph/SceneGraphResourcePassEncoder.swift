@@ -210,7 +210,7 @@ final class SceneGraphResourcePassEncoder {
 #if DEBUG
         SceneGPUCensus.recordOffscreenRender(.graphResourceSourceCapture)
 #endif
-        if let sourceLighting = sourceLighting?.validated(for: target) {
+        if let sourceLighting {
             sourceLighting.pipeline.bind(encoder: encoder)
             sourceLighting.pipeline.drawLayer(
                 texture: source,

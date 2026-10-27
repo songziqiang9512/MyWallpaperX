@@ -202,8 +202,9 @@ nonisolated final class ThumbnailCache: @unchecked Sendable {
                 cancellation: cancellation, checksFailure: true, completion: completion) else { return }
         enqueue(key: .image(key), request: request, lane: .decode) { [self] done in
             defer { done() }
-            if let image = storedImage(for: key, decoder: Self.decodeStoredImage) {
-                finishImageRequest(request, key: key, image: image)
+            let outputURL = diskCacheURL(for: key)
+            if let image = storedImage(at: outputURL, decoder: Self.decodeStoredImage) {
+                finishImageRequest(request, key: key, outputURL: outputURL, image: image)
                 return
             }
             enqueue(key: .image(key), request: request, lane: .generation) { [self] generated in
@@ -217,7 +218,7 @@ nonisolated final class ThumbnailCache: @unchecked Sendable {
                         // Even after cancellation it runs and returns its slot.
                         defer { generated() }
                         guard isCurrent(request, key: .image(key)) else { return }
-                        finishImageRequest(request, key: key, image: image,
+                        finishImageRequest(request, key: key, outputURL: outputURL, image: image,
                             encodedData: image.flatMap(Self.jpegData), cachesFailure: true)
                     }
                 }
@@ -253,15 +254,16 @@ nonisolated final class ThumbnailCache: @unchecked Sendable {
                 cancellation: cancellation, checksFailure: cachesFailure, completion: completion) else { return }
         enqueue(key: .image(key), request: request, lane: .decode) { [self] done in
             defer { done() }
-            if let image = storedImage(for: key, decoder: decoder) {
-                finishImageRequest(request, key: key, image: image)
+            let outputURL = diskCacheURL(for: key)
+            if let image = storedImage(at: outputURL, decoder: decoder) {
+                finishImageRequest(request, key: key, outputURL: outputURL, image: image)
                 return
             }
             enqueue(key: .image(key), request: request, lane: .generation) { [self] generated in
                 defer { generated() }
                 guard isCurrent(request, key: .image(key)) else { return }
                 let (image, data) = generate()
-                finishImageRequest(request, key: key, image: image,
+                finishImageRequest(request, key: key, outputURL: outputURL, image: image,
                     encodedData: data, cachesFailure: cachesFailure)
             }
         }
@@ -302,12 +304,14 @@ nonisolated final class ThumbnailCache: @unchecked Sendable {
                 onPriorityPromotion: onPriorityPromotion, completion: completion) else { return }
         enqueue(key: .image(key), request: request, lane: .decode) { [self] done in
             defer { done() }
-            if let image = storedImage(for: key, decoder: decoder) {
-                finishImageRequest(request, key: key, image: image)
+            let outputURL = diskCacheURL(for: key)
+            if let image = storedImage(at: outputURL, decoder: decoder) {
+                finishImageRequest(request, key: key, outputURL: outputURL, image: image)
                 return
             }
-            if let sourceDataKey, let image = storedImage(for: sourceDataKey, decoder: decoder) {
-                finishImageRequest(request, key: key, image: image, encodedData: Self.pngData(image))
+            let sourceDataURL = sourceDataKey.map { diskCacheURL(for: $0) }
+            if let sourceDataURL, let image = storedImage(at: sourceDataURL, decoder: decoder) {
+                finishImageRequest(request, key: key, outputURL: outputURL, image: image, encodedData: Self.pngData(image))
                 return
             }
             enqueue(key: .image(key), request: request, lane: .source) { [self] sourceFinished in
@@ -324,9 +328,9 @@ nonisolated final class ThumbnailCache: @unchecked Sendable {
                             onAbandon: sourceFinished) { [self] decoded in
                         defer { decoded(); sourceFinished() }
                         let image = data.flatMap(decoder)
-                        finishImageRequest(request, key: key, image: image,
+                        finishImageRequest(request, key: key, outputURL: outputURL, image: image,
                             encodedData: sourceDataKey == nil ? (image == nil ? nil : data) : image.flatMap(Self.pngData),
-                            sourceData: image == nil ? nil : data, sourceDataKey: sourceDataKey)
+                            sourceData: image == nil ? nil : data, sourceDataURL: sourceDataURL)
                     }
                 }
                 install(task: task, request: request, key: .image(key))
@@ -490,18 +494,18 @@ nonisolated final class ThumbnailCache: @unchecked Sendable {
         }
     }
 
-    private func storedImage(for key: String, decoder: (Data) -> NSImage?) -> NSImage? {
-        guard let data = try? Data(contentsOf: diskCacheURL(for: key)) else { return nil }
+    private func storedImage(at url: URL, decoder: (Data) -> NSImage?) -> NSImage? {
+        guard let data = try? Data(contentsOf: url) else { return nil }
         return decoder(data)
     }
 
     @discardableResult
-    private func finishImageRequest(_ request: Request, key: String, image: NSImage?, encodedData: Data? = nil,
-                                    sourceData: Data? = nil, sourceDataKey: String? = nil,
+    private func finishImageRequest(_ request: Request, key: String, outputURL: URL, image: NSImage?, encodedData: Data? = nil,
+                                    sourceData: Data? = nil, sourceDataURL: URL? = nil,
                                     cachesFailure: Bool = false) -> Bool {
         guard isCurrent(request, key: .image(key)) else { return false }
         let staged = stageEncodedData(encodedData)
-        let rawStaged = stageEncodedData(sourceDataKey == nil ? nil : sourceData)
+        let rawStaged = stageEncodedData(sourceDataURL == nil ? nil : sourceData)
         defer {
             if let staged { try? FileManager.default.removeItem(at: staged) }
             if let rawStaged { try? FileManager.default.removeItem(at: rawStaged) }
@@ -509,8 +513,8 @@ nonisolated final class ThumbnailCache: @unchecked Sendable {
         lock.lock()
         guard requests[.image(key)] === request else { lock.unlock(); return false }
         if request.allowsCaching {
-            if let staged { _ = rename(staged.path, diskCacheURL(for: key).path) }
-            if let rawStaged, let sourceDataKey { _ = rename(rawStaged.path, diskCacheURL(for: sourceDataKey).path) }
+            if let staged { _ = rename(staged.path, outputURL.path) }
+            if let rawStaged, let sourceDataURL { _ = rename(rawStaged.path, sourceDataURL.path) }
             if let image { imageCache.setObject(image, forKey: key as NSString, cost: Self.memoryCost(of: image)) }
             else if cachesFailure { failureCache?.setObject(NSNumber(value: true), forKey: key as NSString) }
         }
@@ -553,8 +557,9 @@ nonisolated final class ThumbnailCache: @unchecked Sendable {
         guard startsProducer else { return }
         enqueue(key: .raw(key), request: request, lane: .decode) { [self] done in
             defer { done() }
-            if let data = try? Data(contentsOf: diskCacheURL(for: key)) {
-                finishRawData(request, key: key, data: data, persist: false)
+            let outputURL = diskCacheURL(for: key)
+            if let data = try? Data(contentsOf: outputURL) {
+                finishRawData(request, key: key, outputURL: outputURL, data: data, persist: false)
                 return
             }
             enqueue(key: .raw(key), request: request, lane: .source) { [self] sourceFinished in
@@ -568,7 +573,7 @@ nonisolated final class ThumbnailCache: @unchecked Sendable {
                     self.enqueue(key: .raw(key), request: request, lane: .decode,
                             onAbandon: sourceFinished) { [self] finished in
                         defer { finished(); sourceFinished() }
-                        finishRawData(request, key: key, data: data, persist: true)
+                        finishRawData(request, key: key, outputURL: outputURL, data: data, persist: true)
                     }
                 }
                 install(task: task, request: request, key: .raw(key))
@@ -576,13 +581,13 @@ nonisolated final class ThumbnailCache: @unchecked Sendable {
         }
     }
 
-    private func finishRawData(_ request: Request, key: String, data: Data?, persist: Bool) {
+    private func finishRawData(_ request: Request, key: String, outputURL: URL, data: Data?, persist: Bool) {
         guard isCurrent(request, key: .raw(key)) else { return }
         let staged = stageEncodedData(persist ? data : nil)
         defer { if let staged { try? FileManager.default.removeItem(at: staged) } }
         lock.lock()
         guard requests[.raw(key)] === request else { lock.unlock(); return }
-        if request.allowsCaching, let staged { _ = rename(staged.path, diskCacheURL(for: key).path) }
+        if request.allowsCaching, let staged { _ = rename(staged.path, outputURL.path) }
         let completions = Array(request.rawCompletions.values)
         request.rawCompletions.removeAll()
         requests.removeValue(forKey: .raw(key))

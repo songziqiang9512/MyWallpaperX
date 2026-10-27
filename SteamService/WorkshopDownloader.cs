@@ -792,7 +792,7 @@ internal sealed partial class SteamSession
         return Convert.ToHexString(tree.GetHashAndReset()).ToLowerInvariant();
     }
 
-    internal static bool IsChunkValid(Stream stream, DepotManifest.ChunkData chunk, CancellationToken ct, IncrementalHash hash)
+    internal static bool IsChunkValid(Stream stream, DepotManifest.ChunkData chunk, CancellationToken ct, IncrementalHash? hash = null)
     {
         if (chunk.UncompressedLength == 0) return true;
         if (chunk.Offset > (ulong)stream.Length || chunk.UncompressedLength > (ulong)stream.Length - chunk.Offset) return false;
@@ -809,7 +809,7 @@ internal sealed partial class SteamSession
             read += count;
         }
         ct.ThrowIfCancellationRequested();
-        hash.AppendData(buffer);
+        hash?.AppendData(buffer);
         return DepotChunk.AdlerHash(buffer) == chunk.Checksum;
     }
 
@@ -820,8 +820,7 @@ internal sealed partial class SteamSession
         CancellationToken ct)
     {
         using var stream = new FileStream(lease.OpenFile(relativePath, write: false), FileAccess.Read);
-        using var hash = IncrementalHash.CreateHash(HashAlgorithmName.SHA256);
-        return IsChunkValid(stream, chunk, ct, hash);
+        return IsChunkValid(stream, chunk, ct);
     }
 
     private async Task<T> WithDownloadChunkSlot<T>(Func<Task<T>> body, CancellationToken ct)

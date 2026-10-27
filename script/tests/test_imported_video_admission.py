@@ -10,6 +10,7 @@ import uuid
 from script.tests.test_imported_video_autoplay_gate import GATE_SOURCES, MANAGER, product_harness
 from script.tests.test_steam_library_interactions import method
 from script.tests.test_ui_library_algorithms import declaration
+from script.tests.test_wallpaper_library_import import video_import_cache_methods
 
 ROOT = Path(__file__).resolve().parents[2]
 
@@ -17,7 +18,7 @@ ROOT = Path(__file__).resolve().parents[2]
 class ImportedVideoAdmissionTests(unittest.TestCase):
     def test_admission_async_import_stop_failure_and_queued_navigation(self):
         source = product_harness().replace('struct VideoWallpaper {let path:String;var id:String{path}}', '')
-        source = source.replace('import Foundation', 'import AppKit\nimport QuartzCore\nimport Foundation', 1)
+        source = source.replace('import Foundation', 'import AppKit\nimport QuartzCore\nimport CryptoKit\nimport Foundation', 1)
         source = source.replace('var autoSwitchEnabled=true,randomInterval=', 'var volume: Double = 100\n        var autoSwitchEnabled=true,randomInterval=')
         normalized = declaration((MANAGER / 'WallpaperManager.swift').read_text(), '    func normalizedPath(')
         source = source.replace('func normalizedPath(_ path:String)->String{path}', normalized.strip(), 1)
@@ -30,6 +31,8 @@ class ImportedVideoAdmissionTests(unittest.TestCase):
     let importPreparationStateLock = NSLock()
     var importPreparationWorkItem: DispatchWorkItem?
     let importPreparationQueue = DispatchQueue(label: "mwx.admission.test-import")
+    let thumbnailCacheDirectory = URL(fileURLWithPath: CommandLine.arguments[1], isDirectory: true).appendingPathComponent("thumbnails")
+    let staticFrameCacheDirectory = URL(fileURLWithPath: CommandLine.arguments[1], isDirectory: true).appendingPathComponent("static-frames")
     var importSummaryCount = 0, recentRequests = 0, historyRequests = 0, unexpectedMissingFallbacks = 0
     var timerRefreshAudit = 0
     var migrationRecoveryMessage: String?
@@ -85,6 +88,7 @@ class ImportedVideoAdmissionTests(unittest.TestCase):
         ])
         support = (ROOT / 'script/tests/fixtures/ImportedVideoAdmissionSupport.swift').read_text()
         support = support.replace('// IMPORT_AND_APPLY_METHODS', methods).replace('// ONLINE_METHODS', online_methods)
+        support = support.replace('// IMPORT_CACHE_METHODS', video_import_cache_methods(ROOT))
         program = (ROOT / 'script/tests/fixtures/ImportedVideoAdmissionHarness.swift').read_text()
         with tempfile.TemporaryDirectory(prefix='mwx-import-admission-', dir='/private/tmp') as temporary:
             work = Path(temporary)
@@ -112,6 +116,8 @@ class ImportedVideoAdmissionTests(unittest.TestCase):
             checks = json.loads(run.stdout)
             self.assertGreaterEqual(len(checks), 9)
             self.assertTrue({
+                'actualCacheLookupReachesImportedAndPreparedWallpaper',
+                'uncachedLatestSourceDoesNotBorrowPreviousAssetPaths',
                 'stopRevokesQueuedDirectionFlagsAndWorkItem',
                 'manualNavigationFirstRequestDispatchesImmediatelyThroughRandomHistory',
                 'manualNavigationDebounceKeepsOnlyTheLastDirection',

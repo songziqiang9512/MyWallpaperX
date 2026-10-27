@@ -304,7 +304,11 @@ internal sealed partial class SteamSession
 
     private void ValidateAccountLocked(AccountLease lease)
     {
-        if (CaptureAccountLocked(lease.Epoch) != lease) throw new AccountChangedException();
+        if (lease.Epoch != accountEpoch || !isLoggedIn || !ulong.TryParse(steamId, out var id))
+            throw new AccountChangedException();
+        var disconnected = lifetime?.Token ?? CancellationToken.None;
+        if (lease.Connection != connectionGeneration || lease.SteamId != id
+            || lease.Disconnected != disconnected) throw new AccountChangedException();
     }
 
     private sealed class AccountChangedException : Exception { }
@@ -449,8 +453,6 @@ internal sealed partial class SteamSession
                     .Distinct()
                     .Select(id => id.ToString())
                     .ToArray() ?? [],
-                fileType = file.file_type,
-                hcontentFile = file.hcontent_file.ToString(),
                 tags = file.tags?.Select(t => t.tag).Where(t => !string.IsNullOrEmpty(t)).ToArray(),
             });
         }

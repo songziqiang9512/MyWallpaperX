@@ -3,12 +3,14 @@
 
 from __future__ import annotations
 
+import hashlib
 import json
 import tempfile
 import unittest
 from pathlib import Path
+from unittest.mock import patch
 
-from script.scene_sample_debug_archive import build_archive
+from script.scene_sample_debug_archive import _json, build_archive
 
 
 class SceneSampleDebugArchiveTests(unittest.TestCase):
@@ -65,7 +67,22 @@ class SceneSampleDebugArchiveTests(unittest.TestCase):
                 }]
             })
 
-            archive = build_archive(samples, snapshot, [report])
+            expected = {path: hashlib.sha256(path.read_bytes()).hexdigest() for path in (snapshot, report)}
+            reads = {path: 0 for path in expected}
+            original_open = Path.open
+
+            def observed_open(path: Path, *args: object, **kwargs: object):
+                if path in reads:
+                    reads[path] += 1
+                return original_open(path, *args, **kwargs)
+
+            with patch.object(Path, "open", observed_open):
+                archive = build_archive(samples, snapshot, [report])
+
+            self.assertEqual(reads, {snapshot: 1, report: 1})
+            self.assertEqual(archive["source"]["censusSnapshot"]["sha256"], expected[snapshot])
+            self.assertEqual(archive["reports"][0]["sha256"], expected[report])
+            self.assertEqual(archive["samples"][0]["evidence"]["report"]["sha256"], expected[report])
 
         self.assertEqual(archive["summary"]["sampleCount"], 2)
         self.assertEqual(archive["summary"]["reportedSampleCount"], 1)
@@ -82,6 +99,28 @@ class SceneSampleDebugArchiveTests(unittest.TestCase):
             archive["claimBoundary"],
             "runtime-first-breakpoint-and-lifecycle-diagnostics-only-not-visual-correctness",
         )
+
+    def test_json_uses_same_utf8_bytes_for_value_and_digest_and_keeps_errors(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            path = Path(directory) / "input.json"
+            raw = '{\r\n  "title": "壁纸", "value": 1\r\n}\n'.encode("utf-8")
+            path.write_bytes(raw)
+            self.assertEqual(_json(path), ({"title": "壁纸", "value": 1}, hashlib.sha256(raw).hexdigest()))
+            for encoding in ("utf-16", "utf-32"):
+                path.write_bytes('{"value": 1}'.encode(encoding))
+                with self.subTest(encoding=encoding), self.assertRaises(UnicodeDecodeError):
+                    _json(path)
+            path.write_text("[1, 2]", encoding="utf-8")
+            with self.assertRaisesRegex(ValueError, "JSON document is not an object"):
+                _json(path)
+            path.write_text("{", encoding="utf-8")
+            with self.assertRaisesRegex(ValueError, "cannot load JSON") as raised:
+                _json(path)
+            self.assertIsInstance(raised.exception.__cause__, json.JSONDecodeError)
+            path.unlink()
+            with self.assertRaisesRegex(ValueError, "cannot load JSON") as raised:
+                _json(path)
+            self.assertIsInstance(raised.exception.__cause__, OSError)
 
 
 if __name__ == "__main__":

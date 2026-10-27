@@ -43,8 +43,7 @@ extension WallpaperManager {
     func reportMigrationReadOnly(in window: NSWindow? = nil) { migrationWarnings += 1 }
     func pathExists(_ path: String) -> Bool { FileManager.default.fileExists(atPath: path) }
     func isReadablePath(_ path: String) -> Bool { FileManager.default.isReadableFile(atPath: path) }
-    func existingThumbnailPath(for url: URL) -> String? { nil }
-    func existingStaticFramePath(for url: URL) -> String? { nil }
+    // IMPORT_CACHE_METHODS
     func recordInitialIndexExplicitEdit(_ value: VideoWallpaper, fields: Set<WallpaperIndexStartupChanges.Field>, addedTags: [String] = []) {}
     func recordPlaybackHistoryIfNeeded(current: VideoWallpaper?, targetNormalizedPath: String, enabled: Bool) { if enabled { historyRequests += 1 } }
     func updateRecentWallpapers(_ value: VideoWallpaper) { recentRequests += 1 }

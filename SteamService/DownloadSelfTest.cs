@@ -90,6 +90,15 @@ internal static class DownloadSelfTest
             Check(false);
         }
         catch (OperationCanceledException) { Check(stream.ReadCalls == 1); }
+        using var resumeCancellation = new CancellationTokenSource();
+        using var resumeStream = new CancelAfterRead(resumeCancellation);
+        try
+        {
+            SteamSession.IsChunkValid(resumeStream,
+                new DepotManifest.ChunkData(new byte[20], 0, 0, 131072, 131072), resumeCancellation.Token);
+            Check(false);
+        }
+        catch (OperationCanceledException) { Check(resumeStream.ReadCalls == 1); }
         for (int i = 0; i < 100; i++) Check(SteamSession.TestDownloadTerminalRace());
         count += CdnTransferSelfTest.RunAsync().GetAwaiter().GetResult();
         Console.WriteLine($"download progress/errors/cancellation: {count}/{count} PASS (offline)");

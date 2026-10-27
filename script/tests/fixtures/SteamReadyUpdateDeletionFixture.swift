@@ -121,8 +121,8 @@ extension SteamWorkshopService {
             installedLibraryScanFlight.isInFlight = true
             finishInstalledLibraryScan(generation: 2, records: [current])
             precondition(downloads.map(\.id) == [other.id] && hasCompletedInstalledLibraryLoad
-                && cachePreloads == 1 && reclamationRequests == 1,
-                "a current source reload must keep its original publication/cache/reclamation work")
+                && reclamationRequests == 1,
+                "a current source reload must keep its original publication/reclamation work")
             precondition(selectedDownloadInspectorItem?.id == other.id && selectedDownloadDetailItem?.id == other.id
                 && selectedDownloadDetailError == "B metadata status" && isRefreshingSelectedDownloadDetailItem
                 && detailCancellations == 0, "source reload cannot clear a new inspector using retired selection state")

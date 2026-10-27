@@ -187,6 +187,7 @@ extension SteamWorkshopService {
     }
 
     func visibleWebPropertyOptions(for definition: SteamWorkshopWebPropertyDefinition, record: SteamWorkshopDownloadRecord) -> [SteamWorkshopWebPropertyOption] {
+        if definition.options.isEmpty { return [] }
         let definitions = webPropertyDefinitions(for: record)
         let values = effectiveWebPropertyValues(for: record, definitions: definitions)
         return visibleWebPropertyOptions(

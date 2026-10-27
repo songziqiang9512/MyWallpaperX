@@ -45,11 +45,14 @@ extension WallpaperManager {
 
         // Derived assets update the source index/current runtime; history resolves these facts by reference.
         if let index = wallpapers.firstIndex(where: { normalizedPath($0.path) == normalized }) {
-            _ = applyAssetPaths(
-                to: &wallpapers[index],
+            var wallpaper = wallpapers[index]
+            if applyAssetPaths(
+                to: &wallpaper,
                 thumbnailPath: thumbnailPath,
                 staticFramePath: staticFramePath
-            )
+            ) {
+                wallpapers[index] = wallpaper
+            }
         }
 
         if var current = currentWallpaper, normalizedPath(current.path) == normalized {

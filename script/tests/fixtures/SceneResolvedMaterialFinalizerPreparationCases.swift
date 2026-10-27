@@ -3,6 +3,94 @@ import Foundation
 import Metal
 import simd
 
+func effectForwardProjectionConsumption(_ device: MTLDevice) -> [String: Any] {
+    var checks: [String: Bool] = [:]
+    var rows: [[String: Any]] = []
+    let ordinary = simd_float4x4(
+        SIMD4(2, 0, 0, 0), SIMD4(0, -3, 0, 0),
+        SIMD4(0.125, 0, 4, 0), SIMD4(7, -9, 0.5, 1)
+    )
+    let singular = simd_float4x4(diagonal: .zero)
+    var nonfinite = ordinary; nonfinite.columns.0.x = .nan
+    var signedZero = ordinary; signedZero.columns.0.y = -Float.zero
+    func bits(_ matrix: simd_float4x4) -> [UInt32] {
+        (0..<4).flatMap { column in (0..<4).map { matrix[column][$0].bitPattern } }
+    }
+    func matches(_ values: [Program.ResolvedUniform], _ expected: [UInt32]) -> Bool {
+        values.allSatisfy { value in
+            value.encodedValue.count == 64 && value.encodedValue.withUnsafeBytes { bytes in
+                (0..<16).allSatisfy { bytes.loadUnaligned(fromByteOffset: $0 * 4, as: UInt32.self) == expected[$0] }
+            }
+        }
+    }
+    for mode in ["none", "inverse", "forward", "dual", "array"] {
+        let host = mode == "inverse" ? "g_EffectTextureProjectionMatrixInverse" : "g_EffectTextureProjectionMatrix"
+        let vertexDeclaration = mode == "none" ? "" : "uniform mat4 \(host);"
+        let fragmentDeclaration = mode == "dual" ? "uniform mat4 \(host);"
+            : mode == "array" ? "uniform mat4 \(host)[2];" : ""
+        let vertexExpression = mode == "none" ? "vec4(a_Position, 1.0)" : "mul(vec4(a_Position, 1.0), \(host))"
+        let fragmentExpression = mode == "dual" ? "mul(vec4(v_TexCoord, 0.0, 1.0), \(host))"
+            : mode == "array" ? "mul(vec4(v_TexCoord, 0.0, 1.0), \(host)[0])" : "vec4(v_TexCoord, 0.0, 1.0)"
+        let shader = contract(revision: "effect-forward-consumption-\(mode)", semanticProbes: false,
+            vertexSourceOverride: """
+            attribute vec3 a_Position;
+            varying vec2 v_TexCoord;
+            \(vertexDeclaration)
+            void main() { v_TexCoord = a_Position.xy; gl_Position = \(vertexExpression); }
+            """, fragmentSourceOverride: """
+            varying vec2 v_TexCoord;
+            \(fragmentDeclaration)
+            void main() { gl_FragColor = \(fragmentExpression); }
+            """)
+        guard case let .success(cache) = SceneResolvedMaterialVariantCache.launchValidated(
+            template: template(shader), maximumVariantCount: 1
+        ) else { checks[mode + "Prepared"] = false; continue }
+        let preparation = cache.precompileLaunchEnvelope(
+            implicitFramebufferIdentity: nil, outputStorage: .preservedRGBAUnorm
+        )
+        if mode == "array" {
+            if case let .failure(.material(failure)) = preparation {
+                checks["arrayPreparationRejected"] = failure.phase == .frontend && failure.code == .shaderFrontendFailed
+            } else { checks["arrayPreparationRejected"] = false }
+            continue
+        }
+        guard case .success = preparation else { checks[mode + "Prepared"] = false; continue }
+        let matrices: [(String, simd_float4x4)] = mode == "dual" ? [("ordinary", ordinary), ("signedZero", signedZero)]
+            : [("ordinary", ordinary), ("singular", singular), ("nonfinite", nonfinite)]
+        for (matrixName, inverse) in matrices {
+            let name = mode + ":" + matrixName
+            let resolved = finalize(
+                shader: shader, device: device, projectionInverse: inverse,
+                variantCache: cache, outputStorage: .preservedRGBAUnorm
+            )
+            let token = failureToken(resolved)
+            let expectsFailure = (mode == "inverse" && matrixName == "nonfinite")
+                || (mode == "forward" && matrixName != "ordinary")
+            var correct = token == (expectsFailure ? "uniform/hostUniformBindingInvalid" : "success")
+            var forwardCount = 0, inverseCount = 0
+            if case let .success(program) = resolved {
+                let forward = program.resolvedUniforms.filter {
+                    if case .host(.effectTextureProjectionMatrix) = $0.source { return true }; return false
+                }
+                let supplied = program.resolvedUniforms.filter {
+                    if case .host(.effectTextureProjectionMatrixInverse) = $0.source { return true }; return false
+                }
+                forwardCount = forward.count; inverseCount = supplied.count
+                correct = correct && forward.count == (mode == "dual" ? 2 : mode == "forward" ? 1 : 0)
+                    && supplied.count == (mode == "inverse" ? 1 : 0)
+                if !forward.isEmpty { correct = correct && matches(forward, bits(inverse.inverse)) }
+                if !supplied.isEmpty { correct = correct && matches(supplied, bits(inverse)) }
+            }
+            checks[name] = correct
+            rows.append(["name": name, "token": token, "forwardFields": forwardCount, "inverseFields": inverseCount])
+        }
+    }
+    checks["WrongForwardTypeStillRejected"] = SceneResolvedMaterialUniformEncoder.encodeHost(
+        .effectTextureProjectionMatrix, type: .float2, inputs: uniformInputs(), slots: []
+    ) == nil
+    return ["checks": checks, "rows": rows]
+}
+
 func crossTemplateMaterialCacheTokens(_ device: MTLDevice) -> [String: String] {
     let shader = contract(revision: "material-cache-identity")
     let admitted = template(shader)

@@ -110,6 +110,17 @@ internal static class AuthSelfTest
         var leaseA = account.CaptureAccountForTest(1);
         var sent = 0;
         Check("current-account-can-dispatch", account.SendForAccountForTest(leaseA, () => sent++) && sent == 1);
+        Check("equal-lease-value-can-dispatch", account.SendForAccountForTest(leaseA with { }, () => { }));
+        using var otherLifetime = new CancellationTokenSource();
+        foreach (var (name, changed) in new[] {
+            ("epoch", leaseA with { Epoch = leaseA.Epoch + 1 }),
+            ("connection", leaseA with { Connection = leaseA.Connection + 1 }),
+            ("steam-id", leaseA with { SteamId = leaseA.SteamId + 1 }),
+            ("no-lifetime", leaseA with { Disconnected = CancellationToken.None }),
+            ("different-live-token", leaseA with { Disconnected = otherLifetime.Token }),
+        })
+            Check("changed-lease-" + name + "-cannot-dispatch",
+                !account.SendForAccountForTest(changed, () => sent++) && sent == 1);
         var sourceB = account.PublishAccountForTest(2, "76561198000000002");
         Check("switch-cancels-old-queue-waits", leaseA.Disconnected.IsCancellationRequested);
         Check("queued-old-account-cannot-dispatch", !account.SendForAccountForTest(leaseA, () => sent++) && sent == 1);
@@ -124,6 +135,16 @@ internal static class AuthSelfTest
         Check("old-completed-cancel-cannot-clear-new-account", !account.CancelAuthentication("test-2") && account.IsLoggedIn);
         Check("cancel-after-success-retires-exact-account", account.CancelAuthentication("test-3") && !account.IsLoggedIn);
         account.ConnectionLostForTest(sourceC);
+        long numericEpoch = 4;
+        foreach (var (spelling, id) in new[] {
+            (" +0001 ", 1UL), ("0", 0UL), ("18446744073709551615", ulong.MaxValue),
+        }) {
+            var source = account.PublishAccountForTest(numericEpoch, spelling);
+            var captured = account.CaptureAccountForTest(numericEpoch++);
+            Check("numeric-lease-spelling-keeps-capture-and-validation:" + spelling,
+                captured.SteamId == id && account.SendForAccountForTest(captured, () => { }));
+            account.ConnectionLostForTest(source);
+        }
 
         Check("text-cannot-invalidate-token", SteamSession.ClassifyAuthError(new IOException("InvalidPassword; token logon rejected")) == "network");
         foreach (var (result, code) in new[] { (EResult.InvalidPassword, "accessDenied"),
@@ -163,6 +184,33 @@ internal static class AuthSelfTest
         Check("late-auth-failure-cannot-retire-successor", successorAlive && staleFrames.Length == 2
             && staleFrames.All(f => f.GetProperty("error").GetProperty("code").GetString() == "cancelled"));
 
+        var payloadFrames = CaptureAuth(owner =>
+        {
+            owner.WriteSuccessfulPayloadsForTest();
+            return Task.CompletedTask;
+        });
+        var accepted = payloadFrames.Where(f => f.GetProperty("ok").GetBoolean()).ToArray();
+        Check("success-payload-keeps-terminal-identity", payloadFrames.Length == 3 && accepted.Length == 2
+            && accepted.Select(f => f.GetProperty("requestId").GetString())
+                .SequenceEqual(["payload-login", "payload-restore"])
+            && accepted.All(f => f.GetProperty("accountEpoch").GetInt64() == 7
+                && f.GetProperty("processEpoch").GetInt32() == 1
+                && f.GetProperty("requestId").GetString() == f.GetProperty("authAttemptId").GetString()
+                && f.GetProperty("data").GetProperty("steamId").GetString() == "76561198000000002"
+                && f.GetProperty("data").GetProperty("accountName").GetString() == "ac***"));
+        Check("success-private-only-consumed-fields", accepted.Length == 2 && accepted.All(f =>
+        {
+            var secrets = f.GetProperty("private");
+            return secrets.EnumerateObject().Select(p => p.Name).Order()
+                    .SequenceEqual(["accountName", "refreshToken"])
+                && secrets.GetProperty("refreshToken").GetString() == "payload-refresh"
+                && secrets.GetProperty("accountName").GetString() == "account";
+        }));
+        Check("late-or-duplicate-success-cannot-publish-again", payloadFrames.Length == 3
+            && payloadFrames.Count(f => f.GetProperty("requestId").GetString() == "payload-stale"
+                && !f.GetProperty("ok").GetBoolean()
+                && f.GetProperty("error").GetProperty("code").GetString() == "cancelled") == 1);
+
         Console.Out.WriteLine(System.Text.Json.JsonSerializer.Serialize(new
         {
             suite = "selftest-auth",
@@ -188,6 +236,27 @@ internal static class AuthSelfTest
         finally { Console.SetOut(original); }
         return output.ToString().Split('\n', StringSplitOptions.RemoveEmptyEntries)
             .Select(line => { using var json = JsonDocument.Parse(line); return json.RootElement.Clone(); }).ToArray();
+    }
+}
+
+// Offline test input substitutes only the already accepted SDK identity; output
+// still uses the production attempt, terminal slot and FinishSuccess writer.
+internal sealed partial class SteamSession
+{
+    internal void WriteSuccessfulPayloadsForTest()
+    {
+        AdvanceAccountEpoch(7);
+        var login = BeginAttempt("payload-login", "password", "payload-login").Book;
+        steamId = "76561198000000002";
+        accountName = "account";
+        FinishSuccess(login, login.RequestId, "account", "payload-refresh");
+        FinishSuccess(login, login.RequestId, "account", "payload-refresh");
+        var stale = BeginAttempt("payload-stale", "password", "payload-stale").Book;
+        var restore = BeginAttempt("payload-restore", "restore", "payload-restore").Book;
+        FinishSuccess(stale, stale.RequestId, "old-account", "old-refresh");
+        steamId = "76561198000000002";
+        accountName = "account";
+        FinishSuccess(restore, restore.RequestId, "account", "payload-refresh");
     }
 }
 

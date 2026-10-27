@@ -137,23 +137,37 @@ nonisolated func checkedPrefetchKey(for url: URL, maxPixelSize: Int) -> String {
                 let source = CGImageSourceCreateWithData(bytes as CFData, nil)!
                 counter.increment(CGImageSourceGetCount(source) > 1 ? "original-decode" : "still-decode")
                 return steamWorkshopPreviewImage(from: bytes, maxPixelSize: 512)
-            }) { result = $0 }
+            }) {
+                counter.increment("image-callback")
+                if !Thread.isMainThread { counter.increment("off-main-callback") }
+                result = $0
+            }
             _ = pump { result != nil }; return result
         }
         let first = load()!
         checks["coldSourceCreatesStillAndRetainsOriginal"] = counter.count("network") == 1 && counter.count("original-decode") == 1
         var synchronous = false
+        var loadReturned = false
         cache.loadImageDataAsync(forKey: "still-512", sourceDataKey: "original", loader: { nil }) {
-            synchronous = $0 === first
+            synchronous = $0 === first && !loadReturned && Thread.isMainThread
         }
+        loadReturned = true
         checks["warmMemoryReturnsSynchronously"] = synchronous
         for _ in 0..<12 { cache.removeAll(); _ = load() }
         checks["twelveDiskReturnsNeverRefetchOrRescanGIF"] = counter.count("network") == 1
             && counter.count("original-decode") == 1 && counter.count("still-decode") == 12
+        checks["coldAndDiskImageCallbacksStayOnMainAndCompleteOnce"] = counter.count("image-callback") == 13
+            && counter.count("off-main-callback") == 0
         var raw: Data?
-        cache.loadRawDataAsync(forKey: "original", loader: { nil }) { raw = $0 }
+        cache.loadRawDataAsync(forKey: "original", loader: { nil }) {
+            counter.increment("raw-callback")
+            if !Thread.isMainThread { counter.increment("off-main-callback") }
+            raw = $0
+        }
         checks["hoverStillReceivesAllOriginalFrames"] = pump { raw != nil } && raw == original
             && steamWorkshopAnimatedPreviewImage(from: raw!) != nil
+        checks["rawCallbackStaysOnMainAndCompletesOnce"] = counter.count("raw-callback") == 1
+            && counter.count("off-main-callback") == 0
         cache.remove(forKey: "still-512")
         _ = load()
         checks["missingDerivedStillRebuildsFromRawWithoutNetwork"] = counter.count("network") == 1 && counter.count("original-decode") == 2

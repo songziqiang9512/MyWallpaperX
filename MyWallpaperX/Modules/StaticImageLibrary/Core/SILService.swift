@@ -34,19 +34,25 @@ struct SILWallpaper: Identifiable, Codable, Hashable {
     var lastUsed: Date
     var addedAt: Date
 
-    init(path: String) {
+    init(path: String, reusingMetadata: SILWallpaper? = nil) {
         self.id = UUID().uuidString
         self.path = path
         self.title = URL(fileURLWithPath: path).deletingPathExtension().lastPathComponent
-        self.fileSize = (try? FileManager.default.attributesOfItem(atPath: path)[.size] as? Int64)
-        // 从图片文件读取像素尺寸（不解码像素，只读 metadata，极快）
-        if let src = CGImageSourceCreateWithURL(URL(fileURLWithPath: path) as CFURL, nil),
-           let props = CGImageSourceCopyPropertiesAtIndex(src, 0, nil) as? [CFString: Any] {
-            self.pixelWidth  = props[kCGImagePropertyPixelWidth]  as? Int
-            self.pixelHeight = props[kCGImagePropertyPixelHeight] as? Int
+        if let reusingMetadata {
+            self.fileSize = reusingMetadata.fileSize
+            self.pixelWidth = reusingMetadata.pixelWidth
+            self.pixelHeight = reusingMetadata.pixelHeight
         } else {
-            self.pixelWidth  = nil
-            self.pixelHeight = nil
+            self.fileSize = (try? FileManager.default.attributesOfItem(atPath: path)[.size] as? Int64)
+            // Read dimensions without decoding pixels.
+            if let src = CGImageSourceCreateWithURL(URL(fileURLWithPath: path) as CFURL, nil),
+               let props = CGImageSourceCopyPropertiesAtIndex(src, 0, nil) as? [CFString: Any] {
+                self.pixelWidth  = props[kCGImagePropertyPixelWidth]  as? Int
+                self.pixelHeight = props[kCGImagePropertyPixelHeight] as? Int
+            } else {
+                self.pixelWidth  = nil
+                self.pixelHeight = nil
+            }
         }
         self.tags = []
         self.lastUsed = Date.distantPast
@@ -271,10 +277,18 @@ final class SILService: ObservableObject {
             let requestedCount = fileURLs.count
             var candidates: [(url: URL, wallpaper: SILWallpaper, available: Bool)] = []
             candidates.reserveCapacity(requestedCount)
+            // Repeated raw paths share only this worker's first metadata;
+            // each occurrence keeps its own identity and availability.
+            var metadataByRawPath: [Data: SILWallpaper] = [:]
             for url in fileURLs {
+                let path = url.path
                 var isDirectory: ObjCBool = false
-                if fm.fileExists(atPath: url.path, isDirectory: &isDirectory), !isDirectory.boolValue {
-                    candidates.append((url, SILWallpaper(path: url.path), fm.isReadableFile(atPath: url.path)))
+                if fm.fileExists(atPath: path, isDirectory: &isDirectory), !isDirectory.boolValue {
+                    let key = Data(path.utf8)
+                    let metadata = metadataByRawPath[key]
+                    let wallpaper = SILWallpaper(path: path, reusingMetadata: metadata)
+                    if metadata == nil { metadataByRawPath[key] = wallpaper }
+                    candidates.append((url, wallpaper, fm.isReadableFile(atPath: path)))
                 } else {
                     rejected.append(.init(sourceURL: url, disposition: .failed, organizationItem: nil,
                                           failureMessage: isDirectory.boolValue ? "该路径是目录，不是图片文件" : "文件不存在"))
@@ -282,7 +296,7 @@ final class SILService: ObservableObject {
             }
             let missingCount = requestedCount - candidates.count
             DispatchQueue.main.async { [weak self] in
-                guard let self, self.metadataLoadGeneration == importEpoch else { return }
+                guard let self else { return }
                 self.finishImport(candidates: candidates, importEpoch: importEpoch,
                                    requestedCount: requestedCount,
                                    missingCount: missingCount,
@@ -311,7 +325,6 @@ final class SILService: ObservableObject {
         var addedPaths = Set<String>()
         var duplicateCount = 0
         for candidate in candidates {
-            guard metadataLoadGeneration == importEpoch else { return }
             let key = Self.normalizedPath(candidate.url.path)
             if indexByNormalizedPath[key] != nil {
                 duplicateCount += 1
@@ -323,15 +336,13 @@ final class SILService: ObservableObject {
             added += 1
         }
 
-        guard metadataLoadGeneration == importEpoch else { return }
         var persistenceFailure: String?
         if completion != nil, !candidates.isEmpty {
             // An explicit organization/relocation command must not receive a
             // successful source receipt before this same JSON owner saves it.
             do {
                 try persistWallpaperMetadata(staged, synchronize: true)
-                guard metadataLoadGeneration == importEpoch else { return }
-                wallpapers = staged
+                if added > 0 { wallpapers = staged }
             } catch {
                 // Atomic write may have succeeded before its durability ACK
                 // failed. Keep this source owner's memory aligned with the
@@ -344,25 +355,26 @@ final class SILService: ObservableObject {
                 added = 0
             }
         } else {
-            wallpapers = staged
-            if added > 0 { save() }
+            if added > 0 {
+                wallpapers = staged
+                save()
+            }
         }
         guard metadataLoadGeneration == importEpoch else { return }
-        // 构建结果弹窗
-        var lines: [String] = [
-            "总选择：\(requestedCount) 个",
-            "新增导入：\(added) 个"
-        ]
-        let skipped = requestedCount - added - duplicateCount - missingCount
-        if duplicateCount > 0 { lines.append("\(duplicateCount) 个文件已存在于列表中") }
-        if missingCount > 0  { lines.append("\(missingCount) 个文件不存在") }
-        if skipped > 0       { lines.append("未处理：\(skipped) 个") }
-        if let persistenceFailure { lines.append(persistenceFailure) }
         if presentsSummary {
+            var lines: [String] = [
+                "总选择：\(requestedCount) 个",
+                "新增导入：\(added) 个"
+            ]
+            let skipped = requestedCount - added - duplicateCount - missingCount
+            if duplicateCount > 0 { lines.append("\(duplicateCount) 个文件已存在于列表中") }
+            if missingCount > 0  { lines.append("\(missingCount) 个文件不存在") }
+            if skipped > 0       { lines.append("未处理：\(skipped) 个") }
+            if let persistenceFailure { lines.append(persistenceFailure) }
             let alert = makeAppAlert(title: "导入结果", message: lines.joined(separator: "\n"))
             presentAppAlert(alert, in: window ?? appModalHostWindow())
+            guard metadataLoadGeneration == importEpoch else { return }
         }
-        guard metadataLoadGeneration == importEpoch else { return }
         if let completion {
             var reportedNew = Set<String>()
             let accepted = candidates.map { candidate -> WallpaperSourceImportResult.Item in

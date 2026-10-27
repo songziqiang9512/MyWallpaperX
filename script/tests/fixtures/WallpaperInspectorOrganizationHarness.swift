@@ -25,7 +25,22 @@ final class SILService {
 }
 final class CacheLeaf {
     var result: NSImage?
-    func load(forKey: String, loader: @escaping () -> NSImage?, completion: @escaping (NSImage?) -> Void) { completion(result) }
+    var holdsNext = false
+    var pending: [(String, (NSImage?) -> Void)] = []
+    var requestedKeys: [String] = []
+    var completionThreads: [Bool] = []
+    func load(forKey key: String, loader: @escaping () -> NSImage?, completion: @escaping (NSImage?) -> Void) {
+        requestedKeys.append(key)
+        if holdsNext { holdsNext = false; pending.append((key, completion)); return }
+        completionThreads.append(Thread.isMainThread)
+        completion(result)
+    }
+    func deliverNext(_ image: NSImage?) {
+        precondition(Thread.isMainThread && !pending.isEmpty)
+        let (_, completion) = pending.removeFirst()
+        completionThreads.append(Thread.isMainThread)
+        completion(image)
+    }
     func cachedImage(forKey: String) -> NSImage? { nil }
 }
 enum SILThumbnailStore { static let sharedCache = CacheLeaf() }
@@ -61,6 +76,11 @@ extension Notification.Name { static let staticImageWallpaperReadyToApply = Noti
     @MainActor static func pump() { RunLoop.main.run(until: Date().addingTimeInterval(0.04)) }
     @MainActor static func main() throws {
         _ = NSApplication.shared
+        if CommandLine.arguments.count > 2, CommandLine.arguments[2] == "preview-delivery" {
+            NSApplication.shared.setActivationPolicy(.prohibited)
+            try previewDelivery(URL(fileURLWithPath: CommandLine.arguments[1]))
+            return
+        }
         let file = URL(fileURLWithPath: CommandLine.arguments[1]).appendingPathComponent("local.png")
         try Data("local".utf8).write(to: file)
         let images = SILService(), online = OnlineLibraryService()
@@ -237,5 +257,74 @@ extension Notification.Name { static let staticImageWallpaperReadyToApply = Noti
         }
         checks["pixabay-organization-controls-are-not-added-to-original-footer"] = favorites == 0 && member == 1
         print(String(data: try JSONSerialization.data(withJSONObject: checks, options: [.sortedKeys]), encoding: .utf8)!)
+    }
+}
+
+extension WallpaperInspectorOrganizationHarness {
+    @MainActor static func previewDelivery(_ root: URL) throws {
+        let file = root.appendingPathComponent("preview-source.png"), otherFile = root.appendingPathComponent("other-source.png")
+        try Data("owned metadata locator".utf8).write(to: file)
+        try Data("owned neighbor locator".utf8).write(to: otherFile)
+        let source = SILWallpaper(id: "preview-fixed-id", title: "Original", path: file.path, tags: [])
+        let other = SILWallpaper(id: "neighbor-id", title: "Neighbor", path: otherFile.path, tags: [])
+        let service = SILService(); service.wallpapers = [source]
+        let cache = SILThumbnailStore.sharedCache
+        cache.requestedKeys = []; cache.completionThreads = []
+        cache.result = NSImage(size: .init(width: 16, height: 8), flipped: false) { rect in
+            NSColor.green.setFill(); rect.fill(); return true
+        }
+        var primaryCalls = 0
+        func actions(enabled: Bool, label: String) -> WallpaperInspectorActions {
+            .init(state: .init(isPlaying: false, isFavorite: false, canPerformPrimary: enabled,
+                canFavorite: true, canOrganize: true, playlistNames: [label]),
+                onPrimary: { primaryCalls += 1 }, onToggleFavorite: {}, onChoosePlaylist: { _ in })
+        }
+        func preview(_ root: NSView) -> SILInspectorPreviewSurfaceView {
+            views(root).compactMap { $0 as? SILInspectorPreviewSurfaceView }.first!
+        }
+        func ready(_ root: NSView) -> Bool {
+            let placeholders = views(preview(root)).compactMap { $0 as? NSImageView }
+            return !placeholders.isEmpty && placeholders.allSatisfy(\.isHidden)
+        }
+        let warm = SILInspectorView(wallpaper: source, service: service, libraryActions: actions(enabled: true, label: "Warm"))
+        let warmAtReturn = ready(warm)
+        pump()
+        var checks = ["warmAfterPump": ready(warm)]
+        cache.holdsNext = true
+        let delayed = SILInspectorView(wallpaper: source, service: service, libraryActions: actions(enabled: true, label: "Old"))
+        let originalPreview = preview(delayed)
+        checks["delayedHasPlaceholderBeforeDelivery"] = !ready(delayed) && cache.pending.count == 1
+        service.wallpapers = [other]
+        delayed.updateLibraryActions(actions(enabled: false, label: "Changed while pending"))
+        checks["actionUpdateUsesFixedSource"] = views(delayed).contains { ($0 as? NSTextField)?.stringValue == "Original" }
+            && !views(delayed).contains { ($0 as? NSTextField)?.stringValue == "Neighbor" }
+        cache.deliverNext(cache.result)
+        let delayedAtReturn = ready(delayed)
+        pump()
+        let primary = button(delayed, "setAsDesktopWallpaper")!
+        checks["delayedResultRetainsPreviewAndLatestAction"] = ready(delayed) && preview(delayed) === originalPreview
+            && !primary.isEnabled && !primary.accessibilityPerformPress() && primaryCalls == 0
+            && views(delayed).contains { ($0 as? NSTextField)?.stringValue == "Changed while pending" }
+        cache.holdsNext = true
+        weak var weakReleased: SILInspectorView?
+        autoreleasepool {
+            var released: SILInspectorView? = SILInspectorView(wallpaper: source, service: service,
+                libraryActions: actions(enabled: true, label: "Released"))
+            weakReleased = released
+            released = nil
+        }
+        pump()
+        checks["pendingCallbackDoesNotRetainView"] = weakReleased == nil && cache.pending.count == 1
+        cache.deliverNext(cache.result)
+        pump()
+        checks["releasedViewCompletionIsNoop"] = weakReleased == nil && cache.pending.isEmpty && primaryCalls == 0
+        checks["callbacksUseCapturedSourceAndMainDelivery"] = cache.requestedKeys == [file.path, file.path, file.path]
+            && cache.completionThreads == [true, true, true]
+        let report: [String: Any] = ["functional": ["checks": checks, "requestedKeys": cache.requestedKeys,
+            "completionThreads": cache.completionThreads, "primaryCalls": primaryCalls],
+            "work": ["warmReadyAtInitReturn": warmAtReturn ? 1 : 0,
+                "delayedReadyAtDeliveryReturn": delayedAtReturn ? 1 : 0,
+                "deliveredCallbacks": cache.completionThreads.count]]
+        print(String(data: try JSONSerialization.data(withJSONObject: report, options: [.sortedKeys]), encoding: .utf8)!)
     }
 }

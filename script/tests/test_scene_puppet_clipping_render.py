@@ -12,6 +12,7 @@ SOURCES = [SCENE / path for path in (
     "Systems/Puppet/ScenePuppetClipping.swift",
     "Rendering/Geometry/SceneGeometryProduct.swift",
     "Rendering/Metal/SceneMetalPipeline.swift",
+    "Runtime/Frame/SceneMaterialRenderState.swift",
     "Rendering/Targets/SceneOffscreenResolutionPolicy.swift",
     "Diagnostics/ScenePerformanceCounterHub.swift",
 )]

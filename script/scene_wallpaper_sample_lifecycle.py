@@ -10,6 +10,7 @@ import stat
 import subprocess
 from pathlib import Path
 from scene_product_entry_audio_baseline import classify_product_entry_result, product_entry_command
+from scene_sample_snapshot import DERIVED_NAMES, tree_manifest
 from typing import Any, Callable
 from web_benchmark_capture import discard_staged_app
 
@@ -46,9 +47,9 @@ def scene_package_path(source: Path) -> Path | None:
     return next((source / name for name in package_names if (source / name).is_file()), None)
 
 def copy_sample(source: Path, destination: Path) -> None:
-    if not (source / "project.json").is_file() or scene_package_path(source) is None:
+    if not (source / "project.json").is_file():
         raise FileNotFoundError(f"Scene sample is incomplete: {source}")
-    shutil.copytree(source, destination)
+    shutil.copytree(source, destination, ignore=shutil.ignore_patterns(*DERIVED_NAMES))
 
 def rebuildable_artifact_removal_metrics(path: Path) -> tuple[int, int]:
     if path.is_symlink() or not path.is_dir():
@@ -92,8 +93,6 @@ def run_product_entry_audio_sample(
     preflight_failures: list[str] = []
     if not (source / "project.json").is_file():
         preflight_failures.append("Scene sample project.json is missing")
-    if package_path is None:
-        preflight_failures.append("Scene sample package is missing")
     if preflight_failures:
         return {
             "id": sample_id,
@@ -119,12 +118,12 @@ def run_product_entry_audio_sample(
         }
 
     copy_sample(source, runtime_sample)
-    for file_name in SAMPLE_ROOT_DERIVED_FILES:
-        (runtime_sample / file_name).unlink(missing_ok=True)
     hashes = {
         "project_sha256": sha256(source / "project.json"),
-        "package_sha256": sha256(package_path),
+        "package_sha256": sha256(package_path) if package_path is not None else None,
     }
+    if package_path is None:
+        hashes["tree_sha256"] = tree_manifest(source)[0]
     command = product_entry_command(
         runtime_binary=runtime_binary,
         runtime_sample=runtime_sample,

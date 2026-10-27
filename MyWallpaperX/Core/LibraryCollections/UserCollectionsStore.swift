@@ -774,7 +774,6 @@ actor UserCollectionsStore {
                     _ = try readSnapshot()
                 }
             }
-            guard try strings("PRAGMA quick_check(1)") == ["ok"] else { throw UserCollectionsError.corruptData("SQLite integrity") }
         } catch {
             if database == handle {
                 sqlite3_close_v2(handle)

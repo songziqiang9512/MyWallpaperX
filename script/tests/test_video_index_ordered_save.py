@@ -1,6 +1,8 @@
 """Exercise real SQLite transactions and the product manager's bounded save owner."""
+import hashlib
 import json
 import os
+import shutil
 import sqlite3
 from pathlib import Path
 import subprocess
@@ -12,71 +14,79 @@ from script.tests.test_ui_library_algorithms import declaration
 
 
 ROOT = Path(__file__).resolve().parents[2]
-CORE = ROOT / "MyWallpaperX/Modules/VideoLibrary/Core"
+def prepare_asset_path_publication_sources(tree, work, cache_assets_override=None, fixture_tree=None, *, published_assets=True):
+    """Same real storage assembly; optional actual Combine/cache publication mode.
 
-
-class VideoIndexOrderedSaveTests(unittest.TestCase):
-    def test_ordered_snapshots_fallback_flush_reset_and_process_restart(self):
-        persistence = (CORE / "WallpaperManager+Persistence.swift").read_text()
-        manager = (CORE / "WallpaperManager.swift").read_text()
-        store = (CORE / "WallpaperIndexStore.swift").read_text()
-        startup = (ROOT / "MyWallpaperX/Models/WallpaperIndexStartupChanges.swift").read_text() + "\n" + (CORE / "WallpaperManager+InitialIndexLoad.swift").read_text()
-        fixture = (ROOT / "script/tests/fixtures/VideoIndexOrderedSaveHarness.swift").read_text()
-        fields = "\n".join(next(line for line in manager.splitlines() if name in line) for name in [
-            "var wallpaperIndexSaveRevision:", "var wallpaperIndexSaveEpoch:",
-            "var didFinishInitialIndexLoad", "var initialIndexChanges =", "var initialIndexLoadGeneration:",
-            "var initialIndexLoadInFlight", "var initialIndexBootstrapInProgress", "var initialIndexSeedWallpapers:",
-            "var initialIndexInternalPublication", "var initialIndexGlobalMutationDepth",
-            "var wallpaperIndexSaveInFlight:", "var pendingWallpaperIndexSave:",
-        ])
-        state = declaration(manager, "    struct WallpaperIndexSaveSnapshot") + "\n" + fields
-        observer = declaration(manager, "    @Published var wallpapers:").replace("@Published ", "")
-        state += "\n" + observer
-        methods = "\n".join(declaration(persistence, signature) for signature in [
-            "    var defaults:", "    private var wallpaperIndexStore:",
-            "    func saveWallpapers(", "    private func submitPendingWallpaperIndexSave(",
-            "    private func applyWallpaperIndexSaveResult(", "    private func flushWallpaperIndex(",
-            "    func persistWallpaperIndexNow(",
-            "    private func invalidateWallpaperIndexPersistence(", "    func flushPersistentState(",
-            "    func loadWallpapers(", "    func deduplicatedWallpapersByPath(",
-            "    private func loadCodableValue<", "    func saveCodableValue<",
-            "    private func decode<", "    private func encode<",
-        ])
-        imports = (CORE / "WallpaperManager+ImportProcessing.swift").read_text()
-        bundled = (CORE / "WallpaperManager+BundledVideos.swift").read_text()
-        fixture = fixture.replace("// PRODUCTION_BUNDLED_COPY", declaration(bundled, "    func migratedBundledVideoWallpaper("))
-        presentation = (CORE / "WallpaperManager+ImportPresentation.swift").read_text()
-        for signature in ["    private struct ImportCounters", "    private struct PreparedImportEntry",
-                          "    private struct ImportPreparationResult", "    private func applyPreparedImportResult(",
-                          "    private func makePreparedWallpaper(", "    private func makeImportedWallpaper(", "    private func appendWallpapersInBatches(",
-                          "    private func makeImportSummary("]:
-            methods += "\n" + declaration(imports, signature)
-        methods += "\n" + declaration(presentation, "    func importFailureBreakdown(")
-        methods += "\n" + declaration(manager, "    private func mergeWallpaper(")
-        support = (CORE / "WallpaperLibrarySupport.swift").read_text()
-        import_types = declaration(support, "struct ImportSummary") + "\n" + declaration(support, "enum ImportContext")
-        playback = ROOT / "MyWallpaperX/Core/PlaybackControl"
-        import_types += "\n" + (playback / "PlaybackResourceLifetime.swift").read_text()
-        import_types += "\n" + (ROOT / "MyWallpaperX/Models/WallpaperReference.swift").read_text()
-        import_types += "\n" + (ROOT / "MyWallpaperX/Models/WallpaperContent.swift").read_text()
-        import_types += "\n" + (ROOT / "MyWallpaperX/Models/WallpaperSourceImportResult.swift").read_text()
-        for name in ["WallpaperRuntimeSwitch.swift", "PlaybackSwitchTransaction.swift", "ImportedVideoPlaybackAdmission.swift", "ImportedVideoAutoplayGate.swift"]:
-            import_types += "\n" + (playback / name).read_text()
-        # Isolate the filesystem and CFPreferences leaves explicitly; HOME alone
-        # does not define a macOS application's preferences domain.
-        methods = methods.replace("var defaults: UserDefaults { .standard }",
-                                  'var defaults: UserDefaults { UserDefaults(suiteName: ProcessInfo.processInfo.environment["MWX_VIDEO_INDEX_TEST_DOMAIN"]!)! }')
-        store = store.replace(declaration(store, "    private init("),
-                              '    private init() { migrationReadOnly = Self.startupMigrationReadOnly; dbURL = URL(fileURLWithPath: ProcessInfo.processInfo.environment["MWX_VIDEO_INDEX_TEST_ROOT"]!).appendingPathComponent("index.sqlite3") }')
-        # Observe transaction entry and control only the storage queue / SQLite
-        # connection in the test copy. The production transaction body is intact.
-        marker = "    private func saveWallpapersInternal(_ wallpapers: [VideoWallpaper]) throws {"
-        self.assertEqual(store.count(marker), 1)
-        store = store.replace("    private var db: OpaquePointer?", "    private var db: OpaquePointer?\n    private var auditSaves: [[String]] = []")
-        store = store.replace(marker, marker + "\n        auditSaves.append(wallpapers.map(\\.id))")
-        store = store.replace("    private var auditSaves:", "    private var auditReadRows = 0\n    private var auditSelectDenied = false\n    private var auditProgressTicks = 0\n    private var auditProgressLimit = 0\n    private var auditSaves:")
-        store = store.replace("        while step == SQLITE_ROW {", "        while step == SQLITE_ROW {\n            auditReadRows += 1")
-        store += r'''
+    Overrides select only the source-under-test, never replace its algorithm.
+    All generated files belong to the caller's explicit work directory.
+    """
+    tree, work = Path(tree), Path(work)
+    fixture_tree = Path(fixture_tree) if fixture_tree is not None else tree
+    core = tree / "MyWallpaperX/Modules/VideoLibrary/Core"
+    persistence = (core / "WallpaperManager+Persistence.swift").read_text()
+    manager = (core / "WallpaperManager.swift").read_text()
+    store = (core / "WallpaperIndexStore.swift").read_text()
+    startup = (tree / "MyWallpaperX/Models/WallpaperIndexStartupChanges.swift").read_text() + "\n" + (core / "WallpaperManager+InitialIndexLoad.swift").read_text()
+    fixture_path = fixture_tree / "script/tests/fixtures/VideoIndexOrderedSaveHarness.swift"
+    fixture = fixture_path.read_text()
+    fields = "\n".join(next(line for line in manager.splitlines() if name in line) for name in [
+        "var wallpaperIndexSaveRevision:", "var wallpaperIndexSaveEpoch:",
+        "var didFinishInitialIndexLoad", "var initialIndexChanges =", "var initialIndexLoadGeneration:",
+        "var initialIndexLoadInFlight", "var initialIndexBootstrapInProgress", "var initialIndexSeedWallpapers:",
+        "var initialIndexInternalPublication", "var initialIndexGlobalMutationDepth",
+        "var wallpaperIndexSaveInFlight:", "var pendingWallpaperIndexSave:",
+    ])
+    state = declaration(manager, "    struct WallpaperIndexSaveSnapshot") + "\n" + fields
+    observer = declaration(manager, "    @Published var wallpapers:")
+    if not published_assets:
+        observer = observer.replace("@Published ", "")
+    state += "\n" + observer
+    methods = "\n".join(declaration(persistence, signature) for signature in [
+        "    var defaults:", "    private var wallpaperIndexStore:",
+        "    func saveWallpapers(", "    private func submitPendingWallpaperIndexSave(",
+        "    private func applyWallpaperIndexSaveResult(", "    private func flushWallpaperIndex(",
+        "    func persistWallpaperIndexNow(",
+        "    private func invalidateWallpaperIndexPersistence(", "    func flushPersistentState(",
+        "    func loadWallpapers(", "    func deduplicatedWallpapersByPath(",
+        "    private func loadCodableValue<", "    func saveCodableValue<",
+        "    private func decode<", "    private func encode<",
+    ])
+    imports = (core / "WallpaperManager+ImportProcessing.swift").read_text()
+    bundled = (core / "WallpaperManager+BundledVideos.swift").read_text()
+    fixture = fixture.replace("// PRODUCTION_BUNDLED_COPY", declaration(bundled, "    func migratedBundledVideoWallpaper("))
+    presentation = (core / "WallpaperManager+ImportPresentation.swift").read_text()
+    for signature in ["    private struct ImportCounters", "    private struct PreparedImportEntry",
+                      "    private struct ImportPreparationResult", "    private func applyPreparedImportResult(",
+                      "    private func makePreparedWallpaper(", "    private func makeImportedWallpaper(", "    private func appendWallpapersInBatches(",
+                      "    private func makeImportSummary("]:
+        methods += "\n" + declaration(imports, signature)
+    methods += "\n" + declaration(presentation, "    func importFailureBreakdown(")
+    methods += "\n" + declaration(manager, "    private func mergeWallpaper(")
+    support = (core / "WallpaperLibrarySupport.swift").read_text()
+    import_types = declaration(support, "struct ImportSummary") + "\n" + declaration(support, "enum ImportContext")
+    playback = tree / "MyWallpaperX/Core/PlaybackControl"
+    import_types += "\n" + (playback / "PlaybackResourceLifetime.swift").read_text()
+    import_types += "\n" + (tree / "MyWallpaperX/Models/WallpaperReference.swift").read_text()
+    import_types += "\n" + (tree / "MyWallpaperX/Models/WallpaperContent.swift").read_text()
+    import_types += "\n" + (tree / "MyWallpaperX/Models/WallpaperSourceImportResult.swift").read_text()
+    for name in ["WallpaperRuntimeSwitch.swift", "PlaybackSwitchTransaction.swift", "ImportedVideoPlaybackAdmission.swift", "ImportedVideoAutoplayGate.swift"]:
+        import_types += "\n" + (playback / name).read_text()
+    # Isolate the filesystem and CFPreferences leaves explicitly; HOME alone
+    # does not define a macOS application's preferences domain.
+    methods = methods.replace("var defaults: UserDefaults { .standard }",
+                              'var defaults: UserDefaults { UserDefaults(suiteName: ProcessInfo.processInfo.environment["MWX_VIDEO_INDEX_TEST_DOMAIN"]!)! }')
+    store = store.replace(declaration(store, "    private init("),
+                          '    private init() { migrationReadOnly = Self.startupMigrationReadOnly; dbURL = URL(fileURLWithPath: ProcessInfo.processInfo.environment["MWX_VIDEO_INDEX_TEST_ROOT"]!).appendingPathComponent("index.sqlite3") }')
+    # Observe transaction entry and control only the storage queue / SQLite
+    # connection in the test copy. The production transaction body is intact.
+    marker = "    private func saveWallpapersInternal(_ wallpapers: [VideoWallpaper]) throws {"
+    if store.count(marker) != 1:
+        raise AssertionError("one actual SQLite transaction entry required")
+    store = store.replace("    private var db: OpaquePointer?", "    private var db: OpaquePointer?\n    private var auditSaves: [[String]] = []")
+    store = store.replace(marker, marker + "\n        auditSaves.append(wallpapers.map(\\.id))")
+    store = store.replace("    private var auditSaves:", "    private var auditReadRows = 0\n    private var auditSelectDenied = false\n    private var auditProgressTicks = 0\n    private var auditProgressLimit = 0\n    private var auditSaves:")
+    store = store.replace("        while step == SQLITE_ROW {", "        while step == SQLITE_ROW {\n            auditReadRows += 1")
+    store += r'''
 extension WallpaperIndexStore {
     func holdQueueForAudit(entered: DispatchSemaphore, release: DispatchSemaphore) {
         queue.async { entered.signal(); release.wait() }
@@ -109,24 +119,60 @@ extension WallpaperIndexStore {
     func readRowsForAudit() -> Int { queue.sync { auditReadRows } }
 }
 '''
-        reset = declaration(persistence, "    func resetToFreshInstallState(")
-        self.assertLess(reset.index("invalidateWallpaperIndexPersistence()"), reset.index("wallpapers.removeAll()"))
-        self.assertLess(reset.index("resetStore()"), reset.index("flushPersistentState()"))
-        report = declaration(startup, "    func reportUnreadableInitialIndexChanges(")
-        startup = startup.replace(report, "    func reportUnreadableInitialIndexChanges() { unreadableRecoveryCount += 1 }")
-        source = startup.replace("import AppKit\n", "") + "\n" + import_types + "\n" + fixture.replace("// PRODUCTION_STATE", state).replace("// PRODUCTION_METHODS", methods)
+    reset = declaration(persistence, "    func resetToFreshInstallState(")
+    if reset.index("invalidateWallpaperIndexPersistence()") >= reset.index("wallpapers.removeAll()"):
+        raise AssertionError("reset must revoke persistence before clearing rows")
+    if reset.index("resetStore()") >= reset.index("flushPersistentState()"):
+        raise AssertionError("reset must retire storage before flush")
+    report = declaration(startup, "    func reportUnreadableInitialIndexChanges(")
+    startup = startup.replace(report, "    func reportUnreadableInitialIndexChanges() { unreadableRecoveryCount += 1 }")
+    asset_path = Path(cache_assets_override) if cache_assets_override is not None else core / "WallpaperManager+CacheAssets.swift"
+    if published_assets:
+        fixture = fixture.replace("@MainActor final class WallpaperManager {", "@MainActor final class WallpaperManager: ObservableObject {")
+        current_field = next(line for line in manager.splitlines() if "    @Published var currentWallpaper:" in line)
+        fixture = fixture.replace("    var currentWallpaper: VideoWallpaper?", current_field)
+        fixture = fixture.replace(declaration(fixture, "    func normalizedPath("), declaration(manager, "    func normalizedPath("))
+        sink_start = manager.index("        $wallpapers\n")
+        sink_end = manager.index(".store(in: &cancellables)", sink_start) + len(".store(in: &cancellables)")
+        actual_sink = manager[sink_start:sink_end]
+        fixture = fixture.replace("// ACTUAL_ASSET_SINK", actual_sink)
+        methods += "\n" + declaration(persistence, "    func scheduleWallpapersAutoPersist(")
+        methods += "\n" + "\n".join(declaration(asset_path.read_text(), marker) for marker in (
+            "    func updateWallpaperAssetPaths(", "    private func applyAssetPaths("))
+        methods = methods.replace("    func scheduleWallpapersAutoPersist() {", "    func scheduleWallpapersAutoPersist() {\n        auditScheduleEntries += 1")
+    source = startup.replace("import AppKit\n", "") + "\n" + import_types + "\n" + fixture.replace("// PRODUCTION_STATE", state).replace("// PRODUCTION_METHODS", methods)
+    swift = work / "Checks.swift"
+    actual_store = work / "WallpaperIndexStore.swift"
+    swift.write_text(source)
+    actual_store.write_text(store)
+    model = tree / "MyWallpaperX/Models/VideoWallpaper.swift"
+    inputs = [core / name for name in (
+        "WallpaperManager+Persistence.swift", "WallpaperManager.swift", "WallpaperIndexStore.swift",
+        "WallpaperManager+InitialIndexLoad.swift", "WallpaperManager+ImportProcessing.swift",
+        "WallpaperManager+BundledVideos.swift", "WallpaperManager+ImportPresentation.swift", "WallpaperLibrarySupport.swift")]
+    inputs += [Path(__file__).resolve(), fixture_path, model, tree / "MyWallpaperX/Models/WallpaperIndexStartupChanges.swift",
+        tree / "MyWallpaperX/Models/WallpaperReference.swift", tree / "MyWallpaperX/Models/WallpaperContent.swift",
+        tree / "MyWallpaperX/Models/WallpaperSourceImportResult.swift"]
+    inputs += [playback / name for name in (
+        "PlaybackResourceLifetime.swift", "WallpaperRuntimeSwitch.swift", "PlaybackSwitchTransaction.swift",
+        "ImportedVideoPlaybackAdmission.swift", "ImportedVideoAutoplayGate.swift")]
+    if published_assets:
+        inputs.append(asset_path)
+    return [actual_store, model, swift], {str(path): hashlib.sha256(path.read_bytes()).hexdigest() for path in inputs}
+
+
+class VideoIndexOrderedSaveTests(unittest.TestCase):
+    def test_ordered_snapshots_fallback_flush_reset_and_process_restart(self):
         with tempfile.TemporaryDirectory(prefix="mwx-video-index-", dir="/private/tmp") as directory:
             work = Path(directory)
-            swift = work / "Checks.swift"
-            swift.write_text(source)
-            actual_store = work / "WallpaperIndexStore.swift"
-            actual_store.write_text(store)
+            sources, _ = prepare_asset_path_publication_sources(ROOT, work, published_assets=False)
+            actual_store, _, swift = sources
             binary = work / "checks"
             if evidence := os.environ.get("MWX_VIDEO_INDEX_EVIDENCE"):
                 retained = Path(evidence)
                 retained.mkdir(parents=True, exist_ok=True)
-                (retained / "Checks.swift").write_text(source)
-                (retained / "WallpaperIndexStore.swift").write_text(store)
+                (retained / "Checks.swift").write_bytes(swift.read_bytes())
+                (retained / "WallpaperIndexStore.swift").write_bytes(actual_store.read_bytes())
             build = subprocess.run(["xcrun", "swiftc", "-parse-as-library", str(actual_store),
                                     str(ROOT / "MyWallpaperX/Models/VideoWallpaper.swift"), str(swift),
                                     "-module-cache-path", str(work / "modules"), "-o", str(binary)],
@@ -165,6 +211,67 @@ extension WallpaperIndexStore {
                     for name, passed in checks.items():
                         with self.subTest(mode=mode, name=name):
                             self.assertTrue(passed)
+
+    def test_actual_combine_asset_publication_and_sqlite_save(self):
+        results = []
+        expected = {
+            "sameValue": (0, 0, 0, 0), "nilInputs": (0, 0, 0, 0),
+            "changedBatch": (2, 2, 2, 1), "pendingThenNoop": (1, 1, 1, 1),
+            "currentOnly": (0, 1, 0, 0), "absentRowCurrent": (0, 1, 0, 0),
+            "removedBeforeCallback": (1, 0, 1, 1), "aliasFirstMatch": (1, 1, 1, 1),
+            "emptyString": (1, 1, 1, 1), "initialLoad": (2, 2, 2, 2), "readOnly": (1, 1, 1, 0),
+        }
+        with tempfile.TemporaryDirectory(prefix="mwx-video-assets-", dir="/private/tmp") as directory:
+            root = Path(directory)
+            # Both configurations use identical absolute source and database paths.
+            runtime = root / "runtime"
+            for configuration, flags in [("debug", ["-D", "DEBUG"]),
+                                          ("release", ["-O", "-whole-module-optimization"])]:
+                work = root / configuration
+                work.mkdir()
+                sources, inputs = prepare_asset_path_publication_sources(ROOT, work)
+                binary = work / "checks"
+                build = subprocess.run(["xcrun", "swiftc", "-parse-as-library", "-D", "VIDEO_INDEX_ASSET_PUBLICATION",
+                    *flags, *map(str, sources), "-module-cache-path", str(work / "modules"), "-o", str(binary)],
+                    capture_output=True, text=True, timeout=120)
+                retained = None
+                if evidence := os.environ.get("MWX_VIDEO_INDEX_EVIDENCE"):
+                    retained = Path(evidence) / "asset-publication" / configuration
+                    retained.mkdir(parents=True, exist_ok=True)
+                    for source in sources:
+                        (retained / source.name).write_bytes(source.read_bytes())
+                    (retained / "inputs.json").write_text(json.dumps(inputs, indent=2) + "\n")
+                    (retained / "compile.stdout").write_text(build.stdout)
+                    (retained / "compile.stderr").write_text(build.stderr)
+                self.assertEqual(build.returncode, 0, build.stdout + build.stderr)
+                runtime.mkdir()
+                env = dict(os.environ, HOME=str(runtime), CFFIXED_USER_HOME=str(runtime),
+                    MWX_VIDEO_INDEX_TEST_ROOT=str(runtime), MWX_VIDEO_INDEX_TEST_DOMAIN="MWX.VideoAssets.Test." + uuid.uuid4().hex,
+                    MWX_VIDEO_INDEX_TEST_CLEANUP="1")
+                run = subprocess.run([str(binary), "asset-publication"], env=env,
+                    capture_output=True, text=True, timeout=30)
+                if retained:
+                    (retained / "runtime.stdout").write_text(run.stdout)
+                    (retained / "runtime.stderr").write_text(run.stderr)
+                self.assertEqual(run.returncode, 0, run.stdout + run.stderr)
+                result = json.loads(run.stdout)
+                self.assertEqual(set(result), {"functional", "work"})
+                self.assertEqual(set(result["functional"]), set(expected))
+                self.assertEqual(set(result["work"]), set(expected))
+                for phase, counters in expected.items():
+                    for name, passed in result["functional"][phase]["checks"].items():
+                        with self.subTest(configuration=configuration, phase=phase, check=name):
+                            self.assertIs(passed, True, run.stdout)
+                    actual = result["work"][phase]
+                    self.assertEqual(tuple(actual[key] for key in (
+                        "publications", "currentPublications", "scheduleEntries", "saveEntries")), counters, phase + run.stdout)
+                self.assertEqual(result["work"]["pendingThenNoop"]["retainedPendingTimer"], 1)
+                self.assertEqual(inputs, {path: hashlib.sha256(Path(path).read_bytes()).hexdigest() for path in inputs})
+                results.append(result)
+                print(json.dumps({"configuration": configuration, **result}, sort_keys=True))
+                # Runtime is wholly test-owned; neither user media nor standard prefs are used.
+                shutil.rmtree(runtime)
+        self.assertEqual(results[0], results[1])
 
 
 if __name__ == "__main__":

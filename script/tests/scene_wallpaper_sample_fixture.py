@@ -16,6 +16,7 @@ from pathlib import Path
 from types import ModuleType
 from typing import Any
 from unittest import mock
+from scene_sample_snapshot import tree_manifest
 
 
 PERFORMANCE_LOG = (
@@ -97,7 +98,15 @@ def run_sample_fixture(
         (source / "project.json").write_text(json.dumps({
             "type": "scene", "file": "scene.json"
         }))
-        (source / "scene.pkg").write_bytes(b"SELF-FIXTURE-PACKAGE")
+        if control.get("loose_source"):
+            (source / "scene.json").write_text('{"objects":[]}')
+        else:
+            (source / "scene.pkg").write_bytes(b"SELF-FIXTURE-PACKAGE")
+        if control.get("installation_marker"):
+            (source / ".mywallpaperx-steam-version.json").write_text("installation identity")
+            (source / ".mywallpaperx-steam-version.json.author").write_text("author identity")
+        if control.get("expect_current_tree"):
+            sample["tree_sha256"] = tree_manifest(source)[0]
         output = root / "output"
         runtime = output / "runtime"
         runtime.mkdir(parents=True)
@@ -112,6 +121,11 @@ def run_sample_fixture(
                 result_dir = Path(command[command.index(
                     "--mwx-debug-scene-evidence-dir"
                 ) + 1])
+                if "observed_runtime_files" in control:
+                    runtime_source = Path(command[command.index("--mwx-debug-scene-root") + 1])
+                    control["observed_runtime_files"].extend(sorted(
+                        path.name for path in runtime_source.iterdir()
+                    ))
                 evidence_path = result_dir / "scene-runtime-evidence.json"
                 payload = {
                     "schemaVersion": 1,

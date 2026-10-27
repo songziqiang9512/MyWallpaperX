@@ -118,7 +118,8 @@ extension WallpaperManager {
                     indexEpoch: indexEpoch,
                     admission: admission,
                     resourceLifetime: resourceLifetime,
-                    presentsSummary: presentsSummary, orderedPaths: urls.map { self.normalizedPath($0.path) }, completion: completion
+                    presentsSummary: presentsSummary,
+                    orderedPaths: completion != nil ? urls.map { self.normalizedPath($0.path) } : [], completion: completion
                 )
             }
         }
@@ -291,8 +292,11 @@ extension WallpaperManager {
                             continue
                         }
                         knownPaths.insert(normalizedURLPath)
-                        let cachedThumbnailPath = existingThumbnailPath(for: resolvedURL)
-                        let cachedStaticFramePath = existingStaticFramePath(for: resolvedURL)
+                        let key = cacheKey(forNormalizedPath: normalizedURLPath)
+                        let thumbnailPath = thumbnailOutputURL(forKey: key).path
+                        let staticFramePath = staticFrameOutputURL(forKey: key).path
+                        let cachedThumbnailPath = pathExists(thumbnailPath) ? thumbnailPath : nil
+                        let cachedStaticFramePath = pathExists(staticFramePath) ? staticFramePath : nil
                         preparedImports.append(
                             PreparedImportEntry(
                                 sourceURL: resolvedURL,

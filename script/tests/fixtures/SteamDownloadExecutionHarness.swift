@@ -283,8 +283,10 @@ final class Transport: SteamServiceTransporting {
     var installedLibraryScanGeneration = 0
     final class ScanFlight { var isInFlight = false; var rescanRequested = false }
     let installedLibraryScanFlight = ScanFlight()
-    var cachePreloads = 0, reclamationRequests = 0, catchupScans = 0
-    func preloadWebRuntimeCaches(for records: [SteamWorkshopDownloadRecord]) { cachePreloads += 1 }
+    var reclamationRequests = 0, catchupScans = 0
+    // Web cache is an external leaf here; its real invalidation/publication
+    // behavior is covered by test_web_runtime_cache, not this download fixture.
+    func removeWebRuntimeCaches(for recordID: String) {}
     func scheduleLibraryVersionReclamation() { reclamationRequests += 1 }
     func startInstalledLibraryScan(managed: [String: SteamWorkshopDownloadMetadataSnapshot]) { catchupScans += 1 }
     var reloads = 0

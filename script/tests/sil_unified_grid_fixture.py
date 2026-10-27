@@ -20,6 +20,7 @@ def assemble(work: Path, *, count_layout=False, count_collection=False, cache_na
     adapter_path = app / "App/WallpaperLibraryCellAdapter.swift"
     grid_path = app / "Shell/WallpaperLibraryGridController.swift"
     leaves_path = ROOT / "script/tests/fixtures/WallpaperLibraryCellAdapterHarness.swift"
+    online_card_path = app / "Shared/UI/OnlineImageGridItem.swift"
     product_model = model_path.read_text()
     model = "import AppKit\n" + declaration(product_model, "struct SILWallpaper:") + "\n"
     model += declaration(product_model, "enum SILThumbnailStore")
@@ -69,9 +70,12 @@ def assemble(work: Path, *, count_layout=False, count_collection=False, cache_na
         "final class OnlineLibraryService", "enum SteamWorkshopDownloadGridSupport",
         "final class AppKitThumbnailProvider", "final class RecordingThumbnailCache", "enum OLDownloadedThumbnailStore",
         "func steamWorkshopPreviewSources(", "final class SteamWorkshopPreviewState",
-        "class RecordingCard:", "final class AppKitWallpaperItem:", "final class AppKitOLDownloadsItem:",
+        "class RecordingCard:", "private enum RecordingProgressStyle", "private final class RecordingImageGlass",
+        "private final class RecordingImageBar", "final class OnlineImageGridItem:",
+        "final class AppKitWallpaperItem:", "final class AppKitOLDownloadsItem:",
         "final class AppKitSteamWorkshopBrowserItem:")
     other = "import AppKit\n" + "\n".join(declaration(leaves, signature) for signature in signatures)
+    other = other.replace("// ACTUAL_IMAGE_TRANSFER", declaration(online_card_path.read_text(), "    func applyTransfer("))
     generated = {"SILModel.swift": model, "SILCard.swift": card, "SILProvider.swift": provider,
                  "Adapter.swift": adapter, "Grid.swift": grid, "OtherProviderLeaves.swift": other}
     sources = []
@@ -79,10 +83,11 @@ def assemble(work: Path, *, count_layout=False, count_collection=False, cache_na
         path = work / name
         path.write_text(value)
         sources.append(path)
-    original = [model_path, card_path, provider_path, adapter_path, grid_path, leaves_path, Path(__file__).resolve()]
+    original = [model_path, card_path, provider_path, adapter_path, grid_path, leaves_path, online_card_path, Path(__file__).resolve()]
     dependencies = [app / name for name in (
         "Models/VideoWallpaper.swift", "Models/WallpaperReference.swift", "Models/WallpaperContent.swift",
         "Models/WallpaperLibraryPage.swift", "Modules/StaticImageLibrary/Core/StaticImageLibraryContentProjection.swift",
+        "Core/OnlineImages/OnlineImageModels.swift", "Core/OnlineImages/OnlineImageContentProjection.swift",
         "Shared/UI/DecodedThumbnailMemoryCache.swift",
         "Shared/UI/GridThumbnailDecoder.swift", "Shared/UI/ThumbnailCache.swift",
         "Shared/UI/AppearanceAwareContainerView.swift", "Shared/UI/NSViewExtensions.swift",
@@ -90,4 +95,5 @@ def assemble(work: Path, *, count_layout=False, count_collection=False, cache_na
         "Shared/UI/BoxSelectionState.swift", "Shared/UI/GridThumbnailPrefetchDemand.swift",
         "Shared/Components/WallpaperCardInteractionView.swift", "Shared/Components/WallpaperCardSupportViews.swift",
         "Shared/Components/WallpaperCardControlsView.swift", "Shared/Components/WallpaperLibraryGridMetrics.swift")]
+    dependencies.append(ROOT / "script/tests/fixtures/OnlineImageLibraryAppStub.swift")
     return sources + dependencies, original + dependencies

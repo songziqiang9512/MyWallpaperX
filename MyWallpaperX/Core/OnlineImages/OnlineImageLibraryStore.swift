@@ -50,7 +50,7 @@ actor OnlineImageLibraryStore {
     /// becomes an empty success or grants permission to replace that input.
     func load() throws -> OnlineImageLocalSnapshot {
         manifest = nil
-        let manifestURL = try containedURL(relativePath: "manifest.json")
+        let manifestURL = try containedURL(relativePath: "manifest.json").url
         let decoded: Manifest
         do {
             let bytes = try Data(contentsOf: manifestURL)
@@ -91,7 +91,7 @@ actor OnlineImageLibraryStore {
             author: asset.author, authorID: asset.authorID, tags: asset.tags, relativePath: relativePath,
             pixelWidth: width, pixelHeight: height, fileSizeBytes: fileSizeBytes,
             firstDownloadedAt: old?.firstDownloadedAt ?? Date(), revision: revision)
-        let destination = try containedURL(relativePath: record.relativePath)
+        let destination = try containedURL(relativePath: record.relativePath).url
         try FileManager.default.createDirectory(at: destination.deletingLastPathComponent(), withIntermediateDirectories: true)
         do {
             try FileManager.default.moveItem(at: stagingURL, to: destination)
@@ -132,7 +132,7 @@ actor OnlineImageLibraryStore {
     }
 
     private func commit(_ next: Manifest, unavailable nextUnavailable: Set<OnlineImageAssetID>) throws -> OnlineImageLocalSnapshot {
-        let manifestURL = try containedURL(relativePath: "manifest.json")
+        let manifestURL = try containedURL(relativePath: "manifest.json").url
         let nextRevision = snapshotRevision &+ 1
         let snapshot = OnlineImageLocalSnapshot(records: next.records, unavailable: nextUnavailable,
             status: .init(phase: .ready(warnings: []), hasSuccessfulScan: true), revision: nextRevision)
@@ -168,9 +168,8 @@ actor OnlineImageLibraryStore {
     private func scan(_ value: Manifest, revision: UInt64) throws -> OnlineImageLocalSnapshot {
         var unavailable = Set<OnlineImageAssetID>()
         for record in value.records {
-            let url = try containedURL(relativePath: record.relativePath)
-            let attributes = try? FileManager.default.attributesOfItem(atPath: url.path)
-            if attributes?[.type] as? FileAttributeType != .typeRegular { unavailable.insert(record.assetID) }
+            let resolved = try containedURL(relativePath: record.relativePath)
+            if resolved.leafAttributes?[.type] as? FileAttributeType != .typeRegular { unavailable.insert(record.assetID) }
         }
         return OnlineImageLocalSnapshot(records: value.records, unavailable: unavailable,
             status: .init(phase: .ready(warnings: []), hasSuccessfulScan: true), revision: revision)
@@ -183,24 +182,25 @@ actor OnlineImageLibraryStore {
         return root.appendingPathComponent(relativePath).standardizedFileURL
     }
 
-    nonisolated private func containedURL(relativePath: String) throws -> URL {
+    nonisolated private func containedURL(relativePath: String) throws -> (url: URL, leafAttributes: [FileAttributeKey: Any]?) {
         let url = try relativeURL(relativePath: relativePath)
         let resolved = Self.resolvingExistingAncestor(of: url)
         let prefix = root.path.hasSuffix("/") ? root.path : root.path + "/"
         guard !resolved.unresolvedSymbolicLink, resolved.url.path.hasPrefix(prefix), resolved.url.path != root.path else {
             throw StoreError.invalidPath
         }
-        return url
+        return (url, resolved.leafAttributes)
     }
 
     /// Foundation can spell /private/tmp differently before and after a leaf
     /// exists. Resolve the existing ancestor once, then append absent leaves;
     /// symbolic-link entries count as existing even if their targets vanished.
-    nonisolated private static func resolvingExistingAncestor(of input: URL) -> (url: URL, unresolvedSymbolicLink: Bool) {
-        guard input.isFileURL else { return (input, false) }
+    nonisolated private static func resolvingExistingAncestor(of input: URL) -> (url: URL, unresolvedSymbolicLink: Bool, leafAttributes: [FileAttributeKey: Any]?) {
+        guard input.isFileURL else { return (input, false, nil) }
         var ancestor = input.standardizedFileURL
         var missing: [String] = []
         var attributes = try? FileManager.default.attributesOfItem(atPath: ancestor.path)
+        let leafAttributes = attributes
         while attributes == nil {
             let parent = ancestor.deletingLastPathComponent()
             if parent.path == ancestor.path { break }
@@ -211,6 +211,6 @@ actor OnlineImageLibraryStore {
         let resolved = ancestor.resolvingSymlinksInPath()
         let unresolvedSymbolicLink = attributes?[.type] as? FileAttributeType == .typeSymbolicLink
             && (try? FileManager.default.attributesOfItem(atPath: resolved.path))?[.type] as? FileAttributeType == .typeSymbolicLink
-        return (missing.reversed().reduce(resolved) { $0.appendingPathComponent($1) }, unresolvedSymbolicLink)
+        return (missing.reversed().reduce(resolved) { $0.appendingPathComponent($1) }, unresolvedSymbolicLink, leafAttributes)
     }
 }

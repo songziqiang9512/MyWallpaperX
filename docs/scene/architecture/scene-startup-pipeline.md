@@ -2,7 +2,7 @@
 
 <!-- document-role: current-state -->
 
-> 源码复核：2026-10-26。P0/P1 优化 Debug 构建、两份真实 Scene 与两份 Web 产品入口验证已完成；后继精简代码及图回归夹具修复仍待验证，范围见[精简计划](../../development/validation-simplification-plan.md)。这里保存接线与工具边界，不维护历史性能数字。
+> 本页保存接线与工具边界；精简代码的当前实现、构建、代表运行和剩余验证统一查[精简计划](../../development/validation-simplification-plan.md)，不在本图重复维护过期批次状态或历史性能数字。
 > [启动合同](scene-launch-responsiveness-contract.md)拥有稳定语义；当前按[全仓精简方案](../../development/validation-simplification-plan.md)清退误拒播与重复工作。此前冷暖启动[完成记录](../../history/cross-topic/wallpaper-startup-optimization-completed-2026-10-25.md)只证明当时版本；运行结果从[证据索引](../capabilities/runtime-evidence-current.md)进入。
 
 ## 产品入口与执行所有权

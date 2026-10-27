@@ -32,7 +32,7 @@ final class SteamAccountSession {
 
     /// 最近一次登录成功返回的会话令牌（仅驻内存；持久化由 SteamAuthRoute/
     /// TokenStore 决定）。accountName 为真实名（private 包装），供令牌持久化。
-    private(set) var lastSessionTokens: (refreshToken: String, guardData: String?, accountName: String?)?
+    private(set) var lastSessionTokens: (refreshToken: String, accountName: String?)?
 
     /// 登出/换号时清空内存令牌（不留旧账号会话状态）。
     func clearSessionTokens() {
@@ -145,8 +145,7 @@ final class SteamAccountSession {
             let id = try steamId(from: frame)
             if let secrets = frame.root["private"]?.objectValue,
                let refreshToken = secrets["refreshToken"]?.stringValue {
-                lastSessionTokens = (refreshToken, secrets["guardData"]?.stringValue,
-                                     secrets["accountName"]?.stringValue)
+                lastSessionTokens = (refreshToken, secrets["accountName"]?.stringValue)
             }
             completedAttemptId = attemptId
             activeAttemptId = nil

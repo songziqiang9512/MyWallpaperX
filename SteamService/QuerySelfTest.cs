@@ -31,6 +31,7 @@ internal sealed partial class SteamSession
         Check(item.RootElement.TryGetProperty("description", out _)
             && item.RootElement.TryGetProperty("subscriptions", out _));
         Check(item.RootElement.GetProperty("dependencyIds")[0].GetString() == "456");
+        Check(!item.RootElement.TryGetProperty("fileType", out _) && !item.RootElement.TryGetProperty("hcontentFile", out _));
         using var partial = JsonDocument.Parse(JsonSerializer.Serialize(mapped.PartialErrors[0]));
         Check(partial.RootElement.GetProperty("publishedfileid").GetString() == "456");
         Check(SortMap["updated"] == 21);

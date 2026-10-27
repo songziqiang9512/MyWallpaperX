@@ -110,7 +110,7 @@ nonisolated enum OnlineLibraryDownloadedContent {
         let files: [URL]
         do {
             files = try FileManager.default.contentsOfDirectory(at: directory,
-                includingPropertiesForKeys: [.contentModificationDateKey, .fileSizeKey, .creationDateKey, .isDirectoryKey],
+                includingPropertiesForKeys: nil,
                 options: .skipsHiddenFiles)
         } catch let error as CocoaError where error.code == .fileReadNoSuchFile || error.code == .fileNoSuchFile {
             guard previous.isEmpty else { throw error }

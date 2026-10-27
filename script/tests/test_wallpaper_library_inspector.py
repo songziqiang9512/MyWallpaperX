@@ -18,6 +18,29 @@ from script.tests.test_ui_library_algorithms import declaration
 
 ROOT = Path(__file__).resolve().parents[2]
 
+
+def prepare_sil_inspector_sources(tree, work, inspector_override=None, fixture_tree=None):
+    """The existing native Inspector closure, also used by the task-only pair."""
+    tree, work = Path(tree), Path(work)
+    sources = [tree / "MyWallpaperX" / name for name in (
+        "Shared/UI/WallpaperInspectorActions.swift", "Shared/UI/InspectorFooterMetrics.swift",
+        "Shared/UI/InspectorBadgeView.swift", "Shared/UI/InspectorFadingScrollView.swift",
+        "Shared/UI/ModuleFocusable.swift", "Shared/UI/InspectorHost.swift", "Shared/UI/InspectorHostBridge.swift",
+        "Shared/UI/InspectorHostActions.swift", "Shared/UI/InspectorHostViewController.swift",
+        "Modules/StaticImageLibrary/UI/SILInspectorSupport.swift", "Modules/StaticImageLibrary/UI/SILInspectorView.swift",
+        "Modules/OnlineLibrary/UI/OnlineLibraryDownloadsInspectorSupport.swift", "Modules/OnlineLibrary/UI/OnlineLibraryDownloadsInspectorView.swift")]
+    if inspector_override is not None:
+        sources[sources.index(tree / "MyWallpaperX/Modules/StaticImageLibrary/UI/SILInspectorView.swift")] = Path(inspector_override)
+    sources.append((Path(fixture_tree) if fixture_tree is not None else tree) / "script/tests/fixtures/WallpaperInspectorOrganizationHarness.swift")
+    inputs = {str(p): hashlib.sha256(p.read_bytes()).hexdigest() for p in [*sources, Path(__file__).resolve()]}
+    frozen = []
+    for index, source in enumerate(sources):
+        target = work / f"Source{index}.swift"
+        target.write_bytes(source.read_bytes())
+        frozen.append(target)
+    return frozen, inputs
+
+
 @unittest.skipUnless(sys.platform == "darwin", "requires AppKit/Quick Look")
 class WallpaperLibraryInspectorTests(unittest.TestCase):
     def test_unbound_image_inspector_cannot_be_constructed(self):
@@ -110,24 +133,21 @@ class WallpaperLibraryInspectorTests(unittest.TestCase):
         self.assertEqual(hashes, {str(p): hashlib.sha256(p.read_bytes()).hexdigest() for p in dependencies})
 
     def test_original_image_and_pixabay_views_use_injected_actions(self):
-        sources = [ROOT / "MyWallpaperX" / name for name in (
-            "Shared/UI/WallpaperInspectorActions.swift", "Shared/UI/InspectorFooterMetrics.swift",
-            "Shared/UI/InspectorBadgeView.swift", "Shared/UI/InspectorFadingScrollView.swift",
-            "Shared/UI/ModuleFocusable.swift", "Shared/UI/InspectorHost.swift", "Shared/UI/InspectorHostBridge.swift",
-            "Shared/UI/InspectorHostActions.swift", "Shared/UI/InspectorHostViewController.swift",
-            "Modules/StaticImageLibrary/UI/SILInspectorSupport.swift", "Modules/StaticImageLibrary/UI/SILInspectorView.swift",
-            "Modules/OnlineLibrary/UI/OnlineLibraryDownloadsInspectorSupport.swift", "Modules/OnlineLibrary/UI/OnlineLibraryDownloadsInspectorView.swift")]
-        sources.append(ROOT / "script/tests/fixtures/WallpaperInspectorOrganizationHarness.swift")
-        hashes = {str(p): hashlib.sha256(p.read_bytes()).hexdigest() for p in sources}
         with tempfile.TemporaryDirectory(prefix="mwx-inspector-actions-", dir="/private/tmp") as directory:
             work = Path(directory)
-            frozen = []
-            for index, source in enumerate(sources):
-                target = work / f"Source{index}.swift"
-                target.write_bytes(source.read_bytes()); frozen.append(target)
+            frozen, hashes = prepare_sil_inspector_sources(ROOT, work)
             binary = work / "checks"
             result = subprocess.run(["xcrun", "swiftc", "-parse-as-library", "-swift-version", "5", "-default-isolation", "MainActor",
                 *map(str, frozen), "-module-cache-path", str(work / "modules"), "-o", str(binary)], capture_output=True, text=True, timeout=150)
+            retained = None
+            if evidence := os.environ.get("MWX_SIL_INSPECTOR_EVIDENCE"):
+                retained = Path(evidence)
+                retained.mkdir(parents=True, exist_ok=True)
+                for source in frozen:
+                    (retained / source.name).write_bytes(source.read_bytes())
+                (retained / "inputs.json").write_text(json.dumps(hashes, indent=2) + "\n")
+                (retained / "compile.stdout").write_text(result.stdout)
+                (retained / "compile.stderr").write_text(result.stderr)
             self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
             home = work / "home"; home.mkdir()
             run = subprocess.run([str(binary), str(work)], capture_output=True, text=True, timeout=30,
@@ -137,6 +157,19 @@ class WallpaperLibraryInspectorTests(unittest.TestCase):
             self.assertGreaterEqual(len(checks), 11)
             for name, passed in checks.items():
                 with self.subTest(name=name): self.assertIs(passed, True, run.stdout + run.stderr)
-        self.assertEqual(hashes, {str(p): hashlib.sha256(p.read_bytes()).hexdigest() for p in sources})
+            delivery = subprocess.run([str(binary), str(work), "preview-delivery"], capture_output=True, text=True, timeout=30,
+                env=dict(os.environ, HOME=str(home), CFFIXED_USER_HOME=str(home)))
+            if retained:
+                (retained / "native.stdout").write_text(run.stdout)
+                (retained / "native.stderr").write_text(run.stderr)
+                (retained / "preview-delivery.stdout").write_text(delivery.stdout)
+                (retained / "preview-delivery.stderr").write_text(delivery.stderr)
+            self.assertEqual(delivery.returncode, 0, delivery.stdout + delivery.stderr)
+            report = json.loads(delivery.stdout)
+            for name, passed in report["functional"]["checks"].items():
+                with self.subTest(delivery=name): self.assertIs(passed, True, delivery.stdout + delivery.stderr)
+            self.assertEqual(report["work"], {"warmReadyAtInitReturn": 1, "delayedReadyAtDeliveryReturn": 1, "deliveredCallbacks": 3})
+            print(json.dumps({"previewDelivery": report}, sort_keys=True))
+        self.assertEqual(hashes, {p: hashlib.sha256(Path(p).read_bytes()).hexdigest() for p in hashes})
 
 if __name__ == "__main__": unittest.main()

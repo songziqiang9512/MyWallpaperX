@@ -328,7 +328,7 @@ internal sealed partial class SteamSession : IAsyncDisposable
                 ? await PollWithGuardRetryAsync(passwordSession, context.Authenticator!, ct).ConfigureAwait(false)
                 : await session.PollingWaitForResultAsync(ct).ConfigureAwait(false);
             await LogOnWithTokenAsync(book, result.AccountName, result.RefreshToken, ct).ConfigureAwait(false);
-            FinishSuccess(book, requestId, result.AccountName, result.RefreshToken, result.AccessToken, result.NewGuardData);
+            FinishSuccess(book, requestId, result.AccountName, result.RefreshToken);
         });
     }
 
@@ -339,7 +339,7 @@ internal sealed partial class SteamSession : IAsyncDisposable
         {
             EmitAuthState(book, requestId, "connecting");
             await LogOnWithTokenAsync(book, accountNameHint ?? "", restoredToken, ct).ConfigureAwait(false);
-            FinishSuccess(book, requestId, accountNameHint ?? "", restoredToken, null, null);
+            FinishSuccess(book, requestId, accountNameHint ?? "", restoredToken);
         });
     }
 
@@ -482,7 +482,7 @@ internal sealed partial class SteamSession : IAsyncDisposable
 
     private void FinishSuccess(
         AuthAttemptBook.Attempt book, string requestId, string realAccountName,
-        string resultRefreshToken, string? resultAccessToken, string? newGuardData)
+        string resultRefreshToken)
     {
         lock (gate)
         {
@@ -514,8 +514,6 @@ internal sealed partial class SteamSession : IAsyncDisposable
                 @private = new
                 {
                     refreshToken = resultRefreshToken,
-                    accessToken = resultAccessToken,
-                    guardData = newGuardData,
                     accountName = realAccountName,
                 },
             });

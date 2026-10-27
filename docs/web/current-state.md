@@ -37,7 +37,7 @@ project.json / Workshop directory
   -> per-display WKWebView surface
 ```
 
-`prepareWebPlaybackContext` 捕获实际作者来源的一份读取租约、同次项目字节、入口/namespace 与语言事实，沿原可取消后台任务准备。analysis memo/磁盘缓存以当前项目和实际依赖 revision 失效；暖命中不先全文 hash 或重复发现 HTML。不保留无人消费的 execution payload 缓存、全库预加载及额外 flight。主 actor 在最后 await 后按当前属性与书签组装必要 payload/grants，返回同一 descriptor/context 与 renderer 所需来源 lifetime；profile 复用 descriptor。语义归[Web 项目模型](web-project-json-runtime-model.md#24-playback-context)，本轮构建与实播仍待复验，旧运行不代表本轮整体验收。 [第三批](../history/cross-topic/wallpaper-startup-p1b-d1-2026-10-24.md)已补真实捕获核、取消/租约、授权与当前实音；五组未证整体提速；[D12](../history/cross-topic/wallpaper-startup-d12-2026-10-24.md)缩小原C1握手窗口、补cookie连续性，根因仍未闭合。
+`prepareWebPlaybackContext` 在原可取消后台任务中捕获作者来源的同次租约、项目字节及入口/namespace/语言事实。analysis memo/磁盘缓存按当前项目和实际依赖 revision 失效，暖命中不全文 hash 或重扫 HTML；旧 execution payload 缓存、全库预加载和额外 flight 已退出。主 actor 在最后 await 后用当前属性/书签组装 payload/grants，返回同一 descriptor/context 及来源 lifetime，profile 复用 descriptor。语义见[项目模型](web-project-json-runtime-model.md#24-playback-context)，构建、代表实播及边界见[专项现状](../development/validation-simplification-plan.md)，历史结果不外推。 [第三批](../history/cross-topic/wallpaper-startup-p1b-d1-2026-10-24.md)已补真实捕获核、取消/租约、授权与当前实音；五组未证整体提速；[D12](../history/cross-topic/wallpaper-startup-d12-2026-10-24.md)缩小原C1握手窗口、补cookie连续性，根因仍未闭合。
 
 `Placeholder` 是尚未完成命名收口的历史名称，不表示该类型没有产品执行权。重命名必须作为独立机械批次完成源码、测试、日志 schema 和文档同步；不得同时改变宿主行为。
 

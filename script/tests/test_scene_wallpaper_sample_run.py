@@ -182,6 +182,29 @@ class SceneWallpaperSampleRunTests(unittest.TestCase):
         self.assertTrue(result["timed_out"])
         self.assertIn("process timeout", result["failures"])
 
+    def test_loose_run_keeps_real_tree_and_explicit_package_expectations(self) -> None:
+        copied = []
+        result, command = run_sample_fixture(benchmark, control={
+            "loose_source": True, "expect_current_tree": True,
+            "installation_marker": True, "observed_runtime_files": copied,
+        })
+        self.assertTrue(result["passed"], result["failures"])
+        self.assertEqual(command[1], "--mwx-debug-scene-root")
+        self.assertIsNone(result["package_file"])
+        self.assertIsNone(result["hashes"]["package_sha256"])
+        self.assertEqual(len(result["hashes"]["tree_sha256"]), 64)
+        self.assertIn("scene.json", copied)
+        self.assertNotIn("scene.pkg", copied)
+        self.assertNotIn(".mywallpaperx-steam-version.json", copied)
+        self.assertIn(".mywallpaperx-steam-version.json.author", copied)
+        for field in ("package_sha256", "tree_sha256"):
+            with self.subTest(field=field):
+                invalid, _ = run_sample_fixture(benchmark,
+                    sample_overrides={field: "wrong"}, control={"loose_source": True})
+                self.assertFalse(invalid["passed"])
+                self.assertEqual(invalid["failures"], [f"{field} mismatch"])
+                self.assertIsNone(invalid["hashes"]["package_sha256"])
+
     def test_invalid_start_allowance_rejected_before_launch(self) -> None:
         for allowance in (0, -1, float("inf"), float("nan")):
             with self.subTest(allowance=allowance), self.assertRaisesRegex(

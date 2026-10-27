@@ -12,8 +12,9 @@ import Darwin
 nonisolated extension SteamWorkshopLibraryTransaction {
     static func publishedMetadata(libraryRoot: URL, requireComplete: Bool = false,
                                   matchingItemID: String? = nil, matchingFilename: String? = nil) throws -> [String: Data] {
-        if let matchingFilename { try require(matchingFilename.utf8.count <= 255
-            && matchingFilename.hasSuffix(".json") && !matchingFilename.contains("/") && !matchingFilename.utf8.contains(0)) }
+        if let matchingFilename { try require(matchingFilename.hasSuffix(".json")
+            && !matchingFilename.contains("/") && !matchingFilename.utf8.contains(0)) }
+        let targeted = matchingItemID != nil || matchingFilename != nil
         let library: FD
         do {
             library = try absoluteDirectory(libraryRoot)
@@ -27,17 +28,25 @@ nonisolated extension SteamWorkshopLibraryTransaction {
         } catch {
             // A targeted lookup in a local-only library has no metadata. Whole-index
             // GC still requires an existing, readable index before reclaiming anything.
-            if errno == ENOENT && (!requireComplete || matchingItemID != nil || matchingFilename != nil) { return [:] }
+            if errno == ENOENT && (!requireComplete || targeted) { return [:] }
             throw error
         }
+        let names: [String]
+        if let matchingFilename { names = [matchingFilename] }
+        else if let matchingItemID { names = [matchingItemID + ".json"] }
+        else { names = try childNames(index, limit: 100_000) }
         var result: [String: Data] = [:]
-        for name in try childNames(index, limit: 100_000) {
+        for name in names {
             try Task.checkCancellation()
             guard name.hasSuffix(".json"), matchingFilename == nil || matchingFilename == name else { continue }
             let itemID = String(name.dropLast(5))
             guard (matchingFilename != nil || validID(itemID)), matchingItemID == nil || matchingItemID == itemID else { continue }
             do {
-                let file = try openFile(index, name)
+                // These are single directory-entry names, not resource paths.
+                let descriptor = openat(index.value, name, O_RDONLY | O_NOFOLLOW | O_CLOEXEC | O_NONBLOCK)
+                let openError = errno
+                if descriptor < 0 && openError == ENOENT && targeted { continue }
+                let file = try FD(descriptor)
                 result[itemID] = try readData(file, maximumBytes: 4 * 1024 * 1024)
             } catch {
                 if requireComplete { throw error }

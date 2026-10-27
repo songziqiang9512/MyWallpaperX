@@ -303,7 +303,6 @@ final class SteamAuthRoute: ObservableObject {
         let payload = SteamWorkshopTokenStore.Payload(
             accountName: realAccountName,
             refreshToken: tokens.refreshToken,
-            guardData: tokens.guardData,
             steamId: steamId ?? "",
             savedAt: Date()
         )
