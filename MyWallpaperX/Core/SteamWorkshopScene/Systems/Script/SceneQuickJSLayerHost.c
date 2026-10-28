@@ -216,6 +216,8 @@ MWXSceneQuickJSResult mwx_scene_quickjs_domain_configure_layer_catalog(
     domain->layers = calloc(MWX_SCENE_QUICKJS_MAX_LAYERS, sizeof(*domain->layers));
     if (domain->layers == NULL) return MWX_SCENE_QUICKJS_MEMORY_EXCEEDED;
     domain->layer_count = layer_count; domain->authored_layer_count = layer_count;
+    domain->free_dynamic_layer_head = UINT32_MAX;
+    domain->next_dynamic_layer_id = -1;
     domain->configured_layer_runtime_count = 0;
     domain->defaults_to_perspective = defaults_to_perspective != 0;
     return MWX_SCENE_QUICKJS_OK;
@@ -224,6 +226,17 @@ MWXSceneQuickJSResult mwx_scene_quickjs_domain_configure_layer_catalog(
 static char *copy_string(const char *source, size_t length) {
     char *copy = malloc(length + 1); if (copy == NULL) return NULL;
     if (length > 0) memcpy(copy, source, length); copy[length] = '\0'; return copy;
+}
+
+void mwx_scene_quickjs_layer_release_record(
+    MWXSceneQuickJSDomain *domain, MWXSceneQuickJSLayerRecord *record
+) {
+    for (uint32_t index = 0; index < record->effect_count; ++index)
+        free(record->effect_names[index]);
+    free(record->effect_names); free(record->effect_visible);
+    free(record->name); free(record->text); free(record->font); free(record->asset_path);
+    js_free(domain->context, record->initial_configuration);
+    *record = (MWXSceneQuickJSLayerRecord){0};
 }
 
 static bool valid_layer_identity(int64_t identity) {
@@ -299,6 +312,8 @@ MWXSceneQuickJSResult mwx_scene_quickjs_domain_set_layer_runtime_descriptor(
     record->font = copy_string(font, font_length);
     if (record->name == NULL || record->text == NULL || record->font == NULL) return MWX_SCENE_QUICKJS_MEMORY_EXCEEDED;
     record->layer_id = layer_id; record->parent_id = parent_id;
+    if (layer_id <= domain->next_dynamic_layer_id)
+        domain->next_dynamic_layer_id = layer_id - 1;
     record->has_parent = has_parent != 0;
     memcpy(record->authored_origin, origin, sizeof(record->authored_origin));
     memcpy(record->current_origin, origin, sizeof(record->current_origin));
@@ -441,6 +456,7 @@ MWXSceneQuickJSResult mwx_scene_quickjs_owner_configure_layer_identity(
             // Publish the configured referent on the existing native object.
             // Other script owners retain this layer, never their own target.
             reference->layer_index = index;
+            reference->expected_layer_id = layer_id;
             reference->owner_target = false;
             return MWX_SCENE_QUICKJS_OK;
         }

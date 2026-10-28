@@ -5,6 +5,7 @@
 | 截止日期 | 专题 | 类型 | 文件 | 独有价值 | 当前权威 |
 |---|---|---|---|---|---|
 跨专题的[冷暖启动专项结算](../../history/cross-topic/wallpaper-startup-optimization-completed-2026-10-25.md)保留最终限定验收、原失败与 STOP；统一登记见[全仓历史索引](../../history/README.md)，不产生新的 Scene 任务。
+| 2026-10-29 | 动态实例寿命/视频资格 | 公共存储回收与限定原生对照 | [slot、旧句柄与视频余项](dynamic-layer-slot-lifetime-2026-10-29.md) | 原生6704出生/8存活、独立63层；337三轮轨道消融与官方正控未知分开 | [API](../capabilities/scenescript-api-coverage.md)、[视频](../capabilities/material-video-assets.md)、[队列](../roadmap/scene-open-breakpoint-queue.md) |
 | 2026-10-29 | Puppet动作失败半径 | 公共局部降级 | [附加动作与健康主体](puppet-additive-local-fallback-2026-10-29.md) | 原377六动作恢复、未知左手保留；结构与消费分离、原slot/required反例、独立323与官方STOP | [对象合同](../capabilities/advanced-object-coverage.md#puppet-additive-local-unavailable)、[队列](../roadmap/scene-open-breakpoint-queue.md) |
 | 2026-10-28 | Puppet线性冲量 | 三包重复拖动与能力边界 | [三轮、回退及整合](puppet-linear-impulse-2026-10-28.md) | 374/299/318三轮恢复；显式平移重力同Motion、坏物理逐骨降级 | [API](../capabilities/scenescript-api-coverage.md#puppet-linear-impulse)、[队列](../roadmap/scene-open-breakpoint-queue.md)、[对象能力](../capabilities/advanced-object-coverage.md) |
 | 2026-10-28 | 脚本初始化 | 全灰画面修复 | [跨类型初始化与余项](script-initialization-barrier-2026-10-28.md) | 原shared种子先于更新、事务重试及实际画面；跨层动画/相机API另留 | [API](../capabilities/scenescript-api-coverage.md)、[队列](../roadmap/scene-open-breakpoint-queue.md)、[运行证据](../capabilities/runtime-evidence-current.md) |

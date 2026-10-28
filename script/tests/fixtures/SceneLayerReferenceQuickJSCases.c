@@ -1,5 +1,6 @@
-#include "SceneQuickJS.h"
+#include "SceneQuickJSInternal.h"
 #include <stdio.h>
+#include <stdlib.h>
 #include <string.h>
 
 static char diagnostic[512];
@@ -7,6 +8,13 @@ static int failures;
 static int checks;
 static const char *first_layer_name = "Caption";
 static const char *second_layer_name = "Peer";
+static int64_t first_layer_id = 17, second_layer_id = 42;
+static int fail_layer_reference_allocation;
+
+void *layer_reference_calloc(size_t count, size_t size) {
+    if (fail_layer_reference_allocation) { fail_layer_reference_allocation = 0; return NULL; }
+    return calloc(count, size);
+}
 
 static void check(int condition, const char *label) {
     checks++;
@@ -29,7 +37,7 @@ static MWXSceneQuickJSDomain *domain(void) {
     for (uint32_t i = 0; i < 2; ++i) {
         const char *name = i == 0 ? first_layer_name : second_layer_name;
         check(mwx_scene_quickjs_domain_set_layer_runtime_descriptor(
-            d, i, i == 0 ? 17 : 42, 0, 0, name, strlen(name), zero, size,
+            d, i, i == 0 ? first_layer_id : second_layer_id, 0, 0, name, strlen(name), zero, size,
             one, zero, 1, 1, "seed", 4, "", 0, 12, one,
             diagnostic, sizeof(diagnostic)) == MWX_SCENE_QUICKJS_OK,
             "text descriptor publishes");
@@ -584,6 +592,226 @@ static void namespace_method_table(void) {
     mwx_scene_quickjs_domain_destroy(d);
 }
 
+static MWXSceneQuickJSLayerRecord *named_dynamic(MWXSceneQuickJSDomain *d, const char *name) {
+    for (uint32_t index = d->authored_layer_count; index < d->layer_count; ++index)
+        if (d->layers[index].configured && d->layers[index].name &&
+            strcmp(d->layers[index].name, name) == 0) return &d->layers[index];
+    return NULL;
+}
+
+static void dynamic_slot_reuse_and_retained_media(void) {
+    MWXSceneQuickJSDomain *d = domain();
+    MWXSceneQuickJSOwner *o = at(d,
+        "let current;export function update(v){"
+        "if(v==='create'||v==='replace'){current=thisScene.createLayer({name:v,text:'live'});"
+        "if(!current)throw Error('birth refused');}"
+        "if(v==='capture'){shared.old=current;shared.id=current.id;"
+        "const p=Object.getOwnPropertyDescriptor(current,'text');shared.get=p.get;shared.set=p.set;"
+        "shared.parent=current.getParent;shared.video=current.getVideoTexture();"
+        "shared.texture=current.getTextureAnimation();shared.play=current.play;"
+        "shared.video.addEndedCallback(()=>{shared.ended=true;});}"
+        "if(v==='destroy')thisScene.destroyLayer(current);"
+        "if(v==='verify'){const attempts=[()=>shared.old.text,()=>shared.old.alpha=0.2,"
+        "()=>shared.get.call({}),()=>shared.set.call({},'wrong'),()=>shared.parent(),"
+        "()=>shared.old.getVideoTexture(),()=>shared.old.getTextureAnimation(),"
+        "()=>shared.play(),()=>shared.video.play(),()=>shared.video.rate,"
+        "()=>shared.texture.play(),()=>shared.texture.rate];"
+        "for(const attempt of attempts){let stale=false;try{attempt();}catch(e){stale=e instanceof TypeError;}"
+        "if(!stale)throw Error('recycled attachment accepted');}"
+        "if(current.id>=shared.id||current.text!=='live'||shared.ended)throw Error('new incarnation changed');}"
+        "return v;}", 17, 91, 0);
+    run(o, 91, 1, "create", MWX_SCENE_QUICKJS_OK, NULL, "dynamic media carrier creates");
+    mwx_scene_quickjs_owner_commit_layer_mutations(o);
+    MWXSceneQuickJSLayerRecord *old = named_dynamic(d, "create");
+    check(old != NULL, "dynamic carrier is in original record store");
+    if (old == NULL) return;
+    const uint32_t slot = (uint32_t)(old - d->layers);
+    const int64_t old_id = old->layer_id;
+    // Inject provider observations to test handle identity, without adding a
+    // video/animation constructor or a media backend to this VM fixture.
+    old->video_available = old->texture_animation_available = old->sound_available = true;
+    old->video_rate = old->texture_animation_rate = 1;
+    run(o, 91, 2, "capture", MWX_SCENE_QUICKJS_OK, NULL, "native media references retain concrete identity");
+    mwx_scene_quickjs_owner_commit_layer_mutations(o);
+    run(o, 91, 3, "destroy", MWX_SCENE_QUICKJS_OK, NULL, "dynamic carrier retires");
+    mwx_scene_quickjs_owner_commit_layer_mutations(o);
+    check(!d->layers[slot].configured && d->free_dynamic_layer_head == slot,
+        "retained JS and media handles do not pin a retired C slot");
+    run(o, 91, 4, "replace", MWX_SCENE_QUICKJS_OK, NULL, "replacement reuses storage");
+    mwx_scene_quickjs_owner_commit_layer_mutations(o);
+    MWXSceneQuickJSLayerRecord *replacement = named_dynamic(d, "replace");
+    check(replacement == &d->layers[slot] && replacement->layer_id < old_id,
+        "same slot carries a different logical layer identity");
+    if (replacement == NULL) return;
+    replacement->video_available = replacement->texture_animation_available = replacement->sound_available = true;
+    replacement->video_rate = replacement->texture_animation_rate = 1;
+    replacement->video_ended_generation = 1;
+    mwx_scene_quickjs_begin_callback(o);
+    check(mwx_scene_quickjs_dispatch_video_ended_callbacks(o, diagnostic, sizeof(diagnostic)) == MWX_SCENE_QUICKJS_OK,
+        "retired EOF registration cannot observe replacement generation");
+    mwx_scene_quickjs_end_callback(o);
+    run(o, 91, 5, "verify", MWX_SCENE_QUICKJS_OK, NULL, "all retained native projections reject ABA");
+    check(mwx_scene_quickjs_owner_media_playback_command_count(o) == 0 &&
+        mwx_scene_quickjs_owner_texture_animation_command_count(o) == 0,
+        "stale media references stage no command for replacement");
+    mwx_scene_quickjs_owner_discard_layer_mutations(o);
+    check(mwx_scene_quickjs_owner_remove_dynamic_layers(o), "permanent owner removal releases live slot");
+    mwx_scene_quickjs_owner_destroy(o);
+    mwx_scene_quickjs_domain_destroy(d);
+}
+
+static void failed_newborn_and_peer_journal(void) {
+    MWXSceneQuickJSDomain *d = domain();
+    MWXSceneQuickJSOwner *a = at(d,
+        "let live;export function update(v){"
+        "if(v==='seed')live=thisScene.createLayer({name:'original',text:'old'});"
+        "if(v==='candidate'){thisScene.destroyLayer(live);"
+        "shared.candidate=thisScene.createLayer({name:'candidate',text:'new'});}"
+        "if(v==='verify'){for(const x of [shared.failed,shared.candidate]){let stale=false;"
+        "try{x.text='wrong';}catch(e){stale=e instanceof TypeError;}if(!stale)throw Error('failed handle revived');}"
+        "if(live.text!=='old')throw Error('previous current lost');}return v;}", 17, 91, 0);
+    MWXSceneQuickJSOwner *b = at(d,
+        "export function update(v){if(v!=='hold')thisScene.createLayer({name:'healthy',text:'peer'});return v;}", 42, 92, 0);
+    MWXSceneQuickJSOwner *rejected = at(d,
+        "export function update(v){shared.failed=thisScene.createLayer({name:'failed',text:'lost'});"
+        "throw Error('failed birth');}", 17, 93, 0);
+    run(a, 91, 1, "seed", MWX_SCENE_QUICKJS_OK, NULL, "existing dynamic instance commits");
+    mwx_scene_quickjs_owner_commit_layer_mutations(a);
+    run(b, 92, 2, "peer", MWX_SCENE_QUICKJS_OK, NULL, "peer holds shared journal");
+    run(rejected, 93, 2, "fail", MWX_SCENE_QUICKJS_EXCEPTION, "failed birth", "failed newborn is withdrawn");
+    MWXSceneQuickJSLayerRecord *failed = named_dynamic(d, "failed");
+    check(failed && failed->destroyed && d->free_dynamic_layer_head == UINT32_MAX,
+        "failed newborn slot remains quarantined while peer holds indices");
+    const int64_t failed_id = failed ? failed->layer_id : 0;
+    const uint32_t failed_slot = failed ? (uint32_t)(failed - d->layers) : UINT32_MAX;
+    run(a, 91, 3, "candidate", MWX_SCENE_QUICKJS_OK, NULL, "same owner can make a later candidate");
+    MWXSceneQuickJSLayerRecord *candidate = named_dynamic(d, "candidate");
+    check(candidate && candidate != failed && candidate->layer_id < failed_id,
+        "failed birth neither returns its logical ID nor its provisional slot");
+    mwx_scene_quickjs_owner_discard_layer_mutations(a);
+    mwx_scene_quickjs_owner_commit_layer_mutations(b);
+    check(failed_slot < d->layer_count && !d->layers[failed_slot].configured &&
+        named_dynamic(d, "candidate") == NULL && named_dynamic(d, "healthy") != NULL &&
+        named_dynamic(d, "original") != NULL && !d->dynamic_layer_topology_transaction_active,
+        "late rejection restores previous current and commits healthy peer");
+    run(a, 91, 4, "verify", MWX_SCENE_QUICKJS_OK, NULL, "retained rejected handles stay stale");
+    mwx_scene_quickjs_owner_discard_layer_mutations(a);
+    run(b, 92, 5, "hold", MWX_SCENE_QUICKJS_OK, NULL, "value-only peer retains its callback journal");
+    run(a, 91, 5, "candidate", MWX_SCENE_QUICKJS_OK, NULL, "healthy replacement waits for every participant");
+    mwx_scene_quickjs_owner_commit_layer_mutations(a);
+    check(named_dynamic(d, "original") && named_dynamic(d, "original")->destroyed &&
+        d->dynamic_layer_topology_participant_count == 0 &&
+        d->dynamic_layer_transaction_participant_count == 1,
+        "a non-topology peer also prevents slot reclamation");
+    mwx_scene_quickjs_owner_commit_layer_mutations(b);
+    check(named_dynamic(d, "original") == NULL, "last value participant releases settled indices");
+    check(mwx_scene_quickjs_owner_remove_dynamic_layers(a), "first owner teardown releases only its records");
+    check(named_dynamic(d, "healthy") != NULL, "peer survives unrelated owner teardown");
+    check(mwx_scene_quickjs_owner_remove_dynamic_layers(b), "peer teardown releases its records");
+    mwx_scene_quickjs_owner_destroy(a); mwx_scene_quickjs_owner_destroy(b);
+    mwx_scene_quickjs_owner_destroy(rejected);
+    mwx_scene_quickjs_domain_destroy(d);
+}
+
+static void stage_snapshot(MWXSceneQuickJSDomain *d, uint64_t generation, bool retire_peer) {
+    const double one[3] = {1, 1, 1}, zero[3] = {0, 0, 0};
+    check(mwx_scene_quickjs_domain_begin_layer_snapshot(d, generation, 0,
+        diagnostic, sizeof(diagnostic)) == MWX_SCENE_QUICKJS_OK, "shared snapshot begins");
+    for (uint32_t index = 0; index < d->authored_layer_count; ++index)
+        check(mwx_scene_quickjs_domain_update_layer_runtime_fields(d, index,
+            one, zero, retire_peer && index == 1, 1, 1, 0, 1, "seed", 4, "", 0, 12, one,
+            diagnostic, sizeof(diagnostic)) == MWX_SCENE_QUICKJS_OK, "authored snapshot stages");
+}
+
+static void snapshot_and_newborn_retirement(void) {
+    MWXSceneQuickJSDomain *d = domain();
+    MWXSceneQuickJSOwner *o = at(d,
+        "let live;export function update(v){"
+        "if(v==='seed')live=thisScene.createLayer({name:'original',text:'old'});"
+        "if(v==='replace'){thisScene.destroyLayer(live);thisScene.createLayer({name:'pending',text:'new'});}"
+        "if(v==='ephemeral'){const born=thisScene.createLayer({name:'ephemeral',text:'gone'});thisScene.destroyLayer(born);}"
+        "if(v==='pair'){thisScene.createLayer({name:'left',text:'l'});thisScene.createLayer({name:'right',text:'r'});}"
+        "return v;}", 17, 91, 0);
+    run(o, 91, 1, "seed", MWX_SCENE_QUICKJS_OK, NULL, "rollback baseline owns a live dynamic record");
+    mwx_scene_quickjs_owner_commit_layer_mutations(o);
+    stage_snapshot(d, 1, true);
+    check(mwx_scene_quickjs_domain_commit_layer_snapshot(d, diagnostic, sizeof(diagnostic)) == MWX_SCENE_QUICKJS_OK,
+        "snapshot with dynamic order baseline commits provisionally");
+    check(d->rollback_layer_order != NULL, "real rollback order retains dynamic indices");
+    run(o, 91, 2, "replace", MWX_SCENE_QUICKJS_OK, NULL, "replacement remains provisional");
+    mwx_scene_quickjs_owner_discard_layer_mutations(o);
+    MWXSceneQuickJSLayerRecord *pending = named_dynamic(d, "pending");
+    check(pending && pending->destroyed && d->free_dynamic_layer_head == UINT32_MAX,
+        "owner discard cannot recycle snapshot-owned indices");
+    check(mwx_scene_quickjs_domain_rollback_layer_snapshot(d), "shared rollback completes");
+    check(named_dynamic(d, "pending") == NULL && named_dynamic(d, "original") != NULL &&
+        !d->layers[1].destroyed && !d->dynamic_layer_topology_transaction_active,
+        "rollback restores old layer/order and releases only the rejected birth");
+    stage_snapshot(d, 2, false);
+    run(o, 91, 3, "ephemeral", MWX_SCENE_QUICKJS_OK, NULL, "newborn is destroyed in its birth callback");
+    mwx_scene_quickjs_owner_commit_layer_mutations(o);
+    check(named_dynamic(d, "ephemeral") != NULL &&
+        !mwx_scene_quickjs_owner_remove_dynamic_layers(o), "pending snapshot holds retirement and owner teardown");
+    mwx_scene_quickjs_domain_abort_layer_snapshot(d);
+    check(named_dynamic(d, "ephemeral") == NULL, "snapshot abort releases the settled tombstone");
+    run(o, 91, 4, "pair", MWX_SCENE_QUICKJS_OK, NULL, "free list admits two distinct live instances");
+    mwx_scene_quickjs_owner_commit_layer_mutations(o);
+    check(named_dynamic(d, "left") && named_dynamic(d, "right") &&
+        named_dynamic(d, "left") != named_dynamic(d, "right"),
+        "repeated CREATE/DESTROY journal indices enter free list exactly once");
+    check(mwx_scene_quickjs_owner_remove_dynamic_layers(o), "owner teardown succeeds after snapshot exits");
+    mwx_scene_quickjs_owner_destroy(o); mwx_scene_quickjs_domain_destroy(d);
+}
+
+static void sustained_dynamic_slot_lifetime(void) {
+    first_layer_id = -1; second_layer_id = -9;
+    MWXSceneQuickJSDomain *d = domain();
+    MWXSceneQuickJSOwner *o = at(d,
+        "let live,first,previous=0;export function update(v){"
+        "if(live)thisScene.destroyLayer(live);"
+        "live=thisScene.createLayer({name:'cycled',text:'live'});"
+        "if(!live||live.id>=previous||live.id>=-9)throw Error('identity/lifetime failure');"
+        "previous=live.id;if(!first)first=live;else{let stale=false;try{first.text;}"
+        "catch(e){stale=e instanceof TypeError;}if(!stale)throw Error('retained birth revived');}return v;}", -1, 91, 0);
+    unsigned completed = 0;
+    for (; completed < 5000; ++completed) {
+        MWXSceneQuickJSFrameInput frame = {.frame_time = 0.016, .runtime = completed};
+        char output[8]; size_t length = 0;
+        MWXSceneQuickJSResult result = mwx_scene_quickjs_owner_update_string(o, 91,
+            "cycle", 5, &frame, "", 0, "{}", 2, output, sizeof(output), &length,
+            diagnostic, sizeof(diagnostic));
+        if (result != MWX_SCENE_QUICKJS_OK || length != 5 || memcmp(output, "cycle", 5)) break;
+        mwx_scene_quickjs_owner_commit_layer_mutations(o);
+    }
+    check(completed == 5000, "more than 4096 births survive retained old JS references");
+    check(d->layer_count == d->authored_layer_count + 2 &&
+        mwx_scene_quickjs_layer_active_count(d) == 3 && d->next_dynamic_layer_id == -5010,
+        "native high-water is constant and IDs skip all prepared authored identities");
+    check(mwx_scene_quickjs_owner_remove_dynamic_layers(o), "sustained instance teardown is terminal");
+    mwx_scene_quickjs_owner_destroy(o); mwx_scene_quickjs_domain_destroy(d);
+    first_layer_id = 17; second_layer_id = 42;
+}
+
+static void failed_handle_construction(void) {
+    MWXSceneQuickJSDomain *d = domain();
+    MWXSceneQuickJSOwner *o = at(d,
+        "export function update(v){let caught=false;try{thisScene.createLayer({name:'cancelled',text:'lost'});}"
+        "catch(e){caught=true;}if(!caught)throw Error('allocation succeeded');"
+        "if(!thisScene.createLayer({name:'survivor',text:'live'}))throw Error('healthy birth refused');return v;}",
+        17, 91, 0);
+    fail_layer_reference_allocation = 1;
+    run(o, 91, 1, "fault", MWX_SCENE_QUICKJS_OK, NULL, "caught native handle allocation failure preserves healthy birth");
+    check(named_dynamic(d, "cancelled") && named_dynamic(d, "cancelled")->destroyed &&
+        named_dynamic(d, "survivor") && mwx_scene_quickjs_owner_layer_mutation_count(o) == 1,
+        "failed constructor keeps its identity quarantined without publishing a mutation");
+    mwx_scene_quickjs_owner_commit_layer_mutations(o);
+    check(named_dynamic(d, "cancelled") == NULL && named_dynamic(d, "survivor") &&
+        mwx_scene_quickjs_layer_active_count(d) == 3,
+        "committing a caught failure cannot replay its withdrawn CREATE");
+    check(mwx_scene_quickjs_owner_remove_dynamic_layers(o), "constructor fault leaves teardown complete");
+    mwx_scene_quickjs_owner_destroy(o); mwx_scene_quickjs_domain_destroy(d);
+}
+
 int main(void) {
     shared_lookup_case("thisScene.getLayer('Caption')", "shared.ref.text=v", 17, 0);
     shared_lookup_case("thisLayer", "shared.ref.text=v", 17, 0);
@@ -606,6 +834,11 @@ int main(void) {
     namespace_rejection_and_recovery();
     shared_basic_fields();
     namespace_method_table();
+    dynamic_slot_reuse_and_retained_media();
+    failed_newborn_and_peer_journal();
+    snapshot_and_newborn_retirement();
+    sustained_dynamic_slot_lifetime();
+    failed_handle_construction();
     printf("{\"checks\":%d,\"failures\":%d}\n", checks, failures);
     return failures ? 1 : 0;
 }

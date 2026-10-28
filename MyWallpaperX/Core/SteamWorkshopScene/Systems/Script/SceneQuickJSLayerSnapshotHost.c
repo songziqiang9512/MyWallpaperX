@@ -773,6 +773,7 @@ void mwx_scene_quickjs_domain_abort_layer_snapshot(
     MWXSceneQuickJSDomain *domain
 ) {
     clear_pending_snapshot(domain);
+    mwx_scene_quickjs_layer_finalize_topology(domain);
 }
 
 bool mwx_scene_quickjs_domain_rollback_layer_snapshot(
@@ -855,6 +856,7 @@ bool mwx_scene_quickjs_domain_rollback_layer_snapshot(
     domain->defaults_to_perspective = domain->rollback_defaults_to_perspective;
     domain->camera_transforms = domain->rollback_camera_transforms;
     clear_rollback_snapshot(domain);
+    mwx_scene_quickjs_layer_finalize_topology(domain);
     return true;
 }
 
@@ -862,6 +864,7 @@ void mwx_scene_quickjs_domain_finalize_layer_snapshot(
     MWXSceneQuickJSDomain *domain
 ) {
     clear_rollback_snapshot(domain);
+    mwx_scene_quickjs_layer_finalize_topology(domain);
 }
 
 MWXSceneQuickJSResult mwx_scene_quickjs_domain_update_layer_effects(

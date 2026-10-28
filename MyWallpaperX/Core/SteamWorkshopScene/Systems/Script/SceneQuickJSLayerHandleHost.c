@@ -95,8 +95,11 @@ MWXSceneQuickJSLayerRecord *mwx_scene_quickjs_layer_record_for_handle(
     if (!record->configured || record->destroyed) {
         return NULL;
     }
+    if (!handle->owner_target && record->layer_id != handle->expected_layer_id)
+        return NULL;
     if (record->dynamic) {
-        if (!handle->persistent || !same_owner) {
+        if (!handle->persistent || !same_owner ||
+            (handle->owner_target && record->layer_id != owner->text_clone_layer_id)) {
             return NULL;
         }
     } else if (!handle->owner_target && !handle->persistent &&
@@ -245,6 +248,7 @@ static bool define_get_children(
     *handle = (MWXSceneQuickJSLayerAccessHandle){
         .domain = owner->domain, .owner_identity = owner->identity,
         .layer_index = index,
+        .expected_layer_id = owner_target ? 0 : owner->domain->layers[index].layer_id,
         .callback_epoch = owner->domain->callback_epoch,
         .owner_target = owner_target, .persistent = persistent,
     };
@@ -287,6 +291,7 @@ static bool define_get_parent(
     *handle = (MWXSceneQuickJSLayerAccessHandle){
         .domain = owner->domain, .owner_identity = owner->identity,
         .layer_index = index,
+        .expected_layer_id = owner_target ? 0 : owner->domain->layers[index].layer_id,
         .callback_epoch = owner->domain->callback_epoch,
         .owner_target = owner_target, .persistent = persistent,
     };
@@ -307,6 +312,7 @@ static bool define_get_transform_matrix(
     *handle = (MWXSceneQuickJSLayerAccessHandle){
         .domain = owner->domain, .owner_identity = owner->identity,
         .layer_index = index,
+        .expected_layer_id = owner_target ? 0 : owner->domain->layers[index].layer_id,
         .callback_epoch = owner->domain->callback_epoch,
         .owner_target = owner_target, .persistent = persistent,
     };
@@ -334,6 +340,7 @@ JSValue mwx_scene_quickjs_layer_make_layer_handle(
     *identity = (MWXSceneQuickJSLayerAccessHandle){
         .domain = owner->domain, .owner_identity = owner->identity,
         .layer_index = index,
+        .expected_layer_id = owner->domain->layers[index].layer_id,
         .callback_epoch = owner->domain->callback_epoch,
         .owner_target = owner_target,
         .persistent = persistent,

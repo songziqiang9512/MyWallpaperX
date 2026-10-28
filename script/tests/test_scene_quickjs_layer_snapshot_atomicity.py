@@ -32,6 +32,12 @@ void mwx_scene_quickjs_write_diagnostic(
     snprintf(diagnostic, capacity, "%s", message == NULL ? "" : message);
 }
 
+/* This isolated snapshot harness has no layer journal. The combined real-VM
+ * reference gate covers recycling while journal and snapshot both own indices. */
+void mwx_scene_quickjs_layer_finalize_topology(MWXSceneQuickJSDomain *domain) {
+    if (domain->dynamic_layer_topology_transaction_active) abort();
+}
+
 static char *duplicate_string(const char *source) {
     size_t length = strlen(source);
     char *copy = malloc(length + 1);

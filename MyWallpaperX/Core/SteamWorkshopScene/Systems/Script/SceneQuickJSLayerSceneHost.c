@@ -336,6 +336,19 @@ static bool read_optional_perspective(JSContext *context, JSValueConst object,
     return valid;
 }
 
+static void cancel_created_layer(
+    MWXSceneQuickJSOwner *owner, MWXSceneQuickJSLayerRecord *record, size_t creation_operation
+) {
+    // A prepared text init can append operations after its own birth.
+    owner->domain->dynamic_layer_topology_operations[creation_operation].state =
+        MWX_SCENE_QUICKJS_DYNAMIC_LAYER_OPERATION_DISCARDED;
+    if (record->dirty && owner->layer_mutation_count > 0) owner->layer_mutation_count -= 1;
+    record->destroyed = true;
+    record->dirty = false;
+    record->dirty_owner_identity = 0;
+    record->dirty_fields = 0;
+}
+
 static JSValue create_layer(
     JSContext *context, JSValueConst this_value, int argc,
     JSValueConst *argv, int magic, void *opaque
@@ -360,7 +373,8 @@ static JSValue create_layer(
     // Creation is bounded by the shared scene capacity; the callback journal
     // independently limits the number of distinct records it can publish.
     if (scene_dynamic >= MWX_SCENE_QUICKJS_MAX_SCENE_DYNAMIC_LAYERS ||
-        domain->layer_count >= MWX_SCENE_QUICKJS_MAX_LAYERS ||
+        (domain->layer_count >= MWX_SCENE_QUICKJS_MAX_LAYERS &&
+         domain->free_dynamic_layer_head == UINT32_MAX) ||
         owner->layer_mutation_count >= MWX_SCENE_QUICKJS_MAX_LAYER_MUTATIONS)
         return JS_NULL;
     char *text = NULL, *font = NULL, *name = NULL;
@@ -529,19 +543,13 @@ static JSValue create_layer(
         free(text); free(font); free(name); free(asset_path);
         return JS_ThrowInternalError(context, "dynamic layer transaction unavailable");
     }
-    int64_t identity = -1;
-    for (;;) {
-        bool collision = false;
-        for (uint32_t i = 0; i < domain->layer_count; ++i)
-            if (domain->layers[i].configured && domain->layers[i].layer_id == identity) collision = true;
-        if (!collision) break;
-        if (identity <= -9007199254740991LL) {
-            free(text); free(font); free(name); free(asset_path);
-            return JS_ThrowInternalError(context, "dynamic layer identity exhausted");
-        }
-        identity -= 1;
+    if (domain->next_dynamic_layer_id < -9007199254740991LL) {
+        free(text); free(font); free(name); free(asset_path);
+        return JS_ThrowInternalError(context, "dynamic layer identity exhausted");
     }
-    const uint32_t index = domain->layer_count;
+    const int64_t identity = domain->next_dynamic_layer_id--;
+    const uint32_t index = domain->free_dynamic_layer_head != UINT32_MAX
+        ? domain->free_dynamic_layer_head : domain->layer_count;
     const int32_t insertion_order = mwx_scene_quickjs_layer_active_count(domain);
     if (!mwx_scene_quickjs_layer_journal_dynamic_layer_creation(owner, index)) {
         free(text); free(font); free(name); free(asset_path);
@@ -549,6 +557,7 @@ static JSValue create_layer(
             context, "dynamic layer creation journal exceeded"
         );
     }
+    const size_t creation_operation = domain->dynamic_layer_topology_operation_count;
     if (!mwx_scene_quickjs_layer_append_dynamic_layer_topology_operation(
             owner, MWX_SCENE_QUICKJS_DYNAMIC_LAYER_CREATE,
             index, insertion_order)) {
@@ -557,7 +566,8 @@ static JSValue create_layer(
             context, "dynamic layer topology operation journal exceeded"
         );
     }
-    domain->layer_count += 1;
+    if (index == domain->layer_count) domain->layer_count += 1;
+    else domain->free_dynamic_layer_head = domain->layers[index].next_free;
     MWXSceneQuickJSLayerRecord *record = &domain->layers[index];
     *record = (MWXSceneQuickJSLayerRecord){
         .layer_id = identity, .name = name, .text = text, .font = font,
@@ -572,27 +582,19 @@ static JSValue create_layer(
         .visible = visible, .solid = solid, .perspective = perspective, .dynamic = true, .configured = true,
     };
     if (!mwx_scene_quickjs_layer_mark_dirty(owner, record)) {
-        free(record->name);
-        free(record->text);
-        free(record->font);
-        free(record->asset_path);
-        *record = (MWXSceneQuickJSLayerRecord){0};
+        cancel_created_layer(owner, record, creation_operation);
         return JS_ThrowInternalError(context, "layer mutation buffer exceeded");
     }
     if (text_template_identity && !mwx_scene_quickjs_activate_text_clone(owner, index, text_template_identity)) {
         // Birth has occurred: even a caller catch cannot accept this bundle.
         owner->text_clone_failed = true;
+        cancel_created_layer(owner, record, creation_operation);
         return JS_NULL;
     }
     JSValue handle = mwx_scene_quickjs_layer_make_layer_handle(context, owner, index, true);
     if (JS_IsException(handle)) {
         if (text_template_identity) owner->text_clone_failed = true;
-        free(record->name);
-        free(record->text);
-        free(record->font);
-        free(record->asset_path);
-        *record = (MWXSceneQuickJSLayerRecord){0};
-        if (owner->layer_mutation_count > 0) owner->layer_mutation_count -= 1;
+        cancel_created_layer(owner, record, creation_operation);
     }
     return handle;
 }

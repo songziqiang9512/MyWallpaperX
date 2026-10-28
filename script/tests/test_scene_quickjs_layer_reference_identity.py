@@ -24,9 +24,18 @@ class SceneQuickJSLayerReferenceIdentityTest(unittest.TestCase):
         fixture = ROOT / "script/tests/fixtures/SceneLayerReferenceQuickJSCases.c"
         with tempfile.TemporaryDirectory(prefix="mwx-layer-reference-") as temporary:
             binary = Path(temporary) / "layer-reference"
+            handles = VM / "SceneQuickJSLayerHandleHost.c"
+            handles_object = Path(temporary) / "layer-handles.o"
+            staged = subprocess.run(
+                [clang, "-std=c11", "-O0", "-I", str(VM), "-I", str(QUICKJS),
+                 "-Dcalloc=layer_reference_calloc", "-c", str(handles), "-o", str(handles_object)],
+                cwd=ROOT, capture_output=True, text=True,
+            )
+            self.assertEqual(staged.returncode, 0, staged.stdout + staged.stderr)
             compilation = subprocess.run(
                 [clang, "-std=c11", "-O0", "-I", str(VM), "-I", str(QUICKJS),
-                 *map(str, C_SOURCES), str(fixture), "-lm", "-o", str(binary)],
+                 *map(str, (path for path in C_SOURCES if path != handles)),
+                 str(handles_object), str(fixture), "-lm", "-o", str(binary)],
                 cwd=ROOT, capture_output=True, text=True,
             )
             self.assertEqual(compilation.returncode, 0,

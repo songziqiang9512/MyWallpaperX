@@ -1308,15 +1308,7 @@ void mwx_scene_quickjs_domain_destroy(MWXSceneQuickJSDomain *domain) {
         free(domain->storage_screen_identity);
         if (domain->layers != NULL) {
             for (uint32_t index = 0; index < domain->layer_count; ++index) {
-                for (uint32_t e = 0; e < domain->layers[index].effect_count; ++e)
-                    free(domain->layers[index].effect_names[e]);
-                free(domain->layers[index].effect_names);
-                free(domain->layers[index].effect_visible);
-                free(domain->layers[index].name);
-                free(domain->layers[index].text);
-                free(domain->layers[index].font);
-                free(domain->layers[index].asset_path);
-                js_free(domain->context, domain->layers[index].initial_configuration);
+                mwx_scene_quickjs_layer_release_record(domain, &domain->layers[index]);
             }
             free(domain->layers);
         }

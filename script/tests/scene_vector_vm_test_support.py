@@ -278,11 +278,14 @@ struct SceneDocument {
 
 struct SceneRenderDescriptor {
     typealias CameraPath = SceneDocument.Scene2DCameraPathDefinition
-    // External descriptor carrier: these VM gates only inspect HDR presence.
+    // External descriptor inputs; camera projection and VM behavior use product code.
     // The Bloom-specific gate replaces this field with the production config.
     struct Bloom { var hdr: Bool? = nil }
     struct Camera {
         var bloom = Bloom()
+        var eye: [Float] = [0, 0, 0]
+        var center: [Float] = [0, 0, -1]
+        var up: [Float] = [0, 1, 0]
         var parallaxEnabled = false
         var orthoWidth: Float? = nil
         var orthoHeight: Float? = nil
@@ -291,6 +294,7 @@ struct SceneRenderDescriptor {
         var nearZ: Float = 0.01
         var farZ: Float = 10000
     }
+    typealias CameraDescriptor = Camera
     var camera = Camera()
     struct ModelMaterialLink {
         let modelPath: String

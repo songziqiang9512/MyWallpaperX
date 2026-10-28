@@ -124,6 +124,7 @@ bool mwx_scene_quickjs_define_particle_instance(
     MWXSceneQuickJSLayerAccessHandle identity = {
         .domain = owner->domain, .owner_identity = owner->identity,
         .layer_index = index, .callback_epoch = owner->domain->callback_epoch,
+        .expected_layer_id = owner_target ? 0 : owner->domain->layers[index].layer_id,
         .owner_target = owner_target, .persistent = persistent,
     };
     MWXSceneQuickJSLayerAccessHandle *handle = copy_instance_handle(&identity);

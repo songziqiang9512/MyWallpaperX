@@ -96,6 +96,7 @@ typedef struct MWXSceneQuickJSLayerAccessHandle {
     MWXSceneQuickJSDomain *domain;
     uint64_t owner_identity;
     uint32_t layer_index;
+    int64_t expected_layer_id;
     uint64_t callback_epoch;
     bool owner_target;
     bool persistent;
@@ -154,6 +155,7 @@ typedef struct MWXSceneQuickJSLayerRecord {
     uint64_t owner_identity;
     uint64_t dirty_owner_identity;
     uint32_t dirty_fields;
+    uint32_t next_free;
     bool visible;
     bool solid;
     uint32_t perspective;
@@ -414,6 +416,8 @@ struct MWXSceneQuickJSDomain {
     MWXSceneQuickJSLayerRecord *layers;
     uint32_t layer_count;
     uint32_t authored_layer_count;
+    uint32_t free_dynamic_layer_head;
+    int64_t next_dynamic_layer_id;
     uint32_t configured_layer_runtime_count;
     MWXSceneQuickJSAssetPathNormalizer asset_path_normalizer;
     MWXSceneQuickJSDynamicImageRecord *dynamic_image_resources;
@@ -429,7 +433,6 @@ struct MWXSceneQuickJSDomain {
     // journal lets the domain replay only committed/pending owner ranges when
     // one owner is rejected, without a second layer/renderer registry.
     bool dynamic_layer_topology_transaction_active;
-    uint32_t dynamic_layer_topology_baseline_layer_count;
     size_t dynamic_layer_topology_baseline_order_count;
     uint32_t dynamic_layer_topology_baseline_order[
         MWX_SCENE_QUICKJS_MAX_LAYERS
@@ -716,6 +719,9 @@ void mwx_scene_quickjs_owner_begin_layer_mutations(MWXSceneQuickJSOwner *owner);
 void mwx_scene_quickjs_owner_discard_layer_mutations(MWXSceneQuickJSOwner *owner);
 void mwx_scene_quickjs_compact_layer_order(MWXSceneQuickJSDomain *domain);
 bool mwx_scene_quickjs_owner_remove_dynamic_layers(MWXSceneQuickJSOwner *owner);
+void mwx_scene_quickjs_layer_release_record(
+    MWXSceneQuickJSDomain *domain, MWXSceneQuickJSLayerRecord *record);
+void mwx_scene_quickjs_layer_finalize_topology(MWXSceneQuickJSDomain *domain);
 MWXSceneQuickJSResult mwx_scene_quickjs_dispatch_video_ended_callbacks(
     MWXSceneQuickJSOwner *owner, char *diagnostic, size_t diagnostic_capacity
 );

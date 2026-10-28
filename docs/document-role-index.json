@@ -709,13 +709,13 @@
       "role": "stable-contract",
       "entrypoint": "docs/README.md",
       "currentStateAuthority": "docs/scene/capabilities/coverage-ledger.md",
-      "lastReviewed": "2026-10-26",
+      "lastReviewed": "2026-10-29",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "d927476596ca9f482546dd1830dac77a80021825913b648446fd705453f04e18",
+        "sourceSHA256": "bbadb587e800684f1d6f3c97ed30340b1686ceb5eeaee11a50d04893c6df7e0e",
         "method": "document_registry --audit + document_health --check",
-        "scope": "P20模型数量/路径准入合同及有界Builder/Root/native结果指针同步；仅复核当前正文、角色与导航，其余能力和历史边界保留。",
-        "limitations": "这是导航与文档治理复核，不代表源码、编译、运行、视觉、性能、真实账号或发布复验；不重授旧证据的适用范围。"
+        "scope": "动态逻辑身份/slot共同回收合同与实际限定后验同步；修正旧64动态上限文案，337普通播放首错与性能资格分界、保净零出生待验。",
+        "limitations": "导航收据不替代实际运行；原生C寿命与独立样本只按批次历史已验范围，动态视频/官方身份、HDR多屏及稳定整体性能仍未闭。"
       }
     },
     {
@@ -999,10 +999,10 @@
       "lastReviewed": "2026-10-29",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "da0eecb54d315407cab4e807f0f514f484f9b1bcee409e824cee053435c2a198",
+        "sourceSHA256": "0795b63f38de8ef6604250036d94b620a8efa6dd17d21717856fe3687de23639",
         "method": "document_registry --audit + document_health --check",
-        "scope": "仅同步已知post-bounds结构与播放资格分离、原377健康主体动作的局部恢复与独立323；补颜色四格正控失格。其余正文未重审。",
-        "limitations": "未知scalar/变化reference消费者、完整混合/官方phase、HDR/多屏和性能未闭；不因旧记录外推当前整体结果。"
+        "scope": "动态逻辑身份/slot共同回收合同与实际限定后验同步；修正旧64动态上限文案，337普通播放首错与性能资格分界、保净零出生待验。",
+        "limitations": "导航收据不替代实际运行；原生C寿命与独立样本只按批次历史已验范围，动态视频/官方身份、HDR多屏及稳定整体性能仍未闭。"
       }
     },
     {
@@ -1122,13 +1122,13 @@
       "role": "current-state",
       "entrypoint": "docs/scene/capabilities/README.md",
       "purpose": "限定专题的实现状态、偏差或证据；运行结论须复核身份和边界，不决定任务顺序。",
-      "lastReviewed": "2026-10-28",
+      "lastReviewed": "2026-10-29",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "661e9ee8bd917f994c287358ec32e458540e8762919d31f575efd17cdc34a49a",
+        "sourceSHA256": "d1a5ea454138e886e5527061a420a38fb8fc9b96b2db5afa33a1744b9e5b130c",
         "method": "document_registry --audit + document_health --check",
-        "scope": "仅同步显式m/gd纯平移world持续力、坏physics逐骨失败及374/299/318三轮；保旧线性冲量与临时证据失效边界，移除已闭318交互队列，不升级整样本。",
-        "limitations": "未知缺省m/gd、角物理/IK/rope、宽parent链、官方动态相位/HDR/多屏及性能未验；其他专题未重审。"
+        "scope": "动态逻辑身份/slot共同回收合同与实际限定后验同步；修正旧64动态上限文案，337普通播放首错与性能资格分界、保净零出生待验。",
+        "limitations": "导航收据不替代实际运行；原生C寿命与独立样本只按批次历史已验范围，动态视频/官方身份、HDR多屏及稳定整体性能仍未闭。"
       }
     },
     {
@@ -1793,6 +1793,20 @@
       "commandPolicy": "historical-only",
       "currentAuthorities": [
         "docs/scene/capabilities/scenescript-api-coverage.md",
+        "docs/scene/roadmap/scene-open-breakpoint-queue.md"
+      ]
+    },
+    {
+      "path": "docs/scene/history/dynamic-layer-slot-lifetime-2026-10-29.md",
+      "role": "historical-evidence",
+      "entrypoint": "docs/scene/history/README.md",
+      "cutoffDate": "2026-10-29",
+      "uniqueValue": "动态slot与逻辑ID分离、原生6704次出生/8存活与独立63层；337供帧轨道消融、未资格官方实例与新生净零边界分列。",
+      "commandPolicy": "historical-only",
+      "currentAuthorities": [
+        "docs/scene/roadmap/batch2/script-component-api-design.md",
+        "docs/scene/capabilities/scenescript-api-coverage.md",
+        "docs/scene/capabilities/material-video-assets.md",
         "docs/scene/roadmap/scene-open-breakpoint-queue.md"
       ]
     },
@@ -4319,13 +4333,13 @@
       "role": "active-plan",
       "entrypoint": "docs/scene/roadmap/batch2/batch2-design-index.md",
       "retirementCondition": "公开 API 的限定表面、生命周期与预算通过双侧事务门并归入唯一脚本合同后归档，设计登记随实施关闭。",
-      "lastReviewed": "2026-10-28",
+      "lastReviewed": "2026-10-29",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "577139d3bca9dc83306880da907b9b90c554f593514f13b272794405889c0f76",
+        "sourceSHA256": "d1d1b1880a1e0eac8437f9e9d170ef550e1108221463bca065e6419b4595fd8e",
         "method": "document_registry --audit + document_health --check",
-        "scope": "仅同步显式m/gd纯平移world持续力、坏physics逐骨失败及374/299/318三轮；保旧线性冲量与临时证据失效边界，移除已闭318交互队列，不升级整样本。",
-        "limitations": "未知缺省m/gd、角物理/IK/rope、宽parent链、官方动态相位/HDR/多屏及性能未验；其他专题未重审。"
+        "scope": "动态逻辑身份/slot共同回收合同与实际限定后验同步；修正旧64动态上限文案，337普通播放首错与性能资格分界、保净零出生待验。",
+        "limitations": "导航收据不替代实际运行；原生C寿命与独立样本只按批次历史已验范围，动态视频/官方身份、HDR多屏及稳定整体性能仍未闭。"
       }
     },
     {
@@ -4417,13 +4431,13 @@
       "role": "active-plan",
       "entrypoint": "docs/scene/README.md",
       "retirementCondition": "当队列中的公共 authored target 首断点关闭，后续只剩路线 P0/P3/P4/P5 的系统性验收，且不再需要该派生执行入口时，删除或转为 historical-evidence。",
-      "lastReviewed": "2026-10-28",
+      "lastReviewed": "2026-10-29",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "4864e185c18e4f1ce946ee8f24d0da2dadda9b7ae1a7262fa3ce2b0a25f33b2d",
+        "sourceSHA256": "e4ce24edf97fe099a2e6110398377590f0b2586f08f49f182675c03b471a3259",
         "method": "document_registry --audit + document_health --check",
-        "scope": "仅同步显式m/gd纯平移world持续力、坏physics逐骨失败及374/299/318三轮；保旧线性冲量与临时证据失效边界，移除已闭318交互队列，不升级整样本。",
-        "limitations": "未知缺省m/gd、角物理/IK/rope、宽parent链、官方动态相位/HDR/多屏及性能未验；其他专题未重审。"
+        "scope": "动态逻辑身份/slot共同回收合同与实际限定后验同步；修正旧64动态上限文案，337普通播放首错与性能资格分界、保净零出生待验。",
+        "limitations": "导航收据不替代实际运行；原生C寿命与独立样本只按批次历史已验范围，动态视频/官方身份、HDR多屏及稳定整体性能仍未闭。"
       }
     },
     {

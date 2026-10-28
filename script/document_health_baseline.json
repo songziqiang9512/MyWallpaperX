@@ -66,7 +66,7 @@
     },
     "docs/scene/architecture/runtime-architecture.md": {
       "lines": 600,
-      "bytes": 134673
+      "bytes": 134715
     },
     "docs/scene/architecture/runtime-as-built-map.md": {
       "lines": 158,
@@ -150,7 +150,7 @@
     },
     "docs/scene/capabilities/runtime-evidence-current.md": {
       "lines": 600,
-      "bytes": 220733
+      "bytes": 219778
     },
     "docs/scene/capabilities/runtime-input-property-coverage.md": {
       "lines": 600,
@@ -182,7 +182,7 @@
     },
     "docs/scene/capabilities/scenescript-api-coverage.md": {
       "lines": 419,
-      "bytes": 116578
+      "bytes": 116576
     },
     "docs/scene/capabilities/static-source-draw-only-degradation.md": {
       "lines": 54,
@@ -249,8 +249,8 @@
       "bytes": 5522
     },
     "docs/scene/roadmap/batch2/script-component-api-design.md": {
-      "lines": 600,
-      "bytes": 166488
+      "lines": 599,
+      "bytes": 164512
     },
     "docs/scene/roadmap/batch2/system-media-input-design.md": {
       "lines": 59,
@@ -277,8 +277,8 @@
       "bytes": 22423
     },
     "docs/scene/roadmap/scene-open-breakpoint-queue.md": {
-      "lines": 168,
-      "bytes": 33588
+      "lines": 169,
+      "bytes": 33961
     },
     "docs/web/cold-descriptor-parse-offload-design.md": {
       "lines": 30,
@@ -1431,15 +1431,6 @@
     },
     {
       "section": "bodies",
-      "path": "docs/scene/architecture/runtime-architecture.md",
-      "before": "4f9eb7fc04d43e36f36d64f34dd3bb8f40afbd6e8179212138d9ef6380785bf3",
-      "after": "851be0006cec6ef0eb85d82cf9a45f1a6b6494b34f75fd7bfa665374291ba640",
-      "owner": "Scene模型准备与运行架构",
-      "reason": "P20退役模型64部件/4096路径固定政策；同步实际Root/Builder/native正反例、原输入对照、当前边界和治理指针，其他预算不变。",
-      "decision": "docs/development/validation-simplification-plan.md#p20-mdl-policy-retirement"
-    },
-    {
-      "section": "bodies",
       "path": "docs/scene/architecture/runtime-as-built-map.md",
       "before": "c67828ee5b8bb077f95a301262d941a85399d77d2eba411ea07088f73716772a",
       "after": "e9157f09976a8c38b9cd73c24d1af0046a1c077df1742329a8c790cdca06654c",
@@ -1782,12 +1773,21 @@
     },
     {
       "section": "bodies",
+      "path": "docs/scene/architecture/runtime-architecture.md",
+      "before": "851be0006cec6ef0eb85d82cf9a45f1a6b6494b34f75fd7bfa665374291ba640",
+      "after": "c31c83b1b22ed0dccfcc07aabf07febaa25011f4eb01dd16c113ccb86c6fbc98",
+      "owner": "Scene dynamic slot lifetime",
+      "reason": "原domain区分逻辑身份与存储、共同事务结束后复用；修正旧特殊资源/动态上限叙述，记录337真实首错及独立净零出生候选，未把视频/性能未知记完成。",
+      "decision": "docs/scene/history/dynamic-layer-slot-lifetime-2026-10-29.md"
+    },
+    {
+      "section": "bodies",
       "path": "docs/scene/roadmap/scene-open-breakpoint-queue.md",
-      "before": "f0f6710d911db4e9790181b9a74c0225f0c61ec4fe9df5d057441f0aac39e85d",
-      "after": "6c7d98cea09b4ea1288b3b856db4f0b99e44e5d1b7212b620620e48c8b29ab8f",
-      "owner": "Scene additive local fallback",
-      "reason": "用既有preparedMap隔离未支持additive，结构/消费边界与实际原377六动作恢复、左手仍开放；合并旧state1/auxiliary状态，证据细节只归历史，保direct及未知语义边界。",
-      "decision": "docs/scene/history/puppet-additive-local-fallback-2026-10-29.md"
+      "before": "6c7d98cea09b4ea1288b3b856db4f0b99e44e5d1b7212b620620e48c8b29ab8f",
+      "after": "e87ff560bd33ecdba17391fde81182eb27afcefdb798fec5776808735cc058cd",
+      "owner": "Scene dynamic slot lifetime",
+      "reason": "原domain区分逻辑身份与存储、共同事务结束后复用；修正旧特殊资源/动态上限叙述，记录337真实首错及独立净零出生候选，未把视频/性能未知记完成。",
+      "decision": "docs/scene/history/dynamic-layer-slot-lifetime-2026-10-29.md"
     }
   ]
 }

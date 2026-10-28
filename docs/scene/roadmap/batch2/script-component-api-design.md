@@ -133,15 +133,11 @@ handle 安装失败在清理前保留真实异常及 effect/layer/object 阶段�
 
 验收分两层：自有真实 VM 证明 935 及更高 owner 数构造/更新，有限 heap 超限、低预算、作者 null/accessor、peer/stale/detached handle 与清理反例继续成立；Swift 最近门证明默认 native 16 MiB 和 custom/native override 相互独立。随后固定源码/App/未改作者字节的隔离原包验证开场退出、后续动画/显隐与交互，并用未参与修复的样本检查邻接行为。只有真实画面链成立才记本片完成；Debug build、owner 数、ready 或非黑不能替代播放验收。
 
-## 初始图层配置后继（2026-10-12，实施中）
+## 初始图层配置后继（2026-10-12，作者层已实施）
 
-N06 真实脚本通过 `getInitialLayerConfig` 读取作者配置，再提取 image/size 或 text 字段交给既有 createLayer；本片优先恢复可由现役普通图片资源消费的原层脚本，不承诺完整 clone、Puppet 或 composition。官方 2.8.0.42 自有黑盒已证 String 名称、Number 顺序、ILayer 三入口返回原作者字段的独立对象，保留 script/value wrapper、string size 和未知作者字段，去除顶层 id；运行中的属性写入不改变初始配置；找不到名称或序号返回 null。同一 R2 实验已证嵌套数组/对象的副本隔离，动态 createLayer 的普通 Object 配置亦保留创建时深副本。不得推测 wrapper 展开。
+原authoredValue沿descriptor/catalog保存准备期不可变配置；getter按name/index/ILayer只复制所求对象、去顶层id并保wrapper，不从当前值重建或逐帧解析整图。快照由原domain/record释放；缺配置不伪造，读取成功不授任意create资源。三入口、副本隔离、实时值不污染及原包/独立输入结果归[后验](../../history/initial-layer-configuration-2026-10-12.md)，当前开放表面归[API](../../capabilities/scenescript-api-coverage.md)。
 
-数据沿现 `SceneObject.authoredValue → SceneRenderDescriptor.Layer → QuickJS layer catalog`；保留原始配置，不从当前帧逆构造。配置参与 load/configuration 阶段 catalog identity，初始化期间解析一次并保存 QuickJS 自有的对象序列化快照；getter 用 VM 原生对象反序列化返回独立对象，不重新解析作者 JSON、编译脚本或建立场景图。只复制调用者请求的配置，不做普通帧整图序列化。快照归现 domain/layer record，跟随其销毁释放，不新增状态库、renderer 或 lifecycle owner。缺少配置证据的合成 descriptor 不伪造作者配置。
-
-本片仅开放 prepared 作者层配置读取；动态层 getter 明确报告 unavailable，旧 createLayer 不增加配置遍历或新的准入要求。官方已证动态 Object 的创建时深副本，但暂不实施：直接对任意动态参数调用 VM 序列化会读取数组 index getter（含稀疏数组原型上的 getter），为旧 create 引入额外脚本副作用；当前目标脚本不读取动态层初始配置，为此新增递归对象图准入收益不足。后继须先证明无新增 getter/Proxy 副作用及事务兼容，再复用当前接口开放，不能用当前值回填。
-
-接口复用现层名称/顺序解析及带代次的 handle 校验。现值、事务和资源仍由原 owner 负责；读取初始配置不代表 createLayer 已能消费其中所有字段。对不支持的资源保持局部拒绝，不能把 Puppet 扁平化或对缺少 provider 返回假成功。验收覆盖三入口、嵌套副本隔离、实时值不污染初始值、缺层/旧句柄、配置 identity 变化、现 create/destroy/rollback；真实 App 则核对原 34 个失败 target 的实际分布、普通图片模板复用与实际脚本角度输出，不以方法存在或截图非黑计完成。
+动态层配置getter仍unavailable：任意参数序列化会触发indexed/inherited getter，不因本轮槽回收增加递归准入或改旧create副作用。后继须先证无新增getter/Proxy执行及事务兼容，不能用当前值回填。
 
 <a id="prepared-text-clone"></a>
 ## 已准备文字 wrapper 动态实例（2026-10-15，有界实施）
@@ -214,15 +210,7 @@ size 是只读创建几何：C 原 layer record/journal 保存已验证的创建
 
 ## Program 公共图片资源需求准备后继（2026-10-12）
 
-本片闭合相同直接图片请求只因 owner 返回类型不同而缺少 prepared 资源的断链。现 Boolean visibility 来源分析独占 DeviceResourcesTask 的动态 model 集合；Scalar、Vector、String 与 standalone Cursor 已有合法 VM mutation 消费者，却没有同等资源准备和作者 canonical 映射。文字 script/user wrapper 的独立动态绑定另有生命周期职责；本片不取 value 冒充完整支持。资源发现是准备期依赖，不改变任何 owner 的副作用权限。
-
-选用原 SceneScriptValueOwner 共同构造入口，复用唯一 ReferenceAnalysis 与 domain 的现 layer catalog model identity；仅成功构造、通过原各族 projection/冲突与 route 过滤的 owner 将 canonical model 需求并入该 domain。每个 owner 的原 alias 配置同时保留其自己的作者路径映射，不设置全局 alias。Boolean effect/Puppet 等既有 value-only/禁止层命令边界不因发现资源而变为 effectful。失败候选 domain 整体退出，最终 construction report 与 media-route 固定点选出的 domain 才提供资源需求，不扫描所有 bindings 或预加载全目录。模块顶层 create 仍早于 owner/catalog 安装，不宣称支持。
-
-原 DeviceResourcesTask 保留 metadata 阶段、静态 GPU 准备与 CPU Program 编译重叠；原 condition 接收最终 Program 需求一次，原 BaseImageResources 动态准备循环继续使用同 loader/device/generation。该等待只在 launch worker，不进入普通帧；空集合也明确完成。失败/取消唤醒等待者并沿原 task join 清理，不发布半准备 context；不另建资源任务、loader、namespace 或 registry。现 QuickJS candidate 的四族 plannedOwnerSources 目录共用原各族 projection/unique/exclusion，准备期依赖上界通过同 ReferenceAnalysis 提供给原 material color lowering；带脚本颜色的同模型请求得到原唯一颜色 owner，不重编整个 owner。原 Vector visibility 直接引用退出其作为唯一材质依赖、GPU 需求和 owner alias 的角色。上界只表示可准备候选，最终成功 domain 决定实际 GPU 需求。
-
-ReferenceAnalysis 保留原有限 literal grammar（直接 String、平面 Object image 字段与现 workshop identity），由现 lexer 的 reference-token mode 排除注释/字符串伪请求，原请求 regex 退出；transition 子集 grammar 不变；该模式只服务所列 literal lane，不声明完整 JavaScript 词法或复杂 regexp/template 依赖分析。同 owner 的 helper/未知引用不再清空独立合法 literal。无法静态发现的参数、变量路径、registered handle、嵌套配置与模板表达式仍未闭合，缺 prepared 资源返回原局部 null。不得通过新 regex 分支或源码执行补这些语法。每个请求独立做原根内路径与可用 model 解析，未知请求不扩失败半径。
-
-验收从原 Program→真实 VM→canonical mutation→原 prepared 动态资源消费者贯通四族；覆盖变量/资源改名与等价表达式、同 owner 合法 literal 加未知 helper、注释/字符串/text-only 假引用、不接纳/冲突 owner、两 owner 相同 raw literal 不同 canonical、原 Boolean 能力隔离。原 task 的 CPU 受控后端门覆盖 metadata 后等待与最终需求交接、空需求、取消和早失败；该门不运行 Metal，也不证明实际 load 次数。唯一动态 GPU 准备循环由源码职责审查及独立实际运行验证。独立运行侧用四族同材质图片和冻结变体检验真实四格像素，另保留未参与修改的真实输入。本片不证明完整 JS 依赖发现、动态文字 wrapper、官方全域兼容或性能验收。
+四族已实施：成功的原ValueOwner经唯一ReferenceAnalysis汇合准备期literal model需求与owner-local canonical alias；最终domain由原DeviceResourcesTask condition接收一次，沿同loader/device/generation继续唯一GPU循环，metadata/Program并行、取消/失败join保持。有限literal grammar排除注释/伪引用，未知helper不抹去合法peer；未知动态参数仍局部null，不加regex或执行源码来发现依赖。资源需求不授Boolean/value-only副作用、不扫全bindings或目录，也不新增资源owner。原四格/变体/取消及实际消费者资格归[公共准备后验](../../history/shared-script-resource-preparation-2026-10-12.md)；普通帧不再做发现、解析或准备。
 
 ## 静态普通图片的准备几何后继（2026-10-12）
 
@@ -233,6 +221,17 @@ ReferenceAnalysis 保留原有限 literal grammar（直接 String、平面 Objec
 同一 prepared size 结果一次覆盖 runtime/authored descriptor 的 sizeWH，保持 initialConfiguration 作者快照、size 原字段及其它属性不变。RuntimeInput 从准备后的 descriptor 构造现计划；所有 Script catalog、只读 getter、Cursor admission/local pixel、matrix、capture/effect/direct draw 消费相同几何值。普通帧不查文件、重读 header、重新解析模型、重建 Program 或维护额外图层状态。资源失败仍由原最小层资源消费者局部降级，metadata 成功不等于纹理或绘制成功。
 
 验收沿原准备 owner、原真实 descriptor builder 和 VM catalog，覆盖自然尺寸不同于上传尺寸、同资源不同作者尺寸、显式/省略、资源与变量改名、等价表达式以及相邻专用资源/模型声明/显式零尺寸不误命中。deferred 必须证明 metadata 可用于几何而加载次数仍为零、outcome 缺席且状态 pending，随后原 worker ready/失败/取消保持原生命周期。真实 App 使用既有合法自有普通模型矩阵与独立 heldout，仅声明实测范围，不从大部分作者 size 恰等于自然尺寸推断新增画面收益或性能结论。
+
+<a id="dynamic-layer-slot-lifetime"></a>
+## 动态实例槽位寿命（2026-10-29，有界已实施）
+
+**目标与差距。** 合法脚本可持续销毁/创建图层；当前 C record 只追加至4096，失败出生又可能重发负 ID。保留旧 JS handle 的作者会遇到容量耗尽，直接回收则可能把旧 handle、journal 或 rollback 索引指向新对象。本片只替换实例存储记账，不增加 create 资源能力、播放时钟、事务或 renderer。
+
+**唯一职责。** 原 domain 区分永不复用的逻辑 layer ID 与可回收的 C slot：负 ID 单调发放，失败/回滚出生也消耗 ID，跳过 authored ID，保现 safe-integer 边界；authored prefix 不回收。原 layers 数组以 high-water mark 配合 free-head/record next-free 复用空槽，避免每次出生重扫全表。所有能访问动态槽的 layer/property/playback handle 复用现 `LayerAccessHandle` 与唯一 resolver，携带 `expectedLayerID`，在实际取 record 时比较一次。video/texture-animation 的重复资源 handle lookup 退役；text clone 消费现有 layer ID，authored-only Effect/Timeline/Puppet handle 不另加代次。
+
+**提交与释放。** destroy 和失败 newborn 先保留 tombstone；作者仍持有旧 JS 对象不阻挡 native 回收。原 domain journal 必须保留到最后一次重放、全部 value/topology participant 退出，且 layer/text-clone pending/rollback snapshot 与 order baseline 都已终结。沿现 finalize/rollback/abort 边界调用同一原 owner 内的终结函数，仅遍历 journal 触及的 CREATE/DESTROY indices，释放最终 destroyed 的动态 payload 并链接空槽，再清 journal；不新增逐帧全表扫描、retire queue 或 Swift 调度。构造失败须撤其 CREATE，不能被 replay 复活。owner teardown 复用现扫描并遵守同一共同边界。字符串/配置释放合并进原 record 释放职责，保各自 allocator 与 exact-once。
+
+**失败、验收与退出。** active/同事务超额仍局部拒绝，不能提前重用 index-only baseline 或扩张 peer 失败半径。现 VM/journal 门补同槽 ABA（对象/方法/媒体 handle）、失败出生后 retained handle、同帧多 owner 接纳/拒绝、newborn 当帧销毁、snapshot rollback、延迟 callback 与超过4096次跨帧循环；旧 handle 不得读写新实例，high-water 与 active 容量有界。最近C/ASAN、Debug与原生持续构造及独立真实消费者已验，限定结果见[后验](../../history/dynamic-layer-slot-lifetime-2026-10-29.md)，不外推动态视频或性能；旧负 ID 查找、append-only 槽位和重复媒体 lookup 同批退役。动态视频入口及重建是否保持媒体相位由[媒体合同](../../capabilities/material-video-assets.md)另裁，不能用本片猜测。
 
 ## 图层排序与共同候选同步
 

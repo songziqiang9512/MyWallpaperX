@@ -363,6 +363,10 @@ int main(void) {
         peer, 101, 2, MWX_SCENE_QUICKJS_OK, 12,
         "peer owner precondition"
     );
+    // Production closes every callback journal at the shared frame barrier,
+    // including owners that emitted no topology or value mutation.
+    mwx_scene_quickjs_owner_commit_layer_mutations(media);
+    mwx_scene_quickjs_owner_commit_layer_mutations(peer);
 
     const char *teardown_source =
         "export function init(value){"
