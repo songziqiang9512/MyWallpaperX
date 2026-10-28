@@ -5,18 +5,10 @@
 
 let webCompatibilityScriptBootstrapResourceRewriting = #"""
   window.__myWallpaperRewriteLocalFileURL = function(rawValue) {
-    const value = String(rawValue || '').trim();
+    if (rawValue === null || rawValue === undefined) return '';
+    const value = String(rawValue).trim();
     const normalizedValue = value.toLowerCase();
-    if (
-      !value ||
-      normalizedValue === 'null' ||
-      normalizedValue === 'undefined' ||
-      normalizedValue === '(null)' ||
-      normalizedValue === 'about:blank' ||
-      normalizedValue === 'file:///'
-    ) {
-      return '';
-    }
+    if (!value) return '';
     if (value.startsWith('mwx-local://')) return value;
     if (value.startsWith('/') && !value.startsWith('//')) {
       const normalizedPath = value.replace(/\/+/g, '/');
@@ -57,37 +49,7 @@ let webCompatibilityScriptBootstrapResourceRewriting = #"""
     return false;
   };
   window.__myWallpaperIsInvalidMediaSourceValue = function(rawValue) {
-    const value = String(rawValue || '').trim();
-    const normalizedValue = value.toLowerCase();
-    if (
-      !value ||
-      normalizedValue === 'null' ||
-      normalizedValue === 'undefined' ||
-      normalizedValue === '(null)' ||
-      normalizedValue === 'about:blank' ||
-      normalizedValue === 'file:///' ||
-      normalizedValue === 'index.html'
-    ) {
-      return true;
-    }
-    try {
-      const sourceURL = new URL(value, document.location.href);
-      const documentURL = new URL(document.location.href);
-      const sourceHref = sourceURL.href.toLowerCase();
-      const documentHref = documentURL.href.toLowerCase();
-      const sourcePath = String(sourceURL.pathname || '').replace(/\/+$/, '').toLowerCase();
-      if (sourceHref === documentHref) return true;
-      if (
-        sourcePath.endsWith('/null') ||
-        sourcePath.endsWith('/undefined') ||
-        sourcePath.endsWith('/(null)') ||
-        sourcePath.endsWith('/about:blank') ||
-        sourcePath.endsWith('/index.html')
-      ) {
-        return true;
-      }
-    } catch (_) {}
-    return false;
+    return rawValue === null || rawValue === undefined || String(rawValue).trim() === '';
   };
   const myWallpaperClearInvalidMediaSource = (node, attributeName, rawValue) => {
     try {
@@ -116,6 +78,14 @@ let webCompatibilityScriptBootstrapResourceRewriting = #"""
         const tagName = String(node.tagName || 'media').toLowerCase();
         hostLogger?.post('resource.sanitized', `${tagName}.${normalizedAttributeName} skipped invalid media source ${String(rawValue || '')}`);
       } catch (_) {}
+    } catch (_) {}
+  };
+  const myWallpaperMediaSourceDidChange = (node) => {
+    try {
+      delete node.__mwxMissingSource;
+      const parent = node.parentElement;
+      if (String(node.tagName || '').toLowerCase() === 'source'
+        && parent instanceof HTMLMediaElement) delete parent.__mwxMissingSource;
     } catch (_) {}
   };
   const rewriteStyleValue = (value) => {
@@ -158,6 +128,9 @@ let webCompatibilityScriptBootstrapResourceRewriting = #"""
             return;
           }
           descriptor.set.call(this, window.__myWallpaperRewriteLocalFileURL(value));
+          if (propertyName === 'src' && myWallpaperIsMediaOrSourceElement(this)) {
+            myWallpaperMediaSourceDidChange(this);
+          }
         }
       });
       prototype[`__mwxPatched_${propertyName}`] = true;
@@ -223,7 +196,11 @@ let webCompatibilityScriptBootstrapResourceRewriting = #"""
           return;
         }
         if (['src', 'href', 'poster'].includes(normalizedName)) {
-          return originalSetAttribute.call(this, name, window.__myWallpaperRewriteLocalFileURL(value));
+          const result = originalSetAttribute.call(this, name, window.__myWallpaperRewriteLocalFileURL(value));
+          if (normalizedName === 'src' && myWallpaperIsMediaOrSourceElement(this)) {
+            myWallpaperMediaSourceDidChange(this);
+          }
+          return result;
         }
         if (normalizedName === 'style') {
           return originalSetAttribute.call(this, name, rewriteStyleValue(value));

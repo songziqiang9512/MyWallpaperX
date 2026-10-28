@@ -40,7 +40,6 @@ final class SceneOffscreenTextureIdentityIssuer {
                 rawValue: "scene-rt:\(namespace):\(generation):\(index)"
             )
         }
-        guard Set(tokens.values).count == textures.count else { return nil }
         return .init(generation: generation, tokensByTexture: tokens)
     }
 
@@ -58,7 +57,6 @@ extension SceneGraphRenderTargetLease {
         case unknownPhysicalToken
         case descriptorMismatch
         case textureMismatch
-        case physicalAlias
         case pairMemberMismatch
         case storageSemanticUnavailable
         case colorRepresentationUnresolved
@@ -95,9 +93,8 @@ extension SceneGraphRenderTargetLease {
         versionedResource: State.VersionedResource,
         storedContent: SceneTextureContent
     ) -> Result<SceneFrameTextureResource, PublicationFailure> {
-        let framebuffers = framebufferAllocation
         guard logicalIdentity.kind == .framebuffer,
-              framebuffers.resources[logicalIdentity] != nil else {
+              let logical = allocation.resources[logicalIdentity] else {
             return .failure(.invalidLogicalIdentity)
         }
         guard generation > 0,
@@ -105,19 +102,14 @@ extension SceneGraphRenderTargetLease {
               Self.valid(versionedResource.token) else {
             return .failure(.invalidGeneration)
         }
-        let framebufferTokens = framebuffers.resources.values.map(\.token)
-        guard Set(framebufferTokens).count == framebufferTokens.count else {
-            return .failure(.physicalAlias)
-        }
         guard versionedResource.token != fullFramePair.first,
               versionedResource.token != fullFramePair.second,
-              let physical = framebuffers.resources.values.first(where: {
+              let physical = allocation.resources.values.first(where: {
                   $0.token == versionedResource.token
               }) else {
             return .failure(.unknownPhysicalToken)
         }
-        guard let logical = framebuffers.resources[logicalIdentity],
-              logical.descriptor == versionedResource.descriptor,
+        guard logical.descriptor == versionedResource.descriptor,
               physical.descriptor == versionedResource.descriptor else {
             return .failure(.descriptorMismatch)
         }

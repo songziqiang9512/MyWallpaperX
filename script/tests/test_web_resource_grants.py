@@ -552,8 +552,8 @@ func check(_ condition: @autoclosure () -> Bool, _ message: String) { if !condit
         }
         let file = definition("renamedAudio", .file, chosen.path)
         service.definitions = [file]
-        check(service.resolvedWebRuntimeValue(forKey: file.key, definition: file,
-            rawValue: .string(chosen.path), record: record) == .string(chosen.path), "raw author value remains a value, without authority")
+        check(service.resolvedWebRuntimeProperty(forKey: file.key, definition: file,
+            rawValue: .string(chosen.path), record: record).value == .string(chosen.path), "raw author value remains a value, without authority")
         let rawGrants = service.resolvedWebResourceGrants(for: record, definitions: [file])
         check(!rawGrants.contains { $0.allowsCanonicalURL(chosen) }, "path existence cannot grant authority")
         handler.updateResourceGrants(rawGrants)
@@ -567,12 +567,18 @@ func check(_ condition: @autoclosure () -> Bool, _ message: String) { if !condit
         handler.updateResourceGrants(grants)
         check(read(chosen).body == Data([1, 2, 3]) && read(privatePeer).error != nil, "bookmarked actual selected bytes and external sibling denial")
         check(read(bundled).body == Data([1, 2, 3]) && read(shellPeer).body == Data([1, 2, 3]), "host and shell bundled namespaces remain readable")
-        check(service.resolvedWebRuntimeValue(forKey: file.key, definition: file,
-            rawValue: .string(chosen.path), record: record) == .string(chosen.path), "legal bookmark payload preserved")
+        check(service.resolvedWebRuntimeProperty(forKey: file.key, definition: file,
+            rawValue: .string(chosen.path), record: record).value == .string(chosen.path), "legal bookmark payload preserved")
+        check(service.resolvedWebRuntimeProperty(forKey: file.key, definition: file,
+            rawValue: .string(chosen.path), record: record).binding?.source == .bookmarkedOverride,
+            "current value projection carries its actual binding, not a second interpretation")
         let restored = external.appendingPathComponent("restored.wav")
         try fm.moveItem(at: chosen, to: restored)
         let moved = service.resolvedWebResourceGrants(for: record, definitions: [file])
         check(moved.contains { $0.kind == .file && $0.url == restored }, "moved bookmark is re-resolved rather than copied from cached binding")
+        check(service.resolvedWebRuntimeProperty(forKey: file.key, definition: file,
+            rawValue: .string(chosen.path), record: record).value == .string(restored.path),
+            "next value projection resolves the changed bookmark again")
         service.updateWebPropertyBookmark(for: file, value: .string(""), record: record)
         let cleared = service.resolvedWebResourceGrants(for: record, definitions: [file])
         check(!cleared.contains { $0.allowsCanonicalURL(restored) }, "clear removes live bookmark grant")

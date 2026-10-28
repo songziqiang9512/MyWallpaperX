@@ -36,9 +36,11 @@ nonisolated enum SceneLayerWorldFrameResolver {
         byID: [Int: SceneRenderDescriptor.Layer],
         sceneOrthoHeight: Float?,
         transformOverrides: [Int: TransformOverride],
-        puppetAttachmentFrames: ScenePuppetAttachmentFrameSnapshot = .empty
+        puppetAttachmentFrames: ScenePuppetAttachmentFrameSnapshot = .empty,
+        prepareLayerAttachments: ((SceneRenderDescriptor.Layer, [Int: simd_float4x4]) -> [String: simd_float4x4]?)? = nil
     ) -> [Int: simd_float4x4] {
         var cache: [Int: simd_float4x4] = [:]
+        var attachments = puppetAttachmentFrames.framesByParentLayerID
 
         func localFrame(_ layer: SceneRenderDescriptor.Layer) -> simd_float4x4 {
             let transform = transformOverrides[layer.id]
@@ -64,10 +66,7 @@ nonisolated enum SceneLayerWorldFrameResolver {
         func attachmentFrame(_ layer: SceneRenderDescriptor.Layer) -> simd_float4x4? {
             if let parentID = layer.parentID,
                let name = layer.attachmentName,
-               let current = puppetAttachmentFrames.frame(
-                   parentLayerID: parentID,
-                   attachmentName: name
-               ), isFinite(current) {
+               let current = attachments[parentID]?[name], isFinite(current) {
                 return current
             }
             guard let values = layer.parentAttachmentBindFrame,
@@ -110,6 +109,9 @@ nonisolated enum SceneLayerWorldFrameResolver {
                 world = local
             }
             cache[layer.id] = world
+            if let current = prepareLayerAttachments?(layer, cache) {
+                attachments[layer.id] = current
+            }
             return world
         }
 

@@ -244,7 +244,7 @@ struct BackgroundPresentation {
         func animation() -> CABasicAnimation? { layer.animation(forKey: key) as? CABasicAnimation }
         func animationColor(_ value: Any?) -> [CGFloat]? {
             guard let value, CFGetTypeID(value as CFTypeRef) == CGColor.typeID else { return nil }
-            return rgba(value as! CGColor)
+            return rgba((value as! CGColor))
         }
         func close(_ lhs: [CGFloat]?, _ rhs: [CGFloat]?, tolerance: CGFloat = 0.04) -> Bool {
             guard let lhs, let rhs else { return false }

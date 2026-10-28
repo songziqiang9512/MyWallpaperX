@@ -1,4 +1,3 @@
-import CryptoKit
 import Foundation
 
 struct SceneEffectDefinition: Codable, Equatable, Identifiable, Sendable {
@@ -55,7 +54,6 @@ struct SceneEffectDefinition: Codable, Equatable, Identifiable, Sendable {
     let gizmos: SceneJSONValue?
     let extraFields: [String: SceneJSONValue]
     let unknownFieldPaths: [String]
-    let rawSHA256: String?
 
     var id: String { relativePath }
 
@@ -105,8 +103,7 @@ struct SceneEffectDefinition: Codable, Equatable, Identifiable, Sendable {
         functions: SceneJSONValue?,
         gizmos: SceneJSONValue?,
         extraFields: [String: SceneJSONValue],
-        unknownFieldPaths: [String],
-        rawSHA256: String? = nil
+        unknownFieldPaths: [String]
     ) {
         self.relativePath = relativePath
         self.version = version
@@ -124,7 +121,6 @@ struct SceneEffectDefinition: Codable, Equatable, Identifiable, Sendable {
         self.gizmos = gizmos
         self.extraFields = extraFields
         self.unknownFieldPaths = unknownFieldPaths
-        self.rawSHA256 = rawSHA256
     }
 }
 
@@ -201,10 +197,7 @@ struct SceneEffectDefinitionLoader {
             functions: root["functions"].flatMap(SceneJSONValue.init(jsonObject:)),
             gizmos: root["gizmos"].flatMap(SceneJSONValue.init(jsonObject:)),
             extraFields: topExtras,
-            unknownFieldPaths: unknownPaths,
-            rawSHA256: SHA256.hash(data: data).map {
-                String(format: "%02x", $0)
-            }.joined()
+            unknownFieldPaths: unknownPaths
         )
     }
 

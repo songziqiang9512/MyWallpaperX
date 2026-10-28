@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import hashlib
 import json
 import shutil
 import subprocess
@@ -142,6 +141,12 @@ enum Harness {
         let fluid = definitions[2]
         let encoded = try JSONEncoder().encode(definitions)
         let roundTrip = try JSONDecoder().decode([SceneEffectDefinition].self, from: encoded)
+        var legacyFluid = try JSONSerialization.jsonObject(
+            with: JSONEncoder().encode(fluid)
+        ) as! [String: Any]
+        legacyFluid["rawSHA256"] = "66a679f5af4a078d212900c3ea7ef4f68524e2a677e1fadf6f1d3495888c19a9"
+        let legacyData = try JSONSerialization.data(withJSONObject: legacyFluid)
+        let legacyDecoded = try JSONDecoder().decode(SceneEffectDefinition.self, from: legacyData)
 
         let invalidRejected: Bool
         do {
@@ -175,8 +180,8 @@ enum Harness {
             "fluidGizmosPreserved": fluid.gizmos != nil,
             "fluidFit": fluid.framebuffers[0].fit?.numberValue ?? -1,
             "unknownPaths": fluid.unknownFieldPaths,
-            "rawHashes": definitions.map { $0.rawSHA256 ?? "" },
             "roundTrip": roundTrip == definitions,
+            "legacyDefinitionSemantics": legacyDecoded == fluid,
             "invalidRejected": invalidRejected,
         ]
         let data = try JSONSerialization.data(withJSONObject: result, options: [.sortedKeys])
@@ -268,15 +273,8 @@ class SceneEffectDefinitionTests(unittest.TestCase):
         )
         self.assertTrue(self.result["roundTrip"])
 
-    def test_raw_definition_fingerprints_are_preserved(self) -> None:
-        root = Path(self.temporary_directory.name)
-        expected = [
-            hashlib.sha256(
-                (root / "effects" / name / "effect.json").read_bytes()
-            ).hexdigest()
-            for name in ("blur", "motion", "fluid")
-        ]
-        self.assertEqual(self.result["rawHashes"], expected)
+    def test_legacy_definition_payload_preserves_parsed_semantics(self) -> None:
+        self.assertTrue(self.result["legacyDefinitionSemantics"])
 
 
 if __name__ == "__main__":

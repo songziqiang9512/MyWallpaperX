@@ -53,11 +53,8 @@ extension WebWallpaperLocalSchemeHandler {
         for requestURL: URL, allowsDirectoryIndexFallback: Bool, refreshCachedResolution: Bool = false
     ) -> ResolveOutcome {
         let (roots, generation) = readableRootsSnapshot()
-        let cacheKey = Self.resolveCacheKey(
-            for: requestURL,
-            allowsDirectoryIndexFallback: allowsDirectoryIndexFallback,
-            generation: generation
-        )
+        let decodedPath = Self.decodedRequestPath(for: requestURL)
+        let cacheKey = "\(generation)|\(allowsDirectoryIndexFallback ? 1 : 0)|\(decodedPath)"
         if refreshCachedResolution {
             stateLock.lock()
             resolveCache.removeValue(forKey: cacheKey)
@@ -69,6 +66,7 @@ extension WebWallpaperLocalSchemeHandler {
         }
         let outcome = computeResolution(
             for: requestURL,
+            decodedPath: decodedPath,
             allowsDirectoryIndexFallback: allowsDirectoryIndexFallback,
             roots: roots, generation: generation
         )
@@ -91,14 +89,6 @@ extension WebWallpaperLocalSchemeHandler {
             .split(separator: "/", omittingEmptySubsequences: false)
             .map { $0.removingPercentEncoding ?? String($0) }
             .joined(separator: "/")
-    }
-
-    static func resolveCacheKey(
-        for requestURL: URL,
-        allowsDirectoryIndexFallback: Bool,
-        generation: UInt64
-    ) -> String {
-        return "\(generation)|\(allowsDirectoryIndexFallback ? 1 : 0)|\(Self.decodedRequestPath(for: requestURL))"
     }
 
     func readableRootsSnapshot() -> (roots: [WebWallpaperResourceGrant], generation: UInt64) {
@@ -131,10 +121,10 @@ extension WebWallpaperLocalSchemeHandler {
 
     private func computeResolution(
         for requestURL: URL,
+        decodedPath: String,
         allowsDirectoryIndexFallback: Bool,
         roots: [WebWallpaperResourceGrant], generation: UInt64
     ) -> ResolveOutcome {
-        let decodedPath = Self.decodedRequestPath(for: requestURL)
         let originalURL: URL
         if decodedPath.hasPrefix("/__absolute__/") {
             let absolutePath = "/" + decodedPath.dropFirst("/__absolute__/".count)

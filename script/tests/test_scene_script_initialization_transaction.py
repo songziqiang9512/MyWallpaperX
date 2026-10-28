@@ -5,7 +5,7 @@ from pathlib import Path
 import subprocess
 import tempfile
 import unittest
-from .scene_vector_vm_test_support import compile_vector_harness
+from .scene_vector_vm_test_support import compile_vector_harness, VM
 
 HARNESS = r'''
 import Foundation
@@ -42,6 +42,117 @@ import Foundation
             scriptPropertiesJSON: "", userPropertiesJSON: "{}", expectedGeneration: 1,
             interruptBudget: nil)
     }
+    static func cohort(_ retryVariant: Bool) throws -> [String: Bool] {
+        let vm = try SceneScriptQuickJSDomain()
+        let tick = frame(1)
+        let animatedAlphaTarget = SceneDynamicTarget.layer(layerID: 1, field: .alpha)
+        let stringTarget = SceneDynamicTarget.text(layerID: 3, field: .content)
+        let token = retryVariant ? "renamedSeed" : "seed"
+        let textToken = retryVariant ? "renamedText" : "textSeed"
+        let scalarSource = """
+        export function init(value) {
+            shared.calls=(shared.calls||0)+1; shared.\(token)=6;
+            engine.setInterval(()=>{shared.ticks=(shared.ticks||0)+1;}, 10000);
+            if (\(retryVariant ? "true" : "false") && shared.calls===1) return {};
+            return value*0.5;
+        }
+        """
+        let vectorSource = """
+        export function init(value) { thisLayer.alpha=0.2; return value.add(new Vec3(1,0,0)); }
+        export function update(value) {
+            if(shared.\(token)!==6 || shared.\(textToken)!==7) throw new Error('update before all init');
+            thisLayer.alpha=0.4; return new Vec3(value.x, shared.calls, shared.ticks||0);
+        }
+        """
+        let textSource = "export function init(value){shared.\(textToken)=7;return value+'!';}"
+        let scene = SceneRenderDescriptor(layers: [
+            .init(id: 1, layerIndex: 0, name: "scalar", visible: true, originXYZ: [0,0,0],
+                scaleXYZ: [1,1,1], alpha: 0.75, effects: []),
+            .init(id: 2, layerIndex: 1, name: "vector", visible: true, originXYZ: [10,20,30],
+                scaleXYZ: [1,1,1], alpha: 1, effects: []),
+            .init(id: 3, layerIndex: 2, name: "text", visible: true, originXYZ: [0,0,0],
+                scaleXYZ: [1,1,1], alpha: 1, effects: [], contentKind: "text",
+                textScript: .init(source: textSource), text: "Placeholder",
+                textStyle: .init(fontPath: nil, colorRGB: nil, pointSize: 12))])
+        func binding(_ index: Int, _ key: String, _ source: String, _ authored: SceneJSONValue) -> SceneScriptBindingIR {
+            .init(source: source, owner: .init(kind: .object, objectIndex: index, objectID: index+1,
+                effectIndex: nil, effectID: nil, passIndex: nil, passID: nil),
+                targetPath: [.key("objects"), .index(index), .key(key)], properties: [:],
+                authoredValue: authored, valueType: key == "alpha" ? .number : .string,
+                wrapperKeys: ["script", "value"])
+        }
+        let definitions = [binding(0, "alpha", scalarSource, .number(0.75)),
+            binding(1, "origin", vectorSource, .string("10 20 30")),
+            binding(2, "text", textSource, .string("Placeholder"))]
+        let sources = retryVariant ? Array(definitions.reversed()) : definitions
+        let vectors = SceneScriptVectorProgram.compile(domain: vm, descriptor: scene,
+            scriptBindings: sources, userPropertyDefinitions: [], generation: 19)
+        let strings = SceneScriptStringProgram.compile(domain: vm, descriptor: scene,
+            scriptBindings: sources, generation: 19)
+        let scalars = SceneScriptScalarProgram.compile(domain: vm, descriptor: scene,
+            scriptBindings: sources, generation: 19)
+        let scheduler = SceneScriptMediaFrameCoordinator(vectorProgram: vectors,
+            stringProgram: strings, scalarProgram: scalars)
+        let probe = try SceneScriptValueOwner(domain: vm,
+            source: "export function update(v){return new Vec3(shared.calls||0,shared.\(textToken)||0,0);}",
+            target: .layer(layerID: 1, field: .origin), effectNames: [], generation: 19, budget: .default)
+        let preparedProbe = try probe.evaluate(input: .vector3(0,0,0), frame: tick,
+            scriptPropertiesJSON: "", userPropertiesJSON: "{}", expectedGeneration: 19,
+            interruptBudget: nil).get()
+        probe.commitLayerMutations()
+        let vTarget = SceneDynamicTarget.layer(layerID: 2, field: .origin)
+        let vInputs: [SceneDynamicTarget: SceneDynamicValue] = [vTarget: .vector3(10,20,30)]
+        let sInputs: [SceneDynamicTarget: SceneDynamicValue] = [animatedAlphaTarget: .scalar(0.75)]
+        let tInputs: [SceneDynamicTarget: SceneDynamicValue] = [stringTarget: .string("Placeholder")]
+        func start() -> (failures: [SceneDynamicTarget: SceneScriptScalarRuntimeFailure], effects: [SceneScriptOwnerEffects]) {
+            scheduler.initialize(vectorInputs: vInputs, stringInputs: tInputs, scalarInputs: sInputs,
+                effectivePropertyValues: [:], frame: tick, userPropertiesJSON: "{}", audioSpectrum: .silent)
+        }
+        func update(_ failures: [SceneDynamicTarget: SceneScriptScalarRuntimeFailure],
+                    current: SceneScriptMediaFrameCoordinatorResult? = nil) -> SceneScriptMediaFrameCoordinatorResult {
+            scheduler.evaluate(vectorInputs: current?.vector.values ?? vInputs,
+                stringInputs: current?.string.values ?? tInputs, scalarInputs: current?.scalar.values ?? sInputs,
+                effectivePropertyValues: [:], frame: tick, userPropertiesJSON: "{}",
+                events: .init(playback: nil, properties: nil, thumbnail: nil, timeline: nil),
+                audioSpectrum: .silent, initializationFailures: failures)
+        }
+        func finish(_ commit: Bool) {
+            vectors.finalizeLayerMutations(committing: commit)
+            strings.finalizeLayerMutations(committing: commit)
+            scalars.finalizeLayerMutations(committing: commit)
+            scheduler.finalizeInitializations()
+        }
+        let first = start(), firstValue = update(first.failures)
+        let firstTimers = mwx_scene_quickjs_owner_active_timer_count(scalars.bindings[0].handle)
+        finish(false)
+        let rejectedTimers = mwx_scene_quickjs_owner_active_timer_count(scalars.bindings[0].handle)
+        let retry = start(), retryValue = update(retry.failures)
+        let retryTimers = mwx_scene_quickjs_owner_active_timer_count(scalars.bindings[0].handle)
+        finish(true)
+        let settled = start(), settledValue = update(settled.failures, current: retryValue)
+        finish(true)
+        let initWrites = retry.effects.flatMap(\.layerMutations).filter { $0.layerID == 2 }
+        let updateWrites = retryValue.ownerEffects.flatMap(\.layerMutations).filter { $0.layerID == 2 }
+        return [
+            "prepareDidNotInitialize": preparedProbe.value == .vector3(0,0,0),
+            "firstUpdateSawAllSeeds": firstValue.vector.values[vTarget] == .vector3(11,1,0),
+            "failedInitNotRepeatedByUpdate": first.failures.count == (retryVariant ? 1 : 0)
+                && firstValue.scalar.failures.count == (retryVariant ? 1 : 0),
+            "badInitKeptValueFallback": (firstValue.scalar.values[animatedAlphaTarget] == nil) == retryVariant,
+            "initValueCarriedOnce": retryValue.scalar.values[animatedAlphaTarget] == .scalar(0.375)
+                && retryValue.string.values[stringTarget] == .string("Placeholder!")
+                && retryValue.vector.values[vTarget] == .vector3(11,2,0),
+            "initAndUpdateWritesPreserved": initWrites.count == 1 && initWrites.first?.alpha == 0.2
+                && updateWrites.count == 1 && updateWrites.first?.alpha == 0.4,
+            "timerRollbackAndRetry": firstTimers == (retryVariant ? 0 : 1)
+                && rejectedTimers == 0 && retryTimers == 1,
+            "settledDoesNotInitializeAgain": settled.effects.isEmpty && settled.failures.isEmpty
+                && settledValue.vector.values[vTarget] == .vector3(11,2,0),
+            "initOnlyKeepsAcceptedValue": settledValue.scalar.values[animatedAlphaTarget] == .scalar(0.375)
+                && settledValue.string.values[stringTarget] == nil,
+        ]
+    }
+
     static func main() throws {
         var payload: [String: Any] = [:]
         for explicit in [false, true] {
@@ -181,11 +292,15 @@ import Foundation
         payload["uncommittedCursorValue"] = x(evaluate(transient, 2))
         transient.commitLayerMutations()
         let boolean = try vector(d, "export function init(v) { if(engine.runtime < 1) return '3'; return true; } export function update(v) { return v; }", boolean: true)
+        var booleanValues: [Bool] = []
         func boolResult(_ time: Double) -> String {
-            value(boolean.evaluate(input: .bool(false), frame: frame(time), scriptPropertiesJSON: "",
-                userPropertiesJSON: "{}", expectedGeneration: 1, interruptBudget: nil))
+            let evaluated = boolean.evaluate(input: .bool(false), frame: frame(time), scriptPropertiesJSON: "",
+                userPropertiesJSON: "{}", expectedGeneration: 1, interruptBudget: nil)
+            if case let .success(output) = evaluated, case let .bool(value) = output.value { booleanValues.append(value) }
+            return value(evaluated)
         }
-        payload["booleanRetry"] = [boolResult(0), boolResult(2)]
+        payload["booleanNonBoolInit"] = [boolResult(0), boolResult(2)]
+        payload["booleanValues"] = booleanValues
         boolean.commitLayerMutations()
         let runaway = try vector(d, "export function init(v) { while(true) {} } export function update(v) { return v; }")
         let budgetFailure = value(runaway.evaluate(input: .vector3(1,0,0), frame: frame(1),
@@ -203,6 +318,7 @@ import Foundation
         let stale = try vector(d, "export function init(v) { return v; }")
         payload["stale"] = value(stale.initializeIfNeeded(input: .vector3(1,0,0), frame: frame(1),
             scriptPropertiesJSON: "", userPropertiesJSON: "{}", expectedGeneration: 2, interruptBudget: nil))
+        payload["cohorts"] = try [cohort(false), cohort(true)]
         print(String(decoding: try JSONSerialization.data(withJSONObject: payload, options: [.sortedKeys]), as: UTF8.self))
     }
 }
@@ -212,7 +328,8 @@ class SceneScriptInitializationTransactionTests(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
         cls.temporary = tempfile.TemporaryDirectory(prefix="scene-init-transaction-")
-        binary = compile_vector_harness(Path(cls.temporary.name), HARNESS, "initialization")
+        binary = compile_vector_harness(Path(cls.temporary.name), HARNESS, "initialization",
+            extra_swift_sources=(VM / "SceneScriptMediaFrameCoordinator.swift",))
         result = subprocess.run([str(binary)], capture_output=True, text=True)
         if result.returncode: raise AssertionError(result.stdout + result.stderr)
         cls.value = json.loads(result.stdout.strip().splitlines()[-1])
@@ -245,8 +362,13 @@ class SceneScriptInitializationTransactionTests(unittest.TestCase):
         self.assertEqual(self.value["stringTimerRetry"], [True] * 7)
     def test_uncommitted_cursor_value_cannot_leak_into_retry(self):
         self.assertEqual(self.value["uncommittedCursorValue"], 12)
-    def test_effectful_boolean_bad_return_retries(self):
-        self.assertEqual(self.value["booleanRetry"], ["bad-return", "ok"])
+    def test_prepared_cross_family_initializers_precede_callbacks_and_share_commit(self):
+        for variant in self.value["cohorts"]:
+            for behavior, passed in variant.items():
+                self.assertTrue(passed, (behavior, variant))
+    def test_effectful_boolean_non_bool_init_preserves_current_input(self):
+        self.assertEqual(self.value["booleanNonBoolInit"], ["ok", "ok"])
+        self.assertEqual(self.value["booleanValues"], [False, False])
     def test_timeout_and_memory_failure_remain_permanently_disabled(self):
         self.assertEqual(self.value["budgetFuse"], ["budget-exceeded", "disabled"])
         self.assertEqual(self.value["memoryFuse"], ["memory-exceeded", "disabled"])

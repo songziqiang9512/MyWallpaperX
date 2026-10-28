@@ -30,7 +30,8 @@ nonisolated struct SceneShaderContractLoader {
         shaderReferences: [String],
         root: SceneResourceView.Root?,
         checkCancellation: (() throws -> Void)? = nil
-    ) throws -> [SceneShaderContract] {
+    ) throws -> [(contract: SceneShaderContract,
+                  capturedRootStages: [SceneShaderSourceResolver.CapturedRootStage])] {
         try checkCancellation?()
         var drafts: [String: ContractDraft] = [:]
 
@@ -68,6 +69,7 @@ nonisolated struct SceneShaderContractLoader {
             }
 
             var stages: [SceneShaderContract.Stage] = []
+            var capturedRootStages: [SceneShaderSourceResolver.CapturedRootStage] = []
             if draft.sourceKind == .authoredSource && draft.isLoadable {
                 if !shaderRootIsContained {
                     diagnostics.append(.init(
@@ -81,7 +83,7 @@ nonisolated struct SceneShaderContractLoader {
                         (SceneShaderContract.StageKind.vertex, ".vert", SceneShaderContract.DiagnosticCode.missingVertexStage),
                         (.fragment, ".frag", .missingFragmentStage)
                     ] {
-                        if let stage = try loadStage(
+                        if let captured = try loadStage(
                             identity: draft.identity,
                             suffix: suffix,
                             kind: kind,
@@ -90,7 +92,8 @@ nonisolated struct SceneShaderContractLoader {
                             checkCancellation: checkCancellation,
                             diagnostics: &diagnostics
                         ) {
-                            stages.append(stage)
+                            stages.append(captured.stage)
+                            capturedRootStages.append(captured.captured)
                         }
                     }
                 }
@@ -116,13 +119,14 @@ nonisolated struct SceneShaderContractLoader {
                     )
                 ])
             }
-            return SceneShaderContract(
+            let contract = SceneShaderContract(
                 identity: draft.identity,
                 sourceKind: draft.sourceKind,
                 stages: stages,
                 diagnostics: diagnostics,
                 canonicalSHA256: canonicalSHA256
             )
+            return (contract, capturedRootStages)
         }
     }
 
@@ -145,10 +149,7 @@ nonisolated struct SceneShaderContractLoader {
                 message: "Shader reference contains a control character."
             )
         }
-        guard !normalized.hasPrefix("/") && normalized.range(
-            of: #"^[A-Za-z]:"#,
-            options: .regularExpression
-        ) == nil else {
+        guard !normalized.hasPrefix("/") else {
             return invalidReference(
                 identity: fallbackIdentity,
                 code: .pathEscape,
@@ -225,14 +226,17 @@ nonisolated struct SceneShaderContractLoader {
         root: SceneResourceView.Root?,
         checkCancellation: (() throws -> Void)?,
         diagnostics: inout [SceneShaderContract.Diagnostic]
-    ) throws -> SceneShaderContract.Stage? {
+    ) throws -> (stage: SceneShaderContract.Stage,
+                 captured: SceneShaderSourceResolver.CapturedRootStage)? {
         let sourceRelativePath = identity + suffix
         let relativePath = "shaders/" + sourceRelativePath
         let data: Data
+        let handle: SceneResourceView.Handle
         do {
-            guard let root, let handle = root.handle(relativePath: relativePath, exact: true) else {
+            guard let root, let selected = root.handle(relativePath: relativePath, exact: true) else {
                 throw SceneResourceView.ReadError.missing
             }
+            handle = selected
             // The raw contract has no graph file-size budget. Both stages keep
             // the vertex-first selected Root and the original shader subtree.
             data = try root.readBytes(handle, within: "shaders", checkCancellation: checkCancellation)
@@ -272,7 +276,7 @@ nonisolated struct SceneShaderContractLoader {
                 diagnostics: &diagnostics
             )
         }
-        return .init(
+        let stage = SceneShaderContract.Stage(
             kind: kind,
             relativePath: relativePath,
             source: source,
@@ -281,6 +285,13 @@ nonisolated struct SceneShaderContractLoader {
             annotations: parsed.annotations,
             declarations: parsed.declarations
         )
+        let file = SceneShaderSourceResolver.ResolvedFile(
+            virtualPath: relativePath,
+            provenance: SceneShaderSourceResolver.provenance(handle.source),
+            source: source, rawSHA256: stage.rawSHA256, byteCount: data.count,
+            parsedIncludes: parsed.includes
+        )
+        return (stage, (handle, file))
     }
 
     nonisolated private func validateInclude(

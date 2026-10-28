@@ -108,6 +108,20 @@ nonisolated final class SceneScriptScalarProgram: SceneScriptValueOwnerProgramRe
         })
     }
 
+    var initializationOwners: [(registration: SceneScriptMediaOwnerRegistration,
+        owner: SceneScriptValueOwner, properties: [String: SceneScriptPropertyInput])] {
+        bindings.compactMap { owner in
+            guard !disabledTargets.contains(owner.target), owner.needsInitialization,
+                  let ordinal = authoredOrdinals[owner.target] else { return nil }
+            return (.init(authoredOrdinal: ordinal, target: owner.target, family: .scalar),
+                owner, propertyInputsByTarget[owner.target] ?? [:])
+        }
+    }
+
+    func disableFailedInitialization(_ target: SceneDynamicTarget) {
+        disabledTargets.insert(target)
+    }
+
     var mediaOwnerRegistrations: [SceneScriptMediaOwnerRegistration] {
         bindings.compactMap { binding in
             guard !disabledTargets.contains(binding.target), binding.handlesMediaPlayback

@@ -43,9 +43,31 @@ CACHE_CHECKS = r'''
             fatalError("analysis writer did not finish")
         }
         let analysisOriginal = try await waitForAnalysis()
-        trace.reset()
+        trace.reset(); ProjectionWork.reset()
         let warmMemo = await service.prepareWebPlaybackContext(for: record)!
         check(cold == warmMemo && trace.rows.isEmpty && trace.parseCount == 0, "memo warm performs no author byte reads or scan")
+        check(ProjectionWork.bindings == 4 && ProjectionWork.fallbacks == 0,
+            "two current properties resolve once for values/payload and once for actual grants, without eager fallback JSON")
+        let selected = warmMemo.descriptor.propertyDefinitions.first { $0.key == "selected" }!
+        service.activeRecord = true; ProjectionWork.reset()
+        service.previewWebPropertyValue(.string(external.path), for: selected, record: record)
+        check(ProjectionWork.bindings == 3 && ProjectionWork.fallbacks == 0,
+            "preview resolves the changed value once, then current grant definitions independently")
+        let preview = try JSONSerialization.jsonObject(with: Data(WallpaperEngine.shared.payloads.last!.utf8)) as! [String: [String: Any]]
+        check(preview["selected"]?["value"] as? String == external.path
+            && !WallpaperEngine.shared.currentWebResourceGrants.contains { $0.allowsCanonicalURL(external) },
+            "preview value is delivered without granting an unbookmarked external path")
+        ProjectionWork.reset()
+        service.updateWebPropertyValue(.string(external.path), for: selected, record: record)
+        check(ProjectionWork.bindings == 3 && ProjectionWork.fallbacks == 0,
+            "commit consumes its one current value binding without a payload re-resolution")
+        let committedPayload = try JSONSerialization.jsonObject(with: Data(WallpaperEngine.shared.payloads.last!.utf8)) as! [String: [String: Any]]
+        check((committedPayload as NSDictionary) == (preview as NSDictionary), "actual preview and commit preserve the complete delta payload")
+        service.activeRecord = false; service.overrides = [:]
+        ProjectionWork.reset()
+        let emptyPayload = service.effectiveWebPropertiesJSONString(for: record, definitions: [], valuesOverride: [:])
+        check(emptyPayload == "{}" && ProjectionWork.fallbacks == 1,
+            "empty payload still uses the original fallback only when returned")
         service.webProjectDescriptorCache = [:]; trace.reset()
         let warm = await service.prepareWebPlaybackContext(for: record)!
         check(cold == warm && trace.rows.isEmpty && trace.parseCount == 0, "disk warm reuses author analysis without scanning dependencies")
@@ -152,6 +174,37 @@ CACHE_CHECKS = r'''
         let resurrectionResult = await resurrection.value
         check(!resurrectionResult && !fm.fileExists(atPath: target.path) && !fm.fileExists(atPath: peer.path), "delete cannot be undone by staged old save")
         cacheStaging.gate = nil
+        // Exercise the service deletion owner, including memo removal and the
+        // retired execution cache, while an older analysis save is staged.
+        let serviceRuntime = analysisURL.deletingLastPathComponent()
+            .appendingPathComponent("\(SteamWorkshopService.webRuntimeCacheFileStem(for: record.id))-runtime.json")
+        let otherID = "unrelated-cache"
+        let otherAnalysis = analysisURL.deletingLastPathComponent()
+            .appendingPathComponent("\(SteamWorkshopService.webRuntimeCacheFileStem(for: otherID))-analysis.json")
+        let otherMemo = service.webProjectDescriptorCache[record.id]
+        check(otherMemo != nil, "service deletion fixture has an author memo")
+        service.webProjectDescriptorCache[otherID] = otherMemo
+        let otherTicket = owner.begin(key: otherAnalysis.path)
+        check(owner.publish(Data("keep".utf8), to: otherAnalysis, ticket: otherTicket), "unrelated record fixture")
+        let serviceDeleted = owner.begin(key: analysisURL.path)
+        check(owner.publish(Data("analysis".utf8), to: analysisURL, ticket: serviceDeleted)
+            && owner.publish(Data("runtime".utf8), to: serviceRuntime, ticket: serviceDeleted), "service deletion files")
+        let serviceDeleteGate = Gate(); cacheStaging.gate = serviceDeleteGate
+        let serviceResurrection = Task.detached {
+            owner.publish(Data("late-service".utf8), to: analysisURL, ticket: serviceDeleted)
+        }
+        await serviceDeleteGate.wait()
+        service.removeWebRuntimeCaches(for: record.id)
+        check(service.webProjectDescriptorCache[record.id] == nil && !owner.isCurrent(serviceDeleted)
+            && !fm.fileExists(atPath: analysisURL.path) && !fm.fileExists(atPath: serviceRuntime.path),
+            "actual service deletion clears memo, invalidates old ticket and removes both cache files")
+        serviceDeleteGate.release.signal(); let serviceResurrectionResult = await serviceResurrection.value
+        check(!serviceResurrectionResult && !fm.fileExists(atPath: analysisURL.path)
+            && !fm.fileExists(atPath: serviceRuntime.path), "staged writer cannot restore a service-deleted cache")
+        let otherData = try Data(contentsOf: otherAnalysis)
+        check(service.webProjectDescriptorCache[otherID] == otherMemo && owner.isCurrent(otherTicket)
+            && otherData == Data("keep".utf8), "service deletion leaves unrelated memo, ticket and file intact")
+        cacheStaging.gate = nil
         // Cancellation while staging is complete rejects rename and cleans only
         // this O_EXCL staging file, leaving no pending writer behind.
         let cancelTicket = owner.begin(key: key); let cancelGate = Gate(); cacheStaging.gate = cancelGate
@@ -170,9 +223,38 @@ CACHE_CHECKS = r'''
         renameGate.release.signal(); _ = await writer.value; await remover.value
         check(!fm.fileExists(atPath: target.path), "in-commit writer finishes before same-fence physical delete")
         cacheCommit.gate = nil
+        // The opposite lock order: the old writer is already committing when
+        // actual service deletion arrives. Release it outside the service actor.
+        service.webProjectDescriptorCache[record.id] = otherMemo
+        try Data("runtime-again".utf8).write(to: serviceRuntime)
+        let serviceCommitted = owner.begin(key: analysisURL.path)
+        let serviceCommitGate = Gate(); cacheCommit.gate = serviceCommitGate
+        let serviceWriter = Task.detached {
+            owner.publish(Data("committing-service".utf8), to: analysisURL, ticket: serviceCommitted)
+        }
+        await serviceCommitGate.wait()
+        let releaseServiceCommit = Task.detached { serviceCommitGate.release.signal() }
+        service.removeWebRuntimeCaches(for: record.id)
+        _ = await releaseServiceCommit.value; let serviceWriterResult = await serviceWriter.value
+        check(serviceWriterResult && service.webProjectDescriptorCache[record.id] == nil
+            && !owner.isCurrent(serviceCommitted) && !fm.fileExists(atPath: analysisURL.path)
+            && !fm.fileExists(atPath: serviceRuntime.path), "actual service delete follows in-commit writer and removes both files")
+        cacheCommit.gate = nil
+        let repeated = owner.begin(key: key)
+        check(repeated.slot === committed.slot && owner.isCurrent(repeated) && !owner.isCurrent(committed),
+            "live-key lookup reuses the same slot and advances its generation")
+        weak var unrelatedSlot: SteamWorkshopWebRuntimeCachePublication.Slot?
+        do {
+            let unrelated = owner.begin(key: "unrelated-live")
+            unrelatedSlot = unrelated.slot
+            let next = owner.begin(key: key)
+            check(owner.isCurrent(unrelated) && owner.isCurrent(next), "live hit preserves unrelated current ticket")
+        }
+        check(unrelatedSlot == nil, "live hit does not retain unrelated slot after its ticket is released")
         for i in 0..<500 { _ = owner.begin(key: "ephemeral-\(i)") }
         _ = owner.begin(key: "reap")
-        check(owner.testLiveSlots <= 2, "registry retains active tickets, not historical records")
+        let counts = owner.testRegistryCounts
+        check(counts.stored <= counts.live + 1, "miss reaps dead historical keys, leaving at most its own weak entry")
         // No options means the actual result is empty without consulting a
         // second project/defaults source. Nonempty options still use current
         // definitions and overrides through the original record wrapper.
@@ -196,8 +278,92 @@ CACHE_CHECKS = r'''
         try Data(optionJSON.replacingOccurrences(of: "\"value\":0", with: "\"value\":1").utf8).write(to: optionProject)
         check(service.visibleWebPropertyOptions(for: pick, record: optionRecord).map(\.value) == [.string("a"), .string("b")],
             "nonempty option conditions re-read changed project defaults")
+        _ = try webBindingFallbackChecks()
         print("web-runtime-cache-pass")
     }
+}
+'''
+
+BINDING_CHECKS = r'''
+@MainActor func webBindingFallbackChecks(expectedTypedReads: Int = 0) throws -> [[String: Any]] {
+    let fm = FileManager.default
+    let folder = URL(fileURLWithPath: fm.currentDirectoryPath).resolvingSymlinksInPath()
+        .standardizedFileURL.appendingPathComponent("binding-author")
+    let images = folder.appendingPathComponent("images"), slides = folder.appendingPathComponent("slides")
+    try fm.createDirectory(at: images, withIntermediateDirectories: true)
+    try fm.createDirectory(at: slides, withIntermediateDirectories: true)
+    try Data("bundled".utf8).write(to: folder.appendingPathComponent("bundled.png"))
+    try Data("alternate".utf8).write(to: images.appendingPathComponent("alternate.png"))
+    let project = folder.appendingPathComponent("project.json")
+    try Data(#"{"preset":{"renamedMedia":"images/alternate.png"}}"#.utf8).write(to: project)
+    let external = folder.deletingLastPathComponent().appendingPathComponent("external.png")
+    let sibling = folder.deletingLastPathComponent().appendingPathComponent("sibling.png")
+    try Data("external".utf8).write(to: external); try Data("sibling".utf8).write(to: sibling)
+    let service = SteamWorkshopService()
+    var record = SteamWorkshopDownloadRecord(id: "binding-shell", folderURL: folder,
+        projectFileURL: project, entryURL: folder.appendingPathComponent("index.html"))
+    record.isDependencyBackedWeb = true
+    let context = SteamWorkshopService.WebAuthorBindingContext(candidateRoots: [.init(source: .recordFolder, url: folder)],
+        pathlikePresetValues: ["renamedMedia": .string("images/alternate.png")])
+    var rows: [[String: Any]] = [], reads: [String: Int] = [:]
+    func run(_ label: String, key: String, kind: SteamWorkshopWebPropertyKind?, raw: String,
+             expectedKind: ResolvedWebResourceBindingKind?, url: URL?, bookmark: URL? = nil,
+             prepared: SteamWorkshopService.WebAuthorBindingContext? = nil, usesBookmarks: Bool = true,
+             expectedReads: Int) throws {
+        let definition = kind.map { SteamWorkshopWebPropertyDefinition(key: key, title: key, kind: $0,
+            runtimeType: $0.rawValue, order: 0, minimumValue: nil, maximumValue: nil, allowsFractionalValues: false,
+            fractionalPrecision: nil, displayCondition: nil, directoryMode: $0 == .directory ? "fetchall" : nil,
+            fileType: nil, defaultValue: .string(raw), options: []) }
+        service.bookmarks = bookmark.map { [key: $0] } ?? [:]
+        optionReads.reset()
+        let binding = service.resolvedWebResourceBinding(forKey: key, definition: definition,
+            rawValue: .string(raw), record: record, usesBookmarks: usesBookmarks, bindingContext: prepared)
+        reads[label] = optionReads.urls.count
+        check(optionReads.urls.count == expectedReads, "only fallback classification reads the shell project: " + label)
+        check(binding?.kind == expectedKind && binding?.resolvedPath == url?.path, "binding semantics: " + label)
+        if let binding {
+            check(binding.key == key && binding.rawValue == raw
+                && binding.origin == (definition == nil ? .presetFallback : .propertyDefinition), "complete binding identity: " + label)
+            if bookmark != nil { check(binding.source == .bookmarkedOverride, "current bookmark remains authoritative") }
+        }
+        let definitions = definition.map { [$0] } ?? []
+        let payload = service.effectiveWebPropertiesJSONString(for: record, definitions: definitions,
+            valuesOverride: [key: .string(raw)], bindingContext: prepared)!
+        let payloadObject = try JSONSerialization.jsonObject(with: Data(payload.utf8)) as! [String: [String: Any]]
+        check(payloadObject[key]?["value"] as? String == (url?.path ?? raw), "runtime value retains the binding result: " + label)
+        let grants = service.resolvedWebResourceGrants(for: record, definitions: definitions,
+            valuesOverride: [key: .string(raw)], effectiveRootURL: folder, bindingContext: prepared)
+        if bookmark == external {
+            check(grants.contains { $0.kind == .file && $0.url == external }
+                && !grants.contains { $0.allowsCanonicalURL(sibling) }, "exact-file bookmark cannot authorize its sibling")
+        }
+        let encodedBinding = try JSONSerialization.jsonObject(with: JSONEncoder().encode(binding), options: [.fragmentsAllowed])
+        let encodedGrants = try JSONSerialization.jsonObject(with: JSONEncoder().encode(grants))
+        rows.append(["case": label, "binding": encodedBinding, "payload": payloadObject, "grants": encodedGrants])
+    }
+    try run("file", key: "selected", kind: .file, raw: "bundled.png", expectedKind: .file,
+        url: folder.appendingPathComponent("bundled.png"), expectedReads: expectedTypedReads)
+    try run("directory", key: "chosenFolder", kind: .directory, raw: "slides", expectedKind: .directory,
+        url: slides, expectedReads: expectedTypedReads)
+    try run("bookmark", key: "selected", kind: .file, raw: external.path, expectedKind: .file,
+        url: external, bookmark: external, expectedReads: expectedTypedReads)
+    try run("selection", key: "selected", kind: .file, raw: "bundled.png", expectedKind: .file,
+        url: folder.appendingPathComponent("bundled.png"), usesBookmarks: false, expectedReads: expectedTypedReads)
+    try run("text", key: "plain", kind: .text, raw: "hello", expectedKind: nil, url: nil, expectedReads: 1)
+    try run("unknown", key: "plain", kind: .unknown, raw: "hello", expectedKind: nil, url: nil, expectedReads: 1)
+    for kind in [SteamWorkshopWebPropertyKind.text, .unknown] {
+        try run("pathlike-" + kind.rawValue, key: "renamedMedia", kind: kind, raw: "images/alternate.png",
+            expectedKind: .pathlikePreset, url: images.appendingPathComponent("alternate.png"), expectedReads: 1)
+    }
+    try run("preset", key: "renamedMedia", kind: nil, raw: "images/alternate.png", expectedKind: .pathlikePreset,
+        url: images.appendingPathComponent("alternate.png"), expectedReads: 1)
+    try run("prepared-file", key: "selected", kind: .file, raw: "bundled.png", expectedKind: .file,
+        url: folder.appendingPathComponent("bundled.png"), prepared: context, expectedReads: 0)
+    try run("prepared-preset", key: "renamedMedia", kind: nil, raw: "images/alternate.png", expectedKind: .pathlikePreset,
+        url: images.appendingPathComponent("alternate.png"), prepared: context, expectedReads: 0)
+    print("web-binding-projection:" + String(decoding: try JSONSerialization.data(withJSONObject: rows, options: [.sortedKeys]), as: UTF8.self))
+    print("web-binding-reads:" + String(decoding: try JSONSerialization.data(withJSONObject: reads, options: [.sortedKeys]), as: UTF8.self))
+    return rows
 }
 '''
 
@@ -215,12 +381,13 @@ def harness_source() -> str:
     func updateWebPropertyBookmark(for definition: SteamWorkshopWebPropertyDefinition,
         value: SteamWorkshopWebPropertyValue, record: SteamWorkshopDownloadRecord) {}
     func clearWebPropertyBookmarks(for record: SteamWorkshopDownloadRecord) { bookmarks.removeAll() }
-    func isActiveWebRecord(_ record: SteamWorkshopDownloadRecord) -> Bool { false }
+    var activeRecord = false
+    func isActiveWebRecord(_ record: SteamWorkshopDownloadRecord) -> Bool { activeRecord }
 ''', 1)
     properties = (WEB / 'SteamWorkshopService+WebProperties.swift').read_text()
     controls = (WEB / 'SteamWorkshopService+WebPropertyControlSupport.swift').read_text()
     source += '\nextension SteamWorkshopService {\n' + '\n'.join(method(properties, signature) for signature in (
-        '    func updateWebPropertyValue(', '    func resetWebPropertyValues(',
+        '    func previewWebPropertyValue(', '    func updateWebPropertyValue(', '    func resetWebPropertyValues(',
         '    private func webPropertyChangesResources(', '    func currentWebPropertyValue(',
         '    func visibleWebPropertyOptions(',
     )) + '\n' + method(controls, '    func shouldRefreshFullWebPropertyPayload(') + '\n}\n'
@@ -231,7 +398,11 @@ def harness_source() -> str:
     nonisolated static let playbackFailedNotification = Notification.Name("controlled-web-runtime-failed")
     var currentWebResourceGrants: [WebWallpaperResourceGrant] = []
     var currentWebResourceRootURL: URL?
-    func updateCurrentWebWallpaperProperties(_ payload: String?, resourceGrants: [WebWallpaperResourceGrant], resourcesChanged: Bool) {}
+    var payloads: [String] = []
+    func updateCurrentWebWallpaperProperties(_ payload: String?, resourceGrants: [WebWallpaperResourceGrant], resourcesChanged: Bool) {
+        currentWebResourceGrants = resourceGrants
+        if let payload { payloads.append(payload) }
+    }
 }
 '''
     source += r'''
@@ -241,7 +412,7 @@ nonisolated let cacheCommit = PublicationGate()
 '''
     source = source.replace('            try handle.write(contentsOf: data)', '            try handle.write(contentsOf: data)\n            cacheStaging.gate?.pause()', 1)
     source = source.replace('            return rename(staging.path, fileURL.path) == 0', '            cacheCommit.gate?.pause()\n            return rename(staging.path, fileURL.path) == 0', 1)
-    source = source.replace('    private let registryLock = NSLock()', '    var testLiveSlots: Int { registryLock.withLock { slots.values.filter { $0.value != nil }.count } }\n    private let registryLock = NSLock()', 1)
+    source = source.replace('    private let registryLock = NSLock()', '    var testRegistryCounts: (stored: Int, live: Int) { registryLock.withLock { (slots.count, slots.values.filter { $0.value != nil }.count) } }\n    private let registryLock = NSLock()', 1)
     # Compare complete resulting preparations without granting value types a new
     # product conformance just for this gate.
     source += r'''
@@ -266,7 +437,20 @@ nonisolated let optionReads = OptionProjectReads()
     loader = "    nonisolated static func loadWebProjectRootStatic(projectFileURL: URL?) -> [String: Any]? {"
     if source.count(loader) != 1: raise AssertionError("One actual project URL loader required")
     source = source.replace(loader, loader + "\n        optionReads.record(projectFileURL)", 1)
-    return source + CACHE_CHECKS
+    source += r'''
+@MainActor enum ProjectionWork {
+    static var bindings = 0
+    static var fallbacks = 0
+    static func reset() { bindings = 0; fallbacks = 0 }
+}
+'''
+    binding = method(source, "    func resolvedWebResourceBinding(")
+    source = source.replace(binding, binding.replace(
+        ") -> ResolvedWebResourceBinding? {", ") -> ResolvedWebResourceBinding? {\n        ProjectionWork.bindings += 1", 1), 1)
+    fallback = method(source, "    static func webRuntimePropertyPayloadJSON(")
+    source = source.replace(fallback, fallback.replace(
+        ") -> String? {", ") -> String? {\n        ProjectionWork.fallbacks += 1", 1), 1)
+    return source + BINDING_CHECKS + CACHE_CHECKS
 
 
 class WebRuntimeCacheTests(unittest.TestCase):

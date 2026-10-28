@@ -322,15 +322,13 @@ extension WebWallpaperLoopbackServer {
     }
 
     private func respondWithResourceFailure(_ error: Error, requestURL: URL, on context: ConnectionContext) {
+#if DEBUG
         if schemeHandler.isOptionalMissingMediaRequest(requestURL) {
-#if DEBUG
             diagnosticHandler?("loopback.resource.optional", .info, error.localizedDescription, requestURL)
-#endif
         } else {
-#if DEBUG
             diagnosticHandler?("loopback.resource.error", .warning, error.localizedDescription, requestURL)
-#endif
         }
+#endif
         sendError(404, message: error.localizedDescription, on: context)
     }
 

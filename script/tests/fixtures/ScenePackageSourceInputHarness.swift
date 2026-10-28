@@ -40,10 +40,27 @@ import Darwin
                 "autosize": $0.autosize as Any? ?? NSNull(), "size": $0.declaredSizeWH ?? [],
                 "crop": $0.cropOffsetXY ?? [], "solid": $0.isSolidLayer, "puppet": $0.puppetPath ?? ""] as [String: Any] },
             "catalogMaterialPaths": catalog.materials.map(\.relativePath),
-            "catalogMaterialRawSHA": catalog.materials.map(\.rawSHA256),
             "authoredDescriptor": try encoded(descriptor),
             "runtimeDescriptor": try encoded(model.renderDescriptor),
         ]
+    }
+    static func metadata(_ root: URL, sourceFile: URL?) throws -> [String: Any] {
+        let loaded = try facts(root, sourceFile: sourceFile)
+        let runtime = try model(root, sourceFile: sourceFile)
+        guard let catalog = loaded.assetCatalog, let descriptor = loaded.renderDescriptor else {
+            throw ProbeError.missingFacts
+        }
+        var result = try projection(loaded, runtime)
+        result["materialRawFields"] = catalog.materials.map {
+            Mirror(reflecting: $0).children.contains { $0.label == "rawSHA256" }
+        }
+        result["passRawFields"] = descriptor.materialPasses.map {
+            Mirror(reflecting: $0).children.contains { $0.label == "materialRawSHA256" }
+        }
+#if DEBUG
+        result["catalogMaterialRawSHA"] = catalog.materials.map(\.rawSHA256)
+#endif
+        return result
     }
     static func projectionBytes(_ root: URL, sourceFile: URL?) throws -> Data {
         try JSONSerialization.data(withJSONObject: projection(facts(root, sourceFile: sourceFile),
@@ -168,11 +185,13 @@ import Darwin
         if mode == "route" { result = try route(root, sourceFile: sourceFile!) }
         else if mode == "mutable" { result = try mutable(root, sourceFile: sourceFile!) }
         else if mode == "legacy" { result = try legacy(root, sourceFile: sourceFile!) }
+        else if mode == "metadata" { result = try metadata(root, sourceFile: sourceFile) }
         else { result = try projection(facts(root, sourceFile: sourceFile), model(root, sourceFile: sourceFile)) }
 #else
         result = try projection(facts(root, sourceFile: nil), model(root, sourceFile: nil))
 #endif
         let data = try JSONSerialization.data(withJSONObject: result, options: [.sortedKeys])
-        print(String(decoding: data, as: UTF8.self))
+        print((mode == "metadata" ? "material-metadata-result:" : "")
+            + String(decoding: data, as: UTF8.self))
     }
 }

@@ -4,11 +4,13 @@ import simd
 struct ScenePuppetScriptPoseFrame {
     static let empty = ScenePuppetScriptPoseFrame(
         posesByLayerID: [:],
-        attachmentFrames: .empty
+        attachmentFrames: .empty,
+        worldFrames: [:]
     )
 
     let posesByLayerID: [Int: ScenePuppetPlaybackState.PoseConfiguration]
     let attachmentFrames: ScenePuppetAttachmentFrameSnapshot
+    let worldFrames: [Int: simd_float4x4]
 }
 
 extension SceneMetalView {
@@ -17,32 +19,67 @@ extension SceneMetalView {
     /// matrices and cursor collision in this callback snapshot.
     func prepareSceneScriptPuppetPoseFrame(
         timing: SceneFrameTiming,
-        puppetAnimationFrame: ScenePuppetAnimationPlaybackRuntime.FrameSnapshot
+        puppetAnimationFrame: ScenePuppetAnimationPlaybackRuntime.FrameSnapshot,
+        dynamicValues: SceneDynamicSnapshot
     ) -> ScenePuppetScriptPoseFrame {
         guard !puppetPlaybackStates.isEmpty else { return .empty }
         var posesByLayerID: [Int: ScenePuppetPlaybackState.PoseConfiguration] = [:]
         var framesByParentLayerID: [Int: [String: simd_float4x4]] = [:]
         posesByLayerID.reserveCapacity(puppetPlaybackStates.count)
         framesByParentLayerID.reserveCapacity(puppetPlaybackStates.count)
-        for (layerID, playback) in puppetPlaybackStates {
-            guard let samples = puppetAnimationFrame[layerID] else { continue }
+        let frame = makeFrameContext(timing: timing, dynamicValues: dynamicValues,
+            parallax: .zero, audioSpectrum: .silent)
+        let camera = renderer.makeCameraFrame(frameContext: frame, worldFrames: renderer.worldFramesByLayerID)
+        let parallax = renderer.parallaxConfiguration(cameraFrame: camera,
+            viewportSize: frame.screenSize, dynamicValues: dynamicValues)
+        let prepareAttachments: (SceneRenderDescriptor.Layer, [Int: simd_float4x4]) -> [String: simd_float4x4]? = { layer, worlds in
+            let layerID = layer.id
+            guard let playback = self.puppetPlaybackStates[layerID],
+                  let samples = puppetAnimationFrame[layerID] else { return nil }
+            let model = layer.staticModelPath != nil
+                ? self.renderer.staticModelWorld(for: layerID, worldFrames: worlds)
+                : self.renderer.geometryModelMatrix(for: layer, worldFramesByLayerID: worlds,
+                    authoredSize: SIMD2<Float>(layer.renderSizeWH ?? [], fill: 0),
+                    parallaxMouseNormalized: .zero, configuration: parallax,
+                    visibleHalfExtents: camera.coverHalfExtents,
+                    usesPerspective: camera.resolvesPerspective(for: layer))
+            let meshToWorld = SceneLayerCursorGeometry.authoredWorldTransform(
+                model, sceneOrthoHeight: self.renderer.renderDescriptor.camera.orthoHeight)
             playback.advanceBonePhysics(
                 animationFrame: samples, deltaTime: timing.simulationFrameTime,
-                frameIndex: timing.frameIndex
+                frameIndex: timing.frameIndex, meshToWorld: meshToWorld
             )
             guard let pose = playback.poseConfiguration(
-                animationFrame: samples
-            ) else { continue }
+                animationFrame: samples, meshToWorld: meshToWorld
+            ) else { return nil }
             posesByLayerID[layerID] = pose
             if !pose.attachmentFrames.isEmpty {
                 framesByParentLayerID[layerID] = pose.attachmentFrames
+            }
+            return pose.attachmentFrames
+        }
+        let worldFrames: [Int: simd_float4x4]
+        if puppetPlaybackStates.values.contains(where: { $0.hasTranslationPhysics || $0.hasAttachments }) {
+            worldFrames = SceneLayerDynamicWorldFrameResolver.resolve(
+                descriptor: renderer.renderDescriptor, byID: renderer.layersByID,
+                snapshot: dynamicValues, staticFrames: renderer.worldFramesByLayerID,
+                prepareLayerAttachments: prepareAttachments)
+        } else {
+            // Ordinary static rigs retain the cached hierarchy path.
+            worldFrames = sceneScriptCursorWorldFrames(dynamicValues: dynamicValues,
+                puppetAttachmentFrames: .empty)
+            for layerID in puppetPlaybackStates.keys {
+                if let layer = renderer.layersByID[layerID] {
+                    _ = prepareAttachments(layer, worldFrames)
+                }
             }
         }
         return ScenePuppetScriptPoseFrame(
             posesByLayerID: posesByLayerID,
             attachmentFrames: .init(
                 framesByParentLayerID: framesByParentLayerID
-            )
+            ),
+            worldFrames: worldFrames
         )
     }
 
@@ -57,26 +94,15 @@ extension SceneMetalView {
         worldFrames: [Int: simd_float4x4]
     ) throws {
         guard !poseFrame.posesByLayerID.isEmpty else { return }
+#if DEBUG
         let frame = makeFrameContext(timing: timing, dynamicValues: dynamicValues,
             parallax: .zero, audioSpectrum: .silent)
         let camera = renderer.makeCameraFrame(frameContext: frame, worldFrames: worldFrames)
-        let parallax = renderer.parallaxConfiguration(
-            cameraFrame: camera, viewportSize: frame.screenSize,
-            dynamicValues: dynamicValues)
+#endif
         for (layerID, pose) in poseFrame.posesByLayerID {
             guard let layer = renderer.layersByID[layerID] else { continue }
             let bones = pose.bones
-            let authoredSize = SIMD2<Float>(layer.renderSizeWH ?? [], fill: 0)
-            let model = layer.staticModelPath != nil
-                ? renderer.staticModelWorld(for: layer.id, worldFrames: worldFrames)
-                : renderer.geometryModelMatrix(
-                for: layer, worldFramesByLayerID: worldFrames,
-                authoredSize: authoredSize,
-                parallaxMouseNormalized: .zero, configuration: parallax,
-                visibleHalfExtents: camera.coverHalfExtents,
-                usesPerspective: camera.resolvesPerspective(for: layer))
-            let meshToWorld = SceneLayerCursorGeometry.authoredWorldTransform(
-                model, sceneOrthoHeight: renderer.renderDescriptor.camera.orthoHeight)
+            let meshToWorld = pose.meshToWorld
             let transform = [meshToWorld.columns.0, meshToWorld.columns.1,
                              meshToWorld.columns.2, meshToWorld.columns.3]
                 .flatMap { [Double($0.x), Double($0.y), Double($0.z), Double($0.w)] }
@@ -97,6 +123,8 @@ extension SceneMetalView {
                 if ScenePuppetBoneEvidence.isEnabled(for: layerID) {
                     // Qualification only: project the already-published pose,
                     // without exposing names or evaluating another hierarchy.
+                    let model = SceneLayerCursorGeometry.authoredWorldTransform(meshToWorld,
+                        sceneOrthoHeight: renderer.renderDescriptor.camera.orthoHeight)
                     let projection = camera.viewProjection(for: layer) * model
                     let count = min(bones.parentIndices.count, bones.worldMatrices.count / 16)
                     for index in 0..<count {

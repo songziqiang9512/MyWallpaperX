@@ -5,7 +5,7 @@ setAsWallpaper and intent advance methods, capture, parser and lease owner run.
 """
 from __future__ import annotations
 import unittest
-from script.tests.test_web_author_preparation import CHECKS, CORE, WEB, harness_source, run_harness
+from script.tests.test_web_author_preparation import CHECKS, CORE, ROOT, WEB, harness_source, run_harness
 from script.tests.test_steam_library_interactions import method
 
 ENTRY_SUPPORT = r'''
@@ -144,6 +144,53 @@ nonisolated final class ReadyReceiver: @unchecked Sendable {
 
 
 class WebPreparationIntentTests(unittest.TestCase):
+    def test_actual_property_merge_and_input_fallback(self):
+        engine = (ROOT / 'MyWallpaperX/Core/SteamWorkshopWeb/Engine/WallpaperEngine+WebWallpaper.swift').read_text()
+        methods = '\n'.join(method(engine, name).replace('private func ', 'func ', 1) for name in (
+            'private func mergedWebPropertiesJSON(', 'private func jsonObjectDictionary('))
+        checks = r'''
+@main enum MergeHarness {
+    static func main() throws {
+        let engine = WallpaperEngine()
+        let base = #"{"speed":{"type":"slider","value":1},"extra":{"value":"keep"}}"#
+        let delta = #"{"speed":{"type":"slider","value":2,"options":[]}}"#
+        func merged(_ base: String?, _ delta: String?) -> String {
+            engine.mergedWebPropertiesJSON(baseJSON: base, deltaJSON: delta)
+        }
+        func object(_ json: String) throws -> NSDictionary {
+            try JSONSerialization.jsonObject(with: Data(json.utf8)) as! NSDictionary
+        }
+        let result = try object(merged(base, delta))
+        let expected = try object(#"{"speed":{"type":"slider","value":2,"options":[]},"extra":{"value":"keep"}}"#)
+        precondition(result == expected, "merge replaces the complete changed property and retains unrelated values")
+        for rejected in [nil, "broken", "[]", "42", "null", #"{"value":NaN}"#, #"{"value":Infinity}"#] as [String?] {
+            precondition(merged(base, rejected) == base, "invalid/scalar delta returns the original base bytes")
+            precondition(merged(nil, rejected) == "{}", "invalid/scalar delta without base keeps empty fallback")
+        }
+        for invalidBase in [nil, "broken", "[]", "42", "null"] as [String?] {
+            let fromDelta = try object(merged(invalidBase, delta))
+            let expectedDelta = try object(delta)
+            precondition(fromDelta == expectedDelta, "invalid/scalar base still accepts a valid complete delta")
+        }
+        let overflowing = #"{"unknown":-1e309}"#
+        precondition(merged(base, overflowing) == base, "decoded nonfinite delta preserves original fallback")
+        precondition(merged(nil, overflowing) == overflowing, "nonfinite data keeps existing fallback bytes")
+        precondition(merged(overflowing, delta) == overflowing, "nonfinite unknown base cannot crash re-encoding")
+        let cleared = try object(merged(base, #"{"speed":null}"#))
+        let expectedClear = try object(#"{"speed":null,"extra":{"value":"keep"}}"#)
+        precondition(cleared == expectedClear, "parsed null leaf remains valid data")
+        let unchanged = try object(merged(base, "{}"))
+        let expectedBase = try object(base)
+        precondition(unchanged == expectedBase, "empty delta retains the complete base projection")
+        let projection = try JSONSerialization.data(withJSONObject: ["merged": result, "cleared": cleared], options: [.sortedKeys])
+        print("web-json-merge-projection:" + String(decoding: projection, as: UTF8.self))
+        print("web-property-merge-pass")
+    }
+}
+'''
+        run_harness(self, 'import Foundation\nfinal class WallpaperEngine {\n' + methods + '\n}\n' + checks,
+                    'web-property-merge-pass', with_library=False)
+
     def test_real_selection_task_and_callback_generation(self):
         source = harness_source().removesuffix(CHECKS)
         source = source.replace('    var webEntryURL: URL?', '    var title: String { id }\n    var videoURL: URL? { nil }\n    var webEntryURL: URL?', 1)

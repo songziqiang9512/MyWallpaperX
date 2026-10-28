@@ -87,7 +87,7 @@ nonisolated enum SceneShaderContractPath {
         path: String
     ) -> String? {
         let normalized = path.replacingOccurrences(of: "\\", with: "/")
-        guard !normalized.hasPrefix("/"), !hasDrivePrefix(normalized) else { return nil }
+        guard !normalized.hasPrefix("/") else { return nil }
 
         var components = base.split(separator: "/").map(String.init)
         for component in normalized.split(separator: "/", omittingEmptySubsequences: false) {
@@ -102,12 +102,6 @@ nonisolated enum SceneShaderContractPath {
         return components.isEmpty ? nil : components.joined(separator: "/")
     }
 
-    nonisolated private static func hasDrivePrefix(_ path: String) -> Bool {
-        guard path.count >= 2 else { return false }
-        let start = path.startIndex
-        let next = path.index(after: start)
-        return path[start].isLetter && path[next] == ":"
-    }
 }
 
 nonisolated enum SceneShaderMetadataIdentity {

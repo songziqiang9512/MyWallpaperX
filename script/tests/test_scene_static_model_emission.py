@@ -174,6 +174,33 @@ def surface_storage_vectors() -> list[dict]:
         for profile, brightness, tint in itertools.product([False, True], [1, 100000], [1, 100000])]
 
 
+def view_tint_vectors() -> list[dict]:
+    # The center view points along +Z; these length-two normals give signed
+    # facing +.5/-.5. Fixed hand-computed tint weights keep the oracle separate
+    # from the shader: unmasked is linear; masked retains the prior exponent.
+    base = dict(albedo=[.25]*3, normal=[math.sqrt(3), 0, 1],
+        cameraPosition=[0, 0, 2.5], ambient=[0, 0, 0], receivesLighting=False,
+        hasMask=False, maskAlpha=0, emissiveColor=[1, 1, 1], brightness=0,
+        opacity=.5, viewTint=[.75, .5])
+    rows = [dict(base, name=f"view-tint-{masked}-{exponent}", tintMask=masked,
+                 viewExponent=exponent, expectedViewTint=weight)
+            for masked, exponent, weight in [
+                (False, 2, .625), (False, 4, .625),
+                (True, 2, .5625), (True, 4, .515625)]]
+    for exponent in (2, 4):
+        rows.append(dict(base, name=f"view-tint-neutral-{exponent}",
+            normal=[math.sqrt(3), 0, -1], viewTint=[.625, .625],
+            tintMask=True, viewExponent=exponent, expectedViewTint=.625))
+    rows.append(dict(rows[0], name="view-tint-back-facing", normal=[math.sqrt(3), 0, -1],
+        expectedViewTint=.375))
+    rows.append(dict(rows[0], name="renamed-tilted-surface", normal=[3*math.sqrt(3), 0, 3],
+        cameraPosition=[0, 0, 8.5]))
+    rows.append(dict(rows[0], name="view-tint-premultiplied-source", albedo=[.125]*3,
+        albedoAlpha=.5, colorPremultiplied=True))
+    rows.append(dict(rows[0], name="view-tint-layer-fade", layerAlpha=.5))
+    return rows
+
+
 def zero_surface_vectors() -> list[dict]:
     # Exact-zero direct specular is a delta, not a finite raster lobe. The
     # remaining expectation uses only independent Fresnel, diffuse and lamp
@@ -216,20 +243,26 @@ def expected_pixel(vector: dict) -> list[float]:
     if "expectedUnlitPixel" in vector:
         return vector["expectedUnlitPixel"]
     mask = vector["maskAlpha"] if vector["hasMask"] else 0.0
+    albedo = vector["albedo"]
+    if vector.get("colorPremultiplied"):
+        albedo = [value/vector["albedoAlpha"] for value in albedo]
     radiance = [
-        albedo * (ambient * vector.get("ambientResponse", 0.5)
+        value * ((ambient * vector.get("ambientResponse", 0.5)
                   + sky * vector.get("skyResponse", 0.5)
-                  + color * mask * vector["brightness"])
-        for albedo, ambient, sky, color in zip(
-            vector["albedo"], vector["ambient"], vector.get("skylight", [0, 0, 0]), vector["emissiveColor"]
+                  if vector.get("receivesLighting", True) else 1)
+                 + color * mask * vector["brightness"])
+        for value, ambient, sky, color in zip(
+            albedo, vector["ambient"], vector.get("skylight", [0, 0, 0]), vector["emissiveColor"]
         )
     ]
     radiance = [value+direct for value, direct in zip(radiance, vector.get("zeroDirect", [0, 0, 0]))]
+    radiance = [value*vector.get("expectedViewTint", 1) for value in radiance]
     density = vector.get("expectedFogDensity", vector.get("fogDensity"))
     if density is not None:
         radiance = [lit * (1.0 - density) + fog * density
                     for lit, fog in zip(radiance, vector["fogColor"])]
-    return [min(MAX_HALF, max(0.0, lit * vector["opacity"])) for lit in radiance] + [vector["opacity"]]
+    coverage = vector["opacity"]*vector.get("layerAlpha", 1)
+    return [min(MAX_HALF, max(0.0, lit * coverage)) for lit in radiance] + [coverage]
 
 
 def half_storage_tolerance(expected: float) -> float:
@@ -279,7 +312,8 @@ PIXEL_MAIN = r'''
                     tangent: SIMD4(1, 0, 0, 1), uv: SIMD2(0.5, 0.5))
             }
             let mesh = pipeline.makeMesh(model: SceneStaticModelFixture.model(vertices: vertices, indices: [0, 1, 2, 0, 2, 3]))!
-            let albedo = texture(input["albedo"] as! [Double], alpha: 1)
+            let albedo = texture(input["albedo"] as! [Double],
+                alpha: Float(input["albedoAlpha"] as? Double ?? 1))
             let mask: MTLTexture? = (input["hasMask"] as! Bool)
                 ? texture([0, 0, 0], alpha: Float(input["maskAlpha"] as! Double)) : nil
             let colorDescriptor = MTLTextureDescriptor.texture2DDescriptor(
@@ -306,14 +340,16 @@ PIXEL_MAIN = r'''
             let material = SceneStaticModelMaterial(
                 color: vector(input["tint"] as? [Double] ?? [1, 1, 1]), opacity: Float(input["opacity"] as! Double),
                 receivesLighting: input["receivesLighting"] as? Bool ?? true,
-                textureAlphaIsOpacity: false, textureAlphaIsTintMask: false,
+                textureAlphaIsOpacity: false,
+                textureAlphaIsTintMask: input["tintMask"] as? Bool ?? false,
                 emissiveColor: vector(input["emissiveColor"] as! [Double]),
                 emissiveBrightness: Float(input["brightness"] as! Double),
                 brightness: Float(input["materialBrightness"] as? Double ?? 1),
                 usesHDRBrightness: input["usesHDR"] as? Bool ?? false,
                 viewTint: (input["viewTint"] as? [Double]).map {
                     .init(front: SIMD3(repeating: Float($0[0])),
-                          back: SIMD3(repeating: Float($0[1])), exponent: 1.5,
+                          back: SIMD3(repeating: Float($0[1])),
+                          exponent: Float(input["viewExponent"] as? Double ?? 1.5),
                           usesDynamicBackColor: false)
                 },
                 surfaceProfile: (input["surface"] as? [Double]).map {
@@ -347,12 +383,14 @@ PIXEL_MAIN = r'''
                 lighting.distanceFogRange = SIMD4(Float(range[0]), Float(range[1]), Float(range[2]), Float(range[3]))
             }
             precondition(pipeline.draw(
-                mesh: mesh, texture: albedo, colorTextureIsPremultiplied: false,
+                mesh: mesh, texture: albedo,
+                colorTextureIsPremultiplied: input["colorPremultiplied"] as? Bool ?? false,
                 emissiveMask: mask, emissiveMaskTextureFrame: mask == nil ? nil : .identity,
                 emissiveMaskSampling: mask == nil ? nil : .linearClamp, modelMatrix: matrix_identity_float4x4,
                 viewProjection: matrix_identity_float4x4,
                 cameraPosition: vector(input["cameraPosition"] as? [Double] ?? [0, 0, 10]),
-                textureFrame: .identity, sampling: .linearClamp, layerAlpha: 1,
+                textureFrame: .identity, sampling: .linearClamp,
+                layerAlpha: Float(input["layerAlpha"] as? Double ?? 1),
                 material: material, lighting: lighting, writesDepth: true, frameEpoch: 1,
                 commandBuffer: commandBuffer, encoder: encoder
             ))
@@ -399,7 +437,8 @@ class SceneStaticModelEmissionTests(unittest.TestCase):
             SCENE / "Resources/Textures/SceneResourceBudget.swift",
         ]
         cls.vectors = (emission_vectors() + ambient_vectors() + distance_fog_vectors()
-                       + surface_vectors() + surface_storage_vectors() + zero_surface_vectors())
+                       + surface_vectors() + surface_storage_vectors() + zero_surface_vectors()
+                       + view_tint_vectors())
         cls.report = run_swift(
             sources, "import Foundation\nimport Metal\nimport simd\n" + model_fixture.LIGHTING_STUB + PIXEL_MAIN,
             label="model-emission", metal_sources=[model_fixture.METAL_SOURCE], input_value=cls.vectors,
@@ -414,7 +453,7 @@ class SceneStaticModelEmissionTests(unittest.TestCase):
                 self.assertTrue(row["completed"])
                 self.assertEqual(len(row["pixel"]), 4)
                 self.assertTrue(all(math.isfinite(float(value)) for value in row["pixel"]))
-                self.assertEqual(row["pixel"][3], vector["opacity"])
+                self.assertEqual(row["pixel"][3], vector["opacity"]*vector.get("layerAlpha", 1))
 
     def test_additive_emission_pixels_match_numeric_contract(self):
         for vector, row in zip(self.vectors, self.report["rows"]):
@@ -455,7 +494,9 @@ class SceneStaticModelEmissionTests(unittest.TestCase):
             self.assertLess(float(actual), float(reference))
 
     def test_finite_surface_storage_profile_and_legacy_boundaries(self):
-        legacy = {(1, 1): 49/255, (1, 100000): MAX_HALF,
+        # The unmasked center has facing .5: front=100000/back=1 gives
+        # 50000.5, replacing the old exponent/early-half-overflow expectation.
+        legacy = {(1, 1): 49/255, (1, 100000): (49/255)*50000.5,
                   (100000, 1): 19200, (100000, 100000): MAX_HALF}
         for vector, row in zip(self.vectors, self.report["rows"]):
             if not vector.get("storageBoundary"):
@@ -468,3 +509,14 @@ class SceneStaticModelEmissionTests(unittest.TestCase):
                     if vector["surface"] is None:
                         expected = legacy[(vector["materialBrightness"], vector["viewTint"][0])]
                         self.assertAlmostEqual(actual, expected, delta=half_storage_tolerance(expected))
+
+    def test_view_tint_mask_selects_exponent_and_keeps_signed_facing(self):
+        pixels = {row["name"]: row["pixel"] for row in self.report["rows"]}
+        linear = pixels["view-tint-False-2"]
+        for name in ("view-tint-False-4", "renamed-tilted-surface", "view-tint-premultiplied-source"):
+            with self.subTest(case=name):
+                self.assertEqual(pixels[name], linear)
+        self.assertNotEqual(pixels["view-tint-True-2"][:3], pixels["view-tint-True-4"][:3])
+        self.assertEqual(pixels["view-tint-neutral-2"], pixels["view-tint-neutral-4"])
+        self.assertLess(pixels["view-tint-back-facing"][0], linear[0])
+        self.assertEqual(pixels["view-tint-layer-fade"], [value*.5 for value in linear])

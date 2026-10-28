@@ -15,7 +15,7 @@
 
 - DaemonKit 是进程物理生命周期的唯一公共实现；引擎保留请求、重试和资源租约。播放 transport 明确登记，物理清单覆盖 active、candidate、空宿主和 retiring，不能以字典移除冒充进程退出。非播放 Steam/编译服务不受播放退出登记影响。
 - 子进程在 AppKit/内容初始化前安装父进程退出事件，入口及注册完成时核实际父进程，覆盖安装竞态，不常驻轮询。正常 EOF、父死亡和握手期间失联进入同一有界退出路径：子主循环撤输入、音频、窗口并回收 GPU，主线程堵塞仍有独立后台硬截止期。只作用于自身进程，不能按名字终止其他实例。
-- 主 App 退出先关闭新播放进程准入并撤销意图/异步任务，再向三引擎发正常停止；所有精确登记进程共享墙钟上限并并行回收，按正常停止、TERM、KILL分级。AppKit terminateLater 的回复必须在实际退出后完成；异常无法退出要有明确失败状态，不能静默宣称成功。
+- 退出先结清资料库；视频索引仅保存初载、待写/在途或失败快照，无改动不重写。随后关闭播放准入、撤销意图/异步任务，停止三引擎。登记进程共享墙钟上限并行回收，按正常停止、TERM、KILL分级；terminateLater 在真实退出后回复，超时明确失败。
 - 资源租约保持到实际退出或既有 CPU/GPU 释放确认。已登记退休的执行映射同样保留至最后退出回执，通用 Stop 不提前移除；退出回调、取消和升级终止均幂等，旧 PID/transport/完成不能影响新实例。
 - Web worker 若后续采用退休复用，只允许在原事务已退休 endpoint、该 execution 的 producers/授权撤销且任务 drain 后，用精确 instance/request/session/reset 身份 ACK 结清资源；ACK 不冒充进程退出。空闲 worker 仍登记于原进程 registry，App 退出继续等待实际退出；协议未迁移前保留原一次性进程合同。 当前未采用 WebView 退休复用；原成本 STOP 与设计依据见[完成记录](../history/cross-topic/wallpaper-startup-optimization-completed-2026-10-25.md)，不由历史设计自动重开。
 

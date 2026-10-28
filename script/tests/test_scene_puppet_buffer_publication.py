@@ -47,8 +47,9 @@ import simd
 enum SceneDynamicTarget: Hashable {
     case scriptInstanceProperty(layerID: Int, path: [String])
 }
-enum SceneDynamicValue { case bool(Bool) }
-struct SceneDynamicResolvedValue { let value: SceneDynamicValue }
+enum SceneDynamicValue { case bool(Bool), scalar(Double) }
+enum SceneDynamicValueSource { case authored, sceneScript }
+struct SceneDynamicResolvedValue { let value: SceneDynamicValue; var source: SceneDynamicValueSource = .authored }
 struct SceneDynamicSnapshot {
     let frameIndex: UInt64
     let values: [SceneDynamicTarget: SceneDynamicResolvedValue]
@@ -59,8 +60,9 @@ struct SceneDynamicSnapshot {
     subscript(target: SceneDynamicTarget) -> SceneDynamicResolvedValue? { values[target] }
 }
 struct SceneScriptPuppetBoneMutation {
+    enum Operation { case matrix([Double]), impulse(SIMD3<Double>) }
     let layerID: Int, boneIndex: Int
-    let matrix: [Double]
+    let operation: Operation
 }
 enum ScenePuppetLayerLoad {
     struct BoneConfiguration {
@@ -389,7 +391,8 @@ func translationPoseChecks(device: MTLDevice, queue: MTLCommandQueue,
     var written = matrix_identity_float4x4
     written.columns.0.x = 0.8; written.columns.1.y = 0.9; written.columns.3.x = 0.35
     let mutation = SceneScriptPuppetBoneMutation(layerID: 42, boneIndex: 0,
-        matrix: columns(written).map(Double.init))
+        operation: .matrix(columns(written).map(Double.init)))
+    let kick=SceneScriptPuppetBoneMutation(layerID:42,boneIndex:0,operation:.impulse(SIMD3(2,0,0)))
     func configuration(_ state: ScenePuppetPlaybackState) -> [String: Any] {
         let pose = state.poseConfiguration(animationFrame: samples)!
         let basis = (0..<16).filter { !(12...14).contains($0) }
@@ -401,7 +404,7 @@ func translationPoseChecks(device: MTLDevice, queue: MTLCommandQueue,
     }
     func positions() -> [[Float]] { Observation.evidence.last!.map { [$0.x, $0.y] } }
     physical.state.advanceBonePhysics(animationFrame: samples, deltaTime: 1.0 / 30, frameIndex: 10)
-    physical.state.apply(scriptBoneMutations: [mutation])
+    physical.state.apply(scriptBoneMutations: [kick,mutation])
     let firstPose = configuration(physical.state)
     let first = render(physical, sceneTime: 1, device: device, queue: queue, atlas: atlas,
         animationFrame: samples)
@@ -427,9 +430,12 @@ func translationPoseChecks(device: MTLDevice, queue: MTLCommandQueue,
     let later = render(physical, sceneTime: 1.5, device: device, queue: queue, atlas: atlas,
         animationFrame: samples)
     let laterPositions = positions()
+    physical.state.apply(scriptBoneMutations:[kick])
+    physical.state.advanceBonePhysics(animationFrame:samples,deltaTime:0.05,frameIndex:16)
+    let kickedPose=configuration(physical.state)
     let ordinary = try makePlayback(base, device: device, pipeline: pipeline, atlas: atlas)
     ordinary.state.advanceBonePhysics(animationFrame: samples, deltaTime: 0.05, frameIndex: 10)
-    ordinary.state.apply(scriptBoneMutations: [mutation])
+    ordinary.state.apply(scriptBoneMutations: [mutation,kick])
     let ordinaryFirstPose = configuration(ordinary.state)
     let ordinaryFirst = render(ordinary, sceneTime: 1, device: device, queue: queue, atlas: atlas,
         animationFrame: samples)
@@ -437,7 +443,9 @@ func translationPoseChecks(device: MTLDevice, queue: MTLCommandQueue,
     let ordinaryNextPose = configuration(ordinary.state)
     let ordinaryNext = render(ordinary, sceneTime: 1.1, device: device, queue: queue, atlas: atlas,
         animationFrame: samples)
-    return ["firstPose": firstPose, "samePose": samePose, "nextPose": nextPose,
+    return ["kickedPose":kickedPose,
+        "kicked":render(physical,sceneTime:1.6,device:device,queue:queue,atlas:atlas,animationFrame:samples).report,
+        "firstPose": firstPose, "samePose": samePose, "nextPose": nextPose,
         "nextAgainPose": nextAgainPose, "laterPose": laterPose,
         "first": first.report, "same": same.report, "next": next.report, "later": later.report,
         "firstPositions": firstPositions, "samePositions": samePositions,
@@ -740,6 +748,8 @@ class PuppetBufferPublicationTests(unittest.TestCase):
                 self.assertEqual(pose["queryBasis"], pose["renderBasis"])
                 self.assertAlmostEqual(pose["worldX"], pose["renderX"], places=6)
                 self.assertAlmostEqual(pose["attachmentX"], pose["renderX"], places=6)
+        self.assertGreater(facts["kickedPose"]["renderX"],later["renderX"])
+        self.assertNotEqual(facts["kicked"]["imageSHA256"],facts["later"]["imageSHA256"])
         self.assertNotEqual(facts["firstPositions"], facts["nextPositions"])
         self.assertNotEqual(facts["nextPositions"], facts["laterPositions"])
         # Every vertex moves by the physical root's displacement, while local

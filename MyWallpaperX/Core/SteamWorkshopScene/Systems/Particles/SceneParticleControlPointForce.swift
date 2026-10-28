@@ -16,12 +16,10 @@ nonisolated extension SceneParticleSimulationMath {
     }
 
     static func rotateXYZ(
-        _ value: SIMD3<Double>, by angles: SIMD3<Double>
+        _ value: SIMD3<Double>, sine: SIMD3<Double>, cosine: SIMD3<Double>
     ) -> SIMD3<Double> {
         // Project-owned bounded convention: authored radians apply X, then Y, then Z.
         // This does not assert numerical parity with the official client.
-        let sine = SIMD3(sin(angles.x), sin(angles.y), sin(angles.z))
-        let cosine = SIMD3(cos(angles.x), cos(angles.y), cos(angles.z))
         let aroundX = SIMD3(
             value.x,
             value.y * cosine.x - value.z * sine.x,
@@ -42,14 +40,15 @@ nonisolated extension SceneParticleSimulationMath {
 
 nonisolated struct SceneParticleEmitterControlPointFrame {
     let origin: SIMD3<Double>
-    let angles: SIMD3<Double>
+    let sine: SIMD3<Double>
+    let cosine: SIMD3<Double>
 
     func position(for relative: SIMD3<Double>) -> SIMD3<Double> {
-        origin + SceneParticleSimulationMath.rotateXYZ(relative, by: angles)
+        origin + direction(for: relative)
     }
 
     func direction(for value: SIMD3<Double>) -> SIMD3<Double> {
-        SceneParticleSimulationMath.rotateXYZ(value, by: angles)
+        SceneParticleSimulationMath.rotateXYZ(value, sine: sine, cosine: cosine)
     }
 }
 
@@ -277,7 +276,7 @@ nonisolated extension SceneParticleDefinition {
         let localOrigin = preparedOrigin
             ?? SceneParticleSimulationMath.vector(emitter.origin, fallback: .zero)
         guard let source = emitterControlPointSource(for: emitter) else {
-            return .init(origin: localOrigin, angles: .zero)
+            return .init(origin: localOrigin, sine: .zero, cosine: .init(repeating: 1))
         }
         guard (0 ... 7).contains(source),
               controlPointSourcesAreValid
@@ -331,8 +330,10 @@ nonisolated extension SceneParticleDefinition {
                 translation += SceneParticleSimulationMath.vector(position.value, fallback: .zero)
             }
         }
-        let rotatedOrigin = SceneParticleSimulationMath.rotateXYZ(localOrigin, by: angles)
-        return .init(origin: translation + rotatedOrigin, angles: angles)
+        let sine = SIMD3(sin(angles.x), sin(angles.y), sin(angles.z))
+        let cosine = SIMD3(cos(angles.x), cos(angles.y), cos(angles.z))
+        let rotatedOrigin = SceneParticleSimulationMath.rotateXYZ(localOrigin, sine: sine, cosine: cosine)
+        return .init(origin: translation + rotatedOrigin, sine: sine, cosine: cosine)
     }
 
     func supportsBoundedControlPointForce(

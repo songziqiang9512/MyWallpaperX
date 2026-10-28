@@ -29,6 +29,7 @@ nonisolated struct SceneShaderSourceGraphBuilder {
         let limits: Limits
         let resolver: SceneShaderSourceResolver
         let resourceView: SceneResourceView
+        let capturedRootStages: [SceneShaderSourceResolver.CapturedRootStage]
         let checkCancellation: (() throws -> Void)?
         var nodesByIdentity: [String: SceneShaderSourceGraph.Node] = [:]
         var edges: [SceneShaderSourceGraph.Edge] = []
@@ -71,7 +72,7 @@ nonisolated struct SceneShaderSourceGraphBuilder {
                 completed.insert(identity)
             }
 
-            let includes = SceneShaderContractSourceParser().parse(
+            let includes = file.parsedIncludes ?? SceneShaderContractSourceParser().parse(
                 file.source,
                 stageRelativePath: file.virtualPath
             ).includes
@@ -220,7 +221,9 @@ nonisolated struct SceneShaderSourceGraphBuilder {
             if let captured = resolutionsByPath[key] { return captured }
             let captured = try resolver.resolveWithEvidence(
                 virtualPath: key, resourceView: resourceView,
-                maximumBytes: limits.maximumFileBytes, checkCancellation: checkCancellation)
+                maximumBytes: limits.maximumFileBytes,
+                capturedRootStage: capturedRootStages.first { $0.file.virtualPath.utf8.elementsEqual(key.utf8) },
+                checkCancellation: checkCancellation)
             let byteCost: Int
             if case let .resolved(file) = captured.selected { byteCost = file.byteCount }
             else { byteCost = 0 }
@@ -296,6 +299,7 @@ nonisolated struct SceneShaderSourceGraphBuilder {
     nonisolated func build(
         roots: [SceneShaderSourceGraph.RootRequest],
         resourceView: SceneResourceView,
+        capturedRootStages: [SceneShaderSourceResolver.CapturedRootStage] = [],
         checkCancellation: (() throws -> Void)? = nil
     ) throws -> SceneShaderSourceGraph {
         try checkCancellation?()
@@ -306,7 +310,8 @@ nonisolated struct SceneShaderSourceGraphBuilder {
         var state = State(
             limits: limits,
             resolver: SceneShaderSourceResolver(),
-            resourceView: resourceView, checkCancellation: checkCancellation
+            resourceView: resourceView, capturedRootStages: capturedRootStages,
+            checkCancellation: checkCancellation
         )
         for root in roots { try state.loadRoot(root) }
         let nodes = state.nodesByIdentity.values.sorted {

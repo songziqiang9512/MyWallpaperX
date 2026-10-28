@@ -5,7 +5,6 @@ extension SceneResolvedMaterialGraphExecutor {
         let pair: PairAtom
         let publications: [Graph.TextureIdentity: SceneFrameTextureResource]
         let commandCount: Int
-        let programKeyCount: Int
     }
 
     /// The outer optional means this graph owns no slot for the unavailable
@@ -21,7 +20,6 @@ extension SceneResolvedMaterialGraphExecutor {
         pair: inout PairAtom,
         publications: inout [Graph.TextureIdentity: SceneFrameTextureResource],
         commands: inout [Command],
-        programKeys: inout [String],
         effectLocalFailureReasonCode: inout String?
     ) -> Failure?? {
         guard let unavailable = frameInputs.dependencyUnavailability,
@@ -38,7 +36,6 @@ extension SceneResolvedMaterialGraphExecutor {
             pair: &pair,
             publications: &publications,
             commands: &commands,
-            programKeys: &programKeys,
             effectLocalFailureReasonCode: &effectLocalFailureReasonCode
         ))
     }
@@ -58,7 +55,6 @@ extension SceneResolvedMaterialGraphExecutor {
         pair: inout PairAtom,
         publications: inout [Graph.TextureIdentity: SceneFrameTextureResource],
         commands: inout [Command],
-        programKeys: inout [String],
         effectLocalFailureReasonCode: inout String?,
         boundedDetail: String? = nil,
         rejection: Failure = .graphStructureRejected
@@ -124,14 +120,12 @@ extension SceneResolvedMaterialGraphExecutor {
             return rejection
         }
         let failure = prepareStagePassthrough(
-            programIdentity: "visual-failure-passthrough:\(reasonCode)",
             pairStep: pairStep,
             lease: lease,
             snapshot: snapshot,
             pair: &pair,
             publications: &publications,
             commands: &commands,
-            programKeys: &programKeys,
             rejection: rejection
         )
         guard failure == nil else { return failure }
@@ -166,7 +160,6 @@ extension SceneResolvedMaterialGraphExecutor {
         pair: inout PairAtom,
         publications: inout [Graph.TextureIdentity: SceneFrameTextureResource],
         commands: inout [Command],
-        programKeys: inout [String],
         effectLocalActivationBypassReasonCode: inout String?,
         rejection: Failure = .graphStructureRejected
     ) -> Failure? {
@@ -192,14 +185,12 @@ extension SceneResolvedMaterialGraphExecutor {
             return rejection
         }
         let failure = prepareStagePassthrough(
-            programIdentity: "activation-passthrough:\(reasonCode)",
             pairStep: pairStep,
             lease: lease,
             snapshot: snapshot,
             pair: &pair,
             publications: &publications,
             commands: &commands,
-            programKeys: &programKeys,
             rejection: rejection
         )
         guard failure == nil else { return failure }
@@ -208,22 +199,18 @@ extension SceneResolvedMaterialGraphExecutor {
     }
 
     private func prepareStagePassthrough(
-        programIdentity: String,
         pairStep: Pair.EffectStep,
         lease: SceneGraphRenderTargetLease,
         snapshot: VisualFailureSnapshot,
         pair: inout PairAtom,
         publications: inout [Graph.TextureIdentity: SceneFrameTextureResource],
         commands: inout [Command],
-        programKeys: inout [String],
         rejection: Failure
     ) -> Failure? {
-        guard commands.count >= snapshot.commandCount,
-              programKeys.count >= snapshot.programKeyCount else {
+        guard commands.count >= snapshot.commandCount else {
             return rejection
         }
         commands.removeSubrange(snapshot.commandCount ..< commands.count)
-        programKeys.removeSubrange(snapshot.programKeyCount ..< programKeys.count)
         publications = snapshot.publications
         pair = snapshot.pair
 
@@ -258,7 +245,6 @@ extension SceneResolvedMaterialGraphExecutor {
             resource: publication,
             representation: pair.representation
         )
-        programKeys.append(programIdentity)
         return nil
     }
 

@@ -53,7 +53,7 @@ HARNESS = r'''
             case let .success(e):
                 if case let .vector3(x,y,z)=e.value{output[key]=[x,y,z]}
                 output[key+"Writes"]=e.puppetBoneMutations.count
-                output[key+"Matrices"]=e.puppetBoneMutations.map(\.matrix)
+                output[key+"Matrices"]=e.puppetBoneMutations.map { mutation in guard case let .matrix(matrix) = mutation.operation else { fatalError("expected matrix command") }; return matrix }
                 if commit {owner.commitLayerMutations()}else{owner.discardLayerMutations()}
             case let .failure(e):output[key+"Failure"]=e.code;owner.discardLayerMutations()
             }

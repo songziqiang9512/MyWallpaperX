@@ -55,6 +55,13 @@ class SceneTextureSnapshotOverlayTests(unittest.TestCase):
                 self.skipTest("Metal is unavailable")
             self.assertIn("sameSelectionNewPhysicalAtom", payload["checks"])
             self.assertIn("explicitBranchRetiresAtLastValue", payload["checks"])
+            for key in (
+                "insertionOrderPreserved", "sameCountReplacementPublished", "barePropertyPublicationOrder",
+                "typed_pending_masksCurrentBareTexture", "typed_ready_masksCurrentBareTexture",
+                "typed_unavailable_masksCurrentBareTexture", "typed_absent_masksCurrentBareTexture",
+                "acceptedResetReturnsToBareOnTypedRemoval",
+            ):
+                self.assertIn(f"frameKeyOrder-{key}", payload["checks"])
             for key, passed in payload["checks"].items():
                 self.assertTrue(passed, key)
 

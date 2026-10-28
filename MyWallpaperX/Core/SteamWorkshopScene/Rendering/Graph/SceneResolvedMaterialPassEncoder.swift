@@ -9,10 +9,10 @@ final class SceneResolvedMaterialPassEncoder {
     struct PreparedPass {
         let fragmentOutput: SceneShaderColorRepresentation?
         let storedContent: SceneTextureContent
-        let bindingSlots: [Int]
-        let bindingSamplings: [SceneTextureSampling]
-        let uniformByteCount: Int
         let role: SceneResolvedMaterialProgram.PassRole
+#if DEBUG
+        var programCacheKey = ""
+#endif
 
         fileprivate let ownerToken: UUID
         fileprivate let resetGeneration: UInt64
@@ -29,7 +29,6 @@ final class SceneResolvedMaterialPassEncoder {
         let slot: Int
         let texture: MTLTexture
         let sampler: MTLSamplerState
-        let sampling: SceneTextureSampling
     }
 
     enum PipelineOrigin: Equatable {
@@ -162,13 +161,11 @@ final class SceneResolvedMaterialPassEncoder {
         ) else {
             return .failure(.targetRejected)
         }
+        // Keep logical source resources and samplers: another physical texture
+        // may share source0's sampler after its texture read becomes color(0).
         guard let bindings = validatedBindings(program, target: target) else {
             return .failure(.bindingsRejected)
         }
-        // Keep logical source resources and samplers: another physical texture
-        // may share source0's sampler after its texture read becomes color(0).
-        let physicalBindings = role.readsCurrentAttachment
-            ? bindings.filter { $0.slot != 0 } : bindings
         #if SCENE_GRAPH_TESTING
         if let failure = withLock({
             testingPreparationFailuresByPreparedKey[program.preparedShader.cacheKey]
@@ -210,12 +207,14 @@ final class SceneResolvedMaterialPassEncoder {
             preparedKey: program.preparedShader.cacheKey
         )
 #endif
-        return .success(PreparedPass(
+#if DEBUG
+        var prepared: PreparedPass
+#else
+        let prepared: PreparedPass
+#endif
+        prepared = PreparedPass(
             fragmentOutput: output.colorRepresentation,
             storedContent: storedContent,
-            bindingSlots: physicalBindings.map(\.slot),
-            bindingSamplings: physicalBindings.map(\.sampling),
-            uniformByteCount: program.uniformBytes.count,
             role: role,
             ownerToken: ownerToken,
             resetGeneration: cached.generation,
@@ -224,7 +223,11 @@ final class SceneResolvedMaterialPassEncoder {
             bindings: bindings,
             uniformBytes: program.uniformBytes,
             uniformBufferIndex: program.frontendProgram.uniformBufferIndex
-        ))
+        )
+#if DEBUG
+        prepared.programCacheKey = program.preparedShader.cacheKey
+#endif
+        return .success(prepared)
     }
 
     func prepareTerminalReplay(
@@ -271,7 +274,7 @@ final class SceneResolvedMaterialPassEncoder {
         result.bindings = pass.bindings.map { binding in
             Binding(slot: binding.slot,
                 texture: copies[ObjectIdentifier(binding.texture)] ?? binding.texture,
-                sampler: binding.sampler, sampling: binding.sampling)
+                sampler: binding.sampler)
         }
         return result
     }
@@ -416,8 +419,7 @@ final class SceneResolvedMaterialPassEncoder {
             result.append(.init(
                 slot: slotIndex,
                 texture: texture,
-                sampler: samplers.state(for: candidate.sampling),
-                sampling: candidate.sampling
+                sampler: samplers.state(for: candidate.sampling)
             ))
         }
         return result

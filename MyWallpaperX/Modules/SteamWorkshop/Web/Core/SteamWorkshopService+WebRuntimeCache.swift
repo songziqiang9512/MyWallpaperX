@@ -31,10 +31,10 @@ nonisolated final class SteamWorkshopWebRuntimeCachePublication: @unchecked Send
 
     private func slot(for key: String) -> Slot {
         registryLock.withLock {
-            // Only active tickets retain slots. Reap dead keys on every entry,
+            if let slot = slots[key]?.value { return slot }
+            // Only active tickets retain slots. Reap dead keys before insertion,
             // so importing/deleting successive records does not grow history.
             slots = slots.filter { $0.value.value != nil }
-            if let slot = slots[key]?.value { return slot }
             let slot = Slot()
             slots[key] = WeakSlot(slot)
             return slot
@@ -120,7 +120,7 @@ extension SteamWorkshopService {
     }
 
     func removeWebRuntimeCaches(for recordID: String) {
-        invalidateCachedWebRuntime(for: recordID)
+        webProjectDescriptorCache.removeValue(forKey: recordID)
         let stem = Self.webRuntimeCacheFileStem(for: recordID)
         let directory = Self.webRuntimeCacheDirectoryURL()
         let analysis = directory.appendingPathComponent("\(stem)-analysis.json")

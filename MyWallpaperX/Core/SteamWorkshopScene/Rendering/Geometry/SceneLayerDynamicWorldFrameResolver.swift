@@ -10,7 +10,8 @@ nonisolated enum SceneLayerDynamicWorldFrameResolver {
         snapshot: SceneDynamicSnapshot,
         staticFrames: [Int: simd_float4x4],
         dynamicLayerIDs: Set<Int> = [],
-        puppetAttachmentFrames: ScenePuppetAttachmentFrameSnapshot = .empty
+        puppetAttachmentFrames: ScenePuppetAttachmentFrameSnapshot = .empty,
+        prepareLayerAttachments: ((SceneRenderDescriptor.Layer, [Int: simd_float4x4]) -> [String: simd_float4x4]?)? = nil
     ) -> [Int: simd_float4x4] {
         var overrides: [Int: SceneLayerWorldFrameResolver.TransformOverride] = [:]
         var transformLayerIDs = snapshot.dynamicTransformLayerIDsForFrame
@@ -27,7 +28,7 @@ nonisolated enum SceneLayerDynamicWorldFrameResolver {
             guard origin != nil || scale != nil || angles != nil else { continue }
             overrides[layer.id] = .init(origin: origin, scale: scale, angles: angles)
         }
-        if overrides.isEmpty,
+        if prepareLayerAttachments == nil, overrides.isEmpty,
            puppetAttachmentFrames.framesByParentLayerID.isEmpty,
            !dynamicLayerIDs.isEmpty {
             // Dynamic script layers are currently root layers. Their complete
@@ -55,7 +56,7 @@ nonisolated enum SceneLayerDynamicWorldFrameResolver {
             }
             return result
         }
-        guard !overrides.isEmpty
+        guard prepareLayerAttachments != nil || !overrides.isEmpty
                 || !puppetAttachmentFrames.framesByParentLayerID.isEmpty else {
             return staticFrames
         }
@@ -64,7 +65,8 @@ nonisolated enum SceneLayerDynamicWorldFrameResolver {
             byID: byID,
             sceneOrthoHeight: descriptor.camera.orthoHeight,
             transformOverrides: overrides,
-            puppetAttachmentFrames: puppetAttachmentFrames
+            puppetAttachmentFrames: puppetAttachmentFrames,
+            prepareLayerAttachments: prepareLayerAttachments
         )
     }
 

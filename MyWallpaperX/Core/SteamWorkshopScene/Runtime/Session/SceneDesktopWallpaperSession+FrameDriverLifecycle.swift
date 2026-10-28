@@ -76,6 +76,7 @@ extension SceneDesktopWallpaperSession {
             committing: committing,
             rejectedOwnerTargets: rejectedOwnerTargets
         )
+        context.frameSchema.mediaFrameCoordinator.finalizeInitializations()
     }
 
     func discardSceneScriptLayerMutations(

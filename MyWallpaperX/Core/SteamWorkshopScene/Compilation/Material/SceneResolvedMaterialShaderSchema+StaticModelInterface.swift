@@ -81,7 +81,6 @@ extension SceneResolvedMaterialShaderSchema {
                   SceneShaderContract.StageKind.fragment.rawValue,
               ]),
               let graph = contract.sourceGraph,
-              graph.dependencySHA256 == graph.recomputedDependencySHA256,
               graph.diagnostics.allSatisfy({ $0.code == .shadowedRootContentConflict }),
               Set(graph.nodes.map { $0.virtualPath.lowercased() }).count == graph.nodes.count,
               graph.edges.allSatisfy({
@@ -114,9 +113,7 @@ extension SceneResolvedMaterialShaderSchema {
         }
         guard environmentNames.isDisjoint(with: protected) else { return nil }
         for node in graph.nodes {
-            guard node.byteCount == node.source.utf8.count,
-                  node.rawSHA256 == SceneShaderStableDigest.hash(Data(node.source.utf8)),
-                  staticModelDirectivesAreSafe(node, graph: graph, protected: protected) else { return nil }
+            guard staticModelDirectivesAreSafe(node, graph: graph, protected: protected) else { return nil }
         }
         var unconditional: [Record] = []
         var potential: [Record] = []

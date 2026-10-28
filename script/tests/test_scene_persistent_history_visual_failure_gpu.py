@@ -193,6 +193,62 @@ private enum Harness {
         )
         expect(matches(firstRead.pixel, [0, 128, 64, 255]), "first output")
 
+        let previous = firstStage.transition.nextState
+        let original = firstStage.persistentResources[history]!
+        let candidate = original.publication.candidate
+        let versioned = previous.logicalMapping[history]!
+        for fault in ["missing", "request", "resource-generation", "content-generation",
+                      "allocation-generation", "token", "sampling", "texture"] {
+            var resources = firstStage.persistentResources
+            resources[history] = fault == "missing" ? nil : .init(
+                publication: .init(
+                    requestIdentity: .graph(fault == "request" ? scratch : history),
+                    candidate: .init(
+                        texture: fault == "texture" ? source : candidate.texture,
+                        identity: .provider(.graph(
+                            allocationGeneration: oldLease.generation
+                                + (fault == "allocation-generation" ? 1 : 0),
+                            physicalToken: versioned.token.rawValue
+                                + (fault == "token" ? "-stale" : "")
+                        )),
+                        generation: candidate.generation,
+                        purpose: candidate.purpose,
+                        content: candidate.content,
+                        physicalSize: candidate.physicalSize,
+                        mappedSize: candidate.mappedSize,
+                        uvTransform: candidate.uvTransform,
+                        sampling: fault == "sampling" ? .linearRepeat : candidate.sampling,
+                        authoredFormat: candidate.authoredFormat
+                    ),
+                    contentGeneration: original.publication.contentGeneration
+                        + (fault == "content-generation" ? 1 : 0)
+                ),
+                resourceGeneration: original.resourceGeneration
+                    + (fault == "resource-generation" ? 1 : 0)
+            )
+            let result = validExecutor.prepare(
+                token: validClaim.token, leases: [oldLease],
+                historyRehydrateCopiesByEffect: [:], frame: frame(71),
+                sourceTexture: source, sourceUniforms: .neutral(),
+                sourcePipeline: pipeline, frameInputs: .init(),
+                commandBuffer: queue.makeCommandBuffer()!,
+                previousStates: [effect: previous],
+                previousGraphResources: [effect: resources],
+                effectGeneration: 1, resetGeneration: 1
+            )
+            expect(failure(result) == Executor.Failure.historyRejected.rawValue,
+                   "same allocation history rejects \(fault)")
+        }
+        let unexpectedCopy = prepare(
+            executor: validExecutor, token: validClaim.token, lease: oldLease,
+            copies: [.init(sourceToken: versioned.token, sourceTexture: candidate.texture,
+                           targetToken: versioned.token, targetTexture: candidate.texture)],
+            index: 71, source: source, pipeline: pipeline,
+            command: queue.makeCommandBuffer()!, previous: firstStage
+        )
+        expect(failure(unexpectedCopy) == Executor.Failure.historyRejected.rawValue,
+               "same allocation history rejects unexpected copy")
+
         let failedCommand = queue.makeCommandBuffer()!
         let failed = prepareFrame(
             executor: failedExecutor,
@@ -208,7 +264,8 @@ private enum Harness {
             fatalError("failed stage")
         }
         expect(
-            failedStage.effectLocalFailureReasonCode == failureReason,
+            failedStage.effectLocalFailureReasonCode == failureReason
+                && failedStage.historyRehydrateCopyCount == 0,
             "typed failure"
         )
         expect(intents(failed).isEmpty, "candidate intents discarded")
@@ -242,7 +299,8 @@ private enum Harness {
             fatalError("recovered stage")
         }
         expect(
-            intents(recovered) == ["material", "material", "material"],
+            intents(recovered) == ["material", "material", "material"]
+                && recoveredStage.historyRehydrateCopyCount == 0,
             "stable recovery does not reseed"
         )
         let recoveredRead = encodeAndRead(
@@ -337,6 +395,8 @@ private enum Harness {
             "metalAvailable": true,
             "failureReason": failureReason,
             "firstFrameRollback": true,
+            "sameAllocationHistoryIntegrity": true,
+            "sameAllocationUnexpectedCopiesRejected": true,
             "stableRollback": true,
             "freshRehydrateRollback": true,
             "recovery": true,
@@ -368,6 +428,8 @@ class ScenePersistentHistoryVisualFailureGPUTests(unittest.TestCase):
                 "metalAvailable": True,
                 "failureReason": "material-variant-envelope-uniform-schema",
                 "firstFrameRollback": True,
+                "sameAllocationHistoryIntegrity": True,
+                "sameAllocationUnexpectedCopiesRejected": True,
                 "stableRollback": True,
                 "freshRehydrateRollback": True,
                 "recovery": True,

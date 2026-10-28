@@ -272,6 +272,58 @@ CHECKS = r'''
         result = nil
         check(service.steamLibraryVersionLeaseRegistry.beginReclamation(storage), "consumer release permits reclamation")
         check(service.admitWebAuthorPreparation(for: managedRecord) == nil, "retired version cannot acquire new token")
+
+        // The typed payload owner serializes only dictionaries, arrays and
+        // scalar leaves. Exercise the actual encoder and its original fallback.
+        func object(_ json: String?) throws -> NSDictionary {
+            try JSONSerialization.jsonObject(with: Data(json!.utf8)) as! NSDictionary
+        }
+        let typedRoot = try JSONSerialization.jsonObject(with: Data(#"{"general":{"properties":{"amount":{"type":"slider","value":0.75,"min":0,"max":2,"fraction":true,"precision":3},"choice":{"type":"combo","value":"b","options":[{"label":"Alpha","value":"a"},{"label":"Beta","value":"b"}]},"enabled":{"type":"bool","value":true}}}}"#.utf8)) as! [String: Any]
+        let typed = SteamWorkshopService.webPropertyDefinitions(projectRoot: typedRoot)
+        let amount = typed.first { $0.key == "amount" }!
+        let values = Dictionary(uniqueKeysWithValues: typed.map { ($0.key, $0.defaultValue) })
+        let noBindings = SteamWorkshopService.WebAuthorBindingContext(candidateRoots: [], pathlikePresetValues: [:])
+        let fullJSON = service.effectiveWebPropertiesJSONString(for: record, definitions: typed,
+            valuesOverride: values, bindingContext: noBindings)
+        let expected = #"{"amount":{"type":"slider","value":0.75,"min":0,"max":2,"fraction":true,"precision":3},"choice":{"type":"combo","value":"b","text":"Beta","options":[{"label":"Alpha","value":"a"},{"label":"Beta","value":"b"}]},"enabled":{"type":"bool","value":true}}"#
+        let fullObject = try object(fullJSON)
+        let expectedObject = try object(expected)
+        check(fullObject == expectedObject, "complete typed payload preserves min/max/options and all values")
+        let singleJSON = service.resolvedWebRuntimePropertyPayloadJSON(for: amount,
+            runtimeValue: .number(0.75), binding: nil, visibleOptions: [])
+        let singleObject = try object(singleJSON)
+        check(singleObject == ["amount": expectedObject["amount"]!] as NSDictionary, "single-property payload keeps complete metadata")
+        let fallbackJSON = SteamWorkshopService.webRuntimePropertyPayloadJSON(definitions: [], values: values)
+        let fallbackObject = try object(fallbackJSON)
+        let expectedFallback = try object(#"{"amount":{"type":"text","value":0.75,"options":[]},"choice":{"type":"text","value":"b","options":[]},"enabled":{"type":"text","value":true,"options":[]}}"#)
+        check(fallbackObject == expectedFallback, "minimal fallback preserves the full typed value bag")
+        for invalid in [Double.nan, Double.infinity, -Double.infinity] {
+            check(service.resolvedWebRuntimePropertyPayloadJSON(for: amount, runtimeValue: .number(invalid),
+                binding: nil, visibleOptions: []) == nil, "single-property nonfinite value still fails serialization")
+            check(SteamWorkshopService.webRuntimePropertyPayloadJSON(definitions: [], values: ["amount": .number(invalid)]) == nil,
+                "minimal fallback does not repair nonfinite values")
+            check(service.effectiveWebPropertiesJSONString(for: record, definitions: [amount],
+                valuesOverride: ["amount": .number(invalid)], bindingContext: noBindings) == nil,
+                "full bag and fallback both reject nonfinite values")
+            for field in ["min", "max", "options"] {
+                var raw: [String: Any] = ["type": "slider", "value": 0.75]
+                if field == "options" { raw[field] = [["label": "invalid", "value": invalid]] }
+                else { raw[field] = invalid }
+                let bad = SteamWorkshopService.webPropertyDefinitions(projectRoot: ["general": ["properties": ["amount": raw]]])[0]
+                check(service.resolvedWebRuntimePropertyPayloadJSON(for: bad, runtimeValue: bad.defaultValue,
+                    binding: nil, visibleOptions: bad.options) == nil, "single invalid metadata still fails serialization")
+                check(SteamWorkshopService.webRuntimePropertyPayloadJSON(definitions: [bad], values: ["amount": bad.defaultValue],
+                    visibleOptionsByKey: ["amount": bad.options]) == nil, "fallback encoder still rejects invalid typed metadata")
+                let repaired = service.effectiveWebPropertiesJSONString(for: record, definitions: [bad],
+                    valuesOverride: ["amount": .number(0.75)], bindingContext: noBindings)
+                let repairedObject = try object(repaired)
+                let expectedMinimal = try object(#"{"amount":{"type":"text","value":0.75,"options":[]}}"#)
+                check(repairedObject == expectedMinimal, "invalid optional metadata retains the original minimal-value fallback")
+            }
+        }
+        let projection = try JSONSerialization.data(withJSONObject: ["full": fullObject, "single": singleObject,
+            "fallback": fallbackObject, "nonfiniteCases": 3, "metadataCases": 9], options: [.sortedKeys])
+        print("web-json-payload-projection:" + String(decoding: projection, as: UTF8.self))
         print("web-author-preparation-pass")
     }
 }
@@ -306,11 +358,11 @@ def harness_source() -> str:
     return '\n'.join(pieces) + CHECKS
 
 
-def run_harness(test: unittest.TestCase, source_text: str, sentinel: str) -> str:
+def run_harness(test: unittest.TestCase, source_text: str, sentinel: str, *, with_library: bool = True) -> str:
     with tempfile.TemporaryDirectory(prefix='mwx-web-author-') as directory:
         task = Path(directory)
         source = task / 'Harness.swift'; source.write_text(source_text)
-        library = [p for p in LIBRARY_SOURCES if p.name in {
+        library = [p for p in LIBRARY_SOURCES if with_library and p.name in {
             'ScenePlaybackSource.swift', 'SteamWorkshopStorageTree.swift',
             'ScenePkgReader.swift',
             'DaemonNewlineJSON.swift', 'PlaybackResourceLifetime.swift', 'SteamServiceProtocol.swift',

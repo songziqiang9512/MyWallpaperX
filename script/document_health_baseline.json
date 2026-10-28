@@ -10,7 +10,7 @@
     },
     "docs/architecture/playback-lifecycle-transaction-design.md": {
       "lines": 50,
-      "bytes": 9065
+      "bytes": 9051
     },
     "docs/architecture/repository-map.md": {
       "lines": 35,
@@ -41,8 +41,8 @@
       "bytes": 14139
     },
     "docs/development/validation-simplification-plan.md": {
-      "lines": 136,
-      "bytes": 30306
+      "lines": 263,
+      "bytes": 63549
     },
     "docs/release/bundle-content.md": {
       "lines": 61,
@@ -102,7 +102,7 @@
     },
     "docs/scene/capabilities/advanced-object-coverage.md": {
       "lines": 388,
-      "bytes": 81456
+      "bytes": 81630
     },
     "docs/scene/capabilities/alpha-display-fallback-design.md": {
       "lines": 124,
@@ -150,11 +150,11 @@
     },
     "docs/scene/capabilities/runtime-evidence-current.md": {
       "lines": 600,
-      "bytes": 219277
+      "bytes": 218855
     },
     "docs/scene/capabilities/runtime-input-property-coverage.md": {
       "lines": 600,
-      "bytes": 203972
+      "bytes": 203940
     },
     "docs/scene/capabilities/sampler-alias-precedence.md": {
       "lines": 13,
@@ -178,11 +178,11 @@
     },
     "docs/scene/capabilities/scene-sample-debug-ledger.md": {
       "lines": 534,
-      "bytes": 127870
+      "bytes": 127865
     },
     "docs/scene/capabilities/scenescript-api-coverage.md": {
-      "lines": 418,
-      "bytes": 115400
+      "lines": 419,
+      "bytes": 116016
     },
     "docs/scene/capabilities/static-source-draw-only-degradation.md": {
       "lines": 54,
@@ -206,7 +206,7 @@
     },
     "docs/scene/roadmap/batch2/2d-lighting-material-design.md": {
       "lines": 584,
-      "bytes": 131843
+      "bytes": 131793
     },
     "docs/scene/roadmap/batch2/composition-render-target-design.md": {
       "lines": 149,
@@ -250,7 +250,7 @@
     },
     "docs/scene/roadmap/batch2/script-component-api-design.md": {
       "lines": 600,
-      "bytes": 165860
+      "bytes": 167621
     },
     "docs/scene/roadmap/batch2/system-media-input-design.md": {
       "lines": 59,
@@ -277,8 +277,8 @@
       "bytes": 22423
     },
     "docs/scene/roadmap/scene-open-breakpoint-queue.md": {
-      "lines": 165,
-      "bytes": 33722
+      "lines": 173,
+      "bytes": 35426
     },
     "docs/web/cold-descriptor-parse-offload-design.md": {
       "lines": 30,
@@ -326,7 +326,7 @@
     },
     "docs/development/main-window-playlists-redesign.md": {
       "lines": 592,
-      "bytes": 108086
+      "bytes": 108105
     },
     "docs/development/status-bar-panel-redesign.md": {
       "lines": 119,
@@ -341,8 +341,8 @@
       "bytes": 23241
     },
     "docs/development/ui-quality-audit.md": {
-      "lines": 102,
-      "bytes": 17900
+      "lines": 104,
+      "bytes": 18725
     }
   },
   "archives": [
@@ -1413,6 +1413,15 @@
     },
     {
       "section": "bodies",
+      "path": "docs/architecture/steam-workshop-acquisition-contract.md",
+      "before": "087fe59a097cdf3d1689232845864c712257509da6ef3be1b810bbdadcf9c4e0",
+      "after": "86790d0f07f7bd242c496568a31db82bf9e08c5cfa125c792bbbd063c81d3fd6",
+      "owner": "UI21 UI correctness crossreview",
+      "reason": "复用原审查页登记本轮已证交互/调度断点、最小修复和验收边界；原合同同步真实选择、可见需求和缓存清理职责，历史收据及其他预算不变。",
+      "decision": "docs/development/ui-quality-audit.md#ui21-scope"
+    },
+    {
+      "section": "bodies",
       "path": "docs/development/wallpaper-startup-optimization-plan.md",
       "before": "85095be2b1e4271568fa2a4b5c93c1760f595f03ba899b5cf774a6c643023c43",
       "after": "74234e98afe7498fb5daf1f36ac2d78acc339464f950703b8c019892f982b90b",
@@ -1458,15 +1467,6 @@
     },
     {
       "section": "bodies",
-      "path": "docs/scene/capabilities/runtime-evidence-current.md",
-      "before": "fdbb9dc95d5afc06eae596628a9e0164b1c468d9f7016d758faa7ce5d111d723",
-      "after": "23a8d5af4ba73e720e84e911b699ea62736371765b6128c89cda5a6567ac0042",
-      "owner": "Scene运行证据索引",
-      "reason": "仅补旧冷暖专项单一历史与当前职责入口，不重资格历史矩阵、性能或正式发布；保原证据等级及档案边界。",
-      "decision": "docs/development/wallpaper-startup-optimization-plan.md#decision"
-    },
-    {
-      "section": "bodies",
       "path": "docs/scene/roadmap/performance-convergence-card.md",
       "before": "1eaf31cac58289626d7639d442d7ca145ec9d29e6f322e6d2af08a306e517047",
       "after": "fea8d0e8f7875d4e629081a03120fceaa0a2fccf7029b29f4d6506dfdc7aa78b",
@@ -1494,12 +1494,57 @@
     },
     {
       "section": "bodies",
-      "path": "docs/scene/capabilities/advanced-object-coverage.md",
-      "before": "4ae23a17b3e97cba88122f785769a61e438306575051046df0a66e12477451e8",
-      "after": "d36707b19940004cd8edfe7893b5daa3897abf10edfd52ee8e13b00574f660b8",
-      "owner": "UI audit documentation closeout",
-      "reason": "真实全仓链接门发现既有退役源码/忽略本机产物链接；只改路径表达并保原能力/历史事实，精确登记正文预算及同步受保护载荷身份。",
-      "decision": "docs/development/ui-quality-audit.md#evidence"
+      "path": "docs/architecture/appkit-migration.md",
+      "before": "c83800387b8a6df0b11593c5f942f49927aaa879a69884a058d4f04f58124482",
+      "after": "52c8b670fbbe0ec16ef842c662581064838a23b8c462fc584329c7c0ad9f196f",
+      "owner": "UI22",
+      "reason": "UI22明确同步菜单唯一生命周期、NSWorkspace打开方式及设置直接消费主窗色调与共享0.75秒过渡的AppKit边界。",
+      "decision": "docs/development/ui-quality-audit.md#ui22-scope"
+    },
+    {
+      "section": "bodies",
+      "path": "docs/architecture/repository-map.md",
+      "before": "00a9f87e82154f598602f637e5ad9c7d54e3fdb2f18db7b7a8685f7ec5784a02",
+      "after": "496f292655c3baf3270063898925daf077ea78696a873daf6de71c0b9e00d750",
+      "owner": "main-window-playlists-ui20",
+      "reason": "UI20六项当前契约与真实阻塞、共享筛选owner及账号失败边界同步；旧链退役，保持600行硬限，不将静态实现冒作真实账号或匿名源验收。",
+      "decision": "docs/development/main-window-playlists-redesign.md#ui-online-panels-twenty"
+    },
+    {
+      "section": "bodies",
+      "path": "docs/development/apple-silicon-optimization-plan.md",
+      "before": "c09aa27626c7d2b0bb9141f79dc08139f4541ef283a056e69d762106981ddf7f",
+      "after": "43ef68fa6c7c2930071ac93f644dbae61860118a57fc4300d2086683c3e1cc8c",
+      "owner": "UI AppKit and source integration",
+      "reason": "16项专项同步当前规范/真实待验状态与移动后的链接；前轮完成证据归档一次，不把旧通过冒作最终验收。",
+      "decision": "docs/development/main-window-playlists-redesign.md#ui-simplification-sixteen"
+    },
+    {
+      "section": "bodies",
+      "path": "docs/development/main-window-playlists-redesign.md",
+      "before": "f4be28a4a945d1b6160d19b407aac1ae7e84ac974fe717f2e78d6665d3134a38",
+      "after": "4543b9f2a268c3c1a4f54627968fc4ce8d0ec00f687f2b51e4188a2fb1e2dd0b",
+      "owner": "UI22",
+      "reason": "UI22更新已实施的账号尺寸、侧栏缩进、取色过渡、导入导出可移植偏好和重置语义，保持同一主界面规范入口。",
+      "decision": "docs/development/ui-quality-audit.md#ui22-scope"
+    },
+    {
+      "section": "archives",
+      "path": "docs/history/development/main-window-playlists-foundation-2026-10-25.md",
+      "before": "48b95cf6b0541192c4dbc5be0de84d1e90277add7446a7de1f554edf653a331f",
+      "after": "294c9dc44799b43f4e31bf47047c02f384646cd901cd885a595d511e3a25dca2",
+      "owner": "UI AppKit and source integration",
+      "reason": "16项专项同步当前规范/真实待验状态与移动后的链接；前轮完成证据归档一次，不把旧通过冒作最终验收。",
+      "decision": "docs/development/main-window-playlists-redesign.md#ui-simplification-sixteen"
+    },
+    {
+      "section": "archives",
+      "path": "docs/history/development/main-window-playlists-ui-r0-r4-2026-10-25.md",
+      "before": "7344dfe4924f98522f453e8239bb8a27e65239446676d0ce1afd7bb328c7bcaa",
+      "after": "b2743d769d0d11f02263588f4cbe19620ce0041e88f227affd57ed2a6df2c540",
+      "owner": "UI AppKit and source integration",
+      "reason": "16项专项同步当前规范/真实待验状态与移动后的链接；前轮完成证据归档一次，不把旧通过冒作最终验收。",
+      "decision": "docs/development/main-window-playlists-redesign.md#ui-simplification-sixteen"
     },
     {
       "section": "archives",
@@ -1509,6 +1554,15 @@
       "owner": "main-window-playlists-design",
       "reason": "完整保留新10项之前U/A/N15方案及候选收据，避免旧堆叠/取消返回/取色与当前裁决混用；历史banner注明真实崩溃终态。",
       "decision": "docs/development/main-window-playlists-redesign.md#documentation-decision"
+    },
+    {
+      "section": "bodies",
+      "path": "docs/development/status-bar-panel-redesign.md",
+      "before": "135d441bae50ba167bc4f3801047658ddf9a342ebe4842240f0464b9fe9ea9b3",
+      "after": "bdeef0b46815519d21eea3412f3f552be42b102306c4a27704a4509ed8da266f",
+      "owner": "UI22",
+      "reason": "UI22增加封面过渡唯一实施与验证入口，不复制工作卡或改变面板尺寸合同。",
+      "decision": "docs/development/ui-quality-audit.md#ui22-scope"
     },
     {
       "section": "bodies",
@@ -1583,6 +1637,24 @@
       "decision": "docs/development/main-window-playlists-redesign.md#inspector-playback-appearance-round"
     },
     {
+      "section": "bodies",
+      "path": "docs/development/wallhaven-online-browser-design.md",
+      "before": "634dc0b41a95144dcbdbddaa0def24d049123be6c567717f456a10448ecb377d",
+      "after": "edf36f45a9f77ca8c4d532f71a001ba114bb4b42e3fc86d647ad0e97b722ccaa",
+      "owner": "main-window-playlists-ui20",
+      "reason": "UI20六项当前契约与真实阻塞、共享筛选owner及账号失败边界同步；旧链退役，保持600行硬限，不将静态实现冒作真实账号或匿名源验收。",
+      "decision": "docs/development/main-window-playlists-redesign.md#ui-online-panels-twenty"
+    },
+    {
+      "section": "bodies",
+      "path": "docs/development/pixiv-online-browser-design.md",
+      "before": "911be5249124c74fcf90dc6b5c13913730e6cb141ce5e4bbbace96baeb7b8a7b",
+      "after": "906d5e246773d8086f4b06f3745df4097aa940a0f520e3d1a2a2a5aa27547715",
+      "owner": "main-window-playlists-ui20",
+      "reason": "UI20六项当前契约与真实阻塞、共享筛选owner及账号失败边界同步；旧链退役，保持600行硬限，不将静态实现冒作真实账号或匿名源验收。",
+      "decision": "docs/development/main-window-playlists-redesign.md#ui-online-panels-twenty"
+    },
+    {
       "section": "archives",
       "path": "docs/history/cross-topic/validation-simplification-p0-p27-2026-10-27.md",
       "before": "74234e98afe7498fb5daf1f36ac2d78acc339464f950703b8c019892f982b90b",
@@ -1602,36 +1674,54 @@
     },
     {
       "section": "bodies",
-      "path": "docs/development/apple-silicon-optimization-plan.md",
-      "before": "c09aa27626c7d2b0bb9141f79dc08139f4541ef283a056e69d762106981ddf7f",
-      "after": "43ef68fa6c7c2930071ac93f644dbae61860118a57fc4300d2086683c3e1cc8c",
-      "owner": "UI AppKit and source integration",
-      "reason": "16项专项同步当前规范/真实待验状态与移动后的链接；前轮完成证据归档一次，不把旧通过冒作最终验收。",
-      "decision": "docs/development/main-window-playlists-redesign.md#ui-simplification-sixteen"
+      "path": "docs/development/validation-simplification-plan.md",
+      "before": "d35e66954986bcacb42482dae4e3bb024acbf2b56851556198408b590504ee57",
+      "after": "ea86a027ec46535d88f2fa238d9bdc0c1d4bf49ba6a7d75fa2def746d981c379",
+      "owner": "Scene/Web engine simplification",
+      "reason": "P36-P43 current consumer-based simplification verified; retire final three same-producer self-proofs with actual counterfactual results, preserve decoded/dynamic boundaries, reconcile current scope and uncommitted review handoff once. User-authorized Git handoff updates only current prose; product/tests remain exact audited P43 bytes.",
+      "decision": "docs/development/validation-simplification-plan.md#p43-producer-self-proofs-and-scope-closeout"
+    },
+    {
+      "section": "bodies",
+      "path": "docs/scene/capabilities/scenescript-api-coverage.md",
+      "before": "1b85a7198d0a2ee73fd1ac02073ec9cc955a84968d1bebfb9d0a8b070ccc96e9",
+      "after": "c6758bae857478d86c341069a9d30d5f311d5179bae3d1e20d649322f77815f9",
+      "owner": "Scene bounded Puppet impulse closeout",
+      "reason": "原journal typed线性冲量和当前世界Motion获得两包三轮实证；实际318累计形变反例要求一次prepared不可用标记/消费处失败，保其未修状态。替换旧描述并仅登记剩余研究，不另建状态表；D4保持600行。",
+      "decision": "docs/scene/history/puppet-linear-impulse-2026-10-28.md"
+    },
+    {
+      "section": "bodies",
+      "path": "docs/scene/capabilities/advanced-object-coverage.md",
+      "before": "d36707b19940004cd8edfe7893b5daa3897abf10edfd52ee8e13b00574f660b8",
+      "after": "2a0e40d16faeda9de8eee159c8b0f5b71b3492e007682c84839556a515a0dedd",
+      "owner": "Scene bounded Puppet impulse closeout",
+      "reason": "原journal typed线性冲量和当前世界Motion获得两包三轮实证；实际318累计形变反例要求一次prepared不可用标记/消费处失败，保其未修状态。替换旧描述并仅登记剩余研究，不另建状态表；D4保持600行。",
+      "decision": "docs/scene/history/puppet-linear-impulse-2026-10-28.md"
+    },
+    {
+      "section": "bodies",
+      "path": "docs/scene/roadmap/batch2/script-component-api-design.md",
+      "before": "d8274332b1c3018f3bd2371cee810bfb5d0bbcddb2e0072475355291eda56da4",
+      "after": "f0f26b21283e72ec0ee5e0da7bc2b989798454cf23d46d405f16b21dec83b9ab",
+      "owner": "Scene bounded Puppet impulse closeout",
+      "reason": "原journal typed线性冲量和当前世界Motion获得两包三轮实证；实际318累计形变反例要求一次prepared不可用标记/消费处失败，保其未修状态。替换旧描述并仅登记剩余研究，不另建状态表；D4保持600行。",
+      "decision": "docs/scene/history/puppet-linear-impulse-2026-10-28.md"
+    },
+    {
+      "section": "bodies",
+      "path": "docs/scene/roadmap/scene-open-breakpoint-queue.md",
+      "before": "08bebb785ecf79b507c096275be1f6c7f662be302709f64a6bc3180dc21fa6b5",
+      "after": "b95e24551f0ba0577f7905cfe447aa584461de64d12d2e25bb4eb0eb3b7e3a1c",
+      "owner": "Scene bounded Puppet impulse closeout",
+      "reason": "原journal typed线性冲量和当前世界Motion获得两包三轮实证；实际318累计形变反例要求一次prepared不可用标记/消费处失败，保其未修状态。替换旧描述并仅登记剩余研究，不另建状态表；D4保持600行。",
+      "decision": "docs/scene/history/puppet-linear-impulse-2026-10-28.md"
     },
     {
       "section": "bodies",
       "path": "docs/development/code-slimming-program.md",
       "before": "b80b7f81184b52a2218ac3ad512a1f2f6570ad34afa7d545f8c61b40a8abeb00",
       "after": "2261ec434544a11129657286b07a3922832ccfcbcadf8d4777452f180581f3bd",
-      "owner": "UI AppKit and source integration",
-      "reason": "16项专项同步当前规范/真实待验状态与移动后的链接；前轮完成证据归档一次，不把旧通过冒作最终验收。",
-      "decision": "docs/development/main-window-playlists-redesign.md#ui-simplification-sixteen"
-    },
-    {
-      "section": "archives",
-      "path": "docs/history/development/main-window-playlists-foundation-2026-10-25.md",
-      "before": "48b95cf6b0541192c4dbc5be0de84d1e90277add7446a7de1f554edf653a331f",
-      "after": "294c9dc44799b43f4e31bf47047c02f384646cd901cd885a595d511e3a25dca2",
-      "owner": "UI AppKit and source integration",
-      "reason": "16项专项同步当前规范/真实待验状态与移动后的链接；前轮完成证据归档一次，不把旧通过冒作最终验收。",
-      "decision": "docs/development/main-window-playlists-redesign.md#ui-simplification-sixteen"
-    },
-    {
-      "section": "archives",
-      "path": "docs/history/development/main-window-playlists-ui-r0-r4-2026-10-25.md",
-      "before": "7344dfe4924f98522f453e8239bb8a27e65239446676d0ce1afd7bb328c7bcaa",
-      "after": "b2743d769d0d11f02263588f4cbe19620ce0041e88f227affd57ed2a6df2c540",
       "owner": "UI AppKit and source integration",
       "reason": "16项专项同步当前规范/真实待验状态与移动后的链接；前轮完成证据归档一次，不把旧通过冒作最终验收。",
       "decision": "docs/development/main-window-playlists-redesign.md#ui-simplification-sixteen"
@@ -1656,72 +1746,9 @@
     },
     {
       "section": "bodies",
-      "path": "docs/development/wallhaven-online-browser-design.md",
-      "before": "634dc0b41a95144dcbdbddaa0def24d049123be6c567717f456a10448ecb377d",
-      "after": "edf36f45a9f77ca8c4d532f71a001ba114bb4b42e3fc86d647ad0e97b722ccaa",
-      "owner": "main-window-playlists-ui20",
-      "reason": "UI20六项当前契约与真实阻塞、共享筛选owner及账号失败边界同步；旧链退役，保持600行硬限，不将静态实现冒作真实账号或匿名源验收。",
-      "decision": "docs/development/main-window-playlists-redesign.md#ui-online-panels-twenty"
-    },
-    {
-      "section": "bodies",
-      "path": "docs/development/pixiv-online-browser-design.md",
-      "before": "911be5249124c74fcf90dc6b5c13913730e6cb141ce5e4bbbace96baeb7b8a7b",
-      "after": "906d5e246773d8086f4b06f3745df4097aa940a0f520e3d1a2a2a5aa27547715",
-      "owner": "main-window-playlists-ui20",
-      "reason": "UI20六项当前契约与真实阻塞、共享筛选owner及账号失败边界同步；旧链退役，保持600行硬限，不将静态实现冒作真实账号或匿名源验收。",
-      "decision": "docs/development/main-window-playlists-redesign.md#ui-online-panels-twenty"
-    },
-    {
-      "section": "bodies",
-      "path": "docs/architecture/repository-map.md",
-      "before": "00a9f87e82154f598602f637e5ad9c7d54e3fdb2f18db7b7a8685f7ec5784a02",
-      "after": "496f292655c3baf3270063898925daf077ea78696a873daf6de71c0b9e00d750",
-      "owner": "main-window-playlists-ui20",
-      "reason": "UI20六项当前契约与真实阻塞、共享筛选owner及账号失败边界同步；旧链退役，保持600行硬限，不将静态实现冒作真实账号或匿名源验收。",
-      "decision": "docs/development/main-window-playlists-redesign.md#ui-online-panels-twenty"
-    },
-    {
-      "section": "bodies",
-      "path": "docs/architecture/steam-workshop-acquisition-contract.md",
-      "before": "087fe59a097cdf3d1689232845864c712257509da6ef3be1b810bbdadcf9c4e0",
-      "after": "86790d0f07f7bd242c496568a31db82bf9e08c5cfa125c792bbbd063c81d3fd6",
-      "owner": "UI21 UI correctness crossreview",
-      "reason": "复用原审查页登记本轮已证交互/调度断点、最小修复和验收边界；原合同同步真实选择、可见需求和缓存清理职责，历史收据及其他预算不变。",
-      "decision": "docs/development/ui-quality-audit.md#ui21-scope"
-    },
-    {
-      "section": "bodies",
-      "path": "docs/architecture/appkit-migration.md",
-      "before": "c83800387b8a6df0b11593c5f942f49927aaa879a69884a058d4f04f58124482",
-      "after": "52c8b670fbbe0ec16ef842c662581064838a23b8c462fc584329c7c0ad9f196f",
-      "owner": "UI22",
-      "reason": "UI22明确同步菜单唯一生命周期、NSWorkspace打开方式及设置直接消费主窗色调与共享0.75秒过渡的AppKit边界。",
-      "decision": "docs/development/ui-quality-audit.md#ui22-scope"
-    },
-    {
-      "section": "bodies",
-      "path": "docs/development/main-window-playlists-redesign.md",
-      "before": "f4be28a4a945d1b6160d19b407aac1ae7e84ac974fe717f2e78d6665d3134a38",
-      "after": "9f1822a374933ffa3dd0535191fa1044b77f7f36fd5f2c42acfa22e24e1b7d9d",
-      "owner": "UI22",
-      "reason": "UI22更新已实施的账号尺寸、侧栏缩进、取色过渡、导入导出可移植偏好和重置语义，保持同一主界面规范入口。",
-      "decision": "docs/development/ui-quality-audit.md#ui22-scope"
-    },
-    {
-      "section": "bodies",
-      "path": "docs/development/status-bar-panel-redesign.md",
-      "before": "135d441bae50ba167bc4f3801047658ddf9a342ebe4842240f0464b9fe9ea9b3",
-      "after": "bdeef0b46815519d21eea3412f3f552be42b102306c4a27704a4509ed8da266f",
-      "owner": "UI22",
-      "reason": "UI22增加封面过渡唯一实施与验证入口，不复制工作卡或改变面板尺寸合同。",
-      "decision": "docs/development/ui-quality-audit.md#ui22-scope"
-    },
-    {
-      "section": "bodies",
       "path": "docs/development/ui-quality-audit.md",
       "before": "74234e98afe7498fb5daf1f36ac2d78acc339464f950703b8c019892f982b90b",
-      "after": "bf6fd1c981da9e5e70b6b382f34b61ec18c7c8c2c2634f55982ee263ace608a3",
+      "after": "b159e4478b1ae8986798635ad037fef56a8a56fdcee79682dac9906b334122b2",
       "owner": "UI22",
       "reason": "UI22九项工作卡、实体右键失败及用户复测、两项静态尾修和用户取消运行构建后的明确交接边界；保留UI21既有证据分界。",
       "decision": "docs/development/ui-quality-audit.md#ui22-scope"

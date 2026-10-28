@@ -81,6 +81,141 @@ import Foundation
             if case let .vector3(x,y,z) = evaluation.value { return [x,y,z] }
             return []
         }
+        func impulseChecks(_ boneName: String) throws -> [String: Any] {
+            let source = """
+                export function update(v) {
+                    const bone='\(boneName)';
+                    if(v.x===1) {
+                        const local=thisLayer.getLocalBoneOrigin(bone).copy();
+                        const world=thisLayer.getBoneTransform(bone).translation();
+                        thisLayer.applyBonePhysicsImpulse(bone,new Vec3(-2,3,4));
+                        if(thisLayer.getLocalBoneOrigin(bone).subtract(local).length()!==0 ||
+                           thisLayer.getBoneTransform(bone).translation().subtract(world).length()!==0)
+                            throw new Error('impulse changed published getter');
+                        thisLayer.setLocalBoneOrigin(bone,new Vec3(8,0,0));
+                        thisLayer.applyBonePhysicsImpulse(1,new Vec3(5,6,7),new Vec3(-0,0,0));
+                        thisLayer.setLocalBoneTransform(bone,Mat4.fromTranslation(new Vec3(9,0,0)));
+                    }
+                    if(v.x===2) {
+                        const invalid=[
+                            ()=>thisLayer.applyBonePhysicsImpulse(1,new Vec3(NaN,0,0)),
+                            ()=>thisLayer.applyBonePhysicsImpulse(1,new Vec3(0,Infinity,0)),
+                            ()=>thisLayer.applyBonePhysicsImpulse(1,{x:1,y:2}),
+                            ()=>thisLayer.applyBonePhysicsImpulse('missing',new Vec3(1,2,3)),
+                            ()=>thisLayer.applyBonePhysicsImpulse(-1,new Vec3(1,2,3)),
+                            ()=>thisLayer.applyBonePhysicsImpulse(1.5,new Vec3(1,2,3)),
+                            ()=>thisLayer.applyBonePhysicsImpulse(3,new Vec3(1,2,3)),
+                            ()=>thisLayer.applyBonePhysicsImpulse(),
+                            ()=>thisLayer.applyBonePhysicsImpulse(1),
+                            ()=>thisLayer.applyBonePhysicsImpulse(1,new Vec3(1,2,3),new Vec3(0),0),
+                            ()=>thisLayer.applyBonePhysicsImpulse(1,new Vec3(1,2,3),new Vec3(0,0,1)),
+                            ()=>thisLayer.applyBonePhysicsImpulse(1,new Vec3(1,2,3),new Vec3(NaN,0,0)),
+                            ()=>thisLayer.applyBonePhysicsImpulse(1,new Vec3(1,2,3),0)
+                        ];
+                        let rejected=0;for(const call of invalid){try{call();}catch(e){rejected++;}}
+                        return new Vec3(rejected,thisLayer.getLocalBoneOrigin(bone).x,0);
+                    }
+                    if(v.x===3) {
+                        thisLayer.applyBonePhysicsImpulse(bone,new Vec3(1,2,3));
+                        thisLayer.setLocalBoneOrigin(bone,new Vec3(99,0,0));
+                        throw new Error('abort mixed commands');
+                    }
+                    if(v.x===4) {
+                        for(let i=0;i<257;i++) {
+                            if(i%2)thisLayer.setLocalBoneOrigin(bone,new Vec3(i,0,0));
+                            else thisLayer.applyBonePhysicsImpulse(bone,new Vec3(i,0,0));
+                        }
+                    }
+                    if(v.x===5)thisLayer.applyBonePhysicsImpulse(bone,new Vec3(1e300,-1e300,0));
+                    return thisLayer.getLocalBoneOrigin(bone);
+                }
+                """
+            func make() throws -> SceneScriptValueOwner {
+                let candidate=try SceneScriptValueOwner(domain:domain,source:source,
+                    target:.layer(layerID:42,field:.origin),effectNames:[],generation:1,budget:.default)
+                try candidate.configurePuppetBones(layerID:42,
+                    localMatrices:matrix(2)+matrix(3)+matrix(5),names:["trunk",boneName,"neighbor"],
+                    parents:[-1,0,0],layerToWorld:matrix(10))
+                return candidate
+            }
+            func evaluate(_ candidate:SceneScriptValueOwner,_ mode:Double) -> Result<SceneScriptValueEvaluation,SceneScriptScalarRuntimeFailure> {
+                candidate.evaluate(input:.vector3(mode,0,0),frame:frame(),scriptPropertiesJSON:"",
+                    userPropertiesJSON:"{}",expectedGeneration:1,interruptBudget:nil)
+            }
+            let candidate=try make()
+            let mixed=try evaluate(candidate,1).get()
+            let commands:[[String:Any]]=mixed.puppetBoneMutations.map {
+                switch $0.operation {
+                case let .matrix(m): return ["kind":"matrix","values":[m[12],m[13],m[14]]]
+                case let .impulse(v): return ["kind":"impulse","values":[v.x,v.y,v.z]]
+                }
+            }
+            candidate.discardLayerMutations()
+            let discardedCount=mwx_scene_quickjs_owner_puppet_bone_mutation_count(candidate.handle)
+            let rolledBack=try values(evaluate(candidate,0));candidate.commitLayerMutations()
+            let invalid=try evaluate(candidate,2).get();candidate.commitLayerMutations()
+            let large=try evaluate(candidate,5).get();candidate.discardLayerMutations()
+            let largeValue:[Double]
+            if case let .impulse(v)?=large.puppetBoneMutations.first?.operation { largeValue=[v.x,v.y,v.z] }
+            else { largeValue=[] }
+            var failures:[String:Any]=[:]
+            for mode in [3,4] {
+                let failing=try make()
+                if case let .failure(error)=evaluate(failing,Double(mode)) { failures["\(mode)"]=error.code }
+                failing.discardLayerMutations()
+                failures["\(mode)Writes"]=mwx_scene_quickjs_owner_puppet_bone_mutation_count(failing.handle)
+            }
+            return ["commands":commands,"bones":mixed.puppetBoneMutations.map(\.boneIndex),
+                "ordinals":mixed.puppetBoneMutations.map(\.ordinal),
+                "epochs":mixed.puppetBoneMutations.map(\.callbackEpoch),
+                "rollback":rolledBack,"discardedCount":discardedCount,
+                "invalid":try values(.success(invalid)),"invalidWrites":invalid.puppetBoneMutations.count,
+                "large":largeValue,"failures":failures,
+                "abiBytes":MemoryLayout<MWXSceneQuickJSPuppetBoneMutation>.stride]
+        }
+        func availabilityChecks(byName: Bool) throws -> [String: Any] {
+            let blocked=byName ? "'blocked'" : "2"
+            let candidate=try SceneScriptValueOwner(domain:domain,source:"""
+                export function update(v) {
+                    if(v.x===1) {
+                        thisLayer.applyBonePhysicsImpulse('plain',new Vec3(1,0,0));
+                        thisLayer.applyBonePhysicsImpulse(1,new Vec3(2,0,0));
+                    }
+                    if(v.x===2) {
+                        thisLayer.setLocalBoneOrigin(0,new Vec3(99,0,0));
+                        thisLayer.applyBonePhysicsImpulse(\(blocked),new Vec3(3,0,0));
+                    }
+                    return thisLayer.getLocalBoneOrigin(0);
+                }
+                """,target:.layer(layerID:42,field:.origin),effectNames:[],generation:1,budget:.default)
+            let local=matrix(2)+matrix(3)+matrix(5)
+            try candidate.configurePuppetBones(layerID:42,localMatrices:local,
+                names:["plain","spring","blocked"],parents:[-1,0,0],impulseUnavailable:[0,0,7])
+            var badCountRejected=false
+            do { try candidate.configurePuppetBones(layerID:42,localMatrices:local,impulseUnavailable:[0,0]) }
+            catch { badCountRejected=true }
+            func evaluate(_ mode:Double) -> Result<SceneScriptValueEvaluation,SceneScriptScalarRuntimeFailure> {
+                candidate.evaluate(input:.vector3(mode,0,0),frame:frame(),scriptPropertiesJSON:"",
+                    userPropertiesJSON:"{}",expectedGeneration:1,interruptBudget:nil)
+            }
+            let allowed=try evaluate(1).get()
+            candidate.commitLayerMutations()
+            // Ordinary frame publication omits capability metadata.
+            try candidate.configurePuppetBones(layerID:42,localMatrices:local,parents:[-1,0,0])
+            let rejected=evaluate(2)
+            var code="unexpected-success",message=""
+            if case let .failure(failure)=rejected {
+                code=failure.code
+                if case let .exception(text)=failure { message=text }
+            }
+            candidate.discardLayerMutations()
+            var disabled=false
+            if case .failure(.disabled)=evaluate(0) { disabled=true }
+            return ["allowedBones":allowed.puppetBoneMutations.map(\.boneIndex),
+                "allowedPose":try values(.success(allowed)),"badCountRejected":badCountRejected,
+                "failure":code,"message":message,"disabled":disabled,
+                "publishedWrites":mwx_scene_quickjs_owner_puppet_bone_mutation_count(candidate.handle)]
+        }
         let changed = run(1)
         let mutations = try changed.get().puppetBoneMutations
         owner.discardLayerMutations()
@@ -118,12 +253,17 @@ import Foundation
         if case .failure = singular { rejected = true } else { rejected = false }
         owner.discardLayerMutations()
         let result: [String: Any] = [
+            "impulse":try impulseChecks("left"),"renamedImpulse":try impulseChecks("leaf"),
+            "unavailableName":try availabilityChecks(byName:true),"unavailableIndex":try availabilityChecks(byName:false),
             "clamped": clamped, "releasedWrites": released.puppetBoneMutations.count,
             "outsideWrites": outside.puppetBoneMutations.count,
             "vectorMethods": vectorMethods,
             "changed": try values(changed), "rollback": rolledBack,
             "retry": changedAgain, "committed": committed,
-            "localWrites": mutations.map { $0.matrix[12] }, "singularRejected": rejected
+            "localWrites": mutations.map { mutation in
+                guard case let .matrix(m)=mutation.operation else { fatalError("expected matrix command") }
+                return m[12]
+            }, "singularRejected": rejected
         ]
         print(String(data: try JSONSerialization.data(withJSONObject: result), encoding: .utf8)!)
     }
@@ -161,6 +301,47 @@ class QuickJSPuppetBoneBehaviorTests(unittest.TestCase):
 
     def test_singular_parent_rejects_world_write(self):
         self.assertTrue(self.result['singularRejected'])
+
+    def test_impulse_and_matrix_share_order_without_immediate_impulse_pose(self):
+        expected = [
+            {"kind": "impulse", "values": [-2, 3, 4]},
+            {"kind": "matrix", "values": [8, 0, 0]},
+            {"kind": "impulse", "values": [5, 6, 7]},
+            {"kind": "matrix", "values": [9, 0, 0]},
+        ]
+        for key in ("impulse", "renamedImpulse"):
+            facts = self.result[key]
+            self.assertEqual(facts["commands"], expected)
+            self.assertEqual(facts["bones"], [1, 1, 1, 1])
+            self.assertEqual(facts["ordinals"], [0, 1, 2, 3])
+            self.assertEqual(len(set(facts["epochs"])), 1)
+            self.assertGreater(facts["epochs"][0], 0)
+            self.assertEqual(facts["rollback"], [3, 0, 0])
+            self.assertEqual(facts["discardedCount"], 0)
+            self.assertEqual(facts["abiBytes"], 152)
+
+    def test_bad_impulses_and_nonzero_angular_are_rejected_without_commands(self):
+        for key in ("impulse", "renamedImpulse"):
+            self.assertEqual(self.result[key]["invalid"], [13, 3, 0])
+            self.assertEqual(self.result[key]["invalidWrites"], 0)
+            self.assertEqual(self.result[key]["large"], [1e300, -1e300, 0])
+
+    def test_throw_and_shared_matrix_impulse_budget_discard_the_whole_journal(self):
+        for key in ("impulse", "renamedImpulse"):
+            self.assertEqual(self.result[key]["failures"],
+                             {"3": "exception", "3Writes": 0,
+                              "4": "exception", "4Writes": 0})
+
+    def test_unsupported_physics_fails_atomically_and_nil_refresh_preserves_capability(self):
+        for key in ("unavailableName","unavailableIndex"):
+            facts=self.result[key]
+            self.assertEqual(facts["allowedBones"],[0,1])
+            self.assertEqual(facts["allowedPose"],[2,0,0])
+            self.assertTrue(facts["badCountRejected"])
+            self.assertEqual(facts["failure"],"exception")
+            self.assertIn("bone physics impulse is unsupported",facts["message"])
+            self.assertTrue(facts["disabled"])
+            self.assertEqual(facts["publishedWrites"],0)
 
 if __name__ == '__main__':
     unittest.main()

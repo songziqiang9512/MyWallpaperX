@@ -73,6 +73,34 @@ enum Harness {
                 packageRoot: nil, stockRoot: nil)
         )
 
+        let alternatives = (0..<5).map { index -> [String] in
+            let path = "pick-\(index)"
+            return [path, path + ".json", "materials/" + path + ".json",
+                    "materials/" + path + ".tex", path + ".tex"]
+        }
+        let candidatePaths = alternatives.enumerated().flatMap { index, paths in
+            paths.dropFirst(index).map { $0.uppercased().replacingOccurrences(of: "/", with: "\\") }
+        }
+        let candidateResources = candidatePaths.map { path in
+            SceneResourceIndex.Resource(relativePath: path, url: rootURL.appendingPathComponent(path),
+                kind: .other, fileSize: 1)
+        }
+        let stockURL = rootURL.appendingPathComponent("stock-fixture")
+        try FileManager.default.createDirectory(at: stockURL, withIntermediateDirectories: true)
+        let stockResources = ["DuPe\\Item.TeX", "dupe/item.tex"].map { path in
+            SceneResourceIndex.Resource(relativePath: path, url: stockURL.appendingPathComponent(path),
+                kind: .texture, fileSize: 1)
+        }
+        let candidateView = SceneResourceView(
+            projectRoot: .init(source: .loose, url: rootURL,
+                index: .init(rootURL: rootURL, resources: candidateResources)), packageRoot: nil,
+            stockRoot: .init(source: .stock, url: stockURL,
+                index: .init(rootURL: stockURL, resources: stockResources)))
+        let candidateReferences = (0..<5).map { "PICK-\($0)" }
+            + ["ASSETS\\DUPE\\ITEM.TEX", "  PICK-0  "]
+        let candidateIndex = SceneResourceReferenceIndexBuilder().build(
+            document: SceneDocument(referencedResourcePaths: candidateReferences), resourceView: candidateView)
+
         let result: [String: Any] = [
             "resolvedCount": index.resolvedCount,
             "builtInCount": index.builtInReferenceCount,
@@ -81,11 +109,20 @@ enum Harness {
             "matches": index.matches.map { match in
                 [
                     "path": match.referencedPath,
+                    "matchedPath": match.matchedPath as Any? ?? NSNull(),
                     "resolved": match.isResolved,
                     "builtIn": match.isBuiltInReference,
                     "runtimeProvided": match.isRuntimeProvidedReference,
                     "missing": match.isMissing,
                 ] as [String: Any]
+            },
+            "normalizedStockAliasCopies": candidateView.availableRelativePaths.filter {
+                $0.replacingOccurrences(of: "\\", with: "/").localizedLowercase == "assets/dupe/item.tex"
+            }.count,
+            "candidateMatches": candidateIndex.matches.map { match in
+                ["path": match.referencedPath, "matchedPath": match.matchedPath as Any? ?? NSNull(),
+                 "resolved": match.isResolved, "builtIn": match.isBuiltInReference,
+                 "runtimeProvided": match.isRuntimeProvidedReference, "missing": match.isMissing] as [String: Any]
             },
         ]
         let data = try JSONSerialization.data(withJSONObject: result, options: [.sortedKeys])
@@ -165,6 +202,17 @@ class SceneResourceReferenceIndexTests(unittest.TestCase):
         ):
             self.assertFalse(matches[path]["runtimeProvided"])
             self.assertTrue(matches[path]["missing"])
+
+    def test_normalized_membership_retains_all_candidate_priorities(self) -> None:
+        self.assertEqual(self.result["normalizedStockAliasCopies"], 2)
+        expected_paths = ["pick-0", "pick-1.json", "materials/pick-2.json",
+                          "materials/pick-3.tex", "pick-4.tex", "assets/dupe/item.tex", None]
+        for match, expected in zip(self.result["candidateMatches"], expected_paths, strict=True):
+            self.assertEqual(match["matchedPath"], expected, match["path"])
+            self.assertEqual(match["resolved"], expected is not None, match["path"])
+            self.assertEqual(match["missing"], expected is None, match["path"])
+            self.assertFalse(match["builtIn"], match["path"])
+            self.assertFalse(match["runtimeProvided"], match["path"])
 
 
 if __name__ == "__main__":

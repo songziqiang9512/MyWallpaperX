@@ -53,7 +53,7 @@ struct SceneResourceReferenceIndexBuilder {
         document: SceneDocument,
         availableRelativePaths: [String]
     ) -> SceneResourceReferenceIndex {
-        let availablePaths = Set(availableRelativePaths).map(Self.normalizedPath)
+        let availablePaths = Set(availableRelativePaths.lazy.map(Self.normalizedPath))
 
         let matches = document.referencedResourcePaths.map { path in
             let normalized = Self.normalizedPath(path)
@@ -70,7 +70,7 @@ struct SceneResourceReferenceIndexBuilder {
         return SceneResourceReferenceIndex(matches: matches)
     }
 
-    nonisolated private static func matchPath(_ path: String, in availablePaths: [String]) -> String? {
+    nonisolated private static func matchPath(_ path: String, in availablePaths: Set<String>) -> String? {
         if availablePaths.contains(path) {
             return path
         }

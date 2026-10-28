@@ -8,35 +8,83 @@ from .scene_vector_vm_test_support import compile_vector_harness, ROOT
 
 LAUNCH_STUBS = r'''
 struct BoneOwnerList { let bindings: [SceneScriptValueOwner] }
-struct BoneLaunchInput { let renderDescriptor: SceneRenderDescriptor }
-struct BoneConfiguration {
-    let worldMatrices: [Double]; let localMatrices: [Double]
-    let names: [String]; let parentIndices: [Int]
-}
-extension SceneRenderDescriptor.Layer { var puppetMeshPath: String? { nil } }
-enum ScenePuppetLayerLoad {
-    static func boneConfiguration(for layer: SceneRenderDescriptor.Layer, cacheDirectory: URL) -> BoneConfiguration? { nil }
-}
 struct SceneDesktopWallpaperLaunchContext {
     let propertyVectorScriptProgram: SceneScriptVectorProgram
     let sceneScriptScalarProgram: BoneOwnerList
     let sceneScriptStringProgram: BoneOwnerList
     let sceneScriptCursorProgram: SceneScriptCursorProgram
-    var runtimeInput: BoneLaunchInput { .init(renderDescriptor: .init(layers: [])) }
-    var cacheDirectory: URL { URL(fileURLWithPath: "/unused") }
 }
 '''
-LAUNCH_SOURCE = (ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Runtime/Session/SceneDesktopWallpaperLaunchContext+PuppetBones.swift").read_text()
+# Compile the real shared-owner configurator; asset preparation is outside
+# this callback transaction gate and has its own resource fixtures.
+_launch_source = (ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Runtime/Session/SceneDesktopWallpaperLaunchContext+PuppetBones.swift").read_text()
+LAUNCH_SOURCE = "extension SceneDesktopWallpaperLaunchContext {\n" + _launch_source[
+    _launch_source.index("    func configurePuppetBones("):]
+VALIDATION_SOURCE = ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Systems/Script/SceneScriptOwnerEffectsRuntimeValidation.swift"
 
 HARNESS = r'''
+// Unrelated registries are never entered by this bone-only validation gate.
+extension SceneFrameTiming { var frameIndex: UInt64 { 1 } }
+struct SceneTimelinePlaybackRuntime {
+    func validate(_ commands:[SceneTimelinePlaybackMutation],sceneTime:Double) -> Result<Void,NSError> { fatalError("unexpected Timeline validation") }
+}
+struct SceneTextureAnimationPlaybackRuntime {
+    func validate(_ commands:[SceneTextureAnimationCommand],sceneTime:Double) -> Result<Void,NSError> { fatalError("unexpected texture validation") }
+}
+struct SceneVideoTextureSourceRegistry {
+    func validate(_ commands:[SceneScriptMediaPlaybackCommand],timing:SceneFrameTiming) -> Result<Void,NSError> { fatalError("unexpected video validation") }
+}
+struct SceneSoundPlaybackRegistry {
+    func validate(_ commands:[SceneScriptMediaPlaybackCommand]) -> Result<Void,NSError> { fatalError("unexpected sound validation") }
+}
+struct ScenePuppetAnimationPlaybackRuntime {
+    func validate(_ commands:[ScenePuppetAnimationCommand],sourceLayerID:Int,sourceAnimationLayerID:Int,frameIndex:UInt64) -> Result<Void,NSError> { fatalError("unexpected clip validation") }
+}
 @main enum Harness {
     static let frame = SceneScriptFrameInput(timing:.init(wallDate:Date(timeIntervalSince1970:0),simulationFrameTime:0.016,sceneTime:1))
     static func commands(_ effects:[SceneScriptOwnerEffects], _ target:SceneDynamicTarget) -> [String] {
-        effects.filter{$0.ownerTarget==target}.flatMap{$0.puppetBoneMutations}.map { "\($0.layerID):\($0.boneIndex):\($0.matrix[12])" }
+        effects.filter{$0.ownerTarget==target}.flatMap{$0.puppetBoneMutations}.map {
+            let identity="\($0.layerID):\($0.boneIndex):"
+            switch $0.operation {
+            case let .matrix(matrix): return identity+"\(matrix[12])"
+            case let .impulse(v): return identity+"impulse:\(v.x),\(v.y),\(v.z)"
+            }
+        }
     }
 
-    static func main() throws {
+    @MainActor static func validateBoneOwners() -> [String:Any] {
+        let target=SceneDynamicTarget.layer(layerID:1,field:.origin)
+        let peerTarget=SceneDynamicTarget.layer(layerID:2,field:.origin)
+        let matrix:[Double]=[1,0,0,0,0,1,0,0,0,0,1,0,3,0,0,1]
+        let valid=SceneScriptPuppetBoneMutation(layerID:1,boneIndex:0,matrix:matrix)
+        let peer=SceneScriptOwnerEffects(ownerTarget:peerTarget,materialFunctionMutations:[],
+            animationMutations:[],layerMutations:[],mediaPlaybackCommands:[],
+            puppetBoneMutations:[.init(layerID:2,boneIndex:0,matrix:matrix)])
+        var overflow=matrix;overflow[12]=1e300
+        let cases:[(String,SceneScriptPuppetBoneMutation)]=[
+            ("impulse",.init(layerID:1,boneIndex:0,operation:.impulse(SIMD3(1e300,0,0)))),
+            ("matrix",.init(layerID:1,boneIndex:0,matrix:overflow)),
+            ("edge",.init(layerID:1,boneIndex:0,operation:.impulse(SIMD3(Double(Float.greatestFiniteMagnitude),0,0))))]
+        var result:[String:Any]=[:]
+        for (name,command) in cases {
+            let owner=SceneScriptOwnerEffects(ownerTarget:target,materialFunctionMutations:[],
+                animationMutations:[],layerMutations:[],mediaPlaybackCommands:[],
+                puppetBoneMutations:[valid,command])
+            let effects=[owner,peer]
+            let failures=SceneScriptOwnerEffectsRuntimeValidation.failures(for:effects,
+                timelineRuntime:.init(),textureAnimationRuntime:.init(),videoRegistry:nil,
+                timing:.init(wallDate:Date(timeIntervalSince1970:0),simulationFrameTime:frame.frameTime,sceneTime:frame.runtime))
+            let rejected=Set(failures.map(\.ownerTarget))
+            let admitted=effects.filter { !rejected.contains($0.ownerTarget) }
+            result[name]=["failures":failures.count,"commandCounts":failures.map(\.commandCount),
+                "ownerCommands":admitted.first { $0.ownerTarget==target }?.puppetBoneMutations.count ?? 0,
+                "peerCommands":commands(admitted,peerTarget)]
+        }
+        return result
+    }
+    @MainActor static func main() throws {
         var out:[String:Any]=[:]
+        out["boneValidation"]=validateBoneOwners()
         for family in ["scalar","string"] {
             for scenario in ["ordered","implicitInit","rejected","badReturn","exception"] {
                 let field=family=="scalar" ? "alpha" : "text"
@@ -55,12 +103,12 @@ HARNESS = r'''
                     export function init(v){thisLayer.setLocalBoneTransform(0,Mat4.fromTranslation(new Vec3(1,0,0)));return v;}
                     export function update(v){thisLayer.setLocalBoneTransform(0,Mat4.fromTranslation(new Vec3(3,0,0)));return v;}
                     """
-                case "rejected": body="export function mediaPlaybackChanged(e){thisLayer.setLocalBoneTransform(0,Mat4.fromTranslation(new Vec3(3,0,0)));}"
+                case "rejected": body="export function mediaPlaybackChanged(e){thisLayer.setLocalBoneTransform(0,Mat4.fromTranslation(new Vec3(3,0,0)));thisLayer.applyBonePhysicsImpulse('root',new Vec3(6,2,1));}"
                 case "badReturn": body="""
                     export function mediaPlaybackChanged(e){thisLayer.setLocalBoneTransform(0,Mat4.fromTranslation(new Vec3(3,0,0)));}
-                    export function update(v){thisLayer.setLocalBoneTransform(0,Mat4.fromTranslation(new Vec3(6,0,0)));return {};}
+                    export function update(v){thisLayer.setLocalBoneTransform(0,Mat4.fromTranslation(new Vec3(6,0,0)));thisLayer.applyBonePhysicsImpulse(0,new Vec3(7,8,9));return {};}
                     """
-                default: body="export function mediaPlaybackChanged(e){thisLayer.setLocalBoneTransform(0,Mat4.fromTranslation(new Vec3(3,0,0)));throw new Error('failed');}"
+                default: body="export function mediaPlaybackChanged(e){thisLayer.setLocalBoneTransform(0,Mat4.fromTranslation(new Vec3(3,0,0)));thisLayer.applyBonePhysicsImpulse(0,new Vec3(7,8,9));throw new Error('failed');}"
                 }
                 let sources=[body, "export function mediaPlaybackChanged(e){thisLayer.setLocalBoneTransform(0,Mat4.fromTranslation(new Vec3(5,0,0)));}"]
                 var descriptor=SceneRenderDescriptor(layers:(1...2).map { id in .init(id:id,layerIndex:id-1,name:"video\(id)",visible:true,
@@ -143,7 +191,8 @@ class SceneValueBoneMutationsTests(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
         with tempfile.TemporaryDirectory(prefix="mwx-value-bones-vm-") as temp:
-            binary=compile_vector_harness(Path(temp),LAUNCH_STUBS+LAUNCH_SOURCE+HARNESS,"value-bones")
+            binary=compile_vector_harness(Path(temp),LAUNCH_STUBS+LAUNCH_SOURCE+HARNESS,"value-bones",
+                extra_swift_sources=(VALIDATION_SOURCE,))
             run=subprocess.run([str(binary)],check=True,capture_output=True,text=True)
             cls.value=json.loads(run.stdout)
             print(json.dumps(cls.value,sort_keys=True))
@@ -159,15 +208,23 @@ class SceneValueBoneMutationsTests(unittest.TestCase):
         for family in ("scalar","string"):
             self.assertEqual(self.value[family+"-implicitInit"],["1:0:1.0","1:0:3.0"])
 
+    def test_float_overflow_rejects_complete_bone_owner_and_preserves_peer(self):
+        for name in ("impulse","matrix"):
+            self.assertEqual(self.value["boneValidation"][name],
+                {"failures":1,"commandCounts":[2],"ownerCommands":0,"peerCommands":["2:0:3.0"]})
+        self.assertEqual(self.value["boneValidation"]["edge"],
+            {"failures":0,"commandCounts":[],"ownerCommands":2,"peerCommands":["2:0:3.0"]})
+
     def test_rejected_owner_retries_without_replaying_accepted_peer(self):
         for family in ("scalar","string"):
             key=family+"-rejected"
-            self.assertEqual(self.value[key],["1:0:3.0"])
-            self.assertEqual(self.value[key+"Retry"],["1:0:3.0"])
+            expected=["1:0:3.0","1:0:impulse:6.0,2.0,1.0"]
+            self.assertEqual(self.value[key],expected)
+            self.assertEqual(self.value[key+"Retry"],expected)
             self.assertEqual(self.value[key+"Peer"],["2:0:5.0"])
             self.assertEqual(self.value[key+"PeerRetry"],[])
             self.assertEqual(self.value[key+"Idle"],[])
-            self.assertEqual(self.value[key+"Whole"],["1:0:3.0"])
+            self.assertEqual(self.value[key+"Whole"],expected)
             self.assertEqual(self.value[key+"WholePeer"],["2:0:5.0"])
 
     def test_failed_callback_or_return_discards_only_failed_owner(self):

@@ -323,7 +323,8 @@ extension SceneDesktopWallpaperSession {
             sceneTime: timing.sceneTime)
         let puppetPoseFrames = surfaces.mapValues {
             $0.metalView.prepareSceneScriptPuppetPoseFrame(
-                timing: timing, puppetAnimationFrame: puppetAnimationFrame
+                timing: timing, puppetAnimationFrame: puppetAnimationFrame,
+                dynamicValues: preliminaryForSceneScript
             )
         }
         let sceneScriptPuppetPoseFrame = surfaces.count == 1
@@ -333,9 +334,11 @@ extension SceneDesktopWallpaperSession {
         var sceneScriptWorldFramesBySurface: [CGDirectDisplayID: [Int: simd_float4x4]] = [:]
         if surfaces.count == 1, let (displayID, surface) = surfaces.first,
            surface.metalView.requiresSceneScriptCameraWorldFrames || !sceneScriptPuppetPoseFrame.posesByLayerID.isEmpty {
-            sceneScriptWorldFramesBySurface[displayID] = surface.metalView.sceneScriptCursorWorldFrames(
+            sceneScriptWorldFramesBySurface[displayID] = sceneScriptPuppetPoseFrame.worldFrames.isEmpty
+                ? surface.metalView.sceneScriptCursorWorldFrames(
                 dynamicValues: preliminaryForSceneScript,
                 puppetAttachmentFrames: sceneScriptPuppetPoseFrame.attachmentFrames)
+                : sceneScriptPuppetPoseFrame.worldFrames
         }
         let sceneScriptFrame = prepareSceneScriptFrame(launchContext, timing: timing,
             dynamicValues: preliminaryForSceneScript,
@@ -405,6 +408,34 @@ extension SceneDesktopWallpaperSession {
             particleEmission?.discard()
             launchContext.propertyVectorScriptProgram.domain?.endParticlePlaybackFrame()
         }
+        let projectedSceneScriptVectorInputs = preliminaryForSceneScript
+            .typedValues(
+                for: launchContext.propertyVectorScriptProgram.inputTargets,
+                valueTypes:
+                    launchContext.propertyVectorScriptProgram.inputValueTypes
+            )
+        let sceneScriptVectorInputs = launchContext.sceneScriptVectorMediaRoute
+            .admittedVectorInputs(
+                projectedSceneScriptVectorInputs,
+                mediaOwnerTargets: launchContext.propertyVectorMediaTargets
+            )
+        let sceneScriptStringInputs = preliminaryForSceneScript.typedValues(
+            for: launchContext.sceneScriptStringProgram.inputTargets,
+            valueTypes: launchContext.sceneScriptStringProgram.inputValueTypes
+        )
+        let sceneScriptInputs = preliminaryForSceneScript.typedValues(
+            for: launchContext.sceneScriptScalarProgram.inputTargets,
+            valueTypes: launchContext.sceneScriptScalarProgram.inputValueTypes
+        )
+        let initialization: (failures: [SceneDynamicTarget: SceneScriptScalarRuntimeFailure], effects: [SceneScriptOwnerEffects])
+        if sceneScriptLayerSnapshotFailure == nil {
+            initialization = launchContext.frameSchema.mediaFrameCoordinator.initialize(
+                vectorInputs: sceneScriptVectorInputs, stringInputs: sceneScriptStringInputs,
+                scalarInputs: sceneScriptInputs, effectivePropertyValues: launchContext.liveState.effectiveValues,
+                frame: sceneScriptFrame, userPropertiesJSON: userPropertiesJSON, audioSpectrum: audioSpectrum)
+        } else {
+            initialization = ([:], [])
+        }
         let cursorBatch = prepareSceneScriptCursorBatch(
             launchContext: launchContext,
             timing: timing,
@@ -434,7 +465,8 @@ extension SceneDesktopWallpaperSession {
                 userPropertiesJSON: userPropertiesJSON,
                 effectivePropertyValues: launchContext.liveState.effectiveValues,
                 propertyRevision: launchContext.liveState.revision, audioSpectrum: audioSpectrum,
-                userShortcutDispatch: .some(shortcutDispatch)
+                userShortcutDispatch: .some(shortcutDispatch),
+                initializationFailures: initialization.failures
             )
         }
         if cursorResult.inputBatchOverflowed {
@@ -454,25 +486,6 @@ extension SceneDesktopWallpaperSession {
             )
 #endif
         }
-        let projectedSceneScriptVectorInputs = preliminaryForSceneScript
-            .typedValues(
-                for: launchContext.propertyVectorScriptProgram.inputTargets,
-                valueTypes:
-                    launchContext.propertyVectorScriptProgram.inputValueTypes
-            )
-        let sceneScriptVectorInputs = launchContext.sceneScriptVectorMediaRoute
-            .admittedVectorInputs(
-                projectedSceneScriptVectorInputs,
-                mediaOwnerTargets: launchContext.propertyVectorMediaTargets
-            )
-        let sceneScriptStringInputs = preliminaryForSceneScript.typedValues(
-            for: launchContext.sceneScriptStringProgram.inputTargets,
-            valueTypes: launchContext.sceneScriptStringProgram.inputValueTypes
-        )
-        let sceneScriptInputs = preliminaryForSceneScript.typedValues(
-            for: launchContext.sceneScriptScalarProgram.inputTargets,
-            valueTypes: launchContext.sceneScriptScalarProgram.inputValueTypes
-        )
         let coordinatedSceneScript: SceneScriptMediaFrameCoordinatorResult
         if let failure = sceneScriptLayerSnapshotFailure {
             coordinatedSceneScript = .init(
@@ -521,7 +534,8 @@ extension SceneDesktopWallpaperSession {
                 frame: sceneScriptFrame,
                 userPropertiesJSON: userPropertiesJSON, propertyRevision: launchContext.liveState.revision,
                 events: sceneScriptMediaEvents,
-                audioSpectrum: audioSpectrum
+                audioSpectrum: audioSpectrum,
+                initializationFailures: initialization.failures
             )
         }
         let sceneScriptVectorResult = coordinatedSceneScript.vector
@@ -546,7 +560,7 @@ extension SceneDesktopWallpaperSession {
         let layerTopology = layerMutationSnapshot
         // Cursor callbacks run before update; preserve that order for writes
         // to the same owner/bone in one frame.
-        let ownerEffects = cursorResult.ownerEffects
+        let ownerEffects = initialization.effects + cursorResult.ownerEffects
             + coordinatedSceneScript.ownerEffects
         let layerMutationCount = ownerEffects.reduce(0) {
             $0 + $1.layerMutations.count

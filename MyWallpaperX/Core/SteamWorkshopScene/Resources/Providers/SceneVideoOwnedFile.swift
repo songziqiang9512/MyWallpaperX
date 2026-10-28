@@ -153,15 +153,12 @@ nonisolated final class SceneVideoOwnedFile: Sendable {
         }
 
         func borrow(_ key: SuccessfulFileKey) -> Borrow? {
-            var files: [SceneVideoOwnedFile] = []
             lock.lock()
-            prune(holding: &files)
             let result: Borrow?
             if let entry = entries[key], let file = entry.file {
                 result = Borrow(file: file, entry: entry)
             } else { result = nil }
             lock.unlock()
-            withExtendedLifetime(files) {}
             return result
         }
 

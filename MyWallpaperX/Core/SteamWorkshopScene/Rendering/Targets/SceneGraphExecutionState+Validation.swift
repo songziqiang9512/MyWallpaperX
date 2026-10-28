@@ -206,7 +206,6 @@ nonisolated extension SceneGraphExecutionState {
         let nodesByIndex: [Int: Graph.Node]
         let pairNodesByIndex: [Int: SceneLayerFullFramePairPlan.NodeStep]
         let framebufferBindingsByNode: [Int: [Graph.Binding]]
-        let commandOrdinalsByNode: [Int: Int]
         let initializationTargets: [Plan.LogicalTarget]
         let expectedAllocation: [Identity: ResourceDescriptor]
         let materialFunctionTargets: Set<Identity>
@@ -227,9 +226,6 @@ nonisolated extension SceneGraphExecutionState {
                 (node.nodeIndex, node.bindings.filter { $0.texture.kind == .framebuffer }
                     .sorted { ($0.slot ?? Int.max) < ($1.slot ?? Int.max) })
             })
-            let commands = graph.nodes.filter { $0.kind == .copy || $0.kind == .swap }
-                .map(\.nodeIndex).sorted()
-            commandOrdinalsByNode = Dictionary(uniqueKeysWithValues: commands.enumerated().map { ($0.element, $0.offset) })
             initializationTargets = plan.logicalTargets.sorted(by: SceneGraphExecutionState.targetOrder)
             historyLogicalIdentities = Set(plan.logicalTargets.compactMap {
                 $0.lifetime.requiresHistorySeed ? $0.identity : nil

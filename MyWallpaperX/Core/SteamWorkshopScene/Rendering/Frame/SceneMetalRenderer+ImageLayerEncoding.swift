@@ -185,7 +185,6 @@ extension SceneMetalRenderer {
                 ),
             dynamicValues: frameContext.dynamicValues,
             audioSpectrum: frameContext.audioSpectrum,
-            authoredShaderFrameInputs: .init(frameContext: frameContext),
             geometryProduct: geometryProduct,
             distanceFog: fog
         )

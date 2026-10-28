@@ -71,14 +71,20 @@ nonisolated enum SceneScriptOwnerEffectsRuntimeValidation {
                 }
             }()
             let valid = ownerLayerID != nil && owner.puppetBoneMutations.allSatisfy {
-                $0.layerID == ownerLayerID && $0.boneIndex >= 0 && $0.matrix.count == 16 && $0.matrix.allSatisfy(\.isFinite)
+                guard $0.layerID == ownerLayerID && $0.boneIndex >= 0 else { return false }
+                switch $0.operation {
+                case let .matrix(matrix): return matrix.count == 16 && matrix.allSatisfy { Float($0).isFinite }
+                case let .impulse(value):
+                    let vector = SIMD3<Float>(value)
+                    return vector.x.isFinite && vector.y.isFinite && vector.z.isFinite
+                }
             }
             if !valid {
                 failures.append(.init(
                     ownerTarget: owner.ownerTarget,
                     subsystem: .puppetBone,
                     commandCount: owner.puppetBoneMutations.count,
-                    reason: "invalid Puppet bone mutation identity or matrix"
+                    reason: "invalid Puppet bone mutation identity or payload"
                 ))
             }
         }

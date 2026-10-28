@@ -241,6 +241,7 @@ class SceneMaterialRenderStateTests(unittest.TestCase):
         subprocess.run(
             [
                 swiftc,
+                "-D", "DEBUG",
                 *(str(path) for path in SWIFT_SOURCES),
                 str(harness),
                 "-o",

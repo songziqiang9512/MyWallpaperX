@@ -99,6 +99,42 @@ func runSceneResolvedMaterialPassColorCases(
         target: nonSquareTarget
     )
 
+    // The first sample is between texels; the second is outside [0, 1].
+    // Actual pixels distinguish nearest/linear and repeat/clamp, rather than
+    // inspecting a PreparedPass copy of the authored sampler declaration.
+    let samplerTexture = texture(
+        device: device, width: 2, height: 1,
+        fill: [255, 0, 0, 255, 0, 255, 0, 255]
+    )
+    let samplerExpected: [[UInt8]] = [
+        [191, 64, 0, 255, 191, 64, 0, 255],
+        [255, 0, 0, 255, 255, 0, 0, 255],
+        [191, 64, 0, 255, 0, 255, 0, 255],
+        [255, 0, 0, 255, 0, 255, 0, 255],
+    ]
+    var samplerModesMatchPixels = true
+    for flags in 0 ..< samplerExpected.count {
+        let samplerProgram = program(
+            device: device, marker: 1100 + flags, outputSlot: 0,
+            slot0Texture: samplerTexture,
+            fragmentSource: """
+            varying vec2 v_TexCoord;
+            uniform sampler2D g_Texture0;
+            void main() {
+                gl_FragColor = texSample2D(g_Texture0, vec2(v_TexCoord.x * 1.5, 0.5));
+            }
+            """,
+            slot0Sampling: .init(texFlags: UInt32(flags))
+        )
+        let sampled = render(
+            samplerProgram, encoder: encoder, queue: queue,
+            target: target(device: device, width: 2, height: 1)
+        )
+        samplerModesMatchPixels = samplerModesMatchPixels
+            && sampled.prepared && sampled.encoded && sampled.completed
+            && closePixels(sampled.pixels, samplerExpected[flags], tolerance: 1)
+    }
+
     let attemptsBeforeBGRA = encoder.pipelineCompilationAttemptCount
     let libraryAttemptsBeforeBGRA =
         encoder.metalLibraryCompilationAttemptCount
@@ -644,11 +680,7 @@ func runSceneResolvedMaterialPassColorCases(
         "metalLibraryCompiledOnce": libraryAttemptsAfterFirst == 1,
         "pipelineCacheReused": pipelineCacheReused,
         "cacheReusedAcrossResources": cacheReusedAcrossResources,
-        "authoredSlotsPreserved": first?.bindingSlots == [0, 3],
-        "typedSamplersPreserved": first?.bindingSamplings
-            == [.directImageFallback, .init(texFlags: 1)],
-        "uniformLayoutPreserved": first?.uniformByteCount
-            == baseline.frontendProgram.uniformLayout.byteSize,
+        "samplerModesMatchActualPixels": samplerModesMatchPixels,
         "baselineOutputPremultiplied": first?.fragmentOutput
             == .premultipliedAlpha,
         "premultipliedOutputPublished": crossExtentPrepared?.fragmentOutput

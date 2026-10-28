@@ -188,7 +188,7 @@ extension ScenePropertyBindingCompiler {
         propertyKind: SceneUserPropertyKind
     )? {
         switch (propertyKind, fallback) {
-        case (.slider, .number): (.scalar, .slider)
+        case (.slider, .number), (.slider, .bool): (.scalar, .slider)
         case (.bool, .bool): (.bool, .bool)
         case (.color, .string): (.vector3, .color)
         case let (.color, .number(value)) where value.isFinite: (.vector3, .color)

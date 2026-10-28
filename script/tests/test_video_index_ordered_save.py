@@ -269,6 +269,16 @@ class VideoIndexOrderedSaveTests(unittest.TestCase):
                 self.assertEqual(inputs, {path: hashlib.sha256(Path(path).read_bytes()).hexdigest() for path in inputs})
                 results.append(result)
                 print(json.dumps({"configuration": configuration, **result}, sort_keys=True))
+                exit_run = subprocess.run([str(binary), "exit-index"], env=env,
+                                          capture_output=True, text=True, timeout=30)
+                self.assertEqual(exit_run.returncode, 0, exit_run.stdout + exit_run.stderr)
+                exit_result = json.loads(exit_run.stdout)
+                print(json.dumps({"configuration": configuration, "exitIndex": exit_result}, sort_keys=True))
+                for name, passed in exit_result["checks"].items():
+                    with self.subTest(configuration=configuration, exitCheck=name):
+                        self.assertIs(passed, True)
+                self.assertEqual(exit_result["writes"], {
+                    "clean": 0, "debounced": 1, "afterOrdinarySave": 0, "retryFailure": 1, "reset": 1})
                 # Runtime is wholly test-owned; neither user media nor standard prefs are used.
                 shutil.rmtree(runtime)
         self.assertEqual(results[0], results[1])

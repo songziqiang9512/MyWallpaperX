@@ -278,9 +278,8 @@ import Foundation
             return session
         }
         func preparedWeb(_ session: WebDaemonHostAdapter.Session) {
-            adapter.receive(.prepared(1), from: session)
-            adapter.receive(.committed(1), from: session)
-            precondition(webEndpoints[session.executionID] == nil, "legacy ready authorized a product switch")
+            adapter.receive(.host(.ready(requestID: session.request.id)), from: session)
+            precondition(webEndpoints[session.executionID] == nil, "host ready authorized a product switch")
             adapter.receive(.preparationCohort(.init(generation: 1, surfaces: [
                 .init(displayID: 1, surfaceID: UUID(), navigationGeneration: 1, windowID: 10)
             ])), from: session)

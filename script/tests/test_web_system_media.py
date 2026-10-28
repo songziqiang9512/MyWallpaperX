@@ -34,11 +34,13 @@ SERVICE = r'''
 '''
 ADAPTER = r'''
 @MainActor final class Adapter {
-    struct Request { var id = UUID() }
+    struct Request { var id = UUID(); var language = "zh-cn" }
     struct Surface { let webView: WKWebView }
-    enum Severity { case warning }
+    enum Severity { case warning, info }
     var surfaces: [Int: Surface] = [:]
     var currentRequest: Request? = Request()
+    var paused = false
+    var effectiveVolume: Float = 0.4
     var frameEndpointRegistry = WebWallpaperFrameEndpointRegistry()
     let systemMediaConsumerID = UUID()
     var systemMediaSubscriptionNeedsContent: Bool?
@@ -333,6 +335,53 @@ SCENARIOS = r'''
         try await host.open()
         try await host.waitUntil("__myWallpaperMediaState.properties.title === 'start'", label: "initial media")
         let endpoint = host.adapter.frameEndpointRegistry.endpoints(in: host.view).first!
+        expect(host.adapter.isSystemMediaEndpointCurrent(endpoint, in: host.view), "registered endpoint remains current")
+        let impostor = WebWallpaperFrameEndpointRegistry.Endpoint(token: endpoint.token,
+            documentNonce: endpoint.documentNonce, frameInfo: endpoint.frameInfo,
+            now: ProcessInfo.processInfo.systemUptime)
+        expect(!host.adapter.isSystemMediaEndpointCurrent(impostor, in: host.view),
+               "matching token and nonce never admit a different endpoint object")
+        endpoint.leaseExpiresAt = ProcessInfo.processInfo.systemUptime - 1
+        expect(!host.adapter.isSystemMediaEndpointCurrent(endpoint, in: host.view), "expired registered endpoint is rejected")
+        endpoint.renewLease(now: ProcessInfo.processInfo.systemUptime)
+        expect(host.adapter.isSystemMediaEndpointCurrent(endpoint, in: host.view), "current renewed endpoint is accepted")
+        let screen = NSScreen.main
+        let general = try JSONSerialization.jsonObject(with: Data(
+            host.adapter.currentGeneralPropertiesJSON(for: screen, screenID: 7).utf8)) as! NSDictionary
+        let frame = screen?.frame ?? .zero
+        let expectedGeneral: NSDictionary = [
+            "fps": screen.map { max(1, min(60, $0.maximumFramesPerSecond)) } ?? 60,
+            "language": "zh-cn", "paused": ["value": false], "volume": ["value": host.adapter.effectiveVolume],
+            "display": ["value": "Monitor7", "width": Int(frame.width), "height": Int(frame.height),
+                        "scale": screen?.backingScaleFactor ?? 1]
+        ]
+        expect(general == expectedGeneral, "complete general bag preserves display, language and media values")
+        for value: Float in [.nan, .infinity, -.infinity] {
+            host.adapter.effectiveVolume = value
+            expect(host.adapter.currentGeneralPropertiesJSON(for: screen, screenID: 7) == #"{"fps":60,"language":"en-us"}"#,
+                   "nonfinite general value uses the existing fallback without an Objective-C exception")
+        }
+        host.adapter.effectiveVolume = 0.4
+        _ = try await host.script("window.__myWallpaperResolveNetworkRequest = payload => { window.nativeReply = payload; }; true")
+        let replies: [[String: Any]] = [
+            ["ok": false, "error": "destination_not_allowed"],
+            ["ok": false, "error": "authorization_timeout"],
+            ["ok": true, "status": 206, "headers": ["Content-Type": "application/octet-stream"],
+             "body": Data([0, 255, 128]).base64EncodedString(), "bodyIsBase64": true,
+             "responseURL": "https://renamed.example/clip?q=%25"]
+        ]
+        for (index, payload) in replies.enumerated() {
+            let id = "reply-\(index)"
+            host.adapter.resolveNetworkRequest(requestID: id, payload: payload, webView: host.view,
+                frameInfo: endpoint.frameInfo)
+            try await host.waitUntil("window.nativeReply && nativeReply.requestID === '\(id)'", label: "directed native reply")
+            let json = try await host.script("JSON.stringify(window.nativeReply)") as! String
+            let response = try JSONSerialization.jsonObject(with: Data(json.utf8)) as! NSDictionary
+            var expected = payload; expected["requestID"] = id
+            expect(response == expected as NSDictionary, "native reply preserves every protocol field and binary body")
+        }
+        let generalProjection = try JSONSerialization.data(withJSONObject: general, options: [.sortedKeys])
+        print("web-general-properties-projection:" + String(decoding: generalProjection, as: UTF8.self))
         for _ in 0..<30 {
             if !endpoint.isMediaDeliveryInFlight { break }; try await host.wait(0.05)
         }
@@ -346,6 +395,7 @@ SCENARIOS = r'''
         host.adapter.deliverSystemMedia(pending, to: endpoint, webView: host.view)
         try await host.waitUntil("__myWallpaperMediaState.properties.title === 'C' && __myWallpaperMediaState.thumbnail.thumbnail.startsWith('data:')", label: "coalesced artwork preserved")
         host.adapter.frameEndpointRegistry.revokeAll(in: host.view)
+        expect(!host.adapter.isSystemMediaEndpointCurrent(endpoint, in: host.view), "revoked endpoint immediately loses identity")
         host.adapter.refreshSystemMediaSubscription()
         host.adapter.deliverSystemMedia(snapshot("late", revision: 23), to: endpoint, webView: host.view)
         try await host.wait(0.1)
@@ -373,6 +423,10 @@ class WebSystemMediaTests(unittest.TestCase):
         cls.directory = Path(cls.temporary.name)
         types = (HOST / "WebWallpaperHostTypes.swift").read_text()
         base = PARITY_HARNESS[:PARITY_HARNESS.index("@MainActor\nenum Scenarios")]
+        # Keep the real WK layout/run loop away from the user's desktop.
+        base = base.replace("        window.orderFrontRegardless()",
+                            "        window.setFrameOrigin(NSPoint(x: -10000, y: -10000))\n"
+                            "        window.orderFrontRegardless()", 1)
         base = base.replace(source_block(base, "final class Adapter"), ADAPTER)
         base = base.replace(source_block(base, "final class WebWallpaperFrameEndpointRegistry"),
                             source_block(types, "final class WebWallpaperSpectrumPush") + "\n"
@@ -383,6 +437,11 @@ class WebSystemMediaTests(unittest.TestCase):
         methods = method(types, "static func webCompatibilityScript(")
         methods += "\n" + method((HOST / "DedicatedWebWallpaperHostPlaceholderAdapter+Lifecycle.swift").read_text(),
                                   "func handleFrameEndpointHello(")
+        runtime = (HOST / "DedicatedWebWallpaperHostPlaceholderAdapter+RuntimeBridge.swift").read_text()
+        methods += "\n" + "\n".join(method(runtime, name) for name in (
+            "func currentGeneralProperties(", "func resolvedGeneralFPSValue(", "func currentGeneralPropertiesJSON("))
+        methods += "\n" + method((HOST / "DedicatedWebWallpaperHostPlaceholderAdapter+FrameReply.swift").read_text(),
+                                  "func resolveNetworkRequest(")
         base = base.replace("// ADAPTER_METHODS", methods)
         base = base.replace("        endpointStub.webView = view", "        self.adapter.surfaces[1] = .init(webView: view)\n        endpointStub.webView = view")
         base = base.replace("    func close() { window.orderOut(nil) }", """    func close() {

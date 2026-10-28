@@ -79,9 +79,7 @@ extension SceneResolvedMaterialGraphExecutor {
                   lease.fullFramePair.second == first.fullFramePair.second,
                   lease.table.fullFramePair.first === zero,
                   lease.table.fullFramePair.second === one,
-                  expectedMatchesStoredPlan,
-                  lease.framebufferAllocation.resources.count
-                    == lease.table.plan.logicalTargets.count else { return false }
+                  expectedMatchesStoredPlan else { return false }
         }
         return true
     }
@@ -115,23 +113,15 @@ extension SceneResolvedMaterialGraphExecutor {
             }
             let product = capability.admittedProducts[index]
             let lease = leases[index]
-            guard !request.functionName.isEmpty,
-                  request.functionName == request.functionName.trimmingCharacters(
-                      in: .whitespacesAndNewlines
-                  ), let function = product.clearFunctions.function(
-                      named: request.functionName
-                  ) else {
+            guard let function = product.clearFunctions.function(
+                named: request.functionName
+            ) else {
                 return .failure(.functionInvocationUnknownFunction)
             }
-            let graphTargets = Set(product.graph.renderTargets.map(\.texture))
-            let planTargets = Set(lease.table.plan.logicalTargets.map(\.identity))
             guard !function.targets.isEmpty,
                   function.targets.allSatisfy({ identity in
                       identity.effect == request.effect
                           && identity.kind == .framebuffer
-                          && graphTargets.contains(identity)
-                          && planTargets.contains(identity)
-                          && lease.framebufferAllocation.resources[identity] != nil
                           && lease.texture(for: identity) != nil
                   }) else {
                 return .failure(.functionInvocationTargetUnavailable)
@@ -179,21 +169,47 @@ extension SceneResolvedMaterialGraphExecutor {
         let preservesPriorState = previous.effectGeneration == effectGeneration
             && previous.resetGeneration == resetGeneration
             && previous.allocationGeneration != nil
-        let readable = preservesPriorState ? previous.logicalMapping.filter {
-            $0.value.contentGeneration > 0
-        } : [:]
         guard preservesPriorState || copies.isEmpty else { return nil }
+        let readable = previous.logicalMapping.filter {
+            $0.value.contentGeneration > 0
+        }
+        if preservesPriorState && readable.isEmpty {
+            guard copies.isEmpty else { return nil }
+            return .init(
+                rehydration: [:],
+                commands: [],
+                discardsPreviousContent: false
+            )
+        }
+
+        guard previousResources.count == readable.count,
+              previousResources.allSatisfy({ identity, resource in
+                  guard let versioned = readable[identity],
+                        resource.isCompleteGraphResource,
+                        SceneGraphRenderTargetLease.graphSamplingMatches(
+                            resource,
+                            descriptor: versioned.descriptor
+                        ),
+                        resource.publication.requestIdentity == .graph(identity),
+                        resource.resourceGeneration == versioned.contentGeneration,
+                        resource.publication.contentGeneration
+                            == versioned.contentGeneration,
+                        SceneGraphRenderTargetLease.textureMatches(
+                            resource.publication.texture,
+                            descriptor: versioned.descriptor
+                        ), case let .provider(.graph(generation, token)) =
+                            resource.publication.candidate.identity else { return false }
+                  return generation == previous.allocationGeneration
+                      && token == versioned.token.rawValue
+              }) else { return nil }
         if !preservesPriorState {
-            guard validPreviousResources(previousResources, state: previous) else {
-                return nil
-            }
             return .init(
                 rehydration: [:],
                 commands: [],
                 discardsPreviousContent: !previousResources.isEmpty
             )
         }
-        if readable.isEmpty {
+        if previous.allocationGeneration == lease.generation {
             guard copies.isEmpty else { return nil }
             return .init(
                 rehydration: [:],
@@ -203,9 +219,9 @@ extension SceneResolvedMaterialGraphExecutor {
         }
 
         let previousDescriptors = previous.authoredResources.mapValues(\.descriptor)
-        let nextDescriptors = lease.framebufferAllocation.resources.mapValues(\.descriptor)
-        guard Set(previousDescriptors.keys) == Set(nextDescriptors.keys),
-              validPreviousResources(previousResources, state: previous) else {
+        let nextResources = lease.framebufferAllocation.resources
+        let nextDescriptors = nextResources.mapValues(\.descriptor)
+        guard Set(previousDescriptors.keys) == Set(nextDescriptors.keys) else {
             return nil
         }
         if previousDescriptors != nextDescriptors {
@@ -217,37 +233,24 @@ extension SceneResolvedMaterialGraphExecutor {
             )
         }
 
-        if previous.allocationGeneration == lease.generation {
-            guard copies.isEmpty else { return nil }
-            return .init(
-                rehydration: [:],
-                commands: [],
-                discardsPreviousContent: false
-            )
-        }
-
         let expectedSources = Set(readable.values.map(\.token))
         let sourceTokens = copies.map(\.sourceToken)
         let targetTokens = copies.map(\.targetToken)
         guard copies.count == expectedSources.count,
               Set(sourceTokens) == expectedSources,
-              Set(sourceTokens).count == sourceTokens.count,
-              Set(targetTokens).count == targetTokens.count,
-              validPreviousResources(
-                  previousResources,
-                  state: previous,
-                  sourceTextures: Dictionary(uniqueKeysWithValues: copies.map {
-                      ($0.sourceToken, $0.sourceTexture)
-                  })
-              ) else { return nil }
+              Set(targetTokens).count == targetTokens.count else { return nil }
+        let sourceTextures = Dictionary(uniqueKeysWithValues: copies.map {
+            ($0.sourceToken, $0.sourceTexture)
+        })
+        guard readable.allSatisfy({ identity, resource in
+            previousResources[identity]?.publication.texture === sourceTextures[resource.token]
+        }) else { return nil }
 
         let oldDescriptors = Dictionary(uniqueKeysWithValues:
             previous.authoredResources.values.map { ($0.token, $0.descriptor) }
         )
         let newDescriptors = Dictionary(uniqueKeysWithValues:
-            lease.framebufferAllocation.resources.values.map {
-                ($0.token, $0.descriptor)
-            }
+            nextResources.values.map { ($0.token, $0.descriptor) }
         )
         var rehydration: [State.PhysicalToken: State.PhysicalToken] = [:]
         var commands: [SceneGraphResourcePassEncoder.PreparedCommand] = []
@@ -270,61 +273,6 @@ extension SceneResolvedMaterialGraphExecutor {
             commands: commands,
             discardsPreviousContent: false
         )
-    }
-
-    func validPreviousResources(
-        _ resources: [Graph.TextureIdentity: SceneFrameTextureResource],
-        state: State
-    ) -> Bool {
-        let readable = state.logicalMapping.filter {
-            $0.value.contentGeneration > 0
-        }
-        guard Set(resources.keys) == Set(readable.keys),
-              let allocationGeneration = state.allocationGeneration else {
-            return resources.isEmpty && readable.isEmpty
-                && state.allocationGeneration == nil
-        }
-        return resources.allSatisfy { identity, resource in
-            guard let versioned = readable[identity],
-                  resource.isCompleteGraphResource,
-                  SceneGraphRenderTargetLease.graphSamplingMatches(
-                      resource,
-                      descriptor: versioned.descriptor
-                  ),
-                  resource.publication.requestIdentity == .graph(identity),
-                  resource.resourceGeneration == versioned.contentGeneration,
-                  resource.publication.contentGeneration
-                    == versioned.contentGeneration,
-                  SceneGraphRenderTargetLease.textureMatches(
-                      resource.publication.texture,
-                      descriptor: versioned.descriptor
-                  ), case let .provider(.graph(generation, token)) =
-                    resource.publication.candidate.identity else { return false }
-            return generation == allocationGeneration
-                && token == versioned.token.rawValue
-        }
-    }
-
-    func validPreviousResources(
-        _ resources: [Graph.TextureIdentity: SceneFrameTextureResource],
-        state: State,
-        sourceTextures: [State.PhysicalToken: MTLTexture]
-    ) -> Bool {
-        let readable = state.logicalMapping.filter {
-            $0.value.contentGeneration > 0
-        }
-        guard validPreviousResources(resources, state: state),
-              Set(sourceTextures.keys) == Set(readable.values.map(\.token)),
-              state.allocationGeneration != nil else { return false }
-        return resources.allSatisfy { identity, resource in
-            guard let versioned = readable[identity],
-                  let texture = sourceTextures[versioned.token],
-                  resource.publication.texture === texture,
-                  SceneGraphRenderTargetLease.textureMatches(
-                      texture, descriptor: versioned.descriptor
-                  ) else { return false }
-            return true
-        }
     }
 
     func publishRehydratedHistory(

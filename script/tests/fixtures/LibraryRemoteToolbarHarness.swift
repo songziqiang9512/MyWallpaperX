@@ -359,6 +359,15 @@ extension NSToolbarItem.Identifier { static let downloadTasks = Self("downloadTa
             return result
         }
         let service = SteamWorkshopService.shared
+        let initialAccountButtons: [NSButton] = [steam.accountButton, pixabay.settingsButton]
+        checks["unmounted-online-account-controls-start-with-shared-native-geometry"] = initialAccountButtons.allSatisfy { button in
+            let geometry = button.window == nil && button.frame.size == NSSize(width: 32, height: 32)
+                && button.bounds.size == NSSize(width: 32, height: 32)
+            let imageStyle = button.imagePosition == .imageOnly && button.alignment == .center
+                && button.imageScaling == .scaleProportionallyDown && button.symbolConfiguration == nil
+            return geometry && imageStyle && button.controlSize == .regular
+                && button.bezelStyle == .texturedRounded && button.isBordered
+        }
         NotificationCenter.default.post(name: .steamWorkshopModeDidChange, object: nil, userInfo: ["enabled": true, "isDownloads": false])
         await install(steam.browserIdentifiers, factory: steam.makeItem(for:))
         window.center(); window.makeKeyAndOrderFront(nil); app.activate()
@@ -723,14 +732,20 @@ extension NSToolbarItem.Identifier { static let downloadTasks = Self("downloadTa
         await install(pixabay.pixabayIdentifiers, factory: pixabay.makeItem(for:))
         checks["pixabay-has-five-native-groups-and-one-settings-download-source-group"] = groups() == [[.pixabaySettings, .downloadTasks],
             [.pixabayFilter], [.pixabayOrder], [.pixabayZoom], [.pixabaySearch]]
+        window.setContentSize(NSSize(width: 1200, height: 500)); await settle()
         let accountImage = NSImage(systemSymbolName: "person.crop.circle", accessibilityDescription: "API Key")
         let accountButton = pixabay.settingsToolbarItem.view as? NSButton
         checks["pixabay-account-symbol-matches-other-online-account-controls-with-the-original-key-entry"] = accountButton?.image != nil && accountImage != nil
             && accountButton?.image?.tiffRepresentation == accountImage?.tiffRepresentation
             && pixabay.settingsToolbarItem.toolTip == "更改 Pixabay API Key"
+        for (source, button) in [("Pixabay", accountButton), ("Steam", steam.accountButton as NSButton?)] {
+            guard let button else { diagnostic("Mounted account \(source): missing NSButton"); continue }
+            diagnostic("Mounted account \(source): frame=\(button.frame), bounds=\(button.bounds), intrinsic=\(button.intrinsicContentSize), fitting=\(button.fittingSize), controlSize=\(button.controlSize.rawValue), imagePosition=\(button.imagePosition.rawValue), alignment=\(button.alignment.rawValue), imageScaling=\(button.imageScaling.rawValue), imageSize=\(String(describing: button.image?.size)), symbolConfig=\(String(describing: button.symbolConfiguration)), bezel=\(button.bezelStyle.rawValue), bordered=\(button.isBordered), mounted=\(button.window === window), hidden=\(button.isHiddenOrHasHiddenAncestor), superview=\(String(describing: button.superview)), autoresizingMask=\(button.autoresizingMask.rawValue), translatesMask=\(button.translatesAutoresizingMaskIntoConstraints)")
+            diagnostic("Mounted account \(source) layout: horizontal=\(button.constraintsAffectingLayout(for: .horizontal)), vertical=\(button.constraintsAffectingLayout(for: .vertical))")
+        }
         checks["mounted-pixabay-account-keeps-the-steam-account-hitbox-and-native-alignment"] = accountButton.map { button in
             button.window === window && button.bounds.width > 0 && button.bounds.size == steam.accountButton.bounds.size
-                && button.controlSize == .regular && button.controlSize == steam.accountButton.controlSize
+                && button.controlSize == steam.accountButton.controlSize
                 && button.imagePosition == .imageOnly && button.imagePosition == steam.accountButton.imagePosition
                 && button.alignment == .center && button.alignment == steam.accountButton.alignment
                 && button.imageScaling == steam.accountButton.imageScaling && button.symbolConfiguration == nil && steam.accountButton.symbolConfiguration == nil
@@ -740,7 +755,6 @@ extension NSToolbarItem.Identifier { static let downloadTasks = Self("downloadTa
         let pixabayService = PixabayService.shared
         checks["pixabay-search-is-the-original-field-in-a-native-search-toolbar-item"] = pixabay.searchToolbarItem.searchField === pixabay.searchField
             && pixabay.searchField.delegate === pixabay && pixabay.searchToolbarItem.preferredWidthForSearchField == 220
-        window.setContentSize(NSSize(width: 1200, height: 500)); await settle()
         checks["expanded-pixabay-search-renders-the-same-220-point-width-as-online-image-search"] = hasSharedSearchWidth(pixabay.searchField)
             && pixabay.searchField.window === window && !pixabay.searchField.isHiddenOrHasHiddenAncestor
         var pixabayPopup: NSPopover?

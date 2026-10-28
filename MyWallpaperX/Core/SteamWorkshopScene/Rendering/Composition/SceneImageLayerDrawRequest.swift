@@ -268,7 +268,6 @@ struct SceneImageLayerDrawRequest {
     var blocksStaticLayerSourcePassthrough: Bool = false
     var dynamicValues: SceneDynamicSnapshot = .empty(frameIndex: 0)
     var audioSpectrum: SceneAudioSpectrumSnapshot = .silent
-    var authoredShaderFrameInputs: SceneAuthoredShaderFrameInputs? = nil
     var geometryProduct: SceneGeometryProduct? = nil
     var terminalDepth: SceneImageLayerTerminalDepthBinding? = nil
     var terminalMaterialState: SceneMaterialRenderState? = nil

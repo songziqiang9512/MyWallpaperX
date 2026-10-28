@@ -289,6 +289,7 @@ MWXSceneQuickJSResult mwx_scene_quickjs_owner_configure_puppet_bones(
     const double *render_local_matrices,
     const int32_t *parents,
     const double *layer_to_world,
+    const uint8_t *impulse_unavailable,
     char *diagnostic,
     size_t diagnostic_capacity
 );

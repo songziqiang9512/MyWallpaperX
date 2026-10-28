@@ -19,7 +19,7 @@
 | 截止日期 | 专题 | 类型 | 文件 | 独有价值 | 当前权威 |
 |---|---|---|---|---|---|
 | 2026-10-27 | 主界面 V/T/F | 前轮完成卡与裁决 | [完成记录](development/main-window-playlists-v-t-f-completed-2026-10-27.md) | 保留99ba基线前卡片、输入与详情调整证据；不决定新M01–M16状态 | [主界面专项](../development/main-window-playlists-redesign.md#ui-simplification-sixteen) |
-| 2026-10-27 | App全仓UI | 正确性与调度结算 | [UI审计结算](cross-topic/ui-quality-audit-completed-2026-10-27.md) | 已证问题、工作卡、真实失败及限定回归；验收快照与未验边界 | [AppKit合同](../architecture/appkit-migration.md)、[主界面规范](../development/main-window-playlists-redesign.md) |
+| 2026-10-27 | App全仓UI | 正确性与调度结算 | [UI审计结算](cross-topic/ui-quality-audit-completed-2026-10-27.md) | 已证问题、工作卡、真实失败及限定回归；验收快照与未验边界 | [AppKit合同](../architecture/appkit-migration.md)、[主界面规范](../development/main-window-playlists-redesign.md)、[开发规则](../../AGENTS.md)、[播放生命周期](../architecture/playback-lifecycle-transaction-design.md) |
 | 2026-10-27 | 全仓校验精简 | P0–P27过程与验证 | [完整原方案与实施记录](cross-topic/validation-simplification-p0-p27-2026-10-27.md) | 保留全部旧设计、失败及限定证据；不决定当前任务 | [现役精简方案](../development/validation-simplification-plan.md)、[Scene启动合同](../scene/architecture/scene-launch-responsiveness-contract.md)、[Web模型](../web/web-project-json-runtime-model.md) |
 | 2026-10-26 | 主界面Q01–Q09与P01–P05 | 前轮候选记录 | [候选与验证记录](development/main-window-ui-feedback-p01-p05-2026-10-26.md) | 八项详情/播放/背景调整前的候选与验证边界 | [主界面专项](../development/main-window-playlists-redesign.md) |
 | 2026-10-25 | App主窗口 / 播放列表 | 基础实现与初版审计 | [主窗口基础记录](development/main-window-playlists-foundation-2026-10-25.md) | 改造前源码快照、P/W施工安排、B1–B5有界证据与初版审计；不决定当前任务或最终验收 | [主界面改造方案](../development/main-window-playlists-redesign.md) |
