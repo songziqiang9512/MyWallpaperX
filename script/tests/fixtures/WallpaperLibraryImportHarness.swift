@@ -722,6 +722,39 @@ struct ImportAlert { let title: String; let message: String }
             && images.wallpapers.allSatisfy { $0.tags.isEmpty } && controller.snapshot.recent.isEmpty
             && controller.snapshot.favorites.isEmpty && manager.automaticPlays == 0
 
+        let videoDirectory = files.appendingPathComponent("Video directory", isDirectory: true)
+        let videoSubdirectory = videoDirectory.appendingPathComponent("Nested", isDirectory: true)
+        try FileManager.default.createDirectory(at: videoSubdirectory, withIntermediateDirectories: true)
+        let folderVideoA = videoDirectory.appendingPathComponent("folder-A.mp4")
+        let folderVideoB = videoSubdirectory.appendingPathComponent("folder-B.mov")
+        try Data("folder A".utf8).write(to: folderVideoA)
+        try Data("folder B".utf8).write(to: folderVideoB)
+        try png(videoDirectory.appendingPathComponent("excluded-image.png"))
+        let imagesBeforeFolder = images.wallpapers
+        let videosBeforeFolder = Set(manager.wallpapers.map(\.path))
+        let alertsBeforeFolder = presentedImportAlerts.count
+        coordinator.importFiles([videoDirectory], to: .videos)
+        try await wait { presentedImportAlerts.count > alertsBeforeFolder }
+        let importedFolderVideoBytes = try Data(contentsOf: folderVideoA)
+        let expectedFolderVideoPaths = Set([folderVideoA, folderVideoB].map { $0.resolvingSymlinksInPath().standardizedFileURL.path })
+        checks["VideoPageImportsNestedFolderVideosWithoutImagesOrSourceMutation"] = Set(manager.wallpapers.map(\.path)).subtracting(videosBeforeFolder)
+            == expectedFolderVideoPaths && images.wallpapers == imagesBeforeFolder
+            && importedFolderVideoBytes == Data("folder A".utf8)
+        let videosAfterFolder = manager.wallpapers
+        let alertsBeforeImages = presentedImportAlerts.count
+        coordinator.importFiles([directory], to: .images)
+        try await wait { presentedImportAlerts.count > alertsBeforeImages }
+        checks["ImagePageFolderImportNeverAdmitsSiblingVideos"] = manager.wallpapers == videosAfterFolder
+            && images.wallpapers.contains { $0.path == nestedA.path } && images.wallpapers.contains { $0.path == nestedB.path }
+        let emptyVideoDirectory = files.appendingPathComponent("Empty videos", isDirectory: true)
+        try FileManager.default.createDirectory(at: emptyVideoDirectory, withIntermediateDirectories: true)
+        let alertsBeforeEmpty = presentedImportAlerts.count
+        coordinator.importFiles([emptyVideoDirectory], to: .videos)
+        try await wait { presentedImportAlerts.count > alertsBeforeEmpty }
+        checks["EmptyVideoFolderReportsItsOwnFailedInputWithoutRegisteringADirectoryAsVideo"] = manager.wallpapers == videosAfterFolder
+            && presentedImportAlerts.last?.1.contains("未完成：1 项") == true
+            && presentedImportAlerts.last?.1.contains("Empty videos：文件夹中未找到支持的视频") == true
+
         let restoredReference = sourceIDs[manager.normalizedPath(videoA.path)]!
         try await controller.perform(.setLibraryExcluded([restoredReference], true))
         let beforeRestoreAlerts = presentedImportAlerts.count

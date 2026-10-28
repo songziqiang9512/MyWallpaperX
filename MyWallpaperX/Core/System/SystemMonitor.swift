@@ -13,9 +13,9 @@ import IOKit
 // MARK: - 数据模型
 
 struct SystemStats {
-    /// 本应用及登记的播放进程 CPU；1.0 表示占用一个核心。首次采样无差值。
+    /// 本应用、登记的播放进程及其子进程 CPU；1.0 表示占用一个核心。首次采样无差值。
     var cpuUsage: Double?
-    /// 本应用及登记的播放进程物理内存占用（字节）。
+    /// 本应用、登记的播放进程及其子进程物理内存占用（字节）。
     var memUsed: UInt64?
     /// 网络上行字节/秒
     var netUpBytesPerSec: Double = 0
@@ -66,15 +66,15 @@ final class SystemMonitor {
     }
 
     /// Called on the existing status clock only while the panel is visible.
-    /// Passing no processes ends that visible sampling session. No process-tree
-    /// scan or engine diagnostics are needed; App supplies its live helper PIDs.
+    /// Passing no processes ends that visible sampling session. Discover children
+    /// of the App and its live playback roots only on this existing sampling clock.
     func refreshApplicationStats(processIdentifiers: [Int32]) {
         let now = ProcessInfo.processInfo.systemUptime
         var next: [Int32: (started: UInt64, cpuTicks: Double)] = [:]
         var footprint: UInt64 = 0
         var elapsedTicks: Double = 0
         var matchedProcesses = 0
-        for pid in processIdentifiers {
+        for pid in applicationProcessIdentifiers(roots: processIdentifiers) {
             var usage = rusage_info_v4()
             let result = withUnsafeMutablePointer(to: &usage) { pointer in
                 pointer.withMemoryRebound(to: rusage_info_t?.self, capacity: 1) {
@@ -97,6 +97,29 @@ final class SystemMonitor {
         stats.memUsed = next.isEmpty ? nil : footprint
         processSamples = next
         lastProcessSampleTime = next.isEmpty ? nil : now
+    }
+
+    /// Unregistered workers (Steam acquisition, shader compilation, nested helpers)
+    /// belong to the App through their parent, not through an executable name.
+    private func applicationProcessIdentifiers(roots: [Int32]) -> [Int32] {
+        var processes: [Int32] = []
+        var seen = Set<Int32>()
+        for pid in roots where pid > 0 && seen.insert(pid).inserted { processes.append(pid) }
+        var index = 0
+        while index < processes.count {
+            let parent = processes[index]
+            index += 1
+            let count = proc_listchildpids(parent, nil, 0)
+            guard count > 0 else { continue }
+            var children = [Int32](repeating: 0, count: Int(count))
+            let returned = children.withUnsafeMutableBytes {
+                proc_listchildpids(parent, $0.baseAddress, Int32($0.count))
+            }
+            for pid in children.prefix(Int(max(0, returned))) where pid > 0 && seen.insert(pid).inserted {
+                processes.append(pid)
+            }
+        }
+        return processes
     }
 
     // MARK: - 网络速率

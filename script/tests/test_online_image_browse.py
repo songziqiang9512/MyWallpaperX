@@ -29,17 +29,19 @@ class OnlineImageBrowseTests(unittest.TestCase):
         fixture = ROOT / "script/tests/fixtures/OnlineImagePagingViewportHarness.swift"
         text = controller.read_text()
         content = fixture.read_text()
-        for marker, signature in (("SCROLL_SETTLED", "        grid.onScrollSettled ="),
+        for marker, signature in (("REFRESH", "        grid.scrollView.onRefresh ="),
+                                  ("SCROLL_SETTLED", "        grid.onScrollSettled ="),
                                   ("VIEWPORT", "    private func viewport("),
                                   ("CANCEL_PREFETCH", "    private func cancelPrefetch("),
                                   ("FOOTER", "    private func footerText(")):
             content = content.replace("// PRODUCTION_" + marker, declaration(text, signature).replace("private func", "func"))
-        identities = {str(p): hashlib.sha256(p.read_bytes()).hexdigest() for p in (controller, fixture)}
+        scroll = ROOT / "MyWallpaperX/Shared/UI/WallpaperGridScrollView.swift"
+        identities = {str(p): hashlib.sha256(p.read_bytes()).hexdigest() for p in (controller, fixture, scroll)}
         with tempfile.TemporaryDirectory(prefix="mwx-image-paging-", dir="/private/tmp") as directory:
             work = Path(directory); source = work / "Checks.swift"; source.write_text(content)
             binary = work / "checks"
             built = subprocess.run(["xcrun", "swiftc", *SWIFT_ISOLATION_FLAGS, "-warnings-as-errors", "-parse-as-library",
-                str(source), "-module-cache-path", str(work / "modules"), "-o", str(binary)], capture_output=True, text=True, timeout=90)
+                str(source), str(scroll), "-module-cache-path", str(work / "modules"), "-o", str(binary)], capture_output=True, text=True, timeout=90)
             self.assertEqual(built.returncode, 0, built.stdout + built.stderr)
             result = subprocess.run([str(binary)], capture_output=True, text=True, timeout=30)
             self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
@@ -47,7 +49,7 @@ class OnlineImageBrowseTests(unittest.TestCase):
             for name, passed in checks.items():
                 with self.subTest(name=name): self.assertIs(passed, True)
             print(result.stdout)
-        self.assertEqual(identities, {str(p): hashlib.sha256(p.read_bytes()).hexdigest() for p in (controller, fixture)})
+        self.assertEqual(identities, {str(p): hashlib.sha256(p.read_bytes()).hexdigest() for p in (controller, fixture, scroll)})
 
     def test_cache_query_pagination_author_return_and_scope_boundaries(self):
         paths = [

@@ -17,11 +17,6 @@ import AppKit
     private static var picker: WallpaperPlaylistPickerController? { inputWindow?.delegate as? WallpaperPlaylistPickerController }
     private static var textView: NSTextView? { inputWindow?.firstResponder as? NSTextView }
     private static var editableText: NSTextView? { textView.flatMap { $0.isEditable ? $0 : nil } }
-    private static var selectionResponder: NSResponder? {
-        guard let window = inputWindow, window !== MainWindowCoordinator.mainWindowController?.window,
-              let responder = window.firstResponder, responder.responds(to: #selector(NSText.selectAll(_:))) else { return nil }
-        return responder
-    }
     private static var defaultButton: NSButtonCell? {
         guard let window = inputWindow, window !== MainWindowCoordinator.mainWindowController?.window,
               let cell = window.defaultButtonCell, cell.isEnabled else { return nil }
@@ -64,7 +59,6 @@ import AppKit
             default: item.title = "导入壁纸…"
             }
             return commands?.canImport == true
-        case .selectAll: return textView != nil || commands?.canToggleSelection == true || selectionResponder != nil
         case .toggleSelection: return commands?.canToggleSelection == true
         case .deleteSelected:
             item.representedObject = nil
@@ -163,11 +157,6 @@ import AppKit
     static func menuRedo() { undoManager?.redo() }
     static func menuCreatePlaylist() { guard commands?.canOrganize == true else { return }; commands?.playlists?.create() }
     static func menuImport() { guard commands?.canImport == true else { return }; commands?.importFiles() }
-    static func menuSelectAll(_ sender: Any?) {
-        if let textView { textView.selectAll(sender); return }
-        if let commands { commands.selectAll(); return }
-        if let selectionResponder { NSApp.sendAction(#selector(NSText.selectAll(_:)), to: selectionResponder, from: sender) }
-    }
     static func menuToggleSelection() { commands?.toggleSelectionMode() }
     static func menuDeleteSelected(_ sender: Any?) {
         if let textView {

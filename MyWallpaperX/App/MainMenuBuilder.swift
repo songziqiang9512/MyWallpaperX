@@ -36,7 +36,7 @@ import AppKit
         case .importFiles: return #selector(AppDelegate.importMenuAction(_:))
         case .undo: return #selector(AppDelegate.undoMenuAction(_:))
         case .redo: return #selector(AppDelegate.redoMenuAction(_:))
-        case .selectAll: return #selector(AppDelegate.selectAllMenuAction(_:))
+        case .selectAll: return #selector(NSText.selectAll(_:))
         case .toggleSelection: return #selector(AppDelegate.toggleMultiSelectMenuAction(_:))
         case .deleteSelected: return #selector(AppDelegate.deleteSelectedMenuAction(_:))
         case .search: return #selector(AppDelegate.focusSearchMenuAction(_:))
@@ -178,8 +178,9 @@ enum MainMenuBuilder {
         menu.addItem(.separator())
         menu.addItem(
             title: "全选",
-            action: #selector(AppDelegate.selectAllMenuAction(_:)),
-            keyEquivalent: "a"
+            action: #selector(NSText.selectAll(_:)),
+            keyEquivalent: "a",
+            target: nil
         )
         menu.addItem(
             title: "进入 / 退出多选",

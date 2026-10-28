@@ -97,6 +97,24 @@ extension SteamWorkshopService {
         let ready = SteamWorkshopDownloadRecord(
             id: "123456", title: "old ready", sizeText: "1 KB", status: .ready
         )
+        let detail = Self.detailCacheFileURL(id: ready.id)
+        let otherDetail = Self.detailCacheFileURL(id: "654321")
+        try Data("this detail".utf8).write(to: detail)
+        try Data("unrelated detail".utf8).write(to: otherDetail)
+        defer {
+            let keptContent = FileManager.default.fileExists(atPath: content.path)
+            precondition(FileManager.default.fileExists(atPath: detail.path) == keptContent,
+                "only a successful source deletion retires its detail cache")
+            precondition(FileManager.default.fileExists(atPath: otherDetail.path),
+                "deleting one source cannot remove another item's cached details")
+            precondition(retiredWebCacheIDs.contains(ready.id) == !keptContent,
+                "web analysis cache retirement follows successful file deletion")
+        }
+        if mode.hasSuffix("inspector-current") {
+            selectedDownloadInspectorItem = .init(id: ready.id, title: ready.title)
+            selectedDownloadDetailItem = selectedDownloadInspectorItem
+            isRefreshingSelectedDownloadDetailItem = true
+        }
         downloads = [ready]
         if mode.hasSuffix("inspector-other") {
             let other = SteamWorkshopBrowserItem(id: "654321", title: "Inspector B")
@@ -305,6 +323,11 @@ extension SteamWorkshopService {
             "explicit deletion must remove the exact local content before completing")
         precondition(downloadJobStore.job(id: jobID)?.state == .cancelled)
         precondition(downloads.isEmpty, "durable cancellation must not project an orphan failed card")
+        if mode.hasSuffix("inspector-current") {
+            precondition(selectedDownloadInspectorItem == nil && selectedDownloadDetailItem == nil
+                && !isRefreshingSelectedDownloadDetailItem && detailCancellations == 1,
+                "successful deletion cancels this item's in-flight detail writer before clearing its cache")
+        }
         precondition(statusMessage == "已删除 1 个壁纸及本地文件", "silent delete cancellation must preserve outer feedback")
         if let replacement {
             precondition(FileManager.default.fileExists(atPath: replacement.appendingPathComponent("sentinel").path))

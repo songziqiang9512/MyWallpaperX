@@ -42,6 +42,9 @@ class SystemMonitorStatsTests(unittest.TestCase):
         self.assertEqual(reader.count("proc_pid_rusage("), 1)
         reader = reader.replace("proc_pid_rusage(", "MonitorProcessRead.read(", 1)
         reader = reader.replace("ProcessInfo.processInfo.systemUptime", "MonitorProcessRead.now")
+        descendants = declaration(source, "    private func applicationProcessIdentifiers(")
+        descendants = descendants.replace("proc_listchildpids(", "MonitorProcessRead.listChildren(")
+        reader += "\n" + descendants
         body = fixture.read_text().replace("// ACTUAL_SYSTEM_STATS", declaration(source, "struct SystemStats"))
         body = body.replace("// ACTUAL_FORMATTING", declaration(source, "extension SystemStats"))
         body = body.replace("// ACTUAL_PROCESS_STATE", "\n".join(fields)).replace("// ACTUAL_PROCESS_SAMPLER", reader)

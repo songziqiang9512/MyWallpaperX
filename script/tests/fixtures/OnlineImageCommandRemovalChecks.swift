@@ -9,6 +9,70 @@
         while !condition(), Date() < deadline { try? await Task.sleep(for: .milliseconds(3)) }
         return condition()
     }
+    for index in 0..<6 {
+        let store = UserCollectionsStore(url: root.appendingPathComponent("removal-history-\(index).sqlite3"))
+        let collections = UserCollectionsController(store: store, snapshot: try await store.snapshot())
+        let list = try await collections.createPlaylist(name: "Current list")
+        let otherList = try await collections.createPlaylist(name: "Other list")
+        let page: WallpaperLibraryPage = [.videos, .images, .downloads, .recent, .favorites, .playlist(list)][index]
+        let provider: WallpaperProvider = page == .images ? .staticImageLibrary : (page == .downloads ? .steamWorkshop : .videoLibrary)
+        let ref = WallpaperReference(provider: provider, sourceID: "history-\(index)")
+        let file = root.appendingPathComponent("history-\(index).mp4")
+        try Data([23]).write(to: file)
+        let row = WallpaperContentItem(reference: ref, providerReference: ref,
+            locator: .init(path: file.path, mediaKind: page == .images ? .image : .video),
+            title: "History removal", kind: page == .images ? .image : .video, publishedAvailability: .available,
+            capabilities: [.play, .organize, .delete], metadata: .init(), acquisition: .idle, update: .idle, aliases: [])
+        try await collections.perform([.addMembers(list, [row.organizationItem], Date()),
+            .addMembers(otherList, [row.organizationItem], Date()), .setFavorite(row.organizationItem, true, Date())])
+        collections.recordSuccessfulUse(ref, locator: row.locator, sequence: 1)
+        _ = await wait { collections.snapshot.recent.map(\.reference) == [ref] }
+        let suite = "mwx.removal.history." + UUID().uuidString
+        let defaults = UserDefaults(suiteName: suite)!
+        defer { defaults.removePersistentDomain(forName: suite) }
+        let catalog: WallpaperLibraryCatalog = page == .images ? .init(images: [row], revision: 1)
+            : (page == .downloads ? .init(downloads: [row], revision: 1) : .init(videos: [row], revision: 1))
+        let view = RemovalWorkspace(collections, catalog, defaults: defaults)
+        view.presentation.switchPage(page)
+        let commands = RemovalCommands(view)
+        view.presentation.setSelection([ref], focused: ref)
+        commands.remove(); RecentAlertProbe.finish(.alertSecondButtonReturn)
+        checks["cancelled-removal-keeps-history-" + page.persistenceKey] = collections.snapshot.recent.map(\.reference) == [ref]
+        commands.remove(); RecentAlertProbe.finish(.alertFirstButtonReturn)
+        _ = await wait { !view.edited.isEmpty }
+        let bytes = try Data(contentsOf: file)
+        checks["successful-removal-also-retires-history-without-touching-other-relations-" + page.persistenceKey] = collections.snapshot.recent.isEmpty
+            && collections.snapshot.members.filter { $0.playlistID == otherList }.map(\.reference) == [ref]
+            && collections.snapshot.members.filter { $0.playlistID == list }.isEmpty == (page == .playlist(list))
+            && collections.snapshot.favorites.isEmpty == (page == .favorites) && bytes == Data([23])
+            && commands.manager.requested.isEmpty && commands.images.requested.isEmpty && commands.steam.requested.isEmpty
+    }
+    do {
+        let store = UserCollectionsStore(url: root.appendingPathComponent("partial-removal-history.sqlite3"))
+        let collections = UserCollectionsController(store: store, snapshot: try await store.snapshot())
+        let refs = [WallpaperReference(provider: .pixabay, sourceID: "partial-success"), .init(provider: .pixabay, sourceID: "partial-failed")]
+        let urls = [root.appendingPathComponent("partial-success.mp4"), root.appendingPathComponent("partial-failed.mp4")]
+        for url in urls { try Data([24]).write(to: url) }
+        let rows = zip(refs, urls).map { ref, url in WallpaperContentItem(reference: ref, providerReference: ref,
+            locator: .init(path: url.path, mediaKind: .video), title: ref.sourceID, kind: .video,
+            publishedAvailability: .available, capabilities: [.play, .organize, .delete], metadata: .init(), acquisition: .idle, update: .idle, aliases: []) }
+        let alias = WallpaperReference(provider: .videoLibrary, sourceID: "imported-partial-success")
+        try await collections.perform(.linkAlias(.init(alias: alias, canonical: refs[0], proof: .publishedDownload), Date()))
+        collections.recordSuccessfulUse(alias, locator: nil, sequence: 1)
+        collections.recordSuccessfulUse(refs[1], locator: nil, sequence: 2)
+        _ = await wait { collections.snapshot.recent.count == 2 }
+        let suite = "mwx.removal.partial." + UUID().uuidString
+        let defaults = UserDefaults(suiteName: suite)!
+        defer { defaults.removePersistentDomain(forName: suite) }
+        let view = RemovalWorkspace(collections, .init(downloads: rows, revision: 1), defaults: defaults)
+        view.presentation.switchPage(.downloads); view.presentation.setSelection(Set(refs), focused: refs[0], isSelecting: true)
+        let commands = RemovalCommands(view); commands.pixabay.failingNames = [urls[1].lastPathComponent]
+        commands.remove(); RecentAlertProbe.alert?.suppressionButton?.state = .on; RecentAlertProbe.finish(.alertFirstButtonReturn)
+        _ = await wait { !view.edited.isEmpty }
+        checks["partial-file-delete-removes-only-successful-canonical-history"] = collections.snapshot.recent.map(\.reference) == [refs[1]]
+            && !FileManager.default.fileExists(atPath: urls[0].path) && FileManager.default.fileExists(atPath: urls[1].path)
+            && view.presentation.selectionState.references == [refs[1]]
+    }
     let imageRef = WallpaperReference(provider: .pixiv, sourceID: "42:p2"), imageURL = root.appendingPathComponent("online-image.png")
     let imageRevision = UUID()
     try Data([4]).write(to: imageURL)
@@ -70,12 +134,15 @@
         throw CocoaError(.fileWriteUnknown, userInfo: [NSLocalizedDescriptionKey: "Manifest save failed after unlink"])
     }
     onlineView.presentation.setSelection([imageRef], focused: imageRef)
-    onlineCommands.remove(); (RecentAlertProbe.alert?.accessoryView as? NSButton)?.state = .on
+    controller.recordSuccessfulUse(imageRef, locator: imageRow.locator, sequence: 900)
+    _ = await wait { controller.snapshot.recent.contains { $0.reference == imageRef } }
+    onlineCommands.remove(); (RecentAlertProbe.alert?.suppressionButton)?.state = .on
     RecentAlertProbe.finish(.alertFirstButtonReturn)
     _ = await wait { !onlineView.edited.isEmpty }
     checks["online-image-delete-dispatch-retains-failed-record-after-confirmed-file-unlink"] = library.deletions == [imageRef]
         && !FileManager.default.fileExists(atPath: imageURL.path) && onlineView.presentation.selectionState.references == [imageRef]
         && !controller.snapshot.excludedLibraryReferences.contains { $0.reference == imageRef }
+        && controller.snapshot.recent.contains { $0.reference == imageRef }
         && RecentAlertProbe.alert?.message.contains("Manifest save failed after unlink") == true
     library.deletion = nil; library.snapshot = .init()
     return checks

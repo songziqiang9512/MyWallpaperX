@@ -291,6 +291,9 @@ class SteamDownloadExecutionTests(unittest.TestCase):
     def test_delete_and_late_source_reload_do_not_close_another_current_inspector(self):
         self.run_case('ready-update-delete-inspector-other')
 
+    def test_delete_retires_current_detail_request_and_cache_after_file_success(self):
+        self.run_case('ready-update-delete-inspector-current')
+
     def test_busy_scene_removal_preserves_ready_pointer_and_content(self):
         self.run_case('ready-update-delete-scene-busy')
 

@@ -309,8 +309,14 @@ import Combine
         service.browserState = .loaded
         service.facetFilters = .init(themes: [.anime], ageRating: .everyone, resolutions: [.uhd4k])
         let filters = service.facetFilters
+        service.currentBrowserScrollOffsetY = 560
+        service.pendingBrowserScrollRestoreOffset = 720
         service.showAuthorWorkshop(for: detailed)
         precondition(service.fetches == 1 && service.browserContentMode == .video && service.facetFilters == filters)
+        precondition(service.currentBrowserScrollOffsetY == 0 && service.pendingBrowserScrollRestoreOffset == 0
+            && service.discoveryBrowseSnapshot?.scrollOffsetY == 720,
+            "new author starts at the top without losing the origin's pending restore")
+        service.consumePendingBrowserScrollRestoreOffset()
         let authorKey = service.steamKitBrowseStore.currentKey!
         precondition(authorKey.contentTypeTags.isEmpty && authorKey.filters.isEmpty)
         reply = page(1, [value("3221354414"), value("100002", kind: "Web"), value("100003", kind: "Video")], more: true)
@@ -336,13 +342,16 @@ import Combine
         service.currentBrowserScrollOffsetY = 420
         service.showAuthorWorkshop(for: service.browserItems[0])
         precondition(service.fetches == 1 && service.steamKitBrowseStore.nextPage == 2
-            && service.browserQuery == "no-match" && service.currentBrowserScrollOffsetY == 420,
+            && service.browserQuery == "no-match" && service.currentBrowserScrollOffsetY == 420
+            && service.pendingBrowserScrollRestoreOffset == nil,
             "the same author is idempotent and keeps pages, search and scroll")
         service.browserLoadMoreRetryAfter = Date().addingTimeInterval(30)
         service.consecutiveEmptyLoadMorePages = 3
         service.returnToDiscoveryBrowse()
         precondition(service.browserContentMode == .video && service.facetFilters == filters
             && service.browserItems.map(\.id) == [webBrief.id] && service.steamKitBrowseStore.currentKey == discoveryKey)
+        precondition(service.pendingBrowserScrollRestoreOffset == 720,
+            "Back restores the origin's position instead of the author's position")
         precondition(service.browserLoadMoreRetryAfter == .distantPast && service.consecutiveEmptyLoadMorePages == 0,
             "author page continuation failures cannot pause discovery continuation")
         // A snapshot whose first request was interrupted cannot restore a permanent spinner.
@@ -438,6 +447,8 @@ import Combine
         nested.updateBrowserScrollMetrics(offsetY: 624, contentHeight: 2000, viewportHeight: 600)
         precondition(nested.currentBrowserScrollOffsetY == 624 && nested.pendingBrowserScrollRestoreOffset == nil)
         nested.showAuthorWorkshop(for: detailed)
+        precondition(nested.currentBrowserScrollOffsetY == 0 && nested.pendingBrowserScrollRestoreOffset == 0,
+            "author entry from a retained personal section also starts at the top")
         precondition(nested.discoveryBrowseSnapshot?.scrollOffsetY == 624,
             "the consumed top restore cannot override a later user scroll in the retained personal snapshot")
         precondition(nested.authorWorkshopReturnDestination == .personal && nested.browseContext.isAuthorWorkshop)

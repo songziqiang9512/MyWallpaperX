@@ -324,19 +324,20 @@ import Combine
         let title = removalTitle(for: page)
         let scope: String
         switch page {
-        case .favorites: scope = "仅取消喜爱，源文件和其他列表保留。"
+        case .favorites: scope = "移除喜爱标记及最近使用记录，源文件和其他列表保留。"
         case .recent: scope = "仅移除播放记录，源文件和其他列表保留。"
-        case .playlist: scope = "仅从当前列表移除，源文件和其他列表保留。"
-        case .downloads: scope = "仅从我的下载移除，源文件和其他列表保留。"
-        default: scope = "仅从资料库移除，源文件和其他列表保留。"
+        case .playlist: scope = "移除当前列表项目及最近使用记录，源文件和其他列表保留。"
+        case .downloads: scope = "移除下载项目及最近使用记录，源文件和其他列表保留。"
+        default: scope = "移除资料库项目及最近使用记录，源文件和其他列表保留。"
         }
         let message = scope + "勾选会删除源文件，无法撤销。"
         let alert = makeAppAlert(title: "\(title) \(fixed.count) 项？", message: message, style: .warning, buttons: ["移除", "取消"])
-        let deleteFiles = NSButton(checkboxWithTitle: "删除磁盘的源文件", target: nil, action: nil)
+        alert.showsSuppressionButton = true
+        let deleteFiles = alert.suppressionButton!
+        deleteFiles.title = "删除磁盘的源文件"
         deleteFiles.state = .off
         deleteFiles.sizeToFit()
         deleteFiles.alignment = .left
-        alert.accessoryView = deleteFiles
         presentAppAlert(alert, in: hostWindow()) { [weak self] response in
             guard let self else { return }
             guard response == .alertFirstButtonReturn,
@@ -369,13 +370,14 @@ import Combine
                 commands = [.removeMembers(id, accepted.map(\.reference), Date())]; undoName = "从列表移除"
             case .favorites:
                 commands = accepted.map { .setFavorite($0.organizationItem, false, Date()) }; undoName = "取消特别喜爱"
-            case .recent: commands = [.removeRecent(accepted.map(\.reference))]
+            case .recent: break
             case .videos, .images, .downloads: break
             default: self.workspace.presentation.completeRemoval(receipt, succeeded: []); return
             }
             if deleteSourceFiles || page == .videos || page == .images || page == .downloads {
                 commands.append(.setLibraryExcluded(accepted.map(\.reference), true))
             }
+            commands.append(.removeRecent(accepted.map(\.reference)))
             do {
                 if !accepted.isEmpty {
                     try await collections.perform(commands, undoName: deleteSourceFiles ? nil : undoName, expectedEpoch: epoch)
@@ -524,11 +526,9 @@ import Combine
         }
     }
 
-    func contextMenu(for items: [WallpaperContentItem], includeRecoverySourcePage: Bool = true) -> NSMenu? {
+    func contextMenu(for items: [WallpaperContentItem], includeRecoverySourcePage: Bool = true, includeFavorite: Bool = true) -> NSMenu? {
         guard !items.isEmpty else { return nil }
         let menu = NSMenu(); menu.autoenablesItems = false
-        let favoriteAction = favoriteActionState(for: items)
-        let favorite = makeFavoriteAction(resolved: (items, favoriteAction))
         let epoch = workspace.relationships.resetEpoch
         let page = workspace.presentation.page
         let session = workspace.presentation.selectionState.sessionID
@@ -567,7 +567,11 @@ import Combine
                 add("取消下载", "xmark") { OnlineImageLibrary.shared.cancel(assetID) }
             }
         }
-        add(favoriteAction.title, favoriteAction.isRemoving ? "heart.fill" : "heart", enabled: favoriteAction.canExecute) { favorite?() }
+        if includeFavorite {
+            let state = favoriteActionState(for: items)
+            let action = makeFavoriteAction(resolved: (items, state))
+            add(state.title, state.isRemoving ? "heart.fill" : "heart", enabled: state.canExecute) { action?() }
+        }
         let playlistItem = NSMenuItem(title: "添加到列表", action: nil, keyEquivalent: "")
         playlistItem.image = NSImage(systemSymbolName: "text.badge.plus", accessibilityDescription: nil)
         playlistItem.submenu = makePlaylistMenu(items.map(\.reference))

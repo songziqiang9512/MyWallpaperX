@@ -99,6 +99,10 @@ extension SteamWorkshopService {
         if !browseContext.isAuthorWorkshop {
             discoveryBrowseSnapshot = makeDiscoveryBrowseSnapshot()
         }
+        // A different author starts a new page. Keep the saved origin's offset
+        // for Back, but never apply it to the new author's first grid.
+        currentBrowserScrollOffsetY = 0
+        pendingBrowserScrollRestoreOffset = 0
         savedDiscoveryQueryBeforeAuthorBrowse = browseContext.isAuthorWorkshop ? savedDiscoveryQueryBeforeAuthorBrowse : browserQuery
         // 阻止后续 filter 属性 didSet 触发 navigateToBrowse()，避免在作者工坊语境下误抓取
         suppressAutomaticBrowseNavigation = true

@@ -6,6 +6,7 @@ regression uses actual LaunchServices/native windows and NSApplication events.
 import fcntl
 import hashlib
 import json
+import os
 from pathlib import Path
 import shutil
 import subprocess
@@ -44,7 +45,7 @@ class MainMenuCommandTests(unittest.TestCase):
         hashes = {str(path): hashlib.sha256(path.read_bytes()).hexdigest() for path in inputs}
         delegate = delegate_path.read_text()
         methods = declaration(delegate, ' func validateMenuItem(')
-        actions = ['createPlaylist', 'import', 'undo', 'redo', 'selectAll', 'toggleMultiSelect', 'deleteSelected',
+        actions = ['createPlaylist', 'import', 'undo', 'redo', 'toggleMultiSelect', 'deleteSelected',
                    'focusSearch', 'zoomIn', 'zoomOut', 'setAsWallpaper', 'nextWallpaper', 'previousWallpaper',
                    'toggleFavorite', 'addToPlaylist', 'showInfo', 'preview', 'revealInFinder', 'navigateLibraryPage']
         methods += '\n' + '\n'.join(declaration(delegate, ' @objc func ' + name + 'MenuAction(') for name in actions)
@@ -67,7 +68,13 @@ class MainMenuCommandTests(unittest.TestCase):
                     *copies, str(source), '-module-cache-path', str(work / 'modules'), '-o', str(binary)],
                     capture_output=True, text=True, timeout=120)
                 self.assertEqual(built.returncode, 0, built.stdout + built.stderr)
-                ran = run_native_app(binary, timeout=35)
+                try:
+                    ran = run_native_app(binary, timeout=35)
+                finally:
+                    if output := os.environ.get('MWX_MAIN_MENU_PROOF_DIR'):
+                        proof = Path(output); proof.mkdir(parents=True, exist_ok=True)
+                        for name in ('native-app.stdout', 'native-app.stderr', 'native-app.pid'):
+                            if (work / name).exists(): shutil.copy2(work / name, proof / name)
                 self.assertEqual(ran.launch_returncode, 0, ran.stdout + ran.stderr)
                 self.assertTrue(ran.stdout.strip().startswith('{'), ran.stdout + ran.stderr)
             checks = json.loads(ran.stdout)
@@ -83,7 +90,7 @@ class MainMenuCommandTests(unittest.TestCase):
             'App/MainMenuBuilder.swift', 'App/MainWindowMenuCommands.swift')]
         delegate = (ROOT / 'MyWallpaperX/App/AppDelegate.swift').read_text()
         methods = declaration(delegate, ' func validateMenuItem(')
-        actions = ['createPlaylist', 'import', 'undo', 'redo', 'selectAll', 'toggleMultiSelect', 'deleteSelected',
+        actions = ['createPlaylist', 'import', 'undo', 'redo', 'toggleMultiSelect', 'deleteSelected',
                    'focusSearch', 'zoomIn', 'zoomOut', 'setAsWallpaper', 'nextWallpaper', 'previousWallpaper',
                    'toggleFavorite', 'addToPlaylist', 'showInfo', 'preview', 'revealInFinder', 'navigateLibraryPage']
         methods += '\n' + '\n'.join(declaration(delegate, ' @objc func ' + name + 'MenuAction(') for name in actions)

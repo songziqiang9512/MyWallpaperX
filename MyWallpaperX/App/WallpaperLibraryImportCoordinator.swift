@@ -28,11 +28,13 @@ import UniformTypeIdentifiers
         let panel = NSOpenPanel()
         panel.allowsMultipleSelection = true
         panel.canChooseFiles = true
-        panel.canChooseDirectories = page != .videos && page != .recent
+        panel.canChooseDirectories = true
         panel.allowedContentTypes = page == .images ? SILService.allowedUTTypes
             : page == .videos || page == .recent ? [.movie, .video, .mpeg4Movie, .quickTimeMovie]
             : [.movie, .video, .image]
-        panel.message = panel.canChooseDirectories ? "文件夹仅递归导入图片；视频请直接选择文件。" : ""
+        panel.message = page == .videos || page == .recent ? "可选择视频或文件夹；将导入文件夹内的视频。"
+            : page == .images ? "可选择图片或文件夹；将导入文件夹内的图片。"
+            : "文件夹仅递归导入图片；视频请直接选择文件。"
         panel.title = page == .images ? "导入图片" : page == .videos || page == .recent ? "导入视频" : "导入壁纸"
         let accept: (NSApplication.ModalResponse) -> Void = { [weak self] response in
             guard let self, response == .OK, self.workspace.relationships.resetEpoch == epoch else { return }
@@ -52,7 +54,10 @@ import UniformTypeIdentifiers
         for url in urls where url.isFileURL {
             let type = UTType(filenameExtension: url.pathExtension)
             let directory = (try? url.resourceValues(forKeys: [.isDirectoryKey]).isDirectory) == true
-            if acceptsImages, type?.conforms(to: .image) == true || directory {
+            if directory {
+                if acceptsImages { imageURLs.append(url) }
+                else { videoURLs.append(url) }
+            } else if acceptsImages, type?.conforms(to: .image) == true {
                 imageURLs.append(url)
             } else if page != .images, type?.conforms(to: .movie) == true || type?.conforms(to: .video) == true {
                 videoURLs.append(url)

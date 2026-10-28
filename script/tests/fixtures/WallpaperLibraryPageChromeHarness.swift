@@ -648,6 +648,92 @@ private final class ChromeToolbar: NSObject, NSToolbarDelegate {
             }
             #endif
         }
+        do {
+            let grid = WallpaperLibraryGridController { collection, path, _, _ in collection.makeItem(withIdentifier: reuse, for: path) }
+            grid.loadViewIfNeeded(); grid.collection.register(ChromeCell.self, forItemWithIdentifier: reuse)
+            let window = NSWindow(contentRect: NSRect(x: 220, y: 170, width: 900, height: 650),
+                styleMask: [.titled, .closable], backing: .buffered, defer: false)
+            window.isReleasedWhenClosed = false; window.contentViewController = grid
+            window.makeKeyAndOrderFront(nil)
+            defer { window.orderOut(nil); window.close() }
+            func settle() {
+                window.contentView?.layoutSubtreeIfNeeded()
+                RunLoop.main.run(until: Date().addingTimeInterval(0.01))
+            }
+            func show(_ page: WallpaperLibraryPage, _ items: [WallpaperContentItem], _ selection: WallpaperLibrarySelectionState) {
+                grid.update(page: page, items: items, selection: selection, preferredColumns: 5,
+                    permitsDragging: false, scrollAnchor: nil)
+                let deadline = Date().addingTimeInterval(3)
+                while Date() < deadline && (grid.selection.sessionID != selection.sessionID || grid.items != items
+                    || grid.collection.numberOfItems(inSection: 0) != items.count) { settle() }
+                precondition(grid.selection.sessionID == selection.sessionID && grid.items == items
+                    && grid.collection.numberOfItems(inSection: 0) == items.count, "Selection fixture did not finish the native grid update")
+            }
+            show(.videos, values, .init()); settle()
+            // Real collection/menu validation must permit Cmd+A before selection
+            // mode begins. Only the App command's accepted selection is a leaf.
+            let previousMenu = NSApp.mainMenu, menu = NSMenu(), editMenu = NSMenu()
+            let editEntry = NSMenuItem(title: "编辑", action: nil, keyEquivalent: "")
+            editEntry.submenu = editMenu; menu.addItem(editEntry)
+            let all = NSMenuItem(title: "全选", action: #selector(NSText.selectAll(_:)), keyEquivalent: "a")
+            all.target = nil; all.keyEquivalentModifierMask = .command; editMenu.addItem(all)
+            NSApp.mainMenu = menu
+            var allCommands = 0
+            grid.onSelectAll = {
+                allCommands += 1
+                var selected = WallpaperLibrarySelectionState()
+                selected.references = Set(values.map(\.reference)); selected.focusedReference = values.first?.reference
+                selected.isSelecting = true
+                show(.videos, values, selected)
+            }
+            precondition(window.makeFirstResponder(grid.collection))
+            editMenu.update()
+            checks["ordinary-real-grid-validates-native-select-all-before-selection-mode"] = all.isEnabled
+                && !grid.collection.allowsMultipleSelection && !grid.selection.isSelecting
+            let selectAllKey = NSEvent.keyEvent(with: .keyDown, location: .zero, modifierFlags: .command,
+                timestamp: ProcessInfo.processInfo.systemUptime, windowNumber: window.windowNumber, context: nil,
+                characters: "a", charactersIgnoringModifiers: "a", isARepeat: false, keyCode: 0)!
+            if !menu.performKeyEquivalent(with: selectAllKey) { NSApp.sendEvent(selectAllKey) }
+            settle()
+            checks["ordinary-real-grid-native-command-a-enters-selection-and-selects-current-projection-once"] = allCommands == 1
+                && grid.selection.isSelecting && grid.selection.references == Set(values.map(\.reference))
+                && grid.collection.selectionIndexPaths.count == values.count && grid.collection.allowsMultipleSelection
+            show(.videos, [], .init())
+            settle(); editMenu.update()
+            grid.collection.selectAll(nil)
+            checks["empty-real-grid-disables-select-all-and-refuses-a-held-native-action"] = !all.isEnabled && allCommands == 1
+            show(.videos, values, .init())
+            settle()
+            let blockingPanel = WallpaperLibraryModalPanel(contentRect: NSRect(x: 0, y: 0, width: 300, height: 150),
+                styleMask: [.borderless], backing: .buffered, defer: false)
+            blockingPanel.isReleasedWhenClosed = false
+            precondition(WallpaperLibrarySheetPresentation.present(blockingPanel, in: window))
+            settle()
+            grid.collection.selectAll(nil)
+            checks["native-child-sheet-revokes-the-background-grid-select-all"] = !grid.collection.validateMenuItem(all)
+                && allCommands == 1 && !grid.selection.isSelecting
+            blockingPanel.close(); settle()
+            let restoredKeyDeadline = Date().addingTimeInterval(3)
+            while !window.isKeyWindow && Date() < restoredKeyDeadline { settle() }
+            precondition(window.isKeyWindow, "Selection fixture host did not regain native sheet input")
+            grid.onSelectAll = nil
+            var pickerSelection = WallpaperLibrarySelectionState(); pickerSelection.isSelecting = true
+            var pickerSelections: [Set<WallpaperReference>] = []
+            grid.onSelection = { refs, _ in pickerSelections.append(refs); return UUID() }
+            show(.playlist(UUID()), values, pickerSelection)
+            settle(); precondition(window.makeFirstResponder(grid.collection)); editMenu.update()
+            if !menu.performKeyEquivalent(with: selectAllKey) { NSApp.sendEvent(selectAllKey) }
+            settle()
+            checks["picker-style-selection-grid-keeps-default-native-command-a-without-an-app-command"] = all.isEnabled
+                && pickerSelections == [Set(values.map(\.reference))] && grid.selection.references == Set(values.map(\.reference))
+            show(.wallhaven, values, .init())
+            settle(); editMenu.update(); grid.collection.selectAll(nil)
+            checks["online-grid-without-a-selection-command-keeps-native-select-all-disabled"] = !all.isEnabled
+                && pickerSelections.count == 1 && grid.selection.references.isEmpty
+            grid.onSelection = nil; NSApp.mainMenu = previousMenu
+            show(.videos, values, .init())
+            settle()
+        }
         print(String(data: try! JSONSerialization.data(withJSONObject: checks, options: [.sortedKeys]), encoding: .utf8)!)
     }
 }

@@ -10,6 +10,19 @@ import Foundation
     static var now: TimeInterval = 0
     static var usages: [Int32: rusage_info_v4] = [:]
     static var calls: [Int32] = []
+    static var children: [Int32: [Int32]] = [:]
+    static var childQueries: [Int32] = []
+    static var useNativeTree = false
+    static func listChildren(_ parent: Int32, _ output: UnsafeMutableRawPointer?, _ capacity: Int32) -> Int32 {
+        if useNativeTree { return proc_listchildpids(parent, output, capacity) }
+        guard let output else {
+            childQueries.append(parent)
+            return Int32(children[parent]?.count ?? 0)
+        }
+        let values = Array((children[parent] ?? []).prefix(Int(capacity) / MemoryLayout<Int32>.stride))
+        values.withUnsafeBytes { bytes in output.copyMemory(from: bytes.baseAddress!, byteCount: bytes.count) }
+        return Int32(values.count)
+    }
     static var timebaseCalls = 0
     static var timebaseAvailable = true
     static func timebase(_ output: UnsafeMutablePointer<mach_timebase_info_data_t>) -> kern_return_t {
@@ -20,7 +33,7 @@ import Foundation
     static func read(_ pid: Int32, _ flavor: Int32, _ output: UnsafeMutablePointer<rusage_info_t?>) -> Int32 {
         calls.append(pid)
         precondition(flavor == RUSAGE_INFO_V4)
-        if pid == getpid() { return proc_pid_rusage(pid, flavor, output) }
+        if useNativeTree || pid == getpid() { return proc_pid_rusage(pid, flavor, output) }
         guard let usage = usages[pid] else { return -1 }
         UnsafeMutableRawPointer(output).assumingMemoryBound(to: rusage_info_v4.self).pointee = usage
         return 0
@@ -61,11 +74,11 @@ import Foundation
         func near(_ actual: Double?, _ expected: Double) -> Bool {
             actual.map { abs($0 - expected) < 0.000_000_1 } == true
         }
-        func sample(_ monitor: SystemMonitor, at time: Double, pids: [Int32]) {
+        func sample(_ monitor: SystemMonitor, at time: Double, pids: [Int32], expectedReadPIDs: [Int32]? = nil) {
             MonitorProcessRead.now = time
             MonitorProcessRead.calls = []
             monitor.refreshApplicationStats(processIdentifiers: pids)
-            check("one-native-read-per-requested-pid-at-\(time)", MonitorProcessRead.calls == pids)
+            check("one-native-read-per-requested-pid-at-\(time)", MonitorProcessRead.calls == (expectedReadPIDs ?? pids))
         }
         let monitor = SystemMonitor()
         check("unavailable-until-native-sample", monitor.stats.cpuUsage == nil && monitor.stats.memUsed == nil)
@@ -120,6 +133,42 @@ import Foundation
         check("real-native-process-footprint-is-readable", (native.stats.memUsed ?? 0) > 0)
         sample(native, at: 3612, pids: [getpid()])
         check("real-native-cpu-sample-is-nonnegative", native.stats.cpuUsage.map { $0 >= 0 } == true)
+        let child = Process()
+        child.executableURL = URL(fileURLWithPath: "/bin/sleep")
+        child.arguments = ["10"]
+        try child.run()
+        defer { if child.isRunning { child.terminate(); child.waitUntilExit() } }
+        MonitorProcessRead.useNativeTree = true
+        sample(native, at: 3614, pids: [getpid()], expectedReadPIDs: [getpid(), child.processIdentifier])
+        check("real-child-process-is-discovered-and-sampled", native.sampledPIDs == [getpid(), child.processIdentifier]
+            && (native.stats.memUsed ?? 0) > 0)
+        MonitorProcessRead.useNativeTree = false
+
+        MonitorProcessRead.usages = Dictionary(uniqueKeysWithValues: (1...6).map {
+            (Int32($0), MonitorProcessRead.usage(started: UInt64($0), user: 100_000, system: 0, footprint: UInt64($0 * 100)))
+        })
+        MonitorProcessRead.children = [1: [2, 3], 2: [4], 3: [5], 99: [6]]
+        MonitorProcessRead.childQueries = []
+        let family = SystemMonitor()
+        sample(family, at: 4000, pids: [1, 2, 1, 0, -1], expectedReadPIDs: [1, 2, 3, 4, 5])
+        check("registered-roots-and-nested-workers-are-counted-once", family.sampledPIDs == [1, 2, 3, 4, 5]
+            && family.stats.memUsed == 1_500 && MonitorProcessRead.childQueries == [1, 2, 3, 4, 5])
+        check("unrelated-process-tree-is-never-enumerated", !MonitorProcessRead.childQueries.contains(99)
+            && !family.sampledPIDs.contains(6))
+        MonitorProcessRead.usages[1]!.ri_user_time += 24_000_000
+        MonitorProcessRead.usages[5]!.ri_system_time += 24_000_000
+        sample(family, at: 4002, pids: [1, 2], expectedReadPIDs: [1, 2, 3, 4, 5])
+        check("nested-worker-cpu-joins-the-same-monotonic-total", near(family.stats.cpuUsage, 1))
+        MonitorProcessRead.children = [1: [2]]
+        MonitorProcessRead.usages[1]!.ri_user_time += 24_000_000
+        sample(family, at: 4004, pids: [1], expectedReadPIDs: [1, 2])
+        check("ended-worker-tree-leaves-current-totals", family.sampledPIDs == [1, 2]
+            && family.stats.memUsed == 300 && near(family.stats.cpuUsage, 0.5))
+        let queriesBeforeClose = MonitorProcessRead.childQueries
+        sample(family, at: 4006, pids: [])
+        check("closing-does-not-enumerate-processes", MonitorProcessRead.childQueries == queriesBeforeClose
+            && family.sampledPIDs.isEmpty && family.stats.memUsed == nil && family.stats.cpuUsage == nil)
+
         var formatting = SystemStats()
         check("missing-process-values-format-as-unavailable", formatting.cpuUsageString == "–" && formatting.memUsedString == "–")
         formatting.memUsed = 2_147_483_648

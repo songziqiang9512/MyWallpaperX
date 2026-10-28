@@ -273,7 +273,6 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSMenuItemValidation {
  @objc func importMenuAction(_ sender: Any?) { MainWindowMenuCommands.menuImport() }
  @objc func undoMenuAction(_ sender: Any?) { MainWindowMenuCommands.menuUndo() }
  @objc func redoMenuAction(_ sender: Any?) { MainWindowMenuCommands.menuRedo() }
- @objc func selectAllMenuAction(_ sender: Any?) { MainWindowMenuCommands.menuSelectAll(sender) }
  @objc func toggleMultiSelectMenuAction(_ sender: Any?) { MainWindowMenuCommands.menuToggleSelection() }
  @objc func deleteSelectedMenuAction(_ sender: Any?) { MainWindowMenuCommands.menuDeleteSelected(sender) }
  @objc func focusSearchMenuAction(_ sender: Any?) { MainWindowMenuCommands.menuSearch() }

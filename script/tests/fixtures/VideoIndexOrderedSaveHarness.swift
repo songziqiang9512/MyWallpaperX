@@ -68,12 +68,12 @@ enum BundledVideoLibrary {
     func applyExistingImportForAudit(path: String, context: ImportContext, preparedBranch: Bool) {
         let entry = PreparedImportEntry(sourceURL: URL(fileURLWithPath: path), title: "filename",
                                        normalizedPath: path, cachedThumbnailPath: nil, cachedStaticFramePath: nil)
-        let result = ImportPreparationResult(requestedCount: 1,
+        let result = ImportPreparationResult(requestedCount: 1, orderedPaths: [path],
                                              preparedImports: preparedBranch ? [entry] : [],
                                              existingPathsToLink: preparedBranch ? [] : [path], counters: ImportCounters())
         applyPreparedImportResult(result, presentingIn: nil, context: context, indexEpoch: wallpaperIndexSaveEpoch,
                                   admission: nil, resourceLifetime: nil,
-                                  presentsSummary: true, orderedPaths: [path], completion: nil)
+                                  presentsSummary: true, completion: nil)
     }
     func existingThumbnailPath(for url: URL) -> String? { nil }
     func existingStaticFramePath(for url: URL) -> String? { nil }

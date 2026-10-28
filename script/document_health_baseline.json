@@ -326,11 +326,11 @@
     },
     "docs/development/main-window-playlists-redesign.md": {
       "lines": 592,
-      "bytes": 108119
+      "bytes": 109061
     },
     "docs/development/status-bar-panel-redesign.md": {
       "lines": 119,
-      "bytes": 18993
+      "bytes": 19123
     },
     "docs/development/wallhaven-online-browser-design.md": {
       "lines": 262,
@@ -341,8 +341,8 @@
       "bytes": 23241
     },
     "docs/development/ui-quality-audit.md": {
-      "lines": 116,
-      "bytes": 20837
+      "lines": 141,
+      "bytes": 26808
     }
   },
   "archives": [
@@ -1539,15 +1539,6 @@
     },
     {
       "section": "bodies",
-      "path": "docs/development/status-bar-panel-redesign.md",
-      "before": "135d441bae50ba167bc4f3801047658ddf9a342ebe4842240f0464b9fe9ea9b3",
-      "after": "bdeef0b46815519d21eea3412f3f552be42b102306c4a27704a4509ed8da266f",
-      "owner": "UI22",
-      "reason": "UI22增加封面过渡唯一实施与验证入口，不复制工作卡或改变面板尺寸合同。",
-      "decision": "docs/development/ui-quality-audit.md#ui22-scope"
-    },
-    {
-      "section": "bodies",
       "path": "docs/web/current-state.md",
       "before": "bedb7ae020ad3bb8a55c4b17af3ec49673df945b2f642e32d400bb2de2bfe8fc",
       "after": "6d5213ed5d9533fad955a264ce22e78ee8d152a646f145174dd6ff38e37094db",
@@ -1710,24 +1701,6 @@
     },
     {
       "section": "bodies",
-      "path": "docs/development/ui-quality-audit.md",
-      "before": "b48694887e37a94728fff87bed9454f352ee3e32d4b6431f793de087763ba1ec",
-      "after": "2c188a70ae3ca836e287520c62ce60db31c88fd92fb95e541de173fb25ce9957",
-      "owner": "manual-random-20261028",
-      "reason": "记录本轮随机入口修复、实际两导航门范围，以及按用户指示撤回全部Video候选和停止调查；不把失败或旧验证冒充通过。",
-      "decision": "docs/development/ui-quality-audit.md#playback-feedback-20261028"
-    },
-    {
-      "section": "bodies",
-      "path": "docs/development/main-window-playlists-redesign.md",
-      "before": "4543b9f2a268c3c1a4f54627968fc4ce8d0ec00f687f2b51e4188a2fb1e2dd0b",
-      "after": "b87612d74b924862f4ac5a49bce42ef542a45363fabfeea2818e804a2059a9ac",
-      "owner": "manual-random-20261028",
-      "reason": "按用户明确反馈统一菜单栏与快捷键的随机历史语义，替换旧按入口强制相邻的冲突规则。",
-      "decision": "docs/development/ui-quality-audit.md#playback-feedback-20261028"
-    },
-    {
-      "section": "bodies",
       "path": "docs/scene/capabilities/scenescript-api-coverage.md",
       "before": "1c0264b7769fd218434618c9d56a0ea9810eaba745296d7e78bec56fd0c64b7d",
       "after": "fe4dd86e689c36f793a7cb3bd6bad0e90eab2256ce5248cda8ad7469aee43dab",
@@ -1788,6 +1761,33 @@
       "owner": "Scene dynamic slot lifetime",
       "reason": "原domain区分逻辑身份与存储、共同事务结束后复用；修正旧特殊资源/动态上限叙述，记录337真实首错及独立净零出生候选，未把视频/性能未知记完成。",
       "decision": "docs/scene/history/dynamic-layer-slot-lifetime-2026-10-29.md"
+    },
+    {
+      "section": "bodies",
+      "path": "docs/development/ui-quality-audit.md",
+      "before": "2c188a70ae3ca836e287520c62ce60db31c88fd92fb95e541de173fb25ce9957",
+      "after": "e00ed36d30540385dcc4e86f74d4cc22ae6812ed658cf2eb59ce904071cb976e",
+      "owner": "UI23",
+      "reason": "落实用户九项UI修复的现役规则、调用边界和逐卡验证状态；替换旧选择/最近移除/进程范围规则，保留前轮证据。",
+      "decision": "docs/development/ui-quality-audit.md#ui23-scope"
+    },
+    {
+      "section": "bodies",
+      "path": "docs/development/main-window-playlists-redesign.md",
+      "before": "b87612d74b924862f4ac5a49bce42ef542a45363fabfeea2818e804a2059a9ac",
+      "after": "e628f9df840b1c5bfb34fcc13f338f57766e6cd44b8ac5e2b05ad56623893fdc",
+      "owner": "UI23",
+      "reason": "落实用户九项UI修复的现役规则、调用边界和逐卡验证状态；替换旧选择/最近移除/进程范围规则，保留前轮证据。",
+      "decision": "docs/development/ui-quality-audit.md#ui23-scope"
+    },
+    {
+      "section": "bodies",
+      "path": "docs/development/status-bar-panel-redesign.md",
+      "before": "bdeef0b46815519d21eea3412f3f552be42b102306c4a27704a4509ed8da266f",
+      "after": "9a94d92cd91c48ab6133d6dab3baf15fa36c845bf3b992b03efb46ec683256ca",
+      "owner": "UI23",
+      "reason": "落实用户九项UI修复的现役规则、调用边界和逐卡验证状态；替换旧选择/最近移除/进程范围规则，保留前轮证据。",
+      "decision": "docs/development/ui-quality-audit.md#ui23-scope"
     }
   ]
 }

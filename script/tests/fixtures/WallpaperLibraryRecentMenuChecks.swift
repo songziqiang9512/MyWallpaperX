@@ -54,6 +54,7 @@
     checks["sidebar-recent-confirmation-is-revoked-by-navigation"] = commands.admittedWrites == 1
         && controller.snapshot.recent.map(\.reference) == [history] && workspace.presentation.page == .images
     _ = workspace.presentation.switchPage(.videos)
+    _ = workspace.presentation.setSelection([reference], focused: reference, isSelecting: true)
     open(); _ = workspace.presentation.setSelection([], isSelecting: false)
     RecentAlertProbe.finish(.alertFirstButtonReturn)
     checks["sidebar-recent-confirmation-is-revoked-by-a-new-selection-session"] = commands.admittedWrites == 1

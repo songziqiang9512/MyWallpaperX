@@ -238,6 +238,8 @@ final class Transport: SteamServiceTransporting {
 }
 @MainActor final class WallpaperManager { static let shared = WallpaperManager(); func stopCurrentPlayback() {} }
 @MainActor final class SteamWorkshopService {
+    static var detailCacheRootURL = URL(fileURLWithPath: "/private/tmp/mwx-unused-detail-cache")
+    static func detailCacheFileURL(id: String) -> URL { detailCacheRootURL.appendingPathComponent(id + ".json") }
     // Product Manager ticket settlement is controlled here; the real service
     // must await its receipt before reclaiming the real version lease/files.
     var prepareSceneDownloadRemoval: ((String, @escaping (Bool) -> Void) -> Void)? = { _, done in
@@ -274,6 +276,7 @@ final class Transport: SteamServiceTransporting {
     var prepareExplicitLibraryRestoration: ((WallpaperReference) -> (() -> Void)?)?
     var downloads: [SteamWorkshopDownloadRecord] = []
     var selectedDownloadInspectorItem: SteamWorkshopBrowserItem?
+    var selectedBrowserItem: SteamWorkshopBrowserItem?
     var selectedDownloadDetailItem: SteamWorkshopBrowserItem?
     var selectedDownloadDetailError: String?
     var isRefreshingSelectedDownloadDetailItem = false
@@ -284,10 +287,13 @@ final class Transport: SteamServiceTransporting {
     var reclamationRequests = 0
     // Web cache is an external leaf here; its real invalidation/publication
     // behavior is covered by test_web_runtime_cache, not this download fixture.
-    func removeWebRuntimeCaches(for recordID: String) {}
+    var retiredWebCacheIDs: [String] = []
+    func removeWebRuntimeCaches(for recordID: String) { retiredWebCacheIDs.append(recordID) }
     func scheduleLibraryVersionReclamation() { reclamationRequests += 1 }
     var reloads = 0
     init(base: URL, transport: Transport) {
+        Self.detailCacheRootURL = base.appendingPathComponent("details", isDirectory: true)
+        try! FileManager.default.createDirectory(at: Self.detailCacheRootURL, withIntermediateDirectories: true)
         steamServiceClient = SteamServiceClient(executablePath: "/fake", transportFactory: { _ in transport })
         steamWorkshopQueryClient = SteamWorkshopQueryClient(client: steamServiceClient)
         downloadJobStore = SteamDownloadJobStore(persistenceURL: base.appendingPathComponent("jobs.json"))
