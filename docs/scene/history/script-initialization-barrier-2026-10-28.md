@@ -13,4 +13,4 @@
 
 独立3617056047原包在同候选运行12秒，3D罐体、虚线圆及上下文字实际可见，exit0、12 owners quiescent、surface1→0/GPU drained；只认相邻渲染与退出。一次私有输入漏Scene目录层级使runner在启动App前失败，修正路径后才执行，不归因产品。
 
-必要修前/修后原图、日志、身份、行为门、独审及独立样本归主工作区`.artifacts/scene-evidence/runs/script-init-order-20261028-final/`，本机5GiB/单包32MiB/普通14天。已提取结果后的运行副本与HOME收尾清理，连续迭代保`/private/tmp/mwx-scene-followup-20261028-q5apo4lx/build-cache/`一份构建缓存；本批不推送。
+必要修前/修后原图、日志、身份、行为门、独审及独立样本归主工作区`.artifacts/scene-evidence/runs/script-init-order-20261028-final/`，本机5GiB/单包32MiB/普通14天。本次整合暂停收尾已清理执行用样本副本、HOME、staged App及曾复用的一份构建缓存；本批不推送。

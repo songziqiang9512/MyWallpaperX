@@ -7,25 +7,47 @@ import simd
 struct ScenePuppetTranslationMotion: Equatable {
     var velocity: SIMD3<Float> = .zero
     var previousTarget: SIMD3<Float>?
+    private var worldPosition: SIMD3<Float>?
+    private var pendingImpulse: SIMD3<Double> = .zero
+
+    mutating func addImpulse(_ impulse: SIMD3<Float>) {
+        pendingImpulse += SIMD3<Double>(impulse)
+    }
+
+    /// A later setter supersedes preceding impulses in the admitted journal.
+    mutating func reset() {
+        worldPosition = nil
+        velocity = .zero
+        pendingImpulse = .zero
+    }
 
     mutating func advance(
         position: SIMD3<Float>, target: SIMD3<Float>, deltaTime: Double,
-        configuration: SceneMdlPuppetRig.TranslationPhysics
+        configuration: SceneMdlPuppetRig.TranslationPhysics,
+        parentToWorld: simd_float4x4 = matrix_identity_float4x4
     ) -> SIMD3<Float> {
         guard deltaTime.isFinite, deltaTime > 0,
               position.x.isFinite, position.y.isFinite, position.z.isFinite,
               target.x.isFinite, target.y.isFinite, target.z.isFinite else { return position }
         let previous = self
+        let determinant = simd_determinant(parentToWorld)
+        guard determinant.isFinite, determinant != 0 else { return position }
+        let worldToParent = simd_inverse(parentToWorld)
         let dt = min(deltaTime, 0.25)
-        var current = position
+        let transformedPosition = parentToWorld * SIMD4(position, 1)
+        let transformedTarget = parentToWorld * SIMD4(target, 1)
+        let worldTarget = SIMD3(transformedTarget.x, transformedTarget.y, transformedTarget.z)
+        var current = worldPosition ?? SIMD3(transformedPosition.x, transformedPosition.y, transformedPosition.z)
         if let previousTarget {
             // Increasing inertia reduces displacement induced by animation.
-            current += (target - previousTarget) *
+            current += (worldTarget - previousTarget) *
                 (configuration.inertia / (1 + configuration.inertia))
         }
-        previousTarget = target
-        let x = SIMD3<Double>(current - target)
-        let v = SIMD3<Double>(velocity)
+        previousTarget = worldTarget
+        let x = SIMD3<Double>(current - worldTarget)
+        // One kick enters the same stable spring/friction step as existing
+        // momentum, rather than splitting its displacement and velocity phases.
+        let v = SIMD3<Double>(velocity) + pendingImpulse
         let damping = Double(configuration.friction) / 2
         let stiffness = configuration.spring ? Double(configuration.stiffness) : 0
         let discriminant = damping * damping - stiffness
@@ -55,21 +77,34 @@ struct ScenePuppetTranslationMotion: Equatable {
         guard (0..<3).allSatisfy({ nextX[$0].isFinite && nextV[$0].isFinite
             && abs(nextX[$0]) <= limit && abs(nextV[$0]) <= limit }) else {
             self = previous
+            pendingImpulse = .zero
             return position
         }
-        var displacement = SIMD3<Float>(nextX)
-        velocity = SIMD3<Float>(nextV)
+        pendingImpulse = .zero
+        let localDisplacement = worldToParent * SIMD4(SIMD3<Float>(nextX), 0)
+        var displacement = SIMD3(localDisplacement.x, localDisplacement.y, localDisplacement.z)
+        let localVelocity = worldToParent * SIMD4(SIMD3<Float>(nextV), 0)
+        var constrainedVelocity = SIMD3(localVelocity.x, localVelocity.y, localVelocity.z)
         let length = simd_length(displacement)
         if length > configuration.maxDistance {
             let normal = displacement / length
             displacement = normal * configuration.maxDistance
-            velocity -= normal * max(0, simd_dot(velocity, normal))
+            constrainedVelocity -= normal * max(0, simd_dot(constrainedVelocity, normal))
         }
         if configuration.spring, simd_length_squared(displacement) < 0.000001,
-           simd_length_squared(velocity) < 0.000001 {
+           simd_length_squared(constrainedVelocity) < 0.000001 {
             displacement = .zero
-            velocity = .zero
+            constrainedVelocity = .zero
         }
+        let worldVelocity = parentToWorld * SIMD4(constrainedVelocity, 0)
+        velocity = SIMD3(worldVelocity.x, worldVelocity.y, worldVelocity.z)
+        let world = parentToWorld * SIMD4(target + displacement, 1)
+        guard (0..<3).allSatisfy({ displacement[$0].isFinite && velocity[$0].isFinite && world[$0].isFinite }) else {
+            self = previous
+            pendingImpulse = .zero
+            return position
+        }
+        worldPosition = SIMD3(world.x, world.y, world.z)
         return target + displacement
     }
 }

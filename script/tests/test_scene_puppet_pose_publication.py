@@ -54,7 +54,7 @@ HARNESS = r'''
                 interruptBudget:nil).get()
             let values:[Double]
             if case let .vector3(x,y,z)=result.value { values=[x,y,z] } else { values=[] }
-            return ["pose":values,"matrices":result.puppetBoneMutations.map(\.matrix),
+            return ["pose":values,"matrices":result.puppetBoneMutations.map { mutation in guard case let .matrix(matrix) = mutation.operation else { fatalError("expected matrix command") }; return matrix },
                     "indices":result.puppetBoneMutations.map(\.boneIndex)]
         }
         var output:[String:Any]=[:]

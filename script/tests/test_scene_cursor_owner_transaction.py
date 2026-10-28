@@ -43,25 +43,31 @@ HARNESS = r'''
       let xs=[];
       export function cursorClick(e) { xs.push(e.localPosition.x); thisLayer.origin=new Vec3(xs.length,xs.length>1?xs[xs.length-2]:0,input.cursorWorldPosition.x); }
       """
-    static func boneOrder(burst: Bool = false, failPeer: Bool = false) throws -> [String:Any] {
+    static func boneOrder(burst: Bool = false, failPeer: Bool = false, mixed: Bool = false) throws -> [String:Any] {
         let second = burst
             ? "thisLayer.setBoneTransform(0,Mat4.fromTranslation(new Vec3(11,0,0)));" : ""
+        let impulseAfter = mixed ? "thisLayer.applyBonePhysicsImpulse('root',new Vec3(11,0,0));" : ""
+        let impulseBefore = mixed ? "thisLayer.applyBonePhysicsImpulse(0,new Vec3(29,0,0));" : ""
         let a = """
             export function cursorDown(e){
                 shared.matrixOrder=(shared.matrixOrder||'')+'1';
                 thisLayer.setLocalBoneTransform(0,Mat4.fromTranslation(new Vec3(10,0,0)));
                 \(second)
+                \(impulseAfter)
             }
             export function cursorUp(e){
                 shared.matrixOrder+='3';
+                \(impulseBefore)
                 thisLayer.setLocalBoneTransform(0,Mat4.fromTranslation(new Vec3(30,0,0)));
                 thisLayer.origin=new Vec3(Number(shared.matrixOrder),thisLayer.getLocalBoneTransform(0).translation().x,0);
             }
             """
         let failure = failPeer ? "throw new Error('reject bone peer');" : ""
+        let peerImpulse = mixed ? "thisLayer.applyBonePhysicsImpulse('root',new Vec3(20,0,0),new Vec3(0));" : ""
         let b = """
             export function cursorDown(e){
                 shared.matrixOrder+='2';
+                \(peerImpulse)
                 thisLayer.setLocalBoneTransform(0,Mat4.fromTranslation(new Vec3(20,0,0)));
                 if(thisLayer.getLocalBoneTransform(0).translation().x!==20)throw new Error('readback');
                 \(failure)
@@ -79,15 +85,23 @@ HARNESS = r'''
         // ordered projection, without inventing a second bone consumer.
         let admitted = r.ownerEffects.filter{$0.ownerTarget != target(.scale)}
         let filtered = SceneScriptPuppetBoneMutationBridge.orderedMutations(in:admitted)
+        func payload(_ mutation:SceneScriptPuppetBoneMutation) -> Double {
+            switch mutation.operation {
+            case let .matrix(matrix): return matrix[12]
+            case let .impulse(value): return value.x
+            }
+        }
         let trace = r.ownerEffects.first{$0.ownerTarget==target()}?.layerMutations.last
         let output:[String:Any] = [
             "owners":r.ownerEffects.count,"failures":r.failures.count,
             "peerFailure":r.failures[target(.scale)]?.code ?? "none",
             "callbackTrace":trace?.origin.x ?? -1,"ownReadback":trace?.origin.y ?? -1,
-            "grouped":r.ownerEffects.map{$0.puppetBoneMutations.map{$0.matrix[12]}},
-            "ordered":ordered.map{$0.matrix[12]},
+            "grouped":r.ownerEffects.map{$0.puppetBoneMutations.map(payload)},
+            "ordered":ordered.map(payload),
+            "kinds":ordered.map { if case .matrix = $0.operation { return "matrix" }; return "impulse" },
             "epochs":ordered.map{$0.callbackEpoch},"ordinals":ordered.map{$0.ordinal},
-            "filtered":filtered.map{$0.matrix[12]},
+            "filtered":filtered.map(payload),
+            "filteredKinds":filtered.map { if case .matrix = $0.operation { return "matrix" }; return "impulse" },
             "filteredEpochs":filtered.map{$0.callbackEpoch}]
         p.finalizeLayerMutations(committing:true)
         return output
@@ -97,6 +111,8 @@ HARNESS = r'''
         out["boneOrder"] = try boneOrder()
         out["boneBurst"] = try boneOrder(burst:true)
         out["boneThrow"] = try boneOrder(failPeer:true)
+        out["boneMixed"] = try boneOrder(mixed:true)
+        out["boneMixedThrow"] = try boneOrder(failPeer:true,mixed:true)
         // Distinct targets on the same layer share physical hit observation,
         // but only the rejected target retries its exact completed click.
         let (p,_) = try make([(.origin,clicks),(.scale,clicks)])
@@ -281,6 +297,7 @@ class CursorOwnerTransactionTests(unittest.TestCase):
         self.assertEqual((facts["callbackTrace"], facts["ownReadback"]), (123, 30))
         self.assertEqual(facts["grouped"], [[10, 30], [20]])
         self.assertEqual(facts["ordered"], [10, 20, 30])
+        self.assertEqual(facts["kinds"], ["matrix"] * 3)
         self.assertTrue(all(epoch > 0 for epoch in facts["epochs"]))
         self.assertTrue(all(a < b for a, b in zip(facts["epochs"], facts["epochs"][1:])))
         self.assertEqual(facts["ordinals"], [0, 0, 0])
@@ -303,5 +320,19 @@ class CursorOwnerTransactionTests(unittest.TestCase):
         self.assertEqual(thrown["ordered"], [10, 30])
         self.assertEqual(thrown["ordinals"], [0, 0])
         self.assertLess(thrown["epochs"][0], thrown["epochs"][1])
+
+    def test_bone_impulses_share_cross_owner_matrix_order_and_exclusion(self):
+        facts = self.result["boneMixed"]
+        self.assertEqual((facts["failures"], facts["owners"]), (0, 2))
+        self.assertEqual(facts["ordered"], [10, 11, 20, 20, 29, 30])
+        self.assertEqual(facts["kinds"], ["matrix", "impulse", "impulse", "matrix", "impulse", "matrix"])
+        self.assertEqual(facts["ordinals"], [0, 1, 0, 1, 0, 1])
+        self.assertEqual(facts["filtered"], [10, 11, 29, 30])
+        self.assertEqual(facts["filteredKinds"], ["matrix", "impulse", "impulse", "matrix"])
+        thrown = self.result["boneMixedThrow"]
+        self.assertEqual((thrown["failures"], thrown["owners"]), (1, 1))
+        self.assertEqual(thrown["peerFailure"], "exception")
+        self.assertEqual(thrown["ordered"], facts["filtered"])
+        self.assertEqual(thrown["kinds"], facts["filteredKinds"])
 
 if __name__ == "__main__": unittest.main()

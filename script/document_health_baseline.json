@@ -102,7 +102,7 @@
     },
     "docs/scene/capabilities/advanced-object-coverage.md": {
       "lines": 388,
-      "bytes": 81456
+      "bytes": 81630
     },
     "docs/scene/capabilities/alpha-display-fallback-design.md": {
       "lines": 124,
@@ -181,8 +181,8 @@
       "bytes": 127865
     },
     "docs/scene/capabilities/scenescript-api-coverage.md": {
-      "lines": 418,
-      "bytes": 115476
+      "lines": 419,
+      "bytes": 116016
     },
     "docs/scene/capabilities/static-source-draw-only-degradation.md": {
       "lines": 54,
@@ -250,7 +250,7 @@
     },
     "docs/scene/roadmap/batch2/script-component-api-design.md": {
       "lines": 600,
-      "bytes": 167417
+      "bytes": 167621
     },
     "docs/scene/roadmap/batch2/system-media-input-design.md": {
       "lines": 59,
@@ -277,8 +277,8 @@
       "bytes": 22423
     },
     "docs/scene/roadmap/scene-open-breakpoint-queue.md": {
-      "lines": 172,
-      "bytes": 35020
+      "lines": 173,
+      "bytes": 35426
     },
     "docs/web/cold-descriptor-parse-offload-design.md": {
       "lines": 30,
@@ -1469,15 +1469,6 @@
     },
     {
       "section": "bodies",
-      "path": "docs/scene/capabilities/advanced-object-coverage.md",
-      "before": "4ae23a17b3e97cba88122f785769a61e438306575051046df0a66e12477451e8",
-      "after": "d36707b19940004cd8edfe7893b5daa3897abf10edfd52ee8e13b00574f660b8",
-      "owner": "UI audit documentation closeout",
-      "reason": "真实全仓链接门发现既有退役源码/忽略本机产物链接；只改路径表达并保原能力/历史事实，精确登记正文预算及同步受保护载荷身份。",
-      "decision": "docs/development/ui-quality-audit.md#evidence"
-    },
-    {
-      "section": "bodies",
       "path": "docs/architecture/appkit-migration.md",
       "before": "37ef47c2675506f1263d0f463a07b392de0ba23577eac83e25d05c7ef6bce060",
       "after": "c83800387b8a6df0b11593c5f942f49927aaa879a69884a058d4f04f58124482",
@@ -1667,30 +1658,39 @@
     },
     {
       "section": "bodies",
-      "path": "docs/scene/roadmap/batch2/script-component-api-design.md",
-      "before": "1e645e91ceef8c75276dcb382e0ec68ce8d11e45ba6824fda235bdd6f38d1fa6",
-      "after": "d8274332b1c3018f3bd2371cee810bfb5d0bbcddb2e0072475355291eda56da4",
-      "owner": "Scene initialization capability closure",
-      "reason": "在原coordinator补准备期init屏障，替换旧初始化说明并记录原事务/重试退出；288全灰实际修复后仅将两类已定位API余项留队。新物理仅存设计，不登记已完成，保600行硬限。",
-      "decision": "docs/scene/history/script-initialization-barrier-2026-10-28.md"
+      "path": "docs/scene/capabilities/scenescript-api-coverage.md",
+      "before": "1b85a7198d0a2ee73fd1ac02073ec9cc955a84968d1bebfb9d0a8b070ccc96e9",
+      "after": "c6758bae857478d86c341069a9d30d5f311d5179bae3d1e20d649322f77815f9",
+      "owner": "Scene bounded Puppet impulse closeout",
+      "reason": "原journal typed线性冲量和当前世界Motion获得两包三轮实证；实际318累计形变反例要求一次prepared不可用标记/消费处失败，保其未修状态。替换旧描述并仅登记剩余研究，不另建状态表；D4保持600行。",
+      "decision": "docs/scene/history/puppet-linear-impulse-2026-10-28.md"
     },
     {
       "section": "bodies",
-      "path": "docs/scene/capabilities/scenescript-api-coverage.md",
-      "before": "bcd92146225bf9c5167b7c7a4f93c8f7514ba47bb26952146ab70bcccc2574d6",
-      "after": "1b85a7198d0a2ee73fd1ac02073ec9cc955a84968d1bebfb9d0a8b070ccc96e9",
-      "owner": "Scene initialization capability closure",
-      "reason": "在原coordinator补准备期init屏障，替换旧初始化说明并记录原事务/重试退出；288全灰实际修复后仅将两类已定位API余项留队。新物理仅存设计，不登记已完成，保600行硬限。",
-      "decision": "docs/scene/history/script-initialization-barrier-2026-10-28.md"
+      "path": "docs/scene/capabilities/advanced-object-coverage.md",
+      "before": "d36707b19940004cd8edfe7893b5daa3897abf10edfd52ee8e13b00574f660b8",
+      "after": "2a0e40d16faeda9de8eee159c8b0f5b71b3492e007682c84839556a515a0dedd",
+      "owner": "Scene bounded Puppet impulse closeout",
+      "reason": "原journal typed线性冲量和当前世界Motion获得两包三轮实证；实际318累计形变反例要求一次prepared不可用标记/消费处失败，保其未修状态。替换旧描述并仅登记剩余研究，不另建状态表；D4保持600行。",
+      "decision": "docs/scene/history/puppet-linear-impulse-2026-10-28.md"
+    },
+    {
+      "section": "bodies",
+      "path": "docs/scene/roadmap/batch2/script-component-api-design.md",
+      "before": "d8274332b1c3018f3bd2371cee810bfb5d0bbcddb2e0072475355291eda56da4",
+      "after": "f0f26b21283e72ec0ee5e0da7bc2b989798454cf23d46d405f16b21dec83b9ab",
+      "owner": "Scene bounded Puppet impulse closeout",
+      "reason": "原journal typed线性冲量和当前世界Motion获得两包三轮实证；实际318累计形变反例要求一次prepared不可用标记/消费处失败，保其未修状态。替换旧描述并仅登记剩余研究，不另建状态表；D4保持600行。",
+      "decision": "docs/scene/history/puppet-linear-impulse-2026-10-28.md"
     },
     {
       "section": "bodies",
       "path": "docs/scene/roadmap/scene-open-breakpoint-queue.md",
-      "before": "5e16824d9f0430f05a45a74ace6008f35c3d1a0f5868bb1cb506c458d2e06d0e",
-      "after": "08bebb785ecf79b507c096275be1f6c7f662be302709f64a6bc3180dc21fa6b5",
-      "owner": "Scene initialization capability closure",
-      "reason": "在原coordinator补准备期init屏障，替换旧初始化说明并记录原事务/重试退出；288全灰实际修复后仅将两类已定位API余项留队。新物理仅存设计，不登记已完成，保600行硬限。",
-      "decision": "docs/scene/history/script-initialization-barrier-2026-10-28.md"
+      "before": "08bebb785ecf79b507c096275be1f6c7f662be302709f64a6bc3180dc21fa6b5",
+      "after": "b95e24551f0ba0577f7905cfe447aa584461de64d12d2e25bb4eb0eb3b7e3a1c",
+      "owner": "Scene bounded Puppet impulse closeout",
+      "reason": "原journal typed线性冲量和当前世界Motion获得两包三轮实证；实际318累计形变反例要求一次prepared不可用标记/消费处失败，保其未修状态。替换旧描述并仅登记剩余研究，不另建状态表；D4保持600行。",
+      "decision": "docs/scene/history/puppet-linear-impulse-2026-10-28.md"
     }
   ]
 }

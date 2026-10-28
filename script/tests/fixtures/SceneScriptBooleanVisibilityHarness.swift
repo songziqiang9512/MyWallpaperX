@@ -701,6 +701,10 @@ enum Harness {
             effectivePropertyValues: [:],
             userPropertiesJSON: "{}"
         ).first
+        let boneTranslation: Double
+        if case let .matrix(matrix)? = boneResult.ownerEffects.first?.puppetBoneMutations.first?.operation {
+            boneTranslation = matrix[12]
+        } else { boneTranslation = -1 }
         let payload: [String: Any] = [
             "projectVisibility": try SceneScriptProjectVisibilityChecks.run(),
             "returnContract": try SceneScriptBooleanReturnChecks.run(),
@@ -708,7 +712,7 @@ enum Harness {
             "boneValue": boolValue(boneResult, target: target) as Any,
             "boneFailure": String(describing: boneResult.failures),
             "boneMutationCount": boneResult.ownerEffects.first?.puppetBoneMutations.count ?? 0,
-            "boneTranslation": boneResult.ownerEffects.first?.puppetBoneMutations.first?.matrix[12] ?? -1,
+            "boneTranslation": boneTranslation,
             "boneCursorOwners": boneProgram.cursorOwnerRegistrations.count,
             "definitions": program.definitions.count,
             "first": boolValue(first, target: target) as Any,

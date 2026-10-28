@@ -5,6 +5,7 @@
 | 截止日期 | 专题 | 类型 | 文件 | 独有价值 | 当前权威 |
 |---|---|---|---|---|---|
 跨专题的[冷暖启动专项结算](../../history/cross-topic/wallpaper-startup-optimization-completed-2026-10-25.md)保留最终限定验收、原失败与 STOP；统一登记见[全仓历史索引](../../history/README.md)，不产生新的 Scene 任务。
+| 2026-10-28 | Puppet线性冲量 | 两包重复拖动与能力边界 | [三轮、回退及整合](puppet-linear-impulse-2026-10-28.md) | 374/299恢复、318累计形变候选退出且gravity未修；同journal/唯一Motion | [API](../capabilities/scenescript-api-coverage.md#puppet-linear-impulse)、[队列](../roadmap/scene-open-breakpoint-queue.md#puppet-physics) |
 | 2026-10-28 | 脚本初始化 | 全灰画面修复 | [跨类型初始化与余项](script-initialization-barrier-2026-10-28.md) | 原shared种子先于更新、事务重试及实际画面；跨层动画/相机API另留 | [API](../capabilities/scenescript-api-coverage.md)、[队列](../roadmap/scene-open-breakpoint-queue.md) |
 | 2026-10-28 | 模型视角双色 | 无mask权重纠正 | [修前/修后与边界](model-view-tint-2026-10-28.md) | signed facing与指数不串用、移除tint提前Half；343完整光影仍待修 | [材质合同](../roadmap/batch2/2d-lighting-material-design.md)、[断点队列](../roadmap/scene-open-breakpoint-queue.md) |
 | 2026-10-28 | SceneScript并行切片 | 输入域与缺失API | [前后证据与边界](parallel-script-compatibility-2026-10-28.md) | 释边回调与同会话bar热更；保面板/IPC边界、撤回CPU及官方STOP | [API](../capabilities/scenescript-api-coverage.md)、[属性](../capabilities/runtime-input-property-coverage.md)、[运行](../capabilities/runtime-evidence-current.md)、[队列](../roadmap/scene-open-breakpoint-queue.md) |

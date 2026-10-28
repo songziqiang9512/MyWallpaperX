@@ -808,13 +808,13 @@
       "role": "current-state",
       "entrypoint": "docs/scene/capabilities/README.md",
       "purpose": "限定专题的实现状态、偏差或证据；运行结论须复核身份和边界，不决定任务顺序。",
-      "lastReviewed": "2026-10-27",
+      "lastReviewed": "2026-10-28",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "e9cec911e2bd4c522e337b5a588e01d2aa22fef90f155c249c1b942575dc92bc",
+        "sourceSHA256": "cbf1a54e35501d9fd4772b3383e7a90d878b4a41668b8fe33d2091b5afa9e798",
         "method": "document_registry --audit + document_health --check",
-        "scope": "仅把本机忽略产物链接改为明文路径；能力结论和证据内容未变。",
-        "limitations": "不代表重新执行能力、样本或渲染验证；仍以正文原证据时点与边界为准。"
+        "scope": "仅有序线性冲量/当前parent世界Motion、374/299三轮恢复、318明确unsupported及原失败边界；合并本轮静态余项，不升级未测问题。",
+        "limitations": "318gravity仍未修；官方精确物理/完整样本/性能不认领，其他主题未重审。"
       }
     },
     {
@@ -1099,10 +1099,10 @@
       "lastReviewed": "2026-10-28",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "249816cf562ca031a2586757bb2be7a174059c0a908c24fc34fef9c799c20c4b",
+        "sourceSHA256": "e48a954017e096c867baacf1aa4be4669e6ab067c5b70fb44ff4997fc6f80c56",
         "method": "document_registry --audit + document_health --check",
-        "scope": "仅跨类型准备期init屏障、288真实灰→合成及独立361；队列退全灰，仅留395跨层动画/Timeline和265相机API。D4冲量段仍为待验的分段设计。",
-        "limitations": "不认完整样本、官方同phase/性能或未完成Puppet物理；其他条目未重审。"
+        "scope": "仅有序线性冲量/当前parent世界Motion、374/299三轮恢复、318明确unsupported及原失败边界；合并本轮静态余项，不升级未测问题。",
+        "limitations": "318gravity仍未修；官方精确物理/完整样本/性能不认领，其他主题未重审。"
       }
     },
     {
@@ -2763,6 +2763,19 @@
       ]
     },
     {
+      "path": "docs/scene/history/puppet-linear-impulse-2026-10-28.md",
+      "role": "historical-evidence",
+      "entrypoint": "docs/scene/history/README.md",
+      "commandPolicy": "historical-only",
+      "currentAuthorities": [
+        "docs/scene/capabilities/scenescript-api-coverage.md",
+        "docs/scene/capabilities/advanced-object-coverage.md",
+        "docs/scene/roadmap/scene-open-breakpoint-queue.md"
+      ],
+      "cutoffDate": "2026-10-28",
+      "uniqueValue": "世界线性冲量原journal/唯一Motion与374/299三轮；318累计形变候选退出、明确unsupported及重力未修、整合暂停边界。"
+    },
+    {
       "path": "docs/scene/history/puppet-reference-pose-2026-10-11.md",
       "role": "historical-evidence",
       "entrypoint": "docs/scene/history/README.md",
@@ -4254,10 +4267,10 @@
       "lastReviewed": "2026-10-28",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "8227f2860ce1f973e96357e12ef75d9966a1d477918b02f1d0e31e0f44a91aa4",
+        "sourceSHA256": "6da6dfb6418a3d4a10bb3631e98648e30726d962ba1e77037633a7e5df1fe289",
         "method": "document_registry --audit + document_health --check",
-        "scope": "仅跨类型准备期init屏障、288真实灰→合成及独立361；队列退全灰，仅留395跨层动画/Timeline和265相机API。D4冲量段仍为待验的分段设计。",
-        "limitations": "不认完整样本、官方同phase/性能或未完成Puppet物理；其他条目未重审。"
+        "scope": "仅有序线性冲量/当前parent世界Motion、374/299三轮恢复、318明确unsupported及原失败边界；合并本轮静态余项，不升级未测问题。",
+        "limitations": "318gravity仍未修；官方精确物理/完整样本/性能不认领，其他主题未重审。"
       }
     },
     {
@@ -4352,10 +4365,10 @@
       "lastReviewed": "2026-10-28",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "374d1235b6d7ea4cf7196e386ab95f09c969895292a9673e874b83ce6e4f4bf8",
+        "sourceSHA256": "4a6ee2ea70a059b0f5d2cea0c9c0642e8aef3583abff4a343c2a4e5397ad7ac1",
         "method": "document_registry --audit + document_health --check",
-        "scope": "仅跨类型准备期init屏障、288真实灰→合成及独立361；队列退全灰，仅留395跨层动画/Timeline和265相机API。D4冲量段仍为待验的分段设计。",
-        "limitations": "不认完整样本、官方同phase/性能或未完成Puppet物理；其他条目未重审。"
+        "scope": "仅有序线性冲量/当前parent世界Motion、374/299三轮恢复、318明确unsupported及原失败边界；合并本轮静态余项，不升级未测问题。",
+        "limitations": "318gravity仍未修；官方精确物理/完整样本/性能不认领，其他主题未重审。"
       }
     },
     {

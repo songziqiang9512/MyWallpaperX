@@ -48,17 +48,28 @@ nonisolated struct SceneScriptMediaPlaybackCommand: Equatable, Sendable {
 }
 
 nonisolated struct SceneScriptPuppetBoneMutation: Equatable, Sendable {
+    enum Operation: Equatable, Sendable {
+        case matrix([Double])
+        case impulse(SIMD3<Double>)
+    }
+
     let layerID: Int
     let boneIndex: Int
-    let matrix: [Double]
+    let operation: Operation
     let callbackEpoch: UInt64
     let ordinal: UInt32
 
     init(layerID: Int, boneIndex: Int, matrix: [Double],
          callbackEpoch: UInt64 = 0, ordinal: UInt32 = 0) {
+        self.init(layerID: layerID, boneIndex: boneIndex, operation: .matrix(matrix),
+            callbackEpoch: callbackEpoch, ordinal: ordinal)
+    }
+
+    init(layerID: Int, boneIndex: Int, operation: Operation,
+         callbackEpoch: UInt64 = 0, ordinal: UInt32 = 0) {
         self.layerID = layerID
         self.boneIndex = boneIndex
-        self.matrix = matrix
+        self.operation = operation
         self.callbackEpoch = callbackEpoch
         self.ordinal = ordinal
     }
@@ -88,14 +99,27 @@ nonisolated enum SceneScriptPuppetBoneMutationBridge {
                   raw.bone_index < 256 else {
                 return .failure(.invalidArgument(String(cString: diagnostic)))
             }
-            let matrix = withUnsafeBytes(of: raw.matrix) { bytes in
-                Array(bytes.bindMemory(to: Double.self))
-            }
-            guard matrix.count == 16, matrix.allSatisfy(\.isFinite) else {
-                return .failure(.invalidArgument("invalid Puppet bone matrix"))
+            let operation: SceneScriptPuppetBoneMutation.Operation
+            switch raw.kind {
+            case 0:
+                let matrix = withUnsafeBytes(of: raw.payload.matrix) { bytes in
+                    Array(bytes.bindMemory(to: Double.self))
+                }
+                guard matrix.allSatisfy(\.isFinite) else {
+                    return .failure(.invalidArgument("invalid Puppet bone matrix"))
+                }
+                operation = .matrix(matrix)
+            case 1:
+                let (x, y, z) = raw.payload.impulse
+                guard x.isFinite, y.isFinite, z.isFinite else {
+                    return .failure(.invalidArgument("invalid Puppet bone impulse"))
+                }
+                operation = .impulse(.init(x, y, z))
+            default:
+                return .failure(.invalidArgument("invalid Puppet bone command kind"))
             }
             output.append(.init(layerID: Int(raw.layer_id), boneIndex: Int(raw.bone_index),
-                matrix: matrix, callbackEpoch: raw.callback_epoch, ordinal: raw.ordinal))
+                operation: operation, callbackEpoch: raw.callback_epoch, ordinal: raw.ordinal))
         }
         return .success(output)
     }

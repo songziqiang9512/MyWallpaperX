@@ -14,6 +14,7 @@ enum ScenePuppetLayerLoad {
         let parentIndices: [Int]
         let worldMatrices: [Double]
         let localMatrices: [Double]
+        var impulseUnavailable: [UInt8] = []
     }
 
     /// A launch may retain this result by its existing mesh resource identity.
@@ -181,7 +182,8 @@ enum ScenePuppetLayerLoad {
             names: rig.bones.map(\.name),
             parentIndices: rig.bones.map(\.parentIndex),
             worldMatrices: frame.worldMatrices.flatMap(flatten),
-            localMatrices: frame.localMatrices.flatMap(flatten)
+            localMatrices: frame.localMatrices.flatMap(flatten),
+            impulseUnavailable: rig.bones.map { $0.physicsDiagnostic == nil ? 0 : 1 }
         )
     }
 

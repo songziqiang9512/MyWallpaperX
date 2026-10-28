@@ -42,6 +42,7 @@ final class ScenePuppetPlaybackState {
         let bones: ScenePuppetLayerLoad.BoneConfiguration
         let queryLocalMatrices: [Double]
         let attachmentFrames: [String: simd_float4x4]
+        let meshToWorld: simd_float4x4
     }
 
     enum Failure: Error, CustomStringConvertible {
@@ -122,7 +123,8 @@ final class ScenePuppetPlaybackState {
     private let evaluator: ScenePuppetAnimationEvaluator
     private let attachments: [SceneMdlPuppetAttachment]
     /// The evaluator's rig is immutable; script edits change pose, not physics membership.
-    private let physicsBoneIndices: [Int]
+    let hasTranslationPhysics: Bool
+    var hasAttachments: Bool { !attachments.isEmpty }
 
     var isDirectModel: Bool {
         if case .direct = geometry { return true }
@@ -505,7 +507,8 @@ final class ScenePuppetPlaybackState {
     /// Bone handles, animated attachments and cursor/world projections all
     /// consume this result instead of evaluating independent hierarchies.
     func poseConfiguration(
-        animationFrame: ScenePuppetAnimationPlaybackRuntime.LayerFrame
+        animationFrame: ScenePuppetAnimationPlaybackRuntime.LayerFrame,
+        meshToWorld: simd_float4x4 = matrix_identity_float4x4
     ) -> PoseConfiguration? {
         guard let transforms = try? evaluator.boneTransforms(
             selection: selection,
@@ -536,70 +539,90 @@ final class ScenePuppetPlaybackState {
             attachmentFrames: ScenePuppetAttachmentPoseProjection.frames(
                 attachments: attachments,
                 boneWorldMatrices: transforms.world
-            ) ?? [:]
+            ) ?? [:],
+            meshToWorld: meshToWorld
         )
     }
 
     /// The authored pose/physics is evaluated before callbacks each frame;
     /// scripts may replace that result only for the frame they write.
     func advanceBonePhysics(animationFrame: ScenePuppetAnimationPlaybackRuntime.LayerFrame,
-                            deltaTime: Double, frameIndex: UInt64) {
+                            deltaTime: Double, frameIndex: UInt64,
+                            meshToWorld: simd_float4x4 = matrix_identity_float4x4) {
         if let lastBonePhysicsFrameIndex, frameIndex <= lastBonePhysicsFrameIndex { return }
 #if DEBUG
         boneWrittenInFrame = false
 #endif
-        guard !physicsBoneIndices.isEmpty else { return }
-        guard let base = try? evaluator.boneTransforms(selection: selection,
-            frameSamples: animationFrame.samples, blends: animationFrame.blends)
-        else { return }
+        guard hasTranslationPhysics else { return }
+        do {
+            try evaluator.writeLocalMatrices(selection: selection,
+                frameSamples: animationFrame.samples, blends: animationFrame.blends,
+                into: &localMatrixScratch)
+        } catch { return }
         lastBonePhysicsFrameIndex = frameIndex
-        for index in physicsBoneIndices {
-            guard let configuration = evaluator.rig.bones[index].translationPhysics else { continue }
-            var pose = base.local[index]
-            if let override = renderBoneOverrides[index] { pose = override }
-            let target = SIMD3(base.local[index].columns.3.x,
-                base.local[index].columns.3.y, base.local[index].columns.3.z)
-            queryBoneOrigins[index] = target
-            let position = SIMD3(pose.columns.3.x, pose.columns.3.y, pose.columns.3.z)
-            var motion = translationMotions[index] ?? .init()
-            let next = motion.advance(position: position, target: target,
-                deltaTime: deltaTime, configuration: configuration)
-            translationMotions[index] = motion
-            if next != position {
-                pose.columns.3 = SIMD4(next, 1)
-                renderBoneOverrides[index] = pose
-                boneRevision &+= 1
+        // Rig parents precede children. Use the current physical parent as the
+        // child's carrier, while retaining each bone's local distance limit.
+        for index in evaluator.rig.bones.indices {
+            let bone = evaluator.rig.bones[index]
+            let parent = bone.parentIndex < 0
+                ? matrix_identity_float4x4 : worldMatrixScratch[bone.parentIndex]
+            var pose = renderBoneOverrides[index] ?? localMatrixScratch[index]
+            if let configuration = bone.translationPhysics {
+                let targetColumn = localMatrixScratch[index].columns.3
+                let target = SIMD3(targetColumn.x, targetColumn.y, targetColumn.z)
+                queryBoneOrigins[index] = target
+                let column = pose.columns.3
+                let position = SIMD3(column.x, column.y, column.z)
+                var motion = translationMotions[index] ?? .init()
+                let next = motion.advance(position: position, target: target,
+                    deltaTime: deltaTime, configuration: configuration,
+                    parentToWorld: meshToWorld * parent)
+                translationMotions[index] = motion
+                if next != position {
+                    pose.columns.3 = SIMD4(next, 1)
+                    renderBoneOverrides[index] = pose
+                    boneRevision &+= 1
+                }
             }
+            worldMatrixScratch[index] = parent * pose
         }
     }
 
     func apply(scriptBoneMutations: [SceneScriptPuppetBoneMutation]) {
-        guard scriptBoneMutations.contains(where: { $0.layerID == layerID }) else { return }
-        var next = renderBoneOverrides
         var accepted = false
         for mutation in scriptBoneMutations where mutation.layerID == layerID {
             guard mutation.boneIndex >= 0,
-                  mutation.boneIndex < evaluator.boneCount,
-                  mutation.matrix.count == 16,
-                  mutation.matrix.allSatisfy(\.isFinite) else { continue }
-            let values = mutation.matrix.map(Float.init)
-            guard values.allSatisfy(\.isFinite) else { continue }
-            let columns = stride(from: 0, to: 16, by: 4).map { offset in
-                SIMD4<Float>(values[offset], values[offset + 1], values[offset + 2], values[offset + 3])
+                  mutation.boneIndex < evaluator.boneCount else { continue }
+            switch mutation.operation {
+            case let .impulse(vector):
+                guard evaluator.rig.bones[mutation.boneIndex].translationPhysics != nil else { continue }
+                let impulse = SIMD3<Float>(vector)
+                guard impulse.x.isFinite, impulse.y.isFinite, impulse.z.isFinite else { continue }
+                var motion = translationMotions[mutation.boneIndex] ?? .init()
+                motion.addImpulse(impulse)
+                translationMotions[mutation.boneIndex] = motion
+            case let .matrix(source):
+                guard source.count == 16 else { continue }
+                let values = source.map(Float.init)
+                guard values.allSatisfy(\.isFinite) else { continue }
+                let columns = stride(from: 0, to: 16, by: 4).map { offset in
+                    SIMD4<Float>(values[offset], values[offset + 1], values[offset + 2], values[offset + 3])
+                }
+                let matrix = simd_float4x4(columns: (columns[0], columns[1], columns[2], columns[3]))
+                renderBoneOverrides[mutation.boneIndex] = matrix
+                if evaluator.rig.bones[mutation.boneIndex].translationPhysics != nil {
+                    let origin = SIMD3(matrix.columns.3.x, matrix.columns.3.y, matrix.columns.3.z)
+                    queryBoneOrigins[mutation.boneIndex] = origin
+                    var motion = translationMotions[mutation.boneIndex] ?? .init()
+                    motion.reset()
+                    translationMotions[mutation.boneIndex] = motion
+                }
+                accepted = true
             }
-            let matrix = simd_float4x4(columns: (columns[0], columns[1], columns[2], columns[3]))
-            next[mutation.boneIndex] = matrix
-            if evaluator.rig.bones[mutation.boneIndex].translationPhysics != nil {
-                queryBoneOrigins[mutation.boneIndex] = SIMD3(
-                    matrix.columns.3.x, matrix.columns.3.y, matrix.columns.3.z)
-            }
-            translationMotions[mutation.boneIndex]?.velocity = .zero
 #if DEBUG
             boneWrittenInFrame = true
 #endif
-            accepted = true
         }
-        renderBoneOverrides = next
         if accepted { boneRevision &+= 1 }
     }
 
@@ -612,8 +635,8 @@ final class ScenePuppetPlaybackState {
         self.selection = selection
         self.evaluator = evaluator
         self.attachments = attachments
-        physicsBoneIndices = evaluator.rig.bones.indices.filter {
-            evaluator.rig.bones[$0].translationPhysics != nil
+        hasTranslationPhysics = evaluator.rig.bones.contains {
+            $0.translationPhysics != nil
         }
         let matrixScratchCount = evaluator.boneCount
         localMatrixScratch = Array(repeating: matrix_identity_float4x4, count: matrixScratchCount)

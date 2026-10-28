@@ -45,12 +45,68 @@ import simd
                     inertia: inertia, maxDistance: 200))
             return Double(abs(next.x - target.x))
         }
+        // Independent free-motion oracle: a world delta-velocity of 6 units/s
+        // travels .6 world units in .1s regardless of the parent's basis.
+        let free = SceneMdlPuppetRig.TranslationPhysics(spring: false, stiffness: 0,
+            friction: 0, inertia: 0, maxDistance: 1000)
+        var carrier = matrix_identity_float4x4
+        carrier.columns.0 = SIMD4(0,2,0,0)
+        carrier.columns.1 = SIMD4(-3,0,0,0)
+        carrier.columns.2 = SIMD4(0,0,0.5,0)
+        carrier.columns.3 = SIMD4(10,-4,2,1)
+        func xyz(_ value: SIMD3<Float>) -> [Double] { [Double(value.x),Double(value.y),Double(value.z)] }
+        func world(_ local: SIMD3<Float>, _ matrix: simd_float4x4) -> SIMD3<Float> {
+            let point = matrix * SIMD4(local,1)
+            return SIMD3(point.x,point.y,point.z)
+        }
+        var kicked = ScenePuppetTranslationMotion()
+        kicked.addImpulse(SIMD3(6,0,0))
+        let zeroStep = kicked.advance(position: .zero, target: .zero, deltaTime: 0,
+            configuration: free, parentToWorld: carrier)
+        let firstKick = kicked.advance(position: zeroStep, target: .zero, deltaTime: 0.1,
+            configuration: free, parentToWorld: carrier)
+        let firstWorldDelta = world(firstKick,carrier)-world(.zero,carrier)
+        let secondKick = kicked.advance(position: firstKick, target: .zero, deltaTime: 0.1,
+            configuration: free, parentToWorld: carrier)
+        let secondWorldDelta = world(secondKick,carrier)-world(.zero,carrier)
+        var movingCarrier = ScenePuppetTranslationMotion()
+        movingCarrier.addImpulse(SIMD3(6,0,0))
+        let beforeCarrierChange = movingCarrier.advance(position: .zero, target: .zero,
+            deltaTime: 0.1, configuration: free)
+        let afterCarrierChange = movingCarrier.advance(position: beforeCarrierChange,
+            target: .zero, deltaTime: 0.1, configuration: free, parentToWorld: carrier)
+        var beforeSetter = ScenePuppetTranslationMotion()
+        beforeSetter.addImpulse(SIMD3(20,0,0));beforeSetter.reset()
+        let discardedKick = beforeSetter.advance(position: SIMD3(5,0,0), target: SIMD3(5,0,0),
+            deltaTime: 0.1, configuration: free)
+        var afterSetter = ScenePuppetTranslationMotion()
+        afterSetter.reset();afterSetter.addImpulse(SIMD3(20,0,0))
+        let retainedKick = afterSetter.advance(position: SIMD3(5,0,0), target: SIMD3(5,0,0),
+            deltaTime: 0.1, configuration: free)
+        var constrained = ScenePuppetTranslationMotion()
+        constrained.addImpulse(SIMD3(6,0,0))
+        let localLimited = constrained.advance(position: .zero, target: .zero, deltaTime: 0.1,
+            configuration: .init(spring: false, stiffness: 0, friction: 0, inertia: 0,
+                maxDistance: 0.1), parentToWorld: carrier)
+        var overflow = ScenePuppetTranslationMotion()
+        overflow.addImpulse(SIMD3(Float.greatestFiniteMagnitude,0,0))
+        overflow.addImpulse(SIMD3(Float.greatestFiniteMagnitude,0,0))
+        let overflowStep = overflow.advance(position: .zero, target: .zero, deltaTime: 0.1,
+            configuration: free)
+        let overflowRecovery = overflow.advance(position: overflowStep, target: .zero,
+            deltaTime: 0.1, configuration: free)
         let payload: [String:Any] = ["stiffnessResponse": [response(stiffness: 100, inertia: 0, moving: false), response(stiffness: 400, inertia: 0, moving: false)],
             "inertiaResponse": [response(stiffness: 300, inertia: 0, moving: true), response(stiffness: 300, inertia: 30, moving: true)],
             "slow": simulate(hz: 15), "fast": simulate(hz: 120),
             "rigid": simulate(hz: 60, spring: false), "damped": simulate(hz: 30, friction: 40),
             "clamped": Double(simd_length(clamped)), "invalid": invalid,
-            "parameters": [config.stiffness, config.friction, config.inertia, config.maxDistance]]
+            "parameters": [config.stiffness, config.friction, config.inertia, config.maxDistance],
+            "worldImpulse": ["zeroStep":xyz(zeroStep),"firstLocal":xyz(firstKick),
+                "firstWorldDelta":xyz(firstWorldDelta),"secondWorldDelta":xyz(secondWorldDelta),
+                "velocity":xyz(kicked.velocity),"changedCarrierWorld":xyz(world(afterCarrierChange,carrier))],
+            "impulseOrder": [xyz(discardedKick),xyz(retainedKick)],
+            "localConstraint":xyz(localLimited),
+            "overflow": [xyz(overflowStep),xyz(overflowRecovery),xyz(overflow.velocity)]]
         print(String(data: try JSONSerialization.data(withJSONObject: payload), encoding:.utf8)!)
     }
 }
@@ -90,3 +146,25 @@ class PuppetTranslationPhysicsTests(unittest.TestCase):
     def test_stiffness_and_inertia_change_their_respective_responses(self):
         self.assertLess(self.result['stiffnessResponse'][1], self.result['stiffnessResponse'][0])
         self.assertLess(self.result['inertiaResponse'][1], self.result['inertiaResponse'][0] / 20)
+
+    def test_world_impulse_keeps_direction_through_rotated_nonuniform_parent(self):
+        facts = self.result['worldImpulse']
+        for key, expected in [('firstLocal', [0, -.2, 0]),
+                              ('firstWorldDelta', [.6, 0, 0]),
+                              ('secondWorldDelta', [1.2, 0, 0]),
+                              ('velocity', [6, 0, 0]),
+                              ('changedCarrierWorld', [1.2, 0, 0])]:
+            for actual, wanted in zip(facts[key], expected):
+                self.assertAlmostEqual(actual, wanted, places=5, msg=key)
+
+    def test_zero_delta_retains_impulse_and_next_positive_steps_consume_it_once(self):
+        self.assertEqual(self.result['worldImpulse']['zeroStep'], [0, 0, 0])
+        self.assertAlmostEqual(self.result['worldImpulse']['secondWorldDelta'][0], 1.2, places=5)
+
+    def test_setter_clears_preceding_impulse_and_retains_following_impulse(self):
+        self.assertEqual(self.result['impulseOrder'][0], [5, 0, 0])
+        self.assertAlmostEqual(self.result['impulseOrder'][1][0], 7, places=5)
+
+    def test_world_motion_keeps_local_distance_limit_and_overflow_does_not_stick(self):
+        self.assertAlmostEqual(self.result['localConstraint'][1], -.1, places=5)
+        self.assertEqual(self.result['overflow'], [[0, 0, 0]] * 3)

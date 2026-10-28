@@ -13,6 +13,7 @@ enum PuppetBoneFunction {
     PUPPET_BONE_GET_WORLD, PUPPET_BONE_GET_LOCAL,
     PUPPET_BONE_SET_WORLD, PUPPET_BONE_SET_LOCAL,
     PUPPET_BONE_GET_LOCAL_ORIGIN, PUPPET_BONE_SET_LOCAL_ORIGIN,
+    PUPPET_BONE_APPLY_IMPULSE,
 };
 
 JSValue mwx_scene_quickjs_layer_make_mat4(JSContext *context, MWXSceneQuickJSDomain *domain,
@@ -133,7 +134,8 @@ static JSValue puppet_bone_call(JSContext *context, JSValueConst this_value,
     const bool lookup = magic == PUPPET_BONE_INDEX || magic == PUPPET_BONE_PARENT_INDEX;
     const bool setter = magic == PUPPET_BONE_SET_WORLD || magic == PUPPET_BONE_SET_LOCAL
         || magic == PUPPET_BONE_SET_LOCAL_ORIGIN;
-    if (argc != (setter ? 2 : 1))
+    const bool impulse = magic == PUPPET_BONE_APPLY_IMPULSE;
+    if (impulse ? (argc != 2 && argc != 3) : argc != (setter ? 2 : 1))
         return JS_ThrowTypeError(context, "invalid bone API argument count");
     int32_t bone_index = -1;
     if (JS_IsString(argv[0])) {
@@ -159,6 +161,8 @@ static JSValue puppet_bone_call(JSContext *context, JSValueConst this_value,
             ? owner->puppet_bone_parent[bone_index] : bone_index);
     if (bone_index < 0) return JS_ThrowRangeError(context, "bone index is out of range");
     uint32_t bone = (uint32_t)bone_index;
+    if (impulse && owner->puppet_bone_impulse_unavailable[bone] != 0)
+        return JS_ThrowTypeError(context, "bone physics impulse is unsupported for this bone");
     if (magic == PUPPET_BONE_GET_LOCAL_ORIGIN)
         return mwx_scene_quickjs_layer_make_vec3(context, handle->domain, &owner->puppet_bone_local[bone][12]);
     if (magic == PUPPET_BONE_GET_WORLD || magic == PUPPET_BONE_GET_LOCAL)
@@ -166,7 +170,19 @@ static JSValue puppet_bone_call(JSContext *context, JSValueConst this_value,
             magic == PUPPET_BONE_GET_WORLD
                 ? owner->puppet_bone_world[bone] : owner->puppet_bone_local[bone]);
     double matrix[16];
-    if (magic == PUPPET_BONE_SET_LOCAL_ORIGIN) {
+    if (impulse) {
+        if (!JS_IsObject(argv[1]) ||
+            !mwx_scene_quickjs_layer_read_vec3(context, argv[1], matrix, NULL))
+            return JS_ThrowTypeError(context, "bone impulse expects finite Vec3");
+        if (argc == 3) {
+            double angular[3];
+            if (!JS_IsObject(argv[2]) ||
+                !mwx_scene_quickjs_layer_read_vec3(context, argv[2], angular, NULL))
+                return JS_ThrowTypeError(context, "bone angular impulse expects finite Vec3");
+            if (angular[0] != 0 || angular[1] != 0 || angular[2] != 0)
+                return JS_ThrowTypeError(context, "nonzero bone angular impulse is unsupported");
+        }
+    } else if (magic == PUPPET_BONE_SET_LOCAL_ORIGIN) {
         // Position-only writes retain the existing rotation, scale and affine
         // basis, then use the same hierarchy validation and matrix journal.
         memcpy(matrix, owner->puppet_bone_local[bone], sizeof(matrix));
@@ -177,43 +193,49 @@ static JSValue puppet_bone_call(JSContext *context, JSValueConst this_value,
     }
     if (owner->puppet_bone_mutation_count >= MWX_SCENE_QUICKJS_MAX_PUPPET_BONE_MUTATIONS)
         return JS_ThrowInternalError(context, "Puppet bone mutation buffer exceeded");
-    double local[MWX_SCENE_QUICKJS_MAX_PUPPET_BONES][16];
-    double render_local[MWX_SCENE_QUICKJS_MAX_PUPPET_BONES][16];
-    double world[MWX_SCENE_QUICKJS_MAX_PUPPET_BONES][16];
-    memcpy(local, owner->puppet_bone_local, sizeof(local));
-    memcpy(render_local, owner->puppet_bone_render_local,
-           owner->puppet_bone_count * sizeof(render_local[0]));
-    if (magic == PUPPET_BONE_SET_WORLD) {
-        int32_t parent = owner->puppet_bone_parent[bone];
-        double inverse[16];
-        if (!puppet_matrix_inverse(parent < 0 ? owner->puppet_layer_to_world
-                                               : owner->puppet_bone_world[parent], inverse) ||
-            !puppet_matrix_multiply(inverse, matrix, local[bone]))
-            return JS_ThrowRangeError(context, "Puppet parent transform is singular or out of range");
-    } else {
-        memcpy(local[bone], matrix, sizeof(matrix));
+    if (!impulse) {
+        double local[MWX_SCENE_QUICKJS_MAX_PUPPET_BONES][16];
+        double render_local[MWX_SCENE_QUICKJS_MAX_PUPPET_BONES][16];
+        double world[MWX_SCENE_QUICKJS_MAX_PUPPET_BONES][16];
+        memcpy(local, owner->puppet_bone_local, sizeof(local));
+        memcpy(render_local, owner->puppet_bone_render_local,
+               owner->puppet_bone_count * sizeof(render_local[0]));
+        if (magic == PUPPET_BONE_SET_WORLD) {
+            int32_t parent = owner->puppet_bone_parent[bone];
+            double inverse[16];
+            if (!puppet_matrix_inverse(parent < 0 ? owner->puppet_layer_to_world
+                                                   : owner->puppet_bone_world[parent], inverse) ||
+                !puppet_matrix_multiply(inverse, matrix, local[bone]))
+                return JS_ThrowRangeError(context, "Puppet parent transform is singular or out of range");
+        } else {
+            memcpy(local[bone], matrix, sizeof(matrix));
+        }
+        // A matrix write replaces both views for its bone. Impulses leave the
+        // published getters unchanged until the existing physics owner commits.
+        memcpy(render_local[bone], local[bone], sizeof(matrix));
+        if (!puppet_world_pose(owner->puppet_bone_count, owner->puppet_bone_parent,
+                              owner->puppet_layer_to_world, render_local, world))
+            return JS_ThrowRangeError(context, "Puppet pose is out of range");
+        memcpy(matrix, local[bone], sizeof(matrix));
+        memcpy(owner->puppet_bone_local, local, owner->puppet_bone_count * sizeof(local[0]));
+        memcpy(owner->puppet_bone_render_local, render_local,
+               owner->puppet_bone_count * sizeof(render_local[0]));
+        memcpy(owner->puppet_bone_world, world, owner->puppet_bone_count * sizeof(world[0]));
     }
-    // This callback's write replaces both views for its bone. Untouched bones
-    // retain their physical local pose when the render hierarchy is rebuilt.
-    memcpy(render_local[bone], local[bone], sizeof(matrix));
-    if (!puppet_world_pose(owner->puppet_bone_count, owner->puppet_bone_parent,
-                          owner->puppet_layer_to_world, render_local, world))
-        return JS_ThrowRangeError(context, "Puppet pose is out of range");
     size_t mutation_index = owner->puppet_bone_mutation_count++;
     MWXSceneQuickJSPuppetBoneMutation *mutation = &owner->puppet_bone_mutations[mutation_index];
     mutation->layer_id = owner->puppet_bone_layer_id;
-    mutation->bone_index = bone_index;
+    mutation->bone_index = (int16_t)bone_index;
+    mutation->kind = impulse ? MWX_SCENE_QUICKJS_PUPPET_BONE_LINEAR_IMPULSE
+                             : MWX_SCENE_QUICKJS_PUPPET_BONE_MATRIX;
     mutation->callback_epoch = owner->domain->callback_epoch;
     mutation->ordinal = mutation_index > 0
         && owner->puppet_bone_mutations[mutation_index - 1].callback_epoch == mutation->callback_epoch
         ? owner->puppet_bone_mutations[mutation_index - 1].ordinal + 1 : 0;
     // Publish the resolved parent-relative transform, never a surface-world
     // coordinate mislabeled as evaluator-local data.
-    memcpy(mutation->matrix, local[bone], sizeof(matrix));
-    memcpy(owner->puppet_bone_local, local, owner->puppet_bone_count * sizeof(local[0]));
-    memcpy(owner->puppet_bone_render_local, render_local,
-           owner->puppet_bone_count * sizeof(render_local[0]));
-    memcpy(owner->puppet_bone_world, world, owner->puppet_bone_count * sizeof(world[0]));
+    if (impulse) memcpy(mutation->payload.impulse, matrix, 3 * sizeof(double));
+    else memcpy(mutation->payload.matrix, matrix, sizeof(matrix));
     return JS_UNDEFINED;
 }
 
@@ -232,6 +254,7 @@ bool mwx_scene_quickjs_layer_define_puppet_bone_functions(
         {"setLocalBoneTransform", PUPPET_BONE_SET_LOCAL, 2},
         {"getLocalBoneOrigin", PUPPET_BONE_GET_LOCAL_ORIGIN, 1},
         {"setLocalBoneOrigin", PUPPET_BONE_SET_LOCAL_ORIGIN, 2},
+        {"applyBonePhysicsImpulse", PUPPET_BONE_APPLY_IMPULSE, 2},
     };
     for (size_t i = 0; i < sizeof(functions) / sizeof(functions[0]); ++i) {
         MWXSceneQuickJSLayerAccessHandle *handle = calloc(1, sizeof(*handle));
@@ -280,6 +303,7 @@ MWXSceneQuickJSResult mwx_scene_quickjs_owner_configure_puppet_bones(
     const double *local_matrices, const double *render_local_matrices,
     const int32_t *parents,
     const double *layer_to_world,
+    const uint8_t *impulse_unavailable,
     char *diagnostic, size_t diagnostic_capacity
 ) {
     mwx_scene_quickjs_write_diagnostic(diagnostic, diagnostic_capacity, "");
@@ -339,6 +363,9 @@ MWXSceneQuickJSResult mwx_scene_quickjs_owner_configure_puppet_bones(
     memcpy(owner->puppet_bone_world, world, bone_count * sizeof(world[0]));
     memcpy(owner->puppet_bone_parent, parents, bone_count * sizeof(int32_t));
     memcpy(owner->puppet_layer_to_world, layer_to_world, sizeof(double) * 16);
+    // Immutable launch capability; ordinary pose refreshes pass NULL.
+    if (impulse_unavailable != NULL)
+        memcpy(owner->puppet_bone_impulse_unavailable, impulse_unavailable, bone_count);
     owner->puppet_bone_layer_id = layer_id;
     owner->puppet_bone_count = bone_count;
     return MWX_SCENE_QUICKJS_OK;

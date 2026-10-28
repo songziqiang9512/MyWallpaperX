@@ -323,7 +323,8 @@ extension SceneDesktopWallpaperSession {
             sceneTime: timing.sceneTime)
         let puppetPoseFrames = surfaces.mapValues {
             $0.metalView.prepareSceneScriptPuppetPoseFrame(
-                timing: timing, puppetAnimationFrame: puppetAnimationFrame
+                timing: timing, puppetAnimationFrame: puppetAnimationFrame,
+                dynamicValues: preliminaryForSceneScript
             )
         }
         let sceneScriptPuppetPoseFrame = surfaces.count == 1
@@ -333,9 +334,11 @@ extension SceneDesktopWallpaperSession {
         var sceneScriptWorldFramesBySurface: [CGDirectDisplayID: [Int: simd_float4x4]] = [:]
         if surfaces.count == 1, let (displayID, surface) = surfaces.first,
            surface.metalView.requiresSceneScriptCameraWorldFrames || !sceneScriptPuppetPoseFrame.posesByLayerID.isEmpty {
-            sceneScriptWorldFramesBySurface[displayID] = surface.metalView.sceneScriptCursorWorldFrames(
+            sceneScriptWorldFramesBySurface[displayID] = sceneScriptPuppetPoseFrame.worldFrames.isEmpty
+                ? surface.metalView.sceneScriptCursorWorldFrames(
                 dynamicValues: preliminaryForSceneScript,
                 puppetAttachmentFrames: sceneScriptPuppetPoseFrame.attachmentFrames)
+                : sceneScriptPuppetPoseFrame.worldFrames
         }
         let sceneScriptFrame = prepareSceneScriptFrame(launchContext, timing: timing,
             dynamicValues: preliminaryForSceneScript,

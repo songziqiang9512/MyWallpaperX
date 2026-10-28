@@ -8,7 +8,8 @@ extension SceneDesktopWallpaperLaunchContext {
                 if let bones = preparedDeviceResources.staticModels.animation(for: layer.id)?.initialBones {
                     _ = try configurePuppetBones(layerID: layer.id,
                         localMatrices: bones.localMatrices, names: bones.names,
-                        parents: bones.parentIndices.map(Int32.init))
+                        parents: bones.parentIndices.map(Int32.init),
+                        impulseUnavailable: bones.impulseUnavailable)
                 }
                 continue
             }
@@ -19,7 +20,8 @@ extension SceneDesktopWallpaperLaunchContext {
             _ = try configurePuppetBones(
                 layerID: layer.id,
                 localMatrices: bones.localMatrices,
-                names: bones.names, parents: bones.parentIndices.map(Int32.init)
+                names: bones.names, parents: bones.parentIndices.map(Int32.init),
+                impulseUnavailable: bones.impulseUnavailable
             )
         }
     }
@@ -33,6 +35,7 @@ extension SceneDesktopWallpaperLaunchContext {
         renderLocalMatrices: [Double]? = nil,
         names: [String],
         parents: [Int32]? = nil,
+        impulseUnavailable: [UInt8]? = nil,
         layerToWorld: [Double] = [1,0,0,0, 0,1,0,0, 0,0,1,0, 0,0,0,1]
     ) throws -> Bool {
         let owners = propertyVectorScriptProgram.bindings.map(\.owner)
@@ -45,7 +48,8 @@ extension SceneDesktopWallpaperLaunchContext {
             try owner.configurePuppetBones(
                 layerID: layerID, localMatrices: localMatrices,
                 renderLocalMatrices: renderLocalMatrices, names: names,
-                parents: parents, layerToWorld: layerToWorld
+                parents: parents, impulseUnavailable: impulseUnavailable,
+                layerToWorld: layerToWorld
             )
             configured = true
         }
