@@ -106,6 +106,8 @@ struct SceneResolvedMaterialExecutionCapabilityCatalog {
     struct Capability {
         var sourceRoute: SourceRoute = .capturedLayerTexture
         var dependencyOwnership: DependencyOwnership = .none
+        // Host visibility admission only consumes prepared-material presence.
+        var materials: [Int: Void] = [:]
     }
     struct Token { var layerID: Int }
     struct Claim { var token: Token }

@@ -446,6 +446,7 @@ class SceneFrameContextTests(unittest.TestCase):
                 str(VIEW_FRAME_CONTEXT_SOURCE),
                 str(REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Systems/Properties/SceneDynamicSnapshot+Camera.swift"),
                 str(REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Bindings/SceneAuthoredShaderFrameInputs.swift"),
+                str(REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Lighting/SceneAuthoredShaderLightingInputs.swift"),
                 str(REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Bindings/SceneAuthoredShaderFrameInputs+FrameContext.swift"),
                 str(harness),
                 "-module-cache-path", str(directory / "module-cache"),
@@ -766,8 +767,9 @@ class SceneFrameContextTests(unittest.TestCase):
         live_consumers = LIVE_CONSUMERS_SOURCE.read_text(encoding="utf-8")
         coordinator = COORDINATOR_SOURCE.read_text(encoding="utf-8")
         debug_runner = DEBUG_RUNNER_SOURCE.read_text(encoding="utf-8")
-        self.assertIn("let runtimeInput: SceneRuntimeInput", host)
-        self.assertIn("let effectAdmissionCatalog: SceneEffectAdmissionCatalog", host)
+        self.assertIn("var runtimeInput = model.runtimeInput", host)
+        self.assertIn("runtimeInput = runtimeInput.applyingPreparedImageGeometry(preparedImageGeometry)", host)
+        self.assertIn("let effectAdmissionCatalog = SceneEffectAdmissionCatalog(", host)
         self.assertIn("shaderContracts: runtimeInput.shaderContracts", host)
         self.assertIn(
             "program: runtimeInput.propertyBindingProgram", live_consumers
