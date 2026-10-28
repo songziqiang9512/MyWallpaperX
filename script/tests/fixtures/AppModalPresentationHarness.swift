@@ -100,7 +100,7 @@ import AppKit
         for type in [NSEvent.EventType.leftMouseDown, .leftMouseUp] {
             let event = NSEvent.mouseEvent(with: type, location: point, modifierFlags: [], timestamp: 0,
                 windowNumber: window.windowNumber, context: nil, eventNumber: 1, clickCount: 1, pressure: type == .leftMouseDown ? 1 : 0)!
-            NSApp.postEvent(event, atStart: false)
+            window.sendEvent(event)
         }
         try await Task.sleep(for: .milliseconds(40))
     }
