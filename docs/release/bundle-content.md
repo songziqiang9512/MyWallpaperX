@@ -1,6 +1,6 @@
 # App 内容与体积
 
-正式 App 保留运行代码、依赖、许可证及运行资源；开发现场和编辑器展示素材不进入 App。
+App 只保留运行代码、依赖、许可证与资源，排除开发及编辑器预览素材。
 源仓库中的 Scene 公共资产仍完整保留，不能根据当前样本覆盖率删除可能被作者路径引用的资源。
 
 本批本机 arm64 Release 实测（逻辑文件大小，不重复计符号链接）：
@@ -48,7 +48,7 @@ ZIP 从 31,697,465 bytes 减为 6,918,174 bytes。本机检查了完整视频的
 ## 其他内容
 
 - Help 只随 `MyWallpaperXHelp` bundle 复制一次，避免同步目录再复制一份根目录资源。
-- QuickJS 的开发 README、`.mimosa` 会话和 `.source` 快照不作为资源复制；许可证保留。
+- 不打包 `AGENTS.md`、`CLAUDE.md`、`.DS_Store`、QuickJS README、`.mimosa`、`.source`；保留许可证。
 - SteamService 不复制 PDB；自包含 .NET、SteamKit、动态加载依赖及许可证保留。
   不启用未经验证的 trimming/AOT，也不按当前调用统计删除 DLL。
 - App/dSYM 分开发布，dSYM 是 Release 附件，不塞进 App；Release 本就没有 Debug 注入 dylib。

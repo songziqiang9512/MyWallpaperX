@@ -291,9 +291,9 @@ if args[:2] == ['release', 'edit'] and os.environ.get('FAIL_EDIT') == '1': sys.e
         self.assertEqual(result.returncode, 0, result.stderr)
         commands = self.commands()
         self.assertTrue(commands[0][-1].endswith("Contents/Resources/SteamService/SteamService"))
-        self.assertTrue(commands[-2][-1].endswith("MyWallpaperX.app"))
-        self.assertNotIn("--deep", commands[-2])
-        self.assertIn("--verify", commands[-1])
+        self.assertEqual(commands[-1][-1], str(app.relative_to(self.root)))
+        self.assertIn("--sign", commands[-1])
+        self.assertNotIn("--deep", commands[-1])
         media_target = str(media_observer.relative_to(self.root))
         media_commands = [command for command in commands if command[-1] == media_target]
         self.assertEqual(len(media_commands), 1)
@@ -301,7 +301,7 @@ if args[:2] == ['release', 'edit'] and os.environ.get('FAIL_EDIT') == '1': sys.e
         self.assertIn("--timestamp", media_command)
         self.assertEqual(media_command[media_command.index("--options") + 1], "runtime")
         self.assertEqual(media_command[media_command.index("--sign") + 1], "fixture identity")
-        self.assertLess(commands.index(media_command), len(commands) - 2)
+        self.assertLess(commands.index(media_command), len(commands) - 1)
         downloader = next(command for command in commands if command[-1].endswith("Downloader.xpc"))
         self.assertIn("--preserve-metadata=entitlements", downloader)
 

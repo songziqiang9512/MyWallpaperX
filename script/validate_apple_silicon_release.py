@@ -206,7 +206,8 @@ def validate_resource_hygiene(app: Path) -> None:
         if not bundled.is_file() or bundled.read_bytes() != source.read_bytes():
             raise RuntimeError(f"Project license material is missing or stale: {name}")
     for path in resources.rglob("*"):
-        if (path.name == ".mimosa" or path.suffix in (".source", ".pdb")
+        if (path.name in (".mimosa", ".DS_Store", "AGENTS.md", "CLAUDE.md")
+                or path.suffix in (".source", ".pdb")
                 or (path.name.startswith("sess_") and path.suffix == ".json")):
             raise RuntimeError(f"Development residue in App resources: {path.relative_to(app)}")
     # The Help bundle is the single owner; synced root folders duplicate it.

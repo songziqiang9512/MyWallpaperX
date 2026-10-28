@@ -120,7 +120,7 @@
     {
       "path": "docs/README.md",
       "role": "navigation",
-      "entrypoint": "README.md",
+      "entrypoint": "AGENTS.md",
       "purpose": "按需链接所属专题的事实、合同与路线，不拥有当前能力结论。"
     },
     {
@@ -643,6 +643,13 @@
       "commandPolicy": "reference-only"
     },
     {
+      "path": "docs/releases/2.12.0.md",
+      "role": "reference",
+      "entrypoint": "docs/README.md",
+      "purpose": "2.12.0 用户更新说明，仅记录相对上一正式版本的变化；正式状态以 GitHub Release 为准。",
+      "commandPolicy": "reference-only"
+    },
+    {
       "path": "docs/releases/TEMPLATE.md",
       "role": "reference",
       "entrypoint": "docs/release/release-signing.md",
@@ -652,7 +659,7 @@
     {
       "path": "docs/scene/README.md",
       "role": "navigation",
-      "entrypoint": "README.md",
+      "entrypoint": "docs/README.md",
       "purpose": "按需链接所属专题的事实、合同与路线，不拥有当前能力结论。",
       "lastReviewed": "2026-10-23",
       "reviewBasis": {
@@ -845,7 +852,7 @@
     {
       "path": "docs/scene/capabilities/coverage-ledger.md",
       "role": "current-state",
-      "entrypoint": "README.md",
+      "entrypoint": "docs/README.md",
       "purpose": "限定专题的实现状态、偏差或证据；运行结论须复核身份和边界，不决定任务顺序。",
       "lastReviewed": "2026-10-26",
       "reviewBasis": {
@@ -4423,7 +4430,7 @@
     {
       "path": "docs/web/current-state.md",
       "role": "current-state",
-      "entrypoint": "README.md",
+      "entrypoint": "docs/README.md",
       "purpose": "限定专题的实现状态、偏差或证据；运行结论须复核身份和边界，不决定任务顺序。",
       "lastReviewed": "2026-10-27",
       "reviewBasis": {
