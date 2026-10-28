@@ -42,16 +42,29 @@ nonisolated enum SceneScriptOwnerEffectsRuntimeValidation {
             } else if puppetCommandCount > 64 {
                 reason = "frame Puppet animation command budget exceeded"
             } else if let puppetAnimationRuntime {
-                if let source = ScenePuppetAnimationPropertyTarget.source(for: owner.ownerTarget) {
-                    switch puppetAnimationRuntime.validate(
-                        owner.puppetAnimationCommands, sourceLayerID: source.layerID,
-                        sourceAnimationLayerID: source.animationLayerID, frameIndex: timing.frameIndex
-                    ) {
+                let requiresSource = owner.puppetAnimationCallbackRegistrations != 0
+                    || owner.puppetAnimationCommands.contains {
+                        if case .setVisible = $0.action { return true }
+                        return false
+                    }
+                let validation: Result<Void, ScenePuppetAnimationPlaybackRuntime.Failure>?
+                if requiresSource {
+                    validation = ScenePuppetAnimationPropertyTarget.source(for: owner.ownerTarget).map { source in
+                        puppetAnimationRuntime.validate(owner.puppetAnimationCommands,
+                            sourceLayerID: source.layerID, sourceAnimationLayerID: source.animationLayerID,
+                            frameIndex: timing.frameIndex)
+                    }
+                } else {
+                    validation = puppetAnimationRuntime.validate(owner.puppetAnimationCommands,
+                        frameIndex: timing.frameIndex)
+                }
+                if let validation {
+                    switch validation {
                     case .success: reason = nil
                     case let .failure(failure): reason = String(describing: failure)
                     }
                 } else {
-                    reason = "Puppet animation controls require a prepared nested owner"
+                    reason = "Puppet visibility and ended callbacks require a prepared nested owner"
                 }
             } else { reason = "Puppet animation runtime unavailable" }
             if let reason {

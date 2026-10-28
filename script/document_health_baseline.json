@@ -150,7 +150,7 @@
     },
     "docs/scene/capabilities/runtime-evidence-current.md": {
       "lines": 600,
-      "bytes": 219394
+      "bytes": 219643
     },
     "docs/scene/capabilities/runtime-input-property-coverage.md": {
       "lines": 600,
@@ -182,7 +182,7 @@
     },
     "docs/scene/capabilities/scenescript-api-coverage.md": {
       "lines": 419,
-      "bytes": 116016
+      "bytes": 116094
     },
     "docs/scene/capabilities/static-source-draw-only-degradation.md": {
       "lines": 54,
@@ -250,7 +250,7 @@
     },
     "docs/scene/roadmap/batch2/script-component-api-design.md": {
       "lines": 600,
-      "bytes": 167621
+      "bytes": 167651
     },
     "docs/scene/roadmap/batch2/system-media-input-design.md": {
       "lines": 59,
@@ -277,8 +277,8 @@
       "bytes": 22423
     },
     "docs/scene/roadmap/scene-open-breakpoint-queue.md": {
-      "lines": 172,
-      "bytes": 35053
+      "lines": 171,
+      "bytes": 34683
     },
     "docs/web/cold-descriptor-parse-offload-design.md": {
       "lines": 30,
@@ -1674,27 +1674,9 @@
     },
     {
       "section": "bodies",
-      "path": "docs/scene/capabilities/scenescript-api-coverage.md",
-      "before": "1b85a7198d0a2ee73fd1ac02073ec9cc955a84968d1bebfb9d0a8b070ccc96e9",
-      "after": "c6758bae857478d86c341069a9d30d5f311d5179bae3d1e20d649322f77815f9",
-      "owner": "Scene bounded Puppet impulse closeout",
-      "reason": "原journal typed线性冲量和当前世界Motion获得两包三轮实证；实际318累计形变反例要求一次prepared不可用标记/消费处失败，保其未修状态。替换旧描述并仅登记剩余研究，不另建状态表；D4保持600行。",
-      "decision": "docs/scene/history/puppet-linear-impulse-2026-10-28.md"
-    },
-    {
-      "section": "bodies",
       "path": "docs/scene/capabilities/advanced-object-coverage.md",
       "before": "d36707b19940004cd8edfe7893b5daa3897abf10edfd52ee8e13b00574f660b8",
       "after": "2a0e40d16faeda9de8eee159c8b0f5b71b3492e007682c84839556a515a0dedd",
-      "owner": "Scene bounded Puppet impulse closeout",
-      "reason": "原journal typed线性冲量和当前世界Motion获得两包三轮实证；实际318累计形变反例要求一次prepared不可用标记/消费处失败，保其未修状态。替换旧描述并仅登记剩余研究，不另建状态表；D4保持600行。",
-      "decision": "docs/scene/history/puppet-linear-impulse-2026-10-28.md"
-    },
-    {
-      "section": "bodies",
-      "path": "docs/scene/roadmap/batch2/script-component-api-design.md",
-      "before": "d8274332b1c3018f3bd2371cee810bfb5d0bbcddb2e0072475355291eda56da4",
-      "after": "f0f26b21283e72ec0ee5e0da7bc2b989798454cf23d46d405f16b21dec83b9ab",
       "owner": "Scene bounded Puppet impulse closeout",
       "reason": "原journal typed线性冲量和当前世界Motion获得两包三轮实证；实际318累计形变反例要求一次prepared不可用标记/消费处失败，保其未修状态。替换旧描述并仅登记剩余研究，不另建状态表；D4保持600行。",
       "decision": "docs/scene/history/puppet-linear-impulse-2026-10-28.md"
@@ -1746,24 +1728,6 @@
     },
     {
       "section": "bodies",
-      "path": "docs/scene/capabilities/runtime-evidence-current.md",
-      "before": "b450055f8bfbddb5fa0f3dd510714735835562b6caedfc8cb7a6e6bdff4af2d9",
-      "after": "a540ee47bfb89fbe1ec7ed5924d769ba1b5d26f6282dc8f065325d58358aa126",
-      "owner": "Scene particle audio",
-      "reason": "删除错误缺省推断，补固定官方三臂与原包烟团后验入口；当前队列只保颜色余项，不追加重复执行清单。",
-      "decision": "docs/scene/history/open-breakpoint-reconciliation-2026-10-23.md#particle-audio-mode-default-20261028"
-    },
-    {
-      "section": "bodies",
-      "path": "docs/scene/roadmap/scene-open-breakpoint-queue.md",
-      "before": "49c590f7f80e2730fa600fc32af27d4f89acdabe232ec62a692229f948138920",
-      "after": "60a608d6d5ad226936eca725fec31e1e336ba6d3ba31c474c78afd19e22365f0",
-      "owner": "Scene particle audio",
-      "reason": "删除错误缺省推断，补固定官方三臂与原包烟团后验入口；当前队列只保颜色余项，不追加重复执行清单。",
-      "decision": "docs/scene/history/open-breakpoint-reconciliation-2026-10-23.md#particle-audio-mode-default-20261028"
-    },
-    {
-      "section": "bodies",
       "path": "docs/development/ui-quality-audit.md",
       "before": "b48694887e37a94728fff87bed9454f352ee3e32d4b6431f793de087763ba1ec",
       "after": "2c188a70ae3ca836e287520c62ce60db31c88fd92fb95e541de173fb25ce9957",
@@ -1779,6 +1743,42 @@
       "owner": "manual-random-20261028",
       "reason": "按用户明确反馈统一菜单栏与快捷键的随机历史语义，替换旧按入口强制相邻的冲突规则。",
       "decision": "docs/development/ui-quality-audit.md#playback-feedback-20261028"
+    },
+    {
+      "section": "bodies",
+      "path": "docs/scene/roadmap/batch2/script-component-api-design.md",
+      "before": "f0f26b21283e72ec0ee5e0da7bc2b989798454cf23d46d405f16b21dec83b9ab",
+      "after": "470246cbedd3b47138bdca512c593f683c5d7887e8bfdb11eb18e349f7c4fe5b",
+      "owner": "Scene cross-layer animation seek closeout",
+      "reason": "在既有唯一合同替换同parent限制和普通seek未实现旧状态；288五定位/hidden准备已实证，移除已闭队列子项，保相机与其他未验边界。",
+      "decision": "docs/scene/history/open-breakpoint-reconciliation-2026-10-23.md#cross-layer-animation-seek-20261028"
+    },
+    {
+      "section": "bodies",
+      "path": "docs/scene/capabilities/runtime-evidence-current.md",
+      "before": "a540ee47bfb89fbe1ec7ed5924d769ba1b5d26f6282dc8f065325d58358aa126",
+      "after": "9f75f4a22c22dd703d966b00d4859c7b005214e958b0d13a498b6790fee418c2",
+      "owner": "Scene cross-layer animation seek closeout",
+      "reason": "在既有唯一合同替换同parent限制和普通seek未实现旧状态；288五定位/hidden准备已实证，移除已闭队列子项，保相机与其他未验边界。",
+      "decision": "docs/scene/history/open-breakpoint-reconciliation-2026-10-23.md#cross-layer-animation-seek-20261028"
+    },
+    {
+      "section": "bodies",
+      "path": "docs/scene/capabilities/scenescript-api-coverage.md",
+      "before": "c6758bae857478d86c341069a9d30d5f311d5179bae3d1e20d649322f77815f9",
+      "after": "54831b50fa8cfbf86f4c4f2079bad20bb24a541102b4c986507128a71d0fdc21",
+      "owner": "Scene cross-layer animation seek closeout",
+      "reason": "在既有唯一合同替换同parent限制和普通seek未实现旧状态；288五定位/hidden准备已实证，移除已闭队列子项，保相机与其他未验边界。",
+      "decision": "docs/scene/history/open-breakpoint-reconciliation-2026-10-23.md#cross-layer-animation-seek-20261028"
+    },
+    {
+      "section": "bodies",
+      "path": "docs/scene/roadmap/scene-open-breakpoint-queue.md",
+      "before": "60a608d6d5ad226936eca725fec31e1e336ba6d3ba31c474c78afd19e22365f0",
+      "after": "5fbcf9f1e6b0ebd97a0c3db9426d540adeb6b53039175a21a6a0411558f1d3c6",
+      "owner": "Scene cross-layer animation seek closeout",
+      "reason": "在既有唯一合同替换同parent限制和普通seek未实现旧状态；288五定位/hidden准备已实证，移除已闭队列子项，保相机与其他未验边界。",
+      "decision": "docs/scene/history/open-breakpoint-reconciliation-2026-10-23.md#cross-layer-animation-seek-20261028"
     }
   ]
 }

@@ -77,6 +77,69 @@ func selectionResult(
     }
 }
 
+func optionalResourceChecks(mesh: SceneMdlPuppetMesh, rig: SceneMdlPuppetRig,
+                            good: SceneMdlPuppetAnimation) throws -> [String: Bool] {
+    func copy(_ id: Int, alpha: Bool = false, reference: Bool = false,
+              auxiliary: Bool = false) -> SceneMdlPuppetAnimation {
+        .init(id: id, name: "resource-\(id)", mode: good.mode,
+            framesPerSecond: good.framesPerSecond, frameCount: good.frameCount,
+            transformsByBone: good.transformsByBone,
+            transformTrackStates: reference ? Array(repeating: .referenceCandidate,
+                count: good.transformsByBone.count) : nil,
+            alphaByBone: alpha ? good.transformsByBone.map { $0.map { _ in Float(0.5) } } : nil,
+            hasAuxiliaryScalarTrack: auxiliary)
+    }
+    let broken = SceneMdlPuppetAnimation(id: 404, name: "bad-optional", mode: "loop",
+        framesPerSecond: 30, frameCount: 1, transformsByBone: [])
+    let evaluator = try ScenePuppetAnimationEvaluator(mesh: mesh, rig: rig,
+        additiveAnimations: [good, broken], optionalAnimationIDs: [404])
+    let point = try evaluator.deformedPositions(selection: .init(
+        clips: [.init(layer: layer(), animation: good)], composition: .singleAbsolute),
+        frameSamples: [.init(frameA: 1, frameB: 1)])[0]
+    var requiredRejected = false, duplicateRejected = false
+    do { _ = try ScenePuppetAnimationEvaluator(mesh: mesh, rig: rig, additiveAnimations: [good, broken]) }
+    catch { requiredRejected = true }
+    do { _ = try ScenePuppetAnimationEvaluator(mesh: mesh, rig: rig,
+        additiveAnimations: [broken, copy(404)], optionalAnimationIDs: [404]) }
+    catch ScenePuppetAnimationEvaluationFailure.duplicateAdditiveAnimation(404) { duplicateRejected = true }
+    let peer = copy(200), alpha = copy(201, alpha: true), reference = copy(202, reference: true)
+    let auxiliary = copy(203, auxiliary: true)
+    var scripted = layer(id: 21, animationID: 200, visible: false)
+    scripted.hasVisibilityScript = true
+    let staticAlpha = layer(id: 22, animationID: 201, visible: false)
+    let staticReference = layer(id: 23, animationID: 202, visible: false)
+    let staticAuxiliary = layer(id: 24, animationID: 203, visible: false)
+    func ids(_ layers: [ScenePuppetAnimationLayer], _ animations: [SceneMdlPuppetAnimation],
+             include: Bool = true) throws -> [Int] {
+        try ScenePuppetAnimationSelector.select(layers: layers,
+            animationSet: .init(boneCount: rig.bones.count, animations: animations),
+            includeStaticHidden: include).get()?.clips.compactMap { $0.layer.id } ?? []
+    }
+    let oldAlpha = copy(200, alpha: true)
+    var priority = true
+    for order in [[staticAlpha, scripted, layer()], [layer(), scripted, staticAlpha]] {
+        let result = try ids(order, [good, oldAlpha, alpha])
+        priority = priority && result.contains(21) && !result.contains(22)
+    }
+    for order in [[staticReference, scripted, layer()], [layer(), scripted, staticReference]] {
+        let result = try ids(order, [good, peer, reference])
+        priority = priority && result.contains(21) && !result.contains(23)
+    }
+    let shared = [layer(id: 31, visible: false), layer(id: 32, visible: false)]
+    let retained = try ids(shared, [good])
+    let direct = try ScenePuppetAnimationSelector.select(layers: [layer(), staticAlpha, staticAuxiliary],
+        animationSet: .init(boneCount: rig.bones.count, animations: [good, alpha, auxiliary])).get()
+    return ["optionalFailureLocal": evaluator.hasPreparedAnimation(animationID: good.id)
+                && !evaluator.hasPreparedAnimation(animationID: 404) && point.x == 5,
+            "requiredFailureRetained": requiredRejected, "duplicateSourceRejected": duplicateRejected,
+            "staticSlotsRetained": retained == [31, 32],
+            "directDefaultUnchanged": direct?.clips.map { $0.animation.id } == [good.id]
+                && direct?.clips.allSatisfy(\.supportsDirectModelChannels) == true,
+            "newAuxiliaryUnavailable": try ids([layer(), staticAuxiliary], [good, auxiliary]) == [10],
+            "oldScriptPriority": priority,
+            "defaultHiddenUnchanged": try ids(shared, [good], include: false).isEmpty]
+}
+
 @main
 enum Harness {
     static func main() throws {
@@ -354,6 +417,7 @@ enum Harness {
             visibilityBinding: nil
         )
         let payload: [String: Any] = [
+            "optionalResources": try optionalResourceChecks(mesh: mesh, rig: rig, good: animation),
             "selection": selectionResult([layer()], set: set),
             "inactive": selectionResult([layer(visible: false)], set: set),
             "mixed": selectionResult([
@@ -493,6 +557,11 @@ class ScenePuppetPlaybackTests(unittest.TestCase):
             "selected:single-absolute:100",
         )
         self.assertIn("absent from the version-matched MDLA block", self.result["unknown"])
+
+    def test_optional_static_resources_keep_old_consumers_and_local_failures(self) -> None:
+        for name, passed in self.result["optionalResources"].items():
+            with self.subTest(check=name):
+                self.assertTrue(passed)
 
     def test_source_fps_sampling_preserves_intervals_and_interpolation(self) -> None:
         self.assertEqual(self.result["frameIndices"], [0, 1, 0])

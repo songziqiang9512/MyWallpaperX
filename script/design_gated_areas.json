@@ -1586,6 +1586,32 @@
         "MyWallpaperX/Core/SteamWorkshopScene/Systems/Particles/SceneParticleAudioResponsePlan.swift"
       ],
       "contentPatterns": []
+    },
+    {
+      "id": "scene-cross-layer-animation-seek",
+      "status": "approved",
+      "owner": "Existing layer handles, animation journals and shared playback runtimes",
+      "designDoc": "docs/scene/roadmap/batch2/script-component-api-design.md",
+      "design_notes": "2026-10-28: receiver and caller identities stay separate; prepared Puppet targets plus ordinary Timeline frame payload use original owner transaction and playback state. No new owner/clock, hidden enablement, scene scan or sample dispatch. Real render acceptance remains pending.",
+      "matchPatterns": [
+        "MyWallpaperX/Core/SteamWorkshopScene/Systems/Script/SceneQuickJSPuppetAnimationHost.c",
+        "MyWallpaperX/Core/SteamWorkshopScene/Systems/Script/SceneQuickJSLayerHandleHost.c",
+        "MyWallpaperX/Core/SteamWorkshopScene/Systems/Script/SceneQuickJSAnimationHost.c",
+        "MyWallpaperX/Core/SteamWorkshopScene/Systems/Script/SceneQuickJSHostTypes.h",
+        "MyWallpaperX/Core/SteamWorkshopScene/Systems/Script/SceneQuickJSInternal.h",
+        "MyWallpaperX/Core/SteamWorkshopScene/Systems/Script/SceneQuickJS.h",
+        "MyWallpaperX/Core/SteamWorkshopScene/Systems/Script/SceneScriptAnimationHandleBridge.swift",
+        "MyWallpaperX/Core/SteamWorkshopScene/Systems/Script/SceneScriptOwnerEffectsRuntimeValidation.swift",
+        "MyWallpaperX/Core/SteamWorkshopScene/Systems/Puppet/ScenePuppetAnimationPlaybackRuntime.swift",
+        "MyWallpaperX/Core/SteamWorkshopScene/Systems/Timeline/SceneTimelinePlaybackRuntime.swift",
+        "MyWallpaperX/Core/SteamWorkshopScene/Systems/Script/SceneQuickJS.c",
+        "MyWallpaperX/Core/SteamWorkshopScene/Systems/Script/SceneScriptPuppetAnimationBridge.swift",
+        "MyWallpaperX/Core/SteamWorkshopScene/Systems/Puppet/ScenePuppetAnimationSelection.swift",
+        "MyWallpaperX/Core/SteamWorkshopScene/Systems/Puppet/ScenePuppetAnimationEvaluator.swift",
+        "MyWallpaperX/Core/SteamWorkshopScene/Systems/Puppet/ScenePuppetLayerLoad.swift"
+      ],
+      "title": "Prepared cross-layer animation controls and Timeline seeking",
+      "contentPatterns": []
     }
   ]
 }

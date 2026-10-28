@@ -29,9 +29,10 @@ struct SceneDynamicSnapshot {
     subscript(target: SceneDynamicTarget) -> SceneDynamicResolvedValue? { values[target] }
 }
 struct SceneScriptPuppetBoneMutation {
+    enum Operation { case matrix([Double]), impulse(SIMD3<Double>) }
     let layerID: Int
     let boneIndex: Int
-    let matrix: [Double]
+    let operation: Operation
 }
 
 private func sourceLayer(_ id: Int, mesh: String, animated: Bool = false,
@@ -196,6 +197,99 @@ private enum ScenePuppetPreparationCases {
         return checks
     }
 
+    private static func optionalHiddenChecks(
+        _ preparation: ScenePuppetLayerLoad.AssetPreparation
+    ) throws -> [String: Any] {
+        guard case let .ready(base) = preparation,
+              let set = try base.animationSet?.get(), let good = set.animations.first else {
+            throw ProbeStop.stopped
+        }
+        let bad = SceneMdlPuppetAnimation(id: 202, name: "broken-optional", mode: "loop",
+            framesPerSecond: 1, frameCount: 1, transformsByBone: [])
+        let alpha = SceneMdlPuppetAnimation(id: 203, name: "hidden-alpha", mode: good.mode,
+            framesPerSecond: good.framesPerSecond, frameCount: good.frameCount,
+            transformsByBone: good.transformsByBone,
+            alphaByBone: good.transformsByBone.map { $0.map { _ in Float(0.25) } })
+        let auxiliary = SceneMdlPuppetAnimation(id: 204, name: "hidden-scalar", mode: good.mode,
+            framesPerSecond: good.framesPerSecond, frameCount: good.frameCount,
+            transformsByBone: good.transformsByBone, hasAuxiliaryScalarTrack: true)
+        let prepared = ScenePuppetLayerLoad.AssetPreparation.ready(.init(
+            meshPath: base.meshPath, mesh: base.mesh, attachments: base.attachments,
+            rig: base.rig, animationSet: .success(.init(boneCount: set.boneCount,
+                animations: [good, bad, alpha, auxiliary])),
+            referenceEvaluator: base.referenceEvaluator, initialBones: base.initialBones))
+        func slot(_ id: Int, resource: Int = 101, visible: Bool = false,
+                  script: Bool = false) -> ScenePuppetAnimationLayer {
+            .init(id: id, animationID: resource, name: "slot-\(id)", additive: false,
+                blend: 1, blendIn: false, blendOut: false, blendTime: 0, rate: 1,
+                visible: visible, visibilityBinding: nil, hasVisibilityScript: script)
+        }
+        func layer(_ clips: [ScenePuppetAnimationLayer]) -> SceneRenderDescriptor.Layer {
+            .init(id: 71, puppetMeshPath: base.meshPath, puppetAnimationLayers: clips,
+                hasInlineScript: false)
+        }
+        let active = slot(10, visible: true), broken = slot(6, resource: 202)
+        let authored = [broken, slot(7, script: true), slot(8), slot(9, resource: 203)]
+        let hiddenLayer = layer(authored)
+        guard let pose = ScenePuppetLayerLoad.preparePose(for: hiddenLayer, asset: prepared),
+              case let .evaluated(_, selection, evaluator, _, _) = pose.geometry else {
+            throw ProbeStop.stopped
+        }
+        let runtime = ScenePuppetAnimationPlaybackRuntime()
+        try runtime.register(layerID: 71, selection: selection, authoredLayers: authored).get()
+        let first = runtime.advance(frameIndex: 0, sceneTime: 0,
+            dynamicValues: .init(frameIndex: 0, values: [:]))
+        let identity = first.animationSnapshots[0].identity
+        try runtime.apply([.init(identity: identity, action: .setFrame(0.5),
+            callbackEpoch: 1, ordinal: 0)], frameIndex: 0).get()
+        let frame = runtime.advance(frameIndex: 1, sceneTime: 1,
+            dynamicValues: .init(frameIndex: 1, values: [:]))
+        let samples = frame[71]!.samples
+        let neutral = try evaluator.boneTransforms(selection: selection, frameSamples: samples)
+        var coverage = [Float](repeating: 0, count: base.mesh.vertices.count)
+        var scratch = [Float](repeating: 0, count: set.boneCount)
+        try evaluator.writeVertexCoverages(selection: selection, frameSamples: samples,
+            into: &coverage, boneScratch: &scratch)
+        let positions = try evaluator.deformedPositions(selection: selection, frameSamples: samples)
+        func neutralGeometry(_ pose: ScenePuppetLayerLoad.PreparedPose?) throws -> [String: Any] {
+            guard let pose else { throw ProbeStop.stopped }
+            var description = try describe(pose)
+            var points = base.mesh.vertices.map { SIMD2($0.x, $0.y) }
+            var alpha = [Float](repeating: 1, count: base.mesh.vertices.count)
+            if case let .evaluated(_, clips, evaluator, _, _) = pose.geometry {
+                let samples = [ScenePuppetAnimationEvaluator.FrameSample?](
+                    repeating: nil, count: clips.clips.count)
+                points = try evaluator.deformedPositions(selection: clips, frameSamples: samples)
+                try evaluator.writeVertexCoverages(selection: clips, frameSamples: samples,
+                    into: &alpha, boneScratch: &scratch)
+            }
+            description["points"] = points.map { [$0.x, $0.y] }
+            description["coverage"] = alpha
+            return description
+        }
+        let defaultGeometry = try neutralGeometry(ScenePuppetLayerLoad.preparePose(for: hiddenLayer,
+            asset: prepared, usesDefaultConfiguration: true))
+        return ["activeWithBadOptional": try describe(ScenePuppetLayerLoad.preparePose(
+                    for: layer([active, broken]), asset: prepared)),
+            "badRequired": try describe(ScenePuppetLayerLoad.preparePose(
+                    for: layer([active, slot(6, resource: 202, visible: true)]), asset: prepared)),
+            "badOnly": try neutralGeometry(ScenePuppetLayerLoad.preparePose(
+                    for: layer([broken]), asset: prepared)),
+            "auxiliaryWithActive": try describe(ScenePuppetLayerLoad.preparePose(
+                    for: layer([active, slot(11, resource: 204)]), asset: prepared)),
+            "default": defaultGeometry,
+            "points": positions.map { [$0.x, $0.y] },
+            "defaultPoints": defaultGeometry["points"]!,
+            "defaultCoverage": defaultGeometry["coverage"]!,
+            "animationIDs": frame.animationSnapshots.map(\.animationID),
+            "slotIDs": frame.animationSnapshots.compactMap { $0.identity.animationLayerID },
+            "slotIndices": frame.animationSnapshots.map { $0.identity.animationLayerIndex },
+            "visible": frame.animationSnapshots.map(\.visible),
+            "currentFrames": frame.animationSnapshots.map(\.currentFrame),
+            "nilSamples": samples.allSatisfy { $0 == nil },
+            "neutralRootX": neutral.local[0].columns.3.x, "coverage": coverage]
+    }
+
     static func main() throws {
         let root = URL(fileURLWithPath: CommandLine.arguments[1], isDirectory: true)
         let resourceView = SceneResourceView(projectRootURL: root, packageRootURL: nil, stockAssetsRootURL: nil)
@@ -204,6 +298,8 @@ private enum ScenePuppetPreparationCases {
                 resourceView: resourceView, needsAnimations: animations)
         }
         var output: [String: Any] = [:]
+        output["optional-hidden"] = try optionalHiddenChecks(asset("shared.mdl"))
+        output["optional-hidden-bind"] = try optionalHiddenChecks(asset("bind.mdl"))
         var orders: [String: Any] = [:]
         for (label, path, reversed) in [("plain-first", "shared.mdl", false),
                                         ("animated-first", "shared.mdl", true),

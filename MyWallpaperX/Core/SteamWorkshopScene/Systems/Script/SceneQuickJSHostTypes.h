@@ -185,7 +185,8 @@ typedef struct MWXSceneQuickJSPuppetBoneMutation {
 typedef enum MWXSceneQuickJSAnimationCommand {
     MWX_SCENE_QUICKJS_ANIMATION_PLAY = 1,
     MWX_SCENE_QUICKJS_ANIMATION_PAUSE = 2,
-    MWX_SCENE_QUICKJS_ANIMATION_STOP = 3
+    MWX_SCENE_QUICKJS_ANIMATION_STOP = 3,
+    MWX_SCENE_QUICKJS_ANIMATION_SET_FRAME = 4
 } MWXSceneQuickJSAnimationCommand;
 
 typedef enum MWXSceneQuickJSMediaPlaybackCommandKind {

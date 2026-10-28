@@ -126,3 +126,18 @@
 **仍开放**：原302候选烟团偏红，官方定点烟为灰褐，出生恢复不等于水墨颜色已对齐。后继独立颜色载体PLAIN和RGB1见明亮烟团，但RGB255请求未确认标签切换，自动输入也返回`noWindowsAvailable`，本次单位假设保持UNKNOWN；不据此除255、调gain/混合或修改ColorChange。显式音频child emitter、FFT响应幅度、更多颜色/继承/材质组合、HDR/多屏及完整样本均未验。定向包内普查378包/1014 particle JSON见19样本29条无mode辅助残值，只说明声明覆盖，不宣称29处可见恢复，也不刷新全样本裁决。
 
 正式证据：主仓`.artifacts/scene-evidence/runs/particle-audio-mode-default-20261028-{302,control}/`，保修前/修后必要原图、官方三臂与未完整颜色试验、输入/App/源补丁、最近门、构建和审查摘要；普通14天、单包32MiB/总5GiB。只关闭缺省mode错误启用所致的整拒子问题，颜色继续留在唯一队列。运行副本/临时HOME及不再使用的App/重试产物提取后清理，连续迭代仅保一份缓存与当前App。
+
+<a id="cross-layer-animation-seek-20261028"></a>
+## 2026-10-28 普通 owner 跨层动画定位
+
+**问题与结果。** 2887099508 的395.visibility在init定位其他layer的已准备Puppet动画，旧普通layer handle缺getAnimationLayer；修首方法后仍缺普通Timeline.setFrame，任一throw会撤回整包。现沿原LayerAccessHandle→同domain catalog/journal→typed owner effects→原Puppet/Timeline Runtime接通，删除caller必须是nested及source/target同parent的耦合；没有第二owner/clock/cache。visible写入和ended注册仍只允许exact nested self。普通Timeline seek保小数、playing/paused和group共享位置；采样边界沿原sampler，有限越界未称官方parity。
+
+**真实准备首错。** API-only候选App SHA `561251f8e86a00c4ddadcf036d2afec450705eb6f8607f397c071bbc9fca7c12`仍出现395 RangeError：四个目标默认hidden，旧Selector未留下可寻址槽。现仅Puppet LayerLoad显式保留可用static-hidden槽；DirectModel默认不扩。槽保持authored index/id和visible=false，资源按MDLA ID准备一次，坏optional只失去该槽；坏required保原失败。新增静态槽不挤走既有visible/bound/scripted的alpha/reference组合；未知aux scalar仍未开放。独审发现全optional失败误退bind，已用真实reference顶点反例修正为复用原已准备reference，无重复prepare。
+
+**固定输入与最终消费者。** 基线工作区a4cf10c4c，UI并行19aabeb42为不重叠提交；最终Debug由19aabeb42加本批15产品文件构建，签名校验及编译前后产品输入无漂移，App SHA `1d07c360e5df2337416beb64346ad5e72664fb314c45b55e87964ec14fd3063f`。288原包只读复制、默认属性、零FFT、中心hover，12秒窗口：395无异常/整包拒绝；309/index0/id443/clip422、325/index3/id532/clip505、175/index1/id408/clip672、162/index1/id412/clip508均从0到29，后续保持29且visible=false。blush22实际target为313/effect1/pass0/amount，原日志elapsedFrames=29/value=0.0015266175703933247，进入generic effect consumer。主画面人物、腿、书本、背景保持，未自动显示隐藏动作；265相机TypeError仍明确在队列，不能称288整景已修。
+
+**反例与独立样本。** 既有真实C/ABI/Swift门覆盖普通caller与接收层分域、name/index/改名/等价表达、无nested/最后nested退休后的catalog、borrowed/value-only/stale/pending retirement、exact-self可见/ended；普通Timeline含小数、paused/playing、group及当前/命名句柄。真实fixed-point门将四Puppet与一个effect Timeline、layer mutation放同init：晚C throw或Swift拒绝整owner撤回，健康peer保留，失败可重试、成功不重放。31项publication/init、29项Puppet Runtime及named Timeline/native+ASan门通过；最终隐藏准备三最近门32项通过，badOnly/reference与bind均比较实际顶点和coverage。首轮fixture形状/旧DTO漂移、命令参数命名和签名style失败均保留日志，非引擎结果。独审一次全范围及P2定点复核GO。
+
+未参与修法原3351179520在同最终App/默认/零FFT运行8秒，Root实看人物、纸片、Wallpaper Engine文字与蓝背景合成保持，无VM failure；两包exit0、surface1→0、GPU drained。288目录无官方“截屏”图，不冒称官方同相位、所有动作/HDR/多屏/性能通过；本批只关闭跨层初始化子项，未改全样本verdict或样本分母。原包的其余拒绝仍按真实可见consumer选择，不以日志数认缺画面。
+
+**证据与清理。** `.artifacts/scene-evidence/runs/cross-layer-animation-seek-20261028/`保必要前后图、原始日志、App/产品输入身份、测试/构建及独审摘要；普通14天、单包32MiB。临时样本/HOME/App及重试载体在提取后删除；连续后继只保一份任务构建缓存，路径见本批收尾。无新增官方VM实验，未改变官方客户端或真实媒体。

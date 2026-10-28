@@ -59,17 +59,20 @@ nonisolated struct ScenePuppetAnimationEvaluator {
     init(
         mesh: SceneMdlPuppetMesh,
         rig: SceneMdlPuppetRig,
-        additiveAnimations: [SceneMdlPuppetAnimation] = []
+        additiveAnimations: [SceneMdlPuppetAnimation] = [],
+        optionalAnimationIDs: Set<Int> = []
     ) throws {
         try self.init(bindPositions: mesh.vertices.map { SIMD3($0.x, $0.y, $0.z) },
-                      rig: rig, additiveAnimations: additiveAnimations)
+                      rig: rig, additiveAnimations: additiveAnimations,
+                      optionalAnimationIDs: optionalAnimationIDs)
     }
 
     /// Direct models supply their validated XYZ channel without an image mesh.
     init(
         bindPositions: [SIMD3<Float>],
         rig: SceneMdlPuppetRig,
-        additiveAnimations: [SceneMdlPuppetAnimation] = []
+        additiveAnimations: [SceneMdlPuppetAnimation] = [],
+        optionalAnimationIDs: Set<Int> = []
     ) throws {
         guard bindPositions.count == rig.vertexWeights.count else {
             throw ScenePuppetAnimationEvaluationFailure.boneCountMismatch
@@ -170,11 +173,16 @@ nonisolated struct ScenePuppetAnimationEvaluator {
         preparedVertices = vertexData
 
         var preparedAnimations: [Int: PreparedAnimation] = [:]
+        var sourceIDs: Set<Int> = []
         for animation in additiveAnimations {
-            guard preparedAnimations[animation.id] == nil else {
+            guard sourceIDs.insert(animation.id).inserted else {
                 throw ScenePuppetAnimationEvaluationFailure.duplicateAdditiveAnimation(animation.id)
             }
-            preparedAnimations[animation.id] = try Self.prepare(animation: animation, rig: rig)
+            do {
+                preparedAnimations[animation.id] = try Self.prepare(animation: animation, rig: rig)
+            } catch {
+                if !optionalAnimationIDs.contains(animation.id) { throw error }
+            }
         }
         preparedAnimationsByID = preparedAnimations
     }
@@ -193,6 +201,10 @@ nonisolated struct ScenePuppetAnimationEvaluator {
 
     func hasAlphaContribution(animationID: Int) -> Bool {
         preparedAnimationsByID[animationID]?.hasAlphaContribution == true
+    }
+
+    func hasPreparedAnimation(animationID: Int) -> Bool {
+        preparedAnimationsByID[animationID] != nil
     }
 
     /// MDLA alpha is already expressed per bone; applying parent opacity again

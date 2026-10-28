@@ -213,10 +213,11 @@ struct SceneScriptMaterialFunctionMutation: Equatable, Sendable {
     let functionName: String
 }
 
-enum SceneTimelinePlaybackCommand: String, Equatable, Sendable {
+enum SceneTimelinePlaybackCommand: Equatable, Sendable {
     case play
     case pause
     case stop
+    case setFrame(Double)
 }
 
 struct SceneTimelinePlaybackMutation: Equatable, Sendable {

@@ -219,6 +219,34 @@ class ScenePuppetPreparationTests(unittest.TestCase):
             self.assertEqual(row["default"]["animationIDs"], [], row)
             self.assertEqual(row["default"]["neutralRootX"], 20, row)
 
+    def test_optional_hidden_preparation_keeps_slots_without_enabling_pose(self) -> None:
+        for key, default_kind, root_x in (("optional-hidden", "reference", 20),
+                                         ("optional-hidden-bind", "bind", 4)):
+            row = self.result[key]
+            with self.subTest(default=default_kind):
+                for active in ("activeWithBadOptional", "auxiliaryWithActive"):
+                    self.assertEqual(row[active]["kind"], "animation", row)
+                    self.assertEqual(row[active]["animationIDs"], [101], row)
+                    self.assertEqual(row[active]["sampledRootX"], 30, row)
+                self.assertEqual(row["badRequired"]["kind"], "bind", row)
+                self.assertIn("bone counts", row["badRequired"]["fallback"], row)
+                self.assertEqual(row["badOnly"]["points"], row["defaultPoints"], row)
+                self.assertEqual(row["badOnly"]["coverage"], row["defaultCoverage"], row)
+                self.assertEqual(row["badOnly"]["kind"], default_kind, row)
+                self.assertIn("no prepared layer", row["badOnly"]["fallback"], row)
+                self.assertEqual(row["animationIDs"], [101, 101, 203], row)
+                self.assertEqual(row["slotIDs"], [7, 8, 9], row)
+                self.assertEqual(row["slotIndices"], [1, 2, 3], row)
+                self.assertEqual(row["visible"], [False, False, False], row)
+                self.assertEqual(row["currentFrames"], [0.5, 0, 0], row)
+                self.assertTrue(row["nilSamples"], row)
+                self.assertEqual(row["neutralRootX"], root_x, row)
+                self.assertEqual(row["points"], row["defaultPoints"], row)
+                self.assertEqual(row["coverage"], row["defaultCoverage"], row)
+                self.assertEqual(row["coverage"], [1, 1, 1], row)
+                self.assertEqual(row["default"]["kind"], default_kind, row)
+                self.assertEqual(row["default"]["animationIDs"], [], row)
+
     def test_resource_reads_select_authored_vfs_and_keep_selected_failures(self) -> None:
         for name, passed in self.result["resource-read-checks"].items():
             with self.subTest(name=name):

@@ -1282,6 +1282,7 @@ void mwx_scene_quickjs_domain_destroy(MWXSceneQuickJSDomain *domain) {
     mwx_scene_quickjs_domain_abort_layer_snapshot(domain);
     mwx_scene_quickjs_domain_finalize_layer_snapshot(domain);
     free(domain->named_animations);
+    mwx_scene_quickjs_destroy_puppet_animation_catalog(domain);
     for (uint32_t index = 0; index < domain->dynamic_image_resource_count; ++index) {
         free(domain->dynamic_image_resources[index].model_path);
         free(domain->dynamic_image_resources[index].identity_key);

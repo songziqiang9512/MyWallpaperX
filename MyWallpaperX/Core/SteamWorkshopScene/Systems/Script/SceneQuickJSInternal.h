@@ -59,6 +59,7 @@ typedef struct MWXSceneQuickJSMaterialFunctionMutationRecord {
 typedef struct MWXSceneQuickJSAnimationCommandRecord {
     MWXSceneQuickJSAnimationCommand command;
     uint32_t target_index;
+    double frame;
     uint64_t callback_epoch;
     uint32_t ordinal;
 } MWXSceneQuickJSAnimationCommandRecord;
@@ -895,7 +896,9 @@ MWXSceneQuickJSAuthoredLayerMutationRecord *mwx_scene_quickjs_authored_mutation_
 bool mwx_scene_quickjs_define_layer_effect_access(MWXSceneQuickJSOwner *, JSValue, uint32_t);
 
 JSValue mwx_scene_quickjs_puppet_animation_handle(MWXSceneQuickJSOwner *owner);
-bool mwx_scene_quickjs_define_puppet_animation_lookup(MWXSceneQuickJSOwner *owner, JSValue layer);
+bool mwx_scene_quickjs_define_puppet_animation_lookup(MWXSceneQuickJSOwner *owner,
+    JSValue layer, uint32_t layer_index, bool owner_target, bool persistent);
+void mwx_scene_quickjs_destroy_puppet_animation_catalog(MWXSceneQuickJSDomain *domain);
 void mwx_scene_quickjs_puppet_animation_finish_transaction(MWXSceneQuickJSOwner *owner, bool commit);
 void mwx_scene_quickjs_destroy_puppet_animation_host(MWXSceneQuickJSOwner *owner);
 void mwx_scene_quickjs_prepare_puppet_animation_visibility(MWXSceneQuickJSOwner *owner, double *output);

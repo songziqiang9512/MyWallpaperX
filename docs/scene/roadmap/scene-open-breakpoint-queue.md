@@ -25,7 +25,6 @@
 | N08 · 3337494481 world/负subdivision RopeTrail | 十个visible复制层仍unavailable，原hidden不计缺图；空间/细分语义UNKNOWN。先取可区分正控，不猜abs/clamp、不重复旧白线矩阵；[缓存观察资格](../history/rope-trail-profile-qualification-2026-10-15.md#cache-observer-20261022)失败保留。 |
 | <a id="puppet-physics"></a>U40 ·3187857248重复拖动/重力 | ge=true、r=false/t=true仍使translationPhysics=nil；释放冲量现明确unsupported后停用原owner，仍只首轮可拖。禁止取消能力标记或以noop续跑（已实测累计形变）。须取得有效gravity/世界方向/状态消费者资格后扩唯一Motion，同时核本地query寿命与重复释手；官方质量/friction精确值未闭。[边界与失败](../history/puppet-linear-impulse-2026-10-28.md) |
 
-| SceneScript跨层动画控制 · 2887099508 | 395.visibility初始化首错：普通getLayer句柄缺getAnimationLayer，阻断309/front leg动作定位；其后blush22普通Timeline.setFrame尚未动态到达。沿原prepared动画/Timeline owner补通用跨层句柄与控制，不按名称分派。[边界](../history/script-initialization-barrier-2026-10-28.md) |
 | SceneScript相机读写 · 2887099508 | 无init的265.visibility首次update缺getCameraTransforms，后续setCameraTransforms也缺；作者欲让eye/center随mkj的13秒origin轨迹运动。须沿唯一camera typed链补读写及可归因运动；不把当前静态画面当相机动画已执行。 |
 
 <a id="qv-visual-repairs"></a>

@@ -171,31 +171,26 @@ extension SceneScriptQuickJSDomain {
     /// Installed after owner construction and before init; ordinary frames
     /// replace only this mirror, never advance an independent native clock.
     func publishPuppetAnimationSnapshot(_ snapshots: [ScenePuppetAnimationSnapshot]) throws {
-        guard mwx_scene_quickjs_domain_puppet_animation_owner_count(handle) > 0 else { return }
-        // Invalid optional metadata excludes only that animation owner. The C
-        // mirror marks it unavailable; unrelated script owners still publish.
-        let validSnapshots = snapshots.filter {
-            $0.name.utf8.count <= 1024 && !$0.name.utf8.contains(0)
-                && UInt32(exactly: $0.identity.animationLayerIndex) != nil
-        }
-        let names: [UnsafeMutablePointer<CChar>?] = validSnapshots.map { strdup($0.name) }
+        // Optional invalid metadata makes only that target unavailable. Prepare
+        // names and wire records once, including ordinary cross-layer callers.
+        var names: [UnsafeMutablePointer<CChar>] = []
         defer { names.forEach { free($0) } }
-        guard names.allSatisfy({ $0 != nil }) else {
-            throw SceneScriptScalarRuntimeFailure.memoryExceeded("Puppet animation snapshot names")
-        }
         var rawSnapshots: [MWXSceneQuickJSPuppetAnimationSnapshot] = []
-        for (index, snapshot) in validSnapshots.enumerated() {
+        rawSnapshots.reserveCapacity(snapshots.count)
+        for snapshot in snapshots {
             guard let authoredIndex = UInt32(exactly: snapshot.identity.animationLayerIndex),
-                  snapshot.name.utf8.count <= 1024, !snapshot.name.utf8.contains(0) else {
-                throw SceneScriptScalarRuntimeFailure.invalidArgument("invalid Puppet animation snapshot identity")
+                  snapshot.name.utf8.count <= 1024, !snapshot.name.utf8.contains(0) else { continue }
+            guard let name = strdup(snapshot.name) else {
+                throw SceneScriptScalarRuntimeFailure.memoryExceeded("Puppet animation snapshot names")
             }
+            names.append(name)
             var raw = MWXSceneQuickJSPuppetAnimationSnapshot()
             raw.layer_id = Int64(snapshot.identity.layerID)
             raw.animation_layer_index = authoredIndex
             raw.animation_layer_id = Int64(snapshot.identity.animationLayerID ?? 0)
             raw.has_animation_layer_id = snapshot.identity.animationLayerID == nil ? 0 : 1
             raw.animation_id = Int64(snapshot.animationID)
-            raw.name = names[index].map { UnsafePointer($0) }
+            raw.name = UnsafePointer(name)
             raw.fps = snapshot.framesPerSecond
             raw.frame_count = Double(snapshot.frameCount)
             raw.duration = snapshot.duration

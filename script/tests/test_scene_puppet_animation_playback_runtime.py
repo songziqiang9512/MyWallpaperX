@@ -555,6 +555,26 @@ func denseStateRuntimeReport() throws -> [[String: Any]] {
         }
         _ = isolated.advance(frameIndex: 0, sceneTime: 0, dynamicValues: visible([:]))
         let safeIdentity = isolated.snapshots()[0].identity
+        let crossRuntime = ScenePuppetAnimationPlaybackRuntime()
+        for parent in [42, 77] {
+            try crossRuntime.register(layerID: parent, selection: controlledDefinition,
+                authoredLayers: [controlledDefinition.clips[0].layer]).get()
+        }
+        _ = crossRuntime.advance(frameIndex: 0, sceneTime: 0, dynamicValues: visible([:]))
+        let crossIdentity = crossRuntime.snapshots().first { $0.identity.layerID == 77 }!.identity
+        let hiddenSeek = [control(crossIdentity, .setVisible(false), 0),
+            control(crossIdentity, .setFrame(2.5), 0, 1)]
+        let hiddenRejected = !registration(crossRuntime.validate(hiddenSeek,
+            sourceLayerID: 42, sourceAnimationLayerID: safeIdentity.animationLayerID!, frameIndex: 0))
+        try crossRuntime.apply([control(crossIdentity, .setVisible(false), 0)], frameIndex: 0).get()
+        let crossSeek = [control(crossIdentity, .pause, 0, 1), control(crossIdentity, .setFrame(2.5), 0, 2)]
+        let crossAccepted = registration(crossRuntime.validate(crossSeek,
+            sourceLayerID: 42, sourceAnimationLayerID: safeIdentity.animationLayerID!, frameIndex: 0))
+        try crossRuntime.apply(crossSeek, frameIndex: 0).get()
+        output["crossParentHiddenSeek"] = [hiddenRejected, crossAccepted,
+            crossRuntime.snapshots().first { $0.identity == crossIdentity }?.visible == false,
+            crossRuntime.snapshots().first { $0.identity == crossIdentity }?.currentFrame == 2.5,
+            crossRuntime.snapshots().first { $0.identity == safeIdentity }?.currentFrame == 0]
         let wrongIdentities = [ScenePuppetAnimationIdentity(layerID: 99, animationLayerIndex: 0, animationLayerID: 10),
             .init(layerID: 42, animationLayerIndex: 1, animationLayerID: 10),
             .init(layerID: 42, animationLayerIndex: 0, animationLayerID: 11)]
@@ -910,6 +930,9 @@ class PuppetAnimationPlaybackRuntimeTests(unittest.TestCase):
                 self.assertTrue(result[key])
         self.assertEqual(result["controlled"], [[1, 2, 0.5]])
         self.assertEqual(result["other"], [[0, 1, 0.5]])
+
+    def test_cross_parent_seek_keeps_hidden_and_exact_visibility_owner(self) -> None:
+        self.assertEqual(self.result["crossParentHiddenSeek"], [True] * 5)
 
     def test_command_budget_aggregates_consumed_cadence_and_resets_on_next_cadence(self) -> None:
         self.assertEqual(self.result["aggregateBudget"],

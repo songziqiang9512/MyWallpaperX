@@ -78,7 +78,6 @@ static JSValue mutate_animation(
     void *opaque
 ) {
     (void)this_value;
-    (void)argv;
     (void)magic;
     MWXSceneQuickJSAnimationHandle *handle = opaque;
     MWXSceneQuickJSOwner *owner = animation_handle_owner(handle);
@@ -92,8 +91,17 @@ static JSValue mutate_animation(
             domain->named_animations[handle->catalog_index].target_index == handle->target_index &&
             named_animation_layer_alive(owner, &domain->named_animations[handle->catalog_index]);
     }
-    if (argc != 0 || !available) {
+    if (!available) {
         return JS_ThrowTypeError(context, "animation handle is stale");
+    }
+    double frame = 0;
+    if (handle->command == MWX_SCENE_QUICKJS_ANIMATION_SET_FRAME) {
+        if (argc != 1 || !JS_IsNumber(argv[0]) ||
+            JS_ToFloat64(context, &frame, argv[0]) < 0 || !isfinite(frame)) {
+            return JS_ThrowTypeError(context, "setFrame expects one finite Number");
+        }
+    } else if (argc != 0) {
+        return JS_ThrowTypeError(context, "animation command expects no arguments");
     }
     if (owner->animation_command_count >= MWX_SCENE_QUICKJS_MAX_ANIMATION_COMMANDS) {
         owner->animation_command_overflow = true;
@@ -104,6 +112,7 @@ static JSValue mutate_animation(
     owner->animation_commands[index] = (MWXSceneQuickJSAnimationCommandRecord){
         .command = handle->command,
         .target_index = handle->target_index,
+        .frame = frame,
         .callback_epoch = epoch,
         .ordinal = index > 0 && owner->animation_commands[index - 1].callback_epoch == epoch
             ? owner->animation_commands[index - 1].ordinal + 1 : 0,
@@ -214,6 +223,9 @@ static JSValue get_animation(
         ) ||
         !define_animation_command(
             context, animation, owner, "stop", MWX_SCENE_QUICKJS_ANIMATION_STOP, &target
+        ) ||
+        !define_animation_command(
+            context, animation, owner, "setFrame", MWX_SCENE_QUICKJS_ANIMATION_SET_FRAME, &target
         )) {
         JS_FreeValue(context, animation);
         return JS_EXCEPTION;
@@ -465,6 +477,7 @@ MWXSceneQuickJSResult mwx_scene_quickjs_owner_animation_command_at(
     size_t index,
     MWXSceneQuickJSAnimationCommand *command,
     uint32_t *target_index,
+    double *frame,
     uint64_t *callback_epoch,
     uint32_t *ordinal,
     char *diagnostic,
@@ -479,7 +492,7 @@ MWXSceneQuickJSResult mwx_scene_quickjs_owner_animation_command_at(
         );
         return MWX_SCENE_QUICKJS_MUTATION_OVERFLOW;
     }
-    if (owner == NULL || command == NULL || target_index == NULL ||
+    if (owner == NULL || command == NULL || target_index == NULL || frame == NULL ||
         callback_epoch == NULL || ordinal == NULL ||
         index >= owner->animation_command_count) {
         mwx_scene_quickjs_write_diagnostic(
@@ -489,6 +502,7 @@ MWXSceneQuickJSResult mwx_scene_quickjs_owner_animation_command_at(
     }
     *command = owner->animation_commands[index].command;
     *target_index = owner->animation_commands[index].target_index;
+    *frame = owner->animation_commands[index].frame;
     *callback_epoch = owner->animation_commands[index].callback_epoch;
     *ordinal = owner->animation_commands[index].ordinal;
     return MWX_SCENE_QUICKJS_OK;

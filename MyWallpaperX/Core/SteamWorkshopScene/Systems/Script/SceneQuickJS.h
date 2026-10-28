@@ -984,8 +984,7 @@ MWXSceneQuickJSResult mwx_scene_quickjs_owner_animation_command_at(
     size_t index,
     MWXSceneQuickJSAnimationCommand *command,
     uint32_t *target_index, // UINT32_MAX means this owner's current property.
-    uint64_t *callback_epoch,
-    uint32_t *ordinal,
+    double *frame, uint64_t *callback_epoch, uint32_t *ordinal,
     char *diagnostic,
     size_t diagnostic_capacity
 );

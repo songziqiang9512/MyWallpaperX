@@ -493,7 +493,7 @@ extension Harness {
         defer { fixture.retained += [mediaOrigin, passTimeline, cachedTimeline, eventPipeline, eventRuntime, eventCoordinator, changedInit, transforming, equalInit, equalUpdate, overlay, equalOverlay, pendingInit, retiring, invalidating, throwingTimeline, passTimelineWithoutTarget, passTimelineWrongWrapper, passTimelineWithProperties, playbackProgram, stringProgram, orderedDomain, orderedVector, orderedString, orderedScalar, orderedCoordinator] }
         return [
             "mediaAnimationCommands": { mediaOriginResult.animationMutations.map {
-                $0.command.rawValue
+                String(describing: $0.command)
             } },
             "mediaGenerationDeduplicated": {
                 duplicateMediaOriginResult.animationMutations.isEmpty },
@@ -501,15 +501,15 @@ extension Harness {
             "passTimelineKeepsTimelineValueOwner": {
                 passTimelineResult.values[passTimelineTarget] == nil },
             "passTimelineCommands": { passTimelineResult.animationMutations.map {
-                $0.command.rawValue
+                String(describing: $0.command)
             } },
             "passTimelineGenerationDeduplicated": {
                 passTimelineDuplicate.animationMutations.isEmpty },
             "passTimelineAfterRejection": {
                 ["firstFailures": cachedFirst.failures.count,
-                 "firstCommands": cachedFirst.animationMutations.map { $0.command.rawValue },
+                 "firstCommands": cachedFirst.animationMutations.map { String(describing: $0.command) },
                  "firstValue": String(describing: cachedFirst.values[passTimelineTarget]),
-                 "duplicateCommands": cachedDuplicate.animationMutations.map { $0.command.rawValue },
+                 "duplicateCommands": cachedDuplicate.animationMutations.map { String(describing: $0.command) },
                  "eventFrame": ["oldInput": scalar(oldEventInput[passTimelineTarget]),
                      "preview": scalar(eventPreview[passTimelineTarget]),
                      "settled": scalar(eventResolution.snapshot[passTimelineTarget]?.value),
@@ -551,7 +551,7 @@ extension Harness {
                  "invalidatedIdleUnpublished": invalidatedIdle.values.isEmpty && restoredInvalidatedIdle.values.isEmpty,
                  "invalidatedIdleValues": [scalar(invalidatedIdle.values[animatedAlphaTarget]), scalar(restoredInvalidatedIdle.values[animatedAlphaTarget])],
                  "nextFailures": passTimelineNext.failures.count,
-                 "nextCommands": passTimelineNext.animationMutations.map { $0.command.rawValue }] as [String: Any] },
+                 "nextCommands": passTimelineNext.animationMutations.map { String(describing: $0.command) }] as [String: Any] },
             "passTimelineThrowUnpublished": {
                 !throwingTimelineResult.failures.isEmpty && throwingTimelineResult.animationMutations.isEmpty
                     && throwingTimelineResult.ownerEffects.isEmpty && throwingIdle.values.isEmpty },

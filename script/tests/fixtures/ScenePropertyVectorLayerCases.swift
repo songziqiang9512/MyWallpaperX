@@ -408,7 +408,7 @@ extension Harness {
             "wrongOwnerRejected": { wrongOwner.bindings.isEmpty },
             "animationBindings": { animatedOrigin.bindings.count },
             "animationCommands": { animatedOriginResult.animationMutations.map {
-                $0.command.rawValue
+                String(describing: $0.command)
             } },
             "animationWithoutTimelineRejected": { rejectedWithoutTimeline.bindings.isEmpty },
             "alphaAnimationBindings": { animatedAlpha.bindings.count },
@@ -416,7 +416,7 @@ extension Harness {
                 animatedAlphaResult.values[animatedAlphaTarget]
             ) },
             "alphaAnimationCommands": { animatedAlphaResult.animationMutations.map {
-                $0.command.rawValue
+                String(describing: $0.command)
             } },
             "genericAlphaBindings": { genericAlpha.bindings.count },
             "genericAlphaValue": { scalar(genericAlphaResult.values[animatedAlphaTarget]) },

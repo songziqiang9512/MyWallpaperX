@@ -89,12 +89,13 @@ static void update(MWXSceneQuickJSOwner *o, double input, double runtime,
 }
 
 static void command(MWXSceneQuickJSOwner *o, size_t index,
-                    MWXSceneQuickJSAnimationCommand expected, uint32_t target) {
+                    MWXSceneQuickJSAnimationCommand expected, uint32_t target, double expected_frame) {
     MWXSceneQuickJSAnimationCommand actual = 0; uint32_t actual_target = 0;
-    uint64_t epoch = 0; uint32_t ordinal = 0;
+    double payload_frame = 0; uint64_t epoch = 0; uint32_t ordinal = 0;
     check(mwx_scene_quickjs_owner_animation_command_at(o, index, &actual, &actual_target,
-        &epoch, &ordinal, diagnostic, sizeof(diagnostic)) == MWX_SCENE_QUICKJS_OK &&
-        actual == expected && actual_target == target, "ordered typed animation command");
+        &payload_frame, &epoch, &ordinal, diagnostic, sizeof(diagnostic)) == MWX_SCENE_QUICKJS_OK &&
+        actual == expected && actual_target == target && payload_frame == expected_frame,
+        "ordered typed animation command");
 }
 
 static void invalid_catalogs(void) {
@@ -149,19 +150,19 @@ static void retained_and_scopes(void) {
         diagnostic, sizeof(diagnostic)) == MWX_SCENE_QUICKJS_OK, "current animation compatible");
     update(o, 1, 0, MWX_SCENE_QUICKJS_OK);
     check(mwx_scene_quickjs_owner_animation_command_count(o) == 5, "one mixed journal");
-    command(o, 0, MWX_SCENE_QUICKJS_ANIMATION_PLAY, 7);
-    command(o, 1, MWX_SCENE_QUICKJS_ANIMATION_PAUSE, 11);
-    command(o, 2, MWX_SCENE_QUICKJS_ANIMATION_STOP, 7);
-    command(o, 3, MWX_SCENE_QUICKJS_ANIMATION_PLAY, 7);
-    command(o, 4, MWX_SCENE_QUICKJS_ANIMATION_PAUSE, UINT32_MAX);
+    command(o, 0, MWX_SCENE_QUICKJS_ANIMATION_PLAY, 7, 0);
+    command(o, 1, MWX_SCENE_QUICKJS_ANIMATION_PAUSE, 11, 0);
+    command(o, 2, MWX_SCENE_QUICKJS_ANIMATION_STOP, 7, 0);
+    command(o, 3, MWX_SCENE_QUICKJS_ANIMATION_PLAY, 7, 0);
+    command(o, 4, MWX_SCENE_QUICKJS_ANIMATION_PAUSE, UINT32_MAX, 0);
     mwx_scene_quickjs_owner_commit_layer_mutations(o);
     update_step(o, 2, 1, 1, MWX_SCENE_QUICKJS_OK);
-    command(o, 0, MWX_SCENE_QUICKJS_ANIMATION_PLAY, 7);
+    command(o, 0, MWX_SCENE_QUICKJS_ANIMATION_PLAY, 7, 0);
     mwx_scene_quickjs_owner_discard_layer_mutations(o);
     update_step(o, 1, 0.5, 1.5, MWX_SCENE_QUICKJS_OK);
     check(mwx_scene_quickjs_owner_animation_command_count(o) == 2, "timer retains both targets");
-    command(o, 0, MWX_SCENE_QUICKJS_ANIMATION_PAUSE, 7);
-    command(o, 1, MWX_SCENE_QUICKJS_ANIMATION_STOP, 11);
+    command(o, 0, MWX_SCENE_QUICKJS_ANIMATION_PAUSE, 7, 0);
+    command(o, 1, MWX_SCENE_QUICKJS_ANIMATION_STOP, 11, 0);
     mwx_scene_quickjs_owner_commit_layer_mutations(o);
     MWXSceneQuickJSOwner *peer = owner(d,
         "export function update(v){let rejected=0;"
@@ -205,8 +206,8 @@ static void rejection_and_deletion(void) {
         "layer.getAnimation('z'.repeat(256)).stop();"
         "thisScene.getLayer('B').getAnimation('精确名').play();return v;}", 0);
     update(o, 1, 0, MWX_SCENE_QUICKJS_OK);
-    command(o, 0, MWX_SCENE_QUICKJS_ANIMATION_STOP, 14);
-    command(o, 1, MWX_SCENE_QUICKJS_ANIMATION_PLAY, 15);
+    command(o, 0, MWX_SCENE_QUICKJS_ANIMATION_STOP, 14, 0);
+    command(o, 1, MWX_SCENE_QUICKJS_ANIMATION_PLAY, 15, 0);
     mwx_scene_quickjs_owner_commit_layer_mutations(o);
     MWXSceneQuickJSOwner *pending = owner(d,
         "export function update(v){const a=thisScene.getAnimation('surface-alpha');"
@@ -251,7 +252,7 @@ static void rejection_and_deletion(void) {
         "if(!rejected)throw new Error('deleted scene target');"
         "thisLayer.getAnimation('isolated').play();return v;}", 0);
     update(live, 1, 0.2, MWX_SCENE_QUICKJS_OK);
-    command(live, 0, MWX_SCENE_QUICKJS_ANIMATION_PLAY, 19);
+    command(live, 0, MWX_SCENE_QUICKJS_ANIMATION_PLAY, 19, 0);
     mwx_scene_quickjs_owner_commit_layer_mutations(live);
     MWXSceneQuickJSOwner *clone = owner(d,
         "export function update(v){const layer=thisScene.createLayer({name:'B',text:'clone'});"
@@ -292,11 +293,11 @@ static void scene_scopes(void) {
     update(o, 1, 0, MWX_SCENE_QUICKJS_OK);
     check(mwx_scene_quickjs_owner_animation_command_count(o) == 2,
         "scene and legacy layer share one ordered journal");
-    command(o, 0, MWX_SCENE_QUICKJS_ANIMATION_PAUSE, 19);
-    command(o, 1, MWX_SCENE_QUICKJS_ANIMATION_PLAY, 29);
+    command(o, 0, MWX_SCENE_QUICKJS_ANIMATION_PAUSE, 19, 0);
+    command(o, 1, MWX_SCENE_QUICKJS_ANIMATION_PLAY, 29, 0);
     mwx_scene_quickjs_owner_commit_layer_mutations(o);
     update(o, 2, 0.1, MWX_SCENE_QUICKJS_OK);
-    command(o, 0, MWX_SCENE_QUICKJS_ANIMATION_PAUSE, 29);
+    command(o, 0, MWX_SCENE_QUICKJS_ANIMATION_PAUSE, 29, 0);
     mwx_scene_quickjs_owner_discard_layer_mutations(o);
     update(o, 0, 0.15, MWX_SCENE_QUICKJS_OK);
     check(mwx_scene_quickjs_owner_animation_command_count(o) == 0,
@@ -310,23 +311,66 @@ static void scene_scopes(void) {
         "if(rejected!==2)throw new Error('foreign scene handle');"
         "thisLayer.getAnimation('isolated').stop();return v;}", 0);
     update(peer, 1, 0.1, MWX_SCENE_QUICKJS_OK);
-    command(peer, 0, MWX_SCENE_QUICKJS_ANIMATION_STOP, 19);
+    command(peer, 0, MWX_SCENE_QUICKJS_ANIMATION_STOP, 19, 0);
     mwx_scene_quickjs_owner_commit_layer_mutations(peer);
     update(o, 3, 0.2, MWX_SCENE_QUICKJS_EXCEPTION);
     update(o, 1, 0.3, MWX_SCENE_QUICKJS_DISABLED);
     mwx_scene_quickjs_owner_destroy(o);
     update(peer, 1, 0.3, MWX_SCENE_QUICKJS_OK);
-    command(peer, 0, MWX_SCENE_QUICKJS_ANIMATION_STOP, 19);
+    command(peer, 0, MWX_SCENE_QUICKJS_ANIMATION_STOP, 19, 0);
     mwx_scene_quickjs_owner_destroy(peer);
     mwx_scene_quickjs_domain_destroy(d);
+}
+
+static void seek_frames(void) {
+    MWXSceneQuickJSDomain *d = domain(); if (d == NULL) return; catalog(d);
+    MWXSceneQuickJSOwner *o = owner(d,
+        "let a;export function init(v){a=thisObject.getAnimation();shared.seek=a;"
+        "let rejected=0;for(const args of [[],[undefined],[null],['29'],[true],"
+        "[NaN],[Infinity],[-Infinity],[1,2]]){try{a.setFrame(...args);}"
+        "catch(e){if(e instanceof TypeError)rejected++;}}"
+        "if(rejected!==9)throw new Error('seek arguments');"
+        "a.setFrame(-2.5);thisScene.getAnimation(['surface','alpha'].join('-')).setFrame(29.25);"
+        "thisScene.getLayer('B').getAnimation('same').setFrame(1e100);return v;}"
+        "export function update(v){if(v===2)a.setFrame(-7.125);"
+        "if(v===3){a.setFrame(9);a.setFrame(Infinity);}return v;}", 0);
+    check(mwx_scene_quickjs_owner_configure_current_animation(o, 1,
+        diagnostic, sizeof(diagnostic)) == MWX_SCENE_QUICKJS_OK, "seek current target");
+    update(o, 1, 0, MWX_SCENE_QUICKJS_OK);
+    check(mwx_scene_quickjs_owner_animation_command_count(o) == 3,
+        "only finite Number seeks reach journal");
+    command(o, 0, MWX_SCENE_QUICKJS_ANIMATION_SET_FRAME, UINT32_MAX, -2.5);
+    command(o, 1, MWX_SCENE_QUICKJS_ANIMATION_SET_FRAME, 29, 29.25);
+    command(o, 2, MWX_SCENE_QUICKJS_ANIMATION_SET_FRAME, 11, 1e100);
+    mwx_scene_quickjs_owner_commit_layer_mutations(o);
+    update(o, 2, 0.1, MWX_SCENE_QUICKJS_OK);
+    command(o, 0, MWX_SCENE_QUICKJS_ANIMATION_SET_FRAME, UINT32_MAX, -7.125);
+    mwx_scene_quickjs_owner_discard_layer_mutations(o);
+    update(o, 1, 0.2, MWX_SCENE_QUICKJS_OK);
+    check(mwx_scene_quickjs_owner_animation_command_count(o) == 0, "rejected seek is not replayed");
+    mwx_scene_quickjs_owner_commit_layer_mutations(o);
+    update(o, 3, 0.3, MWX_SCENE_QUICKJS_EXCEPTION);
+    update(o, 1, 0.31, MWX_SCENE_QUICKJS_DISABLED);
+    MWXSceneQuickJSOwner *peer = owner(d,
+        "export function update(v){let rejected=false;try{shared.seek.setFrame(2.5);}"
+        "catch(e){rejected=e instanceof TypeError;}if(!rejected)throw new Error('foreign seek');"
+        "thisScene.getAnimation('surface-alpha').setFrame(4.5);return v;}", 0);
+    update(peer, 1, 0.3, MWX_SCENE_QUICKJS_OK);
+    command(peer, 0, MWX_SCENE_QUICKJS_ANIMATION_SET_FRAME, 29, 4.5);
+    mwx_scene_quickjs_owner_commit_layer_mutations(peer);
+    mwx_scene_quickjs_owner_destroy(o);
+    update(peer, 1, 0.4, MWX_SCENE_QUICKJS_OK);
+    command(peer, 0, MWX_SCENE_QUICKJS_ANIMATION_SET_FRAME, 29, 4.5);
+    mwx_scene_quickjs_owner_destroy(peer); mwx_scene_quickjs_domain_destroy(d);
 }
 
 static void readonly_and_budget(void) {
     MWXSceneQuickJSDomain *d = domain(); if (d == NULL) return; catalog(d);
     const char *source = "export function update(v){let rejected=0;"
         "for(const f of [()=>thisScene.getLayer('A').getAnimation('same').play(),"
-        "()=>thisScene.getAnimation('surface-alpha').play()]){"
-        "try{f();}catch(e){if(e instanceof TypeError)rejected++;}}return rejected===2&&v;}";
+        "()=>thisScene.getAnimation('surface-alpha').play(),"
+        "()=>thisScene.getAnimation('surface-alpha').setFrame(2.5)]){"
+        "try{f();}catch(e){if(e instanceof TypeError)rejected++;}}return rejected===3&&v;}";
     MWXSceneQuickJSResult result = MWX_SCENE_QUICKJS_OK;
     MWXSceneQuickJSOwner *o = mwx_scene_quickjs_owner_create_value_only_with_budget(d,
         source, strlen(source), 91, 100000, &result, diagnostic, sizeof(diagnostic));
@@ -339,12 +383,12 @@ static void readonly_and_budget(void) {
     check(mwx_scene_quickjs_owner_animation_command_count(o) == 0, "read-only stages no command");
     mwx_scene_quickjs_owner_destroy(o);
     o = owner(d, "export function update(v){const a=thisScene.getAnimation('surface-alpha');"
-        "for(let i=0;i<17;i++){try{a.play();}catch(e){}}return v;}", 0);
+        "for(let i=0;i<17;i++){try{a.setFrame(i+.25);}catch(e){}}return v;}", 0);
     update(o, 1, 0, MWX_SCENE_QUICKJS_OK);
     MWXSceneQuickJSAnimationCommand actual = 0; uint32_t actual_target = 0;
-    uint64_t epoch = 0; uint32_t ordinal = 0;
+    double payload_frame = 0; uint64_t epoch = 0; uint32_t ordinal = 0;
     check(mwx_scene_quickjs_owner_animation_command_at(o, 0, &actual, &actual_target,
-        &epoch, &ordinal, diagnostic, sizeof(diagnostic)) == MWX_SCENE_QUICKJS_MUTATION_OVERFLOW,
+        &payload_frame, &epoch, &ordinal, diagnostic, sizeof(diagnostic)) == MWX_SCENE_QUICKJS_MUTATION_OVERFLOW,
         "caught overflow cannot expose a partial command prefix");
     mwx_scene_quickjs_owner_discard_layer_mutations(o);
     mwx_scene_quickjs_owner_destroy(o);
@@ -360,7 +404,7 @@ static void readonly_and_budget(void) {
 
 int main(void) {
     invalid_catalogs(); retained_and_scopes(); rejection_and_deletion();
-    scene_scopes(); readonly_and_budget();
+    scene_scopes(); seek_frames(); readonly_and_budget();
     return failures == 0 ? 0 : 1;
 }
 '''

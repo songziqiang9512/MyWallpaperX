@@ -1,9 +1,10 @@
 import Foundation
 
-nonisolated enum SceneTimelinePlaybackCommand: String, Equatable, Sendable {
+nonisolated enum SceneTimelinePlaybackCommand: Equatable, Sendable {
     case play
     case pause
     case stop
+    case setFrame(Double)
 }
 
 nonisolated struct SceneTimelinePlaybackMutation: Equatable, Sendable {
@@ -24,6 +25,7 @@ nonisolated struct SceneTimelinePlaybackMutation: Equatable, Sendable {
 nonisolated enum SceneTimelinePlaybackFailure: Error, Equatable, Sendable {
     case invalidSceneTime
     case unknownTarget(SceneDynamicTarget)
+    case invalidFrame(SceneDynamicTarget)
 }
 
 /// 唯一的 Timeline 播放状态。每个已编译 playback owner 只保一份本地播放位置，并消费
@@ -201,6 +203,15 @@ nonisolated final class SceneTimelinePlaybackRuntime: @unchecked Sendable {
                 candidate[stateIndex] = .paused(elapsedFrames: elapsed)
             case .stop:
                 candidate[stateIndex] = .paused(elapsedFrames: 0)
+            case let .setFrame(frame):
+                guard frame.isFinite else { return .failure(.invalidFrame(mutation.target)) }
+                switch state {
+                case .playing:
+                    candidate[stateIndex] = .playing(
+                        anchorSceneTime: sceneTime, anchorElapsedFrames: frame)
+                case .paused:
+                    candidate[stateIndex] = .paused(elapsedFrames: frame)
+                }
             }
         }
         return .success(candidate)

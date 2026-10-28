@@ -227,13 +227,90 @@ HARNESS = r'''
         try playback.apply(try evaluate(healthy,6).get().animationMutations,sceneTime:6).get()
         healthy.commitLayerMutations()
         samples.append(try sample(7))
+        let seeker = try owner("""
+        let group,n=0;
+        export function init(v){group=thisScene.getLayer(\(String(reflecting:card))).getAnimation(\(selector));
+          thisObject.getAnimation().stop();thisObject.getAnimation().setFrame(2.5);return v;}
+        export function update(v){switch(n++){
+          case 1:group.play();group.setFrame(7.5);break;
+          case 2:thisScene.getAnimation(\(selector)).setFrame(1.25);group.pause();break;
+          case 3:group.stop();group.setFrame(4.5);break;
+          case 4:group.setFrame(6.5);group.stop();break;}return v;}
+        """)
+        var seekSamples: [[[Double]]] = []
+        var seekCommands: [SceneTimelinePlaybackCommand] = []
+        var seekPreviewIsIsolated = true
+        for (time, observation) in [(8.0,9.0),(9.0,9.25),(10.0,11.0),(11.0,12.0),(12.0,13.0)] {
+            let evaluation = try evaluate(seeker,time).get()
+            let before = try sample(time)
+            let observations = playback.observationSnapshot()
+            let preview = try playback.preview(evaluation.animationMutations,sceneTime:time).get()
+            let afterPreview = try sample(time)
+            seekPreviewIsIsolated = seekPreviewIsIsolated && Set(preview.keys) == Set(targets)
+                && afterPreview == before && playback.observationSnapshot() == observations
+            try playback.apply(evaluation.animationMutations,sceneTime:time).get()
+            seeker.commitLayerMutations()
+            seekCommands += evaluation.animationMutations.map(\.command)
+            seekSamples.append(try sample(observation))
+        }
+        let unchangedAfterSeek = try sample(13)
+        let observationAfterSeek = playback.observationSnapshot()
+        var nonfiniteRejected = true
+        for frame in [Double.nan, Double.infinity, -Double.infinity] {
+            let invalid = [SceneTimelinePlaybackMutation(target:root,command:.setFrame(5)),
+                .init(target:childTarget,command:.setFrame(frame))]
+            if case .success = playback.validate(invalid,sceneTime:13) { nonfiniteRejected = false }
+            if case .success = playback.preview(invalid,sceneTime:13) { nonfiniteRejected = false }
+            if case .success = playback.apply(invalid,sceneTime:13) { nonfiniteRejected = false }
+            let afterInvalid = try sample(13)
+            nonfiniteRejected = nonfiniteRejected && afterInvalid == unchangedAfterSeek
+                && playback.observationSnapshot() == observationAfterSeek
+        }
+        let low = try playback.preview([.init(target:root,command:.setFrame(-100))],sceneTime:13).get()
+        let high = try playback.preview([.init(target:childTarget,command:.setFrame(1e100))],sceneTime:13).get()
+        let lastFrame = try playback.preview([.init(target:root,command:.setFrame(20))],sceneTime:13).get()
+        let endpointsOnly = targets.allSatisfy { target in
+            low[target] == bindings.first { $0.target == target }?.definition.authoredValue
+        } && high == lastFrame
+        let badSeek = try owner("""
+        export function init(v){thisScene.getAnimation(\(selector)).setFrame(3.5);return v;}
+        export function update(v){thisObject.getAnimation().setFrame(NaN);return v;}
+        """)
+        let badSeekFailed: Bool
+        if case let .failure(failure) = evaluate(badSeek,13) {
+            badSeekFailed = failure.code == "exception"
+        } else { badSeekFailed = false }
+        let badSeekDisabled: Bool
+        if case let .failure(failure) = evaluate(badSeek,13.25) {
+            badSeekDisabled = failure.code == "disabled"
+        } else { badSeekDisabled = false }
+        let afterBadSeek = try sample(13)
+        let seekPeer = try owner("""
+        let used=false;export function update(v){if(!used){used=true;
+          thisScene.getAnimation(\(selector)).setFrame(12.5);}return v;}
+        """)
+        let peerSeek = try evaluate(seekPeer,13).get().animationMutations
+        try playback.apply(peerSeek,sceneTime:13).get()
+        seekPeer.commitLayerMutations()
+        let peerPose = try sample(14)
+        let peerRetry = try evaluate(seekPeer,14).get().animationMutations
+        seekPeer.commitLayerMutations()
+        let peerLaterPose = try sample(15)
         let failed: Bool
         if case .failure = throwResult { failed = true } else { failed = false }
-        return ["samples":samples,"facts":[
+        return ["samples":samples,"seekSamples":seekSamples,"facts":[
             "rootNamedOnce":named.count == 1 && named[0].target == root,
             "targetIdentity":commands.map(\.target) == [childTarget,root,root,childTarget],
             "commandOrder":commands.map(\.command) == [.play,.pause,.play,.stop],
-            "throwDiscardNoApply":failed && unchanged && discardedCommands.count == 1]]
+            "throwDiscardNoApply":failed && unchanged && discardedCommands.count == 1,
+            "seekOrder":seekCommands == [.stop,.setFrame(2.5),.play,.setFrame(7.5),
+                .setFrame(1.25),.pause,.stop,.setFrame(4.5),.setFrame(6.5),.stop],
+            "seekPreviewIsIsolated":seekPreviewIsIsolated,
+            "nonfiniteSeekIsAtomic":nonfiniteRejected,
+            "finiteSeekUsesExistingSampler":endpointsOnly,
+            "badSeekDoesNotLeakInit":badSeekFailed && badSeekDisabled && afterBadSeek == unchangedAfterSeek,
+            "healthySeekDoesNotReplay":peerSeek.map(\.command) == [.setFrame(12.5)]
+                && peerRetry.isEmpty && peerPose == peerLaterPose]]
     }
 
     static func commandOwnerOrder(renamed: Bool = false, reverseOwners: Bool = false,
@@ -365,15 +442,15 @@ HARNESS = r'''
         cursor.finalizeLayerMutations(committing:true)
         _ = owners
         return ["qualifiedSharedMemberClock":qualified,"failures":result.failures.count,
-            "commands":ordered.map { $0.command.rawValue },"targetIsRoot":ordered.map { $0.target == root },
-            "flatCommands":flat.map { $0.command.rawValue },"epochs":ordered.map(\.callbackEpoch),
+            "commands":ordered.map { String(describing: $0.command) },"targetIsRoot":ordered.map { $0.target == root },
+            "flatCommands":flat.map { String(describing: $0.command) },"epochs":ordered.map(\.callbackEpoch),
             "ordinals":ordered.map(\.ordinal),"shuffledBundleOrderSame":ordered == shuffled,
             "manualZeroMetadataInputOrder":manualZeroTieOrder,
-            "actualAt2":actual,"filteredCommands":filtered.map { $0.command.rawValue },
+            "actualAt2":actual,"filteredCommands":filtered.map { String(describing: $0.command) },
             "filteredEpochs":filtered.map(\.callbackEpoch),"filteredAt2":excludedValues,
             "previewAllMembers":Set(preview.keys) == [root,child],"previewDoesNotCommit":previewDidNotCommit,
             "sameCallbackAt2":burstValues,"reversedSameCallbackAt2":reversedBurstValues,
-            "healthyCommands":healthy.map { $0.command.rawValue },"healthyAt4":healthyValues,
+            "healthyCommands":healthy.map { String(describing: $0.command) },"healthyAt4":healthyValues,
             "healthyEpochs":healthy.map(\.callbackEpoch),"healthyFailures":next.failures.count]
     }
 
@@ -521,6 +598,11 @@ class NamedTimelineTests(unittest.TestCase):
             for key in ("combined", "renamedCombined"):
                 result = actual.pop(key)
                 self.assertEqual(result["samples"], [base,middle,middle,end,base,middle])
+                self.assertEqual(len(result["seekSamples"]), 5)
+                for sample, frame in zip(result["seekSamples"], [2.5, 10, 1.25, 4.5, 0]):
+                    for actual_lane, seed, delta in zip(sample, base, [[2,4,6], [4,6,8], [0.5,1,1.5]]):
+                        for value, start, change in zip(actual_lane, seed, delta):
+                            self.assertAlmostEqual(value, start + change * frame / 20)
                 self.assertTrue(all(result["facts"].values()), result)
             for key in ["sceneSamples", "renamedSceneSamples"]:
                 self.assertEqual(actual.pop(key), [0, 0.375, 0.375, 0.75, 0, 0.375])

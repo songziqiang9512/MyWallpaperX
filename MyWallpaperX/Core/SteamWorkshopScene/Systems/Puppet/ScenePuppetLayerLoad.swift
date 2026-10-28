@@ -241,7 +241,7 @@ enum ScenePuppetLayerLoad {
                     throw failure
                 case let .some(.success(animationSet?)):
                     switch ScenePuppetAnimationSelector.select(
-                        layers: animationLayers, animationSet: animationSet
+                        layers: animationLayers, animationSet: animationSet, includeStaticHidden: true
                     ) {
                     case let .success(selection?):
                         return evaluatedPose(asset: asset, selection: selection, kind: .animation)
@@ -284,12 +284,35 @@ enum ScenePuppetLayerLoad {
         fallbackMessage: String? = nil
     ) -> PreparedPose {
         do {
+            var selection = selection
             let evaluator: ScenePuppetAnimationEvaluator
             if selection.clips.isEmpty, let referenceEvaluator = asset.referenceEvaluator {
                 evaluator = try referenceEvaluator.get()
             } else {
+                let requiredIDs = Set(selection.clips.filter {
+                    $0.layer.visible != false || $0.layer.visibilityBinding != nil
+                }.map { $0.animation.id })
+                var resourceIDs: Set<Int> = []
+                let animations = selection.clips.compactMap { clip in
+                    resourceIDs.insert(clip.animation.id).inserted ? clip.animation : nil
+                }
                 evaluator = try ScenePuppetAnimationEvaluator(mesh: asset.mesh,
-                    rig: asset.rig.get(), additiveAnimations: selection.clips.map(\.animation))
+                    rig: asset.rig.get(), additiveAnimations: animations,
+                    optionalAnimationIDs: resourceIDs.subtracting(requiredIDs))
+                let clips = selection.clips.filter {
+                    evaluator.hasPreparedAnimation(animationID: $0.animation.id)
+                }
+                if !selection.clips.isEmpty && clips.isEmpty {
+                    let message = "animation unavailable: no prepared layer"
+                    if case let .success(referenceEvaluator)? = asset.referenceEvaluator {
+                        return .init(geometry: .evaluated(asset,
+                            .init(clips: [], composition: .layered), referenceEvaluator,
+                            .reference, fallbackMessage: message))
+                    }
+                    return .init(geometry: .bind(asset, fallbackMessage: message))
+                }
+                selection = .init(clips: clips, composition: clips.count == 1
+                    && clips[0].layer.additive == false ? .singleAbsolute : .layered)
             }
             return .init(geometry: .evaluated(asset, selection, evaluator, kind,
                 fallbackMessage: fallbackMessage))

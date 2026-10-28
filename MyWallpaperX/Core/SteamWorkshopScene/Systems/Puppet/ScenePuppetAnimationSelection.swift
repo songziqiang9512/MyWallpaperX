@@ -43,19 +43,20 @@ enum ScenePuppetAnimationSelectionFailure: Error, CustomStringConvertible, Equat
 enum ScenePuppetAnimationSelector {
     static func select(
         layers: [ScenePuppetAnimationLayer],
-        animationSet: SceneMdlPuppetAnimationSet
+        animationSet: SceneMdlPuppetAnimationSet,
+        includeStaticHidden: Bool = false
     ) -> Result<ScenePuppetAnimationSelection?, ScenePuppetAnimationSelectionFailure> {
         var clips: [ScenePuppetAnimationSelection.Clip] = []
-        let requiredAnimationIDs = Set(layers.filter {
+        let requiredAnimationIDs: Set<Int> = includeStaticHidden ? [] : Set(layers.filter {
             $0.visible != false || $0.visibilityBinding != nil
         }.compactMap(\.animationID))
         for layer in layers {
             guard let visible = layer.visible else {
                 return .failure(.malformedVisibility(layer.id))
             }
-            guard visible || layer.visibilityBinding != nil || layer.hasVisibilityScript == true else { continue }
-            let optionalScriptClip = layer.visible == false
-                && layer.visibilityBinding == nil && layer.hasVisibilityScript == true
+            guard visible || layer.visibilityBinding != nil || layer.hasVisibilityScript == true
+                || includeStaticHidden else { continue }
+            let optionalClip = layer.visible == false && layer.visibilityBinding == nil
             guard let animationID = layer.animationID,
                   layer.additive != nil,
                   let blend = layer.blend,
@@ -69,21 +70,33 @@ enum ScenePuppetAnimationSelector {
                   let rate = layer.rate,
                   rate.isFinite,
                   rate > 0 else {
-                // An optional, initially hidden script resource cannot revoke
-                // a healthy parent. Its script receives unavailable metadata.
-                if optionalScriptClip { continue }
+                // An optional hidden resource cannot revoke a healthy parent.
+                // A caller receives unavailable metadata for that slot.
+                if optionalClip { continue }
                 return .failure(.unsupportedLayer(layer.id))
             }
             guard layer.visibilityBinding == nil || layer.id != nil else {
                 return .failure(.unresolvedVisibility(layer.id))
             }
-            if optionalScriptClip && (requiredAnimationIDs.contains(animationID)
+            if optionalClip && !includeStaticHidden && (requiredAnimationIDs.contains(animationID)
                 || clips.contains(where: { $0.animation.id == animationID })) { continue }
             guard let animation = animationSet.animations.first(where: { $0.id == animationID }) else {
-                if optionalScriptClip { continue }
+                if optionalClip { continue }
                 return .failure(.unknownAnimation(animationID))
             }
+            // New static slots need a consumer for every authored channel.
+            if optionalClip && layer.hasVisibilityScript != true
+                && animation.hasAuxiliaryScalarTrack { continue }
             clips.append(.init(layer: layer, animation: animation))
+        }
+        // Newly addressable static resources cannot evict previously prepared
+        // visible, bound or scripted clips when the existing union is unsupported.
+        if includeStaticHidden,
+           clips.filter({ $0.animation.hasAlphaContribution }).count > 1
+            || (clips.contains { $0.animation.transformTrackStates.contains(.referenceCandidate) }
+                && clips.filter({ $0.layer.additive == false }).count > 1) {
+            clips.removeAll { $0.layer.visible == false && $0.layer.visibilityBinding == nil
+                && $0.layer.hasVisibilityScript != true }
         }
         // More than one alpha contributor is outside the bounded profile.
         // Extra preparation for hidden scripts must not break a previously

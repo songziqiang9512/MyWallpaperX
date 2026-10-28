@@ -38,7 +38,9 @@ struct SceneSoundPlaybackRegistry {
     func validate(_ commands:[SceneScriptMediaPlaybackCommand]) -> Result<Void,NSError> { fatalError("unexpected sound validation") }
 }
 struct ScenePuppetAnimationPlaybackRuntime {
-    func validate(_ commands:[ScenePuppetAnimationCommand],sourceLayerID:Int,sourceAnimationLayerID:Int,frameIndex:UInt64) -> Result<Void,NSError> { fatalError("unexpected clip validation") }
+    typealias Failure = NSError
+    func validate(_ commands:[ScenePuppetAnimationCommand],frameIndex:UInt64) -> Result<Void,Failure> { fatalError("unexpected clip validation") }
+    func validate(_ commands:[ScenePuppetAnimationCommand],sourceLayerID:Int,sourceAnimationLayerID:Int,frameIndex:UInt64) -> Result<Void,Failure> { fatalError("unexpected clip validation") }
 }
 @main enum Harness {
     static let frame = SceneScriptFrameInput(timing:.init(wallDate:Date(timeIntervalSince1970:0),simulationFrameTime:0.016,sceneTime:1))

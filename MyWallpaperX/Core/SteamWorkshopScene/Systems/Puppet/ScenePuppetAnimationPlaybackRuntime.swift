@@ -320,8 +320,8 @@ nonisolated final class ScenePuppetAnimationPlaybackRuntime: @unchecked Sendable
         return admission(commands, frameIndex: frameIndex).map { _ in () }
     }
 
-    /// Prepared nested owners may control playback of sibling clips, while a
-    /// visibility write remains owned by its exact typed property target.
+    /// Only visibility and ended subscriptions require a prepared nested source.
+    /// Playback commands target any published clip; visibility stays exact-self.
     /// Validation does not change playback or publish a second native state.
     func validate(
         _ commands: [ScenePuppetAnimationCommand],
@@ -347,9 +347,6 @@ nonisolated final class ScenePuppetAnimationPlaybackRuntime: @unchecked Sendable
             ))
         }
         for command in commands {
-            guard command.identity.layerID == source.layerID else {
-                return .failure(.invalidControlTarget(command.identity))
-            }
             if case .setVisible = command.action, command.identity != source {
                 return .failure(.invalidControlTarget(command.identity))
             }

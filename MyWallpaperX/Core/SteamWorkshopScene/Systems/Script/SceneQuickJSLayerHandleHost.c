@@ -378,6 +378,9 @@ JSValue mwx_scene_quickjs_layer_make_layer_handle(
     if (!mwx_scene_quickjs_define_layer_animation_accessor(owner, layer, index, false)) {
         JS_FreeValue(context, layer); return JS_EXCEPTION;
     }
+    if (!mwx_scene_quickjs_define_puppet_animation_lookup(owner, layer, index, owner_target, persistent)) {
+        JS_FreeValue(context, layer); return JS_EXCEPTION;
+    }
     if (!mwx_scene_quickjs_layer_define_get_video_texture(
             context, layer, owner, index, owner_target, persistent
         )) {
@@ -449,7 +452,9 @@ bool mwx_scene_quickjs_install_layer_handles(MWXSceneQuickJSOwner *owner) {
     if (!mwx_scene_quickjs_define_layer_animation_accessor(
             owner, owner->material_function_layer, UINT32_MAX, false
         )) return false;
-    if (!mwx_scene_quickjs_define_puppet_animation_lookup(owner, owner->material_function_layer)) return false;
+    if (!mwx_scene_quickjs_define_puppet_animation_lookup(
+            owner, owner->material_function_layer, UINT32_MAX, true, true
+        )) return false;
     const struct { const char *name; enum LayerProperty property; bool writable; } fields[] = {
         {"origin", LAYER_ORIGIN, true}, {"scale", LAYER_SCALE, true},
         {"size", LAYER_SIZE, false},

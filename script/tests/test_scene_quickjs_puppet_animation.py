@@ -184,8 +184,8 @@ HARNESS = r'''
           for(const key of [null,true,{},[]]){
             try{thisLayer.getAnimationLayer(key);}catch(e){if(e instanceof TypeError)rejected++;}}
           try{thisLayer.getAnimationLayer();}catch(e){if(e instanceof TypeError)rejected++;}
-          try{thisScene.getLayer('foreign').getAnimationLayer(0);}catch(e){if(e instanceof TypeError)rejected++;}
-          return rejected===12;}
+          const foreign=thisScene.getLayer('foreign').getAnimationLayer(0);
+          return rejected===11&&foreign.name==='Foreign clip'&&foreign.getFrame()===55;}
         """)
         out["lookupBadInputs"]=try evaluate(invalid).get().value == .bool(true);invalid.commitLayerMutations()
         phase("lookup/duplicate-name")
@@ -216,12 +216,63 @@ HARNESS = r'''
             && mwx_scene_quickjs_owner_puppet_animation_command_count(writer.handle) == pendingWriterCommands
         observer.commitLayerMutations();writer.discardLayerMutations()
         phase("lookup/non-nested-owner")
-        let ordinary=try SceneScriptValueOwner(domain:sharedDomain,source:"""
-        export function update(v){try{thisLayer.getAnimationLayer(0);}catch(e){if(e instanceof TypeError)return v;}throw new Error('unprepared owner');}
-        """,target:.layer(layerID:42,field:.origin),effectNames:[],generation:1,budget:.default)
-        out["lookupNonNested"]=try ordinary.evaluate(input:.vector3(1,2,3),frame:frame,scriptPropertiesJSON:"",
-            userPropertiesJSON:"{}",expectedGeneration:1,interruptBudget:nil).get().value == .vector3(1,2,3)
-        ordinary.commitLayerMutations()
+        let crossNative=try nativeLookupRuntime();let crossDomain=try SceneScriptQuickJSDomain()
+        let crossDescriptor=SceneRenderDescriptor(layers:descriptor().layers + [
+            .init(id:43,layerIndex:1,name:"foreign",visible:true,originXYZ:[0,0,0],scaleXYZ:[1,1,1],scaleHasScript:nil,alpha:1,effects:[]),
+            .init(id:44,layerIndex:2,name:"caller",visible:true,originXYZ:[0,0,0],scaleXYZ:[1,1,1],scaleHasScript:nil,alpha:1,effects:[]),
+            .init(id:0,layerIndex:3,name:"zero",visible:true,originXYZ:[0,0,0],scaleXYZ:[1,1,1],scaleHasScript:nil,alpha:1,effects:[])])
+        try crossDomain.configureLayerCatalog(crossDescriptor)
+        try crossDomain.publishLayerSnapshot(SceneDynamicSnapshotResolver().resolve(frameIndex:1,generation:1,definitions:[]).snapshot,descriptor:crossDescriptor)
+        try crossNative.apply([.init(identity:foreign,action:.setVisible(false),callbackEpoch:0,ordinal:3)],frameIndex:1).get()
+        let zero=ScenePuppetAnimationIdentity(layerID:0,animationLayerIndex:0,animationLayerID:nil)
+        try crossDomain.publishPuppetAnimationSnapshot(crossNative.snapshots()+[prepared(zero,"Zero clip",0)])
+        func makeOrdinary(_ source:String,_ stateful:Bool=true) throws -> SceneScriptValueOwner {
+            try SceneScriptValueOwner(domain:crossDomain,source:source,target:.layer(layerID:44,field:.visibility),
+                valueType:.bool,effectNames:[],allowsStatefulLayerSideEffects:stateful,generation:1,budget:.default)
+        }
+        let ordinary=try makeOrdinary("""
+        let cached,first=true;export function init(v){cached=thisScene.getLayer('foreign').getAnimationLayer('Authored clip');cached.setFrame(29);return v;}
+        export function update(v){let empty=false;try{thisLayer.getAnimationLayer(0);}catch(e){empty=e instanceof RangeError;}
+          if(first){cached.pause();first=false;}return empty&&cached.getFrame()===29&&!cached.isPlaying()&&!cached.visible;}
+        """)
+        let firstOrdinary=try evaluate(ordinary).get()
+        try crossNative.validate(firstOrdinary.puppetAnimationCommands,frameIndex:1).get()
+        try crossNative.apply(firstOrdinary.puppetAnimationCommands,frameIndex:1).get();ordinary.commitLayerMutations()
+        try crossDomain.publishPuppetAnimationSnapshot(crossNative.snapshots()+[prepared(zero,"Zero clip",0)])
+        out["lookupNonNested"]=firstOrdinary.value == .bool(true)
+            && firstOrdinary.puppetAnimationCommands.map(\.identity) == [foreign,foreign]
+        var nested:SceneScriptValueOwner?=try SceneScriptValueOwner(domain:crossDomain,source:"export function update(v){return v;}",
+            target:target,valueType:.bool,effectNames:[],puppetAnimationIdentity:identity,allowsStatefulLayerSideEffects:true,generation:1,budget:.default)
+        let hadNested=nested != nil&&mwx_scene_quickjs_domain_puppet_animation_owner_count(crossDomain.handle)==1
+        nested=nil
+        let retained=try evaluate(ordinary).get();ordinary.commitLayerMutations()
+        let readonly=try makeOrdinary("""
+        export function update(v){const a=thisScene.getLayer('foreign').getAnimationLayer(0);let n=0;
+          for(const f of [()=>a.pause(),()=>a.setFrame(1),()=>a.visible=false,()=>a.addEndedCallback(()=>{})]){
+            try{f();}catch(e){if(e instanceof TypeError)n++;}}return n===4&&a.getFrame()===29;}
+        """,false)
+        // Native controls are committed only by the runtime; its next publication replaces the C mirror.
+        try crossDomain.publishPuppetAnimationSnapshot(crossNative.snapshots()+[prepared(zero,"Zero clip",0)])
+        let read=try evaluate(readonly).get();readonly.commitLayerMutations()
+        let permissions=try makeOrdinary("""
+        export function update(v){const a=thisScene.getLayer('zero').getAnimationLayer(0);let n=0;
+          try{a.visible=false;}catch(e){if(e instanceof TypeError)n++;}
+          try{a.addEndedCallback(()=>{});}catch(e){if(e instanceof TypeError)n++;}return n===2;}
+        """)
+        let permissionResult=try evaluate(permissions).get();permissions.commitLayerMutations()
+        let retiring=try makeOrdinary("""
+        export function update(v){const a=thisScene.getLayer('foreign').getAnimationLayer(0);
+          if(!thisScene.destroyLayer('foreign'))throw new Error('destroy fixture');
+          try{a.pause();}catch(e){return e instanceof TypeError;}return false;}
+        """)
+        let retirement=try evaluate(retiring).get();retiring.discardLayerMutations()
+        let throwing=try makeOrdinary("export function update(v){thisScene.getLayer('foreign').getAnimationLayer(0).setFrame(99);throw new Error('late');}")
+        out["lookupOrdinaryBoundaries"]=[crossNative.snapshots().first{$0.identity == foreign}?.visible == false,
+            hadNested&&mwx_scene_quickjs_domain_puppet_animation_owner_count(crossDomain.handle)==0&&retained.value == .bool(true),
+            retained.puppetAnimationCommands.isEmpty,read.value == .bool(true)&&read.puppetAnimationCommands.isEmpty,
+            permissionResult.value == .bool(true)&&permissionResult.puppetAnimationCallbackRegistrations==0,
+            retirement.value == .bool(true)&&retirement.puppetAnimationCommands.isEmpty,
+            failed(evaluate(throwing))&&mwx_scene_quickjs_owner_puppet_animation_command_count(throwing.handle)==0]
 
         phase("lookup/target-lifetime-cache")
         let (lifetimeDomain,lifetime)=try lookupOwner("""
@@ -381,7 +432,7 @@ HARNESS = r'''
             registration(native.validate([visibleSibling],frameIndex:1))
                 && !registration(native.validate([visibleSibling],sourceLayerID:42,sourceAnimationLayerID:91,frameIndex:1)),
             registration(native.validate([foreignTarget],frameIndex:1))
-                && !registration(native.validate([foreignTarget],sourceLayerID:42,sourceAnimationLayerID:91,frameIndex:1)),
+                && registration(native.validate([foreignTarget],sourceLayerID:42,sourceAnimationLayerID:91,frameIndex:1)),
             !registration(duplicateNative.validate([],sourceLayerID:42,sourceAnimationLayerID:91,frameIndex:1)),
             native.snapshots() == before]
         return out
@@ -828,6 +879,9 @@ class PuppetAnimationHostTests(unittest.TestCase):
                     "lookupOwnerIsolation", "lookupNonNested"):
             with self.subTest(check=key):
                 self.assertTrue(self.values[key])
+
+    def test_ordinary_layer_lookup_keeps_target_lifetime_hidden_and_permissions(self):
+        self.assertEqual(self.values["lookupOrdinaryBoundaries"], [True] * 7)
 
     def test_cached_lookup_handles_keep_owner_generation_and_target_lifetime(self):
         self.assertEqual(self.values["lookupRetiredHandle"], [True, True])

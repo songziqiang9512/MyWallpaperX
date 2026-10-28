@@ -37,6 +37,7 @@ nonisolated enum SceneScriptAnimationHandleBridge {
         for index in 0..<count {
             var command = MWX_SCENE_QUICKJS_ANIMATION_PLAY
             var targetIndex = UInt32.max
+            var frame = 0.0
             var callbackEpoch: UInt64 = 0
             var ordinal: UInt32 = 0
             var diagnostic = [CChar](repeating: 0, count: 256)
@@ -45,6 +46,7 @@ nonisolated enum SceneScriptAnimationHandleBridge {
                 index,
                 &command,
                 &targetIndex,
+                &frame,
                 &callbackEpoch,
                 &ordinal,
                 &diagnostic,
@@ -58,6 +60,7 @@ nonisolated enum SceneScriptAnimationHandleBridge {
             case MWX_SCENE_QUICKJS_ANIMATION_PLAY: typed = .play
             case MWX_SCENE_QUICKJS_ANIMATION_PAUSE: typed = .pause
             case MWX_SCENE_QUICKJS_ANIMATION_STOP: typed = .stop
+            case MWX_SCENE_QUICKJS_ANIMATION_SET_FRAME: typed = .setFrame(frame)
             default:
                 return .failure(.invalidArgument("unknown animation command"))
             }
