@@ -54,6 +54,8 @@ nonisolated struct SceneMdlPuppetAnimation {
     let bounds: Bounds?
     /// The reader validates this channel; consumers must not mistake it for TRS-only.
     let hasAuxiliaryScalarTrack: Bool
+    /// Structurally decoded, but has no qualified pose consumer yet.
+    let hasPostBoundsScalarTrack: Bool
 
     init(
         id: Int,
@@ -67,6 +69,7 @@ nonisolated struct SceneMdlPuppetAnimation {
         events: [Event] = [],
         bounds: Bounds? = nil,
         hasAuxiliaryScalarTrack: Bool = false,
+        hasPostBoundsScalarTrack: Bool = false,
         recordOrdinal: Int? = nil,
         rawMode: String? = nil,
         rawFlags: UInt32 = 0,
@@ -89,6 +92,7 @@ nonisolated struct SceneMdlPuppetAnimation {
         self.events = events
         self.bounds = bounds
         self.hasAuxiliaryScalarTrack = hasAuxiliaryScalarTrack
+        self.hasPostBoundsScalarTrack = hasPostBoundsScalarTrack
     }
 
     nonisolated var durationSeconds: Float {

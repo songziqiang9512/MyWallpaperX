@@ -714,7 +714,7 @@
       "owner": "scene-puppet-runtime",
       "status": "approved",
       "designDoc": "docs/scene/capabilities/advanced-object-coverage.md",
-      "design_notes": "2026-10-17 #puppet-reference-fallback：同App请求清空消融及现evaluator CPU正门证明独立reference可组装。原LayerLoad只对动画请求准备失败使用原empty-selection reference并保失败诊断；成功动画、无/非法reference及GPU失败边界保持，不跳track或增重试。实际原包、独立样本与生命周期另验，approved非动画能力完成。",
+      "design_notes": "2026-10-17 #puppet-reference-fallback：同App请求清空消融及现evaluator CPU正门证明独立reference可组装。原LayerLoad只对动画请求准备失败使用原empty-selection reference并保失败诊断；成功动画、无/非法reference及GPU失败边界保持，不跳track或增重试。实际原包、独立样本与生命周期另验，approved非动画能力完成。 2026-10-28 #puppet-additive-local-unavailable先行设计：完整结构解码与可播放资格分离；现代varying state1交原Evaluator，23 post-bounds仅核dense framing并标未消费。原LayerLoad仅additive/既有hidden optional局部退场，required opaque与同ID资源保硬失败，唯一preparedMap/clock/原ordinal不变；坏结构不跳record，未知scalar消费者不实现，实际画面另验。",
       "matchPatterns": [
         "MyWallpaperX/Core/SteamWorkshopScene/Systems/Puppet/ScenePuppetLayerLoad.swift"
       ],
@@ -794,7 +794,7 @@
       "owner": "scene-puppet-reader/evaluator/playback",
       "status": "approved",
       "designDoc": "docs/scene/capabilities/advanced-object-coverage.md",
-      "design_notes": "2026-10-18 #puppet-dense-reference-tracks先行设计：原reader/IR保逐骨state，仅现代完整常量且无独立reference、等价bind及至多单opaque的中性profile；single/layered同一准备消费，原alpha/events/clock保持，immutable定义纳state。固定官方只证单骨参考式结果；任意payload、变化state1、独立reference/多opaque不开放。实际原包与独立回归另验。",
+      "design_notes": "2026-10-18 #puppet-dense-reference-tracks先行设计：原reader/IR保逐骨state，仅现代完整常量且无独立reference、等价bind及至多单opaque的中性profile；single/layered同一准备消费，原alpha/events/clock保持，immutable定义纳state。固定官方只证单骨参考式结果；任意payload、变化state1、独立reference/多opaque不开放。实际原包与独立回归另验。 2026-10-28 #puppet-additive-local-unavailable先行设计：完整结构解码与可播放资格分离；现代varying state1交原Evaluator，23 post-bounds仅核dense framing并标未消费。原LayerLoad仅additive/既有hidden optional局部退场，required opaque与同ID资源保硬失败，唯一preparedMap/clock/原ordinal不变；坏结构不跳record，未知scalar消费者不实现，实际画面另验。",
       "matchPatterns": [
         "MyWallpaperX/Core/SteamWorkshopScene/Format/SceneMdlPuppetAnimation.swift",
         "MyWallpaperX/Core/SteamWorkshopScene/Format/SceneMdlPuppetAnimationReader.swift",

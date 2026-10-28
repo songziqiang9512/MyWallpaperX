@@ -290,6 +290,79 @@ private enum ScenePuppetPreparationCases {
             "neutralRootX": neutral.local[0].columns.3.x, "coverage": coverage]
     }
 
+    private static func localAdditiveChecks(
+        _ preparation: ScenePuppetLayerLoad.AssetPreparation
+    ) throws -> [String: Any] {
+        guard case let .ready(base) = preparation,
+              let set = try base.animationSet?.get(), set.animations.count == 4 else {
+            throw ProbeStop.stopped
+        }
+        let ids = set.animations.map(\.id)
+        func slot(_ id: Int, resource: Int, additive: Bool, visible: Bool = true,
+                  script: Bool = false) -> ScenePuppetAnimationLayer {
+            .init(id: id, animationID: resource, name: "authored-slot-\(id)", additive: additive,
+                blend: 1, blendIn: false, blendOut: false, blendTime: 0, rate: 1,
+                visible: visible, visibilityBinding: nil, hasVisibilityScript: script)
+        }
+        func layer(_ slots: [ScenePuppetAnimationLayer]) -> SceneRenderDescriptor.Layer {
+            .init(id: 72, puppetMeshPath: base.meshPath, puppetAnimationLayers: slots,
+                  hasInlineScript: false)
+        }
+        func pose(_ slots: [ScenePuppetAnimationLayer]) -> ScenePuppetLayerLoad.PreparedPose? {
+            ScenePuppetLayerLoad.preparePose(for: layer(slots), asset: preparation)
+        }
+        func motion(_ slots: [ScenePuppetAnimationLayer]) throws -> [String: Any] {
+            let preparedPose = pose(slots)
+            guard let prepared = preparedPose,
+                  case let .evaluated(_, selection, evaluator, _, fallback) = prepared.geometry else {
+                return try describe(preparedPose)
+            }
+            let runtime = ScenePuppetAnimationPlaybackRuntime()
+            try runtime.register(layerID: 72, selection: selection, authoredLayers: slots).get()
+            var rootXs: [Float] = [], lastPoints: [SIMD2<Float>] = []
+            var last: ScenePuppetAnimationPlaybackRuntime.FrameSnapshot?
+            for (index, time) in [0.0, 0.25, 0.75].enumerated() {
+                let frame = runtime.advance(frameIndex: UInt64(index), sceneTime: time,
+                    dynamicValues: .init(frameIndex: UInt64(index), values: [:]))
+                guard let sampled = frame[72] else { throw ProbeStop.stopped }
+                let matrices = try evaluator.boneTransforms(selection: selection,
+                    frameSamples: sampled.samples, blends: sampled.blends)
+                rootXs.append(matrices.local[0].columns.3.x)
+                lastPoints = try evaluator.deformedPositions(selection: selection,
+                    frameSamples: sampled.samples)
+                last = frame
+            }
+            guard let last else { throw ProbeStop.stopped }
+            return ["kind": "animation", "animationIDs": last.animationSnapshots.map(\.animationID),
+                "slotIDs": last.animationSnapshots.compactMap { $0.identity.animationLayerID },
+                "slotIndices": last.animationSnapshots.map { $0.identity.animationLayerIndex },
+                "visible": last.animationSnapshots.map(\.visible),
+                "currentFrames": last.animationSnapshots.map(\.currentFrame),
+                "preparedIDs": ids.filter { evaluator.hasPreparedAnimation(animationID: $0) },
+                "rootXs": rootXs, "lastPoints": lastPoints.map { [$0.x, $0.y] },
+                "fallback": fallback ?? ""]
+        }
+        let active = slot(81, resource: ids[0], additive: false)
+        let badReference = slot(912, resource: ids[1], additive: true)
+        let badScalar = slot(923, resource: ids[2], additive: true)
+        let tail = slot(84, resource: ids[3], additive: true)
+        let authored = [active, badReference, badScalar, tail]
+        return ["partial": try motion(authored), "healthyOnly": try motion([active, tail]),
+            "badOpaqueReference": try describe(pose([
+                slot(912, resource: ids[1], additive: false), tail])),
+            "badOpaqueScalar": try describe(pose([
+                active, slot(923, resource: ids[2], additive: false)])),
+            "opaqueAlias": try describe(pose([
+                active, badScalar, slot(924, resource: ids[2], additive: false)])),
+            "missingID": try describe(pose([active, slot(99, resource: 999999, additive: true)])),
+            "badOnly": try describe(pose([badScalar])),
+            "hidden": try motion([active,
+                slot(923, resource: ids[2], additive: true, visible: false),
+                slot(84, resource: ids[3], additive: true, visible: false, script: true)]),
+            "default": try describe(ScenePuppetLayerLoad.preparePose(for: layer(authored),
+                asset: preparation, usesDefaultConfiguration: true))]
+    }
+
     static func main() throws {
         let root = URL(fileURLWithPath: CommandLine.arguments[1], isDirectory: true)
         let resourceView = SceneResourceView(projectRootURL: root, packageRootURL: nil, stockAssetsRootURL: nil)
@@ -300,6 +373,8 @@ private enum ScenePuppetPreparationCases {
         var output: [String: Any] = [:]
         output["optional-hidden"] = try optionalHiddenChecks(asset("shared.mdl"))
         output["optional-hidden-bind"] = try optionalHiddenChecks(asset("bind.mdl"))
+        output["local-additive"] = try localAdditiveChecks(asset("partial-additive.mdl"))
+        output["local-additive-renamed"] = try localAdditiveChecks(asset("renamed-partial-resource.mdl"))
         var orders: [String: Any] = [:]
         for (label, path, reversed) in [("plain-first", "shared.mdl", false),
                                         ("animated-first", "shared.mdl", true),

@@ -75,6 +75,7 @@ enum Harness {
                  $0.maximum.x, $0.maximum.y, $0.maximum.z].map(Double.init) as Any
             } ?? NSNull(),
             "hasAuxiliaryScalarTrack": animation.hasAuxiliaryScalarTrack,
+            "hasPostBoundsScalarTrack": animation.hasPostBoundsScalarTrack,
             "hasAlphaContribution": animation.hasAlphaContribution,
             "selectedTracks": [0, 1, 11, 12, 16, 17].filter {
                 animation.transformsByBone.indices.contains($0)
@@ -185,6 +186,10 @@ def animation_record(
     modern_prefix: bytes = b"\0" * 25,
     track_states: list[int] | None = None,
     track_samples: dict[int, list[tuple[float, ...]]] | None = None,
+    post_bounds_scalar: list[list[float]] | None = None,
+    post_scalar_state: int = 0,
+    post_scalar_size_delta: int = 0,
+    post_scalar_presence: int | None = None,
 ) -> bytes:
     body = bytearray(struct.pack("<II", animation_id, header_state))
     body += name.encode() + b"\0"
@@ -244,6 +249,11 @@ def animation_record(
     else:
         body += b"\0"
     body += modern_prefix
+    if post_bounds_scalar is not None or post_scalar_presence is not None:
+        body[-1] = int(post_bounds_scalar is not None) if post_scalar_presence is None else post_scalar_presence
+        for values in post_bounds_scalar or []:
+            body += struct.pack("<II", post_scalar_state, len(values) * 4 + post_scalar_size_delta)
+            body += struct.pack(f"<{len(values)}f", *values)
     records = events or []
     body += struct.pack("<I", len(records) if declared_event_count is None else declared_event_count)
     body += b"".join(records)
@@ -337,57 +347,6 @@ class SceneMdlPuppetAnimationReaderTests(unittest.TestCase):
                 animation_record(401, "Bone Alpha", 2, 2,
                                  alpha_by_bone=bone_alpha)[:-35]
             ]),
-            "valid-mdlv0016.mdl": build_mdl(
-                [animation_record(
-                    96,
-                    "Legacy Per Bone",
-                    2,
-                    2,
-                    auxiliary=True,
-                    per_bone_auxiliary_trailer=True,
-                )],
-                magic=b"MDLV0016",
-                skeleton_marker=b"MDLS0002\0",
-                animation_marker=b"MDLA0003\0",
-            ),
-            "valid-mdlv0016-no-auxiliary.mdl": build_mdl(
-                [animation_record(
-                    97,
-                    "Legacy No Auxiliary",
-                    2,
-                    2,
-                    per_bone_auxiliary_trailer=True,
-                )],
-                magic=b"MDLV0016",
-                skeleton_marker=b"MDLS0002\0",
-                animation_marker=b"MDLA0003\0",
-            ),
-            "bad-mdlv0016-animation-marker.mdl": build_mdl(
-                [animation_record(
-                    98,
-                    "Mismatched Marker",
-                    2,
-                    2,
-                    per_bone_auxiliary_trailer=True,
-                )],
-                magic=b"MDLV0016",
-                skeleton_marker=b"MDLS0002\0",
-                animation_marker=b"MDLA0004\0",
-            ),
-            "bad-mdlv0016-auxiliary.mdl": build_mdl(
-                [animation_record(
-                    96,
-                    "Legacy Per Bone",
-                    2,
-                    2,
-                    auxiliary=True,
-                    bad_auxiliary_key=True,
-                    per_bone_auxiliary_trailer=True,
-                )],
-                magic=b"MDLV0016",
-                skeleton_marker=b"MDLS0002\0",
-                animation_marker=b"MDLA0003\0",
-            ),
             "valid-legacy.mdl": build_mdl(
                 [animation_record(303, "Legacy", 2, 2, legacy_trailer=True)],
                 magic=b"MDLV0017",
@@ -439,6 +398,16 @@ class SceneMdlPuppetAnimationReaderTests(unittest.TestCase):
                 [animation_record(103, "Unknown", 2, 2, mode="pingpong")]
             ),
         }
+        legacy16 = dict(magic=b"MDLV0016", skeleton_marker=b"MDLS0002\0")
+        for filename, clip_id, name, auxiliary, malformed, marker in (
+            ("valid-mdlv0016.mdl", 96, "Legacy Per Bone", True, False, b"MDLA0003\0"),
+            ("valid-mdlv0016-no-auxiliary.mdl", 97, "Legacy No Auxiliary", False, False, b"MDLA0003\0"),
+            ("bad-mdlv0016-animation-marker.mdl", 98, "Mismatched Marker", False, False, b"MDLA0004\0"),
+            ("bad-mdlv0016-auxiliary.mdl", 96, "Legacy Per Bone", True, True, b"MDLA0003\0"),
+        ):
+            cls.fixtures[filename] = build_mdl([animation_record(clip_id, name, 2, 2,
+                auxiliary=auxiliary, bad_auxiliary_key=malformed, per_bone_auxiliary_trailer=True)],
+                animation_marker=marker, **legacy16)
         cue = event_record(0.125, {"frame": 2, "name": "Wake_Ω"})
         cls.fixtures["events-two-clips.mdl"] = build_mdl([
             animation_record(501, "Source motion", 4, 2, events=[cue]),
@@ -611,7 +580,7 @@ class SceneMdlPuppetAnimationReaderTests(unittest.TestCase):
         for component in range(9):
             changed = list(held)
             changed[component] += 0.00001
-            cls.fixtures[f"bad-dense-vary-{component}.mdl"] = build_mdl([
+            cls.fixtures[f"dense-vary-{component}.mdl"] = build_mdl([
                 animation_record(1301, "Not constant", 2, 2,
                     track_states=[1, 0], track_samples={0: [held, held, tuple(changed)]})])
         for label, options in (("state2", dict(track_states=[2, 0])),
@@ -631,6 +600,22 @@ class SceneMdlPuppetAnimationReaderTests(unittest.TestCase):
         record = animation_record(1301, "Exact end", 2, 2, **dense)
         cls.fixtures["bad-dense-end.mdl"] = build_mdl([record], corrupt_end_offset=True)
         cls.fixtures["bad-dense-tail.mdl"] = build_mdl([record + b"\0"])
+        post = dict(post_bounds_scalar=[[-3, 5, 765], [0, 0, 0]])
+        first = animation_record(9201, "Unconsumed channel", 2, 2, **post)
+        following = animation_record(9202, "Healthy after channel", 1, 2, fps=24)
+        cls.fixtures["post-bounds-next-clip.mdl"] = build_mdl([first, following])
+        cls.fixtures["post-bounds-nan-next-clip.mdl"] = build_mdl([
+            animation_record(9201, "Unconsumed NaN channel", 2, 2,
+                             post_bounds_scalar=[[0, math.nan, 5], [0, 0, 0]]), following])
+        cls.fixtures["post-bounds-duplicate-id.mdl"] = build_mdl([
+            first, animation_record(9201, "Duplicate after channel", 1, 2)])
+        for label, options in {
+            "state": dict(post_scalar_state=1), "short-size": dict(post_scalar_size_delta=-4),
+            "long-size": dict(post_scalar_size_delta=4), "flag": dict(post_scalar_presence=2),
+        }.items():
+            cls.fixtures[f"bad-post-bounds-{label}.mdl"] = build_mdl([
+                animation_record(9201, "Malformed channel", 2, 2, **(post | options)), following])
+        cls.fixtures["bad-post-bounds-truncated.mdl"] = build_mdl([first[:-7], following])
         for name, blob in cls.fixtures.items():
             (tmp / name).write_bytes(blob)
 
@@ -694,10 +679,37 @@ class SceneMdlPuppetAnimationReaderTests(unittest.TestCase):
 
     def test_reference_track_does_not_relax_version_shape_numeric_or_exact_end(self):
         cases = {name: result for name, result in self.results.items() if name.startswith("bad-dense-")}
-        self.assertEqual(len(cases), 17)
+        self.assertTrue(cases)
         for name, result in cases.items():
             with self.subTest(name=name):
                 self.assertFalse(result["ok"], result)
+
+    def test_varying_reference_tracks_remain_data_for_preparation_to_qualify(self):
+        for component in range(9):
+            entry = self.results[f"dense-vary-{component}.mdl"]
+            self.assertTrue(entry["ok"], entry)
+            clip = entry["animations"][0]
+            self.assertEqual(clip["trackStates"], [1, 0])
+            self.assertNotEqual(clip["firstTransform"][component], clip["lastTransform"][component])
+
+    def test_post_bounds_scalar_is_classified_without_losing_following_clip(self):
+        for filename in ("post-bounds-next-clip.mdl", "post-bounds-nan-next-clip.mdl"):
+            with self.subTest(filename=filename):
+                entry = self.results[filename]
+                self.assertTrue(entry["ok"], entry)
+                first, following = entry["animations"]
+                self.assertEqual([first["id"], following["id"]], [9201, 9202])
+                self.assertEqual([first["recordOrdinal"], following["recordOrdinal"]], [0, 1])
+                self.assertEqual([first["hasPostBoundsScalarTrack"], following["hasPostBoundsScalarTrack"]], [True, False])
+                self.assertFalse(first["hasAuxiliaryScalarTrack"])
+                self.assertEqual(first["lastTransform"][:3], [0, 4, 0])
+                self.assertEqual((following["fps"], following["sampleCounts"]), (24, [2, 2]))
+
+    def test_post_bounds_scalar_cannot_hide_malformed_framing_or_duplicate_ids(self):
+        for name, row in self.results.items():
+            if name.startswith("bad-post-bounds-") or name == "post-bounds-duplicate-id.mdl":
+                with self.subTest(name=name):
+                    self.assertFalse(row["ok"], row)
 
     def test_modern_events_preserve_typed_fields_and_next_clip_boundary(self):
         entry = self.results["events-two-clips.mdl"]

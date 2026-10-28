@@ -93,6 +93,14 @@ Puppet runtime 必须把 authored pose、animations/mixing/rules、constraints/I
 
 以下合同基于既有 mesh、MDAT、MDLA/rig/full-TRS reader 与当前 `GeometryProduct`/playback 执行；块布局细节见 [场景格式与 Render Graph 第 11 节](scene-format-and-render-graph.md)。
 
+<a id="puppet-additive-local-unavailable"></a>
+
+**完整结构与可播放资格分离：additive 资源局部不可用。** 目标是让一个未支持的附加动作不连带冻结角色的健康主体动作。现代 dense state1 的已知全TRS记录可完整解码，常量/bind-equivalence 仍由原 Evaluator 在准备期裁定；退役 Reader 重复的常量语义检查。MDLV0023 的 post-bounds 标量仅识别已核验的逐骨 dense state0/完整帧长度/块内边界结构，保留独立 channel-presence；不赋予深度、排序或位移语义，不复制样本偏移或搜索下一clip绕过记录。未知标记、状态、长度、截断、重复身份与declaredEnd错误仍拒整块；实际消费的TRS/alpha有限值门保持。未消费scalar不逐值扫描或认证，其载荷即使含非有限位型也不影响健康clip，结构有效不等于可播放。
+
+原 LayerLoad 一次准备中，当前可见或绑定可显现的 opaque clip 仍为 required；仅 additive 与既有 hidden optional 复用 Evaluator 的 optionalAnimationIDs 和唯一 preparedMap。相同资源只要也被 required opaque 引用就仍 required。Evaluator 明确拒绝未消费的 post-bounds scalar，并保留原 reference、alpha和组合边界；Selector 的既有组合限制不放宽。准备失败的 optional clip 从同一 selection 撤下并记录原 slot/clip 诊断，健康 clips 保原作者顺序，由完整 authoredLayers 注册原 ordinal；不发布未支持槽的假metadata、snapshot或事件。没有健康clip仍沿已验证 reference/bind 回退，direct model 不借此扩大channel或可选范围。
+
+这是项目局部降级策略，不是官方完整混合语义。没有新增clock、失败registry、普通帧解析或二次准备。验收须健康opaque/additive继续推进、坏opaque及同ID required不旁路、全不可用回退、坏结构仍硬拒、缺中间槽与hidden身份保持；真实原包恢复可归因身体动作，未消费左手仍留队列，并用未参与修法的角色检验原动画/退场。若只能猜标量或丢坏字节才能恢复，则保原fallback并停止扩域。实施与画面身份见[本批后验](../history/puppet-additive-local-fallback-2026-10-29.md)，不据局部恢复关闭未知动作。
+
 <a id="puppet-static-position-uv"></a>
 
 **MDLV0016 无权重静态几何合同**：已有52B skinned搜索不能解释合法的format9、position float3+UV float2资源，背景会在准备阶段整体缺席。沿原`SceneMdlPuppetMeshReader → PreparedAsset/bind pose → ScenePuppetMeshGeometry → main/compositor`扩入静态20B profile，不增加几何、资源或输出owner，不改RigReader/动画/挂点能力。必须先保原52B全文件搜索及其唯一unused-tail/歧义判定；原52B候选一旦选中，decode的finite/range失败仍直接拒绝，不能改stride求成功。旧52B歧义保持原mesh拒绝，不冒充无候选；仅原搜索真正无候选时复用同一搜索算法尝试format word9/stride20，要求terminal-index证明、完整三角/索引安全和mesh末端一个0字节后文件结束；不把旧52B的unused-tail资格自动扩给新profile。普通帧不解析或转换格式。
@@ -170,7 +178,7 @@ MDLV0021兼容补接只新增上述三reader的版本合同，rig限已证80-byt
 
 2026-10-18 已按本节先行设计完成有界实施与原包/独立样本验收，实际身份见[运行证据](runtime-evidence-current.md#constant-dense-state1-20261018)。旧逐骨state1拒绝使整个MDLA准备失败，连带已存在的nested animation lookup不可用；原拒绝路径仅在下列中性profile退出，不补假lookup或把1擦成0。固定官方2.8.0.42的单字节A0/B1对照中，只改变骨9标记后其local origin与Mat4.translation由固定动画值回到bind-like，0/12仍保动画值，排除整clip重置；此为单profile的参考式消费，不区分接近的bind/其他初始参考，也不定义任意state1数学。原339两模型38条state1均为常量且与bind数值等价，只作为受益输入，不成为产品分派条件。
 
-- **职责与范围。** 原MDLA0006 reader保留逐骨原标记与完整TRS；state0行为不变，state1只读完整常量轨道，其他state、变化值、长度/finite/end错误仍拒绝原最小资源。现IR向唯一Evaluator传递标记，不再借“非identity”或“随时间变化”分类猜作者标记。
+- **职责与范围。** 原MDLA0006 reader保留逐骨原标记与完整TRS；state0行为不变，state1保完整TRS，常量及bind等价由Evaluator裁定；其他state、长度/实际TRS finite/end错误仍拒绝原最小资源。未支持additive可按[局部不可用合同](#puppet-additive-local-unavailable)退出，不能将变化state1当可播放。现IR向唯一Evaluator传递标记，不再借“非identity”或“随时间变化”分类猜作者标记。
 - **准备与消费。** 仅无独立assembled reference、常量state1矩阵与MDLS bind逐元素最大差不超过0.0001的中性profile准入；该阈值是项目浮点准备容差，不是官方精度合同。其pose贡献保持原参考而不成为opaque骨owner；含state1的selection最多一个opaque clip，避免未证的多个替换层归属。更多payload、reference或层组合保持原unsupported。single与layered消费同一准备语义，state0恒定非identity仍正常贡献；alpha、events、visibility、blend与现clock不随TRS标记停用。
 - **身份、失败与退出。** 原PlaybackRuntime不可变clip定义纳入标记，跨surface同ID/TRS不同标记不能共用旧定义。bind inverse、script/query/render pose、skinning、attachment、资源及最终输出仍各用原owner；普通帧不再读二进制或重建轨道。新profile不合法沿原局部失败/已验证reference回退，不跳记录、不吞旧原因。若原包仍不推进、健康同伴或生命周期回退，撤回该准入而保留证据，不通过改作者参数救图。
 - **验收。** 最近reader/weights/playback门覆盖改名、等价输入、state0常量非identity、单/多clip中性轨道、权重、非恒定/非bind/未知state与reference/多opaque反例，以及仅标记不同的重注册冲突。一次Debug后须原输入实际prepared nested lookup、事件接续、目标pose推进、GPU/末合成及独立真实Puppet保持；只有首错退出不能记完整动画/官方同phase或性能收益。固定官方原图、数值、layout偏差与失败归[运行证据](runtime-evidence-current.md#constant-dense-state1-20261018)。

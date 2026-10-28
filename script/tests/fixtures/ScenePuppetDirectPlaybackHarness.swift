@@ -63,7 +63,16 @@ struct SceneDynamicSnapshot {
     }
     subscript(target: SceneDynamicTarget) -> SceneDynamicResolvedValue? { values[target] }
 }
-struct SceneScriptPuppetBoneMutation { let layerID: Int, boneIndex: Int; let matrix: [Double] }
+struct SceneScriptPuppetBoneMutation {
+    enum Operation { case matrix([Double]), impulse(SIMD3<Double>) }
+    let layerID: Int, boneIndex: Int
+    let operation: Operation
+    init(layerID: Int, boneIndex: Int, matrix: [Double]) {
+        self.layerID = layerID
+        self.boneIndex = boneIndex
+        self.operation = .matrix(matrix)
+    }
+}
 enum ScenePuppetLayerLoad {
     struct BoneConfiguration {
         let names: [String], parentIndices: [Int]

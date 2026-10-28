@@ -599,6 +599,9 @@ nonisolated struct ScenePuppetAnimationEvaluator {
         animation: SceneMdlPuppetAnimation,
         rig: SceneMdlPuppetRig
     ) throws -> PreparedAnimation {
+        guard !animation.hasPostBoundsScalarTrack else {
+            throw ScenePuppetAnimationEvaluationFailure.unconsumedAuxiliaryChannel(animation.id)
+        }
         let boneCount = rig.bones.count
         guard animation.transformsByBone.count == boneCount,
               animation.transformTrackStates.count == boneCount else {

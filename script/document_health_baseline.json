@@ -101,8 +101,8 @@
       "bytes": 2294
     },
     "docs/scene/capabilities/advanced-object-coverage.md": {
-      "lines": 388,
-      "bytes": 81712
+      "lines": 396,
+      "bytes": 84146
     },
     "docs/scene/capabilities/alpha-display-fallback-design.md": {
       "lines": 124,
@@ -118,7 +118,7 @@
     },
     "docs/scene/capabilities/direct-model-skeletal-animation.md": {
       "lines": 88,
-      "bytes": 19066
+      "bytes": 19279
     },
     "docs/scene/capabilities/effect-execution-coverage.md": {
       "lines": 277,
@@ -150,7 +150,7 @@
     },
     "docs/scene/capabilities/runtime-evidence-current.md": {
       "lines": 600,
-      "bytes": 220087
+      "bytes": 220733
     },
     "docs/scene/capabilities/runtime-input-property-coverage.md": {
       "lines": 600,
@@ -277,8 +277,8 @@
       "bytes": 22423
     },
     "docs/scene/roadmap/scene-open-breakpoint-queue.md": {
-      "lines": 169,
-      "bytes": 33866
+      "lines": 168,
+      "bytes": 33588
     },
     "docs/web/cold-descriptor-parse-offload-design.md": {
       "lines": 30,
@@ -1737,24 +1737,6 @@
     },
     {
       "section": "bodies",
-      "path": "docs/scene/capabilities/advanced-object-coverage.md",
-      "before": "2a0e40d16faeda9de8eee159c8b0f5b71b3492e007682c84839556a515a0dedd",
-      "after": "8852e58ab0815bbd37bac67d6a0e4556a97d6e8702891096e7870a326dcddde9",
-      "owner": "Scene translation gravity closeout",
-      "reason": "显式平移重力接原唯一Motion并以三包重复交互收尾；修正过时U40状态与重复API行，压缩已闭Color输入过程保持设计600行，保所有独立边界和证据可用性。",
-      "decision": "docs/scene/history/puppet-linear-impulse-2026-10-28.md#translation-gravity-20261028"
-    },
-    {
-      "section": "bodies",
-      "path": "docs/scene/capabilities/runtime-evidence-current.md",
-      "before": "86b9f94743be0751ff024b0dcbbaa24621dfe864d0551cd7a14b9268af51e446",
-      "after": "35389159df8bbf13b50d812655c6bcf67730323b6ce15544af8f5c4c6e0a122f",
-      "owner": "Scene translation gravity closeout",
-      "reason": "显式平移重力接原唯一Motion并以三包重复交互收尾；修正过时U40状态与重复API行，压缩已闭Color输入过程保持设计600行，保所有独立边界和证据可用性。",
-      "decision": "docs/scene/history/puppet-linear-impulse-2026-10-28.md#translation-gravity-20261028"
-    },
-    {
-      "section": "bodies",
       "path": "docs/scene/capabilities/scenescript-api-coverage.md",
       "before": "1c0264b7769fd218434618c9d56a0ea9810eaba745296d7e78bec56fd0c64b7d",
       "after": "fe4dd86e689c36f793a7cb3bd6bad0e90eab2256ce5248cda8ad7469aee43dab",
@@ -1773,12 +1755,39 @@
     },
     {
       "section": "bodies",
+      "path": "docs/scene/capabilities/advanced-object-coverage.md",
+      "before": "8852e58ab0815bbd37bac67d6a0e4556a97d6e8702891096e7870a326dcddde9",
+      "after": "be93ca01972fe7257fe3aad32fef010b9004a455a59e038e6c6efc45befe3bc7",
+      "owner": "Scene additive local fallback",
+      "reason": "用既有preparedMap隔离未支持additive，结构/消费边界与实际原377六动作恢复、左手仍开放；合并旧state1/auxiliary状态，证据细节只归历史，保direct及未知语义边界。",
+      "decision": "docs/scene/history/puppet-additive-local-fallback-2026-10-29.md"
+    },
+    {
+      "section": "bodies",
+      "path": "docs/scene/capabilities/direct-model-skeletal-animation.md",
+      "before": "780f8dc417d875a393776a73dc0c3f8a7fc084d2ba2b7fd01af79a8d632700ac",
+      "after": "37a5d7a32f23034f898df437d1a22421abb0b3b2e7954c1e9731cba56a667171",
+      "owner": "Scene additive local fallback",
+      "reason": "用既有preparedMap隔离未支持additive，结构/消费边界与实际原377六动作恢复、左手仍开放；合并旧state1/auxiliary状态，证据细节只归历史，保direct及未知语义边界。",
+      "decision": "docs/scene/history/puppet-additive-local-fallback-2026-10-29.md"
+    },
+    {
+      "section": "bodies",
+      "path": "docs/scene/capabilities/runtime-evidence-current.md",
+      "before": "35389159df8bbf13b50d812655c6bcf67730323b6ce15544af8f5c4c6e0a122f",
+      "after": "0278ffe6f9aa5f9fd3dd6e8225511671ab09d58c7030a67f089896b247c864e0",
+      "owner": "Scene additive local fallback",
+      "reason": "用既有preparedMap隔离未支持additive，结构/消费边界与实际原377六动作恢复、左手仍开放；合并旧state1/auxiliary状态，证据细节只归历史，保direct及未知语义边界。",
+      "decision": "docs/scene/history/puppet-additive-local-fallback-2026-10-29.md"
+    },
+    {
+      "section": "bodies",
       "path": "docs/scene/roadmap/scene-open-breakpoint-queue.md",
-      "before": "2ffe461961f1eaa119d8960754964b80d6d6dab29bbc592c2f989def0a43c4d4",
-      "after": "f0f6710d911db4e9790181b9a74c0225f0c61ec4fe9df5d057441f0aac39e85d",
-      "owner": "Scene translation gravity closeout",
-      "reason": "显式平移重力接原唯一Motion并以三包重复交互收尾；修正过时U40状态与重复API行，压缩已闭Color输入过程保持设计600行，保所有独立边界和证据可用性。",
-      "decision": "docs/scene/history/puppet-linear-impulse-2026-10-28.md#translation-gravity-20261028"
+      "before": "f0f6710d911db4e9790181b9a74c0225f0c61ec4fe9df5d057441f0aac39e85d",
+      "after": "6c7d98cea09b4ea1288b3b856db4f0b99e44e5d1b7212b620620e48c8b29ab8f",
+      "owner": "Scene additive local fallback",
+      "reason": "用既有preparedMap隔离未支持additive，结构/消费边界与实际原377六动作恢复、左手仍开放；合并旧state1/auxiliary状态，证据细节只归历史，保direct及未知语义边界。",
+      "decision": "docs/scene/history/puppet-additive-local-fallback-2026-10-29.md"
     }
   ]
 }

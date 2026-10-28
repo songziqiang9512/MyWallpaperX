@@ -19,6 +19,7 @@ from pathlib import Path
 from script.tests.test_scene_puppet_mesh import build_mdl
 from script.tests.test_scene_puppet_direct_playback import EXTRA_SOURCES, PIPELINE, static_model_carrier_source
 from script.tests.scene_pkg_fixture import make_package
+from script.tests.test_scene_puppet_animation import animation_record
 
 
 ROOT = Path(__file__).resolve().parents[2]
@@ -83,8 +84,9 @@ def fixture_mdl(
     bone_names: tuple[str, str] = ("root", "child"),
     bone_order: tuple[int, int] = (0, 1),
     independent_roots: bool = False,
+    animation_records: list[bytes] | None = None,
 ) -> bytes:
-    """Write a small owned MDLV0017/MDLS0002/MDLA0004 fixture, not a parser."""
+    """Write a small owned legacy/modern fixture, not a parser."""
     vertices = bytearray()
     for x, y, u, v in ((-10, -20, 0, 1), (10, -20, 1, 1), (0, 20, 0.5, 0)):
         record = bytearray(80)
@@ -94,10 +96,12 @@ def fixture_mdl(
         struct.pack_into("<2f", record, 72, u, v)
         vertices += record
     indices = struct.pack("<6H", 0, 1, 2, 2, 1, 0)
-    body = bytearray(b"MDLV0017\0" + b"\0" * 24)
+    modern = animation_records is not None
+    body = bytearray((b"MDLV0023\0" if modern else b"MDLV0017\0") + b"\0" * 24)
     body += struct.pack("<II", 0, len(vertices)) + vertices
     body += struct.pack("<I", len(indices)) + indices
-    skeleton = bytearray(b"MDLS0002\0" + b"\0" * 4 + struct.pack("<I", 2))
+    skeleton = bytearray((b"MDLS0004\0" if modern else b"MDLS0002\0")
+                         + b"\0" * 4 + struct.pack("<I", 2))
     bind_matrices = (root_bind or matrix(4), matrix(2))
     for index in bone_order:
         bind = bind_matrices[index]
@@ -111,16 +115,21 @@ def fixture_mdl(
     struct.pack_into("<I", skeleton, 9, len(body) + len(skeleton))
     if not animation:
         return bytes(body + skeleton + b"\0")
-    record = bytearray(struct.pack("<II", 101, 0) + b"owned-motion\0loop\0")
-    record += struct.pack("<fIII", 1, 1, 0, 2)
-    for bone in bone_order:
-        record += struct.pack("<II", 0, 72)
-        for frame in range(2):
-            translation = (4 + frame * 26) if bone == 0 else 2
-            record += struct.pack("<9f", translation, 0, 0, 0, 0, 0, 1, 1, 1)
-    record += b"\0" * 10
-    block = bytearray(b"MDLA0004\0" + b"\0" * 4 + struct.pack("<I", 1))
-    block += b"invalid" if bad_animation else record
+    if modern:
+        records = animation_records
+    else:
+        record = bytearray(struct.pack("<II", 101, 0) + b"owned-motion\0loop\0")
+        record += struct.pack("<fIII", 1, 1, 0, 2)
+        for bone in bone_order:
+            record += struct.pack("<II", 0, 72)
+            for frame in range(2):
+                translation = (4 + frame * 26) if bone == 0 else 2
+                record += struct.pack("<9f", translation, 0, 0, 0, 0, 0, 1, 1, 1)
+        record += b"\0" * 10
+        records = [b"invalid" if bad_animation else record]
+    block = bytearray((b"MDLA0006\0" if modern else b"MDLA0004\0")
+                      + b"\0" * 4 + struct.pack("<I", len(records)))
+    block += b"".join(records)
     struct.pack_into("<I", block, 9, len(body) + len(skeleton) + len(block))
     return bytes(body + skeleton + block)
 
@@ -133,7 +142,8 @@ class ScenePuppetPreparationTests(unittest.TestCase):
         cls._temporary = tempfile.TemporaryDirectory(prefix="mwx-puppet-preparation-")
         directory = Path(cls._temporary.name)
         source_paths = [LAYER_LOAD, CASES, PIPELINE, Path(static_model_carrier_source.__code__.co_filename),
-                        Path(make_package.__code__.co_filename), *(SCENE / item for item in SOURCES)]
+                        Path(make_package.__code__.co_filename), Path(animation_record.__code__.co_filename),
+                        *(SCENE / item for item in SOURCES)]
         identity = {str(path): hashlib.sha256(path.read_bytes()).hexdigest() for path in source_paths}
         # Keep the complete production file unchanged; append test cases in the
         # same file only to observe its fileprivate immutable CPU products.
@@ -185,6 +195,21 @@ class ScenePuppetPreparationTests(unittest.TestCase):
             "static-uv20.mdl": build_mdl(magic=b"MDLV0016", stride=20,
                 vertex_format=9, include_mdls=False, suffix=b"\0"),
         }
+        def channels(end: float) -> dict[int, list[tuple[float, ...]]]:
+            pose = lambda x: (x, 0, 0, 0, 0, 0, 1, 1, 1)
+            return {0: [pose(4), pose(end)], 1: [pose(2), pose(2)]}
+        for name, offset in (("partial-additive", 0), ("renamed-partial-resource", 7000)):
+            records = [
+                animation_record(101 + offset, "Moving base", 1, 2, fps=1,
+                                 track_samples=channels(30)),
+                animation_record(202 + offset, "Unsupported reference", 1, 2, fps=1,
+                                 track_states=[1, 0], track_samples=channels(12)),
+                animation_record(204 + offset, "Unknown post-bounds channel", 1, 2, fps=1,
+                                 track_samples=channels(9), post_bounds_scalar=[[float("nan"), 765], [0, 0]]),
+                animation_record(303 + offset, "Following healthy additive", 1, 2, fps=1,
+                                 track_samples=channels(7)),
+            ]
+            files[name + ".mdl"] = fixture_mdl(animation_records=records)
         inputs = directory / "inputs"
         inputs.mkdir()
         for name, data in files.items():
@@ -251,6 +276,41 @@ class ScenePuppetPreparationTests(unittest.TestCase):
         for name, passed in self.result["resource-read-checks"].items():
             with self.subTest(name=name):
                 self.assertTrue(passed)
+
+    def test_unsupported_additives_keep_healthy_motion_and_original_slot_identity(self) -> None:
+        for key, offset in (("local-additive", 0), ("local-additive-renamed", 7000)):
+            with self.subTest(resource=key):
+                row = self.result[key]["partial"]
+                self.assertEqual(row["kind"], "animation", row)
+                self.assertEqual(row["animationIDs"], [101 + offset, 303 + offset], row)
+                self.assertEqual(row["slotIDs"], [81, 84], row)
+                self.assertEqual(row["slotIndices"], [0, 3], row)
+                self.assertEqual(row["preparedIDs"], [101 + offset, 303 + offset], row)
+                self.assertEqual(row["rootXs"], [4, 11.25, 25.75], row)
+                self.assertEqual(row["lastPoints"], [[11.75, -20], [31.75, -20], [21.75, 20]], row)
+                self.assertEqual(row["rootXs"], self.result[key]["healthyOnly"]["rootXs"], row)
+                for omitted in (202 + offset, 204 + offset, 912, 923):
+                    self.assertIn(str(omitted), row["fallback"], row)
+
+    def test_opaque_aliases_and_absent_clip_ids_do_not_become_optional_additives(self) -> None:
+        for key in ("local-additive", "local-additive-renamed"):
+            for case in ("badOpaqueReference", "badOpaqueScalar", "opaqueAlias", "missingID", "badOnly"):
+                with self.subTest(resource=key, case=case):
+                    row = self.result[key][case]
+                    self.assertEqual(row["kind"], "bind", row)
+                    self.assertEqual(row["animationIDs"], [], row)
+            self.assertEqual(self.result[key]["default"],
+                             {"kind": "bind", "fallback": "", "animationIDs": []})
+
+    def test_hidden_healthy_slot_keeps_metadata_and_frozen_pose_after_additive_filtering(self) -> None:
+        for key, offset in (("local-additive", 0), ("local-additive-renamed", 7000)):
+            row = self.result[key]["hidden"]
+            self.assertEqual(row["animationIDs"], [101 + offset, 303 + offset], row)
+            self.assertEqual(row["slotIndices"], [0, 2], row)
+            self.assertEqual(row["slotIDs"], [81, 84], row)
+            self.assertEqual(row["visible"], [True, False], row)
+            self.assertEqual(row["currentFrames"], [0.75, 0], row)
+            self.assertEqual(row["rootXs"], [4, 10.5, 23.5], row)
 
     def test_default_pose_keeps_reference_and_does_not_inherit_script_or_animation(self) -> None:
         row = self.result["default-reference"]

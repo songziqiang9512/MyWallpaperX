@@ -14,6 +14,7 @@ struct ScenePuppetAnimationSelection {
 
         nonisolated var supportsDirectModelChannels: Bool {
             !animation.hasAlphaContribution && !animation.hasAuxiliaryScalarTrack
+                && !animation.hasPostBoundsScalarTrack
         }
     }
 
@@ -135,6 +136,7 @@ enum ScenePuppetAnimationEvaluationFailure: Error, CustomStringConvertible, Equa
     case invalidBindTransform(Int)
     case invalidReferenceTransform(Int)
     case invalidReferenceTrack(Int)
+    case unconsumedAuxiliaryChannel(Int)
     case unsupportedReferenceComposition
     case invalidFrame(Int)
     case duplicateAdditiveAnimation(Int)
@@ -157,6 +159,8 @@ enum ScenePuppetAnimationEvaluationFailure: Error, CustomStringConvertible, Equa
             return "puppet reference local transform \(index) is not decomposable"
         case .invalidReferenceTrack(let index):
             return "puppet animation reference track \(index) is outside the bounded bind-equivalent profile"
+        case .unconsumedAuxiliaryChannel(let id):
+            return "puppet animation \(id) has an unconsumed post-bounds scalar channel"
         case .unsupportedReferenceComposition:
             return "puppet reference tracks require at most one opaque clip"
         case .invalidFrame(let index):

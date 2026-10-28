@@ -17,7 +17,7 @@ StaticModelReader 保留 validated Rig，PreparedStaticModelResources 准备 imm
 
 ## 先决格式资格
 
-新增导入模型 profile 限定既有 `MDLV0023/MDLS0004/MDLA0006` 配对。Reader 在现24B位置保留6个有限、有界、逐轴 min≤max 的 bounds（零 extent 合法），随后保严格 absent scalar 字段；0021及其他旧版本合同不扩。正式 Reader 已完整读取原329的17条 records，并发布16条 exported clips；格式通过本身不等于这些 clips 均已被实际选择或播放。
+新增导入模型 profile 限定既有 `MDLV0023/MDLS0004/MDLA0006` 配对。Reader 在现24B位置保留6个有限、有界、逐轴 min≤max 的 bounds（零 extent 合法），随后由共享Reader保留已知dense post-bounds scalar的presence，但direct仍拒未消费通道；结构与image附加动作局部降级归[唯一合同](advanced-object-coverage.md#puppet-additive-local-unavailable)，direct可选范围不扩。0021及其他旧版本合同不扩。正式 Reader 已完整读取原329的17条 records，并发布16条 exported clips；格式通过本身不等于这些 clips 均已被实际选择或播放。
 
 record ordinal 是源引用身份，exported animation ID 是作者层选择身份，二者不混用。保留完整有序记录、raw mode/flags和 typed source-reference、frame range、control、root-selector；派生引用只能指向已读取、非派生的 source record，范围有界且长度等于已物化 TRS 的 frameCount。源 take 与派生 clip 可有相同 exported ID，不能 first/last-wins或按名称特判。存在派生记录时，作者选择集合只发布派生 clip，源记录仅供引用；派生之间仍要求 ID 唯一。无派生的旧完整动画集合保持原 ID 唯一合同。
 

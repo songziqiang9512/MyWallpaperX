@@ -882,13 +882,13 @@
       "role": "stable-contract",
       "entrypoint": "docs/scene/capabilities/README.md",
       "currentStateAuthority": "docs/scene/capabilities/advanced-object-coverage.md",
-      "lastReviewed": "2026-10-20",
+      "lastReviewed": "2026-10-29",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "9a9759d86be502d3ae4bc509c001b7386166695f1e8777482362f3785a4a828a",
+        "sourceSHA256": "c60bad046524d2ef3a9df06d0f7f06b835b591defae4ac2513f170d31bae40b0",
         "method": "document_registry --audit + document_health --check",
-        "scope": "Animation rate Number来源、唯一callback cohort与实际329变速有界后验；退出旧未消费状态。其余正文未重审。",
-        "limitations": "不升级整样本/官方时相、rate live-property hook、全部动作、视频连续播放或性能；Graph/utility及particle诊断失败保留。"
+        "scope": "仅同步已知post-bounds结构与播放资格分离、原377健康主体动作的局部恢复与独立323；补颜色四格正控失格。其余正文未重审。",
+        "limitations": "未知scalar/变化reference消费者、完整混合/官方phase、HDR/多屏和性能未闭；不因旧记录外推当前整体结果。"
       },
       "title": "Direct model的骨骼动画合同",
       "authority": "advanced-object-animation-design"
@@ -996,13 +996,13 @@
       "role": "stable-contract",
       "entrypoint": "docs/scene/capabilities/README.md",
       "currentStateAuthority": "docs/scene/capabilities/coverage-ledger.md",
-      "lastReviewed": "2026-10-28",
+      "lastReviewed": "2026-10-29",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "1aa0d63ad8edb35f9b57d3f1934da7a613e934093a350542f3a10a867bfa2d2e",
+        "sourceSHA256": "da0eecb54d315407cab4e807f0f514f484f9b1bcee409e824cee053435c2a198",
         "method": "document_registry --audit + document_health --check",
-        "scope": "仅同步显式m/gd纯平移world持续力、坏physics逐骨失败及374/299/318三轮；保旧线性冲量与临时证据失效边界，移除已闭318交互队列，不升级整样本。",
-        "limitations": "未知缺省m/gd、角物理/IK/rope、宽parent链、官方动态相位/HDR/多屏及性能未验；其他专题未重审。"
+        "scope": "仅同步已知post-bounds结构与播放资格分离、原377健康主体动作的局部恢复与独立323；补颜色四格正控失格。其余正文未重审。",
+        "limitations": "未知scalar/变化reference消费者、完整混合/官方phase、HDR/多屏和性能未闭；不因旧记录外推当前整体结果。"
       }
     },
     {
@@ -2758,6 +2758,19 @@
       ],
       "cutoffDate": "2026-10-14",
       "uniqueValue": "typed换图反馈与reset同步重入；正常窗口/持久值/退出、独立五步ROI及冷取证未完/暖CLI收尾缺失"
+    },
+    {
+      "path": "docs/scene/history/puppet-additive-local-fallback-2026-10-29.md",
+      "role": "historical-evidence",
+      "entrypoint": "docs/scene/history/README.md",
+      "commandPolicy": "historical-only",
+      "currentAuthorities": [
+        "docs/scene/capabilities/advanced-object-coverage.md",
+        "docs/scene/capabilities/direct-model-skeletal-animation.md",
+        "docs/scene/roadmap/scene-open-breakpoint-queue.md"
+      ],
+      "cutoffDate": "2026-10-29",
+      "uniqueValue": "完整结构与可播放资格分离；原377健康动作恢复而左手仍不可用，保required/原slot反例、独立323实图及官方scalar STOP。"
     },
     {
       "path": "docs/scene/history/puppet-animation-control-2026-10-07.md",

@@ -346,6 +346,7 @@ enum SceneMdlPuppetAnimationReader {
                 events: trailer.events,
                 bounds: trailer.bounds,
                 hasAuxiliaryScalarTrack: trailer.hasAuxiliaryScalarTrack,
+                hasPostBoundsScalarTrack: trailer.hasPostBoundsScalarTrack,
                 recordOrdinal: index, rawMode: rawMode, rawFlags: rawFlags,
                 derivedSource: trailer.derivedSource
             ))
@@ -415,12 +416,6 @@ enum SceneMdlPuppetAnimationReader {
                     scale: SIMD3(values[6], values[7], values[8])
                 ))
             }
-            guard state != .referenceCandidate
-                || transforms.dropFirst().allSatisfy({ $0 == transforms[0] }) else {
-                throw SceneMdlPuppetAnimationReadError.invalidTrack(
-                    animationID: animationID, boneIndex: boneIndex
-                )
-            }
             cursor += expectedBytes
             tracks.append(transforms)
             states.append(state)
@@ -443,13 +438,14 @@ enum SceneMdlPuppetAnimationReader {
     ) throws -> (
         alphaByBone: [[Float]]?, events: [SceneMdlPuppetAnimation.Event],
         bounds: SceneMdlPuppetAnimation.Bounds?, hasAuxiliaryScalarTrack: Bool,
+        hasPostBoundsScalarTrack: Bool,
         derivedSource: SceneMdlPuppetAnimation.DerivedSource?
     ) {
         if contract == .legacyZeros10 {
             guard consumeZeros(data: data, cursor: &cursor, bound: bound, count: 10) else {
                 throw SceneMdlPuppetAnimationReadError.invalidAuxiliaryTrack(animationID)
             }
-            return (nil, [], nil, false, nil)
+            return (nil, [], nil, false, false, nil)
         }
         let alphaByBone = try readPerBoneAlphaTracks(
             data: data,
@@ -463,13 +459,13 @@ enum SceneMdlPuppetAnimationReader {
             guard consumeZeros(data: data, cursor: &cursor, bound: bound, count: 4) else {
                 throw SceneMdlPuppetAnimationReadError.invalidAuxiliaryTrack(animationID)
             }
-            return (alphaByBone, [], nil, false, nil)
+            return (alphaByBone, [], nil, false, false, nil)
         }
         if contract == .perBoneAlphaZeros29 {
             guard consumeZeros(data: data, cursor: &cursor, bound: bound, count: 29) else {
                 throw SceneMdlPuppetAnimationReadError.invalidAuxiliaryTrack(animationID)
             }
-            return (alphaByBone, [], nil, false, nil)
+            return (alphaByBone, [], nil, false, false, nil)
         }
         guard cursor < bound else {
             throw SceneMdlPuppetAnimationReadError.invalidAuxiliaryTrack(animationID)
@@ -498,6 +494,7 @@ enum SceneMdlPuppetAnimationReader {
             throw SceneMdlPuppetAnimationReadError.invalidAuxiliaryTrack(animationID)
         }
         let bounds: SceneMdlPuppetAnimation.Bounds?
+        let hasPostBoundsScalarTrack: Bool
         if contract == .modernBoundsAuxiliary {
             guard cursor + 25 <= bound else {
                 throw SceneMdlPuppetAnimationReadError.invalidAuxiliaryTrack(animationID)
@@ -505,18 +502,34 @@ enum SceneMdlPuppetAnimationReader {
             let values = (0 ..< 6).map { readFloat(data, at: cursor + $0 * 4) }
             guard values.allSatisfy({ $0.isFinite && abs($0) <= maxAbsoluteTransformValue }),
                   (0 ..< 3).allSatisfy({ values[$0] <= values[$0 + 3] }),
-                  data[cursor + 24] == 0 else {
+                  data[cursor + 24] <= 1 else {
                 throw SceneMdlPuppetAnimationReadError.invalidAuxiliaryTrack(animationID)
             }
             bounds = .init(minimum: SIMD3(values[0], values[1], values[2]),
                 maximum: SIMD3(values[3], values[4], values[5]))
+            hasPostBoundsScalarTrack = data[cursor + 24] == 1
             cursor += 25
+            if hasPostBoundsScalarTrack {
+                let expectedBytes = sampleCount * 4
+                for _ in 0 ..< boneCount {
+                    guard cursor + 8 <= bound,
+                          readUInt32(data, at: cursor) == 0,
+                          Int(readUInt32(data, at: cursor + 4)) == expectedBytes,
+                          cursor + 8 + expectedBytes <= bound else {
+                        throw SceneMdlPuppetAnimationReadError.invalidAuxiliaryTrack(animationID)
+                    }
+                    // No pose consumer reads this channel. Validate framing,
+                    // without scanning or assigning semantics to its payload.
+                    cursor += 8 + expectedBytes
+                }
+            }
         } else {
             // MDLV0021 retains its verified zero fields and absent scalar curve.
             guard consumeZeros(data: data, cursor: &cursor, bound: bound, count: 25) else {
                 throw SceneMdlPuppetAnimationReadError.invalidAuxiliaryTrack(animationID)
             }
             bounds = nil
+            hasPostBoundsScalarTrack = false
         }
         let derivedSource: SceneMdlPuppetAnimation.DerivedSource?
         if isDerived {
@@ -545,7 +558,8 @@ enum SceneMdlPuppetAnimationReader {
             data: data, cursor: &cursor, bound: bound, animationID: animationID,
             frameCount: frameCount, mode: mode, eventBudget: eventBudget
         )
-        return (alphaByBone, events, bounds, hasAuxiliaryTrack == 1, derivedSource)
+        return (alphaByBone, events, bounds, hasAuxiliaryTrack == 1,
+                hasPostBoundsScalarTrack, derivedSource)
     }
 
     private static func readEvents(

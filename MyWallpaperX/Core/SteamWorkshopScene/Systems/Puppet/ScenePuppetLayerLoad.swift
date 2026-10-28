@@ -290,7 +290,8 @@ enum ScenePuppetLayerLoad {
                 evaluator = try referenceEvaluator.get()
             } else {
                 let requiredIDs = Set(selection.clips.filter {
-                    $0.layer.visible != false || $0.layer.visibilityBinding != nil
+                    $0.layer.additive == false
+                        && ($0.layer.visible != false || $0.layer.visibilityBinding != nil)
                 }.map { $0.animation.id })
                 var resourceIDs: Set<Int> = []
                 let animations = selection.clips.compactMap { clip in
@@ -302,6 +303,13 @@ enum ScenePuppetLayerLoad {
                 let clips = selection.clips.filter {
                     evaluator.hasPreparedAnimation(animationID: $0.animation.id)
                 }
+                let unavailable = selection.clips.filter {
+                    !evaluator.hasPreparedAnimation(animationID: $0.animation.id)
+                }
+                let unavailableMessage = unavailable.isEmpty ? fallbackMessage :
+                    (fallbackMessage.map { $0 + "; " } ?? "") + "additive/optional animation unavailable: "
+                    + unavailable.map { "slot=\($0.layer.id.map(String.init) ?? "unknown") clip=\($0.animation.id)" }
+                        .joined(separator: ", ")
                 if !selection.clips.isEmpty && clips.isEmpty {
                     let message = "animation unavailable: no prepared layer"
                     if case let .success(referenceEvaluator)? = asset.referenceEvaluator {
@@ -313,6 +321,8 @@ enum ScenePuppetLayerLoad {
                 }
                 selection = .init(clips: clips, composition: clips.count == 1
                     && clips[0].layer.additive == false ? .singleAbsolute : .layered)
+                return .init(geometry: .evaluated(asset, selection, evaluator, kind,
+                    fallbackMessage: unavailableMessage))
             }
             return .init(geometry: .evaluated(asset, selection, evaluator, kind,
                 fallbackMessage: fallbackMessage))
