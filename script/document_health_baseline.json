@@ -38,7 +38,7 @@
     },
     "docs/development/repository-workflow.md": {
       "lines": 100,
-      "bytes": 14139
+      "bytes": 14056
     },
     "docs/development/validation-simplification-plan.md": {
       "lines": 263,
@@ -50,7 +50,7 @@
     },
     "docs/release/release-signing.md": {
       "lines": 164,
-      "bytes": 12912
+      "bytes": 12910
     },
     "docs/scene/architecture/capability-dependency-map.md": {
       "lines": 220,

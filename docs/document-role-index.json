@@ -226,12 +226,12 @@
       "role": "stable-contract",
       "entrypoint": "docs/README.md",
       "currentStateAuthority": "docs/architecture/repository-map.md",
-      "lastReviewed": "2026-10-20",
+      "lastReviewed": "2026-10-28",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "986dfa69edb9fc2b4eb98da78d401c4bef4eb5d138b8664417547916ed8e1e2b",
+        "sourceSHA256": "ef9091f660a38bcecf9dc8cd2fabe98e632f9a2ac9fd2e2ff3dbfb0672d8b9f7",
         "method": "document_registry --audit + document_health --check",
-        "scope": "CI/release audit: fixed UTC+08 review dates and checksum-pinned Sparkle signed permission contract; no distribution or runtime readiness claim.",
+        "scope": "CI累计基线、同SHA发布前置检查及有据文档调整链；仅脚本与文档复核。",
         "limitations": "仅文档职责与导航，不证明产品性能、兼容或发布验收"
       }
     },
@@ -612,12 +612,12 @@
       "role": "stable-contract",
       "entrypoint": "docs/README.md",
       "currentStateAuthority": "docs/release/bundle-content.md",
-      "lastReviewed": "2026-10-20",
+      "lastReviewed": "2026-10-28",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "498af77fb450862db728bd5180b2f502857692a8a53f6589fb00d64f523072d1",
+        "sourceSHA256": "7840f0f7fb4b96281011abe2ecad3c019781234a1e9ae3c135a73dadd706b846",
         "method": "document_registry --audit + document_health --check",
-        "scope": "CI/release audit: fixed UTC+08 review dates and checksum-pinned Sparkle signed permission contract; no distribution or runtime readiness claim.",
+        "scope": "CI累计基线、同SHA发布前置检查及有据文档调整链；仅脚本与文档复核。",
         "limitations": "Static contract review only; signed release and public artifact checks are performed by the release workflow."
       }
     },
