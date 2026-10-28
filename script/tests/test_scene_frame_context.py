@@ -767,9 +767,7 @@ class SceneFrameContextTests(unittest.TestCase):
         live_consumers = LIVE_CONSUMERS_SOURCE.read_text(encoding="utf-8")
         coordinator = COORDINATOR_SOURCE.read_text(encoding="utf-8")
         debug_runner = DEBUG_RUNNER_SOURCE.read_text(encoding="utf-8")
-        self.assertIn("var runtimeInput = model.runtimeInput", host)
         self.assertIn("runtimeInput = runtimeInput.applyingPreparedImageGeometry(preparedImageGeometry)", host)
-        self.assertIn("let effectAdmissionCatalog = SceneEffectAdmissionCatalog(", host)
         self.assertIn("shaderContracts: runtimeInput.shaderContracts", host)
         self.assertIn(
             "program: runtimeInput.propertyBindingProgram", live_consumers

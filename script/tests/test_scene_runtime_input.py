@@ -26,13 +26,7 @@ SHADER_CONTRACT_RESOURCE_RESOLUTION_SOURCES = scene_swift_sources_by_basename(
 RUNTIME_INPUT_SOURCE = REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Runtime/Frame/SceneRuntimeInput.swift"
 PREPARED_GEOMETRY_SOURCE = REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Runtime/Frame/SceneRenderDescriptor+Layer.swift"
 RUNTIME_MODEL_SOURCE = REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Runtime/Frame/SceneRuntimeModel.swift"
-HOST_SOURCE = REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Runtime/Session/SceneDesktopWallpaperHost.swift"
-HOST_LAUNCH_SOURCE = REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Runtime/Session/SceneDesktopWallpaperHost+Launch.swift"
 DEBUG_RUNNER_SOURCE = REPOSITORY_ROOT / "MyWallpaperX/App/Debug/DebugScenePlaybackRunner.swift"
-PLAYBACK_SOURCE = (
-    REPOSITORY_ROOT
-    / "MyWallpaperX/Modules/SteamWorkshop/Scene/SteamWorkshopSceneService+ScenePlayback.swift"
-)
 ASSET_CATALOG_SOURCE = REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Resources/Assets/SceneAssetCatalog.swift"
 SHADER_CONTRACT_SOURCE = SHADER_CONTRACT_RESOURCE_RESOLUTION_SOURCES[
     "SceneShaderContract.swift"
@@ -377,7 +371,6 @@ class SceneRuntimeInputTests(unittest.TestCase):
         self.assertTrue(self.result["hostBuiltinContract"])
 
     def test_builder_compiles_runtime_input_without_file_round_trip(self) -> None:
-        runtime_input = RUNTIME_INPUT_SOURCE.read_text(encoding="utf-8")
         source = RUNTIME_MODEL_SOURCE.read_text(encoding="utf-8")
         self.assertIn("let runtimeInput: SceneRuntimeInput", source)
         self.assertIn("runtimeInput: runtimeInput", source)
@@ -387,7 +380,9 @@ class SceneRuntimeInputTests(unittest.TestCase):
             "sourceFacts.sceneDocumentLoadErrorDescription",
             source,
         )
-        self.assertIn("SceneRuntimeSourceFactsBuilder().build(", source)
+        # Service source/lease selection executes in test_scene_source_admission;
+        # this seam keeps the selected root and source intact into model preparation.
+        self.assertRegex(source, r"SceneRuntimeSourceFactsBuilder\(\)\.build\(\s*rootURL: rootURL,\s*source: source,")
         self.assertNotIn("SceneDiagnosticsBuilder", source)
         self.assertNotIn("let diagnostics: SceneDiagnosticsReport", source)
         self.assertNotIn("SceneInterpretation", source)
@@ -395,14 +390,6 @@ class SceneRuntimeInputTests(unittest.TestCase):
         # load-prepared descriptor so effect-visibility snapshot seeds read
         # the prepared state, not the binding seed.
         self.assertIn("preparedDescriptor: runtimeDescriptor", source)
-
-    def test_production_playback_passes_the_original_project_root(self) -> None:
-        playback = PLAYBACK_SOURCE.read_text(encoding="utf-8")
-        host = HOST_LAUNCH_SOURCE.read_text(encoding="utf-8")
-        self.assertIn("rootURL: record.folderURL", playback)
-        self.assertNotIn("SceneDiagnosticsBuilder", playback)
-        self.assertIn("rootURL: URL", host)
-        self.assertIn("SceneRuntimeModelBuilder().build(", host)
 
     def test_legacy_files_are_not_part_of_the_swift_playback_contract(self) -> None:
         source = "\n".join(
