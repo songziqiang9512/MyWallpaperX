@@ -4,6 +4,10 @@ import Foundation
 import ObjectiveC
 import QuartzCore
 
+enum GridCardMotionFixture {
+    static var reduceMotion = false
+}
+
 // Complete production cards/models/UI; only data transport is controlled. No network or user media.
 @MainActor final class CardThumbnailTransport {
     struct Pending {
@@ -273,7 +277,7 @@ func samePoint(_ lhs: NSPoint, _ rhs: NSPoint) -> Bool { close(lhs.x, rhs.x) && 
     init(_ kind: Kind, count: Int = 1) {
         self.kind = kind
         self.count = count
-        window = CardWindow(contentRect: NSRect(x: 14_000, y: 14_000, width: 278, height: 210),
+        window = CardWindow(contentRect: gridCardTestWindowRect(NSSize(width: 278, height: 210)),
             styleMask: [.titled], backing: .buffered, defer: false)
         window.isReleasedWhenClosed = false
         super.init()
@@ -297,7 +301,7 @@ func samePoint(_ lhs: NSPoint, _ rhs: NSPoint) -> Bool { close(lhs.x, rhs.x) && 
         scroll.documentView = collection
         window.contentView = scroll
         // Real NSAnimationContext completions require an ordered window. It is
-        // far offscreen; the harness never reads or moves the real mouse.
+        // kept in the screen's visible frame; the harness never moves the real mouse.
         window.orderFrontRegardless()
         window.makeKey()
         NSApp.activate()
@@ -411,7 +415,9 @@ func samePoint(_ lhs: NSPoint, _ rhs: NSPoint) -> Bool { close(lhs.x, rhs.x) && 
         let label = kind == .browser ? "browser" : "downloads"
         let host = CardHost(kind, count: 30)
         defer { host.finish() }
-        facts.expect(label + ".actual-active-visible-window", NSApp.isActive && host.window.isVisible)
+        facts.expect(label + ".actual-active-visible-window", NSApp.isActive && host.window.isVisible
+            && host.window.isKeyWindow && host.window.screen != nil,
+            "active=\(NSApp.isActive) key=\(host.window.isKeyWindow) visible=\(host.window.isVisible) screen=\(String(describing: host.window.screen)) frontmost=\(NSWorkspace.shared.frontmostApplication?.bundleIdentifier ?? "none") pid=\(NSWorkspace.shared.frontmostApplication?.processIdentifier ?? 0)")
         guard let existing = host.first() else { facts.expect(label + ".existing-card", false); continue }
         let hit = imageRect(existing).intersection(existing.view.visibleRect)
         guard !hit.isEmpty else { facts.expect(label + ".existing-visible-image", false); continue }
@@ -940,11 +946,13 @@ func samePoint(_ lhs: NSPoint, _ rhs: NSPoint) -> Bool { close(lhs.x, rhs.x) && 
             let browser = AppKitPixabayBrowserItem(); _ = browser.view
             configure(browser, browserModel(10_001, thumbnail: nil))
             for (key, value) in gridCardInteractionChecks(item: browser, cardRoot: browser.imageContainer,
-                outline: browser.hoverOutlineView, isHovering: { browser.isHovering }, label: "online-browser") { facts.expect(key, value) }
+                outline: browser.hoverOutlineView, isHovering: { browser.isHovering }, label: "online-browser",
+                reducedMotion: GridCardMotionFixture.reduceMotion) { facts.expect(key, value) }
             let downloads = AppKitPixabayDownloadsItem(); _ = downloads.view
             downloads.configure(entry: downloadModel(10_002, name: "interaction.mp4"), isSelected: false, isMultiSelectMode: false, isPlaying: false)
             for (key, value) in gridCardInteractionChecks(item: downloads, cardRoot: downloads.imageContainer,
                 outline: downloads.hoverOutlineView, isHovering: { downloads.isHovering }, label: "online-downloads",
+                reducedMotion: GridCardMotionFixture.reduceMotion,
                 dragImageView: downloads.thumbnailView, layoutDragImage: { downloads.layoutThumbnail() }) { facts.expect(key, value) }
         case "backing-scale": backingScaleRequests(facts)
         default: facts.expect("known-case", false)

@@ -13,6 +13,7 @@ import sys
 import tempfile
 import unittest
 
+from script.tests.native_app_harness import native_app_session
 from script.tests.test_ui_library_algorithms import declaration
 
 ROOT = Path(__file__).resolve().parents[2]
@@ -58,10 +59,14 @@ class GridScrollInteractionTests(unittest.TestCase):
                  ROOT / "script/tests/test_ui_library_algorithms.py")
         inputs = {str(path): hashlib.sha256(path.read_bytes()).hexdigest() for path in paths}
         original = PRODUCTION.read_text()
+        motion_leaf = "NSWorkspace.shared.accessibilityDisplayShouldReduceMotion"
+        if original.count(motion_leaf) != 1:
+            raise AssertionError("the system motion preference read must be unique")
+        instrumented = original.replace(motion_leaf, "Checks.reduceMotion", 1)
         marker = "    private func observeLiveScroll() {\n"
-        if original.count(marker) != 1:
+        if instrumented.count(marker) != 1:
             raise AssertionError("the production observer installation marker must be unique")
-        instrumented = original.replace(marker, marker + """        // Geometry-only fixture injection before the original observers attach.
+        instrumented = instrumented.replace(marker, marker + """        // Geometry-only fixture injection before the original observers attach.
         if GridScrollClipProbe.usesControlledGeometry {
             contentView = GridScrollGeometryClip(frame: contentView.frame)
         }
@@ -141,7 +146,7 @@ class GridScrollInteractionTests(unittest.TestCase):
             (cls.proof / "inputs.json").write_text(json.dumps({
                 "inputs": inputs, "command": command,
                 "productionCopySHA256": hashlib.sha256(instrumented.encode()).hexdigest(),
-                "instrumentation": "Geometry-only clip leaf; original collection/card/scroll bodies gain observation-only trace calls, disabled outside the native context input case. Added view lifecycle observers only call super. Tracking areas keep the real NSResponder owner. Commands/SQLite are replaced by a fixed menu; rightDown/up enter through NSApplication.sendEvent with no fixture popUp call.",
+                "instrumentation": "System Reduce Motion read is fixture-controlled; the fixture runs both true and false branches. Geometry-only clip leaf; original collection/card/scroll bodies gain observation-only trace calls, disabled outside the native context input case. Added view lifecycle observers only call super. Tracking areas keep the real NSResponder owner. Commands/SQLite are replaced by a fixed menu; rightDown/up enter through NSApplication.sendEvent with no fixture popUp call.",
                 "scope": "standalone AppKit interaction; no frame-rate or App-wide claim",
             }, indent=2) + "\n")
         if build.returncode:
@@ -158,23 +163,33 @@ class GridScrollInteractionTests(unittest.TestCase):
             command += ["--env", key + "=" + self.environment[key]]
         command += ["--env", "MWX_GRID_NATIVE_PID_PATH=" + str(pid_file),
                     str(self.binary.parents[2]), "--args", name]
-        try:
-            if name == "responsive":
+        if name == "responsive":
+            try:
                 run = subprocess.run([str(self.binary), name], capture_output=True, text=True,
                                      env=self.environment, cwd=self.work, timeout=25)
                 stdout.write_text(run.stdout)
                 stderr.write_text(run.stderr)
-            else:
-                run = subprocess.run(command, capture_output=True, text=True,
-                                     env=self.environment, cwd=self.work, timeout=25)
-        except subprocess.TimeoutExpired:
-            if pid_file.exists():
-                pid = int(pid_file.read_text())
-                owner = subprocess.run(["/bin/ps", "-p", str(pid), "-o", "comm="],
-                                       capture_output=True, text=True).stdout.strip()
-                if Path(owner).resolve() == self.binary.resolve():
-                    os.kill(pid, signal.SIGKILL)
-            raise
+            except subprocess.TimeoutExpired:
+                if pid_file.exists():
+                    pid = int(pid_file.read_text())
+                    owner = subprocess.run(["/bin/ps", "-p", str(pid), "-o", "comm="],
+                                           capture_output=True, text=True).stdout.strip()
+                    if Path(owner).resolve() == self.binary.resolve():
+                        os.kill(pid, signal.SIGKILL)
+                raise
+        else:
+            with native_app_session():
+                try:
+                    run = subprocess.run(command, capture_output=True, text=True,
+                                         env=self.environment, cwd=self.work, timeout=25)
+                except subprocess.TimeoutExpired:
+                    if pid_file.exists():
+                        pid = int(pid_file.read_text())
+                        owner = subprocess.run(["/bin/ps", "-p", str(pid), "-o", "comm="],
+                                               capture_output=True, text=True).stdout.strip()
+                        if Path(owner).resolve() == self.binary.resolve():
+                            os.kill(pid, signal.SIGKILL)
+                    raise
         output, errors = stdout.read_text(), stderr.read_text()
         if self.proof:
             (self.proof / (name + ".stdout")).write_text(output)

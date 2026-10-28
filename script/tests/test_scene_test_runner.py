@@ -8,6 +8,7 @@ import argparse
 import ast
 import contextlib
 import io
+import subprocess
 import sys
 import tempfile
 import time
@@ -21,6 +22,7 @@ SCRIPT_DIRECTORY = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(SCRIPT_DIRECTORY))
 
 import run_scene_tests as runner
+from script.tests.native_app_harness import native_app_session
 
 
 AVAILABLE_MODULES = [
@@ -75,6 +77,35 @@ def missing_local_test_imports(directory: Path) -> list[str]:
 
 
 class RunSceneTestsSelectionTests(unittest.TestCase):
+    def test_native_app_sessions_serialize_and_release_after_exceptions(self) -> None:
+        with tempfile.TemporaryDirectory() as temporary:
+            lock = Path(temporary) / "native-app.lock"
+            probe = (
+                "import fcntl, pathlib, sys\n"
+                "lock = pathlib.Path(sys.argv[1])\n"
+                "with lock.open('a+') as stream:\n"
+                " try: fcntl.flock(stream.fileno(), fcntl.LOCK_EX | fcntl.LOCK_NB)\n"
+                " except BlockingIOError: print('blocked')\n"
+                " else: print('acquired'); fcntl.flock(stream.fileno(), fcntl.LOCK_UN)\n"
+            )
+            with native_app_session(lock):
+                waiting = subprocess.run(
+                    [sys.executable, "-c", probe, str(lock)], cwd=SCRIPT_DIRECTORY.parent,
+                    capture_output=True, text=True, timeout=5,
+                )
+                self.assertEqual(waiting.returncode, 0, waiting.stderr)
+                self.assertEqual(waiting.stdout.strip(), "blocked")
+
+            with self.assertRaisesRegex(RuntimeError, "fixture failure"):
+                with native_app_session(lock):
+                    raise RuntimeError("fixture failure")
+            released = subprocess.run(
+                [sys.executable, "-c", probe, str(lock)], cwd=SCRIPT_DIRECTORY.parent,
+                capture_output=True, text=True, timeout=5,
+            )
+            self.assertEqual(released.returncode, 0, released.stderr)
+            self.assertEqual(released.stdout.strip(), "acquired")
+
     def test_release_scope_is_bounded_and_requires_every_declared_module(self) -> None:
         available = sorted(runner.RELEASE_MODULES | {"test_scene_unrelated_effect"})
         selected = runner.discover_modules(available, scope="release")

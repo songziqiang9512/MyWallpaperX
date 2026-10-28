@@ -5554,6 +5554,42 @@
         "test_pixiv_client",
         "test_wallpaper_network_session"
       ]
+    },
+    {
+      "id": "native-app-harness",
+      "patterns": [
+        "script/tests/native_app_harness.py",
+        "script/tests/fixtures/NativeAppHarness.swift"
+      ],
+      "modules": [
+        "test_app_modal_presentation",
+        "test_grid_card_lifecycle",
+        "test_grid_scroll_interaction",
+        "test_grid_window_thumbnail_lifecycle",
+        "test_library_keyboard_navigation",
+        "test_library_remote_toolbar",
+        "test_library_window_toolbar",
+        "test_main_menu_commands",
+        "test_native_ui_equivalence",
+        "test_online_image_toolbar",
+        "test_playlist_directory",
+        "test_scene_test_runner",
+        "test_sil_square_cards",
+        "test_sil_thumbnail_demand",
+        "test_steam_client_lifecycle",
+        "test_steam_download_card_progress_diff",
+        "test_steam_login_modal",
+        "test_steam_preview_lifecycle",
+        "test_video_thumbnail_prefetch",
+        "test_wallpaper_card_controls",
+        "test_wallpaper_form_fields",
+        "test_wallpaper_library_grid",
+        "test_wallpaper_library_inspector",
+        "test_wallpaper_library_page_chrome",
+        "test_wallpaper_library_sidebar",
+        "test_wallpaper_playlist_editor",
+        "test_wallpaper_playlist_picker"
+      ]
     }
   ],
   "method_gates": {

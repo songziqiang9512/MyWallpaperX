@@ -1,9 +1,19 @@
 import AppKit
 import QuartzCore
 
+@MainActor func gridCardTestWindowRect(_ size: NSSize) -> NSRect {
+    guard let frame = (NSScreen.main ?? NSScreen.screens.first)?.visibleFrame else {
+        return NSRect(origin: .zero, size: size)
+    }
+    return NSRect(x: min(max(frame.minX, frame.midX - size.width / 2), max(frame.minX, frame.maxX - size.width)),
+                  y: min(max(frame.minY, frame.midY - size.height / 2), max(frame.minY, frame.maxY - size.height)),
+                  width: size.width, height: size.height)
+}
+
 @MainActor private final class GridCardInteractionWindow: NSWindow {
     var testPointer = NSPoint(x: -10_000, y: -10_000)
     override var mouseLocationOutsideOfEventStream: NSPoint { testPointer }
+    override var canBecomeKey: Bool { true }
 }
 
 /// Drives complete production cards through their responder methods in an
@@ -13,12 +23,15 @@ import QuartzCore
 @MainActor func gridCardInteractionChecks(
     item: NSCollectionViewItem, cardRoot: NSView, outline: NSView,
     isHovering: () -> Bool, label: String,
+    reducedMotion: Bool = NSWorkspace.shared.accessibilityDisplayShouldReduceMotion,
     dragImageView: NSImageView? = nil, layoutDragImage: (() -> Void)? = nil
 ) -> [String: Bool] {
+    let expectedHoverScale: CGFloat = reducedMotion ? 1 : 1.025
+    let allowsHoverTransition = !reducedMotion
     let previousSuperview = item.view.superview
     let previousFrame = item.view.frame
     let previousAppearance = item.view.appearance
-    let window = GridCardInteractionWindow(contentRect: NSRect(x: 14_000, y: 14_000, width: 300, height: 220),
+    let window = GridCardInteractionWindow(contentRect: gridCardTestWindowRect(NSSize(width: 300, height: 220)),
         styleMask: [.borderless], backing: .buffered, defer: false)
     window.isReleasedWhenClosed = false
     let host = NSView(frame: NSRect(x: 0, y: 0, width: 300, height: 220))
@@ -26,12 +39,16 @@ import QuartzCore
     item.view.frame = NSRect(x: 20, y: 20, width: 260, height: 180)
     item.view.appearance = NSAppearance(named: .darkAqua)
     host.addSubview(item.view)
-    window.orderFrontRegardless()
     NSApp.setActivationPolicy(.regular)
     NSApp.activate()
+    window.makeKeyAndOrderFront(nil)
     let activationDeadline = Date().addingTimeInterval(2)
     while !NSApp.isActive, Date() < activationDeadline {
         RunLoop.main.run(until: min(activationDeadline, Date().addingTimeInterval(0.005)))
+    }
+    if !NSApp.isActive {
+        let frontmost = NSWorkspace.shared.frontmostApplication
+        fputs("grid-card activation failed active=\(NSApp.isActive) key=\(window.isKeyWindow) canBecomeKey=\(window.canBecomeKey) visible=\(window.isVisible) screen=\(String(describing: window.screen)) frontmost=\(frontmost?.bundleIdentifier ?? "none") pid=\(frontmost?.processIdentifier ?? 0)\n", stderr)
     }
     host.layoutSubtreeIfNeeded()
     item.view.layoutSubtreeIfNeeded()
@@ -93,7 +110,8 @@ import QuartzCore
     let inside = cardRoot.convert(NSPoint(x: cardRoot.bounds.midX, y: cardRoot.bounds.midY), to: nil)
     let outside = cardRoot.convert(NSPoint(x: cardRoot.bounds.minX - 20, y: cardRoot.bounds.minY - 20), to: nil)
     func diagnose(_ phase: String) {
-        fputs("grid-card[\(label)] \(phase) active=\(NSApp.isActive) running=\(NSApp.isRunning) windowVisible=\(window.isVisible) miniaturized=\(window.isMiniaturized) itemInside=\(item.view.isGridPointerInside) rootInside=\(cardRoot.isGridPointerInside) hover=\(isHovering()) bundle=\(Bundle.main.bundleIdentifier ?? "none")\n", stderr)
+        let layer = cardRoot.layer
+        fputs("grid-card[\(label)] \(phase) active=\(NSApp.isActive) running=\(NSApp.isRunning) windowVisible=\(window.isVisible) key=\(window.isKeyWindow) miniaturized=\(window.isMiniaturized) backingScale=\(window.backingScaleFactor) systemReduceMotion=\(NSWorkspace.shared.accessibilityDisplayShouldReduceMotion) expectedReduceMotion=\(reducedMotion) expectedScale=\(expectedHoverScale) itemInside=\(item.view.isGridPointerInside) rootInside=\(cardRoot.isGridPointerInside) hover=\(isHovering()) transform=\(String(describing: layer?.transform)) presentation=\(String(describing: layer?.presentation()?.transform)) animations=\(layer?.animationKeys() ?? []) bundle=\(Bundle.main.bundleIdentifier ?? "none")\n", stderr)
         fputs("grid-card[\(label)] \(phase) pointer=\(window.testPointer) itemPoint=\(item.view.convert(window.testPointer, from: nil)) itemBounds=\(item.view.bounds) itemVisible=\(item.view.visibleRect) itemHidden=\(item.view.isHiddenOrHasHiddenAncestor) rootPoint=\(cardRoot.convert(window.testPointer, from: nil)) rootBounds=\(cardRoot.bounds) rootVisible=\(cardRoot.visibleRect) rootHidden=\(cardRoot.isHiddenOrHasHiddenAncestor)\n", stderr)
     }
     func tracking(_ type: NSEvent.EventType, _ point: NSPoint) -> NSEvent {
@@ -115,7 +133,7 @@ import QuartzCore
     }
     var checks: [String: Bool] = [:]
     window.testPointer = inside
-    checks[label + ".visible-dark-whole-card"] = item.view.window === window && window.isVisible
+    checks[label + ".visible-dark-whole-card"] = item.view.window === window && window.isVisible && window.screen != nil
         && NSApp.isActive && item.view.isGridPointerInside && cardRoot.isGridPointerInside
         && item.view.isDarkAppearance && !cardRoot.bounds.isEmpty
         && cardRoot.bounds.contains(cardRoot.convert(inside, from: nil))
@@ -126,22 +144,22 @@ import QuartzCore
     diagnose("after-initial-exited")
     _ = observe(0.38)
     enter()
-    checks[label + ".active-hover-expands-equally-about-centre"] = observe(0.38, scale: 1.025, allowsTransition: true)
+    checks[label + ".active-hover-matches-motion-preference-about-centre"] = observe(0.38, scale: expectedHoverScale, allowsTransition: allowsHoverTransition)
     diagnose("after-hover-observation")
     checks[label + ".active-hover-shows-white-outline"] = isHovering() && whiteOutline()
     item.mouseDown(with: mouse(.leftMouseDown))
     diagnose("after-down")
-    checks[label + ".card-responder-down-keeps-hover-scale"] = observe(0.10, scale: 1.025)
+    checks[label + ".card-responder-down-keeps-hover-projection"] = observe(0.10, scale: expectedHoverScale)
     item.mouseUp(with: mouse(.leftMouseUp))
     diagnose("after-up")
-    checks[label + ".card-responder-up-keeps-hover-scale"] = observe(0.14, scale: 1.025) && isHovering() && whiteOutline()
+    checks[label + ".card-responder-up-keeps-hover-projection"] = observe(0.14, scale: expectedHoverScale) && isHovering() && whiteOutline()
     window.testPointer = outside
     item.mouseExited(with: tracking(.mouseExited, outside))
     diagnose("after-exited")
     checks[label + ".exit-returns-to-identity-about-centre"] = observe(0.38, allowsTransition: true)
     checks[label + ".exit-hides-hover-outline"] = !isHovering() && outline.alphaValue < 0.01
     enter()
-    checks[label + ".restored-hover-restores-the-same-centred-expansion"] = observe(0.38, scale: 1.025, allowsTransition: true)
+    checks[label + ".restored-hover-matches-motion-preference-about-centre"] = observe(0.38, scale: expectedHoverScale, allowsTransition: allowsHoverTransition)
     diagnose("after-restored-observation")
     checks[label + ".restored-hover-shows-white-outline"] = isHovering() && whiteOutline()
     if let dragImageView, let layoutDragImage {
@@ -245,7 +263,7 @@ import QuartzCore
     let collection = owner.collection
     let probe = CardNativeDragImageProbe(owner: owner, card: item, thumbnail: thumbnail, image: image)
     collection.delegate = probe
-    let window = NSWindow(contentRect: NSRect(x: 160, y: 160, width: 600, height: 350),
+    let window = NSWindow(contentRect: gridCardTestWindowRect(NSSize(width: 600, height: 350)),
         styleMask: [.titled, .closable], backing: .buffered, defer: false)
     window.isReleasedWhenClosed = false; window.contentViewController = owner
     window.setContentSize(NSSize(width: 600, height: 350))
@@ -266,7 +284,8 @@ import QuartzCore
     }
     let activation = Date().addingTimeInterval(3)
     while !NSApp.isActive || !window.isKeyWindow {
-        precondition(Date() < activation, "native card drag host never became active/key")
+        let frontmost = NSWorkspace.shared.frontmostApplication
+        precondition(Date() < activation, "native card drag host never became active/key; key=\(window.isKeyWindow), visible=\(window.isVisible), screen=\(String(describing: window.screen)), frontmost=\(frontmost?.bundleIdentifier ?? "none"), pid=\(frontmost?.processIdentifier ?? 0)")
         RunLoop.main.run(until: Date().addingTimeInterval(0.005))
     }
     window.contentView?.layoutSubtreeIfNeeded(); owner.scrollView.layoutSubtreeIfNeeded()

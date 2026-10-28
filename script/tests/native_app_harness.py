@@ -5,11 +5,14 @@ Existing CLI behavior checks retain their own direct-child exit assertions.
 from __future__ import annotations
 
 import os
+from contextlib import contextmanager
 from dataclasses import dataclass
+import fcntl
 from pathlib import Path
 import plistlib
 import signal
 import subprocess
+import tempfile
 from typing import Sequence
 import uuid
 
@@ -17,6 +20,19 @@ import uuid
 PROOF_ENVIRONMENT_KEYS = frozenset({
     "MWX_PREVIEW_PROOF_DIR", "MWX_SIL_DEMAND_PROOF_DIR", "MWX_VIDEO_PREFETCH_PROOF_DIR",
 })
+
+
+@contextmanager
+def native_app_session(lock_path: Path | None = None):
+    """Serialize real LaunchServices/AppKit sessions across test work dirs."""
+    path = lock_path or (Path(tempfile.gettempdir()) / "mywallpaperx-native-app-session.lock")
+    path.parent.mkdir(parents=True, exist_ok=True)
+    with path.open("a+") as lock:
+        fcntl.flock(lock.fileno(), fcntl.LOCK_EX)
+        try:
+            yield
+        finally:
+            fcntl.flock(lock.fileno(), fcntl.LOCK_UN)
 
 
 @dataclass(frozen=True)
@@ -69,18 +85,19 @@ def run_native_app(
     for key, value in overrides.items():
         command += ["--env", key + "=" + value]
     command += [str(binary.parents[2]), "--args", *arguments]
-    try:
-        launched = subprocess.run(command, capture_output=True, text=True, cwd=work, timeout=timeout)
-    except subprocess.TimeoutExpired:
-        if pid_file.exists():
-            pid = int(pid_file.read_text())
-            owner = subprocess.run(["/bin/ps", "-p", str(pid), "-o", "comm="],
-                                   capture_output=True, text=True).stdout.strip()
-            if owner == str(binary):
-                try:
-                    os.kill(pid, signal.SIGKILL)
-                except ProcessLookupError:
-                    pass
-        raise
+    with native_app_session():
+        try:
+            launched = subprocess.run(command, capture_output=True, text=True, cwd=work, timeout=timeout)
+        except subprocess.TimeoutExpired:
+            if pid_file.exists():
+                pid = int(pid_file.read_text())
+                owner = subprocess.run(["/bin/ps", "-p", str(pid), "-o", "comm="],
+                                       capture_output=True, text=True).stdout.strip()
+                if owner == str(binary):
+                    try:
+                        os.kill(pid, signal.SIGKILL)
+                    except ProcessLookupError:
+                        pass
+            raise
     return NativeAppLaunch(launched.returncode, stdout.read_text(),
                            stderr.read_text() + launched.stdout + launched.stderr)

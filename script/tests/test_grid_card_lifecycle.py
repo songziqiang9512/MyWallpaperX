@@ -30,6 +30,8 @@ import sys
 import tempfile
 import unittest
 
+from script.tests.native_app_harness import native_app_session
+
 
 ROOT = Path(__file__).resolve().parents[2]
 UI = ROOT / "MyWallpaperX/Modules/Pixabay/UI"
@@ -132,9 +134,22 @@ class GridCardLifecycleTests(unittest.TestCase):
         browser.write_text(BROWSER.read_text().replace("private ", ""))
         copies.append(browser)
         transformations[str(BROWSER)] = ["expose private container state for native publication observations"]
+        compile_dependencies = []
+        for source in DEPENDENCIES:
+            if source.name != "WallpaperGridScrollView.swift":
+                compile_dependencies.append(source)
+                continue
+            contents = source.read_text()
+            motion_leaf = "NSWorkspace.shared.accessibilityDisplayShouldReduceMotion"
+            if contents.count(motion_leaf) != 1:
+                raise AssertionError("the system motion preference read must be unique")
+            motion_copy = cls.work / source.name
+            motion_copy.write_text(contents.replace(motion_leaf, "GridCardMotionFixture.reduceMotion", 1))
+            compile_dependencies.append(motion_copy)
+            transformations[str(source)] = ["fixture controls the system Reduce Motion read; normal-hover checks use false, while the paired scroll fixture covers both preference branches"]
         command = ["xcrun", "--sdk", "macosx", "swiftc", "-parse-as-library",
                    "-default-isolation", "MainActor",
-                   *map(str, DEPENDENCIES + copies + [FIXTURE]),
+                   *map(str, compile_dependencies + copies + [FIXTURE]),
                    "-module-cache-path", str(cls.work / "swift-modules"),
                    "-framework", "AppKit", "-framework", "AVFoundation",
                    "-framework", "QuartzCore", "-o", str(cls.binary)]
@@ -165,17 +180,18 @@ class GridCardLifecycleTests(unittest.TestCase):
             command += ["--env", key + "=" + self.environment[key]]
         command += ["--env", "MWX_GRID_NATIVE_PID_PATH=" + str(pid_file),
                     str(self.binary.parents[2]), "--args", name]
-        try:
-            run = subprocess.run(command, capture_output=True, text=True,
-                                 env=self.environment, cwd=self.work, timeout=25)
-        except subprocess.TimeoutExpired:
-            if pid_file.exists():
-                pid = int(pid_file.read_text())
-                owner = subprocess.run(["/bin/ps", "-p", str(pid), "-o", "comm="],
-                                       capture_output=True, text=True).stdout.strip()
-                if Path(owner).resolve() == self.binary.resolve():
-                    os.kill(pid, signal.SIGKILL)
-            raise
+        with native_app_session():
+            try:
+                run = subprocess.run(command, capture_output=True, text=True,
+                                     env=self.environment, cwd=self.work, timeout=25)
+            except subprocess.TimeoutExpired:
+                if pid_file.exists():
+                    pid = int(pid_file.read_text())
+                    owner = subprocess.run(["/bin/ps", "-p", str(pid), "-o", "comm="],
+                                           capture_output=True, text=True).stdout.strip()
+                    if Path(owner).resolve() == self.binary.resolve():
+                        os.kill(pid, signal.SIGKILL)
+                raise
         output, errors = stdout.read_text(), stderr.read_text()
         if self.proof:
             (self.proof / (name + ".stdout")).write_text(output)

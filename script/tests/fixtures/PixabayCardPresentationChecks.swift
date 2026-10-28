@@ -916,10 +916,12 @@ import QuartzCore
     facts.expect("playing-first-shows-badge", !firstBadge.isHidden && firstBadge.alphaValue == 1
         && firstBadge.superview != nil && firstBadge.playButton.contentTintColor == .controlAccentColor
         && firstBadge.primaryState == .playing && firstBadge.playButton.accessibilityLabel() == "停止播放")
-    let hitPoint = firstBadge.playButton.convert(NSPoint(x: firstBadge.playButton.bounds.midX,
-        y: firstBadge.playButton.bounds.midY), to: card.view.superview)
+    let buttonCenter = NSPoint(x: firstBadge.playButton.bounds.midX, y: firstBadge.playButton.bounds.midY)
+    let hitPoint = firstBadge.playButton.convert(buttonCenter, to: card.view.superview)
+    let containerHitPoint = firstBadge.playButton.convert(buttonCenter, to: card.imageContainer.superview)
     facts.expect("lazy-badge-has-current-frame-and-native-hit-target", firstBadge.frame.width > 20
-        && card.view.hitTest(hitPoint) === firstBadge.playButton)
+        && card.view.hitTest(hitPoint) === firstBadge.playButton,
+        "reduceTransparency=\(NSWorkspace.shared.accessibilityDisplayShouldReduceTransparency) buttonEnabled=\(firstBadge.playButton.isEnabled) pointInSuperview=\(hitPoint) cardFrame=\(card.view.frame) cardBounds=\(card.view.bounds) cardNeedsLayout=\(card.view.needsLayout) cardWindow=\(String(describing: card.view.window)) cardHit=\(String(describing: card.view.hitTest(hitPoint))) containerHit=\(String(describing: card.imageContainer.hitTest(containerHitPoint))) containerFrame=\(card.imageContainer.frame) containerBounds=\(card.imageContainer.bounds) containerHidden=\(card.imageContainer.isHiddenOrHasHiddenAncestor) transform=\(String(describing: card.imageContainer.layer?.transform)) badgeFrame=\(firstBadge.frame) badgeHidden=\(firstBadge.isHiddenOrHasHiddenAncestor) badgeAlpha=\(firstBadge.alphaValue) glassFrame=\(firstBadge.glass.frame) glassHidden=\(firstBadge.glass.isHiddenOrHasHiddenAncestor) buttonFrame=\(firstBadge.playButton.frame) buttonHidden=\(firstBadge.playButton.isHiddenOrHasHiddenAncestor)")
     card.applySelectionState(true, multiSelectMode: true)
     facts.expect("multi-select-hides-and-disables-badge-target", firstBadge.isHidden
         && card.view.hitTest(hitPoint) !== firstBadge.playButton)

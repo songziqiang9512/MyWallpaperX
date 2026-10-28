@@ -11,8 +11,7 @@ private final class NativeRefreshActionProbe: NSObject {
     @objc func invoke(_ sender: Any?) { deliveries += 1; onRefresh?() }
 }
 
-/// The former observer-only override is a negative control for AppKit's default
-/// compatibility heuristic. It forwards input but has no explicit opt-in.
+/// Previous observer-only override is a negative control for AppKit's default compatibility heuristic.
 private final class LegacyWheelScrollView: NSScrollView {
     override func scrollWheel(with event: NSEvent) {
         super.scrollWheel(with: event)
@@ -95,10 +94,9 @@ private final class GridFixture {
     init(collection: NSCollectionView = NSCollectionView(frame: NSRect(x: 0, y: 0, width: 340, height: 1_200))) throws {
         self.collection = collection
         window.isReleasedWhenClosed = false
-        // Responsive scrolling creates a display-synchronized monitor, so the
-        // native window must belong to a real screen even in this input fixture.
-        guard let screen = NSScreen.main else { throw FixtureFailure.unavailable("native display") }
-        window.setFrameOrigin(NSPoint(x: screen.visibleFrame.minX + 10, y: screen.visibleFrame.minY + 10))
+        // Responsive scrolling needs a real-screen window for its display-synchronized monitor.
+        guard let screen = NSScreen.main ?? NSScreen.screens.first else { throw FixtureFailure.unavailable("native display") }
+        window.setFrameOrigin(NSPoint(x: min(screen.visibleFrame.minX + 10, max(screen.visibleFrame.minX, screen.visibleFrame.maxX - window.frame.width - 10)), y: min(screen.visibleFrame.minY + 10, max(screen.visibleFrame.minY, screen.visibleFrame.maxY - window.frame.height - 10))))
         window.contentView = host
         host.addSubview(scroll)
         scroll.hasVerticalScroller = true
@@ -245,7 +243,8 @@ private final class PullCountFixture {
     func cleanup() { scroll.removeFromSuperview(); window.orderOut(nil); window.close() }
 }
 
-private struct Checks {
+struct Checks {
+    static var reduceMotion = NSWorkspace.shared.accessibilityDisplayShouldReduceMotion
     var values: [String: Bool] = [:]
     var details: [String: String] = [:]
     var observations: [String: Any] = [:]
@@ -265,8 +264,13 @@ private struct Checks {
 
     mutating func notifications() throws {
         let first = try GridFixture(), second = try GridFixture()
-        defer { first.cleanup(); second.cleanup() }
+        let originalReduceMotion = Checks.reduceMotion
+        defer { Checks.reduceMotion = originalReduceMotion; first.cleanup(); second.cleanup() }
+        Checks.reduceMotion = false
         let visible = first.visible
+        func diagnostic(_ view: NSView) -> String {
+            "active=\(NSApp.isActive) visible=\(view.window?.isVisible ?? false) backingScale=\(view.window?.backingScaleFactor ?? 0) systemReduceMotion=\(NSWorkspace.shared.accessibilityDisplayShouldReduceMotion) fixtureReduceMotion=\(Checks.reduceMotion) frame=\(view.frame) bounds=\(view.bounds) transform=\(String(describing: view.layer?.transform)) presentation=\(String(describing: view.layer?.presentation()?.transform)) animations=\(view.layer?.animationKeys() ?? [])"
+        }
         let cover = NSView(frame: NSRect(x: 17, y: 29, width: 260, height: 180))
         cover.wantsLayer = true
         let originalFrame = cover.frame
@@ -281,24 +285,24 @@ private struct Checks {
                 && abs(transform.a - 1.025) < 0.001 && abs(transform.d - transform.a) < 0.001
                 && transform.b == 0 && transform.c == 0 && cover.frame == originalFrame
         }
-        expect("hover expands equally around the cover centre for native anchor points without relayout", centered)
+        expect("hover expands equally around the cover centre for native anchor points without relayout", centered, diagnostic(cover))
         cover.applyGridHoverScale(false, animated: false)
         expect("hover exit restores the original model transform", CATransform3DIsIdentity(cover.layer!.transform))
         cover.applyGridHoverScale(true, animated: true)
         cover.applyGridHoverScale(true, animated: false)
-        expect("same hover projection preserves its running scale transition", cover.layer!.animation(forKey: "wallpaper.card.hover.scale") != nil)
+        expect("same hover projection preserves its running scale transition", cover.layer!.animation(forKey: "wallpaper.card.hover.scale") != nil, diagnostic(cover))
         cover.bounds.size = NSSize(width: 340, height: 220)
         cover.applyGridHoverScale(true, animated: false)
         let anchor = cover.layer!.anchorPoint
         let resizedCentre = CGPoint(x: cover.bounds.width * (0.5 - anchor.x), y: cover.bounds.height * (0.5 - anchor.y))
         let projectedCentre = resizedCentre.applying(cover.layer!.affineTransform())
-        expect("resize during hover keeps the new cover centre fixed", abs(projectedCentre.x - resizedCentre.x) < 0.001 && abs(projectedCentre.y - resizedCentre.y) < 0.001)
+        expect("resize during hover keeps the new cover centre fixed", abs(projectedCentre.x - resizedCentre.x) < 0.001 && abs(projectedCentre.y - resizedCentre.y) < 0.001, diagnostic(cover))
         visible.forEach { $0.view.applyGridHoverScale(true, animated: true) }
-        expect("scroll counterexample starts with running hover scale", visible.contains { $0.view.layer!.animation(forKey: "wallpaper.card.hover.scale") != nil })
+        expect("scroll counterexample starts with running hover scale", visible.contains { $0.view.layer!.animation(forKey: "wallpaper.card.hover.scale") != nil }, visible.map { diagnostic($0.view) }.joined(separator: "; "))
         expect("idle cards have one native hover area", visible.allSatisfy { $0.view.trackingAreas.count == 1 })
         first.begin()
         expect("scroll removes native hover tracking areas", visible.allSatisfy { $0.view.trackingAreas.isEmpty })
-        expect("scrolling leaves no hover scale or animation", visible.allSatisfy { CATransform3DIsIdentity($0.view.layer!.transform) && $0.view.layer!.animation(forKey: "wallpaper.card.hover.scale") == nil })
+        expect("scrolling leaves no hover scale or animation", visible.allSatisfy { CATransform3DIsIdentity($0.view.layer!.transform) && $0.view.layer!.animation(forKey: "wallpaper.card.hover.scale") == nil }, visible.map { diagnostic($0.view) }.joined(separator: "; "))
         expect("begin changes its own scroll state", first.scroll.isGridScrolling)
         expect("begin refreshes every native visible item once", visible.allSatisfy { $0.refreshCalls == [true] })
         expect("other grid stays interactive", !second.scroll.isGridScrolling && second.visible.allSatisfy { !$0.view.isGridHoverSuppressed && $0.refreshCalls.isEmpty })
@@ -319,6 +323,9 @@ private struct Checks {
         second.end()
         pump(0.16)
         expect("both native sessions end independently", !first.scroll.isGridScrolling && !second.scroll.isGridScrolling)
+        Checks.reduceMotion = true
+        cover.applyGridHoverScale(true, animated: true)
+        expect("reduce-motion hover keeps identity transform without animation", CATransform3DIsIdentity(cover.layer!.transform) && cover.layer!.animation(forKey: "wallpaper.card.hover.scale") == nil, diagnostic(cover))
     }
 
     mutating func nativeRefresh() throws {
@@ -626,7 +633,7 @@ private struct Checks {
         fixture.begin(); fixture.end()
         pump(0.16)
         expect("positive hover has real active visible window", NSApp.isActive && fixture.window.isVisible && !fixture.window.isMiniaturized,
-               "active=\(NSApp.isActive), visible=\(fixture.window.isVisible)")
+               "active=\(NSApp.isActive), key=\(fixture.window.isKeyWindow), screen=\(String(describing: fixture.window.screen)), visible=\(fixture.window.isVisible), frontmost=\(NSWorkspace.shared.frontmostApplication?.bundleIdentifier ?? "none"), pid=\(NSWorkspace.shared.frontmostApplication?.processIdentifier ?? 0)")
         expect("visible card area regains hover", item.hovered && item.view.isGridPointerInside)
         let rawVisible = item.view.visibleRect
         let gutterCandidates = [NSPoint(x: rawVisible.minX + 1, y: visible.midY),
