@@ -992,10 +992,10 @@
       "lastReviewed": "2026-10-28",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "6370d54afa2626f740545ad74ac7958efeb76f047a6fed70cd4c4f9a77d1ac0b",
+        "sourceSHA256": "db9270fa9251c368591f0c87f23d87db2ee08da4d074de69e6232ffe1b6f865f",
         "method": "document_registry --audit + document_health --check",
-        "scope": "保留本批SceneScript证据边界，同步两377双视频用户确认、22秒跨loop正控及Host提交限制；其余正文只做导航审计。",
-        "limitations": "导航/正文审计不代其余运行复验；双视频仅本窗口有界正常，不认官方同phase/parity、逐帧GPU映射、长稳或性能收益。"
+        "scope": "仅更新普通builtin实例fallback覆盖、两包直接Host的白覆关闭及保留余项；其余正文只核导航。",
+        "limitations": "不认普通App/daemon实时媒体、完整属性/样本、HDR多屏、官方parity或性能收益；318重力仍未修。"
       }
     },
     {
@@ -2453,8 +2453,8 @@
         "docs/scene/roadmap/scene-open-breakpoint-queue.md",
         "docs/scene/capabilities/coverage-ledger.md"
       ],
-      "cutoffDate": "2026-10-23",
-      "uniqueValue": "已闭首门、正常解释和身份债的有界退出；14静态残余合入唯一队列并删除旧清单，保部分修复余项与旧ID去向，不新增运行或整景裁决。"
+      "cutoffDate": "2026-10-28",
+      "uniqueValue": "保存10-23清单对账及后继按节有界关闭；10-28两封面原图/换图/clear与gravity正控未资格，保整样本及旧余项边界。"
     },
     {
       "path": "docs/scene/history/ordinary-native-image-depth-2026-10-19.md",
@@ -4297,13 +4297,13 @@
       "role": "active-plan",
       "entrypoint": "docs/scene/roadmap/batch2/batch2-design-index.md",
       "retirementCondition": "播放器来源进入现役合同并完成真实换曲、权限、来源切换及退出验收后归档；未覆盖播放器仍保留能力缺口。",
-      "lastReviewed": "2026-10-20",
+      "lastReviewed": "2026-10-28",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "7cd4f748ee917e243c8750a256cf861a43f26c893c96e17109e368f73dcf5a64",
+        "sourceSHA256": "8483f8b4445281fc2429885004524cee1d59e87efedede9bbaa3edfa73e14431",
         "method": "document_registry --audit + document_health --check",
-        "scope": "同步generic image/text direct-anchor与author-slot向量分离、344首帧真实修前失败/修后及独立302、327目录同形筛查与余项。",
-        "limitations": "仅本次启动身份错误有界关闭；旧180/10脚本与布局保留，2旧测试class因harness未执行。非完整Scene、Release/HDR、官方parity或性能验收；并行源码不在复核范围。"
+        "scope": "仅更新普通builtin实例fallback覆盖、两包直接Host的白覆关闭及保留余项；其余正文只核导航。",
+        "limitations": "不认普通App/daemon实时媒体、完整属性/样本、HDR多屏、官方parity或性能收益；318重力仍未修。"
       }
     },
     {
@@ -4384,10 +4384,10 @@
       "lastReviewed": "2026-10-28",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "4a6ee2ea70a059b0f5d2cea0c9c0642e8aef3583abff4a343c2a4e5397ad7ac1",
+        "sourceSHA256": "7d1fa33c7b5eb301ec19cb53197186004bf2c076c78aaf68eea932e749e41599",
         "method": "document_registry --audit + document_health --check",
-        "scope": "仅有序线性冲量/当前parent世界Motion、374/299三轮恢复、318明确unsupported及原失败边界；合并本轮静态余项，不升级未测问题。",
-        "limitations": "318gravity仍未修；官方精确物理/完整样本/性能不认领，其他主题未重审。"
+        "scope": "仅更新普通builtin实例fallback覆盖、两包直接Host的白覆关闭及保留余项；其余正文只核导航。",
+        "limitations": "不认普通App/daemon实时媒体、完整属性/样本、HDR多屏、官方parity或性能收益；318重力仍未修。"
       }
     },
     {

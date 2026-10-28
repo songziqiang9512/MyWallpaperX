@@ -705,18 +705,20 @@ func shortcutProviderCollisionChecks() -> [String: Bool] {
 func instanceFallbackChecks() -> [String: Bool] {
     func compile(_ path: String, slots: [String?]? = nil,
         combos: [String:Int] = ["version":2], neutral: Bool = true,
-        stateOnlyPass: Bool = false) -> SceneBaseMaterialProviderBindingProgram {
+        stateOnlyPass: Bool = false, passes: [SceneRenderDescriptor.MaterialPassDescriptor]? = nil,
+        provider: SceneEffectTextureInput = current, renamed: Bool = false) -> SceneBaseMaterialProviderBindingProgram {
+        let model = renamed ? "models/renamed-cover.json" : "models/instanced-solid.json"
+        let loaded = passes ?? (stateOnlyPass ? [.init(materialPath: "materials/renamed-state-only.json",
+            shaderPath: "a-source-identity", textureSlots: [], userTextureInputs: [])] : [])
         let layer = SceneRenderDescriptor.Layer(id: 501, contentKind: "solid",
-            imagePath: "models/instanced-solid.json", effects: [],
+            imagePath: model, effects: [],
             proceduralSolidSource: neutral ? .neutral : nil)
         let instance = SceneDocument.SceneLayerMaterialInstance(id: 502,
-            textureSlots: slots ?? [path], userTextureInputs: [current],
+            textureSlots: slots ?? [path], userTextureInputs: [provider],
             hasUserTextureOverride: true, combos: combos, unknownKeys: [], isMalformed: false)
         return SceneBaseMaterialProviderBindingCompiler.compile(descriptor: .init(layers:[layer],
-            modelMaterialLinks: stateOnlyPass ? [.init(modelPath: "models/instanced-solid.json",
-                materialPath: "materials/renamed-state-only.json")] : [],
-            materialPasses: stateOnlyPass ? [.init(materialPath: "materials/renamed-state-only.json",
-                shaderPath: "a-source-identity", textureSlots: [], userTextureInputs: [])] : [],
+            modelMaterialLinks: loaded.first.map { [.init(modelPath: model, materialPath: $0.materialPath)] } ?? [],
+            materialPasses: loaded,
             texturePropertyKeys: []),
             materialInstancesByLayerID:[501:instance], scriptBindings:[], materialPropertyTargets:[])
     }
@@ -734,17 +736,60 @@ func instanceFallbackChecks() -> [String: Bool] {
             .baseMaterialBindings.isEmpty,
         "unprovenSourceWithMaterialRejected": compile("music", neutral: false, stateOnlyPass: true)
             .baseMaterialBindings.isEmpty]
+    let builtin = SceneRenderDescriptor.MaterialPassDescriptor(materialPath: "materials/owned-default.json",
+        shaderPath: "genericimage2", combos: ["VERSION":2], textureSlots: ["util/white"],
+        userTextureInputs: [], texturePaths: ["util/white"], blending: "translucent",
+        depthTest: "disabled", depthWrite: "disabled", cullMode: "nocull")
+    for (label, provider) in [("current", current), ("previous", previous)] {
+        let artwork = label == "current" ? "music" : "art/renamed-cover"
+        var pass = builtin
+        pass.shaderPath = label == "current" ? "genericimage2" : "GeNeRiCiMaGe4"
+        pass.combos = label == "current" ? ["VERSION":2] : ["version":1]
+        let result = compile(artwork, neutral: false, passes: [pass], provider: provider, renamed: true)
+        let binding = result.baseMaterialBindings[501]
+        checks["builtinNeutral-"+label] = binding?.provider == (label == "current" ? .current : .previous)
+            && binding?.fallbackAsset?.path.value == artwork && result.assetDemands.count == 1
+            && binding?.fallbackAsset?.purpose == .premultipliedColor
+            && result.assetDemands.first == binding?.fallbackAsset
+    }
+    var unknown = builtin
+    unknown.shaderPath = "effects/owned-source"
+    let nonneutral = SceneRenderDescriptor.MaterialPassDescriptor(materialPath: builtin.materialPath,
+        shaderPath: "genericimage2", textureSlots: ["art/base-color"], userTextureInputs: [])
+    let extraSlot = SceneRenderDescriptor.MaterialPassDescriptor(materialPath: builtin.materialPath,
+        shaderPath: "genericimage2", textureSlots: ["util/white", "mask"], userTextureInputs: [])
+    var loadedVersion = builtin
+    loadedVersion.combos = ["VERSION":3]
+    var loadedBlend = builtin
+    loadedBlend.combos = ["VERSION":2, "BLENDMODE":1]
+    var loadedConstant = builtin
+    loadedConstant.constantShaderValues = ["alpha": .init(rawValue: "0.5", userBinding: nil, components: [0.5])]
+    var loadedDynamic = builtin
+    loadedDynamic.userShaderValues = ["alpha": "coverAlpha"]
+    for (label, passes) in [("source", [unknown]), ("nonneutral", [nonneutral]),
+                            ("multi", [builtin, builtin]), ("extra-pass-slot", [extraSlot]),
+                            ("version", [loadedVersion]), ("blend", [loadedBlend]),
+                            ("constant", [loadedConstant]), ("dynamic", [loadedDynamic])] {
+        let result = compile("music", neutral: false, passes: passes)
+        checks["reject-loaded-"+label] = result.baseMaterialBindings.isEmpty && result.assetDemands.isEmpty
+    }
+    checks["loadedValuesKeepExactFallback"] = [loadedVersion, loadedBlend, loadedConstant, loadedDynamic]
+        .allSatisfy { compile("util/white", neutral: false, passes: [$0]).baseMaterialBindings[501] != nil }
+    let wrongProvider = compile("music", neutral: false, passes: [builtin],
+        provider: .init(kind: .path, value: current.value))
+    checks["reject-provider-kind"] = wrongProvider.baseMaterialBindings.isEmpty && wrongProvider.assetDemands.isEmpty
     for path in ["effects/waterripplenormal", "$mediaThumbnail", "_rt_imageLayerComposite_42_a"] {
-        let result = compile(path)
-        checks["reject-"+path] = result.baseMaterialBindings.isEmpty && result.assetDemands.isEmpty
+        checks["reject-"+path] = [compile(path), compile(path, neutral: false, passes: [builtin])]
+            .allSatisfy { $0.baseMaterialBindings.isEmpty && $0.assetDemands.isEmpty }
     }
     for combos in [["version":3],["unsupported":1]] {
-        let result = compile("music", combos: combos)
-        checks["reject-combos-"+String(describing:combos)] = result.baseMaterialBindings.isEmpty
-            && result.assetDemands.isEmpty
+        checks["reject-combos-"+String(describing:combos)] = [compile("music", combos: combos),
+            compile("music", combos: combos, neutral: false, passes: [builtin])]
+            .allSatisfy { $0.baseMaterialBindings.isEmpty && $0.assetDemands.isEmpty }
     }
-    let multi = compile("music",slots:["music","mask"])
-    checks["extraAssetSlotRejected"] = multi.baseMaterialBindings.isEmpty && multi.assetDemands.isEmpty
+    checks["extraAssetSlotRejected"] = [compile("music", slots:["music","mask"]),
+        compile("music", slots:["music","mask"], neutral: false, passes:[builtin])]
+        .allSatisfy { $0.baseMaterialBindings.isEmpty && $0.assetDemands.isEmpty }
     return checks
 }
 let projected = SceneInitialMediaEffectVisibilityProjection.apply(

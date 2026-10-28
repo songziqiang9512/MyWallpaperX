@@ -1,8 +1,8 @@
 <!-- document-role: historical-evidence -->
 
-# 开放断点队列对账与退出记录（2026-10-23）
+# 开放断点队列对账与退出记录（2026-10-23 起）
 
-> **历史证据 — 非现役入口**。本次从原256行队列移出已闭首门、已解释反馈与纯未验范围；不是新运行、整样本PASS或当前HEAD重测。未闭具体问题仍由[当前队列](../roadmap/scene-open-breakpoint-queue.md)维护，当前语义归能力/架构专题。
+> **历史证据 — 非现役入口**。10-23首次从原256行队列移出已闭首门、已解释反馈与纯未验范围；后继关闭按节注明实际运行，不将局部结果升为整样本PASS。未闭具体问题仍由[当前队列](../roadmap/scene-open-breakpoint-queue.md)维护，当前语义归能力/架构专题。
 
 原队列SHA256 `84fffc77d349ac8748bb4607554748336ac8586fc62910bb334ee5134d31bd48`（80,674字节）；只读对账基于现代码、既有正式证据及近期提交，未新增App/VM或全库扫描。原字节和逐项去留映射暂存本机`.artifacts/scene-queue-reconciliation-20261023/`。本页仅索引有界结论，不复制原队列或各专项过程。原静态审计14类未闭问题已按公共owner合入同一现役队列，静态缺口仍不等于可见故障。
 
@@ -96,3 +96,18 @@
 原`scene-full-sample-static-audit.md`的14类真实残余已合入当前队列的12个公共条目，保留首owner、缺失消费者与退出门；独立问题文档删除，不另留现役副本。整理前55行版本可由`git show 3ce7adae2:docs/scene/roadmap/scene-full-sample-static-audit.md`追溯；本次逐项映射及源身份归本机限期证据，不能由静态迁移认领新运行或修复。
 
 退出当前待办的静态过程包括：direct默认骨骼/条件热切与rate脚本、neutral恒定state1、Puppet单alpha贡献、root world平移与未声明peer的同帧adoption、已准备Puppet/普通图片/空composition窄片、genericimage4 directional、32项varying、native shortcut及普通Timeline基础关键帧。各自范围和后验仍由能力合同与既有运行记录持有，非中性channel、多个alpha贡献、更广空间/材质/volume等残余没有随之关闭。任意shader派发键、editor metadata、未知MDLA尾部、未复现旧截图与未验golden不再独立充当缺陷；没有把这些未知写成已支持。
+
+<a id="neutral-instance-cover-20261028"></a>
+## 2026-10-28：实例封面默认覆盖
+
+`73be060b1` 的 `3042492564` / `2932157836` 在自建非白封面已发布、Store ready 后，base provider 仍为0 binding / 1 rejected，原图分别呈灰白/全白占位。根因是合法实例 fallback 与 stock 中性默认纹理不等时被准备期提前拒绝；stock 自带 slot/VERSION 又不能冒充 procedural neutral。
+
+原 `SceneBaseMaterialProviderBindingCompiler` 允许已支持的普通单 pass builtin 中性默认 slot 被实例颜色资产覆盖，复用原 fallbackAsset/demand/Store/typed frame/末合成；不改 blend、alpha、shader 算法、生命周期或资源认证，不增加 owner、持久状态和帧内运算。新许可仅消费普通 VERSION1–2 且无常量/动态 shader 值的材质；未知/多槽/多pass/数据用途仍按原链局部拒绝，等值旧路保持。产品净增7行，新增内容只表达此前丢失的覆盖关系。
+
+同签名 Debug、零频谱/30FPS请求下，两包实际 A（橙/青/黄）→B（绿/紫/蓝）→clear 均能换图并回到作者旋转音乐图标，构图与时钟仍在；第一张 ready 尚处作者过渡，后继稳定A已显示，未假称瞬时首帧。两包 current base binding 变1、rejected变0；预先选定封面ROI的白像素占比由93.5%/约100%降为A/B的0%，仅为该ROI观察，非整景相似度。各14秒正常退出，surface1→0/GPU drained。
+
+未参与修法的 `3617056047` 同App8秒保罐体、圆环与文字，正常退出；它只提供相邻材质/合成回归，不认物理、媒体或官方parity。最近 provider 行为门通过，含 current/previous、资源与模型改名、loaded组合/常量/动态值反例和旧等值路径；独审指出的 loaded材质范围P2已修，最终无开放P1/P2。Debug构建与4447产品输入无漂移、严格签名通过。普通App/daemon实时系统媒体来源、全部属性、HDR/多屏及性能未另验；不变更人工整样本verdict。队列仅退出白覆子问题，原光束/blur/精确spin及媒体仲裁余项保留。
+
+正式证据：主仓 `.artifacts/scene-evidence/runs/neutral-instance-cover-20261028-{304,293,control}/`；两样本各保修前、稳定A/B/clear原图及日志，公共包保存App/输入身份、最近门、构建与独审摘要。普通14天、单包32MiB/总5GiB；运行副本、App/HOME和构建缓存当批清理。
+
+本轮另续接318重力研究，未改求解器：官方2.8.0.42载体可显示BASE，但自动阶段多次错过HOLD；改为离散属性后未确认命令改变阶段，仍缺实际HOLD正控制，不据getter/文字或该结果拟合重力、质量与增益。U40仍未修，保原unsupported边界；后续须先解决实验控制，再扩消费者。

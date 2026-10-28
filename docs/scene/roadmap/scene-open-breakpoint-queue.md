@@ -18,7 +18,6 @@
 | 公共首断点 / 样本 | 未闭问题与最小下一门 |
 |---|---|
 | Program来源/命名绑定 · 3086016320 | 430仍拒execution-stage-conservation/named binding，属父426下封面转场，默认父alpha0；无可归因默认ROI。先取可见媒体正控及base/potential/selected依赖向量，再沿原多槽owner扩展；保隐藏forward259的作者顺序，不将其归因独立1521频谱。 |
-| <a id="media-cover-fallback"></a>媒体白覆盖 ·3042492564 /2932157836 | 用户回归待同非白A/B媒体实证。静态instance fallback music与stock slot0 util/white比较先拒；stock slot/combos同时令procedural neutral事实为空，单改fallthrough无效。先核当前provider/consumer首错，再沿原builtin image/material owner接合法instance覆盖，不改blend或放宽未知材质。 |
 | source材质/lookup · 3616476797 /3679907516 | 361113与36771/74/83仍有source-only render-state首拒；36771回调产黑、83初alpha0待thumbnail，74普通effect实际已消费。先资格受控媒体/source独占ROI，区分texture×g_Color4等价与非等价source；不泛化translucent/VERSION2、吞lookup错误或据缺祖父认缺API。 |
 | forward copy-background · 2972071249 | 313引用后置隐藏composition234，dependency stage order拒绝仍在；隐式copyBackground使全局prepass不独立于作者顺序，白波形因果未定。先证consumer prefix与跨consumer身份，复用原graph发布；[原板正控STOP](../capabilities/runtime-evidence-current.md#forward-composition-prefix-20261019)不作语义结论。 |
 | <a id="animation-auxiliary"></a>Puppet auxiliary · 3577990983 /3822822401 | [Reader](../../../MyWallpaperX/Core/SteamWorkshopScene/Format/SceneMdlPuppetAnimationReader.swift)仍限auxiliary header/scalar/后缀且modern AABB后标记为零；更广scalar/shape无pose消费者，[Selector](../../../MyWallpaperX/Core/SteamWorkshopScene/Systems/Puppet/ScenePuppetAnimationSelection.swift)拒多个非中性alpha contributor。357尚有多个非中性alpha contributor或未消费scalar/shape的组合（1678/258非零scalar、1678 keyed shape）；单个非一alpha不在本缺口。382的244.visible metadata缺席早于VM，由clip235的MDLA6 AABB后dense scalar拒绝引起；骨3恒4700且有正权重顶点，depth/order/位移与混合语义均UNKNOWN。先取得字段消费者合同及可归因姿态；不补假metadata、跳record或猜骨深度。保[shape边界](../capabilities/advanced-object-coverage.md#op-puppet-blend-shapes)及正式`fan-animation-scalar-20261023`/`fan-scalar-observable-stop-20261023`失败。 |
@@ -96,8 +95,8 @@
 | U05 · 3723344874 | 人物后烟雾/涡动。末combine的Dye版本/R梯度+A权重未见绑定首错；需合格同帧空间分布/uniform/ROI，不用单质心、盲加时或gain。[内容边界](../capabilities/runtime-evidence-current.md#u05-fluid-content-20261018) |
 | U10 · 3793998447 | 音频响应/具体属性差异待同输入；默认整环缺失未复现，不再排整环Program不支持。[资格](../capabilities/runtime-evidence-current.md#u10-active-ring-20261018) |
 | U11 · 3792249095 | 外圈样式/内外位置差异；底图本含图案，音源phase未齐。先实际ROI，不改相机/半径/涡旋或重开已证Sprite基础尺度。[资格](../capabilities/runtime-evidence-current.md#u11-visible-ring-20261018) |
-| U13 · 3042492564 | [媒体白覆盖公共余项](#media-cover-fallback)待实证。原光束、右裁切/blur、布局和媒体交互仍保；additive及camera origin setter首门已退出，不将默认XY夹零写像素收益。 |
-| U14 · 2932157836 | [媒体白覆盖公共余项](#media-cover-fallback)待实证，原blur/精确spin及媒体仲裁仍保。不重修已闭timer取消身份。[边界](../capabilities/runtime-evidence-current.md#shared-timer-cancellation-20261018) |
+| U13 · 3042492564 | 原光束、右裁切/blur、布局和媒体交互仍保；additive及camera origin setter首门已退出，不将默认XY夹零写像素收益。 |
+| U14 · 2932157836 | 原blur/精确spin及媒体仲裁仍保。不重修已闭timer取消身份。[边界](../capabilities/runtime-evidence-current.md#shared-timer-cancellation-20261018) |
 | U15 · 3299228616 | hover水波弱，须真实pointer与可归因ROI，不抬gain；滚动背景矩形已退出。 |
 | U17 · 3233141951 | 脸/龙/小人/刀的准确轨迹及双色音频待同状态。403请求513仍有Bool seed数值污染；仅改literal true虽能播放，黑形像素/收益UNKNOWN，后继须新producer/ROI而非重跑该单变量板。[边界](../capabilities/runtime-evidence-current.md#combined-timeline-playback-20261017) |
 | U19 · 3807668787 | 958 A2C/pointer轨迹准入仍拒，可见收益未证，原型已撤；先唯一ROI/实际几何采样和有效连续时序。[STOP](../capabilities/runtime-evidence-current.md#particle-coverage-qualification-20261018) |

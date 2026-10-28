@@ -268,15 +268,22 @@ enum SceneBaseMaterialProviderBindingCompiler {
         materialPasses: [SceneRenderDescriptor.MaterialPassDescriptor],
         fallbackAsset: inout SceneAssetTextureIdentity?
     ) -> Bool {
+        var permitsAssetFallback = layer.proceduralSolidSource == .neutral
         if materialPasses.count == 1,
            let pass = materialPasses.first,
            pass.textureSlots.indices.contains(0),
            let loadedFallback = pass.textureSlots[0] {
-            return normalized(instanceFallback) == normalized(loadedFallback)
+            if normalized(instanceFallback) == normalized(loadedFallback) { return true }
+            permitsAssetFallback = pass.textureSlots.count == 1
+                && pass.shaderPath.map(SceneBuiltinShaderIdentity.isImage) == true
+                && pass.combos.allSatisfy({ $0.key.lowercased() == "version" && (1...2).contains($0.value) })
+                && pass.constantShaderValues.isEmpty && pass.userShaderValues.isEmpty
+                && SceneVFSAssetPath(loadedFallback)
+                    .map(SceneStockTextureSemanticRegistry.isNeutralColorCarrier) == true
         }
-        // The prepared model fact owns the neutral source even when its
-        // state-only stock material is present in the descriptor catalog.
-        guard layer.proceduralSolidSource == .neutral,
+        // A solid instance may replace a built-in neutral default with its
+        // authored fallback through the same asset-purpose path.
+        guard permitsAssetFallback,
               layer.contentKind == "solid",
               let path = SceneVFSAssetPath(instanceFallback) else { return false }
         if SceneStockTextureSemanticRegistry.isNeutralColorCarrier(path) { return true }

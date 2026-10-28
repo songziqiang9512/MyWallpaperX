@@ -150,7 +150,7 @@
     },
     "docs/scene/capabilities/runtime-evidence-current.md": {
       "lines": 600,
-      "bytes": 218855
+      "bytes": 219066
     },
     "docs/scene/capabilities/runtime-input-property-coverage.md": {
       "lines": 600,
@@ -254,7 +254,7 @@
     },
     "docs/scene/roadmap/batch2/system-media-input-design.md": {
       "lines": 59,
-      "bytes": 13418
+      "bytes": 13694
     },
     "docs/scene/roadmap/batch2/terminal-material-chain-design.md": {
       "lines": 135,
@@ -277,8 +277,8 @@
       "bytes": 22423
     },
     "docs/scene/roadmap/scene-open-breakpoint-queue.md": {
-      "lines": 173,
-      "bytes": 35426
+      "lines": 172,
+      "bytes": 34885
     },
     "docs/web/cold-descriptor-parse-offload-design.md": {
       "lines": 30,
@@ -1710,15 +1710,6 @@
     },
     {
       "section": "bodies",
-      "path": "docs/scene/roadmap/scene-open-breakpoint-queue.md",
-      "before": "08bebb785ecf79b507c096275be1f6c7f662be302709f64a6bc3180dc21fa6b5",
-      "after": "b95e24551f0ba0577f7905cfe447aa584461de64d12d2e25bb4eb0eb3b7e3a1c",
-      "owner": "Scene bounded Puppet impulse closeout",
-      "reason": "原journal typed线性冲量和当前世界Motion获得两包三轮实证；实际318累计形变反例要求一次prepared不可用标记/消费处失败，保其未修状态。替换旧描述并仅登记剩余研究，不另建状态表；D4保持600行。",
-      "decision": "docs/scene/history/puppet-linear-impulse-2026-10-28.md"
-    },
-    {
-      "section": "bodies",
       "path": "docs/development/code-slimming-program.md",
       "before": "b80b7f81184b52a2218ac3ad512a1f2f6570ad34afa7d545f8c61b40a8abeb00",
       "after": "2261ec434544a11129657286b07a3922832ccfcbcadf8d4777452f180581f3bd",
@@ -1752,6 +1743,33 @@
       "owner": "UI22",
       "reason": "UI22九项工作卡、实体右键失败及用户复测、两项静态尾修和用户取消运行构建后的明确交接边界；保留UI21既有证据分界。",
       "decision": "docs/development/ui-quality-audit.md#ui22-scope"
+    },
+    {
+      "section": "bodies",
+      "path": "docs/scene/roadmap/batch2/system-media-input-design.md",
+      "before": "7374c3ed02d91aa88bca5ef438cf2ecdb1b1d3bc0d376a7df7a2987279c13dca",
+      "after": "9e672738283bf8060d9daebda64226a98a7efe76c9c652d71d585b061a0371bb",
+      "owner": "Scene material provider",
+      "reason": "原fallback合同落实builtin中性默认覆盖，实际A/B/clear后移出白覆待修；当前证据仅保指向有界退出记录的入口。",
+      "decision": "docs/scene/history/open-breakpoint-reconciliation-2026-10-23.md#neutral-instance-cover-20261028"
+    },
+    {
+      "section": "bodies",
+      "path": "docs/scene/roadmap/scene-open-breakpoint-queue.md",
+      "before": "b95e24551f0ba0577f7905cfe447aa584461de64d12d2e25bb4eb0eb3b7e3a1c",
+      "after": "49c590f7f80e2730fa600fc32af27d4f89acdabe232ec62a692229f948138920",
+      "owner": "Scene material provider",
+      "reason": "原fallback合同落实builtin中性默认覆盖，实际A/B/clear后移出白覆待修；当前证据仅保指向有界退出记录的入口。",
+      "decision": "docs/scene/history/open-breakpoint-reconciliation-2026-10-23.md#neutral-instance-cover-20261028"
+    },
+    {
+      "section": "bodies",
+      "path": "docs/scene/capabilities/runtime-evidence-current.md",
+      "before": "814be29c9471ca5a60315b7c2d567f1d74d927db6f05873cc2fe4b40c0a37d70",
+      "after": "b450055f8bfbddb5fa0f3dd510714735835562b6caedfc8cb7a6e6bdff4af2d9",
+      "owner": "Scene material provider",
+      "reason": "原fallback合同落实builtin中性默认覆盖，实际A/B/clear后移出白覆待修；当前证据仅保指向有界退出记录的入口。",
+      "decision": "docs/scene/history/open-breakpoint-reconciliation-2026-10-23.md#neutral-instance-cover-20261028"
     }
   ]
 }
