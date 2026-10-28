@@ -7,7 +7,7 @@
 “运行首拒”不等于缺图；“待复验”不等于当前HEAD缺陷。默认隐藏、空媒体、作者入场/延迟、未ready、没有golden或未验更宽profile均不单独排实现。矩阵PASS/FAIL不代视觉裁决。样本原verdict及运行关联归[台账](../capabilities/scene-sample-acceptance-ledger.md)，分母归[声明统计](../capabilities/scene-corpus-capability-inventory.md)，现存证据身份归[运行记录](../capabilities/runtime-evidence-current.md#local-evidence-availability)。
 
 <a id="user-required-20261028"></a>
-2026-10-28用户集中必修反馈已并入以下原条目，先推进U40，再按可区分的合成/播放首错选序；观察仍待实证。两377双视频/Xray已按用户确认退出；“其余基本问题不大”不自动结清其他旧账。
+2026-10-28用户集中必修反馈已并入以下原条目，按可区分的合成/播放首错选序；观察仍待实证。两377双视频/Xray已按用户确认退出；“其余基本问题不大”不自动结清其他旧账。
 
 <a id="static-capability-gaps"></a>
 <a id="runtime-open"></a>
@@ -23,7 +23,6 @@
 | <a id="animation-auxiliary"></a>Puppet auxiliary · 3577990983 /3822822401 | [Reader](../../../MyWallpaperX/Core/SteamWorkshopScene/Format/SceneMdlPuppetAnimationReader.swift)仍限auxiliary header/scalar/后缀且modern AABB后标记为零；更广scalar/shape无pose消费者，[Selector](../../../MyWallpaperX/Core/SteamWorkshopScene/Systems/Puppet/ScenePuppetAnimationSelection.swift)拒多个非中性alpha contributor。357尚有多个非中性alpha contributor或未消费scalar/shape的组合（1678/258非零scalar、1678 keyed shape）；单个非一alpha不在本缺口。382的244.visible metadata缺席早于VM，由clip235的MDLA6 AABB后dense scalar拒绝引起；骨3恒4700且有正权重顶点，depth/order/位移与混合语义均UNKNOWN。先取得字段消费者合同及可归因姿态；不补假metadata、跳record或猜骨深度。保[shape边界](../capabilities/advanced-object-coverage.md#op-puppet-blend-shapes)及正式`fan-animation-scalar-20261023`/`fan-scalar-observable-stop-20261023`失败。 |
 | <a id="effect-source-admission"></a>effect输入/来源 · 357/363增量 | [需求准备](../../../MyWallpaperX/Core/SteamWorkshopScene/Compilation/Material/SceneResolvedMaterialRuntimeCatalog.swift)将活动sampler未获用途proof记purposeUnproven；[Timeline编译](../../../MyWallpaperX/Core/SteamWorkshopScene/Systems/Timeline/SceneTimelineTargetCompiler.swift)拒effect constant的parent/children Combined，[whole-stage准入](../../../MyWallpaperX/Core/SteamWorkshopScene/Compilation/Material/SceneResolvedMaterialPreviousBlurredCompositeOwnerAdmission.swift)要求utility source无child/dependency。357320 slot1用途proof与233 Combined、3632522893的765子785/Blur772 whole-stage childless门仍拒；可归因ROI未证。357须证5个Aperture/2个Opacity根的逻辑control身份；363须证source完成、pin/extent。沿原prepared链，不挑首root、转红mask或删guard；[Combined资格](../capabilities/runtime-evidence-current.md#effect-combined-qualification-20261018)保持STOP。 |
 | N08 · 3337494481 world/负subdivision RopeTrail | 十个visible复制层仍unavailable，原hidden不计缺图；空间/细分语义UNKNOWN。先取可区分正控，不猜abs/clamp、不重复旧白线矩阵；[缓存观察资格](../history/rope-trail-profile-qualification-2026-10-15.md#cache-observer-20261022)失败保留。 |
-| <a id="puppet-physics"></a>U40 ·3187857248重复拖动/重力 | ge=true、r=false/t=true仍使translationPhysics=nil；释放冲量现明确unsupported后停用原owner，仍只首轮可拖。禁止取消能力标记或以noop续跑（已实测累计形变）。须取得有效gravity/世界方向/状态消费者资格后扩唯一Motion，同时核本地query寿命与重复释手；官方质量/friction精确值未闭。[边界与失败](../history/puppet-linear-impulse-2026-10-28.md) |
 
 
 <a id="qv-visual-repairs"></a>

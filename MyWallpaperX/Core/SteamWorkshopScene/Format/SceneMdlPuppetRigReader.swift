@@ -33,35 +33,61 @@ nonisolated struct SceneMdlPuppetRig: Equatable {
         let friction: Float
         let inertia: Float
         let maxDistance: Float
+        let gravity: SIMD3<Float>
+
+        init(spring: Bool, stiffness: Float, friction: Float, inertia: Float,
+             maxDistance: Float, gravity: SIMD3<Float> = .zero) {
+            self.spring = spring
+            self.stiffness = stiffness
+            self.friction = friction
+            self.inertia = inertia
+            self.maxDistance = maxDistance
+            self.gravity = gravity
+        }
 
         static func read(metadata: Data) throws -> Self? {
             guard !metadata.isEmpty else { return nil }
-            guard let object = try JSONSerialization.jsonObject(with: metadata) as? [String: Any]
+            guard let object = (try? JSONSerialization.jsonObject(with: metadata)) as? [String: Any]
             else { throw SceneMdlPuppetRigReadError.invalidPhysicsMetadata }
             let spring = object["se"] as? Bool == true
             let rigid = object["re"] as? Bool == true
             guard spring || rigid, object["t"] as? Bool == true else { return nil }
             // This slice admits the documented translational spring/rigid
             // mode. Other enabled solvers cannot silently become this one.
-            guard object["r"] as? Bool != true, object["ge"] as? Bool != true,
-                  object["ik"] as? Bool != true else {
+            guard object["r"] as? Bool != true, object["ik"] as? Bool != true else {
                 throw SceneMdlPuppetRigReadError.unsupportedPhysicsMode
             }
             func finite(_ key: String, fallback: Float) throws -> Float {
                 guard let value = object[key] else { return fallback }
                 guard let number = value as? NSNumber,
                       CFGetTypeID(number) != CFBooleanGetTypeID(),
-                      number.doubleValue.isFinite, number.doubleValue >= 0,
-                      number.doubleValue <= 1_000_000 else {
+                      number.floatValue.isFinite, number.doubleValue >= 0 else {
                     throw SceneMdlPuppetRigReadError.invalidPhysicsMetadata
                 }
                 return number.floatValue
+            }
+            var gravity = SIMD3<Float>.zero
+            if object["ge"] as? Bool == true {
+                // Explicit serialized gravity is qualified; absent defaults
+                // remain local to this unsupported bone, not a bad rig.
+                guard let direction = object["gd"] as? String, object["m"] != nil else {
+                    throw SceneMdlPuppetRigReadError.unsupportedPhysicsMode
+                }
+                let components = direction.split(whereSeparator: \.isWhitespace).map { Float($0) }
+                guard components.count == 3, let x = components[0],
+                      let y = components[1], let z = components[2] else {
+                    throw SceneMdlPuppetRigReadError.invalidPhysicsMetadata
+                }
+                gravity = try SIMD3(x, y, z) * finite("m", fallback: 0) * 1000
+                guard gravity.x.isFinite, gravity.y.isFinite, gravity.z.isFinite else {
+                    throw SceneMdlPuppetRigReadError.invalidPhysicsMetadata
+                }
             }
             return try Self(spring: spring,
                 stiffness: finite("ts", fallback: 200),
                 friction: finite("tf", fallback: 10),
                 inertia: finite("ti", fallback: 30),
-                maxDistance: finite("tm", fallback: 200))
+                maxDistance: finite("tm", fallback: 200), gravity: gravity)
         }
     }
 
@@ -312,6 +338,9 @@ nonisolated enum SceneMdlPuppetRigReader {
                 // must not discard an otherwise valid animated skeleton.
                 physics = nil
                 physicsDiagnostic = "unsupported-enabled-physics"
+            } catch SceneMdlPuppetRigReadError.invalidPhysicsMetadata {
+                physics = nil
+                physicsDiagnostic = "invalid-physics-metadata"
             }
             cursor = metadataEnd + 1
             bones.append(.init(

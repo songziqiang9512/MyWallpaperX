@@ -119,7 +119,6 @@ Binding reader 只扩有限非 Bool Number 与规范化命名 user；Scalar proj
 
 原native intrinsic的capture/realm/GC与失败边界已实施；唯一可观察合同见[API表](../../capabilities/scenescript-api-coverage.md#native-regexp-captures)，设计取舍、成本及真实时钟证据见[冻结记录](../../history/native-regexp-capture-2026-10-13.md)。不新增wrapper/正则算法或clock，未证完整提案与官方parity；普通编辑重建仍归属性卡。
 
-
 ## 共享 VM 容量与安装失败后继（2026-10-13，实施中）
 
 原包隔离 App 在第 742 个 owner 的 layer handle 安装处实际耗尽共享 VM 的 16 MiB heap；记录为 memory-exceeded，分配量 16,777,168 / 16,777,216 bytes，计划上界为 935 个 owner。首个真实内存错误已沿现候选域 fatal 路径退出，旧逐 identity 重试耗尽 4096 的扩大失败已排除；该 16 MiB 版本原包开场仍未恢复。该证据说明容量不足，不定位症状的引入提交。32 MiB 前一候选的隔离原包已完成自动开场、后续运动与网格切换；本片最新安装失败边界仍须固定源码重建重验，不能沿用旧候选的运行结论。冻结身份及播放验收归[本轮中性历史记录](../../history/scenescript-host-heap-admission-2026-10-13.md)，不由此设计登记替代。
@@ -306,7 +305,14 @@ Scalar/String通过现生命周期bridge内的value-owner协议共用一个退�
 
 **验收与退出。** 真实 QuickJS 门覆盖不同 query/render 的父子与 layer transform、本地/世界 setter 同 callback 读回、未写物理邻骨、rename/等价表达式和失败撤回。原 PlaybackState/Metal 门覆盖一次 setter 后本地复位而世界/网格继续、同 cadence 不二次推进及下一 cadence 正常回弹；隔离 App 验证实际 setter 画面及未参与修法样本。该片不关闭 U40：实际释放链仍须有序 impulse/matrix journal、一次 simulation commit、原输入三轮持续拖动及释放后更新；不得将 getter 修正或原包 ready 记成重复交互恢复。
 
-**既有矩阵保序与冲量后继。** 10-18已修同层不同owner的A₁→B₁→A₂顺序：原journal记录domain callback epoch/ordinal，在owner固定点接纳后恢复顺序交PlaybackState；不合并同骨写、不重放失败owner，VM/原生回归保持。**10-28线性冲量有界实施：** 同一journal扩为矩阵/冲量typed payload，沿原接纳、撤回及退休，C仅解析有限向量并原样传出，不立即改getter镜像或另建队列。本片在线性kick进入原稳定spring/friction整步后推进，不拆成位移/速度两相或用样本gain补偿；官方含质量/重力的精确数值仍须独立资格。唯一PlaybackState/Motion保存物理位置/速度；沿原canonical parent-first解析，在当前parent/attachment就绪后推进该层一次，再发布挂点供子层，替换先全local物理、再求world的旧顺序，不新建树、clock或solver。世界方向使用当前carrier，保局部距离约束与query/render寿命；setter与冲量仍按原journal顺序。launch从原physics准入失败事实一次传每骨不可用标记；普通帧nil保留，只在实际冲量调用点局部失败，不能把未支持物理当noop持续运行。318的ge=true、r=false/t=true仍未修；中间累计形变候选退出，保原失败边界。[后验](../../history/puppet-linear-impulse-2026-10-28.md)仅闭374/299三轮；318只证不新增累计形变，gravity及官方精确数值不关闭。变体、无物理骨、坏值/整owner撤回与独立渲染按原门验证，ready不代交互恢复。
+**矩阵/冲量合同。** 原journal以domain callback epoch/ordinal保A₁→B₁→A₂，typed matrix/linear-kick沿原整owner接纳、撤回及退休；C只解析向量，不立即改getter或建另一队列。唯一PlaybackState/Motion先按当前canonical parent/attachment父子顺序推进一次，再产挂点和网格；world kick与velocity共同进入稳定spring/friction步，保local距离约束、query/render寿命及setter丢前冲量留后冲量。退出旧全local后world顺序、重复矩阵准备和提交前dictionary复制。prepared一次传每骨physics不可用标记，普通帧nil保留，只在实际unsupported impulse时局部失败，不能noop续跑。[线性冲量后验](../../history/puppet-linear-impulse-2026-10-28.md)只闭374/299，318旧累计形变候选已撤回。
+
+<a id="puppet-translation-gravity"></a>
+**平移重力后继（2026-10-28，设计先于实施）。** 目标是让已启用纯平移重力的骨在释放后继续回弹，后续拖动不因unsupported停用。固定官方双臂网格正控及质量/刚度/旋转/缩放板已资格world持续力，研究细节归后验。只据此资格显式m/gd、r=false/t=true、非IK的序列化profile；不猜缺省质量/方向、角物理或rope。数值/研究边界归后验，不将项目积分器称为WE算法。
+
+原RigReader准备期一次将gd与m转换成world持续加速度（该有界profile的尺度1000），ge关闭时不读无关重力字段；缺少尚未资格的m/gd仍每骨unsupported；坏物理metadata也只撤该骨配置，骨记录/weights越界保原硬失败。平移物理仍只有一个immutable配置，省去每帧JSON/单位换算/能力扫描；rotation/IK原门不放宽。原Motion在同一闭式spring/friction整步接持续力，包含零spring、零friction和稳定平衡，不把gravity累加进pendingImpulse或逐次setter，不用样本gain、子步循环或新增状态。保当前world carrier、local位移上限和有限值恢复；静止归零不得吞掉受力平衡。已完成的无重力链直接复用，不新增层级或solver。
+
+验收扩现有physics门：旧gravity-off、重命名/等价向量、缺/坏值与rotation/IK相邻反例，恒力的自由落体/阻尼/弹簧平衡、低高帧率、旋转非等比及移动parent、零dt/limit/失败恢复。真实318固定同三轮拖动/释手，须后续owner及几何持续更新且不累计漂移；374/299为无重力反例，另保独立渲染与teardown。只有实际通过后才移出队列；官方精确动态相位、未知缺省/更广parent链/HDR/性能仍不认领。
 
 ## Puppet 动画层后继（2026-10-07）
 
@@ -519,13 +525,7 @@ Sound Program继续唯一准备与作者首可用源选择，Registry/AVQueuePla
 <a id="color-input-numeric-slot"></a>
 ### Color输入与数值slot（2026-10-16，有界已实施）
 
-**目标与资格。** 3337494481的147/effect3 alpha在进入JS前因Number fallback绑定Color持续拒绝。固定官方2.8.0.42自有正控证明：Color送入数值`addSlider` slot仍为三分量String，callback可返回有限scalar；不应按fallback类型提前拒绝或强转Number/Vec3。它不证明原作者media/fade画面已修，详细资格只归本机`333-next-qualification-20261016/official-property-slot/`。
-
-**唯一链路。** 原ScriptProperty input在程序构造边按唯一property definition一次保存输入kind，Scalar/String/Vector及其借用cursor/media/lifecycle共用该值；普通帧不重新找定义。只对declared Color与有限Number fallback新增经原RGB parser验证的String转交。VM实际builder slot继续独占String/Vec解释，不扫描作者源码或按参数名分派。原property compiler使用已有Color/vector3输入指令；此输入checkpoint的seed来自作者Color定义的合法default，原script fallback仍为Number，二者属于不同输入域，不能广播Number伪造颜色或改变fallback。
-
-**失败与验收。** 缺失/重复定义、非法/非有限RGB、其他String类型和不健康owner保原拒绝与整键rollback；不新增通知/store/renderer。最近真实VM门覆盖改名/等价表达式、cold/hot/重复编辑、原Number fallback及相邻非法/非Color输入；原333实际Scalar回调与画面、独立健康样本及退出另验。若需要通用coercion、额外输入owner或改JS slot类型则停止本片，另取区分证据。此修复不认领CPU/GPU收益。
-
-[有界后验](../../history/property-callback-recovery-2026-10-14.md#color-numeric-slot-input)记录原333首错退出、自有Scalar同窗编辑与独立画面；当时残留的末次合法编辑拒绝由[回调退场后继](#retired-property-callback-consumers)接续，特殊composition和完整交互不随此关闭。
+declared Color送入有限Number fallback的addSlider slot，仍传经原RGB parser验证的三分量String，不按fallback强转Number/Vec3。原ScriptProperty input在构造期一次保definition kind，Scalar/String/Vector及借用cursor/media/lifecycle共用；builder独占slot解释，原Color/vector3 typed指令的seed来自合法Color default，script fallback保持Number。缺/重复定义、非法RGB、非Color String与失败owner保整键rollback；不扫源码参数名，不增store/writer。改名、cold/hot及真实333首错后验归[记录](../../history/property-callback-recovery-2026-10-14.md#color-numeric-slot-input)，末次合法编辑由下节接续；不认原media/fade完整恢复或性能。
 
 <a id="retired-property-callback-consumers"></a>
 ### 永久删除后的属性回调消费者（2026-10-16，有界已实施）

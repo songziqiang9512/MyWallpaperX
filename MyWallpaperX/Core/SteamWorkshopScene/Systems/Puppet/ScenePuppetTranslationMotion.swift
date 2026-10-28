@@ -51,27 +51,62 @@ struct ScenePuppetTranslationMotion: Equatable {
         let damping = Double(configuration.friction) / 2
         let stiffness = configuration.spring ? Double(configuration.stiffness) : 0
         let discriminant = damping * damping - stiffness
-        let nextX: SIMD3<Double>
-        let nextV: SIMD3<Double>
+        let hasGravity = configuration.gravity != .zero
+        // Evaluate the constant-input response without subtracting a/k from
+        // the position: that loses small displacements as stiffness tends to 0.
+        var forceQ: Double?
+        if hasGravity {
+            let f = 2 * damping * dt, k = stiffness * dt * dt
+            if f + sqrt(k) < 0.01 {
+                let c2 = f * f - k
+                let c3 = -f * c2 + k * f
+                let c4 = -f * c3 - k * c2
+                forceQ = dt * dt * (0.5 - f / 6 + c2 / 24 + c3 / 120 + c4 / 720)
+            }
+        }
+        var nextX: SIMD3<Double>
+        var nextV: SIMD3<Double>
+        var forceH = 0.0
         if abs(discriminant) < 1e-10 {
             let b = v + damping * x
             let decay = exp(-damping * dt)
             nextX = (x + b * dt) * decay
             nextV = (v - damping * b * dt) * decay
+            if hasGravity {
+                forceH = dt * decay
+                forceQ = forceQ ?? (-expm1(-damping * dt) - damping * dt * decay)
+                    / (damping * damping)
+            }
         } else if discriminant < 0 {
             let frequency = sqrt(-discriminant)
             let c = cos(frequency * dt), s = sin(frequency * dt)
             let decay = exp(-damping * dt)
             nextX = (x * c + (v + damping * x) * (s / frequency)) * decay
             nextV = (v * c - (damping * v + stiffness * x) * (s / frequency)) * decay
+            if hasGravity {
+                forceH = decay * s / frequency
+                let halfSine = sin(frequency * dt / 2)
+                forceQ = forceQ ?? (-expm1(-damping * dt)
+                    + 2 * decay * halfSine * halfSine - damping * forceH) / stiffness
+            }
         } else {
             let root = sqrt(discriminant)
-            let r1 = -damping + root, r2 = -damping - root
+            let r1 = -stiffness / (damping + root), r2 = -damping - root
             let a = (v - r2 * x) / (r1 - r2)
             let b = x - a
             let e1 = exp(r1 * dt), e2 = exp(r2 * dt)
             nextX = a * e1 + b * e2
             nextV = a * (r1 * e1) + b * (r2 * e2)
+            if hasGravity {
+                forceH = e1 * -expm1((r2 - r1) * dt) / (r1 - r2)
+                forceQ = forceQ ?? dt * dt * (r1 * Self.phi2(r1 * dt)
+                    - r2 * Self.phi2(r2 * dt)) / (r1 - r2)
+            }
+        }
+        if let forceQ {
+            let gravity = SIMD3<Double>(configuration.gravity)
+            nextX += gravity * forceQ
+            nextV += gravity * forceH
         }
         let limit = Double(Float.greatestFiniteMagnitude)
         guard (0..<3).allSatisfy({ nextX[$0].isFinite && nextV[$0].isFinite
@@ -91,7 +126,7 @@ struct ScenePuppetTranslationMotion: Equatable {
             displacement = normal * configuration.maxDistance
             constrainedVelocity -= normal * max(0, simd_dot(constrainedVelocity, normal))
         }
-        if configuration.spring, simd_length_squared(displacement) < 0.000001,
+        if configuration.spring, !hasGravity, simd_length_squared(displacement) < 0.000001,
            simd_length_squared(constrainedVelocity) < 0.000001 {
             displacement = .zero
             constrainedVelocity = .zero
@@ -106,5 +141,13 @@ struct ScenePuppetTranslationMotion: Equatable {
         }
         worldPosition = SIMD3(world.x, world.y, world.z)
         return target + displacement
+    }
+
+    /// Second exponential remainder, including its well-conditioned zero limit.
+    private static func phi2(_ z: Double) -> Double {
+        if abs(z) < 0.01 {
+            return 0.5 + z * (1 / 6.0 + z * (1 / 24.0 + z * (1 / 120.0 + z / 720)))
+        }
+        return (expm1(z) - z) / (z * z)
     }
 }

@@ -102,7 +102,7 @@
     },
     "docs/scene/capabilities/advanced-object-coverage.md": {
       "lines": 388,
-      "bytes": 81630
+      "bytes": 81712
     },
     "docs/scene/capabilities/alpha-display-fallback-design.md": {
       "lines": 124,
@@ -150,7 +150,7 @@
     },
     "docs/scene/capabilities/runtime-evidence-current.md": {
       "lines": 600,
-      "bytes": 220050
+      "bytes": 220087
     },
     "docs/scene/capabilities/runtime-input-property-coverage.md": {
       "lines": 600,
@@ -182,7 +182,7 @@
     },
     "docs/scene/capabilities/scenescript-api-coverage.md": {
       "lines": 419,
-      "bytes": 116480
+      "bytes": 116578
     },
     "docs/scene/capabilities/static-source-draw-only-degradation.md": {
       "lines": 54,
@@ -250,7 +250,7 @@
     },
     "docs/scene/roadmap/batch2/script-component-api-design.md": {
       "lines": 600,
-      "bytes": 166618
+      "bytes": 166488
     },
     "docs/scene/roadmap/batch2/system-media-input-design.md": {
       "lines": 59,
@@ -277,8 +277,8 @@
       "bytes": 22423
     },
     "docs/scene/roadmap/scene-open-breakpoint-queue.md": {
-      "lines": 170,
-      "bytes": 34378
+      "lines": 169,
+      "bytes": 33866
     },
     "docs/web/cold-descriptor-parse-offload-design.md": {
       "lines": 30,
@@ -1674,15 +1674,6 @@
     },
     {
       "section": "bodies",
-      "path": "docs/scene/capabilities/advanced-object-coverage.md",
-      "before": "d36707b19940004cd8edfe7893b5daa3897abf10edfd52ee8e13b00574f660b8",
-      "after": "2a0e40d16faeda9de8eee159c8b0f5b71b3492e007682c84839556a515a0dedd",
-      "owner": "Scene bounded Puppet impulse closeout",
-      "reason": "原journal typed线性冲量和当前世界Motion获得两包三轮实证；实际318累计形变反例要求一次prepared不可用标记/消费处失败，保其未修状态。替换旧描述并仅登记剩余研究，不另建状态表；D4保持600行。",
-      "decision": "docs/scene/history/puppet-linear-impulse-2026-10-28.md"
-    },
-    {
-      "section": "bodies",
       "path": "docs/development/code-slimming-program.md",
       "before": "b80b7f81184b52a2218ac3ad512a1f2f6570ad34afa7d545f8c61b40a8abeb00",
       "after": "2261ec434544a11129657286b07a3922832ccfcbcadf8d4777452f180581f3bd",
@@ -1746,39 +1737,48 @@
     },
     {
       "section": "bodies",
-      "path": "docs/scene/roadmap/batch2/script-component-api-design.md",
-      "before": "470246cbedd3b47138bdca512c593f683c5d7887e8bfdb11eb18e349f7c4fe5b",
-      "after": "b9a667ca0a7a2666c179f223b594dade5da64eb7871bb211144ccb249d74094e",
-      "owner": "Scene static camera transforms closeout",
-      "reason": "既有设计退役已闭过程冗余并保持600行；新camera通用链与原包/holdout验收替换旧无bridge状态，移除已闭API队列，所有未验profile/采集时序限制只引用唯一历史证据。",
-      "decision": "docs/scene/history/open-breakpoint-reconciliation-2026-10-23.md#static-camera-transforms-20261028"
+      "path": "docs/scene/capabilities/advanced-object-coverage.md",
+      "before": "2a0e40d16faeda9de8eee159c8b0f5b71b3492e007682c84839556a515a0dedd",
+      "after": "8852e58ab0815bbd37bac67d6a0e4556a97d6e8702891096e7870a326dcddde9",
+      "owner": "Scene translation gravity closeout",
+      "reason": "显式平移重力接原唯一Motion并以三包重复交互收尾；修正过时U40状态与重复API行，压缩已闭Color输入过程保持设计600行，保所有独立边界和证据可用性。",
+      "decision": "docs/scene/history/puppet-linear-impulse-2026-10-28.md#translation-gravity-20261028"
     },
     {
       "section": "bodies",
       "path": "docs/scene/capabilities/runtime-evidence-current.md",
-      "before": "9f75f4a22c22dd703d966b00d4859c7b005214e958b0d13a498b6790fee418c2",
-      "after": "86b9f94743be0751ff024b0dcbbaa24621dfe864d0551cd7a14b9268af51e446",
-      "owner": "Scene static camera transforms closeout",
-      "reason": "既有设计退役已闭过程冗余并保持600行；新camera通用链与原包/holdout验收替换旧无bridge状态，移除已闭API队列，所有未验profile/采集时序限制只引用唯一历史证据。",
-      "decision": "docs/scene/history/open-breakpoint-reconciliation-2026-10-23.md#static-camera-transforms-20261028"
+      "before": "86b9f94743be0751ff024b0dcbbaa24621dfe864d0551cd7a14b9268af51e446",
+      "after": "35389159df8bbf13b50d812655c6bcf67730323b6ce15544af8f5c4c6e0a122f",
+      "owner": "Scene translation gravity closeout",
+      "reason": "显式平移重力接原唯一Motion并以三包重复交互收尾；修正过时U40状态与重复API行，压缩已闭Color输入过程保持设计600行，保所有独立边界和证据可用性。",
+      "decision": "docs/scene/history/puppet-linear-impulse-2026-10-28.md#translation-gravity-20261028"
     },
     {
       "section": "bodies",
       "path": "docs/scene/capabilities/scenescript-api-coverage.md",
-      "before": "54831b50fa8cfbf86f4c4f2079bad20bb24a541102b4c986507128a71d0fdc21",
-      "after": "1c0264b7769fd218434618c9d56a0ea9810eaba745296d7e78bec56fd0c64b7d",
-      "owner": "Scene static camera transforms closeout",
-      "reason": "既有设计退役已闭过程冗余并保持600行；新camera通用链与原包/holdout验收替换旧无bridge状态，移除已闭API队列，所有未验profile/采集时序限制只引用唯一历史证据。",
-      "decision": "docs/scene/history/open-breakpoint-reconciliation-2026-10-23.md#static-camera-transforms-20261028"
+      "before": "1c0264b7769fd218434618c9d56a0ea9810eaba745296d7e78bec56fd0c64b7d",
+      "after": "fe4dd86e689c36f793a7cb3bd6bad0e90eab2256ce5248cda8ad7469aee43dab",
+      "owner": "Scene translation gravity closeout",
+      "reason": "显式平移重力接原唯一Motion并以三包重复交互收尾；修正过时U40状态与重复API行，压缩已闭Color输入过程保持设计600行，保所有独立边界和证据可用性。",
+      "decision": "docs/scene/history/puppet-linear-impulse-2026-10-28.md#translation-gravity-20261028"
+    },
+    {
+      "section": "bodies",
+      "path": "docs/scene/roadmap/batch2/script-component-api-design.md",
+      "before": "b9a667ca0a7a2666c179f223b594dade5da64eb7871bb211144ccb249d74094e",
+      "after": "aeb6af0714484f071051218610ffbfb6d768dfa382918db058bc329fb56329cc",
+      "owner": "Scene translation gravity closeout",
+      "reason": "显式平移重力接原唯一Motion并以三包重复交互收尾；修正过时U40状态与重复API行，压缩已闭Color输入过程保持设计600行，保所有独立边界和证据可用性。",
+      "decision": "docs/scene/history/puppet-linear-impulse-2026-10-28.md#translation-gravity-20261028"
     },
     {
       "section": "bodies",
       "path": "docs/scene/roadmap/scene-open-breakpoint-queue.md",
-      "before": "5fbcf9f1e6b0ebd97a0c3db9426d540adeb6b53039175a21a6a0411558f1d3c6",
-      "after": "2ffe461961f1eaa119d8960754964b80d6d6dab29bbc592c2f989def0a43c4d4",
-      "owner": "Scene static camera transforms closeout",
-      "reason": "既有设计退役已闭过程冗余并保持600行；新camera通用链与原包/holdout验收替换旧无bridge状态，移除已闭API队列，所有未验profile/采集时序限制只引用唯一历史证据。",
-      "decision": "docs/scene/history/open-breakpoint-reconciliation-2026-10-23.md#static-camera-transforms-20261028"
+      "before": "2ffe461961f1eaa119d8960754964b80d6d6dab29bbc592c2f989def0a43c4d4",
+      "after": "f0f6710d911db4e9790181b9a74c0225f0c61ec4fe9df5d057441f0aac39e85d",
+      "owner": "Scene translation gravity closeout",
+      "reason": "显式平移重力接原唯一Motion并以三包重复交互收尾；修正过时U40状态与重复API行，压缩已闭Color输入过程保持设计600行，保所有独立边界和证据可用性。",
+      "decision": "docs/scene/history/puppet-linear-impulse-2026-10-28.md#translation-gravity-20261028"
     }
   ]
 }

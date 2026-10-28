@@ -837,10 +837,10 @@
       "lastReviewed": "2026-10-28",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "cbf1a54e35501d9fd4772b3383e7a90d878b4a41668b8fe33d2091b5afa9e798",
+        "sourceSHA256": "bc25ee47324bd3a12d31730a1c5feb445c58ffd4e050382bc0307fa41e1ade38",
         "method": "document_registry --audit + document_health --check",
-        "scope": "仅有序线性冲量/当前parent世界Motion、374/299三轮恢复、318明确unsupported及原失败边界；合并本轮静态余项，不升级未测问题。",
-        "limitations": "318gravity仍未修；官方精确物理/完整样本/性能不认领，其他主题未重审。"
+        "scope": "仅同步显式m/gd纯平移world持续力、坏physics逐骨失败及374/299/318三轮；保旧线性冲量与临时证据失效边界，移除已闭318交互队列，不升级整样本。",
+        "limitations": "未知缺省m/gd、角物理/IK/rope、宽parent链、官方动态相位/HDR/多屏及性能未验；其他专题未重审。"
       }
     },
     {
@@ -999,10 +999,10 @@
       "lastReviewed": "2026-10-28",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "38e18bf626d85c332c98f16c8da1027ae6723c557c8a219c9a97e88c1eb5b73a",
+        "sourceSHA256": "1aa0d63ad8edb35f9b57d3f1934da7a613e934093a350542f3a10a867bfa2d2e",
         "method": "document_registry --audit + document_health --check",
-        "scope": "仅同步静态camera DTO/partial经原owner与唯一cameraFrame、288调用/轨迹及末段恢复、355/343/native两深度守界，关闭API首错；保真实失败及采集时间纠正。",
-        "limitations": "init写优先级、288开场同phase、Timeline getter官方读回、path冲突、完整方向/多屏/HDR及性能未闭，其他专题未重审。"
+        "scope": "仅同步显式m/gd纯平移world持续力、坏physics逐骨失败及374/299/318三轮；保旧线性冲量与临时证据失效边界，移除已闭318交互队列，不升级整样本。",
+        "limitations": "未知缺省m/gd、角物理/IK/rope、宽parent链、官方动态相位/HDR/多屏及性能未验；其他专题未重审。"
       }
     },
     {
@@ -1125,10 +1125,10 @@
       "lastReviewed": "2026-10-28",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "439018348df389acd7802378511faf1470801baf78234465bf8b5a6cb40aaff4",
+        "sourceSHA256": "661e9ee8bd917f994c287358ec32e458540e8762919d31f575efd17cdc34a49a",
         "method": "document_registry --audit + document_health --check",
-        "scope": "仅同步静态camera DTO/partial经原owner与唯一cameraFrame、288调用/轨迹及末段恢复、355/343/native两深度守界，关闭API首错；保真实失败及采集时间纠正。",
-        "limitations": "init写优先级、288开场同phase、Timeline getter官方读回、path冲突、完整方向/多屏/HDR及性能未闭，其他专题未重审。"
+        "scope": "仅同步显式m/gd纯平移world持续力、坏physics逐骨失败及374/299/318三轮；保旧线性冲量与临时证据失效边界，移除已闭318交互队列，不升级整样本。",
+        "limitations": "未知缺省m/gd、角物理/IK/rope、宽parent链、官方动态相位/HDR/多屏及性能未验；其他专题未重审。"
       }
     },
     {
@@ -1299,10 +1299,10 @@
       "lastReviewed": "2026-10-28",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "53b54547235cb39de011695881040cbfaa2883da4816d858ef193a8002a3645e",
+        "sourceSHA256": "c0069bbb244568f4a5b320f82635670495a64418c4176bc04ff6ca74f4e76645",
         "method": "document_registry --audit + document_health --check",
-        "scope": "仅同步静态camera DTO/partial经原owner与唯一cameraFrame、288调用/轨迹及末段恢复、355/343/native两深度守界，关闭API首错；保真实失败及采集时间纠正。",
-        "limitations": "init写优先级、288开场同phase、Timeline getter官方读回、path冲突、完整方向/多屏/HDR及性能未闭，其他专题未重审。"
+        "scope": "仅同步显式m/gd纯平移world持续力、坏physics逐骨失败及374/299/318三轮；保旧线性冲量与临时证据失效边界，移除已闭318交互队列，不升级整样本。",
+        "limitations": "未知缺省m/gd、角物理/IK/rope、宽parent链、官方动态相位/HDR/多屏及性能未验；其他专题未重审。"
       }
     },
     {
@@ -2815,7 +2815,7 @@
         "docs/scene/roadmap/scene-open-breakpoint-queue.md"
       ],
       "cutoffDate": "2026-10-28",
-      "uniqueValue": "世界线性冲量原journal/唯一Motion与374/299三轮；318累计形变候选退出、明确unsupported及重力未修、整合暂停边界。"
+      "uniqueValue": "首批线性kick与374/299三轮、318累计形变候选退出；后继显式m/gd平移重力及三包交互，保官方静态资格与无性能/宽物理parity边界。"
     },
     {
       "path": "docs/scene/history/puppet-reference-pose-2026-10-11.md",
@@ -4309,10 +4309,10 @@
       "lastReviewed": "2026-10-28",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "d18c1976afbf5887a8a307acae330c7f1b5480d4e2d8d0eebba57db1c29cd7a9",
+        "sourceSHA256": "577139d3bca9dc83306880da907b9b90c554f593514f13b272794405889c0f76",
         "method": "document_registry --audit + document_health --check",
-        "scope": "仅同步静态camera DTO/partial经原owner与唯一cameraFrame、288调用/轨迹及末段恢复、355/343/native两深度守界，关闭API首错；保真实失败及采集时间纠正。",
-        "limitations": "init写优先级、288开场同phase、Timeline getter官方读回、path冲突、完整方向/多屏/HDR及性能未闭，其他专题未重审。"
+        "scope": "仅同步显式m/gd纯平移world持续力、坏physics逐骨失败及374/299/318三轮；保旧线性冲量与临时证据失效边界，移除已闭318交互队列，不升级整样本。",
+        "limitations": "未知缺省m/gd、角物理/IK/rope、宽parent链、官方动态相位/HDR/多屏及性能未验；其他专题未重审。"
       }
     },
     {
@@ -4407,10 +4407,10 @@
       "lastReviewed": "2026-10-28",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "9334daba5ea468f69ea7004aff0fdf83b4b09c773d619931697acf79ac01780b",
+        "sourceSHA256": "4864e185c18e4f1ce946ee8f24d0da2dadda9b7ae1a7262fa3ce2b0a25f33b2d",
         "method": "document_registry --audit + document_health --check",
-        "scope": "仅同步静态camera DTO/partial经原owner与唯一cameraFrame、288调用/轨迹及末段恢复、355/343/native两深度守界，关闭API首错；保真实失败及采集时间纠正。",
-        "limitations": "init写优先级、288开场同phase、Timeline getter官方读回、path冲突、完整方向/多屏/HDR及性能未闭，其他专题未重审。"
+        "scope": "仅同步显式m/gd纯平移world持续力、坏physics逐骨失败及374/299/318三轮；保旧线性冲量与临时证据失效边界，移除已闭318交互队列，不升级整样本。",
+        "limitations": "未知缺省m/gd、角物理/IK/rope、宽parent链、官方动态相位/HDR/多屏及性能未验；其他专题未重审。"
       }
     },
     {
