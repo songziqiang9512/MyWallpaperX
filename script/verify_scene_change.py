@@ -14,8 +14,10 @@ from pathlib import Path
 from typing import Any, Sequence
 try:
     from script.source_relocations import unchanged_source_relocations
+    from script.run_scene_tests import RELEASE_MODULES
 except ModuleNotFoundError:
     from source_relocations import unchanged_source_relocations
+    from run_scene_tests import RELEASE_MODULES
 
 
 ROOT = Path(__file__).resolve().parents[1]
@@ -159,6 +161,8 @@ def mapped_tests(
     keywords: set[str] = set()
     groups: set[str] = set()
     for path in paths:
+        if path == "MyWallpaperX.xcodeproj/project.pbxproj":
+            modules.update(RELEASE_MODULES)
         if path in ROOT_GOVERNANCE_FILES:
             groups.add("repository-governance")
             modules.update(

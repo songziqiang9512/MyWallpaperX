@@ -159,6 +159,10 @@ exit 97
                        'test_ci_release_routing']:
             self.assertIn('script.tests.' + module, selected)
 
+    def test_project_changes_include_release_core_before_publication(self):
+        modules, _, _ = verify.mapped_tests(['MyWallpaperX.xcodeproj/project.pbxproj'], verify.load_registry())
+        self.assertTrue(runner.RELEASE_MODULES <= modules)
+
     def test_web_matrix_loads_without_private_sample_or_app(self):
         path = ROOT / 'script/web_wallpaper_sample_matrix.json'
         samples, config = load_sample_matrix(path)

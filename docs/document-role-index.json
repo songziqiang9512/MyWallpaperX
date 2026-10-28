@@ -615,7 +615,7 @@
       "lastReviewed": "2026-10-28",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "7840f0f7fb4b96281011abe2ecad3c019781234a1e9ae3c135a73dadd706b846",
+        "sourceSHA256": "e93bda26fdd27ce3bbf0bc316ea1ec5470e66d2c8a0c392ab27eb4f62b8216c1",
         "method": "document_registry --audit + document_health --check",
         "scope": "CI累计基线、同SHA发布前置检查及有据文档调整链；仅脚本与文档复核。",
         "limitations": "Static contract review only; signed release and public artifact checks are performed by the release workflow."

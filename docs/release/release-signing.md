@@ -112,7 +112,7 @@ App/Daemon、Debug/Release 必须一致。准备版本时先读取公开的 `upd
 普通 CI push 从同分支最近成功且为祖先的 CI push SHA 累计验证，失败后不丢前次改动；无记录沿原回退。PR 用 PR base；手动 `base_ref` 默认前一提交。`test_scope` 默认为 `changed`，可选 `release` / `all`；显式范围替代定向测试，不重复运行。
 CI 同样在首次失败后取消未开始的测试。删除测试触发全仓回归时，全量门替代已覆盖的定向测试，避免同一批模块重复运行。
 
-`script/run_scene_tests.py` 的 `RELEASE_MODULES` 维护发布回归，覆盖版本、日志、脚本、包体、Steam、播放策略、Web 暂停及 Scene 生命周期。日常 CI 按改动选择回归；详细 Scene/corpus 验证按影响面运行。
+工程配置变更把 `script/run_scene_tests.py` 的 `RELEASE_MODULES` 合并到定向测试并去重，覆盖版本、日志、脚本、包体、Steam、播放策略、Web 暂停及 Scene 生命周期。详细 Scene/corpus 按影响面验证。
 
 需要完整回归时，为 Agent 发布命令追加 `--test-scope all`，或将发布工作流的 `test_scope` 显式设为 `all`；不发布时可单独执行 `python3.12 -B script/run_scene_tests.py --scope all --jobs 4 --fail-fast`。缩小默认测试范围不会跳过 Release 构建、包体检查、签名验证、公证或发布结果核验；核心检查通过不等于所有 Scene 能力或真实样本通过。
 
