@@ -326,7 +326,7 @@
     },
     "docs/development/main-window-playlists-redesign.md": {
       "lines": 592,
-      "bytes": 108105
+      "bytes": 108119
     },
     "docs/development/status-bar-panel-redesign.md": {
       "lines": 119,
@@ -341,8 +341,8 @@
       "bytes": 23241
     },
     "docs/development/ui-quality-audit.md": {
-      "lines": 104,
-      "bytes": 18830
+      "lines": 116,
+      "bytes": 20837
     }
   },
   "archives": [
@@ -1520,15 +1520,6 @@
       "decision": "docs/development/main-window-playlists-redesign.md#ui-simplification-sixteen"
     },
     {
-      "section": "bodies",
-      "path": "docs/development/main-window-playlists-redesign.md",
-      "before": "f4be28a4a945d1b6160d19b407aac1ae7e84ac974fe717f2e78d6665d3134a38",
-      "after": "4543b9f2a268c3c1a4f54627968fc4ce8d0ec00f687f2b51e4188a2fb1e2dd0b",
-      "owner": "UI22",
-      "reason": "UI22更新已实施的账号尺寸、侧栏缩进、取色过渡、导入导出可移植偏好和重置语义，保持同一主界面规范入口。",
-      "decision": "docs/development/ui-quality-audit.md#ui22-scope"
-    },
-    {
       "section": "archives",
       "path": "docs/history/development/main-window-playlists-foundation-2026-10-25.md",
       "before": "48b95cf6b0541192c4dbc5be0de84d1e90277add7446a7de1f554edf653a331f",
@@ -1737,15 +1728,6 @@
     },
     {
       "section": "bodies",
-      "path": "docs/development/ui-quality-audit.md",
-      "before": "b159e4478b1ae8986798635ad037fef56a8a56fdcee79682dac9906b334122b2",
-      "after": "b48694887e37a94728fff87bed9454f352ee3e32d4b6431f793de087763ba1ec",
-      "owner": "UI22",
-      "reason": "记录合入后临时UI树受App置顶保护无法归档的实际清理边界；保留主仓验证收据，不绕过工作树保护。",
-      "decision": "docs/development/ui-quality-audit.md#ui22-scope"
-    },
-    {
-      "section": "bodies",
       "path": "docs/scene/roadmap/batch2/system-media-input-design.md",
       "before": "7374c3ed02d91aa88bca5ef438cf2ecdb1b1d3bc0d376a7df7a2987279c13dca",
       "after": "9e672738283bf8060d9daebda64226a98a7efe76c9c652d71d585b061a0371bb",
@@ -1779,6 +1761,24 @@
       "owner": "Scene particle audio",
       "reason": "删除错误缺省推断，补固定官方三臂与原包烟团后验入口；当前队列只保颜色余项，不追加重复执行清单。",
       "decision": "docs/scene/history/open-breakpoint-reconciliation-2026-10-23.md#particle-audio-mode-default-20261028"
+    },
+    {
+      "section": "bodies",
+      "path": "docs/development/ui-quality-audit.md",
+      "before": "b48694887e37a94728fff87bed9454f352ee3e32d4b6431f793de087763ba1ec",
+      "after": "2c188a70ae3ca836e287520c62ce60db31c88fd92fb95e541de173fb25ce9957",
+      "owner": "manual-random-20261028",
+      "reason": "记录本轮随机入口修复、实际两导航门范围，以及按用户指示撤回全部Video候选和停止调查；不把失败或旧验证冒充通过。",
+      "decision": "docs/development/ui-quality-audit.md#playback-feedback-20261028"
+    },
+    {
+      "section": "bodies",
+      "path": "docs/development/main-window-playlists-redesign.md",
+      "before": "4543b9f2a268c3c1a4f54627968fc4ce8d0ec00f687f2b51e4188a2fb1e2dd0b",
+      "after": "b87612d74b924862f4ac5a49bce42ef542a45363fabfeea2818e804a2059a9ac",
+      "owner": "manual-random-20261028",
+      "reason": "按用户明确反馈统一菜单栏与快捷键的随机历史语义，替换旧按入口强制相邻的冲突规则。",
+      "decision": "docs/development/ui-quality-audit.md#playback-feedback-20261028"
     }
   ]
 }

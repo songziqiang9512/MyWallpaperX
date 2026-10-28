@@ -19,6 +19,7 @@ ROOT = Path(__file__).resolve().parents[2]
 class WallpaperLibraryPlaybackTests(unittest.TestCase):
     def test_typed_provider_dispatch_and_original_product_commit(self):
         source = product_harness()
+        source = source.replace('static let shared=WallpaperManager()', 'static var shared=WallpaperManager()')
         source = source.replace('import Foundation', 'import AppKit\nimport Foundation', 1)
         source = source.replace('func isSwitchingPlaybackMode()->Bool{true}', 'func isSwitchingPlaybackMode()->Bool{mode != .loop}')
         source = source.replace('var autoSwitchEnabled=true,randomInterval=',
@@ -56,6 +57,9 @@ class WallpaperLibraryPlaybackTests(unittest.TestCase):
         removal = (MANAGER / 'WallpaperManager+Removal.swift').read_text()
         navigation = (MANAGER / 'WallpaperManager+PlaybackControl.swift').read_text()
         playback_settings = (MANAGER / 'WallpaperManager+PlaybackSettings.swift').read_text()
+        navigation_method = declaration(navigation, '    func navigateLibraryPlayback(')
+        # Control only the RNG leaf; the actual Manager, navigator and sequence choose and commit.
+        navigation_method = navigation_method.replace('Int.random(in: 0..<$0)', 'ManualNavigationChoice.choose($0)')
         methods = '\n'.join([
             declaration(application, '    func setAsWallpaper('),
             declaration(removal, '    func clearCurrentWallpaperReference('),
@@ -67,7 +71,7 @@ class WallpaperLibraryPlaybackTests(unittest.TestCase):
             declaration(routing, '    func setSceneWallpaper('),
             declaration(routing, '    func handleLibraryPlaybackPause('),
             declaration(navigation, '    var librarySequenceMode:'),
-            declaration(navigation, '    func navigateLibraryPlayback('),
+            navigation_method,
             declaration(navigation, '    func advanceLibraryPlayback('),
             declaration(navigation, '    func updateLibraryPlaybackSource('),
         ])
@@ -111,10 +115,11 @@ class WallpaperLibraryPlaybackTests(unittest.TestCase):
         fixture = declaration(support_path.read_text(), 'struct WallpaperDeletionFailure') + '\n'
         fixture += fixture_path.read_text() + '\n' + desktop_fixture.read_text()
         app = ROOT / 'MyWallpaperX/App/WallpaperLibraryPlaybackRouting.swift'
+        navigator = ROOT / 'MyWallpaperX/App/CrossRuntimeWallpaperNavigator.swift'
         observed = [*GATE_SOURCES, MANAGER / 'WallpaperManager.swift', MANAGER / 'WallpaperManager+RuntimeSwitching.swift',
             MANAGER / 'WallpaperManager+WallpaperApplication.swift', MANAGER / 'WallpaperManager+Removal.swift',
             MANAGER / 'WallpaperManager+PlaybackControl.swift', MANAGER / 'WallpaperManager+PlaybackSettings.swift',
-            persistence_path, support_path, app, fixture_path, desktop_fixture, Path(__file__),
+            persistence_path, support_path, app, navigator, fixture_path, desktop_fixture, Path(__file__),
             ROOT / 'script/tests/test_imported_video_autoplay_gate.py']
         hashes = {str(path): hashlib.sha256(path.read_bytes()).hexdigest() for path in observed}
         with tempfile.TemporaryDirectory(prefix='mwx-library-playback-', dir='/private/tmp') as temporary:
@@ -124,7 +129,7 @@ class WallpaperLibraryPlaybackTests(unittest.TestCase):
                              ROOT / 'MyWallpaperX/Core/OnlineImages/OnlineImageModels.swift',
                              ROOT / 'MyWallpaperX/Core/OnlineImages/OnlineImageContentProjection.swift',
                              ROOT / 'script/tests/fixtures/OnlineImageLibraryAppStub.swift',
-                             ROOT / 'MyWallpaperX/Core/LibraryCollections/WallpaperLibraryQuery.swift', app]:
+                             ROOT / 'MyWallpaperX/Core/LibraryCollections/WallpaperLibraryQuery.swift', app, navigator]:
                 copied = work / original.name
                 copied.write_bytes(original.read_bytes()); paths.append(str(copied))
             harness = work / 'Harness.swift'; harness.write_text(source + '\n' + fixture)

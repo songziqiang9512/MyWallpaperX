@@ -5256,7 +5256,7 @@
       ],
       "verification": "按具体首错点选真实用户事件与输出反例、最近行为门及Debug；关窗/迟到/第二次操作另验，未测成本不称性能提升，真实账号和硬件输入边界单列。",
       "owner": "App/Shell and existing source UI/lifecycle owners",
-      "firstRead": "docs/development/ui-quality-audit.md#ui22-scope",
+      "firstRead": "docs/development/ui-quality-audit.md#playback-feedback-20261028",
       "nearestTestGroups": [
         "main-library-main-menu",
         "main-library-window-toolbar",

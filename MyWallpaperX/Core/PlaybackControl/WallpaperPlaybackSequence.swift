@@ -138,8 +138,8 @@ nonisolated struct WallpaperPlaybackSequence: Sendable {
         return proposal
     }
 
-    /// Only one reservation/prepare may advance. Global/menu/hotkey callers use
-    /// adjacent even in random mode; toolbar randomHistory consumes success only.
+    /// Only one reservation/prepare may advance. Explicit adjacent navigation
+    /// preserves list order; randomHistory consumes successful visits only.
     mutating func proposeAdvance(_ direction: Direction = .next, policy: NavigationPolicy = .adjacent,
                                  mode: Mode, cause: WallpaperPlaybackCause = .manualNavigation,
                                  expectedGeneration: UInt64? = nil, chooseIndex: (Int) -> Int) -> Proposal? {

@@ -44,7 +44,7 @@ typealias Sequence = WallpaperPlaybackSequence
         var model = start()
         let old = model.committed!, oldBack = model.backHistory
         let proposal = model.proposeAdvance(policy: .adjacent, mode: .random, chooseIndex: { _ in 3 })!
-        checks["globalRandomNavigationStillMeansAdjacent"] = proposal.entry == b
+        checks["explicitAdjacentPolicyRetainsListOrderInRandomMode"] = proposal.entry == b
         let badRuntime = ticket(.web)
         checks["wrongRuntimeCannotAttachOriginalTicketToProposal"] = !model.stage(proposal, ticket: badRuntime) && model.pending == nil
         let bTicket = ticket(.video)

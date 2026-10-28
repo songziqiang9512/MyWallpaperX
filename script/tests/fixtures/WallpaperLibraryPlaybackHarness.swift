@@ -1,6 +1,10 @@
 // Controlled renderer/provider/Desktop/Timer leaves. The runner compiles the
 // real Manager and App dispatch bodies with the original switch transaction.
 enum ManualNavigationDirection { case previous, next }
+@MainActor enum ManualNavigationChoice {
+    static var calls = 0
+    static func choose(_ count: Int) -> Int { calls += 1; return count - 1 }
+}
 struct WebWallpaperResourceGrant {}
 struct ScenePlaybackLoadRequest { let recordID:String? }
 @MainActor enum PreparedLeaf { static var web:PlaybackSwitchTicket?,scene:PlaybackSwitchTicket? }
@@ -208,6 +212,27 @@ struct SteamWorkshopDownloadRecord {
             checks["saved-random-normalizes-to-enabled-rotation-" + runtime.rawValue] = manager.settings.autoSwitchEnabled
                 && manager.settings.randomPlayback && !manager.settings.sequentialPlayback && !manager.settings.loopPlayback
             manager.stopCurrentPlayback()
+        }
+        for page: WallpaperLibraryPage in [.videos, .images, .downloads, .recent, .favorites, .playlist(UUID())] {
+            let scoped = try WallpaperPlaybackSequence.Snapshot(source: .page(page), revision: 7, entries: snapshot.entries)
+            for mode: WallpaperManager.PlaybackMode in [.loop, .sequential, .random] {
+                let (manager, _, _, _) = setup()
+                WallpaperManager.shared = manager
+                manager.applyPlaybackMode(mode)
+                let first = manager.requestLibraryPlayback(reference: references[.video]!, from: scoped)!
+                show(manager, first)
+                // Provider preparation is controlled after the original successful commit.
+                manager.libraryPlaybackDispatcher = { _ in true }
+                ManualNavigationChoice.calls = 0
+                CrossRuntimeWallpaperNavigator.navigate(.next)
+                let expected = mode == .random ? references[.systemStill] : references[.web]
+                let proposed = manager.libraryPlaybackSequence.pending?.proposal
+                let label = String(describing: page) + "-" + String(describing: mode)
+                checks["global-next-follows-mode-within-the-committed-list-" + label] = proposed?.entry.reference == expected
+                    && proposed?.snapshot == scoped && manager.libraryPlaybackSequence.committed?.ticket == first
+                    && ManualNavigationChoice.calls == (mode == .random ? 1 : 0)
+                manager.stopCurrentPlayback()
+            }
         }
         for from in runtimes {
             for to in runtimes where from != to {
