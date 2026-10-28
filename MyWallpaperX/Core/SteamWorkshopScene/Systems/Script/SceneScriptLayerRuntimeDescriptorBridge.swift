@@ -1,6 +1,55 @@
 import Foundation
 import simd
 
+nonisolated struct SceneScriptCameraCommand: Equatable, Sendable {
+    struct Fields: OptionSet, Equatable, Sendable {
+        let rawValue: UInt32
+        static let eye = Fields(rawValue: 1)
+        static let center = Fields(rawValue: 2)
+        static let up = Fields(rawValue: 4)
+        static let zoom = Fields(rawValue: 8)
+    }
+    let fields: Fields
+    let eye: SIMD3<Double>
+    let center: SIMD3<Double>
+    let up: SIMD3<Double>
+    let zoom: Double
+    let callbackEpoch: UInt64
+    let ordinal: UInt32
+}
+
+nonisolated enum SceneScriptCameraCommandBridge {
+    static func commands(owner: OpaquePointer) -> Result<[SceneScriptCameraCommand], SceneScriptScalarRuntimeFailure> {
+        let count = mwx_scene_quickjs_owner_camera_command_count(owner)
+        guard count <= 64 else { return .failure(.mutationOverflow("camera command budget exceeded")) }
+        var commands: [SceneScriptCameraCommand] = []
+        commands.reserveCapacity(count)
+        for index in 0..<count {
+            var raw = MWXSceneQuickJSCameraCommand()
+            var diagnostic = [CChar](repeating: 0, count: 512)
+            let result = mwx_scene_quickjs_owner_camera_command_at(owner, index, &raw, &diagnostic, diagnostic.count)
+            let fields = SceneScriptCameraCommand.Fields(rawValue: raw.mask)
+            let eye = SIMD3(raw.eye.0, raw.eye.1, raw.eye.2)
+            let center = SIMD3(raw.center.0, raw.center.1, raw.center.2)
+            let up = SIMD3(raw.up.0, raw.up.1, raw.up.2)
+            func representable(_ value: SIMD3<Double>) -> Bool {
+                Float(value.x).isFinite && Float(value.y).isFinite && Float(value.z).isFinite
+            }
+            let zoom = Float(raw.zoom)
+            guard result == MWX_SCENE_QUICKJS_OK, raw.mask != 0, raw.mask & ~15 == 0,
+                  !fields.contains(.eye) || representable(eye),
+                  !fields.contains(.center) || representable(center),
+                  !fields.contains(.up) || representable(up),
+                  !fields.contains(.zoom) || (zoom.isFinite && zoom > 0) else {
+                return .failure(.invalidArgument("camera command is outside the renderable numeric domain"))
+            }
+            commands.append(.init(fields: fields, eye: eye, center: center, up: up,
+                zoom: raw.zoom, callbackEpoch: raw.callback_epoch, ordinal: raw.ordinal))
+        }
+        return .success(commands)
+    }
+}
+
 nonisolated extension SceneScriptQuickJSDomain {
     func configureLayerRuntimeFields(_ descriptor: SceneRenderDescriptor) throws {
         try publishLayerSnapshot(
@@ -351,6 +400,27 @@ nonisolated extension SceneScriptQuickJSDomain {
         try withLayerSnapshotPublication(snapshot,
             dynamicTransformIDs: dynamicTransformIDs,
             awaitingHostFrameOutcome: awaitingHostFrameOutcome) { diagnostic in
+            let orthographic = descriptor.camera.orthoWidth != nil || descriptor.camera.orthoHeight != nil
+            let eye = vector3(target: .camera(.eye),
+                authored: orthographic ? nil : descriptor.camera.eye, fallback: [0, 0, 0], snapshot: snapshot)
+            let center = vector3(target: .camera(.center),
+                authored: orthographic ? nil : descriptor.camera.center, fallback: [0, 0, -1], snapshot: snapshot)
+            let up = vector3(target: .camera(.up),
+                authored: orthographic ? nil : descriptor.camera.up, fallback: [0, 1, 0], snapshot: snapshot)
+            let zoom: Double
+            if case let .scalar(value)? = snapshot[.camera(.zoom)]?.value { zoom = value }
+            else { zoom = 1 }
+            let cameraResult = eye.withUnsafeBufferPointer { eye in
+                center.withUnsafeBufferPointer { center in
+                    up.withUnsafeBufferPointer { up in
+                        mwx_scene_quickjs_domain_update_camera_transforms(handle, eye.baseAddress,
+                            center.baseAddress, up.baseAddress, zoom, &diagnostic, diagnostic.count)
+                    }
+                }
+            }
+            guard cameraResult == MWX_SCENE_QUICKJS_OK else {
+                throw layerSnapshotFailure(cameraResult, diagnostic: diagnostic)
+            }
             try publishLayerRuntimeFields(
                 snapshot,
                 descriptor: descriptor,

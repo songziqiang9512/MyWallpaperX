@@ -103,10 +103,8 @@ MWXSceneQuickJSResult mwx_scene_quickjs_domain_set_asset_path_normalizer(
     MWXSceneQuickJSDomain *domain, MWXSceneQuickJSAssetPathNormalizer normalizer
 );
 
-/* Launch-prepared resource-layer metadata, including empty composition.
- * The legacy ABI name does not imply a texture publication.
- * The domain copies these values before the
- * first callback; this catalog never loads or selects resources. */
+/* Copied launch resource-layer metadata, including empty composition.
+ * Despite the legacy ABI name, this catalog neither loads nor publishes textures. */
 MWXSceneQuickJSResult mwx_scene_quickjs_domain_configure_dynamic_image_catalog(
     MWXSceneQuickJSDomain *domain, uint32_t count,
     const MWXSceneQuickJSDynamicImageDescriptor *descriptors,
@@ -213,9 +211,8 @@ MWXSceneQuickJSResult mwx_scene_quickjs_domain_reuse_layer_runtime_fields(
     size_t diagnostic_capacity
 );
 
-/// Publishes one renderer-resolved, column-major world matrix into the current
-/// immutable layer snapshot. Coordinate math remains owned by the Swift
-/// world-frame resolvers; the VM bridge only validates and copies the ABI.
+/// Copies a renderer-resolved column-major world matrix into the snapshot;
+/// coordinate math stays in Swift world-frame resolvers.
 MWXSceneQuickJSResult mwx_scene_quickjs_domain_update_layer_world_transform(
     MWXSceneQuickJSDomain *domain,
     uint32_t layer_index,
@@ -352,6 +349,14 @@ MWXSceneQuickJSResult mwx_scene_quickjs_owner_texture_animation_command_at(
     size_t diagnostic_capacity
 );
 
+size_t mwx_scene_quickjs_owner_camera_command_count(const MWXSceneQuickJSOwner *owner);
+MWXSceneQuickJSResult mwx_scene_quickjs_owner_camera_command_at(
+    const MWXSceneQuickJSOwner *owner, size_t index, MWXSceneQuickJSCameraCommand *command,
+    char *diagnostic, size_t diagnostic_capacity);
+MWXSceneQuickJSResult mwx_scene_quickjs_domain_update_camera_transforms(
+    MWXSceneQuickJSDomain *domain, const double eye[3], const double center[3], const double up[3],
+    double zoom, char *diagnostic, size_t diagnostic_capacity);
+
 MWXSceneQuickJSResult mwx_scene_quickjs_domain_begin_layer_snapshot(
     MWXSceneQuickJSDomain *domain,
     uint64_t generation,
@@ -474,14 +479,8 @@ MWXSceneQuickJSResult mwx_scene_quickjs_owner_configure_layer_identity(
     size_t diagnostic_capacity
 );
 
-/// Declares whether the property this owner drives belongs to the layer itself
-/// (layer/text fields) or to a component such as an effect. Only the layer
-/// case rebinds `thisObject` to the layer's own object; component properties
-/// keep the property-object handle that serves IThisPropertyObject.getAnimation.
-/// Declares whether the property this owner drives belongs to the layer itself
-/// (layer/text fields) or to a component such as an effect. Only the layer
-/// case rebinds `thisObject` to the layer's own object; component properties
-/// keep the property-object handle that serves IThisPropertyObject.getAnimation.
+/// Layer/text properties rebind `thisObject` to the layer; components retain
+/// their property-object handle and its current-property animation accessor.
 MWXSceneQuickJSResult mwx_scene_quickjs_owner_set_property_object_scope(
     MWXSceneQuickJSOwner *owner,
     uint32_t property_object_is_layer,

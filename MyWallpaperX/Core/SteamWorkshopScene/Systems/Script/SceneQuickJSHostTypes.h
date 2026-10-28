@@ -20,6 +20,13 @@ typedef struct MWXSceneQuickJSNamedAnimation {
 typedef struct MWXSceneQuickJSTimerFrameSnapshot
     MWXSceneQuickJSTimerFrameSnapshot;
 
+typedef struct MWXSceneQuickJSCameraCommand {
+    uint32_t mask; // eye=1, center=2, up=4, zoom=8; omitted fields are untouched.
+    double eye[3], center[3], up[3], zoom;
+    uint64_t callback_epoch;
+    uint32_t ordinal;
+} MWXSceneQuickJSCameraCommand;
+
 typedef struct MWXSceneQuickJSPuppetAnimationSnapshot {
     int64_t layer_id;
     uint32_t animation_layer_index;

@@ -121,6 +121,9 @@ int main(void) {
     domain.layer_count = 2;
     domain.authored_layer_count = 2;
     domain.layer_snapshot_generation = 7;
+    domain.camera_transforms.eye[0] = -9;
+    domain.camera_transforms.zoom = 1;
+    double camera_eye[3] = {9, 8, 7}, camera_center[3] = {9, 8, 6}, camera_up[3] = {0, 1, 0};
     failures += check(
         configure_record(&domain.layers[0], 10, 0, "old-a"),
         "first record configuration",
@@ -150,10 +153,18 @@ int main(void) {
         &domain, 0, committed_origin, diagnostic, sizeof(diagnostic)
     );
     failures += check(result == MWX_SCENE_QUICKJS_OK, "stage origin", diagnostic);
+    result = mwx_scene_quickjs_domain_update_camera_transforms(
+        &domain, camera_eye, camera_center, camera_up, 2, diagnostic, sizeof(diagnostic));
+    failures += check(result == MWX_SCENE_QUICKJS_OK, "stage camera", diagnostic);
+    failures += check_number(domain.camera_transforms.eye[0], -9, "camera frozen before commit");
     result = mwx_scene_quickjs_domain_commit_layer_snapshot(
         &domain, diagnostic, sizeof(diagnostic)
     );
     failures += check(result == MWX_SCENE_QUICKJS_OK, "commit", diagnostic);
+    failures += check_number(domain.camera_transforms.eye[0], 9, "camera committed");
+    failures += check_number(domain.camera_transforms.center[2], 6, "camera center committed");
+    failures += check_number(domain.camera_transforms.up[1], 1, "camera up committed");
+    failures += check_number(domain.camera_transforms.zoom, 2, "camera zoom committed");
     failures += check(domain.layers[0].effect_visible[0] == 1 && domain.layers[0].effect_visible[1] == 0, "effects committed", diagnostic);
     failures += check(domain.layer_snapshot_generation == 8, "committed generation", diagnostic);
     failures += check(strcmp(domain.layers[0].text, "new-a") == 0, "committed first text", diagnostic);
@@ -172,6 +183,8 @@ int main(void) {
     );
     failures += check(domain.layers[0].effect_visible[0] == 0 && domain.layers[0].effect_visible[1] == 1, "effects rolled back", diagnostic);
     failures += check(domain.layer_snapshot_generation == 7, "rolled back generation", diagnostic);
+    failures += check_number(domain.camera_transforms.eye[0], -9, "camera rolled back");
+    failures += check_number(domain.camera_transforms.zoom, 1, "camera zoom rolled back");
     failures += check(strcmp(domain.layers[0].text, "old-a") == 0, "rolled back first text", diagnostic);
     failures += check_number(domain.layers[0].scale[0], 1, "rolled back first scale");
     failures += check_number(domain.layers[0].color[0], 1, "rolled back first color");
@@ -249,6 +262,15 @@ int main(void) {
     failures += check(result == MWX_SCENE_QUICKJS_OK, "begin rollback", diagnostic);
     result = stage_fields(&domain, 0, 7, 0.9, "poisoned-a", diagnostic);
     failures += check(result == MWX_SCENE_QUICKJS_OK, "stage rollback first", diagnostic);
+    camera_eye[0] = 17;
+    failures += check(mwx_scene_quickjs_domain_update_camera_transforms(
+        &domain, camera_eye, camera_center, camera_up, 3, diagnostic, sizeof(diagnostic))
+        == MWX_SCENE_QUICKJS_OK, "stage aborted camera", diagnostic);
+    camera_up[0] = NAN;
+    failures += check(mwx_scene_quickjs_domain_update_camera_transforms(
+        &domain, camera_eye, camera_center, camera_up, 3, diagnostic, sizeof(diagnostic))
+        == MWX_SCENE_QUICKJS_INVALID_ARGUMENT, "reject non-finite camera", diagnostic);
+    camera_up[0] = 0;
     double invalid_scale[3] = {NAN, 4, 4};
     double angles[3] = {0, 0, 0};
     double color[3] = {1, 1, 1};
@@ -268,6 +290,8 @@ int main(void) {
     failures += check_number(domain.layers[0].color[0], 0.25, "first active color unchanged before abort");
     mwx_scene_quickjs_domain_abort_layer_snapshot(&domain);
     failures += check(domain.pending_layer_snapshot == NULL, "abort clears pending", diagnostic);
+    failures += check_number(domain.camera_transforms.eye[0], -9, "camera abort preserves current");
+    failures += check_number(domain.camera_transforms.zoom, 1, "camera abort preserves zoom");
     failures += check(domain.layer_snapshot_generation == 9, "aborted generation unchanged", diagnostic);
     failures += check(strcmp(domain.layers[0].text, "new-a") == 0, "first active text unchanged after abort", diagnostic);
     failures += check_number(domain.layers[0].scale[0], 2, "first active scale unchanged after abort");

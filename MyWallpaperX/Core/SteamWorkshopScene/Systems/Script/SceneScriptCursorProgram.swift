@@ -146,6 +146,7 @@ nonisolated final class SceneScriptCursorProgram: @unchecked Sendable {
             ownerTarget: SceneDynamicTarget,
             mutation: SceneTimelinePlaybackMutation
         )] = []
+        var cameras: [(ownerTarget: SceneDynamicTarget, command: SceneScriptCameraCommand)] = []
         var puppetBones: [(
             ownerTarget: SceneDynamicTarget,
             mutation: SceneScriptPuppetBoneMutation
@@ -167,6 +168,7 @@ nonisolated final class SceneScriptCursorProgram: @unchecked Sendable {
             SceneScriptCursorAuthoredMutationKey: Int
         ] = [:]
         func discardCandidates(ownerTarget: SceneDynamicTarget) {
+            cameras.removeAll { $0.ownerTarget == ownerTarget }
             materialFunctions.removeAll { $0.ownerTarget == ownerTarget }
             animations.removeAll { $0.ownerTarget == ownerTarget }
             layers.removeAll { $0.ownerTarget == ownerTarget }
@@ -192,8 +194,10 @@ nonisolated final class SceneScriptCursorProgram: @unchecked Sendable {
             puppetBones ownerPuppetBones: [SceneScriptPuppetBoneMutation],
             videos ownerVideos: [SceneScriptMediaPlaybackCommand],
             textureAnimations ownerTextureAnimations: [SceneTextureAnimationCommand],
-            particles ownerParticles: [SceneScriptParticlePlaybackCommand]
+            particles ownerParticles: [SceneScriptParticlePlaybackCommand],
+            cameraCommands: [SceneScriptCameraCommand]
         ) {
+            cameras.append(contentsOf: cameraCommands.map { (ownerTarget, $0) })
             videos.append(contentsOf: ownerVideos.map { (ownerTarget, $0) })
             particles.append(contentsOf: ownerParticles.map { (ownerTarget, $0) })
             puppetBones.append(contentsOf:
@@ -276,7 +280,8 @@ nonisolated final class SceneScriptCursorProgram: @unchecked Sendable {
                     puppetBones: initialization.puppetBoneMutations,
                     videos: initialization.mediaPlaybackCommands,
                     textureAnimations: initialization.textureAnimationCommands,
-                    particles: initialization.particlePlaybackCommands
+                    particles: initialization.particlePlaybackCommands,
+                    cameraCommands: initialization.cameraCommands
                 )
                 return true
             case let .failure(failure):
@@ -347,7 +352,8 @@ nonisolated final class SceneScriptCursorProgram: @unchecked Sendable {
                     puppetBones: mutations.puppetBones,
                     videos: mutations.mediaPlaybackCommands,
                     textureAnimations: mutations.textureAnimationCommands,
-                    particles: mutations.particlePlaybackCommands
+                    particles: mutations.particlePlaybackCommands,
+                    cameraCommands: mutations.cameraCommands
                 )
                 for mutation in mutations.layers
                     where mutation.fields.contains(.origin) {
@@ -421,7 +427,8 @@ nonisolated final class SceneScriptCursorProgram: @unchecked Sendable {
                     puppetBones: mutations.puppetBoneMutations,
                     videos: mutations.mediaPlaybackCommands,
                     textureAnimations: mutations.textureAnimationCommands,
-                    particles: mutations.particlePlaybackCommands
+                        particles: mutations.particlePlaybackCommands,
+                        cameraCommands: mutations.cameraCommands
                 )
             case let .failure(failure):
                 discardCandidates(ownerTarget: ownerTarget)
@@ -621,7 +628,10 @@ nonisolated final class SceneScriptCursorProgram: @unchecked Sendable {
                 particlePlaybackCommands: particles.compactMap {
                     $0.ownerTarget == binding.ownerTarget ? $0.command : nil
                 },
-                layerTopologyOwnerIdentity: binding.owner.pendingLayerTopologyIdentity
+                layerTopologyOwnerIdentity: binding.owner.pendingLayerTopologyIdentity,
+                cameraCommands: cameras.compactMap {
+                    $0.ownerTarget == binding.ownerTarget ? $0.command : nil
+                }
             )
             return effects.isEmpty ? nil : effects
         }

@@ -1257,6 +1257,9 @@ MWXSceneQuickJSDomain *mwx_scene_quickjs_domain_create(
     domain->active_scene = JS_UNDEFINED;
     domain->active_object = JS_UNDEFINED;
     domain->shared_value = JS_UNDEFINED;
+    domain->camera_transforms = (MWXSceneQuickJSCameraCommand){
+        .mask = 15, .center = {0, 0, -1}, .up = {0, 1, 0}, .zoom = 1
+    };
     domain->user_properties_snapshot = JS_UNDEFINED;
     if (!mwx_scene_quickjs_install_active_engine_host(domain) ||
         !mwx_scene_quickjs_install_owner_handle_globals(domain) ||
@@ -1851,6 +1854,7 @@ void mwx_scene_quickjs_owner_destroy(MWXSceneQuickJSOwner *owner) {
     mwx_scene_quickjs_discard_jobs(owner);
     mwx_scene_quickjs_owner_discard_layer_mutations(owner);
     free(owner->puppet_bone_render_local);
+    js_free(owner->domain->context, owner->camera_commands);
     mwx_scene_quickjs_owner_clear_authored_layer_mutation_baselines(owner);
     mwx_scene_quickjs_destroy_job_host(owner);
     mwx_scene_quickjs_destroy_timer_host(owner);

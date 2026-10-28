@@ -14,8 +14,7 @@ extension SceneMetalRenderer {
                 in: renderDescriptor, layersByID: layersByID,
                 snapshot: frameContext.dynamicValues)
         } ?? true
-        let dynamic = consumesPath
-            ? frameContext.dynamicValues.cameraTransform() : .identity
+        let dynamic = frameContext.dynamicValues.cameraTransform()
         let property = frameContext.dynamicValues.cameraPropertyProjection()
         let shake = SceneRenderDescriptor.CameraDescriptor.ShakeDescriptor(
             enabled: property.shakeEnabled ?? camera.shake.enabled,
@@ -31,12 +30,16 @@ extension SceneMetalRenderer {
         return SceneParticleCameraFrame(
             camera: camera,
             viewportSize: frameContext.screenSize,
-            cameraOrigin: dynamic.origin + SIMD3(
+            cameraOrigin: (consumesPath ? dynamic.origin : .zero) + SIMD3(
                 orthographicShake.x,
                 orthographicShake.y,
                 0
             ),
-            cameraZoom: dynamic.zoom,
+            cameraZoom: consumesPath && (camera.orthoWidth != nil || camera.orthoHeight != nil)
+                ? dynamic.zoom : 1,
+            staticEye: dynamic.eye,
+            staticCenter: dynamic.center,
+            staticUp: dynamic.up,
             nativePerspectiveOverride: SceneParticleCameraFrame.nativePerspectiveOverride(
                 descriptor: renderDescriptor, layersByID: layersByID,
                 worldFrames: worldFrames, dynamicValues: frameContext.dynamicValues

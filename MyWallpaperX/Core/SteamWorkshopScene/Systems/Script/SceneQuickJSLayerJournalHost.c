@@ -560,6 +560,8 @@ void mwx_scene_quickjs_owner_discard_layer_mutations(
         mwx_scene_quickjs_owner_timer_snapshot_destroy(owner->initialization_timers, owner);
         owner->initialization_timers = NULL;
     }
+    owner->camera_command_count = owner->camera_command_read_start = 0;
+    owner->camera_command_overflow = false;
     owner->effect_visibility_staged = false;
     owner->effect_visibility_pending = false;
     finish_dynamic_layer_transaction(owner, false);
@@ -586,6 +588,8 @@ void mwx_scene_quickjs_owner_commit_layer_mutations(
     if (owner == NULL || owner->domain == NULL) return;
     mwx_scene_quickjs_finish_text_clones(owner, true);
     mwx_scene_quickjs_puppet_animation_finish_transaction(owner, true);
+    owner->camera_command_count = owner->camera_command_read_start = 0;
+    owner->camera_command_overflow = false;
     if (owner->initialization_pending) owner->initialized = true;
     owner->initialization_pending = false;
     if (owner->initialization_timers != NULL) {
@@ -612,6 +616,7 @@ void mwx_scene_quickjs_owner_begin_layer_mutations(MWXSceneQuickJSOwner *owner) 
     // Primitive entries export only their new range. Keep earlier callbacks'
     // commands for this owner's read-your-writes until the shared frame barrier.
     owner->puppet_animation_command_read_start = owner->puppet_animation_command_count;
+    owner->camera_command_read_start = owner->camera_command_count;
     owner->puppet_animation_registration_count = 0;
     mwx_scene_quickjs_layer_ensure_dynamic_layer_transaction(owner);
     clear_layer_mutation_buffers(owner);

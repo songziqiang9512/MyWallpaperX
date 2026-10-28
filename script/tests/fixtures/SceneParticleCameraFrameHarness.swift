@@ -444,6 +444,7 @@ enum Harness {
                     && sprite.spriteForward == SIMD4(geometry.columns.2, 0)]
         }
         let result: [String: Any] = [
+            "staticCameraTransforms": staticCameraTransformChecks(),
             "nativeLayerSelection": nativeLayerSelectionChecks(camera: missingFOVCamera),
             "ropeCameraPolicy": ropePolicy,
             "selectedVPAxes": selectedVPAxes,
@@ -658,6 +659,75 @@ enum Harness {
         ]
         let data = try JSONSerialization.data(withJSONObject: result, options: [.sortedKeys])
         print(String(decoding: data, as: UTF8.self))
+    }
+
+    private static func staticCameraTransformChecks() -> [String: Any] {
+        let viewport = CGSize(width: 800, height: 600)
+        let saved = SceneRenderDescriptor.CameraDescriptor(eye: [80, -60, 0], center: [80, -60, -1],
+            up: [0, 1, 0], orthoWidth: 800, orthoHeight: 600, fovDegrees: nil,
+            perspectiveOverrideFOVDegrees: nil, nearZ: 0.01, farZ: 10000)
+        let base = SceneParticleCameraFrame(camera: saved, viewportSize: viewport)
+        let canonical = SceneParticleCameraFrame(camera: saved, viewportSize: viewport,
+            staticEye: .zero, staticCenter: SIMD3(0, 0, -1), staticUp: SIMD3(0, 1, 0))
+        let delta = SIMD3<Float>(25 * 4, 125 - 25, 0)
+        let shifted = SceneParticleCameraFrame(camera: saved, viewportSize: viewport,
+            staticEye: delta, staticCenter: delta + SIMD3(0, 0, -1), staticUp: SIMD3(0, 1, 0))
+        let markers = [SIMD3<Float>(173, 117, 0), SIMD3<Float>(631, 449, 0)]
+        let shiftedNDC = markers.map { ndc(shifted.orthographicViewProjection, SIMD4($0, 1)) }
+        let pixels = shiftedNDC.map { [($0[0] + 1) * 400, (1 - $0[1]) * 300] }
+        let recovered = shiftedNDC.map { point in
+            SceneLayerCursorGeometry.layerPoint(mouseNormalized: SIMD2(point[0], point[1]),
+                modelViewProjection: shifted.orthographicViewProjection)
+        }
+        let path = SceneParticleCameraFrame(camera: saved, viewportSize: viewport,
+            cameraOrigin: SIMD3(23, -17, 9), cameraZoom: 1.7)
+        let pathAndDefaults = SceneParticleCameraFrame(camera: saved, viewportSize: viewport,
+            cameraOrigin: SIMD3(23, -17, 9), cameraZoom: 1.7,
+            staticEye: .zero, staticCenter: SIMD3(0, 0, -1), staticUp: SIMD3(0, 1, 0))
+        let rolled = SceneParticleCameraFrame(camera: saved, viewportSize: viewport,
+            staticEye: .zero, staticCenter: SIMD3(0, 0, -1), staticUp: SIMD3(1, 0, 0))
+        let tilted = SceneParticleCameraFrame(camera: saved, viewportSize: viewport,
+            staticEye: .zero, staticCenter: SIMD3(0, 1, -1), staticUp: SIMD3(0, 1, 0))
+        func uniforms(_ camera: SceneParticleCameraFrame) -> SceneParticleLayerUniforms {
+            camera.particleUniforms(layerModel: SceneParticleCameraFrame.particleLayerModel(
+                worldFrame: matrix_identity_float4x4, parallaxOffset: .zero), orientation: .screen,
+                orientationAxis: nil, usesPerspective: false, usesSceneCamera: false,
+                viewportSize: SIMD2(800, 600), sizeIsWorldSpace: true)
+        }
+        func near(_ a: SIMD4<Float>, _ b: SIMD4<Float>) -> Bool { simd_length(a-b) < 0.00003 }
+        let roll = uniforms(rolled), tilt = uniforms(tilted)
+        let diagonal = Float(1 / sqrt(2.0))
+        let native = SceneRenderDescriptor.CameraDescriptor(eye: [7, 3, 12], center: [1, -2, 0],
+            up: [0, 1, 0], orthoWidth: nil, orthoHeight: nil, fovDegrees: 50,
+            perspectiveOverrideFOVDegrees: nil, nearZ: 0.1, farZ: 100)
+        let nativeBase = SceneParticleCameraFrame(camera: native, viewportSize: viewport)
+        let nativeSeeded = SceneParticleCameraFrame(camera: native, viewportSize: viewport,
+            staticEye: SIMD3(7, 3, 12), staticCenter: SIMD3(1, -2, 0), staticUp: SIMD3(0, 1, 0))
+        let selectedCamera = SceneParticleCameraFrame.NativePerspectiveOverride(
+            worldFrame: SceneMatrix.translation(SIMD3(2, -1, 9)) * SceneMatrix.rotationY(0.25), fovDegrees: 60)!
+        let selected = SceneParticleCameraFrame(camera: native, viewportSize: viewport,
+            nativePerspectiveOverride: selectedCamera)
+        let selectedSeeded = SceneParticleCameraFrame(camera: native, viewportSize: viewport,
+            staticEye: SIMD3(7, 3, 12), staticCenter: SIMD3(1, -2, 0), staticUp: SIMD3(0, 1, 0),
+            nativePerspectiveOverride: selectedCamera)
+        return ["pixels": pixels, "recovered": recovered.map { $0.map(vector3) ?? [] }, "facts": [
+            "canonicalDoesNotUseSavedEye": base.orthographicViewProjection == canonical.orthographicViewProjection
+                && base.perspectiveViewProjection == canonical.perspectiveViewProjection,
+            "oldPathAndZoom": path.orthographicViewProjection == pathAndDefaults.orthographicViewProjection
+                && path.perspectiveViewProjection == pathAndDefaults.perspectiveViewProjection,
+            "rollScreenAxes": near(roll.viewRight, SIMD4(0, -1, 0, 0))
+                && near(roll.viewUp, SIMD4(-1, 0, 0, 0)) && near(roll.basisRight, roll.viewRight)
+                && near(roll.basisUp, roll.viewUp),
+            "tiltScreenAxes": near(tilt.viewRight, SIMD4(1, 0, 0, 0))
+                && near(tilt.viewUp, SIMD4(0, -diagonal, -diagonal, 0))
+                && near(tilt.basisRight, tilt.viewRight) && near(tilt.basisUp, tilt.viewUp),
+            "materialSharesView": near(rolled.materialView(usesPerspective: false), SIMD4(0, 0, 1, 0))
+                && near(tilted.materialView(usesPerspective: false), SIMD4(0, -diagonal, diagonal, 0)),
+            "nativeSavedDefaults": nativeBase.perspectiveViewProjection == nativeSeeded.perspectiveViewProjection
+                && nativeBase.perspectiveEyePosition == SIMD3(7, 3, 12),
+            "nativeSelectedOverride": selected.perspectiveViewProjection == selectedSeeded.perspectiveViewProjection
+                && selected.perspectiveEyePosition == SIMD3(2, -1, 9),
+        ]]
     }
 
     private static func nativeLayerSelectionChecks(

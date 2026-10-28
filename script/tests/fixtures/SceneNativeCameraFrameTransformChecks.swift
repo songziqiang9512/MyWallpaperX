@@ -198,6 +198,103 @@ struct SceneMetalRenderer {
         ]
     }
 
+    static func staticCameraChecks() throws -> [String: Any] {
+        let canvas = SceneMetalRenderer(try descriptor(includeCamera: false, orthographic: true))
+        let empty = snapshot([])
+        let base = frame(canvas, empty, worlds(canvas, empty))
+        let canonical: [Published] = [
+            (.camera(.eye), .vector3(0, 0, 0), .vector3(0, 0, 0)),
+            (.camera(.center), .vector3(0, 0, -1), .vector3(0, 0, -1)),
+            (.camera(.up), .vector3(0, 1, 0), .vector3(0, 1, 0))]
+        let defaults = snapshot(canonical)
+        let seeded = frame(canvas, defaults, worlds(canvas, defaults))
+        let movedValues: [Published] = [
+            (.camera(.eye), .vector3(40+60, 100, 0), .vector3(0, 0, 0)),
+            (.camera(.center), .vector3(100, 100, -1), .vector3(0, 0, -1)),
+            canonical[2]]
+        let movedSnapshot = snapshot(movedValues)
+        let moved = frame(canvas, movedSnapshot, worlds(canvas, movedSnapshot))
+        let markers = [SIMD3<Float>(137, 119, 0), SIMD3<Float>(703, 463, 0)]
+        let points = markers.map { point -> SIMD2<Float> in
+            let clip = moved.orthographicViewProjection * SIMD4(point, 1)
+            return SIMD2(clip.x, clip.y) / clip.w
+        }
+        let pixels = points.map { [Double(($0.x+1)*450), Double((1-$0.y)*300)] }
+        let recovered = points.map { point in
+            SceneLayerCursorGeometry.layerPoint(mouseNormalized: point,
+                modelViewProjection: moved.orthographicViewProjection).map(array) ?? []
+        }
+        let pathValues: [Published] = [
+            (.camera(.origin), .vector3(20, -15, 7), .vector3(0, 0, 0)),
+            (.camera(.zoom), .scalar(0.8), .scalar(1))]
+        let path = snapshot(pathValues), pathSeed = snapshot(pathValues+canonical)
+        let pathFrame = frame(canvas, path, worlds(canvas, path))
+        let pathWithSeed = frame(canvas, pathSeed, worlds(canvas, pathSeed))
+        let hiddenPathRenderer = SceneMetalRenderer(try descriptor(orthographic: true))
+        let hiddenPathSnapshot = snapshot(movedValues + [(.layer(layerID: 7, field: .visibility),
+            .bool(false), .bool(true))])
+        let hiddenPathFrame = frame(hiddenPathRenderer, hiddenPathSnapshot,
+            worlds(hiddenPathRenderer, hiddenPathSnapshot))
+        let rollValues: [Published] = [canonical[0], canonical[1],
+            (.camera(.up), .vector3(1, 0, 0), .vector3(0, 1, 0))]
+        let rollSnapshot = snapshot(rollValues)
+        let rolled = frame(canvas, rollSnapshot, worlds(canvas, rollSnapshot))
+        let rollUniforms = rolled.particleUniforms(layerModel: SceneParticleCameraFrame.particleLayerModel(
+            worldFrame: matrix_identity_float4x4, parallaxOffset: .zero),
+            orientation: .screen, orientationAxis: nil, usesPerspective: false, usesSceneCamera: false,
+            viewportSize: SIMD2(900, 600), sizeIsWorldSpace: true)
+        let staticNative = SceneMetalRenderer(try descriptor(includeCamera: false))
+        func preparedDefaults(_ renderer: SceneMetalRenderer) -> SceneDynamicSnapshot {
+            let runtime = SceneScriptDynamicLayerRuntime(descriptor: renderer.renderDescriptor,
+                authoredMutationLayerIDs: [])
+            return SceneDynamicSnapshotResolver().resolve(frameIndex: 3, generation: 17,
+                definitions: runtime.authoredLayerDefinitions).snapshot
+        }
+        let nativeDefaults = preparedDefaults(staticNative)
+        let nativeBase = frame(staticNative, empty, worlds(staticNative, empty))
+        let nativeSeeded = frame(staticNative, nativeDefaults, worlds(staticNative, nativeDefaults))
+        let selectedNative = SceneMetalRenderer(try descriptor())
+        let selectedBase = frame(selectedNative, empty, worlds(selectedNative, empty))
+        let selectedDefaults = preparedDefaults(selectedNative)
+        let selectedSeeded = frame(selectedNative, selectedDefaults, worlds(selectedNative, selectedDefaults))
+        let nativeZoomValues: [Published] = [(.camera(.zoom), .scalar(2), .scalar(1))]
+        let nativeZoomSnapshot = snapshot(nativeZoomValues)
+        let nativeZoomed = frame(staticNative, nativeZoomSnapshot, worlds(staticNative, nativeZoomSnapshot))
+        let selectedZoomed = frame(selectedNative, nativeZoomSnapshot, worlds(selectedNative, nativeZoomSnapshot))
+        let cursor = SIMD2<Float>(0.4, -0.3)
+        return ["pixels": pixels, "recovered": recovered, "facts": [
+            "typedCameraInput": inputFacts(movedValues, movedSnapshot),
+            "canonicalDoesNotUseSavedEye": canvas.renderDescriptor.camera.eye == [0.7, 3, 6]
+                && seeded.orthographicViewProjection == base.orthographicViewProjection
+                && seeded.perspectiveViewProjection == base.perspectiveViewProjection,
+            "legacyPathAndZoom": pathFrame.orthographicViewProjection == pathWithSeed.orthographicViewProjection
+                && pathFrame.perspectiveViewProjection == pathWithSeed.perspectiveViewProjection,
+            "hiddenPathKeepsGlobalCamera": hiddenPathRenderer.renderDescriptor.camera.default2DInputLayerID == 7
+                && hiddenPathSnapshot[.layer(layerID: 7, field: .visibility)]?.value == .bool(false)
+                && hiddenPathFrame.orthographicViewProjection == moved.orthographicViewProjection,
+            "rollMaterialAndParticle": near(SIMD3(rollUniforms.viewRight.x, rollUniforms.viewRight.y,
+                    rollUniforms.viewRight.z), [0, -1, 0])
+                && near(SIMD3(rollUniforms.viewUp.x, rollUniforms.viewUp.y, rollUniforms.viewUp.z), [-1, 0, 0])
+                && rolled.materialView(usesPerspective: false) == SIMD4(0, 0, 1, 0),
+            "nativeTypedDefaults": nativeDefaults[.camera(.eye)]?.source == .authored
+                && nativeDefaults[.camera(.eye)]?.value == .vector3(Double(Float(0.7)), 3, 6)
+                && nativeSeeded.perspectiveViewProjection == nativeBase.perspectiveViewProjection
+                && near(nativeSeeded.perspectiveEyePosition, [0.7, 3, 6]),
+            "existingNativeOverride": selectedSeeded.perspectiveViewProjection == selectedBase.perspectiveViewProjection
+                && near(selectedSeeded.perspectiveEyePosition, [0, 0, 6]),
+            "nativeZoomRemainsTyped": inputFacts(nativeZoomValues, nativeZoomSnapshot),
+            "nativeZoomDoesNotChangeFOVOrPolling": nativeZoomed.perspectiveViewProjection == nativeBase.perspectiveViewProjection
+                && nativeZoomed.perspectiveEyePosition == nativeBase.perspectiveEyePosition
+                && nativeBase.nativeCursorWorldPosition(cursor) != nil
+                && nativeZoomed.nativeCursorWorldPosition(cursor) == nativeBase.nativeCursorWorldPosition(cursor),
+            "selectedNativeZoomDoesNotChangeFOVOrPolling": selectedZoomed.perspectiveViewProjection == selectedBase.perspectiveViewProjection
+                && selectedZoomed.perspectiveEyePosition == selectedBase.perspectiveEyePosition
+                && selectedBase.nativeCursorWorldPosition(cursor) != nil
+                && selectedZoomed.nativeCursorWorldPosition(cursor) == selectedBase.nativeCursorWorldPosition(cursor),
+            "unrelatedWorld": worlds(canvas, movedSnapshot)[90] == canvas.worldFramesByLayerID[90],
+        ]]
+    }
+
     static func main() throws {
         var rows: [[String: Any]] = []
         for renamed in [false, true] {
@@ -206,6 +303,7 @@ struct SceneMetalRenderer {
             }
         }
         print(String(decoding: try JSONSerialization.data(withJSONObject:
-            ["rows": rows, "controls": try controls()], options: [.sortedKeys]), as: UTF8.self))
+            ["rows": rows, "controls": try controls(), "staticCamera": try staticCameraChecks()],
+            options: [.sortedKeys]), as: UTF8.self))
     }
 }

@@ -141,3 +141,22 @@
 未参与修法原3351179520在同最终App/默认/零FFT运行8秒，Root实看人物、纸片、Wallpaper Engine文字与蓝背景合成保持，无VM failure；两包exit0、surface1→0、GPU drained。288目录无官方“截屏”图，不冒称官方同相位、所有动作/HDR/多屏/性能通过；本批只关闭跨层初始化子项，未改全样本verdict或样本分母。原包的其余拒绝仍按真实可见consumer选择，不以日志数认缺画面。
 
 **证据与清理。** `.artifacts/scene-evidence/runs/cross-layer-animation-seek-20261028/`保必要前后图、原始日志、App/产品输入身份、测试/构建及独审摘要；普通14天、单包32MiB。临时样本/HOME/App及重试载体在提取后删除；连续后继只保一份任务构建缓存，路径见本批收尾。无新增官方VM实验，未改变官方客户端或真实媒体。
+
+<a id="static-camera-transforms-20261028"></a>
+## 2026-10-28 静态相机 DTO 与共享投影
+
+**通用能力。** 原thisScene缺get/setCameraTransforms，288的普通265.visibility首次update即throw；现DTO与partial写入沿原SceneHost/C mirror→append-only owner journal→OwnerEffects→同DynamicLayerRuntime plan/dictionary→原snapshot/resolver→唯一CameraFrame。普通source与camera target分域，不伪造layerID；不新增CameraRuntime、clock、registry、缓存或产品文件。原fixed-point两处重复plan构造收为每轮一处；prepared四defs复用现index，native保descriptor seed、正交canonical，旧path zoom定义优先。本帧只overlay最终admitted camera字段，其他layer setter时序保原；失败撤整owner，正常peer保留。C命令仅首次setter按4→64有界分配，getter栈副本叠本callback有序partial，原snapshot pending/rollback与TimerSnapshot cursor复用。
+
+**投影与边界。** 正交static view在canvas fit前应用，canonical跳额外矩阵；原CameraFrame统一供render、material view、粒子screen basis与cursor反投影，无逐层重求相机。default path隐藏仅屏蔽原origin/zoom，global eye/center/up独立消费（独审P2已修）；native消费口保zoom1，DTO/getter可保作者值，符合公开zoom仅2D边界。bootstrap getter沿既有initialized/pending阶段返回constructor seed，首次正常snapshot转运行base，无新stage flag或人为init setter许可。init写与prepare覆盖次序、hidden path/API zoom、完整跨owner官方次序仍未知，不由本片裁决。
+
+**官方有界证据。** 固定2.8.0.42/wallpaper32 SHA `daac1ea7c991207fdb6098616757e3dae393850f6862845db55d04921b6bda07`，Windows11/Parallels27.0.3。同一自有800×600板的eye/center共同+100X，五彩标记实际均−100px、Y不变；宽容RGB阈值扫描最大误差0.5px，独审原client ROI=(53,174,800,600)。init eye=(2,2,2)、首update=(0,0,0)与saved eye不同，R1在init保存base再恢复导致斜视，不作正常baseline；R2仅将测量base延至首update并增加readout。没有拍BASE/SAME，不宣称set(get)无跳变或完整初始化语义。原始输入/工具/身份、失败与小ROI图已归`.artifacts/scene-evidence/runs/static-camera-ortho-anchor-20261028/`。
+
+**测试与真实App。** pure-C snapshot原子性通过；新真实VM bridge/事务含global、partial、Vec3副本、改名/等价、TimerSnapshot、overflow与数值反例；原default2D、particle frame、native frame与动态层门按受影响范围复用首轮有效结果及定点重验。首轮Cursor漏传0 tests编译失败、旧‘camera defs不存在/完整DTO等identity’断言、非法particle Y-model载体失败均保真：只同步实际fallback/producer合同与合法Y模型，没有删实际值、alias、peer、创建/退休/冲突反例。新增native/default/hidden path、zoom不改3D FOV/poll、两非对称marker及逆投影均通过，编译输入187/171无漂移。全范围独审及两处消费口定点复核GO。
+
+签名Debug在8258a8e35加本批产品源，主App SHA `6091b2d938d1f5dccc3aabf02f416f50971b028d6dcc60ce6649e20307d32843`，产品输入无漂移。首build发现未更新LiveConsumers camera enum分支，已将三个仅script字段纳入原非property路径，最终Debug通过；未改文件的Swift6隔离诊断保原日志，不记warning清零。原288默认/零FFT/中心hover运行17秒，265回调completed，无VM failure，早段相机位移真实合成；Metal receipt的after实际为首帧后约3.66秒，series0004为约15.85秒，后者人物/腿/书/窗/水面完整归位。Root曾把after标签误作run末帧而怀疑持续灰边，又将官方后段图误作开场依据，已按时间戳撤回这两个推断；生产Single会取length末值，未据误读改Timeline/getter。
+
+原288官方fresh复制包project SHA `eea311abbed2dc973ba7c6b00fd13479b543005b519622ea46095b2f1baa7a42`、pkg `c650ed538f6a787fce2bc9fb9d032a83d46b49487a28620422a69b61da279e7d`；1000×650两图约在CLI后30/70秒，Root只认与native末段的主要完整构图接近，不作首13秒或逐像素parity。两者无orthogonalprojection.auto区别，原轨迹首/末delta均0，不能因saved camera非零就额外补偿。普通layer getter读取Timeline值有现CPU合同但尚无官方配对资格，未借本片改它或新增已证缺陷。
+
+独立3554161528默认13秒和3437487219默认8秒保人物/星空与地球/银河合成，无VM failure；343色调/光影余项仍在原队列。三包均exit0、surface1→0/GPU drained。原native两深度真实Debug App seed/rotated两臂及独立ROI全通过（30.765秒），并未改其oracle来适配本片；不冒称性能收益、完整HDR/多屏、全部交互或整288已修。camera API首错退出队列，其他问题保持原优先级。
+
+**产物。** 必要原图、失败/成功日志、App/输入/测试身份与独审在`.artifacts/scene-evidence/runs/static-camera-transforms-20261028/`普通14天；不保App/用户包/临时HOME。官方预览已用定点CLI确认关闭，客户端与VM保留；Windows与本机测试副本提取后清理，连续开发只复用一份原任务build-cache。

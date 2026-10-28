@@ -426,7 +426,8 @@ nonisolated final class SceneScriptValueOwner: @unchecked Sendable {
         let resolvedValue: SceneDynamicValue
         if valueType == .bool {
             guard mutations.materialFunctions.isEmpty,
-                  mutations.animations.isEmpty || allowsStatefulLayerSideEffects else {
+                  (mutations.animations.isEmpty && mutations.cameraCommands.isEmpty)
+                    || allowsStatefulLayerSideEffects else {
                 discardLayerMutations()
                 return .failure(.invalidArgument(
                     "Boolean value owner produced out-of-cohort mutations"
@@ -459,7 +460,8 @@ nonisolated final class SceneScriptValueOwner: @unchecked Sendable {
             puppetAnimationCommands: mutations.puppetAnimationCommands,
             puppetAnimationCallbackRegistrations: mutations.puppetAnimationCallbackRegistrations,
             scalarValueFollowsInput: scalarValueFollowsInput,
-            layerTopologyOwnerIdentity: pendingLayerTopologyIdentity
+            layerTopologyOwnerIdentity: pendingLayerTopologyIdentity,
+            cameraCommands: mutations.cameraCommands
         ))
     }
 

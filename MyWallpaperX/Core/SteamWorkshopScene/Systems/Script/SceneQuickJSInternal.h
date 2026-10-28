@@ -8,6 +8,7 @@
 
 #define MWX_SCENE_QUICKJS_MAX_MATERIAL_FUNCTION_MUTATIONS 16
 #define MWX_SCENE_QUICKJS_MAX_ANIMATION_COMMANDS 16
+#define MWX_SCENE_QUICKJS_MAX_CAMERA_COMMANDS 64
 #define MWX_SCENE_QUICKJS_MAX_NAMED_ANIMATIONS 4096
 #define MWX_SCENE_QUICKJS_MAX_ANIMATION_NAME 256
 #define MWX_SCENE_QUICKJS_MAX_PUPPET_ANIMATION_COMMANDS 64
@@ -328,6 +329,8 @@ struct MWXSceneQuickJSTimerFrameSnapshot {
     uint64_t puppet_animation_delivered_sequence;
     size_t puppet_event_cursor;
     uint64_t puppet_event_queue_epoch;
+    size_t camera_command_count, camera_command_read_start;
+    bool camera_command_overflow;
     size_t puppet_animation_command_count;
     size_t puppet_animation_command_read_start;
     size_t puppet_animation_registration_count;
@@ -417,6 +420,7 @@ struct MWXSceneQuickJSDomain {
     uint32_t dynamic_image_resource_count;
     bool dynamic_image_catalog_configured;
     bool defaults_to_perspective;
+    MWXSceneQuickJSCameraCommand camera_transforms, pending_camera_transforms, rollback_camera_transforms;
     MWXSceneQuickJSNamedAnimationRecord *named_animations;
     size_t named_animation_count;
     bool named_animations_configured;
@@ -517,6 +521,9 @@ struct MWXSceneQuickJSOwner {
     bool material_function_overflow;
     size_t animation_command_count;
     bool animation_command_overflow;
+    MWXSceneQuickJSCameraCommand *camera_commands;
+    size_t camera_command_count, camera_command_read_start, camera_command_capacity;
+    bool camera_command_overflow;
     size_t media_playback_command_count;
     bool media_playback_command_overflow;
     // Query projection only: commands before this callback retain their journal

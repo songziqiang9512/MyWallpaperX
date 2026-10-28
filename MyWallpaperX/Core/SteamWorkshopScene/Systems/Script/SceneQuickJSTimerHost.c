@@ -384,6 +384,9 @@ MWXSceneQuickJSTimerFrameSnapshot *mwx_scene_quickjs_owner_timer_snapshot(
     snapshot->puppet_animation_delivered_sequence = owner->puppet_animation_delivered_sequence;
     snapshot->puppet_event_cursor = owner->puppet_event_cursor;
     snapshot->puppet_event_queue_epoch = owner->puppet_event_queue_epoch;
+    snapshot->camera_command_count = owner->camera_command_count;
+    snapshot->camera_command_read_start = owner->camera_command_read_start;
+    snapshot->camera_command_overflow = owner->camera_command_overflow;
     snapshot->puppet_animation_command_count = owner->puppet_animation_command_count;
     snapshot->puppet_animation_command_read_start = owner->puppet_animation_command_read_start;
     snapshot->puppet_animation_registration_count = owner->puppet_animation_registration_count;
@@ -433,6 +436,9 @@ bool mwx_scene_quickjs_owner_timer_restore(
     if (owner->puppet_event_queue_epoch == snapshot->puppet_event_queue_epoch &&
         snapshot->puppet_event_cursor <= owner->puppet_event_count)
         owner->puppet_event_cursor = snapshot->puppet_event_cursor;
+    owner->camera_command_count = snapshot->camera_command_count;
+    owner->camera_command_read_start = snapshot->camera_command_read_start;
+    owner->camera_command_overflow = snapshot->camera_command_overflow;
     owner->puppet_animation_command_count = snapshot->puppet_animation_command_count;
     owner->puppet_animation_command_read_start = snapshot->puppet_animation_command_read_start;
     owner->puppet_animation_registration_count = snapshot->puppet_animation_registration_count;

@@ -184,6 +184,7 @@ MWXSceneQuickJSResult mwx_scene_quickjs_domain_begin_layer_snapshot(
     domain->pending_layer_snapshot = pending;
     domain->pending_layer_snapshot_generation = generation;
     domain->pending_defaults_to_perspective = defaults_to_perspective != 0;
+    domain->pending_camera_transforms = domain->camera_transforms;
     return MWX_SCENE_QUICKJS_OK;
 }
 
@@ -454,6 +455,26 @@ MWXSceneQuickJSResult mwx_scene_quickjs_domain_update_layer_texture_animation_fi
     staged->texture_animation_shared_rate = shared_rate;
     staged->texture_animation_shared_current_frame = shared_current_frame;
     staged->texture_animation_shared_is_playing = shared_is_playing != 0;
+    return MWX_SCENE_QUICKJS_OK;
+}
+
+MWXSceneQuickJSResult mwx_scene_quickjs_domain_update_camera_transforms(
+    MWXSceneQuickJSDomain *domain, const double eye[3], const double center[3], const double up[3],
+    double zoom, char *diagnostic, size_t diagnostic_capacity
+) {
+    if (domain == NULL || domain->callback_active || domain->pending_layer_snapshot == NULL ||
+        eye == NULL || center == NULL || up == NULL || !isfinite(zoom))
+        return MWX_SCENE_QUICKJS_INVALID_ARGUMENT;
+    for (size_t i = 0; i < 3; ++i)
+        if (!isfinite(eye[i]) || !isfinite(center[i]) || !isfinite(up[i])) {
+            mwx_scene_quickjs_write_diagnostic(diagnostic, diagnostic_capacity, "non-finite camera snapshot");
+            return MWX_SCENE_QUICKJS_INVALID_ARGUMENT;
+        }
+    MWXSceneQuickJSCameraCommand value = {.mask = 15, .zoom = zoom};
+    memcpy(value.eye, eye, sizeof(value.eye));
+    memcpy(value.center, center, sizeof(value.center));
+    memcpy(value.up, up, sizeof(value.up));
+    domain->pending_camera_transforms = value;
     return MWX_SCENE_QUICKJS_OK;
 }
 
@@ -739,6 +760,8 @@ MWXSceneQuickJSResult mwx_scene_quickjs_domain_commit_layer_snapshot(
     domain->rollback_layer_snapshot = domain->pending_layer_snapshot;
     domain->rollback_layer_snapshot_generation = domain->layer_snapshot_generation;
     domain->rollback_defaults_to_perspective = domain->defaults_to_perspective;
+    domain->rollback_camera_transforms = domain->camera_transforms;
+    domain->camera_transforms = domain->pending_camera_transforms;
     domain->defaults_to_perspective = domain->pending_defaults_to_perspective;
     domain->pending_layer_snapshot = NULL;
     domain->pending_layer_snapshot_generation = 0;
@@ -830,6 +853,7 @@ bool mwx_scene_quickjs_domain_rollback_layer_snapshot(
     domain->layer_snapshot_generation =
         domain->rollback_layer_snapshot_generation;
     domain->defaults_to_perspective = domain->rollback_defaults_to_perspective;
+    domain->camera_transforms = domain->rollback_camera_transforms;
     clear_rollback_snapshot(domain);
     return true;
 }

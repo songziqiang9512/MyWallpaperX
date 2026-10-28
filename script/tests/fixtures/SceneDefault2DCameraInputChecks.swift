@@ -194,6 +194,12 @@ struct SceneMetalRenderer {
         }
     }
 
+    static func hasOnlyAuthoredUnitZoom(_ snapshot: SceneDynamicSnapshot, in fixture: Fixture) -> Bool {
+        snapshot[zoomTarget]?.value == .scalar(1) && snapshot[zoomTarget]?.source == .authored
+            && !fixture.timeline.bindings.contains { $0.target == zoomTarget }
+            && !fixture.property.program.instructions.contains { $0.target == zoomTarget }
+    }
+
     static func scalar(_ value: SceneDynamicValue?) -> Double {
         guard case let .scalar(value)? = value else { return -999 }
         return value
@@ -436,9 +442,10 @@ struct SceneMetalRenderer {
             let fixture = try Fixture(scene, key: "lensScale")
             let (snapshot, _) = try fixture.frame()
             facts[name + "-not-a-default-2d-producer"] = fixture.descriptor.camera.default2DInputLayerID == nil
-                && !fixture.definitions.contains { $0.target == originTarget || $0.target == zoomTarget }
-                && !fixture.property.program.instructions.contains { $0.target == zoomTarget }
-                && snapshot.cameraTransform() == .identity
+                && !fixture.definitions.contains { $0.target == originTarget }
+                && hasOnlyAuthoredUnitZoom(snapshot, in: fixture)
+                && snapshot.cameraTransform().origin == .zero
+                && fixture.camera(snapshot).cameraOrigin == .zero
         }
         let unknownZoomWrapper = changingFirst(ordinary) {
             $0["zoom"] = ["user": "lensScale", "value": 0.73, "unrecognized": true]
@@ -449,7 +456,7 @@ struct SceneMetalRenderer {
         } && !unknown.live.apply(.number(0.9), forPropertyKey: "lensScale")
         let invalid = try Fixture(changingFirst(ordinary) { $0["zoom"] = 0 }, key: "lensScale")
         let (invalidSnapshot, _) = try invalid.frame()
-        facts["invalid-authored-zoom-keeps-identity-component"] = invalidSnapshot[zoomTarget] == nil
+        facts["invalid-authored-zoom-keeps-identity-component"] = hasOnlyAuthoredUnitZoom(invalidSnapshot, in: invalid)
             && invalidSnapshot.cameraTransform().zoom == 1
         return facts
     }
@@ -571,7 +578,7 @@ struct SceneMetalRenderer {
             let (snapshot, _) = try fixture.frame(sceneTime: 1)
             facts[name + "-group-rejected"] = fixture.timeline.bindings.isEmpty
                 && fixture.descriptor.camera.default2DOriginInputLayerID == nil
-                && snapshot[originTarget] == nil && snapshot[zoomTarget] == nil
+                && snapshot[originTarget] == nil && hasOnlyAuthoredUnitZoom(snapshot, in: fixture)
         }
         return facts
     }
@@ -683,13 +690,14 @@ struct SceneMetalRenderer {
                 let (snapshot, _) = try fixture.frame(sceneTime: 1)
                 facts[owner + "-" + name] = fixture.timeline.bindings.isEmpty
                     && fixture.descriptor.camera.default2DOriginInputLayerID == nil
-                    && snapshot[originTarget] == nil && snapshot[zoomTarget] == nil
+                    && snapshot[originTarget] == nil && hasOnlyAuthoredUnitZoom(snapshot, in: fixture)
                 if name == "two-component-origin" || name == "four-component-origin" {
                     facts[owner + "-" + name + "-normalized-source-stays-local"] =
                         fixture.descriptor.camera.default2DInputLayerID == 7
                         && fixture.descriptor.layers[0].originXYZ?.count == 3
                         && fixture.definitions.filter { $0.target == .layer(layerID: 7, field: .origin) }.count == 1
-                        && !fixture.definitions.contains { $0.target == originTarget || $0.target == zoomTarget }
+                        && !fixture.definitions.contains { $0.target == originTarget }
+                        && hasOnlyAuthoredUnitZoom(snapshot, in: fixture)
                 }
             }
             var native = combined(animated(), zoomRoot: zoomRoot)
@@ -699,7 +707,7 @@ struct SceneMetalRenderer {
             let (snapshot, _) = try fixture.frame(sceneTime: 1)
             facts[owner + "-native-is-not-a-default-2d-group"] = fixture.timeline.bindings.isEmpty
                 && fixture.descriptor.camera.default2DInputLayerID == nil
-                && snapshot[originTarget] == nil && snapshot[zoomTarget] == nil
+                && snapshot[originTarget] == nil && hasOnlyAuthoredUnitZoom(snapshot, in: fixture)
         }
         return facts
     }
@@ -842,8 +850,8 @@ struct SceneMetalRenderer {
             $0["zoom"] = ["value": 0.73, "animation": single([[0,2]], fps: 5, length: 20)]
         }, key: "lensScale")
         let (zoomBadSnapshot, _) = try zoomBad.frame(sceneTime: 1)
-        facts["bad-zoom-preserves-origin-not-static-fallback"] = zoomBad.timeline.bindings.map(\.target) == [originTarget]
-            && zoomBadSnapshot[zoomTarget] == nil
+        facts["bad-zoom-preserves-origin-without-zoom-producer"] = zoomBad.timeline.bindings.map(\.target) == [originTarget]
+            && hasOnlyAuthoredUnitZoom(zoomBadSnapshot, in: zoomBad)
             && zoomBad.camera(zoomBadSnapshot).cameraOrigin == SIMD3(60,-20,550)
             && near(zoomBad.camera(zoomBadSnapshot).coverHalfExtents.x, 1920)
         let disabledControl = try Fixture(changingFirst(animated()) {
@@ -868,8 +876,9 @@ struct SceneMetalRenderer {
             let (snapshot, _) = try fixture.frame(sceneTime: 1)
             facts[name] = fixture.timeline.bindings.isEmpty
                 && fixture.descriptor.camera.default2DInputLayerID == nil
-                && snapshot[originTarget] == nil && snapshot[zoomTarget] == nil
-                && snapshot.cameraTransform() == .identity
+                && snapshot[originTarget] == nil && hasOnlyAuthoredUnitZoom(snapshot, in: fixture)
+                && snapshot.cameraTransform().origin == .zero
+                && fixture.camera(snapshot).cameraOrigin == .zero
         }
         for cycle in [false, true] {
             let input = changingFirst(animated()) {
@@ -888,7 +897,7 @@ struct SceneMetalRenderer {
             let fixture = try Fixture(input, key: "lensScale")
             let (snapshot, _) = try fixture.frame(sceneTime: 1)
             facts[cycle ? "cycle-rejected" : "incomplete-peer-rejected"] = fixture.timeline.bindings.isEmpty
-                && snapshot[originTarget] == nil && snapshot[zoomTarget] == nil
+                && snapshot[originTarget] == nil && hasOnlyAuthoredUnitZoom(snapshot, in: fixture)
         }
         return facts
     }
@@ -918,7 +927,7 @@ struct SceneMetalRenderer {
                     original?.timelines.contains { $0.host == .alpha } == false
                     && original?.timelineDiagnostics.contains { $0.hasPrefix("alpha:") } == true
                 facts["\(target)-\(error)-local-rejection"] = fixture.timeline.bindings.map(\.target) == [expected]
-                    && snapshot[blocksOrigin ? originTarget : zoomTarget] == nil
+                    && (blocksOrigin ? snapshot[originTarget] == nil : hasOnlyAuthoredUnitZoom(snapshot, in: fixture))
                     && snapshot[expected]?.value == (blocksOrigin ? .scalar(1.25) : .vector3(60,-20,550))
                     && fixture.camera(snapshot).cameraOrigin == (blocksOrigin ? .zero : SIMD3(60,-20,550))
                 facts["\(target)-\(error)-origin-route"] =
@@ -930,7 +939,7 @@ struct SceneMetalRenderer {
                     }, key: "lensScale")
                     let (groupSnapshot, _) = try grouped.frame(sceneTime: 1)
                     facts["\(target)-\(error)-\(zoomRoot)-combined-rejects-external-peer"] = grouped.timeline.bindings.isEmpty
-                        && groupSnapshot[originTarget] == nil && groupSnapshot[zoomTarget] == nil
+                        && groupSnapshot[originTarget] == nil && hasOnlyAuthoredUnitZoom(groupSnapshot, in: grouped)
                         && grouped.descriptor.camera.default2DOriginInputLayerID == nil
                 }
             }
@@ -961,7 +970,8 @@ struct SceneMetalRenderer {
             "setterFailures": try setterFailures(), "setterPeers": try setterPeers(),
             "setterRetirement": try setterRetirement(), "setterNeighbors": try setterNeighbors(),
             "setterCreatorRetirement": try setterCreatorRetirement(),
-            "setterCanonicalSeed": try setterCanonicalSeed()]
+            "setterCanonicalSeed": try setterCanonicalSeed(),
+            "staticCameraBridge": try staticCameraBridge(), "staticCameraTransactions": try staticCameraTransactions()]
         print(String(data: try JSONSerialization.data(withJSONObject: result,
             options: [.sortedKeys]), encoding: .utf8)!)
     }

@@ -14,7 +14,8 @@ nonisolated enum SceneCameraProjection {
         camera: SceneRenderDescriptor.CameraDescriptor,
         viewportSize: CGSize,
         cameraOrigin: SIMD3<Float> = .zero,
-        cameraZoom: Float = 1
+        cameraZoom: Float = 1,
+        staticView: simd_float4x4? = nil
     ) -> simd_float4x4 {
         let orthoWidth = camera.orthoWidth ?? Float(viewportSize.width)
         let orthoHeight = camera.orthoHeight ?? Float(viewportSize.height)
@@ -34,16 +35,14 @@ nonisolated enum SceneCameraProjection {
         // able to move a 2D card to either side of that plane without clipping
         // ordinary text/image geometry. Camera Z translates the same span.
         let authoredDepth = safeOrigin.z + (camera.nearZ + camera.farZ) * 0.5
-        let sceneCenter = SIMD3<Float>(
-            orthoWidth / 2 + safeOrigin.x,
-            orthoHeight / 2 + safeOrigin.y,
-            authoredDepth
-        )
-        let view = SceneMatrix.lookAt(
-            eye: sceneCenter,
-            center: SIMD3(sceneCenter.x, sceneCenter.y, sceneCenter.z - 1),
-            up: SIMD3(0, 1, 0)
-        )
+        // Canvas fitting follows the static view. Rotating the saved editor
+        // viewport around the canvas center would move ordinary world points.
+        let canvasView = SceneMatrix.translation(SIMD3(
+            -orthoWidth / 2 - safeOrigin.x,
+            -orthoHeight / 2 - safeOrigin.y,
+            -authoredDepth
+        ))
+        let view = staticView.map { canvasView * $0 } ?? canvasView
         let halfExtents = coverHalfExtents(
             orthoWidth: orthoWidth,
             orthoHeight: orthoHeight,

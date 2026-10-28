@@ -281,6 +281,149 @@ extension SceneDefault2DCameraInputChecks {
         return facts
     }
 
+    static func staticCameraScene() -> [String: Any] {
+        var scene = setterScene("export function update(v){return v;}")
+        scene["camera"] = ["eye": "80 -60 0", "center": "80 -60 -1", "up": "0 1 0"]
+        scene["objects"] = (scene["objects"] as! [[String: Any]]).filter { ($0["id"] as? Int) != 7 }
+        return scene
+    }
+
+    static func staticCameraBridge() throws -> [String: Bool] {
+        var facts: [String: Bool] = [:]
+        for renamed in [false, true] {
+            let fixture = try Fixture(staticCameraScene(), key: "unusedCameraProperty")
+            let name = renamed ? "anotherView" : "view"
+            let expression = renamed ? "new Vec3(25*4,2-2,0)" : "new Vec3(100,0,0)"
+            let owner = try SceneScriptValueOwner(domain: fixture.domain, source: """
+                export function init(v){
+                    const c=thisScene.getCameraTransforms();
+                    if(c.eye.x!==2||c.eye.y!==2||c.eye.z!==2)throw Error('constructor phase');
+                    thisScene.setCameraTransforms({eye:new Vec3(17,0,0)});
+                    if(thisScene.getCameraTransforms().eye.x!==17)throw Error('init overlay');
+                    return v;
+                }
+                export function update(v){
+                    const \(name)=thisScene.getCameraTransforms();
+                    if(\(name).eye.x!==0||\(name).center.z!==-1)throw Error('published seed');
+                    \(name).eye.x=999;
+                    if(thisScene.getCameraTransforms().eye.x!==0)throw Error('detached copy');
+                    thisScene.setCameraTransforms({eye:\(expression),center:undefined});
+                    thisScene.setCameraTransforms({zoom:0.5});
+                    const actual=thisScene.getCameraTransforms();
+                    if(actual.eye.x!==100||actual.center.z!==-1||actual.up.y!==1||actual.zoom!==0.5)
+                        throw Error('partial readback');
+                    return v;
+                }
+                """, target: .layer(layerID: 8, field: .visibility), valueType: .bool,
+                effectNames: [], allowsStatefulLayerSideEffects: true, generation: 17, budget: .default)
+            func run(_ valueOwner: SceneScriptValueOwner) throws -> SceneScriptValueEvaluation {
+                try valueOwner.evaluate(input: .bool(true), frame: .init(timing: .init(
+                    wallDate: Date(timeIntervalSince1970: 0), simulationFrameTime: 1.0/60, sceneTime: 1)),
+                    scriptPropertiesJSON: "", userPropertiesJSON: "{}", expectedGeneration: 17,
+                    interruptBudget: nil).get()
+            }
+            for call in ["getCameraTransforms()", "setCameraTransforms({zoom:1})"] {
+                var rejected = false
+                do {
+                    _ = try SceneScriptValueOwner(domain: fixture.domain,
+                        source: "thisScene.\(call);export function update(v){return v;}",
+                        target: .layer(layerID:8,field:.visibility), valueType:.bool,
+                        effectNames:[], allowsStatefulLayerSideEffects:true, generation:17, budget:.default)
+                } catch { rejected = true }
+                facts["global-phase-\(call)-\(renamed)"] = rejected
+            }
+            let first = try run(owner), checkpoint = owner.timerFrameSnapshot()
+            let second = try run(owner)
+            owner.restoreTimerFrame(checkpoint); owner.discardTimerFrame(checkpoint)
+            let restored = try SceneScriptCameraCommandBridge.commands(owner: owner.handle).get()
+            facts["partial-copy-phase-and-cursor-\(renamed)"] = first.cameraCommands.map(\.fields.rawValue) == [1,1,8]
+                && first.cameraCommands[0].eye.x == 17 && first.cameraCommands[1].eye.x == 100
+                && first.cameraCommands[2].zoom == 0.5 && second.cameraCommands.count == 2
+                && restored == first.cameraCommands
+            facts["no-published-mirror-leak-\(renamed)"] = try observe(fixture, id: 9,
+                condition: "thisScene.getCameraTransforms().eye.x===0&&thisScene.getCameraTransforms().zoom===1")
+            owner.discardLayerMutations()
+            facts["discard-clears-camera-range-\(renamed)"] = mwx_scene_quickjs_owner_camera_command_count(owner.handle) == 0
+            for (tag, value) in [("nonfinite", "{eye:new Vec3(NaN,0,0)}"),
+                                 ("float-range", "{eye:new Vec3(1e100,0,0)}"),
+                                 ("zoom-zero", "{zoom:0}"), ("wrong-type", "{eye:7}"),
+                                 ("overflow", "{}") ] {
+                let action = tag == "overflow"
+                    ? "for(let i=0;i<65;i++){try{thisScene.setCameraTransforms({zoom:1});}catch(e){}}"
+                    : "thisScene.setCameraTransforms(\(value));"
+                let bad = try SceneScriptValueOwner(domain: fixture.domain,
+                    source: "export function update(v){thisLayer.alpha=0.25;\(action)return v;}",
+                    target: .layer(layerID: 8, field: .visibility), valueType: .bool,
+                    effectNames: [], allowsStatefulLayerSideEffects: true, generation: 17, budget: .default)
+                var rejected = false
+                do { _ = try run(bad) } catch { rejected = true }
+                let unchanged = try observe(fixture, id: 9,
+                    condition: "thisScene.getLayerByID(8).alpha===1&&thisScene.getCameraTransforms().eye.x===0")
+                facts["rejected-bundle-\(tag)-\(renamed)"] = rejected
+                    && mwx_scene_quickjs_owner_camera_command_count(bad.handle) == 0 && unchanged
+            }
+        }
+        return facts
+    }
+
+    static func staticCameraTransactions() throws -> [String: Bool] {
+        let fixture = try Fixture(staticCameraScene(), key: "unusedCameraProperty")
+        let a = SceneDynamicTarget.layer(layerID: 8, field: .origin)
+        let b = SceneDynamicTarget.layer(layerID: 9, field: .alpha)
+        func command(_ x: Double, _ epoch: UInt64, _ ordinal: UInt32 = 0,
+                     fields: SceneScriptCameraCommand.Fields = .eye) -> SceneScriptCameraCommand {
+            .init(fields: fields, eye: .init(x,0,0), center: .init(x,0,-1), up: .init(0,1,0),
+                zoom: x, callbackEpoch: epoch, ordinal: ordinal)
+        }
+        func layer(_ id: Int, _ alpha: Double, owner: SceneDynamicTarget) -> SceneScriptLayerMutation {
+            .init(kind: .upsert, isDynamic: false, fields: .alpha, layerID: id, orderIndex: -1,
+                visible: true, alpha: alpha, origin: .zero, scale: .init(repeating: 1),
+                angles: .zero, color: .init(repeating: 1), pointSize: 32, text: "", font: "",
+                assetPath: nil, ownerTarget: owner)
+        }
+        func effect(_ target: SceneDynamicTarget, _ commands: [SceneScriptCameraCommand],
+                    layers: [SceneScriptLayerMutation] = []) -> SceneScriptOwnerEffects {
+            .init(ownerTarget: target, materialFunctionMutations: [], animationMutations: [],
+                layerMutations: layers, mediaPlaybackCommands: [], cameraCommands: commands)
+        }
+        let first = effect(a, [command(10,10), command(20,20)])
+        let peer = effect(b, [command(30,15), command(5,30,fields:.center), command(0.5,30,1,fields:.zoom)],
+            layers: [layer(9,0.3,owner:b)])
+        let forward = fixture.layers.preflightOwnerEffects([first,peer])
+        let reverse = fixture.layers.preflightOwnerEffects([peer,first])
+        var facts = ["ordered-partials-ignore-effect-array-order":
+            forward.layerPlan.authoredLayerValues == reverse.layerPlan.authoredLayerValues
+                && forward.layerPlan.authoredLayerValues[.camera(.eye)] == .vector3(20,0,0)
+                && forward.layerPlan.authoredLayerValues[.camera(.center)] == .vector3(5,0,-1)
+                && forward.layerPlan.authoredLayerValues[.camera(.zoom)] == .scalar(0.5)]
+        let bad = effect(a, first.cameraCommands, layers: [layer(8,.nan,owner:a)])
+        let isolated = fixture.layers.preflightOwnerEffects([bad,peer])
+        facts["bad-layer-rejects-source-camera-only"] = isolated.rejectedOwners.contains { $0.ownerTarget == a }
+            && isolated.layerPlan.authoredLayerValues[.camera(.eye)] == .vector3(30,0,0)
+            && isolated.layerPlan.authoredLayerValues[.layer(layerID:9,field:.alpha)] == .scalar(0.3)
+        fixture.layers.commit(forward.layerPlan)
+        let fixed = fixture.layers.preflightOwnerEffectsToFixedPoint(
+            [effect(a,[command(80,40)]),effect(b,[],layers:[layer(9,0.4,owner:b)])],
+            rejectingExternally: { _ in [a] })
+        fixture.layers.commit(fixed.admission.layerPlan)
+        facts["external-rejection-retains-previous-current-without-replay"] = fixed.externallyRejectedOwners == [a]
+            && fixture.layers.snapshot().authoredLayerValues[.camera(.eye)] == .vector3(20,0,0)
+            && fixture.layers.preflightOwnerEffects([]).layerPlan.authoredLayerValues[.camera(.eye)] == .vector3(20,0,0)
+        facts["camera-source-has-no-synthetic-layer"] = first.sourceLayerID == nil
+            && first.layerMutations.isEmpty && fixture.descriptor.camera.default2DInputLayerID == nil
+        var native = staticCameraScene(), general = native["general"] as! [String:Any]
+        general["orthogonalprojection"] = NSNull(); native["general"] = general
+        native["camera"] = ["eye":"1 2 6","center":"0 0 0","up":"0 1 0"]
+        let nativeFixture = try Fixture(native,key:"unusedCameraProperty")
+        let (snapshot,_) = try nativeFixture.frame()
+        facts["native-no-api-keeps-authored-camera"] = snapshot[.camera(.eye)]?.value == .vector3(1,2,6)
+            && snapshot[.camera(.center)]?.value == .vector3(0,0,0)
+            && snapshot[.camera(.up)]?.value == .vector3(0,1,0)
+        facts["native-published-getter-keeps-authored-camera"] = try observe(nativeFixture, id:9,
+            condition: "thisScene.getCameraTransforms().eye.x===1&&thisScene.getCameraTransforms().eye.y===2&&thisScene.getCameraTransforms().eye.z===6")
+        return facts
+    }
+
     static func setterCanonicalSeed() throws -> [String: Bool] {
         var scene = setterScene("""
             export function init(v){thisScene.getLayerByID(7).origin=new Vec3(9,8,700);return v;}

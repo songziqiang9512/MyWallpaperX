@@ -149,6 +149,7 @@ nonisolated struct SceneScriptOwnerEffects: Equatable, Sendable {
         [SceneTextureAnimationCommand]
     var puppetBoneMutations: [SceneScriptPuppetBoneMutation]
     var puppetAnimationCommands: [ScenePuppetAnimationCommand]
+    var cameraCommands: [SceneScriptCameraCommand]
     var puppetAnimationCallbackRegistrations: Int
     var particlePlaybackCommands: [SceneScriptParticlePlaybackCommand]
     var layerTopologyOwnerIdentity: UInt64?
@@ -166,9 +167,11 @@ nonisolated struct SceneScriptOwnerEffects: Equatable, Sendable {
         particlePlaybackCommands: [SceneScriptParticlePlaybackCommand] = [],
         puppetAnimationCommands: [ScenePuppetAnimationCommand] = [],
         puppetAnimationCallbackRegistrations: Int = 0,
-        layerTopologyOwnerIdentity: UInt64? = nil
+        layerTopologyOwnerIdentity: UInt64? = nil,
+        cameraCommands: [SceneScriptCameraCommand] = []
     ) {
         self.layerTopologyOwnerIdentity = layerTopologyOwnerIdentity
+        self.cameraCommands = cameraCommands
         self.puppetAnimationCommands = puppetAnimationCommands
         self.puppetAnimationCallbackRegistrations = puppetAnimationCallbackRegistrations
         self.ownerTarget = ownerTarget
@@ -188,7 +191,7 @@ nonisolated struct SceneScriptOwnerEffects: Equatable, Sendable {
             && textureAnimationCommands.isEmpty
             && puppetBoneMutations.isEmpty && particlePlaybackCommands.isEmpty
             && puppetAnimationCommands.isEmpty && puppetAnimationCallbackRegistrations == 0
-            && layerTopologyOwnerIdentity == nil
+            && cameraCommands.isEmpty && layerTopologyOwnerIdentity == nil
     }
 }
 

@@ -8,6 +8,7 @@ nonisolated struct SceneScriptValueEvaluation: Equatable, Sendable {
     let layerTopologyOwnerIdentity: UInt64?
     let materialFunctionMutations: [SceneScriptMaterialFunctionMutation]
     let animationMutations: [SceneTimelinePlaybackMutation]
+    let cameraCommands: [SceneScriptCameraCommand]
     let layerMutations: [SceneScriptLayerMutation]
     let puppetBoneMutations: [SceneScriptPuppetBoneMutation]
     let particlePlaybackCommands: [SceneScriptParticlePlaybackCommand]
@@ -30,9 +31,11 @@ nonisolated struct SceneScriptValueEvaluation: Equatable, Sendable {
         puppetAnimationCommands: [ScenePuppetAnimationCommand] = [],
         puppetAnimationCallbackRegistrations: Int = 0,
         scalarValueFollowsInput: Bool = false,
-        layerTopologyOwnerIdentity: UInt64? = nil
+        layerTopologyOwnerIdentity: UInt64? = nil,
+        cameraCommands: [SceneScriptCameraCommand] = []
     ) {
         self.layerTopologyOwnerIdentity = layerTopologyOwnerIdentity
+        self.cameraCommands = cameraCommands
         self.puppetAnimationCommands = puppetAnimationCommands
         self.puppetAnimationCallbackRegistrations = puppetAnimationCallbackRegistrations
         self.particlePlaybackCommands = particlePlaybackCommands
@@ -214,6 +217,7 @@ nonisolated extension SceneScriptOwnerEffects {
         layerTopologyOwnerIdentity = evaluation.layerTopologyOwnerIdentity ?? layerTopologyOwnerIdentity
         materialFunctionMutations.append(contentsOf: evaluation.materialFunctionMutations)
         animationMutations.append(contentsOf: evaluation.animationMutations)
+        cameraCommands.append(contentsOf: evaluation.cameraCommands)
         layerMutations.append(contentsOf: evaluation.layerMutations)
         mediaPlaybackCommands.append(contentsOf: evaluation.mediaPlaybackCommands)
         textureAnimationCommands.append(contentsOf: evaluation.textureAnimationCommands)
@@ -226,6 +230,7 @@ nonisolated extension SceneScriptOwnerEffects {
     mutating func append(_ mutations: SceneScriptMediaEventMutations) {
         materialFunctionMutations.append(contentsOf: mutations.materialFunctions)
         animationMutations.append(contentsOf: mutations.animations)
+        cameraCommands.append(contentsOf: mutations.cameraCommands)
         layerMutations.append(contentsOf: mutations.layers)
         mediaPlaybackCommands.append(contentsOf: mutations.mediaPlaybackCommands)
         textureAnimationCommands.append(contentsOf: mutations.textureAnimationCommands)

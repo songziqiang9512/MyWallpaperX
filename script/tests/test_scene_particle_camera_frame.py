@@ -30,6 +30,19 @@ HARNESS_SOURCE = (Path(__file__).parent / "fixtures/SceneParticleCameraFrameHarn
 
 
 class SceneParticleCameraFrameTests(unittest.TestCase):
+    def test_static_camera_translation_roundtrip_and_shared_bases(self) -> None:
+        actual = self.result["staticCameraTransforms"]
+        for point, expected in zip(actual["pixels"], [[73, 17], [531, 349]]):
+            for value, reference in zip(point, expected):
+                self.assertAlmostEqual(value, reference, delta=0.001)
+        for point, expected in zip(actual["recovered"], [[173, 117, 0], [631, 449, 0]]):
+            for value, reference in zip(point, expected):
+                self.assertAlmostEqual(value, reference, delta=0.001)
+        self.assertEqual(len(actual["recovered"]), 2)
+        self.assertTrue(all(len(point) == 3 for point in actual["recovered"]))
+        for name, passed in actual["facts"].items():
+            self.assertTrue(passed, (name, actual))
+
     def test_image_card_direction_follows_world_not_projection(self) -> None:
         self.assertGreater(self.result["canvasPerspectiveCardTop"][1], 0)
         self.assertGreater(self.result["canvasOrthoCardTop"][1], 0)

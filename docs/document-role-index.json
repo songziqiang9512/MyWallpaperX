@@ -999,10 +999,10 @@
       "lastReviewed": "2026-10-28",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "3d66665666b03225ff587345d56933dacba3044fe966cee2cb86c914ad590c06",
+        "sourceSHA256": "38e18bf626d85c332c98f16c8da1027ae6723c557c8a219c9a97e88c1eb5b73a",
         "method": "document_registry --audit + document_health --check",
-        "scope": "仅同步普通owner跨层Puppet控制、普通Timeline seek、隐藏可选资源准备与288五定位实际消费者；保独立335合成、reference反例及其余开放项。",
-        "limitations": "288相机265、完整样本/所有动作/官方时序、HDR多屏与性能未验；其他主题未重审。"
+        "scope": "仅同步静态camera DTO/partial经原owner与唯一cameraFrame、288调用/轨迹及末段恢复、355/343/native两深度守界，关闭API首错；保真实失败及采集时间纠正。",
+        "limitations": "init写优先级、288开场同phase、Timeline getter官方读回、path冲突、完整方向/多屏/HDR及性能未闭，其他专题未重审。"
       }
     },
     {
@@ -1125,10 +1125,10 @@
       "lastReviewed": "2026-10-28",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "829a430f043c72fa8bf1b5e68caac26b5dd30518de3d630e8e06ce8bf4bd09b5",
+        "sourceSHA256": "439018348df389acd7802378511faf1470801baf78234465bf8b5a6cb40aaff4",
         "method": "document_registry --audit + document_health --check",
-        "scope": "仅同步普通owner跨层Puppet控制、普通Timeline seek、隐藏可选资源准备与288五定位实际消费者；保独立335合成、reference反例及其余开放项。",
-        "limitations": "288相机265、完整样本/所有动作/官方时序、HDR多屏与性能未验；其他主题未重审。"
+        "scope": "仅同步静态camera DTO/partial经原owner与唯一cameraFrame、288调用/轨迹及末段恢复、355/343/native两深度守界，关闭API首错；保真实失败及采集时间纠正。",
+        "limitations": "init写优先级、288开场同phase、Timeline getter官方读回、path冲突、完整方向/多屏/HDR及性能未闭，其他专题未重审。"
       }
     },
     {
@@ -1249,7 +1249,15 @@
       "role": "reference",
       "entrypoint": "docs/scene/capabilities/README.md",
       "purpose": "专题参考或操作材料；不因登记取得现役计划或产品行为权威。",
-      "commandPolicy": "reference-only"
+      "commandPolicy": "reference-only",
+      "lastReviewed": "2026-10-28",
+      "reviewBasis": {
+        "kind": "navigation-audit",
+        "sourceSHA256": "4e2f4fe74a40300855f3e3ea7c74ee42b9644960e3ec333a5a91c64787c74bae",
+        "method": "document_registry --audit + document_health --check",
+        "scope": "仅纠正CameraTransforms行把static base DTO误作当前working/view/projection快照；对齐公开字段及现役静态相机合同。",
+        "limitations": "未重审其他官方页面映射，也不证明完整2D/3D时序parity。"
+      }
     },
     {
       "path": "docs/scene/development/reference/scenescript-binding-target-forensics.md",
@@ -1291,10 +1299,10 @@
       "lastReviewed": "2026-10-28",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "d61156e42ca934766a9723d17581f68ab23fa273912601811110cbd1d2120c2e",
+        "sourceSHA256": "53b54547235cb39de011695881040cbfaa2883da4816d858ef193a8002a3645e",
         "method": "document_registry --audit + document_health --check",
-        "scope": "仅同步普通owner跨层Puppet控制、普通Timeline seek、隐藏可选资源准备与288五定位实际消费者；保独立335合成、reference反例及其余开放项。",
-        "limitations": "288相机265、完整样本/所有动作/官方时序、HDR多屏与性能未验；其他主题未重审。"
+        "scope": "仅同步静态camera DTO/partial经原owner与唯一cameraFrame、288调用/轨迹及末段恢复、355/343/native两深度守界，关闭API首错；保真实失败及采集时间纠正。",
+        "limitations": "init写优先级、288开场同phase、Timeline getter官方读回、path冲突、完整方向/多屏/HDR及性能未闭，其他专题未重审。"
       }
     },
     {
@@ -2465,10 +2473,10 @@
       "lastReviewed": "2026-10-28",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "94d88366c5c8cc1004cdb3de0fb9241e972fd7c99b8ea5e5ece6f2ffc1e80ee9",
+        "sourceSHA256": "e1822131cec235d0e18184e75fb982a1c1279cdcd942ee90e750b98fa47036cc",
         "method": "document_registry --audit + document_health --check",
-        "scope": "仅同步普通owner跨层Puppet控制、普通Timeline seek、隐藏可选资源准备与288五定位实际消费者；保独立335合成、reference反例及其余开放项。",
-        "limitations": "288相机265、完整样本/所有动作/官方时序、HDR多屏与性能未验；其他主题未重审。"
+        "scope": "仅同步静态camera DTO/partial经原owner与唯一cameraFrame、288调用/轨迹及末段恢复、355/343/native两深度守界，关闭API首错；保真实失败及采集时间纠正。",
+        "limitations": "init写优先级、288开场同phase、Timeline getter官方读回、path冲突、完整方向/多屏/HDR及性能未闭，其他专题未重审。"
       }
     },
     {
@@ -4301,10 +4309,10 @@
       "lastReviewed": "2026-10-28",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "f3163ceca77f099266e1e98ac5928a776933389823df844880a2a25da33cf2bb",
+        "sourceSHA256": "d18c1976afbf5887a8a307acae330c7f1b5480d4e2d8d0eebba57db1c29cd7a9",
         "method": "document_registry --audit + document_health --check",
-        "scope": "仅同步普通owner跨层Puppet控制、普通Timeline seek、隐藏可选资源准备与288五定位实际消费者；保独立335合成、reference反例及其余开放项。",
-        "limitations": "288相机265、完整样本/所有动作/官方时序、HDR多屏与性能未验；其他主题未重审。"
+        "scope": "仅同步静态camera DTO/partial经原owner与唯一cameraFrame、288调用/轨迹及末段恢复、355/343/native两深度守界，关闭API首错；保真实失败及采集时间纠正。",
+        "limitations": "init写优先级、288开场同phase、Timeline getter官方读回、path冲突、完整方向/多屏/HDR及性能未闭，其他专题未重审。"
       }
     },
     {
@@ -4399,10 +4407,10 @@
       "lastReviewed": "2026-10-28",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "8b9896bcf3f3325eefb2ffc1f9f19624e321fc13d73827d80a7fff78509c7dc9",
+        "sourceSHA256": "9334daba5ea468f69ea7004aff0fdf83b4b09c773d619931697acf79ac01780b",
         "method": "document_registry --audit + document_health --check",
-        "scope": "仅同步普通owner跨层Puppet控制、普通Timeline seek、隐藏可选资源准备与288五定位实际消费者；保独立335合成、reference反例及其余开放项。",
-        "limitations": "288相机265、完整样本/所有动作/官方时序、HDR多屏与性能未验；其他主题未重审。"
+        "scope": "仅同步静态camera DTO/partial经原owner与唯一cameraFrame、288调用/轨迹及末段恢复、355/343/native两深度守界，关闭API首错；保真实失败及采集时间纠正。",
+        "limitations": "init写优先级、288开场同phase、Timeline getter官方读回、path冲突、完整方向/多屏/HDR及性能未闭，其他专题未重审。"
       }
     },
     {

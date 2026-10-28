@@ -60,6 +60,7 @@ nonisolated struct SceneParticleCameraFrame: Sendable {
     let cameraUp: SIMD3<Float>
     let cameraForward: SIMD3<Float>
     let cameraOrigin: SIMD3<Float>
+    private let orthographicViewBasis: SceneParticleOrientationBasis
     let perspectiveEyePosition: SIMD3<Float>
     let defaultsToPerspective: Bool
     // Shares the immutable frame value payload; no per-camera dictionary copy.
@@ -73,18 +74,48 @@ nonisolated struct SceneParticleCameraFrame: Sendable {
         viewportSize: CGSize,
         cameraOrigin: SIMD3<Float> = .zero,
         cameraZoom: Float = 1,
+        staticEye: SIMD3<Float>? = nil,
+        staticCenter: SIMD3<Float>? = nil,
+        staticUp: SIMD3<Float>? = nil,
         nativePerspectiveOverride: NativePerspectiveOverride? = nil,
         dynamicValues: SceneDynamicSnapshot? = nil
     ) {
         self.dynamicValues = dynamicValues
         let safeOrigin = cameraOrigin.x.isFinite && cameraOrigin.y.isFinite
             && cameraOrigin.z.isFinite ? cameraOrigin : .zero
-        self.cameraOrigin = safeOrigin
+        let isCanvas = camera.orthoWidth != nil || camera.orthoHeight != nil
+        let baseEye = staticEye ?? .zero
+        let baseCenter = staticCenter ?? SIMD3(0, 0, -1)
+        let baseUp = staticUp ?? SIMD3(0, 1, 0)
+        let staticView: simd_float4x4?
+        if isCanvas && (baseEye != .zero || baseCenter != SIMD3(0, 0, -1)
+            || baseUp != SIMD3(0, 1, 0)) {
+            let forward = Self.normalized(baseCenter - baseEye, fallback: .zero)
+            let right = Self.normalized(simd_cross(forward, baseUp), fallback: .zero)
+            staticView = simd_length_squared(forward) > 0 && simd_length_squared(right) > 0
+                ? SceneMatrix.lookAt(eye: baseEye, center: baseCenter, up: baseUp) : nil
+        } else { staticView = nil }
+        let staticWorld = staticView.map(simd_inverse)
+        if let staticView, let staticWorld {
+            let canvasCenter = SIMD3<Float>(
+                (camera.orthoWidth ?? Float(viewportSize.width)) * 0.5,
+                (camera.orthoHeight ?? Float(viewportSize.height)) * 0.5, 0)
+            let worldCenter = staticWorld * SIMD4(canvasCenter + safeOrigin, 1)
+            self.cameraOrigin = SIMD3(worldCenter.x, worldCenter.y, worldCenter.z) - canvasCenter
+            orthographicViewBasis = SceneParticleOrientationBasis(
+                right: SIMD3(staticView.columns.0.x, staticView.columns.1.x, staticView.columns.2.x),
+                up: -SIMD3(staticView.columns.0.y, staticView.columns.1.y, staticView.columns.2.y))
+        } else {
+            self.cameraOrigin = safeOrigin
+            orthographicViewBasis = SceneParticleOrientationBasis(
+                right: SIMD3(1, 0, 0), up: SIMD3(0, -1, 0))
+        }
         orthographicViewProjection = SceneCameraProjection.viewProjection(
             camera: camera,
             viewportSize: viewportSize,
             cameraOrigin: safeOrigin,
-            cameraZoom: cameraZoom
+            cameraZoom: cameraZoom,
+            staticView: staticView
         )
         reverseDepthOrthographicViewProjection = SceneMatrix.reversingDepth(
             orthographicViewProjection
@@ -94,7 +125,8 @@ nonisolated struct SceneParticleCameraFrame: Sendable {
         if hasValidViewport,
            let native = Self.nativePerspectiveCamera(
                camera,
-               override: nativePerspectiveOverride
+               override: nativePerspectiveOverride,
+               staticEye: staticEye, staticCenter: staticCenter, staticUp: staticUp
            ) {
             let origin = safeOrigin
             let eye = native.eye + origin
@@ -186,17 +218,10 @@ nonisolated struct SceneParticleCameraFrame: Sendable {
             ? safeOrigin.z
             : fittedEyeDistance ?? Self.perspectiveEyeDistance
         let eye = sceneCenter + SIMD3<Float>(0, 0, eyeDistance)
-        perspectiveEyePosition = eye
-        cameraForward = Self.normalized(sceneCenter - eye, fallback: SIMD3(0, 0, -1))
-        cameraRight = Self.normalized(
-            simd_cross(cameraForward, SIMD3(0, 1, 0)),
-            fallback: SIMD3(1, 0, 0)
-        )
-        cameraUp = Self.normalized(
-            simd_cross(cameraRight, cameraForward),
-            fallback: SIMD3(0, 1, 0)
-        )
-
+        if let staticWorld {
+            let worldEye = staticWorld * SIMD4(eye, 1)
+            perspectiveEyePosition = SIMD3(worldEye.x, worldEye.y, worldEye.z)
+        } else { perspectiveEyePosition = eye }
         let visibleHeight = fittedHalfExtents.y * 2
         let fovY = usesFittedAuthoredFOV
             ? authoredFOV!
@@ -211,7 +236,11 @@ nonisolated struct SceneParticleCameraFrame: Sendable {
             camera.farZ + (usesFittedAuthoredFOV ? eyeDistance : 0),
             nearZ + 0.001
         )
-        let view = SceneMatrix.lookAt(eye: eye, center: sceneCenter, up: cameraUp)
+        let canvasView = SceneMatrix.lookAt(eye: eye, center: sceneCenter, up: SIMD3(0, 1, 0))
+        let view = staticView.map { canvasView * $0 } ?? canvasView
+        cameraRight = SIMD3(view.columns.0.x, view.columns.1.x, view.columns.2.x)
+        cameraUp = SIMD3(view.columns.0.y, view.columns.1.y, view.columns.2.y)
+        cameraForward = -SIMD3(view.columns.0.z, view.columns.1.z, view.columns.2.z)
         let projection = SceneMatrix.perspectiveRHMetal(
             fovYRadians: fovY,
             aspect: aspect,
@@ -244,7 +273,8 @@ nonisolated struct SceneParticleCameraFrame: Sendable {
     /// xyz is an eye (w=1) or the parallel toward-viewer direction (w=0).
     /// Orthographic layers keep the canvas view, even in a native camera scene.
     func materialView(usesPerspective: Bool) -> SIMD4<Float> {
-        usesPerspective ? SIMD4(perspectiveEyePosition, 1) : SIMD4(0, 0, 1, 0)
+        usesPerspective ? SIMD4(perspectiveEyePosition, 1)
+            : SIMD4(-simd_cross(orthographicViewBasis.right, orthographicViewBasis.up), 0)
     }
 
     func viewProjection(usesPerspective: Bool) -> simd_float4x4 {
@@ -322,7 +352,7 @@ nonisolated struct SceneParticleCameraFrame: Sendable {
         // independently of the particle's authored geometry orientation.
         let viewBasis = selectedPerspective
             ? basis(for: .screen, nativeSpriteCoordinates: nativeCoordinates)
-            : SceneParticleOrientationBasis(right: SIMD3(1, 0, 0), up: SIMD3(0, -1, 0))
+            : orthographicViewBasis
         return SceneParticleLayerUniforms(
             viewProjection: viewProjection(usesPerspective: selectedPerspective),
             layerModel: model,
@@ -466,7 +496,10 @@ nonisolated struct SceneParticleCameraFrame: Sendable {
 
     private static func nativePerspectiveCamera(
         _ camera: SceneRenderDescriptor.CameraDescriptor,
-        override: NativePerspectiveOverride?
+        override: NativePerspectiveOverride?,
+        staticEye: SIMD3<Float>? = nil,
+        staticCenter: SIMD3<Float>? = nil,
+        staticUp: SIMD3<Float>? = nil
     ) -> NativePerspectiveCamera? {
         guard acceptsNativePerspectiveProjection(camera: camera) else {
             return nil
@@ -484,9 +517,9 @@ nonisolated struct SceneParticleCameraFrame: Sendable {
             guard let fallbackEye = vector3(camera.eye),
                   let fallbackCenter = vector3(camera.center),
                   let fallbackUp = vector3(camera.up) else { return nil }
-            eye = fallbackEye
-            center = fallbackCenter
-            authoredUp = fallbackUp
+            eye = staticEye ?? fallbackEye
+            center = staticCenter ?? fallbackCenter
+            authoredUp = staticUp ?? fallbackUp
             fovDegrees = camera.fovDegrees
         }
         guard let fovY = authoredFOVRadians(fovDegrees) else { return nil }

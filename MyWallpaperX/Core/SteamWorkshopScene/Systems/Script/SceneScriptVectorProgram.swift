@@ -462,6 +462,7 @@ nonisolated final class SceneScriptVectorProgram: @unchecked Sendable {
             }
             var callbackMaterialMutations: [SceneScriptMaterialFunctionMutation] = []
             var callbackAnimationMutations: [SceneTimelinePlaybackMutation] = []
+            var callbackCameraCommands: [SceneScriptCameraCommand] = []
             var callbackLayerMutations: [SceneScriptLayerMutation] = []
             var initializationLayerMutations: [SceneScriptLayerMutation] = []
             var callbackParticlePlaybackCommands: [SceneScriptParticlePlaybackCommand] = []
@@ -506,6 +507,7 @@ nonisolated final class SceneScriptVectorProgram: @unchecked Sendable {
                         )
                         callbackParticlePlaybackCommands.append(contentsOf: initialization.particlePlaybackCommands)
                         callbackPuppetAnimationCommands.append(contentsOf: initialization.puppetAnimationCommands)
+                        callbackCameraCommands.append(contentsOf: initialization.cameraCommands)
                         callbackPuppetAnimationCallbackRegistrations += initialization.puppetAnimationCallbackRegistrations
                     }
                 case let .failure(failure):
@@ -543,6 +545,7 @@ nonisolated final class SceneScriptVectorProgram: @unchecked Sendable {
                     )
                     callbackParticlePlaybackCommands.append(contentsOf: eventMutations.particlePlaybackCommands)
                     callbackPuppetAnimationCommands.append(contentsOf: eventMutations.puppetAnimationCommands)
+                    callbackCameraCommands.append(contentsOf: eventMutations.cameraCommands)
                     callbackPuppetAnimationCallbackRegistrations += eventMutations.puppetAnimationCallbackRegistrations
                 case let .failure(failure):
                     failures[target] = failure
@@ -588,6 +591,7 @@ nonisolated final class SceneScriptVectorProgram: @unchecked Sendable {
                     )
                     callbackParticlePlaybackCommands.append(contentsOf: eventMutations.particlePlaybackCommands)
                     callbackPuppetAnimationCommands.append(contentsOf: eventMutations.puppetAnimationCommands)
+                    callbackCameraCommands.append(contentsOf: eventMutations.cameraCommands)
                     callbackPuppetAnimationCallbackRegistrations += eventMutations.puppetAnimationCallbackRegistrations
                 case let .failure(failure):
                     failures[target] = failure
@@ -622,6 +626,7 @@ nonisolated final class SceneScriptVectorProgram: @unchecked Sendable {
                     )
                     callbackParticlePlaybackCommands.append(contentsOf: eventMutations.particlePlaybackCommands)
                     callbackPuppetAnimationCommands.append(contentsOf: eventMutations.puppetAnimationCommands)
+                    callbackCameraCommands.append(contentsOf: eventMutations.cameraCommands)
                     callbackPuppetAnimationCallbackRegistrations += eventMutations.puppetAnimationCallbackRegistrations
                 case let .failure(failure):
                     failures[target] = failure
@@ -657,6 +662,7 @@ nonisolated final class SceneScriptVectorProgram: @unchecked Sendable {
                     )
                     callbackParticlePlaybackCommands.append(contentsOf: eventMutations.particlePlaybackCommands)
                     callbackPuppetAnimationCommands.append(contentsOf: eventMutations.puppetAnimationCommands)
+                    callbackCameraCommands.append(contentsOf: eventMutations.cameraCommands)
                     callbackPuppetAnimationCallbackRegistrations += eventMutations.puppetAnimationCallbackRegistrations
                 case let .failure(failure):
                     failures[target] = failure
@@ -690,6 +696,7 @@ nonisolated final class SceneScriptVectorProgram: @unchecked Sendable {
                     )
                     callbackParticlePlaybackCommands.append(contentsOf: eventMutations.particlePlaybackCommands)
                     callbackPuppetAnimationCommands.append(contentsOf: eventMutations.puppetAnimationCommands)
+                    callbackCameraCommands.append(contentsOf: eventMutations.cameraCommands)
                     callbackPuppetAnimationCallbackRegistrations += eventMutations.puppetAnimationCallbackRegistrations
                 case let .failure(failure):
                     failures[target] = failure
@@ -778,6 +785,7 @@ nonisolated final class SceneScriptVectorProgram: @unchecked Sendable {
                 )
                 callbackParticlePlaybackCommands.append(contentsOf: evaluation.particlePlaybackCommands)
                 callbackPuppetAnimationCommands.append(contentsOf: evaluation.puppetAnimationCommands)
+                callbackCameraCommands.append(contentsOf: evaluation.cameraCommands)
                 callbackPuppetAnimationCallbackRegistrations += evaluation.puppetAnimationCallbackRegistrations
                 let effects = SceneScriptOwnerEffects(
                     ownerTarget: target,
@@ -792,7 +800,8 @@ nonisolated final class SceneScriptVectorProgram: @unchecked Sendable {
                     particlePlaybackCommands: callbackParticlePlaybackCommands,
                     puppetAnimationCommands: callbackPuppetAnimationCommands,
                     puppetAnimationCallbackRegistrations: callbackPuppetAnimationCallbackRegistrations,
-                    layerTopologyOwnerIdentity: binding.owner.pendingLayerTopologyIdentity
+                    layerTopologyOwnerIdentity: binding.owner.pendingLayerTopologyIdentity,
+                    cameraCommands: callbackCameraCommands
                 )
                 if !effects.isEmpty { ownerEffects.append(effects) }
                 values[target] = value

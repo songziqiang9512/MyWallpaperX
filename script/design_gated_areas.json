@@ -1612,6 +1612,42 @@
       ],
       "title": "Prepared cross-layer animation controls and Timeline seeking",
       "contentPatterns": []
+    },
+    {
+      "id": "scene-static-camera-transforms",
+      "title": "Static camera DTO to shared camera frame",
+      "owner": "Scene script and camera frame owners",
+      "status": "approved",
+      "designDoc": "docs/scene/roadmap/batch2/script-component-api-design.md",
+      "design_notes": "见static-camera-transforms：原SceneHost journal→OwnerEffects→同DynamicLayerRuntime plan/dictionary→typed snapshot→唯一CameraFrame；不造相机层身份、Runtime或clock。只把最终camera四字段交本帧resolver，保原path/default和其他setter时序；bootstrap沿原初始化阶段，未知官方init写/方向/path冲突不预支parity。",
+      "matchPatterns": [
+        "MyWallpaperX/Core/SteamWorkshopScene/Systems/Script/SceneQuickJSLayerSceneHost.c",
+        "MyWallpaperX/Core/SteamWorkshopScene/Systems/Script/SceneQuickJSInternal.h",
+        "MyWallpaperX/Core/SteamWorkshopScene/Systems/Script/SceneQuickJS.h",
+        "MyWallpaperX/Core/SteamWorkshopScene/Systems/Script/SceneQuickJSHostTypes.h",
+        "MyWallpaperX/Core/SteamWorkshopScene/Systems/Script/SceneQuickJS.c",
+        "MyWallpaperX/Core/SteamWorkshopScene/Systems/Script/SceneQuickJSLayerJournalHost.c",
+        "MyWallpaperX/Core/SteamWorkshopScene/Systems/Script/SceneQuickJSTimerHost.c",
+        "MyWallpaperX/Core/SteamWorkshopScene/Systems/Script/SceneQuickJSLayerSnapshotHost.c",
+        "MyWallpaperX/Core/SteamWorkshopScene/Systems/Script/SceneScriptLayerHandleBridge.swift",
+        "MyWallpaperX/Core/SteamWorkshopScene/Systems/Script/SceneScriptLayerRuntimeDescriptorBridge.swift",
+        "MyWallpaperX/Core/SteamWorkshopScene/Systems/Script/SceneScriptDynamicLayerRuntime.swift",
+        "MyWallpaperX/Core/SteamWorkshopScene/Systems/Script/SceneScriptDynamicLayerRuntime+Values.swift",
+        "MyWallpaperX/Core/SteamWorkshopScene/Systems/Script/SceneScriptLayerTopologyModels.swift",
+        "MyWallpaperX/Core/SteamWorkshopScene/Systems/Script/SceneScriptVectorCandidateModels.swift",
+        "MyWallpaperX/Core/SteamWorkshopScene/Systems/Script/SceneScriptMediaEventBridge.swift",
+        "MyWallpaperX/Core/SteamWorkshopScene/Systems/Script/SceneScriptValueRuntime.swift",
+        "MyWallpaperX/Core/SteamWorkshopScene/Systems/Script/SceneScriptVectorProgram.swift",
+        "MyWallpaperX/Core/SteamWorkshopScene/Systems/Script/SceneScriptCursorProgram.swift",
+        "MyWallpaperX/Core/SteamWorkshopScene/Systems/Properties/SceneDynamicSnapshot.swift",
+        "MyWallpaperX/Core/SteamWorkshopScene/Systems/Properties/SceneDynamicSnapshot+Camera.swift",
+        "MyWallpaperX/Core/SteamWorkshopScene/Systems/Input/SceneCameraProjection.swift",
+        "MyWallpaperX/Core/SteamWorkshopScene/Systems/Particles/SceneParticleCameraFrame.swift",
+        "MyWallpaperX/Core/SteamWorkshopScene/Runtime/Session/SceneDesktopWallpaperSession+FrameDriver.swift",
+        "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Frame/SceneMetalRenderer+Camera.swift",
+        "MyWallpaperX/Core/SteamWorkshopScene/Runtime/Session/SceneDesktopWallpaperHost+LiveConsumers.swift"
+      ],
+      "contentPatterns": []
     }
   ]
 }

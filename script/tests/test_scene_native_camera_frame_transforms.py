@@ -85,6 +85,20 @@ class SceneNativeCameraFrameTransformTests(unittest.TestCase):
             with self.subTest(case=name):
                 self.assertTrue(passed, self.report["controls"])
 
+    def test_static_camera_typed_inputs_reach_shared_view_and_roundtrip(self) -> None:
+        actual = self.report["staticCamera"]
+        self.assertEqual(len(actual["pixels"]), 2)
+        for point, expected in zip(actual["pixels"], [[37, 19], [603, 363]]):
+            for value, reference in zip(point, expected):
+                self.assertAlmostEqual(value, reference, delta=0.001)
+        self.assertEqual(len(actual["recovered"]), 2)
+        for point, expected in zip(actual["recovered"], [[137, 119, 0], [703, 463, 0]]):
+            self.assertEqual(len(point), 3)
+            for value, reference in zip(point, expected):
+                self.assertAlmostEqual(value, reference, delta=0.001)
+        for name, passed in actual["facts"].items():
+            self.assertTrue(passed, (name, actual))
+
 
 if __name__ == "__main__":
     unittest.main()

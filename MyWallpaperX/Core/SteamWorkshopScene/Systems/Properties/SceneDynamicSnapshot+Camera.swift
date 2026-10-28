@@ -3,6 +3,18 @@ import simd
 nonisolated struct SceneDynamicCameraTransform: Equatable, Sendable {
     let origin: SIMD3<Float>
     let zoom: Float
+    let eye: SIMD3<Float>?
+    let center: SIMD3<Float>?
+    let up: SIMD3<Float>?
+
+    init(origin: SIMD3<Float>, zoom: Float, eye: SIMD3<Float>? = nil,
+         center: SIMD3<Float>? = nil, up: SIMD3<Float>? = nil) {
+        self.origin = origin
+        self.zoom = zoom
+        self.eye = eye
+        self.center = center
+        self.up = up
+    }
 
     nonisolated static let identity = SceneDynamicCameraTransform(origin: .zero, zoom: 1)
 }
@@ -37,7 +49,8 @@ extension SceneDynamicSnapshot {
             let result = Float(value)
             return result.isFinite && result > 0 ? result : 1
         }()
-        return SceneDynamicCameraTransform(origin: origin, zoom: zoom)
+        return SceneDynamicCameraTransform(origin: origin, zoom: zoom,
+            eye: cameraVector(.eye), center: cameraVector(.center), up: cameraVector(.up))
     }
 
     nonisolated func cameraPropertyProjection()
@@ -60,6 +73,12 @@ extension SceneDynamicSnapshot {
         guard let resolved = self[.camera(field)],
               case let .bool(value) = resolved.value else { return nil }
         return value
+    }
+
+    private nonisolated func cameraVector(_ field: SceneDynamicCameraField) -> SIMD3<Float>? {
+        guard let resolved = self[.camera(field)],
+              case let .vector3(x, y, z) = resolved.value else { return nil }
+        return SIMD3(Float(x), Float(y), Float(z))
     }
 
     private nonisolated func cameraScalar(

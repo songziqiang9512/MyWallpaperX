@@ -779,6 +779,113 @@ static JSValue destroy_layer(
     return JS_NewBool(context, true);
 }
 
+static JSValue get_camera_transforms(
+    JSContext *context, JSValueConst this_value, int argc,
+    JSValueConst *argv, int magic, void *opaque
+) {
+    (void)this_value; (void)argv; (void)magic;
+    MWXSceneQuickJSOwner *owner = mwx_scene_quickjs_bound_handle_owner(context, opaque, false);
+    if (!mwx_scene_quickjs_layer_callback_owns(owner) || argc != 0)
+        return JS_ThrowTypeError(context, "getCameraTransforms unavailable");
+    MWXSceneQuickJSCameraCommand value = owner->domain->camera_transforms;
+    if (!mwx_scene_quickjs_owner_is_initialized(owner))
+        value = (MWXSceneQuickJSCameraCommand){.eye = {2, 2, 2}, .up = {0, 1, 0}, .zoom = 1};
+    for (size_t i = 0; i < owner->camera_command_count; ++i) {
+        const MWXSceneQuickJSCameraCommand *command = &owner->camera_commands[i];
+        if (command->callback_epoch != owner->domain->callback_epoch) continue;
+        if (command->mask & 1) memcpy(value.eye, command->eye, sizeof(value.eye));
+        if (command->mask & 2) memcpy(value.center, command->center, sizeof(value.center));
+        if (command->mask & 4) memcpy(value.up, command->up, sizeof(value.up));
+        if (command->mask & 8) value.zoom = command->zoom;
+    }
+    JSValue result = JS_NewObject(context);
+    if (JS_IsException(result)) return result;
+    const char *keys[] = {"eye", "center", "up"};
+    const double *vectors[] = {value.eye, value.center, value.up};
+    for (size_t i = 0; i < 3; ++i) {
+        JSValue vector = mwx_scene_quickjs_layer_make_vec3(context, owner->domain, vectors[i]);
+        if (JS_IsException(vector) || JS_SetPropertyStr(context, result, keys[i], vector) < 0) {
+            JS_FreeValue(context, result); return JS_EXCEPTION;
+        }
+    }
+    if (JS_SetPropertyStr(context, result, "zoom", JS_NewFloat64(context, value.zoom)) < 0) {
+        JS_FreeValue(context, result); return JS_EXCEPTION;
+    }
+    return result;
+}
+
+static JSValue set_camera_transforms(
+    JSContext *context, JSValueConst this_value, int argc,
+    JSValueConst *argv, int magic, void *opaque
+) {
+    (void)this_value; (void)magic;
+    MWXSceneQuickJSOwner *owner = mwx_scene_quickjs_bound_handle_owner(context, opaque, false);
+    if (!mwx_scene_quickjs_layer_callback_owns(owner) || owner->value_only ||
+        owner->domain->value_only_guard_active || argc != 1 || !JS_IsObject(argv[0]))
+        return JS_ThrowTypeError(context, "setCameraTransforms expects a camera record");
+    MWXSceneQuickJSCameraCommand command = {0};
+    const char *keys[] = {"eye", "center", "up"};
+    double *vectors[] = {command.eye, command.center, command.up};
+    for (size_t i = 0; i < 3; ++i) {
+        JSValue value = JS_GetPropertyStr(context, argv[0], keys[i]);
+        if (JS_IsException(value)) return JS_EXCEPTION;
+        if (!JS_IsUndefined(value)) {
+            bool valid = JS_IsObject(value) &&
+                mwx_scene_quickjs_read_vector(context, value, vectors[i], 3, false);
+            JS_FreeValue(context, value);
+            if (!valid) return JS_HasException(context) ? JS_EXCEPTION
+                : JS_ThrowTypeError(context, "camera vectors must be finite Vec3 values");
+            command.mask |= 1u << i;
+        } else JS_FreeValue(context, value);
+    }
+    JSValue zoom = JS_GetPropertyStr(context, argv[0], "zoom");
+    if (JS_IsException(zoom)) return JS_EXCEPTION;
+    if (!JS_IsUndefined(zoom)) {
+        bool valid = JS_IsNumber(zoom) && JS_ToFloat64(context, &command.zoom, zoom) == 0
+            && isfinite(command.zoom);
+        JS_FreeValue(context, zoom);
+        if (!valid) return JS_HasException(context) ? JS_EXCEPTION
+            : JS_ThrowTypeError(context, "camera zoom must be finite");
+        command.mask |= 8;
+    } else JS_FreeValue(context, zoom);
+    if (command.mask == 0) return JS_UNDEFINED;
+    if (owner->camera_command_count == MWX_SCENE_QUICKJS_MAX_CAMERA_COMMANDS) {
+        owner->camera_command_overflow = true;
+        return JS_ThrowRangeError(context, "camera command budget exceeded");
+    }
+    if (owner->camera_command_count == owner->camera_command_capacity) {
+        size_t capacity = owner->camera_command_capacity ? owner->camera_command_capacity * 2 : 4;
+        void *commands = js_realloc(context, owner->camera_commands, capacity * sizeof(command));
+        if (commands == NULL) return JS_EXCEPTION;
+        owner->camera_commands = commands;
+        owner->camera_command_capacity = capacity;
+    }
+    command.callback_epoch = owner->domain->callback_epoch;
+    command.ordinal = (uint32_t)(owner->camera_command_count - owner->camera_command_read_start);
+    owner->camera_commands[owner->camera_command_count++] = command;
+    return JS_UNDEFINED;
+}
+
+size_t mwx_scene_quickjs_owner_camera_command_count(const MWXSceneQuickJSOwner *owner) {
+    return owner == NULL ? 0 : owner->camera_command_overflow ?
+        MWX_SCENE_QUICKJS_MAX_CAMERA_COMMANDS + 1 :
+        owner->camera_command_count - owner->camera_command_read_start;
+}
+
+MWXSceneQuickJSResult mwx_scene_quickjs_owner_camera_command_at(
+    const MWXSceneQuickJSOwner *owner, size_t index, MWXSceneQuickJSCameraCommand *command,
+    char *diagnostic, size_t diagnostic_capacity
+) {
+    if (owner == NULL || command == NULL || index >=
+        owner->camera_command_count - owner->camera_command_read_start) {
+        mwx_scene_quickjs_write_diagnostic(diagnostic, diagnostic_capacity, "invalid camera command index");
+        return MWX_SCENE_QUICKJS_INVALID_ARGUMENT;
+    }
+    if (owner->camera_command_overflow) return MWX_SCENE_QUICKJS_MUTATION_OVERFLOW;
+    *command = owner->camera_commands[owner->camera_command_read_start + index];
+    return MWX_SCENE_QUICKJS_OK;
+}
+
 bool mwx_scene_quickjs_install_scene_layer_handle(MWXSceneQuickJSOwner *owner) {
     JSContext *context = owner->domain->context;
     JSValue scene = JS_NewObject(context);
@@ -790,6 +897,8 @@ bool mwx_scene_quickjs_install_scene_layer_handle(MWXSceneQuickJSOwner *owner) {
         {"enumerateLayers", enumerate_layers, 0}, {"createLayer", create_layer, 1},
         {"destroyLayer", destroy_layer, 1}, {"sortLayer", sort_layer, 2},
         {"getLayerIndex", get_layer_index, 1},
+        {"getCameraTransforms", get_camera_transforms, 0},
+        {"setCameraTransforms", set_camera_transforms, 1},
     };
     for (size_t index = 0; index < sizeof(functions) / sizeof(functions[0]); ++index) {
         JSValue function;

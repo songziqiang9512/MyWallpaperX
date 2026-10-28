@@ -155,7 +155,7 @@ extension SceneDesktopWallpaperHost {
                 case .zoom:
                     return hasOrthographicCamera && descriptor.camera.default2DInputLayerID != nil
                         ? instruction.target : nil
-                case .origin:
+                case .origin, .eye, .center, .up:
                     return nil
                 }
             }

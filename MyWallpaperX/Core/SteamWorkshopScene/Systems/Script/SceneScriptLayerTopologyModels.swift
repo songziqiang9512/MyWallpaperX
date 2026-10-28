@@ -55,6 +55,14 @@ nonisolated struct SceneScriptLayerMutationPlan: Sendable {
     var textTemplateIdentitiesByLayerID: [Int: UInt64] = [:]
     var retiredDynamicLayerIDs: Set<Int> = []
     var createdPreparedTextValues: [SceneDynamicTarget: SceneDynamicValue] = [:]
+
+    /// Camera setters join this frame without advancing ordinary layer setters.
+    func overlayCameraValues(into values: inout [SceneDynamicTarget: SceneDynamicValue]) {
+        for field in SceneDynamicCameraField.staticTransformFields {
+            let target = SceneDynamicTarget.camera(field)
+            if let value = authoredLayerValues[target] { values[target] = value }
+        }
+    }
 }
 
 nonisolated struct SceneScriptOwnerEffectsAdmission: Sendable {

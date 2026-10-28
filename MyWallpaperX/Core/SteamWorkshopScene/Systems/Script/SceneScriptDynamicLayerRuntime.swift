@@ -72,9 +72,10 @@ nonisolated final class SceneScriptDynamicLayerRuntime: @unchecked Sendable {
             guard let cameraLayerID = descriptor.camera.default2DOriginInputLayerID else { return definitions }
             return definitions.filter { $0.target != .layer(layerID: cameraLayerID, field: .origin) }
         }
-        authoredDefinitionOrder = initialDefinitions.map(\.target)
+        let definitions = initialDefinitions + Self.staticCameraDefinitions(for: descriptor.camera)
+        authoredDefinitionOrder = definitions.map(\.target)
         authoredDefinitionsByTarget = Dictionary(
-            uniqueKeysWithValues: initialDefinitions.map { ($0.target, $0) }
+            uniqueKeysWithValues: definitions.map { ($0.target, $0) }
         )
     }
 
@@ -659,12 +660,14 @@ nonisolated final class SceneScriptDynamicLayerRuntime: @unchecked Sendable {
         var admitted = effects
         var rejected: [SceneScriptLayerMutationOwnerFailure] = []
         var rejectedTargets = Set<SceneDynamicTarget>()
-        var plan = particlePlaybackPlan(for: admitted, observations: particleObservations,
-            layerPlan: preflightIsolatingOwners(admitted.flatMap(\.layerMutations),
+        var plan: SceneScriptLayerMutationPlan
+        while true {
+            plan = particlePlaybackPlan(for: admitted, observations: particleObservations,
+                layerPlan: preflightIsolatingOwners(admitted.flatMap(\.layerMutations),
                     topologyOwners: Dictionary(admitted.compactMap { effect in
                         effect.layerTopologyOwnerIdentity.map { (effect.ownerTarget, $0) }
                     }, uniquingKeysWith: { _, current in current })))
-        while !plan.outcome.failures.isEmpty {
+            guard !plan.outcome.failures.isEmpty else { break }
             var newlyRejected = Set<SceneDynamicTarget>()
             for failure in plan.outcome.failures {
                 if let owner = failure.ownerTarget {
@@ -687,11 +690,13 @@ nonisolated final class SceneScriptDynamicLayerRuntime: @unchecked Sendable {
             admitted.removeAll {
                 rejectedTargets.contains($0.ownerTarget)
             }
-            plan = particlePlaybackPlan(for: admitted, observations: particleObservations,
-                layerPlan: preflightIsolatingOwners(admitted.flatMap(\.layerMutations),
-                    topologyOwners: Dictionary(admitted.compactMap { effect in
-                        effect.layerTopologyOwnerIdentity.map { (effect.ownerTarget, $0) }
-                    }, uniquingKeysWith: { _, current in current })))
+        }
+        let cameraCommands = admitted.flatMap(\.cameraCommands).sorted {
+            $0.callbackEpoch == $1.callbackEpoch
+                ? $0.ordinal < $1.ordinal : $0.callbackEpoch < $1.callbackEpoch
+        }
+        for command in cameraCommands {
+            Self.applyCameraCommand(command, to: &plan.authoredLayerValues)
         }
         // An admitted play returns this property to its prepared Timeline,
         // including when the callback also writes it or immediately pauses.

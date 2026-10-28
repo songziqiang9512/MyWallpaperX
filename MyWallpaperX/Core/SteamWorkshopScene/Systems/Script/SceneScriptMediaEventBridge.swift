@@ -380,6 +380,7 @@ nonisolated struct SceneScriptMediaEventMutations: Equatable, Sendable {
     var particlePlaybackCommands: [SceneScriptParticlePlaybackCommand] = []
     var puppetAnimationCommands: [ScenePuppetAnimationCommand] = []
     var puppetAnimationCallbackRegistrations: Int = 0
+    var cameraCommands: [SceneScriptCameraCommand] = []
 }
 
 nonisolated enum SceneScriptCursorEventKind:
@@ -738,6 +739,11 @@ nonisolated enum SceneScriptMediaEventBridge {
         case let .success(value): animations = value
         case let .failure(failure): return .failure(failure)
         }
+        let cameraCommands: [SceneScriptCameraCommand]
+        switch SceneScriptCameraCommandBridge.commands(owner: owner) {
+        case let .success(value): cameraCommands = value
+        case let .failure(failure): return .failure(failure)
+        }
         let puppetAnimationCommands: [ScenePuppetAnimationCommand]
         switch SceneScriptPuppetAnimationBridge.commands(owner: owner) {
         case let .success(value): puppetAnimationCommands = value
@@ -776,7 +782,7 @@ nonisolated enum SceneScriptMediaEventBridge {
         // topology side effect, including effects staged by init/event lanes.
         if layerID == nil {
             guard target == .scene(.bloomStrength),
-                  materialFunctions.isEmpty, animations.isEmpty, layers.isEmpty,
+                  materialFunctions.isEmpty, animations.isEmpty, cameraCommands.isEmpty, layers.isEmpty,
                   mediaPlaybackCommands.isEmpty, textureAnimationCommands.isEmpty,
                   puppetBones.isEmpty, particlePlaybackCommands.isEmpty,
                   puppetAnimationCommands.isEmpty,
@@ -788,7 +794,7 @@ nonisolated enum SceneScriptMediaEventBridge {
         // Every callback passes here, before a later init/update can clear its
         // native DTOs. Nested animation properties may only control Puppet.
         if ScenePuppetAnimationPropertyTarget.source(for: target) != nil {
-            guard materialFunctions.isEmpty, animations.isEmpty, layers.isEmpty,
+            guard materialFunctions.isEmpty, animations.isEmpty, cameraCommands.isEmpty, layers.isEmpty,
                   mediaPlaybackCommands.isEmpty, textureAnimationCommands.isEmpty,
                   puppetBones.isEmpty, particlePlaybackCommands.isEmpty,
                   mwx_scene_quickjs_owner_pending_layer_topology_identity(owner) == 0 else {
@@ -804,7 +810,8 @@ nonisolated enum SceneScriptMediaEventBridge {
             puppetBones: puppetBones,
             particlePlaybackCommands: particlePlaybackCommands,
             puppetAnimationCommands: puppetAnimationCommands,
-            puppetAnimationCallbackRegistrations: Int(mwx_scene_quickjs_owner_puppet_animation_registration_count(owner))
+            puppetAnimationCallbackRegistrations: Int(mwx_scene_quickjs_owner_puppet_animation_registration_count(owner)),
+            cameraCommands: cameraCommands
         ))
     }
 

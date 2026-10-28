@@ -24,7 +24,10 @@ nonisolated enum SceneDynamicLayerField: Hashable, Sendable {
 }
 nonisolated enum SceneDynamicParticleField: Hashable, Sendable { case alpha }
 nonisolated enum SceneDynamicTextField: Hashable, Sendable { case content, font, color, pointSize }
-nonisolated enum SceneDynamicCameraField: Hashable, Sendable { case origin }
+nonisolated enum SceneDynamicCameraField: Hashable, Sendable {
+    case origin, eye, center, up, zoom
+    static let staticTransformFields: [Self] = [.eye, .center, .up, .zoom]
+}
 nonisolated enum SceneDynamicTarget: Hashable, Sendable {
     case layer(layerID: Int, field: SceneDynamicLayerField)
     case text(layerID: Int, field: SceneDynamicTextField)
@@ -47,6 +50,18 @@ nonisolated struct SceneTimelinePlaybackMutation: Sendable {
     let target: SceneDynamicTarget
     let command: SceneTimelinePlaybackCommand
 }
+nonisolated struct SceneScriptCameraCommand: Sendable {
+    struct Fields: OptionSet, Sendable {
+        let rawValue: UInt32
+        static let eye = Self(rawValue: 1), center = Self(rawValue: 2)
+        static let up = Self(rawValue: 4), zoom = Self(rawValue: 8)
+    }
+    let fields: Fields
+    let eye: SIMD3<Double>, center: SIMD3<Double>, up: SIMD3<Double>
+    let zoom: Double
+    let callbackEpoch: UInt64
+    let ordinal: UInt32
+}
 nonisolated struct SceneScriptOwnerEffects: Sendable {
     let ownerTarget: SceneDynamicTarget
     let layerMutations: [SceneScriptLayerMutation]
@@ -57,6 +72,7 @@ nonisolated struct SceneScriptOwnerEffects: Sendable {
     var mediaPlaybackCommands: [Int] = [], textureAnimationCommands: [Int] = [], puppetBoneMutations: [Int] = []
     var puppetAnimationCommands: [Int] = []
     var puppetAnimationCallbackRegistrations: Int = 0
+    var cameraCommands: [SceneScriptCameraCommand] = []
 }
 nonisolated struct SceneDynamicTargetDefinition: Sendable {
     let target: SceneDynamicTarget
@@ -196,13 +212,17 @@ nonisolated struct SceneRenderDescriptor: Sendable {
         }
     }
 
-    struct Camera: Sendable {
+    struct CameraDescriptor: Sendable {
         var default2DOriginInputLayerID: Int? = nil
+        var orthoWidth: Float? = nil
         var orthoHeight: Float? = nil
+        var eye: [Float] = [0, 0, 0]
+        var center: [Float] = [0, 0, -1]
+        var up: [Float] = [0, 1, 0]
         var nearZ: Float = 0.01
         var farZ: Float = 10000
     }
-    var camera = Camera()
+    var camera = CameraDescriptor()
     let layers: [Layer]
     let renderOrderLayerIDs: [Int]
 }
@@ -271,7 +291,10 @@ enum Harness {
         let visibilityRuntime = SceneScriptDynamicLayerRuntime(
             descriptor: descriptor, authoredMutationLayerIDs: []
         )
-        let visibilityDefinitions = visibilityRuntime.authoredLayerDefinitions
+        let visibilityDefinitions = visibilityRuntime.authoredLayerDefinitions.filter {
+            if case .layer(_, .visibility) = $0.target { return true }
+            return false
+        }
         let visibilityBefore = visibilityRuntime.snapshot()
         let visibilityPlan = visibilityRuntime.preflightIsolatingOwners([
             mutation(20, dynamic: false, fields: [.visibility], visible: false)
@@ -743,7 +766,8 @@ enum Harness {
                 .layer(layerID: 10, field: .origin), .layer(layerID: 10, field: .scale),
                 .layer(layerID: 10, field: .angles), .layer(layerID: 10, field: .visibility),
                 .layer(layerID: 20, field: .visibility), .layer(layerID: 20, field: .scale),
-                .text(layerID: 20, field: .content), .text(layerID: 20, field: .font)]),
+                .text(layerID: 20, field: .content), .text(layerID: 20, field: .font),
+                .camera(.eye), .camera(.center), .camera(.up), .camera(.zoom)]),
             "visibilityLanesPreparedBeforeFirstWrite": Set(visibilityDefinitions.map(\.target)) == Set([
                 .layer(layerID: 10, field: .visibility), .layer(layerID: 20, field: .visibility)])
                 && visibilityDefinitions.allSatisfy { $0.authoredValue == .bool(true) },

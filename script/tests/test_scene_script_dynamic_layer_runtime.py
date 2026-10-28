@@ -138,7 +138,7 @@ class SceneScriptDynamicLayerRuntimeTests(unittest.TestCase):
         self.assertTrue(self.result["peerScalePublished"])
         self.assertTrue(self.result["peerTextPublished"])
         self.assertTrue(self.result["peerFontPublished"])
-        self.assertEqual(self.result["authoredDefinitionCount"], 8)
+        self.assertEqual(self.result["authoredDefinitionCount"], 12)
         self.assertTrue(self.result["authoredDefinitionTargets"])
         self.assertTrue(self.result["rejected"])
         self.assertTrue(self.result["failedBatchTextRolledBack"])

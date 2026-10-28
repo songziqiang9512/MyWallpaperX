@@ -2,6 +2,41 @@ import Foundation
 
 /// Typed definitions and value projection for the existing topology transaction.
 nonisolated extension SceneScriptDynamicLayerRuntime {
+    static func staticCameraDefinitions(
+        for camera: SceneRenderDescriptor.CameraDescriptor
+    ) -> [SceneDynamicTargetDefinition] {
+        let native = camera.orthoWidth == nil && camera.orthoHeight == nil
+        let vectors: [(SceneDynamicCameraField, [Float])] = [
+            (.eye, native ? camera.eye : [0, 0, 0]),
+            (.center, native ? camera.center : [0, 0, -1]),
+            (.up, native ? camera.up : [0, 1, 0])]
+        var definitions = vectors.compactMap { field, value -> SceneDynamicTargetDefinition? in
+            guard value.count == 3 else { return nil }
+            return .init(target: .camera(field), valueType: .vector3,
+                authoredValue: .vector3(Double(value[0]), Double(value[1]), Double(value[2])))
+        }
+        definitions.append(.init(target: .camera(.zoom), valueType: .scalar, authoredValue: .scalar(1)))
+        return definitions
+    }
+
+    /// The ABI bridge has typed the provided members. Keep source ownership in
+    /// the effects bundle; camera targets never acquire a synthetic layer ID.
+    static func applyCameraCommand(
+        _ command: SceneScriptCameraCommand,
+        to values: inout [SceneDynamicTarget: SceneDynamicValue]
+    ) {
+        if command.fields.contains(.eye) {
+            values[.camera(.eye)] = .vector3(command.eye.x, command.eye.y, command.eye.z)
+        }
+        if command.fields.contains(.center) {
+            values[.camera(.center)] = .vector3(command.center.x, command.center.y, command.center.z)
+        }
+        if command.fields.contains(.up) {
+            values[.camera(.up)] = .vector3(command.up.x, command.up.y, command.up.z)
+        }
+        if command.fields.contains(.zoom) { values[.camera(.zoom)] = .scalar(command.zoom) }
+    }
+
     static func layerID(
         for target: SceneDynamicTarget, cameraOriginInputLayerID: Int? = nil
     ) -> Int? {

@@ -795,10 +795,13 @@ extension SceneDesktopWallpaperSession {
         // timeline, and stateful SceneScript lanes. Overlay only the current
         // admitted results so surface preparation does not walk every
         // definition a second time on the same frame.
+        var admittedScriptValues = frameScriptValues(admittedOwnerEffects,
+            excluding: rejectedOwnerTargets, timelineValues: settledTimelineValues)
+        admission.layerPlan.overlayCameraValues(into: &admittedScriptValues)
         let sharedSurfaceResolution = SceneDynamicSnapshotResolver().resolve(
             frameIndex: timing.frameIndex, generation: 0, index: definitionIndex,
             base: preliminarySceneScriptResolution, timelineValues: settledTimelineValues,
-            sceneScriptValues: frameScriptValues(admittedOwnerEffects, excluding: rejectedOwnerTargets, timelineValues: settledTimelineValues))
+            sceneScriptValues: admittedScriptValues)
         let materialFunctionMutations = admittedOwnerEffects.flatMap(\.materialFunctionMutations)
         let pendingEvaluation = evaluationTransaction.prepare(
             frameIndex: timing.frameIndex, resolution: sharedSurfaceResolution

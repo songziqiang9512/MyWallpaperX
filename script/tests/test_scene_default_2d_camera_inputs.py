@@ -203,6 +203,12 @@ class SceneDefault2DCameraInputTests(unittest.TestCase):
         facts = self.result["setterCreatorRetirement"]
         self.assertEqual([k for k, v in facts.items() if v is not True], [], facts)
 
+    def test_static_camera_bridge_and_owner_transaction(self) -> None:
+        for group in ("staticCameraBridge", "staticCameraTransactions"):
+            for fact, passed in self.result[group].items():
+                with self.subTest(group=group, fact=fact):
+                    self.assertTrue(passed)
+
     def test_launch_canonical_noninteger_seed_wins_over_dynamic_alias_definition(self) -> None:
         facts = self.result["setterCanonicalSeed"]
         self.assertEqual([k for k, v in facts.items() if v is not True], [], facts)

@@ -65,6 +65,9 @@ nonisolated struct SceneDynamicUserPropertyProducer: Hashable, Sendable {
 
 nonisolated enum SceneDynamicCameraField: String, Codable, Equatable, Hashable, Sendable {
     case origin
+    case eye
+    case center
+    case up
     case zoom
     case parallaxEnabled
     case parallaxAmount
@@ -74,6 +77,8 @@ nonisolated enum SceneDynamicCameraField: String, Codable, Equatable, Hashable, 
     case shakeAmplitude
     case shakeRoughness
     case shakeSpeed
+
+    static let staticTransformFields: [Self] = [.eye, .center, .up, .zoom]
 
     /// Consumer-side bounds for direct user-property values.  The property
     /// catalog still owns the author's UI range; these bounds keep a wider or
@@ -94,7 +99,7 @@ nonisolated enum SceneDynamicCameraField: String, Codable, Equatable, Hashable, 
             0 ... 5
         case .zoom:
             0.01 ... 100
-        case .origin, .parallaxEnabled, .shakeEnabled:
+        case .origin, .eye, .center, .up, .parallaxEnabled, .shakeEnabled:
             nil
         }
     }
