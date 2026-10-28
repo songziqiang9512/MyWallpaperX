@@ -1,7 +1,7 @@
-"""Native translucent form fields and the original Pixabay API-key dialog.
+"""Native translucent form fields and the original shared API-key sheet.
 
 Only service storage/search are recording leaves. The actual presentation
-methods, text editor, NSAlert, native key equivalents, Tab queue and surfaces run unchanged.
+methods, shared controller, text editor, NSAlert baseline, native key equivalents, Tab queue and surfaces run unchanged.
 """
 import hashlib
 import json
@@ -24,8 +24,9 @@ class WallpaperFormFieldTests(unittest.TestCase):
             "MyWallpaperX/Shared/Components/WallpaperFormFieldStyle.swift",
             "MyWallpaperX/Shared/UI/WallpaperLibrarySheetPresentation.swift",
             "MyWallpaperX/Shared/UI/ModalPresentation.swift",
+            "MyWallpaperX/Shared/UI/WallpaperAPIKeyPanelController.swift",
             "script/tests/fixtures/NativeAppHarness.swift")]
-        producer = ROOT / "MyWallpaperX/Modules/OnlineLibrary/UI/OnlineLibraryBrowserView.swift"
+        producer = ROOT / "MyWallpaperX/Modules/Pixabay/UI/PixabayBrowserView.swift"
         fixture = ROOT / "script/tests/fixtures/WallpaperFormFieldHarness.swift"
         observed = paths + [producer, fixture, Path(__file__), ROOT / "script/tests/native_app_harness.py",
                             ROOT / "script/tests/test_ui_library_algorithms.py",

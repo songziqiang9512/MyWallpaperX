@@ -2,6 +2,8 @@
 
 本目录保留全仓、Web和架构历史；[Scene 历史](../scene/history/README.md)集中在 Scene 专题内。这里的文件用于解释“当时为什么这样做”和保存不可替代的证据，不决定当前能力、架构或下一任务。
 
+前轮主窗口实现与未验边界：[UI16/UI17 完成记录](development/main-window-playlists-ui16-ui17-completed-2026-10-27.md)。
+
 ## 使用合同
 
 - 本页是统一历史入口，不是历史证据正文；除本页及 Scene 历史导航外，`docs/history/**/*.md` 和 `docs/scene/history/**/*.md` 均由[文档角色索引](../document-role-index.json)自动发现并显式登记为 `historical-evidence`，不能登记为现役计划或稳定合同。
@@ -16,6 +18,7 @@
 
 | 截止日期 | 专题 | 类型 | 文件 | 独有价值 | 当前权威 |
 |---|---|---|---|---|---|
+| 2026-10-27 | 主界面 V/T/F | 前轮完成卡与裁决 | [完成记录](development/main-window-playlists-v-t-f-completed-2026-10-27.md) | 保留99ba基线前卡片、输入与详情调整证据；不决定新M01–M16状态 | [主界面专项](../development/main-window-playlists-redesign.md#ui-simplification-sixteen) |
 | 2026-10-27 | App全仓UI | 正确性与调度结算 | [UI审计结算](cross-topic/ui-quality-audit-completed-2026-10-27.md) | 已证问题、工作卡、真实失败及限定回归；验收快照与未验边界 | [AppKit合同](../architecture/appkit-migration.md)、[主界面规范](../development/main-window-playlists-redesign.md) |
 | 2026-10-27 | 全仓校验精简 | P0–P27过程与验证 | [完整原方案与实施记录](cross-topic/validation-simplification-p0-p27-2026-10-27.md) | 保留全部旧设计、失败及限定证据；不决定当前任务 | [现役精简方案](../development/validation-simplification-plan.md)、[Scene启动合同](../scene/architecture/scene-launch-responsiveness-contract.md)、[Web模型](../web/web-project-json-runtime-model.md) |
 | 2026-10-26 | 主界面Q01–Q09与P01–P05 | 前轮候选记录 | [候选与验证记录](development/main-window-ui-feedback-p01-p05-2026-10-26.md) | 八项详情/播放/背景调整前的候选与验证边界 | [主界面专项](../development/main-window-playlists-redesign.md) |

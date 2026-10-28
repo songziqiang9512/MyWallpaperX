@@ -5,8 +5,8 @@ import Combine
 /// existing controls; local controls consume the same page value as the grid.
 @MainActor final class WallpaperLibraryWindowToolbar: NSObject, NSToolbarDelegate, NSSearchFieldDelegate, NSMenuDelegate {
     private enum Action: String, CaseIterable {
-        case title = "ToolbarTitle", importFiles, select, previous, next, remove, favorite, addToPlaylist
-        case back, play, random, create, more, filter, sort, zoom, zoomOut, zoomIn, search
+        case title = "ToolbarTitle", importFiles, select, remove, favorite, addToPlaylist
+        case back, downloadTasks, more, filter, sort, zoom, zoomOut, zoomIn, search
         var id: NSToolbarItem.Identifier { .init(rawValue) }
     }
     private let workspace: WallpaperLibraryWorkspace
@@ -16,6 +16,9 @@ import Combine
     private weak var window: NSWindow?
     private var subscription: AnyCancellable?
     private var availabilitySubscription: AnyCancellable?
+    private var downloadSubscription: AnyCancellable?
+    private let downloads: DownloadTasksController
+    private lazy var downloadPopover = downloads.makePopoverController()
     private var browserObserver: NSObjectProtocol?
     private var layoutObservers: [NSObjectProtocol] = []
     private let titleLabel = NSTextField(labelWithString: "")
@@ -25,7 +28,7 @@ import Combine
     private var menuActions: [ObjectIdentifier: Action] = [:]
     let toolbar: NSToolbar
     private let steam: SteamWorkshopToolbarController
-    private let online: OnlineLibraryToolbarController
+    private let pixabay: PixabayToolbarController
     private let imageTools: OnlineImageToolbarController
     private let onlineImages: WallpaperLibraryOnlineImages
     private lazy var zoomControl: WallpaperLibraryZoomControl = {
@@ -36,15 +39,16 @@ import Combine
 
     init(window: NSWindow, workspace: WallpaperLibraryWorkspace, commands: WallpaperLibraryCommands,
          gridWidth: @escaping () -> CGFloat, makeDirectoryReturnAction: @escaping () -> (() -> Void)? = { nil },
-         onlineImages: WallpaperLibraryOnlineImages) {
+         onlineImages: WallpaperLibraryOnlineImages, downloads: DownloadTasksController) {
         self.window = window; self.workspace = workspace; self.commands = commands
         self.onlineImages = onlineImages
+        self.downloads = downloads
         self.gridWidth = gridWidth
         self.makeDirectoryReturnAction = makeDirectoryReturnAction
         let toolbar = NSToolbar(identifier: .init("MainWindowToolbar"))
         self.toolbar = toolbar
         steam = SteamWorkshopToolbarController(toolbar: toolbar, window: window)
-        online = OnlineLibraryToolbarController(window: window)
+        pixabay = PixabayToolbarController(window: window)
         imageTools = OnlineImageToolbarController(images: onlineImages, workspace: workspace, window: window)
         super.init()
         toolbar.delegate = self
@@ -67,12 +71,36 @@ import Combine
             guard let self, [.workshop].contains(self.workspace.presentation.page) else { return }
             self.refresh()
         }
-        online.titleUpdateHandler = { [weak self] _ in self?.refresh() }
+        pixabay.titleUpdateHandler = { [weak self] _ in self?.refresh() }
         onlineImages.onChange = { [weak self] in self?.refresh() }
         steam.makeZoomAction = { [weak self] in self?.makeZoomAction(delta: $0) }
-        online.makeZoomAction = { [weak self] in self?.makeZoomAction(delta: $0) }
+        pixabay.makeZoomAction = { [weak self] in self?.makeZoomAction(delta: $0) }
         commands.onFocusSearch = { [weak self] in self?.focusSearch() }
-        subscription = workspace.presentation.$state.receive(on: DispatchQueue.main).sink { [weak self] _ in self?.refresh() }
+        // Native scroll receipts and page notices do not change toolbar commands.
+        // Keep zoom and the source revisions that change titles or capabilities.
+        struct RefreshInput: Equatable {
+            let page: WallpaperLibraryPage
+            let query: WallpaperLibraryQueryState
+            let items: [WallpaperContentItem]
+            let count: Int
+            let directoryCount: Int
+            let selection: WallpaperLibrarySelectionState
+            let editing: Bool
+            let revision: Int64?
+            let epoch: UUID?
+            let catalogRevision: UInt64?
+        }
+        subscription = workspace.presentation.$state.map { [weak workspace] (state: WallpaperLibraryPresentationState) -> RefreshInput in
+            var query = state.query
+            query.scrollAnchor = nil; query.scrollOffset = nil; query.scrollAtTop = nil
+            let revision: Int64? = workspace?.relationships.revision
+            let epoch: UUID? = workspace?.relationships.resetEpoch
+            let catalogRevision: UInt64? = workspace?.catalog.catalog.revision
+            return RefreshInput(page: state.page, query: query, items: state.queryResult.items,
+                count: state.queryResult.unfilteredCount, directoryCount: state.directoryEntries.count,
+                selection: state.selectionState, editing: state.allowsEditing, revision: revision,
+                epoch: epoch, catalogRevision: catalogRevision)
+        }.removeDuplicates().receive(on: DispatchQueue.main).sink { [weak self] _ in self?.refresh() }
         availabilitySubscription = commands.availabilityChanges.sink { [weak self] _ in self?.refresh() }
         browserObserver = NotificationCenter.default.addObserver(forName: .steamWorkshopBrowseContextDidChange, object: nil, queue: .main) { [weak self] _ in
             MainActor.assumeIsolated { self?.refresh() }
@@ -92,6 +120,7 @@ import Combine
                 MainActor.assumeIsolated { self?.refresh() }
             })
         }
+        downloadSubscription = downloads.changes.sink { [weak self] in self?.updateDownloads() }
         refresh()
     }
 
@@ -115,19 +144,19 @@ import Combine
             return prefix + steam.browserIdentifiers.filter { $0 != .sidebarTrackingSeparator && $0 != Action.title.id && $0 != .flexibleSpace }
         }
         if page == .pixabay {
-            return prefix + online.onlineIdentifiers.filter { $0 != .sidebarTrackingSeparator && $0 != Action.title.id && $0 != .flexibleSpace }
+            return prefix + pixabay.pixabayIdentifiers.filter { $0 != .sidebarTrackingSeparator && $0 != Action.title.id && $0 != .flexibleSpace }
         }
         if page == .wallhaven || page == .pixiv { return prefix + imageTools.identifiers }
         let groups: [[Action]]
         switch page {
-        case .videos, .images: groups = [[.importFiles, .select, .addToPlaylist], [.previous, .next], [.remove, .favorite, .more], [.sort], [.zoom], [.search]]
+        case .videos, .images: groups = [[.importFiles, .select], [.remove, .favorite, .more], [.sort], [.zoom], [.search]]
         case .downloads:
-            return prefix + [.steamAccount, .steamDownloadTasks, .space]
+            return prefix + [Action.downloadTasks.id, .space]
                 + grouped([[.select, .remove, .more], [.filter, .sort], [.zoom], [.search]])
-        case .recent: groups = [[.play, .random], [.select, .addToPlaylist], [.remove, .favorite, .more], [.filter], [.zoom], [.search]]
-        case .favorites: groups = [[.play, .random], [.select, .addToPlaylist], [.remove, .more], [.filter, .sort], [.zoom], [.search]]
+        case .recent: groups = [[.select], [.remove, .favorite, .more], [.filter], [.zoom], [.search]]
+        case .favorites: groups = [[.select, .addToPlaylist], [.remove, .more], [.filter, .sort], [.zoom], [.search]]
         case .playlist: groups = [[.select, .addToPlaylist], [.remove, .favorite, .more], [.filter, .sort], [.zoom], [.search]]
-        case .playlists: groups = [[.create], [.sort], [.zoom], [.search]]
+        case .playlists: groups = [[.zoom], [.search]]
         default: groups = []
         }
         let returnGroup: [[Action]] = makeDirectoryReturnAction() == nil ? [] : [[.back]]
@@ -161,13 +190,12 @@ import Combine
         items[.remove]?.image = NSImage(systemSymbolName: symbol(.remove), accessibilityDescription: commands.removalTitle)
         let selection = commands.selection
         let favorite = commands.favoriteActionState(for: selection)
-        let hasPlayable = model.queryResult.items.contains { $0.capabilities.contains(.play) }
         items[.favorite]?.label = favorite.title
         items[.favorite]?.paletteLabel = favorite.title
         items[.favorite]?.toolTip = favorite.title
         items[.favorite]?.image = NSImage(systemSymbolName: favorite.isRemoving ? "heart.fill" : "heart", accessibilityDescription: favorite.title)
         for (action, item) in items {
-            item.isEnabled = enabled(action, selection: selection, favoriteEnabled: favorite.canExecute, hasPlayable: hasPlayable)
+            item.isEnabled = enabled(action, selection: selection, favoriteEnabled: favorite.canExecute)
             (item.view as? NSControl)?.isEnabled = item.isEnabled
             if action != .title, action == .back || item.action == #selector(invoke(_:)) {
                 item.menuFormRepresentation = actionMenuRepresentation(action, title: action == .favorite ? favorite.title : label(action),
@@ -175,8 +203,19 @@ import Combine
                     enabled: item.isEnabled, selection: selection)
             }
         }
+        updateDownloads()
         refreshQueryDescriptions()
         refreshSourceLayout()
+    }
+
+    private func updateDownloads() {
+        guard let item = items[.downloadTasks] else { return }
+        let count = downloads.unfinishedCount
+        let title = count > 0 ? "下载管理 · \(count) 项进行中" : "下载管理"
+        item.label = title; item.paletteLabel = title; item.toolTip = title
+        item.image = NSImage(systemSymbolName: "arrow.down.circle", accessibilityDescription: title)
+        item.menuFormRepresentation = actionMenuRepresentation(.downloadTasks, title: title,
+            symbol: "arrow.down.circle", enabled: permitsInput, selection: [])
     }
 
     private func updateTitle(_ value: String) {
@@ -202,7 +241,7 @@ import Combine
         items[.zoom]?.isEnabled = width.isFinite && width > 0 && permitsInput
         items[.zoom]?.menuFormRepresentation = zoomControl.menuRepresentation()
         switch workspace.presentation.page {
-        case .pixabay: online.updateCategoryScrollWidth(); online.configureZoom(preferredColumns: columns, clipWidth: width)
+        case .pixabay: pixabay.configureZoom(preferredColumns: columns, clipWidth: width)
         case .workshop: steam.configureZoom(preferredColumns: columns, clipWidth: width)
         default: break
         }
@@ -213,7 +252,7 @@ import Combine
     private var permitsInput: Bool { WallpaperLibrarySheetPresentation.permitsInput(in: window) }
 
     private func enabled(_ action: Action, selection: [WallpaperContentItem]? = nil,
-                         favoriteEnabled: Bool? = nil, hasPlayable: Bool? = nil) -> Bool {
+                         favoriteEnabled: Bool? = nil) -> Bool {
         guard action == .title || permitsInput else { return false }
         switch action {
         case .back: return makeDirectoryReturnAction() != nil
@@ -225,8 +264,6 @@ import Combine
         case .addToPlaylist:
             let items = selection ?? commands.selection
             return commands.canOrganize && !items.isEmpty && items.allSatisfy { $0.capabilities.contains(.organize) }
-        case .create: return commands.canOrganize
-        case .play, .random: return hasPlayable ?? workspace.presentation.queryResult.items.contains { $0.capabilities.contains(.play) }
         case .zoom: return gridWidth() > 0
         case .zoomOut, .zoomIn:
             let availability = WallpaperLibraryGridMetrics.zoomAvailability(
@@ -239,13 +276,13 @@ import Combine
     func toolbarAllowedItemIdentifiers(_ toolbar: NSToolbar) -> [NSToolbarItem.Identifier] { identifiers }
     func toolbarDefaultItemIdentifiers(_ toolbar: NSToolbar) -> [NSToolbarItem.Identifier] { identifiers }
     func toolbar(_ toolbar: NSToolbar, itemForItemIdentifier id: NSToolbarItem.Identifier, willBeInsertedIntoToolbar flag: Bool) -> NSToolbarItem? {
-        guard let action = Action(rawValue: id.rawValue) else { return steam.makeItem(for: id) ?? online.makeItem(for: id) ?? imageTools.makeItem(for: id) }
+        guard let action = Action(rawValue: id.rawValue) else { return steam.makeItem(for: id) ?? pixabay.makeItem(for: id) ?? imageTools.makeItem(for: id) }
         if let existing = items[action] { return existing }
         let item: NSToolbarItem
         if action == .back {
             item = NSToolbarItem(itemIdentifier: id)
             let button = NSButton(title: "返回", target: self, action: #selector(returnToDirectory))
-            button.bezelStyle = .rounded
+            WallpaperLibraryControlStyle.capsule(button)
             button.image = NSImage(systemSymbolName: "chevron.backward", accessibilityDescription: nil)
             button.imagePosition = .imageLeading
             item.view = button
@@ -255,7 +292,9 @@ import Combine
         } else if action == .search {
             let search = NSSearchToolbarItem(itemIdentifier: id)
             search.searchField = searchField
-            search.preferredWidthForSearchField = 240
+            searchField.translatesAutoresizingMaskIntoConstraints = false
+            searchField.widthAnchor.constraint(equalToConstant: WallpaperLibraryControlStyle.toolbarSearchWidth).isActive = true
+            search.preferredWidthForSearchField = WallpaperLibraryControlStyle.toolbarSearchWidth
             item = search
         } else if [.more, .filter, .sort, .addToPlaylist].contains(action) {
             let menuItem = NSMenuToolbarItem(itemIdentifier: id)
@@ -279,7 +318,7 @@ import Combine
         item.paletteLabel = item.label
         item.toolTip = item.label
         item.autovalidates = false
-        item.visibilityPriority = [.title, .search, .importFiles, .create, .play].contains(action) ? .high
+        item.visibilityPriority = [.title, .search, .importFiles].contains(action) ? .high
             : ([.zoom, .favorite, .addToPlaylist, .more].contains(action) ? .low : .standard)
         items[action] = item
         return item
@@ -291,14 +330,10 @@ import Combine
         case .back: return "返回所有播放列表"
         case .importFiles: return "导入"
         case .select: return "选择"
-        case .previous: return "上一张壁纸"
-        case .next: return "下一张壁纸"
         case .remove: return commands.removalTitle
         case .favorite: return commands.favoriteActionState.title
         case .addToPlaylist: return "添加到列表"
-        case .play: return "播放"
-        case .random: return "随机播放"
-        case .create: return "新建列表"
+        case .downloadTasks: return "下载管理"
         case .more: return "更多"
         case .filter: return "筛选"
         case .sort: return "排序"
@@ -312,18 +347,15 @@ import Combine
     private func symbol(_ action: Action) -> String {
         switch action {
         case .back: return "chevron.backward"
-        case .importFiles, .create: return "plus"
+        case .importFiles: return "plus"
         case .select: return "checkmark.circle"
-        case .previous: return "backward.end"
-        case .next: return "forward.end"
         case .remove: return "trash"
         case .favorite: return commands.favoriteActionState.isRemoving ? "heart.fill" : "heart"
         case .addToPlaylist: return "text.badge.plus"
-        case .play: return "play.fill"
-        case .random: return "shuffle"
+        case .downloadTasks: return "arrow.down.circle"
         case .more: return "ellipsis.circle"
-        case .filter: return "line.3.horizontal.decrease.circle"
-        case .sort: return "arrow.up.arrow.down"
+        case .filter: return WallpaperLibraryControlStyle.filterSymbol
+        case .sort: return WallpaperLibraryControlStyle.sortSymbol
         case .zoomOut: return "minus.magnifyingglass"
         case .zoomIn: return "plus.magnifyingglass"
         default: return "square.grid.2x2"
@@ -365,14 +397,10 @@ import Combine
         case .back: makeDirectoryReturnAction()?()
         case .importFiles: commands.importFiles()
         case .select: commands.toggleSelectionMode()
-        case .previous, .next:
-            let direction: ManualNavigationDirection = action == .next ? .next : .previous
-            if workspace.presentation.page == .videos { commands.manager.navigateWallpaperManually(direction) }
-            else { commands.manager.navigateLibraryPlayback(direction, policy: .adjacent) }
         case .remove: commands.remove()
         case .favorite: commands.toggleFavorite()
-        case .create: commands.playlists?.handle(.create)
-        case .play, .random: commands.playDisplayed(random: action == .random)
+        case .downloadTasks:
+            if let item = items[.downloadTasks], let window { downloadPopover.toggle(relativeTo: item, in: window) }
         case .zoomOut, .zoomIn: performZoom(delta: action == .zoomIn ? 1 : -1)
         default: break
         }
@@ -399,7 +427,7 @@ import Combine
     func focusSearch() {
         let page = workspace.presentation.page
         if page == .workshop { steam.focusSearch(); return }
-        if page == .pixabay { online.focusSearch(); return }
+        if page == .pixabay { pixabay.focusSearch(); return }
         if page == .wallhaven || page == .pixiv { imageTools.focusSearch(); return }
         (items[.search] as? NSSearchToolbarItem)?.beginSearchInteraction()
     }
@@ -441,14 +469,6 @@ import Combine
             if !menu.items.isEmpty { menu.addItem(.separator()) }
             for item in recent.items { recent.removeItem(item); menu.addItem(item) }
         }
-        let page = workspace.presentation.page, epoch = workspace.relationships.resetEpoch
-        if !page.isRemoteBrowse && page != .playlists {
-            if !menu.items.isEmpty { menu.addItem(.separator()) }
-            menu.addItem(ActionMenuItem(title: "刷新文件状态", symbol: "arrow.clockwise") { [weak workspace] in
-                guard let workspace, workspace.presentation.page == page, workspace.relationships.resetEpoch == epoch else { return }
-                workspace.refreshSources()
-            })
-        }
         if case .playlist(let id) = workspace.presentation.page {
             let epoch = workspace.relationships.resetEpoch
             for (title, symbol, action) in [("添加壁纸…", "plus", 0), ("编辑列表…", "pencil", 1), ("复制列表", "doc.on.doc", 2), ("删除列表…", "trash", 3)] {
@@ -465,7 +485,6 @@ import Combine
     private func sortOptions(page: WallpaperLibraryPage, query: WallpaperLibraryQueryState) -> [(WallpaperLibrarySort, String)] {
         var sorts: [(WallpaperLibrarySort, String)]
         switch page {
-        case .playlists: sorts = [(.sourceOrder, "手动顺序"), (.name, "名称"), (.createdAt, "创建时间"), (.modifiedAt, "修改时间")]
         case .playlist: sorts = [(.sourceOrder, "手动顺序"), (.name, "名称"), (.addedAt, "加入列表时间"), (.lastUsed, "成功使用时间"), (.fileSize, "文件大小")]
         case .favorites: sorts = [(.favoritedAt, "标记喜爱时间"), (.name, "名称"), (.lastUsed, "成功使用时间"), (.fileSize, "文件大小")]
         case .downloads: sorts = [(.createdAt, "本地记录时间"), (.name, "名称"), (.fileSize, "文件大小"), (.lastUsed, "成功使用时间")]
@@ -486,9 +505,10 @@ import Combine
             filters.append([WallpaperLibraryStatusFilter.playable: "可播放", .unavailable: "不可用",
                 .transferring: "正在下载或更新", .failed: "下载或更新失败"][query.status] ?? query.status.rawValue)
         }
+        if page == .downloads, !query.showsAdultContent { filters.append("隐藏成人内容") }
         let filterDescription = filters.isEmpty ? "筛选：全部内容" : "筛选：" + filters.joined(separator: "、")
         items[.filter]?.toolTip = filterDescription
-        items[.filter]?.image = NSImage(systemSymbolName: filters.isEmpty ? "line.3.horizontal.decrease.circle" : "line.3.horizontal.decrease.circle.fill",
+        items[.filter]?.image = NSImage(systemSymbolName: WallpaperLibraryControlStyle.filterSymbol,
             accessibilityDescription: filterDescription)
         let sort = query.sort ?? WallpaperLibraryQuery.defaultSort(page)
         let name = sortOptions(page: page, query: query).first { $0.0 == sort }?.1 ?? "默认顺序"
@@ -514,14 +534,6 @@ import Combine
             }
             item.state = effective == sort ? .on : .off
             menu.addItem(item)
-        }
-        if commands.canBeginManualOrdering {
-            menu.addItem(.separator())
-            menu.addItem(ActionMenuItem(title: "切回手动并清除筛选以整理", symbol: "hand.draw") { [weak commands] in
-                guard let commands, commands.workspace.presentation.page == page,
-                      commands.workspace.relationships.resetEpoch == epoch, commands.canBeginManualOrdering else { return }
-                commands.beginManualOrdering()
-            })
         }
         menu.addItem(.separator())
         let direction = ActionMenuItem(title: ascending ? "改为降序" : "改为升序", symbol: "arrow.up.arrow.down") { [weak workspace] in
@@ -558,17 +570,20 @@ import Combine
         }
         menu.addItem(.separator())
         add("全部状态", selected: query.status == .all) { $0.status = .all }
-        for (status, title) in [(WallpaperLibraryStatusFilter.playable, "可播放"), (.unavailable, "不可用"), (.transferring, "正在下载或更新"), (.failed, "下载或更新失败")] {
+        var statuses = [(WallpaperLibraryStatusFilter.playable, "可播放"), (.unavailable, "不可用")]
+        if page != .downloads { statuses += [(.transferring, "正在下载或更新"), (.failed, "下载或更新失败")] }
+        for (status, title) in statuses {
             add(title, selected: query.status == status) { $0.status = status }
         }
         if page == .downloads {
             menu.addItem(.separator())
-            let service = SteamWorkshopService.shared
-            let adult = ActionMenuItem(title: "成人内容", symbol: "") { [weak workspace] in
+            let adult = ActionMenuItem(title: "显示成人内容", symbol: "") { [weak workspace] in
                 guard let workspace, workspace.presentation.page == page, workspace.relationships.resetEpoch == epoch else { return }
-                service.downloadsShowsAdultContent.toggle()
+                var current = workspace.presentation.queryState
+                current.showsAdultContent = !query.showsAdultContent
+                _ = workspace.presentation.setQueryState(current)
             }
-            adult.state = service.downloadsShowsAdultContent ? .on : .off
+            adult.state = query.showsAdultContent ? .on : .off
             menu.addItem(adult)
         }
         return menu

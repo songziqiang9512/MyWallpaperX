@@ -110,7 +110,7 @@ nonisolated final class ThumbnailCache: @unchecked Sendable {
     private let lock = NSLock()
 
     /// 磁盘缓存根目录：~/Library/Caches/<bundleID>/thumbnails/<namespace>/
-    /// 放 Caches 与 OLThumbnailCache、Steam 下载管线两处磁盘缓存对齐（系统可回收、不进备份）。
+    /// 放 Caches 与 OnlineImageThumbnailCache、Steam 下载管线两处磁盘缓存对齐（系统可回收、不进备份）。
     /// 旧的 Application Support/thumbnails 平铺目录是可再生缓存，迁移进 Caches 后一次性删除。
     private static let diskCacheRoot: URL = {
         let bundleID = Bundle.main.bundleIdentifier ?? "MyWallpaperX"
@@ -148,7 +148,7 @@ nonisolated final class ThumbnailCache: @unchecked Sendable {
     ///   - totalCostLimit: 内存缓存像素字节总和上限，默认 128MB，避免新实例复制出无上限形状。
     ///     各实例显式预算集中登记：Steam 预览 128MB（SteamWorkshopPreviewImageCache）、
     ///     视频库 128MB（VideoLibraryThumbnailStore）、SIL 64MB（SILThumbnailStore）、
-    ///     在线库下载项 50MB（OLDownloadedThumbnailStore）
+    ///     Pixabay下载项 50MB（PixabayDownloadedThumbnailStore）
     ///   - namespace: 磁盘缓存子目录名，必填，新实例必须声明自己的隔离空间
     ///   - usesFailureCache: 是否启用失败负缓存（见 failureCache 注释）
     init(label: String = "com.mywallpaper.thumbnail.decode",
@@ -626,14 +626,21 @@ nonisolated final class ThumbnailCache: @unchecked Sendable {
 
     /// Explicitly clear this namespace as one transaction. Existing consumers
     /// still finish, while their old producers cannot refill any cache tier.
-    func clearAll() {
+    func clearAll(completion: (@Sendable () -> Void)? = nil) {
         lock.lock()
-        defer { lock.unlock() }
         for request in requests.values { request.allowsCaching = false }
         imageCache.removeAllObjects()
         failureCache?.removeAllObjects()
-        try? FileManager.default.removeItem(at: diskCacheDir)
+        // Only constant-time same-volume metadata changes share publication's
+        // lock. Recursive deletion cannot hold that lock or delete new writes.
+        let retired = diskCacheDir.appendingPathExtension("clear-" + UUID().uuidString)
+        let detached = rename(diskCacheDir.path, retired.path) == 0
         try? FileManager.default.createDirectory(at: diskCacheDir, withIntermediateDirectories: true)
+        lock.unlock()
+        maintenanceQueue.async {
+            if detached { try? FileManager.default.removeItem(at: retired) }
+            if let completion { DispatchQueue.main.async(execute: completion) }
+        }
     }
 
     func remove(forKey key: String) {
@@ -665,7 +672,7 @@ nonisolated final class ThumbnailCache: @unchecked Sendable {
     }
 
     /// 共享磁盘惰性淘汰：总量上限 + 限频扫描 + LRU 淘汰。
-    /// ThumbnailCache 自身与 OLThumbnailCache、Steam 下载管线接入同一机制，不另起第二套；
+    /// ThumbnailCache 自身与 OnlineImageThumbnailCache、Steam 下载管线接入同一机制，不另起第二套；
     /// 限频钟按目录区分，多目录接入时互不挤占扫描窗口。
     /// 可在同次扫描先删除过期文件，再按剩余大小淘汰；返回是否实际执行了扫描。
     @discardableResult

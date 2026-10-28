@@ -99,6 +99,8 @@ nonisolated struct WallpaperContentTransferState: Codable, Equatable, Sendable {
     }
 }
 
+nonisolated enum WallpaperContentRating: String, Codable, Sendable { case safe, sensitive, adult, unknown }
+
 nonisolated struct WallpaperContentMetadataField: Codable, Equatable, Sendable {
     let label: String
     let value: String
@@ -110,6 +112,7 @@ nonisolated struct WallpaperContentMetadata: Codable, Equatable, Sendable {
     /// Full source description may differ from the display summary.
     var descriptionText: String? = nil
     var sourceTags: [String] = []
+    var contentRating: WallpaperContentRating? = nil
     var fileSizeBytes: Int64? = nil
     var durationSeconds: Double? = nil
     var resolutionText: String? = nil

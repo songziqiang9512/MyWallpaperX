@@ -25,7 +25,7 @@ class WallpaperLibraryDownloadRecoveryTests(unittest.TestCase):
             "MyWallpaperX/Shared/Components/ActionMenuItem.swift", "MyWallpaperX/App/WallpaperLibraryDownloadRecovery.swift",
             "MyWallpaperX/Modules/SteamWorkshop/Core/SteamWorkshopService+Downloads.swift",
             "MyWallpaperX/Modules/SteamWorkshop/Core/SteamWorkshopService+Integration.swift",
-            "MyWallpaperX/Modules/OnlineLibrary/Core/OnlineLibraryService+SourcePage.swift",
+            "MyWallpaperX/Modules/Pixabay/Core/PixabayService+SourcePage.swift",
             "MyWallpaperX/App/WallpaperLibraryCommands.swift",
             "MyWallpaperX/Core/PlaybackControl/WallpaperRuntimeSwitch.swift",
             "MyWallpaperX/Core/PlaybackControl/PlaybackSwitchTransaction.swift",

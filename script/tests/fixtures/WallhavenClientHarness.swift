@@ -89,7 +89,6 @@ nonisolated private final class StubProtocol: URLProtocol, @unchecked Sendable {
         query.sorting = .popular
         query.minimumResolution = "1920x1080"
         query.ratios = ["16x9"]
-        query.color = "#424153"
         let first = try await client.page(query: query)
         let second = try await client.page(query: query, request: first.next!)
         let requests = StubProtocol.state.requests()
@@ -97,7 +96,7 @@ nonisolated private final class StubProtocol: URLProtocol, @unchecked Sendable {
         let parameters = Self.parameters(requests[0])
         checks["search_operators_and_filters_survive_encoding"] = encoded.contains("%2Bmountains")
             && parameters["q"] == query.search && parameters["topRange"] == "1M"
-            && parameters["atleast"] == "1920x1080" && parameters["ratios"] == "16x9" && parameters["colors"] == "424153"
+            && parameters["atleast"] == "1920x1080" && parameters["ratios"] == "16x9"
         checks["no_undocumented_page_size_or_fields"] = parameters["per_page"] == nil && parameters["include_fields"] == nil
         checks["anonymous_headers_and_api_origin"] = requests.allSatisfy {
             $0.value(forHTTPHeaderField: "X-API-Key") == nil && $0.url?.host == "wallhaven.cc" && $0.url?.scheme == "https"
@@ -114,6 +113,12 @@ nonisolated private final class StubProtocol: URLProtocol, @unchecked Sendable {
             && assets[0].author == "fixture author" && assets[0].authorID == "fixture author"
             && assets[0].expectedBytes == 123456
             && artwork.rating == .safe && artwork.kind == .image && StubProtocol.state.requests().count == 2
+        for rating in [WallpaperContentRating.sensitive, .adult] {
+            var rated = artwork; rated.rating = rating
+            let originals = try await client.assets(for: rated)
+            checks["original_asset_keeps_official_\(rating.rawValue)_rating"] = originals[0].rating == rating
+                && StubProtocol.state.requests().count == 2
+        }
         pagingSession.invalidateAndCancel()
 
         StubProtocol.state.reset([Reply(data: try page(query: ["username": "FixturE_Artist-01"], seed: nil))])
@@ -123,21 +128,20 @@ nonisolated private final class StubProtocol: URLProtocol, @unchecked Sendable {
         authorQuery.search = "id:328"
         authorQuery.categories = "101"; authorQuery.purity = "110"
         authorQuery.sorting = .favorites; authorQuery.order = .asc
-        authorQuery.resolutions = ["1920x1080", "2560x1440"]
-        authorQuery.ratios = ["16x9", "21x9"]; authorQuery.color = "#660000"
+        authorQuery.minimumResolution = "1920x1080"
+        authorQuery.ratios = ["16x9", "21x9"]
         let authorPage = try await authorClient.page(query: authorQuery)
         let authorParameters = Self.parameters(StubProtocol.state.requests()[0])
         checks["author_query_preserves_username_and_combines_all_supported_filters"] = authorParameters["q"] == "@FixturE_Artist-01"
             && authorParameters["categories"] == "101" && authorParameters["purity"] == "110"
             && authorParameters["sorting"] == "favorites" && authorParameters["order"] == "asc"
-            && authorParameters["resolutions"] == "1920x1080,2560x1440"
-            && authorParameters["ratios"] == "16x9,21x9" && authorParameters["colors"] == "660000"
-            && authorParameters["atleast"] == nil && authorParameters["topRange"] == nil
+            && authorParameters["atleast"] == "1920x1080" && authorParameters["ratios"] == "16x9,21x9"
+            && authorParameters["resolutions"] == nil && authorParameters["colors"] == nil && authorParameters["topRange"] == nil
             && authorPage.next?.page == 2 && authorPage.next?.seed == nil
         authorSession.invalidateAndCancel()
 
         authorQuery.sorting = .popular; authorQuery.topRange = .sixMonths; authorQuery.order = .desc
-        authorQuery.minimumResolution = "3840x2160"; authorQuery.resolutions = []
+        authorQuery.minimumResolution = "3840x2160"
         let popularParameters = Dictionary(uniqueKeysWithValues: try authorQuery.queryItems(page: 3)
             .map { ($0.name, $0.value ?? "") })
         authorQuery.sorting = .views; authorQuery.authorUsername = nil
@@ -303,6 +307,22 @@ nonisolated private final class StubProtocol: URLProtocol, @unchecked Sendable {
         var invalid = WallhavenQuery(); invalid.categories = "000"
         do { _ = try invalid.queryItems(page: 1); checks["invalid_filter_rejected_before_request"] = false }
         catch { checks["invalid_filter_rejected_before_request"] = true }
+
+        StubProtocol.state.reset([Reply(data: try body(["data": [["id": 7, "label": "Landscapes", "count": 12, "public": 0]]])),
+                                  Reply(data: try body(["data": []]))])
+        let accountSession = session(), accountClient = WallhavenClient(session: accountSession, apiKey: "fixture-account")
+        let collections = try await accountClient.collections(), emptyCollections = try await accountClient.collections()
+        checks["own-collections-decodes-only-trustworthy-names-and-counts"] = collections == [.init(label: "Landscapes", count: 12)]
+            && emptyCollections.isEmpty
+        checks["own-collections-keeps-credentials-in-the-existing-header-only-queue"] = StubProtocol.state.requests().allSatisfy {
+            $0.url?.path == "/api/v1/collections" && $0.url?.query == nil && $0.value(forHTTPHeaderField: "X-API-Key") == "fixture-account"
+        }
+        accountSession.invalidateAndCancel()
+        StubProtocol.state.reset([Reply(data: try body(["data": [:]]))])
+        let malformedAccountSession = session(), malformedAccountClient = WallhavenClient(session: malformedAccountSession, apiKey: "fixture-account")
+        do { _ = try await malformedAccountClient.collections(); checks["malformed-collections-never-becomes-a-verified-empty-account"] = false }
+        catch { checks["malformed-collections-never-becomes-a-verified-empty-account"] = true }
+        malformedAccountSession.invalidateAndCancel()
 
         if CommandLine.arguments.count == 2 {
             let directory = URL(fileURLWithPath: CommandLine.arguments[1], isDirectory: true)

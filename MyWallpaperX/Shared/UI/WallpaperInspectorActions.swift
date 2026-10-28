@@ -11,6 +11,9 @@ struct WallpaperInspectorActions {
         let canFavorite: Bool
         let canOrganize: Bool
         let playlistNames: [String]
+
+        var primaryTitle: String { isPlaying ? "停止播放" : "设为壁纸" }
+        var primarySymbolName: String { isPlaying ? "stop.fill" : "photo.fill" }
     }
 
     let state: State

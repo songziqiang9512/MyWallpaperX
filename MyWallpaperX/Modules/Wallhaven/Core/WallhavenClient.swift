@@ -70,6 +70,14 @@ actor WallhavenClient {
             notice: notice)
     }
 
+    /// Official authenticated collections endpoint. A successful empty array
+    /// describes an account with no collections; it does not invent a username.
+    func collections() async throws -> [WallhavenCollection] {
+        guard apiKey != nil else { throw OnlineImageError.message("请先配置 Wallhaven API Key。") }
+        let response: WallhavenCollectionsResponse = try decode(await fetch(path: "/api/v1/collections", items: []))
+        return response.data
+    }
+
     func detail(id: String) async throws -> OnlineImageArtwork {
         guard !id.isEmpty, !id.contains(where: { "/?#".contains($0) }) else {
             throw OnlineImageError.invalidResponse
@@ -91,7 +99,7 @@ actor WallhavenClient {
         return [OnlineImageAsset(id: resolved.firstAssetID, title: resolved.title, sourceURL: resolved.sourceURL,
             originalURL: original, previewURL: resolved.previewURL, author: resolved.author,
             authorID: resolved.authorID, tags: resolved.tags, width: resolved.width, height: resolved.height,
-            expectedBytes: resolved.fileSizeBytes)]
+            expectedBytes: resolved.fileSizeBytes, rating: resolved.rating)]
     }
 
     private func fetch(path: String, items: [URLQueryItem]) async throws -> Data {

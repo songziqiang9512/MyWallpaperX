@@ -10,6 +10,8 @@ final class OnlineImageInspectorView: NSView {
     private let makeLibraryActions: (WallpaperReference) -> WallpaperInspectorActions?
     private let onAuthor: ((OnlineImageAuthor) -> Void)?
     private let initialReference: WallpaperReference
+    private var firstThumbnailURL: URL?
+    private let thumbnailPixelSize: Int
     private var pageIndex: Int
     private var assets: [OnlineImageAsset] = []
     private var boundActions: (WallpaperReference, WallpaperInspectorActions)?
@@ -20,13 +22,10 @@ final class OnlineImageInspectorView: NSView {
     private let notice = SILInspectorViews.makeLabel("", font: .systemFont(ofSize: 12), color: .secondaryLabelColor)
     private let pageLabel = NSTextField(labelWithString: "")
     private let authorButton = SILInspectorViews.makeFooterButton(title: "作者信息暂缺", symbolName: "person.crop.circle", target: nil, action: #selector(openAuthor))
-    private let favoriteButton = SILInspectorViews.makeFooterButton(title: "", symbolName: "heart", target: nil, action: #selector(toggleFavorite))
     private let previousButton = SILInspectorViews.makeFooterButton(title: "", symbolName: "chevron.left", target: nil, action: #selector(previousPage))
     private let nextButton = SILInspectorViews.makeFooterButton(title: "", symbolName: "chevron.right", target: nil, action: #selector(nextPage))
-    private let downloadButton = SILInspectorViews.makeFooterButton(title: "下载当前图片", symbolName: "arrow.down.to.line", target: nil, action: #selector(downloadCurrent))
-    private let applyButton = SILInspectorViews.makeFooterButton(title: "下载并设为壁纸", symbolName: "photo.fill", target: nil, action: #selector(applyCurrent), kind: .primary)
-    private let sourceButton = SILInspectorViews.makeFooterButton(title: "", symbolName: "safari", target: nil, action: #selector(openSource))
-    private let playlistButton = SILInspectorViews.makeFooterButton(title: "", symbolName: "tag", target: nil, action: #selector(choosePlaylist))
+    private let primaryButton = SILInspectorViews.makeFooterButton(title: "下载图片", symbolName: "arrow.down.to.line", target: nil, action: #selector(performPrimary), kind: .primary)
+    private let sourceButton = SILInspectorViews.makeFooterButton(title: "打开原网页", symbolName: "safari", target: nil, action: #selector(openSource))
     private let localThumbnails = SILThumbnailProvider()
     private var detailTask: Task<Void, Never>?
     private var previewTask: Task<Void, Never>?
@@ -46,20 +45,18 @@ final class OnlineImageInspectorView: NSView {
     private struct ControlState: Equatable {
         let local: Bool
         let downloading: Bool
-        let canDownload: Bool
         let switching: Bool
         let applied: Bool
         let canApply: Bool
-        let canOrganize: Bool
-        let canFavorite: Bool
-        let favorite: Bool
     }
 
     init(artwork: OnlineImageArtwork, library: OnlineImageLibrary,
          makeLibraryActions: @escaping (WallpaperReference) -> WallpaperInspectorActions?,
-         onAuthor: ((OnlineImageAuthor) -> Void)? = nil, initialPageIndex: Int = 0) {
+         onAuthor: ((OnlineImageAuthor) -> Void)? = nil, initialPageIndex: Int = 0, thumbnailPixelSize: Int = 800) {
         self.artwork = artwork; self.library = library
         self.makeLibraryActions = makeLibraryActions; self.onAuthor = onAuthor
+        firstThumbnailURL = artwork.thumbnailURL ?? artwork.previewURL
+        self.thumbnailPixelSize = thumbnailPixelSize
         pageIndex = max(0, initialPageIndex)
         initialReference = OnlineImageAssetID(source: artwork.source, artworkID: artwork.artworkID, pageIndex: max(0, initialPageIndex)).reference
         super.init(frame: .zero)
@@ -107,7 +104,7 @@ final class OnlineImageInspectorView: NSView {
         translatesAutoresizingMaskIntoConstraints = false
         wantsLayer = true; layer?.backgroundColor = NSColor.clear.cgColor
         let root = SILInspectorViews.makeVerticalStack(spacing: 12)
-        root.alignment = .leading
+        root.alignment = .centerX
         let scroll = InspectorFadingScrollView()
         scroll.drawsBackground = false; scroll.hasVerticalScroller = false; scroll.hasHorizontalScroller = false
         scroll.translatesAutoresizingMaskIntoConstraints = false
@@ -120,12 +117,12 @@ final class OnlineImageInspectorView: NSView {
         titleLabel.maximumNumberOfLines = 2
         titleLabel.lineBreakMode = .byTruncatingTail
         authorButton.target = self; authorButton.action = #selector(openAuthor)
-        favoriteButton.target = self; favoriteButton.action = #selector(toggleFavorite)
-        favoriteButton.setAccessibilityLabel("特别喜爱")
-        favoriteButton.toolTip = "特别喜爱"
-        let authorRow = NSStackView(views: [authorButton, favoriteButton])
-        authorRow.spacing = 8
-        let pager = NSStackView(views: [previousButton, NSView(), pageLabel, NSView(), nextButton])
+        WallpaperLibraryControlStyle.authorPill(authorButton)
+        authorButton.setContentHuggingPriority(.required, for: .horizontal)
+        let authorRow = NSStackView(views: [authorButton, NSView()])
+        authorRow.spacing = 0
+        authorRow.alignment = .centerY
+        let pager = NSStackView(views: [pageLabel, previousButton, nextButton, NSView()])
         pager.spacing = 8
         previousButton.target = self; previousButton.action = #selector(previousPage)
         nextButton.target = self; nextButton.action = #selector(nextPage)
@@ -134,28 +131,25 @@ final class OnlineImageInspectorView: NSView {
         pageLabel.font = .systemFont(ofSize: 11, weight: .medium)
         pageLabel.textColor = .secondaryLabelColor
         notice.maximumNumberOfLines = 0
-        downloadButton.target = self
-        applyButton.target = self; sourceButton.target = self; playlistButton.target = self
+        primaryButton.target = self; sourceButton.target = self
         sourceButton.setAccessibilityLabel("在浏览器打开作品"); sourceButton.toolTip = "在浏览器打开作品"
-        playlistButton.setAccessibilityLabel("添加到列表"); playlistButton.toolTip = "添加到列表"
-        for section in [preview, titleLabel, authorRow, pager, facts, notice, downloadButton] as [NSView] {
+        for section in [preview, titleLabel, authorRow, pager, WallpaperLibraryControlStyle.sectionDivider(), facts, notice] as [NSView] {
             content.addArrangedSubview(section)
             section.widthAnchor.constraint(equalTo: content.widthAnchor).isActive = true
         }
         preview.heightAnchor.constraint(equalToConstant: 156).isActive = true
-        let footer = NSStackView(views: [applyButton, sourceButton, playlistButton])
-        footer.orientation = .horizontal; footer.spacing = 8
+        let footer = NSStackView(views: [primaryButton, sourceButton])
+        footer.orientation = .horizontal; footer.spacing = 8; footer.distribution = .fill
         footer.translatesAutoresizingMaskIntoConstraints = false
         addSubview(root)
         root.addArrangedSubview(scroll); root.addArrangedSubview(footer)
         NSLayoutConstraint.activate([
             root.leadingAnchor.constraint(equalTo: leadingAnchor), root.trailingAnchor.constraint(equalTo: trailingAnchor),
             root.topAnchor.constraint(equalTo: topAnchor), root.bottomAnchor.constraint(equalTo: bottomAnchor),
-            scroll.widthAnchor.constraint(equalTo: root.widthAnchor), footer.widthAnchor.constraint(equalTo: root.widthAnchor),
+            scroll.widthAnchor.constraint(equalTo: root.widthAnchor), footer.widthAnchor.constraint(equalTo: content.widthAnchor),
             footer.heightAnchor.constraint(equalToConstant: InspectorFooterMetrics.height),
-            sourceButton.widthAnchor.constraint(equalToConstant: InspectorFooterMetrics.iconWidth),
-            playlistButton.widthAnchor.constraint(equalToConstant: InspectorFooterMetrics.iconWidth),
-            favoriteButton.widthAnchor.constraint(equalToConstant: InspectorFooterMetrics.iconWidth),
+            sourceButton.widthAnchor.constraint(equalTo: primaryButton.widthAnchor),
+            authorButton.widthAnchor.constraint(lessThanOrEqualTo: content.widthAnchor),
             previousButton.widthAnchor.constraint(equalToConstant: InspectorFooterMetrics.iconWidth),
             nextButton.widthAnchor.constraint(equalToConstant: InspectorFooterMetrics.iconWidth),
             document.widthAnchor.constraint(equalTo: scroll.contentView.widthAnchor),
@@ -187,6 +181,7 @@ final class OnlineImageInspectorView: NSView {
             localCancellation?.cancel(); localCancellation = nil; lastPreviewKey = nil
             if !isLocalAvailable { preview.updateImage(nil) }
             // Local receipts remain usable; account-scoped remote metadata does not.
+            firstThumbnailURL = nil
             artwork = OnlineImageArtwork(source: .pixiv, artworkID: artwork.artworkID,
                 title: "Pixiv #\(artwork.artworkID)", sourceURL: artwork.sourceURL)
             errorText = "账号会话已变化，请关闭详情后重新打开。"
@@ -230,8 +225,8 @@ final class OnlineImageInspectorView: NSView {
     private func refreshContent() {
         let record = currentRecord, asset = currentAsset
         titleLabel.stringValue = record?.title ?? asset?.title ?? artwork.title
-        let author = record?.author ?? asset?.author ?? artwork.author
-        authorButton.setTitle(author ?? "作者信息暂缺")
+        let author = record?.author ?? asset?.author ?? artwork.author ?? ""
+        authorButton.setTitle(author.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty ? "作者信息暂缺" : author)
         authorButton.isEnabled = onAuthor != nil && resolvedAuthor != nil
         let indices = pageIndices
         let position = indices.firstIndex(of: pageIndex) ?? 0
@@ -256,6 +251,7 @@ final class OnlineImageInspectorView: NSView {
         if !tags.isEmpty {
             let tagsLabel = SILInspectorViews.makeLabel(tags.joined(separator: " · "), font: .systemFont(ofSize: 12), color: .secondaryLabelColor)
             tagsLabel.maximumNumberOfLines = 4
+            WallpaperLibraryControlStyle.addSectionDivider(to: facts)
             facts.addArrangedSubview(tagsLabel)
             tagsLabel.widthAnchor.constraint(equalTo: facts.widthAnchor).isActive = true
         }
@@ -277,32 +273,24 @@ final class OnlineImageInspectorView: NSView {
         let canDownload = currentAsset != nil && artwork.kind == .image && artwork.isMasked != true
         let actions = currentActions?.state
         let switching = actions?.isSwitching == true
-        let state = ControlState(local: local, downloading: progress != nil, canDownload: canDownload,
+        let state = ControlState(local: local, downloading: progress != nil,
             switching: switching, applied: actions?.isPlaying == true,
-            canApply: !switching && (local ? actions?.canPerformPrimary == true : canDownload && progress == nil),
-            canOrganize: local && actions?.canOrganize == true, canFavorite: local && actions?.canFavorite == true,
-            favorite: actions?.isFavorite == true)
-        if renderedProgress != progress { renderedProgress = progress; downloadButton.setProgressFill(progress) }
+            canApply: !switching && (local ? actions?.canPerformPrimary == true : canDownload))
+        if renderedProgress != progress { renderedProgress = progress; primaryButton.setProgressFill(progress) }
         guard state != renderedControls else { return }
         renderedControls = state
-        downloadButton.setTitle(progress != nil ? "取消下载" : local ? "查看图片文件" : "下载当前图片")
-        downloadButton.setSymbol(progress != nil ? "xmark" : local ? "folder" : "arrow.down.to.line", accessibilityDescription: nil)
-        downloadButton.isEnabled = progress != nil || local || canDownload
-        applyButton.setTitle(switching ? "正在切换壁纸" : local ? state.applied ? "已应用" : "设为壁纸" : "下载并设为壁纸")
-        applyButton.setSymbol(switching ? "hourglass" : "photo.fill", accessibilityDescription: nil)
-        applyButton.isEnabled = state.canApply
-        playlistButton.isEnabled = state.canOrganize
-        favoriteButton.isEnabled = state.canFavorite
-        favoriteButton.setSymbol(state.favorite ? "heart.fill" : "heart", accessibilityDescription: nil)
-        favoriteButton.setAccessibilityLabel(state.favorite ? "取消特别喜爱" : "特别喜爱")
-        favoriteButton.toolTip = state.favorite ? "取消特别喜爱" : "特别喜爱"
+        let title = switching ? "正在切换壁纸" : local ? actions?.primaryTitle ?? "设为壁纸" : progress != nil ? "取消下载" : "下载图片"
+        primaryButton.setTitle(title)
+        primaryButton.setSymbol(switching ? "hourglass" : local ? actions?.primarySymbolName ?? "photo.fill" : progress != nil ? "xmark" : "arrow.down.to.line", accessibilityDescription: title)
+        primaryButton.isEnabled = state.canApply || progress != nil
     }
 
     private func loadPreview() {
         guard !isRetired else { return }
         let id = assetID
         let local = isLocalAvailable ? currentRecord.flatMap(library.localURL(for:)) : nil
-        let remote = currentAsset?.previewURL ?? (pageIndex == 0 ? artwork.previewURL ?? artwork.thumbnailURL : nil)
+        // The first page keeps the grid URL even when richer detail metadata arrives.
+        let remote = pageIndex == 0 ? firstThumbnailURL ?? artwork.thumbnailURL ?? artwork.previewURL : currentAsset?.previewURL
         let key = local.map { "local:\($0.path):\(currentRecord?.revision.uuidString ?? "")" }
             ?? remote.map { "remote:\(artwork.source == .pixiv ? library.pixivScope : "public"):\($0.absoluteString)" }
         guard key != lastPreviewKey || displayedPage != id else { return }
@@ -319,11 +307,12 @@ final class OnlineImageInspectorView: NSView {
             }
         } else if let remote {
             let request = library.thumbnailRequest(url: remote, source: artwork.source)
-            for pixels in [800, 512, 256, 1200] {
-                if let image = OLThumbnailCache.shared.readyImage(for: request, maxPixelSize: pixels) { preview.updateImage(image); return }
+            for pixels in [thumbnailPixelSize, 256, 512, 800, 1200, 1600, 2400, 3200, 4096] {
+                if let image = OnlineImageThumbnailCache.shared.readyImage(for: request, maxPixelSize: pixels) { preview.updateImage(image); return }
             }
+            let pixels = thumbnailPixelSize
             previewTask = Task { [weak self] in
-                let image = await OLThumbnailCache.shared.image(for: request, maxPixelSize: 800, priority: .visible)
+                let image = await OnlineImageThumbnailCache.shared.image(for: request, maxPixelSize: pixels, priority: .visible)
                 guard let self, !Task.isCancelled, !isRetired, previewID == token, assetID == id else { return }
                 previewTask = nil
                 if let image { preview.updateImage(image) }
@@ -341,27 +330,12 @@ final class OnlineImageInspectorView: NSView {
     }
     @objc private func previousPage() { changePage(-1) }
     @objc private func nextPage() { changePage(1) }
-    @objc private func downloadCurrent() {
+    @objc private func performPrimary() {
         guard WallpaperLibrarySheetPresentation.permitsInput(in: window) else { return }
         if library.progress[assetID] != nil { library.cancel(assetID) }
-        else if isLocalAvailable, let record = currentRecord, let url = library.localURL(for: record) { NSWorkspace.shared.activateFileViewerSelecting([url]) }
-        else if artwork.kind == .image, artwork.isMasked != true, let asset = currentAsset { library.download(asset) }
-    }
-    @objc private func applyCurrent() {
-        guard WallpaperLibrarySheetPresentation.permitsInput(in: window) else { return }
-        if isLocalAvailable, let actions = makeLibraryActions(assetID.reference),
-           !actions.state.isSwitching, actions.state.canPerformPrimary { actions.onPrimary() }
-        else if !isLocalAvailable, library.progress[assetID] == nil, artwork.kind == .image, artwork.isMasked != true, let asset = currentAsset { library.download(asset, apply: true) }
-    }
-    @objc private func choosePlaylist() {
-        guard WallpaperLibrarySheetPresentation.permitsInput(in: window), isLocalAvailable,
-              let actions = makeLibraryActions(assetID.reference), actions.state.canOrganize else { return }
-        actions.onChoosePlaylist(playlistButton)
-    }
-    @objc private func toggleFavorite() {
-        guard WallpaperLibrarySheetPresentation.permitsInput(in: window), isLocalAvailable,
-              let actions = makeLibraryActions(assetID.reference), actions.state.canFavorite else { return }
-        actions.onToggleFavorite()
+        else if isLocalAvailable, let actions = currentActions,
+                !actions.state.isSwitching, actions.state.canPerformPrimary { actions.onPrimary() }
+        else if !isLocalAvailable, artwork.kind == .image, artwork.isMasked != true, let asset = currentAsset { library.download(asset) }
     }
     @objc private func openSource() {
         guard WallpaperLibrarySheetPresentation.permitsInput(in: window) else { return }

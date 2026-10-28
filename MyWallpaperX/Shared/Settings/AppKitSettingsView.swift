@@ -133,11 +133,12 @@ final class AppKitSettingsContainerView: NSView {
 
     let multiDisplaySwitch = NSSwitch()
     let libraryBackgroundPopup = NSPopUpButton()
+    let libraryCardClickPopup = NSPopUpButton()
     let fillModeFitButton = NSButton(radioButtonWithTitle: VideoFillMode.aspectFit.rawValue, target: nil, action: nil)
     let fillModeFillButton = NSButton(radioButtonWithTitle: VideoFillMode.aspectFill.rawValue, target: nil, action: nil)
 
     let clearCacheButton = NSButton(title: "清除缓存", target: nil, action: nil)
-    let resetSettingsButton = NSButton(title: "重置默认", target: nil, action: nil)
+    let resetSettingsButton = NSButton(title: "重置应用", target: nil, action: nil)
     let exportProfileButton = NSButton(title: "导出设置", target: nil, action: nil)
     let importProfileButton = NSButton(title: "导入设置", target: nil, action: nil)
 
@@ -204,7 +205,10 @@ final class AppKitSettingsContainerView: NSView {
         intervalRowView?.isHidden = !(settings.autoSwitchEnabled && autoSwitchAvailable)
         intervalField.isEnabled = autoSwitchAvailable && settings.autoSwitchEnabled
         timeUnitPopup.isEnabled = autoSwitchAvailable && settings.autoSwitchEnabled
-        intervalField.stringValue = "\(max(1, settings.randomInterval))"
+        if !intervalField.isEnabled, intervalField.currentEditor() != nil { _ = intervalField.abortEditing() }
+        if intervalField.currentEditor() == nil {
+            intervalField.stringValue = "\(max(1, settings.randomInterval))"
+        }
         selectTimeUnit(settings.timeUnit)
 
         let clampedVolume = Int(max(0, min(100, round(settings.volume))))
@@ -269,6 +273,7 @@ final class AppKitSettingsContainerView: NSView {
         multiDisplaySwitch.state = settings.multiDisplayEnabled ? .on : .off
         selectFillMode(settings.videoFillMode)
         libraryBackgroundPopup.selectItem(withTag: LibraryBackgroundStyle.allCases.firstIndex(of: settings.libraryBackgroundStyle) ?? 0)
+        libraryCardClickPopup.selectItem(withTag: LibraryCardClickAction.allCases.firstIndex(of: settings.libraryCardClickAction) ?? 0)
 
         refreshHotkeyRowsIfInputsChanged()
         applyVisibleSections()
@@ -455,6 +460,8 @@ final class AppKitSettingsContainerView: NSView {
         multiDisplaySwitch.action = #selector(handleMultiDisplayToggle)
         libraryBackgroundPopup.target = self
         libraryBackgroundPopup.action = #selector(handleLibraryBackgroundChange)
+        libraryCardClickPopup.target = self
+        libraryCardClickPopup.action = #selector(handleLibraryCardClickChange)
         fillModeFitButton.target = self
         fillModeFitButton.action = #selector(handleFillModeChange(_:))
         fillModeFillButton.target = self
@@ -771,11 +778,16 @@ final class AppKitSettingsContainerView: NSView {
         dependency.settings.libraryBackgroundStyle = style
     }
 
+    @objc private func handleLibraryCardClickChange() {
+        guard !isUpdatingUI, let action = libraryCardClickPopup.selectedItem?.representedObject as? LibraryCardClickAction else { return }
+        dependency.settings.libraryCardClickAction = action
+    }
+
     @objc private func handleClearCache() {
         let hostWindow = preferredHostWindow()
         let alert = makeAppAlert(
             title: "清空缓存",
-            message: "将清空缩略图、视频静帧和在线浏览缓存，并重置工坊浏览状态。媒体、下载文件和设置均保留。",
+            message: "将清空缩略图、视频静帧、在线浏览和原图预览缓存，并重置工坊浏览状态。媒体、下载文件和设置均保留。",
             buttons: ["清空", "取消"]
         )
         presentAppAlert(alert, in: hostWindow) { [weak self] response in
@@ -922,12 +934,12 @@ final class AppKitSettingsContainerView: NSView {
     @objc private func handleResetSettings() {
         let hostWindow = preferredHostWindow()
         let alert = makeAppAlert(
-            title: "重置设置",
-            message: "将清空入库记录、播放列表、喜爱和最近使用，并恢复默认设置。媒体与下载文件保留，此操作不可撤销。",
-            buttons: ["确定", "取消"]
+            title: "重置应用",
+            message: "将清空应用中的入库记录、喜爱、播放列表和最近使用，并恢复默认设置。磁盘上的媒体与下载文件保留，此操作不可撤销。",
+            buttons: ["取消", "重置"]
         )
         presentAppAlert(alert, in: hostWindow) { [weak self] response in
-            guard let self, response == .alertFirstButtonReturn else { return }
+            guard let self, response == .alertSecondButtonReturn else { return }
             self.dependency.actions.resetToFreshInstallState()
         }
     }

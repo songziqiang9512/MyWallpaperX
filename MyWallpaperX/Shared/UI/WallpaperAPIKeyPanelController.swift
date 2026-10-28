@@ -47,8 +47,8 @@ final class WallpaperAPIKeyPanelController: NSObject, NSWindowDelegate, NSTextFi
         panel.contentView = makeContent()
         self.panel = panel
         self.onClose = onClose
+        panel.initialFirstResponder = keyField
         guard WallpaperLibrarySheetPresentation.present(panel, in: host) else { close(); return }
-        panel.makeFirstResponder(keyField)
     }
 
     func close() {

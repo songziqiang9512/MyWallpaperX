@@ -47,9 +47,7 @@ nonisolated struct WallhavenQuery: Hashable, Codable, Sendable {
     var categories = "111"
     var purity = "100"
     var minimumResolution: String? = nil
-    var resolutions: [String] = []
     var ratios: [String] = []
-    var color: String? = nil
     var topRange: TopRange = .month
 
     func queryItems(page: Int, seed: String? = nil) throws -> [URLQueryItem] {
@@ -57,12 +55,8 @@ nonisolated struct WallhavenQuery: Hashable, Codable, Sendable {
             throw OnlineImageError.message("请选择有效的 Wallhaven 分类、分级与页码。")
         }
         let minimum = minimumResolution?.trimmingCharacters(in: .whitespacesAndNewlines)
-        let exact = resolutions.filter { !$0.isEmpty }
-        guard minimum?.isEmpty != false || exact.isEmpty else {
-            throw OnlineImageError.message("最低分辨率和精确分辨率请择一使用。")
-        }
         guard (minimum.map { $0.isEmpty || Self.validDimensions($0) } ?? true),
-              exact.allSatisfy(Self.validDimensions), ratios.allSatisfy(Self.validDimensions) else {
+              ratios.allSatisfy(Self.validDimensions) else {
             throw OnlineImageError.message("Wallhaven 分辨率或比例格式无效。")
         }
         var items: [URLQueryItem] = [
@@ -77,15 +71,7 @@ nonisolated struct WallhavenQuery: Hashable, Codable, Sendable {
         if sorting == .popular { items.append(.init(name: "topRange", value: topRange.rawValue)) }
         if sorting == .random, let seed, !seed.isEmpty { items.append(.init(name: "seed", value: seed)) }
         if let minimum, !minimum.isEmpty { items.append(.init(name: "atleast", value: minimum)) }
-        if !exact.isEmpty { items.append(.init(name: "resolutions", value: exact.joined(separator: ","))) }
         if !ratios.isEmpty { items.append(.init(name: "ratios", value: ratios.joined(separator: ","))) }
-        if let color, !color.isEmpty {
-            let normalized = color.replacingOccurrences(of: "#", with: "").lowercased()
-            guard Self.colorPalette.contains(normalized) else {
-                throw OnlineImageError.message("请选择 Wallhaven 支持的颜色。")
-            }
-            items.append(.init(name: "colors", value: normalized))
-        }
         // The documented API fixes listings at 24. per_page/include_fields are not sent.
         return items
     }
@@ -101,11 +87,4 @@ nonisolated struct WallhavenQuery: Hashable, Codable, Sendable {
         }
     }
 
-    /// Official single-color choices, kept in display order for the filter menu.
-    static let colorPalette: [String] = [
-        "660000", "990000", "cc0000", "cc3333", "ea4c88", "993399", "663399", "333399",
-        "0066cc", "0099cc", "66cccc", "77cc33", "669900", "336600", "666600", "999900",
-        "cccc33", "ffff00", "ffcc33", "ff9900", "ff6600", "cc6633", "996633", "663300",
-        "000000", "999999", "cccccc", "ffffff", "424153"
-    ]
 }

@@ -2,7 +2,7 @@
 //  SystemMonitor.swift
 //  MyWallpaperX
 //
-//  系统状态监控 — CPU、内存、网络速率、GPU 使用率
+//  状态栏指标 — 应用 CPU / 内存，系统网络 / GPU
 //  本文件遵循 macOS26 设计规范，尽量调用原生接口实现
 //
 
@@ -13,12 +13,10 @@ import IOKit
 // MARK: - 数据模型
 
 struct SystemStats {
-    /// CPU 总使用率 0.0 ~ 1.0
-    var cpuUsage: Double = 0
-    /// 已用物理内存（字节）
-    var memUsed: UInt64 = 0
-    /// 总物理内存（字节）
-    var memTotal: UInt64 = 0
+    /// 本应用及登记的播放进程 CPU；1.0 表示占用一个核心。首次采样无差值。
+    var cpuUsage: Double?
+    /// 本应用及登记的播放进程物理内存占用（字节）。
+    var memUsed: UInt64?
     /// 网络上行字节/秒
     var netUpBytesPerSec: Double = 0
     /// 网络下行字节/秒
@@ -41,75 +39,64 @@ final class SystemMonitor {
     // 网络上次采样
     private var lastNetUp: UInt64 = 0
     private var lastNetDown: UInt64 = 0
-    private var lastNetSampleTime: Date = .distantPast
+    private var lastNetSampleTime: Date?
 
-    // CPU 上次采样的 ticks
-    private var lastCPUTicks: (user: UInt32, sys: UInt32, idle: UInt32, nice: UInt32) = (0, 0, 0, 0)
+    private var processSamples: [Int32: (started: UInt64, cpuTicks: Double)] = [:]
+    private var lastProcessSampleTime: TimeInterval?
+    private let processSecondsPerTick: Double? = {
+        var timebase = mach_timebase_info_data_t()
+        guard mach_timebase_info(&timebase) == KERN_SUCCESS, timebase.denom != 0 else { return nil }
+        return Double(timebase.numer) / Double(timebase.denom) / 1_000_000_000
+    }()
 
     private init() {}
 
     // MARK: - 主入口
 
     /// 刷新状态栏运行时指标。
-    func refreshRuntimeStats() {
-        stats.cpuUsage  = readCPUUsage()
-        readMemory(into: &stats)
-        readNetwork(into: &stats)
-        stats.gpuUsage  = readGPUUsage()
+    func refreshRuntimeStats(includeNetwork: Bool = false) {
+        if includeNetwork { readNetwork(into: &stats) }
+        stats.gpuUsage = readGPUUsage()
     }
 
-    // MARK: - CPU 使用率
-
-    private func readCPUUsage() -> Double {
-        var info = host_cpu_load_info()
-        var count = mach_msg_type_number_t(
-            MemoryLayout<host_cpu_load_info>.size / MemoryLayout<integer_t>.size
-        )
-        let result = withUnsafeMutablePointer(to: &info) {
-            $0.withMemoryRebound(to: integer_t.self, capacity: Int(count)) {
-                host_statistics(mach_host_self(), HOST_CPU_LOAD_INFO, $0, &count)
-            }
-        }
-        guard result == KERN_SUCCESS else { return stats.cpuUsage }
-
-        let user = info.cpu_ticks.0
-        let sys  = info.cpu_ticks.1
-        let idle = info.cpu_ticks.2
-        let nice = info.cpu_ticks.3
-
-        // Mach ticks wrap at their native 32-bit width; widen only the deltas.
-        let dUser  = UInt64(user &- lastCPUTicks.user)
-        let dSys   = UInt64(sys  &- lastCPUTicks.sys)
-        let dIdle  = UInt64(idle &- lastCPUTicks.idle)
-        let dNice  = UInt64(nice &- lastCPUTicks.nice)
-        let dTotal = dUser + dSys + dIdle + dNice
-
-        lastCPUTicks = (user, sys, idle, nice)
-        guard dTotal > 0 else { return stats.cpuUsage }
-        return Double(dUser + dSys + dNice) / Double(dTotal)
+    func endNetworkSampling() {
+        lastNetSampleTime = nil
+        stats.netUpBytesPerSec = 0
+        stats.netDownBytesPerSec = 0
     }
 
-    // MARK: - 内存
-
-    private func readMemory(into s: inout SystemStats) {
-        s.memTotal = ProcessInfo.processInfo.physicalMemory
-
-        var vmStats = vm_statistics64()
-        var count = mach_msg_type_number_t(
-            MemoryLayout<vm_statistics64>.size / MemoryLayout<integer_t>.size
-        )
-        let result = withUnsafeMutablePointer(to: &vmStats) {
-            $0.withMemoryRebound(to: integer_t.self, capacity: Int(count)) {
-                host_statistics64(mach_host_self(), HOST_VM_INFO64, $0, &count)
+    /// Called on the existing status clock only while the panel is visible.
+    /// Passing no processes ends that visible sampling session. No process-tree
+    /// scan or engine diagnostics are needed; App supplies its live helper PIDs.
+    func refreshApplicationStats(processIdentifiers: [Int32]) {
+        let now = ProcessInfo.processInfo.systemUptime
+        var next: [Int32: (started: UInt64, cpuTicks: Double)] = [:]
+        var footprint: UInt64 = 0
+        var elapsedTicks: Double = 0
+        var matchedProcesses = 0
+        for pid in processIdentifiers {
+            var usage = rusage_info_v4()
+            let result = withUnsafeMutablePointer(to: &usage) { pointer in
+                pointer.withMemoryRebound(to: rusage_info_t?.self, capacity: 1) {
+                    proc_pid_rusage(pid, RUSAGE_INFO_V4, $0)
+                }
+            }
+            guard result == 0 else { continue }
+            let ticks = Double(usage.ri_user_time) + Double(usage.ri_system_time)
+            next[pid] = (usage.ri_proc_start_abstime, ticks)
+            footprint += usage.ri_phys_footprint
+            if let previous = processSamples[pid], previous.started == usage.ri_proc_start_abstime {
+                elapsedTicks += ticks - previous.cpuTicks
+                matchedProcesses += 1
             }
         }
-        guard result == KERN_SUCCESS else { return }
-
-        let page       = UInt64(vm_page_size)
-        let wired      = UInt64(vmStats.wire_count)            * page
-        let active     = UInt64(vmStats.active_count)          * page
-        let compressed = UInt64(vmStats.compressor_page_count) * page
-        s.memUsed = wired + active + compressed
+        if let last = lastProcessSampleTime, now > last, let secondsPerTick = processSecondsPerTick,
+           matchedProcesses > 0 {
+            stats.cpuUsage = elapsedTicks * secondsPerTick / (now - last)
+        } else { stats.cpuUsage = nil }
+        stats.memUsed = next.isEmpty ? nil : footprint
+        processSamples = next
+        lastProcessSampleTime = next.isEmpty ? nil : now
     }
 
     // MARK: - 网络速率
@@ -117,9 +104,8 @@ final class SystemMonitor {
     private func readNetwork(into s: inout SystemStats) {
         let (up, down) = rawNetworkBytes()
         let now = Date()
-        let elapsed = now.timeIntervalSince(lastNetSampleTime)
-
-        if elapsed > 0.1 && (lastNetUp > 0 || lastNetDown > 0) {
+        if let previous = lastNetSampleTime, now.timeIntervalSince(previous) > 0.1 {
+            let elapsed = now.timeIntervalSince(previous)
             let dUp   = up   >= lastNetUp   ? up   - lastNetUp   : 0
             let dDown = down >= lastNetDown ? down - lastNetDown : 0
             s.netUpBytesPerSec   = Double(dUp)   / elapsed
@@ -202,7 +188,8 @@ final class SystemMonitor {
 extension SystemStats {
     /// CPU 百分比字符串，如 "12%"
     var cpuUsageString: String {
-        String(format: "%d%%", Int((cpuUsage * 100).rounded()))
+        guard let cpuUsage else { return "–" }
+        return String(format: "%d%%", Int((cpuUsage * 100).rounded()))
     }
 
     /// GPU 百分比字符串，如 "34%"，读不到时返回 "–"
@@ -212,10 +199,7 @@ extension SystemStats {
     }
 
     /// 已用内存字符串，如 "6.8 GB"
-    var memUsedString: String { formatBytes(memUsed, style: .memory) }
-
-    /// 总内存字符串，如 "16 GB"
-    var memTotalString: String { formatBytes(memTotal, style: .memory) }
+    var memUsedString: String { memUsed.map { formatBytes($0, style: .memory) } ?? "–" }
 
     /// 网络上行速率，如 "2.1 MB/s"
     var netUpString: String { formatBytes(UInt64(netUpBytesPerSec), style: .speed) }

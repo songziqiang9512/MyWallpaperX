@@ -77,7 +77,7 @@ private final class KeyboardCell: NSCollectionViewItem {
                         matrix = matrix && grid.selection.references == [values[target].reference]
                             && grid.selection.focusedReference == values[target].reference
                         writes = writes && selections.count == priorWrites + 1 && selections.last?.0 == [values[target].reference]
-                            && inspections.count == priorInspect + 1 && inspections.last == values[target].reference && plays.count == priorPlays
+                            && inspections.count == priorInspect && plays.count == priorPlays
                         inputs = inputs && values == original && grid.items == values
                         steps += 1
                     }
@@ -85,7 +85,7 @@ private final class KeyboardCell: NSCollectionViewItem {
             }
         }
         checks["allFourArrowsUseAcceptedDisplayOrderAndActualVisualColumnsAtBounds"] = matrix && steps == 288
-        checks["eachHandledArrowEmitsOneCanonicalSelectionAndInspectorReceiptWithoutPlaying"] = writes
+        checks["eachHandledArrowEmitsOneCanonicalSelectionWithoutOpeningInspectorOrPlaying"] = writes
         checks["navigationNeverSortsOrMutatesAcceptedSourceValues"] = inputs
         var absent = WallpaperLibrarySelectionState()
         absent.focusedReference = .init(provider: .videoLibrary, sourceID: "not-in-this-projection")

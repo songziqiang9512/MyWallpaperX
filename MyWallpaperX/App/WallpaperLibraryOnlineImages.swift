@@ -10,6 +10,7 @@ import Combine
     private let inspector: WallpaperLibraryInspectorCoordinator
     private let library = OnlineImageLibrary.shared
     private var browsers: [OnlineImageSource: OnlineImageBrowserController] = [:]
+    var opensDetailsOnSingleClick: () -> Bool = { false }
     private var subscriptions = Set<AnyCancellable>()
     private var observedPixivScope: String?
     private var login: PixivLoginPanelController?
@@ -28,6 +29,9 @@ import Combine
         wallhaven = .init(source: .wallhaven, library: .shared)
         pixiv = .init(source: .pixiv, library: .shared)
         observedPixivScope = library.pixivScope
+        inspector.onPreviewLoadingChange = { [weak self] in
+            self?.browsers.values.forEach { $0.refreshPreviewLoading() }
+        }
         library.$pixivSession.compactMap { $0 }.flatMap { $0.$state.removeDuplicates() }
             .receive(on: DispatchQueue.main).sink { [weak self] _ in
                 guard let self else { return }
@@ -39,6 +43,9 @@ import Combine
                 }
                 onChange?()
             }.store(in: &subscriptions)
+        library.$wallhavenAccount.dropFirst().receive(on: DispatchQueue.main).sink { [weak self] _ in
+            self?.onChange?()
+        }.store(in: &subscriptions)
         library.$wallhavenCredentialRevision.dropFirst().receive(on: DispatchQueue.main).sink { [weak self] _ in
             guard let self else { return }
             if inspector.inspectedReference?.provider == .wallhaven { inspector.closeInspector() }
@@ -58,15 +65,59 @@ import Combine
 
     var pixivAccountStatus: String {
         guard let state = library.pixivSession?.state else { return "未登录（匿名浏览）" }
+        let accountName = state.identity.map { identity in
+            let name = identity.displayName.flatMap { $0.isEmpty ? nil : $0 }
+            return name.map { "\($0)（\(identity.userID)）" } ?? identity.userID
+        }
         switch state.phase {
         case .anonymous: return "未登录（匿名浏览）"
-        case .checking: return "正在恢复账号信息…"
-        case .unknown: return "会话状态待确认"
-        case .authenticated:
-            guard let identity = state.identity else { return "会话状态待确认" }
-            let name = identity.displayName.flatMap { $0.isEmpty ? nil : $0 }
-            return name.map { "当前账号：\($0)（\(identity.userID)）" } ?? "当前账号：\(identity.userID)"
+        case .checking: return accountName.map { "已登录：\($0) · 正在更新账号信息…" } ?? "正在读取账号信息…"
+        case .unknown: return accountName.map { "已登录：\($0) · 资料暂不可用" } ?? "会话状态待确认"
+        case .authenticated: return accountName.map { "已登录：\($0)" } ?? "会话状态待确认"
         }
+    }
+
+    func accountStatus(for source: OnlineImageSource) -> [String] {
+        guard source == .wallhaven else { return [pixivAccountStatus] }
+        switch library.wallhavenAccount {
+        case .unread: return ["尚未读取 API Key 状态"]
+        case .unconfigured: return ["未配置 API Key · 可匿名浏览"]
+        case .saved: return ["已保存 API Key", "收藏信息尚未读取"]
+        case .loading: return ["已保存 API Key", "正在读取收藏信息…"]
+        case .ready(let collections):
+            return ["已保存 API Key", "已取得 \(collections.count) 个收藏集"]
+                + collections.map { "\($0.label) · \($0.count) 张" }
+        case .unavailable(let message): return ["已保存 API Key", "收藏信息暂不可用：" + message]
+        }
+    }
+
+    func canRefreshAccount(_ source: OnlineImageSource) -> Bool {
+        if source == .pixiv { return library.pixivSession?.state.phase != .checking }
+        return library.wallhavenAccount.hasStoredKey != false && library.wallhavenAccount != .loading
+    }
+
+    var hasPixivIdentity: Bool { library.pixivSession?.state.identity != nil }
+    var canLogoutPixiv: Bool { library.pixivSession.map { $0.state.phase != .anonymous } == true }
+
+    func refreshAccountInformation(_ source: OnlineImageSource) {
+        guard isDisplayed, workspace.presentation.page == page(for: source) else { return }
+        if source == .wallhaven { library.refreshWallhavenAccount(); return }
+        Task { [weak self] in
+            guard let self else { return }
+            _ = await library.preparePixiv()
+            await library.pixivSession?.refreshAccountInformation()
+        }
+    }
+
+    func openMyPixivWorks() {
+        guard let identity = library.pixivSession?.state.identity else { return }
+        openAuthor(.init(source: .pixiv, id: identity.userID, name: identity.displayName), from: .pixiv)
+    }
+
+    func openPixivProfile() {
+        guard let identity = library.pixivSession?.state.identity,
+              let url = URL(string: "https://www.pixiv.net/users/" + identity.userID) else { return }
+        NSWorkspace.shared.open(url)
     }
 
     func browser(for page: WallpaperLibraryPage) -> OnlineImageBrowserController? {
@@ -74,25 +125,27 @@ import Combine
         let source = session.source
         if let browser = browsers[source] { return browser }
         let browser = OnlineImageBrowserController(session: session, library: library)
-        browser.onInspect = { [weak self] artwork in
+        browser.opensDetailsOnSingleClick = { [weak self] in self?.opensDetailsOnSingleClick() == true }
+        browser.onInspect = { [weak self, weak browser] artwork in
             self?.inspector.inspectOnlineArtwork(artwork, onAuthor: { [weak self] author in
                 self?.openAuthor(author, from: page)
-            })
+            }, thumbnailPixelSize: browser?.thumbnailPixelSize ?? 800)
         }
         browser.onPreview = { [weak self] content in _ = self?.inspector.preview(content: content) }
+        browser.isPreviewLoading = { [weak self] reference in self?.inspector.loadingPreviewReference == reference }
         browser.onEscape = { [weak self] in
             guard let self else { return }
             if inspector.previewReference != nil { inspector.closePreview() }
             else { inspector.closeInspector() }
         }
-        browser.onSelectionChange = { [weak self, weak session] content in
+        browser.onSelectionChange = { [weak self, weak session, weak browser] content in
             guard let self else { return }
             let artwork = content.flatMap { content in
                 session?.state.items.first { $0.firstAssetID.reference == content.providerReference }
             }
             inspector.syncSelection(content: content, artwork: artwork, onAuthor: { [weak self] author in
                 self?.openAuthor(author, from: page)
-            })
+            }, thumbnailPixelSize: browser?.thumbnailPixelSize ?? 800)
         }
         browser.onRestoreColumns = { [weak self] columns in
             guard let self else { return }
@@ -100,8 +153,6 @@ import Combine
             _ = workspace.presentation.setQueryState(query)
         }
         browser.makePrimary = { [weak self] content in self?.commands.makePrimaryAction(for: content) }
-        browser.makeFavorite = { [weak self] content in self?.commands.makeFavoriteAction([content.reference]) }
-        browser.isFavorite = { [weak self] in self?.workspace.isFavorite($0) == true }
         browser.isPlaying = { [weak self] in self?.isPlaying?($0) == true }
         browser.isSwitching = { [weak self] in self?.isSwitching?($0) == true }
         browser.makeMenu = { [weak self] content in self?.menu(content, source: source) }
@@ -136,14 +187,25 @@ import Combine
         inspector.inspectOnlineArtwork(artwork, onAuthor: { [weak self] author in
             guard let self else { return }
             self.openAuthor(author, from: self.workspace.presentation.page)
-        })
+        }, thumbnailPixelSize: browsers[session.source]?.thumbnailPixelSize ?? 800)
     }
     func previewSelected() { if let content = selectedContent { _ = inspector.preview(content: content) } }
+    func selectedPrimaryAction() -> (title: String, action: () -> Void)? {
+        guard let content = selectedContent, isSwitching?(content.reference) != true else { return nil }
+        if content.publishedAvailability.isPublishedLocally {
+            let title = workspace.isPlaying(content.reference) ? "停止播放" : content.capabilities.contains(.play) ? "设为壁纸" : "重新下载"
+            return commands.makePrimaryAction(for: content).map { (title, $0) }
+        }
+        guard content.capabilities.contains(.download), let session = session(for: workspace.presentation.page),
+              let artwork = session.state.items.first(where: { $0.firstAssetID.reference == content.providerReference }),
+              library.progress[artwork.firstAssetID] == nil else { return nil }
+        return ("下载原图", { [weak self] in self?.library.downloadArtwork(artwork) })
+    }
     func selectedOrganizationActions() -> WallpaperInspectorActions? {
         let page = workspace.presentation.page
         guard let browser = browser(for: page), let content = browser.selectedContent,
               content.publishedAvailability.isAvailable else { return nil }
-        let primary = commands.makeApplyAction(for: content), favorite = commands.makeFavoriteAction([content.reference])
+        let primary = commands.makePrimaryAction(for: content), favorite = commands.makeFavoriteAction([content.reference])
         let epoch = workspace.relationships.resetEpoch, reference = content.reference
         func accepts() -> Bool {
             isDisplayed && WallpaperLibrarySheetPresentation.permitsInput(in: window)
@@ -156,7 +218,6 @@ import Combine
             onPrimary: { if accepts() { primary?() } }, onToggleFavorite: { if accepts() { favorite?() } },
             onChoosePlaylist: { [weak commands] anchor in if accepts() { commands?.choosePlaylist([reference], anchor: anchor) } })
     }
-    func refreshCurrent() { session(for: workspace.presentation.page)?.refresh() }
     func hasReturnContext(for page: WallpaperLibraryPage) -> Bool {
         guard let session = session(for: page) else { return false }
         return session.hasReturnContext || authorOrigins[session.source]?.resetEpoch == workspace.relationships.resetEpoch
@@ -225,7 +286,7 @@ import Combine
         if keyPanel == nil {
             keyPanel = WallpaperAPIKeyPanelController(title: "Wallhaven API Key",
                 message: "匿名即可浏览安全内容。填写自己的 API Key 后可按账号权限浏览；Key 保存在系统钥匙串中。",
-                helpURL: URL(string: "https://wallhaven.cc/settings/account")!) { [weak self] key in
+                helpURL: URL(string: "https://wallhaven.cc/settings/account")!, hasStoredKey: library.wallhavenAccount.hasStoredKey) { [weak self] key in
                     guard let self else { return }
                     try await library.setWallhavenKey(key)
                 }

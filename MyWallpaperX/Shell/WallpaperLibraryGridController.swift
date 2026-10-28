@@ -23,12 +23,14 @@ import AppKit
     /// view echo can then be distinguished from a reset or a later page visit.
     var onSelection: ((Set<WallpaperReference>, WallpaperReference?) -> UUID?)?
     var onInspect: ((WallpaperContentItem) -> Void)?
+    var opensDetailsOnSingleClick: () -> Bool = { false }
     var onPrimaryAction: ((WallpaperContentItem) -> Void)?
     var onQuickLook: ((WallpaperContentItem) -> Void)?
     var onDelete: (([WallpaperContentItem]) -> Void)?
     var onEscape: (() -> Void)?
     var onScrollAnchor: ((WallpaperLibraryPage, WallpaperReference?, Double, Bool) -> Void)?
     var onClipWidthChange: ((CGFloat) -> Void)?
+    var onScrollSettled: (() -> Void)?
     var onImportFiles: (([URL]) -> Bool)?
     var menuProvider: (([WallpaperContentItem]) -> NSMenu?)?
     static let referencesType = NSPasteboard.PasteboardType("com.songziqiang.MyWallpaperX.wallpaper-references")
@@ -39,6 +41,8 @@ import AppKit
     private let layout = NSCollectionViewFlowLayout()
     private var headerContent: Header?
     private var headerHeight: CGFloat = 0
+    private let footerLabel = NSTextField(labelWithString: "")
+    private static let footerID = NSUserInterfaceItemIdentifier("WallpaperLibraryPageFooter")
     private static let headerID = NSUserInterfaceItemIdentifier("WallpaperLibraryPageHeader")
     private(set) var items: [WallpaperContentItem] = []
     private(set) var selection = WallpaperLibrarySelectionState()
@@ -48,6 +52,11 @@ import AppKit
     private var pendingScroll: (reference: WallpaperReference?, offset: Double?, atTop: Bool?)?
     private var permitsDragging = false
     private var applying = false
+    private var isAnimatingChanges = false
+    private var queuedUpdate: (page: WallpaperLibraryPage, sessionID: UUID, apply: () -> Void)?
+    private var inputLeaseIsCurrent: Bool {
+        queuedUpdate.map { $0.page == page && $0.sessionID == selection.sessionID } ?? true
+    }
     private var boxSelection: BoxSelectionState?
     private var gestureSessionID: UUID?
     private var mouseDownSelectionReceipt: (reference: WallpaperReference, page: WallpaperLibraryPage, sessionID: UUID)?
@@ -84,6 +93,12 @@ import AppKit
         collection.delegate = self
         collection.register(WallpaperLibraryGridHeader.self, forSupplementaryViewOfKind: NSCollectionView.elementKindSectionHeader,
             withIdentifier: Self.headerID)
+        collection.register(WallpaperLibraryGridHeader.self, forSupplementaryViewOfKind: NSCollectionView.elementKindSectionFooter,
+            withIdentifier: Self.footerID)
+        footerLabel.font = .systemFont(ofSize: 12)
+        footerLabel.textColor = .secondaryLabelColor
+        footerLabel.alignment = .center
+        footerLabel.lineBreakMode = .byTruncatingTail
         collection.registerForDraggedTypes([.fileURL])
         collection.setDraggingSourceOperationMask(.copy, forLocal: true)
         collection.setDraggingSourceOperationMask([], forLocal: false)
@@ -98,7 +113,7 @@ import AppKit
         collection.onKey = { [weak self] event in self?.handleKey(event) ?? false }
         collection.onSelectAll = { [weak self] in self?.selectAllInSelectionMode() }
         collection.onMouseDownSelection = { [weak self] path in
-            guard let self, !self.applying else { return false }
+            guard let self, !self.applying, self.inputLeaseIsCurrent else { return false }
             self.mouseDownSelectionReceipt = nil
             guard !self.selection.isSelecting, let value = self.item(at: path), let page = self.page else { return true }
             if self.selection.references == [value.reference], self.selection.focusedReference == value.reference { return true }
@@ -128,7 +143,9 @@ import AppKit
                     self.scheduleViewport()
                 }
             }
-        scrollView.onScrollSettled = { [weak self] in self?.reportScrollAnchor() }
+        scrollView.onScrollSettled = { [weak self] in
+            self?.reportScrollAnchor(); self?.onScrollSettled?(); self?.scheduleViewport()
+        }
     }
 
     deinit {
@@ -140,7 +157,7 @@ import AppKit
     override func viewWillLayout() {
         // Native resizing can reflow the old item size before didLayout. Keep
         // the last real viewport in the existing pending position first.
-        if !applying, pendingScroll == nil, acceptsScrollReceipts, page != nil, hasRestorableViewport {
+        if !applying, !isAnimatingChanges, pendingScroll == nil, acceptsScrollReceipts, page != nil, hasRestorableViewport {
             let anchor = visibleAnchor(), atTop = scrollView.isGridAtTop
             if anchor != nil || atTop {
                 pendingScroll = (anchor?.reference, anchor.map { Double($0.offset) }, atTop)
@@ -151,7 +168,7 @@ import AppKit
 
     override func viewDidLayout() {
         super.viewDidLayout()
-        guard !applying else { return }
+        guard !applying, !isAnimatingChanges else { return }
         applying = true
         // Complete the scroll view's native tiling as well as the document's
         // flow layout before consuming a saved position.
@@ -180,30 +197,13 @@ import AppKit
     func update(page: WallpaperLibraryPage, items: [WallpaperContentItem], selection: WallpaperLibrarySelectionState,
                 preferredColumns: Int, permitsDragging: Bool, scrollAnchor: WallpaperReference?,
                 scrollOffset: Double? = nil, scrollAtTop: Bool? = nil, resetScroll: Bool = false,
-                header: Header? = nil) {
+                header: Header? = nil, footerText: String? = nil) {
         loadViewIfNeeded()
-        let entering = self.page != page || resetScroll || !acceptsScrollReceipts
-        if entering {
-            if !resetScroll { reportScrollAnchor() }
-            cancelViewport()
-            pendingScroll = (scrollAnchor, scrollOffset, scrollAtTop)
-        }
-        let oldAnchor = visibleAnchor()
-        let wasAtTop = scrollView.isGridAtTop
         let orderChanged = self.items.map(\.reference) != items.map(\.reference)
-        var replacedCells = Set(zip(self.items, items).enumerated().compactMap { index, pair in
-            pair.0.reference == pair.1.reference && pair.0.providerReference.provider != pair.1.providerReference.provider
-                ? IndexPath(item: index, section: 0) : nil
-        })
-        if let needsCellReplacement, !orderChanged, !entering {
-            for path in collection.indexPathsForVisibleItems() where items.indices.contains(path.item) {
-                if let cell = collection.item(at: path), needsCellReplacement(cell, items[path.item]) {
-                    replacedCells.insert(path)
-                }
-            }
-        }
         let zoomChanged = self.preferredColumns != preferredColumns
         let headerChanged = headerContent?.view !== header?.view
+        let footerChanged = footerLabel.stringValue.isEmpty != (footerText?.isEmpty != false)
+        let entering = self.page != page || resetScroll || !acceptsScrollReceipts
         if gestureSessionID != nil, entering || orderChanged || zoomChanged || gestureSessionID != selection.sessionID
             || self.selection.isSelecting != selection.isSelecting {
             boxSelection = nil
@@ -216,14 +216,82 @@ import AppKit
             coverClick.isEnabled = true
             selectionPan.isEnabled = true
         }
+        if isAnimatingChanges {
+            let values = Dictionary(uniqueKeysWithValues: items.map { ($0.reference, $0) })
+            let replacesCell = zip(self.items, items).contains {
+                $0.reference == $1.reference && $0.providerReference.provider != $1.providerReference.provider
+            } || collection.visibleItems().contains { cell in
+                guard let reference = cell.representedObject as? WallpaperReference, let value = values[reference] else { return false }
+                return needsCellReplacement?(cell, value) == true
+            }
+            queuedUpdate = nil
+            if self.page != page || resetScroll || orderChanged || zoomChanged || headerChanged || footerChanged || replacesCell {
+                queuedUpdate = (page, selection.sessionID, { [weak self] in
+                    self?.update(page: page, items: items, selection: selection, preferredColumns: preferredColumns,
+                        permitsDragging: permitsDragging, scrollAnchor: scrollAnchor, scrollOffset: scrollOffset,
+                        scrollAtTop: scrollAtTop, resetScroll: resetScroll, header: header, footerText: footerText)
+                })
+                if self.page == page, !resetScroll {
+                    // Keep native counts fixed until the batch completes, but
+                    // project live switch/stop feedback onto surviving cells.
+                    self.items = self.items.map { previous in
+                        guard let next = values[previous.reference], next.providerReference.provider == previous.providerReference.provider else { return previous }
+                        return next
+                    }
+                    self.selection = selection
+                    collection.allowsMultipleSelection = selection.isSelecting
+                    applyNativeSelection()
+                } else { cancelViewport() }
+                return
+            }
+        }
+        if entering {
+            if !resetScroll { reportScrollAnchor() }
+            cancelViewport()
+            pendingScroll = (scrollAnchor, scrollOffset, scrollAtTop)
+        }
+        let oldAnchor = visibleAnchor()
+        let wasAtTop = scrollView.isGridAtTop
+        var replacedCells = Set(zip(self.items, items).enumerated().compactMap { index, pair in
+            pair.0.reference == pair.1.reference && pair.0.providerReference.provider != pair.1.providerReference.provider
+                ? IndexPath(item: index, section: 0) : nil
+        })
+        if let needsCellReplacement, !orderChanged, !entering {
+            for path in collection.indexPathsForVisibleItems() where items.indices.contains(path.item) {
+                if let cell = collection.item(at: path), needsCellReplacement(cell, items[path.item]) {
+                    replacedCells.insert(path)
+                }
+            }
+        }
+        var changedProvider = false
+        if orderChanged {
+            let previous = Dictionary(uniqueKeysWithValues: self.items.map { ($0.reference, $0.providerReference.provider) })
+            changedProvider = items.contains { value in previous[value.reference].map { $0 != value.providerReference.provider } == true }
+            if let needsCellReplacement, !changedProvider {
+                let incoming = Dictionary(uniqueKeysWithValues: items.map { ($0.reference, $0) })
+                changedProvider = collection.visibleItems().contains { cell in
+                    guard let reference = cell.representedObject as? WallpaperReference, let value = incoming[reference] else { return false }
+                    return needsCellReplacement(cell, value)
+                }
+            }
+        }
+        let animateStructure = orderChanged && !entering && !zoomChanged && !headerChanged && !footerChanged
+            && !changedProvider && !self.items.isEmpty && viewportIsVisible
+        let difference = animateStructure ? items.map(\.reference).difference(from: self.items.map(\.reference)).inferringMoves() : nil
+        footerLabel.stringValue = footerText ?? ""
         applying = true
         defer { applying = false }
-        if orderChanged || entering || headerChanged {
+        if animateStructure {
+            let retained = Set(items.map(\.reference))
+            for cell in collection.visibleItems() where (cell.representedObject as? WallpaperReference).map(retained.contains) != true {
+                invalidateAccessibilityActivation(cell); setCellVisible?(cell, false)
+            }
+        } else if orderChanged || entering || headerChanged || footerChanged {
             collection.visibleItems().forEach { invalidateAccessibilityActivation($0); setCellVisible?($0, false) }
         } else if !replacedCells.isEmpty {
             replacedCells.compactMap { collection.item(at: $0) }.forEach(invalidateAccessibilityActivation)
         }
-        self.items = items
+        if !animateStructure { self.items = items }
         headerContent = header
         acceptsScrollReceipts = true
         self.page = page
@@ -233,7 +301,46 @@ import AppKit
         // AppKit can request cells synchronously while changing selection or
         // tiling the scroll view. Replace its old count/layout topology before
         // any such call can observe the newly installed value projection.
-        if orderChanged || entering || headerChanged {
+        if let difference {
+            isAnimatingChanges = true
+            NSAnimationContext.runAnimationGroup { context in
+                context.duration = NSWorkspace.shared.accessibilityDisplayShouldReduceMotion ? 0 : 0.2
+                collection.animator().performBatchUpdates({
+                    self.items = items
+                    for change in difference {
+                        switch change {
+                        case .remove(let source, _, let destination):
+                            if let destination {
+                                self.collection.moveItem(at: IndexPath(item: source, section: 0), to: IndexPath(item: destination, section: 0))
+                            } else { self.collection.deleteItems(at: [IndexPath(item: source, section: 0)]) }
+                        case .insert(let destination, _, nil):
+                            self.collection.insertItems(at: [IndexPath(item: destination, section: 0)])
+                        default: break
+                        }
+                    }
+                }, completionHandler: { [weak self] _ in
+                    guard let self else { return }
+                    self.isAnimatingChanges = false
+                    if let queued = self.queuedUpdate {
+                        self.queuedUpdate = nil
+                        queued.apply()
+                        return
+                    }
+                    self.applying = true
+                    self.applyNativeSelection()
+                    self.scrollView.layoutSubtreeIfNeeded()
+                    _ = self.updateLayout(measureHeader: true)
+                    self.collection.layoutSubtreeIfNeeded()
+                    if self.pendingScroll != nil {
+                        self.applyPendingScroll()
+                    } else if !self.scrollView.isGridScrolling, let oldAnchor {
+                        _ = self.restoreScroll(reference: oldAnchor.reference, offset: Double(oldAnchor.offset), atTop: wasAtTop)
+                    }
+                    self.applying = false
+                    self.scheduleViewport()
+                })
+            }
+        } else if orderChanged || entering || headerChanged || footerChanged {
             collection.reloadData()
         } else if !replacedCells.isEmpty {
             collection.reloadItems(at: replacedCells)
@@ -247,7 +354,7 @@ import AppKit
         refreshVisibleCells()
         collection.layoutSubtreeIfNeeded()
         scrollView.layoutSubtreeIfNeeded()
-        if orderChanged || entering || zoomChanged || headerChanged || geometryChanged {
+        if !isAnimatingChanges, orderChanged || entering || zoomChanged || headerChanged || footerChanged || geometryChanged {
             if pendingScroll != nil {
                 applyPendingScroll()
             } else if let oldAnchor {
@@ -259,8 +366,9 @@ import AppKit
 
     func collectionView(_ collectionView: NSCollectionView, viewForSupplementaryElementOfKind kind: NSCollectionView.SupplementaryElementKind,
                         at indexPath: IndexPath) -> NSView {
-        let host = collectionView.makeSupplementaryView(ofKind: kind, withIdentifier: Self.headerID, for: indexPath)
-        (host as? WallpaperLibraryGridHeader)?.setContent(headerContent?.view)
+        let isFooter = kind == NSCollectionView.elementKindSectionFooter
+        let host = collectionView.makeSupplementaryView(ofKind: kind, withIdentifier: isFooter ? Self.footerID : Self.headerID, for: indexPath)
+        (host as? WallpaperLibraryGridHeader)?.setContent(isFooter ? footerLabel : headerContent?.view)
         return host
     }
 
@@ -273,8 +381,11 @@ import AppKit
         let metrics = WallpaperLibraryGridMetrics(clipWidth: width, preferredColumns: preferredColumns)
         let size = NSSize(width: metrics.coverSide, height: metrics.coverSide)
         let headerSize = NSSize(width: width, height: headerHeight)
-        var changed = layout.headerReferenceSize != headerSize
-        if changed { layout.headerReferenceSize = headerSize; layout.invalidateLayout() }
+        let footerSize = NSSize(width: width, height: footerLabel.stringValue.isEmpty ? 0 : 40)
+        var changed = layout.headerReferenceSize != headerSize || layout.footerReferenceSize != footerSize
+        if changed {
+            layout.headerReferenceSize = headerSize; layout.footerReferenceSize = footerSize; layout.invalidateLayout()
+        }
         if layout.itemSize != size || layout.sectionInset.left != metrics.horizontalInset {
             changed = true
             layout.itemSize = size
@@ -348,6 +459,7 @@ import AppKit
     func collectionView(_ collectionView: NSCollectionView, itemForRepresentedObjectAt indexPath: IndexPath) -> NSCollectionViewItem {
         let value = items[indexPath.item]
         let cell = makeCell(collectionView, indexPath, value, state(for: value))
+        cell.representedObject = value.reference
         bindAccessibilityActivation(cell, content: value)
         return cell
     }
@@ -355,8 +467,11 @@ import AppKit
     func collectionView(_ collectionView: NSCollectionView, willDisplay item: NSCollectionViewItem,
                         forRepresentedObjectAt indexPath: IndexPath) {
         let frame = layout.layoutAttributesForItem(at: indexPath)?.frame ?? .zero
-        if let value = self.item(at: indexPath) { bindAccessibilityActivation(item, content: value) }
-        setCellVisible?(item, viewportIsVisible && frame.intersects(collection.gridVisibleRect))
+        let matches = self.item(at: indexPath)?.reference == (item.representedObject as? WallpaperReference)
+        if matches, let value = self.item(at: indexPath) {
+            bindAccessibilityActivation(item, content: value)
+        }
+        setCellVisible?(item, matches && viewportIsVisible && frame.intersects(collection.gridVisibleRect))
         scheduleViewport()
     }
     func collectionView(_ collectionView: NSCollectionView, didEndDisplaying item: NSCollectionViewItem,
@@ -371,8 +486,12 @@ import AppKit
     }
 
     private func refreshVisibleCells() {
+        let values = isAnimatingChanges ? Dictionary(uniqueKeysWithValues: items.map { ($0.reference, $0) }) : [:]
         for path in collection.indexPathsForVisibleItems() {
-            guard let value = item(at: path), let cell = collection.item(at: path) else { continue }
+            guard let cell = collection.item(at: path) else { continue }
+            let value = isAnimatingChanges ? (cell.representedObject as? WallpaperReference).flatMap { values[$0] } : item(at: path)
+            guard let value else { continue }
+            if isAnimatingChanges, needsCellReplacement?(cell, value) == true { continue }
             updateCell?(cell, value, state(for: value))
             bindAccessibilityActivation(cell, content: value)
         }
@@ -400,7 +519,7 @@ import AppKit
     }
 
     private var viewportIsVisible: Bool {
-        isViewLoaded && isPageDisplayed && view.window?.isVisible == true
+        inputLeaseIsCurrent && isViewLoaded && isPageDisplayed && view.window?.isVisible == true
             && view.window?.isMiniaturized == false && !view.isHiddenOrHasHiddenAncestor
     }
 
@@ -462,8 +581,10 @@ import AppKit
         let visiblePaths = Set(indices.map { IndexPath(item: $0, section: 0) })
         for cell in collection.visibleItems() {
             let path = collection.indexPath(for: cell)
-            let visible = path.map(visiblePaths.contains) == true
-            if visible, let content = item(at: path) { bindAccessibilityActivation(cell, content: content) }
+            let visible = path.map(visiblePaths.contains) == true && item(at: path)?.reference == (cell.representedObject as? WallpaperReference)
+            if visible, let content = item(at: path) {
+                bindAccessibilityActivation(cell, content: content)
+            }
             else { invalidateAccessibilityActivation(cell) }
             setCellVisible?(cell, visible)
         }
@@ -501,6 +622,7 @@ import AppKit
 
     @discardableResult
     func select(_ references: Set<WallpaperReference>, focus: WallpaperReference?) -> Bool {
+        guard inputLeaseIsCurrent else { return false }
         let previous = selection
         let previousPage = page
         selection.references = references
@@ -509,7 +631,7 @@ import AppKit
             let receipt = onSelection(references, focus)
             // A callback may synchronously install a reset or another page.
             // Rejection must not roll that newer input back to this gesture.
-            guard selection.sessionID == previous.sessionID, page == previousPage else {
+            guard inputLeaseIsCurrent, selection.sessionID == previous.sessionID, page == previousPage else {
                 applyNativeSelection()
                 return false
             }
@@ -527,15 +649,17 @@ import AppKit
     }
 
     private func applyNativeSelection() {
+        let previousApplying = applying
         applying = true
         collection.selectionIndexPaths = Set(items.indices.compactMap {
             selection.references.contains(items[$0].reference) ? IndexPath(item: $0, section: 0) : nil
         })
-        applying = false
+        applying = previousApplying
         refreshVisibleCells()
     }
 
     func gestureRecognizer(_ gestureRecognizer: NSGestureRecognizer, shouldAttemptToRecognizeWith event: NSEvent) -> Bool {
+        guard inputLeaseIsCurrent else { return false }
         guard gestureRecognizer !== selectionPan || selection.isSelecting else { return false }
         var hit = collection.hitTest(collection.convert(event.locationInWindow, from: nil))
         while let target = hit, target !== collection {
@@ -575,19 +699,19 @@ import AppKit
             // click's selected state or a receipt from another page/session.
             guard receipt.reference == value.reference, receipt.page == page, receipt.sessionID == selection.sessionID,
                   selection.references == [value.reference], selection.focusedReference == value.reference else { return }
-            onInspect?(value)
+            if opensDetailsOnSingleClick() { onInspect?(value) }
         } else {
-            _ = activateCover(value)
+            _ = activateCover(value, opensDetails: opensDetailsOnSingleClick())
         }
     }
 
     @discardableResult
-    private func activateCover(_ content: WallpaperContentItem) -> Bool {
+    private func activateCover(_ content: WallpaperContentItem, opensDetails: Bool = true) -> Bool {
         if selection.isSelecting {
             return select(selection.references.symmetricDifference([content.reference]), focus: content.reference)
         }
         guard select([content.reference], focus: content.reference) else { return false }
-        onInspect?(content)
+        if opensDetails { onInspect?(content) }
         return true
     }
 
@@ -662,6 +786,7 @@ import AppKit
     }
 
     private func menu(at index: IndexPath?) -> NSMenu? {
+        guard inputLeaseIsCurrent else { return nil }
         if let value = item(at: index), !selection.references.contains(value.reference) {
             guard select([value.reference], focus: value.reference) else { return nil }
         }
@@ -675,6 +800,7 @@ import AppKit
     }
 
     private func handleKey(_ event: NSEvent) -> Bool {
+        guard inputLeaseIsCurrent else { return true }
         let modifiers = event.modifierFlags.intersection([.command, .control, .option, .shift])
         if modifiers == .command, event.charactersIgnoringModifiers?.lowercased() == "a", selection.isSelecting {
             selectAllInSelectionMode()
@@ -693,7 +819,6 @@ import AppKit
             if let frame = layout.layoutAttributesForItem(at: IndexPath(item: index, section: 0))?.frame {
                 collection.scrollToVisible(frame)
             }
-            if !selection.isSelecting { onInspect?(value) }
         case 36, 76:
             if selection.isSelecting {
                 if let button = collection.window?.defaultButtonCell, button.isEnabled { button.performClick(nil) }
@@ -723,7 +848,7 @@ import AppKit
     }
 
     func collectionView(_ collectionView: NSCollectionView, pasteboardWriterForItemAt indexPath: IndexPath) -> NSPasteboardWriting? {
-        guard permitsDragging, let page, !page.isRemoteBrowse, page != .playlists,
+        guard inputLeaseIsCurrent, permitsDragging, let page, !page.isRemoteBrowse, page != .playlists,
               !selection.isSelecting, let value = item(at: indexPath), value.capabilities.contains(.organize) else { return nil }
         let pasteboard = NSPasteboardItem()
         pasteboard.setString(value.reference.storageKey, forType: Self.referencesType)
@@ -743,7 +868,7 @@ import AppKit
     /// The native source object and its current page/session must both match.
     /// A bare copied reference cannot grant local relationship capabilities.
     func referencesForPlaylistDrop(from info: NSDraggingInfo) -> [WallpaperReference]? {
-        guard permitsDragging, info.draggingSource as? NSCollectionView === collection,
+        guard inputLeaseIsCurrent, permitsDragging, info.draggingSource as? NSCollectionView === collection,
               let page, !page.isRemoteBrowse, page != .playlists, !selection.isSelecting,
               info.draggingPasteboard.string(forType: Self.playlistSessionType) == selection.sessionID.uuidString,
               let raw = info.draggingPasteboard.string(forType: Self.referencesType),
@@ -795,13 +920,19 @@ import AppKit
     override func menu(for event: NSEvent) -> NSMenu? {
         contextMenuProvider?(indexPathForItem(at: convert(event.locationInWindow, from: nil)))
     }
+    override func rightMouseDown(with event: NSEvent) {
+        let scroll = enclosingScrollView as? WallpaperGridScrollView
+        scroll?.beginContextMenu(at: event.locationInWindow)
+        defer { scroll?.endContextMenu() }
+        super.rightMouseDown(with: event)
+    }
     override func keyDown(with event: NSEvent) {
         if onKey?(event) != true { super.keyDown(with: event) }
     }
     override func selectAll(_ sender: Any?) { onSelectAll?() }
 }
 
-private final class WallpaperLibraryGridHeader: NSView {
+private final class WallpaperLibraryGridHeader: NSView, NSCollectionViewElement {
     func setContent(_ content: NSView?) {
         guard subviews.first !== content else { return }
         subviews.forEach { $0.removeFromSuperview() }

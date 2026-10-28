@@ -90,13 +90,7 @@ enum SILInspectorViews {
         return row
     }
 
-    static func makeDivider() -> NSView {
-        let divider = NSBox()
-        divider.boxType = .separator
-        divider.translatesAutoresizingMaskIntoConstraints = false
-        NSLayoutConstraint.activate([divider.heightAnchor.constraint(equalToConstant: 1)])
-        return divider
-    }
+
 
     static func makeFooterButton(
         title: String,

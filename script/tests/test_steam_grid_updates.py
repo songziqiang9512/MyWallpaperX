@@ -17,22 +17,21 @@ UI = ROOT / 'MyWallpaperX/Modules/SteamWorkshop/UI'
 class SteamGridUpdateTests(unittest.TestCase):
     def test_remote_zoom_controls_dispatch_one_injected_page_command(self):
         steam = ROOT / 'MyWallpaperX/Modules/SteamWorkshop/Toolbar'
-        online = ROOT / 'MyWallpaperX/Modules/OnlineLibrary/Toolbar/OnlineLibraryToolbarController.swift'
+        pixabay = ROOT / 'MyWallpaperX/Modules/Pixabay/Toolbar/PixabayToolbarController.swift'
         shared = ROOT / 'MyWallpaperX/Shared/Components'
         fixture = ROOT / 'script/tests/fixtures/RemoteZoomHarness.swift'
         inputs = [steam / 'SteamWorkshopToolbarController.swift',
-                  steam / 'SteamWorkshopToolbarController+Configuration.swift', online,
+                  steam / 'SteamWorkshopToolbarController+Configuration.swift', pixabay,
                   shared / 'WallpaperLibraryGridMetrics.swift', shared / 'WallpaperLibraryZoomControl.swift',
                   shared / 'ActionMenuItem.swift', fixture]
         digests = {str(path): hashlib.sha256(path.read_bytes()).hexdigest() for path in inputs}
         declarations = []
         for name, state, setup, config in [
             ('SteamZoom', 'isSteamWorkshopMode', inputs[0], inputs[1]),
-            ('OnlineZoom', 'isOnlineLibraryMode', online, online),
+            ('PixabayZoom', 'isPixabayMode', pixabay, pixabay),
         ]:
             declarations.append(f'''@MainActor final class {name}: NSObject, ZoomProbe {{
                 var makeZoomAction: ((Int) -> (() -> Void)?)?
-                var isDownloadsMode = false
                 var {state} = true
                 var active: Bool {{ get {{ {state} }} set {{ {state} = newValue }} }}
                 let zoomToolbarItem = NSToolbarItem(itemIdentifier: .init("fixture-zoom"))
@@ -57,7 +56,7 @@ class SteamGridUpdateTests(unittest.TestCase):
             self.assertEqual(digests, {str(path): hashlib.sha256(path.read_bytes()).hexdigest() for path in inputs})
 
     def test_other_flow_grids_use_viewport_and_resize_safely(self):
-        paths = ['OnlineLibrary/UI/AppKitOLBrowserGridView.swift']
+        paths = ['Pixabay/UI/AppKitPixabayBrowserGridView.swift']
         classes = []
         for index, path in [(2, paths[0])]:
             source = (ROOT / 'MyWallpaperX/Modules' / path).read_text()
@@ -103,7 +102,8 @@ class SteamGridUpdateTests(unittest.TestCase):
             binary = work / 'container'
             sources = [ROOT / 'MyWallpaperX/Shared/UI/GridThumbnailPrefetchDemand.swift', ROOT / 'MyWallpaperX/Shared/UI/GridThumbnailDecoder.swift', ROOT / 'script/tests/fixtures/SteamBrowserContainerHarness.swift', source,
                        *[UI / name for name in names], ROOT / 'MyWallpaperX/Shared/Components/WallpaperLibraryGridMetrics.swift',
-                       ROOT / 'MyWallpaperX/Shared/UI/WallpaperGridScrollView.swift']
+                       ROOT / 'MyWallpaperX/Shared/UI/WallpaperGridScrollView.swift',
+                       ROOT / 'MyWallpaperX/Shared/UI/WallpaperLibrarySheetPresentation.swift']
             sources += [*STEAM_SOURCES, preview, ROOT / 'script/tests/fixtures/ListThumbnailTintSteamModelLeaves.swift']
             build = subprocess.run(['xcrun', 'swiftc', '-parse-as-library', '-default-isolation', 'MainActor',
                                     *map(str, sources), '-o', str(binary)], capture_output=True, text=True, timeout=120)

@@ -2,83 +2,155 @@ import Darwin
 import Foundation
 
 // ACTUAL_SYSTEM_STATS
+// ACTUAL_FORMATTING
 
-private typealias NativeTicks = (user: natural_t, sys: natural_t, idle: natural_t, nice: natural_t)
-
-// Only the host_statistics read is controlled. Its native Mach buffer, tick
-// types, the production reader, and both production state fields are retained.
-@MainActor private enum MonitorHostRead {
-    static var ticks: NativeTicks = (0, 0, 0, 0)
-    static var result: kern_return_t = KERN_SUCCESS
-    static var calls = 0
-    static func read(_ host: host_t, _ flavor: host_flavor_t, _ output: UnsafeMutablePointer<integer_t>,
-                     _ count: UnsafeMutablePointer<mach_msg_type_number_t>) -> kern_return_t {
-        calls += 1
-        precondition(flavor == HOST_CPU_LOAD_INFO)
-        precondition(Int(count.pointee) == MemoryLayout<host_cpu_load_info>.size / MemoryLayout<integer_t>.size)
-        guard result == KERN_SUCCESS else { return result }
-        for (offset, value) in [ticks.user, ticks.sys, ticks.idle, ticks.nice].enumerated() {
-            output[offset] = integer_t(bitPattern: value)
-        }
-        return result
+// Only the OS clock / native rusage read and timebase answer are controlled.
+// Production identity matching, baseline lifetime, tick conversion and totals run unchanged.
+@MainActor private enum MonitorProcessRead {
+    static var now: TimeInterval = 0
+    static var usages: [Int32: rusage_info_v4] = [:]
+    static var calls: [Int32] = []
+    static var timebaseCalls = 0
+    static var timebaseAvailable = true
+    static func timebase(_ output: UnsafeMutablePointer<mach_timebase_info_data_t>) -> kern_return_t {
+        timebaseCalls += 1
+        output.pointee = mach_timebase_info_data_t(numer: 125, denom: 3)
+        return timebaseAvailable ? KERN_SUCCESS : KERN_FAILURE
+    }
+    static func read(_ pid: Int32, _ flavor: Int32, _ output: UnsafeMutablePointer<rusage_info_t?>) -> Int32 {
+        calls.append(pid)
+        precondition(flavor == RUSAGE_INFO_V4)
+        if pid == getpid() { return proc_pid_rusage(pid, flavor, output) }
+        guard let usage = usages[pid] else { return -1 }
+        UnsafeMutableRawPointer(output).assumingMemoryBound(to: rusage_info_v4.self).pointee = usage
+        return 0
+    }
+    static func usage(started: UInt64, user: UInt64, system: UInt64, footprint: UInt64) -> rusage_info_v4 {
+        var usage = rusage_info_v4()
+        usage.ri_proc_start_abstime = started
+        usage.ri_user_time = user
+        usage.ri_system_time = system
+        usage.ri_phys_footprint = footprint
+        return usage
     }
 }
 
+@MainActor private enum MonitorRuntimeRead {
+    static var now = Date(timeIntervalSince1970: 0)
+    static var bytes: (up: UInt64, down: UInt64) = (0, 0)
+    static var networkReads = 0, gpuReads = 0
+}
+
 @MainActor private final class SystemMonitor {
-    // ACTUAL_CPU_STATE
-    // ACTUAL_CPU_READER
-    func sample() -> Double { stats.cpuUsage = readCPUUsage(); return stats.cpuUsage }
-    var tickState: [natural_t] { [lastCPUTicks.user, lastCPUTicks.sys, lastCPUTicks.idle, lastCPUTicks.nice] }
+    // ACTUAL_PROCESS_STATE
+    // ACTUAL_PROCESS_SAMPLER
+    // ACTUAL_RUNTIME_STATE
+    // ACTUAL_RUNTIME_SAMPLER
+    private func rawNetworkBytes() -> (up: UInt64, down: UInt64) {
+        MonitorRuntimeRead.networkReads += 1
+        return MonitorRuntimeRead.bytes
+    }
+    private func readGPUUsage() -> Double? { MonitorRuntimeRead.gpuReads += 1; return 0.25 }
+    var sampledPIDs: Set<Int32> { Set(processSamples.keys) }
 }
 
 @main private enum SystemMonitorStatsChecks {
     @MainActor static func main() throws {
         var checks: [String: Bool] = [:]
         func check(_ name: String, _ value: Bool) { precondition(value, name); checks[name] = value }
-        func sample(_ monitor: SystemMonitor, _ ticks: NativeTicks, result: kern_return_t = KERN_SUCCESS) -> Double {
-            MonitorHostRead.ticks = ticks; MonitorHostRead.result = result
-            let before = MonitorHostRead.calls
-            let value = monitor.sample()
-            check("one-native-read-per-sample-\(before)", MonitorHostRead.calls == before + 1)
-            return value
+        func near(_ actual: Double?, _ expected: Double) -> Bool {
+            actual.map { abs($0 - expected) < 0.000_000_1 } == true
         }
-        check("native-mach-ticks-are-32-bit", MemoryLayout<natural_t>.size == MemoryLayout<UInt32>.size)
-        let ordinary = SystemMonitor()
-        check("initial-published-and-counter-state-unchanged", ordinary.stats.cpuUsage == 0 && ordinary.tickState == [0, 0, 0, 0])
-        check("first-sample-keeps-original-cumulative-ratio", sample(ordinary, (20, 10, 60, 10)) == 40.0 / 100.0)
-        check("ordinary-deltas-include-user-system-and-nice", sample(ordinary, (24, 16, 70, 12)) == 12.0 / 22.0)
-        check("ordinary-ticks-publish-after-success", ordinary.tickState == [24, 16, 70, 12])
-        let previous = ordinary.stats.cpuUsage
-        check("zero-delta-retains-last-published-value", sample(ordinary, (24, 16, 70, 12)) == previous
-            && ordinary.tickState == [24, 16, 70, 12])
-        check("failed-read-retains-value-and-counter-baseline", sample(ordinary, (100, 100, 100, 100), result: KERN_FAILURE) == previous
-            && ordinary.tickState == [24, 16, 70, 12])
-        check("success-after-failure-diffs-last-success", sample(ordinary, (26, 17, 77, 12)) == 3.0 / 10.0)
-
-        let userWrap = SystemMonitor()
-        _ = sample(userWrap, (natural_t.max - 2, 0, 0, 0))
-        check("single-user-counter-wrap-is-native-width", sample(userWrap, (5, 10, 20, 0)) == 18.0 / 38.0)
-        check("wrapped-counter-becomes-next-baseline", sample(userWrap, (7, 12, 26, 0)) == 4.0 / 10.0)
-        let idleWrap = SystemMonitor()
-        _ = sample(idleWrap, (100, 50, natural_t.max - 2, 0))
-        check("single-idle-counter-wrap-preserves-busy-ratio", sample(idleWrap, (104, 56, 5, 0)) == 10.0 / 18.0)
-
-        let doubleWrap = SystemMonitor()
-        _ = sample(doubleWrap, (natural_t.max - 2, 100, natural_t.max - 1, 20))
-        check("two-wrapped-counters-do-not-overflow-total", sample(doubleWrap, (5, 103, 4, 22)) == 13.0 / 19.0)
-        let allWrap = SystemMonitor()
-        _ = sample(allWrap, (natural_t.max - 9, natural_t.max - 9, natural_t.max - 9, natural_t.max - 9))
-        check("all-counters-wrap-independently", sample(allWrap, (20, 30, 40, 50)) == 130.0 / 180.0)
-        let wideTotal = SystemMonitor()
-        let counters: NativeTicks = (natural_t.max - 1, natural_t.max - 2, natural_t.max - 3, natural_t.max - 4)
-        let busy = UInt64(counters.user) + UInt64(counters.sys) + UInt64(counters.nice)
-        let total = busy + UInt64(counters.idle)
-        check("native-deltas-widen-before-summing", total > UInt64(UInt32.max)
-            && sample(wideTotal, counters) == Double(busy) / Double(total))
-        let firstFailure = SystemMonitor()
-        check("first-failed-read-retains-original-zero", sample(firstFailure, (1, 2, 3, 4), result: KERN_FAILURE) == 0
-            && firstFailure.tickState == [0, 0, 0, 0])
-        check("first-success-after-failure-keeps-original-initial-semantics", sample(firstFailure, (1, 2, 5, 2)) == 5.0 / 10.0)
+        func sample(_ monitor: SystemMonitor, at time: Double, pids: [Int32]) {
+            MonitorProcessRead.now = time
+            MonitorProcessRead.calls = []
+            monitor.refreshApplicationStats(processIdentifiers: pids)
+            check("one-native-read-per-requested-pid-at-\(time)", MonitorProcessRead.calls == pids)
+        }
+        let monitor = SystemMonitor()
+        check("unavailable-until-native-sample", monitor.stats.cpuUsage == nil && monitor.stats.memUsed == nil)
+        MonitorProcessRead.usages = [
+            1: MonitorProcessRead.usage(started: 10, user: 100_000_000, system: 20_000_000, footprint: 100),
+            2: MonitorProcessRead.usage(started: 20, user: 50_000_000, system: 10_000_000, footprint: 200)]
+        sample(monitor, at: 0, pids: [1, 2])
+        check("first-visible-sample-has-no-cpu-history", monitor.stats.cpuUsage == nil && monitor.stats.memUsed == 300)
+        MonitorProcessRead.usages[1]!.ri_user_time += 12_000_000
+        MonitorProcessRead.usages[1]!.ri_system_time += 12_000_000
+        MonitorProcessRead.usages[2]!.ri_user_time += 24_000_000
+        sample(monitor, at: 2, pids: [1, 2])
+        check("mach-timebase-and-all-process-cpu-are-summed", near(monitor.stats.cpuUsage, 1))
+        check("timebase-is-queried-once-not-every-sample", MonitorProcessRead.timebaseCalls == 1)
+        MonitorProcessRead.usages[3] = MonitorProcessRead.usage(started: 30, user: 9_000_000_000, system: 0, footprint: 400)
+        MonitorProcessRead.usages[1]!.ri_user_time += 24_000_000
+        sample(monitor, at: 4, pids: [1, 3])
+        check("new-helper-starts-a-baseline-without-historical-spike", near(monitor.stats.cpuUsage, 0.5))
+        check("removed-helper-leaves-memory-and-cpu-baselines", monitor.stats.memUsed == 500 && monitor.sampledPIDs == [1, 3])
+        MonitorProcessRead.usages[1] = MonitorProcessRead.usage(started: 11, user: 90_000_000_000, system: 0, footprint: 150)
+        MonitorProcessRead.usages[3]!.ri_system_time += 12_000_000
+        sample(monitor, at: 6, pids: [1, 3])
+        check("pid-reuse-cannot-count-previous-process-history", near(monitor.stats.cpuUsage, 0.25) && monitor.stats.memUsed == 550)
+        MonitorProcessRead.usages[1]!.ri_user_time += 48_000_000
+        sample(monitor, at: 8, pids: [1, 99])
+        check("one-ended-process-does-not-hide-live-process-metrics", near(monitor.stats.cpuUsage, 1) && monitor.stats.memUsed == 150)
+        sample(monitor, at: 10, pids: [99])
+        check("all-failed-reads-show-unavailable-without-stale-values", monitor.stats.cpuUsage == nil
+            && monitor.stats.memUsed == nil && monitor.sampledPIDs.isEmpty)
+        sample(monitor, at: 12, pids: [1])
+        check("new-readable-session-rebaselines", monitor.stats.cpuUsage == nil && monitor.stats.memUsed == 150)
+        sample(monitor, at: 14, pids: [])
+        check("closing-panel-does-no-native-reads-and-drops-baselines", monitor.stats.cpuUsage == nil
+            && monitor.stats.memUsed == nil && monitor.sampledPIDs.isEmpty)
+        MonitorProcessRead.usages[1]!.ri_user_time += 9_000_000_000
+        sample(monitor, at: 3600, pids: [1])
+        check("reopening-does-not-average-hidden-time", monitor.stats.cpuUsage == nil)
+        MonitorProcessRead.usages[1]!.ri_system_time += 72_000_000
+        sample(monitor, at: 3602, pids: [1])
+        check("multicore-cpu-is-not-clamped-to-one-core", near(monitor.stats.cpuUsage, 1.5) && monitor.stats.cpuUsageString == "150%")
+        sample(monitor, at: 3604, pids: [1])
+        check("idle-process-cpu-is-zero", monitor.stats.cpuUsage == 0)
+        MonitorProcessRead.timebaseAvailable = false
+        let unavailableTimebase = SystemMonitor()
+        sample(unavailableTimebase, at: 3606, pids: [1])
+        sample(unavailableTimebase, at: 3608, pids: [1])
+        check("failed-timebase-does-not-fabricate-cpu", unavailableTimebase.stats.cpuUsage == nil
+            && unavailableTimebase.stats.cpuUsageString == "–" && unavailableTimebase.stats.memUsed == 150)
+        MonitorProcessRead.timebaseAvailable = true
+        let native = SystemMonitor()
+        sample(native, at: 3610, pids: [getpid()])
+        check("real-native-process-footprint-is-readable", (native.stats.memUsed ?? 0) > 0)
+        sample(native, at: 3612, pids: [getpid()])
+        check("real-native-cpu-sample-is-nonnegative", native.stats.cpuUsage.map { $0 >= 0 } == true)
+        var formatting = SystemStats()
+        check("missing-process-values-format-as-unavailable", formatting.cpuUsageString == "–" && formatting.memUsedString == "–")
+        formatting.memUsed = 2_147_483_648
+        check("process-memory-has-no-system-total-denominator", formatting.memUsedString == "2.0 GB")
+        let runtime = SystemMonitor()
+        for _ in 0..<3 { runtime.refreshRuntimeStats() }
+        check("closed-panel-keeps-gpu-icon-with-zero-network-reads", MonitorRuntimeRead.gpuReads == 3
+            && MonitorRuntimeRead.networkReads == 0 && runtime.stats.gpuUsage == 0.25)
+        MonitorRuntimeRead.bytes = (1_000, 2_000)
+        runtime.refreshRuntimeStats(includeNetwork: true)
+        check("opening-network-session-primes-without-a-fabricated-rate", MonitorRuntimeRead.networkReads == 1
+            && runtime.stats.netUpBytesPerSec == 0 && runtime.stats.netDownBytesPerSec == 0)
+        MonitorRuntimeRead.now = Date(timeIntervalSince1970: 2)
+        MonitorRuntimeRead.bytes = (1_200, 2_600)
+        runtime.refreshRuntimeStats(includeNetwork: true)
+        check("visible-network-samples-use-the-current-session-difference", runtime.stats.netUpBytesPerSec == 100
+            && runtime.stats.netDownBytesPerSec == 300)
+        runtime.endNetworkSampling()
+        MonitorRuntimeRead.now = Date(timeIntervalSince1970: 3_600)
+        MonitorRuntimeRead.bytes = (1_000_000, 2_000_000)
+        runtime.refreshRuntimeStats()
+        check("ending-network-session-does-no-read-and-drops-the-rate", MonitorRuntimeRead.networkReads == 2
+            && runtime.stats.netUpBytesPerSec == 0 && runtime.stats.netDownBytesPerSec == 0)
+        runtime.refreshRuntimeStats(includeNetwork: true)
+        check("reopening-never-averages-traffic-from-hidden-time", runtime.stats.netUpBytesPerSec == 0
+            && runtime.stats.netDownBytesPerSec == 0)
+        MonitorRuntimeRead.now = Date(timeIntervalSince1970: 3_602)
+        MonitorRuntimeRead.bytes = (1_000_100, 2_000_400)
+        runtime.refreshRuntimeStats(includeNetwork: true)
+        check("reopened-network-session-reports-only-visible-traffic", runtime.stats.netUpBytesPerSec == 50
+            && runtime.stats.netDownBytesPerSec == 200 && MonitorRuntimeRead.networkReads == 4)
         print(String(data: try JSONSerialization.data(withJSONObject: checks, options: [.sortedKeys]), encoding: .utf8)!)
     }
 }

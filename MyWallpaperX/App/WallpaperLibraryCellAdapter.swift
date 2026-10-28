@@ -7,13 +7,13 @@ import Combine
 @MainActor final class WallpaperLibraryCellAdapter {
     private enum Source: Equatable {
         case video(VideoWallpaper), image(SILWallpaper)
-        case steam(SteamWorkshopDownloadRecord), online(OLDownloadedEntry), onlineImage(OnlineImageLocalRecord), missing
+        case steam(SteamWorkshopDownloadRecord), pixabay(PixabayDownloadedEntry), onlineImage(OnlineImageLocalRecord), missing
         var reuseIdentifier: NSUserInterfaceItemIdentifier {
             switch self {
             case .video: return AppKitWallpaperItem.reuseIdentifier
             case .image: return SILGridItem.reuseID
             case .steam: return AppKitSteamWorkshopBrowserItem.reuseIdentifier
-            case .online: return AppKitOLDownloadsItem.reuseIdentifier
+            case .pixabay: return AppKitPixabayDownloadsItem.reuseIdentifier
             case .onlineImage: return OnlineImageGridItem.reuseIdentifier
             case .missing: return WallpaperLibraryUnavailableItem.reuseIdentifier
             }
@@ -28,7 +28,7 @@ import Combine
     private let manager: WallpaperManager
     private let images: SILService
     private let steam: SteamWorkshopService
-    private let online: OnlineLibraryService
+    private let pixabay: PixabayService
     private let videoThumbnails: AppKitThumbnailProvider
     private let imageThumbnails = SILThumbnailProvider()
     private let registeredCollections = NSHashTable<NSCollectionView>.weakObjects()
@@ -42,28 +42,22 @@ import Combine
         init(assets: [Data]) { self.assets = assets }
     }
     private var prefetches: [WallpaperReference: Prefetch] = [:]
-    private let isFavorite: (WallpaperReference) -> Bool
     private let isPlaying: (WallpaperReference) -> Bool
     private let isSwitching: (WallpaperReference) -> Bool
     private let makePrimaryAction: (WallpaperContentItem) -> (() -> Void)?
-    private let makeFavoriteAction: ((WallpaperContentItem) -> (() -> Void)?)?
     private let onInspect: ((WallpaperContentItem) -> Void)?
-    private let onPreview: ((WallpaperContentItem) -> Void)?
     private var imageTransferSubscription: AnyCancellable?
 
-    init(manager: WallpaperManager, images: SILService, steam: SteamWorkshopService, online: OnlineLibraryService,
-         isFavorite: @escaping (WallpaperReference) -> Bool, isPlaying: @escaping (WallpaperReference) -> Bool,
+    init(manager: WallpaperManager, images: SILService, steam: SteamWorkshopService, pixabay: PixabayService,
+         isPlaying: @escaping (WallpaperReference) -> Bool,
          isSwitching: @escaping (WallpaperReference) -> Bool = { _ in false },
          makePrimaryAction: @escaping (WallpaperContentItem) -> (() -> Void)?,
-         makeFavoriteAction: ((WallpaperContentItem) -> (() -> Void)?)? = nil,
-         onInspect: ((WallpaperContentItem) -> Void)? = nil,
-         onPreview: ((WallpaperContentItem) -> Void)? = nil) {
-        self.manager = manager; self.images = images; self.steam = steam; self.online = online
+         onInspect: ((WallpaperContentItem) -> Void)? = nil) {
+        self.manager = manager; self.images = images; self.steam = steam; self.pixabay = pixabay
         videoThumbnails = AppKitThumbnailProvider(wallpaperManager: manager)
-        self.isFavorite = isFavorite; self.isPlaying = isPlaying
+        self.isPlaying = isPlaying
         self.isSwitching = isSwitching
-        self.makePrimaryAction = makePrimaryAction; self.makeFavoriteAction = makeFavoriteAction; self.onInspect = onInspect
-        self.onPreview = onPreview
+        self.makePrimaryAction = makePrimaryAction; self.onInspect = onInspect
         imageTransferSubscription = OnlineImageLibrary.shared.$progress.receive(on: DispatchQueue.main).sink { [weak self] progress in
             guard let self else { return }
             for case let cell as OnlineImageGridItem in bindings.keyEnumerator() {
@@ -124,13 +118,13 @@ import Combine
                     guard !cancellation.cancelled, case .image = result else { return }
                     demand?.isWarm = { !cancellation.cancelled && cache.cachedImage(forKey: value.path) != nil }
                 }
-            case .online(let value):
+            case .pixabay(let value):
                 let cancellation = ThumbnailCacheRequestCancellation()
                 demand.cancel = { cancellation.cancel() }
                 demand.isWarm = { !cancellation.cancelled }
-                OLDownloadedThumbnailStore.loadThumbnail(value, priority: .prefetch, cancellation: cancellation) { [weak demand] key, _ in
+                PixabayDownloadedThumbnailStore.loadThumbnail(value, priority: .prefetch, cancellation: cancellation) { [weak demand] key, _ in
                     guard !cancellation.cancelled else { return }
-                    demand?.isWarm = { !cancellation.cancelled && OLDownloadedThumbnailStore.sharedCache.hasCachedResult(forKey: key) }
+                    demand?.isWarm = { !cancellation.cancelled && PixabayDownloadedThumbnailStore.sharedCache.hasCachedResult(forKey: key) }
                 }
             case .steam(let value):
                 let item = value.displayItem ?? SteamWorkshopDownloadGridSupport.fallbackDisplayItem(for: value)
@@ -163,7 +157,7 @@ import Combine
             String(describing: content.metadata.modifiedAt)]
         switch source {
         case .image(let value): values.append(value.path)
-        case .online(let value): values += [value.localURL.absoluteString, value.thumbnailSourceKey ?? ""]
+        case .pixabay(let value): values += [value.localURL.absoluteString, value.thumbnailSourceKey ?? ""]
         case .steam(let value):
             let item = value.displayItem ?? SteamWorkshopDownloadGridSupport.fallbackDisplayItem(for: value)
             let urls = steamWorkshopPreviewSources(item: item, record: value)
@@ -181,7 +175,7 @@ import Combine
             collection.register(AppKitWallpaperItem.self, forItemWithIdentifier: AppKitWallpaperItem.reuseIdentifier)
             collection.register(SILGridItem.self, forItemWithIdentifier: SILGridItem.reuseID)
             collection.register(AppKitSteamWorkshopBrowserItem.self, forItemWithIdentifier: AppKitSteamWorkshopBrowserItem.reuseIdentifier)
-            collection.register(AppKitOLDownloadsItem.self, forItemWithIdentifier: AppKitOLDownloadsItem.reuseIdentifier)
+            collection.register(AppKitPixabayDownloadsItem.self, forItemWithIdentifier: AppKitPixabayDownloadsItem.reuseIdentifier)
             collection.register(OnlineImageGridItem.self, forItemWithIdentifier: OnlineImageGridItem.reuseIdentifier)
             collection.register(WallpaperLibraryUnavailableItem.self, forItemWithIdentifier: WallpaperLibraryUnavailableItem.reuseIdentifier)
             registeredCollections.add(collection)
@@ -219,7 +213,7 @@ import Combine
         case let card as AppKitWallpaperItem: card.setThumbnailVisible(visible)
         case let card as SILGridItem: card.setThumbnailVisible(visible)
         case let card as AppKitSteamWorkshopBrowserItem: card.setPreviewVisible(visible)
-        case let card as AppKitOLDownloadsItem:
+        case let card as AppKitPixabayDownloadsItem:
             if visible { card.beginDisplayingThumbnail() } else { card.endDisplayingThumbnail() }
         case let card as OnlineImageGridItem: card.setThumbnailVisible(visible)
         default: break
@@ -236,7 +230,7 @@ import Combine
         case .steamWorkshop: return steam.downloads.first(where: { matches($0.id) }).map(Source.steam) ?? .missing
         case .pixabay:
             guard let id = Int(reference.sourceID), String(id).utf8.elementsEqual(reference.sourceID.utf8) else { return .missing }
-            return online.downloadedContent.entries.first(where: { $0.id == id }).map(Source.online) ?? .missing
+            return pixabay.downloadedContent.entries.first(where: { $0.id == id }).map(Source.pixabay) ?? .missing
         case .wallhaven, .pixiv:
             return OnlineImageLibrary.shared.record(for: reference).map(Source.onlineImage) ?? .missing
         }
@@ -253,13 +247,10 @@ import Combine
         let content = binding.content, provider = content.providerReference
         let playing = isPlaying(content.reference)
         let switching = isSwitching(content.reference)
-        let favorite = isFavorite(content.reference)
         let canRetryImage = (provider.provider == .wallhaven || provider.provider == .pixiv)
             && content.capabilities.contains(.retryDownload)
         let action = !switching && (content.capabilities.contains(.play) || playing || canRetryImage) ? makePrimaryAction(content) : nil
         let canPlay = action != nil
-        let favoriteAction = makeFavoriteAction?(content)
-        let canFavorite = favoriteAction != nil
         let primary: () -> Void = { [weak self, weak cell] in
             guard let self, let current = self.current(cell, matching: provider),
                   current.capabilities.contains(.play) || self.isPlaying(current.reference)
@@ -267,46 +258,47 @@ import Combine
                         && current.capabilities.contains(.retryDownload)) else { return }
             action?()
         }
-        let toggleFavorite: () -> Void = { [weak self, weak cell] in
-            guard let self, self.current(cell, matching: provider) != nil else { return }
-            favoriteAction?()
+        let inspect = onInspect.map { inspect in
+            { [weak self, weak cell] in
+                guard let self, let current = self.current(cell, matching: provider) else { return }
+                inspect(current)
+            }
         }
         switch (binding.source, cell) {
         case (.video(let row), let card as AppKitWallpaperItem):
             card.onPlayRequested = canPlay ? { _ in primary() } : nil
-            card.onFavoriteRequested = canFavorite ? { _ in toggleFavorite() } : nil
+            card.onInspectRequested = inspect.map { action in { _ in action() } }
             if reloadContent {
                 card.configure(wallpaper: row, isSelected: state.isSelected, isPlaying: playing,
-                    isFavorite: favorite, multiSelectMode: state.isSelecting,
+                    multiSelectMode: state.isSelecting,
                     wallpaperManager: manager, thumbnailProvider: videoThumbnails)
             } else {
                 card.applySelectionState(isSelected: state.isSelected, multiSelectMode: state.isSelecting)
-                card.applyFavoriteState(isFavorite: favorite)
                 card.applyPlayingState(isPlaying: playing)
             }
             card.applySwitchingState(isSwitching: switching)
         case (.image(let row), let card as SILGridItem):
             card.onApplyRequested = canPlay ? { _ in primary() } : nil
-            card.onToggleFavorite = canFavorite ? { _ in toggleFavorite() } : nil
+            card.onInspectRequested = inspect.map { action in { _ in action() } }
             if reloadContent {
                 card.configure(wallpaper: row, isSelected: state.isSelected, isMultiSelectMode: state.isSelecting,
-                    thumbnailVisible: binding.visible, isFavorite: favorite, isPlaying: playing) { [weak imageThumbnails] cancellation, completion in
+                    thumbnailVisible: binding.visible, isPlaying: playing) { [weak imageThumbnails] cancellation, completion in
                         guard let imageThumbnails else { completion(.unavailable); return }
                         imageThumbnails.load(path: row.path, cancellation: cancellation, completion: completion)
                     }
             } else {
                 card.applySelectionState(isSelected: state.isSelected, multiSelectMode: state.isSelecting)
-                card.applyFavoriteState(isFavorite: favorite)
                 card.applyPlayingState(isPlaying: playing)
             }
             card.applySwitchingState(isSwitching: switching)
         case (.steam(let row), let card as AppKitSteamWorkshopBrowserItem):
             let item = row.displayItem ?? SteamWorkshopDownloadGridSupport.fallbackDisplayItem(for: row)
             let canDownload = !content.capabilities.intersection([.download, .retryDownload, .retryUpdate]).isEmpty
+            // Favorite commands belong to the source/Commands menus, not the card controls.
             let presentation = AppKitSteamWorkshopBrowserItem.OrganizationPresentation(
-                isFavorite: favorite, canFavorite: canFavorite, isSwitching: switching, canPlay: canPlay,
+                isFavorite: false, canFavorite: false, isSwitching: switching, canPlay: canPlay,
                 canDownload: canDownload, canCancel: content.capabilities.contains(.cancelDownload),
-                onFavorite: toggleFavorite, onPrimary: primary)
+                onPrimary: primary)
             if !reloadContent {
                 card.applyOrganizationState(presentation, isPlaying: playing,
                     isMultiSelectMode: state.isSelecting, isKeyboardFocused: state.isSelected)
@@ -317,12 +309,7 @@ import Combine
                 isDownloading: row.status == .downloading, isDownloaded: content.publishedAvailability.isAvailable,
                 isMultiSelectMode: state.isSelecting, isKeyboardFocused: state.isSelected,
                 organization: presentation,
-                onOpen: onInspect.map { inspect in
-                    { [weak self, weak cell] in
-                        guard let self, let current = self.current(cell, matching: provider) else { return }
-                        inspect(current)
-                    }
-                }, onDownload: { [weak self, weak cell] in
+                onOpen: inspect, onDownload: { [weak self, weak cell] in
                     guard let self, let current = self.current(cell, matching: provider),
                           !current.capabilities.intersection([.download, .retryDownload, .retryUpdate]).isEmpty else { return }
                     self.steam.downloadWorkshopItem(id: provider.sourceID, pageTitle: item.title, item: item)
@@ -331,10 +318,9 @@ import Combine
                           current.capabilities.contains(.cancelDownload) else { return }
                     self.steam.cancelDownload(itemID: provider.sourceID)
                 })
-        case (.online(let row), let card as AppKitOLDownloadsItem):
+        case (.pixabay(let row), let card as AppKitPixabayDownloadsItem):
             card.onPrimaryAction = canPlay ? { _ in primary() } : nil
-            card.onToggleFavorite = canFavorite ? { _ in toggleFavorite() } : nil
-            card.applyOrganizationState(isFavorite: favorite, primaryShowsStop: true)
+            card.onInspectRequested = inspect.map { action in { _ in action() } }
             if reloadContent {
                 card.configure(entry: row, isSelected: state.isSelected, isMultiSelectMode: state.isSelecting,
                     isPlaying: playing, thumbnailDemandActive: binding.visible)
@@ -346,14 +332,8 @@ import Combine
         case (.onlineImage(let record), let card as OnlineImageGridItem):
             let fraction = OnlineImageLibrary.shared.progress[record.id]
             card.configure(content: content, request: nil, selected: state.isSelected, selecting: state.isSelecting,
-                favorite: favorite, playing: playing, switching: switching, busy: fraction != nil, fraction: fraction, onPrimary: canPlay ? primary : nil,
-                onFavorite: canFavorite ? toggleFavorite : nil,
-                onPreview: content.capabilities.contains(.quickLook) ? onPreview.map { preview in
-                    { [weak self, weak cell] in
-                        guard let self, let current = self.current(cell, matching: provider) else { return }
-                        preview(current)
-                    }
-                } : nil)
+                playing: playing, switching: switching, busy: fraction != nil, fraction: fraction,
+                onPrimary: canPlay ? primary : nil, onInspect: inspect)
         case (.missing, let card as WallpaperLibraryUnavailableItem):
             card.configure(content: content, selected: state.isSelected, selecting: state.isSelecting)
         default: break

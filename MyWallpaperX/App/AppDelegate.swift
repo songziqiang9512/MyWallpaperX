@@ -284,9 +284,9 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSMenuItemValidation {
  @objc func previousWallpaperMenuAction(_ sender: Any?) { MainWindowMenuCommands.menuNavigate(.previous, sender: sender) }
  @objc func toggleFavoriteMenuAction(_ sender: Any?) { MainWindowMenuCommands.menuFavorite(sender) }
  @objc func addToPlaylistMenuAction(_ sender: Any?) { MainWindowMenuCommands.menuAddToPlaylist(sender) }
- @objc func showInfoMenuAction(_ sender: Any?) { MainWindowMenuCommands.menuInfo() }
+ @objc func showInfoMenuAction(_ sender: Any?) { MainWindowMenuCommands.menuInfo(sender) }
  @objc func previewMenuAction(_ sender: Any?) { MainWindowMenuCommands.menuPreview(sender) }
- @objc func revealInFinderMenuAction(_ sender: Any?) { MainWindowMenuCommands.menuRevealOrRefresh() }
+ @objc func revealInFinderMenuAction(_ sender: Any?) { MainWindowMenuCommands.menuRevealOrRefresh(sender) }
  @objc func navigateLibraryPageMenuAction(_ sender: NSMenuItem) { MainWindowMenuCommands.menuNavigatePage(sender) }
 
  @objc func closeWindowMenuAction(_ sender: Any?) {

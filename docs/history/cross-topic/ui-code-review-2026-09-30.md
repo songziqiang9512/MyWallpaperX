@@ -127,7 +127,7 @@
 
 #### F14 · 在线库下载进度回调无节流，每 tick 全量重配置可见卡片并做磁盘 stat
 
-- 位置：`MyWallpaperX/Modules/OnlineLibrary/UI/AppKitOLBrowserGridView.swift:174`
+- 位置：`MyWallpaperX/Modules/Pixabay/UI/AppKitPixabayBrowserGridView.swift:174`
 - 问题：在线库下载进度回调无节流，每个 didWriteData tick 直写 @Published downloadProgressByID，浏览网格对每个值全量重配置所有可见卡片并触发整卡手动重布局，多文件并发下载时滚动明显掉帧、CPU 占用高。
 - 证据（含复核结论）：OnlineLibraryService.swift:29-42 每块数据回调无节流、:357-359 直写 @Published 无相等性去重；容器 :172-175 无 debounce/removeDuplicates 地 reloadVisibleItems（:231-250）；卡片 configure 无条件 needsLayout=true（AppKitOLBrowserItem.swift:265），viewDidLayout :572-693 每次全量跑、:721 溢出时每次新建 CAGradientLayer。复核补充加重项：reloadVisibleItems 每次对每张未下载可见卡做主线程磁盘 stat（:252-258），即每 tick×每可见卡一次磁盘 I/O。
 - 状态：verified / medium
@@ -199,7 +199,7 @@
 
 #### F24 · 下载页缩略图生成失败静默折叠，占位符永远停留「加载中...」
 
-- 位置：`MyWallpaperX/Modules/OnlineLibrary/UI/AppKitOLDownloadsItem.swift:313`
+- 位置：`MyWallpaperX/Modules/Pixabay/UI/AppKitPixabayDownloadsItem.swift:313`
 - 问题：下载页缩略图生成失败被 try? 静默折叠为 nil 且无 else 分支，损坏/不支持编码的 mp4 卡片占位符永远停留「加载中...」，用户误以为仍在加载，无任何失败呈现。
 - 证据（含复核结论）：:311-318 仅 if let image 分支，:328 try? await generator.image(at:) 折叠所有失败；隐藏占位符仅缓存命中（:301）与成功（:316）两处；数据源 :846-853 仅按文件名过滤，坏文件照常进网格；失败不缓存，重进页面重试仍败。对比浏览网格失败路径至少 stopAnimation（AppKitOLBrowserItem.swift:357-363）。复核措辞保留：重新 configure 会重试而非字面永不结束，但对必然失败的文件每次结果相同。
 - 状态：verified / low
@@ -262,7 +262,7 @@
 
 #### F33 · 在线库浏览网格缩略图无解码缓存，主线程重复解码
 
-- 位置：`MyWallpaperX/Modules/OnlineLibrary/UI/AppKitOLBrowserItem.swift:346`
+- 位置：`MyWallpaperX/Modules/Pixabay/UI/AppKitPixabayBrowserItem.swift:346`
 - 问题：在线库浏览网格缩略图无解码结果缓存（OLThumbnailCache 只缓存压缩 Data），卡片每次进入视口都对同一份 JPEG 做主线程 NSImage(data:) 解码，集中解码时滚动有明显尖刺；同函数未命中分支却用 Task.detached 后台解码，两路径策略不一致。
 - 证据（含复核结论）：缓存命中 :344-346 在 MainActor 解码（Task 继承 NSResponder→NSCollectionViewItem 的 @MainActor，SDK 注解链证实），未命中 :358 detached 后台；OLThumbnailCache 为 NSCache<NSString,NSData>（OnlineLibraryThumbnailPipeline.swift:175-207）；对照 OLDownloadedThumbnailCache（NSCache<NSNumber,NSImage>）仅下载页在用。复核机制修正（结论更强）：浏览网格 provider 直接 init 新实例不走 makeItem 复用池（AppKitOLBrowserGridView.swift:99 注释），prepareForReuse 实际不被调用，新实例 image 恒 nil、:205 守卫必放行——每视口重入重复解码完全成立。「1-3ms/张」为经验估算。
 - 状态：verified / low

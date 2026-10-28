@@ -42,18 +42,17 @@ class SteamPreviewLifecycleTests(unittest.TestCase):
             cache_copy = work / "ThumbnailCache.swift"
             cache_copy.write_text(cache.replace("private let imageCache:", "let imageCache:", 1))
             sources[sources.index(cache_source)] = cache_copy
-            # Execute the real row preview method without account/job UI leaves.
-            row = (UI / "SteamWorkshopDownloadTasksPopover.swift").read_text()
-            start = row.index("    private func loadPreviewIfNeeded(itemID: String) {")
-            opening = row.index("{", start)
-            depth = 0
-            for index in range(opening, len(row)):
-                depth += (row[index] == "{") - (row[index] == "}")
-                if depth == 0:
-                    method = row[start:index + 1]
-                    break
+            # The generic native row consumes the original real preview cache.
+            # Expose only its image view in the test copy for pixel identity.
+            row_path = ROOT / "MyWallpaperX/Modules/Downloads/UI/DownloadTaskRowView.swift"
+            row = row_path.read_text()
+            self.assertEqual(row.count("private let thumbnailView ="), 1)
+            row_copy = work / "DownloadTaskRowView.swift"
+            row_copy.write_text(row.replace("private let thumbnailView =", "let thumbnailView =", 1))
+            sources += [row_copy, ROOT / "MyWallpaperX/Models/DownloadTask.swift",
+                        ROOT / "MyWallpaperX/Modules/Downloads/Core/DownloadTaskProjection.swift"]
             probe = work / "PopoverPreviewProbe.swift"
-            probe.write_text(POPOVER_PROBE.replace("// ACTUAL_METHOD", method))
+            probe.write_text(POPOVER_PROBE)
             harness = ROOT / "script/tests/fixtures/SteamPreviewLifecycleHarness.swift"
             binary = work / "preview"
             build = subprocess.run([
@@ -100,24 +99,23 @@ class SteamPreviewLifecycleTests(unittest.TestCase):
 
 POPOVER_PROBE = r'''
 import AppKit
-struct PopoverPreviewItem { let previewImageURL: URL? }
-struct PopoverPreviewRecord { let id: String; let previewURL: URL? }
-final class PopoverPreviewService {
-    let url: URL
-    init(_ url: URL) { self.url = url }
-    func browserItemForDownload(id: String) -> PopoverPreviewItem? { .init(previewImageURL: url) }
-    var downloads: [PopoverPreviewRecord] { [] }
-}
 @MainActor final class SteamPopoverPreviewProbe {
-    let service: PopoverPreviewService
-    let thumbnailView = NSImageView()
-    var currentPreviewURL: URL?
-    var currentPreviewKey: String?
-    var previewCancellation: SteamWorkshopPreviewLoadCancellation?
-    init(url: URL) { service = .init(url) }
-    func load() { loadPreviewIfNeeded(itemID: "row") }
-    func unbind() { previewCancellation?.cancel() }
-    // ACTUAL_METHOD
+    let row: DownloadTaskRowView
+    let url: URL
+    var thumbnailView: NSImageView { row.thumbnailView }
+    init(url: URL) {
+        self.url = url
+        row = DownloadTaskRowView(bindings: .init(perform: { _, _ in }, loadThumbnail: { _, receive in
+            let cancellation = SteamWorkshopPreviewLoadCancellation()
+            steamWorkshopLoadPreviewImage(from: url, cancellation: cancellation, completion: receive)
+            return { cancellation.cancel() }
+        }))
+    }
+    func load() {
+        row.configure(.init(id: .init(reference: .init(provider: .steamWorkshop, sourceID: "row"), attemptID: "preview"),
+                            title: "queue preview", phase: .completed, thumbnailKey: url.absoluteString))
+    }
+    func unbind() { row.unbind() }
 }
 '''
 

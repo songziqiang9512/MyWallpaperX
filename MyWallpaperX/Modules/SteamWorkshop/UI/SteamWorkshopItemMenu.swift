@@ -66,7 +66,13 @@ enum SteamWorkshopItemMenu {
             menu.addItem(.separator())
             add("在 Finder 中显示", "folder") {
                 guard let current = service.latestDownloadRecord(for: item.id), current.status == .ready else { return }
-                NSWorkspace.shared.activateFileViewerSelecting([current.folderURL])
+                FinderRevealCoordinator.shared.reveal([current.folderURL])
+            }
+            if let record = service.latestDownloadRecord(for: item.id), record.contentType == .video,
+               let file = record.videoURL, let openWith = WallpaperOpenWithMenu.make(for: [file], permitsAction: {
+                   navigationVersion == nil || service.navigationVersion == navigationVersion
+               }) {
+                menu.addItem(openWith)
             }
         }
         return menu

@@ -7,19 +7,13 @@ import Foundation
 import AVFoundation
 import AppKit
 import CryptoKit
+import Darwin
 
 extension WallpaperManager {
     func currentCacheGeneration() -> UInt64 {
         cacheGenerationLock.lock()
         defer { cacheGenerationLock.unlock() }
         return cacheGeneration
-    }
-
-    func bumpCacheGeneration() {
-        // 代际递增后，旧的后台生成任务会自然失效，避免清缓存后旧结果回写。
-        cacheGenerationLock.lock()
-        cacheGeneration &+= 1
-        cacheGenerationLock.unlock()
     }
 
     func cachedThumbnailPath(for key: String) -> String? {
@@ -49,15 +43,19 @@ extension WallpaperManager {
         return false
     }
 
-    func completeThumbnailGeneration(for normalizedPath: String, with outputPath: String?) {
+    func completeThumbnailGeneration(for normalizedPath: String, with outputPath: String?, generation: UInt64) {
         // 统一从主线程回调，卡片刷新和索引回写都依赖这一点。
+        cacheGenerationLock.lock()
+        guard cacheGeneration == generation else { cacheGenerationLock.unlock(); return }
         thumbnailInFlightLock.lock()
         let handlers = thumbnailInFlightHandlers.removeValue(forKey: normalizedPath) ?? []
         thumbnailInFlightLock.unlock()
+        cacheGenerationLock.unlock()
 
         DispatchQueue.main.async {
+            let currentPath = self.currentCacheGeneration() == generation ? outputPath : nil
             for handler in handlers {
-                handler(outputPath)
+                handler(currentPath)
             }
         }
     }
@@ -70,8 +68,12 @@ extension WallpaperManager {
 
     func clearThumbnailInFlight() {
         thumbnailInFlightLock.lock()
+        let handlers = thumbnailInFlightHandlers.values.flatMap { $0 }
         thumbnailInFlightHandlers.removeAll()
         thumbnailInFlightLock.unlock()
+        // Import's original serial pipeline waits for these completions; a
+        // cache clear releases each existing consumer without publishing a path.
+        DispatchQueue.main.async { handlers.forEach { $0(nil) } }
     }
 
     func clearThumbnailMemoryCache() {
@@ -200,24 +202,24 @@ extension WallpaperManager {
             return
         }
 
-        if enqueueThumbnailCompletion(completion, for: normalized) {
+        cacheGenerationLock.lock()
+        guard cacheGeneration == capturedGeneration else {
+            cacheGenerationLock.unlock()
+            DispatchQueue.main.async { completion(nil) }
             return
         }
+        let alreadyInFlight = enqueueThumbnailCompletion(completion, for: normalized)
+        cacheGenerationLock.unlock()
+        if alreadyInFlight { return }
 
         // 使用后台限并发队列生成缩略图，避免导入大量文件时瞬时抢占资源。
         thumbnailQueue.async {
-            guard self.currentCacheGeneration() == capturedGeneration else {
-                self.completeThumbnailGeneration(for: normalized, with: nil)
-                return
-            }
+            guard self.currentCacheGeneration() == capturedGeneration else { return }
             self.thumbnailGenerationLimiter.wait()
             defer { self.thumbnailGenerationLimiter.signal() }
 
             autoreleasepool {
-                guard self.currentCacheGeneration() == capturedGeneration else {
-                    self.completeThumbnailGeneration(for: normalized, with: nil)
-                    return
-                }
+                guard self.currentCacheGeneration() == capturedGeneration else { return }
                 let asset = AVURLAsset(url: url)
                 let imageGenerator = AVAssetImageGenerator(asset: asset)
                 imageGenerator.appliesPreferredTrackTransform = true
@@ -240,23 +242,30 @@ extension WallpaperManager {
                         let rep = NSBitmapImageRep(cgImage: cgImage)
                         if let data = rep.representation(using: .jpeg, properties: [.compressionFactor: 0.7]) {
                             do {
-                                guard self.currentCacheGeneration() == capturedGeneration else {
-                                    break
+                                let staged = outputURL.deletingLastPathComponent()
+                                    .appendingPathComponent(".thumbnail-" + UUID().uuidString + ".pending")
+                                defer { try? FileManager.default.removeItem(at: staged) }
+                                try data.write(to: staged)
+                                self.cacheGenerationLock.lock()
+                                let published = self.cacheGeneration == capturedGeneration && rename(staged.path, outputURL.path) == 0
+                                if published {
+                                    self.setCachedThumbnailPath(outputURL.path, for: cacheKey)
+                                    self.clearThumbnailGenerationFailure(for: normalized)
+                                    outputPath = outputURL.path
                                 }
-                                try data.write(to: outputURL)
-                                self.setCachedThumbnailPath(outputURL.path, for: cacheKey)
-                                self.clearThumbnailGenerationFailure(for: normalized)
-                                outputPath = outputURL.path
-                                break
+                                self.cacheGenerationLock.unlock()
+                                if published { break }
                             } catch {
                             }
                         }
                     }
                 }
-                if outputPath == nil {
+                self.cacheGenerationLock.lock()
+                if outputPath == nil, self.cacheGeneration == capturedGeneration {
                     self.markThumbnailGenerationFailure(for: normalized)
                 }
-                self.completeThumbnailGeneration(for: normalized, with: outputPath)
+                self.cacheGenerationLock.unlock()
+                self.completeThumbnailGeneration(for: normalized, with: outputPath, generation: capturedGeneration)
             }
         }
     }

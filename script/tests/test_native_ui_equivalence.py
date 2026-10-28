@@ -60,7 +60,7 @@ class NativeUIEquivalenceTests(unittest.TestCase):
 
     def test_download_toast_layout_hover_and_actions(self):
         """Compile the complete toast; callbacks record effects without account/media work."""
-        source = ROOT / 'MyWallpaperX/Modules/OnlineLibrary/UI/OnlineLibraryBrowserSupport.swift'
+        source = ROOT / 'MyWallpaperX/Shared/UI/WallpaperGridNoticeView.swift'
         if override := os.environ.get('MWX_NATIVE_UI_SOURCE_DIR'):
             source = Path(override) / source.name
         fixture = ROOT / 'script/tests/fixtures/OnlineDownloadToastChecks.swift'
@@ -86,7 +86,7 @@ class NativeUIEquivalenceTests(unittest.TestCase):
                 target = Path(proof); target.mkdir(parents=True, exist_ok=True)
                 (target / 'toast-report.json').write_text(json.dumps(report, indent=2)+'\n')
                 (target / 'toast-inputs.json').write_text(json.dumps(identities, indent=2)+'\n')
-            self.assertEqual(len(report['checks']), 42)
+            self.assertEqual(len(report['checks']), 47)
             for name, passed in report['checks'].items():
                 with self.subTest(name=name): self.assertIs(passed, True)
             self.assertEqual(identities, {str(p): hashlib.sha256(p.read_bytes()).hexdigest() for p in [source, fixture]})

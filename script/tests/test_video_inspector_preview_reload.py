@@ -37,6 +37,8 @@ INSPECTOR_SOURCES = [VIDEO_WALLPAPER_SOURCE,
     REPOSITORY_ROOT / "MyWallpaperX/Shared/UI/DecodedThumbnailMemoryCache.swift", THUMBNAIL_CACHE_SOURCE,
     FADING_SCROLL_SOURCE, FOOTER_METRICS_SOURCE, REPOSITORY_ROOT / "MyWallpaperX/Shared/UI/InspectorBadgeView.swift",
     INSPECTOR_SUPPORT_SOURCE, INSPECTOR_VIEW_SOURCE, REPOSITORY_ROOT / "MyWallpaperX/Shared/UI/WallpaperInspectorActions.swift",
+    REPOSITORY_ROOT / "MyWallpaperX/Shared/UI/FinderRevealCoordinator.swift",
+    REPOSITORY_ROOT / "MyWallpaperX/Shared/Components/WallpaperLibraryControlStyle.swift",
     INSPECTOR_HARNESS_SOURCE]
 
 class VideoInspectorPreviewReloadTests(unittest.TestCase):

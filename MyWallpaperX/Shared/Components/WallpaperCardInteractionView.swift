@@ -8,6 +8,11 @@ class WallpaperCardCollectionViewItem: NSCollectionViewItem {
     // teardown so provider cancellation can finish synchronously in deinit.
     nonisolated deinit {}
 
+    override func prepareForReuse() {
+        imageView?.superview?.applyGridHoverScale(false, animated: false)
+        super.prepareForReuse()
+    }
+
     override var draggingImageComponents: [NSDraggingImageComponent] {
         guard let imageView, imageView.image != nil, let container = imageView.superview else {
             return super.draggingImageComponents
@@ -66,5 +71,12 @@ class WallpaperCardInteractionView: NSView {
 
     override func mouseDown(with event: NSEvent) {
         nextResponder?.mouseDown(with: event)
+    }
+
+    override func rightMouseDown(with event: NSEvent) {
+        let scroll = enclosingScrollView as? WallpaperGridScrollView
+        scroll?.beginContextMenu(at: event.locationInWindow)
+        defer { scroll?.endContextMenu() }
+        super.rightMouseDown(with: event)
     }
 }

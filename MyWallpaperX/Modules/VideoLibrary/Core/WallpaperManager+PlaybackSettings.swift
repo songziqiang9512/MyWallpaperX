@@ -130,7 +130,6 @@ extension WallpaperManager {
         // 三种播放模式互斥，开启一个模式时会自动清理其它模式。
         if enabled {
             applyPlaybackMode(.loop)
-            settings.autoSwitchEnabled = false
         } else {
             // 循环关闭时自动切换到顺序播放，保证始终有一个播放模式可用。
             applyPlaybackMode(.sequential)
@@ -139,38 +138,20 @@ extension WallpaperManager {
     }
 
     func setRandomPlaybackEnabled(_ enabled: Bool) {
-        if enabled {
-            applyPlaybackMode(.random)
-        } else {
-            settings.randomPlayback = false
-            ensureAtLeastOnePlaybackMode()
-        }
+        applyPlaybackMode(enabled ? .random : settings.loopPlayback ? .loop : .sequential)
         // Settings preserve elapsed display time in the shared deadline.
         startAutoSwitchTimer()
     }
 
     func setSequentialPlaybackEnabled(_ enabled: Bool) {
-        if enabled {
-            applyPlaybackMode(.sequential)
-        } else {
-            settings.sequentialPlayback = false
-            ensureAtLeastOnePlaybackMode()
-        }
+        applyPlaybackMode(enabled ? .sequential : settings.randomPlayback ? .random : settings.loopPlayback ? .loop : .sequential)
         // Settings preserve elapsed display time in the shared deadline.
         startAutoSwitchTimer()
     }
 
     func normalizePlaybackSettings() {
         // 启动/导入/重置后都先归一化播放模式，避免 settings 带着非法组合进入引擎。
-        switch playbackMode() {
-        case .random:
-            applyPlaybackMode(.random)
-        case .sequential:
-            applyPlaybackMode(.sequential)
-        case .loop:
-            applyPlaybackMode(.loop)
-            settings.autoSwitchEnabled = false
-        }
+        applyPlaybackMode(playbackMode())
     }
 
     func playbackMode() -> PlaybackMode {
@@ -195,28 +176,13 @@ extension WallpaperManager {
     }
 
     func applyPlaybackMode(_ mode: PlaybackMode) {
-        // 模式写回只在这里统一处理，防止三个开关各自散落互斥逻辑。
-        switch mode {
-        case .loop:
-            settings.loopPlayback = true
-            settings.randomPlayback = false
-            settings.sequentialPlayback = false
-        case .random:
-            settings.loopPlayback = false
-            settings.randomPlayback = true
-            settings.sequentialPlayback = false
-        case .sequential:
-            settings.loopPlayback = false
-            settings.randomPlayback = false
-            settings.sequentialPlayback = true
-        }
-    }
-
-    func ensureAtLeastOnePlaybackMode() {
-        // 关闭某个模式后，优先回落到顺序播放，避免意外进入循环模式导致 timer 失效。
-        if !settings.loopPlayback && !settings.randomPlayback && !settings.sequentialPlayback {
-            settings.sequentialPlayback = true
-        }
+        // 一次发布有效组合；顺序/随机沿用当前间隔，循环停止跨项轮换。
+        var next = settings
+        next.loopPlayback = mode == .loop
+        next.randomPlayback = mode == .random
+        next.sequentialPlayback = mode == .sequential
+        next.autoSwitchEnabled = mode != .loop
+        settings = next
     }
 
     @discardableResult

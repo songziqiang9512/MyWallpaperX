@@ -51,7 +51,7 @@ import ImageIO
         guard recoveryMessage == nil else { throw PersonalSettingsError.recoveryRequired(recoveryMessage ?? "") }
         guard manager.didFinishInitialIndexLoad else { throw PersonalSettingsError.indexLoading }
         let sources = manager.personalSettingsSources + images.personalSettingsSources
-        var preferences = PersonalSettingsPreferences(from: manager.settings)
+        var preferences = currentPreferences()
         preferences.videoLibrarySort = try readVideoSort()
         // Legacy fields remain readable, but cannot export a retired/stale UI
         // value or mislabel createdAt/lastUsed as the old dateAdded behavior.
@@ -82,7 +82,7 @@ import ImageIO
         defer { isApplying = false }
         let epoch = generation, state = collections.snapshot
         let sources = manager.personalSettingsSources + images.personalSettingsSources
-        let preferences = PersonalSettingsPreferences(from: manager.settings)
+        let preferences = currentPreferences()
         let videoSortBefore = try readVideoSort()
         let legacyVideos = manager.wallpapers
         let worker = Task.detached(priority: .utility) {
@@ -104,8 +104,13 @@ import ImageIO
         let (payload, paths, missing, legacyOrder) = try await worker.value
         try requireGeneration(epoch, resetEpoch: state.resetEpoch)
         let target = payload.preferences.applying(to: manager.settings)
+        var targetPreferences = PersonalSettingsPreferences(from: target)
+        targetPreferences.sceneHDRDisplayEnabled = payload.preferences.sceneHDRDisplayEnabled ?? preferences.sceneHDRDisplayEnabled
+        targetPreferences.sceneMediaInfoEnabled = payload.preferences.sceneMediaInfoEnabled ?? preferences.sceneMediaInfoEnabled
+        targetPreferences.playbackPerformanceProfile = payload.preferences.playbackPerformanceProfile
+            .flatMap(PlaybackPerformanceProfile.init(rawValue:))?.rawValue ?? preferences.playbackPerformanceProfile
         let plan = try LibraryPersonalSettings.plan(payload, sources: sources, beforePreferences: preferences,
-            targetPreferences: .init(from: target), state: state, normalizedPaths: paths, missingPathCount: missing)
+            targetPreferences: targetPreferences, state: state, normalizedPaths: paths, missingPathCount: missing)
         var referencesByPath: [WallpaperProvider: [String: WallpaperReference]] = [:]
         for patch in plan.sourcePatches {
             let reference = patch.target.reference
@@ -126,10 +131,10 @@ import ImageIO
         // Parse/mapping/preconditions complete before the first persistent edit.
         guard collections.snapshot.organizationState == state.organizationState else { throw UserCollectionsError.organizationConflict }
         try validateSources(plan)
-        guard PersonalSettingsPreferences(from: manager.settings) == preferences else { throw PersonalSettingsError.preferencesChanged }
+        guard currentPreferences() == preferences else { throw PersonalSettingsError.preferencesChanged }
         var recovery = Recovery(schemaVersion: 2, stage: .prepared, importedAt: Date(), plan: plan, videoSortPatch: videoSortPatch)
-        recoveryMessage = PersonalSettingsError.recoveryRequired("prepared").localizedDescription
         try writeRecovery(recovery)
+        recoveryMessage = PersonalSettingsError.recoveryRequired("prepared").localizedDescription
         return try await apply(&recovery, generation: epoch)
     }
 
@@ -215,7 +220,12 @@ import ImageIO
             try requireGeneration(epoch, resetEpoch: recovery.plan.resetEpoch)
             try validateSources(recovery.plan)
             let current = PersonalSettingsPreferences(from: manager.settings)
-            guard recovery.plan.beforePreferences.matchesForRecovery(current) || recovery.plan.targetPreferences.matchesForRecovery(current) else {
+            var before = recovery.plan.beforePreferences, target = recovery.plan.targetPreferences
+            // Only the WallpaperSettings fields cross into its original owner.
+            before.sceneHDRDisplayEnabled = nil; target.sceneHDRDisplayEnabled = nil
+            before.sceneMediaInfoEnabled = nil; target.sceneMediaInfoEnabled = nil
+            before.playbackPerformanceProfile = nil; target.playbackPerformanceProfile = nil
+            guard before.matchesForRecovery(current) || target.matchesForRecovery(current) else {
                 throw PersonalSettingsError.preferencesChanged
             }
             if let patch = recovery.videoSortPatch { try validateVideoSort(patch, recovery.plan.resetEpoch) }
@@ -236,7 +246,11 @@ import ImageIO
                 recovery.stage = .relationships; try writeRecovery(recovery)
             }
             if recovery.stage.rawValue < Stage.preferences.rawValue {
-                try manager.applyPersonalSettingsPreferences(expected: recovery.plan.beforePreferences, target: recovery.plan.targetPreferences)
+                // Relationship persistence above may have yielded to an edit
+                // in Settings; check each owner once at this consumption point.
+                try validateExternalPreferences(before: recovery.plan.beforePreferences, target: recovery.plan.targetPreferences)
+                try manager.applyPersonalSettingsPreferences(expected: before, target: target)
+                applyExternalPreferences(recovery.plan.targetPreferences)
                 recovery.stage = .preferences; try writeRecovery(recovery)
             }
             try requireGeneration(epoch, resetEpoch: recovery.plan.resetEpoch)
@@ -254,6 +268,40 @@ import ImageIO
             recoveryMessage = PersonalSettingsError.recoveryRequired(String(describing: recovery.stage)).localizedDescription
                 + "\n" + error.localizedDescription
             throw error
+        }
+    }
+
+    private func currentPreferences() -> PersonalSettingsPreferences {
+        var value = PersonalSettingsPreferences(from: manager.settings)
+        value.sceneHDRDisplayEnabled = SceneHDRDisplayPreference.isEnabled
+        value.sceneMediaInfoEnabled = SceneMediaSourcePreference.isEnabled
+        value.playbackPerformanceProfile = PlaybackPerformanceProfile.current.rawValue
+        return value
+    }
+
+    private func validateExternalPreferences(before: PersonalSettingsPreferences, target: PersonalSettingsPreferences) throws {
+        // A stopped import may have applied only some independent preferences.
+        // Each original owner accepts its own before/target value; later edits fail.
+        func admits<T: Equatable>(_ current: T, _ old: T?, _ next: T?) -> Bool {
+            next == nil || current == old || current == next
+        }
+        guard admits(SceneHDRDisplayPreference.isEnabled, before.sceneHDRDisplayEnabled, target.sceneHDRDisplayEnabled),
+              admits(SceneMediaSourcePreference.isEnabled, before.sceneMediaInfoEnabled, target.sceneMediaInfoEnabled),
+              admits(PlaybackPerformanceProfile.current.rawValue, before.playbackPerformanceProfile, target.playbackPerformanceProfile) else {
+            throw PersonalSettingsError.preferencesChanged
+        }
+    }
+
+    private func applyExternalPreferences(_ preferences: PersonalSettingsPreferences) {
+        if let enabled = preferences.sceneHDRDisplayEnabled, enabled != SceneHDRDisplayPreference.isEnabled {
+            SceneHDRDisplayPreference.setEnabled(enabled)
+        }
+        if let enabled = preferences.sceneMediaInfoEnabled, enabled != SceneMediaSourcePreference.isEnabled {
+            SceneMediaSourcePreference.setEnabled(enabled)
+        }
+        if let raw = preferences.playbackPerformanceProfile, let profile = PlaybackPerformanceProfile(rawValue: raw), profile != .current {
+            PlaybackPerformanceProfile.save(profile)
+            PlaybackCommandMultiplexer.shared.dispatch(.setPerformanceProfile(maxFPS: profile.maxFPS))
         }
     }
 

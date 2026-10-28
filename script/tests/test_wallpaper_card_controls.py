@@ -1,4 +1,4 @@
-"""Real Shared card colors and controls, with font/symbol work observers."""
+"""Real two-button card actions, native symbols and colors with work observers."""
 import hashlib
 import json
 from pathlib import Path
@@ -53,6 +53,20 @@ class WallpaperCardControlsTests(unittest.TestCase):
             self.assertEqual(run.launch_returncode, 0, run.stdout + run.stderr)
             checks = json.loads(run.stdout)
             self.assertTrue(checks)
+            required = {
+                "every-bar-has-exactly-the-two-native-detail-and-primary-controls",
+                "original-native-button-targets-deliver-detail-and-primary-once",
+                "narrow-two-button-bar-keeps-native-hit-targets-and-title-separate",
+                "missing-detail-command-disables-its-native-control-without-changing-the-two-key-layout",
+                "pending-source-retains-its-original-cancel-command-and-description-after-resize",
+                "disabled-native-and-accessibility-presses-do-not-deliver-either-command",
+                "appearance-only-switches-preserve-font-width-cache-symbols-and-hit-geometry",
+            }
+            required.update(
+                f"{state}-state-presents-only-its-native-symbol-and-matching-accessible-command"
+                for state in ("apply", "switching", "playing", "download")
+            )
+            self.assertTrue(required.issubset(checks), sorted(required.difference(checks)))
             print(json.dumps(checks, sort_keys=True))
             for name, passed in checks.items():
                 with self.subTest(name=name):

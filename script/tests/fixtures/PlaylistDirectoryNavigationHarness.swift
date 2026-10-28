@@ -176,10 +176,18 @@ import Foundation
             && owner.makeDirectoryReturnAction() == nil
 
         let beforeSteam = owner.steam.events.count
+        owner.steam.isBrowsingAuthorWorkshop = true
         owner.navigate(to: .workshop)
-        checks["actual-steam-navigation-uses-recorded-original-entry-leaves-as-positive-control"] = owner.steam.events.count == beforeSteam + 2
-            && owner.steam.events.suffix(2).elementsEqual(["enter-discovery", "prepare"])
-            && owner.steam.pendingDownloadsScrollRestoreOffsetY == nil
+        owner.navigate(to: .videos); owner.navigate(to: .workshop)
+        checks["actual-workshop-sidebar-roundtrip-preserves-author-and-scroll-without-source-reset"] =
+            owner.steam.events.count == beforeSteam && owner.steam.isBrowsingAuthorWorkshop
+            && owner.steam.pendingDownloadsScrollRestoreOffsetY == 42 && presentation.page == .workshop
+        owner.steam.returnToDiscoveryBrowse(selectOrigin: false)
+        owner.steam.enterBrowseSection(.discovery); owner.steam.prepareForBrowserEntry()
+        owner.navigate(to: .workshop)
+        checks["source-owned-explicit-return-recording-leaves-remain-a-positive-control"] = owner.steam.events.count == beforeSteam + 3
+            && owner.steam.events.suffix(3).elementsEqual(["return-author-false", "enter-discovery", "prepare"])
+            && !owner.steam.isBrowsingAuthorWorkshop && owner.steam.pendingDownloadsScrollRestoreOffsetY == 42
         checks["actual-context-lifecycle-notifies-toolbar-without-entering-playback"] = workspace.playbackRequests.isEmpty
             && toolbarContextRefreshes > 0
         workspace.play(reference)

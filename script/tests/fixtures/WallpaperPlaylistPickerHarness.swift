@@ -50,12 +50,11 @@ nonisolated struct PickerPlayingValue { let reference: WallpaperReference; let t
     override func viewDidLayout() { super.viewDidLayout(); titleLabel.frame = NSRect(x: 8, y: 8, width: view.bounds.width - 16, height: 20) }
 }
 @MainActor final class WallpaperLibraryCellAdapter {
-    private let favorite: (WallpaperReference) -> Bool
     private let playing: (WallpaperReference) -> Bool
     var viewport: [WallpaperContentItem] = []
-    init(manager: WallpaperManager, images: SILService, steam: SteamWorkshopService, online: OnlineLibraryService,
-         isFavorite: @escaping (WallpaperReference) -> Bool, isPlaying: @escaping (WallpaperReference) -> Bool,
-         makePrimaryAction: @escaping (WallpaperContentItem) -> (() -> Void)?) { favorite = isFavorite; playing = isPlaying }
+    init(manager: WallpaperManager, images: SILService, steam: SteamWorkshopService, pixabay: PixabayService,
+         isPlaying: @escaping (WallpaperReference) -> Bool,
+         makePrimaryAction: @escaping (WallpaperContentItem) -> (() -> Void)?) { playing = isPlaying }
     func makeCell(collection: NSCollectionView, indexPath: IndexPath, content: WallpaperContentItem,
                   state: WallpaperLibraryGridController.CellState) -> NSCollectionViewItem {
         collection.register(PickerCardLeaf.self, forItemWithIdentifier: PickerCardLeaf.reuseID)
@@ -66,7 +65,7 @@ nonisolated struct PickerPlayingValue { let reference: WallpaperReference; let t
     func updateCell(_ cell: NSCollectionViewItem, content: WallpaperContentItem, state: WallpaperLibraryGridController.CellState) {
         (cell as? PickerCardLeaf)?.titleLabel.stringValue = content.title
         cell.view.setAccessibilityLabel(content.title)
-        _ = favorite(content.reference); _ = playing(content.reference)
+        _ = playing(content.reference)
     }
     func needsCellReplacement(_ cell: NSCollectionViewItem, content: WallpaperContentItem) -> Bool { false }
     func setVisible(_ cell: NSCollectionViewItem, _ visible: Bool) {}
@@ -115,7 +114,7 @@ extension UserCollectionsStore {
         let store = UserCollectionsStore(url: URL(fileURLWithPath: CommandLine.arguments[1]))
         let collections = UserCollectionsController(store: store, snapshot: try await store.snapshot())
         let workspace = WallpaperLibraryWorkspace(collections), manager = WallpaperManager()
-        let images = SILService(), steam = SteamWorkshopService(), online = OnlineLibraryService()
+        let images = SILService(), steam = SteamWorkshopService(), pixabay = PixabayService()
         var checks: [String: Bool] = [:]
         func content(_ provider: WallpaperProvider, _ id: String, _ kind: WallpaperMediaKind) -> WallpaperContentItem {
             let reference = WallpaperReference(provider: provider, sourceID: id)
@@ -157,12 +156,12 @@ extension UserCollectionsStore {
         }
         func open(_ id: UUID) async throws -> (WallpaperPlaylistPickerController, NSWindow, WallpaperLibraryGridController) {
             let picker = WallpaperPlaylistPickerController(workspace: workspace, manager: manager, images: images,
-                steam: steam, online: online, target: id, hostWindow: { host })
+                steam: steam, pixabay: pixabay, target: id, hostWindow: { host })
             keepAlive.append(picker); picker.show()
-            try await wait("Picker did not become the actual native key child") {
-                host.childWindows?.contains { $0.delegate === picker && app.keyWindow === $0 } == true
+            try await wait("Picker did not become the actual native key sheet") {
+                host.attachedSheet?.delegate === picker && app.keyWindow === host.attachedSheet
             }
-            let panel = host.childWindows!.first { $0.delegate === picker }!
+            let panel = host.attachedSheet!
             await settle()
             let collection = descendants(panel.contentView!, NSCollectionView.self).first!
             let grid = collection.delegate as! WallpaperLibraryGridController
@@ -194,6 +193,24 @@ extension UserCollectionsStore {
         func marker(_ cell: NSCollectionViewItem) -> NSView? {
             cell.view.subviews.first { view in descendants(view, NSTextField.self).contains { $0.stringValue == "已在列表" } }
         }
+        func tracePicker(_ phase: String, panel: NSWindow, grid: WallpaperLibraryGridController) {
+            let bindings: [[String: Any]] = grid.collection.visibleItems().map { cell in
+                let path = grid.collection.indexPath(for: cell)
+                let decoration = marker(cell)
+                return ["index": path?.item ?? -1, "reference": path.flatMap { grid.items.indices.contains($0.item) ? grid.items[$0.item].reference.storageKey : nil } ?? "none",
+                    "markerPresent": decoration != nil, "markerHidden": decoration?.isHidden ?? true,
+                    "markerPassive": decoration.map { $0.hitTest(NSPoint(x: 1, y: 1)) == nil && !$0.isAccessibilityElement() } ?? false]
+            }
+            let facts: [String: Any] = ["phase": phase, "items": grid.items.map { $0.reference.storageKey },
+                "selected": grid.selection.references.map(\.storageKey).sorted(), "selecting": grid.selection.isSelecting,
+                "nativeSelection": grid.collection.selectionIndexPaths.map(\.item).sorted(), "allowsMultiple": grid.collection.allowsMultipleSelection,
+                "footer": footer(panel), "add": addButton(panel).title, "addEnabled": addButton(panel).isEnabled,
+                "keyPanel": app.keyWindow === panel, "gridResponder": panel.firstResponder === grid.collection,
+                "firstResponder": String(describing: panel.firstResponder), "canInput": WallpaperLibrarySheetPresentation.permitsInput(in: panel),
+                "members": collections.snapshot.members.filter { $0.playlistID == target }.map { $0.reference.storageKey }.sorted(),
+                "markers": bindings, "viewport": NSStringFromRect(grid.scrollView.contentView.bounds)]
+            FileHandle.standardError.write(Data("PickerState \(String(data: try! JSONSerialization.data(withJSONObject: facts, options: [.sortedKeys]), encoding: .utf8)!)\n".utf8))
+        }
         func holdStore() async throws -> DispatchSemaphore {
             let entered = DispatchSemaphore(value: 0), release = DispatchSemaphore(value: 0)
             Task { await store.holdForPickerFixture(entered: entered, release: release) }
@@ -215,15 +232,17 @@ extension UserCollectionsStore {
         let (picker, panel, grid) = try await open(target)
         let beforeBackgroundInput = backgroundProbe.values
         try await backgroundProbe.deliver()
-        checks["picker-blocks-native-queue-background-click-drag-and-key-with-no-host-dimming-sheet"] = nativeInputWasLive
+        checks["picker-native-sheet-blocks-background-click-drag-and-key-with-system-modal-backdrop"] = nativeInputWasLive
             && backgroundProbe.values == beforeBackgroundInput
-            && app.keyWindow === panel && panel.parent === host && host.attachedSheet == nil
+            && app.keyWindow === panel && panel.sheetParent === host && host.attachedSheet === panel
             && !WallpaperLibrarySheetPresentation.permitsInput(in: host) && !panel.isOpaque && panel.backgroundColor == .clear
         checks["picker-is-the-key-panel-delegate-and-does-not-borrow-the-host-domain"] = app.keyWindow === panel && panel.delegate === picker
-            && panel.parent === host && !panel.isSheet && grid.selection.isSelecting
+            && panel.sheetParent === host && panel.isSheet && grid.selection.isSelecting
         let zoom = descendants(panel.contentView!, WallpaperLibraryZoomControl.self).first!
         let source = descendants(panel.contentView!, NSSegmentedControl.self).first { $0.segmentCount == 4 }!
         let search = descendants(panel.contentView!, NSSearchField.self).first!
+        checks["native-background-input-probe-keeps-the-picker-search-and-all-eight-source-facts-unchanged"] = search.stringValue.isEmpty
+            && Set(grid.items.map(\.reference)) == Set(values.map(\.reference))
         checks["picker-starts-at-five-columns-with-the-shared-native-zoom"] = WallpaperLibraryGridMetrics(
             clipWidth: grid.scrollView.contentView.bounds.width, preferredColumns: 5).columns == 5
             && zoom.segmentCount == 2 && zoom.trackingMode == .momentary && picker.canZoom(-1) && picker.canZoom(1)
@@ -267,7 +286,9 @@ extension UserCollectionsStore {
         // Return to five so all eight cells are visible for membership markers.
         menu(.zoomOut); menu(.zoomOut); await settle()
         panel.makeFirstResponder(grid.collection)
+        tracePicker("before-native-select-all", panel: panel, grid: grid)
         try await key(0, "a", modifiers: .command)
+        tracePicker("after-native-select-all", panel: panel, grid: grid)
         checks["picker-command-a-selects-the-real-grid-and-reports-selected-new-existing-counts"] = grid.selection.references.count == 8
             && footer(panel) == "已选 8 项 · 将新增 6 项 · 2 项已在列表" && addButton(panel).title == "添加 6 项"
         let existing = Set([values[0].reference, values[6].reference])
@@ -280,6 +301,7 @@ extension UserCollectionsStore {
             && grid.collection.visibleItems().count == 8
         try await collections.perform(.addMembers(target, [values[1].organizationItem], Date()))
         await settle()
+        tracePicker("after-external-membership-publish", panel: panel, grid: grid)
         checks["external-membership-echo-recomputes-new-count-without-clearing-selection"] = footer(panel) == "已选 8 项 · 将新增 5 项 · 3 项已在列表"
             && addButton(panel).title == "添加 5 项" && grid.selection.references.count == 8
         let child = NSPanel(contentRect: NSRect(x: 0, y: 0, width: 300, height: 180), styleMask: [.titled], backing: .buffered, defer: false)
@@ -294,6 +316,7 @@ extension UserCollectionsStore {
         panel.endSheet(child); child.orderOut(nil)
         try await wait("Picker parent input did not return") { panel.attachedSheet == nil && panel.isKeyWindow }
         source.selectedSegment = 1; _ = app.sendAction(source.action!, to: source.target, from: source); await settle()
+        tracePicker("after-native-video-filter", panel: panel, grid: grid)
         checks["source-filter-clips-selection-and-all-existing-selection-disables-add-zero"] = grid.items.count == 2
             && grid.selection.references.count == 2 && footer(panel) == "已选 2 项 · 将新增 0 项 · 2 项已在列表"
             && addButton(panel).title == "添加 0 项" && !addButton(panel).isEnabled
@@ -301,6 +324,7 @@ extension UserCollectionsStore {
         addButton(panel).performClick(nil); await settle()
         checks["all-existing-add-zero-does-not-write-or-report-a-fake-success"] = collections.snapshot == beforeNoop && workspace.memberEdits.isEmpty
         source.selectedSegment = 2; _ = app.sendAction(source.action!, to: source.target, from: source); await settle()
+        tracePicker("after-native-image-filter", panel: panel, grid: grid)
         checks["reused-cells-explicitly-clear-the-former-target-membership-marker"] = grid.items.count == 2
             && grid.selection.references.isEmpty && grid.collection.visibleItems().allSatisfy { marker($0)?.isHidden == true }
         let mounted = grid.collection.visibleItems()
@@ -310,7 +334,7 @@ extension UserCollectionsStore {
         host.makeKeyAndOrderFront(nil); await settle()
         let afterPickerClose = backgroundProbe.values
         try await backgroundProbe.deliver()
-        checks["picker-close-restores-native-queue-background-click-drag-and-key-and-releases-its-monitor"] = WallpaperModalInputProbe.hasOneDelivery(afterPickerClose, backgroundProbe.values)
+        checks["picker-close-ends-native-modality-and-restores-background-click-drag-and-key"] = WallpaperModalInputProbe.hasOneDelivery(afterPickerClose, backgroundProbe.values)
 
         let (keyPicker, keyPanel, keyGrid) = try await open(target)
         await filter(keyPicker, keyPanel, text: "video-one")
@@ -404,7 +428,7 @@ extension UserCollectionsStore {
         hostClosingPicker.onClose = { hostCloseCallbacks += 1 }
         let beforeHostClose = collections.snapshot
         host.close()
-        try await wait("host close left a Picker or its input monitor alive") { !hostClosingPanel.isVisible && hostClosingPanel.parent == nil }
+        try await wait("host close left a Picker or its native sheet session alive") { !hostClosingPanel.isVisible && hostClosingPanel.sheetParent == nil }
         hostClosingPicker.close()
         checks["native-host-close-retires-picker-once-without-reentrant-close-or-relationship-write"] = hostCloseCallbacks == 1
             && collections.snapshot == beforeHostClose && !hostClosingPicker.canFocusSearch

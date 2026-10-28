@@ -15,7 +15,7 @@ import Foundation
 /// `SteamServiceClient.anonymousReadCommands` 内透明重启，账号/订阅/下载经
 /// `SteamAuthRoute.ensureHelperReady` 与 `SteamWorkshopQueryClient.ensureHelperStarted`
 /// 显式重启，浏览面板打开期间（`SteamWorkshopService.isBrowsePanelOpen`，由
-/// 浏览视图进出窗口事件维护的挂载计数）根本不会回收。
+/// 浏览视图可见/隐藏、最小化与进出窗口维护的可见需求计数）根本不会回收。
 ///
 /// 默认参数依据：idleTimeout 600s ≫ 请求超时 30s 与握手超时 12s，在途工作不可能
 /// 被回收截断（pending 门同时拦住）；又远小于整机闲置时 helper 进程 + Steam 连接
@@ -35,7 +35,7 @@ final class SteamHelperIdleReaper {
         var accountDormant: () -> Bool
         /// 无活动下载作业（JobStore/任务表实际状态）。
         var downloadsDormant: () -> Bool
-        /// 浏览 UI 不活跃（浏览面板挂载计数为 0；owner：
+        /// 浏览 UI 不活跃（浏览面板可见需求计数为 0；owner：
         /// `SteamWorkshopService.isBrowsePanelOpen`）。
         var browseDormant: () -> Bool
 

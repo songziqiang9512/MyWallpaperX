@@ -38,28 +38,38 @@ actor OnlineImageLibraryStore {
     }
 
     nonisolated private let root: URL
+    nonisolated private let legacyRoot: URL?
+    nonisolated private let manifestName: String
     private var manifest: Manifest?
     private var unavailable = Set<OnlineImageAssetID>()
     private var snapshotRevision: UInt64 = 0
 
-    init(root: URL) {
+    init(root: URL, legacyRoot: URL? = nil, manifestName: String = "manifest.json") {
         self.root = Self.resolvingExistingAncestor(of: root).url
+        self.legacyRoot = legacyRoot.map { Self.resolvingExistingAncestor(of: $0).url }
+        self.manifestName = manifestName
     }
 
     /// A missing manifest is a successful empty library. Invalid input never
     /// becomes an empty success or grants permission to replace that input.
     func load() throws -> OnlineImageLocalSnapshot {
         manifest = nil
-        let manifestURL = try containedURL(relativePath: "manifest.json").url
+        let manifestURL = try containedURL(relativePath: manifestName).url
+        let bytes: Data?
+        do { bytes = try Data(contentsOf: manifestURL) }
+        catch let error as CocoaError where error.code == .fileReadNoSuchFile {
+            if let legacyRoot {
+                let previous = try containedURL(relativePath: "manifest.json", base: legacyRoot).url
+                do { bytes = try Data(contentsOf: previous) }
+                catch let error as CocoaError where error.code == .fileReadNoSuchFile { bytes = nil }
+            } else { bytes = nil }
+        }
         let decoded: Manifest
-        do {
-            let bytes = try Data(contentsOf: manifestURL)
+        if let bytes {
             do { decoded = try JSONDecoder().decode(Manifest.self, from: bytes) }
             catch let error as StoreError { throw error }
             catch { throw StoreError.invalidManifest }
-        } catch let error as CocoaError where error.code == .fileReadNoSuchFile {
-            decoded = Manifest()
-        }
+        } else { decoded = Manifest() }
         try validate(decoded)
         let nextRevision = snapshotRevision &+ 1
         let snapshot = try scan(decoded, revision: nextRevision)
@@ -86,11 +96,11 @@ actor OnlineImageLibraryStore {
         let oldIndex = next.records.firstIndex { $0.assetID == asset.id }
         let old = oldIndex.map { next.records[$0] }
         let revision = UUID()
-        let relativePath = asset.id.source.rawValue + "/" + revision.uuidString + "." + fileExtension.lowercased()
+        let relativePath = asset.id.source.displayName + "/" + revision.uuidString + "." + fileExtension.lowercased()
         let record = OnlineImageLocalRecord(assetID: asset.id, title: asset.title, sourceURL: asset.sourceURL,
             author: asset.author, authorID: asset.authorID, tags: asset.tags, relativePath: relativePath,
             pixelWidth: width, pixelHeight: height, fileSizeBytes: fileSizeBytes,
-            firstDownloadedAt: old?.firstDownloadedAt ?? Date(), revision: revision)
+            firstDownloadedAt: old?.firstDownloadedAt ?? Date(), revision: revision, rating: asset.rating)
         let destination = try containedURL(relativePath: record.relativePath).url
         try FileManager.default.createDirectory(at: destination.deletingLastPathComponent(), withIntermediateDirectories: true)
         do {
@@ -124,7 +134,7 @@ actor OnlineImageLibraryStore {
     /// Locator projection does no filesystem work. Disk consumption performs
     /// the symbolic-link and ordinary-file checks in load/publish instead.
     nonisolated func fileURL(for record: OnlineImageLocalRecord) throws -> URL {
-        try relativeURL(relativePath: record.relativePath)
+        try relativeURL(relativePath: record.relativePath).url
     }
 
     private func ensureLoaded() throws {
@@ -132,7 +142,7 @@ actor OnlineImageLibraryStore {
     }
 
     private func commit(_ next: Manifest, unavailable nextUnavailable: Set<OnlineImageAssetID>) throws -> OnlineImageLocalSnapshot {
-        let manifestURL = try containedURL(relativePath: "manifest.json").url
+        let manifestURL = try containedURL(relativePath: manifestName).url
         let nextRevision = snapshotRevision &+ 1
         let snapshot = OnlineImageLocalSnapshot(records: next.records, unavailable: nextUnavailable,
             status: .init(phase: .ready(warnings: []), hasSuccessfulScan: true), revision: nextRevision)
@@ -175,15 +185,22 @@ actor OnlineImageLibraryStore {
             status: .init(phase: .ready(warnings: []), hasSuccessfulScan: true), revision: revision)
     }
 
-    nonisolated private func relativeURL(relativePath: String) throws -> URL {
+    nonisolated private func relativeURL(relativePath: String) throws -> (url: URL, root: URL) {
         let components = relativePath.split(separator: "/", omittingEmptySubsequences: false)
         guard root.isFileURL, !components.isEmpty, !relativePath.utf8.contains(0),
               components.allSatisfy({ !$0.isEmpty && $0 != "." && $0 != ".." }) else { throw StoreError.invalidPath }
-        return root.appendingPathComponent(relativePath).standardizedFileURL
+        // Existing schema-one records keep their old lowercase source paths.
+        // New records use the brand-named sibling directories; media never moves.
+        let base = legacyRoot.flatMap { legacy in
+            components.first == "wallhaven" || components.first == "pixiv" ? legacy : nil
+        } ?? root
+        return (base.appendingPathComponent(relativePath).standardizedFileURL, base)
     }
 
-    nonisolated private func containedURL(relativePath: String) throws -> (url: URL, leafAttributes: [FileAttributeKey: Any]?) {
-        let url = try relativeURL(relativePath: relativePath)
+    nonisolated private func containedURL(relativePath: String, base: URL? = nil) throws -> (url: URL, leafAttributes: [FileAttributeKey: Any]?) {
+        let destination = try relativeURL(relativePath: relativePath)
+        let root = base ?? destination.root
+        let url = base?.appendingPathComponent(relativePath).standardizedFileURL ?? destination.url
         let resolved = Self.resolvingExistingAncestor(of: url)
         let prefix = root.path.hasSuffix("/") ? root.path : root.path + "/"
         guard !resolved.unresolvedSymbolicLink, resolved.url.path.hasPrefix(prefix), resolved.url.path != root.path else {

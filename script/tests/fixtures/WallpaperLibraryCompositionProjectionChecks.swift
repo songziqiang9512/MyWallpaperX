@@ -38,11 +38,12 @@
 
 @MainActor private func runCompositionProjectionChecks(_ checks: inout [String: Bool]) throws {
     let selection = WallpaperLibrarySelectionState(), epoch = UUID()
-    func oldSignature(_ projection: UInt64, canEdit: Bool = true, notice: String? = nil, error: String? = nil) -> RenderSignature {
+    func oldSignature(_ projection: UInt64, canEdit: Bool = true, notice: String? = nil,
+                      error: String? = nil, errorEvent: UInt64 = 0) -> RenderSignature {
         .init(page: .videos, query: .init(), items: [], selection: selection, catalogRevision: 2, projectionRevision: projection,
             relationshipsRevision: 7, resetEpoch: epoch, sequenceReference: nil, sequenceTicket: nil, ticket: nil,
             pendingReference: nil, pendingSequenceTicket: nil, pendingRuntimeTicket: nil, canEdit: canEdit,
-            recoveryNotice: notice, operationError: error, visible: true)
+            recoveryNotice: notice, operationError: error, operationErrorEvent: errorEvent, visible: true)
     }
     checks["late-accepted-projection-is-distinct-from-early-render-of-same-source-revision"] = oldSignature(1) != oldSignature(2)
     checks["render-signature-still-recognizes-identical-echo-and-editing-errors"] = oldSignature(2) == oldSignature(2)
@@ -50,6 +51,7 @@
     checks["operation-error-is-not-masked-by-an-unchanged-recovery-notice-in-render-signature"] =
         oldSignature(2, notice: "Read-only recovery") != oldSignature(2, notice: "Read-only recovery", error: "Rename failed")
         && oldSignature(2, notice: "Read-only recovery", error: "Rename failed") != oldSignature(2, notice: "Read-only recovery", error: "Add failed")
+        && oldSignature(2, error: "Rename failed", errorEvent: 1) != oldSignature(2, error: "Rename failed", errorEvent: 2)
 
     let a = WallpaperReference(provider: .videoLibrary, sourceID: "projection-A")
     let b = WallpaperReference(provider: .videoLibrary, sourceID: "projection-B")
@@ -74,8 +76,21 @@
             catalogRevision: catalogRevision, projectionRevision: projectionRevision, relationshipsRevision: relationshipsRevision,
             resetEpoch: resetEpoch ?? epoch, sequenceReference: sequenceReference, sequenceTicket: sequenceTicket,
             ticket: runtimeTicket, pendingReference: pendingReference, pendingSequenceTicket: pendingSequenceTicket,
-            pendingRuntimeTicket: pendingRuntimeTicket, canEdit: canEdit, recoveryNotice: notice, operationError: error, visible: visible)
+            pendingRuntimeTicket: pendingRuntimeTicket, canEdit: canEdit, recoveryNotice: notice,
+            operationError: error ?? state.lastError, operationErrorEvent: state.lastErrorEvent, visible: visible)
     }
+    let errorSuite = "mwx.composition-error-events." + UUID().uuidString
+    let errorDefaults = UserDefaults(suiteName: errorSuite)!
+    defer { errorDefaults.removePersistentDomain(forName: errorSuite) }
+    let errorPresentation = WallpaperLibraryPresentation(collections: nil, defaults: errorDefaults)
+    let repeatedError = NSError(domain: "composition-error", code: 1, userInfo: [NSLocalizedDescriptionKey: "Repeated failure"])
+    errorPresentation.report(repeatedError)
+    let firstError = signature(errorPresentation.state)
+    errorPresentation.report(repeatedError)
+    let nextError = signature(errorPresentation.state)
+    checks["real-repeated-error-report-refreshes-ui-without-invalidating-card-inputs"] = firstError.operationError == nextError.operationError
+        && nextError.operationErrorEvent == firstError.operationErrorEvent &+ 1 && firstError != nextError
+        && nextError == signature(errorPresentation.state) && nextError.hasSameCardInputs(as: firstError)
     let first = signature(state)
     let composition = ProjectionComposition()
     let before = WallpaperLibraryQuery.resolverInitializationCount
@@ -167,9 +182,24 @@
 
 
 @MainActor private final class RemoteNavigationRefreshLeaf {
+    var selectedItem: SteamWorkshopBrowserItem?
     var refreshes = 0
     var onRefresh: (() -> Void)?
     func refreshLibraryActions() { refreshes += 1; onRefresh?() }
+}
+
+@MainActor private func pixabayNativeMenuChecks(_ composition: RemoteComposition,
+    commands: WallpaperLibraryCommands) -> [String: Bool] {
+    composition.pixabayBrowserContent.selectedItem = .init(id: 7)
+    let selected = composition.selectedBrowserOrganizationActions()!
+    selected.onToggleFavorite(); selected.onChoosePlaylist(nil)
+    var checks = ["pixabay-native-organization-uses-current-grid-without-an-inspector-slot":
+        commands.favoriteActions.count == 2 && commands.playlistActions.count == 2]
+    composition.pixabayBrowserContent.selectedItem = .init(id: 8)
+    selected.onToggleFavorite(); selected.onChoosePlaylist(nil)
+    checks["pixabay-native-organization-held-actions-cannot-retarget-next-grid-item"] =
+        commands.favoriteActions.count == 2 && commands.playlistActions.count == 2
+    return checks
 }
 
 // Actual Composition factories run in CommandTransactions. Only renderer and

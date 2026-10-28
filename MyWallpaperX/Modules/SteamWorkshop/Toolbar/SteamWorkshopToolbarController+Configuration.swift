@@ -15,7 +15,6 @@ extension SteamWorkshopToolbarController {
 
     func focusSearch() {
         guard isSteamWorkshopMode else { return }
-        guard !isDownloadsMode else { return }
         searchToolbarItem.beginSearchInteraction()
     }
 
@@ -69,17 +68,6 @@ extension SteamWorkshopToolbarController {
         accountToolbarItem.visibilityPriority = .low
     }
 
-    func configureDownloadTasksItem() {
-        let service = SteamWorkshopService.shared
-        let count = SteamWorkshopDownloadTaskProjection.unfinishedCount(
-            in: service.downloadJobStore.jobs,
-            accountSteamID: service.steamAuth.steamId
-        )
-        let title = count == 0 ? "下载任务" : "下载任务（\(count) 项）"
-        downloadTasksToolbarItem.toolTip = title
-        downloadTasksToolbarItem.menuFormRepresentation?.title = title
-    }
-
     func configureAuthorBackItem() {
         let service = SteamWorkshopService.shared
         let canReturn = service.canReturnFromBrowse
@@ -98,7 +86,6 @@ extension SteamWorkshopToolbarController {
     func syncSortPopup() {
         let service = SteamWorkshopService.shared
         let source = service.source
-        sortButton.title = source.isPersonal ? service.personalSort.displayName : source.displayName
         let isEnabled = !service.isBrowsingAuthorWorkshop
         sortToolbarItem.isEnabled = isEnabled
         sortButton.isEnabled = isEnabled
@@ -147,13 +134,19 @@ extension SteamWorkshopToolbarController {
         filterToolbarItem.isEnabled = isEnabled
         filterButton.isEnabled = isEnabled
         filterToolbarItem.toolTip = filterButton.toolTip
-        let filter = ActionMenuItem(title: "筛选", symbol: "line.3.horizontal.decrease.circle") { [weak self] in self?.handleFilterMenu() }
+        let filter = ActionMenuItem(title: "筛选", symbol: WallpaperLibraryControlStyle.filterSymbol) { [weak self] in self?.handleFilterMenu() }
         filter.isEnabled = isEnabled
         filterToolbarItem.menuFormRepresentation = filter
     }
 
     func syncSearchField() {
-        searchField.stringValue = SteamWorkshopService.shared.browserQuery
+        let service = SteamWorkshopService.shared
+        if let input = pendingSearchInput,
+           input.navigation != service.navigationVersion || input.account != service.steamAuth.steamId {
+            discardPendingSearch()
+        }
+        let text = pendingSearchInput?.text ?? service.browserQuery
+        if searchField.stringValue.trimmingCharacters(in: .whitespaces) != text { searchField.stringValue = text }
         searchToolbarItem.isEnabled = true
         searchField.isEnabled = true
         searchField.placeholderString = SteamWorkshopService.shared.isBrowsingAuthorWorkshop
@@ -162,7 +155,7 @@ extension SteamWorkshopToolbarController {
     }
 
     func syncBrowserContextControls() {
-        guard isSteamWorkshopMode, !isDownloadsMode else { return }
+        guard isSteamWorkshopMode else { return }
         titleUpdateHandler?(SteamWorkshopService.shared.browserSectionTitle)
         configureAuthorBackItem()
         syncSortPopup()

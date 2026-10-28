@@ -19,7 +19,7 @@ Wallhaven首版闭环：浏览/搜索 → 按需详情 → 下载原图 → 统�
 |---|---|
 | `Models/WallpaperReference.swift`的provider目前只有四种 | 增加`.wallhaven/.pixiv`，沿用opaque ID，不能拿本地路径或文件后缀充当来源身份 |
 | `Models/WallpaperLibraryPage.swift`、`Shell/WallpaperLibrarySidebarController.swift` | 增加两页、稳定导航key和浏览分组入口，不借Pixabay页切换来源 |
-| `Modules/OnlineLibrary/Core/OnlineLibraryService.swift` | 当前是Pixabay视频、Int ID和MP4下载，不能直接承接图片 |
+| `Modules/OnlineLibrary/Core/PixabayService.swift` | 当前是Pixabay视频、Int ID和MP4下载，不能直接承接图片 |
 | `Shell/WallpaperLibraryGridController.swift`与Shared网格/控件/Inspector | 已有布局、输入、焦点、模态及缩略图需求规则，复用而非重写另一种网格 |
 | `App/WallpaperLibraryCatalogController.swift:publish` | 当前下载是Steam/Pixabay成对拼接；必须改为按provider替换自己的子集，保留其他来源 |
 | `Core/LibraryCollections/WallpaperLibraryQuery.swift`、`App/WallpaperLibraryWindowToolbar.swift` | 下载来源写死两种，且下载筛选跳过image；两处必须一并扩充 |
@@ -112,7 +112,7 @@ flowchart LR
 
 详情只在点击后获取，按来源ID/作用域合并；30分钟内可复用，最多保留96项，插入时淘汰最旧项，不设后台清理时钟。过期先显示已有内容再补齐。缺字段真实留空，不假造上传者/总数；不能全卡N+1详情请求。
 
-缩略图复用现`OLThumbnailCache`、coordinator/scheduler和`GridThumbnailDecoder`，不再加两站各自缓存。为现唯一pipeline增加最小“来源/资源版本/作用域/像素档/transport”请求值，使Pixiv专用session可带必要Referer；Pixabay原URL键和现取消/清缓存代次语义保持。认证或原始Cookie不作为键文本，授权请求不经默认全局cookie session。不同作用域不能借旧图；注销按Pixiv方案清理其作用域。解码清理仅遍历实际驻留键，raw索引只跟踪实际发布到内存的URL，超过两倍工作集才按内存事实压缩；磁盘namespace在作用域失效事件清理，不持有无限历史URL或增加轮询。
+缩略图复用现`OnlineImageThumbnailCache`、coordinator/scheduler和`GridThumbnailDecoder`，不再加两站各自缓存。为现唯一pipeline增加最小“来源/资源版本/作用域/像素档/transport”请求值，使Pixiv专用session可带必要Referer；Pixabay原URL键和现取消/清缓存代次语义保持。认证或原始Cookie不作为键文本，授权请求不经默认全局cookie session。不同作用域不能借旧图；注销按Pixiv方案清理其作用域。解码清理仅遍历实际驻留键，raw索引只跟踪实际发布到内存的URL，超过两倍工作集才按内存事实压缩；磁盘namespace在作用域失效事件清理，不持有无限历史URL或增加轮询。
 
 内存就绪立即回显、暖盘后台读取、显示图不随缓存淘汰消失；可见与近邻共用请求/租约，可见提升、最后消费者撤销才取消。共用既有内存/磁盘预算，不为每站另开预算；磁盘trim、解码、首访缓存维护不进主线程或普通layout。隐藏/关闭停止预取，当前封面不因进度/元数据刷新清空。不加定时轮询、GIF常驻或后台预编译。
 
@@ -129,21 +129,23 @@ flowchart LR
 
 首版不实现跨重启断点续传；退出撤销未提交任务，保留成功记录，重启不自动重下。短期签名URL/认证头不持久保存，重试按身份从来源重新解析；不把会过期的下载URL升级为本地播放许可。
 
-文件根遵循现用户媒体根/迁移配置，子目录建议`在线图片/Wallhaven`、`在线图片/Pixiv`；具体显示名可调整，不把绝对路径写成身份。普通启动只读取本地manifest/必要来源事实，新来源的loadedProviders不能依赖网络或登录；否则新增provider会阻塞原全局恢复。初始为空、扫描失败及成功空库必须区分。
+新下载写入 `~/Movies/MyWallpaperX/Wallhaven`、`~/Movies/MyWallpaperX/Pixiv`，共用原publication owner独有的 `online-images.json`；旧 `在线图片/manifest.json` 与旧文件路径保留零复制兼容，首次真实发布才写新manifest。不把绝对路径写成身份。普通启动只读取本地manifest/必要来源事实，新来源的loadedProviders不能依赖网络或登录；否则新增provider会阻塞原全局恢复。初始为空、扫描失败及成功空库必须区分。
 
 ## 5. Wallhaven页面和详情
 
 | 位置 | 首版设计 |
 |---|---|
 | 侧栏 | 浏览分组下Wallhaven，系统图片符号；不增加常驻侧栏计数 |
-| 工具栏 | 标题／可选API key入口／刷新／已验证排序／筛选／原共享缩放／搜索；窄窗沿既有overflow，不添加第二行 |
+| 工具栏 | 作者页首位独立返回／标题／账号与通用下载／排序／筛选／原共享缩放／搜索；无刷新按钮，macOS27沿原生下拉刷新；窄窗沿既有overflow，不添加第二行 |
 | 初始查询 | 优先SFW、全部分类，首版排序由P0确认；不暗中排除人物或竖图 |
-| 筛选 | 最低/精确分辨率、比例、分类、单色、分级；仅已验证项进入菜单；筛选与当前Query一致，滚动自动关闭菜单 |
+| 筛选 | 共享原生checkbox网格弹层：综合/动漫/人物、内容分级、单个最低分辨率、比例；清空保搜索/作者/排序。退役颜色、精确分辨率及无消费者Query字段，滚动自动关闭 |
 | 卡片 | 原统一方形封面、轻玻璃bar、下载状态与标题；无虚假播放图标。点击详情，明确的下载/应用才分发操作 |
-| 详情 | 复用InspectorHost，优先现封面，作者/尺寸/格式/大小/标签/原站来源按需补；不因后台补齐覆盖已显示内容或重复“加载缩略图” |
-| 本地操作 | “下载原图”与“下载并设为壁纸”；已下载后显示“设为壁纸”、Finder、本地喜爱/加入列表；不操作站点收藏 |
+| 详情 | 复用InspectorHost与网格封面缓存，作者pill置标题下；底部仅下载/设为壁纸、打开原网页两枚等宽半透明按钮，总宽与封面齐；尺寸/大小/标签按需补，不升级高清预览 |
+| 本地操作 | 详情只保下载/设壁纸与网页；本地喜爱/加入列表沿资料库已有菜单，不重复详情入口；不操作站点收藏 |
 
 API key以Keychain保存；首次实际需要鉴权时后台读取一次并在内存复用，用户编辑/清除时更新，不让页面展示等待Keychain。只发到确认过的Wallhaven API请求，不放URL、日志、CDN、外部source或重定向目标。key变动只撤销该来源在途身份和缓存作用域，不清其他站点或已发布本地文件。匿名/鉴权能力按P0结果呈现，不把401、403、429和网络失败混为“没有结果”。
+
+账号菜单分开显示Key已保存与官方`/api/v1/collections`返回的收藏集名称/数量；只在保存后或显式刷新时读一次，同一在途合并。失败保Key且不阻浏览/播放，换Key晚到沿原revision丢弃；该接口不保证昵称/username，不猜个人名或集合链接。初载空网格仅居中加载，真实成员后才显示分页footer。UI本轮执行和验证归[UI20](main-window-playlists-redesign.md#ui-online-panels-twenty)。
 
 ## 6. 实施步骤与停点
 
@@ -166,7 +168,7 @@ API key以Keychain保存；首次实际需要鉴权时后台读取一次并在�
 - 库：两来源同ID/同名不串台；Steam/Pixabay/图片来源交错发布不漏项；我的下载的image筛选、搜索、排序、删除/重试、详情、喜爱和跨类型列表；旧1–7设置导入/schema8往返、未知版本原数据保留。
 - 视觉：同宽列线/缩放锚点/滚动响应一致，少量结果靠上排列、空态居中、缓存封面不闪；菜单随滚动关闭，详情退出/返回与原模态阻断一致。
 
-最近门按行为扩展：`test_online_library_pagination.py`、`test_online_thumbnail_scheduling.py`、`test_thumbnail_cache_leases.py`、`test_online_download_transfer.py`、`test_wallpaper_library_{catalog,query,playback,workspace,sidebar,window_toolbar,inspector,command_transactions}.py`及个人设置/导入门。可为新图片语义增加focused Swift fixture，不把原Pixabay测试替换成空壳或放宽断言。真实性能只在不争用设备时对照，不以构建或结构断言声称滚动流畅。
+最近门按行为扩展：`test_pixabay_pagination.py`、`test_online_image_thumbnail_scheduling.py`、`test_thumbnail_cache_leases.py`、`test_pixabay_download_transfer.py`、`test_wallpaper_library_{catalog,query,playback,workspace,sidebar,window_toolbar,inspector,command_transactions}.py`及个人设置/导入门。可为新图片语义增加focused Swift fixture，不把原Pixabay测试替换成空壳或放宽断言。真实性能只在不争用设备时对照，不以构建或结构断言声称滚动流畅。
 
 ## 8. 文档登记与设计状态
 
@@ -200,7 +202,7 @@ API key以Keychain保存；首次实际需要鉴权时后台读取一次并在�
 
 最小修复是在共享传输边界加入唯一`WallpaperNetworkSession`句柄：PixivSession每代只创建一份并同时传给客户端、缩略图和verifier。实际创建URLSessionDataTask与retire共用同步锁；退役后直接取消，已创建任务交Foundation正常取消。锁内不等待网络、不切线程、不做哈希或认证；保留请求合并、来源scope、Cookie唯一owner、重定向和最后消费者取消。该关卡直接阻止已观测到的进程崩溃，不新增缓存owner、队列、定时器或延迟回收；原图下载只复制configuration创建独立session，不改其所有权。验收增加已退役句柄、创建/退役竞态、排队旧缩略图和邻来源仍可加载反例，再重建并复验真实会话关闭/页面切换。
 
-修复与五组近门现已通过：`test_wallpaper_network_session`、`test_pixiv_client`、`test_online_thumbnail_scheduling`、`test_online_image_library`、`test_thumbnail_return_reuse`。实际Foundation行为门发现completion-handler task不调用原session完成delegate，已退役该失效桥并使用句柄唯一completion hook；Cookie双向差异合并的职责见[Pixiv方案§3.2](pixiv-online-browser-design.md#32-登录恢复与注销)。受控私有Cookie jar→实际完成hook→隔离WK、同代新旧快照、取消、observer静止与logout反例通过；URLProtocol没有自动安装响应Set-Cookie，因此真实HTTP Cookie轮换没有被fixture证明，也未用手工种Cookie冒充该项通过。
+修复与五组近门现已通过：`test_wallpaper_network_session`、`test_pixiv_client`、`test_online_image_thumbnail_scheduling`、`test_online_image_library`、`test_thumbnail_return_reuse`。实际Foundation行为门发现completion-handler task不调用原session完成delegate，已退役该失效桥并使用句柄唯一completion hook；Cookie双向差异合并的职责见[Pixiv方案§3.2](pixiv-online-browser-design.md#32-登录恢复与注销)。受控私有Cookie jar→实际完成hook→隔离WK、同代新旧快照、取消、observer静止与logout反例通过；URLProtocol没有自动安装响应Set-Cookie，因此真实HTTP Cookie轮换没有被fixture证明，也未用手工种Cookie冒充该项通过。
 
 新版隔离App保留原有两个下载记录；Pixiv真实匿名网格50项，关闭官方登录窗口后重新加载并滚动至99项，旧失效session异常未在这轮操作复现。第二轮自动化因接口超时中断，不能据此宣称多轮切换完全稳定。超时期间的单次线程采样主线程在正常事件循环，不等于证明所有时间都无阻塞；原崩溃与本次观察分别保留。Debug/Release构建成功和上述有界证据不代表真实登录、受限内容、全部作品或发布验收。
 
@@ -218,7 +220,7 @@ API key以Keychain保存；首次实际需要鉴权时后台读取一次并在�
 
 ### 10.2 分页与作者上下文
 
-服务端next/lastPage、作者ID快照与当前页请求仍是唯一续页事实。返回页、取消、刷新和条件切换保留现代次，不能以过滤后数量推导到尾。自动续页改为观察真正末项进入可见/近邻区，解决少列时固定“倒数第8项”离开视口而不触发的问题；过滤/去重后无新增时停自动连拉，保留明确的继续加载入口，避免自动扫描整位作者。
+服务端next/lastPage、作者ID快照与当前页请求仍是唯一续页事实。返回页、取消、刷新和条件切换保留现代次，不能以过滤后数量推导到尾。自动续页只认真正末项可见，预取保持同网格像素档有界近邻；过滤/去重后无新增停止自动连拉，下一次真实滚动继续，首屏/续页失败同路重试，不因render自激。状态移入原网格末行、只保文案，退固定底条和加载按钮；作者无新增说明“暂未获取到更多内容”。执行卡与验证见[主界面专项§21](main-window-playlists-redesign.md#ui-refinement-eleven)。
 
 Wallhaven随机采用已有PageRequest.seed承接首响应seed；只有后续响应继续回显同一seed才接纳为连续页。缺seed或服务端换seed时保留已显示内容，停止连续翻页并提示刷新，不把另一个随机批次拼进当前列表。此检查直接针对W0已观测的seed被忽略，不新增探测请求或每卡验证。
 
@@ -256,3 +258,5 @@ Wallhaven随机采用已有PageRequest.seed承接首响应seed；只有后续响
 随后用户授权三会话串行提交并合入主仓`codex/engine-refactor-program`，不推送；协商顺序为启动专项→UI专项→新模块接入。本文前述未提交状态是该次授权前的验证收据。新模块先窄提交已验证职责，最后基于前两批新HEAD处理共享API与夹具冲突，统一缩略图加载/完成状态、Quick Look和来源菜单的原owner；新增接口扩展调查不混入这次整合。主仓用户`AGENTS.md`的新要求由首批保留统一，后两批不得以旧版本覆盖；整合后重验受影响行为及Debug构建，再记录最终交接。
 
 2026-10-27第三棒以`4e09128ce`为基准整合。仅在线菜单和Inspector测试说明两处文本冲突；保留UI统一`loadThumbnail(priority:)`与`hasCachedResult`，菜单用`includeRecoverySourcePage:false`保单一网页入口/下载状态，追加原Quick和作者导航；双方实际缓存交付与QL断言均保留。8项整合近门116.733秒通过，两位子代理及另外两会话只读复核无整合新增阻塞；两个旧UI警告的小修另经4项近门47.772秒通过。最终组合Debug成功21.6秒，仍有两处既有Scene actor诊断，尝试与停止裁决只维护于[精简方案](validation-simplification-plan.md#当前裁决与停止项)，不关闭编译检查或扩张Scene链路。本机新版独立Debug App已重建、ad-hoc严格验签并沿原隔离HOME启动；不是Release或安装版验收。
+
+本轮主窗口控制规范及新实施队列统一见[UI专项M01–M16](main-window-playlists-redesign.md#ui-simplification-sixteen)：空格预览改原asset高清原字节临时文件，不入库；两键bar、返回/刷新、通用下载入口与sheet样式沿该唯一设计，本文仍拥有来源API/账号/发布边界。旧2048缩略图PNG预览的已验收结论不代表新原图链已验证。

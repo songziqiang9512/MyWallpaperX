@@ -127,7 +127,7 @@
 
 实施结果：4 个产品文件净减少 78 行。两个实施子代理精确分工，另一个独立子代理复核完整 8 路径、全仓消费者、断言与登记，未发现阻塞。真实 Grid 除两行参数传递外与基线逐字一致；`deleteLocalFile` 归一化参数后函数体逐字相同，完整扫描、排序、Inspector、metadata 和批量重载保留。工具栏夹具移除镜像包装类型，原有全部检查保留，增加不同条目 URL 与精确选中集合约束，不依赖 Set 遍历顺序。
 
-验证：原 `a3e55663c` 产品加增强夹具先通过 `test_library_toolbar_behaviors`；固定候选的同一模块、`test_ui_projection_efficiency`、`test_sil_metadata_loading`、`test_online_grid_thumbnail_demand` 四模块串行通过，随后隔离冷 Debug 构建通过。5 个产品/行为夹具输入在静态复审、候选运行与构建前后身份一致；旧接口基线保留原 API，仅增加 URL 约束。与并行会话协调后才启动验证，结束立即释放窗口。
+验证：原 `a3e55663c` 产品加增强夹具先通过 `test_library_toolbar_behaviors`；固定候选的同一模块、`test_ui_projection_efficiency`、`test_sil_metadata_loading`、`test_pixabay_grid_thumbnail_demand` 四模块串行通过，随后隔离冷 Debug 构建通过。5 个产品/行为夹具输入在静态复审、候选运行与构建前后身份一致；旧接口基线保留原 API，仅增加 URL 约束。与并行会话协调后才启动验证，结束立即释放窗口。
 
 111 项路由/链接门、代码健康、断言信号、设计、依赖与文档门通过。只给既有工具栏组补入真实关联的三个路径，4 个产品路径均有最近门，无失效/未映射模块；未改扫描实现、Scene 结构规则或棘轮。第三批已记录的 3 个全局 Scene 结构失败仍为未解决债，本批不认领修复或全局全绿。
 

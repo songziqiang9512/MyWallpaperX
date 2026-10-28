@@ -7,6 +7,11 @@ extension Notification.Name { static let moduleDidBecomeActive = Notification.Na
 enum InspectorHostActions { @MainActor static func postClose() {} }
 struct SteamWorkshopBrowserItem: Equatable { let id: String; var title = "Wallpaper" }
 struct SteamWorkshopDownloadRecord {}
+enum SteamGridProgressPhase { case saving, failed }
+struct SteamGridProgress { let phase: SteamGridProgressPhase }
+@MainActor final class SteamGridProgressStore: NSObject {
+    func snapshot(for id: String) -> SteamGridProgress? { nil }
+}
 enum SteamWorkshopItemMenu {
     @MainActor static func make(item: SteamWorkshopBrowserItem, service: SteamWorkshopService, navigationVersion: Int? = nil) -> NSMenu { NSMenu() }
 }
@@ -26,13 +31,15 @@ enum SteamWorkshopItemMenu {
     var allowsAutomaticBrowserContinuation = false
     func latestDownloadRecord(for id: String) -> SteamWorkshopDownloadRecord? { nil }
     func downloadRecord(for id: String) -> SteamWorkshopDownloadRecord? { nil }
-    let downloadProgressStore = NSObject()
+    let downloadProgressStore = SteamGridProgressStore()
     func isDownloading(itemID: String) -> Bool { false }
+    func isQueuedForDownload(itemID: String) -> Bool { false }
+    func isLaunchPending(_ id: String) -> Bool { launchPendingRecordID == id }
     func isDownloaded(itemID: String) -> Bool { false }
     var continuationCalls = 0
     var lastScrollOffset: CGFloat = 0
     func loadMoreBrowserItemsIfNeeded() { continuationCalls += 1 }
-    func retryLoadingMoreBrowserItems() {}
+    func retryLoadingMoreBrowserItems() { continuationCalls += 1 }
     func consumePendingBrowserScrollRestoreOffset() { pendingBrowserScrollRestoreOffset = nil }
     func updateBrowserScrollMetrics(offsetY: CGFloat, contentHeight: CGFloat, viewportHeight: CGFloat) { lastScrollOffset = offsetY }
     func refresh() {}
@@ -49,7 +56,15 @@ enum SteamWorkshopItemMenu {
     func cancelAll() {}
 }
 @MainActor final class AppKitSteamWorkshopBrowserItem: NSCollectionViewItem {
-    struct OrganizationPresentation: Equatable { let value: Int; var isPlaying = false }
+    struct OrganizationPresentation: Equatable {
+        let value: Int
+        var isPlaying = false, isSwitching = false, canPlay = true, canDownload = true
+        var onPrimary: (() -> Void)?
+        static func == (lhs: Self, rhs: Self) -> Bool {
+            lhs.value == rhs.value && lhs.isPlaying == rhs.isPlaying && lhs.isSwitching == rhs.isSwitching
+                && lhs.canPlay == rhs.canPlay && lhs.canDownload == rhs.canDownload
+        }
+    }
     static let reuseIdentifier = NSUserInterfaceItemIdentifier("SteamProbeCard")
     enum Context { case browser }
     var id = ""
@@ -229,6 +244,13 @@ private final class SteamTopGapClip: NSClipView {
         grid.checkLoadMore()
         if service.continuationCalls <= before { failures.append("continuation failed after restore") }
         service.allowsAutomaticBrowserContinuation = false
+        let beforeHiddenScroll = service.continuationCalls
+        grid.isHidden = true; grid.checkLoadMore(userInitiated: true)
+        if service.continuationCalls != beforeHiddenScroll { failures.append("hidden grid continued pagination after a late scroll completion") }
+        grid.isHidden = false
+        let beforeExplicitScroll = service.continuationCalls
+        grid.scrollView.onScrollSettled?()
+        if service.continuationCalls != beforeExplicitScroll + 1 { failures.append("explicit scroll cannot resume filtered continuation") }
         grid.focusItem(at: 140); verify("offscreen-keyboard-focus")
         let focusPath = IndexPath(item: 140, section: 0)
         if (grid.collectionView.item(at: focusPath) as? AppKitSteamWorkshopBrowserItem)?.keyboardFocused != true {
@@ -305,7 +327,7 @@ private final class SteamTopGapClip: NSClipView {
         } else { insetCheck("keyboardFirstCardIsNotCoveredByToolbar", false) }
         service.allowsAutomaticBrowserContinuation = false
         let viewport = safeViewport
-        let threshold = max(720, grid.scrollView.contentView.bounds.height * 2.5)
+        let threshold = grid.flowLayout.itemSize.height + grid.flowLayout.minimumLineSpacing
         let outside = grid.collectionView.frame.height - viewport.height - threshold - 2
         grid.scrollView.contentView.setBoundsOrigin(NSPoint(x: 0, y: outside - grid.scrollView.contentInsets.top)); settle()
         let outsideCalls = service.continuationCalls

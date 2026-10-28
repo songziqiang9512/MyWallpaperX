@@ -1,6 +1,6 @@
 """Original Settings cache/profile actions and feedback, with controlled providers.
 
-The real action factory, dependency type and three button handlers run. Cache,
+The real action factory, dependency type and four button handlers run. Cache,
 profile transactions, file choosers, alerts and host visibility are controlled
 leaves; no user cache, file or focus is touched.
 """
@@ -18,6 +18,40 @@ ROOT = Path(__file__).resolve().parents[2]
 
 
 class SettingsCacheActionsTests(unittest.TestCase):
+    def test_interval_draft_uses_the_native_field_editor_across_unrelated_publications(self):
+        settings = ROOT / "MyWallpaperX/Shared/Settings/AppKitSettingsView.swift"
+        dependency = ROOT / "MyWallpaperX/Shared/Settings/AppSettingsPanelDependency.swift"
+        fixture = ROOT / "script/tests/fixtures/SettingsIntervalEditingHarness.swift"
+        paths = [settings, dependency, fixture, Path(__file__).resolve()]
+        hashes = {str(p): hashlib.sha256(p.read_bytes()).hexdigest() for p in paths}
+        source = settings.read_text()
+        refresh = declaration(source, "    func refreshFromState()")
+        # The continuous original playback-control prefix runs with native
+        # NSTextField/NSWindow. Unrelated settings groups are outside this gate.
+        refresh = refresh[:refresh.index("        let clampedVolume")] + "        _ = visibilityBefore\n    }"
+        actual = fixture.read_text().replace("// ACTUAL_INTERVAL_REFRESH", refresh)
+        for marker, signature in (
+            ("// ACTUAL_SETTINGS_OBSERVER", "    private func observeManager()"),
+            ("// ACTUAL_INTERVAL_COMMIT", "    func controlTextDidEndEditing("),
+            ("// ACTUAL_TIME_UNIT_SELECTION", "    private func selectTimeUnit("),
+        ):
+            actual = actual.replace(marker, declaration(source, signature))
+        with tempfile.TemporaryDirectory(prefix="mwx-settings-interval-", dir="/private/tmp") as temporary:
+            work = Path(temporary)
+            copied = work / "Checks.swift"; copied.write_text(actual)
+            binary = work / "checks"
+            build = subprocess.run(["xcrun", "swiftc", "-parse-as-library", *SWIFT_ISOLATION_FLAGS,
+                "-warnings-as-errors", str(dependency), str(copied), "-module-cache-path", str(work / "modules"), "-o", str(binary)],
+                capture_output=True, text=True, timeout=100)
+            self.assertEqual(build.returncode, 0, build.stdout + build.stderr)
+            run = subprocess.run([str(binary)], capture_output=True, text=True, timeout=30)
+            self.assertEqual(run.returncode, 0, run.stdout + run.stderr)
+            checks = json.loads(run.stdout)
+            self.assertTrue(checks)
+            for name, value in checks.items():
+                with self.subTest(name=name): self.assertIs(value, True, run.stdout + run.stderr)
+        self.assertEqual(hashes, {str(p): hashlib.sha256(p.read_bytes()).hexdigest() for p in paths})
+
     def test_clear_once_and_report_only_after_all_providers_finish(self):
         controller = ROOT / "MyWallpaperX/App/SettingsWindowController.swift"
         settings = ROOT / "MyWallpaperX/Shared/Settings/AppKitSettingsView.swift"
@@ -33,6 +67,10 @@ class SettingsCacheActionsTests(unittest.TestCase):
             settings.read_text(), "    @objc func handleExportProfile("))
         source = source.replace("// ACTUAL_IMPORT_HANDLER", declaration(
             settings.read_text(), "    @objc func handleImportProfile("))
+        source = source.replace("// ACTUAL_RESET_BUTTON", next(line.strip() for line in settings.read_text().splitlines()
+            if line.strip().startswith("let resetSettingsButton = ")))
+        source = source.replace("// ACTUAL_RESET_HANDLER", declaration(
+            settings.read_text(), "    @objc private func handleResetSettings("))
         with tempfile.TemporaryDirectory(prefix="mwx-settings-cache-", dir="/private/tmp") as temporary:
             work = Path(temporary)
             actual = work / "Checks.swift"

@@ -136,19 +136,19 @@ extension AppKitSettingsContainerView {
         systemHotkeysSwitch.toolTip = "允许使用全局 F1-F12 快捷键控制壁纸"
 
         systemSection.addRow(makeSettingRow(title: "场景壁纸HDR", iconSystemName: "sun.max",
-            subtitle: "在支持的屏幕上呈现更亮的高光；关闭后使用普通亮度", trailing: sceneHDRDisplaySwitch))
+            subtitle: "需要壁纸自身支持，功耗极高慎开", trailing: sceneHDRDisplaySwitch))
 
         sceneMediaInfoSwitch.toolTip = "开启后场景壁纸显示正在播放的歌曲与封面；首次需要读取 Apple Music 时请求系统授权。若曾拒绝，可在系统设置的「隐私与安全性 → 自动化」中允许后重新开启。"
         systemSection.addRow(makeSettingRow(title: "壁纸歌曲信息", iconSystemName: "music.note",
             subtitle: "让支持的场景和网页壁纸显示当前歌曲与封面", trailing: sceneMediaInfoSwitch))
 
         systemSection.addRow(makeSettingRow(title: "开机自启动", iconSystemName: "power", trailing: startOnBootSwitch))
-        systemSection.addRow(makeSettingRow(title: "启动恢复播放", iconSystemName: "arrow.counterclockwise.circle", trailing: restorePlaybackOnLaunchSwitch))
+        systemSection.addRow(makeSettingRow(title: "启动时恢复播放", iconSystemName: "arrow.counterclockwise.circle", trailing: restorePlaybackOnLaunchSwitch))
         systemSection.addRow(makeSettingRow(title: "同步系统壁纸", iconSystemName: "photo.on.rectangle", trailing: syncSystemWallpaperSwitch))
         let systemAudioSpectrumRow = makeSettingRow(
             title: "音频频谱效果",
             iconSystemName: "chart.bar.xaxis",
-            subtitle: "仅对视频类型壁纸生效",
+            subtitle: "仅对视频类型壁纸生效的个性化效果",
             trailing: systemAudioSpectrumSwitch
         )
         systemAudioSpectrumRow.identifier = NSUserInterfaceItemIdentifier("settings.row.system-audio-spectrum")
@@ -232,7 +232,7 @@ extension AppKitSettingsContainerView {
             spectrumOptionsStack.identifier = NSUserInterfaceItemIdentifier("settings.stack.system-audio-spectrum.options")
             systemSection.addRow(systemAudioSpectrumOptionsContainer)
         }
-        hotkeysSection.addRow(makeSettingRow(title: "系统快捷键", iconSystemName: "keyboard", trailing: systemHotkeysSwitch))
+        hotkeysSection.addRow(makeSettingRow(title: "播放控制快捷键", iconSystemName: "keyboard", trailing: systemHotkeysSwitch))
 
         hotkeyRowsStack.orientation = .vertical
         hotkeyRowsStack.alignment = .leading
@@ -282,7 +282,7 @@ extension AppKitSettingsContainerView {
         efficiencySection.addRow(makeSettingRow(title: "其他应用全屏时暂停", iconSystemName: "arrow.up.left.and.arrow.down.right", trailing: pauseOtherAppFullscreenSwitch))
         efficiencySection.addRow(makeSettingRow(title: "未连接电源时暂停播放", iconSystemName: "battery.25", trailing: pauseWhenUnpluggedSwitch))
         efficiencySection.addRow(makeSettingRow(title: "电脑不活跃时暂停播放", iconSystemName: "moon.zzz", trailing: pauseWhenIdleSwitch))
-        efficiencySection.addRow(makeSettingRow(title: "最高帧率（Scene）", iconSystemName: "gauge.with.needle", subtitle: "日常建议开30帧节能", trailing: sceneMaxFPSSegmented))
+        efficiencySection.addRow(makeSettingRow(title: "场景壁纸帧率上限", iconSystemName: "gauge.with.needle", subtitle: "日常建议开30帧以节能", trailing: sceneMaxFPSSegmented))
 
         for value in [5, 10, 15, 20, 30, 60] {
             idleTimeoutPopup.addItem(withTitle: "\(value)分钟")
@@ -301,10 +301,17 @@ extension AppKitSettingsContainerView {
             libraryBackgroundPopup.lastItem?.tag = index
             libraryBackgroundPopup.lastItem?.representedObject = style
         }
-        displaySection.addRow(makeSettingRow(title: "主窗口背景", iconSystemName: "rectangle.on.rectangle",
+        displaySection.addRow(makeSettingRow(title: "APP界面色调", iconSystemName: "rectangle.on.rectangle",
             trailing: libraryBackgroundPopup))
+        for (index, action) in LibraryCardClickAction.allCases.enumerated() {
+            libraryCardClickPopup.addItem(withTitle: action.title)
+            libraryCardClickPopup.lastItem?.tag = index
+            libraryCardClickPopup.lastItem?.representedObject = action
+        }
+        displaySection.addRow(makeSettingRow(title: "卡片单击操作", iconSystemName: "cursorarrow.click",
+            trailing: libraryCardClickPopup))
         multiDisplaySwitch.toolTip = "在所有显示器上显示壁纸（视频/Web/Scene）"
-        displaySection.addRow(makeSettingRow(title: "多屏适配", iconSystemName: "rectangle.on.rectangle", trailing: multiDisplaySwitch))
+        displaySection.addRow(makeSettingRow(title: "多屏支持", iconSystemName: "rectangle.on.rectangle", trailing: multiDisplaySwitch))
 
         let fillModeControls = NSStackView(views: [fillModeFitButton, fillModeFillButton])
         fillModeControls.orientation = .horizontal
@@ -314,7 +321,7 @@ extension AppKitSettingsContainerView {
     }
 
     private func setupMaintenanceSection() {
-        // 维护区只承载导入导出、清缓存和恢复默认这类高风险动作，和普通设置分开。
+        // 维护区只承载导入导出、清缓存和重置应用这类高风险动作，和普通设置分开。
         configureMaintenanceActionButton(exportProfileButton)
         exportProfileButton.target = self
         exportProfileButton.action = #selector(handleExportProfile)
@@ -357,7 +364,7 @@ extension AppKitSettingsContainerView {
         switches.forEach { $0.controlSize = .mini }
         hotkeyEnableSwitches.values.forEach { $0.controlSize = .mini }
 
-        let popups: [NSPopUpButton] = [timeUnitPopup, idleTimeoutPopup, libraryBackgroundPopup] + hotkeyPopups.values
+        let popups: [NSPopUpButton] = [timeUnitPopup, idleTimeoutPopup, libraryBackgroundPopup, libraryCardClickPopup] + hotkeyPopups.values
             + [systemAudioSpectrumBarCountPopup]
         popups.forEach { $0.controlSize = .small }
 

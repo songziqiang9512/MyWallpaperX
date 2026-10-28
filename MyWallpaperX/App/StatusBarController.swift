@@ -13,6 +13,7 @@ final class StatusBarController: NSObject, NSPopoverDelegate {
     private var refreshScheduled = false
     private var observing = false
     private var presentation: StatusBarPanelPresentation?
+    private var favoriteInFlight = false
 
     private lazy var panelController: StatusBarPanelViewController = {
         let controller = StatusBarPanelViewController()
@@ -44,9 +45,12 @@ final class StatusBarController: NSObject, NSPopoverDelegate {
         timer.schedule(deadline: .now() + 2, repeating: 2, leeway: .milliseconds(200))
         timer.setEventHandler { [weak self] in
             guard let self else { return }
-            SystemMonitor.shared.refreshRuntimeStats()
+            SystemMonitor.shared.refreshRuntimeStats(includeNetwork: self.observing)
             self.updateStatusBarIcon()
-            if self.observing { self.refreshPanel() }
+            if self.observing {
+                self.refreshApplicationStats()
+                self.refreshPanel()
+            }
         }
         timer.resume()
         iconRefreshTimer = timer
@@ -85,6 +89,8 @@ final class StatusBarController: NSObject, NSPopoverDelegate {
         guard let button = statusItem?.button else { return }
         panelController.panel.prepareForPresentation()
         startObserving()
+        SystemMonitor.shared.refreshRuntimeStats(includeNetwork: true)
+        refreshApplicationStats()
         refreshPanel()
         popover.show(relativeTo: button.bounds, of: button, preferredEdge: .minY)
         popover.contentViewController?.view.window?.makeKey()
@@ -108,6 +114,7 @@ final class StatusBarController: NSObject, NSPopoverDelegate {
         if let workspace = MyWallpaperXApplication.libraryWorkspace {
             workspace.catalog.$catalog.dropFirst().sink { [weak self] _ in self?.scheduleRefresh() }.store(in: &cancellables)
             workspace.playbackChanges.sink { [weak self] _ in self?.scheduleRefresh() }.store(in: &cancellables)
+            workspace.collections?.objectWillChange.sink { [weak self] _ in self?.scheduleRefresh() }.store(in: &cancellables)
         }
         for name in [Notification.Name.playbackMuteStateDidChange,
                      .sceneWallpaperLaunchStateDidChange, .wallpaperSwitchDidFail,
@@ -129,24 +136,39 @@ final class StatusBarController: NSObject, NSPopoverDelegate {
     }
 
     private func capturePresentation() -> StatusBarPanelPresentation {
-        guard wallpaperManager.playbackSwitch.committed == nil else {
-            return .capture(manager: wallpaperManager, service: .shared)
-        }
         let workspace = MyWallpaperXApplication.libraryWorkspace
-        let reference = workspace?.restoration.rememberedReference
-        let item: WallpaperContentItem?
-        if let reference, let catalog = workspace?.catalog.catalog {
-            let values: [WallpaperContentItem]
-            switch reference.provider {
-            case .videoLibrary: values = catalog.videos
-            case .staticImageLibrary: values = catalog.images
-            case .steamWorkshop, .pixabay, .wallhaven, .pixiv: values = catalog.downloads
-            }
-            // Display only one already-published value. The canonical resolver
-            // and source-readiness rules remain on the deliberate replay action.
-            item = values.first { $0.reference == reference }
-        } else { item = nil }
-        return .capture(manager: wallpaperManager, service: .shared, rememberedReference: reference, rememberedContent: item)
+        var state: StatusBarPanelPresentation
+        if wallpaperManager.playbackSwitch.committed != nil {
+            state = .capture(manager: wallpaperManager, service: .shared)
+        } else {
+            let reference = workspace?.restoration.rememberedReference
+            let item: WallpaperContentItem?
+            if let reference, let catalog = workspace?.catalog.catalog {
+                let values: [WallpaperContentItem]
+                switch reference.provider {
+                case .videoLibrary: values = catalog.videos
+                case .staticImageLibrary: values = catalog.images
+                case .steamWorkshop, .pixabay, .wallhaven, .pixiv: values = catalog.downloads
+                }
+                // A standby title is already-published metadata. Resolution and
+                // source readiness remain on deliberate replay / favorite actions.
+                item = values.first { $0.reference == reference }
+            } else { item = nil }
+            state = .capture(manager: wallpaperManager, service: .shared,
+                             rememberedReference: reference, rememberedContent: item)
+        }
+        if let reference = state.favoriteReference, let workspace,
+           let canonical = try? WallpaperLibraryQuery.canonicalReferences([reference], relationships: workspace.relationships)[reference] {
+            state.favoriteReference = canonical
+            state.isFavorite = workspace.relationships.favorites.contains { $0.reference == canonical }
+            state.canFavorite = workspace.presentation.canEditCollections && !favoriteInFlight
+        }
+        return state
+    }
+
+    private func refreshApplicationStats() {
+        SystemMonitor.shared.refreshApplicationStats(processIdentifiers:
+            [ProcessInfo.processInfo.processIdentifier] + DaemonPlaybackProcessRegistry.shared.liveProcessIdentifiers)
     }
 
     private func refreshPanel() {
@@ -155,12 +177,15 @@ final class StatusBarController: NSObject, NSPopoverDelegate {
         panelController.apply(state, refreshToken: SteamWorkshopService.shared.previewReloadToken)
         panelController.panel.applyMetrics(SystemMonitor.shared.stats)
         let availableHeight = statusItem?.button?.window?.screen.map { $0.visibleFrame.height - 40 } ?? state.preferredHeight
-        let size = NSSize(width: 344, height: min(state.preferredHeight, max(360, availableHeight)))
+        let size = NSSize(width: StatusBarPanelPresentation.preferredWidth,
+                          height: min(state.preferredHeight, max(360 * StatusBarPanelPresentation.scale, availableHeight)))
         if popover.contentSize != size { popover.contentSize = size }
     }
 
     func popoverDidClose(_ notification: Notification) {
         observing = false
+        SystemMonitor.shared.endNetworkSampling()
+        SystemMonitor.shared.refreshApplicationStats(processIdentifiers: [])
         cancellables.removeAll()
         panelController.releasePreview()
         presentation = nil
@@ -176,6 +201,7 @@ final class StatusBarController: NSObject, NSPopoverDelegate {
         case .next: CrossRuntimeWallpaperNavigator.navigate(.next)
         case .playback: togglePlayback()
         case .mode: cyclePlaybackMode()
+        case .favorite: toggleFavorite()
         case .quit: quitApp()
         case .mute:
             PlaybackCommandMultiplexer.shared.dispatch(.setMuted(!PlaybackMuteState.shared.isMuted))
@@ -191,6 +217,27 @@ final class StatusBarController: NSObject, NSPopoverDelegate {
             closeThen { Self.openProperties(record) }
         }
         scheduleRefresh()
+    }
+
+    private func toggleFavorite() {
+        let state = capturePresentation()
+        guard state.canFavorite, let reference = state.favoriteReference,
+              let workspace = MyWallpaperXApplication.libraryWorkspace, let collections = workspace.collections else { return }
+        do {
+            let item = try workspace.content(for: reference)
+            let enabled = !state.isFavorite
+            // One admitted write at a time prevents rapid clicks from queuing
+            // the same stale target value. Collections remains the only truth.
+            favoriteInFlight = true
+            scheduleRefresh()
+            Task { @MainActor [weak self] in
+                defer { self?.favoriteInFlight = false; self?.scheduleRefresh() }
+                do {
+                    try await collections.perform(.setFavorite(item.organizationItem, enabled, Date()),
+                        undoName: enabled ? "特别喜爱" : "取消特别喜爱")
+                } catch { workspace.presentation.report(error) }
+            }
+        } catch { workspace.presentation.report(error) }
     }
 
     private func closeThen(_ action: @escaping () -> Void) {

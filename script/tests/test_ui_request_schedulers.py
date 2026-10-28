@@ -22,14 +22,14 @@ def declaration(source, signature):
 
 class UIRequestSchedulerTests(unittest.TestCase):
     def test_bounded_handoffs_priority_and_release(self):
-        online = (ROOT / 'MyWallpaperX/Modules/OnlineLibrary/Core/OnlineLibraryThumbnailPipeline.swift').read_text()
+        thumbnail_pipeline = (ROOT / 'MyWallpaperX/Shared/UI/OnlineImageThumbnailPipeline.swift').read_text()
         # Keep the production actor intact, including its private methods.
         # The fixture's same-file extensions observe queue state in the release
         # actor turn: operation concurrency alone cannot detect wake/requeue storms.
         sources = '\n'.join([
             'import Foundation',
-            declaration(online, 'nonisolated enum OLThumbnailRequestPriority'),
-            declaration(online, 'actor OLThumbnailRequestScheduler'),
+            declaration(thumbnail_pipeline, 'nonisolated enum OnlineImageThumbnailRequestPriority'),
+            declaration(thumbnail_pipeline, 'actor OnlineImageThumbnailRequestScheduler'),
             (ROOT / 'script/tests/fixtures/UIRequestSchedulerHarness.swift').read_text(),
         ])
         with tempfile.TemporaryDirectory(prefix='mwx-ui-schedulers-', dir='/private/tmp') as directory:

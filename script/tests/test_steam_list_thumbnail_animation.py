@@ -36,6 +36,7 @@ SOURCES = [
     UI / "AppKitSteamWorkshopBrowserItem+Presentation.swift",
     ROOT / "MyWallpaperX/Shared/Components/WallpaperCardInteractionView.swift",
     ROOT / "MyWallpaperX/Shared/Components/WallpaperCardSupportViews.swift",
+    ROOT / "MyWallpaperX/Shared/Components/WallpaperCardControlsView.swift",
     UI / "SteamWorkshopPreviewPlaceholderView.swift",
     UI / "SteamWorkshopPreviewState.swift",
     CORE / "SteamWorkshopPreviewImageSupport.swift",
@@ -185,7 +186,7 @@ private final class CardSource: NSObject, NSCollectionViewDataSource {
 
         // Hidden glass has no window geometry/layout work. Its original view
         // and controls are retained and reattached before the first reveal.
-        precondition(item.overlayBar.superview == nil, "idle Steam glass must be detached")
+        precondition(item.controlBar.superview == nil, "idle Steam glass must be detached")
         // 1. Fresh card: static frame.
         precondition(!item.previewImageView.animates, "a fresh card must not animate")
 
@@ -201,8 +202,8 @@ private final class CardSource: NSObject, NSCollectionViewDataSource {
         // 4. Hover plays; leaving stops.
         item.mouseEntered(with: enterEvent(true))
         precondition(item.previewImageView.animates, "a hovered card must animate")
-        precondition(item.overlayBar.superview === item.cardView, "hover must attach original glass")
-        let bar = item.overlayBar
+        precondition(item.controlBar.superview === item.cardView, "hover must attach original glass")
+        let bar = item.controlBar
         item.mouseExited(with: enterEvent(false))
         item.mouseEntered(with: enterEvent(true))
         // The real pointer is deliberately outside this offscreen window;
@@ -211,7 +212,7 @@ private final class CardSource: NSObject, NSCollectionViewDataSource {
         item.shouldPersistBarVisibility = true
         let revealDeadline = Date().addingTimeInterval(0.35)
         while Date() < revealDeadline { RunLoop.main.run(until: Date().addingTimeInterval(0.005)) }
-        precondition(item.overlayBar === bar && item.overlayBar.superview === item.cardView,
+        precondition(item.controlBar === bar && item.controlBar.superview === item.cardView,
             "a stale collapse completion must not detach a revealed persistent bar")
         item.shouldPersistBarVisibility = false
         item.mouseExited(with: enterEvent(false))
@@ -239,7 +240,7 @@ private final class CardSource: NSObject, NSCollectionViewDataSource {
         precondition(scroll.isGridScrolling && !item.isHovering && !item.previewImageView.animates,
             "scroll must stop the actual Steam card hover and GIF")
         precondition(item.view.trackingAreas.isEmpty, "scroll must detach Steam hover tracking")
-        precondition(item.overlayBar.superview == nil, "scroll must remove invisible glass from the window")
+        precondition(item.controlBar.superview == nil, "scroll must remove invisible glass from the window")
         item.mouseMoved(with: enterEvent(true))
         item.mouseEntered(with: enterEvent(true))
         precondition(!item.isHovering && !item.previewImageView.animates,
@@ -272,16 +273,16 @@ private final class CardSource: NSObject, NSCollectionViewDataSource {
         fresh.currentDisplayContext = .downloads
         fresh.shouldPersistBarVisibility = true
         fresh.applyHoverStyle(animated: false)
-        precondition(fresh.overlayBar.superview === fresh.cardView && fresh.overlayBar.alphaValue > 0,
+        precondition(fresh.controlBar.superview === fresh.cardView && fresh.controlBar.alphaValue > 0,
             "persistent bar must remain attached")
         fresh.isMultiSelectMode = true
         fresh.applyHoverStyle(animated: false)
-        precondition(fresh.overlayBar.superview == nil, "multi-select must detach persistent glass")
+        precondition(fresh.controlBar.superview == nil, "multi-select must detach persistent glass")
         fresh.isMultiSelectMode = false
         fresh.applyHoverStyle(animated: false)
-        precondition(fresh.overlayBar.superview === fresh.cardView, "exit multi-select must restore persistent glass")
+        precondition(fresh.controlBar.superview === fresh.cardView, "exit multi-select must restore persistent glass")
         fresh.prepareForReuse()
-        precondition(fresh.overlayBar.superview == nil, "reuse must retire old presentation")
+        precondition(fresh.controlBar.superview == nil, "reuse must retire old presentation")
         window.orderOut(nil)
         print("Steam list thumbnails: static unless hovered PASS")
     }

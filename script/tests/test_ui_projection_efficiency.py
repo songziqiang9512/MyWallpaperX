@@ -28,25 +28,27 @@ def methods(source, signatures):
 
 class UIProjectionEfficiencyTests(unittest.TestCase):
     def test_production_projection_outputs_and_bounded_work(self):
-        online = (APP / 'Modules/OnlineLibrary/UI/AppKitOLBrowserGridView.swift').read_text()
+        pixabay = (APP / 'Modules/Pixabay/UI/AppKitPixabayBrowserGridView.swift').read_text()
         template = (ROOT / 'script/tests/fixtures/UIProjectionEfficiencyHarness.swift').read_text()
 
         # Keep the real subscription block, including throttle and all low-frequency
         # refreshes. Only setup's unrelated AppKit hierarchy construction is omitted.
-        setup = method(online, '    private func setup()')
+        setup = method(pixabay, '    private func setup()')
         bindings = setup[setup.index('        // 订阅 items 变化'):setup.rfind('\n    }')]
-        provider = method(online, '    private lazy var dataSource:').replace(
+        provider = method(pixabay, '    private lazy var dataSource:').replace(
             'private lazy var ', 'lazy var ').replace(
             'NSCollectionViewDiffableDataSource<', 'RecordingDataSource<') + '()'
 
         fragments = {
             '// ONLINE_BINDINGS': bindings,
             '// ONLINE_PROVIDER': provider,
-            '// ONLINE_ORGANIZATION_FACTORY': method(online, '    var makeOrganization:'),
-            '// ONLINE_METHODS': methods(online, [
+            '// ONLINE_ORGANIZATION_FACTORY': method(pixabay, '    var makeOrganization:'),
+            '// ONLINE_METHODS': methods(pixabay, [
                 '    private func applyItems(', '    private func publishListThumbnailTint(', '    private func refreshDownloadProgress(',
                 '    private func reloadVisibleItems(', '    private func isItemDownloaded(',
+                '    private func primaryAction(', '    private func performPrimaryAction(',
                 '    func refreshOrganization(',
+                '    private func selectItem(', '    private func updateKeyboardFocus(',
                 '    private func updateVisibleThumbnailPriorities(',
                 '    private func applyThumbnailDemand(']),
         }

@@ -243,7 +243,7 @@ final class SidebarRowCellView: NSTableCellView {
             iconView.centerXAnchor.constraint(equalTo: iconSlot.centerXAnchor),
             iconView.centerYAnchor.constraint(equalTo: iconSlot.centerYAnchor),
             countLabel.widthAnchor.constraint(greaterThanOrEqualToConstant: 16),
-            container.leadingAnchor.constraint(equalTo: leadingAnchor, constant: 6),
+            container.leadingAnchor.constraint(equalTo: leadingAnchor, constant: 14),
             container.trailingAnchor.constraint(equalTo: trailingAnchor, constant: -8),
             container.topAnchor.constraint(equalTo: topAnchor),
             container.bottomAnchor.constraint(equalTo: bottomAnchor)

@@ -337,7 +337,7 @@ extension WallpaperLibraryImportHarness {
             let started = Date()
             ImportRequestWorkProbe.shared.reset()
             let completion: ((WallpaperSourceImportResult) -> Void)? = needsReceipt ? { callbacks += 1; receipt = $0 } : nil
-            manager.processImportedVideos(from: inputs, presentingIn: nil, context: needsReceipt ? .library : .onlinePlayback,
+            manager.processImportedVideos(from: inputs, presentingIn: nil, context: needsReceipt ? .library : .pixabayPlayback,
                 presentsSummary: summary, completion: completion)
             if phase == "queuedAliasRetarget" {
                 try FileManager.default.removeItem(at: alias)

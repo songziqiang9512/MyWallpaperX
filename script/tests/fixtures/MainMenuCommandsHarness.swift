@@ -18,17 +18,23 @@ final class AppUpdateController:NSObject {
     @objc func checkForUpdates(_ sender:Any?){}
 }
 final class PlaylistCommands {var creates=0;func create(){creates += 1}}
+final class MenuPlaybackWorkspace {
+    var playing: WallpaperReference?
+    func isPlaying(_ reference: WallpaperReference) -> Bool { playing == reference }
+}
 final class WallpaperLibraryCommands {
     private var selectedItems:[WallpaperContentItem]=[]
     var selectionReads=0
     var selection:[WallpaperContentItem] {
         get { selectionReads += 1; return selectedItems }
         set {
-            if selectedItems.map(\.reference) != newValue.map(\.reference) { favoriteSessionID=UUID() }
+            if selectedItems.map(\.reference) != newValue.map(\.reference) { favoriteSessionID=UUID(); didChangeSelection?() }
             selectedItems=newValue
         }
     }
     var canOrganize=true,canImport=true,canToggleSelection=true
+    var didChangeSelection: (() -> Void)?
+    let workspace = MenuPlaybackWorkspace()
     var favoriteReferences=Set<WallpaperReference>()
     var favoriteResetEpoch=UUID(),favoriteSessionID=UUID()
     var currentPage:()->WallpaperLibraryPage?={nil}
@@ -40,13 +46,17 @@ final class WallpaperLibraryCommands {
     }
     var canFavorite:Bool{favoriteActionState.canExecute}
     var playlists:PlaylistCommands?=PlaylistCommands()
-    var imports=0,selectAllCalls=0,selectionCalls=0,deletes=0,applies=0,favorites=0,adds=0,infos=0,previews=0,reveals=0
+    var imports=0,selectAllCalls=0,selectionCalls=0,deletes=0,applies=0,stops=0,favorites=0,adds=0,infos=0,previews=0,reveals=0
     var removalTitle="从列表移除"
     func importFiles(){imports += 1}
     func selectAll(){selectAllCalls += 1}
     func toggleSelectionMode(){selectionCalls += 1}
     func remove(){deletes += 1}
-    func makeApplyAction(for item:WallpaperContentItem)->(()->Void)?{item.capabilities.contains(.play) ? {self.applies += 1} : nil}
+    func makePrimaryAction(for item: WallpaperContentItem) -> (() -> Void)? {
+        guard item.capabilities.contains(.play) else { return nil }
+        let playing = workspace.isPlaying(item.reference)
+        return { if playing { self.stops += 1 } else { self.applies += 1 } }
+    }
     func toggleFavorite(){if canFavorite{favorites += 1;favoriteTargets.append(selection.map(\.reference))}}
     // Controlled fixed-context factory leaf. The real Commands/SQLite policy
     // runs in CommandTransactions; this gate proves native menu retention.
@@ -66,7 +76,11 @@ final class WallpaperLibraryCommands {
     func previewSelection(){previews += 1}
     func reveal(){reveals += 1}
 }
-final class WallpaperLibraryPresentation {var page=WallpaperLibraryPage.videos}
+final class WallpaperLibraryPresentation {
+    struct Selection { var isSelecting = false; var sessionID = UUID() }
+    var page = WallpaperLibraryPage.videos
+    var selectionState = Selection()
+}
 // Controlled Picker capability leaf; the real Picker/Grid are exercised in
 // test_wallpaper_playlist_picker. Other sheets never adopt this delegate.
 final class WallpaperPlaylistPickerController:NSObject,NSWindowDelegate {
@@ -80,6 +94,7 @@ final class MainWindowController:NSWindowController {
     lazy var libraryCommands:WallpaperLibraryCommands = {
         let commands=WallpaperLibraryCommands()
         commands.currentPage={[weak self] in self?.libraryPresentation.page}
+        commands.didChangeSelection = { [weak self] in self?.libraryPresentation.selectionState.sessionID = UUID() }
         return commands
     }()
     let libraryPresentation=WallpaperLibraryPresentation()
@@ -87,10 +102,13 @@ final class MainWindowController:NSWindowController {
     var canZoomIn=true,canZoomOut=true
     var canDeleteSelectedPlaylist=false,playlistDeleteCalls=0
     var browserActions:WallpaperInspectorActions?
-    var selectedOnlineImageContent: WallpaperContentItem?
-    var imageInspections = 0, imagePreviews = 0, imageRefreshes = 0
-    func inspectSelectedOnlineImage() { imageInspections += 1 }
-    func previewSelectedOnlineImage() { imagePreviews += 1 }
+    lazy var browser = MainMenuBrowserComposition(presentation: libraryPresentation)
+    var imageRefreshes = 0
+    func selectedBrowserPrimaryAction() -> (title: String, action: () -> Void)? {
+        browser.selectedBrowserPrimaryAction()
+    }
+    func selectedBrowserInfoAction() -> (() -> Void)? { browser.selectedBrowserInfoAction() }
+    func selectedBrowserPreviewAction() -> (() -> Void)? { browser.selectedBrowserPreviewAction() }
     func refreshOnlineImages() { imageRefreshes += 1 }
     func selectedBrowserOrganizationActions()->WallpaperInspectorActions?{browserActions}
     func focusLibrarySearch(){searches += 1}
@@ -103,7 +121,7 @@ enum MainWindowCoordinator {static var mainWindowController:MainWindowController
 enum ManualNavigationDirection {case previous,next}
 enum CrossRuntimeWallpaperNavigator {static var directions:[ManualNavigationDirection]=[];static func navigate(_ value:ManualNavigationDirection){directions.append(value)}}
 final class SteamWorkshopService {static let shared=SteamWorkshopService();var refreshes=0;func refresh(){refreshes += 1}}
-final class OnlineLibraryService {static let shared=OnlineLibraryService();var refreshes=0;func refresh(){refreshes += 1}}
+final class PixabayService {static let shared=PixabayService();var refreshes=0;func refresh(){refreshes += 1}}
 final class AppDelegate:NSObject,NSApplicationDelegate,NSMenuItemValidation {
     @objc func showAboutMenuAction(_ sender:Any?){}
     @objc func showSettingsMenuAction(_ sender:Any?){}
@@ -224,30 +242,31 @@ final class AppDelegate:NSObject,NSApplicationDelegate,NSMenuItemValidation {
         controller.libraryPresentation.page = .images
         for page in [WallpaperLibraryPage.workshop,.pixabay,.wallhaven,.pixiv] {
             let steamRefreshes = SteamWorkshopService.shared.refreshes
-            let onlineRefreshes = OnlineLibraryService.shared.refreshes
+            let pixabayRefreshes = PixabayService.shared.refreshes
             let imageRefreshes = controller.imageRefreshes
             controller.libraryPresentation.page=page;controller.libraryCommands.canImport=false;controller.libraryCommands.canToggleSelection=false
             checks["remote-import-and-bulk-selection-disabled-\(page.persistenceKey)"] = !delegate.validateMenuItem(item(.importFiles)) && !delegate.validateMenuItem(item(.toggleSelection))
-            checks["remote-search-zoom-and-refresh-still-enabled-\(page.persistenceKey)"] = delegate.validateMenuItem(item(.search))
-                && delegate.validateMenuItem(item(.zoomIn)) && delegate.validateMenuItem(item(.revealOrRefresh)) && item(.revealOrRefresh).title == "刷新"
+            checks["remote-search-zoom-remain-without-manual-refresh-\(page.persistenceKey)"] = delegate.validateMenuItem(item(.search))
+                && delegate.validateMenuItem(item(.zoomIn)) && !delegate.validateMenuItem(item(.revealOrRefresh)) && item(.revealOrRefresh).title == "在 Finder 中显示"
             _ = send(.search);_ = send(.zoomIn);_ = send(.zoomOut);_ = send(.revealOrRefresh)
-            checks["refresh-dispatches-only-to-current-source-\(page.persistenceKey)"] =
-                SteamWorkshopService.shared.refreshes - steamRefreshes == (page == .workshop ? 1 : 0)
-                && OnlineLibraryService.shared.refreshes - onlineRefreshes == (page == .pixabay ? 1 : 0)
-                && controller.imageRefreshes - imageRefreshes == ((page == .wallhaven || page == .pixiv) ? 1 : 0)
+            checks["retired-refresh-cannot-dispatch-to-any-source-\(page.persistenceKey)"] =
+                SteamWorkshopService.shared.refreshes - steamRefreshes == 0
+                && PixabayService.shared.refreshes - pixabayRefreshes == 0
+                && controller.imageRefreshes - imageRefreshes == 0
         }
-        checks["remote-actions-retain-original-source-refresh-owners"] = SteamWorkshopService.shared.refreshes == 1 && OnlineLibraryService.shared.refreshes == 1
-            && controller.imageRefreshes == 2 && controller.searches == 4 && controller.zooms == [1,-1,1,-1,1,-1,1,-1]
+        checks["remote-search-and-zoom-retain-owners-with-no-manual-refresh"] = SteamWorkshopService.shared.refreshes == 0 && PixabayService.shared.refreshes == 0
+            && controller.imageRefreshes == 0 && controller.searches == 4 && controller.zooms == [1,-1,1,-1,1,-1,1,-1]
         var browserFavorites:[String]=[],browserPlaylists:[String]=[]
         var browserID="download-A"
         controller.libraryPresentation.page = .workshop
         func browserActions(_ id:String, canFavorite:Bool=true, canOrganize:Bool=true, isFavorite:Bool=false)->WallpaperInspectorActions {
-            .init(state:.init(isPlaying:false,isFavorite:isFavorite,canPerformPrimary:true,canFavorite:canFavorite,canOrganize:canOrganize,playlistNames:[]),
+            let page = controller.libraryPresentation.page
+            return .init(state:.init(isPlaying:false,isFavorite:isFavorite,canPerformPrimary:true,canFavorite:canFavorite,canOrganize:canOrganize,playlistNames:[]),
                 onPrimary:{},onToggleFavorite:{
-                    guard browserID == id,controller.libraryPresentation.page == .workshop else{return}
+                    guard browserID == id,controller.libraryPresentation.page == page else{return}
                     browserFavorites.append(id)
                 },onChoosePlaylist:{_ in
-                    guard browserID == id,controller.libraryPresentation.page == .workshop else{return}
+                    guard browserID == id,controller.libraryPresentation.page == page else{return}
                     browserPlaylists.append(id)
                 })
         }
@@ -274,6 +293,12 @@ final class AppDelegate:NSObject,NSApplicationDelegate,NSMenuItemValidation {
             && controller.libraryCommands.adds == localOrganizationCounts.1
         controller.libraryPresentation.page = .pixabay
         checks["remote-pixabay-without-local-organization-target-never-borrows-library-selection"] = !delegate.validateMenuItem(item(.favorite)) && !delegate.validateMenuItem(item(.addToPlaylist))
+        controller.browserActions = browserActions(browserID)
+        let pixabayEnabled = delegate.validateMenuItem(item(.favorite)) && delegate.validateMenuItem(item(.addToPlaylist))
+        _ = send(.favorite); _ = send(.addToPlaylist)
+        checks["pixabay-native-menu-has-the-same-favorite-and-playlist-actions"] = pixabayEnabled
+            && browserFavorites == ["download-A", "download-B", "download-B"] && browserPlaylists == browserFavorites
+            && controller.libraryCommands.favorites == localOrganizationCounts.0 && controller.libraryCommands.adds == localOrganizationCounts.1
         controller.libraryPresentation.page = .workshop
         controller.browserActions=browserActions(browserID,canFavorite:true,canOrganize:false,isFavorite:true)
         checks["remote-offline-favorite-menu-separates-removal-from-playlist-eligibility"] = delegate.validateMenuItem(item(.favorite))
@@ -281,6 +306,7 @@ final class AppDelegate:NSObject,NSApplicationDelegate,NSMenuItemValidation {
         controller.browserActions=browserActions(browserID,canFavorite:false,canOrganize:false,isFavorite:true)
         checks["remote-readonly-or-busy-favorite-menu-never-borrows-local-eligibility"] = !delegate.validateMenuItem(item(.favorite))
             && !delegate.validateMenuItem(item(.addToPlaylist))
+        checks.merge(runMainMenuBrowserSelectionChecks(controller: controller, delegate: delegate, image: image, item: item, send: send)) { _, new in new }
         _ = send(.playlists)
         checks["page-command-navigates-by-fixed-id-and-checks-state"] = controller.pages.last == .playlists
             && delegate.validateMenuItem(item(.playlists)) && item(.playlists).state == .on

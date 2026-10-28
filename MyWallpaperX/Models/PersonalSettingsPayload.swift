@@ -35,7 +35,7 @@ nonisolated enum PersonalSettingsError: Error, LocalizedError, Equatable {
 }
 
 /// Optional fields preserve local preferences when reading older profiles.
-/// Hotkeys, current playback, history and window state have no representation.
+/// Current playback, history, credentials and window state are not preferences.
 nonisolated struct PersonalSettingsPreferences: Codable, Equatable, Sendable {
     var loopPlayback: Bool?
     var randomPlayback: Bool?
@@ -50,6 +50,14 @@ nonisolated struct PersonalSettingsPreferences: Codable, Equatable, Sendable {
     var pauseWhenOtherAppFocused: Bool?
     var pauseWhenUnplugged: Bool?
     var pauseWhenIdle: Bool?
+    var systemHotkeysEnabled: Bool?
+    var previousWallpaperHotkey: String?
+    var nextWallpaperHotkey: String?
+    var togglePlaybackHotkey: String?
+    var toggleMuteHotkey: String?
+    var sceneHDRDisplayEnabled: Bool?
+    var sceneMediaInfoEnabled: Bool?
+    var playbackPerformanceProfile: Int?
     var idleTimeoutMinutes: Int?
     var multiDisplayEnabled: Bool?
     var videoFillMode: String?
@@ -59,6 +67,7 @@ nonisolated struct PersonalSettingsPreferences: Codable, Equatable, Sendable {
     var sortMode: String?
     var sortAscending: Bool?
     var libraryBackgroundStyle: String?
+    var libraryCardClickAction: String?
     var videoLibrarySort: WallpaperLibraryVideoSortPreference?
     var systemAudioSpectrumEnabled: Bool?
     var systemAudioSpectrumStyle: String?
@@ -83,6 +92,11 @@ nonisolated struct PersonalSettingsPreferences: Codable, Equatable, Sendable {
         pauseWhenOtherAppFocused = settings.pauseWhenOtherAppFocused
         pauseWhenUnplugged = settings.pauseWhenUnplugged
         pauseWhenIdle = settings.pauseWhenIdle
+        systemHotkeysEnabled = settings.systemHotkeysEnabled
+        previousWallpaperHotkey = settings.previousWallpaperHotkey.rawValue
+        nextWallpaperHotkey = settings.nextWallpaperHotkey.rawValue
+        togglePlaybackHotkey = settings.togglePlaybackHotkey.rawValue
+        toggleMuteHotkey = settings.toggleMuteHotkey.rawValue
         idleTimeoutMinutes = settings.idleTimeoutMinutes
         multiDisplayEnabled = settings.multiDisplayEnabled
         videoFillMode = settings.videoFillMode.rawValue
@@ -92,6 +106,7 @@ nonisolated struct PersonalSettingsPreferences: Codable, Equatable, Sendable {
         sortMode = settings.sortMode.rawValue
         sortAscending = settings.sortAscending
         libraryBackgroundStyle = settings.libraryBackgroundStyle.rawValue
+        libraryCardClickAction = settings.libraryCardClickAction.rawValue
         systemAudioSpectrumEnabled = settings.systemAudioSpectrumEnabled
         systemAudioSpectrumStyle = settings.systemAudioSpectrumStyle.rawValue
         systemAudioSpectrumSensitivity = settings.systemAudioSpectrumSensitivity.rawValue
@@ -108,6 +123,15 @@ nonisolated struct PersonalSettingsPreferences: Codable, Equatable, Sendable {
     func matchesForRecovery(_ current: Self) -> Bool {
         var comparable = current
         if libraryBackgroundStyle == nil { comparable.libraryBackgroundStyle = nil }
+        if libraryCardClickAction == nil { comparable.libraryCardClickAction = nil }
+        if systemHotkeysEnabled == nil { comparable.systemHotkeysEnabled = nil }
+        if previousWallpaperHotkey == nil { comparable.previousWallpaperHotkey = nil }
+        if nextWallpaperHotkey == nil { comparable.nextWallpaperHotkey = nil }
+        if togglePlaybackHotkey == nil { comparable.togglePlaybackHotkey = nil }
+        if toggleMuteHotkey == nil { comparable.toggleMuteHotkey = nil }
+        if sceneHDRDisplayEnabled == nil { comparable.sceneHDRDisplayEnabled = nil }
+        if sceneMediaInfoEnabled == nil { comparable.sceneMediaInfoEnabled = nil }
+        if playbackPerformanceProfile == nil { comparable.playbackPerformanceProfile = nil }
         return self == comparable
     }
 
@@ -126,6 +150,11 @@ nonisolated struct PersonalSettingsPreferences: Codable, Equatable, Sendable {
         if let pauseWhenOtherAppFocused { result.pauseWhenOtherAppFocused = pauseWhenOtherAppFocused }
         if let pauseWhenUnplugged { result.pauseWhenUnplugged = pauseWhenUnplugged }
         if let pauseWhenIdle { result.pauseWhenIdle = pauseWhenIdle }
+        if let systemHotkeysEnabled { result.systemHotkeysEnabled = systemHotkeysEnabled }
+        if let previousWallpaperHotkey, let key = FunctionKeyShortcut(rawValue: previousWallpaperHotkey) { result.previousWallpaperHotkey = key }
+        if let nextWallpaperHotkey, let key = FunctionKeyShortcut(rawValue: nextWallpaperHotkey) { result.nextWallpaperHotkey = key }
+        if let togglePlaybackHotkey, let key = FunctionKeyShortcut(rawValue: togglePlaybackHotkey) { result.togglePlaybackHotkey = key }
+        if let toggleMuteHotkey, let key = FunctionKeyShortcut(rawValue: toggleMuteHotkey) { result.toggleMuteHotkey = key }
         if let idleTimeoutMinutes { result.idleTimeoutMinutes = Self.nearest([5, 10, 15, 20, 30, 60], to: idleTimeoutMinutes) }
         if let multiDisplayEnabled { result.multiDisplayEnabled = multiDisplayEnabled }
         if let videoFillMode, let value = VideoFillMode(rawValue: videoFillMode) { result.videoFillMode = value }
@@ -136,6 +165,9 @@ nonisolated struct PersonalSettingsPreferences: Codable, Equatable, Sendable {
         if let sortAscending { result.sortAscending = sortAscending }
         if let libraryBackgroundStyle, let value = LibraryBackgroundStyle(rawValue: libraryBackgroundStyle) {
             result.libraryBackgroundStyle = value
+        }
+        if let libraryCardClickAction, let value = LibraryCardClickAction(rawValue: libraryCardClickAction) {
+            result.libraryCardClickAction = value
         }
         if let systemAudioSpectrumEnabled { result.systemAudioSpectrumEnabled = systemAudioSpectrumEnabled }
         if let systemAudioSpectrumStyle, let value = SystemAudioSpectrumStyle(rawValue: systemAudioSpectrumStyle) { result.systemAudioSpectrumStyle = value }

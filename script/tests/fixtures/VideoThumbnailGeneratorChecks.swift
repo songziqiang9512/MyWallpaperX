@@ -11,6 +11,8 @@ nonisolated final class WallpaperManager: @unchecked Sendable {
     // ACTUAL_CACHE_FIELDS
     let thumbnailCacheDirectory: URL
     let staticFrameCacheDirectory: URL
+    var wallpaperIndexSaveEpoch = 0
+    let importStages = ThumbnailCompletions()
     init(root: URL) throws {
         thumbnailCacheDirectory = root.appendingPathComponent("thumbnails", isDirectory: true)
         staticFrameCacheDirectory = root.appendingPathComponent("frames", isDirectory: true)
@@ -20,6 +22,14 @@ nonisolated final class WallpaperManager: @unchecked Sendable {
     // ACTUAL_PATH_METHODS
     // ACTUAL_CLEAR_METHOD
     // ACTUAL_STATIC_FRAME_OUTPUT
+    // Downstream desktop/metadata leaves stay inert; the complete original
+    // import batch loop and its semaphore waits run against real thumbnails.
+    func notifyThumbnailReady(forPath path: String) { importStages.record("ready-" + path, nil) }
+    func generateStaticFrame(for url: URL) -> String? { importStages.record("static-" + url.path, nil); return nil }
+    func updateWallpaperAssetPaths(forPath: String, staticFramePath: String) {}
+    static func collectImportedAssetMetadata(for urls: [URL]) async -> [String] { [] }
+    func applyImportedAssetMetadataUpdates(_ updates: [String]) {}
+    // ACTUAL_IMPORT_BATCH
 }
 
 nonisolated final class DecodeHold: @unchecked Sendable {
@@ -86,6 +96,7 @@ nonisolated final class ThumbnailCompletions: @unchecked Sendable {
     }
     func count(_ name: String) -> Int { lock.lock(); defer { lock.unlock() }; return counts[name, default: 0] }
     func path(_ name: String) -> String? { lock.lock(); defer { lock.unlock() }; return paths[name] }
+    var recordedCounts: [String: Int] { lock.lock(); defer { lock.unlock() }; return counts }
     var onceOnMain: Bool {
         lock.lock(); defer { lock.unlock() }
         return allMain && counts.values.allSatisfy { $0 == 1 }
@@ -248,11 +259,21 @@ nonisolated final class ThumbnailCompletions: @unchecked Sendable {
         let staleHold = observed.holdNext(stale)
         request("stale", stale)
         let staleEntered = pump { staleHold.didEnter }
-        manager.bumpCacheGeneration()
-        staleHold.release.signal()
-        checks["generationChangeRejectsLateJPEG"] = staleEntered && pump { results.count("stale") == 1 }
-            && results.path("stale") == nil && !fm.fileExists(atPath: expectedOutput(stale).path)
+        manager.clearPreviewCacheArtifacts()
+        let replacementHold = observed.holdNext(stale)
         request("stale-retry", stale)
+        let replacementEntered = pump { replacementHold.didEnter }
+        staleHold.release.signal()
+        let oldGenerationSettled = pump {
+            guard manager.thumbnailGenerationLimiter.wait(timeout: .now()) == .success else { return false }
+            manager.thumbnailGenerationLimiter.signal()
+            return true
+        }
+        checks["clearReleasesTheOriginalImportCompletionWithNil"] = staleEntered && pump { results.count("stale") == 1 }
+            && results.path("stale") == nil && !fm.fileExists(atPath: expectedOutput(stale).path)
+        checks["oldGenerationCannotConsumeTheNewSamePathRequest"] = replacementEntered && oldGenerationSettled
+            && results.count("stale-retry") == 0
+        replacementHold.release.signal()
         checks["newGenerationCanGenerate"] = pump { results.count("stale-retry") == 1 }
             && realJPEG(results.path("stale-retry"))
 
@@ -268,11 +289,56 @@ nonisolated final class ThumbnailCompletions: @unchecked Sendable {
         var mainDrained = false
         DispatchQueue.main.async { mainDrained = true }
         let drained = pump { mainDrained }
-        checks["clearWithdrawsOldCallbacksAndLateJPEG"] = clearEntered && queueDrained && drained
-            && results.count("withdrawn-by-clear") == 0 && !fm.fileExists(atPath: expectedOutput(cleared).path)
+        checks["clearCompletesOldCallbacksWithoutLateJPEG"] = clearEntered && queueDrained && drained
+            && results.count("withdrawn-by-clear") == 1 && results.path("withdrawn-by-clear") == nil
+            && !fm.fileExists(atPath: expectedOutput(cleared).path)
         request("after-clear", cleared)
         checks["freshRequestAfterClearRepairsOutput"] = pump { results.count("after-clear") == 1 }
             && realJPEG(results.path("after-clear"))
+        let deletionHold = DecodeHold()
+        manager.deletionQueue.async {
+            deletionHold.arrive()
+            precondition(deletionHold.release.wait(timeout: .now() + 15) == .success)
+        }
+        precondition(pump { deletionHold.didEnter })
+        manager.clearPreviewCacheArtifacts { results.record("clear-completion", nil) }
+        DispatchQueue.main.async { results.record("clear-heartbeat", nil) }
+        checks["clearReturnsToMainWhileRetiredDirectoryDeletionIsQueued"] = pump { results.count("clear-heartbeat") == 1 }
+            && results.count("clear-completion") == 0
+        request("during-retired-deletion", cleared)
+        checks["postClearJPEGPublishesBeforeOldRecursiveDeletion"] = pump { results.count("during-retired-deletion") == 1 }
+            && realJPEG(results.path("during-retired-deletion")) && results.count("clear-completion") == 0
+        deletionHold.release.signal()
+        checks["retiredDirectoryDeletionPreservesNewJPEGAndCompletesOnMain"] = pump { results.count("clear-completion") == 1 }
+            && realJPEG(results.path("during-retired-deletion"))
+
+        let batch = try WallpaperManager(root: root.appendingPathComponent("import-batch-cache"))
+        let batchHold = observed.holdNext(first), batchDrained = DecodeHold()
+        let secondBeforeBatch = observed.count(second)
+        batch.scheduleImportedAssetsProcessing([first, second])
+        batch.importAssetPipelineQueue.async { batchDrained.arrive() }
+        precondition(pump { batchHold.didEnter })
+        batch.clearPreviewCacheArtifacts()
+        let batchDrainedBeforeRelease = pump { batchDrained.didEnter }
+        let secondDecodeDelta = observed.count(second) - secondBeforeBatch
+        // The real import batch normalizes its URLs before either asset stage.
+        let firstNormalizedPath = batch.normalizedPath(first.path), secondNormalizedPath = batch.normalizedPath(second.path)
+        let firstStaticCount = batch.importStages.count("static-" + firstNormalizedPath)
+        let secondStaticCount = batch.importStages.count("static-" + secondNormalizedPath)
+        checks["clearReleasesTheRealImportBatchSemaphoreBeforeTheOldDecodeFinishes"] = batchDrainedBeforeRelease
+            && secondDecodeDelta == 1 && firstStaticCount == 1 && secondStaticCount == 1
+        let batchClearFacts: [String: Any] = ["batchDrainedBeforeOldDecodeRelease": batchDrainedBeforeRelease,
+            "secondDecodeDelta": secondDecodeDelta, "firstExpectedStaticCount": firstStaticCount,
+            "secondExpectedStaticCount": secondStaticCount, "firstRawPath": first.path, "secondRawPath": second.path,
+            "firstNormalizedPath": firstNormalizedPath, "secondNormalizedPath": secondNormalizedPath,
+            "actualStageCounts": batch.importStages.recordedCounts]
+        FileHandle.standardError.write(Data("Import batch clear facts: ".utf8))
+        FileHandle.standardError.write(try JSONSerialization.data(withJSONObject: batchClearFacts, options: [.sortedKeys]))
+        FileHandle.standardError.write(Data("\n".utf8))
+        batchHold.release.signal()
+        let batchDecodeDrained = DecodeHold()
+        batch.thumbnailQueue.async(flags: .barrier) { batchDecodeDrained.arrive() }
+        precondition(pump { batchDecodeDrained.didEnter })
         checks["callbacksOnceOnMain"] = results.onceOnMain
         checks["realDecodeRemainsBoundedOffMain"] = observed.boundedOffMain
         let output: [String: Any] = ["checks": checks, "work": work,

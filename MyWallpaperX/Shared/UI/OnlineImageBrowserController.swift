@@ -4,8 +4,6 @@ import Combine
 @MainActor final class OnlineImageBrowserController: NSViewController {
     let session: OnlineImageBrowserSession
     private let library: OnlineImageLibrary
-    private let status = NSTextField(labelWithString: "")
-    private let more = NSButton(title: "加载更多", target: nil, action: nil)
     private let empty = NSTextField(wrappingLabelWithString: "")
     private var subscriptions = Set<AnyCancellable>()
     private var selection = WallpaperLibrarySelectionState()
@@ -16,6 +14,7 @@ import Combine
     private var permitsDisplay = true
     private var prefetched: [WallpaperReference: Task<Void, Never>] = [:]
     private var autoLoadedCount: Int?
+    private var prefetchPixelSize = 0
     private var projectedItems: [WallpaperContentItem] = []
     private var projectedArtworks: [OnlineImageArtwork] = []
     private var artworkByReference: [WallpaperReference: OnlineImageArtwork] = [:]
@@ -24,15 +23,15 @@ import Combine
     private let registeredCollections = NSHashTable<NSCollectionView>.weakObjects()
     let listThumbnailTintSource = ListThumbnailTintSource()
     var preferredColumns = WallpaperLibraryGridMetrics.defaultColumns { didSet { if oldValue != preferredColumns { render() } } }
+    var opensDetailsOnSingleClick: () -> Bool = { false }
     var onInspect: ((OnlineImageArtwork) -> Void)?
     var onSelectionChange: ((WallpaperContentItem?) -> Void)?
     var onPreview: ((WallpaperContentItem) -> Void)?
+    var isPreviewLoading: ((WallpaperReference) -> Bool)?
     var onEscape: (() -> Void)?
     var onRestoreColumns: ((Int) -> Void)?
     var makePrimary: ((WallpaperContentItem) -> (() -> Void)?)?
-    var makeFavorite: ((WallpaperContentItem) -> (() -> Void)?)?
     var makeMenu: ((WallpaperContentItem) -> NSMenu?)?
-    var isFavorite: ((WallpaperReference) -> Bool)?
     var isPlaying: ((WallpaperReference) -> Bool)?
     var isSwitching: ((WallpaperReference) -> Bool)?
     var onClipWidthChange: ((CGFloat) -> Void)?
@@ -47,6 +46,10 @@ import Combine
         return cell
     }
     var clipWidth: CGFloat { grid.isViewLoaded ? grid.scrollView.contentView.bounds.width : 0 }
+    var thumbnailPixelSize: Int {
+        GridThumbnailDecoder.pixelLimit(width: WallpaperLibraryGridMetrics(clipWidth: clipWidth, preferredColumns: preferredColumns).coverSide,
+            scale: view.window?.backingScaleFactor ?? 2)
+    }
     var selectedContent: WallpaperContentItem? {
         selection.references.count == 1 ? selection.references.first.flatMap { contentByReference[$0] } : nil
     }
@@ -62,23 +65,12 @@ import Combine
         view = root
         addChild(grid); grid.view.translatesAutoresizingMaskIntoConstraints = false
         root.addSubview(grid.view)
-        let footer = NSStackView(views: [status, more])
-        footer.orientation = .horizontal; footer.alignment = .centerY; footer.spacing = 12
-        footer.translatesAutoresizingMaskIntoConstraints = false
-        status.font = .systemFont(ofSize: 12); status.textColor = .secondaryLabelColor
-        status.lineBreakMode = .byTruncatingTail
-        status.setContentCompressionResistancePriority(.defaultLow, for: .horizontal)
-        more.target = self; more.action = #selector(loadMore)
-        WallpaperLibraryControlStyle.capsule(more)
-        root.addSubview(footer)
         empty.alignment = .center; empty.textColor = .secondaryLabelColor
         empty.translatesAutoresizingMaskIntoConstraints = false
         root.addSubview(empty)
         NSLayoutConstraint.activate([
             grid.view.leadingAnchor.constraint(equalTo: root.leadingAnchor), grid.view.trailingAnchor.constraint(equalTo: root.trailingAnchor),
-            grid.view.topAnchor.constraint(equalTo: root.topAnchor), grid.view.bottomAnchor.constraint(equalTo: footer.topAnchor, constant: -4),
-            footer.leadingAnchor.constraint(equalTo: root.leadingAnchor, constant: 24), footer.trailingAnchor.constraint(equalTo: root.trailingAnchor, constant: -24),
-            footer.bottomAnchor.constraint(equalTo: root.bottomAnchor, constant: -8), footer.heightAnchor.constraint(equalToConstant: 30),
+            grid.view.topAnchor.constraint(equalTo: root.topAnchor), grid.view.bottomAnchor.constraint(equalTo: root.bottomAnchor),
             empty.centerXAnchor.constraint(equalTo: grid.view.centerXAnchor), empty.centerYAnchor.constraint(equalTo: grid.view.centerYAnchor),
             empty.widthAnchor.constraint(lessThanOrEqualToConstant: 420), empty.leadingAnchor.constraint(greaterThanOrEqualTo: root.leadingAnchor, constant: 28)
         ])
@@ -86,7 +78,12 @@ import Combine
             if let card = cell as? OnlineImageGridItem { self?.configure(card, content: content, state: state) }
         }
         grid.setCellVisible = { cell, visible in (cell as? OnlineImageGridItem)?.setThumbnailVisible(visible) }
+        grid.opensDetailsOnSingleClick = { [weak self] in self?.opensDetailsOnSingleClick() == true }
         grid.onInspect = { [weak self] in self?.inspect($0) }
+        grid.scrollView.onRefresh = { [weak self] in
+            guard let self, acceptsInput else { return }
+            session.refresh()
+        }
         grid.onQuickLook = { [weak self] content in
             guard let self, acceptsInput else { return }; onPreview?(content)
         }
@@ -106,6 +103,11 @@ import Combine
         }
         grid.onScrollAnchor = { [weak self] _, reference, offset, top in self?.anchor = (reference, offset, top) }
         grid.onClipWidthChange = { [weak self] in self?.onClipWidthChange?($0) }
+        grid.onScrollSettled = { [weak self] in
+            guard let self, acceptsInput else { return }
+            autoLoadedCount = nil
+            if session.state.next == nil, session.state.error != nil { session.refresh() }
+        }
         grid.onViewport = { [weak self] visible, prefetch in self?.viewport(visible, prefetch) }
         grid.menuProvider = { [weak self] values in
             guard let self, acceptsInput else { return nil }
@@ -113,6 +115,7 @@ import Combine
         }
         session.onResetScroll = { [weak self] in
             self?.resetScroll = true; self?.anchor = (nil, nil, true); self?.autoLoadedCount = nil
+            self?.cancelPrefetch()
         }
         session.onCaptureReturnScroll = { [weak self] in
             guard let self else { return }; returnAnchor = (anchor, preferredColumns)
@@ -145,7 +148,7 @@ import Combine
         shown = value
         if value { session.enter(); render(); return }
         session.leave()
-        prefetched.values.forEach { $0.cancel() }; prefetched.removeAll()
+        cancelPrefetch()
         listThumbnailTintSource.update(id: nil)
     }
 
@@ -171,6 +174,7 @@ import Combine
     private func render() {
         guard isViewLoaded else { return }
         let state = session.state, items = values()
+        grid.scrollView.applyRefreshLoading(state.isLoading)
         let validSelection = selection.references.filter { contentByReference[$0] != nil }
         if validSelection != selection.references {
             selection.sessionID = UUID()
@@ -181,15 +185,11 @@ import Combine
             onSelectionChange?(selectedContent)
         }
         grid.update(page: page, items: items, selection: selection, preferredColumns: preferredColumns,
-            permitsDragging: false, scrollAnchor: anchor.0, scrollOffset: anchor.1, scrollAtTop: anchor.2, resetScroll: resetScroll)
+            permitsDragging: false, scrollAnchor: anchor.0, scrollOffset: anchor.1, scrollAtTop: anchor.2, resetScroll: resetScroll, footerText: footerText(state, count: items.count))
         resetScroll = false
         empty.isHidden = !items.isEmpty
         empty.stringValue = state.isLoading ? "正在加载…" : (state.error ?? (state.next != nil
-            ? "本页没有符合条件的作品\n可以继续加载下一页" : (state.hasLoaded ? "没有可显示的作品\n试试其他关键词或筛选条件" : "准备浏览…")))
-        status.stringValue = state.error ?? state.notice ?? (state.isLoading ? "正在加载…" : "已显示 \(items.count) 个作品")
-        more.title = state.error != nil && state.next == nil ? "重试" : "加载更多"
-        more.isHidden = !state.isLoading && state.next == nil && state.error == nil
-        more.isEnabled = !state.isLoading
+            ? "本页没有符合条件的作品\n向下滚动以继续获取" : (state.hasLoaded ? "没有可显示的作品\n试试其他关键词或筛选条件" : "准备浏览…")))
         updateTint()
     }
 
@@ -215,16 +215,23 @@ import Combine
             (value.thumbnailURL ?? value.previewURL).map { library.thumbnailRequest(url: $0, source: value.source) }
         }
         card.configure(content: content, request: request, selected: state.isSelected, selecting: false,
-            favorite: isFavorite?(content.reference) == true, playing: isPlaying?(content.reference) == true,
+            playing: isPlaying?(content.reference) == true,
             switching: isSwitching?(content.reference) == true,
             busy: artwork.map { library.progress[$0.firstAssetID] != nil } == true,
             fraction: artwork.flatMap { library.progress[$0.firstAssetID] }, refreshToken: session.state.refreshToken,
-            onPrimary: primary(content), onFavorite: makeFavorite?(content),
-            onPreview: content.capabilities.contains(.quickLook) ? { [weak self] in
+            onPrimary: primary(content), onInspect: { [weak self] in
                 guard let self, acceptsInput, let current = contentByReference[content.reference],
                       grid.select([current.reference], focus: current.reference) else { return }
-                onPreview?(current)
-            } : nil)
+                inspect(current)
+            })
+        card.setOriginalPreviewLoading(isPreviewLoading?(content.providerReference) == true)
+    }
+
+    func refreshPreviewLoading() {
+        guard isViewLoaded else { return }
+        for case let card as OnlineImageGridItem in grid.collection.visibleItems() {
+            card.setOriginalPreviewLoading(card.reference.map { isPreviewLoading?($0) == true } == true)
+        }
     }
 
     private func refreshVisibleTransfers() {
@@ -237,18 +244,18 @@ import Combine
     }
 
     private func viewport(_ visible: [WallpaperContentItem], _ nearby: [WallpaperContentItem]) {
+        guard shown else { cancelPrefetch(); return }
+        let pixels = thumbnailPixelSize
+        if prefetchPixelSize != pixels { cancelPrefetch(); prefetchPixelSize = pixels }
         let wanted = Set(nearby.map(\.reference))
         for key in Array(prefetched.keys) where !wanted.contains(key) { prefetched.removeValue(forKey: key)?.cancel() }
         for content in nearby where prefetched[content.reference] == nil && !content.publishedAvailability.isAvailable {
             guard let art = artwork(content), let url = art.thumbnailURL ?? art.previewURL else { continue }
             let request = library.thumbnailRequest(url: url, source: art.source)
-            let pixels = GridThumbnailDecoder.pixelLimit(width: clipWidth / CGFloat(max(1, preferredColumns)), scale: view.window?.backingScaleFactor ?? 2)
-            prefetched[content.reference] = Task { _ = await OLThumbnailCache.shared.image(for: request, maxPixelSize: pixels, priority: .prefetch) }
+            prefetched[content.reference] = Task { _ = await OnlineImageThumbnailCache.shared.image(for: request, maxPixelSize: pixels, priority: .prefetch) }
         }
-        if shown, !session.state.isLoading, session.state.next != nil, autoLoadedCount != session.state.items.count,
-           let last = session.state.items.last,
-           (visible.contains(where: { $0.reference == last.firstAssetID.reference })
-            || nearby.contains(where: { $0.reference == last.firstAssetID.reference })) {
+        if !session.state.isLoading, session.state.next != nil, autoLoadedCount != session.state.items.count,
+           (session.state.items.isEmpty || visible.contains(where: { $0.reference == session.state.items.last?.firstAssetID.reference })) {
             autoLoadedCount = session.state.items.count
             session.loadMore()
         }
@@ -261,16 +268,23 @@ import Combine
         let request = library.thumbnailRequest(url: url, source: first.source)
         listThumbnailTintSource.update(id: first.id, assets: [request.cacheURL.absoluteString]) { completion in
             let task = Task {
-                let image = await OLThumbnailCache.shared.image(for: request, maxPixelSize: 256, priority: .prefetch)
+                let image = await OnlineImageThumbnailCache.shared.image(for: request, maxPixelSize: 256, priority: .prefetch)
                 if !Task.isCancelled { completion(image) }
             }
             return { task.cancel() }
         }
     }
 
-    @objc private func loadMore() {
-        guard acceptsInput else { return }
-        if session.state.next != nil { session.loadMore() } else { session.refresh() }
+    private func cancelPrefetch() {
+        prefetched.values.forEach { $0.cancel() }; prefetched.removeAll(); prefetchPixelSize = 0
+    }
+
+    private func footerText(_ state: OnlineImageBrowserSession.State, count: Int) -> String? {
+        guard count > 0 else { return nil }
+        if state.isLoading { return "正在加载更多项目" }
+        if state.error != nil { return "暂未获取到更多内容，继续下滑可重试" }
+        if let notice = state.notice { return notice }
+        return state.hasLoaded ? "已加载 \(count) 个作品" : nil
     }
 }
 

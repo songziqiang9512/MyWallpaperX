@@ -468,6 +468,27 @@ private struct BrowseFixtureFailure: LocalizedError {
     session.leave()
 }
 
+@MainActor private func authorEmptyContinuation(_ checks: inout [String: Bool], source: OnlineImageSource) async throws {
+    let library = OnlineImageLibrary(), session = OnlineImageBrowserSession(source: source, library: library)
+    session.openAuthor(.init(source: source, id: "77", name: "作者"))
+    let initial = try await request(library, count: 1)
+    let second = OnlineImagePageRequest(page: 2), third = OnlineImagePageRequest(page: 3)
+    try await respond(library, index: initial, result: .success(.init(items: [artwork(source, "103")], next: second)))
+    try await waitFor("author initial") { !session.state.isLoading }
+    session.loadMore(); let empty = try await request(library, count: 2)
+    try await respond(library, index: empty, result: .success(.init(items: [], next: third)))
+    try await waitFor("author empty continuation") { !session.state.isLoading }
+    checks[source.rawValue + "-author-empty-page-reports-status-without-dropping-items-or-next"] =
+        session.state.notice == "暂未获取到更多内容" && session.state.next == third
+        && session.state.items.map(\.artworkID) == ["103"]
+    session.loadMore(); let continued = try await request(library, count: 3)
+    try await respond(library, index: continued, result: .success(.init(items: [artwork(source, "104")], next: nil)))
+    try await waitFor("author resumes after empty page") { !session.state.isLoading }
+    checks[source.rawValue + "-author-later-page-clears-empty-notice-and-retains-order"] =
+        session.state.notice == nil && session.state.next == nil && session.state.items.map(\.artworkID) == ["103", "104"]
+    session.leave()
+}
+
 @main private struct OnlineImageBrowseHarness {
     @MainActor static func main() async throws {
         var checks: [String: Bool] = [:]
@@ -481,6 +502,8 @@ private struct BrowseFixtureFailure: LocalizedError {
         try await authorReturnToUnloadedOrigin(&checks, source: .wallhaven)
         try await authorReturnToUnloadedOrigin(&checks, source: .pixiv)
         try await authorBackgroundContinuation(&checks)
+        try await authorEmptyContinuation(&checks, source: .wallhaven)
+        try await authorEmptyContinuation(&checks, source: .pixiv)
         try await scopeChanges(&checks)
         try await preparedCookieScope(&checks)
         try await sourceScopeConsumption(&checks, source: .wallhaven)

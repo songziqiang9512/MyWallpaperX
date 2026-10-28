@@ -405,6 +405,31 @@ enum Harness {
             && firstSubview(of: inspector) { ($0 as? NSTextField)?.stringValue == "保留原标签" } == nil,
               "s1-required-store-membership-only")
 
+        precondition(waitFor(timeout: 4) {
+            firstSubview(of: inspector) { ($0 as? NSTextField)?.stringValue == "High Efficiency Video Coding Long Value" } != nil
+        }, "metadata layout requires the completed source values")
+        container.layoutSubtreeIfNeeded()
+        let codecValue = firstSubview(of: inspector) { ($0 as? NSTextField)?.stringValue == "High Efficiency Video Coding Long Value" } as! NSTextField
+        let resolutionValue = firstSubview(of: inspector) { ($0 as? NSTextField)?.stringValue == "3840×2160" } as! NSTextField
+        let addedTitle = firstSubview(of: inspector) { ($0 as? NSTextField)?.stringValue == "添加时间" } as! NSTextField
+        let addedValue = (addedTitle.superview as! NSStackView).arrangedSubviews.last as! NSTextField
+        let metadataTitle = firstSubview(of: inspector) { ($0 as? NSTextField)?.stringValue == "原数据" }!
+        let metadataSection = metadataTitle.superview as! NSStackView
+        let metadataGrid = metadataSection.arrangedSubviews.last as! NSStackView
+        let rows = metadataGrid.arrangedSubviews.map { $0.convert($0.bounds, to: detailDocument) }.sorted { $0.minY < $1.minY }
+        let singleLineHeight = ceil(addedValue.font!.ascender - addedValue.font!.descender + addedValue.font!.leading) + 4
+        check(addedValue.bounds.height <= singleLineHeight && resolutionValue.bounds.height <= singleLineHeight
+            && codecValue.bounds.height <= 2 * singleLineHeight && !codecValue.stringValue.isEmpty
+            && codecValue.bounds.width > 0 && addedValue.isSelectable && resolutionValue.isSelectable,
+            "s14-metadata-uses-natural-single-line-height-with-two-line-long-values-preserved")
+        check(rows.count == 2 && rows[1].minY - rows[0].maxY >= 8 && rows[1].minY - rows[0].maxY <= 16
+            && metadataGrid.bounds.height <= 8 * singleLineHeight,
+            "s14-metadata-rows-stay-compact-without-stretching-to-fill-the-panel")
+        let secondaryFacts = firstSubview(of: inspector) { ($0 as? NSTextField)?.stringValue.contains(" · ") == true } as! NSTextField
+        let secondaryLineHeight = ceil(secondaryFacts.font!.ascender - secondaryFacts.font!.descender + secondaryFacts.font!.leading) + 4
+        check(secondaryFacts.bounds.height <= secondaryLineHeight,
+            "s14-single-line-file-summary-does-not-reserve-a-blank-second-line")
+
         // 场景 2：缩略图生成完成（磁盘补齐 + thumbnailReady 事件）→ 不重开面板即显示
         manager.setResolvedThumbnail(thumbRed, for: videoA)
         manager.notifyThumbnailReady(forPath: videoA)

@@ -8,7 +8,7 @@ import Combine
     let manager: WallpaperManager
     let images: SILService
     let steam: SteamWorkshopService
-    let online: OnlineLibraryService
+    let pixabay: PixabayService
     let hostWindow: () -> NSWindow?
     var onInspect: ((WallpaperContentItem) -> Void)?
     var onPreview: ((WallpaperContentItem) -> Void)?
@@ -20,9 +20,9 @@ import Combine
     private lazy var imports = WallpaperLibraryImportCoordinator(workspace: workspace, manager: manager, images: images, hostWindow: hostWindow)
 
     init(workspace: WallpaperLibraryWorkspace, manager: WallpaperManager, images: SILService,
-         steam: SteamWorkshopService, online: OnlineLibraryService, hostWindow: @escaping () -> NSWindow?) {
+         steam: SteamWorkshopService, pixabay: PixabayService, hostWindow: @escaping () -> NSWindow?) {
         self.workspace = workspace; self.manager = manager; self.images = images
-        self.steam = steam; self.online = online; self.hostWindow = hostWindow
+        self.steam = steam; self.pixabay = pixabay; self.hostWindow = hostWindow
         if let collections = workspace.collections {
             relationshipUndo = WallpaperLibraryRelationshipUndo(collections: collections,
                 report: { [weak workspace] in workspace?.presentation.report($0) }, didRestore: { [weak workspace] in
@@ -49,19 +49,6 @@ import Combine
     var canToggleSelection: Bool { !workspace.presentation.page.isRemoteBrowse && workspace.presentation.page != .playlists }
     var canFavorite: Bool { favoriteActionState.canExecute }
     var favoriteActionState: WallpaperLibraryFavoriteActionState { favoriteActionState(for: selection) }
-
-    var canBeginManualOrdering: Bool {
-        canOrganize && workspace.presentation.page == .playlists
-            && !workspace.presentation.queryState.permitsManualReordering
-    }
-
-    func beginManualOrdering() {
-        guard canBeginManualOrdering else { return }
-        var query = workspace.presentation.queryState
-        query.search = ""; query.provider = nil; query.kind = nil; query.status = .all
-        query.sort = .sourceOrder; query.ascending = true; query.legacyTimeOrder = nil
-        _ = workspace.presentation.setQueryState(query)
-    }
 
     func favoriteActionState(for items: [WallpaperContentItem]) -> WallpaperLibraryFavoriteActionState {
         guard !items.isEmpty, let state = favoriteState(for: items) else { return .unavailable }
@@ -95,10 +82,6 @@ import Combine
     func makePrimaryAction(for content: WallpaperContentItem,
                            from capturedSource: WallpaperPlaybackSequence.Snapshot? = nil,
                            renderedPlaying: Bool? = nil, renderedTicket: PlaybackSwitchTicket? = nil) -> (() -> Void)? {
-        if content.kind == .image, content.providerReference.provider == .wallhaven || content.providerReference.provider == .pixiv {
-            return makeApplyAction(for: content, from: capturedSource)
-                ?? WallpaperLibraryDownloadRecovery.makePrimaryAction(for: content, workspace: workspace, steam: steam, online: online)
-        }
         if renderedPlaying ?? workspace.isPlaying(content.reference),
            let ticket = renderedPlaying == nil ? manager.playbackSwitch.committed?.ticket : renderedTicket {
             return { [weak self] in self?.stop(content.reference, expectedTicket: ticket) }
@@ -113,7 +96,7 @@ import Combine
                 self.imports.chooseReplacement(for: reference)
             }
         }
-        return WallpaperLibraryDownloadRecovery.makePrimaryAction(for: content, workspace: workspace, steam: steam, online: online)
+        return WallpaperLibraryDownloadRecovery.makePrimaryAction(for: content, workspace: workspace, steam: steam, pixabay: pixabay)
     }
 
     func makeApplyAction(for content: WallpaperContentItem,
@@ -131,7 +114,20 @@ import Combine
 
     func playDisplayed(random: Bool = false) {
         let playable = workspace.presentation.queryResult.items.filter { $0.capabilities.contains(.play) }
-        let chosen = random ? playable.randomElement() : selection.first(where: { $0.capabilities.contains(.play) }) ?? playable.first
+        let chosen: WallpaperContentItem?
+        if random {
+            let committed = manager.libraryPlaybackSequence.committed?.reference
+            let requested = manager.libraryPlaybackSequence.pending?.proposal.entry.reference
+            let identities = try? WallpaperLibraryQuery.canonicalReferences(Set([committed, requested].compactMap { $0 }),
+                relationships: workspace.relationships)
+            let current = committed.map { identities?[$0] ?? $0 }
+            let pending = requested.map { identities?[$0] ?? $0 }
+            let alternatives = playable.filter { $0.reference != current }
+            let fresh = alternatives.filter { $0.reference != pending }
+            chosen = (fresh.isEmpty ? alternatives : fresh).randomElement() ?? playable.first
+        } else {
+            chosen = playable.first
+        }
         guard let chosen else { return }
         if random { manager.setRandomPlaybackEnabled(true) }
         workspace.play(chosen.reference)
@@ -205,13 +201,13 @@ import Combine
         return menu
     }
 
-    func makeRecentMenu() -> NSMenu? {
-        guard workspace.presentation.page == .recent else { return nil }
-        let epoch = workspace.relationships.resetEpoch
+    func makeRecentMenu(for target: WallpaperLibraryPage? = nil) -> NSMenu? {
+        guard (target ?? workspace.presentation.page) == .recent else { return nil }
+        let epoch = workspace.relationships.resetEpoch, page = workspace.presentation.page
         let menu = NSMenu()
         let item = ActionMenuItem(title: "清空最近使用…", symbol: "clock.badge.xmark") { [weak self] in
             guard let self, self.workspace.relationships.resetEpoch == epoch,
-                  self.workspace.presentation.page == .recent else { return }
+                  self.workspace.presentation.page == page else { return }
             self.clearRecent()
         }
         item.isEnabled = canOrganize && !workspace.relationships.recent.isEmpty
@@ -224,7 +220,7 @@ import Combine
         guard canOrganize, let collections = workspace.collections, !workspace.relationships.recent.isEmpty else { return }
         let epoch = workspace.relationships.resetEpoch
         let page = workspace.presentation.page, session = workspace.presentation.selectionState.sessionID
-        let selected = workspace.presentation.selectionState.references
+        let selected = page == .recent ? workspace.presentation.selectionState.references : []
         let alert = makeAppAlert(title: "清空最近使用？", message: "仅清除播放记录。原始壁纸、播放列表和特别喜爱均会保留。",
             style: .warning, buttons: ["清空最近使用", "取消"])
         presentAppAlert(alert, in: hostWindow()) { [weak self] response in
@@ -247,7 +243,7 @@ import Combine
     func previewSelection() { if selection.count == 1, let item = selection.first { onPreview?(item) } }
     func reveal(_ items: [WallpaperContentItem]? = nil) {
         let urls = (items ?? selection).filter { $0.capabilities.contains(.reveal) }.compactMap { $0.locator.path.map { URL(fileURLWithPath: $0) } }
-        if !urls.isEmpty { NSWorkspace.shared.activateFileViewerSelecting(urls) }
+        if !urls.isEmpty { FinderRevealCoordinator.shared.reveal(urls) }
     }
 
     /// The browser exposes a real way back for retained local downloads. This
@@ -412,7 +408,7 @@ import Combine
             let url = URL(fileURLWithPath: item.locator.path ?? "")
             if item.reference.provider == .videoLibrary || item.reference.provider == .staticImageLibrary {
                 let path = url.resolvingSymlinksInPath().standardizedFileURL.path
-                let ownedRoots = [steam.steamDownloadLibraryRootURL, type(of: online).downloadDirectory, OnlineImageLibrary.shared.root]
+                let ownedRoots = [steam.steamDownloadLibraryRootURL] + type(of: pixabay).downloadRoots + OnlineImageLibrary.shared.downloadRoots
                 if ownedRoots.contains(where: {
                     let root = $0.resolvingSymlinksInPath().standardizedFileURL.path
                     return path == root || path.hasPrefix(root + "/")
@@ -476,7 +472,7 @@ import Combine
                         failureMessage: result?.failureMessage ?? (result == nil ? "Steam 源文件删除未完成" : nil)))
                 }
             case .pixabay:
-                let removed = online.deleteLocalFiles(at: group.map { URL(fileURLWithPath: $0.locator.path!) }, isInUse: { [weak manager = self.manager] url in
+                let removed = pixabay.deleteLocalFiles(at: group.map { URL(fileURLWithPath: $0.locator.path!) }, isInUse: { [weak manager = self.manager] url in
                     manager?.isLocalSourceFileInUse(url.path) ?? true
                 })
                 let byPath = Dictionary(removed.map { (Data($0.localURL.standardizedFileURL.path.utf8), $0) }, uniquingKeysWith: { first, _ in first })
@@ -548,7 +544,7 @@ import Combine
             item.isEnabled = enabled; menu.addItem(item)
         }
         if items.count == 1, let item = items.first {
-            if workspace.isPlaying(item.reference), item.kind != .image, let ticket = manager.playbackSwitch.committed?.ticket {
+            if workspace.isPlaying(item.reference), let ticket = manager.playbackSwitch.committed?.ticket {
                 add("停止播放", "stop.fill") { [weak self] in self?.stop(item.reference, expectedTicket: ticket) }
             } else {
                 add("设为壁纸", "play.fill", enabled: item.capabilities.contains(.play)) { [weak self] in
@@ -563,7 +559,7 @@ import Combine
                 }
             }
             if let recovery = WallpaperLibraryDownloadRecovery.makeMenu(for: item, workspace: workspace,
-                steam: steam, online: online, includeSourcePage: includeRecoverySourcePage) {
+                steam: steam, pixabay: pixabay, includeSourcePage: includeRecoverySourcePage) {
                 for entry in recovery.items { recovery.removeItem(entry); menu.addItem(entry) }
             }
             if let assetID = OnlineImageAssetID(reference: item.providerReference),
@@ -577,6 +573,17 @@ import Combine
         playlistItem.submenu = makePlaylistMenu(items.map(\.reference))
         playlistItem.isEnabled = playlistItem.submenu != nil
         menu.addItem(playlistItem)
+        let files = items.compactMap { item -> URL? in
+            guard item.kind == .image || item.kind == .video, let path = item.locator.path else { return nil }
+            return URL(fileURLWithPath: path)
+        }
+        if files.count == items.count, let openWith = WallpaperOpenWithMenu.make(for: files, permitsAction: { [weak self] in
+            guard let self else { return false }
+            return self.workspace.relationships.resetEpoch == epoch && self.workspace.presentation.page == page
+                && self.workspace.presentation.selectionState.sessionID == session
+        }, reportError: { [weak self] in self?.workspace.presentation.report($0) }) {
+            menu.addItem(openWith)
+        }
         add("在 Finder 中显示", "folder", enabled: items.contains { $0.capabilities.contains(.reveal) }) { [weak self] in self?.reveal(items) }
         if items.count == 1, let item = items.first, item.providerReference.provider == .steamWorkshop,
            let record = steam.latestDownloadRecord(for: item.providerReference.sourceID) {

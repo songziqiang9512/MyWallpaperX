@@ -42,12 +42,12 @@ import ImageIO
     func chooseReplacement(for reference: WallpaperReference) { preconditionFailure("Unexpected relocation") }
 }
 @MainActor enum WallpaperLibraryDownloadRecovery {
-    static func makePrimaryAction<W,S,O>(for item: WallpaperContentItem, workspace: W, steam: S, online: O) -> (() -> Void)? { nil }
+    static func makePrimaryAction<W,S,O>(for item: WallpaperContentItem, workspace: W, steam: S, pixabay: O) -> (() -> Void)? { nil }
 }
 @MainActor final class WallpaperLibraryCommands {
     let workspace: AppliedImageWorkspace
     let manager: WallpaperManager
-    let imports = WallpaperLibraryImportCoordinator(), steam = (), online = ()
+    let imports = WallpaperLibraryImportCoordinator(), steam: Void = (), pixabay: Void = ()
     var canOrganize: Bool { false }
     init(_ workspace: AppliedImageWorkspace) { self.workspace = workspace; manager = workspace.manager }
     // PRODUCTION_PRIMARY_ACTIONS
@@ -153,11 +153,11 @@ struct SILSquareCardHarness {
         card.controlBar!.layoutSubtreeIfNeeded()
         let bar = card.controlBar!
         checks["bar-shares-native-glass-and-hides-unconnected-favorite"] = bar.glass is NSGlassEffectView
-            && bar.favoriteButton.isHidden && bar.playButton.accessibilityLabel() == "设为壁纸"
+            && !bar.detailButton.isHidden && !bar.detailButton.isEnabled && bar.playButton.accessibilityLabel() == "设为壁纸"
             && card.view.toolTip == nil && bar.toolTip == nil && bar.titleView.toolTip == nil
             && bar.titleView.accessibilityHelp()?.contains("400 × 200") == true
         var applied: [String] = []
-        var favorites: [String] = []
+        var inspections: [String] = []
         card.onApplyRequested = { applied.append($0) }
         bar.playButton.performClick(nil)
         checks["native-apply-button-emits-only-its-stable-target"] = applied == [wallpaper.id]
@@ -168,14 +168,13 @@ struct SILSquareCardHarness {
         let outlineColor = NSColor(cgColor: card.hoverOutline.layer!.borderColor!)!.usingColorSpace(.deviceRGB)!
         checks["light-appearance-keeps-the-same-white-hover-outline"] = outlineColor.redComponent > 0.99
             && outlineColor.greenComponent > 0.99 && outlineColor.blueComponent > 0.99
-        card.onToggleFavorite = { favorites.append($0) }
-        bar.favoriteButton.performClick(nil)
-        checks["favorite-is-visible-and-functional-only-after-binding"] = !bar.favoriteButton.isHidden && favorites == [wallpaper.id]
+        card.onInspectRequested = { inspections.append($0) }
+        bar.detailButton.performClick(nil)
+        checks["detail-is-enabled-and-functional-only-after-binding"] = !bar.detailButton.isHidden && bar.detailButton.isEnabled && inspections == [wallpaper.id]
         let appliedImage = card.thumbnailView.image
-        card.applyFavoriteState(isFavorite: true)
         card.applyPlayingState(isPlaying: true)
         checks["organization-state-updates-native-icons-without-redecoding"] = thumbnailLoads == 1
-            && card.thumbnailView.image === appliedImage && bar.isFavorite && bar.primaryState == .playing
+            && card.thumbnailView.image === appliedImage && bar.detailButton.isEnabled && bar.primaryState == .playing
             && bar.playButton.accessibilityLabel() == "停止播放"
         card.applySwitchingState(isSwitching: true)
         card.onApplyRequested = { applied.append($0) }
@@ -189,8 +188,8 @@ struct SILSquareCardHarness {
         card.applySwitchingState(isSwitching: false)
         card.applySelectionState(isSelected: true, multiSelectMode: true)
         bar.playButton.performClick(nil)
-        bar.favoriteButton.performClick(nil)
-        checks["multi-selection-detaches-bar-and-rejects-late-actions"] = bar.superview == nil && applied.count == 1 && favorites.count == 1
+        bar.detailButton.performClick(nil)
+        checks["multi-selection-detaches-bar-and-rejects-late-actions"] = bar.superview == nil && applied.count == 1 && inspections.count == 1
         card.applySelectionState(isSelected: false, multiSelectMode: false)
         card.applyHoverVisibility(true, animated: false)
         card.applyHoverVisibility(false, animated: true)
@@ -235,10 +234,31 @@ struct SILSquareCardHarness {
         card.applySwitchingState(isSwitching: true)
         card.prepareForReuse()
         bar.playButton.performClick(nil)
-        bar.favoriteButton.performClick(nil)
+        bar.detailButton.performClick(nil)
         checks["reuse-cancels-card-actions-and-marquee-visibility"] = card.onApplyRequested == nil
-            && card.onToggleFavorite == nil && bar.superview == nil && applied.count == 1 && favorites.count == 1
+            && card.onInspectRequested == nil && bar.superview == nil && applied.count == 1 && inspections.count == 1
             && !card.isSwitching && bar.primaryState == .apply
+        var boundApplied: [String] = [], boundInspections: [String] = []
+        func bind(_ id: String) {
+            var value = wallpaper; value.id = id
+            card.configure(wallpaper: value, isSelected: false, isMultiSelectMode: false, thumbnailVisible: false) { _, _ in
+                preconditionFailure("bar identity fixture must not request a hidden thumbnail")
+            }
+            card.onApplyRequested = { boundApplied.append(id + ":" + $0) }; card.onInspectRequested = { boundInspections.append(id + ":" + $0) }
+        }
+        bind("A")
+        let heldAApply = bar.onPlay, heldAInspect = bar.onInspect
+        bind("B"); heldAApply?(); heldAInspect?()
+        checks["retained-image-bar-keeps-captured-provider-target-instead-of-new-B"] = boundApplied == ["A:A"] && boundInspections == ["A:A"]
+        bar.playButton.performClick(nil); bar.detailButton.performClick(nil)
+        checks["replacement-image-native-bar-targets-both-current-actions-once"] = boundApplied == ["A:A", "B:B"] && boundInspections == boundApplied
+        var echoApplied: [String] = [], echoInspections: [String] = []
+        card.onApplyRequested = { echoApplied.append($0) }; card.onInspectRequested = { echoInspections.append($0) }
+        let heldBApply = bar.onPlay, heldBInspect = bar.onInspect
+        bar.playButton.performClick(nil); bar.detailButton.performClick(nil)
+        checks["same-image-state-echo-rebinds-changed-native-action-consumers"] = echoApplied == ["B"] && echoInspections == ["B"] && boundApplied.count == 2
+        card.prepareForReuse(); heldBApply?(); heldBInspect?()
+        checks["image-reuse-rejects-retained-both-actions"] = echoApplied == ["B"] && echoInspections == ["B"]
 
         do {
             let reference = WallpaperReference(provider: .staticImageLibrary, sourceID: wallpaper.id)
@@ -270,9 +290,9 @@ struct SILSquareCardHarness {
                 precondition(id == reference.sourceID)
                 fixedStop()
             }
-            appliedCard.onToggleFavorite = { _ in }
+            appliedCard.onInspectRequested = { _ in }
             appliedCard.configure(wallpaper: wallpaper, isSelected: false, isMultiSelectMode: false, thumbnailVisible: true,
-                isFavorite: true, isPlaying: true) { _, finish in finish(.image(image)) }
+                isPlaying: true) { _, finish in finish(.image(image)) }
             appliedCard.viewDidLayout()
             let appliedBar = appliedCard.controlBar!
             let metrics = WallpaperCardBarMetrics(cardWidth: appliedCard.imageContainer.bounds.width)
@@ -289,10 +309,10 @@ struct SILSquareCardHarness {
             checks["applied-image-stop-uses-original-primary-factory-and-revokes-held-stop"] = workspace.applications.isEmpty
                 && manager.stops == 1 && manager.playbackSwitch.committed == nil && manager.libraryPlaybackSequence.committed == nil
             checks["image-stop-preserves-favorite-and-playlist-membership"] = workspace.relationships == relationships
-                && appliedBar.isFavorite && appliedBar.primaryState == .playing
+                && appliedBar.detailButton.isEnabled && appliedBar.primaryState == .playing
             appliedCard.applyPlayingState(isPlaying: false)
             checks["stopped-image-restores-apply-label-without-losing-favorite"] = appliedBar.primaryState == .apply
-                && appliedBar.playButton.accessibilityLabel() == "设为壁纸" && appliedBar.isFavorite
+                && appliedBar.playButton.accessibilityLabel() == "设为壁纸" && appliedBar.detailButton.isEnabled
             let fixedApply = commands.makePrimaryAction(for: content)!
             appliedCard.onApplyRequested = { _ in fixedApply() }
             appliedBar.playButton.performClick(nil)

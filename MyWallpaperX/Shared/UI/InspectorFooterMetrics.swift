@@ -10,6 +10,9 @@ enum InspectorFooterMetrics {
     static let height: CGFloat = 38
     static let iconWidth: CGFloat = height
     static let textMinWidth: CGFloat = 96
+    static let textInset: CGFloat = 12
+    static let textIconWidth: CGFloat = 16
+    static let textIconSpacing: CGFloat = 7
 }
 
 enum InspectorFooterButtonKind {
@@ -75,7 +78,8 @@ final class InspectorFooterButton: NSControl {
     }
 
     override var intrinsicContentSize: NSSize {
-        let textWidth = rawTitle.isEmpty ? 0 : ceil(titleLabel.intrinsicContentSize.width + 40)
+        let textWidth = rawTitle.isEmpty ? 0 : ceil(titleLabel.intrinsicContentSize.width
+            + 2 * InspectorFooterMetrics.textInset + InspectorFooterMetrics.textIconWidth + InspectorFooterMetrics.textIconSpacing)
         return NSSize(
             width: rawTitle.isEmpty ? InspectorFooterMetrics.iconWidth : max(textWidth, InspectorFooterMetrics.textMinWidth),
             height: InspectorFooterMetrics.height
@@ -164,22 +168,22 @@ final class InspectorFooterButton: NSControl {
         }
 
         addSubview(contentStack)
-        let inset: CGFloat = rawTitle.isEmpty ? 0 : 12
+        let inset: CGFloat = rawTitle.isEmpty ? 0 : InspectorFooterMetrics.textInset
         NSLayoutConstraint.activate([
             contentStack.leadingAnchor.constraint(equalTo: leadingAnchor, constant: inset),
             contentStack.trailingAnchor.constraint(equalTo: trailingAnchor, constant: -inset),
             contentStack.centerYAnchor.constraint(equalTo: centerYAnchor),
             contentStack.heightAnchor.constraint(equalToConstant: 22),
             iconView.centerYAnchor.constraint(equalTo: contentStack.centerYAnchor),
-            iconView.widthAnchor.constraint(equalToConstant: rawTitle.isEmpty ? 18 : 16),
-            iconView.heightAnchor.constraint(equalToConstant: rawTitle.isEmpty ? 18 : 16)
+            iconView.widthAnchor.constraint(equalToConstant: rawTitle.isEmpty ? 18 : InspectorFooterMetrics.textIconWidth),
+            iconView.heightAnchor.constraint(equalToConstant: rawTitle.isEmpty ? 18 : InspectorFooterMetrics.textIconWidth)
         ])
         if rawTitle.isEmpty {
             iconView.centerXAnchor.constraint(equalTo: contentStack.centerXAnchor).isActive = true
         } else {
             NSLayoutConstraint.activate([
                 iconView.leadingAnchor.constraint(equalTo: contentStack.leadingAnchor),
-                titleLabel.leadingAnchor.constraint(equalTo: iconView.trailingAnchor, constant: 7),
+                titleLabel.leadingAnchor.constraint(equalTo: iconView.trailingAnchor, constant: InspectorFooterMetrics.textIconSpacing),
                 titleLabel.trailingAnchor.constraint(equalTo: contentStack.trailingAnchor),
                 titleLabel.centerYAnchor.constraint(equalTo: contentStack.centerYAnchor)
             ])
@@ -233,13 +237,6 @@ final class InspectorFooterButton: NSControl {
     }
 
     private func updateStyle() {
-        guard Thread.isMainThread else {
-            DispatchQueue.main.async { [weak self] in
-                self?.updateStyle()
-            }
-            return
-        }
-
         effectiveAppearance.performAsCurrentDrawingAppearance {
             let enabledAlpha: CGFloat = isEnabled ? 1 : 0.45
             let pressedFactor: CGFloat = isPressed ? 0.88 : 1

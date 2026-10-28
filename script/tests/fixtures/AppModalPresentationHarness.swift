@@ -131,7 +131,7 @@ import AppKit
         draft.isReleasedWhenClosed = false
         draft.contentView = WallpaperLibrarySheetSurface()
         precondition(WallpaperLibrarySheetPresentation.present(draft, in: host))
-        try await wait("real child draft not key") { draft.isKeyWindow }
+        try await wait("real draft sheet not key") { draft.isKeyWindow }
         var draftResponses: [NSApplication.ModalResponse] = []
         let draftAlert = makeAppAlert(title: "上层草稿确认", buttons: ["继续", "取消"])
         let transition = NativeAlertTransitionProbe(host: host, draft: draft)
@@ -141,9 +141,9 @@ import AppKit
             transition.trace("native-response-callback")
         }
         transition.alert = draftAlertPanel
-        try await wait("explicit main host did not route its alert to the current child") { draft.attachedSheet === draftAlertPanel && draftAlertPanel.isVisible }
-        checks["explicit-main-host-alert-follows-the-real-child-modal-and-keeps-background-input-blocked"] = host.attachedSheet == nil
-            && draft.parent === host && draftAlertPanel.sheetParent === draft && draftAlertPanel === draftAlert.window
+        try await wait("explicit main host did not route its alert to the current sheet") { draft.attachedSheet === draftAlertPanel && draftAlertPanel.isVisible }
+        checks["explicit-main-host-alert-follows-the-real-modal-sheet-and-keeps-background-input-blocked"] = host.attachedSheet === draft
+            && draft.sheetParent === host && draftAlertPanel.sheetParent === draft && draftAlertPanel === draftAlert.window
             && !WallpaperLibrarySheetPresentation.permitsInput(in: host) && !WallpaperLibrarySheetPresentation.permitsInput(in: draft)
         try await escape(in: draftAlertPanel)
         transition.trace("after-Escape-turn")
@@ -158,8 +158,8 @@ import AppKit
         transition.trace("before-draft-close")
         WallpaperLibrarySheetPresentation.dismiss(draft)
         transition.trace("after-draft-close")
-        checks["child-modal-alert-cancel-keeps-one-original-response-and-leaves-no-floating-descendants"] = draftResponses == [.alertSecondButtonReturn]
-            && !draft.isVisible && !draftAlertPanel.isVisible && draft.parent == nil && WallpaperLibrarySheetPresentation.permitsInput(in: host)
+        checks["modal-sheet-alert-cancel-keeps-one-original-response-and-leaves-no-floating-descendants"] = draftResponses == [.alertSecondButtonReturn]
+            && !draft.isVisible && !draftAlertPanel.isVisible && draft.sheetParent == nil && WallpaperLibrarySheetPresentation.permitsInput(in: host)
         host.makeKeyAndOrderFront(nil)
         transition.trace("after-original-host-order")
         try await wait("main host did not resume after child alert", diagnostic: { transition.trace("failed-host-resume") }) { host.isKeyWindow }

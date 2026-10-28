@@ -375,7 +375,10 @@ import QuartzCore
                 checks[id + "-width"] = (104...280).contains(popover.contentSize.width)
                 checks[id + "-shown"] = presenter.isShown
                 facts[id + "-size"] = [popover.contentSize.width, popover.contentSize.height]
-                let stack = view.subviews.first as! NSStackView
+                guard let scroll = view.subviews.first as? NSScrollView,
+                      let stack = scroll.documentView?.subviews.first as? NSStackView else {
+                    preconditionFailure("The actual menu must retain its scroll/document/stack hierarchy")
+                }
                 facts[id + "-frames"] = stack.arrangedSubviews.map {
                     [$0.frame.minX, $0.frame.minY, $0.frame.width, $0.frame.height]
                 }

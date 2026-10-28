@@ -16,21 +16,21 @@ extension PlaybackCommandMultiplexer {
 extension WallpaperEngine { func stopPlayback() { activeVideoPlayback = nil; activeVideoExecution = nil } }
 extension SceneDaemonClient { func stop() {} }
 extension Notification.Name {
-    static let onlineVideoReadyToPlay = Self("AdmissionOnlineReady")
-    static let onlineDownloadsPlaybackPathDidChange = Self("AdmissionOnlinePath")
+    static let pixabayVideoReadyToPlay = Self("AdmissionOnlineReady")
+    static let pixabayDownloadsPlaybackPathDidChange = Self("AdmissionOnlinePath")
 }
 
-struct OnlineLibraryVideoItem { let id: Int }
-@MainActor final class OnlineLibraryService {
+struct PixabayVideoItem { let id: Int }
+@MainActor final class PixabayService {
     static var downloadDirectory = URL(fileURLWithPath: "/invalid-test-path")
     var downloadedIDs: Set<Int> = []
-    var downloadedContent = OnlineLibraryDownloadedContentSnapshot(revision: 0, entries: [], status: .initial)
+    var downloadedContent = PixabayDownloadedContentSnapshot(revision: 0, entries: [], status: .initial)
     func refreshDownloadedContent() {}
     var requestLibraryPlayback: ((WallpaperReference) -> Void)?
     var prepareVideoPlaybackIntent: ((WallpaperReference, WallpaperPlaybackSequence.Pending?) -> ImportedVideoPlaybackAdmission?)?
     var downloadError: String?
     var downloadStarts = 0
-    func startDownload(item: OnlineLibraryVideoItem) { downloadStarts += 1 }
+    func startDownload(item: PixabayVideoItem) { downloadStarts += 1 }
     // ONLINE_METHODS
 }
 

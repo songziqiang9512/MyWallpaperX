@@ -14,7 +14,7 @@ final class AboutWindowController: NSWindowController {
 
     private init() {
         let window = AboutPanel(
-            contentRect: NSRect(x: 0, y: 0, width: 600, height: 250),
+            contentRect: NSRect(x: 0, y: 0, width: 450, height: 250),
             styleMask: [.titled, .closable, .fullSizeContentView],
             backing: .buffered,
             defer: false
@@ -102,7 +102,7 @@ private final class AboutContentView: NSView {
         descriptionLabel.textColor = .secondaryLabelColor
 
         let githubButton = NSButton(
-            title: "GitHub 项目",
+            title: "GitHub",
             target: target,
             action: #selector(AboutWindowController.openGitHub(_:))
         )
@@ -122,38 +122,35 @@ private final class AboutContentView: NSView {
         buttonStack.orientation = .horizontal
         buttonStack.alignment = .centerY
         buttonStack.distribution = .fillEqually
-        buttonStack.spacing = 12
+        buttonStack.spacing = 10
         buttonStack.translatesAutoresizingMaskIntoConstraints = false
         for view in [iconView, titleLabel, versionLabel, descriptionLabel, buttonStack] {
             addSubview(view)
         }
 
         NSLayoutConstraint.activate([
-            iconView.leadingAnchor.constraint(equalTo: leadingAnchor, constant: 36),
+            iconView.leadingAnchor.constraint(equalTo: leadingAnchor, constant: 24),
             iconView.centerYAnchor.constraint(equalTo: centerYAnchor),
-            iconView.widthAnchor.constraint(equalToConstant: 120),
-            iconView.heightAnchor.constraint(equalToConstant: 120),
-            titleLabel.leadingAnchor.constraint(equalTo: iconView.trailingAnchor, constant: 36),
-            titleLabel.trailingAnchor.constraint(lessThanOrEqualTo: trailingAnchor, constant: -32),
+            iconView.widthAnchor.constraint(equalToConstant: 104),
+            iconView.heightAnchor.constraint(equalToConstant: 104),
+            titleLabel.leadingAnchor.constraint(equalTo: iconView.trailingAnchor, constant: 20),
+            titleLabel.trailingAnchor.constraint(lessThanOrEqualTo: trailingAnchor, constant: -24),
             titleLabel.topAnchor.constraint(equalTo: topAnchor, constant: 30),
             versionLabel.leadingAnchor.constraint(equalTo: titleLabel.leadingAnchor),
             versionLabel.topAnchor.constraint(equalTo: titleLabel.bottomAnchor, constant: 2),
             descriptionLabel.leadingAnchor.constraint(equalTo: titleLabel.leadingAnchor),
-            descriptionLabel.trailingAnchor.constraint(equalTo: trailingAnchor, constant: -32),
+            descriptionLabel.trailingAnchor.constraint(equalTo: trailingAnchor, constant: -24),
             descriptionLabel.topAnchor.constraint(greaterThanOrEqualTo: versionLabel.bottomAnchor, constant: 28),
             descriptionLabel.bottomAnchor.constraint(equalTo: buttonStack.topAnchor, constant: -24),
             buttonStack.leadingAnchor.constraint(equalTo: titleLabel.leadingAnchor),
-            buttonStack.trailingAnchor.constraint(equalTo: trailingAnchor, constant: -32),
+            buttonStack.trailingAnchor.constraint(equalTo: trailingAnchor, constant: -24),
             buttonStack.bottomAnchor.constraint(equalTo: bottomAnchor, constant: -24),
             buttonStack.heightAnchor.constraint(equalToConstant: 32)
         ])
     }
 
     private var informationText: String {
-        let description = "化繁为简。开箱即用的原生 macOS 壁纸应用。"
-        let copyright = (Bundle.main.object(forInfoDictionaryKey: "NSHumanReadableCopyright") as? String)?
-            .trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
-        return copyright.isEmpty ? description : description + "\n\n" + copyright
+        "初心至简，保持纯粹。\n为MacOS设计的原生壁纸管理应用。"
     }
 
     private var versionText: String {

@@ -39,12 +39,12 @@ extension Notification.Name { static let inspectorHostCloseRequested = Self("chr
     var refreshes = 0
     func refreshLocal() { refreshes += 1 }
 }
-@MainActor private final class ChromeOnline {
+@MainActor private final class ChromePixabay {
     var refreshes = 0
     func refreshDownloadedContent() { refreshes += 1 }
 }
 @MainActor private final class WallpaperLibraryWindowComposition {
-    let workspace = ChromeWorkspace(), commands = ChromeCommands(), online = ChromeOnline()
+    let workspace = ChromeWorkspace(), commands = ChromeCommands(), pixabay = ChromePixabay()
     let chrome: WallpaperLibraryPageChrome
     let grid: WallpaperLibraryGridController
     let directory: AppKitPlaylistDirectoryController
@@ -112,7 +112,8 @@ private final class ChromeToolbar: NSObject, NSToolbarDelegate {
         probe.workspace.catalog.catalog.loadedProviders = Set(WallpaperProvider.allCases)
         let inspector = NSViewController(); inspector.view = NSView()
         let container = InspectorDetailContainerViewController(contentController: chrome, overlayController: inspector,
-            permitsNoticeInteraction: { [weak chrome] in chrome?.permitsNoticeInteraction(at: $0) ?? false })
+            permitsNoticeInteraction: { [weak chrome] in chrome?.permitsNoticeInteraction(at: $0) ?? false },
+            onNoticeOcclusionChange: { [weak chrome] in chrome?.setNoticeTrailingOcclusion($0) })
         let window = NSWindow(contentRect: NSRect(x: 200, y: 160, width: 1000, height: 700),
             styleMask: [.titled, .closable, .resizable, .fullSizeContentView], backing: .buffered, defer: false)
         window.isReleasedWhenClosed = false
@@ -178,23 +179,25 @@ private final class ChromeToolbar: NSObject, NSToolbarDelegate {
 
         let recovery = "恢复只读，原文件保持不变", operationError = "加入播放列表失败"
         probe.workspace.recoveryMessage = recovery
-        var local = state(.videos); local.lastError = operationError
+        var local = state(.videos); local.lastError = operationError; local.query.search = "unmatched"
         probe.apply(local); settle()
         checks["independent-recovery-and-operation-error-are-both-visible-and-accessible"] = label(recovery)?.accessibilityLabel() == recovery
             && label(operationError)?.accessibilityLabel() == operationError
-        let oldImport = button("导入视频")!
-        send(oldImport)
-        checks["current-empty-action-routes-through-the-original-command"] = probe.commands.imports == 1
+        let oldClear = button("清除筛选")!
+        send(oldClear)
+        checks["current-empty-filter-action-routes-through-the-original-query-owner"] = probe.workspace.presentation.queries.count == 1
+            && probe.workspace.presentation.queryState.search.isEmpty && probe.commands.imports == 0
         probe.workspace.presentation.state.page = .images
-        send(oldImport)
-        checks["current-button-with-a-late-page-change-cannot-target-the-new-page"] = probe.commands.imports == 1
+        send(oldClear)
+        checks["current-button-with-a-late-page-change-cannot-target-the-new-page"] = probe.workspace.presentation.queries.count == 1
         probe.workspace.presentation.state.page = .videos
         probe.workspace.relationships = .init(revision: 0, resetEpoch: UUID(), migrationManifestID: nil,
             playlists: [], members: [], favorites: [], recent: [], aliases: [], locators: [])
-        send(oldImport)
-        checks["current-button-with-a-late-reset-cannot-run-the-old-action"] = probe.commands.imports == 1
-        probe.apply(state(.images)); settle(); send(oldImport)
-        checks["removed-empty-button-cannot-run-an-action-at-the-same-new-index"] = probe.commands.imports == 1
+        send(oldClear)
+        checks["current-button-with-a-late-reset-cannot-run-the-old-action"] = probe.workspace.presentation.queries.count == 1
+        probe.apply(state(.images)); settle(); send(oldClear)
+        checks["removed-empty-button-cannot-run-an-action-at-the-same-new-index"] = probe.workspace.presentation.queries.count == 1
+            && probe.commands.imports == 0 && button("导入图片") == nil
         probe.commands.canImport = false; probe.commands.canOrganize = false
         probe.apply(state(.videos)); settle()
         checks["readonly-local-empty-state-does-not-offer-a-fake-import"] = button("导入视频") == nil
@@ -212,9 +215,10 @@ private final class ChromeToolbar: NSObject, NSToolbarDelegate {
         let emptyFrame = emptyStack.convert(emptyStack.bounds, to: nil)
         let bodySafe = detail.view.convert(detail.view.safeAreaRect, to: nil)
         checks["directory-zero-results-center-in-the-actual-body-below-both-notices"] = abs(emptyFrame.midY - bodySafe.midY) < 1
+        let beforeDirectoryClear = probe.workspace.presentation.queries.count
         send(button("清除搜索")!)
         checks["directory-clear-search-preserves-the-page-and-uses-query-input"] = probe.workspace.presentation.page == .playlists
-            && probe.workspace.presentation.queryState.search.isEmpty && probe.workspace.presentation.queries.count == 1
+            && probe.workspace.presentation.queryState.search.isEmpty && probe.workspace.presentation.queries.count == beforeDirectoryClear + 1
 
         probe.workspace.catalog.catalog.loadedProviders = Set(WallpaperProvider.allCases)
         detail.present(grid); probe.apply(state(.playlist(UUID()))); settle()
@@ -246,11 +250,11 @@ private final class ChromeToolbar: NSObject, NSToolbarDelegate {
         checks["warm-scan-failure-keeps-real-cards-and-visible-retry-outside-empty-state"] = grid.collection.numberOfItems(inSection: 0) == values.count
             && label("刷新失败，保留现有内容。" + warmFailure) != nil && !retry.isHiddenOrHasHiddenAncestor
         send(retry)
-        checks["scan-retry-delegates-once-to-the-original-source-owner"] = probe.online.refreshes == 1
+        checks["scan-retry-delegates-once-to-the-original-source-owner"] = probe.pixabay.refreshes == 1
         probe.workspace.relationships = .init(revision: 0, resetEpoch: UUID(), migrationManifestID: nil,
             playlists: [], members: [], favorites: [], recent: [], aliases: [], locators: [])
         send(retry)
-        checks["scan-retry-keeps-the-reset-epoch-captured-when-rendered"] = probe.online.refreshes == 1
+        checks["scan-retry-keeps-the-reset-epoch-captured-when-rendered"] = probe.pixabay.refreshes == 1
         probe.workspace.catalog.catalog.sourceScanStatuses[.pixabay] = .init(phase: .failed(message: coldFailure), hasSuccessfulScan: false)
         probe.workspace.catalog.catalog.loadedProviders.remove(.pixabay)
         probe.apply(state(.downloads)); settle()
@@ -295,7 +299,7 @@ private final class ChromeToolbar: NSObject, NSToolbarDelegate {
         checks["notice-passthrough-does-not-take-inspector-panel-controls-or-blank-dimming"] =
             panelHit.map { $0 === inspector.view || $0.isDescendant(of: inspector.view) } == true
             && !chrome.permitsNoticeInteraction(at: panelPoint)
-        let beforeRetry = probe.online.refreshes
+        let beforeRetry = probe.pixabay.refreshes
         var closeRequests = 0
         let closeObserver = NotificationCenter.default.addObserver(forName: .inspectorHostCloseRequested, object: nil, queue: .main) { _ in
             MainActor.assumeIsolated { closeRequests += 1 }
@@ -304,30 +308,30 @@ private final class ChromeToolbar: NSObject, NSToolbarDelegate {
         // Settle already-enqueued delivery before the first native tracking
         // operation. These are single clicks, without retries or focus changes.
         try await Task.sleep(nanoseconds: 15_000_000)
-        FileHandle.standardError.write(Data("Chrome retry before: refreshes=\(probe.online.refreshes), expectedBase=\(beforeRetry), closes=\(closeRequests), responder=\(String(describing: window.firstResponder))\n".utf8))
+        FileHandle.standardError.write(Data("Chrome retry before: refreshes=\(probe.pixabay.refreshes), expectedBase=\(beforeRetry), closes=\(closeRequests), responder=\(String(describing: window.firstResponder))\n".utf8))
         let retryUps = try await click(retryPoint)
-        FileHandle.standardError.write(Data("Chrome retry after: refreshes=\(probe.online.refreshes), closes=\(closeRequests), dispatchedUps=\(retryUps)\n".utf8))
+        FileHandle.standardError.write(Data("Chrome retry after: refreshes=\(probe.pixabay.refreshes), closes=\(closeRequests), dispatchedUps=\(retryUps)\n".utf8))
         checks["open-inspector-native-notice-click-executes-once-without-closing-inspector"] =
-            probe.online.refreshes == beforeRetry + 1 && closeRequests == 0
+            probe.pixabay.refreshes == beforeRetry + 1 && closeRequests == 0
         let blank = detail.view.convert(NSPoint(x: 40, y: detail.view.bounds.midY), to: nil)
         let blankHit = container.view.hitTest(container.view.superview!.convert(blank, from: nil))
         checks["ordinary-content-blank-keeps-the-original-inspector-dimming-hit"] = blankHit is InspectorOverlayPassthroughView
             && !chrome.permitsNoticeInteraction(at: blank)
         let blankUps = try await click(blank)
-        FileHandle.standardError.write(Data("Chrome blank after: refreshes=\(probe.online.refreshes), closes=\(closeRequests), dispatchedUps=\(blankUps)\n".utf8))
+        FileHandle.standardError.write(Data("Chrome blank after: refreshes=\(probe.pixabay.refreshes), closes=\(closeRequests), dispatchedUps=\(blankUps)\n".utf8))
         checks["ordinary-content-blank-click-still-sends-only-the-original-inspector-close"] = closeRequests == 1
-            && probe.online.refreshes == beforeRetry + 1
+            && probe.pixabay.refreshes == beforeRetry + 1
         let inspectorWheel = NSEvent(cgEvent: CGEvent(scrollWheelEvent2Source: nil, units: .pixel, wheelCount: 1, wheel1: -24, wheel2: 0, wheel3: 0)!)!
         (blankHit as! InspectorOverlayPassthroughView).scrollWheel(with: inspectorWheel)
-        FileHandle.standardError.write(Data("Chrome wheel after: refreshes=\(probe.online.refreshes), closes=\(closeRequests)\n".utf8))
+        FileHandle.standardError.write(Data("Chrome wheel after: refreshes=\(probe.pixabay.refreshes), closes=\(closeRequests)\n".utf8))
         checks["original-inspector-wheel-handler-still-closes-without-running-a-notice-action"] = closeRequests == 2
-            && probe.online.refreshes == beforeRetry + 1
+            && probe.pixabay.refreshes == beforeRetry + 1
         activeRetry.isEnabled = false
         checks["disabled-notice-button-does-not-cross-the-inspector-surface"] = !chrome.permitsNoticeInteraction(at: retryPoint)
         activeRetry.isEnabled = true
         probe.apply(state(.videos)); settle(); send(activeRetry)
-        FileHandle.standardError.write(Data("Chrome removed notice after: refreshes=\(probe.online.refreshes), closes=\(closeRequests), permits=\(chrome.permitsNoticeInteraction(at: retryPoint))\n".utf8))
-        checks["removed-notice-button-cannot-run-or-retain-a-passthrough-region"] = probe.online.refreshes == beforeRetry + 1
+        FileHandle.standardError.write(Data("Chrome removed notice after: refreshes=\(probe.pixabay.refreshes), closes=\(closeRequests), permits=\(chrome.permitsNoticeInteraction(at: retryPoint))\n".utf8))
+        checks["removed-notice-button-cannot-run-or-retain-a-passthrough-region"] = probe.pixabay.refreshes == beforeRetry + 1
             && !chrome.permitsNoticeInteraction(at: retryPoint)
         container.setOverlayVisible(false, panelWidth: 0, panelOffset: 0, animated: false)
         window.setContentSize(NSSize(width: 1000, height: 700)); settle()
@@ -341,10 +345,17 @@ private final class ChromeToolbar: NSObject, NSToolbarDelegate {
         let flow = grid.collection.collectionViewLayout as! NSCollectionViewFlowLayout
         func firstCardTop() -> CGFloat? { grid.collection.item(at: IndexPath(item: 0, section: 0)).map { $0.view.convert($0.view.bounds, to: nil).maxY } }
         checks["without-notices-the-first-card-retains-eight-points-below-native-toolbar"] = firstCardTop().map { abs($0 - (window.contentLayoutRect.maxY - 8)) < 1 } == true
+        let firstCardWithoutNotice = firstCardTop()
         probe.workspace.recoveryMessage = recovery; probe.apply(filled); settle()
         grid.scrollToTop(animated: false); settle()
-        let bodyTop = detail.view.convert(detail.view.bounds, to: nil).maxY
-        checks["notice-bottom-to-first-card-has-one-eight-point-content-inset"] = firstCardTop().map { abs(bodyTop - $0 - 8) < 1 } == true
+        checks["bottom-capsule-preserves-first-card-safe-inset-and-the-same-grid-top"] = firstCardTop().map {
+            abs($0 - (window.contentLayoutRect.maxY - 8)) < 1 && $0 == firstCardWithoutNotice
+        } == true
+        let capsule = descendants(chrome.view, WallpaperGridNoticeView.self).first!
+        let capsuleFrame = capsule.convert(capsule.bounds, to: nil)
+        checks["transient-glass-capsule-is-centered-at-grid-bottom-without-changing-body-geometry"] =
+            abs(capsuleFrame.midX - detail.view.convert(detail.view.bounds, to: nil).midX) < 1
+            && abs(capsuleFrame.minY - (chrome.view.convert(chrome.view.safeAreaRect, to: nil).minY + 20)) < 1
         let frame = flow.layoutAttributesForItem(at: IndexPath(item: 24, section: 0))!.frame
         grid.scrollView.contentView.scroll(to: NSPoint(x: 0, y: frame.minY + 13 - grid.scrollView.contentInsets.top)); settle()
         let viewportBefore = grid.scrollView.gridViewportRect
@@ -409,6 +420,20 @@ private final class ChromeToolbar: NSObject, NSToolbarDelegate {
         checks["all-ready-download-providers-can-report-the-complete-unfiltered-total"] = grid.scrollView.pullCountText == "显示 1 / 共 3 张壁纸"
         probe.apply(state(.downloads))
         checks["all-successful-empty-download-providers-have-known-zero"] = grid.scrollView.pullCountText == "共 0 张壁纸"
+        var adultOnly = state(.downloads)
+        adultOnly.query = .init(sort: .name, preferredColumns: 4, showsAdultContent: false)
+        probe.apply(adultOnly); settle()
+        checks["all-adult-downloads-hidden-by-filter-have-a-recoverable-filtered-empty-state"] = label("没有符合条件的壁纸") != nil
+            && label("下载的壁纸将显示在这里") == nil && button("清除筛选") != nil
+        let beforeAdultClear = probe.workspace.presentation.queries.count
+        send(button("清除筛选")!)
+        checks["explicit-clear-restores-download-adult-default-and-preserves-sort-density"] = probe.workspace.presentation.queries.count == beforeAdultClear + 1
+            && probe.workspace.presentation.queryState.showsAdultContent && probe.workspace.presentation.queryState.status == .all
+            && probe.workspace.presentation.queryState.sort == .name && probe.workspace.presentation.queryState.preferredColumns == 4
+        var unrelatedAdultFlag = state(.favorites); unrelatedAdultFlag.query.showsAdultContent = false
+        probe.apply(unrelatedAdultFlag); settle()
+        checks["download-only-adult-flag-does-not-filter-an-unrelated-relationship-empty-state"] = label("标记为特别喜爱的壁纸将显示在这里") != nil
+            && button("清除筛选") == nil
         let manifestError = "Controlled shared image manifest failure"
         let imageFailure = WallpaperSourceScanStatus(phase: .failed(message: manifestError), hasSuccessfulScan: false)
         probe.workspace.catalog.catalog.sourceScanStatuses[.wallhaven] = imageFailure
@@ -455,7 +480,6 @@ private final class ChromeToolbar: NSObject, NSToolbarDelegate {
         let importLabel = label("导入视频，建立你的壁纸资料库")!
         let importStack = importLabel.superview as! NSStackView
         let importIcon = importStack.arrangedSubviews.compactMap { $0 as? NSImageView }.first!
-        let importButton = button("导入视频")!
         let iconRect = importIcon.convert(importIcon.bounds, to: nil)
         let labelRect = importLabel.convert(importLabel.bounds, to: nil)
         let lower = iconRect.midY < labelRect.midY ? iconRect : labelRect
@@ -498,36 +522,21 @@ private final class ChromeToolbar: NSObject, NSToolbarDelegate {
             checks["empty-\(name)-hit-reaches-original-wheel-and-settlement-without-an-action"] =
                 wasIdle && reachedWheel && !grid.scrollView.isGridScrolling && probe.commands.imports == importsBeforeWheel
         }
-        let importPoint = importButton.convert(NSPoint(x: importButton.bounds.midX, y: importButton.bounds.midY), to: nil)
-        checks["empty-import-control-keeps-its-native-hit-target"] = nativeHit(importPoint) === importButton
-        let beforeImportClick = probe.commands.imports
-        func traceImportClick(_ stage: String, deliveredUps: Int) {
-            let receipt: [String: Any] = ["stage": stage, "beforeImports": beforeImportClick,
-                "afterImports": probe.commands.imports, "importsBeforeWheel": importsBeforeWheel, "deliveredUps": deliveredUps,
-                "buttonEnabled": importButton.isEnabled, "buttonHidden": importButton.isHiddenOrHasHiddenAncestor,
-                "buttonHighlighted": importButton.cell?.isHighlighted == true, "buttonFrame": String(describing: importButton.frame),
-                "point": String(describing: importPoint), "hitIsButton": nativeHit(importPoint) === importButton,
-                "superview": String(describing: importButton.superview.map { type(of: $0) }),
-                "buttonWindowMatches": importButton.window === window, "superWindowMatches": importButton.superview?.window === window,
-                "buttonIsInChrome": importButton.isDescendant(of: chrome.view), "windowVisible": window.isVisible,
-                "windowKey": window.isKeyWindow, "windowMain": window.isMainWindow, "appActive": NSApp.isActive,
-                "modalWindowNumber": NSApp.modalWindow?.windowNumber ?? -1, "hasSheet": window.attachedSheet != nil,
-                "presentationPage": String(describing: probe.workspace.presentation.page),
-                "presentationItems": probe.workspace.presentation.state.queryResult.items.count,
-                "canImport": probe.commands.canImport, "rootWindowMatches": container.view.window === window,
-                "chromeWindowMatches": chrome.view.window === window, "detailHasGrid": grid.parent === detail,
-                "action": String(describing: importButton.action), "target": String(describing: importButton.target)]
-            FileHandle.standardError.write(Data("chrome-empty-import-click ".utf8)
-                + (try! JSONSerialization.data(withJSONObject: receipt, options: [.sortedKeys])) + Data("\n".utf8))
-        }
-        traceImportClick("before", deliveredUps: 0)
-        let importUps = try await click(importPoint)
-        traceImportClick("after-immediate", deliveredUps: importUps)
-        checks["empty-import-control-still-clicks-the-original-command-exactly-once"] =
-            probe.commands.imports == importsBeforeWheel + 1
-        try await Task.sleep(nanoseconds: 160_000_000)
-        traceImportClick("after-one-native-queue-turn", deliveredUps: importUps)
-
+        checks["local-empty-state-has-only-icon-and-copy-without-duplicate-import-or-browse-actions"] =
+            button("导入视频") == nil && button("浏览创意工坊") == nil && button("浏览 Pixabay") == nil
+            && descendants(chrome.view, NSButton.self).filter { !$0.isHiddenOrHasHiddenAncestor }.isEmpty
+        var filteredForModal = state(.videos); filteredForModal.query.search = "unmatched"
+        probe.apply(filteredForModal); settle()
+        let initialClearButton = button("清除筛选")!
+        let clearPoint = initialClearButton.convert(NSPoint(x: initialClearButton.bounds.midX, y: initialClearButton.bounds.midY), to: nil)
+        checks["empty-filter-control-keeps-its-native-hit-target"] = nativeHit(clearPoint) === initialClearButton
+        let beforeNativeClear = probe.workspace.presentation.queries.count
+        _ = try await click(clearPoint)
+        checks["empty-filter-control-native-click-clears-the-original-query-exactly-once"] =
+            probe.workspace.presentation.queries.count == beforeNativeClear + 1 && probe.workspace.presentation.queryState.search.isEmpty
+            && probe.commands.imports == importsBeforeWheel
+        probe.apply(filteredForModal); settle()
+        let clearButton = button("清除筛选")!
         func makeInputModal() -> WallpaperLibraryModalPanel {
             let panel = WallpaperLibraryModalPanel(contentRect: NSRect(x: 0, y: 0, width: 360, height: 240),
                 styleMask: [.borderless], backing: .buffered, defer: false)
@@ -535,35 +544,31 @@ private final class ChromeToolbar: NSObject, NSToolbarDelegate {
             panel.contentView = WallpaperLibrarySheetSurface(frame: NSRect(x: 0, y: 0, width: 360, height: 240))
             return panel
         }
-        let importModal = makeInputModal()
-        let importModalPresented = WallpaperLibrarySheetPresentation.present(importModal, in: window)
+        let clearModal = makeInputModal()
+        let clearModalPresented = WallpaperLibrarySheetPresentation.present(clearModal, in: window)
         settle()
-        checks["chrome-retained-import-test-uses-the-current-page-and-real-owned-child"] = importModalPresented
-            && importModal.parent === window && importModal.isKeyWindow
-            && importModal.isAccessibilityModal()
-            && probe.workspace.presentation.page == .videos && importButton.isEnabled && importButton.window === window
+        checks["chrome-retained-filter-test-uses-the-current-page-and-real-owned-sheet"] = clearModalPresented
+            && clearModal.sheetParent === window && clearModal.isKeyWindow && clearModal.isAccessibilityModal()
+            && probe.workspace.presentation.page == .videos && clearButton.isEnabled && clearButton.window === window
             && !WallpaperLibrarySheetPresentation.permitsInput(in: window)
-        let beforeBlockedImport = probe.commands.imports
-        importButton.performClick(nil)
-        let blockedImportAX = importButton.accessibilityPerformPress()
-        traceImportClick("owned-child-held-immediate-AX-\(blockedImportAX)", deliveredUps: importUps)
+        let beforeBlockedClear = probe.workspace.presentation.queries.count
+        clearButton.performClick(nil)
+        _ = clearButton.accessibilityPerformPress()
         try await Task.sleep(nanoseconds: 160_000_000)
-        traceImportClick("owned-child-held-after-one-native-queue-turn", deliveredUps: importUps)
-        checks["owned-child-revokes-current-retained-chrome-import-button-and-accessibility-action"] =
-            probe.commands.imports == beforeBlockedImport && importModal.isVisible && importModal.parent === window
-        importModal.close()
+        checks["owned-sheet-revokes-current-retained-chrome-filter-button-and-accessibility-action"] =
+            probe.workspace.presentation.queries.count == beforeBlockedClear && clearModal.isVisible && clearModal.sheetParent === window
+        clearModal.close()
         try await Task.sleep(nanoseconds: 160_000_000)
-        let beforeRestoredImport = probe.commands.imports
-        let restoredImportAX = importButton.accessibilityPerformPress()
-        traceImportClick("owned-child-closed-restored-import-immediate-AX-\(restoredImportAX)", deliveredUps: importUps)
+        let beforeRestoredClear = probe.workspace.presentation.queries.count
+        _ = clearButton.accessibilityPerformPress()
         try await Task.sleep(nanoseconds: 160_000_000)
-        traceImportClick("owned-child-closed-restored-import-after-one-native-queue-turn", deliveredUps: importUps)
-        // The native AX method can return false even when it dispatches its
-        // action; the actual command count, not that return value, is decisive.
-        checks["owned-child-close-restores-the-same-chrome-import-action-exactly-once"] =
-            importModal.parent == nil && !importModal.isVisible && !importModal.isAccessibilityModal() && window.isKeyWindow
+        // Native AX's return value is not the business result: observe the
+        // actual query write and its exact value through the original owner.
+        checks["owned-sheet-close-restores-the-same-chrome-filter-action-exactly-once"] =
+            clearModal.sheetParent == nil && !clearModal.isVisible && !clearModal.isAccessibilityModal() && window.isKeyWindow
             && WallpaperLibrarySheetPresentation.permitsInput(in: window)
-            && probe.commands.imports == beforeRestoredImport + 1
+            && probe.workspace.presentation.queries.count == beforeRestoredClear + 1
+            && probe.workspace.presentation.queryState.search.isEmpty && probe.commands.imports == importsBeforeWheel
 
         let headerPlaylist = lists[0]
         probe.allEntries = [.init(id: headerPlaylist.id, name: headerPlaylist.name,
@@ -585,7 +590,7 @@ private final class ChromeToolbar: NSObject, NSToolbarDelegate {
         let modal = makeInputModal()
         func traceHeaderAction(_ stage: String, playAX: Bool? = nil, randomAX: Bool? = nil) {
             var receipt: [String: Any] = ["stage": stage, "requests": probe.commands.displayedPlayRequests,
-                "modalParentMatches": modal.parent === window, "modalVisible": modal.isVisible,
+                "modalParentMatches": modal.sheetParent === window, "modalVisible": modal.isVisible,
                 "modalKey": modal.isKeyWindow, "windowKey": window.isKeyWindow,
                 "modalAccessibilityModal": modal.isAccessibilityModal(),
                 "windowVisible": window.isVisible, "keyWindowNumber": NSApp.keyWindow?.windowNumber ?? -1,
@@ -603,22 +608,22 @@ private final class ChromeToolbar: NSObject, NSToolbarDelegate {
         let presented = WallpaperLibrarySheetPresentation.present(modal, in: window)
         settle()
         checks["header-held-action-test-uses-the-real-owned-modal-input-domain"] = presented
-            && modal.parent === window && modal.isKeyWindow && modal.isVisible && window.attachedSheet == nil
+            && modal.sheetParent === window && modal.isKeyWindow && modal.isVisible && window.attachedSheet === modal
             && modal.isAccessibilityModal()
             && !WallpaperLibrarySheetPresentation.permitsInput(in: window)
             && WallpaperLibrarySheetPresentation.permitsInput(in: modal)
         let beforeBlockedHeader = probe.commands.displayedPlayRequests
         retainedPlay.performClick(nil); retainedRandom.performClick(nil)
-        checks["owned-child-blocks-retained-real-header-play-and-random-buttons"] =
+        checks["owned-sheet-blocks-retained-real-header-play-and-random-buttons"] =
             retainedPlay.isEnabled && retainedRandom.isEnabled && retainedPlay.window === window && retainedRandom.window === window
             && probe.commands.displayedPlayRequests == beforeBlockedHeader
         let blockedPlayAX = retainedPlay.accessibilityPerformPress(), blockedRandomAX = retainedRandom.accessibilityPerformPress()
-        traceHeaderAction("owned-child-held-immediate", playAX: blockedPlayAX, randomAX: blockedRandomAX)
+        traceHeaderAction("owned-sheet-held-immediate", playAX: blockedPlayAX, randomAX: blockedRandomAX)
         try await Task.sleep(nanoseconds: 160_000_000)
-        traceHeaderAction("owned-child-held-after-one-native-queue-turn", playAX: blockedPlayAX, randomAX: blockedRandomAX)
-        checks["owned-child-blocks-retained-real-header-accessibility-presses"] =
+        traceHeaderAction("owned-sheet-held-after-one-native-queue-turn", playAX: blockedPlayAX, randomAX: blockedRandomAX)
+        checks["owned-sheet-blocks-retained-real-header-accessibility-presses"] =
             probe.commands.displayedPlayRequests == beforeBlockedHeader && modal.isKeyWindow
-            && modal.isVisible && modal.parent === window
+            && modal.isVisible && modal.sheetParent === window
         traceHeaderAction("before-close")
         modal.close(); settle()
         traceHeaderAction("after-close-nested-settle-before-performClick")
@@ -628,10 +633,21 @@ private final class ChromeToolbar: NSObject, NSToolbarDelegate {
         traceHeaderAction("after-restored-AX-immediate", playAX: playAX, randomAX: randomAX)
         try await Task.sleep(nanoseconds: 160_000_000)
         traceHeaderAction("after-restored-one-native-queue-turn", playAX: playAX, randomAX: randomAX)
-        checks["owned-child-close-restores-the-same-header-buttons-and-accessibility-actions"] =
-            modal.parent == nil && !modal.isVisible && !modal.isAccessibilityModal() && window.isKeyWindow
+        checks["owned-sheet-close-restores-the-same-header-buttons-and-accessibility-actions"] =
+            modal.sheetParent == nil && !modal.isVisible && !modal.isAccessibilityModal() && window.isKeyWindow
             && WallpaperLibrarySheetPresentation.permitsInput(in: window)
             && probe.commands.displayedPlayRequests == [false, true, false, true, false, true]
+        for page in [WallpaperLibraryPage.videos, .images, .downloads, .recent, .favorites, .playlist(headerPlaylist.id), .playlists] {
+            probe.apply(state(page)); settle()
+            checks["local-page-has-no-refresh-request-" + page.persistenceKey] = grid.scrollView.onRefresh == nil
+                && descendants(directory.view, WallpaperGridScrollView.self).allSatisfy { $0.onRefresh == nil }
+            #if compiler(>=6.4)
+            if #available(macOS 27.0, *) {
+                checks["local-page-has-no-native-refresh-controller-" + page.persistenceKey] = grid.scrollView.refreshController == nil
+                    && descendants(directory.view, WallpaperGridScrollView.self).allSatisfy { $0.refreshController == nil }
+            }
+            #endif
+        }
         print(String(data: try! JSONSerialization.data(withJSONObject: checks, options: [.sortedKeys]), encoding: .utf8)!)
     }
 }

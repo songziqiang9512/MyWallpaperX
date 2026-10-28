@@ -380,14 +380,14 @@ private final class DirectoryUnifiedToolbarProbe: NSObject, NSToolbarDelegate {
         organization.onOpen = { opened.append($0) }
         organization.onCreatedFromMembers = { createdWithMembers.append($0) }
         func currentEditor() -> WallpaperLibraryModalPanel? {
-            window.childWindows?.compactMap { $0 as? WallpaperLibraryModalPanel }.first { $0.isVisible }
+            (window.attachedSheet as? WallpaperLibraryModalPanel).flatMap { $0.isVisible ? $0 : nil }
         }
         organization.create()
         let createSheet = currentEditor()!
         let nameField = descendants(createSheet.contentView!, of: NSTextField.self).first { $0.isEditable }!
         let accept = descendants(createSheet.contentView!, of: NSButton.self).first { $0.title == "完成" }!
         checks["organization-create-presents-the-real-native-editor"] = createSheet.delegate is WallpaperPlaylistEditorController
-            && createSheet.parent === window && window.attachedSheet == nil
+            && createSheet.sheetParent === window && window.attachedSheet === createSheet && createSheet.isSheet
             && !WallpaperLibrarySheetPresentation.permitsInput(in: window)
             && descendants(createSheet.contentView!, of: NSTextView.self).contains { $0.accessibilityLabel() == "播放列表描述，可选" }
         nameField.stringValue = " \n "

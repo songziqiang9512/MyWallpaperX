@@ -71,7 +71,8 @@ class SteamDetailNavigationTests(unittest.TestCase):
                              + '\nfunc check() { checkLoadMore() }\n}')
             actual = work/'ActualOwners.swift'
             actual.write_text('\n'.join(fragments))
-            sources = [ROOT/'MyWallpaperX/Core/DaemonKit/DaemonNewlineJSON.swift',
+            sources = [ROOT/'MyWallpaperX/Models/WallpaperReference.swift', ROOT/'MyWallpaperX/Models/WallpaperContent.swift',
+                ROOT/'MyWallpaperX/Core/DaemonKit/DaemonNewlineJSON.swift',
                 ROOT/'MyWallpaperX/Core/DaemonKit/DaemonProcessTransport.swift',
                 ROOT/'MyWallpaperX/Shared/UI/WallpaperGridScrollView.swift',
                 *[CORE/name for name in ['SteamServiceProtocol.swift', 'SteamServiceClient.swift',

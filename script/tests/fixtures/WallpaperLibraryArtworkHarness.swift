@@ -38,12 +38,12 @@ final class SteamWorkshopPreviewState {
     func configure(previewURL: URL?, fallbackImageURL: URL?, fallbackVideoURL: URL?, maxPixelSize: Int) { Self.pixels.append(maxPixelSize); onChange?() }
     func reset() { Self.resets += 1 }
 }
-struct OLDownloadedEntry { let id: Int }
-struct OLContent { var entries: [OLDownloadedEntry] = [] }
-final class OnlineLibraryService { var downloadedContent = OLContent() }
-enum OLDownloadedThumbnailStore {
+struct PixabayDownloadedEntry { let id: Int }
+struct PixabayContent { var entries: [PixabayDownloadedEntry] = [] }
+final class PixabayService { var downloadedContent = PixabayContent() }
+enum PixabayDownloadedThumbnailStore {
     static var ids: [Int] = []
-    static func loadThumbnail(_ row: OLDownloadedEntry, priority: ThumbnailCacheRequestPriority,
+    static func loadThumbnail(_ row: PixabayDownloadedEntry, priority: ThumbnailCacheRequestPriority,
         cancellation: ThumbnailCacheRequestCancellation,
                          completion: @escaping (String, NSImage?) -> Void) { ids.append(row.id); completion("key", .init(size: .init(width: 10, height: 10))) }
 }
@@ -242,19 +242,19 @@ final class ArtworkRequests {
         checks["new-epoch-same-asset-loads-new-bytes"] = (color(resetImage, 240, 240)?.greenComponent ?? 0) > 0.9
         resetProvider.setDemand(sourceToken: resetToken, playlistIDs: [])
 
-        let manager = WallpaperManager(), images = SILService(), steam = SteamWorkshopService(), online = OnlineLibraryService()
+        let manager = WallpaperManager(), images = SILService(), steam = SteamWorkshopService(), pixabay = PixabayService()
         manager.wallpapers = [.init(id: "v")]; images.wallpapers = [.init(id: "i", path: "/image")]
-        steam.downloads = [.init(id: "s")]; online.downloadedContent.entries = [.init(id: 7)]
-        let live = WallpaperLibraryArtworkProvider(manager: manager, images: images, steam: steam, online: online)
+        steam.downloads = [.init(id: "s")]; pixabay.downloadedContent.entries = [.init(id: 7)]
+        let live = WallpaperLibraryArtworkProvider(manager: manager, images: images, steam: steam, pixabay: pixabay)
         var leases: [() -> Void] = [], completions = 0
         for content in [item("v"), item("i", provider: .staticImageLibrary), item("s", provider: .steamWorkshop), item("7", provider: .pixabay)] {
             leases.append(live.load(content: content) { if $0 != nil { completions += 1 } })
         }
         checks["live-composition-delegates-to-original-four-thumbnail-owners"] = completions == 4 && AppKitThumbnailProvider.ids == ["v"]
-            && SILThumbnailProvider.paths == ["/image"] && SteamWorkshopPreviewState.pixels == [256] && OLDownloadedThumbnailStore.ids == [7]
+            && SILThumbnailProvider.paths == ["/image"] && SteamWorkshopPreviewState.pixels == [256] && PixabayDownloadedThumbnailStore.ids == [7]
         let invalid = live.load(content: item("007", provider: .pixabay)) { _ in }
         invalid(); leases.forEach { $0() }
-        checks["live-original-cancellation-and-canonical-numeric-source-boundaries"] = SteamWorkshopPreviewState.resets == 1 && OLDownloadedThumbnailStore.ids == [7]
+        checks["live-original-cancellation-and-canonical-numeric-source-boundaries"] = SteamWorkshopPreviewState.resets == 1 && PixabayDownloadedThumbnailStore.ids == [7]
         print(String(data: try! JSONSerialization.data(withJSONObject: checks, options: [.sortedKeys]), encoding: .utf8)!)
     }
 }

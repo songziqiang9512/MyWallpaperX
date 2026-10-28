@@ -81,7 +81,6 @@ enum VideoLibraryInspectorViews {
         stack.addArrangedSubview(makeLabel(label, font: .systemFont(ofSize: 11, weight: .medium), color: .secondaryLabelColor))
         let valueLabel = makeLabel(value, font: .systemFont(ofSize: 13, weight: .semibold), color: .labelColor)
         valueLabel.maximumNumberOfLines = 2
-        valueLabel.heightAnchor.constraint(equalToConstant: ceil(valueLabel.font!.ascender - valueLabel.font!.descender + valueLabel.font!.leading) * 2).isActive = true
         valueLabel.isSelectable = true
         stack.addArrangedSubview(valueLabel)
         return stack
@@ -113,13 +112,7 @@ enum VideoLibraryInspectorViews {
         return row
     }
 
-    static func makeDivider() -> NSView {
-        let divider = NSBox()
-        divider.boxType = .separator
-        divider.translatesAutoresizingMaskIntoConstraints = false
-        divider.heightAnchor.constraint(equalToConstant: 1).isActive = true
-        return divider
-    }
+
 
     static func makeFooterButton(
         title: String,

@@ -58,7 +58,7 @@ extension Notification.Name {
 enum ModuleIdentifier: String {
     case videoLibrary       = "videoLibrary"
     case staticImageLibrary = "staticImageLibrary"
-    case onlineLibrary      = "onlineLibrary"
+    case pixabay            = "onlineLibrary" // Retain Inspector/navigation wire identity.
     case steamWorkshop      = "steamWorkshop"
     case wallhaven          = "wallhaven"
     case pixiv              = "pixiv"

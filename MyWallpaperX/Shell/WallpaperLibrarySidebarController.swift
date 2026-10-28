@@ -8,6 +8,7 @@ final class WallpaperLibrarySidebarController: NSViewController, NSOutlineViewDa
     var onReorder: (([UUID], @escaping (Result<Int64, Error>) -> Void) -> Void)?
     var onCoverDemand: ((Set<UUID>) -> Void)? { didSet { updateCoverDemand(force: true) } }
     var onAddReferences: (([WallpaperReference], UUID) -> Bool)?
+    var makeRecentMenu: (() -> NSMenu?)?
 
     private enum Group: String, CaseIterable, Codable { case library, browse, playlists }
     private struct SidebarState: Codable { let version: Int; let expanded: [String: Bool] }
@@ -89,8 +90,8 @@ final class WallpaperLibrarySidebarController: NSViewController, NSOutlineViewDa
         outline.rowContextMenuProvider = { [weak self] row in self?.menu(forRow: row) }
         outline.blankAreaMenuProvider = { [weak self] in self?.creationMenu() }
         outline.sameSelectionClickHandler = { [weak self] row in self?.navigate(row: row) }
-        for group in Group.allCases {
-            for page in pages(in: group) { pageNodes[page] = Node(.page(page)) }
+        for page in [WallpaperLibraryPage.videos, .images] + Group.allCases.flatMap({ pages(in: $0) }) {
+            pageNodes[page] = Node(.page(page))
         }
         scrollView.documentView = outline
         view.addSubview(tintSurface)
@@ -225,14 +226,14 @@ final class WallpaperLibrarySidebarController: NSViewController, NSOutlineViewDa
 
     private func pages(in group: Group) -> [WallpaperLibraryPage] {
         switch group {
-        case .library: return [.videos, .images, .downloads, .recent]
+        case .library: return [.downloads, .recent]
         case .browse: return [.workshop, .wallhaven, .pixiv, .pixabay]
         case .playlists: return [.playlists, .favorites] + playlists.map { .playlist($0.id) }
         }
     }
 
     private func children(_ item: Any?) -> [Node] {
-        guard let item else { return groups }
+        guard let item else { return [WallpaperLibraryPage.videos, .images].compactMap { pageNodes[$0] } + groups }
         guard let node = item as? Node, case .group(let group) = node.kind else { return [] }
         return pages(in: group).compactMap { pageNodes[$0] }
     }
@@ -343,6 +344,7 @@ final class WallpaperLibrarySidebarController: NSViewController, NSOutlineViewDa
     }
     private func menu(forRow row: Int) -> NSMenu? {
         guard let node = outline.item(atRow: row) as? Node else { return nil }
+        if case .page(.recent) = node.kind { return makeRecentMenu?() }
         if case .page(.playlist(let id)) = node.kind {
             let menu = NSMenu()
             menu.autoenablesItems = false

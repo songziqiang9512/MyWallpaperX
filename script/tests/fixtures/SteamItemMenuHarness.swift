@@ -1,7 +1,12 @@
 import AppKit
 
 struct SteamWorkshopBrowserItem { let id: String; let title: String; let detailURL: URL }
-struct Record { enum Status { case ready, failed }; let id: String; var status: Status; var failureMessage: String?; let folderURL = URL(fileURLWithPath: "/private/tmp") }
+struct Record {
+    enum Status { case ready, failed }; enum ContentType { case video, web, scene }
+    let id: String; var status: Status; var failureMessage: String?
+    let folderURL = URL(fileURLWithPath: "/private/tmp")
+    var contentType = ContentType.video; var videoURL: URL?
+}
 struct Progress { enum Phase { case saving, transferring }; var phase: Phase; var jobKey: String }
 struct Job { enum State { case failed, queued }; let id: String; let workshopItemId: String; let accountSteamId: String; let state: State }
 @MainActor final class ProgressStore { var value: Progress?; func snapshot(for id: String) -> Progress? { value } }
@@ -134,6 +139,22 @@ struct Job { enum State { case failed, queued }; let id: String; let workshopIte
         navigationService.record?.status = .failed
         precondition(!SteamWorkshopItemMenu.make(item: item, service: navigationService).items.contains { $0.title == "在 Finder 中显示" },
             "failed source downloads still have no standalone reveal")
+        let application = URL(fileURLWithPath: "/Applications/Shared Viewer.app"), file = URL(fileURLWithPath: "/owned/steam/movie.mp4")
+        navigationService.record = Record(id: item.id, status: .ready, videoURL: file)
+        OpenWithWorkspaceLeaf.shared.handlers[file] = [application]
+        OpenWithWorkspaceLeaf.shared.defaults[file] = application
+        let openWith = SteamWorkshopItemMenu.make(item: item, service: navigationService,
+            navigationVersion: navigationService.navigationVersion).items.first { $0.title == "打开方式" }!.submenu!.items[0]
+        NSApp.sendAction(openWith.action!, to: openWith.target, from: openWith)
+        precondition(OpenWithWorkspaceLeaf.shared.opens.last?.files == [file], "a downloaded Steam video uses its fixed media URL")
+        let opened = OpenWithWorkspaceLeaf.shared.opens.count
+        navigationService.navigationVersion += 1
+        NSApp.sendAction(openWith.action!, to: openWith.target, from: openWith)
+        precondition(OpenWithWorkspaceLeaf.shared.opens.count == opened, "a held browser Open With menu cannot cross navigation")
+        navigationService.record?.contentType = .scene
+        precondition(!SteamWorkshopItemMenu.make(item: item, service: navigationService).items.contains { $0.title == "打开方式" },
+            "a Scene source does not expose an unrelated exported video as its original file")
+        OpenWithWorkspaceLeaf.shared.opens.removeAll(); OpenWithWorkspaceLeaf.shared.completions.removeAll()
         runLibraryMenuCompositionChecks()
         print("Item menu: item, account, subscription, attempt and queued identity dispatch PASS")
     }

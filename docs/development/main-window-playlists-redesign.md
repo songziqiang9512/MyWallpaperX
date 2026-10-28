@@ -2,7 +2,7 @@
 
 <!-- document-role: active-plan -->
 
-> 状态：2026-10-26本轮UI交付已合入codex/engine-refactor-program，基于启动专项23a382c6a的整合结算见§19。2026-10-27全仓UI审计已[结算](../history/cross-topic/ui-quality-audit-completed-2026-10-27.md)；本文继续拥有现有视觉/交互规范与原验收边界，不自动重开旧工作卡。
+> 状态：2026-10-27 用户授权继续全仓UI改进；独立树已快进到三方整合点 `99ba1fa85`。当前唯一工作队列为§20的16项专项，已设长期Goal，逐项实现/复审/验证后更新；不提交、不推送。§15–19及[前轮UI审计](../history/cross-topic/ui-quality-audit-completed-2026-10-27.md)仅为既有实施与限定证据，不代表本轮新代码已验收。
 >
 > 产品目标：用 Apple Music 的侧栏、工具栏、留白和封面组织方式重排主窗口；壁纸卡片统一沿用当前 Steam 方形卡片与内部控制 bar；建立支持图片、视频、Web、Scene 的真正播放列表。AppKit、现有播放事务和各来源服务继续承担各自职责。
 
@@ -20,16 +20,16 @@
 | D7 | 混合列表支持现有顺序/随机和自动切换设置 | 统一规划图片、视频、Web、Scene 的候选、计时、失败和跨类型交接 |
 | D8 | 心形统一表示本地“特别喜爱”，Steam 订阅独立保留 | 不把原 Steam 订阅记录迁入本地喜爱；订阅改用书签入口并保留原服务 |
 | D9 | 只有本地或已下载内容可加入喜爱/列表 | 未下载浏览项不创建关系、不隐式下载；下载完成后用户再主动加入 |
-| D10 | “我的下载”融合 Steam 与 Pixabay，采用原 Steam 下载工具栏；Pixabay 详情不变 | 合并页面投影与命令入口，不合并下载目录、认证、任务执行和详情内容 |
+| D10 | “我的下载”是各来源本地发布内容的聚合页，通用工具栏与下载管理面板归独立Downloads模块 | 退出Steam专属账号/任务工具栏委托；各来源下载执行、认证、发布、播放和详情仍原owner；下载历史只读本地记录，不以登录作查看许可 |
 | D11 | 前轮侧栏首图轻染、Steam网格度量、toolbar分组、默认5列/可选3–6列、紧凑列表头与顶部安全距 | 继续有效；旧堆叠目标由D12替换，前轮实施与限定证据已归档，不作本轮验收 |
-| D12 | 新10项及补充裁决：单封面、紧凑编辑、右侧独立返回、统一侧栏大图标、让位排序/稳定拖选、居中确认、详情无位移；Picker/Editor同详情材质并模态，原生不足可自绘 | 原居中确认目标由§18 T04原生左排规则覆盖；其他当前标准见§4–7，V01–V11已落代码并通过对应近门，整App试用未闭合，逐项见§15；取消Picker取主背景色/首帧取色快照提案，不新增颜色owner |
+| D12 | 单封面、紧凑编辑、独立返回、稳定拖选及详情无位移继续保留；所有编辑/选择/登录面板采用系统sheet调暗与模态输入 | 普通确认仍原NSAlert；自定义内容保当前排版与玻璃材质，优先由原生sheet呈现；不能等价保布局时只在原modal owner补统一调暗，退役避灰罩目标，不另建窗口/输入registry |
 | D13 | 本轮五项补充：在线无下拉计数；本地卡只拖侧栏快加；目录名左/数量右同排；自建Header标题后小计数；Steam登录窗不可拖 | 当前覆盖Q01/Q06/Q09；保目录及侧栏列表让位排序，取消媒体成员拖排；不做计数备用入口 |
 
-既有实施在隔离工作树分批进行；用户已明确“可以开始执行”，已按§15完成UI近门并进入后置冗余校验清理，完成相邻回归后构建试用。设备窗口仍须明确协调，不把空锁/经过时间当释放。另一会话明确通知可合并前不暂存/提交/合并；通知后按§16收口规则整合，不推送或发布。旧的“无底部播放条”“系统强调色”“卡片不放大/缩小”“白色 hover 描边”“属性面板保持排版和隐藏滚动条”“不为测试抢焦点补逻辑”继续有效。
+本轮在原隔离树实施，保留主仓及启动专项树。设备独占须提前与启动专项协调，不把空锁/经过时间当释放；当前先静态开发，最近原生门及Debug统一安排，不在每个小文案修改后全量重建。没有本轮提交授权。旧的“无底部播放条”“控件使用系统强调色”“卡片只轻微hover放大、无按下缩放（§21修订）”“白色 hover 描边”“属性面板保持排版和隐藏滚动条”“不为测试抢焦点补逻辑”继续有效。
 
-除 D1–D13 外，具体尺寸、缺失关系保留、暂停时冻结轮换剩余时间、健康同项重选刷新最近和关系撤销等属于方案细化，仍须最终验收，不冒充既有能力或用户逐项确认。旧审计与N15候选见§13历史入口，最新待办查§19，§15–17为前轮实施与证据；上一候选记录见§15.4，当前状态以§19为准，门通过不等于用户最终验收。全局上下张与视频工具栏历史导航的既有差异默认保留，详见第 8 节。
+除 D1–D13 外，具体尺寸、缺失关系保留、暂停时冻结轮换剩余时间、健康同项重选刷新最近和关系撤销等属于方案细化，仍须最终验收，不冒充既有能力或用户逐项确认。旧审计与N15候选见§13历史入口，最新待办查§22，§15–19为前轮实施与证据；上一候选记录见§15.4，当前状态以§22为准，门通过不等于用户最终验收。全局上下张与视频工具栏历史导航的既有差异默认保留，详见第 8 节。
 
-阅读顺序：[当前四项收尾](#compact-input-subscriptions-round) → [前轮八项调整](#inspector-playback-appearance-round) → [前轮五项反馈](#user-ui-feedback-round) → [前轮九项修正](#user-ui-revision-nine) → [前轮改造](#user-ui-revision-10) → [视觉标准](#visual-standard) → [逐页规范](#page-catalog) → [共享边界](#ownership) → [轮换规则](#playback) → [迁移](#migration) → [基础完成摘要与W22](#execution) → [验收](#acceptance)。数字尺寸是本项目设计值，不是 Apple 私有实现参数；修订后的目标不代表当前 App 已达到，最终以同窗口对比和用户试用裁决。
+阅读顺序：[当前13项反馈](#ui-feedback-thirteen) → [前轮16项专项](#ui-simplification-sixteen) → [前轮四项收尾](#compact-input-subscriptions-round) → [前轮八项调整](#inspector-playback-appearance-round) → [前轮五项反馈](#user-ui-feedback-round) → [前轮九项修正](#user-ui-revision-nine) → [前轮改造](#user-ui-revision-10) → [视觉标准](#visual-standard) → [逐页规范](#page-catalog) → [共享边界](#ownership) → [轮换规则](#playback) → [迁移](#migration) → [基础完成摘要与W22](#execution) → [验收](#acceptance)。数字尺寸是本项目设计值，不是 Apple 私有实现参数；修订后的目标不代表当前 App 已达到，最终以同窗口对比和用户试用裁决。
 
 ## 2. 参考、方案取舍与现状
 
@@ -43,16 +43,16 @@ Apple 的公开指导支持侧栏分组、系统强调色、控制层与内容�
 
 ## 3. 信息结构与路由
 
-侧栏自上而下固定如下；括号内是设计 identity，不是展示文案。标题“资料库 / 浏览 / 播放列表”不可选，可折叠，默认展开并记住用户折叠状态。
+侧栏自上而下固定如下；括号内是设计 identity，不是展示文案。第一组视频/图片无标题；随后“资料库 / 浏览 / 播放列表”标题不可选、可折叠，默认展开并保原折叠状态。
 
 | 组 | 顺序 / 标题 | 路由 | 数据范围 / 图标建议 |
 |---|---|---|---|
-| 资料库 | 1 我的视频 | localVideos | 本地导入、内置视频；`film` |
-| 资料库 | 2 我的图片 | localImages | SIL 本地图片；`photo.on.rectangle` |
-| 资料库 | 3 我的下载 | downloads | Steam 与 Pixabay 本地发布项的联合投影；`arrow.down.circle` |
-| 资料库 | 4 最近使用 | recent | 成功应用过的最近 50 个规范引用；`clock.arrow.circlepath` |
+| 无标题首组 | 1 我的视频 | localVideos | 本地导入、内置视频；`film` |
+| 无标题首组 | 2 我的图片 | localImages | SIL 本地图片；`photo.on.rectangle` |
+| 资料库 | 1 我的下载 | downloads | Steam、Pixabay、Wallhaven、Pixiv本地发布项联合投影；`arrow.down.circle` |
+| 资料库 | 2 最近使用 | recent | 成功应用过的最近 50 个规范引用；`clock.arrow.circlepath` |
 | 浏览 | 1 创意工坊 | workshop.discovery | 现有发现、分类、作者入口；`shippingbox` |
-| 浏览 | 2 Pixabay | pixabay | 使用品牌正确拼写 Pixabay；现有分类与搜索；`globe` |
+| 浏览 | 2 Wallhaven / 3 Pixiv / 4 Pixabay | wallhaven / pixiv / pixabay | 原来源浏览、分类、账号与搜索；品牌名不代称在线库 |
 | 播放列表 | 1 所有播放列表 | playlists | 新建卡 + 用户播放列表目录；`square.grid.3x3` |
 | 播放列表 | 2 特别喜爱 | favorites | 各类型本地喜爱关系的联合投影；`heart` |
 | 播放列表 | 3… 用户列表 | playlist(UUID) | 侧栏顺序按 sidebarRank；封面缩略图，缺图采用共享媒体语义符号；单封面与状态见V01/V04 |
@@ -72,7 +72,7 @@ Apple 的公开指导支持侧栏分组、系统强调色、控制层与内容�
 |---|---|---|
 | 窗口 | 保持当前最小 900 × 650 pt；常用验收 1200 × 800、1440 × 900；全屏同一结构 | 复用 NSWindow / NSSplitViewController，不重绘交通灯、窗角或阴影 |
 | 侧栏 | 初始220 pt，可拖200–320 pt，始终开启；移除toolbar/主菜单显隐和分割线收拢 | 原source-list NSOutlineView；保宽度保存，旧collapsed恢复为开启，不能通过原生toggle selector重新收拢 |
-| 行 | 实际命中行高30 pt；符号、无图占位及封面统一22 pt对齐框；文字和SF符号由原生source-list配置，选中沿原生字重，左右留10 pt | 同一SidebarRowCellView度量；当前SDK挂载后13 pt字体/符号配置，不能以全局systemFont对象或预配20 pt冒充原生最终样式；封面到达不移动文字，组折叠三角沿系统 |
+| 行 | 实际命中行高30 pt；符号、无图占位及封面统一22 pt对齐框；文字和SF符号由原生source-list配置，选中沿原生字重，媒体行相对组标题轻缩进，全部符号/封面同一前缘 | 同一SidebarRowCellView度量；当前SDK挂载后13 pt字体/符号配置，不能以全局systemFont对象或预配20 pt冒充原生最终样式；封面到达不移动文字，组折叠三角沿系统 |
 | 组标题 | 11–12 pt semibold，secondaryLabelColor；组前留 16 pt，标题与首行 6 pt | 不给标题叠玻璃胶囊、不显示数量按钮 |
 | 选中 | 原生圆角中性灰，保持当前稳定的非强调选中呈现；文字高对比 | 复用现 SidebarRowView；不能先蓝后灰，不强制窗口或焦点激活 |
 | 图标 | SF Symbols template + controlAccentColor；图标与封面同一22 pt对齐框，符号沿挂载后的原生source-list配置 | 不写固定 RGB 蓝/红，不重复设置被Outline覆盖的字号；状态错误/警告另用系统语义色及图标 |
@@ -92,8 +92,9 @@ Apple 的公开指导支持侧栏分组、系统强调色、控制层与内容�
 | 列数算法 | 请求列数 `p` 为整数3–6，默认5；`A=max(1,clipWidth-8-8)`，`fit=max(1,min(6,floor((A+8)/(100+8))))`，有效列数 `n=min(p,fit)`，边长 `max(1,floor((A-(n-1)*8)/n))`。clip已扣侧栏/原生滚动条，Inspector为overlay不扣宽。主窗口保持现最小尺寸，正常至少3列；脱离窗口或暂态不足最小卡宽时按fit安全降档而非强行溢出，不写回3–6请求偏好、不声称支持低于主窗口最小尺寸。离屏零宽不应用布局，控件只报告可行端点 |
 | 缩放 | 所有主网格初始请求 5 列，选择只在 3/4/5/6 列间改变，按 PageID 保存，目录独立。左“−”缩小卡片/增加列数，右“＋”放大卡片/减少列数；沿 Steam 两段原生控件外形，按钮、菜单、快捷键共用同一命令与可用性。窄窗暂容不下请求列数时不覆盖偏好；下一次点击按当前有效列数变化，避免第一次点击无视觉变化：请求6而有效5时，放大应5→4，缩小仅在有效列数还能增加时启用。resize不写偏好；同次命令更新可用性与AX。旧 width→基础列数及 targetWidth 两种算法均退出；迁移见 §13归档 |
 | 壁纸卡 | **完全采用现 Steam 方形卡与内部玻璃 bar**，圆角按现 14 pt；封面 aspect-fill，不拉伸，不改变真实图片/视频/Scene 画面或桌面填充设置 |
+| 壁纸bar | 仅两个按钮：左`exclamationmark.circle`固定查看详情，右按当前来源事实投影下载/播放/沙漏/停止四种互斥状态；中间保原标题。退出bar心形和眼睛，喜爱与空格预览仍走既有命令/详情；源DTO不变时也须及时投影pending/ready/stop/失败 |
 | 壁纸标题 | 仍在内部 bar 中；不在封面下另加同名一行。文件大小、时长、分辨率保留在详情/菜单及VoiceOver语义，卡片根与placeholder不再显示悬停元数据tooltip，不把现 bar 撑成两行 |
-| hover / 按下 | 保留白色描边，尺寸/位置不变；点击按下同样不放大或缩小。bar 沿现状态规则显隐，不加整个卡片的玻璃交互变形 |
+| hover / 按下 | 保留白色描边；hover按缩略图中心等比轻放大1.025，按下不缩放。共用原滚动phase暂停tracking/采样，结束恢复；bar沿原状态显隐，减少动态关闭缩放 |
 | 选择 | 单选以当前 Steam 卡片选择呈现；多选右上角勾选标记用系统强调色；playing、focus、selected、favorite 分别建模，不共用一个 Bool |
 | 列表目录卡 | 与壁纸卡同单封面边长、同列线；只显示一个方形封面，自选图优先，否则使用成员顺序首项缩略图，未就绪/不可用用媒体占位；不堆叠、不拼宫格；前封面圆角沿现 12 pt，封面下8 pt同一行，左名称13 pt medium、右数量12 pt secondary；长名称截尾，数量不挤出卡框；无壁纸控制 bar |
 | 新建卡 | 第一格固定，系统淡色底 + SF Symbol `plus`，下方“新建列表”；可键盘聚焦/AX 激活；不参与目录排序、选择计数、拖动、播放和取色 |
@@ -107,36 +108,37 @@ Apple 的公开指导支持侧栏分组、系统强调色、控制层与内容�
 
 普通壁纸页采用参考图一的紧凑 toolbar 标题，内容区不再重复巨型标题；结果/筛选说明复用现标题、tooltip与列表summary，不为补数量另添常驻行。用户要求缩小列表头（U05）：首版封面72 pt、窄窗64 pt，名称22 pt semibold、最多两行，描述非空时在标题下显示（最多三行，完整内容可从编辑查看），保留数量及“随机 / 播放 / 添加”原生胶囊动作，随机和添加仅图标、播放为图标+文字。普通单行名目标高约112 pt；长名/窄窗按原生 fitting size 增高，不能固定168 pt裁字/按钮。头部与网格左右8 pt线对齐，封面/文字间16 pt、底部至少16 pt，随同一内容滚动；旧112/80 pt封面与28 pt标题退出。前轮证据见§13归档，尺寸仍待最终同窗口验收，不能以削按钮缩小头部。
 
-空态使用 SF Symbol + 一句说明 + 一项相关动作：本地页“导入视频/图片”；下载页“浏览创意工坊 / Pixabay”两个同级入口；最近页“播放过的壁纸将显示在这里”；喜爱页“点击壁纸上的心形加入特别喜爱”；空列表仅说明“从顶部添加壁纸”，不在中央再放重复添加按钮。搜索无结果显示“没有符合条件的壁纸”与“清除筛选”，不能冒充空库。加载/账号失败/离线分别呈现，可重试且保留已加载快照。
+空库/空列表只显示 SF Symbol + 一句提示，不放导入/添加/浏览按钮；真正入口在工具栏。最近页提示“播放过的壁纸将显示在这里”；喜爱页提示从详情、菜单或工具栏加入特别喜爱（卡片bar不再放心形）；空列表提示从顶部添加壁纸。搜索无结果显示“没有符合条件的壁纸”与“清除筛选”，不能冒充空库。加载/账号失败/离线分别呈现，可重试且保留已加载快照。
 
-页面切换立即响应选择，不人为等待 0.75 s 才加载内容；0.75 s 仅属于主窗口/侧栏已确认的背景过渡；Editor/Picker改为详情同款材质，不再运行缩略图取色过渡。复用现 bar 动画，不再引入全页淡出到纯底色的闪白阶段。尊重系统减少动态效果；关闭动画不得改变操作完成顺序。
+页面切换立即响应选择，不人为等待 0.75 s 才加载内容；0.75 s 属于主窗口/侧栏/设置共用的背景过渡；Editor/Picker改为详情同款材质，不再运行缩略图取色过渡。复用现 bar 动画，不再引入全页淡出到纯底色的闪白阶段。尊重系统减少动态效果；关闭动画不得改变操作完成顺序。
 
 <a id="page-catalog"></a>
 ## 5. 工具栏与逐页规范
 
 ### 5.1 全局排列规则
 
-唯一 NSToolbar 由 App 的主窗口装配持有，Shell 和来源控件只消费注入值/动作：左侧 `固定侧栏tracking separator ｜ 页面标题`，中间 flexibleSpace，右侧按“来源/任务 → 页面动作 → 内容组织 → 视图 → 搜索”排列。U03要求这些职责形成独立原生视觉组：组间用Steam的 `.space`，不把全部 bordered item 连成一个长胶囊；组内仅真正成对的上下张、缩放合并。筛选/排序邻近，搜索独立最右；不绘制分割线/背景胶囊，无职责不留空组。无层级不放返回；播放上下张不用返回图标。侧栏固定开启，无显隐按钮/菜单/分割线收拢；从目录进入的自建列表在右侧功能区首位放独立“返回”组，位置/形态对齐作者工坊返回，不挤到标题或侧栏边；Steam作者返回保留。逐页顺序见下表，`｜`表示原生空隙；所有删除/移除统一trash图标，具体作用域由文案和默认不勾选的源文件复选框说明。最窄窗优先保导航/当前页识别与当前页主动作，原生搜索允许收拢但⌘F必展开；组织/缩放/低频命令可先入可执行overflow，长标题先原生截尾，不能为露全名缩小按钮或把必要入口隐藏到hover。
+唯一 NSToolbar 由 App 的主窗口装配持有，Shell 和来源控件只消费注入值/动作：左侧 `固定侧栏tracking separator ｜ 页面标题`，中间 flexibleSpace，右侧按“来源/任务 → 页面动作 → 内容组织 → 视图 → 搜索”排列。U03要求这些职责形成独立原生视觉组：组间用Steam的 `.space`，不把全部 bordered item 连成一个长胶囊；组内仅真正成对的缩放合并；所有播放/随机/上下张控件退出工具栏。筛选/排序邻近，搜索独立最右；不绘制分割线/背景胶囊，无职责不留空组。无层级不放返回；所有来源的返回在功能区顺序第一，独立图文胶囊。侧栏固定开启，无显隐按钮/菜单/分割线收拢；从目录进入的自建列表在右侧功能区首位放独立“返回”组，位置/形态对齐作者工坊返回，不挤到标题或侧栏边；Steam作者返回保留。逐页顺序见下表，`｜`表示原生空隙；所有删除/移除统一trash图标，具体作用域由文案和默认不勾选的源文件复选框说明。最窄窗优先保导航/当前页识别与当前页主动作，原生搜索允许收拢但⌘F必展开；组织/缩放/低频命令可先入可执行overflow，长标题先原生截尾，不能为露全名缩小按钮或把必要入口隐藏到hover。
 
 下表给出宽窗口的**完整顺序**。`更多`是稳定的低频页面命令集合，不是自绘的窄窗口 overflow；窄窗口溢出使用系统 toolbar 机制及 NSMenuItemValidation。高频按钮均有 tooltip、AX 标签和可执行的原生 overflow 等价入口，既有主菜单/快捷键完整保留；不为了每个分类/筛选新增一整套 App 菜单，不只靠 hover 可达。
 
 | 页面 | 标题右侧控件，从左到右 | 页面“更多”与选择后的动作 |
 |---|---|---|
-| 我的视频 | 导入、选择、添加到列表 ｜ 上一张/下一张 ｜ 移除、心形、更多 ｜ 排序 ｜ 缩放两段 ｜ 搜索 | 查看详情、Quick Look、Finder、已有视频专属操作与库维护；移除继续区分移出库/物理文件政策 |
-| 我的图片 | 导入、选择、添加到列表 ｜ 上一张/下一张 ｜ 移除、心形、更多 ｜ 排序 ｜ 缩放两段 ｜ 搜索 | 详情、完整图预览、Finder；添加喜爱和播放导航为本次新增能力 |
-| 我的下载 | **Steam 账号、下载任务 ｜ 选择、从我的下载移除、更多 ｜ 来源/类型/状态筛选、排序 ｜ 缩放两段 ｜ 搜索** | 保持原 Steam 下载工具栏骨架；喜爱、添加到列表、预览、Finder、详情放卡片/右键/菜单；不并排放两份下载工具栏 |
-| 最近使用 | 播放、随机播放 ｜ 选择、添加到列表 ｜ 从最近移除、心形、更多 ｜ 类型筛选 ｜ 缩放两段 ｜ 搜索 | 清空最近需确认；固定时间倒序，无排序按钮；保留原“文件→导入视频”入口，只入库不制造最近 |
-| 创意工坊 | Steam 账号、下载任务 ｜ 有上下文的作者/个人列表返回、热度时间窗 ｜ 原排序、筛选 ｜ 缩放两段 ｜ 搜索 | 作者工坊继续在当前页子路由，有明确返回；保留原排序/标签/内容类型，不能因统一 UI 删筛选 |
+| 我的视频 | 导入、选择 ｜ 移除、心形、更多 ｜ 排序 ｜ 缩放两段 ｜ 搜索 | 查看详情、Quick Look、Finder、已有视频专属操作与库维护；移除继续区分移出库/物理文件政策 |
+| 我的图片 | 导入、选择 ｜ 移除、心形、更多 ｜ 排序 ｜ 缩放两段 ｜ 搜索 | 详情、完整图预览、Finder；添加喜爱和播放导航为本次新增能力 |
+| 我的下载 | 通用下载任务 ｜ 选择、从我的下载移除、更多 ｜ 来源/类型/状态筛选、排序 ｜ 缩放两段 ｜ 搜索 | 无来源专属账号/登录/刷新入口；已有Steam成人下载显示作为数据筛选保留并明确作用域；同一通用下载面板管理多来源，不加任务来源筛选；各类型详情沿原owner |
+| 最近使用 | 选择 ｜ 从最近移除、心形、更多 ｜ 类型筛选 ｜ 缩放两段 ｜ 搜索 | 清空最近需确认；固定时间倒序，无排序按钮；保留原“文件→导入视频”入口，只入库不制造最近 |
+| 创意工坊 | 有上下文时独立返回 ｜ Steam账号、通用下载任务 ｜ 热度时间窗 ｜ 原排序、筛选 ｜ 缩放两段 ｜ 搜索 | 作者工坊继续在当前页子路由，有明确返回；保留原排序/标签/内容类型，不能因统一 UI 删筛选 |
 | 我的订阅（工坊二级页） | 独立返回 ｜ Steam账号、下载任务 ｜ 个人列表选择 ｜ 原个人排序、筛选 ｜ 缩放两段 ｜ 搜索 | 仅登录后从头像菜单进入；沿现个人列表snapshot/服务，保Steam收藏等子筛选；返回恢复公开工坊，作者页再返回先回此页 |
-| Pixabay | API 设置、刷新 ｜ 分类 ｜ 排序 ｜ 缩放两段 ｜ 搜索 | 保留现 API Key 设置/修改/清除，400 ms 搜索合并及原失败提示；不要求 Steam 登录 |
-| 所有播放列表 | 新建列表 ｜ 排序 ｜ 缩放两段 ｜ 搜索 | 空白右键新建；选择列表卡后可打开、编辑列表…、复制列表、删除列表…；这些低频操作使用固定目标右键/键盘 |
-| 特别喜爱 | 播放、随机播放 ｜ 选择、添加到列表 ｜ 取消喜爱、更多 ｜ 类型筛选、排序 ｜ 缩放两段 ｜ 搜索 | 保留“文件→导入”并将成功本地项加入喜爱；默认off仅取消喜爱，勾选源文件后才委托原来源删除 |
+| Pixabay | API设置图标、通用下载任务 ｜ 分类 ｜ 排序 ｜ 缩放两段 ｜ 搜索 | 保留现 API Key 设置/修改/清除，400 ms 搜索合并及原失败提示；不要求 Steam 登录 |
+| Wallhaven / Pixiv | 有作者上下文时独立返回 ｜ 原账号/API设置、通用下载任务 ｜ 原排序/筛选 ｜ 缩放两段 ｜ 搜索 | 返回独立图文胶囊且第一；刷新只走macOS27原生下拉；空格高清原图临时预览不入库 |
+| 所有播放列表 | 缩放两段 ｜ 搜索 | 空白右键新建；选择列表卡后可打开、编辑列表…、复制列表、删除列表…；这些低频操作使用固定目标右键/键盘 |
+| 特别喜爱 | 选择、添加到列表 ｜ 取消喜爱、更多 ｜ 类型筛选、排序 ｜ 缩放两段 ｜ 搜索 | 保留“文件→导入”并将成功本地项加入喜爱；默认off仅取消喜爱，勾选源文件后才委托原来源删除 |
 | 自建列表 | 有目录上下文时独立返回 ｜ 选择、添加到列表 ｜ 从列表移除、心形、更多 ｜ 类型筛选、排序 ｜ 缩放两段 ｜ 搜索 | 内容头“随机（图标）/ 播放（图标+文字）/ 添加（图标）”胶囊；更多：编辑列表…、复制、删除列表…。名称后同一排小字成员计数；保已有排序/搜索，所有本地卡仅向侧栏列表拖入以添加关系；退出网格成员拖排及专属“清除筛选以整理”命令 |
 
 
 从目录进入自建列表提供“返回所有播放列表”，右侧首个独立按钮；其他入口按V03有界上下文，不新增任意历史栈。页面支持动作只出现一份；选择模式把“选择”变“完成”，标题旁显示“已选 n 项”。更多、删除/移除、喜爱/加列表在无有效选择时均禁用，但不反复增删 toolbar item 造成布局跳动。浏览页只提供逐项动作，不新增原来不存在的远端批量下载能力。
 
-工具栏宽度优先级：页面标题、搜索、核心主动作最高；选择/正在使用的筛选次之；缩放、来源账号及低频组织动作可进系统 overflow。搜索宽度首版 180–280 pt，窄时允许缩到 160 pt；标题最小保留约 100 pt 并截尾。旧主窗口最小宽度内不裁切按钮，所有隐藏到 overflow 的动作仍可通过菜单/键盘访问。NSToolbar 原生溢出与标准控件依据 [Apple Toolbars](https://developer.apple.com/design/human-interface-guidelines/toolbars)；具体优先级由本表制定。
+工具栏宽度优先级：页面标题、搜索、核心主动作最高；选择/正在使用的筛选次之；缩放、来源账号及低频组织动作可进系统 overflow。各来源搜索统一首选220 pt，账号按钮共用32 pt原生度量，窄时交系统overflow；标题最小保留约 100 pt 并截尾。旧主窗口最小宽度内不裁切按钮，所有隐藏到 overflow 的动作仍可通过菜单/键盘访问。NSToolbar 原生溢出与标准控件依据 [Apple Toolbars](https://developer.apple.com/design/human-interface-guidelines/toolbars)；具体优先级由本表制定。
 
 搜索占位统一为“在〈页面/列表名称〉中查找”，作用域只限本页；本地页修改即查询快照，远端沿现 debounce/请求取消，不逐键同步网络。不把所有页连成新的全局搜索，也不在切页时沿用另一个来源的查询字符串。图标按钮统一用现系统控件尺寸与 SF Symbols，原生菜单/搜索/segmented 控件先复用，不再逐模块手画相同按钮。
 
@@ -151,7 +153,7 @@ Apple 的公开指导支持侧栏分组、系统强调色、控制层与内容�
 | 创意工坊 | 现有远端分页/发现/作者结果，Steam 卡片 | 仍用远端搜索和原服务排序；不拿本地排序覆盖服务分页顺序 |
 | 我的订阅（工坊二级页） | 当前登录账号的订阅/原个人列表结果 | 与公开工坊共用全局workshop页；保个人搜索/排序/过滤/分页。账号切换撤旧私有快照，登出回公开页，不自动登录 |
 | Pixabay | 现有视频结果、分页与分类 | 远端搜索，原热门/最新等服务支持的选项；不伪造跨来源统一相关度 |
-| 所有播放列表 | 第一个固定新建；其余按 sidebarRank | 仅搜索列表名称；默认手动顺序，可名称/创建时间/修改时间排序。新建卡在有无搜索结果时都保留，不计入结果数 |
+| 所有播放列表 | 第一个固定新建；其余按 sidebarRank | 仅搜索列表名称；按侧栏手动顺序显示，目录工具栏不提供排序。新建卡在有无搜索结果时都保留，不计入结果数 |
 | 特别喜爱 | 所有当前喜爱关系；新记录默认按标记时间新→旧 | 类型/来源筛选；名称/标记时间/文件大小；旧喜爱没有可靠标记时间，维持稳定旧序并说明，不伪造时间 |
 | 自建列表 | 按成员手动顺序；重复加入同一规范引用不重复 | 默认手动；可临时按名称/加入时间/大小/成功使用时间；切回手动恢复原序；不提供成员卡拖动改序。过滤/搜索不阻止本地已下载卡向侧栏添加 |
 
@@ -163,9 +165,9 @@ Video 当前“添加时间”分支读取 lastUsed，不能直接当成统一�
 
 ### 5.3 下载页详情与账号
 
-选中 Steam 项打开原 Steam 详情；选中 Pixabay 项打开**原 OnlineLibraryDownloadsInspectorView**，其排版、按钮、元数据、缩略图和隐藏滚动条保持不变。混合页通过已选内容引用委托对应 provider 挂载 InspectorHost，不让 Pixabay 详情伪装成 Steam record，也不把原页面选择集整份复制进两家服务。
+选中 Steam 项打开原 Steam 详情；选中 Pixabay 项打开**原 PixabayDownloadsInspectorView**，其排版、按钮、元数据、缩略图和隐藏滚动条保持不变。混合页通过已选内容引用委托对应 provider 挂载 InspectorHost，不让 Pixabay 详情伪装成 Steam record，也不把原页面选择集整份复制进两家服务。
 
-“原详情不变”不允许继续双写：Video/SIL 详情保留布局与来源元数据，其原心形/标签按钮必须注入固定规范引用和新关系命令，标签改称“添加到列表”，状态订阅统一 store；不能临时改来源全局 selection 后再调用旧 addTag/toggleFavorite。Pixabay 原 footer 仍保留两按钮，不强塞新组织按钮；该来源通过卡片、右键和主菜单完成新组织动作。原 Web/Scene 属性入口和开发调试能力保留，已退役的不可见诊断入口不恢复。
+“原详情不变”不允许继续双写：Video/SIL 详情保留布局与来源元数据，其原心形/标签按钮必须注入固定规范引用和新关系命令，标签改称“添加到列表”，状态订阅统一 store；不能临时改来源全局 selection 后再调用旧 addTag/toggleFavorite。Pixabay 原 footer 仍保留两按钮，不强塞新组织按钮；该来源通过右键和主菜单完成新组织动作。原 Web/Scene 属性入口和开发调试能力保留，已退役的不可见诊断入口不恢复。
 
 下载任务按钮采用原 Steam 任务面板结构，第一阶段原 Steam 任务完全保留；补入 Pixabay 任务分组时只观察原在线服务的进度/错误，不接管下载执行。只展示来源真实支持的取消/重试；无取消 API 时不造一个无效按钮。Steam 账号控制只控制 Steam，离线/未登录不应阻断 Pixabay 和已有本地内容。
 
@@ -177,7 +179,7 @@ Video 当前“添加时间”分支读取 lastUsed，不能直接当成统一�
 
 “添加壁纸”打开主窗口附属模态面板（详情同款材质，无缩略图取色/淡入）：来源分段“全部 / 我的视频 / 我的图片 / 我的下载”，搜索、统一卡片/多选、底部已选数量和“取消 / 添加 n 项”。只列本地或已下载且可引用条目；搜索/来源变化只保留仍在当前查询中的选择，滚动不清选择，跨类型一次添加使用“全部”；添加已有成员显示已在列表且不重复，不当作报错。新增追加尾部；列表本来为空时新加入顺序按本次显示快照顺序，禁止遍历 Set 决定顺序。
 
-拖动卡片到侧栏列表等价“添加到列表”，修饰键/拖动图标表达复制关系，不移动真实文件。本地资料库及最近/喜爱/自建列表成员均可单卡拖入侧栏；内部重排及其专属准入/整理命令退出，取消不写；侧栏及目录手动拖排共用sidebarRank；名称/日期Sort菜单只改目录展示投影。hover让位仅临时呈现，成功drop才提交一次，取消零写；固定行/新建卡不可拖，不显示插入线。文件外拖导入只在“我的视频/图片”与列表详情接受；列表详情先按原导入服务类型路由并成功入库，再添加关系，不直接从临时 URL 播放。远端网页拖入不隐式下载。
+拖动卡片到侧栏列表等价“添加到列表”，修饰键/拖动图标表达复制关系，不移动真实文件。本地资料库及最近/喜爱/自建列表成员均可单卡拖入侧栏；内部重排及其专属准入/整理命令退出，取消不写；侧栏及目录手动拖排共用sidebarRank；目录固定依sidebarRank；退目录排序菜单，旧保存sort值不改变目录次序或锁住拖排。hover让位仅临时呈现，成功drop才提交一次，取消零写；固定行/新建卡不可拖，不显示插入线。文件外拖导入只在“我的视频/图片”与列表详情接受；列表详情先按原导入服务类型路由并成功入库，再添加关系，不直接从临时 URL 播放。远端网页拖入不隐式下载。
 
 异步导入捕获固定目标（资料库 / 喜爱 / playlistUUID）、导入命令代次和 resetEpoch：切页不改目标，喜爱页导入仍加喜爱，最近页导入始终只入资料库；目标列表已删则仅保留成功入库项并提示未加入，不改投其他列表。按原来源能力接受文件：视频沿现支持格式，SIL 仍支持目录递归；混合输入逐项报告新增/已存在关联/失败。只给成功项加关系；关系写失败不能删已导入的源文件或伪报全成功。导入本身不新增自动播放路径，显式播放仍经过原 ImportedVideoAutoplayGate。
 
@@ -186,7 +188,7 @@ Video 当前“添加时间”分支读取 lastUsed，不能直接当成统一�
 
 ### 6.1 壁纸卡片内部 bar
 
-保持现 Steam 形状、材质、位置、标题和下载进度表现；共享的是视图与状态呈现，不把其 service 订阅搬给所有卡片。通用 bar 分为左侧心形、中央标题、右侧主动作；Steam 独立订阅使用书签，优先放右键/详情的清晰入口，宽度足够时可在现 bar 的扩展动作位呈现，不挤掉标题或缩小命中区。 bar 沿部署目标 macOS 26 使用原生 [NSGlassEffectView](https://developer.apple.com/documentation/appkit/nsglasseffectview)，不叠手绘玻璃、不为原生化删现进度/标题/交互；Shared 接替后原同职责呈现退出，禁止长期双 UI owner。
+保持现 Steam 形状、材质、位置、标题和下载进度表现；共享的是视图与状态呈现，不把其 service 订阅搬给所有卡片。通用bar仅左详情、中间标题、右下载/播放/切换/停止互斥主动作；收藏/列表/Steam订阅留原菜单或适用详情，不再在bar堆扩展动作。 bar 沿部署目标 macOS 26 使用原生 [NSGlassEffectView](https://developer.apple.com/documentation/appkit/nsglasseffectview)，不叠手绘玻璃、不为原生化删现进度/标题/交互；Shared 接替后原同职责呈现退出，禁止长期双 UI owner。
 
 | 内容状态 | 主动作 / 常驻表现 | 心形与列表操作 |
 |---|---|---|
@@ -422,7 +424,7 @@ schema 与迁移 marker 放同一关系数据库事务内；临时库发布前�
 
 保留设置页原“导出设置 / 导入设置”按钮、保存/打开面板与确认/结果提示，设置装配接入新关系合同；不让旧 `importPersonalSettings` 再直接写 Video/SIL 的退役关系字段。原 schema5 已覆盖偏好、视频喜爱/tag、SIL/tag，新协议不能只打包视频而漏混合列表，也不能把正式用户入口降为开发工具。
 
-基础schema6（本轮升级schema7，见§14）：保留原可导出 preferences，增加规范引用/最小 locator、playlists、ordered members、每引用显式 favorite 状态和迁移来源；排除媒体字节、缩略图/派生缓存、凭据、daemon/lifetime/待执行任务。**最近历史、页面/搜索/滚动状态和运行播放来源继续不属个人设置导出**；仅原已导出的全局视频排序偏好接入新 Presentation 的视频页排序值，schema6以最小显式字段表达新版排序，旧v1–5缺字段不覆盖、dateAdded用明确旧版时间序列，不冒充入库/成功时间；导入恢复记录保该值before/target并核同epoch/后续编辑，导出读取唯一呈现owner。开发一致备份才包含完整界面状态。可保留只读派生的旧 entries/tags/silEntries 兼容字段，但同名多列表/混合成员在旧 App 中不可完整表达，须说明降级边界，不能伪称旧版无损。
+基础schema6（本轮升级schema7，见§14）：保留原可导出 preferences（UI22补齐快捷键开关/四绑定、Scene HDR/媒体信息和播放性能档等可移植偏好；旧optional字段不覆盖），增加规范引用/最小 locator、playlists、ordered members、每引用显式 favorite 状态和迁移来源；排除媒体字节、缩略图/派生缓存、凭据、daemon/lifetime/待执行任务。**最近历史、页面/搜索/滚动状态和运行播放来源继续不属个人设置导出**；仅原已导出的全局视频排序偏好接入新 Presentation 的视频页排序值，schema6以最小显式字段表达新版排序，旧v1–5缺字段不覆盖、dateAdded用明确旧版时间序列，不冒充入库/成功时间；导入恢复记录保该值before/target并核同epoch/后续编辑，导出读取唯一呈现owner。开发一致备份才包含完整界面状态。可保留只读派生的旧 entries/tags/silEntries 兼容字段，但同名多列表/混合成员在旧 App 中不可完整表达，须说明降级边界，不能伪称旧版无损。
 
 旧版v1–v5路径（本轮另保v6缺新字段语义，见§14），沿原缺可选偏好不覆盖、热键本地优先、同路径显式标题/喜爱覆盖与成员合并规则，经同名映射进入新库；缺文件保留 unavailable 引用。新版输入按 playlistUUID 幂等 upsert，已有同 UUID 元数据应用导入值、成员按原现有顺序保留并追加新增项，不删未涉及列表/成员；同名不同 UUID 不误合并，引用 alias 规范化后去重。显式 favorite=false 只清该引用，未提供状态不清现有喜爱。旧 payload 重复导入复用其来源/tag 映射，不重复建列表；未知更高 schema 先拒绝并保留文件，不静默忽略新字段写成不完整成功。
 
@@ -434,7 +436,7 @@ schema 与迁移 marker 放同一关系数据库事务内；临时库发布前�
 
 “清理缓存”继续只处理各原 namespace 的预览/缩略图/静帧和 Steam 浏览/详情缓存；不得清关系列表、喜爱、最近、alias 或原媒体。新共享卡消费原缓存，不新增漏在设置清理入口外的第二缓存。
 
-“重置默认”保持原重新安装级语义：在同一 resetEpoch 下先撤销播放/序列、待导航、迁移/导入/alias/最近写入和 Undo，再清设置、库/UI 状态与全部用户关系，按原政策恢复示例与默认值并 flush；实际下载/媒体文件保持原不删除政策，不清未知目录。清理后写新的完成 marker/代次，旧投影键、待写日志、迁移备份不得被自动当首次输入灌回。重置前已接纳的媒体任务若不能取消，其晚完成只结算原任务，不能恢复旧列表/喜爱或自动播放；用户明确重导入备份是新的命令。退出只 flush 当前已提交代次，不能等待旧任务后又回写已重置数据。
+“重置应用”（原“重置默认”）保持原重新安装级语义：在同一 resetEpoch 下先撤销播放/序列、待导航、迁移/导入/alias/最近写入和 Undo，再清设置、库/UI 状态与全部用户关系，按原政策恢复示例与默认值并 flush；实际下载/媒体文件保持原不删除政策，不清未知目录。清理后写新的完成 marker/代次，旧投影键、待写日志、迁移备份不得被自动当首次输入灌回。重置前已接纳的媒体任务若不能取消，其晚完成只结算原任务，不能恢复旧列表/喜爱或自动播放；用户明确重导入备份是新的命令。退出只 flush 当前已提交代次，不能等待旧任务后又回写已重置数据。
 
 <a id="execution"></a>
 ## 10. 基础完成摘要与最终停止条件
@@ -460,7 +462,7 @@ schema 与迁移 marker 放同一关系数据库事务内；临时库发布前�
 | D 列表 | 新建/同名/emoji/重命名/复制/删除/撤销、多选加入、重复加入、侧栏快加；目录/侧栏列表拖序 | 唯一 ID、关系和顺序稳定；删列表不删资源；新建首卡始终第一且不参与计数/排序/取色 |
 | E 下载 | 跨来源同号、独立video合成ID、账号切换、旧版本ready+更新失败/进行中、saving禁取消、重试N项、来源/类型筛选 | 不丢本地独立视频；旧版继续可播且能重试；账号/任务身份准确；不隐藏失败项或丢已有批量重试 |
 | F 删除重入 | 右键删除/toolbar 删除/批量部分失败，完成前切页/换选中；随后 hover 相邻卡并真正滚动 | 只影响原 ID；旧完成不清新选择；bar/描边和详情不残留；订阅/文件/关系语义相互独立 |
-| G 卡片状态 | 静态/GIF、首次 hover、播放/准备、进度/失败/取消、多选/框选、快速复用、滚动反向 | Steam 原行为保留；无 hover/按下缩放；迟到图片不串卡；有效图不因相同配置清空 |
+| G 卡片状态 | 静态/GIF、首次 hover、播放/准备、进度/失败/取消、多选/框选、快速复用、滚动反向 | Steam 原行为保留；hover仅轻微居中放大、无按下缩放；迟到图片不串卡；有效图不因相同配置清空 |
 | H 原详情 | 原来源/混合页连续切不同provider，在详情点喜爱/加列表/属性，Quick Look切来源与卸载 | 内容/布局/隐藏滚动条保留；组织动作只写新store的固定引用；QL不按新activeModule卸错旧代理；旧回包不开面板 |
 | I 最近 | 51 个成功引用、重复播放、失败/取消、同票据多屏 ACK、时钟回拨、重启 | 最多 50，规范引用去重，成功后移首；失败/内部恢复不计；同下载与 backing 不双计 |
 | J 轮换 | 四类型有向切换；A列表健康→B坏Scene、timer/ended争用、改页/删成员、原全局相邻与视频随机历史 | 来源/cursor/history只随正确票据成功提交；失败保A及原计时；同一来源不越界，原两类导航语义不混淆 |
@@ -475,7 +477,7 @@ schema 与迁移 marker 放同一关系数据库事务内；临时库发布前�
 
 ### 11.2 复用与新增验证
 
-现有最近门优先复用：`test_library_toolbar_behaviors`、`test_ui_library_algorithms`、`test_library_keyboard_navigation`、`test_wallpaper_library_query`、`test_wallpaper_library_view_preferences`、`test_steam_library_interactions`、`test_grid_playback_publication`、`test_list_thumbnail_tint`、`test_online_downloaded_thumbnail_identity`、`test_sil_metadata_loading`、`test_playback_switch_transaction`、`test_playback_switch_endpoints`、`test_playback_policy_delivery`。实施前检查每个真实输入是否到达改动 owner；函数名或源码字符串匹配不当作混合列表行为证据。
+现有最近门优先复用：`test_library_toolbar_behaviors`、`test_ui_library_algorithms`、`test_library_keyboard_navigation`、`test_wallpaper_library_query`、`test_wallpaper_library_view_preferences`、`test_steam_library_interactions`、`test_grid_playback_publication`、`test_list_thumbnail_tint`、`test_pixabay_downloaded_thumbnail_identity`、`test_sil_metadata_loading`、`test_playback_switch_transaction`、`test_playback_switch_endpoints`、`test_playback_policy_delivery`。实施前检查每个真实输入是否到达改动 owner；函数名或源码字符串匹配不当作混合列表行为证据。
 
 在现测试框架中补关系迁移/别名/查询、四类型 sequence 和统一 card presentation 的输入/输出 fixture；测试断言具体成员、顺序、成功事件和失败不变状态。原 tag 行为测试可迁移到新关系语义，但必须保留它证明的有效能力，不能仅把断言删掉或把 expected 改成新的错误结果。UI 自动化的静态点击成功不证明真实删除或播放，应核对数据和实际输出。
 
@@ -528,92 +530,88 @@ schema 与迁移 marker 放同一关系数据库事务内；临时库发布前�
 
 隐藏与删除分层：显式库隐藏记录归同一关系Store，Query仅在资料库/下载候选投影消费，保完整source事实给既有列表/喜爱/播放，不新增scanner或provider私有隐藏defaults。显式重新导入/重新下载成功或浏览页“重新加入我的下载”才解除隐藏，本轮不新增库隐藏Undo；扫描/mtime/播放不自行复活。原App运行期桥接在显式下载准入时从现有workspace捕获Store回执，不依赖主窗口或Commands存活；权限在准入时核，已准入成功结算沿原FIFO/profile CAS（不因后来的临时只读丢回执）；恢复捕原隐藏revision及epoch，晚到成功不能清之后的新隐藏，alias链接与条件clear同事务。物理删除只在用户勾选并确认后走原source的活动资源/owned-tree/权限与逐项结果；文件I/O和关系SQL不能假整体回滚，源删成功但关系提交失败须如实显示缺失并报告，旧page/reset/selection闭包不能清新目标。删除列表容器仍只删列表并确认，不让其批量删除成员文件。
 
-<a id="user-ui-revision-10"></a>
-## 15. 新10项与补充模态裁决：实施工作卡
+## 15. 前轮 V/T/F 完成记录
 
-已获实施授权，隔离工作树保留既有改动；设备归还核验见`.artifacts/main-window-redesign/v10/d40-return-independent.json`。新图路径仍缺失，Editor预算取此前Music参考，最终用户实看裁决。源码结论、隔离近门和整App实看分别记录，交叉审查不等于视觉验收。
+基础迭代已合入本轮基线；完整工作卡与历史验证移至归档。仍有效的引用、删除、隐藏滚动条、安全距离、原生输入及轮换合同保留在§4–§9、§14；本轮变更只以§22为准。
 
-| 工作卡 / 用户序号 | 当前状态 | 本轮替换后的标准与后续落点 |
-|---|---|---|
-| V01 / 1 单张列表封面 | Artwork/Query/Presentation近门通过，整App待实看 | 目录取消全部堆叠/宫格，自选单图优先，否则规范成员顺序首项；空/不可用/加载中用同媒体占位，不按回包顺序借下一图。Sidebar/Header/目录同源，封面不参与鼠标缩放；保方形/名称/数量/5列与3–6端点 |
-| V02 / 2 紧凑编辑面板 | 前轮原生证据保留；F02新尺寸待验证 | 前轮380×520/128图候选已退出；T08的270宽由F02修为285宽，保112图/60描述、按内容fitting，错误完整有界滚动，无固定大空白；与Picker/SteamLogin共用清透regular Surface，无取色填层 |
-| V03 / 3 目录返回按钮 | 导航/数据及原生Toolbar近门通过，整App待实看 | 目录→列表时，右侧按钮区首位独立`chevron.backward`+返回，后有原生space；不放标题左。返回恢复目录原搜索/排序/密度/UUID锚点，捕page/reset/entry上下文；不停止壁纸、不改播放来源；保Steam作者返回独立业务 |
-| V04 / 4 侧栏大图标 | 原生Sidebar门通过，整App待实看 | 前轮24 pt候选已被Q07替换：槽/封面22、符号和字体沿挂载后的原生source-list配置；保持强调色、标题基线、窄栏/长名，SF固有留白仍看真实绘制范围 |
-| V05 / 5 侧栏让位 | 原生Sidebar/通用UI门通过，整App待实看 | 优先原生view-based Outline `.gap`验证让位且无线；不满足目标时才同原Outline做临时UUID顺序+moveItem，约0.12 s跟旧视觉并服从减少动态效果。固定两入口/组不可拖，hover不写Store，取消零写，drop一次原事务/Undo；壁纸拖进列表仍为添加关系的copy语义 |
-| V06 / 6 目录让位且无闪 | 受控异步正负控已区分，185项通过 | 原Collection在hover按目标让位，纯UUID重排用move/batch保持item和图像身份；native index先按当前已安装entries转目标UUID，再作用到排队临时序，不能把未来queued顺序当真实index。新建卡固定第0格，排序/过滤不暗改；drop一次原事务，凭Store revision结算（可跳过自己echo直接到后续排序/Undo），失败恢复一次，不全reload清图 |
-| V07 / 7 连续拖卡误多选 | 完整三模式167项通过，整App待实看 | 普通模式拖未选B前将原选A替换为B；拖选中同卡不切Inspector，显式选择模式保集合/框选但不启动原生拖动。原生mouseDown/selection委托在组装pasteboard前统一，不在drop结束补清，不加焦点或全局鼠标监听 |
-| V08 / 8 确认 | 本轮P03替代旧自绘呈现 | 全App二次确认使用系统NSAlert；原居中自绘及专属像素oracle退出，业务取消/源文件checkbox/响应与嵌套语义继续验证；Editor/Picker专用窗口不在替换范围 |
-| V09 / 9 详情预览位移 | 真实四来源/Host门通过，整App待实看 | 用户报告换选时先位移再回正。Host已复用不代表子预览稳定；记录真实Video/SIL/Pixabay/Steam首次layout、图片/详情回包、滚动恢复后的窗口坐标。保排版结构/隐藏滚动条，在现子视图更新事务消除中间错误几何；Video预留既有两行预算使单行留白略增，非旧终态像素一致；不以整panel淡入/延迟/强制置顶遮问题 |
-| V10 / 10及补充 Picker统一材质/模态/按钮 | Editor/Picker/Toolbar/菜单近门及最终App实看通过 | Picker与Editor同详情/Steam登录材质；取消取缩略图背景色及其0.75 s/首帧快照新方案，主窗口轻染仍原规则。两者附主窗口模态出现并拥有输入，下层不可点击/拖动/收快捷命令；原生capsule优先，视觉达不到可共用最小自绘bezel，键盘/AX/禁用状态完整 |
-| V11 / 拖动后标题灰矩形 | 已修并含于185项原生回归，整App待实看 | Directory的name.drawsBackground与灰色背景显式绘制是来源，非文本编辑；已退出这两行，标题始终无文本选底。保封面outline、native selection/highlight、AX、UUID与键盘行为；旧灰底正例按用户新裁决替换为无背景/无field editor，补真实拖动后检查；其他媒体bar用原CATextLayer未见同类producer |
-
-**L01 轻量调用链（用户补充，已实施、交审及最近门通过）。** V01–V11及来源/模态/相邻命令近门通过后，回查本会话未提交产品改动；跨await目标/epoch、CAS、文件权限、UTF8身份、迁移持久输入、SQL/Undo完整性仍按实际消费边界保留。删guard数、静态复杂度和调用次数不冒充整App实测提速；不借本片扩成引擎/认证专项，另会话的Web文件检查与Navigator优化不重做。
-
-已实施边界：PersonalSettings.plan用引用Set代替逐sourcePatch扫locators，保原值优先/顺序；Query按页面/搜索/有效排序构辅助表，alias-only不扫locator，保最近先去重限50再filter；Controller只为实际待清recent取上下文，FIFO空drain零读/零发布，无新调度flag。退役经全产品调用核验为0的Publication.publish(snapshot:)及配套旧capture入口，故障/持久化测试迁真实openOrMigrate/rawDefaults+inputURL。Adapter一次viewport内复用Source；同字体/图标尺寸不重建或清文字宽度；Workspace旧entry一次索引、已成立backing不交空事务；Composition按完整数据依赖复用派生、同render只更新一次Header，动作仍按新session生成。三组独立交审无阻断，Core/Workspace/Commands九门、控件/适配两门及共享卡片相邻门均已通过；Resolver插桩先严核marker及真实非零，不能恒0伪过。
+<a id="user-ui-revision-10"></a> [归档记录](../history/development/main-window-playlists-v-t-f-completed-2026-10-27.md#user-ui-revision-10) <!-- archive-redirect -->
+<a id="inspector-playback-appearance-round"></a> [归档记录](../history/development/main-window-playlists-v-t-f-completed-2026-10-27.md#inspector-playback-appearance-round) <!-- archive-redirect -->
+<a id="compact-input-subscriptions-round"></a> [归档记录](../history/development/main-window-playlists-v-t-f-completed-2026-10-27.md#compact-input-subscriptions-round) <!-- archive-redirect -->
 
 <a id="151-前轮断点与证据边界"></a> [归档记录](../history/development/main-window-playlists-q01-q09-integration-2026-10-26.md#151-前轮断点与证据边界) <!-- archive-redirect -->
-
-### 15.2 具体实施边界、布局与完整操作链
-
-**封面与排序。** V01先改Query.directory:246的“筛可用前4”及DirectoryEntry.coverReferences多值合同，从规范手动成员首项直接给唯一候选（先身份后可预览）；再改现Artwork owner从prefix(3)收至该首项，保持自选asset读取、取消/late回包/resetEpoch；退出Shared/UI多层layers、背图view/offset、sourceImages/多slot身份和对应独占无消费者辅助，不留只供旧fixture调用的兼容层。保现单图方形归一化，不清Store封面资产或schema/profile数据；旧“每层不同图”断言因用户取消功能而迁移为单图/无多余请求/尺寸/取消/复用反例，数据安全/真实旧断言不削弱。V05/06共用纯UUID目标顺序计算（确有双消费者再抽），Outline与Collection各自消费原生move，不造全局Drag manager。
-
-目录预览仅在当前可编辑、手动无过滤时开始，捕drag UUID、resetEpoch、目录全体playlist UUID集合（非壁纸成员/可见子集）及一次性session；hover只变UI预览。accept且最终顺序确有变化时，现Controller串行一次reorderPlaylists写sidebarRank并register一次Undo；原位/往返hover后回原序drop为零写/零Undo，侧栏/目录同权威回声。原onReorder:Void优先改为原Actions的一次成功/失败终态，不以仅等目标order回声误判Store拒写；提交未结算不重入新drag，不建registry。普通封面/计数回声不得弹回或撤销预览；取消、窗外、reset/只读/集合变化撤预览，失败恢复最新权威一次。纯移动的数据源变化和native batch同事务，存活item的layout attributes不得nil，不能重演旧数组/原生计数裂口；禁用inter-item-gap可见indicator要与真实目标计算分开，不能拿dropOn假装before。移动期间需求在原可见性事务合并前后可见+drag项，结束结算真实集合；hide/close/reset即时撤权，不以全库常驻图片或延时重试消闪。框、图、名称和AX按同UUID一起移动。
-
-**编辑布局与材质。** 按Q04/Q06建立的紧凑Editor布局经T08缩至270宽后，由F02修为285宽；保112方封面、描述60高，名称及封面动作与底部取消/完成同一紧凑栈；去520硬下限/底部spacer/空错误占位，真实fitting定高，长错误最多120高原生滚动、完整复制。三面板共用WallpaperLibrarySheetSurface的regular玻璃+边框，无整片palette alpha/不透明root，系统无障碍回退仍有效；不合并Editor草稿、Picker选择、Steam认证或Store owner，不连带改详情布局。选图NSOpenPanel归Editor嵌套，取消零写，保存仍原事务/Undo/epoch/expected metadata；已接受保存强持工作至入Store并完成，同turn host close不得丢工作，关闭后不导航。Picker保800×600/最窄680网格空间。
-
-**模态和输入。** 当前Q06已退出三面板beginSheet：MainWindowCoordinator解析真实主host，以owned child呈现避免系统sheet灰罩，公开parent/child及原native sheet关系唯一判域，外层只一个local input monitor，不建全局registry/event tap/透明罩/焦点轮询或抬高level。初次makeKey，主host及背景兄弟child鼠标/hover/拖/scroll/key不接收，合法顶层panel/native descendants仍可输入；held菜单/toolbar/drag/QL动作核同一permitsInput。host不可用就报告，不浮出无归属普通窗。关闭同步撤nested sheet/QR、child/monitor，保原owner恰一次cleanup，用户离开App不抢焦点；普通失焦不使业务失效。文本/default/cancel、Picker搜索/缩放/选择按真实keyWindow，背景页/非文本上下张禁用；MainMenu旧允许sheet下切换的正例已按新目标换为阻背景、文本保行首/尾的反例。下载/导入/Store已准入异步结果沿原epoch/revision结算，reset/close清理不套新输入guard；不扩系统hotkey/状态栏或暂停壁纸。嵌套OpenPanel/确认、host关闭、reset/只读/目标删及迟到完成必须保完整操作链，不能只证静态child关系。
-
-**控件和确认。** Apple WWDC25说明mini–medium默认圆角矩形，large以上默认胶囊；公开borderShape可覆盖NSButton/PopUp/Segmented，不能以设置.capsule就声称实际像素正确。Editor/Picker按钮共用原WallpaperLibraryControlStyle，以明确上下文/size配置调用，不让新面板样式默认改大Header/toolbar/原bar；来源selectOne四段及zoom momentary两段保原分组语义；先检查intrinsic size、controlSize、bezelStyle、borderShape和最终背景，必要时原生.glass；原生仍达不到目标才在现NSButton/Cell最小bezel绘制，继承原输入/默认/取消/AX与系统强调色，不另写按钮事件状态机、不加按下缩放，绘制正常/hover/pressed/disabled/key focus均有合同。允许自绘是后备实施授权，不预先自绘整套组件。
-
-二次确认统一原生NSAlert的beginSheetModal/runModal，由系统拥有玻璃、图标/标题/说明/按钮布局；删除AppCenteredAlertPresentation与手排Panel，不为像素同轴重绘或遍历系统内部视图。首安全/单按钮保原Return，以原alert生命周期的裸Esc桥执行同一原生按钮；completion/host关闭/app-modal退出均立即移除，其他按钮用原keyEquivalent，无独立输入域或焦点逻辑。Editor/Picker保现专用玻璃窗口，其内的删除/放弃等确认仍挂当前顶层panel；无host沿原app-modal。保accessory/suppression/help、按钮顺序、响应值及completion一次；取消/保留/Esc零业务写，源文件checkbox默认off，物理删除partial仍报失败项。接受系统原生排版差异，不再要求手绘48pt图标/17pt标题/160pt正文几何。
-
-**返回。** V03由现Presentation/App导航记录仅“从目录进入playlist”的有界返回上下文，不建任意栈或把播放来源当页面history；目录卡/其右键Open捕该上下文，侧栏直接选其他页、reset或目标删除清掉，普通编辑不清；新建/notice打开按真实来源显式决定，不借旧上下文。返回使用原目录PageID session恢复查询和UUID锚点，原目录已变化时找存活锚点/合理边界，不按旧index回滚；上下文/epoch失效的旧toolbar action不得导航新会话。按钮与原作者返回同公开样式、独立组及可执行overflow，不复活已退役的无上下文back入口。
-
-**V09实施裁决（顶部锚定已由T01–T03替换）。** 保固定156预览和隐藏滚动条；全部详情文档从顶部安全距开始。Video原加载态缺少元数据/路径，AV完成会改变居中高度；现原helper在现有一次stat结果上同步给完整模板，AV仍异步补值，元数据及次要信息按已有两行上限预留高度。缺图提示保留文案，放到固定预览区域内，避免缺图/补图改变正文高度；补图仅更新同一surface。SIL同样原位补图，固定高度约束只安装一次。Pixabay直接读现有已准备快照，退出无I/O却人为Task两阶段重建；Steam同步布局后恢复原scroll origin，退出延迟一轮校正。Host同步完成新子内容实际宽度布局，无整面板淡入或延迟遮盖。AV/真实图变化须补坐标、身份和约束数门，不能以外壳记录视图代替。
-
 <a id="153-前轮验证与当前停止条件"></a> [归档记录](../history/development/main-window-playlists-q01-q09-integration-2026-10-26.md#153-前轮验证与当前停止条件) <!-- archive-redirect -->
-
 <a id="154-上一候选交付未提交"></a> [归档记录](../history/development/main-window-playlists-q01-q09-integration-2026-10-26.md#154-上一候选交付未提交) <!-- archive-redirect -->
-
 <a id="user-ui-revision-nine"></a> [归档记录](../history/development/main-window-ui-feedback-p01-p05-2026-10-26.md#user-ui-revision-nine) <!-- archive-redirect -->
-
 <a id="q01-q09-integration-record"></a> [归档记录](../history/development/main-window-playlists-q01-q09-integration-2026-10-26.md#q01-q09-integration-record) <!-- archive-redirect -->
-
 <a id="user-ui-feedback-round"></a> [归档记录](../history/development/main-window-ui-feedback-p01-p05-2026-10-26.md#user-ui-feedback-round) <!-- archive-redirect -->
 
-<a id="inspector-playback-appearance-round"></a>
-## 18. 详情、简洁确认与播放/背景规则（T01–T08）
+## 20–21. UI16 / UI17 实施证据
 
-| 工作卡 | 当前用户目标与唯一实现边界 | 状态 / 验证 |
+前两批工作卡与实机/门禁边界已归档；当前有效行为保留于§3–§9，最新13项反馈只查§22。独立树仍未提交，不把“已实现/门通过”当用户验收。
+<a id="ui-simplification-sixteen"></a> [归档记录](../history/development/main-window-playlists-ui16-ui17-completed-2026-10-27.md#ui-simplification-sixteen) <!-- archive-redirect -->
+<a id="ui-refinement-eleven"></a> [归档记录](../history/development/main-window-playlists-ui16-ui17-completed-2026-10-27.md#ui-refinement-eleven) <!-- archive-redirect -->
+
+<a id="ui-feedback-thirteen"></a>
+## 22. 路径、预览、轮换与状态栏反馈（R01–R13）
+
+继续原隔离树，保已有未提交内容；主仓由并行会话更新到a6e86559a，本轮不擅自合入/提交。原设置“macOS原生/按列表取色”只保当前“APP界面色调”文案，算法按旧提交逐链核对还原，不另造系统强调色投影。用户已确认选择顺序/随机即启用现定时间隔轮换，所有媒体沿当前列表来源。
+
+共享边界：旧文件零复制兼容、新写分模块目录；manifest/原图临时缓存/发布事务各只有原owner，缓存不是授权或播放许可。24小时原字节复用归原下载/QL链，过期/取消/换源只影响本请求。Collection原batch差分保真实卡片/选中及异步代次，跨页/初载不强行动画；只允许最少在途与最新目标瞬态，不加第二列表/轮换真值。
+Finder返回仅追本App显式打开的那次窗口，优先返回持久主窗口，避免返回已消失的下载popover；只在Finder前台时低频看窗口ID元数据，本次可见Finder窗口退出后回原仍可见App窗口，主动切到其他应用即撤销，不申请AX/录屏权限或常驻全局输入监听。[NSWorkspace](https://developer.apple.com/documentation/appkit/nsworkspace/activatefileviewerselecting(_:))负责原reveal，窗口枚举不读取标题/像素。提示统一由共享 `WallpaperGridNoticeView` 在网格底部居中显示5秒；同一消息随状态重绘不续命，移上暂停、移出1.5秒退出，原重试/下载成功设壁纸动作保留。Inspector的原布局owner仅给遮挡宽度标量，把胶囊居中到仍可操作的网格区，不穿透详情面板。移除Chrome顶部notice布局约束与Pixabay的旧errorBanner/专属toast，网格不再因提示增减改变几何。真正空态/登录必需入口保留。
+
+| 卡 / 用户项 | 结果与必要反例 | 状态 |
 |---|---|---|
-| T01 顶部安全距离 | 共用Inspector滚动区的首图从统一顶部安全距起始，真顶不进入fade；滚离顶后才有原平滑过渡，footer和header不入mask | 共享181项真实滚动像素及四来源实际frame门通过（真顶/中段/底部/insets/短文档/resize）；顶部首图完整显示 |
-| T02 Steam统一过渡 | Steam详情复用同一InspectorFadingScrollView及safeInset，不叠加新blur/背景/观察owner；无硬切，原预览与属性内容生命周期不变 | Steam实际Detail两门及共同fade门通过；保原同turn滚动恢复/预览生命周期，待最终App试用 |
-| T03 统一顶部排版 | Video/SIL/Pixabay/Steam详情全部短内容也top锚定，退出文档内centerY；保外层浮动面板定位、隐藏滚动条和既有元数据/footer排版 | 四来源实际Host/短长内容/顶部8pt/补图前后frame与方向键原位替换门通过；入口/关闭竞态旧断言保留 |
-| T04 简洁原生确认 | 删除/清空/重置/导入等常规说明至多两句，具体失败信息不截断；原NSAlert显式用app icon，文字按原生左排，源文件checkbox左排/default off，取消/响应/源文件作用域不变 | 原生NSAlert门32项及Commands事务门通过；App图标/left-checkbox default off、取消零写/partial/原响应不变；系统拥有文字/玻璃布局 |
-| T05 当前列表轮换 | 手动从当前页播放后，自动timer/ended/随机/失败跳过始终使用该成功来源的有序候选；换浏览页不换来源，空/失效/删列表不自动退全库；无来源的显式导航政策保留 | 原产品来源绑定无需重复改写；真实Workspace→Manager Timer/advance→Sequence六本地页顺序/随机等30新增检查通过，换浏览/失败/来源不可用不退全库 |
-| T06 图片退出恢复 | 原Manager桌面写入职责保存每display的原URL/options及最后App实际URL/options；成功应用静态图片后，退出时syncSystemWallpaper=false恢复仍由App占用的桌面，true不恢复；跨图/动态/开关变更不覆盖原备份 | 实现并通过Playback/Termination/Removal近门；含partial rollback自身失败、同URL外部options变更、两缓存出口保护；桌面API/屏幕为隔离transport，不改真实用户壁纸 |
-| T07 背景二选一 | 设置“列表封面取色”(默认、保0.75s轻染) / “macOS原生”；B退出侧栏opaque填色和主区tint，露原sidebar材质并停tint-only采样/封面需求；A按当前页首图恢复，不重建网格/Inspector/播放器 | 原生设置/三取色门/Sidebar/Artwork/profile import+readonly门通过；旧journal兼容已修，B零采样与释放lease、迟到拒收；真实主窗材质待Debug试用 |
-| T08 编辑列表窄窗 | 编辑列表信息窗口从360约缩至270pt（约25%）；保原112封面、名称/描述/选封面与恢复/保存取消，内容驱动高度，长名/错误不裁；不改变添加壁纸Picker宽度 | 原生Editor门通过（50项）；270宽、112封面、全部按钮/长中文emoji/长错误/键盘/保存与撤权；待最终Debug试用 |
+| R01 / 1 Finder | 本次reveal退出可见区域后回原App；切其他App/Space/关原窗/多Finder窗不抢，原窗口观察清理 | 已修复/隔离门通过；新App实际关闭待用户复测 |
+| R02 / 2 路径 | 新写Movies/MyWallpaperX/Wallhaven、Pixiv、Pixabay；旧路径/manifest/引用/删除准入零复制兼容 | 已实现/对应回归通过 |
+| R03 / 3 提示 | WH/Pixiv/Pixabay/Steam等已加载页不再顶端盖卡错误条；底部居中玻璃胶囊短时退出，去旧banner/handler | 已实现/对应回归通过 |
+| R04 / 4 原图QL | 原缩略图暗化+spinner；再空格取消，pending禁止另项激活；原字节保24小时、下载复用不联网，scope/过期/取消迟到反例 | 已实现/对应回归通过 |
+| R05 / 5 最近 | 同来源播放导致最近重排保native move/卡身份，不能reload闪烁 | 已实现/对应回归通过 |
+| R06 / 6 增删 | 各列表原Collection batch插入/移除/递补；初载/跨页/减少动态、动画中新事件与旧完成隔离 | 已实现/对应回归通过 |
+| R07 / 7 头部播放 | 随机排除当前/pending（多候选），每次重新随机；播放从当前显示首项开始，后续沿设置 | 已实现/对应回归通过 |
+| R08 / 8 状态面板 | 该轮保留原×0.8小尺寸（现后继N05为0.88）；mode左当前canonical喜爱空心/红心，原关系owner即时双向同步 | 已实现/对应回归通过 |
+| R09 / 9 模式 | 状态栏/设置同一Manager；顺序/随机开启现定时轮换，loop停跨项；manual当前列表为唯一候选来源 | 已实现/对应回归通过 |
+| R10 / 10 占用 | 现可见2秒采样App+登记helper CPU/phys footprint；无可靠进程GPU则保系统指标（标题简写GPU，范围在tooltip），不伪造无归属数据 | 已实现/对应回归通过 |
+| R11 / 11 色调 | 对照旧git原native/thumbnail两分支，仅文案变化；不保系统accent算法/重复observer，不重置已选模式 | 已实现/对应回归通过 |
+| R12 / 12 图标 | 下载恢复旧图标；pending仍不可重复执行但hourglass不被disabled自动变暗，深浅可读 | 已实现/对应回归通过 |
+| R13 / 13 分隔 | WH/Pixiv/Video/SIL分区复用一份原生divider（语义separator色25%）；Steam同标准，深浅实际几何门通过 | 已实现/回归通过 |
+| R14 / 追加间距 | 本地视频删除摘要/元数据值强制两行空白预留；单行原生intrinsic高度、长值保两行，分区间距对齐其他详情 | 已实现/对应回归通过 |
+| R15 / 钥匙串提示 | 交互Debug仅用CFFIXED_USER_HOME隔离Foundation数据，HOME保真实用户目录；不重置默认钥匙串，不改凭据保存链 | 启动环境对照/既存Key实际读取与收藏查询通过；新Key保存写入未自动操作 |
 
-实现取舍：详情只改现共享scroll与各文档top约束，mask按原viewport与实际溢出启闭，不加overlay层/第二layout owner。原生确认保系统玻璃/按钮布局，accessory仅公开尺寸与left alignment，不把icon居中变成私有view改造。T08优先原生fitting，遇按钮宽度不足可用同组垂直排布，不缩字/裁正文。
+验证按实际消费链选择最近门，先静态交叉审再冻结源统一原生/数据反例与增量签名Debug。设备compiler/native/前台窗口与并行会话协调，单次小改不全量构建。真实账号写入、真实用户媒体删除、Release、FPS无证不宣称。
 
-播放与恢复：T05是现Sequence唯一来源合同的核验，自动推进不得调用global后备；原library snapshot/alias/成员更新仍唯一权威。T06沿原desktop write的事务/退出收口：先撤在途写权再恢复；partial rollback自身失败时保原baseline和实际残留写值，未把失败播放冒作commit。只恢复实际写过且URL/options均未被用户外部改变的屏，URL/options为空/失效或屏已移除则局部跳过，不复制用户媒体、不扫描目录、不哈希文件、不重试抢桌面。普通动态同步的既有退出政策不扩大；静态图片触发的恢复资格由原Manager持有，退出时开关决定是否执行；备份仅在进程内，覆盖正常退出，不承诺崩溃或强制结束恢复。
+实现边界：新下载与兼容索引由原 `OnlineImageLibrary/PixabayService` 管理；WH/Pixiv在新根独用 `online-images.json`，旧 `在线图片/manifest.json` 和旧 `在线图库` 只读兼容，未主动移动或复制已有媒体。临时原图的sidecar仅存复用所需资产元数据，不存账号凭证；稳定缓存命名空间与异步请求scope分别归现登录/请求owner，24小时过期和坏raw只使该缓存叶失效，不添加周期全库扫描、暖命中decode/hash或播放认证。
 
-背景职责与兼容：复用原AppSettings持久化与原Shell tint projection，字段缺失默认现行为，未来无效值只回退这个偏好；设置UI用原生双选项，不新增theme manager；已无产品调用的弹窗单区域取色install(main:)及转发helper退出，跨窗口生命周期/迟到采样断言移至仍在用的双区域接口。NSSplitViewItem已有原生侧栏材质，B只撤opaque覆盖；主区保持系统底色/材质。独立窄设置投影消费发布入参，避免settings willSet旧值与RenderSignature早退；目录tint-only封面lease随模式释放/重获，真实Sidebar/Grid预览需求不受影响。旧import-recovery日志未声明新背景字段时，两个原偏好CAS消费者共用字段兼容比较并保本地选择；声明过的新字段及其他字段冲突仍拒绝。三代理分责及交叉审查、Root串行近门已完成；审查修复partial rollback失败与旧journal新字段兼容，不留重复owner，原断言保持。先不提交。
+CPU与内存采样限定App主PID和现有登记播放helper，沿原面板可见时2秒采样；首个CPU差值尚未建立时显示“–”，CPU 100%代表一核心。系统WebKit子进程未登记，未计入；GPU仍为可可靠获取的系统GPU；按用户最终选择小标题统一简写“CPU/GPU/内存”，范围由tooltip交代，网络仍为系统统计，不能宣称全部指标为App独占。状态面板该轮保留原×0.8的小尺寸（后继UI20 N05改为0.88），新增红心、模式联动与指标范围改动保留。
 
-前轮T01–T08候选（2026-10-26，仅旧代码证据）：同一缓存增量Debug 68.854s构建及签名验证通过，4375个产品构建输入前后及启动前均未变化，base为8f71545d8；已用W21隔离HOME/defaults/workshop参数启动PID65301。最终凭据在忽略的`.artifacts/ui-polish-20261026/`，保留一份原DerivedData与App供用户试用；无暂存/提交/合并，主仓未修改。真实系统桌面恢复、原生模式下方窗口模糊及用户视觉验收仍待，transport/AX/构建不替代这些结论；前轮既有Scene依赖baseline差异保留原证据，不改无关Scene门或泛称全仓全通过。该候选轮全仓文档链接门有10项基线既有失效（源文件与目标缺失均与8f一致）；该轮5份改动文档相对链接零错误，证明在旧凭据document-link-scope.json，未混改并行专题。
+本轮用户复测修正：首个Finder版本的隔离决策门通过，但真实关闭未恢复焦点，不能以fixture代替真实Finder。已用本机元数据确认Finder保留多个 `onscreen=false` 的layer0旧窗口；原 `.optionAll` 不能代表可见前后顺序。改为 `.optionOnScreenOnly` 有序列表，仅追此次显式reveal；真正退出后执行一次现App使用的显式激活调用。主动切应用/Space、隐藏App/关原窗、选择另一仍有目标可见的Finder窗口均撤销观察，不循环激活，不申请额外权限。此能力基于可见窗口退出，最小化同样退出可见列表，不伪称CG元数据能区分关闭与最小化。
 
-<a id="compact-input-subscriptions-round"></a>
-## 19. 紧凑确认、输入外观与订阅入口（F01–F04，收尾）
+R03补充：同文错误的再次发生与普通重绘分开。`report` 只在新错误发生时推进一次瞬态事件号，沿原Presentation→RenderSignature→notice传递；同状态重绘不续命，新错误即使同文也重显。没有第二错误owner、订阅、持久队列或新增clock。原状态门与真实胶囊5秒/重试/详情透传门均通过。
 
-| 工作卡 | 目标与唯一实现边界 | 实施 / 验证 |
+本批验证：旧/新目录与撤销回执、24h原图跨重启离线复用/取消/账号隔离/损坏/过期回收、四类型当前来源轮换、真实网格legacy/animations/topology及目录增删、原生详情/提示/空格、卡片深浅样式、进程统计、状态面板动作与原生几何均执行最近门。交叉审查修正了动画中跨页旧输入资格、卡片类型替换、密度同时变化和Finder离屏ID；没有削弱原业务断言。首次Status greeting门暴露旧预期漏中文逗号，已按现有产品文案逐字修正，补诊断并保持原“只能用批准文案”断言。关键日志在忽略目录 `.artifacts/ui18-20261027/`，同一份 `.build-cache/ui16-debug` 保留增量复用。
+
+Finder实际验证边界：旧版真实失败已记录；修订后隔离原生决策门覆盖缓存离屏ID与Space/第三方App反例。独立真实Finder回归多次被Code/Codex前台切换打断或被输入工具拒绝；没有把这些中断记为通过，没有为输入工具加焦点重试或放松取消条件。最终签名Debug交付后仍需用户按实际使用方式复测关闭Finder返回。
+
+R15（2026-10-28）：用户保存Wallhaven API Key出现系统“找不到钥匙串”。只读对照确认真实用户默认login钥匙串正常；原交互Debug同时覆盖HOME/CFFIXED_USER_HOME，使Security找不到临时HOME中的默认钥匙串。修正为HOME保真实用户目录、CFFIXED_USER_HOME仍为既有runtime-home、TMPDIR仍隔离；实测Foundation的home/Movies/Application Support/Caches与原隔离路径完全相同，`security default-keychain -d user`恢复找到现有login钥匙串。经用户允许放弃未保存输入后已正常重启同一签名App，二进制未变；未读API Key、未写测试凭据、未重置/复制/修改系统钥匙串。Wallhaven仍按现Bundle service保存，真实保存由用户在App内重新填写验证。此为交互凭据测试的启动规则，不替换无凭据自动化/引擎fixture既有双HOME隔离合同。证据仅保留于 `.artifacts/ui19-keychain-launch-20261028/`。
+
+
+<a id="ui-online-panels-twenty"></a>
+## 23. 在线浏览完成态与筛选弹层（UI20）
+
+按2026-10-28最新六项要求执行，沿当前工作树保留旧改动，不提交。状态栏以当前0.8倍尺寸再放大10%，统一比例0.88；小标题仍CPU/GPU/内存。官网来源：Wallhaven [API](https://wallhaven.cc/help/api)、Pixabay [视频API](https://pixabay.com/api/docs/#api_search_videos)、Pixiv现官网身份元数据及作者作品消费者；不能把第三方镜像自称官方当依据，账号/筛选字段按真实响应与消费者落地。
+
+| 卡 | 执行标准与责任边界 | 状态 |
 |---|---|---|
-| F01 紧凑删除确认 | 历史de3ef098e之前原NSAlert未手设宽；撤当前320pt accessory下限，保sizeToFit/left/default off/app icon，正文短两句保scope及不可撤销提示；资料库/关系/列表删除的两按钮缩成取消/移除，原.first响应不变，不恢复私有KVC或368pt手排Panel | 原生确认32项、Commands事务及Directory门通过；真实Debug约260pt宽、有App图标/取消/移除/未勾源文件，Esc取消后12项未变；未对真实媒体执行删除 |
-| F02 Editor285 | 名称/封面/描述窗口270→285pt；保112封面、60描述和原fitting/完整错误；Picker不改 | 原生Editor52项通过，含几何/中文emoji/撤权/保存取消/嵌套选封面；真实Debug测得285pt、半透输入，取消未保存 |
-| F03 表单轻透 | 提取Login现半透明浅暗底/轻圆角为一份共享表面，普通名称/描述、账号/密码/验证码、API Key/快捷网址及作者string字段复用；退出黑色cell/scroll重复不透明底，保原native编辑器/formatter/IME/undo/secure reveal/focus ring/AX及几何；search、数字Stepper/slider/combo和只读信息沿原语义 | native form、Login layout/modal、Scene属性5门通过；深浅/高对比/减少透明度、secure reveal、marked-text协议及原数据类型受检；硬件中文输入法与主观视觉仍待用户 |
-| F04 订阅二级页 | 退侧栏/前往菜单独立订阅页与旧运行时case；头像仅登录后显示我的订阅，复用现Steam personal/discovery snapshots和作者返回：公开→个人→作者逐级返回，下载→作者原路不变。原搜索/排序/分段/分页/订阅能力不迁owner；登出清私有呈现回公开，不动正在播放来源 | prefs兼容、Steam导航/query/interactions/menu、remote/window toolbar、主菜单门通过；覆盖原服务快照/逐级返回/登出/迟到拒收及当前回调；真实侧栏入口已移除，真实登录账号/网络仍未验 |
+| N01 / 初载 | WH/Pixiv空网格只显示居中加载；有成员时分页提示仍在最后一排后的document footer | 已实现/回归及实际首屏通过 |
+| N02 / 账号 | Wallhaven保存成功立即显示已保存；显式一次collections读取返回真实收藏集名称/数量，失败保Key，不猜昵称/集合URL。Pixiv从现官网可信身份显示name/id，复用本人作者页和官网个人主页；不为资料加启动/播放认证或轮询 | 已实现/对应回归通过，真实账号覆盖见下 |
+| N03 / 筛选 | 共用400pt原生checkbox网格、分组、分隔、清空与摘要，沿原query即时更新、面板保持打开。WH分类/内容多选、最低分辨率单选、比例多选，退役颜色与重复精确分辨率UI。Pixiv按真实插画/漫画、AI、页面适用内容规则；Pixabay按官方20分类、视频类型、最低分辨率、编辑精选/安全搜索。清空保搜索/作者/排序上下文，不造官方不执行的参数；高频主题只能由有证据的官方标签/原搜索消费，未证字段不伪造 | 已实现/对应回归通过，真实账号覆盖见下 |
+| N04 / 匿名 | 用户接受无Key只看封面。普通IAB现已加载官方/videos/匿名首屏，卡片真实提供id/作品页/CDN封面；原URLSession及sitemap直连仍403。已实测默认UA的原生WK非持久页403安全验证、cards为空；探针退出，不写未证scraper。可行时才复用Service/items/请求代次投影官方编辑推荐，结束释放网页，不轮询/解挑战/换UA。独立封面URL、媒体文件为nil，下载/视频QL禁用，未知时长大小不显示。实现前需收敛Catalog/Inspector/bar三处媒体能力投影，不能因有item就授予下载；旧本地记录优先保留。无Key不冒充支持API筛选排序；有Key沿原完整API，不嵌他人Key/代理/假媒体URL | 原生请求403，外部阻塞未实施 |
+| N05 / 状态栏 | 现0.8×1.10=0.88，统一尺寸/字体/间距同比放大，保红心/模式/指标与简洁标题 | 已实现/原生几何及动作门通过 |
+| N06 / 详情 | WH/Pixiv作者移至标题下左侧，36pt半透明全圆角pill；按用户最新图2底部仅保留下载或应用、打开原网页两键，统一共享半透明按钮（主/次），等宽、间隔8pt、总宽与封面齐；撤掉文件夹按钮及本面板文件动作，不保留旧无底色网页链 | 已实现/独审、回归及新版实际双键核对通过 |
 
-F04兼容/撤权：旧Codable订阅case只读归workshop；旧SavedState同时有两页query时保已有workshop，缺workshop时迁旧订阅密度/锚点，不能归并后重复key使全prefs失效。折叠全局页后，同ID跨feed旧源菜单/primary/组织动作沿既有Steam navigationVersion捕获并拒迟到，同DTO续显消费该原publisher重配动作、无需重启缩略图；Downloads源菜单不绑浏览版次。无调用者的旧订阅通知退出，不另建session/auth owner；目录、OL与播放来源不受影响。
-构建与边界：本轮核心及相邻近门已过，原候选Debug50.694s/strict签名通过，4376输入无漂移，PID87290已退出；最终整合Debug187.409s/strict签名通过，4427个声明产品/项目/helper输入前后无漂移。证据在忽略的.artifacts/ui-polish-20261026/compact-input-subscriptions/validation-new.json与final-integration-debug-build/receipt.json；保一份DerivedData/App供后续试用，不自动再启动。真实账号、硬件IME、真实桌面恢复与主观视觉不由fixture/构建代验。
-交审与测试修正：原source菜单跨feed撤权/同DTO重配、旧query顺序无关合并及私有搜索不迁公开均闭合；退出旧订阅通知、Login专属field及重复外观数组。新fixture按原消费链先consume pending scroll再发布用户滚动，text即使default数字仍交原string；全局remote页减为两页后按来源逐项断言，未削弱旧断言。原生输入保stock NSAlert对照与handled=true keyEquivalent断言，Tab走原队列；测试激活失败不改产品焦点逻辑，真实Debug删除确认Esc已验。
-整合结算：基于启动专项23a382c6a重放全部UI改动，保唯一静帧查询/一次缓存key及桌面恢复/保护职责；测试补真实clearUnprotectedStaticFrameFiles提取与空protected Set数据叶，Generator/StaticFrame双配置、删除回执、库Playback、Steam interactions通过，双方断言保留。五条启动文档登记完整保留，已退休的三个源码形状信号棘轮220→217，行为反例不减。独立最终复审无阻断，按用户授权以单个UI提交快进codex/engine-refactor-program，完成后通知“新模块接入”基于该HEAD并等待其用户安排；不碰main、不推送，停止后续任务。
+共享仅承担原生排版和控件，来源筛选/账号/下载/选中事实仍归既有模块owner；退役单列菜单、旧颜色/重复分辨率与旧底部作者链，不保两套显示路径。状态与网络晚到沿当前来源scope/Key revision隔离；保已认证/已保存事实，资料获取失败局部显示、显式重试，收藏不混为App特别喜爱。按最近门冻结后统一串行构建/原生验证，交付新的Debug给用户；匿名源或真实账号受限需独立说明，不用其阻塞其余五项。
+
+交叉审查修正：Keychain首次读取失败只允许显式账号刷新重试，普通浏览复用读取结果；同Key保存不换代、不取消在途下载/详情。Pixiv资料失败保可信身份并显示局部失败。信息行原生禁用；短/空白作者的真实资产优先级、固定Inspector宽度和模态网页/作者拒绝均补反例。共享作者按钮自然宽度按实际内边距/图标/间隔计算，修掉少计空间的提前截断；原Steam续页源码guard检查改为真实函数的loaded/busy/hasMore输入输出反例，不以源码字样维持测试。Pixabay搜索输入只更新搜索框，筛选/排序随实际参数变化更新，不增菜单hash缓存；短筛选面板按真实intrinsic定高，去掉历史180pt最小高造成的空白。
+
+UI20验证：15组相关测试最终通过，增量签名Debug通过，构建期源不变；WH实际官方收藏请求成功，Pixiv未代用户登录。最新两键候选已构建；旧Debug退出曾被用户操作状态保护拒绝，用户主动退出后已按原隔离数据重启，新版实际双键/作者全名已核对，不改焦点或强退。匿名Pixabay原生探针403留最小证据，未加无效抓取链。未暂存、未提交。
+
+后续深度交叉审查及修复见[UI21审查卡](ui-quality-audit.md#ui21-scope)；用户九项补充的实施与逐卡验收见[UI22专项](ui-quality-audit.md#ui22-scope)。UI22按用户最终要求文档收尾后结束；两项尾修仅静态完成，未执行后续验证或构建，不替换App、不提交或合入，等待用户再次通知。本节UI20交付收据不代表后续修改已验证。

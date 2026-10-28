@@ -3,7 +3,7 @@ import AppKit
 /// Standard buttons retain AppKit keyboard/AX behavior; only their surface and
 /// SF Symbol sizing are customized to match the compact control panel.
 final class StatusBarPanelSymbolButton: NSButton {
-    enum Surface { case plain, subtle, overlay, primary }
+    enum Surface { case plain, favorite, subtle, overlay, primary }
     let surface: Surface
 
     init(symbol: String, help: String, surface: Surface = .plain, size: CGFloat = 16) {
@@ -13,7 +13,7 @@ final class StatusBarPanelSymbolButton: NSButton {
         bezelStyle = .regularSquare
         imagePosition = .imageOnly
         image = NSImage(systemSymbolName: symbol, accessibilityDescription: nil)
-        symbolConfiguration = NSImage.SymbolConfiguration(pointSize: size, weight: .medium)
+        symbolConfiguration = NSImage.SymbolConfiguration(pointSize: size * StatusBarPanelPresentation.scale, weight: .medium)
         toolTip = help
         setAccessibilityLabel(help)
         wantsLayer = true
@@ -28,6 +28,9 @@ final class StatusBarPanelSymbolButton: NSButton {
         case .plain:
             layer?.backgroundColor = NSColor.clear.cgColor
             contentTintColor = .labelColor
+        case .favorite:
+            layer?.backgroundColor = NSColor.clear.cgColor
+            contentTintColor = state == .on ? .systemRed : .labelColor
         case .subtle:
             layer?.backgroundColor = NSColor.labelColor.withAlphaComponent(0.07).cgColor
             contentTintColor = .labelColor
@@ -49,6 +52,7 @@ final class StatusBarPanelSymbolButton: NSButton {
 }
 
 final class StatusBarPanelCoverView: NSView {
+    static let transitionKey = kCATransition
     private let imageView = NSImageView()
     private let placeholder = NSImageView()
     let properties = StatusBarPanelSymbolButton(symbol: "paintbrush", help: "属性调节", surface: .overlay, size: 14)
@@ -56,15 +60,16 @@ final class StatusBarPanelCoverView: NSView {
     override init(frame frameRect: NSRect) {
         super.init(frame: frameRect)
         wantsLayer = true
-        layer?.cornerRadius = 10
+        layer?.cornerRadius = 10 * StatusBarPanelPresentation.scale
         layer?.cornerCurve = .continuous
         layer?.masksToBounds = true
         imageView.imageScaling = .scaleProportionallyUpOrDown
         imageView.imageAlignment = .alignCenter
         imageView.animates = false
+        imageView.wantsLayer = true
         placeholder.image = NSImage(systemSymbolName: "photo", accessibilityDescription: "暂无壁纸预览")
         placeholder.contentTintColor = .tertiaryLabelColor
-        placeholder.symbolConfiguration = NSImage.SymbolConfiguration(pointSize: 28, weight: .light)
+        placeholder.symbolConfiguration = NSImage.SymbolConfiguration(pointSize: 28 * StatusBarPanelPresentation.scale, weight: .light)
         addSubview(imageView)
         addSubview(placeholder)
         addSubview(properties)
@@ -73,9 +78,24 @@ final class StatusBarPanelCoverView: NSView {
     required init?(coder: NSCoder) { nil }
 
     func setImage(_ image: NSImage?) {
+        guard imageView.image !== image else { return }
+        let crossfade = image != nil && imageView.image != nil && window?.isVisible == true
+            && !NSWorkspace.shared.accessibilityDisplayShouldReduceMotion
+        imageView.layer?.removeAnimation(forKey: Self.transitionKey)
+        if crossfade {
+            let transition = CATransition()
+            transition.type = .fade
+            transition.duration = 0.25
+            transition.timingFunction = CAMediaTimingFunction(name: .easeInEaseOut)
+            imageView.layer?.add(transition, forKey: Self.transitionKey)
+        }
         imageView.image = image
         placeholder.isHidden = image != nil
         needsLayout = true
+        // Commit the new AppKit contents within this transition, rather than
+        // leaving a later display pass to replace an independently animated layer.
+        layoutSubtreeIfNeeded()
+        imageView.displayIfNeeded()
     }
 
     override func layout() {
@@ -87,7 +107,9 @@ final class StatusBarPanelCoverView: NSView {
                                      width: size.width, height: size.height)
         } else { imageView.frame = bounds }
         placeholder.frame = bounds
-        properties.frame = NSRect(x: bounds.width - 42, y: bounds.height - 42, width: 30, height: 30)
+        let scale = StatusBarPanelPresentation.scale
+        properties.frame = NSRect(x: bounds.width - 42 * scale, y: bounds.height - 42 * scale,
+                                  width: 30 * scale, height: 30 * scale)
         properties.needsDisplay = true
     }
 }

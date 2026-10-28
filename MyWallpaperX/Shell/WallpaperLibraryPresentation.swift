@@ -11,6 +11,7 @@ nonisolated struct WallpaperLibraryPresentationState: Sendable {
     var directoryScrollOffset: Double?
     var directoryScrollAtTop: Bool?
     var lastError: String?
+    var lastErrorEvent: UInt64 = 0
     var allowsEditing = true
 }
 
@@ -48,7 +49,9 @@ nonisolated struct WallpaperLibrarySelectionReceipt: Sendable {
     /// The injected relationship writer. Recovery can browse without one.
     let collections: UserCollectionsController?
     var canEditCollections: Bool { state.allowsEditing && collections != nil && collections?.isResetting == false }
-    var permitsDirectoryReordering: Bool { page == .playlists && queryState.permitsManualReordering }
+    var permitsDirectoryReordering: Bool {
+        page == .playlists && queryState.search.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+    }
 
     private struct Session {
         var query = WallpaperLibraryQueryState()
@@ -78,7 +81,9 @@ nonisolated struct WallpaperLibrarySelectionReceipt: Sendable {
             let pageDecoder = try values.superDecoder(forKey: .page)
             wasSubscriptions = try pageDecoder.container(keyedBy: LegacyPageKey.self).contains(.workshopSubscriptions)
             page = try WallpaperLibraryPage(from: pageDecoder)
-            query = try values.decode(WallpaperLibraryQueryState.self, forKey: .query)
+            var restored = try values.decode(WallpaperLibraryQueryState.self, forKey: .query)
+            if page == .downloads, restored.status == .transferring || restored.status == .failed { restored.status = .all }
+            query = restored
         }
         func encode(to encoder: Encoder) throws {
             var values = encoder.container(keyedBy: CodingKeys.self)
@@ -572,6 +577,7 @@ nonisolated struct WallpaperLibrarySelectionReceipt: Sendable {
     func report(_ error: Error) {
         var next = state
         next.lastError = error.localizedDescription
+        next.lastErrorEvent &+= 1
         state = next
     }
 

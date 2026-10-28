@@ -16,7 +16,7 @@ import AppKit
         let item = collection.makeItem(withIdentifier: AppKitWallpaperItem.reuseIdentifier, for: path) as! AppKitWallpaperItem
         item.setThumbnailVisible(false)
         item.configure(wallpaper: VideoWallpaper(id: "native target", path: "/fixture-unread.mp4", thumbnailPath: nil),
-            isSelected: false, isPlaying: true, isFavorite: false, multiSelectMode: false,
+            isSelected: false, isPlaying: true, multiSelectMode: false,
             wallpaperManager: manager, thumbnailProvider: provider)
         item.onPlayRequested = { played.append($0) }
         return item
@@ -25,6 +25,8 @@ import AppKit
     controller.collection.register(AppKitWallpaperItem.self, forItemWithIdentifier: AppKitWallpaperItem.reuseIdentifier)
     controller.onSelection = { _, _ in selections += 1; return UUID() }
     controller.onInspect = { inspections.append($0.reference) }
+    // This gate exercises native hit routing under the explicit open-detail preference.
+    controller.opensDetailsOnSingleClick = { true }
     let window = NSWindow(contentViewController: controller)
     window.setContentSize(NSSize(width: 330, height: 330))
     window.setFrameOrigin(NSPoint(x: 14000, y: 14000))
@@ -78,7 +80,13 @@ import AppKit
     click(button.convert(NSPoint(x: button.bounds.minX - 4, y: button.bounds.midY), to: nil), label: "button-neighbor")
     checks["video.button-neighbor-keeps-card-selection-without-playing"] = played == ["native target"]
         && selections == 1 && inspections == [reference] && controller.selection.references == [reference]
-    click(card.imageContainer.convert(NSPoint(x: 100, y: 150), to: nil), label: "cover")
+    let coverPoint = NSPoint(x: card.imageContainer.bounds.midX, y: card.imageContainer.bounds.maxY - 12)
+    let coverInWindow = card.imageContainer.convert(coverPoint, to: nil)
+    let coverHit = window.contentView?.hitTest(coverInWindow)
+    checks["video.cover-probe-is-inside-current-thumbnail-and-outside-both-native-controls"] = card.imageContainer.bounds.contains(coverPoint)
+        && coverHit === card.view
+        && coverHit !== bar && coverHit?.isDescendant(of: bar) == false
+    click(coverInWindow, label: "cover")
     checks["video.cover-keeps-card-selection-without-playing"] = played == ["native target"]
         && selections == 2 && inspections == [reference, reference] && controller.selection.references == [reference]
     return checks
@@ -101,7 +109,7 @@ import AppKit
                     let card = collection.makeItem(withIdentifier: AppKitWallpaperItem.reuseIdentifier, for: path) as! AppKitWallpaperItem
                     card.setThumbnailVisible(false)
                     card.configure(wallpaper: VideoWallpaper(id: "reflow-\(path.item)", path: "/fixture-reflow-\(path.item).mp4", thumbnailPath: nil),
-                        isSelected: state.isSelected, isPlaying: playing, isFavorite: false, multiSelectMode: state.isSelecting,
+                        isSelected: state.isSelected, isPlaying: playing, multiSelectMode: state.isSelecting,
                         wallpaperManager: manager, thumbnailProvider: provider)
                     return card
                 }, updateState: { cell, state, playing in
@@ -120,7 +128,7 @@ import AppKit
         let provider = AppKitThumbnailProvider(wallpaperManager: manager)
         card.setThumbnailVisible(false)
         card.configure(wallpaper: VideoWallpaper(id: "interaction", path: "/fixture-unread-video.mp4", thumbnailPath: nil),
-            isSelected: false, isPlaying: false, isFavorite: false, multiSelectMode: false,
+            isSelected: false, isPlaying: false, multiSelectMode: false,
             wallpaperManager: manager, thumbnailProvider: provider)
         checks.merge(gridCardInteractionChecks(item: card, cardRoot: card.imageContainer,
             outline: card.hoverOutlineView, isHovering: { card.isHovering }, label: "video",
@@ -169,11 +177,11 @@ import AppKit
             card.applyHoverVisibility(true, animated: false)
             // Exercise the fully visible decoration while testing hit routing.
             // Pointer tracking itself is covered by the window fixture above.
-            checks["video.unbound-organization-heart-is-hidden"] = bar.favoriteButton.isHidden
+            checks["video.unbound-detail-is-visible-and-disabled"] = !bar.detailButton.isHidden && !bar.detailButton.isEnabled
             var played: [String] = []
-            var favorites: [String] = []
+            var inspections: [String] = []
             card.onPlayRequested = { played.append($0) }
-            card.onFavoriteRequested = { favorites.append($0) }
+            card.onInspectRequested = { inspections.append($0) }
             card.hoverOutlineView.alphaValue = 1
             func hits(_ button: NSButton) -> Bool {
                 let point = hitHost.convert(NSPoint(x: button.bounds.midX, y: button.bounds.midY), from: button)
@@ -182,7 +190,7 @@ import AppKit
             }
             checks["video.visible-hover-outline-does-not-intercept-native-play-button"] = card.hoverOutlineView.alphaValue == 1 && hits(bar.playButton)
             checks["video.playing-hit-target-survives-lazy-creation"] = hits(bar.playButton)
-            checks["video.visible-hover-outline-does-not-intercept-native-favorite-button"] = hits(bar.favoriteButton)
+            checks["video.visible-hover-outline-does-not-intercept-native-favorite-button"] = hits(bar.detailButton)
             card.view.appearance = NSAppearance(named: .aqua)
             card.refreshThemeAwareAppearance()
             let lightOutline = NSColor(cgColor: card.hoverOutlineView.layer!.borderColor!)!.usingColorSpace(.deviceRGB)!
@@ -198,13 +206,12 @@ import AppKit
                 && !bar.isHidden && bar.alphaValue == 1
             card.applyPlayingState(isPlaying: true)
             bar.playButton.performClick(nil)
-            bar.favoriteButton.performClick(nil)
-            checks["video.native-buttons-target-the-current-card"] = played == ["interaction"] && favorites == ["interaction"]
+            bar.detailButton.performClick(nil)
+            checks["video.native-buttons-target-the-current-card"] = played == ["interaction"] && inspections == ["interaction"]
             checks["video.buttons-retain-native-accessibility"] = bar.playButton.accessibilityLabel() == "停止播放"
-                && bar.favoriteButton.accessibilityLabel() == "特别喜爱"
-            card.applyFavoriteState(isFavorite: true)
-            checks["video.favorite-state-keeps-one-bar-heart-without-duplicate-corner-badge"] = bar.isFavorite
-                && card.isFavoriteState && bar.favoriteButton.accessibilityLabel() == "取消特别喜爱"
+                && bar.detailButton.accessibilityLabel() == "详细信息"
+            checks["video.detail-keeps-one-two-key-bar-without-duplicate-corner-badge"] = bar.glass.subviews.compactMap { $0 as? NSButton }.count == 2
+                && bar.detailButton.isEnabled && bar.detailButton.accessibilityLabel() == "详细信息"
                 && card.imageContainer.subviews.filter { $0 is NSImageView }.count == 1
                 && card.view.toolTip == nil && bar.toolTip == nil && bar.titleView.toolTip == nil
             let replacementID = String(repeating: "replacement title ", count: 10)
@@ -216,12 +223,12 @@ import AppKit
             defer { try? FileManager.default.removeItem(at: thumbnail) }
             let replacement = VideoWallpaper(id: replacementID, path: "/fixture-new-video.mp4", thumbnailPath: thumbnail.path)
             card.configure(wallpaper: replacement,
-                isSelected: false, isPlaying: false, isFavorite: false, multiSelectMode: false,
+                isSelected: false, isPlaying: false, multiSelectMode: false,
                 wallpaperManager: manager, thumbnailProvider: provider)
             bar.playButton.performClick(nil)
-            bar.favoriteButton.performClick(nil)
+            bar.detailButton.performClick(nil)
             checks["video.reconfigure-resolves-current-identity-not-stale-closure"] = played == ["interaction", replacementID]
-                && favorites == ["interaction", replacementID] && bar.primaryState == .apply && !bar.isFavorite
+                && inspections == ["interaction", replacementID] && bar.primaryState == .apply && bar.detailButton.accessibilityLabel() == "详细信息"
             card.isHovering = true
             card.setThumbnailVisible(true)
             let readyDeadline = Date().addingTimeInterval(3)
@@ -237,27 +244,52 @@ import AppKit
             checks["video.offscreen-stops-repeating-title-animation"] = bar.titleView.activeMarqueeAnimation == nil
             card.applyHoverVisibility(true, animated: false)
             card.applyPlayingState(isPlaying: true)
-            card.updateControlBarContent(isFavorite: true)
+            card.updateControlBarContent()
             checks["video.offscreen-hover-and-state-updates-cannot-restart-marquee"] = bar.titleView.activeMarqueeAnimation == nil
             card.setThumbnailVisible(true)
             checks["video.ready-reshow-resumes-marquee-without-new-thumbnail-validation"] = card.thumbnailImageView.image != nil
                 && manager.count(replacementID) == sourceValidations && card.imageTaskID == nil
                 && (bar.titleView.activeMarqueeAnimation != nil) == allowsMotion
             card.setThumbnailVisible(false)
-            card.configure(wallpaper: replacement, isSelected: false, isPlaying: true, isFavorite: true,
+            card.configure(wallpaper: replacement, isSelected: false, isPlaying: true,
                 multiSelectMode: false, wallpaperManager: manager, thumbnailProvider: provider)
             checks["video.offscreen-configure-updates-title-without-resuming-marquee"] = bar.titleView.text == replacementID
                 && bar.titleView.activeMarqueeAnimation == nil && manager.count(replacementID) == sourceValidations
+            let heldReplacementPlay = bar.onPlay, heldReplacementInspect = bar.onInspect
+            card.onPlayRequested = { played.append($0) }; card.onInspectRequested = { inspections.append($0) }
+            checks["video.same-ID-callback-rebind-keeps-both-native-actions-enabled"] = bar.playButton.isEnabled && bar.detailButton.isEnabled
             card.applySelectionState(isSelected: true, multiSelectMode: true)
             bar.playButton.performClick(nil)
-            bar.favoriteButton.performClick(nil)
-            checks["video.multi-select-rejects-late-button-actions"] = played.count == 2 && favorites.count == 2
+            bar.detailButton.performClick(nil)
+            checks["video.multi-select-rejects-late-button-actions"] = played.count == 2 && inspections.count == 2
                 && !hits(bar.playButton) && bar.superview == nil
             card.prepareForReuse()
+            heldReplacementPlay?(); heldReplacementInspect?()
             bar.playButton.performClick(nil)
-            bar.favoriteButton.performClick(nil)
-            checks["video.reuse-revokes-all-callbacks"] = played.count == 2 && favorites.count == 2
-                && card.onPlayRequested == nil && card.onFavoriteRequested == nil && bar.superview == nil
+            bar.detailButton.performClick(nil)
+            checks["video.reuse-revokes-all-callbacks"] = played.count == 2 && inspections.count == 2
+                && card.onPlayRequested == nil && card.onInspectRequested == nil && bar.superview == nil
+            var boundPlays: [String] = [], boundInspections: [String] = []
+            func bind(_ id: String) {
+                card.setThumbnailVisible(false)
+                card.configure(wallpaper: VideoWallpaper(id: id, path: "/fixture-unread.mp4", thumbnailPath: nil),
+                    isSelected: false, isPlaying: false, multiSelectMode: false, wallpaperManager: manager, thumbnailProvider: provider)
+                card.onPlayRequested = { boundPlays.append(id + ":" + $0) }
+                card.onInspectRequested = { boundInspections.append(id + ":" + $0) }
+            }
+            bind("A")
+            let heldAPlay = bar.onPlay, heldAInspect = bar.onInspect
+            bind("B"); heldAPlay?(); heldAInspect?()
+            checks["video.retained-bar-callback-keeps-captured-provider-target-instead-of-new-B"] = boundPlays == ["A:A"] && boundInspections == ["A:A"]
+            bar.playButton.performClick(nil); bar.detailButton.performClick(nil)
+            checks["video.rebound-native-buttons-deliver-new-B-once"] = boundPlays == ["A:A", "B:B"] && boundInspections == boundPlays
+            var echoPlays = 0, echoInspects = 0
+            card.onPlayRequested = { _ in echoPlays += 1 }; card.onInspectRequested = { _ in echoInspects += 1 }
+            let heldBPlay = bar.onPlay, heldBInspect = bar.onInspect
+            bar.playButton.performClick(nil); bar.detailButton.performClick(nil)
+            checks["video.same-ID-unchanged-state-rebinds-both-action-consumers"] = echoPlays == 1 && echoInspects == 1 && boundPlays.count == 2
+            card.prepareForReuse(); heldBPlay?(); heldBInspect?()
+            checks["video.reuse-rejects-retained-native-bar-actions"] = echoPlays == 1 && echoInspects == 1
         }
         card.prepareForReuse()
         checks["video.reuse-clears-badge-state-and-hit-target"] = card.controlBar === firstBadge
@@ -267,7 +299,7 @@ import AppKit
         playingCard.viewDidLayout()
         playingCard.setThumbnailVisible(false)
         playingCard.configure(wallpaper: VideoWallpaper(id: "multi", path: "/fixture-unread-video.mp4", thumbnailPath: nil),
-            isSelected: true, isPlaying: true, isFavorite: false, multiSelectMode: true,
+            isSelected: true, isPlaying: true, multiSelectMode: true,
             wallpaperManager: manager, thumbnailProvider: provider)
         checks["video.multi-select-does-not-build-first-playing-badge"] = playingCard.controlBar == nil
         playingCard.applySelectionState(isSelected: false, multiSelectMode: false)

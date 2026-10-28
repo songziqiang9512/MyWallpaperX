@@ -81,8 +81,8 @@ class ImportedVideoAdmissionTests(unittest.TestCase):
         persistence = (MANAGER / 'WallpaperManager+Persistence.swift').read_text()
         methods += '\n' + declaration(persistence, '    func saveCodableValue<')
         methods += '\n' + declaration(persistence, '    private func encode<')
-        online = (ROOT / 'MyWallpaperX/Modules/OnlineLibrary/Core/OnlineLibraryService.swift').read_text()
-        online_methods = '\n'.join(method(online, sig) for sig in [
+        pixabay = (ROOT / 'MyWallpaperX/Modules/Pixabay/Core/PixabayService.swift').read_text()
+        online_methods = '\n'.join(method(pixabay, sig) for sig in [
             'func downloadAndSet(', 'private func postReadyToPlay(', 'func setLocalFileAsWallpaper(',
             'private func existingDownloadedURL(', 'private func publishDownloadedContent(',
         ])
@@ -94,7 +94,7 @@ class ImportedVideoAdmissionTests(unittest.TestCase):
             work = Path(temporary)
             harness = work / 'Checks.swift'
             harness.write_text(source + '\n' + types + '\n' + support + '\n' + program)
-            originals = [*GATE_SOURCES, ROOT / 'MyWallpaperX/Modules/OnlineLibrary/Core/OnlineLibraryDownloadedContent.swift', ROOT / 'MyWallpaperX/Models/VideoWallpaper.swift', ROOT / 'MyWallpaperX/Models/WallpaperContent.swift', ROOT / 'MyWallpaperX/Models/WallpaperSourceImportResult.swift',
+            originals = [*GATE_SOURCES, ROOT / 'MyWallpaperX/Modules/Pixabay/Core/PixabayDownloadedContent.swift', ROOT / 'MyWallpaperX/Models/VideoWallpaper.swift', ROOT / 'MyWallpaperX/Models/WallpaperContent.swift', ROOT / 'MyWallpaperX/Models/WallpaperSourceImportResult.swift',
                          ROOT / 'MyWallpaperX/Models/WallpaperIndexStartupChanges.swift',
                          ROOT / 'MyWallpaperX/App/ImportedVideoPlaybackObserver.swift']
             copied = []

@@ -1,16 +1,6 @@
 import Foundation
 import WebKit
 
-// Only the library identity leaf is outside this source's tested responsibility.
-nonisolated enum WallpaperProvider: String, Codable, Sendable { case wallhaven, pixiv, videoLibrary }
-nonisolated struct WallpaperReference: Hashable, Codable, Sendable {
-    let provider: WallpaperProvider
-    let sourceID: String
-}
-nonisolated struct WallpaperSourceScanStatus: Equatable, Sendable {
-    static let initial = Self()
-}
-
 private final class FixtureProtocol: URLProtocol, @unchecked Sendable {
     nonisolated(unsafe) static var responder: ((URLRequest) -> (Int, String, String))?
     nonisolated(unsafe) static var requests: [URLRequest] = []
@@ -39,6 +29,13 @@ private final class FixtureProtocol: URLProtocol, @unchecked Sendable {
         client?.urlProtocolDidFinishLoading(self)
     }
     override func stopLoading() { if let url = request.url { Self.stoppedURLs.append(url) } }
+}
+
+@MainActor private final class AccountProjectionProbe {
+    struct Library { let pixivSession: PixivSession? }
+    let library: Library
+    init(_ session: PixivSession) { library = .init(pixivSession: session) }
+    // ACTUAL_PIXIV_ACCOUNT_STATUS
 }
 
 @main
@@ -278,6 +275,25 @@ private struct Checks {
         expect(FixtureProtocol.requests.count == beforeDocumentClose,
             "ordinary entry after known document close does not repeat optional restoration")
 
+        let refreshScope = isolated.scopeID, refreshEpoch = isolated.sessionEpoch
+        let accountProjection = AccountProjectionProbe(isolated)
+        for status in [503, 200] {
+            FixtureProtocol.responder = { _ in (status, "text/html", "account metadata temporarily unavailable") }
+            FixtureProtocol.holdNext = true
+            await isolated.refreshAccountInformation(); await isolated.refreshAccountInformation()
+            for _ in 0..<100 where FixtureProtocol.held == nil { try await Task.sleep(nanoseconds: 1_000_000) }
+            expect(isolated.state.phase == .checking && isolated.state.identity?.displayName == "账号 A",
+                "explicit account refresh keeps the trusted identity while one optional request runs")
+            let refreshRequests = FixtureProtocol.requests.count
+            FixtureProtocol.held!.complete(); FixtureProtocol.held = nil
+            for _ in 0..<100 where isolated.state.phase == .checking { try await Task.sleep(nanoseconds: 1_000_000) }
+            expect(isolated.state.phase == .unknown && isolated.state.identity?.displayName == "账号 A"
+                && isolated.scopeID == refreshScope && isolated.sessionEpoch == refreshEpoch && FixtureProtocol.requests.count == refreshRequests,
+                "account metadata failure neither logs out a trusted identity nor changes browsing scope")
+            expect(accountProjection.pixivAccountStatus == "已登录：账号 A（501） · 资料暂不可用",
+                "the real account projection keeps the trusted name and reports optional metadata failure")
+        }
+
         // A navigation with no current metadata passes unknown, never the prior
         // document's account. One optional restore may finish as a challenge.
         let beforeUnknownNavigation = isolated.sessionEpoch
@@ -402,6 +418,9 @@ private struct Checks {
         expect(assets.map { $0.id.reference.sourceID } == ["100:p0", "100:p1"], "actual page identity and zero base")
         expect(assets[1].originalURL.lastPathComponent == "second.jpg" && assets[1].width == 800, "page URLs and dimensions are authoritative")
         expect(detail.rating == .unknown && detail.isMasked == nil, "xRestrict zero does not invent sensitive classification")
+        var restricted = detail; restricted.rating = .adult
+        let restrictedPages = try await client.assets(for: restricted)
+        expect(restrictedPages.count == 2 && restrictedPages.allSatisfy { $0.rating == .adult }, "official age restriction survives every downloaded page asset")
         var unsupported = detail; unsupported.kind = .animation
         do { _ = try await client.assets(for: unsupported); fatalError("ugoira treated as image") }
         catch OnlineImageError.unsupported {}
@@ -493,12 +512,18 @@ private struct Checks {
         expect(isolated.state.phase == .unknown || isolated.state.phase == .checking, "cookie existence does not authenticate")
         expect(isolated.urlSession.configuration.httpCookieStorage?.cookies?.contains { $0.name == "PHPSESSID" } == true, "isolated cookie bridges")
         expect(isolated.urlSession.configuration.httpCookieStorage?.cookies?.contains { $0.name == "unrelated" } != true, "exact domain boundary")
+        let cachedScope = isolated.originalCacheScope
+        let restoredCacheSession = PixivSession(websiteDataStore: isolated.websiteDataStore, networkConfiguration: isolatedConfiguration)
+        await restoredCacheSession.synchronizeCookies()
+        expect(restoredCacheSession.originalCacheScope == cachedScope && !cachedScope.contains(cookie.value),
+               "original cache namespace survives a restored owner without saving the session cookie")
         let candidateScope = isolated.scopeID
         let candidateEpoch = isolated.sessionEpoch
         let rotated = HTTPCookie(properties: [.domain: ".pixiv.net", .path: "/", .name: "PHPSESSID", .value: "fixture_rotated"])!
         await isolated.websiteDataStore.httpCookieStore.setCookie(rotated)
         await isolated.refresh()
         expect(isolated.scopeID == candidateScope && isolated.sessionEpoch == candidateEpoch, "ordinary unknown cookie rotation does not reset the grid")
+        expect(isolated.originalCacheScope != cachedScope, "original cache namespace follows the current account session independently of request epochs")
         await isolated.refresh(afterExplicitAccountAction: true)
         expect(isolated.scopeID != candidateScope && isolated.sessionEpoch > candidateEpoch, "explicit login/settings action always revokes an unverified account scope")
         let beforeDelete = isolated.sessionEpoch
@@ -513,6 +538,7 @@ private struct Checks {
         expect(isolated.sessionEpoch > oldEpoch && isolated.state.phase == .anonymous && oldSession !== isolated.urlSession, "logout revokes scope and rotates transport")
         let clearedCookies = await isolated.websiteDataStore.httpCookieStore.allCookies()
         expect(clearedCookies.isEmpty, "isolated WebKit data cleared")
+        expect(isolated.originalCacheScope == "pixiv-anonymous", "logout cannot reuse the previous account original cache")
         try await checkOfficialIdentityMetadata()
         try await checkNetworkCookieBridge()
         try await checkControlledCookieBridge()

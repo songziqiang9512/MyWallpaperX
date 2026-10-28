@@ -1,19 +1,13 @@
 import Foundation
 
 /// SK5.2 current-task projection. JobStore remains the only queue/state owner;
-/// this type only filters and orders a stable UI snapshot for the signed-in account.
+/// this type only orders local task facts. Reading them never requires login.
 enum SteamWorkshopDownloadTaskProjection {
     static func currentJobs(
-        from jobs: [SteamDownloadJob],
-        accountSteamID: String?
+        from jobs: [SteamDownloadJob]
     ) -> [SteamDownloadJob] {
-        guard let accountSteamID, !accountSteamID.isEmpty else { return [] }
         return jobs
-            .filter {
-                $0.accountSteamId == accountSteamID
-                    && $0.state != .completed
-                    && $0.state != .cancelled
-            }
+            .filter { !$0.isTerminal }
             .sorted { lhs, rhs in
                 let lhsPriority = priority(for: lhs.state)
                 let rhsPriority = priority(for: rhs.state)
@@ -21,18 +15,6 @@ enum SteamWorkshopDownloadTaskProjection {
                 if lhs.queueOrdinal != rhs.queueOrdinal { return lhs.queueOrdinal < rhs.queueOrdinal }
                 return lhs.id < rhs.id
             }
-    }
-
-    static func unfinishedCount(
-        in jobs: [SteamDownloadJob],
-        accountSteamID: String?
-    ) -> Int {
-        guard let accountSteamID, !accountSteamID.isEmpty else { return 0 }
-        return jobs.lazy.filter {
-            $0.accountSteamId == accountSteamID
-                && $0.state != .completed
-                && $0.state != .cancelled
-        }.count
     }
 
     static func jobKey(for job: SteamDownloadJob) -> String? {
@@ -60,6 +42,8 @@ enum SteamWorkshopDownloadTaskProjection {
 
 struct SteamWorkshopDownloadHistorySummary: Identifiable, Equatable {
     let jobID: String
+    let accountSteamID: String
+    let latestAttempt: Int
     let workshopItemID: String
     let title: String
     let latestOutcome: SteamDownloadHistoryOutcome
@@ -74,11 +58,9 @@ struct SteamWorkshopDownloadHistorySummary: Identifiable, Equatable {
 /// recomputed from the bounded history snapshot and never becomes a second owner.
 enum SteamWorkshopDownloadHistoryProjection {
     static func summaries(
-        from history: [SteamDownloadHistoryEntry],
-        accountSteamID: String?
+        from history: [SteamDownloadHistoryEntry]
     ) -> [SteamWorkshopDownloadHistorySummary] {
-        guard let accountSteamID, !accountSteamID.isEmpty else { return [] }
-        return Dictionary(grouping: history.filter { $0.accountSteamId == accountSteamID }, by: \.jobID)
+        return Dictionary(grouping: history, by: \.jobID)
             .compactMap { jobID, attempts -> SteamWorkshopDownloadHistorySummary? in
                 let orderedAttempts = attempts.sorted { lhs, rhs in
                     if lhs.terminalAt != rhs.terminalAt { return lhs.terminalAt > rhs.terminalAt }
@@ -87,6 +69,8 @@ enum SteamWorkshopDownloadHistoryProjection {
                 guard let latest = orderedAttempts.first else { return nil }
                 return SteamWorkshopDownloadHistorySummary(
                     jobID: jobID,
+                    accountSteamID: latest.accountSteamId,
+                    latestAttempt: latest.attempt,
                     workshopItemID: latest.workshopItemId,
                     title: latest.title,
                     latestOutcome: latest.outcome,

@@ -149,7 +149,7 @@ extension SteamWorkshopService {
             prepareForBrowserEntry()
         }
         NotificationCenter.default.post(name: .appKitSelectItemRequested, object: nil,
-            userInfo: ["selectedItem": destination.selectionKey, "preserveSteamBrowseContext": true])
+            userInfo: ["selectedItem": destination.selectionKey])
     }
 
     func handleBrowserQueryChanged() {
@@ -314,8 +314,7 @@ extension SteamWorkshopService {
             object: nil,
             // Personal and author results share Workshop. The bounded return
             // snapshots retain their source state without a second Shell page.
-            userInfo: ["selectedItem": "steamWorkshop",
-                       "preserveSteamBrowseContext": true]
+            userInfo: ["selectedItem": "steamWorkshop"]
         )
     }
 }

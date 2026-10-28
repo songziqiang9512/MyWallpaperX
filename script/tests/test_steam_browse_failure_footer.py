@@ -1,9 +1,11 @@
-"""Compile the real footer state and verify the single-owner load-more retry wiring."""
+"""Compile the real footer state and verify passive status and the single-owner scroll continuation wiring."""
 
 from pathlib import Path
 import subprocess
 import tempfile
 import unittest
+
+from script.tests.test_ui_library_algorithms import declaration
 
 
 ROOT = Path(__file__).resolve().parents[2]
@@ -16,6 +18,11 @@ class SteamBrowseFailureFooterTests(unittest.TestCase):
     def test_failure_footer_state_contract(self):
         with tempfile.TemporaryDirectory(prefix="mwx-steam-footer-") as folder:
             binary = Path(folder) / "steam-browse-footer"
+            fixture = Path(folder) / "Checks.swift"
+            actual = declaration((CORE / "SteamWorkshopService+BrowsePageLoading.swift").read_text(),
+                                 "    func retryLoadingMoreBrowserItems()")
+            fixture.write_text((ROOT / "script/tests/fixtures/SteamBrowseFooterHarness.swift").read_text()
+                               .replace("// ACTUAL_RETRY", actual))
             subprocess.run(
                 [
                     "xcrun",
@@ -23,7 +30,7 @@ class SteamBrowseFailureFooterTests(unittest.TestCase):
                     "-parse-as-library",
                     str(UI / "AppKitSteamWorkshopBrowserFooterComponents.swift"),
                     str(UI / "SteamWorkshopBrowserFooterSupport.swift"),
-                    str(ROOT / "script/tests/fixtures/SteamBrowseFooterHarness.swift"),
+                    str(fixture),
                     "-o",
                     str(binary),
                 ],
@@ -32,7 +39,7 @@ class SteamBrowseFailureFooterTests(unittest.TestCase):
             )
             subprocess.run([str(binary)], check=True, timeout=30)
 
-    def test_retry_reuses_current_pagination_owner(self):
+    def test_scroll_continuation_reuses_current_pagination_owner(self):
         service = (CORE / "SteamWorkshopService.swift").read_text()
         browse = (CORE / "SteamWorkshopService+SteamKitBrowse.swift").read_text()
         page_loading = (CORE / "SteamWorkshopService+BrowsePageLoading.swift").read_text()
@@ -42,14 +49,15 @@ class SteamBrowseFailureFooterTests(unittest.TestCase):
         self.assertIn("@Published var browserLoadMoreFailureMessage: String?", service)
         self.assertEqual(browse.count('browserLoadMoreFailureMessage = "加载失败 · 重试"'), 2)
         retry = page_loading[page_loading.index("    func retryLoadingMoreBrowserItems()") :]
-        self.assertIn("guard browserState == .loaded", retry)
         self.assertIn("consecutiveEmptyLoadMorePages = 0", retry)
         self.assertIn("browserLoadMoreRetryAfter = .distantPast", retry)
         self.assertIn("loadMoreBrowserItemsIfNeeded()", retry)
         self.assertNotIn("steamKitBrowseStore.fetch", retry)
         self.assertIn("service.$browserLoadMoreFailureMessage", grid)
-        self.assertIn("self?.service.retryLoadingMoreBrowserItems()", grid)
-        self.assertIn('retryButton.setAccessibilityLabel("重试加载更多项目")', components)
+        self.assertIn("service.retryLoadingMoreBrowserItems()", grid)
+        self.assertIn("scrollView.onScrollSettled", grid)
+        self.assertNotIn("NSButton", components)
+        self.assertNotIn("retryHandler", components)
 
 
 if __name__ == "__main__":

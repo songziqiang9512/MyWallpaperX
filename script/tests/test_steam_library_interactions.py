@@ -17,7 +17,7 @@ def method(source, signature):
 
 class SteamLibraryInteractionTests(unittest.TestCase):
     def test_local_content_queue_actions_and_author_route(self):
-        ui = (CORE.parent / 'UI/SteamWorkshopDownloadTasksPopover.swift').read_text()
+        ui = (ROOT / 'MyWallpaperX/App/DownloadTasksController.swift').read_text()
         navigation = (CORE / 'SteamWorkshopService+BrowseNavigation.swift').read_text()
         shell = (ROOT / 'MyWallpaperX/App/WallpaperLibraryWindowComposition.swift').read_text()
         pages = (ROOT / 'MyWallpaperX/Models/WallpaperLibraryPage.swift').read_text()
@@ -25,6 +25,7 @@ class SteamLibraryInteractionTests(unittest.TestCase):
         downloads = (CORE / 'SteamWorkshopService+Downloads.swift').read_text()
         harness = r'''
 import AppKit
+import Combine
 @MainActor final class Auth { var steamId: String? = "A"; var isOnline = true }
 enum Source { case featured, mySubscriptions; var isPersonal: Bool { self == .mySubscriptions } }
 enum Choice { case all, none }
@@ -39,7 +40,8 @@ extension Notification.Name { static let appKitSelectItemRequested = Notificatio
     var downloadError: String?
     var retried: [String] = []
     var source = Source.featured
-    var browserEntryChecks = 0
+    var browserEntryChecks = 0, browserSectionEntries = 0
+    var browserQuery = "author-query", currentBrowserScrollOffsetY: CGFloat = 317.25
     var pendingDownloadsScrollRestoreOffsetY: CGFloat?
     var isBrowsingAuthorWorkshop = true
     var canReturnFromBrowse: Bool { isBrowsingAuthorWorkshop || source.isPersonal }
@@ -48,22 +50,49 @@ extension Notification.Name { static let appKitSelectItemRequested = Notificatio
     var facetFilters = Choice.none
     init(_ root: URL) { downloadJobStore = SteamDownloadJobStore(persistenceURL: root.appendingPathComponent("jobs.json")) }
     func returnToDiscoveryBrowse(selectOrigin: Bool = true) { isBrowsingAuthorWorkshop = false }
-    func enterBrowseSection(_ section: SteamWorkshopBrowseSection) { source = section == .personal ? .mySubscriptions : .featured }
+    func enterBrowseSection(_ section: SteamWorkshopBrowseSection) { browserSectionEntries += 1; source = section == .personal ? .mySubscriptions : .featured }
     func showMySubscriptions() { if steamAuth.isOnline { enterBrowseSection(.personal); requestSteamWorkshopBrowserSelection() } }
     func setBrowserQuery(_ query: String) {}
     func prepareForBrowserEntry() { browserEntryChecks += 1 }
     func removeTransientRecord(id: String) {}
     func scheduleTerminalDownloadCleanup() {}
     func downloadWorkshopItem(id: String, pageTitle: String) { retried.append(id) }
+    func downloadRecord(for id: String) -> URL? { nil }
+    func revealItem(_ url: URL) {}
+    func cancelDownloadImmediately(itemID: String, showFeedback: Bool) {}
+    func pauseDownload(itemID: String) {}
+    func resumeDownload(itemID: String) {}
+    func promoteQueuedDownload(itemID: String) {}
 ''' + method(downloads, '    func discardFailedDownload(') + '\n' + method(records, '    nonisolated static func hasLocalWorkshopContent(') + '\n' + method(navigation, '    func requestSteamWorkshopBrowserSelection(') + r'''
 }
+// Unselected source/file/history effects are recording leaves. The entire
+// generic action dispatcher and real Steam discard/JobStore execute unchanged.
+@MainActor final class PixabayActions {
+    struct Entry { let id: Int; let localURL: URL; let isAvailable: Bool }
+    struct Content { var entries: [Entry] = [] }
+    var downloadedContent = Content()
+    func retryDownload(id: Int) {}
+    func cancelDownload(id: Int, attemptID: UUID) {}
+}
+@MainActor final class ImageActions {
+    var snapshot = OnlineImageLocalSnapshot()
+    func retryDownload(_ reference: WallpaperReference, title: String) {}
+    func cancel(_ id: OnlineImageAssetID, attemptID: UUID) {}
+    func record(for reference: WallpaperReference) -> OnlineImageLocalRecord? { nil }
+    func localURL(for record: OnlineImageLocalRecord) -> URL? { nil }
+}
+@MainActor final class HistoryActions {
+    func remove(_ id: DownloadTaskIdentity) throws {}
+    func clear() throws {}
+}
 @MainActor final class Actions: NSObject {
-    let service: SteamWorkshopService
-    var latestAccountSteamID: String? = "A"
-    let retryButton = NSButton()
-    var retryHandler: (() -> Void)?
-    init(_ service: SteamWorkshopService) { self.service = service }
-''' + method(ui, '    @objc private func handleClearAll(') + '\n' + method(ui, '    private func configureRetry(') + r'''
+    let steam: SteamWorkshopService
+    let pixabay = PixabayActions(), images = ImageActions()
+    let history: HistoryActions? = HistoryActions()
+    var historyError: String?
+    let changed = PassthroughSubject<Void, Never>()
+    init(_ service: SteamWorkshopService) { steam = service }
+''' + method(ui, '    private func clearHistory(') + '\n' + method(ui, '    private func perform(') + r'''
 }
 @MainActor final class Presentation {
     var page = WallpaperLibraryPage.downloads
@@ -114,22 +143,27 @@ extension Notification.Name { static let appKitSelectItemRequested = Notificatio
         let failed = job("3", .failed)
         _ = job("4", .cancelled)
         let other = job("5", .failed, account: "B")
-        actions.handleClearAll()
+        func row(_ job: SteamDownloadJob, phase: DownloadTaskPhase) -> DownloadTaskRow {
+            .init(id: .init(reference: .init(provider: .steamWorkshop, sourceID: job.workshopItemId),
+                attemptID: "\(job.id)-\(job.attempt)"), title: job.title, phase: phase, actions: [.retry, .abandon])
+        }
+        let failedRow = row(failed, phase: .failed)
+        actions.perform(failedRow, action: .abandon)
         precondition(store.job(id: running.id) == running && store.job(id: queued.id) == queued)
         precondition(store.job(id: failed.id)?.state == .cancelled)
         precondition(store.job(id: other.id) == other)
-        precondition(!store.history.contains { $0.accountSteamId == "A" })
+        precondition(store.history.contains { $0.accountSteamId == "A" })
         precondition(store.history.contains { $0.accountSteamId == "B" })
-        actions.configureRetry(itemID: "3", title: "three", account: "A", failed: true)
-        precondition(!actions.retryButton.isHidden)
-        actions.retryHandler?()
+        actions.clearHistory()
+        precondition(store.history.isEmpty && store.job(id: running.id) == running && store.job(id: queued.id) == queued
+            && store.job(id: other.id) == other, "clearing local history changes neither another account's intent nor active queue")
+        actions.perform(failedRow, action: .retry)
         precondition(service.retried == ["3"])
         service.steamAuth.steamId = "B"
-        actions.retryHandler?()
-        actions.handleClearAll()
+        actions.perform(failedRow, action: .retry)
+        actions.perform(failedRow, action: .abandon)
+        actions.clearHistory()
         precondition(service.retried == ["3"] && store.job(id: other.id) == other)
-        actions.configureRetry(itemID: "3", title: "three", account: "B", failed: false)
-        precondition(actions.retryButton.isHidden && actions.retryHandler == nil)
 
         let shell = WallpaperLibraryWindowComposition()
         shell.establishDirectoryReturnContext()
@@ -146,21 +180,35 @@ extension Notification.Name { static let appKitSelectItemRequested = Notificatio
         service.source = .mySubscriptions
         service.requestSteamWorkshopBrowserSelection()
         precondition(shell.selected == .workshop && service.isBrowsingAuthorWorkshop)
+        service.pendingDownloadsScrollRestoreOffsetY = 42
+        let originalQuery = service.browserQuery, originalScroll = service.currentBrowserScrollOffsetY
+        shell.navigate(to: .videos); shell.navigate(to: .workshop)
+        precondition(service.isBrowsingAuthorWorkshop && service.source == .mySubscriptions && service.browserEntryChecks == 0
+            && service.browserSectionEntries == 0 && service.browserQuery == originalQuery
+            && service.currentBrowserScrollOffsetY == originalScroll && service.pendingDownloadsScrollRestoreOffsetY == 42,
+            "returning to Workshop must preserve the source-owned author context, query and scroll without entry work")
         shell.navigate(to: .workshop)
-        precondition(!service.isBrowsingAuthorWorkshop && service.source == .featured && service.browserEntryChecks == 1,
-            "reselecting the current author host must exit author mode and prepare the visible browser")
-        shell.navigate(to: .workshop)
-        precondition(service.browserEntryChecks == 1, "ordinary same-row clicks keep their scroll-to-top behavior")
+        precondition(service.browserEntryChecks == 0 && service.browserSectionEntries == 0,
+            "same-row reselection must preserve the existing source context")
         precondition(shell.grid.scrollToTopCalls == 0,
-            "reselecting the remote browser must keep its original early-return path")
+            "remote browser navigation must not scroll the unrelated local grid")
+        service.returnToDiscoveryBrowse(selectOrigin: false)
+        service.enterBrowseSection(.discovery)
+        shell.navigate(to: .workshop)
+        precondition(!service.isBrowsingAuthorWorkshop && service.source == .featured && service.browserSectionEntries == 1,
+            "explicit source-owned Back can still choose discovery without Shell recreating an author context")
         service.showMySubscriptions()
         precondition(shell.selected == .workshop && service.source.isPersonal,
             "personal entry retains the existing Workshop browser host")
-        shell.navigate(to: .workshop)
+        shell.navigate(to: .downloads); shell.navigate(to: .workshop)
+        precondition(shell.selected == .workshop && service.source.isPersonal && service.browserSectionEntries == 2,
+            "personal context survives the same shared Workshop sidebar roundtrip")
         service.steamAuth.isOnline = false
+        let entriesBeforeSignedOut = service.browserSectionEntries, switchesBeforeSignedOut = shell.workspace.presentation.switchTargets
         service.showMySubscriptions()
-        precondition(shell.selected == .workshop && !service.source.isPersonal,
-            "signed-out personal entry does not navigate or start authentication")
+        precondition(shell.selected == .workshop && service.source.isPersonal
+            && service.browserSectionEntries == entriesBeforeSignedOut && shell.workspace.presentation.switchTargets == switchesBeforeSignedOut,
+            "signed-out personal entry does not navigate, start authentication or mutate its source leaf")
         NotificationCenter.default.removeObserver(observer)
 
         shell.navigate(to: .downloads)
@@ -209,7 +257,11 @@ extension Notification.Name { static let appKitSelectItemRequested = Notificatio
             source.write_text(harness)
             binary = root / 'test'
             result = subprocess.run(['xcrun', 'swiftc', '-parse-as-library', *map(str, SOURCES),
-                str(CORE / 'SteamWorkshopDownloadTaskProjection.swift'), str(source), '-o', str(binary)], capture_output=True, text=True, timeout=120)
+                str(CORE / 'SteamWorkshopDownloadTaskProjection.swift'),
+                *[str(ROOT / 'MyWallpaperX' / name) for name in (
+                    'Models/WallpaperReference.swift', 'Models/WallpaperContent.swift', 'Models/DownloadTask.swift',
+                    'Core/OnlineImages/OnlineImageModels.swift', 'Modules/Downloads/Core/DownloadTaskProjection.swift')],
+                str(source), '-o', str(binary)], capture_output=True, text=True, timeout=120)
             self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
             result = subprocess.run([str(binary), folder], capture_output=True, text=True, timeout=15)
             self.assertEqual(result.returncode, 0, result.stdout + result.stderr)

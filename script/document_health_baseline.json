@@ -6,19 +6,19 @@
   "bodies": {
     "docs/architecture/appkit-migration.md": {
       "lines": 213,
-      "bytes": 20793
+      "bytes": 21611
     },
     "docs/architecture/playback-lifecycle-transaction-design.md": {
       "lines": 50,
       "bytes": 9065
     },
     "docs/architecture/repository-map.md": {
-      "lines": 33,
-      "bytes": 7054
+      "lines": 35,
+      "bytes": 7937
     },
     "docs/architecture/steam-workshop-acquisition-contract.md": {
       "lines": 80,
-      "bytes": 17720
+      "bytes": 18078
     },
     "docs/architecture/system-audio-spectrum-design.md": {
       "lines": 40,
@@ -30,11 +30,11 @@
     },
     "docs/development/apple-silicon-optimization-plan.md": {
       "lines": 554,
-      "bytes": 116578
+      "bytes": 116594
     },
     "docs/development/code-slimming-program.md": {
       "lines": 451,
-      "bytes": 99318
+      "bytes": 99319
     },
     "docs/development/repository-workflow.md": {
       "lines": 100,
@@ -325,20 +325,24 @@
       "bytes": 8377
     },
     "docs/development/main-window-playlists-redesign.md": {
-      "lines": 599,
-      "bytes": 116265
+      "lines": 592,
+      "bytes": 108086
     },
     "docs/development/status-bar-panel-redesign.md": {
-      "lines": 117,
-      "bytes": 18639
+      "lines": 119,
+      "bytes": 18993
     },
     "docs/development/wallhaven-online-browser-design.md": {
-      "lines": 258,
-      "bytes": 37211
+      "lines": 262,
+      "bytes": 38590
     },
     "docs/development/pixiv-online-browser-design.md": {
-      "lines": 163,
-      "bytes": 22405
+      "lines": 166,
+      "bytes": 23241
+    },
+    "docs/development/ui-quality-audit.md": {
+      "lines": 102,
+      "bytes": 17900
     }
   },
   "archives": [
@@ -1241,7 +1245,7 @@
         "基础交付记录b5-统一网格来源播放与主窗口装配尚未最终验收",
         "74-提取-steam-卡片的具体方法"
       ],
-      "preservedBodySHA256": "b2df0e25629b526e0ec3f4b2fa8d3136a0488b35f10261d68224fb5a515fd337",
+      "preservedBodySHA256": "6ca8f86d19bae96326bb1764d2ee7162100fd31388fefc92c60d7f277b785257",
       "originalBodySHA256": "180ec813275c27b185af098dac4f1e649e4dac7ee2520fb3b6ed6ef035c4d92a",
       "originalLines": 167,
       "originalBytes": 38851
@@ -1254,7 +1258,7 @@
         "r0-r4-validation-record",
         "r0-r4-implementation-paths"
       ],
-      "preservedBodySHA256": "276ad00f810df6be00559392d9a1a9423ecbc6d38d45d8e74245d5cdef277e82",
+      "preservedBodySHA256": "0224d4380b5909baefc70bb4b6332b4cac8f47ec6c6346dd5d961ab6fe3f35d4",
       "originalBodySHA256": "25802a1fd449d73fa3e27dd7675218c7169fbbfbc830dd641666c4b689236ad2",
       "originalLines": 64,
       "originalBytes": 37219
@@ -1362,6 +1366,27 @@
         "evidence"
       ],
       "preservedBodySHA256": "64be77fdf43ae1b3e511d8257ac4c29c7ab64a1d9fb8e5656565ec3eec004a29"
+    },
+    {
+      "source": "docs/development/main-window-playlists-redesign.md",
+      "archive": "docs/history/development/main-window-playlists-v-t-f-completed-2026-10-27.md",
+      "anchors": [
+        "user-ui-revision-10",
+        "inspector-playback-appearance-round",
+        "compact-input-subscriptions-round"
+      ],
+      "preservedBodySHA256": "081d51499c93b691092ae50f1f3b5f1af56be2294c6149ee512d809bb1c688f4",
+      "originalBodySHA256": "08f40eb64b3e90ab05061494845c90c8854dc7300cfc6670b4ae3d95624650e0"
+    },
+    {
+      "source": "docs/development/main-window-playlists-redesign.md",
+      "archive": "docs/history/development/main-window-playlists-ui16-ui17-completed-2026-10-27.md",
+      "anchors": [
+        "ui-simplification-sixteen",
+        "ui-refinement-eleven"
+      ],
+      "preservedBodySHA256": "95c5fad5fa37045eebd85964650c74bfc4bfb28b0199bd08cf436eef5f381ce3",
+      "originalBodySHA256": "88c5aa5262c27b02d21448d591671fd682257e15be486436ed87fcd3cad5431a"
     }
   ],
   "snapshots": [
@@ -1385,15 +1410,6 @@
       "owner": "main-window-playlists-explicit-stop",
       "reason": "保留原三引擎事务与短时Scene重入合同，补事件注册/独立退出期限和恢复前频谱播种，替换重复轮询/补配说法；不新增运行或性能验收。 实际Stop暴露通用清理提前删除退休执行映射；补唯一回执归属约束及真实组合反例，不增加生命周期owner。 按f2b启动合同合并，保父退出事件、恢复前频谱播种、D23短时重入与实际退出边界。",
       "decision": "docs/development/main-window-playlists-redesign.md#documentation-decision"
-    },
-    {
-      "section": "bodies",
-      "path": "docs/architecture/steam-workshop-acquisition-contract.md",
-      "before": "93b175d938856717223ad6637f5df598a70f11848d0d5a6f122ac1af1eef53bd",
-      "after": "ed0516f202b631dc73daa6a7a8c1e2f85821f5beb58d61bad46ea3b6fd5b8f50",
-      "owner": "原下载/库发布事务",
-      "reason": "区分正常receipt下载摘要与旧v1当前内容迁移，完整性沿原复制流、metadata CAS与租约执行；普通播放不重核历史目录，不扩大账号或发布验收。 保启动发布/读取语义并同步UI图片方格独立缩放；按合并后的实际正文登记。",
-      "decision": "docs/development/validation-simplification-plan.md#p7下载与旧目录迁移直接消费当前结果"
     },
     {
       "section": "bodies",
@@ -1486,60 +1502,6 @@
       "decision": "docs/development/ui-quality-audit.md#evidence"
     },
     {
-      "section": "bodies",
-      "path": "docs/architecture/appkit-migration.md",
-      "before": "37ef47c2675506f1263d0f463a07b392de0ba23577eac83e25d05c7ef6bce060",
-      "after": "c83800387b8a6df0b11593c5f942f49927aaa879a69884a058d4f04f58124482",
-      "owner": "UI correctness and scheduling audit",
-      "reason": "同步唯一缩略图producer、显式全清与失败裁决职责，退役旧双分支设计和旧scan-hint暖图例外；正文净减少并收紧预算。",
-      "decision": "docs/development/ui-quality-audit.md#scope"
-    },
-    {
-      "section": "bodies",
-      "path": "docs/architecture/repository-map.md",
-      "before": "0247ea7a10878bd9710cec9c00878f9b361c5dafada978865e1f3fb73f9307bc",
-      "after": "00a9f87e82154f598602f637e5ad9c7d54e3fdb2f18db7b7a8685f7ec5784a02",
-      "owner": "main-window-playlists-design",
-      "reason": "同步实际主窗口/源UI退休职责，保历史批次与未验收边界。",
-      "decision": "docs/development/main-window-playlists-redesign.md#documentation-decision"
-    },
-    {
-      "section": "bodies",
-      "path": "docs/development/apple-silicon-optimization-plan.md",
-      "before": "23565c923029a42637a1e14549fc3aa383421c594bf1ad2d67da5a636815e7ac",
-      "after": "c09aa27626c7d2b0bb9141f79dc08139f4541ef283a056e69d762106981ddf7f",
-      "owner": "UI audit documentation closeout",
-      "reason": "真实全仓链接门发现既有退役源码/忽略本机产物链接；只改路径表达并保原能力/历史事实，精确登记正文预算及同步受保护载荷身份。",
-      "decision": "docs/development/ui-quality-audit.md#evidence"
-    },
-    {
-      "section": "bodies",
-      "path": "docs/development/main-window-playlists-redesign.md",
-      "before": "53148dfe4e3a1377efeffc2a0e7b219ae303173b8a3be163250c510821b016ca",
-      "after": "f4be28a4a945d1b6160d19b407aac1ae7e84ac974fe717f2e78d6665d3134a38",
-      "owner": "UI correctness and scheduling audit",
-      "reason": "主界面规则保留唯一视觉权威，后续UI审计已结算归档，正文入口同步历史记录。",
-      "decision": "docs/development/ui-quality-audit.md#scope"
-    },
-    {
-      "section": "archives",
-      "path": "docs/history/development/main-window-playlists-foundation-2026-10-25.md",
-      "before": "74234e98afe7498fb5daf1f36ac2d78acc339464f950703b8c019892f982b90b",
-      "after": "48b95cf6b0541192c4dbc5be0de84d1e90277add7446a7de1f554edf653a331f",
-      "owner": "main-window-playlists-design",
-      "reason": "Archive completed foundation and initial audit records with permanent redirects; consolidate duplicate toolbar/execution guidance and retain current safety/UI acceptance authority below the unchanged 600-line hard limit.",
-      "decision": "docs/development/main-window-playlists-redesign.md#documentation-decision"
-    },
-    {
-      "section": "archives",
-      "path": "docs/history/development/main-window-playlists-ui-r0-r4-2026-10-25.md",
-      "before": "74234e98afe7498fb5daf1f36ac2d78acc339464f950703b8c019892f982b90b",
-      "after": "7344dfe4924f98522f453e8239bb8a27e65239446676d0ce1afd7bb328c7bcaa",
-      "owner": "main-window-ui-revision-15",
-      "reason": "Preserve complete prior R0–R4 audit/implementation/validation while current authority replaces conflicting rules for the new15 user requirements.",
-      "decision": "docs/development/main-window-playlists-redesign.md#documentation-decision"
-    },
-    {
       "section": "archives",
       "path": "docs/history/development/main-window-playlists-ui-n15-2026-10-25.md",
       "before": "74234e98afe7498fb5daf1f36ac2d78acc339464f950703b8c019892f982b90b",
@@ -1547,15 +1509,6 @@
       "owner": "main-window-playlists-design",
       "reason": "完整保留新10项之前U/A/N15方案及候选收据，避免旧堆叠/取消返回/取色与当前裁决混用；历史banner注明真实崩溃终态。",
       "decision": "docs/development/main-window-playlists-redesign.md#documentation-decision"
-    },
-    {
-      "section": "bodies",
-      "path": "docs/development/status-bar-panel-redesign.md",
-      "before": "74234e98afe7498fb5daf1f36ac2d78acc339464f950703b8c019892f982b90b",
-      "after": "135d441bae50ba167bc4f3801047658ddf9a342ebe4842240f0464b9fe9ea9b3",
-      "owner": "App/StatusBarController",
-      "reason": "用户确认概念图后新增状态栏产品面专项设计；范围和退役条件已明确，不放宽其他预算。",
-      "decision": "docs/development/status-bar-panel-redesign.md#文档登记与范围"
     },
     {
       "section": "bodies",
@@ -1630,24 +1583,6 @@
       "decision": "docs/development/main-window-playlists-redesign.md#inspector-playback-appearance-round"
     },
     {
-      "section": "bodies",
-      "path": "docs/development/wallhaven-online-browser-design.md",
-      "before": "df918405f34a1301b9a7cc459ddfce5e3d5013941a0dd20b90ee84c3f6fc84a7",
-      "after": "634dc0b41a95144dcbdbddaa0def24d049123be6c567717f456a10448ecb377d",
-      "owner": "Core/OnlineImages + Modules/Wallhaven",
-      "reason": "记录两来源接入与492a64dc7后分页、作者、有效筛选及共享Quick Look设计；仅调整两份方案正文预算。",
-      "decision": "docs/development/wallhaven-online-browser-design.md#8-文档登记与设计状态"
-    },
-    {
-      "section": "bodies",
-      "path": "docs/development/pixiv-online-browser-design.md",
-      "before": "640c60b207250feff80abf6973f404459d4c9e9773e4072f6acba06ca4f2c6b8",
-      "after": "911be5249124c74fcf90dc6b5c13913730e6cb141ce5e4bbbace96baeb7b8a7b",
-      "owner": "Modules/Pixiv",
-      "reason": "记录两来源接入与492a64dc7后分页、作者、有效筛选及共享Quick Look设计；仅调整两份方案正文预算。",
-      "decision": "docs/development/pixiv-online-browser-design.md#10-文档登记与退役"
-    },
-    {
       "section": "archives",
       "path": "docs/history/cross-topic/validation-simplification-p0-p27-2026-10-27.md",
       "before": "74234e98afe7498fb5daf1f36ac2d78acc339464f950703b8c019892f982b90b",
@@ -1664,6 +1599,132 @@
       "owner": "UI correctness and scheduling audit",
       "reason": "本轮已证问题/独审/相称门及Debug闭合，稳定职责回AppKit合同，完整工作卡与失败边界归档，原URL四锚点保留。",
       "decision": "docs/development/ui-quality-audit.md#scope"
+    },
+    {
+      "section": "bodies",
+      "path": "docs/development/apple-silicon-optimization-plan.md",
+      "before": "c09aa27626c7d2b0bb9141f79dc08139f4541ef283a056e69d762106981ddf7f",
+      "after": "43ef68fa6c7c2930071ac93f644dbae61860118a57fc4300d2086683c3e1cc8c",
+      "owner": "UI AppKit and source integration",
+      "reason": "16项专项同步当前规范/真实待验状态与移动后的链接；前轮完成证据归档一次，不把旧通过冒作最终验收。",
+      "decision": "docs/development/main-window-playlists-redesign.md#ui-simplification-sixteen"
+    },
+    {
+      "section": "bodies",
+      "path": "docs/development/code-slimming-program.md",
+      "before": "b80b7f81184b52a2218ac3ad512a1f2f6570ad34afa7d545f8c61b40a8abeb00",
+      "after": "2261ec434544a11129657286b07a3922832ccfcbcadf8d4777452f180581f3bd",
+      "owner": "UI AppKit and source integration",
+      "reason": "16项专项同步当前规范/真实待验状态与移动后的链接；前轮完成证据归档一次，不把旧通过冒作最终验收。",
+      "decision": "docs/development/main-window-playlists-redesign.md#ui-simplification-sixteen"
+    },
+    {
+      "section": "archives",
+      "path": "docs/history/development/main-window-playlists-foundation-2026-10-25.md",
+      "before": "48b95cf6b0541192c4dbc5be0de84d1e90277add7446a7de1f554edf653a331f",
+      "after": "294c9dc44799b43f4e31bf47047c02f384646cd901cd885a595d511e3a25dca2",
+      "owner": "UI AppKit and source integration",
+      "reason": "16项专项同步当前规范/真实待验状态与移动后的链接；前轮完成证据归档一次，不把旧通过冒作最终验收。",
+      "decision": "docs/development/main-window-playlists-redesign.md#ui-simplification-sixteen"
+    },
+    {
+      "section": "archives",
+      "path": "docs/history/development/main-window-playlists-ui-r0-r4-2026-10-25.md",
+      "before": "7344dfe4924f98522f453e8239bb8a27e65239446676d0ce1afd7bb328c7bcaa",
+      "after": "b2743d769d0d11f02263588f4cbe19620ce0041e88f227affd57ed2a6df2c540",
+      "owner": "UI AppKit and source integration",
+      "reason": "16项专项同步当前规范/真实待验状态与移动后的链接；前轮完成证据归档一次，不把旧通过冒作最终验收。",
+      "decision": "docs/development/main-window-playlists-redesign.md#ui-simplification-sixteen"
+    },
+    {
+      "section": "archives",
+      "path": "docs/history/development/main-window-playlists-v-t-f-completed-2026-10-27.md",
+      "before": "74234e98afe7498fb5daf1f36ac2d78acc339464f950703b8c019892f982b90b",
+      "after": "345ad19020923697ab657ff7d5d36836c07ac1cb2e0e525cf34bf48e5eaf7922",
+      "owner": "UI AppKit and source integration",
+      "reason": "16项专项同步当前规范/真实待验状态与移动后的链接；前轮完成证据归档一次，不把旧通过冒作最终验收。",
+      "decision": "docs/development/main-window-playlists-redesign.md#ui-simplification-sixteen"
+    },
+    {
+      "section": "archives",
+      "path": "docs/history/development/main-window-playlists-ui16-ui17-completed-2026-10-27.md",
+      "before": "74234e98afe7498fb5daf1f36ac2d78acc339464f950703b8c019892f982b90b",
+      "after": "d2baebf0d087fbf489a005fb617c37bc69264f0473c56eb7f4fb2a92432ed5bf",
+      "owner": "main-window-playlists-ui18",
+      "reason": "Keep current feedback work cards concise and preserve completed UI16/UI17 evidence verbatim.",
+      "decision": "docs/development/main-window-playlists-redesign.md#ui-feedback-thirteen"
+    },
+    {
+      "section": "bodies",
+      "path": "docs/development/wallhaven-online-browser-design.md",
+      "before": "634dc0b41a95144dcbdbddaa0def24d049123be6c567717f456a10448ecb377d",
+      "after": "edf36f45a9f77ca8c4d532f71a001ba114bb4b42e3fc86d647ad0e97b722ccaa",
+      "owner": "main-window-playlists-ui20",
+      "reason": "UI20六项当前契约与真实阻塞、共享筛选owner及账号失败边界同步；旧链退役，保持600行硬限，不将静态实现冒作真实账号或匿名源验收。",
+      "decision": "docs/development/main-window-playlists-redesign.md#ui-online-panels-twenty"
+    },
+    {
+      "section": "bodies",
+      "path": "docs/development/pixiv-online-browser-design.md",
+      "before": "911be5249124c74fcf90dc6b5c13913730e6cb141ce5e4bbbace96baeb7b8a7b",
+      "after": "906d5e246773d8086f4b06f3745df4097aa940a0f520e3d1a2a2a5aa27547715",
+      "owner": "main-window-playlists-ui20",
+      "reason": "UI20六项当前契约与真实阻塞、共享筛选owner及账号失败边界同步；旧链退役，保持600行硬限，不将静态实现冒作真实账号或匿名源验收。",
+      "decision": "docs/development/main-window-playlists-redesign.md#ui-online-panels-twenty"
+    },
+    {
+      "section": "bodies",
+      "path": "docs/architecture/repository-map.md",
+      "before": "00a9f87e82154f598602f637e5ad9c7d54e3fdb2f18db7b7a8685f7ec5784a02",
+      "after": "496f292655c3baf3270063898925daf077ea78696a873daf6de71c0b9e00d750",
+      "owner": "main-window-playlists-ui20",
+      "reason": "UI20六项当前契约与真实阻塞、共享筛选owner及账号失败边界同步；旧链退役，保持600行硬限，不将静态实现冒作真实账号或匿名源验收。",
+      "decision": "docs/development/main-window-playlists-redesign.md#ui-online-panels-twenty"
+    },
+    {
+      "section": "bodies",
+      "path": "docs/architecture/steam-workshop-acquisition-contract.md",
+      "before": "087fe59a097cdf3d1689232845864c712257509da6ef3be1b810bbdadcf9c4e0",
+      "after": "86790d0f07f7bd242c496568a31db82bf9e08c5cfa125c792bbbd063c81d3fd6",
+      "owner": "UI21 UI correctness crossreview",
+      "reason": "复用原审查页登记本轮已证交互/调度断点、最小修复和验收边界；原合同同步真实选择、可见需求和缓存清理职责，历史收据及其他预算不变。",
+      "decision": "docs/development/ui-quality-audit.md#ui21-scope"
+    },
+    {
+      "section": "bodies",
+      "path": "docs/architecture/appkit-migration.md",
+      "before": "c83800387b8a6df0b11593c5f942f49927aaa879a69884a058d4f04f58124482",
+      "after": "52c8b670fbbe0ec16ef842c662581064838a23b8c462fc584329c7c0ad9f196f",
+      "owner": "UI22",
+      "reason": "UI22明确同步菜单唯一生命周期、NSWorkspace打开方式及设置直接消费主窗色调与共享0.75秒过渡的AppKit边界。",
+      "decision": "docs/development/ui-quality-audit.md#ui22-scope"
+    },
+    {
+      "section": "bodies",
+      "path": "docs/development/main-window-playlists-redesign.md",
+      "before": "f4be28a4a945d1b6160d19b407aac1ae7e84ac974fe717f2e78d6665d3134a38",
+      "after": "9f1822a374933ffa3dd0535191fa1044b77f7f36fd5f2c42acfa22e24e1b7d9d",
+      "owner": "UI22",
+      "reason": "UI22更新已实施的账号尺寸、侧栏缩进、取色过渡、导入导出可移植偏好和重置语义，保持同一主界面规范入口。",
+      "decision": "docs/development/ui-quality-audit.md#ui22-scope"
+    },
+    {
+      "section": "bodies",
+      "path": "docs/development/status-bar-panel-redesign.md",
+      "before": "135d441bae50ba167bc4f3801047658ddf9a342ebe4842240f0464b9fe9ea9b3",
+      "after": "bdeef0b46815519d21eea3412f3f552be42b102306c4a27704a4509ed8da266f",
+      "owner": "UI22",
+      "reason": "UI22增加封面过渡唯一实施与验证入口，不复制工作卡或改变面板尺寸合同。",
+      "decision": "docs/development/ui-quality-audit.md#ui22-scope"
+    },
+    {
+      "section": "bodies",
+      "path": "docs/development/ui-quality-audit.md",
+      "before": "74234e98afe7498fb5daf1f36ac2d78acc339464f950703b8c019892f982b90b",
+      "after": "bf6fd1c981da9e5e70b6b382f34b61ec18c7c8c2c2634f55982ee263ace608a3",
+      "owner": "UI22",
+      "reason": "UI22九项工作卡、实体右键失败及用户复测、两项静态尾修和用户取消运行构建后的明确交接边界；保留UI21既有证据分界。",
+      "decision": "docs/development/ui-quality-audit.md#ui22-scope"
     }
   ]
 }

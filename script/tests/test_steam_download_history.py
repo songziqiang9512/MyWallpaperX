@@ -81,29 +81,30 @@ import Foundation
         let other = store.enqueue(workshopItemId: "200", title: "Other", accountSteamId: "B").job
         clock.addTimeInterval(1)
         precondition(store.cancel(id: other.id) != nil)
-        precondition(store.history(forAccount: "A").count == 2)
-        precondition(store.history(forAccount: "B").count == 1)
-        precondition(store.history(forAccount: nil).isEmpty)
+        precondition(store.history.filter { $0.accountSteamId == "A" }.count == 2)
+        precondition(store.history.filter { $0.accountSteamId == "B" }.count == 1)
+        precondition(store.history.count == 3, "local terminal history does not require a current login identity")
 
         let summaries = SteamWorkshopDownloadHistoryProjection.summaries(
-            from: store.history,
-            accountSteamID: "A"
+            from: store.history
         )
-        precondition(summaries.count == 1)
-        precondition(summaries[0].jobID == retry.id)
-        precondition(summaries[0].attempts.map(\.attempt) == [2, 1])
-        precondition(summaries[0].latestOutcome == .failed)
-        precondition(summaries[0].attempts.first?.failureMessage == "disk")
+        precondition(summaries.count == 2 && Set(summaries.map(\.accountSteamID)) == ["A", "B"],
+                     "local terminal history must remain readable without a current account")
+        let retrySummary = summaries.first { $0.jobID == retry.id }!
+        precondition(retrySummary.accountSteamID == "A" && retrySummary.latestAttempt == 2)
+        precondition(retrySummary.attempts.map(\.attempt) == [2, 1])
+        precondition(retrySummary.latestOutcome == .failed)
+        precondition(retrySummary.attempts.first?.failureMessage == "disk")
 
         let reloaded = SteamDownloadJobStore(persistenceURL: url, now: { clock })
         precondition(reloaded.history == store.history, "restart must not duplicate terminal attempts")
         precondition(reloaded.clearHistory(forAccount: "A") == 2)
-        precondition(reloaded.history(forAccount: "A").isEmpty)
+        precondition(reloaded.history.filter { $0.accountSteamId == "A" }.isEmpty)
         precondition(reloaded.failedJob(forWorkshopItemId: "100", accountSteamId: "A") != nil,
             "clearing history must not remove retryable job intent")
-        precondition(reloaded.history(forAccount: "B").count == 1)
+        precondition(reloaded.history.filter { $0.accountSteamId == "B" }.count == 1)
         let afterClearRestart = SteamDownloadJobStore(persistenceURL: url, now: { clock })
-        precondition(afterClearRestart.history(forAccount: "A").isEmpty,
+        precondition(afterClearRestart.history.filter { $0.accountSteamId == "A" }.isEmpty,
             "version 3 restart must not resurrect explicitly cleared failed history")
         precondition(afterClearRestart.failedJob(
             forWorkshopItemId: "100", accountSteamId: "A") != nil)

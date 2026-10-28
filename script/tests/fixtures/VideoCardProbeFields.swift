@@ -13,11 +13,10 @@
     var isHovering = false
     let thumbnailImageView = NSImageView()
     let placeholderLabel = NSTextField(labelWithString: "生成中...")
-    var isFavoriteState = false
     let view = NSView()
     var currentTitle = ""
     var currentMetadata = ""
-    func updateControlBarContent(isFavorite: Bool) {}
+    func updateControlBarContent() {}
     func layoutThumbnail() {}
     func applySelectionState(isSelected: Bool, multiSelectMode: Bool) {}
     func updatePlayButtonVisibility() {}

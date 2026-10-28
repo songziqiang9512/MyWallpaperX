@@ -91,14 +91,14 @@ enum MainWindowCoordinator {
             userInfo: ["enabled": false]
         )
         NotificationCenter.default.post(
-            name: .onlineLibraryModeDidChange,
+            name: .pixabayModeDidChange,
             object: nil,
-            userInfo: ["enabled": false, "isDownloads": false]
+            userInfo: ["enabled": false]
         )
         NotificationCenter.default.post(
             name: .steamWorkshopModeDidChange,
             object: nil,
-            userInfo: ["enabled": false, "isDownloads": false]
+            userInfo: ["enabled": false]
         )
     }
 

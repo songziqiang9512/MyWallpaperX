@@ -67,6 +67,17 @@ struct WallpaperContentProjectionHarness {
         checks["Steam full description survives a different display summary"] = old.metadata.summary == "Summary"
             && old.metadata.descriptionText == "Description"
         checks["Steam record tags missing from browser tags remain source-searchable"] = old.metadata.sourceTags == ["AuthorTag", "OriginalTag"]
+        let localTags = SteamWorkshopLibraryContentProjection.project(record: record(id: "local-tags", contentType: .video,
+            status: .ready, tags: ["Mature", "Nudity"]), facts: local)!
+        checks["Steam local author tags never become official adult evidence"] = localTags.metadata.contentRating == .unknown
+        let officialRatings: [([String], WallpaperContentRating)] = [(["Everyone"], .safe), (["Questionable"], .sensitive),
+            (["  nUdItY  "], .adult), (["Mature Nature"], .unknown)]
+        for (tags, rating) in officialRatings {
+            let projected = SteamWorkshopLibraryContentProjection.project(browserItem: try browserItem(id: "rating", tags: tags), facts: remote)!
+            checks["Steam official metadata rating-" + tags.joined(separator: ",")] = projected.metadata.contentRating == rating
+        }
+        let marked = SteamWorkshopLibraryContentProjection.project(browserItem: try browserItem(id: "marked", markedAdult: true), facts: remote)!
+        checks["Steam original adult marker remains authoritative"] = marked.metadata.contentRating == .adult
         let legacyMetadata = try JSONSerialization.data(withJSONObject: ["sourceTags": ["legacy"], "detailFields": []])
         let decodedLegacyMetadata = try JSONDecoder().decode(WallpaperContentMetadata.self, from: legacyMetadata)
         checks["legacy metadata JSON without new optional description still decodes"] = decodedLegacyMetadata.descriptionText == nil
@@ -120,29 +131,29 @@ struct WallpaperContentProjectionHarness {
         checks["Unicode-equivalent opaque IDs cannot borrow progress"] = SteamWorkshopLibraryContentProjection.project(
             record: unicodeRecord, facts: local, progress: unicodeProgress)?.update == .idle
 
-        let online = OnlineLibraryVideoItem(id: 42, pageURL: "https://pixabay.com/videos/id-42/", tags: " forest, sky ",
+        let pixabay = PixabayVideoItem(id: 42, pageURL: "https://pixabay.com/videos/id-42/", tags: " forest, sky ",
                                             duration: 9, user: "Pixabay Author",
-                                            videos: OnlineLibraryVideoFiles(large: OnlineLibraryVideoFile(
+                                            videos: PixabayVideoFiles(large: PixabayVideoFile(
                                                 url: "https://example.test/movie.mp4", width: 1920, height: 1080,
                                                 size: 9999, thumbnail: "https://example.test/preview.jpg"),
                                                 medium: nil, small: nil, tiny: nil))
         let pixabayReference = WallpaperReference(provider: .pixabay, sourceID: "42")
         let pixabayReceipt = WallpaperContentBackingPublication(backingVideoID: "42", publishedReference: pixabayReference,
                                                                 proof: .publishedDownload)
-        let remoteOnline = PixabayLibraryContentProjection.project(item: online, facts: remote, backing: pixabayReceipt)!
-        checks["remote Pixabay remains unorganized despite matching number or title"] = remoteOnline.reference == pixabayReference
-            && remoteOnline.capabilities.contains(.download) && !remoteOnline.capabilities.contains(.organize)
-            && !remoteOnline.capabilities.contains(.play) && remoteOnline.aliases.isEmpty
+        let remotePixabay = PixabayLibraryContentProjection.project(item: pixabay, facts: remote, backing: pixabayReceipt)!
+        checks["remote Pixabay remains unorganized despite matching number or title"] = remotePixabay.reference == pixabayReference
+            && remotePixabay.capabilities.contains(.download) && !remotePixabay.capabilities.contains(.organize)
+            && !remotePixabay.capabilities.contains(.play) && remotePixabay.aliases.isEmpty
         let download = PixabayPublishedDownload(id: 42, localURL: URL(fileURLWithPath: "/never-opened/42-Shared title.mp4"),
                                                 fileSize: 5000, duration: 15, resolutionString: "1280×720",
                                                 thumbnailSourceKey: "original-thumbnail-owner-key")
-        let localOnline = PixabayLibraryContentProjection.project(item: online, download: download, facts: local,
+        let localPixabay = PixabayLibraryContentProjection.project(item: pixabay, download: download, facts: local,
                                                                   backing: pixabayReceipt)!
-        checks["Pixabay preserves resolved downloaded metadata over remote values"] = localOnline.metadata.durationSeconds == 15
-            && localOnline.metadata.fileSizeBytes == 5000 && localOnline.metadata.resolutionText == "1280×720"
-            && localOnline.metadata.author == "Pixabay Author" && localOnline.metadata.sourceTags == ["forest", "sky"]
-            && localOnline.capabilities.contains([.organize, .play, .delete])
-        checks["only explicit matching published provenance emits alias"] = localOnline.aliases.first?.canonical == pixabayReference
+        checks["Pixabay preserves resolved downloaded metadata over remote values"] = localPixabay.metadata.durationSeconds == 15
+            && localPixabay.metadata.fileSizeBytes == 5000 && localPixabay.metadata.resolutionText == "1280×720"
+            && localPixabay.metadata.author == "Pixabay Author" && localPixabay.metadata.sourceTags == ["forest", "sky"]
+            && localPixabay.capabilities.contains([.organize, .play, .delete])
+        checks["only explicit matching published provenance emits alias"] = localPixabay.aliases.first?.canonical == pixabayReference
             && PixabayLibraryContentProjection.project(download: download, facts: local)?.aliases.isEmpty == true
         let otherNamespaceReceipt = WallpaperContentBackingPublication(
             backingVideoID: "42", publishedReference: WallpaperReference(provider: .steamWorkshop, sourceID: "42"),
@@ -151,36 +162,36 @@ struct WallpaperContentProjectionHarness {
             download: download, facts: local, backing: otherNamespaceReceipt)?.aliases.isEmpty == true
             && SteamWorkshopLibraryContentProjection.project(record: published, facts: local,
                                                               backing: pixabayReceipt)?.aliases.isEmpty == true
-        checks["same path and title never implicitly merge Steam and Pixabay"] = localOnline.reference != synthetic.reference
-            && localOnline.reference != ownVideo.reference && localOnline.reference != still.reference
+        checks["same path and title never implicitly merge Steam and Pixabay"] = localPixabay.reference != synthetic.reference
+            && localPixabay.reference != ownVideo.reference && localPixabay.reference != still.reference
         let pixabayUpdate = PixabayLibraryContentProjection.project(download: download, facts: local,
             update: .init(phase: .failed, failureMessage: "replacement failed"))!
         checks["Pixabay update failure keeps existing local capabilities"] = pixabayUpdate.update.phase == .failed
             && pixabayUpdate.acquisition.phase == .idle && pixabayUpdate.capabilities.contains([.play, .organize])
             && !pixabayUpdate.capabilities.contains(.retryUpdate) && !pixabayUpdate.capabilities.contains(.cancelDownload)
-        let acquiringOnline = PixabayLibraryContentProjection.project(item: online, facts: remote,
+        let acquiringPixabay = PixabayLibraryContentProjection.project(item: pixabay, facts: remote,
             acquisition: .init(phase: .transferring, totalBytes: 100, completedBytes: 25))!
-        checks["Pixabay transfer progress cannot invent a cancellation command"] = acquiringOnline.acquisition.phase == .transferring
-            && acquiringOnline.acquisition.fraction == 0.25 && !acquiringOnline.capabilities.contains(.cancelDownload)
-            && !acquiringOnline.capabilities.contains(.organize)
-        let failedInitialOnline = PixabayLibraryContentProjection.project(item: online, facts: remote,
+        checks["Pixabay transfer progress cannot invent a cancellation command"] = acquiringPixabay.acquisition.phase == .transferring
+            && acquiringPixabay.acquisition.fraction == 0.25 && !acquiringPixabay.capabilities.contains(.cancelDownload)
+            && !acquiringPixabay.capabilities.contains(.organize)
+        let failedInitialPixabay = PixabayLibraryContentProjection.project(item: pixabay, facts: remote,
             acquisition: .init(phase: .failed, failureMessage: "initial failed"))!
-        checks["Pixabay initial failure retains only its existing download retry command"] = failedInitialOnline.capabilities.contains(.retryDownload)
-            && !failedInitialOnline.capabilities.contains(.retryUpdate) && !failedInitialOnline.capabilities.contains(.cancelDownload)
+        checks["Pixabay initial failure retains only its existing download retry command"] = failedInitialPixabay.capabilities.contains(.retryDownload)
+            && !failedInitialPixabay.capabilities.contains(.retryUpdate) && !failedInitialPixabay.capabilities.contains(.cancelDownload)
         checks["missing source snapshots return no invented content"] = PixabayLibraryContentProjection.project(facts: remote) == nil
             && SteamWorkshopLibraryContentProjection.project(facts: remote) == nil
 
-        let encoded = try JSONEncoder().encode([ownVideo, still, synthetic, localOnline])
+        let encoded = try JSONEncoder().encode([ownVideo, still, synthetic, localPixabay])
         checks["shared content is a lossless metadata-only Codable value"] = try JSONDecoder().decode([WallpaperContentItem].self, from: encoded)
-            == [ownVideo, still, synthetic, localOnline]
+            == [ownVideo, still, synthetic, localPixabay]
         let output = try JSONEncoder().encode(checks)
         print(String(decoding: output, as: UTF8.self))
     }
 
-    private static func browserItem(id: String) throws -> SteamWorkshopBrowserItem {
+    private static func browserItem(id: String, tags: [String] = ["AuthorTag"], markedAdult: Bool = false) throws -> SteamWorkshopBrowserItem {
         let object: [String: Any] = [
-            "id": id, "title": "Shared title", "author": "Author", "hasAdultContent": false,
-            "summary": "Summary", "descriptionText": "Description", "tags": ["AuthorTag"],
+            "id": id, "title": "Shared title", "author": "Author", "hasAdultContent": markedAdult,
+            "summary": "Summary", "descriptionText": "Description", "tags": tags,
             "dependencyIDs": [], "previewAssetKind": "stillImage", "workshopTypeText": "video",
             "detailFields": [["label": "Score", "value": "98%"]],
             "detailURL": "https://steamcommunity.com/sharedfiles/filedetails/?id=\(id)"
@@ -190,8 +201,8 @@ struct WallpaperContentProjectionHarness {
 
     private static func record(id: String, contentType: SteamWorkshopDownloadContentType,
                                status: SteamWorkshopDownloadRecord.Status,
-                               browser: SteamWorkshopBrowserItem? = nil) -> SteamWorkshopDownloadRecord {
-        SteamWorkshopDownloadRecord(id: id, title: "Shared title", description: "Description", tags: ["OriginalTag"],
+                               browser: SteamWorkshopBrowserItem? = nil, tags: [String] = ["OriginalTag"]) -> SteamWorkshopDownloadRecord {
+        SteamWorkshopDownloadRecord(id: id, title: "Shared title", description: "Description", tags: tags,
                                     folderURL: URL(fileURLWithPath: "/never-opened/record"), projectFileURL: nil,
                                     ownEntryHTMLURL: nil, dependencyHostEntryHTMLURL: nil, dependencyHostFolderURL: nil,
                                     entryHTMLURL: nil, resolvedWebRootURL: nil, previewURL: nil, sourceVideoURL: nil,

@@ -264,7 +264,7 @@ final class FakeSteamIdleReapTiming: SteamIdleReapTiming {
         let jobStore = SteamDownloadJobStore(
             persistenceURL: jobStoreDirectory.appendingPathComponent("jobs-v5.json"),
             now: { virtualNow })
-        // 浏览面板挂载计数：与产品 owner（SteamWorkshopService
+        // 浏览面板可见需求计数：与产品 owner（SteamWorkshopService
         // .browsePanelAttachmentCount）同一转移规则——初始 0，只由进窗/出窗事件
         // 增减（出窗钳 0，同产品 noteBrowsePanelDetached），无合成复位；门表达式
         // 同产品装配（计数为 0 才算浏览休眠）。
@@ -296,8 +296,8 @@ final class FakeSteamIdleReapTiming: SteamIdleReapTiming {
         _ = try await client.start()
         precondition(client.isReadyAndQuiet && route.isDormantForHelperReaping)
 
-        // 门 1：浏览面板开着不回收（进窗事件使挂载计数 > 0）。
-        browsePanelAttachments += 1 // viewDidMoveToWindow: attached
+        // 门 1：浏览面板可见时不回收（可见需求使计数 > 0）。
+        browsePanelAttachments += 1 // visible native browser demand
         virtualNow = virtualNow.addingTimeInterval(601)
         await fireAndAssertStillReady("browse panel")
         browsePanelAttachments -= 1 // viewDidMoveToWindow: detached

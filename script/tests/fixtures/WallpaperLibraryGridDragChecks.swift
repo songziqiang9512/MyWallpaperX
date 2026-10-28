@@ -12,10 +12,12 @@ import AppKit
 
     func collectionView(_ collectionView: NSCollectionView, draggingSession session: NSDraggingSession,
                         willBeginAt point: NSPoint, forItemsAt paths: Set<IndexPath>) {
+        FileHandle.standardError.write(Data("continuous-drag-native willBegin-enter paths=\(paths.map(\.item).sorted())\n".utf8))
         (owner as NSCollectionViewDelegate).collectionView?(collectionView, draggingSession: session,
             willBeginAt: point, forItemsAt: paths)
         GridNativeDragProbe.started = true
         GridNativeDragProbe.onBegin?(session, paths)
+        FileHandle.standardError.write(Data("continuous-drag-native willBegin-return\n".utf8))
     }
 }
 
@@ -33,6 +35,8 @@ private final class SelectionDragCard: NSCollectionViewItem {
 /// This verifies AppKit selection and pasteboard callbacks, not OS pointer input.
 @MainActor enum WallpaperLibraryGridDragChecks {
     static func run(values: [WallpaperContentItem]) -> [String: Bool] {
+        func stage(_ name: String) { FileHandle.standardError.write(Data("continuous-drag-stage \(name)\n".utf8)) }
+        stage("constructing-controller")
         let controller = WallpaperLibraryGridController { collection, path, _, _ in
             collection.makeItem(withIdentifier: .init("selection-drag-card"), for: path)
         }
@@ -57,6 +61,7 @@ private final class SelectionDragCard: NSCollectionViewItem {
             precondition(Date() < deadline, "native continuous drag window never became active")
             WallpaperLibraryGridHarness.pump()
         }
+        stage("native-window-active")
         defer { GridNativeDragProbe.onBegin = nil; window.orderOut(nil); window.close() }
         let collection = controller.collection
         func update(_ state: WallpaperLibrarySelectionState, page: WallpaperLibraryPage = .videos) {
@@ -67,6 +72,7 @@ private final class SelectionDragCard: NSCollectionViewItem {
             WallpaperLibraryGridHarness.pump()
         }
         update(WallpaperLibrarySelectionState())
+        stage("initial-real-cards-mounted")
         precondition(collection.indexPathsForVisibleItems().count == values.count,
             "continuous drag requires all four real native cards")
         struct Receipt {
@@ -92,14 +98,18 @@ private final class SelectionDragCard: NSCollectionViewItem {
                 pressure: type == .leftMouseUp ? 0 : 1)!
         }
         func input(_ index: Int, drag: Bool, flags: NSEvent.ModifierFlags = []) {
+            stage("input-\(index)-drag-\(drag)-flags-\(flags.rawValue)-before-queue")
             let card = collection.item(at: IndexPath(item: index, section: 0))!.view
             let start = card.convert(NSPoint(x: card.bounds.midX, y: card.bounds.midY), to: nil)
             let end = drag ? NSPoint(x: start.x + 70, y: start.y + 25) : start
             let time = ProcessInfo.processInfo.systemUptime
             NSApp.postEvent(event(.leftMouseUp, point: end, time: time + 0.04, flags: flags), atStart: true)
             if drag { NSApp.postEvent(event(.leftMouseDragged, point: end, time: time + 0.02, flags: flags), atStart: true) }
+            stage("input-\(index)-before-native-mousedown")
             window.sendEvent(event(.leftMouseDown, point: start, time: time, flags: flags))
+            stage("input-\(index)-after-native-mousedown-before-pump")
             WallpaperLibraryGridHarness.pump()
+            stage("input-\(index)-after-pump")
         }
         var checks: [String: Bool] = [:]
         func checkDrag(_ name: String, index: Int, flags: NSEvent.ModifierFlags = []) {
@@ -119,22 +129,26 @@ private final class SelectionDragCard: NSCollectionViewItem {
         checkDrag("selected-B-again", index: 1)
         checkDrag("command-drag-C-is-still-ordinary-mode", index: 2, flags: .command)
         checkDrag("shift-drag-D-is-still-ordinary-mode", index: 3, flags: .shift)
-        func stage(_ name: String) { FileHandle.standardError.write(Data("continuous-drag-tail \(name)\n".utf8)) }
         stage("before-ordinary-click")
         let beforeClick = inspections, beforeClickSelection = selectionEvents.count
         input(0, drag: false)
         stage("after-ordinary-click")
-        checks["ordinary-click-still-selects-and-inspects-once"] = controller.selection.references == [values[0].reference]
-            && inspections == beforeClick + 1 && plays == 0
+        checks["default-ordinary-click-selects-only-without-inspection-or-play"] = controller.selection.references == [values[0].reference]
+            && inspections == beforeClick && plays == 0
         checks["one-ordinary-click-has-one-selection-receipt-across-native-mousedown-and-completion"] = selectionEvents.count == beforeClickSelection + 1
+        controller.opensDetailsOnSingleClick = { true }
+        let beforeOptIn = inspections, beforeOptInSelection = selectionEvents.count
         input(0, drag: false)
-        checks["a-new-click-on-the-selected-card-still-requests-a-new-receipt-and-inspects-once"] = selectionEvents.count == beforeClickSelection + 2
-            && inspections == beforeClick + 2 && plays == 0
+        checks["ordinary-click-still-selects-and-inspects-once"] = controller.selection.references == [values[0].reference]
+            && inspections == beforeOptIn + 1 && plays == 0 && selectionEvents.count == beforeOptInSelection + 1
+        input(0, drag: false)
+        checks["a-new-click-on-the-selected-card-still-requests-a-new-receipt-and-inspects-once"] = selectionEvents.count == beforeOptInSelection + 2
+            && inspections == beforeOptIn + 2 && plays == 0
         let beforeRejection = controller.selection
         controller.onSelection = { _, _ in nil }
         input(0, drag: false)
         checks["selected-card-cannot-reuse-the-previous-click-receipt-after-current-admission-rejects"] = controller.selection == beforeRejection
-            && selectionEvents.count == beforeClickSelection + 2 && inspections == beforeClick + 2 && plays == 0
+            && selectionEvents.count == beforeOptInSelection + 2 && inspections == beforeOptIn + 2 && plays == 0
         controller.onSelection = { refs, _ in selectionEvents.append(refs.map(\.storageKey).sorted()); return UUID() }
         var multi = WallpaperLibrarySelectionState()
         multi.isSelecting = true; multi.references = [values[0].reference, values[1].reference]

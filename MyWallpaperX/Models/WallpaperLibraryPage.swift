@@ -5,7 +5,7 @@ extension WallpaperProvider {
         switch self {
         case .videoLibrary: return "本地视频"
         case .staticImageLibrary: return "本地图片"
-        case .steamWorkshop: return "Steam 创意工坊"
+        case .steamWorkshop: return "创意工坊"
         case .pixabay: return "Pixabay"
         case .wallhaven: return "Wallhaven"
         case .pixiv: return "Pixiv"
@@ -16,7 +16,7 @@ extension WallpaperProvider {
         switch self {
         case .videoLibrary: return [rawValue, libraryDisplayName, "我的视频", "视频库"]
         case .staticImageLibrary: return [rawValue, libraryDisplayName, "我的图片", "图片库"]
-        case .steamWorkshop: return [rawValue, libraryDisplayName, "工坊订阅"]
+        case .steamWorkshop: return [rawValue, libraryDisplayName, "Steam 创意工坊", "工坊订阅"]
         case .pixabay, .wallhaven, .pixiv: return [rawValue, libraryDisplayName]
         }
     }
@@ -138,6 +138,7 @@ nonisolated struct WallpaperLibraryQueryState: Codable, Equatable, Sendable {
     var provider: WallpaperProvider? = nil
     var kind: WallpaperMediaKind? = nil
     var status: WallpaperLibraryStatusFilter = .all
+    var showsAdultContent = true
     /// nil selects the page's default. Recent always retains success order.
     var sort: WallpaperLibrarySort? = nil
     var ascending = true
@@ -155,15 +156,16 @@ nonisolated struct WallpaperLibraryQueryState: Codable, Equatable, Sendable {
          status: WallpaperLibraryStatusFilter = .all, sort: WallpaperLibrarySort? = nil,
          ascending: Bool = true, legacyTimeOrder: [WallpaperReference]? = nil,
          preferredColumns: Int = 5, scrollAnchor: WallpaperReference? = nil,
-         scrollOffset: Double? = nil, scrollAtTop: Bool? = nil) {
+         scrollOffset: Double? = nil, scrollAtTop: Bool? = nil, showsAdultContent: Bool = true) {
         self.search = search; self.provider = provider; self.kind = kind; self.status = status
         self.sort = sort; self.ascending = ascending; self.legacyTimeOrder = legacyTimeOrder
         self.preferredColumns = preferredColumns; self.scrollAnchor = scrollAnchor
         self.scrollOffset = scrollOffset; self.scrollAtTop = scrollAtTop
+        self.showsAdultContent = showsAdultContent
     }
 
     private enum CodingKeys: String, CodingKey {
-        case search, provider, kind, status, sort, ascending, legacyTimeOrder
+        case search, provider, kind, status, showsAdultContent, sort, ascending, legacyTimeOrder
         case preferredColumns, scrollAnchor, scrollOffset, scrollAtTop
         case zoomOffset // Read-only v1 field; its width-dependent meaning is retired.
     }
@@ -174,6 +176,7 @@ nonisolated struct WallpaperLibraryQueryState: Codable, Equatable, Sendable {
         provider = try values.decodeIfPresent(WallpaperProvider.self, forKey: .provider)
         kind = try values.decodeIfPresent(WallpaperMediaKind.self, forKey: .kind)
         status = try values.decode(WallpaperLibraryStatusFilter.self, forKey: .status)
+        showsAdultContent = try values.decodeIfPresent(Bool.self, forKey: .showsAdultContent) ?? true
         sort = try values.decodeIfPresent(WallpaperLibrarySort.self, forKey: .sort)
         ascending = try values.decode(Bool.self, forKey: .ascending)
         legacyTimeOrder = try values.decodeIfPresent([WallpaperReference].self, forKey: .legacyTimeOrder)
@@ -197,6 +200,7 @@ nonisolated struct WallpaperLibraryQueryState: Codable, Equatable, Sendable {
         try values.encodeIfPresent(provider, forKey: .provider)
         try values.encodeIfPresent(kind, forKey: .kind)
         try values.encode(status, forKey: .status)
+        try values.encode(showsAdultContent, forKey: .showsAdultContent)
         try values.encodeIfPresent(sort, forKey: .sort)
         try values.encode(ascending, forKey: .ascending)
         try values.encodeIfPresent(legacyTimeOrder, forKey: .legacyTimeOrder)
@@ -204,11 +208,6 @@ nonisolated struct WallpaperLibraryQueryState: Codable, Equatable, Sendable {
         try values.encodeIfPresent(scrollAnchor, forKey: .scrollAnchor)
         try values.encodeIfPresent(scrollOffset, forKey: .scrollOffset)
         try values.encodeIfPresent(scrollAtTop, forKey: .scrollAtTop)
-    }
-
-    var permitsManualReordering: Bool {
-        (sort == nil || sort == .sourceOrder) && search.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
-            && provider == nil && kind == nil && status == .all
     }
 }
 

@@ -691,7 +691,8 @@
         "script/tests/fixtures/SteamDownloadExecutionHarness.swift",
         "script/tests/fixtures/SteamReadyUpdateDeletionFixture.swift",
         "script/tests/fixtures/SteamServiceClientLifecycleHarness.swift",
-        "script/tests/fixtures/SteamDownloadLateCleanupFixture.swift"
+        "script/tests/fixtures/SteamDownloadLateCleanupFixture.swift",
+        "script/tests/fixtures/SteamBrowseVisibilityHarness.swift"
       ],
       "modules": [
         "test_steam_client_lifecycle",
@@ -2756,7 +2757,7 @@
         "MyWallpaperX/Modules/SteamWorkshop/UI/SteamWorkshopItemDetailPreviewSupport.swift",
         "MyWallpaperX/Modules/SteamWorkshop/UI/SteamWorkshopItemDetailSheet.swift",
         "MyWallpaperX/Modules/SteamWorkshop/Core/SteamWorkshopPreviewImageSupport.swift",
-        "MyWallpaperX/Modules/SteamWorkshop/UI/SteamWorkshopDownloadTasksPopover.swift",
+        "MyWallpaperX/Modules/Downloads/UI/DownloadTasksPopover.swift",
         "MyWallpaperX/Modules/SteamWorkshop/Core/SteamWorkshopDownloadThumbnailPipeline.swift",
         "script/tests/fixtures/SteamDetailInvalidationHarness.swift",
         "script/tests/fixtures/SteamDetailInvalidationSupport.swift",
@@ -2992,8 +2993,9 @@
         "MyWallpaperX/Shared/Components/SidebarComponents.swift",
         "script/tests/fixtures/NativeUIEquivalenceHarness.swift",
         "script/tests/test_native_ui_equivalence.py",
-        "MyWallpaperX/Modules/OnlineLibrary/UI/OnlineLibraryBrowserSupport.swift",
-        "script/tests/fixtures/OnlineDownloadToastChecks.swift"
+        "MyWallpaperX/Modules/Pixabay/UI/PixabayBrowserSupport.swift",
+        "script/tests/fixtures/OnlineDownloadToastChecks.swift",
+        "MyWallpaperX/Shared/UI/WallpaperGridNoticeView.swift"
       ],
       "modules": [
         "test_native_ui_equivalence",
@@ -3046,7 +3048,7 @@
         "MyWallpaperX/Modules/SteamWorkshop/Core/SteamWorkshopService+Downloads.swift",
         "MyWallpaperX/Shell/AppKitMainSplitView.swift",
         "MyWallpaperX/Shell/AppKitMainSplitView+SteamSelection.swift",
-        "MyWallpaperX/Modules/SteamWorkshop/UI/SteamWorkshopDownloadTasksPopover.swift"
+        "MyWallpaperX/Modules/Downloads/UI/DownloadTasksPopover.swift"
       ],
       "modules": [
         "test_steam_library_interactions"
@@ -3528,7 +3530,7 @@
         "MyWallpaperX/Modules/SteamWorkshop/Core/SteamWorkshopPreviewRequestCoordinator.swift",
         "MyWallpaperX/Modules/SteamWorkshop/Core/SteamWorkshopPreviewImageSupport.swift",
         "MyWallpaperX/Modules/SteamWorkshop/UI/SteamWorkshopPreviewState.swift",
-        "MyWallpaperX/Modules/SteamWorkshop/UI/SteamWorkshopDownloadTasksPopover.swift",
+        "MyWallpaperX/Modules/Downloads/UI/DownloadTasksPopover.swift",
         "script/tests/fixtures/SteamThumbnailLeaseChecks.swift"
       ],
       "modules": [
@@ -3564,19 +3566,18 @@
       "patterns": [
         "MyWallpaperX/Shell/UIActionHelper.swift",
         "MyWallpaperX/Modules/VideoLibrary/Core/WallpaperManager+Removal.swift",
-        "MyWallpaperX/Modules/OnlineLibrary/UI/AppKitOLDownloadsGridView.swift",
         "MyWallpaperX/Modules/SteamWorkshop/Core/SteamWorkshopAgeRatingSupport.swift",
         "MyWallpaperX/Modules/SteamWorkshop/Core/SteamWorkshopService+DownloadFiltering.swift",
         "MyWallpaperX/Modules/SteamWorkshop/Core/SteamWorkshopService+DownloadSelection.swift",
         "MyWallpaperX/Modules/SteamWorkshop/Core/SteamWorkshopService.swift",
         "MyWallpaperX/Modules/SteamWorkshop/Core/SteamWorkshopService+SteamKitBrowse.swift",
         "MyWallpaperX/Modules/SteamWorkshop/Toolbar/SteamWorkshopToolbarController*.swift",
-        "MyWallpaperX/Modules/SteamWorkshop/UI/SteamWorkshopDownloadTasksPopover.swift",
+        "MyWallpaperX/Modules/Downloads/UI/DownloadTasksPopover.swift",
         "MyWallpaperX/Shared/UI/ToolbarMenuPopover.swift",
         "MyWallpaperX/Shell/AppKitMainSplitView.swift",
         "script/tests/fixtures/LibraryToolbarBehaviorHarness.swift",
-        "MyWallpaperX/Modules/OnlineLibrary/Core/OnlineLibraryService.swift",
-        "MyWallpaperX/Modules/OnlineLibrary/Core/OnlineLibraryModels.swift",
+        "MyWallpaperX/Modules/Pixabay/Core/PixabayService.swift",
+        "MyWallpaperX/Modules/Pixabay/Core/PixabayModels.swift",
         "MyWallpaperX/Modules/StaticImageLibrary/Core/SILService.swift"
       ],
       "modules": [
@@ -3586,13 +3587,13 @@
     {
       "id": "online-download-transfer",
       "patterns": [
-        "MyWallpaperX/Modules/OnlineLibrary/Core/OnlineLibraryService.swift",
-        "MyWallpaperX/Modules/OnlineLibrary/Core/OnlineLibraryModels.swift",
-        "script/tests/test_online_download_transfer.py",
-        "script/tests/fixtures/OnlineDownloadTransferHarness.swift"
+        "MyWallpaperX/Modules/Pixabay/Core/PixabayService.swift",
+        "MyWallpaperX/Modules/Pixabay/Core/PixabayModels.swift",
+        "script/tests/test_pixabay_download_transfer.py",
+        "script/tests/fixtures/PixabayDownloadTransferHarness.swift"
       ],
       "modules": [
-        "test_online_download_transfer"
+        "test_pixabay_download_transfer"
       ]
     },
     {
@@ -3620,7 +3621,7 @@
         "MyWallpaperX/Modules/StaticImageLibrary/Core/SILService.swift",
         "MyWallpaperX/Shell/AppKitDetailHostViewController.swift",
         "MyWallpaperX/Shell/SidebarViews.swift",
-        "MyWallpaperX/Modules/OnlineLibrary/UI/AppKitOLBrowserGridView.swift",
+        "MyWallpaperX/Modules/Pixabay/UI/AppKitPixabayBrowserGridView.swift",
         "script/tests/test_ui_projection_efficiency.py",
         "script/tests/fixtures/UIProjectionEfficiencyHarness.swift"
       ],
@@ -3642,7 +3643,7 @@
     {
       "id": "ui-request-schedulers",
       "patterns": [
-        "MyWallpaperX/Modules/OnlineLibrary/Core/OnlineLibraryThumbnailPipeline.swift",
+        "MyWallpaperX/Shared/UI/OnlineImageThumbnailPipeline.swift",
         "script/tests/test_ui_request_schedulers.py",
         "script/tests/fixtures/UIRequestSchedulerHarness.swift"
       ],
@@ -4389,11 +4390,10 @@
     {
       "id": "appkit-grid-scroll-presentation",
       "patterns": [
-        "MyWallpaperX/Modules/OnlineLibrary/Core/OnlineLibraryThumbnailPipeline.swift",
-        "MyWallpaperX/Modules/OnlineLibrary/UI/AppKitOLBrowserGridView.swift",
-        "MyWallpaperX/Modules/OnlineLibrary/UI/AppKitOLBrowserItem.swift",
-        "MyWallpaperX/Modules/OnlineLibrary/UI/AppKitOLDownloadsGridView.swift",
-        "MyWallpaperX/Modules/OnlineLibrary/UI/AppKitOLDownloadsItem.swift",
+        "MyWallpaperX/Shared/UI/OnlineImageThumbnailPipeline.swift",
+        "MyWallpaperX/Modules/Pixabay/UI/AppKitPixabayBrowserGridView.swift",
+        "MyWallpaperX/Modules/Pixabay/UI/AppKitPixabayBrowserItem.swift",
+        "MyWallpaperX/Modules/Pixabay/UI/AppKitPixabayDownloadsItem.swift",
         "MyWallpaperX/Modules/StaticImageLibrary/UI/SILGridContainerView.swift",
         "MyWallpaperX/Modules/StaticImageLibrary/UI/SILGridItemView.swift",
         "MyWallpaperX/Modules/SteamWorkshop/UI/AppKitSteamWorkshopBrowserGridView.swift",
@@ -4415,8 +4415,10 @@
         "script/tests/fixtures/WallpaperCardControlsHarness.swift",
         "MyWallpaperX/Modules/VideoLibrary/UI/AppKitLibraryGridView+Cells.swift",
         "MyWallpaperX/Modules/SteamWorkshop/UI/AppKitSteamWorkshopBrowserItemSupportViews.swift",
-        "MyWallpaperX/Modules/OnlineLibrary/UI/OnlineLibraryBrowserView.swift",
-        "MyWallpaperX/Modules/SteamWorkshop/UI/AppKitSteamWorkshopBrowserView.swift"
+        "MyWallpaperX/Modules/Pixabay/UI/PixabayBrowserView.swift",
+        "MyWallpaperX/Modules/SteamWorkshop/UI/AppKitSteamWorkshopBrowserView.swift",
+        "script/tests/fixtures/GridContextMenuHoverChecks.swift",
+        "script/tests/fixtures/GridContextMenuNativeInputChecks.swift"
       ],
       "modules": [
         "test_grid_scroll_interaction",
@@ -4443,12 +4445,12 @@
         "MyWallpaperX/Modules/SteamWorkshop/Core/SteamWorkshopPreviewImageSupport.swift",
         "MyWallpaperX/Modules/SteamWorkshop/Core/SteamWorkshopService+BrowseHydration.swift",
         "MyWallpaperX/Modules/SteamWorkshop/UI/SteamWorkshopPreviewState.swift",
-        "MyWallpaperX/Modules/OnlineLibrary/Core/OnlineLibraryThumbnailPipeline.swift",
-        "MyWallpaperX/Modules/OnlineLibrary/Core/OnlineLibraryService.swift",
+        "MyWallpaperX/Shared/UI/OnlineImageThumbnailPipeline.swift",
+        "MyWallpaperX/Modules/Pixabay/Core/PixabayService.swift",
         "script/tests/test_thumbnail_return_reuse.py",
         "script/tests/fixtures/ThumbnailReturnReuseChecks.swift",
         "MyWallpaperX/Modules/SteamWorkshop/Core/SteamWorkshopService+ItemDetailPresentation.swift",
-        "MyWallpaperX/Modules/SteamWorkshop/UI/SteamWorkshopDownloadTasksPopover.swift",
+        "MyWallpaperX/Modules/Downloads/UI/DownloadTasksPopover.swift",
         "MyWallpaperX/Shared/UI/GridThumbnailPrefetchDemand.swift",
         "MyWallpaperX/Modules/VideoLibrary/UI/AppKitLibraryGridView.swift",
         "MyWallpaperX/Modules/VideoLibrary/UI/AppKitLibraryGridView+Interaction.swift",
@@ -4464,17 +4466,15 @@
         "MyWallpaperX/Modules/SteamWorkshop/UI/AppKitSteamWorkshopDownloadsGridView.swift",
         "MyWallpaperX/Modules/SteamWorkshop/UI/AppKitSteamWorkshopBrowserItem.swift",
         "MyWallpaperX/Modules/SteamWorkshop/UI/AppKitSteamWorkshopBrowserItem+Presentation.swift",
-        "MyWallpaperX/Modules/OnlineLibrary/UI/AppKitOLBrowserGridView.swift",
-        "MyWallpaperX/Modules/OnlineLibrary/UI/AppKitOLBrowserItem.swift",
-        "MyWallpaperX/Modules/OnlineLibrary/UI/AppKitOLDownloadsGridView.swift",
-        "MyWallpaperX/Modules/OnlineLibrary/UI/AppKitOLDownloadsGridView+ThumbnailDemand.swift",
-        "MyWallpaperX/Modules/OnlineLibrary/UI/AppKitOLDownloadsItem.swift",
+        "MyWallpaperX/Modules/Pixabay/UI/AppKitPixabayBrowserGridView.swift",
+        "MyWallpaperX/Modules/Pixabay/UI/AppKitPixabayBrowserItem.swift",
+        "MyWallpaperX/Modules/Pixabay/UI/AppKitPixabayDownloadsItem.swift",
         "script/tests/test_thumbnail_demand_scheduling.py",
         "script/tests/fixtures/ThumbnailDemandSchedulingHarness.swift",
-        "script/tests/test_online_thumbnail_scheduling.py",
-        "script/tests/fixtures/OnlineThumbnailSchedulingHarness.swift",
-        "script/tests/test_online_downloaded_thumbnail_generation.py",
-        "script/tests/fixtures/OnlineDownloadedThumbnailHarness.swift",
+        "script/tests/test_online_image_thumbnail_scheduling.py",
+        "script/tests/fixtures/OnlineImageThumbnailSchedulingHarness.swift",
+        "script/tests/test_pixabay_downloaded_thumbnail_generation.py",
+        "script/tests/fixtures/PixabayDownloadedThumbnailHarness.swift",
         "script/tests/test_video_thumbnail_prefetch.py",
         "script/tests/fixtures/VideoThumbnailPrefetchChecks.swift",
         "script/tests/fixtures/VideoCardProbeFields.swift",
@@ -4483,10 +4483,10 @@
         "script/tests/fixtures/SteamPreviewSchedulingChecks.swift",
         "script/tests/test_grid_window_thumbnail_lifecycle.py",
         "script/tests/fixtures/GridWindowThumbnailLifecycleHarness.swift",
-        "script/tests/test_online_grid_thumbnail_demand.py",
-        "script/tests/fixtures/OnlineGridThumbnailDemandHarness.swift",
-        "script/tests/fixtures/OnlineDownloadedIdentityHarness.swift",
-        "script/tests/test_online_downloaded_thumbnail_identity.py",
+        "script/tests/test_pixabay_grid_thumbnail_demand.py",
+        "script/tests/fixtures/PixabayGridThumbnailDemandHarness.swift",
+        "script/tests/fixtures/PixabayDownloadedIdentityHarness.swift",
+        "script/tests/test_pixabay_downloaded_thumbnail_identity.py",
         "script/tests/fixtures/GridCardInteractionChecks.swift",
         "script/tests/fixtures/VideoCardInteractionHarness.swift",
         "script/tests/native_app_harness.py",
@@ -4504,8 +4504,8 @@
         "test_steam_list_thumbnail_animation",
         "test_grid_card_lifecycle",
         "test_thumbnail_demand_scheduling",
-        "test_online_thumbnail_scheduling",
-        "test_online_downloaded_thumbnail_generation",
+        "test_online_image_thumbnail_scheduling",
+        "test_pixabay_downloaded_thumbnail_generation",
         "test_video_thumbnail_prefetch",
         "test_sil_thumbnail_demand",
         "test_ui_request_schedulers",
@@ -4513,9 +4513,9 @@
         "test_grid_playback_publication",
         "test_sil_metadata_loading",
         "test_grid_window_thumbnail_lifecycle",
-        "test_online_grid_thumbnail_demand",
+        "test_pixabay_grid_thumbnail_demand",
         "test_steam_preview_lifecycle",
-        "test_online_downloaded_thumbnail_identity",
+        "test_pixabay_downloaded_thumbnail_identity",
         "test_library_visible_source_lifecycle",
         "test_library_keyboard_navigation"
       ]
@@ -4745,11 +4745,10 @@
         "MyWallpaperX/Shell/AppKitDetailHostViewController.swift",
         "MyWallpaperX/Modules/VideoLibrary/UI/AppKitLibraryGridView.swift",
         "MyWallpaperX/Modules/StaticImageLibrary/UI/SILGridContainerView.swift",
-        "MyWallpaperX/Modules/OnlineLibrary/UI/AppKitOLBrowserGridView.swift",
-        "MyWallpaperX/Modules/OnlineLibrary/UI/AppKitOLDownloadsGridView.swift",
+        "MyWallpaperX/Modules/Pixabay/UI/AppKitPixabayBrowserGridView.swift",
         "MyWallpaperX/Modules/SteamWorkshop/UI/AppKitSteamWorkshopBrowserGridView.swift",
         "MyWallpaperX/Modules/SteamWorkshop/UI/AppKitSteamWorkshopDownloadsGridView.swift",
-        "MyWallpaperX/Modules/OnlineLibrary/UI/OnlineLibraryBrowserView.swift",
+        "MyWallpaperX/Modules/Pixabay/UI/PixabayBrowserView.swift",
         "MyWallpaperX/Modules/SteamWorkshop/UI/AppKitSteamWorkshopBrowserView.swift",
         "MyWallpaperX/Modules/SteamWorkshop/UI/SteamWorkshopListThumbnailTint.swift",
         "MyWallpaperX/Modules/VideoLibrary/UI/AppKitLibraryGridSupport.swift",
@@ -4775,7 +4774,7 @@
         "MyWallpaperX/Modules/VideoLibrary/Core/VideoLibraryContentProjection.swift",
         "MyWallpaperX/Modules/StaticImageLibrary/Core/StaticImageLibraryContentProjection.swift",
         "MyWallpaperX/Modules/SteamWorkshop/Core/SteamWorkshopLibraryContentProjection.swift",
-        "MyWallpaperX/Modules/OnlineLibrary/Core/PixabayLibraryContentProjection.swift",
+        "MyWallpaperX/Modules/Pixabay/Core/PixabayLibraryContentProjection.swift",
         "script/tests/test_user_collections_store.py",
         "script/tests/test_user_collections_sqlite_fault.py",
         "script/tests/test_legacy_library_snapshot.py",
@@ -4843,7 +4842,7 @@
         "MyWallpaperX/Modules/VideoLibrary/Core/WallpaperManager+WallpaperApplication.swift",
         "MyWallpaperX/Modules/VideoLibrary/Core/WallpaperManager+Removal.swift",
         "MyWallpaperX/Modules/VideoLibrary/Core/WallpaperManager.swift",
-        "MyWallpaperX/Modules/OnlineLibrary/Core/OnlineLibraryService.swift",
+        "MyWallpaperX/Modules/Pixabay/Core/PixabayService.swift",
         "MyWallpaperX/Modules/SteamWorkshop/Core/SteamWorkshopService.swift",
         "MyWallpaperX/Modules/SteamWorkshop/Web/Core/SteamWorkshopService+WebPlayback.swift",
         "script/tests/test_imported_video_admission.py",
@@ -4865,17 +4864,15 @@
     {
       "id": "pixabay-native-square-cards",
       "patterns": [
-        "MyWallpaperX/Modules/OnlineLibrary/UI/AppKitOLBrowserItem.swift",
-        "MyWallpaperX/Modules/OnlineLibrary/UI/AppKitOLDownloadsItem.swift",
-        "MyWallpaperX/Modules/OnlineLibrary/UI/AppKitOLDownloadsGridView.swift",
-        "MyWallpaperX/Modules/OnlineLibrary/UI/OnlineLibraryGridLayoutSupport.swift",
+        "MyWallpaperX/Modules/Pixabay/UI/AppKitPixabayBrowserItem.swift",
+        "MyWallpaperX/Modules/Pixabay/UI/AppKitPixabayDownloadsItem.swift",
         "script/tests/fixtures/PixabayCardPresentationChecks.swift"
       ],
       "modules": [
         "test_grid_card_lifecycle",
-        "test_online_downloaded_thumbnail_identity",
-        "test_online_downloaded_thumbnail_generation",
-        "test_online_thumbnail_scheduling",
+        "test_pixabay_downloaded_thumbnail_identity",
+        "test_pixabay_downloaded_thumbnail_generation",
+        "test_online_image_thumbnail_scheduling",
         "test_library_toolbar_behaviors"
       ]
     },
@@ -4976,19 +4973,19 @@
     {
       "id": "main-library-downloaded-source",
       "patterns": [
-        "MyWallpaperX/Modules/OnlineLibrary/Core/OnlineLibraryDownloadedContent.swift",
-        "MyWallpaperX/Modules/OnlineLibrary/Core/OnlineLibraryService.swift",
-        "script/tests/test_online_downloaded_content.py",
-        "script/tests/fixtures/OnlineDownloadedContentHarness.swift",
-        "script/tests/test_online_library_pagination.py",
-        "script/tests/fixtures/OnlineLibraryPaginationHarness.swift",
-        "MyWallpaperX/Modules/OnlineLibrary/UI/AppKitOLDownloadsItem.swift"
+        "MyWallpaperX/Modules/Pixabay/Core/PixabayDownloadedContent.swift",
+        "MyWallpaperX/Modules/Pixabay/Core/PixabayService.swift",
+        "script/tests/test_pixabay_downloaded_content.py",
+        "script/tests/fixtures/PixabayDownloadedContentHarness.swift",
+        "script/tests/test_pixabay_pagination.py",
+        "script/tests/fixtures/PixabayPaginationHarness.swift",
+        "MyWallpaperX/Modules/Pixabay/UI/AppKitPixabayDownloadsItem.swift"
       ],
       "modules": [
-        "test_online_downloaded_content",
-        "test_online_downloaded_thumbnail_identity",
+        "test_pixabay_downloaded_content",
+        "test_pixabay_downloaded_thumbnail_identity",
         "test_imported_video_admission",
-        "test_online_library_pagination"
+        "test_pixabay_pagination"
       ]
     },
     {
@@ -5016,7 +5013,6 @@
         "script/tests/fixtures/WallpaperLibraryCellAdapterHarness.swift",
         "script/tests/fixtures/SILThumbnailDemandHarness.swift",
         "script/tests/fixtures/NativeAppHarness.swift",
-        "MyWallpaperX/Modules/OnlineLibrary/UI/AppKitOLDownloadsSupport.swift",
         "MyWallpaperX/Modules/StaticImageLibrary/UI/SILQuickLookController.swift",
         "MyWallpaperX/Modules/SteamWorkshop/UI/AppKitSteamWorkshopDownloadsSupport.swift",
         "MyWallpaperX/Modules/SteamWorkshop/UI/AppKitSteamWorkshopDownloadsView.swift",
@@ -5028,7 +5024,7 @@
         "test_grid_card_lifecycle",
         "test_sil_thumbnail_demand",
         "test_video_thumbnail_prefetch",
-        "test_online_grid_thumbnail_demand"
+        "test_pixabay_grid_thumbnail_demand"
       ]
     },
     {
@@ -5076,14 +5072,15 @@
         "script/tests/fixtures/WallpaperLibraryCompositionProjectionChecks.swift",
         "script/tests/fixtures/UserCollectionsControllerHarness.swift",
         "script/tests/fixtures/MainMenuCommandsHarness.swift",
-        "MyWallpaperX/Shared/WallpaperSourceFileDeletion.swift"
+        "MyWallpaperX/Shared/WallpaperSourceFileDeletion.swift",
+        "script/tests/fixtures/WallpaperLibraryRecentMenuChecks.swift"
       ],
       "modules": [
         "test_wallpaper_library_command_transactions",
         "test_user_collections_controller",
         "test_main_menu_commands",
         "test_video_removal_receipts",
-        "test_online_downloaded_content"
+        "test_pixabay_downloaded_content"
       ]
     },
     {
@@ -5116,7 +5113,7 @@
         "MyWallpaperX/App/WallpaperLibraryDownloadRecovery.swift",
         "MyWallpaperX/Modules/SteamWorkshop/Core/SteamWorkshopService+Integration.swift",
         "MyWallpaperX/Modules/SteamWorkshop/Core/SteamWorkshopService+Downloads.swift",
-        "MyWallpaperX/Modules/OnlineLibrary/Core/OnlineLibraryService+SourcePage.swift",
+        "MyWallpaperX/Modules/Pixabay/Core/PixabayService+SourcePage.swift",
         "script/tests/test_wallpaper_library_download_recovery.py",
         "script/tests/fixtures/WallpaperLibraryDownloadRecoveryHarness.swift",
         "MyWallpaperX/Shared/UI/WallpaperInspectorActions.swift",
@@ -5128,8 +5125,8 @@
         "script/tests/fixtures/VideoInspectorPreviewHarness.swift",
         "script/tests/fixtures/SteamDetailInvalidationHarness.swift",
         "script/tests/fixtures/SteamDetailFooterHarness.swift",
-        "MyWallpaperX/Modules/OnlineLibrary/UI/OnlineLibraryDownloadsInspectorSupport.swift",
-        "MyWallpaperX/Modules/OnlineLibrary/UI/OnlineLibraryDownloadsInspectorView.swift",
+        "MyWallpaperX/Modules/Pixabay/UI/PixabayDownloadsInspectorSupport.swift",
+        "MyWallpaperX/Modules/Pixabay/UI/PixabayDownloadsInspectorView.swift",
         "MyWallpaperX/Modules/StaticImageLibrary/UI/SILInspectorView.swift",
         "MyWallpaperX/Modules/SteamWorkshop/UI/SteamWorkshopItemMenu.swift",
         "script/tests/test_steam_item_menu.py",
@@ -5141,7 +5138,12 @@
         "script/tests/test_video_inspector_metadata.py",
         "script/tests/fixtures/VideoInspectorMetadataHarness.swift",
         "script/tests/fixtures/WallpaperLibraryMenuCompositionChecks.swift",
-        "MyWallpaperX/Modules/OnlineLibrary/UI/AppKitOLDownloadsItem.swift"
+        "MyWallpaperX/Modules/Pixabay/UI/AppKitPixabayDownloadsItem.swift",
+        "script/tests/fixtures/InspectorImagePlaybackFixture.swift",
+        "script/tests/fixtures/InspectorPresentationRefreshChecks.swift",
+        "MyWallpaperX/Shared/UI/WallpaperOpenWithMenu.swift",
+        "script/tests/test_wallpaper_open_with_menu.py",
+        "script/tests/fixtures/WallpaperOpenWithMenuChecks.swift"
       ],
       "modules": [
         "test_wallpaper_library_inspector",
@@ -5149,7 +5151,8 @@
         "test_video_inspector_preview_reload",
         "test_steam_detail_layout",
         "test_steam_item_menu",
-        "test_video_inspector_metadata"
+        "test_video_inspector_metadata",
+        "test_wallpaper_open_with_menu"
       ]
     },
     {
@@ -5220,7 +5223,8 @@
         "MyWallpaperX/Shared/Settings/AppKitSettingsView.swift",
         "MyWallpaperX/Shared/Settings/AppKitSettingsView+Layout.swift",
         "MyWallpaperX/Shell/AppKitListBackgroundTint.swift",
-        "script/tests/fixtures/WallpaperLibraryCompositionProjectionChecks.swift"
+        "script/tests/fixtures/WallpaperLibraryCompositionProjectionChecks.swift",
+        "MyWallpaperX/Shared/UI/WallpaperGridNoticeView.swift"
       ],
       "modules": [
         "test_steam_library_interactions",
@@ -5243,7 +5247,7 @@
         "MyWallpaperX/Shared/Components/WallpaperLibraryZoomControl.swift",
         "script/tests/test_library_window_toolbar.py",
         "script/tests/fixtures/LibraryWindowToolbarHarness.swift",
-        "MyWallpaperX/Modules/OnlineLibrary/Toolbar/OnlineLibraryToolbarController.swift",
+        "MyWallpaperX/Modules/Pixabay/Toolbar/PixabayToolbarController.swift",
         "MyWallpaperX/Modules/StaticImageLibrary/Toolbar/SILToolbarController.swift",
         "MyWallpaperX/Modules/VideoLibrary/Toolbar/VideoLibraryToolbarController.swift",
         "MyWallpaperX/Modules/SteamWorkshop/Toolbar/SteamWorkshopToolbarIdentifiers.swift"
@@ -5258,7 +5262,7 @@
         "MyWallpaperX/Shared/Components/WallpaperLibraryZoomControl.swift",
         "MyWallpaperX/Shared/UI/ToolbarMenuPopover.swift",
         "MyWallpaperX/Modules/SteamWorkshop/Toolbar/SteamWorkshopToolbarController*.swift",
-        "MyWallpaperX/Modules/OnlineLibrary/Toolbar/OnlineLibraryToolbarController.swift",
+        "MyWallpaperX/Modules/Pixabay/Toolbar/PixabayToolbarController.swift",
         "script/tests/test_library_remote_toolbar.py",
         "script/tests/fixtures/LibraryRemoteToolbarHarness.swift",
         "script/tests/fixtures/RemoteZoomHarness.swift",
@@ -5278,7 +5282,9 @@
         "MyWallpaperX/App/MainMenuBuilder.swift",
         "MyWallpaperX/App/MainWindowMenuCommands.swift",
         "script/tests/test_main_menu_commands.py",
-        "script/tests/fixtures/MainMenuCommandsHarness.swift"
+        "script/tests/fixtures/MainMenuCommandsHarness.swift",
+        "script/tests/fixtures/MainMenuBrowserSelectionHarness.swift",
+        "script/tests/fixtures/MainMenuSheetCommandsHarness.swift"
       ],
       "modules": [
         "test_main_menu_commands"
@@ -5345,7 +5351,7 @@
         "MyWallpaperX/Modules/SteamWorkshop/UI/SteamLoginPanelController.swift",
         "MyWallpaperX/Modules/SteamWorkshop/UI/SteamLoginPanelView.swift",
         "MyWallpaperX/Shared/Components/WallpaperFormFieldStyle.swift",
-        "MyWallpaperX/Modules/OnlineLibrary/UI/OnlineLibraryBrowserView.swift",
+        "MyWallpaperX/Modules/Pixabay/UI/PixabayBrowserView.swift",
         "MyWallpaperX/Modules/SteamWorkshop/Scene/SteamWorkshopScenePropertyEditorView.swift",
         "MyWallpaperX/Modules/SteamWorkshop/UI/SteamWorkshopWebPropertyEditorView.swift",
         "script/tests/test_wallpaper_form_fields.py",
@@ -5402,7 +5408,8 @@
         "MyWallpaperX/Shared/Settings/AppSettingsPanelDependency.swift",
         "MyWallpaperX/Shared/Settings/AppKitSettingsView.swift",
         "script/tests/test_settings_cache_actions.py",
-        "script/tests/fixtures/SettingsCacheActionsHarness.swift"
+        "script/tests/fixtures/SettingsCacheActionsHarness.swift",
+        "script/tests/fixtures/SettingsIntervalEditingHarness.swift"
       ],
       "modules": [
         "test_settings_cache_actions"
@@ -5431,6 +5438,66 @@
       "modules": [
         "test_ui_volume_actions",
         "test_playback_command_multiplexer"
+      ]
+    },
+    {
+      "id": "shared-download-management",
+      "patterns": [
+        "MyWallpaperX/Models/DownloadTask.swift",
+        "MyWallpaperX/Modules/Downloads/*",
+        "script/tests/test_download_history.py",
+        "script/tests/fixtures/DownloadHistoryHarness.swift",
+        "MyWallpaperX/App/DownloadTasksController.swift",
+        "script/tests/fixtures/OnlineImageOriginalCacheChecks.swift"
+      ],
+      "modules": [
+        "test_download_history",
+        "test_pixabay_download_transfer",
+        "test_online_image_library",
+        "test_steam_download_tasks_popover",
+        "test_steam_download_history",
+        "test_steam_appkit_interaction",
+        "test_library_remote_toolbar",
+        "test_library_window_toolbar"
+      ]
+    },
+    {
+      "id": "finder-reveal-return",
+      "patterns": [
+        "MyWallpaperX/Shared/UI/FinderRevealCoordinator.swift",
+        "script/tests/test_finder_reveal.py",
+        "script/tests/fixtures/FinderRevealHarness.swift"
+      ],
+      "modules": [
+        "test_finder_reveal"
+      ]
+    },
+    {
+      "id": "online-image-panels",
+      "patterns": [
+        "MyWallpaperX/Shared/UI/WallpaperFilterPanelController.swift",
+        "MyWallpaperX/Shared/UI/OnlineImageInspectorView.swift",
+        "MyWallpaperX/Shared/UI/OnlineImageBrowserController.swift",
+        "MyWallpaperX/App/OnlineImageFilterPanel.swift",
+        "MyWallpaperX/App/OnlineImageToolbarController.swift",
+        "MyWallpaperX/Core/OnlineImages/OnlineImageLibrary.swift",
+        "MyWallpaperX/Modules/Wallhaven/Core/*",
+        "MyWallpaperX/Modules/Pixiv/Core/PixivSession.swift",
+        "MyWallpaperX/Modules/Pixabay/Toolbar/PixabayFilterPanel.swift",
+        "MyWallpaperX/Modules/SteamWorkshop/UI/SteamWorkshopFilterPanel.swift",
+        "script/tests/test_online_image_*.py",
+        "script/tests/fixtures/OnlineImage*.swift",
+        "script/tests/fixtures/OnlineImageOriginalCacheChecks.swift"
+      ],
+      "modules": [
+        "test_online_image_inspector",
+        "test_online_image_browse",
+        "test_online_image_library",
+        "test_online_image_toolbar",
+        "test_library_remote_toolbar",
+        "test_pixabay_pagination",
+        "test_wallhaven_client",
+        "test_pixiv_client"
       ]
     }
   ],

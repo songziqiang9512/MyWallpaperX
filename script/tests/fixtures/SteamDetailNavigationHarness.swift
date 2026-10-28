@@ -91,7 +91,8 @@ import Combine
     func loadMoreBrowserItemsIfNeeded() { continuationRequests += 1 }
     nonisolated static func workshopItemIDSearchID(from query: String) -> String? { nil }
     nonisolated static func resolvedAuthorWorkshopURL(for item: SteamWorkshopBrowserItem) -> URL? { item.authorWorkshopURL }
-    nonisolated static func saveDetailCache(item: SteamWorkshopBrowserItem) {}
+    nonisolated(unsafe) static var detailCacheWrites: [String] = []
+    nonisolated static func saveDetailCache(item: SteamWorkshopBrowserItem) { detailCacheWrites.append(item.id) }
     nonisolated(unsafe) static var detailCaches: [String: SteamWorkshopDetailCacheSnapshot] = [:]
     nonisolated static func loadDetailCache(id: String) -> SteamWorkshopBrowserItem? { loadDetailCacheSnapshot(id: id)?.item }
     nonisolated static func loadDetailCacheSnapshot(id: String) -> SteamWorkshopDetailCacheSnapshot? { detailCaches[id] }
@@ -100,7 +101,9 @@ import Combine
 
 @MainActor final class GridProbe {
     let service: SteamWorkshopService
+    let flowLayout: NSCollectionViewFlowLayout = { let value = NSCollectionViewFlowLayout(); value.itemSize = NSSize(width: 200, height: 200); return value }()
     var window: NSWindow? = NSWindow()
+    var thumbnailDemandIsVisible = true
     var isApplyingSnapshot = false, isItemsApplyScheduled = false
     var pendingItems: [SteamWorkshopBrowserItem]?
     var orderedIDs = ["matching-card"]
@@ -133,6 +136,20 @@ import Combine
         precondition(SteamWorkshopDetailRefreshSupport.needsRefresh(brief),
             "a downloaded list snapshot still needs details when its author is present")
         service.records[brief.id] = .init()
+        let cacheScope = SteamWorkshopService(query)
+        let writesBeforeScopeChange = SteamWorkshopService.detailCacheWrites.count
+        wire.holdsResponses = true
+        let staleCacheTask = Task { try await cacheScope.fetchWorkshopItemViaSteamKit(fallback: brief) }
+        while wire.deferredResponses.isEmpty { await Task.yield() }
+        cacheScope.navigationVersion += 1
+        wire.flushResponses()
+        let staleCacheResult = try await staleCacheTask.value
+        precondition(staleCacheResult.id == brief.id && SteamWorkshopService.detailCacheWrites.count == writesBeforeScopeChange,
+            "a helper reply from before cache invalidation cannot refill the newly created detail directory")
+        wire.holdsResponses = false
+        _ = try await cacheScope.fetchWorkshopItemViaSteamKit(fallback: brief)
+        precondition(SteamWorkshopService.detailCacheWrites.count == writesBeforeScopeChange + 1,
+            "the current detail scope still publishes its optional cache")
         service.selectedDownloadInspectorItem = brief
         service.refreshSelectedDownloadInspectorDetailIfNeeded(forceRefresh: false)
         await service.selectedItemDetailTask?.value
@@ -311,7 +328,7 @@ import Combine
         grid.check()
         precondition(service.continuationRequests == 0, "a single local match cannot trigger grid preloading")
         service.retryLoadingMoreBrowserItems()
-        precondition(service.continuationRequests == 1, "search still allows explicit footer continuation")
+        precondition(service.continuationRequests == 1, "search still allows explicit scroll continuation")
         service.setBrowserQuery("  ")
         grid.check()
         precondition(service.continuationRequests == 2, "clearing author search restores grid preloading")

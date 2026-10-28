@@ -1,4 +1,5 @@
 import AppKit
+import Combine
 import ImageIO
 import QuartzCore
 
@@ -98,7 +99,7 @@ nonisolated private final class DownloadedInspectorFrameProbe: @unchecked Sendab
         waiters.forEach { $0.resume(returning: image) }
     }
 }
-nonisolated private final class OLThumbnailVideoGeneration: @unchecked Sendable {
+nonisolated private final class PixabayThumbnailVideoGeneration: @unchecked Sendable {
     private let url: URL
     init(url: URL) { self.url = url }
     func image() async -> NSImage? { await DownloadedInspectorFrameProbe.shared.image(url.path) }
@@ -142,7 +143,7 @@ nonisolated final class DownloadedInspectorCacheProbe: @unchecked Sendable {
     }
 }
 // ACTUAL_DOWNLOADED_STORE
-struct OLDownloadedEntry: Equatable {
+struct PixabayDownloadedEntry: Equatable {
     let id: Int
     let localURL: URL
     var isAvailable = true
@@ -153,16 +154,34 @@ struct OLDownloadedEntry: Equatable {
     var creationDate: Date? = nil
     var modificationDate: Date? = nil
     var displayTitle: String { localURL.lastPathComponent }
-    var metaLine: String { [duration.map(OnlineLibraryDownloadedAssetMetadata.formatDuration), resolutionString].compactMap { $0 }.joined(separator: "  ") }
+    var metaLine: String { [duration.map(PixabayDownloadedAssetMetadata.formatDuration), resolutionString].compactMap { $0 }.joined(separator: "  ") }
 }
-struct OnlineLibraryDownloadedContentSnapshot { var entries: [OLDownloadedEntry] = [] }
-final class OnlineLibraryService {
-    static let shared = OnlineLibraryService()
-    var downloadedContent = OnlineLibraryDownloadedContentSnapshot()
+struct PixabayDownloadedContentSnapshot { var entries: [PixabayDownloadedEntry] = [] }
+final class PixabayService {
+    static let shared = PixabayService()
+    var downloadedContent = PixabayDownloadedContentSnapshot()
     var writes = 0
+    var items: [PixabayVideoItem] = []
+    @Published var downloadingIDs = Set<Int>()
+    var downloadRequests: [Int] = []
     func setLocalFileAsWallpaper(id: Int) { writes += 1 }
+    func download(item: PixabayVideoItem) { downloadRequests.append(item.id); downloadingIDs.insert(item.id) }
 }
-enum OnlineLibraryDownloadedAssetMetadata { static func formatDuration(_ seconds: Int) -> String { "\(seconds)s" } }
+@MainActor final class OnlineImageThumbnailCache {
+    enum Priority: Equatable { case visible, prefetch }
+    struct Request { let url: URL; let maxPixelSize: Int; let priority: Priority }
+    static let shared = OnlineImageThumbnailCache()
+    var holds = false
+    private(set) var requests: [Request] = []
+    private var pending: [Int: CheckedContinuation<NSImage?, Never>] = [:]
+    func image(for url: URL, maxPixelSize: Int, priority: Priority) async -> NSImage? {
+        let index = requests.count; requests.append(.init(url: url, maxPixelSize: maxPixelSize, priority: priority))
+        if !holds { return nil }
+        return await withCheckedContinuation { pending[index] = $0 }
+    }
+    func complete(_ index: Int, _ image: NSImage?) { pending.removeValue(forKey: index)!.resume(returning: image) }
+}
+enum PixabayDownloadedAssetMetadata { static func formatDuration(_ seconds: Int) -> String { "\(seconds)s" } }
 func makeAppAlert(title: String, message: String, buttons: [String], accessoryView: NSView?) -> NSAlert { NSAlert() }
 func presentAppAlert(_ alert: NSAlert, in window: NSWindow?, completion: @escaping (NSApplication.ModalResponse) -> Void) {}
 func appModalHostWindow() -> NSWindow? { nil }
@@ -172,6 +191,9 @@ extension Notification.Name { static let staticImageWallpaperReadyToApply = Noti
     @MainActor static func views(_ root: NSView) -> [NSView] { [root] + root.subviews.flatMap(views) }
     @MainActor static func button(_ root: NSView, _ selector: String) -> InspectorFooterButton? {
         views(root).compactMap { $0 as? InspectorFooterButton }.first { $0.action == NSSelectorFromString(selector) }
+    }
+    @MainActor static func footerTitle(_ control: InspectorFooterButton?) -> String? {
+        control.flatMap { views($0).compactMap { ($0 as? NSTextField)?.stringValue }.first }
     }
     @MainActor static func pump() { RunLoop.main.run(until: Date().addingTimeInterval(0.04)) }
     @MainActor static func waitUntil(_ condition: () -> Bool) -> Bool {
@@ -191,10 +213,10 @@ extension Notification.Name { static let staticImageWallpaperReadyToApply = Noti
         }
         let file = URL(fileURLWithPath: CommandLine.arguments[1]).appendingPathComponent("local.png")
         try Data("local".utf8).write(to: file)
-        let images = SILService(), online = OnlineLibraryService()
+        let images = SILService(), pixabay = PixabayService()
         let image = SILWallpaper(id: "fixed-image", title: "Image", path: file.path, tags: ["Old SIL Tag"])
         images.wallpapers = [image]
-        online.downloadedContent.entries = [.init(id: 7, localURL: file)]
+        pixabay.downloadedContent.entries = [.init(id: 7, localURL: file)]
         var primary = 0, member = 0, favorites = 0
         var legacyApplyNotifications = 0
         let legacyApplyObserver = NotificationCenter.default.addObserver(forName: .staticImageWallpaperReadyToApply, object: nil, queue: .main) { _ in
@@ -241,11 +263,11 @@ extension Notification.Name { static let staticImageWallpaperReadyToApply = Noti
             previousGeometry = geometry
         } while !nativeWindowReady && Date() < layoutDeadline
         let imageView = SILInspectorView(wallpaper: image, service: images, libraryActions: actions())
-        let onlineView = OnlineLibraryDownloadsInspectorView(itemID: 7, service: online, libraryActions: actions())
-        let onlineInitialPreview = views(onlineView).first { $0 is OnlineLibraryDownloadsPreviewSurfaceView }!
-        let onlineWasCold = views(onlineInitialPreview).compactMap { $0 as? NSImageView }.contains { !$0.isHidden }
+        let pixabayView = PixabayDownloadsInspectorView(itemID: 7, service: pixabay, libraryActions: actions())
+        let pixabayInitialPreview = views(pixabayView).first { $0 is PixabayDownloadsPreviewSurfaceView }!
+        let pixabayWasCold = views(pixabayInitialPreview).compactMap { $0 as? NSImageView }.contains { !$0.isHidden }
         func mount(_ view: NSView) {
-            let module: ModuleIdentifier = view is SILInspectorView ? .staticImageLibrary : .onlineLibrary
+            let module: ModuleIdentifier = view is SILInspectorView ? .staticImageLibrary : .pixabay
             let request = InspectorHostRequest(token: .init(module: module, cardID: "fixed-layout"), title: "详情", chromeStyle: .infoPanel)
             hostStore.present(request)
             hostStore.mountContent(InspectorHostMountRequest(userInfo: [
@@ -329,17 +351,17 @@ extension Notification.Name { static let staticImageWallpaperReadyToApply = Noti
         checks["real-shell-long-image-content-keeps-top-preview-and-footer-outside-mask"] = topAligned(imageView, preview: imagePreview, short: false)
             && imagePreview === views(imageView).first { $0 is SILInspectorPreviewSurfaceView }
         window.setContentSize(NSSize(width: 800, height: 900)); host.layoutSubtreeIfNeeded()
-        mount(onlineView)
-        let onlinePreview = views(onlineView).first { $0 is OnlineLibraryDownloadsPreviewSurfaceView }!
-        let onlineFrame = onlinePreview.convert(onlinePreview.bounds, to: host)
-        checks["real-pixabay-presents-prepared-file-metadata-on-its-first-layout"] = views(onlineView).contains { ($0 as? NSTextField)?.stringValue == "local.png" }
-        precondition(waitUntil { views(onlinePreview).compactMap { $0 as? NSImageView }.allSatisfy(\.isHidden) })
+        mount(pixabayView)
+        let pixabayPreview = views(pixabayView).first { $0 is PixabayDownloadsPreviewSurfaceView }!
+        let pixabayFrame = pixabayPreview.convert(pixabayPreview.bounds, to: host)
+        checks["real-pixabay-presents-prepared-file-metadata-on-its-first-layout"] = views(pixabayView).contains { ($0 as? NSTextField)?.stringValue == "local.png" }
+        precondition(waitUntil { views(pixabayPreview).compactMap { $0 as? NSImageView }.allSatisfy(\.isHidden) })
         pump(); host.layoutSubtreeIfNeeded()
-        checks["real-pixabay-has-no-second-loading-layout-or-preview-replacement"] = onlinePreview === views(onlineView).first { $0 is OnlineLibraryDownloadsPreviewSurfaceView }
-            && onlineFrame == onlinePreview.convert(onlinePreview.bounds, to: host)
-        checks["real-shell-short-pixabay-content-starts-at-the-same-unfaded-top"] = topAligned(onlineView, preview: onlinePreview, short: true)
+        checks["real-pixabay-has-no-second-loading-layout-or-preview-replacement"] = pixabayPreview === views(pixabayView).first { $0 is PixabayDownloadsPreviewSurfaceView }
+            && pixabayFrame == pixabayPreview.convert(pixabayPreview.bounds, to: host)
+        checks["real-shell-short-pixabay-content-starts-at-the-same-unfaded-top"] = topAligned(pixabayView, preview: pixabayPreview, short: true)
         window.setContentSize(NSSize(width: 800, height: 420)); host.layoutSubtreeIfNeeded(); pump()
-        checks["real-shell-long-pixabay-content-does-not-recenter-on-resize"] = topAligned(onlineView, preview: onlinePreview, short: false)
+        checks["real-shell-long-pixabay-content-does-not-recenter-on-resize"] = topAligned(pixabayView, preview: pixabayPreview, short: false)
         window.setContentSize(NSSize(width: 800, height: 900)); host.layoutSubtreeIfNeeded()
         checks["image-membership-shows-new-store-names-and-no-old-tag"] = views(imageView).contains { ($0 as? NSTextField)?.stringValue == "New Mixed List" }
             && !views(imageView).contains { ($0 as? NSTextField)?.stringValue == "Old SIL Tag" }
@@ -348,24 +370,51 @@ extension Notification.Name { static let staticImageWallpaperReadyToApply = Noti
         _ = imageMembers.accessibilityPerformPress(); _ = imagePrimary.accessibilityPerformPress()
         checks["image-native-buttons-dispatch-injected-fixed-actions-only"] = member == 1 && primary == 1 && images.writes == 0 && SILService.shared.writes == 0
         checks["image-required-command-does-not-also-publish-legacy-apply-notification"] = legacyApplyNotifications == 0
+        let imagePlayback = try playingImagePrimary(.init(provider: .staticImageLibrary, sourceID: image.id))
+        let imageStop = imagePlayback.commands.makePrimaryAction(for: imagePlayback.content)!
+        let playingActions = WallpaperInspectorActions(state: actions(playing: true).state,
+            onPrimary: imageStop, onToggleFavorite: {}, onChoosePlaylist: { _ in })
+        imageView.updateLibraryActions(playingActions)
+        _ = imagePrimary.accessibilityPerformPress()
+        let stopIcon = NSImage(systemSymbolName: "stop.fill", accessibilityDescription: nil)!
+            .withSymbolConfiguration(.init(pointSize: 14, weight: .semibold))!
+        checks["healthy-playing-image-shows-and-executes-stop-without-applying-again"] = imagePrimary.isEnabled
+            && imagePrimary.accessibilityLabel() == "停止播放" && imagePrimary.toolTip == "停止播放"
+            && views(imagePrimary).compactMap { ($0 as? NSImageView)?.image?.tiffRepresentation }.contains(stopIcon.tiffRepresentation!)
+            && imagePlayback.commands.manager.stops == 1 && imagePlayback.commands.manager.playbackSwitch.committed == nil
+            && imagePlayback.commands.manager.libraryPlaybackSequence.committed == nil
+            && imagePlayback.commands.workspace.applications.isEmpty && primary == 1 && legacyApplyNotifications == 0
+        let replacementActions = WallpaperInspectorActions(state: actions().state,
+            onPrimary: imagePlayback.commands.makePrimaryAction(for: imagePlayback.content)!, onToggleFavorite: {}, onChoosePlaylist: { _ in })
+        imageView.updateLibraryActions(replacementActions)
+        _ = imagePrimary.accessibilityPerformPress()
+        checks["reused-image-detail-restores-apply-presentation-and-replaces-stop-closure"] = button(imageView, "setAsDesktopWallpaper") === imagePrimary
+            && imagePrimary.accessibilityLabel() == "设为壁纸" && imagePrimary.toolTip == "设为壁纸"
+            && imagePlayback.commands.workspace.applications.map(\.0) == [imagePlayback.content.reference]
+            && imagePlayback.commands.manager.stops == 1 && primary == 1
+        imageStop()
+        checks["retired-image-detail-stop-cannot-stop-or-apply-after-view-reuse"] = imagePlayback.commands.manager.stops == 1
+            && imagePlayback.commands.workspace.applications.count == 1
         imageView.updateLibraryActions(actions(canOrganize: false))
         checks["image-readonly-native-list-button-refuses-press"] = !imageMembers.isEnabled && !imageMembers.accessibilityPerformPress() && member == 1
         imageView.updateLibraryActions(actions(canOrganize: false, playing: true, canPlay: false))
-        checks["image-applied-state-does-not-invent-stop-for-unavailable-source"] = !imagePrimary.isEnabled && !imagePrimary.accessibilityPerformPress() && primary == 1
-            && views(imageView).contains { ($0 as? NSTextField)?.stringValue == "已应用" }
+        checks["unavailable-image-keeps-primary-disabled-without-dispatching-stop-or-apply"] = !imagePrimary.isEnabled
+            && !imagePrimary.accessibilityPerformPress() && primary == 1 && imagePlayback.commands.manager.stops == 1
+            && imagePlayback.commands.workspace.applications.count == 1
+            && imagePrimary.accessibilityLabel() == "停止播放"
         _ = imageView.perform(NSSelectorFromString("setAsDesktopWallpaper"))
         _ = imageView.perform(NSSelectorFromString("presentTagPicker"))
         checks["direct-selector-cannot-bypass-readonly-state-or-revive-legacy-owner"] = primary == 1 && member == 1
             && images.writes == 0 && SILService.shared.writes == 0 && legacyApplyNotifications == 0
-        let onlineButtons = views(onlineView).compactMap { $0 as? InspectorFooterButton }
-        checks["pixabay-retains-original-two-button-footer"] = onlineButtons.count == 2
-        let onlinePrimary = button(onlineView, "setAsWallpaper")!
-        checks["pixabay-details-read-injected-source-not-shared-empty-source"] = onlinePrimary.isEnabled
-        _ = onlinePrimary.accessibilityPerformPress()
-        checks["pixabay-primary-uses-new-fixed-action-without-source-selection-write"] = primary == 2 && online.writes == 0 && OnlineLibraryService.shared.writes == 0
-        onlineView.updateLibraryActions(actions(canPlay: false))
-        checks["pixabay-unavailable-primary-refuses-native-press"] = button(onlineView, "setAsWallpaper")?.isEnabled == false
-        checks["both-original-inspector-scrollbars-remain-hidden"] = [imageView, onlineView].allSatisfy { root in
+        let pixabayButtons = views(pixabayView).compactMap { $0 as? InspectorFooterButton }
+        checks["pixabay-retains-original-two-button-footer"] = pixabayButtons.count == 2
+        let pixabayPrimary = button(pixabayView, "setAsWallpaper")!
+        checks["pixabay-details-read-injected-source-not-shared-empty-source"] = pixabayPrimary.isEnabled
+        _ = pixabayPrimary.accessibilityPerformPress()
+        checks["pixabay-primary-uses-new-fixed-action-without-source-selection-write"] = primary == 2 && pixabay.writes == 0 && PixabayService.shared.writes == 0
+        pixabayView.updateLibraryActions(actions(canPlay: false))
+        checks["pixabay-unavailable-primary-refuses-native-press"] = button(pixabayView, "setAsWallpaper")?.isEnabled == false
+        checks["both-original-inspector-scrollbars-remain-hidden"] = [imageView, pixabayView].allSatisfy { root in
             views(root).compactMap { $0 as? NSScrollView }.allSatisfy { !$0.hasVerticalScroller && !$0.hasHorizontalScroller }
         }
         checks["pixabay-organization-controls-are-not-added-to-original-footer"] = favorites == 0 && member == 1
@@ -391,7 +440,7 @@ extension Notification.Name { static let staticImageWallpaperReadyToApply = Noti
             && cache.requests.count == requestsBeforeMetadata
 
         let previousLease = cache.requests.last?.cancellation
-        mount(onlineView)
+        mount(pixabayView)
         imageView.updateLibraryActions(actions(canOrganize: false))
         checks["image-unmount-cancels-its-consumer-without-reacquiring-offscreen"] =
             previousLease?.cancelled == true && cache.requests.count == requestsBeforeMetadata
@@ -464,36 +513,36 @@ extension Notification.Name { static let staticImageWallpaperReadyToApply = Noti
 
         let frames = DownloadedInspectorFrameProbe.shared
         let demands = DownloadedInspectorCacheProbe.shared
-        let downloadedCache = OLDownloadedThumbnailStore.sharedCache
+        let downloadedCache = PixabayDownloadedThumbnailStore.sharedCache
         let expectedImages = [0: solid(.red), 1: SILThumbnailStore.sharedCache.result!, 2: solid(.blue)]
         func drawnColor(_ preview: NSView, channel: Int) -> Bool {
             guard let image = expectedImages[channel] else { return false }
             return previewMatches(preview, image: image)
         }
-        mount(onlineView)
-        precondition(waitUntil { drawnColor(onlinePreview, channel: 1) })
-        let onlineKey = OLDownloadedThumbnailStore.cacheKey(for: file)
-        checks["pixabay-cold-visible-demand-fills-only-the-existing-preview"] = onlineWasCold
-            && onlineInitialPreview === onlinePreview && onlinePreview.bounds.height == 156
-            && demands.requests.contains { $0.key == onlineKey && $0.priority == .visible }
+        mount(pixabayView)
+        precondition(waitUntil { drawnColor(pixabayPreview, channel: 1) })
+        let pixabayKey = PixabayDownloadedThumbnailStore.cacheKey(for: file)
+        checks["pixabay-cold-visible-demand-fills-only-the-existing-preview"] = pixabayWasCold
+            && pixabayInitialPreview === pixabayPreview && pixabayPreview.bounds.height == 156
+            && demands.requests.contains { $0.key == pixabayKey && $0.priority == .visible }
             && frames.count(file.path) == 1
-        let titleBeforeEcho = views(onlineView).first { ($0 as? NSTextField)?.stringValue == "local.png" }
-        let footerBeforeEcho = button(onlineView, "setAsWallpaper")
+        let titleBeforeEcho = views(pixabayView).first { ($0 as? NSTextField)?.stringValue == "local.png" }
+        let footerBeforeEcho = button(pixabayView, "setAsWallpaper")
         let demandCountBeforeEcho = demands.sourceCallCount
-        onlineView.updateLibraryActions(actions(names: ["Renamed Mixed List"]))
+        pixabayView.updateLibraryActions(actions(names: ["Renamed Mixed List"]))
         checks["pixabay-action-and-relationship-echoes-keep-document-and-image-demand"] =
-            titleBeforeEcho === views(onlineView).first { ($0 as? NSTextField)?.stringValue == "local.png" }
-            && footerBeforeEcho === button(onlineView, "setAsWallpaper")
-            && demands.sourceCallCount == demandCountBeforeEcho && drawnColor(onlinePreview, channel: 1)
-        online.downloadedContent.entries[0].resolutionString = "80×40"
-        online.downloadedContent.entries[0].duration = 5
-        online.downloadedContent.entries[0].creationDate = Date(timeIntervalSince1970: 1_700_000_000)
-        onlineView.updateLibraryActions(actions(names: ["Renamed Mixed List"]))
+            titleBeforeEcho === views(pixabayView).first { ($0 as? NSTextField)?.stringValue == "local.png" }
+            && footerBeforeEcho === button(pixabayView, "setAsWallpaper")
+            && demands.sourceCallCount == demandCountBeforeEcho && drawnColor(pixabayPreview, channel: 1)
+        pixabay.downloadedContent.entries[0].resolutionString = "80×40"
+        pixabay.downloadedContent.entries[0].duration = 5
+        pixabay.downloadedContent.entries[0].creationDate = Date(timeIntervalSince1970: 1_700_000_000)
+        pixabayView.updateLibraryActions(actions(names: ["Renamed Mixed List"]))
         checks["pixabay-same-id-metadata-refreshes-without-reloading-preview"] =
-            views(onlineView).contains { ($0 as? NSTextField)?.stringValue == "80×40" }
-            && views(onlineView).contains { ($0 as? NSTextField)?.stringValue.contains("5s") == true }
-            && onlinePreview === views(onlineView).first { $0 is OnlineLibraryDownloadsPreviewSurfaceView }
-            && demands.sourceCallCount == demandCountBeforeEcho && drawnColor(onlinePreview, channel: 1)
+            views(pixabayView).contains { ($0 as? NSTextField)?.stringValue == "80×40" }
+            && views(pixabayView).contains { ($0 as? NSTextField)?.stringValue.contains("5s") == true }
+            && pixabayPreview === views(pixabayView).first { $0 is PixabayDownloadsPreviewSurfaceView }
+            && demands.sourceCallCount == demandCountBeforeEcho && drawnColor(pixabayPreview, channel: 1)
 
         func attach(_ view: NSView) {
             host.addSubview(view)
@@ -502,11 +551,11 @@ extension Notification.Name { static let staticImageWallpaperReadyToApply = Noti
         }
         let closedFile = file.deletingLastPathComponent().appendingPathComponent("closed.mp4")
         try Data(repeating: 1, count: 19).write(to: closedFile)
-        let closedKey = OLDownloadedThumbnailStore.cacheKey(for: closedFile)
-        online.downloadedContent.entries.append(.init(id: 8, localURL: closedFile))
+        let closedKey = PixabayDownloadedThumbnailStore.cacheKey(for: closedFile)
+        pixabay.downloadedContent.entries.append(.init(id: 8, localURL: closedFile))
         frames.hold(closedFile.path)
-        let closedView = OnlineLibraryDownloadsInspectorView(itemID: 8, service: online, libraryActions: actions())
-        let closedPreview = views(closedView).first { $0 is OnlineLibraryDownloadsPreviewSurfaceView }!
+        let closedView = PixabayDownloadsInspectorView(itemID: 8, service: pixabay, libraryActions: actions())
+        let closedPreview = views(closedView).first { $0 is PixabayDownloadsPreviewSurfaceView }!
         attach(closedView)
         precondition(waitUntil { frames.pendingCount(closedFile.path) == 1 })
         let closedLease = demands.requests.last { $0.key == closedKey }?.cancellation
@@ -522,22 +571,22 @@ extension Notification.Name { static let staticImageWallpaperReadyToApply = Noti
         checks["pixabay-closed-consumer-rejects-late-frame-and-remounts-once"] = rejectedClosedResult
             && frames.count(closedFile.path) == 2
             && demands.requests.filter { $0.key == closedKey }.count == 2
-            && closedPreview === views(closedView).first { $0 is OnlineLibraryDownloadsPreviewSurfaceView }
+            && closedPreview === views(closedView).first { $0 is PixabayDownloadsPreviewSurfaceView }
         closedView.removeFromSuperview()
 
         let sharedFile = file.deletingLastPathComponent().appendingPathComponent("shared.mp4")
         try Data(repeating: 2, count: 29).write(to: sharedFile)
-        let sharedKey = OLDownloadedThumbnailStore.cacheKey(for: sharedFile)
-        online.downloadedContent.entries.append(.init(id: 9, localURL: sharedFile))
+        let sharedKey = PixabayDownloadedThumbnailStore.cacheKey(for: sharedFile)
+        pixabay.downloadedContent.entries.append(.init(id: 9, localURL: sharedFile))
         frames.hold(sharedFile.path)
-        let withdrawn = OnlineLibraryDownloadsInspectorView(itemID: 9, service: online, libraryActions: actions())
-        let remaining = OnlineLibraryDownloadsInspectorView(itemID: 9, service: online, libraryActions: actions())
+        let withdrawn = PixabayDownloadsInspectorView(itemID: 9, service: pixabay, libraryActions: actions())
+        let remaining = PixabayDownloadsInspectorView(itemID: 9, service: pixabay, libraryActions: actions())
         attach(withdrawn); attach(remaining)
         precondition(waitUntil { demands.requests.filter { $0.key == sharedKey }.count == 2 && frames.pendingCount(sharedFile.path) == 1 })
         withdrawn.removeFromSuperview()
         frames.release(sharedFile.path, image: solid(.blue))
-        let remainingPreview = views(remaining).first { $0 is OnlineLibraryDownloadsPreviewSurfaceView }!
-        let withdrawnPreview = views(withdrawn).first { $0 is OnlineLibraryDownloadsPreviewSurfaceView }!
+        let remainingPreview = views(remaining).first { $0 is PixabayDownloadsPreviewSurfaceView }!
+        let withdrawnPreview = views(withdrawn).first { $0 is PixabayDownloadsPreviewSurfaceView }!
         precondition(waitUntil { drawnColor(remainingPreview, channel: 2) })
         let sharedLeases = demands.requests.filter { $0.key == sharedKey }
         let sharedRemained = frames.count(sharedFile.path) == 1
@@ -551,42 +600,42 @@ extension Notification.Name { static let staticImageWallpaperReadyToApply = Noti
 
         let newSource = file.deletingLastPathComponent().appendingPathComponent("new-source.mp4")
         try Data(repeating: 3, count: 37).write(to: newSource)
-        let sourceKey = OLDownloadedThumbnailStore.cacheKey(for: newSource)
-        let previousSourceLease = demands.requests.last { $0.key == onlineKey }?.cancellation
+        let sourceKey = PixabayDownloadedThumbnailStore.cacheKey(for: newSource)
+        let previousSourceLease = demands.requests.last { $0.key == pixabayKey }?.cancellation
         frames.hold(newSource.path)
-        online.downloadedContent.entries[0] = .init(id: 7, localURL: newSource, fileSize: 37, thumbnailSourceKey: sourceKey)
-        onlineView.updateLibraryActions(actions())
+        pixabay.downloadedContent.entries[0] = .init(id: 7, localURL: newSource, fileSize: 37, thumbnailSourceKey: sourceKey)
+        pixabayView.updateLibraryActions(actions())
         precondition(waitUntil { frames.pendingCount(newSource.path) == 1 })
         checks["pixabay-source-replacement-cancels-old-consumer-and-retains-current-image-while-loading"] =
-            previousSourceLease?.cancelled == true && drawnColor(onlinePreview, channel: 1)
-            && onlinePreview === views(onlineView).first { $0 is OnlineLibraryDownloadsPreviewSurfaceView }
+            previousSourceLease?.cancelled == true && drawnColor(pixabayPreview, channel: 1)
+            && pixabayPreview === views(pixabayView).first { $0 is PixabayDownloadsPreviewSurfaceView }
         frames.release(newSource.path, image: solid(.blue))
-        precondition(waitUntil { drawnColor(onlinePreview, channel: 2) })
-        let currentTitle = views(onlineView).first { ($0 as? NSTextField)?.stringValue == "new-source.mp4" }
+        precondition(waitUntil { drawnColor(pixabayPreview, channel: 2) })
+        let currentTitle = views(pixabayView).first { ($0 as? NSTextField)?.stringValue == "new-source.mp4" }
         let currentDemandCount = demands.sourceCallCount
-        onlineView.updateLibraryActions(actions())
+        pixabayView.updateLibraryActions(actions())
         checks["pixabay-current-source-fills-in-place-and-ignores-unchanged-publication"] =
-            drawnColor(onlinePreview, channel: 2) && onlinePreview.bounds.height == 156
-            && currentTitle === views(onlineView).first { ($0 as? NSTextField)?.stringValue == "new-source.mp4" }
+            drawnColor(pixabayPreview, channel: 2) && pixabayPreview.bounds.height == 156
+            && currentTitle === views(pixabayView).first { ($0 as? NSTextField)?.stringValue == "new-source.mp4" }
             && demands.sourceCallCount == currentDemandCount && frames.count(newSource.path) == 1
         let priorRevisionLease = demands.requests.last { $0.key == sourceKey }?.cancellation
         try Data(repeating: 4, count: 53).write(to: newSource, options: .atomic)
-        let revisedKey = OLDownloadedThumbnailStore.cacheKey(for: newSource)
+        let revisedKey = PixabayDownloadedThumbnailStore.cacheKey(for: newSource)
         frames.hold(newSource.path)
-        online.downloadedContent.entries[0] = .init(id: 7, localURL: newSource, fileSize: 53, thumbnailSourceKey: revisedKey)
-        onlineView.updateLibraryActions(actions())
+        pixabay.downloadedContent.entries[0] = .init(id: 7, localURL: newSource, fileSize: 53, thumbnailSourceKey: revisedKey)
+        pixabayView.updateLibraryActions(actions())
         precondition(waitUntil { frames.pendingCount(newSource.path) == 1 })
-        let keepsOldDuringRevision = drawnColor(onlinePreview, channel: 2) && priorRevisionLease?.cancelled == true
+        let keepsOldDuringRevision = drawnColor(pixabayPreview, channel: 2) && priorRevisionLease?.cancelled == true
         frames.release(newSource.path, image: expectedImages[0])
-        precondition(waitUntil { drawnColor(onlinePreview, channel: 0) })
+        precondition(waitUntil { drawnColor(pixabayPreview, channel: 0) })
         checks["pixabay-same-path-new-fingerprint-fills-current-image-without-changing-preview-object"] = keepsOldDuringRevision
             && sourceKey != revisedKey && frames.count(newSource.path) == 2
-            && onlinePreview === views(onlineView).first { $0 is OnlineLibraryDownloadsPreviewSurfaceView }
+            && pixabayPreview === views(pixabayView).first { $0 is PixabayDownloadsPreviewSurfaceView }
 
         // The actual card must create the shared producer first. Keeping only
         // a fake visible cache consumer would miss its former direct loader.
-        func card(_ entry: OLDownloadedEntry) -> AppKitOLDownloadsItem {
-            let value = AppKitOLDownloadsItem()
+        func card(_ entry: PixabayDownloadedEntry) -> AppKitPixabayDownloadsItem {
+            let value = AppKitPixabayDownloadsItem()
             value.view.frame = NSRect(x: 0, y: 0, width: 230, height: 230)
             host.addSubview(value.view)
             value.configure(entry: entry, isSelected: false, isMultiSelectMode: false, isPlaying: false)
@@ -595,26 +644,26 @@ extension Notification.Name { static let staticImageWallpaperReadyToApply = Noti
         }
         let activeSource = file.deletingLastPathComponent().appendingPathComponent("active-first.mp4")
         try Data(repeating: 21, count: 211).write(to: activeSource)
-        let activeOldKey = OLDownloadedThumbnailStore.cacheKey(for: activeSource)
-        let activeEntry = OLDownloadedEntry(id: 43, localURL: activeSource, fileSize: 211, thumbnailSourceKey: activeOldKey)
-        online.downloadedContent.entries.append(activeEntry)
+        let activeOldKey = PixabayDownloadedThumbnailStore.cacheKey(for: activeSource)
+        let activeEntry = PixabayDownloadedEntry(id: 43, localURL: activeSource, fileSize: 211, thumbnailSourceKey: activeOldKey)
+        pixabay.downloadedContent.entries.append(activeEntry)
         frames.hold(activeSource.path)
         let activeCard = card(activeEntry)
         let activeCardLease = activeCard.thumbnailCancellation!
         precondition(waitUntil { frames.pendingCount(activeSource.path) == 1 })
-        let activeInspector = OnlineLibraryDownloadsInspectorView(itemID: 43, service: online, libraryActions: actions())
-        let activePreview = views(activeInspector).first { $0 is OnlineLibraryDownloadsPreviewSurfaceView }!
+        let activeInspector = PixabayDownloadsInspectorView(itemID: 43, service: pixabay, libraryActions: actions())
+        let activePreview = views(activeInspector).first { $0 is PixabayDownloadsPreviewSurfaceView }!
         attach(activeInspector)
         let activeNear = ThumbnailCacheRequestCancellation()
         var activeNearTerminals = 0
         var activeNearImage: NSImage?
-        OLDownloadedThumbnailStore.loadThumbnail(activeEntry, priority: .prefetch, cancellation: activeNear) { _, image in
+        PixabayDownloadedThumbnailStore.loadThumbnail(activeEntry, priority: .prefetch, cancellation: activeNear) { _, image in
             activeNearTerminals += 1; activeNearImage = image
         }
         precondition(waitUntil { demands.requests.filter { $0.key == activeOldKey }.count == 3 })
         let activeInspectorLease = demands.requests.filter { $0.key == activeOldKey && $0.priority == .visible }.last!.cancellation as! ThumbnailCacheRequestCancellation
         try Data(repeating: 22, count: 229).write(to: activeSource, options: .atomic)
-        let activeCurrentKey = OLDownloadedThumbnailStore.cacheKey(for: activeSource)
+        let activeCurrentKey = PixabayDownloadedThumbnailStore.cacheKey(for: activeSource)
         frames.release(activeSource.path, image: expectedImages[0])
         precondition(waitUntil { activeNearTerminals == 1 && activeCard.thumbnailCancellation == nil
             && demands.completionCounts(activeInspectorLease).total == 1 })
@@ -640,9 +689,9 @@ extension Notification.Name { static let staticImageWallpaperReadyToApply = Noti
         let queuedSource = file.deletingLastPathComponent().appendingPathComponent("visible-first.mp4")
         let preservedSource = queuedSource.appendingPathExtension("original")
         try Data(repeating: 11, count: 101).write(to: queuedSource)
-        let queuedKey = OLDownloadedThumbnailStore.cacheKey(for: queuedSource)
-        let queuedEntry = OLDownloadedEntry(id: 41, localURL: queuedSource, fileSize: 101, thumbnailSourceKey: queuedKey)
-        online.downloadedContent.entries.append(queuedEntry)
+        let queuedKey = PixabayDownloadedThumbnailStore.cacheKey(for: queuedSource)
+        let queuedEntry = PixabayDownloadedEntry(id: 41, localURL: queuedSource, fileSize: 101, thumbnailSourceKey: queuedKey)
+        pixabay.downloadedContent.entries.append(queuedEntry)
         let blockerPath = queuedSource.path + "-generation-blocker"
         frames.hold(blockerPath)
         var blockerCompleted = false
@@ -653,13 +702,13 @@ extension Notification.Name { static let staticImageWallpaperReadyToApply = Noti
         let visibleFirstLease = visibleFirst.thumbnailCancellation
         precondition(waitUntil { demands.requests.filter { $0.key == queuedKey }.count == 1 })
         let oneBackgroundAdmission = demands.reads(queuedSource.path) == readsBeforeCard + 1 && demands.mainReads == mainReadsBeforeCard
-        let sharedInspector = OnlineLibraryDownloadsInspectorView(itemID: 41, service: online, libraryActions: actions())
-        let sharedPreview = views(sharedInspector).first { $0 is OnlineLibraryDownloadsPreviewSurfaceView }!
+        let sharedInspector = PixabayDownloadsInspectorView(itemID: 41, service: pixabay, libraryActions: actions())
+        let sharedPreview = views(sharedInspector).first { $0 is PixabayDownloadsPreviewSurfaceView }!
         attach(sharedInspector)
         let queuedNear = ThumbnailCacheRequestCancellation()
         var queuedNearDelivered = false
         var queuedNearImage: NSImage?
-        OLDownloadedThumbnailStore.loadThumbnail(queuedEntry, priority: .prefetch, cancellation: queuedNear) { _, image in
+        PixabayDownloadedThumbnailStore.loadThumbnail(queuedEntry, priority: .prefetch, cancellation: queuedNear) { _, image in
             queuedNearDelivered = true; queuedNearImage = image
         }
         precondition(waitUntil { demands.requests.filter { $0.key == queuedKey }.count == 3 })
@@ -680,14 +729,14 @@ extension Notification.Name { static let staticImageWallpaperReadyToApply = Noti
         // identity. A false negative cache would prevent this real frame call.
         try FileManager.default.removeItem(at: queuedSource)
         try FileManager.default.moveItem(at: preservedSource, to: queuedSource)
-        precondition(OLDownloadedThumbnailStore.cacheKey(for: queuedSource) == queuedKey)
+        precondition(PixabayDownloadedThumbnailStore.cacheKey(for: queuedSource) == queuedKey)
         frames.hold(queuedSource.path)
         let restoredCard = card(queuedEntry)
         precondition(waitUntil { frames.pendingCount(queuedSource.path) == 1 })
         attach(sharedInspector)
         let restoredNear = ThumbnailCacheRequestCancellation()
         var restoredNearDelivered = false
-        OLDownloadedThumbnailStore.loadThumbnail(queuedEntry, priority: .prefetch, cancellation: restoredNear) { _, _ in restoredNearDelivered = true }
+        PixabayDownloadedThumbnailStore.loadThumbnail(queuedEntry, priority: .prefetch, cancellation: restoredNear) { _, _ in restoredNearDelivered = true }
         precondition(waitUntil { demands.requests.filter { $0.key == queuedKey }.count == 6 })
         let restoredCardLease = restoredCard.thumbnailCancellation
         restoredCard.endDisplayingThumbnail(); restoredNear.cancel()
@@ -696,25 +745,25 @@ extension Notification.Name { static let staticImageWallpaperReadyToApply = Noti
         checks["pixabay-real-card-inspector-and-near-share-one-producer-and-survive-card-exit"] =
             frames.count(queuedSource.path) == 1 && restoredCardLease?.cancelled == true && !restoredNearDelivered
             && restoredCard.thumbnailView.image == nil && downloadedCache.cachedImage(forKey: queuedKey) != nil
-            && sharedPreview === views(sharedInspector).first { $0 is OnlineLibraryDownloadsPreviewSurfaceView }
+            && sharedPreview === views(sharedInspector).first { $0 is PixabayDownloadsPreviewSurfaceView }
         visibleFirst.view.removeFromSuperview(); restoredCard.view.removeFromSuperview(); sharedInspector.removeFromSuperview()
 
         let warmSource = file.deletingLastPathComponent().appendingPathComponent("warm-old-hint.mp4")
         try Data(repeating: 13, count: 131).write(to: warmSource)
-        let warmOldKey = OLDownloadedThumbnailStore.cacheKey(for: warmSource)
-        let warmEntry = OLDownloadedEntry(id: 42, localURL: warmSource, fileSize: 131, thumbnailSourceKey: warmOldKey)
-        online.downloadedContent.entries.append(warmEntry)
+        let warmOldKey = PixabayDownloadedThumbnailStore.cacheKey(for: warmSource)
+        let warmEntry = PixabayDownloadedEntry(id: 42, localURL: warmSource, fileSize: 131, thumbnailSourceKey: warmOldKey)
+        pixabay.downloadedContent.entries.append(warmEntry)
         let warmup = ThumbnailCacheRequestCancellation()
         var warmupImage: NSImage?
-        OLDownloadedThumbnailStore.loadThumbnail(warmEntry, priority: .prefetch, cancellation: warmup) { _, image in warmupImage = image }
+        PixabayDownloadedThumbnailStore.loadThumbnail(warmEntry, priority: .prefetch, cancellation: warmup) { _, image in warmupImage = image }
         precondition(waitUntil { warmupImage != nil })
         try Data(repeating: 14, count: 149).write(to: warmSource, options: .atomic)
-        let warmCurrentKey = OLDownloadedThumbnailStore.cacheKey(for: warmSource)
+        let warmCurrentKey = PixabayDownloadedThumbnailStore.cacheKey(for: warmSource)
         precondition(warmCurrentKey != warmOldKey && downloadedCache.cachedImage(forKey: warmOldKey) != nil)
         frames.hold(warmSource.path)
         let currentCard = card(warmEntry)
-        let currentInspector = OnlineLibraryDownloadsInspectorView(itemID: 42, service: online, libraryActions: actions())
-        let currentPreview = views(currentInspector).first { $0 is OnlineLibraryDownloadsPreviewSurfaceView }!
+        let currentInspector = PixabayDownloadsInspectorView(itemID: 42, service: pixabay, libraryActions: actions())
+        let currentPreview = views(currentInspector).first { $0 is PixabayDownloadsPreviewSurfaceView }!
         attach(currentInspector)
         precondition(waitUntil { demands.requests.filter { $0.key == warmCurrentKey }.count == 2 && frames.pendingCount(warmSource.path) == 1 })
         let rejectsWarmHint = currentCard.thumbnailView.image == nil
@@ -734,9 +783,9 @@ extension Notification.Name { static let staticImageWallpaperReadyToApply = Noti
         let warmReads = demands.reads(warmSource.path)
         let warmCurrentCard = card(warmEntry)
         precondition(waitUntil { warmCurrentCard.thumbnailView.image === currentImage })
-        let warmCurrentInspector = OnlineLibraryDownloadsInspectorView(itemID: 42, service: online, libraryActions: actions())
+        let warmCurrentInspector = PixabayDownloadsInspectorView(itemID: 42, service: pixabay, libraryActions: actions())
         attach(warmCurrentInspector)
-        let warmCurrentPreview = views(warmCurrentInspector).first { $0 is OnlineLibraryDownloadsPreviewSurfaceView }!
+        let warmCurrentPreview = views(warmCurrentInspector).first { $0 is PixabayDownloadsPreviewSurfaceView }!
         precondition(waitUntil { drawnColor(warmCurrentPreview, channel: 2) })
         checks["pixabay-current-warm-card-remount-and-action-echo-preserve-pixels-without-av"] = keptCurrentPixels
             && frames.count(warmSource.path) == warmFrameCount && demands.reads(warmSource.path) == warmReads + 2
@@ -745,6 +794,65 @@ extension Notification.Name { static let staticImageWallpaperReadyToApply = Noti
         currentCard.endDisplayingThumbnail(); warmCurrentCard.endDisplayingThumbnail()
         currentCard.view.removeFromSuperview(); warmCurrentCard.view.removeFromSuperview()
         currentInspector.removeFromSuperview(); warmCurrentInspector.removeFromSuperview()
+        let remoteCache = OnlineImageThumbnailCache.shared; remoteCache.holds = true
+        func remoteModel(_ suffix: String, duration: Int = 12) -> PixabayVideoItem {
+            let file = PixabayVideoFile(url: "https://cdn.pixabay.com/remote.mp4", width: 1920, height: 1080, size: 4096,
+                thumbnail: "https://cdn.pixabay.com/remote-\(suffix).jpg")
+            return .init(id: 66, pageURL: "https://pixabay.com/videos/id-66/", tags: "Remote \(suffix)", duration: duration, user: "Owned author",
+                videos: .init(large: file, medium: file, small: nil, tiny: nil))
+        }
+        let remoteItem = remoteModel("A"), remoteStart = remoteCache.requests.count
+        let remoteView = PixabayDownloadsInspectorView(itemID: 66, service: pixabay, libraryActions: actions(), remoteItem: remoteItem)
+        mount(remoteView)
+        precondition(waitUntil { remoteCache.requests.count == remoteStart + 1 })
+        let remotePreview = views(remoteView).first { $0 is PixabayDownloadsPreviewSurfaceView }!
+        checks["pixabay-remote-details-use-the-accepted-model-and-one-visible-800px-demand"] = pixabay.items.isEmpty
+            && remoteCache.requests[remoteStart].url == remoteItem.previewThumbnailURL && remoteCache.requests[remoteStart].maxPixelSize == 800
+            && remoteCache.requests[remoteStart].priority == .visible && remotePreview.bounds.height == 156
+            && views(remoteView).contains { ($0 as? NSTextField)?.stringValue == remoteItem.displayTitle }
+        remoteCache.complete(remoteStart, expectedImages[1])
+        precondition(waitUntil { drawnColor(remotePreview, channel: 1) })
+        let remoteFooter = button(remoteView, "setAsWallpaper")!
+        let beforeRemoteEcho = remoteCache.requests.count
+        remoteView.updateLibraryActions(actions(names: ["Updated relation"]))
+        checks["remote-detail-relationship-echo-keeps-preview-and-does-not-reload"] = remoteCache.requests.count == beforeRemoteEcho
+            && remotePreview === views(remoteView).first { $0 is PixabayDownloadsPreviewSurfaceView } && drawnColor(remotePreview, channel: 1)
+        precondition(remoteFooter.accessibilityPerformPress())
+        precondition(waitUntil { footerTitle(remoteFooter) == "正在下载" })
+        checks["remote-details-download-admits-one-real-action-and-shows-busy-immediately"] = pixabay.downloadRequests == [66]
+            && !remoteFooter.isEnabled && remoteCache.requests.count == beforeRemoteEcho
+        pixabay.downloadingIDs.remove(66)
+        precondition(waitUntil { footerTitle(remoteFooter) == "下载视频" && remoteFooter.isEnabled })
+        let updatedRemote = remoteModel("B", duration: 21)
+        remoteView.updateLibraryActions(actions(), remoteItem: updatedRemote)
+        precondition(waitUntil { remoteCache.requests.count == beforeRemoteEcho + 1 })
+        let detachedRequest = beforeRemoteEcho
+        mount(imageView)
+        remoteCache.complete(detachedRequest, expectedImages[2]); RunLoop.main.run(until: Date().addingTimeInterval(0.03))
+        let closedRemoteRetainedItsSurface = remotePreview.window == nil && remoteCache.requests.count == detachedRequest + 1
+            && views(remotePreview).compactMap { $0 as? NSImageView }.allSatisfy(\.isHidden)
+            && remotePreview === views(remoteView).first { $0 is PixabayDownloadsPreviewSurfaceView }
+        mount(remoteView)
+        precondition(waitUntil { remoteCache.requests.count == detachedRequest + 2 })
+        // The new request remains held: no source/cache can restore green or
+        // hide an old blue overwrite before this real mounted paint check.
+        checks["closed-remote-detail-rejects-a-late-image-without-clearing-current-valid-pixels"] = closedRemoteRetainedItsSurface
+            && remotePreview.window === window && remotePreview === views(remoteView).first { $0 is PixabayDownloadsPreviewSurfaceView }
+            && drawnColor(remotePreview, channel: 1) && !drawnColor(remotePreview, channel: 2)
+            && views(remotePreview).compactMap { $0 as? NSImageView }.allSatisfy(\.isHidden)
+        remoteCache.complete(detachedRequest + 1, expectedImages[2])
+        precondition(waitUntil { drawnColor(remotePreview, channel: 2) })
+        checks["remote-detail-remount-restores-one-demand-and-keeps-its-original-preview-surface"] =
+            remotePreview === views(remoteView).first { $0 is PixabayDownloadsPreviewSurfaceView } && remotePreview.bounds.height == 156
+            && views(remoteView).contains { ($0 as? NSTextField)?.stringValue == updatedRemote.displayTitle }
+        pixabay.downloadingIDs.insert(66); precondition(waitUntil { footerTitle(remoteFooter) == "正在下载" })
+        pixabay.downloadedContent.entries.append(.init(id: 66, localURL: file))
+        pixabay.downloadingIDs.remove(66)
+        precondition(waitUntil { footerTitle(button(remoteView, "revealInFinder")) == "查看文件" })
+        checks["remote-download-completion-switches-the-existing-detail-to-local-metadata-and-actions"] = footerTitle(remoteFooter) == "设为壁纸"
+            && views(remoteView).contains { ($0 as? NSTextField)?.stringValue == file.lastPathComponent }
+            && remotePreview === views(remoteView).first { $0 is PixabayDownloadsPreviewSurfaceView }
+        mount(imageView)
         print(String(data: try JSONSerialization.data(withJSONObject: checks, options: [.sortedKeys]), encoding: .utf8)!)
     }
 }

@@ -31,6 +31,15 @@ import AppKit
         if let textView { return textView.isEditable ? textView.undoManager : nil }
         return inputWindow?.undoManager
     }
+    private static func localAction(for references: [WallpaperReference], perform: @escaping () -> Void) -> () -> Void {
+        let owner = controller, capturedPage = page, session = controller?.libraryPresentation.selectionState.sessionID
+        return { [weak owner] in
+            guard let owner, controller === owner, self.page == capturedPage,
+                  owner.libraryPresentation.selectionState.sessionID == session,
+                  owner.libraryCommands.selection.map(\.reference) == references else { return }
+            perform()
+        }
+    }
 
     static func validate(_ item: NSMenuItem) -> Bool {
         guard let command = MainMenuCommand.resolve(item) else { return false }
@@ -58,10 +67,15 @@ import AppKit
         case .selectAll: return textView != nil || commands?.canToggleSelection == true || selectionResponder != nil
         case .toggleSelection: return commands?.canToggleSelection == true
         case .deleteSelected:
+            item.representedObject = nil
             if textView != nil { item.title = "删除"; return editableText != nil }
             if page == .playlists { item.title = "删除列表…"; return controller?.canDeleteSelectedPlaylist == true }
             item.title = commands?.removalTitle ?? "移除所选"
-            return commands?.canOrganize == true && commands?.selection.isEmpty == false
+            guard let commands, commands.canOrganize else { return false }
+            let selection = commands.selection
+            guard !selection.isEmpty else { return false }
+            item.representedObject = localAction(for: selection.map(\.reference)) { [weak commands] in commands?.remove() }
+            return true
         case .search: return picker.map { $0.canFocusSearch } ?? (controller != nil)
         case .zoomIn: return picker.map { $0.canZoom(1) } ?? (controller?.canZoomLibrary(1) == true)
         case .zoomOut: return picker.map { $0.canZoom(-1) } ?? (controller?.canZoomLibrary(-1) == true)
@@ -71,12 +85,17 @@ import AppKit
             if editableText != nil { return true }
             if let defaultButton { item.title = defaultButton.title; return true }
             if textView != nil { return false }
-            if page == .wallhaven || page == .pixiv {
-                guard let actions = controller?.selectedBrowserOrganizationActions(), actions.state.canPerformPrimary else { return false }
-                item.representedObject = actions.onPrimary; return true
+            if page?.isRemoteBrowse == true {
+                guard let primary = controller?.selectedBrowserPrimaryAction() else { return false }
+                item.title = primary.title; item.representedObject = primary.action; return true
             }
-            guard let selection = commands?.selection, selection.count == 1 else { return false }
-            return selection[0].capabilities.contains(.play)
+            guard controller?.libraryPresentation.selectionState.isSelecting == false, let commands else { return false }
+            let selection = commands.selection
+            guard selection.count == 1, selection[0].capabilities.contains(.play),
+                  let primary = commands.makePrimaryAction(for: selection[0]) else { return false }
+            item.title = commands.workspace.isPlaying(selection[0].reference) ? "停止播放" : "设为壁纸"
+            item.representedObject = localAction(for: selection.map(\.reference), perform: primary)
+            return true
         case .nextWallpaper, .previousWallpaper:
             // The action returns the standard cursor operation to the editor.
             // Disabling this key equivalent would still swallow Cmd+arrow.
@@ -84,7 +103,7 @@ import AppKit
         case .favorite:
             item.representedObject = nil
             item.title = "特别喜爱"
-            if page == .workshop || page == .wallhaven || page == .pixiv {
+            if page?.isRemoteBrowse == true {
                 guard let actions = controller?.selectedBrowserOrganizationActions(), actions.state.canFavorite else { return false }
                 item.title = actions.state.isFavorite ? "取消特别喜爱" : "特别喜爱"
                 item.representedObject = actions.onToggleFavorite
@@ -97,26 +116,45 @@ import AppKit
             return true
         case .addToPlaylist:
             item.representedObject = nil
-            if page == .workshop || page == .wallhaven || page == .pixiv {
+            if page?.isRemoteBrowse == true {
                 guard let actions = controller?.selectedBrowserOrganizationActions(), actions.state.canOrganize else { return false }
                 item.representedObject = { actions.onChoosePlaylist(nil) }
                 return true
             }
             guard page?.isRemoteBrowse != true, let commands, commands.canOrganize else { return false }
             let selection = commands.selection
-            return !selection.isEmpty && selection.allSatisfy { $0.capabilities.contains(.organize) }
+            guard !selection.isEmpty, selection.allSatisfy({ $0.capabilities.contains(.organize) }) else { return false }
+            item.representedObject = localAction(for: selection.map(\.reference)) { [weak commands] in commands?.choosePlaylist() }
+            return true
         case .info:
-            if page == .wallhaven || page == .pixiv { return controller?.selectedOnlineImageContent != nil }
+            item.representedObject = nil
+            if page?.isRemoteBrowse == true {
+                item.representedObject = controller?.selectedBrowserInfoAction()
+                return item.representedObject != nil
+            }
             guard let selection = commands?.selection, selection.count == 1 else { return false }
-            return selection[0].capabilities.contains(.inspect)
+            guard selection[0].capabilities.contains(.inspect) else { return false }
+            item.representedObject = localAction(for: selection.map(\.reference)) { commands?.inspectSelection() }
+            return true
         case .preview:
+            item.representedObject = nil
             if textView != nil { return editableText != nil }
-            if page == .wallhaven || page == .pixiv { return controller?.selectedOnlineImageContent?.capabilities.contains(.quickLook) == true }
+            if page?.isRemoteBrowse == true {
+                item.representedObject = controller?.selectedBrowserPreviewAction()
+                return item.representedObject != nil
+            }
             guard let selection = commands?.selection, selection.count == 1 else { return false }
-            return selection[0].capabilities.contains(.quickLook) || selection[0].kind == .web || selection[0].kind == .scene
+            guard selection[0].capabilities.contains(.quickLook) || selection[0].kind == .web || selection[0].kind == .scene else { return false }
+            item.representedObject = localAction(for: selection.map(\.reference)) { commands?.previewSelection() }
+            return true
         case .revealOrRefresh:
-            item.title = page?.isRemoteBrowse == true ? "刷新" : "在 Finder 中显示"
-            return page?.isRemoteBrowse == true || commands?.selection.contains { $0.capabilities.contains(.reveal) } == true
+            item.representedObject = nil
+            item.title = "在 Finder 中显示"
+            guard page?.isRemoteBrowse != true, let commands else { return false }
+            let selection = commands.selection
+            guard selection.contains(where: { $0.capabilities.contains(.reveal) }) else { return false }
+            item.representedObject = localAction(for: selection.map(\.reference)) { [weak commands] in commands?.reveal() }
+            return true
         default: return false
         }
     }
@@ -137,6 +175,7 @@ import AppKit
             return
         }
         if page == .playlists { controller?.deleteSelectedPlaylist(); return }
+        if let action = (sender as? NSMenuItem)?.representedObject as? (() -> Void) { action(); return }
         commands?.remove()
     }
     static func menuSearch() {
@@ -155,11 +194,13 @@ import AppKit
         if let defaultButton { defaultButton.performClick(sender); return }
         guard textView == nil else { return }
         guard controller != nil else { return }
+        if page?.isRemoteBrowse != true, controller?.libraryPresentation.selectionState.isSelecting == true { return }
         if let action = (sender as? NSMenuItem)?.representedObject as? (() -> Void) { action(); return }
+        if page?.isRemoteBrowse == true { controller?.selectedBrowserPrimaryAction()?.action(); return }
         guard let commands else { return }
         let selection = commands.selection
-        guard selection.count == 1 else { return }
-        commands.makeApplyAction(for: selection[0])?()
+        guard selection.count == 1, selection[0].capabilities.contains(.play) else { return }
+        commands.makePrimaryAction(for: selection[0])?()
     }
     static func menuNavigate(_ direction: ManualNavigationDirection, sender: Any?) {
         if let textView {
@@ -182,8 +223,10 @@ import AppKit
         guard page?.isRemoteBrowse != true else { return }
         commands?.choosePlaylist()
     }
-    static func menuInfo() {
-        if page == .wallhaven || page == .pixiv { controller?.inspectSelectedOnlineImage() }
+    static func menuInfo(_ sender: Any?) {
+        guard controller != nil else { return }
+        if let action = (sender as? NSMenuItem)?.representedObject as? (() -> Void) { action(); return }
+        if page?.isRemoteBrowse == true { controller?.selectedBrowserInfoAction()?() }
         else { commands?.inspectSelection() }
     }
     static func menuPreview(_ sender: Any?) {
@@ -191,16 +234,15 @@ import AppKit
             if textView.isEditable { textView.insertText(" ", replacementRange: NSRange(location: NSNotFound, length: 0)) }
             return
         }
-        if page == .wallhaven || page == .pixiv { controller?.previewSelectedOnlineImage() }
+        guard controller != nil else { return }
+        if let action = (sender as? NSMenuItem)?.representedObject as? (() -> Void) { action(); return }
+        if page?.isRemoteBrowse == true { controller?.selectedBrowserPreviewAction()?() }
         else { commands?.previewSelection() }
     }
-    static func menuRevealOrRefresh() {
-        switch page {
-        case .workshop: SteamWorkshopService.shared.refresh()
-        case .pixabay: OnlineLibraryService.shared.refresh()
-        case .wallhaven, .pixiv: controller?.refreshOnlineImages()
-        default: commands?.reveal()
-        }
+    static func menuRevealOrRefresh(_ sender: Any?) {
+        guard controller != nil else { return }
+        if let action = (sender as? NSMenuItem)?.representedObject as? (() -> Void) { action(); return }
+        if page?.isRemoteBrowse != true { commands?.reveal() }
     }
     static func menuNavigatePage(_ item: NSMenuItem) {
         guard let page = MainMenuCommand.resolve(item)?.page else { return }

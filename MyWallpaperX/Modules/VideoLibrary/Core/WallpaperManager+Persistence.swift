@@ -394,17 +394,29 @@ extension WallpaperManager {
 }
 
 extension WallpaperManager {
-    func clearPreviewCacheArtifacts() {
+    func clearPreviewCacheArtifacts(completion: (@Sendable () -> Void)? = nil) {
         // 预览缓存可重建；仅保留当前桌面或退出恢复基线仍引用的文件。
-        bumpCacheGeneration()
+        cacheGenerationLock.lock()
+        cacheGeneration &+= 1
         clearThumbnailMemoryCache()
         clearThumbnailInFlight()
         clearStaticFrameSchedule()
 
-        try? FileManager.default.removeItem(at: thumbnailCacheDirectory)
-        clearUnprotectedStaticFrameFiles()
+        // Generation change and namespace detachment share publication's lock;
+        // a new producer cannot publish into the retired directory between them.
+        let retired = thumbnailCacheDirectory.appendingPathExtension("clear-" + UUID().uuidString)
+        let detached: Bool
+        do { try FileManager.default.moveItem(at: thumbnailCacheDirectory, to: retired); detached = true }
+        catch { detached = false }
         try? FileManager.default.createDirectory(at: thumbnailCacheDirectory, withIntermediateDirectories: true)
+        cacheGenerationLock.unlock()
+        // Desktop/restoration URLs retain their existing synchronous protection.
+        clearUnprotectedStaticFrameFiles()
         try? FileManager.default.createDirectory(at: staticFrameCacheDirectory, withIntermediateDirectories: true)
+        deletionQueue.async {
+            if detached { try? FileManager.default.removeItem(at: retired) }
+            if let completion { DispatchQueue.main.async(execute: completion) }
+        }
     }
 
 }

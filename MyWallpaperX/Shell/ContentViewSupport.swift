@@ -6,12 +6,12 @@ extension Notification.Name {
     static let appKitLibraryGridScrollToTopAnimationDidEnd = Notification.Name("AppKitLibraryGridScrollToTopAnimationDidEnd")
     static let appKitSelectItemRequested = Notification.Name("AppKitSelectItemRequested")
     static let appOpenSettingsRequested = Notification.Name("AppOpenSettingsRequested")
-    /// 在线图库模式切换通知，由 Shell 发出，OnlineLibrary 模块接收
-    static let onlineLibraryModeDidChange = Notification.Name("OnlineLibraryModeDidChange")
-    /// 在线库视频下载完成，携带本地 URL 和原始播放请求身份，由 Coordinator 中转给视频库
-    static let onlineVideoReadyToPlay = Notification.Name("OnlineVideoReadyToPlay")
+    /// 在线图库模式切换通知，由 Shell 发出，Pixabay 模块接收
+    static let pixabayModeDidChange = Notification.Name("PixabayModeDidChange")
+    /// Pixabay视频下载完成，携带本地 URL 和原始播放请求身份，由 Coordinator 中转给视频库
+    static let pixabayVideoReadyToPlay = Notification.Name("PixabayVideoReadyToPlay")
     /// 当前播放视频路径变化（在线已下载项播放态同步）
-    static let onlineDownloadsPlaybackPathDidChange = Notification.Name("OnlineDownloadsPlaybackPathDidChange")
+    static let pixabayDownloadsPlaybackPathDidChange = Notification.Name("PixabayDownloadsPlaybackPathDidChange")
     /// Steam 创意工坊视频播放请求，由 Coordinator 中转给视频库静默导入并播放
     static let steamWorkshopVideoReadyToPlay = Notification.Name("SteamWorkshopVideoReadyToPlay")
     /// Steam 创意工坊 HTML 网页壁纸准备播放，由 Coordinator 中转给 Web 壁纸实验宿主

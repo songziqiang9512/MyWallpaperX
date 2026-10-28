@@ -7,7 +7,7 @@ extension MainWindowCoordinator {
         wallpaperManager = manager
         guard observerTokens.isEmpty else { return }
         observerTokens.append(ImportedVideoPlaybackObserver.make(
-            name: .onlineVideoReadyToPlay, context: .onlinePlayback, wallpaperManager: manager))
+            name: .pixabayVideoReadyToPlay, context: .pixabayPlayback, wallpaperManager: manager))
         observerTokens.append(ImportedVideoPlaybackObserver.make(
             name: .steamWorkshopVideoReadyToPlay, context: .steamPlayback, wallpaperManager: manager))
         observe(.steamWorkshopWebWallpaperReadyToPlay) { notification in

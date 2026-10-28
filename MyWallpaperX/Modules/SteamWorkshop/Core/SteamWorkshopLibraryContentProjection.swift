@@ -34,6 +34,8 @@ nonisolated enum SteamWorkshopLibraryContentProjection {
         metadata.descriptionText = record?.description ?? browser?.descriptionText
         metadata.sourceTags = browser?.tags ?? []
         for tag in record?.tags ?? [] where !metadata.sourceTags.contains(tag) { metadata.sourceTags.append(tag) }
+        metadata.contentRating = SteamWorkshopContentRatingSupport.contentRating(tags: browser?.tags ?? [],
+            isMarkedAdult: browser?.hasAdultContent == true)
         metadata.fileSizeBytes = record?.sizeBytes
         metadata.resolutionText = browser?.resolutionText
         metadata.createdAt = record?.createdAt

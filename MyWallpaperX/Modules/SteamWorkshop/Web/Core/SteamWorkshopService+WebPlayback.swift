@@ -5,12 +5,12 @@ import Foundation
 extension SteamWorkshopService {
     func revealItem(_ record: SteamWorkshopDownloadRecord) {
         if record.contentType == .web {
-            NSWorkspace.shared.activateFileViewerSelecting([
+            FinderRevealCoordinator.shared.reveal([
                 record.ownEntryHTMLURL ?? record.projectFileURL ?? record.folderURL
             ])
             return
         }
-        NSWorkspace.shared.activateFileViewerSelecting([record.folderURL])
+        FinderRevealCoordinator.shared.reveal([record.folderURL])
     }
 
     func promptDeleteIncompatibleWebSample(_ record: SteamWorkshopDownloadRecord) {

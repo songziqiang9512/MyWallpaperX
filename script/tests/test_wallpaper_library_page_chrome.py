@@ -26,7 +26,7 @@ class WallpaperLibraryPageChromeTests(unittest.TestCase):
             "Core/LibraryCollections/WallpaperLibraryQuery.swift",
             "Shared/Components/WallpaperLibraryControlStyle.swift", "Shared/Components/WallpaperLibraryGridMetrics.swift", "Shared/Components/WallpaperLibrarySymbols.swift",
             "Shared/Components/WallpaperCardInteractionView.swift", "Shared/UI/BoxSelectionState.swift",
-            "Shared/UI/WallpaperLibrarySheetPresentation.swift",
+            "Shared/UI/WallpaperLibrarySheetPresentation.swift", "Shared/UI/WallpaperGridNoticeView.swift",
             "Shared/UI/GridThumbnailPrefetchDemand.swift", "Shared/UI/WallpaperGridScrollView.swift",
             "Shared/UI/WallpaperArtworkDemandObservation.swift", "Shell/WallpaperLibraryGridController.swift",
             "Shell/AppKitPlaylistDirectoryController.swift", "Shell/AppKitDetailHostViewController.swift",
@@ -42,6 +42,7 @@ class WallpaperLibraryPageChromeTests(unittest.TestCase):
                     ROOT / "script/tests/native_app_harness.py", ROOT / "script/tests/test_ui_library_algorithms.py",
                     ROOT / "script/tests/test_video_thumbnail_prefetch.py"]
         hashes = {str(path): hashlib.sha256(path.read_bytes()).hexdigest() for path in observed}
+        self.assertNotIn("grid.scrollView.onRefresh", composition.read_text())
         template = fixture.read_text()
         substitutions = {
             "// ACTUAL_PRESENTATION_VALUE": declaration(presentation.read_text(), "nonisolated struct WallpaperLibraryPresentationState:"),

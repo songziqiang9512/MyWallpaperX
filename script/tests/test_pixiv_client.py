@@ -3,8 +3,7 @@
 No external requests, real accounts, stored cookies, WebViews, or App builds.
 Includes typed source filters, bounded author slices and optional identity metadata;
 the held identity response proves cookie preparation never awaits the homepage.
-The shared OnlineImage model is compiled unchanged; source-identity leaves are
-small fixture types because the complete library model has unrelated owners.
+Shared identity, rating and OnlineImage models are compiled unchanged.
 """
 import os
 from pathlib import Path
@@ -13,6 +12,8 @@ import sys
 import tempfile
 import unittest
 
+from script.tests.test_ui_library_algorithms import declaration
+
 ROOT = Path(__file__).resolve().parents[2]
 CORE = ROOT / "MyWallpaperX/Modules/Pixiv/Core"
 
@@ -20,11 +21,14 @@ CORE = ROOT / "MyWallpaperX/Modules/Pixiv/Core"
 @unittest.skipUnless(sys.platform == "darwin", "Foundation/WebKit require macOS")
 class PixivClientTests(unittest.TestCase):
     def test_source_queries_pages_assets_and_session_boundaries(self):
-        sources = [*sorted(CORE.glob("*.swift")),
+        sources = [ROOT / "MyWallpaperX/Models/WallpaperReference.swift", ROOT / "MyWallpaperX/Models/WallpaperContent.swift",
+                   *sorted(CORE.glob("*.swift")),
                    ROOT / "MyWallpaperX/Modules/Pixiv/UI/PixivLoginPanelController.swift",
                    ROOT / "MyWallpaperX/Shared/WallpaperNetworkSession.swift",
                    ROOT / "MyWallpaperX/Shared/UI/WallpaperLibrarySheetPresentation.swift"]
         fixture = ROOT / "script/tests/fixtures/PixivClientHarness.swift"
+        account_status = declaration((ROOT / "MyWallpaperX/App/WallpaperLibraryOnlineImages.swift").read_text(),
+            "    var pixivAccountStatus: String {")
         shared = ROOT / "MyWallpaperX/Core/OnlineImages/OnlineImageModels.swift"
         with tempfile.TemporaryDirectory(prefix="mwx-pixiv-", dir="/private/tmp") as directory:
             work = Path(directory)
@@ -36,7 +40,9 @@ class PixivClientTests(unittest.TestCase):
             frozen = []
             for source in [shared, *sources, fixture]:
                 target = snapshot / source.name
-                target.write_bytes(source.read_bytes())
+                content = source.read_text()
+                if source == fixture: content = content.replace("    // ACTUAL_PIXIV_ACCOUNT_STATUS", account_status)
+                target.write_text(content)
                 frozen.append(str(target))
             command = ["xcrun", "swiftc", "-swift-version", "5", "-default-isolation", "MainActor",
                        "-target", "arm64-apple-macos26.0",

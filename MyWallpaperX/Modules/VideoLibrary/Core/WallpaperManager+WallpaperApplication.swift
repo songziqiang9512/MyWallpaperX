@@ -24,7 +24,7 @@ extension WallpaperManager {
             return
         }
         pendingWallpaper = wallpaper
-        NotificationCenter.default.post(name: .onlineDownloadsPlaybackPathDidChange,
+        NotificationCenter.default.post(name: .pixabayDownloadsPlaybackPathDidChange,
                                        object: nil, userInfo: ["path": targetPath])
         guard acceptsLibraryPlayback(libraryPending) else { return }
         prepareVideoSwitch(wallpaper, admission: admission, libraryPending: libraryPending)

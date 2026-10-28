@@ -45,7 +45,7 @@ import AppKit
     init(loader: @escaping Loader) { self.loader = loader }
     isolated deinit { for cover in covers.values { cover.cancel() } }
 
-    convenience init(manager: WallpaperManager, images: SILService, steam: SteamWorkshopService, online: OnlineLibraryService) {
+    convenience init(manager: WallpaperManager, images: SILService, steam: SteamWorkshopService, pixabay: PixabayService) {
         let videos = AppKitThumbnailProvider(wallpaperManager: manager)
         let stills = SILThumbnailProvider()
         self.init { content, completion in
@@ -77,9 +77,9 @@ import AppKit
                 return { state.onChange = nil; state.reset() }
             case .pixabay:
                 guard let id = Int(reference.sourceID), String(id).utf8.elementsEqual(reference.sourceID.utf8),
-                      let row = online.downloadedContent.entries.first(where: { $0.id == id }) else { completion(nil); return {} }
+                      let row = pixabay.downloadedContent.entries.first(where: { $0.id == id }) else { completion(nil); return {} }
                 let cancellation = ThumbnailCacheRequestCancellation()
-                OLDownloadedThumbnailStore.loadThumbnail(row, priority: .prefetch, cancellation: cancellation) { _, image in completion(image) }
+                PixabayDownloadedThumbnailStore.loadThumbnail(row, priority: .prefetch, cancellation: cancellation) { _, image in completion(image) }
                 return { cancellation.cancel() }
             case .wallhaven, .pixiv:
                 let library = OnlineImageLibrary.shared

@@ -2,11 +2,11 @@ import AppKit
 
 final class StatusBarPanelViewController: NSViewController {
     enum Action {
-        case settings, previous, next, playback, mute, properties, openMain, mode, quit
+        case settings, previous, next, playback, mute, properties, openMain, mode, favorite, quit
         case volume(Double)
     }
 
-    let panel = StatusBarPanelView(frame: NSRect(x: 0, y: 0, width: 344, height: 536))
+    let panel = StatusBarPanelView(frame: NSRect(x: 0, y: 0, width: StatusBarPanelPresentation.preferredWidth, height: (536 * StatusBarPanelPresentation.scale).rounded()))
     var onAction: ((Action) -> Void)?
     var onDismiss: (() -> Void)?
     private let workshopPreview = SteamWorkshopPreviewState()
@@ -67,14 +67,10 @@ final class StatusBarPanelViewController: NSViewController {
             (panel.playback, #selector(playback)), (panel.next, #selector(next)),
             (panel.mute, #selector(mute)), (panel.cover.properties, #selector(properties)),
             (panel.openMain, #selector(openMain)), (panel.quit, #selector(quit)),
-            (panel.mode, #selector(mode)), (panel.compactProperties, #selector(properties))
+            (panel.mode, #selector(mode)), (panel.favorite, #selector(favorite)), (panel.compactProperties, #selector(properties))
         ] { button.target = self; button.action = action }
         panel.volume.target = self
         panel.volume.action = #selector(volume)
-        workshopPreview.onChange = { [weak self] in
-            guard let self else { return }
-            self.panel.cover.setImage(self.workshopPreview.image)
-        }
     }
 
     func apply(_ presentation: StatusBarPanelPresentation, refreshToken: Int) {
@@ -88,11 +84,10 @@ final class StatusBarPanelViewController: NSViewController {
         guard needsPreview else { return }
         videoCancellation?.cancel()
         localImageCancellation?.cancel()
-        workshopPreview.reset()
         imageGeneration &+= 1
         let expected = imageGeneration
+        workshopPreview.reset()
         self.refreshToken = refreshToken
-        panel.cover.setImage(nil)
         switch source {
         case let .video(item):
             loadVideoCover(item, generation: expected)
@@ -143,21 +138,25 @@ final class StatusBarPanelViewController: NSViewController {
         videoCancellation = videoPreview.loadThumbnail(for: item) { [weak self] image in
             guard let self, self.imageGeneration == generation else { return }
             if let image { self.panel.cover.setImage(image) }
-            guard image == nil, mayGenerate else { return }
+            guard image == nil else { return }
+            guard mayGenerate else { self.panel.cover.setImage(nil); return }
             let manager = WallpaperManager.shared
             let path = manager.normalizedPath(item.path)
-            guard manager.shouldRetryThumbnailGeneration(for: path) || manager.isThumbnailGenerationInFlight(for: path) else { return }
+            guard manager.shouldRetryThumbnailGeneration(for: path) || manager.isThumbnailGenerationInFlight(for: path) else {
+                self.panel.cover.setImage(nil); return
+            }
             // Cached reads do not create a missing derived image. A status-only
             // replay needs the same bounded single-flight generator as a card.
             manager.generateThumbnail(for: URL(fileURLWithPath: item.path)) { [weak self] output in
-                guard let self, self.imageGeneration == generation, output != nil else { return }
+                guard let self, self.imageGeneration == generation else { return }
+                guard output != nil else { self.panel.cover.setImage(nil); return }
                 self.loadVideoCover(item, generation: generation, mayGenerate: false)
             }
         }
     }
 
     private func loadImageCover(_ urls: [URL], generation: UInt64) {
-        guard let url = urls.first else { return }
+        guard let url = urls.first else { panel.cover.setImage(nil); return }
         let cancellation = SteamWorkshopPreviewLoadCancellation()
         localImageCancellation = cancellation
         previewQueue.async { [weak self] in
@@ -167,6 +166,11 @@ final class StatusBarPanelViewController: NSViewController {
                 DispatchQueue.main.async {
                     guard let self, self.imageGeneration == generation, !cancellation.cancelled else { return }
                     self.localImageCancellation = nil
+                    self.workshopPreview.onChange = { [weak self] in
+                        guard let self, self.imageGeneration == generation else { return }
+                        if let image = self.workshopPreview.image { self.panel.cover.setImage(image) }
+                        else if case .unavailable = self.workshopPreview.placeholder { self.panel.cover.setImage(nil) }
+                    }
                     // Keep the existing remote request/backoff consumer, after
                     // initializing its shared cache outside the opening path.
                     self.workshopPreview.configure(previewURL: url, fallbackImageURL: urls.dropFirst().first,
@@ -195,6 +199,7 @@ final class StatusBarPanelViewController: NSViewController {
     @objc private func properties() { onAction?(.properties) }
     @objc private func openMain() { onAction?(.openMain) }
     @objc private func mode() { onAction?(.mode) }
+    @objc private func favorite() { onAction?(.favorite) }
     @objc private func quit() { onAction?(.quit) }
     @objc private func volume() { onAction?(.volume(panel.volume.doubleValue.rounded())) }
 }

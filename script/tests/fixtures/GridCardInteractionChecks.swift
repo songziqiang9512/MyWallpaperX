@@ -49,21 +49,32 @@ import QuartzCore
            let key = property.keyPath, key == "transform" || key.hasPrefix("transform.") { return true }
         return (animation as? CAAnimationGroup)?.animations?.contains(where: hasTransformAnimation) == true
     }
-    func stationary() -> Bool {
-        guard let layer = cardRoot.layer, CATransform3DIsIdentity(layer.transform) else { return false }
-        if let presentation = layer.presentation(), !CATransform3DIsIdentity(presentation.transform) { return false }
-        return !(layer.animationKeys() ?? []).contains {
-            layer.animation(forKey: $0).map(hasTransformAnimation) == true
-        }
+    let nominalFrame = cardRoot.frame
+    func matches(_ transform: CATransform3D, scale: CGFloat? = nil) -> Bool {
+        let value = transform.m11
+        let anchor = cardRoot.layer!.anchorPoint
+        return value >= 0.9999 && value <= 1.0251 && abs(transform.m22 - value) < 0.0001
+            && (scale.map { abs(value - $0) < 0.0001 } ?? true)
+            && abs(transform.m41 - (1 - value) * cardRoot.bounds.width * (0.5 - anchor.x)) < 0.001
+            && abs(transform.m42 - (1 - value) * cardRoot.bounds.height * (0.5 - anchor.y)) < 0.001
+            && transform.m12 == 0 && transform.m21 == 0 && transform.m33 == 1
     }
-    func observe(_ interval: TimeInterval) -> Bool {
-        var unchanged = stationary()
+    func observe(_ interval: TimeInterval, scale: CGFloat = 1, allowsTransition: Bool = false) -> Bool {
+        func valid() -> Bool {
+            guard let layer = cardRoot.layer, matches(layer.transform, scale: scale), cardRoot.frame == nominalFrame else { return false }
+            if let presentation = layer.presentation(), !matches(presentation.transform, scale: allowsTransition ? nil : scale) { return false }
+            return !(layer.animationKeys() ?? []).contains {
+                layer.animation(forKey: $0).map(hasTransformAnimation) == true
+                    && !(allowsTransition && $0 == "wallpaper.card.hover.scale")
+            }
+        }
+        var correct = valid()
         let deadline = Date().addingTimeInterval(interval)
         while Date() < deadline {
             RunLoop.main.run(until: min(deadline, Date().addingTimeInterval(0.005)))
-            unchanged = stationary() && unchanged
+            correct = valid() && correct
         }
-        return unchanged
+        return correct
     }
     func whiteOutline() -> Bool {
         guard let borderColor = outline.layer?.borderColor,
@@ -115,22 +126,22 @@ import QuartzCore
     diagnose("after-initial-exited")
     _ = observe(0.38)
     enter()
-    checks[label + ".active-hover-keeps-identity-without-transform-animation"] = observe(0.38)
+    checks[label + ".active-hover-expands-equally-about-centre"] = observe(0.38, scale: 1.025, allowsTransition: true)
     diagnose("after-hover-observation")
     checks[label + ".active-hover-shows-white-outline"] = isHovering() && whiteOutline()
     item.mouseDown(with: mouse(.leftMouseDown))
     diagnose("after-down")
-    checks[label + ".card-responder-down-keeps-identity"] = observe(0.10)
+    checks[label + ".card-responder-down-keeps-hover-scale"] = observe(0.10, scale: 1.025)
     item.mouseUp(with: mouse(.leftMouseUp))
     diagnose("after-up")
-    checks[label + ".card-responder-up-keeps-identity"] = observe(0.14) && isHovering() && whiteOutline()
+    checks[label + ".card-responder-up-keeps-hover-scale"] = observe(0.14, scale: 1.025) && isHovering() && whiteOutline()
     window.testPointer = outside
     item.mouseExited(with: tracking(.mouseExited, outside))
     diagnose("after-exited")
-    checks[label + ".exit-keeps-identity-without-transform-animation"] = observe(0.38)
+    checks[label + ".exit-returns-to-identity-about-centre"] = observe(0.38, allowsTransition: true)
     checks[label + ".exit-hides-hover-outline"] = !isHovering() && outline.alphaValue < 0.01
     enter()
-    checks[label + ".restored-hover-keeps-identity-without-transform-animation"] = observe(0.38)
+    checks[label + ".restored-hover-restores-the-same-centred-expansion"] = observe(0.38, scale: 1.025, allowsTransition: true)
     diagnose("after-restored-observation")
     checks[label + ".restored-hover-shows-white-outline"] = isHovering() && whiteOutline()
     if let dragImageView, let layoutDragImage {

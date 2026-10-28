@@ -70,7 +70,7 @@ extension WallpaperManager {
                     failImportedVideoPlayback(admission, reason: "视频播放请求已取消")
                     return
                 }
-                let matchesSource = (context == .onlinePlayback && admission.reference.provider == .pixabay)
+                let matchesSource = (context == .pixabayPlayback && admission.reference.provider == .pixabay)
                     || (context == .steamPlayback && admission.reference.provider == .steamWorkshop)
                 if matchesSource, urls.count == 1, let url = urls.first,
                    let existing = wallpapers.first(where: { normalizedPath($0.path) == normalizedPath(url.path) }) {
@@ -395,8 +395,8 @@ extension WallpaperManager {
             indexByPath[entry.normalizedPath] = wallpapers.count + newWallpapers.count - 1
         }
 
-        // onlinePlayback / steamPlayback 静默导入，不弹任何提示
-        if presentsSummary, context != .onlinePlayback && context != .steamPlayback {
+        // pixabayPlayback / steamPlayback 静默导入，不弹任何提示
+        if presentsSummary, context != .pixabayPlayback && context != .steamPlayback {
             presentImportSummary(
                 makeImportSummary(
                     requestedCount: prepared.requestedCount,
@@ -420,7 +420,7 @@ extension WallpaperManager {
         // The successful import publisher supplies provenance independently of
         // playback admission. Stop cancels playback, not an accepted download.
         if let admission, prepared.requestedCount == 1, let importedBacking,
-           (context == .onlinePlayback && admission.reference.provider == .pixabay)
+           (context == .pixabayPlayback && admission.reference.provider == .pixabay)
             || (context == .steamPlayback && admission.reference.provider == .steamWorkshop) {
             libraryBackingPublished?(WallpaperContentBackingPublication(backingVideoID: importedBacking.id,
                 publishedReference: admission.reference, proof: .publishedDownload))

@@ -48,7 +48,6 @@ class LibraryToolbarBehaviorTests(unittest.TestCase):
         # Count reads at the unchanged history input leaf; production visibility,
         # merge, value guards and jobs/history publisher subscription stay real.
         steam_methods = steam_methods.replace('downloadJobStore.history.lazy', 'downloadJobStore.historyForProjection.lazy')
-        steam_methods += '\n' + next(line for line in service.splitlines() if '    @Published var downloadsShowsAdultContent =' in line)
         template = (ROOT / 'script/tests/fixtures/LibraryToolbarBehaviorHarness.swift').read_text()
         template = template.replace('// DOWNLOADS_PROPERTY', method(service, '    @Published var downloads:'))
         for marker, fragment in {

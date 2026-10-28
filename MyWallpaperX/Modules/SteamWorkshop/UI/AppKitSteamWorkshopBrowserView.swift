@@ -12,6 +12,9 @@ final class AppKitSteamWorkshopBrowserView: NSView, ListThumbnailTintProviding {
         didSet { if currentState == .grid { gridView.preferredColumns = preferredColumns } }
     }
     var clipWidth: CGFloat { currentState == .grid && gridView.window != nil ? gridView.clipWidth : 0 }
+    var selectedItem: SteamWorkshopBrowserItem? { gridView.selectedItem }
+    var selectedPrimaryAction: (() -> Void)? { gridView.selectedPrimaryAction }
+    @discardableResult func inspectSelectedItem() -> Bool { gridView.inspectSelectedItem() }
     var onClipWidthChange: ((CGFloat) -> Void)? {
         didSet { onClipWidthChange?(clipWidth) }
     }
@@ -51,11 +54,11 @@ final class AppKitSteamWorkshopBrowserView: NSView, ListThumbnailTintProviding {
     private var latestInspectorItem: SteamWorkshopBrowserItem?
     private var isHandlingHostClose = false
     private var isShowingDownloadError = false
-    /// SK-helper-idle-reap：进/出窗通知的配对标志。视图被装入未挂窗层级后移除时
-    /// viewDidMoveToWindow 以 nil→nil 触发（无配对进窗），凭该标志拒绝伪出窗，
-    /// 不偷挂载计数配额。
-    private var isBrowsePanelAttachedToWindow = false
+    /// One visible demand per view, balanced across hiding, minimization and detachment.
+    private var isBrowsePanelActive = false
+    private var visibilitySubscription: AnyCancellable?
 
+    var opensDetailsOnSingleClick: () -> Bool = { false }
     private lazy var gridView = AppKitSteamWorkshopBrowserContainerView(
         service: service,
         onOpen: { [weak self] item in
@@ -87,21 +90,40 @@ final class AppKitSteamWorkshopBrowserView: NSView, ListThumbnailTintProviding {
 
     override func viewDidMoveToWindow() {
         super.viewDidMoveToWindow()
-        if window == nil {
-            // SK-helper-idle-reap：出窗即「浏览 UI 不活跃」——挂载计数是面板
-            // 可见性的唯一 owner（与进窗配对增减）。
-            guard isBrowsePanelAttachedToWindow else { return }
-            isBrowsePanelAttachedToWindow = false
-            service.noteBrowsePanelDetached()
-            InspectorHostActions.postClose(module: .steamWorkshop)
-            service.dismissItemDetail()
+        let wasAttached = visibilitySubscription != nil
+        visibilitySubscription = nil
+        guard let window else {
+            updateBrowsePanelVisibility()
+            if wasAttached {
+                InspectorHostActions.postClose(module: .steamWorkshop)
+                service.dismissItemDetail()
+            }
             return
         }
+        let changes = [window.publisher(for: \.isVisible, options: [.new]).map { _ in () }.eraseToAnyPublisher()]
+            + [NSWindow.didMiniaturizeNotification, NSWindow.didDeminiaturizeNotification].map {
+                NotificationCenter.default.publisher(for: $0, object: window).map { _ in () }.eraseToAnyPublisher()
+            } + [NSApplication.didHideNotification, NSApplication.didUnhideNotification].map {
+                NotificationCenter.default.publisher(for: $0, object: NSApp).map { _ in () }.eraseToAnyPublisher()
+            }
+        visibilitySubscription = Publishers.MergeMany(changes).sink { [weak self] in
+            MainActor.assumeIsolated { self?.updateBrowsePanelVisibility() }
+        }
+        updateBrowsePanelVisibility(isEntry: true)
+    }
 
-        guard !isBrowsePanelAttachedToWindow else { return }
-        isBrowsePanelAttachedToWindow = true
+    override func viewDidHide() { super.viewDidHide(); updateBrowsePanelVisibility() }
+    override func viewDidUnhide() { super.viewDidUnhide(); updateBrowsePanelVisibility() }
+
+    private func updateBrowsePanelVisibility(isEntry: Bool = false) {
+        let active = window?.isVisible == true && window?.isMiniaturized == false
+            && !NSApp.isHidden && !isHiddenOrHasHiddenAncestor
+        guard active != isBrowsePanelActive else { return }
+        isBrowsePanelActive = active
+        guard active else { service.noteBrowsePanelDetached(); return }
         service.noteBrowsePanelAttached()
-        service.prepareForBrowserEntry()
+        gridView.opensDetailsOnSingleClick = { [weak self] in self?.opensDetailsOnSingleClick() == true }
+        if isEntry || service.browserState == .idle || service.browserState == .loading { service.prepareForBrowserEntry() }
         syncContent(force: true)
         presentPendingDownloadErrorIfNeeded()
         syncSelectedInspectorItem(service.selectedBrowserItem)

@@ -13,7 +13,6 @@ extension SteamWorkshopService {
     /// previous account. Missing/empty identity never borrows the live getter.
     func excludedDownloadReferences(
         in records: [SteamWorkshopDownloadRecord],
-        showsAdultContent: Bool,
         accountSteamID: String?
     ) -> Set<WallpaperReference> {
         var excluded: Set<WallpaperReference> = []
@@ -22,11 +21,6 @@ extension SteamWorkshopService {
             let reference = WallpaperReference(provider: .steamWorkshop, sourceID: record.id)
             if let intentAccount = record.intentAccountSteamID,
                accountSteamID != intentAccount || accountSteamID?.isEmpty != false {
-                excluded.insert(reference)
-                continue
-            }
-            if !showsAdultContent, let item = record.browserItem,
-               SteamWorkshopContentRatingSupport.hasAdultContent(tags: item.tags, isMarkedAdult: item.hasAdultContent) {
                 excluded.insert(reference)
                 continue
             }

@@ -7,10 +7,9 @@ import AppKit
     static var allowsInput = true
     static func permitsInput(in window: NSWindow?) -> Bool { allowsInput }
 }
-private enum MenuPage {
-    case wallhaven, pixiv, videos, downloads
-    var isRemoteBrowse: Bool { self == .wallhaven || self == .pixiv }
-}
+private typealias MenuPage = WallpaperLibraryPage
+private typealias PlaybackSwitchTicket = UUID
+private enum WallpaperPlaybackSequence { typealias Snapshot = UUID }
 @MainActor private final class MenuCollections { var isResetting = false }
 @MainActor private final class MenuWorkspace {
     struct Relationships {
@@ -23,18 +22,22 @@ private enum MenuPage {
         var page = MenuPage.wallhaven
         var selectionState = Selection()
         var canEditCollections = true
+        var errors: [String] = []
+        mutating func report(_ error: Error) { errors.append(error.localizedDescription) }
     }
     var collections: MenuCollections? = MenuCollections()
     var relationships = Relationships()
     var presentation = Presentation()
     var contents: [WallpaperReference: WallpaperContentItem] = [:]
+    var playing: WallpaperReference?, plays: [WallpaperReference] = []
     func content(for reference: WallpaperReference) throws -> WallpaperContentItem {
         guard let content = contents[reference] else { throw CocoaError(.fileNoSuchFile) }
         return content
     }
-    func isPlaying(_ reference: WallpaperReference) -> Bool { false }
+    func isPlaying(_ reference: WallpaperReference) -> Bool { playing == reference }
+    func isFavorite(_ reference: WallpaperReference) -> Bool { false }
     func capturePlaybackSnapshot(for reference: WallpaperReference) throws -> UUID { UUID() }
-    func play(_ reference: WallpaperReference, from source: UUID?) {}
+    func play(_ reference: WallpaperReference, from source: UUID?) { plays.append(reference) }
 }
 @MainActor private final class MenuSession {
     struct State { var items: [OnlineImageArtwork] = [] }
@@ -81,9 +84,8 @@ private struct SteamWorkshopDownloadRecord {
     func openWorkshopDetailPage(itemID: String) {}
 }
 @MainActor private final class MenuOnline {
-    struct Item { let id: Int }
-    var items: [Item] = []
-    func download(item: Item) {}
+    var retriedIDs: [Int] = []
+    func retryDownload(id: Int) { retriedIDs.append(id) }
     func openVideoSourcePage(id: Int) {}
 }
 @MainActor private enum SteamWorkshopItemMenu {
@@ -94,7 +96,7 @@ private enum SteamWorkshopDownloadGridSupport {
 }
 private typealias WallpaperLibraryWorkspace = MenuWorkspace
 private typealias SteamWorkshopService = MenuSteam
-private typealias OnlineLibraryService = MenuOnline
+private typealias PixabayService = MenuOnline
 @MainActor private enum WallpaperLibraryQuery {
     static func canonicalReferences<S: Sequence>(_ references: S, relationships: MenuWorkspace.Relationships) throws
         -> [WallpaperReference: WallpaperReference] where S.Element == WallpaperReference {
@@ -109,8 +111,9 @@ private typealias OnlineLibraryService = MenuOnline
 @MainActor private final class MenuCommands {
     let workspace: MenuWorkspace
     let manager = MenuManager(), imports = MenuImports(), steam = MenuSteam()
-    let online = MenuOnline()
+    let pixabay = MenuOnline()
     var canOrganize = true
+    var stops = 0
     var onInspect: ((WallpaperContentItem) -> Void)?
     var onPreview: ((WallpaperContentItem) -> Void)?
     init(workspace: MenuWorkspace) { self.workspace = workspace }
@@ -119,21 +122,42 @@ private typealias OnlineLibraryService = MenuOnline
               allOrganizable: items.allSatisfy { $0.capabilities.contains(.organize) })
     }
     func makeFavoriteAction(resolved: (items: [WallpaperContentItem], state: WallpaperLibraryFavoriteActionState)) -> (() -> Void)? { nil }
-    func stop(_ reference: WallpaperReference, expectedTicket: UUID) {}
+    func stop(_ reference: WallpaperReference, expectedTicket: UUID) {
+        guard workspace.playing == reference, manager.playbackSwitch.committed?.ticket == expectedTicket else { return }
+        stops += 1; workspace.playing = nil
+    }
+    func makeFavoriteAction(_ references: [WallpaperReference]) -> (() -> Void)? { nil }
+    func choosePlaylist(_ references: [WallpaperReference], anchor: NSView?) {}
     func makePlaylistMenu(_ references: [WallpaperReference]) -> NSMenu? { nil }
     func reveal(_ items: [WallpaperContentItem]) {}
     func removalTitle(for page: MenuPage) -> String { "移除" }
     func remove(_ items: [WallpaperContentItem], from page: MenuPage) {}
     // ACTUAL_LIBRARY_CONTEXT_MENU
+    // ACTUAL_LIBRARY_PRIMARY
+}
+@MainActor private final class MenuInspector {
+    var previews: [WallpaperContentItem] = []
+    func preview(content: WallpaperContentItem) -> Bool { previews.append(content); return true }
 }
 @MainActor private final class WallpaperLibraryOnlineImages {
+    final class Selection { var selectedContent: WallpaperContentItem? }
+    let selection = Selection()
     let wallhaven = MenuSession(), pixiv = MenuSession()
     let library = OnlineImageLibrary.shared, workspace = MenuWorkspace()
+    let inspector = MenuInspector()
     lazy var commands = MenuCommands(workspace: workspace)
     var isDisplayed = true
     var window: NSWindow?
-    var authors: [String] = []
-    func openAuthor(_ id: String, from page: MenuPage) { authors.append(id) }
+    var isPlaying: ((WallpaperReference) -> Bool)?
+    var isSwitching: ((WallpaperReference) -> Bool)?
+    var selectedContent: WallpaperContentItem? { browser(for: workspace.presentation.page)?.selectedContent }
+    func browser(for page: MenuPage) -> Selection? { page == .wallhaven || page == .pixiv ? selection : nil }
+    func session(for page: MenuPage) -> MenuSession? { page == .wallhaven ? wallhaven : page == .pixiv ? pixiv : nil }
+    var authors: [OnlineImageAuthor] = []
+    var authorOrigins: [WallpaperLibraryPage] = []
+    func openAuthor(_ author: OnlineImageAuthor, from page: WallpaperLibraryPage) {
+        authors.append(author); authorOrigins.append(page)
+    }
     // ACTUAL_IMAGE_MENU
 }
 
@@ -171,6 +195,9 @@ private typealias OnlineLibraryService = MenuOnline
             checks["\(source)-remote-idle-has-one-source-page"] = idle.items.filter {
                 ["打开原网页", "查看原网页"].contains($0.title)
             }.count == 1
+            perform(idle, "临时预览")
+            checks["\(source)-remote-preview-delegates-the-exact-content-without-admitting-another-download"] = value.inspector.previews == [content]
+                && value.library.downloads.count == 2 && value.library.records.isEmpty
 
             value.library.progress[artwork.firstAssetID] = 0.25
             let busy = value.menu(content, source: source)!
@@ -186,10 +213,10 @@ private typealias OnlineLibraryService = MenuOnline
             checks["\(source)-cancel-dispatches-to-the-existing-transfer-and-restores-starts"] = value.library.cancellations == [artwork.firstAssetID]
                 && value.library.progress[artwork.firstAssetID] == nil
                 && entry(value.menu(content, source: source)!, "下载原图").isEnabled
-            if source == .pixiv {
-                perform(idle, "查看作者作品")
-                checks["pixiv-author-command-remains-available"] = value.authors == ["77"]
-            }
+            perform(idle, "查看作者作品")
+            checks["\(source)-author-command-keeps-typed-source-id-name-and-origin"] = value.authors == [.init(source: source, id: "77", name: "Author")]
+                && value.authorOrigins == [source == .wallhaven ? .wallhaven : .pixiv]
+            if source == .pixiv { checks["pixiv-author-command-remains-available"] = value.authors.map(\.id) == ["77"] }
             value.workspace.presentation.page = .videos
             perform(idle, "下载原图")
             checks["\(source)-held-menu-cannot-start-on-a-different-page"] = value.library.downloads.count == 2
@@ -339,6 +366,30 @@ private typealias OnlineLibraryService = MenuOnline
             perform(libraryMenu, "查看原网页")
             checks["\(source)-ordinary-library-recovery-page-keeps-reference"] =
                 Array(MenuBrowser.opened.dropFirst(libraryPageBefore)) == [record.sourceURL]
+            value.workspace.presentation.page = source == .wallhaven ? .wallhaven : .pixiv
+            value.selection.selectedContent = missing
+            let retry = value.selectedPrimaryAction()!
+            let retriesBeforePrimary = value.library.retries.count
+            retry.action()
+            checks["\(source)-selected-missing-image-primary-keeps-retry-title-and-original-owner"] = retry.title == "重新下载"
+                && value.library.retries.count == retriesBeforePrimary + 1 && value.library.retries.last == missing.reference
+                && value.workspace.plays.isEmpty
+            value.selection.selectedContent = local
+            value.workspace.contents[local.reference] = local
+            value.workspace.playing = local.reference
+            value.commands.manager.playbackSwitch.committed = .init(ticket: UUID())
+            value.isPlaying = { value.workspace.isPlaying($0) }
+            let stop = value.selectedPrimaryAction()!, organizationStop = value.selectedOrganizationActions()!
+            stop.action()
+            organizationStop.onPrimary()
+            checks["\(source)-selected-primary-and-organization-retain-fixed-stop-without-replay"] = stop.title == "停止播放"
+                && organizationStop.state.isPlaying && value.commands.stops == 1 && value.workspace.plays.isEmpty
+            value.workspace.playing = local.reference
+            let staleStop = value.selectedPrimaryAction()!
+            value.commands.manager.playbackSwitch.committed = .init(ticket: UUID())
+            staleStop.action()
+            checks["\(source)-held-online-image-stop-cannot-borrow-new-ticket-for-the-same-item"] = value.commands.stops == 1
+                && value.workspace.plays.isEmpty
         }
         precondition(checks.values.allSatisfy { $0 })
         let data = try JSONSerialization.data(withJSONObject: checks, options: [.sortedKeys])

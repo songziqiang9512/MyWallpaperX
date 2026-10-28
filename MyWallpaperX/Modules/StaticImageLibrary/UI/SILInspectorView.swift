@@ -221,12 +221,12 @@ final class SILInspectorView: NSView {
         let stack = SILInspectorViews.makeVerticalStack(spacing: 14)
 
         if !metadataFacts.isEmpty {
-            stack.addArrangedSubview(SILInspectorViews.makeDivider())
+            WallpaperLibraryControlStyle.addSectionDivider(to: stack)
             stack.addArrangedSubview(SILInspectorViews.makeSectionTitle("原数据"))
             stack.addArrangedSubview(SILInspectorViews.makeFactsGrid(metadataFacts))
         }
 
-        stack.addArrangedSubview(SILInspectorViews.makeDivider())
+        WallpaperLibraryControlStyle.addSectionDivider(to: stack)
         stack.addArrangedSubview(SILInspectorViews.makeSectionTitle("文件位置"))
 
         let path = SILInspectorViews.makeLabel(wallpaper.path, font: .systemFont(ofSize: 13), color: .labelColor)
@@ -241,7 +241,7 @@ final class SILInspectorView: NSView {
 
     private func makeTagsSection() -> NSView {
         let stack = SILInspectorViews.makeVerticalStack(spacing: 14)
-        stack.addArrangedSubview(SILInspectorViews.makeDivider())
+        WallpaperLibraryControlStyle.addSectionDivider(to: stack)
         let names = libraryActions.state.playlistNames
         stack.addArrangedSubview(SILInspectorViews.makeSectionTitle("播放列表"))
 
@@ -264,7 +264,7 @@ final class SILInspectorView: NSView {
 
     private func makeNoticeSection() -> NSView {
         let stack = SILInspectorViews.makeVerticalStack(spacing: 8)
-        stack.addArrangedSubview(SILInspectorViews.makeDivider())
+        WallpaperLibraryControlStyle.addSectionDivider(to: stack)
         notices.forEach { notice in
             stack.addArrangedSubview(SILInspectorViews.makeNotice(icon: notice.icon, text: notice.text))
         }
@@ -283,8 +283,8 @@ final class SILInspectorView: NSView {
         // Apply and membership dispatch through the injected canonical commands;
         // metadata, preview and the original three-button geometry stay local.
         let wallpaperButton = SILInspectorViews.makeFooterButton(
-            title: "设为壁纸",
-            symbolName: "photo.fill",
+            title: libraryActions.state.primaryTitle,
+            symbolName: libraryActions.state.primarySymbolName,
             target: self,
             action: #selector(setAsDesktopWallpaper),
             kind: .primary
@@ -353,8 +353,8 @@ final class SILInspectorView: NSView {
         let changed = libraryActions.state != actions.state
         libraryActions = actions
         primaryButton?.isEnabled = actions.state.canPerformPrimary
-        primaryButton?.setTitle(actions.state.isPlaying ? "已应用" : "设为壁纸")
-        primaryButton?.setSymbol(actions.state.isPlaying ? "checkmark.circle.fill" : "photo.fill", accessibilityDescription: actions.state.isPlaying ? "已应用" : "设为壁纸")
+        primaryButton?.setTitle(actions.state.primaryTitle)
+        primaryButton?.setSymbol(actions.state.primarySymbolName, accessibilityDescription: actions.state.primaryTitle)
         playlistButton?.isEnabled = actions.state.canOrganize
         if changed || renderedWallpaper != wallpaper { rebuildContent() }
         if previewPath != wallpaper.path { loadPreviewImage() }
@@ -389,7 +389,7 @@ final class SILInspectorView: NSView {
     }
 
     @objc private func revealInFinder() {
-        NSWorkspace.shared.activateFileViewerSelecting([URL(fileURLWithPath: wallpaper.path)])
+        FinderRevealCoordinator.shared.reveal([URL(fileURLWithPath: wallpaper.path)])
     }
 
     @objc private func presentTagPicker() {

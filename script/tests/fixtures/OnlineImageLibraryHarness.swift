@@ -7,12 +7,17 @@ import UniformTypeIdentifiers
 // monotonic playback gate are compiled from unchanged, frozen product sources.
 actor WallhavenCredentialStore {
     private var value: String?
-    func read() throws -> String? { value }
+    func read() async throws -> String? {
+        if await SourceProbe.shared.failCredentialRead() { throw URLError(.noPermissionsToReadFile) }
+        return value
+    }
     func write(_ value: String?) throws { self.value = value }
 }
 
 actor WallhavenClient {
-    func setAPIKey(_ value: String?) {}
+    private(set) var key: String?
+    func setAPIKey(_ value: String?) { key = value }
+    func collections() async throws -> [WallhavenCollection] { try await SourceProbe.shared.collections() }
     func detail(id: String) async throws -> OnlineImageArtwork {
         try await SourceProbe.shared.detail(source: .wallhaven, id: id)
     }
@@ -44,6 +49,7 @@ actor PixivClient {
     private let preparation: PixivPreparationProbe?
     private var epoch = 0
     var scopeID: String { state.scopeID }
+    var originalCacheScope: String { state.scopeID }
 
     init() {
         preparation = Self.nextPreparation
@@ -99,15 +105,15 @@ actor PixivClient {
     }
 }
 
-nonisolated struct OLThumbnailRequest {
+nonisolated struct OnlineImageThumbnailRequest {
     let url: URL
     var scopeID = "public"
     var session: WallpaperNetworkSession? = nil
     var referer: URL? = nil
 }
 
-actor OLThumbnailCache {
-    static let shared = OLThumbnailCache()
+actor OnlineImageThumbnailCache {
+    static let shared = OnlineImageThumbnailCache()
     private(set) var invalidations: [String] = []
     func invalidate(scopeID: String) { invalidations.append(scopeID) }
 }
@@ -166,6 +172,21 @@ struct PlaybackResourceLifetime {}
     private(set) var cancellations: [String: Int] = [:]
     var ignoreCancellation = Set<String>()
     var resolvedAssets: [OnlineImageAsset] = []
+    var credentialReads = 0, credentialFailures = 0
+    func failCredentialRead() -> Bool {
+        credentialReads += 1
+        guard credentialFailures > 0 else { return false }
+        credentialFailures -= 1
+        return true
+    }
+    var collectionCalls = 0, holdCollections = false
+    var pendingCollections: [CheckedContinuation<[WallhavenCollection], Error>] = []
+    func collections() async throws -> [WallhavenCollection] {
+        collectionCalls += 1
+        if !holdCollections { return [] }
+        return try await withCheckedThrowingContinuation { pendingCollections.append($0) }
+    }
+    func completeCollections(_ result: Result<[WallhavenCollection], Error>) { pendingCollections.removeFirst().resume(with: result) }
     var heldAssetKeys = Set<String>()
     private(set) var pendingAssets: [String: CheckedContinuation<[OnlineImageAsset], Error>] = [:]
 
@@ -369,6 +390,9 @@ nonisolated final class WallpaperFileTransfer: @unchecked Sendable {
 
     static func concurrentDownloads() async throws {
         let value = try await library("concurrency")
+        var terminals: [DownloadTerminalReceipt] = []
+        let observation = value.downloadTerminals.sink { terminals.append($0) }
+        defer { observation.cancel() }
         transfer.resetMaximum()
         let a = asset(.wallhaven, "queue-a"), b = asset(.wallhaven, "queue-b")
         let cancelled = asset(.wallhaven, "queue-cancel"), next = asset(.wallhaven, "queue-next")
@@ -386,6 +410,10 @@ nonisolated final class WallpaperFileTransfer: @unchecked Sendable {
         check("download-concurrency-never-exceeds-two", transfer.maxActive == 2)
         check("cancelled-queued-download-never-starts-or-publishes", transfer.starts("queue-cancel") == 0 && value.record(for: cancelled.id.reference) == nil)
         check("uncancelled-queued-downloads-publish", value.snapshot.records.count == 3)
+        check("queued-cancel-emits-one-real-terminal-without-publication",
+              terminals.filter { $0.id.reference == cancelled.id.reference }.map(\.outcome) == [.cancelled])
+        check("successful-queued-transfers-emit-one-terminal-each",
+              terminals.filter { $0.outcome == .completed }.count == 3 && Set(terminals.map(\.id)).count == 4)
     }
 
     static func playbackIntentAndCommit() async throws {
@@ -406,6 +434,9 @@ nonisolated final class WallpaperFileTransfer: @unchecked Sendable {
         }
 
         let value = try await library("commit-cancel"), item = asset(.wallhaven, "commit-cancel")
+        var terminals: [DownloadTerminalReceipt] = []
+        let terminalObservation = value.downloadTerminals.sink { terminals.append($0) }
+        defer { terminalObservation.cancel() }
         let gate = ImportedVideoAutoplayGate()
         var playback: [WallpaperReference] = []
         value.captureApplyIntent = { let token = gate.claim(); return { gate.isCurrent(token) } }
@@ -421,6 +452,8 @@ nonisolated final class WallpaperFileTransfer: @unchecked Sendable {
         let committed = record.flatMap { value.localURL(for: $0) }
         check("cancel-at-publication-keeps-committed-file-and-receipt", committed.map { FileManager.default.fileExists(atPath: $0.path) } == true)
         check("cancel-at-publication-suppresses-automatic-apply", playback.isEmpty)
+        check("cancel-after-publication-is-completed-history",
+              terminals.filter { $0.id.reference == item.id.reference }.map(\.outcome) == [.completed])
         observation.cancel()
         let content = value.content(for: item.id.reference)
         check("real-imageio-publication-projects-local-capabilities", record?.pixelWidth == 3 && record?.pixelHeight == 2 && content?.capabilities.contains([.play, .organize, .export]) == true)
@@ -436,6 +469,9 @@ nonisolated final class WallpaperFileTransfer: @unchecked Sendable {
 
     static func duplicateAndInvalidBytes() async throws {
         let value = try await library("duplicate-invalid"), item = asset(.wallhaven, "duplicate")
+        var terminals: [DownloadTerminalReceipt] = []
+        let terminalObservation = value.downloadTerminals.sink { terminals.append($0) }
+        defer { terminalObservation.cancel() }
         value.download(item); value.download(item, apply: true)
         try await eventually("deduplicated transfer") { transfer.starts("duplicate") == 1 }
         try await settle()
@@ -461,6 +497,137 @@ nonisolated final class WallpaperFileTransfer: @unchecked Sendable {
         try await drained(value, "invalid replacement")
         check("invalid-replacement-preserves-old-record-and-revision", value.record(for: item.id.reference) == old && value.snapshot.unavailable.contains(item.id))
         check("unavailable-local-projection-offers-retry-without-play", value.content(for: item.id.reference)?.capabilities.contains(.retryDownload) == true && value.content(for: item.id.reference)?.capabilities.contains(.play) == false)
+        check("first-download-failure-has-one-terminal-without-manifest-record",
+              terminals.filter { $0.id.reference == bad.id.reference }.map(\.outcome) == [.failed])
+        let priorAssets = source.resolvedAssets
+        source.resolvedAssets = [bad]
+        value.retryDownload(bad.id.reference, title: "fixed-history-target")
+        try await eventually("failed first-download retry resolves detail") { source.starts["wallhaven:bad-image"] == 1 }
+        source.resolve("wallhaven:bad-image")
+        try await eventually("failed first-download retry transfers") { transfer.starts("bad-image") == 2 }
+        transfer.finish("bad-image", bytes: png)
+        try await drained(value, "failed first retry")
+        source.resolvedAssets = priorAssets
+        let badAttempts = terminals.filter { $0.id.reference == bad.id.reference }
+        check("history-retry-without-old-record-resolves-and-publishes-fixed-source",
+              value.record(for: bad.id.reference) != nil && badAttempts.map(\.outcome) == [.failed, .completed]
+              && Set(badAttempts.map(\.id)).count == 2)
+    }
+
+    static func temporaryOriginalLeaf() async throws {
+        let value = try await library("temporary-original"), item = asset(.pixiv, "quick-look-only", page: 2)
+        _ = await value.preparePixiv()
+        let destination = value.root.appendingPathComponent("temporary-original.bin")
+        try FileManager.default.createDirectory(at: value.root, withIntermediateDirectories: true)
+        var terminals: [DownloadTerminalReceipt] = []
+        let observation = value.downloadTerminals.sink { terminals.append($0) }
+        defer { observation.cancel() }
+        let temporary = Task { try await value.fetchOriginal(item, to: destination) }
+        try await eventually("temporary original leaf") { transfer.starts("quick-look-only") == 1 }
+        transfer.finish("quick-look-only", bytes: png)
+        try await temporary.value
+        check("temporary-original-uses-original-bytes-without-queue-history-or-manifest",
+              try Data(contentsOf: destination) == png && terminals.isEmpty && value.progress.isEmpty
+              && value.downloadActivities.isEmpty && value.record(for: item.id.reference) == nil)
+        try FileManager.default.removeItem(at: destination)
+        let cancelledItem = asset(.pixiv, "quick-look-cancel")
+        let cancelled = Task { try await value.fetchOriginal(cancelledItem, to: destination) }
+        try await eventually("temporary original cancellation") { transfer.starts("quick-look-cancel") == 1 }
+        cancelled.cancel()
+        do { try await cancelled.value; check("temporary-original-cancels-real-transport", false) }
+        catch { check("temporary-original-cancels-real-transport", transfer.cancels("quick-look-cancel") == 1 && terminals.isEmpty) }
+    }
+
+    static func originalPreviewCache() async throws {
+        let value = try await library("original-cache")
+        var item = asset(.wallhaven, "cached-original"); item.rating = .adult
+        _ = await value.prepareWallhaven()
+        let request = Task { try await value.originalPreviewURL(item) }
+        try await eventually("original cache miss") { transfer.starts(item.id.artworkID) == 1 }
+        transfer.finish(item.id.artworkID, bytes: png)
+        let cached = try await request.value
+        let metadataURL = cached.deletingLastPathComponent().appendingPathComponent("metadata.json")
+        let metadata = String(decoding: try Data(contentsOf: metadataURL), as: UTF8.self)
+        check("quick-cache-keeps-original-bytes-and-publishable-metadata-without-cdn-or-local-record",
+              try Data(contentsOf: cached) == png && !metadata.contains("originalURL") && !metadata.contains("example.invalid/original")
+              && value.snapshot.records.isEmpty && value.downloadActivities.isEmpty)
+        let warm = try await value.originalPreviewURL(item)
+        check("warm-original-preview-reuses-bytes-without-transfer", warm == cached && transfer.starts(item.id.artworkID) == 1)
+        let restarted = OnlineImageLibrary(root: value.root)
+        try await eventually("restarted cache owner") { restarted.snapshot.status.hasSuccessfulScan }
+        let sourceEvents = source.events.count
+        restarted.downloadArtwork(artwork(.wallhaven, item.id.artworkID))
+        try await eventually("restart cache download published") { restarted.record(for: item.id.reference) != nil }
+        try await drained(restarted, "restart cache publication")
+        let published = restarted.localURL(for: restarted.record(for: item.id.reference)!)!
+        check("restart-download-from-quick-cache-needs-no-metadata-or-original-network",
+              source.events.count == sourceEvents && transfer.starts(item.id.artworkID) == 1 && (try? Data(contentsOf: published)) == png)
+        check("download-from-quick-look-cache-retains-the-official-adult-rating", restarted.record(for: item.id.reference)?.rating == .adult)
+        var legacyMetadata = try JSONSerialization.jsonObject(with: Data(contentsOf: metadataURL)) as! [String: Any]
+        legacyMetadata.removeValue(forKey: "rating")
+        let legacyBytes = try JSONSerialization.data(withJSONObject: legacyMetadata)
+        try legacyBytes.write(to: metadataURL)
+        let legacyCached = await restarted.cachedOriginalPreviewURL(for: item.id)
+        check("old-quick-look-cache-without-rating-remains-readable-without-fetch-or-rewrite", legacyCached == cached
+              && source.events.count == sourceEvents && transfer.starts(item.id.artworkID) == 1 && (try? Data(contentsOf: metadataURL)) == legacyBytes)
+        let upgraded = OnlineImageLibrary(root: value.root.appendingPathComponent("legacy-rating-publication"),
+            originalCacheRoot: cached.deletingLastPathComponent().deletingLastPathComponent())
+        try await eventually("new publication owner for old cache") { upgraded.snapshot.status.hasSuccessfulScan }
+        var currentArtwork = artwork(.wallhaven, item.id.artworkID); currentArtwork.rating = .adult
+        upgraded.downloadArtwork(currentArtwork)
+        try await eventually("old cache download uses current official rating") { upgraded.record(for: item.id.reference) != nil }
+        try await drained(upgraded, "known-rating cache publication")
+        check("old-unrated-quick-look-cache-cannot-erase-current-official-adult-rating-on-publication",
+              upgraded.record(for: item.id.reference)?.rating == .adult && source.events.count == sourceEvents
+              && transfer.starts(item.id.artworkID) == 1 && (try? Data(contentsOf: metadataURL)) == legacyBytes)
+        try FileManager.default.setAttributes([.modificationDate: Date(timeIntervalSinceNow: -86_401)], ofItemAtPath: cached.path)
+        let expired = await restarted.cachedOriginalPreviewURL(for: item.id)
+        check("original-cache-expires-at-24-hours-without-publishing-stale-bytes", expired == nil && !FileManager.default.fileExists(atPath: cached.path))
+        let rebuilt = Task { try await restarted.originalPreviewURL(item) }
+        try await eventually("expired original rebuild") { transfer.starts(item.id.artworkID) == 2 }
+        transfer.finish(item.id.artworkID, bytes: png)
+        let rebuiltURL = try await rebuilt.value
+        check("expired-original-rebuilds-along-source-transport", try Data(contentsOf: rebuiltURL) == png)
+        try Data("partial metadata".utf8).write(to: metadataURL)
+        let partial = await restarted.cachedOriginalPreviewURL(for: item.id)
+        check("partial-cache-metadata-is-never-an-importable-original", partial == nil)
+        let unusedExpired = restarted.root.appendingPathComponent(".quick-look-cache/unused-expired", isDirectory: true)
+        try FileManager.default.createDirectory(at: unusedExpired, withIntermediateDirectories: true)
+        try Data([0]).write(to: unusedExpired.appendingPathComponent("unused.img"))
+        try FileManager.default.setAttributes([.modificationDate: Date(timeIntervalSinceNow: -86_401)], ofItemAtPath: unusedExpired.path)
+        let damaged = asset(.wallhaven, "damaged-cached-original")
+        let damagedRequest = Task { try await restarted.originalPreviewURL(damaged) }
+        try await eventually("cache bytes before corruption") { transfer.starts(damaged.id.artworkID) == 1 }
+        transfer.finish(damaged.id.artworkID, bytes: png)
+        let damagedURL = try await damagedRequest.value
+        check("a-later-original-write-reclaims-expired-leaves-without-revisiting-them", !FileManager.default.fileExists(atPath: unusedExpired.path))
+        try Data("damaged bytes".utf8).write(to: damagedURL)
+        restarted.download(damaged)
+        try await drained(restarted, "damaged cache admission")
+        let rejectedCache = await restarted.cachedOriginalPreviewURL(for: damaged.id)
+        check("bad-cached-image-is-rejected-without-publication-and-invalidated-at-consumption",
+              restarted.record(for: damaged.id.reference) == nil && rejectedCache == nil && transfer.starts(damaged.id.artworkID) == 1)
+        restarted.download(damaged)
+        try await eventually("damaged cache retry uses real source") { transfer.starts(damaged.id.artworkID) == 2 }
+        transfer.finish(damaged.id.artworkID, bytes: png)
+        try await drained(restarted, "damaged cache rebuilt")
+        check("invalidated-original-cache-cannot-block-the-next-cold-download", restarted.record(for: damaged.id.reference) != nil)
+        let cancelledItem = asset(.wallhaven, "cache-cancelled")
+        let cancelled = Task { try await restarted.originalPreviewURL(cancelledItem) }
+        try await eventually("cached original pending cancellation") { transfer.starts(cancelledItem.id.artworkID) == 1 }
+        cancelled.cancel()
+        do { _ = try await cancelled.value; check("cancelled-original-cache-leaves-no-publishable-half-file", false) }
+        catch { let entry = await restarted.cachedOriginalPreviewURL(for: cancelledItem.id); check("cancelled-original-cache-leaves-no-publishable-half-file", entry == nil && transfer.cancels(cancelledItem.id.artworkID) == 1) }
+        let blockedRoot = root.appendingPathComponent("blocked-original-cache")
+        try Data([0]).write(to: blockedRoot)
+        let noCache = OnlineImageLibrary(root: root.appendingPathComponent("original-cache-failure"), originalCacheRoot: blockedRoot)
+        let fallbackItem = asset(.wallhaven, "cache-write-failure")
+        let fallback = Task { try await noCache.originalPreviewURL(fallbackItem) }
+        try await eventually("cache write failure original acquisition") { transfer.starts(fallbackItem.id.artworkID) == 1 }
+        transfer.finish(fallbackItem.id.artworkID, bytes: png)
+        let fallbackURL = try await fallback.value
+        check("optional-cache-write-failure-still-provides-original-for-quicklook", try Data(contentsOf: fallbackURL) == png)
+        try FileManager.default.removeItem(at: fallbackURL)
     }
 
     static func artworkIntentBeforeDetail() async throws {
@@ -775,11 +942,15 @@ nonisolated final class WallpaperFileTransfer: @unchecked Sendable {
         do {
             root = URL(fileURLWithPath: CommandLine.arguments[1], isDirectory: true)
             png = try makePNG()
+            try await wallhavenAccountMetadata()
             try await detailConsumers()
             try await concurrentDownloads()
             try await playbackIntentAndCommit()
             try await artworkIntentBeforeDetail()
             try await duplicateAndInvalidBytes()
+            try await temporaryOriginalLeaf()
+            try await originalPreviewCache()
+            try await clearOriginalPreviewCaches()
             try await retryAndScanFailure()
             try await visibilityRevocation(.pixiv)
             try await visibilityRevocation(.wallhaven)

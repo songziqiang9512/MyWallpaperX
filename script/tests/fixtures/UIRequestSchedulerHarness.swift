@@ -9,7 +9,7 @@ nonisolated private struct SchedulerAuditState: Equatable, Sendable {
     static let idle = Self(primary: 0, secondary: 0, waitingPrimary: 0, waitingSecondary: 0)
 }
 
-extension OLThumbnailRequestScheduler {
+extension OnlineImageThumbnailRequestScheduler {
     fileprivate func stateForAudit() -> SchedulerAuditState {
         SchedulerAuditState(primary: active.values.filter { $0 == .visible }.count,
             secondary: active.values.filter { $0 == .prefetch }.count,
@@ -17,11 +17,11 @@ extension OLThumbnailRequestScheduler {
             waitingSecondary: waiting.filter { $0.priority == .prefetch }.count)
     }
 
-    fileprivate func acquireForAudit(_ priority: OLThumbnailRequestPriority) async {
+    fileprivate func acquireForAudit(_ priority: OnlineImageThumbnailRequestPriority) async {
         _ = await acquire(id: UUID(), priority: priority)
     }
 
-    fileprivate func releaseForAudit(_ priority: OLThumbnailRequestPriority) -> SchedulerAuditState {
+    fileprivate func releaseForAudit(_ priority: OnlineImageThumbnailRequestPriority) -> SchedulerAuditState {
         if let id = active.first(where: { $0.value == priority })?.key { release(id: id) }
         return stateForAudit()
     }
@@ -45,8 +45,8 @@ private func eventually(_ condition: @Sendable () async -> Bool) async throws {
 }
 
 @main private struct UIRequestSchedulerHarness {
-    static func onlineBoundedHandoffAndPriority() async throws {
-        let scheduler = OLThumbnailRequestScheduler()
+    static func pixabayBoundedHandoffAndPriority() async throws {
+        let scheduler = OnlineImageThumbnailRequestScheduler()
         await scheduler.acquireForAudit(.visible)
         await scheduler.acquireForAudit(.visible)
         let visible = (0..<10).map { _ in Task { await scheduler.acquireForAudit(.visible) } }
@@ -64,8 +64,8 @@ private func eventually(_ condition: @Sendable () async -> Bool) async throws {
                 waitingPrimary: remaining, waitingSecondary: 3), "visible concurrency or priority changed")
         }
         let penultimate = await scheduler.releaseForAudit(.visible)
-        try expect(penultimate == SchedulerAuditState(primary: 1, secondary: 0,
-            waitingPrimary: 0, waitingSecondary: 3), "prefetch must wait for active visible requests")
+        try expect(penultimate == SchedulerAuditState(primary: 1, secondary: 1,
+            waitingPrimary: 0, waitingSecondary: 2), "one free slot should serve one neighbor after queued visible work drains")
         let firstPrefetch = await scheduler.releaseForAudit(.visible)
         try expect(firstPrefetch == SchedulerAuditState(primary: 0, secondary: 1,
             waitingPrimary: 0, waitingSecondary: 2), "only one prefetch permit may be handed off")
@@ -79,8 +79,8 @@ private func eventually(_ condition: @Sendable () async -> Bool) async throws {
         try expect(await scheduler.stateForAudit() == .idle, "online permits did not drain")
     }
 
-    static func onlineExistingPrefetchAndVisibleLimits() async throws {
-        let scheduler = OLThumbnailRequestScheduler()
+    static func pixabayExistingPrefetchAndVisibleLimits() async throws {
+        let scheduler = OnlineImageThumbnailRequestScheduler()
         await scheduler.acquireForAudit(.prefetch)
         // A prefetch already in flight has never blocked newly visible work.
         await scheduler.acquireForAudit(.visible)
@@ -105,8 +105,8 @@ private func eventually(_ condition: @Sendable () async -> Bool) async throws {
         try expect(await scheduler.stateForAudit() == .idle, "mixed online permits did not drain")
     }
 
-    static func onlineNormalAndCancelledRelease() async throws {
-        let scheduler = OLThumbnailRequestScheduler()
+    static func pixabayNormalAndCancelledRelease() async throws {
+        let scheduler = OnlineImageThumbnailRequestScheduler()
         let normal = await scheduler.run(priority: .visible) { 7 }
         let normalState = await scheduler.stateForAudit()
         try expect(normal == 7 && normalState == .idle, "normal online return leaked a permit")
@@ -129,9 +129,9 @@ private func eventually(_ condition: @Sendable () async -> Bool) async throws {
     }
 
     static func main() async throws {
-        try await onlineBoundedHandoffAndPriority()
-        try await onlineExistingPrefetchAndVisibleLimits()
-        try await onlineNormalAndCancelledRelease()
+        try await pixabayBoundedHandoffAndPriority()
+        try await pixabayExistingPrefetchAndVisibleLimits()
+        try await pixabayNormalAndCancelledRelease()
         let facts = ["onlineBoundedHandoffAndPriority": true, "onlineExistingPrefetchAndVisibleLimits": true,
             "onlineNormalAndCancelledRelease": true]
         print(String(data: try JSONSerialization.data(withJSONObject: facts, options: [.sortedKeys]), encoding: .utf8)!)

@@ -30,17 +30,16 @@ final class AppKitWallpaperItem: WallpaperCardCollectionViewItem, WallpaperGridH
     private var currentMetadata = ""
     private let thumbnailImageView = NSImageView()
     private let placeholderLabel = NSTextField(labelWithString: "生成中...")
-    private var isFavoriteState = false
     private let multiSelectBadge = NSView()
     private let multiSelectBadgeIcon = NSImageView()
     private var controlBar: WallpaperCardControlsView?
     private var controlBarFrame = NSRect.zero
     private var barVisibilityRevision = 0
     var onPlayRequested: ((String) -> Void)? {
-        didSet { controlBar?.playButton.isEnabled = onPlayRequested != nil && !isSwitching }
+        didSet { if controlBar != nil { updateControlBarContent() } }
     }
-    var onFavoriteRequested: ((String) -> Void)? {
-        didSet { controlBar?.favoriteButton.isHidden = onFavoriteRequested == nil }
+    var onInspectRequested: ((String) -> Void)? {
+        didSet { if controlBar != nil { updateControlBarContent() } }
     }
     private var currentWallpaperID: String?
     private var currentWallpaper: VideoWallpaper?
@@ -70,6 +69,7 @@ final class AppKitWallpaperItem: WallpaperCardCollectionViewItem, WallpaperGridH
 
     override func loadView() {
         view = WallpaperCardInteractionView()
+        view.clipsToBounds = false
         setupViews()
     }
 
@@ -97,17 +97,15 @@ final class AppKitWallpaperItem: WallpaperCardCollectionViewItem, WallpaperGridH
         placeholderLabel.stringValue = "生成中..."
         placeholderLabel.toolTip = nil
         placeholderLabel.isHidden = true
-        isFavoriteState = false
         multiSelectBadge.isHidden = true
         barVisibilityRevision += 1
         controlBar?.setActive(false)
         controlBar?.removeFromSuperview()
         controlBar?.isHidden = true
         controlBar?.primaryState = .apply
-        controlBar?.isFavorite = false
         controlBar?.apply(title: "", metadata: "")
         onPlayRequested = nil
-        onFavoriteRequested = nil
+        onInspectRequested = nil
         hoverOutlineView.alphaValue = 0
         isHoverOutlineVisible = false
         selectionTintView.alphaValue = 0
@@ -121,7 +119,6 @@ final class AppKitWallpaperItem: WallpaperCardCollectionViewItem, WallpaperGridH
         wallpaper: VideoWallpaper,
         isSelected: Bool,
         isPlaying: Bool,
-        isFavorite: Bool,
         multiSelectMode: Bool,
         wallpaperManager: WallpaperManager,
         thumbnailProvider: AppKitThumbnailProvider
@@ -137,7 +134,6 @@ final class AppKitWallpaperItem: WallpaperCardCollectionViewItem, WallpaperGridH
         self.isMultiSelectMode = multiSelectMode
         loadingPlaceholderWorkItem?.cancel()
         placeholderLabel.isHidden = true
-        isFavoriteState = isFavorite
         
         currentTitle = wallpaper.displayTitle
         var metaLines: [String] = []
@@ -159,7 +155,7 @@ final class AppKitWallpaperItem: WallpaperCardCollectionViewItem, WallpaperGridH
         }
         currentMetadata = metaLines.joined(separator: "  ")
         view.toolTip = nil
-        updateControlBarContent(isFavorite: isFavorite)
+        updateControlBarContent()
 
         applySelectionState(isSelected: isSelected, multiSelectMode: multiSelectMode)
 
@@ -342,28 +338,31 @@ final class AppKitWallpaperItem: WallpaperCardCollectionViewItem, WallpaperGridH
         guard controlBar == nil else { return }
         let bar = WallpaperCardControlsView(frame: controlBarFrame)
         bar.alphaValue = 0
-        bar.onPlay = { [weak self] in
-            guard let self, !self.isMultiSelectMode, let id = self.currentWallpaperID else { return }
-            self.onPlayRequested?(id)
-        }
-        bar.onFavorite = { [weak self] in
-            guard let self, !self.isMultiSelectMode, let id = self.currentWallpaperID else { return }
-            self.onFavoriteRequested?(id)
-        }
         controlBar = bar
         bar.apply(metrics: WallpaperCardBarMetrics(cardWidth: imageContainer.bounds.width))
-        updateControlBarContent(isFavorite: isFavoriteState)
+        updateControlBarContent()
     }
 
-    private func updateControlBarContent(isFavorite: Bool) {
+    private func updateControlBarContent() {
+        let id = currentWallpaperID
+        controlBar?.onPlay = id.flatMap { id in onPlayRequested.map { action in { [weak self] in
+            guard let self, !self.isMultiSelectMode,
+                  self.controlBar?.playButton.isEnabled == true else { return }
+            action(id)
+        } } }
+        controlBar?.onInspect = id.flatMap { id in onInspectRequested.map { action in { [weak self] in
+            guard let self, !self.isMultiSelectMode,
+                  self.controlBar?.detailButton.isEnabled == true else { return }
+            action(id)
+        } } }
         controlBar?.playButton.isEnabled = onPlayRequested != nil && !isSwitching
-        controlBar?.favoriteButton.isHidden = onFavoriteRequested == nil
+        controlBar?.detailButton.isEnabled = onInspectRequested != nil
         controlBar?.primaryState = isSwitching ? .switching : (isPlaying ? .playing : .apply)
-        controlBar?.isFavorite = isFavorite
         controlBar?.apply(title: currentTitle, metadata: currentMetadata)
     }
 
     private func applyHoverVisibility(_ visible: Bool, animated: Bool) {
+        imageContainer.applyGridHoverScale(isHovering, animated: animated)
         let showBar = (visible || isPlaying || isSwitching) && !isMultiSelectMode
         if showBar { prepareControlBarIfNeeded() }
         guard let bar = controlBar else { return }
@@ -432,7 +431,10 @@ final class AppKitWallpaperItem: WallpaperCardCollectionViewItem, WallpaperGridH
     func refreshGridHover(isScrolling: Bool) {
         hoverTracking.update(in: imageContainer, owner: self, isScrolling: isScrolling)
         let hovered = !isScrolling && view.isGridPointerInside
-        guard hovered != isHovering else { return }
+        guard hovered != isHovering else {
+            imageContainer.applyGridHoverScale(hovered, animated: false)
+            return
+        }
         isHovering = hovered
         updateHoverOutline(hovered)
         applyHoverVisibility(hovered, animated: false)
@@ -498,23 +500,17 @@ final class AppKitWallpaperItem: WallpaperCardCollectionViewItem, WallpaperGridH
         applyHoverVisibility(isHovering, animated: false)
     }
 
-    func applyFavoriteState(isFavorite: Bool) {
-        // 喜爱状态仍供原bar投影，不以已退役角标的可见性充当状态。
-        isFavoriteState = isFavorite
-        controlBar?.isFavorite = isFavorite
-    }
-
     func applyPlayingState(isPlaying: Bool) {
         guard self.isPlaying != isPlaying else { return }
         self.isPlaying = isPlaying
-        updateControlBarContent(isFavorite: isFavoriteState)
+        updateControlBarContent()
         applyHoverVisibility(isHovering, animated: false)
     }
 
     func applySwitchingState(isSwitching: Bool) {
         guard self.isSwitching != isSwitching else { return }
         self.isSwitching = isSwitching
-        updateControlBarContent(isFavorite: isFavoriteState)
+        updateControlBarContent()
         applyHoverVisibility(isHovering, animated: false)
     }
 

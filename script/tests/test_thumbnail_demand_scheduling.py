@@ -20,6 +20,9 @@ class ThumbnailDemandSchedulingTests(unittest.TestCase):
             # return. Expose the original owner only in this compiled copy.
             cache = sources[1].read_text()
             self.assertEqual(cache.count("private let imageCache:"), 1)
+            deletion = "if detached { try? FileManager.default.removeItem(at: retired) }"
+            self.assertEqual(cache.count(deletion), 1)
+            cache = cache.replace(deletion, "if detached { ThumbnailClearObservation.remove(retired) }")
             cache_copy = work / "ThumbnailCache.swift"
             cache_copy.write_text(cache.replace("private let imageCache:", "let imageCache:", 1))
             sources[1] = cache_copy

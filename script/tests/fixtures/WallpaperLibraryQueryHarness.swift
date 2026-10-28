@@ -10,12 +10,12 @@ import Foundation
                   size: Int64? = nil, date: Date? = nil, legacyUse: Date? = nil,
                   update: WallpaperContentTransferState = .idle, path: String? = nil,
                   author: String? = nil, summary: String? = nil, description: String? = nil,
-                  tags: [String] = []) -> WallpaperContentItem {
+                  tags: [String] = [], rating: WallpaperContentRating? = nil) -> WallpaperContentItem {
             WallpaperContentItem(reference: reference, providerReference: reference,
                                  locator: WallpaperLocator(path: path, titleHint: title, mediaKind: kind), title: title, kind: kind,
                                  publishedAvailability: .available, capabilities: [.inspect, .play, .organize],
                                  metadata: WallpaperContentMetadata(author: author, summary: summary, descriptionText: description,
-                                    sourceTags: tags, fileSizeBytes: size, createdAt: date, lastUsedAt: legacyUse),
+                                    sourceTags: tags, contentRating: rating, fileSizeBytes: size, createdAt: date, lastUsedAt: legacyUse),
                                  acquisition: .idle, update: update, aliases: [])
         }
         let v = ref(.videoLibrary, "1"), image = ref(.staticImageLibrary, "1"), steam = ref(.steamWorkshop, "1")
@@ -44,6 +44,26 @@ import Foundation
                 excludedLibraryReferences: excluded)
         }
         let relations = snapshot()
+        do {
+            let adultWH = ref(.wallhaven, "nsfw"), adultPX = ref(.pixiv, "18:p0")
+            let sensitive = ref(.wallhaven, "sketchy"), safe = ref(.steamWorkshop, "everyone")
+            let unknown = ref(.pixiv, "unrated:p0"), legacy = ref(.wallhaven, "legacy")
+            let rated = WallpaperLibraryCatalog(downloads: [item(steam, "Mature", rating: .adult),
+                item(adultWH, "NSFW", rating: .adult), item(adultPX, "R18", rating: .adult),
+                item(sensitive, "Sketchy", rating: .sensitive), item(safe, "Everyone", rating: .safe),
+                item(unknown, "Unknown", rating: .unknown), item(legacy, "Legacy without rating")])
+            let hidden = WallpaperLibraryQueryState(showsAdultContent: false)
+            let result = try WallpaperLibraryQuery.project(page: .downloads, state: hidden, catalog: rated, relationships: relations)
+            checks["downloads-adult-filter-uses-one-cross-source-query-and-keeps-sensitive-unknown-and-legacy"] = Set(result.items.map(\.reference))
+                == Set([sensitive, safe, unknown, legacy]) && result.unfilteredCount == 4
+            checks["show-adult-restores-all-three-sources-without-changing-explicit-playback-or-favorites"] =
+                try WallpaperLibraryQuery.project(page: .downloads, state: .init(), catalog: rated, relationships: relations).items.count == 7
+                && WallpaperLibraryQuery.resolve([steam, adultWH, adultPX], catalog: rated, relationships: relations).allSatisfy { $0.capabilities.contains(.play) }
+                && WallpaperLibraryQuery.project(page: .favorites, state: hidden, catalog: rated, relationships: relations).items.contains { $0.reference == steam }
+            let oneSource = try WallpaperLibraryQuery.project(page: .downloads,
+                state: .init(provider: .pixiv, showsAdultContent: false), catalog: rated, relationships: relations)
+            checks["provider-filter-still-composes-with-the-shared-adult-filter"] = oneSource.items.map(\.reference) == [unknown]
+        }
         func project(_ page: WallpaperLibraryPage, _ state: WallpaperLibraryQueryState = .init()) throws -> WallpaperLibraryPageResult {
             try WallpaperLibraryQuery.project(page: page, state: state, catalog: catalog, relationships: relations)
         }
@@ -58,7 +78,7 @@ import Foundation
         checks["healthyMixedPlaylistKeepsLocalOrganizationCapabilities"] = members.items.prefix(2).allSatisfy { $0.capabilities.contains(.organize) }
         checks["queryDoesNotMutateSourceCollections"] = catalog.videos.count == 2 && catalog.downloads.count == 2 && relations.members.count == 3
         catalog.excludedDownloadReferences = [steam]
-        checks["originalSteamRatingPreferenceFiltersOnlyMyDownloads"] = try project(.downloads).items.map(\.reference) == [pixabay]
+        checks["sourceTaskAndAccountExclusionsFilterOnlyMyDownloads"] = try project(.downloads).items.map(\.reference) == [pixabay]
             && project(.playlist(playlist.id)).items.map(\.reference) == [image, steam, offline]
             && project(.favorites).items.contains { $0.reference == steam }
             && WallpaperLibraryQuery.resolve([steam], catalog: catalog, relationships: relations)[0].capabilities.contains(.play)
@@ -81,7 +101,7 @@ import Foundation
             && WallpaperLibraryQuery.resolve([steam, image, v, pixabay], catalog: catalog, relationships: hidden).allSatisfy { $0.capabilities.contains(.play) }
         let admitted = try WallpaperLibraryQuery.libraryExclusionRevisions(for: [backing, steam, v], relationships: hiddenBacking)
         checks["restore-receipt-uses-canonical-admission-revision-and-keeps-absent-as-nil"] = admitted[backing] == 7 && admitted[steam] == 7 && admitted[v] == nil
-        checks["showAdultToggleRestoresOriginalDownloadsWithoutLosingRelations"] = try project(.downloads).items.map(\.reference) == [steam, pixabay]
+        checks["clearingSourceExclusionsRestoresDownloadsWithoutLosingRelations"] = try project(.downloads).items.map(\.reference) == [steam, pixabay]
             && relations.members.count == 3
         let favorites = try project(.favorites)
         checks["knownFavoritesFirstUnknownKeepMigrationOrder"] = favorites.items.map(\.reference) == [steam, pixabay, image]

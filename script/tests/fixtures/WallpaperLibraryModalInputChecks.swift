@@ -2,7 +2,7 @@ import AppKit
 
 /// Native queue mouse, drag and key delivery for Editor, Picker and login.
 /// Each blocked run is bracketed by an unblocked positive control; direct
-/// window.sendEvent would bypass the local-monitor contract being exercised.
+/// window.sendEvent would bypass native document-modal event routing.
 /// Wheel routing requires separate real-input runtime evidence. This helper
 /// neither synthesizes wheel events nor claims automatic wheel coverage.
 @MainActor final class WallpaperModalInputProbe: NSView {
@@ -30,8 +30,11 @@ import AppKit
                 eventNumber: index, clickCount: 1, pressure: 1)!
             NSApp.postEvent(event, atStart: false)
         }
+        // A native sheet may route a key to its own editor. Keep the event
+        // observable by this probe without inserting text into that draft.
+        let functionKey = String(UnicodeScalar(NSF20FunctionKey)!)
         let key = NSEvent.keyEvent(with: .keyDown, location: .zero, modifierFlags: [], timestamp: time + 0.003,
-            windowNumber: window.windowNumber, context: nil, characters: "x", charactersIgnoringModifiers: "x", isARepeat: false, keyCode: 7)!
+            windowNumber: window.windowNumber, context: nil, characters: functionKey, charactersIgnoringModifiers: functionKey, isARepeat: false, keyCode: 90)!
         NSApp.postEvent(key, atStart: false)
         try await Task.sleep(for: .milliseconds(50))
     }

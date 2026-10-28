@@ -18,6 +18,14 @@ from script.tests.native_app_harness import prepare_native_app, run_native_app
 ROOT = Path(__file__).resolve().parents[2]
 
 
+def browser_menu_fixture():
+    composition = (ROOT / 'MyWallpaperX/App/WallpaperLibraryWindowComposition.swift').read_text()
+    fixture = (ROOT / 'script/tests/fixtures/MainMenuBrowserSelectionHarness.swift').read_text()
+    return fixture.replace('// ACTUAL_BROWSER_MENU_FACTORIES', '\n'.join(declaration(composition, signature) for signature in (
+        '    private var selectedBrowserReference:', '    private func bindSelectedBrowserAction(',
+        '    func selectedBrowserPrimaryAction(', '    func selectedBrowserInfoAction(', '    func selectedBrowserPreviewAction(')))
+
+
 class MainMenuCommandTests(unittest.TestCase):
     def test_native_sheet_key_equivalents_do_not_borrow_background_page_commands(self):
         paths = [ROOT / 'MyWallpaperX' / p for p in (
@@ -29,7 +37,10 @@ class MainMenuCommandTests(unittest.TestCase):
         commands_path = ROOT / 'MyWallpaperX/App/WallpaperLibraryCommands.swift'
         original_fixture = ROOT / 'script/tests/fixtures/MainMenuCommandsHarness.swift'
         sheet_fixture = ROOT / 'script/tests/fixtures/MainMenuSheetCommandsHarness.swift'
-        inputs = [*paths, delegate_path, commands_path, original_fixture, sheet_fixture, Path(__file__), ROOT / 'script/tests/native_app_harness.py']
+        inputs = [*paths, delegate_path, commands_path, original_fixture, sheet_fixture,
+                  ROOT / 'script/tests/fixtures/MainMenuBrowserSelectionHarness.swift',
+                  ROOT / 'MyWallpaperX/App/WallpaperLibraryWindowComposition.swift',
+                  Path(__file__), ROOT / 'script/tests/native_app_harness.py']
         hashes = {str(path): hashlib.sha256(path.read_bytes()).hexdigest() for path in inputs}
         delegate = delegate_path.read_text()
         methods = declaration(delegate, ' func validateMenuItem(')
@@ -39,7 +50,8 @@ class MainMenuCommandTests(unittest.TestCase):
         methods += '\n' + '\n'.join(declaration(delegate, ' @objc func ' + name + 'MenuAction(') for name in actions)
         prelude = original_fixture.read_text().split('@main enum MainMenuCommandChecks')[0]
         fixture = prelude.replace('// ACTUAL_DELEGATE_MENU', methods).replace('// ACTUAL_FAVORITE_ACTION_STATE',
-            declaration(commands_path.read_text(), 'nonisolated struct WallpaperLibraryFavoriteActionState')) + '\n' + sheet_fixture.read_text()
+            declaration(commands_path.read_text(), 'nonisolated struct WallpaperLibraryFavoriteActionState'))
+        fixture += '\n' + browser_menu_fixture() + '\n' + sheet_fixture.read_text()
         with tempfile.TemporaryDirectory(prefix='mwx-menu-sheet-', dir='/private/tmp') as directory:
             work = Path(directory)
             copies = []
@@ -78,6 +90,7 @@ class MainMenuCommandTests(unittest.TestCase):
         fixture = (ROOT / 'script/tests/fixtures/MainMenuCommandsHarness.swift').read_text().replace('// ACTUAL_DELEGATE_MENU', methods)
         fixture = fixture.replace('// ACTUAL_FAVORITE_ACTION_STATE', declaration(
             (ROOT / 'MyWallpaperX/App/WallpaperLibraryCommands.swift').read_text(), 'nonisolated struct WallpaperLibraryFavoriteActionState'))
+        fixture += '\n' + browser_menu_fixture()
         with tempfile.TemporaryDirectory(prefix='mwx-main-menu-', dir='/private/tmp') as directory:
             work = Path(directory); copies = []
             for path in paths:

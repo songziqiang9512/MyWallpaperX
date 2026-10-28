@@ -28,22 +28,37 @@
         let available = WallpaperContentItem(reference: reference, providerReference: reference,
             locator: .init(mediaKind: .image), title: "Applied image", kind: .image,
             publishedAvailability: .available, capabilities: [.play], metadata: .init(), acquisition: .idle, update: .idle, aliases: [])
-        let reapply = commands.makePrimaryAction(for: available, from: sourceSnapshot,
+        let oldStop = commands.makePrimaryAction(for: available, from: sourceSnapshot,
             renderedPlaying: true, renderedTicket: oldTicket)
-        reapply?()
-        checks["applied-online-image-primary-reapplies-without-stopping-" + source.rawValue] = reapply != nil
-            && manager.stops == 0 && commandView.plays.count == 1 && commandView.plays.first?.0 == reference
-            && commandView.plays.first?.1 == sourceSnapshot && manager.playbackSwitch.committed?.ticket != oldTicket
+        let newer = manager.select(reference, source: sourceSnapshot)
+        oldStop?()
+        checks["online-image-old-stop-does-not-borrow-new-ticket-" + source.rawValue] = oldStop != nil
+            && manager.stops == 0 && manager.playbackSwitch.committed?.ticket == newer && commandView.plays.isEmpty
+        let stop = commands.makePrimaryAction(for: available, from: sourceSnapshot,
+            renderedPlaying: true, renderedTicket: newer)
+        stop?()
+        checks["online-image-playing-primary-stops-current-ticket-" + source.rawValue] = stop != nil
+            && manager.stops == 1 && manager.playbackSwitch.committed == nil && commandView.plays.isEmpty
+        let replay = commands.makePrimaryAction(for: available, from: sourceSnapshot, renderedPlaying: false)
+        replay?()
+        checks["online-image-stopped-primary-applies-original-source-" + source.rawValue] = replay != nil
+            && manager.stops == 1 && commandView.plays.count == 1 && commandView.plays.first?.0 == reference
+            && commandView.plays.first?.1 == sourceSnapshot && manager.playbackSwitch.committed?.ticket != newer
             && manager.playbackSwitch.committed?.ticket.runtime == .systemStill
         let missing = WallpaperContentItem(reference: reference, providerReference: reference,
             locator: .init(mediaKind: .image), title: "Missing image", kind: .image,
             publishedAvailability: .unavailable, capabilities: [.retryDownload], metadata: .init(), acquisition: .idle, update: .idle, aliases: [])
         OnlineImageCommandRecoveryProbe.requests = []
-        let retry = commands.makePrimaryAction(for: missing, from: sourceSnapshot,
+        let stopMissing = commands.makePrimaryAction(for: missing, from: sourceSnapshot,
             renderedPlaying: true, renderedTicket: manager.playbackSwitch.committed?.ticket)
+        stopMissing?()
+        checks["missing-but-current-online-image-primary-stops-" + source.rawValue] = stopMissing != nil
+            && manager.stops == 2 && manager.playbackSwitch.committed == nil && OnlineImageCommandRecoveryProbe.requests.isEmpty
+        let retry = commands.makePrimaryAction(for: missing, from: sourceSnapshot, renderedPlaying: false)
         retry?()
         checks["missing-online-image-primary-still-delegates-retry-without-apply-or-stop-" + source.rawValue] = retry != nil
-            && OnlineImageCommandRecoveryProbe.requests == [reference] && commandView.plays.count == 1 && manager.stops == 0
+            && OnlineImageCommandRecoveryProbe.requests == [reference] && commandView.plays.count == 1 && manager.stops == 2
+
     }
     let onlineView = workspace(.init(downloads: [imageRow], revision: 700), .downloads), onlineCommands = RemovalCommands(onlineView)
     let library = OnlineImageLibrary.shared

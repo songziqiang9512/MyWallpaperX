@@ -22,15 +22,16 @@ class LibraryRemoteToolbarTests(unittest.TestCase):
         recovery = ROOT / 'MyWallpaperX/App/WallpaperLibraryDownloadRecovery.swift'
         fixture = ROOT / 'script/tests/fixtures/OnlineImageMenuHarness.swift'
         sources = [ROOT / 'MyWallpaperX' / path for path in [
-            'Shared/Components/ActionMenuItem.swift', 'Models/WallpaperReference.swift',
-            'Models/WallpaperContent.swift', 'Core/OnlineImages/OnlineImageModels.swift',
+            'Shared/Components/ActionMenuItem.swift', 'Shared/UI/WallpaperInspectorActions.swift', 'Shared/UI/WallpaperOpenWithMenu.swift', 'Models/WallpaperReference.swift',
+            'Models/WallpaperContent.swift', 'Models/WallpaperLibraryPage.swift', 'Core/OnlineImages/OnlineImageModels.swift',
             'Core/OnlineImages/OnlineImageContentProjection.swift']]
         observed = [app, commands, recovery, fixture, *sources, Path(__file__),
                     ROOT / 'script/tests/test_steam_library_interactions.py',
                     ROOT / 'script/tests/test_ui_library_algorithms.py']
         hashes = {str(path): hashlib.sha256(path.read_bytes()).hexdigest() for path in observed}
         actual = '\n'.join(method(app.read_text(), name) for name in (
-            '    private func menu(', '    private func downloadFirst('))
+            '    private func menu(', '    private func downloadFirst(', '    private func page(',
+            '    func selectedPrimaryAction(', '    func selectedOrganizationActions('))
         self.assertEqual(actual.count('NSWorkspace.shared.open('), 1)
         actual = actual.replace('NSWorkspace.shared.open(', 'MenuBrowser.open(')
         actual_recovery = declaration(recovery.read_text(), '@MainActor enum WallpaperLibraryDownloadRecovery')
@@ -43,6 +44,8 @@ class LibraryRemoteToolbarTests(unittest.TestCase):
             '// ACTUAL_LIBRARY_FAVORITE_STATE': declaration(commands.read_text(), 'nonisolated struct WallpaperLibraryFavoriteActionState'),
             '// ACTUAL_LIBRARY_CONTEXT_MENU': declaration(commands.read_text(), '    func contextMenu('),
             '// ACTUAL_LIBRARY_DOWNLOAD_RECOVERY': actual_recovery,
+            '// ACTUAL_LIBRARY_PRIMARY': '\n'.join(declaration(commands.read_text(), signature) for signature in (
+                '    func makePrimaryAction(', '    func makeApplyAction(')),
         }.items():
             self.assertEqual(template.count(marker), 1)
             template = template.replace(marker, body)
@@ -138,33 +141,52 @@ class LibraryRemoteToolbarTests(unittest.TestCase):
         relative = [
             'Shared/Components/ActionMenuItem.swift', 'Shared/Components/WallpaperLibraryGridMetrics.swift',
             'Shared/Components/WallpaperLibraryZoomControl.swift', 'Shared/UI/ToolbarMenuPopover.swift',
+            'Shared/Components/WallpaperLibraryControlStyle.swift',
+            'Shared/UI/WallpaperFilterPanelController.swift', 'Shared/UI/WallpaperLibrarySheetPresentation.swift',
+            'Models/WallpaperReference.swift', 'Models/WallpaperContent.swift', 'Models/DownloadTask.swift',
+            'Core/OnlineImages/OnlineImageModels.swift',
+            'Modules/Downloads/Core/DownloadHistoryStore.swift', 'Modules/Downloads/Core/DownloadTaskProjection.swift',
+            'Modules/Downloads/UI/DownloadTaskRowView.swift', 'Modules/Downloads/UI/DownloadTasksPopover.swift',
             'Modules/SteamWorkshop/Core/SteamWorkshopBrowseFilters.swift',
             'Modules/SteamWorkshop/Core/SteamWorkshopAgeRatingSupport.swift',
+            'Modules/SteamWorkshop/UI/SteamWorkshopFilterPanel.swift',
             'Modules/SteamWorkshop/Core/SteamWorkshopDownloadTaskProjection.swift',
             'Modules/SteamWorkshop/Toolbar/SteamWorkshopToolbarIdentifiers.swift',
             'Modules/SteamWorkshop/Toolbar/SteamWorkshopToolbarController.swift',
             'Modules/SteamWorkshop/Toolbar/SteamWorkshopToolbarController+Actions.swift',
             'Modules/SteamWorkshop/Toolbar/SteamWorkshopToolbarController+Configuration.swift',
             'Modules/SteamWorkshop/Toolbar/SteamWorkshopToolbarController+Layouts.swift',
-            'Modules/OnlineLibrary/Core/OnlineLibraryModels.swift',
-            'Modules/OnlineLibrary/Toolbar/OnlineLibraryToolbarController.swift',
+            'Modules/Pixabay/Core/PixabayModels.swift',
+            'Modules/Pixabay/Toolbar/PixabayToolbarController.swift',
+            'Modules/Pixabay/Toolbar/PixabayFilterPanel.swift',
         ]
         paths = [ROOT / 'MyWallpaperX' / path for path in relative]
         paths.append(ROOT / 'script/tests/fixtures/NativeAppHarness.swift')
         fixture = ROOT / 'script/tests/fixtures/LibraryRemoteToolbarHarness.swift'
-        tasks = ROOT / 'MyWallpaperX/Modules/SteamWorkshop/UI/SteamWorkshopDownloadTasksPopover.swift'
+        tasks = ROOT / 'MyWallpaperX/App/DownloadTasksController.swift'
         models = ROOT / 'MyWallpaperX/Modules/SteamWorkshop/Core/SteamWorkshopJobStore.swift'
-        observed = [*paths, fixture, tasks, models, Path(__file__), ROOT / 'script/tests/native_app_harness.py',
+        service = ROOT / 'MyWallpaperX/Modules/SteamWorkshop/Core/SteamWorkshopService.swift'
+        navigation = ROOT / 'MyWallpaperX/Modules/SteamWorkshop/Core/SteamWorkshopService+BrowseNavigation.swift'
+        filtering = ROOT / 'MyWallpaperX/Modules/SteamWorkshop/Core/SteamWorkshopService+DownloadFiltering.swift'
+        observed = [*paths, fixture, tasks, models, service, navigation, filtering, Path(__file__), ROOT / 'script/tests/native_app_harness.py',
                     ROOT / 'script/tests/test_ui_library_algorithms.py']
         hashes = {str(path): hashlib.sha256(path.read_bytes()).hexdigest() for path in observed}
         template = fixture.read_text()
         for marker, content in {
+            '// ACTUAL_STEAM_QUERY_FIELDS': '\n'.join(declaration(service.read_text(), signature) for signature in [
+                '    @Published var source:', '    @Published var browserContentMode:',
+                '    @Published var trendingWindow:', '    @Published var facetFilters:',
+                '    @Published var personalSort:', '    @Published var browserQuery:']).replace(
+                    '            guard !isUpdatingBrowserQueryProgrammatically',
+                    '            queries.append(browserQuery)\n            guard !isUpdatingBrowserQueryProgrammatically'),
+            '// ACTUAL_STEAM_QUERY_ACTIONS': method(navigation.read_text(), '    func setBrowserQuery(')
+                + '\n' + method(filtering.read_text(), '    func clearFilters('),
             '// ACTUAL_TASK_MODELS': '\n'.join(declaration(models.read_text(), signature) for signature in [
                 'enum SteamDownloadJobState:', 'struct SteamDownloadJob:',
                 'enum SteamDownloadHistoryOutcome:', 'struct SteamDownloadHistoryEntry:']),
-            '// ACTUAL_TASK_CONTROLLERS': '\n'.join(declaration(tasks.read_text(), signature) for signature in [
-                'final class SteamWorkshopDownloadTasksPopoverController:',
-                'final class SteamWorkshopDownloadTasksContentController:', 'private final class FlippedView:']),
+            '// ACTUAL_TASK_COMMANDS': '\n'.join(method(tasks.read_text(), signature) for signature in [
+                '    func makePopoverController(', '    private func snapshot(', '    private func perform(',
+                '    private func clearHistory(', '    private func steamPhase(', '    private func steamPreviewURL(']),
         }.items():
             self.assertEqual(template.count(marker), 1)
             template = template.replace(marker, content)

@@ -1,6 +1,6 @@
 """Actual online toolbar/query/menu commands and native popover geometry.
 
-Browser/network orchestration and capsule styling are recording leaves. The
+Browser/network orchestration uses recording leaves. Shared control styling, the
 toolbar, typed query values, overflow menu items, modal permission and shared
 scrolling popover compile unchanged. This opens only an isolated fixture App.
 """
@@ -30,7 +30,8 @@ class OnlineImageToolbarTests(unittest.TestCase):
             "Models/WallpaperLibraryPage.swift", "Core/OnlineImages/OnlineImageModels.swift",
             "Modules/Wallhaven/Core/WallhavenQuery.swift", "Modules/Pixiv/Core/PixivQuery.swift",
             "App/OnlineImageToolbarController.swift", "Shared/UI/ToolbarMenuPopover.swift",
-            "Shared/UI/WallpaperLibrarySheetPresentation.swift", "Shared/Components/ActionMenuItem.swift",
+            "App/OnlineImageFilterPanel.swift", "Shared/UI/WallpaperFilterPanelController.swift",
+            "Shared/UI/WallpaperLibrarySheetPresentation.swift", "Shared/Components/WallpaperLibraryControlStyle.swift", "Shared/Components/ActionMenuItem.swift",
         ]
         sources = [ROOT / "MyWallpaperX" / name for name in relative]
         sources += [ROOT / "script/tests/fixtures/NativeAppHarness.swift", FIXTURE]

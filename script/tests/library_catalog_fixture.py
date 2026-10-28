@@ -23,7 +23,7 @@ def assemble_catalog_fixture(main_fixture=None):
         fixture = fixture.split("@main struct WallpaperLibraryCatalogHarness {", 1)[0] + source(main_fixture)
     replacements = {
         "// STATIC_IMAGE_MODEL": declaration(source("MyWallpaperX/Modules/StaticImageLibrary/Core/SILService.swift"), "struct SILWallpaper:"),
-        "// CONTENT_RATING_SUPPORT": declaration(source("MyWallpaperX/Modules/SteamWorkshop/Core/SteamWorkshopAgeRatingSupport.swift"), "enum SteamWorkshopContentRatingSupport"),
+        "// CONTENT_RATING_SUPPORT": declaration(source("MyWallpaperX/Modules/SteamWorkshop/Core/SteamWorkshopAgeRatingSupport.swift"), "nonisolated enum SteamWorkshopContentRatingSupport"),
         "// CATALOG_VALUE": declaration(source("MyWallpaperX/Core/LibraryCollections/WallpaperLibraryQuery.swift"), "nonisolated struct WallpaperLibraryCatalog:"),
         "// JOB_STATE": declaration(source("MyWallpaperX/Modules/SteamWorkshop/Core/SteamWorkshopJobStore.swift"), "enum SteamDownloadJobState:"),
         "// HISTORY_OUTCOME": declaration(source("MyWallpaperX/Modules/SteamWorkshop/Core/SteamWorkshopJobStore.swift"), "enum SteamDownloadHistoryOutcome:"),
@@ -47,9 +47,9 @@ def assemble_catalog_fixture(main_fixture=None):
         "MyWallpaperX/Core/OnlineImages/OnlineImageModels.swift",
         "MyWallpaperX/Core/OnlineImages/OnlineImageContentProjection.swift",
         "script/tests/fixtures/OnlineImageLibraryAppStub.swift",
-        "MyWallpaperX/Modules/OnlineLibrary/Core/OnlineLibraryModels.swift",
-        "MyWallpaperX/Modules/OnlineLibrary/Core/OnlineLibraryDownloadedContent.swift",
-        "MyWallpaperX/Modules/OnlineLibrary/Core/PixabayLibraryContentProjection.swift",
+        "MyWallpaperX/Modules/Pixabay/Core/PixabayModels.swift",
+        "MyWallpaperX/Modules/Pixabay/Core/PixabayDownloadedContent.swift",
+        "MyWallpaperX/Modules/Pixabay/Core/PixabayLibraryContentProjection.swift",
         "MyWallpaperX/Modules/VideoLibrary/Core/VideoLibraryContentProjection.swift",
         "MyWallpaperX/Modules/VideoLibrary/Core/WallpaperManager+LibraryContent.swift",
         "MyWallpaperX/Modules/StaticImageLibrary/Core/StaticImageLibraryContentProjection.swift",

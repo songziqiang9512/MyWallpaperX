@@ -521,7 +521,7 @@ enum BundledVideoLibrary {
 
         case "startup-import-context":
             for preparedBranch in [false, true] {
-                for context in [ImportContext.library, .onlinePlayback, .steamPlayback] {
+                for context in [ImportContext.library, .pixabayPlayback, .steamPlayback] {
                     var stored = a; stored.tags = ["kept"]
                     try store.saveWallpapers([stored])
                     let subject = WallpaperManager()

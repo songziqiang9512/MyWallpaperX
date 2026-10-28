@@ -39,13 +39,13 @@ extension Notification.Name {static let wallpaperSwitchDidFail=Self("switch-fail
     func chooseReplacement(for reference: WallpaperReference) { preconditionFailure("Unexpected relocation") }
 }
 @MainActor enum WallpaperLibraryDownloadRecovery {
-    static func makePrimaryAction<W,S,O>(for item: WallpaperContentItem, workspace: W, steam: S, online: O) -> (() -> Void)? { nil }
+    static func makePrimaryAction<W,S,O>(for item: WallpaperContentItem, workspace: W, steam: S, pixabay: O) -> (() -> Void)? { nil }
 }
 
 @MainActor final class WallpaperLibraryCommands {
     let workspace: StopWorkspace
     let manager: WallpaperManager
-    let imports = WallpaperLibraryImportCoordinator(), steam = (), online = ()
+    let imports = WallpaperLibraryImportCoordinator(), steam = (), pixabay = ()
     var canOrganize: Bool { false }
     init(_ workspace: StopWorkspace) { self.workspace = workspace; manager = workspace.manager }
     // ACTUAL_PRIMARY_ACTIONS

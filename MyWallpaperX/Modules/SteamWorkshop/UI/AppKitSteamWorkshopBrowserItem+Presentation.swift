@@ -2,8 +2,7 @@ import AppKit
 import QuartzCore
 
 extension AppKitSteamWorkshopBrowserItem {
-    /// A local organization heart is independent of Steam account membership.
-    /// Nil exposes only Steam account subscription, never local favorites.
+    /// Local organization actions remain available to the original source menu.
     struct OrganizationPresentation {
         let isFavorite: Bool
         let canFavorite: Bool
@@ -20,34 +19,6 @@ extension AppKitSteamWorkshopBrowserItem {
     /// every themed pass per card.
     static let darkAppearance = NSAppearance(named: .darkAqua)
     static let lightAppearance = NSAppearance(named: .aqua)
-
-    func metrics(for cardSize: CGSize) -> WallpaperCardBarMetrics {
-        WallpaperCardBarMetrics(cardWidth: cardSize.width)
-    }
-
-    func applyMetrics(_ metrics: WallpaperCardBarMetrics) {
-        let targetBarRadius = max(
-            8,
-            min(Layout.cardCornerRadius, floor((metrics.barHeight - Layout.minBarCornerInset) * 0.5))
-        )
-        if abs((overlayBar.layer?.cornerRadius ?? 0) - targetBarRadius) > 0.001 {
-            overlayBar.layer?.cornerRadius = targetBarRadius
-        }
-        overlayBarShadowView.layer?.cornerRadius = targetBarRadius
-        overlayBarShadowView.layer?.shadowPath = CGPath(
-            roundedRect: overlayBarShadowView.bounds,
-            cornerWidth: targetBarRadius,
-            cornerHeight: targetBarRadius,
-            transform: nil
-        )
-        if abs(titleMarqueeView.font.pointSize - metrics.titleFont.pointSize) > 0.001 {
-            titleMarqueeView.font = metrics.titleFont
-        }
-        let overlaySymbolConfig = NSImage.SymbolConfiguration(pointSize: max(11, metrics.iconButtonSize * 0.56), weight: .medium)
-        overlaySymbolConfiguration = overlaySymbolConfig
-        detailButton.image = detailButton.image?.withSymbolConfiguration(overlaySymbolConfig)
-        statusBadgeButton.image = statusBadgeButton.image?.withSymbolConfiguration(overlaySymbolConfig)
-    }
 
     func refreshTrackingArea() {
         hoverTracking.update(in: view, owner: self)
@@ -104,42 +75,11 @@ extension AppKitSteamWorkshopBrowserItem {
         multiSelectBadgeIcon.isHidden = true
         multiSelectBadgeView.addSubview(multiSelectBadgeIcon)
 
-        overlayBarShadowView.wantsLayer = true
-        overlayBarShadowView.layer?.backgroundColor = NSColor.clear.cgColor
-        overlayBarShadowView.layer?.shadowColor = NSColor.black.cgColor
-        overlayBarShadowView.layer?.shadowOpacity = 0.16
-        overlayBarShadowView.layer?.shadowRadius = 20
-        overlayBarShadowView.layer?.shadowOffset = CGSize(width: 0, height: -1)
-        cardView.addSubview(overlayBarShadowView)
-
-        overlayBar.alphaValue = 0
-        overlayBar.wantsLayer = true
-        overlayBar.setAccessibilityElement(true)
-        overlayBar.setAccessibilityRole(.progressIndicator)
-        overlayBar.setAccessibilityLabel("下载进度")
-        // Invisible glass still participates in native layout. Keep the same
-        // reusable bar detached until the original visibility policy reveals it.
-
-        for button in [detailButton, statusBadgeButton] {
-            button.isBordered = false
-            button.bezelStyle = .regularSquare
-            button.focusRingType = .none
-            button.wantsLayer = true
-            button.imagePosition = .imageOnly
-            button.imageScaling = .scaleProportionallyDown
-        }
-        detailButton.image = NSImage(systemSymbolName: "bookmark", accessibilityDescription: "订阅")
-        detailButton.target = self
-        detailButton.action = #selector(handleSubscribeToggle)
-        overlayBar.addSubview(detailButton)
-
-        overlayBar.addSubview(titleMarqueeView)
-
-        statusBadgeButton.target = self
-        statusBadgeButton.action = #selector(handleStatusAction)
-        overlayBar.addSubview(statusBadgeButton)
-
-
+        controlBar.alphaValue = 0
+        controlBar.glass.setAccessibilityElement(true)
+        controlBar.glass.setAccessibilityRole(.progressIndicator)
+        controlBar.glass.setAccessibilityLabel("下载进度")
+        // Keep the shared glass bar detached until the original visibility policy reveals it.
         refreshThemeAwareAppearance()
     }
 
@@ -173,9 +113,6 @@ extension AppKitSteamWorkshopBrowserItem {
         )
         guard inputs != lastThemedChromeInputs else { return }
         lastThemedChromeInputs = inputs
-        let fixedForeground = isDarkMode
-            ? NSColor(calibratedWhite: 1.0, alpha: 0.98)
-            : NSColor(calibratedWhite: 0.08, alpha: 0.92)
         let hoverOutlineColor = NSColor.white.withAlphaComponent(isDarkMode ? 0.56 : 0.72)
         cardView.effectiveAppearance.performAsCurrentDrawingAppearance {
             let selectedOutlineColor = NSColor.controlAccentColor.withAlphaComponent(isDarkMode ? 0.92 : 0.84)
@@ -203,13 +140,13 @@ extension AppKitSteamWorkshopBrowserItem {
         }
 
         let sharedAppearance = isDarkMode ? Self.darkAppearance : Self.lightAppearance
-        overlayBar.appearance = sharedAppearance
-        overlayBar.alphaValue = currentBarVisibility ? (isHovering ? 0.92 : 0.84) : 0
-        overlayBar.layer?.borderWidth = 0.8
-        overlayBar.layer?.shadowOpacity = 0
-        overlayBarShadowView.layer?.shadowOpacity = currentBarVisibility ? 0.11 : 0.08
-        overlayBarShadowView.layer?.shadowRadius = 18
-        overlayBarShadowView.layer?.shadowOffset = CGSize(width: 0, height: -1)
+        controlBar.appearance = sharedAppearance
+        controlBar.alphaValue = currentBarVisibility ? (isHovering ? 0.92 : 0.84) : 0
+        controlBar.glass.layer?.borderWidth = 0.8
+        controlBar.glass.layer?.shadowOpacity = 0
+        controlBar.layer?.shadowOpacity = currentBarVisibility ? 0.11 : 0.08
+        controlBar.layer?.shadowRadius = 18
+        controlBar.layer?.shadowOffset = CGSize(width: 0, height: -1)
         let progressFraction = currentProgressSnapshot?.fraction
         let indeterminate = progressFraction == nil && {
             switch currentBarState {
@@ -219,28 +156,20 @@ extension AppKitSteamWorkshopBrowserItem {
                 return false
             }
         }()
-        overlayBar.applyProgress(
+        controlBar.glass.applyProgress(
             style: barAccentStyle(for: currentBarState),
             fraction: progressFraction,
             indeterminate: indeterminate,
             animated: false
         )
 
-        detailButton.contentTintColor = fixedForeground
-        detailButton.appearance = overlayBar.appearance
-
-        titleMarqueeView.textColor = fixedForeground
-        titleMarqueeView.appearance = overlayBar.appearance
-
-        statusBadgeButton.appearance = overlayBar.appearance
-        refreshSubscribeHeart()
         updateContinuousAnimationState()
     }
 
     func updateContinuousAnimationState(barVisible: Bool? = nil) {
         let isBarVisible = (barVisible ?? currentBarVisibility) && isPreviewVisible
-        titleMarqueeView.setActive(isBarVisible)
-        overlayBar.setProgressAnimationVisible(isBarVisible)
+        controlBar.setActive(isBarVisible)
+        controlBar.glass.setProgressAnimationVisible(isBarVisible)
     }
 
     func setPreviewVisible(_ visible: Bool) {
@@ -263,13 +192,15 @@ extension AppKitSteamWorkshopBrowserItem {
     }
 
     func applyHoverStyle(animated: Bool) {
+        view.clipsToBounds = false
+        cardView.applyGridHoverScale(isHovering, animated: animated)
         let suppressDownloadsBar = currentDisplayContext == .downloads && isMultiSelectMode
         let shouldRevealBar = !suppressDownloadsBar && (isHovering || shouldPersistBarVisibility)
         let shouldShowOutline = isHovering || isSelectionHighlighted
         barPresentationGeneration &+= 1
         let presentation = barPresentationGeneration
-        if shouldRevealBar, overlayBar.superview == nil {
-            cardView.addSubview(overlayBar, positioned: .above, relativeTo: overlayBarShadowView)
+        if shouldRevealBar, controlBar.superview == nil {
+            cardView.addSubview(controlBar)
         }
         refreshThemeAwareAppearance()
         let barDuration = shouldRevealBar
@@ -282,12 +213,12 @@ extension AppKitSteamWorkshopBrowserItem {
         guard animated else {
             CATransaction.begin()
             CATransaction.setDisableActions(true)
-            overlayBar.alphaValue = shouldRevealBar ? (isHovering ? 0.92 : 0.84) : 0
-            overlayBar.layer?.transform = CATransform3DMakeTranslation(0, shouldRevealBar ? 0 : 4, 0)
+            controlBar.alphaValue = shouldRevealBar ? (isHovering ? 0.92 : 0.84) : 0
+            controlBar.layer?.transform = CATransform3DMakeTranslation(0, shouldRevealBar ? 0 : 4, 0)
             CATransaction.commit()
             hoverOutlineView.alphaValue = shouldShowOutline ? 1 : 0
             currentBarVisibility = shouldRevealBar
-            if !shouldRevealBar { overlayBar.removeFromSuperview() }
+            if !shouldRevealBar { controlBar.removeFromSuperview() }
             isHoverOutlineVisible = shouldShowOutline
             updateContinuousAnimationState(barVisible: shouldRevealBar)
             return
@@ -297,11 +228,11 @@ extension AppKitSteamWorkshopBrowserItem {
             context.duration = barDuration
             context.timingFunction = barTiming
             self.cardView.animator().alphaValue = 1
-            self.overlayBar.animator().alphaValue = shouldRevealBar ? (self.isHovering ? 0.92 : 0.84) : 0
+            self.controlBar.animator().alphaValue = shouldRevealBar ? (self.isHovering ? 0.92 : 0.84) : 0
             self.hoverOutlineView.animator().alphaValue = shouldShowOutline ? 1 : 0
         } completionHandler: { [weak self] in
             guard let self, self.barPresentationGeneration == presentation, !self.currentBarVisibility else { return }
-            self.overlayBar.removeFromSuperview()
+            self.controlBar.removeFromSuperview()
         }
 
         applyBarTransform(isVisible: shouldRevealBar, duration: barDuration, timing: barTiming)
@@ -328,7 +259,7 @@ extension AppKitSteamWorkshopBrowserItem {
     }
 
     private func applyBarTransform(isVisible: Bool, duration: CFTimeInterval, timing: CAMediaTimingFunction) {
-        guard let layer = overlayBar.layer else { return }
+        guard let layer = controlBar.layer else { return }
         let targetTransform = CATransform3DMakeTranslation(0, isVisible ? 0 : 4, 0)
         let animation = CABasicAnimation(keyPath: "transform")
         animation.fromValue = layer.transform

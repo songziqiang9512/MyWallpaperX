@@ -13,7 +13,7 @@ import Combine
 }
 extension WallpaperManager { func isLocalSourceFileInUse(_ path: String) -> Bool { false } }
 @MainActor final class SteamWorkshopService {}
-@MainActor final class OnlineLibraryService {}
+@MainActor final class PixabayService {}
 @MainActor final class SILService {}
 extension WallpaperEngine { func stopPlayback() { activeVideoPlayback = nil; activeVideoExecution = nil } }
 extension SceneDaemonClient { func stop() {} }
@@ -30,7 +30,7 @@ extension SceneDaemonClient { func stop() {} }
 @MainActor enum ExecutionFacts { static var active: WallpaperReference? }
 @MainActor enum WallpaperLibraryPlaybackRouting {
     static func dispatch(_ pending: WallpaperPlaybackSequence.Pending, content: WallpaperContentItem, manager: WallpaperManager,
-                         workshop: SteamWorkshopService, online: OnlineLibraryService, images: SILService,
+                         workshop: SteamWorkshopService, pixabay: PixabayService, images: SILService,
                          relationships: UserCollectionsSnapshot) -> Bool {
         switch pending.ticket.runtime {
         case .video: manager.switchSelections[pending.ticket.id] = .video(.init(path: content.reference.sourceID))
@@ -43,7 +43,7 @@ extension SceneDaemonClient { func stop() {} }
 }
 @MainActor final class WallpaperLibraryWorkspace {
     let manager: WallpaperManager
-    let steam = SteamWorkshopService(), online = OnlineLibraryService(), images = SILService()
+    let steam = SteamWorkshopService(), pixabay = PixabayService(), images = SILService()
     let collections: RecordedCollections? = RecordedCollections()
     let restoration = RecordedRestoration()
     let playbackChanges = PassthroughSubject<Void, Never>()

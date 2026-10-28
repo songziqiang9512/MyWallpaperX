@@ -1450,34 +1450,6 @@
       "count": 1
     },
     {
-      "path": "script/tests/test_steam_browse_failure_footer.py",
-      "scope": "SteamBrowseFailureFooterTests.test_retry_reuses_current_pagination_owner",
-      "method": "assertIn",
-      "literal": "guard browserState == .loaded",
-      "count": 1
-    },
-    {
-      "path": "script/tests/test_steam_download_tasks_popover.py",
-      "scope": "SteamDownloadTasksPopoverTests.test_popover_uses_existing_owners_and_bounded_observation",
-      "method": "assertIn",
-      "literal": "func startObserving()",
-      "count": 1
-    },
-    {
-      "path": "script/tests/test_steam_download_tasks_popover.py",
-      "scope": "SteamDownloadTasksPopoverTests.test_popover_uses_existing_owners_and_bounded_observation",
-      "method": "assertIn",
-      "literal": "func stopObserving()",
-      "count": 1
-    },
-    {
-      "path": "script/tests/test_steam_download_tasks_popover.py",
-      "scope": "SteamDownloadTasksPopoverTests.test_popover_uses_existing_owners_and_bounded_observation",
-      "method": "assertIn",
-      "literal": "var downloadTasksPopoverController",
-      "count": 1
-    },
-    {
       "path": "script/tests/test_system_audio_spectrum.py",
       "scope": "SystemAudioSpectrumTests.test_scene_frames_preserve_capture_generation_and_scope",
       "method": "assertIn",

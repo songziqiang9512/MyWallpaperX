@@ -18,10 +18,10 @@
             let a = folder.appendingPathComponent("A.media"), b = folder.appendingPathComponent("B.media")
             let replacement = folder.appendingPathComponent("replacement.media")
             for url in [a, b, replacement] { try Data([1, 2, 3]).write(to: url) }
-            let manager = WallpaperManager(), images = SILService(), steam = SteamWorkshopService(), online = OnlineLibraryService()
+            let manager = WallpaperManager(), images = SILService(), steam = SteamWorkshopService(), pixabay = PixabayService()
             manager.didFinishInitialIndexLoad = true
             steam.hasCompletedInstalledLibraryLoad = true
-            online.downloadedContent = .init(revision: 1, entries: [], status: .init(phase: .ready(warnings: []), hasSuccessfulScan: true))
+            pixabay.downloadedContent = .init(revision: 1, entries: [], status: .init(phase: .ready(warnings: []), hasSuccessfulScan: true))
             func replace(_ records: [(String, URL)]) throws {
                 if provider == .videoLibrary {
                     manager.wallpapers = records.map { .init(id: $0.0, title: $0.0, path: $0.1.path) }
@@ -33,7 +33,7 @@
                 }
             }
             try replace([("A", a), ("B", b)])
-            let controller = WallpaperLibraryCatalogController(manager: manager, images: images, steam: steam, online: online)
+            let controller = WallpaperLibraryCatalogController(manager: manager, images: images, steam: steam, pixabay: pixabay)
             func items() -> [WallpaperContentItem] { provider == .videoLibrary ? controller.catalog.videos : controller.catalog.images }
             let ready = await wait { controller.catalog.loadedProviders.count == 4 && items().count == 2 }
             precondition(ready, "initial catalog must settle before controlling its existing file worker")

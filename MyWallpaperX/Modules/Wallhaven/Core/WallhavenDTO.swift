@@ -44,7 +44,7 @@ nonisolated struct WallhavenWallpaperDTO: Decodable {
         let original = Self.webURL(path)
         let username = uploader?.username?.trimmingCharacters(in: .whitespacesAndNewlines)
         let author = username.flatMap { $0.isEmpty ? nil : $0 }
-        let rating: OnlineImageRating
+        let rating: WallpaperContentRating
         switch purity {
         case "sfw": rating = .safe
         case "sketchy": rating = .sensitive
@@ -64,5 +64,27 @@ nonisolated struct WallhavenWallpaperDTO: Decodable {
         guard let value, let url = URL(string: value), let host = url.host, !host.isEmpty,
               url.scheme == "https" || url.scheme == "http" else { return nil }
         return url
+    }
+}
+
+/// Optional account display data; it is never a browsing or playback permit.
+nonisolated struct WallhavenCollection: Decodable, Equatable, Sendable {
+    let label: String
+    let count: Int
+}
+
+nonisolated struct WallhavenCollectionsResponse: Decodable { let data: [WallhavenCollection] }
+
+nonisolated enum WallhavenAccountInfo: Equatable, Sendable {
+    case unread, unconfigured, saved, loading
+    case ready([WallhavenCollection])
+    case unavailable(String)
+
+    var hasStoredKey: Bool? {
+        switch self {
+        case .unread: nil
+        case .unconfigured: false
+        default: true
+        }
     }
 }

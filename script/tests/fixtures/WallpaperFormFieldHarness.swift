@@ -6,11 +6,14 @@ import AppKit
 }
 @MainActor private final class FormServiceLeaf {
     var apiKey = "original-key"
-    var resets = 0
+    var resets = 0, clears = 0
+    var hasValidAPIKey: Bool { !apiKey.isEmpty }
     func resetLoadedState() { resets += 1 }
+    func clearAPIKeyAndReset() { clears += 1; apiKey = "" }
 }
-@MainActor private final class OnlineLibraryBrowserView: NSView {
+@MainActor private final class PixabayBrowserView: NSView {
     let service = FormServiceLeaf()
+    private var keyPanel: WallpaperAPIKeyPanelController?
     var searches = 0, refreshes = 0
     func triggerInitialSearchIfNeeded() { searches += 1 }
     func syncContent(force: Bool) { precondition(force); refreshes += 1 }
@@ -37,7 +40,7 @@ import AppKit
             // In this synthetic fixture postEvent did not reach the stock
             // alert's shortcut action while its secure editor owned input.
             // Exercise the public native entry; Tab uses the application queue.
-            precondition(window.performKeyEquivalent(with: event), "native alert did not handle its public Return/Escape equivalent")
+            precondition(window.performKeyEquivalent(with: event), "native window did not handle its public Return/Escape equivalent")
         } else {
             NSApp.postEvent(event, atStart: false)
         }
@@ -97,7 +100,7 @@ import AppKit
         var checks: [String: Bool] = [:]
         let host = NSWindow(contentRect: NSRect(x: 120, y: 120, width: 600, height: 420),
             styleMask: [.titled, .closable], backing: .buffered, defer: false)
-        let view = OnlineLibraryBrowserView()
+        let view = PixabayBrowserView()
         host.contentView = view
         host.isReleasedWhenClosed = false
         MainWindowCoordinator.host = host
@@ -152,18 +155,41 @@ import AppKit
         }
         FileHandle.standardError.write(Data("FormWrapped buttons=\(buttonKeys) markedText=\((field.currentEditor() as? NSTextView)?.hasMarkedText() == true)\n".utf8))
         let editor = field.currentEditor() as! NSTextView
-        checks["original-api-key-dialog-keeps-native-secure-initial-input-and-one-shared-surface"] = field is WallpaperFormSecureField
-            && field.superview is WallpaperFormFieldSurface && !field.isBordered && !field.isBezeled && !field.drawsBackground
-            && panel.firstResponder === editor && panel.initialFirstResponder === field && editor.isFieldEditor
-            && abs((field.superview?.bounds.width ?? 0) - 280) <= 0.5 && field.superview?.bounds.height == 24
+        let surfaceChecks = [
+            "secureSubclass": field is WallpaperFormSecureField,
+            "fieldSurface": field.superview is WallpaperFormFieldSurface,
+            "borderlessField": !field.isBordered && !field.isBezeled && !field.drawsBackground,
+            "currentNativeEditor": panel.firstResponder === editor && editor.isFieldEditor,
+            "initialValueIsEmpty": field.stringValue.isEmpty,
+            "nativeSheet": panel.isSheet && panel.sheetParent === host && host.attachedSheet === panel,
+            "oneSharedSurface": panel.contentView is WallpaperLibrarySheetSurface && descendants(panel.contentView!, NSGlassEffectView.self).count == 1,
+            "clearWindow": !panel.isOpaque && panel.backgroundColor == .clear,
+            "fieldWidth": abs((field.superview?.bounds.width ?? 0) - ((panel.contentView?.bounds.width ?? 0) - 48)) <= 0.5,
+            "fieldHeight": field.superview?.bounds.height == 40
+        ]
+        let geometry: [String: Any] = ["checks": surfaceChecks, "contentBounds": NSStringFromRect(panel.contentView!.bounds),
+            "surfaceBounds": NSStringFromRect(field.superview!.bounds), "fieldBounds": NSStringFromRect(field.bounds),
+            "initialResponder": String(describing: panel.initialFirstResponder), "firstResponder": responderKind(panel, field: field),
+            "glassCount": descendants(panel.contentView!, NSGlassEffectView.self).count]
+        FileHandle.standardError.write(Data("FormWrappedGeometry \(String(data: try JSONSerialization.data(withJSONObject: geometry, options: [.sortedKeys]), encoding: .utf8)!)\n".utf8))
+        checks["original-api-key-sheet-keeps-native-secure-initial-input-and-one-shared-surface"] = surfaceChecks.values.allSatisfy { $0 }
         editor.insertText("unsaved-fixture-key", replacementRange: NSRange(location: 0, length: editor.string.utf16.count))
+        panel.recalculateKeyViewLoop()
+        let expectedTabTarget = field.nextValidKeyView
         post("\t", keyCode: 48, in: panel)
         try await Task.sleep(for: .milliseconds(100))
-        checks["wrapped-secure-input-preserves-stock-native-Tab-domain"] = responderKind(panel, field: field) == stockTab
+        let nextEditor = (expectedTabTarget as? NSTextField)?.currentEditor()
+        let wrappedTab = responderKind(panel, field: field)
+        let followsPlatformTab = stockTab == "native-input" ? wrappedTab == "native-input"
+            : expectedTabTarget != nil && (panel.firstResponder === expectedTabTarget || (nextEditor != nil && panel.firstResponder === nextEditor))
+        FileHandle.standardError.write(Data("FormWrappedTab stock=\(stockTab) actual=\(wrappedTab) nextValid=\(String(describing: expectedTabTarget)) fullKeyboardAccess=\(NSApp.isFullKeyboardAccessEnabled) matches=\(followsPlatformTab)\n".utf8))
+        checks["wrapped-secure-input-follows-the-actual-native-sheet-Tab-loop"] = followsPlatformTab
+            && panel.isKeyWindow && WallpaperLibrarySheetPresentation.permitsInput(in: panel)
+            && !WallpaperLibrarySheetPresentation.permitsInput(in: host)
         post("\u{1b}", keyCode: 53, in: panel)
         try await wait("API-key cancel did not settle") { host.attachedSheet == nil && !panel.isVisible && host.isKeyWindow }
         checks["native-typed-api-key-cancel-does-not-save-or-trigger-search"] = view.service.apiKey == "original-key"
-            && view.service.resets == 0 && view.searches == 0 && view.refreshes == 0
+            && view.service.resets == 0 && view.service.clears == 0 && view.searches == 0 && view.refreshes == 0
 
         action.performClick(nil)
         try await wait("second original API-key dialog did not attach") { host.attachedSheet?.isKeyWindow == true }
@@ -175,7 +201,7 @@ import AppKit
         post("\r", keyCode: 36, in: savePanel)
         try await wait("native Return did not settle the original API-key response") { host.attachedSheet == nil && !savePanel.isVisible }
         checks["native-input-Return-saves-trimmed-api-key-and-refreshes-once"] = view.service.apiKey == "committed-fixture-key"
-            && view.service.resets == 1 && view.searches == 1 && view.refreshes == 1
+            && view.service.resets == 1 && view.service.clears == 0 && view.searches == 1 && view.refreshes == 1
         print(String(data: try JSONSerialization.data(withJSONObject: checks, options: [.sortedKeys]), encoding: .utf8)!)
     }
 }

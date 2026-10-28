@@ -34,14 +34,15 @@ def prepare_video_thumbnail_generator_sources(tree: Path, work: Path, fixture: P
     manager = core / 'WallpaperManager.swift'
     persistence = core / 'WallpaperManager+Persistence.swift'
     static_frames = core / 'WallpaperManager+StaticFramePipeline.swift'
+    import_processing = core / 'WallpaperManager+ImportProcessing.swift'
     application = core / 'WallpaperManager+WallpaperApplication.swift'
     model = tree / 'MyWallpaperX/Models/VideoWallpaper.swift'
     fixture = fixture or tree / 'script/tests/fixtures/VideoThumbnailGeneratorChecks.swift'
-    inputs = [pipeline, manager, persistence, static_frames, application, model, fixture]
+    inputs = [pipeline, manager, persistence, static_frames, application, import_processing, model, fixture]
     hashes = {str(path): hashlib.sha256(path.read_bytes()).hexdigest() for path in inputs}
     manager_source = manager.read_text()
     fields = []
-    for name in ['thumbnailQueue', 'thumbnailCache', 'thumbnailCacheLock', 'thumbnailGenerationLimiter',
+    for name in ['thumbnailQueue', 'deletionQueue', 'importAssetPipelineQueue', 'thumbnailCache', 'thumbnailCacheLock', 'thumbnailGenerationLimiter',
                  'thumbnailInFlightHandlers', 'thumbnailInFlightLock', 'scheduledStaticFramePaths',
                  'staticFrameScheduleLock', 'cacheGeneration', 'cacheGenerationLock',
                  'thumbnailGenerationFailures', 'thumbnailGenerationFailureLock', 'thumbnailFailureRetryCooldown']:
@@ -54,6 +55,8 @@ def prepare_video_thumbnail_generator_sources(tree: Path, work: Path, fixture: P
     normalizer = normalizer.replace(normalize_leaf,
         '        VideoThumbnailObservations.shared.normalized()\n        return ' + normalize_leaf.strip())
     harness = fixture.read_text().replace('// ACTUAL_CACHE_FIELDS', '\n'.join(fields))
+    harness = harness.replace('// ACTUAL_IMPORT_BATCH', declaration(import_processing.read_text(),
+        '    private func scheduleImportedAssetsProcessing(').replace('    private func ', '    func ', 1))
     harness = harness.replace('// ACTUAL_PATH_METHODS', normalizer + '\n' + declaration(manager_source, '    func pathExists('))
     harness = harness.replace('// ACTUAL_CLEAR_METHOD', declaration(persistence.read_text(), '    func clearPreviewCacheArtifacts(')
         + '\n' + declaration(application.read_text(), '    func clearUnprotectedStaticFrameFiles('))

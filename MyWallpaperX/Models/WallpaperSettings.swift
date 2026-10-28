@@ -49,6 +49,7 @@ public struct WallpaperSettings: Codable, Equatable {
     var sortMode: WallpaperSortMode = .none // 壁纸排序方式
     var sortAscending: Bool = true // 排序方向：true=升序，false=降序
     var libraryBackgroundStyle: LibraryBackgroundStyle = .listCoverTint
+    var libraryCardClickAction: LibraryCardClickAction = .selectOnly
 
     init() {}
 
@@ -97,6 +98,8 @@ public struct WallpaperSettings: Codable, Equatable {
         sortAscending = try container.decodeIfPresent(Bool.self, forKey: .sortAscending) ?? defaults.sortAscending
         libraryBackgroundStyle = (try? container.decode(String.self, forKey: .libraryBackgroundStyle))
             .flatMap(LibraryBackgroundStyle.init(rawValue:)) ?? defaults.libraryBackgroundStyle
+        libraryCardClickAction = (try? container.decode(String.self, forKey: .libraryCardClickAction))
+            .flatMap(LibraryCardClickAction.init(rawValue:)) ?? defaults.libraryCardClickAction
     }
 
     enum CodingKeys: String, CodingKey {
@@ -140,6 +143,7 @@ public struct WallpaperSettings: Codable, Equatable {
         case sortMode
         case sortAscending
         case libraryBackgroundStyle
+        case libraryCardClickAction
     }
 }
 
@@ -149,10 +153,16 @@ public enum LibraryBackgroundStyle: String, Codable, CaseIterable, Sendable {
 
     var title: String {
         switch self {
-        case .listCoverTint: return "列表封面取色"
+        case .listCoverTint: return "按列表取色"
         case .macOSNative: return "macOS原生"
         }
     }
+}
+
+public enum LibraryCardClickAction: String, Codable, CaseIterable, Sendable {
+    case selectOnly, openDetails
+
+    var title: String { self == .selectOnly ? "仅选中" : "打开详情" }
 }
 
 public enum TimeUnit: String, Codable, CaseIterable, Identifiable {

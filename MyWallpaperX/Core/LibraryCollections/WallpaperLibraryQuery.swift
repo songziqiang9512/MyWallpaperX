@@ -6,7 +6,7 @@ nonisolated struct WallpaperLibraryCatalog: Sendable {
     var videos: [WallpaperContentItem] = []
     var images: [WallpaperContentItem] = []
     var downloads: [WallpaperContentItem] = []
-    /// Original Steam adult-content preference affects only My Downloads.
+    /// Original source task/account exclusions affect only My Downloads.
     /// Keep full source facts for explicit playback and mixed playlists.
     var excludedDownloadReferences: Set<WallpaperReference> = []
     var revision: UInt64 = 0
@@ -133,7 +133,10 @@ nonisolated enum WallpaperLibraryQuery {
             candidates = try unique(catalog.images.map { try resolve($0.reference) })
                 .filter { !excluded.contains($0.reference) }
         case .downloads:
-            candidates = try unique(catalog.downloads.filter { !catalog.excludedDownloadReferences.contains($0.providerReference) }
+            candidates = try unique(catalog.downloads.filter {
+                !catalog.excludedDownloadReferences.contains($0.providerReference)
+                    && (state.showsAdultContent || $0.metadata.contentRating != .adult)
+            }
                 .map { try resolve($0.reference) }).filter { !excluded.contains($0.reference) }
         case .recent:
             // Filter/search only these 50; never refill from older history.
@@ -239,14 +242,10 @@ nonisolated enum WallpaperLibraryQuery {
         return WallpaperLibraryPageResult(items: visible, unfilteredCount: candidates.count)
     }
 
-    /// The directory has its own query; member-page search/sorting never changes
-    /// its covers. One resolver serves all playlists, without per-list catalog scans.
+    /// Directory order is the sidebar rank; retired saved sort values are ignored.
+    /// Search only filters names. One resolver serves covers without per-list catalog scans.
     static func directory(state: WallpaperLibraryQueryState, catalog: WallpaperLibraryCatalog,
                           relationships: UserCollectionsSnapshot) throws -> [WallpaperPlaylistDirectoryEntry] {
-        let sort = state.sort ?? .sourceOrder
-        guard [.sourceOrder, .name, .createdAt, .modifiedAt].contains(sort) else {
-            throw WallpaperLibraryQueryError.unsupportedDirectorySort(sort)
-        }
         guard state.provider == nil, state.kind == nil, state.status == .all else {
             throw WallpaperLibraryQueryError.unsupportedDirectoryFilter
         }
@@ -271,19 +270,8 @@ nonisolated enum WallpaperLibraryQuery {
         let search = state.search.trimmingCharacters(in: .whitespacesAndNewlines)
         entries = entries.filter { search.isEmpty || $0.name.range(of: search, options: [.caseInsensitive, .diacriticInsensitive]) != nil }
         entries.sort { left, right in
-            let comparison: ComparisonResult
-            switch sort {
-            case .sourceOrder:
-                let a = ranks[left.id] ?? 0, b = ranks[right.id] ?? 0
-                // Manual sidebar order is authoritative; reverse is not a separate order.
-                return a == b ? left.id.uuidString < right.id.uuidString : a < b
-            case .name: comparison = left.name.localizedStandardCompare(right.name)
-            case .createdAt: comparison = left.createdAt.compare(right.createdAt)
-            case .modifiedAt: comparison = left.modifiedAt.compare(right.modifiedAt)
-            default: return false // Rejected before sorting.
-            }
-            if comparison == .orderedSame { return left.id.uuidString < right.id.uuidString }
-            return state.ascending ? comparison == .orderedAscending : comparison == .orderedDescending
+            let a = ranks[left.id] ?? 0, b = ranks[right.id] ?? 0
+            return a == b ? left.id.uuidString < right.id.uuidString : a < b
         }
         return entries
     }
@@ -384,12 +372,10 @@ nonisolated enum WallpaperLibraryQuery {
 }
 
 nonisolated enum WallpaperLibraryQueryError: Error, LocalizedError {
-    case unsupportedDirectorySort(WallpaperLibrarySort)
     case unsupportedDirectoryFilter
 
     var errorDescription: String? {
         switch self {
-        case .unsupportedDirectorySort: return "播放列表目录不支持此排序方式。"
         case .unsupportedDirectoryFilter: return "播放列表目录仅支持名称搜索。"
         }
     }

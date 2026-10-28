@@ -230,8 +230,8 @@ nonisolated func ProbeImageSourceCreateWithURL(_ url: CFURL, _ options: CFDictio
         NSApp.setActivationPolicy(.prohibited)
         let images = SILService()
         let adapter = WallpaperLibraryCellAdapter(manager: WallpaperManager(), images: images,
-            steam: SteamWorkshopService(), online: OnlineLibraryService(), isFavorite: { _ in false },
-            isPlaying: { _ in false }, makePrimaryAction: { _ in nil }, makeFavoriteAction: { _ in {} })
+            steam: SteamWorkshopService(), pixabay: PixabayService(),
+            isPlaying: { _ in false }, makePrimaryAction: { _ in nil })
         let grid = WallpaperLibraryGridController { collection, index, content, state in
             adapter.makeCell(collection: collection, indexPath: index, content: content, state: state)
         }

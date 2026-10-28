@@ -38,6 +38,7 @@ struct WallpaperContentItem: Equatable {
     let providerReference: WallpaperReference
     let kind: WallpaperMediaKind
     var reference: WallpaperReference { providerReference }
+    var organizationItem: WallpaperOrganizationItem { .init(reference: reference) }
     var metadata = Metadata()
     var locator = Locator()
 }
@@ -94,11 +95,9 @@ final class PlaybackCommandMultiplexer {
 final class PlaybackMuteState { static let shared = PlaybackMuteState(); var isMuted = false }
 struct SystemStats {
     var memUsed = UInt64(12.4 * 1_073_741_824)
-    var memTotal: UInt64 = 24 * 1_073_741_824
     var cpuUsageString = "12%"
     var gpuUsageString = "8%"
     var memUsedString = "12.4 GB"
-    var memTotalString = "24 GB"
     var netUpString = "24 KB/s"
     var netDownString = "168 KB/s"
 }
@@ -152,15 +151,20 @@ final class AppKitThumbnailProvider {
     }
 }
 final class SteamWorkshopPreviewState {
+    enum Placeholder { case loading, unavailable }
     var image: NSImage?
+    var placeholder = Placeholder.unavailable
     var onChange: (() -> Void)?
     static var requests = 0
-    func reset() { image = nil; onChange?() }
+    static weak var lastConfigured: SteamWorkshopPreviewState?
+    func reset() { image = nil; placeholder = .unavailable; onChange?() }
     func configure(previewURL: URL?, fallbackImageURL: URL? = nil, fallbackVideoURL: URL?, refreshToken: Int, maxPixelSize: Int) {
         precondition(fallbackVideoURL == nil, "opening a panel must not generate a movie thumbnail")
         precondition(previewURL?.isFileURL != true && fallbackImageURL?.isFileURL != true,
                      "local version reads must not enter the main-thread remote consumer")
         Self.requests += 1
+        Self.lastConfigured = self
+        placeholder = .loading
     }
 }
 
@@ -171,8 +175,57 @@ final class SteamWorkshopPreviewState {
     var accepted = true
     func resumeLastSelection(onFailure: @escaping () -> Void = {}) -> Bool { calls += 1; return accepted }
 }
+struct WallpaperOrganizationItem { let reference: WallpaperReference }
+struct Favorite { let reference: WallpaperReference }
+struct Relationships {
+    var favorites: [Favorite] = []
+    // Canonical resolver answers are a controlled boundary here; its actual
+    // alias-chain algorithm is exercised by the relationship / query gates.
+    var canonicalReferences: [WallpaperReference: WallpaperReference] = [:]
+}
+@MainActor enum WallpaperLibraryQuery {
+    static func canonicalReferences(_ references: Set<WallpaperReference>, relationships: Relationships) throws -> [WallpaperReference: WallpaperReference] {
+        Dictionary(uniqueKeysWithValues: references.map { ($0, relationships.canonicalReferences[$0] ?? $0) })
+    }
+}
+enum UserCollectionsCommand { case setFavorite(WallpaperOrganizationItem, Bool, Date) }
+@MainActor final class Collections {
+    var snapshot = Relationships()
+    var commands: [UserCollectionsCommand] = []
+    var undoNames: [String?] = []
+    var waiting: CheckedContinuation<Relationships, Error>?
+    func perform(_ command: UserCollectionsCommand, undoName: String?) async throws -> Relationships {
+        commands.append(command); undoNames.append(undoName)
+        return try await withCheckedThrowingContinuation { waiting = $0 }
+    }
+    func finish(failing: Bool = false) {
+        if failing { waiting?.resume(throwing: CocoaError(.fileWriteUnknown)) }
+        else {
+            if case let .setFavorite(item, enabled, _) = commands.last! {
+                snapshot.favorites.removeAll { $0.reference == item.reference }
+                if enabled { snapshot.favorites.append(.init(reference: item.reference)) }
+            }
+            waiting?.resume(returning: snapshot)
+        }
+        waiting = nil
+    }
+}
+@MainActor final class Presentation {
+    var canEditCollections = true
+    var reportedErrors = 0
+    func report(_ error: Error) { reportedErrors += 1 }
+}
 @MainActor final class Workspace {
     let restoration = RememberedRestoration()
+    let presentation = Presentation()
+    var collections: Collections? = Collections()
+    var relationships: Relationships { collections?.snapshot ?? .init() }
+    var resolutionReads = 0
+    func content(for reference: WallpaperReference) throws -> WallpaperContentItem {
+        resolutionReads += 1
+        guard let item = items[reference] else { throw CocoaError(.fileReadNoSuchFile) }
+        return item
+    }
     var items: [WallpaperReference: WallpaperContentItem] = [:]
     var catalogReads = 0
     struct Catalog { let videos: [WallpaperContentItem]; let images: [WallpaperContentItem]; let downloads: [WallpaperContentItem] }
@@ -189,12 +242,17 @@ final class SteamWorkshopPreviewState {
 }
 @MainActor final class ToggleHarness {
     let wallpaperManager = WallpaperManager.shared
+    var favoriteInFlight = false
+    var refreshes = 0
+    func scheduleRefresh() { refreshes += 1 }
     func closeThen(_ action: () -> Void) { action() }
     // PRODUCTION_CAPTURE
     // PRODUCTION_TOGGLE
     // PRODUCTION_MODE
+    // PRODUCTION_FAVORITE
     func toggle() { togglePlayback() }
     func cycleMode() { cyclePlaybackMode() }
+    func favorite() { toggleFavorite() }
 }
 
 @main enum Checks {
@@ -206,6 +264,12 @@ final class SteamWorkshopPreviewState {
                 _ = RunLoop.current.run(mode: .default, before: Date().addingTimeInterval(0.005))
             }
             precondition(condition(), "asynchronous preview did not complete")
+        }
+        func solidImage(_ color: CGColor, size: NSSize) -> NSImage {
+            let context = CGContext(data: nil, width: Int(size.width), height: Int(size.height), bitsPerComponent: 8,
+                bytesPerRow: 0, space: CGColorSpaceCreateDeviceRGB(), bitmapInfo: CGImageAlphaInfo.premultipliedLast.rawValue)!
+            context.setFillColor(color); context.fill(NSRect(origin: .zero, size: size))
+            return NSImage(cgImage: context.makeImage()!, size: size)
         }
         let manager = WallpaperManager.shared
         let service = SteamWorkshopService.shared
@@ -222,10 +286,8 @@ final class SteamWorkshopPreviewState {
         let nextReference = WallpaperReference(provider: .steamWorkshop, sourceID: "next")
         manager.libraryPlaybackSequence.committed = .init(snapshot: .init(entries: [.init(reference: reference, isPlayable: true)]), reference: reference)
         let workspace = MyWallpaperXApplication.libraryWorkspace!
-        func snapshot() -> StatusBarPanelPresentation {
-            .capture(manager: manager, service: service, rememberedReference: workspace.restoration.rememberedReference,
-                     rememberedContent: workspace.restoration.rememberedReference.flatMap { workspace.items[$0] })
-        }
+        let toggle = ToggleHarness()
+        func snapshot() -> StatusBarPanelPresentation { toggle.capturePresentation() }
         precondition(snapshot().content == .video(video), "pending must not replace the confirmed cover")
         precondition(snapshot().isSwitching && !snapshot().canNavigate, "one current rotation item is a no-op")
         manager.playbackSwitch.pending = nil
@@ -238,7 +300,6 @@ final class SteamWorkshopPreviewState {
         precondition(snapshot().status.contains("已暂停"))
         commands.isUserPaused = false
         commands.isAnyEnginePlaying = true
-        let toggle = ToggleHarness()
         toggle.toggle()
         precondition(commands.isUserPaused && !manager.isPlaying, "manual pause must persist across exit")
         precondition(workspace.catalogReads == 0, "active playback controls never rebuild a standby catalog projection")
@@ -254,6 +315,53 @@ final class SteamWorkshopPreviewState {
         PlaybackMuteState.shared.isMuted = true
         precondition(snapshot().isMuted && snapshot().volume == 50, "mute preserves gain")
 
+        workspace.items[reference] = .init(title: video.displayTitle, providerReference: reference, kind: .video)
+        let collections = workspace.collections!
+        precondition(snapshot().favoriteReference == reference && !snapshot().isFavorite && snapshot().canFavorite)
+        let resolutionReads = workspace.resolutionReads
+        toggle.favorite()
+        toggle.favorite()
+        precondition(toggle.favoriteInFlight && !snapshot().canFavorite && !snapshot().isFavorite,
+                     "favorite admits one write and never invents an optimistic persisted state")
+        pumpUntil { collections.waiting != nil }
+        precondition(collections.commands.count == 1 && workspace.resolutionReads == resolutionReads + 1,
+                     "rapid repeat does not resolve or queue a stale second target")
+        manager.libraryPlaybackSequence.committed = .init(snapshot: .init(entries: []), reference: nextReference)
+        collections.finish()
+        pumpUntil { !toggle.favoriteInFlight }
+        precondition(collections.snapshot.favorites.map(\.reference) == [reference],
+                     "a switch during the write does not favorite the new unrelated wallpaper")
+        precondition(!snapshot().isFavorite, "presentation follows the newly committed canonical reference")
+        manager.libraryPlaybackSequence.committed = .init(snapshot: .init(entries: []), reference: reference)
+        precondition(snapshot().isFavorite && snapshot().canFavorite)
+        let alias = WallpaperReference(provider: .videoLibrary, sourceID: "old-video-identity")
+        collections.snapshot.canonicalReferences[alias] = reference
+        manager.libraryPlaybackSequence.committed = .init(snapshot: .init(entries: []), reference: alias)
+        let readsBeforeAlias = workspace.catalogReads
+        precondition(snapshot().favoriteReference == reference && snapshot().isFavorite
+            && workspace.catalogReads == readsBeforeAlias, "identity publication refreshes the heart without resolving the whole catalog")
+        manager.libraryPlaybackSequence.committed = .init(snapshot: .init(entries: []), reference: reference)
+        collections.snapshot.favorites = []
+        precondition(!snapshot().isFavorite, "external collection publication is the same source of truth")
+        collections.snapshot.favorites = [.init(reference: reference)]
+        toggle.favorite()
+        pumpUntil { collections.waiting != nil }
+        collections.finish()
+        pumpUntil { !toggle.favoriteInFlight }
+        precondition(collections.snapshot.favorites.isEmpty && collections.undoNames.last! == "取消特别喜爱")
+        let reportedErrors = workspace.presentation.reportedErrors
+        toggle.favorite()
+        pumpUntil { collections.waiting != nil }
+        collections.finish(failing: true)
+        pumpUntil { !toggle.favoriteInFlight }
+        precondition(!snapshot().isFavorite && snapshot().canFavorite
+            && workspace.presentation.reportedErrors == reportedErrors + 1, "failed writes retain truth and restore the action")
+        workspace.presentation.canEditCollections = false
+        let beforeReadOnly = workspace.resolutionReads
+        toggle.favorite()
+        precondition(workspace.resolutionReads == beforeReadOnly && !snapshot().canFavorite,
+                     "read-only relationship state cannot queue a favorite write")
+        workspace.presentation.canEditCollections = true
         let controller = StatusBarPanelViewController()
         controller.apply(snapshot(), refreshToken: 0)
         precondition(AppKitThumbnailProvider.completions.isEmpty, "opening only enqueues cache preparation")
@@ -269,26 +377,27 @@ final class SteamWorkshopPreviewState {
             case .settings: actions.append("settings")
             case .openMain: actions.append("home")
             case .mode: actions.append("mode")
+            case .favorite: actions.append("favorite")
             case .quit: actions.append("quit")
             default: break
             }
         }
-        let window = NSWindow(contentRect: NSRect(x: 100, y: 100, width: 344, height: 520),
+        let window = NSWindow(contentRect: NSRect(x: 100, y: 100, width: 303, height: 458),
                               styleMask: [.titled], backing: .buffered, defer: false)
         window.contentView = controller.view
         let panel = controller.panel
         func layout(_ state: StatusBarPanelPresentation, appearance: NSAppearance.Name) {
             controller.apply(state, refreshToken: 0)
-            window.setContentSize(NSSize(width: 344, height: state.preferredHeight))
+            window.setContentSize(NSSize(width: 303, height: state.preferredHeight))
             panel.appearance = NSAppearance(named: appearance)
             panel.applyMetrics(SystemStats())
             panel.layoutSubtreeIfNeeded()
-            precondition(panel.bounds.width == 344 && panel.bounds.height == state.preferredHeight)
+            precondition(panel.bounds.width == 303 && panel.bounds.height == state.preferredHeight)
             precondition(!panel.hasAmbiguousLayout)
             for child in panel.subviews where !child.isHidden {
                 precondition(panel.bounds.contains(child.frame), "visible child escaped: \(child) \(child.frame)")
             }
-            precondition(panel.titleLabel.frame.maxX <= 328 && panel.quit.frame.maxY <= panel.bounds.height)
+            precondition(panel.titleLabel.frame.maxX <= 288.64 && panel.quit.frame.maxY <= panel.bounds.height)
         }
         layout(snapshot(), appearance: .darkAqua)
         let greeting = panel.subviews.compactMap { $0 as? NSTextField }
@@ -314,11 +423,11 @@ final class SteamWorkshopPreviewState {
         precondition(greeting.stringValue != firstGreeting, "an expired greeting is replaced without an immediate repeat")
         let timeMessages = [
             (0..<5, ["留一盏温柔的光", "让喜欢的画面陪你"]),
-            (5..<8, ["早安又是新一天", "把晨光带进桌面"]),
+            (5..<8, ["早安，又是新一天", "把晨光带进桌面"]),
             (8..<12, ["今天也有好风景", "给今天一点新鲜感"]),
-            (12..<14, ["歇一会儿看看风景", "留片刻给好心情"]),
+            (12..<14, ["歇一会儿，看看风景", "留片刻给好心情"]),
             (14..<18, ["午后适合换个风景", "偶尔走神也不错"]),
-            (18..<23, ["把晚风留在桌面", "今晚就慢一点吧"]),
+            (18..<23, ["把晚风留在桌面", "今晚，就慢一点吧"]),
             (23..<24, ["留一盏温柔的光", "让喜欢的画面陪你"])
         ]
         for hour in 0..<24 {
@@ -327,9 +436,20 @@ final class SteamWorkshopPreviewState {
             let label = probe.subviews.compactMap { $0 as? NSTextField }
                 .first { $0.accessibilityIdentifier() == "status-panel-greeting" }!
             let allowed = timeMessages.first { $0.0.contains(hour) }!.1 + ["给作者点个星标吧"]
-            precondition(allowed.contains(label.stringValue), "local hour uses only the approved copy")
+            precondition(allowed.contains(label.stringValue), "local hour \(hour) uses only the approved copy: \(label.stringValue)")
         }
-        precondition(panel.cover.frame.size == NSSize(width: 312, height: 176))
+        precondition(abs(panel.cover.frame.width - 274.84) < 0.001
+            && abs(panel.cover.frame.height - 155.2) < 0.001,
+                     "cover retains its 88% insets and control budget in the native 303 by 472 point panel")
+        precondition(panel.bounds.height == 472, "dynamic panel is 10% larger than the previous 80% size to the nearest native point")
+        precondition(Set(panel.subviews.compactMap { ($0 as? NSTextField)?.stringValue }).isSuperset(of: ["CPU", "GPU", "内存"]),
+            "metric titles keep the user-selected concise wording")
+        precondition(panel.subviews.compactMap { $0 as? NSTextField }.contains { $0.toolTip == "系统全部 GPU 使用率" },
+                     "GPU scope remains available in its tooltip with concise titles")
+        precondition(panel.subviews.compactMap { $0 as? NSTextField }.contains { $0.stringValue == "12.4 GB" && $0.toolTip?.contains("本应用") == true },
+                     "process memory has no misleading system-total denominator")
+        precondition(!panel.favorite.isHidden && panel.favorite.isEnabled && panel.favorite.state == .off)
+        precondition(panel.favorite.frame.maxX < panel.mode.frame.minX, "favorite is immediately left of mode with its own hit area")
         precondition(panel.openMain.frame.maxY < panel.cover.frame.minY && panel.settings.frame.minY > panel.volume.frame.maxY)
         precondition(!panel.settings.isBordered && panel.settings.title == "打开设置")
         precondition(panel.volume.doubleValue == 0 && snapshot().volume == 50 && panel.subviews.compactMap { $0 as? NSTextField }.contains { $0.stringValue == "0%" }, "muting moves the visible slider to zero without changing stored gain")
@@ -354,15 +474,26 @@ final class SteamWorkshopPreviewState {
         controller.thumbnailBecameReady(at: video.path)
         pumpUntil { AppKitThumbnailProvider.completions.count == 2 }
         precondition(AppKitThumbnailProvider.completions.count == 2)
-        let readyImage = NSImage(size: NSSize(width: 40, height: 30))
+        collections.snapshot.favorites = [.init(reference: reference)]
+        controller.apply(snapshot(), refreshToken: 0)
+        panel.favorite.updateLayer()
+        precondition(panel.favorite.state == .on && panel.favorite.contentTintColor == .systemRed,
+                     "confirmed favorites use a red heart")
+        precondition(AppKitThumbnailProvider.completions.count == 2, "favorite feedback does not reload the cover")
+        collections.snapshot.favorites = []
+        controller.apply(snapshot(), refreshToken: 0)
+        panel.favorite.updateLayer()
+        precondition(panel.favorite.state == .off && panel.favorite.contentTintColor == .labelColor)
+        let readyImage = solidImage(CGColor(red: 0, green: 0, blue: 1, alpha: 1), size: NSSize(width: 40, height: 30))
         AppKitThumbnailProvider.completions[1](readyImage)
         precondition(panel.cover.subviews.compactMap { $0 as? NSImageView }.first!.image === readyImage,
                      "late derived thumbnail must fill the existing panel")
         panel.openMain.performClick(nil)
         panel.settings.performClick(nil)
         panel.mode.performClick(nil)
+        panel.favorite.performClick(nil)
         panel.quit.performClick(nil)
-        precondition(actions == ["home", "settings", "mode", "quit"], "swapped controls keep their correct actions")
+        precondition(actions == ["home", "settings", "mode", "favorite", "quit"], "swapped controls keep their correct actions")
         actions.removeAll()
         panel.playback.performClick(nil)
         panel.mute.performClick(nil)
@@ -379,17 +510,18 @@ final class SteamWorkshopPreviewState {
         manager.libraryPlaybackSequence.committed = .init(snapshot: .init(entries: [
             .init(reference: reference, isPlayable: true), .init(reference: nextReference, isPlayable: true)]), reference: reference)
         precondition(snapshot().canNavigate, "navigation reads the committed sequence instead of scanning private sources")
-        window.setContentSize(NSSize(width: 344, height: 360))
+        window.setContentSize(NSSize(width: 303, height: 317))
         panel.layoutSubtreeIfNeeded()
         precondition(panel.quit.frame.maxY <= panel.bounds.height && !panel.compactProperties.isHidden && panel.cover.properties.isHidden,
                      "small visible area must preserve the footer and keep properties accessible beside the title")
-        precondition(!panel.compactProperties.frame.intersects(panel.mode.frame), "compact properties and mode have separate hit areas")
-        window.setContentSize(NSSize(width: 344, height: 536))
+        precondition(!panel.compactProperties.frame.intersects(panel.mode.frame)
+            && !panel.compactProperties.frame.intersects(panel.favorite.frame), "compact properties, favorite and mode have separate hit areas")
+        window.setContentSize(NSSize(width: 303, height: 472))
         panel.layoutSubtreeIfNeeded()
-        let imageA = NSImage(size: NSSize(width: 10, height: 10))
+        let imageA = solidImage(CGColor(red: 1, green: 0, blue: 0, alpha: 1), size: NSSize(width: 10, height: 10))
         AppKitThumbnailProvider.completions[0](imageA)
         let imageView = panel.cover.subviews.compactMap { $0 as? NSImageView }.first!
-        precondition(imageView.image == nil, "late video cover cannot replace Scene")
+        precondition(imageView.image === readyImage, "late video cover cannot replace the retained cover while Scene loads")
         precondition(AppKitThumbnailProvider.cancellations[0].cancelled)
         controller.releasePreview()
         controller.thumbnailBecameReady(at: video.path)
@@ -413,16 +545,22 @@ final class SteamWorkshopPreviewState {
         pumpUntil { FixtureImageLoads.completions.count == 3 }
         FixtureImageLoads.completions[2](nil)
         pumpUntil { SteamWorkshopPreviewState.requests == 1 }
-        precondition(imageView.image == nil, "a missing local cover falls through to the original remote consumer")
+        precondition(imageView.image === readyImage, "a missing local candidate keeps the cover while its remote fallback loads")
         var remoteOnly = record
         remoteOnly.previewURL = URL(string: "https://example.invalid/remote-only.jpg")
         service.downloads = [remoteOnly]
         controller.apply(snapshot(), refreshToken: 0)
         pumpUntil { SteamWorkshopPreviewState.requests == 2 }
+        let obsoleteRemote = SteamWorkshopPreviewState.lastConfigured!
+        let obsoleteRemoteChange = obsoleteRemote.onChange!
 
         manager.switchSelections[committed.ticket.id] = .systemStill(URL(fileURLWithPath: "/fixture/静态壁纸.jpg"))
         layout(snapshot(), appearance: .darkAqua)
+        obsoleteRemote.image = imageA; obsoleteRemoteChange()
+        precondition(imageView.image === readyImage, "an obsolete remote request cannot replace the retained cover of the new source")
         precondition(!snapshot().content.isDynamic && panel.volume.isHidden && panel.playback.isHidden)
+        precondition(!panel.next.frame.intersects(panel.mode.frame)
+            && !panel.previous.frame.intersects(panel.favorite.frame), "still wallpaper actions do not overlap mode or favorite")
         manager.playbackSwitch.committed = nil
         layout(snapshot(), appearance: .aqua)
         precondition(snapshot().content == .none)
@@ -521,13 +659,13 @@ final class SteamWorkshopPreviewState {
         AppKitThumbnailProvider.completions.last!(readyImage)
 
         applyCover(.video(editedVideo), token: 18)
-        precondition(stableCover.image == nil && AppKitThumbnailProvider.cancellations.last!.cancelled,
-                     "an explicit refresh must still revoke the previous video request")
+        precondition(stableCover.image === readyImage && AppKitThumbnailProvider.cancellations.last!.cancelled,
+                     "an explicit refresh revokes the previous request while retaining the ready cover")
         pumpUntil { AppKitThumbnailProvider.completions.count == firstVideoRead + 3 }
         AppKitThumbnailProvider.completions.last!(readyImage)
         editedVideo.thumbnailPath = "/fixture/new-derived.jpg"
         applyCover(.video(editedVideo), token: 18)
-        precondition(stableCover.image == nil)
+        precondition(stableCover.image === readyImage)
         pumpUntil { AppKitThumbnailProvider.completions.count == firstVideoRead + 4 }
         precondition(AppKitThumbnailProvider.wallpapers.last?.thumbnailPath == editedVideo.thumbnailPath,
                      "a changed derived asset path must enter the actual thumbnail provider")
@@ -536,7 +674,7 @@ final class SteamWorkshopPreviewState {
         applyCover(.video(editedVideo), token: 18)
         pumpUntil { AppKitThumbnailProvider.completions.count == firstVideoRead + 5 }
         supersededDerivedRead(imageA)
-        precondition(stableCover.image == nil && AppKitThumbnailProvider.wallpapers.last?.path == editedVideo.path,
+        precondition(stableCover.image === readyImage && AppKitThumbnailProvider.wallpapers.last?.path == editedVideo.path,
                      "source-path changes cannot accept a prior derived asset's late result")
         AppKitThumbnailProvider.completions.last!(readyImage)
         coverController.releasePreview()
@@ -555,21 +693,21 @@ final class SteamWorkshopPreviewState {
                      "workshop metadata cannot clear or reread an unchanged local preview")
         editedRecord.updatedAt = Date(timeIntervalSince1970: 2)
         applyCover(.workshop(editedRecord))
-        precondition(stableCover.image == nil,
-                     "a ready publication version change must reload a stable preview URL")
+        precondition(stableCover.image === readyImage,
+                     "a ready publication version change reloads while retaining the previous cover")
         pumpUntil { FixtureImageLoads.completions.count == firstWorkshopRead + 2 }
         FixtureImageLoads.completions.last!(readyImage)
         pumpUntil { stableCover.image === readyImage }
         editedRecord.browserItem = .init(previewImageURL: URL(string: "https://example.invalid/new-fallback.jpg"))
         applyCover(.workshop(editedRecord))
-        precondition(stableCover.image == nil,
-                     "a changed fallback remains part of the actual image request identity")
+        precondition(stableCover.image === readyImage,
+                     "a changed fallback retains the cover while replacing its request identity")
         pumpUntil { FixtureImageLoads.completions.count == firstWorkshopRead + 3 }
         FixtureImageLoads.completions[firstWorkshopRead](imageA)
         var oldWorkshopFlushed = false
         DispatchQueue.main.async { oldWorkshopFlushed = true }
         pumpUntil { oldWorkshopFlushed }
-        precondition(stableCover.image == nil, "superseded local image callbacks remain generation-bound")
+        precondition(stableCover.image === readyImage, "superseded local image callbacks cannot overwrite the retained cover")
         FixtureImageLoads.completions.last!(readyImage)
         pumpUntil { stableCover.image === readyImage }
         coverController.releasePreview()
@@ -595,20 +733,20 @@ final class SteamWorkshopPreviewState {
         pumpUntil { stableCover.image === readyImage }
         remembered.locator.path = "/fixture/changed-remembered-original.jpg"
         applyCover(.remembered(rememberedReference, remembered))
-        precondition(stableCover.image == nil,
-                     "a changed remembered image candidate must reload even when the first URL is unchanged")
+        precondition(stableCover.image === readyImage,
+                     "a changed remembered candidate retains its ready cover while reloading")
         pumpUntil { FixtureImageLoads.completions.count == firstRememberedRead + 3 }
         FixtureImageLoads.completions.last!(readyImage)
         pumpUntil { stableCover.image === readyImage }
         remembered.metadata.resourceRevision = "published-image-v2"
         applyCover(.remembered(rememberedReference, remembered))
-        precondition(stableCover.image == nil,
-                     "the source owner's explicit resource revision must invalidate stable remembered URLs")
+        precondition(stableCover.image === readyImage,
+                     "an explicit source revision revokes the request without flashing the ready cover")
         pumpUntil { FixtureImageLoads.completions.count == firstRememberedRead + 4 }
         FixtureImageLoads.completions.last!(readyImage)
         pumpUntil { stableCover.image === readyImage }
         applyCover(.still(URL(fileURLWithPath: "/fixture/different-still.jpg")))
-        precondition(stableCover.image == nil)
+        precondition(stableCover.image === readyImage)
         pumpUntil { FixtureImageLoads.completions.count == firstRememberedRead + 5 }
         precondition(FixtureImageLoads.urls.last?.path == "/fixture/different-still.jpg")
         FixtureImageLoads.completions.last!(readyImage)
@@ -627,6 +765,75 @@ final class SteamWorkshopPreviewState {
         FixtureImageLoads.completions.last!(readyImage)
         pumpUntil { stableCover.image === readyImage }
         coverController.releasePreview()
+        precondition(snapshot().content == .video(video), "the animation scenario uses the current real video presentation")
+        layout(snapshot(), appearance: .aqua)
+        let coverFrameBeforeFade = panel.cover.frame
+        window.orderFrontRegardless()
+        defer { window.orderOut(nil) }
+        precondition(window.isVisible && imageView.window === window && !panel.cover.isHiddenOrHasHiddenAncestor
+                     && panel.cover.visibleRect.width > 0 && panel.cover.visibleRect.height > 0,
+                     "the fade scenario has a real visible native cover in its current presentation")
+        func imageViewCacheColor() -> NSColor? {
+            guard let bitmap = imageView.bitmapImageRepForCachingDisplay(in: imageView.bounds) else { return nil }
+            imageView.cacheDisplay(in: imageView.bounds, to: bitmap)
+            return bitmap.colorAt(x: bitmap.pixelsWide / 2, y: bitmap.pixelsHigh / 2)?.usingColorSpace(.deviceRGB)
+        }
+        func displayedCoverColor() -> NSColor? {
+            let bounds = panel.cover.bounds
+            guard bounds.width > 0, bounds.height > 0,
+                  let bitmap = NSBitmapImageRep(bitmapDataPlanes: nil, pixelsWide: Int(ceil(bounds.width)),
+                    pixelsHigh: Int(ceil(bounds.height)), bitsPerSample: 8, samplesPerPixel: 4,
+                    hasAlpha: true, isPlanar: false, colorSpaceName: .deviceRGB, bytesPerRow: 0, bitsPerPixel: 0),
+                  let context = NSGraphicsContext(bitmapImageRep: bitmap)?.cgContext else { return nil }
+            context.clear(bounds)
+            panel.cover.layer?.render(in: context)
+            return bitmap.colorAt(x: bitmap.pixelsWide / 2, y: bitmap.pixelsHigh / 2)?.usingColorSpace(.deviceRGB)
+        }
+        func coverDiagnostics(_ stage: String) {
+            func rgba(_ color: NSColor?) -> [CGFloat] {
+                guard let color else { return [] }
+                return [color.redComponent, color.greenComponent, color.blueComponent, color.alphaComponent]
+            }
+            let facts: [String: Any] = ["stage": stage, "windowVisible": window.isVisible,
+                "windowFrame": NSStringFromRect(window.frame), "panelBounds": NSStringFromRect(panel.bounds),
+                "coverFrame": NSStringFromRect(panel.cover.frame), "coverBounds": NSStringFromRect(panel.cover.bounds),
+                "coverVisibleRect": NSStringFromRect(panel.cover.visibleRect), "coverHidden": panel.cover.isHiddenOrHasHiddenAncestor,
+                "imageFrame": NSStringFromRect(imageView.frame), "imageBounds": NSStringFromRect(imageView.bounds),
+                "imageVisibleRect": NSStringFromRect(imageView.visibleRect), "imageHidden": imageView.isHiddenOrHasHiddenAncestor,
+                "imageIsBlue": imageView.image === readyImage, "imageIsRed": imageView.image === imageA,
+                "imageSize": NSStringFromSize(imageView.image?.size ?? .zero),
+                "coverLayerRGBA": rgba(displayedCoverColor()), "imageViewCacheRGBA": rgba(imageViewCacheColor()),
+                "imageLayerContents": String(describing: imageView.layer?.contents),
+                "imageLayerAnimations": imageView.layer?.animationKeys() ?? [], "appearance": imageView.effectiveAppearance.name.rawValue]
+            FileHandle.standardError.write((try? JSONSerialization.data(withJSONObject: facts, options: [.sortedKeys])) ?? Data())
+            FileHandle.standardError.write(Data([10]))
+        }
+        panel.cover.setImage(readyImage)
+        panel.cover.layoutSubtreeIfNeeded(); window.displayIfNeeded(); CATransaction.flush()
+        let oldIsBlue = displayedCoverColor().map { $0.blueComponent > 0.9 && $0.redComponent < 0.1 && $0.alphaComponent > 0.9 } == true
+        if !oldIsBlue { coverDiagnostics("old-blue-missing") }
+        precondition(oldIsBlue,
+                     "the old cover has actual displayed blue pixels before replacement")
+        panel.cover.setImage(imageA)
+        panel.cover.layoutSubtreeIfNeeded(); imageView.displayIfNeeded(); window.displayIfNeeded()
+        let fade = imageView.layer?.animation(forKey: StatusBarPanelCoverView.transitionKey) as? CATransition
+        precondition(imageView.image === imageA && panel.cover.frame == coverFrameBeforeFade,
+                     "native crossfade preserves the selected compact cover geometry")
+        if !NSWorkspace.shared.accessibilityDisplayShouldReduceMotion && fade?.type != .fade { coverDiagnostics("fade-missing-after-display") }
+        precondition(NSWorkspace.shared.accessibilityDisplayShouldReduceMotion || fade?.type == .fade,
+                     "the image's AppKit backing layer keeps its fade after its new contents display")
+        let pixelDeadline = Date().addingTimeInterval(3)
+        var newIsRed = false
+        repeat {
+            newIsRed = displayedCoverColor().map { $0.redComponent > 0.9 && $0.blueComponent < 0.1 && $0.alphaComponent > 0.9 } == true
+            if newIsRed { break }
+            _ = RunLoop.current.run(mode: .default, before: Date().addingTimeInterval(0.005))
+        } while Date() < pixelDeadline
+        if !newIsRed { coverDiagnostics("new-red-missing") }
+        precondition(newIsRed, "the new cover has actual displayed red pixels after replacement")
+        panel.cover.setImage(nil)
+        precondition(imageView.image == nil && imageView.layer?.animation(forKey: StatusBarPanelCoverView.transitionKey) == nil,
+                     "explicit clear retires a pending cover animation")
         print("status-panel-checks-passed")
     }
 }

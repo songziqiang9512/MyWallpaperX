@@ -8,7 +8,7 @@ import Combine
     private let manager: WallpaperManager
     private let images: SILService
     private let steam: SteamWorkshopService
-    private let online: OnlineLibraryService
+    private let pixabay: PixabayService
     private let sidebar = WallpaperLibrarySidebarController()
     private let detail = AppKitDetailHostViewController()
     private let directory = AppKitPlaylistDirectoryController()
@@ -29,7 +29,7 @@ import Combine
     private var playlistNames: [WallpaperReference: [String]] = [:]
     private var lastRenderSignature: RenderSignature?
     private var picker: WallpaperPlaylistPickerController?
-    private var backgroundStyle = LibraryBackgroundStyle.listCoverTint
+    private var backgroundStyle = WallpaperSettings.defaults.libraryBackgroundStyle
     var onGridLayoutChanged: (() -> Void)?
     var onNavigationContextChanged: (() -> Void)?
     private struct DirectoryReturnContext: Equatable {
@@ -68,7 +68,7 @@ import Combine
     var gridClipWidth: CGFloat {
         switch workspace.presentation.page {
         case .workshop: return steamBrowserContent.clipWidth
-        case .pixabay: return onlineBrowserContent.clipWidth
+        case .pixabay: return pixabayBrowserContent.clipWidth
         case .wallhaven, .pixiv: return onlineImages.browser(for: workspace.presentation.page)?.clipWidth ?? 0
         case .playlists: return directory.clipWidth
         default: return grid.isViewLoaded ? grid.scrollView.contentView.bounds.width : 0
@@ -93,6 +93,7 @@ import Combine
         let canEdit: Bool
         let recoveryNotice: String?
         let operationError: String?
+        let operationErrorEvent: UInt64
         let visible: Bool
 
         func hasSameCardInputs(as other: Self) -> Bool {
@@ -112,33 +113,28 @@ import Combine
 
     lazy var split: AppKitMainSplitViewController = {
         let chrome = self.chrome
-        return AppKitMainSplitViewController(sidebar: sidebar, content: chrome, sidebarTintHost: sidebar.backgroundTintHost,
-            permitsNoticeInteraction: { [weak chrome] in chrome?.permitsNoticeInteraction(at: $0) ?? false })
+        let controller = AppKitMainSplitViewController(sidebar: sidebar, content: chrome, sidebarTintHost: sidebar.backgroundTintHost,
+            permitsNoticeInteraction: { [weak chrome] in chrome?.permitsNoticeInteraction(at: $0) ?? false },
+            onNoticeOcclusionChange: { [weak chrome] in chrome?.setNoticeTrailingOcclusion($0) },
+            onListTintChange: { SettingsWindowController.shared.updateMainWindowTint($0, animated: $1) })
+        return controller
     }()
     lazy var commands = WallpaperLibraryCommands(workspace: workspace, manager: manager, images: images,
-        steam: steam, online: online, hostWindow: { [weak self] in self?.split.view.window })
+        steam: steam, pixabay: pixabay, hostWindow: { [weak self] in self?.split.view.window })
     lazy var inspector = WallpaperLibraryInspectorCoordinator(workspace: workspace, manager: manager, images: images,
-        steam: steam, online: online,
+        steam: steam, pixabay: pixabay,
         makePrimaryAction: { [weak self] content in
             guard let self else { return nil }
-            // Pixabay's existing primary label is always "设为壁纸".
-            return content.providerReference.provider == .pixabay
-                ? self.commands.makeApplyAction(for: content) : self.commands.makePrimaryAction(for: content)
+            return self.commands.makePrimaryAction(for: content)
         }, makeFavoriteAction: { [weak self] in self?.makeCardFavoriteAction($0) },
         canOrganize: { [weak self] in self?.commands.canOrganize == true },
         availabilityChanges: commands.availabilityChanges,
         onChoosePlaylist: { [weak self] ref, anchor in self?.commands.choosePlaylist([ref], anchor: anchor) })
-    private lazy var adapter: WallpaperLibraryCellAdapter = WallpaperLibraryCellAdapter(manager: manager, images: images, steam: steam, online: online,
-        isFavorite: { [weak self] in self?.cardState?.isFavorite($0) ?? false },
+    private lazy var adapter: WallpaperLibraryCellAdapter = WallpaperLibraryCellAdapter(manager: manager, images: images, steam: steam, pixabay: pixabay,
         isPlaying: { [weak self] in self?.cardState?.isPlaying($0) ?? false },
         isSwitching: { [weak self] in self?.cardState?.isSwitching($0) ?? false },
         makePrimaryAction: { [weak self] in self?.makeCardPrimaryAction($0) },
-        makeFavoriteAction: { [weak self] in self?.makeCardFavoriteAction($0) },
-        onInspect: { [weak self] in self?.inspector.inspect(content: $0) },
-        onPreview: { [weak self] content in
-            guard let self, permitsInput, grid.select([content.reference], focus: content.reference) else { return }
-            _ = inspector.preview(content: content)
-        })
+        onInspect: { [weak self] in self?.inspector.inspect(content: $0) })
     private lazy var grid: WallpaperLibraryGridController = WallpaperLibraryGridController { [weak self] collection, path, content, state in
         guard let self else { return NSCollectionViewItem() }
         return self.adapter.makeCell(collection: collection, indexPath: path, content: content, state: state)
@@ -146,29 +142,34 @@ import Combine
     private lazy var chrome = WallpaperLibraryPageChrome(content: detail)
     private lazy var steamBrowserContent: AppKitSteamWorkshopBrowserView = {
         let view = AppKitSteamWorkshopBrowserView()
+        view.opensDetailsOnSingleClick = { [weak self] in self?.manager.settings.libraryCardClickAction == .openDetails }
         view.makeOrganization = { [weak self] in self?.remoteOrganization(for: $0) }
         view.makeInspectorActions = { [weak self] in self?.remoteInspectorActions(for: $0) }
         view.makeOrganizationMenu = { [weak self] in self?.remoteOrganizationMenu(for: $0) }
         return view
     }()
     private lazy var steamBrowser = WallpaperLibraryViewController(steamBrowserContent)
-    private lazy var onlineBrowserContent: OnlineLibraryBrowserView = {
-        let view = OnlineLibraryBrowserView()
-        view.makeOrganization = { [weak self] in self?.onlineOrganization(for: $0) }
+    private lazy var pixabayBrowserContent: PixabayBrowserView = {
+        let view = PixabayBrowserView()
+        view.makeOrganization = { [weak self] in self?.pixabayOrganization(for: $0) }
+        view.onInspect = { [weak self] in self?.inspector.inspectPixabayItem($0) }
+        view.opensDetailsOnSingleClick = { [weak self] in self?.manager.settings.libraryCardClickAction == .openDetails }
+        view.onSelectionChange = { [weak self] in self?.inspector.syncPixabaySelection($0) }
         return view
     }()
-    private lazy var onlineBrowser = WallpaperLibraryViewController(onlineBrowserContent)
+    private lazy var pixabayBrowser = WallpaperLibraryViewController(pixabayBrowserContent)
     lazy var onlineImages: WallpaperLibraryOnlineImages = {
         let value = WallpaperLibraryOnlineImages(workspace: workspace, commands: commands, inspector: inspector)
+        value.opensDetailsOnSingleClick = { [weak self] in self?.manager.settings.libraryCardClickAction == .openDetails }
         value.isPlaying = { [weak self] in self?.cardState?.isPlaying($0) == true }
         value.isSwitching = { [weak self] in self?.cardState?.isSwitching($0) == true }
         return value
     }()
-    private lazy var artwork = WallpaperLibraryArtworkProvider(manager: manager, images: images, steam: steam, online: online)
+    private lazy var artwork = WallpaperLibraryArtworkProvider(manager: manager, images: images, steam: steam, pixabay: pixabay)
 
     init(workspace: WallpaperLibraryWorkspace, manager: WallpaperManager, images: SILService,
-         steam: SteamWorkshopService, online: OnlineLibraryService) {
-        self.workspace = workspace; self.manager = manager; self.images = images; self.steam = steam; self.online = online
+         steam: SteamWorkshopService, pixabay: PixabayService) {
+        self.workspace = workspace; self.manager = manager; self.images = images; self.steam = steam; self.pixabay = pixabay
     }
 
     var canDeleteSelectedPlaylist: Bool {
@@ -226,6 +227,10 @@ import Combine
         let permitsPullCountInput = { [weak self] in self?.permitsInput == true }
         grid.scrollView.permitsPullCountInput = permitsPullCountInput
         directory.permitsPullCountInput = permitsPullCountInput
+        sidebar.makeRecentMenu = { [weak self] in
+            guard let self, self.permitsInput else { return nil }
+            return self.commands.makeRecentMenu(for: .recent)
+        }
         commands.playlists?.coverPreview = { [weak self] id in
             guard let cover = self?.covers[id], !cover.isCustom else { return nil }
             return cover.image
@@ -250,7 +255,7 @@ import Combine
         grid.onClipWidthChange = { [weak self] _ in self?.onGridLayoutChanged?() }
         directory.onClipWidthChange = { [weak self] _ in self?.onGridLayoutChanged?() }
         steamBrowserContent.onClipWidthChange = { [weak self] _ in self?.onGridLayoutChanged?() }
-        onlineBrowserContent.onClipWidthChange = { [weak self] _ in self?.onGridLayoutChanged?() }
+        pixabayBrowserContent.onClipWidthChange = { [weak self] _ in self?.onGridLayoutChanged?() }
         sidebar.onReorder = { [weak self] ids, completion in
             self?.reorderPlaylists(ids, completion: completion) ?? completion(.failure(UserCollectionsError.staleResetEpoch))
         }
@@ -290,6 +295,7 @@ import Combine
             guard model.setSelection(refs, focused: focus, isSelecting: model.selectionState.isSelecting) else { return nil }
             return model.selectionState.sessionID
         }
+        grid.opensDetailsOnSingleClick = { [weak self] in self?.manager.settings.libraryCardClickAction == .openDetails }
         grid.onInspect = { [weak self] content in
             guard let self, self.permitsInput else { return }
             self.inspector.inspect(content: content)
@@ -326,23 +332,14 @@ import Combine
         split.onRestoreContentFocus = { [weak self] in self?.restoreContentFocus() }
     }
 
-    func navigate(to page: WallpaperLibraryPage, preservingSteamContext: Bool = false) {
+    func navigate(to page: WallpaperLibraryPage) {
         directoryReturnContext = nil
-        navigatePage(to: page, preservingSteamContext: preservingSteamContext)
+        navigatePage(to: page)
     }
 
-    private func navigatePage(to page: WallpaperLibraryPage, preservingSteamContext: Bool = false) {
-        if page == .workshop, !preservingSteamContext {
-            let exitingSubpage = steam.canReturnFromBrowse
-            if steam.isBrowsingAuthorWorkshop { steam.returnToDiscoveryBrowse(selectOrigin: false) }
-            // Reselecting an ordinary browser must not reset its current
-            // search/facets or reissue entry work. The author subpage is an
-            // explicit exception because it shares Workshop's sidebar row.
-            if page == workspace.presentation.page, !exitingSubpage { return }
-            steam.pendingDownloadsScrollRestoreOffsetY = nil
-            steam.enterBrowseSection(.discovery)
-            steam.prepareForBrowserEntry()
-        }
+    private func navigatePage(to page: WallpaperLibraryPage) {
+        // The source retains its author/personal context and scroll receipt.
+        // Returning to discovery is the explicit toolbar Back action.
         if page == workspace.presentation.page, !page.isRemoteBrowse, page != .playlists {
             grid.scrollToTop()
             return
@@ -382,7 +379,7 @@ import Combine
         case "staticImageLibrary": page = .images
         default: return
         }
-        navigate(to: page, preservingSteamContext: note.userInfo?["preserveSteamBrowseContext"] as? Bool == true)
+        navigate(to: page)
     }
 
     private func render() {
@@ -401,7 +398,7 @@ import Combine
             ticket: manager.playbackSwitch.committed?.ticket,
             pendingReference: pending?.proposal.entry.reference, pendingSequenceTicket: pending?.ticket,
             pendingRuntimeTicket: manager.playbackSwitch.pending?.selection.ticket, canEdit: commands.canOrganize,
-            recoveryNotice: workspace.recoveryMessage, operationError: state.lastError, visible: isVisible)
+            recoveryNotice: workspace.recoveryMessage, operationError: state.lastError, operationErrorEvent: state.lastErrorEvent, visible: isVisible)
         // A scroll anchor is a receipt from the already-scrolled native view.
         // Its echo persists the anchor without rebuilding every visible card.
         guard signature != lastRenderSignature else { return }
@@ -414,10 +411,6 @@ import Combine
         configureFileDrop(for: state.page)
         let entering = state.page != lastPage || didReset
         if entering {
-            if lastPage == nil, state.page == .workshop {
-                steam.enterBrowseSection(.discovery)
-                steam.prepareForBrowserEntry()
-            }
             inspector.closeInspector(); inspector.closePreview()
             NotificationCenter.default.post(name: .inspectorHostCloseRequested, object: nil)
             lastPage = state.page
@@ -451,11 +444,11 @@ import Combine
                 bindTint(browser.listThumbnailTintSource)
                 return
             }
-            if state.page == .pixabay { onlineBrowserContent.preferredColumns = state.query.preferredColumns }
+            if state.page == .pixabay { pixabayBrowserContent.preferredColumns = state.query.preferredColumns }
             else { steamBrowserContent.preferredColumns = state.query.preferredColumns }
-            let browser = state.page == .pixabay ? onlineBrowser : steamBrowser
+            let browser = state.page == .pixabay ? pixabayBrowser : steamBrowser
             detail.present(browser)
-            if state.page == .pixabay { onlineBrowserContent.refreshOrganization() }
+            if state.page == .pixabay { pixabayBrowserContent.refreshOrganization() }
             else { steamBrowserContent.refreshLibraryActions() }
             bindTint(ListThumbnailTintSource.mounted(in: browser.view))
             return
@@ -558,7 +551,7 @@ import Combine
         }
     }
 
-    private func onlineOrganization(for item: OnlineLibraryVideoItem) -> WallpaperInspectorActions? {
+    private func pixabayOrganization(for item: PixabayVideoItem) -> WallpaperInspectorActions? {
         guard workspace.presentation.page == .pixabay else { return nil }
         let provider = WallpaperReference(provider: .pixabay, sourceID: String(item.id))
         guard let content = downloadedContent[provider], content.publishedAvailability.isPublishedLocally, let cardState else { return nil }
@@ -631,12 +624,74 @@ import Combine
         return menu
     }
 
+    private var selectedBrowserReference: WallpaperReference? {
+        switch workspace.presentation.page {
+        case .workshop: return steamBrowserContent.selectedItem.map { .init(provider: .steamWorkshop, sourceID: $0.id) }
+        case .pixabay: return pixabayBrowserContent.selectedItem.map { .init(provider: .pixabay, sourceID: String($0.id)) }
+        case .wallhaven, .pixiv: return onlineImages.selectedContent?.reference
+        default: return nil
+        }
+    }
+    private func bindSelectedBrowserAction(_ action: @escaping () -> Void) -> (() -> Void)? {
+        guard let reference = selectedBrowserReference else { return nil }
+        let page = workspace.presentation.page, epoch = workspace.relationships.resetEpoch, navigation = steam.navigationVersion
+        return { [weak self] in
+            guard let self, self.isVisible, self.permitsInput, self.workspace.presentation.page == page,
+                  self.workspace.relationships.resetEpoch == epoch, self.selectedBrowserReference == reference,
+                  page != .workshop || self.steam.navigationVersion == navigation else { return }
+            action()
+        }
+    }
+    func selectedBrowserPrimaryAction() -> (title: String, action: () -> Void)? {
+        let title: String, action: () -> Void
+        switch workspace.presentation.page {
+        case .workshop:
+            guard let primary = steamBrowserContent.selectedPrimaryAction, let reference = selectedBrowserReference else { return nil }
+            title = workspace.isPlaying(reference) ? "停止播放" : steam.downloadProgressStore.snapshot(for: reference.sourceID)?.phase == .failed
+                ? "重试下载" : downloadedContent[reference]?.publishedAvailability.isPublishedLocally == true ? "设为壁纸" : "下载壁纸"
+            action = primary
+        case .pixabay:
+            guard let primary = pixabayBrowserContent.selectedPrimaryAction, let reference = selectedBrowserReference else { return nil }
+            title = workspace.isPlaying(reference) ? "停止播放" : downloadedContent[reference]?.publishedAvailability.isPublishedLocally == true ? "设为壁纸" : "下载视频"
+            action = primary
+        default:
+            guard let primary = onlineImages.selectedPrimaryAction() else { return nil }
+            title = primary.title; action = primary.action
+        }
+        return bindSelectedBrowserAction(action).map { (title, $0) }
+    }
+    func selectedBrowserInfoAction() -> (() -> Void)? {
+        switch workspace.presentation.page {
+        case .workshop: return bindSelectedBrowserAction { [weak self] in _ = self?.steamBrowserContent.inspectSelectedItem() }
+        case .pixabay: return bindSelectedBrowserAction { [weak self] in _ = self?.pixabayBrowserContent.inspectSelectedItem() }
+        case .wallhaven, .pixiv: return bindSelectedBrowserAction { [weak self] in self?.onlineImages.inspectSelected() }
+        default: return nil
+        }
+    }
+    func selectedBrowserPreviewAction() -> (() -> Void)? {
+        guard onlineImages.selectedContent?.capabilities.contains(.quickLook) == true else { return nil }
+        return bindSelectedBrowserAction { [weak self] in self?.onlineImages.previewSelected() }
+    }
     func selectedBrowserOrganizationActions() -> WallpaperInspectorActions? {
         if workspace.presentation.page == .wallhaven || workspace.presentation.page == .pixiv {
             return onlineImages.selectedOrganizationActions()
         }
-        guard let item = steam.selectedBrowserItem else { return nil }
-        return remoteInspectorActions(for: item)
+        let actions: WallpaperInspectorActions?
+        switch workspace.presentation.page {
+        case .workshop: actions = steamBrowserContent.selectedItem.flatMap { remoteInspectorActions(for: $0, requiresInspectedItem: false) }
+        case .pixabay: actions = pixabayBrowserContent.selectedItem.flatMap { pixabayOrganization(for: $0) }
+        default: actions = nil
+        }
+        guard let actions, let reference = selectedBrowserReference else { return nil }
+        // Source actions already own page/epoch/ticket checks. Only the grid
+        // identity is added here; an Inspector's selection is a different slot.
+        return .init(state: actions.state, onPrimary: actions.onPrimary, onToggleFavorite: { [weak self] in
+            guard self?.selectedBrowserReference == reference else { return }
+            actions.onToggleFavorite()
+        }, onChoosePlaylist: { [weak self] anchor in
+            guard self?.selectedBrowserReference == reference else { return }
+            actions.onChoosePlaylist(anchor)
+        })
     }
 
     private func acceptsRemoteAction(page: WallpaperLibraryPage, epoch: UUID, sessionID: UUID, selectedID: String? = nil, navigationVersion: Int? = nil) -> Bool {
@@ -662,14 +717,15 @@ import Combine
         }
     }
 
-    private func remoteInspectorActions(for item: SteamWorkshopBrowserItem) -> WallpaperInspectorActions? {
+    private func remoteInspectorActions(for item: SteamWorkshopBrowserItem, requiresInspectedItem: Bool = true) -> WallpaperInspectorActions? {
         guard workspace.presentation.page == .workshop else { return nil }
         let provider = WallpaperReference(provider: .steamWorkshop, sourceID: item.id)
         guard let content = downloadedContent[provider], content.publishedAvailability.isPublishedLocally, let cardState else { return nil }
         let page = workspace.presentation.page, epoch = workspace.relationships.resetEpoch
         let sessionID = workspace.presentation.selectionState.sessionID
         let navigationVersion = steam.navigationVersion
-        let primary = remotePrimaryAction(content, page: page, epoch: epoch, sessionID: sessionID, selectedID: item.id, navigationVersion: navigationVersion)
+        let selectedID = requiresInspectedItem ? item.id : nil
+        let primary = remotePrimaryAction(content, page: page, epoch: epoch, sessionID: sessionID, selectedID: selectedID, navigationVersion: navigationVersion)
         let favorite = makeCardFavoriteAction(content)
         return .init(state: .init(isPlaying: cardState.isPlaying(content.reference),
             isSwitching: cardState.isSwitching(content.reference), isFavorite: cardState.isFavorite(content.reference),
@@ -677,10 +733,10 @@ import Combine
             canOrganize: commands.canOrganize && content.capabilities.contains(.organize),
             playlistNames: playlistNames[cardState.canonical(content.reference)] ?? []), onPrimary: { primary?() },
             onToggleFavorite: { [weak self] in
-                guard let self, self.acceptsRemoteAction(page: page, epoch: epoch, sessionID: sessionID, selectedID: item.id, navigationVersion: navigationVersion) else { return }
+                guard let self, self.acceptsRemoteAction(page: page, epoch: epoch, sessionID: sessionID, selectedID: selectedID, navigationVersion: navigationVersion) else { return }
                 favorite?()
             }, onChoosePlaylist: { [weak self] anchor in
-                guard let self, self.acceptsRemoteAction(page: page, epoch: epoch, sessionID: sessionID, selectedID: item.id, navigationVersion: navigationVersion) else { return }
+                guard let self, self.acceptsRemoteAction(page: page, epoch: epoch, sessionID: sessionID, selectedID: selectedID, navigationVersion: navigationVersion) else { return }
                 self.commands.choosePlaylist([content.reference], anchor: anchor)
             })
     }
@@ -742,7 +798,8 @@ import Combine
                 perform(self)
             })
         }
-        let filtered = !state.query.search.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty || state.query.provider != nil || state.query.kind != nil || state.query.status != .all
+        let filtered = !state.query.search.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty || state.query.provider != nil
+            || state.query.kind != nil || state.query.status != .all || (page == .downloads && !state.query.showsAdultContent)
         var message: String?, actions: [(String, () -> Void)] = []
         var notices = [workspace.recoveryMessage, state.lastError].compactMap { $0 }.filter { !$0.isEmpty }
         var noticeActions: [(String, () -> Void)] = []
@@ -783,7 +840,7 @@ import Combine
             case .failed(let reason):
                 scanFailed = true
                 notices.append((scan.hasSuccessfulScan ? "刷新失败，保留现有内容。" : "") + reason)
-                noticeActions.append(action("重试载入") { $0.online.refreshDownloadedContent() })
+                noticeActions.append(action("重试载入") { $0.pixabay.refreshDownloadedContent() })
             }
         }
         if let provider = dependencies.first(where: { $0 == .wallhaven || $0 == .pixiv }),
@@ -816,36 +873,30 @@ import Combine
                 actions = [action("清除筛选") { composition in
                     var query = composition.workspace.presentation.queryState
                     query.search = ""; query.provider = nil; query.kind = nil; query.status = .all
+                    if page == .downloads { query.showsAdultContent = true }
                     _ = composition.workspace.presentation.setQueryState(query)
                 }]
             } else {
                 switch state.page {
                 case .videos, .images:
                     message = state.page == .images ? "导入图片，建立你的壁纸资料库" : "导入视频，建立你的壁纸资料库"
-                    if commands.canImport {
-                        actions = [action(state.page == .images ? "导入图片" : "导入视频") { composition in
-                            guard composition.commands.canImport else { return }
-                            composition.commands.importFiles()
-                        }]
-                    }
                 case .downloads:
                     message = "下载的壁纸将显示在这里"
-                    actions = [action("浏览创意工坊") { $0.navigate(to: .workshop) }, action("浏览 Pixabay") { $0.navigate(to: .pixabay) }]
                 case .recent: message = "播放过的壁纸将显示在这里"
-                case .favorites: message = "点击壁纸上的心形加入特别喜爱"
+                case .favorites: message = "标记为特别喜爱的壁纸将显示在这里"
                 case .playlist:
                     message = "从顶部添加壁纸，开始建立这个播放列表"
                 default: break
                 }
             }
         }
-        chrome.update(notices: notices, empty: message, noticeActions: noticeActions, actions: actions)
+        chrome.update(notices: notices, empty: message, noticeActions: noticeActions, actions: actions, errorEvent: state.lastErrorEvent)
     }
 
     private func publishRemoteMode(_ page: WallpaperLibraryPage) {
         NotificationCenter.default.post(name: .steamWorkshopModeDidChange, object: nil,
-            userInfo: ["enabled": page == .workshop || page == .downloads, "isDownloads": page == .downloads])
-        NotificationCenter.default.post(name: .onlineLibraryModeDidChange, object: nil, userInfo: ["enabled": page == .pixabay, "isDownloads": false])
+            userInfo: ["enabled": page == .workshop])
+        NotificationCenter.default.post(name: .pixabayModeDidChange, object: nil, userInfo: ["enabled": page == .pixabay])
         NotificationCenter.default.post(name: .staticImageLibraryModeDidChange, object: nil, userInfo: ["enabled": false])
     }
 
@@ -868,7 +919,7 @@ import Combine
     private func showPicker(for id: UUID) {
         guard permitsInput, commands.canOrganize, picker == nil else { return }
         let picker = WallpaperPlaylistPickerController(workspace: workspace, manager: manager, images: images, steam: steam,
-            online: online, target: id, hostWindow: { [weak self] in self?.split.view.window })
+            pixabay: pixabay, target: id, hostWindow: { [weak self] in self?.split.view.window })
         self.picker = picker
         picker.onClose = { [weak self] in self?.picker = nil }
         inspector.closePreview()

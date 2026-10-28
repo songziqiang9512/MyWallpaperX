@@ -58,8 +58,8 @@ nonisolated final class ThumbnailCacheRequestCancellation: @unchecked Sendable {
     func cancel() { lock.lock(); isCancelled = true; lock.unlock() }
 }
 
-@MainActor final class OLThumbnailCache {
-    static let shared = OLThumbnailCache()
+@MainActor final class OnlineImageThumbnailCache {
+    static let shared = OnlineImageThumbnailCache()
     struct Pending {
         let url: URL
         let pixels: Int
@@ -87,11 +87,11 @@ nonisolated final class ThumbnailCacheRequestCancellation: @unchecked Sendable {
         decoded[data]
     }
 
-    func image(for url: URL, maxPixelSize: Int, priority: OLThumbnailRequestPriority) async -> NSImage? {
+    func image(for url: URL, maxPixelSize: Int, priority: OnlineImageThumbnailRequestPriority) async -> NSImage? {
         let generation = await publicationGeneration()
         if let image = await cachedImage(for: url, maxPixelSize: maxPixelSize) { return image }
         guard !Task.isCancelled,
-              let data = await OLThumbnailRequestCoordinator.shared.loadData(from: url, priority: priority),
+              let data = await OnlineImageThumbnailRequestCoordinator.shared.loadData(from: url, priority: priority),
               !Task.isCancelled else { return nil }
         return await storeAndDecode(data: data, for: url, maxPixelSize: maxPixelSize, generation: generation)
     }
@@ -104,10 +104,26 @@ nonisolated final class ThumbnailCacheRequestCancellation: @unchecked Sendable {
     }
 }
 
-enum OLThumbnailRequestPriority { case visible, prefetch }
+// These leaves are never reached by the bar-binding scenario (nil request,
+// remote content). Any accidental media/network work remains a hard failure.
+struct OnlineImageThumbnailRequest { let cacheURL: URL; let scopeID: String? }
+enum SILThumbnailLoadResult { case image(NSImage), unavailable }
+@MainActor final class SILThumbnailProvider {
+    func load(path: String, cancellation: ThumbnailCacheRequestCancellation, completion: @escaping (SILThumbnailLoadResult) -> Void) {
+        preconditionFailure("bar binding must not read local media")
+    }
+}
+extension OnlineImageThumbnailCache {
+    func readyImage(for request: OnlineImageThumbnailRequest, maxPixelSize: Int) -> NSImage? { preconditionFailure("bar binding must not load a thumbnail") }
+    func image(for request: OnlineImageThumbnailRequest, maxPixelSize: Int, priority: OnlineImageThumbnailRequestPriority) async -> NSImage? {
+        preconditionFailure("bar binding must not start a remote request")
+    }
+}
 
-@MainActor final class OLThumbnailRequestCoordinator {
-    static let shared = OLThumbnailRequestCoordinator()
+enum OnlineImageThumbnailRequestPriority { case visible, prefetch }
+
+@MainActor final class OnlineImageThumbnailRequestCoordinator {
+    static let shared = OnlineImageThumbnailRequestCoordinator()
     struct Pending {
         let url: URL
         let continuation: CheckedContinuation<Data?, Never>
@@ -117,7 +133,7 @@ enum OLThumbnailRequestPriority { case visible, prefetch }
     var returned: Set<Int> = []
     private var nextID = 0
 
-    func loadData(from url: URL, priority: OLThumbnailRequestPriority) async -> Data? {
+    func loadData(from url: URL, priority: OnlineImageThumbnailRequestPriority) async -> Data? {
         var ticket = 0
         let result: Data? = await withCheckedContinuation { continuation in
             nextID += 1
@@ -209,22 +225,22 @@ func samePoint(_ lhs: NSPoint, _ rhs: NSPoint) -> Bool { close(lhs.x, rhs.x) && 
 
 @MainActor func browserModel(_ id: Int, tags: String = "forest", duration: Int = 11,
                              thumbnail: String? = "a", bytes: Int = 1_048_576,
-                             width: Int = 1920) -> OnlineLibraryVideoItem {
-    let file = OnlineLibraryVideoFile(url: "https://fixture.invalid/video/\(id)",
+                             width: Int = 1920) -> PixabayVideoItem {
+    let file = PixabayVideoFile(url: "https://fixture.invalid/video/\(id)",
         width: width, height: 1080, size: bytes,
         thumbnail: thumbnail.map { "https://fixture.invalid/\($0).jpg" } ?? "")
-    return OnlineLibraryVideoItem(id: id, pageURL: "https://fixture.invalid/page/\(id)/\(duration)",
+    return PixabayVideoItem(id: id, pageURL: "https://fixture.invalid/page/\(id)/\(duration)",
         tags: tags, duration: duration, user: "fixture",
-        videos: OnlineLibraryVideoFiles(large: nil, medium: file, small: nil, tiny: nil))
+        videos: PixabayVideoFiles(large: nil, medium: file, small: nil, tiny: nil))
 }
 
 @MainActor func downloadModel(_ id: Int, name: String = "forest.mp4", bytes: Int = 1_048_576,
-                              duration: Int? = 11, resolution: String? = "1920×1080") -> OLDownloadedEntry {
-    OLDownloadedEntry(id: id, localURL: URL(fileURLWithPath: "/fixture/\(name)"),
+                              duration: Int? = 11, resolution: String? = "1920×1080") -> PixabayDownloadedEntry {
+    PixabayDownloadedEntry(id: id, localURL: URL(fileURLWithPath: "/fixture/\(name)"),
                       fileSize: bytes, duration: duration, resolutionString: resolution)
 }
 
-@MainActor func configure(_ card: AppKitOLBrowserItem, _ item: OnlineLibraryVideoItem,
+@MainActor func configure(_ card: AppKitPixabayBrowserItem, _ item: PixabayVideoItem,
                           downloading: Bool = false, downloaded: Bool = false) {
     card.configure(item: item, isDownloading: downloading, isDownloaded: downloaded,
         downloadProgress: downloading ? 0.7 : nil, onDownload: {}, onSetAsWallpaper: {})
@@ -272,11 +288,11 @@ func samePoint(_ lhs: NSPoint, _ rhs: NSPoint) -> Bool { close(lhs.x, rhs.x) && 
         collection.dataSource = self
         switch kind {
         case .browser:
-            collection.register(AppKitOLBrowserItem.self,
-                forItemWithIdentifier: AppKitOLBrowserItem.reuseIdentifier)
+            collection.register(AppKitPixabayBrowserItem.self,
+                forItemWithIdentifier: AppKitPixabayBrowserItem.reuseIdentifier)
         case .downloads:
-            collection.register(AppKitOLDownloadsItem.self,
-                forItemWithIdentifier: AppKitOLDownloadsItem.reuseIdentifier)
+            collection.register(AppKitPixabayDownloadsItem.self,
+                forItemWithIdentifier: AppKitPixabayDownloadsItem.reuseIdentifier)
         }
         scroll.documentView = collection
         window.contentView = scroll
@@ -298,15 +314,15 @@ func samePoint(_ lhs: NSPoint, _ rhs: NSPoint) -> Bool { close(lhs.x, rhs.x) && 
         let wasPrepared: Bool
         switch kind {
         case .browser:
-            let card = collectionView.makeItem(withIdentifier: AppKitOLBrowserItem.reuseIdentifier,
-                for: indexPath) as! AppKitOLBrowserItem
+            let card = collectionView.makeItem(withIdentifier: AppKitPixabayBrowserItem.reuseIdentifier,
+                for: indexPath) as! AppKitPixabayBrowserItem
             _ = card.view
             wasPrepared = card.currentItemID == -1 && card.presentedItem == nil && card.thumbnailView.image == nil
             configure(card, browserModel(10_000 + indexPath.item, thumbnail: nil))
             item = card
         case .downloads:
-            let card = collectionView.makeItem(withIdentifier: AppKitOLDownloadsItem.reuseIdentifier,
-                for: indexPath) as! AppKitOLDownloadsItem
+            let card = collectionView.makeItem(withIdentifier: AppKitPixabayDownloadsItem.reuseIdentifier,
+                for: indexPath) as! AppKitPixabayDownloadsItem
             _ = card.view
             wasPrepared = card.currentEntryID == -1 && card.presentedEntry == nil && card.thumbnailView.image == nil
             card.configure(entry: downloadModel(10_000 + indexPath.item, name: "pool-\(indexPath.item).mp4"),
@@ -347,18 +363,18 @@ func samePoint(_ lhs: NSPoint, _ rhs: NSPoint) -> Bool { close(lhs.x, rhs.x) && 
 }
 
 @MainActor func isHovering(_ item: NSCollectionViewItem) -> Bool {
-    if let card = item as? AppKitOLBrowserItem { return card.isHovering }
-    if let card = item as? AppKitOLDownloadsItem { return card.isHovering }
+    if let card = item as? AppKitPixabayBrowserItem { return card.isHovering }
+    if let card = item as? AppKitPixabayDownloadsItem { return card.isHovering }
     preconditionFailure("unexpected real card type")
 }
 
 @MainActor func idleHoverPresentation(_ item: NSCollectionViewItem) -> Bool {
-    if let card = item as? AppKitOLBrowserItem {
+    if let card = item as? AppKitPixabayBrowserItem {
         return !card.isHovering && !card.hoverVisible && close(card.controlBar.alphaValue, 0)
             && card.controlBar.superview == nil
             && card.imageContainer.layer.map({ CATransform3DIsIdentity($0.transform) }) == true
     }
-    if let card = item as? AppKitOLDownloadsItem {
+    if let card = item as? AppKitPixabayDownloadsItem {
         return !card.isHovering && close(card.controlBar?.alphaValue ?? 0, 0)
             && card.controlBar?.superview == nil && card.imageContainer.layer.map({ CATransform3DIsIdentity($0.transform) }) == true
     }
@@ -366,8 +382,8 @@ func samePoint(_ lhs: NSPoint, _ rhs: NSPoint) -> Bool { close(lhs.x, rhs.x) && 
 }
 
 @MainActor func imageRect(_ item: NSCollectionViewItem) -> NSRect {
-    if let card = item as? AppKitOLBrowserItem { return card.imageContainer.frame }
-    if let card = item as? AppKitOLDownloadsItem { return card.imageContainer.frame }
+    if let card = item as? AppKitPixabayBrowserItem { return card.imageContainer.frame }
+    if let card = item as? AppKitPixabayDownloadsItem { return card.imageContainer.frame }
     preconditionFailure("unexpected real card type")
 }
 
@@ -468,8 +484,8 @@ func samePoint(_ lhs: NSPoint, _ rhs: NSPoint) -> Bool { close(lhs.x, rhs.x) && 
 @MainActor func backingScaleRequests(_ facts: Facts) {
     let host = CardHost(.browser, count: 5)
     defer { host.finish() }
-    guard let card = host.first() as? AppKitOLBrowserItem else { facts.expect("registered-browser", false); return }
-    let cache = OLThumbnailCache.shared
+    guard let card = host.first() as? AppKitPixabayBrowserItem else { facts.expect("registered-browser", false); return }
+    let cache = OnlineImageThumbnailCache.shared
     let model = browserModel(71, thumbnail: "backing-scale")
     let before = Set(cache.pending.keys)
     configure(card, model)
@@ -516,10 +532,10 @@ func samePoint(_ lhs: NSPoint, _ rhs: NSPoint) -> Bool { close(lhs.x, rhs.x) && 
         && card.view.bounds.size == size && card.thumbnailView.image === large)
 }
 
-@MainActor func browserNetworkTicket(_ card: AppKitOLBrowserItem, _ model: OnlineLibraryVideoItem,
+@MainActor func browserNetworkTicket(_ card: AppKitPixabayBrowserItem, _ model: PixabayVideoItem,
                                     _ facts: Facts, _ name: String) -> Int? {
-    let cache = OLThumbnailCache.shared
-    let network = OLThumbnailRequestCoordinator.shared
+    let cache = OnlineImageThumbnailCache.shared
+    let network = OnlineImageThumbnailRequestCoordinator.shared
     let previousCache = Set(cache.pending.keys)
     let previousNetwork = Set(network.pending.keys)
     configure(card, model)
@@ -538,7 +554,7 @@ func samePoint(_ lhs: NSPoint, _ rhs: NSPoint) -> Bool { close(lhs.x, rhs.x) && 
         let host = CardHost(kind, count: 48)
         defer { host.finish() }
         facts.expect(label + ".real-registered-class", kind == .browser
-            ? host.first() is AppKitOLBrowserItem : host.first() is AppKitOLDownloadsItem)
+            ? host.first() is AppKitPixabayBrowserItem : host.first() is AppKitPixabayDownloadsItem)
         for index in stride(from: 0, through: 46, by: 2) {
             host.scrollTo(index)
         }
@@ -561,7 +577,7 @@ func samePoint(_ lhs: NSPoint, _ rhs: NSPoint) -> Bool { close(lhs.x, rhs.x) && 
 @MainActor func browserReplies(_ facts: Facts) {
     let host = CardHost(.browser)
     defer { host.finish() }
-    guard let card = host.first() as? AppKitOLBrowserItem else {
+    guard let card = host.first() as? AppKitPixabayBrowserItem else {
         facts.expect("registered-browser", false); return
     }
     let observed = SpinnerObservation.exchange()
@@ -570,8 +586,8 @@ func samePoint(_ lhs: NSPoint, _ rhs: NSPoint) -> Bool { close(lhs.x, rhs.x) && 
     defer { _ = SpinnerObservation.exchange() }
     let oldImage = image(1), newImage = image(2)
     let oldData = Data([0xA1]), newData = Data([0xA2])
-    OLThumbnailCache.shared.decoded[oldData] = oldImage
-    OLThumbnailCache.shared.decoded[newData] = newImage
+    OnlineImageThumbnailCache.shared.decoded[oldData] = oldImage
+    OnlineImageThumbnailCache.shared.decoded[newData] = newImage
     for (reuseBetween, staleSucceeds) in [(false, false), (false, true), (true, false), (true, true)] {
         let label = (reuseBetween ? "reuse." : "reconfigure.") + (staleSucceeds ? "old-success" : "old-failure")
         card.prepareForReuse()
@@ -584,19 +600,19 @@ func samePoint(_ lhs: NSPoint, _ rhs: NSPoint) -> Bool { close(lhs.x, rhs.x) && 
         facts.expect(label + ".A-B-A-has-new-request", firstGeneration != card.thumbnailRequestID)
         facts.expect(label + ".long-loading-reveals-placeholder", waitUntil { !card.placeholderView.isHidden })
         let stopsBefore = SpinnerObservation.count(card.spinner)
-        OLThumbnailRequestCoordinator.shared.deliver(oldA, data: staleSucceeds ? oldData : nil)
-        facts.expect(label + ".old-A-delivered", waitUntil { OLThumbnailRequestCoordinator.shared.returned.contains(oldA) })
+        OnlineImageThumbnailRequestCoordinator.shared.deliver(oldA, data: staleSucceeds ? oldData : nil)
+        facts.expect(label + ".old-A-delivered", waitUntil { OnlineImageThumbnailRequestCoordinator.shared.returned.contains(oldA) })
         pump(0.06)
         facts.expect(label + ".old-A-cannot-replace-new-A-image", card.thumbnailView.image == nil)
         facts.expect(label + ".old-A-cannot-hide-new-A-placeholder", !card.placeholderView.isHidden)
         facts.expect(label + ".old-A-cannot-stop-new-A-spinner", SpinnerObservation.count(card.spinner) == stopsBefore)
-        OLThumbnailRequestCoordinator.shared.deliver(newA, data: newData)
+        OnlineImageThumbnailRequestCoordinator.shared.deliver(newA, data: newData)
         let delivered = waitUntil { card.thumbnailView.image === newImage }
         facts.expect(label + ".current-A-success-is-not-suppressed", delivered && card.placeholderView.isHidden)
         facts.expect(label + ".current-A-stops-own-spinner", SpinnerObservation.count(card.spinner) == stopsBefore + 1)
         let currentStops = SpinnerObservation.count(card.spinner)
-        OLThumbnailRequestCoordinator.shared.deliver(oldB, data: staleSucceeds ? oldData : nil)
-        facts.expect(label + ".old-B-delivered", waitUntil { OLThumbnailRequestCoordinator.shared.returned.contains(oldB) })
+        OnlineImageThumbnailRequestCoordinator.shared.deliver(oldB, data: staleSucceeds ? oldData : nil)
+        facts.expect(label + ".old-B-delivered", waitUntil { OnlineImageThumbnailRequestCoordinator.shared.returned.contains(oldB) })
         pump(0.06)
         facts.expect(label + ".late-B-cannot-change-current-A", card.thumbnailView.image === newImage
             && card.placeholderView.isHidden && SpinnerObservation.count(card.spinner) == currentStops)
@@ -606,10 +622,10 @@ func samePoint(_ lhs: NSPoint, _ rhs: NSPoint) -> Bool { close(lhs.x, rhs.x) && 
 @MainActor func downloadsReplies(_ facts: Facts) {
     let host = CardHost(.downloads)
     defer { host.finish() }
-    guard let card = host.first() as? AppKitOLDownloadsItem else {
+    guard let card = host.first() as? AppKitPixabayDownloadsItem else {
         facts.expect("registered-downloads", false); return
     }
-    let transport = OLDownloadedThumbnailStore.sharedCache
+    let transport = PixabayDownloadedThumbnailStore.sharedCache
     let oldImage = image(3), newImage = image(4)
     for (reuseBetween, staleSucceeds) in [(false, false), (false, true), (true, false), (true, true)] {
         for memoryHit in [false, true] {
@@ -629,7 +645,7 @@ func samePoint(_ lhs: NSPoint, _ rhs: NSPoint) -> Bool { close(lhs.x, rhs.x) && 
             precondition(waitUntil { transport.history.count == beforeB + 1 })
             let oldB = transport.history.last!.0
             if reuseBetween { card.prepareForReuse() }
-            if memoryHit { transport.cached[OLDownloadedThumbnailStore.cacheKey(for: a.localURL)] = newImage }
+            if memoryHit { transport.cached[PixabayDownloadedThumbnailStore.cacheKey(for: a.localURL)] = newImage }
             let countBefore = transport.history.count
             card.configure(entry: a, isSelected: true, isMultiSelectMode: true, isPlaying: true)
             precondition(waitUntil { memoryHit ? card.thumbnailView.image === newImage : transport.history.count == countBefore + 1 })
@@ -657,8 +673,8 @@ func samePoint(_ lhs: NSPoint, _ rhs: NSPoint) -> Bool { close(lhs.x, rhs.x) && 
 @MainActor func visibilityRequests(_ facts: Facts) {
     let host = CardHost(.browser)
     defer { host.finish() }
-    guard let card = host.first() as? AppKitOLBrowserItem else { facts.expect("browser-mounted", false); return }
-    let cache = OLThumbnailCache.shared
+    guard let card = host.first() as? AppKitPixabayBrowserItem else { facts.expect("browser-mounted", false); return }
+    let cache = OnlineImageThumbnailCache.shared
     card.prepareForReuse()
     var before = Set(cache.pending.keys)
     configure(card, browserModel(1201, thumbnail: "unfinished"), downloaded: false)
@@ -680,7 +696,7 @@ func samePoint(_ lhs: NSPoint, _ rhs: NSPoint) -> Bool { close(lhs.x, rhs.x) && 
 
     card.prepareForReuse()
     guard let networkTicket = browserNetworkTicket(card, browserModel(1202, thumbnail: "terminal-bad"), facts, "failed") else { return }
-    OLThumbnailRequestCoordinator.shared.deliver(networkTicket, data: nil)
+    OnlineImageThumbnailRequestCoordinator.shared.deliver(networkTicket, data: nil)
     facts.expect("terminal-failure-recorded", waitUntil { card.terminalThumbnailFailureGeneration != nil })
     let terminalCount = cache.history.count
     card.endDisplayingThumbnail(); card.beginDisplayingThumbnail(); pump(0.03)
@@ -701,8 +717,8 @@ func samePoint(_ lhs: NSPoint, _ rhs: NSPoint) -> Bool { close(lhs.x, rhs.x) && 
 
     let downloadHost = CardHost(.downloads)
     defer { downloadHost.finish() }
-    guard let download = downloadHost.first() as? AppKitOLDownloadsItem else { facts.expect("downloads-mounted", false); return }
-    let transport = OLDownloadedThumbnailStore.sharedCache
+    guard let download = downloadHost.first() as? AppKitPixabayDownloadsItem else { facts.expect("downloads-mounted", false); return }
+    let transport = PixabayDownloadedThumbnailStore.sharedCache
     download.prepareForReuse()
     let beforeUnfinished = transport.history.count
     download.configure(entry: downloadModel(1203, name: "unfinished.mp4"), isSelected: true, isMultiSelectMode: false, isPlaying: true)
@@ -734,9 +750,9 @@ func samePoint(_ lhs: NSPoint, _ rhs: NSPoint) -> Bool { close(lhs.x, rhs.x) && 
 @MainActor func loadingDelay(_ facts: Facts) {
     let browserHost = CardHost(.browser)
     defer { browserHost.finish() }
-    guard let browser = browserHost.first() as? AppKitOLBrowserItem else { facts.expect("browser-mounted", false); return }
+    guard let browser = browserHost.first() as? AppKitPixabayBrowserItem else { facts.expect("browser-mounted", false); return }
     browser.prepareForReuse()
-    let cache = OLThumbnailCache.shared
+    let cache = OnlineImageThumbnailCache.shared
     let previous = Set(cache.pending.keys)
     configure(browser, browserModel(1001, thumbnail: "fast-disk"), downloaded: false)
     facts.expect("browser-warm-load-initially-quiet", browser.placeholderView.isHidden)
@@ -759,8 +775,8 @@ func samePoint(_ lhs: NSPoint, _ rhs: NSPoint) -> Bool { close(lhs.x, rhs.x) && 
 
     let downloadHost = CardHost(.downloads)
     defer { downloadHost.finish() }
-    guard let download = downloadHost.first() as? AppKitOLDownloadsItem else { facts.expect("download-mounted", false); return }
-    let transport = OLDownloadedThumbnailStore.sharedCache
+    guard let download = downloadHost.first() as? AppKitPixabayDownloadsItem else { facts.expect("download-mounted", false); return }
+    let transport = PixabayDownloadedThumbnailStore.sharedCache
     download.prepareForReuse()
     let beforeWarm = transport.history.count
     download.configure(entry: downloadModel(1003, name: "warm.mp4"), isSelected: false, isMultiSelectMode: false, isPlaying: false)
@@ -780,76 +796,104 @@ func samePoint(_ lhs: NSPoint, _ rhs: NSPoint) -> Bool { close(lhs.x, rhs.x) && 
 
 
 
-@MainActor func beginCompletion(_ card: AppKitOLBrowserItem, id: Int) {
-    let item = browserModel(id, thumbnail: nil)
-    configure(card, item, downloading: true)
-    layout(card)
-    configure(card, item, downloaded: true)
-    layout(card)
-}
-
-@MainActor func animationCase(_ phase: String, _ facts: Facts) {
+@MainActor func completionFeedback(_ facts: Facts) {
     let host = CardHost(.browser)
     defer { host.finish() }
-    guard let card = host.first() as? AppKitOLBrowserItem else { facts.expect("registered-browser", false); return }
-    beginCompletion(card, id: 1)
-    let oldID = card.completionAnimationID
-    let oldStart = ProcessInfo.processInfo.systemUptime
-    let startOrigin = card.primaryActionFrame.origin
-    facts.expect("native-animation-window-is-active-and-visible", NSApp.isActive && host.window.isVisible,
-        "active=\(NSApp.isActive), visible=\(host.window.isVisible)")
-    facts.expect("real-badge-started", !card.completionBadgeView.isHidden
-        && close(card.completionBadgeView.alphaValue, 1) && card.isCompletionAnimating)
-    switch phase {
-    case "delayed":
-        pump(0.18)
-    case "move":
-        let entered = waitUntil(0.58) {
-            !samePoint(card.completionBadgeView.frame.origin, startOrigin)
-                && close(card.completionBadgeView.alphaValue, 1) && !card.completionBadgeView.isHidden
-        }
-        facts.expect("native-old-move-stage-observed", entered,
-            "elapsed=\(ProcessInfo.processInfo.systemUptime - oldStart), frame=\(card.completionBadgeView.frame)")
-        guard entered else { return }
-    case "fade":
-        let entered = waitUntil(0.76) {
-            card.completionBadgeView.alphaValue < 0.95 && !card.completionBadgeView.isHidden
-        }
-        facts.expect("native-old-fade-stage-observed", entered,
-            "elapsed=\(ProcessInfo.processInfo.systemUptime - oldStart), alpha=\(card.completionBadgeView.alphaValue)")
-        guard entered else { return }
-    default:
-        facts.expect("known-animation-phase", false); return
+    guard let card = host.first() as? AppKitPixabayBrowserItem else { facts.expect("registered-browser", false); return }
+    var downloaded: [Int] = [], played: [Int] = [], inspected: [Int] = []
+    func update(_ id: Int, busy: Bool, ready: Bool) {
+        let item = browserModel(id, thumbnail: nil)
+        card.configure(item: item, isDownloading: busy, isDownloaded: ready, downloadProgress: busy ? 0.4 : nil,
+            onInspect: { inspected.append(id) }, onDownload: { downloaded.append(id) }, onSetAsWallpaper: { played.append(id) })
+        layout(card)
+        card.applyHoverVisibility(true, animated: false)
     }
+    update(1, busy: true, ready: false)
+    let bar = card.controlBar
+    facts.expect("active-download-keeps-one-visible-hourglass-and-two-native-buttons", bar.primaryState == .switching
+        && !bar.playButton.isHidden && !bar.playButton.isEnabled && bar.playButton.title.isEmpty
+        && bar.glass.subviews.compactMap { $0 as? NSButton }.count == 2)
+    bar.playButton.performClick(nil)
+    facts.expect("pending-download-does-not-submit-a-second-transfer", downloaded.isEmpty && played.isEmpty)
+    update(1, busy: false, ready: true)
+    facts.expect("publication-immediately-restores-the-same-visible-primary-control", card.controlBar === bar
+        && bar.primaryState == .apply && !bar.playButton.isHidden && bar.playButton.isEnabled)
+    bar.playButton.performClick(nil)
+    facts.expect("completed-download-primary-delivers-current-source-once", played == [1])
+    let heldOriginalPlay = bar.onPlay, heldOriginalInspect = bar.onInspect
+    let request = card.thumbnailRequestID
+    card.updateOrganization(.init(state: .init(isPlaying: true, isSwitching: true, isFavorite: false,
+        canPerformPrimary: false, canFavorite: false, canOrganize: false, playlistNames: []),
+        onPrimary: { played.append(1) }, onToggleFavorite: {}, onChoosePlaylist: { _ in }), for: 1)
+    bar.playButton.performClick(nil)
+    facts.expect("runtime-pending-wins-over-completion-without-hiding-primary", bar.primaryState == .switching
+        && !bar.playButton.isHidden && !bar.playButton.isEnabled && played == [1] && card.thumbnailRequestID == request)
+    card.updateOrganization(.init(state: .init(isPlaying: true, isFavorite: false,
+        canPerformPrimary: true, canFavorite: false, canOrganize: false, playlistNames: []),
+        onPrimary: { played.append(1) }, onToggleFavorite: {}, onChoosePlaylist: { _ in }), for: 1)
+    facts.expect("runtime-ready-immediately-restores-stop-without-completion-overlay", bar.primaryState == .playing
+        && !bar.playButton.isHidden && bar.playButton.isEnabled && card.thumbnailRequestID == request)
     card.prepareForReuse()
-    beginCompletion(card, id: 2)
-    let newStart = ProcessInfo.processInfo.systemUptime
-    facts.expect("reuse-started-distinct-B-animation", card.currentItemID == 2 && oldID != card.completionAnimationID
-        && !card.completionBadgeView.isHidden && close(card.completionBadgeView.alphaValue, 1))
-    if phase == "delayed" {
-        pump(0.23) // Old A's .34 block is past; B's .34 block is still pending.
-        facts.expect("old-delayed-move-cannot-move-B", samePoint(card.completionBadgeView.frame.origin, card.primaryActionFrame.origin)
-            && close(card.completionBadgeView.alphaValue, 1) && !card.completionBadgeView.isHidden)
-        pump(0.16) // A's .52 reveal is past; B's own reveal is still pending.
-        facts.expect("old-reveal-cannot-reveal-B-early", card.isCompletionAnimating && card.downloadedBadge.isHidden)
-        let toOldHide = oldStart + 0.81 - ProcessInfo.processInfo.systemUptime
-        if toOldHide > 0 { pump(toOldHide) }
-        facts.expect("old-hide-cannot-hide-B-during-own-completion", !card.completionBadgeView.isHidden,
-            "B age=\(ProcessInfo.processInfo.systemUptime - newStart)")
-    } else if phase == "move" {
-        pump(0.29) // A's move completion is past; B is still in its .34 bounce.
-        facts.expect("old-move-completion-cannot-fade-B", close(card.completionBadgeView.alphaValue, 1)
-            && !card.completionBadgeView.isHidden && card.isCompletionAnimating,
-            "B age=\(ProcessInfo.processInfo.systemUptime - newStart), alpha=\(card.completionBadgeView.alphaValue)")
-    } else {
-        pump(0.20) // A's .14 fade completion/hide are past; B's bounce is pending.
-        facts.expect("old-nested-fade-completion-cannot-hide-B", !card.completionBadgeView.isHidden
-            && close(card.completionBadgeView.alphaValue, 1) && card.isCompletionAnimating,
-            "B age=\(ProcessInfo.processInfo.systemUptime - newStart)")
+    update(2, busy: false, ready: true)
+    heldOriginalPlay?(); heldOriginalInspect?()
+    facts.expect("retained-browser-bar-actions-cannot-target-reused-native-card", heldOriginalPlay != nil && heldOriginalInspect != nil
+        && played == [1] && inspected.isEmpty && downloaded.isEmpty)
+    let heldReplacementPlay = bar.onPlay, heldReplacementInspect = bar.onInspect
+    bar.playButton.performClick(nil); bar.detailButton.performClick(nil)
+    pump(0.9)
+    facts.expect("reuse-has-no-old-completion-delay-that-can-hide-or-retarget-new-controls", played == [1, 2]
+        && inspected == [2] && downloaded.isEmpty && card.currentItemID == 2 && bar.primaryState == .apply
+        && !bar.playButton.isHidden && bar.playButton.isEnabled && bar.detailButton.isEnabled
+        && bar.glass.subviews.compactMap { $0 as? NSButton }.count == 2)
+    card.prepareForReuse(); heldReplacementPlay?(); heldReplacementInspect?()
+    facts.expect("browser-reuse-rejects-retained-native-bar-actions", played == [1, 2] && inspected == [2] && downloaded.isEmpty)
+}
+
+@MainActor func onlineImageBarBindings(_ facts: Facts) {
+    let window = NSWindow(contentRect: NSRect(x: 14000, y: 14000, width: 260, height: 260),
+        styleMask: [.borderless], backing: .buffered, defer: false)
+    window.isReleasedWhenClosed = false
+    let host = NSView(frame: NSRect(x: 0, y: 0, width: 260, height: 260)); window.contentView = host
+    window.orderFrontRegardless()
+    defer { window.orderOut(nil); window.close() }
+    for provider in [WallpaperProvider.wallhaven, .pixiv] {
+        let card = OnlineImageGridItem(); _ = card.view
+        card.view.frame = NSRect(x: 10, y: 10, width: 240, height: 240); host.addSubview(card.view)
+        var plays: [String] = [], inspections: [String] = []
+        func bind(_ id: String, _ label: String, switching: Bool = false) {
+            let reference = WallpaperReference(provider: provider, sourceID: id)
+            let item = WallpaperContentItem(reference: reference, providerReference: reference,
+                locator: .init(mediaKind: .image), title: label, kind: .image, publishedAvailability: .remote,
+                capabilities: [.inspect, .download], metadata: .init(), acquisition: .idle, update: .idle, aliases: [])
+            card.configure(content: item, request: nil, selected: false, selecting: false, playing: false, switching: switching,
+                onPrimary: { plays.append(label) }, onInspect: { inspections.append(label) })
+            card.setThumbnailVisible(true); card.view.layoutSubtreeIfNeeded(); card.viewDidLayout()
+            card.hovering = true; card.updateVisibility()
+        }
+        let name = provider.rawValue
+        bind("A", "A")
+        guard let bar = card.bar else { facts.expect(name + ".real-online-image-bar-is-mounted", false); continue }
+        let heldAPlay = bar.onPlay, heldAInspect = bar.onInspect
+        facts.expect(name + ".both-online-image-actions-are-bound", heldAPlay != nil && heldAInspect != nil)
+        bind("B", "B"); heldAPlay?(); heldAInspect?()
+        facts.expect(name + ".retained-online-image-bar-cannot-redirect-to-reused-B", plays.isEmpty && inspections.isEmpty)
+        bar.playButton.performClick(nil); bar.detailButton.performClick(nil)
+        facts.expect(name + ".current-online-image-native-actions-deliver-once", plays == ["B"] && inspections == plays)
+        bind("B", "echo"); bar.playButton.performClick(nil); bar.detailButton.performClick(nil)
+        facts.expect(name + ".same-ID-online-image-echo-rebinds-current-callbacks", plays == ["B", "echo"] && inspections == plays)
+        let heldPlay = bar.onPlay, heldInspect = bar.onInspect
+        bind("B", "pending", switching: true); heldPlay?(); bar.playButton.performClick(nil)
+        facts.expect(name + ".pending-online-image-rejects-retained-and-native-primary", plays == ["B", "echo"] && bar.primaryState == .switching)
+        bind("B", "ready"); card.setThumbnailVisible(false); heldPlay?(); heldInspect?()
+        facts.expect(name + ".hidden-online-image-rejects-retained-actions", plays == ["B", "echo"] && inspections == plays)
+        card.setThumbnailVisible(true); card.hovering = true; card.updateVisibility()
+        bar.playButton.performClick(nil); bar.detailButton.performClick(nil)
+        facts.expect(name + ".reshown-online-image-keeps-current-actions", plays == ["B", "echo", "ready"] && inspections == plays)
+        let retiredPlay = bar.onPlay, retiredInspect = bar.onInspect
+        card.prepareForReuse(); retiredPlay?(); retiredInspect?()
+        facts.expect(name + ".online-image-reuse-rejects-both-retained-actions", plays == ["B", "echo", "ready"] && inspections == plays)
+        card.view.removeFromSuperview()
     }
-    let finished = waitUntil(1.1) { card.completionBadgeView.isHidden && !card.isCompletionAnimating }
-    facts.expect("B-own-animation-still-finishes", finished && !card.downloadedBadge.isHidden
-        && !card.setWallpaperBtn.isHidden && card.currentItemID == 2)
 }
 
 @main struct GridCardLifecycleChecks {
@@ -865,22 +909,23 @@ func samePoint(_ lhs: NSPoint, _ rhs: NSPoint) -> Bool { close(lhs.x, rhs.x) && 
         switch name {
         case "card-reflow":
             let checks = wallpaperGridCardReflowChecks(label: "online-downloads", provider: .pixabay,
-                itemClass: AppKitOLDownloadsItem.self, reuseIdentifier: AppKitOLDownloadsItem.reuseIdentifier,
-                resetColdTracking: AppKitOLDownloadsItem.resetHoverTrackingActivation,
+                itemClass: AppKitPixabayDownloadsItem.self, reuseIdentifier: AppKitPixabayDownloadsItem.reuseIdentifier,
+                resetColdTracking: AppKitPixabayDownloadsItem.resetHoverTrackingActivation,
                 makeCard: { collection, path, state, playing in
-                    let card = collection.makeItem(withIdentifier: AppKitOLDownloadsItem.reuseIdentifier, for: path) as! AppKitOLDownloadsItem
+                    let card = collection.makeItem(withIdentifier: AppKitPixabayDownloadsItem.reuseIdentifier, for: path) as! AppKitPixabayDownloadsItem
                     card.configure(entry: downloadModel(20_000 + path.item), isSelected: state.isSelected,
                         isMultiSelectMode: state.isSelecting, isPlaying: playing, thumbnailDemandActive: false)
                     return card
                 }, updateState: { cell, state, playing in
-                    let card = cell as! AppKitOLDownloadsItem
+                    let card = cell as! AppKitPixabayDownloadsItem
                     card.applySelectionState(state.isSelected, multiSelectMode: state.isSelecting)
                     card.applyPlayingState(isPlaying: playing)
-                }, isHovering: { ($0 as! AppKitOLDownloadsItem).isHovering },
-                bar: { ($0 as! AppKitOLDownloadsItem).controlBar })
+                }, isHovering: { ($0 as! AppKitPixabayDownloadsItem).isHovering },
+                bar: { ($0 as! AppKitPixabayDownloadsItem).controlBar })
             for (key, passed) in checks { facts.expect(key, passed) }
         case "pixabay-square-controls": pixabaySquareControls(facts)
         case "pixabay-square-layout": pixabaySquareLayout(facts)
+        case "completion-feedback": completionFeedback(facts); onlineImageBarBindings(facts)
         case "native-pool": nativePool(facts)
         case "browser-replies": browserReplies(facts)
         case "downloads-replies": downloadsReplies(facts)
@@ -892,19 +937,16 @@ func samePoint(_ lhs: NSPoint, _ rhs: NSPoint) -> Bool { close(lhs.x, rhs.x) && 
         case "visibility-requests": visibilityRequests(facts)
         case "real-card-scroll": realCardScrollHover(facts)
         case "card-interactions":
-            let browser = AppKitOLBrowserItem(); _ = browser.view
+            let browser = AppKitPixabayBrowserItem(); _ = browser.view
             configure(browser, browserModel(10_001, thumbnail: nil))
             for (key, value) in gridCardInteractionChecks(item: browser, cardRoot: browser.imageContainer,
                 outline: browser.hoverOutlineView, isHovering: { browser.isHovering }, label: "online-browser") { facts.expect(key, value) }
-            let downloads = AppKitOLDownloadsItem(); _ = downloads.view
+            let downloads = AppKitPixabayDownloadsItem(); _ = downloads.view
             downloads.configure(entry: downloadModel(10_002, name: "interaction.mp4"), isSelected: false, isMultiSelectMode: false, isPlaying: false)
             for (key, value) in gridCardInteractionChecks(item: downloads, cardRoot: downloads.imageContainer,
                 outline: downloads.hoverOutlineView, isHovering: { downloads.isHovering }, label: "online-downloads",
                 dragImageView: downloads.thumbnailView, layoutDragImage: { downloads.layoutThumbnail() }) { facts.expect(key, value) }
         case "backing-scale": backingScaleRequests(facts)
-        case "animation-delayed": animationCase("delayed", facts)
-        case "animation-move": animationCase("move", facts)
-        case "animation-fade": animationCase("fade", facts)
         default: facts.expect("known-case", false)
         }
         facts.emit(name)

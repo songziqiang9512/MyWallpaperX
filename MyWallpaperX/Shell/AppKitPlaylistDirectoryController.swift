@@ -151,7 +151,9 @@ final class AppKitPlaylistDirectoryController: NSViewController, NSCollectionVie
         let selectedID = selectedPlaylistID
         let selectedCreate = collection.selectionIndexPaths.contains(IndexPath(item: 0, section: 0))
         scrollApplicationDepth += 1; demandUpdateDepth += 1
-        if Set(oldIDs) != Set(newIDs) {
+        let width = scrollView.contentView.bounds.width
+        let metrics = WallpaperLibraryGridMetrics(clipWidth: width, preferredColumns: preferredColumns)
+        if view.window == nil || oldIDs.isEmpty || lastClipWidth != width || layout.itemSize.width != metrics.coverSide {
             entries = desired
             collection.reloadData()
             restoreSelection(selectedID, create: selectedCreate)
@@ -159,13 +161,21 @@ final class AppKitPlaylistDirectoryController: NSViewController, NSCollectionVie
             return
         }
         isMoving = true
+        let difference = newIDs.difference(from: oldIDs).inferringMoves()
         NSAnimationContext.runAnimationGroup { context in
             context.duration = NSWorkspace.shared.accessibilityDisplayShouldReduceMotion ? 0 : 0.12
             collection.animator().performBatchUpdates({
                 self.entries = desired
-                for (destination, id) in newIDs.enumerated() {
-                    guard let source = oldIDs.firstIndex(of: id), source != destination else { continue }
-                    self.collection.moveItem(at: IndexPath(item: source + 1, section: 0), to: IndexPath(item: destination + 1, section: 0))
+                for change in difference {
+                    switch change {
+                    case .remove(let source, _, let destination):
+                        if let destination {
+                            self.collection.moveItem(at: IndexPath(item: source + 1, section: 0), to: IndexPath(item: destination + 1, section: 0))
+                        } else { self.collection.deleteItems(at: [IndexPath(item: source + 1, section: 0)]) }
+                    case .insert(let destination, _, nil):
+                        self.collection.insertItems(at: [IndexPath(item: destination + 1, section: 0)])
+                    default: break
+                    }
                 }
             }, completionHandler: { [weak self] _ in
                 guard let self else { return }
@@ -454,9 +464,18 @@ private final class PlaylistDirectoryCollectionView: NSCollectionView {
         let point = convert(event.locationInWindow, from: nil)
         return makeContextMenu?(indexPathForItem(at: point)?.item)
     }
+    override func rightMouseDown(with event: NSEvent) {
+        let scroll = enclosingScrollView as? WallpaperGridScrollView
+        let card = indexPathForItem(at: convert(event.locationInWindow, from: nil)).flatMap { item(at: $0)?.view }
+        let anchor = card.map { $0.convert(NSPoint(x: $0.bounds.midX, y: $0.bounds.midY), to: nil) } ?? event.locationInWindow
+        scroll?.beginContextMenu(at: anchor)
+        defer { scroll?.endContextMenu() }
+        super.rightMouseDown(with: event)
+    }
 }
 
-private final class PlaylistDirectoryItem: NSCollectionViewItem {
+private final class PlaylistDirectoryItem: NSCollectionViewItem, WallpaperGridHoverItem {
+    private let hoverTracking = WallpaperGridHoverTracking()
     var onActivate: (() -> Bool)?
     private let card = PlaylistDirectoryCardView()
     private let cover = NSView()
@@ -471,6 +490,8 @@ private final class PlaylistDirectoryItem: NSCollectionViewItem {
 
     override func prepareForReuse() {
         super.prepareForReuse()
+        cover.applyGridHoverScale(false, animated: false)
+        selectionOutline.applyGridHoverScale(false, animated: false)
         isSelected = false
         highlightState = .none
         onActivate = nil
@@ -479,6 +500,8 @@ private final class PlaylistDirectoryItem: NSCollectionViewItem {
 
     override func loadView() {
         view = card
+        card.clipsToBounds = false
+        cover.wantsLayer = true
         card.setAccessibilityRole(.button)
         card.setAccessibilityElement(true)
         card.onPress = { [weak self] in self?.onActivate?() ?? false }
@@ -524,6 +547,7 @@ private final class PlaylistDirectoryItem: NSCollectionViewItem {
         caption.translatesAutoresizingMaskIntoConstraints = false
         caption.addArrangedSubview(name)
         caption.addArrangedSubview(count)
+        selectionOutline.wantsLayer = true
         selectionOutline.boxType = .custom
         selectionOutline.titlePosition = .noTitle
         selectionOutline.contentView = nil
@@ -581,6 +605,24 @@ private final class PlaylistDirectoryItem: NSCollectionViewItem {
         selectionOutline.isHidden = !highlighted
         card.setAccessibilitySelected(isSelected)
     }
+
+    override func viewDidLayout() {
+        super.viewDidLayout()
+        refreshGridHover(isScrolling: view.isGridHoverSuppressed)
+    }
+
+    func refreshGridHover(isScrolling: Bool) {
+        hoverTracking.update(in: card, owner: self, isScrolling: isScrolling)
+        let hovered = !isScrolling && card.isGridPointerInside
+        cover.applyGridHoverScale(hovered, animated: !isScrolling)
+        selectionOutline.applyGridHoverScale(hovered, animated: !isScrolling)
+    }
+    override func mouseEntered(with event: NSEvent) { refreshGridHover(isScrolling: view.isGridHoverSuppressed) }
+    override func mouseExited(with event: NSEvent) {
+        cover.applyGridHoverScale(false, animated: true)
+        selectionOutline.applyGridHoverScale(false, animated: true)
+    }
+    override func mouseMoved(with event: NSEvent) { refreshGridHover(isScrolling: view.isGridHoverSuppressed) }
 
     @objc private func activate(_ sender: NSClickGestureRecognizer) {
         guard sender.state == .ended else { return }

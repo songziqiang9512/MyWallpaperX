@@ -24,14 +24,18 @@ class OnlineImageLibraryTests(unittest.TestCase):
     def test_async_consumers_queue_publication_and_playback_intent(self):
         paths = [
             "MyWallpaperX/Models/WallpaperReference.swift",
+            "MyWallpaperX/Models/DownloadTask.swift",
             "MyWallpaperX/Models/WallpaperContent.swift",
             "MyWallpaperX/Core/OnlineImages/OnlineImageModels.swift",
+            "MyWallpaperX/Modules/Wallhaven/Core/WallhavenDTO.swift",
             "MyWallpaperX/Core/OnlineImages/OnlineImageContentProjection.swift",
             "MyWallpaperX/Core/OnlineImages/OnlineImageLibraryStore.swift",
             "MyWallpaperX/Core/OnlineImages/OnlineImageLibrary.swift",
             "MyWallpaperX/Shared/WallpaperNetworkSession.swift",
             "MyWallpaperX/Core/PlaybackControl/ImportedVideoAutoplayGate.swift",
             "script/tests/fixtures/OnlineImageLibraryHarness.swift",
+            "script/tests/fixtures/OnlineImageAccountMetadataChecks.swift",
+            "script/tests/fixtures/OnlineImageOriginalCacheChecks.swift",
         ]
         with tempfile.TemporaryDirectory(prefix="mwx-online-image-service-", dir="/private/tmp") as directory:
             work = Path(directory)
@@ -41,11 +45,16 @@ class OnlineImageLibraryTests(unittest.TestCase):
             for path in paths:
                 data = (ROOT / path).read_bytes()
                 identities[path] = hashlib.sha256(data).hexdigest()
+                if path.endswith("/OnlineImageLibrary.swift"):
+                    copy_leaf = b"try FileManager.default.copyItem(at: cachedURL, to: staging)"
+                    self.assertEqual(data.count(copy_leaf), 1)
+                    data = data.replace(copy_leaf, b"try OriginalCacheCopyProbe.shared.copyItem(at: cachedURL, to: staging)")
                 target = sources / Path(path).name
                 target.write_bytes(data)
                 frozen.append(str(target))
             home = work / "home"; home.mkdir()
-            environment = dict(os.environ, HOME=str(home), CFFIXED_USER_HOME=str(home))
+            temporary = work / "tmp"; temporary.mkdir()
+            environment = dict(os.environ, HOME=str(home), CFFIXED_USER_HOME=str(home), TMPDIR=str(temporary))
             binary = work / "checks"
             build = subprocess.run([
                 "xcrun", "swiftc", *SWIFT_ISOLATION_FLAGS, "-target", "arm64-apple-macos26.0",

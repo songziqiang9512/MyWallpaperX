@@ -118,6 +118,7 @@ class SILThumbnailDemandTests(unittest.TestCase):
             interaction = run_native_app(native_binary, ["--card-interactions"], timeout=45,
                                          proof_environment="MWX_SIL_DEMAND_PROOF_DIR")
             self.assertEqual(interaction.launch_returncode, 0, interaction.stdout + interaction.stderr)
+            self.assertTrue(interaction.stdout.strip().startswith("{"), interaction.stdout + interaction.stderr)
             interaction_checks = json.loads(interaction.stdout)
             self.assertEqual(len(interaction_checks), 16)
             for name, passed in interaction_checks.items():
@@ -128,6 +129,7 @@ class SILThumbnailDemandTests(unittest.TestCase):
                 (proof / "card-interactions-runtime.log").write_text(interaction.stderr)
             reflow = run_native_app(native_binary, ["--card-reflow"], timeout=45)
             self.assertEqual(reflow.launch_returncode, 0, reflow.stdout + reflow.stderr)
+            self.assertTrue(reflow.stdout.strip().startswith("{"), reflow.stdout + reflow.stderr)
             reflow_checks = json.loads(reflow.stdout)
             self.assertEqual(len(reflow_checks), 17)
             for name, passed in reflow_checks.items():

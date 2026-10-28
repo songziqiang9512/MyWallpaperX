@@ -101,16 +101,16 @@ extension WallpaperPlaylistEditorController {
             editor.onSaved = { saved.append($0) }
             editors.append(editor)
             editor.show()
-            try await wait("real Editor child panel never became key") {
-                host.childWindows?.contains { $0.delegate === editor && $0.isVisible && app.keyWindow === $0 } == true
+            try await wait("real Editor native sheet never became key") {
+                host.attachedSheet?.delegate === editor && host.attachedSheet?.isVisible == true && app.keyWindow === host.attachedSheet
             }
-            let panel = host.childWindows!.first { $0.delegate === editor } as! NSPanel
+            let panel = host.attachedSheet as! NSPanel
             panel.contentView?.layoutSubtreeIfNeeded()
             return (editor, panel)
         }
         func cancel(_ panel: NSWindow) async throws {
             button(panel, "取消").performClick(nil)
-            try await wait("Editor cancel did not retire its child panel") { !panel.isVisible && panel.parent == nil }
+            try await wait("Editor cancel did not retire its native sheet") { !panel.isVisible && panel.sheetParent == nil }
         }
         func current(_ id: UUID) -> WallpaperPlaylist { collections.snapshot.playlists.first { $0.id == id }! }
         func holdStore() async throws -> (Task<Void, Never>, DispatchSemaphore) {
@@ -142,22 +142,46 @@ extension WallpaperPlaylistEditorController {
             && modalResponse == .alertFirstButtonReturn && collections.snapshot == beforeDraft
         let orphan = WallpaperLibraryModalPanel(contentRect: NSRect(x: 0, y: 0, width: 360, height: 400), styleMask: [.borderless], backing: .buffered, defer: false)
         checks["missing-main-host-never-falls-back-to-a-nonmodal-floating-draft"] = !WallpaperLibrarySheetPresentation.present(orphan, in: nil)
-            && !orphan.isVisible && orphan.parent == nil
+            && !orphan.isVisible && orphan.sheetParent == nil
+        let stockSheet = NSAlert()
+        stockSheet.messageText = "原生文档模态对子窗口输入对照"
+        stockSheet.addButton(withTitle: "关闭")
+        var stockResponses: [NSApplication.ModalResponse] = []
+        stockSheet.beginSheetModal(for: host) { stockResponses.append($0) }
+        try await wait("stock document-modal sheet did not attach to the same host") { host.attachedSheet === stockSheet.window && stockSheet.window.isKeyWindow }
+        let stockSiblingBefore = siblingProbe.values
+        try await siblingProbe.deliver()
+        let stockSiblingDelta = zip(stockSiblingBefore, siblingProbe.values).map { $0.1 - $0.0 }
+        let stockKeptSiblingKey = sibling.isKeyWindow
+        let stockSiblingFacts: [String: Any] = ["before": stockSiblingBefore, "after": siblingProbe.values,
+            "stockKey": app.keyWindow === stockSheet.window, "siblingKey": sibling.isKeyWindow,
+            "sameHost": sibling.parent === host && stockSheet.window.sheetParent === host,
+            "permitsSibling": WallpaperLibrarySheetPresentation.permitsInput(in: sibling)]
+        FileHandle.standardError.write(Data("EditorStockSibling \(String(data: try JSONSerialization.data(withJSONObject: stockSiblingFacts, options: [.sortedKeys]), encoding: .utf8)!)\n".utf8))
+        stockSheet.buttons[0].performClick(nil)
+        try await wait("stock sibling-input reference sheet did not close") { host.attachedSheet == nil && !stockSheet.window.isVisible }
+        checks["stock-sibling-input-reference-uses-the-same-real-host-and-native-close"] = stockResponses == [.alertFirstButtonReturn] && sibling.parent === host
         let (draft, panel) = try await open()
         let beforeBlockedInput = inputProbe.values
         try await inputProbe.deliver()
-        checks["editor-blocks-native-queue-background-click-drag-and-key-without-dimming-or-focus-polling"] = nativeInputWasLive
+        checks["editor-native-sheet-blocks-background-click-drag-and-key-with-system-modal-backdrop"] = nativeInputWasLive
             && inputProbe.values == beforeBlockedInput && app.keyWindow === panel
-            && !WallpaperLibrarySheetPresentation.permitsInput(in: host) && host.attachedSheet == nil
+            && !WallpaperLibrarySheetPresentation.permitsInput(in: host) && host.attachedSheet === panel
             && panel.isOpaque == false && panel.backgroundColor == .clear
-            && host.childWindows?.filter({ $0 is WallpaperLibraryModalPanel && $0.isVisible }).count == 1
+            && host.sheets.filter({ $0 is WallpaperLibraryModalPanel && $0.isVisible }).count == 1
         let siblingBlockedBefore = siblingProbe.values
         try await siblingProbe.deliver()
-        checks["editor-also-blocks-native-queue-click-drag-and-key-to-an-existing-nonmodal-sibling-child"] = siblingInputWasLive
-            && siblingProbe.values == siblingBlockedBefore && app.keyWindow === panel && sibling.parent === host
-            && !WallpaperLibrarySheetPresentation.permitsInput(in: sibling)
+        let siblingFacts: [String: Any] = ["before": siblingBlockedBefore, "after": siblingProbe.values,
+            "editorKey": app.keyWindow === panel, "siblingKey": sibling.isKeyWindow,
+            "sameHost": sibling.parent === host && panel.sheetParent === host,
+            "permitsSibling": WallpaperLibrarySheetPresentation.permitsInput(in: sibling)]
+        FileHandle.standardError.write(Data("EditorOwnedSibling \(String(data: try JSONSerialization.data(withJSONObject: siblingFacts, options: [.sortedKeys]), encoding: .utf8)!)\n".utf8))
+        checks["editor-follows-stock-document-modal-sibling-routing-without-admitting-business-input"] = siblingInputWasLive
+            && zip(siblingBlockedBefore, siblingProbe.values).map({ $0.1 - $0.0 }) == stockSiblingDelta
+            && Array(stockSiblingDelta.prefix(2)) == [0, 0] && sibling.isKeyWindow == stockKeptSiblingKey && sibling.parent === host
+            && !WallpaperLibrarySheetPresentation.permitsInput(in: sibling) && !WallpaperLibrarySheetPresentation.permitsInput(in: host)
         sibling.close(); host.removeChildWindow(sibling)
-        checks["editor-is-the-real-key-child-modal-with-original-native-controls"] = panel.delegate === draft && panel.parent === host && !panel.isSheet
+        checks["editor-is-the-real-key-native-sheet-with-original-native-controls"] = panel.delegate === draft && panel.sheetParent === host && panel.isSheet
             && panel.contentView is WallpaperLibrarySheetSurface && name(panel).isEditable && description(panel).isEditable
         let buttons = descendants(panel.contentView!, NSButton.self)
         checks["native-capsules-preserve-default-cancel-and-control-labels"] = ["完成", "取消", "选择封面…", "恢复自动封面"].allSatisfy { title in
@@ -282,12 +306,12 @@ extension WallpaperPlaylistEditorController {
         let handledEscape = panel.performKeyEquivalent(with: escape)
         try await wait("native Escape did not cancel Editor") { !panel.isVisible }
         checks["native-escape-cancels-the-entire-draft-without-save-or-ghost-list"] = handledEscape && saved.isEmpty && closed == 1
-            && collections.snapshot == beforeDraft && panel.parent == nil
+            && collections.snapshot == beforeDraft && panel.sheetParent == nil
         host.makeKeyAndOrderFront(nil)
         try await wait("main input did not return after Editor close") { host.isKeyWindow }
         let afterEditorClose = inputProbe.values
         try await inputProbe.deliver()
-        checks["editor-close-removes-its-event-monitor-and-restores-native-queue-main-click-drag-and-key"] = WallpaperModalInputProbe.hasOneDelivery(afterEditorClose, inputProbe.values)
+        checks["editor-close-ends-native-modality-and-restores-main-click-drag-and-key"] = WallpaperModalInputProbe.hasOneDelivery(afterEditorClose, inputProbe.values)
 
         let (closingDraft, closingPanel) = try await open()
         setName(closingPanel, "关闭按钮只丢弃草稿")
@@ -303,7 +327,7 @@ extension WallpaperPlaylistEditorController {
             let saving = Mirror(reflecting: closingDraft).children.first { $0.label == "isSaving" }?.value as? Bool
             let facts = "EditorNativeClose \(phase): style=\(closingPanel.styleMask.rawValue), isSheet=\(closingPanel.isSheet), "
                 + "visible=\(closingPanel.isVisible), key=\(app.keyWindow === closingPanel), "
-                + "parentIsHost=\(closingPanel.parent === host), hostAttached=\(host.childWindows?.contains(closingPanel) == true), "
+                + "parentIsHost=\(closingPanel.sheetParent === host), hostAttached=\(host.attachedSheet === closingPanel), "
                 + "delegateIsDraft=\(closingPanel.delegate === closingDraft), "
                 + "closeButtonPresent=\(closeButton != nil), closeEnabled=\(String(describing: closeButton?.isEnabled)), "
                 + "closeHidden=\(String(describing: closeButton?.isHidden)), "
@@ -317,12 +341,12 @@ extension WallpaperPlaylistEditorController {
         recordCloseState("before-performClose")
         closingPanel.performClose(nil)
         recordCloseState("after-performClose-return")
-        checks["borderless-modal-close-command-retires-the-native-child-without-writing-the-draft"] = closingPanel.standardWindowButton(.closeButton) == nil
-            && closingPanel.parent == nil && !closingPanel.isVisible
+        checks["borderless-modal-close-command-retires-the-native-sheet-without-writing-the-draft"] = closingPanel.standardWindowButton(.closeButton) == nil
+            && closingPanel.sheetParent == nil && !closingPanel.isVisible
             && closed == closedBeforeWindowClose + 1 && collections.snapshot == beforeWindowClose && saved.isEmpty
         button(closingPanel, "取消").performClick(nil)
         do {
-            try await wait("native close did not retire the Editor") { closingPanel.parent == nil && !closingPanel.isVisible }
+            try await wait("native close did not retire the Editor") { closingPanel.sheetParent == nil && !closingPanel.isVisible }
         } catch {
             recordCloseState("after-native-close-wait-failed")
             throw error
@@ -331,7 +355,7 @@ extension WallpaperPlaylistEditorController {
         closingDraft.close(); closingPanel.performClose(nil); await settle()
         checks["native-editor-close-then-cancel-uses-one-owner-completion-without-writing-the-draft"] = closed == closedBeforeWindowClose + 1
             && closeObservation.willCloseNotifications == 1
-            && collections.snapshot == beforeWindowClose && closingPanel.parent == nil && saved.isEmpty
+            && collections.snapshot == beforeWindowClose && closingPanel.sheetParent == nil && saved.isEmpty
 
         let lifecycle = EditorHostLifecycle()
         let (hostClosedDraft, hostClosedPanel) = try await open()
@@ -350,7 +374,7 @@ extension WallpaperPlaylistEditorController {
         host.delegate = lifecycle
         host.close()
         try await wait("host-close lifecycle left an Editor or file chooser floating") {
-            !hostClosedPanel.isVisible && !hostClosedChooser.isVisible && hostClosedPanel.parent == nil && hostClosedPanel.attachedSheet == nil
+            !hostClosedPanel.isVisible && !hostClosedChooser.isVisible && hostClosedPanel.sheetParent == nil && hostClosedPanel.attachedSheet == nil
         }
         hostClosedDraft.close(); await settle()
         checks["host-close-retires-editor-and-nested-chooser-once-with-no-unsaved-metadata"] = closed == closedBeforeHostClose + 1
@@ -524,7 +548,7 @@ extension WallpaperPlaylistEditorController {
         try await committedReset!.value
         try await wait("reset-invalidated successful save left its sheet stuck") { !racingPanel.isVisible }
         checks["reset-between-real-commit-and-editor-continuation-suppresses-save-and-closes-once"] = saved.count == savedBeforeRace
-            && closed == closedBeforeRace + 1 && racingPanel.parent == nil && collections.snapshot.playlists.isEmpty
+            && closed == closedBeforeRace + 1 && racingPanel.sheetParent == nil && collections.snapshot.playlists.isEmpty
         resetOnCommit.cancel()
 
         let (admittedEditor, admittedPanel) = try await open()
@@ -537,7 +561,7 @@ extension WallpaperPlaylistEditorController {
             && !admittedEditor.windowShouldClose(admittedPanel) && admittedPanel.isVisible
         lifecycle.onClose = { admittedEditor.close() }; host.delegate = lifecycle
         host.close()
-        try await wait("host close did not retire a saving Editor's UI") { !admittedPanel.isVisible && admittedPanel.parent == nil }
+        try await wait("host close did not retire a saving Editor's UI") { !admittedPanel.isVisible && admittedPanel.sheetParent == nil }
         admittedRelease.signal(); await admittedHold.value
         _ = await collections.flush()
         try await wait("the admitted Store save was lost when its host closed") {
@@ -556,8 +580,8 @@ extension WallpaperPlaylistEditorController {
         sameTurnEditor?.onClose = { sameTurnCloses += 1; sameTurnEditor = nil }
         sameTurnEditor?.onSaved = { _ in sameTurnNavigations += 1 }
         sameTurnEditor?.show()
-        try await wait("same-turn Editor did not become a real child") { host.childWindows?.contains { $0.delegate === sameTurnEditor && $0.isKeyWindow } == true }
-        let sameTurnPanel = host.childWindows!.first { $0.delegate === sameTurnEditor }!
+        try await wait("same-turn Editor did not become a real native sheet") { host.attachedSheet?.delegate === sameTurnEditor && host.attachedSheet?.isKeyWindow == true }
+        let sameTurnPanel = host.attachedSheet!
         setName(sameTurnPanel, "同turn已准入保存不丢失")
         let beforeSameTurnSave = collections.snapshot
         button(sameTurnPanel, "完成").performClick(nil)
@@ -565,7 +589,7 @@ extension WallpaperPlaylistEditorController {
         // onClose releases the sole UI owner; only the accepted work may retain it.
         host.close()
         checks["same-turn-host-close-releases-the-only-ui-owner-but-retains-admitted-work"] = sameTurnEditor == nil && releasedEditor != nil
-            && sameTurnCloses == 1 && sameTurnNavigations == 0 && sameTurnPanel.parent == nil && !sameTurnPanel.isVisible
+            && sameTurnCloses == 1 && sameTurnNavigations == 0 && sameTurnPanel.sheetParent == nil && !sameTurnPanel.isVisible
         try await wait("same-turn accepted save was dropped before entering the real Store") {
             collections.snapshot.playlists.contains { $0.name == "同turn已准入保存不丢失" }
         }

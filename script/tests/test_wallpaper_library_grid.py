@@ -5,11 +5,13 @@ import os
 from pathlib import Path
 import shutil
 import subprocess
+import sys
 import tempfile
 import unittest
 
 from script.tests.native_app_harness import prepare_native_app, run_native_app
 from script.tests.test_video_thumbnail_prefetch import SWIFT_ISOLATION_FLAGS
+from script.tests.test_ui_library_algorithms import declaration
 
 ROOT = Path(__file__).resolve().parents[2]
 
@@ -18,6 +20,7 @@ class WallpaperLibraryGridTests(unittest.TestCase):
     def test_native_selection_navigation_layout_and_drop_receipts(self):
         named_modes = {"continuous-drag": ("--continuous-drag",),
                        "topology-transitions": ("--topology-transitions",),
+                       "animations": ("--animations",),
                        "legacy": ()}
         requested_mode = os.environ.get("MWX_GRID_MODE")
         if requested_mode is not None:
@@ -30,16 +33,28 @@ class WallpaperLibraryGridTests(unittest.TestCase):
                  "MyWallpaperX/Shared/Components/WallpaperCardInteractionView.swift",
                  "MyWallpaperX/Shared/UI/WallpaperGridScrollView.swift", "MyWallpaperX/Shared/UI/BoxSelectionState.swift",
                  "MyWallpaperX/Shared/UI/GridThumbnailPrefetchDemand.swift",
+                 "MyWallpaperX/Shared/UI/WallpaperGridNoticeView.swift",
                  "MyWallpaperX/Shell/WallpaperLibraryGridController.swift",
                  "MyWallpaperX/Shell/WallpaperLibraryPageChrome.swift",
                  "script/tests/fixtures/NativeAppHarness.swift", "script/tests/fixtures/WallpaperLibraryGridHarness.swift",
                  "script/tests/fixtures/WallpaperLibraryGridDragChecks.swift",
+                 "script/tests/fixtures/WallpaperLibraryGridAnimationChecks.swift",
                  "script/tests/fixtures/WallpaperPlaylistHeaderChecks.swift"]
         hashes = {p: hashlib.sha256((ROOT / p).read_bytes()).hexdigest() for p in paths}
         with tempfile.TemporaryDirectory(prefix="mwx-library-grid-", dir="/private/tmp") as directory:
             work = Path(directory)
             for path in paths:
                 shutil.copy2(ROOT / path, work / Path(path).name)
+                if path.endswith("/WallpaperLibraryGridController.swift"):
+                    target = work / Path(path).name
+                    source = target.read_text()
+                    callback = declaration(source, "completionHandler:")
+                    self.assertEqual(source.count(callback), 1)
+                    body = callback.removeprefix("completionHandler: ")
+                    source = source.replace(callback, "completionHandler: WallpaperLibraryGridAnimationProbe.wrap(" + body + ")", 1)
+                    source = source.replace("NSWorkspace.shared.accessibilityDisplayShouldReduceMotion",
+                        "WallpaperLibraryGridAnimationProbe.reduceMotion", 1)
+                    target.write_text(source)
             proof = None
             if destination := os.environ.get("MWX_GRID_PROOF_DIR"):
                 Path(destination).mkdir(parents=True, exist_ok=True)
@@ -54,7 +69,7 @@ class WallpaperLibraryGridTests(unittest.TestCase):
             self.assertEqual(build.returncode, 0, build.stdout + build.stderr)
             # Drag admission and pending-layout transitions have isolated native
             # processes, so settled legacy geometry cannot mask either failure.
-            modes = [("--continuous-drag",), ("--topology-transitions",), ()]
+            modes = [("--continuous-drag",), ("--topology-transitions",), ("--animations",), ()]
             if requested_mode is not None:
                 modes = [named_modes[requested_mode]]
             elif os.environ.get("MWX_GRID_ONLY_CONTINUOUS_DRAG") == "1":
@@ -66,10 +81,14 @@ class WallpaperLibraryGridTests(unittest.TestCase):
                 except subprocess.TimeoutExpired:
                     # The runner has already stopped only its exact owned PID.
                     # Preserve App output before TemporaryDirectory removes it.
+                    captured_streams = {}
+                    for stream in ("stdout", "stderr"):
+                        captured = work / ("native-app." + stream)
+                        captured_streams[stream] = captured.read_text() if captured.exists() else ""
+                        print(f"Native grid timed out in {mode}; captured {stream}:\n{captured_streams[stream]}", file=sys.stderr, flush=True)
                     if proof:
                         for stream in ("stdout", "stderr"):
-                            captured = work / ("native-app." + stream)
-                            (proof / f"{mode}.{stream}.log").write_text(captured.read_text() if captured.exists() else "")
+                            (proof / f"{mode}.{stream}.log").write_text(captured_streams[stream])
                         (proof / f"{mode}.result.json").write_text(json.dumps({
                             "arguments": arguments, "timeoutSeconds": 50, "timedOut": True,
                             "launchReturncode": None,

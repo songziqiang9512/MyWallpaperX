@@ -4,22 +4,7 @@
 //
 
 import AppKit
-import Combine
 import QuartzCore
-
-/// Main-thread symbol-image cache for card chrome. Card configuration runs
-/// exclusively on the main thread; per-tick progress updates were re-resolving
-/// the same SF Symbols several times a second.
-private enum SteamWorkshopSymbolImageCache {
-    private static var cache: [String: NSImage] = [:]
-
-    static func image(named name: String) -> NSImage {
-        if let cached = cache[name] { return cached }
-        let image = NSImage(systemSymbolName: name, accessibilityDescription: nil) ?? NSImage()
-        cache[name] = image
-        return image
-    }
-}
 
 final class AppKitSteamWorkshopBrowserItem: WallpaperCardCollectionViewItem, WallpaperGridHoverItem {
     private struct LayoutInputs: Equatable {
@@ -27,12 +12,10 @@ final class AppKitSteamWorkshopBrowserItem: WallpaperCardCollectionViewItem, Wal
         let scale: CGFloat
         let downloads: Bool
         let multiSelect: Bool
-        let circularBadge: Bool
     }
     private var lastLayoutInputs: LayoutInputs?
 
     static let reuseIdentifier = NSUserInterfaceItemIdentifier("AppKitSteamWorkshopBrowserItem")
-    private var cancellables = Set<AnyCancellable>()
 
     let cardView = AppearanceAwareContainerView()
     let hoverOutlineView = NSView()
@@ -41,12 +24,7 @@ final class AppKitSteamWorkshopBrowserItem: WallpaperCardCollectionViewItem, Wal
     let previewPlaceholderView = SteamWorkshopPreviewPlaceholderView()
     let multiSelectBadgeView = NSView()
     let multiSelectBadgeIcon = NSImageView()
-    let overlayBarShadowView = NSView()
-    let overlayBar = WallpaperCardGlassBarView()
-    let detailButton = NSButton()
-    let titleMarqueeView = WallpaperCardMarqueeTextView()
-    let statusBadgeButton = NSButton()
-    var overlaySymbolConfiguration: NSImage.SymbolConfiguration?
+    let controlBar = WallpaperCardControlsView()
 
     lazy var previewState: SteamWorkshopPreviewState = {
         let state = SteamWorkshopPreviewState()
@@ -63,7 +41,6 @@ final class AppKitSteamWorkshopBrowserItem: WallpaperCardCollectionViewItem, Wal
     private var makeMenu: (() -> NSMenu?)?
     var organizationPresentation: OrganizationPresentation?
     private var currentActionKind: ActionKind = .download
-    var prefersCircularPlayBadge = false
     /// M0.5：本卡片"设为壁纸"是否处于 pending（渲染加载态图标）。
     private var isLaunchPendingBadge = false
     let hoverTracking = WallpaperGridHoverTracking()
@@ -90,8 +67,6 @@ final class AppKitSteamWorkshopBrowserItem: WallpaperCardCollectionViewItem, Wal
     private var progressAccessibilityBucket: Int?
     private var progressAccessibilityPhase: SteamWorkshopDownloadProgressSnapshot.Phase?
     private var lastAccessibilityValue: String?
-    private var lastBadgeKey: String?
-    private var lastHeartKey: String?
     /// Memo for `refreshThemeAwareAppearance` (see +Presentation). Internal:
     /// the themed pass lives in the presentation extension.
     var lastThemedChromeInputs: AppKitSteamWorkshopBrowserItem.ThemedChromeInputs?
@@ -126,20 +101,10 @@ final class AppKitSteamWorkshopBrowserItem: WallpaperCardCollectionViewItem, Wal
     enum Layout {
         static let cardCornerRadius: CGFloat = 14
         static let cardInset: CGFloat = 2
-        static let minBarCornerInset: CGFloat = 4
     }
 
     override init(nibName: NSNib.Name?, bundle: Bundle?) {
         super.init(nibName: nibName, bundle: bundle)
-        // 订阅状态变化（含其他入口触发的订阅）实时刷新卡片 bar 心形。
-        SteamWorkshopService.shared.steamSubscriptions.$states
-            .receive(on: RunLoop.main)
-            .sink { [weak self] _ in self?.refreshSubscribeHeart() }
-            .store(in: &cancellables)
-        SteamWorkshopService.shared.$source
-            .receive(on: RunLoop.main)
-            .sink { [weak self] _ in self?.refreshSubscribeHeart() }
-            .store(in: &cancellables)
     }
 
     @available(*, unavailable)
@@ -156,6 +121,7 @@ final class AppKitSteamWorkshopBrowserItem: WallpaperCardCollectionViewItem, Wal
         }
         view = root
         buildHierarchy()
+        controlBar.detailButton.isEnabled = onOpen != nil
     }
 
     override func prepareForReuse() {
@@ -165,9 +131,10 @@ final class AppKitSteamWorkshopBrowserItem: WallpaperCardCollectionViewItem, Wal
         previewState.reset()
         currentDownloadVideoURL = nil
         currentTitleText = ""
-        titleMarqueeView.text = ""
+        controlBar.apply(title: "", metadata: "")
         previewImageView.image = nil
         onOpen = nil
+        controlBar.onInspect = nil; controlBar.onPlay = nil
         view.setAccessibilityCustomActions([])
         onDownload = nil
         onSetAsWallpaper = nil
@@ -176,13 +143,12 @@ final class AppKitSteamWorkshopBrowserItem: WallpaperCardCollectionViewItem, Wal
         (view as? WallpaperCardInteractionView)?.onAccessibilityActivate = { false }
         organizationPresentation = nil
         isLaunchPendingBadge = false
-        detailButton.isHidden = false
+        controlBar.detailButton.isEnabled = false
         currentActionKind = .download
-        prefersCircularPlayBadge = false
         isHovering = false
         currentBarVisibility = false
         barPresentationGeneration &+= 1
-        overlayBar.removeFromSuperview()
+        controlBar.removeFromSuperview()
         isHoverOutlineVisible = false
         isSelectionHighlighted = false
         isMultiSelectMode = false
@@ -200,15 +166,15 @@ final class AppKitSteamWorkshopBrowserItem: WallpaperCardCollectionViewItem, Wal
         progressAccessibilityBucket = nil
         progressAccessibilityPhase = nil
         lastAccessibilityValue = nil
-        lastBadgeKey = nil
-        lastHeartKey = nil
         lastThemedChromeInputs = nil
-        overlayBar.alphaValue = 0
+        controlBar.alphaValue = 0
         hoverOutlineView.alphaValue = 0
-        titleMarqueeView.setActive(false)
-        overlayBar.setProgressAnimationVisible(false)
-        overlayBar.applyProgress(style: .neutral, fraction: nil, indeterminate: false, animated: false)
-        statusBadgeButton.layer?.removeAnimation(forKey: "steam.status.spin")
+        controlBar.setActive(false)
+        controlBar.glass.setProgressAnimationVisible(false)
+        controlBar.glass.applyProgress(style: .neutral, fraction: nil, indeterminate: false, animated: false)
+        controlBar.primaryActionTitle = nil
+        controlBar.primaryState = .download
+        controlBar.playButton.isEnabled = false
         refreshThemeAwareAppearance()
     }
 
@@ -231,6 +197,7 @@ final class AppKitSteamWorkshopBrowserItem: WallpaperCardCollectionViewItem, Wal
     ) {
         organizationPresentation = organization
         self.onOpen = onOpen
+        controlBar.detailButton.isEnabled = onOpen != nil
         self.onDownload = onDownload
         self.onSetAsWallpaper = onSetAsWallpaper
         self.onCancelDownload = onCancelDownload
@@ -259,6 +226,9 @@ final class AppKitSteamWorkshopBrowserItem: WallpaperCardCollectionViewItem, Wal
                 guard let self, self.currentDisplayContext == displayContext,
                       self.currentItem?.id.utf8.elementsEqual(item.id.utf8) == true,
                       let menu = self.currentContextMenu() else { return false }
+                let scroll = self.view.enclosingScrollView as? WallpaperGridScrollView
+                scroll?.beginContextMenu(at: self.view.convert(NSPoint(x: self.view.bounds.midX, y: self.view.bounds.midY), to: nil))
+                defer { scroll?.endContextMenu() }
                 menu.popUp(positioning: nil, at: NSPoint(x: self.view.bounds.midX, y: self.view.bounds.midY), in: self.view)
                 return true
             })
@@ -268,7 +238,6 @@ final class AppKitSteamWorkshopBrowserItem: WallpaperCardCollectionViewItem, Wal
         currentIsDownloaded = isDownloaded
         self.isMultiSelectMode = isMultiSelectMode
         currentIsKeyboardFocused = isKeyboardFocused
-        prefersCircularPlayBadge = false
         syncPreviewAnimationState()
         bindDownloadProgress(to: downloadProgressStore, itemID: item.id)
         // 绑定回放（store 立即回调当前快照，浏览/已下载场景为 nil）被
@@ -297,6 +266,7 @@ final class AppKitSteamWorkshopBrowserItem: WallpaperCardCollectionViewItem, Wal
     ) {
         organizationPresentation = organization
         self.onOpen = onOpen
+        controlBar.detailButton.isEnabled = onOpen != nil
         self.onDownload = onDownload
         self.onSetAsWallpaper = onSetAsWallpaper
         self.onCancelDownload = onCancelDownload
@@ -325,6 +295,9 @@ final class AppKitSteamWorkshopBrowserItem: WallpaperCardCollectionViewItem, Wal
                 guard let self, self.currentDisplayContext == displayContext,
                       self.currentItem?.id.utf8.elementsEqual(item.id.utf8) == true,
                       let menu = self.currentContextMenu() else { return false }
+                let scroll = self.view.enclosingScrollView as? WallpaperGridScrollView
+                scroll?.beginContextMenu(at: self.view.convert(NSPoint(x: self.view.bounds.midX, y: self.view.bounds.midY), to: nil))
+                defer { scroll?.endContextMenu() }
                 menu.popUp(positioning: nil, at: NSPoint(x: self.view.bounds.midX, y: self.view.bounds.midY), in: self.view)
                 return true
             })
@@ -334,7 +307,6 @@ final class AppKitSteamWorkshopBrowserItem: WallpaperCardCollectionViewItem, Wal
         currentIsDownloaded = isDownloaded
         self.isMultiSelectMode = isMultiSelectMode
         currentIsKeyboardFocused = isKeyboardFocused
-        prefersCircularPlayBadge = false
         syncPreviewAnimationState()
         bindDownloadProgress(to: downloadProgressStore, itemID: item.id)
         // 与 configure 相同：绑定回放的 nil 快照被 tick-diff 早退拦截，
@@ -367,7 +339,7 @@ final class AppKitSteamWorkshopBrowserItem: WallpaperCardCollectionViewItem, Wal
         super.viewDidLayout()
         refreshTrackingArea()
         let inputs = LayoutInputs(size: view.bounds.size, scale: view.window?.backingScaleFactor ?? 2, downloads: currentDisplayContext == .downloads,
-            multiSelect: isMultiSelectMode, circularBadge: prefersCircularPlayBadge)
+            multiSelect: isMultiSelectMode)
         guard lastLayoutInputs != inputs else {
             syncHoverStateFromWindow(animated: false)
             return
@@ -384,7 +356,7 @@ final class AppKitSteamWorkshopBrowserItem: WallpaperCardCollectionViewItem, Wal
         guard bounds.width.isFinite, bounds.height.isFinite else { return }
         cardView.frame = bounds.insetBy(dx: Layout.cardInset, dy: Layout.cardInset)
 
-        let metrics = metrics(for: cardView.bounds.size)
+        let metrics = WallpaperCardBarMetrics(cardWidth: cardView.bounds.width)
         previewContainer.frame = cardView.bounds
         hoverOutlineView.frame = cardView.bounds
         updatePreviewImageFrame()
@@ -396,35 +368,9 @@ final class AppKitSteamWorkshopBrowserItem: WallpaperCardCollectionViewItem, Wal
             width: barWidth,
             height: metrics.barHeight
         )
-        overlayBarShadowView.frame = barFrame
-        overlayBar.frame = barFrame
-        applyMetrics(metrics)
-
-        let iconSize = metrics.iconButtonSize
-        let barMidY = floor((overlayBar.bounds.height - iconSize) * 0.5)
-        let statusBadgeX = overlayBar.bounds.width - iconSize - metrics.barEdgeInset
-        statusBadgeButton.frame = CGRect(
-            x: statusBadgeX,
-            y: barMidY,
-            width: iconSize,
-            height: iconSize
-        )
-        let detailButtonX = metrics.barEdgeInset
-        detailButton.frame = CGRect(
-            x: detailButtonX,
-            y: barMidY,
-            width: iconSize,
-            height: iconSize
-        )
-        let marqueeX = detailButton.frame.maxX + metrics.barSpacing
-        let marqueeWidth = max(24, statusBadgeButton.frame.minX - metrics.barSpacing - marqueeX)
-        titleMarqueeView.frame = CGRect(
-            x: marqueeX + metrics.marqueeSideInset,
-            y: 0,
-            width: max(24, marqueeWidth - metrics.marqueeSideInset * 2),
-            height: overlayBar.bounds.height
-        )
-        statusBadgeButton.ensureLayerAnchorCentered()
+        controlBar.frame = barFrame
+        controlBar.apply(metrics: metrics)
+        controlBar.layoutSubtreeIfNeeded()
 
         let badgeSize = max(22, min(28, cardView.bounds.width * 0.12))
         let badgeOrigin: CGPoint
@@ -463,7 +409,10 @@ final class AppKitSteamWorkshopBrowserItem: WallpaperCardCollectionViewItem, Wal
     func refreshGridHover(isScrolling: Bool) {
         hoverTracking.update(in: view, owner: self, isScrolling: isScrolling)
         let hovered = !isScrolling && view.isGridPointerInside
-        guard hovered != isHovering else { return }
+        guard hovered != isHovering else {
+            cardView.applyGridHoverScale(hovered, animated: false)
+            return
+        }
         isHovering = hovered
         syncPreviewAnimationState()
         applyHoverStyle(animated: false)
@@ -552,7 +501,7 @@ final class AppKitSteamWorkshopBrowserItem: WallpaperCardCollectionViewItem, Wal
         let value = current?.statusText() ?? currentTitleText
         if value != lastAccessibilityValue {
             lastAccessibilityValue = value
-            overlayBar.setAccessibilityValue(value)
+            controlBar.glass.setAccessibilityValue(value)
         }
         let bucket = current?.percent.map { $0 / 10 }
         let phase = current?.phase
@@ -561,7 +510,7 @@ final class AppKitSteamWorkshopBrowserItem: WallpaperCardCollectionViewItem, Wal
         progressAccessibilityPhase = phase
         progressAccessibilityBucket = bucket
         if shouldAnnounce, view.window != nil {
-            NSAccessibility.post(element: overlayBar, notification: .valueChanged)
+            NSAccessibility.post(element: controlBar.glass, notification: .valueChanged)
         }
     }
 
@@ -584,14 +533,7 @@ final class AppKitSteamWorkshopBrowserItem: WallpaperCardCollectionViewItem, Wal
         self.isMultiSelectMode = isMultiSelectMode
         let displayTitle = resolvedDisplayTitle(item: item, downloadRecord: downloadRecord, barState: barState)
         currentTitleText = item.title
-        titleMarqueeView.text = displayTitle
-        // D7：ready 卡存在失败意图（更新失败）时，徽章提示附带该失败摘要；
-        // 失败摘要不进搜索等隐式字段，只在此处可见。
-        let updateFailedMessage = resolvedUpdateFailedMessage(downloadRecord: downloadRecord)
-        statusBadgeButton.toolTip = currentProgressSnapshot?.failureMessage
-            ?? downloadRecord?.failureMessage
-            ?? updateFailedMessage
-
+        controlBar.apply(title: displayTitle, metadata: "")
         currentActionKind = resolvedActionKind(
             downloadRecord: downloadRecord,
             isDownloading: isDownloading,
@@ -601,9 +543,9 @@ final class AppKitSteamWorkshopBrowserItem: WallpaperCardCollectionViewItem, Wal
             // 正在播放：bar 常显、淡红底、按钮切换为停止。
             currentActionKind = .stop
             shouldPersistBarVisibility = true
-            overlayBar.layer?.backgroundColor = NSColor.systemRed.withAlphaComponent(0.2).cgColor
-        } else if overlayBar.layer?.backgroundColor != NSColor.clear.cgColor {
-            overlayBar.layer?.backgroundColor = NSColor.clear.cgColor
+            controlBar.glass.layer?.backgroundColor = NSColor.systemRed.withAlphaComponent(0.2).cgColor
+        } else if controlBar.glass.layer?.backgroundColor != NSColor.clear.cgColor {
+            controlBar.glass.layer?.backgroundColor = NSColor.clear.cgColor
         }
         isLaunchPendingBadge = organizationPresentation?.isSwitching ?? downloadRecord.map {
             SteamWorkshopService.shared.isLaunchPending($0.id)
@@ -619,7 +561,6 @@ final class AppKitSteamWorkshopBrowserItem: WallpaperCardCollectionViewItem, Wal
         )
 
         refreshThemeAwareAppearance()
-        refreshSubscribeHeart()
         if view.window != nil {
             applyHoverStyle(animated: false)
         } else {
@@ -744,48 +685,30 @@ final class AppKitSteamWorkshopBrowserItem: WallpaperCardCollectionViewItem, Wal
         itemTitle: String,
         isLaunchPending: Bool = false
     ) {
-        let badgeKey = "\(String(describing: actionKind))|\(isLaunchPending)|\(organizationPresentation?.canPlay ?? true)|\(organizationPresentation?.canDownload ?? true)|\(organizationPresentation?.canCancel ?? true)"
-        guard badgeKey != lastBadgeKey else { return }
-        lastBadgeKey = badgeKey
-        let symbolName: String
-        let tintColor: NSColor
-        let accessibilityLabel: String
-
+        let title: String
         switch actionKind {
         case .download:
-            symbolName = "square.and.arrow.down"
-            tintColor = .labelColor
-            accessibilityLabel = "下载：\(itemTitle)"
-        case .cancel:
-            symbolName = "xmark"
-            tintColor = .labelColor
-            accessibilityLabel = "取消下载：\(itemTitle)"
-        case .setAsWallpaper:
-            if isLaunchPending {
-                symbolName = "hourglass"
-                accessibilityLabel = "正在切换壁纸：\(itemTitle)"
-            } else {
-                symbolName = "play.fill"
-                accessibilityLabel = "设为壁纸：\(itemTitle)"
-            }
-            tintColor = .labelColor
+            controlBar.primaryState = .download
+            title = "下载：\(itemTitle)"
         case .retry:
-            symbolName = "square.and.arrow.down"
-            tintColor = .labelColor
-            accessibilityLabel = "重新下载：\(itemTitle)"
+            controlBar.primaryState = .download
+            title = "重新下载：\(itemTitle)"
+        case .cancel:
+            controlBar.primaryState = .switching
+            title = "取消下载：\(itemTitle)"
+        case .setAsWallpaper:
+            controlBar.primaryState = isLaunchPending ? .switching : .apply
+            title = isLaunchPending ? "正在切换壁纸：\(itemTitle)" : "设为壁纸：\(itemTitle)"
         case .saving:
-            symbolName = "checkmark.circle"
-            tintColor = .labelColor
-            accessibilityLabel = "正在保存：\(itemTitle)"
+            controlBar.primaryState = .switching
+            title = "正在保存：\(itemTitle)"
         case .stop:
-            symbolName = "stop.fill"
-            tintColor = .controlAccentColor
-            accessibilityLabel = "停止播放：\(itemTitle)"
+            controlBar.primaryState = .playing
+            title = "停止播放：\(itemTitle)"
         }
-
-        statusBadgeButton.image = configuredSymbol(named: symbolName)
-        statusBadgeButton.contentTintColor = tintColor
-        statusBadgeButton.setAccessibilityLabel(accessibilityLabel)
+        let failure = currentProgressSnapshot?.failureMessage ?? currentDownloadRecord?.failureMessage
+            ?? resolvedUpdateFailedMessage(downloadRecord: currentDownloadRecord)
+        controlBar.primaryActionTitle = [title, failure].compactMap { $0 }.joined(separator: "\n")
         let allowed: Bool
         if let organizationPresentation {
             switch actionKind {
@@ -795,7 +718,35 @@ final class AppKitSteamWorkshopBrowserItem: WallpaperCardCollectionViewItem, Wal
             case .saving: allowed = false
             }
         } else { allowed = actionKind != .saving }
-        statusBadgeButton.isEnabled = allowed && !isLaunchPending
+        controlBar.playButton.isEnabled = allowed && !isLaunchPending
+        let id = currentItem?.id, context = currentDisplayContext
+        let primary: (() -> Void)?
+        switch actionKind {
+        case .download, .retry: primary = onDownload
+        case .cancel: primary = onCancelDownload
+        case .setAsWallpaper: primary = onSetAsWallpaper
+        case .saving: primary = nil
+        case .stop:
+            if let organizationPresentation { primary = organizationPresentation.onPrimary }
+            else if let record = currentDownloadRecord {
+                primary = {
+                    guard SteamWorkshopService.shared.isRecordCurrentlyPlaying(record) else { return }
+                    PlaybackCommandMultiplexer.shared.dispatch(.stop, to: record.contentType == .scene ? .scene : .video)
+                }
+            } else { primary = nil }
+        }
+        controlBar.onPlay = primary.map { action in { [weak self] in
+            guard let self, let id, !self.isMultiSelectMode, self.controlBar.playButton.isEnabled,
+                  self.currentDisplayContext == context, self.currentActionKind == actionKind,
+                  self.currentItem?.id.utf8.elementsEqual(id.utf8) == true else { return }
+            action()
+        } }
+        controlBar.onInspect = onOpen.map { action in { [weak self] in
+            guard let self, let id, !self.isMultiSelectMode, self.controlBar.detailButton.isEnabled,
+                  self.currentDisplayContext == context,
+                  self.currentItem?.id.utf8.elementsEqual(id.utf8) == true else { return }
+            action()
+        } }
         updateContinuousAnimationState()
     }
 
@@ -818,123 +769,6 @@ final class AppKitSteamWorkshopBrowserItem: WallpaperCardCollectionViewItem, Wal
         applyHoverStyle(animated: animated)
     }
 
-    @objc private func handleOpen() {
-        onOpen?()
-    }
-
-    /// Local heart and account bookmark dispatch to their independent owners.
-    @objc func handleSubscribeToggle() {
-        guard !isMultiSelectMode, let item = currentItem else { return }
-        if let organizationPresentation {
-            if organizationPresentation.canFavorite { organizationPresentation.onFavorite?() }
-            return
-        }
-        if currentDisplayContext == .downloads { onOpen?(); return }
-        guard SteamWorkshopService.shared.steamAuth.isOnline else {
-            SteamWorkshopService.shared.presentSteamLoginForUserAction(context: "订阅")
-            return
-        }
-        let store = SteamWorkshopService.shared.steamSubscriptions
-        switch store.state(for: item.id) {
-        case .known:
-            store.toggle(item.id)
-        default:
-            store.refresh(item.id)
-        }
-    }
-
-    /// Subscription membership comes only from the account-scoped store.
-    func refreshSubscribeHeart() {
-        guard let item = currentItem else { return }
-        if let organizationPresentation {
-            detailButton.isHidden = !organizationPresentation.canFavorite
-            applyDetailChrome(key: "favorite|\(organizationPresentation.isFavorite)|\(organizationPresentation.canFavorite)|\(item.title)",
-                symbolName: organizationPresentation.isFavorite ? "heart.fill" : "heart",
-                tint: organizationPresentation.isFavorite ? .controlAccentColor : .labelColor,
-                accessibilityLabel: organizationPresentation.isFavorite ? "取消特别喜爱：\(item.title)" : "特别喜爱：\(item.title)",
-                isEnabled: organizationPresentation.canFavorite)
-            return
-        }
-        detailButton.isHidden = false
-        guard currentDisplayContext == .browser else {
-            applyDetailChrome(
-                key: "detail|\(item.title)",
-                symbolName: "info.circle",
-                tint: .labelColor,
-                accessibilityLabel: "详细信息：\(item.title)",
-                isEnabled: true
-            )
-            return
-        }
-        let store = SteamWorkshopService.shared.steamSubscriptions
-        let state = store.state(for: item.id)
-        let subscribed: Bool
-        switch state {
-        case .known(let value):
-            subscribed = value
-        default:
-            subscribed = false
-        }
-        let busy = state == .loading || state == .writing || state == .reconciling
-        applyDetailChrome(
-            key: "\(subscribed)|\(busy)|\(item.title)",
-            symbolName: subscribed ? "bookmark.fill" : "bookmark",
-            tint: subscribed ? .controlAccentColor : .labelColor,
-            accessibilityLabel: busy
-                ? "正在核对订阅：\(item.title)"
-                : (subscribed ? "取消订阅：\(item.title)" : "订阅：\(item.title)"),
-            isEnabled: !busy
-        )
-    }
-
-    /// Change-detected detail/heart chrome assignment: progress ticks and
-    /// layout passes call this several times a second, and every unconditional
-    /// `NSImage(systemSymbolName:)` construction plus image assignment used to
-    /// invalidate the button each time.
-    private func configuredSymbol(named name: String) -> NSImage {
-        let image = SteamWorkshopSymbolImageCache.image(named: name)
-        return overlaySymbolConfiguration.flatMap { image.withSymbolConfiguration($0) } ?? image
-    }
-
-    private func applyDetailChrome(
-        key: String,
-        symbolName: String,
-        tint: NSColor,
-        accessibilityLabel: String,
-        isEnabled: Bool
-    ) {
-        guard key != lastHeartKey else { return }
-        lastHeartKey = key
-        detailButton.image = configuredSymbol(named: symbolName)
-        detailButton.contentTintColor = tint
-        detailButton.setAccessibilityLabel(accessibilityLabel)
-        detailButton.isEnabled = isEnabled
-        detailButton.toolTip = nil
-    }
-
-    @objc func handleStatusAction() {
-        guard statusBadgeButton.isEnabled, !isMultiSelectMode else { return }
-        switch currentActionKind {
-        case .download, .retry:
-            onDownload?()
-        case .cancel:
-            onCancelDownload?()
-        case .setAsWallpaper:
-            onSetAsWallpaper?()
-        case .saving:
-            break
-        case .stop:
-            if let organizationPresentation { organizationPresentation.onPrimary?(); return }
-            if let record = currentDownloadRecord,
-               SteamWorkshopService.shared.isRecordCurrentlyPlaying(record) {
-                PlaybackCommandMultiplexer.shared.dispatch(
-                    .stop,
-                    to: record.contentType == .scene ? .scene : .video
-                )
-            }
-        }
-    }
-
     private func currentContextMenu() -> NSMenu? {
         guard currentDisplayContext == .browser, let item = currentItem else { return nil }
         if let makeMenu { return makeMenu() }
@@ -942,19 +776,7 @@ final class AppKitSteamWorkshopBrowserItem: WallpaperCardCollectionViewItem, Wal
             navigationVersion: SteamWorkshopService.shared.navigationVersion)
     }
 
-    func setPrefersCircularPlayBadge(_ prefersCircularPlayBadge: Bool) {
-        guard self.prefersCircularPlayBadge != prefersCircularPlayBadge else { return }
-        self.prefersCircularPlayBadge = prefersCircularPlayBadge
-        applyStatusBadgeAppearance(
-            actionKind: currentActionKind,
-            itemTitle: currentTitleText,
-            isLaunchPending: isLaunchPendingBadge
-        )
-        if view.window != nil {
-            refreshThemeAwareAppearance()
-            view.needsLayout = true
-        }
-    }
+
 }
 
 /// The card itself opens details; secondary operations remain in its context menu.

@@ -13,6 +13,7 @@ final class SettingsWindowController: NSWindowController, NSWindowDelegate {
     private static let windowWidth: CGFloat = 500
     private let contentController = SettingsContentViewController()
     private var hasShownWindow = false
+    private var mainWindowTint: NSColor?
 
     private init() {
         let window = NSWindow(contentViewController: contentController)
@@ -48,6 +49,7 @@ final class SettingsWindowController: NSWindowController, NSWindowDelegate {
     }
 
     func showWindow() {
+        contentController.loadViewIfNeeded()
         contentController.refresh()
         updateWindowSize()
         NSApp.activate(ignoringOtherApps: true)
@@ -57,6 +59,24 @@ final class SettingsWindowController: NSWindowController, NSWindowDelegate {
             hasShownWindow = true
         }
         window.makeKeyAndOrderFront(nil)
+        contentController.updateMainWindowTint(mainWindowTint, animated: false)
+    }
+
+    func updateMainWindowTint(_ tint: NSColor?, animated: Bool) {
+        mainWindowTint = tint
+        contentController.updateMainWindowTint(tint, animated: animated)
+    }
+
+    func windowDidDeminiaturize(_ notification: Notification) {
+        contentController.updateMainWindowTint(mainWindowTint, animated: false)
+    }
+
+    func windowWillMiniaturize(_ notification: Notification) {
+        contentController.updateMainWindowTint(mainWindowTint, animated: false)
+    }
+
+    func windowWillClose(_ notification: Notification) {
+        contentController.updateMainWindowTint(mainWindowTint, animated: false)
     }
 
     /// The App supplies the same recovery owner used during startup/reset.
@@ -101,14 +121,23 @@ private final class SettingsContentViewController: NSViewController {
         return AppSettingsActions(
             applyEngineSettings: { manager.applyEngineSettings(reloadWallpaper: $0) },
             clearAllCaches: {
-                manager.clearAllCaches()
+                await withCheckedContinuation { continuation in
+                    manager.clearAllCaches { continuation.resume() }
+                }
                 // 清除缓存显式清单：逐 namespace 实例级清空（内存 + 磁盘），
-                // 不再依赖共享目录整根互殃；在线库两份缩略图缓存一并纳入。
-                VideoLibraryThumbnailStore.sharedCache.clearAll()
-                SILThumbnailStore.sharedCache.clearAll()
-                OLDownloadedThumbnailStore.sharedCache.clearAll()
-                SteamWorkshopService.shared.clearAllCachedState()
-                await OLThumbnailCache.shared.clearAll()
+                // 不再依赖共享目录整根互殃；Pixabay两份缩略图缓存一并纳入。
+                for cache in [VideoLibraryThumbnailStore.sharedCache, SILThumbnailStore.sharedCache,
+                              PixabayDownloadedThumbnailStore.sharedCache] {
+                    await withCheckedContinuation { continuation in
+                        cache.clearAll { continuation.resume() }
+                    }
+                }
+                await withCheckedContinuation { continuation in
+                    SteamWorkshopService.shared.clearAllCachedState { continuation.resume() }
+                }
+                await OnlineImageThumbnailCache.shared.clearAll()
+                let preview = MainWindowCoordinator.mainWindowController?.closePreviewForCacheClear()
+                await OnlineImageLibrary.shared.clearOriginalPreviewCache(after: preview).value
             },
             exportPersonalSettings: { [weak self] url in
                 guard let coordinator = self?.personalSettings else { throw PersonalSettingsError.recoveryRequired("设置导出尚未就绪") }
@@ -158,6 +187,9 @@ private final class SettingsContentViewController: NSViewController {
         view = rootView
 
         bindSettingsAuthority()
+        WallpaperManager.shared.$settings.map(\.libraryBackgroundStyle).removeDuplicates()
+            .sink { [weak rootView] in rootView?.usesListTint = $0 == .listCoverTint }
+            .store(in: &cancellables)
     }
 
     /// M0.3 回归修复：`WallpaperSettings` 是值类型，面板写 dependency 快照
@@ -197,12 +229,22 @@ private final class SettingsContentViewController: NSViewController {
         settingsView.updateVisibleSections(Set(AppSettingsSection.allCases))
         settingsView.refreshFromState()
     }
+
+    func updateMainWindowTint(_ tint: NSColor?, animated: Bool) {
+        guard isViewLoaded, let window = view.window, window.isVisible,
+              !window.isMiniaturized, !NSApp.isHidden else { return }
+        (view as? SettingsRootBackgroundView)?.setListTint(tint, animated: animated)
+    }
 }
 
 private final class SettingsRootBackgroundView: NSView {
+    private let tintLayer = CALayer()
+    var usesListTint = false { didSet { updateBackground() } }
+    private(set) var listTint: NSColor?
     override init(frame frameRect: NSRect) {
         super.init(frame: frameRect)
         wantsLayer = true
+        layer?.addSublayer(tintLayer)
         updateBackground()
     }
 
@@ -221,12 +263,26 @@ private final class SettingsRootBackgroundView: NSView {
         updateBackground()
     }
 
-    private func updateBackground() {
+    override func layout() {
+        super.layout()
+        CATransaction.begin(); CATransaction.setDisableActions(true)
+        tintLayer.frame = bounds
+        CATransaction.commit()
+    }
+
+    func setListTint(_ tint: NSColor?, animated: Bool) {
+        listTint = tint
+        updateBackground(animated: animated)
+    }
+
+    private func updateBackground(animated: Bool = false) {
         var backgroundColor = NSColor.windowBackgroundColor
         effectiveAppearance.performAsCurrentDrawingAppearance {
             backgroundColor = NSColor.windowBackgroundColor.usingColorSpace(.deviceRGB) ?? .windowBackgroundColor
         }
         layer?.backgroundColor = backgroundColor.cgColor
         window?.backgroundColor = backgroundColor
+        AppKitListBackgroundTint.apply(usesListTint ? listTint : nil, to: tintLayer,
+            appearance: effectiveAppearance, animated: animated && usesListTint)
     }
 }

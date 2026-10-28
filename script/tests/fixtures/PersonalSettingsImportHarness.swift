@@ -4,6 +4,13 @@ import Foundation
 import ImageIO
 import SQLite3
 
+@MainActor final class PlaybackCommandMultiplexer {
+    enum Command { case setPerformanceProfile(maxFPS: Int) }
+    static let shared = PlaybackCommandMultiplexer()
+    var frames: [Int] = []
+    func dispatch(_ command: Command) { if case let .setPerformanceProfile(fps) = command { frames.append(fps) } }
+}
+
 // PRODUCTION_IMAGE_MODEL
 
 @MainActor final class SILService {
@@ -123,6 +130,50 @@ extension Notification.Name {
         let futureApplied = futurePreferences.applying(to: nativeBackground)
         checks["UnknownProfileBackgroundStylePreservesLocalStyleAndOtherChanges"] = futureApplied.libraryBackgroundStyle == .macOSNative && futureApplied.volume == 19
         let originalDate = Date(timeIntervalSince1970: 30)
+        var clickSettings = WallpaperSettings()
+        checks["FreshSettingsKeepListTintAndSelectionOnly"] = clickSettings.libraryBackgroundStyle == .listCoverTint
+            && LibraryBackgroundStyle.macOSNative.rawValue == "macOSNative" && clickSettings.libraryCardClickAction == .selectOnly
+        clickSettings.libraryBackgroundStyle = .listCoverTint; clickSettings.libraryCardClickAction = .openDetails
+        let decodedClicks = try JSONDecoder().decode(WallpaperSettings.self, from: JSONEncoder().encode(clickSettings))
+        checks["ExplicitBackgroundAndCardClickChoicesRoundTripWithoutOtherSettingLoss"] = decodedClicks == clickSettings
+        for raw in ["{}", "{\"libraryCardClickAction\":\"future-action\",\"volume\":31}", "{\"libraryCardClickAction\":42,\"volume\":31}"] {
+            let decoded = try JSONDecoder().decode(WallpaperSettings.self, from: Data(raw.utf8))
+            checks["MissingOrUnknownCardClickActionDefaultsLocally-\(raw)"] = decoded.libraryCardClickAction == .selectOnly
+                && decoded.volume == (raw == "{}" ? 50 : 31)
+        }
+        let clickProfile = try JSONDecoder().decode(PersonalSettingsPreferences.self,
+            from: JSONEncoder().encode(PersonalSettingsPreferences(from: clickSettings)))
+        checks["ProfileRestoresExplicitCardClickChoice"] = clickProfile.applying(to: WallpaperSettings()).libraryCardClickAction == .openDetails
+        var laterClickSettings = clickSettings; laterClickSettings.libraryCardClickAction = .selectOnly
+        checks["ExplicitCardClickRecoverySnapshotStillRejectsLaterLocalEdit"] = !clickProfile.matchesForRecovery(.init(from: laterClickSettings))
+        var legacyClickSnapshot = clickProfile; legacyClickSnapshot.libraryCardClickAction = nil
+        checks["LegacyRecoverySnapshotIgnoresOnlyItsMissingCardClickField"] = legacyClickSnapshot.matchesForRecovery(.init(from: laterClickSettings))
+        laterClickSettings.volume = 11
+        checks["LegacyRecoveryCardClickCompatibilityDoesNotIgnoreOtherPreferenceConflicts"] = !legacyClickSnapshot.matchesForRecovery(.init(from: laterClickSettings))
+        checks["OldProfilePreservesLocalCardClickChoice"] = oldPreferences.applying(to: clickSettings).libraryCardClickAction == .openDetails
+        var shortcutSettings = clickSettings
+        shortcutSettings.systemHotkeysEnabled = true
+        shortcutSettings.previousWallpaperHotkey = .f2; shortcutSettings.nextWallpaperHotkey = .f4
+        shortcutSettings.togglePlaybackHotkey = .f6; shortcutSettings.toggleMuteHotkey = .f8
+        let shortcutProfile = try JSONDecoder().decode(PersonalSettingsPreferences.self,
+            from: JSONEncoder().encode(PersonalSettingsPreferences(from: shortcutSettings)))
+        let shortcutRestored = shortcutProfile.applying(to: WallpaperSettings())
+        checks["PortableShortcutEnableAndBindingsRoundTripThroughTheOriginalPreferences"] = shortcutRestored.systemHotkeysEnabled
+            && shortcutRestored.previousWallpaperHotkey == .f2 && shortcutRestored.nextWallpaperHotkey == .f4
+            && shortcutRestored.togglePlaybackHotkey == .f6 && shortcutRestored.toggleMuteHotkey == .f8
+        checks["OldProfilesDoNotClaimExistingShortcutPreferences"] = oldPreferences.applying(to: shortcutSettings).previousWallpaperHotkey == .f2
+            && oldPreferences.applying(to: shortcutSettings).systemHotkeysEnabled
+        var legacyShortcutRecovery = shortcutProfile
+        legacyShortcutRecovery.systemHotkeysEnabled = nil; legacyShortcutRecovery.previousWallpaperHotkey = nil
+        legacyShortcutRecovery.nextWallpaperHotkey = nil; legacyShortcutRecovery.togglePlaybackHotkey = nil; legacyShortcutRecovery.toggleMuteHotkey = nil
+        var changedShortcutSettings = shortcutSettings; changedShortcutSettings.toggleMuteHotkey = .f10
+        checks["LegacyRecoveryIgnoresOnlyItsUnrepresentedShortcutFields"] = legacyShortcutRecovery.matchesForRecovery(.init(from: changedShortcutSettings))
+            && !shortcutProfile.matchesForRecovery(.init(from: changedShortcutSettings))
+        let unknownClickProfile = try JSONDecoder().decode(PersonalSettingsPreferences.self,
+            from: Data("{\"libraryCardClickAction\":\"future-action\",\"volume\":19}".utf8))
+        let unknownApplied = unknownClickProfile.applying(to: clickSettings)
+        checks["UnknownProfileCardClickChoicePreservesLocalAndOtherChanges"] = unknownApplied.libraryCardClickAction == .openDetails
+            && unknownApplied.libraryBackgroundStyle == .listCoverTint && unknownApplied.volume == 19
         let a = VideoWallpaper(id: "A", title: "Original", path: root.appendingPathComponent("missing-A.mp4").path,
             thumbnailPath: "/derived/thumbnail", isFavorite: true, lastUsed: originalDate, tags: ["retired"], duration: 50,
             firstIndexedAt: Date(timeIntervalSinceReferenceDate: 800_000_000.0000001))
@@ -279,10 +330,12 @@ extension Notification.Name {
         _ = try await coordinator.exportPersonalSettings(to: exportURL)
         let exported = try LibraryPersonalSettings.decode(Data(contentsOf: exportURL))
         let object = try JSONSerialization.jsonObject(with: Data(contentsOf: exportURL)) as! [String: Any]
+        let exportedPreferences = object["preferences"] as? [String: Any]
         let exportedJSON = String(decoding: try Data(contentsOf: exportURL), as: UTF8.self)
         checks["SchemaEightExportExcludesRuntimeHistoryCredentialsAndWallpaperMedia"] = exported.schemaVersion == 8
             && object["recent"] == nil && object["currentWallpaper"] == nil && object["session"] == nil
-            && (object["preferences"] as? [String: Any])?["systemHotkeysEnabled"] == nil
+            && (exportedPreferences?["systemHotkeysEnabled"] as? Bool) == manager.settings.systemHotkeysEnabled
+            && object["pixivCookie"] == nil && object["wallhavenAPIKey"] == nil
             && !exportedJSON.contains("/derived/thumbnail")
         checks["ExportIncludesExplicitFalseForUnfavoritedReferences"] = exported.collections?.favoriteStates.contains { $0.reference == ref("plain", .pixabay) && !$0.isFavorite } == true
         checks["SourceAdmissionExportsSeparatelyFromPlaybackHistory"] = exported.sources.first?.firstIndexedAt == a.firstIndexedAt
@@ -305,7 +358,41 @@ extension Notification.Name {
             sources: [source("A", a.path, "Imported"), incomingImage], collections: incoming)
         let profile = root.appendingPathComponent("profile.json"); try write(payload, to: profile)
         let profileBytes = try Data(contentsOf: profile)
+        let unwritableRecoveryParent = root.appendingPathComponent("unwritable-recovery", isDirectory: true)
+        try FileManager.default.createDirectory(at: unwritableRecoveryParent, withIntermediateDirectories: false)
+        let unwritableRecovery = makeCoordinator(unwritableRecoveryParent.appendingPathComponent("prepared.json"))
+        let sourcesBeforeFailedPreparation = manager.wallpapers
+        try FileManager.default.setAttributes([.posixPermissions: 0o500], ofItemAtPath: unwritableRecoveryParent.path)
+        do {
+            _ = try await unwritableRecovery.importPersonalSettings(from: profile)
+            checks["FailedRecoveryPreparationDoesNotClaimAnImportOrMutateOwners"] = false
+        } catch {
+            checks["FailedRecoveryPreparationDoesNotClaimAnImportOrMutateOwners"] = unwritableRecovery.allowsEditing
+                && unwritableRecovery.recoveryMessage == nil && manager.wallpapers == sourcesBeforeFailedPreparation
+                && !FileManager.default.fileExists(atPath: unwritableRecoveryParent.appendingPathComponent("prepared.json").path)
+        }
+        try FileManager.default.setAttributes([.posixPermissions: 0o700], ofItemAtPath: unwritableRecoveryParent.path)
+        let hdrBefore = SceneHDRDisplayPreference.isEnabled, mediaBefore = SceneMediaSourcePreference.isEnabled
+        let frameBudgetBefore = PlaybackPerformanceProfile.current
+        var completePreferences = prefs
+        completePreferences.sceneHDRDisplayEnabled = !hdrBefore
+        completePreferences.sceneMediaInfoEnabled = !mediaBefore
+        completePreferences.playbackPerformanceProfile = frameBudgetBefore == .standard ? 30 : 60
+        let completeProfile = root.appendingPathComponent("all-portable-preferences.json")
+        try write(.init(exportedAt: originalDate, preferences: completePreferences, sources: [], collections: .init()), to: completeProfile)
+        _ = try await coordinator.importPersonalSettings(from: completeProfile)
+        checks["ExternalPortablePreferencesApplyThroughTheirOriginalOwnersWithoutPlayback"] = SceneHDRDisplayPreference.isEnabled == !hdrBefore
+            && SceneMediaSourcePreference.isEnabled == !mediaBefore
+            && PlaybackPerformanceProfile.current.rawValue == completePreferences.playbackPerformanceProfile
+            && PlaybackCommandMultiplexer.shared.frames.last == PlaybackPerformanceProfile.current.maxFPS && manager.recentWrites == 0
+        let portableBackup = root.appendingPathComponent("all-portable-backup.json")
+        _ = try await coordinator.exportPersonalSettings(to: portableBackup)
+        let portableExport = try LibraryPersonalSettings.decode(Data(contentsOf: portableBackup)).preferences
+        checks["ExternalPortablePreferencesAreIncludedInTheOriginalProfileExport"] = portableExport.sceneHDRDisplayEnabled == !hdrBefore
+            && portableExport.sceneMediaInfoEnabled == !mediaBefore && portableExport.playbackPerformanceProfile == PlaybackPerformanceProfile.current.rawValue
         let result = try await coordinator.importPersonalSettings(from: profile)
+        checks["OlderProfilesLeaveUnrepresentedExternalPreferencesWithTheirOwners"] = SceneHDRDisplayPreference.isEnabled == !hdrBefore
+            && SceneMediaSourcePreference.isEnabled == !mediaBefore && PlaybackPerformanceProfile.current.rawValue == completePreferences.playbackPerformanceProfile
         checks["SameNameDifferentUUIDAndMixedOfflineMembersSurvive"] = controller.snapshot.playlists.count == 2
             && controller.snapshot.members.filter { $0.playlistID == second.id }.map(\.reference) == [ref("video:offline-scene", .steamWorkshop), ref("77", .pixabay)]
         checks["ExplicitFalseOnlyClearsItsCanonicalFavorite"] = !controller.snapshot.favorites.contains { $0.reference == ref("A") }
@@ -452,15 +539,19 @@ extension Notification.Name {
             for key in ["beforePreferences", "targetPreferences"] {
                 var preferences = oldPlan[key] as! [String: Any]
                 preferences.removeValue(forKey: "libraryBackgroundStyle")
+                preferences.removeValue(forKey: "libraryCardClickAction")
                 oldPlan[key] = preferences
             }
             oldJournal["plan"] = oldPlan
             try JSONSerialization.data(withJSONObject: oldJournal).write(to: compatibilityURL, options: .atomic)
             manager.settings.libraryBackgroundStyle = .macOSNative
+            manager.settings.libraryCardClickAction = .openDetails
             let oldRelaunch = makeCoordinator(compatibilityURL)
             checks["OldJournalReopenKeepsRecoveryBarrierBeforeResume"] = !oldRelaunch.allowsEditing
                 && (oldPlan["beforePreferences"] as? [String: Any])?["libraryBackgroundStyle"] == nil
                 && (oldPlan["targetPreferences"] as? [String: Any])?["libraryBackgroundStyle"] == nil
+                && (oldPlan["beforePreferences"] as? [String: Any])?["libraryCardClickAction"] == nil
+                && (oldPlan["targetPreferences"] as? [String: Any])?["libraryCardClickAction"] == nil
             let oldJournalBytes = try Data(contentsOf: compatibilityURL)
             manager.settings.volume = originalSettings.volume + 1
             do { _ = try await oldRelaunch.resumeIfNeeded(); checks["OldJournalStillRejectsLaterEditsToExistingPreferenceFields"] = false }
@@ -475,6 +566,7 @@ extension Notification.Name {
             checks["OldJournalResumePreservesLocalBackgroundAndDurablyAppliesOtherPreferences"] = oldRelaunch.allowsEditing
                 && manager.settings.libraryBackgroundStyle == .macOSNative && manager.settings.volume == 24
                 && savedAfterOldRecovery.libraryBackgroundStyle == .macOSNative && savedAfterOldRecovery.volume == 24
+                && manager.settings.libraryCardClickAction == .openDetails && savedAfterOldRecovery.libraryCardClickAction == .openDetails
                 && !FileManager.default.fileExists(atPath: compatibilityURL.path)
 
             // A current journal explicitly owns its background choice. A later

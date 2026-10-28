@@ -41,6 +41,7 @@ final class AppKitSteamWorkshopBrowserContainerView: NSView, ModuleFocusable, NS
     var onDownload: (SteamWorkshopBrowserItem) -> Void
     var onSetAsWallpaper: (SteamWorkshopDownloadRecord) -> Void
     var onCancelDownload: (SteamWorkshopBrowserItem) -> Void
+    var opensDetailsOnSingleClick: () -> Bool = { false }
     var makeOrganization: ((SteamWorkshopBrowserItem) -> AppKitSteamWorkshopBrowserItem.OrganizationPresentation?)? {
         didSet { refreshLibraryActions() }
     }
@@ -66,6 +67,8 @@ final class AppKitSteamWorkshopBrowserContainerView: NSView, ModuleFocusable, NS
     private var itemsByID: [String: SteamWorkshopBrowserItem] = [:]
     private var orderedIDs: [String] = []
     private var keyboardFocusedID: String?
+    var selectedItem: SteamWorkshopBrowserItem? { keyboardFocusedID.flatMap { itemsByID[$0] } }
+    var selectedPrimaryAction: (() -> Void)? { selectedItem.flatMap { primaryAction(for: $0.id) } }
     private var currentColumnCount = 1
     private var footerState: SteamWorkshopBrowserFooterSupport.State = .hidden
     private var isApplyingSnapshot = false
@@ -76,7 +79,7 @@ final class AppKitSteamWorkshopBrowserContainerView: NSView, ModuleFocusable, NS
     private var lastPrefetchOffsetY: CGFloat?
     private var thumbnailWindowVisibilityObservation: NSKeyValueObservation?
     private var thumbnailDemandIsVisible: Bool {
-        window?.isVisible == true && window?.isMiniaturized == false && !isHiddenOrHasHiddenAncestor
+        window?.isVisible == true && window?.isMiniaturized == false && !isHiddenOrHasHiddenAncestor && !NSApp.isHidden
     }
     private var pendingLayoutItemSizeUpdate = false
     private var pendingItems: [SteamWorkshopBrowserItem]?
@@ -89,11 +92,6 @@ final class AppKitSteamWorkshopBrowserContainerView: NSView, ModuleFocusable, NS
         scrollView.translatesAutoresizingMaskIntoConstraints = false
         return scrollView
     }()
-
-    /// 刷新 Owner 已从工具栏按钮迁到原生下拉刷新（NSRefreshController，
-    /// macOS 27+）；旧 `.steamRefresh` 工具栏项已退役。仅在 macOS 27+ 时
-    /// 持有实例（存储属性不能标 @available，故用 AnyObject 存取）。
-    private var pullToRefreshController: AnyObject?
 
     private lazy var collectionView: SteamWorkshopKeyboardCollectionView = {
         let collectionView = SteamWorkshopKeyboardCollectionView()
@@ -116,9 +114,9 @@ final class AppKitSteamWorkshopBrowserContainerView: NSView, ModuleFocusable, NS
             self.updateKeyboardFocusItem(withID: id, focused: true)
             return self.itemMenu(for: item)
         }
-        collectionView.primaryClickHandler = { [weak self] path in
+        collectionView.primaryClickHandler = { [weak self] path, clickCount in
             guard let self, let id = self.dataSource.itemIdentifier(for: path) else { return false }
-            return self.openItem(withID: id)
+            return self.openItem(withID: id, opensDetails: clickCount != 1 || self.opensDetailsOnSingleClick())
         }
         return collectionView
     }()
@@ -232,6 +230,7 @@ final class AppKitSteamWorkshopBrowserContainerView: NSView, ModuleFocusable, NS
         collectionView.dataSource = dataSource
         collectionView.delegate = self
         scrollView.documentView = collectionView
+        scrollView.onScrollSettled = { [weak self] in self?.checkLoadMore(userInitiated: true) }
         scrollView.contentView.postsBoundsChangedNotifications = true
 
         addSubview(scrollView)
@@ -242,13 +241,10 @@ final class AppKitSteamWorkshopBrowserContainerView: NSView, ModuleFocusable, NS
             scrollView.bottomAnchor.constraint(equalTo: bottomAnchor)
         ])
 
-        // Xcode 27 (Swift 6.4) introduces this SDK symbol. Runtime availability
-        // alone cannot make it compile with the Xcode 26 release toolchain.
-        #if compiler(>=6.4)
-        if #available(macOS 27.0, *) {
-            installPullToRefreshIfSupported()
+        scrollView.permitsPullCountInput = { [weak self] in
+            WallpaperLibrarySheetPresentation.permitsInput(in: self?.window)
         }
-        #endif
+        scrollView.onRefresh = { [weak self] in self?.service.refresh() }
 
         service.$displayedBrowserItems
             .receive(on: DispatchQueue.main)
@@ -318,17 +314,12 @@ final class AppKitSteamWorkshopBrowserContainerView: NSView, ModuleFocusable, NS
             .sink { [weak self] _ in self?.restorePendingScrollOffsetIfReady() }
             .store(in: &cancellables)
 
-        // 下拉刷新的收口：feed 刷新结束（含失败/登录指引等同步结束路径）
-        // 就撤销刷新指示，不区分刷新发起方式。
+        // Only the original feed's real terminal fact ends the native pull,
+        // including synchronous failure or login guidance.
         service.$isRefreshingBrowserFeed
             .receive(on: DispatchQueue.main)
             .sink { [weak self] isRefreshing in
-                guard let self, !isRefreshing else { return }
-                #if compiler(>=6.4)
-                if #available(macOS 27.0, *) {
-                    (self.pullToRefreshController as? NSRefreshController)?.endRefreshing()
-                }
-                #endif
+                self?.scrollView.applyRefreshLoading(isRefreshing)
             }
             .store(in: &cancellables)
 
@@ -352,23 +343,6 @@ final class AppKitSteamWorkshopBrowserContainerView: NSView, ModuleFocusable, NS
         }
         applyItems(service.displayedBrowserItems)
     }
-
-    #if compiler(>=6.4)
-    @available(macOS 27.0, *)
-    private func installPullToRefreshIfSupported() {
-        let controller = NSRefreshController()
-        controller.target = self
-        controller.action = #selector(handlePullToRefresh)
-        scrollView.refreshController = controller
-        pullToRefreshController = controller
-    }
-
-    @available(macOS 27.0, *)
-    @objc private func handlePullToRefresh() {
-        // 个人来源未登录时 refresh() 走既有登录指引路径并同步复位指示器。
-        service.refresh()
-    }
-    #endif
 
     private func applyItems(_ items: [SteamWorkshopBrowserItem]) {
         pendingItems = items
@@ -510,11 +484,11 @@ final class AppKitSteamWorkshopBrowserContainerView: NSView, ModuleFocusable, NS
                 return self.itemMenu(for: current)
             },
             onOpen: { [weak self] in _ = self?.openItem(withID: id) },
-            onDownload: { [weak self] in self?.onDownload(item) },
-            onSetAsWallpaper: { [weak self] in
-                guard let self, let record = self.service.downloadRecord(for: id) else { return }
-                self.onSetAsWallpaper(record)
+            onDownload: { [weak self] in
+                guard let self, let current = self.itemsByID[id] else { return }
+                self.onDownload(current)
             },
+            onSetAsWallpaper: { [weak self] in _ = self?.performPrimaryAction(for: id) },
             onCancelDownload: { [weak self] in self?.onCancelDownload(item) }
         )
     }
@@ -537,50 +511,45 @@ final class AppKitSteamWorkshopBrowserContainerView: NSView, ModuleFocusable, NS
                 return self.itemMenu(for: current)
             },
             onOpen: { [weak self] in _ = self?.openItem(withID: id) },
-            onDownload: { [weak self] in self?.onDownload(item) },
-            onSetAsWallpaper: { [weak self] in
-                guard let self, let record = self.service.downloadRecord(for: id) else { return }
-                self.onSetAsWallpaper(record)
+            onDownload: { [weak self] in
+                guard let self, let current = self.itemsByID[id] else { return }
+                self.onDownload(current)
             },
+            onSetAsWallpaper: { [weak self] in _ = self?.performPrimaryAction(for: id) },
             onCancelDownload: { [weak self] in self?.onCancelDownload(item) }
         )
     }
 
     @discardableResult
-    private func openItem(withID id: String) -> Bool {
+    private func openItem(withID id: String, opensDetails: Bool = true) -> Bool {
         guard let item = itemsByID[id] else { return false }
         let previous = keyboardFocusedID
         keyboardFocusedID = id
         updateKeyboardFocusItem(withID: previous, focused: false)
         updateKeyboardFocusItem(withID: id, focused: true)
         window?.makeFirstResponder(collectionView)
-        onOpen(item)
+        if opensDetails { onOpen(item) }
         return true
     }
 
-    private func checkLoadMore() {
-        guard Thread.isMainThread else {
-            DispatchQueue.main.async { [weak self] in
-                self?.checkLoadMore()
-            }
-            return
-        }
-        guard window != nil, !isApplyingSnapshot, !isItemsApplyScheduled, pendingItems == nil,
+    private func checkLoadMore(userInitiated: Bool = false) {
+        guard thumbnailDemandIsVisible, !isApplyingSnapshot, !isItemsApplyScheduled, pendingItems == nil,
               service.pendingBrowserScrollRestoreOffset == nil,
               service.hasMoreBrowserItems, !service.isLoadingMoreBrowserItems else { return }
         // Author search covers loaded pages only; even a single match must not
         // shrink the grid into repeatedly preloading the rest of the catalog.
-        guard service.allowsAutomaticBrowserContinuation else { return }
-        // Filtering may hide an entire raw page. Keep a manual continuation
-        // rather than automatically draining an unbounded personal collection.
-        guard !orderedIDs.isEmpty else { return }
+        guard userInitiated || service.allowsAutomaticBrowserContinuation else { return }
+        // An explicit scroll can continue a filtered-empty page without
+        // automatically draining an unbounded personal collection.
+        guard !orderedIDs.isEmpty || userInitiated else { return }
         guard let documentView = scrollView.documentView else { return }
         let contentHeight = documentView.frame.height
         let viewport = scrollView.gridViewportRect
         guard contentHeight > 0, !viewport.isEmpty else { return }
-        let preloadDistance = max(720, scrollView.contentView.bounds.height * 2.5)
+        let preloadDistance = flowLayout.itemSize.height + flowLayout.minimumLineSpacing
         if contentHeight - viewport.maxY < preloadDistance {
-            service.loadMoreBrowserItemsIfNeeded()
+            if userInitiated { service.retryLoadingMoreBrowserItems() }
+            else { service.loadMoreBrowserItemsIfNeeded() }
         }
     }
 
@@ -626,11 +595,43 @@ final class AppKitSteamWorkshopBrowserContainerView: NSView, ModuleFocusable, NS
         return true
     }
 
-    private func handlePrimaryActionKey() -> Bool {
-        guard let id = keyboardFocusedID,
-              let item = itemsByID[id] else { return false }
-        onOpen(item)
+    private func primaryAction(for id: String) -> (() -> Void)? {
+        guard let item = itemsByID[id] else { return nil }
+        let organization = makeOrganization?(item)
+        guard organization?.isSwitching != true, !service.isLaunchPending(id) else { return nil }
+        if organization?.isPlaying == true { return organization?.canPlay == true ? organization?.onPrimary : nil }
+        guard !service.isDownloading(itemID: id), !service.isQueuedForDownload(itemID: id) else { return nil }
+        if let progress = service.downloadProgressStore.snapshot(for: id) {
+            guard progress.phase == .failed, organization?.canDownload != false else { return nil }
+            return { [weak self] in self?.onDownload(item) }
+        }
+        if let record = service.downloadRecord(for: id) {
+            if let organization { return organization.canPlay ? organization.onPrimary : nil }
+            return { [weak self] in self?.onSetAsWallpaper(record) }
+        }
+        guard organization?.canDownload != false else { return nil }
+        return { [weak self] in self?.onDownload(item) }
+    }
+
+    @discardableResult
+    private func performPrimaryAction(for id: String) -> Bool {
+        guard thumbnailDemandIsVisible, WallpaperLibrarySheetPresentation.permitsInput(in: window),
+              let action = primaryAction(for: id) else { return false }
+        action()
         return true
+    }
+
+    @discardableResult
+    func performSelectedPrimaryAction() -> Bool {
+        guard let item = selectedItem else { return false }
+        return performPrimaryAction(for: item.id)
+    }
+
+    @discardableResult
+    func inspectSelectedItem() -> Bool {
+        guard thumbnailDemandIsVisible, WallpaperLibrarySheetPresentation.permitsInput(in: window),
+              let item = selectedItem else { return false }
+        return openItem(withID: item.id)
     }
 
     private func scrollToItem(_ id: String) {
@@ -844,9 +845,7 @@ final class AppKitSteamWorkshopBrowserContainerView: NSView, ModuleFocusable, NS
     }
 
     private func configureFooter(_ item: AppKitSteamWorkshopBrowserFooterItem) {
-        SteamWorkshopBrowserFooterSupport.configure(item, state: footerState) { [weak self] in
-            self?.service.retryLoadingMoreBrowserItems()
-        }
+        SteamWorkshopBrowserFooterSupport.configure(item, state: footerState, itemCount: orderedIDs.count)
     }
 
     func collectionView(_ collectionView: NSCollectionView, layout collectionViewLayout: NSCollectionViewLayout, sizeForItemAt indexPath: IndexPath) -> NSSize {
@@ -904,7 +903,10 @@ extension AppKitSteamWorkshopBrowserContainerView: SteamWorkshopKeyboardDelegate
         if event.keyCode == 96 && event.modifierFlags.contains(.shift),
            let id = keyboardFocusedID, let item = itemsByID[id],
            let path = indexPathForItemID(id), let frame = flowLayout.layoutAttributesForItem(at: path)?.frame {
-            SteamWorkshopItemMenu.make(item: item, service: service, navigationVersion: service.navigationVersion).popUp(positioning: nil, at: NSPoint(x: frame.midX, y: frame.midY), in: collectionView)
+            let menu = SteamWorkshopItemMenu.make(item: item, service: service, navigationVersion: service.navigationVersion)
+            scrollView.beginContextMenu(at: collectionView.convert(NSPoint(x: frame.midX, y: frame.midY), to: nil))
+            defer { scrollView.endContextMenu() }
+            menu.popUp(positioning: nil, at: NSPoint(x: frame.midX, y: frame.midY), in: collectionView)
             return true
         }
         let disallowedModifiers: NSEvent.ModifierFlags = [.command, .control, .option]
@@ -914,7 +916,7 @@ extension AppKitSteamWorkshopBrowserContainerView: SteamWorkshopKeyboardDelegate
             return handleArrowKey(event.keyCode)
         case 36, 76:
             guard !event.isARepeat else { return true }
-            return handlePrimaryActionKey()
+            return performSelectedPrimaryAction()
         case 53:
             return handleEscapeKey()
         default:

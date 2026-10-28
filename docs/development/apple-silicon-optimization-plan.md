@@ -102,7 +102,7 @@ D15局部收益：冻结2b7803b52基线与仅D15候选、相同-O／WMO／harnes
 
 D15交付：最终冻结ef8f41cf（含并行已提交Scene修复）＋本批UI，Debug与Release构建零warning、nested签名严格验证通过，4316个产品输入hash构建前后不变；Release先从隔离staged位置正常启动，无诊断参数。视频初始布局及Steam已下载418项的较低滚动位置作有限可见检查；用户开始操作后停止抢占界面，不称完成所有模块手工矩阵、网络冷暖App A/B、真实显示器迁移或无卡顿证明。用户反馈较之前略有改善并要求收尾；同一Release已正常退出测试位置、深严格验签后替换`/Applications/MyWallpaperX.app`并由该路径重新启动，核对exe hash一致，旧版本备份在启动确认后删除，不改用户数据；临时staged重复App已删除。必要原文／失败／冻结差异／截图与独审收据有界保留于`.artifacts/scene-evidence/runs/apple-silicon-grid-scroll-d15-20261021/`（14天，AppKit证据，不是Scene兼容样本验收），已停止的隔离源码／DerivedData／HOME／取证binary提取后精确清理。本轮不提交、不推送。
 
-D16实施细则（缩略图返回复用）：目标是滚回已浏览卡片时直接呈现可用图片，Steam订阅及在线浏览优先本地已下载预览，缺失／损坏才远程降级。沿现有ThumbnailCache、OLThumbnailCache和PreviewState唯一owner实施：①卡片／邻近预取共用本地来源选择，不扫样本目录，保原记录与文件版本身份；②Steam把按用途尺寸生成的静态PNG与原动画字节分键落盘，磁盘静态命中不再扫描GIF帧，悬停仍按需取原动画；③既有解码预算内以有界LRU保最近访问图、内存压力回收，不加第二缓存／常驻timer；④ready内存同步回显，不在成功回显前先发loading通知；Video保已生成缩略图存在性／失效校验。实际网格像素档决定Steam静态尺寸，详情保原800默认，放大换档可重读源而不降作者动画／壁纸效果。请求代次、最后消费者取消、显式清理／重试拒旧producer回写保持有效。冷盘／暖盘／暖内存、同ID本地替换、损坏本地→网络、无预览视频、GIF悬停、清理在途和A→B→A用最近行为门验证；分别统计网络loader／原图decoder／派生盘命中，不靠隐藏文案认领收益。先固定源测试及Debug构建，再代表原生UI；不改Release诊断、不后台预编译、不提交／推送、不触碰并行Scene任务。
+D16实施细则（缩略图返回复用）：目标是滚回已浏览卡片时直接呈现可用图片，Steam订阅及在线浏览优先本地已下载预览，缺失／损坏才远程降级。沿现有ThumbnailCache、OnlineImageThumbnailCache和PreviewState唯一owner实施：①卡片／邻近预取共用本地来源选择，不扫样本目录，保原记录与文件版本身份；②Steam把按用途尺寸生成的静态PNG与原动画字节分键落盘，磁盘静态命中不再扫描GIF帧，悬停仍按需取原动画；③既有解码预算内以有界LRU保最近访问图、内存压力回收，不加第二缓存／常驻timer；④ready内存同步回显，不在成功回显前先发loading通知；Video保已生成缩略图存在性／失效校验。实际网格像素档决定Steam静态尺寸，详情保原800默认，放大换档可重读源而不降作者动画／壁纸效果。请求代次、最后消费者取消、显式清理／重试拒旧producer回写保持有效。冷盘／暖盘／暖内存、同ID本地替换、损坏本地→网络、无预览视频、GIF悬停、清理在途和A→B→A用最近行为门验证；分别统计网络loader／原图decoder／派生盘命中，不靠隐藏文案认领收益。先固定源测试及Debug构建，再代表原生UI；不改Release诊断、不后台预编译、不提交／推送、不触碰并行Scene任务。
 
 D16结果：订阅与在线浏览卡片、邻近预取共用ready记录的本地preview，缺失／损坏才沿原候选回退；下载队列封面也消费同一静态加载器。静态PNG按用途档分键，原动画字节独立保留，显式详情重试同步失效三档；小图按方向后的双轴计算并保原800最长边上限，因此极宽／长图超旧上限的清晰度限制仍存在。现有解码图owner在原128／64／50 MiB等各自预算内使用有界LRU和压力事件，不添常驻timer；共享派生磁盘图后台立即解码，Video原资产存在性校验未旁路。在线库可见／预取从联网前携带发布代次，清缓存后旧任务不能落盘或重新填内存。
 
@@ -119,8 +119,8 @@ D16交付续段（2026-10-21）：已按用户授权仅提交49个owned文件为
 |---|---|---|
 | A1 Video预取 | `AppKitLibraryGridView.scheduleViewportPrefetch`每次滚动重置60ms尾随任务，同时原生`NSCollectionViewPrefetching`也调用同一provider；`AppKitLibraryGridSupport.cancelPrefetch`为空操作。快速连续滚动可推迟手动预取，过期任务仍排队；去重不能代替撤销／提优先级 | 网格只维护一份当前需求集，原生回调与视口更新归并；可见项优先，近邻低优先；撤销不再需要的排队consumer。取消不得终止仍有可见consumer的共享producer，保资产路径验证和清缓存语义 |
 | A2 Steam与在线预取范围 | `SteamWorkshopService+BrowseHydration.prioritizeVisibleBrowserItemIDs`取前后各12再`prefix(24)`；位于列表中部、12项可见时，可能只覆盖前12与可见12，前进方向零预热。Pixabay Service的前6／后12再取18也有前端截断偏置。Steam每次另建全列表ID索引，grid去重只看可见ID，不含像素档 | 先可见，再按距离与滚动方向选择近邻；有界小窗口、合并同次事件，列表变化才重建索引，ID／来源版本／用途像素档共同决定需求。方向改变撤销旧近邻；不按全库大小预热 |
-| A3 在线任务寿命／解码 | `OnlineLibraryThumbnailPipeline.loadData`合并网络Task，但无consumer租约／可见提优先级；取消卡片Task不撤销共享下载。`cachedImage`／`storeAndDecode`在actor可重入处各开detached解码，同键未统一解码在途；网络有界并不等于磁盘解码有界。`AppKitOLBrowserItem`在联网＋解码后才再次检查取消 | 原pipeline内补同键解码合并、少量有界解码槽与消费者寿命；联网返回后、解码前检查需求；共享请求支持预取→可见提升。来源代次跨整个请求保留，旧epoch不得在清缓存后重新落盘／填内存。先比较1／2槽，不按CPU核数扩大并发 |
-| B1 慢生成挡住暖图 | `ThumbnailCache`串行utility队列同时处理磁盘读与loader；`AppKitOLDownloadsItem.generateThumbnail`在其中信号量等待异步AV取帧。一次慢生成可能阻塞后续已存在的静态图读取；此处尚未复现永久等待 | 在同一cache owner内分开短磁盘读／解码与重生成的等待，使用AV异步完成与明确取消结算，仍有界。Video库既有两槽生成路径的V1 STOP不因另一个owner的风险自动重开；不改作者取帧容差或质量 |
+| A3 在线任务寿命／解码 | `OnlineImageThumbnailPipeline.loadData`合并网络Task，但无consumer租约／可见提优先级；取消卡片Task不撤销共享下载。`cachedImage`／`storeAndDecode`在actor可重入处各开detached解码，同键未统一解码在途；网络有界并不等于磁盘解码有界。`AppKitPixabayBrowserItem`在联网＋解码后才再次检查取消 | 原pipeline内补同键解码合并、少量有界解码槽与消费者寿命；联网返回后、解码前检查需求；共享请求支持预取→可见提升。来源代次跨整个请求保留，旧epoch不得在清缓存后重新落盘／填内存。先比较1／2槽，不按CPU核数扩大并发 |
+| B1 慢生成挡住暖图 | `ThumbnailCache`串行utility队列同时处理磁盘读与loader；`AppKitPixabayDownloadsItem.generateThumbnail`在其中信号量等待异步AV取帧。一次慢生成可能阻塞后续已存在的静态图读取；此处尚未复现永久等待 | 在同一cache owner内分开短磁盘读／解码与重生成的等待，使用AV异步完成与明确取消结算，仍有界。Video库既有两槽生成路径的V1 STOP不因另一个owner的风险自动重开；不改作者取帧容差或质量 |
 | B2 首次交付与磁盘维护 | `ThumbnailCache.finishImageRequest`原子发布raw／still后先执行磁盘trim，再投主队列完成；暖图返回还可能经过多次队列切换。图片库、Steam已下载、Pixabay下载尚无相邻行的已解码预热 | 先验证可见完成是否能早于非关键trim，维护合并／延后，不引入每图timer。raw／still须维持可见一致性，不能因提前交付使紧随的GIF hover重复联网。缺少预取的三类网格只补一小段近邻，与当前可见需求共用队列／租约 |
 | B3 主线程来源验证 | Steam来源key及在线下载key在卡片配置时读取文件属性，Steam多个调用点可能重复stat；Video内存命中前仍须后台确认派生路径有效。SIL已具备内存同步快路，miss仍有额外调度 | 先量实际主线程I/O，再由既有库owner提供不可变来源版本／指纹；本次加载仍保读前后后台一致性校验、删除／替换和clear代次。不仅用路径代替版本，不为内存快路绕过安全与外部文件变化 |
 | C 呈现细节 | 不同模块像素档／固定尺寸不同；选择或元数据reload可能重新配置图片；部分卡片开始请求立即显示加载文案。增加RAM不能解决排队和失效重复 | 在同一作品且同来源版本时，允许已就绪的较小档先显示、后台升级目标档；无关条目绝不沿用旧图。只变选择／bar／文字时不重发相同图片需求。消除阻塞后再评估约80–120ms延迟显示加载提示，长期加载／失败仍明确呈现；此时间仅实验候选 |
@@ -444,7 +444,7 @@ U2本轮资格后只推进局部旧 metadata 补齐：JSON读取／解码与库�
 
 ### U5｜P2：Online cell 只消费下载状态，不同步探盘
 
-- **F／owner**：[OLBrowserGrid](../../MyWallpaperX/Modules/OnlineLibrary/UI/AppKitOLBrowserGridView.swift) 246、267–272 行 cell 配置／刷新调用 isItemDownloaded，对未知 ID fileExists，命中还会发布集合变化。已有进度 throttle 与定向刷新。
+- **F／owner**：[OLBrowserGrid](../../MyWallpaperX/Modules/Pixabay/UI/AppKitPixabayBrowserGridView.swift) 246、267–272 行 cell 配置／刷新调用 isItemDownloaded，对未知 ID fileExists，命中还会发布集合变化。已有进度 throttle 与定向刷新。
 - **最小改法／依据**：cell 消费服务现有 downloadedIDs；初次／页面进入／显式刷新，以及视口中新出现的未知ID，都由原服务合并后台校准，同一视口不反复探盘、不增加常驻watcher。提交绑定 generation 和下载集合本地修改 revision，扫描期间下载／删除事件须合并或重扫，旧集合不得覆盖新修改；真实点击播放仍最终核文件。A4，不能因缓存优化删存在性校验。
 - **反例／验收**：T10 相邻门外补目录校准；页面保持打开，外部添加／删除后滚入、滚出再滚回；扫描A在飞时下载B完成，A不得移除B；另验搜索换代和旧点击。滚动未下载卡片时 main File Activity 不再反复 stat。
 - **停止**：目录很小且成本无贡献，不增加持续 watcher；不让外部文件永远无法被发现。

@@ -66,8 +66,7 @@ final class IntentAuth { @Published var steamId: String? = "A" }
     var cancellables: Set<AnyCancellable> = []
     func observeProjectionInputs() { observeDownloadJobStoreForProjection() }
     func visibleRecords(_ records: [SteamWorkshopDownloadRecord], account: String? = "A") -> [SteamWorkshopDownloadRecord] {
-        let excluded = excludedDownloadReferences(in: records,
-            showsAdultContent: downloadsShowsAdultContent, accountSteamID: account)
+        let excluded = excludedDownloadReferences(in: records, accountSteamID: account)
         return records.filter { !excluded.contains(.init(provider: .steamWorkshop, sourceID: $0.id)) }
     }
     // Record-construction leaves adapt the real intent projection to the small
@@ -98,13 +97,13 @@ final class DimmingSurface: NSView, ToolbarGridScrollDismissalSurface {}
             .init(id: "failed", status: .failed("fixture"), browserItem: .init(tags: ["Nudity"])),
             .init(id: "retry", status: .downloading, browserItem: .init(tags: ["Mature"])),
             .init(id: "new-download", status: .queued)]
-        checks["adultContentDefaultsToShown"] = service.downloadsShowsAdultContent
-            && service.visibleRecords(service.downloads).count == 8
-        service.downloadsShowsAdultContent = false
-        checks["officialAdultAndNudityAreHiddenWithoutGuessingLocalTags"] = Set(service.visibleRecords(service.downloads).map(\.id)) == ["clean", "local", "near"]
-        RunLoop.main.run(until: Date().addingTimeInterval(0.05))
-        service.downloadsShowsAdultContent = true
-        checks["reenablingRestoresWholeExistingProjection"] = service.visibleRecords(service.downloads).count == 8
+        checks["sourceProjectionKeepsAdultFactsForTheSharedQueryInsteadOfFilteringThemAgain"] = service.visibleRecords(service.downloads).count == 8
+        let adultIDs = Set(service.downloads.filter { record in
+            record.browserItem.map { SteamWorkshopContentRatingSupport.hasAdultContent(tags: $0.tags, isMarkedAdult: $0.hasAdultContent) } == true
+        }.map(\.id))
+        checks["officialAdultAndNudityClassificationNeverGuessesLocalTagsOrTitles"] = adultIDs == ["mature", "nudity", "legacy", "failed", "retry"]
+        checks["officialSensitiveRatingRemainsDistinctFromAdult"] = SteamWorkshopContentRatingSupport.contentRating(tags: ["Questionable"]) == .sensitive
+            && !SteamWorkshopContentRatingSupport.hasAdultContent(tags: ["Everyone", "Questionable"])
 
         var publications = 0
         let projectionSubscription = service.$downloads.dropFirst().sink { _ in publications += 1 }
@@ -258,8 +257,7 @@ final class DimmingSurface: NSView, ToolbarGridScrollDismissalSurface {}
         let settled = measuredHistory("mergedNoEligibleRetry", on: noRetryProbe) {
             noRetryProbe.visibleRecords(settledRecords)
         }
-        noRetryProbe.downloadsShowsAdultContent = false
-        let adultFiltered = measuredHistory("mergedAdultFilteredRetry", on: noRetryProbe) {
+        let adultRetry = measuredHistory("mergedAdultRetry", on: noRetryProbe) {
             noRetryProbe.visibleRecords([
                 .init(id: "retry", status: .queued, browserItem: .init(tags: ["Mature"]))])
         }
@@ -271,11 +269,12 @@ final class DimmingSurface: NSView, ToolbarGridScrollDismissalSurface {}
         let noEligibleSynthesis = measuredHistory("synthesisNoEligibleRetry", on: noRetryProbe) {
             noRetryProbe.downloadsWithFailedIntents(from: [ready])
         }
-        checks["nonRetryAndFilteredPathsKeepTheirExistingOutputs"] = Set(settled.map(\.id)) == ["ready", "failed-card"]
-            && adultFiltered.isEmpty
+        checks["nonRetryAndAdultRetryKeepTheirSourceScopeOutputsForTheSharedQuery"] = Set(settled.map(\.id)) == ["ready", "failed-card"]
+            && adultRetry.map(\.id) == ["retry"]
             && Set(noEligibleSynthesis.map(\.id)) == ["ready", "failure"]
         checks["noEligibleRetryPathsNeverReadHistory"] = ["mergedNoEligibleRetry",
-            "mergedAdultFilteredRetry", "synthesisNoEligibleRetry"].allSatisfy { historyReadMetrics[$0] == 0 }
+            "synthesisNoEligibleRetry"].allSatisfy { historyReadMetrics[$0] == 0 }
+        checks["adultRetryUsesTheSameSingleAccountHistoryLookupAsOtherRetries"] = historyReadMetrics["mergedAdultRetry"] == 1
 
         let mutableHistory = SteamWorkshopService()
         mutableHistory.downloadJobStore.history = []
@@ -354,7 +353,7 @@ final class DimmingSurface: NSView, ToolbarGridScrollDismissalSurface {}
         var observedOldGetter = false, nextAccountExcluded = false, signedOutExcluded = false
         let accountSub = accountInput.steamAuth.$steamId.dropFirst().sink { account in
             let exclusions = accountInput.excludedDownloadReferences(in: accountRows,
-                showsAdultContent: true, accountSteamID: account)
+                accountSteamID: account)
             if account == "B" {
                 observedOldGetter = accountInput.steamAuth.steamId == "A"
                 nextAccountExcluded = exclusions == [.init(provider: .steamWorkshop, sourceID: "shared")]
@@ -385,7 +384,7 @@ final class DimmingSurface: NSView, ToolbarGridScrollDismissalSurface {}
             && accountAInstalled.first { $0.id == "A-only" }?.intentAccountSteamID == "A"
             && accountAInstalled.first { $0.id == "published" } == publishedRow
         let transientBExclusions = accountSwitch.excludedDownloadReferences(in: accountAInstalled,
-            showsAdultContent: true, accountSteamID: "B")
+            accountSteamID: "B")
         checks["nextAccountExcludesOldDerivedFailureBeforeDeferredRefresh"] = transientBExclusions
             == [.init(provider: .steamWorkshop, sourceID: "A-only")]
         accountSwitch.steamAuth.steamId = "B"

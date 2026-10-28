@@ -11,7 +11,7 @@ import Foundation
     private let manager: WallpaperManager
     private let images: SILService
     private let steam: SteamWorkshopService
-    private let online: OnlineLibraryService
+    private let pixabay: PixabayService
     private let onlineImages = OnlineImageLibrary.shared
     private var subscriptions = Set<AnyCancellable>()
     private var videoTask: Task<Void, Never>?
@@ -29,11 +29,11 @@ import Foundation
     private var visibleAvailabilityTask: Task<Void, Never>?
     private var visibleAvailabilityGeneration = UUID()
 
-    init(manager: WallpaperManager, images: SILService, steam: SteamWorkshopService, online: OnlineLibraryService) {
+    init(manager: WallpaperManager, images: SILService, steam: SteamWorkshopService, pixabay: PixabayService) {
         self.manager = manager
         self.images = images
         self.steam = steam
-        self.online = online
+        self.pixabay = pixabay
         manager.$wallpapers.combineLatest(manager.$didFinishInitialIndexLoad).removeDuplicates { lhs, rhs in
             lhs.1 == rhs.1 && lhs.0 == rhs.0 && zip(lhs.0, rhs.0).allSatisfy { $0.id.utf8.elementsEqual($1.id.utf8) }
         }.sink { [weak self] values, loaded in
@@ -44,18 +44,17 @@ import Foundation
         }.sink { [weak self] values in
             self?.replaceImages(values)
         }.store(in: &subscriptions)
-        Publishers.CombineLatest3(steam.$downloads, steam.$downloadsShowsAdultContent, steam.steamAuth.$steamId)
-            .sink { [weak self] records, showsAdult, account in
-                self?.updateDownloadsExclusions(records, showsAdult: showsAdult, account: account)
+        steam.$downloads.combineLatest(steam.steamAuth.$steamId)
+            .sink { [weak self] records, account in
+                self?.updateDownloadsExclusions(records, account: account)
             }.store(in: &subscriptions)
         // Job history also changes independently of jobs (clear/prune/remove).
         // Defer willSet delivery before the original fact owner reads history.
         steam.downloadJobStore.$history.dropFirst().receive(on: DispatchQueue.main).sink { [weak self] _ in
             guard let self else { return }
-            self.updateDownloadsExclusions(self.steam.downloads, showsAdult: self.steam.downloadsShowsAdultContent,
-                account: self.steam.steamAuth.steamId)
+            self.updateDownloadsExclusions(self.steam.downloads, account: self.steam.steamAuth.steamId)
         }.store(in: &subscriptions)
-        online.$downloadedContent.removeDuplicates {
+        pixabay.$downloadedContent.removeDuplicates {
             $0.entries == $1.entries && ($0.revision == 0) == ($1.revision == 0) && $0.status == $1.status
         }.sink { [weak self] snapshot in
             self?.replaceOnline(snapshot)
@@ -151,7 +150,7 @@ import Foundation
         refreshVideos = true
         refreshImages = true
         refreshSteam = true
-        online.refreshDownloadedContent()
+        pixabay.refreshDownloadedContent()
         onlineImages.refreshLocal()
         replaceVideos(manager.wallpapers, loaded: manager.didFinishInitialIndexLoad)
         replaceImages(images.wallpapers)
@@ -159,8 +158,8 @@ import Foundation
                      loaded: steam.hasCompletedInstalledLibraryLoad)
     }
 
-    private func updateDownloadsExclusions(_ records: [SteamWorkshopDownloadRecord], showsAdult: Bool, account: String?) {
-        let excluded = steam.excludedDownloadReferences(in: records, showsAdultContent: showsAdult, accountSteamID: account)
+    private func updateDownloadsExclusions(_ records: [SteamWorkshopDownloadRecord], account: String?) {
+        let excluded = steam.excludedDownloadReferences(in: records, accountSteamID: account)
         // Revoke foreign task-only facts synchronously with account willSet.
         // Published local rows remain shared even if an old task has the same ID.
         let published = Set(records.filter { $0.intentAccountSteamID == nil }.map {
@@ -238,7 +237,7 @@ import Foundation
         }
     }
 
-    private func replaceOnline(_ snapshot: OnlineLibraryDownloadedContentSnapshot) {
+    private func replaceOnline(_ snapshot: PixabayDownloadedContentSnapshot) {
         let revision = nextRevision(.pixabay)
         let items = snapshot.entries.compactMap { entry in
             PixabayLibraryContentProjection.project(download: entry,

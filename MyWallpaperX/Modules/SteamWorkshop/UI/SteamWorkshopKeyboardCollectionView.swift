@@ -12,7 +12,7 @@ final class SteamWorkshopKeyboardCollectionView: NSCollectionView {
     override func isAccessibilityElement() -> Bool { accessibleItemsProvider != nil || super.isAccessibilityElement() }
     override func accessibilityRole() -> NSAccessibility.Role? { accessibleItemsProvider != nil ? .list : super.accessibilityRole() }
     var contextMenuProvider: ((IndexPath?) -> NSMenu?)?
-    var primaryClickHandler: ((IndexPath) -> Bool)?
+    var primaryClickHandler: ((IndexPath, Int) -> Bool)?
     private var primaryClickIndexPath: IndexPath?
     private var isTrackingPrimaryClick = false
 
@@ -74,12 +74,19 @@ final class SteamWorkshopKeyboardCollectionView: NSCollectionView {
         return contextMenuProvider?(indexPath)
     }
 
+    override func rightMouseDown(with event: NSEvent) {
+        let scroll = enclosingScrollView as? WallpaperGridScrollView
+        scroll?.beginContextMenu(at: event.locationInWindow)
+        defer { scroll?.endContextMenu() }
+        super.rightMouseDown(with: event)
+    }
+
     private func finishPrimaryMouseInteraction(from event: NSEvent, pressedIndexPath: IndexPath?) {
         let point = convert(event.locationInWindow, from: nil)
         let releasedIndexPath = cardIndexPath(at: point)
 
         if let pressedIndexPath, releasedIndexPath == pressedIndexPath {
-            _ = primaryClickHandler?(pressedIndexPath)
+            _ = primaryClickHandler?(pressedIndexPath, event.clickCount)
         } else if pressedIndexPath == nil, releasedIndexPath == nil {
             onBackgroundLeftClick?()
         }

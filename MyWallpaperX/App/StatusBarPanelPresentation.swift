@@ -3,6 +3,10 @@ import AppKit
 /// A read-only projection of the product's committed selection, never a second
 /// playback or settings owner. Pending selections cannot replace the cover.
 struct StatusBarPanelPresentation {
+    static let scale: CGFloat = 0.88
+    // Whole-point presentation sizes keep native window rounding from
+    // changing the requested geometry across displays.
+    static let preferredWidth: CGFloat = (344 * scale).rounded()
     enum Content: Equatable {
         case none
         case video(VideoWallpaper)
@@ -62,6 +66,9 @@ struct StatusBarPanelPresentation {
     let isMuted: Bool
     let volume: Double
     let canNavigate: Bool
+    var favoriteReference: WallpaperReference? = nil
+    var isFavorite = false
+    var canFavorite = false
 
     var status: String {
         if isSwitching { return content == .none ? "正在准备壁纸…" : "\(content.kind) · 正在切换…" }
@@ -107,7 +114,10 @@ struct StatusBarPanelPresentation {
         }
     }
 
-    var preferredHeight: CGFloat { hasPlaybackControls ? (content.isDynamic ? 536 : 500) : content == .none ? 280 : 448 }
+    var preferredHeight: CGFloat {
+        let height: CGFloat = hasPlaybackControls ? (content.isDynamic ? 536 : 500) : content == .none ? 280 : 448
+        return (height * Self.scale).rounded()
+    }
 
     static func capture(manager: WallpaperManager, service: SteamWorkshopService,
                         rememberedReference: WallpaperReference? = nil, rememberedContent: WallpaperContentItem? = nil) -> Self {
@@ -147,6 +157,7 @@ struct StatusBarPanelPresentation {
                     isRotating: !isStandby && !content.isDynamic && content != .none && manager.libraryRotationEligible,
                     isMuted: PlaybackMuteState.shared.isMuted,
                     volume: min(100, max(0, manager.settings.volume)),
-                    canNavigate: canNavigate)
+                    canNavigate: canNavigate,
+                    favoriteReference: content == .none ? nil : isStandby ? rememberedReference : session?.reference)
     }
 }

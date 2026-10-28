@@ -139,7 +139,7 @@ nonisolated struct PixivArtworkDTO: Decodable {
         switch type?.value { case 0, 1: kind = .image; case 2: kind = .animation; default: kind = .unknown }
         // xRestrict == 0 excludes age restriction, but does not establish a
         // potentially-sensitive work's rating. Do not guess sl thresholds.
-        let rating: OnlineImageRating = [1, 2].contains(xRestrict?.value ?? -1) ? .adult : .unknown
+        let rating: WallpaperContentRating = [1, 2].contains(xRestrict?.value ?? -1) ? .adult : .unknown
         let mask = masked == true || locationMask == true
         let isAI: Bool?
         switch aiType?.value { case 1: isAI = false; case 2: isAI = true; default: isAI = nil }

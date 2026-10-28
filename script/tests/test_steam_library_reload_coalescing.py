@@ -42,14 +42,14 @@ class SteamLibraryReloadCoalescingTests(unittest.TestCase):
         source = (CORE / 'SteamWorkshopService+DownloadLibrarySync.swift').read_text()
         members = []
         for signature in (
-            '    func reloadInstalledItems() {',
+            '    @discardableResult\n    func reloadInstalledItems() -> Task<Void, Never> {',
             '    func managedDownloadSnapshots() ->',
             '    func loadManagedDownloadSnapshots(',
             '    private func applyInstalledLibraryRecords(',
         ):
             members.append(extract(source, signature))
         members.append(extract((CORE / 'SteamWorkshopService+BrowseStateRecovery.swift').read_text(),
-                               '    func clearAllCachedState() {'))
+                               '    func clearAllCachedState('))
         # Post-fix the reload protocol routes through dedicated scan members and a
         # per-instance flight holder; extract them so the harness runs the real
         # implementations rather than stand-ins.
@@ -82,6 +82,7 @@ struct SteamWorkshopInstalledLibraryScanContext: Sendable { let libraryRoot: URL
 enum ScanGate {
     static let lock = NSLock()
     static var hold = true
+    static var holdCatchup = true
     static var started = 0
     static var inFlight = 0
     static var peakInFlight = 0
@@ -112,7 +113,17 @@ enum ScanGate {
 @MainActor final class SteamWorkshopPreviewImageCache {
     static let shared = SteamWorkshopPreviewImageCache()
     private(set) var clears = 0
-    func clearAll() { clears += 1; CacheClearTrace.events.append("preview.clear") }
+    var completion: (@Sendable () -> Void)?
+    func clearAll(completion: (@Sendable () -> Void)? = nil) {
+        clears += 1; CacheClearTrace.events.append("preview.clear"); self.completion = completion
+    }
+    func finish() { let pending = completion; completion = nil; pending?() }
+}
+final class CacheClearCompletion: @unchecked Sendable {
+    private let lock = NSLock()
+    private var completed = false, onMain = false
+    func finish() { lock.lock(); completed = true; onMain = Thread.isMainThread; lock.unlock() }
+    var finishedOnMain: Bool { lock.lock(); defer { lock.unlock() }; return completed && onMain }
 }
 @MainActor final class CacheClearProgress {
     private(set) var clears = 0
@@ -153,13 +164,8 @@ enum CacheClearOption {
     var discoveryBrowseSnapshot: String? = "old", savedDiscoveryQueryBeforeAuthorBrowse: String? = "old"
     var isUpdatingBrowserQueryProgrammatically = false, suppressAutomaticBrowseNavigation = false
     var browserQuery = "old", navigationVersion = 0
-    var detailCancellations = 0, cacheDeletionRequests: [URL] = []
+    var detailCancellations = 0
     var cacheDirectoryURL: URL { steamDownloadLibraryRootURL.appendingPathComponent("cache") }
-    static func detailCacheDirectoryURL() -> URL { URL(fileURLWithPath: "/private/tmp/fixture-steam-detail-cache") }
-    func clearSteamWorkshopCacheDirectory(_ url: URL) {
-        cacheDeletionRequests.append(url)
-        CacheClearTrace.events.append(url == cacheDirectoryURL ? "delete.root" : "delete.details")
-    }
     func cancelSelectedItemDetailRefresh() { detailCancellations += 1 }
     init(libraryRoot: URL) {
         steamDownloadLibraryRootURL = libraryRoot
@@ -177,13 +183,14 @@ enum CacheClearOption {
         managed: [String: SteamWorkshopDownloadMetadataSnapshot],
         context: SteamWorkshopInstalledLibraryScanContext
     ) -> [SteamWorkshopDownloadRecord] {
-        ScanGate.gate {
+        let scanNumber = ScanGate.gate {
             ScanGate.started &+= 1
             ScanGate.inFlight &+= 1
             ScanGate.peakInFlight = max(ScanGate.peakInFlight, ScanGate.inFlight)
             ScanGate.seenManagedCounts.append(managed.count)
+            return ScanGate.started
         }
-        while ScanGate.gate({ ScanGate.hold }) {
+        while ScanGate.gate({ ScanGate.hold || (scanNumber == 2 && ScanGate.holdCatchup) }) {
             Thread.sleep(forTimeInterval: 0.002)
         }
         ScanGate.gate { ScanGate.inFlight -= 1 }
@@ -255,14 +262,31 @@ enum CacheClearOption {
         let jobBytesBefore = try Data(contentsOf: base.appendingPathComponent("jobs.json"))
         let browseTask = Task { while !Task.isCancelled { await Task.yield() } }
         service.browserFetchTask = browseTask
-        service.clearAllCachedState()
+        let oldDetailDirectory = service.cacheDirectoryURL.appendingPathComponent("ItemDetails", isDirectory: true)
+        try FileManager.default.createDirectory(at: oldDetailDirectory, withIntermediateDirectories: true)
+        try Data("old".utf8).write(to: oldDetailDirectory.appendingPathComponent("old.json"))
+        let clearCompletion = CacheClearCompletion()
+        service.clearAllCachedState { clearCompletion.finish() }
         precondition(browseTask.isCancelled && service.browserFetchTask == nil && service.detailCancellations == 1)
         precondition(service.browserItems.isEmpty && service.displayedBrowserItems.isEmpty && service.retainedBrowseSections.isEmpty)
-        precondition(service.cacheDeletionRequests == [service.cacheDirectoryURL, SteamWorkshopService.detailCacheDirectoryURL()])
+        let retired = try FileManager.default.contentsOfDirectory(at: library, includingPropertiesForKeys: nil)
+            .filter { $0.lastPathComponent.hasPrefix("cache.clear-") }
+        precondition(retired.count == 1 && FileManager.default.fileExists(atPath: retired[0].appendingPathComponent("ItemDetails/old.json").path)
+            && !FileManager.default.fileExists(atPath: oldDetailDirectory.path),
+            "the root and its ItemDetails child are detached once without recursively deleting on the main actor")
         precondition(SteamWorkshopPreviewImageCache.shared.clears == 1)
         precondition(SteamWorkshopDownloadThumbnailPipeline.shared.invalidations == 1
-            && CacheClearTrace.events == ["generated.invalidate", "delete.root", "delete.details", "preview.clear"],
+            && CacheClearTrace.events == ["generated.invalidate", "preview.clear"],
             "the original service invalidates generated results before deleting its disk root, once")
+        let postClearFile = service.cacheDirectoryURL.appendingPathComponent("new-generation")
+        try Data("new".utf8).write(to: postClearFile)
+        precondition(!clearCompletion.finishedOnMain)
+        SteamWorkshopPreviewImageCache.shared.finish()
+        try await waitUntil("old cache recursive deletion completed") { clearCompletion.finishedOnMain }
+        let postClearBytes = try Data(contentsOf: postClearFile)
+        precondition(!FileManager.default.fileExists(atPath: retired[0].path)
+            && postClearBytes == Data("new".utf8),
+            "completion waits for detached deletion while new cache writes remain intact")
         precondition(service.steamAuth.accountID == "kept-account" && service.steamAuth.cancellations == 1)
         precondition(service.downloadJobStore.jobs == [retainedJob])
         let jobBytesAfter = try Data(contentsOf: base.appendingPathComponent("jobs.json"))
@@ -274,7 +298,10 @@ enum CacheClearOption {
         for index in 2...6 {
             try publish(String(100_000 + index), "item-\(index)")
         }
-        for _ in 0..<5 { service.reloadInstalledItems() }
+        var reloadHandle: Task<Void, Never>?
+        for _ in 0..<5 { reloadHandle = service.reloadInstalledItems() }
+        var reloadCompleted = false
+        let reloadWait = Task { await reloadHandle?.value; reloadCompleted = true }
         precondition(service.installedLibraryScanGeneration == 6,
             "every reload must still advance the result generation")
         try await Task.sleep(nanoseconds: 300_000_000)
@@ -282,6 +309,13 @@ enum CacheClearOption {
             "reloads arriving while a scan is in flight must not start additional whole-library scans"
             + " (started=\(ScanGate.gate { ScanGate.started }), peak=\(ScanGate.gate { ScanGate.peakInFlight }))")
         ScanGate.gate { ScanGate.hold = false }
+        try await waitUntil("catch-up held after stale result") { ScanGate.gate { ScanGate.started == 2 } }
+        precondition(!reloadCompleted && service.downloads.isEmpty,
+            "the shared reload handle must include the coalesced scan, and the stale first scan must not publish")
+        ScanGate.gate { ScanGate.holdCatchup = false }
+        await reloadWait.value
+        precondition(reloadCompleted && service.downloads.count == 6,
+            "reload completion must follow the newest requested scan's real publication")
         try await waitUntil("coalesced catch-up applied") {
             service.downloads.count == 6 && ScanGate.gate { ScanGate.started == 2 }
         }
@@ -298,7 +332,7 @@ enum CacheClearOption {
         // --- Scenario 2: deletion interleaved with an in-flight scan. ---
         ScanGate.gate { ScanGate.hold = true }
         for index in 2...6 { try removeItem(String(100_000 + index)) }
-        service.reloadInstalledItems()
+        let deletionReload = service.reloadInstalledItems()
         try await waitUntil("post-deletion scan started") { ScanGate.gate { ScanGate.started == 3 } }
         service.reloadInstalledItems()
         precondition(service.installedLibraryScanGeneration == 8)
@@ -306,6 +340,7 @@ enum CacheClearOption {
         precondition(ScanGate.gate { ScanGate.started == 3 },
             "a reload during an in-flight scan must coalesce, not start a concurrent scan")
         ScanGate.gate { ScanGate.hold = false }
+        await deletionReload.value
         try await waitUntil("deletion projected") {
             service.downloads.count == 1 && ScanGate.gate { ScanGate.started == 4 }
         }

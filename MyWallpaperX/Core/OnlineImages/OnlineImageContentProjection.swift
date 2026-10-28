@@ -11,7 +11,7 @@ nonisolated enum OnlineImageContentProjection {
         return make(reference: record.assetID.reference, title: record.title,
             locator: .init(path: url.path, titleHint: record.title, mediaKind: .image, provenance: record.sourceURL.absoluteString),
             availability: facts.availability, capabilities: capabilities,
-            metadata: .init(author: record.author, sourceTags: record.tags, fileSizeBytes: record.fileSizeBytes,
+            metadata: .init(author: record.author, sourceTags: record.tags, contentRating: record.rating, fileSizeBytes: record.fileSizeBytes,
                 resolutionText: "\(record.pixelWidth) × \(record.pixelHeight)", createdAt: record.firstDownloadedAt,
                 sourceURL: record.sourceURL, thumbnailPath: url.path, resourceRevision: record.revision.uuidString))
     }
@@ -19,11 +19,11 @@ nonisolated enum OnlineImageContentProjection {
     static func remote(_ artwork: OnlineImageArtwork) -> WallpaperContentItem {
         var caps: WallpaperContentCapabilities = [.inspect, .openSource]
         if artwork.kind == .image, artwork.isMasked != true { caps.insert(.download) }
-        if artwork.kind == .image, artwork.isMasked != true, (artwork.previewURL ?? artwork.thumbnailURL) != nil { caps.insert(.quickLook) }
+        if artwork.kind == .image, artwork.isMasked != true { caps.insert(.quickLook) }
         return make(reference: artwork.firstAssetID.reference, title: artwork.title,
             locator: .init(titleHint: artwork.title, mediaKind: artwork.kind == .image ? .image : .unknown,
                 provenance: artwork.sourceURL.absoluteString), availability: .remote, capabilities: caps,
-            metadata: .init(author: artwork.author, sourceTags: artwork.tags, fileSizeBytes: artwork.fileSizeBytes,
+            metadata: .init(author: artwork.author, sourceTags: artwork.tags, contentRating: artwork.rating, fileSizeBytes: artwork.fileSizeBytes,
                 resolutionText: resolution(artwork.width, artwork.height), createdAt: artwork.createdAt,
                 sourceURL: artwork.sourceURL, previewURL: artwork.previewURL ?? artwork.thumbnailURL))
     }

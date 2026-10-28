@@ -21,9 +21,9 @@ extension SteamWorkshopToolbarController {
             return SteamWorkshopPersonalSort.allCases.map { sort in
                 .init(title: sort.displayName, kind: .check, isChecked: service.personalSort == sort, isEnabled: enabled,
                     handler: { [weak self] in
-                        guard let self, self.isSteamWorkshopMode, !self.isDownloadsMode,
+                        guard let self, self.isSteamWorkshopMode,
                               !service.isBrowsingAuthorWorkshop, service.source.isPersonal else { return }
-                        service.personalSort = sort
+                        self.applyQueryEdit { service.personalSort = sort }
                         self.syncSortPopup()
                     })
             }
@@ -31,8 +31,9 @@ extension SteamWorkshopToolbarController {
         return SteamWorkshopSource.publicSources.map { source in
             .init(title: source.displayName, kind: .check, isChecked: service.source == source, isEnabled: enabled,
                 handler: { [weak self] in
-                    guard let self, self.isSteamWorkshopMode, !self.isDownloadsMode,
+                    guard let self, self.isSteamWorkshopMode,
                           !service.isBrowsingAuthorWorkshop, !service.source.isPersonal else { return }
+                    self.discardPendingSearch()
                     service.source = source
                     self.syncSortPopup()
                     self.syncTrendingWindowPopup()
@@ -51,8 +52,9 @@ extension SteamWorkshopToolbarController {
             .init(title: source == .myFavorites ? "Steam 收藏" : source.toolbarDisplayName, kind: .check, isChecked: service.source == source,
                 isEnabled: service.source.isPersonal && !service.isBrowsingAuthorWorkshop,
                 handler: { [weak self] in
-                    guard let self, self.isSteamWorkshopMode, !self.isDownloadsMode,
+                    guard let self, self.isSteamWorkshopMode,
                           service.source.isPersonal, !service.isBrowsingAuthorWorkshop else { return }
+                    self.discardPendingSearch()
                     service.source = source
                     self.syncPersonalListPopup()
                     self.syncSortPopup()
@@ -74,17 +76,12 @@ extension SteamWorkshopToolbarController {
             .init(title: window.displayName, kind: .check, isChecked: service.trendingWindow == window,
                 isEnabled: service.source.supportsTimeRange && !service.isBrowsingAuthorWorkshop,
                 handler: { [weak self] in
-                    guard let self, self.isSteamWorkshopMode, !self.isDownloadsMode,
+                    guard let self, self.isSteamWorkshopMode,
                           service.source.supportsTimeRange, !service.isBrowsingAuthorWorkshop else { return }
-                    service.trendingWindow = window
+                    self.applyQueryEdit { service.trendingWindow = window }
                     self.syncTrendingWindowPopup()
                 })
         }
-    }
-
-    @objc func handleDownloadTasks() {
-        guard isSteamWorkshopMode, let window else { return }
-        downloadTasksPopoverController.toggle(relativeTo: downloadTasksToolbarItem, in: window)
     }
 
     @objc func handleBackToDiscovery() {
@@ -146,7 +143,7 @@ extension SteamWorkshopToolbarController {
     }
 
     @objc func handleFilterMenu() {
-        guard isSteamWorkshopMode, !isDownloadsMode else { return }
+        guard isSteamWorkshopMode else { return }
         let service = SteamWorkshopService.shared
         guard !service.isBrowsingAuthorWorkshop else {
             syncBrowserContextControls()
@@ -181,10 +178,11 @@ extension SteamWorkshopToolbarController {
     }
 
     func controlTextDidChange(_ obj: Notification) {
-        guard isSteamWorkshopMode, !isDownloadsMode,
+        guard isSteamWorkshopMode,
               let field = obj.object as? NSSearchField, field === searchField else { return }
         let text = field.stringValue.trimmingCharacters(in: .whitespaces)
-        pendingSearchInput = (text, SteamWorkshopService.shared.navigationVersion)
+        let service = SteamWorkshopService.shared
+        pendingSearchInput = (text, service.navigationVersion, service.steamAuth.steamId)
         searchDebounceWorkItem?.cancel()
         let workItem = DispatchWorkItem { [weak self] in
             self?.submitPendingSearch()
@@ -196,12 +194,45 @@ extension SteamWorkshopToolbarController {
     /// A same-route page return consumes the retained input once. Author/feed
     /// navigation retires it because that same field now has a different scope.
     func submitPendingSearch() {
+        searchDebounceWorkItem?.cancel()
         searchDebounceWorkItem = nil
         guard let input = pendingSearchInput else { return }
-        pendingSearchInput = nil
         let service = SteamWorkshopService.shared
-        guard service.navigationVersion == input.navigation else { return }
-        service.browserQuery = input.text
+        guard service.navigationVersion == input.navigation, service.steamAuth.steamId == input.account else {
+            pendingSearchInput = nil
+            return
+        }
+        guard isBrowserVisible else { return }
+        pendingSearchInput = nil
+        if service.browserQuery != input.text { service.browserQuery = input.text }
+    }
+
+    var isBrowserVisible: Bool {
+        isSteamWorkshopMode && window?.isVisible == true && window?.isMiniaturized == false && !NSApp.isHidden
+    }
+
+    func discardPendingSearch() {
+        searchDebounceWorkItem?.cancel()
+        searchDebounceWorkItem = nil
+        pendingSearchInput = nil
+    }
+
+    /// Same-page choices consume the field's draft before one navigation.
+    /// The service remains the query owner; suppression only batches its setters.
+    func applyQueryEdit(_ edit: () -> Void) {
+        guard isBrowserVisible else { return }
+        let service = SteamWorkshopService.shared
+        guard !service.isBrowsingAuthorWorkshop else { return }
+        let input = pendingSearchInput
+        discardPendingSearch()
+        let wasSuppressed = service.suppressAutomaticBrowseNavigation
+        service.suppressAutomaticBrowseNavigation = true
+        if let input, input.navigation == service.navigationVersion, input.account == service.steamAuth.steamId {
+            service.setBrowserQuery(input.text)
+        }
+        edit()
+        service.suppressAutomaticBrowseNavigation = wasSuppressed
+        if !wasSuppressed { service.navigateToBrowse() }
     }
 
 }

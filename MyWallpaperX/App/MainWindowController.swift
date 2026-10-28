@@ -8,14 +8,18 @@ final class MainWindowController: NSWindowController, NSWindowDelegate {
     private var hasShownWindow = false
     var libraryCommands: WallpaperLibraryCommands { composition.commands }
     var libraryPresentation: WallpaperLibraryPresentation { composition.workspace.presentation }
+    func closePreviewForCacheClear() -> Task<Void, Never>? { composition.inspector.closePreviewForCacheClear() }
     func selectedBrowserOrganizationActions() -> WallpaperInspectorActions? { composition.selectedBrowserOrganizationActions() }
+    func selectedBrowserPrimaryAction() -> (title: String, action: () -> Void)? { composition.selectedBrowserPrimaryAction() }
+    func selectedBrowserInfoAction() -> (() -> Void)? { composition.selectedBrowserInfoAction() }
+    func selectedBrowserPreviewAction() -> (() -> Void)? { composition.selectedBrowserPreviewAction() }
 
     init(wallpaperManager: WallpaperManager) {
-        guard let workspace = MyWallpaperXApplication.libraryWorkspace else {
-            preconditionFailure("The main window requires the admitted library workspace")
+        guard let workspace = MyWallpaperXApplication.libraryWorkspace, let downloads = MyWallpaperXApplication.downloadTasks else {
+            preconditionFailure("The main window requires the admitted library and download services")
         }
         let composition = WallpaperLibraryWindowComposition(workspace: workspace, manager: wallpaperManager,
-            images: .shared, steam: .shared, online: .shared)
+            images: .shared, steam: .shared, pixabay: .shared)
         self.composition = composition
         let window = NSWindow(contentViewController: composition.split)
         window.identifier = NSUserInterfaceItemIdentifier("MainWindow")
@@ -37,7 +41,7 @@ final class MainWindowController: NSWindowController, NSWindowDelegate {
         toolbar = WallpaperLibraryWindowToolbar(window: window, workspace: workspace, commands: composition.commands,
             gridWidth: { [weak composition] in composition?.gridClipWidth ?? 0 },
             makeDirectoryReturnAction: { [weak composition] in composition?.makeDirectoryReturnAction() },
-            onlineImages: composition.onlineImages)
+            onlineImages: composition.onlineImages, downloads: downloads)
         super.init(window: window)
         shouldCascadeWindows = false
         window.delegate = self
@@ -58,6 +62,7 @@ final class MainWindowController: NSWindowController, NSWindowDelegate {
 
     func windowWillClose(_ notification: Notification) {
         composition.close()
+        SettingsWindowController.shared.updateMainWindowTint(nil, animated: false)
         MainWindowCoordinator.handleWindowWillClose(self)
     }
 
@@ -72,10 +77,6 @@ final class MainWindowController: NSWindowController, NSWindowDelegate {
     func canZoomLibrary(_ delta: Int) -> Bool { toolbar.canZoom(delta: delta) }
     func focusLibrarySearch() { toolbar.focusSearch() }
     func navigateLibraryPage(_ page: WallpaperLibraryPage) { composition.navigate(to: page) }
-    func refreshOnlineImages() { composition.onlineImages.refreshCurrent() }
-    var selectedOnlineImageContent: WallpaperContentItem? { composition.onlineImages.selectedContent }
-    func inspectSelectedOnlineImage() { composition.onlineImages.inspectSelected() }
-    func previewSelectedOnlineImage() { composition.onlineImages.previewSelected() }
 
     override func acceptsPreviewPanelControl(_ panel: QLPreviewPanel!) -> Bool {
         composition.inspector.acceptsPreviewPanelControl(panel)

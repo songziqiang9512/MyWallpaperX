@@ -48,7 +48,7 @@ nonisolated final class OnlineImageCommitProbe: @unchecked Sendable {
             try await store.publish(stagingURL: staging(bytes), asset: value, width: 80, height: 60,
                 fileSizeBytes: Int64(bytes.utf8.count), fileExtension: "PNG")
         }
-        let a = asset(.wallhaven, "Ab001")
+        var a = asset(.wallhaven, "Ab001"); a.rating = .adult
         let original = try await publish(a, bytes: "old-validated-image")
         let oldRecord = original.records[0]
         let oldURL = try store.fileURL(for: oldRecord)
@@ -59,6 +59,22 @@ nonisolated final class OnlineImageCommitProbe: @unchecked Sendable {
         let replacementURL = try store.fileURL(for: replacement)
         let replacementBytes = try Data(contentsOf: manifestURL)
         let replacementObject = try JSONSerialization.jsonObject(with: replacementBytes) as! [String: Any]
+        checks["official-download-rating-survives-original-commit-and-replacement"] = oldRecord.rating == .adult && replacement.rating == .adult
+        do {
+            let legacyRoot = work.appendingPathComponent("legacy-library", isDirectory: true)
+            try files.createDirectory(at: legacyRoot, withIntermediateDirectories: true)
+            var legacyManifest = replacementObject
+            legacyManifest["records"] = (legacyManifest["records"] as! [[String: Any]]).map { entry in
+                var value = entry; value.removeValue(forKey: "rating"); return value
+            }
+            let legacyBytes = try JSONSerialization.data(withJSONObject: legacyManifest)
+            let legacyURL = legacyRoot.appendingPathComponent("manifest.json")
+            try legacyBytes.write(to: legacyURL)
+            let legacy = try await OnlineImageLibraryStore(root: legacyRoot).load()
+            let unchangedLegacy = try Data(contentsOf: legacyURL)
+            checks["old-unrated-manifest-remains-readable-without-rewrite-or-rating-guess"] = legacy.records.count == 1
+                && legacy.records[0].rating == nil && unchangedLegacy == legacyBytes
+        }
         let oldImageBytes = try Data(contentsOf: oldURL), newImageBytes = try Data(contentsOf: replacementURL)
         checks["replacement-uses-independent-revision-and-retains-active-old-bytes"] = replacement.revision != oldRecord.revision
             && replacement.relativePath != oldRecord.relativePath
@@ -131,7 +147,7 @@ nonisolated final class OnlineImageCommitProbe: @unchecked Sendable {
         checks["missing-leaf-never-inherits-an-existing-regular-ancestor-type"] = blocked.unavailable == [a.id]
 
         let beforeWriteFailure = try Data(contentsOf: manifestURL)
-        let sourceDirectory = root.appendingPathComponent("wallhaven", isDirectory: true)
+        let sourceDirectory = root.appendingPathComponent("Wallhaven", isDirectory: true)
         let filesBeforeWriteFailure = try files.contentsOfDirectory(atPath: sourceDirectory.path).sorted()
         let heldManifest = work.appendingPathComponent("manifest-held-for-write-fault.json")
         try files.moveItem(at: manifestURL, to: heldManifest)
@@ -148,7 +164,7 @@ nonisolated final class OnlineImageCommitProbe: @unchecked Sendable {
             && files.fileExists(atPath: oldURL.path) && files.fileExists(atPath: replacementURL.path)
 
         let beforeCancellation = try Data(contentsOf: manifestURL)
-        let sourceFilesBeforeCancellation = try files.contentsOfDirectory(atPath: root.appendingPathComponent("wallhaven").path).sorted()
+        let sourceFilesBeforeCancellation = try files.contentsOfDirectory(atPath: root.appendingPathComponent("Wallhaven").path).sorted()
         OnlineImageCommitProbe.shared.arm(.beforeCheck)
         let cancelledStage = try staging("cancel-before-commit")
         let cancelTask = Task.detached {
@@ -161,7 +177,7 @@ nonisolated final class OnlineImageCommitProbe: @unchecked Sendable {
         catch is CancellationError {
             checks["cancellation-before-manifest-commit-publishes-nothing"] = try Data(contentsOf: manifestURL) == beforeCancellation
                 && files.fileExists(atPath: oldURL.path) && files.fileExists(atPath: replacementURL.path)
-                && files.contentsOfDirectory(atPath: root.appendingPathComponent("wallhaven").path).sorted() == sourceFilesBeforeCancellation
+                && files.contentsOfDirectory(atPath: root.appendingPathComponent("Wallhaven").path).sorted() == sourceFilesBeforeCancellation
         }
         let afterCancel = try await store.load()
         let activeBeforeCommittedCancel = afterCancel.records.first { $0.assetID == a.id }!
@@ -225,6 +241,43 @@ nonisolated final class OnlineImageCommitProbe: @unchecked Sendable {
                 checks["manifest-" + name + "-escape-is-rejected-without-overwrite"] = try Data(contentsOf: escapeManifest) == escapeBytes
             }
         }
+        let sharedRoot = work.appendingPathComponent("module-paths", isDirectory: true)
+        let legacyRoot = sharedRoot.appendingPathComponent("在线图片", isDirectory: true)
+        // Preserve the bytes of the old Date fields, as a real schema-one
+        // manifest did. JSONSerialization's number formatter can round them.
+        let oldPathJSON = String(decoding: try JSONEncoder().encode(replacement.relativePath), as: UTF8.self)
+        let legacyPathJSON = String(decoding: try JSONEncoder().encode("wallhaven/legacy.png"), as: UTF8.self)
+        let legacyManifest = String(decoding: replacementBytes, as: UTF8.self).replacingOccurrences(of: oldPathJSON, with: legacyPathJSON)
+        try files.createDirectory(at: legacyRoot.appendingPathComponent("wallhaven"), withIntermediateDirectories: true)
+        let legacyImage = legacyRoot.appendingPathComponent("wallhaven/legacy.png")
+        try Data("legacy-original".utf8).write(to: legacyImage)
+        try Data(legacyManifest.utf8).write(to: legacyRoot.appendingPathComponent("manifest.json"))
+        let upgraded = OnlineImageLibraryStore(root: sharedRoot, legacyRoot: legacyRoot, manifestName: "online-images.json")
+        let legacyLoaded = try await upgraded.load()
+        let legacyRecord = legacyLoaded.records[0]
+        let legacyURL = try upgraded.fileURL(for: legacyRecord)
+        checks["legacy-manifest-load-preserves-id-revision-time-and-file-without-copy-or-new-manifest"] =
+            legacyRecord.assetID == replacement.assetID && legacyRecord.revision == replacement.revision
+            && legacyRecord.firstDownloadedAt == replacement.firstDownloadedAt && legacyURL.standardizedFileURL.path == legacyImage.standardizedFileURL.path
+            && !files.fileExists(atPath: sharedRoot.appendingPathComponent("online-images.json").path)
+        if checks["legacy-manifest-load-preserves-id-revision-time-and-file-without-copy-or-new-manifest"] != true {
+            let mismatch = "legacy preservation id=\(legacyRecord.assetID == replacement.assetID) revision=\(legacyRecord.revision == replacement.revision) dateDelta=\(legacyRecord.firstDownloadedAt.timeIntervalSince(replacement.firstDownloadedAt)) path=\(legacyURL.path) expected=\(legacyImage.path)\n"
+            FileHandle.standardError.write(Data(mismatch.utf8))
+        }
+        let mixed = try await upgraded.publish(stagingURL: staging("brand-new-pixiv"), asset: p0,
+            width: 80, height: 60, fileSizeBytes: 15, fileExtension: "png")
+        checks["new-publication-uses-brand-directory-and-unique-shared-manifest-with-old-reference-intact"] =
+            mixed.records.contains { $0.relativePath.hasPrefix("Pixiv/") }
+            && mixed.records.contains { $0.assetID == legacyRecord.assetID && $0.relativePath == legacyRecord.relativePath }
+            && files.fileExists(atPath: legacyImage.path)
+            && files.fileExists(atPath: sharedRoot.appendingPathComponent("online-images.json").path)
+            && !files.fileExists(atPath: sharedRoot.appendingPathComponent("manifest.json").path)
+        try Data("old manifest now obsolete".utf8).write(to: legacyRoot.appendingPathComponent("manifest.json"))
+        let mixedRestart = try await OnlineImageLibraryStore(root: sharedRoot, legacyRoot: legacyRoot, manifestName: "online-images.json").load()
+        checks["new-manifest-is-the-only-authority-after-first-real-commit"] = mixedRestart.records == mixed.records
+        let removedLegacy = try await upgraded.removeRecord(id: legacyRecord.assetID, expectedRevision: legacyRecord.revision)
+        checks["removing-legacy-record-preserves-new-brand-records"] = removedLegacy.records.count == mixed.records.count - 1
+            && removedLegacy.records.contains { $0.assetID == p0.id }
         print(String(data: try JSONEncoder().encode(checks), encoding: .utf8)!)
         if checks.values.contains(false) { exit(1) }
     }

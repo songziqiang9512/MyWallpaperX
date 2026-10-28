@@ -9,7 +9,6 @@ final class SteamWorkshopPreviewPlaceholderView: NSView {
     }
 
     private let backgroundView = NSView()
-    private let spinner = NSProgressIndicator()
     private let titleLabel = NSTextField(labelWithString: "")
     private var currentState: State?
 
@@ -27,24 +26,8 @@ final class SteamWorkshopPreviewPlaceholderView: NSView {
         super.layout()
         backgroundView.frame = bounds
 
-        let spinnerSize: CGFloat = 18
-        let spacing: CGFloat = 8
-        let titleHeight: CGFloat = 16
-        let totalHeight = spinnerSize + spacing + titleHeight
-        let originY = floor((bounds.height - totalHeight) * 0.5)
-
-        spinner.frame = CGRect(
-            x: floor((bounds.width - spinnerSize) * 0.5),
-            y: max(0, originY),
-            width: spinnerSize,
-            height: spinnerSize
-        )
-        titleLabel.frame = CGRect(
-            x: 12,
-            y: spinner.frame.maxY + spacing,
-            width: max(0, bounds.width - 24),
-            height: titleHeight
-        )
+        titleLabel.frame = NSRect(x: 12, y: floor((bounds.height - 16) * 0.5),
+            width: max(0, bounds.width - 24), height: 16)
     }
 
     override func viewDidChangeEffectiveAppearance() {
@@ -70,22 +53,15 @@ final class SteamWorkshopPreviewPlaceholderView: NSView {
         switch state {
         case .hidden:
             isHidden = true
-            spinner.stopAnimation(nil)
             titleLabel.stringValue = ""
         case .loading:
             isHidden = false
-            spinner.isHidden = false
-            spinner.startAnimation(nil)
-            titleLabel.stringValue = "缩略图加载中"
+            titleLabel.stringValue = "加载中"
         case .retrying:
             isHidden = false
-            spinner.isHidden = false
-            spinner.startAnimation(nil)
-            titleLabel.stringValue = "正在重试加载"
+            titleLabel.stringValue = "加载中"
         case .unavailable:
             isHidden = false
-            spinner.stopAnimation(nil)
-            spinner.isHidden = true
             titleLabel.stringValue = "暂无缩略图"
         }
     }
@@ -97,11 +73,6 @@ final class SteamWorkshopPreviewPlaceholderView: NSView {
         backgroundView.wantsLayer = true
         refreshBackgroundColor()
         addSubview(backgroundView)
-
-        spinner.style = .spinning
-        spinner.controlSize = .small
-        spinner.isDisplayedWhenStopped = false
-        addSubview(spinner)
 
         titleLabel.alignment = .center
         titleLabel.font = .systemFont(ofSize: 12, weight: .medium)

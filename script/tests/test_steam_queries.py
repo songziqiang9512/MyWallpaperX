@@ -111,7 +111,7 @@ extension Notification.Name { static let appKitSelectItemRequested = Notificatio
             folder = pathlib.Path(folder)
             extracted = folder / 'ActualBrowseStore.swift'
             extracted.write_text(fixture)
-            sources = [ROOT / 'MyWallpaperX/Models/WallpaperReference.swift',
+            sources = [ROOT / 'MyWallpaperX/Models/WallpaperReference.swift', ROOT / 'MyWallpaperX/Models/WallpaperContent.swift',
                        ROOT / 'MyWallpaperX/Core/DaemonKit/DaemonNewlineJSON.swift',
                        ROOT / 'MyWallpaperX/Core/DaemonKit/DaemonProcessTransport.swift',
                        *[CORE / name for name in ['SteamServiceProtocol.swift', 'SteamServiceClient.swift',

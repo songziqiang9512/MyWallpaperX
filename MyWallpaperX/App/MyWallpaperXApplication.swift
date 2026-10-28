@@ -11,6 +11,7 @@ enum MyWallpaperXApplication {
     /// App owns this one launch result. Shell receives it explicitly after
     /// startup; it is never inferred from an empty relationship snapshot.
     @MainActor private(set) static var libraryWorkspace: WallpaperLibraryWorkspace?
+    @MainActor private(set) static var downloadTasks: DownloadTasksController?
     @MainActor private(set) static var personalSettings: PersonalSettingsImportCoordinator?
     @MainActor private static var personalSettingsSubscriptions = Set<AnyCancellable>()
     @MainActor private static var personalSettingsRecoveryURL: URL?
@@ -172,18 +173,21 @@ enum MyWallpaperXApplication {
             WallpaperManager.shared.admitImportedVideoPlayback(reference: reference, libraryPending: pending)
         }
         SteamWorkshopService.shared.prepareVideoPlaybackIntent = prepareImportedVideo
-        OnlineLibraryService.shared.prepareVideoPlaybackIntent = prepareImportedVideo
+        PixabayService.shared.prepareVideoPlaybackIntent = prepareImportedVideo
+        // Terminal history remains active when the main library window is
+        // closed. Sources publish facts; this one App-owned consumer saves them.
+        downloadTasks = DownloadTasksController(steam: .shared, pixabay: .shared, images: .shared)
         let requestLibraryPlayback: (WallpaperReference) -> Void = { reference in
             libraryWorkspace?.requestSingle(reference)
         }
         SteamWorkshopService.shared.requestLibraryPlayback = requestLibraryPlayback
-        OnlineLibraryService.shared.requestLibraryPlayback = requestLibraryPlayback
+        PixabayService.shared.requestLibraryPlayback = requestLibraryPlayback
         let prepareLibraryRestoration: (WallpaperReference) -> (() -> Void)? = { reference in
             guard let workspace = libraryWorkspace else { return nil }
             return WallpaperLibraryCommands.makeExplicitLibraryRestorationReceipt(for: reference, in: workspace)
         }
         SteamWorkshopService.shared.prepareExplicitLibraryRestoration = prepareLibraryRestoration
-        OnlineLibraryService.shared.prepareExplicitLibraryRestoration = prepareLibraryRestoration
+        PixabayService.shared.prepareExplicitLibraryRestoration = prepareLibraryRestoration
         SteamWorkshopService.shared.prepareSceneDownloadRemoval = { recordID, completion in
             WallpaperManager.shared.prepareSceneDownloadRemoval(recordID: recordID, completion: completion)
         }
@@ -257,7 +261,7 @@ enum MyWallpaperXApplication {
         if !usesDirectPlaybackHarness, let startup = userCollectionsStartup {
             WallpaperManager.shared.configureRuntimeSwitching()
             libraryWorkspace = WallpaperLibraryWorkspace(startup: startup, manager: .shared, images: .shared,
-                                                         steam: .shared, online: .shared, defaults: .standard)
+                                                         steam: .shared, pixabay: .shared, defaults: .standard)
             configurePersonalSettings()
         }
         app.run()

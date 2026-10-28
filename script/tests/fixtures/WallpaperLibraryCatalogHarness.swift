@@ -60,12 +60,15 @@ final class WallpaperManager {
     @Published var didFinishInitialIndexLoad = false
 }
 final class SILService { @Published var wallpapers: [SILWallpaper] = [] }
-final class OnlineLibraryService {
-    @Published var downloadedContent = OnlineLibraryDownloadedContentSnapshot(revision: 0, entries: [], status: .initial)
-    @Published var items: [OnlineLibraryVideoItem] = []
+final class PixabayService {
+    @Published var downloadedContent = PixabayDownloadedContentSnapshot(revision: 0, entries: [], status: .initial)
+    @Published var items: [PixabayVideoItem] = []
     @Published var downloadProgressByID: [Int: Double] = [:]
     var refreshRequests = 0
-    func refreshDownloadedContent() { refreshRequests += 1 }
+    @discardableResult func refreshDownloadedContent() -> Task<Void, Never> {
+        refreshRequests += 1
+        return Task {}
+    }
 }
 final class CatalogJobs {
     @Published var jobs: [SteamDownloadJob] = []
@@ -75,7 +78,6 @@ final class CatalogAuth { @Published var steamId: String? = "account-A" }
 final class SteamWorkshopService {
     @Published var downloads: [SteamWorkshopDownloadRecord] = []
     @Published var hasCompletedInstalledLibraryLoad = false
-    @Published var downloadsShowsAdultContent = true
     @Published var browserItems: [SteamWorkshopBrowserItem] = []
     func latestDownloadRecord(for id: String) -> SteamWorkshopDownloadRecord? { downloads.first { $0.id.utf8.elementsEqual(id.utf8) } }
     var replayRecords: [String: SteamWorkshopDownloadRecord] = [:]
@@ -109,7 +111,7 @@ extension SteamWorkshopDownloadRecord { var isSceneLaunchable: Bool { false } }
         try FileManager.default.createDirectory(at: root, withIntermediateDirectories: true)
         let sharedFile = root.appendingPathComponent("shared.mp4")
         try Data([1, 2, 3]).write(to: sharedFile)
-        let manager = WallpaperManager(), images = SILService(), steam = SteamWorkshopService(), online = OnlineLibraryService()
+        let manager = WallpaperManager(), images = SILService(), steam = SteamWorkshopService(), pixabay = PixabayService()
         manager.wallpapers = [VideoWallpaper(id: "42", title: "same title", path: sharedFile.path)]
         images.wallpapers = [try image(id: "42", path: sharedFile.path)]
         steam.downloads = [record(id: "42", video: sharedFile), record(id: "video:offline", video: root.appendingPathComponent("missing.mp4"))]
@@ -118,7 +120,7 @@ extension SteamWorkshopDownloadRecord { var isSceneLaunchable: Bool { false } }
         let rejectsUnknown = steam.libraryContentItemForExplicitPlayback(id: "not-published") == nil
         steam.replayRecords["replay-only"] = record(id: "replay-only", video: sharedFile)
         let replay = steam.libraryContentItemForExplicitPlayback(id: "replay-only")
-        let controller = WallpaperLibraryCatalogController(manager: manager, images: images, steam: steam, online: online)
+        let controller = WallpaperLibraryCatalogController(manager: manager, images: images, steam: steam, pixabay: pixabay)
         var checks: [String: Bool] = [:]
         checks["explicit-user-action-can-resolve-a-validated-record-before-catalog-publication"] = immediate?.reference == .init(provider: .steamWorkshop, sourceID: "42")
             && immediate?.capabilities.contains(.play) == true
@@ -138,13 +140,13 @@ extension SteamWorkshopDownloadRecord { var isSceneLaunchable: Bool { false } }
         let beforeReadiness = controller.catalog.revision
         manager.didFinishInitialIndexLoad = true
         steam.hasCompletedInstalledLibraryLoad = true
-        online.downloadedContent = .init(revision: 1, entries: [], status: .init(phase: .ready(warnings: []), hasSuccessfulScan: true))
+        pixabay.downloadedContent = .init(revision: 1, entries: [], status: .init(phase: .ready(warnings: []), hasSuccessfulScan: true))
         OnlineImageLibrary.shared.snapshot = .init(status: .init(phase: .ready(warnings: []), hasSuccessfulScan: true), revision: 1)
         checks["source-completion-including-a-successfully-empty-online-library-publishes-one-consistent-value"] = await wait {
             controller.catalog.loadedProviders == Set(WallpaperProvider.allCases) && controller.catalog.revision > beforeReadiness
         }
         let afterReadiness = controller.catalog.revision
-        online.downloadedContent = .init(revision: 2, entries: [], status: .init(phase: .ready(warnings: []), hasSuccessfulScan: true))
+        pixabay.downloadedContent = .init(revision: 2, entries: [], status: .init(phase: .ready(warnings: []), hasSuccessfulScan: true))
         try await Task.sleep(for: .milliseconds(10))
         checks["unchanged-successful-source-refresh-does-not-invent-a-new-catalog-revision"] = controller.catalog.revision == afterReadiness
         let video = controller.catalog.videos[0], still = controller.catalog.images[0], downloaded = controller.catalog.downloads[0]
@@ -283,7 +285,42 @@ extension SteamWorkshopDownloadRecord { var isSceneLaunchable: Bool { false } }
             && controller.visibleAvailabilityTask == nil
         CatalogFileProbe.shared.stop()
 
-        var transient: WallpaperLibraryCatalogController? = WallpaperLibraryCatalogController(manager: manager, images: images, steam: steam, online: online)
+        let projectionBarrier = CatalogFileProbe.shared.holdNext()
+        controller.refreshAvailability()
+        _ = await wait { CatalogFileProbe.shared.snapshot.active > 0 }
+        let originalProjection = controller.videoTask!
+        manager.wallpapers[0] = VideoWallpaper(id: "42", title: "refresh newest source", path: sharedFile.path)
+        let replacementProjection = controller.videoTask!
+        checks["explicit-resource-refresh-can-be-replaced-by-the-current-source-publication"] =
+            originalProjection.isCancelled && !replacementProjection.isCancelled && CatalogFileProbe.shared.snapshot.active > 0
+        projectionBarrier.signal()
+        await originalProjection.value; await replacementProjection.value
+        checks["latest-source-projection-publishes-current-availability-after-a-refresh-replacement"] =
+            controller.catalog.videos.first?.title == "refresh newest source"
+            && controller.catalog.videos.first?.publishedAvailability == .available
+        CatalogFileProbe.shared.stop()
+
+        let retiredFile = root.appendingPathComponent("retired-refresh.mp4"), successorFile = root.appendingPathComponent("successor-refresh.mp4")
+        try Data([1]).write(to: retiredFile); try Data([2]).write(to: successorFile)
+        let retiredBarrier = CatalogFileProbe.shared.holdNext()
+        manager.wallpapers[0] = VideoWallpaper(id: "42", title: "retired refresh source", path: retiredFile.path)
+        _ = await wait { CatalogFileProbe.shared.snapshot.active == 1 }
+        let retainedProjection = controller.videoTask!
+        let successorBarrier = CatalogFileProbe.shared.holdNext()
+        manager.wallpapers[0] = VideoWallpaper(id: "42", title: "successor refresh source", path: successorFile.path)
+        let successorProjection = controller.videoTask!
+        _ = await wait { CatalogFileProbe.shared.snapshot.active == 2 }
+        checks["replacing-a-held-source-cancels-only-the-original-projection"] = retainedProjection.isCancelled && !successorProjection.isCancelled
+        retiredBarrier.signal(); await retainedProjection.value
+        checks["retired-source-completion-cannot-publish-over-a-held-successor"] = !successorProjection.isCancelled
+            && controller.catalog.videos.first?.title != "retired refresh source" && controller.catalog.videos.first?.title != "successor refresh source"
+        successorBarrier.signal(); await successorProjection.value
+        checks["successor-source-keeps-its-real-publication-after-the-retired-worker-exits"] = !successorProjection.isCancelled
+            && controller.catalog.videos.first?.title == "successor refresh source"
+            && controller.catalog.videos.first?.publishedAvailability == .available
+        CatalogFileProbe.shared.stop()
+
+        var transient: WallpaperLibraryCatalogController? = WallpaperLibraryCatalogController(manager: manager, images: images, steam: steam, pixabay: pixabay)
         transient?.setVisibleReferences([video.providerReference], sourceToken: UUID())
         weak let weakTransient = transient
         transient = nil
@@ -364,13 +401,13 @@ extension SteamWorkshopDownloadRecord { var isSceneLaunchable: Bool { false } }
             && failedItems[0].capabilities.contains([.delete, .retryDownload]) && !failedItems[0].capabilities.contains(.play)
         // The fourth provider consumes actual source facts, with no probing of
         // the supplied path by the catalog or false aliases to a Video row.
-        let onlineDate = Date(timeIntervalSince1970: 900)
-        let onlineEntry = OLDownloadedEntry(id: 42, localURL: sharedFile, fileSize: 1, duration: 8,
-            resolutionString: "10×20", thumbnailSourceKey: "published-42", creationDate: onlineDate,
+        let pixabayDate = Date(timeIntervalSince1970: 900)
+        let pixabayEntry = PixabayDownloadedEntry(id: 42, localURL: sharedFile, fileSize: 1, duration: 8,
+            resolutionString: "10×20", thumbnailSourceKey: "published-42", creationDate: pixabayDate,
             modificationDate: Date(timeIntervalSince1970: 901))
         steam.downloads = [record(id: "42", video: sharedFile)]
         _ = await wait { controller.catalog.downloads.first?.reference.sourceID == "42" }
-        online.downloadedContent = .init(revision: 1, entries: [onlineEntry], status: .init(phase: .ready(warnings: []), hasSuccessfulScan: true))
+        pixabay.downloadedContent = .init(revision: 1, entries: [pixabayEntry], status: .init(phase: .ready(warnings: []), hasSuccessfulScan: true))
         checks["fourth-source-keeps-same-number-provider-identities-and-local-facts"] = await wait {
             controller.catalog.downloads.count == 2
                 && Set([controller.catalog.videos[0].reference, controller.catalog.images[0].reference]
@@ -378,17 +415,17 @@ extension SteamWorkshopDownloadRecord { var isSceneLaunchable: Bool { false } }
                 && controller.catalog.downloads.contains {
                 $0.reference == WallpaperReference(provider: .pixabay, sourceID: "42")
                     && $0.publishedAvailability == .available && $0.capabilities.contains([.play, .organize, .delete])
-                    && $0.aliases.isEmpty && $0.metadata.createdAt == onlineDate && $0.metadata.modifiedAt != nil
+                    && $0.aliases.isEmpty && $0.metadata.createdAt == pixabayDate && $0.metadata.modifiedAt != nil
             }
         }
         let pixabayRevision = controller.revisions[.pixabay]
-        online.downloadProgressByID = [42: 0.4]
-        online.items = [OnlineLibraryVideoItem(id: 99, pageURL: "https://fixture.invalid", tags: "remote", duration: 1,
+        pixabay.downloadProgressByID = [42: 0.4]
+        pixabay.items = [PixabayVideoItem(id: 99, pageURL: "https://fixture.invalid", tags: "remote", duration: 1,
             user: "remote", videos: .init(large: nil, medium: nil, small: nil, tiny: nil))]
         checks["pixabay-progress-and-browser-results-never-scan-or-enter-local-catalog"] = controller.revisions[.pixabay] == pixabayRevision
             && controller.catalog.downloads.count == 2
-        var unavailable = onlineEntry; unavailable.isAvailable = false
-        online.downloadedContent = .init(revision: 2, entries: [unavailable], status: .init(phase: .ready(warnings: []), hasSuccessfulScan: true))
+        var unavailable = pixabayEntry; unavailable.isAvailable = false
+        pixabay.downloadedContent = .init(revision: 2, entries: [unavailable], status: .init(phase: .ready(warnings: []), hasSuccessfulScan: true))
         checks["pixabay-unavailable-source-fact-retains-target-without-fake-play-or-organization"] = controller.catalog.downloads.last?.publishedAvailability == .unavailable
             && controller.catalog.downloads.last?.capabilities.contains(.delete) == true
             && controller.catalog.downloads.last?.capabilities.contains(.play) == false
@@ -398,7 +435,7 @@ extension SteamWorkshopDownloadRecord { var isSceneLaunchable: Bool { false } }
             controller.catalog.downloads.count == 2 && controller.catalog.downloads.first?.reference.sourceID == "fresh-steam"
                 && controller.catalog.downloads.last?.reference.provider == .pixabay
         }
-        online.downloadedContent = .init(revision: 3, entries: [], status: .init(phase: .ready(warnings: []), hasSuccessfulScan: true))
+        pixabay.downloadedContent = .init(revision: 3, entries: [], status: .init(phase: .ready(warnings: []), hasSuccessfulScan: true))
         checks["pixabay-removal-does-not-overwrite-steam-publications"] = controller.catalog.downloads.count == 1
             && controller.catalog.downloads[0].reference.provider == .steamWorkshop
         var adultRecord = record(id: "adult", video: sharedFile)
@@ -409,15 +446,11 @@ extension SteamWorkshopDownloadRecord { var isSceneLaunchable: Bool { false } }
         unmarkedRecord.browserItem = try browser("ordinary", tags: ["nature"])
         steam.downloads = [adultRecord, taggedRecord, unmarkedRecord]
         _ = await wait { controller.catalog.downloads.count == 3 }
-        let ratingRevision = controller.revisions[.steamWorkshop]
-        steam.downloadsShowsAdultContent = false
-        checks["original-rating-marker-and-official-tags-produce-exclusions-without-dropping-publications"] = controller.catalog.downloads.count == 3
-            && controller.catalog.excludedDownloadReferences == Set([WallpaperReference(provider: .steamWorkshop, sourceID: "adult"), .init(provider: .steamWorkshop, sourceID: "tagged")])
-        checks["rating-toggle-does-not-trigger-resource-validation-or-treat-titles-as-rating"] = controller.revisions[.steamWorkshop] == ratingRevision
-            && !controller.catalog.excludedDownloadReferences.contains(.init(provider: .steamWorkshop, sourceID: "ordinary"))
-        steam.downloadsShowsAdultContent = true
-        checks["rating-toggle-restores-downloads-from-existing-original-owner"] = controller.catalog.excludedDownloadReferences.isEmpty
-            && controller.catalog.downloads.count == 3
+        let ratings = Dictionary(uniqueKeysWithValues: controller.catalog.downloads.map { ($0.reference.sourceID, $0.metadata.contentRating ?? .unknown) })
+        checks["original-rating-marker-and-official-tags-project-adult-facts-without-dropping-publications"] = controller.catalog.downloads.count == 3
+            && ratings["adult"] == .adult && ratings["tagged"] == .adult && controller.catalog.excludedDownloadReferences.isEmpty
+        checks["download-rating-never-classifies-a-title-or-adds-another-source-visibility-owner"] = ratings["ordinary"] != .adult
+            && controller.catalog.excludedDownloadReferences.isEmpty
         let queued = record(id: "queue-only", video: sharedFile, status: .queued)
         steam.downloads.append(queued)
         _ = await wait { controller.catalog.downloads.count == 4 }
@@ -440,9 +473,9 @@ extension SteamWorkshopDownloadRecord { var isSceneLaunchable: Bool { false } }
         checks["clearing-history-without-jobs-change-removes-retry-from-downloads-page-only"] = await wait {
             controller.catalog.excludedDownloadReferences.contains(queuedRef)
         } && controller.catalog.downloads.contains { $0.providerReference == queuedRef }
-        let refreshes = online.refreshRequests
+        let refreshes = pixabay.refreshRequests
         controller.refreshAvailability()
-        checks["explicit-catalog-refresh-delegates-once-to-existing-online-source"] = online.refreshRequests == refreshes + 1
+        checks["explicit-catalog-refresh-delegates-once-to-existing-online-source"] = pixabay.refreshRequests == refreshes + 1
         var accountIntent = record(id: "account-intent", video: sharedFile, title: "A private failure", status: .failed("A error"))
         accountIntent.intentAccountSteamID = "account-A"
         let ownIntent = await steam.libraryContentItems(from: [accountIntent], jobs: [], account: "account-A", reusing: [], previousRecords: [])
@@ -476,10 +509,10 @@ extension SteamWorkshopDownloadRecord { var isSceneLaunchable: Bool { false } }
         // Source revision alone never proves that its first full scan worked.
         // The actual Combine subscription consumes each supplied snapshot even
         // though @Published delivers it before the source getter is replaced.
-        let statusSource = OnlineLibraryService()
-        statusSource.downloadedContent = .init(revision: 1, entries: [onlineEntry], status: .initial)
+        let statusSource = PixabayService()
+        statusSource.downloadedContent = .init(revision: 1, entries: [pixabayEntry], status: .initial)
         let statusCatalog = WallpaperLibraryCatalogController(manager: WallpaperManager(), images: SILService(),
-            steam: SteamWorkshopService(), online: statusSource)
+            steam: SteamWorkshopService(), pixabay: statusSource)
         let initialOnlineItems = statusCatalog.catalog.downloads
         checks["entry-only-content-revision-is-playable-but-does-not-claim-a-successful-source-scan"] =
             initialOnlineItems.count == 1 && initialOnlineItems[0].capabilities.contains(.play)
@@ -487,41 +520,41 @@ extension SteamWorkshopDownloadRecord { var isSceneLaunchable: Bool { false } }
             && statusCatalog.catalog.sourceScanStatuses[.pixabay] == .initial
         let coldError = WallpaperSourceScanStatus(phase: .failed(message: "Cold source failure"), hasSuccessfulScan: false)
         let beforeColdFailure = statusCatalog.catalog.revision
-        statusSource.downloadedContent = .init(revision: 1, entries: [onlineEntry], status: coldError)
+        statusSource.downloadedContent = .init(revision: 1, entries: [pixabayEntry], status: coldError)
         checks["phase-only-cold-failure-reaches-catalog-without-hiding-direct-local-entries"] =
             statusCatalog.catalog.revision > beforeColdFailure && statusCatalog.catalog.downloads == initialOnlineItems
             && !statusCatalog.catalog.loadedProviders.contains(.pixabay)
             && statusCatalog.catalog.sourceScanStatuses[.pixabay] == coldError
         let readyWarnings = WallpaperSourceScanStatus(phase: .ready(warnings: ["Duplicate local filename"]), hasSuccessfulScan: true)
-        statusSource.downloadedContent = .init(revision: 1, entries: [onlineEntry], status: readyWarnings)
+        statusSource.downloadedContent = .init(revision: 1, entries: [pixabayEntry], status: readyWarnings)
         checks["phase-only-first-success-publishes-warnings-and-real-readiness-without-new-content"] =
             statusCatalog.catalog.downloads == initialOnlineItems && statusCatalog.catalog.loadedProviders.contains(.pixabay)
             && statusCatalog.catalog.sourceScanStatuses[.pixabay] == readyWarnings
         let warmLoading = WallpaperSourceScanStatus(phase: .loading, hasSuccessfulScan: true)
         let beforeWarmLoading = statusCatalog.catalog.revision
-        statusSource.downloadedContent = .init(revision: 1, entries: [onlineEntry], status: warmLoading)
+        statusSource.downloadedContent = .init(revision: 1, entries: [pixabayEntry], status: warmLoading)
         checks["warm-loading-remains-playable-and-publishes-a-phase-only-catalog-revision"] =
             statusCatalog.catalog.revision > beforeWarmLoading && statusCatalog.catalog.downloads == initialOnlineItems
             && statusCatalog.catalog.loadedProviders.contains(.pixabay)
             && statusCatalog.catalog.sourceScanStatuses[.pixabay] == warmLoading
         let beforeDuplicate = statusCatalog.catalog.revision, beforeDuplicateSource = statusCatalog.revisions[.pixabay]
-        statusSource.downloadedContent = .init(revision: 2, entries: [onlineEntry], status: warmLoading)
+        statusSource.downloadedContent = .init(revision: 2, entries: [pixabayEntry], status: warmLoading)
         checks["identical-scan-state-and-content-do-not-repeat-projection-or-catalog-publication"] =
             statusCatalog.catalog.revision == beforeDuplicate && statusCatalog.revisions[.pixabay] == beforeDuplicateSource
         let warmError = WallpaperSourceScanStatus(phase: .failed(message: "Warm source failure"), hasSuccessfulScan: true)
-        statusSource.downloadedContent = .init(revision: 2, entries: [onlineEntry], status: warmError)
+        statusSource.downloadedContent = .init(revision: 2, entries: [pixabayEntry], status: warmError)
         checks["warm-failure-retains-real-success-readiness-and-original-playable-content"] =
             statusCatalog.catalog.downloads == initialOnlineItems && statusCatalog.catalog.loadedProviders.contains(.pixabay)
             && statusCatalog.catalog.sourceScanStatuses[.pixabay] == warmError
-        statusSource.downloadedContent = .init(revision: 2, entries: [onlineEntry],
+        statusSource.downloadedContent = .init(revision: 2, entries: [pixabayEntry],
             status: .init(phase: .ready(warnings: []), hasSuccessfulScan: true))
         checks["retry-ready-clears-prior-warning-or-failure-through-the-single-snapshot"] =
             statusCatalog.catalog.sourceScanStatuses[.pixabay] == .init(phase: .ready(warnings: []), hasSuccessfulScan: true)
             && statusCatalog.catalog.downloads == initialOnlineItems && statusSource.refreshRequests == 0
-        let warmSource = OnlineLibraryService()
-        warmSource.downloadedContent = .init(revision: 9, entries: [onlineEntry], status: warmLoading)
+        let warmSource = PixabayService()
+        warmSource.downloadedContent = .init(revision: 9, entries: [pixabayEntry], status: warmLoading)
         let lateSubscriber = WallpaperLibraryCatalogController(manager: WallpaperManager(), images: SILService(),
-            steam: SteamWorkshopService(), online: warmSource)
+            steam: SteamWorkshopService(), pixabay: warmSource)
         checks["initial-subscription-to-a-warm-refresh-preserves-real-success-without-waiting-for-next-scan"] =
             lateSubscriber.catalog.loadedProviders.contains(.pixabay)
             && lateSubscriber.catalog.sourceScanStatuses[.pixabay] == warmLoading

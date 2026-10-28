@@ -184,6 +184,9 @@ import ImageIO
             axCard.previewPlaceholderView.setState(state)
             axCard.view.layoutSubtreeIfNeeded()
             passiveStatesActivate = axRoot.accessibilityPerformPress() && passiveStatesActivate
+            let label = axCard.previewPlaceholderView.subviews.compactMap { $0 as? NSTextField }.first
+            checks["thumbnailPlaceholderUsesTextOnly-\(state)"] = label?.stringValue == (state == .unavailable ? "暂无缩略图" : "加载中")
+                && axCard.previewPlaceholderView.subviews.allSatisfy { !($0 is NSProgressIndicator) }
         }
         checks["actualSteamPlaceholderStatesUseSharedAXSelectionInsteadOfProviderDetails"] = passiveStatesActivate
             && selectionActivations == 3 && originalOpens == 0
@@ -207,7 +210,7 @@ import ImageIO
             let key = "steamPlaceholderBackgroundTracksNative\(appearance.rawValue)Phase\(phase)WithoutChangingItsState"
             checks[key] = matches && !samePlaceholder.isHidden
                 && samePlaceholder.subviews.compactMap { $0 as? NSTextField }.first?.stringValue == "暂无缩略图"
-                && samePlaceholder.subviews.compactMap { $0 as? NSProgressIndicator }.first?.isHidden == true
+                && samePlaceholder.subviews.allSatisfy { !($0 is NSProgressIndicator) }
                 && samePlaceholder === axCard.previewPlaceholderView
         }
         axCard.view.removeFromSuperview()
@@ -257,6 +260,39 @@ import ImageIO
         checks["heldSteamAXMenuCannotOpenReusedBrowserCardsOrganizationMenu"] = menuAction.handler?() == false && menuRequests == 2
         axCard.prepareForReuse()
         checks["steamReuseRevokesInjectedContextMenuAndHeldAXMenuHandler"] = menuAction.handler?() == false && menuRequests == 2
+        let actionCard = AppKitSteamWorkshopBrowserItem(); _ = actionCard.view
+        var downloads: [String] = [], openings: [String] = [], cancellations: [String] = []
+        func bindActions(_ source: SteamWorkshopBrowserItem, _ label: String,
+                         context: AppKitSteamWorkshopBrowserItem.DisplayContext = .browser, downloading: Bool = false) {
+            actionCard.configureMetadataOnly(displayContext: context, item: source, downloadRecord: nil,
+                downloadProgressStore: SteamWorkshopDownloadProgressStore(), isDownloading: downloading,
+                isDownloaded: false, isKeyboardFocused: false, onOpen: { openings.append(label) },
+                onDownload: { downloads.append(label) }, onSetAsWallpaper: {}, onCancelDownload: { cancellations.append(label) })
+        }
+        bindActions(axItem, "A")
+        let heldAPlay = actionCard.controlBar.onPlay, heldAInspect = actionCard.controlBar.onInspect
+        bindActions(otherItem, "B"); heldAPlay?(); heldAInspect?()
+        checks["retainedSteamBarActionsCannotRedirectToReusedB"] = heldAPlay != nil && heldAInspect != nil && downloads.isEmpty && openings.isEmpty
+        actionCard.controlBar.playButton.performClick(nil); actionCard.controlBar.detailButton.performClick(nil)
+        checks["reboundSteamNativeBarDeliversBothCurrentActionsOnce"] = downloads == ["B"] && openings == ["B"]
+        bindActions(otherItem, "B echo")
+        actionCard.controlBar.playButton.performClick(nil); actionCard.controlBar.detailButton.performClick(nil)
+        checks["sameSteamIDMetadataEchoRebindsBothCurrentCallbacks"] = downloads == ["B", "B echo"] && openings == downloads
+        let heldDownload = actionCard.controlBar.onPlay
+        bindActions(otherItem, "B pending", downloading: true); heldDownload?()
+        checks["heldSteamDownloadCannotChangeItsMeaningToCancel"] = downloads == ["B", "B echo"] && cancellations.isEmpty
+        actionCard.controlBar.playButton.performClick(nil)
+        checks["currentSteamCancelStillDeliversItsOriginalActionOnce"] = cancellations == ["B pending"]
+        let heldBrowserPlay = actionCard.controlBar.onPlay, heldBrowserInspect = actionCard.controlBar.onInspect
+        bindActions(otherItem, "B local", context: .downloads); heldBrowserPlay?(); heldBrowserInspect?()
+        checks["retainedSteamBarActionsCannotCrossDisplayContext"] = downloads == ["B", "B echo"]
+            && openings == downloads && cancellations == ["B pending"]
+        actionCard.controlBar.playButton.performClick(nil); actionCard.controlBar.detailButton.performClick(nil)
+        checks["currentSteamLocalBarKeepsBothNativeActions"] = downloads == ["B", "B echo", "B local"] && openings == downloads
+        let heldLocalPlay = actionCard.controlBar.onPlay, heldLocalInspect = actionCard.controlBar.onInspect
+        actionCard.prepareForReuse(); heldLocalPlay?(); heldLocalInspect?()
+        checks["steamReuseRejectsRetainedBothBarActions"] = downloads == ["B", "B echo", "B local"]
+            && openings == downloads && cancellations == ["B pending"]
         window.orderOut(nil)
         print(String(data: try JSONSerialization.data(withJSONObject: checks, options: [.sortedKeys]), encoding: .utf8)!)
     }

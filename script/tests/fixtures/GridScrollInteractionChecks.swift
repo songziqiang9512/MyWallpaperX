@@ -5,6 +5,12 @@ private enum FixtureFailure: Error {
     case unavailable(String)
 }
 
+private final class NativeRefreshActionProbe: NSObject {
+    var onRefresh: (() -> Void)?
+    private(set) var deliveries = 0
+    @objc func invoke(_ sender: Any?) { deliveries += 1; onRefresh?() }
+}
+
 /// The former observer-only override is a negative control for AppKit's default
 /// compatibility heuristic. It forwards input but has no explicit opt-in.
 private final class LegacyWheelScrollView: NSScrollView {
@@ -20,7 +26,7 @@ private final class PointerWindow: NSWindow {
     override var mouseLocationOutsideOfEventStream: NSPoint { testPointer }
 }
 
-private final class ClickSurface: NSView {
+private final class ClickSurface: WallpaperCardInteractionView {
     var downs = 0
     var ups = 0
     override func mouseDown(with event: NSEvent) { downs += 1 }
@@ -33,11 +39,14 @@ private final class HoverItem: NSCollectionViewItem, WallpaperGridHoverItem {
     var refreshCalls: [Bool] = []
     var hovered = false
     var actions = 0
+    var exits = 0, moves = 0
+    var usesHoverActionVisibility = false
     let button = NSButton(title: "Action", target: nil, action: nil)
     var surface: ClickSurface { view as! ClickSurface }
 
     override func loadView() {
         view = ClickSurface(frame: NSRect(x: 0, y: 0, width: 280, height: 100))
+        view.wantsLayer = true
         button.frame = NSRect(x: 12, y: 12, width: 72, height: 28)
         button.target = self
         button.action = #selector(action)
@@ -55,7 +64,11 @@ private final class HoverItem: NSCollectionViewItem, WallpaperGridHoverItem {
         tracking.update(in: view, owner: self, isScrolling: isScrolling)
         refreshCalls.append(isScrolling)
         hovered = !isScrolling && view.isGridPointerInside
+        if usesHoverActionVisibility { button.isHidden = !hovered }
+        view.applyGridHoverScale(hovered, animated: !isScrolling)
     }
+    override func mouseExited(with event: NSEvent) { exits += 1; hovered = false; if usesHoverActionVisibility { button.isHidden = true }; view.applyGridHoverScale(false, animated: false) }
+    override func mouseMoved(with event: NSEvent) { moves += 1; refreshGridHover(isScrolling: view.isGridHoverSuppressed) }
 }
 
 private final class Items: NSObject, NSCollectionViewDataSource {
@@ -76,10 +89,11 @@ private final class GridFixture {
                                styleMask: [.borderless], backing: .buffered, defer: false)
     let host = NSView(frame: NSRect(x: 0, y: 0, width: 340, height: 180))
     let scroll = WallpaperGridScrollView(frame: NSRect(x: 0, y: 0, width: 340, height: 180))
-    let collection = NSCollectionView(frame: NSRect(x: 0, y: 0, width: 340, height: 1_200))
+    let collection: NSCollectionView
     let source = Items()
 
-    init() throws {
+    init(collection: NSCollectionView = NSCollectionView(frame: NSRect(x: 0, y: 0, width: 340, height: 1_200))) throws {
+        self.collection = collection
         window.isReleasedWhenClosed = false
         // Responsive scrolling creates a display-synchronized monitor, so the
         // native window must belong to a real screen even in this input fixture.
@@ -253,9 +267,38 @@ private struct Checks {
         let first = try GridFixture(), second = try GridFixture()
         defer { first.cleanup(); second.cleanup() }
         let visible = first.visible
+        let cover = NSView(frame: NSRect(x: 17, y: 29, width: 260, height: 180))
+        cover.wantsLayer = true
+        let originalFrame = cover.frame
+        var centered = true
+        for anchor in [CGPoint.zero, CGPoint(x: 0.5, y: 0.5), CGPoint(x: 0.8, y: 0.2)] {
+            cover.layer!.anchorPoint = anchor
+            cover.applyGridHoverScale(true, animated: false)
+            let transform = cover.layer!.affineTransform()
+            let centre = CGPoint(x: cover.bounds.width * (0.5 - anchor.x), y: cover.bounds.height * (0.5 - anchor.y))
+            let transformed = centre.applying(transform)
+            centered = centered && abs(transformed.x - centre.x) < 0.001 && abs(transformed.y - centre.y) < 0.001
+                && abs(transform.a - 1.025) < 0.001 && abs(transform.d - transform.a) < 0.001
+                && transform.b == 0 && transform.c == 0 && cover.frame == originalFrame
+        }
+        expect("hover expands equally around the cover centre for native anchor points without relayout", centered)
+        cover.applyGridHoverScale(false, animated: false)
+        expect("hover exit restores the original model transform", CATransform3DIsIdentity(cover.layer!.transform))
+        cover.applyGridHoverScale(true, animated: true)
+        cover.applyGridHoverScale(true, animated: false)
+        expect("same hover projection preserves its running scale transition", cover.layer!.animation(forKey: "wallpaper.card.hover.scale") != nil)
+        cover.bounds.size = NSSize(width: 340, height: 220)
+        cover.applyGridHoverScale(true, animated: false)
+        let anchor = cover.layer!.anchorPoint
+        let resizedCentre = CGPoint(x: cover.bounds.width * (0.5 - anchor.x), y: cover.bounds.height * (0.5 - anchor.y))
+        let projectedCentre = resizedCentre.applying(cover.layer!.affineTransform())
+        expect("resize during hover keeps the new cover centre fixed", abs(projectedCentre.x - resizedCentre.x) < 0.001 && abs(projectedCentre.y - resizedCentre.y) < 0.001)
+        visible.forEach { $0.view.applyGridHoverScale(true, animated: true) }
+        expect("scroll counterexample starts with running hover scale", visible.contains { $0.view.layer!.animation(forKey: "wallpaper.card.hover.scale") != nil })
         expect("idle cards have one native hover area", visible.allSatisfy { $0.view.trackingAreas.count == 1 })
         first.begin()
         expect("scroll removes native hover tracking areas", visible.allSatisfy { $0.view.trackingAreas.isEmpty })
+        expect("scrolling leaves no hover scale or animation", visible.allSatisfy { CATransform3DIsIdentity($0.view.layer!.transform) && $0.view.layer!.animation(forKey: "wallpaper.card.hover.scale") == nil })
         expect("begin changes its own scroll state", first.scroll.isGridScrolling)
         expect("begin refreshes every native visible item once", visible.allSatisfy { $0.refreshCalls == [true] })
         expect("other grid stays interactive", !second.scroll.isGridScrolling && second.visible.allSatisfy { !$0.view.isGridHoverSuppressed && $0.refreshCalls.isEmpty })
@@ -276,6 +319,260 @@ private struct Checks {
         second.end()
         pump(0.16)
         expect("both native sessions end independently", !first.scroll.isGridScrolling && !second.scroll.isGridScrolling)
+    }
+
+    mutating func nativeRefresh() throws {
+        let fixture = try PullCountFixture(height: 64)
+        let scroll = fixture.scroll
+        defer { scroll.onRefresh = nil; fixture.cleanup() }
+        let originalClip = scroll.contentView, originalDocument = scroll.documentView
+        let originalFrame = fixture.document.frame, originalInsets = scroll.contentInsets
+        let originalDocumentTop = scroll.gridDocumentTopY
+        guard let originalLabel = fixture.label else { throw FixtureFailure.unavailable("original pull-count label") }
+        var requests = 0
+        func waitForNative(_ condition: () -> Bool) -> Bool {
+            let deadline = Date().addingTimeInterval(2)
+            while !condition(), Date() < deadline { pump(0.004) }
+            return condition()
+        }
+        scroll.onRefresh = { [weak scroll] in
+            requests += 1
+            scroll?.applyRefreshLoading(true)
+        }
+        #if compiler(>=6.4)
+        if #available(macOS 27.0, *) {
+            guard let controller = scroll.refreshController, let action = controller.action else {
+                throw FixtureFailure.unavailable("shared native refresh controller")
+            }
+            controller.attributedTitle = NSAttributedString(string: "原内容刷新")
+            var receipts: [[String: Any]] = []
+            var replacementProbe: NSRefreshController?
+            func settleNativeLayout() {
+                fixture.window.contentView?.layoutSubtreeIfNeeded()
+                scroll.layoutSubtreeIfNeeded()
+                pump(0.03)
+            }
+            func controlFacts(_ value: NSRefreshController?) -> [String: Any] {
+                guard let value else { return ["present": false] }
+                return ["present": true, "identity": String(describing: ObjectIdentifier(value)),
+                    "title": value.attributedTitle?.string ?? "", "refreshing": value.isRefreshing,
+                    "targetIsScroll": (value.target as AnyObject?) === scroll,
+                    "target": String(describing: value.target), "action": value.action.map { NSStringFromSelector($0) } ?? "nil"]
+            }
+            let stockWindow = PointerWindow(contentRect: fixture.window.frame, styleMask: fixture.window.styleMask, backing: .buffered, defer: false)
+            stockWindow.isReleasedWhenClosed = false
+            let stockScroll = NSScrollView(frame: scroll.frame)
+            let stockDocument = PullCountDocument(frame: fixture.document.frame)
+            let stockToolbarDelegate = PullCountToolbar(), stockToolbar = NSToolbar(identifier: "stock-refresh-native")
+            stockToolbar.delegate = stockToolbarDelegate; stockWindow.toolbar = stockToolbar; stockWindow.toolbarStyle = .unified
+            stockScroll.hasVerticalScroller = true; stockScroll.hasHorizontalScroller = false
+            stockScroll.verticalScrollElasticity = .allowed; stockScroll.documentView = stockDocument
+            stockWindow.contentView = stockScroll
+            stockWindow.setContentSize(NSSize(width: 420, height: 320))
+            stockWindow.orderFrontRegardless(); stockWindow.makeKey(); NSApp.activate()
+            defer { withExtendedLifetime(stockToolbarDelegate) {}; stockScroll.refreshController = nil; stockWindow.close() }
+            func settleStock() { stockScroll.layoutSubtreeIfNeeded(); pump(0.03) }
+            let stockController = NSRefreshController(), stockProbe = NativeRefreshActionProbe()
+            var stockRequests = 0, stockReceipts: [[String: Any]] = []
+            stockProbe.onRefresh = { stockRequests += 1 }
+            stockController.target = stockProbe; stockController.action = #selector(NativeRefreshActionProbe.invoke(_:))
+            stockController.attributedTitle = NSAttributedString(string: "裸原生内容刷新")
+            stockScroll.refreshController = stockController
+            func stockReceipt(_ phase: String, delivered: Bool? = nil) {
+                let facts: [String: Any] = ["phase": phase, "requests": stockRequests, "deliveries": stockProbe.deliveries,
+                    "sourceActionNil": stockProbe.onRefresh == nil, "original": controlFacts(stockController),
+                    "current": controlFacts(stockScroll.refreshController), "currentIsOriginal": stockScroll.refreshController === stockController,
+                    "targetIsStockProbe": (stockScroll.refreshController?.target as AnyObject?) === stockProbe,
+                    "delivered": delivered.map { $0 as Any } ?? NSNull(), "visible": stockWindow.isVisible,
+                    "scrollClass": String(describing: type(of: stockScroll)), "window": stockWindow.windowNumber,
+                    "clipBounds": NSStringFromRect(stockScroll.contentView.bounds), "insets": String(describing: stockScroll.contentInsets)]
+                stockReceipts.append(facts)
+                let data = try! JSONSerialization.data(withJSONObject: facts, options: [.sortedKeys])
+                FileHandle.standardError.write(Data("StockNativeRefresh \(String(decoding: data, as: UTF8.self))\n".utf8))
+            }
+            defer { observations["nativeRefreshStockReceipts"] = stockReceipts }
+            settleStock(); stockReceipt("installed-before-begin")
+            let stockInitialTop = stockScroll.contentView.bounds.minY
+            stockController.beginRefreshing()
+            let stockAction = stockController.action!
+            let stockDelivered = NSApp.sendAction(stockAction, to: stockController.target, from: stockController)
+            stockReceipt("after-begin-and-action", delivered: stockDelivered)
+            expect("stock-native-refresh-reference-really-enters-and-delivers-once",
+                stockController.isRefreshing && stockDelivered && stockRequests == 1 && stockScroll.window === stockWindow)
+            settleStock()
+            stockProbe.onRefresh = nil
+            stockController.endRefreshing(); stockScroll.refreshController = nil
+            stockReceipt("after-end-and-nil-setter")
+            let stockEnded = waitForNative { !stockController.isRefreshing }
+            let stockRetreated = waitForNative { abs(stockScroll.contentView.bounds.minY - stockInitialTop) <= 0.5 }
+            let stockAssociationRemoved = stockScroll.refreshController == nil
+            stockReceipt("after-end-and-nil-deadline")
+            let stockRetiredDelivered = NSApp.sendAction(stockAction, to: stockController.target, from: stockController)
+            stockReceipt("after-retired-held-action", delivered: stockRetiredDelivered)
+            expect("stock-native-refresh-reference-ends-and-retired-source-stays-idle",
+                stockEnded && stockRetreated && stockRequests == 1 && (stockAssociationRemoved || stockScroll.refreshController === stockController))
+            stockProbe.onRefresh = { stockRequests += 1 }
+            if stockScroll.refreshController == nil {
+                let fresh = NSRefreshController()
+                fresh.target = stockProbe; fresh.action = stockAction
+                stockScroll.refreshController = fresh
+            }
+            guard let stockReinstalled = stockScroll.refreshController, let stockReinstalledAction = stockReinstalled.action else {
+                throw FixtureFailure.unavailable("stock native refresh reinstallation")
+            }
+            stockReinstalled.attributedTitle = NSAttributedString(string: "裸原生重新安装刷新")
+            let stockFreshIsDistinct = stockReinstalled !== stockController
+            settleStock(); stockReceipt("reinstalled-before-begin")
+            let stockFreshAtTop = waitForNative { abs(stockScroll.contentView.bounds.minY - stockInitialTop) <= 0.5 }
+            stockReceipt("reinstalled-retreated-before-begin")
+            stockReinstalled.beginRefreshing()
+            let stockReinstalledDelivered = NSApp.sendAction(stockReinstalledAction, to: stockReinstalled.target, from: stockReinstalled)
+            stockReceipt("reinstalled-after-action", delivered: stockReinstalledDelivered)
+            expect("stock-native-refresh-reference-reinstallation-delivers-one-live-request",
+                stockFreshAtTop && stockReinstalled.isRefreshing && stockReinstalledDelivered && stockRequests == 2
+                    && stockFreshIsDistinct == stockAssociationRemoved && (stockReinstalled.target as AnyObject?) === stockProbe,
+                "atTop=\(stockFreshAtTop), initialTop=\(stockInitialTop), clipTop=\(stockScroll.contentView.bounds.minY), refreshing=\(stockReinstalled.isRefreshing), requests=\(stockRequests), delivered=\(stockReinstalledDelivered)")
+            settleStock(); stockReinstalled.endRefreshing()
+            let stockReinstalledEnded = waitForNative { !stockReinstalled.isRefreshing }
+            let stockFinishedAtTop = waitForNative { abs(stockScroll.contentView.bounds.minY - stockInitialTop) <= 0.5 }
+            stockReceipt("reinstalled-after-terminal-deadline")
+            expect("stock-native-refresh-reference-reinstallation-has-a-real-terminal", stockReinstalledEnded && stockFinishedAtTop)
+            stockWindow.orderOut(nil)
+            fixture.window.makeKeyAndOrderFront(nil); NSApp.activate()
+            let restoredNativeInput = waitForNative { fixture.window.isKeyWindow && NSApp.isActive }
+            expect("stock-reference-returns-active-key-input-to-the-original-native-fixture", restoredNativeInput)
+            func receipt(_ phase: String, delivered: Bool? = nil) {
+                let facts: [String: Any] = ["phase": phase, "requests": requests, "sourceActionNil": scroll.onRefresh == nil,
+                    "original": controlFacts(controller), "current": controlFacts(scroll.refreshController),
+                    "replacement": controlFacts(replacementProbe), "currentIsOriginal": scroll.refreshController === controller,
+                    "currentIsReplacement": replacementProbe != nil && scroll.refreshController === replacementProbe,
+                    "delivered": delivered.map { $0 as Any } ?? NSNull(),
+                    "window": scroll.window?.windowNumber ?? -1, "visible": scroll.window?.isVisible == true,
+                    "key": scroll.window?.isKeyWindow == true, "miniaturized": scroll.window?.isMiniaturized == true,
+                    "clipBounds": NSStringFromRect(scroll.contentView.bounds), "insets": String(describing: scroll.contentInsets),
+                    "subviews": scroll.subviews.map { String(describing: type(of: $0)) }]
+                receipts.append(facts)
+                let data = try! JSONSerialization.data(withJSONObject: facts, options: [.sortedKeys])
+                FileHandle.standardError.write(Data("NativeRefresh \(String(decoding: data, as: UTF8.self))\n".utf8))
+            }
+            defer { observations["nativeRefreshReceipts"] = receipts }
+            observations["nativeRefresh"] = ["supported": true,
+                "scope": "native target/action and loading lifecycle; no physical pull gesture"]
+            expect("native-refresh-installs-the-original-scroll-as-its-single-action-target",
+                (controller.target as AnyObject?) === scroll && !controller.isRefreshing)
+            expect("native-refresh-install-preserves-the-count-document-clip-insets-and-elasticity",
+                scroll.contentView === originalClip && scroll.documentView === originalDocument
+                    && fixture.document.frame == originalFrame && scroll.subviews.contains { $0 === originalLabel }
+                    && scroll.contentInsets.top == originalInsets.top && scroll.contentInsets.left == originalInsets.left
+                    && scroll.contentInsets.bottom == originalInsets.bottom && scroll.contentInsets.right == originalInsets.right
+                    && scroll.verticalScrollElasticity == .allowed)
+            scroll.applyRefreshLoading(true)
+            expect("source-loading-alone-does-not-start-a-second-refresh-presentation", !controller.isRefreshing)
+            receipt("initial-before-begin")
+            controller.beginRefreshing()
+            let delivered = NSApp.sendAction(action, to: controller.target, from: controller)
+            receipt("initial-after-action", delivered: delivered)
+            expect("native-refresh-action-delivers-one-request-and-waits-for-the-real-terminal-fact",
+                delivered && requests == 1 && controller.isRefreshing)
+            scroll.layoutSubtreeIfNeeded(); pump(0.03)
+            scroll.pullCountText = "共 43 张壁纸"
+            scroll.applyRefreshLoading(true)
+            expect("layout-count-and-loading-echoes-cannot-end-an-active-native-refresh",
+                controller.isRefreshing && scroll.refreshController === controller && requests == 1)
+            let otherFixture = try PullCountFixture(height: 64)
+            defer { otherFixture.cleanup() }
+            let other = otherFixture.scroll
+            other.onRefresh = {}
+            defer { other.onRefresh = nil }
+            guard let otherController = other.refreshController else { throw FixtureFailure.unavailable("second native refresh") }
+            otherController.attributedTitle = NSAttributedString(string: "独立内容刷新")
+            otherController.beginRefreshing()
+            scroll.applyRefreshLoading(false)
+            expect("source-terminal-fact-ends-only-its-own-native-refresh",
+                waitForNative { !controller.isRefreshing } && otherController.isRefreshing && scroll.refreshController === controller
+                    && controller.attributedTitle?.string == "原内容刷新" && otherController.attributedTitle?.string == "独立内容刷新")
+            receipt("mounted-source-after-terminal-wait")
+            other.applyRefreshLoading(false)
+            expect("independent-source-terminal-fact-ends-its-original-native-control", waitForNative { !otherController.isRefreshing })
+
+            scroll.onRefresh = { [weak scroll] in requests += 1; scroll?.applyRefreshLoading(false) }
+            expect("replacing-a-source-action-keeps-one-native-controller", scroll.refreshController === controller)
+            controller.beginRefreshing()
+            _ = NSApp.sendAction(action, to: controller.target, from: controller)
+            expect("synchronous-source-failure-or-login-guidance-can-end-the-same-native-pull",
+                requests == 2 && waitForNative { !controller.isRefreshing })
+            fixture.permitsInput = false
+            controller.beginRefreshing()
+            _ = NSApp.sendAction(action, to: controller.target, from: controller)
+            expect("existing-input-admission-rejects-and-ends-a-blocked-native-refresh",
+                requests == 2 && waitForNative { !controller.isRefreshing })
+            fixture.permitsInput = true
+            settleNativeLayout()
+            receipt("retirement-before-begin")
+            controller.beginRefreshing()
+            receipt("retirement-after-begin")
+            settleNativeLayout()
+            receipt("retirement-before-remove")
+            scroll.onRefresh = nil
+            receipt("retirement-after-remove")
+            let retiredEnded = waitForNative { !controller.isRefreshing }
+            let retiredAtTop = waitForNative { abs(scroll.contentView.bounds.minY - originalDocumentTop) <= 0.5 }
+            let associationRemoved = scroll.refreshController == nil
+            receipt("retirement-after-terminal-deadline")
+            expect("retiring-the-source-action-ends-with-the-stock-native-association-semantics",
+                retiredEnded && retiredAtTop && associationRemoved == stockAssociationRemoved
+                    && (associationRemoved || scroll.refreshController === controller),
+                "oldEnded=\(retiredEnded), retiredAtTop=\(retiredAtTop), originalTop=\(originalDocumentTop), associationRemoved=\(associationRemoved), stockAssociationRemoved=\(stockAssociationRemoved), oldRefreshing=\(controller.isRefreshing)")
+            let retiredDelivered = NSApp.sendAction(action, to: controller.target, from: controller)
+            receipt("retirement-after-held-action", delivered: retiredDelivered)
+            expect("retained-old-native-action-cannot-submit-after-its-source-was-retired", requests == 2)
+            scroll.onRefresh = { requests += 1 }
+            guard let replacement = scroll.refreshController, let replacementAction = replacement.action else {
+                throw FixtureFailure.unavailable("replacement native refresh")
+            }
+            replacementProbe = replacement
+            replacement.attributedTitle = NSAttributedString(string: "重新安装内容刷新")
+            receipt("fresh-after-association")
+            fixture.window.makeKeyAndOrderFront(nil); NSApp.activate()
+            let freshHasNativeInput = waitForNative { fixture.window.isKeyWindow && NSApp.isActive }
+            settleNativeLayout()
+            let freshAtTop = waitForNative { abs(scroll.contentView.bounds.minY - originalDocumentTop) <= 0.5 }
+            receipt("fresh-after-layout-before-begin")
+            replacement.beginRefreshing()
+            let freshEntered = replacement.isRefreshing
+            receipt("fresh-after-begin")
+            let replacementDelivered = NSApp.sendAction(replacementAction, to: replacement.target, from: replacement)
+            receipt("fresh-after-action", delivered: replacementDelivered)
+            settleNativeLayout()
+            let freshStillRefreshing = replacement.isRefreshing
+            receipt("fresh-before-terminal")
+            scroll.applyRefreshLoading(false)
+            receipt("fresh-after-terminal")
+            let freshEnded = waitForNative { !replacement.isRefreshing }
+            let freshFinishedAtTop = waitForNative { abs(scroll.contentView.bounds.minY - originalDocumentTop) <= 0.5 }
+            receipt("fresh-after-terminal-deadline")
+            expect("a-new-source-action-uses-the-stock-native-reinstallation-semantics",
+                (replacement !== controller) == stockFreshIsDistinct && requests == 3 && replacementDelivered && freshEnded
+                    && freshHasNativeInput && freshAtTop && freshEntered && freshStillRefreshing && freshFinishedAtTop
+                    && scroll.refreshController === replacement && (replacement.target as AnyObject?) === scroll,
+                "distinct=\(replacement !== controller), stockDistinct=\(stockFreshIsDistinct), requests=\(requests), delivered=\(replacementDelivered), entered=\(freshEntered), stillRefreshing=\(freshStillRefreshing), atTop=\(freshAtTop), finalAtTop=\(freshFinishedAtTop), nativeInput=\(freshHasNativeInput), newEnded=\(freshEnded), currentIsNew=\(scroll.refreshController === replacement)")
+            scroll.onRefresh = nil
+            scroll.layoutSubtreeIfNeeded(); pump(0.03)
+            expect("refresh-retirement-keeps-the-original-count-and-native-document-owners",
+                scroll.contentView === originalClip && scroll.documentView === originalDocument
+                    && fixture.document.frame == originalFrame && scroll.subviews.contains { $0 === originalLabel }
+                    && scroll.verticalScrollElasticity == .allowed)
+            return
+        }
+        #endif
+        observations["nativeRefresh"] = ["supported": false, "scope": "runtime has no macOS 27 native refresh UI"]
+        scroll.applyRefreshLoading(true); scroll.applyRefreshLoading(false)
+        expect("pre27-refresh-configuration-keeps-source-callback-idle-and-does-not-add-a-custom-control",
+            requests == 0 && scroll.contentView === originalClip && scroll.documentView === originalDocument
+                && fixture.document.frame == originalFrame && scroll.subviews.contains { $0 === originalLabel }
+                && scroll.contentInsets.top == originalInsets.top && scroll.contentInsets.left == originalInsets.left
+                && scroll.contentInsets.bottom == originalInsets.bottom && scroll.contentInsets.right == originalInsets.right
+                && scroll.verticalScrollElasticity == .allowed)
     }
 
     mutating func newItems() throws {
@@ -675,6 +972,9 @@ private enum GridScrollChecks {
         case "wheel": try checks.phaseLessWheel()
         case "cancellation": try checks.cancellation()
         case "interaction": try checks.interaction()
+        case "context-menu": try checks.contextMenus()
+        case "context-menu-native-input": try checks.nativeContextMenuInput()
+        case "native-refresh": try checks.nativeRefresh()
         case "pull-count-geometry": try checks.pullCountGeometry()
         case "pull-count-native-input": try checks.pullCountNativeInput()
         default: throw FixtureFailure.unavailable("unknown native test case")
@@ -684,6 +984,9 @@ private enum GridScrollChecks {
         if mode == "pull-count-native-input" {
             result["scope"] = "constructed public NSEvent packets; no physical mouse or trackpad validation"
             result["hardwareAcceptance"] = "not-verified"
+        }
+        if mode == "native-refresh" {
+            result["scope"] = "native NSRefreshController target/action and source loading lifecycle; no physical pull gesture"
         }
         FileHandle.standardOutput.write(try JSONSerialization.data(withJSONObject: result, options: [.sortedKeys]))
     }

@@ -80,7 +80,7 @@ final class WallpaperManager {
         let card = VideoCardProbe()
         func configure(_ wallpaper: VideoWallpaper) {
             card.configure(wallpaper: wallpaper, isSelected: false, isPlaying: false,
-                isFavorite: false, multiSelectMode: false, wallpaperManager: manager, thumbnailProvider: provider)
+                multiSelectMode: false, wallpaperManager: manager, thumbnailProvider: provider)
         }
         configure(a)
         checks["warmCardDoesNotFlashLoadingLabel"] = card.placeholderLabel.isHidden && pump { card.thumbnailImageView.image != nil }

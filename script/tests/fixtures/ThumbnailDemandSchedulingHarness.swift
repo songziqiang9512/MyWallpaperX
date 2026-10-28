@@ -1,14 +1,14 @@
 import AppKit
 import ImageIO
 
-private final class DemandEvents: @unchecked Sendable {
+final class DemandEvents: @unchecked Sendable {
     private let lock = NSLock()
     private var entries: [String] = []
     func record(_ name: String) { lock.lock(); entries.append(name); lock.unlock() }
     var values: [String] { lock.lock(); defer { lock.unlock() }; return entries }
 }
 
-private final class DemandBlockingGate: @unchecked Sendable {
+final class DemandBlockingGate: @unchecked Sendable {
     private let semaphore = DispatchSemaphore(value: 0)
     private let lock = NSLock()
     private var hasStarted = false
@@ -21,6 +21,19 @@ private final class DemandBlockingGate: @unchecked Sendable {
         lock.lock(); hasFinished = true; lock.unlock()
     }
     func release() { semaphore.signal() }
+}
+
+// Only the copied source's final recursive filesystem leaf is observed/held.
+// Cache invalidation, detachment, locking and queue scheduling stay production.
+enum ThumbnailClearObservation {
+    static let gate = DemandBlockingGate(), events = DemandEvents()
+    static func remove(_ directory: URL) {
+        if directory.lastPathComponent.hasPrefix("asynchronous-clear-") {
+            events.record(Thread.isMainThread ? "delete-main" : "delete-background")
+            gate.wait()
+        }
+        try? FileManager.default.removeItem(at: directory)
+    }
 }
 
 private final class DemandImageGate: @unchecked Sendable {
@@ -172,6 +185,31 @@ private final class DemandDataGate: @unchecked Sendable {
             isolated.clearAll()
         }
         let negative = ThumbnailCache(namespace: "failure-" + UUID().uuidString, usesFailureCache: true)
+        let deleteGate = ThumbnailClearObservation.gate, deletionEvents = ThumbnailClearObservation.events
+        let asynchronousClear = ThumbnailCache(namespace: "asynchronous-clear-" + UUID().uuidString)
+        var beforeClear: NSImage?
+        asynchronousClear.load(forKey: "before-clear", loader: { image }) { beforeClear = $0 }
+        checks["asynchronousClearSeededRealDiskAndMemory"] = pump { beforeClear != nil }
+        asynchronousClear.clearAll {
+            deletionEvents.record(Thread.isMainThread ? "clear-completed-main" : "clear-completed-background")
+        }
+        checks["recursiveDeletionStartsOnlyOnExistingMaintenanceQueue"] = pump { deleteGate.started }
+            && deletionEvents.values == ["delete-background"]
+        DispatchQueue.main.async { deletionEvents.record("main-remains-responsive") }
+        checks["mainRunloopRemainsUsableDuringBlockedRecursiveDeletion"] = pump(0.2) {
+            deletionEvents.values.contains("main-remains-responsive")
+        }
+        var duringClear: NSImage?
+        asynchronousClear.load(forKey: "new-generation", loader: { image }) { duringClear = $0 }
+        checks["newGenerationCanPublishWhileOldDirectoryDeletionIsBlocked"] = pump(0.3) { duringClear != nil }
+            && !deleteGate.finished && !deletionEvents.values.contains("clear-completed-main")
+        deleteGate.release()
+        checks["clearCompletionWaitsForTheRetiredDirectoryDeletion"] = pump { deletionEvents.values.contains("clear-completed-main") }
+        var newDiskFinished = false, newDiskData: Data?
+        asynchronousClear.loadRawDataAsync(forKey: "new-generation", loader: { nil }) {
+            newDiskData = $0; newDiskFinished = true
+        }
+        checks["deletingTheRetiredDirectoryCannotDeletePostClearDiskWrites"] = pump { newDiskFinished } && newDiskData != nil
         let failures = DemandEvents()
         var failureCount = 0
         negative.load(forKey: "bad", loader: { failures.record("generated"); return nil }) { _ in failureCount += 1 }

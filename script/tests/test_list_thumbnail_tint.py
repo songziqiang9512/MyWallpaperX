@@ -81,7 +81,7 @@ class ListThumbnailTintTests(unittest.TestCase):
 
     def test_live_remote_first_item_projections(self):
         paths = {
-            "ONLINE": APP / "Modules/OnlineLibrary/UI/AppKitOLBrowserGridView.swift",
+            "ONLINE": APP / "Modules/Pixabay/UI/AppKitPixabayBrowserGridView.swift",
             "STEAM": STEAM_UI / "AppKitSteamWorkshopBrowserGridView.swift",
         }
         template = (FIXTURES / "ListThumbnailTintProjectionChecks.swift").read_text()

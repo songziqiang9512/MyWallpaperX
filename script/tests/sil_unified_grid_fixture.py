@@ -74,11 +74,11 @@ def assemble(work: Path, *, count_layout=False, count_collection=False, cache_na
     signatures = (
         "final class WallpaperManager", "final class SILService", "struct SteamWorkshopBrowserItem:",
         "struct SteamWorkshopDownloadRecord:", "final class SteamWorkshopDownloadProgressStore",
-        "final class SteamWorkshopService", "struct OLDownloadedEntry:", "struct DownloadedSnapshot",
-        "final class OnlineLibraryService", "enum SteamWorkshopDownloadGridSupport",
-        "final class AppKitThumbnailProvider", "final class RecordingThumbnailCache", "enum OLDownloadedThumbnailStore",
+        "final class SteamWorkshopService", "struct PixabayDownloadedEntry:", "struct DownloadedSnapshot",
+        "final class PixabayService", "enum SteamWorkshopDownloadGridSupport",
+        "final class AppKitThumbnailProvider", "final class RecordingThumbnailCache", "enum PixabayDownloadedThumbnailStore",
         "func steamWorkshopPreviewSources(", "final class SteamWorkshopPreviewState",
-        "class RecordingCard:", "final class AppKitWallpaperItem:", "final class AppKitOLDownloadsItem:",
+        "class RecordingCard:", "final class AppKitWallpaperItem:", "final class AppKitPixabayDownloadsItem:",
         "final class AppKitSteamWorkshopBrowserItem:", "private enum RecordingProgressStyle",
         "private final class RecordingImageGlass", "private final class RecordingImageBar",
         "final class OnlineImageGridItem:")
@@ -89,6 +89,9 @@ def assemble(work: Path, *, count_layout=False, count_collection=False, cache_na
     marker = "// ACTUAL_IMAGE_TRANSFER"
     assert other.count(marker) == 1
     other = other.replace(marker, declaration(online_card_path.read_text(), "    func applyTransfer("))
+    marker = "// ACTUAL_IMAGE_CONTROLS"
+    assert other.count(marker) == 1
+    other = other.replace(marker, declaration(online_card_path.read_text(), "    private func updateControls("))
     assert "// ACTUAL_" not in other
     generated = {"SILModel.swift": model, "SILCard.swift": card, "SILProvider.swift": provider,
                  "Adapter.swift": adapter, "Grid.swift": grid, "OtherProviderLeaves.swift": other}
@@ -107,6 +110,7 @@ def assemble(work: Path, *, count_layout=False, count_collection=False, cache_na
         "Shared/UI/GridThumbnailDecoder.swift", "Shared/UI/ThumbnailCache.swift",
         "Shared/UI/AppearanceAwareContainerView.swift", "Shared/UI/NSViewExtensions.swift",
         "Shared/UI/UIInteractionAnimation.swift", "Shared/UI/WallpaperGridScrollView.swift",
+        "Shared/UI/WallpaperLibrarySheetPresentation.swift",
         "Shared/UI/BoxSelectionState.swift", "Shared/UI/GridThumbnailPrefetchDemand.swift",
         "Shared/Components/WallpaperCardInteractionView.swift", "Shared/Components/WallpaperCardSupportViews.swift",
         "Shared/Components/WallpaperCardControlsView.swift", "Shared/Components/WallpaperLibraryGridMetrics.swift")]

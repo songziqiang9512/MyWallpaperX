@@ -21,7 +21,8 @@ class StatusBarPanelTests(unittest.TestCase):
             for marker, signature in [
                 ("PRODUCTION_CAPTURE", "    private func capturePresentation("),
                 ("PRODUCTION_TOGGLE", "    private func togglePlayback("),
-                ("PRODUCTION_MODE", "    private func cyclePlaybackMode(")]:
+                ("PRODUCTION_MODE", "    private func cyclePlaybackMode("),
+                ("PRODUCTION_FAVORITE", "    private func toggleFavorite(")]:
                 template = template.replace("    // " + marker, method(controller, signature))
             harness.write_text(template)
             sources = [ROOT / "MyWallpaperX/App" / name for name in [

@@ -20,8 +20,8 @@
 
 - `main.swift` 创建 `NSApplication`，设置 `AppDelegate`，调用 `NSApp.run()`。
 - `AppDelegate` 只负责应用生命周期、Help Book、状态栏、主菜单安装、启动阶段调度。
-- 主菜单由 `NSMenu` / `NSMenuItem` 构建，动态可用性继续通过 `NSMenuItemValidation` 实现。
-- 设置窗口使用 `NSWindowController + NSViewController + AppKitSettingsContainerView`，不再经过 `NSHostingController`。
+- 主菜单由 `NSMenu` / `NSMenuItem` 构建，动态可用性通过 `NSMenuItemValidation` 实现；浏览命令消费当前来源网格选择，输入框/原生sheet默认动作优先。普通action不携带check的勾选AX值。
+- 设置窗口使用 `NSWindowController + NSViewController + AppKitSettingsContainerView`；无关状态回填保留当前原生field editor草稿，模式禁用则撤销，失焦沿原提交；背景只消费主窗已投影色与动画决策，共用原0.75 s原生过渡；隐藏只记呈现值、可见消费点一次准入，首show/原生模式即时，不串层读取或重复采样。
 
 ### Shell 层
 
@@ -33,7 +33,7 @@
 
 ### 模块层
 
-- 本地/下载/关系内容共用 `WallpaperLibraryGridController`，`WallpaperLibraryCellAdapter` 复用各来源卡片和唯一缓存；原浏览页继续由各远端服务分页。
+- 本地/下载/关系内容共用 `WallpaperLibraryGridController`，`WallpaperLibraryCellAdapter` 复用各来源卡片和唯一缓存；原浏览页继续由各远端服务分页；仅在线浏览装配原生下拉刷新，本地无刷新任务。图片/视频“打开方式”由共享NSWorkspace菜单查询系统handlers并持固定文件目标，无应用目录扫描。
 - 模块保留导入、元数据、下载、文件与引擎职责；源旧 Grid/Toolbar/QL 与 tag/favorite/recent 写侧退出，历史输入解码仍供迁移使用。
 - App Workspace 连接唯一 Catalog、Store 与 Manager 原播放票据；共享值跨层，不在 Shell 重建服务或媒体索引。
 
@@ -54,7 +54,7 @@
 - 数据流：已下载记录的本地 preview 优先于远程元数据 URL → 原 `ThumbnailCache` / request coordinator → 静态就绪 → 可选临时 GIF → 原 `NSImageView`。本地图片按可解码尺寸接纳，近黑启发式只用于静态帧挑选和视频候选，不把合法黑图判成丢图。
 - 订阅／在线浏览卡片与邻近预取共用本地来源选择；缺失或损坏的本地预览回退远程。Steam 按显示像素档生成静态 PNG，原动画字节另键保留；暖盘只读派生图，不重复扫描 GIF。方形 aspect-fill 按方向后的双轴选像素，保原最长边 800 上限；超过该上限的原有清晰度限制不作新增放大解码。
 - 各现有缩略图 owner 的解码图层共用有界 LRU 容器，预算不增加，压力事件释放；不常驻轮询，不承诺全库图常驻。内存就绪同步回显，淘汰后后台读取派生磁盘图；Video 派生资产存在性／失效校验保留。在线库请求从联网前携带发布代次，清理后的旧可见／预取回包不得重写缓存；Steam 双文件发布仍受同一请求代次、取消与失效门约束。
-- 下载队列封面只消费同一静态解码缓存，不通过默认 NSImage 解码将原始 GIF 写回静态内存预算。共享 cache 持有异步 producer 和消费者租约：退出只撤销本消费者，最后消费者退出才取消 producer；不把单卡 token 传入合并网络 loader。无取消语义的既有消费者固定保活，旧任务完成不得提交到同 key 的新一代；落盘先写私有临时文件，再在短锁内复核 producer 并原子发布。显式失效同时撤销 image/raw/raw-prefetch 的缓存发布权，仍允许既有消费者接收结果，编码／暂存与 trim 在请求锁外，显式失效删除与原子发布在锁内串行。既有 coordinator 继续拥有网络并发/超时，取消需及时释放活跃槽。
+- 下载队列封面只消费同一静态解码缓存，不通过默认 NSImage 解码将原始 GIF 写回静态内存预算。共享 cache 持有异步 producer 和消费者租约：退出只撤销本消费者，最后消费者退出才取消 producer；不把单卡 token 传入合并网络 loader。无取消语义的既有消费者固定保活，旧任务完成不得提交到同 key 的新一代；落盘先写私有临时文件，再在短锁内复核 producer 并原子发布。显式失效同时撤销 image/raw/raw-prefetch 的缓存发布权，仍允许既有消费者接收结果，编码／暂存与 trim 在请求锁外，显式清缓存仅在原锁内摘除旧namespace并重建，后台维护队列删除退役目录，避免递归I/O阻塞主线程或误删新写入；与原子发布仍串行。既有 coordinator 继续拥有网络并发/超时，取消需及时释放活跃槽。
 - 每视图保留当前静态图，GIF 仅在激活期间持有；退出、隐藏立即恢复静态图，缓存淘汰不影响已显示内容。失败或非动画源保留静态图；动画解码在后台串行执行，交付回主线程。
 - 图片候选按本地 → 远程 → 视频尝试；已下载显示投影中的本地 URL 不遮蔽原始 record.browserItem 的远端候选，动画使用实际成功来源；请求身份含各候选的内容键与刷新版本，本地键含设备/inode、mtime 和 size，覆盖稳定路径的原子版本替换。同身份配置无副作用，切换/复用推进代数；仅后备变化时保留仍属于当前候选的成功图，主图已就绪时不重启加载。迟到回调只可提交给原代数。
 - loading/失败占位只在没有当前可用图时显示；自动重试有时间边界。资源不变的元数据、订阅和 Scene 启动通知不得重新触发解码；不同资源不能借用旧图。
@@ -73,7 +73,7 @@
 ### 网格卡片减负试用版（2026-10-23）
 
 - 目标：减少进入视口时的隐藏控件构建与滚动中的鼠标跟踪工作，保持原生集合复用、现有样式和点击／右键／键盘／辅助功能；不迁移SwiftUI、不加缓存预算或Release探针。
-- 沿原`WallpaperGridScrollView`滚动态统一撤下卡片的hover tracking area，结束后按当前可见区域恢复；新进入／复用卡片在布局时同步当前滚动态。不移除集合自身的选择和拖动事件，不禁止整网格命中测试，不另设滚动时钟。
+- 沿原`WallpaperGridScrollView`滚动态统一撤下卡片的hover tracking area，结束后按当前可见区域恢复；新进入／复用卡片在布局时同步当前滚动态。实际同步右键菜单期间保源卡缩放，调用返回后恢复当前真实指针；纯菜单工厂不改变网格状态，不增通知代理冻结链。不移除集合选择/拖动，不禁命中测试，不另设滚动时钟。
 - Video与在线下载的播放徽章按第一次实际显示创建，随后随原item复用；尺寸即使徽章尚未创建也保留计算，播放／多选／复用仍由原状态决定。不可用隐藏控件作为辅助功能唯一入口。
 - Steam仅在预览像素档实际改变时因布局重新配置图片；模型配置、显式重载和源版本校验保持原链。不同来源或清缓存不得借旧图；本版不重开D17 B3的路径代替版本捷径。
 - Steam近邻预取的文件版本检查移到串行utility队列，每个网格只允许一批检查在途，后续视口合并为最新快照；返回主线程只接纳仍在当前需求中、来源和像素档一致的条目。隐藏／退出递增生命周期代次并取消租约，迟到检查不能重建需求。保留完整文件指纹，实际loader继续独占取数、解码和发布，不新增路径缓存或版本owner。
@@ -150,7 +150,7 @@
 - 2026-05-17：视频库 inspector 触发已由 `AppKitDetailHostViewController` 接管；内容已在阶段 4 改为 AppKit `VideoLibraryInspectorView`。
 - 2026-05-17：图片库列表已由 `AppKitDetailHostViewController` 直接创建 `SILGridContainerView`，不再经过 `StaticImageLibraryEntryView` / `SILBridgeView: NSViewRepresentable`。
 - 2026-05-17：`SILEntryView.swift` 已删除；图片库 inspector 触发已由 `AppKitDetailHostViewController` 接管，内容已在阶段 4 改为 AppKit `SILInspectorView`。
-- 2026-05-17：在线库浏览入口已改为 AppKit `OnlineLibraryBrowserView`，API key、loading、空态、错误态和下载完成提示均由 AppKit support view 承载。
+- 2026-05-17：在线库浏览入口已改为 AppKit `PixabayBrowserView`，API key、loading、空态、错误态和下载完成提示均由 AppKit support view 承载。
 - 2026-05-17：在线库下载入口已由 `AppKitDetailHostViewController` 直接承载 `AppKitOLDownloadsContainerView`，`OnlineLibraryDownloadsView.swift` 已删除。
 - 2026-10-22 核查：Steam 浏览／下载、登录与详情均有 AppKit 入口；未接入的 SwiftUI 详情 helper 已删除。
 
@@ -172,7 +172,7 @@
 - 2026-05-17：视频库、图片库、在线库下载的 inspector 内容已改为 AppKit `NSView`，分别落在：
   - `VideoLibraryInspectorView.swift` / `VideoLibraryInspectorSupport.swift`
   - `SILInspectorView.swift` / `SILInspectorSupport.swift`
-  - `OnlineLibraryDownloadsInspectorView.swift` / `OnlineLibraryDownloadsInspectorSupport.swift`
+  - `PixabayDownloadsInspectorView.swift` / `PixabayDownloadsInspectorSupport.swift`
 - 2026-05-17：`AppKitDetailHostViewController` 负责视频库、图片库、在线库下载 inspector 的 open / mount / close，同步仍通过 `InspectorHostActions` 与通知边界。
 - 2026-10-22 核查：共享 `InspectorHostStore` 与通知请求继续由 AppKit 宿主消费；无消费者的 SwiftUI bridge 及其私有 hosting/观察状态已删除。
 - Steam 详情、Web 属性、登录与在线库 toast／alert／sheet 已采用 AppKit；完整操作验收仍按阶段 5 执行。

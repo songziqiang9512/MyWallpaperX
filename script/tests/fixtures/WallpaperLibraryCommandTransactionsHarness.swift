@@ -12,6 +12,8 @@ import Foundation
     var playbackSwitch=PlaybackSwitchTransaction()
     var libraryPlaybackSequence=WallpaperPlaybackSequence()
     var stops=0
+    var randomRequests = 0
+    func setRandomPlaybackEnabled(_ value: Bool) { if value { randomRequests += 1 } }
     @discardableResult func select(_ reference:WallpaperReference,source:WallpaperPlaybackSequence.Snapshot)->PlaybackSwitchTicket {
         let proposal=libraryPlaybackSequence.proposeSelection(reference,from:source)!
         let (ticket,initial)=playbackSwitch.begin(proposal.entry.runtime!)
@@ -50,7 +52,7 @@ import Foundation
             && manager.libraryPlaybackSequence.committed?.ticket == manager.playbackSwitch.committed?.ticket
     }
     func capturePlaybackSnapshot(for ref:WallpaperReference)throws->WallpaperPlaybackSequence.Snapshot{displayed}
-    func play(_ ref:WallpaperReference,from source:WallpaperPlaybackSequence.Snapshot?){
+    func play(_ ref:WallpaperReference,from source:WallpaperPlaybackSequence.Snapshot? = nil){
         plays.append((ref,source));_ = manager.select(ref,source:source ?? displayed)
     }
 }
@@ -61,7 +63,7 @@ import Foundation
     func chooseReplacement(for reference: WallpaperReference) { preconditionFailure("Recovery is not an available-content action") }
 }
 @MainActor private final class CommandSteam {}
-@MainActor private final class CommandOnline {}
+@MainActor private final class CommandPixabay {}
 @MainActor private final class PlaylistRecordingLeaf {
     let record: ([WallpaperReference]) -> Void
     init(_ record: @escaping ([WallpaperReference]) -> Void) { self.record = record }
@@ -70,7 +72,7 @@ import Foundation
 }
 @MainActor private enum WallpaperLibraryDownloadRecovery {
     static func makePrimaryAction(for item: WallpaperContentItem, workspace: CommandWorkspace,
-        steam: CommandSteam, online: CommandOnline) -> (() -> Void)? { OnlineImageCommandRecoveryProbe.action(for: item) }
+        steam: CommandSteam, pixabay: CommandPixabay) -> (() -> Void)? { OnlineImageCommandRecoveryProbe.action(for: item) }
 }
 @MainActor private final class WallpaperLibraryCommands {
     let manager:WallpaperManager
@@ -79,7 +81,7 @@ import Foundation
     var favoriteActions: [[WallpaperReference]] = []
     var playlistActions: [[WallpaperReference]] = []
     let imports = WallpaperLibraryImportCoordinator()
-    let steam = CommandSteam(), online = CommandOnline()
+    let steam = CommandSteam(), pixabay = CommandPixabay()
     private lazy var playlists: PlaylistRecordingLeaf? = .init { [weak self] in self?.playlistActions.append($0) }
     init(_ manager:WallpaperManager,_ workspace:CommandWorkspace){self.manager=manager;self.workspace=workspace}
     func toggleFavorite(_ refs: [WallpaperReference], expectingRemoval: Bool? = nil) { guard canOrganize else { return }; favoriteActions.append(refs) }
@@ -94,15 +96,19 @@ import Foundation
 }
 
 private struct SteamWorkshopBrowserItem { let id: String }
-private struct OnlineLibraryVideoItem { let id: Int }
+private struct PixabayVideoItem { let id: Int }
+@MainActor private final class RemotePixabaySelection { var selectedItem: PixabayVideoItem? }
 private enum AppKitSteamWorkshopBrowserItem {
     // ACTUAL_STEAM_ORGANIZATION
 }
 @MainActor private final class RemoteSteam { var selectedBrowserItem: SteamWorkshopBrowserItem?; @Published var navigationVersion = 0 }
 @MainActor private struct RemoteOnlineImages {
+    var selectedContent: WallpaperContentItem?
     func selectedOrganizationActions() -> WallpaperInspectorActions? { nil }
 }
 @MainActor private final class RemotePresentation {
+    struct Query { var items: [WallpaperContentItem] = [] }
+    var queryResult = Query()
     var page = WallpaperLibraryPage.workshop
     var selectionState = WallpaperLibrarySelectionState()
     func beginOrganizationOperation(_ references: Set<WallpaperReference>) -> WallpaperLibrarySelectionReceipt? { nil }
@@ -119,10 +125,11 @@ private enum AppKitSteamWorkshopBrowserItem {
     let onlineImages = RemoteOnlineImages()
     let workspace: RemoteWorkspace
     // Modal admission is a controlled leaf here; native sheets have their own gate.
-    var permitsInput = true
+    var permitsInput = true, isVisible = true
     let steam = RemoteSteam()
     private var subscriptions = Set<AnyCancellable>()
     let steamBrowserContent = RemoteNavigationRefreshLeaf()
+    let pixabayBrowserContent = RemotePixabaySelection()
     let commands: WallpaperLibraryCommands
     var downloadedContent: [WallpaperReference: WallpaperContentItem] = [:]
     var cardState: WallpaperLibraryCardStateProjection?
@@ -134,7 +141,7 @@ private enum AppKitSteamWorkshopBrowserItem {
     func organization(_ item: SteamWorkshopBrowserItem) -> AppKitSteamWorkshopBrowserItem.OrganizationPresentation? { remoteOrganization(for: item) }
     func inspector(_ item: SteamWorkshopBrowserItem) -> WallpaperInspectorActions? { remoteInspectorActions(for: item) }
     func menu(_ item: SteamWorkshopBrowserItem) -> NSMenu? { remoteOrganizationMenu(for: item) }
-    func online(_ id: Int) -> WallpaperInspectorActions? { onlineOrganization(for: .init(id: id)) }
+    func pixabay(_ id: Int) -> WallpaperInspectorActions? { pixabayOrganization(for: .init(id: id)) }
     func favorite(_ content: WallpaperContentItem) -> (() -> Void)? { makeCardFavoriteAction(content) }
     // ACTUAL_REMOTE_ACTIONS
 }
@@ -273,8 +280,9 @@ private struct RemovalFileResult {
         }))
     }
 }
-@MainActor private final class RemovalOnline {
+@MainActor private final class RemovalPixabay {
     static let downloadDirectory = URL(fileURLWithPath: "/controlled/online")
+    static var downloadRoots: [URL] { [downloadDirectory] }
     var failingNames: Set<String> = []
     var requested: [URL] = []
     func deleteLocalFiles(at urls: [URL], isInUse: ((URL) -> Bool)? = nil) -> [RemovalFileResult] {
@@ -322,7 +330,7 @@ private struct RemovalFileResult {
     let manager = RemovalManager()
     let images = RemovalImages()
     let steam = RemovalSteam()
-    let online = RemovalOnline()
+    let pixabay = RemovalPixabay()
     let hostWindow: () -> NSWindow? = { nil }
     var canOrganize = true
     var admittedWrites = 0
@@ -354,9 +362,36 @@ private struct RemovalFileResult {
             entries:[a,b].map{.init(reference:$0,runtime:.video,isPlayable:true)},sourceQuery:.init())
         let otherSource=try WallpaperPlaybackSequence.Snapshot(source:.page(.favorites),revision:2,
             entries:[a,b].map{.init(reference:$0,runtime:.video,isPlayable:true)},sourceQuery:.init())
-        func content(_ ref:WallpaperReference)->WallpaperContentItem {
-            .init(reference:ref,providerReference:ref,locator:.init(mediaKind:.video),title:ref.sourceID,kind:.video,
+        func content(_ ref:WallpaperReference, kind: WallpaperMediaKind = .video)->WallpaperContentItem {
+            .init(reference:ref,providerReference:ref,locator:.init(mediaKind:kind),title:ref.sourceID,kind:kind,
                   publishedAvailability:.available,capabilities:[.play,.organize],metadata:.init(),acquisition:.idle,update:.idle,aliases:[])
+        }
+        do {
+            let c = WallpaperReference(provider: .videoLibrary, sourceID: "C")
+            let source = try WallpaperPlaybackSequence.Snapshot(source: .page(.playlist(UUID())), revision: 4,
+                entries: [a, b, c].map { .init(reference: $0, runtime: .video, isPlayable: true) })
+            let manager = WallpaperManager(), view = CommandWorkspace(manager, source)
+            let commands = WallpaperLibraryCommands(manager, view)
+            view.presentation.queryResult.items = [content(b), content(c), content(a)]
+            view.presentation.selectionState = .init(references: [a], focusedReference: a)
+            commands.playDisplayed()
+            checks["playlist-play-starts-at-visible-first-despite-another-selection"] = view.plays.last?.0 == b
+                && manager.libraryPlaybackSequence.committed?.snapshot == source && manager.randomRequests == 0
+            var distinct = true
+            for _ in 0..<30 {
+                let before = manager.libraryPlaybackSequence.committed?.reference
+                commands.playDisplayed(random: true)
+                distinct = distinct && view.plays.last?.0 != before && [a, b, c].contains(view.plays.last!.0)
+            }
+            checks["playlist-random-never-replays-current-and-retains-one-mode-owner"] = distinct && manager.randomRequests == 30
+            _ = manager.select(a, source: source)
+            view.relationships = .init(revision: 1, resetEpoch: UUID(), migrationManifestID: nil, playlists: [], members: [], favorites: [], recent: [], aliases: [.init(alias: a, canonical: b, proof: .publishedDownload)], locators: [])
+            view.presentation.queryResult.items = [content(b), content(c)]
+            commands.playDisplayed(random: true)
+            checks["playlist-random-excludes-current-canonical-backing-after-alias-publication"] = view.plays.last?.0 == c
+            view.presentation.queryResult.items = [content(c)]
+            commands.playDisplayed(random: true)
+            checks["playlist-random-singleton-remains-playable"] = view.plays.last?.0 == c
         }
         try runCompositionProjectionChecks(&checks)
         func send(_ action:@escaping ()->Void)->Bool {
@@ -523,11 +558,12 @@ private struct RemovalFileResult {
             workspace.presentation.selectionState.sessionID = UUID()
             invoke(sessionMenu, 0); invoke(sessionMenu, 1)
             checks["browser-context-held-menu-rejects-new-page-session"] = commands.favoriteActions.count == 1 && commands.playlistActions.count == 1
-            composition.steam.selectedBrowserItem = item
+            composition.steamBrowserContent.selectedItem = item
             let selected = composition.selectedBrowserOrganizationActions()!
             selected.onToggleFavorite(); selected.onChoosePlaylist(nil)
-            checks["browser-main-menu-actions-project-original-source-selection"] = commands.favoriteActions == [[ref], [ref]] && commands.playlistActions == [[ref], [ref]]
-            composition.steam.selectedBrowserItem = .init(id: other.sourceID)
+            checks["browser-main-menu-actions-project-grid-selection-without-borrowing-inspector"] = commands.favoriteActions == [[ref], [ref]]
+                && commands.playlistActions == [[ref], [ref]] && composition.steam.selectedBrowserItem?.id == other.sourceID
+            composition.steamBrowserContent.selectedItem = .init(id: other.sourceID)
             selected.onToggleFavorite(); selected.onChoosePlaylist(nil)
             checks["browser-main-menu-held-actions-cannot-retarget-later-source-selection"] = commands.favoriteActions.count == 2 && commands.playlistActions.count == 2
             commands.canOrganize = false
@@ -537,7 +573,7 @@ private struct RemovalFileResult {
             composition.downloadedContent[ref] = WallpaperContentItem(reference: ref, providerReference: ref, locator: .init(),
                 title: "Remote", kind: .video, publishedAvailability: .remote, capabilities: [.inspect, .download],
                 metadata: .init(), acquisition: .idle, update: .idle, aliases: [])
-            composition.steam.selectedBrowserItem = item
+            composition.steamBrowserContent.selectedItem = item
             checks["browser-unpublished-selection-has-no-context-or-main-menu-organization"] = composition.menu(item) == nil && composition.selectedBrowserOrganizationActions() == nil
             composition.downloadedContent = [.init(provider: .steamWorkshop, sourceID: "\u{e9}"): content(ref)]
             checks["browser-menu-provider-identity-never-folds-opaque-unicode-ids"] = composition.menu(.init(id: "e\u{301}")) == nil
@@ -552,34 +588,35 @@ private struct RemovalFileResult {
             workspace.presentation.page = .pixabay
             let commands = WallpaperLibraryCommands(manager, CommandWorkspace(manager, source))
             let composition = RemoteComposition(workspace, commands)
-            checks["pixabay-browser-id-alone-does-not-invent-local-organization"] = composition.online(7) == nil
+            checks["pixabay-browser-id-alone-does-not-invent-local-organization"] = composition.pixabay(7) == nil
             composition.downloadedContent[ref] = content(ref)
             composition.cardState = try WallpaperLibraryCardStateProjection(items: [content(ref)], relationships: relationships,
                 committedReference: nil, sequenceTicket: nil, runtimeTicket: nil)
-            let actions = composition.online(7)!
+            let actions = composition.pixabay(7)!
             actions.onToggleFavorite(); actions.onChoosePlaylist(nil); actions.onPrimary()
             checks["pixabay-local-organization-needs-no-steam-selection-or-account"] = actions.state.canFavorite
                 && actions.state.canOrganize && commands.favoriteActions == [[ref]] && commands.playlistActions == [[ref]]
                 && workspace.requests == [ref] && composition.steam.selectedBrowserItem == nil
+            checks.merge(pixabayNativeMenuChecks(composition, commands: commands)) { _, new in new }
             let before = WallpaperLibraryQuery.resolverInitializationCount
-            for _ in 0..<100 { _ = composition.online(7) }
+            for _ in 0..<100 { _ = composition.pixabay(7) }
             checks["pixabay-organization-reuses-one-canonical-card-projection"] = WallpaperLibraryQuery.resolverInitializationCount == before
             composition.downloadedContent[ref] = .init(reference: ref, providerReference: ref, locator: .init(mediaKind: .video),
                 title: "Offline", kind: .video, publishedAvailability: .unavailable, capabilities: [.inspect],
                 metadata: .init(), acquisition: .idle, update: .idle, aliases: [])
-            let offline = composition.online(7)!
+            let offline = composition.pixabay(7)!
             checks["pixabay-offline-favorite-removal-does-not-enable-add-to-playlist"] = offline.state.canFavorite
                 && !offline.state.canOrganize && !offline.state.canPerformPrimary
             commands.canOrganize = false
             offline.onToggleFavorite()
-            let busy = composition.online(7)!
+            let busy = composition.pixabay(7)!
             checks["pixabay-current-readonly-revokes-even-held-favorite-action"] = !busy.state.canFavorite
-                && !busy.state.canOrganize && commands.favoriteActions.count == 1
+                && !busy.state.canOrganize && commands.favoriteActions.count == 2
             commands.canOrganize = true
             workspace.presentation.page = .workshop
             actions.onToggleFavorite(); actions.onChoosePlaylist(nil); actions.onPrimary()
-            checks["pixabay-held-browser-actions-do-not-run-after-page-change"] = commands.favoriteActions.count == 1
-                && commands.playlistActions.count == 1 && workspace.requests == [ref]
+            checks["pixabay-held-browser-actions-do-not-run-after-page-change"] = commands.favoriteActions.count == 2
+                && commands.playlistActions.count == 2 && workspace.requests == [ref]
         }
         do {
             let relationships = UserCollectionsSnapshot(revision: 1, resetEpoch: UUID(), migrationManifestID: nil,
@@ -765,47 +802,7 @@ private struct RemovalFileResult {
             heldRemoval()
             checks["actual-favorite-factory-never-inverts-its-rendered-intent"] = controller.snapshot.revision == removedRevision
                 && controller.snapshot.favorites.isEmpty && commands.admittedWrites == afterJoin
-            let id = try await controller.createPlaylist(name: "Manual", members: [content(a).organizationItem, content(b).organizationItem])
-            view.didEditMembers(of: .playlist(id))
-            do {
-                view.presentation.switchPage(.playlists)
-                let filtered = WallpaperLibraryQueryState(search: "Manual", sort: .name, ascending: false, preferredColumns: 6)
-                let key = "directory"
-                view.presentation.setDirectoryScrollAnchor(id, offset: 7, atTop: false)
-                checks["manual-organization-\(key)-starts-from-accepted-query"] = view.presentation.setQueryState(filtered)
-                let originalSelection = view.presentation.selectionState
-                commands.canOrganize = false
-                commands.beginManualOrdering()
-                checks["manual-organization-readonly-preserves-\(key)-query"] = view.presentation.queryState == filtered
-                    && !commands.canBeginManualOrdering
-                commands.canOrganize = true
-                commands.beginManualOrdering()
-                let query = view.presentation.queryState
-                checks["manual-organization-clears-only-explicit-conditions-for-\(key)"] = query.search.isEmpty
-                    && query.provider == nil && query.kind == nil && query.status == .all && query.sort == .sourceOrder
-                    && query.ascending && query.legacyTimeOrder == nil && query.preferredColumns == 6
-                    && query.scrollAnchor == filtered.scrollAnchor && query.scrollOffset == filtered.scrollOffset
-                    && query.scrollAtTop == filtered.scrollAtTop
-                    && !commands.canBeginManualOrdering
-                checks["manual-organization-preserves-\(key)-selection"] = view.presentation.selectionState.references == originalSelection.references
-                    && view.presentation.selectionState.focusedReference == originalSelection.focusedReference
-                checks["manual-organization-preserves-real-directory-scroll-receipt"] = view.presentation.directoryScrollAnchor == id
-                    && view.presentation.directoryScrollOffset == 7 && view.presentation.directoryScrollAtTop == false
-            }
-            for page in [WallpaperLibraryPage.videos, .images, .downloads, .recent, .favorites, .playlist(id), .workshop, .pixabay] {
-                view.presentation.switchPage(page)
-                var accepted = true
-                if case .playlist = page {
-                    var filtered = view.presentation.queryState
-                    filtered.search = "B"; filtered.sort = .name
-                    accepted = view.presentation.setQueryState(filtered)
-                        && view.presentation.queryState.search == "B" && view.presentation.queryState.sort == .name
-                }
-                let query = view.presentation.queryState
-                commands.beginManualOrdering()
-                checks["manual-organization-is-not-advertised-on-\(page.persistenceKey)"] = accepted
-                    && !commands.canBeginManualOrdering && view.presentation.queryState == query
-            }
+
         }
         do {
             let store = UserCollectionsStore(url: root.appendingPathComponent("recent-menu.sqlite3"))
@@ -873,7 +870,7 @@ private struct RemovalFileResult {
             let old = WallpaperLibraryCatalog(downloads: rows, revision: 100)
             let view = workspace(old, page: .downloads), commands = RemovalCommands(view)
             view.presentation.setSelection([steam, pixabay], focused: steam, isSelecting: true)
-            commands.online.failingNames = [firstURL.lastPathComponent]
+            commands.pixabay.failingNames = [firstURL.lastPathComponent]
             commands.remove()
             let sourceOption = RecentAlertProbe.alert?.accessoryView as? NSButton
             checks["compact-removal-keeps-scope-count-short-actions-and-natural-checkbox-width"] = RecentAlertProbe.alert?.buttons == ["移除", "取消"]
@@ -882,7 +879,7 @@ private struct RemovalFileResult {
                 && sourceOption?.alignment == .left && sourceOption?.state == .off
                 && (sourceOption?.frame.width ?? 0) > 0 && (sourceOption?.frame.width ?? 320) < 320
             checks["delete-confirmation-defers-source-writes-and-preserves-fixed-targets"] = commands.steam.requested.isEmpty
-                && commands.online.requested.isEmpty && FileManager.default.fileExists(atPath: firstURL.path)
+                && commands.pixabay.requested.isEmpty && FileManager.default.fileExists(atPath: firstURL.path)
                 && (RecentAlertProbe.alert?.accessoryView as? NSButton)?.state == .off
             (RecentAlertProbe.alert?.accessoryView as? NSButton)?.state = .on
             RecentAlertProbe.finish(.alertFirstButtonReturn)
@@ -891,7 +888,7 @@ private struct RemovalFileResult {
             commands.steam.finish([steam.sourceID: true])
             _ = await wait { view.presentation.selectionState.references == [pixabay] && view.catalog.refreshes == 1 }
             checks["mixed-delete-dispatches-to-original-source-owners"] = commands.steam.requested == [steam.sourceID]
-                && commands.online.requested == [firstURL] && FileManager.default.fileExists(atPath: firstURL.path)
+                && commands.pixabay.requested == [firstURL] && FileManager.default.fileExists(atPath: firstURL.path)
             checks["actual-mixed-delete-receipt-retains-failure-selection-mode-and-file"] = view.presentation.selectionState.references == [pixabay]
                 && view.presentation.selectionState.focusedReference == pixabay && view.presentation.selectionState.isSelecting
                 && FileManager.default.fileExists(atPath: firstURL.path)
@@ -906,7 +903,7 @@ private struct RemovalFileResult {
             _ = await wait { view.edited.count > priorEdits }
             checks["all-source-delete-failures-leave-current-selection-and-bytes-unchanged"] = view.presentation.selectionState == stable
                 && FileManager.default.fileExists(atPath: firstURL.path)
-            commands.online.failingNames = []
+            commands.pixabay.failingNames = []
             view.presentation.setSelection([pixabay], focused: pixabay)
             commands.remove(); (RecentAlertProbe.alert?.accessoryView as? NSButton)?.state = .on
             RecentAlertProbe.finish(.alertFirstButtonReturn)
@@ -921,12 +918,12 @@ private struct RemovalFileResult {
             checks["cancelled-delete-keeps-source-and-current-adjacent-selection"] = FileManager.default.fileExists(atPath: lastURL.path)
                 && view.presentation.selectionState.references == [last]
                 && (RecentAlertProbe.alert?.accessoryView as? NSButton)?.state == .off
-            let priorSteam = commands.steam.requested, priorOnline = commands.online.requested
+            let priorSteam = commands.steam.requested, priorPixabay = commands.pixabay.requested
             commands.remove(); RecentAlertProbe.finish(.alertFirstButtonReturn)
             _ = await wait { view.presentation.queryResult.items.isEmpty }
             let keptDownloadBytes = try Data(contentsOf: lastURL)
             checks["default-off-download-removal-persists-without-source-delete"] = controller.snapshot.excludedLibraryReferences.contains { $0.reference == last }
-                && keptDownloadBytes == Data([3]) && commands.steam.requested == priorSteam && commands.online.requested == priorOnline
+                && keptDownloadBytes == Data([3]) && commands.steam.requested == priorSteam && commands.pixabay.requested == priorPixabay
 
             let va = WallpaperReference(provider: .videoLibrary, sourceID: "video-A")
             let vb = WallpaperReference(provider: .videoLibrary, sourceID: "video-B")
@@ -977,7 +974,7 @@ private struct RemovalFileResult {
             favoritesCommands.remove(); RecentAlertProbe.finish(.alertFirstButtonReturn)
             _ = await wait { controller.snapshot.favorites.map(\.reference) == [vb] && !favoritesView.edited.isEmpty }
             checks["favorite-store-removal-uses-same-receipt-without-source-deletion"] = favoritesView.presentation.selectionState.references == [vb]
-                && favoritesCommands.manager.requested.isEmpty && favoritesCommands.online.requested.isEmpty
+                && favoritesCommands.manager.requested.isEmpty && favoritesCommands.pixabay.requested.isEmpty
             controller.recordSuccessfulUse(vb, locator: nil, sequence: 1)
             controller.recordSuccessfulUse(va, locator: nil, sequence: 2)
             _ = await wait { controller.snapshot.recent.map(\.reference) == [va, vb] }
@@ -994,6 +991,7 @@ private struct RemovalFileResult {
         }
         checks.merge(try await runLibraryRestorationChecks(root: root), uniquingKeysWith: { _, newer in newer })
         checks.merge(try await runOrganizationCompletionChecks(root: root), uniquingKeysWith: { _, newer in newer })
+        checks.merge(try await runRecentSidebarCommandChecks(root: root), uniquingKeysWith: { _, newer in newer })
         checks.merge(try await steamNavigationActionChecks(app: app)) { _, new in new }
         print(String(data:try JSONSerialization.data(withJSONObject:checks,options:[.sortedKeys]),encoding:.utf8)!)
     }

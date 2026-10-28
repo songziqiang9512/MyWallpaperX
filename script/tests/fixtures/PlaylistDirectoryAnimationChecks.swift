@@ -152,6 +152,41 @@ extension PlaylistDirectoryHarness {
                 && currentFrames() == targets() && retained() && writes == 0
             controller.collectionView(collection, draggingSession: DirectoryNativeDragProbe.session!, endedAt: .zero, dragOperation: [])
             RunLoop.main.run(until: Date().addingTimeInterval(0.03))
+            PlaylistDirectoryAnimationProbe.reduceMotion = false
+            let birth = WallpaperPlaylistDirectoryEntry(id: UUID(), name: "Added while visible", count: 0, coverReference: nil)
+            let survivors = Array(entries.dropFirst())
+            let changed = survivors + [birth]
+            let beforeDeletion = currentFrames()
+            let deletionReloads = PlaylistDirectoryAnimationProbe.reloads
+            controller.update(entries: changed, covers: images, preferredColumns: columns, permitsReordering: true)
+            let deletionTargets = targets()
+            checks["directory-animation-\(columns)-add-remove-has-intermediate-native-reflow"] = sample("add-remove", from: beforeDeletion, to: deletionTargets)
+            RunLoop.main.run(until: Date().addingTimeInterval(0.15))
+            checks["directory-animation-\(columns)-add-remove-retains-native-survivors-selection-and-new-count"] = controller.entries == changed
+                && collection.numberOfItems(inSection: 0) == changed.count + 1 && controller.selectedPlaylistID == entries[1].id
+                && survivors.enumerated().allSatisfy { index, entry in collection.item(at: .init(item: index + 1, section: 0)) === items[entry.id] }
+                && PlaylistDirectoryAnimationProbe.reloads == deletionReloads && demands.last == Set(changed.map(\.id))
+            PlaylistDirectoryBatchCompletionProbe.beginHolding()
+            controller.update(entries: Array(changed.reversed()), covers: images, preferredColumns: columns, permitsReordering: true)
+            RunLoop.main.run(until: Date().addingTimeInterval(0.2))
+            checks["directory-animation-\(columns)-add-remove-receives-real-held-completion"] = PlaylistDirectoryBatchCompletionProbe.receivedAndHeld
+            controller.update(entries: [], covers: [:], preferredColumns: columns, permitsReordering: true)
+            controller.update(entries: entries, covers: images, preferredColumns: columns, permitsReordering: true)
+            PlaylistDirectoryBatchCompletionProbe.release()
+            RunLoop.main.run(until: Date().addingTimeInterval(0.25))
+            checks["directory-animation-\(columns)-latest-undo-supersedes-queued-empty-without-reload"] = controller.entries == entries
+                && collection.numberOfItems(inSection: 0) == entries.count + 1 && PlaylistDirectoryAnimationProbe.reloads == deletionReloads
+                && demands.last == Set(entries.map(\.id))
+            let nextColumns = columns == 6 ? 3 : columns + 1
+            let expanded = changed + (0..<20).map { WallpaperPlaylistDirectoryEntry(id: UUID(), name: "Density \($0)", count: 0, coverReference: nil) }
+            controller.update(entries: expanded, covers: images, preferredColumns: nextColumns, permitsReordering: true)
+            controller.view.layoutSubtreeIfNeeded(); collection.layoutSubtreeIfNeeded()
+            collection.scrollToItems(at: [IndexPath(item: expanded.count, section: 0)], scrollPosition: .bottom)
+            RunLoop.main.run(until: Date().addingTimeInterval(0.03))
+            checks["directory-animation-\(columns)-simultaneous-density-and-membership-change-installs-one-consistent-topology"] = controller.entries == expanded
+                && PlaylistDirectoryAnimationProbe.reloads == deletionReloads + 1 && collection.numberOfItems(inSection: 0) == expanded.count + 1
+                && flow.itemSize.width == WallpaperLibraryGridMetrics(clipWidth: collection.enclosingScrollView!.contentView.bounds.width, preferredColumns: nextColumns).coverSide
+                && demands.last?.contains(expanded.last!.id) == true
         }
     }
 }

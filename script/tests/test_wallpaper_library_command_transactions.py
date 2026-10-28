@@ -33,7 +33,7 @@ class WallpaperLibraryCommandTransactionsTests(unittest.TestCase):
         commands = (ROOT / 'MyWallpaperX/App/WallpaperLibraryCommands.swift').read_text()
         paths.append(ROOT / 'script/tests/fixtures/OnlineImageLibraryAppStub.swift')
         factory = '\n'.join(declaration(commands, signature) for signature in (
-            '    func makePrimaryAction(', '    func makeApplyAction(', '    func stop('))
+            '    func makePrimaryAction(', '    func makeApplyAction(', '    func stop(', '    func playDisplayed('))
         fixture = (ROOT / 'script/tests/fixtures/WallpaperLibraryCommandTransactionsHarness.swift').read_text()
         fixture = fixture.replace('// ACTUAL_PRIMARY_FACTORY', factory)
         fixture = fixture.replace('// ACTUAL_PLAYLIST_MENU', declaration(commands, '    func makePlaylistMenu('))
@@ -41,8 +41,7 @@ class WallpaperLibraryCommandTransactionsTests(unittest.TestCase):
         fixture = fixture.replace('// ACTUAL_CARD_STATE', declaration(commands, 'nonisolated struct WallpaperLibraryCardStateProjection'))
         fixture = fixture.replace('// ACTUAL_FAVORITE_COMMANDS', '\n'.join(declaration(commands, signature) for signature in (
             '    var canFavorite:', '    var favoriteActionState:', '    func favoriteActionState(', '    private func favoriteState(',
-            '    func toggleFavorite(', '    func makeFavoriteAction(', '    private func resolveSelection(',
-            '    var canBeginManualOrdering:', '    func beginManualOrdering(')))
+            '    func toggleFavorite(', '    func makeFavoriteAction(', '    private func resolveSelection(')))
         fixture = fixture.replace('// ACTUAL_RECENT_MENU', '\n'.join(declaration(commands, signature) for signature in (
             '    func makeRecentMenu(', '    private func clearRecent(', '    private func perform(')))
         fixture = fixture.replace('// ACTUAL_RECENT_ACTIONS', '\n'.join(declaration(commands, signature) for signature in (
@@ -67,9 +66,11 @@ class WallpaperLibraryCommandTransactionsTests(unittest.TestCase):
         fixture += '\n' + restoration_fixture.read_text() + '\n' + image_removal_fixture.read_text()
         organization_path = ROOT / 'MyWallpaperX/Shell/PlaylistOrganizationActions.swift'
         completion_fixture = ROOT / 'script/tests/fixtures/WallpaperLibraryOrganizationCompletionChecks.swift'
+        recent_sidebar_fixture = ROOT / 'script/tests/fixtures/WallpaperLibraryRecentMenuChecks.swift'
         # The real action owner and SQLite transactions run here. The editor
         # is a controlled draft UI; its native lifecycle has a separate gate.
         fixture += '\n' + organization_path.read_text() + '\n' + completion_fixture.read_text()
+        fixture += '\n' + recent_sidebar_fixture.read_text()
         composition_path = ROOT / 'MyWallpaperX/App/WallpaperLibraryWindowComposition.swift'
         steam_path = ROOT / 'MyWallpaperX/Modules/SteamWorkshop/UI/AppKitSteamWorkshopBrowserItem+Presentation.swift'
         composition = composition_path.read_text()
@@ -93,15 +94,16 @@ class WallpaperLibraryCommandTransactionsTests(unittest.TestCase):
             '    func collectionView(_ collectionView: NSCollectionView, acceptDrop', '    private func fileURLs(')))
         fixture = fixture.replace('// ACTUAL_DRAG_INFO_LEAF', declaration(grid_fixture_path.read_text(), '@MainActor final class GridDropInfo:'))
         fixture = fixture.replace('// ACTUAL_REMOTE_ACTIONS', '\n'.join(declaration(composition, signature) for signature in (
-            '    private func makeCardFavoriteAction(', '    private func onlineOrganization(',
+            '    private func makeCardFavoriteAction(', '    private func pixabayOrganization(',
             '    private func remoteOrganization(', '    private func acceptsRemoteAction(',
             '    private func remotePrimaryAction(', '    private func remoteInspectorActions(',
-            '    private func remoteOrganizationMenu(', '    func selectedBrowserOrganizationActions(')))
+            '    private func remoteOrganizationMenu(', '    private var selectedBrowserReference:',
+            '    private func bindSelectedBrowserAction(', '    func selectedBrowserOrganizationActions(')))
         fixture = fixture.replace('// ACTUAL_STEAM_ORGANIZATION', declaration(steam_path.read_text(), '    struct OrganizationPresentation'))
         inputs = paths + [ROOT / 'MyWallpaperX/App/WallpaperLibraryCommands.swift',
                           ROOT / 'script/tests/fixtures/WallpaperLibraryCommandTransactionsHarness.swift', composition_path, steam_path,
                           grid_path, grid_fixture_path, restoration_fixture, image_removal_fixture, projection_fixture,
-                          organization_path, completion_fixture]
+                          organization_path, completion_fixture, recent_sidebar_fixture]
         identities = {str(p): hashlib.sha256(p.read_bytes()).hexdigest() for p in inputs}
         with tempfile.TemporaryDirectory(prefix='mwx-command-transactions-', dir='/private/tmp') as directory:
             work = Path(directory)

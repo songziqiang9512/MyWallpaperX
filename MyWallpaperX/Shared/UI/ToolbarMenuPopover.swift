@@ -111,6 +111,11 @@ final class ToolbarMenuPopoverPresenter: NSObject, NSPopoverDelegate {
         popover.performClose(nil)
     }
 
+    func refresh() {
+        guard popover.isShown, let contentProvider else { return }
+        reload(contentProvider())
+    }
+
     private func reload(_ rows: [Row], resetScroll: Bool = false) {
         let availableHeight = (anchoredView?.window?.screen?.visibleFrame.height ?? 720) - 160
         rowsViewController.reload(rows: rows, maximumHeight: max(180, min(560, availableHeight)), resetScroll: resetScroll) { [weak self] row in
@@ -333,7 +338,7 @@ private final class ToolbarMenuRowsViewController: NSViewController {
         button.alignment = .left
         button.lineBreakMode = .byTruncatingTail
         button.setContentCompressionResistancePriority(.defaultLow, for: .horizontal)
-        button.isEnabled = isEnabled
+        button.isEnabled = row != nil && isEnabled
         let configuration = NSImage.SymbolConfiguration(pointSize: 11, weight: .medium)
         if isChecked {
             button.image = NSImage(systemSymbolName: "checkmark", accessibilityDescription: nil)?
@@ -355,7 +360,7 @@ private final class ToolbarMenuRowsViewController: NSViewController {
             button.target = self
             button.action = #selector(handleRowTap(_:))
             button.setAccessibilityLabel(title)
-            button.setAccessibilityValue(isChecked ? "已勾选" : "未勾选")
+            if row.kind == .check { button.setAccessibilityValue(isChecked ? "已勾选" : "未勾选") }
             rowsByButton[ObjectIdentifier(button)] = row
         } else {
             button.setAccessibilityLabel(title)

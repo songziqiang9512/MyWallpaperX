@@ -2,9 +2,8 @@
 
 Source metadata/layout leaves record actions here; actual Video preview and Steam
 layout/invalidation gates remain separate. Image selection uses the real Browser
-and App selection callback bodies plus real Coordinator/Quick Look. A controlled
-thumbnail leaf drives remote A/B, close and scope races through actual PNG export
-and the native panel. Image detail layout, WebKit, network and wallpaper application
+and App selection callback bodies plus real Coordinator/Quick Look. Controlled asset/transport leaves drive remote A/B, close and scope races through
+real original-byte temporary files and the native panel. Image detail layout, WebKit, network and wallpaper application
 are not covered by this composition gate.
 The original image/Pixabay layout gate also runs the real downloaded thumbnail
 store, file fingerprints and shared cache, with only its AV frame leaf controlled
@@ -24,25 +23,47 @@ from script.tests.test_ui_library_algorithms import declaration
 from script.tests.native_app_harness import prepare_native_app, run_native_app
 
 ROOT = Path(__file__).resolve().parents[2]
-DOWNLOADED_STORE = ROOT / "MyWallpaperX/Modules/OnlineLibrary/UI/AppKitOLDownloadsItem.swift"
-DOWNLOADED_IDENTITY = ROOT / "MyWallpaperX/Modules/OnlineLibrary/Core/OnlineLibraryDownloadedContent.swift"
+DOWNLOADED_STORE = ROOT / "MyWallpaperX/Modules/Pixabay/UI/AppKitPixabayDownloadsItem.swift"
+DOWNLOADED_IDENTITY = ROOT / "MyWallpaperX/Modules/Pixabay/Core/PixabayDownloadedContent.swift"
 DOWNLOADED_CARD_DEPENDENCIES = [ROOT / "MyWallpaperX" / name for name in (
     "Shared/UI/AppearanceAwareContainerView.swift", "Shared/UI/NSViewExtensions.swift",
+    "Shared/UI/FinderRevealCoordinator.swift", "Shared/Components/WallpaperLibraryControlStyle.swift",
     "Shared/UI/UIInteractionAnimation.swift", "Shared/UI/WallpaperGridScrollView.swift",
     "Shared/Components/WallpaperCardInteractionView.swift", "Shared/Components/WallpaperCardSupportViews.swift",
     "Shared/Components/WallpaperCardControlsView.swift")]
 
 
+def prepare_image_primary_sources(tree, work):
+    """Reuse the established image command leaves with real ticket reducers."""
+    tree, work = Path(tree), Path(work)
+    leaves = tree / "script/tests/fixtures/SILSquareCardHarness.swift"
+    commands = tree / "MyWallpaperX/App/WallpaperLibraryCommands.swift"
+    fixture = tree / "script/tests/fixtures/InspectorImagePlaybackFixture.swift"
+    body = "\n".join(declaration(leaves.read_text(), signature) for signature in (
+        "@MainActor final class WallpaperManager", "@MainActor final class AppliedImageWorkspace",
+        "@MainActor final class AppliedImagePresentation", "@MainActor final class WallpaperLibraryImportCoordinator",
+        "@MainActor enum WallpaperLibraryDownloadRecovery", "@MainActor final class WallpaperLibraryCommands"))
+    body = body.replace("// PRODUCTION_PRIMARY_ACTIONS", "\n".join(declaration(commands.read_text(), signature)
+        for signature in ("    func makePrimaryAction(", "    func makeApplyAction(", "    func stop(")))
+    output = work / "InspectorImagePlayback.swift"
+    output.write_text(fixture.read_text().replace("// ACTUAL_PRIMARY_COMMAND_LEAVES", body))
+    dependencies = [tree / "MyWallpaperX" / name for name in (
+        "Models/WallpaperReference.swift", "Models/WallpaperContent.swift", "Models/WallpaperLibraryPage.swift",
+        "Core/PlaybackControl/WallpaperRuntimeSwitch.swift", "Core/PlaybackControl/PlaybackSwitchTransaction.swift",
+        "Core/PlaybackControl/WallpaperPlaybackSequence.swift")]
+    return [output, *dependencies], [leaves, commands, fixture, *dependencies]
+
+
 def original_inspector_gate_source(path, tree=ROOT):
     tree = Path(tree)
-    downloaded_store = tree / "MyWallpaperX/Modules/OnlineLibrary/UI/AppKitOLDownloadsItem.swift"
-    downloaded_identity = tree / "MyWallpaperX/Modules/OnlineLibrary/Core/OnlineLibraryDownloadedContent.swift"
+    downloaded_store = tree / "MyWallpaperX/Modules/Pixabay/UI/AppKitPixabayDownloadsItem.swift"
+    downloaded_identity = tree / "MyWallpaperX/Modules/Pixabay/Core/PixabayDownloadedContent.swift"
     content = path.read_text()
     if path == downloaded_store:
         # The store is inserted below with its real identity/cache. Expose only
         # the actual card's private UI state; none of its methods are replaced.
         return "import AppKit\nimport QuartzCore\n" + re.sub(r"\bprivate\s+", "",
-            declaration(content, "final class AppKitOLDownloadsItem:"))
+            declaration(content, "final class AppKitPixabayDownloadsItem:"))
     if path.name == "WallpaperInspectorOrganizationHarness.swift":
         cache = (tree / "MyWallpaperX/Shared/UI/ThumbnailCache.swift").read_text()
         begin = declaration(cache, "    private func beginImageRequest(")
@@ -51,14 +72,14 @@ def original_inspector_gate_source(path, tree=ROOT):
             raise ValueError("expected one real cache delivery insertion point")
         content = content.replace("// ACTUAL_CACHE_IMAGE_DELIVERY", delivery)
         store = downloaded_store.read_text()
-        actual = declaration(downloaded_identity.read_text(), "nonisolated enum OnlineLibraryDownloadedFileIdentity")
+        actual = declaration(downloaded_identity.read_text(), "nonisolated enum PixabayDownloadedFileIdentity")
         fingerprint = "        var fileURL = url.standardizedFileURL"
         if actual.count(fingerprint) != 1:
             raise ValueError("expected one real downloaded fingerprint read")
         actual = actual.replace(fingerprint,
             "        DownloadedInspectorCacheProbe.shared.fingerprintRegistered(url.path)\n" + fingerprint, 1)
-        actual += "\n" + declaration(store, "enum OLDownloadedThumbnailStore")
-        actual += "\n" + declaration(store, "extension OLDownloadedThumbnailStore")
+        actual += "\n" + declaration(store, "enum PixabayDownloadedThumbnailStore")
+        actual += "\n" + declaration(store, "extension PixabayDownloadedThumbnailStore")
         method = declaration(actual, "    static func loadThumbnail(")
         observed = method.replace("        guard !cancellation.cancelled",
             "        DownloadedInspectorCacheProbe.shared.sourceRegistered()\n        guard !cancellation.cancelled", 1)
@@ -87,8 +108,8 @@ def original_inspector_gate_source(path, tree=ROOT):
 def prepare_sil_inspector_sources(tree, work, inspector_override=None, fixture_tree=None):
     """The existing native Inspector closure, also used by the task-only pair."""
     tree, work = Path(tree), Path(work)
-    downloaded_store = tree / "MyWallpaperX/Modules/OnlineLibrary/UI/AppKitOLDownloadsItem.swift"
-    downloaded_identity = tree / "MyWallpaperX/Modules/OnlineLibrary/Core/OnlineLibraryDownloadedContent.swift"
+    downloaded_store = tree / "MyWallpaperX/Modules/Pixabay/UI/AppKitPixabayDownloadsItem.swift"
+    downloaded_identity = tree / "MyWallpaperX/Modules/Pixabay/Core/PixabayDownloadedContent.swift"
     sources = [tree / "MyWallpaperX" / name for name in (
         "Shared/UI/DecodedThumbnailMemoryCache.swift", "Shared/UI/ThumbnailCache.swift",
         "Shared/UI/WallpaperInspectorActions.swift", "Shared/UI/InspectorFooterMetrics.swift",
@@ -96,13 +117,16 @@ def prepare_sil_inspector_sources(tree, work, inspector_override=None, fixture_t
         "Shared/UI/ModuleFocusable.swift", "Shared/UI/InspectorHost.swift", "Shared/UI/InspectorHostBridge.swift",
         "Shared/UI/InspectorHostActions.swift", "Shared/UI/InspectorHostViewController.swift",
         "Modules/StaticImageLibrary/UI/SILInspectorSupport.swift", "Modules/StaticImageLibrary/UI/SILInspectorView.swift",
-        "Modules/OnlineLibrary/UI/OnlineLibraryDownloadsInspectorSupport.swift", "Modules/OnlineLibrary/UI/OnlineLibraryDownloadsInspectorView.swift")]
+        "Modules/Pixabay/Core/PixabayModels.swift", "Modules/Pixabay/UI/PixabayDownloadsInspectorSupport.swift", "Modules/Pixabay/UI/PixabayDownloadsInspectorView.swift")]
     if inspector_override is not None:
         sources[sources.index(tree / "MyWallpaperX/Modules/StaticImageLibrary/UI/SILInspectorView.swift")] = Path(inspector_override)
     sources += [tree / path.relative_to(ROOT) for path in DOWNLOADED_CARD_DEPENDENCIES]
     sources.append(downloaded_store)
     sources.append((Path(fixture_tree) if fixture_tree is not None else tree) / "script/tests/fixtures/WallpaperInspectorOrganizationHarness.swift")
-    inputs = {str(p): hashlib.sha256(p.read_bytes()).hexdigest() for p in [*sources, downloaded_identity, Path(__file__).resolve()]}
+    primary_sources, primary_inputs = prepare_image_primary_sources(tree, work)
+    sources += [p for p in primary_sources if p not in sources]
+    inputs = {str(p): hashlib.sha256(p.read_bytes()).hexdigest() for p in [
+        *(p for p in sources if p != primary_sources[0]), *primary_inputs, downloaded_identity, Path(__file__).resolve()]}
     frozen = []
     for index, source in enumerate(sources):
         target = work / f"Source{index}.swift"
@@ -121,13 +145,17 @@ class WallpaperLibraryInspectorTests(unittest.TestCase):
             "Shared/UI/ModuleFocusable.swift", "Shared/UI/InspectorHost.swift", "Shared/UI/InspectorHostBridge.swift",
             "Shared/UI/InspectorHostActions.swift", "Shared/UI/InspectorHostViewController.swift",
             "Modules/StaticImageLibrary/UI/SILInspectorSupport.swift", "Modules/StaticImageLibrary/UI/SILInspectorView.swift",
-            "Modules/OnlineLibrary/UI/OnlineLibraryDownloadsInspectorSupport.swift", "Modules/OnlineLibrary/UI/OnlineLibraryDownloadsInspectorView.swift")]
+            "Modules/Pixabay/Core/PixabayModels.swift", "Modules/Pixabay/UI/PixabayDownloadsInspectorSupport.swift", "Modules/Pixabay/UI/PixabayDownloadsInspectorView.swift")]
         paths += [*DOWNLOADED_CARD_DEPENDENCIES, DOWNLOADED_STORE,
                   ROOT / "script/tests/fixtures/WallpaperInspectorOrganizationHarness.swift"]
         observed = [*paths, DOWNLOADED_STORE, DOWNLOADED_IDENTITY, Path(__file__)]
         hashes = {str(p): hashlib.sha256(p.read_bytes()).hexdigest() for p in observed}
         with tempfile.TemporaryDirectory(prefix="mwx-image-inspector-required-actions-", dir="/private/tmp") as directory:
             work = Path(directory)
+            primary_sources, primary_inputs = prepare_image_primary_sources(ROOT, work)
+            paths += [p for p in primary_sources if p not in paths]
+            observed += primary_inputs
+            hashes.update({str(p): hashlib.sha256(p.read_bytes()).hexdigest() for p in primary_inputs})
             frozen = []
             for index, path in enumerate(paths):
                 target = work / f"Source{index}.swift"; target.write_text(original_inspector_gate_source(path)); frozen.append(target)
@@ -144,6 +172,7 @@ class WallpaperLibraryInspectorTests(unittest.TestCase):
         sources = [ROOT / "MyWallpaperX" / name for name in (
             "Models/WallpaperReference.swift", "Models/WallpaperContent.swift", "Models/WallpaperLibraryPage.swift",
             "Core/OnlineImages/OnlineImageModels.swift", "Core/OnlineImages/OnlineImageContentProjection.swift",
+            "Modules/Pixabay/Core/PixabayModels.swift",
             "Core/LibraryCollections/WallpaperLibraryQuery.swift", "Shared/UI/WallpaperInspectorActions.swift",
             "Shared/UI/InspectorHost.swift", "Shared/UI/InspectorHostActions.swift", "Shared/UI/InspectorHostBridge.swift",
             "Shared/UI/InspectorHostViewController.swift", "Shared/UI/ListThumbnailTintSource.swift",
@@ -151,6 +180,7 @@ class WallpaperLibraryInspectorTests(unittest.TestCase):
             "App/WallpaperLibraryInspectorCoordinator.swift")]
         sources.append(ROOT / "script/tests/fixtures/OnlineImageLibraryAppStub.swift")
         sources.append(ROOT / "script/tests/fixtures/NativeAppHarness.swift")
+        sources.append(ROOT / "script/tests/fixtures/InspectorPresentationRefreshChecks.swift")
         harness = ROOT / "script/tests/fixtures/WallpaperLibraryInspectorHarness.swift"
         module = ROOT / "MyWallpaperX/Shared/UI/ModuleFocusable.swift"
         commands = ROOT / "MyWallpaperX/App/WallpaperLibraryCommands.swift"
@@ -158,7 +188,8 @@ class WallpaperLibraryInspectorTests(unittest.TestCase):
         popover = ROOT / "MyWallpaperX/Shared/UI/ToolbarMenuPopover.swift"
         image_browser = ROOT / "MyWallpaperX/Shared/UI/OnlineImageBrowserController.swift"
         image_assembly = ROOT / "MyWallpaperX/App/WallpaperLibraryOnlineImages.swift"
-        dependencies = sources + [harness, module, commands, undo, popover, image_browser, image_assembly]
+        presentation = ROOT / "MyWallpaperX/Shell/WallpaperLibraryPresentation.swift"
+        dependencies = sources + [harness, module, commands, undo, popover, image_browser, image_assembly, presentation]
         hashes = {str(p): hashlib.sha256(p.read_bytes()).hexdigest() for p in dependencies}
         with tempfile.TemporaryDirectory(prefix="mwx-inspector-", dir="/private/tmp") as directory:
             work = Path(directory)
@@ -174,7 +205,10 @@ class WallpaperLibraryInspectorTests(unittest.TestCase):
             frozen = []
             for index, source in enumerate(sources + [harness]):
                 target = work / f"Source{index}.swift"
-                if source == harness:
+                if source.name == "InspectorPresentationRefreshChecks.swift":
+                    target.write_text(source.read_text().replace("// ACTUAL_PRESENTATION_STATE", declaration(
+                        presentation.read_text(), "nonisolated struct WallpaperLibraryPresentationState:")))
+                elif source == harness:
                     actual = source.read_text().replace("// ACTUAL_FAVORITE_ACTION_STATE", declaration(
                         commands.read_text(), "nonisolated struct WallpaperLibraryFavoriteActionState"))
                     actual = actual.replace("// ACTUAL_RELATIONSHIP_UNDO_MANAGER", declaration(

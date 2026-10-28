@@ -226,6 +226,10 @@ private final class GridUnifiedToolbarProbe: NSObject, NSToolbarDelegate {
             print(String(data: output, encoding: .utf8)!)
             return
         }
+        if CommandLine.arguments.contains("--animations") {
+            print(String(data: try! JSONSerialization.data(withJSONObject: WallpaperLibraryGridAnimationChecks.run(values: values), options: [.sortedKeys]), encoding: .utf8)!)
+            return
+        }
         var played: [WallpaperReference] = [], inspected: [WallpaperReference] = [], deleted: [[WallpaperReference]] = []
         var quickLook: [WallpaperReference] = []
         var factoryCalls = 0, hiddenCells = 0
@@ -280,6 +284,7 @@ private final class GridUnifiedToolbarProbe: NSObject, NSToolbarDelegate {
                 scrollOffset: offset, scrollAtTop: atTop, resetScroll: reset)
             window.contentView?.layoutSubtreeIfNeeded()
             controller.collection.layoutSubtreeIfNeeded()
+            WallpaperLibraryGridAnimationChecks.settleNativeChanges(controller)
             pump()
         }
         update()
@@ -361,6 +366,12 @@ private final class GridUnifiedToolbarProbe: NSObject, NSToolbarDelegate {
             window.sendEvent(event(.leftMouseDown, origin, time))
             pump()
         }
+        click(1)
+        checks["default-cover-click-only-selects-the-exact-reference-without-inspection-or-play"] = controller.selection.references == [values[1].reference]
+            && controller.selection.focusedReference == values[1].reference && inspected.isEmpty && played.isEmpty
+            && collection.selectionIndexPaths == [IndexPath(item: 1, section: 0)]
+        var opensDetailsOnClick = true
+        controller.opensDetailsOnSingleClick = { opensDetailsOnClick }
         click(0)
         checks["real-cover-click-selects-and-inspects-without-starting-playback"] = controller.selection.references == [values[0].reference]
             && inspected == [values[0].reference] && played.isEmpty
@@ -369,6 +380,14 @@ private final class GridUnifiedToolbarProbe: NSObject, NSToolbarDelegate {
         click(0, flags: .command)
         checks["command-click-retains-single-selection-and-native-selection-mirror"] = controller.selection.references == [values[0].reference]
             && collection.selectionIndexPaths == [IndexPath(item: 0, section: 0)]
+        opensDetailsOnClick = false
+        let beforeSelectionOnly = inspected.count
+        click(1)
+        checks["changing-click-preference-is-live-and-keeps-the-original-grid-and-playback-idle"] =
+            controller.selection.references == [values[1].reference] && controller.selection.focusedReference == values[1].reference
+            && inspected.count == beforeSelectionOnly && played.isEmpty && controller.collection === collection
+        opensDetailsOnClick = true
+        click(0)
         let inspectedBeforeBar = inspected.count
         click(0, button: true)
         checks["real-cell-button-consumes-its-click-without-detail-or-second-play"] = played == [values[0].reference]
@@ -412,7 +431,7 @@ private final class GridUnifiedToolbarProbe: NSObject, NSToolbarDelegate {
         click(0)
         click(1)
         checks["explicit-selection-mode-toggles-multiple-cards-without-inspector-or-play"] = controller.selection.references == [values[0].reference, values[1].reference]
-            && played.count == 2 && inspected.count == inspectedBeforeBar + 3
+            && played.count == 2 && inspected.count == inspectedBeforeBar
         checks["real-selection-mode-cover-click-takes-native-keyboard-responder-from-search"] = window.firstResponder === collection
         let hiddenBeforePan = hiddenCells, factoriesBeforePan = factoryCalls
         var sameSessionMetadataEchoes = 0
@@ -426,10 +445,10 @@ private final class GridUnifiedToolbarProbe: NSObject, NSToolbarDelegate {
         }
         pan(2, to: 6)
         checks["native-pan-adds-the-cover-rectangle-to-the-original-multiple-selection"] = controller.selection.references
-            == Set([0, 1, 2, 6, 7].map { values[$0].reference }) && played.count == 2 && inspected.count == inspectedBeforeBar + 3
+            == Set([0, 1, 2, 6, 7].map { values[$0].reference }) && played.count == 2 && inspected.count == inspectedBeforeBar
         pan(0, to: 6)
         checks["native-pan-from-a-selected-cover-subtracts-the-rectangle-without-opening-details"] = controller.selection.references
-            == Set([2, 7].map { values[$0].reference }) && played.count == 2 && inspected.count == inspectedBeforeBar + 3
+            == Set([2, 7].map { values[$0].reference }) && played.count == 2 && inspected.count == inspectedBeforeBar
         checks["same-session-metadata-echo-does-not-reset-native-pan-or-reload-cells"] = sameSessionMetadataEchoes > 0
             && !collection.cancelSelectionTracking && hiddenCells == hiddenBeforePan && factoryCalls == factoriesBeforePan
             && presentedTitles[values[0].reference] == metadataChange.title
@@ -618,6 +637,7 @@ private final class GridUnifiedToolbarProbe: NSObject, NSToolbarDelegate {
             let root = accessibilityRoot($0)
             return root.isAccessibilityElement() && root.accessibilityRole() == .group && root.accessibilityLabel() == values[$0].title
         }
+        opensDetailsOnClick = false
         let beforeAXInspections = inspected.count, beforeAXPlays = played.count
         let beforeAXSession = accessibilityRoot().onAccessibilityActivate!
         let singleAccepted = accessibilityRoot().accessibilityPerformPress()
@@ -914,7 +934,7 @@ private final class GridUnifiedToolbarProbe: NSObject, NSToolbarDelegate {
                 && unified.selection.focusedReference == values[target].reference
                 && keyboardSelections.count == priorSelection + 1 && keyboardSelections.last?.0 == [values[target].reference]
                 && keyboardSelections.last?.1 == values[target].reference
-                && keyboardInspections.count == priorInspect + 1 && keyboardInspections.last == values[target].reference
+                && keyboardInspections.count == priorInspect
                 && keyboardPlays.count == priorPlay
             checks["unified-keyboard-\(name)-reveals-whole-card-in-window-content-layout"] = afterRect.maxY <= layoutRect.maxY + 1
                 && afterRect.minY >= layoutRect.minY - 1
@@ -926,6 +946,47 @@ private final class GridUnifiedToolbarProbe: NSObject, NSToolbarDelegate {
         keyboardReveal("up-first-row-with-header", target: 0, up: true, header: NSView())
         FileHandle.standardError.write(Data("grid-stage real-header-start checks=\(checks.count)\n".utf8))
         WallpaperPlaylistHeaderChecks.run(grid: unified, window: unifiedWindow, values: values, settle: settleUnified, checks: &checks)
+        // The preceding zero-width case mounts a different controller in this
+        // same window. Restore the grid before observing real footer mounting.
+        unified.removeFromParent()
+        unified.view.translatesAutoresizingMaskIntoConstraints = true; unified.view.autoresizingMask = [.width, .height]
+        unified.view.frame = unifiedWindow.contentView?.bounds ?? .zero
+        unifiedWindow.contentViewController = unified; settleUnified()
+        let oldScrollFrame = unified.scrollView.frame
+        var footerSelection = WallpaperLibrarySelectionState()
+        footerSelection.focusedReference = values.first?.reference
+        func updateFooter(_ text: String?) {
+            unified.update(page: .wallhaven, items: Array(values.prefix(2)), selection: footerSelection,
+                preferredColumns: 5, permitsDragging: false, scrollAnchor: nil, scrollAtTop: true,
+                footerText: text)
+            settleUnified()
+        }
+        func logFooter(_ phase: String) {
+            let flow = unified.collection.collectionViewLayout as! NSCollectionViewFlowLayout
+            let facts: [String: Any] = ["phase": phase, "gridFrame": "\(unified.view.frame)", "scrollFrame": "\(unified.scrollView.frame)",
+                "viewport": "\(unified.scrollView.gridViewportRect)", "clip": "\(unified.scrollView.contentView.bounds)", "collection": "\(unified.collection.bounds)",
+                "sectionCount": unified.collection.numberOfSections, "itemCount": unified.items.count, "nativeItems": unified.collection.numberOfSections > 0 ? unified.collection.numberOfItems(inSection: 0) : 0,
+                "windowMounted": unified.view.window === unifiedWindow, "contentInsets": "\(unified.scrollView.contentInsets)", "itemSize": "\(flow.itemSize)",
+                "headerSize": "\(flow.headerReferenceSize)", "footerSize": "\(flow.footerReferenceSize)", "sectionInsets": "\(flow.sectionInset)",
+                "visibleIndices": unified.collection.indexPathsForVisibleItems().map(\.item).sorted(),
+                "firstCell": String(describing: unified.collection.item(at: IndexPath(item: 0, section: 0))?.view.frame),
+                "footers": unified.collection.visibleSupplementaryViews(ofKind: NSCollectionView.elementKindSectionFooter).map { "\($0.frame)" }]
+            let output = try! JSONSerialization.data(withJSONObject: facts, options: [.sortedKeys])
+            FileHandle.standardError.write(Data("footer-native \(String(decoding: output, as: UTF8.self))\n".utf8))
+        }
+        logFooter("remounted-before-page-change"); updateFooter("已加载 2 个作品"); logFooter("remote-loaded")
+        let footerPath = IndexPath(item: 0, section: 0)
+        let footer = unified.collection.supplementaryView(forElementKind: NSCollectionView.elementKindSectionFooter, at: footerPath)
+        let label = footer?.subviews.compactMap { $0 as? NSTextField }.first
+        let firstCell = unified.collection.item(at: IndexPath(item: 0, section: 0))
+        checks["remote-status-lives-after-cards-in-the-document-without-shrinking-viewport"] = unified.view.window === unifiedWindow && label?.stringValue == "已加载 2 个作品"
+            && firstCell.flatMap { cell in footer.map { $0.frame.minY >= cell.view.frame.maxY } } == true
+            && unified.scrollView.frame == oldScrollFrame && label?.alignment == .center
+        updateFooter("正在加载更多项目"); logFooter("remote-loading")
+        checks["remote-loading-status-updates-without-replacing-cards"] = firstCell != nil && label?.stringValue == "正在加载更多项目"
+            && unified.collection.item(at: IndexPath(item: 0, section: 0)) === firstCell
+        updateFooter(nil)
+        checks["local-page-retirement-removes-footer-geometry"] = (unified.collection.collectionViewLayout as? NSCollectionViewFlowLayout)?.footerReferenceSize.height == 0
         FileHandle.standardError.write(Data("grid-stage checks-complete count=\(checks.count)\n".utf8))
         let output = try! JSONSerialization.data(withJSONObject: checks, options: [.sortedKeys])
         print(String(data: output, encoding: .utf8)!)

@@ -15,6 +15,7 @@ nonisolated struct OnlineImageFixtureThumbnailRequest: Sendable {
     @Published var snapshot = OnlineImageLocalSnapshot()
     @Published var progress: [OnlineImageAssetID: Double] = [:]
     var root = URL(fileURLWithPath: "/fixture-owned-online-images", isDirectory: true)
+    var downloadRoots: [URL] { [root] }
     var requestLibraryPlayback: ((WallpaperReference) -> Void)?
     var captureApplyIntent: (() -> (() -> Bool))?
     var isFileInUse: ((String) -> Bool)?
@@ -27,6 +28,33 @@ nonisolated struct OnlineImageFixtureThumbnailRequest: Sendable {
     var thumbnailRequests: [OnlineImageFixtureThumbnailRequest] = []
     var downloads: [OnlineImageAssetID] = []
     var downloadApplyFlags: [Bool] = []
+    var detailRequests: [OnlineImageArtwork] = []
+    var assetRequests: [OnlineImageArtwork] = []
+    var detailResolver: ((OnlineImageArtwork) async throws -> OnlineImageArtwork)?
+    var assetResolver: ((OnlineImageArtwork) async throws -> [OnlineImageAsset])?
+    var originalFetcher: ((OnlineImageAsset, URL) async throws -> Void)?
+    var refresh: (() async -> Void)?
+    var previewPreparation: (() async -> Void)?
+
+    func detail(_ artwork: OnlineImageArtwork) async throws -> OnlineImageArtwork {
+        detailRequests.append(artwork)
+        return try await detailResolver?(artwork) ?? artwork
+    }
+    func assets(for artwork: OnlineImageArtwork) async throws -> [OnlineImageAsset] {
+        assetRequests.append(artwork)
+        return try await assetResolver?(artwork) ?? []
+    }
+    func preparePixiv() async { await previewPreparation?() }
+    func prepareWallhaven() async {}
+    func cachedOriginalPreviewURL(for id: OnlineImageAssetID) async -> URL? { nil }
+    func originalPreviewURL(_ asset: OnlineImageAsset) async throws -> URL {
+        let ext = asset.originalURL.pathExtension
+        let url = FileManager.default.temporaryDirectory.appendingPathComponent("fixture-original-\(UUID().uuidString)")
+            .appendingPathExtension(ext.isEmpty ? "img" : ext)
+        guard let originalFetcher else { throw OnlineImageError.unsupported }
+        do { try await originalFetcher(asset, url); try Task.checkCancellation(); return url }
+        catch { try? FileManager.default.removeItem(at: url); throw error }
+    }
 
     func requestScope(_ source: OnlineImageSource) -> String { scopes[source] ?? source.rawValue }
     func thumbnailRequest(url: URL, source: OnlineImageSource) -> OnlineImageFixtureThumbnailRequest {
@@ -39,7 +67,11 @@ nonisolated struct OnlineImageFixtureThumbnailRequest: Sendable {
         downloadApplyFlags.append(apply)
     }
     func download(_ asset: OnlineImageAsset, apply: Bool = false) { downloads.append(asset.id); downloadApplyFlags.append(apply) }
-    func refreshLocal() { refreshes += 1 }
+    @discardableResult func refreshLocal() -> Task<Void, Never> {
+        refreshes += 1
+        let refresh = refresh
+        return Task { await refresh?() }
+    }
     func record(for reference: WallpaperReference) -> OnlineImageLocalRecord? {
         snapshot.records.first { $0.assetID.reference == reference }
     }

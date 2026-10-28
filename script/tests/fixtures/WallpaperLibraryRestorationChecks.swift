@@ -23,7 +23,7 @@
     restore?(); await settle()
     let bytes = try Data(contentsOf: url)
     checks["restore-existing-download-has-a-real-command-with-no-transfer-or-playback"] = restore != nil && !hidden()
-        && bytes == Data([9, 8, 7]) && commands!.steam.requested.isEmpty && commands!.online.requested.isEmpty
+        && bytes == Data([9, 8, 7]) && commands!.steam.requested.isEmpty && commands!.pixabay.requested.isEmpty
         && workspace.presentation.queryResult.items.map(\.reference) == [ref]
     try await collections.perform(.setLibraryExcluded([ref], true))
     let held = commands!.makeRestoreLibraryAction(for: item)

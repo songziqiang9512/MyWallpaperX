@@ -4,6 +4,7 @@ import pathlib
 import subprocess
 import tempfile
 import unittest
+from script.tests.test_ui_library_algorithms import declaration
 
 ROOT = pathlib.Path(__file__).resolve().parents[2]
 UI = ROOT / 'MyWallpaperX/Modules/SteamWorkshop/UI'
@@ -11,58 +12,15 @@ UI = ROOT / 'MyWallpaperX/Modules/SteamWorkshop/UI'
 
 class SteamAppKitInteractionTests(unittest.TestCase):
     def test_hit_routing_and_popover_geometry(self):
-        source = (UI / 'SteamWorkshopDownloadTasksPopover.swift').read_text()
-        layout = source[source.index('    override func loadView()'):source.index('    func startObserving()')]
-        row_source = source[source.index('final class SteamWorkshopDownloadRowView:'):]
-        row_init = row_source[row_source.index('    init(service:'):row_source.index('    @available')]
         harness = r'''
 import AppKit
+import Combine
 @MainActor enum UIInteractionAnimation { static let minimumPressVisualDuration: TimeInterval = 0 }
-@MainActor final class SteamWorkshopService {}
-@MainActor enum SteamWorkshopDownloadTasksPopoverController {
-    static let panelSize = NSSize(width: 400, height: 460)
-}
-final class FlippedView: NSView { override var isFlipped: Bool { true } }
 final class WallpaperCardGlassBarView: NSView {
     func setProgressAnimationVisible(_ visible: Bool) {}
 }
-@MainActor final class LayoutController: NSViewController {
-    let countLabel = NSTextField(labelWithString: "3 项")
-    let clearAllButton = NSButton(title: "全部清除", target: nil, action: nil)
-    // 2305fea3 的批量重试给弹窗布局加了该按钮（真实声明在 TasksPopover:57），
-    // 本桩类需同名成员才能编译抽取的 loadView。
-    let retryAllFailedButton = NSButton(title: "重试全部失败", target: nil, action: nil)
-    let emptyLabel = NSTextField(labelWithString: "")
-    let scrollView = NSScrollView()
-    let documentView = FlippedView()
-    let rowsStack = NSStackView()
-    @objc func handleClearAll() {}
-    @objc func handleRetryAllFailed() {}
-''' + layout + r'''
-}
-@MainActor final class Row: NSView {
-    let service: SteamWorkshopService
-    let onCleared: () -> Void
-    let thumbnailView = NSImageView()
-    let titleLabel = NSTextField(labelWithString: "")
-    let statusLabel = NSTextField(labelWithString: "")
-    let progressBar = NSLevelIndicator()
-    let retryButton = NSButton(title: "重试", target: nil, action: nil)
-    let actionsStack = NSStackView()
-    @objc func handleRetry() {}
-    // 2305fea3 的暂停/继续与插队（优先下载）键：抽取的行初始化与状态刷新
-    // 引用这些成员与动作，桩保持无操作。
-    let pauseButton = NSButton(title: "暂停", target: nil, action: nil)
-    @objc func handlePauseToggle() {}
-    var pauseHandler: (() -> Void)?
-    let promoteButton = NSButton(title: "优先", target: nil, action: nil)
-    @objc func handlePromote() {}
-    var promoteHandler: (() -> Void)?
-    let clearButton = NSButton(title: "", target: nil, action: nil)
-    @objc func handleClear() {}
-    required init?(coder: NSCoder) { nil }
-''' + row_init + r'''
-}
+// ACTUAL_SCROLL_DISMISSAL
+protocol ToolbarGridScrollDismissalSurface {}
 final class TestItem: NSCollectionViewItem {
     override func loadView() { view = NSView(frame: NSRect(x: 0, y: 0, width: 150, height: 150)) }
 }
@@ -71,27 +29,112 @@ final class TestItem: NSCollectionViewItem {
         _ = NSApplication.shared
         let window = NSWindow(contentRect: NSRect(x: 0, y: 0, width: 600, height: 600),
                               styleMask: [.titled], backing: .buffered, defer: false)
-        let controller = LayoutController()
+        do {
+            let lifecycleChanges = PassthroughSubject<Void, Never>()
+            var value = DownloadTaskSnapshot()
+            let lifecycle = DownloadTasksContentController(snapshot: { value },
+                changes: lifecycleChanges.eraseToAnyPublisher(), bindings: .init(perform: { _, _ in }),
+                retryAllFailed: nil, clearHistory: nil)
+            window.contentView = lifecycle.view
+            window.setContentSize(NSSize(width: 400, height: 460))
+            lifecycle.startObserving()
+            lifecycle.view.layoutSubtreeIfNeeded()
+            precondition(lifecycle.rowsStack.arrangedSubviews.isEmpty && !lifecycle.emptyLabel.isHidden,
+                "a first empty presentation must load without installing cross-hierarchy constraints")
+            func widths(_ child: NSView) -> [NSLayoutConstraint] {
+                lifecycle.rowsStack.constraints.filter {
+                    $0.isActive && ($0.firstItem as? NSView) === child && $0.firstAttribute == .width
+                        && ($0.secondItem as? NSView) === lifecycle.rowsStack && $0.secondAttribute == .width
+                        && $0.relation == .equal && $0.multiplier == 1 && $0.constant == 0
+                }
+            }
+            func widthReceipt(_ child: NSView) -> String {
+                let stack = lifecycle.rowsStack
+                let candidates = stack.constraints.filter {
+                    ($0.firstItem as? NSView) === child && $0.firstAttribute == .width
+                        && ($0.secondItem as? NSView) === stack && $0.secondAttribute == .width
+                }.map {
+                    "\($0), active=\($0.isActive), relation=\($0.relation), multiplier=\($0.multiplier), constant=\($0.constant), priority=\($0.priority.rawValue)"
+                }
+                return "child=\(type(of: child)), mounted=\(child.superview === stack), frame=\(child.frame), bounds=\(child.bounds), "
+                    + "alignment=\(child.alignmentRect(forFrame: child.frame)), stackFrame=\(stack.frame), stackBounds=\(stack.bounds), "
+                    + "stackAlignment=\(stack.alignmentRect(forFrame: stack.frame)), effectiveWidths=\(widths(child).count), candidates=\(candidates)"
+            }
+            func layout() { lifecycle.view.layoutSubtreeIfNeeded() }
+            func rows() -> [DownloadTaskRowView] {
+                lifecycle.rowsStack.arrangedSubviews.compactMap { $0 as? DownloadTaskRowView }
+            }
+            let first = DownloadTaskRow(id: .init(reference: .init(provider: .pixabay, sourceID: "first"), attemptID: "layout"),
+                title: "First", phase: .transferring)
+            let second = DownloadTaskRow(id: .init(reference: .init(provider: .wallhaven, sourceID: "second"), attemptID: "layout"),
+                title: "Second", phase: .transferring)
+            value.active = [first, second]; value.notice = "下载历史暂不可用，请稍后重试。"
+            lifecycleChanges.send(); layout()
+            let mounted = rows(), notice = lifecycle.noticeLabel
+            precondition(mounted.count == 2 && notice.superview === lifecycle.rowsStack)
+            for child in [notice as NSView] + mounted.map({ $0 as NSView }) {
+                let childAlignment = child.alignmentRect(forFrame: child.frame)
+                let stackAlignment = lifecycle.rowsStack.alignmentRect(forFrame: lifecycle.rowsStack.frame)
+                precondition(widths(child).count == 1 && abs(childAlignment.width - stackAlignment.width) <= 0.5,
+                    "notice and rows must install one effective full-width constraint after joining the native stack: " + widthReceipt(child))
+            }
+            value.active = [second, first]
+            lifecycleChanges.send(); layout()
+            precondition(rows()[0] === mounted[1] && rows()[1] === mounted[0],
+                "queue reorder must move existing native rows rather than rebuilding them")
+            precondition(widths(notice).count == 1 && mounted.allSatisfy { widths($0).count == 1 },
+                "reordering retained views cannot add duplicate width constraints: " + widthReceipt(notice)
+                    + " rows=" + mounted.map { widthReceipt($0) }.joined(separator: " | "))
+            value.active = [second]; value.notice = nil
+            lifecycleChanges.send(); layout()
+            precondition(notice.superview == nil && mounted[0].superview == nil && mounted[0].displayedTask == nil,
+                "removed notices and rows must leave the real view hierarchy and release their consumers")
+            value.active = [first, second]; value.notice = "下载历史仍不可用。"
+            lifecycleChanges.send(); layout()
+            precondition(rows().count == 2 && rows()[0] !== mounted[0] && rows()[1] === mounted[1]
+                && notice.superview === lifecycle.rowsStack && notice.stringValue == "下载历史仍不可用。",
+                "restoring a notice and a removed task must mount the current values while retaining the live row")
+            precondition(widths(notice).count == 1 && rows().allSatisfy { widths($0).count == 1 },
+                "a real reinstallation must restore one width constraint without reviving removed constraints: " + widthReceipt(notice)
+                    + " rows=" + rows().map { widthReceipt($0) }.joined(separator: " | "))
+            lifecycle.stopObserving()
+            lifecycle.startObserving(); layout()
+            precondition(widths(notice).count == 1 && rows().allSatisfy { widths($0).count == 1 },
+                "closing and reopening the same content controller must preserve valid native constraints: " + widthReceipt(notice)
+                    + " rows=" + rows().map { widthReceipt($0) }.joined(separator: " | "))
+            lifecycle.stopObserving()
+        }
+        let changes = PassthroughSubject<Void, Never>()
+        var structureSubscriptions = 0, retriedAll = 0, clearedHistory = 0
+        let observedChanges = changes.handleEvents(receiveSubscription: { _ in structureSubscriptions += 1 },
+            receiveCancel: { structureSubscriptions -= 1 }).eraseToAnyPublisher()
+        var rows = (0..<3).map { index in
+            DownloadTaskRow(id: .init(reference: .init(provider: .steamWorkshop, sourceID: String(index)), attemptID: "layout"),
+                title: ["雨夜城市 · 霓虹倒影", "星际漫游 · 已完成", "山谷晨雾 · 下载失败"][index],
+                phase: [DownloadTaskPhase.transferring, .completed, .failed][index],
+                statusText: ["下载中 48% · 24 MB / 50 MB", "已完成 · 今天 10:32", "网络连接中断，请重试"][index],
+                progress: .init(phase: [.transferring, .completed, .failed][index], fraction: [0.48, 1.0, 0.0][index]),
+                actions: index == 2 ? [.retry] : [])
+        }
+        let controller = DownloadTasksContentController(snapshot: { DownloadTaskProjection.snapshot(current: rows, history: []) },
+            changes: observedChanges, bindings: .init(perform: { _, _ in }),
+            retryAllFailed: { _ in retriedAll += 1 }, clearHistory: { clearedHistory += 1 })
         window.contentView = controller.view
+        controller.startObserving()
+        controller.startObserving()
+        precondition(structureSubscriptions == 1, "opening an existing panel cannot duplicate its subscriptions")
         window.setContentSize(NSSize(width: 400, height: 460))
         controller.view.layoutSubtreeIfNeeded()
         precondition(controller.view.fittingSize == NSSize(width: 400, height: 460))
-        precondition(controller.clearAllButton.frame.maxX <= 384)
+        precondition(controller.clearButton.frame.maxX <= 384)
         precondition(controller.scrollView.frame.height > 350)
-        for index in 0..<3 {
-            let row = Row(service: SteamWorkshopService(), onCleared: {})
-            controller.rowsStack.addArrangedSubview(row)
-            row.widthAnchor.constraint(equalTo: controller.rowsStack.widthAnchor).isActive = true
-            row.titleLabel.stringValue = ["雨夜城市 · 霓虹倒影", "星际漫游 · 已完成", "山谷晨雾 · 下载失败"][index]
-            row.statusLabel.stringValue = ["下载中 48% · 24 MB / 50 MB", "已完成 · 今天 10:32", "网络连接中断，请重试"][index]
-            row.statusLabel.textColor = index == 2 ? .systemRed : .secondaryLabelColor
-            row.progressBar.doubleValue = [0.48, 1.0, 0.0][index]
-            row.retryButton.isHidden = index != 2
-        }
         controller.view.layoutSubtreeIfNeeded()
         precondition(controller.view.fittingSize == NSSize(width: 400, height: 460), "long titles must not enlarge queue")
-        for view in controller.rowsStack.arrangedSubviews {
-            let row = view as! Row
+        let nativeRows = controller.rowsStack.arrangedSubviews.compactMap { $0 as? DownloadTaskRowView }
+        precondition(nativeRows.count == 3)
+        precondition(nativeRows[0].buttons[.retry] == nil && nativeRows[1].buttons[.retry] == nil
+            && nativeRows[2].buttons[.retry]?.isHidden == false, "only a real retry capability creates a retry control")
+        for row in nativeRows {
             precondition(row.bounds.height == 76)
             precondition(row.progressBar.bounds.width > 200)
             precondition(!row.titleLabel.stringValue.isEmpty)
@@ -116,9 +159,60 @@ final class TestItem: NSCollectionViewItem {
             let output = NSBitmapImageRep(data: flattened.tiffRepresentation!)!
             try! output.representation(using: .png, properties: [:])!.write(to: URL(fileURLWithPath: path))
         }
-        (controller.rowsStack.arrangedSubviews[0] as! Row).titleLabel.stringValue = String(repeating: "Long wallpaper title ", count: 40)
+        rows[0] = DownloadTaskRow(id: rows[0].id, title: String(repeating: "Long wallpaper title ", count: 40), phase: .transferring)
+        changes.send()
         controller.view.layoutSubtreeIfNeeded()
         precondition(controller.view.fittingSize == NSSize(width: 400, height: 460))
+        controller.retryButton.performClick(nil)
+        controller.clearButton.performClick(nil)
+        precondition(retriedAll == 1 && clearedHistory == 1, "bulk actions dispatch directly without creating a second queue or confirmation")
+        rows = [WallpaperProvider.steamWorkshop, .pixabay, .wallhaven, .pixiv].map { provider in
+            .init(id: .init(reference: .init(provider: provider, sourceID: "7"), attemptID: "local"),
+                  title: provider.rawValue, phase: .completed, actions: [.removeHistory])
+        }
+        changes.send()
+        precondition(controller.rowsStack.arrangedSubviews.compactMap { $0 as? DownloadTaskRowView }.count == 4,
+            "the native local-history panel admits all four equal source IDs without an account or source filter")
+        controller.stopObserving()
+        precondition(structureSubscriptions == 0 && controller.rowsStack.arrangedSubviews.isEmpty)
+        changes.send()
+        precondition(controller.rowsStack.arrangedSubviews.isEmpty, "closed panel must not consume source updates")
+        controller.startObserving()
+        precondition(structureSubscriptions == 1 && controller.rowsStack.arrangedSubviews.compactMap { $0 as? DownloadTaskRowView }.count == 4)
+        controller.stopObserving()
+        precondition(structureSubscriptions == 0)
+
+        var thumbnailLoads = 0, thumbnailCancels = 0, progressCancels = 0
+        var progressDelivery: ((DownloadTaskProgress) -> Void)?
+        var lateThumbnail: ((NSImage?) -> Void)?
+        let firstImage = NSImage(size: NSSize(width: 8, height: 8)), nextImage = NSImage(size: NSSize(width: 9, height: 9))
+        let firstID = DownloadTaskIdentity(reference: .init(provider: .steamWorkshop, sourceID: "lease"), attemptID: "1")
+        let nextID = DownloadTaskIdentity(reference: .init(provider: .steamWorkshop, sourceID: "lease"), attemptID: "2")
+        let leaseRow = DownloadTaskRowView(bindings: .init(perform: { _, _ in }, loadThumbnail: { row, receive in
+            thumbnailLoads += 1
+            if row.id == firstID { lateThumbnail = receive; receive(firstImage) } else { receive(nextImage) }
+            return { thumbnailCancels += 1 }
+        }, observeProgress: { _, receive in
+            progressDelivery = receive
+            return { progressCancels += 1 }
+        }))
+        let firstValue = DownloadTaskRow(id: firstID, title: "lease", phase: .transferring, thumbnailKey: "first")
+        leaseRow.configure(firstValue)
+        progressDelivery?(.init(phase: .transferring, fraction: 0.1, verifiedBytes: 100, totalBytes: 10000, sequence: 1))
+        RunLoop.current.run(until: Date().addingTimeInterval(0.12))
+        progressDelivery?(.init(phase: .transferring, fraction: 0.3, verifiedBytes: 3000, totalBytes: 10000, sequence: 2))
+        precondition(leaseRow.statusLabel.stringValue.contains("/s"), "a live row keeps byte speed sampling")
+        let speedText = leaseRow.statusLabel.stringValue
+        leaseRow.configure(firstValue)
+        precondition(thumbnailLoads == 1 && thumbnailCancels == 0 && progressCancels == 0
+            && leaseRow.thumbnailView.image === firstImage && leaseRow.statusLabel.stringValue == speedText,
+            "same-attempt echo retains warm pixels, progress lease and its speed sample")
+        leaseRow.configure(.init(id: nextID, title: "next", phase: .transferring, thumbnailKey: "next"))
+        lateThumbnail?(firstImage)
+        precondition(leaseRow.thumbnailView.image === nextImage && thumbnailCancels == 1 && progressCancels == 1,
+            "reused row cancels only its old leases and cannot accept old-attempt pixels")
+        leaseRow.unbind()
+        precondition(thumbnailCancels == 2 && progressCancels == 2)
         window.orderOut(nil)
         let collection = SteamWorkshopKeyboardCollectionView(frame: NSRect(x: 0, y: 0, width: 300, height: 200))
         collection.isSelectable = false
@@ -144,13 +238,14 @@ final class TestItem: NSCollectionViewItem {
         cards.layoutSubtreeIfNeeded()
         RunLoop.current.run(until: Date().addingTimeInterval(0.05))
         var opened: [IndexPath] = []
+        var clickCounts: [Int] = []
         var backgroundClicks = 0
-        cards.primaryClickHandler = { opened.append($0); return true }
+        cards.primaryClickHandler = { path, clickCount in opened.append(path); clickCounts.append(clickCount); return true }
         cards.onBackgroundLeftClick = { backgroundClicks += 1 }
-        func event(_ type: NSEvent.EventType, _ point: NSPoint) -> NSEvent {
+        func event(_ type: NSEvent.EventType, _ point: NSPoint, clickCount: Int = 1) -> NSEvent {
             NSEvent.mouseEvent(with: type, location: cards.convert(point, to: nil),
                 modifierFlags: [], timestamp: 0, windowNumber: window.windowNumber,
-                context: nil, eventNumber: 1, clickCount: 1, pressure: 1)!
+                context: nil, eventNumber: 1, clickCount: clickCount, pressure: 1)!
         }
         func center(_ index: Int) -> NSPoint {
             let frame = layout.layoutAttributesForItem(at: IndexPath(item: index, section: 0))!.frame
@@ -176,6 +271,10 @@ final class TestItem: NSCollectionViewItem {
         cards.contextMenuProvider = { menuPath = $0; return nil }
         _ = cards.menu(for: event(.rightMouseDown, center(2)))
         precondition(menuPath == IndexPath(item: 2, section: 0))
+        cards.mouseDown(with: event(.leftMouseDown, center(0), clickCount: 2))
+        cards.mouseUp(with: event(.leftMouseUp, center(0), clickCount: 2))
+        precondition(opened.count == 4 && opened.last == IndexPath(item: 0, section: 0)
+            && clickCounts == [1, 1, 1, 2], "the real mouse release must forward its original click count once")
         withExtendedLifetime(dataSource) {}
         print("AppKit hit routing and queue geometry PASS")
     }
@@ -183,11 +282,32 @@ final class TestItem: NSCollectionViewItem {
 '''
         with tempfile.TemporaryDirectory(prefix='mwx-steam-appkit-', dir='/private/tmp') as folder:
             folder = pathlib.Path(folder)
+            shared = (ROOT / 'MyWallpaperX/Shared/UI/ToolbarMenuPopover.swift').read_text()
+            harness = harness.replace('// ACTUAL_SCROLL_DISMISSAL', '@MainActor\n' + declaration(shared, 'final class ToolbarPopoverScrollDismissal:'))
+            sources = [ROOT / 'MyWallpaperX' / name for name in (
+                'Models/WallpaperReference.swift', 'Models/DownloadTask.swift',
+                'Shared/UI/WallpaperGridScrollView.swift',
+                'Modules/Downloads/Core/DownloadTaskProjection.swift')]
+            for name, exposed in {
+                'DownloadTaskRowView.swift': ['thumbnailView', 'titleLabel', 'statusLabel', 'progressBar'],
+                'DownloadTasksPopover.swift': ['retryButton', 'clearButton', 'scrollView', 'rowsStack', 'emptyLabel', 'noticeLabel'],
+            }.items():
+                text = (ROOT / 'MyWallpaperX/Modules/Downloads/UI' / name).read_text()
+                for field in exposed:
+                    marker = 'private let ' + field + ' ='
+                    self.assertEqual(text.count(marker), 1)
+                    text = text.replace(marker, 'let ' + field + ' =', 1)
+                if name == 'DownloadTaskRowView.swift':
+                    self.assertEqual(text.count('private var buttons:'), 1)
+                    text = text.replace('private var buttons:', 'var buttons:', 1)
+                frozen = folder / name
+                frozen.write_text(text)
+                sources.append(frozen)
             path = folder / 'Harness.swift'
             path.write_text(harness)
             binary = folder / 'harness'
             result = subprocess.run(['xcrun', 'swiftc', '-parse-as-library',
-                str(UI / 'SteamWorkshopKeyboardCollectionView.swift'), str(path), '-o', str(binary)],
+                str(UI / 'SteamWorkshopKeyboardCollectionView.swift'), *map(str, sources), str(path), '-o', str(binary)],
                 capture_output=True, text=True, timeout=90)
             self.assertEqual(result.returncode, 0, result.stdout + result.stderr)
             result = subprocess.run([str(binary)], capture_output=True, text=True, timeout=30)

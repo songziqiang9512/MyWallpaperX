@@ -8,17 +8,19 @@ final class OnlineImageGridItem: WallpaperCardCollectionViewItem, WallpaperGridH
     private let placeholder = NSTextField(labelWithString: "")
     private let outline = NSView()
     private var bar: WallpaperCardControlsView?
+    private var originalPreviewOverlay: NSView?
+    private var originalPreviewSpinner: NSProgressIndicator?
+    private var originalPreviewLoading = false
     private let badge = NSTextField(labelWithString: "")
     private let hover = WallpaperGridHoverTracking()
     private let localThumbnails = SILThumbnailProvider()
     private var content: WallpaperContentItem?
-    private var request: OLThumbnailRequest?
+    private var request: OnlineImageThumbnailRequest?
     private var visible = false, hovering = false, selecting = false, playing = false, busy = false
-    private var cardSelected = false, switching = false, favorite = false
+    private var cardSelected = false, switching = false
     private var fraction: Double?
     private var onPrimary: (() -> Void)?
-    private var onFavorite: (() -> Void)?
-    private var onPreview: (() -> Void)?
+    private var onInspect: (() -> Void)?
     private var barVisibilityRevision: UInt64 = 0
     private var lastLayoutSize: NSSize?
     private var lastChrome: Chrome?
@@ -40,6 +42,7 @@ final class OnlineImageGridItem: WallpaperCardCollectionViewItem, WallpaperGridH
 
     override func loadView() {
         view = WallpaperCardInteractionView()
+        view.clipsToBounds = false
         surface.wantsLayer = true
         surface.layer?.cornerRadius = 14; surface.layer?.masksToBounds = true
         surface.layer?.borderWidth = 0.8
@@ -64,10 +67,13 @@ final class OnlineImageGridItem: WallpaperCardCollectionViewItem, WallpaperGridH
 
     override func prepareForReuse() {
         super.prepareForReuse()
+        setOriginalPreviewLoading(false)
         retireRequest(); content = nil; request = nil; pixelLimit = 0; hasFailed = false
         thumbnail.image = nil; visible = false; hovering = false
         cardSelected = false; selecting = false; switching = false; playing = false; busy = false
-        onPrimary = nil; onFavorite = nil; onPreview = nil; bar?.onPreview = nil
+        onPrimary = nil; onInspect = nil
+        bar?.onPlay = nil; bar?.onInspect = nil
+        bar?.detailButton.isEnabled = false; bar?.playButton.isEnabled = false
         fraction = nil; lastLayoutSize = nil; lastChrome = nil
         barVisibilityRevision &+= 1
         bar?.setActive(false)
@@ -75,9 +81,9 @@ final class OnlineImageGridItem: WallpaperCardCollectionViewItem, WallpaperGridH
         updateAppearance()
     }
 
-    func configure(content: WallpaperContentItem, request: OLThumbnailRequest?, selected: Bool, selecting: Bool,
-                   favorite: Bool, playing: Bool, switching: Bool = false, busy: Bool = false, fraction: Double? = nil, refreshToken: UUID? = nil,
-                   onPrimary: (() -> Void)?, onFavorite: (() -> Void)?, onPreview: (() -> Void)? = nil) {
+    func configure(content: WallpaperContentItem, request: OnlineImageThumbnailRequest?, selected: Bool, selecting: Bool,
+                   playing: Bool, switching: Bool = false, busy: Bool = false, fraction: Double? = nil, refreshToken: UUID? = nil,
+                   onPrimary: (() -> Void)?, onInspect: (() -> Void)?) {
         loadViewIfNeeded()
         let changed = self.content?.providerReference != content.providerReference
             || self.content?.metadata.resourceRevision != content.metadata.resourceRevision
@@ -88,9 +94,8 @@ final class OnlineImageGridItem: WallpaperCardCollectionViewItem, WallpaperGridH
         self.refreshToken = refreshToken
         self.content = content; self.request = request
         self.selecting = selecting; self.playing = playing; self.switching = switching
-        self.cardSelected = selected; self.favorite = favorite
-        self.onPrimary = onPrimary; self.onFavorite = onFavorite
-        self.onPreview = onPreview
+        self.cardSelected = selected
+        self.onPrimary = onPrimary; self.onInspect = onInspect
         view.setAccessibilityElement(true); view.setAccessibilityRole(.group)
         view.setAccessibilityLabel(content.title)
         updateControls()
@@ -99,7 +104,7 @@ final class OnlineImageGridItem: WallpaperCardCollectionViewItem, WallpaperGridH
         updateAppearance()
         if changed {
             retireRequest(); if mustClear { thumbnail.image = nil }; pixelLimit = 0; hasFailed = false
-            placeholder.stringValue = ""; loadThumbnail()
+            placeholder.stringValue = thumbnail.image == nil ? "加载中" : ""; loadThumbnail()
         } else if explicitRefresh, hasFailed {
             hasFailed = false; pixelLimit = 0; loadThumbnail()
         }
@@ -109,9 +114,7 @@ final class OnlineImageGridItem: WallpaperCardCollectionViewItem, WallpaperGridH
     func applyTransfer(busy: Bool, fraction: Double?) {
         guard self.busy != busy || self.fraction != fraction else { return }
         self.busy = busy; self.fraction = fraction
-        bar?.playButton.isEnabled = onPrimary != nil && !busy && !switching
-        bar?.glass.applyProgress(style: busy ? .downloading : .neutral, fraction: busy ? fraction : nil,
-            indeterminate: busy && fraction == nil, animated: false)
+        updateControls()
         updateVisibility()
     }
 
@@ -120,6 +123,7 @@ final class OnlineImageGridItem: WallpaperCardCollectionViewItem, WallpaperGridH
         visible = value
         if value { loadThumbnail() }
         else { retireRequest(); hovering = false; updateAppearance() }
+        updateOriginalPreview()
         updateVisibility()
     }
 
@@ -133,9 +137,37 @@ final class OnlineImageGridItem: WallpaperCardCollectionViewItem, WallpaperGridH
             placeholder.frame = .init(x: 8, y: surface.bounds.midY - 10, width: max(0, surface.bounds.width - 16), height: 20)
             badge.frame = .init(x: surface.bounds.midX - 12, y: surface.bounds.midY - 12, width: 24, height: 24)
             layoutImage()
+            originalPreviewOverlay?.frame = surface.bounds
+            originalPreviewSpinner?.frame = .init(x: surface.bounds.midX - 14, y: surface.bounds.midY - 14, width: 28, height: 28)
         }
         refreshGridHover(isScrolling: view.isGridHoverSuppressed)
         if visible, task == nil, cancellation == nil, !hasFailed { loadThumbnail() }
+    }
+
+    func setOriginalPreviewLoading(_ value: Bool) {
+        guard originalPreviewLoading != value else { return }
+        originalPreviewLoading = value
+        updateOriginalPreview()
+    }
+
+    private func updateOriginalPreview() {
+        let show = visible && originalPreviewLoading
+        if show, originalPreviewOverlay == nil {
+            let overlay = OnlineImagePreviewLoadingOverlay()
+            overlay.wantsLayer = true
+            overlay.layer?.backgroundColor = NSColor.black.withAlphaComponent(0.3).cgColor
+            let spinner = NSProgressIndicator()
+            spinner.style = .spinning; spinner.controlSize = .regular
+            spinner.appearance = NSAppearance(named: .darkAqua)
+            overlay.addSubview(spinner)
+            surface.addSubview(overlay, positioned: .above, relativeTo: thumbnail)
+            originalPreviewOverlay = overlay; originalPreviewSpinner = spinner
+            overlay.frame = surface.bounds
+            spinner.frame = .init(x: surface.bounds.midX - 14, y: surface.bounds.midY - 14, width: 28, height: 28)
+        }
+        originalPreviewOverlay?.isHidden = !show
+        if show { originalPreviewSpinner?.startAnimation(nil) }
+        else { originalPreviewSpinner?.stopAnimation(nil) }
     }
 
     private func layoutImage() {
@@ -149,6 +181,7 @@ final class OnlineImageGridItem: WallpaperCardCollectionViewItem, WallpaperGridH
     private func loadThumbnail() {
         guard visible, task == nil, cancellation == nil, !hasFailed, let content else { return }
         let id = UUID(); requestID = id
+        if thumbnail.image == nil { placeholder.stringValue = "加载中" }
         if content.publishedAvailability.isAvailable, let path = content.locator.path {
             guard thumbnail.image == nil || pixelLimit == 0 else { return }
             pixelLimit = 800
@@ -162,10 +195,10 @@ final class OnlineImageGridItem: WallpaperCardCollectionViewItem, WallpaperGridH
             let wanted = GridThumbnailDecoder.pixelLimit(width: view.bounds.width, scale: view.window?.backingScaleFactor ?? 2)
             guard thumbnail.image == nil || wanted > pixelLimit else { return }
             pixelLimit = wanted
-            if let image = OLThumbnailCache.shared.readyImage(for: request, maxPixelSize: pixelLimit) { receive(image); return }
+            if let image = OnlineImageThumbnailCache.shared.readyImage(for: request, maxPixelSize: pixelLimit) { receive(image); return }
             let pixels = pixelLimit
             task = Task { [weak self] in
-                let image = await OLThumbnailCache.shared.image(for: request, maxPixelSize: pixels, priority: .visible)
+                let image = await OnlineImageThumbnailCache.shared.image(for: request, maxPixelSize: pixels, priority: .visible)
                 guard let self, !Task.isCancelled, requestID == id else { return }
                 task = nil; receive(image)
             }
@@ -186,7 +219,10 @@ final class OnlineImageGridItem: WallpaperCardCollectionViewItem, WallpaperGridH
     func refreshGridHover(isScrolling: Bool) {
         hover.update(in: surface, owner: self, isScrolling: isScrolling)
         let value = !isScrolling && view.isGridPointerInside
-        guard hovering != value else { return }
+        guard hovering != value else {
+            surface.applyGridHoverScale(value, animated: false)
+            return
+        }
         hovering = value; updateAppearance(); updateVisibility()
     }
     override func mouseEntered(with event: NSEvent) {
@@ -227,16 +263,6 @@ final class OnlineImageGridItem: WallpaperCardCollectionViewItem, WallpaperGridH
         guard bar == nil else { return }
         let bar = WallpaperCardControlsView()
         self.bar = bar
-        bar.onPlay = { [weak self] in
-            guard let self, visible, !selecting, !busy, !switching,
-                  WallpaperLibrarySheetPresentation.permitsInput(in: view.window) else { return }
-            onPrimary?()
-        }
-        bar.onFavorite = { [weak self] in
-            guard let self, visible, !selecting,
-                  WallpaperLibrarySheetPresentation.permitsInput(in: view.window) else { return }
-            onFavorite?()
-        }
         layoutControls(); updateControls()
     }
 
@@ -251,20 +277,31 @@ final class OnlineImageGridItem: WallpaperCardCollectionViewItem, WallpaperGridH
     private func updateControls() {
         guard let bar, let content else { return }
         bar.apply(title: content.title, metadata: [content.metadata.author, content.metadata.resolutionText].compactMap { $0 }.joined(separator: "  "))
-        bar.isFavorite = favorite
-        bar.primaryState = switching ? .switching : content.publishedAvailability.isAvailable ? (playing ? .applied : .apply) : .download
-        bar.playButton.isEnabled = onPrimary != nil && !busy && !switching
-        bar.favoriteButton.isHidden = onFavorite == nil
-        bar.onPreview = onPreview == nil ? nil : { [weak self] in
-            guard let self, visible, !selecting,
+        bar.primaryState = switching ? .switching : playing ? .playing : busy ? .switching
+            : content.publishedAvailability.isAvailable ? .apply : .download
+        bar.primaryActionTitle = busy && !playing && !switching ? "正在下载原图"
+            : bar.primaryState == .download ? "下载原图" : nil
+        bar.playButton.isEnabled = onPrimary != nil && !switching && (!busy || playing)
+        bar.detailButton.isEnabled = onInspect != nil
+        let reference = content.providerReference
+        bar.onPlay = onPrimary.map { action in { [weak self] in
+            guard let self, self.reference == reference, visible, !selecting,
+                  self.bar?.playButton.isEnabled == true,
                   WallpaperLibrarySheetPresentation.permitsInput(in: view.window) else { return }
-            onPreview?()
-        }
+            action()
+        } }
+        bar.onInspect = onInspect.map { action in { [weak self] in
+            guard let self, self.reference == reference, visible, !selecting,
+                  self.bar?.detailButton.isEnabled == true,
+                  WallpaperLibrarySheetPresentation.permitsInput(in: view.window) else { return }
+            action()
+        } }
         bar.glass.applyProgress(style: busy ? .downloading : .neutral, fraction: busy ? fraction : nil,
             indeterminate: busy && fraction == nil, animated: false)
     }
 
     private func updateAppearance(animated: Bool = false) {
+        surface.applyGridHoverScale(hovering, animated: animated)
         let dark = surface.effectiveAppearance.bestMatch(from: [.darkAqua, .aqua]) == .darkAqua
         let chrome = Chrome(dark: dark, hovered: hovering, selected: cardSelected, selecting: selecting)
         guard chrome != lastChrome else { return }
@@ -288,4 +325,8 @@ final class OnlineImageGridItem: WallpaperCardCollectionViewItem, WallpaperGridH
             }
         } else { outline.alphaValue = alpha }
     }
+}
+
+private final class OnlineImagePreviewLoadingOverlay: NSView {
+    override func hitTest(_ point: NSPoint) -> NSView? { nil }
 }

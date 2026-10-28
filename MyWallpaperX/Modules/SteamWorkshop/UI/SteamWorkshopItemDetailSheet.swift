@@ -255,7 +255,7 @@ final class AppKitSteamWorkshopItemDetailView: NSView {
         footerView.subviews.forEach { $0.removeFromSuperview() }
 
         buildPreviewSection()
-        contentStack.addArrangedSubview(divider())
+        contentStack.addArrangedSubview(WallpaperLibraryControlStyle.sectionDivider())
         buildContentSection()
         buildNoticeSection()
         pinContentSectionsToFullWidth()
@@ -356,7 +356,7 @@ final class AppKitSteamWorkshopItemDetailView: NSView {
         let uniqueTags = currentItem.tags.filter { !metadataTags.contains($0.lowercased()) }
         if !uniqueTags.isEmpty {
             stack.addArrangedSubview(SteamWorkshopTagStripView(tags: uniqueTags))
-            stack.addArrangedSubview(divider())
+            stack.addArrangedSubview(WallpaperLibraryControlStyle.sectionDivider())
         }
         var facts: [(String, String)] = []
         for (name, value) in [
@@ -373,7 +373,7 @@ final class AppKitSteamWorkshopItemDetailView: NSView {
         if !currentItem.dependencyIDs.isEmpty { facts.append(("依赖作品", currentItem.dependencyIDs.joined(separator: "、"))) }
         facts.append(("作品 ID", currentItem.id))
         stack.addArrangedSubview(factsGrid(facts))
-        stack.addArrangedSubview(divider())
+        stack.addArrangedSubview(WallpaperLibraryControlStyle.sectionDivider())
         stack.addArrangedSubview(label(detailDescriptionLine, font: .systemFont(ofSize: 13), color: .labelColor, lines: 0))
         contentStack.addArrangedSubview(stack)
     }
@@ -426,8 +426,7 @@ final class AppKitSteamWorkshopItemDetailView: NSView {
         author.toolTip = hasName ? "查看 \(currentItem.author) 的工坊" : "查看作者工坊"
         author.isEnabled = SteamWorkshopService.resolvedAuthorWorkshopURL(for: currentItem) != nil
             || (!isRefreshingDetail && service.selectedDownloadInspectorItem?.id == currentItem.id)
-        author.heightAnchor.constraint(equalToConstant: 36).isActive = true
-        author.layer?.cornerRadius = 18
+        WallpaperLibraryControlStyle.authorPill(author)
         return author
     }
 
@@ -681,16 +680,7 @@ final class AppKitSteamWorkshopItemDetailView: NSView {
         return title
     }
 
-    private func divider() -> NSView {
-        let view = NSBox()
-        view.boxType = .custom
-        view.borderWidth = 0
-        view.fillColor = NSColor.labelColor.withAlphaComponent(0.10)
-        view.contentViewMargins = .zero
-        view.translatesAutoresizingMaskIntoConstraints = false
-        view.heightAnchor.constraint(equalToConstant: 1).isActive = true
-        return view
-    }
+
 
     private func factsGrid(_ facts: [(String, String)]) -> NSView {
         let grid = NSStackView()

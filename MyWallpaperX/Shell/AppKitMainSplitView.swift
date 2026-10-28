@@ -15,11 +15,12 @@ final class AppKitMainSplitViewController: NSSplitViewController {
     private let sidebarTintHost: AppKitListTintSurface
     private let detailHostController: NSViewController
     private let permitsNoticeInteraction: ((NSPoint) -> Bool)?
+    private let onNoticeOcclusionChange: ((CGFloat) -> Void)?
     private let inspectorStore = InspectorHostStore()
     private lazy var inspectorController = InspectorHostViewController(store: inspectorStore)
     private lazy var detailContainerController = InspectorDetailContainerViewController(
         contentController: detailHostController, overlayController: inspectorController,
-        permitsNoticeInteraction: permitsNoticeInteraction)
+        permitsNoticeInteraction: permitsNoticeInteraction, onNoticeOcclusionChange: onNoticeOcclusionChange)
     private let listBackgroundTint = AppKitListBackgroundTint()
     private let sidebarMinWidth: CGFloat = 200
     private let sidebarMaxWidth: CGFloat = 320
@@ -27,14 +28,16 @@ final class AppKitMainSplitViewController: NSSplitViewController {
     private weak var preservedFirstResponder: NSResponder?
     private var inspectorTransitionGeneration = 0
     var onRestoreContentFocus: (() -> Void)?
-
     init(sidebar: NSViewController, content: NSViewController, sidebarTintHost: AppKitListTintSurface,
-         permitsNoticeInteraction: ((NSPoint) -> Bool)? = nil) {
+         permitsNoticeInteraction: ((NSPoint) -> Bool)? = nil, onNoticeOcclusionChange: ((CGFloat) -> Void)? = nil,
+         onListTintChange: ((NSColor, Bool) -> Void)? = nil) {
         sidebarController = sidebar
         self.sidebarTintHost = sidebarTintHost
         detailHostController = content
         self.permitsNoticeInteraction = permitsNoticeInteraction
+        self.onNoticeOcclusionChange = onNoticeOcclusionChange
         super.init(nibName: nil, bundle: nil)
+        listBackgroundTint.onProjectionChange = onListTintChange
     }
 
     @available(*, unavailable)
@@ -227,6 +230,7 @@ final class AppKitMainSplitViewController: NSSplitViewController {
 private final class InspectorDetailContainerViewController: NSViewController {
     let backgroundView = AppKitListTintSurface()
     private let contentController: NSViewController
+    private let onNoticeOcclusionChange: ((CGFloat) -> Void)?
     private let overlayController: NSViewController
     private let overlayView = InspectorOverlayPassthroughView()
     private let overlayAnimationHostView = NSView()
@@ -237,8 +241,9 @@ private final class InspectorDetailContainerViewController: NSViewController {
     var isOverlayPresented: Bool { !overlayView.isHidden && overlayView.isActive }
 
     init(contentController: NSViewController, overlayController: NSViewController,
-         permitsNoticeInteraction: ((NSPoint) -> Bool)? = nil) {
+         permitsNoticeInteraction: ((NSPoint) -> Bool)? = nil, onNoticeOcclusionChange: ((CGFloat) -> Void)? = nil) {
         self.contentController = contentController
+        self.onNoticeOcclusionChange = onNoticeOcclusionChange
         self.overlayController = overlayController
         super.init(nibName: nil, bundle: nil)
         overlayView.permitsNoticeInteraction = permitsNoticeInteraction
@@ -320,6 +325,7 @@ private final class InspectorDetailContainerViewController: NSViewController {
         }
 
         let hostWidth = max(0, panelWidth + 24)
+        onNoticeOcclusionChange?(isVisible ? hostWidth : 0)
 
         if isVisible {
             overlayView.isHidden = false
@@ -387,6 +393,7 @@ private final class InspectorDetailContainerViewController: NSViewController {
     /// Updating width must not restart its entrance or reset an in-flight slide.
     func updatePresentedPanelWidth(_ panelWidth: CGFloat) {
         overlayWidthConstraint?.constant = max(0, panelWidth + 24)
+        onNoticeOcclusionChange?(max(0, panelWidth + 24))
         view.needsLayout = true
     }
 

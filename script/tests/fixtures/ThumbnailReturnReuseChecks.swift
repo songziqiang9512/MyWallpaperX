@@ -105,27 +105,27 @@ nonisolated func checkedPrefetchKey(for url: URL, maxPixelSize: Int) -> String {
         }
         checks["sharedLocalDiskCacheAvoidsRepeatedSourceExtraction"] = generationCounter.count("extract") == 1
 
-        var onlineChecksFinished = false
+        var pixabayChecksFinished = false
         Task { @MainActor in
-            let onlineCache = OLThumbnailCache.shared
-            await onlineCache.clearAll()
-            let epoch = await onlineCache.publicationGeneration()
-            let first = await onlineCache.storeAndDecode(data: original, for: remote, maxPixelSize: 512, generation: epoch)
-            checks["onlineReadyPixelsAvailableSynchronously"] = first != nil && onlineCache.readyImage(for: remote, maxPixelSize: 512) === first
-            await onlineCache.clearAll()
+            let pixabayCache = OnlineImageThumbnailCache.shared
+            await pixabayCache.clearAll()
+            let epoch = await pixabayCache.publicationGeneration()
+            let first = await pixabayCache.storeAndDecode(data: original, for: remote, maxPixelSize: 512, generation: epoch)
+            checks["onlineReadyPixelsAvailableSynchronously"] = first != nil && pixabayCache.readyImage(for: remote, maxPixelSize: 512) === first
+            await pixabayCache.clearAll()
             // A delayed HTTP/prefetch response still carries its pre-clear epoch.
-            let late = await onlineCache.storeAndDecode(data: original, for: remote, maxPixelSize: 512, generation: epoch)
-            await onlineCache.store(data: original, for: remote, generation: epoch)
-            let raw = await onlineCache.cachedData(for: remote)
+            let late = await pixabayCache.storeAndDecode(data: original, for: remote, maxPixelSize: 512, generation: epoch)
+            await pixabayCache.store(data: original, for: remote, generation: epoch)
+            let raw = await pixabayCache.cachedData(for: remote)
             checks["onlineClearRejectsOldVisibleAndPrefetchPublication"] = late == nil && raw == nil
-                && onlineCache.readyImage(for: remote, maxPixelSize: 512) == nil
-            let next = await onlineCache.publicationGeneration()
-            let fresh = await onlineCache.storeAndDecode(data: original, for: remote, maxPixelSize: 512, generation: next)
+                && pixabayCache.readyImage(for: remote, maxPixelSize: 512) == nil
+            let next = await pixabayCache.publicationGeneration()
+            let fresh = await pixabayCache.storeAndDecode(data: original, for: remote, maxPixelSize: 512, generation: next)
             checks["onlineNewGenerationStillPublishesNormally"] = fresh != nil
-            await onlineCache.clearAll()
-            onlineChecksFinished = true
+            await pixabayCache.clearAll()
+            pixabayChecksFinished = true
         }
-        checks["onlineActorChecksCompleted"] = pump { onlineChecksFinished }
+        checks["onlineActorChecksCompleted"] = pump { pixabayChecksFinished }
 
         let counter = ReuseCounter()
         let cache = ThumbnailCache(namespace: "return-reuse-" + UUID().uuidString)

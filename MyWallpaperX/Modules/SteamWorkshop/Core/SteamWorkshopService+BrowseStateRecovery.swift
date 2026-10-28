@@ -15,7 +15,7 @@ extension SteamWorkshopService {
         pendingBrowserScrollRestoreOffset = nil
     }
 
-    func clearAllCachedState() {
+    func clearAllCachedState(completion: (@Sendable () -> Void)? = nil) {
         browserFetchTask?.cancel()
         browserFetchTask = nil
         cancelSelectedItemDetailRefresh()
@@ -25,9 +25,20 @@ extension SteamWorkshopService {
         steamAuth.cancelPendingAuthentication()
 
         SteamWorkshopDownloadThumbnailPipeline.shared.invalidateCachedResults()
-        clearSteamWorkshopCacheDirectory(cacheDirectoryURL)
-        clearSteamWorkshopCacheDirectory(Self.detailCacheDirectoryURL())
-        SteamWorkshopPreviewImageCache.shared.clearAll()
+        // ItemDetails is already inside this owned cache root. Detach it once;
+        // utility deletion must never revisit the path used by new requests.
+        let directory = cacheDirectoryURL
+        let retired = directory.appendingPathExtension("clear-" + UUID().uuidString)
+        let detached: Bool
+        do { try FileManager.default.moveItem(at: directory, to: retired); detached = true }
+        catch { detached = false }
+        try? FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
+        SteamWorkshopPreviewImageCache.shared.clearAll {
+            DispatchQueue.global(qos: .utility).async {
+                if detached { try? FileManager.default.removeItem(at: retired) }
+                if let completion { DispatchQueue.main.async(execute: completion) }
+            }
+        }
 
         steamKitBrowseStore.clear()
         retainedBrowseSections.removeAll()
@@ -81,24 +92,4 @@ extension SteamWorkshopService {
         reloadInstalledItems()
     }
 
-    private func clearSteamWorkshopCacheDirectory(_ url: URL) {
-        let standardizedURL = url.resolvingSymlinksInPath().standardizedFileURL
-        guard isAllowedSteamWorkshopCacheDeletionTarget(standardizedURL) else {
-            assertionFailure("Refusing to clear non-cache Steam Workshop path: \(standardizedURL.path)")
-            return
-        }
-        try? FileManager.default.removeItem(at: standardizedURL)
-    }
-
-    private func isAllowedSteamWorkshopCacheDeletionTarget(_ url: URL) -> Bool {
-        let path = url.path
-        guard let cacheRoot = FileManager.default.urls(for: .cachesDirectory, in: .userDomainMask)
-            .first?
-            .resolvingSymlinksInPath()
-            .standardizedFileURL
-            .path else {
-            return false
-        }
-        return path.hasPrefix(cacheRoot + "/")
-    }
 }

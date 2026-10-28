@@ -8,7 +8,7 @@ import Foundation
 /// main-actor confined together with every accessor below.
 @MainActor private final class SteamWorkshopInstalledLibraryScanFlight {
     static var registry: [ObjectIdentifier: SteamWorkshopInstalledLibraryScanFlight] = [:]
-    var isInFlight = false
+    var task: Task<Void, Never>?
     var rescanRequested = false
 }
 
@@ -21,7 +21,8 @@ extension SteamWorkshopService {
     /// flight at any time: reloads arriving mid-scan are coalesced into a
     /// single catch-up scan launched from the newest state once the current
     /// scan finishes, and only the newest generation is ever applied.
-    func reloadInstalledItems() {
+    @discardableResult
+    func reloadInstalledItems() -> Task<Void, Never> {
         do { try SteamWorkshopLibraryTransaction.recoverPublications(libraryRoot: steamDownloadLibraryRootURL,
             retaining: referencedLibraryStorageIdentities()) }
         catch { statusMessage = "入库恢复失败：\(error.localizedDescription)" }
@@ -30,11 +31,11 @@ extension SteamWorkshopService {
         reconcileDownloadCommits(managed)
         scheduleTerminalDownloadCleanup()
         installedLibraryScanGeneration += 1
-        guard !installedLibraryScanFlight.isInFlight else {
+        if let task = installedLibraryScanFlight.task {
             installedLibraryScanFlight.rescanRequested = true
-            return
+            return task
         }
-        startInstalledLibraryScan(managed: managed)
+        return startInstalledLibraryScan(managed: managed)
     }
 
     /// Per-service single-flight holder (see `SteamWorkshopInstalledLibraryScanFlight`).
@@ -46,33 +47,41 @@ extension SteamWorkshopService {
         return flight
     }
 
-    private func startInstalledLibraryScan(managed: [String: SteamWorkshopDownloadMetadataSnapshot]) {
-        installedLibraryScanFlight.isInFlight = true
-        let generation = installedLibraryScanGeneration
-        let context = installedLibraryScanContext()
-        Task.detached(priority: .utility) { [weak self] in
-            let records = SteamWorkshopService.scanInstalledLibraryRecords(
-                managed: managed, context: context
-            )
-            await MainActor.run { [weak self] in
-                self?.finishInstalledLibraryScan(generation: generation, records: records)
+    private func startInstalledLibraryScan(managed: [String: SteamWorkshopDownloadMetadataSnapshot]) -> Task<Void, Never> {
+        let initialGeneration = installedLibraryScanGeneration
+        let initialContext = installedLibraryScanContext()
+        let task = Task { [weak self] in
+            var managed = managed
+            var generation = initialGeneration
+            var context = initialContext
+            while let self {
+                let scanInput = managed
+                let scanContext = context
+                let records = await Task.detached(priority: .utility) {
+                    SteamWorkshopService.scanInstalledLibraryRecords(managed: scanInput, context: scanContext)
+                }.value
+                self.finishInstalledLibraryScan(generation: generation, records: records)
+                guard self.installedLibraryScanFlight.rescanRequested else {
+                    self.installedLibraryScanFlight.task = nil
+                    return
+                }
+                self.installedLibraryScanFlight.rescanRequested = false
+                managed = self.managedDownloadSnapshots()
+                generation = self.installedLibraryScanGeneration
+                context = self.installedLibraryScanContext()
             }
         }
+        installedLibraryScanFlight.task = task
+        return task
     }
 
-    /// Scan completion back on the main actor. A stale generation is never
-    /// applied; the flight slot is released unconditionally, and one merged
-    /// catch-up scan — reading the index anew so it reflects every coalesced
-    /// request — carries the current (newest) generation. No requested reload
-    /// can be lost and no stale result can overwrite a newer projection.
+    /// The original flight task includes every coalesced catch-up. Its handle
+    /// completes after the newest requested scan publishes, never after a stale
+    /// first result. Only the matching generation may replace the local index.
     private func finishInstalledLibraryScan(generation: Int, records: [SteamWorkshopDownloadRecord]) {
         if installedLibraryScanGeneration == generation {
             applyInstalledLibraryRecords(records)
         }
-        installedLibraryScanFlight.isInFlight = false
-        guard installedLibraryScanFlight.rescanRequested else { return }
-        installedLibraryScanFlight.rescanRequested = false
-        startInstalledLibraryScan(managed: managedDownloadSnapshots())
     }
 
     private func applyInstalledLibraryRecords(_ records: [SteamWorkshopDownloadRecord]) {

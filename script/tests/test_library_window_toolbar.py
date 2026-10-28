@@ -26,7 +26,7 @@ class LibraryWindowToolbarTests(unittest.TestCase):
             'Core/OnlineImages/OnlineImageModels.swift',
             'Core/LibraryCollections/UserCollectionsStore.swift', 'Core/LibraryCollections/UserCollectionsController.swift',
             'Core/LibraryCollections/WallpaperLibraryQuery.swift', 'Shell/WallpaperLibraryPresentation.swift',
-            'Shared/Components/ActionMenuItem.swift', 'Shared/Components/WallpaperLibraryGridMetrics.swift',
+            'Shared/Components/ActionMenuItem.swift', 'Shared/Components/WallpaperLibraryControlStyle.swift', 'Shared/Components/WallpaperLibraryGridMetrics.swift',
             'Shared/Components/WallpaperLibraryZoomControl.swift', 'App/WallpaperLibraryWindowToolbar.swift',
         ]
         paths = [Path(os.environ.get('MWX_LIBRARY_TOOLBAR_SOURCE', ROOT / 'MyWallpaperX' / name))

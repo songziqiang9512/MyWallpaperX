@@ -44,6 +44,7 @@ SOURCES = [
     UI / "AppKitSteamWorkshopBrowserItem+Presentation.swift",
     ROOT / "MyWallpaperX/Shared/Components/WallpaperCardInteractionView.swift",
     ROOT / "MyWallpaperX/Shared/Components/WallpaperCardSupportViews.swift",
+    ROOT / "MyWallpaperX/Shared/Components/WallpaperCardControlsView.swift",
     UI / "SteamWorkshopPreviewPlaceholderView.swift",
     UI / "SteamWorkshopPreviewState.swift",
     CORE / "SteamWorkshopPreviewImageSupport.swift",
@@ -208,6 +209,7 @@ private final class ProgressProbeWindow: NSWindow {
         card.view.layoutSubtreeIfNeeded()
 
         let store = SteamWorkshopDownloadProgressStore()
+        var cancelledTransfers = 0
         func configureCard() {
             card.configure(
                 displayContext: .downloads,
@@ -220,15 +222,20 @@ private final class ProgressProbeWindow: NSWindow {
                 onOpen: {},
                 onDownload: {},
                 onSetAsWallpaper: {},
-                onCancelDownload: {}
+                onCancelDownload: { cancelledTransfers += 1 }
             )
         }
         configureCard()
         store.begin(itemID: "probe-item", jobKey: "job-1", attempt: 1)
 
         func accessibilityValue() -> String {
-            (card.overlayBar.accessibilityValue() as? String) ?? ""
+            (card.controlBar.glass.accessibilityValue() as? String) ?? ""
         }
+        precondition(card.controlBar.primaryState == .switching && card.controlBar.playButton.isEnabled,
+            "an active transfer must retain the pending icon and original cancel command")
+        card.controlBar.playButton.performClick(nil)
+        precondition(cancelledTransfers == 1 && card.controlBar.playButton.accessibilityLabel()?.contains("取消下载") == true,
+            "the pending shared button must dispatch the original transfer cancellation once")
         // Long byte strings keep the marquee text wider than its row so the
         // scroll is actually running.
         precondition(store.receiveHelperEvent(
@@ -237,7 +244,7 @@ private final class ProgressProbeWindow: NSWindow {
         ), "the first transferring tick must be accepted")
         precondition(accessibilityValue().contains("10%"),
                      "the card must surface the 10% status text")
-        guard let marqueeAt10 = card.titleMarqueeView.activeMarqueeAnimation else {
+        guard let marqueeAt10 = card.controlBar.titleView.activeMarqueeAnimation else {
             fputs("expected a running marquee on a visible transferring card\n", stderr)
             exit(1)
         }
@@ -247,24 +254,24 @@ private final class ProgressProbeWindow: NSWindow {
         ), "the second transferring tick must be accepted")
         precondition(accessibilityValue().contains("20%"),
                      "the card must surface the 20% status text")
-        precondition(card.titleMarqueeView.activeMarqueeAnimation === marqueeAt10,
+        precondition(card.controlBar.titleView.activeMarqueeAnimation === marqueeAt10,
                      "a text-only progress tick restarted the marquee scroll")
 
         // A rebind replays the stored snapshot; the duplicate delivery is a
         // full no-op for the card (the marquee animation survives untouched).
         configureCard()
-        precondition(card.titleMarqueeView.activeMarqueeAnimation === marqueeAt10,
+        precondition(card.controlBar.titleView.activeMarqueeAnimation === marqueeAt10,
                      "a duplicate snapshot delivery disturbed the marquee")
 
         card.setPreviewVisible(false)
-        precondition(card.titleMarqueeView.activeMarqueeAnimation == nil
-                     && card.overlayBar.activeIndeterminateAnimation == nil,
+        precondition(card.controlBar.titleView.activeMarqueeAnimation == nil
+                     && card.controlBar.glass.activeIndeterminateAnimation == nil,
                      "the original display lifecycle must revoke both repeating animations")
         configureCard()
-        precondition(card.titleMarqueeView.activeMarqueeAnimation == nil,
+        precondition(card.controlBar.titleView.activeMarqueeAnimation == nil,
                      "offscreen metadata/progress replay must not revive title animation")
         card.setPreviewVisible(true)
-        precondition(card.titleMarqueeView.activeMarqueeAnimation != nil,
+        precondition(card.controlBar.titleView.activeMarqueeAnimation != nil,
                      "ready display demand must resume the retained title without reconfiguration")
 
         // Determinate completion leaves the sweep stopped.
@@ -272,7 +279,7 @@ private final class ProgressProbeWindow: NSWindow {
             itemID: "probe-item", jobKey: "job-1", attempt: 1, sequence: 3,
             stage: "chunks", totalBytes: 1_234_567_890, verifiedBytes: 1_234_567_890
         )
-        precondition(card.overlayBar.activeIndeterminateAnimation == nil,
+        precondition(card.controlBar.glass.activeIndeterminateAnimation == nil,
                      "a determinate card must not run the indeterminate sweep")
 
         store.clear(itemID: item.id, jobKey: "job-1")
@@ -295,32 +302,32 @@ private final class ProgressProbeWindow: NSWindow {
         launchCard()
         card.viewDidLayout()
         func assertSymbolSize(_ image: NSImage?, named name: String) {
-            let metrics = card.metrics(for: card.cardView.bounds.size)
+            let metrics = WallpaperCardBarMetrics(cardWidth: card.cardView.bounds.width)
             let config = NSImage.SymbolConfiguration(pointSize: max(11, metrics.iconButtonSize * 0.56), weight: .medium)
             let expected = NSImage(systemSymbolName: name, accessibilityDescription: nil)!.withSymbolConfiguration(config)!
             precondition(image?.size == expected.size, "same-size state update lost its symbol configuration: \(name)")
         }
-        assertSymbolSize(card.statusBadgeButton.image, named: "play.fill")
+        assertSymbolSize(card.controlBar.playButton.image, named: "play.fill")
         let firstTracking = card.view.trackingAreas.first
         precondition(firstTracking != nil, "card tracking identity control must be nonempty")
         card.viewDidLayout()
         precondition(firstTracking === card.view.trackingAreas.first, "unchanged layout must preserve card tracking")
         precondition(!card.currentBarVisibility, "an idle ready download keeps its hover-only bar")
-        card.statusBadgeButton.performClick(nil)
+        card.controlBar.playButton.performClick(nil)
         precondition(service.launchPendingID == item.id, "the play button must enter the pending launch")
         launchCard()
-        assertSymbolSize(card.statusBadgeButton.image, named: "hourglass")
+        assertSymbolSize(card.controlBar.playButton.image, named: "hourglass")
         precondition(card.currentBarVisibility, "pending launch must pin the bar before playback starts")
-        precondition(card.statusBadgeButton.accessibilityLabel()?.contains("正在切换") == true,
+        precondition(card.controlBar.playButton.accessibilityLabel()?.contains("正在切换") == true,
                      "pending keeps the launch badge; stop styling still waits for playback")
         card.cardView.effectiveAppearance.performAsCurrentDrawingAppearance {
             func rgba(_ color: NSColor?) -> String {
                 guard let rgb = color?.usingColorSpace(.deviceRGB) else { return "nil" }
                 return "\(rgb.redComponent),\(rgb.greenComponent),\(rgb.blueComponent),\(rgb.alphaComponent)"
             }
-            FileHandle.standardError.write(Data(("SteamPending enabled=\(card.statusBadgeButton.isEnabled) orgPending=\(String(describing: card.organizationPresentation?.isSwitching)) barVisible=\(card.currentBarVisibility) appearance=\(card.cardView.effectiveAppearance.name.rawValue) tint=\(String(describing: card.statusBadgeButton.contentTintColor)) actualRGBA=\(rgba(card.statusBadgeButton.contentTintColor)) labelRGBA=\(rgba(.labelColor))\n").utf8))
+            FileHandle.standardError.write(Data(("SteamPending enabled=\(card.controlBar.playButton.isEnabled) orgPending=\(String(describing: card.organizationPresentation?.isSwitching)) barVisible=\(card.currentBarVisibility) appearance=\(card.cardView.effectiveAppearance.name.rawValue) tint=\(String(describing: card.controlBar.playButton.contentTintColor)) actualRGBA=\(rgba(card.controlBar.playButton.contentTintColor)) labelRGBA=\(rgba(.labelColor))\n").utf8))
         }
-        precondition(!card.statusBadgeButton.isEnabled && card.statusBadgeButton.contentTintColor == .labelColor,
+        precondition(!card.controlBar.playButton.isEnabled && card.controlBar.playButton.contentTintColor == .labelColor,
                      "pending launch must disable a repeated native primary click and retain a readable native label color")
         launchCard(multiSelect: true)
         precondition(!card.currentBarVisibility, "multi-select still suppresses the bar")
@@ -329,90 +336,86 @@ private final class ProgressProbeWindow: NSWindow {
         precondition(!card.currentBarVisibility, "another card's launch must not pin this bar")
         service.launchPendingID = nil
         launchCard(playing: true)
-        assertSymbolSize(card.statusBadgeButton.image, named: "stop.fill")
+        assertSymbolSize(card.controlBar.playButton.image, named: "stop.fill")
         precondition(card.currentBarVisibility, "successful playback must keep the existing persistent bar")
         launchCard()
         precondition(!card.currentBarVisibility, "failed/cancelled launch returns to the original idle behavior")
-        assertSymbolSize(card.statusBadgeButton.image, named: "play.fill")
+        assertSymbolSize(card.controlBar.playButton.image, named: "play.fill")
         card.configure(displayContext: .browser, item: item, downloadRecord: nil,
             downloadProgressStore: store, isDownloading: false, isDownloaded: false,
             isKeyboardFocused: false, onOpen: {}, onDownload: {}, onSetAsWallpaper: {}, onCancelDownload: {})
         card.viewDidLayout()
+        var browserDetails = 0
+        card.configure(displayContext: .browser, item: item, downloadRecord: nil,
+            downloadProgressStore: store, isDownloading: false, isDownloaded: false,
+            isKeyboardFocused: false, onOpen: { browserDetails += 1 }, onDownload: {}, onSetAsWallpaper: {}, onCancelDownload: {})
         service.steamSubscriptions.states[item.id] = .known(true)
-        card.refreshSubscribeHeart()
-        precondition(card.detailButton.accessibilityLabel() == "取消订阅：\(item.title)", "bookmark test must enter subscribed browser chrome")
-        assertSymbolSize(card.detailButton.image, named: "bookmark.fill")
-        service.steamAuth.isOnline = true
-        card.detailButton.performClick(nil)
-        precondition(service.steamSubscriptions.toggles == [item.id], "account bookmark must retain the original subscription owner")
-        service.steamSubscriptions.states[item.id] = .known(false)
-        card.refreshSubscribeHeart()
-        precondition(card.detailButton.accessibilityLabel() == "订阅：\(item.title)", "bookmark test must enter unsubscribed browser chrome")
-        assertSymbolSize(card.detailButton.image, named: "bookmark")
-        service.steamSubscriptions.states[item.id] = .unknown
-        card.handleSubscribeToggle()
-        precondition(service.steamSubscriptions.refreshes == [item.id], "unknown account membership must refresh rather than toggle")
-        var remoteFavorites = 0, remotePrimaries = 0
+        assertSymbolSize(card.controlBar.detailButton.image, named: "exclamationmark.circle")
+        card.controlBar.detailButton.performClick(nil)
+        precondition(browserDetails == 1 && card.controlBar.detailButton.accessibilityLabel() == "详细信息"
+            && service.steamSubscriptions.toggles.isEmpty && service.steamSubscriptions.refreshes.isEmpty,
+            "the fixed detail control must not borrow account membership actions")
+        var remoteFavorites = 0, remotePrimaries = 0, remoteDetails = 0
         card.configure(displayContext: .browser, isPlaying: true, item: item, downloadRecord: ready,
             downloadProgressStore: store, isDownloading: false, isDownloaded: true, isKeyboardFocused: false,
             organization: .init(isFavorite: true, canFavorite: true, canPlay: true, canDownload: false, canCancel: false,
                 onFavorite: { remoteFavorites += 1 }, onPrimary: { remotePrimaries += 1 }),
-            onOpen: {}, onDownload: {}, onSetAsWallpaper: {}, onCancelDownload: {})
-        assertSymbolSize(card.detailButton.image, named: "heart.fill")
-        assertSymbolSize(card.statusBadgeButton.image, named: "stop.fill")
-        card.detailButton.performClick(nil); card.statusBadgeButton.performClick(nil)
-        precondition(remoteFavorites == 1 && remotePrimaries == 1 && service.steamSubscriptions.toggles == [item.id]
-                     && service.steamSubscriptions.refreshes == [item.id], "downloaded browser heart/primary must never call the account owner")
+            onOpen: { remoteDetails += 1 }, onDownload: {}, onSetAsWallpaper: {}, onCancelDownload: {})
+        assertSymbolSize(card.controlBar.detailButton.image, named: "exclamationmark.circle")
+        assertSymbolSize(card.controlBar.playButton.image, named: "stop.fill")
+        card.controlBar.detailButton.performClick(nil); card.controlBar.playButton.performClick(nil)
+        precondition(remoteFavorites == 0 && remotePrimaries == 1 && remoteDetails == 1 && service.steamSubscriptions.toggles.isEmpty
+                     && service.steamSubscriptions.refreshes.isEmpty, "downloaded browser details/primary must not consume menu favorite or account actions")
         service.steamAuth.isOnline = false
-        var localFavorites = 0, localStops = 0
-        func organizationCard(canFavorite: Bool, canPlay: Bool, multiSelect: Bool = false) {
+        var localFavorites = 0, localStops = 0, localDetails = 0
+        func organizationCard(canFavorite: Bool, canPlay: Bool, canInspect: Bool = true, multiSelect: Bool = false) {
             card.configure(displayContext: .downloads, isPlaying: true, item: item, downloadRecord: ready,
                 downloadProgressStore: store, isDownloading: false, isDownloaded: true,
                 isMultiSelectMode: multiSelect, isKeyboardFocused: false,
                 organization: .init(isFavorite: true, canFavorite: canFavorite, canPlay: canPlay,
                     canDownload: false, canCancel: false, onFavorite: { localFavorites += 1 },
                     onPrimary: { localStops += 1 }),
-                onOpen: {}, onDownload: {}, onSetAsWallpaper: {}, onCancelDownload: {})
+                onOpen: canInspect ? { localDetails += 1 } : nil, onDownload: {}, onSetAsWallpaper: {}, onCancelDownload: {})
         }
         organizationCard(canFavorite: true, canPlay: true)
-        card.detailButton.performClick(nil); card.statusBadgeButton.performClick(nil)
-        precondition(localFavorites == 1 && localStops == 1,
-                     "organization heart and stop must use their injected current-content commands")
-        precondition(card.detailButton.accessibilityLabel()?.contains("特别喜爱") == true,
-                     "organization heart must never advertise Steam account subscription: \(String(describing: card.detailButton.accessibilityLabel()))")
-        organizationCard(canFavorite: false, canPlay: false)
-        card.detailButton.performClick(nil); card.statusBadgeButton.performClick(nil)
-        precondition(card.detailButton.isHidden && !card.statusBadgeButton.isEnabled
-                     && localFavorites == 1 && localStops == 1, "revoked source capabilities must disable both real controls")
+        card.controlBar.detailButton.performClick(nil); card.controlBar.playButton.performClick(nil)
+        precondition(localFavorites == 0 && localStops == 1 && localDetails == 1,
+                     "details and stop must use their current-content commands without consuming menu favorites")
+        precondition(card.controlBar.detailButton.accessibilityLabel() == "详细信息",
+                     "details must never advertise Steam account subscription: \(String(describing: card.controlBar.detailButton.accessibilityLabel()))")
+        organizationCard(canFavorite: false, canPlay: false, canInspect: false)
+        card.controlBar.detailButton.performClick(nil); card.controlBar.playButton.performClick(nil)
+        precondition(!card.controlBar.detailButton.isEnabled && !card.controlBar.playButton.isEnabled
+                     && localFavorites == 0 && localStops == 1 && localDetails == 1, "revoked source capabilities must disable both real controls")
         organizationCard(canFavorite: true, canPlay: true)
-        precondition(!card.detailButton.isHidden && card.detailButton.isEnabled && card.statusBadgeButton.isEnabled,
-                     "unchanged favorite state must still restore revoked capability chrome")
+        precondition(!card.controlBar.detailButton.isHidden && card.controlBar.detailButton.isEnabled && card.controlBar.playButton.isEnabled,
+                     "restored source callbacks must re-enable the original two controls")
         card.applyOrganizationState(.init(isFavorite: false, canFavorite: true,
             onFavorite: { localFavorites += 1 }, onPrimary: { localStops += 1 }),
             isPlaying: false, isMultiSelectMode: false, isKeyboardFocused: true)
-        precondition(card.detailButton.accessibilityLabel()?.contains("特别喜爱") == true
-                     && card.statusBadgeButton.accessibilityLabel()?.contains("设为壁纸") == true,
+        precondition(card.controlBar.detailButton.accessibilityLabel() == "详细信息"
+                     && card.controlBar.playButton.accessibilityLabel()?.contains("设为壁纸") == true,
                      "state-only organization updates must reach the original native controls")
         card.applyOrganizationState(.init(isFavorite: false, canFavorite: true, isSwitching: true,
             canPlay: true, onPrimary: { localStops += 1 }),
             isPlaying: true, isMultiSelectMode: false, isKeyboardFocused: false)
-        assertSymbolSize(card.statusBadgeButton.image, named: "hourglass")
-        card.statusBadgeButton.performClick(nil)
-        precondition(card.currentBarVisibility && !card.statusBadgeButton.isEnabled && localStops == 1,
+        assertSymbolSize(card.controlBar.playButton.image, named: "hourglass")
+        card.controlBar.playButton.performClick(nil)
+        precondition(card.currentBarVisibility && !card.controlBar.playButton.isEnabled && localStops == 1,
                      "Core pending must override old Stop and disable the real primary even before capability echo")
         service.launchPendingID = item.id
         card.applyOrganizationState(.init(isFavorite: false, canFavorite: true,
             onPrimary: { localStops += 1 }), isPlaying: true, isMultiSelectMode: false, isKeyboardFocused: false)
-        assertSymbolSize(card.statusBadgeButton.image, named: "stop.fill")
-        precondition(card.statusBadgeButton.isEnabled && card.currentBarVisibility && card.statusBadgeButton.contentTintColor == .controlAccentColor,
+        assertSymbolSize(card.controlBar.playButton.image, named: "stop.fill")
+        precondition(card.controlBar.playButton.isEnabled && card.currentBarVisibility && card.controlBar.playButton.contentTintColor == .controlAccentColor,
                      "the Core organization receipt must supersede the stale source launch badge")
         service.launchPendingID = nil
         organizationCard(canFavorite: true, canPlay: true, multiSelect: true)
-        card.detailButton.performClick(nil); card.statusBadgeButton.performClick(nil)
-        precondition(localFavorites == 1 && localStops == 1, "multiselect must reject detached organization actions")
+        card.controlBar.detailButton.performClick(nil); card.controlBar.playButton.performClick(nil)
+        precondition(localFavorites == 0 && localStops == 1 && localDetails == 1, "multiselect must reject detached organization actions")
         card.prepareForReuse()
-        card.detailButton.performClick(nil); card.statusBadgeButton.performClick(nil)
-        precondition(localFavorites == 1 && localStops == 1, "reuse must revoke old organization callbacks")
+        card.controlBar.detailButton.performClick(nil); card.controlBar.playButton.performClick(nil)
+        precondition(localFavorites == 0 && localStops == 1 && localDetails == 1, "reuse must revoke old organization callbacks")
         card.setPreviewVisible(true)
         launchCard()
 
@@ -442,17 +445,18 @@ private final class ProgressProbeWindow: NSWindow {
                 card.isHovering = true
                 card.applyHoverStyle(animated: false)
                 card.viewDidLayout()
-                let buttons = [card.detailButton, card.statusBadgeButton]
+                let buttons = [card.controlBar.detailButton, card.controlBar.playButton]
+                precondition(card.controlBar.glass.subviews.compactMap { $0 as? NSButton }.count == 2, "the actual Steam bar must contain exactly two native controls")
                 let frames = buttons.map(\.frame)
                 for button in buttons {
-                    precondition(button.target === card && button.action != nil, "native button keeps its actual command owner")
+                    precondition(button.target === card.controlBar && button.action != nil, "native button keeps its actual command owner")
                     precondition(button.frame.width >= 20 && button.frame.height >= 20
-                        && card.overlayBar.bounds.contains(button.frame), "button hit frame stays inside overlay after resize")
+                        && card.controlBar.glass.bounds.contains(button.frame), "button hit frame stays inside overlay after resize")
                     for point in [NSPoint(x: 1, y: 1), NSPoint(x: button.bounds.midX, y: button.bounds.midY),
                                   NSPoint(x: button.bounds.maxX - 1, y: button.bounds.maxY - 1)] {
                         let hit = card.view.hitTest(button.convert(point, to: card.view.superview))
                         if hit !== button && hit?.isDescendant(of: button) != true {
-                            fputs("hit diagnostic: dark=\(dark) width=\(width) button=\(button.frame) point=\(point) hit=\(String(describing: hit)) bar=\(card.overlayBar.frame) visibility=\(card.currentBarVisibility) alpha=\(card.overlayBar.alphaValue)\n", stderr)
+                            fputs("hit diagnostic: dark=\(dark) width=\(width) button=\(button.frame) point=\(point) hit=\(String(describing: hit)) bar=\(card.controlBar.frame) visibility=\(card.currentBarVisibility) alpha=\(card.controlBar.alphaValue)\n", stderr)
                         }
                         precondition(hit === button || hit?.isDescendant(of: button) == true,
                             "button's full rectangle must retain the action, not open the card")
@@ -461,10 +465,10 @@ private final class ProgressProbeWindow: NSWindow {
                 card.viewDidLayout()
                 precondition(buttons.map(\.frame) == frames, "repeated layout must not move native button targets")
                 let beforeDetails = openedDetails
-                card.detailButton.performClick(nil)
+                card.controlBar.detailButton.performClick(nil)
                 precondition(openedDetails == beforeDetails + 1, "download detail button opens exactly once")
                 service.launchPendingID = nil
-                card.statusBadgeButton.performClick(nil)
+                card.controlBar.playButton.performClick(nil)
                 precondition(service.launchPendingID == item.id, "native status button preserves play command")
                 service.launchPendingID = nil
                 let name = "card-\(dark ? "dark" : "light")-\(Int(width))"
@@ -478,14 +482,13 @@ private final class ProgressProbeWindow: NSWindow {
             card.applyHoverStyle(animated: false)
             for state: SteamSubscriptionProbeState in [.known(true), .loading, .known(false)] {
                 service.steamSubscriptions.states[item.id] = state
-                card.refreshSubscribeHeart()
                 card.viewDidLayout()
-                precondition(card.detailButton.isEnabled == (state != .loading), "busy membership prevents duplicate requests")
+                precondition(card.controlBar.detailButton.isEnabled, "account membership must not disable an explicit detail action")
                 let before = service.loginPrompts
-                card.detailButton.performClick(nil)
-                precondition(service.loginPrompts == before + (state == .loading ? 0 : 1),
-                    "disabled button is inert and re-enabled button restores the original command")
-                capture("subscription-\(dark ? "dark" : "light")-\(state)")
+                card.controlBar.detailButton.performClick(nil)
+                precondition(service.loginPrompts == before,
+                    "the fixed detail control cannot submit account login or subscription work")
+                capture("details-\(dark ? "dark" : "light")-\(state)")
             }
         }
         if let proof {

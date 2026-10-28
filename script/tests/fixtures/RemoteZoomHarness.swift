@@ -14,7 +14,7 @@ import AppKit
         _ = NSApplication.shared
         NSApp.setActivationPolicy(.prohibited)
         var checks: [String: Bool] = [:]
-        for (name, probe) in [("Steam", SteamZoom() as any ZoomProbe), ("Pixabay", OnlineZoom() as any ZoomProbe)] {
+        for (name, probe) in [("Steam", SteamZoom() as any ZoomProbe), ("Pixabay", PixabayZoom() as any ZoomProbe)] {
             func check(_ key: String, _ value: Bool) { checks[name + key] = value }
             func segment(_ index: Int) {
                 // This supplies the segment visible during tracking. The

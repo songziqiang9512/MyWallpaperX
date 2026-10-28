@@ -113,12 +113,10 @@ extension SteamWorkshopService {
                 && selectedDownloadDetailError == "B metadata status" && isRefreshingSelectedDownloadDetailItem
                 && detailCancellations == 0, "deleting A must not dismiss the current unrelated B inspector")
             installedLibraryScanGeneration = 2
-            installedLibraryScanFlight.isInFlight = true
             finishInstalledLibraryScan(generation: 1, records: [ready])
-            precondition(downloads.isEmpty && !installedLibraryScanFlight.isInFlight && catchupScans == 0,
+            precondition(downloads.isEmpty,
                 "a stale source scan must not revive the removed A")
             let current = SteamWorkshopDownloadRecord(id: other.id, title: other.title, sizeText: "2 KB", status: .ready)
-            installedLibraryScanFlight.isInFlight = true
             finishInstalledLibraryScan(generation: 2, records: [current])
             precondition(downloads.map(\.id) == [other.id] && hasCompletedInstalledLibraryLoad
                 && reclamationRequests == 1,

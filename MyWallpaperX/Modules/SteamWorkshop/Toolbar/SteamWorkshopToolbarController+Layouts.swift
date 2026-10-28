@@ -21,9 +21,6 @@ extension SteamWorkshopToolbarController {
         case .steamAccount:
             configureAuthItems()
             return accountToolbarItem
-        case .steamDownloadTasks:
-            configureDownloadTasksItem()
-            return downloadTasksToolbarItem
         case .steamZoom: return zoomToolbarItem
         case .steamSearch:
             syncSearchField()
@@ -37,9 +34,9 @@ extension SteamWorkshopToolbarController {
             .sidebarTrackingSeparator,
             NSToolbarItem.Identifier("ToolbarTitle"),
             .flexibleSpace,
-            .steamAccount, .steamDownloadTasks,
-            .space,
             .steamAuthorBack,
+            .space,
+            .steamAccount, NSToolbarItem.Identifier("downloadTasks"),
             .space,
             .steamPersonalList,
             .space,

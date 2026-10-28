@@ -299,7 +299,7 @@ struct HotkeySettingsSnapshot: Equatable { init(settings: WallpaperSettings) {} 
     // CONFIGURE_SPECTRUM
 }
 extension Notification.Name {
-    static let onlineDownloadsPlaybackPathDidChange = Notification.Name("audio-owner-playback-path")
+    static let pixabayDownloadsPlaybackPathDidChange = Notification.Name("audio-owner-playback-path")
 }
 @MainActor final class WallpaperManager {
     @Published var settings = WallpaperSettings()
@@ -315,6 +315,7 @@ extension Notification.Name {
     var libraryPlaybackSnapshotProvider: ((WallpaperReference?, WallpaperPlaybackSequence.Source,
         WallpaperPlaybackCause) -> WallpaperPlaybackSequence.Snapshot?)?
     var libraryPlaybackDispatcher: ((WallpaperPlaybackSequence.Pending) -> Bool)?
+    var libraryPlaybackPendingChanged: (() -> Void)?
     var playbackSwitch = PlaybackSwitchTransaction()
     var playbackIntentEpoch: UInt64 { playbackSwitch.epoch }
     var playbackIntentDidAdvance: ((WallpaperRuntimeKind?) -> Void)?

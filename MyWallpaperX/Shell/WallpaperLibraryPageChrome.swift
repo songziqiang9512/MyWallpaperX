@@ -4,16 +4,12 @@ import AppKit
 /// relationship owner lives here; every action is an injected fixed command.
 final class WallpaperLibraryPageChrome: NSViewController {
     let content: NSViewController
-    private let notices = NSStackView()
-    private let noticeActions = NSStackView()
+    private let notice = WallpaperGridNoticeView()
     private let empty = WallpaperLibraryEmptyStackView()
     private let emptyIcon = NSImageView()
     private let emptyLabel = NSTextField(wrappingLabelWithString: "")
     private let actions = NSStackView()
     private var handlers: [() -> Void] = []
-    private var noticeHandlers: [() -> Void] = []
-    private var contentTop: NSLayoutConstraint!
-    private var contentBelowNotice: NSLayoutConstraint!
 
     init(content: NSViewController) { self.content = content; super.init(nibName: nil, bundle: nil) }
     @available(*, unavailable) required init?(coder: NSCoder) { nil }
@@ -24,14 +20,6 @@ final class WallpaperLibraryPageChrome: NSViewController {
         let child = content.view
         child.translatesAutoresizingMaskIntoConstraints = false
         view.addSubview(child)
-        notices.orientation = .vertical
-        notices.alignment = .leading
-        notices.spacing = 6
-        notices.detachesHiddenViews = true
-        notices.translatesAutoresizingMaskIntoConstraints = false
-        noticeActions.spacing = 12
-        notices.addArrangedSubview(noticeActions)
-        view.addSubview(notices)
         empty.orientation = .vertical
         empty.alignment = .centerX
         empty.spacing = 14
@@ -45,59 +33,22 @@ final class WallpaperLibraryPageChrome: NSViewController {
         empty.addArrangedSubview(emptyLabel)
         empty.addArrangedSubview(actions)
         view.addSubview(empty)
-        contentTop = child.topAnchor.constraint(equalTo: view.topAnchor)
-        // The actual scrolling body owns its existing eight-point card inset.
-        // This host adds no second gap beneath the final notice or action.
-        contentBelowNotice = child.topAnchor.constraint(equalTo: notices.bottomAnchor)
         NSLayoutConstraint.activate([
-            contentTop,
+            child.topAnchor.constraint(equalTo: view.topAnchor),
             child.leadingAnchor.constraint(equalTo: view.leadingAnchor), child.trailingAnchor.constraint(equalTo: view.trailingAnchor),
             child.bottomAnchor.constraint(equalTo: view.bottomAnchor),
-            notices.leadingAnchor.constraint(equalTo: view.leadingAnchor, constant: 24),
-            notices.trailingAnchor.constraint(equalTo: view.trailingAnchor, constant: -24),
-            notices.topAnchor.constraint(equalTo: view.safeAreaLayoutGuide.topAnchor, constant: 6),
             empty.centerXAnchor.constraint(equalTo: child.safeAreaLayoutGuide.centerXAnchor),
             empty.centerYAnchor.constraint(equalTo: child.safeAreaLayoutGuide.centerYAnchor),
             empty.widthAnchor.constraint(lessThanOrEqualTo: child.safeAreaLayoutGuide.widthAnchor, constant: -48),
             emptyIcon.widthAnchor.constraint(equalToConstant: 44), emptyIcon.heightAnchor.constraint(equalToConstant: 44)
         ])
+        notice.attach(to: view)
     }
 
     func update(notices messages: [String], empty message: String?, symbol: String = "photo.on.rectangle",
-                noticeActions noticeCommands: [(String, () -> Void)] = [], actions commands: [(String, () -> Void)] = []) {
+                noticeActions noticeCommands: [(String, () -> Void)] = [], actions commands: [(String, () -> Void)] = [], errorEvent: UInt64 = 0) {
         loadViewIfNeeded()
-        let messages = messages.filter { !$0.isEmpty }
-        var labels = notices.arrangedSubviews.compactMap { $0 as? NSTextField }
-        while labels.count > messages.count {
-            let label = labels.removeLast()
-            notices.removeArrangedSubview(label)
-            label.removeFromSuperview()
-        }
-        for (index, message) in messages.enumerated() {
-            let label: NSTextField
-            if labels.indices.contains(index) { label = labels[index] }
-            else {
-                label = NSTextField(wrappingLabelWithString: "")
-                label.font = .systemFont(ofSize: 12)
-                label.textColor = .secondaryLabelColor
-                label.isSelectable = true
-                label.maximumNumberOfLines = 2
-                label.lineBreakMode = .byTruncatingTail
-                notices.insertArrangedSubview(label, at: index)
-                label.widthAnchor.constraint(equalTo: notices.widthAnchor).isActive = true
-                labels.append(label)
-            }
-            label.stringValue = message
-            label.toolTip = message
-            label.setAccessibilityLabel(message)
-        }
-        noticeHandlers = noticeCommands.map(\.1)
-        replaceButtons(in: noticeActions, commands: noticeCommands, action: #selector(invokeNotice(_:)))
-        noticeActions.isHidden = noticeCommands.isEmpty
-        notices.isHidden = messages.isEmpty && noticeCommands.isEmpty
-        contentTop.isActive = false
-        contentBelowNotice.isActive = false
-        if notices.isHidden { contentTop.isActive = true } else { contentBelowNotice.isActive = true }
+        notice.update(messages: messages, actions: noticeCommands, event: errorEvent)
         empty.isHidden = message == nil
         emptyLabel.stringValue = message ?? ""
         emptyIcon.image = NSImage(systemSymbolName: symbol, accessibilityDescription: nil)
@@ -115,16 +66,12 @@ final class WallpaperLibraryPageChrome: NSViewController {
         }
     }
 
+    func setNoticeTrailingOcclusion(_ width: CGFloat) { notice.setTrailingOcclusion(width) }
+
     /// Only the current enabled notice controls may cross the Inspector's
     /// dimming surface. Content, empty-state actions and removed controls do not.
     func permitsNoticeInteraction(at windowPoint: NSPoint) -> Bool {
-        guard view.window?.isVisible == true, !view.isHiddenOrHasHiddenAncestor, !notices.isHidden,
-              notices.arrangedSubviews.contains(where: { $0 === noticeActions }) else { return false }
-        return noticeActions.arrangedSubviews.contains { child in
-            guard let button = child as? NSButton, button.isEnabled, button.window === view.window,
-                  !button.isHiddenOrHasHiddenAncestor else { return false }
-            return button.bounds.intersection(button.visibleRect).contains(button.convert(windowPoint, from: nil))
-        }
+        notice.permitsInteraction(at: windowPoint)
     }
 
     @objc private func invoke(_ sender: NSButton) {
@@ -132,12 +79,7 @@ final class WallpaperLibraryPageChrome: NSViewController {
               !empty.isHidden, actions.arrangedSubviews.contains(where: { $0 === sender }), handlers.indices.contains(sender.tag) else { return }
         handlers[sender.tag]()
     }
-    @objc private func invokeNotice(_ sender: NSButton) {
-        guard view.window?.isVisible == true, !view.isHiddenOrHasHiddenAncestor, sender.isEnabled,
-              !notices.isHidden, notices.arrangedSubviews.contains(where: { $0 === noticeActions }),
-              noticeActions.arrangedSubviews.contains(where: { $0 === sender }), noticeHandlers.indices.contains(sender.tag) else { return }
-        noticeHandlers[sender.tag]()
-    }
+
 }
 
 private final class WallpaperLibraryEmptyStackView: NSStackView {

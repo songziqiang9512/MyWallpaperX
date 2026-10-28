@@ -14,28 +14,36 @@ enum PersonalSettingsError: Error { case recoveryRequired(String) }
 @MainActor enum Trace {
     static var events: [String] = []
     static var alerts: [String] = []
+    static var alertMessages: [String] = []
+    static var alertButtons: [[String]] = []
     static var alertHosts: [ObjectIdentifier?] = []
     static var response = NSApplication.ModalResponse.alertFirstButtonReturn
-    static func reset() { events = []; alerts = []; alertHosts = [] }
+    static func reset() { events = []; alerts = []; alertHosts = []; alertMessages = []; alertButtons = [] }
 }
 @MainActor final class CacheLeaf {
     let name: String
+    var holdsCompletion = false
+    var pendingCompletion: (@Sendable () -> Void)?
     init(_ name: String) { self.name = name }
-    func clearAll() { Trace.events.append(name + ".clear") }
+    func clearAll(completion: (@Sendable () -> Void)? = nil) {
+        Trace.events.append(name + ".clear")
+        if holdsCompletion { pendingCompletion = completion } else { completion?() }
+    }
+    func finish() { let pending = pendingCompletion; pendingCompletion = nil; holdsCompletion = false; pending?() }
 }
 @MainActor enum VideoLibraryThumbnailStore { static let sharedCache = CacheLeaf("video") }
 @MainActor enum SILThumbnailStore { static let sharedCache = CacheLeaf("image") }
-@MainActor enum OLDownloadedThumbnailStore { static let sharedCache = CacheLeaf("downloaded") }
+@MainActor enum PixabayDownloadedThumbnailStore { static let sharedCache = CacheLeaf("downloaded") }
 @MainActor enum SteamWorkshopPreviewImageCache { static let shared = CacheLeaf("steam") }
 @MainActor final class SteamWorkshopService {
     static let shared = SteamWorkshopService()
-    func clearAllCachedState() {
+    func clearAllCachedState(completion: (@Sendable () -> Void)? = nil) {
         Trace.events.append("steam.state")
-        SteamWorkshopPreviewImageCache.shared.clearAll()
+        SteamWorkshopPreviewImageCache.shared.clearAll(completion: completion)
     }
 }
-@MainActor final class OLThumbnailCache {
-    static let shared = OLThumbnailCache()
+@MainActor final class OnlineImageThumbnailCache {
+    static let shared = OnlineImageThumbnailCache()
     var continuation: CheckedContinuation<Void, Never>?
     func clearAll() async {
         Trace.events.append("online.begin")
@@ -44,9 +52,29 @@ enum PersonalSettingsError: Error { case recoveryRequired(String) }
     }
     func finish() { let pending = continuation; continuation = nil; pending?.resume() }
 }
+@MainActor final class MainWindowController {
+    func closePreviewForCacheClear() -> Task<Void, Never>? {
+        Trace.events.append("preview.close")
+        return Task {}
+    }
+}
+@MainActor enum MainWindowCoordinator { static let mainWindowController: MainWindowController? = .init() }
+@MainActor final class OnlineImageLibrary {
+    static let shared = OnlineImageLibrary()
+    var continuation: CheckedContinuation<Void, Never>?
+    func clearOriginalPreviewCache(after preview: Task<Void, Never>?) -> Task<Void, Never> {
+        Trace.events.append(preview == nil ? "originals.missing-preview" : "originals.begin")
+        return Task {
+            await preview?.value
+            await withCheckedContinuation { continuation = $0 }
+            Trace.events.append("originals.end")
+        }
+    }
+    func finish() { let pending = continuation; continuation = nil; pending?.resume() }
+}
 @MainActor final class WallpaperManager {
     static let shared = WallpaperManager()
-    func clearAllCaches() { Trace.events.append("manager") }
+    func clearAllCaches(completion: (@Sendable () -> Void)? = nil) { Trace.events.append("manager"); completion?() }
     func applyEngineSettings(reloadWallpaper: Bool) {}
     func refreshAutoSwitchTimerIfNeeded() {}
     func setLoopPlaybackEnabled(_: Bool) {}
@@ -80,6 +108,8 @@ enum PersonalSettingsError: Error { case recoveryRequired(String) }
 @MainActor func presentAppAlert(_ alert: NSAlert, in window: NSWindow?,
                                completion: ((NSApplication.ModalResponse) -> Void)? = nil) {
     Trace.alerts.append(alert.messageText)
+    Trace.alertMessages.append(alert.informativeText)
+    Trace.alertButtons.append(alert.buttons.map(\.title))
     Trace.alertHosts.append(window.map(ObjectIdentifier.init))
     completion?(Trace.response)
 }
@@ -88,6 +118,7 @@ enum PersonalSettingsError: Error { case recoveryRequired(String) }
     let clearCacheButton = NSButton(title: "清除缓存", target: nil, action: nil)
     let exportProfileButton = NSButton(title: "导出", target: nil, action: nil)
     let importProfileButton = NSButton(title: "导入", target: nil, action: nil)
+    // ACTUAL_RESET_BUTTON
     let host = HostWindow(contentRect: .zero, styleMask: [], backing: .buffered, defer: true)
     var fallbackHost: HostWindow?
     var selectedSaveURL: URL? = URL(fileURLWithPath: "/unused/export.json")
@@ -99,6 +130,7 @@ enum PersonalSettingsError: Error { case recoveryRequired(String) }
         clearCacheButton.action = #selector(handleClearCache)
         exportProfileButton.target = self; exportProfileButton.action = #selector(handleExportProfile)
         importProfileButton.target = self; importProfileButton.action = #selector(handleImportProfile)
+        resetSettingsButton.target = self; resetSettingsButton.action = #selector(handleResetSettings)
     }
     func preferredHostWindow() -> NSWindow? {
         return host.isVisible ? host : fallbackHost
@@ -108,6 +140,7 @@ enum PersonalSettingsError: Error { case recoveryRequired(String) }
     // ACTUAL_CLEAR_HANDLER
     // ACTUAL_EXPORT_HANDLER
     // ACTUAL_IMPORT_HANDLER
+    // ACTUAL_RESET_HANDLER
 }
 
 @MainActor final class ProfileGate {
@@ -152,6 +185,16 @@ enum PersonalSettingsError: Error { case recoveryRequired(String) }
             for _ in 0..<200 where !predicate() { await Task.yield() }
             precondition(predicate(), "settings async action did not settle")
         }
+        controller.resetAction = { Trace.events.append("fresh-install.reset") }
+        Trace.response = .alertFirstButtonReturn
+        view.resetSettingsButton.performClick(nil)
+        check("reset-app-names-the-destructive-scope-and-defaults-to-cancel", view.resetSettingsButton.title == "重置应用"
+              && Trace.alerts == ["重置应用"] && Trace.alertButtons == [["取消", "重置"]] && Trace.events.isEmpty
+              && Trace.alertMessages == ["将清空应用中的入库记录、喜爱、播放列表和最近使用，并恢复默认设置。磁盘上的媒体与下载文件保留，此操作不可撤销。"])
+        Trace.reset(); Trace.response = .alertSecondButtonReturn
+        view.resetSettingsButton.performClick(nil)
+        check("only-explicit-reset-runs-the-existing-fresh-install-owner-once", Trace.events == ["fresh-install.reset"])
+        Trace.reset()
         Trace.response = .alertSecondButtonReturn
         view.clearCacheButton.performClick(nil)
         check("cancel-has-zero-provider-effects", Trace.events.isEmpty)
@@ -159,32 +202,46 @@ enum PersonalSettingsError: Error { case recoveryRequired(String) }
               && view.clearCacheButton.title == "清除缓存" && Trace.alerts == ["清空缓存"])
 
         Trace.reset(); Trace.response = .alertFirstButtonReturn
+        VideoLibraryThumbnailStore.sharedCache.holdsCompletion = true
         view.clearCacheButton.performClick(nil)
-        await settle { OLThumbnailCache.shared.continuation != nil }
+        await settle { VideoLibraryThumbnailStore.sharedCache.pendingCompletion != nil }
+        check("namespace-disk-completion-keeps-the-original-clear-action-pending", Trace.events == ["manager", "video.clear"]
+              && Trace.alerts == ["清空缓存"] && !view.clearCacheButton.isEnabled)
+        VideoLibraryThumbnailStore.sharedCache.finish()
+        await settle { OnlineImageThumbnailCache.shared.continuation != nil }
         check("pending-has-no-success-feedback", Trace.alerts == ["清空缓存"])
         check("pending-button-disabled-with-progress-label", !view.clearCacheButton.isEnabled
               && view.clearCacheButton.title == "清理中…")
         let expected = ["manager", "video.clear", "image.clear", "downloaded.clear", "steam.state", "steam.clear", "online.begin"]
         check("every-provider-and-steam-namespace-clears-once", Trace.events == expected)
-        OLThumbnailCache.shared.finish()
+        OnlineImageThumbnailCache.shared.finish()
+        await settle { OnlineImageLibrary.shared.continuation != nil }
+        check("original-preview-clear-keeps-success-pending-after-thumbnail-clear", !view.clearCacheButton.isEnabled
+              && Trace.alerts == ["清空缓存"] && Trace.events == expected + ["online.end", "preview.close", "originals.begin"])
+        OnlineImageLibrary.shared.finish()
         await settle { view.clearCacheButton.isEnabled }
-        check("success-follows-online-completion", Trace.events == expected + ["online.end"]
+        let completed = expected + ["online.end", "preview.close", "originals.begin", "originals.end"]
+        check("success-follows-online-completion", Trace.events == completed
               && Trace.alerts == ["清空缓存", "缓存已清空"])
         check("completed-button-restores-original-label", view.clearCacheButton.title == "清除缓存")
 
         Trace.reset(); view.clearCacheButton.performClick(nil)
-        await settle { OLThumbnailCache.shared.continuation != nil }
+        await settle { OnlineImageThumbnailCache.shared.continuation != nil }
         view.host.shown = false
-        OLThumbnailCache.shared.finish()
+        OnlineImageThumbnailCache.shared.finish()
+        await settle { OnlineImageLibrary.shared.continuation != nil }
+        OnlineImageLibrary.shared.finish()
         await settle { view.clearCacheButton.isEnabled }
-        check("closed-host-finishes-clear-without-orphan-success-sheet", Trace.events == expected + ["online.end"]
+        check("closed-host-finishes-clear-without-orphan-success-sheet", Trace.events == completed
               && Trace.alerts == ["清空缓存"])
         view.host.shown = true
         Trace.reset(); view.clearCacheButton.performClick(nil)
-        await settle { OLThumbnailCache.shared.continuation != nil }
-        OLThumbnailCache.shared.finish()
+        await settle { OnlineImageThumbnailCache.shared.continuation != nil }
+        OnlineImageThumbnailCache.shared.finish()
+        await settle { OnlineImageLibrary.shared.continuation != nil }
+        OnlineImageLibrary.shared.finish()
         await settle { view.clearCacheButton.isEnabled }
-        check("next-operation-remains-usable-and-clears-once", Trace.events == expected + ["online.end"]
+        check("next-operation-remains-usable-and-clears-once", Trace.events == completed
               && Trace.alerts == ["清空缓存", "缓存已清空"])
 
         for exporting in [true, false] {

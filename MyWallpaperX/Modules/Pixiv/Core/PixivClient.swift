@@ -77,7 +77,7 @@ actor PixivClient {
                 sourceURL: resolved.sourceURL, originalURL: original,
                 previewURL: PixivRequestURL.imageURL(page.urls["regular"]), author: resolved.author, authorID: resolved.authorID,
                 tags: resolved.tags, width: page.width.flatMap { $0 > 0 ? $0 : nil },
-                height: page.height.flatMap { $0 > 0 ? $0 : nil })
+                height: page.height.flatMap { $0 > 0 ? $0 : nil }, rating: resolved.rating)
         }
     }
 

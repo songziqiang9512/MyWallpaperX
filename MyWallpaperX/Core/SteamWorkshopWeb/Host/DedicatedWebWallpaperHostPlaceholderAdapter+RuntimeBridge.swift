@@ -159,7 +159,7 @@ private final class WebNetworkBridgeRequest: NSObject, URLSessionDataDelegate, U
         // request.timeoutInterval（构造请求时设 10s）只是「两次数据到达之间」的空闲
         // 超时，ephemeral 会话的资源总时限默认宽松得多；不设总时限时，慢速滴流端可把
         // 一次在飞请求挂住并长期占用该屏配额。总时限 10s 与仓库既有双时限写法一致
-        // （OnlineLibraryThumbnailPipeline.swift:48-49、
+        // （OnlineImageThumbnailPipeline.swift:48-49、
         // SteamWorkshopPreviewRequestCoordinator.swift:71-72），并刻意小于页面侧 15s
         // 桥接超时（JS hostNetworkRequest），保证原生先失败回包。
         configuration.timeoutIntervalForResource = 10

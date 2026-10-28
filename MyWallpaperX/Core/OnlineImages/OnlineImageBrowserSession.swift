@@ -154,12 +154,16 @@ import Foundation
                     state.next = page.next; state.notice = page.notice
                     onResetScroll?()
                 } else {
+                    let previousCount = state.items.count
                     var indices = Dictionary(state.items.enumerated().map { ($0.element.id, $0.offset) }, uniquingKeysWith: { first, _ in first })
                     for value in page.items {
                         if let index = indices[value.id] { state.items[index] = value }
                         else { indices[value.id] = state.items.count; state.items.append(value) }
                     }
                     state.next = page.next; state.notice = page.notice
+                    if state.items.count == previousCount, state.query.authorIdentifier != nil {
+                        state.notice = page.notice ?? "暂未获取到更多内容"
+                    }
                 }
                 scope = currentScope
                 state.total = page.total; state.checkedAt = Date(); state.hasLoaded = true

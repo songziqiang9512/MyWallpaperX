@@ -87,14 +87,12 @@ import QuartzCore
 }
 @MainActor final class SILService {}
 @MainActor final class SteamWorkshopService {
-    var refreshes = 0
     var immediate: WallpaperContentItem?
-    func reloadInstalledItems() { refreshes += 1 }
     func libraryContentItemForExplicitPlayback(id: String) -> WallpaperContentItem? {
         immediate.flatMap { $0.providerReference.sourceID == id ? $0 : nil }
     }
 }
-@MainActor final class OnlineLibraryService {
+@MainActor final class PixabayService {
     var immediate: WallpaperContentItem?
     func libraryContentItemForExplicitPlayback(id: Int) -> WallpaperContentItem? {
         immediate.flatMap { $0.providerReference.sourceID == String(id) ? $0 : nil }
@@ -102,16 +100,15 @@ import QuartzCore
 }
 @MainActor final class WallpaperLibraryCatalogController {
     @Published private(set) var catalog = WallpaperLibraryCatalog()
-    var refreshes = 0
-    init(manager: WallpaperManager, images: SILService, steam: SteamWorkshopService, online: OnlineLibraryService) {}
+    init(manager: WallpaperManager, images: SILService, steam: SteamWorkshopService, pixabay: PixabayService) {}
     func publish(_ value: WallpaperLibraryCatalog) { catalog = value }
-    func refreshAvailability() { refreshes += 1 }
+
 }
 @MainActor enum WallpaperLibraryPlaybackRouting {
     static var dispatched: [(WallpaperPlaybackSequence.Pending, WallpaperContentItem)] = []
     static func dispatch(_ pending: WallpaperPlaybackSequence.Pending, content: WallpaperContentItem,
                          manager: WallpaperManager, workshop: SteamWorkshopService,
-                         online: OnlineLibraryService, images: SILService, relationships: UserCollectionsSnapshot? = nil) -> Bool {
+                         pixabay: PixabayService, images: SILService, relationships: UserCollectionsSnapshot? = nil) -> Bool {
         dispatched.append((pending, content))
         return true
     }
@@ -146,14 +143,14 @@ struct WorkspacePause { let isUserPaused: Bool }
         let suite = "mwx.workspace." + UUID().uuidString
         let defaults = UserDefaults(suiteName: suite)!
         defer { defaults.removePersistentDomain(forName: suite) }
-        let manager = WallpaperManager(), images = SILService(), steam = SteamWorkshopService(), online = OnlineLibraryService()
+        let manager = WallpaperManager(), images = SILService(), steam = SteamWorkshopService(), pixabay = PixabayService()
         let workspace = WallpaperLibraryWorkspace(startup: .ready(.init(store: store, snapshot: initial, disposition: .published)),
-            manager: manager, images: images, steam: steam, online: online, defaults: defaults)
+            manager: manager, images: images, steam: steam, pixabay: pixabay, defaults: defaults)
         var checks: [String: Bool] = [:]
         let video = WallpaperReference(provider: .videoLibrary, sourceID: "local-v")
         let image = WallpaperReference(provider: .staticImageLibrary, sourceID: "local-i")
         let download = WallpaperReference(provider: .steamWorkshop, sourceID: "web:remote")
-        let pixabay = WallpaperReference(provider: .pixabay, sourceID: "9")
+        let pixabayReference = WallpaperReference(provider: .pixabay, sourceID: "9")
         func content(_ ref: WallpaperReference, _ title: String, _ kind: WallpaperMediaKind) -> WallpaperContentItem {
             WallpaperContentItem(reference: ref, providerReference: ref,
                 locator: .init(path: "/controlled/\(ref.sourceID)", titleHint: title, mediaKind: kind), title: title,
@@ -161,7 +158,7 @@ struct WorkspacePause { let isUserPaused: Bool }
                 metadata: .init(resourceRevision: "v1"), acquisition: .idle, update: .idle, aliases: [])
         }
         let values = [content(video, "Alpha", .video), content(image, "Alpha image", .image),
-                      content(download, "Beta", .web), content(pixabay, "Alpha online", .video)]
+                      content(download, "Beta", .web), content(pixabayReference, "Alpha online", .video)]
         func wait(_ condition: () -> Bool) async -> Bool {
             let deadline = Date().addingTimeInterval(3)
             while !condition(), Date() < deadline { try? await Task.sleep(for: .milliseconds(3)) }
@@ -196,7 +193,7 @@ struct WorkspacePause { let isUserPaused: Bool }
         _ = workspace.presentation.setQueryState(.init(search: "Alpha", preferredColumns: 6, scrollAnchor: image, scrollOffset: -19.5, scrollAtTop: false))
         workspace.play(image)
         let pending = manager.libraryPlaybackSequence.pending!
-        checks["explicit-page-play-captures-only-the-displayed-mixed-filter-result"] = pending.proposal.snapshot.entries.map(\.reference) == [video, image, pixabay]
+        checks["explicit-page-play-captures-only-the-displayed-mixed-filter-result"] = pending.proposal.snapshot.entries.map(\.reference) == [video, image, pixabayReference]
             && pending.proposal.snapshot.source == .page(.playlist(id)) && pending.ticket.runtime == .systemStill
         checks["playback-query-does-not-copy-view-only-density-or-scroll"] = pending.proposal.snapshot.sourceQuery?.search == "Alpha"
             && pending.proposal.snapshot.sourceQuery?.preferredColumns == 5 && pending.proposal.snapshot.sourceQuery?.scrollAnchor == nil
@@ -211,22 +208,20 @@ struct WorkspacePause { let isUserPaused: Bool }
         checks["browsing-another-page-keeps-the-accepted-source-and-query"] = manager.libraryPlaybackSequence.committed?.snapshot.source == .page(.playlist(id))
             && manager.libraryPlaybackSequence.committed?.snapshot.sourceQuery?.search == "Alpha"
         workspace.didEditMembers(of: .playlist(id))
-        checks["explicit-membership-refresh-uses-the-original-source-filter"] = manager.libraryPlaybackSequence.committed?.snapshot.entries.map(\.reference) == [video, image, pixabay]
+        checks["explicit-membership-refresh-uses-the-original-source-filter"] = manager.libraryPlaybackSequence.committed?.snapshot.entries.map(\.reference) == [video, image, pixabayReference]
         let recentBefore = workspace.relationships.recent
         if let recovery = manager.libraryPlaybackSequence.commit(pending.ticket, recovery: true) { manager.libraryPlaybackCommitted?(recovery) }
         _ = await workspace.flush()
         checks["internal-recovery-does-not-invent-another-recent-use"] = workspace.relationships.recent == recentBefore
         let global = manager.libraryPlaybackSnapshotProvider?(video, .global, .manualNavigation)
-        checks["explicit-global-source-resolves-every-local-provider-without-remote-results"] = global?.entries.map(\.reference) == [video, image, download, pixabay]
+        checks["explicit-global-source-resolves-every-local-provider-without-remote-results"] = global?.entries.map(\.reference) == [video, image, download, pixabayReference]
         _ = workspace.presentation.switchPage(.workshop)
         workspace.play(download)
         checks["downloaded-item-played-from-browser-is-a-single-item-source"] = manager.libraryPlaybackSequence.pending?.proposal.snapshot.source == .single(download)
             && manager.libraryPlaybackSequence.pending?.proposal.snapshot.entries.map(\.reference) == [download]
-        workspace.refreshSources()
-        checks["explicit-refresh-delegates-to-the-original-scan-and-facts-owners"] = steam.refreshes == 1 && workspace.catalog.refreshes == 1
         let readOnlyManager = WallpaperManager()
         let readOnly = WallpaperLibraryWorkspace(startup: .recoveryRequired("keep source bytes"), manager: readOnlyManager,
-            images: images, steam: steam, online: online, defaults: defaults)
+            images: images, steam: steam, pixabay: pixabay, defaults: defaults)
         readOnly.catalog.publish(catalog)
         _ = await wait { !readOnly.presentation.queryResult.items.isEmpty || readOnly.presentation.page.isRemoteBrowse }
         checks["migration-recovery-can-browse-without-a-second-relationship-writer"] = readOnly.collections == nil
@@ -239,7 +234,7 @@ struct WorkspacePause { let isUserPaused: Bool }
             defer { localDefaults.removePersistentDomain(forName: suite + ".backing") }
             let sourceManager = WallpaperManager()
             let bound = WallpaperLibraryWorkspace(startup: .ready(.init(store: store, snapshot: seed, disposition: .published)),
-                manager: sourceManager, images: SILService(), steam: SteamWorkshopService(), online: OnlineLibraryService(), defaults: localDefaults)
+                manager: sourceManager, images: SILService(), steam: SteamWorkshopService(), pixabay: PixabayService(), defaults: localDefaults)
             let controller = bound.collections!
             let backing = WallpaperReference(provider: .videoLibrary, sourceID: "accepted-backing")
             let published = WallpaperReference(provider: .pixabay, sourceID: "42")
@@ -283,7 +278,7 @@ struct WorkspacePause { let isUserPaused: Bool }
             defer { localDefaults.removePersistentDomain(forName: suite + ".unknown") }
             let sourceManager = WallpaperManager(), workshop = SteamWorkshopService()
             let bound = WallpaperLibraryWorkspace(startup: .ready(.init(store: store, snapshot: seed, disposition: .published)),
-                manager: sourceManager, images: SILService(), steam: workshop, online: OnlineLibraryService(), defaults: localDefaults)
+                manager: sourceManager, images: SILService(), steam: workshop, pixabay: PixabayService(), defaults: localDefaults)
             let local = WallpaperReference(provider: .videoLibrary, sourceID: "known-video")
             let nfc = WallpaperReference(provider: .steamWorkshop, sourceID: "\u{e9}")
             let nfd = WallpaperReference(provider: .steamWorkshop, sourceID: "e\u{301}")
@@ -327,7 +322,7 @@ struct WorkspacePause { let isUserPaused: Bool }
         checks.merge(try await runWorkspaceRotationSourceChecks(root: database.deletingLastPathComponent()), uniquingKeysWith: { _, newer in newer })
         let applyManager = WallpaperManager()
         let applyWorkspace = WallpaperLibraryWorkspace(startup: .ready(.init(store: store, snapshot: initial, disposition: .published)),
-            manager: applyManager, images: SILService(), steam: SteamWorkshopService(), online: OnlineLibraryService(), defaults: defaults)
+            manager: applyManager, images: SILService(), steam: SteamWorkshopService(), pixabay: PixabayService(), defaults: defaults)
         let initialEpoch = applyManager.playbackIntentEpoch
         let firstImageIntent = OnlineImageLibrary.shared.captureApplyIntent!()
         checks["download-and-apply-capture-does-not-begin-or-stop-a-product-intent"] = firstImageIntent()

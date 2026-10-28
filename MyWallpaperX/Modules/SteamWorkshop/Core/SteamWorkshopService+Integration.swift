@@ -4,7 +4,7 @@ import Foundation
 
 extension SteamWorkshopService {
     func revealDownloadsDirectory() {
-        NSWorkspace.shared.activateFileViewerSelecting([libraryRootURL])
+        FinderRevealCoordinator.shared.reveal([libraryRootURL])
     }
 
     func openWorkshopDetailPage(for item: SteamWorkshopBrowserItem) {

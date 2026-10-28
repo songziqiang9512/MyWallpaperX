@@ -329,8 +329,6 @@ final class VideoLibraryInspectorView: NSView {
                 color: .secondaryLabelColor
             )
             facts.maximumNumberOfLines = 2
-            // Reserve the existing two-line budget while AV values resolve.
-            facts.heightAnchor.constraint(equalToConstant: ceil(facts.font!.ascender - facts.font!.descender + facts.font!.leading) * 2).isActive = true
             stack.addArrangedSubview(facts)
         }
 
@@ -343,7 +341,7 @@ final class VideoLibraryInspectorView: NSView {
         }
 
         let stack = VideoLibraryInspectorViews.makeVerticalStack(spacing: 14)
-        stack.addArrangedSubview(VideoLibraryInspectorViews.makeDivider())
+        WallpaperLibraryControlStyle.addSectionDivider(to: stack)
         stack.addArrangedSubview(VideoLibraryInspectorViews.makeSectionTitle("原数据"))
         stack.addArrangedSubview(VideoLibraryInspectorViews.makeFactsGrid(metadataFacts))
         return stack
@@ -351,7 +349,7 @@ final class VideoLibraryInspectorView: NSView {
 
     private func makeTagsSection() -> NSView {
         let stack = VideoLibraryInspectorViews.makeVerticalStack(spacing: 14)
-        stack.addArrangedSubview(VideoLibraryInspectorViews.makeDivider())
+        WallpaperLibraryControlStyle.addSectionDivider(to: stack)
         let names = libraryActions.state.playlistNames
         stack.addArrangedSubview(VideoLibraryInspectorViews.makeSectionTitle("播放列表"))
 
@@ -374,7 +372,7 @@ final class VideoLibraryInspectorView: NSView {
 
     private func makeFileLocationSection() -> NSView {
         let stack = VideoLibraryInspectorViews.makeVerticalStack(spacing: 14)
-        stack.addArrangedSubview(VideoLibraryInspectorViews.makeDivider())
+        WallpaperLibraryControlStyle.addSectionDivider(to: stack)
         stack.addArrangedSubview(VideoLibraryInspectorViews.makeSectionTitle("文件位置"))
 
         let path = VideoLibraryInspectorViews.makeLabel(
@@ -393,7 +391,7 @@ final class VideoLibraryInspectorView: NSView {
 
     private func makeNoticeSection() -> NSView {
         let stack = VideoLibraryInspectorViews.makeVerticalStack(spacing: 8)
-        stack.addArrangedSubview(VideoLibraryInspectorViews.makeDivider())
+        WallpaperLibraryControlStyle.addSectionDivider(to: stack)
         noticeItems.forEach { item in
             stack.addArrangedSubview(VideoLibraryInspectorViews.makeNotice(icon: item.icon, text: item.text))
         }
@@ -549,7 +547,7 @@ final class VideoLibraryInspectorView: NSView {
     }
 
     @objc private func revealInFinder() {
-        NSWorkspace.shared.activateFileViewerSelecting([URL(fileURLWithPath: currentWallpaper.path)])
+        FinderRevealCoordinator.shared.reveal([URL(fileURLWithPath: currentWallpaper.path)])
     }
 
     @objc private func toggleFavorite() {

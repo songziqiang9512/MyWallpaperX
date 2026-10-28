@@ -17,10 +17,15 @@ class SteamItemMenuTests(unittest.TestCase):
             composition = composition.replace('// ACTUAL_LIBRARY_FAVORITE_STATE', declaration(commands, 'nonisolated struct WallpaperLibraryFavoriteActionState'))
             composition = composition.replace('// ACTUAL_LIBRARY_FAVORITE_FACTORY', declaration(commands, '    func makeFavoriteAction('))
             composition = composition.replace('// ACTUAL_LIBRARY_CONTEXT_MENU', declaration(commands, '    func contextMenu('))
-            source.write_text(fixture.replace('// ACTUAL_BROWSER_ITEM_MENU', declaration(grid, '    private func itemMenu(')) + '\n' + composition)
+            open_with = (ROOT / 'MyWallpaperX/Shared/UI/WallpaperOpenWithMenu.swift').read_text()
+            self.assertEqual(open_with.count('NSWorkspace.shared'), 1)
+            leaf = declaration((ROOT / 'script/tests/fixtures/WallpaperOpenWithMenuChecks.swift').read_text(), '@MainActor final class OpenWithWorkspaceLeaf')
+            source.write_text(fixture.replace('// ACTUAL_BROWSER_ITEM_MENU', declaration(grid, '    private func itemMenu('))
+                + '\n' + composition + '\n' + leaf + '\n' + open_with.replace('NSWorkspace.shared', 'OpenWithWorkspaceLeaf.shared'))
             result = subprocess.run(['xcrun', 'swiftc', '-parse-as-library',
                 str(ROOT / 'MyWallpaperX/Modules/SteamWorkshop/UI/SteamWorkshopItemMenu.swift'),
                 str(ROOT / 'MyWallpaperX/Shared/Components/ActionMenuItem.swift'),
+                str(ROOT / 'MyWallpaperX/Shared/UI/FinderRevealCoordinator.swift'),
                 str(source), '-o', str(binary)], capture_output=True, text=True)
             self.assertEqual(result.returncode, 0, result.stderr)
             result = subprocess.run([str(binary)], capture_output=True, text=True)

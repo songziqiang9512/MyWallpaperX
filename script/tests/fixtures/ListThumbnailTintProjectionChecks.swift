@@ -1,9 +1,9 @@
 import AppKit
 
-struct OnlineLibraryVideoItem { let id: Int; var previewThumbnailURL: URL? }
-@MainActor final class OnlineProjection {
+struct PixabayVideoItem { let id: Int; var previewThumbnailURL: URL? }
+@MainActor final class PixabayProjection {
     let listThumbnailTintSource = ListThumbnailTintSource()
-    var orderedIDs: [Int] = [], itemsByID: [Int: OnlineLibraryVideoItem] = [:]
+    var orderedIDs: [Int] = [], itemsByID: [Int: PixabayVideoItem] = [:]
     // ONLINE_METHODS
 }
 struct SteamWorkshopBrowserItem: Equatable { let id: String; var previewImageURL: URL? }
@@ -46,18 +46,18 @@ enum SteamWorkshopDownloadGridSupport {
         }
         let image = NSImage(size: NSSize(width: 16, height: 16))
         let url = URL(string: "https://fixture.invalid/right.jpg")!
-        let online = OnlineProjection(); OLThumbnailCache.shared.result = image
-        online.itemsByID = [8: OnlineLibraryVideoItem(id: 8, previewThumbnailURL: url), 1: OnlineLibraryVideoItem(id: 1)]
-        online.orderedIDs = [8, 1]; online.publishListThumbnailTint()
-        check("onlineUsesOrderedFirstAndPrefetch", online.listThumbnailTintSource.request?.identity.itemID == "8"
-            && load(online.listThumbnailTintSource) === image && OLThumbnailCache.shared.urls == [url]
-            && OLThumbnailCache.shared.priorities == [.prefetch])
-        online.orderedIDs = [1, 8]; online.publishListThumbnailTint()
+        let pixabay = PixabayProjection(); OnlineImageThumbnailCache.shared.result = image
+        pixabay.itemsByID = [8: PixabayVideoItem(id: 8, previewThumbnailURL: url), 1: PixabayVideoItem(id: 1)]
+        pixabay.orderedIDs = [8, 1]; pixabay.publishListThumbnailTint()
+        check("onlineUsesOrderedFirstAndPrefetch", pixabay.listThumbnailTintSource.request?.identity.itemID == "8"
+            && load(pixabay.listThumbnailTintSource) === image && OnlineImageThumbnailCache.shared.urls == [url]
+            && OnlineImageThumbnailCache.shared.priorities == [.prefetch])
+        pixabay.orderedIDs = [1, 8]; pixabay.publishListThumbnailTint()
         var absent: NSImage? = image
-        let absentCancel = online.listThumbnailTintSource.request!.load { absent = $0 }; absentCancel()
-        check("onlineMissingFirstImageDoesNotSelectSecond", absent == nil && OLThumbnailCache.shared.urls == [url])
-        online.orderedIDs = []; online.publishListThumbnailTint()
-        check("onlineEmptyClears", online.listThumbnailTintSource.request == nil)
+        let absentCancel = pixabay.listThumbnailTintSource.request!.load { absent = $0 }; absentCancel()
+        check("onlineMissingFirstImageDoesNotSelectSecond", absent == nil && OnlineImageThumbnailCache.shared.urls == [url])
+        pixabay.orderedIDs = []; pixabay.publishListThumbnailTint()
+        check("onlineEmptyClears", pixabay.listThumbnailTintSource.request == nil)
 
         TintSteamTransport.image = image
         let item = SteamWorkshopBrowserItem(id: "second", previewImageURL: url)

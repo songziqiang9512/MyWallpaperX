@@ -1,4 +1,9 @@
 import AppKit
+
+private final class SidebarRecentMenuProbe: NSObject {
+    var clears = 0
+    @objc func clear(_ sender: Any?) { clears += 1 }
+}
 import Foundation
 
 enum MainWindowCoordinator { static func mainWindow() -> NSWindow? { nil } }
@@ -144,9 +149,27 @@ enum MainWindowCoordinator { static func mainWindow() -> NSWindow? { nil } }
                 && alignment.midX == slot.bounds.midX && alignment.midY == slot.bounds.midY
         }
         let playlistGroupRow = 10, directoryRow = 11, firstPlaylistRow = 13, secondPlaylistRow = 14
-        let library = item(0), browse = item(5), playlistGroup = item(playlistGroupRow)
+        let library = item(2), browse = item(5), playlistGroup = item(playlistGroupRow)
         let titles = (0..<outline.numberOfRows).map { cell($0).textField!.stringValue }
-        checks["three-groups-have-exact-fixed-order-and-empty-duplicate-name-playlists"] = titles == ["资料库", "我的视频", "我的图片", "我的下载", "最近使用", "浏览", "创意工坊", "Wallhaven", "Pixiv", "Pixabay", "播放列表", "所有播放列表", "特别喜爱", first.name, second.name]
+        checks["untitled-local-pages-precede-library-browse-and-playlist-groups"] = titles == ["我的视频", "我的图片", "资料库", "我的下载", "最近使用", "浏览", "创意工坊", "Wallhaven", "Pixiv", "Pixabay", "播放列表", "所有播放列表", "特别喜爱", first.name, second.name]
+        checks["untitled-local-pages-are-root-rows-and-library-contains-downloads-and-recent-only"] = outline.parent(forItem: item(0)) == nil
+            && outline.parent(forItem: item(1)) == nil && (outline.parent(forItem: item(3)) as AnyObject?) === (library as AnyObject)
+            && controller.outlineView(outline, numberOfChildrenOfItem: library) == 2
+        // Compare actual mounted coordinates rather than the cell's constants:
+        // section titles stay at their native position; page artwork steps in.
+        func labelLeading(_ row: Int) -> CGFloat {
+            cell(row).textField!.convert(.zero, to: outline).x
+        }
+        func iconLeading(_ row: Int) -> CGFloat {
+            cell(row).imageView!.convert(.zero, to: outline).x
+        }
+        checks["section-page-artwork-is-inset-from-section-heading"] = [(2, 3), (5, 6), (10, 11)].allSatisfy {
+            iconLeading($0.1) >= labelLeading($0.0) + 6
+                && labelLeading($0.1) > iconLeading($0.1) + 22
+        }
+        checks["ungrouped-and-grouped-page-artwork-share-one-leading-line"] = [1, 3, 4, 6, 7, 8, 9, 11, 12, 13, 14].allSatisfy {
+            abs(iconLeading($0) - iconLeading(0)) < 1
+        }
         checks["group-rows-cannot-navigate"] = !controller.outlineView(outline, shouldSelectItem: library)
             && !controller.outlineView(outline, shouldSelectItem: browse) && navigation.isEmpty
         checks["sidebar-uses-opaque-system-base-and-neutral-selection-row"] = !(controller.view is NSVisualEffectView) && controller.view.isOpaque
@@ -207,7 +230,7 @@ enum MainWindowCoordinator { static func mainWindow() -> NSWindow? { nil } }
             && uniformIconIsCentered(emptyPlaylistCell)
             && NSImage(systemSymbolName: WallpaperLibrarySymbols.playlist, accessibilityDescription: nil) != nil
         checks["every-fixed-page-and-playlist-icon-uses-the-same-visible-22-point-alignment-slot"] = (0..<outline.numberOfRows)
-            .filter { ![0, 5, playlistGroupRow].contains($0) }.allSatisfy { uniformIconIsCentered(cell($0)) }
+            .filter { ![2, 5, playlistGroupRow].contains($0) }.allSatisfy { uniformIconIsCentered(cell($0)) }
         checks["sidebar-symbols-match-independent-mounted-native-source-list-configuration"] = usesPlaylistSymbol(emptyPlaylistCell.imageView, nativePixels: nativePixels)
         checks["sidebar-labels-match-independent-native-font-semantics-with-original-hit-height"] = fontMatchesNative && originalRowHeight == 30
         let directoryIcon = cell(directoryRow).imageView
@@ -219,9 +242,9 @@ enum MainWindowCoordinator { static func mainWindow() -> NSWindow? { nil } }
         }
         checks["all-playlists-entry-uses-native-three-by-three-grid-symbol"] = expectedGrid != nil
             && actualGrid == expectedGrid
-        checks["counts-are-accessible-without-visible-numeric-column"] = cell(1).accessibilityLabel() == "我的视频，7 张壁纸"
+        checks["counts-are-accessible-without-visible-numeric-column"] = cell(0).accessibilityLabel() == "我的视频，7 张壁纸"
             && cell(3).accessibilityLabel() == "我的下载" && cell(secondPlaylistRow).accessibilityLabel() == second.name + "，0 张壁纸"
-            && !descendants(cell(1), NSTextField.self).contains { !$0.isHidden && $0.stringValue == "7" }
+            && !descendants(cell(0), NSTextField.self).contains { !$0.isHidden && $0.stringValue == "7" }
         checks["directory-accessibility-count-uses-playlist-unit-without-visible-count-label"] = cell(directoryRow).accessibilityLabel() == "所有播放列表，2 个播放列表"
             && cell(directoryRow).textField?.stringValue == "所有播放列表"
         checks["new-online-browser-rows-have-no-persistent-visible-or-accessibility-count"] = cell(7).accessibilityLabel() == "Wallhaven"
@@ -239,16 +262,33 @@ enum MainWindowCoordinator { static func mainWindow() -> NSWindow? { nil } }
             window.sendEvent(event(.leftMouseDown, row: row, time: time))
             pump()
         }
-        click(2)
+        click(1)
         checks["real-row-click-requests-only-fixed-page-navigation"] = navigation == [.images]
         controller.update(page: .images, playlists: [first, second], counts: [:], covers: [:], canEdit: true)
-        click(2)
+        click(1)
         checks["same-selected-row-click-uses-existing-shared-behavior-once"] = navigation == [.images, .images]
         let down = NSEvent.keyEvent(with: .keyDown, location: .zero, modifierFlags: [], timestamp: 0,
             windowNumber: window.windowNumber, context: nil, characters: "\u{f701}",
             charactersIgnoringModifiers: "\u{f701}", isARepeat: false, keyCode: 125)!
         outline.keyDown(with: down)
         checks["native-keyboard-arrow-requests-adjacent-page"] = navigation.last == .downloads
+        let recentProbe = SidebarRecentMenuProbe(), recentMenu = NSMenu()
+        let clearRecent = NSMenuItem(title: "清空最近使用…", action: #selector(SidebarRecentMenuProbe.clear(_:)), keyEquivalent: "")
+        clearRecent.target = recentProbe; recentMenu.addItem(clearRecent); recentMenu.autoenablesItems = false
+        var recentMenuRequests = 0
+        controller.makeRecentMenu = { recentMenuRequests += 1; return recentMenu }
+        controller.update(page: .recent, playlists: [first, second], counts: [:], covers: [:], canEdit: true)
+        let beforeRecentNavigation = navigation, beforeRecentSelection = outline.selectedRowIndexes
+        let recentContext = outline.menu(for: event(.rightMouseDown, row: 4))!
+        recentContext.performActionForItem(at: 0)
+        checks["recent-sidebar-context-delegates-original-menu-without-selecting-content-or-navigating"] = recentContext === recentMenu
+            && recentMenuRequests == 1 && recentProbe.clears == 1 && navigation == beforeRecentNavigation
+            && outline.selectedRowIndexes == beforeRecentSelection
+        clearRecent.isEnabled = false
+        checks["recent-sidebar-preserves-disabled-empty-history-command-from-original-owner"] = outline.menu(for: event(.rightMouseDown, row: 4))?.items.first?.isEnabled == false
+        controller.makeRecentMenu = { nil }
+        checks["recent-sidebar-cannot-invent-menu-when-original-owner-rejects-current-page"] = outline.menu(for: event(.rightMouseDown, row: 4)) == nil
+        controller.update(page: .images, playlists: [first, second], counts: [:], covers: [:], canEdit: true)
         let beforeContextNavigation = navigation
         let selectedBeforeContext = outline.selectedRowIndexes
         let menu = outline.menu(for: event(.rightMouseDown, row: firstPlaylistRow))!

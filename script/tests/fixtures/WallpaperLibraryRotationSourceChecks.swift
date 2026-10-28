@@ -49,7 +49,7 @@
         defer { defaults.removePersistentDomain(forName: suite) }
         let manager = WallpaperManager()
         let workspace = WallpaperLibraryWorkspace(startup: .ready(.init(store: store, snapshot: initial, disposition: .published)),
-            manager: manager, images: SILService(), steam: SteamWorkshopService(), online: OnlineLibraryService(), defaults: defaults)
+            manager: manager, images: SILService(), steam: SteamWorkshopService(), pixabay: PixabayService(), defaults: defaults)
         let collections = workspace.collections!
         let playlist = try await collections.createPlaylist(name: "Original source", members: all.map(\.organizationItem))
         let replacement = try await collections.createPlaylist(name: "New manual source", members: outside.map(\.organizationItem))

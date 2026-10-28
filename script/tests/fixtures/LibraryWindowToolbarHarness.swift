@@ -2,6 +2,19 @@ import AppKit
 import Combine
 import Foundation
 
+
+@MainActor final class DownloadTasksController {
+    let changed = PassthroughSubject<Void, Never>()
+    var changes: AnyPublisher<Void, Never> { changed.eraseToAnyPublisher() }
+    var unfinishedCount = 0
+    let popover = DownloadPopoverLeaf()
+    func makePopoverController() -> DownloadPopoverLeaf { popover }
+}
+@MainActor final class DownloadPopoverLeaf {
+    var opens = 0
+    func toggle(relativeTo item: NSToolbarItem, in window: NSWindow) { opens += 1 }
+}
+
 // Recording commands/source controls exercise the full production toolbar.
 // Page identity, query, selection reconciliation and relationship state use
 // the actual Presentation, Query, Controller and SQLite store.
@@ -11,15 +24,13 @@ enum PlaylistOrganizationAction { case create, rename(UUID), duplicate(UUID), de
 extension Notification.Name { static let steamWorkshopBrowseContextDidChange = Notification.Name("toolbar-fixture-browse-context") }
 extension NSToolbarItem.Identifier {
     static let steamAccount = Self("fixture-steam-account")
-    static let steamDownloadTasks = Self("fixture-steam-tasks")
 }
+extension WallpaperLibraryCatalog { var catalog: Self { self } }
 @MainActor final class WallpaperLibraryWorkspace {
     let collections: UserCollectionsController
     let presentation: WallpaperLibraryPresentation
     var catalog: WallpaperLibraryCatalog
     var relationships: UserCollectionsSnapshot { collections.snapshot }
-    var sourceRefreshes = 0
-    func refreshSources() { sourceRefreshes += 1 }
     init(collections: UserCollectionsController, defaults: UserDefaults, catalog: WallpaperLibraryCatalog) {
         self.collections = collections; self.catalog = catalog
         presentation = WallpaperLibraryPresentation(collections: collections, defaults: defaults)
@@ -66,13 +77,6 @@ extension NSToolbarItem.Identifier {
         favoriteStateReads += 1
         return (canOrganize && !items.isEmpty, favoriteIsRemoving, favoriteIsRemoving ? "取消特别喜爱" : "添加到特别喜爱")
     }
-    var manualOrderRequests = 0
-    var canBeginManualOrdering: Bool {
-        guard canOrganize else { return false }
-        return workspace.presentation.page == .playlists
-            && !workspace.presentation.queryState.permitsManualReordering
-    }
-    func beginManualOrdering() { manualOrderRequests += 1 }
     var removalTitle: String { workspace.presentation.page == .favorites ? "取消特别喜爱" : "移除所选" }
     init(_ workspace: WallpaperLibraryWorkspace) { self.workspace = workspace }
     func importFiles() { imports += 1 }
@@ -99,6 +103,10 @@ extension NSToolbarItem.Identifier {
         guard !items.isEmpty else { return nil }
         let menu = NSMenu()
         menu.addItem(ActionMenuItem(title: "固定内容操作", symbol: "info.circle") {})
+        if let choices = makePlaylistMenu() {
+            let add = NSMenuItem(title: "添加到列表", action: nil, keyEquivalent: "")
+            add.submenu = choices; menu.addItem(add)
+        }
         return menu
     }
     func makePlaylistMenu() -> NSMenu? {
@@ -129,11 +137,11 @@ extension NSToolbarItem.Identifier {
 }
 @MainActor final class OnlineImageToolbarController {
     static var latest: OnlineImageToolbarController!
-    let identifiers: [NSToolbarItem.Identifier] = [.init("fixture-image-filter"), .init("fixture-image-search")]
-    var focused = 0
+    let identifiers: [NSToolbarItem.Identifier] = [.init("downloadTasks"), .init("fixture-image-filter"), .init("fixture-image-search")]
+    var focused = 0, refreshes = 0
     private var items: [NSToolbarItem.Identifier: NSToolbarItem] = [:]
     init(images: WallpaperLibraryOnlineImages, workspace: WallpaperLibraryWorkspace, window: NSWindow?) { Self.latest = self }
-    func refresh() {}
+    func refresh() { refreshes += 1 }
     func focusSearch() { focused += 1 }
     func makeItem(for id: NSToolbarItem.Identifier) -> NSToolbarItem? {
         guard identifiers.contains(id) else { return nil }
@@ -144,14 +152,13 @@ extension NSToolbarItem.Identifier {
 }
 @MainActor final class SteamWorkshopService {
     static let shared = SteamWorkshopService()
-    var downloadsShowsAdultContent = false
     var browserSectionTitle = "创意工坊"
 }
 @MainActor final class SteamWorkshopToolbarController {
     static var latest: SteamWorkshopToolbarController!
     var titleUpdateHandler: ((String) -> Void)?
     let browserIdentifiers: [NSToolbarItem.Identifier] = [.sidebarTrackingSeparator, .init("ToolbarTitle"), .flexibleSpace,
-        .steamAccount, .steamDownloadTasks, .init("fixture-steam-filter"), .init("fixture-steam-search")]
+        .steamAccount, .init("downloadTasks"), .init("fixture-steam-filter"), .init("fixture-steam-search")]
     var queries = "kept steam server query", focused = 0
     var makeZoomAction: ((Int) -> (() -> Void)?)?
     private var items: [NSToolbarItem.Identifier: NSToolbarItem] = [:]
@@ -167,25 +174,24 @@ extension NSToolbarItem.Identifier {
     func configureZoom(preferredColumns: Int, clipWidth: CGFloat) { layoutUpdates += 1 }
     func focusSearch() { focused += 1 }
 }
-@MainActor final class OnlineLibraryToolbarController {
-    static var latest: OnlineLibraryToolbarController!
+@MainActor final class PixabayToolbarController {
+    static var latest: PixabayToolbarController!
     var titleUpdateHandler: ((String) -> Void)?
-    let onlineIdentifiers: [NSToolbarItem.Identifier] = [.sidebarTrackingSeparator, .init("ToolbarTitle"), .flexibleSpace,
-        .init("fixture-online-settings"), .init("fixture-online-category"), .init("fixture-online-search")]
+    let pixabayIdentifiers: [NSToolbarItem.Identifier] = [.sidebarTrackingSeparator, .init("ToolbarTitle"), .flexibleSpace,
+        .init("fixture-online-settings"), .init("downloadTasks"), .init("fixture-online-filter"), .init("fixture-online-search")]
     var queries = "kept Pixabay server query", focused = 0
     var makeZoomAction: ((Int) -> (() -> Void)?)?
     private var items: [NSToolbarItem.Identifier: NSToolbarItem] = [:]
     init(window: NSWindow?) { Self.latest = self }
     func makeItem(for id: NSToolbarItem.Identifier) -> NSToolbarItem? {
-        guard onlineIdentifiers.contains(id), id != .sidebarTrackingSeparator, id != .flexibleSpace, id.rawValue != "ToolbarTitle" else { return nil }
+        guard pixabayIdentifiers.contains(id), id != .sidebarTrackingSeparator, id != .flexibleSpace, id.rawValue != "ToolbarTitle" else { return nil }
         if let existing = items[id] { return existing }
         let item = NSToolbarItem(itemIdentifier: id); item.label = "Pixabay \(id.rawValue)"
         item.image = NSImage(systemSymbolName: "square", accessibilityDescription: nil); items[id] = item
         return item
     }
-    var layoutUpdates = 0, categoryWidthUpdates = 0
+    var layoutUpdates = 0
     func configureZoom(preferredColumns: Int, clipWidth: CGFloat) { layoutUpdates += 1 }
-    func updateCategoryScrollWidth() { categoryWidthUpdates += 1 }
     func focusSearch() { focused += 1 }
 }
 
@@ -217,20 +223,23 @@ extension NSToolbarItem.Identifier {
                 publishedAvailability: .available, capabilities: [.play, .organize, .inspect], metadata: .init(), acquisition: .idle, update: .idle, aliases: [])
         }
         let video = content(.videoLibrary, "video", .video), image = content(.staticImageLibrary, "image", .image)
-        let steam = content(.steamWorkshop, "steam", .scene), online = content(.pixabay, "1", .video)
-        let list = try await collections.createPlaylist(name: "稳定 UUID 名称", members: [video.organizationItem, image.organizationItem, steam.organizationItem, online.organizationItem])
-        let catalog = WallpaperLibraryCatalog(videos: [video], images: [image], downloads: [steam, online], revision: 1,
+        let steam = content(.steamWorkshop, "steam", .scene), pixabay = content(.pixabay, "1", .video)
+        let list = try await collections.createPlaylist(name: "稳定 UUID 名称", members: [video.organizationItem, image.organizationItem, steam.organizationItem, pixabay.organizationItem])
+        let catalog = WallpaperLibraryCatalog(videos: [video], images: [image], downloads: [steam, pixabay], revision: 1,
             loadedProviders: Set(WallpaperProvider.allCases))
         let workspace = WallpaperLibraryWorkspace(collections: collections, defaults: defaults, catalog: catalog)
         let commands = WallpaperLibraryCommands(workspace)
         let window = NSWindow(contentRect: NSRect(x: 0, y: 0, width: 1280, height: 560),
             styleMask: [.titled, .closable, .resizable], backing: .buffered, defer: false)
         window.isReleasedWhenClosed = false
-        var clipWidth: CGFloat = 900
+        var clipWidth: CGFloat = 900, layoutWidthReads = 0
         var returnAction: (() -> Void)?
         let onlineImages = WallpaperLibraryOnlineImages()
-        let controller = WallpaperLibraryWindowToolbar(window: window, workspace: workspace, commands: commands, gridWidth: { clipWidth },
-            makeDirectoryReturnAction: { returnAction }, onlineImages: onlineImages)
+        let downloads = DownloadTasksController()
+        let controller = WallpaperLibraryWindowToolbar(window: window, workspace: workspace, commands: commands, gridWidth: {
+            layoutWidthReads += 1; return clipWidth
+        },
+            makeDirectoryReturnAction: { returnAction }, onlineImages: onlineImages, downloads: downloads)
         app.activate()
         window.makeKeyAndOrderFront(nil)
         let initialKeyDeadline = Date().addingTimeInterval(5)
@@ -269,6 +278,11 @@ extension NSToolbarItem.Identifier {
         }
         func item(_ raw: String) -> NSToolbarItem { controller.toolbar.items.first { $0.itemIdentifier.rawValue == raw }! }
         func title() -> String { (item("ToolbarTitle").view as! NSTextField).stringValue }
+        func hasSharedSearchWidth(_ field: NSSearchField) -> Bool {
+            let expected = NSRect(x: field.bounds.minX, y: field.bounds.minY, width: 220, height: field.bounds.height)
+            return field.backingAlignedRect(field.bounds, options: .alignAllEdgesNearest).width
+                == field.backingAlignedRect(expected, options: .alignAllEdgesNearest).width
+        }
         func actionGroups() -> [[String]] {
             guard let start = controller.toolbar.items.firstIndex(where: { $0.itemIdentifier == .flexibleSpace }) else { return [] }
             var groups: [[String]] = [[]]
@@ -303,32 +317,114 @@ extension NSToolbarItem.Identifier {
             return native.menu
         }
         func invoke(_ menu: NSMenu, _ title: String) { menu.performActionForItem(at: menu.items.firstIndex { $0.title == title }!) }
+        // Exercise the real presentation publisher without calling refresh().
+        // Source controls and command leaves count the production consumer calls.
+        try await Task.sleep(nanoseconds: 30_000_000)
+        var presentationEvents = 0
+        let publications = workspace.presentation.$state.dropFirst().sink { _ in presentationEvents += 1 }
+        defer { publications.cancel() }
+        let beforeReceipts = OnlineImageToolbarController.latest.refreshes
+        let beforeReceiptSelection = commands.selectionReads, beforeReceiptFavorites = commands.favoriteStateReads
+        let beforeReceiptLayout = layoutWidthReads, beforeReceiptMenu = item("favorite").menuFormRepresentation
+        for offset in [10.0, 25.0, 60.0] {
+            workspace.presentation.setScrollAnchor(video.reference, offset: offset, atTop: false)
+        }
+        workspace.presentation.setDirectoryScrollAnchor(list, offset: 45, atTop: false)
+        workspace.presentation.report(CocoaError(.fileReadUnknown))
+        try await Task.sleep(nanoseconds: 30_000_000)
+        checks["real-scroll-and-error-publications-do-not-rebuild-toolbar-menus-or-layout"] = presentationEvents == 5
+            && OnlineImageToolbarController.latest.refreshes == beforeReceipts
+            && commands.selectionReads == beforeReceiptSelection && commands.favoriteStateReads == beforeReceiptFavorites
+            && layoutWidthReads == beforeReceiptLayout && item("favorite").menuFormRepresentation === beforeReceiptMenu
+        var publishedQuery = workspace.presentation.queryState
+        publishedQuery.preferredColumns = 6
+        _ = workspace.presentation.setQueryState(publishedQuery)
+        try await Task.sleep(nanoseconds: 30_000_000)
+        checks["real-zoom-publication-still-refreshes-toolbar-capabilities-and-menu"] = OnlineImageToolbarController.latest.refreshes == beforeReceipts + 1
+            && layoutWidthReads > beforeReceiptLayout && item("favorite").menuFormRepresentation !== beforeReceiptMenu
+        let beforeSelectionPublication = OnlineImageToolbarController.latest.refreshes
+        _ = workspace.presentation.setSelection([video.reference], focused: video.reference, isSelecting: true)
+        try await Task.sleep(nanoseconds: 30_000_000)
+        checks["real-selection-publication-enables-current-toolbar-commands"] = OnlineImageToolbarController.latest.refreshes == beforeSelectionPublication + 1
+            && item("favorite").isEnabled && title().contains("已选 1 项")
+        let beforeQueryPublication = OnlineImageToolbarController.latest.refreshes
+        publishedQuery = workspace.presentation.queryState; publishedQuery.search = "video"
+        _ = workspace.presentation.setQueryState(publishedQuery)
+        try await Task.sleep(nanoseconds: 30_000_000)
+        checks["real-search-publication-refreshes-with-an-unchanged-result-array"] = OnlineImageToolbarController.latest.refreshes == beforeQueryPublication + 1
+            && workspace.presentation.queryResult.items == [video]
+        let beforeRelationshipPublication = OnlineImageToolbarController.latest.refreshes
+        let relationshipSelection = workspace.presentation.selectionState, relationshipItems = workspace.presentation.queryResult.items
+        try await collections.perform(.setFavorite(image.organizationItem, true, Date()))
+        workspace.refresh()
+        try await Task.sleep(nanoseconds: 30_000_000)
+        checks["relationship-revision-refreshes-toolbar-with-identical-page-query-and-selection"] = OnlineImageToolbarController.latest.refreshes == beforeRelationshipPublication + 1
+            && workspace.presentation.selectionState == relationshipSelection && workspace.presentation.queryResult.items == relationshipItems
+        let beforeCatalogPublication = OnlineImageToolbarController.latest.refreshes
+        workspace.catalog.revision += 1; workspace.refresh()
+        try await Task.sleep(nanoseconds: 30_000_000)
+        checks["catalog-revision-refreshes-toolbar-with-identical-visible-items"] = OnlineImageToolbarController.latest.refreshes == beforeCatalogPublication + 1
+            && workspace.presentation.queryResult.items == relationshipItems
+        let beforeEditingPublication = OnlineImageToolbarController.latest.refreshes
+        workspace.presentation.setEditingAllowed(false)
+        try await Task.sleep(nanoseconds: 30_000_000)
+        checks["editing-publication-still-revokes-toolbar-mutations"] = OnlineImageToolbarController.latest.refreshes == beforeEditingPublication + 1
+            && !item("favorite").isEnabled && !item("remove").isEnabled
+        workspace.presentation.setEditingAllowed(true)
+        _ = workspace.presentation.setSelection([], isSelecting: false)
+        _ = workspace.presentation.setQueryState(.init())
+        _ = workspace.presentation.switchPage(.workshop)
+        try await Task.sleep(nanoseconds: 30_000_000)
+        let beforeRemoteScroll = SteamWorkshopToolbarController.latest.layoutUpdates
+        let beforeRemoteRefresh = OnlineImageToolbarController.latest.refreshes
+        workspace.presentation.setScrollAnchor(steam.reference, offset: 70, atTop: false)
+        try await Task.sleep(nanoseconds: 30_000_000)
+        checks["remote-scroll-receipt-does-not-reconfigure-source-layout"] = SteamWorkshopToolbarController.latest.layoutUpdates == beforeRemoteScroll
+            && OnlineImageToolbarController.latest.refreshes == beforeRemoteRefresh
+        commands.availabilityInvalidations.send()
+        checks["availability-invalidation-keeps-its-independent-refresh-path"] = SteamWorkshopToolbarController.latest.layoutUpdates == beforeRemoteScroll + 1
+            && OnlineImageToolbarController.latest.refreshes == beforeRemoteRefresh + 1
+        SteamWorkshopToolbarController.latest.titleUpdateHandler?("current source title")
+        checks["source-title-callback-keeps-its-independent-refresh-path"] = SteamWorkshopToolbarController.latest.layoutUpdates == beforeRemoteScroll + 2
+            && OnlineImageToolbarController.latest.refreshes == beforeRemoteRefresh + 2
         page(.videos)
         checks["window-owns-one-native-toolbar-with-one-title-and-search"] = window.toolbar === controller.toolbar
             && controller.toolbar.items.filter { $0.itemIdentifier.rawValue == "ToolbarTitle" }.count == 1
             && controller.toolbar.items.filter { $0 is NSSearchToolbarItem }.count == 1 && title() == "我的视频"
         checks["initial-native-title-value-accessibility-and-item-metadata-share-one-value"] = titleMetadataMatches("我的视频", summary: "显示 1 / 共 1 张壁纸")
-        checks["video-toolbar-has-six-native-groups-without-empty-spaces"] = actionGroups() == [["importFiles", "select", "addToPlaylist"], ["previous", "next"],
+        checks["video-toolbar-has-five-native-groups-without-empty-spaces"] = actionGroups() == [["importFiles", "select"],
             ["remove", "favorite", "more"], ["sort"], ["zoom"], ["search"]]
+        checks["local-toolbar-search-and-sort-use-the-shared-online-standard"] = (item("search") as? NSSearchToolbarItem)?.preferredWidthForSearchField == 220
+            && item("sort").image?.tiffRepresentation == NSImage(systemSymbolName: "line.3.horizontal.decrease", accessibilityDescription: nil)?.tiffRepresentation
+        let nativeSearch = item("search") as! NSSearchToolbarItem
+        checks["expanded-local-search-renders-the-same-220-point-width-as-online-image-search"] = hasSharedSearchWidth(nativeSearch.searchField)
+            && nativeSearch.searchField.window === window && !nativeSearch.searchField.isHiddenOrHasHiddenAncestor
+        window.setContentSize(NSSize(width: 600, height: 560)); settle()
+        controller.focusSearch()
+        try? await Task.sleep(nanoseconds: 350_000_000)
+        checks["collapsed-local-search-focus-keeps-original-editor-and-shared-width"] = nativeSearch.searchField.currentEditor() != nil
+            && window.firstResponder === nativeSearch.searchField.currentEditor() && hasSharedSearchWidth(nativeSearch.searchField)
+        window.makeFirstResponder(window.contentView)
+        window.setContentSize(NSSize(width: 1280, height: 560)); settle()
         checks["fixed-sidebar-has-no-toolbar-toggle"] = !controller.toolbar.items.contains { $0.itemIdentifier == .toggleSidebar }
         checks["ordinary-library-does-not-duplicate-play-header-actions"] = !controller.toolbar.items.contains { ["play", "random", "back"].contains($0.itemIdentifier.rawValue) }
-        checks["native-menu-items-own-menu-without-custom-view-anchor"] = ["sort", "more", "addToPlaylist"].allSatisfy {
+        checks["native-menu-items-own-menu-without-custom-view-anchor"] = ["sort", "more"].allSatisfy {
             let native = item($0) as? NSMenuToolbarItem
             return native != nil && native?.menu.delegate === controller
         }
-        checks["empty-selection-disables-organization-actions-with-stable-identifiers"] = !item("remove").isEnabled && !item("favorite").isEnabled && !item("addToPlaylist").isEnabled && !item("more").isEnabled
+        checks["empty-selection-disables-organization-actions-with-stable-identifiers"] = !item("remove").isEnabled && !item("favorite").isEnabled && !item("more").isEnabled
         _ = workspace.presentation.setSelection([video.reference], focused: video.reference, isSelecting: true); controller.refresh()
         checks["selection-enables-current-organization-and-displays-count"] = item("remove").isEnabled && item("favorite").isEnabled
-            && item("addToPlaylist").isEnabled && item("more").isEnabled && title().contains("已选 1 项")
+            && item("more").isEnabled && title().contains("已选 1 项")
         checks["native-title-metadata-and-accessibility-follow-selection-count"] = titleMetadataMatches("我的视频 · 已选 1 项", summary: "显示 1 / 共 1 张壁纸")
         commands.selectionReads = 0; commands.favoriteStateReads = 0
         controller.refresh()
         checks["one-refresh-reuses-selection-and-favorite-display-state-with-one-fixed-action-factory"] = commands.selectionReads == 1
-            && commands.favoriteStateReads == 2 && item("favorite").isEnabled && item("addToPlaylist").isEnabled
+            && commands.favoriteStateReads == 2 && item("favorite").isEnabled
         commands.isApplyingUndo = true; commands.availabilityInvalidations.send()
-        checks["undo-busy-invalidation-synchronously-revokes-toolbar-favorite"] = !item("favorite").isEnabled && !item("addToPlaylist").isEnabled
+        checks["undo-busy-invalidation-synchronously-revokes-toolbar-favorite"] = !item("favorite").isEnabled
         commands.isApplyingUndo = false; commands.availabilityInvalidations.send()
-        checks["undo-completion-invalidation-restores-current-toolbar-qualification"] = item("favorite").isEnabled && item("addToPlaylist").isEnabled
+        checks["undo-completion-invalidation-restores-current-toolbar-qualification"] = item("favorite").isEnabled
         commands.favoriteIsRemoving = true; controller.refresh()
         checks["favorite-toolbar-shares-command-title-filled-heart-and-accessibility"] = item("favorite").label == "取消特别喜爱"
             && item("favorite").toolTip == "取消特别喜爱" && item("favorite").image?.accessibilityDescription == "取消特别喜爱"
@@ -349,26 +445,24 @@ extension NSToolbarItem.Identifier {
         checks["favorite-overflow-invokes-the-fixed-reference-and-intent-factory-receipt"] = commands.favoriteReceipts.count == 1
             && commands.favoriteReceipts[0].references == [video.reference] && !commands.favoriteReceipts[0].isRemoving && commands.favorites == 0
         commands.favoriteIsRemoving = false; controller.refresh()
-        let previous = commands.manager.manual.count
-        _ = trigger("next")
-        checks["video-toolbar-retains-original-throttled-manual-entry"] = commands.manager.manual.count == previous + 1 && commands.manager.adjacent.isEmpty
-        let playlistMenu = menu("addToPlaylist")
+        checks["video-toolbar-has-no-playback-or-navigation-commands"] = !controller.toolbar.items.contains { ["play", "random", "previous", "next"].contains($0.itemIdentifier.rawValue) } && commands.manager.manual.isEmpty && commands.manager.adjacent.isEmpty
+        let playlistMenu = menu("more").items.first { $0.title == "添加到列表" }!.submenu!
         invoke(playlistMenu, "固定播放列表")
-        checks["native-add-menu-delegates-to-shared-command-factory"] = commands.playlistChoices == 1
+        checks["more-submenu-retains-add-to-list-without-duplicate-toolbar-entry"] = commands.playlistChoices == 1
+            && !controller.toolbar.items.contains { $0.itemIdentifier.rawValue == "addToPlaylist" }
         let nativeSort = item("sort") as! NSMenuToolbarItem, sorts = menu("sort")
         checks["native-default-video-sort-checkmark-and-direction"] = sorts.items.first { $0.title == "默认顺序" }?.state == .on
             && sorts.items.first { $0.title == "改为降序" }?.isEnabled == false
         let staleSort = sorts.items.first { $0.title == "名称" }!
         page(.images)
-        checks["image-toolbar-keeps-the-same-six-role-groups"] = actionGroups() == [["importFiles", "select", "addToPlaylist"], ["previous", "next"],
+        checks["image-toolbar-keeps-the-same-five-role-groups"] = actionGroups() == [["importFiles", "select"],
             ["remove", "favorite", "more"], ["sort"], ["zoom"], ["search"]]
         checks["native-title-metadata-and-accessibility-follow-image-page"] = titleMetadataMatches("我的图片", summary: "显示 1 / 共 1 张壁纸")
         _ = app.sendAction(staleSort.action!, to: staleSort.target, from: staleSort)
         checks["old-sort-menu-cannot-change-another-page"] = workspace.presentation.queryState.sort == nil
-        _ = trigger("previous")
-        checks["image-toolbar-navigation-delegates-unified-adjacent-policy"] = commands.manager.adjacent.count == 1
+        checks["image-toolbar-has-no-playback-or-navigation-commands"] = !controller.toolbar.items.contains { ["play", "random", "previous", "next"].contains($0.itemIdentifier.rawValue) } && commands.manager.manual.isEmpty && commands.manager.adjacent.isEmpty
         page(.downloads)
-        checks["downloads-retains-one-account-task-group-and-four-page-groups"] = actionGroups() == [["fixture-steam-account", "fixture-steam-tasks"],
+        checks["downloads-has-one-generic-task-group-without-provider-account"] = actionGroups() == [["downloadTasks"],
             ["select", "remove", "more"], ["filter", "sort"], ["zoom"], ["search"]]
         checks["native-title-metadata-and-accessibility-follow-downloads-page"] = titleMetadataMatches("我的下载", summary: "显示 2 / 共 2 张壁纸")
         let downloadSort = menu("sort")
@@ -376,18 +470,24 @@ extension NSToolbarItem.Identifier {
             && downloadSort.items.contains { $0.title == "改为升序" }
         invoke(downloadSort, "名称")
         checks["choosing-sort-preserves-default-download-descending-direction"] = workspace.presentation.queryState.sort == .name && !workspace.presentation.queryState.ascending
-        let adultMenu = menu("filter"), oldAdult = menu("filter").items.first { $0.title == "成人内容" }!
-        checks["downloads-adult-filter-uses-the-existing-source-preference"] = adultMenu.items.first { $0.title == "成人内容" }?.state == .off
-        invoke(adultMenu, "成人内容")
-        checks["downloads-adult-filter-native-action-updates-the-original-owner"] = SteamWorkshopService.shared.downloadsShowsAdultContent
-            && menu("filter").items.first { $0.title == "成人内容" }?.state == .on
-        _ = workspace.presentation.setSelection([online.reference], focused: online.reference, isSelecting: false); controller.refresh()
+        let adultMenu = menu("filter"), oldAdult = menu("filter").items.first { $0.title == "显示成人内容" }!
+        checks["downloads-adult-filter-reflects-the-original-page-query"] = adultMenu.items.first { $0.title == "显示成人内容" }?.state == .on
+        invoke(adultMenu, "显示成人内容")
+        checks["downloads-adult-filter-native-action-updates-the-original-query-owner"] = !workspace.presentation.queryState.showsAdultContent
+            && menu("filter").items.first { $0.title == "显示成人内容" }?.state == .off
+        checks["downloads-filter-retires-task-states-and-retains-playable-unavailable"] =
+            ["可播放", "不可用"].allSatisfy { name in adultMenu.items.contains { $0.title == name } }
+            && !adultMenu.items.contains { ["正在下载或更新", "下载或更新失败"].contains($0.title) }
+        _ = workspace.presentation.setSelection([pixabay.reference], focused: pixabay.reference, isSelecting: false); controller.refresh()
         checks["downloads-more-is-enabled-only-with-an-actual-current-selection"] = item("more").isEnabled && item("remove").isEnabled
-        let localMore = menu("more"), staleRefresh = localMore.items.first { $0.title == "刷新文件状态" }!
-        invoke(localMore, "刷新文件状态")
-        checks["downloads-refresh-is-reachable-through-the-sole-workspace-source-entry"] = workspace.sourceRefreshes == 1
+        checks["downloads-more-has-no-retired-manual-refresh"] = !menu("more").items.contains { $0.title == "刷新文件状态" }
+        _ = trigger("downloadTasks")
+        checks["downloads-button-opens-the-single-generic-manager"] = downloads.popover.opens == 1
+        downloads.unfinishedCount = 4
+        downloads.changed.send()
+        checks["download-button-immediately-projects-original-manager-count"] = item("downloadTasks").label == "下载管理 · 4 项进行中"
         let filters = menu("filter")
-        checks["downloads-offers-all-four-local-download-provider-filters"] = ["Steam 创意工坊", "Pixabay", "Wallhaven", "Pixiv"].allSatisfy { title in
+        checks["downloads-offers-all-four-local-download-provider-filters"] = ["创意工坊", "Pixabay", "Wallhaven", "Pixiv"].allSatisfy { title in
             filters.items.contains { $0.title == title }
         }
         checks["type-counts-use-current-page-and-preserve-other-filters"] = filters.items.contains { $0.title == "全部类型（2）" }
@@ -397,8 +497,10 @@ extension NSToolbarItem.Identifier {
         invoke(menu("filter"), "可播放")
         checks["filter-dimensions-compose-without-resetting-other-dimensions"] = workspace.presentation.queryState.provider == .pixabay
             && workspace.presentation.queryState.kind == .video && workspace.presentation.queryState.status == .playable
-            && workspace.presentation.queryResult.items.map(\.reference) == [online.reference]
+            && workspace.presentation.queryResult.items.map(\.reference) == [pixabay.reference]
         let filtered = menu("filter")
+        checks["adult-control-remains-available-for-every-downloaded-provider"] = filtered.items.first { $0.title == "显示成人内容" }?.state == .off
+            && !workspace.presentation.queryState.showsAdultContent
         checks["native-filter-checkmarks-reflect-all-independent-values"] = ["Pixabay", "视频（1）", "可播放"].allSatisfy { name in filtered.items.first { $0.title == name }?.state == .on }
         controller.refresh()
         checks["active-filter-and-current-sort-remain-readable-without-opening-menus"] = item("filter").toolTip?.contains("Pixabay") == true
@@ -407,7 +509,8 @@ extension NSToolbarItem.Identifier {
         invoke(filtered, "全部来源")
         checks["all-sources-restores-provider-union-without-clearing-kind-or-status"] = workspace.presentation.queryState.provider == nil
             && workspace.presentation.queryState.kind == .video && workspace.presentation.queryState.status == .playable
-        let oldProviderItem = filtered.items.first { $0.title == "Steam 创意工坊" }!
+        checks["all-sources-preserves-the-single-adult-query-preference"] = menu("filter").items.first { $0.title == "显示成人内容" }?.state == .off
+        let oldProviderItem = filtered.items.first { $0.title == "创意工坊" }!
         try await collections.reset(); workspace.refresh(); controller.refresh()
         let resetQuery = workspace.presentation.queryState
         _ = app.sendAction(oldProviderItem.action!, to: oldProviderItem.target, from: oldProviderItem)
@@ -415,28 +518,24 @@ extension NSToolbarItem.Identifier {
         page(.favorites)
         checks["favorites-has-one-cancel-action-without-a-duplicate-heart"] = controller.toolbar.items.filter { $0.itemIdentifier.rawValue == "remove" }.count == 1
             && !controller.toolbar.items.contains { $0.itemIdentifier.rawValue == "favorite" }
-        checks["favorites-keeps-play-add-selection-removal-view-and-search-in-six-groups"] = actionGroups() == [["play", "random"],
-            ["select", "addToPlaylist"], ["remove", "more"], ["filter", "sort"], ["zoom"], ["search"]]
+        checks["favorites-keeps-organization-filter-sort-zoom-search-in-five-groups"] = actionGroups() == [["select", "addToPlaylist"], ["remove", "more"], ["filter", "sort"], ["zoom"], ["search"]]
+        let beforeOldAdult = workspace.presentation.queryState
         _ = app.sendAction(oldAdult.action!, to: oldAdult.target, from: oldAdult)
-        _ = app.sendAction(staleRefresh.action!, to: staleRefresh.target, from: staleRefresh)
-        checks["stale-downloads-menu-cannot-change-preference-or-refresh-another-page"] = SteamWorkshopService.shared.downloadsShowsAdultContent
-            && workspace.sourceRefreshes == 1 && !menu("filter").items.contains { $0.title == "成人内容" }
+        checks["stale-downloads-menu-cannot-change-preference-or-refresh-another-page"] = workspace.presentation.queryState == beforeOldAdult
+            && !menu("filter").items.contains { $0.title == "显示成人内容" }
         let favoritesSort = menu("sort")
         checks["favorite-default-sort-and-direction-match-query-authority"] = favoritesSort.items.first { $0.title == "标记喜爱时间" }?.state == .on
             && favoritesSort.items.contains { $0.title == "改为升序" }
         page(.recent)
-        checks["recent-toolbar-groups-playback-organization-filter-zoom-search"] = actionGroups() == [["play", "random"],
-            ["select", "addToPlaylist"], ["remove", "favorite", "more"], ["filter"], ["zoom"], ["search"]]
+        checks["recent-toolbar-groups-organization-filter-zoom-search-without-playback"] = actionGroups() == [["select"], ["remove", "favorite", "more"], ["filter"], ["zoom"], ["search"]]
         let disabledRecentMore = item("more") as! NSMenuToolbarItem
         controller.menuNeedsUpdate(disabledRecentMore.menu)
         checks["recent-fixed-time-order-retains-clear-menu-content-while-empty-selection-disables-entry"] = !controller.toolbar.items.contains { $0.itemIdentifier.rawValue == "sort" }
             && !disabledRecentMore.isEnabled && disabledRecentMore.menu.items.contains { $0.title == "清空最近使用…" }
         page(.playlists)
         checks["native-title-metadata-and-accessibility-follow-playlist-directory"] = titleMetadataMatches("所有播放列表", summary: "显示 0 / 共 0 个播放列表")
-        checks["directory-toolbar-has-create-without-wallpaper-organization-actions"] = item("create").isEnabled
-            && !controller.toolbar.items.contains { ["select", "remove", "play", "random"].contains($0.itemIdentifier.rawValue) }
-        checks["directory-is-four-small-native-groups"] = actionGroups() == [["create"], ["sort"], ["zoom"], ["search"]]
-        checks["already-manual-directory-does-not-advertise-a-noop-arrange-command"] = !menu("sort").items.contains { $0.title == "切回手动并清除筛选以整理" }
+        checks["directory-toolbar-has-only-zoom-and-search-without-duplicate-create-or-sort"] = actionGroups() == [["zoom"], ["search"]]
+            && !controller.toolbar.items.contains { ["create", "sort", "select", "remove", "play", "random"].contains($0.itemIdentifier.rawValue) }
         let freshList = try await collections.createPlaylist(name: "固定标题"); workspace.refresh(); controller.refresh()
         checks["directory-title-count-excludes-the-fixed-create-card"] = titleMetadataMatches("所有播放列表", summary: "显示 1 / 共 1 个播放列表")
         var directorySearch = workspace.presentation.queryState; directorySearch.search = "no matching playlist"
@@ -490,29 +589,23 @@ extension NSToolbarItem.Identifier {
         invoke(menu("sort"), "手动顺序")
         var expectedManual = filteredManual; expectedManual.sort = .sourceOrder
         checks["ordinary-manual-sort-retains-filter-search-density-and-scroll"] = workspace.presentation.queryState == expectedManual
-            && commands.manualOrderRequests == 0
+
         checks["member-grid-never-advertises-internal-drag-ordering"] = !menu("sort").items.contains { $0.title == "切回手动并清除筛选以整理" }
-            && !commands.canBeginManualOrdering
+
         page(.playlists)
         var directoryManual = workspace.presentation.queryState
-        directoryManual.search = "directory search"; directoryManual.sort = .name; directoryManual.preferredColumns = 4
+        directoryManual.sort = .name; directoryManual.ascending = false; directoryManual.preferredColumns = 4
         _ = workspace.presentation.setQueryState(directoryManual); controller.refresh()
-        let oldArrange = menu("sort").items.first { $0.title == "切回手动并清除筛选以整理" }!
-        let explicitArrange = menu("sort")
-        invoke(explicitArrange, "切回手动并清除筛选以整理")
-        checks["explicit-arrange-routes-once-through-the-shared-command"] = commands.manualOrderRequests == 1
+        checks["saved-directory-sort-does-not-disable-manual-reorder-or-recreate-retired-controls"] = workspace.presentation.permitsDirectoryReordering
+            && actionGroups() == [["zoom"], ["search"]] && workspace.presentation.queryState == directoryManual
+        directoryManual.search = "directory search"
+        _ = workspace.presentation.setQueryState(directoryManual); controller.refresh()
+        checks["directory-search-keeps-filtered-results-out-of-drag-ordering"] = !workspace.presentation.permitsDirectoryReordering
             && workspace.presentation.queryState == directoryManual
         workspace.presentation.setEditingAllowed(false); controller.refresh()
-        _ = workspace.presentation.setQueryState(directoryManual); controller.refresh()
-        invoke(menu("sort"), "手动顺序")
-        var expectedDirectoryManual = directoryManual; expectedDirectoryManual.sort = .sourceOrder
-        checks["readonly-manual-sort-keeps-the-same-query-without-a-drag-promise"] = workspace.presentation.queryState == expectedDirectoryManual
-            && !menu("sort").items.contains { $0.title == "切回手动并清除筛选以整理" }
+        checks["readonly-directory-does-not-recreate-create-or-sort-controls"] = actionGroups() == [["zoom"], ["search"]]
         workspace.presentation.setEditingAllowed(true)
         _ = workspace.presentation.setQueryState(.init()); controller.refresh()
-        page(.playlist(freshList))
-        _ = app.sendAction(oldArrange.action!, to: oldArrange.target, from: oldArrange)
-        checks["held-arrange-menu-cannot-clear-a-different-page-query"] = commands.manualOrderRequests == 1
         page(.workshop)
         SteamWorkshopService.shared.browserSectionTitle = "作者的创意工坊"
         SteamWorkshopToolbarController.latest.titleUpdateHandler?("作者的创意工坊")
@@ -539,13 +632,11 @@ extension NSToolbarItem.Identifier {
         checks["workshop-reentry-reuses-original-source-control-identity"] = item("fixture-steam-search") === sourceItem
         page(.pixabay)
         controller.focusSearch(); controller.performZoom(delta: -1)
-        checks["pixabay-retains-settings-category-search-with-one-page-column-owner"] = OnlineLibraryToolbarController.latest.focused == 1
+        checks["pixabay-retains-settings-filter-search-with-one-page-column-owner"] = PixabayToolbarController.latest.focused == 1
             && workspace.presentation.queryState.preferredColumns == 6 && controller.toolbar.items.contains { $0.itemIdentifier.rawValue == "fixture-online-settings" }
-        let onlineBeforeResize = OnlineLibraryToolbarController.latest.layoutUpdates
-        let categoryBeforeResize = OnlineLibraryToolbarController.latest.categoryWidthUpdates
+        let onlineBeforeResize = PixabayToolbarController.latest.layoutUpdates
         NotificationCenter.default.post(name: NSWindow.didResizeNotification, object: window)
-        checks["active-pixabay-controls-recompute-category-width-and-zoom"] = OnlineLibraryToolbarController.latest.layoutUpdates == onlineBeforeResize + 1
-            && OnlineLibraryToolbarController.latest.categoryWidthUpdates == categoryBeforeResize + 1
+        checks["active-pixabay-controls-recompute-shared-zoom-without-a-retired-category-width-owner"] = PixabayToolbarController.latest.layoutUpdates == onlineBeforeResize + 1
         for imagePage in [WallpaperLibraryPage.wallhaven, .pixiv] {
             page(imagePage)
             let focused = OnlineImageToolbarController.latest.focused
@@ -566,10 +657,10 @@ extension NSToolbarItem.Identifier {
             checks["online-image-author-return-restores-source-title-\(imagePage.persistenceKey)"] = titleMetadataMatches(imagePage.title())
         }
         page(.videos)
-        let localOnlineLayouts = OnlineLibraryToolbarController.latest.layoutUpdates
+        let localOnlineLayouts = PixabayToolbarController.latest.layoutUpdates
         let localSteamLayouts = SteamWorkshopToolbarController.latest.layoutUpdates
         NotificationCenter.default.post(name: NSWindow.didResizeNotification, object: window)
-        checks["local-window-resize-does-not-update-inactive-remote-controls"] = OnlineLibraryToolbarController.latest.layoutUpdates == localOnlineLayouts
+        checks["local-window-resize-does-not-update-inactive-remote-controls"] = PixabayToolbarController.latest.layoutUpdates == localOnlineLayouts
             && SteamWorkshopToolbarController.latest.layoutUpdates == localSteamLayouts
         let zoom = item("zoom").view as! NSSegmentedControl
         checks["local-zoom-pair-retains-native-steam-shape-and-icon-order"] = zoom.segmentStyle == .capsule && zoom.segmentCount == 2
@@ -583,6 +674,12 @@ extension NSToolbarItem.Identifier {
         // Native momentary tracking needs an actual active/key App window.
         // The prohibited, non-key CLI diagnostic left the first segment
         // pressed without dispatching its command. Do not retry either click.
+        // Earlier geometry cases deliberately use a wide window. Real input
+        // must fit the current display so both native segments are on screen.
+        if let visible = (window.screen ?? NSScreen.main)?.visibleFrame {
+            let size = NSSize(width: min(window.frame.width, visible.width), height: min(window.frame.height, visible.height))
+            window.setFrame(NSRect(x: visible.minX, y: visible.maxY - size.height, width: size.width, height: size.height), display: true)
+        }
         window.makeKeyAndOrderFront(nil)
         app.activate()
         let activationDeadline = Date().addingTimeInterval(2)
@@ -711,7 +808,12 @@ extension NSToolbarItem.Identifier {
         checks["resize-retains-per-page-density-and-restores-available-zoom"] = workspace.presentation.queryState.preferredColumns == 4
             && zoom.isEnabled(forSegment: 0) && zoom.isEnabled(forSegment: 1) && item("zoom").isEnabled
         let staleZoom = item("zoom").menuFormRepresentation!.submenu!.items[1]
-        try await collections.reset(); workspace.refresh(); controller.refresh()
+        try await Task.sleep(nanoseconds: 30_000_000)
+        let beforeEpochRefresh = OnlineImageToolbarController.latest.refreshes, previousEpoch = workspace.relationships.resetEpoch
+        try await collections.reset(); workspace.refresh()
+        try await Task.sleep(nanoseconds: 30_000_000)
+        checks["real-reset-publication-refreshes-toolbar-and-retires-old-menu-receipts"] = workspace.relationships.resetEpoch != previousEpoch
+            && OnlineImageToolbarController.latest.refreshes == beforeEpochRefresh + 1
         let afterZoomReset = workspace.presentation.queryState
         _ = app.sendAction(staleZoom.action!, to: staleZoom.target, from: staleZoom)
         checks["old-native-zoom-overflow-cannot-write-across-reset"] = workspace.presentation.queryState == afterZoomReset
@@ -724,11 +826,11 @@ extension NSToolbarItem.Identifier {
         checks["page-search-restores-local-state-without-erasing-remote-query"] = search.searchField.stringValue == "local only"
             && workspace.presentation.queryState.search == "local only"
             && SteamWorkshopToolbarController.latest.queries == "kept steam server query"
-            && OnlineLibraryToolbarController.latest.queries == "kept Pixabay server query"
+            && PixabayToolbarController.latest.queries == "kept Pixabay server query"
         var query = workspace.presentation.queryState; query.search = ""; _ = workspace.presentation.setQueryState(query)
         workspace.presentation.setEditingAllowed(false); controller.refresh()
         checks["recovery-readonly-disables-mutations-without-disabling-view-controls"] = !item("importFiles").isEnabled
-            && !item("favorite").isEnabled && !item("addToPlaylist").isEnabled && item("sort").isEnabled && item("search").isEnabled
+            && !item("favorite").isEnabled && item("sort").isEnabled && item("search").isEnabled
         workspace.presentation.setEditingAllowed(true); controller.refresh()
         let requestedLongName = String(repeating: "很长的家庭媒体播放列表 🎨🌇 ", count: 8)
         let longList = try await collections.createPlaylist(name: requestedLongName); workspace.refresh(); page(.playlist(longList))

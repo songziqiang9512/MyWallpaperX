@@ -21,16 +21,16 @@ class WallpaperLibraryPlaybackTests(unittest.TestCase):
         source = product_harness()
         source = source.replace('import Foundation', 'import AppKit\nimport Foundation', 1)
         source = source.replace('func isSwitchingPlaybackMode()->Bool{true}', 'func isSwitchingPlaybackMode()->Bool{mode != .loop}')
-        source = source.replace('var autoSwitchEnabled=true,randomInterval=', 'var volume:Double=100\n        var autoSwitchEnabled=true,randomInterval=')
+        source = source.replace('var autoSwitchEnabled=true,randomInterval=',
+            'var loopPlayback=false,randomPlayback=false,sequentialPlayback=true\n        var volume:Double=100\n        var autoSwitchEnabled=true,randomInterval=')
         source = source.replace('func stopCurrentPlayback(){_ = beginPlaybackIntent();currentWallpaper=nil;pendingWallpaper=nil;isPlaying=false;stopAutoSwitchTimer()}', '')
         source = source.replace('@discardableResult func advanceLibraryPlayback(cause:WallpaperPlaybackCause)->Bool{timerFires += 1;return false}', '')
         source = source.replace('func restoreSystemDesktopWallpaperOnTermination(){Trace.values.append("restoreDesktop")}', '')
         fields = '''
     enum PlaybackMode { case loop, sequential, random }
-    var mode=PlaybackMode.sequential
+    var mode:PlaybackMode { get { playbackMode() } set { applyPlaybackMode(newValue) } }
     var pendingManualNavigationWorkItem:DispatchWorkItem?
     var pendingManualNavigationDirection:ManualNavigationDirection?
-    func playbackMode()->PlaybackMode{mode}
     func pathExists(_ path:String)->Bool{FileManager.default.fileExists(atPath:path)}
     func applySystemAudioSpectrumToEngine(){}
 '''
@@ -42,7 +42,9 @@ class WallpaperLibraryPlaybackTests(unittest.TestCase):
     var didApplySystemStillThisRun = false
     var staticFrameCacheDirectory = URL(fileURLWithPath: "/private/tmp/unconfigured-desktop-cache")
     var thumbnailCacheDirectory = URL(fileURLWithPath: "/private/tmp/unconfigured-thumbnail-cache")
-    func bumpCacheGeneration() {}
+    let deletionQueue = DispatchQueue(label: "fixture.desktop-cache-deletion", qos: .utility)
+    let cacheGenerationLock = NSLock()
+    var cacheGeneration: UInt64 = 0
     func clearThumbnailMemoryCache() {}
     func clearThumbnailInFlight() {}
     func clearStaticFrameSchedule() {}
@@ -53,6 +55,7 @@ class WallpaperLibraryPlaybackTests(unittest.TestCase):
         application = (MANAGER / 'WallpaperManager+WallpaperApplication.swift').read_text()
         removal = (MANAGER / 'WallpaperManager+Removal.swift').read_text()
         navigation = (MANAGER / 'WallpaperManager+PlaybackControl.swift').read_text()
+        playback_settings = (MANAGER / 'WallpaperManager+PlaybackSettings.swift').read_text()
         methods = '\n'.join([
             declaration(application, '    func setAsWallpaper('),
             declaration(removal, '    func clearCurrentWallpaperReference('),
@@ -68,6 +71,10 @@ class WallpaperLibraryPlaybackTests(unittest.TestCase):
             declaration(navigation, '    func advanceLibraryPlayback('),
             declaration(navigation, '    func updateLibraryPlaybackSource('),
         ])
+        methods += '\n' + '\n'.join(declaration(playback_settings, signature) for signature in (
+            '    func setLoopPlaybackEnabled(', '    func setRandomPlaybackEnabled(',
+            '    func setSequentialPlaybackEnabled(', '    func normalizePlaybackSettings(',
+            '    func playbackMode(', '    func applyPlaybackMode(', '    func syncAutoSwitchPlaybackPolicy('))
         still = declaration(routing, '    func setStaticWallpaper(')
         self.assertEqual(still.count('NSWorkspace.shared'), 1)
         self.assertEqual(still.count('NSScreen.screens'), 1)

@@ -6,7 +6,7 @@ import Foundation
 enum WallpaperLibraryPlaybackRouting {
     static func dispatch(_ pending: WallpaperPlaybackSequence.Pending, content: WallpaperContentItem,
                          manager: WallpaperManager, workshop: SteamWorkshopService,
-                         online: OnlineLibraryService, images: SILService,
+                         pixabay: PixabayService, images: SILService,
                          relationships: UserCollectionsSnapshot? = nil) -> Bool {
         guard manager.acceptsLibraryPlayback(pending), content.publishedAvailability.isAvailable,
               content.capabilities.contains(.play) else { return false }
@@ -39,7 +39,7 @@ enum WallpaperLibraryPlaybackRouting {
         case .pixabay:
             guard content.kind == .video, pending.ticket.runtime == .video,
                   let id = Int(owner.sourceID), String(id).utf8.elementsEqual(owner.sourceID.utf8) else { return false }
-            return online.setLocalFileAsWallpaper(id: id, libraryPending: pending)
+            return pixabay.setLocalFileAsWallpaper(id: id, libraryPending: pending)
         case .wallhaven, .pixiv:
             let library = OnlineImageLibrary.shared
             guard content.kind == .image, pending.ticket.runtime == .systemStill,

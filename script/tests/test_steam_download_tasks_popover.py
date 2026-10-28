@@ -1,4 +1,4 @@
-"""Exercise SK5.2 current and SK5.3 history projections plus AppKit wiring."""
+"""Real local task/history projections; generic AppKit lifecycle has its native gate."""
 import pathlib
 import subprocess
 import tempfile
@@ -8,12 +8,10 @@ from script.tests.test_steam_library_transaction import CORE, ROOT, SOURCES
 from script.tests.test_steam_library_interactions import method
 
 PROJECTION = CORE / "SteamWorkshopDownloadTaskProjection.swift"
-UI = ROOT / "MyWallpaperX/Modules/SteamWorkshop/UI/SteamWorkshopDownloadTasksPopover.swift"
-TOOLBAR = ROOT / "MyWallpaperX/Modules/SteamWorkshop/Toolbar"
 
 
 class SteamDownloadTasksPopoverTests(unittest.TestCase):
-    def test_current_projection_is_account_scoped_and_stably_ordered(self):
+    def test_local_projection_keeps_accounts_and_stable_native_queue_order(self):
         harness = r'''
 import Foundation
 
@@ -72,31 +70,18 @@ struct SteamWorkshopDownloadRecord: Equatable {
             make("space-account", .failed, 0, account: " ")
         ]
 
+        let visible = SteamWorkshopDownloadTaskProjection.currentJobs(from: jobs)
+        precondition(visible.map(\.id) == ["other", "saving", "active", "staged", "empty-account", "other-queued", "queued-1", "queued-2"],
+                     "local reading keeps all account provenance and excludes terminal jobs shown in history")
+        precondition(SteamWorkshopDownloadTaskProjection.jobKey(for: visible[1]) == "saving-1")
+        precondition(SteamWorkshopDownloadTaskProjection.jobKey(for: visible[6]) == nil)
+        precondition(!SteamWorkshopDownloadTaskProjection.isCancellable(visible[1]))
+        precondition(SteamWorkshopDownloadTaskProjection.isCancellable(visible[0]))
+        precondition(SteamWorkshopDownloadTaskProjection.isCancellable(visible[6]))
+        precondition(SteamWorkshopDownloadTaskProjection.currentJobs(from: []).isEmpty)
         precondition(SteamWorkshopDownloadTaskProjection.currentJobs(
-            from: jobs, accountSteamID: nil).isEmpty)
-        let visible = SteamWorkshopDownloadTaskProjection.currentJobs(
-            from: jobs, accountSteamID: "A")
-        precondition(visible.map(\.id) == ["saving", "active", "staged", "failed", "queued-1", "queued-2"])
-        precondition(SteamWorkshopDownloadTaskProjection.unfinishedCount(
-            in: jobs, accountSteamID: "A") == 6)
-        precondition(SteamWorkshopDownloadTaskProjection.jobKey(for: visible[0]) == "saving-1")
-        precondition(SteamWorkshopDownloadTaskProjection.jobKey(for: visible[4]) == nil)
-        precondition(!SteamWorkshopDownloadTaskProjection.isCancellable(visible[0]))
-        precondition(SteamWorkshopDownloadTaskProjection.isCancellable(visible[1]))
-        precondition(SteamWorkshopDownloadTaskProjection.isCancellable(visible[4]))
-
-        let accounts: [(String?, Int)] = [(nil, 0), ("", 0), ("A", 6), ("B", 2), (" ", 1), ("missing", 0)]
-        for (account, expected) in accounts {
-            let count = SteamWorkshopDownloadTaskProjection.unfinishedCount(in: jobs, accountSteamID: account)
-            precondition(count == expected)
-            precondition(count == SteamWorkshopDownloadTaskProjection.currentJobs(
-                from: jobs, accountSteamID: account).count,
-                "the toolbar count and current-task panel must admit the same jobs")
-            precondition(SteamWorkshopDownloadTaskProjection.unfinishedCount(in: [], accountSteamID: account) == 0)
-        }
-        precondition(SteamWorkshopDownloadTaskProjection.currentJobs(
-            from: Array(jobs.reversed()), accountSteamID: "A") == visible,
-            "counting must not change the current-task display order")
+            from: Array(jobs.reversed())) == visible,
+            "reading must not change the source queue display order")
 
         let query = JobQueryProbe()
         query.jobs = jobs
@@ -172,14 +157,12 @@ struct SteamWorkshopDownloadRecord: Equatable {
             history("done", 1, .completed, 150),
             history("retry", 2, .completed, 200)
         ]
-        precondition(SteamWorkshopDownloadHistoryProjection.summaries(
-            from: entries, accountSteamID: nil).isEmpty)
-        let summaries = SteamWorkshopDownloadHistoryProjection.summaries(
-            from: entries, accountSteamID: "A")
-        precondition(summaries.map(\.jobID) == ["retry", "done"])
-        precondition(summaries[0].attempts.map(\.attempt) == [2, 1])
-        precondition(summaries[0].latestOutcome == .completed)
-        precondition(summaries[0].recordID == "item-retry")
+        let summaries = SteamWorkshopDownloadHistoryProjection.summaries(from: entries)
+        precondition(summaries.map(\.jobID) == ["other", "retry", "done"])
+        precondition(summaries[0].accountSteamID == "B" && summaries[1].accountSteamID == "A")
+        precondition(summaries[1].attempts.map(\.attempt) == [2, 1] && summaries[1].latestAttempt == 2)
+        precondition(summaries[1].latestOutcome == .completed)
+        precondition(summaries[1].recordID == "item-retry")
         print("Download queries/projections: account isolation, states, first tied failure, ready record lookup and stable ordering PASS")
     }
 }
@@ -202,53 +185,6 @@ struct SteamWorkshopDownloadRecord: Equatable {
                 timeout=120,
             )
             subprocess.run([str(binary)], check=True, timeout=15)
-
-    def test_popover_uses_existing_owners_and_bounded_observation(self):
-        ui = UI.read_text()
-        controller = (TOOLBAR / "SteamWorkshopToolbarController.swift").read_text()
-        layouts = (TOOLBAR / "SteamWorkshopToolbarController+Layouts.swift").read_text()
-        actions = (TOOLBAR / "SteamWorkshopToolbarController+Actions.swift").read_text()
-        selection = (CORE / "SteamWorkshopService+DownloadSelection.swift").read_text()
-
-        self.assertIn("private let popover = NSPopover()", ui)
-        self.assertIn("popover.behavior = .transient", ui)
-        self.assertIn("func startObserving()", ui)
-        self.assertIn("func stopObserving()", ui)
-        self.assertIn("service.downloadJobStore.$jobs", ui)
-        self.assertIn("service.downloadJobStore.$history", ui)
-        self.assertIn("service.downloadProgressStore.addObserver", ui)
-        self.assertIn("progressBar.setAccessibilityRole(.progressIndicator)", ui)
-        self.assertIn('progressBar.setAccessibilityLabel("下载进度：\\(summary.title)")', ui)
-        self.assertIn("owner: self", ui)
-        self.assertIn("service.downloadProgressStore.removeObserver", ui)
-        self.assertIn("SteamWorkshopDownloadHistoryProjection.summaries", ui)
-        # 单一队列：无进行中/历史分栏，无查看已下载，无二次确认。
-        self.assertNotIn('["进行中", "历史"]', ui)
-        self.assertNotIn("查看已下载", ui)
-        self.assertNotIn("取消全部下载任务？", ui)
-        self.assertNotIn("清空下载历史？", ui)
-        self.assertIn("全部清除", ui)
-        self.assertIn("不删除已下载文件", ui)
-        self.assertIn('clearButton.setAccessibilityLabel("清除：\\(job.title)")', ui)
-        self.assertIn('clearButton.setAccessibilityLabel("清除：\\(summary.title)")', ui)
-        self.assertIn("removeHistory(forJobID: summary.jobID", ui)
-        self.assertNotIn("Timer.scheduledTimer", ui)
-        self.assertNotIn("NSMenu()", ui)
-        self.assertNotIn("showLoginPanel", ui)
-
-        self.assertIn("var downloadTasksPopoverController", controller)
-        self.assertIn("existingDownloadTasksPopoverController?.close()", controller)
-        self.assertIn("menuFormRepresentation", controller)
-        self.assertIn("toggle(relativeTo: downloadTasksToolbarItem, in: window)", actions)
-        self.assertIn("popover.show(relativeTo: toolbarItem)", ui)
-        self.assertIn(".steamDownloadTasks", layouts)
-        self.assertLess(layouts.index(".steamAccount"), layouts.index(".steamDownloadTasks"))
-        # The retired source-only downloads layout had no remaining consumer.
-        # Its account-before-tasks behavior now runs through the real Window
-        # toolbar gate; native task overflow/anchor runs through the complete
-        # remote toolbar controller gate. Keep the independent task lifecycle
-        # and projection assertions here.
-
 
 if __name__ == "__main__":
     unittest.main()

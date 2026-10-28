@@ -1,14 +1,23 @@
 import Foundation
 
 /// Classify only official metadata tags, never titles or author project tags.
-enum SteamWorkshopContentRatingSupport {
+nonisolated enum SteamWorkshopContentRatingSupport {
     static func hasAdultContent(tags: [String], isMarkedAdult: Bool = false) -> Bool {
-        isMarkedAdult || tags.contains { tag in
+        contentRating(tags: tags, isMarkedAdult: isMarkedAdult) == .adult
+    }
+
+    static func contentRating(tags: [String], isMarkedAdult: Bool = false) -> WallpaperContentRating {
+        if isMarkedAdult { return .adult }
+        var rating = WallpaperContentRating.unknown
+        for tag in tags {
             switch tag.trimmingCharacters(in: .whitespacesAndNewlines).lowercased() {
-            case "mature", "nudity": return true
-            default: return false
+            case "mature", "nudity": return .adult
+            case "questionable": rating = .sensitive
+            case "everyone": if rating == .unknown { rating = .safe }
+            default: break
             }
         }
+        return rating
     }
 }
 

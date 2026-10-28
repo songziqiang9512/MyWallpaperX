@@ -350,11 +350,6 @@ final class SteamDownloadJobStore: ObservableObject {
         jobs.lazy.filter { $0.state == .queued }.count
     }
 
-    func history(forAccount accountSteamId: String?) -> [SteamDownloadHistoryEntry] {
-        guard let accountSteamId, !accountSteamId.isEmpty else { return [] }
-        return history.filter { $0.accountSteamId == accountSteamId }
-    }
-
     // MARK: - 命令
 
     /// 入队（去重）：已有同 item 非终态任务则原样返回 (existing, false)。

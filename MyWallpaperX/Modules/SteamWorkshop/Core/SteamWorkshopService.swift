@@ -18,23 +18,22 @@ final class SteamWorkshopService: ObservableObject {
     @Published var displayedBrowserItems: [SteamWorkshopBrowserItem] = []
     @Published var pendingBrowserScrollRestoreOffset: CGFloat?
     var browserState: SteamWorkshopBrowserLoadState = .idle
-    /// SK-helper-idle-reap：浏览面板窗口挂载计数——「浏览 UI 活跃」的唯一 owner。
-    /// AppKitSteamWorkshopBrowserView 进/出窗口（viewDidMoveToWindow）时经
-    /// noteBrowsePanelAttached/Detached 增减；> 0 即面板对用户可见，空闲回收绝不
+    /// SK-helper-idle-reap：浏览面板可见需求计数——「浏览 UI 活跃」的唯一 owner。
+    /// AppKitSteamWorkshopBrowserView 按窗口显隐、最小化与挂载变化经
+    /// noteBrowsePanelAttached/Detached 配对增减；> 0 即面板对用户可见，空闲回收绝不
     /// 触发。加载态 browserState 只反映取页进度（.loaded/.failed 停留在最后值，
     /// 仅 clearAllCachedState 回置 .idle），不得用作面板可见性代理。
     private(set) var browsePanelAttachmentCount = 0
 
-    /// 浏览面板当前是否对用户可见（挂载于任一窗口）。
+    /// 浏览面板当前是否对用户可见。
     var isBrowsePanelOpen: Bool { browsePanelAttachmentCount > 0 }
 
-    /// 浏览面板进窗（AppKitSteamWorkshopBrowserView.viewDidMoveToWindow 唯一产生者）。
+    /// 浏览视图获得可见需求（AppKitSteamWorkshopBrowserView 唯一产生者）。
     func noteBrowsePanelAttached() {
         browsePanelAttachmentCount += 1
     }
 
-    /// 浏览面板出窗（同上唯一产生者）。无配对出窗（视图被装入未挂窗层级后
-    /// 移除时，viewDidMoveToWindow 以 nil→nil 触发）不得把计数推负——负数会让
+    /// 浏览视图撤销可见需求（同上唯一产生者）。无配对撤销不得把计数推负——负数会让
     /// 下一次真实进窗停在 0，面板可见却被判休眠（fail-deadly 方向）。
     func noteBrowsePanelDetached() {
         browsePanelAttachmentCount = max(0, browsePanelAttachmentCount - 1)
@@ -131,7 +130,6 @@ final class SteamWorkshopService: ObservableObject {
     @Published var facetFilters: SteamWorkshopBrowseFacetFilters = .none {
         didSet { if !suppressAutomaticBrowseNavigation { navigateToBrowse() } }
     }
-    @Published var downloadsShowsAdultContent = true
     @Published var statusMessage: String = "浏览页使用 SteamKit 结构化数据展示 Wallpaper Engine 创意工坊内容。"
     @Published var currentWorkshopItemID: String?
     @Published var currentPageTitle: String = "Steam 创意工坊"

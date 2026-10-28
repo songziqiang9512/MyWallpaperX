@@ -39,12 +39,12 @@ import Combine
     private var grid: WallpaperLibraryGridController!
 
     init(workspace: WallpaperLibraryWorkspace, manager: WallpaperManager, images: SILService,
-         steam: SteamWorkshopService, online: OnlineLibraryService, target: UUID, hostWindow: @escaping () -> NSWindow?) {
+         steam: SteamWorkshopService, pixabay: PixabayService, target: UUID, hostWindow: @escaping () -> NSWindow?) {
         self.workspace = workspace; self.manager = manager; self.target = target; self.hostWindow = hostWindow
         epoch = workspace.relationships.resetEpoch
         super.init()
-        adapter = WallpaperLibraryCellAdapter(manager: manager, images: images, steam: steam, online: online,
-            isFavorite: { [weak self] in self?.cardState?.isFavorite($0) ?? false }, isPlaying: { [weak self] in self?.cardState?.isPlaying($0) ?? false },
+        adapter = WallpaperLibraryCellAdapter(manager: manager, images: images, steam: steam, pixabay: pixabay,
+            isPlaying: { [weak self] in self?.cardState?.isPlaying($0) ?? false },
             makePrimaryAction: { _ in nil })
         grid = WallpaperLibraryGridController { [weak self] collection, path, content, state in
             guard let self else { return NSCollectionViewItem() }

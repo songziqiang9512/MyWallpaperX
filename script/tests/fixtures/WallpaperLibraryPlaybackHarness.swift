@@ -26,7 +26,7 @@ extension PlaybackCommandMultiplexer {
     enum Command {case setVolume(Float)}
     func dispatch(_ value:Command){}
 }
-extension Notification.Name {static let onlineDownloadsPlaybackPathDidChange=Self("library-path")}
+extension Notification.Name {static let pixabayDownloadsPlaybackPathDidChange=Self("library-path")}
 @MainActor final class DeliveryTimer {
     let timeInterval:TimeInterval
     let action:(DeliveryTimer)->Void
@@ -84,7 +84,7 @@ struct SteamWorkshopDownloadRecord {
         return true
     }
 }
-@MainActor final class OnlineLibraryService {
+@MainActor final class PixabayService {
     let manager:WallpaperManager
     let video:VideoWallpaper
     var calls:[WallpaperPlaybackSequence.Pending]=[]
@@ -133,16 +133,16 @@ struct SteamWorkshopDownloadRecord {
         let source=WallpaperPlaybackSequence.Source.page(.playlist(UUID()))
         let snapshot=try WallpaperPlaybackSequence.Snapshot(source:source,revision:1,entries:runtimes.map{
             .init(reference:references[$0]!,runtime:$0,isPlayable:true)})
-        func setup()->(WallpaperManager,SteamWorkshopService,OnlineLibraryService,SILService) {
+        func setup()->(WallpaperManager,SteamWorkshopService,PixabayService,SILService) {
             let manager=WallpaperManager();manager.wallpapers=[.init(path:videoURL.path)]
             let steam=SteamWorkshopService(manager);steam.records=[.init(id:"web",contentType:.web),.init(id:"scene",contentType:.scene)]
-            let online=OnlineLibraryService(manager,video:.init(path:videoURL.path))
+            let pixabay=PixabayService(manager,video:.init(path:videoURL.path))
             let images=SILService();images.wallpapers=[.init(id:"image",path:imageURL.path)]
             manager.libraryPlaybackDispatcher={pending in
                 let item=items[pending.ticket.runtime]!
-                return WallpaperLibraryPlaybackRouting.dispatch(pending,content:item,manager:manager,workshop:steam,online:online,images:images)
+                return WallpaperLibraryPlaybackRouting.dispatch(pending,content:item,manager:manager,workshop:steam,pixabay:pixabay,images:images)
             }
-            return(manager,steam,online,images)
+            return(manager,steam,pixabay,images)
         }
         func show(_ manager:WallpaperManager,_ ticket:PlaybackSwitchTicket) {
             if ticket.runtime == .systemStill {return}
@@ -160,9 +160,9 @@ struct SteamWorkshopDownloadRecord {
             let imageContent = library.content(for: record.id.reference)!
             let imageSource = try WallpaperPlaybackSequence.Snapshot(source: .single(record.id.reference), revision: 1,
                 entries: [.init(reference: record.id.reference, runtime: .systemStill, isPlayable: true, resourceRevision: record.revision.uuidString)])
-            let (manager, steam, online, images) = setup()
+            let (manager, steam, pixabay, images) = setup()
             manager.libraryPlaybackDispatcher = { pending in
-                WallpaperLibraryPlaybackRouting.dispatch(pending, content: imageContent, manager: manager, workshop: steam, online: online, images: images)
+                WallpaperLibraryPlaybackRouting.dispatch(pending, content: imageContent, manager: manager, workshop: steam, pixabay: pixabay, images: images)
             }
             let ticket = manager.requestLibraryPlayback(reference: record.id.reference, from: imageSource)
             checks["online-image-original-systemStill-route-" + source.rawValue] = ticket?.runtime == .systemStill
@@ -172,16 +172,43 @@ struct SteamWorkshopDownloadRecord {
             library.snapshot.records = [.init(assetID: record.id, title: record.title, sourceURL: record.sourceURL,
                 author: nil, authorID: nil, tags: [], relativePath: "image.png", pixelWidth: 3, pixelHeight: 3,
                 fileSizeBytes: 1, firstDownloadedAt: record.firstDownloadedAt, revision: UUID())]
-            let (staleManager, staleSteam, staleOnline, staleImages) = setup()
+            let (staleManager, staleSteam, stalePixabay, staleImages) = setup()
             staleManager.libraryPlaybackDispatcher = { pending in
                 WallpaperLibraryPlaybackRouting.dispatch(pending, content: imageContent, manager: staleManager,
-                    workshop: staleSteam, online: staleOnline, images: staleImages)
+                    workshop: staleSteam, pixabay: stalePixabay, images: staleImages)
             }
             checks["online-image-stale-revision-refuses-the-original-ticket-" + source.rawValue] =
                 staleManager.requestLibraryPlayback(reference: record.id.reference, from: imageSource) == nil
                 && staleManager.playbackSwitch.committed == nil
         }
         OnlineImageLibrary.shared.snapshot = .init()
+        for runtime in runtimes {
+            let (manager, _, _, _) = setup()
+            manager.setLoopPlaybackEnabled(true)
+            let ticket = manager.requestLibraryPlayback(reference: references[runtime]!, from: snapshot)!
+            show(manager, ticket)
+            manager.settings.randomInterval = 73
+            manager.setSequentialPlaybackEnabled(true)
+            let sequential = manager.autoSwitchTimer
+            checks["mode-selector-enables-source-bound-timer-" + runtime.rawValue] = manager.settings.autoSwitchEnabled
+                && manager.settings.sequentialPlayback && !manager.settings.loopPlayback && !manager.settings.randomPlayback
+                && manager.autoSwitchTimer != nil && manager.libraryPlaybackSequence.committed?.snapshot == snapshot
+                && manager.settings.randomInterval == 73 && manager.playbackSwitch.committed?.ticket == ticket
+            manager.setRandomPlaybackEnabled(true)
+            checks["mode-selector-random-reuses-interval-and-cancels-prior-delivery-" + runtime.rawValue] = manager.settings.autoSwitchEnabled
+                && manager.settings.randomPlayback && !manager.settings.sequentialPlayback && !manager.settings.loopPlayback
+                && sequential?.isValid == false && manager.autoSwitchTimer != nil && manager.settings.randomInterval == 73
+            manager.setLoopPlaybackEnabled(true)
+            sequential?.deliverEvenIfCancelled()
+            checks["mode-selector-loop-revokes-rotation-without-changing-source-" + runtime.rawValue] = !manager.settings.autoSwitchEnabled
+                && manager.autoSwitchTimer == nil && manager.libraryPlaybackSequence.pending == nil
+                && manager.playbackSwitch.committed?.ticket == ticket
+            manager.settings.loopPlayback = false; manager.settings.randomPlayback = true
+            manager.normalizePlaybackSettings()
+            checks["saved-random-normalizes-to-enabled-rotation-" + runtime.rawValue] = manager.settings.autoSwitchEnabled
+                && manager.settings.randomPlayback && !manager.settings.sequentialPlayback && !manager.settings.loopPlayback
+            manager.stopCurrentPlayback()
+        }
         for from in runtimes {
             for to in runtimes where from != to {
                 let(manager,_,_,_)=setup()
@@ -200,7 +227,7 @@ struct SteamWorkshopDownloadRecord {
             }
         }
         do {
-            let(manager,steam,online,images)=setup()
+            let(manager,steam,pixabay,images)=setup()
             var events:[WallpaperPlaybackSequence.Commit]=[];manager.libraryPlaybackCommitted={events.append($0)}
             let first=manager.requestLibraryPlayback(reference:references[.video]!,from:snapshot)!
             checks["noRecentOrCommittedSourceFromPendingVideo"] = events.isEmpty && manager.libraryPlaybackSequence.committed == nil
@@ -217,22 +244,22 @@ struct SteamWorkshopDownloadRecord {
             let pending=manager.libraryPlaybackSequence.pending!
             let unknown=content(pending.proposal.entry.reference,kind:.unknown)
             checks["unknownKindCannotFallThroughToVideo"] =  !WallpaperLibraryPlaybackRouting.dispatch(pending,content:unknown,
-                manager:manager,workshop:steam,online:online,images:images)
+                manager:manager,workshop:steam,pixabay:pixabay,images:images)
             let wrongOwner=content(pending.proposal.entry.reference,kind:.video,owner:references[.video])
             checks["wrongRuntimeCannotUsePlayableBacking"] =  !WallpaperLibraryPlaybackRouting.dispatch(pending,content:wrongOwner,
-                manager:manager,workshop:steam,online:online,images:images)
+                manager:manager,workshop:steam,pixabay:pixabay,images:images)
             manager.stopCurrentPlayback()
             checks["stopRevokesSequenceClockAndLateProvider"] = manager.libraryPlaybackSequence.committed == nil
                 && manager.libraryRotationDeadline.deadline == nil && manager.autoSwitchTimer == nil
-                && !WallpaperLibraryPlaybackRouting.dispatch(pending,content:items[.scene]!,manager:manager,workshop:steam,online:online,images:images)
+                && !WallpaperLibraryPlaybackRouting.dispatch(pending,content:items[.scene]!,manager:manager,workshop:steam,pixabay:pixabay,images:images)
         }
         do {
-            let(manager,steam,online,images)=setup()
+            let(manager,steam,pixabay,images)=setup()
             let canonical=WallpaperReference(provider:.steamWorkshop,sourceID:"published-video")
             let aliased=content(canonical,kind:.video,owner:references[.video])
             let input=try WallpaperPlaybackSequence.Snapshot(source:.single(canonical),revision:1,
                 entries:[.init(reference:canonical,runtime:.video,isPlayable:true)])
-            manager.libraryPlaybackDispatcher={WallpaperLibraryPlaybackRouting.dispatch($0,content:aliased,manager:manager,workshop:steam,online:online,images:images)}
+            manager.libraryPlaybackDispatcher={WallpaperLibraryPlaybackRouting.dispatch($0,content:aliased,manager:manager,workshop:steam,pixabay:pixabay,images:images)}
             let ticket=manager.requestLibraryPlayback(reference:canonical,from:input)!
             checks["canonicalSourceAndActualVideoOwnerRemainSeparate"] = WallpaperEngine.shared.lastPreparedVideoTicket == ticket
                 && manager.pendingWallpaper?.path == videoURL.path && steam.calls.isEmpty
@@ -272,7 +299,7 @@ struct SteamWorkshopDownloadRecord {
                 && manager.libraryPlaybackSequence.committed == nil && manager.playbackSwitch.pending == nil
         }
         do {
-            let(manager,steam,online,images)=setup()
+            let(manager,steam,pixabay,images)=setup()
             let old=references[.video]!
             let canonical=WallpaperReference(provider:.steamWorkshop,sourceID:"same-number")
             let item=content(canonical,kind:.video,owner:old)
@@ -293,16 +320,16 @@ struct SteamWorkshopDownloadRecord {
             let ticket=manager.requestLibraryPlayback(reference:old,from:input)!
             let pending=manager.libraryPlaybackSequence.pending!
             checks["lateAliasRequiresUniqueRelationshipProof"] =  !WallpaperLibraryPlaybackRouting.dispatch(pending,content:item,
-                manager:manager,workshop:steam,online:online,images:images)
+                manager:manager,workshop:steam,pixabay:pixabay,images:images)
             func relationships(_ target:WallpaperReference)->UserCollectionsSnapshot {
                 .init(revision:1,resetEpoch:UUID(),migrationManifestID:nil,playlists:[],members:[],favorites:[],recent:[],
                     aliases:[.init(alias:old,canonical:target,proof:.publishedDownload)],locators:[])
             }
             checks["sameOpaqueIDInWrongProviderCannotAuthorizeLateAlias"] =  !WallpaperLibraryPlaybackRouting.dispatch(pending,content:item,
-                manager:manager,workshop:steam,online:online,images:images,
+                manager:manager,workshop:steam,pixabay:pixabay,images:images,
                 relationships:relationships(.init(provider:.pixabay,sourceID:"same-number")))
             let accepted=WallpaperLibraryPlaybackRouting.dispatch(pending,content:item,manager:manager,
-                workshop:steam,online:online,images:images,relationships:relationships(canonical))
+                workshop:steam,pixabay:pixabay,images:images,relationships:relationships(canonical))
             checks["trustedLateAliasKeepsOriginalTicketAndSnapshotReference"] = accepted
                 && WallpaperEngine.shared.lastPreparedVideoTicket == ticket
                 && manager.libraryPlaybackSequence.pending == pending && manager.playbackIntentEpoch == ticket.epoch

@@ -2,8 +2,6 @@ import AppKit
 import Combine
 import QuickLook
 import QuickLookUI
-import ImageIO
-import UniformTypeIdentifiers
 
 /// One mixed-page Inspector/Quick Look composition. Providers retain metadata,
 /// assets and specialized controls; all organization actions carry a fixed ref.
@@ -18,7 +16,7 @@ import UniformTypeIdentifiers
     private let manager: WallpaperManager
     private let images: SILService
     private let steam: SteamWorkshopService
-    private let online: OnlineLibraryService
+    private let pixabay: PixabayService
     private let makePrimaryAction: (WallpaperContentItem) -> (() -> Void)?
     private let makeFavoriteAction: (WallpaperContentItem) -> (() -> Void)?
     private let canOrganize: () -> Bool
@@ -33,12 +31,14 @@ import UniformTypeIdentifiers
     var onOnlineImageAuthor: ((OnlineImageAuthor) -> Void)?
     private(set) var previewURL: URL?
     private var previewRevision: String?
-    private var previewTask: Task<Void, Never>?
+    var onPreviewLoadingChange: (() -> Void)?
+    var loadingPreviewReference: WallpaperReference? { previewTask != nil ? previewReference : nil }
+    private var previewTask: Task<Void, Never>? {
+        didSet { if (oldValue == nil) != (previewTask == nil) { onPreviewLoadingChange?() } }
+    }
     private var previewGeneration = UUID()
     private var resumedNativePreview: UUID?
-    private var remotePreview: (source: OnlineImageSource, url: URL, scope: String)?
-    private var temporaryPreviewURL: URL?
-    private var displayedTemporaryPreviewURL: URL?
+    private var remotePreview: (source: OnlineImageSource, hintURL: URL?, scope: String)?
 
     var inspectedReference: WallpaperReference? { inspection?.content.reference }
     var inspectorToken: InspectorCardToken? { inspection?.token }
@@ -46,11 +46,10 @@ import UniformTypeIdentifiers
 
     deinit {
         previewTask?.cancel()
-        for url in Set([temporaryPreviewURL, displayedTemporaryPreviewURL].compactMap { $0 }) { try? FileManager.default.removeItem(at: url) }
     }
 
     init(workspace: WallpaperLibraryWorkspace, manager: WallpaperManager, images: SILService,
-         steam: SteamWorkshopService, online: OnlineLibraryService,
+         steam: SteamWorkshopService, pixabay: PixabayService,
          makePrimaryAction: @escaping (WallpaperContentItem) -> (() -> Void)?,
          makeFavoriteAction: @escaping (WallpaperContentItem) -> (() -> Void)?,
          canOrganize: @escaping () -> Bool,
@@ -58,7 +57,7 @@ import UniformTypeIdentifiers
          onChoosePlaylist: @escaping (WallpaperReference, NSView?) -> Void) {
         self.workspace = workspace; self.manager = manager; self.images = images
         self.observedResetEpoch = workspace.relationships.resetEpoch
-        self.steam = steam; self.online = online
+        self.steam = steam; self.pixabay = pixabay
         self.makePrimaryAction = makePrimaryAction; self.makeFavoriteAction = makeFavoriteAction
         self.canOrganize = canOrganize; self.onChoosePlaylist = onChoosePlaylist
         super.init()
@@ -66,7 +65,30 @@ import UniformTypeIdentifiers
             .sink { [weak self] note in self?.mount(note) }.store(in: &subscriptions)
         NotificationCenter.default.publisher(for: .inspectorHostDidClose).receive(on: DispatchQueue.main)
             .sink { [weak self] note in self?.didClose(note) }.store(in: &subscriptions)
-        workspace.presentation.$state.receive(on: DispatchQueue.main).sink { [weak self] _ in
+        struct RefreshInput: Equatable {
+            let page: WallpaperLibraryPage
+            let query: WallpaperLibraryQueryState
+            let items: [WallpaperContentItem]
+            let selection: WallpaperLibrarySelectionState
+            let editing: Bool
+            let revision: Int64?
+            let epoch: UUID?
+            let catalogRevision: UInt64?
+        }
+        workspace.presentation.$state.map { [weak workspace] (state: WallpaperLibraryPresentationState) -> RefreshInput in
+            var query = state.query
+            query.scrollAnchor = nil; query.scrollOffset = nil; query.scrollAtTop = nil
+            query.preferredColumns = 5
+            let revision: Int64? = workspace?.relationships.revision
+            let epoch: UUID? = workspace?.relationships.resetEpoch
+            let catalogRevision: UInt64? = workspace?.catalog.catalog.revision
+            return RefreshInput(page: state.page, query: query, items: state.queryResult.items,
+                selection: state.selectionState, editing: state.allowsEditing, revision: revision,
+                epoch: epoch, catalogRevision: catalogRevision)
+        }.removeDuplicates().receive(on: DispatchQueue.main).sink { [weak self] _ in
+            self?.refreshInspectedContent()
+        }.store(in: &subscriptions)
+        workspace.playbackChanges.receive(on: DispatchQueue.main).sink { [weak self] in
             self?.refreshInspectedContent()
         }.store(in: &subscriptions)
         availabilityChanges.sink { [weak self] in self?.refreshInspectedContent() }.store(in: &subscriptions)
@@ -76,19 +98,38 @@ import UniformTypeIdentifiers
         inspect(content: content, artwork: nil, onAuthor: nil)
     }
 
-    func inspectOnlineArtwork(_ artwork: OnlineImageArtwork, onAuthor: ((OnlineImageAuthor) -> Void)? = nil) {
-        let content = OnlineImageLibrary.shared.content(for: artwork.firstAssetID.reference) ?? OnlineImageContentProjection.remote(artwork)
-        inspect(content: content, artwork: artwork, onAuthor: onAuthor)
+    func inspectPixabayItem(_ item: PixabayVideoItem) {
+        inspect(content: pixabayContent(for: item), artwork: nil, onAuthor: nil, pixabayItem: item)
     }
 
-    private func inspect(content: WallpaperContentItem, artwork: OnlineImageArtwork?, onAuthor: ((OnlineImageAuthor) -> Void)?) {
+    func syncPixabaySelection(_ item: PixabayVideoItem?) {
+        syncSelection(content: item.map { pixabayContent(for: $0) }, pixabayItem: item)
+    }
+
+    private func pixabayContent(for item: PixabayVideoItem) -> WallpaperContentItem {
+        let reference = WallpaperReference(provider: .pixabay, sourceID: String(item.id))
+        return WallpaperContentItem(reference: reference, providerReference: reference,
+            locator: .init(titleHint: item.displayTitle, mediaKind: .video, provenance: item.pageURL),
+            title: item.displayTitle, kind: .video, publishedAvailability: .remote,
+            capabilities: [.inspect, .download, .openSource],
+            metadata: .init(author: item.user, durationSeconds: Double(item.duration), resolutionText: item.resolutionString,
+                sourceURL: URL(string: item.pageURL), previewURL: item.previewThumbnailURL),
+            acquisition: .idle, update: .idle, aliases: [])
+    }
+
+    func inspectOnlineArtwork(_ artwork: OnlineImageArtwork, onAuthor: ((OnlineImageAuthor) -> Void)? = nil, thumbnailPixelSize: Int = 800) {
+        let content = OnlineImageLibrary.shared.content(for: artwork.firstAssetID.reference) ?? OnlineImageContentProjection.remote(artwork)
+        inspect(content: content, artwork: artwork, onAuthor: onAuthor, thumbnailPixelSize: thumbnailPixelSize)
+    }
+
+    private func inspect(content: WallpaperContentItem, artwork: OnlineImageArtwork?, onAuthor: ((OnlineImageAuthor) -> Void)?, pixabayItem: PixabayVideoItem? = nil, thumbnailPixelSize: Int = 800) {
         _ = revokeForResetIfNeeded()
         let current = resolved(content)
         if let previous = inspection, previous.content.reference == current.reference,
            previous.content.providerReference == current.providerReference,
            matchesSourceView(previous.view, content: current) {
             inspection?.content = current
-            updateActions(on: previous.view, content: current, token: previous.token)
+            updateActions(on: previous.view, content: current, token: previous.token, pixabayItem: pixabayItem)
             return
         }
         let replacingVisibleContent = inspection != nil
@@ -108,8 +149,8 @@ import UniformTypeIdentifiers
                     guard let self, self.inspection?.token == token,
                           let local = OnlineImageLibrary.shared.content(for: reference) else { return nil }
                     return self.actions(for: local, token: token)
-                }, onAuthor: onAuthor ?? onOnlineImageAuthor, initialPageIndex: assetID.pageIndex)
-        } else { hosted = makeView(for: current, actions: actions) }
+                }, onAuthor: onAuthor ?? onOnlineImageAuthor, initialPageIndex: assetID.pageIndex, thumbnailPixelSize: thumbnailPixelSize)
+        } else { hosted = makeView(for: current, actions: actions, pixabayItem: pixabayItem) }
         inspection = Inspection(token: token, content: current, view: hosted)
         InspectorHostActions.postOpen(module: module, presentation: .infoPanel(cardID: token.cardID,
             title: current.title, subtitle: current.providerReference.provider.libraryDisplayName,
@@ -124,9 +165,9 @@ import UniformTypeIdentifiers
 
     /// Called with the accepted fixed-ref selection. Catalog events never open
     /// a hidden Inspector or preview; they can only update an existing lease.
-    func syncSelection(content: WallpaperContentItem?, artwork: OnlineImageArtwork? = nil, onAuthor: ((OnlineImageAuthor) -> Void)? = nil) {
+    func syncSelection(content: WallpaperContentItem?, artwork: OnlineImageArtwork? = nil, onAuthor: ((OnlineImageAuthor) -> Void)? = nil, pixabayItem: PixabayVideoItem? = nil, thumbnailPixelSize: Int = 800) {
         guard let content else { closeInspector(); closePreview(); return }
-        if inspection != nil { inspect(content: content, artwork: artwork, onAuthor: onAuthor) }
+        if inspection != nil { inspect(content: content, artwork: artwork, onAuthor: onAuthor, pixabayItem: pixabayItem, thumbnailPixelSize: thumbnailPixelSize) }
         if previewReference != nil { updateVisiblePreview(content: content) }
     }
 
@@ -167,8 +208,14 @@ import UniformTypeIdentifiers
         if OnlineImageAssetID(reference: content.providerReference) != nil {
             return OnlineImageLibrary.shared.content(for: content.providerReference) ?? content
         }
-        // Server-only browser results retain their original source detail DTO.
-        guard content.publishedAvailability != .remote else { return content }
+        // A browser DTO becomes local only after its source publishes the file;
+        // Query's unknown-reference placeholder is not a local publication.
+        if content.publishedAvailability == .remote {
+            guard content.providerReference.provider == .pixabay,
+                  let local = try? workspace.content(for: content.reference),
+                  local.publishedAvailability == .available else { return content }
+            return local
+        }
         return (try? workspace.content(for: content.reference)) ?? content
     }
 
@@ -184,7 +231,9 @@ import UniformTypeIdentifiers
     private func refreshInspectedContent() {
         guard !revokeForResetIfNeeded() else { return }
         if let inspection { inspect(content: inspection.content) }
-        if let previewReference, let content = try? workspace.content(for: previewReference) {
+        if let previewReference, let content = remotePreview != nil
+            ? OnlineImageLibrary.shared.content(for: previewReference)
+            : (try? workspace.content(for: previewReference)) {
             updateVisiblePreview(content: content)
         }
     }
@@ -216,12 +265,12 @@ import UniformTypeIdentifiers
         })
     }
 
-    private func updateActions(on view: NSView, content: WallpaperContentItem, token: InspectorCardToken) {
+    private func updateActions(on view: NSView, content: WallpaperContentItem, token: InspectorCardToken, pixabayItem: PixabayVideoItem? = nil) {
         let actions = actions(for: content, token: token)
         switch view {
         case let view as VideoLibraryInspectorView: view.updateLibraryActions(actions)
         case let view as SILInspectorView: view.updateLibraryActions(actions)
-        case let view as OnlineLibraryDownloadsInspectorView: view.updateLibraryActions(actions)
+        case let view as PixabayDownloadsInspectorView: view.updateLibraryActions(actions, remoteItem: pixabayItem)
         case let view as AppKitSteamWorkshopItemDetailView: view.updateLibraryActions(actions)
         case let view as OnlineImageInspectorView: view.updateLibraryActions(actions)
         default: break
@@ -240,13 +289,13 @@ import UniformTypeIdentifiers
             return steam.downloads.contains(where: { matches($0.id) }) ? view is AppKitSteamWorkshopItemDetailView : view is NSStackView
         case .pixabay:
             let id = Int(source.sourceID)
-            let found = id.map { id in String(id).utf8.elementsEqual(source.sourceID.utf8) && online.downloadedContent.entries.contains { $0.id == id } } ?? false
-            return found ? view is OnlineLibraryDownloadsInspectorView : view is NSStackView
+            let found = id.map { id in String(id).utf8.elementsEqual(source.sourceID.utf8) && pixabay.downloadedContent.entries.contains { $0.id == id } } ?? false
+            return found || content.publishedAvailability == .remote ? view is PixabayDownloadsInspectorView : view is NSStackView
         case .wallhaven, .pixiv: return view is OnlineImageInspectorView
         }
     }
 
-    private func makeView(for content: WallpaperContentItem, actions: WallpaperInspectorActions) -> NSView {
+    private func makeView(for content: WallpaperContentItem, actions: WallpaperInspectorActions, pixabayItem: PixabayVideoItem? = nil) -> NSView {
         let source = content.providerReference
         func matches(_ value: String) -> Bool { value.utf8.elementsEqual(source.sourceID.utf8) }
         switch source.provider {
@@ -265,9 +314,12 @@ import UniformTypeIdentifiers
                 return AppKitSteamWorkshopItemDetailView(item: item, service: steam, libraryActions: actions)
             }
         case .pixabay:
+            if content.publishedAvailability == .remote, let pixabayItem {
+                return PixabayDownloadsInspectorView(itemID: pixabayItem.id, service: pixabay, libraryActions: actions, remoteItem: pixabayItem)
+            }
             if let id = Int(source.sourceID), String(id).utf8.elementsEqual(source.sourceID.utf8),
-               online.downloadedContent.entries.contains(where: { $0.id == id }) {
-                return OnlineLibraryDownloadsInspectorView(itemID: id, service: online, libraryActions: actions)
+               pixabay.downloadedContent.entries.contains(where: { $0.id == id }) {
+                return PixabayDownloadsInspectorView(itemID: id, service: pixabay, libraryActions: actions)
             }
         case .wallhaven, .pixiv: break // Constructed above with the page-aware image identity.
         }
@@ -290,7 +342,7 @@ import UniformTypeIdentifiers
         case .videoLibrary: return .videoLibrary
         case .staticImageLibrary: return .staticImageLibrary
         case .steamWorkshop: return .steamWorkshop
-        case .pixabay: return .onlineLibrary
+        case .pixabay: return .pixabay
         case .wallhaven: return .wallhaven
         case .pixiv: return .pixiv
         }
@@ -299,13 +351,14 @@ import UniformTypeIdentifiers
     @discardableResult
     func preview(content: WallpaperContentItem) -> Bool {
         _ = revokeForResetIfNeeded()
+        if previewTask != nil { closePreview(); return true }
         let current = resolved(content)
-        if previewReference == current.reference, previewTask != nil || isPreviewVisible {
+        if previewReference == current.reference, isPreviewVisible {
             if let local = quickLookURL(current) {
                 if remotePreview == nil, previewURL == local {
                     updateVisiblePreview(content: current); return true
                 }
-            } else if let remotePreview, remotePreview.url == current.metadata.previewURL,
+            } else if let remotePreview, remotePreview.hintURL == current.metadata.previewURL,
                       remotePreview.scope == OnlineImageLibrary.shared.requestScope(remotePreview.source) { return true }
         }
         return beginPreview(current)
@@ -315,56 +368,52 @@ import UniformTypeIdentifiers
         retirePreviewRequest()
         if let url = quickLookURL(current) { return presentPreview(reference: current.reference, url: url, revision: current.metadata.resourceRevision) }
         guard current.kind == .image, current.capabilities.contains(.quickLook),
-              let asset = OnlineImageAssetID(reference: current.providerReference),
-              let url = current.metadata.previewURL else {
+              let assetID = OnlineImageAssetID(reference: current.providerReference) else {
             closePreview()
             inspect(content: current)
             return false
         }
         let library = OnlineImageLibrary.shared
-        let request = library.thumbnailRequest(url: url, source: asset.source)
-        let scope = library.requestScope(asset.source), generation = previewGeneration
-        previewReference = current.reference; remotePreview = (asset.source, url, scope)
+        let sourceURL = current.metadata.sourceURL ?? URL(string: assetID.source == .wallhaven
+            ? "https://wallhaven.cc/w/\(assetID.artworkID)" : "https://www.pixiv.net/artworks/\(assetID.artworkID)")!
+        let artwork = OnlineImageArtwork(source: assetID.source, artworkID: assetID.artworkID,
+            title: current.title, sourceURL: sourceURL)
+        let generation = previewGeneration
+        previewReference = current.reference
+        let initialScope = library.requestScope(assetID.source)
+        remotePreview = (assetID.source, current.metadata.previewURL, initialScope)
         previewTask = Task { [weak self] in
-            let image = await OLThumbnailCache.shared.image(for: request, maxPixelSize: 2048, priority: .visible)
-            guard let self, !Task.isCancelled, previewGeneration == generation else { return }
-            guard let pixels = image?.cgImage(forProposedRect: nil, context: nil, hints: nil) else {
-                closePreview(); workspace.presentation.report(OnlineImageError.message("预览图暂不可用，请稍后重试。")); return
-            }
+            var scope = initialScope
             do {
-                let temporary = try await Task.detached(priority: .userInitiated) { try Self.writePreview(pixels) }.value
-                guard !Task.isCancelled, previewGeneration == generation, library.requestScope(asset.source) == scope else {
-                    try? FileManager.default.removeItem(at: temporary); return
+                if assetID.source == .pixiv { _ = await library.preparePixiv() } else { _ = await library.prepareWallhaven() }
+                guard !Task.isCancelled, self?.previewGeneration == generation else { return }
+                scope = library.requestScope(assetID.source)
+                self?.remotePreview = (assetID.source, current.metadata.previewURL, scope)
+                let original: URL
+                if let cached = await library.cachedOriginalPreviewURL(for: assetID) { original = cached }
+                else {
+                    let detail = try await library.detail(artwork)
+                    let assets = try await library.assets(for: detail)
+                    try Task.checkCancellation()
+                    guard library.requestScope(assetID.source) == scope else { self?.closePreview(); return }
+                    guard let asset = assets.first(where: { $0.id == assetID }) else { throw OnlineImageError.unsupported }
+                    original = try await library.originalPreviewURL(asset)
                 }
+                guard let self, !Task.isCancelled, previewGeneration == generation else { return }
+                guard library.requestScope(assetID.source) == scope else { closePreview(); return }
                 previewTask = nil
-                if !presentPreview(reference: current.reference, url: temporary, revision: current.metadata.resourceRevision, temporary: true) { closePreview() }
+                if !presentPreview(reference: current.reference, url: original,
+                                   revision: current.metadata.resourceRevision) { closePreview() }
             } catch {
-                guard !Task.isCancelled, previewGeneration == generation else { return }
-                closePreview(); workspace.presentation.report(error)
+                guard let self, !Task.isCancelled, previewGeneration == generation else { return }
+                closePreview()
+                if library.requestScope(assetID.source) == scope { workspace.presentation.report(error) }
             }
         }
         return true
     }
 
-    nonisolated private static func writePreview(_ image: CGImage) throws -> URL {
-        let url = FileManager.default.temporaryDirectory.appendingPathComponent("mwx-quick-preview-\(UUID().uuidString).png")
-        guard let destination = CGImageDestinationCreateWithURL(url as CFURL, UTType.png.identifier as CFString, 1, nil) else {
-            throw OnlineImageError.message("无法准备临时预览。")
-        }
-        CGImageDestinationAddImage(destination, image, nil)
-        guard CGImageDestinationFinalize(destination) else {
-            try? FileManager.default.removeItem(at: url)
-            throw OnlineImageError.message("无法准备临时预览。")
-        }
-        return url
-    }
-
-    private func presentPreview(reference: WallpaperReference, url: URL, revision: String?, temporary: Bool = false) -> Bool {
-        let previousTemporary = temporaryPreviewURL
-        temporaryPreviewURL = temporary ? url : nil
-        if let previousTemporary, previousTemporary != displayedTemporaryPreviewURL, previousTemporary != temporaryPreviewURL {
-            try? FileManager.default.removeItem(at: previousTemporary)
-        }
+    private func presentPreview(reference: WallpaperReference, url: URL, revision: String?) -> Bool {
         previewReference = reference
         previewURL = url
         previewRevision = revision
@@ -391,7 +440,9 @@ import UniformTypeIdentifiers
 
     private func updateVisiblePreview(content: WallpaperContentItem) {
         let current = resolved(content)
-        if let url = quickLookURL(current) {
+        let local = quickLookURL(current)
+        guard previewTask == nil || (current.reference == previewReference && local != nil) else { return }
+        if let url = local {
             if remotePreview != nil { _ = beginPreview(current); return }
             guard previewReference != current.reference || previewURL != url || previewRevision != current.metadata.resourceRevision else { return }
             let sameURL = previewURL == url
@@ -402,7 +453,7 @@ import UniformTypeIdentifiers
         }
         if remotePreview != nil || current.publishedAvailability == .remote {
             guard current.capabilities.contains(.quickLook) else { closePreview(); return }
-            if previewReference == current.reference, let remotePreview, remotePreview.url == current.metadata.previewURL,
+            if previewReference == current.reference, let remotePreview, remotePreview.hintURL == current.metadata.previewURL,
                remotePreview.scope == OnlineImageLibrary.shared.requestScope(remotePreview.source) { return }
             _ = beginPreview(current); return
         }
@@ -439,9 +490,6 @@ import UniformTypeIdentifiers
 
     func closePreview() {
         retirePreviewRequest()
-        let temporaryFiles = Set([temporaryPreviewURL, displayedTemporaryPreviewURL].compactMap { $0 })
-        temporaryPreviewURL = nil
-        displayedTemporaryPreviewURL = nil
         let panel = ownedPreviewPanel
         // Revoke before AppKit's synchronous end/control callbacks. They must
         // not reattach this selection while the panel is being ordered out.
@@ -453,14 +501,16 @@ import UniformTypeIdentifiers
             if panel.dataSource === self { panel.close() }
             detach(from: panel)
         }
-        for url in temporaryFiles { try? FileManager.default.removeItem(at: url) }
+    }
+
+    func closePreviewForCacheClear() -> Task<Void, Never>? {
+        let cancelled = previewTask
+        closePreview()
+        return cancelled
     }
 
     private func reloadPreview(in panel: QLPreviewPanel, refresh: Bool = false) {
         if refresh { panel.refreshCurrentPreviewItem() } else { panel.reloadData() }
-        let previous = displayedTemporaryPreviewURL
-        displayedTemporaryPreviewURL = temporaryPreviewURL
-        if let previous, previous != displayedTemporaryPreviewURL { try? FileManager.default.removeItem(at: previous) }
     }
 
     private func retirePreviewRequest() {

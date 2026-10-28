@@ -32,54 +32,23 @@ enum SteamWorkshopBrowserFooterSupport {
         return itemIDs.isEmpty ? .hidden : .exhausted
     }
 
-    static func text(for state: State) -> String {
+    static func text(for state: State, itemCount: Int = 0) -> String {
         switch state {
         case .hidden:
             return ""
         case .ready:
-            return "可继续加载更多作品。"
+            return "已加载 \(itemCount) 个作品"
         case .loading:
-            return "正在加载更多项目…"
+            return "正在加载更多项目"
         case .failed(let message):
             return message
         case .exhausted:
-            return "已加载全部可访问的作品。"
+            return "已加载 \(itemCount) 个作品"
         }
     }
 
-    static func configure(
-        _ item: AppKitSteamWorkshopBrowserFooterItem,
-        state: State,
-        onRetry: @escaping () -> Void
-    ) {
-        let symbol: (name: String, accessibilityDescription: String)
-        switch state {
-        case .ready:
-            symbol = ("arrow.down.circle", "可以加载更多内容")
-        case .failed:
-            symbol = ("exclamationmark.triangle", "加载更多内容失败")
-        case .exhausted, .hidden:
-            symbol = ("checkmark.circle", "没有更多内容")
-        case .loading:
-            symbol = ("arrow.down.circle", "正在加载更多内容")
-        }
-        let showsRetry: Bool
-        if state == .ready {
-            showsRetry = true
-        } else if case .failed = state {
-            showsRetry = true
-        } else {
-            showsRetry = false
-        }
-        item.configure(
-            text: text(for: state),
-            showsProgress: state == .loading,
-            showsRetry: showsRetry,
-            retryTitle: state == .ready ? "继续加载" : "重试",
-            symbolName: symbol.name,
-            symbolAccessibilityDescription: symbol.accessibilityDescription,
-            onRetry: onRetry
-        )
+    static func configure(_ item: AppKitSteamWorkshopBrowserFooterItem, state: State, itemCount: Int) {
+        item.configure(text: text(for: state, itemCount: itemCount))
     }
 
     static func size(

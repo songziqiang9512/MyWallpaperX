@@ -94,8 +94,8 @@ nonisolated final class SILCacheAdmissions: @unchecked Sendable {
     var pendingWork: DispatchWorkItem? { controller.viewportWork }
     init(paths: [String]) {
         adapter = WallpaperLibraryCellAdapter(manager: WallpaperManager(), images: images,
-            steam: SteamWorkshopService(), online: OnlineLibraryService(), isFavorite: { _ in false },
-            isPlaying: { _ in false }, makePrimaryAction: { _ in nil }, makeFavoriteAction: { _ in {} })
+            steam: SteamWorkshopService(), pixabay: PixabayService(),
+            isPlaying: { _ in false }, makePrimaryAction: { _ in nil })
         let adapter = self.adapter
         controller = WallpaperLibraryGridController { adapter.makeCell(collection: $0, indexPath: $1, content: $2, state: $3) }
         super.init(frame: NSRect(x: 0, y: 0, width: 800, height: 500))

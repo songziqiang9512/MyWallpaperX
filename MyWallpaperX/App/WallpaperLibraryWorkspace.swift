@@ -13,7 +13,7 @@ import Foundation
     private let manager: WallpaperManager
     private let images: SILService
     private let steam: SteamWorkshopService
-    private let online: OnlineLibraryService
+    private let pixabay: PixabayService
     private let readOnlyRelationships: UserCollectionsSnapshot
     private var subscriptions = Set<AnyCancellable>()
     private(set) var projectionRevision: UInt64 = 0
@@ -38,19 +38,19 @@ import Foundation
     var relationships: UserCollectionsSnapshot { collections?.snapshot ?? readOnlyRelationships }
 
     init(startup: LibraryCollectionsStartupOutcome, manager: WallpaperManager,
-         images: SILService, steam: SteamWorkshopService, online: OnlineLibraryService, defaults: UserDefaults) {
+         images: SILService, steam: SteamWorkshopService, pixabay: PixabayService, defaults: UserDefaults) {
         self.manager = manager
         self.defaults = defaults
         self.images = images
         self.steam = steam
-        self.online = online
+        self.pixabay = pixabay
         recoveryMessage = startup.recoveryMessage
         readOnlyRelationships = UserCollectionsSnapshot(revision: 0, resetEpoch: UUID(), migrationManifestID: nil,
             playlists: [], members: [], favorites: [], recent: [], aliases: [], locators: [])
         if case .ready(let publication) = startup {
             collections = UserCollectionsController(store: publication.store, snapshot: publication.snapshot)
         } else { collections = nil }
-        catalog = WallpaperLibraryCatalogController(manager: manager, images: images, steam: steam, online: online)
+        catalog = WallpaperLibraryCatalogController(manager: manager, images: images, steam: steam, pixabay: pixabay)
         var migratedQueries: [WallpaperLibraryPage: WallpaperLibraryQueryState] = [:]
         var preferenceWarnings: [String] = []
         if defaults.object(forKey: WallpaperLibraryPresentation.settingsKey) == nil, case .ready(let publication) = startup {
@@ -132,7 +132,7 @@ import Foundation
         manager.libraryPlaybackDispatcher = { [weak self] pending in
             guard let self, let content = try? self.playbackContent(for: pending.proposal.entry.reference) else { return false }
             return WallpaperLibraryPlaybackRouting.dispatch(pending, content: content, manager: self.manager,
-                workshop: self.steam, online: self.online, images: self.images, relationships: self.relationships)
+                workshop: self.steam, pixabay: self.pixabay, images: self.images, relationships: self.relationships)
         }
         manager.libraryPlaybackCommitted = { [weak self] commit in
             guard let self else { return }
@@ -164,7 +164,7 @@ import Foundation
         switch canonical.provider {
         case .steamWorkshop: immediate = steam.libraryContentItemForExplicitPlayback(id: canonical.sourceID)
         case .pixabay: immediate = Int(canonical.sourceID).flatMap { id in
-            String(id).utf8.elementsEqual(canonical.sourceID.utf8) ? online.libraryContentItemForExplicitPlayback(id: id) : nil
+            String(id).utf8.elementsEqual(canonical.sourceID.utf8) ? pixabay.libraryContentItemForExplicitPlayback(id: id) : nil
         }
         case .wallhaven, .pixiv: immediate = OnlineImageLibrary.shared.content(for: canonical)
         default: immediate = nil
@@ -386,11 +386,6 @@ import Foundation
                 self.presentation.report(error)
             }
         }
-    }
-
-    func refreshSources() {
-        steam.reloadInstalledItems()
-        catalog.refreshAvailability()
     }
 
     func flush() async -> String? { await collections?.flush() }

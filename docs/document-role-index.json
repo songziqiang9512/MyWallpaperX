@@ -13,6 +13,7 @@
       "docs/development/pixiv-online-browser-design.md",
       "docs/development/repository-workflow.md",
       "docs/development/status-bar-panel-redesign.md",
+      "docs/development/ui-quality-audit.md",
       "docs/development/validation-simplification-plan.md",
       "docs/development/wallhaven-online-browser-design.md",
       "docs/release/release-signing.md",
@@ -161,12 +162,12 @@
       "role": "stable-contract",
       "entrypoint": "docs/README.md",
       "currentStateAuthority": "docs/architecture/repository-map.md",
-      "lastReviewed": "2026-10-27",
+      "lastReviewed": "2026-10-28",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "1468f7dd8529c622ad282e5c36b45bfbe25afea0eb29550d0879e3868427bda4",
+        "sourceSHA256": "aabec0c902577be6075c7fc9be9fed91c9c06de59c576a4b97f590c9cf40cf0f",
         "method": "document_registry --audit + document_health --check",
-        "scope": "P33核实际登录恢复字段与精简链现状指针；只维护角色/源码与导航绑定，运行适用范围仍由原证据限定。",
+        "scope": "UI21同步当前浏览上下文、可见需求和防抖入口的源码/导航职责；具体行为验收归本轮审查卡，保原账号与入库合同。",
         "limitations": "这是导航与文档治理复核，不代表源码、编译、运行、视觉、性能、真实账号或发布复验；不重授旧证据的适用范围。"
       }
     },
@@ -248,9 +249,9 @@
     },
     {
       "path": "docs/development/ui-quality-audit.md",
-      "role": "navigation",
-      "entrypoint": "docs/history/cross-topic/ui-quality-audit-completed-2026-10-27.md",
-      "purpose": "已结算UI审计的永久URL与四个锚点，不拥有当前事实或任务。"
+      "role": "active-plan",
+      "entrypoint": "docs/README.md",
+      "retirementCondition": "本轮已证P1/P2处理、反例与独审闭合后，将稳定职责回原合同并归档；外部未验边界不冒充通过。"
     },
     {
       "path": "docs/development/validation-simplification-plan.md",
@@ -521,6 +522,24 @@
     },
     {
       "path": "docs/history/development/main-window-playlists-ui-r0-r4-2026-10-25.md",
+      "role": "historical-evidence",
+      "entrypoint": "docs/history/README.md",
+      "commandPolicy": "historical-only",
+      "currentAuthorities": [
+        "docs/development/main-window-playlists-redesign.md"
+      ]
+    },
+    {
+      "path": "docs/history/development/main-window-playlists-ui16-ui17-completed-2026-10-27.md",
+      "role": "historical-evidence",
+      "entrypoint": "docs/history/README.md",
+      "commandPolicy": "historical-only",
+      "currentAuthorities": [
+        "docs/development/main-window-playlists-redesign.md"
+      ]
+    },
+    {
+      "path": "docs/history/development/main-window-playlists-v-t-f-completed-2026-10-27.md",
       "role": "historical-evidence",
       "entrypoint": "docs/history/README.md",
       "commandPolicy": "historical-only",
@@ -5050,7 +5069,7 @@
     },
     {
       "id": "main-window-playlists",
-      "title": "主界面重排与混合播放列表",
+      "title": "主界面重排、混合播放列表与通用下载",
       "keywords": [
         "主界面重排",
         "播放列表",
@@ -5062,7 +5081,13 @@
         "详情安全距离",
         "我的订阅",
         "表单输入外观",
-        "紧凑确认"
+        "紧凑确认",
+        "通用下载",
+        "下载历史",
+        "原图预览",
+        "界面主体色调",
+        "卡片单击",
+        "Pixabay"
       ],
       "documents": [
         "docs/development/main-window-playlists-redesign.md",
@@ -5076,7 +5101,7 @@
         "MyWallpaperX/App/CrossRuntimeWallpaperNavigator.swift",
         "MyWallpaperX/Modules/VideoLibrary",
         "MyWallpaperX/Modules/StaticImageLibrary",
-        "MyWallpaperX/Modules/OnlineLibrary",
+        "MyWallpaperX/Modules/Pixabay",
         "MyWallpaperX/Modules/SteamWorkshop",
         "MyWallpaperX/Core/LibraryCollections",
         "MyWallpaperX/App/WallpaperLibraryWorkspace.swift",
@@ -5084,7 +5109,9 @@
         "MyWallpaperX/Shared/UI/WallpaperLibrarySheetPresentation.swift",
         "MyWallpaperX/Shared/UI/ModalPresentation.swift",
         "MyWallpaperX/Shared/UI/InspectorFadingScrollView.swift",
-        "MyWallpaperX/Shared/Components/WallpaperFormFieldStyle.swift"
+        "MyWallpaperX/Shared/Components/WallpaperFormFieldStyle.swift",
+        "MyWallpaperX/Modules/Downloads",
+        "MyWallpaperX/Models/DownloadTask.swift"
       ],
       "verification": "按当前工作卡选择迁移/关系/查询/共享网格/混合轮换真实行为门；§19核心/相邻回归和独立交审通过，已基于23a382c6a完成整合近门与Debug/签名；各阶段边界见该节。编译、原生交互、真实账号与四类型桌面交接分开验收，fixture不冒充桌面输出。",
       "owner": "App/Shell main-window and user-library relationships",
@@ -5101,7 +5128,8 @@
         "main-library-downloaded-source",
         "main-library-remote-toolbar",
         "steam-detail-author-navigation",
-        "main-library-main-menu"
+        "main-library-main-menu",
+        "shared-download-management"
       ],
       "verificationPhases": [
         {
@@ -5128,6 +5156,7 @@
         "重复按钮"
       ],
       "documents": [
+        "docs/development/ui-quality-audit.md",
         "docs/architecture/appkit-migration.md",
         "docs/development/main-window-playlists-redesign.md",
         "docs/architecture/repository-map.md"
@@ -5142,8 +5171,8 @@
         "MyWallpaperX/Modules/SteamWorkshop/Toolbar",
         "MyWallpaperX/Modules/SteamWorkshop/Scene/SteamWorkshopScenePropertyEditorView.swift",
         "MyWallpaperX/Modules/SteamWorkshop/UI/SteamWorkshopWebPropertyEditorView.swift",
-        "MyWallpaperX/Modules/OnlineLibrary/UI",
-        "MyWallpaperX/Modules/OnlineLibrary/Toolbar",
+        "MyWallpaperX/Modules/Pixabay/UI",
+        "MyWallpaperX/Modules/Pixabay/Toolbar",
         "MyWallpaperX/Modules/VideoLibrary/UI",
         "MyWallpaperX/Modules/StaticImageLibrary/UI",
         "MyWallpaperX/Modules/Pixiv/UI",
@@ -5151,11 +5180,13 @@
         "MyWallpaperXHelp",
         "MyWallpaperX/Modules/StaticImageLibrary/Core/SILService.swift",
         "MyWallpaperX/Modules/SteamWorkshop/Core/SteamWorkshopDownloadThumbnailPipeline.swift",
-        "MyWallpaperX/Modules/SteamWorkshop/Core/SteamWorkshopService+BrowseStateRecovery.swift"
+        "MyWallpaperX/Modules/SteamWorkshop/Core/SteamWorkshopService+BrowseStateRecovery.swift",
+        "MyWallpaperX/Modules/Downloads",
+        "MyWallpaperX/Models/DownloadTask.swift"
       ],
       "verification": "按具体首错点选真实用户事件与输出反例、最近行为门及Debug；关窗/迟到/第二次操作另验，未测成本不称性能提升，真实账号和硬件输入边界单列。",
       "owner": "App/Shell and existing source UI/lifecycle owners",
-      "firstRead": "docs/architecture/appkit-migration.md#网格缩略图需求调度d172026-10-21",
+      "firstRead": "docs/development/ui-quality-audit.md#ui22-scope",
       "nearestTestGroups": [
         "main-library-main-menu",
         "main-library-window-toolbar",
@@ -5171,7 +5202,8 @@
         "thumbnail-cache-consumer-lifetime",
         "grid-thumbnail-return-reuse",
         "steam-download-thumbnail-generation",
-        "sil-native-square-cards"
+        "sil-native-square-cards",
+        "shared-download-management"
       ],
       "verificationPhases": [
         {

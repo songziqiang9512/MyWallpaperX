@@ -17,8 +17,8 @@ final class ThumbnailCacheRequestCancellation {
     }
 }
 nonisolated func silGridThumbnailImage(atPath path: String) -> NSImage? { nil }
-@MainActor final class OLThumbnailCache {
-    static let shared = OLThumbnailCache()
+@MainActor final class OnlineImageThumbnailCache {
+    static let shared = OnlineImageThumbnailCache()
     var result: NSImage?
     var urls: [URL] = []
     var priorities: [TintThumbnailPriority] = []

@@ -17,7 +17,12 @@ private struct WallpaperContentItem {
     let title: String
     let kind: WallpaperMediaKind
     let capabilities: MenuCapabilities
-    let locator: URL?
+    struct Locator { let path: String? }
+    let fileURL: URL?
+    var locator: Locator { .init(path: fileURL?.path) }
+    init(reference: WallpaperReference, title: String, kind: WallpaperMediaKind, capabilities: MenuCapabilities, locator: URL?) {
+        self.reference = reference; self.title = title; self.kind = kind; self.capabilities = capabilities; fileURL = locator
+    }
 }
 
 // ACTUAL_LIBRARY_FAVORITE_STATE
@@ -29,6 +34,8 @@ private struct WallpaperContentItem {
         struct Selection { var sessionID = UUID() }
         var page = Page.downloads
         var selectionState = Selection()
+        var errors: [String] = []
+        mutating func report(_ error: Error) { errors.append(error.localizedDescription) }
     }
     var relationships = Relationships()
     var presentation = Presentation()
@@ -47,7 +54,7 @@ private enum WallpaperLibraryImportCoordinator {
 }
 private enum WallpaperLibraryDownloadRecovery {
     static func makeMenu(for item: WallpaperContentItem, workspace: LibraryMenuWorkspace,
-                         steam: SteamWorkshopService, online: Int, includeSourcePage: Bool = true) -> NSMenu? { nil }
+                         steam: SteamWorkshopService, pixabay: Int, includeSourcePage: Bool = true) -> NSMenu? { nil }
 }
 private struct OnlineImageAssetID: Hashable { init?(reference: WallpaperReference) { return nil } }
 @MainActor private final class OnlineImageLibrary {
@@ -74,7 +81,7 @@ private extension SteamWorkshopService {
     let manager = LibraryMenuManager()
     let imports = LibraryMenuImports()
     let steam = SteamWorkshopService()
-    let online = 0
+    let pixabay = 0
     var canOrganize = true
     var onInspect: ((WallpaperContentItem) -> Void)?
     var onPreview: ((WallpaperContentItem) -> Void)?
@@ -96,7 +103,7 @@ private extension SteamWorkshopService {
     }
     func stop(_ reference: WallpaperReference, expectedTicket: UUID) {}
     func makePlaylistMenu(_ references: [WallpaperReference]) -> NSMenu? { NSMenu() }
-    func reveal(_ items: [WallpaperContentItem]) { revealed.append(items.compactMap(\.locator)) }
+    func reveal(_ items: [WallpaperContentItem]) { revealed.append(items.compactMap(\.fileURL)) }
     func removalTitle(for page: LibraryMenuWorkspace.Page) -> String { "移除" }
     func remove(_ items: [WallpaperContentItem], from page: LibraryMenuWorkspace.Page) {}
     // ACTUAL_LIBRARY_FAVORITE_FACTORY
@@ -112,7 +119,7 @@ private extension SteamWorkshopService {
     let video = WallpaperContentItem(reference: local, title: "Local", kind: .video,
         capabilities: [.play, .organize, .reveal], locator: URL(fileURLWithPath: "/owned/library/local.mp4"))
     commands.sourceItems = [remote: downloaded, local: video]
-    commands.steam.record = Record(id: remote.sourceID, status: .ready)
+    commands.steam.record = Record(id: remote.sourceID, status: .ready, videoURL: downloaded.fileURL)
     func revealItems(_ menu: NSMenu) -> [NSMenuItem] { menu.items.filter { $0.title == "在 Finder 中显示" } }
     func invoke(_ item: NSMenuItem) {
         precondition(item.isEnabled)
@@ -120,6 +127,8 @@ private extension SteamWorkshopService {
     }
 
     let ready = commands.contextMenu(for: [downloaded])!
+    precondition(ready.items.filter { $0.title == "打开方式" }.count == 1,
+        "embedded Steam source commands never duplicate the shared local file submenu")
     precondition(revealItems(ready).count == 1 && revealItems(ready)[0].isEnabled,
         "a ready Steam library context menu has exactly one shared reveal")
     precondition(ready.items.contains { $0.title == "查看作者工坊" }
@@ -128,7 +137,7 @@ private extension SteamWorkshopService {
         "one context-menu assembly shares its current favorite projection without resolving again")
     commands.steam.record = Record(id: "another", status: .ready)
     invoke(revealItems(ready)[0])
-    precondition(commands.revealed == [[downloaded.locator!]], "shared reveal keeps the clicked content path")
+    precondition(commands.revealed == [[downloaded.fileURL!]], "shared reveal keeps the clicked content path")
     invoke(ready.items.first { $0.title == "特别喜爱" }!)
     precondition(commands.favoriteRequests.count == 1 && commands.favoriteRequests[0].0 == [remote]
         && commands.favoriteRequests[0].1 == false, "the pre-resolved favorite action retains its rendered add intent")
@@ -158,7 +167,7 @@ private extension SteamWorkshopService {
     let mixed = commands.contextMenu(for: [downloaded, video])!
     precondition(revealItems(mixed).count == 1, "multi-provider selection exposes one shared reveal")
     invoke(revealItems(mixed)[0])
-    precondition(commands.revealed.last == [downloaded.locator!, video.locator!], "multi-selection reveal retains both fixed targets")
+    precondition(commands.revealed.last == [downloaded.fileURL!, video.fileURL!], "multi-selection reveal retains both fixed targets")
     precondition(commands.contextMenu(for: []) == nil, "empty selection never produces a context menu")
 
     commands.canOrganize = false
@@ -166,6 +175,35 @@ private extension SteamWorkshopService {
     precondition(readOnly.items.first { $0.title == "特别喜爱" }?.isEnabled == false,
         "reusing the current projection never enables read-only organization")
     commands.canOrganize = true
+    let app = URL(fileURLWithPath: "/Applications/Shared Viewer.app"), io = OpenWithWorkspaceLeaf.shared
+    io.handlers = [downloaded.fileURL!: [app], video.fileURL!: [app]]
+    io.defaults = [downloaded.fileURL!: app, video.fileURL!: app]
+    let openBoth = commands.contextMenu(for: [downloaded, video])!.items.first { $0.title == "打开方式" }!.submenu!.items[0]
+    invoke(openBoth)
+    precondition(io.opens.count == 1 && io.opens[0].files == [downloaded.fileURL!, video.fileURL!] && io.opens[0].application == app,
+        "the real mixed-source context menu opens both fixed videos with one system application")
+    commands.workspace.presentation.selectionState.sessionID = UUID()
+    invoke(openBoth)
+    precondition(io.opens.count == 1, "a held Open With submenu cannot borrow a new selection session")
+    let openBeforeReset = commands.contextMenu(for: [video])!.items.first { $0.title == "打开方式" }!.submenu!.items[0]
+    commands.workspace.relationships.resetEpoch = UUID(); invoke(openBeforeReset)
+    precondition(io.opens.count == 1, "a held Open With submenu cannot cross the original reset epoch")
+    let image = WallpaperContentItem(reference: local, title: "Image", kind: .image,
+        capabilities: [.organize], locator: URL(fileURLWithPath: "/owned/library/image.png"))
+    io.handlers[image.fileURL!] = [app]; io.defaults[image.fileURL!] = app
+    let openImage = commands.contextMenu(for: [image])!.items.first { $0.title == "打开方式" }!.submenu!.items[0]
+    invoke(openImage)
+    precondition(io.opens.count == 2 && io.opens[1].files == [image.fileURL!], "a local image uses the same original menu and application command")
+    let openBeforeNavigation = commands.contextMenu(for: [video])!.items.first { $0.title == "打开方式" }!.submenu!.items[0]
+    commands.workspace.presentation.page = .favorites; invoke(openBeforeNavigation)
+    precondition(io.opens.count == 2, "a held Open With submenu cannot act on a later page")
+    commands.workspace.presentation.page = .downloads
+    let web = WallpaperContentItem(reference: remote, title: "Web", kind: .web, capabilities: [.play], locator: downloaded.fileURL)
+    let scene = WallpaperContentItem(reference: remote, title: "Scene", kind: .scene, capabilities: [.play], locator: downloaded.fileURL)
+    precondition([web, scene].allSatisfy { item in
+        commands.contextMenu(for: [item])?.items.contains { $0.title == "打开方式" } == false
+            && commands.contextMenu(for: [video, item])?.items.contains { $0.title == "打开方式" } == false
+    }, "Web and Scene never become file-opening commands, including mixed selections")
     commands.favoriteProjectionCalls = 0; commands.resolveCalls = 0
     let ordinaryFavorite = commands.makeFavoriteAction([local])!
     precondition(commands.resolveCalls == 1 && commands.favoriteProjectionCalls == 1,

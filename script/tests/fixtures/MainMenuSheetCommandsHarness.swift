@@ -154,9 +154,11 @@ import AppKit
         // its own, so only the production menu consumer can revoke it.
         var retainedImageApplies = 0
         controller.libraryPresentation.page = .pixiv
-        controller.browserActions = .init(state: .init(isPlaying: false, isFavorite: false,
-            canPerformPrimary: true, canFavorite: false, canOrganize: false, playlistNames: []),
-            onPrimary: { retainedImageApplies += 1 }, onToggleFavorite: {}, onChoosePlaylist: { _ in })
+        let remote = WallpaperReference(provider: .pixiv, sourceID: "child-modal")
+        controller.browser.onlineImages.selectedContent = .init(reference: remote, providerReference: remote,
+            locator: .init(mediaKind: .image), title: "Image", kind: .image, publishedAvailability: .remote,
+            capabilities: [.download], metadata: .init(), acquisition: .idle, update: .idle, aliases: [])
+        controller.browser.onlineImages.primary = ("下载原图", { retainedImageApplies += 1 })
         let imageApplyValidated = delegate.validateMenuItem(item(.applyWallpaper))
         let retainedImageApply = NSMenuItem(title: "Retained image apply", action: item(.applyWallpaper).action, keyEquivalent: "")
         retainedImageApply.target = item(.applyWallpaper).target
@@ -164,17 +166,18 @@ import AppKit
         _ = app.sendAction(retainedImageApply.action!, to: retainedImageApply.target, from: retainedImageApply)
         let retainedImageWasLive = imageApplyValidated && retainedImageApplies == 1
         controller.libraryPresentation.page = .images
-        controller.browserActions = nil
+        controller.browser.onlineImages.selectedContent = nil
+        controller.browser.onlineImages.primary = nil
         let before = (controller.libraryCommands.selectAllCalls, controller.libraryCommands.deletes,
             controller.libraryCommands.favorites, controller.libraryCommands.applies, controller.libraryCommands.previews,
             controller.libraryCommands.imports, controller.libraryCommands.infos, controller.libraryCommands.reveals,
             controller.libraryCommands.selectionCalls, controller.libraryCommands.adds, controller.libraryCommands.playlists!.creates,
             controller.searches, controller.zooms.count)
         precondition(WallpaperLibrarySheetPresentation.present(sheet, in: host))
-        try pump("child modal input") { sheet.parent === host && sheet.isKeyWindow }
+        try pump("native sheet input") { sheet.sheetParent === host && sheet.isKeyWindow }
         precondition(sheet.makeFirstResponder(sheetGrid))
-        checks["native-child-modal-and-collection-are-the-real-input-domain"] = app.keyWindow === sheet && sheet.firstResponder === sheetGrid
-            && host.attachedSheet == nil && !sheet.isSheet && !WallpaperLibrarySheetPresentation.permitsInput(in: host)
+        checks["native-sheet-and-collection-are-the-real-input-domain"] = app.keyWindow === sheet && sheet.firstResponder === sheetGrid
+            && host.attachedSheet === sheet && sheet.isSheet && !WallpaperLibrarySheetPresentation.permitsInput(in: host)
         checks["native-sheet-default-cell-is-the-enabled-visible-add-button"] = sheet.defaultButtonCell === add.cell && add.isEnabled
         key("a", code: 0, menuFirst: false)
         checks["sheet-command-a-does-not-select-background-wallpapers"] = controller.libraryCommands.selectAllCalls == before.0
@@ -266,15 +269,15 @@ import AppKit
             && controller.libraryCommands.applies == appliesBeforeReadOnlyReturn
         recordModalState("after-text-and-readonly-domain")
         cancel.performClick(nil)
-        checks["owned-child-cancel-button-retains-its-native-target-and-action"] = buttons.cancels == 1
-            && sheet.isVisible && sheet.parent === host && app.keyWindow === sheet
+        checks["owned-sheet-cancel-button-retains-its-native-target-and-action"] = buttons.cancels == 1
+            && sheet.isVisible && sheet.sheetParent === host && app.keyWindow === sheet
         precondition(sheet.makeFirstResponder(sheetGrid))
         recordModalState("before-Escape")
         key("\u{1b}", code: 53, modifiers: [])
         recordModalState("after-Escape")
-        try pump("main restored after native Escape") { app.keyWindow === host && sheet.parent == nil && !sheet.isVisible }
-        checks["owned-child-native-escape-closes-once-without-reinvoking-the-cancel-button"] = buttons.sheetCloses == 1
-            && buttons.cancels == 1 && sheet.parent == nil && !sheet.isVisible && app.keyWindow === host
+        try pump("main restored after native Escape") { app.keyWindow === host && sheet.sheetParent == nil && !sheet.isVisible }
+        checks["owned-sheet-native-escape-closes-once-without-reinvoking-the-cancel-button"] = buttons.sheetCloses == 1
+            && buttons.cancels == 1 && sheet.sheetParent == nil && !sheet.isVisible && app.keyWindow === host
             && WallpaperLibrarySheetPresentation.permitsInput(in: host)
         precondition(host.makeFirstResponder(mainGrid))
         checks["closing-sheet-restores-original-main-page-menu-capabilities"] = scoped.allSatisfy { delegate.validateMenuItem(item($0)) }

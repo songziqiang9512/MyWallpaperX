@@ -141,7 +141,7 @@ extension SteamWorkshopService {
     }
 
     /// 稀疏交叉筛选下自动续载的上限：连续多页无新增可见项即停止自动
-    /// 加载，保留远端 hasMore 与手动继续入口；刷新/改键时归零。
+    /// 加载，保留远端 hasMore 与再次下滑继续入口；刷新/改键时归零。
     static let maxConsecutiveEmptyLoadMorePages = 3
 
     func loadMoreDiscoveryViaSteamKitIfNeeded() {
@@ -177,7 +177,7 @@ extension SteamWorkshopService {
                     if filtered.count <= previousVisibleCount {
                         self.consecutiveEmptyLoadMorePages += 1
                         if self.consecutiveEmptyLoadMorePages >= Self.maxConsecutiveEmptyLoadMorePages {
-                            self.statusMessage = "已暂停自动加载，可继续加载或调整筛选。"
+                            self.statusMessage = "暂未获取到更多内容，可继续下滑或调整筛选。"
                         }
                     } else {
                         self.consecutiveEmptyLoadMorePages = 0
@@ -185,7 +185,7 @@ extension SteamWorkshopService {
                     self.isLoadingMoreBrowserItems = false
                     self.browserLoadMoreFailureMessage = self.hasMoreBrowserItems
                         && self.consecutiveEmptyLoadMorePages >= Self.maxConsecutiveEmptyLoadMorePages
-                        ? "已加载页暂无新增匹配项目 · 点击继续加载" : nil
+                        ? "暂未获取到更多内容，继续下滑可获取" : nil
                     self.browserLoadMoreRetryAfter = .distantPast
                     if self.hasMoreBrowserItems {
                         self.statusMessage = result.total > 0
@@ -346,7 +346,7 @@ extension SteamWorkshopService {
                     if processed.count <= previousVisibleCount {
                         self.consecutiveEmptyLoadMorePages += 1
                         if self.consecutiveEmptyLoadMorePages >= Self.maxConsecutiveEmptyLoadMorePages {
-                            self.statusMessage = "已暂停自动加载，可继续加载或调整筛选。"
+                            self.statusMessage = "暂未获取到更多内容，可继续下滑或调整筛选。"
                         }
                     } else {
                         self.consecutiveEmptyLoadMorePages = 0
@@ -354,7 +354,7 @@ extension SteamWorkshopService {
                     self.isLoadingMoreBrowserItems = false
                     self.browserLoadMoreFailureMessage = self.hasMoreBrowserItems
                         && self.consecutiveEmptyLoadMorePages >= Self.maxConsecutiveEmptyLoadMorePages
-                        ? "已加载页暂无新增匹配项目 · 点击继续加载" : nil
+                        ? "暂未获取到更多内容，继续下滑可获取" : nil
                     self.browserLoadMoreRetryAfter = .distantPast
                     if self.hasMoreBrowserItems {
                         self.statusMessage = result.total > 0
@@ -385,6 +385,7 @@ extension SteamWorkshopService {
     func fetchWorkshopItemViaSteamKit(
         fallback: SteamWorkshopBrowserItem
     ) async throws -> SteamWorkshopBrowserItem {
+        let navigation = navigationVersion
         let page = try await steamWorkshopQueryClient.details(ids: [fallback.id])
         guard let item = page.items.first(where: { $0.publishedFileId == fallback.id }) else {
             throw SteamServiceClient.RequestError.helperError(
@@ -393,7 +394,7 @@ extension SteamWorkshopService {
         let detailed = SteamWorkshopBrowserItem.makeDetailed(from: item, fallback: fallback)
         // Preview decoding has its own cache/loader. A MIME probe must not
         // delay semantic details or the author navigation button.
-        Self.saveDetailCache(item: detailed)
+        if !Task.isCancelled, navigationVersion == navigation { Self.saveDetailCache(item: detailed) }
         return detailed
     }
 

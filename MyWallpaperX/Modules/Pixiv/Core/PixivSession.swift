@@ -1,4 +1,5 @@
 import Combine
+import CryptoKit
 import Foundation
 import WebKit
 
@@ -20,6 +21,12 @@ final class PixivSession: NSObject, ObservableObject, WKHTTPCookieStoreObserver 
     let websiteDataStore: WKWebsiteDataStore
     private(set) lazy var urlSession: WallpaperNetworkSession = makeTransport(epoch: state.sessionEpoch)
     var scopeID: String { state.scopeID }
+    /// Session cookies survive App restarts; transient request epochs do not.
+    /// This namespace is consumed only when an original image is cached/read.
+    var originalCacheScope: String {
+        let values = observedCookies.values.filter { $0.name == "PHPSESSID" }.map { $0.value }.sorted().joined(separator: ":")
+        return values.isEmpty ? "pixiv-anonymous" : SHA256.hash(data: Data(values.utf8)).map { String(format: "%02x", $0) }.joined()
+    }
     var sessionEpoch: UInt64 { state.sessionEpoch }
     private var observedCookies: [CookieKey: HTTPCookie] = [:]
     private var bridgeTask: Task<Void, Never>?
@@ -58,6 +65,13 @@ final class PixivSession: NSObject, ObservableObject, WKHTTPCookieStoreObserver 
         else { restoreIdentityInBackground() }
     }
 
+    /// A user-triggered read reuses the current session and never revokes an
+    /// existing account merely to refresh its optional display metadata.
+    func refreshAccountInformation() async {
+        if identityTask == nil { identityAttemptedEpoch = nil }
+        await refresh()
+    }
+
     private func applyMetadata(_ metadata: PixivOfficialMetadata) {
         switch metadata {
         case .authenticated(let id, let name): transition(identity: .init(userID: id, displayName: name))
@@ -73,7 +87,7 @@ final class PixivSession: NSObject, ObservableObject, WKHTTPCookieStoreObserver 
         guard identityTask == nil, identityAttemptedEpoch != epoch else { return }
         identityAttemptedEpoch = epoch
         let activeSession = urlSession
-        if state.identity == nil { state.phase = .checking }
+        state.phase = .checking
         identityTask = Task { [weak self] in
             guard let self else { return }
             defer {

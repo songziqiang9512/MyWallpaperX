@@ -26,6 +26,7 @@ final class AppKitListTintSurface: NSView {
         var reduceMotion: Bool
     }
     static let animationKey = "listThumbnailTint"
+    static let animationDuration: TimeInterval = 0.75
     private weak var sidebar: AppKitListTintSurface?
     private weak var main: AppKitListTintSurface?
     private let sample: Sampler
@@ -44,6 +45,7 @@ final class AppKitListTintSurface: NSView {
     private var workspaceObservers: [NSObjectProtocol] = []
     private var isActive = false
     private var usesThumbnailTint = true
+    var onProjectionChange: ((NSColor, Bool) -> Void)?
 
     init(sample: Sampler? = nil, displayOptions: (() -> DisplayOptions)? = nil) {
         self.sample = sample ?? Self.sampleThumbnail
@@ -170,34 +172,38 @@ final class AppKitListTintSurface: NSView {
             tint = NSColor(srgbRed: 0, green: 0, blue: 0, alpha: 0)
         }
         let animate = animated && isActive && !options.reduceMotion
+        onProjectionChange?(tint, animate)
         let hosts: [NSView?] = [sidebar, main]
         for view in hosts.compactMap({ $0 }) {
-            var resolved = tint.cgColor
-            view.effectiveAppearance.performAsCurrentDrawingAppearance {
-                resolved = (tint.usingColorSpace(.sRGB) ?? tint).cgColor
-            }
             guard let layer = view.layer else { continue }
-            if layer.backgroundColor == resolved {
-                if !animate { layer.removeAnimation(forKey: Self.animationKey) }
-                continue
-            }
-            // An interrupted transition continues from its visible color rather
-            // than jumping to either the previous model target or neutral.
-            let previous = layer.presentation()?.backgroundColor ?? layer.backgroundColor
-            CATransaction.begin()
-            CATransaction.setDisableActions(true)
-            layer.backgroundColor = resolved
-            CATransaction.commit()
-            if animate, previous != resolved {
-                let transition = CABasicAnimation(keyPath: "backgroundColor")
-                transition.fromValue = previous
-                transition.toValue = resolved
-                transition.duration = 0.75
-                transition.timingFunction = CAMediaTimingFunction(name: .easeInEaseOut)
-                layer.add(transition, forKey: Self.animationKey)
-            } else {
-                layer.removeAnimation(forKey: Self.animationKey)
-            }
+            Self.apply(tint, to: layer, appearance: view.effectiveAppearance, animated: animate)
+        }
+    }
+
+    /// The Settings consumer shares only this stateless native color transition.
+    static func apply(_ tint: NSColor?, to layer: CALayer, appearance: NSAppearance, animated: Bool) {
+        var resolved: CGColor?
+        appearance.performAsCurrentDrawingAppearance {
+            resolved = tint.flatMap { ($0.usingColorSpace(.sRGB) ?? $0).cgColor }
+        }
+        if layer.backgroundColor == resolved {
+            if !animated { layer.removeAnimation(forKey: animationKey) }
+            return
+        }
+        // Retarget from the visible color, rather than either model endpoint.
+        let previous = layer.presentation()?.backgroundColor ?? layer.backgroundColor
+        CATransaction.begin(); CATransaction.setDisableActions(true)
+        layer.backgroundColor = resolved
+        CATransaction.commit()
+        if animated, previous != resolved {
+            let transition = CABasicAnimation(keyPath: "backgroundColor")
+            transition.fromValue = previous
+            transition.toValue = resolved
+            transition.duration = animationDuration
+            transition.timingFunction = CAMediaTimingFunction(name: .easeInEaseOut)
+            layer.add(transition, forKey: animationKey)
+        } else {
+            layer.removeAnimation(forKey: animationKey)
         }
     }
 

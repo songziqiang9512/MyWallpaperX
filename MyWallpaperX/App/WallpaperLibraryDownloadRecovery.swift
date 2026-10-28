@@ -6,7 +6,7 @@ import AppKit
     /// Return on a non-playable row may retry an original source task or
     /// recover a deleted download. It never becomes a playback request.
     static func makePrimaryAction(for item: WallpaperContentItem, workspace: WallpaperLibraryWorkspace,
-                                  steam: SteamWorkshopService, online: OnlineLibraryService) -> (() -> Void)? {
+                                  steam: SteamWorkshopService, pixabay: PixabayService) -> (() -> Void)? {
         let reference = item.reference
         guard !item.capabilities.contains(.play), matchesSourceIdentity(item, in: workspace),
               workspace.presentation.canEditCollections, workspace.collections?.isResetting == false else { return nil }
@@ -28,17 +28,15 @@ import AppKit
             }
         case .pixabay:
             guard let id = Int(reference.sourceID), id > 0, String(id).utf8.elementsEqual(reference.sourceID.utf8),
-                  online.items.contains(where: { $0.id == id }),
                   downloadable(item) || eligible(reference, in: workspace) != nil else { return nil }
-            return { [weak workspace, weak online] in
-                guard let workspace, let online, workspace.relationships.resetEpoch == epoch,
+            return { [weak workspace, weak pixabay] in
+                guard let workspace, let pixabay, workspace.relationships.resetEpoch == epoch,
                       workspace.presentation.page == page, workspace.presentation.canEditCollections,
                       workspace.collections?.isResetting == false,
                       let current = try? workspace.content(for: reference), current.reference == reference,
                       matchesSourceIdentity(current, in: workspace), !current.capabilities.contains(.play),
-                      downloadable(current) || eligible(reference, in: workspace) != nil,
-                      let source = online.items.first(where: { $0.id == id }) else { return }
-                online.download(item: source)
+                      downloadable(current) || eligible(reference, in: workspace) != nil else { return }
+                pixabay.retryDownload(id: id)
             }
         case .wallhaven, .pixiv:
             let library = OnlineImageLibrary.shared
@@ -57,7 +55,7 @@ import AppKit
     }
 
     static func makeMenu(for item: WallpaperContentItem, workspace: WallpaperLibraryWorkspace,
-                         steam: SteamWorkshopService, online: OnlineLibraryService,
+                         steam: SteamWorkshopService, pixabay: PixabayService,
                          includeSourcePage: Bool = true) -> NSMenu? {
         let reference = item.reference
         guard eligible(reference, in: workspace) != nil else { return nil }
@@ -72,7 +70,7 @@ import AppKit
             guard steam.recoveryWorkshopDetailURL(itemID: reference.sourceID) != nil,
                   steam.latestDownloadRecord(for: reference.sourceID) == nil else { return nil }
             let account = steam.steamServiceClient.accountEpoch
-            if let download = makePrimaryAction(for: item, workspace: workspace, steam: steam, online: online) {
+            if let download = makePrimaryAction(for: item, workspace: workspace, steam: steam, pixabay: pixabay) {
                 menu.addItem(ActionMenuItem(title: "重新下载", symbol: "arrow.down.circle", handler: download))
             }
             if includeSourcePage {
@@ -86,22 +84,22 @@ import AppKit
         case .pixabay:
             guard let id = Int(reference.sourceID), id > 0,
                   String(id).utf8.elementsEqual(reference.sourceID.utf8) else { return nil }
-            // A browse item is an original owner fact, not a fabricated CDN
-            // URL or a second persistent copy of remote download metadata.
-            if let download = makePrimaryAction(for: item, workspace: workspace, steam: steam, online: online) {
+            // The source resolves a fresh asset by stable ID; recovery does not
+            // depend on the current browse page or persist a temporary CDN URL.
+            if let download = makePrimaryAction(for: item, workspace: workspace, steam: steam, pixabay: pixabay) {
                 menu.addItem(ActionMenuItem(title: "重新下载", symbol: "arrow.down.circle", handler: download))
             }
             if includeSourcePage {
-                menu.addItem(ActionMenuItem(title: "查看 Pixabay 原网页", symbol: "safari") { [weak workspace, weak online] in
-                    guard let workspace, let online, workspace.relationships.resetEpoch == epoch,
+                menu.addItem(ActionMenuItem(title: "查看 Pixabay 原网页", symbol: "safari") { [weak workspace, weak pixabay] in
+                    guard let workspace, let pixabay, workspace.relationships.resetEpoch == epoch,
                           workspace.presentation.page == page, eligible(reference, in: workspace) != nil else { return }
-                    online.openVideoSourcePage(id: id)
+                    pixabay.openVideoSourcePage(id: id)
                 })
             }
         case .wallhaven, .pixiv:
             let library = OnlineImageLibrary.shared
             guard library.record(for: reference) != nil else { return nil }
-            if let download = makePrimaryAction(for: item, workspace: workspace, steam: steam, online: online) {
+            if let download = makePrimaryAction(for: item, workspace: workspace, steam: steam, pixabay: pixabay) {
                 menu.addItem(ActionMenuItem(title: "重新下载", symbol: "arrow.down.circle", handler: download))
             }
             if includeSourcePage {

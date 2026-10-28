@@ -24,8 +24,9 @@ class WallpaperLibraryCellAdapterTests(unittest.TestCase):
         sources = [ROOT / "MyWallpaperX" / path for path in (
             "Models/WallpaperReference.swift", "Models/WallpaperContent.swift", "Models/WallpaperLibraryPage.swift", "Models/VideoWallpaper.swift",
             "Core/OnlineImages/OnlineImageModels.swift", "Core/OnlineImages/OnlineImageContentProjection.swift",
-            "Shared/Components/ActionMenuItem.swift",
-            "App/WallpaperLibraryCellAdapter.swift", "Shared/Components/WallpaperCardInteractionView.swift")]
+            "Shared/Components/ActionMenuItem.swift", "Shared/UI/WallpaperLibrarySheetPresentation.swift",
+            "App/WallpaperLibraryCellAdapter.swift", "Shared/Components/WallpaperCardInteractionView.swift",
+            "Shared/UI/WallpaperGridScrollView.swift")]
         sources.append(ROOT / "script/tests/fixtures/OnlineImageLibraryAppStub.swift")
         sources.append(ROOT / "script/tests/fixtures/WallpaperLibraryCellAdapterHarness.swift")
         card = ROOT / "MyWallpaperX/Shared/UI/OnlineImageGridItem.swift"
@@ -35,6 +36,7 @@ class WallpaperLibraryCellAdapterTests(unittest.TestCase):
         with tempfile.TemporaryDirectory(prefix="mwx-cell-adapter-", dir="/private/tmp") as directory:
             work = Path(directory)
             fixture = sources[-1].read_text().replace("// ACTUAL_IMAGE_TRANSFER", declaration(card.read_text(), "    func applyTransfer("))
+            fixture = fixture.replace("// ACTUAL_IMAGE_CONTROLS", declaration(card.read_text(), "    private func updateControls("))
             fixture = fixture.replace("// ACTUAL_MENU_ADD", declaration(commands.read_text(), "        func add(_ title:"))
             fixture = fixture.replace("// ACTUAL_IMAGE_CANCEL", declaration(commands.read_text(), "            if let assetID = OnlineImageAssetID(reference: item.providerReference),"))
             frozen = []

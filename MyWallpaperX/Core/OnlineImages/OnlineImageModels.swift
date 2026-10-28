@@ -32,7 +32,6 @@ nonisolated struct OnlineImageAssetID: Hashable, Codable, Sendable {
 }
 
 nonisolated enum OnlineImageKind: String, Codable, Sendable { case image, animation, unknown }
-nonisolated enum OnlineImageRating: String, Codable, Sendable { case safe, sensitive, adult, unknown }
 
 nonisolated struct OnlineImageAuthor: Equatable, Sendable {
     let source: OnlineImageSource
@@ -58,7 +57,7 @@ nonisolated struct OnlineImageArtwork: Identifiable, Equatable, Sendable {
     var fileSizeBytes: Int64? = nil
     var pageCount: Int? = nil
     var kind: OnlineImageKind = .unknown
-    var rating: OnlineImageRating = .unknown
+    var rating: WallpaperContentRating = .unknown
     var isAIGenerated: Bool? = nil
     var isMasked: Bool? = nil
     var createdAt: Date? = nil
@@ -78,6 +77,7 @@ nonisolated struct OnlineImageAsset: Equatable, Sendable {
     var width: Int? = nil
     var height: Int? = nil
     var expectedBytes: Int64? = nil
+    var rating: WallpaperContentRating = .unknown
 }
 
 /// Named response continuation facts; each source consumes only its own seed/date.
@@ -109,6 +109,7 @@ nonisolated struct OnlineImageLocalRecord: Codable, Equatable, Sendable, Identif
     let fileSizeBytes: Int64
     let firstDownloadedAt: Date
     let revision: UUID
+    var rating: WallpaperContentRating? = nil
     var id: OnlineImageAssetID { assetID }
 }
 

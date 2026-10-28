@@ -1,7 +1,7 @@
 @main enum ImportedVideoAdmissionChecks {
     @MainActor static func main() async throws {
         let root = URL(fileURLWithPath: CommandLine.arguments[1], isDirectory: true).resolvingSymlinksInPath().standardizedFileURL
-        OnlineLibraryService.downloadDirectory = root
+        PixabayService.downloadDirectory = root
         let firstURL = root.appendingPathComponent("online_1.mp4")
         let secondURL = root.appendingPathComponent("online_2.mp4")
         let oldURL = root.appendingPathComponent("old.mp4")
@@ -10,14 +10,14 @@
         let preferencesDomain = ProcessInfo.processInfo.environment["MWX_IMPORT_ADMISSION_DOMAIN"]!
         defer { UserDefaults(suiteName: preferencesDomain)!.removePersistentDomain(forName: preferencesDomain) }
 
-        func setup() -> (WallpaperManager, OnlineLibraryService, NSObjectProtocol) {
+        func setup() -> (WallpaperManager, PixabayService, NSObjectProtocol) {
             let manager = WallpaperManager()
             let old = VideoWallpaper(id: "old", title: "Old", path: oldURL.path)
             manager.wallpapers = [old]
             let current = candidate(manager, .video, path: oldURL.path)
             current.show(manager)
             manager.libraryBackingPublished = { [weak manager] in manager?.backingPublications.append($0) }
-            let service = OnlineLibraryService()
+            let service = PixabayService()
             service.downloadedIDs = [1, 2]
             service.prepareVideoPlaybackIntent = { manager.admitImportedVideoPlayback(reference: $0, libraryPending: $1) }
             service.requestLibraryPlayback = { reference in
@@ -28,8 +28,8 @@
                 }
                 _ = manager.requestLibraryPlayback(reference: reference, from: snapshot)
             }
-            let observer = ImportedVideoPlaybackObserver.make(name: .onlineVideoReadyToPlay,
-                context: .onlinePlayback, wallpaperManager: manager)
+            let observer = ImportedVideoPlaybackObserver.make(name: .pixabayVideoReadyToPlay,
+                context: .pixabayPlayback, wallpaperManager: manager)
             return (manager, service, observer)
         }
         func hold(_ manager: WallpaperManager) -> DispatchSemaphore {
@@ -420,7 +420,7 @@
             let obsolete = manager.admitImportedVideoPlayback(reference: .init(provider: .pixabay, sourceID: "1"))!
             let newer = manager.admitImportedVideoPlayback(reference: .init(provider: .steamWorkshop, sourceID: "newer"))!
             let deadline = manager.switchDeadline, preparations = WallpaperEngine.shared.videoPreparations
-            manager.processImportedVideos(from: [firstURL], presentingIn: nil, context: .onlinePlayback, admission: obsolete)
+            manager.processImportedVideos(from: [firstURL], presentingIn: nil, context: .pixabayPlayback, admission: obsolete)
             checks["readOnlyLateAdmissionCannotPrepareOrCancelNewerTicket"] = WallpaperEngine.shared.videoPreparations == preparations
                 && manager.playbackSwitch.pending?.selection.ticket == newer.ticket && manager.playbackIntentEpoch == newer.ticket.epoch
                 && manager.switchDeadline === deadline && ImportedVideoAutoplayGate.shared.isCurrent(newer.autoplayToken)

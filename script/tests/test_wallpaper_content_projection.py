@@ -17,6 +17,8 @@ class WallpaperContentProjectionTests(unittest.TestCase):
         fixture = (ROOT / "script/tests/fixtures/WallpaperContentProjectionHarness.swift").read_text()
         sil = (ROOT / "MyWallpaperX/Modules/StaticImageLibrary/Core/SILService.swift").read_text()
         fixture = fixture.replace("// PRODUCTION_STATIC_IMAGE_MODEL", declaration(sil, "struct SILWallpaper:"))
+        fixture += '\n' + declaration((ROOT / 'MyWallpaperX/Modules/SteamWorkshop/Core/SteamWorkshopAgeRatingSupport.swift').read_text(),
+                                     'nonisolated enum SteamWorkshopContentRatingSupport')
         with tempfile.TemporaryDirectory(prefix="mwx-content-projection-", dir="/private/tmp") as directory:
             work = Path(directory)
             source = work / "Checks.swift"
@@ -32,9 +34,9 @@ class WallpaperContentProjectionTests(unittest.TestCase):
                 "MyWallpaperX/Modules/SteamWorkshop/Core/SteamWorkshopDownloadProgress.swift",
                 "MyWallpaperX/Modules/SteamWorkshop/Web/Core/SteamWorkshopWebValidationModels.swift",
                 "MyWallpaperX/Modules/SteamWorkshop/Core/SteamWorkshopLibraryContentProjection.swift",
-                "MyWallpaperX/Modules/OnlineLibrary/Core/OnlineLibraryModels.swift",
-                "MyWallpaperX/Modules/OnlineLibrary/Core/OnlineLibraryDownloadedContent.swift",
-                "MyWallpaperX/Modules/OnlineLibrary/Core/PixabayLibraryContentProjection.swift",
+                "MyWallpaperX/Modules/Pixabay/Core/PixabayModels.swift",
+                "MyWallpaperX/Modules/Pixabay/Core/PixabayDownloadedContent.swift",
+                "MyWallpaperX/Modules/Pixabay/Core/PixabayLibraryContentProjection.swift",
             ]
             build = subprocess.run(
                 ["xcrun", "swiftc", "-parse-as-library", "-swift-version", "5", "-default-isolation", "MainActor",

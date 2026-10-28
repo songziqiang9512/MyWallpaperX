@@ -128,15 +128,14 @@ import Foundation
         checks["movingPreviewFirstRetainsIdentityInsteadOfBorrowingLaterStaticCover"] = try WallpaperLibraryQuery.directory(state: .init(), catalog: movingOnly, relationships: withFirstMember(noCover)).first?.coverReference == noCover
         checks["temporaryMemberSortDoesNotChangeManualFirstCoverIdentity"] = firstEntry.coverReference == missing && memberQuery.sort == .name
         model.setDirectoryScrollAnchor(first, offset: -6, atTop: false)
-        model.setQueryState(.init(sort: .name, preferredColumns: 4))
-        checks["directoryNameSortIsIndependentOfMemberQuery"] = model.directoryEntries.map(\.id) == [second, first]
-        model.setQueryState(.init(sort: .createdAt, ascending: false))
-        checks["directoryCreatedDateSortSupportsDescending"] = model.directoryEntries.map(\.id) == [second, first]
-        model.setQueryState(.init(sort: .modifiedAt, ascending: false))
-        checks["directoryModifiedDateUsesRelationshipEditDate"] = model.directoryEntries.first?.id == first
+        for sort in [WallpaperLibrarySort.name, .createdAt, .modifiedAt, .fileSize] {
+            let query = WallpaperLibraryQueryState(sort: sort, ascending: false, preferredColumns: 4)
+            checks["retiredDirectorySortCannotReplaceRankOrder-\(sort.rawValue)"] = model.setQueryState(query)
+                && model.directoryEntries.map(\.id) == [first, second] && model.permitsDirectoryReordering
+                && model.queryState == query
+        }
         let entries = model.directoryEntries
         let validDirectoryQuery = model.queryState
-        checks["unsupportedDirectorySortReportsFailureAndKeepsSnapshot"] = !model.setQueryState(.init(sort: .fileSize)) && model.directoryEntries == entries && model.queryState == validDirectoryQuery && model.lastError != nil
         checks["directoryDoesNotSilentlyIgnoreUnsupportedMediaFilter"] = !model.setQueryState(.init(kind: .scene)) && model.directoryEntries == entries && model.queryState == validDirectoryQuery
         model.setQueryState(.init(search: "alpha"))
         checks["directorySearchFiltersOnlyDirectoryNotMembers"] = model.directoryEntries.map(\.id) == [second] && controller.snapshot == relations
@@ -208,6 +207,30 @@ import Foundation
             && recovering.queryState.search == "preserve on recovery"
         model.switchPage(.playlists)
         let raw = defaults.data(forKey: WallpaperLibraryPresentation.settingsKey)!
+        for retired in [WallpaperLibraryStatusFilter.transferring, .failed] {
+            let downloadsPage = try JSONSerialization.jsonObject(with: JSONEncoder().encode(WallpaperLibraryPage.downloads))
+            let favoritesPage = try JSONSerialization.jsonObject(with: JSONEncoder().encode(WallpaperLibraryPage.favorites))
+            var oldQuery = try JSONSerialization.jsonObject(with: JSONEncoder().encode(WallpaperLibraryQueryState(
+                search: "retained text", status: retired, preferredColumns: 4))) as! [String: Any]
+            oldQuery.removeValue(forKey: "showsAdultContent")
+            let oldState: [String: Any] = ["version": 2, "page": downloadsPage,
+                "queries": [["page": downloadsPage, "query": oldQuery], ["page": favoritesPage, "query": oldQuery]]]
+            defaults.set(try JSONSerialization.data(withJSONObject: oldState), forKey: WallpaperLibraryPresentation.settingsKey)
+            let migrated = WallpaperLibraryPresentation(collections: controller, defaults: defaults)
+            migrated.update(catalog: catalog, relationships: controller.snapshot)
+            checks["old-downloads-\(retired.rawValue)-migrates-to-all-with-query-and-geometry-intact"] = migrated.page == .downloads
+                && migrated.queryState.status == .all && migrated.queryState.search == "retained text"
+                && migrated.queryState.preferredColumns == 4 && migrated.queryState.showsAdultContent && migrated.lastError == nil
+            migrated.switchPage(.favorites)
+            checks["retired-task-filter-migration-does-not-rewrite-another-page-\(retired.rawValue)"] = migrated.queryState.status == retired
+            migrated.switchPage(.downloads)
+            migrated.setQueryState(.init(showsAdultContent: false))
+            let reopened = WallpaperLibraryPresentation(collections: controller, defaults: defaults)
+            reopened.update(catalog: catalog, relationships: controller.snapshot)
+            checks["adult-filter-persists-through-the-original-page-settings-owner-\(retired.rawValue)"] = reopened.page == .downloads
+                && !reopened.queryState.showsAdultContent && reopened.queryState.status == .all
+        }
+        defaults.set(raw, forKey: WallpaperLibraryPresentation.settingsKey)
         var saved = try JSONSerialization.jsonObject(with: raw) as! [String: Any]
         checks["settingsPersistNoMediaOrRelationshipSnapshot"] = Set(saved.keys).isSubset(of: ["version", "page", "queries", "directoryScrollAnchor", "directoryScrollOffset", "directoryScrollAtTop"]) && saved["relationships"] == nil
         saved["version"] = 99
@@ -450,6 +473,13 @@ import Foundation
             checks["newExplicitRemovalRetiresOlderWaitingSelectionAdjustment"] = view.selectionState.references.isEmpty
                 && view.queryResult.items.map(\.reference) == [two, three]
         }
+        let priorErrorEvent = model.state.lastErrorEvent
+        let repeated = NSError(domain: "notice-test", code: 1, userInfo: [NSLocalizedDescriptionKey: "重复错误"])
+        model.report(repeated)
+        let firstErrorEvent = model.state.lastErrorEvent
+        model.report(repeated)
+        checks["eachExplicitReportCreatesANewErrorEventWithoutDuplicatingMessageState"] = model.lastError == "重复错误"
+            && firstErrorEvent == priorErrorEvent &+ 1 && model.state.lastErrorEvent == firstErrorEvent &+ 1
         print(String(data: try JSONEncoder().encode(checks), encoding: .utf8)!)
         if checks.values.contains(false) { exit(1) }
     }

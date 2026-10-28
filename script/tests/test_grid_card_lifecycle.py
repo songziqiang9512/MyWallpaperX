@@ -1,4 +1,4 @@
-"""Native lifecycle checks for the complete production OnlineLibrary cards.
+"""Native lifecycle checks for the complete production Pixabay cards.
 
 The temporary copies expose private members for observation. Downloads changes
 only the shared thumbnail transport constructor; both cards' completion bodies,
@@ -32,17 +32,19 @@ import unittest
 
 
 ROOT = Path(__file__).resolve().parents[2]
-UI = ROOT / "MyWallpaperX/Modules/OnlineLibrary/UI"
+UI = ROOT / "MyWallpaperX/Modules/Pixabay/UI"
 SHARED = ROOT / "MyWallpaperX/Shared/UI"
-CARDS = [UI / "AppKitOLBrowserItem.swift", UI / "AppKitOLDownloadsItem.swift"]
-BROWSER = Path(os.environ.get("MWX_ONLINE_BROWSER_GRID_SOURCE", UI / "AppKitOLBrowserGridView.swift"))
+CARDS = [UI / "AppKitPixabayBrowserItem.swift", UI / "AppKitPixabayDownloadsItem.swift",
+         SHARED / "OnlineImageGridItem.swift"]
+BROWSER = Path(os.environ.get("MWX_ONLINE_BROWSER_GRID_SOURCE", UI / "AppKitPixabayBrowserGridView.swift"))
 DEPENDENCIES = [
-    ROOT / "MyWallpaperX/Modules/OnlineLibrary/Core/OnlineLibraryDownloadedContent.swift",
-    ROOT / "MyWallpaperX/Modules/OnlineLibrary/Core/OnlineLibraryModels.swift",
+    ROOT / "MyWallpaperX/Modules/Pixabay/Core/PixabayDownloadedContent.swift",
+    ROOT / "MyWallpaperX/Modules/Pixabay/Core/PixabayModels.swift",
     SHARED / "AppearanceAwareContainerView.swift",
     SHARED / "NSViewExtensions.swift",
     SHARED / "UIInteractionAnimation.swift",
     SHARED / "WallpaperGridScrollView.swift",
+    SHARED / "WallpaperOpenWithMenu.swift",
     SHARED / "GridThumbnailDecoder.swift",
     SHARED / "ModuleFocusable.swift",
     SHARED / "ListThumbnailTintSource.swift",
@@ -52,9 +54,12 @@ DEPENDENCIES = [
     ROOT / "MyWallpaperX/Shared/Components/ActionMenuItem.swift",
     ROOT / "MyWallpaperX/Shared/Components/WallpaperLibrarySymbols.swift",
     SHARED / "WallpaperInspectorActions.swift",
+    SHARED / "WallpaperLibrarySheetPresentation.swift",
     ROOT / "script/tests/fixtures/GridCardInteractionChecks.swift",
     ROOT / "script/tests/fixtures/WallpaperLibraryGridCardReflowChecks.swift",
     ROOT / "script/tests/fixtures/PixabayCardPresentationChecks.swift",
+    ROOT / "MyWallpaperX/Modules/SteamWorkshop/UI/SteamWorkshopKeyboardCollectionView.swift",
+    ROOT / "MyWallpaperX/Modules/SteamWorkshop/UI/SteamWorkshopGridKeyboardNavigation.swift",
 ]
 FIXTURE = ROOT / "script/tests/fixtures/GridCardLifecycleChecks.swift"
 CLICK_SOURCES = [ROOT / "MyWallpaperX" / name for name in (
@@ -67,20 +72,16 @@ DEPENDENCIES += CLICK_SOURCES
 
 def card_copy(source: Path) -> tuple[str, list[str]]:
     text = source.read_text()
-    # The two files intentionally have separate file-private olSymbol helpers.
-    # Preserve that namespace while exposing stored UI state and complete methods.
-    marker = "/* MWX_TEST_KEEP_PRIVATE_IMAGE_EXTENSION */"
-    text = text.replace("private extension NSImage", marker + " extension NSImage")
+    # Expose presentation state while retaining every production method.
     text = re.sub(r"\bprivate\s+", "", text)
-    text = text.replace(marker, "private")
-    transforms = ["remove private access except the file-private NSImage extension"]
-    if source.name == "AppKitOLBrowserItem.swift":
+    transforms = ["remove private access for presentation observation"]
+    if source.name == "AppKitPixabayBrowserItem.swift":
         external_open = "NSWorkspace.shared.open(url)"
         if text.count(external_open) != 1:
             raise AssertionError("Browser webpage-opening leaf is no longer unique")
         text = text.replace(external_open, "PixabayMenuWorkspace.open(url)")
         transforms.append("record the external NSWorkspace webpage-open leaf only")
-    if source.name == "AppKitOLDownloadsItem.swift":
+    if source.name == "AppKitPixabayDownloadsItem.swift":
         old = "static let sharedCache = ThumbnailCache("
         if text.count(old) != 1:
             raise AssertionError("Downloads thumbnail constructor injection is no longer unique")
@@ -127,7 +128,7 @@ class GridCardLifecycleTests(unittest.TestCase):
             copy = cls.work / source.name
             copy.write_text(contents)
             copies.append(copy)
-        browser = cls.work / "AppKitOLBrowserGridView.swift"
+        browser = cls.work / "AppKitPixabayBrowserGridView.swift"
         browser.write_text(BROWSER.read_text().replace("private ", ""))
         copies.append(browser)
         transformations[str(BROWSER)] = ["expose private container state for native publication observations"]
@@ -234,14 +235,8 @@ class GridCardLifecycleTests(unittest.TestCase):
     def test_same_size_backing_change_invalidates_real_cards_and_upgrades_thumbnail_request(self):
         self.check_case("backing-scale")
 
-    def test_old_completion_delay_reveal_and_hide_cannot_mutate_reused_badge(self):
-        self.check_case("animation-delayed")
-
-    def test_old_move_completion_cannot_fade_reused_badge(self):
-        self.check_case("animation-move")
-
-    def test_old_fade_completion_cannot_hide_reused_badge(self):
-        self.check_case("animation-fade")
+    def test_completion_immediately_restores_current_primary_without_an_overlay_or_reuse_delay(self):
+        self.check_case("completion-feedback")
 
 
 if __name__ == "__main__":
