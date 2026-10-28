@@ -37,7 +37,7 @@ BOIDS_SOURCE = REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Systems/P
 CONTROL_POINT_FORCE_SOURCE = REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Systems/Particles/SceneParticleControlPointForce.swift"
 PERIODIC_SOURCE = REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Systems/Particles/SceneParticlePeriodicEmission.swift"
 
-# 真实语料中出现过的三个字段（45 样本、11 处启用 audio 的组件）。
+# 真实语料中的三个字段；残留参数不代表 mode 已启用。
 OFFICIAL_PARTICLE_AUDIO_KEYS = (
     "audioprocessingmode",
     "audioprocessingbounds",
@@ -72,12 +72,11 @@ enum Harness {
             "audioprocessingbounds": "0 1",
             "audioprocessingfrequencyend": 10,
         ]
-        // 取自 2419444134 Stars_copy1.json 的 boxrandom emitter。
+        // 残留 bounds 的 boxrandom emitter；缺省 mode 仍为关闭。
         let starsEmitter: [String: Any] = [
             "name": "boxrandom",
             "rate": 40,
             "distancemax": "1000 500 0",
-            "audioprocessingmode": 3,
             "audioprocessingbounds": "0.5 1",
         ]
         // 3299228616 形态：只有 mode，其余缺省。
@@ -108,18 +107,29 @@ enum Harness {
             "audioprocessingfrequencystart": 2,
             "audioprocessingfrequencyend": 12,
         ]
+        var residual = fullEmitter
+        residual.removeValue(forKey: "audioprocessingmode")
+        var equivalentResidual = residual
+        equivalentResidual["audioprocessingmode"] = NSNull()
+        equivalentResidual["audioprocessingbounds"] = [0.8, 1.0]
+        let inactiveResiduals: [[String: Any]] = [
+            ["name": "boxrandom", "audioprocessingexponent": 3],
+            ["name": "sphererandom", "audioprocessingfrequencystart": 2,
+             "audioprocessingfrequencyend": 12], residual, equivalentResidual,
+        ]
 
         let definition: [String: Any] = [
             "emitter": [
                 fireworksEmitter, starsEmitter, modeOnlyEmitter,
                 disabledEmitter, effectSchemaEmitter, fullEmitter,
-            ],
+            ] + inactiveResiduals,
             "initializer": [
                 [
                     "name": "turbulentvelocityrandom",
                     "audioprocessingmode": 3,
                     "audioprocessingbounds": "0.8 1",
                 ],
+                ["name": "turbulentvelocityrandom", "audioprocessingbounds": "0.8 1"],
             ],
             "operator": [
                 [
@@ -127,6 +137,7 @@ enum Harness {
                     "audioprocessingmode": 3,
                     "audioprocessingbounds": "0.5 1",
                 ],
+                ["name": "vortex", "audioprocessingbounds": "0.5 1"],
             ],
             "renderer": [["name": "sprite"]],
             "material": "materials/particle.json",
@@ -137,7 +148,8 @@ enum Harness {
             .parse(data: data)
 
         func describe(_ response: SceneParticleAudioResponse) -> [String: Any] {
-            var payload: [String: Any] = ["enabled": response.isEnabled]
+            var payload: [String: Any] = ["enabled": response.isEnabled,
+                "hasPlan": SceneParticleAudioResponsePlan(response) != nil]
             payload["mode"] = response.mode ?? -1
             payload["exponent"] = response.exponent ?? -1
             payload["frequencyStart"] = response.frequencyStart ?? -1
@@ -239,7 +251,9 @@ class SceneParticleAudioDeclarationTests(unittest.TestCase):
 
     def test_bounds_only_declaration_parses(self) -> None:
         stars = self.result["emitters"][1]
-        self.assertTrue(stars["enabled"])
+        self.assertFalse(stars["enabled"])
+        self.assertFalse(stars["hasPlan"])
+        self.assertEqual(stars["mode"], -1)
         self.assertEqual(stars["bounds"], [0.5, 1.0])
         self.assertEqual(stars["frequencyEnd"], -1, "未声明的字段保持缺省")
 
@@ -279,12 +293,29 @@ class SceneParticleAudioDeclarationTests(unittest.TestCase):
         self.assertEqual(full["frequencyEnd"], 12)
 
     def test_initializer_and_operator_share_the_same_declaration(self) -> None:
-        self.assertEqual(len(self.result["turbulent"]), 1)
+        self.assertEqual(len(self.result["turbulent"]), 2)
         self.assertTrue(self.result["turbulent"][0]["enabled"])
         self.assertEqual(self.result["turbulent"][0]["bounds"], [0.8, 1.0])
-        self.assertEqual(len(self.result["operators"]), 1)
+        self.assertEqual(len(self.result["operators"]), 2)
         self.assertTrue(self.result["operators"][0]["enabled"])
         self.assertEqual(self.result["operators"][0]["bounds"], [0.5, 1.0])
+        for key in ("turbulent", "operators"):
+            self.assertFalse(self.result[key][1]["enabled"])
+            self.assertFalse(self.result[key][1]["hasPlan"])
+            self.assertEqual(self.result[key][1]["bounds"], self.result[key][0]["bounds"])
+
+    def test_residual_fields_preserve_values_without_enabling_audio(self) -> None:
+        residuals = self.result["emitters"][6:]
+        self.assertEqual(len(residuals), 4)
+        for value in residuals:
+            self.assertEqual(value["mode"], -1)
+            self.assertFalse(value["enabled"])
+            self.assertFalse(value["hasPlan"])
+        self.assertEqual(residuals[0]["exponent"], 3)
+        self.assertEqual([residuals[1]["frequencyStart"], residuals[1]["frequencyEnd"]], [2, 12])
+        self.assertEqual(residuals[2], residuals[3])
+        self.assertEqual(residuals[2]["bounds"], [0.8, 1.0])
+        self.assertEqual(residuals[2]["exponent"], 2)
 
     def test_admitted_components_report_bounded_audio(self) -> None:
         components = self.result["audioBoundedComponents"]
@@ -330,8 +361,8 @@ class SceneParticleAudioSchemaContractTests(unittest.TestCase):
         start = source.index("struct SceneParticleAudioResponse")
         end = source.index("nonisolated struct SceneParticleEmitter", start)
         declaration = source[start:end]
-        # 默认值官方未公开，第三方 parser 自身在 emitter 与 initializer 两处
-        # 给出的默认值还互相矛盾，因此这里不得内置任何默认值。
+        # mode 缺省关闭不应填充 IR 的 bounds/exponent/frequency；
+        # 响应参数仍保留作者原值与缺省状态。
         for literal in ("0.8", "15", "= 2", "= 1.0"):
             self.assertNotIn(
                 literal,

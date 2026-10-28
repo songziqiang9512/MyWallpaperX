@@ -41,7 +41,7 @@
 | 样本 / 具体余项 | 下一关闭门与边界 |
 |---|---|
 | 3779107475 ·疑似骨骼动画 | 静态163/clip530见MDLA6 state1非bind且非常量，bone15有189正权重顶点；bounds后37×301 scalar仍无已证消费者（与382 auxiliary同族）。须实际active clip/同phase pose ROI资格，未跑新画面，不把静态拒绝直接当完整动画故障。 |
-| 3022080536 ·静止水墨烟雾 | 静态已见fog/sprite child的bounds-only emitter被non-audio static profile排除，早于出生/混合；root/black rope在同点会退化。须原包静止→移动、零/非零声源核实际供需及ROI，再区分bounds-only默认语义与child emitter准入；未作新运行，不直接去guard记完成。 |
+| 3022080536 ·水墨烟雾颜色 | 原包静止烟团已恢复，移动阶段原Rope仍输出；缺省mode误启用音频而整拒child的子断点退出，见[后验](../history/open-breakpoint-reconciliation-2026-10-23.md#particle-audio-mode-default-20261028)。当前烟团偏红，官方定点静音为灰褐；须沿实际颜色输入/继承/ColorChange定位，端点单位探针未完整切换，不猜除255、gain或混合。显式启用audio的child emitter仍不在本次支持范围；302整体不销账。 |
 | 2919854127 /2927205881 /3175039950 · 音频可见性 | 蓝环未见、曲线右短段、白方雪粒人口0分别保待复验。先同源PCM与作者实际触发条件、出生/像素正控；不把非零总量当目标band、改阈值或共用“发光”修法。 |
 | 3577990983 · 远距离提前hover放大 | 先同设置官方/原生及真实鼠标对照；作者约602场景单位半径只解释部分观察，不调全局倍率，也不与已正常的199固定视口认同根。[入口边界](../capabilities/runtime-evidence-current.md#physical-pointer-ingress-20261023) |
 | 2887542690 · 音频ROI、黑遮挡/字体、片区布局 | 图框内音频缺可重复正证，pointer消融已STOP；先取得可区分输入/ROI，不把旧外悬蓝条消失当音频恢复。[资格](../history/composition-local-perspective-2026-10-16.md) |

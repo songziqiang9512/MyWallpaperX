@@ -93,6 +93,12 @@ enum Harness {
 
         var authorOffEmitter = simulator(authorOffEmitterJSON, seed: 1, step: 0.1)
         authorOffEmitter.advance(by: 1, audioInput: silence)
+        var residualSilent = simulator(residualEmitterJSON, seed: 1, step: 0.1)
+        var residualActive = simulator(residualEmitterJSON, seed: 1, step: 0.1)
+        var residualOff = simulator(residualOffEmitterJSON, seed: 1, step: 0.1)
+        residualSilent.advance(by: 1, audioInput: silence)
+        residualActive.advance(by: 1, audioInput: active)
+        residualOff.advance(by: 1, audioInput: active)
         var invalidEmitter = simulator(invalidEmitterJSON, seed: 1, step: 0.1)
         invalidEmitter.advance(by: 1, audioInput: active)
 
@@ -139,6 +145,7 @@ enum Harness {
         var payload: [String: Any] = [
             "leftResponse": leftPlan.evaluate(asymmetric),
             "rightResponse": rightPlan.evaluate(asymmetric),
+            "rightActiveResponse": rightPlan.evaluate(active),
             "centerResponse": centerPlan.evaluate(asymmetric),
             "publishedSilenceResponse": centerPlan.evaluate(publishedSilence),
             "invalidPlans": invalidPlans(),
@@ -146,6 +153,9 @@ enum Harness {
             "activeEmitterCount": activeEmitter.particles.count,
             "emitterPartitioned": activeEmitter.particles == partitionedEmitter.particles,
             "authorOffEmitterCount": authorOffEmitter.particles.count,
+            "residualEmitterCount": residualSilent.particles.count,
+            "residualEmitterMatchesOff": residualSilent.particles == residualOff.particles,
+            "residualEmitterIgnoresAudio": residualSilent.particles == residualActive.particles,
             "invalidEmitterCount": invalidEmitter.particles.count,
             "initializerSilent": vector(silentInitializer.particles[0].velocity),
             "initializerActive": vector(activeInitializer.particles[0].velocity),
@@ -247,6 +257,13 @@ enum Harness {
     private static let authorOffEmitterJSON = emitterJSON.replacingOccurrences(
         of: #""audioprocessingmode":3"#, with: #""audioprocessingmode":0"#
     )
+    private static let residualEmitterJSON = emitterJSON.replacingOccurrences(
+        of: #""audioprocessingmode":3"#,
+        with: #""audioprocessingbounds":"0.8 1","audioprocessingexponent":2,"audioprocessingfrequencystart":2,"audioprocessingfrequencyend":12"#
+    )
+    private static let residualOffEmitterJSON = residualEmitterJSON.replacingOccurrences(
+        of: #""name":"boxrandom""#, with: #""name":"boxrandom","audioprocessingmode":0"#
+    )
     private static let invalidEmitterJSON = emitterJSON.replacingOccurrences(
         of: #""audioprocessingmode":3"#, with: #""audioprocessingmode":9"#
     )
@@ -337,6 +354,13 @@ class SceneParticleAudioResponseTests(unittest.TestCase):
         self.assertEqual(self.result["authorOffEmitterCount"], 60)
         self.assertEqual(self.result["invalidEmitterCount"], 0)
         self.assertIn("audioResponseIgnored", self.result["invalidEmitterDiagnostics"])
+
+    def test_missing_mode_keeps_unmodulated_emission_despite_residual_fields(self) -> None:
+        self.assertEqual(self.result["residualEmitterCount"], self.result["authorOffEmitterCount"])
+        self.assertGreater(self.result["residualEmitterCount"], 0)
+        self.assertTrue(self.result["residualEmitterMatchesOff"])
+        self.assertTrue(self.result["residualEmitterIgnoresAudio"])
+        self.assertEqual(self.result["rightActiveResponse"], 1)
 
     def test_phase_consumers_change_only_for_nonzero_response(self) -> None:
         self.assertNotEqual(self.result["initializerSilent"], self.result["initializerActive"])

@@ -142,15 +142,22 @@ class SceneParticleWorldSpaceCases:
         self.assertTrue(result["firstPositions"])
 
 
-    def test_audio_bounds_without_mode_gates_emission(self) -> None:
+    def test_audio_bounds_without_mode_keep_off_emission_and_pointer_child(self) -> None:
         result = self.run_harness("audio-bounds-gate")
-        # Authored bounds without a channel mode still gate the emitter: the
-        # mode only selects left/right/center (bounds-only corpus shape comes
-        # from the same editor flow as the mode-bearing copies).
-        self.assertEqual(result["boundsOnlySilentCount"], 0)
-        self.assertGreater(result["boundsOnlyLoudCount"], 0)
+        self.assertGreater(result["boundsOnlySilentCount"], 0)
+        self.assertEqual(result["boundsOnlySilentCount"], result["boundsOnlyLoudCount"])
+        self.assertTrue(result["boundsOnlyMatchesOff"])
+        self.assertTrue(result["boundsOnlyIgnoresAudio"])
         # The explicit-mode shape keeps its existing gate.
         self.assertEqual(result["modeCenterSilentCount"], 0)
+        self.assertGreater(result["modeCenterLoudCount"], 0)
+        self.assertEqual(result["childPointerDemand"], [101])
+        self.assertFalse(result["childHasAudioConsumer"])
+        fixed, moved = result["childPositions"]
+        self.assertGreater(len(fixed), 0)
+        self.assertTrue(all(position == [40, 60, 0] for position in fixed))
+        self.assertGreater(len(moved), len(fixed))
+        self.assertEqual({tuple(position) for position in moved}, {(40, 60, 0), (140, 180, 0)})
 
 
     def test_world_space_pointer_emitter_follows_pointer(self) -> None:

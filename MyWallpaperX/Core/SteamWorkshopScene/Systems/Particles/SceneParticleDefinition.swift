@@ -82,18 +82,8 @@ nonisolated struct SceneParticlePeriodicEmission: Equatable, Sendable {
     }
 }
 
-/// 粒子组件的 audio response 声明。
-///
-/// 粒子与 effect 是两套独立 schema，不能混用字段名：effect 侧走
-/// `audiobounds`/`audioamount`/`audioexponent` 加 `frequencymin`/`frequencymax`
-/// 的 shader constant，粒子侧只有下面这一组 `audioprocessing*` 字段，且**没有**
-/// amount。45 样本语料中启用 audio 的 11 处粒子组件全部只出现
-/// `audioprocessingmode`（11）、`audioprocessingbounds`（6）与
-/// `audioprocessingfrequencyend`（1），未出现任何 effect 侧字段名。
-///
-/// 证据等级：字段名来自真实样本与第三方播放器 parser 交叉验证；
-/// **默认值与求值公式官方均未公开**，因此这里只做 loss-preserving 保存，
-/// 不内置默认值、不做求值。升级到执行所缺的证据见粒子组件覆盖表 E15。
+/// Loss-preserving particle audio metadata; effect audio constants are a
+/// separate schema. Prepared response plans own supported numeric evaluation.
 nonisolated struct SceneParticleAudioResponse: Equatable, Sendable {
     let mode: Int?
     let bounds: SceneParticleNumericValue?
@@ -109,17 +99,10 @@ nonisolated struct SceneParticleAudioResponse: Equatable, Sendable {
         frequencyEnd: nil
     )
 
-    /// Whether the author configured an audio response at all. The editor
-    /// writes `audioprocessingbounds` (and optional exponent/frequency fields)
-    /// for an audio-gated component; `audioprocessingmode` only selects the
-    /// channel. Bounds without a mode must gate too — the corpus carries the
-    /// same assets in both shapes (e.g. 3665307769 red_fire is bounds-only
-    /// while 2131872317 fireworks1 is the mode-bearing copy). An explicit
-    /// mode of 0 stays disabled.
+    /// Missing/zero mode disables audio even when auxiliary values remain.
+    /// Unknown nonzero modes still require admission by the prepared plan.
     nonisolated var isEnabled: Bool {
-        if let mode { return mode != 0 }
-        return bounds != nil || exponent != nil
-            || frequencyStart != nil || frequencyEnd != nil
+        (mode ?? 0) != 0
     }
 }
 

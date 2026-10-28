@@ -111,3 +111,18 @@
 正式证据：主仓 `.artifacts/scene-evidence/runs/neutral-instance-cover-20261028-{304,293,control}/`；两样本各保修前、稳定A/B/clear原图及日志，公共包保存App/输入身份、最近门、构建与独审摘要。普通14天、单包32MiB/总5GiB；运行副本、App/HOME和构建缓存当批清理。
 
 本轮另续接318重力研究，未改求解器：官方2.8.0.42载体可显示BASE，但自动阶段多次错过HOLD；改为离散属性后未确认命令改变阶段，仍缺实际HOLD正控制，不据getter/文字或该结果拟合重力、质量与增益。U40仍未修，保原unsupported边界；后续须先解决实验控制，再扩消费者。
+
+<a id="particle-audio-mode-default-20261028"></a>
+## 2026-10-28：未启用音频的粒子继续出生
+
+`b3b83d635` 原302在相同固定pointer静止后移动、零PCM的14秒窗中，layer52仅一个child template，red_fire因bounds/exponent残值被推定音频而`outsideStrictStaticProfile`整拒；根与黑Rope同点又无可绘线段，纸面无烟。旧9月“消除红烟”只是藏掉合法child，不能作为音频默认合同。
+
+固定官方2.8.0.42（exe SHA `daac1ea7c991207fdb6098616757e3dae393850f6862845db55d04921b6bda07`）沿原302全部资产/父子图、定点CP和自有16band精确peak标签，三臂只变red_fire emitter/initializer的mode为省略/0/3。OFF、NIL各两张原图均在`p=0`持续出灰褐烟，ON3无烟；这只裁定省略mode关闭，不证明非零FFT、公式、RNG或完整轨迹等价。载体改动、原包及各臂身份、命令和原图随证据保留，未复制官方实现。
+
+原声明owner改为`(mode ?? 0) != 0`，prepared Plan仅从显式有效mode建立声道，删除nil→Center及重复启用判断。辅助字段保真，未知显式非零沿原局部拒绝；child guard、parser、数值/evaluator、资源与末合成不变。产品净减23行，无新owner、状态、缓存、校验层或普通帧工作。19项音频门与runtime49项执行/10项外部语料未配置跳过通过，覆盖nil/null/0及残值、显式三声道/坏模式、声源无关、改名/等价声明、static child固定和移动pointer；现有显式音频child拒绝反例保持。独立审查无P1/P2。
+
+冻结4447产品输入无漂移，正常签名Debug App主程序 `bed67719…d4e2d`、dylib `91a89c3d…c6248` 构建及严格签名通过。原302同14秒静止→移动在零PCM及受控非零PCM下均可见静止烟团，移动阶段child输出从1批变2批、原Rope链保持，未由离散图认领完整连续尾迹；child templates变2、unsupported变0；主体与背景保持，两run均exit0、surface1→0/GPU drained。未参与修法的366同App8秒保人物、机甲、背景与栏排构图，正常退出；它的可达同族child也不再被默认模式挡住，但该短窗不认精确烟团贡献或全景parity。无性能比较，新增烟团的实际渲染成本未测。
+
+**仍开放**：原302候选烟团偏红，官方定点烟为灰褐，出生恢复不等于水墨颜色已对齐。后继独立颜色载体PLAIN和RGB1见明亮烟团，但RGB255请求未确认标签切换，自动输入也返回`noWindowsAvailable`，本次单位假设保持UNKNOWN；不据此除255、调gain/混合或修改ColorChange。显式音频child emitter、FFT响应幅度、更多颜色/继承/材质组合、HDR/多屏及完整样本均未验。定向包内普查378包/1014 particle JSON见19样本29条无mode辅助残值，只说明声明覆盖，不宣称29处可见恢复，也不刷新全样本裁决。
+
+正式证据：主仓`.artifacts/scene-evidence/runs/particle-audio-mode-default-20261028-{302,control}/`，保修前/修后必要原图、官方三臂与未完整颜色试验、输入/App/源补丁、最近门、构建和审查摘要；普通14天、单包32MiB/总5GiB。只关闭缺省mode错误启用所致的整拒子问题，颜色继续留在唯一队列。运行副本/临时HOME及不再使用的App/重试产物提取后清理，连续迭代仅保一份缓存与当前App。

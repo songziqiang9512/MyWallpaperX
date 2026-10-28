@@ -133,8 +133,8 @@
       "bytes": 7388
     },
     "docs/scene/capabilities/particle-component-coverage.md": {
-      "lines": 502,
-      "bytes": 162809
+      "lines": 509,
+      "bytes": 164115
     },
     "docs/scene/capabilities/previous-blurred-composite-admission.md": {
       "lines": 17,
@@ -150,7 +150,7 @@
     },
     "docs/scene/capabilities/runtime-evidence-current.md": {
       "lines": 600,
-      "bytes": 219066
+      "bytes": 219394
     },
     "docs/scene/capabilities/runtime-input-property-coverage.md": {
       "lines": 600,
@@ -278,7 +278,7 @@
     },
     "docs/scene/roadmap/scene-open-breakpoint-queue.md": {
       "lines": 172,
-      "bytes": 34885
+      "bytes": 35053
     },
     "docs/web/cold-descriptor-parse-offload-design.md": {
       "lines": 30,
@@ -1755,21 +1755,30 @@
     },
     {
       "section": "bodies",
-      "path": "docs/scene/roadmap/scene-open-breakpoint-queue.md",
-      "before": "b95e24551f0ba0577f7905cfe447aa584461de64d12d2e25bb4eb0eb3b7e3a1c",
-      "after": "49c590f7f80e2730fa600fc32af27d4f89acdabe232ec62a692229f948138920",
-      "owner": "Scene material provider",
-      "reason": "原fallback合同落实builtin中性默认覆盖，实际A/B/clear后移出白覆待修；当前证据仅保指向有界退出记录的入口。",
-      "decision": "docs/scene/history/open-breakpoint-reconciliation-2026-10-23.md#neutral-instance-cover-20261028"
+      "path": "docs/scene/capabilities/particle-component-coverage.md",
+      "before": "42ae786d7de7e384df7ed13a54ee4c077794799317e2c661fa370e011a7c24a5",
+      "after": "cc78eea5c8d1ff1fb2db0bd69b7092bd6ebaeb0bdb85be122421f10a3c06a693",
+      "owner": "Scene particle audio",
+      "reason": "删除错误缺省推断，补固定官方三臂与原包烟团后验入口；当前队列只保颜色余项，不追加重复执行清单。",
+      "decision": "docs/scene/history/open-breakpoint-reconciliation-2026-10-23.md#particle-audio-mode-default-20261028"
     },
     {
       "section": "bodies",
       "path": "docs/scene/capabilities/runtime-evidence-current.md",
-      "before": "814be29c9471ca5a60315b7c2d567f1d74d927db6f05873cc2fe4b40c0a37d70",
-      "after": "b450055f8bfbddb5fa0f3dd510714735835562b6caedfc8cb7a6e6bdff4af2d9",
-      "owner": "Scene material provider",
-      "reason": "原fallback合同落实builtin中性默认覆盖，实际A/B/clear后移出白覆待修；当前证据仅保指向有界退出记录的入口。",
-      "decision": "docs/scene/history/open-breakpoint-reconciliation-2026-10-23.md#neutral-instance-cover-20261028"
+      "before": "b450055f8bfbddb5fa0f3dd510714735835562b6caedfc8cb7a6e6bdff4af2d9",
+      "after": "a540ee47bfb89fbe1ec7ed5924d769ba1b5d26f6282dc8f065325d58358aa126",
+      "owner": "Scene particle audio",
+      "reason": "删除错误缺省推断，补固定官方三臂与原包烟团后验入口；当前队列只保颜色余项，不追加重复执行清单。",
+      "decision": "docs/scene/history/open-breakpoint-reconciliation-2026-10-23.md#particle-audio-mode-default-20261028"
+    },
+    {
+      "section": "bodies",
+      "path": "docs/scene/roadmap/scene-open-breakpoint-queue.md",
+      "before": "49c590f7f80e2730fa600fc32af27d4f89acdabe232ec62a692229f948138920",
+      "after": "60a608d6d5ad226936eca725fec31e1e336ba6d3ba31c474c78afd19e22365f0",
+      "owner": "Scene particle audio",
+      "reason": "删除错误缺省推断，补固定官方三臂与原包烟团后验入口；当前队列只保颜色余项，不追加重复执行清单。",
+      "decision": "docs/scene/history/open-breakpoint-reconciliation-2026-10-23.md#particle-audio-mode-default-20261028"
     }
   ]
 }

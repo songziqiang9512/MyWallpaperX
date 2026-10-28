@@ -933,13 +933,13 @@
       "role": "current-state",
       "entrypoint": "docs/scene/capabilities/README.md",
       "purpose": "限定专题的实现状态、偏差或证据；运行结论须复核身份和边界，不决定任务顺序。",
-      "lastReviewed": "2026-10-23",
+      "lastReviewed": "2026-10-28",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "c664ce9f1e3829fcab878ce92b1fbd321ce403f5cd6f5bdd6df93ba89848aa70",
+        "sourceSHA256": "eddf44a10945b59bb433b64ddc25543bd684cac03c8064f0e77806f8a429d494",
         "method": "document_registry --audit + document_health --check",
-        "scope": "Particle initializer position and death-event fixed official qualification; preserve strict UNKNOWN, actual135 target and existing unsupported boundaries. Historical details have one authority.",
-        "limitations": "Navigation identity only. No product formula selected, real sample repaired or performance result."
+        "scope": "仅更新particle缺省mode关闭合同、真实静止烟团恢复与颜色余项；旧音频启用推断已撤回，其余正文只核导航。",
+        "limitations": "非零FFT幅度、烟团颜色/完整轨迹、显式音频child emitter、全部样本、HDR/多屏及性能未闭。"
       }
     },
     {
@@ -992,10 +992,10 @@
       "lastReviewed": "2026-10-28",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "db9270fa9251c368591f0c87f23d87db2ee08da4d074de69e6232ffe1b6f865f",
+        "sourceSHA256": "79449328c8f25945ce4403ad1abc637a045e181ce5864c6245bd2f8d3e946529",
         "method": "document_registry --audit + document_health --check",
-        "scope": "仅更新普通builtin实例fallback覆盖、两包直接Host的白覆关闭及保留余项；其余正文只核导航。",
-        "limitations": "不认普通App/daemon实时媒体、完整属性/样本、HDR多屏、官方parity或性能收益；318重力仍未修。"
+        "scope": "仅更新particle缺省mode关闭合同、真实静止烟团恢复与颜色余项；旧音频启用推断已撤回，其余正文只核导航。",
+        "limitations": "非零FFT幅度、烟团颜色/完整轨迹、显式音频child emitter、全部样本、HDR/多屏及性能未闭。"
       }
     },
     {
@@ -2454,7 +2454,7 @@
         "docs/scene/capabilities/coverage-ledger.md"
       ],
       "cutoffDate": "2026-10-28",
-      "uniqueValue": "保存10-23清单对账及后继按节有界关闭；10-28两封面原图/换图/clear与gravity正控未资格，保整样本及旧余项边界。"
+      "uniqueValue": "保存10-23清单对账及后继有界关闭；10-28两封面与particle默认mode后验，保未资格gravity、烟团颜色与整样本余项。"
     },
     {
       "path": "docs/scene/history/ordinary-native-image-depth-2026-10-19.md",
@@ -3141,7 +3141,7 @@
         "docs/scene/capabilities/runtime-evidence-current.md"
       ],
       "cutoff": "2026-10-03",
-      "uniqueValue": "原批次全文及永久锚点；完整保留运行身份与未验证边界"
+      "uniqueValue": "原批次全文及永久锚点；保留原身份，页首纠正10-28已撤回的缺省音频推断。"
     },
     {
       "path": "docs/scene/history/runtime-evidence-index.md",
@@ -4384,10 +4384,10 @@
       "lastReviewed": "2026-10-28",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "7d1fa33c7b5eb301ec19cb53197186004bf2c076c78aaf68eea932e749e41599",
+        "sourceSHA256": "9909c85040b8b7ea0ead535990a98a4da25cfb503c6aa42b9da7a7f54eff04dc",
         "method": "document_registry --audit + document_health --check",
-        "scope": "仅更新普通builtin实例fallback覆盖、两包直接Host的白覆关闭及保留余项；其余正文只核导航。",
-        "limitations": "不认普通App/daemon实时媒体、完整属性/样本、HDR多屏、官方parity或性能收益；318重力仍未修。"
+        "scope": "仅更新particle缺省mode关闭合同、真实静止烟团恢复与颜色余项；旧音频启用推断已撤回，其余正文只核导航。",
+        "limitations": "非零FFT幅度、烟团颜色/完整轨迹、显式音频child emitter、全部样本、HDR/多屏及性能未闭。"
       }
     },
     {

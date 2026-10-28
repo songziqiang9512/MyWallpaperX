@@ -3,6 +3,8 @@
 > **历史证据 — 非现役入口**
 
 > 完整保留原批次叙事、日期、身份和边界；仅重定位相对链接。当前事实回到[能力台账](../capabilities/coverage-ledger.md#current-overview)与[证据深度合同](../capabilities/runtime-evidence-current.md#evidence-levels)。旧 PASS 不证明当前 HEAD；按精确锚点读取。
+>
+> **2026-10-28纠正**：下文 `E-2026-09-28-AUDIO-BOUNDS-GATE` 的“辅助字段存在即启用、缺省Center”推断已由固定官方省略/0/3三臂反证并撤回；相邻ROPE批的“红烟零复发”只描述当时child被整拒，不能证明正确。旧运行与patch身份原样保留；当前语义及烟团颜色余项见[模式缺省合同](../capabilities/particle-component-coverage.md#audio-mode-default)与[后验](open-breakpoint-reconciliation-2026-10-23.md#particle-audio-mode-default-20261028)。
 
 <!-- preserved-body:start -->
 <a id="e-2026-10-01-sampler-baseline-repair"></a>

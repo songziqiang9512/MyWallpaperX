@@ -44,11 +44,6 @@ extension Harness {
         return facts1
     }
 
-    /// Audio response gates emission through authored bounds alone: the
-    /// editor writes `audioprocessingbounds` for an audio-gated emitter and
-    /// `audioprocessingmode` only selects the channel. A bounds-only emitter
-    /// (corpus: 8 emitters / 8 samples, e.g. 3665307769 red_fire) must stay
-    /// silent without audio and emit with it.
     /// The pointer-trail rope family (2986218263 and five more samples):
     /// world system, pointer-locked CP0 with an implicit emitter source, and
     /// a rope renderer with flags=1 / subdivision=100 / maxcount=256.
@@ -297,15 +292,17 @@ extension Harness {
         try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
         defer { try? FileManager.default.removeItem(at: directory) }
         try writePNG(directory.appendingPathComponent("materials/shared.png"))
-        func writeGatedParticle(_ path: String, mode: Int?) throws {
+        func writeGatedParticle(_ path: String, mode: Int?, pointer: Bool = false) throws {
             var emitter: [String: Any] = [
                 "name": "sphererandom", "rate": 120,
                 "distancemin": 0, "distancemax": 0,
                 "audioprocessingbounds": "0.8 1",
             ]
             if let mode { emitter["audioprocessingmode"] = mode }
+            if pointer { emitter["controlpoint"] = 1 }
             try writeJSON([
                 "material": "materials/shared.json", "maxcount": 100,
+                "controlpoint": pointer ? [["id": 1, "flags": 1, "offset": "0 0 0"]] : [],
                 "emitter": [emitter],
                 "initializer": [
                     ["name": "lifetimerandom", "min": 10, "max": 10],
@@ -315,7 +312,13 @@ extension Harness {
             ], to: directory.appendingPathComponent(path))
         }
         try writeGatedParticle("particles/bounds-only.json", mode: nil)
+        try writeGatedParticle("particles/explicit-off.json", mode: 0)
         try writeGatedParticle("particles/mode-center.json", mode: 3)
+        let childPath = "particles/renamed-ink-child.json"
+        let parentPath = "particles/renamed-ink-root.json"
+        try writeGatedParticle(childPath, mode: nil, pointer: true)
+        try writeParticle(parentPath, material: "materials/shared.json", rate: 0, instantaneous: 1,
+            children: [["name": childPath, "type": "static"]], under: directory)
         let descriptor = SceneRenderDescriptor(
             layers: [
                 layer(101, "particles/bounds-only.json"),
@@ -337,8 +340,7 @@ extension Harness {
         func runtimeFor(_ path: String) -> SceneParticleRuntime {
             SceneParticleRuntime(
                 descriptor: SceneRenderDescriptor(
-                    layers: [layer(path == "particles/bounds-only.json" ? 101 : 102, path)],
-                    renderOrderLayerIDs: [path == "particles/bounds-only.json" ? 101 : 102],
+                    layers: [layer(101, path)], renderOrderLayerIDs: [101],
                     materialPasses: descriptor.materialPasses
                 ),
                 cacheDirectory: directory,
@@ -350,24 +352,47 @@ extension Harness {
             right: Array(repeating: 1, count: SceneParticleAudioInput.bandCount),
             generation: 1
         )
-        func counts(_ runtime: SceneParticleRuntime, audio: SceneParticleAudioInput) -> Int {
+        func shape(_ runtime: SceneParticleRuntime, audio: SceneParticleAudioInput) -> [[Float]] {
             var batches: [SceneParticleDrawBatch] = []
             for _ in 0..<4 {
                 batches = runtime.advance(by: 1.0 / 60.0, audioInput: audio)
             }
-            return batches.reduce(0) { $0 + $1.instances.count }
+            return batches.flatMap { $0.instances.map {
+                [$0.positionAndSize.x, $0.positionAndSize.y, $0.positionAndSize.z, $0.positionAndSize.w]
+            } }
         }
         let boundsOnly = runtimeFor("particles/bounds-only.json")
-        let silentCount = counts(boundsOnly, audio: .silent)
-        let loudCount = counts(
+        let silent = shape(boundsOnly, audio: .silent)
+        let active = shape(
             runtimeFor("particles/bounds-only.json"), audio: loud
         )
+        let offSilent = shape(runtimeFor("particles/explicit-off.json"), audio: .silent)
+        let offActive = shape(runtimeFor("particles/explicit-off.json"), audio: loud)
         let modeCenter = runtimeFor("particles/mode-center.json")
-        let modeSilentCount = counts(modeCenter, audio: .silent)
+        let modeSilent = shape(modeCenter, audio: .silent)
+        let modeActive = shape(runtimeFor("particles/mode-center.json"), audio: loud)
+        let childRuntime = runtimeFor(parentPath)
+        var childPositions: [[[Float]]] = []
+        for pointer in [SIMD3<Double>(40, 60, 0), SIMD3<Double>(140, 180, 0)] {
+            var batches: [SceneParticleDrawBatch] = []
+            for _ in 0..<4 {
+                batches = childRuntime.advance(by: 1.0 / 60.0,
+                    pointerLocalPositions: [101: pointer], audioInput: .silent)
+            }
+            childPositions.append(batches.filter { $0.particlePath == childPath }.flatMap { $0.instances.map {
+                [$0.positionAndSize.x, $0.positionAndSize.y, $0.positionAndSize.z]
+            } })
+        }
         return [
-            "boundsOnlySilentCount": silentCount,
-            "boundsOnlyLoudCount": loudCount,
-            "modeCenterSilentCount": modeSilentCount,
+            "boundsOnlySilentCount": silent.count,
+            "boundsOnlyLoudCount": active.count,
+            "boundsOnlyMatchesOff": silent == offSilent && active == offActive,
+            "boundsOnlyIgnoresAudio": silent == active,
+            "modeCenterSilentCount": modeSilent.count,
+            "modeCenterLoudCount": modeActive.count,
+            "childPositions": childPositions,
+            "childPointerDemand": Array(childRuntime.pointerControlPointLayerIDs),
+            "childHasAudioConsumer": childRuntime.hasAudioConsumer,
         ]
     }
 

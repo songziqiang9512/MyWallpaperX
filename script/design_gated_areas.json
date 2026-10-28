@@ -1573,6 +1573,19 @@
         "MyWallpaperX/Models/DownloadTask.swift"
       ],
       "contentPatterns": []
+    },
+    {
+      "id": "scene-particle-audio-mode-default",
+      "title": "粒子音频模式缺省与残留元数据",
+      "owner": "Existing SceneParticleAudioResponse / prepared response plan",
+      "status": "approved",
+      "designDoc": "docs/scene/capabilities/particle-component-coverage.md",
+      "design_notes": "#audio-mode-default：固定官方静音NIL/OFF/ON原资产三臂判明nil等价off。只改唯一启用语义并删除Plan的nil Center推断，raw字段保真；不扩显式audio child或数值公式，不新增owner/状态/帧扫描。最近正反例与原包/独立渲染验收另记。",
+      "matchPatterns": [
+        "MyWallpaperX/Core/SteamWorkshopScene/Systems/Particles/SceneParticleDefinition.swift",
+        "MyWallpaperX/Core/SteamWorkshopScene/Systems/Particles/SceneParticleAudioResponsePlan.swift"
+      ],
+      "contentPatterns": []
     }
   ]
 }
