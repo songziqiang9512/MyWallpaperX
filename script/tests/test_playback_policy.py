@@ -149,6 +149,7 @@ class PlaybackPolicyTests(unittest.TestCase):
             binary = path / "harness"
             sources = [
                 ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Systems/Properties/SceneUserProperty.swift",
+                ROOT / "MyWallpaperX/Core/SteamWorkshopStorage/ScenePlaybackSource.swift",
                 *[CONTROL / name for name in ["ScenePlaybackShortcut.swift", "WallpaperEngineCommand.swift",
                     "PlaybackEngineControlling.swift", "PlaybackCommandMultiplexer.swift",
                     "PlaybackPolicyController.swift"]],

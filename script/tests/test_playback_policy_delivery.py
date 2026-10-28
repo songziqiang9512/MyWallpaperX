@@ -59,11 +59,22 @@ struct PlaybackPerformanceProfile {
     init() {}
     init?(rawValue: Int) { maxFPS = rawValue }
 }
-enum SceneDaemonProtocol { static let version = 2 }
+enum SceneDaemonProtocolFailure: Error { case invalidPayload(String) }
+enum SceneDaemonProtocol {
+    static let version = 2
+    // SOURCE_ENCODER
+}
+final class DaemonPlaybackProcessRegistry {
+    static let shared = DaemonPlaybackProcessRegistry()
+    var acceptsNewProcesses = true
+}
 final class SceneDaemonClient: PlaybackEngineControlling {
     let engineKind: PlaybackEngineKind = .scene
     var stopPlaybackRequested: (() -> Void)?
     var isPaused = false, endpointReady = false
+    var hasRequestRetirementControl = false
+    var idleTransport: NSObject?
+    var sourceSchemaVersion: Int?
     var localStops=0
     var isPlaying: Bool { activeIntent != nil && !isPaused }
     var activeIntent: ScenePlaybackLoadRequest?, pendingIntent: ScenePlaybackLoadRequest?
@@ -73,6 +84,8 @@ final class SceneDaemonClient: PlaybackEngineControlling {
     var requestResourceLifetimes: [UUID: Int] = [:]
     var performanceProfile = PlaybackPerformanceProfile()
     var commands: [[String: Any]] = []
+    var launchFailures: [[String: Any]] = []
+    func handleLaunchState(_ payload: [String: Any]) { launchFailures.append(payload) }
     func send(_ command: [String: Any]) { commands.append(command) }
     func sendDisplayConfiguration() {}
     func requestLaunch(_ request: ScenePlaybackLoadRequest) { pendingIntent = request }
@@ -99,6 +112,18 @@ final class SceneDaemonClient: PlaybackEngineControlling {
         scene.pendingIntent = ScenePlaybackLoadRequest(rootURL: URL(fileURLWithPath: "/fixture"),
             propertyOverrides: [:], userPropertyTextures: [:], recordID: "fixture")
         scene.endpointReady = true
+        scene.hasRequestRetirementControl = true
+        scene.replayPendingIntent()
+        precondition(scene.commands.isEmpty, "Retiring sessions must not replay a load")
+        scene.hasRequestRetirementControl = false
+        scene.idleTransport = NSObject()
+        scene.replayPendingIntent()
+        precondition(scene.commands.isEmpty, "Idle transports must not replay a load")
+        scene.idleTransport = nil
+        DaemonPlaybackProcessRegistry.shared.acceptsNewProcesses = false
+        scene.replayPendingIntent()
+        precondition(scene.commands.isEmpty, "App shutdown must not replay a load")
+        DaemonPlaybackProcessRegistry.shared.acceptsNewProcesses = true
         scene.replayPendingIntent()
         precondition(scene.commands.first?["cmd"] as? String == "loadScene")
         precondition(scene.commands.last?["cmd"] as? String == "pause")
@@ -246,16 +271,18 @@ final class Host {
     def test_production_handlers_and_replay(self):
         video = (CORE / "Playback/WallpaperEngine+PlaybackControl.swift").read_text()
         scene = (CORE / "SteamWorkshopScene/Runtime/IPC/SceneDaemonClient.swift").read_text()
+        protocol = (CORE / "SteamWorkshopScene/Runtime/IPC/SceneDaemonProtocol.swift").read_text()
         harness = HARNESS.replace("// VIDEO_METHODS", "\n".join([
             method(video, "func applyPlaybackPaused("), method(video, "func sendPlaybackPaused("),
         ])).replace("// SCENE_METHODS", "\n".join([
             method(scene, "func handle("), method(scene, "func replayPendingIntent("),
             method(scene, "private func sendSimpleCommand("),
-        ]))
+        ])).replace("// SOURCE_ENCODER", method(protocol, "static func sourceObject("))
         with tempfile.TemporaryDirectory(prefix="mwx-pause-delivery-") as directory:
             path = Path(directory)
             (path / "Harness.swift").write_text(harness)
             sources = [CORE / "Playback/DaemonProtocol.swift",
+                CORE / "SteamWorkshopStorage/ScenePlaybackSource.swift",
                 CORE / "SteamWorkshopScene/Runtime/IPC/SceneDaemonProtocol+UserShortcuts.swift",
                 CORE / "PlaybackControl/PlaybackSurfaceVisibility.swift",
                 CORE / "SteamWorkshopScene/Systems/Properties/SceneUserProperty.swift",

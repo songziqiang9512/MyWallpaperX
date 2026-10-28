@@ -38,7 +38,7 @@
     },
     "docs/development/repository-workflow.md": {
       "lines": 100,
-      "bytes": 14139
+      "bytes": 14056
     },
     "docs/development/validation-simplification-plan.md": {
       "lines": 263,
@@ -46,11 +46,11 @@
     },
     "docs/release/bundle-content.md": {
       "lines": 61,
-      "bytes": 4128
+      "bytes": 4111
     },
     "docs/release/release-signing.md": {
       "lines": 164,
-      "bytes": 12912
+      "bytes": 12904
     },
     "docs/scene/architecture/capability-dependency-map.md": {
       "lines": 220,
@@ -342,7 +342,7 @@
     },
     "docs/development/ui-quality-audit.md": {
       "lines": 104,
-      "bytes": 18725
+      "bytes": 18830
     }
   },
   "archives": [
@@ -1738,10 +1738,10 @@
     {
       "section": "bodies",
       "path": "docs/development/ui-quality-audit.md",
-      "before": "74234e98afe7498fb5daf1f36ac2d78acc339464f950703b8c019892f982b90b",
-      "after": "b159e4478b1ae8986798635ad037fef56a8a56fdcee79682dac9906b334122b2",
+      "before": "b159e4478b1ae8986798635ad037fef56a8a56fdcee79682dac9906b334122b2",
+      "after": "b48694887e37a94728fff87bed9454f352ee3e32d4b6431f793de087763ba1ec",
       "owner": "UI22",
-      "reason": "UI22九项工作卡、实体右键失败及用户复测、两项静态尾修和用户取消运行构建后的明确交接边界；保留UI21既有证据分界。",
+      "reason": "记录合入后临时UI树受App置顶保护无法归档的实际清理边界；保留主仓验证收据，不绕过工作树保护。",
       "decision": "docs/development/ui-quality-audit.md#ui22-scope"
     },
     {

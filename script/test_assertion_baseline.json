@@ -233,20 +233,6 @@
     },
     {
       "path": "script/tests/test_scene_frame_context.py",
-      "scope": "SceneFrameContextTests.test_launch_callers_forward_raw_root_and_host_owns_runtime_input",
-      "method": "assertIn",
-      "literal": "let effectAdmissionCatalog: SceneEffectAdmissionCatalog",
-      "count": 1
-    },
-    {
-      "path": "script/tests/test_scene_frame_context.py",
-      "scope": "SceneFrameContextTests.test_launch_callers_forward_raw_root_and_host_owns_runtime_input",
-      "method": "assertIn",
-      "literal": "let runtimeInput: SceneRuntimeInput",
-      "count": 1
-    },
-    {
-      "path": "script/tests/test_scene_frame_context.py",
       "scope": "SceneFrameContextTests.test_material_mutation_failure_remains_typed_and_local",
       "method": "assertIn",
       "literal": "case .mutationOverflow: \"mutation-overflow\"",

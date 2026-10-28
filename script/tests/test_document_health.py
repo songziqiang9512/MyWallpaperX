@@ -160,6 +160,123 @@ class DocumentHealthTests(unittest.TestCase):
             self.assertFalse(result['baselineBootstrap'])
             self.assertEqual(len(result['requiredAdjustments']), 1)
 
+    def test_exact_historical_growth_chain_and_reduction_preserve_ratchet(self):
+        old = copy.deepcopy(self.baseline)
+        first = copy.deepcopy(old)
+        first['bodies'][self.path]['bytes'] += 20
+        self.record_adjustments(old, first)
+        second = copy.deepcopy(first)
+        second['bodies'][self.path]['bytes'] += 10
+        self.record_adjustments(first, second)
+        self.assertEqual(ratchet_errors(old, second, ((old, first),)), [])
+        reduced = copy.deepcopy(first)
+        reduced['adjustments'] = []
+        reduced['bodies'][self.path]['bytes'] -= 10
+        final = copy.deepcopy(reduced)
+        final['bodies'][self.path]['bytes'] += 30
+        self.record_adjustments(reduced, final)
+        self.assertTrue(ratchet_errors(old, final))
+        history = ((old, first), (first, reduced))
+        self.assertEqual(ratchet_errors(old, final, history), [])
+        # Removing a growth receipt or changing its endpoint cannot be inferred.
+        for field, value in (('before', 'e' * 64), ('after', 'f' * 64), ('path', 'docs/other.md')):
+            broken = copy.deepcopy(first)
+            broken['adjustments'][0][field] = value
+            self.assertTrue(ratchet_errors(old, final, ((old, broken), (broken, reduced))))
+        missing = copy.deepcopy(first)
+        missing['adjustments'] = []
+        missing_reduced = copy.deepcopy(reduced)
+        missing_reduced['adjustments'] = []
+        self.assertTrue(ratchet_errors(old, final, ((old, missing), (missing, missing_reduced))))
+        tightened = copy.deepcopy(old)
+        tightened['maxReviewAgeDays'] -= 1
+        self.assertTrue(any('freshness' in e for e in ratchet_errors(tightened, final, history)))
+
+    def test_new_archive_then_reviewed_payload_change_needs_both_receipts(self):
+        old = copy.deepcopy(self.baseline)
+        first = copy.deepcopy(old)
+        first['archives'] = [{'source': self.path, 'archive': 'docs/history/one.md',
+                              'anchors': ['legacy'], 'preservedBodySHA256': 'a' * 64}]
+        self.record_adjustments(old, first)
+        final = copy.deepcopy(first)
+        final['archives'][0]['preservedBodySHA256'] = 'b' * 64
+        self.record_adjustments(first, final)
+        self.assertEqual(ratchet_errors(old, final, ((old, first),)), [])
+        missing = copy.deepcopy(first)
+        missing['adjustments'] = []
+        self.assertTrue(ratchet_errors(old, final, ((old, missing),)))
+        final['adjustments'][0]['after'] = 'c' * 64
+        self.assertTrue(ratchet_errors(old, final, ((old, first),)))
+
+    def test_cli_uses_only_ancestor_receipts_and_historical_decisions(self):
+        (self.root / 'script').mkdir()
+        (self.root / 'docs/document-role-index.json').write_text(json.dumps(self.index))
+        baseline_file = self.root / BASELINE
+        def git(*args):
+            return subprocess.run(['git', '-c', 'user.name=Document Test', '-c', 'user.email=test@example.invalid',
+                                   '-c', 'commit.gpgsign=false', '-c', 'core.hooksPath=/dev/null', *args],
+                                  cwd=self.root, capture_output=True, text=True, check=True)
+        def commit(snapshot):
+            baseline_file.write_text(json.dumps(snapshot))
+            git('add', 'docs', str(BASELINE))
+            git('commit', '-qm', 'Document baseline transition')
+        def check():
+            output = io.StringIO()
+            with patch('script.document_health.ROOT', self.root), redirect_stdout(output):
+                code = main(['--check', '--base', base])
+            return code, json.loads(output.getvalue())
+        git('init', '-q')
+        old = copy.deepcopy(self.baseline)
+        commit(old)
+        base = git('rev-parse', 'HEAD').stdout.strip()
+        first = copy.deepcopy(old)
+        (self.root / self.path).write_text(self.body + 'First expansion.\n')
+        first['bodies'][self.path] = body_size((self.root / self.path).read_text())
+        self.record_adjustments(old, first)
+        # A receipt on an unmerged branch cannot authorize the main branch.
+        git('checkout', '-qb', 'unmerged-receipt')
+        commit(first)
+        git('checkout', '-q', '--detach', base)
+        no_receipt = copy.deepcopy(first)
+        no_receipt['adjustments'] = []
+        (self.root / self.path).write_text(self.body + 'First expansion.\n')
+        commit(no_receipt)
+        final = copy.deepcopy(first)
+        (self.root / self.path).write_text(self.body + 'First expansion.\nSecond expansion.\n')
+        final['bodies'][self.path] = body_size((self.root / self.path).read_text())
+        self.record_adjustments(first, final)
+        baseline_file.write_text(json.dumps(final))
+        self.assertEqual(check()[0], 1)
+        # An earlier receipt also needs its decision anchor at that revision.
+        commit(final)
+        git('checkout', '-q', '--detach', base)
+        invalid = copy.deepcopy(first)
+        invalid['adjustments'][0]['decision'] = self.path + '#missing'
+        (self.root / self.path).write_text(self.body + 'First expansion.\n')
+        commit(invalid)
+        (self.root / self.path).write_text(self.body + 'First expansion.\nSecond expansion.\n')
+        commit(final)
+        self.assertEqual(check()[0], 1)
+        # Restore the recorded transition on the actual ancestor chain.
+        git('checkout', '-q', '--detach', base)
+        (self.root / self.path).write_text(self.body + 'First expansion.\n')
+        commit(first)
+        (self.root / self.path).write_text(self.body + 'First expansion.\nSecond expansion.\n')
+        commit(final)
+        self.assertEqual(check()[0], 0)
+        # A smaller uncommitted budget can follow a recorded expansion naturally.
+        reduced = copy.deepcopy(final)
+        (self.root / self.path).write_text(self.body + 'First expansion.\n')
+        reduced['bodies'][self.path] = body_size((self.root / self.path).read_text())
+        baseline_file.write_text(json.dumps(reduced))
+        self.assertEqual(check()[0], 0)
+        (self.root / self.path).write_text(self.body)
+        reduced['bodies'][self.path] = body_size(self.body)
+        commit(reduced)
+        (self.root / self.path).write_text(self.body + 'First expansion.\nSecond expansion.\n')
+        baseline_file.write_text(json.dumps(final))
+        self.assertEqual(check()[0], 1)  # Dirty growth needs a receipt from HEAD's tighter budget.
+
     def test_archive_payload_and_original_anchor_must_survive(self):
         payload = '<a id="legacy"></a>\nOriginal bounded evidence.\n'
         for archive in ('docs/history/one.md', 'docs/scene/history/one.md'):

@@ -115,6 +115,16 @@ class SceneValidationSelectionTests(unittest.TestCase):
     def test_shared_material_harness_changes_select_real_consumers(self) -> None:
         cases = {
             'script/tests/scene_harness_io.py': {'test_scene_animated_material_visual_failure', 'test_scene_source_color_graph'},
+            'script/tests/fixtures/SceneGraphTexturePublicationHarness.swift': {
+                'test_scene_graph_texture_publication', 'test_scene_resolved_material_graph_executor', 'test_scene_source_color_graph'},
+            'script/tests/fixtures/SceneParticleFixedGeometryHarness.swift': {
+                'test_scene_particle_rendering', 'test_scene_particle_affine_trail', 'test_scene_particle_camera_rendering', 'test_scene_particle_coverage_rendering'},
+            'script/tests/scene_video_segment_delegate_fixture.py': {
+                'test_scene_video_segment_materialization', 'test_scene_material_video_asset', 'test_scene_hidden_property_consumers', 'test_scene_user_property_video'},
+            # A deleted support path still selects the surviving original consumer.
+            'script/tests/fixtures/SceneStandardBlurPreviousCompositePurposeSupport.swift': {'test_scene_standard_blur_previous_composite'},
+            'script/tests/fixtures/SceneVideoPackageReadObserver.c': {'test_scene_material_video_asset', 'test_scene_package_resource_backing'},
+            'script/tests/fixtures/SceneGenericShaderSharedAnalysisCases.swift': {'test_scene_generic_shader_typed_input_lowering'},
             'script/tests/test_scene_resolved_material_graph_visual_failure_contract.py': {'test_scene_resolved_material_graph_executor'},
             'script/tests/test_scene_resolved_material_program_finalizer.py': {'test_scene_background_material_provider'},
         }

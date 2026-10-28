@@ -22,6 +22,7 @@ on:
           - all
 
 permissions:
+  actions: read
   contents: read
 
 concurrency:
@@ -66,6 +67,8 @@ jobs:
           EVENT_BEFORE: ${{ github.event.before }}
           PR_BASE_SHA: ${{ github.event.pull_request.base.sha }}
           REQUESTED_BASE: ${{ inputs.base_ref }}
+          REF_NAME: ${{ github.ref_name }}
+          GH_TOKEN: ${{ github.token }}
         run: |
           echo "CLANG_MODULE_CACHE_PATH=$RUNNER_TEMP/mwx-clang-module-cache" >> "$GITHUB_ENV"
           echo "SWIFT_MODULECACHE_PATH=$RUNNER_TEMP/mwx-swift-module-cache" >> "$GITHUB_ENV"
@@ -74,6 +77,23 @@ jobs:
             BASE_REF="$PR_BASE_SHA"
           elif [ "$EVENT_NAME" = "workflow_dispatch" ]; then
             BASE_REF="${REQUESTED_BASE:-HEAD^}"
+          elif [ "$EVENT_NAME" = "push" ]; then
+            LAST_SUCCESS_SHA="$(gh run list \
+              --workflow ci.yml \
+              --branch "$REF_NAME" \
+              --event push \
+              --status success \
+              --limit 1 \
+              --json headSha \
+              --jq '.[0].headSha // empty')"
+            if [ -n "$LAST_SUCCESS_SHA" ]; then
+              if git merge-base --is-ancestor "$LAST_SUCCESS_SHA" HEAD; then
+                BASE_REF="$LAST_SUCCESS_SHA"
+                echo "CI will validate accumulated changes since last successful push: $BASE_REF"
+              else
+                echo "::notice::Last successful CI commit is not an ancestor; using the push event base."
+              fi
+            fi
           fi
           if [ -z "$BASE_REF" ] || [[ "$BASE_REF" =~ ^0+$ ]]; then
             git fetch --no-tags origin main

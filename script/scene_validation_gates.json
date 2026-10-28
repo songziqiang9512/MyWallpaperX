@@ -222,12 +222,14 @@
         "MyWallpaperX/Core/SteamWorkshopScene/Resources/Assets/SceneResourceView+Backing.swift",
         "script/tests/scene_pkg_fixture.py",
         "script/tests/test_scene_pkg_reader.py",
-        "script/tests/test_scene_package_resource_backing.py"
+        "script/tests/test_scene_package_resource_backing.py",
+        "script/tests/fixtures/SceneVideoPackageReadObserver.c"
       ],
       "modules": [
         "test_scene_pkg_reader",
         "test_scene_package_resource_backing",
-        "test_scene_pkg_failure_propagation"
+        "test_scene_pkg_failure_propagation",
+        "test_scene_material_video_asset"
       ]
     },
     {
@@ -350,7 +352,9 @@
         "script/tests/test_scene_quickjs_numeric_boundaries.py",
         "script/tests/fixtures/SceneScriptQuickJS*.c",
         "script/tests/fixtures/SceneScriptQuickJSFixture.h",
-        "script/tests/fixtures/SceneLayerPerspectiveQuickJSCases.c"
+        "script/tests/fixtures/SceneLayerPerspectiveQuickJSCases.c",
+        "script/tests/fixtures/SceneImageFontStateQuickJSCases.c",
+        "script/tests/fixtures/SceneScriptBooleanTextCloneChecks.swift"
       ],
       "modules": [
         "test_scene_script_layer_order",
@@ -398,7 +402,9 @@
         "test_scene_quickjs_named_animation",
         "test_scene_script_named_timeline",
         "test_scene_cursor_timer_cadence",
-        "test_scene_puppet_animation_rate_script"
+        "test_scene_puppet_animation_rate_script",
+        "test_scene_quickjs_image_font_state",
+        "test_scene_script_prepared_text_clones"
       ]
     },
     {
@@ -507,7 +513,8 @@
         "script/tests/fixtures/WebLaunchProfileChecks.swift",
         "MyWallpaperX/Modules/SteamWorkshop/Web/Core/SteamWorkshopService+WebPlayback.swift",
         "MyWallpaperX/Modules/SteamWorkshop/Web/Core/SteamWorkshopWebResolvedRuntimeModelTypes.swift",
-        "script/tests/test_web_interactive_region_projection.py"
+        "script/tests/test_web_interactive_region_projection.py",
+        "script/tests/fixtures/WebCompatibilityParityHarness.swift"
       ],
       "modules": [
         "test_web_compat_parity",
@@ -692,7 +699,8 @@
         "script/tests/fixtures/SteamReadyUpdateDeletionFixture.swift",
         "script/tests/fixtures/SteamServiceClientLifecycleHarness.swift",
         "script/tests/fixtures/SteamDownloadLateCleanupFixture.swift",
-        "script/tests/fixtures/SteamBrowseVisibilityHarness.swift"
+        "script/tests/fixtures/SteamBrowseVisibilityHarness.swift",
+        "script/tests/fixtures/SteamOpaqueDeletionFixture.swift"
       ],
       "modules": [
         "test_steam_client_lifecycle",
@@ -1615,7 +1623,9 @@
         "script/tests/test_scene_ordinary_effect_lighting.py",
         "script/tests/test_scene_ordinary_effect_lighting_gpu.py",
         "script/tests/test_scene_alpha_preserving_rgb_graph.py",
-        "script/tests/test_scene_rgb_graph_color_boundary.py"
+        "script/tests/test_scene_rgb_graph_color_boundary.py",
+        "script/tests/fixtures/SceneDeclaredTextureInputChecks.swift",
+        "script/tests/fixtures/SceneStandardBlurPreviousCompositePurposeSupport.swift"
       ],
       "modules": [
         "test_scene_opaque_loop_sample_average_owner",
@@ -1661,7 +1671,8 @@
         "test_scene_ordinary_effect_lighting_gpu",
         "test_scene_prepared_uniform_query",
         "test_scene_alpha_preserving_rgb_graph",
-        "test_scene_rgb_graph_color_boundary"
+        "test_scene_rgb_graph_color_boundary",
+        "test_scene_standard_blur_previous_composite"
       ]
     },
     {
@@ -1717,14 +1728,38 @@
         "MyWallpaperX/Core/SteamWorkshopScene/Resources/Providers/SceneVideo*.swift",
         "MyWallpaperX/Core/SteamWorkshopScene/Format/SceneWebMContainer.swift",
         "MyWallpaperX/Core/SteamWorkshopScene/Format/SceneTexContainer.swift",
-        "script/tests/test_scene_video_owned_file.py"
+        "script/tests/test_scene_video_owned_file.py",
+        "script/tests/scene_video_segment_delegate_fixture.py"
       ],
       "modules": [
         "test_scene_video_repeated_commands",
         "test_scene_webm_container",
         "test_scene_tex_media_identity",
         "test_scene_video_texture_source",
-        "test_scene_video_owned_file"
+        "test_scene_video_owned_file",
+        "test_scene_video_segment_materialization",
+        "test_scene_material_video_asset",
+        "test_scene_user_property_textures",
+        "test_scene_user_property_video",
+        "test_scene_property_live_routing",
+        "test_scene_hidden_property_consumers",
+        "test_scene_quad_visibility_live_consumers",
+        "test_scene_native_property_list",
+        "test_scene_initial_video_presentation",
+        "test_scene_user_texture_control_plane",
+        "test_scene_prepared_callback_properties",
+        "test_scene_user_shortcut_properties",
+        "test_scene_runtime_input",
+        "test_scene_texture_property_context",
+        "test_scene_direct_model_animation_live_consumers",
+        "test_scene_script_light_visibility",
+        "test_scene_ordinary_effect_lighting",
+        "test_scene_ordinary_effect_lighting_gpu",
+        "test_scene_effect_draw_alpha",
+        "test_web_display_conditions",
+        "test_workshop_property_display_localization",
+        "test_scene_script_light_radius",
+        "test_scene_terminal_material_graph"
       ]
     },
     {
@@ -1850,7 +1885,8 @@
         "script/tests/test_scene_user_texture_updates.py",
         "script/tests/test_scene_particle_texture_inputs.py",
         "script/tests/test_scene_texture_consumer_failures.py",
-        "script/tests/test_scene_sound_resource_input.py"
+        "script/tests/test_scene_sound_resource_input.py",
+        "script/tests/fixtures/ScenePackageSourceInputHarness.swift"
       ],
       "modules": [
         "test_scene_resource_view",
@@ -1880,7 +1916,8 @@
         "test_scene_user_texture_updates",
         "test_scene_particle_texture_inputs",
         "test_scene_texture_consumer_failures",
-        "test_scene_sound_resource_input"
+        "test_scene_sound_resource_input",
+        "test_scene_package_source_input"
       ]
     },
     {
@@ -2192,13 +2229,15 @@
         "script/tests/test_scene_particle_camera_rendering.py",
         "script/tests/fixtures/SceneLayerPerspectiveSnapshotHarness.swift",
         "script/tests/fixtures/SceneParticleOffscreenReadbackHarness.swift",
-        "script/tests/scene_particle_render_test_support.py"
+        "script/tests/scene_particle_render_test_support.py",
+        "script/tests/fixtures/SceneParticleFixedGeometryHarness.swift"
       ],
       "modules": [
         "test_scene_particle_rendering",
         "test_scene_particle_affine_trail",
         "test_scene_particle_camera_frame",
-        "test_scene_particle_camera_rendering"
+        "test_scene_particle_camera_rendering",
+        "test_scene_particle_coverage_rendering"
       ]
     },
     {
@@ -2252,7 +2291,8 @@
         "MyWallpaperX/Core/SteamWorkshopScene/Systems/Particles/SceneParticleWorldSpacePlan.swift",
         "MyWallpaperX/Core/SteamWorkshopScene/Systems/Particles/SceneParticleWorldSpacePlan+Descriptor.swift",
         "script/tests/test_scene_particle_camera_frame.py",
-        "script/tests/scene_particle_runtime_world_space_cases.py"
+        "script/tests/scene_particle_runtime_world_space_cases.py",
+        "script/tests/fixtures/SceneParticleCameraFrameHarness.swift"
       ],
       "modules": [
         "test_scene_particle_camera_frame",
@@ -2640,7 +2680,9 @@
         "MyWallpaperX/Core/SteamWorkshopScene/Compilation/ShaderPreparation/SceneGenericShaderCompiler*.swift",
         "MyWallpaperX/Core/SteamWorkshopScene/Compilation/ShaderPreparation/SceneAuthoredShaderBackendCanonicalizer.swift",
         "MyWallpaperX/Core/SteamWorkshopScene/Compilation/ShaderPreparation/SceneGenericShaderSourceNormalizer.swift",
-        "MyWallpaperX/Core/SteamWorkshopScene/Compilation/ShaderPreparation/SceneGenericShaderArtifactBuilder*.swift"
+        "MyWallpaperX/Core/SteamWorkshopScene/Compilation/ShaderPreparation/SceneGenericShaderArtifactBuilder*.swift",
+        "script/tests/fixtures/SceneGenericShaderSharedAnalysisCases.swift",
+        "script/tests/fixtures/SceneGenericShaderTypedInputGPUCases.swift"
       ],
       "modules": [
         "test_scene_generic_shader_compiler_process",
@@ -2849,7 +2891,8 @@
     {
       "id": "scene-static-model-material-value",
       "patterns": [
-        "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Metal/SceneStaticModelMaterial.swift"
+        "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Metal/SceneStaticModelMaterial.swift",
+        "script/tests/fixtures/SceneStaticModelLightCountHarness.swift"
       ],
       "modules": [
         "test_scene_static_model_pipeline",
@@ -3032,7 +3075,8 @@
         "MyWallpaperX/Core/SteamWorkshopStorage/ScenePlaybackSource.swift",
         "MyWallpaperX/Modules/SteamWorkshop/Scene/SteamWorkshopSceneService+ScenePlayback.swift",
         "MyWallpaperX/Modules/SteamWorkshop/UI/SteamWorkshopSceneInspectionController.swift",
-        "script/tests/test_scene_source_admission.py"
+        "script/tests/test_scene_source_admission.py",
+        "script/tests/fixtures/SteamPublishedMetadataChecks.swift"
       ],
       "modules": [
         "test_steam_library_transaction",
@@ -3552,7 +3596,8 @@
         "script/tests/fixtures/SteamQueryHarness.swift",
         "script/tests/fixtures/SteamGridUpdateHarness.swift",
         "script/tests/fixtures/GridViewportSizingHarness.swift",
-        "script/tests/fixtures/SteamBrowserContainerHarness.swift"
+        "script/tests/fixtures/SteamBrowserContainerHarness.swift",
+        "script/tests/fixtures/SteamBrowseFooterHarness.swift"
       ],
       "modules": [
         "test_steam_queries",
@@ -4204,14 +4249,18 @@
       "patterns": [
         "script/tests/test_scene_resolved_material_graph_visual_failure_contract.py",
         "script/tests/test_scene_resolved_material_graph_executor.py",
-        "script/tests/scene_harness_io.py"
+        "script/tests/scene_harness_io.py",
+        "script/tests/fixtures/SceneGraphTexturePublicationHarness.swift",
+        "script/tests/fixtures/SceneProgramPreparationCancellationHarness.swift"
       ],
       "modules": [
         "test_scene_resolved_material_graph_visual_failure_contract",
         "test_scene_resolved_material_graph_executor",
         "test_scene_animated_material_visual_failure",
         "test_scene_source_color_graph",
-        "test_scene_harness_io"
+        "test_scene_harness_io",
+        "test_scene_graph_texture_publication",
+        "test_scene_effect_draw_alpha"
       ]
     },
     {
@@ -4911,7 +4960,8 @@
         "script/tests/fixtures/WallpaperLibraryGridDragChecks.swift",
         "script/tests/test_playlist_directory_navigation.py",
         "script/tests/fixtures/PlaylistDirectoryNavigationHarness.swift",
-        "script/tests/fixtures/PlaylistDirectoryAnimationChecks.swift"
+        "script/tests/fixtures/PlaylistDirectoryAnimationChecks.swift",
+        "script/tests/fixtures/WallpaperLibraryGridAnimationChecks.swift"
       ],
       "modules": [
         "test_wallpaper_library_presentation",
@@ -5017,7 +5067,8 @@
         "MyWallpaperX/Modules/SteamWorkshop/UI/AppKitSteamWorkshopDownloadsSupport.swift",
         "MyWallpaperX/Modules/SteamWorkshop/UI/AppKitSteamWorkshopDownloadsView.swift",
         "script/tests/fixtures/VideoVisiblePreviewRepairChecks.swift",
-        "script/tests/sil_unified_grid_fixture.py"
+        "script/tests/sil_unified_grid_fixture.py",
+        "script/tests/fixtures/WallpaperLibraryGridCardReflowChecks.swift"
       ],
       "modules": [
         "test_wallpaper_library_cell_adapter",
@@ -5487,7 +5538,10 @@
         "MyWallpaperX/Modules/SteamWorkshop/UI/SteamWorkshopFilterPanel.swift",
         "script/tests/test_online_image_*.py",
         "script/tests/fixtures/OnlineImage*.swift",
-        "script/tests/fixtures/OnlineImageOriginalCacheChecks.swift"
+        "script/tests/fixtures/OnlineImageOriginalCacheChecks.swift",
+        "script/tests/fixtures/PixivClientHarness.swift",
+        "script/tests/fixtures/WallhavenClientHarness.swift",
+        "script/tests/fixtures/WallpaperNetworkSessionHarness.swift"
       ],
       "modules": [
         "test_online_image_inspector",
@@ -5497,7 +5551,8 @@
         "test_library_remote_toolbar",
         "test_pixabay_pagination",
         "test_wallhaven_client",
-        "test_pixiv_client"
+        "test_pixiv_client",
+        "test_wallpaper_network_session"
       ]
     }
   ],

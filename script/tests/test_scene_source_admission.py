@@ -43,6 +43,7 @@ class SceneSourceAdmissionTests(unittest.TestCase):
         scene = CORE.parent / 'Scene/SteamWorkshopSceneService+ScenePlayback.swift'
         text = r'''
 import Foundation
+import QuartzCore
 protocol PlaybackResourceLifetime:AnyObject {}
 final class Lease:PlaybackResourceLifetime {}
 struct SceneUserPropertyValue {}
@@ -51,16 +52,26 @@ struct ScenePlaybackShortcutConfiguration {static let empty=Self()}
 enum ContentType {case scene}
 struct SteamWorkshopDownloadRecord {let id:String;let title:String;let contentType:ContentType}
 extension Notification.Name {static let steamWorkshopSceneReadyToRender=Self("scene-ready")}
+struct WallpaperReference { enum Provider {case steamWorkshop}; let provider:Provider;let sourceID:String }
 enum Runtime {case scene}
 struct PlaybackSwitchTicket:Equatable {let id:Int;let epoch:UInt64;let runtime:Runtime}
+// Only the pending selection carrier; real manager acceptance executes below.
+struct WallpaperPlaybackSequence {
+    struct Pending:Equatable {let ticket:PlaybackSwitchTicket}
+    var pending:Pending?
+}
 struct Selection {let ticket:PlaybackSwitchTicket}
 struct Pending {let selection:Selection}
 struct Switch {var pending:Pending?;var committed:Selection?}
-enum StoredSelection {case scene(String)}
+enum StoredSelection {case scene(String?)}
 @MainActor final class WallpaperManager {
     static var current:WallpaperManager!
     static var shared:WallpaperManager {get {current!} set {current=newValue}}
     var playbackSwitch=Switch(),switchSelections:[Int:StoredSelection]=[:]
+    var libraryPlaybackSequence=WallpaperPlaybackSequence()
+    struct RotationDeadline {mutating func freezeForPreparation(now:Double){}}
+    var libraryRotationDeadline=RotationDeadline()
+    func stopAutoSwitchTimer() {}
     var beginCount=0,cancelCount=0
     func beginPlaybackIntent(runtime:Runtime)->PlaybackSwitchTicket {
         beginCount += 1
@@ -71,12 +82,13 @@ enum StoredSelection {case scene(String)}
         cancelCount += 1
         if playbackSwitch.pending?.selection.ticket == ticket {playbackSwitch.pending=nil}
     }
-''' + method(manager, '    func claimScenePlaybackIntent(') + r'''
+''' + method(manager, '    func acceptsLibraryPlayback(') + '\n' + method(manager, '    func claimScenePlaybackIntent(') + r'''
 }
 @MainActor final class SteamWorkshopService {
     static var current:SteamWorkshopService!
     static var shared:SteamWorkshopService {get {current!} set {current=newValue}}
-    var prepareScenePlaybackIntent:((String,Bool)->(intentEpoch:UInt64,isCurrent:()->Bool,cancel:()->Void)?)?
+    var requestLibraryPlayback:((WallpaperReference)->Void)?
+    var prepareScenePlaybackIntent:((String,Bool,WallpaperPlaybackSequence.Pending?)->(intentEpoch:UInt64,isCurrent:()->Bool,cancel:()->Void)?)?
     var webLaunchIntentGeneration:UInt64=7
     var statusMessage="",downloadError:String?,cleared:[String]=[]
     var admissionCalls=0,rejectAdmission=false
@@ -101,6 +113,12 @@ enum StoredSelection {case scene(String)}
         func connect(_ service:SteamWorkshopService,_ manager:WallpaperManager) {
             SteamWorkshopService.shared=service;WallpaperManager.shared=manager
 ''' + method(app, '        SteamWorkshopService.shared.prepareScenePlaybackIntent =') + r'''
+            service.requestLibraryPlayback = { reference in
+                let ticket=manager.beginPlaybackIntent(runtime:.scene)
+                let pending=WallpaperPlaybackSequence.Pending(ticket:ticket)
+                manager.libraryPlaybackSequence.pending=pending
+                service.requestSceneRender(.init(id:reference.sourceID,title:"selected",contentType:.scene),libraryPending:pending)
+            }
         }
         let record=SteamWorkshopDownloadRecord(id:"123",title:"authored",contentType:.scene)
         let service=SteamWorkshopService(),manager=WallpaperManager(),observed=Observed()
@@ -117,11 +135,27 @@ enum StoredSelection {case scene(String)}
         var checks:[String:Bool]=[:]
         checks["sourceAdmissionPublishesWithoutMigrationTask"]=service.admissionCalls == 1 && observed.requests.count == 1
         checks["publishedSourceAndLifetimeAreCurrent"]=observed.requests.first?.source?.rootURL.path == "/approved/123"
+            && observed.requests.first?.rootURL == observed.requests.first?.source?.rootURL
             && observed.requests.first?.resourceLifetime != nil && service.lastLease != nil && service.downloadError == nil
         service.requestSceneRender(record,newSelection:false)
         checks["sameTicketReprepareKeepsIntent"]=manager.beginCount == 1 && manager.cancelCount == 0
             && manager.playbackSwitch.pending?.selection.ticket == ticket && observed.requests.count == 2
             && observed.requests.allSatisfy {$0.intentEpoch == ticket.epoch}
+        let oldPending=manager.libraryPlaybackSequence.pending!
+        let beforeUIReentry=observed.requests.count
+        service.beforeReferences={
+            service.beforeReferences=nil
+            service.requestLibraryPlayback?(.init(provider:.steamWorkshop,sourceID:"456"))
+        }
+        service.requestSceneRender(record,newSelection:false)
+        checks["UIReentryPublishesOnlyNewSource"]=observed.requests.count == beforeUIReentry + 1
+            && observed.requests.last?.recordID == "456" && observed.requests.last?.rootURL.path == "/approved/456"
+            && observed.requests.last?.source?.rootURL == observed.requests.last?.rootURL
+            && observed.requests.last?.intentEpoch == manager.libraryPlaybackSequence.pending?.ticket.epoch
+        let admissionsBeforeStale=service.admissionCalls
+        let publicationsBeforeStale=observed.requests.count
+        checks["staleLibraryPendingCannotReadOrPublishSource"] = !service.requestSceneRender(record,libraryPending:oldPending)
+            && service.admissionCalls == admissionsBeforeStale && observed.requests.count == publicationsBeforeStale
         let publishedBeforeChange=observed.requests.count
         let changed=SteamWorkshopService(),changedManager=WallpaperManager()
         connect(changed,changedManager)
@@ -138,7 +172,7 @@ enum StoredSelection {case scene(String)}
     }
 }
 '''
-        self.assertEqual(len(compile_run(self, text, [SOURCE, scene])), 5)
+        self.assertEqual(len(compile_run(self, text, [SOURCE, scene])), 7)
 
     def test_real_metadata_marker_and_same_actor_lease(self):
         reclamation = (CORE / 'SteamWorkshopService+LibraryReclamation.swift').read_text()

@@ -161,7 +161,8 @@ class AppleSiliconReleaseContractTests(unittest.TestCase):
             (resources / "QuickJSNG/LICENSE").write_bytes(
                 (ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Systems/Script/QuickJSNG/LICENSE").read_bytes())
             validator.validate_resource_hygiene(app)
-            for name in ("session.source", "sess_abc.json", "SteamService.pdb", "README.md"):
+            for name in ("session.source", "sess_abc.json", "SteamService.pdb", "README.md",
+                         "AGENTS.md", "CLAUDE.md", ".DS_Store", "QuickJSNG/AGENTS.md"):
                 path = resources / name
                 path.write_text("fixture")
                 with self.assertRaises(RuntimeError):

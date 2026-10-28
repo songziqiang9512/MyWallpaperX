@@ -11,6 +11,7 @@ import os
 from pathlib import Path
 import subprocess
 import tempfile
+import time
 
 if __package__:
     from .commit_preflight import area_trailers
@@ -65,6 +66,30 @@ def publish(version: str, test_scope: str = "release") -> None:
         run("git", "commit", "--only", "-m", f"Prepare MyWallpaperX {version} release and notes", "--", *paths)
     sha = run("git", "rev-parse", "HEAD")
     run("git", "push", "origin", "HEAD:refs/heads/main")
+    # A push queues CI asynchronously. Bind publication to that exact push,
+    # rather than a green check from another commit or a manual narrow run.
+    for _ in range(24):
+        ci_runs = json.loads(run(
+            "gh", "run", "list", "--workflow", "ci.yml", "--branch", "main",
+            "--commit", sha, "--event", "push", "--limit", "10",
+            "--json", "databaseId,headSha,headBranch,event,url",
+        ))
+        ci = next((item for item in ci_runs if item["headSha"] == sha
+                   and item["headBranch"] == "main" and item["event"] == "push"), None)
+        if ci is not None:
+            break
+        time.sleep(5)
+    else:
+        raise ValueError("两分钟内未找到本次 main 提交的普通 CI；停止发布，检查 CI 工作流后重试。")
+    print(f"等待本次提交的 CI：{ci['url']}", flush=True)
+    ci_id = str(ci["databaseId"])
+    subprocess.run(["gh", "run", "watch", ci_id, "--exit-status", "--interval", "15"], cwd=ROOT, check=True)
+    checked_ci = json.loads(run("gh", "run", "view", ci_id,
+                               "--json", "headSha,headBranch,event,status,conclusion"))
+    if (checked_ci["headSha"] != sha or checked_ci["headBranch"] != "main"
+            or checked_ci["event"] != "push" or checked_ci["status"] != "completed"
+            or checked_ci["conclusion"] != "success"):
+        raise ValueError("本次 main 提交的普通 CI 尚未成功；停止触发 Release。")
     remote = run("git", "ls-remote", "origin", "refs/heads/main").split()
     if not remote or remote[0] != sha:
         raise ValueError("远程 main 已变化，停止触发；重新核对待发布提交。")

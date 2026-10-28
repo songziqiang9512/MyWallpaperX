@@ -175,12 +175,36 @@ def required_adjustments(old: dict, new: dict) -> list[dict]:
     return changes
 
 
-def ratchet_errors(old: dict, new: dict) -> list[str]:
+def ratchet_errors(old: dict, new: dict, history: tuple[tuple[dict, dict], ...] = ()) -> list[str]:
     errors = schema_errors(old) + schema_errors(new)
     if errors:
         return errors
+    # Receipts remain exact per path and identity, including overwritten receipts.
+    edges = {}
+    def connect(section, path, before, after):
+        edges.setdefault((section, path), {}).setdefault(before, set()).add(after)
+    for before, after in history:
+        errors.extend(schema_errors(before) + schema_errors(after))
+    if errors:
+        return errors
+    for snapshot in [new, *(snapshot for pair in history for snapshot in pair)]:
+        for record in snapshot.get('adjustments', []):
+            connect(record['section'], record['path'], record['before'], record['after'])
+    for before, after in history:
+        for path, budget in before['bodies'].items():
+            reduced = after['bodies'].get(path)
+            if reduced is not None and all(reduced[k] <= budget[k] for k in ('lines', 'bytes')):
+                connect('bodies', path, value_identity(budget), value_identity(reduced))
     for change in required_adjustments(old, new):
-        if not any(all(record[k] == v for k, v in change.items()) for record in new.get('adjustments', [])):
+        reachable = {change['before']}
+        pending = [change['before']]
+        graph = edges.get((change['section'], change['path']), {})
+        while pending:
+            for identity in graph.get(pending.pop(), ()):
+                if identity not in reachable:
+                    reachable.add(identity)
+                    pending.append(identity)
+        if change['after'] not in reachable:
             messages = {'bodies': 'authority budget was added, grew or was removed',
                         'archives': 'preserved archive identity changed',
                         'snapshots': 'snapshot boundaries changed'}
@@ -188,6 +212,69 @@ def ratchet_errors(old: dict, new: dict) -> list[str]:
     if new.get('maxReviewAgeDays', 0) > old.get('maxReviewAgeDays', 0):
         errors.append('review freshness budget may only decrease')
     return errors
+
+
+
+def historical_adjustments(root: Path, base: str, current: dict) -> tuple[tuple[dict, dict], ...]:
+    """Read only ancestor baseline changes; deduplicate blobs before batch reads."""
+    subprocess.run(['git', 'merge-base', '--is-ancestor', base, 'HEAD'], cwd=root, check=True, capture_output=True)
+    revisions = subprocess.run(
+        ['git', 'log', '--reverse', '--topo-order', '--full-history', '--format=%H %P', f'{base}..HEAD', '--', str(BASELINE)],
+        cwd=root, check=True, capture_output=True, text=True).stdout.splitlines()
+    pairs = [(parts[1], parts[0]) for row in revisions if len(parts := row.split()) > 1]
+    if not pairs:
+        return ()
+    cache = {}
+    def read(specifications):
+        specifications = list(dict.fromkeys(specifications))
+        missing = [spec for spec in specifications if spec not in cache]
+        if missing:
+            headers = subprocess.run(['git', 'cat-file', '--batch-check'], cwd=root, check=True,
+                input=''.join(spec + '\n' for spec in missing), capture_output=True, text=True).stdout.splitlines()
+            identities = {}
+            for spec, header in zip(missing, headers, strict=True):
+                fields = header.split()
+                identities[spec] = fields[0] if len(fields) == 3 and fields[1] == 'blob' else None
+            blobs = list(dict.fromkeys(oid for oid in identities.values() if oid is not None))
+            result = subprocess.run(['git', 'cat-file', '--batch'], cwd=root, check=True,
+                input=''.join(oid + '\n' for oid in blobs).encode(), capture_output=True).stdout
+            payloads = {}
+            offset = 0
+            for oid in blobs:
+                end = result.index(b'\n', offset)
+                size = int(result[offset:end].split()[2])
+                payloads[oid] = result[end + 1:end + 1 + size].decode()
+                offset = end + size + 2
+            cache.update((spec, payloads.get(oid)) for spec, oid in identities.items())
+        return {spec: cache[spec] for spec in specifications}
+    baseline_specs = [f'{revision}:{BASELINE}' for pair in pairs for revision in pair]
+    baseline_specs.append(f'HEAD:{BASELINE}')
+    snapshots = {}
+    for spec, text in read(baseline_specs).items():
+        if text is not None:
+            snapshot = load_json(text)
+            if schema_errors(snapshot):
+                raise ValueError(f'invalid historical document baseline: {spec}')
+            snapshots[spec.partition(':')[0]] = snapshot
+    changed_revisions = {after for _, after in pairs}
+    decisions = [f"{revision}:{record['decision'].partition('#')[0]}"
+                 for revision, snapshot in snapshots.items() if revision in changed_revisions
+                 for record in snapshot.get('adjustments', [])]
+    read(decisions)
+    anchor_cache = {}
+    for revision, snapshot in snapshots.items():
+        retained = []
+        for record in snapshot.get('adjustments', []) if revision in changed_revisions else []:
+            path, separator, anchor = record['decision'].partition('#')
+            text = cache[f'{revision}:{path}']
+            if text is not None:
+                if separator and text not in anchor_cache:
+                    anchor_cache[text] = anchors(text)
+                if not separator or anchor in anchor_cache[text]:
+                    retained.append(record)
+        snapshot['adjustments'] = retained
+    return tuple((snapshots[before], snapshots[after]) for before, after in pairs
+                 if before in snapshots and after in snapshots) + ((snapshots['HEAD'], current),)
 
 
 def review_errors(root: Path, document: dict, today: date, max_age: int) -> list[str]:
@@ -328,7 +415,12 @@ def main(argv=None) -> int:
         changes = []
         if previous.returncode == 0:
             old = load_json(previous.stdout)
-            errors.extend(ratchet_errors(old, baseline))
+            history = historical_adjustments(ROOT, args.base, baseline) if ratchet_errors(old, baseline) else ()
+            errors.extend(ratchet_errors(old, baseline, history))
+            if args.base != 'HEAD':
+                head = history[-1][0] if history else load_json(subprocess.check_output(
+                    ['git', 'show', f'HEAD:{BASELINE}'], cwd=ROOT, text=True))
+                errors.extend(ratchet_errors(head, baseline))
             if not schema_errors(old):
                 changes = required_adjustments(old, baseline)
         else:

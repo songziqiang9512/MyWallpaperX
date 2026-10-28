@@ -37,6 +37,9 @@ class PublishReleaseTests(unittest.TestCase):
         self.release_feed = feed_xml(VERSION, 279)
         self.previous_feed = feed_xml("2.0.9", 278)
         self.remote_project = None
+        self.ci = {"databaseId": 41, "headSha": SHA, "headBranch": "main", "event": "push",
+                   "status": "completed", "conclusion": "success", "url": "https://example.invalid/ci/41"}
+        self.ci_runs = [self.ci]
         self.project = self.root / "MyWallpaperX.xcodeproj/project.pbxproj"
         self.project.parent.mkdir()
         self.project.write_text(f"MARKETING_VERSION = {VERSION};\nCURRENT_PROJECT_VERSION = 279;\n")
@@ -60,6 +63,8 @@ class PublishReleaseTests(unittest.TestCase):
         if args[:3] == ("git", "remote", "get-url"): return "https://github.com/fixture/MyWallpaperX.git"
         if args[:3] == ("gh", "repo", "view"): return "fixture/MyWallpaperX"
         if args[:2] == ("git", "ls-remote"): return f"{self.remote_sha}\trefs/heads/main"
+        if args[:3] == ("gh", "run", "list"): return json.dumps(self.ci_runs)
+        if args[:3] == ("gh", "run", "view"): return json.dumps(self.ci)
         if args[:4] == ("gh", "api", "--method", "POST"):
             return json.dumps({"workflow_run_id": 42, "html_url": "https://example.invalid/run/42"})
         if args[:2] == ("gh", "api") and args[2].endswith("releases/latest"):
@@ -76,11 +81,13 @@ class PublishReleaseTests(unittest.TestCase):
     def publish(self, watch_failure=False, test_scope="release"):
         def watch(args, **kwargs):
             self.calls.append(tuple(args))
-            if watch_failure: raise subprocess.CalledProcessError(1, args)
+            if watch_failure and args[3] == ("42" if watch_failure is True else watch_failure):
+                raise subprocess.CalledProcessError(1, args)
         with patch.dict(os.environ), patch.object(publisher, "ROOT", self.root), \
              patch.object(publisher, "validate_release", return_value=self.notes), \
              patch.object(publisher, "run", side_effect=self.command), \
              patch.object(publisher.subprocess, "run", side_effect=watch), \
+             patch.object(publisher.time, "sleep"), \
              contextlib.redirect_stdout(io.StringIO()):
             publisher.publish(VERSION, test_scope)
 
@@ -94,6 +101,9 @@ class PublishReleaseTests(unittest.TestCase):
         self.assertIn(f"inputs[version]={VERSION}", dispatch)
         self.assertIn("inputs[test_scope]=release", dispatch)
         self.assertIn(("gh", "run", "watch", "42", "--exit-status", "--interval", "15"), self.calls)
+        ci_watch = ("gh", "run", "watch", "41", "--exit-status", "--interval", "15")
+        self.assertLess(self.calls.index(("git", "push", "origin", "HEAD:refs/heads/main")), self.calls.index(ci_watch))
+        self.assertLess(self.calls.index(ci_watch), self.calls.index(dispatch))
         commit = next(command for command in self.calls if command[:2] == ("git", "commit"))
         self.assertIn("--only", commit)
         self.assertEqual(commit[-2:], ("MyWallpaperX.xcodeproj/project.pbxproj", f"docs/releases/{VERSION}.md"))
@@ -152,6 +162,30 @@ class PublishReleaseTests(unittest.TestCase):
     def test_failed_workflow_is_not_reported_as_success(self):
         with self.assertRaises(subprocess.CalledProcessError): self.publish(watch_failure=True)
         self.assertEqual(sum(command[:3] == ("gh", "release", "download") for command in self.calls), 1)
+
+    def test_failed_ci_watch_prevents_release_dispatch(self):
+        with self.assertRaises(subprocess.CalledProcessError): self.publish(watch_failure="41")
+        self.assertFalse(any(command[:4] == ("gh", "api", "--method", "POST") for command in self.calls))
+
+    def test_missing_or_unrelated_ci_cannot_dispatch_release(self):
+        for runs in ([], [self.ci | {"headSha": "b" * 40}],
+                     [self.ci | {"headBranch": "other"}], [self.ci | {"event": "workflow_dispatch"}]):
+            self.ci_runs = runs
+            self.calls.clear()
+            with self.subTest(runs=runs), self.assertRaisesRegex(ValueError, "未找到"):
+                self.publish()
+            self.assertFalse(any(command[:4] == ("gh", "api", "--method", "POST") for command in self.calls))
+
+    def test_ci_failure_or_unfinished_result_cannot_dispatch_release(self):
+        original = self.ci.copy()
+        for changes in ({"conclusion": "failure"}, {"status": "in_progress"},
+                        {"headSha": "b" * 40}, {"headBranch": "other"}, {"event": "pull_request"}):
+            self.ci = original | changes
+            self.ci_runs = [original]
+            self.calls.clear()
+            with self.subTest(changes=changes), self.assertRaisesRegex(ValueError, "尚未成功"):
+                self.publish()
+            self.assertFalse(any(command[:4] == ("gh", "api", "--method", "POST") for command in self.calls))
 
     def test_remote_project_version_mismatch_prevents_dispatch(self):
         self.remote_project = f"MARKETING_VERSION = {VERSION};\nCURRENT_PROJECT_VERSION = 278;\n"

@@ -120,6 +120,7 @@ CLIENT_LEAVES = r'''
 import Foundation
 struct ScenePlaybackLoadRequest {
     var rootURL: URL; var recordID: String?
+    var source: ScenePlaybackSource? = nil
     var propertyOverrides: [String: SceneUserPropertyValue] = [:]
     var userPropertyTextures: [String: Texture] = [:]
     var requiredUserTextureKeys: Set<String> = []
@@ -127,7 +128,14 @@ struct ScenePlaybackLoadRequest {
     struct Texture { var url: URL; var bookmarkData: Data? }
 }
 enum ScenePlaybackTextureUpdateOutcome { case superseded, failed(String) }
-enum SceneDaemonProtocol { static let version = 2 }
+enum SceneDaemonProtocol { static let version = 2
+    __SOURCE_OBJECT__
+}
+enum SceneDaemonProtocolFailure: Error { case invalidPayload(String) }
+@MainActor final class DaemonPlaybackProcessRegistry {
+    static let shared = DaemonPlaybackProcessRegistry()
+    var acceptsNewProcesses = true
+}
 enum DaemonNewlineJSON { static func encodeJSONObject(_ value: [String: Any], options: JSONSerialization.WritingOptions) throws -> Data { try JSONSerialization.data(withJSONObject: value, options: options) } }
 struct PlaybackVolumeState { static let shared = Self(); let normalizedVolume = 1.0 }
 struct PlaybackMuteState { static let shared = Self(); let isMuted = false }
@@ -147,6 +155,13 @@ extension Notification.Name {static let sceneWallpaperFirstFrameDidPresent=Notif
     var expectedTerminationGenerations: Set<UInt64> = []
     var sessionGeneration: UInt64 = 1
     var endpointReady = true
+    var sourceSchemaVersion: Int?, requestRetirementSchemaVersion: Int?
+    struct IdleTransport { var deadline: DispatchWorkItem? }
+    var idleTransport: IdleTransport?
+    // This probe exercises the direct DEBUG path without a switch control.
+    var hasRequestRetirementControl = false
+    enum StartupPrefixEvent { case loadEnqueueAttempted }
+    func observeDebugStartupPrefix(_ event: StartupPrefixEvent) {}
     var launchState: SceneWallpaperLaunchState?
     var activeIntent: ScenePlaybackLoadRequest?, pendingIntent: ScenePlaybackLoadRequest?
     var activeResourceLifetime: Lifetime?, pendingResourceLifetime: Lifetime?
@@ -307,9 +322,13 @@ class ScenePreparedCallbackPropertyTests(unittest.TestCase):
             '    func preparedCallbackPropertyKeys(', '    func stop(postsLaunchState:', '    func replayPendingIntent()']]
         endpoint = (SCENE / 'Runtime/IPC/SceneDaemonClient+SwitchEndpoint.swift').read_text()
         methods.append(method_body(endpoint, '    func commitPresentedScene('))
+        methods.append(method_body(endpoint, '    func discardIdleTransport()'))
+        protocol = (SCENE / 'Runtime/IPC/SceneDaemonProtocol.swift').read_text()
+        source = source.replace('__SOURCE_OBJECT__', method_body(protocol, '    static func sourceObject('))
         methods += [method_body(events, signature) for signature in [
-            '    private func handleLaunchState(', '    private func handleFirstFrame(', '    func handleTermination(']]
+            '    func handleLaunchState(', '    private func handleFirstFrame(', '    func handleTermination(']]
         source = source.replace('__CLIENT_METHODS__', '\n'.join(methods).replace('private ', ''))
-        self.run_probe(source, [MODELS, SCENE / 'Systems/Properties/SceneUserProperty.swift',
+        self.run_probe(source, [MODELS, ROOT / 'MyWallpaperX/Core/SteamWorkshopStorage/ScenePlaybackSource.swift',
+            SCENE / 'Systems/Properties/SceneUserProperty.swift',
             ROOT / 'MyWallpaperX/Core/PlaybackControl/ScenePlaybackShortcut.swift',
             SCENE / 'Runtime/IPC/SceneDaemonProtocol+UserShortcuts.swift'])
