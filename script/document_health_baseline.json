@@ -194,7 +194,7 @@
     },
     "docs/scene/development/corpus-diagnostic-workflow.md": {
       "lines": 111,
-      "bytes": 15221
+      "bytes": 15301
     },
     "docs/scene/development/development-workflow.md": {
       "lines": 78,
@@ -278,7 +278,7 @@
     },
     "docs/scene/roadmap/scene-open-breakpoint-queue.md": {
       "lines": 177,
-      "bytes": 38682
+      "bytes": 38558
     },
     "docs/web/cold-descriptor-parse-offload-design.md": {
       "lines": 30,
@@ -1786,15 +1786,6 @@
     },
     {
       "section": "bodies",
-      "path": "docs/scene/development/corpus-diagnostic-workflow.md",
-      "before": "e83ade1d1bb8fe8bc567552927afc2de636d8f218dc1aa775d77fb6736cf83d8",
-      "after": "18c632e5cf730c20341687612ec8b418e83ea7fe226fd658a7182c7dd733e5cd",
-      "owner": "Scene incremental corpus audit",
-      "reason": "Append new-input runtime observations through the existing archive owner; retain historical rows and verdicts, and group active shader/particle findings while distinguishing dormant diagnostic events.",
-      "decision": "docs/scene/development/corpus-diagnostic-workflow.md#log-first-corpus-audit"
-    },
-    {
-      "section": "bodies",
       "path": "docs/scene/capabilities/particle-component-coverage.md",
       "before": "cc78eea5c8d1ff1fb2db0bd69b7092bd6ebaeb0bdb85be122421f10a3c06a693",
       "after": "f97e81768664fa94d3693132b645ebb198167472787ca0ab1c41c5d2985c4841",
@@ -1873,6 +1864,15 @@
       "owner": "scene-shader-preprocessor",
       "reason": "原唯一metadata/预处理合同新增函数宏顺序替换的已资格目标、职责退出与正反验收；仅9行并有原包GPU/示波可见收益，避免另造设计文档和运行owner。",
       "decision": "docs/scene/architecture/shader-metadata-failure-contract.md#ordered-function-macro-redefinition"
+    },
+    {
+      "section": "bodies",
+      "path": "docs/scene/development/corpus-diagnostic-workflow.md",
+      "before": "18c632e5cf730c20341687612ec8b418e83ea7fe226fd658a7182c7dd733e5cd",
+      "after": "4c10958a4a1f504236f0c8a8acaa60cd58557e80c23c7699e8365ae79b3ff046",
+      "owner": "scene-corpus-diagnostic",
+      "reason": "同一运行观察合同明确成功promotion通知不作错误也不授执行资格，原失败与dormant门保持；正文同步简化，修复两批真实误报而不新增产品链或文档。",
+      "decision": "docs/scene/development/corpus-diagnostic-workflow.md#log-first-corpus-audit"
     }
   ]
 }

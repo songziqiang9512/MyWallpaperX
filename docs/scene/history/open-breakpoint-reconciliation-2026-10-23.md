@@ -304,3 +304,12 @@ SourceFacts在检查与launch准备队列同步建立，原类型却继承App默
 未参与修法的3737267090仍显示横向波形，175/220真实GPU链保留，无failed CPU；strict NON-PASS仍是上批已记录的默认隐藏186 utility计数及成功scene-color-completed通知被误归diagnostic，未为绿色结果修改门。两真实样本exit0、无timeout、停止surface归零/GPU排空。未测性能收益、HDR/多屏或长稳。382的其他未知辅助动画与旧细节不随宏首门退出。
 
 必要原输入manifest、自有fixture、官方原图/注册量化、有效基线/候选report与原图、失格签名日志、构建/门和独审归本机 `function-macro-redefinition-20261030` 正式包；不留样本副本、HOME或staged App，只续用原一份构建缓存。
+
+<a id="scene-color-notification-20261030"></a>
+## 成功SceneColor通知的日志误分类（2026-10-30）
+
+`scene-color-completed`只由既有SubmissionCoordinator在GPU完成且promote成功后发出，snapshot的mapped=false正常；原parser却把它记other diagnostic，连带禁用了既有dormant utility豁免。仅在原token解析循环按精确code、既有malformed及显式失败分域，工具净+6行，无新计数/认证schema/owner或产品变更；真实失败、unknown、缺terminal/GPU/publication和原utility完整门保持。
+
+最近terminal/utility的12项纯Python门通过。只读正式ZIP里的三份373原日志：原uniform基线的338条成功通知不再误诊，但真实effect-local passthrough仍失败；已修uniform候选395条与本轮宏候选210条通知归正后，离线graph/utility门均无失败。三组已记录的执行、GPU、发布、合成及次帧事实不变，capture仍为23/160/570、failed为空，默认隐藏186只沿原dormant规则豁免。没有改写原NON-PASS报告，没有新跑App或据此宣称fresh产品/画面通过。
+
+相邻反例、离线原日志身份、旧/新观察与独审归本机 `scene-color-notification-20261030` 正式包；不含媒体、App、构建或样本副本。本片只退出373两项误报，381/380等其他显隐诊断仍在队列。

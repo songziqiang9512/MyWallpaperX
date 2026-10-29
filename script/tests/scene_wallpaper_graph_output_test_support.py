@@ -337,10 +337,20 @@ def assert_utility_capture_respects_dormant_graph_members(
     success = "phase=utility-capture layer=101 status=succeeded"
     below = "utility capture execution below planned count"
     reported = "utility capture execution reported failures"
+    completed = ("MWX DEBUG SCENE: schema=1 axis=graph-execution "
+                 "diagnostic=scene-color-completed frame=4 allocation=3 member=0 "
+                 "authoredDraw=true mapped=false intent=snapshot sourceSubmission=owned-source")
     # No GPU is needed: these inputs exercise the actual producer parsers and
     # the same utility consumer invoked by run_sample.
     cases = [
         ("never-active prepared capture", preview, [visible, hidden, success], {}, []),
+        ("success notice preserves dormant qualification", preview,
+         [visible, hidden, success, completed], {}, []),
+        ("unknown notice keeps dormant gate strict", preview,
+         [visible, hidden, success, completed.replace("scene-color-completed", "unknown-notification")], {}, [below]),
+        ("success notice cannot supply visible capture", preview, [visible, hidden, completed], {}, [below]),
+        ("success notice cannot erase capture failure", preview,
+         [visible, hidden, success, completed, "phase=utility-capture layer=265 status=failed"], {}, [reported]),
         ("visible capture missing", preview, [visible, hidden], {}, [below]),
         ("unrelated success cannot replace required identity", preview,
          [visible, hidden, "phase=utility-capture layer=999 status=succeeded"], {}, [below]),

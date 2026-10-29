@@ -1185,13 +1185,13 @@
       "role": "stable-contract",
       "entrypoint": "docs/scene/development/development-workflow.md",
       "currentStateAuthority": "docs/scene/capabilities/scene-corpus-capability-inventory.md",
-      "lastReviewed": "2026-10-29",
+      "lastReviewed": "2026-10-30",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "96fbf238cc6d50f0f743a9caa8a183db8d654c0052076a583c3579815a6a965e",
+        "sourceSHA256": "d9009fdf8500818c8eeca0a129e694361175f87bc79155440cccc4e4966d9378",
         "method": "document_registry --audit + document_health --check",
-        "scope": "One census and original DEBUG runner/normalizer/archive chain; optimized diagnostic profile, log-only Ready+4s, isolated bounded parallelism, stage evidence and independent historical verdicts.",
-        "limitations": "Navigation and source review; actual short-window runtime identities and scoped tests are separately recorded. No visual, official parity or formal performance conclusion."
+        "scope": "Success-only SceneColor promotion notification classification and unchanged failure/dormant boundaries; replay of existing373 logs only.",
+        "limitations": "No new App run, full census refresh, visual or performance acceptance; unrelated historical claims not revalidated."
       },
       "purpose": "唯一声明观察、三项投影与全样本短窗日志筛查合同；复用原runner/normalizer/archive，视觉裁决归原overlay。"
     },

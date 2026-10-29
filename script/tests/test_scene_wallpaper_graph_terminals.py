@@ -467,6 +467,54 @@ class SceneWallpaperGraphTerminalsTests(unittest.TestCase):
         ):
             self.assertIn(failure, bad_axis["validation_failures"])
 
+    def test_scene_color_completion_is_informational_without_terminal_evidence(self) -> None:
+        completed = (
+            "MWX DEBUG SCENE: schema=1 axis=graph-execution "
+            "diagnostic=scene-color-completed frame=17 allocation=8 member=1 "
+            "authoredDraw=true mapped=false intent=snapshot "
+            "sourceSubmission=4E974E43-F6BF-4753-844B-F6A97B644EEF"
+        )
+        for line in (completed, completed.replace("mapped=false intent=snapshot",
+                                                "mapped=true intent=persistence")):
+            with self.subTest(completion=line):
+                metrics = benchmark.resolved_material_graph_observation_metrics(line)
+                self.assertEqual(metrics["observation_count"], 1)
+                self.assertEqual(metrics["diagnostic_count"], 0)
+                self.assertEqual(metrics["validation_failures"], [])
+                self.assertEqual(metrics["terminal_success_count"], 0)
+                self.assertEqual(metrics["execution_observed_layer_ids"], [])
+                self.assertEqual(metrics["successful_gpu_completed_layer_ids"], [])
+                self.assertEqual(metrics["compositor_consumed_layer_ids"], [])
+        for line in (completed.replace("scene-color-completed", "scene-color-failed"),
+                     completed.replace("scene-color-completed", "unknown-notification"),
+                     completed + " outcome=failed", completed + " gpuCompletion=failed",
+                     completed + " broken-token", completed + " member=0"):
+            with self.subTest(diagnostic=line):
+                metrics = benchmark.resolved_material_graph_observation_metrics(line)
+                self.assertEqual(metrics["other_diagnostic_count"], 1)
+                self.assertIn("resolved material graph observation diagnostic reported",
+                              metrics["validation_failures"])
+        failed = graph_execution_observation(frame=19, transaction="failed-after-notice",
+                    trigger="gpu-failed", outcome="failed", gpu_completion="failed")
+        metrics = benchmark.resolved_material_graph_observation_metrics(completed + "\n" + failed)
+        self.assertEqual(metrics["failed_outcome_count"], 1)
+        self.assertEqual(metrics["gpu_failed_count"], 1)
+        self.assertTrue(metrics["validation_failures"])
+        for gpu, publication, failure in (("-", True, "successful transaction count below two"),
+                ("completed", False, "observation final publication missing")):
+            with self.subTest(missing_terminal=(gpu, publication)):
+                log = "\n".join([completed, *(graph_execution_observation(
+                    frame=frame, transaction=f"unproven-{frame}", trigger="next-frame",
+                    consumed=True, gpu_completion=gpu, publish=publication) for frame in (20, 21))])
+                graph = benchmark.resolved_material_graph_execution_metrics(
+                    "resolved material execution capabilities: "
+                    "schema=layer-graph-capability-v1 candidates=1 accepted=1 rejected=0 variantLimit=8\n"
+                    "resolved material execution capability: schema=layer-graph-route-v1 layer=68 status=accepted",
+                    log)
+                self.assertFalse(graph["execution_succeeded"])
+                self.assertIn("resolved material graph " + failure,
+                    benchmark.resolved_material_graph_execution_failures(graph, require_evidence=True))
+
     def test_resolved_material_graph_zero_contract_is_explicit(self) -> None:
         metrics = benchmark.resolved_material_graph_execution_metrics(
             "resolved material execution capabilities: "

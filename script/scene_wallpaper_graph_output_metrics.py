@@ -179,6 +179,12 @@ def resolved_material_graph_observation_metrics(
         malformed = len(tokens) != len(payload.split()) or len(fields) != len(tokens)
         trigger = fields.get("trigger", "")
         if "diagnostic" in fields:
+            # The sole producer emits this notification after successful GPU
+            # promotion; it grants no graph terminal or publication evidence.
+            if (fields["diagnostic"] == "scene-color-completed" and not malformed
+                    and fields.get("outcome") != "failed"
+                    and fields.get("gpuCompletion") != "failed"):
+                continue
             diagnostic_count += 1
             # A frame-0 `layer-source-not-ready` is the designed async-provider
             # previous-current startup path; it only stays a failure when the

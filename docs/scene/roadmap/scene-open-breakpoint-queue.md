@@ -166,7 +166,7 @@
 | 粒子unsupported与位置映射 | mapsequencebetweencontrolpoints、其余CP约束、Mirror、nested/event、非均匀child变换、深duration/9999 delay及322的68→64 matrix child预算独立开放，后者像素/成本待资格；只在真实active consumer有资格时实施。Position Around默认Z有效映射有反证，但斜轴六候选全拒；须新可区分出生/空间证据，不拟合phase/重跑旧板，不关闭311/379方向与速度。[位置边界](../capabilities/particle-component-coverage.md#position-around-position-mapping) |
 | <a id="particle-cp-distance"></a>3742497499 · CP距离/death child | [parseOperator](../../../MyWallpaperX/Core/SteamWorkshopScene/Systems/Particles/SceneParticleDefinitionParser+Operator.swift)无maintaindistancetocontrolpoint case，Simulator无typed位置约束消费者；135默认活跃/GPU有输出但此算子未接。death child在multiplysize/setopacity拒，setcolor已接，174隐藏不算consumer。距离及六板均STOP；先资格distance/variable-strength/轨迹，不能替为maintaindistancebetweencontrolpoints；另分Alpha初始化、事件输入、尺寸消费与真实splash ROI，不跳未知mode或用root计数替child。[资格](../history/particle-initializer-qualification-2026-10-23.md#event-inheritance) |
 | 源码目录6项漏登记 | 3ce7adae2下Lighting输入、3个UserShortcuts、Puppet属性准备及shortcut dispatch仍不在filename合同；与本批已登记的两个prepared新源无关，只读核表同旧6项。按实际owner补登记，不移动/删合法代码消红；原收据在`native-text-bounds-20261022`正式包。 |
-| 运行诊断显隐归一 | 381隐藏/特殊solid聚合load-incomplete、380隐藏分支异常降级仍待核；新增3737267090把默认关闭186计为utility不足，并将成功scene-color-completed promotion记为graph diagnostic。先消费既有active/retired及实际outcome，保raw，不把结构标签当缺图。[诊断合同](../development/corpus-diagnostic-workflow.md) |
+| 运行诊断显隐归一 | 381隐藏/特殊solid聚合load-incomplete、380隐藏分支异常降级仍待核。先消费既有active/retired及实际outcome，保raw，不把结构标签当缺图。[诊断合同](../development/corpus-diagnostic-workflow.md) |
 | 历史GPU门/hidden extent覆盖 | 固定f79088a5输入的两条旧GPU红、hidden extent Python桩P2尚无fresh真实harness关闭链；先核生产可达分支与fixture，不称当前HEAD故障。[已闭graph债另归历史](../history/graph-color-purpose-reconciliation-2026-10-12.md) |
 
 ## 6. 进入与退出
