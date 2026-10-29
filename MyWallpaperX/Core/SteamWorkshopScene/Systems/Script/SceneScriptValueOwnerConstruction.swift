@@ -234,7 +234,7 @@ nonisolated extension SceneScriptValueOwner {
             valueType: valueType, generation: generation, budget: budget,
             cameraOriginDepthRange: cameraOriginDepthRange,
             puppetAnimationIdentity: puppetAnimationIdentity,
-            dynamicImagePathsByAuthoredIdentity: imagePaths,
+            allowsDynamicLayerSideEffects: !imagePaths.isEmpty,
             allowsStatefulLayerSideEffects: allowsStatefulLayerSideEffects,
             exports: exports
         )

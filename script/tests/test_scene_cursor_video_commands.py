@@ -16,7 +16,7 @@ HARNESS = r'''
             originXYZ:[0,0,0],scaleXYZ:[1,1,1],scaleHasScript:false,alpha:1,effects:[])])
         try d.configureLayerCatalog(descriptor)
         try d.publishLayerSnapshot(SceneDynamicSnapshotResolver().resolve(frameIndex:1,generation:1,definitions:[]).snapshot,
-            descriptor:descriptor,videoSnapshots:[1:.init(layerID:1,duration:10,rate:1,loop:true,currentTime:0,isPlaying:true,endedGeneration:0)])
+            descriptor:descriptor,videoSnapshots:.init(sources:[SceneScriptVideoPlaybackSnapshot(sourceIncarnation:UUID(uuidString:"00000000-0000-0000-0000-000000000071")!,duration:10,rate:1,loop:true,currentTime:0,isPlaying:true,endedGeneration:0)],layerBindings:[1:0]))
         var bindings:[SceneScriptCursorBinding] = []
         for (i,item) in sources.enumerated() {
             let o = try SceneScriptValueOwner(domain:d,source:item.1,target:target(item.0),effectNames:[],
@@ -34,7 +34,10 @@ HARNESS = r'''
         p.dispatch(batch:.init(samples:s,overflowed:false),frame:frame,userPropertiesJSON:"{}")
     }
     static func commands(_ r:SceneScriptCursorFrameResult,_ field:SceneDynamicLayerField = .origin) -> [String] {
-        r.ownerEffects.filter{$0.ownerTarget==target(field)}.flatMap{$0.mediaPlaybackCommands}.map { c in
+        names(r.ownerEffects.filter{$0.ownerTarget==target(field)}.flatMap{$0.mediaPlaybackCommands})
+    }
+    static func names(_ commands:[SceneScriptMediaPlaybackCommand]) -> [String] {
+        commands.map { c in
             switch c.action {
             case .play:return "play"
             case .pause:return "pause"
@@ -58,6 +61,7 @@ HARNESS = r'''
         let first=dispatch(p,[sample(false),sample(true),sample(false)])
         out["ordered"]=commands(first);out["failures"]=first.failures.count
         out["layers"]=first.ownerEffects.flatMap{$0.mediaPlaybackCommands}.map{$0.layerID}
+        out["incarnations"]=first.ownerEffects.flatMap{$0.mediaPlaybackCommands}.map{$0.videoSourceIncarnation?.uuidString ?? "nil"}
         p.finalizeLayerMutations(committing:true)
         out["idle"]=commands(dispatch(p,[sample(false)]));p.finalizeLayerMutations(committing:true)
 
@@ -75,6 +79,51 @@ HARNESS = r'''
         out["badFailure"]=failed.failures[target()]?.code ?? "none";out["badCommands"]=commands(failed);out["peer"]=commands(failed,.scale)
         bad.finalizeLayerMutations(committing:true,rejectedOwnerTargets:Set(failed.failures.keys))
 
+        let interleaved=try make([
+            (.origin,"""
+                export function cursorDown(e){let v=thisLayer.getVideoTexture();v.stop();v.setCurrentTime(1);}
+                export function cursorUp(e){thisLayer.getVideoTexture().pause();}
+                """),
+            (.scale,"export function cursorDown(e){thisLayer.getVideoTexture().play();}")
+        ])
+        let crossed=dispatch(interleaved,[sample(false),sample(true),sample(false)])
+        let ordered=SceneScriptMediaPlaybackCommandBridge.orderedCommands(in:crossed.ownerEffects)
+        out["crossedFailures"]=crossed.failures.count
+        out["crossedGrouped"]=names(crossed.ownerEffects.flatMap{$0.mediaPlaybackCommands})
+        out["crossedOrdered"]=names(ordered)
+        out["crossedEpochs"]=ordered.map{$0.callbackEpoch}
+        out["crossedOrdinals"]=ordered.map{$0.ordinal}
+        out["crossedRejectA"]=names(SceneScriptMediaPlaybackCommandBridge.orderedCommands(
+            in:crossed.ownerEffects.filter{$0.ownerTarget != target()}))
+        out["crossedRejectB"]=names(SceneScriptMediaPlaybackCommandBridge.orderedCommands(
+            in:crossed.ownerEffects.filter{$0.ownerTarget != target(.scale)}))
+        interleaved.finalizeLayerMutations(committing:true)
+
+        let failedCrossing=try make([
+            (.origin,"""
+                export function cursorDown(e){thisLayer.getVideoTexture().stop();}
+                export function cursorUp(e){thisLayer.getVideoTexture().pause();throw Error('late failure');}
+                """),
+            (.scale,"export function cursorDown(e){thisLayer.getVideoTexture().play();}")
+        ])
+        let lateFailure=dispatch(failedCrossing,[sample(false),sample(true),sample(false)])
+        out["crossedLateFailure"]=lateFailure.failures[target()]?.code ?? "none"
+        out["crossedLateCommands"]=names(SceneScriptMediaPlaybackCommandBridge.orderedCommands(in:lateFailure.ownerEffects))
+        failedCrossing.finalizeLayerMutations(committing:true,rejectedOwnerTargets:Set(lateFailure.failures.keys))
+
+        let repeated=try make([(.origin,"""
+            export function cursorDown(e){let v=thisLayer.getVideoTexture();v.play();v.play();}
+            export function cursorUp(e){thisLayer.getVideoTexture().play();}
+            """)])
+        let repeatedFrame=dispatch(repeated,[sample(false),sample(true),sample(false)])
+        let repeatedCommands=SceneScriptMediaPlaybackCommandBridge.orderedCommands(in:repeatedFrame.ownerEffects)
+        out["repeated"]=names(repeatedCommands)
+        out["repeatedEpochs"]=repeatedCommands.map{$0.callbackEpoch}
+        out["repeatedOrdinals"]=repeatedCommands.map{$0.ordinal}
+        out["repeatedDistinct"]=repeatedCommands.count == 3
+            && repeatedCommands[0] != repeatedCommands[1] && repeatedCommands[1] != repeatedCommands[2]
+        repeated.finalizeLayerMutations(committing:true)
+
         let whole=try make([(.origin,"export function cursorDown(e){thisLayer.getVideoTexture().setCurrentTime(4);}")])
         let edge=whole.edgeStateSnapshot();out["discardCandidate"]=commands(dispatch(whole,[sample(false),sample(true)]))
         whole.finalizeLayerMutations(committing:false);whole.restoreEdgeState(edge)
@@ -88,12 +137,13 @@ class SceneCursorMediaPlaybackCommandsTests(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
         with tempfile.TemporaryDirectory(prefix="mwx-cursor-video-vm-") as temp:
-            binary=compile_vector_harness(Path(temp),HARNESS,"cursor-video")
+            binary=compile_vector_harness(Path(temp),HARNESS,"cursor-video", whole_module_optimization=True)
             run=subprocess.run([str(binary)],check=True,capture_output=True,text=True)
             cls.value=json.loads(run.stdout)
 
     def test_init_and_cursor_preserve_media_playback_command_order(self):
         self.assertEqual(self.value["failures"],0)
+        self.assertEqual(self.value["incarnations"],["00000000-0000-0000-0000-000000000071"]*6)
         self.assertEqual(self.value["ordered"],["loop:false","pause","seek:3.0","rate:2.0","stop","play"])
         self.assertEqual(self.value["layers"],[1]*6)
         self.assertEqual(self.value["idle"],[])
@@ -108,6 +158,30 @@ class SceneCursorMediaPlaybackCommandsTests(unittest.TestCase):
         self.assertEqual(self.value["badFailure"],"exception")
         self.assertEqual(self.value["badCommands"],[])
         self.assertEqual(self.value["peer"],["play"])
+
+    def test_interleaved_callbacks_recover_order_after_owner_grouping_and_rejection(self):
+        self.assertEqual(self.value["crossedFailures"],0)
+        self.assertEqual(self.value["crossedGrouped"],["stop","seek:1.0","pause","play"])
+        self.assertEqual(self.value["crossedOrdered"],["stop","seek:1.0","play","pause"])
+        epochs=self.value["crossedEpochs"]
+        self.assertTrue(all(epoch > 0 for epoch in epochs))
+        self.assertEqual(epochs[0],epochs[1])
+        self.assertLess(epochs[1],epochs[2])
+        self.assertLess(epochs[2],epochs[3])
+        self.assertEqual(self.value["crossedOrdinals"],[0,1,0,0])
+        self.assertEqual(self.value["crossedRejectA"],["play"])
+        self.assertEqual(self.value["crossedRejectB"],["stop","seek:1.0","pause"])
+        self.assertEqual(self.value["crossedLateFailure"],"exception")
+        self.assertEqual(self.value["crossedLateCommands"],["play"])
+
+    def test_equal_actions_keep_distinct_callback_and_ordinal_identity(self):
+        self.assertEqual(self.value["repeated"],["play"]*3)
+        self.assertTrue(self.value["repeatedDistinct"])
+        epochs=self.value["repeatedEpochs"]
+        self.assertGreater(epochs[0],0)
+        self.assertEqual(epochs[0],epochs[1])
+        self.assertLess(epochs[1],epochs[2])
+        self.assertEqual(self.value["repeatedOrdinals"],[0,1,0])
 
     def test_discarded_frame_replays_seek_once(self):
         self.assertEqual(self.value["discardCandidate"],["seek:4.0"])

@@ -165,9 +165,9 @@ final class StatusBarPanelView: NSView {
         metricValues[0].stringValue = stats.cpuUsageString
         metricValues[1].stringValue = stats.gpuUsageString
         metricValues[2].stringValue = stats.memUsedString
-        metricValues[0].toolTip = "本应用与播放进程CPU使用率（不含系统WebKit进程）"
+        metricValues[0].toolTip = "本应用、播放进程及其子进程 CPU 使用率；100% 为一个核心（不含无法归属的系统 XPC 服务）"
         metricValues[1].toolTip = "系统全部 GPU 使用率"
-        metricValues[2].toolTip = "本应用播放进程物理内存使用率（不含系统WebKit进程）"
+        metricValues[2].toolTip = "本应用、播放进程及其子进程物理内存（不含无法归属的系统 XPC 服务）"
         upload.stringValue = "↑  \(stats.netUpString)"
         download.stringValue = "↓  \(stats.netDownString)"
         download.alignment = .right

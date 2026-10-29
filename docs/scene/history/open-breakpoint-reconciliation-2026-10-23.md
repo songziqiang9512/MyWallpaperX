@@ -160,3 +160,14 @@
 独立3554161528默认13秒和3437487219默认8秒保人物/星空与地球/银河合成，无VM failure；343色调/光影余项仍在原队列。三包均exit0、surface1→0/GPU drained。原native两深度真实Debug App seed/rotated两臂及独立ROI全通过（30.765秒），并未改其oracle来适配本片；不冒称性能收益、完整HDR/多屏、全部交互或整288已修。camera API首错退出队列，其他问题保持原优先级。
 
 **产物。** 必要原图、失败/成功日志、App/输入/测试身份与独审在`.artifacts/scene-evidence/runs/static-camera-transforms-20261028/`普通14天；不保App/用户包/临时HOME。官方预览已用定点CLI确认关闭，客户端与VM保留；Windows与本机测试副本提取后清理，连续开发只复用一份原任务build-cache。
+
+<a id="geometry-named-content-20261029"></a>
+## 2026-10-29 几何命名栅格的输出表示
+
+**通用语义。** GeometryProduct将上游graph-final按真实mesh/coverage栅格化为PMA命名输出。原Coordinator误把其reservation content覆成上游straight表示，实际消费正确比较content时拒整帧。单源及有序多源现保几何reservation的PMA，普通graph-copy继续继承final content；复用已验证binding向量，不新增状态、owner或算法，epoch/slot/物理纹理、pin/rollback保持。产品一文件净减1行。
+
+**回归与限制。** 真实Coordinator门经prepare→provider publication→consumer覆盖原PMA copy、straight copy、geometry straight→PMA、mixed两种顺序及content/texture/epoch/slot反例。同一最终夹具，冻结旧源失败、候选通过；删除夹具重复Aggregate算法，直接装配产品完整声明，四测试文件≤1000行、合计净减120行。原独立geometry像素probe的旧入口先后缺真实RenderState及DEBUG编译条件，未取得fresh结果，未改该入口或认像素门通过；这项验证债独立留队。
+
+**实际画面。** 原295在基线持续dependency-input-mismatch、无Ready；修后layer1413的visible publication和134 binding成功、mismatch为0，Ready9648.709ms，完整主体与背景出画。独立322默认人物、背景文字、频谱和发光曲线保持，不关闭旧手部等反馈。两例各Ready后7秒、after请求3秒、固定PCM，均exit0/FAIL[]、normalization terminal-chain-complete、surface1→0/GPU drained。它们是本修复的两次画面验收，不重跑全量；未验官方同phase、全属性/长周期、普通桌面媒体、完整HDR或性能。
+
+**身份与保存。** 普通Debug25.546秒、现优化DEBUG28.310秒构建通过，7个受测/配置源无漂移；后者App SHA256 `2a76ace1a2b5e47278bb699aa2991b50b5c9159d79cdeeaa6af781ef24d376dc`。独审复核产品、真实声明装配、两图与日志GO。必要原图/日志及来源明确的逐样本投影在`.artifacts/scene-evidence/runs/geometry-named-content-20261029/{2959875782,3226487183}/native/`；summary保存完整原report、源摘要、原失败和验证记录，均普通14天、每包≤32MiB。原全量归档的blocked属于修前身份，保留历史而不回写成功；只退出本次首帧断点，不授整样本官方PASS。

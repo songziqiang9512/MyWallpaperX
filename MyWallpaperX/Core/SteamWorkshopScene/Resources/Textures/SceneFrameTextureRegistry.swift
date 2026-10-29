@@ -154,14 +154,51 @@ final class SceneFrameTextureRegistry {
     private var orderedSystemProviderIdentities = OrderedKeyCache<SceneSystemProviderTextureIdentity>()
     private var resourceGeneration: UInt64 = 0
     private struct FramePublicationBaseline {
-        let persistentEntries: [SceneFrameTextureIdentity: PersistentEntry]
-        let priorFrameEntries: [SceneFrameTextureIdentity: PersistentEntry]
-        let committedPublications: [SceneFrameTextureIdentity: PersistentEntry]
+        var persistentEntries: [SceneFrameTextureIdentity: PersistentEntry]
+        var priorFrameEntries: [SceneFrameTextureIdentity: PersistentEntry]
+        var committedPublications: [SceneFrameTextureIdentity: PersistentEntry]
         let resourceGeneration: UInt64
     }
     private var framePublicationBaseline: FramePublicationBaseline?
     private(set) var frameEpoch: UInt64 = 0
     private(set) var frameIndex: UInt64 = 0
+
+    /// Topology is already committed when this boundary runs, even if the next
+    /// drawable fails. Resource readiness does not decide consumer lifetime.
+    func retireLayerSources<Value>(keeping layerIDs: Dictionary<Int, Value>.Keys) {
+        var retired: Set<SceneFrameTextureIdentity> = []
+        func collect<Stored>(_ values: [SceneFrameTextureIdentity: Stored]) {
+            for identity in values.keys {
+                let layerID: Int
+                switch identity {
+                case let .layerSource(id): layerID = id
+                case let .graph(graph) where graph.kind == .layerSource: layerID = graph.layerID
+                default: continue
+                }
+                if !layerIDs.contains(layerID) { retired.insert(identity) }
+            }
+        }
+        collect(entries)
+        collect(persistentEntries)
+        collect(priorFrameEntries)
+        collect(committedPublications)
+        if let baseline = framePublicationBaseline {
+            collect(baseline.persistentEntries)
+            collect(baseline.priorFrameEntries)
+            collect(baseline.committedPublications)
+        }
+        for identity in retired {
+            let previous = lookup(identity)
+            entries.removeValue(forKey: identity)
+            liveSelectionDigest = liveSelectionDigest.replacing(identity, previous: previous, with: nil)
+            persistentEntries.removeValue(forKey: identity)
+            priorFrameEntries.removeValue(forKey: identity)
+            committedPublications.removeValue(forKey: identity)
+            framePublicationBaseline?.persistentEntries.removeValue(forKey: identity)
+            framePublicationBaseline?.priorFrameEntries.removeValue(forKey: identity)
+            framePublicationBaseline?.committedPublications.removeValue(forKey: identity)
+        }
+    }
 
     @discardableResult
     func beginFrame(

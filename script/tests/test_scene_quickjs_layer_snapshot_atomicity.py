@@ -32,6 +32,12 @@ void mwx_scene_quickjs_write_diagnostic(
     snprintf(diagnostic, capacity, "%s", message == NULL ? "" : message);
 }
 
+/* This isolated snapshot harness has no layer journal. The combined real-VM
+ * reference gate covers recycling while journal and snapshot both own indices. */
+void mwx_scene_quickjs_layer_finalize_topology(MWXSceneQuickJSDomain *domain) {
+    if (domain->dynamic_layer_topology_transaction_active) abort();
+}
+
 static char *duplicate_string(const char *source) {
     size_t length = strlen(source);
     char *copy = malloc(length + 1);
@@ -60,6 +66,7 @@ static int configure_record(
 ) {
     memset(record, 0, sizeof(*record));
     record->layer_id = layer_id;
+    record->video_source_index = UINT32_MAX;
     record->configured = true;
     record->visible = true;
     record->alpha = 1;
@@ -109,6 +116,68 @@ static MWXSceneQuickJSResult stage_fields(
         diagnostic,
         256
     );
+}
+
+static int stage_video_table(MWXSceneQuickJSDomain *domain, uint64_t generation,
+                             const MWXSceneQuickJSVideoObservation *rows, uint32_t binding) {
+    char diagnostic[256] = {0};
+    int failures = check(mwx_scene_quickjs_domain_begin_layer_snapshot(domain, generation, 0,
+        diagnostic, sizeof(diagnostic)) == MWX_SCENE_QUICKJS_OK, "video transaction begins", diagnostic);
+    for (uint32_t index = 0; index < domain->authored_layer_count; ++index)
+        failures += check(mwx_scene_quickjs_domain_reuse_layer_runtime_fields(domain, index,
+            diagnostic, sizeof(diagnostic)) == MWX_SCENE_QUICKJS_OK, "video transaction reuses fields", diagnostic);
+    failures += check(mwx_scene_quickjs_domain_stage_video_observations(domain, rows, 2,
+        diagnostic, sizeof(diagnostic)) == MWX_SCENE_QUICKJS_OK, "video table stages", diagnostic);
+    failures += check(mwx_scene_quickjs_domain_update_layer_video_source(domain, 0, binding,
+        diagnostic, sizeof(diagnostic)) == MWX_SCENE_QUICKJS_OK, "first consumer stages", diagnostic);
+    failures += check(mwx_scene_quickjs_domain_update_layer_video_source(domain, 1, 0,
+        diagnostic, sizeof(diagnostic)) == MWX_SCENE_QUICKJS_OK, "shared consumer stages", diagnostic);
+    return failures;
+}
+
+static int video_table_case(MWXSceneQuickJSDomain *domain) {
+    char diagnostic[256] = {0};
+    MWXSceneQuickJSVideoObservation rows[2] = {{.duration=10, .rate=1, .current_time=1,
+        .loop=1, .is_playing=1, .available=1, .source_incarnation={11,22}}, {0}};
+    int failures = stage_video_table(domain, 10, rows, 0);
+    failures += check(domain->video_observation_count == 0 && domain->layers[0].video_source_index == UINT32_MAX,
+        "pending video table and binding are invisible", diagnostic);
+    failures += check(mwx_scene_quickjs_domain_commit_layer_snapshot(domain, diagnostic, sizeof(diagnostic))
+        == MWX_SCENE_QUICKJS_OK, "video base commits", diagnostic);
+    mwx_scene_quickjs_domain_finalize_layer_snapshot(domain);
+    failures += check(domain->video_observation_count == 2 && domain->layers[0].video_source_index == 0
+        && domain->layers[1].video_source_index == 0 && !domain->video_observations[1].available,
+        "one published row serves both consumers and preserves its empty neighbor", diagnostic);
+    rows[0].current_time = 2; rows[0].source_incarnation[0] = 33; rows[0].source_incarnation[1] = 44;
+    failures += stage_video_table(domain, 11, rows, UINT32_MAX);
+    failures += check(mwx_scene_quickjs_domain_update_layer_video_source(domain, 0, 1,
+        diagnostic, sizeof(diagnostic)) == MWX_SCENE_QUICKJS_INVALID_ARGUMENT,
+        "empty observation slot cannot become a consumer", diagnostic);
+    failures += check(domain->pending_layer_snapshot[0].video_source_index == UINT32_MAX
+        && domain->video_observations[0].current_time == 1 && domain->layers[0].video_source_index == 0,
+        "rejected binding and pending replacement preserve active facts", diagnostic);
+    mwx_scene_quickjs_domain_abort_layer_snapshot(domain);
+    failures += check(domain->pending_video_observations == NULL && domain->video_observations[0].current_time == 1
+        && domain->video_observations[0].source_incarnation[0] == 11 && domain->layers[0].video_source_index == 0,
+        "abort discards the row and binding together", diagnostic);
+    failures += stage_video_table(domain, 11, rows, UINT32_MAX);
+    failures += check(mwx_scene_quickjs_domain_commit_layer_snapshot(domain, diagnostic, sizeof(diagnostic))
+        == MWX_SCENE_QUICKJS_OK && domain->video_observations[0].current_time == 2
+        && domain->layers[0].video_source_index == UINT32_MAX, "replacement row and withdrawal commit", diagnostic);
+    failures += check(mwx_scene_quickjs_domain_rollback_layer_snapshot(domain), "video table rollback exists", diagnostic);
+    failures += check(domain->video_observations[0].current_time == 1
+        && domain->video_observations[0].source_incarnation[0] == 11 && domain->layers[0].video_source_index == 0,
+        "rollback restores original incarnation and consumer binding", diagnostic);
+    failures += stage_video_table(domain, 11, rows, 0);
+    failures += check(mwx_scene_quickjs_domain_commit_layer_snapshot(domain, diagnostic, sizeof(diagnostic))
+        == MWX_SCENE_QUICKJS_OK, "withdrawal probe commits replacement", diagnostic);
+    failures += check(mwx_scene_quickjs_domain_withdraw_authored_video_sources(domain) == MWX_SCENE_QUICKJS_OK,
+        "preparation withdraws authored consumers", diagnostic);
+    failures += check(mwx_scene_quickjs_domain_rollback_layer_snapshot(domain), "withdrawal probe can roll back values", diagnostic);
+    failures += check(domain->layers[0].video_source_index == UINT32_MAX && domain->layers[1].video_source_index == UINT32_MAX
+        && domain->video_observations[0].current_time == 1 && domain->video_observations[0].source_incarnation[0] == 11,
+        "rollback restores source values without reviving withdrawn consumers", diagnostic);
+    return failures;
 }
 
 int main(void) {
@@ -316,6 +385,8 @@ int main(void) {
     failures += check_number(domain.layers[0].color[0], 0.25, "incomplete active color unchanged");
     mwx_scene_quickjs_domain_abort_layer_snapshot(&domain);
 
+    failures += video_table_case(&domain);
+    free(domain.video_observations);
     for (uint32_t index = 0; index < domain.layer_count; ++index) {
         free(domain.layers[index].name);
         free(domain.layers[index].text);

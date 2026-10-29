@@ -18,7 +18,7 @@ nonisolated final class SceneScriptValueOwner: @unchecked Sendable {
     private let budget: SceneScriptScalarBudget
     private let valueType: SceneDynamicValueType
     private let cameraOriginDepthRange: ClosedRange<Double>?
-    private let dynamicImagePathsByAuthoredIdentity: [String: String]
+    let allowsDynamicLayerSideEffects: Bool
     private let allowsStatefulLayerSideEffects: Bool
     private let handlesInit: Bool
     private let handlesUpdate: Bool
@@ -34,11 +34,6 @@ nonisolated final class SceneScriptValueOwner: @unchecked Sendable {
         let identity = mwx_scene_quickjs_owner_pending_layer_topology_identity(handle)
         return identity == 0 ? nil : identity
     }
-    var allowsDynamicLayerSideEffects: Bool {
-        allowsStatefulLayerSideEffects
-            || !dynamicImagePathsByAuthoredIdentity.isEmpty
-    }
-
     /// Event-only owners sleep until a callback stages their own value.
     /// Publish it through the ordinary typed evaluation; initialization and
     /// timers keep their existing scheduling and shared commit boundary.
@@ -72,7 +67,7 @@ nonisolated final class SceneScriptValueOwner: @unchecked Sendable {
         budget: SceneScriptScalarBudget,
         cameraOriginDepthRange: ClosedRange<Double>? = nil,
         puppetAnimationIdentity: ScenePuppetAnimationIdentity? = nil,
-        dynamicImagePathsByAuthoredIdentity: [String: String] = [:],
+        allowsDynamicLayerSideEffects: Bool = false,
         allowsStatefulLayerSideEffects: Bool = false,
         exports: SceneScriptValueOwnerExports
     ) {
@@ -85,7 +80,7 @@ nonisolated final class SceneScriptValueOwner: @unchecked Sendable {
         self.generation = generation
         self.budget = budget
         self.puppetAnimationIdentity = puppetAnimationIdentity
-        self.dynamicImagePathsByAuthoredIdentity = dynamicImagePathsByAuthoredIdentity
+        self.allowsDynamicLayerSideEffects = allowsDynamicLayerSideEffects || allowsStatefulLayerSideEffects
         self.allowsStatefulLayerSideEffects = allowsStatefulLayerSideEffects
         hasAudioRegistration = exports.hasAudioRegistration
         handlesMediaThumbnail = exports.handlesMediaThumbnail
@@ -113,7 +108,7 @@ nonisolated final class SceneScriptValueOwner: @unchecked Sendable {
             target: .text(layerID: layerID, field: .content), layerID: layerID,
             valueType: .string, generation: templateOwner.generation,
             budget: templateOwner.budget,
-            dynamicImagePathsByAuthoredIdentity: templateOwner.dynamicImagePathsByAuthoredIdentity,
+            allowsDynamicLayerSideEffects: templateOwner.allowsDynamicLayerSideEffects,
             allowsStatefulLayerSideEffects: templateOwner.allowsStatefulLayerSideEffects,
             exports: exports
         )
@@ -494,8 +489,6 @@ nonisolated final class SceneScriptValueOwner: @unchecked Sendable {
             target: target,
             allowsLayerSideEffects: allowsDynamicLayerSideEffects,
             retainsVisibilityMutation: !handlesUpdate,
-            dynamicImagePathsByAuthoredIdentity:
-                dynamicImagePathsByAuthoredIdentity,
             value: publishedValue,
             mutations: mutations
         )

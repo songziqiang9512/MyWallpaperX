@@ -63,7 +63,6 @@ extension SteamWorkshopService {
         let ids = itemIDs.filter { seen.insert(.init(provider: .steamWorkshop, sourceID: $0)).inserted && !removingDownloadIDs.contains($0) }
         guard !ids.isEmpty else { completion(.init(items: [])); return }
         removingDownloadIDs.formUnion(ids)
-        for id in ids { removeWebRuntimeCaches(for: id) }
         Task { [weak self] in
             guard let self else { return }
             defer { self.removingDownloadIDs.subtract(ids) }
@@ -187,6 +186,15 @@ extension SteamWorkshopService {
             return false
         }
 
+        if selectedDownloadInspectorItem?.id.utf8.elementsEqual(itemID.utf8) == true {
+            dismissDownloadInspector()
+        } else if selectedBrowserItem?.id.utf8.elementsEqual(itemID.utf8) == true {
+            cancelSelectedItemDetailRefresh()
+        }
+        if isValidWorkshopItemID(itemID) {
+            try? FileManager.default.removeItem(at: Self.detailCacheFileURL(id: itemID))
+        }
+        removeWebRuntimeCaches(for: itemID)
         downloads.removeAll { $0.id.utf8.elementsEqual(itemID.utf8) }
         return true
     }

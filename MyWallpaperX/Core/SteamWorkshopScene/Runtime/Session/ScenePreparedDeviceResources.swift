@@ -1,9 +1,15 @@
 import Foundation
+import CoreGraphics
 import Metal
 
 nonisolated struct ScenePreparedDynamicImageResource {
+    nonisolated enum Product {
+        case image(SceneTextureCandidate)
+        case video(source: SceneTextureLoader.SourceKey, file: SceneVideoOwnedFile, sizeWH: [Float])
+    }
+
     let modelPath: String
-    let loaded: SceneBaseImageTextureLoad.Loaded
+    let product: Product
     /// Source image extent retained before texture normalization/downscaling.
     /// The same decode owner supplies TEX and direct-image native metadata.
     var naturalSizeWH: [Float]? = nil
@@ -14,7 +20,11 @@ nonisolated struct ScenePreparedDynamicImageResource {
     var imageMaterialRenderState: SceneMaterialRenderState? = nil
 
     var renderSizeWH: [Float] {
-        [Float(loaded.texture.width), Float(loaded.texture.height)]
+        switch product {
+        case let .image(candidate):
+            [Float(candidate.texture.width), Float(candidate.texture.height)]
+        case let .video(_, _, sizeWH): sizeWH
+        }
     }
 }
 
@@ -113,6 +123,7 @@ final class ScenePreparedBaseImageResources {
         device: MTLDevice,
         spriteTextureLoader: SceneMultiImageSpriteTextureLoader,
         sceneGeneration: UInt64,
+        cacheDirectory: URL,
         dynamicImageModelPaths: Set<String> = [],
         dynamicImageModelPathsProvider: (() throws -> Set<String>)? = nil,
         deferredBaseImageLayerIDs: Set<Int> = [],
@@ -145,6 +156,7 @@ final class ScenePreparedBaseImageResources {
             })
             var imageRequests: [Int: (url: SceneResourceView.FileInput, source: SceneTextureLoader.SourceKey,
                 direct: SceneTextureLoader.PreparedDirectImageSource?)] = [:]
+            var videoModelPaths: Set<String> = []
             var geometry: [Int: [Float]] = [:]
             for layer in descriptor.layers where layer.isImageRenderable {
                 try cancellationCheck()
@@ -156,6 +168,11 @@ final class ScenePreparedBaseImageResources {
                 let direct = try textureLoader.prepareDirectImageSource(from: url, checkCancellation: cancellationCheck)
                 guard let source = preparedTex?.source ?? direct?.source else { continue }
                 let container = preparedTex?.container
+                if container?.isVideoMp4 == true, layer.contentKind == "image",
+                   let modelPath = layer.imagePath,
+                   url == resolver.resolvePrimaryTexture(modelPath: modelPath) {
+                    videoModelPaths.insert(modelPath)
+                }
                 guard SceneBaseImageTextureLoad.specializedLoadReason(
                     url: url,
                     container: container,
@@ -216,9 +233,10 @@ final class ScenePreparedBaseImageResources {
                 }
             }
             var dynamicImageResources: [String: ScenePreparedDynamicImageResource] = [:]
+            var videoFiles: [SceneTextureLoader.SourceKey: Result<SceneVideoOwnedFile, Error>] = [:]
             let imageMaterials = ScenePreparedImageMaterialCatalog(descriptor: descriptor)
             let requestedModels = try dynamicImageModelPathsProvider?() ?? dynamicImageModelPaths
-            for modelPath in requestedModels.sorted() {
+            for modelPath in requestedModels.union(videoModelPaths).sorted() {
                 try cancellationCheck()
                 // Puppet resources enter below through mesh + straight atlas, never a quad.
                 if models[modelPath]?.puppetPath != nil { continue }
@@ -234,6 +252,32 @@ final class ScenePreparedBaseImageResources {
                 let preparedTex = try textureLoader.prepareTexSource(from: url, checkCancellation: cancellationCheck)
                 let direct = try textureLoader.prepareDirectImageSource(from: url, checkCancellation: cancellationCheck)
                 let container = preparedTex?.container
+                if let preparedTex,
+                   let declaration = try textureLoader.videoSourceDeclaration(
+                    from: preparedTex, checkCancellation: cancellationCheck) {
+                    // WebM keeps its existing asynchronous remux owner. This
+                    // prepared constructor slice admits completed MP4 files.
+                    guard !declaration.isWebM, let container,
+                          container.imageWidth > 0, container.imageHeight > 0 else { continue }
+                    let prepared = videoFiles[declaration.source] ?? Result {
+                        try SceneVideoOwnedFile.snapshot(payload: declaration.payload,
+                            cacheDirectory: cacheDirectory, checkCancellation: cancellationCheck)
+                    }
+                    videoFiles[declaration.source] = prepared
+                    try cancellationCheck()
+                    guard case let .success(file) = prepared else {
+                        failedCount += 1
+                        continue
+                    }
+                    let sizeWH = [Float(container.imageWidth), Float(container.imageHeight)]
+                    dynamicImageResources[modelPath.lowercased()] = .init(modelPath: modelPath,
+                        product: .video(source: declaration.source, file: file, sizeWH: sizeWH),
+                        naturalSizeWH: sizeWH,
+                        lightingProfile: imageMaterials.profiles[modelIdentity],
+                        imageMaterialRenderState: imageMaterials.renderStates[modelIdentity])
+                    loadedCount += 1
+                    continue
+                }
                 guard SceneBaseImageTextureLoad.specializedLoadReason(
                     url: url, container: container, usesPuppet: false
                 ) == nil else {
@@ -248,8 +292,10 @@ final class ScenePreparedBaseImageResources {
                 if case let .failed(failure) = outcome { try failure.rethrowResourceReadFailure() }
                 switch outcome {
                 case let .loaded(loaded):
+                    guard loaded.animation == nil, let candidate = loaded.candidate,
+                          candidate.texture === loaded.texture else { continue }
                     dynamicImageResources[modelPath.lowercased()] = .init(
-                        modelPath: modelPath, loaded: loaded,
+                        modelPath: modelPath, product: .image(candidate),
                         naturalSizeWH: try (direct.map {
                             try textureLoader.preparedNaturalImageSize(from: $0, checkCancellation: cancellationCheck)
                         } ?? container.map { CGSize(width: $0.imageWidth, height: $0.imageHeight) })
@@ -285,8 +331,9 @@ final class ScenePreparedBaseImageResources {
                     entries.removeValue(forKey: layerID)
                     reclaimed += 1
                 }
-                for (modelPath, resource) in dynamicImageResources
-                where failedTextures.contains(where: { $0 === resource.loaded.texture }) {
+                for (modelPath, resource) in dynamicImageResources {
+                    guard case let .image(candidate) = resource.product,
+                          failedTextures.contains(where: { $0 === candidate.texture }) else { continue }
                     dynamicImageResources.removeValue(forKey: modelPath)
                     reclaimed += 1
                 }
@@ -316,7 +363,7 @@ final class ScenePreparedBaseImageResources {
                 let pose = puppets.defaultPose(for: layer)
                 guard layer.puppetMeshPath == nil || pose != nil else { continue }
                 dynamicImageResources[modelPath.lowercased()] = .init(
-                    modelPath: modelPath, loaded: loaded,
+                    modelPath: modelPath, product: .image(candidate),
                     naturalSizeWH: entry.naturalSizeWH,
                     puppetMeshPath: layer.puppetMeshPath, puppetPose: pose,
                     lightingProfile: profile
@@ -643,6 +690,7 @@ final class ScenePreparedDeviceResourcesTask {
     private let descriptor: SceneRenderDescriptor
     private let resourceView: SceneResourceView
     private let device: MTLDevice
+    private let cacheDirectory: URL
     private let imageGeometryModels: [SceneAssetCatalog.ModelAsset]
     private let deferredBaseImageLayerIDs: Set<Int>
     private let sceneGeneration: UInt64
@@ -660,6 +708,7 @@ final class ScenePreparedDeviceResourcesTask {
         resourceView: SceneResourceView,
         device: MTLDevice,
         sceneGeneration: UInt64,
+        cacheDirectory: URL,
         dynamicImageModelPaths: Set<String> = [],
         awaitsScriptResourcePlanning: Bool = false,
         deferredBaseImageLayerIDs: Set<Int> = [],
@@ -674,6 +723,7 @@ final class ScenePreparedDeviceResourcesTask {
         self.descriptor = descriptor
         self.resourceView = resourceView
         self.device = device
+        self.cacheDirectory = cacheDirectory
         self.sceneGeneration = sceneGeneration
         self.textureUploadCommandQueue = textureUploadCommandQueue
         self.textureDecodeCacheBudget = textureDecodeCacheBudget
@@ -723,6 +773,7 @@ final class ScenePreparedDeviceResourcesTask {
                     device: device,
                     spriteTextureLoader: spriteTextureLoader,
                     sceneGeneration: sceneGeneration,
+                    cacheDirectory: cacheDirectory,
                     dynamicImageModelPathsProvider: plannedDynamicImageModelPaths,
                     deferredBaseImageLayerIDs: deferredBaseImageLayerIDs,
                     imageGeometryModels: imageGeometryModels,

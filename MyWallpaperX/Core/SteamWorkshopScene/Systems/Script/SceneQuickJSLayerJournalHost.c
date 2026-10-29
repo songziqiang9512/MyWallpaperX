@@ -193,7 +193,6 @@ static bool begin_dynamic_layer_topology_transaction(
     if (domain->dynamic_layer_topology_transaction_active) return true;
     if (domain->layer_count > MWX_SCENE_QUICKJS_MAX_LAYERS) return false;
     domain->dynamic_layer_topology_transaction_active = true;
-    domain->dynamic_layer_topology_baseline_layer_count = domain->layer_count;
     domain->dynamic_layer_topology_baseline_order_count = 0;
     memset(
         domain->dynamic_layer_topology_baseline_active, 0,
@@ -401,7 +400,6 @@ static void clear_domain_dynamic_layer_topology(
 ) {
     if (domain == NULL) return;
     domain->dynamic_layer_topology_transaction_active = false;
-    domain->dynamic_layer_topology_baseline_layer_count = 0;
     domain->dynamic_layer_topology_baseline_order_count = 0;
     domain->dynamic_layer_topology_operation_count = 0;
     domain->dynamic_layer_topology_participant_count = 0;
@@ -409,6 +407,37 @@ static void clear_domain_dynamic_layer_topology(
         domain->dynamic_layer_topology_baseline_active, 0,
         sizeof(domain->dynamic_layer_topology_baseline_active)
     );
+}
+
+static bool layer_indices_are_released(const MWXSceneQuickJSDomain *domain) {
+    return !domain->callback_active && domain->dynamic_layer_transaction_participant_count == 0 &&
+        domain->dynamic_layer_topology_participant_count == 0 &&
+        domain->pending_layer_snapshot == NULL && domain->rollback_layer_snapshot == NULL &&
+        domain->pending_text_clone_snapshot == NULL && domain->rollback_text_clone_snapshot == NULL &&
+        domain->rollback_layer_order == NULL;
+}
+
+static void recycle_dynamic_layer(MWXSceneQuickJSDomain *domain, uint32_t index) {
+    MWXSceneQuickJSLayerRecord *record = &domain->layers[index];
+    if (index < domain->authored_layer_count || !record->configured ||
+        !record->dynamic || !record->destroyed) return;
+    mwx_scene_quickjs_layer_release_record(domain, record);
+    record->next_free = domain->free_dynamic_layer_head;
+    domain->free_dynamic_layer_head = index;
+}
+
+void mwx_scene_quickjs_layer_finalize_topology(MWXSceneQuickJSDomain *domain) {
+    if (domain == NULL || !domain->dynamic_layer_topology_transaction_active ||
+        !layer_indices_are_released(domain)) return;
+    // The shared replay has settled these records. A cleared record also
+    // deduplicates repeated create/destroy indices without another retire list.
+    for (size_t index = 0; index < domain->dynamic_layer_topology_operation_count; ++index) {
+        const MWXSceneQuickJSDynamicLayerTopologyOperation *operation = &domain->dynamic_layer_topology_operations[index];
+        if (operation->kind == MWX_SCENE_QUICKJS_DYNAMIC_LAYER_CREATE ||
+            operation->kind == MWX_SCENE_QUICKJS_DYNAMIC_LAYER_DESTROY)
+            recycle_dynamic_layer(domain, operation->layer_index);
+    }
+    clear_domain_dynamic_layer_topology(domain);
 }
 
 static void clear_layer_mutation_buffers(
@@ -468,8 +497,7 @@ static void clear_dynamic_layer_journal(
         domain->dynamic_layer_topology_participant_count -= 1;
     if (domain->dynamic_layer_topology_transaction_active) {
         rebuild_dynamic_layer_topology(domain);
-        if (domain->dynamic_layer_topology_participant_count == 0)
-            clear_domain_dynamic_layer_topology(domain);
+        mwx_scene_quickjs_layer_finalize_topology(domain);
     }
 }
 
@@ -518,11 +546,12 @@ static void discard_owner_created_layers(
         MWXSceneQuickJSLayerRecord *record = &domain->layers[layer_index];
         if (!record->configured || !record->dynamic ||
             record->owner_identity != owner->identity) continue;
-        free(record->name);
-        free(record->text);
-        free(record->font);
-        free(record->asset_path);
-        *record = (MWXSceneQuickJSLayerRecord){0};
+        // A peer journal or snapshot can still retain this slot. Keep its
+        // identity unavailable until the shared terminal boundary recycles it.
+        record->destroyed = true;
+        record->dirty = false;
+        record->dirty_owner_identity = 0;
+        record->dirty_fields = 0;
     }
 }
 
@@ -565,6 +594,7 @@ void mwx_scene_quickjs_owner_discard_layer_mutations(
     owner->effect_visibility_staged = false;
     owner->effect_visibility_pending = false;
     finish_dynamic_layer_transaction(owner, false);
+    mwx_scene_quickjs_finish_video_ended_callbacks(owner, false);
     clear_layer_mutation_buffers(owner);
     owner->media_playback_command_count = 0;
     owner->media_playback_command_overflow = false;
@@ -603,6 +633,7 @@ void mwx_scene_quickjs_owner_commit_layer_mutations(
     owner->effect_visibility_staged = false;
     owner->effect_visibility_pending = false;
     finish_dynamic_layer_transaction(owner, true);
+    mwx_scene_quickjs_finish_video_ended_callbacks(owner, true);
     clear_layer_mutation_buffers(owner);
     owner->particle_playback_command_count = 0;
     owner->particle_playback_command_overflow = false;
@@ -652,7 +683,7 @@ bool mwx_scene_quickjs_owner_remove_dynamic_layers(MWXSceneQuickJSOwner *owner) 
     // state or mutate its records.  The scene-wide lifecycle barrier releases
     // every owner first, and a direct caller can retry after the peer commits
     // or discards its journal.
-    if (domain->dynamic_layer_topology_participant_count != 0) {
+    if (!layer_indices_are_released(domain)) {
         owner->authored_layer_baseline_available = false;
         return false;
     }
@@ -663,17 +694,11 @@ bool mwx_scene_quickjs_owner_remove_dynamic_layers(MWXSceneQuickJSOwner *owner) 
             record->owner_identity != owner->identity) continue;
         removed_layers = removed_layers || !record->destroyed;
         record->destroyed = true;
-        record->dirty = false;
-        record->dirty_owner_identity = 0;
+        recycle_dynamic_layer(domain, index);
     }
     if (removed_layers) mwx_scene_quickjs_compact_layer_order(domain);
     owner->authored_layer_baseline_available = false;
-    // Removal is permanent; there is no frame result to commit.  Any empty
-    // domain candidate can be discarded now; layer_count remains monotonic so
-    // stale handles cannot alias a future dynamic layer.
-    if (domain->dynamic_layer_topology_transaction_active &&
-        domain->dynamic_layer_topology_participant_count == 0)
-        clear_domain_dynamic_layer_topology(domain);
+    mwx_scene_quickjs_layer_finalize_topology(domain);
     clear_dynamic_layer_journal(owner);
     clear_layer_mutation_buffers(owner);
     owner->particle_playback_command_count = 0;

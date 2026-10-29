@@ -1998,16 +1998,18 @@
     },
     "3372715909": {
       "verdict": "unreviewed",
-      "reviewedOn": "2026-10-21",
-      "reviewer": "Codex 隔离Debug诊断与独立原图复核；未作人工整样本裁决",
-      "note": "人物/背景视频呈现并推进，12s运行后正常排空；视频新buffer发布有1.305s/3.195s间隙，源PTS连续。120脚本null.visible首错，不能据静态destroy/create归因成功重建。官方崩溃仅用户报告，本目录无截屏。 本批请求12s/after8，但pointer中心进入后移出并提前写after；官方音源/时相/viewport未齐，未认完整播放、参数或性能通过。",
-      "remainingDifferences": "具体待修/待复验归现役队列；早截图、音频、视差、媒体状态差异不自动是缺陷。",
+      "reviewedOn": "2026-10-29",
+      "reviewer": "Codex 隔离签名Debug/实际CGWindow与独立原图复核；未作整样本人工PASS",
+      "note": "本批a697候选已闭原控制器create/null及Boolean二次资源门、历史视频纹理强持有；默认/显式自动持续播放，12主题/时段热改全部接纳。直接主输出新视频pending有界保旧画面，88帧暂缓present且无pending被呈现；自有自动/属性/改名双屏实际窗口红蓝红均未采到黑帧，非连续全时域资格。独立双视频保持播放/Xray正控。仍有热切后AV池MTL分配偏高；不等同进程RAM、稳定性能收益或整样本/全部参数/官方一致性。原档案的null.visible属于旧身份，当前剩余归队列。",
+      "remainingDifferences": "AV解码/转换池驻留、未知group/named/effect首帧衔接、跨整点自动与官方完整seek/播放态空窗未验。",
       "officialComparison": "not-run",
       "runs": [
-        ".artifacts/scene-evidence/runs/new-sample-intake-20261021/group-05/current/report.json"
+        ".artifacts/scene-evidence/runs/new-sample-intake-20261021/group-05/current/report.json",
+        ".artifacts/scene-evidence/runs/video-runtime-switch-20261029/native/report.json"
       ],
       "evidence": [
-        "docs/scene/capabilities/runtime-evidence-current.md"
+        "docs/scene/capabilities/runtime-evidence-current.md",
+        "docs/scene/history/video-instance-observations-2026-10-29.md"
       ]
     },
     "3766299002": {
@@ -2394,6 +2396,13 @@
       ],
       "evidence": [
         "/Users/songziqiang/Documents/Development/MyWallpaperX/.artifacts/scene-evidence/runs/original-gross-screen-20261023/current/samples/3722749868/after_snapshot.png"
+      ]
+    },
+    "2959875782": {
+      "verdict": "unreviewed",
+      "note": "2026-10-29几何命名输出表示修复：原持续dependency-input-mismatch已消失，1413 publication→134 binding成功，真实App恢复Ready与完整出画，停止正常。当前archive的blocked属于修前全量观察；不改为官方/整样本PASS，完整属性与长周期未验。",
+      "runs": [
+        ".artifacts/scene-evidence/runs/geometry-named-content-20261029/2959875782/native/report.json#2959875782"
       ]
     }
   },

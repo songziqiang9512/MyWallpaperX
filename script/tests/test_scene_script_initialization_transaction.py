@@ -264,7 +264,7 @@ struct SceneSoundPlaybackRegistry {
             let result = program.evaluate(inputs: [sourceTarget: .bool(true), peerTarget: .bool(true)],
                 effectivePropertyValues: [:], frame: frame(time), userPropertiesJSON: "{}")
             let fixed = layerRuntime.preflightOwnerEffectsToFixedPoint(result.ownerEffects,
-                excludingOwners: Set(result.failures.keys)) { admitted in
+                excludingOwners: Set(result.failures.keys)) { admitted, _ in
                 Set(SceneScriptOwnerEffectsRuntimeValidation.failures(for: admitted,
                     timelineRuntime: timeline, textureAnimationRuntime: .init(), videoRegistry: nil,
                     timing: timing, puppetAnimationRuntime: puppet).map(\.ownerTarget))
@@ -503,7 +503,9 @@ class SceneScriptInitializationTransactionTests(unittest.TestCase):
         binary = compile_vector_harness(Path(cls.temporary.name), HARNESS, "initialization",
             extra_swift_sources=tuple([VM / "SceneScriptMediaFrameCoordinator.swift", *TIMELINE_SOURCES,
                 *PUPPET_SOURCES, SCENE_ROOT / "Systems/Puppet/ScenePuppetAnimationPlaybackRuntime.swift",
-                VM / "SceneScriptOwnerEffectsRuntimeValidation.swift"]), preamble=playback_preamble())
+                VM / "SceneScriptOwnerEffectsRuntimeValidation.swift"]), preamble=playback_preamble(),
+            whole_module_optimization=True,
+        )
         result = subprocess.run([str(binary)], capture_output=True, text=True)
         if result.returncode: raise AssertionError(result.stdout + result.stderr)
         cls.value = json.loads(result.stdout.strip().splitlines()[-1])

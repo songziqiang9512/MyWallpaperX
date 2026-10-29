@@ -144,7 +144,9 @@ final class AppDelegate:NSObject,NSApplicationDelegate,NSMenuItemValidation {
         func item(_ command:MainMenuCommand)->NSMenuItem{items.first{$0.identifier == command.identifier}!}
         func send(_ command:MainMenuCommand)->Bool {
             let entry=item(command)
-            return app.sendAction(entry.action!,to:entry.target,from:entry)
+            // Match this gate's controlled native focus leaf. The companion
+            // visible sheet gate exercises actual AppKit nil-target routing.
+            return app.sendAction(entry.action!,to:entry.target ?? MenuTestFocus.keyWindow?.firstResponder,from:entry)
         }
         func closeGroups(_ undo:UndoManager){while undo.groupingLevel > 0{undo.endUndoGrouping()}}
         var checks:[String:Bool]=[:]
@@ -153,6 +155,8 @@ final class AppDelegate:NSObject,NSApplicationDelegate,NSMenuItemValidation {
             && MainMenuCommand.allCases.allSatisfy{command in productItems.contains{$0.identifier == command.identifier}}
         checks["native-undo-redo-keep-standard-key-equivalents"] = item(.undo).keyEquivalent == "z" && item(.undo).keyEquivalentModifierMask == [.command]
             && item(.redo).keyEquivalent == "z" && item(.redo).keyEquivalentModifierMask == [.command,.shift]
+        checks["select-all-uses-native-responder-chain-without-app-interception"] = item(.selectAll).target == nil
+            && item(.selectAll).action == #selector(NSText.selectAll(_:)) && item(.selectAll).keyEquivalent == "a"
         checks["playlist-naming-and-original-key-equivalents-remain"] = item(.createPlaylist).title.contains("播放列表")
             && item(.createPlaylist).keyEquivalent == "n" && item(.addToPlaylist).keyEquivalent == "t"
             && item(.favorite).keyEquivalent == "d" && item(.importFiles).keyEquivalent == "o"

@@ -39,7 +39,11 @@ extension SceneMetalRenderer {
 
     /// Facts about this prepared output, never a decoder or promotion owner.
     struct InitialVideoPresentation {
+        var readyLayerIDs: Set<Int> = []
+        // Startup also waits for group inputs; the surface sets exclude them.
         var pendingLayerIDs: Set<Int> = []
+        var pendingSurfaceLayerIDs: Set<Int> = []
+        var hasUnavailableVideo = false
         var isComplete: Bool { pendingLayerIDs.isEmpty }
     }
 
@@ -48,13 +52,13 @@ extension SceneMetalRenderer {
     final class PreparedFrame: Equatable {
         let initialVideoPresentation: InitialVideoPresentation?
         private var commandBuffer: MTLCommandBuffer?
-        private var submitActions: (() -> Void)?
+        private var submitActions: ((Bool) -> Void)?
         private var cancelActions: (() -> Void)?
         private var completionObservers: [(Bool) -> Void] = []
 
         init(commandBuffer: MTLCommandBuffer,
              initialVideoPresentation: InitialVideoPresentation? = nil,
-             submit: @escaping () -> Void, cancel: @escaping () -> Void) {
+             submit: @escaping (Bool) -> Void, cancel: @escaping () -> Void) {
             self.initialVideoPresentation = initialVideoPresentation
             self.commandBuffer = commandBuffer
             submitActions = submit
@@ -64,6 +68,24 @@ extension SceneMetalRenderer {
         static func == (lhs: PreparedFrame, rhs: PreparedFrame) -> Bool { lhs === rhs }
 
         var isReady: Bool { commandBuffer?.status == .notEnqueued }
+
+        func shouldPresentVideoFrame(
+            readySources: Set<UUID>, pendingSources: Set<UUID>,
+            lastSubmittedPresentationSources: Set<UUID>, switchDeadline: inout TimeInterval?,
+            hostTime: TimeInterval
+        ) -> Bool {
+            guard initialVideoPresentation?.hasUnavailableVideo != true,
+                  !lastSubmittedPresentationSources.isEmpty,
+                  !pendingSources.isSubset(of: lastSubmittedPresentationSources),
+                  !lastSubmittedPresentationSources.isSubset(of: readySources.union(pendingSources)) else {
+                switchDeadline = nil
+                return true
+            }
+            let deadline = switchDeadline ?? hostTime + 0.250
+            // A rejected submission must not renew an already spent deadline.
+            switchDeadline = deadline
+            return hostTime >= deadline
+        }
 
 #if DEBUG
         func observeGPUStageSurface(frameIndex: UInt64, surfaceID: UInt32) {
@@ -82,7 +104,7 @@ extension SceneMetalRenderer {
             completionObservers.append(completion)
         }
 
-        fileprivate func submit() {
+        fileprivate func submit(present: Bool) {
             precondition(isReady)
 #if DEBUG
             if let observation = debugObservation, let commandBuffer {
@@ -104,7 +126,7 @@ extension SceneMetalRenderer {
             commandBuffer = nil
             submitActions = nil
             cancelActions = nil
-            action?()
+            action?(present)
         }
 
         func cancel() {
@@ -128,12 +150,12 @@ extension SceneMetalRenderer {
 
     /// Each display owns its submission. Resolve it before preparing another
     /// display so a shared-source FIFO never depends on an unsubmitted peer.
-    static func submitPreparedFrame(_ outcome: FrameOutcome) -> FrameOutcome {
+    static func submitPreparedFrame(_ outcome: FrameOutcome, present: Bool = true) -> FrameOutcome {
         guard case let .prepared(candidate) = outcome else { return outcome }
         guard candidate.isReady else {
             return .dropped(reasonCode: "prepared-frame-already-resolved")
         }
-        candidate.submit()
+        candidate.submit(present: present)
         return .submitted
     }
 

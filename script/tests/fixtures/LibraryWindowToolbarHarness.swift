@@ -99,10 +99,11 @@ extension WallpaperLibraryCatalog { var catalog: Self { self } }
         return { [weak self] in self?.favoriteReceipts.append((fixed, removing)) }
     }
     func playDisplayed(random: Bool = false) { if random { randoms += 1 } else { plays += 1 } }
-    func contextMenu(for items: [WallpaperContentItem]) -> NSMenu? {
+    func contextMenu(for items: [WallpaperContentItem], includeFavorite: Bool = true) -> NSMenu? {
         guard !items.isEmpty else { return nil }
         let menu = NSMenu()
         menu.addItem(ActionMenuItem(title: "固定内容操作", symbol: "info.circle") {})
+        if includeFavorite { menu.addItem(ActionMenuItem(title: "特别喜爱", symbol: "heart") {}) }
         if let choices = makePlaylistMenu() {
             let add = NSMenuItem(title: "添加到列表", action: nil, keyEquivalent: "")
             add.submenu = choices; menu.addItem(add)
@@ -453,7 +454,7 @@ extension WallpaperLibraryCatalog { var catalog: Self { self } }
         let nativeSort = item("sort") as! NSMenuToolbarItem, sorts = menu("sort")
         checks["native-default-video-sort-checkmark-and-direction"] = sorts.items.first { $0.title == "默认顺序" }?.state == .on
             && sorts.items.first { $0.title == "改为降序" }?.isEnabled == false
-        let staleSort = sorts.items.first { $0.title == "名称" }!
+        let staleSort = sorts.items.first { $0.title == "文件名称" }!
         page(.images)
         checks["image-toolbar-keeps-the-same-five-role-groups"] = actionGroups() == [["importFiles", "select"],
             ["remove", "favorite", "more"], ["sort"], ["zoom"], ["search"]]
@@ -463,12 +464,12 @@ extension WallpaperLibraryCatalog { var catalog: Self { self } }
         checks["image-toolbar-has-no-playback-or-navigation-commands"] = !controller.toolbar.items.contains { ["play", "random", "previous", "next"].contains($0.itemIdentifier.rawValue) } && commands.manager.manual.isEmpty && commands.manager.adjacent.isEmpty
         page(.downloads)
         checks["downloads-has-one-generic-task-group-without-provider-account"] = actionGroups() == [["downloadTasks"],
-            ["select", "remove", "more"], ["filter", "sort"], ["zoom"], ["search"]]
+            ["select"], ["remove", "favorite", "more"], ["filter", "sort"], ["zoom"], ["search"]]
         checks["native-title-metadata-and-accessibility-follow-downloads-page"] = titleMetadataMatches("我的下载", summary: "显示 2 / 共 2 张壁纸")
         let downloadSort = menu("sort")
-        checks["default-download-order-is-newest-first-with-native-checkmark"] = downloadSort.items.first { $0.title == "本地记录时间" }?.state == .on
+        checks["default-download-order-is-newest-first-with-native-checkmark"] = downloadSort.items.first { $0.title == "创建时间" }?.state == .on
             && downloadSort.items.contains { $0.title == "改为升序" }
-        invoke(downloadSort, "名称")
+        invoke(downloadSort, "文件名称")
         checks["choosing-sort-preserves-default-download-descending-direction"] = workspace.presentation.queryState.sort == .name && !workspace.presentation.queryState.ascending
         let adultMenu = menu("filter"), oldAdult = menu("filter").items.first { $0.title == "显示成人内容" }!
         checks["downloads-adult-filter-reflects-the-original-page-query"] = adultMenu.items.first { $0.title == "显示成人内容" }?.state == .on
@@ -480,6 +481,8 @@ extension WallpaperLibraryCatalog { var catalog: Self { self } }
             && !adultMenu.items.contains { ["正在下载或更新", "下载或更新失败"].contains($0.title) }
         _ = workspace.presentation.setSelection([pixabay.reference], focused: pixabay.reference, isSelecting: false); controller.refresh()
         checks["downloads-more-is-enabled-only-with-an-actual-current-selection"] = item("more").isEnabled && item("remove").isEnabled
+        checks["downloads-has-the-shared-heart-without-a-duplicate-more-action"] = item("favorite").isEnabled
+            && item("favorite").image != nil && !menu("more").items.contains { $0.title == "特别喜爱" }
         checks["downloads-more-has-no-retired-manual-refresh"] = !menu("more").items.contains { $0.title == "刷新文件状态" }
         _ = trigger("downloadTasks")
         checks["downloads-button-opens-the-single-generic-manager"] = downloads.popover.opens == 1
@@ -504,7 +507,7 @@ extension WallpaperLibraryCatalog { var catalog: Self { self } }
         checks["native-filter-checkmarks-reflect-all-independent-values"] = ["Pixabay", "视频（1）", "可播放"].allSatisfy { name in filtered.items.first { $0.title == name }?.state == .on }
         controller.refresh()
         checks["active-filter-and-current-sort-remain-readable-without-opening-menus"] = item("filter").toolTip?.contains("Pixabay") == true
-            && item("filter").toolTip?.contains("可播放") == true && item("sort").toolTip?.contains("名称") == true
+            && item("filter").toolTip?.contains("可播放") == true && item("sort").toolTip?.contains("文件名称") == true
         checks["local-title-help-distinguishes-current-results-from-the-unfiltered-page"] = titleMetadataMatches("我的下载", summary: "显示 1 / 共 2 张壁纸")
         invoke(filtered, "全部来源")
         checks["all-sources-restores-provider-union-without-clearing-kind-or-status"] = workspace.presentation.queryState.provider == nil
@@ -561,7 +564,7 @@ extension WallpaperLibraryCatalog { var catalog: Self { self } }
         let returnOverflow = item("back").menuFormRepresentation!
         _ = app.sendAction(returnOverflow.action!, to: returnOverflow.target, from: returnOverflow)
         checks["directory-return-overflow-runs-the-captured-action"] = returns == 2
-        let heldSort = menu("sort").items.first { $0.title == "名称" }!
+        let heldSort = menu("sort").items.first { $0.title == "文件名称" }!
         let heldFilter = menu("filter").items.first { $0.title == "Pixabay" }!
         let sheet = NSPanel(contentRect: NSRect(x: 0, y: 0, width: 300, height: 200), styleMask: [.titled], backing: .buffered, defer: false)
         window.beginSheet(sheet, completionHandler: { _ in }); controller.refresh(); settle()
@@ -875,7 +878,7 @@ extension WallpaperLibraryCatalog { var catalog: Self { self } }
         window.setContentSize(NSSize(width: 360, height: 560)); settle()
         _ = menu("sort")
         checks["native-overflow-preserves-menu-representation-and-enabled-sort-actions"] = (controller.toolbar.visibleItems?.count ?? 0) < controller.toolbar.items.count
-            && nativeSort.menuFormRepresentation?.submenu === nativeSort.menu && nativeSort.menu.items.contains { $0.title == "名称" && $0.isEnabled }
+            && nativeSort.menuFormRepresentation?.submenu === nativeSort.menu && nativeSort.menu.items.contains { $0.title == "文件名称" && $0.isEnabled }
         checks["old-playlist-id-is-not-reused-after-reset"] = workspace.relationships.playlists.allSatisfy { $0.id != list }
         print(String(data: try JSONSerialization.data(withJSONObject: checks, options: [.sortedKeys]), encoding: .utf8)!)
     }

@@ -39,6 +39,11 @@ enum SceneResolvedMaterialRuntimeBridge {
 }
 enum SceneResolvedMaterialFrameResourceBundle {}
 final class SceneMetalRenderer {}
+enum SceneGPUStageTimestampHook {
+    static func surface(_ buffer: MTLCommandBuffer, frameIndex: UInt64, surfaceID: UInt32) {
+        fatalError("capture probe must not enter GPU timestamp observation")
+    }
+}
 @main enum Harness {
     static func check(_ condition: @autoclosure () -> Bool, _ message: String) {
         guard condition() else { fatalError(message) }
@@ -241,13 +246,13 @@ final class SceneMetalRenderer {}
             let source = texture(device)
             capture.request(reason: "cancel", outputDirectory: dir)
             let cancelled = queue.makeCommandBuffer()!
-            let candidate = SceneMetalRenderer.PreparedFrame(commandBuffer: cancelled, submit: {
+            let candidate = SceneMetalRenderer.PreparedFrame(commandBuffer: cancelled, submit: { _ in
                 capture.encodeIfRequested(texture: source, commandBuffer: cancelled); cancelled.commit()
             }, cancel: {})
             candidate.cancel()
             check(SceneResourceBudget.shared.snapshot.residentBytes == baseline && events.snapshot.isEmpty, "cancel consumed or allocated")
             let next = queue.makeCommandBuffer()!
-            let nextFrame = SceneMetalRenderer.PreparedFrame(commandBuffer: next, submit: {
+            let nextFrame = SceneMetalRenderer.PreparedFrame(commandBuffer: next, submit: { _ in
                 capture.encodeIfRequested(texture: source, commandBuffer: next); next.commit()
             }, cancel: {})
             check(SceneMetalRenderer.submitPreparedFrame(.prepared(nextFrame)).isSubmitted, "next submit")

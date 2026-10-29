@@ -228,7 +228,7 @@ class SceneFrameVMRoutingTests(unittest.TestCase):
         # launch-frozen token is compared instead, and configure only runs
         # for the token-less bootstrap path.
         self.assertIn(
-            "videoSnapshots: [Int: SceneScriptVideoPlaybackSnapshot] = [:]",
+            "videoSnapshots: SceneScriptVideoFrameSnapshot = .empty",
             runtime_fields[runtime_fields.index("func publishLayerSnapshot("):],
         )
         self.assertIn("catalogToken: String? = nil", runtime_fields)

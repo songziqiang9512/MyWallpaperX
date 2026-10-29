@@ -512,7 +512,7 @@ enum SceneDocumentLoader {
             propertyRevision:0,targetFilter:definition.target,frame:frame(3),userPropertiesJSON:f.userJSON)
         let peerLate=effects(try run(healthy,f,3).get(),healthy)
         let latePlan=layers.preflightOwnerEffectsToFixedPoint(late.ownerEffects+[peerLate],
-            excludingOwners:[definition.target],rejectingExternally:{_ in []})
+            excludingOwners:[definition.target],rejectingExternally:{_, _ in []})
         let lateExpected=[103]+base.filter{$0 != 103}+[id]
         layers.commit(latePlan.admission.layerPlan)
         f.program.finalizeLayerMutations(committing:true,rejectedOwnerTargets:[definition.target]);healthy.commitLayerMutations()
@@ -542,7 +542,7 @@ enum SceneDocumentLoader {
         let healthyEffect=effects(try run(healthy,f).get(),healthy)
         let candidates=(try? created.get()).map{[effects($0,owner),healthyEffect]} ?? [healthyEffect]
         let accepted=layers.preflightOwnerEffectsToFixedPoint(candidates,
-            excludingOwners:throwsParent ? []:[owner.target],rejectingExternally:{_ in []})
+            excludingOwners:throwsParent ? []:[owner.target],rejectingExternally:{_, _ in []})
         layers.commit(accepted.admission.layerPlan);owner.discardLayerMutations();healthy.commitLayerMutations()
         let adopted=f.program.adoptCommittedPreparedTextClones(frame:frame(1),
             liveTextTemplates:accepted.admission.layerPlan.textTemplateIdentitiesByLayerID)
@@ -562,7 +562,7 @@ enum SceneDocumentLoader {
         let healthyEffect=effects(try run(healthy,f).get(),healthy)
         let candidates=(try? created.get()).map{[effects($0,owner),healthyEffect]} ?? [healthyEffect]
         let result=layers.preflightOwnerEffectsToFixedPoint(candidates,
-            excludingOwners:mode == "late" ? [owner.target]:[],rejectingExternally:{_ in []})
+            excludingOwners:mode == "late" ? [owner.target]:[],rejectingExternally:{_, _ in []})
         layers.commit(result.admission.layerPlan)
         if mode == "accepted" { owner.commitLayerMutations() } else { owner.discardLayerMutations() }
         healthy.commitLayerMutations()
@@ -772,7 +772,9 @@ class PreparedTextCloneTests(unittest.TestCase):
         cls.addClassCleanup(cls.directory.cleanup)
         binary = compile_vector_harness(Path(cls.directory.name), HARNESS, "prepared-text", preamble=PREAMBLE,
             extra_swift_sources=(ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Systems/Text/SceneTextDescriptor.swift",
-                Path(__file__).parent / "fixtures/SceneScriptBooleanTextCloneChecks.swift"))
+                Path(__file__).parent / "fixtures/SceneScriptBooleanTextCloneChecks.swift"),
+            whole_module_optimization=True,
+        )
         execution = subprocess.run([str(binary)], capture_output=True, text=True, check=True)
         cls.result = json.loads(execution.stdout)
 

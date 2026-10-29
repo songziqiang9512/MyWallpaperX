@@ -11,7 +11,6 @@ nonisolated enum SceneScriptBooleanVisibilityValidation {
         target: SceneDynamicTarget,
         allowsLayerSideEffects: Bool,
         retainsVisibilityMutation: Bool,
-        dynamicImagePathsByAuthoredIdentity: [String: String],
         value publishedValue: SceneDynamicValue,
         mutations: [SceneScriptLayerMutation]
     ) -> Result<Resolution, SceneScriptScalarRuntimeFailure> {
@@ -88,33 +87,11 @@ nonisolated enum SceneScriptBooleanVisibilityValidation {
                 }
                 continue
             }
-            // Text creation has no image/model path. Its prepared template,
-            // fields and lifetime are validated by the shared topology owner,
-            // just as for other value types. Only resource-backed mutations
-            // need this authored image alias resolution.
-            guard let assetPath = mutation.assetPath else {
-                resolved.append(mutation)
-                continue
-            }
-            guard let modelPath = preparedModelPath(
-                    for: assetPath,
-                    in: dynamicImagePathsByAuthoredIdentity
-                  ) else {
-                return .failure(.invalidArgument(
-                    "Boolean dynamic-layer owner requested an unprepared asset"
-                ))
-            }
-            resolved.append(mutation.resolvingAssetPath(to: modelPath))
+            // C resolves authored aliases at construction. Shared topology
+            // admission alone qualifies every prepared resource kind.
+            resolved.append(mutation)
         }
         return .success((.bool(visible), resolved))
     }
 
-    private static func preparedModelPath(
-        for assetPath: String,
-        in paths: [String: String]
-    ) -> String? {
-        let normalized = assetPath.lowercased()
-        return paths[normalized]
-            ?? paths.values.first { $0.lowercased() == normalized }
-    }
 }

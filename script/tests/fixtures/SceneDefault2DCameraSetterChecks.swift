@@ -404,7 +404,7 @@ extension SceneDefault2DCameraInputChecks {
         fixture.layers.commit(forward.layerPlan)
         let fixed = fixture.layers.preflightOwnerEffectsToFixedPoint(
             [effect(a,[command(80,40)]),effect(b,[],layers:[layer(9,0.4,owner:b)])],
-            rejectingExternally: { _ in [a] })
+            rejectingExternally: { _, _ in [a] })
         fixture.layers.commit(fixed.admission.layerPlan)
         facts["external-rejection-retains-previous-current-without-replay"] = fixed.externallyRejectedOwners == [a]
             && fixture.layers.snapshot().authoredLayerValues[.camera(.eye)] == .vector3(20,0,0)

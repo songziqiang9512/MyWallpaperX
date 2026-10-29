@@ -18,7 +18,7 @@ ROOT = Path(__file__).resolve().parents[2]
 class ImportedVideoAdmissionTests(unittest.TestCase):
     def test_admission_async_import_stop_failure_and_queued_navigation(self):
         source = product_harness().replace('struct VideoWallpaper {let path:String;var id:String{path}}', '')
-        source = source.replace('import Foundation', 'import AppKit\nimport QuartzCore\nimport CryptoKit\nimport Foundation', 1)
+        source = source.replace('import Foundation', 'import AppKit\nimport QuartzCore\nimport CryptoKit\nimport UniformTypeIdentifiers\nimport Foundation', 1)
         source = source.replace('var autoSwitchEnabled=true,randomInterval=', 'var volume: Double = 100\n        var autoSwitchEnabled=true,randomInterval=')
         normalized = declaration((MANAGER / 'WallpaperManager.swift').read_text(), '    func normalizedPath(')
         source = source.replace('func normalizedPath(_ path:String)->String{path}', normalized.strip(), 1)
@@ -86,6 +86,7 @@ class ImportedVideoAdmissionTests(unittest.TestCase):
             'func downloadAndSet(', 'private func postReadyToPlay(', 'func setLocalFileAsWallpaper(',
             'private func existingDownloadedURL(', 'private func publishDownloadedContent(',
         ])
+        online_methods += '\n' + declaration(pixabay, '    static var legacyDownloadDirectory:')
         support = (ROOT / 'script/tests/fixtures/ImportedVideoAdmissionSupport.swift').read_text()
         support = support.replace('// IMPORT_AND_APPLY_METHODS', methods).replace('// ONLINE_METHODS', online_methods)
         support = support.replace('// IMPORT_CACHE_METHODS', video_import_cache_methods(ROOT))

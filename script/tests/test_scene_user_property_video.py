@@ -51,7 +51,8 @@ class SceneUserPropertyVideoGPUTests(unittest.TestCase):
         fixture_text = fixture.read_text()
         if fixture_text.count("@main enum Harness {") != 1:
             raise RuntimeError("material video fixture entry point changed")
-        support.write_text(fixture_text.replace("@main enum Harness {", "enum MaterialVideoFixtureSupport {"))
+        carriers, _ = material.video_carrier_source(SCENE)
+        support.write_text("import Foundation\n" + carriers + "\n" + fixture_text.replace("@main enum Harness {", "enum MaterialVideoFixtureSupport {"))
         cls.environment = os.environ.copy()
         cls.environment["CLANG_MODULE_CACHE_PATH"] = str(cls.work / "clang-cache")
         home = cls.work / "home"
@@ -94,6 +95,12 @@ class SceneUserPropertyVideoGPUTests(unittest.TestCase):
         for variant in result["variants"]:
             with self.subTest(property=variant["property"]):
                 self.assertTrue(variant["checks"])
+                self.assertTrue({
+                    "ordinaryConsumersSharePreparedSourceAndFile", "retiringOneConsumerKeepsBackendAdvancing",
+                    "sameSourceBirthActionsRetireKeepsNetDemand", "zeroOrdinaryConsumersPauseOnlyBackend",
+                    "unusedSourceKeepsLogicalPlaybackIntent", "returningConsumerKeepsLastReadyDuringPositioning",
+                    "returningConsumerPublishesCurrentPhase",
+                } <= variant["checks"].keys())
                 for name, passed in variant["checks"].items():
                     self.assertTrue(passed, (name, variant))
                 self.assertGreater(variant["frames"], 10)

@@ -54,8 +54,8 @@ struct SceneSoundPlaybackProgram {
         let domain = try SceneScriptQuickJSDomain(); try domain.configureLayerCatalog(descriptor)
         func publish(_ sound: [Int: Bool], pending: Bool = false) throws {
             try domain.publishLayerSnapshot(.empty(frameIndex: 0), descriptor: descriptor,
-                videoSnapshots: [2: .init(layerID: 2, duration: 5, rate: 1, loop: true,
-                    currentTime: 0, isPlaying: true, endedGeneration: 0)],
+                videoSnapshots: .init(sources: [SceneScriptVideoPlaybackSnapshot(sourceIncarnation: UUID(uuidString: "00000000-0000-0000-0000-000000000002")!, duration: 5, rate: 1, loop: true,
+                    currentTime: 0, isPlaying: true, endedGeneration: 0)], layerBindings: [2: 0]),
                 soundPlaybackSnapshots: sound, runtimeFieldLayerIDs: [], awaitingHostFrameOutcome: pending)
         }
         func owner(_ source: String) throws -> SceneScriptValueOwner {
@@ -100,6 +100,7 @@ struct SceneSoundPlaybackProgram {
         let commands = evaluated.mediaPlaybackCommands
         result["typed_order"] = commands.map(\.destination) == [.soundLayer,.soundLayer,.soundLayer,.videoTexture,.soundLayer]
             && commands.map(\.action) == [.play,.pause,.stop,.pause,.play]
+            && commands.map(\.videoSourceIncarnation) == [nil,nil,nil,UUID(uuidString:"00000000-0000-0000-0000-000000000002")!,nil]
         result["evaluation_has_no_player_effect"] = registry.sceneScriptSnapshots()[1] == false
         author.discardLayerMutations()
         _ = try registry.apply(commands.filter { $0.destination == .soundLayer }).get()
@@ -172,6 +173,7 @@ struct SceneSoundPlaybackProgram {
         result["stateful_bool_controls_media"] = controlled.value == .bool(true)
             && controlled.mediaPlaybackCommands.map(\.destination) == [.soundLayer,.soundLayer,.soundLayer,.videoTexture,.videoTexture,.videoTexture]
             && controlled.mediaPlaybackCommands.map(\.action) == [.play,.pause,.stop,.play,.pause,.stop]
+            && controlled.mediaPlaybackCommands.map(\.videoSourceIncarnation) == [nil,nil,nil,UUID(uuidString:"00000000-0000-0000-0000-000000000002")!,UUID(uuidString:"00000000-0000-0000-0000-000000000002")!,UUID(uuidString:"00000000-0000-0000-0000-000000000002")!]
         stateful.discardLayerMutations()
         let held = try owner("""
             let sound;
@@ -207,7 +209,9 @@ class SceneSoundScriptCommandsTests(unittest.TestCase):
                 stream.setframerate(44100)
                 stream.writeframes(b"\0\0" * 44100)
             binary = compile_vector_harness(root, HARNESS, "sound-script", extra_swift_sources=(
-                SCENE / "Systems/Media/SceneSoundPlaybackRegistry.swift",))
+                SCENE / "Systems/Media/SceneSoundPlaybackRegistry.swift",),
+                whole_module_optimization=True,
+            )
             run = subprocess.run([str(binary), str(audio)], capture_output=True, text=True, timeout=30)
             self.assertEqual(run.returncode, 0, run.stderr)
             facts = json.loads(run.stdout)

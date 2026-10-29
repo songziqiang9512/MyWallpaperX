@@ -73,6 +73,7 @@ static bool configure_child(MWXSceneQuickJSOwner *child, MWXSceneQuickJSTextTemp
     if (!reference || reference->domain != domain) return false;
     child->target_layer_index=index; child->target_layer_configured=true;
     reference->layer_index=index; reference->owner_target=false;
+    reference->expected_layer_id=child->text_clone_layer_id;
     // createLayer(text/font/...) creates a fresh text leaf, not a copy of the
     // source layer's effect or timeline consumers. thisObject is that leaf.
     child->property_object_is_layer=true;

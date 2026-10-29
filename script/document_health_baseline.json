@@ -66,7 +66,7 @@
     },
     "docs/scene/architecture/runtime-architecture.md": {
       "lines": 600,
-      "bytes": 134673
+      "bytes": 135064
     },
     "docs/scene/architecture/runtime-as-built-map.md": {
       "lines": 158,
@@ -129,8 +129,8 @@
       "bytes": 10776
     },
     "docs/scene/capabilities/material-video-assets.md": {
-      "lines": 37,
-      "bytes": 7388
+      "lines": 48,
+      "bytes": 9941
     },
     "docs/scene/capabilities/particle-component-coverage.md": {
       "lines": 509,
@@ -150,7 +150,7 @@
     },
     "docs/scene/capabilities/runtime-evidence-current.md": {
       "lines": 600,
-      "bytes": 220733
+      "bytes": 220335
     },
     "docs/scene/capabilities/runtime-input-property-coverage.md": {
       "lines": 600,
@@ -166,15 +166,15 @@
     },
     "docs/scene/capabilities/scene-corpus-capability-inventory.md": {
       "lines": 247,
-      "bytes": 46598
+      "bytes": 47486
     },
     "docs/scene/capabilities/scene-corpus-sample-inventory.md": {
-      "lines": 388,
-      "bytes": 34298
+      "lines": 468,
+      "bytes": 42037
     },
     "docs/scene/capabilities/scene-sample-acceptance-ledger.md": {
-      "lines": 436,
-      "bytes": 98139
+      "lines": 515,
+      "bytes": 118353
     },
     "docs/scene/capabilities/scene-sample-debug-ledger.md": {
       "lines": 534,
@@ -182,7 +182,7 @@
     },
     "docs/scene/capabilities/scenescript-api-coverage.md": {
       "lines": 419,
-      "bytes": 116578
+      "bytes": 116791
     },
     "docs/scene/capabilities/static-source-draw-only-degradation.md": {
       "lines": 54,
@@ -193,8 +193,8 @@
       "bytes": 3517
     },
     "docs/scene/development/corpus-diagnostic-workflow.md": {
-      "lines": 55,
-      "bytes": 5455
+      "lines": 105,
+      "bytes": 13605
     },
     "docs/scene/development/development-workflow.md": {
       "lines": 78,
@@ -249,8 +249,8 @@
       "bytes": 5522
     },
     "docs/scene/roadmap/batch2/script-component-api-design.md": {
-      "lines": 600,
-      "bytes": 166488
+      "lines": 598,
+      "bytes": 160309
     },
     "docs/scene/roadmap/batch2/system-media-input-design.md": {
       "lines": 59,
@@ -266,7 +266,7 @@
     },
     "docs/scene/roadmap/performance-convergence-card.md": {
       "lines": 70,
-      "bytes": 18924
+      "bytes": 19177
     },
     "docs/scene/roadmap/properties-panel-card.md": {
       "lines": 45,
@@ -277,8 +277,8 @@
       "bytes": 22423
     },
     "docs/scene/roadmap/scene-open-breakpoint-queue.md": {
-      "lines": 168,
-      "bytes": 33588
+      "lines": 175,
+      "bytes": 37166
     },
     "docs/web/cold-descriptor-parse-offload-design.md": {
       "lines": 30,
@@ -326,11 +326,11 @@
     },
     "docs/development/main-window-playlists-redesign.md": {
       "lines": 592,
-      "bytes": 108119
+      "bytes": 109061
     },
     "docs/development/status-bar-panel-redesign.md": {
       "lines": 119,
-      "bytes": 18993
+      "bytes": 19123
     },
     "docs/development/wallhaven-online-browser-design.md": {
       "lines": 262,
@@ -341,8 +341,8 @@
       "bytes": 23241
     },
     "docs/development/ui-quality-audit.md": {
-      "lines": 116,
-      "bytes": 20837
+      "lines": 141,
+      "bytes": 26808
     },
     "docs/development/lock-screen-screensaver-design.md": {
       "lines": 83,
@@ -1435,15 +1435,6 @@
     },
     {
       "section": "bodies",
-      "path": "docs/scene/architecture/runtime-architecture.md",
-      "before": "4f9eb7fc04d43e36f36d64f34dd3bb8f40afbd6e8179212138d9ef6380785bf3",
-      "after": "851be0006cec6ef0eb85d82cf9a45f1a6b6494b34f75fd7bfa665374291ba640",
-      "owner": "Scene模型准备与运行架构",
-      "reason": "P20退役模型64部件/4096路径固定政策；同步实际Root/Builder/native正反例、原输入对照、当前边界和治理指针，其他预算不变。",
-      "decision": "docs/development/validation-simplification-plan.md#p20-mdl-policy-retirement"
-    },
-    {
-      "section": "bodies",
       "path": "docs/scene/architecture/runtime-as-built-map.md",
       "before": "c67828ee5b8bb077f95a301262d941a85399d77d2eba411ea07088f73716772a",
       "after": "e9157f09976a8c38b9cd73c24d1af0046a1c077df1742329a8c790cdca06654c",
@@ -1468,15 +1459,6 @@
       "owner": "Scene启动接线导航",
       "reason": "将旧完整过程归档，保当前来源/准备/首帧/退休接线与现役合同入口；按实际正文收紧未提交预算，验证状态指向唯一精简方案。",
       "decision": "docs/development/validation-simplification-plan.md#已证问题与裁决"
-    },
-    {
-      "section": "bodies",
-      "path": "docs/scene/roadmap/performance-convergence-card.md",
-      "before": "1eaf31cac58289626d7639d442d7ca145ec9d29e6f322e6d2af08a306e517047",
-      "after": "fea8d0e8f7875d4e629081a03120fceaa0a2fccf7029b29f4d6506dfdc7aa78b",
-      "owner": "Scene性能路线导航",
-      "reason": "用旧专项已结算及其未覆盖范围替换继续实施的旧入口，保当前路线职责；文档指针增长不授新性能结论。",
-      "decision": "docs/development/wallpaper-startup-optimization-plan.md#decision"
     },
     {
       "section": "bodies",
@@ -1549,15 +1531,6 @@
       "owner": "main-window-playlists-design",
       "reason": "完整保留新10项之前U/A/N15方案及候选收据，避免旧堆叠/取消返回/取色与当前裁决混用；历史banner注明真实崩溃终态。",
       "decision": "docs/development/main-window-playlists-redesign.md#documentation-decision"
-    },
-    {
-      "section": "bodies",
-      "path": "docs/development/status-bar-panel-redesign.md",
-      "before": "135d441bae50ba167bc4f3801047658ddf9a342ebe4842240f0464b9fe9ea9b3",
-      "after": "bdeef0b46815519d21eea3412f3f552be42b102306c4a27704a4509ed8da266f",
-      "owner": "UI22",
-      "reason": "UI22增加封面过渡唯一实施与验证入口，不复制工作卡或改变面板尺寸合同。",
-      "decision": "docs/development/ui-quality-audit.md#ui22-scope"
     },
     {
       "section": "bodies",
@@ -1723,33 +1696,6 @@
     },
     {
       "section": "bodies",
-      "path": "docs/development/ui-quality-audit.md",
-      "before": "b48694887e37a94728fff87bed9454f352ee3e32d4b6431f793de087763ba1ec",
-      "after": "2c188a70ae3ca836e287520c62ce60db31c88fd92fb95e541de173fb25ce9957",
-      "owner": "manual-random-20261028",
-      "reason": "记录本轮随机入口修复、实际两导航门范围，以及按用户指示撤回全部Video候选和停止调查；不把失败或旧验证冒充通过。",
-      "decision": "docs/development/ui-quality-audit.md#playback-feedback-20261028"
-    },
-    {
-      "section": "bodies",
-      "path": "docs/development/main-window-playlists-redesign.md",
-      "before": "4543b9f2a268c3c1a4f54627968fc4ce8d0ec00f687f2b51e4188a2fb1e2dd0b",
-      "after": "b87612d74b924862f4ac5a49bce42ef542a45363fabfeea2818e804a2059a9ac",
-      "owner": "manual-random-20261028",
-      "reason": "按用户明确反馈统一菜单栏与快捷键的随机历史语义，替换旧按入口强制相邻的冲突规则。",
-      "decision": "docs/development/ui-quality-audit.md#playback-feedback-20261028"
-    },
-    {
-      "section": "bodies",
-      "path": "docs/scene/capabilities/scenescript-api-coverage.md",
-      "before": "1c0264b7769fd218434618c9d56a0ea9810eaba745296d7e78bec56fd0c64b7d",
-      "after": "fe4dd86e689c36f793a7cb3bd6bad0e90eab2256ce5248cda8ad7469aee43dab",
-      "owner": "Scene translation gravity closeout",
-      "reason": "显式平移重力接原唯一Motion并以三包重复交互收尾；修正过时U40状态与重复API行，压缩已闭Color输入过程保持设计600行，保所有独立边界和证据可用性。",
-      "decision": "docs/scene/history/puppet-linear-impulse-2026-10-28.md#translation-gravity-20261028"
-    },
-    {
-      "section": "bodies",
       "path": "docs/scene/roadmap/batch2/script-component-api-design.md",
       "before": "b9a667ca0a7a2666c179f223b594dade5da64eb7871bb211144ccb249d74094e",
       "after": "aeb6af0714484f071051218610ffbfb6d768dfa382918db058bc329fb56329cc",
@@ -1777,21 +1723,120 @@
     },
     {
       "section": "bodies",
+      "path": "docs/development/ui-quality-audit.md",
+      "before": "2c188a70ae3ca836e287520c62ce60db31c88fd92fb95e541de173fb25ce9957",
+      "after": "e00ed36d30540385dcc4e86f74d4cc22ae6812ed658cf2eb59ce904071cb976e",
+      "owner": "UI23",
+      "reason": "落实用户九项UI修复的现役规则、调用边界和逐卡验证状态；替换旧选择/最近移除/进程范围规则，保留前轮证据。",
+      "decision": "docs/development/ui-quality-audit.md#ui23-scope"
+    },
+    {
+      "section": "bodies",
+      "path": "docs/development/main-window-playlists-redesign.md",
+      "before": "b87612d74b924862f4ac5a49bce42ef542a45363fabfeea2818e804a2059a9ac",
+      "after": "e628f9df840b1c5bfb34fcc13f338f57766e6cd44b8ac5e2b05ad56623893fdc",
+      "owner": "UI23",
+      "reason": "落实用户九项UI修复的现役规则、调用边界和逐卡验证状态；替换旧选择/最近移除/进程范围规则，保留前轮证据。",
+      "decision": "docs/development/ui-quality-audit.md#ui23-scope"
+    },
+    {
+      "section": "bodies",
+      "path": "docs/development/status-bar-panel-redesign.md",
+      "before": "bdeef0b46815519d21eea3412f3f552be42b102306c4a27704a4509ed8da266f",
+      "after": "9a94d92cd91c48ab6133d6dab3baf15fa36c845bf3b992b03efb46ec683256ca",
+      "owner": "UI23",
+      "reason": "落实用户九项UI修复的现役规则、调用边界和逐卡验证状态；替换旧选择/最近移除/进程范围规则，保留前轮证据。",
+      "decision": "docs/development/ui-quality-audit.md#ui23-scope"
+    },
+    {
+      "section": "bodies",
+      "path": "docs/scene/capabilities/material-video-assets.md",
+      "before": "2c31888e57a2741d6f1016f4c0fe50feae56fa5f4d966596f93dbaf00070bd6c",
+      "after": "f6e39762fbd800f923245998375c6a8975f87511bcd469263bfd81a9cb44459f",
+      "owner": "scene-video-runtime",
+      "reason": "新增通用动态MP4和真实视频替换的有界呈现合同，同步当前能力及AV池剩余；设计先落库，原修复过程归历史，未扩官方未知。",
+      "decision": "docs/scene/capabilities/material-video-assets.md#video-switch-presentation"
+    },
+    {
+      "section": "bodies",
+      "path": "docs/scene/capabilities/scenescript-api-coverage.md",
+      "before": "fe4dd86e689c36f793a7cb3bd6bad0e90eab2256ce5248cda8ad7469aee43dab",
+      "after": "adc22dc3e705a7cc5f3e25c4d02dc6393e2c7ef7b4418004c01710e6bbf3f72f",
+      "owner": "scene-video-runtime",
+      "reason": "新增通用动态MP4和真实视频替换的有界呈现合同，同步当前能力及AV池剩余；设计先落库，原修复过程归历史，未扩官方未知。（整合主仓798660e7已提交预算，合并前父提交00d6be459；正文沿主仓保留，本专项不扩大Scene能力。）",
+      "decision": "docs/scene/capabilities/material-video-assets.md#video-switch-presentation"
+    },
+    {
+      "section": "bodies",
+      "path": "docs/scene/roadmap/performance-convergence-card.md",
+      "before": "fea8d0e8f7875d4e629081a03120fceaa0a2fccf7029b29f4d6506dfdc7aa78b",
+      "after": "bb7499f0f414fa3b05d705addfd69bd0bb20fb28098f1c11b7b35d75b94dda7b",
+      "owner": "scene-video-runtime",
+      "reason": "新增通用动态MP4和真实视频替换的有界呈现合同，同步当前能力及AV池剩余；设计先落库，原修复过程归历史，未扩官方未知。",
+      "decision": "docs/scene/capabilities/material-video-assets.md#video-switch-presentation"
+    },
+    {
+      "section": "bodies",
+      "path": "docs/scene/capabilities/scene-corpus-capability-inventory.md",
+      "before": "d38d6228b282e4b2020a67538eea2d17324f7f0913ed9058a33dca8be65ef705",
+      "after": "d6faa722ab2d681cedcbe76e7617d83d81f037348e37d7160138ae1ab46fdcac",
+      "owner": "scene-corpus-diagnostics",
+      "reason": "Replace stale corpus status with one current declaration/run join and log-only parallel workflow; preserve unknown/visual boundaries and old human verdicts.",
+      "decision": "docs/scene/development/corpus-diagnostic-workflow.md#log-first-corpus-audit"
+    },
+    {
+      "section": "bodies",
+      "path": "docs/scene/capabilities/scene-corpus-sample-inventory.md",
+      "before": "259e5194f4bd534b7eb5af6e27ca7a64c7f78e3d827410f9b334b6f85ee4c003",
+      "after": "be816f570e28b687d1aa16b0718dd5eab7ed6896802ef2b0f6fd0d460c72cc60",
+      "owner": "scene-corpus-diagnostics",
+      "reason": "Replace stale corpus status with one current declaration/run join and log-only parallel workflow; preserve unknown/visual boundaries and old human verdicts.",
+      "decision": "docs/scene/development/corpus-diagnostic-workflow.md#log-first-corpus-audit"
+    },
+    {
+      "section": "bodies",
+      "path": "docs/scene/development/corpus-diagnostic-workflow.md",
+      "before": "609cbdcf92861fee4dbd8f90e212a20213227b0884ffc7c2e79b960c0b61c0b7",
+      "after": "691cb1d8d09f9877b65fd6f0dcb068d2d022d6525b9c4d5d0c50bc2a46198e85",
+      "owner": "scene-corpus-diagnostics",
+      "reason": "Replace stale corpus status with one current declaration/run join and log-only parallel workflow; preserve unknown/visual boundaries and old human verdicts.",
+      "decision": "docs/scene/development/corpus-diagnostic-workflow.md#log-first-corpus-audit"
+    },
+    {
+      "section": "bodies",
+      "path": "docs/scene/architecture/runtime-architecture.md",
+      "before": "851be0006cec6ef0eb85d82cf9a45f1a6b6494b34f75fd7bfa665374291ba640",
+      "after": "de82d6db2df0d2127b6620cd86ee8a493f62ffc16f72fb825c99a085d1865678",
+      "owner": "scene-geometry-named-publication",
+      "reason": "Clarify existing geometry PMA publication boundary, preserve direct-copy content, and record bounded first-frame closure without claiming full sample or pixel-probe acceptance.（整合主仓798660e7已提交预算，合并前父提交00d6be459；正文沿主仓保留，本专项不扩大Scene能力。）",
+      "decision": "docs/scene/architecture/runtime-architecture.md"
+    },
+    {
+      "section": "bodies",
       "path": "docs/scene/capabilities/runtime-evidence-current.md",
-      "before": "35389159df8bbf13b50d812655c6bcf67730323b6ce15544af8f5c4c6e0a122f",
-      "after": "0278ffe6f9aa5f9fd3dd6e8225511671ab09d58c7030a67f089896b247c864e0",
-      "owner": "Scene additive local fallback",
-      "reason": "用既有preparedMap隔离未支持additive，结构/消费边界与实际原377六动作恢复、左手仍开放；合并旧state1/auxiliary状态，证据细节只归历史，保direct及未知语义边界。",
-      "decision": "docs/scene/history/puppet-additive-local-fallback-2026-10-29.md"
+      "before": "7476fb485e82580065a8f14be2b0a0587d385a144ff68d584ba365c9396b38c2",
+      "after": "af598285d3c5712205271382a9f740d137b7ad7b3f63228b1a8d766f72e00dfb",
+      "owner": "scene-geometry-named-publication",
+      "reason": "Clarify existing geometry PMA publication boundary, preserve direct-copy content, and record bounded first-frame closure without claiming full sample or pixel-probe acceptance.",
+      "decision": "docs/scene/architecture/runtime-architecture.md"
+    },
+    {
+      "section": "bodies",
+      "path": "docs/scene/capabilities/scene-sample-acceptance-ledger.md",
+      "before": "d758f5479e4aecf961348407a51f34c755c4e5cb71296f64de93c22102228163",
+      "after": "676042bcbb5526ba42283df2d4236e2a24a15ac72614c0b5a26550466556dd35",
+      "owner": "scene-geometry-named-publication",
+      "reason": "Clarify existing geometry PMA publication boundary, preserve direct-copy content, and record bounded first-frame closure without claiming full sample or pixel-probe acceptance.（整合主仓798660e7已提交预算，合并前父提交00d6be459；正文沿主仓保留，本专项不扩大Scene能力。）",
+      "decision": "docs/scene/architecture/runtime-architecture.md"
     },
     {
       "section": "bodies",
       "path": "docs/scene/roadmap/scene-open-breakpoint-queue.md",
-      "before": "f0f6710d911db4e9790181b9a74c0225f0c61ec4fe9df5d057441f0aac39e85d",
-      "after": "6c7d98cea09b4ea1288b3b856db4f0b99e44e5d1b7212b620620e48c8b29ab8f",
-      "owner": "Scene additive local fallback",
-      "reason": "用既有preparedMap隔离未支持additive，结构/消费边界与实际原377六动作恢复、左手仍开放；合并旧state1/auxiliary状态，证据细节只归历史，保direct及未知语义边界。",
-      "decision": "docs/scene/history/puppet-additive-local-fallback-2026-10-29.md"
+      "before": "6c7d98cea09b4ea1288b3b856db4f0b99e44e5d1b7212b620620e48c8b29ab8f",
+      "after": "854821a696c8f55c023858fb8f7aa0d750b4079fa6614b06bf1d47b45dc93bf8",
+      "owner": "scene-geometry-named-publication",
+      "reason": "Clarify existing geometry PMA publication boundary, preserve direct-copy content, and record bounded first-frame closure without claiming full sample or pixel-probe acceptance.（整合主仓798660e7已提交预算，合并前父提交00d6be459；正文沿主仓保留，本专项不扩大Scene能力。）",
+      "decision": "docs/scene/architecture/runtime-architecture.md"
     },
     {
       "section": "bodies",

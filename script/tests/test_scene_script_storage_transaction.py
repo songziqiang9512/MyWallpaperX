@@ -119,7 +119,7 @@ import CryptoKit
         _ = try run(a);_ = try run(b);_ = try run(c);out["provisionalRead"] = try run(reader);_ = try run(independent)
         let runtime = SceneScriptDynamicLayerRuntime(descriptor: .init(layers: []), authoredMutationLayerIDs: [])
         let fixed = runtime.preflightOwnerEffectsToFixedPoint([], excludingOwners: [target(1)],
-            rejectingDependents: { s.resolveRejectedOwners($0) }) { _ in [] }
+            rejectingDependents: { s.resolveRejectedOwners($0) }) { _, _ in [] }
         out["dependencyRejected"] = ids(fixed.externallyRejectedOwners)
         s.commitFrameTransaction();out["dependencyValues"] = try [value(s,"k"),value(s,"j"),value(s,"m"),value(s,"safe")]
         // The exact same VM handles are reused next frame; old dependency edges
@@ -160,14 +160,14 @@ import CryptoKit
         let descriptor = SceneRenderDescriptor(layers:(1...8).map { id in .init(id:id,layerIndex:id-1,
             name:"owner\(id)",visible:true,originXYZ:[0,0,0],scaleXYZ:[1,1,1],scaleHasScript:nil,alpha:1,effects:[]) })
         let recoveringRuntime = SceneScriptDynamicLayerRuntime(descriptor:descriptor,authoredMutationLayerIDs:[7,8])
-        let recovery = recoveringRuntime.preflightOwnerEffectsToFixedPoint(orderedEffects) { admitted in
+        let recovery = recoveringRuntime.preflightOwnerEffectsToFixedPoint(orderedEffects) { admitted, _ in
             admitted.contains { $0.ownerTarget == target(2) } ? [target(2)] : []
         }
         out["runtimeRecoveryAccepted"] = ids(Set(recovery.admission.admittedEffects.map(\.ownerTarget)))
         out["runtimeRecoveryRejected"] = ids(recovery.externallyRejectedOwners)
         let stableRuntime = SceneScriptDynamicLayerRuntime(descriptor:descriptor,authoredMutationLayerIDs:[7,8])
         let stableAdmission = stableRuntime.preflightOwnerEffectsToFixedPoint(orderedEffects,
-            rejectingDependents:{stable.resolveRejectedOwners($0)}) { _ in [] }
+            rejectingDependents:{stable.resolveRejectedOwners($0)}) { _, _ in [] }
         out["stableAccepted"] = ids(Set(stableAdmission.admission.admittedEffects.map(\.ownerTarget)))
         out["stableRejected"] = ids(stableAdmission.externallyRejectedOwners)
         out["stableSeedDiagnostics"] = ids(Set(stableAdmission.admission.rejectedOwners.compactMap(\.ownerTarget)))
@@ -269,7 +269,7 @@ class StorageTransactionTests(unittest.TestCase):
         cls.temp = tempfile.TemporaryDirectory(prefix="mwx-storage-owner-test-")
         cls.addClassCleanup(cls.temp.cleanup)
         root=Path(cls.temp.name)
-        binary=compile_vector_harness(root,HARNESS,"storage-owner")
+        binary=compile_vector_harness(root,HARNESS,"storage-owner", whole_module_optimization=True)
         run=subprocess.run([str(binary),str(root/"store")],capture_output=True,text=True)
         if run.returncode:
             raise AssertionError(run.stdout + run.stderr)

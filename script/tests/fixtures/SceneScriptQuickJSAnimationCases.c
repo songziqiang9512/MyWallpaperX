@@ -113,6 +113,9 @@ static int mwx_fixture_retained_animation_lifetime(uint32_t property_object_is_l
     failures += mwx_fixture_check(mwx_scene_quickjs_owner_animation_command_count(peer) == 1,
         "foreign animation cannot append peer commands", diagnostic);
     mwx_scene_quickjs_owner_commit_layer_mutations(peer);
+    // Permanent retirement follows the host barrier, including the initial
+    // catalog snapshot's rollback storage as well as every owner journal.
+    mwx_scene_quickjs_domain_finalize_layer_snapshot(domain);
     MWXSceneQuickJSFrameInput frame = {.time_of_day=.25, .frame_time=.016, .runtime=3};
     uint32_t invoked = 0;
     failures += mwx_fixture_check(mwx_scene_quickjs_owner_teardown(owner, 901, &frame,

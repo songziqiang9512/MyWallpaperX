@@ -1,4 +1,4 @@
-import Foundation
+import AppKit
 
 // Only transport, source values and geometry are leaves. The production viewport,
 // footer and scroll-settled callback bodies are injected unmodified below.
@@ -33,7 +33,10 @@ actor OnlineImageThumbnailCache {
     enum Priority { case prefetch }
     func image(for request: URL, maxPixelSize: Int, priority: Priority) {}
 }
-@MainActor final class PagingGrid { var onScrollSettled: (() -> Void)? }
+@MainActor final class PagingGrid {
+    let scrollView = WallpaperGridScrollView()
+    var onScrollSettled: (() -> Void)?
+}
 @MainActor final class PagingProbe {
     let session = OnlineImageBrowserSession(), library = PagingLibrary(), grid = PagingGrid()
     var shown = true, acceptsInput = true
@@ -42,6 +45,7 @@ actor OnlineImageThumbnailCache {
     let thumbnailPixelSize = 512
     func artwork(_ content: WallpaperContentItem) -> PagingArtwork? { nil }
     func bind() {
+        // PRODUCTION_REFRESH
         // PRODUCTION_SCROLL_SETTLED
     }
     // PRODUCTION_VIEWPORT
@@ -92,6 +96,17 @@ actor OnlineImageThumbnailCache {
         probe.session.state.error = nil
         checks["empty-result-has-no-pagination-footer"] = probe.footerText(probe.session.state, count: 0) == nil
         checks["loaded-footer-counts-current-source-items"] = probe.footerText(probe.session.state, count: 24) == "已加载 24 个作品"
+        probe.shown = true; probe.acceptsInput = true
+        let beforePull = probe.session.refreshes
+        probe.grid.scrollView.onRefresh?()
+        checks["shared-online-browser-refresh-dispatches-to-its-current-source"] = probe.session.refreshes == beforePull + 1
+        probe.acceptsInput = false; probe.grid.scrollView.onRefresh?()
+        checks["blocked-online-browser-cannot-submit-refresh"] = probe.session.refreshes == beforePull + 1
+        #if compiler(>=6.4)
+        if #available(macOS 27.0, *) {
+            checks["shared-online-browser-installs-the-native-refresh-controller"] = probe.grid.scrollView.refreshController != nil
+        }
+        #endif
         print(String(decoding: try JSONSerialization.data(withJSONObject: checks, options: [.sortedKeys]), as: UTF8.self))
     }
 }

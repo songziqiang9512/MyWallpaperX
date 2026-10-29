@@ -49,6 +49,8 @@ import Foundation
         let originalSelection = model.selectionState
         model.setSelection([a, nfc, nfd], focused: a, isSelecting: true)
         checks["idempotentSelectionDoesNotRevokeActionSession"] = model.selectionState.sessionID == originalSelection.sessionID
+        model.switchPage(.videos)
+        checks["choosingTheCurrentPageDoesNotEndItsSelectionSession"] = model.selectionState == originalSelection
         var videoQuery = model.queryState
         videoQuery.preferredColumns = 4
         videoQuery.scrollAnchor = a
@@ -66,7 +68,8 @@ import Foundation
         model.setSelection([image], focused: image)
         model.setQueryState(.init(search: "a", preferredColumns: 6, scrollAnchor: image, scrollOffset: 21, scrollAtTop: false))
         model.switchPage(.videos)
-        checks["returnVisitRestoresOwnQueryAnchorAndSelection"] = model.queryState == videoQuery && model.selectionState.references == originalSelection.references && model.selectionState.isSelecting
+        checks["returnVisitRestoresQueryAndScrollWithoutOldSelectionMode"] = model.queryState == videoQuery
+            && model.selectionState.references.isEmpty && model.selectionState.focusedReference == nil && !model.selectionState.isSelecting
         checks["returnVisitRevokesOldActionSession"] = model.selectionState.sessionID != originalSelection.sessionID && !model.setSelection([], expectedSessionID: originalSelection.sessionID)
         let visibleBeforeLateScroll = model.queryState
         let selectionBeforeLateScroll = model.selectionState
@@ -141,6 +144,7 @@ import Foundation
         checks["directorySearchFiltersOnlyDirectoryNotMembers"] = model.directoryEntries.map(\.id) == [second] && controller.snapshot == relations
         model.switchPage(.playlist(first))
         checks["directoryQueryDoesNotLeakIntoMemberPage"] = model.queryState == memberQuery && model.queryResult.items.count == 8
+        model.setSelection([image], focused: image)
         let renameSession = model.selectionState.sessionID
         let renameMetadata = controller.snapshot.playlists.first { $0.id == first }!.metadata
         var renamedMetadata = renameMetadata; renamedMetadata.name = "Renamed"
@@ -170,7 +174,8 @@ import Foundation
         model.update(catalog: catalog, relationships: relations)
         checks["samePageRemovalPrunesSelectionButRetainsOtherPageSession"] = model.selectionState.references.isEmpty
         model.switchPage(.images)
-        checks["otherPageSelectionDensityAndScrollGeometryStillRestored"] = model.selectionState.references == [image]
+        checks["otherPageDensityAndScrollGeometryRestoreWithoutRetiredSelection"] = model.selectionState.references.isEmpty
+            && !model.selectionState.isSelecting
             && model.queryState.preferredColumns == 6 && model.queryState.scrollOffset == 21 && model.queryState.scrollAtTop == false
         model.switchPage(.workshop)
         model.setSelection([steam], focused: steam)

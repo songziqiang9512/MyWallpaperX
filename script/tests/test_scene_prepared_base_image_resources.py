@@ -148,6 +148,87 @@ class ScenePreparedBaseImageResourceTests(unittest.TestCase):
         self.assertEqual(case["failedCount"], 1)
         self.assertEqual(case["evicted"], 1)
 
+    def test_video_products_keep_native_extent_without_static_texture_upload(self) -> None:
+        for name in ("staticVideoAuto", "staticVideoManualDefault", "videoExplicit", "videoRenamed"):
+            with self.subTest(name=name):
+                case = self.facts[name]
+                self.assertEqual(case["loads"], 0)
+                self.assertFalse(case["hasOutcome"])
+                self.assertEqual(case["dynamicCount"], 1)
+                self.assertTrue(case["videoProduct"])
+                self.assertTrue(case["videoSourceMatchesModel"])
+                self.assertTrue(case["hasMaterialRecipe"])
+                self.assertEqual(case["size"], [3750, 2250])
+                self.assertEqual(case["naturalSize"], [3750, 2250])
+                self.assertEqual(case["videoPreparations"], 1)
+        self.assertEqual(self.facts["videoRenamed"]["videoPayload"], "renamed-video.tex")
+        overridden = self.facts["videoOverrideOnly"]
+        self.assertEqual(overridden["loads"], 1)
+        self.assertEqual(overridden["dynamicCount"], 0)
+        self.assertEqual(overridden["videoPreparations"], 0)
+        for name in ("videoOverrideKeepsUnusedStaticDefaultCold", "videoOverrideKeepsUnusedVideoDefaultCold"):
+            with self.subTest(unused_default=name):
+                self.assertEqual(self.facts[name]["loads"], 0)
+                self.assertEqual(self.facts[name]["dynamicCount"], 0)
+                self.assertEqual(self.facts[name]["videoPreparations"], 0)
+        peer = self.facts["videoOverrideWithCanonicalPeer"]
+        self.assertEqual(peer["loads"], 1)
+        self.assertTrue(peer["videoProduct"])
+        self.assertTrue(peer["videoSourceMatchesModel"])
+        self.assertEqual(peer["videoPayload"], "video.tex")
+        webm = self.facts["videoWebM"]
+        self.assertEqual(webm["loads"], 0)
+        self.assertEqual(webm["dynamicCount"], 0)
+        self.assertEqual(webm["videoPreparations"], 0)
+
+    def test_models_with_the_same_video_source_share_one_prepared_file(self) -> None:
+        case = self.facts["videoSharedModels"]
+        self.assertEqual(case["loads"], 0)
+        self.assertEqual(case["dynamicCount"], 2)
+        self.assertEqual(case["videoProducts"], 2)
+        self.assertEqual(case["videoPreparations"], 1)
+        self.assertTrue(case["sameSource"])
+        self.assertTrue(case["sameFile"])
+        self.assertTrue(case["leasesReleased"])
+        distinct = self.facts["videoDistinctSources"]
+        self.assertEqual(distinct["dynamicCount"], 2)
+        self.assertEqual(distinct["videoProducts"], 2)
+        self.assertEqual(distinct["videoPreparations"], 2)
+        self.assertFalse(distinct["sameSource"])
+        self.assertFalse(distinct["sameFile"])
+        self.assertTrue(distinct["leasesReleased"])
+
+    def test_video_write_failure_and_cancellation_do_not_publish_failed_templates(self) -> None:
+        repeated = self.facts["videoRepeatedFailure"]
+        self.assertEqual(repeated["videoPreparations"], 1)
+        self.assertEqual(repeated["dynamicCount"], 0)
+        self.assertEqual(repeated["failedCount"], 2)
+        failed = self.facts["videoWriteFailure"]
+        self.assertEqual(failed["loads"], 0)
+        self.assertEqual(failed["dynamicCount"], 0)
+        self.assertEqual(failed["failedCount"], 1)
+        self.assertEqual(failed["videoPreparations"], 1)
+        peer = self.facts["videoFailedPeer"]
+        self.assertEqual(peer["loads"], 0)
+        self.assertEqual(peer["dynamicCount"], 1)
+        self.assertEqual(peer["videoProducts"], 1)
+        self.assertEqual(peer["videoPreparations"], 2)
+        self.assertEqual(peer["failedCount"], 1)
+        for key in ("healthyPeer", "failedPeerAbsent", "leasesReleased"):
+            self.assertTrue(peer[key], key)
+        cancelled = self.facts["videoCancelled"]
+        self.assertTrue(cancelled["cancelled"])
+        self.assertFalse(cancelled["returnedPreparation"])
+        self.assertEqual(cancelled["videoPreparations"], 1)
+        self.assertTrue(cancelled["leasesReleased"])
+        upload = self.facts["videoSurvivesStaticUploadFailure"]
+        self.assertEqual(upload["loads"], 1)
+        self.assertEqual(upload["dynamicCount"], 1)
+        self.assertEqual(upload["videoProducts"], 1)
+        self.assertEqual(upload["videoPreparations"], 1)
+        self.assertEqual(upload["evicted"], 1)
+        self.assertTrue(upload["healthyPeer"])
+
     def test_explicit_dynamic_preparation_retains_priority_and_existing_behavior(self) -> None:
         case = self.facts["explicitWithEntry"]
         self.assertEqual(case["loads"], 2)

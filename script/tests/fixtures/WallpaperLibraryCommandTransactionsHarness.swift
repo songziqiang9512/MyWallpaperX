@@ -185,9 +185,10 @@ private enum AppKitSteamWorkshopBrowserItem {
 }
 
 private enum RecentAlertStyle { case warning }
-private final class RecentAlert {
+@MainActor private final class RecentAlert {
     let title: String; let message: String; let buttons: [String]
-    var accessoryView: NSView?
+    var showsSuppressionButton = false
+    let suppressionButton: NSButton? = NSButton(checkboxWithTitle: "", target: nil, action: nil)
     init(title: String, message: String, buttons: [String]) { self.title = title; self.message = message; self.buttons = buttons }
 }
 @MainActor private enum RecentAlertProbe {
@@ -255,9 +256,10 @@ private struct RemovalFileResult {
     }
 }
 @MainActor private final class RemovalImages {
-    var wallpapers: [RemovalRecord] = []
+    var wallpapers: [RemovalRecord] = [], requested: [String] = []
     var failedIDs: Set<String> = []
     func deleteSourceFiles(ids: [String], isInUse: @escaping (URL) -> Bool, completion: @escaping (WallpaperSourceDeletionResult) -> Void) {
+        requested = ids
         completion(.init(items: wallpapers.filter { ids.contains($0.id) }.map {
             let url = URL(fileURLWithPath: $0.path), success = !failedIDs.contains($0.id) && !isInUse(URL(fileURLWithPath: $0.path))
             return .init(reference: .init(provider: .staticImageLibrary, sourceID: $0.id), sourceURL: url,
@@ -872,16 +874,16 @@ private struct RemovalFileResult {
             view.presentation.setSelection([steam, pixabay], focused: steam, isSelecting: true)
             commands.pixabay.failingNames = [firstURL.lastPathComponent]
             commands.remove()
-            let sourceOption = RecentAlertProbe.alert?.accessoryView as? NSButton
+            let sourceOption = RecentAlertProbe.alert?.suppressionButton
             checks["compact-removal-keeps-scope-count-short-actions-and-natural-checkbox-width"] = RecentAlertProbe.alert?.buttons == ["移除", "取消"]
                 && RecentAlertProbe.alert?.title == "从我的下载移除 2 项？"
-                && RecentAlertProbe.alert?.message == "仅从我的下载移除，源文件和其他列表保留。勾选会删除源文件，无法撤销。"
+                && RecentAlertProbe.alert?.message == "移除下载项目及最近使用记录，源文件和其他列表保留。勾选会删除源文件，无法撤销。"
                 && sourceOption?.alignment == .left && sourceOption?.state == .off
                 && (sourceOption?.frame.width ?? 0) > 0 && (sourceOption?.frame.width ?? 320) < 320
             checks["delete-confirmation-defers-source-writes-and-preserves-fixed-targets"] = commands.steam.requested.isEmpty
                 && commands.pixabay.requested.isEmpty && FileManager.default.fileExists(atPath: firstURL.path)
-                && (RecentAlertProbe.alert?.accessoryView as? NSButton)?.state == .off
-            (RecentAlertProbe.alert?.accessoryView as? NSButton)?.state = .on
+                && (RecentAlertProbe.alert?.suppressionButton)?.state == .off
+            (RecentAlertProbe.alert?.suppressionButton)?.state = .on
             RecentAlertProbe.finish(.alertFirstButtonReturn)
             _ = await wait { commands.steam.requested == [steam.sourceID] }
             view.publish(.init(downloads: Array(rows.dropFirst()), revision: 101))
@@ -898,14 +900,14 @@ private struct RemovalFileResult {
             checks["old-projection-after-mixed-delete-cannot-revive-success-or-clear-failure"] = view.presentation.queryResult.items.map(\.reference) == [pixabay, last]
                 && view.presentation.selectionState == stable
             let priorEdits = view.edited.count
-            commands.remove(); (RecentAlertProbe.alert?.accessoryView as? NSButton)?.state = .on
+            commands.remove(); (RecentAlertProbe.alert?.suppressionButton)?.state = .on
             RecentAlertProbe.finish(.alertFirstButtonReturn)
             _ = await wait { view.edited.count > priorEdits }
             checks["all-source-delete-failures-leave-current-selection-and-bytes-unchanged"] = view.presentation.selectionState == stable
                 && FileManager.default.fileExists(atPath: firstURL.path)
             commands.pixabay.failingNames = []
             view.presentation.setSelection([pixabay], focused: pixabay)
-            commands.remove(); (RecentAlertProbe.alert?.accessoryView as? NSButton)?.state = .on
+            commands.remove(); (RecentAlertProbe.alert?.suppressionButton)?.state = .on
             RecentAlertProbe.finish(.alertFirstButtonReturn)
             _ = await wait { view.presentation.selectionState.references == [last] }
             checks["successful-source-delete-uses-real-store-exclusion-projection"] = !FileManager.default.fileExists(atPath: firstURL.path)
@@ -917,7 +919,7 @@ private struct RemovalFileResult {
             commands.remove(); RecentAlertProbe.finish(.alertSecondButtonReturn)
             checks["cancelled-delete-keeps-source-and-current-adjacent-selection"] = FileManager.default.fileExists(atPath: lastURL.path)
                 && view.presentation.selectionState.references == [last]
-                && (RecentAlertProbe.alert?.accessoryView as? NSButton)?.state == .off
+                && (RecentAlertProbe.alert?.suppressionButton)?.state == .off
             let priorSteam = commands.steam.requested, priorPixabay = commands.pixabay.requested
             commands.remove(); RecentAlertProbe.finish(.alertFirstButtonReturn)
             _ = await wait { view.presentation.queryResult.items.isEmpty }
@@ -934,7 +936,7 @@ private struct RemovalFileResult {
             let videoCommands = RemovalCommands(videoView)
             videoCommands.manager.wallpapers = [.init(id: va.sourceID, path: videoAURL.path), .init(id: vb.sourceID, path: videoBURL.path)]
             videoView.presentation.setSelection([va], focused: va)
-            videoCommands.remove(); (RecentAlertProbe.alert?.accessoryView as? NSButton)?.state = .on
+            videoCommands.remove(); (RecentAlertProbe.alert?.suppressionButton)?.state = .on
             RecentAlertProbe.finish(.alertFirstButtonReturn)
             _ = await wait { videoCommands.manager.requested == [va.sourceID] }
             videoView.publish(.init(videos: [videos[1]], revision: 201))

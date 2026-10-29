@@ -102,7 +102,7 @@ enum SceneTextureLoadOutcome {
     case resourceReadFailed(any Error)
     func rethrowResourceReadFailure() throws { if case let .resourceReadFailed(error) = self { throw error } }
 }
-struct TestCandidate {
+struct SceneTextureCandidate {
     let texture: MTLTexture
     let loadOrdinal: Int
     let samplingMarker = "authored-sampling"
@@ -110,13 +110,34 @@ struct TestCandidate {
 struct TestContainer {
     var reason: String? = nil
     var isVideoMp4 = false
-    let imageWidth = 20
-    let imageHeight = 10
+    var isWebM = false
+    var imageWidth = 20
+    var imageHeight = 10
+}
+// Observe calls and lease identity at the external file boundary. This stub
+// writes no media and does not duplicate file preparation or lifetime logic.
+final class SceneVideoOwnedFile {
+    enum Failure: Error { case controlledWriteFailure }
+    static var snapshotCount = 0
+    static var liveCount = 0
+    static var snapshotHook: (() -> Void)?
+    let payload: Data
+    private init(payload: Data) { self.payload = payload; Self.liveCount += 1 }
+    deinit { Self.liveCount -= 1 }
+    static func snapshot(payload: Data, cacheDirectory: URL,
+                         checkCancellation: (() throws -> Void)? = nil) throws -> SceneVideoOwnedFile {
+        try checkCancellation?()
+        snapshotCount += 1
+        if payload == Data("video-failure.tex".utf8) { throw Failure.controlledWriteFailure }
+        let file = SceneVideoOwnedFile(payload: payload)
+        snapshotHook?()
+        return file
+    }
 }
 struct SceneBaseImageTextureLoad {
     struct Loaded {
         let texture: MTLTexture
-        let candidate: TestCandidate?
+        let candidate: SceneTextureCandidate?
         let animation: String?
         let loadOrdinal: Int
     }
@@ -155,6 +176,12 @@ final class SceneTextureLoader {
         let source: SourceKey
         let container: TestContainer?
     }
+    struct VideoSourceDeclaration {
+        let input: SceneResourceView.FileInput
+        let source: SourceKey
+        let payload: Data
+        let isWebM: Bool
+    }
     final class PreparedDirectImageSource {
         let input: SceneResourceView.FileInput
         let source: SourceKey
@@ -192,7 +219,10 @@ final class SceneTextureLoader {
                       checkCancellation: (() throws -> Void)? = nil) throws -> TestContainer? {
         try checkCancellation?()
         if url.lastPathComponent == "animated.tex" { return .init(reason: "animation") }
-        if url.lastPathComponent == "video.tex" { return .init(isVideoMp4: true) }
+        if ["video.tex", "renamed-video.tex", "video-failure.tex", "video-cancel.tex"].contains(url.lastPathComponent) {
+            return .init(reason: "video", isVideoMp4: true, imageWidth: 3750, imageHeight: 2250)
+        }
+        if url.lastPathComponent == "webm.tex" { return .init(reason: "video", isWebM: true) }
         return nil
     }
     func prepareTexSource(from input: SceneResourceView.FileInput, source expectedSource: SourceKey? = nil,
@@ -202,6 +232,13 @@ final class SceneTextureLoader {
         if let expectedSource, expectedSource != source { throw SceneResourceView.ReadError.sourceChanged }
         return .init(input: input, source: source,
             container: try texContainer(from: input, source: source, checkCancellation: checkCancellation) ?? .init())
+    }
+    func videoSourceDeclaration(from prepared: PreparedTexSource,
+                                checkCancellation: (() throws -> Void)? = nil) throws -> VideoSourceDeclaration? {
+        try checkCancellation?()
+        guard let container = prepared.container, container.isVideoMp4 || container.isWebM else { return nil }
+        return .init(input: prepared.input, source: prepared.source,
+            payload: Data(prepared.input.lastPathComponent.utf8), isWebM: container.isWebM)
     }
     func preparedNaturalImageSize(from url: SceneResourceView.FileInput, source: SourceKey,
                                  checkCancellation: (() throws -> Void)? = nil) throws -> CGSize? {
@@ -245,7 +282,7 @@ final class SceneTextureLoader {
         let candidateTexture = name == "mismatched-candidate.png"
             ? device.makeTexture(descriptor: MTLTextureDescriptor.texture2DDescriptor(
                 pixelFormat: .rgba8Unorm, width: 1, height: 1, mipmapped: false))! : texture
-        let candidate: TestCandidate? = name == "no-candidate.png" ? nil
+        let candidate: SceneTextureCandidate? = name == "no-candidate.png" ? nil
             : .init(texture: candidateTexture, loadOrdinal: loadCount)
         return .loaded(.init(texture: texture, candidate: candidate,
             animation: name == "loaded-animation.png" ? "animation" : nil, loadOrdinal: loadCount))
@@ -402,7 +439,8 @@ enum Checks {
         let root = URL(fileURLWithPath: CommandLine.arguments[1], isDirectory: true)
         try FileManager.default.createDirectory(at: root.appendingPathComponent("materials"),
                                                withIntermediateDirectories: true)
-        let names = ["canonical.png", "override.png", "animated.tex", "video.tex", "decode-failure.png",
+        let names = ["canonical.png", "override.png", "animated.tex", "video.tex", "renamed-video.tex",
+                     "video-failure.tex", "video-cancel.tex", "webm.tex", "decode-failure.png",
                      "upload-failure.png", "no-candidate.png", "mismatched-candidate.png", "loaded-animation.png"]
         for name in names {
             try Data(name.utf8).write(to: root.appendingPathComponent("materials/" + name))
@@ -426,8 +464,10 @@ enum Checks {
             var geometry: [Int: [Float]] = [:]
             var loadsAtGeometry = -1
             let loadsBeforeGeometry = SceneTextureLoader.totalLoadCount
+            let videoPreparations = SceneVideoOwnedFile.snapshotCount
             let prepared = try ScenePreparedBaseImageResources.prepare(descriptor: descriptor,
                 resourceView: view, device: device, spriteTextureLoader: .init(), sceneGeneration: 1,
+                cacheDirectory: root,
                 dynamicImageModelPaths: explicit, deferredBaseImageLayerIDs: deferred,
                 imageGeometryModels: models, geometryPrepared: { geometry = $0; loadsAtGeometry = SceneTextureLoader.totalLoadCount - loadsBeforeGeometry },
                 cancellationCheck: {})
@@ -441,25 +481,38 @@ enum Checks {
             }
             let first = layers.first.flatMap(loaded)
             let second = layers.dropFirst().first.flatMap(loaded)
-            let sameCandidate = resource?.loaded.candidate?.loadOrdinal == first?.candidate?.loadOrdinal
-                && resource?.loaded.candidate?.samplingMarker == first?.candidate?.samplingMarker
+            let image: SceneTextureCandidate?
+            if case let .image(candidate)? = resource?.product { image = candidate } else { image = nil }
+            let videoSource: SceneTextureLoader.SourceKey?
+            let videoFile: SceneVideoOwnedFile?
+            if case let .video(source, file, _)? = resource?.product {
+                videoSource = source; videoFile = file
+            } else { videoSource = nil; videoFile = nil }
+            let sameCandidate = image?.loadOrdinal == first?.candidate?.loadOrdinal
+                && image?.samplingMarker == first?.candidate?.samplingMarker
+            let canonicalSource = resolver.resolvePrimaryTexture(modelPath: "models/shared.json")
+                .flatMap { try? $0.currentIdentity() }
             results[name] = [
                 "geometry": Dictionary(uniqueKeysWithValues: geometry.map { (String($0.key), $0.value) }),
                 "geometryPublished": loadsAtGeometry == 0,
                 "loads": prepared.textureLoader.loadCount, "loadedCount": prepared.loadedCount,
                 "failedCount": prepared.failedCount, "dynamicCount": prepared.dynamicImageResources.count,
-                "sameTexture": resource != nil && first != nil && resource!.loaded.texture === first!.texture,
-                "sameCandidate": resource != nil && first != nil && sameCandidate,
-                "sameCanonicalTexture": resource != nil && second != nil && resource!.loaded.texture === second!.texture,
-                "differentOverrideTexture": resource != nil && first != nil && resource!.loaded.texture !== first!.texture,
+                "sameTexture": image != nil && first != nil && image!.texture === first!.texture,
+                "sameCandidate": image != nil && first != nil && sameCandidate,
+                "sameCanonicalTexture": image != nil && second != nil && image!.texture === second!.texture,
+                "differentOverrideTexture": image != nil && first != nil && image!.texture !== first!.texture,
                 "size": resource?.renderSizeWH ?? [],
                 "naturalSize": resource?.naturalSizeWH ?? [], "hasOutcome": first != nil,
                 "evicted": prepared.textureLoader.evictionCount,
                 "pending": layers.first.map { prepared.deferredStatus(for: $0.id) == .pending } ?? false,
-                "dynamicLoadOrdinal": resource?.loaded.loadOrdinal ?? 0,
+                "dynamicLoadOrdinal": image?.loadOrdinal ?? 0,
                 "entryLoadOrdinal": first?.loadOrdinal ?? 0,
                 "hasMaterialRecipe": resource?.lightingProfile != nil,
                 "litRecipe": resource?.lightingProfile?.lightingEnabled ?? false,
+                "videoProduct": videoFile != nil,
+                "videoPreparations": SceneVideoOwnedFile.snapshotCount - videoPreparations,
+                "videoSourceMatchesModel": videoSource != nil && videoSource == canonicalSource,
+                "videoPayload": videoFile.map { String(decoding: $0.payload, as: UTF8.self) } ?? "",
             ]
         }
         let automatic = SceneAssetCatalog.ModelAsset(relativePath: "models/shared.json", autosize: true)
@@ -487,6 +540,79 @@ enum Checks {
         try check("staticSpecial", layers: [ordinary], texture: "animated.tex", models: [automatic])
         try check("staticVideoAuto", layers: [ordinary], texture: "video.tex", models: [automatic])
         try check("staticVideoManualDefault", layers: [missingSize], texture: "video.tex", models: [manual])
+        try check("videoExplicit", layers: [], texture: "video.tex", explicit: ["models/shared.json"])
+        try check("videoRenamed", layers: [ordinary], texture: "renamed-video.tex")
+        try check("videoOverrideOnly", layers: [override], texture: "video.tex")
+        try check("videoOverrideWithCanonicalPeer", layers: [override, peer], texture: "video.tex")
+        let videoOverride = SceneRenderDescriptor.Layer(id: 1, staticBaseTexturePath: "materials/renamed-video.tex")
+        try check("videoOverrideKeepsUnusedStaticDefaultCold", layers: [videoOverride])
+        try check("videoOverrideKeepsUnusedVideoDefaultCold", layers: [videoOverride], texture: "video.tex")
+        try check("videoWriteFailure", layers: [ordinary], texture: "video-failure.tex",
+                  explicit: ["models/shared.json"])
+        try check("videoWebM", layers: [], texture: "webm.tex", explicit: ["models/shared.json"])
+        func videoModels(_ name: String, firstTexture: String = "video.tex",
+                         secondTexture: String = "video.tex") throws {
+            let paths = ["models/renamed-a.json", "models/renamed-b.json"]
+            let textures = ["materials/" + firstTexture, "materials/" + secondTexture]
+            let descriptor = SceneRenderDescriptor(
+                layers: paths.enumerated().map { .init(id: $0.offset + 1, imagePath: $0.element) },
+                modelMaterialLinks: paths.enumerated().map {
+                    .init(modelPath: $0.element, materialPath: "materials/video-\($0.offset).json")
+                }, materialPasses: textures.enumerated().map {
+                    .init(materialPath: "materials/video-\($0.offset).json", texturePaths: [$0.element], textureSlots: [$0.element])
+                })
+            let writes = SceneVideoOwnedFile.snapshotCount
+            let prepared = try ScenePreparedBaseImageResources.prepare(descriptor: descriptor,
+                resourceView: .init(projectRootURL: root, packageRootURL: nil), device: device,
+                spriteTextureLoader: .init(), sceneGeneration: 1, cacheDirectory: root, cancellationCheck: {})
+            defer { prepared.cancelDeferredPreparation() }
+            let videos = paths.compactMap { path -> (SceneTextureLoader.SourceKey, SceneVideoOwnedFile)? in
+                guard let resource = prepared.dynamicImageResources[path],
+                      case let .video(source, file, _) = resource.product else { return nil }
+                return (source, file)
+            }
+            results[name] = [
+                "dynamicCount": prepared.dynamicImageResources.count,
+                "videoProducts": videos.count, "loads": prepared.textureLoader.loadCount,
+                "videoPreparations": SceneVideoOwnedFile.snapshotCount - writes,
+                "sameSource": videos.count == 2 && videos[0].0 == videos[1].0,
+                "sameFile": videos.count == 2 && videos[0].1 === videos[1].1,
+                "failedCount": prepared.failedCount,
+                "evicted": prepared.textureLoader.evictionCount,
+                "healthyPeer": prepared.dynamicImageResources[paths[1]] != nil,
+                "failedPeerAbsent": prepared.dynamicImageResources[paths[0]] == nil,
+            ]
+        }
+        let liveVideoFiles = SceneVideoOwnedFile.liveCount
+        try videoModels("videoSharedModels")
+        results["videoSharedModels"]?["leasesReleased"] = SceneVideoOwnedFile.liveCount == liveVideoFiles
+        try videoModels("videoDistinctSources", firstTexture: "renamed-video.tex")
+        results["videoDistinctSources"]?["leasesReleased"] = SceneVideoOwnedFile.liveCount == liveVideoFiles
+        try videoModels("videoFailedPeer", firstTexture: "video-failure.tex")
+        results["videoFailedPeer"]?["leasesReleased"] = SceneVideoOwnedFile.liveCount == liveVideoFiles
+        try videoModels("videoRepeatedFailure", firstTexture: "video-failure.tex", secondTexture: "video-failure.tex")
+        try videoModels("videoSurvivesStaticUploadFailure", firstTexture: "upload-failure.png")
+        var videoCancelled = false, videoReturned = false
+        let videoWrites = SceneVideoOwnedFile.snapshotCount
+        SceneVideoOwnedFile.snapshotHook = { videoCancelled = true }
+        do {
+            let path = "materials/video-cancel.tex"
+            let descriptor = SceneRenderDescriptor(layers: [], materialPasses: [
+                .init(materialPath: "materials/shared.json", texturePaths: [path], textureSlots: [path])
+            ])
+            let prepared = try ScenePreparedBaseImageResources.prepare(descriptor: descriptor,
+                resourceView: .init(projectRootURL: root, packageRootURL: nil), device: device,
+                spriteTextureLoader: .init(), sceneGeneration: 1, cacheDirectory: root,
+                dynamicImageModelPaths: ["models/shared.json"], cancellationCheck: {
+                    if videoCancelled { throw CancellationError() }
+                })
+            prepared.cancelDeferredPreparation()
+            videoReturned = true
+        } catch is CancellationError { videoCancelled = true }
+        SceneVideoOwnedFile.snapshotHook = nil
+        results["videoCancelled"] = ["cancelled": videoCancelled, "returnedPreparation": videoReturned,
+            "videoPreparations": SceneVideoOwnedFile.snapshotCount - videoWrites,
+            "leasesReleased": SceneVideoOwnedFile.liveCount == liveVideoFiles]
         try check("staticText", layers: [.init(id: 1, contentKind: "text")], models: [automatic])
         try check("staticNamedOutput", layers: [ordinary], texture: "_rt_imageLayerComposite_2", models: [automatic])
         try check("staticSolidTexture", layers: [.init(id: 1, contentKind: "solid", staticBaseTexturePath: "materials/canonical.png")], models: [automatic])
@@ -535,6 +661,7 @@ enum Checks {
         let deferredView = SceneResourceView(projectRootURL: root, packageRootURL: nil)
         let deferredPrepared = try ScenePreparedBaseImageResources.prepare(descriptor: deferredDescriptor,
             resourceView: deferredView, device: device, spriteTextureLoader: .init(), sceneGeneration: 1,
+            cacheDirectory: root,
             deferredBaseImageLayerIDs: [1], imageGeometryModels: [automatic], cancellationCheck: {})
         let beforeDeferred = deferredPrepared.textureLoader.loadCount
         _ = deferredPrepared.requestDeferredBaseImage(layerID: 1, requestGeneration: 1)
@@ -556,6 +683,7 @@ enum Checks {
             "hasOutcome": readyHasOutcome, "foreignInputRejected": foreignInputRejected, "cancelRejectsRequest": deferredPrepared.requestDeferredBaseImage(layerID: 1, requestGeneration: 2) == .failed("cancelled")]
         let heldPrepared = try ScenePreparedBaseImageResources.prepare(descriptor:deferredDescriptor,
             resourceView:deferredView,device:device,spriteTextureLoader:.init(),sceneGeneration:2,
+            cacheDirectory:root,
             deferredBaseImageLayerIDs:[1],imageGeometryModels:[automatic],cancellationCheck:{})
         let heldEntered=DispatchSemaphore(value:0),heldRelease=DispatchSemaphore(value:0),heldDrained=DispatchSemaphore(value:0)
         SceneTextureLoader.loadHook={heldEntered.signal();heldRelease.wait()}
@@ -578,7 +706,7 @@ enum Checks {
             "cancelledWorkerCannotPublishReady":heldPrepared.deferredStatus(for:1) != .ready]
         func task() -> ScenePreparedDeviceResourcesTask {
             .init(descriptor: deferredDescriptor, resourceView: deferredView, device: device,
-                sceneGeneration: 1, deferredBaseImageLayerIDs: [1], imageGeometryModels: [automatic],
+                sceneGeneration: 1, cacheDirectory: root, deferredBaseImageLayerIDs: [1], imageGeometryModels: [automatic],
                 cancellationCheck: {})
         }
         let staged = task(); staged.start()
@@ -599,6 +727,7 @@ enum Checks {
         let waiterReturned = DispatchSemaphore(value: 0)
         let pending = ScenePreparedDeviceResourcesTask(descriptor: deferredDescriptor,
             resourceView: deferredView, device: device, sceneGeneration: 1,
+            cacheDirectory: root,
             imageGeometryModels: [automatic], cancellationCheck: {
                 workerEntered.signal(); workerRelease.wait()
             })

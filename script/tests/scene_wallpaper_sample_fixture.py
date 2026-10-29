@@ -84,6 +84,7 @@ def run_sample_fixture(
     sample_overrides: dict[str, Any] | None = None,
     no_execution_observations: bool = False,
     control: dict[str, Any] | None = None,
+    log_only: bool = False,
 ) -> tuple[dict[str, Any], list[str]]:
     control = control or {}
     sample = {"id": "123", "expected_runtime_evidence_schema": 1}
@@ -98,6 +99,8 @@ def run_sample_fixture(
         (source / "project.json").write_text(json.dumps({
             "type": "scene", "file": "scene.json"
         }))
+        if control.get("missing_project"):
+            (source / "project.json").unlink()
         if control.get("loose_source"):
             (source / "scene.json").write_text('{"objects":[]}')
         else:
@@ -118,6 +121,10 @@ def run_sample_fixture(
                 environment = options["env"]
                 if environment["HOME"] != environment["CFFIXED_USER_HOME"]:
                     raise AssertionError("isolated HOME identity differs")
+                if Path(environment["TMPDIR"]).parent != Path(environment["HOME"]):
+                    raise AssertionError("sample TMPDIR is not isolated under its HOME")
+                if not Path(environment["TMPDIR"]).is_dir():
+                    raise AssertionError("sample TMPDIR does not exist")
                 result_dir = Path(command[command.index(
                     "--mwx-debug-scene-evidence-dir"
                 ) + 1])
@@ -161,12 +168,14 @@ def run_sample_fixture(
                     )
                 if not control.get("missing_performance"):
                     messages.append(control.get("performance_log", PERFORMANCE_LOG))
-                messages.append("MWX DEBUG SCENE: phase=stopped surfacesBefore=1 surfacesAfter=0")
+                messages.append("MWX DEBUG SCENE: phase=stopped surfacesBefore=1 surfacesAfter=0"
+                    + (" gpuDrained=true" if log_only and not control.get("missing_drain") else ""))
                 messages.extend(control.get("log_lines", []))
                 options["stdout"].write("\n".join(messages) + "\n")
                 options["stdout"].flush()
-                write_png(result_dir / "scene-ready-window.png", black=control.get("black", False))
-                write_png(result_dir / "scene-after-window.png", black=control.get("black", False), shifted=True)
+                if not log_only and not control.get("missing_png"):
+                    write_png(result_dir / "scene-ready-window.png", black=control.get("black", False))
+                    write_png(result_dir / "scene-after-window.png", black=control.get("black", False), shifted=True)
                 self.wait_count = 0
 
             def wait(self, timeout: float) -> int:
@@ -175,13 +184,17 @@ def run_sample_fixture(
                     control["observed_wait_timeouts"].append(timeout)
                 if control.get("timeout") and self.wait_count == 1:
                     raise subprocess.TimeoutExpired(observed_command, timeout)
+                if control.get("raise_wait") and self.wait_count == 1:
+                    raise RuntimeError("unknown process tool failure")
                 return control.get("exit_code", 0)
 
             def terminate(self) -> None:
-                pass
+                if "process_actions" in control:
+                    control["process_actions"].append("terminate")
 
             def kill(self) -> None:
-                pass
+                if "process_actions" in control:
+                    control["process_actions"].append("kill")
 
         with mock.patch.object(owner.subprocess, "Popen", EvidenceProcess):
             result = benchmark.run_sample(
@@ -195,5 +208,6 @@ def run_sample_fixture(
                 after_snapshot_delay=None,
                 no_execution_observations=no_execution_observations,
                 startup_timeout_allowance=control.get("startup_timeout_allowance", 60),
+                log_only=log_only,
             )
         return normalize_fixture_paths(result, root), normalize_fixture_paths(observed_command, root)

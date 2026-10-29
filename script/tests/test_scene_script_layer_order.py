@@ -16,7 +16,13 @@ from .scene_vector_vm_test_support import SWIFT_PREAMBLE, compile_vector_harness
 
 PREAMBLE = SWIFT_PREAMBLE[:SWIFT_PREAMBLE.index("extension SceneRenderDescriptor.Layer {")] + r'''
 extension SceneRenderDescriptor.Layer {
-    static func dynamicText(_ mutation: SceneScriptLayerMutation) -> Self? { nil }
+    static func dynamicText(_ mutation: SceneScriptLayerMutation) -> Self? {
+        guard let pointSize = SceneTextDescriptor.renderedPointSize(mutation.pointSize) else { return nil }
+        return .init(id: mutation.layerID, layerIndex: mutation.orderIndex, name: nil,
+            visible: mutation.visible, originXYZ: [0,0,0], scaleXYZ: [1,1,1], alpha: mutation.alpha,
+            effects: [], contentKind: "text", text: mutation.text,
+            textStyle: .init(fontPath: mutation.font, colorRGB: [1,1,1], pointSize: pointSize))
+    }
     static func preparedResourceLayer(_ mutation: SceneScriptLayerMutation,
                              template: SceneScriptPreparedResourceLayerTemplate) -> Self? {
         var layer = Self(id: mutation.layerID, layerIndex: mutation.orderIndex,
@@ -27,22 +33,23 @@ extension SceneRenderDescriptor.Layer {
     }
 }
 '''
-PREAMBLE = PREAMBLE.replace(
-    "    struct Camera {\n", "    struct Camera {\n        var bloom = SceneBloomConfiguration.disabled\n", 1)
 SCENE_ROOT = Path(__file__).resolve().parents[2] / "MyWallpaperX/Core/SteamWorkshopScene"
 EXTRA_SOURCES = (
-    SCENE_ROOT / "Rendering/Composition/SceneBloomPostProcess.swift",
-    SCENE_ROOT / "Resources/Textures/SceneResourceBudget.swift",
+    SCENE_ROOT / "Systems/Text/SceneTextDescriptor.swift",
 )
 
 
 HARNESS = r'''
+// External JSON carrier; render normalization is the production text owner.
+enum SceneDocumentLoader {
+    static func floatValue(_ value: Any?) -> Float? { (value as? NSNumber)?.floatValue }
+    static func floatVector(_ value: Any?) -> [Float]? { (value as? [NSNumber])?.map(\.floatValue) }
+}
 @main enum Harness {
     static func setup(_ path: String, labels: [String] = ["A","B","C"]) throws -> (SceneRenderDescriptor,SceneScriptQuickJSDomain,SceneScriptDynamicLayerRuntime) {
         var descriptor = SceneRenderDescriptor(layers: labels.indices.map { index in
             let id = 101 + index
-            return
-            .init(id:id,layerIndex:index,name:labels[index],visible:true,
+            return .init(id:id,layerIndex:index,name:labels[index],visible:true,
                   originXYZ:[0,0,0],scaleXYZ:[1,1,1],alpha:1,effects:[])
         })
         descriptor.modelMaterialLinks = [.init(modelPath:path,materialPath:"material")]
@@ -160,7 +167,7 @@ HARNESS = r'''
         let peer = try owner(domain,102,"export function update(v){thisScene.sortLayer(thisLayer,1);thisScene.sortLayer(thisScene.getLayer('C'),1);return new Vec3(1,1,1);}")
         let packages = try [effects(evaluate(first),first),effects(evaluate(peer),peer)]
         let before = try cOrder(domain)
-        let settled = runtime.preflightOwnerEffectsToFixedPoint(packages) { _ in [first.target] }
+        let settled = runtime.preflightOwnerEffectsToFixedPoint(packages) { _, _ in [first.target] }
         runtime.commit(settled.admission.layerPlan)
         first.discardLayerMutations();peer.commitLayerMutations()
         let committed = swiftOrder(runtime)
@@ -318,6 +325,105 @@ HARNESS = r'''
             "unchanged":swiftOrder(missing) == ["A","B","C"] && swiftOrder(nilProvider) == ["A","B","C"],
             "discardCleared":mwx_scene_quickjs_domain_has_pending_layer_topology(domain.handle) == 0]
     }
+    static func shortLivedBirth(_ path: String, _ variable: String,
+                               splitCallbacks: Bool = false, rejectBirth: Bool = false) throws -> [String:Any] {
+        let (_,domain,runtime) = try setup(path)
+        let creator = try owner(domain,101,"""
+            let \(variable);export function update(v){
+                if(v.x===0){\(variable)=thisScene.createLayer({name:'temporary',image:'\(path)',size:new Vec2(200,100)});
+                    if(!\(splitCallbacks)){thisScene.destroyLayer(\(variable));}}
+                else if(v.x===1){thisScene.destroyLayer(\(variable));}
+                else{const replacement=thisScene.createLayer({name:'replacement',image:'\(path)'});
+                    let stale=false;try{thisScene.destroyLayer(\(variable));}catch(e){stale=e instanceof TypeError;}
+                    if(!stale)throw Error('old-birth-handle-revived');thisScene.destroyLayer(replacement);}
+                return new Vec3(1,1,1);}
+            """)
+        var birth = effects(try evaluate(creator),creator)
+        if splitCallbacks {
+            birth.append(try evaluate(creator,1))
+            birth.layerMutations = SceneScriptLayerMutation.coalescing(birth.layerMutations)
+        }
+        let born = birth.layerMutations.first(where:\.isDynamic)!
+        var unknown = born
+        unknown.fields.remove(.created)
+        let unknownPlan = runtime.preflightIsolatingOwners([unknown])
+        let unknownRejected = unknownPlan.outcome.failures.contains {
+            if case .staleOwner = $0.failure { return true }; return false
+        }
+        var missing = birth
+        missing.layerMutations = birth.layerMutations.map { $0.resolvingAssetPath(to:"models/unprepared.json") }
+        let peer = try owner(domain,102,"export function update(v){thisLayer.alpha=.5;return new Vec3(1,1,1);}")
+        let peerEffects = effects(try evaluate(peer),peer)
+        let missingAdmission = runtime.preflightOwnerEffects([missing,peerEffects])
+        let missingRejectedLocally = missingAdmission.rejectedOwners.map(\.ownerTarget) == [creator.target]
+            && missingAdmission.layerPlan.createdDynamicLayerMutations.isEmpty
+            && missingAdmission.admittedEffects.map(\.ownerTarget) == [peer.target]
+        let originalDefinitionTargets = Set(runtime.authoredLayerDefinitions.map(\.target))
+        let fixed = runtime.preflightOwnerEffectsToFixedPoint([birth,peerEffects]) { _, _ in
+            rejectBirth ? [creator.target] : []
+        }
+        let plan = fixed.admission.layerPlan
+        let readOnly = runtime.snapshot().dynamicLayers.isEmpty && runtime.snapshot().authoredLayerValues.isEmpty
+        runtime.commit(plan)
+        if rejectBirth { creator.discardLayerMutations() } else { creator.commitLayerMutations() }
+        peer.commitLayerMutations()
+        let acceptedBirth = plan.createdDynamicLayerMutations.first
+        var oldHandleStayedStale = true
+        var nextBirthHasNewIdentity = true
+        if !rejectBirth {
+            let next = effects(try evaluate(creator,2),creator)
+            let nextAdmission = runtime.preflightOwnerEffects([next])
+            oldHandleStayedStale = nextAdmission.rejectedOwners.isEmpty
+            nextBirthHasNewIdentity = nextAdmission.layerPlan.createdDynamicLayerMutations.first
+                .map { $0.layerID != born.layerID && $0.isNewborn && $0.kind == .destroy } ?? false
+            runtime.commit(nextAdmission.layerPlan)
+            creator.commitLayerMutations()
+        }
+        return ["birthRecord":born.isNewborn && born.kind == .destroy && born.assetPath == path
+                    && born.size == SIMD2<Double>(200,100),
+            "candidateBirthCount":plan.createdDynamicLayerMutations.count,
+            "candidateResource":rejectBirth || (acceptedBirth?.assetPath == path && acceptedBirth?.kind == .destroy),
+            "unknownRejected":unknownRejected,"missingRejectedLocally":missingRejectedLocally,
+            "readOnly":readOnly,"noTopologyPublication":runtime.snapshot().dynamicLayers.isEmpty
+                && !plan.dynamicTopologyChanged && swiftOrder(runtime) == ["A","B","C"],
+            "onlyPeerSchemaGrowth":Set(runtime.authoredLayerDefinitions.map(\.target))
+                == originalDefinitionTargets.union([.layer(layerID:102,field:.alpha)]),
+            "peerCommitted":runtime.snapshot().authoredLayerValues[.layer(layerID:102,field:.alpha)] == .scalar(0.5),
+            "rejectedOwnerAbsent":!rejectBirth || fixed.externallyRejectedOwners == [creator.target],
+            "oldHandleStayedStale":oldHandleStayedStale,"nextBirthHasNewIdentity":nextBirthHasNewIdentity,
+            "c":try cOrder(domain)]
+    }
+    static func shortLivedText(_ expression: String, existing: Bool = false) throws -> [String:Any] {
+        let (_,domain,runtime) = try setup("models/text-neighbor.json")
+        let creator = try owner(domain,101,"""
+            let caption;export function update(v){if(v.x===0)caption=thisScene.createLayer({text:'temporary'});
+                if(\(existing) && v.x===0)return new Vec3(1,1,1);
+                caption.pointsize=\(expression);thisScene.destroyLayer(caption);return new Vec3(1,1,1);}
+            """)
+        if existing {
+            _ = apply([effects(try evaluate(creator),creator)],runtime)
+            creator.commitLayerMutations()
+        }
+        let evaluated: SceneScriptValueEvaluation
+        do { evaluated = try evaluate(creator,existing ? 1 : 0) } catch {
+            return ["rejected":true,"noPublication":runtime.snapshot().dynamicLayers.isEmpty,
+                "noPending":mwx_scene_quickjs_domain_has_pending_layer_topology(domain.handle) == 0,
+                "c":try cOrder(domain)]
+        }
+        let birth = effects(evaluated,creator)
+        let revision = runtime.authoredDefinitionRevision
+        let admission = runtime.preflightOwnerEffects([birth])
+        let record = birth.layerMutations.first(where:\.isDynamic)!
+        runtime.commit(admission.layerPlan)
+        creator.commitLayerMutations()
+        return ["rejected":!admission.rejectedOwners.isEmpty,
+            "cleanDestroyMask":record.fields == (existing ? [] : [.created]),"raw":record.pointSize,
+            "rendered":SceneRenderDescriptor.Layer.dynamicText(record)?.textStyle?.pointSize ?? -1,
+            "candidateBirthCount":admission.layerPlan.createdDynamicLayerMutations.count,
+            "noPublication":runtime.snapshot().dynamicLayers.isEmpty && (existing || !admission.layerPlan.dynamicTopologyChanged),
+            "noSchemaGrowth":runtime.authoredDefinitionRevision == revision,
+            "c":try cOrder(domain)]
+    }
     static func main() throws {
         print(String(decoding:try JSONSerialization.data(withJSONObject:[
             "authored":[sortAndField("thisScene.sortLayer(thisLayer,0);thisLayer.alpha=0.5"),
@@ -330,7 +436,13 @@ HARNESS = r'''
             "propertyOnly":propertyOnly(),"late":lateRejection(),"interleaved":interleavedCallbacks(),
             "destroyShift":destroyShift(),"tombstone":authoredTombstone(),"throw":thrownSort(),"carrier":clippedBooleanCarrier(),"missing":unavailableProjection(),
             "returnControls":[returnControlsContinuation("models/order.json","moved"),returnControlsContinuation("models/renamed-return.json","shifted")],
-            "manySorts":sortAndField("for(let step=0;step<300;step++){thisScene.sortLayer(thisLayer,step%2===0?0:2);}thisScene.sortLayer(thisLayer,0);thisLayer.alpha=0.5") ],options:[.sortedKeys]),as:UTF8.self))
+            "manySorts":sortAndField("for(let step=0;step<300;step++){thisScene.sortLayer(thisLayer,step%2===0?0:2);}thisScene.sortLayer(thisLayer,0);thisLayer.alpha=0.5"),
+            "shortLived":[shortLivedBirth("models/order.json","temporary"),
+                shortLivedBirth("models/renamed-short-lived.json","removed",splitCallbacks:true)],
+            "rejectedBirth":shortLivedBirth("models/order.json","withdrawn",rejectBirth:true),
+            "shortLivedText":try ["0","1-1","2048","1024*2"].map { try shortLivedText($0) },
+            "existingTextDestroy":try ["0","2048"].map { try shortLivedText($0,existing:true) },
+            "invalidShortLivedText":try ["NaN","Infinity","'2048'"].map { try shortLivedText($0) } ],options:[.sortedKeys]),as:UTF8.self))
     }
 }
 '''
@@ -340,7 +452,7 @@ class SceneScriptLayerOrderTests(unittest.TestCase):
     def setUpClass(cls) -> None:
         cls.temporary = tempfile.TemporaryDirectory(prefix="scene-layer-order-")
         cls.addClassCleanup(cls.temporary.cleanup)
-        binary = compile_vector_harness(Path(cls.temporary.name), HARNESS, "layer-order", preamble=PREAMBLE, extra_swift_sources=EXTRA_SOURCES)
+        binary = compile_vector_harness(Path(cls.temporary.name), HARNESS, "layer-order", preamble=PREAMBLE, extra_swift_sources=EXTRA_SOURCES, whole_module_optimization=True)
         completed = subprocess.run([str(binary)], capture_output=True, text=True)
         if completed.returncode:
             raise AssertionError(completed.stdout + completed.stderr)
@@ -358,6 +470,44 @@ class SceneScriptLayerOrderTests(unittest.TestCase):
             self.assertEqual(result["c"], ["Y","A","B","X","C"])
             self.assertEqual(result["swift"], result["c"])
             self.assertEqual(result["failures"], 0)
+
+    def test_short_lived_birth_keeps_accepted_resource_without_publishing_topology(self) -> None:
+        for result in self.result["shortLived"]:
+            self.assertEqual(result["candidateBirthCount"], 1)
+            self.assertEqual(result["c"], ["A", "B", "C"])
+            for key in ("birthRecord", "candidateResource", "unknownRejected", "missingRejectedLocally",
+                        "readOnly", "noTopologyPublication", "onlyPeerSchemaGrowth", "peerCommitted",
+                        "oldHandleStayedStale", "nextBirthHasNewIdentity"):
+                self.assertIs(result[key], True, key)
+
+    def test_rejected_short_lived_birth_does_not_leave_candidate_or_reject_peer(self) -> None:
+        result = self.result["rejectedBirth"]
+        self.assertEqual(result["candidateBirthCount"], 0)
+        self.assertEqual(result["c"], ["A", "B", "C"])
+        for key in ("birthRecord", "unknownRejected", "missingRejectedLocally", "readOnly",
+                    "noTopologyPublication", "onlyPeerSchemaGrowth", "peerCommitted", "rejectedOwnerAbsent"):
+            self.assertIs(result[key], True, key)
+
+    def test_destroyed_text_birth_retains_finite_scalar_and_uses_original_render_clamp(self) -> None:
+        for result, raw, rendered in zip(self.result["shortLivedText"], [0, 0, 2048, 2048], [1, 1, 1024, 1024]):
+            self.assertIs(result["rejected"], False)
+            self.assertEqual(result["raw"], raw)
+            self.assertEqual(result["rendered"], rendered)
+            self.assertEqual(result["candidateBirthCount"], 1)
+            self.assertEqual(result["c"], ["A", "B", "C"])
+            for key in ("cleanDestroyMask", "noPublication", "noSchemaGrowth"):
+                self.assertIs(result[key], True, key)
+        for result, raw, rendered in zip(self.result["existingTextDestroy"], [0, 2048], [1, 1024]):
+            self.assertIs(result["rejected"], False)
+            self.assertEqual(result["raw"], raw)
+            self.assertEqual(result["rendered"], rendered)
+            self.assertEqual(result["candidateBirthCount"], 0)
+            for key in ("cleanDestroyMask", "noPublication", "noSchemaGrowth"):
+                self.assertIs(result[key], True, key)
+        for result in self.result["invalidShortLivedText"]:
+            for key in ("rejected", "noPublication", "noPending"):
+                self.assertIs(result[key], True, key)
+            self.assertEqual(result["c"], ["A", "B", "C"])
 
     def test_property_only_dynamic_upsert_does_not_supply_stale_sort(self) -> None:
         result = self.result["propertyOnly"]

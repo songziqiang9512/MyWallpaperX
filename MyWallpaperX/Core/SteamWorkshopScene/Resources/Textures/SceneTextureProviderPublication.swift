@@ -694,7 +694,7 @@ nonisolated struct SceneFrameTextureSelectionDigest: Hashable {
     func replacing(
         _ identity: SceneFrameTextureIdentity,
         previous: SceneFrameTextureLookupStatus?,
-        with status: SceneFrameTextureLookupStatus
+        with status: SceneFrameTextureLookupStatus?
     ) -> Self {
         var mixA = self.mixA
         var mixB = self.mixB
@@ -703,13 +703,15 @@ nonisolated struct SceneFrameTextureSelectionDigest: Hashable {
             mixA ^= removed.0
             mixB ^= removed.1
         }
-        let inserted = Self.entryMix(identity, status)
-        mixA ^= inserted.0
-        mixB ^= inserted.1
+        if let status {
+            let inserted = Self.entryMix(identity, status)
+            mixA ^= inserted.0
+            mixB ^= inserted.1
+        }
         return .init(
             mixA: mixA,
             mixB: mixB,
-            entryCount: entryCount + (previous == nil ? 1 : 0)
+            entryCount: entryCount - (previous == nil ? 0 : 1) + (status == nil ? 0 : 1)
         )
     }
 

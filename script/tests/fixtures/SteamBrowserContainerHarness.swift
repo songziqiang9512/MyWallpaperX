@@ -42,7 +42,8 @@ enum SteamWorkshopItemMenu {
     func retryLoadingMoreBrowserItems() { continuationCalls += 1 }
     func consumePendingBrowserScrollRestoreOffset() { pendingBrowserScrollRestoreOffset = nil }
     func updateBrowserScrollMetrics(offsetY: CGFloat, contentHeight: CGFloat, viewportHeight: CGFloat) { lastScrollOffset = offsetY }
-    func refresh() {}
+    var refreshCalls = 0
+    func refresh() { refreshCalls += 1; isRefreshingBrowserFeed = true }
 }
 @MainActor final class SteamWorkshopPreviewPrefetchController {
     struct Candidate {
@@ -257,6 +258,19 @@ private final class SteamTopGapClip: NSClipView {
             failures.append("offscreen keyboard focus missing on display")
         }
         grid.makeOrganization = { _ in .init(value: 7, isPlaying: true) }
+        #if compiler(>=6.4)
+        if #available(macOS 27.0, *) {
+            precondition(grid.scrollView.refreshController != nil, "Workshop browser must install native refresh")
+            let refresh = grid.scrollView.refreshController!
+            refresh.beginRefreshing()
+            _ = NSApp.sendAction(refresh.action!, to: refresh.target, from: refresh)
+            settle()
+            precondition(service.refreshCalls == 1 && refresh.isRefreshing, "native pull must refresh its current Workshop source")
+            service.isRefreshingBrowserFeed = false
+            settle()
+            precondition(!refresh.isRefreshing, "Workshop source terminal must end native refresh")
+        }
+        #endif
         let originalCards = grid.collectionView.visibleItems().compactMap { $0 as? AppKitSteamWorkshopBrowserItem }
         if originalCards.isEmpty || !originalCards.allSatisfy({ $0.organization?.value == 7 && $0.playing }) {
             failures.append("injected organization did not reach current original cards")

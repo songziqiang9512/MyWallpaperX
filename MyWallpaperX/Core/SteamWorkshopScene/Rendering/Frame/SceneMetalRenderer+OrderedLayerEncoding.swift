@@ -221,6 +221,56 @@ extension SceneMetalRenderer {
                 if baseSelection.hasPendingAuthoredVideo {
                     initialVideoPresentation?.pendingLayerIDs.insert(layer.id)
                 }
+                let observesOrdinaryVideo: Bool
+                if layerMainPass !== mainPass {
+                    observesOrdinaryVideo = false
+                } else if case .provider(.video)? = baseSource?.candidate?.identity {
+                    observesOrdinaryVideo = true
+                } else if baseSelection.hasPendingAuthoredVideo {
+                    observesOrdinaryVideo = true
+                } else if case .missing = baseSelection {
+                    observesOrdinaryVideo = imageTextures.initialVideoReadiness?[layer.id] == .unavailable
+                } else {
+                    observesOrdinaryVideo = false
+                }
+                guard baseSource != nil || observesOrdinaryVideo else { continue }
+                let layerAlpha = SceneDynamicLayerValues.alpha(
+                    layerID: layer.id, authoredValue: layer.alpha,
+                    snapshot: frameContext.dynamicValues
+                )
+                let sourceMaterialAlpha = baseMaterialProviderBindings.sourceMaterialAlpha(
+                    layer: layer, snapshot: frameContext.dynamicValues
+                )
+                let usesPerspective = cameraFrame.resolvesPerspective(for: layer)
+                let model = imageTextures.geometryProducts[layer.id].map {
+                    geometryModelMatrix(
+                        for: layer, worldFramesByLayerID: frameWorldFrames,
+                        authoredSize: $0.authoredSize,
+                        parallaxMouseNormalized: parallaxMouseNormalized,
+                        configuration: parallaxConfiguration,
+                        visibleHalfExtents: cameraFrame.coverHalfExtents,
+                        usesPerspective: usesPerspective
+                    )
+                } ?? imageModelMatrix(
+                    for: layer, worldFramesByLayerID: frameWorldFrames,
+                    renderSizeOverride: imageTextures.layerSourceRenderSize(for: layer.id),
+                    textCenterOffsetY: imageTextures.layerSourceTextCenterOffsetY(for: layer.id) ?? 0,
+                    parallaxMouseNormalized: parallaxMouseNormalized,
+                    configuration: parallaxConfiguration,
+                    visibleHalfExtents: cameraFrame.coverHalfExtents,
+                    usesPerspective: usesPerspective
+                )
+                let mvp = cameraFrame.viewProjection(for: layer) * model
+                let isVisibleOrdinaryVideo = observesOrdinaryVideo && layerAlpha > 0
+                    && sourceMaterialAlpha > 0
+                    && SceneLayerSourcePassthroughPlan.projectedGeometry(for: mvp) != nil
+                if isVisibleOrdinaryVideo {
+                    if baseSelection.hasPendingAuthoredVideo {
+                        initialVideoPresentation?.pendingSurfaceLayerIDs.insert(layer.id)
+                    } else if imageTextures.initialVideoReadiness?[layer.id] == .unavailable {
+                        initialVideoPresentation?.hasUnavailableVideo = true
+                    }
+                }
                 guard let baseSource else { continue }
                 let imageResult = encodeImageLayer(
                     layer: layer,
@@ -234,8 +284,11 @@ extension SceneMetalRenderer {
                     frameContext: frameContext,
                     frameWorldFrames: frameWorldFrames,
                     cameraFrame: cameraFrame,
-                    parallaxMouseNormalized: parallaxMouseNormalized,
-                    parallaxConfiguration: parallaxConfiguration,
+                    model: model,
+                    mvp: mvp,
+                    usesPerspective: usesPerspective,
+                    layerAlpha: layerAlpha,
+                    sourceMaterialAlpha: sourceMaterialAlpha,
                     viewportSize: viewportSize,
                     time: time,
                     offscreenTexturePool: offscreenTexturePool,
@@ -252,6 +305,9 @@ extension SceneMetalRenderer {
                     break frameLayers
                 }
                 guard let drawOutcome = imageResult.outcome else { continue }
+                if isVisibleOrdinaryVideo && drawOutcome.encoded {
+                    initialVideoPresentation?.readyLayerIDs.insert(layer.id)
+                }
 #if DEBUG
                 if frameProjection.dynamicLayerIDs.contains(layer.id) {
                     if drawOutcome.encoded {

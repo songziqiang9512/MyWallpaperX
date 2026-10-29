@@ -2,8 +2,8 @@ import Foundation
 
 // Thin external carriers only. The Python gate inserts the unmodified product
 // join method, dynamic resource, lighting profile and template declarations.
-// A reference object stands in for MTLTexture to observe the join's === check;
-// this harness neither allocates nor validates GPU resources.
+// Reference objects stand in for prepared textures and video files; this
+// harness neither prepares media nor allocates or validates GPU resources.
 final class MTLTexture {
     let width: Int
     let height: Int
@@ -13,14 +13,9 @@ final class MTLTexture {
     }
 }
 struct SceneTextureCandidate { let texture: MTLTexture }
-struct SceneSpriteAnimation {}
-enum SceneBaseImageTextureLoad {
-    struct Loaded {
-        let texture: MTLTexture
-        let candidate: SceneTextureCandidate?
-        let animation: SceneSpriteAnimation?
-    }
-}
+enum SceneTextureLoader { struct SourceKey: Hashable { let token: String } }
+final class SceneVideoOwnedFile {}
+struct SceneMaterialRenderState: Equatable, Sendable {}
 enum ScenePuppetLayerLoad { struct PreparedPose {} }
 struct SceneAssetTextureIdentity: Equatable, Sendable { let token: String }
 struct SceneDynamicTarget: Equatable, Sendable { let token: String }
@@ -54,18 +49,18 @@ enum ScenePreparedScriptResourceCatalogHarness {
         typealias Profile = SceneBaseMaterialLightingProfile
         let lit = Profile(lightingEnabled: true, scalarMaterial: SIMD2(0.21, 0.79), normalSource: .disabled)
         func resource(_ path: String, profile: Profile? = nil,
-                      natural: [Float]? = nil, mesh: String? = nil,
-                      animated: Bool = false, candidate: Bool = true,
-                      matchingTexture: Bool = true) -> Resource {
-            let texture = MTLTexture()
-            let sampling = candidate ? SceneTextureCandidate(
-                texture: matchingTexture ? texture : MTLTexture()) : nil
-            return .init(modelPath: path, loaded: .init(texture: texture,
-                candidate: sampling, animation: animated ? .init() : nil),
+                      natural: [Float]? = nil, mesh: String? = nil) -> Resource {
+            .init(modelPath: path, product: .image(.init(texture: MTLTexture())),
                 naturalSizeWH: natural, puppetMeshPath: mesh, lightingProfile: profile)
         }
+        let videoSource = SceneTextureLoader.SourceKey(token: "prepared-video")
+        let videoFile = SceneVideoOwnedFile()
+        func video(_ path: String, profile: Profile? = .disabled) -> Resource {
+            .init(modelPath: path, product: .video(source: videoSource, file: videoFile, sizeWH: [3750, 2250]),
+                naturalSizeWH: [3750, 2250], lightingProfile: profile)
+        }
         let sourcePaths: Set<String> = ["models/full-source.json", "models/lowered.json",
-            "models/source-without-candidate.json", "models/source-mismatched-texture.json"]
+            "models/video-source.json"]
         let resources: [String: Resource] = [
             "models/plain.json": resource("models/plain.json", profile: .disabled),
             "models/lit.json": resource("models/lit.json", profile: lit),
@@ -74,17 +69,17 @@ enum ScenePreparedScriptResourceCatalogHarness {
             "models/unknown.json": resource("models/unknown.json"),
             "models/autosize.json": resource("models/autosize.json", profile: lit, natural: [800, 600]),
             "models/autosize-missing.json": resource("models/autosize-missing.json", profile: lit),
-            "models/animated.json": resource("models/animated.json", profile: .disabled, animated: true),
-            "models/no-candidate.json": resource("models/no-candidate.json", profile: lit, candidate: false),
-            "models/mismatched-texture.json": resource("models/mismatched-texture.json", profile: lit, matchingTexture: false),
-            "models/source-without-candidate.json": resource("models/source-without-candidate.json", candidate: false),
-            "models/source-mismatched-texture.json": resource("models/source-mismatched-texture.json", matchingTexture: false),
+            "models/video.json": video("models/video.json"),
+            "models/video-autosize.json": video("MODELS\\VIDEO-AUTOSIZE.JSON"),
+            "models/video-source.json": video("models/video-source.json", profile: nil),
+            "models/video-unknown.json": video("models/video-unknown.json", profile: nil),
             "models/puppet.json": resource("models/puppet.json", profile: .disabled,
                 natural: [512, 256], mesh: "models/unseen-puppet.mdl")
         ]
         let models: [SceneAssetCatalog.ModelAsset] = [
             .init(relativePath: "MODELS/AUTOSIZE.JSON", autosize: true),
             .init(relativePath: "MODELS/AUTOSIZE-MISSING.JSON", autosize: true),
+            .init(relativePath: "MODELS/VIDEO-AUTOSIZE.JSON", autosize: true),
             .init(relativePath: "models/puppet.json", autosize: false),
             .init(relativePath: "models/plain.json", autosize: nil)
         ]
@@ -112,9 +107,8 @@ enum ScenePreparedScriptResourceCatalogHarness {
             return catalog.templates.isEmpty && catalog.lightingProfiles.isEmpty
         }
         let rejectedPaths = [
-            "models/unknown.json", "models/autosize-missing.json", "models/animated.json",
-            "models/no-candidate.json", "models/mismatched-texture.json",
-            "models/source-without-candidate.json", "models/source-mismatched-texture.json",
+            "models/unknown.json", "models/autosize-missing.json",
+            "models/video-unknown.json",
             "models/not-composition.json"
         ]
         let payload: [String: Any] = [

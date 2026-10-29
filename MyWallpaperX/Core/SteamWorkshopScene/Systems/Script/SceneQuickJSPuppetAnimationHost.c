@@ -373,6 +373,7 @@ bool mwx_scene_quickjs_define_puppet_animation_lookup(MWXSceneQuickJSOwner *owne
     if (handle == NULL) return false;
     *handle = (MWXSceneQuickJSLayerAccessHandle){ .domain = owner->domain,
         .owner_identity = owner->identity, .layer_index = layer_index,
+        .expected_layer_id = owner_target ? 0 : owner->domain->layers[layer_index].layer_id,
         .callback_epoch = owner->domain->callback_epoch,
         .owner_target = owner_target, .persistent = persistent };
     JSValue function = mwx_scene_quickjs_layer_access_closure(owner->domain->context,

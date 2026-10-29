@@ -79,7 +79,7 @@ HARNESS = r'''
                 frame: .init(timing: .init(wallDate: Date(timeIntervalSince1970: 0),
                     simulationFrameTime: 1 / 60, sceneTime: time)), propertyRevision: revision)
             let admission = runtime.preflightOwnerEffectsToFixedPoint(
-                result.ownerEffects, excludingOwners: Set(result.failures.keys)) { effects in
+                result.ownerEffects, excludingOwners: Set(result.failures.keys)) { effects, _ in
                     reject ? Set(effects.map(\.ownerTarget)) : []
                 }
             let rejected = admission.externallyRejectedOwners.union(
@@ -201,7 +201,9 @@ class SceneScriptEventVisibilityTests(unittest.TestCase):
             "        var particleInstanceOverride:")
         binary = compile_vector_harness(Path(cls.temporary.name), HARNESS,
             "event-visibility", preamble=preamble,
-            extra_swift_sources=(SCENE / "Rendering/Geometry/SceneLayerVisibility.swift",))
+            extra_swift_sources=(SCENE / "Rendering/Geometry/SceneLayerVisibility.swift",),
+            whole_module_optimization=True,
+        )
         result = subprocess.run([str(binary)], capture_output=True, text=True,
                                 check=True, timeout=30)
         cls.value = json.loads(result.stdout.strip().splitlines()[-1])

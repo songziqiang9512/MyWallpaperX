@@ -87,7 +87,7 @@ func ids(_ runtime: SceneScriptDynamicLayerRuntime) -> [Int] {
         let externallyRejected = fixedPoint.preflightOwnerEffectsToFixedPoint([
             .init(ownerTarget: controller, layerMutations: [destroyTarget()]),
             .init(ownerTarget: targetOwner, layerMutations: [mutation(-3, order: 4, ownerTarget: targetOwner)]),
-        ], rejectingExternally: { effects in
+        ], rejectingExternally: { effects, _ in
             Set(effects.filter { $0.ownerTarget == controller }.map(\.ownerTarget))
         })
         fixedPoint.commit(externallyRejected.admission.layerPlan)
@@ -105,7 +105,7 @@ func ids(_ runtime: SceneScriptDynamicLayerRuntime) -> [Int] {
         let failed = rejected.apply([destroyTarget(), mutation(-3, order: 4, alpha: .nan, ownerTarget: controller)])
         let untouched = rejected.preflightOwnerEffectsToFixedPoint([
             .init(ownerTarget: controller, layerMutations: [destroyTarget()]),
-        ], excludingOwners: [controller], rejectingExternally: { _ in [] })
+        ], excludingOwners: [controller], rejectingExternally: { _, _ in [] })
         rejected.commit(untouched.admission.layerPlan)
         output["rejection"] = ["badBundleRejected": !succeeded(failed),
             "duplicateBatchRejected": !succeeded(duplicateBatch), "writeAfterDeleteRejected": !succeeded(writeAfterDelete), "copies": ids(rejected),
@@ -212,7 +212,7 @@ func ids(_ runtime: SceneScriptDynamicLayerRuntime) -> [Int] {
         let rejection = rejectedRetirement.preflightOwnerEffectsToFixedPoint([
             .init(ownerTarget: sorter, layerMutations: [mutation(20, dynamic: false, order: 2, ownerTarget: sorter)]),
             .init(ownerTarget: deleter, layerMutations: [destroyFirst]),
-        ], rejectingExternally: { effects in
+        ], rejectingExternally: { effects, _ in
             Set(effects.filter { $0.ownerTarget == deleter }.map(\.ownerTarget))
         })
         rejectedRetirement.commit(rejection.admission.layerPlan)

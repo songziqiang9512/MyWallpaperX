@@ -125,7 +125,7 @@ struct ScenePuppetAnimationPlaybackRuntime {
                 let targets:[SceneDynamicTarget]=(1...2).map{family=="scalar" ? .layer(layerID:$0,field:.alpha) : .text(layerID:$0,field:.content)}
                 let domain=try SceneScriptQuickJSDomain();try domain.configureLayerCatalog(descriptor)
                 try domain.publishLayerSnapshot(SceneDynamicSnapshotResolver().resolve(frameIndex:1,generation:1,definitions:[]).snapshot,
-                    descriptor:descriptor,videoSnapshots:Dictionary(uniqueKeysWithValues:(1...2).map{($0,.init(layerID:$0,duration:10,rate:1,loop:true,currentTime:0,isPlaying:true,endedGeneration:0))}))
+                    descriptor:descriptor)
                 let properties:[SceneUserPropertyDefinition]=[.init(key:"mode",title:"Mode",kind:.slider,runtimeType:"slider",order:0,index:nil,
                     minimumValue:0,maximumValue:10,stepValue:1,allowsFractionalValues:false,fractionalPrecision:nil,displayCondition:nil,defaultValue:.number(0),options:[])]
                 func exercise(capture:()->SceneScriptProgramFrameState,
@@ -194,7 +194,9 @@ class SceneValueBoneMutationsTests(unittest.TestCase):
     def setUpClass(cls):
         with tempfile.TemporaryDirectory(prefix="mwx-value-bones-vm-") as temp:
             binary=compile_vector_harness(Path(temp),LAUNCH_STUBS+LAUNCH_SOURCE+HARNESS,"value-bones",
-                extra_swift_sources=(VALIDATION_SOURCE,))
+                extra_swift_sources=(VALIDATION_SOURCE,),
+                whole_module_optimization=True,
+            )
             run=subprocess.run([str(binary)],check=True,capture_output=True,text=True)
             cls.value=json.loads(run.stdout)
             print(json.dumps(cls.value,sort_keys=True))

@@ -9,16 +9,6 @@ import simd
 // Unrelated descriptor/command/renderer envelopes only. TEX admission, player,
 // lifecycle, candidate/publication, registry, selection and GPU are real owners.
 struct SceneFrameTiming { let frameIndex: UInt64; let hostTime: Double; let sceneTime: Double }
-struct SceneScriptVideoPlaybackSnapshot {
-    let layerID: Int; let duration: Double; let rate: Double; let loop: Bool
-    let currentTime: Double; let isPlaying: Bool; let endedGeneration: UInt64
-}
-struct SceneScriptMediaPlaybackCommand {
-    enum Destination { case videoTexture }
-    enum Action { case play, pause, stop, setCurrentTime(Double), setRate(Double), setLoop(Bool) }
-    let layerID: Int; let action: Action
-    var destination: Destination { .videoTexture }
-}
 struct SceneRenderDescriptor {
     struct Layer {
         let id: Int; let contentKind: String
@@ -96,7 +86,7 @@ final class ScenePerformanceCounterHub {
         #endif
         #if MWX_REGISTRY_INPUT_IO
         if CommandLine.arguments[3] == "--registry-input-io" {
-            try registryInputIO(root: root, before: CommandLine.arguments[4] == "before")
+            try registryInputIO(root: root)
             return
         }
         #endif
@@ -130,6 +120,7 @@ final class ScenePerformanceCounterHub {
                       cacheDirectory: cache, device: device, loader: loader),
                   let layerSource = try registry.source(from: declaration.input, layerID: videoLayerID,
                       cacheDirectory: cache, device: device, loader: loader) else { fatalError("registry source missing") }
+            let initialVideoFrame = registry.sceneScriptSnapshots(sceneTime: 0)
             var checks: [String: Bool] = [
                 "declarationIsNotReady": catalog.launchStates[asset] == .preparedVideoColor,
                 "initialStatePending": {
@@ -138,8 +129,8 @@ final class ScenePerformanceCounterHub {
                 }(),
                 "aliasesSharePhysicalDecoder": source === shared,
                 "layerPlaybackIsIndependent": source !== layerSource,
-                "assetHasNoLayerSnapshot": source.playbackSnapshot(sceneTime: 0) == nil
-                    && Set(registry.sceneScriptSnapshots(sceneTime: 0).keys) == [videoLayerID],
+                "assetHasNoLayerBinding": Set(initialVideoFrame.layerBindings.keys) == [videoLayerID]
+                    && !initialVideoFrame.sources.compactMap { $0 }.contains { $0.sourceIncarnation == source.playbackSnapshot(sceneTime: 0).sourceIncarnation },
                 "unsupportedPurposeUnavailable": catalog.launchStates[unsupported] == .unavailable,
                 "badTexUnavailable": catalog.launchStates[invalid] == .unavailable,
             ]
@@ -253,7 +244,7 @@ final class ScenePerformanceCounterHub {
                     requestedItemTime: 0, decodedItemTime: 0, epoch: epoch, owner: .asset,
                     sourceIncarnation: incarnation)
             }
-            checks["assetCannotPublishAsLayer"] = frame(content: .color(.resolved(.opaque))).publication == nil
+            checks["assetCannotPublishAsLayer"] = frame(content: .color(.resolved(.opaque))).layerPublication(for: layerID) == nil
             checks["dataPurposeCannotRelabelVideo"] = frame(content: .color(.resolved(.opaque)))
                 .assetPublication(for: unsupported) == nil
             for (name, content) in [("unknownAlpha", SceneTextureContent.color(.unresolved)),
@@ -286,10 +277,13 @@ final class ScenePerformanceCounterHub {
             checks["staticFallbackKeepsAuthoredColor"] = staticSource.usesAuthoredLayerColor && blackStatic.prefix(3).allSatisfy { abs($0) < 0.001 }
             frameRegistry.commitFramePublication()
             let beforePause = Mirror(reflecting: source).children.compactMap { $0.value as? AVPlayer }.first!.rate
-            _ = registry.apply([.init(layerID: videoLayerID, action: .pause)], timing: timing())
+            let pauseCommand = SceneScriptMediaPlaybackCommand(layerID: videoLayerID, action: .pause, videoSourceIncarnation: layerSource.sourceIncarnation), pauseTiming = timing()
+            try registry.validate([pauseCommand], timing: pauseTiming).get()
+            registry.applyAdmitted(pauseCommand, timing: pauseTiming)
+            let pausedVideoFrame = registry.sceneScriptSnapshots(sceneTime: 3.2)
             checks["layerCommandsDoNotControlAsset"] = beforePause > 0
                 && Mirror(reflecting: source).children.compactMap { $0.value as? AVPlayer }.first!.rate > 0
-                && registry.sceneScriptSnapshots(sceneTime: 3.2)[videoLayerID]?.isPlaying == false
+                && pausedVideoFrame.layerBindings[videoLayerID].flatMap { pausedVideoFrame.sources[$0] }?.isPlaying == false
             registry.pause(sceneTime: 3.2, hostTime: CACurrentMediaTime())
             checks["globalPauseControlsAsset"] = Mirror(reflecting: source).children.compactMap { $0.value as? AVPlayer }.first!.rate == 0
             registry.resume(sceneTime: 3.2, hostTime: CACurrentMediaTime())
@@ -298,7 +292,7 @@ final class ScenePerformanceCounterHub {
                 device: device, loader: loader)
             registry.completeSurfaceRebuild()
             checks["rebuildReusesAssetAndRetiresLayer"] = reacquired === source
-                && registry.sceneScriptSnapshots(sceneTime: 3.2).isEmpty
+                && registry.sceneScriptSnapshots(sceneTime: 3.2).layerBindings.isEmpty
             let oldDeclaration = declaration
             try Data([0x11]).appendTo(root.appendingPathComponent(assetName + ".tex"))
             do {
@@ -745,7 +739,7 @@ final class ScenePerformanceCounterHub {
     #endif
 
     #if MWX_REGISTRY_INPUT_IO
-    static func registryInputIO(root: URL, before: Bool) throws {
+    static func registryInputIO(root: URL) throws {
         guard let device = MTLCreateSystemDefaultDevice() else { fatalError("Metal unavailable") }
         func count() -> UInt64 {
             let symbol = dlsym(UnsafeMutableRawPointer(bitPattern: -2), "mwx_video_entry_bytes")!
@@ -772,7 +766,10 @@ final class ScenePerformanceCounterHub {
         var checks: [String: Bool] = [:], reads: [String: UInt64] = [:]
         weak var weakFile: SceneVideoOwnedFile?
         var borrowedAsset: AVAsset?, fileURL: URL!
-        let entryBytes = try watch(handle), hitBytes = before ? entryBytes : 0
+        var preparedBorrowedAsset: AVAsset?
+        weak var lastPayloadAsset: AVAsset?
+        let initialReservation = SceneVideoOwnedFile.DiskBudget.shared.reservedBytes
+        let entryBytes = try watch(handle)
         try autoreleasepool {
             let budget = SceneTextureDecodeCacheBudget(maximumBytes: 0), loader = SceneTextureLoader(decodeCacheBudget: budget)
             let aRegistry = SceneVideoTextureSourceRegistry(epoch: 301)
@@ -785,12 +782,12 @@ final class ScenePerformanceCounterHub {
             loader.evictDecodedCaches(); _ = try watch(handle)
             let existing = try aRegistry.source(from: input, layerID: 17, cacheDirectory: privateCache, device: device, loader: loader)
             reads["liveHit"] = count()
-            checks["sameLiveSourceAndExpectedIO"] = existing === a && reads["liveHit"] == hitBytes && budget.residentBytes == 0
+            checks["sameLiveSourceAndExpectedIO"] = existing === a && reads["liveHit"] == 0 && budget.residentBytes == 0
             let bRegistry = SceneVideoTextureSourceRegistry(epoch: 302), bLoader = SceneTextureLoader(decodeCacheBudget: .init(maximumBytes: 0))
             _ = try watch(handle)
             let b = try bRegistry.source(from: input, layerID: 17, cacheDirectory: privateCache, device: device, loader: bLoader)!
             reads["completedHit"] = count()
-            checks["completedHitExpectedIO"] = reads["completedHit"] == hitBytes && b !== a && player(b) !== player(a)
+            checks["completedHitExpectedIO"] = reads["completedHit"] == 0 && b !== a && player(b) !== player(a)
                 && (player(b).currentItem?.asset as? AVURLAsset)?.url == fileURL
             let revisionURL = root.appendingPathComponent("different-revision.pkg")
             try FileManager.default.copyItem(at: root.appendingPathComponent("scene.pkg"), to: revisionURL)
@@ -828,7 +825,7 @@ final class ScenePerformanceCounterHub {
             }
             checks["cancelledRequestIsRejected"] = pump(4) { finished } && cancelled
             reads["cancelled"] = count()
-            checks["cancelledRequestExpectedIO"] = reads["cancelled"] == hitBytes
+            checks["cancelledRequestExpectedIO"] = reads["cancelled"] == 0
             let brokenView = try mount("changed.pkg"), broken = brokenView.resolvedResource(relativePath: "textures/first.tex")!
             _ = try watch(broken)
             try Data([17]).appendTo(root.appendingPathComponent("changed.pkg"))
@@ -844,14 +841,115 @@ final class ScenePerformanceCounterHub {
         autoreleasepool { borrowedAsset = nil }
         checks["lastBorrowActuallyReleased"] = pump(8) { weakFile == nil && !FileManager.default.fileExists(atPath: fileURL.path) }
         _ = try watch(handle)
-        let lastRegistry = SceneVideoTextureSourceRegistry(epoch: 307)
-        let last = try lastRegistry.source(from: input, layerID: 17, cacheDirectory: privateCache,
-            device: device, loader: SceneTextureLoader(decodeCacheBudget: .init(maximumBytes: 0)))!
-        reads["lastBorrowMiss"] = count()
-        checks["lastBorrowMissReadsOriginalPayload"] = reads["lastBorrowMiss"] == entryBytes && firstFrame(last) != nil
-        lastRegistry.stop()
+        try autoreleasepool {
+            let lastRegistry = SceneVideoTextureSourceRegistry(epoch: 307)
+            let last = try lastRegistry.source(from: input, layerID: 17, cacheDirectory: privateCache,
+                device: device, loader: SceneTextureLoader(decodeCacheBudget: .init(maximumBytes: 0)))!
+            reads["lastBorrowMiss"] = count()
+            checks["lastBorrowMissReadsOriginalPayload"] = reads["lastBorrowMiss"] == entryBytes && firstFrame(last) != nil
+            let preparedFile = Mirror(reflecting: last).children.compactMap { $0.value as? SceneVideoOwnedFile }.first!
+            weakFile = preparedFile; fileURL = preparedFile.url
+            let sourceKey = try input.currentIdentity(), preparedRegistry = SceneVideoTextureSourceRegistry(epoch: 308)
+            let preparedReservation = SceneVideoOwnedFile.DiskBudget.shared.reservedBytes
+            _ = try watch(handle)
+            let preparedSource = try preparedRegistry.source(sourceKey: sourceKey, preparedFile: preparedFile,
+                owner: .asset, device: device)!
+            reads["preparedCold"] = count()
+            let actualPreparedFile = Mirror(reflecting: preparedSource).children.compactMap { $0.value as? SceneVideoOwnedFile }.first
+            checks["preparedColdAvoidsPayloadAndDuplicateFile"] = reads["preparedCold"] == 0
+                && actualPreparedFile === preparedFile && (player(preparedSource).currentItem?.asset as? AVURLAsset)?.url == fileURL
+                && SceneVideoOwnedFile.DiskBudget.shared.reservedBytes == preparedReservation
+            checks["preparedActualFrameUsesCompletedMP4"] = firstFrame(preparedSource) != nil
+            _ = try watch(handle)
+            let preparedHit = try preparedRegistry.source(sourceKey: sourceKey, preparedFile: preparedFile,
+                owner: .asset, device: device)
+            reads["preparedLiveHit"] = count()
+            checks["preparedLiveCacheHitAvoidsPayload"] = preparedHit === preparedSource && reads["preparedLiveHit"] == 0
+            let timing = SceneFrameTiming(frameIndex: 1, hostTime: CACurrentMediaTime(), sceneTime: 0)
+            let layerSource = try preparedRegistry.source(sourceKey: sourceKey, preparedFile: preparedFile,
+                owner: .ordinary, layerID: 811, device: device)!
+            let obsoleteLayer = try preparedRegistry.source(sourceKey: sourceKey, preparedFile: preparedFile,
+                owner: .ordinary, layerID: 812, device: device)!
+            let revisionView = try mount("different-revision.pkg")
+            let replacementKey = try revisionView.resolvedResource(relativePath: "textures/first.tex")!.currentIdentity()
+            let replacementLayer = try preparedRegistry.source(sourceKey: replacementKey, preparedFile: preparedFile,
+                owner: .ordinary, layerID: 811, device: device)!
+            checks["layerIndexExcludesAssetAndKeepsBothLayers"] = Set(preparedRegistry.sceneScriptSnapshots(sceneTime: 0).layerBindings.keys) == [811, 812]
+            let commands: [SceneScriptMediaPlaybackCommand] = [.init(layerID: 811, action: .setRate(2), videoSourceIncarnation: replacementLayer.sourceIncarnation), .init(layerID: 812, action: .setRate(3), videoSourceIncarnation: layerSource.sourceIncarnation)]
+            try preparedRegistry.validate(commands, timing: timing).get()
+            for command in commands { preparedRegistry.applyAdmitted(command, timing: timing) }
+            checks["layerIndexSharesResourceAndTargetsDistinctRevision"] = layerSource === obsoleteLayer
+                && layerSource.playbackSnapshot(sceneTime: 0).rate == 3 && replacementLayer.playbackSnapshot(sceneTime: 0).rate == 2
+            guard firstFrame(replacementLayer) != nil else { fatalError("actual Native duration did not become available") }
+            let nativeDuration = CMTimeGetSeconds(player(replacementLayer).currentItem!.duration)
+            let rejectedCases: [(String, [SceneScriptMediaPlaybackCommand], SceneVideoCommandApplicationFailure)] = [
+                ("wrongLayerRejectedAtomically", [.init(layerID: 811, action: .setRate(4), videoSourceIncarnation: replacementLayer.sourceIncarnation), .init(layerID: 999, action: .pause)], .unavailableLayer(999)),
+                ("knownNativeDurationRejectedAtomically", [.init(layerID: 811, action: .setRate(4), videoSourceIncarnation: replacementLayer.sourceIncarnation), .init(layerID: 811, action: .setCurrentTime(nativeDuration + 1), videoSourceIncarnation: replacementLayer.sourceIncarnation)], .invalidCommand(1)),
+                ("staleSourceCommandRejected", [.init(layerID: 811, action: .pause, videoSourceIncarnation: layerSource.sourceIncarnation)], .unavailableLayer(811)),
+                ("missingSourceCommandRejected", [.init(layerID: 811, action: .pause)], .unavailableLayer(811))]
+            for (name, rejectedCommands, expected) in rejectedCases {
+                if case let .failure(actual) = preparedRegistry.validate(rejectedCommands, timing: timing) {
+                    checks[name] = nativeDuration.isFinite && nativeDuration > 0 && actual == expected && replacementLayer.playbackSnapshot(sceneTime: 0).rate == 2
+                } else { checks[name] = false }
+            }
+            let catalogModel = "models/catalog-video.json", catalogState = replacementLayer.playbackSnapshot(sceneTime: 0)
+            try preparedRegistry.prepareDynamicVideoSources(resources: [catalogModel: .init(product: .video(
+                source: replacementKey, file: preparedFile, sizeWH: [32, 24]))], modelPaths: [catalogModel], device: device)
+            preparedRegistry.retire(layerIDs: [811, 812])
+            preparedRegistry.beginSurfaceRebuild(sceneTime: 0, hostTime: CACurrentMediaTime())
+            _ = try watch(handle)
+            try preparedRegistry.prepareDynamicVideoSources(resources: [catalogModel: .init(product: .video(
+                source: replacementKey, file: preparedFile, sizeWH: [32, 24]))], modelPaths: [catalogModel], device: device)
+            let preparedRebuild = try preparedRegistry.source(sourceKey: sourceKey, preparedFile: preparedFile,
+                owner: .asset, device: device)
+            preparedRegistry.completeSurfaceRebuild()
+            let rebuiltCatalogState = replacementLayer.playbackSnapshot(sceneTime: 0)
+            checks["catalogZeroCarrierReusesSourceAndFile"] = preparedRegistry.layerSources(deviceRegistryID: device.registryID).isEmpty
+                && rebuiltCatalogState.sourceIncarnation == catalogState.sourceIncarnation && rebuiltCatalogState.currentTime == catalogState.currentTime
+                && rebuiltCatalogState.rate == catalogState.rate && rebuiltCatalogState.isPlaying == catalogState.isPlaying
+                && (player(replacementLayer).currentItem?.asset as? AVURLAsset)?.url == fileURL
+            preparedRegistry.bindPreparedVideoConsumers([811: catalogModel])
+            reads["preparedRebuild"] = count()
+            checks["preparedRebuildKeepsReachableSource"] = preparedRebuild === preparedSource
+                && player(preparedSource).currentItem != nil && reads["preparedRebuild"] == 0
+                && SceneVideoOwnedFile.DiskBudget.shared.reservedBytes == preparedReservation
+            checks["layerIndexRebuildKeepsSiblingAndRemovesObsolete"] = Set(preparedRegistry.sceneScriptSnapshots(sceneTime: 0).layerBindings.keys) == [811]
+                && player(layerSource).currentItem == nil && player(obsoleteLayer).currentItem == nil
+                && preparedRegistry.layerSources(deviceRegistryID: device.registryID)[811] === replacementLayer
+            if case .failure(.unavailableLayer(812)) = preparedRegistry.validate([.init(layerID: 812, action: .play)], timing: timing) {
+                checks["layerIndexRetiredCommandsAreUnavailable"] = true
+            } else { checks["layerIndexRetiredCommandsAreUnavailable"] = false }
+            var cancelled = false, finished = false
+            _ = try watch(handle)
+            Task { @MainActor in
+                withUnsafeCurrentTask { $0?.cancel() }
+                do {
+                    _ = try preparedRegistry.source(sourceKey: sourceKey, preparedFile: preparedFile,
+                        owner: .asset, device: device)
+                } catch is CancellationError { cancelled = true }
+                catch { cancelled = false }
+                finished = true
+            }
+            checks["preparedCancelledCacheHitIsRejected"] = pump(4) { finished } && cancelled && count() == 0
+            preparedBorrowedAsset = player(preparedSource).currentItem?.asset
+            lastPayloadAsset = player(last).currentItem?.asset
+            preparedRegistry.stop()
+            checks["preparedStopRetiresActualPlayer"] = player(preparedSource).currentItem == nil
+            if case .failure(.unavailableLayer(811)) = preparedRegistry.validate([.init(layerID: 811, action: .play)], timing: timing) {
+                checks["layerIndexStopClearsBindings"] = preparedRegistry.sceneScriptSnapshots(sceneTime: 0).layerBindings.isEmpty
+            } else { checks["layerIndexStopClearsBindings"] = false }
+            lastRegistry.stop()
+        }
+        checks["preparedAssetAlonePinsCompletedFile"] = pump(8) { lastPayloadAsset == nil }
+            && preparedBorrowedAsset != nil && weakFile != nil && (preparedBorrowedAsset as? AVURLAsset)?.url == fileURL
+            && FileManager.default.fileExists(atPath: fileURL.path)
+        autoreleasepool { preparedBorrowedAsset = nil }
+        checks["preparedFinalBorrowReturnsReservation"] = pump(8) {
+            weakFile == nil && !FileManager.default.fileExists(atPath: fileURL.path)
+                && SceneVideoOwnedFile.DiskBudget.shared.reservedBytes == initialReservation
+        }
         print(String(decoding: try JSONSerialization.data(withJSONObject: ["checks": checks, "payloadReadBytes": reads,
-            "expectedHitBytes": hitBytes, "entryBytes": entryBytes, "expectation": before ? "actual-D36-before" : "current"],
+            "entryBytes": entryBytes],
             options: [.sortedKeys]), as: UTF8.self))
     }
     #endif

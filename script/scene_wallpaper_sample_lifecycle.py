@@ -246,13 +246,15 @@ def apply_runtime_retention(
     app_identity: dict[str, Any],
     results: list[dict[str, Any]],
     keep_runtime: bool,
+    *,
+    finalize_stage: bool = True,
 ) -> None:
     if keep_runtime:
         return
 
     for result in results:
         for key in ("runtime_sample", "runtime_home", "runtime_workshop"):
-            if key not in result:
+            if not result.get(key):
                 continue
             path = Path(result[key])
             try:
@@ -264,5 +266,6 @@ def apply_runtime_retention(
             result[key] = None
         result["runtime_retained"] = False
 
-    discard_staged_app(app_identity)
-    remove_runtime_tree(runtime_root)
+    if finalize_stage:
+        discard_staged_app(app_identity)
+        remove_runtime_tree(runtime_root)

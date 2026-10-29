@@ -138,7 +138,7 @@ enum SteamWorkshopPersonalSort: String, CaseIterable, Identifiable {
 
     nonisolated var displayName: String {
         switch self {
-        case .name: return "名称"
+        case .name: return "文件名称"
         case .fileSize: return "文件大小"
         case .subscriptionDate: return "订阅日期"
         case .lastUpdated: return "最近更新"

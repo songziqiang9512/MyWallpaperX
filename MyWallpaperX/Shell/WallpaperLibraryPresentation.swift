@@ -156,7 +156,7 @@ nonisolated struct WallpaperLibrarySelectionReceipt: Sendable {
             var session = nextSessions[nextPage] ?? Session()
             let previousSessionID = session.selection.sessionID
             try reconcile(&session, page: nextPage, items: result.items, relationships: relationships)
-            if nextPage != page { session.selection.sessionID = UUID() }
+            if nextPage != page { session.selection = WallpaperLibrarySelectionState() }
             if didReset || nextPage != page { pendingRemovals.removeAll() }
             else { advanceRemovalSessions(page: nextPage, from: previousSessionID, to: session.selection.sessionID) }
             try settleRemovals(in: &session, page: nextPage, items: result.items, catalog: catalog, relationships: relationships)
@@ -450,7 +450,11 @@ nonisolated struct WallpaperLibrarySelectionReceipt: Sendable {
             } else {
                 result = WallpaperLibraryPageResult(items: [], unfilteredCount: 0)
             }
-            if entering { session.selection.sessionID = UUID(); pendingRemovals.removeAll() }
+            if entering {
+                sessions[page]?.selection = WallpaperLibrarySelectionState()
+                session.selection = WallpaperLibrarySelectionState()
+                pendingRemovals.removeAll()
+            }
             sessions[requestedPage] = session
             state = WallpaperLibraryPresentationState(page: requestedPage, query: session.query, queryResult: result,
                 directoryEntries: entries ?? directoryEntries, selectionState: session.selection,

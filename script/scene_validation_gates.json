@@ -949,6 +949,7 @@
         "test_scene_bc_preserved_upload",
         "test_scene_bc_upload_batch_capacity",
         "test_scene_frame_texture_registry",
+        "test_scene_frame_texture_retirement",
         "test_scene_image_upload_completion",
         "test_scene_png_source_channels",
         "test_scene_layer_source_publication",
@@ -1133,6 +1134,7 @@
         "test_scene_source_update_transaction",
         "test_scene_texture_candidate",
         "test_scene_frame_texture_registry",
+        "test_scene_frame_texture_retirement",
         "test_scene_layer_source_publication",
         "test_scene_media_thumbnail_provider",
         "test_scene_base_material_provider_binding",
@@ -1517,6 +1519,7 @@
       "modules": [
         "test_scene_dependency_render_plan",
         "test_scene_frame_texture_registry",
+        "test_scene_frame_texture_retirement",
         "test_scene_hidden_provider_integration",
         "test_scene_hidden_solid_provider"
       ]
@@ -2625,7 +2628,8 @@
         "script/tests/scene_wallpaper_benchmark_test_support.py",
         "script/tests/scene_wallpaper_sample_fixture.py",
         "script/tests/fixtures/scene_wallpaper_sample_report_golden.json",
-        "script/tests/scene_wallpaper_graph_output_test_support.py"
+        "script/tests/scene_wallpaper_graph_output_test_support.py",
+        "script/scene_preview_visual_evidence.py"
       ],
       "modules": [
         "test_scene_matrix_contract",
@@ -3542,6 +3546,7 @@
       "modules": [
         "test_scene_texture_snapshot_overlays",
         "test_scene_frame_texture_registry",
+        "test_scene_frame_texture_retirement",
         "test_scene_resolved_material_program_finalizer",
         "test_scene_material_copy_history_rendering",
         "test_scene_prepared_uniform_query"

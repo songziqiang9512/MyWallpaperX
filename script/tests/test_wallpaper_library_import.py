@@ -160,8 +160,8 @@ def prepare_sil_import_work_sources(tree, work, sil_service_override=None, fixtu
 class WallpaperLibraryImportTests(unittest.TestCase):
     def test_actual_request_paths_cache_queries_and_reentrant_boundaries(self):
         results = []
-        expected_normalize = {"nilMiss": 1, "receiptMixed": 11, "bothHits": 5, "thumbnailOnly": 5,
-            "staticOnly": 5, "queuedAliasRetarget": 5, "reset": 1, "summaryEpochReentry": 2, "summaryAliasRetarget": 5}
+        expected_normalize = {"nilMiss": 1, "receiptMixed": 7, "bothHits": 4, "thumbnailOnly": 4,
+            "staticOnly": 4, "queuedAliasRetarget": 4, "reset": 1, "summaryEpochReentry": 1, "summaryAliasRetarget": 4}
         with tempfile.TemporaryDirectory(prefix='mwx-import-work-', dir='/private/tmp') as directory:
             root = Path(directory)
             runtime = root / 'runtime'

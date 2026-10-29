@@ -146,7 +146,7 @@ import simd
                 rejectingParticleTransitions:{ transitions,bundles,_ in
                     guard transaction.prepare(transitions) == nil else {return Set(bundles.map(\.ownerTarget))}
                     return []
-                }) {bundles in rejected ? Set(bundles.map(\.ownerTarget)) : []}
+                }) {bundles, _ in rejected ? Set(bundles.map(\.ownerTarget)) : []}
             if rejected {
                 owner.discardLayerMutations();transaction.discard()
                 results["whole-owner-rejection-restores-alpha-and-births"] = admission.admission.admittedEffects.isEmpty
@@ -216,7 +216,9 @@ class ParticleInstanceAlphaTests(unittest.TestCase):
         harness = HARNESS.replace("        // PRODUCTION_FRAME_SCRIPT_VALUES", source[start:end])
         with tempfile.TemporaryDirectory(prefix="mwx-particle-instance-alpha-") as raw:
             binary = compile_vector_harness(Path(raw), harness, "particle-instance-alpha", preamble=preamble,
-                extra_swift_sources=tuple(PARTICLE_SOURCES) + (SCENE / "Systems/Particles/SceneParticleInstanceOverride+Dynamic.swift",))
+                extra_swift_sources=tuple(PARTICLE_SOURCES) + (SCENE / "Systems/Particles/SceneParticleInstanceOverride+Dynamic.swift",),
+                whole_module_optimization=True,
+            )
             run = subprocess.run([str(binary)], capture_output=True, text=True, timeout=20)
             self.assertEqual(run.returncode, 0, run.stdout + run.stderr)
             result = json.loads(run.stdout.strip().splitlines()[-1])

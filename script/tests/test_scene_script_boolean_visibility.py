@@ -39,6 +39,7 @@ class SceneScriptBooleanVisibilityTests(unittest.TestCase):
                 vm.SCENE / "Rendering/Composition/SceneBloomPostProcess.swift",
                 vm.SCENE / "Resources/Textures/SceneResourceBudget.swift",
             ),
+            whole_module_optimization=True,
         )
         result = subprocess.run(
             [str(cls.binary)], check=True, capture_output=True, text=True
@@ -71,6 +72,11 @@ class SceneScriptBooleanVisibilityTests(unittest.TestCase):
         # visibility/journal path; unrelated image/composition owners stay live.
         self.assertTrue(self.value["projectVisibility"])
         for fact, accepted in self.value["projectVisibility"].items():
+            with self.subTest(fact=fact):
+                self.assertTrue(accepted)
+
+    def test_prepared_video_bool_owner_uses_catalog_and_keeps_media_order(self) -> None:
+        for fact, accepted in self.value["preparedVideo"].items():
             with self.subTest(fact=fact):
                 self.assertTrue(accepted)
 

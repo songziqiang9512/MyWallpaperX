@@ -248,6 +248,7 @@ extension SceneDesktopWallpaperHost {
             resourceView: model.resourceView,
             device: device,
             sceneGeneration: sceneScriptGeneration,
+            cacheDirectory: privateMediaCacheDirectory,
             awaitsScriptResourcePlanning: true,
             deferredBaseImageLayerIDs: deferredBaseImageLayerIDs,
             imageGeometryModels: model.assetCatalog.models,

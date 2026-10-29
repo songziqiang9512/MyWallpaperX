@@ -14,7 +14,11 @@ import zlib
 from pathlib import Path
 from typing import Any
 
-from web_benchmark_capture import png_rgb_pixels
+from web_benchmark_capture import (
+    png_rgb_pixels, png_has_non_black_pixel, png_flat_border_ratio, png_motion_metrics,
+)
+from scene_wallpaper_pointer_evidence import pointer_trajectory_motion_metrics
+from scene_puppet_interaction_evidence import collect_puppet_interaction_evidence
 
 
 SUPPORTED_PREVIEW_SUFFIXES = {".gif", ".jpeg", ".jpg", ".png"}
@@ -386,4 +390,88 @@ def summarize_preview_visual_evidence(results: list[dict[str, Any]]) -> dict[str
         "absolute_threshold": None,
         "available_count": len(available),
         "unavailable_count": len(evidence) - len(available),
+    }
+
+
+def collect_sample_visual_evidence(
+    sample_root: Path, result_dir: Path, *, sample: dict[str, Any],
+    hover_pointer: tuple[float, float] | None,
+    pointer_trajectory: list[tuple[float, float]] | None, log_text: str,
+) -> dict[str, Any]:
+    """Collect the existing window, motion and preview evidence as one visual axis."""
+    initial_reason = "before" if hover_pointer is not None else "ready"
+    ready_snapshot = result_dir / f"scene-{initial_reason}-window.png"
+    hover_snapshot = result_dir / "scene-hover-window.png"
+    after_snapshot = result_dir / "scene-after-window.png"
+    pointer_trajectory_snapshots = (
+        [
+            result_dir / f"scene-pointer-trajectory-{index:02d}-window.png"
+            for index in range(len(pointer_trajectory))
+        ]
+        if pointer_trajectory is not None
+        else []
+    )
+    ready_non_black = png_has_non_black_pixel(ready_snapshot)
+    flat_border_ratio = {"ready": png_flat_border_ratio(ready_snapshot)}
+    after_non_black = png_has_non_black_pixel(after_snapshot)
+    flat_border_ratio["after"] = png_flat_border_ratio(after_snapshot)
+    motion = png_motion_metrics(ready_snapshot, after_snapshot)
+    hover_non_black = (
+        png_has_non_black_pixel(hover_snapshot)
+        if hover_pointer is not None
+        else None
+    )
+    if hover_pointer is not None:
+        flat_border_ratio["hover"] = png_flat_border_ratio(hover_snapshot)
+    hover_motion = (
+        {
+            "before_to_hover": png_motion_metrics(ready_snapshot, hover_snapshot),
+            "hover_to_after": png_motion_metrics(hover_snapshot, after_snapshot),
+        }
+        if hover_pointer is not None
+        else None
+    )
+    puppet_interaction = None
+    response = sample.get("cursor_drag_response", "hold")
+    if response in {"spring-return", "no-capture"}:
+        roi = sample.get("cursor_interaction_roi")
+        if response == "spring-return":
+            hover_motion = dict(hover_motion or {})
+            hover_motion["before_to_drag"] = png_motion_metrics(
+                ready_snapshot, result_dir / "scene-drag-held-window.png", region=roi)
+            hover_motion["before_to_spring_after"] = png_motion_metrics(
+                ready_snapshot, result_dir / "scene-spring-after-window.png", region=roi)
+        puppet_interaction = collect_puppet_interaction_evidence(
+            log_text, sample.get("puppet_interaction_layer_ids", []), response=response)
+    preview_visual = collect_preview_visual_evidence(
+        sample_root,
+        after_snapshot,
+        result_dir,
+    )
+    # Consume each completed snapshot while its rows are in the bounded PNG cache.
+    pointer_trajectory_non_black = []
+    pointer_trajectory_motion = [] if pointer_trajectory_snapshots else None
+    previous_snapshot = ready_snapshot
+    for path in pointer_trajectory_snapshots:
+        pointer_trajectory_non_black.append(png_has_non_black_pixel(path))
+        pointer_trajectory_motion.extend(
+            pointer_trajectory_motion_metrics(previous_snapshot, [path]))
+        previous_snapshot = path
+    return {
+        "ready_snapshot": str(ready_snapshot),
+        "hover_snapshot": str(hover_snapshot) if hover_pointer is not None else None,
+        "pointer_trajectory_snapshots": [
+            str(path) for path in pointer_trajectory_snapshots
+        ],
+        "after_snapshot": str(after_snapshot),
+        "ready_non_black": ready_non_black,
+        "hover_non_black": hover_non_black,
+        "after_non_black": after_non_black,
+        "flat_border_ratio": flat_border_ratio,
+        "motion": motion,
+        "hover_motion": hover_motion,
+        "pointer_trajectory_non_black": pointer_trajectory_non_black,
+        "pointer_trajectory_motion": pointer_trajectory_motion,
+        "puppet_interaction": puppet_interaction,
+        "preview_visual": preview_visual,
     }

@@ -20,8 +20,8 @@ extension WallpaperManager {
 
     private enum ImportSourceValidationResult {
         case valid(URL)
-        case missing
-        case unreadable
+        case missing(String)
+        case unreadable(String)
     }
 
     private struct PreparedImportEntry {
@@ -34,6 +34,7 @@ extension WallpaperManager {
 
     private struct ImportPreparationResult {
         let requestedCount: Int
+        let orderedPaths: [String]
         let preparedImports: [PreparedImportEntry]
         let existingPathsToLink: [String]
         let counters: ImportCounters
@@ -103,7 +104,7 @@ extension WallpaperManager {
             guard let prepared = self.prepareImportEntries(
                 urls,
                 existingPaths: existingPathsSnapshot,
-                requestGeneration: generation
+                requestGeneration: generation, recordsResults: completion != nil
             ) else {
                 return
             }
@@ -118,8 +119,7 @@ extension WallpaperManager {
                     indexEpoch: indexEpoch,
                     admission: admission,
                     resourceLifetime: resourceLifetime,
-                    presentsSummary: presentsSummary,
-                    orderedPaths: completion != nil ? urls.map { self.normalizedPath($0.path) } : [], completion: completion
+                    presentsSummary: presentsSummary, completion: completion
                 )
             }
         }
@@ -264,10 +264,34 @@ extension WallpaperManager {
     }
 
     private func prepareImportEntries(
-        _ urls: [URL],
+        _ sources: [URL],
         existingPaths: Set<String>,
-        requestGeneration: UInt64?
+        requestGeneration: UInt64?, recordsResults: Bool
     ) -> ImportPreparationResult? {
+        // Folder expansion belongs to this existing background worker. The
+        // source importer filters video files; the image importer owns images.
+        var urls: [URL] = []
+        var folderFailures: [String: String] = [:]
+        for source in sources {
+            guard (try? source.resourceValues(forKeys: [.isDirectoryKey]).isDirectory) == true else {
+                urls.append(source); continue
+            }
+            guard let enumerator = FileManager.default.enumerator(at: source, includingPropertiesForKeys: [.isRegularFileKey]) else {
+                folderFailures[source.path] = "无法读取文件夹"; urls.append(source); continue
+            }
+            let first = urls.count
+            for (index, candidate) in enumerator.enumerated() {
+                if index.isMultiple(of: 96), let requestGeneration, !isImportPreparationRequestCurrent(requestGeneration) { return nil }
+                guard let file = candidate as? URL,
+                      (try? file.resourceValues(forKeys: [.isRegularFileKey]).isRegularFile) == true,
+                      let type = UTType(filenameExtension: file.pathExtension),
+                      type.conforms(to: .movie) || type.conforms(to: .video) else { continue }
+                urls.append(file)
+            }
+            if urls.count == first {
+                folderFailures[source.path] = "文件夹中未找到支持的视频"; urls.append(source)
+            }
+        }
         // 分块 + 取消检查点：大批次导入要可中断，不能在单轮扫描里长时间占住后台队列。
         let chunkSize = 96
         var counters = ImportCounters()
@@ -276,6 +300,8 @@ extension WallpaperManager {
         preparedImports.reserveCapacity(urls.count)
         var existingPathsToLink: [String] = []
         existingPathsToLink.reserveCapacity(urls.count)
+        var orderedPaths: [String] = []
+        if recordsResults { orderedPaths.reserveCapacity(urls.count) }
 
         var start = 0
         while start < urls.count {
@@ -283,10 +309,17 @@ extension WallpaperManager {
             let end = min(start + chunkSize, urls.count)
             autoreleasepool {
                 for url in urls[start..<end] {
+                    if let failure = folderFailures[url.path] {
+                        let path = normalizedPath(url.path)
+                        counters.unreadable += 1; counters.failures[path] = failure
+                        if recordsResults { orderedPaths.append(path) }
+                        continue
+                    }
                     let fileName = url.lastPathComponent
                     switch validateImportSourceURL(url) {
                     case .valid(let resolvedURL):
                         let normalizedURLPath = resolvedURL.path
+                        if recordsResults { orderedPaths.append(normalizedURLPath) }
                         if knownPaths.contains(normalizedURLPath) {
                             existingPathsToLink.append(normalizedURLPath)
                             continue
@@ -306,12 +339,14 @@ extension WallpaperManager {
                                 cachedStaticFramePath: cachedStaticFramePath
                             )
                         )
-                    case .missing:
+                    case .missing(let path):
                         counters.missing += 1
-                        counters.failures[normalizedPath(url.path)] = "文件不存在"
-                    case .unreadable:
+                        counters.failures[path] = "文件不存在"
+                        if recordsResults { orderedPaths.append(path) }
+                    case .unreadable(let path):
                         counters.unreadable += 1
-                        counters.failures[normalizedPath(url.path)] = "文件无法读取"
+                        counters.failures[path] = "文件无法读取"
+                        if recordsResults { orderedPaths.append(path) }
                     }
                 }
             }
@@ -320,6 +355,7 @@ extension WallpaperManager {
 
         return ImportPreparationResult(
             requestedCount: urls.count,
+            orderedPaths: orderedPaths,
             preparedImports: preparedImports,
             existingPathsToLink: existingPathsToLink,
             counters: counters
@@ -357,7 +393,7 @@ extension WallpaperManager {
         indexEpoch: UInt64,
         admission: ImportedVideoPlaybackAdmission?,
         resourceLifetime: PlaybackResourceLifetime?,
-        presentsSummary: Bool, orderedPaths: [String], completion: ((WallpaperSourceImportResult) -> Void)?
+        presentsSummary: Bool, completion: ((WallpaperSourceImportResult) -> Void)?
     ) {
         guard wallpaperIndexSaveEpoch == indexEpoch, allowsLibraryMutation else { return }
         // 应用阶段只在主线程改模型，后台预处理结果不直接碰 @Published 属性。
@@ -455,7 +491,7 @@ extension WallpaperManager {
             let accepted = Set(playableExistingPaths + newWallpapers.map { normalizedPath($0.path) })
             let added = Set(newWallpapers.map { normalizedPath($0.path) })
             var reportedNew = Set<String>()
-            let results = orderedPaths.map { path -> WallpaperSourceImportResult.Item in
+            let results = prepared.orderedPaths.map { path -> WallpaperSourceImportResult.Item in
                 let url = URL(fileURLWithPath: path)
                 guard accepted.contains(path), let item = wallpapers.first(where: { normalizedPath($0.path) == path }) else {
                     return .init(sourceURL: url, disposition: .failed, organizationItem: nil,
@@ -484,10 +520,10 @@ extension WallpaperManager {
         let normalizedURL = URL(fileURLWithPath: normalizedPath(url.path))
         let normalizedPath = normalizedURL.path
         guard pathExists(normalizedPath) else {
-            return .missing
+            return .missing(normalizedPath)
         }
         guard isReadablePath(normalizedPath) else {
-            return .unreadable
+            return .unreadable(normalizedPath)
         }
         return .valid(normalizedURL)
     }

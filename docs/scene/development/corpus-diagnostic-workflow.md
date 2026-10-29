@@ -2,7 +2,7 @@
 
 # Scene 全样本声明诊断与报告合同
 
-目标是让完整、缺文件或畸形目录都能留下准确的声明诊断，并由同一次观察产生可复验的总览与明细。它不运行引擎，不裁决官方画面一致性；执行顺序仍归[断点队列](../roadmap/scene-open-breakpoint-queue.md)，统计归[声明总览](../capabilities/scene-corpus-capability-inventory.md)与[样本明细](../capabilities/scene-corpus-sample-inventory.md)。
+目标是让完整、缺文件或畸形目录都能留下准确的声明诊断，并由同一次观察产生可复验的总览与明细。声明扫描本身不运行引擎；日志运行复用现有runner，不裁决官方画面一致性；执行顺序仍归[断点队列](../roadmap/scene-open-breakpoint-queue.md)，统计归[声明总览](../capabilities/scene-corpus-capability-inventory.md)与[样本明细](../capabilities/scene-corpus-sample-inventory.md)。
 
 ## 输入、职责与迁移
 
@@ -53,3 +53,53 @@ launch失败/取消或closing后不请求新截图。该时间只约束DEBUG请�
 原声明确定性、payload-free、family/repair引用、缓存query与API门保持；测试按完整观察组和输出/合同组迁移，共用原真实fixture builder，不能重复发现同一TestCase或复制扫描算法。所有本批触碰源码/测试/helper实测≤1000行。
 
 小门通过后，从原目录只读完整生成到隔离目录并verify，对照原有效manifest/计数及现双页；已解释的生成器身份与材料字段变化单列。未知计数或语义漂移先停并定位，不靠重生成抹掉。最后才同步现役双页及队列中的这两个子项。此工具批无需App构建或设备运行。
+
+
+<a id="log-first-corpus-audit"></a>
+## 全样本能力与日志优先筛查
+
+**目标与统计口径。** 先对当前真实目录生成一次声明snapshot与现有双页投影，再运行样本；不从历史45成员matrix推当前分母，不重复全文扫描。分别列目录/声明点、公共能力、结构family、参数profile及未知项，后四者不能互相替代。代码保持一条共享Scene主链、五类prepared产品；诊断按独立准备/消费者分组为九类视觉路线及Sound音频旁路，script/property/timeline作为跨路线控制面，不按样本、family或参数组合膨胀“加载链”数。包内资源presence仅作线索，实际对象引用、准备、取源及编码事实分开；现census粗映射识别不到的直模/Puppet细分保未知，由当前代码边界及运行日志补足，不能把通用models资源计成3D模型已运行。
+
+| 诊断路线 | 原准备产品与实际消费者 | 声明入口及边界 |
+|---|---|---|
+| 静态、序列与内建纹理 | TextureProduct → image/material sampler | texture slot、TEX/sprite；包内存在不等于实际选源 |
+| 文字 | Text raster/dynamic publication → image encoder | layer/text、font、参数；字体/栅格化需运行 |
+| 视频 | 原Source → typed frame publication → image/graph sampler | TEX视频声明与实际consumer关联；ordinary/asset/userProperty复用Source实现 |
+| 文件与系统媒体provider | 原user texture/media store → FrameTextureRegistry → sampler | scenetexture/system slot；文件类型、媒体可用性及实际绑定需运行 |
+| Puppet几何 | 原prepared mesh/pose → GeometryProduct → compositor | image model puppet声明仅候选；mesh、动作与draw另验 |
+| 直接模型 | objects.model → 原static-model mesh/material/animation → model draw | schema字段可列声明；现旧census把未识别对象归utility，不能用resource/model数当直模数 |
+| 粒子 | 原asset graph/simulation → DrawBatch → particle renderer | layer/particle及组件；出生、模块接纳、draw分别记录 |
+| 材质、Effect与Utility图 | 原Program/graph → executor/source/terminal consumer | material/shader/effect/FBO/binding；lowering、backend与fallback需运行 |
+| SpotLight直绘 | 原light plan/pipeline → MainPass | light仅粗入口；point/directional uniform不另增输出链 |
+| Sound音频旁路 | 原sound program → AVQueuePlayer/Looper → 系统音频 | sound/audio声明；不据此认定可播放或可听见 |
+
+上述是诊断分组，不新增产品类型；未识别对象或观测不足保unknown。Camera、灯光uniform及Script/Property/Timeline从现typed更新进入相应消费者，不能乘成额外加载链。
+
+**唯一链与范围。** `census → scene_wallpaper_benchmark/run_sample → scene_diagnostic_report → scene_sample_debug_archive`。仅在原入口增加显式`--log-only`及有界`--jobs`，不另写一套发现、启动、解析、渲染或队列。DEBUG runner保原launch、typed更新、Metal提交、停止及after时刻粒子报告，只停PNG请求；Python日志模式不打开/计算PNG、预览或运动指标，报告明确`not-requested`。现视觉模式和性能模式的图片断言、缺图失败及串行条件保持；日志模式必须保留execution observations。SceneScript动态负layer ID错误与正ID同样归一，不得漏掉后误称未触发。
+
+**阶段证据。** 逐能力保存`declared / prepared / executed / failed / not-triggered / unknown`，已有parser、Program/graph、provider publication、实际encode/完成事件分别支撑对应阶段。prepared、路由候选、总帧非零不能代替目标能力执行；没有事件先核触发与观测缺口，不直接判unsupported。默认隐藏、alpha0、离屏、尚未到时刻、缺媒体/音频/鼠标输入及已退休层不能算当前可见失败。整体日志健康只代表所跑条件，不授像素/官方一致或所有属性分支通过。
+
+**批次与并发。** 使用现有`scene_diagnostic_build.xcconfig`的优化DEBUG构建筛查，保完整App身份（普通Debug含主体dylib），只stage一次。未优化Debug的shader源码分析会放大冷准备时间，不能把它的超时直接记成缺能力；改profile时只补未决项并分别记录身份，不混作性能对照。每样本独立输入副本、HOME、TMPDIR、日志与进程；只给worker自己的子进程/目录执行退出清理，全部worker结束后再清公共stage。先小批确认隔离、实际GPU完成和回收，再按设备内存/GPU余量提升并发；普通样本ready后约4秒（允许3–5秒），冷准备有单独超时。长时/延迟/定时行为只对相关代表延长，未触发分支先留未覆盖，不给每个样本几十秒。普通日志诊断可并行；正式性能、真实系统音频/全局媒体与真实鼠标对照仍串行协调，不能从争用数据认性能收益。标准PCM与受控鼠标输入如使用须写入条件，禁止触发作者外部快捷操作。
+
+**失败与退出。** 已知坏输入保source-invalid行，不丢分母；并发超时、OOM、缺drawable或进程异常先用相同输入串行复核，未复核标运行环境/工具或待确认。原始首错保留，次生错误按依赖归属；复用现`stage/owner/reasonCode/profile/failureRadius`聚类，记录受影响与健康相邻样本。每个worker完成即提取报告/必要日志并清其副本和HOME，不累积整库复制；唯一未解失败只留最小材料。普通结果不留PNG，必要结果按现证据规则归档。
+
+**验收与后继。** 最近门须覆盖日志模式无采图但after报告存在、视觉模式缺图仍失败、正/负动态ID归一、并发隔离/实际重叠/逐样本退出、单个坏输入不吞其余结果。小批通过才扩全量；当前能力/样本双页由同次snapshot生成，运行裁决归原验收台账。最终队列按共同首断点合并：确认关闭移历史、当前可复现保开放、未触发/缺证据单列，不据日志健康删除既有未核视觉报告。整理后再按画面合成/播放正确性、性能、属性能力顺序选修复，不能用统计与工具数量代替样本收益。
+
+人工裁决由原overlay独立保存。已移除样本只列历史ID，不进入当前目录行和分母；无需当前运行archive继续携带该ID，不能因此阻断其余台账生成。裁决类型/必需日期等入口校验保持，不自动改视觉结论。
+
+调用顺序如下；`current-matrix.json`只从本次snapshot的`samples[].sample_id`投影schema-1的`id`行，按需记录受控PCM等条件，不继承旧matrix的截图/性能期待。原始Scene父目录只读，runner按样本复制并及时清理，不能先复制整库再跑。
+
+```sh
+python3.12 -B script/scene_capability_census.py generate
+xcodebuild -project MyWallpaperX.xcodeproj -scheme MyWallpaperX \
+  -configuration Release -xcconfig script/scene_diagnostic_build.xcconfig \
+  -derivedDataPath <同任务复用的隔离构建缓存> build
+python3.12 -B script/scene_wallpaper_benchmark.py \
+  --app <签名优化DEBUG-App可执行文件> --sample-root <含Scene的父目录> \
+  --matrix <current-matrix.json> --output-dir <新的隔离结果目录> \
+  --log-only --duration 4 --jobs <本机已验证并发数> --audio-spectrum-fixture
+python3.12 -B script/scene_sample_debug_archive.py \
+  --report <结果目录/report.json> --output <本轮诊断archive.json>
+```
+
+先读archive中的公共聚类，再回原始日志核因果首错、目标是否active及后续恢复；归一器按阶段/原因稳定排序，不声称日志时间顺序。多轮先明确选择每样本的有效观察，保存原report/行索引与App身份，再向原archive提供不重复的行；不以重试抹掉原失败。复核失败可对同一matrix用`--sample-id`与`--jobs 1`补跑，不能因短窗没有长稳性能summary重复采集已有效的GPU/生命周期证据。实例数由本机余量决定，工具不设置跨设备固定上限；正式性能结果沿原性能卡另验。

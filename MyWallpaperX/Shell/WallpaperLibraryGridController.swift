@@ -22,6 +22,7 @@ import AppKit
     /// Returns the presentation's accepted session receipt. Its asynchronous
     /// view echo can then be distinguished from a reset or a later page visit.
     var onSelection: ((Set<WallpaperReference>, WallpaperReference?) -> UUID?)?
+    var onSelectAll: (() -> Void)?
     var onInspect: ((WallpaperContentItem) -> Void)?
     var opensDetailsOnSingleClick: () -> Bool = { false }
     var onPrimaryAction: ((WallpaperContentItem) -> Void)?
@@ -111,7 +112,15 @@ import AppKit
         collection.addGestureRecognizer(selectionPan)
         collection.onBoxSelection = { [weak self] path, rect, finished in self?.boxSelect(path, rect: rect, finished: finished) }
         collection.onKey = { [weak self] event in self?.handleKey(event) ?? false }
-        collection.onSelectAll = { [weak self] in self?.selectAllInSelectionMode() }
+        collection.onSelectAll = { [weak self] in
+            guard let self, self.inputLeaseIsCurrent else { return }
+            if let action = self.onSelectAll { action() }
+            else { self.selectAllInSelectionMode() }
+        }
+        collection.permitsSelectAll = { [weak self] in
+            guard let self else { return false }
+            return self.inputLeaseIsCurrent && (self.onSelectAll != nil || self.selection.isSelecting)
+        }
         collection.onMouseDownSelection = { [weak self] path in
             guard let self, !self.applying, self.inputLeaseIsCurrent else { return false }
             self.mouseDownSelectionReceipt = nil
@@ -900,10 +909,11 @@ import AppKit
 
 /// Preserve native item hit testing and dragging. The controller's native click
 /// and selection-only pan recognizers own the product's explicit selection mode.
-@MainActor final class WallpaperLibraryCollectionView: NSCollectionView {
+@MainActor final class WallpaperLibraryCollectionView: NSCollectionView, NSMenuItemValidation {
     var onBoxSelection: ((IndexPath?, NSRect, Bool) -> Void)?
     var onKey: ((NSEvent) -> Bool)?
     var onSelectAll: (() -> Void)?
+    var permitsSelectAll: (() -> Bool)?
     var onMouseDownSelection: ((IndexPath?) -> Bool)?
     var contextMenuProvider: ((IndexPath?) -> NSMenu?)?
     var cancelSelectionTracking = false
@@ -929,7 +939,16 @@ import AppKit
     override func keyDown(with event: NSEvent) {
         if onKey?(event) != true { super.keyDown(with: event) }
     }
-    override func selectAll(_ sender: Any?) { onSelectAll?() }
+    private var canSelectAll: Bool {
+        isSelectable && onSelectAll != nil && permitsSelectAll?() != false
+            && numberOfSections > 0 && numberOfItems(inSection: 0) > 0
+            && window?.isKeyWindow == true && window?.attachedSheet == nil
+    }
+    func validateMenuItem(_ menuItem: NSMenuItem) -> Bool {
+        if menuItem.action == #selector(selectAll(_:)) { return canSelectAll }
+        return menuItem.action == #selector(deselectAll(_:)) && isSelectable
+    }
+    override func selectAll(_ sender: Any?) { if canSelectAll { onSelectAll?() } }
 }
 
 private final class WallpaperLibraryGridHeader: NSView, NSCollectionViewElement {

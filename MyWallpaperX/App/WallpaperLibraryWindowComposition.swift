@@ -295,6 +295,10 @@ import Combine
             guard model.setSelection(refs, focused: focus, isSelecting: model.selectionState.isSelecting) else { return nil }
             return model.selectionState.sessionID
         }
+        grid.onSelectAll = { [weak self] in
+            guard let self, self.permitsInput else { return }
+            self.commands.selectAll()
+        }
         grid.opensDetailsOnSingleClick = { [weak self] in self?.manager.settings.libraryCardClickAction == .openDetails }
         grid.onInspect = { [weak self] content in
             guard let self, self.permitsInput else { return }

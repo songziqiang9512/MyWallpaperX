@@ -221,16 +221,37 @@ MWXSceneQuickJSResult mwx_scene_quickjs_domain_update_layer_world_transform(
     size_t diagnostic_capacity
 );
 
-MWXSceneQuickJSResult mwx_scene_quickjs_domain_update_layer_video_fields(
+MWXSceneQuickJSResult mwx_scene_quickjs_domain_stage_video_observations(
+    MWXSceneQuickJSDomain *domain,
+    const MWXSceneQuickJSVideoObservation *observations,
+    uint32_t count,
+    char *diagnostic,
+    size_t diagnostic_capacity
+);
+
+/// UINT32_MAX withdraws a consumer binding. Indices refer to the observation
+/// table published in this same layer snapshot transaction.
+MWXSceneQuickJSResult mwx_scene_quickjs_domain_update_layer_video_source(
     MWXSceneQuickJSDomain *domain,
     uint32_t layer_index,
-    uint32_t available,
-    double duration,
-    double rate,
-    uint32_t loop,
-    double current_time,
-    uint32_t is_playing,
-    uint64_t ended_generation,
+    uint32_t source_index,
+    char *diagnostic,
+    size_t diagnostic_capacity
+);
+
+/// Surface rebuilding withdraws authored consumers before replacing bindings.
+/// A later numeric snapshot rollback cannot resurrect a withdrawn consumer.
+MWXSceneQuickJSResult mwx_scene_quickjs_domain_withdraw_authored_video_sources(
+    MWXSceneQuickJSDomain *domain
+);
+
+/// Bind a prepared video template before its first script callback. The
+/// renderer owns this launch-stable Source index; the catalog owns eligibility.
+MWXSceneQuickJSResult mwx_scene_quickjs_domain_configure_prepared_video_source(
+    MWXSceneQuickJSDomain *domain,
+    const char *model_path,
+    size_t model_path_length,
+    uint32_t source_index,
     char *diagnostic,
     size_t diagnostic_capacity
 );

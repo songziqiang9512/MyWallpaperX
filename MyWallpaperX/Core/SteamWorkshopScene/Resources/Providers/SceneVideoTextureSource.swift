@@ -13,8 +13,8 @@ final class SceneVideoTextureSource {
         let owner: SceneVideoTexturePlaybackOwner
         let sourceIncarnation: UUID
 
-        var publication: SceneTextureProviderPublication? {
-            guard let layerID = owner.layerID else { return nil }
+        func layerPublication(for layerID: Int) -> SceneTextureProviderPublication? {
+            guard owner == .ordinary else { return nil }
             return publication(request: .layerSource(layerID), provider: .video(
                 layerID: layerID, lifecycleEpoch: epoch
             ), authoredFormat: nil)
@@ -72,7 +72,7 @@ final class SceneVideoTextureSource {
     private let textureCache: CVMetalTextureCache
     private var ownedFile: SceneVideoOwnedFile?
     let owner: SceneVideoTexturePlaybackOwner
-    private let sourceIncarnation = UUID()
+    let sourceIncarnation = UUID()
     private let capturesLifecycleObservations: Bool
     private var endObserver: NSObjectProtocol?
     private var payloadPreparation: Task<Void, Error>?
@@ -112,19 +112,6 @@ final class SceneVideoTextureSource {
     private var playerPositionState: PlayerPositionState = .unchanged
     private var playerEventState = SceneVideoPlayerEventState()
     private var endedGeneration: UInt64 = 0
-
-    convenience init?(
-        layerID: Int,
-        mp4PayloadData: Data,
-        isWebM: Bool = false,
-        cacheDirectory: URL,
-        device: MTLDevice,
-        capturesLifecycleObservations: Bool = false
-    ) {
-        self.init(owner: .layer(layerID), mp4PayloadData: mp4PayloadData,
-            isWebM: isWebM, cacheDirectory: cacheDirectory, device: device,
-            capturesLifecycleObservations: capturesLifecycleObservations)
-    }
 
     convenience init?(
         owner: SceneVideoTexturePlaybackOwner,
@@ -414,7 +401,7 @@ final class SceneVideoTextureSource {
     /// unknown item, positioning wait or absent copied buffer remains pending.
     /// A usable last-ready frame still satisfies this ordinary consumer.
     func initialFrameReadiness(preparedFrame: Frame?) -> SceneOrdinaryVideoFrameReadiness {
-        if preparedFrame?.publication != nil { return .ready }
+        if preparedFrame?.owner == .ordinary { return .ready }
         return payloadPreparationFailed || item?.status == .failed ? .unavailable : .pending
     }
 
@@ -552,21 +539,11 @@ final class SceneVideoTextureSource {
         // advancing playback already consumed it when the backend restarted.
         if case .ready = playerPositionState { playerPositionState = .unchanged }
         if primedFrame?.texture === pendingFrame.texture { primedFrame = nil }
-        if capturesLifecycleObservations, let layerID = owner.layerID {
 #if DEBUG
-        NSLog(
-                "MWX video frame: schema=video-frame-v1 layer=%d epoch=%llu frame=%llu generation=%llu requested=%.9f decoded=%@",
-                layerID, pendingFrame.epoch, frameIndex, pendingFrame.contentGeneration,
-                pendingFrame.requestedItemTime,
-                pendingFrame.decodedItemTime.map { String(format: "%.9f", $0) } ?? "unavailable"
-            )
-#endif
-        }
-#if DEBUG
-        if capturesLifecycleObservations, owner == .asset {
+        if capturesLifecycleObservations {
             NSLog(
-                "MWX video frame: schema=video-frame-v1 owner=asset source=%@ epoch=%llu frame=%llu generation=%llu requested=%.9f decoded=%@ content=%@",
-                sourceIncarnation.uuidString, pendingFrame.epoch, frameIndex,
+                "MWX video frame: schema=video-frame-v1 owner=%@ source=%@ epoch=%llu frame=%llu generation=%llu requested=%.9f decoded=%@ content=%@",
+                String(describing: owner), sourceIncarnation.uuidString, pendingFrame.epoch, frameIndex,
                 pendingFrame.contentGeneration, pendingFrame.requestedItemTime,
                 pendingFrame.decodedItemTime.map { String(format: "%.9f", $0) } ?? "unavailable",
                 String(describing: pendingFrame.content)
@@ -596,15 +573,14 @@ final class SceneVideoTextureSource {
 
     func playbackSnapshot(
         sceneTime: TimeInterval
-    ) -> SceneScriptVideoPlaybackSnapshot? {
-        guard let layerID = owner.layerID else { return nil }
+    ) -> SceneScriptVideoPlaybackSnapshot {
         let duration = self.duration
         let current = boundedCurrentTime(
             lifecycle.currentTime(at: sceneTime),
             duration: duration
         )
         return .init(
-            layerID: layerID,
+            sourceIncarnation: sourceIncarnation,
             duration: duration,
             rate: lifecycle.rate,
             loop: lifecycle.loop,
@@ -614,25 +590,18 @@ final class SceneVideoTextureSource {
         )
     }
 
-    func canApply(_ command: SceneScriptMediaPlaybackCommand) -> Bool {
-        guard command.destination == .videoTexture,
-              command.layerID == owner.layerID else { return false }
-        switch command.action {
-        case .play, .pause, .stop, .setLoop:
-            return true
-        case let .setCurrentTime(value):
-            return value.isFinite && value >= 0
-                && (duration == 0 || value <= duration)
-        case let .setRate(value):
-            return value.isFinite && value > 0 && value <= 16
+    func canApply(_ action: SceneScriptMediaPlaybackCommand.Action) -> Bool {
+        if case let .setCurrentTime(value) = action {
+            let duration = self.duration
+            return duration == 0 || value <= duration
         }
+        return true
     }
 
     func apply(
-        _ command: SceneScriptMediaPlaybackCommand,
+        _ action: SceneScriptMediaPlaybackCommand.Action,
         timing: SceneFrameTiming
     ) {
-        guard canApply(command) else { return }
         if !hasStarted {
             lifecycle.start(
                 sceneTime: timing.sceneTime,
@@ -640,7 +609,7 @@ final class SceneVideoTextureSource {
             )
             hasStarted = true
         }
-        switch command.action {
+        switch action {
         case .play:
             guard !lifecycle.isPlaying else { return }
             lifecycle.resume(
@@ -737,6 +706,16 @@ final class SceneVideoTextureSource {
         guard hasStarted else { return }
         lifecycle.rebuild(sceneTime: sceneTime, hostTime: hostTime)
         markPlayerAnchorRequired()
+    }
+
+    /// Losing the final consumer suspends decoder work, not author playback.
+    /// A returning consumer positions from the existing Scene clock; the last
+    /// ready publication remains usable while that positioning completes.
+    func suspendUnusedBackend() {
+        guard hasStarted else { return }
+        markPlayerAnchorRequired()
+        requestPlayerPosition()
+        CVMetalTextureCacheFlush(textureCache, 0)
     }
 
     func stop() {
@@ -860,11 +839,10 @@ final class SceneVideoTextureSource {
         duration: TimeInterval
     ) {
         guard capturesLifecycleObservations else { return }
-        guard let layerID = owner.layerID else { return }
 #if DEBUG
         NSLog(
-            "MWX video provider event: schema=video-provider-event-v1 layer=%d event=end disposition=%@ commandGeneration=%llu anchoredGeneration=%@ itemTime=%.6f duration=%.6f",
-            layerID,
+            "MWX video provider event: schema=video-provider-event-v1 owner=%@ source=%@ event=end disposition=%@ commandGeneration=%llu anchoredGeneration=%@ itemTime=%.6f duration=%.6f",
+            String(describing: owner), sourceIncarnation.uuidString,
             disposition,
             playerEventState.commandGeneration,
             playerEventState.anchoredGeneration.map(String.init) ?? "-",

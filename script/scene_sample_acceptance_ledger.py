@@ -535,9 +535,7 @@ def build_ledger(
             archive_by_id[row["id"]] = row
 
     verdicts = load_verdicts(verdicts_path)
-    unknown = sorted(set(verdicts) - set(sample_ids))
-    if unknown:
-        raise ValueError(f"verdict overlay names samples absent from the root: {unknown[:5]}")
+    archived_only = sorted(set(verdicts) - set(sample_ids))
 
     rows: list[dict[str, Any]] = []
     for sample_dir in sample_dirs:
@@ -616,7 +614,8 @@ def build_ledger(
                 # current HEAD, and two identities mean a mixed archive.
                 "appIdentities": _distinct_app_identities(archive),
             },
-            "verdicts": {"path": str(verdicts_path), "sha256": sha256_file(verdicts_path)},
+            "verdicts": {"path": str(verdicts_path), "sha256": sha256_file(verdicts_path),
+                         "archivedOnlySampleIDs": archived_only},
         },
         "summary": {
             "verdictCounts": {key: verdict_counts.get(key, 0) for key in ALLOWED_VERDICTS},
@@ -697,6 +696,7 @@ def render_markdown(ledger: Mapping[str, Any]) -> str:
             "单样本结论必须回到该样本自己的 report 身份。"
         ),
         f"- 裁决覆盖层：`{Path(source['verdicts']['path']).name}` SHA-256 `{source['verdicts']['sha256']}`。",
+        f"- 仅历史归档保留、当前目录已移除的裁决：{', '.join(source['verdicts'].get('archivedOnlySampleIDs', [])) or '无'}；不计当前目录表，原裁决不删除。",
         f"- 本页生成于 {ledger['generatedAtUtc']}。",
         "",
         "本页生成日仅表示台账生成，不表示归档运行或人工裁决已重新验收。"

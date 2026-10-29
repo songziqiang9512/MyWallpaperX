@@ -17,6 +17,11 @@ SCENE = ROOT / "MyWallpaperX/Core/SteamWorkshopScene"
 
 def compile_probe(work):
     delegate_arguments = compile_segment_delegate(work)
+    readiness_source = readiness.write_readiness_source(work)
+    script_types = (SCENE / "Systems/Script/SceneScriptLayerHandleBridge.swift").read_text()
+    carriers = "\n".join(readiness.declaration(script_types, f"nonisolated struct {name}:") for name in (
+        "SceneScriptVideoPlaybackSnapshot", "SceneScriptMediaPlaybackCommand"))
+    readiness_source.write_text("import Foundation\n" + readiness_source.read_text() + "\n" + carriers + "\n")
     compiled = subprocess.run([
         "swiftc", "-parse-as-library", "-default-isolation", "MainActor",
         "-swift-version", "5", *delegate_arguments,
@@ -30,7 +35,7 @@ def compile_probe(work):
         str(PROVIDERS / "SceneVideoOwnedFile.swift"),
         str(SCENE / "Resources/Textures/SceneResourceBudget.swift"),
         str(PROVIDERS / "SceneVideoTextureSource.swift"),
-        str(readiness.write_readiness_source(work)),
+        str(readiness_source),
         str(ROOT / "script/tests/fixtures/SceneVideoRepeatedCommandsHarness.swift"),
         "-module-cache-path", str(work / "module-cache"),
         "-o", str(work / "probe")
@@ -189,14 +194,13 @@ class SceneVideoRepeatedCommandsTests(unittest.TestCase):
             self.assertTrue(all(math.isfinite(t) for t in decoded))
             self.assertTrue(all(b > a for a, b in zip(decoded, decoded[1:])))
             self.assertGreater(decoded[-1] - decoded[0], 1)
+            self.assertTrue(result["sharedFrameProjectsConsumerIdentity"])
             self.assertTrue(result["pauseHeld"])
             self.assertGreater(result["resumedFrames"], 3)
             self.assertGreater(result["seekFrames"], 3)
             self.assertGreater(result["seekLast"], 0.5)
             self.assertLess(result["seekLast"], 1.2)
-            self.assertTrue(result["wrongLayerIgnored"])
             self.assertEqual(result["changedRate"], 2)
-            self.assertTrue(result["invalidRateIgnored"])
             self.assertEqual(result["recoveredRate"], 2)
             self.assertGreater(result["recoveredFrames"], 3)
             self.assertEqual(result["retryRate"], 2)

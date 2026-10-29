@@ -23,7 +23,7 @@ extension SceneMetalRenderer {
         particleBatches: [SceneParticleDrawBatch],
         initialVideoPresentation: InitialVideoPresentation? = nil
     ) -> PreparedFrame {
-        return PreparedFrame(commandBuffer: commandBuffer, initialVideoPresentation: initialVideoPresentation, submit: {
+        return PreparedFrame(commandBuffer: commandBuffer, initialVideoPresentation: initialVideoPresentation, submit: { present in
 #if DEBUG
             if !SceneGPUStageTimestampHook.isSelected(commandBuffer) {
                 encodeFrameReadback?(drawable.texture, commandBuffer)
@@ -32,8 +32,12 @@ extension SceneMetalRenderer {
 #else
             encodeFrameReadback?(drawable.texture, commandBuffer)
 #endif
-            onDrawableWillPresent?(drawable)
-            commandBuffer.present(drawable)
+            if present {
+                onDrawableWillPresent?(drawable)
+                commandBuffer.present(drawable)
+            } else {
+                commandBuffer.addCompletedHandler { _ in withExtendedLifetime(drawable) {} }
+            }
 #if DEBUG
             if let effectExecutionTrace {
                 effectExecutionTelemetry.observeSharedCommandBuffer(

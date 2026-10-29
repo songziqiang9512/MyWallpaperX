@@ -3,7 +3,7 @@
 
 > 按需证据库：先读[当前快照](#current-snapshot)与[证据深度](#evidence-levels)。D36完成文件复用、D37命中免读已采用，产品仍D37；D38近上限输入RAM三条件通过，正式整体启动时序仍未过噪声门，375完整统计按D39停止未覆盖。D40当前版本普通UI21次GPU首帧/提交、20次切换、1816.635秒视频稳态和自然退出通过；真实锁睡/显示缩放/人工OS警告恢复仅证本次Scene视频，Web真实OS恢复未验。旧失败与成本STOP保留，专项已结算，不再另排启动队列。 专项实施、原失败/STOP与最终结算统一查[完成记录](../../history/cross-topic/wallpaper-startup-optimization-completed-2026-10-25.md)，稳定职责归[启动合同](../architecture/scene-launch-responsiveness-contract.md)。
 >
-> 本页只回答能力在何种输入、代码与产品身份下取得过哪一级证据；当前路线与能力等级分别由[执行路线](../roadmap/scene-compatibility-roadmap.md)和[能力台账](coverage-ledger.md#current-overview)拥有。旧包不自动成为当前 HEAD 的 fresh 复现。
+> <a id="corpus-log-audit-20261029"></a>全样本短窗日志筛查见[固定记录](../history/corpus-log-audit-2026-10-29.md)，不含像素或性能裁决。本页只回答能力在何种输入、代码与产品身份下取得过哪一级证据；当前路线与能力等级分别由[执行路线](../roadmap/scene-compatibility-roadmap.md)和[能力台账](coverage-ledger.md#current-overview)拥有。旧包不自动成为当前 HEAD 的 fresh 复现。
 <a id="local-evidence-availability"></a>
 
 > **本机证据可用性（2026-10-20核对）**：用户已清理大量旧缓存。旧段落中的本机路径、App/DerivedData保留和“当前”只描述该段的执行日期，不承诺载荷现在仍存在；缺失路径不能当作可复验的截图、日志或当前HEAD证据。历史有界结论保留，不能据缓存消失重开已修反馈或改写原人工裁决。
@@ -65,9 +65,10 @@
 | SceneScript属性/Vec3与编辑CPU | [并行切片](../history/parallel-script-compatibility-2026-10-28.md)；[属性恢复](../history/property-callback-recovery-2026-10-14.md)保云层同窗/操作CPU与FAIL，非稳态/整景。 |
 | 原生属性面板/CPU | [原生列表后验](../history/native-property-list-convergence-2026-10-14.md)：系统首尾、实际格式/灯光热更新与三轮有界CPU；完整键盘chrome、多surface、媒体及engine性能未闭。 |
 | Sampler与纹理发布 | [mip](../history/compiled-data-mip-preservation-2026-10-12.md)；[取余](../history/scalar-floating-remainder-2026-10-12.md)；[视频asset与日期复验](../history/material-video-assets-2026-10-12.md)。 |
-| Graph颜色用途与旧验证债 | [用途协调与合成验收](../history/graph-color-purpose-reconciliation-2026-10-12.md)：graph传输与直色数学复用原转换，旧中间PMA/末合成fixture更正；真实296未见节点恢复，独立213画面保持，不计整样本收益。 |
+| Graph颜色用途与旧验证债 | [用途协调与合成验收](../history/graph-color-purpose-reconciliation-2026-10-12.md)：graph传输与直色数学复用原转换，旧中间PMA/末合成fixture更正；真实296未见节点恢复，独立213画面保持，不计整样本收益。 [几何命名输出后继](../history/open-breakpoint-reconciliation-2026-10-23.md#geometry-named-content-20261029)保reservation的PMA及普通copy上游表示，原295恢复首帧/实际画面、独立322保持；独立像素probe入口债与整样本边界分列。 |
 | 标量数据遮罩 | [用途协调后验](../history/scalar-mask-data-purpose-2026-10-12.md)：二维数据红通道保原用途；296目标节点恢复GPU并经后继末合成，23→24材质、8→7拒绝；独立213画面保持。后继Blur见下行；整样本验收开放。 |
 | 前级与模糊结果合成 | <a id="gaussian-zero-axis-20261019"></a>[零轴后继](../history/previous-blurred-composite-admission-2026-10-12.md#zero-axis-followup-20261019)沿原owner接非负有限采样量：11准入方法及四App/GPU模式通过，原360整段拒绝→四Program；细条被后画UI覆盖，未辨独立视觉收益。213原包候选after主体可见，均不升整样本/官方parity。旧[默认mask后验](../history/previous-blurred-composite-admission-2026-10-12.md#default-mask-followup)保其原范围。 |
+| 动态实例槽位寿命 | <a id="dynamic-layer-slot-lifetime-20261029"></a>[6704次原生构造及边界](../history/dynamic-layer-slot-lifetime-2026-10-29.md)：逻辑ID不复用、原slot共同终结后回收，旧对象/方法/媒体lookup统一；C/ASAN和实际8-live、独立379的63个dynamic GPU已验。旧原生仅2832/UNDERQUALIFIED，不称null；候选左裁、heldout仅单臂、视频身份及整体性能未验。 |
 | 生命周期与发布完整性 | [生命周期完整性记录](#e-2026-10-01-lifecycle-integrity) |
 | Prepared文字实例 | [clone/user热更及退休](../history/prepared-text-clones-2026-10-15.md)已证；特殊clone、字体/布局/parity开放。<a id="clock-color-current-20261019"></a>375时钟差异已确认，首错未证，STOP_UNKNOWN，证据不足未改产品；雨弱/雷电开放。必要证据 `../../../.artifacts/scene-evidence/runs/clock-color-current-20261019/current/report.json`。 |
 | 动态层顺序同步 | [排序后验](../history/dynamic-layer-order-2026-10-12.md)：同回调属性写入与跨回调插入恢复实际遮挡顺序，旧Swift索引重排退出；379独立原包频谱仍可见，288黑遮挡与特殊clone失败未解。 |
@@ -1141,10 +1142,9 @@ copied-background+双成员+根invert实际验背景孔、半透明、X/Y越界�
 - 固定fd71880d5加overlay的签名Debug原377双视频各339次发布/一次EOF，隐藏21经Xray消费；独立3662390671 WebM185发布359次/一次EOF。两者12s、exit0/GPUdrain；原图均在EOF前，377 after实际约2.25s，不能作跨loop图。正式包 `video-position-publication-20261022` 与 `video-position-publication-webm-20261022` 保原身份与边界；2026-10-28用户确认两377及Xray正常，22s遮罩跨loop图有界正常、反馈退出；[复核](../history/video-pair-current-recheck-2026-10-28.md)保Host提交/单帧跨圈、原图及归档边界，不作官方parity。未验Release/HDR、多屏、长稳或性能，337供帧空档与dormant不随此关闭。
 
 <a id="video-publication-demand-20261021"></a>
-## 2026-10-21：视频多路需求、供帧空档及提取候选撤回
+## 2026-10-21—29：视频供帧、候选撤回与实例资格
 
-- 原完整337默认20s/30FPS、零PCM、12个不同MP4共553.3MiB，renderer约29.949FPS，可见100发布275次、非loop最大空档3.180s。one删除11隐藏源后588次/0.067s，twelve恢复后171次/3.202s；one还少143脚本owner，不能唯一归因解码竞争。原构图保持，120 null.visible及官方崩溃未复现仍分列。最小复现`.artifacts/scene-evidence/runs/video-publication-337-20261021/`受保护。官方2.8.0.42自有2s视频正控推进，隐藏目标5.0s的C=.814/EOF2、O=1.374/EOF0，5.6s显现C=1.416/P=1.714/O=1.679；原advance/held均未过、相位混叠未排，**STOP_UNKNOWN**，dormant未实施。资格/独审在`.artifacts/scene-evidence/runs/video-hidden-clock-20261021/`。
-- 帧提取/Metal包装原型保clock/anchor/EOF与首次prepare前跨屏需求并集，unknown/model/动态拓扑及asset/property保持eager。短筛可见26→160、隐藏863→0，空档3.200→3.193s未闭。固定027cad065、优化Debug、关闭执行观察的3+3计划在第二对触退步提前停止：两对footprint289244384→489915880B（+69.38%）、272598240→353256888B（+29.59%），超5.93%非目标门；第三对未跑，Metal分配峰下降及CPU小降只是原观察，不能认稳定收益或抵消footprint。**全部产品候选与临时API已撤回，仍原eager链**，仅保两项fixture leaf维修/41方法通过。身份、四轮原report/log、原图、撤回patch和独审归`.artifacts/scene-evidence/runs/video-extraction-demand-stop-20261021/`，普通14天。后继须先资格不同backend消费或实际供帧机制，不重复包装消融；120动态实例仍缺prepared/拓扑/资源资格，不能直接放constructor或每帧重建播放器。[设计](material-video-assets.md#video-consumer-demand)保取消、last-ready及生命周期合同；337秒级空档开放，356分母/人工裁决不变，未验Release/HDR/多屏、长稳、功耗及官方同phase。
+337动态构造、原Source控制及直接主输出的有界切换已原生闭合，当前身份、真实窗口采样与完整12组合资格归[后验](../history/video-instance-observations-2026-10-29.md#当前原生身份与结果)。原12层因Boolean二次门未退休、逐帧新ID持有历史纹理两项已退役；净consumer退出停backend，保clock/last-ready，原startup/group行为保持。热切后AV池驻留仍高，group/named/effect衔接、整体性能、完整官方seek/空窗未覆盖。旧包装/轨道消融与官方STOP仍归[原后验](../history/dynamic-layer-slot-lifetime-2026-10-29.md#video-carrier-qualification)，不重复已撤提取实验。
 
 <a id="boolean-dynamic-text-20261021"></a>
 ## 2026-10-21：Bool可见性owner复用动态文字事务

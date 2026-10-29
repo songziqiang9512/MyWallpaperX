@@ -152,7 +152,7 @@ import Combine
         case .videos, .images: groups = [[.importFiles, .select], [.remove, .favorite, .more], [.sort], [.zoom], [.search]]
         case .downloads:
             return prefix + [Action.downloadTasks.id, .space]
-                + grouped([[.select, .remove, .more], [.filter, .sort], [.zoom], [.search]])
+                + grouped([[.select], [.remove, .favorite, .more], [.filter, .sort], [.zoom], [.search]])
         case .recent: groups = [[.select], [.remove, .favorite, .more], [.filter], [.zoom], [.search]]
         case .favorites: groups = [[.select, .addToPlaylist], [.remove, .more], [.filter, .sort], [.zoom], [.search]]
         case .playlist: groups = [[.select, .addToPlaylist], [.remove, .favorite, .more], [.filter, .sort], [.zoom], [.search]]
@@ -462,7 +462,7 @@ import Combine
 
     private func makeMoreMenu() -> NSMenu {
         let menu = NSMenu()
-        if let context = commands.contextMenu(for: commands.selection) {
+        if let context = commands.contextMenu(for: commands.selection, includeFavorite: false) {
             for item in context.items { context.removeItem(item); menu.addItem(item) }
         }
         if let recent = commands.makeRecentMenu() {
@@ -485,10 +485,10 @@ import Combine
     private func sortOptions(page: WallpaperLibraryPage, query: WallpaperLibraryQueryState) -> [(WallpaperLibrarySort, String)] {
         var sorts: [(WallpaperLibrarySort, String)]
         switch page {
-        case .playlist: sorts = [(.sourceOrder, "手动顺序"), (.name, "名称"), (.addedAt, "加入列表时间"), (.lastUsed, "成功使用时间"), (.fileSize, "文件大小")]
-        case .favorites: sorts = [(.favoritedAt, "标记喜爱时间"), (.name, "名称"), (.lastUsed, "成功使用时间"), (.fileSize, "文件大小")]
-        case .downloads: sorts = [(.createdAt, "本地记录时间"), (.name, "名称"), (.fileSize, "文件大小"), (.lastUsed, "成功使用时间")]
-        default: sorts = [(.sourceOrder, "默认顺序"), (.name, "名称"), (.fileSize, "文件大小"), (.createdAt, "本地记录时间"), (.lastUsed, "成功使用时间")]
+        case .playlist: sorts = [(.sourceOrder, "手动顺序"), (.name, "文件名称"), (.addedAt, "加入列表时间"), (.lastUsed, "最近使用"), (.fileSize, "文件大小")]
+        case .favorites: sorts = [(.favoritedAt, "标记喜爱时间"), (.name, "文件名称"), (.lastUsed, "最近使用"), (.fileSize, "文件大小")]
+        case .downloads: sorts = [(.createdAt, "创建时间"), (.name, "文件名称"), (.fileSize, "文件大小"), (.lastUsed, "最近使用")]
+        default: sorts = [(.sourceOrder, "默认顺序"), (.name, "文件名称"), (.fileSize, "文件大小"), (.createdAt, "创建时间"), (.lastUsed, "最近使用")]
         }
         if query.sort == .legacyTime, query.legacyTimeOrder != nil { sorts.insert((.legacyTime, "旧版时间顺序"), at: 0) }
         return sorts

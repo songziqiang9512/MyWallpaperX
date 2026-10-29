@@ -170,21 +170,30 @@ import AppKit
         transition.trace("after-original-host-order")
         try await wait("main host did not resume after child alert", diagnostic: { transition.trace("failed-host-resume") }) { host.isKeyWindow }
 
-        let removalCheckbox = NSButton(checkboxWithTitle: "删除磁盘的源文件", target: nil, action: nil)
+        let shortRemoval = makeAppAlert(title: "移出资料库 1 项？",
+            message: "移除资料库项目及最近使用记录，源文件和其他列表保留。勾选会删除源文件，无法撤销。",
+            style: .warning, buttons: ["移除", "取消"])
+        shortRemoval.showsSuppressionButton = true
+        let removalCheckbox = shortRemoval.suppressionButton!
+        removalCheckbox.title = "删除磁盘的源文件"
         removalCheckbox.state = .off
         removalCheckbox.sizeToFit()
         removalCheckbox.alignment = .left
-        let shortRemoval = makeAppAlert(title: "移出资料库 1 项？",
-            message: "仅从资料库移除，源文件和其他列表保留。勾选会删除源文件，无法撤销。",
-            style: .warning, buttons: ["移除", "取消"], accessoryView: removalCheckbox)
         var shortResponses: [NSApplication.ModalResponse] = []
         let shortPanel = presentAppAlert(shortRemoval, in: host) { shortResponses.append($0) }
         try await wait("short removal confirmation not key") { shortPanel.isKeyWindow }
         let checkboxFrame = removalCheckbox.convert(removalCheckbox.bounds, to: shortPanel.contentView)
+        var labels = shortPanel.contentView!.subviews, bodyFrame: NSRect?
+        while let candidate = labels.popLast() {
+            labels.append(contentsOf: candidate.subviews)
+            if let text = candidate as? NSTextField, text.stringValue == shortRemoval.informativeText {
+                bodyFrame = text.convert(text.bounds, to: shortPanel.contentView)
+            }
+        }
         checks["short-native-confirmation-shows-app-icon-and-left-aligned-default-off-source-option"] = shortRemoval.icon === NSApp.applicationIconImage
             && shortRemoval.icon.size.width > 0 && removalCheckbox.alignment == .left && removalCheckbox.state == .off
-            && shortPanel.contentView!.bounds.contains(checkboxFrame) && checkboxFrame.width == removalCheckbox.fittingSize.width
-            && checkboxFrame.width < 320 && shortPanel.frame.width < 352
+            && shortPanel.contentView!.bounds.contains(checkboxFrame) && shortRemoval.accessoryView == nil
+            && bodyFrame.map { abs(checkboxFrame.minX - $0.minX) <= 2 } == true && shortPanel.frame.width < 352
             && shortRemoval.buttons.map(\.title) == ["移除", "取消"]
             && shortRemoval.informativeText.components(separatedBy: "。").filter { !$0.isEmpty }.count == 2
         try await escape(in: shortPanel)

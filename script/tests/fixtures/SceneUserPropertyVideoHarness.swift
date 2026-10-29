@@ -20,6 +20,7 @@ struct SceneBaseImageTextureStore {
 struct SceneDynamicImageTextureProviderSnapshot {
     let layerSources: [Int: SceneLayerSourcePublication]
     let pendingLayerSourceIDs: Set<Int>
+    var videoLayerRenderSizesWH: [Int: [Float]] = [:]
 }
 enum SceneDynamicTextTextureStore {
     struct Snapshot { let layerSources: [Int: SceneLayerSourcePublication] }
@@ -212,6 +213,8 @@ enum SceneMediaThumbnailTextureStore { struct Snapshot {} }
         let cleared = reset.replacing(propertyKeys: [property.propertyKey], with: .empty)
         checks["resetRemovesPreparedImageAndVideo"] = cleared.textures[property.propertyKey] == nil
             && cleared.providerStates[property] == nil && cleared.videoDeclarations[property.propertyKey] == nil
+        checks.merge(try await ordinaryConsumerDemand(registry: registry, declaration: a,
+            peer: peerCandidate.source, device: device)) { _, current in current }
         registry.stop()
         checks["stopRejectsOldSourcesAndNewCandidates"] = peerCandidate.source.prepareFrame(for: firstTime) == nil
             && registry.makeUserPropertyCandidate(declaration: a, device: device) == nil
@@ -219,6 +222,78 @@ enum SceneMediaThumbnailTextureStore { struct Snapshot {} }
             "frames": pixels.count, "generations": generations.count,
             "red": pixels.first(where: { $0[0] > 0.9 && $0[2] < 0.1 }) ?? [],
             "blue": pixels.first(where: { $0[2] > 0.9 && $0[0] < 0.1 }) ?? [], "still": stillPixel]
+    }
+
+    static func ordinaryConsumerDemand(registry: SceneVideoTextureSourceRegistry,
+                                       declaration: SceneUserPropertyVideoDeclaration,
+                                       peer: SceneVideoTextureSource, device: MTLDevice) async throws -> [String: Bool] {
+        let model = "models/ordinary-consumer.json"
+        try registry.prepareDynamicVideoSources(resources: [model: .init(product: .video(
+            source: declaration.source, file: declaration.file, sizeWH: [32, 24]))],
+            modelPaths: [model], device: device)
+        registry.bindPreparedVideoConsumers([-810: model, -811: model])
+        let source = registry.layerSources(deviceRegistryID: device.registryID)[-810]!
+        let native = player(source)!, peerPlayer = player(peer)!, start = CACurrentMediaTime()
+        var index: UInt64 = 100_000
+        func timing() -> SceneFrameTiming {
+            index += 1
+            let now = CACurrentMediaTime()
+            return .init(frameIndex: index, hostTime: now, sceneTime: 2.25 + now - start)
+        }
+        func position() -> String {
+            String(describing: Mirror(reflecting: source).children.first { $0.label == "playerPositionState" }!.value)
+        }
+        var lastTiming = timing()
+        func nextFrame(after generation: UInt64) async throws -> SceneVideoTextureSource.Frame? {
+            let deadline = CACurrentMediaTime() + 5
+            repeat {
+                lastTiming = timing()
+                _ = peer.currentFrame(for: lastTiming)
+                if let frame = source.currentFrame(for: lastTiming), frame.contentGeneration > generation,
+                   native.rate == 1.25, peerPlayer.rate > 0 { return frame }
+                try await Task.sleep(for: .milliseconds(5))
+            } while CACurrentMediaTime() < deadline
+            return nil
+        }
+        let rate = SceneScriptMediaPlaybackCommand(layerID: -810, action: .setRate(1.25),
+            videoSourceIncarnation: source.sourceIncarnation)
+        try registry.validate([rate], timing: lastTiming).get()
+        registry.applyAdmitted(rate, timing: lastTiming)
+        guard let held = try await nextFrame(after: 0) else { fatalError("ordinary and property Sources did not publish") }
+        var checks = ["ordinaryConsumersSharePreparedSourceAndFile":
+            registry.layerSources(deviceRegistryID: device.registryID)[-811] === source && native !== peerPlayer
+                && (native.currentItem?.asset as? AVURLAsset)?.url == declaration.file.url]
+        let anchored = position()
+        registry.retire(layerIDs: [-810])
+        checks["retiringOneConsumerKeepsBackendAdvancing"] = native.rate == 1.25 && position() == anchored
+        let play = SceneScriptMediaPlaybackCommand(layerID: -812, action: .play,
+            videoSourceIncarnation: source.sourceIncarnation)
+        try registry.validate([play], createdConsumers: [-812: model], timing: lastTiming).get()
+        registry.bindPreparedVideoConsumers([-812: model])
+        registry.applyAdmitted(play, timing: lastTiming)
+        registry.retire(layerIDs: [-811])
+        checks["sameSourceBirthActionsRetireKeepsNetDemand"] = native.rate == 1.25 && position() == anchored
+            && Set(registry.layerSources(deviceRegistryID: device.registryID).keys) == [-812]
+        let logical = source.playbackSnapshot(sceneTime: lastTiming.sceneTime)
+        let peerLogical = peer.playbackSnapshot(sceneTime: lastTiming.sceneTime)
+        registry.retire(layerIDs: [-812])
+        checks["zeroOrdinaryConsumersPauseOnlyBackend"] = native.rate == 0
+            && source.playbackSnapshot(sceneTime: lastTiming.sceneTime) == logical
+            && peerPlayer.rate > 0 && peer.playbackSnapshot(sceneTime: lastTiming.sceneTime) == peerLogical
+        try await Task.sleep(for: .milliseconds(120))
+        let returning = timing(), advanced = source.playbackSnapshot(sceneTime: returning.sceneTime)
+        checks["unusedSourceKeepsLogicalPlaybackIntent"] = advanced.isPlaying && advanced.rate == logical.rate
+            && advanced.loop == logical.loop && advanced.currentTime != logical.currentTime
+        registry.bindPreparedVideoConsumers([-813: model])
+        let fallback = source.prepareFrame(for: returning)
+        checks["returningConsumerKeepsLastReadyDuringPositioning"] = fallback?.texture === held.texture
+            && fallback?.contentGeneration == held.contentGeneration
+        registry.discardPreparedFrame()
+        let resumed = try await nextFrame(after: held.contentGeneration)
+        checks["returningConsumerPublishesCurrentPhase"] = resumed != nil && native.rate == 1.25
+            && abs(resumed!.requestedItemTime - source.playbackSnapshot(sceneTime: lastTiming.sceneTime).currentTime) < 0.003
+        registry.retire(layerIDs: [-813])
+        return checks
     }
 
     static func rejectionChecks(root: URL, device: MTLDevice) async -> [String: Bool] {

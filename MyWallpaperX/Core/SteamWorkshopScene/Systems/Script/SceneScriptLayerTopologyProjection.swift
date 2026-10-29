@@ -57,7 +57,7 @@ nonisolated extension SceneRenderDescriptor.Layer {
         _ mutation: SceneScriptLayerMutation,
         template: SceneScriptPreparedResourceLayerTemplate
     ) -> Self? {
-        guard mutation.isDynamic, mutation.kind == .upsert,
+        guard mutation.isDynamic, mutation.kind == .upsert || mutation.isNewborn,
               mutation.assetPath?.caseInsensitiveCompare(template.modelPath)
                 == .orderedSame,
               template.kind != .composition || (!template.autosize && template.puppetMeshPath == nil)
@@ -104,7 +104,7 @@ nonisolated extension SceneRenderDescriptor.Layer {
 
     static func dynamicText(_ mutation: SceneScriptLayerMutation) -> Self? {
         guard mutation.isDynamic,
-              mutation.kind == SceneScriptLayerMutation.Kind.upsert,
+              mutation.kind == SceneScriptLayerMutation.Kind.upsert || mutation.isNewborn,
               mutation.text.utf8.count <= 4_096,
               let pointSize = SceneTextDescriptor.renderedPointSize(mutation.pointSize) else { return nil }
         let color = [mutation.color.x, mutation.color.y, mutation.color.z].map {

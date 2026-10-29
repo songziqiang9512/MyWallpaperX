@@ -43,8 +43,12 @@ static void stage_snapshot(MWXSceneQuickJSDomain *d, uint64_t generation, int de
         check(mwx_scene_quickjs_domain_update_layer_runtime_fields(d, i, scale, angles,
             dead == (int)i, 1, 1, 0, 1, "", 0, "", 0, 32, color,
             diagnostic, sizeof(diagnostic)) == MWX_SCENE_QUICKJS_OK, "snapshot fields");
-    check(mwx_scene_quickjs_domain_update_layer_video_fields(d, 3, 1, 10, 1, 1, 0, 1, 0,
-        diagnostic, sizeof(diagnostic)) == MWX_SCENE_QUICKJS_OK, "video metadata");
+    const MWXSceneQuickJSVideoObservation video = {.duration=10, .rate=1, .loop=1, .is_playing=1,
+        .available=1, .source_incarnation={11,22}};
+    check(mwx_scene_quickjs_domain_stage_video_observations(d, &video, 1,
+        diagnostic, sizeof(diagnostic)) == MWX_SCENE_QUICKJS_OK, "video observation stages");
+    check(mwx_scene_quickjs_domain_update_layer_video_source(d, 3, 0,
+        diagnostic, sizeof(diagnostic)) == MWX_SCENE_QUICKJS_OK, "video consumer binds");
 }
 static void publish(MWXSceneQuickJSDomain *d, uint64_t generation, int dead) {
     stage_snapshot(d, generation, dead);
@@ -145,6 +149,11 @@ static void video_roots_case(void) {
         "export function destroy(){thisScene.getLayer('T').getVideoTexture().addEndedCallback(()=>{});throw new Error('cleanup');}", 10);
     update(o); mwx_scene_quickjs_owner_commit_layer_mutations(o);
     check(o->video_ended_callback_count == 1, "real video root registered");
+    update(o); mwx_scene_quickjs_owner_discard_layer_mutations(o);
+    check(o->video_ended_callback_count == 1 && o->video_ended_callbacks[0].active,
+        "failed registration preserves accepted root");
+    for (size_t i = 1; i < MWX_SCENE_QUICKJS_MAX_VIDEO_ENDED_CALLBACKS; i++)
+        check(!o->video_ended_callbacks[i].active, "discarded registration slots inactive");
     MWXSceneQuickJSFrameInput f = {.time_of_day=.25, .frame_time=.1, .runtime=1};
     uint32_t invoked = 0, threw = 0;
     check(mwx_scene_quickjs_owner_teardown_with_provenance(o, 1, &f, NULL, 0, "{}", 2,
@@ -153,7 +162,31 @@ static void video_roots_case(void) {
     check(o->video_ended_callback_count == 0, "retirement frees video roots including cleanup-created root");
     for (size_t i = 0; i < MWX_SCENE_QUICKJS_MAX_VIDEO_ENDED_CALLBACKS; i++)
         check(!o->video_ended_callbacks[i].active, "all video root slots inactive");
-    mwx_scene_quickjs_owner_destroy(o); mwx_scene_quickjs_domain_destroy(d);
+    mwx_scene_quickjs_owner_destroy(o);
+
+    stage_snapshot(d, 2, -1);
+    check(mwx_scene_quickjs_domain_update_layer_video_source(d, 0, 0,
+        diagnostic, sizeof(diagnostic)) == MWX_SCENE_QUICKJS_OK, "second consumer binds shared row");
+    check(mwx_scene_quickjs_domain_commit_layer_snapshot(d, diagnostic, sizeof(diagnostic))
+        == MWX_SCENE_QUICKJS_OK, "shared consumer snapshot commits");
+    mwx_scene_quickjs_domain_finalize_layer_snapshot(d);
+    MWXSceneQuickJSOwner *p = owner(d,
+        "export function update(v){thisScene.getLayer('T').getVideoTexture().addEndedCallback(()=>{});"
+        "thisScene.getLayer('A').getVideoTexture().addEndedCallback(()=>{});return v;}", 10);
+    update(p); mwx_scene_quickjs_owner_commit_layer_mutations(p);
+    check(p->video_ended_callback_count == 2, "both consumer roots accepted");
+    stage_snapshot(d, 3, -1);
+    check(mwx_scene_quickjs_domain_update_layer_video_source(d, 3, UINT32_MAX,
+        diagnostic, sizeof(diagnostic)) == MWX_SCENE_QUICKJS_OK, "first root consumer withdraws");
+    check(mwx_scene_quickjs_domain_commit_layer_snapshot(d, diagnostic, sizeof(diagnostic))
+        == MWX_SCENE_QUICKJS_OK, "consumer withdrawal snapshot commits");
+    mwx_scene_quickjs_domain_finalize_layer_snapshot(d);
+    mwx_scene_quickjs_owner_commit_layer_mutations(p);
+    check(p->video_ended_callback_count == 1 && p->video_ended_callbacks[0].active
+        && p->video_ended_callbacks[0].layer_id == 10, "compaction retains only live consumer root");
+    for (size_t i = 1; i < MWX_SCENE_QUICKJS_MAX_VIDEO_ENDED_CALLBACKS; i++)
+        check(!p->video_ended_callbacks[i].active, "compacted root tail slots inactive");
+    mwx_scene_quickjs_owner_destroy(p); mwx_scene_quickjs_domain_destroy(d);
 }
 int main(void) {
     snapshot_case(); removal_case(); rejection_case(); video_roots_case();

@@ -208,6 +208,7 @@ private func makeAtomicPrepared(
     layerID: Int,
     generation: UInt64,
     terminalSampling: SceneTextureSampling = .linearClamp,
+    terminalContent: SceneTextureContent = .color(.resolved(.premultipliedAlpha)),
     discardedPersistentTargetState: Bool = false,
     forgedDiscardTransaction: Bool = false,
     nodeCount: Int = 1
@@ -225,7 +226,8 @@ private func makeAtomicPrepared(
                     physicalToken: "atomic-output-\(layerID)"
                 )),
                 purpose: .premultipliedColor,
-                sampling: terminalSampling
+                sampling: terminalSampling,
+                content: terminalContent
             ),
             contentGeneration: 1
         ),

@@ -6,12 +6,16 @@ import Foundation
 // daemon-client runner reuses `argumentValue(after:)` and the strict property
 // parsers instead of keeping a private copy.
 extension DebugScenePlaybackRunner {
+    static var requestedLogOnly: Bool {
+        ProcessInfo.processInfo.arguments.contains("--mwx-debug-scene-log-only")
+    }
+
     static var requestedDuration: TimeInterval {
         guard let raw = argumentValue(after: "--mwx-debug-scene-duration"),
               let duration = TimeInterval(raw), duration.isFinite else {
-            return 10
+            return requestedLogOnly ? 4 : 10
         }
-        return min(max(duration, 7), 3_600)
+        return min(max(duration, requestedLogOnly ? 3 : 7), 3_600)
     }
 
     static var requestedDropDynamicValuesFrameIndex: UInt64? {
@@ -28,7 +32,7 @@ extension DebugScenePlaybackRunner {
     static var requestedAfterSnapshotDelay: TimeInterval {
         guard let raw = argumentValue(after: "--mwx-debug-scene-after-snapshot-delay"),
               let delay = TimeInterval(raw), delay.isFinite else {
-            return 3
+            return min(3, requestedDuration - 0.5)
         }
         return min(max(delay, 1.1), requestedDuration - 0.5)
     }

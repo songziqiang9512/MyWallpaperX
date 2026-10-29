@@ -159,7 +159,7 @@ HARNESS = r'''
             effectivePropertyValues: [:], frame: frame)
         let runtime = SceneScriptDynamicLayerRuntime(descriptor: d, authoredMutationLayerIDs: [1,2,3])
         let admission = runtime.preflightOwnerEffectsToFixedPoint(cursor.ownerEffects + update.ownerEffects,
-            excludingOwners: Set(cursor.failures.keys).union(update.failures.keys)) { _ in [] }
+            excludingOwners: Set(cursor.failures.keys).union(update.failures.keys)) { _, _ in [] }
         runtime.commit(admission.admission.layerPlan)
         out["cursorEffects"] = cursor.ownerEffects.count
         out["updateFailure"] = update.failures[a]?.code ?? "none"
@@ -177,7 +177,7 @@ class OwnerEventTransactionTests(unittest.TestCase):
     def setUpClass(cls):
         cls.temp = tempfile.TemporaryDirectory(prefix="mwx-owner-event-test-")
         cls.addClassCleanup(cls.temp.cleanup)
-        binary = compile_vector_harness(Path(cls.temp.name), HARNESS, "owner-event-transaction")
+        binary = compile_vector_harness(Path(cls.temp.name), HARNESS, "owner-event-transaction", whole_module_optimization=True)
         run = subprocess.run([str(binary)], text=True, capture_output=True, check=True)
         cls.result = json.loads(run.stdout.strip().splitlines()[-1])
 

@@ -225,16 +225,18 @@ enum Harness {
         try candidate.domain?.publishLayerSnapshot(
             resolution.snapshot,
             descriptor: descriptor,
-            videoSnapshots: [
-                21: .init(
-                    layerID: 21, duration: 12, rate: 1, loop: true,
+            videoSnapshots: .init(sources: [
+                SceneScriptVideoPlaybackSnapshot(
+                    sourceIncarnation: UUID(uuidString: "00000000-0000-0000-0000-000000000021")!,
+                    duration: 12, rate: 1, loop: true,
                     currentTime: 2, isPlaying: true, endedGeneration: 0
                 ),
-                22: .init(
-                    layerID: 22, duration: 10, rate: 1, loop: true,
+                SceneScriptVideoPlaybackSnapshot(
+                    sourceIncarnation: UUID(uuidString: "00000000-0000-0000-0000-000000000022")!,
+                    duration: 10, rate: 1, loop: true,
                     currentTime: 2, isPlaying: true, endedGeneration: 0
                 ),
-            ]
+            ], layerBindings: [21: 0, 22: 1])
         )
     }
 
@@ -333,6 +335,7 @@ class SceneDependencyVisibilityOwnerTests(unittest.TestCase):
             Path(cls.temporary_directory.name),
             HARNESS,
             "dependency-visibility-owner",
+            whole_module_optimization=True,
         )
         completed = subprocess.run(
             [str(cls.binary)],
