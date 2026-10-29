@@ -319,6 +319,7 @@ enum Harness {
             amount: 1, loader: loader, device: device)
         let result: [String: Any] = [
             "available": true,
+            "r8Color": try r8ColorProfiles(device: device, loader: loader, directory: directory),
             "displacementProfiles": try displacementProfiles(device: device,
                 loader: loader, directory: directory, colorURL: opaqueURL),
             "sourceFormatPixels": sourceFormatPixels,
@@ -664,10 +665,80 @@ enum Harness {
         return rows
     }
 
+    private static func r8ColorProfiles(device: MTLDevice, loader: SceneTextureLoader,
+                                        directory: URL) throws -> [String: Any] {
+        var urls: [String: URL] = [:]
+        var samples: [String: Any] = [:]
+        let inputs: [(String, UInt32, [UInt8])] = [
+            ("zero", 9, [0]), ("fractional", 9, [128]), ("renamed", 9, [128]),
+            ("opaque", 9, [255]), ("rgba", 0, [255,255,255,128]),
+            ("rg88", 8, [64,192]), ("rgEquivalent", 0, [64,64,64,192])
+        ]
+        for (name, format, pixel) in inputs {
+            let url = directory.appendingPathComponent(name + "-unrelated-resource.tex")
+            try makeTex(format: format, payload: Data((0..<16).flatMap { _ in pixel })).write(to: url)
+            urls[name] = url
+            for (modeName, mode) in [("translucent", SceneParticlePipelineBlendMode.translucent),
+                                     ("additive", SceneParticlePipelineBlendMode.additive)] {
+                let amounts = try [Float(-1),0,1].map { amount in
+                    try draw(device: device, refraction: refraction(colorURL: url, normalURL: nil,
+                        amount: amount, loader: loader, device: device), particleAlpha: 0.5,
+                        blendMode: mode, gradientBackground: false)
+                }
+                samples[name + modeName] = ["amounts": amounts,
+                    "overbright": try draw(device: device, refraction: refraction(colorURL: url,
+                        normalURL: nil, amount: 0, overbright: 5, loader: loader, device: device),
+                        particleAlpha: 0.5, blendMode: mode, gradientBackground: false)]
+            }
+        }
+        let frames: [[Float]] = [[0,0,2,0,0,4], [2,0,2,0,0,4]]
+        let atlasURL = directory.appendingPathComponent("another-alpha-atlas.tex")
+        let bytes = makeTex(format: 9, flags: 2,
+            payload: Data((0..<4).flatMap { _ in [UInt8(0),0,255,255] }),
+            secondMip: Data([32,224,32,224]), frames: frames)
+        try bytes.write(to: atlasURL)
+        let atlas = try refraction(colorURL: atlasURL, normalURL: nil, amount: 1,
+            loader: loader, device: device)
+        let parsed = try SceneTexContainerReader().read(data: bytes).spriteFrames
+        let transforms = parsed.map { SceneParticleFrameTransform(origin: $0.origin, xAxis: $0.xAxis, yAxis: $0.yAxis) }
+        let atlasPixels = try [Float(0),0.5,1].map { mix in
+            let instance = SceneParticleGPUInstance(position: .zero, size: 2, rotation: .zero,
+                color: SIMD3(repeating: 1), alpha: 0.5, currentFrame: transforms[0],
+                nextFrame: transforms[1], frameMix: mix)
+            let pixels = try drawPixels(device: device, refraction: atlas, particleAlpha: 0.5,
+                blendMode: .translucent, gradientBackground: false, instance: instance)
+            return Array(pixels[((16 * 32 + 16) * 4)..<((16 * 32 + 16) * 4 + 4)]).map(Int.init)
+        }
+        let normalAtlasURL = directory.appendingPathComponent("different-normal-frames.tex")
+        try makeTex(format: 0, payload: Data((0..<16).flatMap { _ in [UInt8(255),128,0,128] }),
+            frames: frames).write(to: normalAtlasURL)
+        var rejected: [String: Bool] = [:]
+        for (name, normalURL) in [("normalR8Rejected", urls["fractional"]!),
+                                   ("normalFramesMismatchRejected", normalAtlasURL)] {
+            rejected[name] = try SceneParticleRefractionTextureLoader.load(
+                colorSource: .file(.externalFile(urls["fractional"]!)),
+                declaration: SceneParticleRefractionDeclaration(normalTextureSource: .file(.externalFile(normalURL)),
+                    amount: 1, overbright: 1), textureLoader: loader, device: device) == nil
+        }
+        return ["samples": samples, "atlasPixels": atlasPixels,
+            "gradientAmounts": try [Float(-1),0,1].map { amount in
+                try draw(device: device, refraction: refraction(colorURL: urls["fractional"]!, normalURL: nil,
+                    amount: amount, loader: loader, device: device), particleAlpha: 0.5,
+                    blendMode: .translucent, gradientBackground: true) },
+            "atlasMip": try readback.pixel(atlas.color, level: 1).map(Int.init),
+            "atlasUVScale": [atlas.colorUVScale.x, atlas.colorUVScale.y],
+            "nativeStorageAndMips": atlas.color.pixelFormat == .r8Unorm && atlas.color.mipmapLevelCount == 2,
+            "rawNormalSample": try readPixel(loaded(loader.load(from: urls["fractional"]!,
+                purpose: .normal, device: device))).map(Int.init),
+            "normalR8Rejected": rejected["normalR8Rejected"]!,
+            "normalFramesMismatchRejected": rejected["normalFramesMismatchRejected"]!]
+    }
+
     private static func refraction(
         colorURL: URL,
         normalURL: URL?,
         amount: Float,
+        overbright: Float = 1,
         loader: SceneTextureLoader,
         device: MTLDevice
     ) throws -> SceneParticleRefractionTextureLoader.Loaded {
@@ -676,7 +747,7 @@ enum Harness {
             declaration: SceneParticleRefractionDeclaration(
                 normalTextureSource: normalURL.map { .file(.externalFile($0)) },
                 amount: amount,
-                overbright: 1
+                overbright: overbright
             ),
             textureLoader: loader,
             device: device
@@ -812,7 +883,9 @@ enum Harness {
         textureHeight: UInt32 = 4,
         imageWidth: UInt32 = 4,
         imageHeight: UInt32 = 4,
-        payload: Data
+        payload: Data,
+        secondMip: Data? = nil,
+        frames: [[Float]] = []
     ) -> Data {
         var data = Data("TEXV0005\0TEXI0001\0".utf8)
         func append(_ value: UInt32) {
@@ -822,7 +895,7 @@ enum Harness {
             }
         }
         append(format)
-        append(flags)
+        append(frames.isEmpty ? flags : flags | 4)
         append(textureWidth)
         append(textureHeight)
         append(imageWidth)
@@ -830,13 +903,24 @@ enum Harness {
         append(0)
         data.append(Data("TEXB0002\0".utf8))
         append(1)
-        append(1)
+        append(secondMip == nil ? 1 : 2)
         append(textureWidth)
         append(textureHeight)
         append(0)
         append(0)
         append(UInt32(payload.count))
         data.append(payload)
+        if let secondMip {
+            append(max(1, textureWidth / 2)); append(max(1, textureHeight / 2))
+            append(0); append(0); append(UInt32(secondMip.count)); data.append(secondMip)
+        }
+        if !frames.isEmpty {
+            data.append(Data("TEXS0002\0".utf8)); append(UInt32(frames.count))
+            for coordinates in frames {
+                append(0); append(Float(0.1).bitPattern)
+                for value in coordinates { append(value.bitPattern) }
+            }
+        }
         return data
     }
 

@@ -947,10 +947,10 @@
       "role": "current-state",
       "entrypoint": "docs/scene/capabilities/README.md",
       "purpose": "限定专题的实现状态、偏差或证据；运行结论须复核身份和边界，不决定任务顺序。",
-      "lastReviewed": "2026-10-28",
+      "lastReviewed": "2026-10-29",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "eddf44a10945b59bb433b64ddc25543bd684cac03c8064f0e77806f8a429d494",
+        "sourceSHA256": "a1f5e83995ad6fd841df0ada1aa7ce7b4cece3fae437e5bb498a3c117f31c653",
         "method": "document_registry --audit + document_health --check",
         "scope": "仅更新particle缺省mode关闭合同、真实静止烟团恢复与颜色余项；旧音频启用推断已撤回，其余正文只核导航。",
         "limitations": "非零FFT幅度、烟团颜色/完整轨迹、显式音频child emitter、全部样本、HDR/多屏及性能未闭。"
@@ -1112,7 +1112,7 @@
       "lastReviewed": "2026-10-29",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "898a78dff8f012ed9704df84a878d16b7cc984f221a8801caca6ae9c0f24838a",
+        "sourceSHA256": "39b2e9d26284e5eb705308323806ac5895703fff35d60d5b4519b042923173e6",
         "method": "document_registry --audit + document_health --check",
         "scope": "Declared texture/RGB graph bounded change: route, queue retirement and archived runtime evidence reconciled with the same source/App identity.",
         "limitations": "Only this change and navigation reviewed; startup texture selection is not live-panel, full parity, HDR or performance acceptance."
@@ -2507,7 +2507,7 @@
       "lastReviewed": "2026-10-29",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "64db3e6566a2254a82638c47cc0dba9d670cda6cd9beca75a5ed2a63da917b21",
+        "sourceSHA256": "92aefa8cb5fb5b74494a82858cb2aa05cc13b6c3c1bbe4ab44f6f52238129461",
         "method": "document_registry --audit + document_health --check",
         "scope": "Only geometry named-raster PMA versus graph-copy content contract and bounded 295/independent322 closure; retain prior historical claims.",
         "limitations": "No full-document product revalidation; standalone pixel probe entry remains stale, no official parity/full-property/HDR/performance conclusion."
@@ -4467,7 +4467,7 @@
       "lastReviewed": "2026-10-29",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "2326f21ebec2c23fe1a672a53f34234358e33811b3113554852b1b5b3cb39d76",
+        "sourceSHA256": "279d9dc0344882ba084d232ebd5f5d0442572640a058ff57552a30d5f90dc2a1",
         "method": "document_registry --audit + document_health --check",
         "scope": "动态逻辑身份/slot共同回收合同与实际限定后验同步；修正旧64动态上限文案，337普通播放首错与性能资格分界、保净零出生待验。",
         "limitations": "导航收据不替代实际运行；原生C寿命与独立样本只按批次历史已验范围，动态视频/官方身份、HDR多屏及稳定整体性能仍未闭。"

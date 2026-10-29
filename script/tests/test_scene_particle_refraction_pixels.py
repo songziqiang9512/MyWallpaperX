@@ -226,6 +226,38 @@ class SceneParticleRefractionPixelTests(unittest.TestCase):
             )), 2)
             self.assertLess(expected_error, double_error)
 
+    def test_r8_color_reuses_straight_coverage_without_reinterpreting_normal_or_rg88(self) -> None:
+        self.require_metal()
+        values = self.result["r8Color"]
+        self.assertTrue(values["nativeStorageAndMips"])
+        self.assertEqual(values["rawNormalSample"], [128, 0, 0, 255])
+        self.assertEqual(values["atlasMip"], [255, 255, 255, 32])
+        self.assertEqual(values["atlasUVScale"], [1, 1])
+        self.assertTrue(values["normalR8Rejected"])
+        self.assertTrue(values["normalFramesMismatchRejected"])
+        self.assertEqual(values["gradientAmounts"][0], values["gradientAmounts"][1])
+        self.assertEqual(values["gradientAmounts"][2], values["gradientAmounts"][1])
+        rows = values["samples"]
+        for mode in ("translucent", "additive"):
+            for name in ("zero", "fractional", "renamed", "opaque", "rgba", "rg88", "rgEquivalent"):
+                pixels = rows[name + mode]["amounts"]
+                self.assertEqual(pixels[0], pixels[1], name)
+                self.assertEqual(pixels[2], pixels[1], name)
+            for name in ("renamed", "rgba"):
+                self.assertEqual(rows[name + mode], rows["fractional" + mode])
+            self.assertEqual(rows["rg88" + mode], rows["rgEquivalent" + mode])
+            for name, expected in (("zero", [0, 0, 0, 0]),
+                                   ("fractional", [50, 25, 13, 64]),
+                                   ("opaque", [100, 50, 25, 128])):
+                for actual, target in zip(rows[name + mode]["amounts"][1], expected):
+                    self.assertAlmostEqual(actual, target, delta=1)
+            for actual, expected in zip(rows["fractional" + mode]["overbright"], [251, 125, 63, 64]):
+                self.assertAlmostEqual(actual, expected, delta=1)
+        # These are authored frame UV/mix inputs, not animation-clock evidence.
+        for actual, expected in zip(values["atlasPixels"], ([0, 0, 0, 0], [50, 25, 13, 64], [100, 50, 25, 128])):
+            for channel, target in zip(actual, expected):
+                self.assertAlmostEqual(channel, target, delta=1)
+
     def test_tilted_displacement_keeps_view_plane_width_and_normal_uv_direction(self) -> None:
         self.require_metal()
         rows = {row["name"]: row for row in self.result["displacementProfiles"]}
@@ -270,9 +302,7 @@ import Foundation
 import Metal
 import simd
 
-typealias SceneParticleTextureSampling = SceneTextureSampling
 enum SceneTextureLoadPurpose { case normal, straightAlbedo }
-enum SceneParticleTextureSource { case file(SceneResourceView.FileInput), builtIn(String) }
 struct SceneParticleRefractionDeclaration {
     let normalTextureSource: SceneParticleTextureSource?
     let amount: Float = 1
@@ -392,6 +422,7 @@ class SceneParticleRefractionIdentityTests(unittest.TestCase):
                 SCENE_ROOT / "Resources/Assets/SceneResourceIdentity.swift",
                 SCENE_ROOT / "Resources/Assets/SceneResourceView+Backing.swift",
                 SCENE_ROOT / "Resources/Textures/SceneTextureSampling.swift",
+                SCENE_ROOT / "Systems/Particles/SceneParticleTextureSource.swift",
                 SCENE_ROOT / "Systems/Particles/SceneParticleRefractionBinding.swift",
                 SCENE_ROOT / "Systems/Particles/SceneParticleRefractionTextureLoader.swift",
             ]

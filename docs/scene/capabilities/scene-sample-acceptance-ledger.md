@@ -11,9 +11,9 @@
 - 样本根：`/Users/songziqiang/Movies/MyWallpaperX/创意工坊/Scene`（491 个 sample 目录）。
 - 运行归档：`scene_sample_debug_archive.json` SHA-256 `95c328619bb6cab7863b2e58b92c2010632f3213907f8d09865b6c1ce3991226`（生成于 2026-10-29T12:48:50.531681+00:00）。
 - 归档运行身份：CDHash `f92774bdf124ae9f7bfae8f6f3e4d30a713c5036`、CDHash `edde7df24e63e3b9830a72900437596b3634c3dd`、CDHash `8a1967f399d11dad1dfbfb1b15379dffeb4a76db`；**归档内不止一个执行身份**，运行状态与首断点因此是混合身份事实，单样本结论必须回到该样本自己的 report 身份。
-- 裁决覆盖层：`scene_sample_acceptance_verdicts.json` SHA-256 `f8a1cf60990eb67875644955be2446d8f3444d0bd069262b53f169e80996f306`。
+- 裁决覆盖层：`scene_sample_acceptance_verdicts.json` SHA-256 `ec8f6cf6fe19a3de94c3f3a27576e077a1d437db02968ee4d56877b2828f3d00`。
 - 仅历史归档保留、当前目录已移除的裁决：3806887870；不计当前目录表，原裁决不删除。
-- 本页生成于 2026-10-29T12:48:50.754489+00:00。
+- 本页生成于 2026-10-29T13:47:06.443470+00:00。
 
 本页生成日仅表示台账生成，不表示归档运行或人工裁决已重新验收。旧归档首断点可能已在后续开发中修复；最新技术状态以[断点队列](../roadmap/scene-open-breakpoint-queue.md)和[运行证据](runtime-evidence-current.md)为准。`not-run` 仅表示本归档未关联运行证据，不表示样本从未运行；归档中的失败状态也不等于当前 HEAD 的失败。
 本机已清理的历史证据：68 个样本、222 个引用；原路径保留在裁决覆盖层的 `unavailableLocalRuns/unavailableLocalEvidence`，不计可用载荷。清理不撤销历史结论，也不代表当前重新验收；见[证据可用性](runtime-evidence-current.md#local-evidence-availability)。
@@ -233,7 +233,7 @@
 | `3375392695` | 就这样吧 | 仅 schemecolor | `structural-chain-complete-visual-review` | - | `visual-review` | `unreviewed` |  |
 | `3375885250` | WLOP  SunFragment | 2(0) color 1 combo 1 | `degraded-runtime` | `resource-load / SceneSolidTextureLoader / solid-texture-load-incomplete / solid-layer` | `texture-load` | `unreviewed` |  |
 | `3376129843` | WLOP  SunFragment 7 | 仅 schemecolor | `degraded-runtime` | `resource-load / SceneSolidTextureLoader / solid-texture-load-incomplete / solid-layer` | `texture-load` | `unreviewed` |  |
-| `3382111183` | NIXEU 2B2F | 2(0) bool 1 color 1 | `degraded-runtime` | `resource-load / ParticleRuntime / particle-layer-load-incomplete / particle-layer` | `particle-load` | `unreviewed` |  |
+| `3382111183` | NIXEU 2B2F | 2(0) bool 1 color 1 | `degraded-runtime` | `resource-load / ParticleRuntime / particle-layer-load-incomplete / particle-layer` | `particle-load` | `unreviewed` 2026-10-29 | REFRACT R8颜色准备首门已闭：同默认属性/标准PCM Ready+4s，粒子9/13→13/13、0→4 REFRACT，四root不再texture… |
 | `3383210272` | NIXEU  2B3B | 2(0) color 1 slider 1 | `degraded-runtime` | `resource-load / SceneSolidTextureLoader / solid-texture-load-incomplete / solid-layer` | `texture-load` | `unreviewed` |  |
 | `3383535304` | 麻匪 顶顶 音频感应自动场景切换 Audio monitoring scene… | 35(8) bool 7 color 6 combo 2 slider 1 text 16 textinput 3 | `structural-chain-complete-visual-review` | - | `visual-review` | `unreviewed` 2026-10-20 | 酒吧人物、挂饰、枪酒杯与前景杯保持；306/effect364旧颜色启动/类型/packed音频编译首拒已退出，原Program实际GPU和末合成完成。_1开… |
 | `3389974179` | 落日与白皙的大腿 | 3(0) bool 2 color 1 | `structural-chain-complete-visual-review` | - | `visual-review` | `unreviewed` |  |

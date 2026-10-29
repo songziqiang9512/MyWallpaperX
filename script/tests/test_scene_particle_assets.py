@@ -421,6 +421,15 @@ enum Harness {
                     combos: ["REFRACT": 1]
                 )
             ) == nil,
+            "depthRefractionRejected": SceneParticleRefractionPlanner.plan(
+                for: SceneParticleMaterialPass(
+                    materialPath: "materials/particle/renamed-mask.json",
+                    shaderPath: "shaders/genericparticle.json",
+                    texturePaths: ["particle/renamed-opacity"],
+                    blending: "additive", combos: ["REFRACT": 1],
+                    depthTest: "enabled", depthWrite: "disabled", cullMode: "nocull"
+                )
+            ) == nil,
             "diagnostics": diagnostics
         ]
     }
@@ -665,18 +674,16 @@ enum Harness {
     }
 
     private static func reachableMaterialPaths(rootPaths: [String], rootURL: URL) -> Set<String> {
-        let resources = SceneResourceIndexBuilder().build(rootURL: rootURL)
-        let files = Dictionary(
-            resources.resources.map { (normalizedPath($0.relativePath), $0.url) },
-            uniquingKeysWith: { first, _ in first }
+        let resources = SceneResourceView(
+            projectRootURL: rootURL, packageRootURL: nil, stockAssetsRootURL: nil
         )
         var materials = Set<String>()
         var visited = Set<String>()
         var pending = rootPaths.map(normalizedPath)
         while let path = pending.popLast() {
             guard visited.insert(path).inserted,
-                  let url = files[path],
-                  let data = try? Data(contentsOf: url),
+                  let resource = resources.resolvedResource(relativePath: path),
+                  let data = try? resource.readSnapshot().data,
                   let definition = try? SceneParticleDefinitionParser().parse(data: data) else { continue }
             if let material = definition.materialPath { materials.insert(normalizedPath(material)) }
             pending.append(contentsOf: definition.children.compactMap(\.path).map(normalizedPath))
@@ -685,12 +692,14 @@ enum Harness {
     }
 
     private static func loadMaterialPasses(rootURL: URL) throws -> [SceneParticleMaterialPass] {
-        let resources = SceneResourceIndexBuilder().build(rootURL: rootURL)
-        return try resources.resources.filter {
+        let resources = SceneResourceView(
+            projectRootURL: rootURL, packageRootURL: nil, stockAssetsRootURL: nil
+        )
+        return try resources.authorHandles.filter {
             normalizedPath($0.relativePath).hasPrefix("materials/")
                 && normalizedPath($0.relativePath).hasSuffix(".json")
         }.flatMap { resource -> [SceneParticleMaterialPass] in
-            let root = try jsonObject(data: Data(contentsOf: resource.url))
+            let root = try jsonObject(data: resource.readSnapshot().data)
             return (root["passes"] as? [[String: Any]] ?? []).map { pass in
                 SceneParticleMaterialPass(
                     materialPath: resource.relativePath,
@@ -819,12 +828,13 @@ class SceneParticleAssetTests(unittest.TestCase):
         harness = directory / "Harness.swift"
         harness.write_text(HARNESS_SOURCE, encoding="utf-8")
         cls.binary = directory / "scene-particle-assets"
-        subprocess.run(
+        compilation = subprocess.run(
             [swiftc, *(str(path) for path in SWIFT_SOURCES), str(harness), "-o", str(cls.binary)],
-            check=True,
             capture_output=True,
             text=True,
         )
+        if compilation.returncode != 0:
+            raise AssertionError(f"harness compilation failed:\n{compilation.stderr}")
 
     @classmethod
     def tearDownClass(cls) -> None:
@@ -916,6 +926,7 @@ class SceneParticleAssetTests(unittest.TestCase):
         self.assertTrue(result["singleSlotRefractionUsesFlatNormal"])
         self.assertTrue(result["twoSlotRefractionPreservesNormal"])
         self.assertTrue(result["normalSlotHoleRejected"])
+        self.assertTrue(result["depthRefractionRejected"])
         self.assertEqual(
             result["diagnostics"],
             {

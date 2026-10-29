@@ -248,3 +248,16 @@ SourceFacts在检查与launch准备队列同步建立，原类型却继承App默
 360现在完整提交407 play(epoch36)→407 stop/532 play/play(epoch38)，532 ready且clock=.454793、advanced=true；本轮407停止，不能沿用上一批407推进结论。作者641 private playStatus在前callback设true，后callback Sound查询只见旧snapshot导致自动skip；不是默认选第二首或时长解析，已另列查询时序资格，未擅自改原投影合同。不认整播放器、像素/听感/长稳、官方parity或CPU/GPU收益；本片只修同owner合流及其真实初始执行。
 
 必要原日志、输入/App/源身份、旧源反例、真实门/失败收据及独审归`.artifacts/scene-evidence/runs/owner-callback-coalescing-20261029/`普通14天；停止的运行副本和重试输出提取后清理，连续迭代只保原一份build-cache。跨owner分歧、363工作量和未验能力继续由现役队列拥有。
+
+<a id="refract-r8-20261029"></a>
+## 2026-10-29 REFRACT灰度颜色准备
+
+原REFRACT颜色准备只准格式0/4/8，已支持的R8 mask在上传前被整层拒绝。现沿原owner准入R8并复用既有111r texture adapter，使灰度进入alpha、RGB为1；仅删除格式门会错误采成(R,0,0,1)。仍是原生R8 storage/mips的准备期view，无CPU展开、新资源/渲染owner或普通帧运算；RG88保原shader解释，normal独立data用途、frame兼容、显式hole/depth边界保持。产品净增3行。
+
+原真实loader→Metal像素门及identity共8方法通过：0/128/255覆盖、资源改名/等价RGBA、非对称RG88、两blend/overbright5、无normal正负amount零位移、TEXS frame端点/half mix与第二mip、R8 normal和normal帧不匹配反例。frame UV/mix不代动画clock/selector时序。assets原fixture仍用退休Resource.url导致编译失败，已迁到当前Handle读取并显示编译stderr，只补2方法通过；未重跑已绿像素门。普通Debug36.475秒、优化DEBUG诊断31.693秒零警告，产品源无漂移；独审GO，无新增认证/缓存或算法副本。
+
+相同PCM、默认属性、Ready后4秒：3382111183由9/13粒子加载、0REFRACT到13/13、4REFRACT，原四个textureProfileUnsupported退出。标准PCM下四root虽活动、选中四个非零band值，仍无非空提交；作者bounds=.2…1/exponent10使“非零”不足以证明出生。只补一次现MWX_DEBUG_AUDIO_PCM_FILE入口的8秒双声道低频多音，保原PCM→FFT→inbox与作者参数；日志确认为recordedPCM，四root1745/1765/1804/1807均非空，每层105个REFRACT批次GPU完成、failedFrames=0，完成instance累计421/415/248/282。新输入图不能与标准PCM图混作同状态视觉增益对照，未资格官方响应幅度、密度/轨迹或整幅像素。两活动change3d的frontend首错仍在。
+
+未参与修法2419444134实际图完整、粒子4/4及1REFRACT、strict PASS；3566323704仍5/9，531动画normal不匹配、398 depth、552/141显式hole均保原拒绝。三例及强输入补跑均exit0、surface1→0/GPU drained，不作官方parity、整样本通过或性能收益结论。
+
+必要前后图/日志、源/App身份、真实像素与失败收据、独审归本机`refract-r8-followup-20261029`及`-candidate`、`-audio`正式包，普通14天/单包32MiB；按原图字节拆包，不保Workshop副本/HOME/App。连续迭代只复用原一份build-cache，旧声明观察不冒充本批重验。

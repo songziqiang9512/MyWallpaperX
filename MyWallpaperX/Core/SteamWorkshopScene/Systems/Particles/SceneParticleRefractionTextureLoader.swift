@@ -20,7 +20,7 @@ enum SceneParticleRefractionTextureLoader {
         guard case let .file(colorInput) = colorSource,
               let colorPrepared = try textureLoader.prepareTexSource(from: colorInput),
               let colorContainer = colorPrepared.container,
-              [UInt32(0), 4, 8].contains(colorContainer.format) else {
+              [UInt32(0), 4, 8, 9].contains(colorContainer.format) else {
             return nil
         }
         let colorOutcome = try textureLoader.load(
@@ -28,7 +28,10 @@ enum SceneParticleRefractionTextureLoader {
             device: device, preparedTexSource: colorPrepared
         )
         try colorOutcome.rethrowResourceReadFailure()
-        guard case let .loaded(color) = colorOutcome else { return nil }
+        guard case let .loaded(uploadedColor) = colorOutcome,
+              let color = colorContainer.format == 9
+                ? SceneParticleColorTextureAdapter.adapt(uploadedColor)
+                : uploadedColor else { return nil }
 
         let normalCandidate: SceneTextureCandidate?
         let normal: MTLTexture
