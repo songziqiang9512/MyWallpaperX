@@ -15,7 +15,7 @@
 
 本机收敛前实测磁盘占用：已安装Debug测试组件126.7 MiB，原三引擎Release组件96.5 MiB（可执行约29.4、资源60.5、编译助手6.6）；该Release App约308.5 MiB，/Applications旧App约213.3 MiB。此为本地包体，不是压缩DMG增幅。用户据此选择Video-only。
 
-撤销本批Scene/Web外部surface接缝、runtime bundle抽取、Web命名空间迁移、屏保专用媒体/权限分支和对应测试适配，恢复它们相对本工作树HEAD的原实现；删除没有剩余消费者的新类型与新fixture。保留视频共享静帧执行、配置/发布/安装、App入口和暂停交接。组件不得再编入Scene/Web、QuickJS、Metal着色器、stock/font库或shader编译工具。App自身仍正常携带这些原有能力。
+撤销本批Scene/Web外部surface接缝、runtime bundle抽取、Web命名空间迁移、屏保专用媒体/权限分支和对应测试适配；最终整合后Core内Scene/Web源码与主仓994493dd4一致，保留其他会话的最新修改。删除没有剩余消费者的新类型与新fixture。保留视频共享静帧执行、配置/发布/安装、App入口和暂停交接。组件不得再编入Scene/Web、QuickJS、Metal着色器、stock/font库或shader编译工具。App自身仍正常携带这些原有能力。
 
 退役前192个所属源码文件已保存到ignored的.artifacts/lock-screen-screensaver/retired-realtime-saver-sources.tar.gz（约1 MiB，含原HEAD和逐文件hash），供查明已放弃方案；不进入发布、不作为现役代码。旧三引擎灰屏根因未确认，不能写成已解决。除非用户重新授权，不再重复此方向实验。
 
@@ -59,24 +59,25 @@ AVFoundation自身解码显示；animateOneFrame不推进视频、不读配置�
 
 复用DerivedData时须在本轮构建前精确清除自有旧.saver产物及其App内副本，防止已退役资源残留；不清主仓/并行缓存。验证实际Release包中无Scene/Web资源和助手，并实测组件大小，不以源码行数估算收益。
 
-已安装组件不能仅按version/build跳过更新：本机两端同为2.12.0/284但UUID与二进制不同，已证旧组件会被错误保留。仅在安装事务比较现有CodeDirectory unique identity，相同才复用；不执行签名有效性验证、不全文哈希或扫资源，不进入打开面板/播放路径。身份不可读或未签名时正常重新复制，不变为新权限门。夹具使用真实隔离MachO/BNDL签名，待验证同构建不重复拷贝、同版本代码身份变化替换、升级与foreign保留。
+已安装组件不能仅按version/build跳过更新：本机两端同为2.12.0/284但UUID与二进制不同，已证旧组件会被错误保留。仅在安装事务比较现有CodeDirectory unique identity，相同才复用；不执行签名有效性验证、不全文哈希或扫资源，不进入打开面板/播放路径。身份不可读或未签名时正常重新复制，不变为新权限门。夹具使用真实隔离MachO/BNDL签名，已验证同构建不重复拷贝、同版本代码身份变化替换、升级与foreign保留。
 
 按阶段执行：①撤销Scene/Web并收敛数据/target/UI；②最近发布/取消/租约/导入/暂停/安装门和独立审查；③Debug、Release及实际资源/签名闭包；④资源允许后用真实视频验证普通预览和系统自动闲置启动，App完全退出是基线，配套测试App运行只是对照。至少覆盖循环超过视频时长、停止/重新启动、遮挡恢复、低电量/睡眠、主App退出、更新/清除。每阶段问题直接在原owner修复，不用新后台层掩盖失败。
 
-## 7. 当前证据与未完成项
+## 7. 最终整合证据与未覆盖项
 
 - 当前验收仅为Video-only；旧三引擎灰屏根因不当作已解决。用户暂停真实锁定验证的要求保留，普通窗口、系统小预览与真实锁定分别记录。
-- 最新整App Debug构建23.92秒通过，随后组件元数据增量3.65秒通过；App预览已删除，单行标题/图标、三列居中选择区、固定胶囊页脚、一屏分区间距和最终文案已由实际窗口确认。设置入口现位于“多屏支持”上方。此后仅静态资源路由和文档有调整，最终整合构建仍需核实。
+- 整合主仓994493dd4后的代码19c7fff15完成整App Debug（66.95秒）、Release（421.91秒）构建，输入hash未漂移。App预览已删除，单行标题/图标、三列居中选择区、固定胶囊页脚、一屏分区间距和最终文案已由实际窗口确认。设置入口的实际顺序为卡片单击操作→锁屏与屏保→多屏支持。后续收尾仅改文档，不改变已验证产品字节。
 - 最新近门26个Python测试在28.63秒通过：实际封面身份/复用/取消11项、活动socket14项、发布/取消/租约/同版本安装33项；Release合同16和CI路由7个测试通过。新增生成器的路由遗漏经独审修正到既有system-screen-saver组，路由器68个测试通过。
-- 既有共享UI回归已通过：详情/属性标题24组与状态4组；Picker40、Steam登录22、API输入5、列表编辑器54、系统模态32项。初始汇总中3处fixture失败分别修正为标准Resources路径、真实bodyView查找、宿主居中与失败诊断；保留原断言及失败日志，不将原失败汇总冒称全绿。删除App预览后仅退役2项无消费者断言。
+- 既有共享UI回归已通过：详情/属性标题24组与状态4组；Picker40、Steam登录22、API输入5、列表编辑器54、系统模态32项。初始3处fixture失败修正为标准Resources路径、真实bodyView查找、宿主居中与失败诊断；保留原断言及失败日志。整合后系统模态32、页脚/原生Cmd+A路由34、命令事务35项和设置导入3个Python测试通过；7测试首轮唯一失败是Picker仍提取已退役selectAllMenuAction，删除过时提取后Picker40项单独重跑通过，不恢复旧产品路由。删除App预览仅退役2项无消费者断言。
 - Debug测试包整包复制并重签，不能只替换启动shim。已验证实际代码dylib及签名；此前旧dylib造成的像素结论作废。测试App必须用显式HOME/CFFIXED_USER_HOME启动，退出后只用进程清单确认；CUA再次getApp/AX会自动重启App，不能用于确认退出。
-- 同版本安装实际替换已验证到用户Library/Screen Savers，签名strict通过；安装前后current.json字节未变。最新组件UUID 4123B5C2-D6E5-335C-82DF-CFFE45B5A336。媒体内容的后续用户选择不由测试回滚；系统选择、密码和闲置时间保持用户控制。
+- 实际签名Release组件已通过原安装owner替换到用户Library/Screen Savers，strict签名通过；安装前后current.json字节未变。最终组件UUID B8E57B83-6576-3C3B-ADE6-087DB561BD4D，Resources仅LICENSE/NOTICE与两份thumbnail。保留用户最后保存的Video3，不回滚后续手动选择；系统选择、密码和闲置时间保持用户控制。
 - 系统“其他”列表已实际显示本App图标。只有PNG入包不等于目录更新：本机27.2的WallpaperLegacyExtension把SHA256(path+"-"+name)作为磁盘PNG键，旧缓存存在便不重写，不包含mtime/版本。独立静态复核arm64e与x86_64均读取bundle.imageForResource("thumbnail")；ScreenSaverThumbnail元数据试验无效，已退役该字段及无消费者的验证要求。
 - 图标验证只将已确认属于本模块的一个默认蓝图缓存移到本轮ignored产物并保留receipt，再由系统正常重建；其他目录项未动。Settings/目录扩展的临时重开用于本次实验，产品不加入杀进程、扫缓存或改系统Index的链路。旧PNG、前后hash、安装receipt在.artifacts/lock-screen-screensaver/runtime保留，避免后续重复试验尺寸/mtime/多层背景。
-- 主App退出后，先前真实已安装组件在一次性普通窗口运行53秒，AV时间正常，约19秒视频观察到两次循环；stop释放、同view重启继续、ready且无失败。此为系统动态角色的普通宿主，不是认证锁屏或功耗基线，不外推低电量/睡眠/长期锁定。删除App预览后的最终组件仍需结合最终Release做最近运行复核。
-- 单独组件上一轮Release320 KiB仅为旧测量；新增两张PNG后最终包体待实测。整App Release WMO及实际资源/签名/dSYM/Debug诊断排除尚未完成；本树缓存中的App内嵌旧.saver含退役资源，构建前须精确移除该旧输出，不能清理主App Scene资源。
-- 三位子代理完成UI、发布/安装/状态及CI/target的独立复核。仅发现不可用本地视频误报“先下载”和新生成器未路由两项，均在原链路修正。更早Debug有3条未改动Scene并发警告；最近增量无新源码警告不代表全仓零警告。
-- 用户已授权最终通过后提交并合入主仓codex/engine-refactor-program，保留中途其他会话的新提交和未提交内容，不推送、不替换/Applications。整合验证、最终Release与实际系统锁定边界分别报告。保留本树一份构建缓存、最新测试App/隔离home及有界证据，已停止的临时宿主/编译工具在交接前清理。
+- 主App退出后，最终已安装Release组件在一次性普通窗口运行53秒，AV时间正常，约19秒视频观察到两次循环；stop释放、同view重启继续、ready且无失败，配置未变。此为系统动态角色的普通宿主，不是认证锁屏或功耗基线，不外推低电量/睡眠/长期锁定。
+- 最终Release组件349700字节（341.5 KiB），整App215069303字节（205.11 MiB，不含符号链接）；实际发布合同门通过。组件无Helpers、Scene/Web资源和已知Debug诊断符号/字串。精确移除自有App内的退役.saver旧输出后重建，未清主App Scene资源。
+- 原CI完整Sign app步骤在最终Release克隆上以本机ad-hoc身份执行，inside-out及strict deep验证通过；实际权限合同通过，Main App/Daemon/组件三个dSYM UUID均与产物一致。此证据不包含Developer ID、时间戳、公证或发布。
+- 三位子代理完成UI、发布/安装/状态及CI/target独立复核，发现的不可用本地视频误报、生成器未路由与整合Picker测试过时提取均在原链路修正。双配置仍有未改动Scene文件的3条并发隔离警告，本批无新增源码警告；不声称全仓零警告。
+- 产品与测试已按用户授权提交，整合保留主仓994493dd4全部提交，Core内Scene/Web相对该提交无差异；最终文档收尾后快进至codex/engine-refactor-program，不推送、不替换/Applications。整合验证、最终Release与实际锁屏边界分别报告。本树保留一份构建缓存、签名Release克隆及有界证据；已停止的Debug测试App、一次性宿主和编译工具在交接前清理。
 
 公开接口：[ScreenSaverView](https://developer.apple.com/documentation/screensaver/screensaverview)、[AVPlayerLooper](https://developer.apple.com/documentation/avfoundation/avplayerlooper)、[允许显示器休眠](https://developer.apple.com/documentation/avfoundation/avplayer/preventsdisplaysleepduringvideoplayback)、[原生玻璃](https://developer.apple.com/documentation/appkit/nsglasseffectview)。这些接口不构成动态密码页替换授权。
 

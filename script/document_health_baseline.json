@@ -345,8 +345,8 @@
       "bytes": 26808
     },
     "docs/development/lock-screen-screensaver-design.md": {
-      "lines": 83,
-      "bytes": 17035
+      "lines": 84,
+      "bytes": 17721
     }
   },
   "archives": [
@@ -1850,10 +1850,10 @@
     {
       "section": "bodies",
       "path": "docs/development/lock-screen-screensaver-design.md",
-      "before": "74234e98afe7498fb5daf1f36ac2d78acc339464f950703b8c019892f982b90b",
-      "after": "229cb069609b0869c83c69cae04f45dc65bd72d182569e8638a2c3342559934e",
+      "before": "229cb069609b0869c83c69cae04f45dc65bd72d182569e8638a2c3342559934e",
+      "after": "e7244b976f0eb1273c456d14f14363c7f073062671cb2f81ed5e2d344f552b69",
       "owner": "lock-screen-screensaver-design",
-      "reason": "按用户最新决定以Video-only替换三引擎方案，退役重型组件并记录真实体积/验证边界；App UI复用原公共材质和选择器，避免第二套渲染及网格链路。",
+      "reason": "用最终整合Debug/Release、实际安装图标、签名符号和循环停止重启证据替换待验描述；保留真实锁屏与正式公证未覆盖边界，不改产品或其他专项预算。",
       "decision": "docs/development/lock-screen-screensaver-design.md"
     },
     {
