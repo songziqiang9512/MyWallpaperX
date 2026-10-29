@@ -33,6 +33,8 @@ import tempfile
 import unittest
 from pathlib import Path
 
+from script.tests.test_scene_prepared_script_resource_catalog import swift_declaration
+
 
 REPOSITORY_ROOT = Path(__file__).resolve().parents[2]
 SOURCE_ROOT = REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene"
@@ -313,12 +315,14 @@ struct SceneScriptLayerMutation: Equatable, Sendable {
         static let alpha = Self(rawValue: 1 << 7)
         static let color = Self(rawValue: 1 << 8)
         static let effectVisibility = Self(rawValue: 1 << 9)
+        static let created = Self(rawValue: 1 << 10)
         static let authoredFields: Self = [
             .origin, .scale, .angles, .visibility, .solid, .text, .font,
             .alpha, .color, .effectVisibility,
         ]
     }
 
+    __LAYER_NEWBORN__
     let kind: Kind
     let isDynamic: Bool
     let fields: Fields
@@ -375,31 +379,6 @@ struct SceneScriptLayerMutation: Equatable, Sendable {
 struct SceneScriptPuppetBoneMutation: Equatable, Sendable {}
 struct SceneScriptMediaPlaybackCommand: Equatable, Sendable {}
 struct SceneScriptParticlePlaybackCommand: Equatable, Sendable {}
-
-struct SceneScriptOwnerEffects: Equatable, Sendable {
-    var materialFunctionMutations: [SceneScriptMaterialFunctionMutation] = []
-    var animationMutations: [SceneTimelinePlaybackMutation] = []
-    var layerMutations: [SceneScriptLayerMutation] = []
-    var puppetBoneMutations: [SceneScriptPuppetBoneMutation] = []
-    var mediaPlaybackCommands: [SceneScriptMediaPlaybackCommand] = []
-    var textureAnimationCommands: [SceneTextureAnimationCommand] = []
-    var particlePlaybackCommands: [SceneScriptParticlePlaybackCommand] = []
-    var puppetAnimationCommands: [ScenePuppetAnimationCommand] = []
-    var puppetAnimationCallbackRegistrations = 0
-    var layerTopologyOwnerIdentity: UInt64? = nil
-}
-
-struct SceneScriptMediaEventMutations: Equatable, Sendable {
-    var materialFunctions: [SceneScriptMaterialFunctionMutation] = []
-    var animations: [SceneTimelinePlaybackMutation] = []
-    var layers: [SceneScriptLayerMutation] = []
-    var puppetBones: [SceneScriptPuppetBoneMutation] = []
-    var mediaPlaybackCommands: [SceneScriptMediaPlaybackCommand] = []
-    var textureAnimationCommands: [SceneTextureAnimationCommand] = []
-    var particlePlaybackCommands: [SceneScriptParticlePlaybackCommand] = []
-    var puppetAnimationCommands: [ScenePuppetAnimationCommand] = []
-    var puppetAnimationCallbackRegistrations = 0
-}
 
 enum SceneBaseMaterialColorModulationCompiler {
     struct Binding {
@@ -625,6 +604,25 @@ def layer_result(payload: dict, layer_id: int) -> dict:
     assert len(matches) == 1, f"layer {layer_id} missing from harness payload"
     return matches[0]
 
+
+# Keep shared payload shapes with their production owners, without VM/IPC bridges.
+HARNESS_SOURCE = "\n".join(
+    swift_declaration((SOURCE_ROOT / path).read_text(), signature)
+    for path, signature in [
+        ("Systems/Script/SceneScriptLayerRuntimeDescriptorBridge.swift",
+         "nonisolated struct SceneScriptCameraCommand:"),
+        ("Systems/Script/SceneScriptLayerHandleBridge.swift",
+         "nonisolated struct SceneScriptOwnerEffects:"),
+        ("Systems/Script/SceneScriptMediaEventBridge.swift",
+         "nonisolated struct SceneScriptMediaEventMutations:"),
+    ]
+) + "\n" + HARNESS_SOURCE.replace(
+    "__LAYER_NEWBORN__",
+    swift_declaration(
+        (SOURCE_ROOT / "Systems/Script/SceneScriptLayerMutation.swift").read_text(),
+        "    var isNewborn:",
+    ),
+)
 
 # Every consumer of this shared builder needs the same real data-only leaf.
 # Particle simulation remains outside this solid/text preparation fixture.

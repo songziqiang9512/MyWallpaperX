@@ -313,7 +313,7 @@ class ScenePreparedCallbackPropertyTests(unittest.TestCase):
 
     def test_active_facts_request_source_stop_and_restart(self) -> None:
         client, events = CLIENT.read_text(), EVENTS.read_text()
-        source = CLIENT_LEAVES.replace('__ACTIVE_FACT_TYPE__', method_body(client, '    struct ActiveCallbackPropertyFacts:'))
+        source = CLIENT_LEAVES.replace('__ACTIVE_FACT_TYPE__', method_body(client, '    nonisolated struct ActiveCallbackPropertyFacts:'))
         source = source.replace('__ACTIVE_FACT_PROPERTY__', method_body(client, '    var activeCallbackPropertyFacts:'))
         event_types = method_body(client, 'nonisolated struct SceneDaemonActiveSessionFactsChange:')
         notification_name = method_body(client, 'extension Notification.Name {')

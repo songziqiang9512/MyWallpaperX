@@ -101,7 +101,7 @@ struct SceneRenderDescriptor: Codable {
 #endif
 }
 
-struct SceneRenderDescriptorBuilder {
+nonisolated struct SceneRenderDescriptorBuilder {
     nonisolated func build(
         project: SceneProject,
         sceneDocument: SceneDocument,

@@ -38,7 +38,7 @@ struct SceneResourceReferenceIndex {
     }
 }
 
-struct SceneResourceReferenceIndexBuilder {
+nonisolated struct SceneResourceReferenceIndexBuilder {
     nonisolated func build(
         document: SceneDocument,
         resourceView: SceneResourceView

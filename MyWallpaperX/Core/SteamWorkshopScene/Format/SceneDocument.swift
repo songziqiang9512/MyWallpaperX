@@ -61,7 +61,7 @@ extension SceneDocument {
     }
 }
 
-struct SceneDocumentLoader {
+nonisolated struct SceneDocumentLoader {
     enum LoadError: LocalizedError {
         case missingSceneJSON
         case invalidSceneJSON(String)

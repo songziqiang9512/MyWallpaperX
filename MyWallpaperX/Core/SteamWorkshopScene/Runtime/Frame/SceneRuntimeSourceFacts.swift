@@ -12,7 +12,7 @@ nonisolated extension SceneMdlStaticModel {
 
 /// Immutable source facts shared by playback preparation and explicit inspection.
 /// Debug attaches report-only projections; Release builds only playback/property facts.
-struct SceneRuntimeSourceFacts {
+nonisolated struct SceneRuntimeSourceFacts {
     let project: SceneProject?
     let sceneDocument: SceneDocument?
     let assetCatalog: SceneAssetCatalog?
@@ -26,7 +26,7 @@ struct SceneRuntimeSourceFacts {
 #endif
 }
 
-struct SceneRuntimeSourceFactsBuilder {
+nonisolated struct SceneRuntimeSourceFactsBuilder {
     func build(
         rootURL: URL,
         source: ScenePlaybackSource? = nil,

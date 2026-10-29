@@ -2507,7 +2507,7 @@
       "lastReviewed": "2026-10-29",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "305d9c9bb6ff1041c169e2abe632701deb736e2c3b49f85f75fd2562d8943b5c",
+        "sourceSHA256": "b10858080404c3e37c6d168b7c9d79bcf2208221dfee41534d47e869c212fdfb",
         "method": "document_registry --audit + document_health --check",
         "scope": "Only geometry named-raster PMA versus graph-copy content contract and bounded 295/independent322 closure; retain prior historical claims.",
         "limitations": "No full-document product revalidation; standalone pixel probe entry remains stale, no official parity/full-property/HDR/performance conclusion."

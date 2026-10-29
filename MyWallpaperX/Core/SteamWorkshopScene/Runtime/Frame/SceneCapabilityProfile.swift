@@ -48,7 +48,7 @@ struct SceneCapabilityProfile {
     }
 }
 
-struct SceneCapabilityProfileBuilder {
+nonisolated struct SceneCapabilityProfileBuilder {
     nonisolated func build(
         project: SceneProject?,
         sceneDocument: SceneDocument?,

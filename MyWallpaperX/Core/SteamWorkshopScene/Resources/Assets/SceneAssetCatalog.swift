@@ -84,7 +84,7 @@ struct SceneAssetCatalog {
     }
 }
 
-struct SceneAssetCatalogLoader {
+nonisolated struct SceneAssetCatalogLoader {
     nonisolated func load(
         resourceView: SceneResourceView,
         referencedResourcePaths: [String],

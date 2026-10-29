@@ -100,7 +100,7 @@ nonisolated struct SceneMdlPuppetAnimation {
     }
 }
 
-struct SceneMdlPuppetAnimationSet {
+nonisolated struct SceneMdlPuppetAnimationSet {
     let boneCount: Int
     let animations: [SceneMdlPuppetAnimation]
     /// Full ordered source records; only `animations` is addressable by exported ID.

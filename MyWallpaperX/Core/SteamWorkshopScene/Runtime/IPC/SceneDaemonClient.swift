@@ -99,7 +99,7 @@ final class SceneDaemonClient: PlaybackEngineControlling {
     var committedSwitchRecovery: CommittedSwitchRecovery?
     var deferredDisplayConfigurationUpdate = false
     var activeRequestID: UUID?
-    struct ActiveCallbackPropertyFacts: Equatable {
+    nonisolated struct ActiveCallbackPropertyFacts: Equatable {
         let transportGeneration: UInt64
         let requestID: UUID
         let recordID: String?

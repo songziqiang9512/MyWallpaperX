@@ -19,7 +19,7 @@ struct SceneProject {
     }
 }
 
-struct SceneProjectLoader {
+nonisolated struct SceneProjectLoader {
     enum LoadError: LocalizedError {
         case missingProjectFile(URL)
         case invalidProjectJSON(URL)

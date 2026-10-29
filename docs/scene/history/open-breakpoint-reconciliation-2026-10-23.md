@@ -199,3 +199,12 @@
 **验证边界。** 普通Debug35.740秒、优化DEBUG诊断构建41.611秒通过；两profile均有3条预存actor隔离警告，C源无新警告，另项跟进。独审对有界范围给GO。本批log-only、PNG=0，只认真实VM与原包短窗日志，不认可见层序收益、性能、官方parity或长时间切换；273的passthrough透视仍需先补官方小正反臂及现役D1资格，未随sort修复开放。
 
 **证据保存。** 原日志、输入/产品身份、基线反例、构建及最近门收据的归档保存在`.artifacts/scene-evidence/runs/layer-sort-topology-only-20261029/native/`及`metadata/`，普通14天；不刷新原全量verdict或其他样本的可见裁决。
+
+<a id="preparation-isolation-20261029"></a>
+## 2026-10-29 CPU准备值的隔离归属
+
+SourceFacts在检查与launch准备队列同步建立，原类型却继承App默认MainActor；Client内不可变callback facts的Equatable也错误继承该隔离。现仅为这条实际调用链的CPU loader/builder、MDL解析结果及facts显式标注nonisolated，共10个产品文件、11处类型声明，产品行数不变。UI、Client会话存储、传输与发布仍归原MainActor；没有新增owner、线程跳转、锁、状态或普通帧工作。
+
+保原Swift5、default-isolation=MainActor及InferIsolatedConformances，普通Debug37.916秒和优化DEBUG诊断89.073秒构建成功、两者无编译警告，冻结12个源文件无漂移。原3条预存警告退出后，前两轮暴露的CPU叶隔离警告逐项修正，失败日志保留；共享旧测试夹具缺camera DTO与newborn getter，改为提取产品原声明/原getter，不复制业务算法或降低断言。实际准备取消加alpha builder共14项通过，未受后继编辑影响的callback facts停启门复用原PASS；独立审查核对隔离与共享夹具。
+
+本批只修编译期职责声明，不声称可见画面、性能、Swift6完整模式或TSan通过，也不重复执行GPU/官方对照。必要源码差分、身份、前后构建与测试日志及审查保存在本机`.artifacts/scene-evidence/runs/preparation-isolation-20261029/metadata/`，普通14天；连续迭代仍只保留原一份构建缓存。

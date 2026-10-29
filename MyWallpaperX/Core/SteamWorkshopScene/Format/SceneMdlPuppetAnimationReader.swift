@@ -73,7 +73,7 @@ enum SceneMdlPuppetAnimationReadError: Error, CustomStringConvertible, Equatable
 /// transforms. Real assets vary translation, rotation, and scale, so all three
 /// components are retained. The three authored playback modes are kept in the
 /// loss-preserving IR; the evaluator applies their bounded frame schedule.
-enum SceneMdlPuppetAnimationReader {
+nonisolated enum SceneMdlPuppetAnimationReader {
     private enum TrailerContract {
         case perBoneAuxiliary
         case legacyZeros10
