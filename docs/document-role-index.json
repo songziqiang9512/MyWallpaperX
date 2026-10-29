@@ -801,10 +801,10 @@
       "lastReviewed": "2026-10-30",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "6e882bb9e80f74974e164d4d190b226ea60f691c613e48526f28dcc3a3bd65b4",
+        "sourceSHA256": "360bab7a85bff856d1f57f86c464ad4c9578b7d009627382f66c0aa43db10527",
         "method": "document_registry --audit + document_health --check",
-        "scope": "Ordered function macro contract and bounded official/self-board/native382 vertical result; existing373 diagnostic debt remains. Startup summary now routes to its sole completed record.",
-        "limitations": "Only changed facts/navigation reviewed; unrelated historical product claims, complete properties, exact audio phase, official full-scene parity, HDR/multi-screen and performance not revalidated."
+        "scope": "Known float-vector return narrowing on existing scope/type owner; fixed official board, two actual native targets and heldout, with current UI build context separated.",
+        "limitations": "Only changed contract and navigation reviewed; no exact whole-scene official parity, full properties, long runtime, HDR/multi-screen or performance conclusion."
       },
       "currentStateAuthority": "docs/scene/capabilities/runtime-evidence-current.md"
     },
@@ -1006,10 +1006,10 @@
       "lastReviewed": "2026-10-30",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "1d1fceb1dcb02779d538a009f0833af72b559b0fbc36500dc8219078cc57c43b",
+        "sourceSHA256": "1ffa74279d2e5e063f2090e8736253532ca0f8c652c1325d21a76615464e1d5a",
         "method": "document_registry --audit + document_health --check",
-        "scope": "Ordered function macro contract and bounded official/self-board/native382 vertical result; existing373 diagnostic debt remains. Startup summary now routes to its sole completed record.",
-        "limitations": "Only changed facts/navigation reviewed; unrelated historical product claims, complete properties, exact audio phase, official full-scene parity, HDR/multi-screen and performance not revalidated."
+        "scope": "Known float-vector return narrowing on existing scope/type owner; fixed official board, two actual native targets and heldout, with current UI build context separated.",
+        "limitations": "Only changed contract and navigation reviewed; no exact whole-scene official parity, full properties, long runtime, HDR/multi-screen or performance conclusion."
       }
     },
     {

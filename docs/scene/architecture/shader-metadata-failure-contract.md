@@ -98,3 +98,12 @@ source-proven purpose沿原TextureSlotPurpose→Catalog精确asset/user atom需�
 **唯一职责与退出。** 原 Preprocessor 在每条 directive 前完成 pending 展开；继续沿这个顺序更新原 functionMacros 表，只删除不同函数定义的冲突拒绝，不预扫、重解析或保留历史表。变量/参数改名、active include、inactive 分支和 undef 沿原解析与执行规则。选定 host 宏、object 值冲突、宏种类切换、非法参数/调用、递归、来源映射和原预算保持原最小失败边界。没有普通帧工作、新 owner 或缓存层；此前合法输入的 prepared 内容不变，原 build/source 身份承担失效，原拒绝不作为成功缓存复用。
 
 **验收与停止。** 现预处理器门验证定义前后、改名与等价表达、include/inactive/undef、metadata/sourceMap及相邻拒绝；自有板须到实际 Program/GPU/合成且匹配同路径参考，原包与未参与修法样本另验。若原包进入下一拒绝，只记录首断点推进，不称整效果或样本修复；没有实际可见收益则重排下一方向，不以编译数或日志消失替代成果。
+
+<a id="known-vector-return-narrowing"></a>
+## 已知浮点向量返回值的收窄
+
+目标是让已知float3/4返回float2沿作者HLSL前分量语义进入原Program，不因后端GLSL严格返回类型而丢弃pass。公开HLSL标准转换限定取前分量，固定官方自有C32/E32/R32与C42/E42/R42板用显式.xy、常量参考和注册标记资格实际客户端；正控或两帧比较未闭不实施，不由作者路径或效果名决定转换。
+
+原BackendCanonicalizer与Normalizer/MetalEmitter共享VectorConversion；沿原函数token身份与词法作用域证明取源类型，使用既有narrowingSuffix将单个已知local、构造或唯一未遮蔽call返回显式收窄。保留旧4→3；表达式只求值一次，不加parser、owner、状态、cache或帧期工作。未知/数组/过载/遮蔽/struct歧义、非float向量、同宽/拓宽及已显式swizzle保原路径，不扩大算术或资源准入；退役return只认4→3的特判而不放松其余原scope门。
+
+验收复用原实际normalizer、共享准备幂等性、glslang link与Metal编译门，涵盖改名/等价构造、local/call、vertex→varying→fragment和上述邻例；Debug后用前级PCM确实非空的原包前后核Program/GPU/末合成与ROI，并验未参与修法原包。新首拒、空输入或无可归因像素收益须如实停在该边界，不将type通过当整样本完成，不调音频/作者参数或扩其他shader规则；无可比测量不报性能收益。

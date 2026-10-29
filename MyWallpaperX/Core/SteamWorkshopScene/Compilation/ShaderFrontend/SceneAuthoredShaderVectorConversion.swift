@@ -335,7 +335,7 @@ nonisolated enum SceneAuthoredShaderVectorConversion {
         return result
     }
 
-    /// A vec3 function may return the leading lanes of one proven vec4 value.
+    /// A float-vector function may return the leading lanes of one wider value.
     /// Original token identity locates its function even when the Metal
     /// emitter supplies a body slice. Calls remain one evaluation, and an
     /// unknown, array or shadowed value leaves the compiler rejection intact.
@@ -349,18 +349,19 @@ nonisolated enum SceneAuthoredShaderVectorConversion {
                   let function = unit.functions.first(where: {
                       $0.bodyRange.contains(originalIndex)
                   }),
-                  SceneAuthoredShaderValueType(authoredName: function.returnType) == .float3,
+                  let targetType = SceneAuthoredShaderValueType(authoredName: function.returnType),
+                  targetType == .float2 || targetType == .float3,
                   let end = statementEnd(after: index, in: tokens),
                   index + 1 < end else { return nil }
             let expression = (index + 1)..<end
             let first = tokens[expression.lowerBound]
-            let isWideValue: Bool
+            let sourceType: SceneAuthoredShaderValueType?
             if expression.count == 1 {
-                isWideValue = first.kind == .identifier
+                sourceType = first.kind == .identifier
                     && !unit.tokens.contains(where: { $0.text == "struct" })
-                    && SceneAuthoredShaderGlobalReferenceAnalyzer.valueType(
-                    at: expression.lowerBound, tokens: tokens, in: unit
-                ) == .float4
+                    ? SceneAuthoredShaderGlobalReferenceAnalyzer.valueType(
+                        at: expression.lowerBound, tokens: tokens, in: unit
+                    ) : nil
             } else if expression.count >= 3,
                       tokens[expression.lowerBound + 1].text == "(",
                       SceneAuthoredShaderTokenScanner.matchingParenthesis(
@@ -373,16 +374,19 @@ nonisolated enum SceneAuthoredShaderVectorConversion {
                         && unit.tokens[reference + 1].text == "("
                         && (reference == 0 || unit.tokens[reference - 1].text != ".")
                 }
-                isWideValue = (candidates.isEmpty
-                    && SceneAuthoredShaderValueType(authoredName: first.text) == .float4)
-                    || (candidates.count == 1
-                        && unshadowedCall
-                        && SceneAuthoredShaderValueType(authoredName: candidates[0].returnType) == .float4)
+                if candidates.isEmpty {
+                    sourceType = SceneAuthoredShaderValueType(authoredName: first.text)
+                } else if candidates.count == 1 && unshadowedCall {
+                    sourceType = SceneAuthoredShaderValueType(authoredName: candidates[0].returnType)
+                } else {
+                    sourceType = nil
+                }
             } else {
-                isWideValue = false
+                sourceType = nil
             }
-            guard isWideValue else { return nil }
-            return .init(range: expression, suffix: "xyz")
+            guard let sourceType,
+                  let suffix = narrowingSuffix(from: sourceType, to: targetType) else { return nil }
+            return .init(range: expression, suffix: suffix)
         }
     }
 

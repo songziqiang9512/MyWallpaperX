@@ -313,3 +313,16 @@ SourceFacts在检查与launch准备队列同步建立，原类型却继承App默
 最近terminal/utility的12项纯Python门通过。只读正式ZIP里的三份373原日志：原uniform基线的338条成功通知不再误诊，但真实effect-local passthrough仍失败；已修uniform候选395条与本轮宏候选210条通知归正后，离线graph/utility门均无失败。三组已记录的执行、GPU、发布、合成及次帧事实不变，capture仍为23/160/570、failed为空，默认隐藏186只沿原dormant规则豁免。没有改写原NON-PASS报告，没有新跑App或据此宣称fresh产品/画面通过。
 
 相邻反例、离线原日志身份、旧/新观察与独审归本机 `scene-color-notification-20261030` 正式包；不含媒体、App、构建或样本副本。本片只退出373两项误报，381/380等其他显隐诊断仍在队列。
+
+<a id="known-vector-return-20261030"></a>
+## 已知浮点向量return收窄（2026-10-30）
+
+**通用语义与职责。** [HLSL标准转换](https://microsoft.github.io/hlsl-specs/specs/4-Conv.html#Conv.vtrunc)规定宽向量转窄向量保前分量；WE公开语法仅说明HLSL翻译与CAST，不能单独代替本次官方资格。固定2.8.0.42、自有六格C32/E32/R32和C42/E42/R42两次不同内容原捕获，经ICC转换和四角注册后，各C/E对同组literal参考最大通道差均0，两reference差127/255。底排粉色是冻结(.75,.25,.5)，不是carrier(.9,.1,.9)；没有把颜色名称、窗口出现或失败拖动当语义证据。脚本文件入口被系统策略拒绝，改用同内容内置命令复制/启动，再由用户前台确认；未改系统策略。
+
+按[先行设计](../architecture/shader-metadata-failure-contract.md#known-vector-return-narrowing)，原VectorConversion的returnConversions保原token/function/scope证明，以已知source/target类型调用既有narrowingSuffix，扩3/4→2并保4→3；完整表达式一次求值。不增parser、owner、缓存、帧期状态或样本分发，产品净+4行；未知、array/struct歧义、过载/遮蔽、整数/矩阵、同宽/拓宽与已有swizzle保原路径。测试仅复用一份现harness，把重复Metal CLI收为实际三处共用入口并参数化旧门，净+15行、文件970行；原scope拒绝未删除。
+
+**真实原包与边界。** 有效基线App `8f3a2089…158f`、同原338211project/pkg、默认属性/PCM/pointer outside、duration4/after3，96/103与225/228先止于return type、前级64-band在frame5确有非零输入。候选 `b3212c80…f27f1` 中两目标同Program `f9f86aa3…2ba45`，material1/rejected0、两帧GPU completed且最终compositorConsumed；原图的彩色条进入作者的透视纹理变形，工具strict PASS。原338321的175/178、336/339也实际进入Program/GPU/最终合成，图中斜向频谱及背景组合可见，strict PASS；未参与修法241944的人物、圆环/星点保留，strict PASS。三个修后run均exit0/无timeout、停止surface1→0且GPU排空。
+
+原338211整体模糊保留作者链，当前无同phase官方原景比较，不能将不同音频颜色/幅度、背景相位或pointer差当修复证据；本片只认透视pass从跳过到实际执行及上述可见组合，不认全画面精准parity。候选构建同时编入了预先存在的菜单关闭操作改动，身份单独记入source-context；该UI改动不由本批修改或提交，未做启动/性能同条件结论。完整属性、长稳、HDR/多屏及性能仍未验。
+
+最近真实normalizer/shared preparation/glslang/Metal门34项通过（54.301秒），涵盖旧4→3、local/参数/构造/唯一call改名、vertex→varying→fragment与幂等及相邻scope/type反例；Debug29.806秒、无构建诊断。正式包 `known-vector-return-20261030` 保固定输入/官方两帧、有效原包基线/修后/独立图、日志与身份；最终独审/治理和清理另保同名closure。只续用原一份构建缓存，样本原件不写。
