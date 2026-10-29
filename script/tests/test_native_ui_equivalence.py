@@ -54,7 +54,7 @@ class NativeUIEquivalenceTests(unittest.TestCase):
                 (target / 'runtime.log').write_text(result.stdout + result.stderr)
                 (target / 'input-identities.json').write_text(json.dumps(identities, indent=2))
             self.assertEqual(identities, {str(p): hashlib.sha256(p.read_bytes()).hexdigest() for p in sources})
-            self.assertEqual(len(checks), 181)
+            self.assertEqual(len(checks), 152)
             self.assertTrue(report['windowVisible'])
             self.assertTrue(all(value is True for value in checks.values()), checks)
 
@@ -64,32 +64,34 @@ class NativeUIEquivalenceTests(unittest.TestCase):
         if override := os.environ.get('MWX_NATIVE_UI_SOURCE_DIR'):
             source = Path(override) / source.name
         fixture = ROOT / 'script/tests/fixtures/OnlineDownloadToastChecks.swift'
+        native = ROOT / 'script/tests/fixtures/NativeAppHarness.swift'
         with tempfile.TemporaryDirectory(prefix='mwx-toast-native-', dir='/private/tmp') as temporary:
             work = Path(temporary)
-            identities = {str(p): hashlib.sha256(p.read_bytes()).hexdigest() for p in [source, fixture]}
+            identities = {str(p): hashlib.sha256(p.read_bytes()).hexdigest() for p in [source, fixture, native]}
             copies = []
-            for path in [source, fixture]:
+            for path in [source, fixture, native]:
                 target = work / path.name
                 shutil.copy2(path, target)
                 copies.append(target)
-            binary = work / 'toast'
+            binary = prepare_native_app(work, 'DownloadToastChecks')
             build = subprocess.run(['xcrun', 'swiftc', '-parse-as-library', *map(str, copies),
                 '-module-cache-path', str(work / 'modules'), '-o', str(binary)],
                 capture_output=True, text=True, timeout=60)
             self.assertEqual(build.returncode, 0, build.stdout + build.stderr)
-            home = work / 'home'; home.mkdir()
-            run = subprocess.run([str(binary)], env=dict(os.environ, HOME=str(home), CFFIXED_USER_HOME=str(home)),
-                capture_output=True, text=True, timeout=30)
-            self.assertEqual(run.returncode, 0, run.stdout + run.stderr)
+            run = run_native_app(binary, timeout=30)
+            self.assertEqual(run.launch_returncode, 0, run.stdout + run.stderr)
+            self.assertNotIn('Unable to simultaneously satisfy constraints', run.stderr)
+            self.assertNotIn('Conflicting constraints detected', run.stderr)
             report = json.loads(run.stdout)
             if proof := os.environ.get('MWX_NATIVE_UI_PROOF_DIR'):
                 target = Path(proof); target.mkdir(parents=True, exist_ok=True)
                 (target / 'toast-report.json').write_text(json.dumps(report, indent=2)+'\n')
                 (target / 'toast-inputs.json').write_text(json.dumps(identities, indent=2)+'\n')
-            self.assertEqual(len(report['checks']), 47)
+                (target / 'toast-runtime.log').write_text(run.stdout + run.stderr)
+            self.assertEqual(len(report['checks']), 59)
             for name, passed in report['checks'].items():
                 with self.subTest(name=name): self.assertIs(passed, True)
-            self.assertEqual(identities, {str(p): hashlib.sha256(p.read_bytes()).hexdigest() for p in [source, fixture]})
+            self.assertEqual(identities, {str(p): hashlib.sha256(p.read_bytes()).hexdigest() for p in [source, fixture, native]})
 
 if __name__ == '__main__':
     unittest.main()

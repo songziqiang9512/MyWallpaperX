@@ -98,7 +98,7 @@ class SteamDownloadExecutionTests(unittest.TestCase):
     def tearDownClass(cls):
         cls.build.cleanup()
 
-    def run_case(self, mode, files=None):
+    def run_case(self, mode, files=None, staging_siblings=False):
         with tempfile.TemporaryDirectory(prefix='mwx-steam-execution-', dir='/private/tmp') as directory:
             root = pathlib.Path(directory)
             stage = root / 'staging' / ('job-' + 'a' * 32)
@@ -106,6 +106,12 @@ class SteamDownloadExecutionTests(unittest.TestCase):
             files = files or {'project.json': b'{"type":"web","file":"index.html"}', 'index.html': b'hello'}
             for name, value in files.items():
                 (stage / name).write_bytes(value)
+            retained = root / 'staging' / 'older-partial'
+            if staging_siblings:
+                retained.mkdir()
+                (retained / 'sentinel').write_bytes(b'UNRELATED PARTIAL')
+                with (retained / 'payload').open('wb') as stream:
+                    stream.truncate(17 * 1024 * 1024 * 1024)
             second_stage = root / 'staging' / ('job-' + 'b' * 32)
             if mode.startswith('late-cleanup-') or mode in ('concurrent-cancel', 'concurrent-success', 'missing-resume-fresh'):
                 second_stage.mkdir(parents=True)
@@ -131,6 +137,9 @@ class SteamDownloadExecutionTests(unittest.TestCase):
             result = subprocess.run([str(self.binary), str(root), mode], capture_output=True, text=True, timeout=15)
             self.assertEqual(result.returncode, 0, result.stderr)
             self.assertIn('EXECUTION PASS: ' + mode, result.stdout)
+            if staging_siblings:
+                self.assertEqual((retained / 'payload').stat().st_size, 17 * 1024 * 1024 * 1024)
+                self.assertEqual((retained / 'sentinel').read_bytes(), b'UNRELATED PARTIAL')
             if mode == 'success':
                 snapshot = json.loads((index / '123456.json').read_text())
                 commit = snapshot['commit']
@@ -156,6 +165,9 @@ class SteamDownloadExecutionTests(unittest.TestCase):
         for files in fixtures:
             with self.subTest(project=files['project.json']):
                 self.run_case('success', files=files)
+
+    def test_existing_staging_siblings_do_not_block_download(self):
+        self.run_case('success', staging_siblings=True)
 
     def test_repeat_download_retains_existing_first_download_date(self):
         for mode in ('preserve-managed-date', 'preserve-id-legacy-date', 'preserve-legacy-video-date',

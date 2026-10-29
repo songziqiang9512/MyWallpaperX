@@ -16,7 +16,6 @@ import AppKit
     private var page: WallpaperLibraryPage?
     private var observedQuery: OnlineImageBrowserSession.Query?
     private var observedAccountStatus: [String]?
-    private lazy var popover = ToolbarMenuPopoverPresenter(fallbackAnchorProvider: { [weak self] in self?.window?.contentView })
     private let filterPopover: NSPopover = { let value = NSPopover(); value.behavior = .transient; return value }()
     private lazy var filterScrollDismissal = ToolbarPopoverScrollDismissal(popover: filterPopover)
 
@@ -37,7 +36,7 @@ import AppKit
 
     func refresh() {
         let next = workspace.presentation.page
-        if page != next { debounce?.cancel(); debounce = nil; page = next; popover.close(); filterPopover.performClose(nil) }
+        if page != next { debounce?.cancel(); debounce = nil; page = next; filterPopover.performClose(nil) }
         guard let session = images.session(for: next) else { return }
         let queryChanged = observedQuery != session.state.query
         if case .pixiv(let previous)? = observedQuery, case .pixiv(let current) = session.state.query,
@@ -46,7 +45,6 @@ import AppKit
         let accountStatus = images.accountStatus(for: session.source)
         let accountChanged = observedAccountStatus != accountStatus
         observedAccountStatus = accountStatus
-        if accountChanged { popover.refresh() }
         if queryChanged || window?.isVisible != true || window?.isMiniaturized == true {
             debounce?.cancel(); debounce = nil; observedQuery = session.state.query
         }
@@ -54,12 +52,12 @@ import AppKit
         search.placeholderString = next == .wallhaven ? "搜索 Wallhaven" : "搜索 Pixiv"
         for type in [Item.account, .sort] {
             guard items[type]?.menuFormRepresentation == nil || queryChanged || (type == .account && accountChanged) else { continue }
-            items[type]?.menuFormRepresentation = ToolbarMenuPopoverPresenter.menuRepresentation(title: label(type), rows: rows(type))
+            items[type]?.menuFormRepresentation = ToolbarMenu.menuRepresentation(title: label(type), rows: rows(type))
         }
         if queryChanged || items[.filter]?.menuFormRepresentation == nil {
-            items[.filter]?.menuFormRepresentation = makeFilterPanel()?.menuRepresentation(title: "筛选")
+            items[.filter]?.menuFormRepresentation = filterMenuRepresentation()
         }
-        if queryChanged { (filterPopover.contentViewController as? WallpaperFilterPanelController)?.synchronize() }
+        if queryChanged, filterPopover.isShown { (filterPopover.contentViewController as? WallpaperFilterPanelController)?.synchronize() }
         items[.back]?.menuFormRepresentation = ActionMenuItem(title: label(.back), symbol: symbol(.back)) { [weak self] in self?.perform(.back) }
     }
 
@@ -85,9 +83,9 @@ import AppKit
         }
         items[type] = item
         if type == .filter {
-            item.menuFormRepresentation = makeFilterPanel()?.menuRepresentation(title: "筛选")
+            item.menuFormRepresentation = filterMenuRepresentation()
         } else if [.account, .sort].contains(type) {
-            item.menuFormRepresentation = ToolbarMenuPopoverPresenter.menuRepresentation(title: label(type), rows: rows(type))
+            item.menuFormRepresentation = ToolbarMenu.menuRepresentation(title: label(type), rows: rows(type))
         }
         return item
     }
@@ -98,19 +96,31 @@ import AppKit
         guard let type = sender.identifier.flatMap({ Item(rawValue: $0.rawValue) }),
               images.session(for: workspace.presentation.page) != nil else { return }
         if type == .filter {
-            guard WallpaperLibrarySheetPresentation.permitsInput(in: window) else { return }
-            popover.close()
-            if filterPopover.isShown { filterPopover.performClose(nil); return }
-            guard let panel = makeFilterPanel() else { return }
-            filterPopover.contentViewController = panel; panel.loadViewIfNeeded()
-            filterPopover.contentSize = panel.preferredContentSize
-            filterScrollDismissal.watch(relativeTo: sender)
-            filterPopover.show(relativeTo: sender.bounds, of: sender, preferredEdge: .maxY)
+            showFilter()
         } else if type == .account || type == .sort {
             guard WallpaperLibrarySheetPresentation.permitsInput(in: window) else { return }
             filterPopover.performClose(nil)
-            popover.toggle(anchor: sender) { [weak self] in self?.rows(type) ?? [] }
+            ToolbarMenu.popUp(anchor: sender, rows: rows(type))
         } else { perform(type) }
+    }
+
+    private func filterMenuRepresentation() -> NSMenuItem {
+        let page = workspace.presentation.page
+        return ActionMenuItem(title: "筛选", symbol: WallpaperLibraryControlStyle.filterSymbol) { [weak self] in
+            guard let self, self.workspace.presentation.page == page else { return }
+            self.showFilter()
+        }
+    }
+
+    private func showFilter() {
+        guard WallpaperLibrarySheetPresentation.permitsInput(in: window),
+              let item = items[.filter], let contentView = window?.contentView else { return }
+        if filterPopover.isShown { filterPopover.performClose(nil); return }
+        guard let panel = makeFilterPanel() else { return }
+        filterPopover.contentViewController = panel; panel.loadViewIfNeeded()
+        filterPopover.contentSize = panel.preferredContentSize
+        filterScrollDismissal.watch(relativeTo: contentView)
+        filterPopover.show(relativeTo: item)
     }
 
     private func makeFilterPanel() -> WallpaperFilterPanelController? {
@@ -158,10 +168,10 @@ import AppKit
         }
     }
 
-    private func rows(_ item: Item) -> [ToolbarMenuPopoverPresenter.Row] {
+    private func rows(_ item: Item) -> [ToolbarMenu.Row] {
         guard let session = images.session(for: workspace.presentation.page) else { return [] }
         if item == .account {
-            var rows = images.accountStatus(for: session.source).map { ToolbarMenuPopoverPresenter.Row(title: $0, kind: .info) }
+            var rows = images.accountStatus(for: session.source).map { ToolbarMenu.Row(title: $0, kind: .info) }
             rows.append(.separator())
             if session.source == .wallhaven {
                 rows.append(.init(title: "管理 API Key…", kind: .action, handler: { [weak images] in images?.presentAccount() }))
@@ -190,23 +200,23 @@ import AppKit
     }
 
     private func choice(_ title: String, selected: Bool, session: OnlineImageBrowserSession,
-                        edit: @escaping (OnlineImageBrowserSession.Query) -> OnlineImageBrowserSession.Query) -> ToolbarMenuPopoverPresenter.Row {
+                        edit: @escaping (OnlineImageBrowserSession.Query) -> OnlineImageBrowserSession.Query) -> ToolbarMenu.Row {
         let page = workspace.presentation.page
-        return .init(title: title, kind: .check, isChecked: selected, handler: { [weak self, weak session] in
+        return .init(title: title, kind: .action, isChecked: selected, handler: { [weak self, weak session] in
             guard let self, let session else { return }
             applyQueryEdit(session: session, page: page, transform: edit)
         })
     }
 
-    private func wallhavenRows(query: WallhavenQuery, session: OnlineImageBrowserSession) -> [ToolbarMenuPopoverPresenter.Row] {
-        func row(_ title: String, selected: Bool, edit: @escaping (inout WallhavenQuery) -> Void) -> ToolbarMenuPopoverPresenter.Row {
+    private func wallhavenRows(query: WallhavenQuery, session: OnlineImageBrowserSession) -> [ToolbarMenu.Row] {
+        func row(_ title: String, selected: Bool, edit: @escaping (inout WallhavenQuery) -> Void) -> ToolbarMenu.Row {
             choice(title, selected: selected, session: session) { query in
                 guard case .wallhaven(var value) = query else { return query }
                 edit(&value)
                 return .wallhaven(value)
             }
         }
-        var rows: [ToolbarMenuPopoverPresenter.Row] = [.header("排序方式")]
+        var rows: [ToolbarMenu.Row] = [.header("排序方式")]
         rows += WallhavenQuery.Sorting.allCases.map { value in
             row(value.displayName, selected: query.sorting == value) { $0.sorting = value }
         }
@@ -229,8 +239,8 @@ import AppKit
         return rows
     }
 
-    private func pixivRows(query: PixivQuery, session: OnlineImageBrowserSession) -> [ToolbarMenuPopoverPresenter.Row] {
-        func row(_ title: String, selected: Bool, edit: @escaping (inout PixivQuery) -> Void) -> ToolbarMenuPopoverPresenter.Row {
+    private func pixivRows(query: PixivQuery, session: OnlineImageBrowserSession) -> [ToolbarMenu.Row] {
+        func row(_ title: String, selected: Bool, edit: @escaping (inout PixivQuery) -> Void) -> ToolbarMenu.Row {
             choice(title, selected: selected, session: session) { query in
                 guard case .pixiv(var value) = query else { return query }
                 edit(&value)

@@ -1,8 +1,8 @@
-"""Actual online toolbar/query/menu commands and native popover geometry.
+"""Actual online toolbar/query/system menus and multi-condition filter behavior.
 
 Browser/network orchestration uses recording leaves. Shared control styling, the
-toolbar, typed query values, overflow menu items, modal permission and shared
-scrolling popover compile unchanged. This opens only an isolated fixture App.
+toolbar, typed query values, native menu items, modal permission and the shared
+filter popover compile unchanged. This opens only an isolated fixture App.
 """
 import hashlib
 import json
@@ -24,7 +24,7 @@ FIXTURE = ROOT / "script/tests/fixtures/OnlineImageToolbarHarness.swift"
 
 @unittest.skipUnless(sys.platform == "darwin", "requires native macOS AppKit")
 class OnlineImageToolbarTests(unittest.TestCase):
-    def test_live_queries_overflow_modal_and_native_scrolling(self):
+    def test_live_queries_system_menus_modal_and_native_filters(self):
         relative = [
             "Models/WallpaperReference.swift", "Models/WallpaperContent.swift",
             "Models/WallpaperLibraryPage.swift", "Core/OnlineImages/OnlineImageModels.swift",
@@ -34,7 +34,8 @@ class OnlineImageToolbarTests(unittest.TestCase):
             "Shared/UI/WallpaperLibrarySheetPresentation.swift", "Shared/Components/WallpaperLibraryControlStyle.swift", "Shared/Components/ActionMenuItem.swift",
         ]
         sources = [ROOT / "MyWallpaperX" / name for name in relative]
-        sources += [ROOT / "script/tests/fixtures/NativeAppHarness.swift", FIXTURE]
+        sources += [ROOT / "script/tests/fixtures/NativeAppHarness.swift",
+                    ROOT / "script/tests/fixtures/NativeFilterPanelSnapshot.swift", FIXTURE]
         observed = [*sources, Path(__file__), ROOT / "script/tests/native_app_harness.py"]
         hashes = {str(path): hashlib.sha256(path.read_bytes()).hexdigest() for path in observed}
         proof = None
@@ -45,7 +46,12 @@ class OnlineImageToolbarTests(unittest.TestCase):
             copied = []
             for path in sources:
                 target = work / path.name
-                shutil.copy2(path, target)
+                if path.name == "OnlineImageToolbarController.swift":
+                    actual = path.read_text()
+                    self.assertEqual(actual.count("private func makeFilterPanel("), 1)
+                    target.write_text(actual.replace("private func makeFilterPanel(", "func makeFilterPanel(", 1))
+                else:
+                    shutil.copy2(path, target)
                 copied.append(str(target))
             binary = prepare_native_app(work, "OnlineImageToolbarChecks")
             home = work / "home"; home.mkdir()
@@ -60,7 +66,14 @@ class OnlineImageToolbarTests(unittest.TestCase):
                 (proof / "compile.log").write_text(build.stdout + build.stderr)
                 (proof / "inputs.json").write_text(json.dumps(hashes, indent=2) + "\n")
             self.assertEqual(build.returncode, 0, build.stdout + build.stderr)
-            run = run_native_app(binary, timeout=35)
+            try:
+                run = run_native_app(binary, timeout=35)
+            except subprocess.TimeoutExpired:
+                diagnostic = (work / "native-app.stderr").read_text()
+                if proof:
+                    (proof / "runtime.log").write_text(diagnostic)
+                    (proof / "stdout.json").write_text((work / "native-app.stdout").read_text())
+                self.fail("native App exceeded the existing 35s deadline:\n" + diagnostic)
             if proof:
                 (proof / "stdout.json").write_text(run.stdout)
                 (proof / "runtime.log").write_text(run.stderr)

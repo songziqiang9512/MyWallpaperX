@@ -130,14 +130,14 @@ nonisolated enum WallpaperLibrarySort: String, Codable, Sendable {
 }
 
 nonisolated enum WallpaperLibraryStatusFilter: String, Codable, Sendable {
-    case all, playable, unavailable, transferring, failed
+    case playable, unavailable, transferring, failed
 }
 
 nonisolated struct WallpaperLibraryQueryState: Codable, Equatable, Sendable {
     var search = ""
-    var provider: WallpaperProvider? = nil
-    var kind: WallpaperMediaKind? = nil
-    var status: WallpaperLibraryStatusFilter = .all
+    var providers: Set<WallpaperProvider> = []
+    var kinds: Set<WallpaperMediaKind> = []
+    var statuses: Set<WallpaperLibraryStatusFilter> = []
     var showsAdultContent = true
     /// nil selects the page's default. Recent always retains success order.
     var sort: WallpaperLibrarySort? = nil
@@ -152,12 +152,12 @@ nonisolated struct WallpaperLibraryQueryState: Codable, Equatable, Sendable {
     var scrollOffset: Double? = nil
     var scrollAtTop: Bool? = nil
 
-    init(search: String = "", provider: WallpaperProvider? = nil, kind: WallpaperMediaKind? = nil,
-         status: WallpaperLibraryStatusFilter = .all, sort: WallpaperLibrarySort? = nil,
+    init(search: String = "", providers: Set<WallpaperProvider> = [], kinds: Set<WallpaperMediaKind> = [],
+         statuses: Set<WallpaperLibraryStatusFilter> = [], sort: WallpaperLibrarySort? = nil,
          ascending: Bool = true, legacyTimeOrder: [WallpaperReference]? = nil,
          preferredColumns: Int = 5, scrollAnchor: WallpaperReference? = nil,
          scrollOffset: Double? = nil, scrollAtTop: Bool? = nil, showsAdultContent: Bool = true) {
-        self.search = search; self.provider = provider; self.kind = kind; self.status = status
+        self.search = search; self.providers = providers; self.kinds = kinds; self.statuses = statuses
         self.sort = sort; self.ascending = ascending; self.legacyTimeOrder = legacyTimeOrder
         self.preferredColumns = preferredColumns; self.scrollAnchor = scrollAnchor
         self.scrollOffset = scrollOffset; self.scrollAtTop = scrollAtTop
@@ -165,27 +165,40 @@ nonisolated struct WallpaperLibraryQueryState: Codable, Equatable, Sendable {
     }
 
     private enum CodingKeys: String, CodingKey {
-        case search, provider, kind, status, showsAdultContent, sort, ascending, legacyTimeOrder
+        case search, providers, kinds, statuses, showsAdultContent, sort, ascending, legacyTimeOrder
+        case provider, kind, status // Read-only single-selection fields.
         case preferredColumns, scrollAnchor, scrollOffset, scrollAtTop
-        case zoomOffset // Read-only v1 field; its width-dependent meaning is retired.
     }
 
     init(from decoder: Decoder) throws {
         let values = try decoder.container(keyedBy: CodingKeys.self)
         search = try values.decode(String.self, forKey: .search)
-        provider = try values.decodeIfPresent(WallpaperProvider.self, forKey: .provider)
-        kind = try values.decodeIfPresent(WallpaperMediaKind.self, forKey: .kind)
-        status = try values.decode(WallpaperLibraryStatusFilter.self, forKey: .status)
+        if values.contains(.providers) {
+            providers = try values.decode(Set<WallpaperProvider>.self, forKey: .providers)
+        } else if let provider = try values.decodeIfPresent(WallpaperProvider.self, forKey: .provider) {
+            providers = [provider]
+        }
+        if values.contains(.kinds) {
+            kinds = try values.decode(Set<WallpaperMediaKind>.self, forKey: .kinds)
+        } else if let kind = try values.decodeIfPresent(WallpaperMediaKind.self, forKey: .kind) {
+            kinds = [kind]
+        }
+        if values.contains(.statuses) {
+            statuses = try values.decode(Set<WallpaperLibraryStatusFilter>.self, forKey: .statuses)
+        } else {
+            let legacyStatus = try values.decode(String.self, forKey: .status)
+            if legacyStatus != "all" {
+                guard let status = WallpaperLibraryStatusFilter(rawValue: legacyStatus) else {
+                    throw DecodingError.dataCorruptedError(forKey: .status, in: values, debugDescription: "Invalid library status filter")
+                }
+                statuses = [status]
+            }
+        }
         showsAdultContent = try values.decodeIfPresent(Bool.self, forKey: .showsAdultContent) ?? true
         sort = try values.decodeIfPresent(WallpaperLibrarySort.self, forKey: .sort)
         ascending = try values.decode(Bool.self, forKey: .ascending)
         legacyTimeOrder = try values.decodeIfPresent([WallpaperReference].self, forKey: .legacyTimeOrder)
         preferredColumns = try values.decodeIfPresent(Int.self, forKey: .preferredColumns) ?? 5
-        if !values.contains(.preferredColumns), values.contains(.zoomOffset) {
-            // Preserve the old codec's type rejection without applying an
-            // offset as a requested column count in the new layout.
-            _ = try values.decode(Int.self, forKey: .zoomOffset)
-        }
         scrollAnchor = try values.decodeIfPresent(WallpaperReference.self, forKey: .scrollAnchor)
         scrollOffset = try values.decodeIfPresent(Double.self, forKey: .scrollOffset)
         scrollAtTop = try values.decodeIfPresent(Bool.self, forKey: .scrollAtTop)
@@ -197,9 +210,9 @@ nonisolated struct WallpaperLibraryQueryState: Codable, Equatable, Sendable {
     func encode(to encoder: Encoder) throws {
         var values = encoder.container(keyedBy: CodingKeys.self)
         try values.encode(search, forKey: .search)
-        try values.encodeIfPresent(provider, forKey: .provider)
-        try values.encodeIfPresent(kind, forKey: .kind)
-        try values.encode(status, forKey: .status)
+        try values.encode(providers.sorted { $0.rawValue < $1.rawValue }, forKey: .providers)
+        try values.encode(kinds.sorted { $0.rawValue < $1.rawValue }, forKey: .kinds)
+        try values.encode(statuses.sorted { $0.rawValue < $1.rawValue }, forKey: .statuses)
         try values.encode(showsAdultContent, forKey: .showsAdultContent)
         try values.encodeIfPresent(sort, forKey: .sort)
         try values.encode(ascending, forKey: .ascending)

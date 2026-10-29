@@ -1,4 +1,4 @@
-"""The full window toolbar with native menus and real page/query state.
+"""The full window toolbar with native menus and real multiselect query state.
 
 Commands and remote controls are recording leaves; their transaction/media
 contracts have separate gates. This does not exercise a full App window.
@@ -28,10 +28,12 @@ class LibraryWindowToolbarTests(unittest.TestCase):
             'Core/LibraryCollections/WallpaperLibraryQuery.swift', 'Shell/WallpaperLibraryPresentation.swift',
             'Shared/Components/ActionMenuItem.swift', 'Shared/Components/WallpaperLibraryControlStyle.swift', 'Shared/Components/WallpaperLibraryGridMetrics.swift',
             'Shared/Components/WallpaperLibraryZoomControl.swift', 'App/WallpaperLibraryWindowToolbar.swift',
+            'Shared/UI/WallpaperFilterPanelController.swift', 'Shared/UI/ToolbarMenuPopover.swift',
         ]
         paths = [Path(os.environ.get('MWX_LIBRARY_TOOLBAR_SOURCE', ROOT / 'MyWallpaperX' / name))
                  if name == 'App/WallpaperLibraryWindowToolbar.swift' else ROOT / 'MyWallpaperX' / name for name in relative]
         paths.append(ROOT / 'script/tests/fixtures/NativeAppHarness.swift')
+        paths.append(ROOT / 'script/tests/fixtures/NativeFilterPanelSnapshot.swift')
         fixture = ROOT / 'script/tests/fixtures/LibraryWindowToolbarHarness.swift'
         sheet = ROOT / 'MyWallpaperX/Shared/UI/WallpaperLibrarySheetPresentation.swift'
         observed = paths + [sheet, fixture, Path(__file__).resolve(), ROOT / 'script/tests/native_app_harness.py']
@@ -40,7 +42,17 @@ class LibraryWindowToolbarTests(unittest.TestCase):
             work = Path(directory)
             copies = []
             for path in paths:
-                copied = work / path.name; shutil.copy2(path, copied); copies.append(str(copied))
+                copied = work / path.name
+                if path.name == 'WallpaperLibraryWindowToolbar.swift':
+                    source = path.read_text()
+                    for name in ('makeFilterPanel', 'makeDownloadFilterMenu'):
+                        marker = '    private func ' + name + '('
+                        self.assertEqual(source.count(marker), 1)
+                        source = source.replace(marker, '    func ' + name + '(', 1)
+                    copied.write_text(source)
+                else:
+                    shutil.copy2(path, copied)
+                copies.append(str(copied))
             harness = work / 'Checks.swift'
             harness.write_text('import AppKit\n' + declaration(sheet.read_text(), '@MainActor enum WallpaperLibrarySheetPresentation') + '\n'
                 + declaration(sheet.read_text(), '@MainActor class WallpaperLibraryModalPanel:') + '\n' + fixture.read_text())

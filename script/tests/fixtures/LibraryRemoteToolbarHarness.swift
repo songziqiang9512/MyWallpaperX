@@ -84,7 +84,7 @@ struct ToolbarPreviewItem { var previewImageURL: URL? = nil }
     func returnFromBrowseSubpage() { backCalls += 1; isBrowsingAuthorWorkshop = false }
     func showMySubscriptions() { subscriptionsCalls += 1 }
     func downloadWorkshopItem(id: String, pageTitle: String) { retryRequests.append(id) }
-    func discardFailedDownload(jobID: String) { discardedJobs.append(jobID) }
+    func discardFailedDownload(jobID: String) -> Bool { discardedJobs.append(jobID); return true }
 }
 struct ToolbarActivity {
     let itemID: Int
@@ -261,6 +261,7 @@ extension NSToolbarItem.Identifier { static let downloadTasks = Self("downloadTa
         delegate.downloadItem = downloadItem
         var checks: [String: Bool] = [:]
         var taskPopover: NSPopover?
+        var pixabayFilterPanel: WallpaperFilterPanelController?
         var didShowCounts: [ObjectIdentifier: Int] = [:]
         var popoverPhase = "setup"
         let popoverStarted = Date()
@@ -348,7 +349,48 @@ extension NSToolbarItem.Identifier { static let downloadTasks = Self("downloadTa
             for (index, id) in ids.enumerated() { toolbar.insertItem(withItemIdentifier: id, at: index) }
             await settle()
         }
-        func menu(_ item: NSToolbarItem) -> NSMenu { item.menuFormRepresentation!.submenu! }
+        func menu(_ item: NSToolbarItem) -> NSMenu {
+            if item.itemIdentifier == .pixabayFilter {
+                let panel = pixabayFilterPanel!
+                panel.synchronize()
+                return nativeFilterMenuSnapshot(panel)
+            }
+            return item.menuFormRepresentation!.submenu!
+        }
+        func tracksNativeSteamMenu(_ button: NSButton, expected: NSMenu) -> Bool {
+            var tracked: NSMenu?, ended = false
+            var cancellation: Timer?
+            let popoverShows = didShowCounts.values.reduce(0, +)
+            let began = NotificationCenter.default.addObserver(forName: NSMenu.didBeginTrackingNotification, object: nil, queue: .main) { note in
+                MainActor.assumeIsolated {
+                    guard tracked == nil, let native = note.object as? NSMenu else { return }
+                    tracked = native
+                    let timer = Timer(timeInterval: 0.03, repeats: false) { _ in
+                        MainActor.assumeIsolated { native.cancelTracking() }
+                    }
+                    cancellation = timer
+                    RunLoop.main.add(timer, forMode: .eventTracking)
+                }
+            }
+            let finished = NotificationCenter.default.addObserver(forName: NSMenu.didEndTrackingNotification, object: nil, queue: .main) { note in
+                MainActor.assumeIsolated {
+                    if let native = note.object as? NSMenu, native === tracked { ended = true }
+                }
+            }
+            defer {
+                cancellation?.invalidate()
+                NotificationCenter.default.removeObserver(began)
+                NotificationCenter.default.removeObserver(finished)
+            }
+            button.performClick(nil)
+            return tracked.map { native in
+                ended && !native.autoenablesItems && native !== expected
+                    && native.items.map(\.title) == expected.items.map(\.title)
+                    && native.items.map(\.state) == expected.items.map(\.state)
+                    && native.items.map(\.isEnabled) == expected.items.map(\.isEnabled)
+                    && didShowCounts.values.reduce(0, +) == popoverShows
+            } == true
+        }
         func groups() -> [[NSToolbarItem.Identifier]] {
             guard let start = toolbar.items.firstIndex(where: { $0.itemIdentifier == .flexibleSpace }) else { return [] }
             var result: [[NSToolbarItem.Identifier]] = [[]]
@@ -392,10 +434,12 @@ extension NSToolbarItem.Identifier { static let downloadTasks = Self("downloadTa
         checks["steam-sort-uses-the-shared-three-line-icon-with-current-value-in-tooltip"] = steam.sortButton.image?.tiffRepresentation == NSImage(systemSymbolName: "line.3.horizontal.decrease", accessibilityDescription: nil)?.tiffRepresentation
             && steam.sortButton.title.isEmpty && steam.sortToolbarItem.toolTip?.contains(service.source.displayName) == true
         let publicMenu = menu(steam.sortToolbarItem)
+        checks["steam-source-button-tracks-a-native-menu-with-the-original-state-and-no-popover"] = tracksNativeSteamMenu(steam.sortButton, expected: publicMenu)
         publicMenu.performActionForItem(at: SteamWorkshopSource.publicSources.firstIndex(of: .recent)!)
         checks["steam-native-overflow-chooses-the-original-public-source-enum"] = service.source == .recent
             && menu(steam.sortToolbarItem).items[1].state == .on
         service.source = .featured; steam.syncTrendingWindowPopup()
+        checks["steam-time-button-tracks-a-native-menu-with-the-original-state-and-no-popover"] = tracksNativeSteamMenu(steam.trendingWindowButton, expected: menu(steam.trendingWindowToolbarItem))
         menu(steam.trendingWindowToolbarItem).performActionForItem(at: SteamWorkshopTrendingWindow.allCases.firstIndex(of: .month)!)
         checks["steam-native-overflow-chooses-the-original-time-window-enum"] = service.trendingWindow == .month
         service.source = .mySubscriptions; steam.syncPersonalListPopup(); steam.syncSortPopup()
@@ -403,11 +447,14 @@ extension NSToolbarItem.Identifier { static let downloadTasks = Self("downloadTa
         checks["steam-personal-subpage-keeps-return-and-all-original-controls"] = groups() == [[.steamAuthorBack], [.steamAccount, .downloadTasks],
             [.steamPersonalList], [.steamSort, .steamFilter], [.steamZoom], [.steamSearch]] && steam.authorBackToolbarItem.isEnabled
             && steam.authorBackButton.toolTip == "返回创意工坊"
+        checks["steam-personal-list-button-tracks-a-native-menu-with-the-original-state-and-no-popover"] = tracksNativeSteamMenu(steam.personalListButton, expected: menu(steam.personalListToolbarItem))
+        checks["steam-personal-sort-button-tracks-a-native-menu-with-the-original-state-and-no-popover"] = tracksNativeSteamMenu(steam.sortButton, expected: menu(steam.sortToolbarItem))
         menu(steam.personalListToolbarItem).performActionForItem(at: SteamWorkshopSource.personalSources.firstIndex(of: .myFavorites)!)
         menu(steam.sortToolbarItem).performActionForItem(at: SteamWorkshopPersonalSort.allCases.firstIndex(of: .fileSize)!)
         checks["steam-personal-overflow-retains-steam-favorites-and-personal-sort"] = service.source == .myFavorites && service.personalSort == .fileSize
             && steam.personalListButton.title == "Steam 收藏" && menu(steam.personalListToolbarItem).items[1].title == "Steam 收藏"
         service.steamAuth.phase = .signedOut; steam.configureAuthItems()
+        checks["steam-account-button-tracks-a-native-menu-with-the-original-state-and-no-popover"] = tracksNativeSteamMenu(steam.accountButton, expected: menu(steam.accountToolbarItem))
         checks["signed-out-avatar-does-not-expose-personal-subscriptions"] = !menu(steam.accountToolbarItem).items.contains { $0.title == "我的订阅" }
         let heldLogin = menu(steam.accountToolbarItem).items[0]
         service.steamAuth.phase = .connecting; steam.configureAuthItems()
@@ -687,7 +734,7 @@ extension NSToolbarItem.Identifier { static let downloadTasks = Self("downloadTa
         }
         diagnostic("Overflow task display: controllerShown=\(downloadController.isShown), priorDidShow=\(priorTaskShows), popover={\(popoverFacts(taskPopover))}")
         let taskRoot = taskPopover?.contentViewController?.view
-        let retries = taskRoot.flatMap { descendants($0, NSButton.self).first { $0.title == "重试全部失败" } }
+        let retries = taskRoot.flatMap { descendants($0, NSButton.self).first { $0.title == "重试全部" } }
         let clears = taskRoot.flatMap { descendants($0, NSButton.self).first { $0.title == "清空历史" } }
         checks["real-native-task-popover-opens-from-a-detached-overflow-item"] = overflowTaskDidShow && downloadController.isShown
             && taskRoot?.window?.isVisible == true
@@ -707,8 +754,11 @@ extension NSToolbarItem.Identifier { static let downloadTasks = Self("downloadTa
         service.steamAuth.steamId = account; await settle()
         retries?.performClick(nil)
         let failedRow = taskRoot.flatMap { descendants($0, DownloadTaskRowView.self).first { $0.displayedTask?.id.reference.sourceID == "123457" } }
-        let abandon = failedRow.flatMap { descendants($0, NSButton.self).first { $0.toolTip == "放弃任务" } }
-        abandon?.performClick(nil)
+        let remove = failedRow.flatMap { descendants($0, NSButton.self).first { $0.toolTip == "清除记录" } }
+        checks["failed-task-has-one-clear-button"] = failedRow.map {
+            descendants($0, NSButton.self).filter { !$0.isHidden && $0.image != nil && $0.title.isEmpty }.count == 1
+        } == true
+        remove?.performClick(nil)
         clears?.performClick(nil)
         checks["real-task-buttons-route-fixed-failed-work-and-clear-only-local-history"] = service.retryRequests == ["123457"]
             && service.discardedJobs == ["failed"] && service.downloadJobStore.clearedAccounts == ["all-local"]
@@ -759,7 +809,8 @@ extension NSToolbarItem.Identifier { static let downloadTasks = Self("downloadTa
             && pixabay.searchField.window === window && !pixabay.searchField.isHiddenOrHasHiddenAncestor
         var pixabayPopup: NSPopover?
         let pixabayShown = await afterPopoverEvent(NSPopover.didShowNotification, matching: {
-            guard $0.contentViewController is WallpaperFilterPanelController else { return false }
+            guard let panel = $0.contentViewController as? WallpaperFilterPanelController else { return false }
+            pixabayFilterPanel = panel
             pixabayPopup = $0; return true
         }) { (pixabay.filterToolbarItem.view as! NSButton).performClick(nil) }
         if let popup = pixabayPopup, let panel = popup.contentViewController?.view {
@@ -776,6 +827,28 @@ extension NSToolbarItem.Identifier { static let downloadTasks = Self("downloadTa
                 && pixabayService.currentParams.safeSearch && popup.isShown && !buttons.first { $0.title == "清空筛选" }!.isEnabled
             _ = await afterPopoverEvent(NSPopover.didCloseNotification, matching: { $0 === popup }, perform: popup.close)
         } else { checks["pixabay-native-filter-applies-real-source-fields-with-open-shared-geometry"] = false }
+        window.setContentSize(NSSize(width: 160, height: 500)); await settle()
+        let detachedPixabayFilter = isDetachedActionItem(pixabay.filterToolbarItem)
+        let filterOverflow = pixabay.filterToolbarItem.menuFormRepresentation!
+        let overflowFilterShown = await afterPopoverEvent(NSPopover.didShowNotification, matching: {
+            guard let panel = $0.contentViewController as? WallpaperFilterPanelController else { return false }
+            pixabayFilterPanel = panel; pixabayPopup = $0; return true
+        }) { NSApp.sendAction(filterOverflow.action!, to: filterOverflow.target, from: filterOverflow) }
+        if let popup = pixabayPopup, let panel = popup.contentViewController as? WallpaperFilterPanelController {
+            let buttons = descendants(panel.view, NSButton.self)
+            checks["pixabay-detached-filter-overflow-opens-the-original-native-multicondition-panel"] = detachedPixabayFilter
+                && overflowFilterShown && popup.isShown && popup.behavior == .transient
+                && popup.contentViewController === panel && popup.contentSize.width == 400
+                && panel.view.window?.isVisible == true
+            buttons.first { $0.title == "自然" }!.performClick(nil)
+            buttons.first { $0.title == "动画" }!.performClick(nil)
+            checks["pixabay-overflow-checkboxes-keep-one-panel-open-with-composed-source-fields"] = popup.isShown
+                && popup.contentViewController === panel && pixabayService.currentParams.category == .nature
+                && pixabayService.currentParams.videoType == .animation
+                && buttons.first { $0.title == "自然" }?.state == .on && buttons.first { $0.title == "动画" }?.state == .on
+            buttons.first { $0.title == "清空筛选" }!.performClick(nil)
+            _ = await afterPopoverEvent(NSPopover.didCloseNotification, matching: { $0 === popup }, perform: popup.close)
+        } else { checks["pixabay-detached-filter-overflow-opens-the-original-native-multicondition-panel"] = false }
         window.setContentSize(NSSize(width: 600, height: 500)); await settle()
         checks["pixabay-sort-is-native-icon-menu-without-retired-segmented-control"] = pixabay.orderToolbarItem.view == nil
             && pixabay.orderToolbarItem.image?.tiffRepresentation == NSImage(systemSymbolName: "line.3.horizontal.decrease", accessibilityDescription: nil)?.tiffRepresentation
@@ -863,7 +936,9 @@ extension NSToolbarItem.Identifier { static let downloadTasks = Self("downloadTa
         checks["pixabay-input-under-the-new-key-keeps-the-original-debounce-route"] = pixabayService.searches.count == countBeforeSourceEcho + 1
             && pixabayService.searches.last?.query == "new key query"
         checks["pixabay-narrow-native-toolbar-retains-category-order-api-overflow"] = (toolbar.visibleItems?.count ?? 0) < toolbar.items.count
-            && [pixabay.filterToolbarItem, pixabay.orderToolbarItem, pixabay.settingsToolbarItem].allSatisfy { $0.menuFormRepresentation?.submenu?.items.contains { $0.isEnabled } == true }
+            && [pixabay.orderToolbarItem, pixabay.settingsToolbarItem].allSatisfy { $0.menuFormRepresentation?.submenu?.items.contains { $0.isEnabled } == true }
+            && pixabay.filterToolbarItem.menuFormRepresentation?.isEnabled == true
+            && pixabay.filterToolbarItem.menuFormRepresentation?.action != nil
         checks["pixabay-collapsed-search-expands-the-original-native-field"] = await searchInteraction(pixabay.searchToolbarItem, label: "Pixabay", begin: pixabay.focusSearch)
         let heldCategory = menu(pixabay.filterToolbarItem).items.first { $0.title == "全部" }!
         let submittedQuery = pixabayService.currentParams.query
@@ -918,7 +993,7 @@ extension NSToolbarItem.Identifier { static let downloadTasks = Self("downloadTa
         window.makeKeyAndOrderFront(nil)
         checks["stock-search-under-the-same-narrow-toolbar-gains-a-field-editor"] = await searchInteraction(stock, label: "Stock", begin: stock.beginSearchInteraction)
         NotificationCenter.default.removeObserver(change); NotificationCenter.default.removeObserver(clear)
-        pixabay.menuPopover.close(); steam.menuPopover.close(); steam.filterPanelPopover.close()
+        steam.filterPanelPopover.close()
         window.close()
         print(String(data: try! JSONSerialization.data(withJSONObject: checks, options: [.sortedKeys]), encoding: .utf8)!)
     }

@@ -41,7 +41,7 @@ nonisolated struct WallpaperLibrarySelectionReceipt: Sendable {
     var mediaKindCounts: [WallpaperMediaKind: Int] {
         guard let catalog, let relationships else { return [:] }
         var query = queryState
-        query.kind = nil
+        query.kinds = []
         query.sort = .sourceOrder
         guard let result = try? WallpaperLibraryQuery.project(page: page, state: query, catalog: catalog, relationships: relationships) else { return [:] }
         return result.items.reduce(into: [:]) { $0[$1.kind, default: 0] += 1 }
@@ -82,7 +82,7 @@ nonisolated struct WallpaperLibrarySelectionReceipt: Sendable {
             wasSubscriptions = try pageDecoder.container(keyedBy: LegacyPageKey.self).contains(.workshopSubscriptions)
             page = try WallpaperLibraryPage(from: pageDecoder)
             var restored = try values.decode(WallpaperLibraryQueryState.self, forKey: .query)
-            if page == .downloads, restored.status == .transferring || restored.status == .failed { restored.status = .all }
+            if page == .downloads { restored.statuses.subtract([.transferring, .failed]) }
             query = restored
         }
         func encode(to encoder: Encoder) throws {

@@ -1,4 +1,4 @@
-"""Real value query: canonical mixed membership, local filters and stable order."""
+"""Real value query: canonical membership, multi-select filters, codec and stable order."""
 import hashlib
 import json
 from pathlib import Path

@@ -162,6 +162,7 @@ class LibraryRemoteToolbarTests(unittest.TestCase):
         ]
         paths = [ROOT / 'MyWallpaperX' / path for path in relative]
         paths.append(ROOT / 'script/tests/fixtures/NativeAppHarness.swift')
+        paths.append(ROOT / 'script/tests/fixtures/NativeFilterPanelSnapshot.swift')
         fixture = ROOT / 'script/tests/fixtures/LibraryRemoteToolbarHarness.swift'
         tasks = ROOT / 'MyWallpaperX/App/DownloadTasksController.swift'
         models = ROOT / 'MyWallpaperX/Modules/SteamWorkshop/Core/SteamWorkshopJobStore.swift'

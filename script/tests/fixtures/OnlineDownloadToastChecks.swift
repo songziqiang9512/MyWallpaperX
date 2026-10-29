@@ -3,8 +3,7 @@ import Foundation
 
 @main struct OnlineDownloadToastChecks {
     @MainActor static func main() throws {
-        _ = NSApplication.shared
-        NSApp.setActivationPolicy(.prohibited)
+        initializeNativeAppHarness()
         var applied = 0, dismissed = 0
         let toast = WallpaperGridNoticeView()
         func present() {
@@ -12,10 +11,9 @@ import Foundation
                 actions: [("设为壁纸", { applied += 1 })], showsClose: true, onDismiss: { dismissed += 1 })
         }
         present()
-        let window = NSWindow(contentRect: NSRect(x: 14000, y: 14000, width: 800, height: 400),
-            styleMask: [.borderless], backing: .buffered, defer: false)
+        let window = NSWindow(contentRect: NSRect(x: 0, y: 0, width: 800, height: 400),
+            styleMask: [.titled, .closable], backing: .buffered, defer: false)
         window.isReleasedWhenClosed = false
-        window.orderFront(nil)
         let root = NSView(frame: NSRect(x: 0, y: 0, width: 800, height: 400))
         window.contentView = root
         let clip = NSClipView(frame: NSRect(x: 0, y: 0, width: 720, height: 180))
@@ -25,6 +23,10 @@ import Foundation
         let width = toast.widthAnchor.constraint(equalToConstant: 680)
         NSLayoutConstraint.activate([toast.leadingAnchor.constraint(equalTo: document.leadingAnchor, constant: 20),
             toast.topAnchor.constraint(equalTo: document.topAnchor, constant: 20), width])
+        window.center()
+        window.makeKeyAndOrderFront(nil)
+        NSApp.activate(ignoringOtherApps: true)
+        RunLoop.main.run(until: Date().addingTimeInterval(0.1))
         func views(_ view: NSView) -> [NSView] { [view] + view.subviews.flatMap(views) }
         func rect(_ rect: NSRect) -> [Double] { [rect.minX, rect.minY, rect.width, rect.height].map(Double.init) }
         var checks: [String: Bool] = [:]
@@ -46,6 +48,11 @@ import Foundation
                 geometry[key] = ["toast": rect(toast.frame), "apply": rect(action.convert(action.bounds, to: toast)),
                     "dismiss": rect(close.convert(close.bounds, to: toast))]
                 checks[key + "-actions-inside"] = buttons.allSatisfy { toast.bounds.contains($0.convert($0.bounds, to: toast)) }
+                let content = toast.contentView!
+                checks[key + "-native-content-fills-glass"] = NSEqualRects(content.convert(content.bounds, to: toast), toast.bounds)
+                checks[key + "-actions-keep-padding"] = buttons.allSatisfy {
+                    toast.bounds.insetBy(dx: 15.5, dy: 9.5).contains($0.convert($0.bounds, to: toast))
+                }
                 checks[key + "-chrome"] = toast.style == .regular && toast.cornerRadius == 24
                 // AppKit owns clipping; no product handler or action is replaced.
                 clip.frame.size.height = toast.bounds.height / 2

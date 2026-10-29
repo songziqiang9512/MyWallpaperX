@@ -17,7 +17,7 @@ import AppKit
     static let minimumResolutions: [(title: String, width: Int, height: Int)] = [
         ("不限", 0, 0), ("1080p 及以上", 1920, 1080), ("2K 及以上", 2560, 1440), ("4K 及以上", 3840, 2160)
     ]
-    private let sections: [Section]
+    private let sections: () -> [Section]
     private let summary: () -> String
     private let canClear: () -> Bool
     private let clear: () -> Void
@@ -26,10 +26,14 @@ import AppKit
     private lazy var summaryLabel = NSTextField(labelWithString: "")
     private(set) var preferredPanelHeight: CGFloat = 240
 
-    init(sections: [Section], summary: @escaping () -> String, canClear: @escaping () -> Bool,
+    init(sections: @escaping () -> [Section], summary: @escaping () -> String, canClear: @escaping () -> Bool,
          clear: @escaping () -> Void) {
         self.sections = sections; self.summary = summary; self.canClear = canClear; self.clear = clear
         super.init(nibName: nil, bundle: nil)
+    }
+    convenience init(sections: [Section], summary: @escaping () -> String, canClear: @escaping () -> Bool,
+                     clear: @escaping () -> Void) {
+        self.init(sections: { sections }, summary: summary, canClear: canClear, clear: clear)
     }
     @available(*, unavailable) required init?(coder: NSCoder) { nil }
 
@@ -38,6 +42,7 @@ import AppKit
         let groups = NSStackView()
         groups.orientation = .vertical; groups.alignment = .leading; groups.spacing = 10
         groups.translatesAutoresizingMaskIntoConstraints = false
+        let sections = sections()
         for section in sections {
             let title = NSTextField(labelWithString: section.title)
             title.font = .systemFont(ofSize: 11, weight: .semibold); title.textColor = .secondaryLabelColor
@@ -81,7 +86,7 @@ import AppKit
             footer.bottomAnchor.constraint(equalTo: view.bottomAnchor, constant: -12),
             summaryLabel.widthAnchor.constraint(lessThanOrEqualToConstant: Self.panelWidth - 130)
         ])
-        synchronize()
+        synchronize(sections)
         view.layoutSubtreeIfNeeded()
         preferredPanelHeight = min(view.fittingSize.height, 560)
         preferredContentSize = .init(width: Self.panelWidth, height: preferredPanelHeight)
@@ -89,29 +94,21 @@ import AppKit
 
     func synchronize() {
         guard isViewLoaded else { return }
-        for (button, option) in checkboxes { button.state = option.isSelected() ? .on : .off }
+        synchronize(sections())
+    }
+
+    // One presentation retains its layout and command bindings; only values refresh.
+    private func synchronize(_ sections: [Section]) {
+        let options = sections.flatMap { section in section.options.map { (section.title, $0) } }
+        for ((button, _), (section, option)) in zip(checkboxes, options) {
+            button.title = option.title
+            button.setAccessibilityLabel("\(section)：\(option.title)")
+            button.state = option.isSelected() ? .on : .off
+        }
         clearButton.isEnabled = canClear()
         summaryLabel.stringValue = "当前筛选：" + summary()
     }
 
-    func menuRepresentation(title: String) -> NSMenuItem {
-        let root = NSMenuItem(title: title, action: nil, keyEquivalent: ""), menu = NSMenu()
-        menu.autoenablesItems = false
-        for (index, section) in sections.enumerated() {
-            if index > 0 { menu.addItem(.separator()) }
-            menu.addItem(.sectionHeader(title: section.title))
-            for option in section.options {
-                let item = ActionMenuItem(title: option.title, symbol: "") { option.toggle() }
-                item.state = option.isSelected() ? .on : .off
-                menu.addItem(item)
-            }
-        }
-        menu.addItem(.separator())
-        let clearItem = ActionMenuItem(title: "清空筛选", symbol: "") { [clear] in clear() }
-        clearItem.isEnabled = canClear(); menu.addItem(clearItem)
-        root.submenu = menu
-        return root
-    }
     @objc private func toggle(_ sender: NSButton) {
         checkboxes.first { $0.0 === sender }?.1.toggle()
         synchronize()

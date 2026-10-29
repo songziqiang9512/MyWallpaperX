@@ -63,7 +63,7 @@ extension SteamWorkshopToolbarController {
         accountButton.isEnabled = canExecute
         accountToolbarItem.isEnabled = canExecute
         accountToolbarItem.toolTip = accountButton.toolTip
-        accountToolbarItem.menuFormRepresentation = ToolbarMenuPopoverPresenter.menuRepresentation(title: "Steam 账号", rows: accountRows())
+        accountToolbarItem.menuFormRepresentation = ToolbarMenu.menuRepresentation(title: "Steam 账号", rows: accountRows())
         accountToolbarItem.menuFormRepresentation?.isEnabled = canExecute
         accountToolbarItem.visibilityPriority = .low
     }
@@ -96,7 +96,7 @@ extension SteamWorkshopToolbarController {
             : "作者工坊模式暂不支持切换浏览来源"
         sortButton.toolTip = sortToolbarItem.toolTip
         sortButton.sizeToFit()
-        sortToolbarItem.menuFormRepresentation = ToolbarMenuPopoverPresenter.menuRepresentation(title: sortToolbarItem.label, rows: sortRows())
+        sortToolbarItem.menuFormRepresentation = ToolbarMenu.menuRepresentation(title: sortToolbarItem.label, rows: sortRows())
     }
 
     func syncPersonalListPopup() {
@@ -110,7 +110,7 @@ extension SteamWorkshopToolbarController {
             : "进入「我的订阅」后选择个人列表"
         personalListButton.toolTip = personalListToolbarItem.toolTip
         personalListButton.sizeToFit()
-        personalListToolbarItem.menuFormRepresentation = ToolbarMenuPopoverPresenter.menuRepresentation(title: "个人列表", rows: personalListRows())
+        personalListToolbarItem.menuFormRepresentation = ToolbarMenu.menuRepresentation(title: "个人列表", rows: personalListRows())
     }
 
     func syncTrendingWindowPopup() {
@@ -121,7 +121,7 @@ extension SteamWorkshopToolbarController {
         trendingWindowToolbarItem.isEnabled = isEnabled
         trendingWindowButton.isEnabled = isEnabled
         trendingWindowButton.sizeToFit()
-        trendingWindowToolbarItem.menuFormRepresentation = ToolbarMenuPopoverPresenter.menuRepresentation(title: "时间段", rows: trendingWindowRows())
+        trendingWindowToolbarItem.menuFormRepresentation = ToolbarMenu.menuRepresentation(title: "时间段", rows: trendingWindowRows())
     }
 
     func configureFilterItem() {

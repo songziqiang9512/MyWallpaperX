@@ -77,10 +77,9 @@ nonisolated enum SteamWorkshopStorageTree {
         lhs.precomposedStringWithCanonicalMapping.utf8
             .lexicographicallyPrecedes(rhs.precomposedStringWithCanonicalMapping.utf8)
     }
-    static func files(_ root: FD, topLevelLimit: Int? = nil,
-                      checkCancellation: (() throws -> Void)? = nil) throws -> [FileEntry] {
+    static func files(_ root: FD, checkCancellation: (() throws -> Void)? = nil) throws -> [FileEntry] {
         var result: [FileEntry] = []
-        var count = 0, topLevelCount = 0, pathBytes = 0
+        var count = 0, pathBytes = 0
         func walk(_ fd: FD, prefix: String, depth: Int) throws {
             try checkCancellation?()
             try require(depth <= 64)
@@ -102,10 +101,6 @@ nonisolated enum SteamWorkshopStorageTree {
                 if name == "." || name == ".." { continue }
                 var value = stat()
                 try require(fstatat(fd.value, name, &value, AT_SYMLINK_NOFOLLOW) == 0)
-                if depth == 0 {
-                    topLevelCount += 1
-                    if let topLevelLimit { try require(topLevelCount < topLevelLimit, "保留的下载/版本目录达到数量预算。") }
-                }
                 let path = prefix + name
                 _ = try parts(path)
                 count += 1; pathBytes += path.utf8.count

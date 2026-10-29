@@ -196,6 +196,32 @@ extension WallpaperLibraryCatalog { var catalog: Self { self } }
     func focusSearch() { focused += 1 }
 }
 
+@MainActor private final class FilterPopoverReceipt {
+    private var observer: NSObjectProtocol?
+    private var deadline: Task<Void, Never>?
+    private var completion: CheckedContinuation<NSPopover?, Never>?
+    func receive(_ name: Notification.Name, object: NSPopover? = nil, perform action: () -> Void) async -> NSPopover? {
+        await withCheckedContinuation { continuation in
+            completion = continuation
+            observer = NotificationCenter.default.addObserver(forName: name, object: object, queue: .main) { [weak self] note in
+                MainActor.assumeIsolated { if let popup = note.object as? NSPopover { self?.finish(popup) } }
+            }
+            deadline = Task { @MainActor [weak self] in
+                do { try await Task.sleep(for: .seconds(2)) } catch { return }
+                self?.finish(nil)
+            }
+            action()
+        }
+    }
+    private func finish(_ popup: NSPopover?) {
+        guard let completion else { return }
+        self.completion = nil
+        if let observer { NotificationCenter.default.removeObserver(observer) }
+        observer = nil; deadline?.cancel(); deadline = nil
+        completion.resume(returning: popup)
+    }
+}
+
 @main private enum LibraryWindowToolbarChecks {
     @MainActor static func main() {
         initializeNativeAppHarness()
@@ -218,10 +244,12 @@ extension WallpaperLibraryCatalog { var catalog: Self { self } }
         defer { defaults.removePersistentDomain(forName: suite) }
         let store = UserCollectionsStore(url: root.appendingPathComponent("relations.sqlite3"))
         let collections = UserCollectionsController(store: store, snapshot: try await store.snapshot())
-        func content(_ provider: WallpaperProvider, _ id: String, _ kind: WallpaperMediaKind) -> WallpaperContentItem {
+        func content(_ provider: WallpaperProvider, _ id: String, _ kind: WallpaperMediaKind,
+                     available: Bool = true) -> WallpaperContentItem {
             let ref = WallpaperReference(provider: provider, sourceID: id)
             return .init(reference: ref, providerReference: ref, locator: .init(mediaKind: kind), title: id, kind: kind,
-                publishedAvailability: .available, capabilities: [.play, .organize, .inspect], metadata: .init(), acquisition: .idle, update: .idle, aliases: [])
+                publishedAvailability: available ? .available : .unavailable, capabilities: available ? [.play, .organize, .inspect] : [.organize, .inspect],
+                metadata: .init(), acquisition: .idle, update: .idle, aliases: [])
         }
         let video = content(.videoLibrary, "video", .video), image = content(.staticImageLibrary, "image", .image)
         let steam = content(.steamWorkshop, "steam", .scene), pixabay = content(.pixabay, "1", .video)
@@ -306,6 +334,10 @@ extension WallpaperLibraryCatalog { var catalog: Self { self } }
             return app.sendAction(action, to: control.target, from: control)
         }
         func menu(_ raw: String) -> NSMenu {
+            if raw == "filter" {
+                return workspace.presentation.page == .downloads ? controller.makeDownloadFilterMenu()
+                    : nativeFilterMenuSnapshot(controller.makeFilterPanel())
+            }
             let native = item(raw) as! NSMenuToolbarItem
             // NSMenu.update validates an existing menu; AppKit asks the
             // delegate for its dynamic contents when native tracking opens.
@@ -317,7 +349,15 @@ extension WallpaperLibraryCatalog { var catalog: Self { self } }
             cancellation.invalidate()
             return native.menu
         }
-        func invoke(_ menu: NSMenu, _ title: String) { menu.performActionForItem(at: menu.items.firstIndex { $0.title == title }!) }
+        func invoke(_ menu: NSMenu, _ title: String, file: StaticString = #file, line: UInt = #line) {
+            guard let index = menu.items.firstIndex(where: { $0.title == title }) else {
+                fatalError("Missing menu item \(title.debugDescription); actual titles=\(menu.items.map(\.title)); page=\(workspace.presentation.page.persistenceKey)", file: file, line: line)
+            }
+            menu.performActionForItem(at: index)
+        }
+        func descendants<T: NSView>(_ view: NSView, _ type: T.Type) -> [T] {
+            ((view as? T).map { [$0] } ?? []) + view.subviews.flatMap { descendants($0, type) }
+        }
         // Exercise the real presentation publisher without calling refresh().
         // Source controls and command leaves count the production consumer calls.
         try await Task.sleep(nanoseconds: 30_000_000)
@@ -411,7 +451,7 @@ extension WallpaperLibraryCatalog { var catalog: Self { self } }
         checks["ordinary-library-does-not-duplicate-play-header-actions"] = !controller.toolbar.items.contains { ["play", "random", "back"].contains($0.itemIdentifier.rawValue) }
         checks["native-menu-items-own-menu-without-custom-view-anchor"] = ["sort", "more"].allSatisfy {
             let native = item($0) as? NSMenuToolbarItem
-            return native != nil && native?.menu.delegate === controller
+            return native != nil && native?.menu.delegate === controller && native?.showsIndicator == false
         }
         checks["empty-selection-disables-organization-actions-with-stable-identifiers"] = !item("remove").isEnabled && !item("favorite").isEnabled && !item("more").isEnabled
         _ = workspace.presentation.setSelection([video.reference], focused: video.reference, isSelecting: true); controller.refresh()
@@ -471,7 +511,77 @@ extension WallpaperLibraryCatalog { var catalog: Self { self } }
             && downloadSort.items.contains { $0.title == "改为升序" }
         invoke(downloadSort, "文件名称")
         checks["choosing-sort-preserves-default-download-descending-direction"] = workspace.presentation.queryState.sort == .name && !workspace.presentation.queryState.ascending
+        page(.playlist(list))
+        let filterButton = item("filter").view as! NSButton
+        let popup = await FilterPopoverReceipt().receive(NSPopover.didShowNotification) { filterButton.performClick(nil) }
+        guard let popup, let panel = popup.contentViewController as? WallpaperFilterPanelController else {
+            fatalError("the local filter button must present the shared native filter panel")
+        }
+        let buttons = descendants(panel.view, NSButton.self)
+        let beforeNativeFilters = workspace.presentation.queryState
+        buttons.first { $0.title == "Pixabay" }!.performClick(nil)
+        buttons.first { $0.title.hasPrefix("视频（") }!.performClick(nil)
+        buttons.first { $0.title == "可播放" }!.performClick(nil)
+        try await Task.sleep(nanoseconds: 30_000_000)
+        checks["local-filter-keeps-one-native-popover-open-across-composed-checkbox-actions"] = popup.isShown
+            && popup.behavior == .transient && popup.contentViewController === panel
+            && workspace.presentation.queryState.providers == [.pixabay] && workspace.presentation.queryState.kinds == [.video]
+            && workspace.presentation.queryState.statuses == [.playable] && popup.contentSize.width == 400
+        checks["local-filter-type-counts-refresh-from-the-existing-page-projection"] = buttons.contains { $0.title == "视频（1）" }
+            && buttons.contains { $0.title == "Scene（0）" }
+        buttons.first { $0.title == "创意工坊" }!.performClick(nil)
+        buttons.first { $0.title.hasPrefix("Scene（") }!.performClick(nil)
+        checks["other-local-filter-keeps-single-choice-without-replacing-or-closing-its-popover"] = popup.isShown && popup.contentViewController === panel
+            && workspace.presentation.queryState.providers == [.steamWorkshop] && workspace.presentation.queryState.kinds == [.scene]
+            && workspace.presentation.queryState.statuses == [.playable] && workspace.presentation.queryResult.items.map(\.reference) == [steam.reference]
+        buttons.first { $0.title == "清空筛选" }!.performClick(nil)
+        checks["local-filter-clear-preserves-search-sort-and-density-without-closing"] = popup.isShown
+            && workspace.presentation.queryState == beforeNativeFilters && !buttons.first { $0.title == "清空筛选" }!.isEnabled
+        let closed = await FilterPopoverReceipt().receive(NSPopover.didCloseNotification, object: popup) { page(.downloads) }
+        let afterFilterPageChange = workspace.presentation.queryState
+        buttons.first { $0.title == "Pixabay" }!.performClick(nil)
+        checks["switching-page-closes-the-local-filter-and-revokes-its-old-checkboxes"] = closed === popup && !popup.isShown
+            && workspace.presentation.queryState == afterFilterPageChange
+        page(.playlist(list))
+        window.setContentSize(NSSize(width: 160, height: 560)); settle()
+        let nativeFilter = item("filter"), filterOverflow = nativeFilter.menuFormRepresentation!
+        // visibleItems can retain its pre-resize snapshot after AppKit detaches an overflow view.
+        let filterDetachedBefore = nativeFilter.view.map { $0.window == nil } == true
+        let filterIsOverflowed = nativeFilter.toolbar === controller.toolbar && filterDetachedBefore
+        var filterOverflowDispatched = false
+        let overflowPopup = await FilterPopoverReceipt().receive(NSPopover.didShowNotification) {
+            filterOverflowDispatched = app.sendAction(filterOverflow.action!, to: filterOverflow.target, from: filterOverflow)
+        }
+        checks["local-filter-overflow-opens-the-same-popover-without-a-second-menu-tree"] = filterIsOverflowed
+            && filterOverflow.submenu == nil && filterOverflowDispatched && overflowPopup === popup && popup.isShown
+        _ = await FilterPopoverReceipt().receive(NSPopover.didCloseNotification, object: popup) { popup.performClose(nil) }
+        window.setContentSize(NSSize(width: 1280, height: 560)); settle()
+        page(.downloads)
+        var downloadTrackedMenu: NSMenu?, downloadPopoverShows = 0
+        var downloadMenuCancellation: Timer?
+        let menuBegan = NotificationCenter.default.addObserver(forName: NSMenu.didBeginTrackingNotification, object: nil, queue: nil) { note in
+            MainActor.assumeIsolated {
+                guard downloadTrackedMenu == nil, let native = note.object as? NSMenu else { return }
+                downloadTrackedMenu = native
+                let timer = Timer(timeInterval: 0.03, repeats: false) { _ in MainActor.assumeIsolated { native.cancelTracking() } }
+                downloadMenuCancellation = timer; RunLoop.main.add(timer, forMode: .eventTracking)
+            }
+        }
+        let downloadPopoverObserver = NotificationCenter.default.addObserver(forName: NSPopover.didShowNotification, object: nil, queue: nil) { _ in
+            MainActor.assumeIsolated { downloadPopoverShows += 1 }
+        }
+        (item("filter").view as! NSButton).performClick(nil)
+        downloadMenuCancellation?.invalidate()
+        NotificationCenter.default.removeObserver(menuBegan); NotificationCenter.default.removeObserver(downloadPopoverObserver)
+        let downloadGroups = downloadTrackedMenu?.items.split { $0.isSeparatorItem }.map { $0.map(\.title) } ?? []
+        checks["downloads-filter-button-tracks-a-system-menu-without-a-popover"] = downloadTrackedMenu != nil && downloadPopoverShows == 0
+        checks["downloads-filter-menu-is-vertical-with-source-type-status-and-adult-groups"] = downloadGroups.compactMap(\.first)
+            == ["全部来源", "全部类型（2）", "全部状态", "显示成人内容", "清空筛选"] && downloadTrackedMenu?.items.allSatisfy { $0.submenu == nil } == true
         let adultMenu = menu("filter"), oldAdult = menu("filter").items.first { $0.title == "显示成人内容" }!
+        invoke(adultMenu, "显示成人内容")
+        let firstAdultMenuToggle = !workspace.presentation.queryState.showsAdultContent
+        invoke(adultMenu, "显示成人内容")
+        checks["downloads-adult-menu-reads-current-query-on-consecutive-actions"] = firstAdultMenuToggle && workspace.presentation.queryState.showsAdultContent
         checks["downloads-adult-filter-reflects-the-original-page-query"] = adultMenu.items.first { $0.title == "显示成人内容" }?.state == .on
         invoke(adultMenu, "显示成人内容")
         checks["downloads-adult-filter-native-action-updates-the-original-query-owner"] = !workspace.presentation.queryState.showsAdultContent
@@ -498,8 +608,8 @@ extension WallpaperLibraryCatalog { var catalog: Self { self } }
         invoke(filters, "Pixabay")
         invoke(menu("filter"), "视频（1）")
         invoke(menu("filter"), "可播放")
-        checks["filter-dimensions-compose-without-resetting-other-dimensions"] = workspace.presentation.queryState.provider == .pixabay
-            && workspace.presentation.queryState.kind == .video && workspace.presentation.queryState.status == .playable
+        checks["filter-dimensions-compose-without-resetting-other-dimensions"] = workspace.presentation.queryState.providers == [.pixabay]
+            && workspace.presentation.queryState.kinds == [.video] && workspace.presentation.queryState.statuses == [.playable]
             && workspace.presentation.queryResult.items.map(\.reference) == [pixabay.reference]
         let filtered = menu("filter")
         checks["adult-control-remains-available-for-every-downloaded-provider"] = filtered.items.first { $0.title == "显示成人内容" }?.state == .off
@@ -510,9 +620,49 @@ extension WallpaperLibraryCatalog { var catalog: Self { self } }
             && item("filter").toolTip?.contains("可播放") == true && item("sort").toolTip?.contains("文件名称") == true
         checks["local-title-help-distinguishes-current-results-from-the-unfiltered-page"] = titleMetadataMatches("我的下载", summary: "显示 1 / 共 2 张壁纸")
         invoke(filtered, "全部来源")
-        checks["all-sources-restores-provider-union-without-clearing-kind-or-status"] = workspace.presentation.queryState.provider == nil
-            && workspace.presentation.queryState.kind == .video && workspace.presentation.queryState.status == .playable
+        checks["all-sources-restores-provider-union-without-clearing-kind-or-status"] = workspace.presentation.queryState.providers.isEmpty
+            && workspace.presentation.queryState.kinds == [.video] && workspace.presentation.queryState.statuses == [.playable]
         checks["all-sources-preserves-the-single-adult-query-preference"] = menu("filter").items.first { $0.title == "显示成人内容" }?.state == .off
+        let beforeMultipleFilters = workspace.presentation.queryState
+        let unavailable = content(.steamWorkshop, "unavailable", .scene, available: false)
+        workspace.catalog.downloads.append(unavailable); workspace.catalog.revision += 1; workspace.refresh(); controller.refresh()
+        invoke(menu("filter"), "Pixabay"); invoke(menu("filter"), "创意工坊")
+        invoke(menu("filter"), "Scene（1）"); invoke(menu("filter"), "不可用")
+        let multiple = menu("filter"), multipleQuery = workspace.presentation.queryState
+        checks["downloads-native-menu-multiselect-unions-within-each-group-and-intersects-across-groups"] =
+            multipleQuery.providers == [.pixabay, .steamWorkshop] && multipleQuery.kinds == [.video, .scene]
+            && multipleQuery.statuses == [.playable, .unavailable]
+            && Set(workspace.presentation.queryResult.items.map(\.reference)) == [pixabay.reference, steam.reference, unavailable.reference]
+            && ["Pixabay", "创意工坊", "视频（1）", "Scene（2）", "可播放", "不可用"].allSatisfy { name in multiple.items.first { $0.title == name }?.state == .on }
+        invoke(multiple, "创意工坊"); invoke(menu("filter"), "视频（1）"); invoke(menu("filter"), "可播放")
+        checks["downloads-multiselect-cancels-each-value-without-clearing-its-group-or-other-groups"] =
+            workspace.presentation.queryState.providers == [.pixabay] && workspace.presentation.queryState.kinds == [.scene]
+            && workspace.presentation.queryState.statuses == [.unavailable] && workspace.presentation.queryResult.items.isEmpty
+        invoke(menu("filter"), "全部来源")
+        checks["downloads-all-sources-keeps-selected-kind-and-status"] = workspace.presentation.queryState.providers.isEmpty
+            && workspace.presentation.queryState.kinds == [.scene] && workspace.presentation.queryState.statuses == [.unavailable]
+            && workspace.presentation.queryResult.items.map(\.reference) == [unavailable.reference]
+        invoke(menu("filter"), "全部类型（1）")
+        checks["downloads-all-types-keeps-selected-status"] = workspace.presentation.queryState.kinds.isEmpty
+            && workspace.presentation.queryState.statuses == [.unavailable] && workspace.presentation.queryResult.items.map(\.reference) == [unavailable.reference]
+        invoke(menu("filter"), "全部状态")
+        checks["downloads-all-groups-use-empty-sets-and-keep-adult-clear-enabled"] = workspace.presentation.queryState.providers.isEmpty
+            && workspace.presentation.queryState.kinds.isEmpty && workspace.presentation.queryState.statuses.isEmpty
+            && menu("filter").items.first { $0.title == "清空筛选" }?.isEnabled == true
+            && ["全部来源", "全部类型（3）", "全部状态"].allSatisfy { name in menu("filter").items.first { $0.title == name }?.state == .on }
+        invoke(menu("filter"), "显示成人内容")
+        checks["downloads-clear-is-disabled-with-no-filters"] = menu("filter").items.first { $0.title == "清空筛选" }?.isEnabled == false
+        var clearBaseline = workspace.presentation.queryState
+        clearBaseline.search = "steam"; clearBaseline.sort = .fileSize; clearBaseline.preferredColumns = 4
+        _ = workspace.presentation.setQueryState(clearBaseline); controller.refresh()
+        invoke(menu("filter"), "创意工坊"); invoke(menu("filter"), "Scene（2）"); invoke(menu("filter"), "不可用")
+        invoke(menu("filter"), "显示成人内容")
+        let clearMenu = menu("filter"), clearEnabled = clearMenu.items.first { $0.title == "清空筛选" }?.isEnabled == true
+        invoke(clearMenu, "清空筛选")
+        checks["downloads-clear-resets-all-three-sets-and-adult-while-preserving-search-sort-and-density"] = clearEnabled
+            && workspace.presentation.queryState == clearBaseline && menu("filter").items.first { $0.title == "清空筛选" }?.isEnabled == false
+        workspace.catalog.downloads.removeLast(); workspace.catalog.revision += 1; workspace.refresh()
+        _ = workspace.presentation.setQueryState(beforeMultipleFilters); controller.refresh()
         let oldProviderItem = filtered.items.first { $0.title == "创意工坊" }!
         try await collections.reset(); workspace.refresh(); controller.refresh()
         let resetQuery = workspace.presentation.queryState
@@ -549,17 +699,24 @@ extension WallpaperLibraryCatalog { var catalog: Self { self } }
             && !controller.toolbar.items.contains { $0.itemIdentifier.rawValue == "back" }
             && !controller.toolbar.items.contains { ["play", "random"].contains($0.itemIdentifier.rawValue) }
         checks["native-title-metadata-and-accessibility-follow-custom-playlist-name"] = titleMetadataMatches("固定标题", summary: "显示 0 / 共 0 张壁纸")
-        checks["custom-playlist-keeps-header-actions-out-of-its-five-toolbar-groups"] = actionGroups() == [["select", "addToPlaylist"], ["remove", "favorite", "more"],
+        checks["custom-playlist-keeps-header-actions-out-of-its-five-toolbar-groups"] = actionGroups() == [["select"], ["remove", "favorite", "more"],
             ["filter", "sort"], ["zoom"], ["search"]]
         var returns = 0
         returnAction = { returns += 1 }; controller.refresh()
+        _ = try await collections.perform(.addMembers(freshList, [video.organizationItem], Date())); workspace.refresh()
+        _ = workspace.presentation.setSelection([video.reference], focused: video.reference, isSelecting: false); controller.refresh()
+        let customPlaylistMenu = menu("more").items.first { $0.title == "添加到列表" }!.submenu!
+        let choicesBefore = commands.playlistChoices
+        invoke(customPlaylistMenu, "固定播放列表")
+        checks["custom-playlist-has-one-working-add-to-list-entry-inside-more"] = commands.playlistChoices == choicesBefore + 1
+            && !controller.toolbar.items.contains { $0.itemIdentifier.rawValue == "addToPlaylist" }
+        _ = try await collections.perform(.removeMembers(freshList, [video.reference], Date())); workspace.refresh()
+        _ = workspace.presentation.setSelection([], isSelecting: false); controller.refresh()
         checks["directory-entry-return-is-the-first-independent-right-control-group"] = actionGroups().first == ["back"]
             && (item("back").view as? NSButton)?.title == "返回"
             && (item("back").view as? NSButton)?.imagePosition == .imageLeading
         let nativeReturn = item("back").view as! NSButton
-        FileHandle.standardError.write(Data("Q03 before native return action=\(String(describing: nativeReturn.action)) target=\(String(describing: nativeReturn.target))\n".utf8))
         nativeReturn.performClick(nil)
-        FileHandle.standardError.write(Data("Q03 after native return count=\(returns)\n".utf8))
         checks["directory-return-native-button-invokes-once-through-its-own-target"] = returns == 1
         let returnOverflow = item("back").menuFormRepresentation!
         _ = app.sendAction(returnOverflow.action!, to: returnOverflow.target, from: returnOverflow)
@@ -578,15 +735,14 @@ extension WallpaperLibraryCatalog { var catalog: Self { self } }
         let choicesBeforeHeldMenu = commands.playlistChoices
         invoke(playlistMenu, "固定播放列表")
         checks["modal-sheet-blocks-held-native-playlist-submenu-actions"] = commands.playlistChoices == choicesBeforeHeldMenu
-        FileHandle.standardError.write(Data("toolbar-modal-return returns=\(returns) itemEnabled=\(item("back").isEnabled) buttonEnabled=\(nativeReturn.isEnabled) queryUnchanged=\(workspace.presentation.queryState == originalQuery) sheetAttached=\(window.attachedSheet === sheet) keyWindow=\(String(describing: NSApp.keyWindow?.title))\n".utf8))
         checks["modal-sheet-blocks-held-return-and-background-toolbar-zoom"] = returns == 2
             && !item("back").isEnabled && workspace.presentation.queryState == originalQuery
         window.endSheet(sheet); sheet.orderOut(nil); window.makeKeyAndOrderFront(nil); settle()
         returnAction = nil; controller.refresh()
         checks["clearing-directory-entry-context-removes-only-the-return-group"] = !controller.toolbar.items.contains { $0.itemIdentifier.rawValue == "back" }
         var filteredManual = workspace.presentation.queryState
-        filteredManual.search = "fixed search"; filteredManual.provider = .videoLibrary; filteredManual.kind = .video
-        filteredManual.status = .unavailable; filteredManual.sort = .name; filteredManual.preferredColumns = 4
+        filteredManual.search = "fixed search"; filteredManual.providers = [.videoLibrary]; filteredManual.kinds = [.video]
+        filteredManual.statuses = [.unavailable]; filteredManual.sort = .name; filteredManual.preferredColumns = 4
         filteredManual.scrollAnchor = video.reference; filteredManual.scrollOffset = -13; filteredManual.scrollAtTop = false
         _ = workspace.presentation.setQueryState(filteredManual); controller.refresh()
         invoke(menu("sort"), "手动顺序")
@@ -675,8 +831,6 @@ extension WallpaperLibraryCatalog { var catalog: Self { self } }
         var clickDensity = workspace.presentation.queryState; clickDensity.preferredColumns = 5
         _ = workspace.presentation.setQueryState(clickDensity); controller.refresh(); settle()
         // Native momentary tracking needs an actual active/key App window.
-        // The prohibited, non-key CLI diagnostic left the first segment
-        // pressed without dispatching its command. Do not retry either click.
         // Earlier geometry cases deliberately use a wide window. Real input
         // must fit the current display so both native segments are on screen.
         if let visible = (window.screen ?? NSScreen.main)?.visibleFrame {
@@ -693,34 +847,7 @@ extension WallpaperLibraryCatalog { var catalog: Self { self } }
         checks["native-mouse-tracking-runs-in-a-regular-active-main-key-window"] = app.activationPolicy() == .regular
             && app.isActive && app.mainWindow === window && app.keyWindow === window
             && window.isMainWindow && window.isKeyWindow
-        let sharedZoom = zoom as! WallpaperLibraryZoomControl
-        let originalMakeAction = sharedZoom.makeAction
-        var clickPhase = "observe-initial-state", traceSequence = 0, factorySequence = 0
-        func traceZoom(_ detail: String) {
-            traceSequence += 1
-            FileHandle.standardError.write(Data("Native zoom trace \(traceSequence) [\(clickPhase)]: \(detail)\n".utf8))
-        }
-        // Observe the original willSet payload. Reading the presentation getter
-        // inside this sink would report the previous columns instead.
-        let columnChanges = workspace.presentation.$state.sink { state in
-            traceZoom("publisher page=\(state.page.persistenceKey), columns=\(state.query.preferredColumns), session=\(state.selectionState.sessionID)")
-        }
-        sharedZoom.makeAction = { [weak sharedZoom] delta in
-            factorySequence += 1
-            let receipt = factorySequence
-            traceZoom("factory \(receipt) enter delta=\(delta), selected=\(sharedZoom?.selectedSegment ?? -99), originalBound=\(originalMakeAction != nil)")
-            let command = originalMakeAction?(delta)
-            traceZoom("factory \(receipt) returnedCommand=\(command != nil)")
-            guard let command else { return nil }
-            return {
-                traceZoom("command \(receipt) before page=\(workspace.presentation.page.persistenceKey), columns=\(workspace.presentation.queryState.preferredColumns), session=\(workspace.presentation.selectionState.sessionID)")
-                command()
-                traceZoom("command \(receipt) after page=\(workspace.presentation.page.persistenceKey), columns=\(workspace.presentation.queryState.preferredColumns), session=\(workspace.presentation.selectionState.sessionID)")
-            }
-        }
-        defer { sharedZoom.makeAction = originalMakeAction; columnChanges.cancel() }
         func clickZoom(_ segment: Int) async throws -> Bool {
-            clickPhase = segment == 0 ? "minus-once" : "plus-once"
             let native = item("zoom")
             let localPoint = NSPoint(x: zoom.bounds.width * (segment == 0 ? 0.25 : 0.75), y: zoom.bounds.midY)
             let point = zoom.convert(localPoint, to: nil)
@@ -753,29 +880,16 @@ extension WallpaperLibraryCatalog { var catalog: Self { self } }
                 windowNumber: window.windowNumber, context: nil, eventNumber: 1, clickCount: 1, pressure: 1),
                 let up = NSEvent.mouseEvent(with: .leftMouseUp, location: point, modifierFlags: [], timestamp: time + 0.01,
                 windowNumber: window.windowNumber, context: nil, eventNumber: 2, clickCount: 1, pressure: 0) else { return false }
-            var dispatchedUps = 0
-            let upMonitor = NSEvent.addLocalMonitorForEvents(matching: .leftMouseUp) { event in
-                MainActor.assumeIsolated {
-                    if event.windowNumber == window.windowNumber, event.eventNumber == up.eventNumber { dispatchedUps += 1 }
-                }
-                return event
-            }
-            defer { if let upMonitor { NSEvent.removeMonitor(upMonitor) } }
-            traceZoom("before down: \(geometry)")
             app.postEvent(up, atStart: true)
             window.sendEvent(down)
             // A nested RunLoop pump does not dispatch NSApp's queued mouseUp.
             // Yield this task for one fixed event turn; NSApp owns dispatch.
             try await Task.sleep(nanoseconds: 15_000_000)
             window.contentView?.layoutSubtreeIfNeeded()
-            FileHandle.standardError.write(Data(("Native zoom mouseDown/mouseUp: \(geometry), "
-                + "afterColumns=\(workspace.presentation.queryState.preferredColumns), afterSelected=\(zoom.selectedSegment), "
-                + "highlighted=\(zoom.cell?.isHighlighted == true), nativeDispatchedUps=\(dispatchedUps)\n").utf8))
             return true
         }
         // Drain already-enqueued page/query delivery before starting either
         // native tracking operation. This is one fixed turn, not a retry.
-        clickPhase = "pre-input-settlement"
         try await Task.sleep(nanoseconds: 15_000_000)
         window.contentView?.layoutSubtreeIfNeeded()
         let minusBefore = workspace.presentation.queryState.preferredColumns
@@ -788,8 +902,6 @@ extension WallpaperLibraryCatalog { var catalog: Self { self } }
         checks["real-native-momentary-plus-click-enlarges-cards-and-clears-pressed-state"] = plusTracked
             && plusBefore == 6 && workspace.presentation.queryState.preferredColumns == 5
             && zoom.selectedSegment == -1 && zoom.cell?.isHighlighted != true
-        sharedZoom.makeAction = originalMakeAction
-        columnChanges.cancel()
         let beforeZeroDelta = workspace.presentation.queryState
         controller.performZoom(delta: 0)
         checks["global-zero-delta-does-not-dispatch-or-rewrite-query"] = workspace.presentation.queryState == beforeZeroDelta

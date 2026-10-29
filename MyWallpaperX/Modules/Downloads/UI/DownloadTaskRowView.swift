@@ -66,7 +66,7 @@ import AppKit
         for child in [thumbnailView, titleLabel, statusLabel, progressBar, actionsStack] { addSubview(child) }
         NSLayoutConstraint.activate([
             heightAnchor.constraint(equalToConstant: 76),
-            thumbnailView.leadingAnchor.constraint(equalTo: leadingAnchor, constant: 12),
+            thumbnailView.leadingAnchor.constraint(equalTo: leadingAnchor),
             thumbnailView.centerYAnchor.constraint(equalTo: centerYAnchor),
             thumbnailView.widthAnchor.constraint(equalToConstant: 48),
             thumbnailView.heightAnchor.constraint(equalToConstant: 48),
@@ -80,7 +80,7 @@ import AppKit
             statusLabel.leadingAnchor.constraint(equalTo: titleLabel.leadingAnchor),
             statusLabel.topAnchor.constraint(equalTo: progressBar.bottomAnchor, constant: 5),
             statusLabel.trailingAnchor.constraint(lessThanOrEqualTo: actionsStack.leadingAnchor, constant: -8),
-            actionsStack.trailingAnchor.constraint(equalTo: trailingAnchor, constant: -12),
+            actionsStack.trailingAnchor.constraint(equalTo: trailingAnchor),
             actionsStack.centerYAnchor.constraint(equalTo: centerYAnchor)
         ])
     }
@@ -137,7 +137,7 @@ import AppKit
         let button = NSButton(title: Self.title(action), target: self, action: #selector(invoke(_:)))
         button.controlSize = .small
         button.bezelStyle = .rounded
-        if [.cancel, .abandon, .removeHistory].contains(action) {
+        if [.cancel, .removeHistory].contains(action) {
             button.title = ""
             button.isBordered = false
             button.image = NSImage(systemSymbolName: "xmark", accessibilityDescription: Self.title(action))?
@@ -226,7 +226,6 @@ import AppKit
         case .retry: return "重试"
         case .revealFile: return "在访达中显示"
         case .cancel: return "取消下载"
-        case .abandon: return "放弃任务"
         case .removeHistory: return "清除记录"
         }
     }

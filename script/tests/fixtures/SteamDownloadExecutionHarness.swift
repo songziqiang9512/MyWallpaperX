@@ -575,7 +575,10 @@ final class Transport: SteamServiceTransporting {
             print("EXECUTION PASS: \(mode)")
             return
         }
-        while !transport.commands.contains(where: { $0["command"] as? String == "startDownload" }) { await Task.yield() }
+        while !transport.commands.contains(where: { $0["command"] as? String == "startDownload" }) {
+            precondition(!service.activeDownloadTasks.isEmpty, service.downloadError ?? service.statusMessage)
+            await Task.yield()
+        }
         let key = transport.commands.first! ["jobId"] as! String
         if mode == "staging-ack" {
             var observedAcknowledgement = false

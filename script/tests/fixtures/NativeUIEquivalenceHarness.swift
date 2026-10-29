@@ -337,91 +337,46 @@ import QuartzCore
         up.invalidate()
         checks["native-reference-click"] = target.senders.count == beforeReference + 1
         reference.removeFromSuperview()
-        for dark in [false, true] {
-            window.appearance = NSAppearance(named: dark ? .darkAqua : .aqua)
-            let anchor = NSButton(title: "菜单", target: nil, action: nil)
-            anchor.frame = NSRect(x: 220, y: 200, width: 80, height: 32)
-            root.addSubview(anchor)
-            typealias Row = ToolbarMenuPopoverPresenter.Row
-            let menus: [(String, [Row])] = [
-                ("empty", []),
-                ("single", [.init(title: "创建时间", kind: .check, isChecked: true)]),
-                ("mixed", [.header("排序方式"), .init(title: "作品名称", kind: .check),
-                    .separator(), .init(title: "灰显状态", kind: .info),
-                    .init(title: "不可点击", kind: .action, isEnabled: false)]),
-                ("long", [.separator(), .header("多种文字与连续分隔线"), .separator(), .separator(),
-                    .init(title: "非常长的作品名称与 English 🎨 é 测试文字", kind: .check),
-                    .init(title: "重复", kind: .action), .init(title: "重复", kind: .check),
-                    .separator()])
-            ]
-            func panel(_ presenter: ToolbarMenuPopoverPresenter) -> NSPopover {
-                Mirror(reflecting: presenter).children.first { $0.label == "popover" }!.value as! NSPopover
-            }
-            func descendants(_ view: NSView) -> [NSButton] {
-                (view as? NSButton).map { [$0] } ?? view.subviews.flatMap(descendants)
-            }
-            for (name, rows) in menus {
-                let presenter = ToolbarMenuPopoverPresenter()
-                presenter.toggle(anchor: anchor) { rows }
-                pump(0.18)
-                let popover = panel(presenter)
-                let view = popover.contentViewController!.view
-                view.layoutSubtreeIfNeeded()
-                let id = "menu-\(dark)-\(name)"
-                let expectedHeight = 12 + rows.reduce(CGFloat(0)) {
-                    $0 + ($1.kind == .separator ? 5 : ($1.kind == .sectionHeader ? 24 : 26))
-                }
-                checks[id + "-height"] = popover.contentSize.height == expectedHeight
-                checks[id + "-width"] = (104...280).contains(popover.contentSize.width)
-                checks[id + "-shown"] = presenter.isShown
-                facts[id + "-size"] = [popover.contentSize.width, popover.contentSize.height]
-                guard let scroll = view.subviews.first as? NSScrollView,
-                      let stack = scroll.documentView?.subviews.first as? NSStackView else {
-                    preconditionFailure("The actual menu must retain its scroll/document/stack hierarchy")
-                }
-                facts[id + "-frames"] = stack.arrangedSubviews.map {
-                    [$0.frame.minX, $0.frame.minY, $0.frame.width, $0.frame.height]
-                }
-                image(id, view)
-                presenter.close()
-                pump(0.16)
-            }
-            var selected = false
-            var calls: [String] = []
-            let presenter = ToolbarMenuPopoverPresenter()
-            presenter.toggle(anchor: anchor) {
-                [.header("排序"),
-                 .init(title: selected ? "升序" : "降序", kind: .check, isChecked: selected,
-                       handler: { selected.toggle(); calls.append("check") }),
-                 .separator(),
-                 .init(title: "不可点击", kind: .check, isEnabled: false, handler: { calls.append("disabled") }),
-                 .init(title: "重复", kind: .check, handler: { calls.append("duplicate-first") }),
-                 .init(title: "重复", kind: .action, handler: { calls.append("duplicate-second") })]
-            }
-            pump(0.18)
-            let popover = panel(presenter)
-            let oldButton = descendants(popover.contentViewController!.view).first { $0.title == "降序" }!
-            oldButton.performClick(nil)
-            pump(0.08)
-            let buttons = descendants(popover.contentViewController!.view)
-            checks["menu-\(dark)-check-stays-open"] = presenter.isShown && selected && calls == ["check"]
-                && buttons.first?.title == "升序"
-            oldButton.performClick(nil)
-            checks["menu-\(dark)-retired-button-inert"] = calls == ["check"] && selected
-            buttons.first { $0.title == "不可点击" }!.performClick(nil)
-            checks["menu-\(dark)-disabled-inert"] = calls == ["check"]
-            buttons.filter { $0.title == "重复" }.first!.performClick(nil)
-            pump(0.08)
-            checks["menu-\(dark)-duplicate-check"] = presenter.isShown && calls == ["check", "duplicate-first"]
-            let refreshedButtons = descendants(popover.contentViewController!.view)
-            refreshedButtons.filter { $0.title == "重复" }.last!.performClick(nil)
-            let closingDeadline = Date().addingTimeInterval(1)
-            while presenter.isShown && Date() < closingDeadline { pump(0.02) }
-            facts["menu-\(dark)-calls"] = calls
-            checks["menu-\(dark)-action-closes"] = !presenter.isShown
-                && calls == ["check", "duplicate-first", "duplicate-second"]
-            anchor.removeFromSuperview()
+        let anchor = NSButton(title: "原生菜单", target: nil, action: nil)
+        anchor.frame = NSRect(x: 220, y: 200, width: 80, height: 32)
+        root.addSubview(anchor)
+        var nativeCalls = 0
+        let rows: [ToolbarMenu.Row] = [.header("排序"),
+            .init(title: "当前选项", kind: .action, isChecked: true, handler: { nativeCalls += 1 }),
+            .init(title: "禁用选项", kind: .action, isEnabled: false, handler: { nativeCalls += 100 }),
+            .separator(), .init(title: "状态", kind: .info)]
+        let nativeMenu = ToolbarMenu.makeMenu(rows: rows)
+        checks["native-menu-preserves-order-and-separators"] = nativeMenu.items.map(\.title) == ["排序", "当前选项", "禁用选项", "", "状态"]
+            && nativeMenu.items[0].isSectionHeader && nativeMenu.items[3].isSeparatorItem
+        checks["native-menu-preserves-checked-and-disabled-values"] = nativeMenu.items[1].state == .on
+            && !nativeMenu.items[2].isEnabled && !nativeMenu.items[4].isEnabled
+        nativeMenu.performActionForItem(at: 1)
+        if let action = nativeMenu.items[2].action { NSApp.sendAction(action, to: nativeMenu.items[2].target, from: nativeMenu.items[2]) }
+        checks["native-menu-dispatches-only-available-original-command"] = nativeCalls == 1
+        var duplicateCalls: [String] = []
+        let duplicates = ToolbarMenu.makeMenu(rows: [
+            .init(title: "重复", kind: .action, handler: { duplicateCalls.append("first") }),
+            .init(title: "重复", kind: .action, handler: { duplicateCalls.append("second") })
+        ])
+        duplicates.performActionForItem(at: 0); duplicates.performActionForItem(at: 1)
+        checks["same-title-native-menu-items-retain-distinct-original-actions"] = duplicateCalls == ["first", "second"]
+        var trackingMenu: NSMenu?, began = 0, ended = 0
+        let begin = NotificationCenter.default.addObserver(forName: NSMenu.didBeginTrackingNotification, object: nil, queue: .main) { note in
+            MainActor.assumeIsolated { trackingMenu = note.object as? NSMenu; began += 1 }
         }
+        let end = NotificationCenter.default.addObserver(forName: NSMenu.didEndTrackingNotification, object: nil, queue: .main) { _ in
+            MainActor.assumeIsolated { ended += 1 }
+        }
+        let cancellation = Timer(timeInterval: 0.03, repeats: false) { _ in
+            MainActor.assumeIsolated { trackingMenu?.cancelTracking() }
+        }
+        RunLoop.main.add(cancellation, forMode: .eventTracking)
+        ToolbarMenu.popUp(anchor: anchor, rows: rows)
+        cancellation.invalidate()
+        checks["ordinary-menu-tracks-and-cancels-through-appkit"] = began == 1 && ended == 1
+            && trackingMenu?.items[1].state == .on && nativeCalls == 1
+        NotificationCenter.default.removeObserver(begin); NotificationCenter.default.removeObserver(end)
+        anchor.removeFromSuperview()
         let probePopover = NSPopover()
         var probeObserver: ToolbarPopoverScrollDismissal? = ToolbarPopoverScrollDismissal(popover: probePopover)
         weak var weakObserver = probeObserver

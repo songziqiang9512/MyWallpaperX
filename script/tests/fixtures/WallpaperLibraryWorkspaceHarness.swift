@@ -10,6 +10,13 @@ import QuartzCore
 // receipt proves a duplicate callback actually ran before asserting no write.
 @MainActor enum WorkspaceBackingProbe { static var completed = 0 }
 
+// Screen-saver policy is a boundary leaf; only callback timing is recorded here.
+@MainActor final class ScreenSaverCoordinator {
+    static let shared = ScreenSaverCoordinator()
+    private(set) var desktopCommits: [WallpaperReference] = []
+    func onDesktopCommitted(_ reference: WallpaperReference) { desktopCommits.append(reference) }
+}
+
 // Source owners and the final prepared/visible boundary are controlled leaves.
 // The real App binding, SQLite, query, sessions and pure transaction/sequence
 // run here. Native provider dispatch and renderer handoff have their own gates.
@@ -199,10 +206,12 @@ struct WorkspacePause { let isUserPaused: Bool }
             && pending.proposal.snapshot.sourceQuery?.preferredColumns == 5 && pending.proposal.snapshot.sourceQuery?.scrollAnchor == nil
             && pending.proposal.snapshot.sourceQuery?.scrollOffset == nil && pending.proposal.snapshot.sourceQuery?.scrollAtTop == nil
         checks["preparing-a-target-does-not-write-recent"] = workspace.relationships.recent.isEmpty
+            && ScreenSaverCoordinator.shared.desktopCommits.isEmpty
         manager.presentPreparedTarget()
         _ = await workspace.flush()
         checks["one-actual-commit-callback-records-the-original-ticket-sequence"] = workspace.relationships.recent.map(\.reference) == [image]
             && workspace.relationships.recent.first?.commitSequence != nil && manager.libraryPlaybackSequence.committed?.ticket == pending.ticket
+            && ScreenSaverCoordinator.shared.desktopCommits == [image]
         _ = workspace.presentation.switchPage(.videos)
         _ = workspace.presentation.setQueryState(.init(search: "unrelated"))
         checks["browsing-another-page-keeps-the-accepted-source-and-query"] = manager.libraryPlaybackSequence.committed?.snapshot.source == .page(.playlist(id))
@@ -210,9 +219,18 @@ struct WorkspacePause { let isUserPaused: Bool }
         workspace.didEditMembers(of: .playlist(id))
         checks["explicit-membership-refresh-uses-the-original-source-filter"] = manager.libraryPlaybackSequence.committed?.snapshot.entries.map(\.reference) == [video, image, pixabayReference]
         let recentBefore = workspace.relationships.recent
-        if let recovery = manager.libraryPlaybackSequence.commit(pending.ticket, recovery: true) { manager.libraryPlaybackCommitted?(recovery) }
+        let screenSaverBefore = ScreenSaverCoordinator.shared.desktopCommits
+        let recovery = manager.libraryPlaybackSequence.commit(pending.ticket, recovery: true)
+        if let recovery { manager.libraryPlaybackCommitted?(recovery) }
         _ = await workspace.flush()
         checks["internal-recovery-does-not-invent-another-recent-use"] = workspace.relationships.recent == recentBefore
+            && recovery?.isRecovery == true && ScreenSaverCoordinator.shared.desktopCommits == screenSaverBefore
+        let restoredTicket = manager.requestLibraryPlayback(reference: image, from: manager.libraryPlaybackSequence.committed!.snapshot, cause: .restore)
+        manager.presentPreparedTarget()
+        _ = await workspace.flush()
+        checks["restoring-a-selection-does-not-record-recent-or-notify-screen-saver-following-again"] = restoredTicket != nil
+            && manager.libraryPlaybackSequence.committed?.ticket == restoredTicket && workspace.relationships.recent == recentBefore
+            && ScreenSaverCoordinator.shared.desktopCommits == screenSaverBefore
         let global = manager.libraryPlaybackSnapshotProvider?(video, .global, .manualNavigation)
         checks["explicit-global-source-resolves-every-local-provider-without-remote-results"] = global?.entries.map(\.reference) == [video, image, download, pixabayReference]
         _ = workspace.presentation.switchPage(.workshop)

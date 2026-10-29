@@ -275,7 +275,7 @@ extension SteamWorkshopService {
                 try checkCurrent()
                 let staging = self.steamDownloadStagingRootURL
                 let allocation = Task.detached(priority: .utility) {
-                    try SteamWorkshopLibraryTransaction.stagingBase(at: staging)
+                    _ = try SteamWorkshopLibraryTransaction.absoluteDirectory(staging, create: true)
                 }
                 _ = try await withTaskCancellationHandler { try await allocation.value } onCancel: { allocation.cancel() }
                 try checkCurrent()
@@ -546,9 +546,10 @@ extension SteamWorkshopService {
         }
     }
 
-    func discardFailedDownload(jobID: String) {
+    @discardableResult
+    func discardFailedDownload(jobID: String) -> Bool {
         guard let job = downloadJobStore.job(id: jobID), job.state == .failed,
-              job.accountSteamId == steamAuth.steamId else { return }
+              job.accountSteamId == steamAuth.steamId else { return false }
         // Old releases could persist duplicate failed intents for the same item.
         // Abandon all matching failures so an older record cannot reappear.
         let failures = downloadJobStore.jobs.filter {
@@ -559,12 +560,13 @@ extension SteamWorkshopService {
             guard downloadJobStore.cancel(id: failure.id) != nil else {
                 downloadError = "放弃下载任务无法保存，请重试。"
                 scheduleTerminalDownloadCleanup()
-                return
+                return false
             }
             downloadProgressStore.clear(itemID: failure.workshopItemId, jobKey: "\(failure.id)-\(failure.attempt)")
         }
         removeTransientRecord(id: job.workshopItemId)
         scheduleTerminalDownloadCleanup()
+        return true
     }
 
     func reserveLibraryCopyCapacity(

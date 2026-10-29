@@ -10,13 +10,16 @@ import Foundation
                   size: Int64? = nil, date: Date? = nil, legacyUse: Date? = nil,
                   update: WallpaperContentTransferState = .idle, path: String? = nil,
                   author: String? = nil, summary: String? = nil, description: String? = nil,
-                  tags: [String] = [], rating: WallpaperContentRating? = nil) -> WallpaperContentItem {
+                  tags: [String] = [], rating: WallpaperContentRating? = nil,
+                  acquisition: WallpaperContentTransferState = .idle,
+                  availability: WallpaperPublishedAvailability = .available,
+                  capabilities: WallpaperContentCapabilities = [.inspect, .play, .organize]) -> WallpaperContentItem {
             WallpaperContentItem(reference: reference, providerReference: reference,
                                  locator: WallpaperLocator(path: path, titleHint: title, mediaKind: kind), title: title, kind: kind,
-                                 publishedAvailability: .available, capabilities: [.inspect, .play, .organize],
+                                 publishedAvailability: availability, capabilities: capabilities,
                                  metadata: WallpaperContentMetadata(author: author, summary: summary, descriptionText: description,
                                     sourceTags: tags, contentRating: rating, fileSizeBytes: size, createdAt: date, lastUsedAt: legacyUse),
-                                 acquisition: .idle, update: update, aliases: [])
+                                 acquisition: acquisition, update: update, aliases: [])
         }
         let v = ref(.videoLibrary, "1"), image = ref(.staticImageLibrary, "1"), steam = ref(.steamWorkshop, "1")
         let backing = ref(.videoLibrary, "backing"), offline = ref(.steamWorkshop, "video:offline")
@@ -61,7 +64,7 @@ import Foundation
                 && WallpaperLibraryQuery.resolve([steam, adultWH, adultPX], catalog: rated, relationships: relations).allSatisfy { $0.capabilities.contains(.play) }
                 && WallpaperLibraryQuery.project(page: .favorites, state: hidden, catalog: rated, relationships: relations).items.contains { $0.reference == steam }
             let oneSource = try WallpaperLibraryQuery.project(page: .downloads,
-                state: .init(provider: .pixiv, showsAdultContent: false), catalog: rated, relationships: relations)
+                state: .init(providers: [.pixiv], showsAdultContent: false), catalog: rated, relationships: relations)
             checks["provider-filter-still-composes-with-the-shared-adult-filter"] = oneSource.items.map(\.reference) == [unknown]
         }
         func project(_ page: WallpaperLibraryPage, _ state: WallpaperLibraryQueryState = .init()) throws -> WallpaperLibraryPageResult {
@@ -69,6 +72,53 @@ import Foundation
         }
         checks["pageKeyUsesUUIDNotRenamedTitle"] = WallpaperLibraryPage.playlist(playlist.id).persistenceKey == "playlist." + playlist.id.uuidString
         checks["pageStateRoundTripsWithoutSourceSingletons"] = try JSONDecoder().decode(WallpaperLibraryQueryState.self, from: JSONEncoder().encode(WallpaperLibraryQueryState(search: "夏天", preferredColumns: 3, scrollOffset: -5.25, scrollAtTop: false))) == WallpaperLibraryQueryState(search: "夏天", preferredColumns: 3, scrollOffset: -5.25, scrollAtTop: false)
+        do {
+            let decoder = JSONDecoder(), encoder = JSONEncoder()
+            let legacy = Data(#"{"search":"夏天","provider":"pixabay","kind":"video","status":"failed","ascending":false,"zoomOffset":2}"#.utf8)
+            let migrated = try decoder.decode(WallpaperLibraryQueryState.self, from: legacy)
+            checks["legacy-single-filters-decode-once-into-sets-and-retain-other-preferences"] = migrated
+                == WallpaperLibraryQueryState(search: "夏天", providers: [.pixabay], kinds: [.video], statuses: [.failed], ascending: false)
+            let unrestricted = Data(#"{"search":"","provider":null,"kind":null,"status":"all","ascending":true}"#.utf8)
+            checks["legacy-all-and-null-optional-filters-migrate-to-unrestricted-sets"] = try decoder.decode(
+                WallpaperLibraryQueryState.self, from: unrestricted) == WallpaperLibraryQueryState()
+            let selected = WallpaperLibraryQueryState(search: "Café", providers: [.wallhaven, .steamWorkshop, .pixabay],
+                kinds: [.video, .scene, .image], statuses: [.transferring, .playable, .failed], sort: .name,
+                ascending: false, legacyTimeOrder: [steam], preferredColumns: 4, scrollAnchor: steam,
+                scrollOffset: -15.5, scrollAtTop: false, showsAdultContent: false)
+            let encoded = try encoder.encode(selected)
+            let object = try JSONSerialization.jsonObject(with: encoded) as! [String: Any]
+            checks["new-filter-sets-round-trip-with-all-original-preferences"] = try decoder.decode(
+                WallpaperLibraryQueryState.self, from: encoded) == selected
+            checks["new-filter-encoding-is-stably-sorted-and-retires-single-value-keys"] =
+                object["providers"] as? [String] == ["pixabay", "steamWorkshop", "wallhaven"]
+                && object["kinds"] as? [String] == ["image", "scene", "video"]
+                && object["statuses"] as? [String] == ["failed", "playable", "transferring"]
+                && object["provider"] == nil && object["kind"] == nil && object["status"] == nil
+            let newEmpty = Data(#"{"search":"","providers":[],"kinds":[],"statuses":[],"provider":"pixabay","kind":"video","status":"failed","ascending":true}"#.utf8)
+            checks["explicit-new-empty-sets-take-precedence-over-retired-single-values"] = try decoder.decode(
+                WallpaperLibraryQueryState.self, from: newEmpty) == WallpaperLibraryQueryState()
+            let repeated = Data(#"{"search":"","providers":["pixabay","pixabay"],"kinds":["video","video"],"statuses":["failed","failed"],"ascending":true}"#.utf8)
+            checks["new-filter-arrays-decode-to-one-selection-per-value"] = try decoder.decode(
+                WallpaperLibraryQueryState.self, from: repeated)
+                == WallpaperLibraryQueryState(providers: [.pixabay], kinds: [.video], statuses: [.failed])
+            for status in ["playable", "unavailable", "transferring", "failed"] {
+                let old = Data("{\"search\":\"\",\"status\":\"\(status)\",\"ascending\":true}".utf8)
+                checks["legacy-status-preserves-\(status)"] = try decoder.decode(WallpaperLibraryQueryState.self, from: old).statuses
+                    == [WallpaperLibraryStatusFilter(rawValue: status)!]
+            }
+            for (name, json) in [
+                ("legacy-invalid", #"{"search":"","status":"unknown","ascending":true}"#),
+                ("new-invalid", #"{"search":"","providers":[],"kinds":[],"statuses":["unknown"],"ascending":true}"#),
+                ("new-retired-all", #"{"search":"","providers":[],"kinds":[],"statuses":["all"],"ascending":true}"#)
+            ] {
+                do {
+                    _ = try decoder.decode(WallpaperLibraryQueryState.self, from: Data(json.utf8))
+                    checks["invalid-status-still-rejected-\(name)"] = false
+                } catch DecodingError.dataCorrupted {
+                    checks["invalid-status-still-rejected-\(name)"] = true
+                }
+            }
+        }
         checks["myVideosExcludesProvenDownloadBacking"] = try project(.videos).items.map(\.reference) == [v]
         checks["sameNumberAcrossProvidersDoesNotCollapse"] = try project(.downloads).items.map(\.reference) == [steam, pixabay]
         let members = try project(.playlist(playlist.id))
@@ -114,13 +164,64 @@ import Foundation
         checks["searchIncludesUserVisibleChineseSource"] = try project(.favorites, state).items.map(\.reference) == [steam]
         state.search = "本地图片"
         checks["searchIncludesUserVisibleImageSource"] = try project(.favorites, state).items.map(\.reference) == [image]
-        state = WallpaperLibraryQueryState(kind: .scene)
+        state = WallpaperLibraryQueryState(kinds: [.scene])
         checks["typeFilterIsMetadataNotSourceIdentity"] = try project(.downloads, state).items.map(\.reference) == [steam]
-        state = WallpaperLibraryQueryState(provider: .pixabay)
+        state = WallpaperLibraryQueryState(providers: [.pixabay])
         checks["providerFilterKeepsOnlyTargetSource"] = try project(.downloads, state).items.map(\.reference) == [pixabay]
-        state = WallpaperLibraryQueryState(status: .failed)
+        state = WallpaperLibraryQueryState(statuses: [.failed])
         let failed = try project(.downloads, state)
         checks["failedUpdateKeepsPublishedPlayableItem"] = failed.items.map(\.reference) == [steam] && failed.items[0].capabilities.contains(.play)
+        do {
+            let a = ref(.steamWorkshop, "filter-scene"), b = ref(.steamWorkshop, "filter-acquisition")
+            let c = ref(.pixabay, "filter-image"), d = ref(.pixabay, "filter-failed")
+            let e = ref(.wallhaven, "filter-update"), f = ref(.pixiv, "filter-unavailable")
+            let g = ref(.steamWorkshop, "filter-idle")
+            let mixed = WallpaperLibraryCatalog(downloads: [
+                item(a, "A", kind: .scene, update: .init(phase: .failed), capabilities: [.inspect]),
+                item(b, "B", acquisition: .init(phase: .queued), availability: .unavailable, capabilities: [.inspect]),
+                item(c, "C", kind: .image),
+                item(d, "D", acquisition: .init(phase: .failed), availability: .unavailable, capabilities: [.inspect]),
+                item(e, "E", update: .init(phase: .publishing)),
+                item(f, "F", kind: .web, availability: .unavailable, capabilities: [.inspect]),
+                item(g, "G")])
+            func filtered(_ selection: WallpaperLibraryQueryState) throws -> WallpaperLibraryPageResult {
+                try WallpaperLibraryQuery.project(page: .downloads, state: selection, catalog: mixed, relationships: relations)
+            }
+            var selection = WallpaperLibraryQueryState(providers: [.steamWorkshop, .pixabay], kinds: [.scene, .video],
+                statuses: [.failed, .transferring], sort: .sourceOrder)
+            let selected = try filtered(selection)
+            checks["three-filter-groups-use-or-within-and-between-without-changing-unfiltered-count"] =
+                selected.items.map(\.reference) == [a, b, d] && selected.unfilteredCount == 7
+            selection.statuses.remove(.failed)
+            checks["removing-one-selected-status-keeps-the-other"] = try filtered(selection).items.map(\.reference) == [b]
+            selection.statuses.remove(.transferring)
+            checks["removing-final-status-restores-unrestricted-status-with-other-groups-intact"] =
+                try filtered(selection).items.map(\.reference) == [a, b, d, g]
+            selection.statuses = [.failed, .transferring]
+            selection.kinds.remove(.scene)
+            checks["removing-one-selected-kind-keeps-the-other"] = try filtered(selection).items.map(\.reference) == [b, d]
+            selection.kinds.remove(.video)
+            checks["removing-final-kind-restores-unrestricted-kinds-with-other-groups-intact"] =
+                try filtered(selection).items.map(\.reference) == [a, b, d]
+            selection.kinds = [.scene, .video]
+            selection.providers.remove(.steamWorkshop)
+            checks["removing-one-selected-provider-keeps-the-other"] = try filtered(selection).items.map(\.reference) == [d]
+            selection.providers.remove(.pixabay)
+            checks["removing-final-provider-restores-unrestricted-providers-with-other-groups-intact"] =
+                try filtered(selection).items.map(\.reference) == [a, b, d, e]
+            selection.kinds.removeAll(); selection.statuses.removeAll()
+            checks["clearing-all-filter-groups-restores-original-source-order-and-count"] =
+                try filtered(selection).items.map(\.reference) == [a, b, c, d, e, f, g]
+            let statusCases: [(Set<WallpaperLibraryStatusFilter>, [WallpaperReference])] = [
+                ([.playable], [c, e, g]), ([.unavailable], [b, d, f]),
+                ([.transferring], [b, e]), ([.failed], [a, d]),
+                ([.playable, .transferring], [b, c, e, g]), ([.unavailable, .failed], [a, b, d, f])]
+            for (statuses, expected) in statusCases {
+                let name = statuses.map(\.rawValue).sorted().joined(separator: "+")
+                checks["status-set-retains-original-facts-and-never-duplicates-overlap-\(name)"] = try filtered(
+                    .init(statuses: statuses, sort: .sourceOrder)).items.map(\.reference) == expected
+            }
+        }
         for ascending in [true, false] {
             state = WallpaperLibraryQueryState(sort: .fileSize, ascending: ascending)
             checks["unknownSizeAlwaysLast-\(ascending)"] = try project(.downloads, state).items.last?.reference == pixabay
@@ -235,7 +336,7 @@ import Foundation
         let wallhaven = ref(.wallhaven, "Ab001"), pixivPage = ref(.pixiv, "001234:p2")
         let onlineImages = WallpaperLibraryCatalog(downloads: [
             item(wallhaven, "Still", kind: .image), item(pixivPage, "Still", kind: .image)])
-        let downloadedImages = try WallpaperLibraryQuery.project(page: .downloads, state: .init(kind: .image),
+        let downloadedImages = try WallpaperLibraryQuery.project(page: .downloads, state: .init(kinds: [.image]),
             catalog: onlineImages, relationships: relations)
         checks["new-online-image-sources-retain-distinct-opaque-identity-in-downloads"] = Set(downloadedImages.items.map(\.reference)) == [wallhaven, pixivPage]
             && WallpaperReference(storageKey: wallhaven.storageKey) == wallhaven
@@ -243,13 +344,34 @@ import Foundation
             && wallhaven != ref(.wallhaven, "ab001") && pixivPage != ref(.pixiv, "1234:p2")
             && pixivPage != ref(.pixiv, "001234:p0")
         checks["downloads-provider-filters-and-source-name-search-include-online-images"] = try WallpaperLibraryQuery.project(
-            page: .downloads, state: .init(search: "wallhaven", provider: .wallhaven), catalog: onlineImages,
+            page: .downloads, state: .init(search: "wallhaven", providers: [.wallhaven]), catalog: onlineImages,
             relationships: relations).items.map(\.reference) == [wallhaven]
-            && WallpaperLibraryQuery.project(page: .downloads, state: .init(search: "pixiv", provider: .pixiv),
+            && WallpaperLibraryQuery.project(page: .downloads, state: .init(search: "pixiv", providers: [.pixiv]),
                 catalog: onlineImages, relationships: relations).items.map(\.reference) == [pixivPage]
         checks["download-readiness-includes-local-online-publications-and-respects-provider-filter"] = try WallpaperLibraryQuery.requiredProviders(
             page: .downloads, state: .init(), relationships: relations) == [.steamWorkshop, .pixabay, .wallhaven, .pixiv]
-            && WallpaperLibraryQuery.requiredProviders(page: .downloads, state: .init(provider: .pixiv), relationships: relations) == [.pixiv]
+            && WallpaperLibraryQuery.requiredProviders(page: .downloads, state: .init(providers: [.pixiv]), relationships: relations) == [.pixiv]
+        checks["multi-provider-readiness-intersects-page-sources-and-ignores-media-and-status-visibility"] =
+            try WallpaperLibraryQuery.requiredProviders(page: .downloads,
+                state: .init(providers: [.steamWorkshop, .pixabay, .videoLibrary], kinds: [.image], statuses: [.failed]),
+                relationships: relations) == [.steamWorkshop, .pixabay]
+            && WallpaperLibraryQuery.requiredProviders(page: .images, state: .init(providers: [.pixabay]), relationships: relations).isEmpty
+        checks["mixed-page-readiness-unions-canonical-members-then-intersects-selected-providers"] =
+            try WallpaperLibraryQuery.requiredProviders(page: .playlist(playlist.id), state: .init(), relationships: relations)
+                == [.staticImageLibrary, .steamWorkshop]
+            && WallpaperLibraryQuery.requiredProviders(page: .favorites,
+                state: .init(providers: [.steamWorkshop, .staticImageLibrary, .pixiv]), relationships: relations)
+                == [.steamWorkshop, .staticImageLibrary]
+        for (name, state) in [("provider", WallpaperLibraryQueryState(providers: [.steamWorkshop])),
+                              ("kind", WallpaperLibraryQueryState(kinds: [.video])),
+                              ("status", WallpaperLibraryQueryState(statuses: [.playable]))] {
+            do {
+                _ = try WallpaperLibraryQuery.directory(state: state, catalog: catalog, relationships: relations)
+                checks["directory-still-rejects-unsupported-filter-group-\(name)"] = false
+            } catch WallpaperLibraryQueryError.unsupportedDirectoryFilter {
+                checks["directory-still-rejects-unsupported-filter-group-\(name)"] = true
+            }
+        }
         checks["new-browser-pages-have-independent-navigation-and-no-local-catalog-or-login-dependencies"] = try [WallpaperLibraryPage.wallhaven, .pixiv].allSatisfy {
             let result = try WallpaperLibraryQuery.project(page: $0, state: .init(), catalog: onlineImages, relationships: relations)
             let dependencies = try WallpaperLibraryQuery.requiredProviders(page: $0, state: .init(), relationships: relations)

@@ -19,6 +19,9 @@ import Combine
     private var downloadSubscription: AnyCancellable?
     private let downloads: DownloadTasksController
     private lazy var downloadPopover = downloads.makePopoverController()
+    private let filterPopover: NSPopover = { let value = NSPopover(); value.behavior = .transient; return value }()
+    private lazy var filterScrollDismissal = ToolbarPopoverScrollDismissal(popover: filterPopover)
+    private var filterPage: WallpaperLibraryPage?
     private var browserObserver: NSObjectProtocol?
     private var layoutObservers: [NSObjectProtocol] = []
     private let titleLabel = NSTextField(labelWithString: "")
@@ -155,7 +158,7 @@ import Combine
                 + grouped([[.select], [.remove, .favorite, .more], [.filter, .sort], [.zoom], [.search]])
         case .recent: groups = [[.select], [.remove, .favorite, .more], [.filter], [.zoom], [.search]]
         case .favorites: groups = [[.select, .addToPlaylist], [.remove, .more], [.filter, .sort], [.zoom], [.search]]
-        case .playlist: groups = [[.select, .addToPlaylist], [.remove, .favorite, .more], [.filter, .sort], [.zoom], [.search]]
+        case .playlist: groups = [[.select], [.remove, .favorite, .more], [.filter, .sort], [.zoom], [.search]]
         case .playlists: groups = [[.zoom], [.search]]
         default: groups = []
         }
@@ -170,6 +173,10 @@ import Combine
     }
 
     func refresh() {
+        if filterPage != nil, filterPage != workspace.presentation.page || !permitsInput {
+            filterPopover.performClose(nil); filterPage = nil
+        }
+        if filterPopover.isShown { (filterPopover.contentViewController as? WallpaperFilterPanelController)?.synchronize() }
         imageTools.refresh()
         let state = workspace.presentation.selectionState
         let requested = identifiers
@@ -197,7 +204,7 @@ import Combine
         for (action, item) in items {
             item.isEnabled = enabled(action, selection: selection, favoriteEnabled: favorite.canExecute)
             (item.view as? NSControl)?.isEnabled = item.isEnabled
-            if action != .title, action == .back || item.action == #selector(invoke(_:)) {
+            if action != .title, action == .back || action == .filter || item.action == #selector(invoke(_:)) {
                 item.menuFormRepresentation = actionMenuRepresentation(action, title: action == .favorite ? favorite.title : label(action),
                     symbol: action == .favorite ? (favorite.isRemoving ? "heart.fill" : "heart") : symbol(action),
                     enabled: item.isEnabled, selection: selection)
@@ -296,7 +303,14 @@ import Combine
             searchField.widthAnchor.constraint(equalToConstant: WallpaperLibraryControlStyle.toolbarSearchWidth).isActive = true
             search.preferredWidthForSearchField = WallpaperLibraryControlStyle.toolbarSearchWidth
             item = search
-        } else if [.more, .filter, .sort, .addToPlaylist].contains(action) {
+        } else if action == .filter {
+            item = NSToolbarItem(itemIdentifier: id)
+            let button = NSButton(title: "", target: self, action: #selector(toggleFilter))
+            WallpaperLibraryControlStyle.capsule(button)
+            button.image = NSImage(systemSymbolName: symbol(action), accessibilityDescription: "筛选")
+            button.imagePosition = .imageOnly
+            item.view = button
+        } else if [.more, .sort, .addToPlaylist].contains(action) {
             let menuItem = NSMenuToolbarItem(itemIdentifier: id)
             let menu = NSMenu()
             menu.delegate = self
@@ -371,6 +385,23 @@ import Combine
         perform(action)
     }
 
+    @objc private func toggleFilter() {
+        guard enabled(.filter), let item = items[.filter], let anchor = window?.contentView else { return }
+        if workspace.presentation.page == .downloads {
+            let view = item.view?.window == nil ? nil : item.view
+            let point = view.map { NSPoint(x: $0.bounds.minX, y: $0.isFlipped ? $0.bounds.maxY : $0.bounds.minY) } ?? NSEvent.mouseLocation
+            makeDownloadFilterMenu().popUp(positioning: nil, at: point, in: view)
+            return
+        }
+        if filterPopover.isShown { filterPopover.performClose(nil); return }
+        filterPage = workspace.presentation.page
+        let panel = makeFilterPanel()
+        filterPopover.contentViewController = panel; panel.loadViewIfNeeded()
+        filterPopover.contentSize = panel.preferredContentSize
+        filterScrollDismissal.watch(relativeTo: anchor)
+        filterPopover.show(relativeTo: item)
+    }
+
     private func actionMenuRepresentation(_ action: Action, title: String, symbol: String,
                                           enabled: Bool, selection: [WallpaperContentItem]) -> NSMenuItem {
         let page = workspace.presentation.page, epoch = workspace.relationships.resetEpoch
@@ -399,6 +430,7 @@ import Combine
         case .select: commands.toggleSelectionMode()
         case .remove: commands.remove()
         case .favorite: commands.toggleFavorite()
+        case .filter: toggleFilter()
         case .downloadTasks:
             if let item = items[.downloadTasks], let window { downloadPopover.toggle(relativeTo: item, in: window) }
         case .zoomOut, .zoomIn: performZoom(delta: action == .zoomIn ? 1 : -1)
@@ -444,7 +476,6 @@ import Combine
         switch action {
         case .more: source = makeMoreMenu()
         case .sort: source = makeSortMenu()
-        case .filter: source = makeFilterMenu()
         case .addToPlaylist: source = commands.makePlaylistMenu() ?? NSMenu()
         default: return
         }
@@ -496,24 +527,32 @@ import Combine
 
     private func refreshQueryDescriptions() {
         let page = workspace.presentation.page, query = workspace.presentation.queryState
-        var filters: [String] = []
-        if let provider = query.provider { filters.append(provider.libraryDisplayName) }
-        if let kind = query.kind {
-            filters.append([WallpaperMediaKind.image: "图片", .video: "视频", .web: "Web", .scene: "Scene", .unknown: "未知类型"][kind] ?? kind.rawValue)
-        }
-        if query.status != .all {
-            filters.append([WallpaperLibraryStatusFilter.playable: "可播放", .unavailable: "不可用",
-                .transferring: "正在下载或更新", .failed: "下载或更新失败"][query.status] ?? query.status.rawValue)
-        }
-        if page == .downloads, !query.showsAdultContent { filters.append("隐藏成人内容") }
-        let filterDescription = filters.isEmpty ? "筛选：全部内容" : "筛选：" + filters.joined(separator: "、")
-        items[.filter]?.toolTip = filterDescription
+        let description = "筛选：" + filterSummary
+        items[.filter]?.toolTip = description
         items[.filter]?.image = NSImage(systemSymbolName: WallpaperLibraryControlStyle.filterSymbol,
-            accessibilityDescription: filterDescription)
+            accessibilityDescription: description)
+        if let button = items[.filter]?.view as? NSButton {
+            button.toolTip = description; button.setAccessibilityLabel(description)
+        }
         let sort = query.sort ?? WallpaperLibraryQuery.defaultSort(page)
         let name = sortOptions(page: page, query: query).first { $0.0 == sort }?.1 ?? "默认顺序"
         let ascending = query.sort == nil && (page == .downloads || page == .favorites) ? false : query.ascending
         items[.sort]?.toolTip = "排序：\(name)" + (sort == .sourceOrder ? "" : (ascending ? "，升序" : "，降序"))
+    }
+
+    private var filterSummary: String {
+        let page = workspace.presentation.page, query = workspace.presentation.queryState
+        var filters: [String] = []
+        for provider in WallpaperProvider.allCases where query.providers.contains(provider) { filters.append(provider.libraryDisplayName) }
+        for kind in [WallpaperMediaKind.image, .video, .web, .scene, .unknown] where query.kinds.contains(kind) {
+            filters.append([WallpaperMediaKind.image: "图片", .video: "视频", .web: "Web", .scene: "Scene", .unknown: "未知类型"][kind] ?? kind.rawValue)
+        }
+        for status in [WallpaperLibraryStatusFilter.playable, .unavailable, .transferring, .failed] where query.statuses.contains(status) {
+            filters.append([WallpaperLibraryStatusFilter.playable: "可播放", .unavailable: "不可用",
+                .transferring: "正在下载或更新", .failed: "下载或更新失败"][status] ?? status.rawValue)
+        }
+        if page == .downloads, !query.showsAdultContent { filters.append("隐藏成人内容") }
+        return filters.isEmpty ? "全部内容" : filters.joined(separator: "、")
     }
 
     private func makeSortMenu() -> NSMenu {
@@ -547,45 +586,93 @@ import Combine
         return menu
     }
 
-    private func makeFilterMenu() -> NSMenu {
-        let page = workspace.presentation.page, query = workspace.presentation.queryState
-        let epoch = workspace.relationships.resetEpoch
-        let menu = NSMenu()
-        func add(_ title: String, selected: Bool, mutate: @escaping (inout WallpaperLibraryQueryState) -> Void) {
-            let item = ActionMenuItem(title: title, symbol: "") { [weak workspace] in
-                guard let workspace, workspace.presentation.page == page, workspace.relationships.resetEpoch == epoch else { return }
-                var query = workspace.presentation.queryState; mutate(&query); _ = workspace.presentation.setQueryState(query)
-            }
-            item.state = selected ? .on : .off
-            menu.addItem(item)
+    private func editFilter(page: WallpaperLibraryPage, epoch: UUID, _ mutate: (inout WallpaperLibraryQueryState) -> Void) {
+        guard permitsInput, workspace.presentation.page == page, workspace.relationships.resetEpoch == epoch else { return }
+        var query = workspace.presentation.queryState
+        mutate(&query); _ = workspace.presentation.setQueryState(query)
+    }
+
+    private func filterSections(page: WallpaperLibraryPage, epoch: UUID) -> [WallpaperFilterPanelController.Section] {
+        let workspace = workspace
+        func option(_ title: String, selected: @escaping (WallpaperLibraryQueryState) -> Bool,
+                    mutate: @escaping (inout WallpaperLibraryQueryState) -> Void) -> WallpaperFilterPanelController.Option {
+            .init(title: title, isSelected: { [weak workspace] in
+                workspace.map { selected($0.presentation.queryState) } ?? false
+            }, toggle: { [weak self] in self?.editFilter(page: page, epoch: epoch, mutate) })
         }
-        add("全部来源", selected: query.provider == nil) { $0.provider = nil }
+        var sources = [option("全部来源", selected: { $0.providers.isEmpty }) { $0.providers.removeAll() }]
         let providers: [WallpaperProvider] = page == .downloads ? [.steamWorkshop, .wallhaven, .pixiv, .pixabay] : WallpaperProvider.allCases
-        for provider in providers { add(provider.libraryDisplayName, selected: query.provider == provider) { $0.provider = provider } }
-        menu.addItem(.separator())
+        for provider in providers {
+            sources.append(option(provider.libraryDisplayName, selected: { $0.providers.contains(provider) }) { query in
+                if page == .downloads { query.providers.formSymmetricDifference([provider]) }
+                else { query.providers = [provider] }
+            })
+        }
         let counts = workspace.presentation.mediaKindCounts
-        add("全部类型（\(counts.values.reduce(0, +))）", selected: query.kind == nil) { $0.kind = nil }
+        var kinds = [option("全部类型（\(counts.values.reduce(0, +))）", selected: { $0.kinds.isEmpty }) { $0.kinds.removeAll() }]
         for (kind, title) in [(WallpaperMediaKind.image, "图片"), (.video, "视频"), (.web, "Web"), (.scene, "Scene")] {
-            add("\(title)（\(counts[kind, default: 0])）", selected: query.kind == kind) { $0.kind = kind }
+            kinds.append(option("\(title)（\(counts[kind, default: 0])）", selected: { $0.kinds.contains(kind) }) { query in
+                if page == .downloads { query.kinds.formSymmetricDifference([kind]) }
+                else { query.kinds = [kind] }
+            })
         }
-        menu.addItem(.separator())
-        add("全部状态", selected: query.status == .all) { $0.status = .all }
-        var statuses = [(WallpaperLibraryStatusFilter.playable, "可播放"), (.unavailable, "不可用")]
-        if page != .downloads { statuses += [(.transferring, "正在下载或更新"), (.failed, "下载或更新失败")] }
-        for (status, title) in statuses {
-            add(title, selected: query.status == status) { $0.status = status }
+        var statuses = [option("全部状态", selected: { $0.statuses.isEmpty }) { $0.statuses.removeAll() }]
+        var choices = [(WallpaperLibraryStatusFilter.playable, "可播放"), (.unavailable, "不可用")]
+        if page != .downloads { choices += [(.transferring, "正在下载或更新"), (.failed, "下载或更新失败")] }
+        for (status, title) in choices {
+            statuses.append(option(title, selected: { $0.statuses.contains(status) }) { query in
+                if page == .downloads { query.statuses.formSymmetricDifference([status]) }
+                else { query.statuses = [status] }
+            })
         }
+        var sections: [WallpaperFilterPanelController.Section] = [
+            .init(title: "来源", columns: 2, options: sources), .init(title: "类型", columns: 2, options: kinds),
+            .init(title: "状态", columns: 2, options: statuses)
+        ]
         if page == .downloads {
-            menu.addItem(.separator())
-            let adult = ActionMenuItem(title: "显示成人内容", symbol: "") { [weak workspace] in
-                guard let workspace, workspace.presentation.page == page, workspace.relationships.resetEpoch == epoch else { return }
-                var current = workspace.presentation.queryState
-                current.showsAdultContent = !query.showsAdultContent
-                _ = workspace.presentation.setQueryState(current)
-            }
-            adult.state = query.showsAdultContent ? .on : .off
-            menu.addItem(adult)
+            sections.append(.init(title: "内容", columns: 1, options: [
+                option("显示成人内容", selected: { $0.showsAdultContent }) { $0.showsAdultContent.toggle() }
+            ]))
         }
-        return menu
+        return sections
+    }
+
+    private var hasFilters: Bool {
+        let query = workspace.presentation.queryState
+        return !query.providers.isEmpty || !query.kinds.isEmpty || !query.statuses.isEmpty
+            || (workspace.presentation.page == .downloads && !query.showsAdultContent)
+    }
+
+    private func clearFilters(page: WallpaperLibraryPage, epoch: UUID) {
+        editFilter(page: page, epoch: epoch) { query in
+            query.providers.removeAll(); query.kinds.removeAll(); query.statuses.removeAll()
+            if page == .downloads { query.showsAdultContent = true }
+        }
+    }
+
+    private func makeDownloadFilterMenu() -> NSMenu {
+        let epoch = workspace.relationships.resetEpoch
+        var rows: [ToolbarMenu.Row] = []
+        for section in filterSections(page: .downloads, epoch: epoch) {
+            if !rows.isEmpty { rows.append(.separator()) }
+            rows += section.options.map { option in
+                .init(title: option.title, kind: .action, isChecked: option.isSelected(), handler: option.toggle)
+            }
+        }
+        rows.append(.separator())
+        rows.append(.init(title: "清空筛选", kind: .action, isEnabled: hasFilters, handler: { [weak self] in
+            self?.clearFilters(page: .downloads, epoch: epoch)
+        }))
+        return ToolbarMenu.makeMenu(rows: rows)
+    }
+
+    private func makeFilterPanel() -> WallpaperFilterPanelController {
+        let page = workspace.presentation.page, epoch = workspace.relationships.resetEpoch
+        return WallpaperFilterPanelController(sections: { [weak self] in
+            self?.filterSections(page: page, epoch: epoch) ?? []
+        }, summary: { [weak self] in self?.filterSummary ?? "全部内容" },
+            canClear: { [weak self] in self?.hasFilters == true }, clear: { [weak self] in
+                self?.clearFilters(page: page, epoch: epoch)
+            })
     }
 }

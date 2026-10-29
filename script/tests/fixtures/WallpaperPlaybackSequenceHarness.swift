@@ -300,7 +300,9 @@ typealias Sequence = WallpaperPlaybackSequence
 
         var filteredQuery = WallpaperLibraryQueryState()
         filteredQuery.search = "blue"
-        filteredQuery.kind = .video
+        filteredQuery.providers = [.videoLibrary, .steamWorkshop]
+        filteredQuery.kinds = [.video, .scene]
+        filteredQuery.statuses = [.playable, .unavailable]
         filteredQuery.sort = .name
         filteredQuery.preferredColumns = 3
         filteredQuery.scrollAnchor = a.reference
@@ -310,7 +312,9 @@ typealias Sequence = WallpaperPlaybackSequence
         var filteredSession = start(from: filteredSnapshot)
         let filteredOriginal = filteredSession.committed!
         checks["playbackSnapshotKeepsQueryWithoutViewOnlyState"] = filteredOriginal.snapshot.sourceQuery?.search == "blue"
-            && filteredOriginal.snapshot.sourceQuery?.kind == .video && filteredOriginal.snapshot.sourceQuery?.sort == .name
+            && filteredOriginal.snapshot.sourceQuery?.providers == [.videoLibrary, .steamWorkshop]
+            && filteredOriginal.snapshot.sourceQuery?.kinds == [.video, .scene]
+            && filteredOriginal.snapshot.sourceQuery?.statuses == [.playable, .unavailable] && filteredOriginal.snapshot.sourceQuery?.sort == .name
             && filteredOriginal.snapshot.sourceQuery?.preferredColumns == 5 && filteredOriginal.snapshot.sourceQuery?.scrollAnchor == nil
             && filteredOriginal.snapshot.sourceQuery?.scrollOffset == nil && filteredOriginal.snapshot.sourceQuery?.scrollAtTop == nil
         filteredSession.updateSource(all, reason: .explicitMembers)

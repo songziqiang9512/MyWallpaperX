@@ -49,13 +49,13 @@ ready 必须校验版本与命令所需 capability。下载要求 `download-stag
 
 ## 4. 持久任务、staging 与取消
 
-JobStore 只写 `jobs-v5.json`。当前文件缺席时按 v4→v3→jobs.json 选择最新存在的前代，只读导入、保留原字节；当前或选中前代损坏、超前 schema、symlink/特殊项等不安全输入使该 store 实例停止写入，不能隔离后当空库继续，也不能回退更旧意图。缺完整 birth identity 的旧 partial 不获得恢复/清理权，已持久化的 prepared commit 仍沿原对账处理。历史按账号隔离，现有限额为 100 条且最长 30 天；清历史不删内容或活动任务。
+JobStore 只写 `jobs-v5.json`。当前文件缺席时按 v4→v3→jobs.json 选择最新存在的前代，只读导入、保留原字节；当前或选中前代损坏、超前 schema、symlink/特殊项等不安全输入使该 store 实例停止写入，不能隔离后当空库继续，也不能回退更旧意图。缺完整 birth identity 的旧 partial 不获得恢复/清理权，已持久化的 prepared commit 仍沿原对账处理。历史按账号隔离，现有限额为 100 条且最长 30 天；清历史不删已下载内容或活动任务。任务面板失败行仅保留一个清除入口：当前账号先结算原失败意图、再清该任务历史，写入失败保留记录；其他账号仅清本地历史。
 
 Swift JobStore 决定排队、去重、attempt 与取消，helper 仅执行活动网络作业。当前双方最多 2 个活动下载，helper 每作业最多 4 个 worker、全作业共享 4 个物理 chunk 槽；槽位包含网络、解密和写入，等原作业物理 terminal 后才释放。活动取消先停止新工作并排空，worker 永久失败只取消同作业 sibling，以原错误收口；helper EOF/崩溃不产生成功。账号换代撤旧授权，但不能丢弃等待旧物理排空的 waiter。
 
 App 分配私有 staging 根，helper 只在其受控直接子目录创建/恢复租约。顺序为 `allocated → App 校验并原子持久化 → exact acknowledge → 创建/写内容`；path、manifest、device、inode、birth seconds/nanoseconds 及账号/job identity 必须一致。错误、迟到、重复 ack 或 30 秒超时不解除写门。显式 retry 重新核对持久 lease；失配先持久清空 recovery 再 fresh start，不对同名 replacement 操作。
 
-manifest 在写盘前整体校验路径、大小/文件数/chunk 预算、覆盖与 checksum；拒绝绝对路径、逃逸链接、多硬链接、大小写/Unicode 冲突及非普通文件。helper 当前每 job 上限 8 GiB/200,000 文件，并保有界 chunk、路径、重试及磁盘余量；App 复制另由现有串行 copy-capacity/reservation owner 计入旧内容、staging、在途发布及其他作业，不以独立 free-space 快照超卖。写入与清理沿目录描述符、nofollow、完整创建身份复核；只清原 lease，不枚举删除未知兄弟目录。pathname unlink 不升级为对同用户任意时序替换的绝对原子保证。
+manifest 在写盘前整体校验路径、大小/文件数/chunk 预算、覆盖与 checksum；拒绝绝对路径、逃逸链接、多硬链接、大小写/Unicode 冲突及非普通文件。helper 当前每 job 上限 8 GiB/200,000 文件，并保有界 chunk、路径、重试及磁盘余量；App 复制另由现有串行 copy-capacity/reservation owner 计入旧内容、staging、在途发布及其他作业，不以独立 free-space 快照超卖。准入按真实剩余空间及在途预约，不设库/staging累计容量上限，也不为开始下载或复制反复遍历既有内容。写入与清理沿目录描述符、nofollow、完整创建身份复核；只清原 lease，不枚举删除未知兄弟目录。pathname unlink 不升级为对同用户任意时序替换的绝对原子保证。
 
 CDN 候选与 token 只属于当前账号 lease 的单个作业。manifest/chunk 使用原有有界循环、节点切换和同节点 403 鉴权回放，鉴权重试不冒充内容节点切换，刷新不重置暂态预算；永久拒绝、完整性失败不盲重试。typed 错误保阶段/HTTP 类别与有限尝试上下文，不泄露 token、完整 URL 或原始异常。具体实现与预算见 [WorkshopDownloader](../../SteamService/WorkshopDownloader.cs)、[WorkshopCdnTransfer](../../SteamService/WorkshopCdnTransfer.cs)、[WorkshopStagingLease](../../SteamService/WorkshopStagingLease.cs)。
 

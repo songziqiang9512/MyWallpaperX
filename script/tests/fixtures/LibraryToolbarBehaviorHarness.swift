@@ -506,12 +506,12 @@ final class DimmingSurface: NSView, ToolbarGridScrollDismissalSurface {}
         }
 
         var rowEvents: [Int] = []
-        let nativeRows: [ToolbarMenuPopoverPresenter.Row] = [
+        let nativeRows: [ToolbarMenu.Row] = [
             .header("原选项"), .init(title: "不可用", kind: .action, isEnabled: false, handler: { rowEvents.append(0) }),
-            .init(title: "当前选项", kind: .check, isChecked: true, handler: { rowEvents.append(1) }),
+            .init(title: "当前选项", kind: .action, isChecked: true, handler: { rowEvents.append(1) }),
             .separator(), .init(title: "状态", kind: .info),
             .init(title: "执行", kind: .action, handler: { rowEvents.append(2) })]
-        let nativeMenu = ToolbarMenuPopoverPresenter.menuRepresentation(title: "原入口", rows: nativeRows).submenu!
+        let nativeMenu = ToolbarMenu.menuRepresentation(title: "原入口", rows: nativeRows).submenu!
         checks["native-overflow-preserves-row-order-checkmark-separator-and-info-state"] = nativeMenu.items.map(\.title) == ["原选项", "不可用", "当前选项", "", "状态", "执行"]
             && nativeMenu.items[2].state == .on && nativeMenu.items[3].isSeparatorItem
             && !nativeMenu.items[0].isEnabled && !nativeMenu.items[1].isEnabled && !nativeMenu.items[4].isEnabled

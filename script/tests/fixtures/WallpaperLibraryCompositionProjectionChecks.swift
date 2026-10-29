@@ -153,9 +153,9 @@
     checks["card-data-key-retains-all-owner-revisions-epoch-and-playback-identities"] = ownerChanges.allSatisfy { $0 }
     var queryVariants = [WallpaperLibraryQueryState]()
     var query = state.query; query.search = "Changed"; queryVariants.append(query)
-    query = state.query; query.provider = .pixabay; queryVariants.append(query)
-    query = state.query; query.kind = .image; queryVariants.append(query)
-    query = state.query; query.status = .unavailable; queryVariants.append(query)
+    query = state.query; query.providers = [.pixabay, .steamWorkshop]; queryVariants.append(query)
+    query = state.query; query.kinds = [.image, .video]; queryVariants.append(query)
+    query = state.query; query.statuses = [.unavailable, .failed]; queryVariants.append(query)
     query = state.query; query.sort = .name; queryVariants.append(query)
     query = state.query; query.ascending = false; queryVariants.append(query)
     query = state.query; query.legacyTimeOrder = [b, a]; queryVariants.append(query)

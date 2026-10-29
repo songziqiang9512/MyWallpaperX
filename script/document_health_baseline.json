@@ -18,7 +18,7 @@
     },
     "docs/architecture/steam-workshop-acquisition-contract.md": {
       "lines": 80,
-      "bytes": 18078
+      "bytes": 18401
     },
     "docs/architecture/system-audio-spectrum-design.md": {
       "lines": 40,
@@ -325,8 +325,8 @@
       "bytes": 8377
     },
     "docs/development/main-window-playlists-redesign.md": {
-      "lines": 592,
-      "bytes": 109061
+      "lines": 594,
+      "bytes": 110359
     },
     "docs/development/status-bar-panel-redesign.md": {
       "lines": 119,
@@ -341,8 +341,8 @@
       "bytes": 23241
     },
     "docs/development/ui-quality-audit.md": {
-      "lines": 141,
-      "bytes": 26808
+      "lines": 181,
+      "bytes": 38102
     },
     "docs/development/lock-screen-screensaver-design.md": {
       "lines": 84,
@@ -1417,15 +1417,6 @@
     },
     {
       "section": "bodies",
-      "path": "docs/architecture/steam-workshop-acquisition-contract.md",
-      "before": "087fe59a097cdf3d1689232845864c712257509da6ef3be1b810bbdadcf9c4e0",
-      "after": "86790d0f07f7bd242c496568a31db82bf9e08c5cfa125c792bbbd063c81d3fd6",
-      "owner": "UI21 UI correctness crossreview",
-      "reason": "复用原审查页登记本轮已证交互/调度断点、最小修复和验收边界；原合同同步真实选择、可见需求和缓存清理职责，历史收据及其他预算不变。",
-      "decision": "docs/development/ui-quality-audit.md#ui21-scope"
-    },
-    {
-      "section": "bodies",
       "path": "docs/development/wallpaper-startup-optimization-plan.md",
       "before": "85095be2b1e4271568fa2a4b5c93c1760f595f03ba899b5cf774a6c643023c43",
       "after": "74234e98afe7498fb5daf1f36ac2d78acc339464f950703b8c019892f982b90b",
@@ -1705,24 +1696,6 @@
     },
     {
       "section": "bodies",
-      "path": "docs/development/ui-quality-audit.md",
-      "before": "2c188a70ae3ca836e287520c62ce60db31c88fd92fb95e541de173fb25ce9957",
-      "after": "e00ed36d30540385dcc4e86f74d4cc22ae6812ed658cf2eb59ce904071cb976e",
-      "owner": "UI23",
-      "reason": "落实用户九项UI修复的现役规则、调用边界和逐卡验证状态；替换旧选择/最近移除/进程范围规则，保留前轮证据。",
-      "decision": "docs/development/ui-quality-audit.md#ui23-scope"
-    },
-    {
-      "section": "bodies",
-      "path": "docs/development/main-window-playlists-redesign.md",
-      "before": "b87612d74b924862f4ac5a49bce42ef542a45363fabfeea2818e804a2059a9ac",
-      "after": "e628f9df840b1c5bfb34fcc13f338f57766e6cd44b8ac5e2b05ad56623893fdc",
-      "owner": "UI23",
-      "reason": "落实用户九项UI修复的现役规则、调用边界和逐卡验证状态；替换旧选择/最近移除/进程范围规则，保留前轮证据。",
-      "decision": "docs/development/ui-quality-audit.md#ui23-scope"
-    },
-    {
-      "section": "bodies",
       "path": "docs/development/status-bar-panel-redesign.md",
       "before": "bdeef0b46815519d21eea3412f3f552be42b102306c4a27704a4509ed8da266f",
       "after": "9a94d92cd91c48ab6133d6dab3baf15fa36c845bf3b992b03efb46ec683256ca",
@@ -1864,6 +1837,33 @@
       "owner": "Scene shader interface and typed sampling",
       "reason": "Document dead vertex-input projection and complete explicit-LOD sample conservation through existing owners, with bounded native output and independent rendering; retain unresolved utility source and visual limits.",
       "decision": "docs/scene/history/open-breakpoint-reconciliation-2026-10-23.md#dead-attribute-lod-20261029"
+    },
+    {
+      "section": "bodies",
+      "path": "docs/architecture/steam-workshop-acquisition-contract.md",
+      "before": "86790d0f07f7bd242c496568a31db82bf9e08c5cfa125c792bbbd063c81d3fd6",
+      "after": "5a03f96bc0d9798d46a203f43265f84875a6f1d9e4296c904a1e6f7428f2203d",
+      "owner": "UI24",
+      "reason": "记录启动日志有界修正与缓存重建，退役下载固定总量/全库扫描，明确单一失败清除动作及本轮红绿、构建和未验边界；保其他专题记录。",
+      "decision": "docs/development/ui-quality-audit.md#ui24-startup-log"
+    },
+    {
+      "section": "bodies",
+      "path": "docs/development/ui-quality-audit.md",
+      "before": "e00ed36d30540385dcc4e86f74d4cc22ae6812ed658cf2eb59ce904071cb976e",
+      "after": "d347497aa72bbd699104316309546c49915f0b97bef89944c62791166fd3fee1",
+      "owner": "UI24/UI25",
+      "reason": "同步原生纵向菜单、下载三组多选的唯一集合查询与旧数据解码、清空及播放恢复，记录相关反例/Debug与后续提交合入授权，保留其他专题事实。",
+      "decision": "docs/development/ui-quality-audit.md#ui25-toolbar-menus"
+    },
+    {
+      "section": "bodies",
+      "path": "docs/development/main-window-playlists-redesign.md",
+      "before": "e628f9df840b1c5bfb34fcc13f338f57766e6cd44b8ac5e2b05ad56623893fdc",
+      "after": "a5b4b742f9d0538fb526be160aa88e0515408e790f293464571a55601f4255ce",
+      "owner": "UI24/UI25",
+      "reason": "同步原生纵向菜单、下载三组多选的唯一集合查询与旧数据解码、清空及播放恢复，记录相关反例/Debug与后续提交合入授权，保留其他专题事实。",
+      "decision": "docs/development/ui-quality-audit.md#ui25-toolbar-menus"
     }
   ]
 }

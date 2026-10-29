@@ -139,7 +139,7 @@ import Foundation
         }
         let entries = model.directoryEntries
         let validDirectoryQuery = model.queryState
-        checks["directoryDoesNotSilentlyIgnoreUnsupportedMediaFilter"] = !model.setQueryState(.init(kind: .scene)) && model.directoryEntries == entries && model.queryState == validDirectoryQuery
+        checks["directoryDoesNotSilentlyIgnoreUnsupportedMediaFilter"] = !model.setQueryState(.init(kinds: [.scene])) && model.directoryEntries == entries && model.queryState == validDirectoryQuery
         model.setQueryState(.init(search: "alpha"))
         checks["directorySearchFiltersOnlyDirectoryNotMembers"] = model.directoryEntries.map(\.id) == [second] && controller.snapshot == relations
         model.switchPage(.playlist(first))
@@ -216,7 +216,9 @@ import Foundation
             let downloadsPage = try JSONSerialization.jsonObject(with: JSONEncoder().encode(WallpaperLibraryPage.downloads))
             let favoritesPage = try JSONSerialization.jsonObject(with: JSONEncoder().encode(WallpaperLibraryPage.favorites))
             var oldQuery = try JSONSerialization.jsonObject(with: JSONEncoder().encode(WallpaperLibraryQueryState(
-                search: "retained text", status: retired, preferredColumns: 4))) as! [String: Any]
+                search: "retained text", preferredColumns: 4))) as! [String: Any]
+            for key in ["providers", "kinds", "statuses"] { oldQuery.removeValue(forKey: key) }
+            oldQuery["status"] = retired.rawValue
             oldQuery.removeValue(forKey: "showsAdultContent")
             let oldState: [String: Any] = ["version": 2, "page": downloadsPage,
                 "queries": [["page": downloadsPage, "query": oldQuery], ["page": favoritesPage, "query": oldQuery]]]
@@ -224,17 +226,37 @@ import Foundation
             let migrated = WallpaperLibraryPresentation(collections: controller, defaults: defaults)
             migrated.update(catalog: catalog, relationships: controller.snapshot)
             checks["old-downloads-\(retired.rawValue)-migrates-to-all-with-query-and-geometry-intact"] = migrated.page == .downloads
-                && migrated.queryState.status == .all && migrated.queryState.search == "retained text"
+                && migrated.queryState.statuses.isEmpty && migrated.queryState.search == "retained text"
                 && migrated.queryState.preferredColumns == 4 && migrated.queryState.showsAdultContent && migrated.lastError == nil
             migrated.switchPage(.favorites)
-            checks["retired-task-filter-migration-does-not-rewrite-another-page-\(retired.rawValue)"] = migrated.queryState.status == retired
+            checks["retired-task-filter-migration-does-not-rewrite-another-page-\(retired.rawValue)"] = migrated.queryState.statuses == [retired]
             migrated.switchPage(.downloads)
             migrated.setQueryState(.init(showsAdultContent: false))
             let reopened = WallpaperLibraryPresentation(collections: controller, defaults: defaults)
             reopened.update(catalog: catalog, relationships: controller.snapshot)
             checks["adult-filter-persists-through-the-original-page-settings-owner-\(retired.rawValue)"] = reopened.page == .downloads
-                && !reopened.queryState.showsAdultContent && reopened.queryState.status == .all
+                && !reopened.queryState.showsAdultContent && reopened.queryState.statuses.isEmpty
         }
+        let mixedFilter = WallpaperLibraryQueryState(search: "mixed filters", providers: [.steamWorkshop, .pixabay], kinds: [.video, .scene],
+            statuses: [.playable, .transferring, .failed], sort: .name, preferredColumns: 4, scrollOffset: -7, scrollAtTop: false,
+            showsAdultContent: false)
+        let mixedDownloadsPage = try JSONSerialization.jsonObject(with: JSONEncoder().encode(WallpaperLibraryPage.downloads))
+        let mixedFavoritesPage = try JSONSerialization.jsonObject(with: JSONEncoder().encode(WallpaperLibraryPage.favorites))
+        let mixedQueryObject = try JSONSerialization.jsonObject(with: JSONEncoder().encode(mixedFilter))
+        let mixedState: [String: Any] = ["version": 2, "page": mixedDownloadsPage,
+            "queries": [["page": mixedDownloadsPage, "query": mixedQueryObject], ["page": mixedFavoritesPage, "query": mixedQueryObject]]]
+        defaults.set(try JSONSerialization.data(withJSONObject: mixedState), forKey: WallpaperLibraryPresentation.settingsKey)
+        let migratedMixed = WallpaperLibraryPresentation(collections: controller, defaults: defaults)
+        migratedMixed.update(catalog: catalog, relationships: controller.snapshot)
+        var expectedDownloads = mixedFilter; expectedDownloads.statuses = [.playable]
+        checks["downloads-removes-only-retired-statuses-and-preserves-composed-filters-and-geometry"] =
+            migratedMixed.queryState == expectedDownloads && migratedMixed.lastError == nil
+        migratedMixed.switchPage(.favorites)
+        checks["downloads-status-migration-never-truncates-another-pages-multiselect-filters"] = migratedMixed.queryState == mixedFilter
+        let reopenedMixed = WallpaperLibraryPresentation(collections: controller, defaults: defaults)
+        checks["multiselect-page-settings-retain-all-facets-and-per-page-migration-after-reopening"] =
+            reopenedMixed.page == .favorites && reopenedMixed.queryState == mixedFilter
+            && reopenedMixed.switchPage(.downloads) && reopenedMixed.queryState == expectedDownloads
         defaults.set(raw, forKey: WallpaperLibraryPresentation.settingsKey)
         var saved = try JSONSerialization.jsonObject(with: raw) as! [String: Any]
         checks["settingsPersistNoMediaOrRelationshipSnapshot"] = Set(saved.keys).isSubset(of: ["version", "page", "queries", "directoryScrollAnchor", "directoryScrollOffset", "directoryScrollAtTop"]) && saved["relationships"] == nil

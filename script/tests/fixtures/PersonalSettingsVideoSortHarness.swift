@@ -51,8 +51,8 @@ extension PersonalSettingsImportHarness {
         manager.initialIndexInternalPublication = false
         try WallpaperIndexStore.shared.saveWallpapers(manager.wallpapers)
         refresh()
-        let videoQuery = WallpaperLibraryQueryState(search: "Original", provider: .videoLibrary, kind: .video,
-            status: .all, sort: .fileSize, ascending: false, preferredColumns: 3, scrollAnchor: ref("A"), scrollOffset: -12.5, scrollAtTop: false)
+        let videoQuery = WallpaperLibraryQueryState(search: "Original", providers: [.videoLibrary, .steamWorkshop], kinds: [.video, .scene],
+            statuses: [.playable, .unavailable], sort: .fileSize, ascending: false, preferredColumns: 3, scrollAnchor: ref("A"), scrollOffset: -12.5, scrollAtTop: false)
         presentation.setQueryState(videoQuery)
         presentation.switchPage(.images)
         presentation.setQueryState(.init(search: "private image filter", preferredColumns: 6, scrollAnchor: ref("image-view"), scrollOffset: 18, scrollAtTop: true))
@@ -77,6 +77,7 @@ extension PersonalSettingsImportHarness {
             && json["playbackSource"] == nil && prefsJSON["search"] == nil && prefsJSON["zoomOffset"] == nil
             && prefsJSON["preferredColumns"] == nil && prefsJSON["scrollAnchor"] == nil && prefsJSON["scrollOffset"] == nil
             && prefsJSON["scrollAtTop"] == nil && prefsJSON["page"] == nil
+            && prefsJSON["providers"] == nil && prefsJSON["kinds"] == nil && prefsJSON["statuses"] == nil
 
         for version in 1...5 {
             var validModesSurvive = true
@@ -102,7 +103,8 @@ extension PersonalSettingsImportHarness {
         }
         presentation.switchPage(.videos)
         checks["SortPatchPreservesVideoSearchProviderKindDensityAndScroll"] = presentation.queryState.search == videoQuery.search
-            && presentation.queryState.provider == videoQuery.provider && presentation.queryState.kind == videoQuery.kind
+            && presentation.queryState.providers == videoQuery.providers && presentation.queryState.kinds == videoQuery.kinds
+            && presentation.queryState.statuses == videoQuery.statuses
             && presentation.queryState.preferredColumns == videoQuery.preferredColumns && presentation.queryState.scrollAnchor == videoQuery.scrollAnchor
             && presentation.queryState.scrollOffset == videoQuery.scrollOffset && presentation.queryState.scrollAtTop == videoQuery.scrollAtTop
         presentation.setQueryState(.init(sort: .name, ascending: false))

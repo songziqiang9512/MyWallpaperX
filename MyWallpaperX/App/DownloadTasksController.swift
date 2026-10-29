@@ -116,7 +116,6 @@ import Combine
             var actions: Set<DownloadTaskAction> = [.removeHistory]
             if summary.accountSteamID == steam.steamAuth.steamId, !activeReferences.contains(.init(provider: .steamWorkshop, sourceID: summary.workshopItemID)) {
                 if phase == .failed || phase == .cancelled || steamRecords[summary.workshopItemID]?.status != .ready { actions.insert(.retry) }
-                if steam.downloadJobStore.jobs.contains(where: { $0.id == summary.jobID && $0.state == .failed }) { actions.insert(.abandon) }
             }
             if steamRecords[summary.workshopItemID]?.status == .ready { actions.insert(.revealFile) }
             return .init(id: .init(reference: .init(provider: .steamWorkshop, sourceID: summary.workshopItemID),
@@ -151,6 +150,8 @@ import Combine
             let job = steam.downloadJobStore.jobs.first { "\($0.id)-\($0.attempt)" == row.id.attemptID }
             let terminal = steam.downloadJobStore.history.first { $0.id == row.id.attemptID }
             if action == .removeHistory, let terminal {
+                if let job, job.state == .failed, job.accountSteamId == steam.steamAuth.steamId,
+                   !steam.discardFailedDownload(jobID: job.id) { return }
                 steam.downloadJobStore.removeHistory(forJobID: terminal.jobID, accountSteamId: terminal.accountSteamId)
             } else if action == .revealFile {
                 if let record = steam.downloadRecord(for: reference.sourceID) { steam.revealItem(record) }
@@ -163,7 +164,6 @@ import Combine
                 case .pause: if job != nil { steam.pauseDownload(itemID: reference.sourceID) }
                 case .resume: if job != nil { steam.resumeDownload(itemID: reference.sourceID) }
                 case .promote: if job != nil { steam.promoteQueuedDownload(itemID: reference.sourceID) }
-                case .abandon: if let job { steam.discardFailedDownload(jobID: job.id) }
                 default: break
                 }
             }

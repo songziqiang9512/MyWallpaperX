@@ -13,10 +13,6 @@ final class SteamWorkshopToolbarController: NSObject, NSSearchFieldDelegate {
     var titleUpdateHandler: ((String) -> Void)?
     var makeZoomAction: ((Int) -> (() -> Void)?)?
 
-    /// 账号和浏览菜单共用的 popover 呈现器。
-    private(set) lazy var menuPopover = ToolbarMenuPopoverPresenter(
-        fallbackAnchorProvider: { [weak self] in self?.window?.contentView }
-    )
     /// 筛选面板（分面复选）的 popover 容器，配置一次复用。
     let filterPanelPopover: NSPopover = {
         let popover = NSPopover()
@@ -201,7 +197,6 @@ final class SteamWorkshopToolbarController: NSObject, NSSearchFieldDelegate {
         searchDebounceWorkItem?.cancel()
         searchDebounceWorkItem = nil
         guard enabled else {
-            menuPopover.close()
             filterPanelPopover.close()
             isSteamWorkshopMode = false
             return
@@ -214,8 +209,7 @@ final class SteamWorkshopToolbarController: NSObject, NSSearchFieldDelegate {
         zoomToolbarItem.menuFormRepresentation = zoomControl.menuRepresentation()
     }
 
-    /// 选择类控件统一为「当前值 + 下拉三角面板」按钮（与其他工具栏菜单
-    /// 同一箭头 popover 呈现），不再使用原生 NSPopUpButton 菜单。
+    /// 按钮展示当前值与下拉指示，菜单生命周期由 NSMenu 管理。
     private func makePullDownButton(title: String, action: Selector) -> NSButton {
         let button = NSButton(title: title, target: self, action: action)
         button.bezelStyle = .rounded

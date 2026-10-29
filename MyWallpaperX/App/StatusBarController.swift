@@ -64,7 +64,9 @@ final class StatusBarController: NSObject, NSPopoverDelegate {
     private func updateStatusBarIcon() {
         guard let button = statusItem?.button else { return }
         let usage = SystemMonitor.shared.stats.gpuUsage
-        let label = usage.map { String(format: "%d%%", Int(($0 * 100).rounded())) } ?? "—"
+        let hasUpdate = AppUpdateController.shared.availableUpdateVersion != nil
+        let metric = usage.map { String(format: "%d%%", Int(($0 * 100).rounded())) } ?? "—"
+        let label = hasUpdate ? "↑ " + metric : metric
         let appearance = button.effectiveAppearance.name
         guard displayedIconLabel != label || displayedIconAppearance != appearance else { return }
         let attributes: [NSAttributedString.Key: Any] = [
@@ -80,6 +82,7 @@ final class StatusBarController: NSObject, NSPopoverDelegate {
         image.isTemplate = true
         button.image = image
         button.imagePosition = .imageOnly
+        button.toolTip = hasUpdate ? "MyWallpaperX · 有可用更新，请从应用菜单检查更新" : "MyWallpaperX · 壁纸控制"
         displayedIconLabel = label
         displayedIconAppearance = appearance
     }
@@ -93,7 +96,6 @@ final class StatusBarController: NSObject, NSPopoverDelegate {
         refreshApplicationStats()
         refreshPanel()
         popover.show(relativeTo: button.bounds, of: button, preferredEdge: .minY)
-        popover.contentViewController?.view.window?.makeKey()
     }
 
     private func startObserving() {

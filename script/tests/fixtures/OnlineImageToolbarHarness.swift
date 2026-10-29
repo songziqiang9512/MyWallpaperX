@@ -1,8 +1,7 @@
 import AppKit
-import CoreGraphics
 
 // Browser requests and product composition are recording leaves. Query values,
-// toolbar callbacks, native overflow, presentation permission and popover are real.
+// toolbar callbacks, native menus, filter popover and presentation permission are real.
 @MainActor final class OnlineImageBrowserSession {
     enum Query: Hashable {
         case wallhaven(WallhavenQuery), pixiv(PixivQuery)
@@ -68,6 +67,24 @@ import CoreGraphics
 
 private enum ToolbarFixtureError: Error { case missing(String) }
 
+@MainActor private func diagnostic(_ text: String) {
+    FileHandle.standardError.write(Data(("Online toolbar: " + text + "\n").utf8))
+}
+
+@MainActor private final class ImageToolbarFixtureDelegate: NSObject, NSToolbarDelegate {
+    let items: [NSToolbarItem.Identifier: NSToolbarItem]
+    init(items: [NSToolbarItem.Identifier: NSToolbarItem]) { self.items = items; super.init() }
+    func toolbarAllowedItemIdentifiers(_ toolbar: NSToolbar) -> [NSToolbarItem.Identifier] {
+        OnlineImageToolbarController.Item.allCases.map(\.id)
+    }
+    func toolbarDefaultItemIdentifiers(_ toolbar: NSToolbar) -> [NSToolbarItem.Identifier] {
+        // This fixture inserts its existing item instances explicitly below.
+        []
+    }
+    func toolbar(_ toolbar: NSToolbar, itemForItemIdentifier id: NSToolbarItem.Identifier,
+                 willBeInsertedIntoToolbar flag: Bool) -> NSToolbarItem? { items[id] }
+}
+
 /// One AppKit lifecycle event, observed before the single native action.
 @MainActor private final class PopoverReceipt {
     private var observer: NSObjectProtocol?
@@ -83,6 +100,7 @@ private enum ToolbarFixtureError: Error { case missing(String) }
             }
             deadline = Task { @MainActor [weak self] in
                 do { try await Task.sleep(for: .seconds(2)) } catch { return }
+                FileHandle.standardError.write(Data("Online toolbar popover deadline: \(name.rawValue)\n".utf8))
                 self?.finish(nil)
             }
             action()
@@ -99,18 +117,23 @@ private enum ToolbarFixtureError: Error { case missing(String) }
 
 @main enum OnlineImageToolbarHarness {
     @MainActor static func main() {
+        diagnostic("main entered")
         initializeNativeAppHarness()
+        diagnostic("native App initialized")
         let app = NSApplication.shared
         Task { @MainActor in
+            diagnostic("run task entered")
             let facts: [String: Any]
             do { facts = try await run() }
             catch { facts = ["checks": ["fixture_completed": false], "error": String(describing: error)] }
+            diagnostic("run task completed; emitting facts")
             let data = try! JSONSerialization.data(withJSONObject: facts, options: [.sortedKeys])
             print(String(data: data, encoding: .utf8)!)
             app.stop(nil)
             if let event = NSEvent.otherEvent(with: .applicationDefined, location: .zero, modifierFlags: [], timestamp: 0,
                 windowNumber: 0, context: nil, subtype: 0, data1: 0, data2: 0) { app.postEvent(event, atStart: false) }
         }
+        diagnostic("application run loop entered")
         app.run()
     }
 
@@ -135,16 +158,20 @@ private enum ToolbarFixtureError: Error { case missing(String) }
     }
 
     @MainActor static func run() async throws -> [String: Any] {
+        diagnostic("window setup begin")
         let window = NSWindow(contentRect: NSRect(x: 0, y: 0, width: 1000, height: 620),
             styleMask: [.titled, .closable, .resizable], backing: .buffered, defer: false)
         window.isReleasedWhenClosed = false; window.center()
         let root = NSView(frame: .init(x: 0, y: 0, width: 1000, height: 620))
         window.contentView = root
         let images = WallpaperLibraryOnlineImages(), workspace = WallpaperLibraryWorkspace()
+        diagnostic("controller initialization begin")
         let controller = OnlineImageToolbarController(images: images, workspace: workspace, window: window)
+        diagnostic("controller initialized; creating native items")
         var items: [OnlineImageToolbarController.Item: NSToolbarItem] = [:]
         var accountGeometry = false
         for (index, kind) in OnlineImageToolbarController.Item.allCases.enumerated() {
+            diagnostic("creating item \(kind.rawValue)")
             guard let item = controller.makeItem(for: kind.id) else { throw ToolbarFixtureError.missing(kind.rawValue) }
             items[kind] = item
             if let view = item.view {
@@ -163,16 +190,29 @@ private enum ToolbarFixtureError: Error { case missing(String) }
               let filterButton = items[.filter]?.view as? NSButton,
               let sortButton = items[.sort]?.view as? NSButton else { throw ToolbarFixtureError.missing("toolbar controls") }
         if search.superview == nil { search.frame = .init(x: 650, y: 566, width: 220, height: 30); root.addSubview(search) }
+        let standaloneAccountBounds = items[.account]?.view?.bounds.size
+        let toolbar = NSToolbar(identifier: .init("online-image-filter-fixture"))
+        let toolbarDelegate = ImageToolbarFixtureDelegate(items: Dictionary(uniqueKeysWithValues: items.values.map { ($0.itemIdentifier, $0) }))
+        toolbar.delegate = toolbarDelegate; toolbar.displayMode = .iconOnly; toolbar.allowsUserCustomization = false
+        diagnostic("toolbar assignment begin")
+        window.toolbar = toolbar
+        diagnostic("toolbar assigned: initial item count=\(toolbar.items.count)")
+        for (index, kind) in OnlineImageToolbarController.Item.allCases.enumerated() {
+            diagnostic("inserting item \(kind.rawValue) at \(index)")
+            toolbar.insertItem(withItemIdentifier: kind.id, at: index)
+        }
+        diagnostic("toolbar mounted: \(toolbar.items.map(\.itemIdentifier.rawValue))")
         window.makeKeyAndOrderFront(nil)
         NSApp.activate()
-        defer { window.close() }
+        diagnostic("window shown and activation requested")
+        defer { window.close(); withExtendedLifetime(toolbarDelegate) {} }
         var checks: [String: Bool] = [:]
         checks["all-image-sources-have-generic-download-entry-without-refresh"] = [WallpaperLibraryPage.wallhaven, .pixiv].allSatisfy { page in
             workspace.presentation.page = page
             return controller.identifiers.contains(.init("downloadTasks")) && !controller.identifiers.contains(.init("OnlineImageRefresh"))
         }
         checks["image-source-accounts-share-regular-native-symbol-hitbox-without-changing-their-capsule"] = accountGeometry
-            && items[.account]?.view?.bounds.size == NSSize(width: 32, height: 32)
+            && standaloneAccountBounds == NSSize(width: 32, height: 32)
         workspace.presentation.page = .wallhaven
         images.returnContext = true; controller.refresh()
         checks["author-return-is-first-independent-capsule-with-icon-and-title"] = controller.identifiers.first == OnlineImageToolbarController.Item.back.id
@@ -182,6 +222,10 @@ private enum ToolbarFixtureError: Error { case missing(String) }
         var details: [String: String] = [:]
         func menu(_ kind: OnlineImageToolbarController.Item) throws -> NSMenu {
             controller.refresh()
+            if kind == .filter {
+                guard let panel = controller.makeFilterPanel() else { throw ToolbarFixtureError.missing("source filter panel") }
+                return nativeFilterMenuSnapshot(panel)
+            }
             guard let menu = items[kind]?.menuFormRepresentation?.submenu else {
                 throw ToolbarFixtureError.missing("overflow menu \(kind.rawValue)")
             }
@@ -196,8 +240,47 @@ private enum ToolbarFixtureError: Error { case missing(String) }
             return value
         }
         func settle() async { root.layoutSubtreeIfNeeded(); try? await Task.sleep(for: .milliseconds(60)); root.layoutSubtreeIfNeeded() }
+        func systemMenu(_ button: NSButton) throws -> (menu: NSMenu, ended: Bool, popovers: Int) {
+            var opened: NSMenu?, ended = false, popovers = 0
+            var cancellation: Timer?
+            let center = NotificationCenter.default
+            let observers = [
+                center.addObserver(forName: NSMenu.didBeginTrackingNotification, object: nil, queue: nil) { note in
+                    MainActor.assumeIsolated {
+                        guard opened == nil, let native = note.object as? NSMenu else { return }
+                        opened = native
+                        diagnostic("system menu began: \(native.items.map(\.title))")
+                        // The toolbar button can itself enter event tracking;
+                        // arm cancellation only after its menu has begun.
+                        let timer = Timer(timeInterval: 0.03, repeats: false) { _ in
+                            MainActor.assumeIsolated {
+                                diagnostic("system menu cancellation")
+                                native.cancelTracking()
+                            }
+                        }
+                        cancellation = timer
+                        RunLoop.main.add(timer, forMode: .eventTracking)
+                    }
+                },
+                center.addObserver(forName: NSMenu.didEndTrackingNotification, object: nil, queue: nil) { note in
+                    MainActor.assumeIsolated {
+                        if let menu = note.object as? NSMenu, menu === opened { ended = true; diagnostic("system menu ended") }
+                    }
+                },
+                center.addObserver(forName: NSPopover.didShowNotification, object: nil, queue: nil) { _ in
+                    MainActor.assumeIsolated { popovers += 1 }
+                }
+            ]
+            defer { cancellation?.invalidate(); observers.forEach { center.removeObserver($0) } }
+            diagnostic("system menu click: \(button.toolTip ?? button.title)")
+            button.performClick(nil)
+            diagnostic("system menu click returned: ended=\(ended), captured=\(opened != nil)")
+            guard let opened else { throw ToolbarFixtureError.missing("system menu tracking for \(button.toolTip ?? button.title)") }
+            return (opened, ended, popovers)
+        }
 
         // Keep the actual native command opened before the real debounce fires.
+        diagnostic("query debounce cases begin")
         let staleSort = try menuItem("浏览量", in: menu(.sort))
         search.stringValue = "new debounced search"
         controller.controlTextDidChange(.init(name: NSControl.textDidChangeNotification, object: search))
@@ -226,6 +309,7 @@ private enum ToolbarFixtureError: Error { case missing(String) }
         checks["immediate_filter_cancels_the_old_debounce_without_late_query_changes"] = afterCancelledDebounce == immediatelyFiltered
             && images.wallhaven.edits.count == editsAfterImmediateFilter
 
+        diagnostic("query filter and ordering cases begin")
         var author = WallhavenQuery(); author.authorUsername = "CaseSensitive_User"; author.categories = "101"
         images.wallhaven.setQuery(.wallhaven(author))
         try invoke(menuItem("4K 及以上", in: menu(.filter), after: "最低分辨率"))
@@ -275,6 +359,7 @@ private enum ToolbarFixtureError: Error { case missing(String) }
             && !randomMenu.items.contains { $0.title == "升序" || $0.title == "降序" || $0.title == "热门范围" }
 
         // Native permission is real: a held command cannot mutate under a sheet.
+        diagnostic("modal permission case begin")
         var normal = try wallhaven(); normal.sorting = .views; images.wallhaven.setQuery(.wallhaven(normal))
         let held = try menuItem("降序", in: menu(.sort))
         let panel = WallpaperLibraryModalPanel(contentRect: .init(x: 0, y: 0, width: 250, height: 100),
@@ -288,6 +373,7 @@ private enum ToolbarFixtureError: Error { case missing(String) }
             && afterModal == beforeModal
         panel.close(); window.makeKeyAndOrderFront(nil)
 
+        diagnostic("account projection cases begin")
         workspace.presentation.page = .pixiv
         let beforeAccountEdits = images.pixiv.edits.count, beforeAccountRefreshes = images.pixiv.refreshes
         let anonymousAccount = try menu(.account)
@@ -319,6 +405,7 @@ private enum ToolbarFixtureError: Error { case missing(String) }
         checks["wallhaven-account-menu-distinguishes-stored-key-and-real-collection-data"] = wallhavenAccount.items.contains { $0.title == "已保存 API Key" && !$0.isEnabled }
             && wallhavenAccount.items.contains { $0.title == "Landscapes · 12 张" && !$0.isEnabled }
             && !wallhavenAccount.items.contains { $0.title == "我的作品" || $0.title.contains("已登录") }
+        diagnostic("held source and inactive-query cases begin")
         workspace.presentation.page = .pixiv
         let beforePage = images.wallhaven.state.query
         try invoke(held)
@@ -355,7 +442,9 @@ private enum ToolbarFixtureError: Error { case missing(String) }
         // Native source filter: one shared grid, source-owned state, live edits.
         workspace.presentation.page = .wallhaven
         images.wallhaven.setQuery(.wallhaven(.init())); controller.refresh()
+        diagnostic("filter button show: toolbar=\(items[.filter]?.toolbar === toolbar), mounted=\(filterButton.window === window)")
         let nativeShown = await PopoverReceipt().receive(NSPopover.didShowNotification) { filterButton.performClick(nil) }
+        diagnostic("filter button show returned: captured=\(nativeShown != nil)")
         guard let nativePopover = nativeShown, let nativeContent = nativePopover.contentViewController?.view,
               let nativeRatio = descendants(nativeContent, NSButton.self).first(where: { $0.title == "16:9" }),
               let nativeClear = descendants(nativeContent, NSButton.self).first(where: { $0.title == "清空筛选" }) else {
@@ -377,128 +466,107 @@ private enum ToolbarFixtureError: Error { case missing(String) }
         let nativeCleared = try wallhaven()
         checks["native_filter_clear_restores_query_and_checkbox_state_in_the_same_panel"] = nativePopover.isShown
             && !nativeClear.isEnabled && nativeRatio.state == .off && nativeCleared.ratios.isEmpty
-        _ = await PopoverReceipt().receive(NSPopover.didCloseNotification) { nativePopover.performClose(nil) }
-
-        let semanticPresenter = ToolbarMenuPopoverPresenter()
-        var actionCalls = 0, checkSelected = false
-        func semanticRows() -> [ToolbarMenuPopoverPresenter.Row] {
-            [.init(title: "普通动作", kind: .action, handler: { actionCalls += 1 }),
-             .init(title: "可勾选", kind: .check, isChecked: checkSelected, handler: { checkSelected.toggle() }),
-             .init(title: "账号状态", kind: .info)]
-        }
-        let semanticShown = await PopoverReceipt().receive(NSPopover.didShowNotification) {
-            semanticPresenter.toggle(anchor: filterButton, rows: semanticRows)
-        }
-        guard let semanticPopover = semanticShown, let semanticContent = semanticPopover.contentViewController?.view,
-              let actionRow = descendants(semanticContent, NSButton.self).first(where: { $0.title == "普通动作" }),
-              let checkRow = descendants(semanticContent, NSButton.self).first(where: { $0.title == "可勾选" }),
-              let infoRow = descendants(semanticContent, NSButton.self).first(where: { $0.title == "账号状态" }) else {
-            throw ToolbarFixtureError.missing("native action/check/info rows")
-        }
-        checks["native-action-row-is-a-command-without-a-checked-accessibility-value"] = actionRow.isEnabled
-            && actionRow.accessibilityLabel() == "普通动作" && actionRow.accessibilityValue() == nil
-        checks["native-check-row-exposes-its-unchecked-accessibility-value"] = checkRow.isEnabled
-            && (checkRow.accessibilityValue() as? String) == "未勾选"
-        infoRow.performClick(nil)
-        checks["native-info-row-is-disabled-without-action-or-checked-value"] = !infoRow.isEnabled
-            && infoRow.action == nil && infoRow.accessibilityValue() == nil && actionCalls == 0 && semanticPopover.isShown
-        checkRow.performClick(nil); await settle()
-        let checkedRow = descendants(semanticContent, NSButton.self).first { $0.title == "可勾选" }
-        checks["native-check-action-stays-open-and-updates-selected-accessibility-value"] = checkSelected && semanticPopover.isShown
-            && (checkedRow?.accessibilityValue() as? String) == "已勾选" && actionCalls == 0
-        let currentAction = descendants(semanticContent, NSButton.self).first { $0.title == "普通动作" }!
-        _ = await PopoverReceipt().receive(NSPopover.didCloseNotification) { currentAction.performClick(nil) }
-        checks["native-action-row-dispatches-once-and-closes-without-check-semantics"] = actionCalls == 1
-            && !semanticPopover.isShown && currentAction.accessibilityValue() == nil
-
-        // The row presenter remains independently scrollable for long account
-        // and overflow menus; source filtering no longer uses that row UI.
-        let longPresenter = ToolbarMenuPopoverPresenter()
-        var utilitySelection = Set<Int>()
-        func utilityRows() -> [ToolbarMenuPopoverPresenter.Row] {
-            (0..<60).map { index in .init(title: "条目 \(index)", kind: .check,
-                isChecked: utilitySelection.contains(index), handler: {
-                    if utilitySelection.remove(index) == nil { utilitySelection.insert(index) }
-                }) }
-        }
-        let shown = await PopoverReceipt().receive(NSPopover.didShowNotification) { longPresenter.toggle(anchor: filterButton, rows: utilityRows) }
-        guard let longPopover = shown, let content = longPopover.contentViewController?.view,
-              let scroll = descendants(content, NSScrollView.self).first, let document = scroll.documentView else {
-            throw ToolbarFixtureError.missing("native long filter popover didShow / scroll")
-        }
-        await settle(); content.layoutSubtreeIfNeeded()
-        let limit = max(180, min(560, (window.screen?.visibleFrame.height ?? 720) - 160))
-        checks["native_long_menu_is_height_bounded_with_a_real_scroll_view"] = longPopover.isShown
-            && longPopover.contentSize.height <= limit + 1 && document.frame.height > scroll.contentView.bounds.height
-            && scroll.hasVerticalScroller && document.isFlipped
-        details["native_long_menu_is_height_bounded_with_a_real_scroll_view"] = "content=\(longPopover.contentSize), document=\(document.frame), clip=\(scroll.contentView.bounds)"
-        let bottom = max(0, document.frame.height - scroll.contentView.bounds.height)
-        scroll.contentView.scroll(to: .init(x: 0, y: bottom)); scroll.reflectScrolledClipView(scroll.contentView)
-        content.layoutSubtreeIfNeeded()
-        guard let utilityLastRow = descendants(content, NSButton.self).first(where: { $0.title == "条目 59" }) else {
-            throw ToolbarFixtureError.missing("last native utility row")
-        }
-        checks["long_menu_lower_rows_are_reachable_inside_the_native_viewport"] = utilityLastRow.convert(utilityLastRow.bounds, to: document)
-            .intersects(document.visibleRect) && scroll.contentView.bounds.minY > 0
-        let beforeCheckOffset = scroll.contentView.bounds.minY
-        utilityLastRow.performClick(nil)
-        await settle()
-        guard let updatedScroll = descendants(content, NSScrollView.self).first else { throw ToolbarFixtureError.missing("reloaded scroll") }
-        let checkedItem = try menuItem("条目 59", in: ToolbarMenuPopoverPresenter.menuRepresentation(title: "条目", rows: utilityRows()).submenu!)
-        checks["checking_a_native_long_menu_row_preserves_scroll_and_updates_checkmark"] = longPopover.isShown
-            && abs(updatedScroll.contentView.bounds.minY - beforeCheckOffset) <= 1
-            && utilitySelection == [59] && checkedItem.state == .on
-        details["checking_a_native_long_menu_row_preserves_scroll_and_updates_checkmark"] = "before=\(beforeCheckOffset), after=\(updatedScroll.contentView.bounds.minY)"
-
-        let dismissal = ToolbarPopoverScrollDismissal(popover: longPopover)
-        dismissal.watch(relativeTo: filterButton)
-        let wheel = CGEvent(scrollWheelEvent2Source: nil, units: .pixel, wheelCount: 1, wheel1: 24, wheel2: 0, wheel3: 0)!
-        let beforeWheel = updatedScroll.contentView.bounds.minY
-        updatedScroll.scrollWheel(with: NSEvent(cgEvent: wheel)!)
-        await settle()
-        dismissal.dismissIfGridScroll(in: updatedScroll.window, target: updatedScroll)
-        checks["native_menu_scroll_keeps_the_popover_open"] = longPopover.isShown
-            && abs(updatedScroll.contentView.bounds.minY - beforeWheel) > 0
-        details["native_menu_scroll_keeps_the_popover_open"] = "before=\(beforeWheel), after=\(updatedScroll.contentView.bounds.minY)"
         let gridScroll = NSScrollView(frame: .init(x: 0, y: 0, width: 400, height: 400))
         let grid = NSCollectionView(frame: .init(x: 0, y: 0, width: 400, height: 800))
         gridScroll.documentView = grid; root.addSubview(gridScroll)
-        let closed = await PopoverReceipt().receive(NSPopover.didCloseNotification) {
+        let dismissal = ToolbarPopoverScrollDismissal(popover: nativePopover)
+        dismissal.watch(relativeTo: filterButton)
+        gridScroll.contentView.scroll(to: .init(x: 0, y: 100)); gridScroll.reflectScrolledClipView(gridScroll.contentView)
+        dismissal.dismissIfGridScroll(in: nativeContent.window, target: nativeContent)
+        checks["native_filter_keeps_open_for_programmatic_grid_position_and_panel_content"] = nativePopover.isShown
+        diagnostic("filter grid-target close")
+        let filterClosed = await PopoverReceipt().receive(NSPopover.didCloseNotification) {
             dismissal.dismissIfGridScroll(in: window, target: grid)
         }
-        checks["grid_scroll_target_closes_the_same_shared_popover"] = closed === longPopover && !longPopover.isShown
+        checks["grid_scroll_target_closes_the_same_native_filter_popover"] = filterClosed === nativePopover && !nativePopover.isShown
+
+        let filterItem = items[.filter]!, overflowFilter = filterItem.menuFormRepresentation!
+        window.setContentSize(.init(width: 160, height: 620)); await settle()
+        diagnostic("filter overflow show: detached=\(filterButton.window == nil), visible=\(toolbar.visibleItems?.contains(where: { $0 === filterItem }) == true), toolbar=\(filterItem.toolbar === toolbar), frame=\(window.frame)")
+        checks["filter_overflow_is_one_action_for_the_real_detached_toolbar_item"] = overflowFilter.submenu == nil
+            && overflowFilter.action != nil && filterItem.toolbar === toolbar && filterButton.window == nil
+            && toolbar.visibleItems?.contains(where: { $0 === filterItem }) == false
+        let overflowShown = await PopoverReceipt().receive(NSPopover.didShowNotification) {
+            NSApp.sendAction(overflowFilter.action!, to: overflowFilter.target, from: overflowFilter)
+        }
+        diagnostic("filter overflow show returned: captured=\(overflowShown != nil)")
+        guard let overflowPopup = overflowShown, let overflowContent = overflowPopup.contentViewController?.view,
+              let overflowRatio = descendants(overflowContent, NSButton.self).first(where: { $0.title == "16:9" }) else {
+            throw ToolbarFixtureError.missing("native filter from a detached toolbar overflow action")
+        }
+        overflowRatio.performClick(nil)
+        let overflowQuery = try wallhaven()
+        checks["detached_filter_overflow_opens_the_same_native_multiselect_panel_and_keeps_it_open"] = overflowPopup === nativePopover
+            && overflowPopup.isShown && overflowPopup.behavior == .transient && overflowPopup.contentSize.width == 400
+            && overflowRatio.state == .on && overflowQuery.ratios == ["16x9"]
+        let beforeLeavingWallhaven = images.wallhaven.state.query, beforeLeavingPixiv = images.pixiv.state.query
+        diagnostic("filter source-change close")
+        let closedOnSourceChange = await PopoverReceipt().receive(NSPopover.didCloseNotification) {
+            workspace.presentation.page = .pixiv; controller.refresh()
+        }
+        overflowRatio.performClick(nil)
+        try invoke(overflowFilter)
+        checks["source_change_closes_filter_and_revokes_held_checkbox_and_overflow_actions"] = closedOnSourceChange === overflowPopup
+            && !overflowPopup.isShown && images.wallhaven.state.query == beforeLeavingWallhaven && images.pixiv.state.query == beforeLeavingPixiv
+        window.setContentSize(.init(width: 1000, height: 620)); await settle()
+        diagnostic("filter source-change and width restoration completed")
+
+        var calls = 0
+        let semanticMenu = ToolbarMenu.makeMenu(rows: [
+            .header("分组"), .init(title: "当前选择", kind: .action, isChecked: true, handler: { calls += 1 }),
+            .separator(), .init(title: "禁用动作", kind: .action, isEnabled: false, handler: { calls += 1 }),
+            .init(title: "账号状态", kind: .info)
+        ])
+        let selected = try menuItem("当前选择", in: semanticMenu)
+        let disabled = try menuItem("禁用动作", in: semanticMenu)
+        let info = try menuItem("账号状态", in: semanticMenu)
+        checks["ordinary_menu_rows_use_system_group_checkmark_separator_and_disabled_items"] = !semanticMenu.autoenablesItems
+            && semanticMenu.items[0].title == "分组" && semanticMenu.items[0].action == nil
+            && selected.state == .on && selected.isEnabled && semanticMenu.items[2].isSeparatorItem
+            && !disabled.isEnabled && !info.isEnabled && info.action == nil && info.target == nil
+            && semanticMenu.items.allSatisfy { $0.view == nil }
+        try invoke(disabled)
+        checks["disabled_system_menu_command_cannot_dispatch_even_through_a_held_action"] = calls == 0
+        try invoke(selected)
+        checks["checked_system_menu_action_dispatches_once_without_a_second_selection_owner"] = calls == 1 && selected.state == .on
+
+        workspace.presentation.page = .wallhaven
+        images.wallhaven.setQuery(.wallhaven(.init())); controller.refresh()
+        let directSort = try systemMenu(sortButton)
+        let overflowSort = try menu(.sort)
+        checks["ordinary_sort_button_tracks_a_system_menu_without_an_arrow_popover"] = directSort.ended && directSort.popovers == 0
+            && directSort.menu.items.allSatisfy { $0.view == nil }
+            && directSort.menu.items.map(\.title) == overflowSort.items.map(\.title)
+            && directSort.menu.items.map(\.state) == overflowSort.items.map(\.state)
+            && directSort.menu.items.map(\.isEnabled) == overflowSort.items.map(\.isEnabled)
+        details["ordinary_sort_button_tracks_a_system_menu_without_an_arrow_popover"] = "ended=\(directSort.ended), popovers=\(directSort.popovers), titles=\(directSort.menu.items.map(\.title))"
+        let beforeSingleSort = images.wallhaven.edits.count
+        try invoke(menuItem("浏览量", in: directSort.menu))
+        let singleSorted = try wallhaven(), sortedMenu = try menu(.sort)
+        let sortingTitles = Set(WallhavenQuery.Sorting.allCases.map(\.displayName))
+        checks["system_sort_selection_updates_the_original_query_once_and_has_one_checked_choice"] = singleSorted.sorting == .views
+            && images.wallhaven.edits.count == beforeSingleSort + 1
+            && sortedMenu.items.filter { sortingTitles.contains($0.title) && $0.state == .on }.map(\.title) == ["浏览量"]
 
         workspace.presentation.page = .pixiv; images.pixiv.setQuery(.pixiv(.init())); controller.refresh()
-        let shortShown = await PopoverReceipt().receive(NSPopover.didShowNotification) { sortButton.performClick(nil) }
-        guard let shortPopover = shortShown, let shortContent = shortPopover.contentViewController?.view,
-              let shortScroll = descendants(shortContent, NSScrollView.self).first,
-              let shortDocument = shortScroll.documentView else { throw ToolbarFixtureError.missing("native short menu") }
-        await settle(); shortContent.layoutSubtreeIfNeeded()
-        checks["short_native_menu_keeps_compact_geometry_and_zero_scroll_range"] = shortPopover.contentSize.height < limit
-            && abs(shortDocument.frame.height - shortScroll.contentView.bounds.height) <= 1
-            && abs(shortScroll.contentView.bounds.minY) <= 1
-        details["short_native_menu_keeps_compact_geometry_and_zero_scroll_range"] = "content=\(shortPopover.contentSize), document=\(shortDocument.frame), clip=\(shortScroll.contentView.bounds)"
-        let shortClosed = await PopoverReceipt().receive(NSPopover.didCloseNotification) { shortPopover.performClose(nil) }
-        checks["native_popover_lifecycle_finishes_without_a_retained_panel"] = shortClosed === shortPopover && !shortPopover.isShown
         guard let accountButton = items[.account]?.view as? NSButton else { throw ToolbarFixtureError.missing("account button") }
         images.pixivAccountStatus = "正在读取账号信息…"; images.hasPixivIdentity = false; controller.refresh()
-        let accountShown = await PopoverReceipt().receive(NSPopover.didShowNotification) { accountButton.performClick(nil) }
-        guard let accountPopover = accountShown, let accountContent = accountPopover.contentViewController?.view else {
-            throw ToolbarFixtureError.missing("live account popover")
-        }
+        let pendingAccount = try systemMenu(accountButton)
         images.pixivAccountStatus = "已登录：完成用户（12345）"; images.hasPixivIdentity = true; controller.refresh()
-        await settle()
-        checks["open-account-popover-updates-when-optional-identity-read-completes"] = accountPopover.isShown
-            && descendants(accountContent, NSButton.self).contains { $0.title == "已登录：完成用户（12345）" }
-            && descendants(accountContent, NSButton.self).contains { $0.title == "我的作品" }
-            && !descendants(accountContent, NSButton.self).contains { $0.title == "正在读取账号信息…" }
-        let nativeInfo = descendants(accountContent, NSButton.self).first { $0.title == "已登录：完成用户（12345）" }
+        let completedAccount = try systemMenu(accountButton)
+        checks["reopening_system_account_menu_projects_the_completed_optional_identity_read"] = pendingAccount.ended && completedAccount.ended
+            && pendingAccount.popovers == 0 && completedAccount.popovers == 0
+            && pendingAccount.menu.items.contains { $0.title == "正在读取账号信息…" && !$0.isEnabled }
+            && !pendingAccount.menu.items.contains { $0.title == "我的作品" }
+            && completedAccount.menu.items.contains { $0.title == "已登录：完成用户（12345）" && !$0.isEnabled }
+            && completedAccount.menu.items.contains { $0.title == "我的作品" && $0.isEnabled }
+            && !completedAccount.menu.items.contains { $0.title == "正在读取账号信息…" }
+        let nativeInfo = try menuItem("已登录：完成用户（12345）", in: completedAccount.menu)
         let actionsBeforeInfo = (images.accounts, images.accountRefreshes, images.myWorks)
-        nativeInfo?.performClick(nil)
-        checks["native-account-info-is-disabled-and-cannot-trigger-a-command"] = nativeInfo.map { !$0.isEnabled && $0.action == nil && $0.target == nil } == true
+        completedAccount.menu.performActionForItem(at: completedAccount.menu.items.firstIndex { $0 === nativeInfo }!)
+        checks["native-account-info-is-disabled-and-cannot-trigger-a-command"] = !nativeInfo.isEnabled && nativeInfo.action == nil && nativeInfo.target == nil
             && images.accounts == actionsBeforeInfo.0 && images.accountRefreshes == actionsBeforeInfo.1 && images.myWorks == actionsBeforeInfo.2
-        _ = await PopoverReceipt().receive(NSPopover.didCloseNotification) { accountPopover.performClose(nil) }
         return ["checks": checks, "details": details,
-                "scope": "Actual toolbar/query/overflow/modal/popup with recording browser leaves; native scrolling and public post-hit-test dismissal entry; no physical wheel, network or full-App claim."]
+                "scope": "Actual toolbar/query/overflow/modal/system menu with recording browser leaves; native filter and public post-hit-test grid-scroll dismissal; native menu tracking is cancelled by the fixture, without a physical selection, wheel, network or full-App claim."]
     }
 }
