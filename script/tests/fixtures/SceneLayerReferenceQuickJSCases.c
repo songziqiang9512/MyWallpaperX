@@ -48,6 +48,23 @@ static MWXSceneQuickJSDomain *domain(void) {
     return d;
 }
 
+static void publish_video_observation(MWXSceneQuickJSDomain *d, const MWXSceneQuickJSVideoObservation *video,
+                                      uint32_t bound_layer, bool awaiting_outcome) {
+    check(mwx_scene_quickjs_domain_begin_layer_snapshot(d, d->layer_snapshot_generation + 1, 0,
+        diagnostic, sizeof(diagnostic)) == MWX_SCENE_QUICKJS_OK, "video row transaction begins");
+    for (uint32_t index = 0; index < d->authored_layer_count; ++index)
+        check(mwx_scene_quickjs_domain_reuse_layer_runtime_fields(d, index, diagnostic, sizeof(diagnostic))
+            == MWX_SCENE_QUICKJS_OK, "video row retains authored fields");
+    check(mwx_scene_quickjs_domain_stage_video_observations(d, video, 1, diagnostic, sizeof(diagnostic))
+        == MWX_SCENE_QUICKJS_OK, "real observation table stages");
+    if (bound_layer != UINT32_MAX)
+        check(mwx_scene_quickjs_domain_update_layer_video_source(d, bound_layer, 0, diagnostic, sizeof(diagnostic))
+            == MWX_SCENE_QUICKJS_OK, "authored consumer binds the observed source");
+    check(mwx_scene_quickjs_domain_commit_layer_snapshot(d, diagnostic, sizeof(diagnostic))
+        == MWX_SCENE_QUICKJS_OK, "video row transaction commits");
+    if (!awaiting_outcome) mwx_scene_quickjs_domain_finalize_layer_snapshot(d);
+}
+
 
 
 static void run(MWXSceneQuickJSOwner *o, uint64_t generation, double runtime,
@@ -357,9 +374,11 @@ static void attached_capabilities_remain_owner_bound(void) {
                 one, zero, 0, 1, 1, 0, 1, "seed", 4, "", 0, 12, one,
                 diagnostic, sizeof(diagnostic)) == MWX_SCENE_QUICKJS_OK,
                 "attachment runtime field snapshot stages");
-        check(mwx_scene_quickjs_domain_update_layer_video_fields(d, 0, 1,
-            4, 1, 0, 0, 0, 0, diagnostic, sizeof(diagnostic)) == MWX_SCENE_QUICKJS_OK,
-            "video fixture publishes");
+        const MWXSceneQuickJSVideoObservation video = {.duration=4, .rate=1, .available=1, .source_incarnation={11,22}};
+        check(mwx_scene_quickjs_domain_stage_video_observations(d, &video, 1,
+            diagnostic, sizeof(diagnostic)) == MWX_SCENE_QUICKJS_OK, "video fixture row stages");
+        check(mwx_scene_quickjs_domain_update_layer_video_source(d, 0, 0,
+            diagnostic, sizeof(diagnostic)) == MWX_SCENE_QUICKJS_OK, "video fixture consumer binds");
         check(mwx_scene_quickjs_domain_update_layer_texture_animation_fields(d, 0, 1,
             4, 4, 1, 0, 0, 1, 0, 0, diagnostic, sizeof(diagnostic)) == MWX_SCENE_QUICKJS_OK,
             "texture fixture publishes");
@@ -629,8 +648,11 @@ static void dynamic_slot_reuse_and_retained_media(void) {
     const int64_t old_id = old->layer_id;
     // Inject provider observations to test handle identity, without adding a
     // video/animation constructor or a media backend to this VM fixture.
-    old->video_available = old->texture_animation_available = old->sound_available = true;
-    old->video_rate = old->texture_animation_rate = 1;
+    MWXSceneQuickJSVideoObservation video = {.rate=1, .available=1, .source_incarnation={11,22}};
+    publish_video_observation(d, &video, UINT32_MAX, false);
+    old->video_source_index = 0;
+    old->texture_animation_available = old->sound_available = true;
+    old->texture_animation_rate = 1;
     run(o, 91, 2, "capture", MWX_SCENE_QUICKJS_OK, NULL, "native media references retain concrete identity");
     mwx_scene_quickjs_owner_commit_layer_mutations(o);
     run(o, 91, 3, "destroy", MWX_SCENE_QUICKJS_OK, NULL, "dynamic carrier retires");
@@ -643,9 +665,11 @@ static void dynamic_slot_reuse_and_retained_media(void) {
     check(replacement == &d->layers[slot] && replacement->layer_id < old_id,
         "same slot carries a different logical layer identity");
     if (replacement == NULL) return;
-    replacement->video_available = replacement->texture_animation_available = replacement->sound_available = true;
-    replacement->video_rate = replacement->texture_animation_rate = 1;
-    replacement->video_ended_generation = 1;
+    video.source_incarnation[0] = 33; video.source_incarnation[1] = 44; video.ended_generation = 1;
+    publish_video_observation(d, &video, UINT32_MAX, false);
+    replacement->video_source_index = 0;
+    replacement->texture_animation_available = replacement->sound_available = true;
+    replacement->texture_animation_rate = 1;
     mwx_scene_quickjs_begin_callback(o);
     check(mwx_scene_quickjs_dispatch_video_ended_callbacks(o, diagnostic, sizeof(diagnostic)) == MWX_SCENE_QUICKJS_OK,
         "retired EOF registration cannot observe replacement generation");
@@ -658,6 +682,59 @@ static void dynamic_slot_reuse_and_retained_media(void) {
     check(mwx_scene_quickjs_owner_remove_dynamic_layers(o), "permanent owner removal releases live slot");
     mwx_scene_quickjs_owner_destroy(o);
     mwx_scene_quickjs_domain_destroy(d);
+}
+
+static void withdrawn_video_cannot_revive_after_rollback(void) {
+    MWXSceneQuickJSDomain *d = domain();
+    MWXSceneQuickJSVideoObservation video = {.duration=10, .rate=1, .current_time=2,
+        .loop=1, .is_playing=1, .available=1, .source_incarnation={11,22}};
+    publish_video_observation(d, &video, 0, false);
+    const char *source =
+        "let held,escaped,fresh,oldEnded=0,newEnded=0;"
+        "function stale(video){let failed=false;try{video.play();}catch(e){failed=e instanceof TypeError;}"
+        "if(!failed)throw Error('withdrawn handle revived');}"
+        "export function update(v){const layer=thisScene.getLayer('Caption');"
+        "if(v==='old'){held=layer.getVideoTexture();held.addEndedCallback(()=>oldEnded++);}"
+        "if(v==='escape'){escaped=layer.getVideoTexture();escaped.play();}"
+        "if(v==='withdrawn'){stale(held);stale(escaped);"
+        "if(layer.getVideoTexture()!==undefined||oldEnded!==0)throw Error('withdrawal rollback revived EOF');}"
+        "if(v==='fresh'){stale(held);stale(escaped);fresh=layer.getVideoTexture();"
+        "if(fresh.getCurrentTime()!==4||oldEnded!==0)throw Error('new observation');fresh.addEndedCallback(()=>newEnded++);}"
+        "if(v==='ended'){if(oldEnded!==0||newEnded!==1)throw Error('old EOF callback transferred');fresh.play();}return v;}";
+    MWXSceneQuickJSOwner *o = at(d, source, 17, 94, 0);
+    run(o, 94, 0, "old", MWX_SCENE_QUICKJS_OK, NULL, "authored source handle and EOF register");
+    mwx_scene_quickjs_owner_commit_layer_mutations(o);
+    video.source_incarnation[0] = 33; video.source_incarnation[1] = 44;
+    video.current_time = 7; video.ended_generation = 1;
+    publish_video_observation(d, &video, 0, true);
+    run(o, 94, 1, "escape", MWX_SCENE_QUICKJS_OK, NULL, "pending replacement emits its own source identity");
+    MWXSceneQuickJSMediaPlaybackCommand escaped = {0};
+    check(mwx_scene_quickjs_owner_media_playback_command_at(o, 0, &escaped, diagnostic, sizeof(diagnostic))
+        == MWX_SCENE_QUICKJS_OK && escaped.video_source_incarnation[0] == 33
+        && escaped.video_source_incarnation[1] == 44, "typed command preserves the pending source incarnation");
+    mwx_scene_quickjs_owner_commit_layer_mutations(o);
+    check(mwx_scene_quickjs_domain_withdraw_authored_video_sources(d) == MWX_SCENE_QUICKJS_OK,
+        "rebuild withdraws current and rollback consumers");
+    check(mwx_scene_quickjs_domain_rollback_layer_snapshot(d), "pending source values roll back");
+    check(d->layers[0].video_source_index == UINT32_MAX && d->video_observations[0].source_incarnation[0] == 11,
+        "rollback restores source values while the consumer stays withdrawn");
+    video.source_incarnation[0] = 11; video.source_incarnation[1] = 22;
+    video.current_time = 2;
+    publish_video_observation(d, &video, UINT32_MAX, false);
+    run(o, 94, 2, "withdrawn", MWX_SCENE_QUICKJS_OK, NULL, "late old-source EOF cannot revive withdrawn consumer");
+    mwx_scene_quickjs_owner_commit_layer_mutations(o);
+    check(escaped.video_source_incarnation[0] == 33 && escaped.video_source_incarnation[1] == 44,
+        "rollback never rewrites an already exported command identity");
+    video.source_incarnation[0] = 55; video.source_incarnation[1] = 66;
+    video.current_time = 4; video.ended_generation = 2;
+    publish_video_observation(d, &video, 0, false);
+    run(o, 94, 3, "fresh", MWX_SCENE_QUICKJS_OK, NULL, "newly published consumer acquires a fresh video handle");
+    mwx_scene_quickjs_owner_commit_layer_mutations(o);
+    video.ended_generation = 3;
+    publish_video_observation(d, &video, UINT32_MAX, false);
+    run(o, 94, 4, "ended", MWX_SCENE_QUICKJS_OK, NULL, "only fresh source EOF callback delivers");
+    mwx_scene_quickjs_owner_commit_layer_mutations(o);
+    mwx_scene_quickjs_owner_destroy(o); mwx_scene_quickjs_domain_destroy(d);
 }
 
 static void failed_newborn_and_peer_journal(void) {
@@ -729,7 +806,7 @@ static void snapshot_and_newborn_retirement(void) {
         "let live;export function update(v){"
         "if(v==='seed')live=thisScene.createLayer({name:'original',text:'old'});"
         "if(v==='replace'){thisScene.destroyLayer(live);thisScene.createLayer({name:'pending',text:'new'});}"
-        "if(v==='ephemeral'){const born=thisScene.createLayer({name:'ephemeral',text:'gone'});thisScene.destroyLayer(born);}"
+        "if(v==='ephemeral'){const born=thisScene.createLayer({name:'ephemeral',text:'gone'});born.text='updated';thisScene.destroyLayer(born);}"
         "if(v==='pair'){thisScene.createLayer({name:'left',text:'l'});thisScene.createLayer({name:'right',text:'r'});}"
         "return v;}", 17, 91, 0);
     run(o, 91, 1, "seed", MWX_SCENE_QUICKJS_OK, NULL, "rollback baseline owns a live dynamic record");
@@ -749,12 +826,26 @@ static void snapshot_and_newborn_retirement(void) {
         "rollback restores old layer/order and releases only the rejected birth");
     stage_snapshot(d, 2, false);
     run(o, 91, 3, "ephemeral", MWX_SCENE_QUICKJS_OK, NULL, "newborn is destroyed in its birth callback");
+    MWXSceneQuickJSLayerMutation birth = {0};
+    check(mwx_scene_quickjs_owner_layer_mutation_count(o) == 1 &&
+        mwx_scene_quickjs_owner_layer_mutation_at(o, 0, &birth, diagnostic, sizeof(diagnostic)) == MWX_SCENE_QUICKJS_OK &&
+        birth.kind == MWX_SCENE_QUICKJS_LAYER_MUTATION_DESTROY && birth.dynamic == 1 &&
+        birth.fields == MWX_SCENE_QUICKJS_LAYER_MUTATION_FIELD_CREATED && strcmp(birth.text, "updated") == 0,
+        "net-zero mutation exports its birth without obsolete attribute writes");
     mwx_scene_quickjs_owner_commit_layer_mutations(o);
-    check(named_dynamic(d, "ephemeral") != NULL &&
+    MWXSceneQuickJSLayerRecord *retired = named_dynamic(d, "ephemeral");
+    check(retired != NULL &&
         !mwx_scene_quickjs_owner_remove_dynamic_layers(o), "pending snapshot holds retirement and owner teardown");
+    check(retired != NULL && retired->dirty_fields == 0,
+        "committed birth fact does not survive into a later callback");
+    const uint32_t retired_slot = retired == NULL ? UINT32_MAX : (uint32_t)(retired - d->layers);
     mwx_scene_quickjs_domain_abort_layer_snapshot(d);
     check(named_dynamic(d, "ephemeral") == NULL, "snapshot abort releases the settled tombstone");
     run(o, 91, 4, "pair", MWX_SCENE_QUICKJS_OK, NULL, "free list admits two distinct live instances");
+    check(retired_slot < d->layer_count && named_dynamic(d, "left") == &d->layers[retired_slot] &&
+        d->layers[retired_slot].layer_id != birth.layer_id &&
+        (d->layers[retired_slot].dirty_fields & MWX_SCENE_QUICKJS_LAYER_MUTATION_FIELD_CREATED) != 0,
+        "recycled physical slot exports a fresh birth for a different logical identity");
     mwx_scene_quickjs_owner_commit_layer_mutations(o);
     check(named_dynamic(d, "left") && named_dynamic(d, "right") &&
         named_dynamic(d, "left") != named_dynamic(d, "right"),
@@ -835,6 +926,7 @@ int main(void) {
     shared_basic_fields();
     namespace_method_table();
     dynamic_slot_reuse_and_retained_media();
+    withdrawn_video_cannot_revive_after_rollback();
     failed_newborn_and_peer_journal();
     snapshot_and_newborn_retirement();
     sustained_dynamic_slot_lifetime();

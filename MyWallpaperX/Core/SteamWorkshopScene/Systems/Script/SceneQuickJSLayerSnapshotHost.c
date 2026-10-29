@@ -70,6 +70,10 @@ static void clear_pending_snapshot(MWXSceneQuickJSDomain *domain) {
         domain->authored_layer_count
     );
     domain->pending_layer_snapshot_generation = 0;
+    free(domain->pending_video_observations);
+    domain->pending_video_observations = NULL;
+    domain->pending_video_observation_count = 0;
+    domain->pending_video_observations_staged = false;
 }
 
 static void clear_rollback_snapshot(MWXSceneQuickJSDomain *domain) {
@@ -80,6 +84,10 @@ static void clear_rollback_snapshot(MWXSceneQuickJSDomain *domain) {
         domain->authored_layer_count
     );
     domain->rollback_layer_snapshot_generation = 0;
+    free(domain->rollback_video_observations);
+    domain->rollback_video_observations = NULL;
+    domain->rollback_video_observation_count = 0;
+    domain->rollback_video_observations_replaced = false;
     free(domain->rollback_layer_order);
     domain->rollback_layer_order = NULL;
     domain->rollback_layer_order_count = 0;
@@ -153,15 +161,9 @@ MWXSceneQuickJSResult mwx_scene_quickjs_domain_begin_layer_snapshot(
         pending[index].particle_instance_available = record->particle_instance_available;
         pending[index].particle_alpha = record->particle_alpha;
         pending[index].point_size = record->point_size;
-        pending[index].video_available = record->video_available;
-        pending[index].video_duration = record->video_duration;
-        pending[index].video_rate = record->video_rate;
-        pending[index].video_loop = record->video_loop;
-        pending[index].video_current_time = record->video_current_time;
-        pending[index].video_is_playing = record->video_is_playing;
+        pending[index].video_source_index = record->video_source_index;
         pending[index].sound_available = record->sound_available;
         pending[index].sound_is_playing = record->sound_is_playing;
-        pending[index].video_ended_generation = record->video_ended_generation;
         pending[index].particle_playback = record->particle_playback;
         pending[index].texture_animation_available =
             record->texture_animation_available;
@@ -321,15 +323,8 @@ MWXSceneQuickJSResult mwx_scene_quickjs_domain_update_layer_runtime_fields(
     staged->destroyed = destroyed != 0;
     staged->alpha = alpha;
     staged->point_size = point_size;
-    staged->video_available = false;
-    staged->video_duration = 0;
-    staged->video_rate = 1;
-    staged->video_loop = true;
-    staged->video_current_time = 0;
-    staged->video_is_playing = false;
     staged->sound_available = false;
     staged->sound_is_playing = false;
-    staged->video_ended_generation = 0;
     staged->particle_playback = (MWXSceneQuickJSParticlePlaybackState){0};
     staged->particle_instance_available = false;
     staged->particle_alpha = 1;
@@ -346,43 +341,51 @@ MWXSceneQuickJSResult mwx_scene_quickjs_domain_update_layer_runtime_fields(
     return MWX_SCENE_QUICKJS_OK;
 }
 
-MWXSceneQuickJSResult mwx_scene_quickjs_domain_update_layer_video_fields(
-    MWXSceneQuickJSDomain *domain,
-    uint32_t layer_index,
-    uint32_t available,
-    double duration,
-    double rate,
-    uint32_t loop,
-    double current_time,
-    uint32_t is_playing,
-    uint64_t ended_generation,
-    char *diagnostic,
-    size_t diagnostic_capacity
+MWXSceneQuickJSResult mwx_scene_quickjs_domain_stage_video_observations(
+    MWXSceneQuickJSDomain *domain, const MWXSceneQuickJSVideoObservation *observations,
+    uint32_t count, char *diagnostic, size_t diagnostic_capacity
 ) {
     mwx_scene_quickjs_write_diagnostic(diagnostic, diagnostic_capacity, "");
-    if (domain == NULL || domain->callback_active ||
-        domain->pending_layer_snapshot == NULL ||
-        layer_index >= domain->authored_layer_count ||
-        !domain->layers[layer_index].configured || available > 1 || loop > 1 ||
-        is_playing > 1 || !isfinite(duration) || duration < 0 ||
-        !isfinite(rate) || rate <= 0 || rate > 16 ||
-        !isfinite(current_time) || current_time < 0 ||
-        (duration > 0 && current_time > duration)) {
-        mwx_scene_quickjs_write_diagnostic(
-            diagnostic, diagnostic_capacity,
-            "invalid staged layer video fields"
-        );
+    if (domain == NULL || domain->callback_active || domain->pending_layer_snapshot == NULL ||
+        (count != 0 && observations == NULL)) return MWX_SCENE_QUICKJS_INVALID_ARGUMENT;
+    MWXSceneQuickJSVideoObservation *copy = count == 0 ? NULL : malloc(sizeof(*copy) * (size_t)count);
+    if (count != 0 && copy == NULL) return MWX_SCENE_QUICKJS_MEMORY_EXCEEDED;
+    if (count != 0) memcpy(copy, observations, sizeof(*copy) * (size_t)count);
+    free(domain->pending_video_observations);
+    domain->pending_video_observations = copy;
+    domain->pending_video_observation_count = count;
+    domain->pending_video_observations_staged = true;
+    return MWX_SCENE_QUICKJS_OK;
+}
+
+MWXSceneQuickJSResult mwx_scene_quickjs_domain_update_layer_video_source(
+    MWXSceneQuickJSDomain *domain, uint32_t layer_index, uint32_t source_index,
+    char *diagnostic, size_t diagnostic_capacity
+) {
+    mwx_scene_quickjs_write_diagnostic(diagnostic, diagnostic_capacity, "");
+    if (domain == NULL || domain->callback_active || domain->pending_layer_snapshot == NULL ||
+        layer_index >= domain->authored_layer_count || !domain->layers[layer_index].configured ||
+        (source_index != UINT32_MAX && source_index >= (domain->pending_video_observations_staged
+            ? domain->pending_video_observation_count : domain->video_observation_count)))
         return MWX_SCENE_QUICKJS_INVALID_ARGUMENT;
+    if (source_index != UINT32_MAX && !(domain->pending_video_observations_staged
+            ? domain->pending_video_observations : domain->video_observations)[source_index].available)
+        return MWX_SCENE_QUICKJS_INVALID_ARGUMENT;
+    domain->pending_layer_snapshot[layer_index].video_source_index = source_index;
+    return MWX_SCENE_QUICKJS_OK;
+}
+
+MWXSceneQuickJSResult mwx_scene_quickjs_domain_withdraw_authored_video_sources(
+    MWXSceneQuickJSDomain *domain
+) {
+    if (domain == NULL || domain->callback_active) return MWX_SCENE_QUICKJS_INVALID_ARGUMENT;
+    for (uint32_t index = 0; index < domain->authored_layer_count; ++index) {
+        domain->layers[index].video_source_index = UINT32_MAX;
+        if (domain->pending_layer_snapshot != NULL)
+            domain->pending_layer_snapshot[index].video_source_index = UINT32_MAX;
+        if (domain->rollback_layer_snapshot != NULL)
+            domain->rollback_layer_snapshot[index].video_source_index = UINT32_MAX;
     }
-    MWXSceneQuickJSStagedLayerSnapshot *staged =
-        &domain->pending_layer_snapshot[layer_index];
-    staged->video_available = available != 0;
-    staged->video_duration = duration;
-    staged->video_rate = rate;
-    staged->video_loop = loop != 0;
-    staged->video_current_time = current_time;
-    staged->video_is_playing = is_playing != 0;
-    staged->video_ended_generation = ended_generation;
     return MWX_SCENE_QUICKJS_OK;
 }
 
@@ -619,16 +622,9 @@ MWXSceneQuickJSResult mwx_scene_quickjs_domain_commit_layer_snapshot(
         const bool previous_particle_instance_available = record->particle_instance_available;
         const double previous_particle_alpha = record->particle_alpha;
         const double previous_point_size = record->point_size;
-        const bool previous_video_available = record->video_available;
-        const double previous_video_duration = record->video_duration;
-        const double previous_video_rate = record->video_rate;
-        const bool previous_video_loop = record->video_loop;
-        const double previous_video_current_time = record->video_current_time;
-        const bool previous_video_is_playing = record->video_is_playing;
+        const uint32_t previous_video_source_index = record->video_source_index;
         const bool previous_sound_available = record->sound_available;
         const bool previous_sound_is_playing = record->sound_is_playing;
-        const uint64_t previous_video_ended_generation =
-            record->video_ended_generation;
         const MWXSceneQuickJSParticlePlaybackState previous_particle_playback = record->particle_playback;
         const bool previous_texture_animation_available =
             record->texture_animation_available;
@@ -678,15 +674,9 @@ MWXSceneQuickJSResult mwx_scene_quickjs_domain_commit_layer_snapshot(
         record->particle_instance_available = staged->particle_instance_available;
         record->particle_alpha = staged->particle_alpha;
         record->point_size = staged->point_size;
-        record->video_available = staged->video_available;
-        record->video_duration = staged->video_duration;
-        record->video_rate = staged->video_rate;
-        record->video_loop = staged->video_loop;
-        record->video_current_time = staged->video_current_time;
-        record->video_is_playing = staged->video_is_playing;
+        record->video_source_index = staged->video_source_index;
         record->sound_available = staged->sound_available;
         record->sound_is_playing = staged->sound_is_playing;
-        record->video_ended_generation = staged->video_ended_generation;
         record->particle_playback = staged->particle_playback;
         record->texture_animation_available =
             staged->texture_animation_available;
@@ -722,15 +712,9 @@ MWXSceneQuickJSResult mwx_scene_quickjs_domain_commit_layer_snapshot(
         staged->particle_instance_available = previous_particle_instance_available;
         staged->particle_alpha = previous_particle_alpha;
         staged->point_size = previous_point_size;
-        staged->video_available = previous_video_available;
-        staged->video_duration = previous_video_duration;
-        staged->video_rate = previous_video_rate;
-        staged->video_loop = previous_video_loop;
-        staged->video_current_time = previous_video_current_time;
-        staged->video_is_playing = previous_video_is_playing;
+        staged->video_source_index = previous_video_source_index;
         staged->sound_available = previous_sound_available;
         staged->sound_is_playing = previous_sound_is_playing;
-        staged->video_ended_generation = previous_video_ended_generation;
         staged->particle_playback = previous_particle_playback;
         staged->texture_animation_available =
             previous_texture_animation_available;
@@ -757,6 +741,16 @@ MWXSceneQuickJSResult mwx_scene_quickjs_domain_commit_layer_snapshot(
     domain->rollback_text_clone_snapshot = domain->pending_text_clone_snapshot;
     domain->pending_text_clone_snapshot = NULL; domain->pending_text_clone_count = 0;
     if (order_changed) mwx_scene_quickjs_compact_layer_order(domain);
+    if (domain->pending_video_observations_staged) {
+        domain->rollback_video_observations = domain->video_observations;
+        domain->rollback_video_observation_count = domain->video_observation_count;
+        domain->rollback_video_observations_replaced = true;
+        domain->video_observations = domain->pending_video_observations;
+        domain->video_observation_count = domain->pending_video_observation_count;
+        domain->pending_video_observations = NULL;
+        domain->pending_video_observation_count = 0;
+        domain->pending_video_observations_staged = false;
+    }
     domain->rollback_layer_snapshot = domain->pending_layer_snapshot;
     domain->rollback_layer_snapshot_generation = domain->layer_snapshot_generation;
     domain->rollback_defaults_to_perspective = domain->defaults_to_perspective;
@@ -816,15 +810,9 @@ bool mwx_scene_quickjs_domain_rollback_layer_snapshot(
         record->particle_instance_available = saved->particle_instance_available;
         record->particle_alpha = saved->particle_alpha;
         record->point_size = saved->point_size;
-        record->video_available = saved->video_available;
-        record->video_duration = saved->video_duration;
-        record->video_rate = saved->video_rate;
-        record->video_loop = saved->video_loop;
-        record->video_current_time = saved->video_current_time;
-        record->video_is_playing = saved->video_is_playing;
+        record->video_source_index = saved->video_source_index;
         record->sound_available = saved->sound_available;
         record->sound_is_playing = saved->sound_is_playing;
-        record->video_ended_generation = saved->video_ended_generation;
         record->particle_playback = saved->particle_playback;
         record->texture_animation_available =
             saved->texture_animation_available;
@@ -855,6 +843,12 @@ bool mwx_scene_quickjs_domain_rollback_layer_snapshot(
         domain->rollback_layer_snapshot_generation;
     domain->defaults_to_perspective = domain->rollback_defaults_to_perspective;
     domain->camera_transforms = domain->rollback_camera_transforms;
+    if (domain->rollback_video_observations_replaced) {
+        free(domain->video_observations);
+        domain->video_observations = domain->rollback_video_observations;
+        domain->video_observation_count = domain->rollback_video_observation_count;
+        domain->rollback_video_observations = NULL;
+    }
     clear_rollback_snapshot(domain);
     mwx_scene_quickjs_layer_finalize_topology(domain);
     return true;

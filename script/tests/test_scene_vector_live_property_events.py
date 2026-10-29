@@ -81,8 +81,11 @@ HARNESS = r'''
                 frame: frame, propertyRevision: state.revision)
         }
         func isSoundPlay(_ result: SceneScriptVectorFrameResult) -> Bool {
-            result.failures.isEmpty && result.mediaPlaybackCommands == [
-                .init(layerID: 20, action: .play, destination: .soundLayer)]
+            guard let command = result.mediaPlaybackCommands.first else { return false }
+            return result.failures.isEmpty && command.callbackEpoch > 0 && command.ordinal == 0
+                && result.mediaPlaybackCommands == [
+                .init(layerID: 20, action: .play, destination: .soundLayer,
+                    callbackEpoch: command.callbackEpoch, ordinal: 0)]
                 && result.ownerEffects.count == 1
                 && result.ownerEffects[0].ownerTarget == target
                 && result.ownerEffects[0].mediaPlaybackCommands == result.mediaPlaybackCommands
@@ -100,6 +103,9 @@ HARNESS = r'''
             && state.revision == 1 && state.effectiveValues["music"] == .string("b")
         let changed = evaluate()
         facts["live_callback_sound_destination"] = isSoundPlay(changed)
+        facts["same_sound_action_keeps_distinct_callback_identity"] = isSoundPlay(initial) && isSoundPlay(changed)
+            && initial.mediaPlaybackCommands[0] != changed.mediaPlaybackCommands[0]
+            && initial.mediaPlaybackCommands[0].callbackEpoch < changed.mediaPlaybackCommands[0].callbackEpoch
         vector.finalizeLayerMutations(committing: true)
         facts["same_value_no_revision"] = state.apply(.string("b"), forPropertyKey: "music")
             && state.revision == 1
@@ -150,6 +156,31 @@ HARNESS = r'''
         facts["recovery_event_acked_once"] = afterRecovery.failures.isEmpty
             && afterRecovery.mediaPlaybackCommands.isEmpty
         vector.finalizeLayerMutations(committing: true)
+
+        let repeatedDomain = try SceneScriptQuickJSDomain()
+        let repeated = SceneScriptVectorProgram.compile(domain: repeatedDomain,
+            descriptor: descriptor, scriptBindings: [binding("""
+                export function init(value) { return value; }
+                export function applyUserProperties(changed) {
+                    let sound = thisScene.getLayer('sound'); sound.play(); sound.play();
+                }
+                export function update(value) { thisScene.getLayer('sound').play(); return value; }
+                """)], userPropertyDefinitions: [definition("music")], generation: 2)
+        try repeatedDomain.publishLayerSnapshot(.empty(frameIndex: 0), descriptor: descriptor,
+            soundPlaybackSnapshots: [20: false])
+        let repeatedResult = repeated.evaluate(inputs: input, effectivePropertyValues: ["music": .string("a")],
+            frame: frame, propertyRevision: 0)
+        let repeatedCommands = SceneScriptMediaPlaybackCommandBridge.orderedCommands(in: repeatedResult.ownerEffects)
+        facts["vector_sound_repeated_payload_and_destination"] = repeatedResult.failures.isEmpty
+            && repeatedCommands.map(\.action) == [.play, .play, .play]
+            && repeatedCommands.allSatisfy { $0.layerID == 20 && $0.destination == .soundLayer }
+        facts["vector_sound_repeated_issuance_identity"] = repeatedCommands.count == 3
+            && repeatedCommands[0].callbackEpoch > 0
+            && repeatedCommands[0].callbackEpoch == repeatedCommands[1].callbackEpoch
+            && repeatedCommands[1].callbackEpoch < repeatedCommands[2].callbackEpoch
+            && repeatedCommands.map(\.ordinal) == [0, 1, 0]
+            && repeatedCommands[0] != repeatedCommands[1] && repeatedCommands[1] != repeatedCommands[2]
+        repeated.finalizeLayerMutations(committing: true)
 
         let multikey = SceneScriptVectorProgram.compile(domain: try SceneScriptQuickJSDomain(),
             descriptor: descriptor, scriptBindings: [binding("""
@@ -562,6 +593,7 @@ class SceneVectorLivePropertyEventTests(unittest.TestCase):
             binary = compile_vector_harness(
                 Path(temporary), HARNESS, "vector-live-property-events",
                 extra_swift_sources=PROPERTY_SOURCES,
+                whole_module_optimization=True,
             )
             result = subprocess.run(
                 ["/usr/bin/env", str(binary)], capture_output=True, text=True,

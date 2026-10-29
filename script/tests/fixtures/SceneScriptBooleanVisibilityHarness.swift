@@ -708,6 +708,7 @@ enum Harness {
         let payload: [String: Any] = [
             "projectVisibility": try SceneScriptProjectVisibilityChecks.run(),
             "returnContract": try SceneScriptBooleanReturnChecks.run(),
+            "preparedVideo": try SceneScriptBooleanReturnChecks.preparedVideoChecks(),
             "boneDefinitions": boneProgram.definitions.count,
             "boneValue": boolValue(boneResult, target: target) as Any,
             "boneFailure": String(describing: boneResult.failures),

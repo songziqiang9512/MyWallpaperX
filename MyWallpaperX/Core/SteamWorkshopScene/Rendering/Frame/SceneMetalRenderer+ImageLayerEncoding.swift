@@ -18,8 +18,11 @@ extension SceneMetalRenderer {
         frameContext: SceneFrameContext,
         frameWorldFrames: [Int: simd_float4x4],
         cameraFrame: SceneParticleCameraFrame,
-        parallaxMouseNormalized: SIMD2<Float>,
-        parallaxConfiguration: SceneLayerParallax.Configuration,
+        model: simd_float4x4,
+        mvp: simd_float4x4,
+        usesPerspective: Bool,
+        layerAlpha: Float,
+        sourceMaterialAlpha: Float,
         viewportSize: CGSize,
         time: Float,
         offscreenTexturePool: SceneOffscreenTexturePool?,
@@ -54,31 +57,6 @@ extension SceneMetalRenderer {
         let dependencyEffects = dependencyResolution.dependencyEffects
         let resolvedDependencyFailure = dependencyResolution.failure
         let geometryProduct = imageTextures.geometryProducts[layer.id]
-        let layerAlpha = SceneDynamicLayerValues.alpha(
-            layerID: layer.id, authoredValue: layer.alpha,
-            snapshot: frameContext.dynamicValues
-        )
-        let usesPerspective = cameraFrame.resolvesPerspective(for: layer)
-        let model = geometryProduct.map {
-            geometryModelMatrix(
-                for: layer,
-                worldFramesByLayerID: frameWorldFrames,
-                authoredSize: $0.authoredSize,
-                parallaxMouseNormalized: parallaxMouseNormalized,
-                configuration: parallaxConfiguration,
-                visibleHalfExtents: cameraFrame.coverHalfExtents,
-                usesPerspective: usesPerspective
-            )
-        } ?? imageModelMatrix(
-            for: layer, worldFramesByLayerID: frameWorldFrames,
-            renderSizeOverride: imageTextures.layerSourceRenderSize(for: layer.id),
-            textCenterOffsetY: imageTextures.layerSourceTextCenterOffsetY(for: layer.id) ?? 0,
-            parallaxMouseNormalized: parallaxMouseNormalized,
-            configuration: parallaxConfiguration,
-            visibleHalfExtents: cameraFrame.coverHalfExtents,
-            usesPerspective: usesPerspective
-        )
-        let mvp = cameraFrame.viewProjection(for: layer) * model
         let terminalMaterialState = modelFrame.imageMaterialStates[layer.id]
         let terminalDepth: SceneImageLayerTerminalDepthBinding?
         if terminalMaterialState?.requiresDepthAttachment == true {
@@ -165,9 +143,7 @@ extension SceneMetalRenderer {
                     layerID: layer.id, authoredValue: layer.brightness,
                     snapshot: frameContext.dynamicValues)
             ),
-            sourceMaterialAlpha: baseMaterialProviderBindings.sourceMaterialAlpha(
-                layer: layer, snapshot: frameContext.dynamicValues
-            ),
+            sourceMaterialAlpha: sourceMaterialAlpha,
             sourceMaterialColor: baseMaterialProviderBindings.sourceMaterialColor(
                         layer: layer, snapshot: frameContext.dynamicValues
                     ),

@@ -70,6 +70,7 @@ import Foundation
                      cancel: () throws -> Void = {}) throws -> ScenePreparedBaseImageResources {
             try ScenePreparedBaseImageResources.prepare(descriptor: value ?? descriptor, resourceView: view,
                 device: device, spriteTextureLoader: .init(), sceneGeneration: 1,
+                cacheDirectory: root,
                 deferredBaseImageLayerIDs: deferred, cancellationCheck: cancel)
         }
         func input(_ view: SceneResourceView) -> SceneResourceView.FileInput {

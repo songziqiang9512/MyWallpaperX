@@ -22,7 +22,7 @@ struct SceneMetalRenderer {}
   var result:[String:Bool]=[:]
   var events:[Int]=[]
   func candidate(_ id:Int, _ buffer:MTLCommandBuffer)->Renderer.PreparedFrame {
-   Renderer.PreparedFrame(commandBuffer:buffer,submit:{events.append(id);buffer.commit()},
+   Renderer.PreparedFrame(commandBuffer:buffer,submit:{_ in events.append(id);buffer.commit()},
                           cancel:{events.append(-id)})
   }
   let a=queue.makeCommandBuffer()!, b=queue.makeCommandBuffer()!
@@ -69,7 +69,7 @@ struct SceneMetalRenderer {}
     else {producerOK=false;break}
     let next=fifo.update(transaction:transaction){$0 += 1;return $0}
     producerOK = next == expected+1 && producerOK
-    let candidate=Renderer.PreparedFrame(commandBuffer:buffer,submit:{
+    let candidate=Renderer.PreparedFrame(commandBuffer:buffer,submit:{_ in
      transaction.arm(on:buffer);lease.arm(on:buffer);buffer.commit();transaction.didSubmit()
     },cancel:{transaction.cancel();lease.cancel()})
     if screen == 1 && frame < 8 {
@@ -86,6 +86,75 @@ struct SceneMetalRenderer {}
    probe.cancel()
   }
   result["independentCancelRetainsSubmittedSourcesAndReclaimsDepth"] = producerOK && expected == 40
+
+  let sourceA=UUID(uuidString:"00000000-0000-0000-0000-000000000001")!
+  let sourceB=UUID(uuidString:"00000000-0000-0000-0000-000000000002")!
+  let sourceC=UUID(uuidString:"00000000-0000-0000-0000-000000000003")!
+  let choice=Renderer.PreparedFrame(commandBuffer:queue.makeCommandBuffer()!,submit:{_ in},cancel:{})
+  var deadline:TimeInterval?
+  result["startupPendingDoesNotBorrowPreviousFrame"] = choice.shouldPresentVideoFrame(
+   readySources:[],pendingSources:[sourceB],lastSubmittedPresentationSources:[],switchDeadline:&deadline,hostTime:10)
+   && deadline == nil
+  result["sameSourceNewLogicalIDDoesNotWait"] = choice.shouldPresentVideoFrame(
+   readySources:[],pendingSources:[sourceA],lastSubmittedPresentationSources:[sourceA],switchDeadline:&deadline,hostTime:10)
+   && deadline == nil
+  result["optionalSourceAdditionDoesNotWait"] = choice.shouldPresentVideoFrame(
+   readySources:[sourceA],pendingSources:[sourceB],lastSubmittedPresentationSources:[sourceA],switchDeadline:&deadline,hostTime:10)
+   && deadline == nil
+  result["sourceReplacementWaitsOnce"] = !choice.shouldPresentVideoFrame(
+   readySources:[],pendingSources:[sourceB],lastSubmittedPresentationSources:[sourceA],switchDeadline:&deadline,hostTime:10)
+   && deadline == 10.250
+  result["continuingSelectionDoesNotRenewWindow"] = !choice.shouldPresentVideoFrame(
+   readySources:[],pendingSources:[sourceC],lastSubmittedPresentationSources:[sourceA],switchDeadline:&deadline,hostTime:10.20)
+   && deadline == 10.250
+  result["exactDeadlinePresents"] = choice.shouldPresentVideoFrame(
+   readySources:[],pendingSources:[sourceB],lastSubmittedPresentationSources:[sourceA],switchDeadline:&deadline,hostTime:10.250)
+  result["spentWindowCannotRestartBeforeCompletion"] = choice.shouldPresentVideoFrame(
+   readySources:[],pendingSources:[sourceC],lastSubmittedPresentationSources:[sourceA],switchDeadline:&deadline,hostTime:10.251)
+   && deadline == 10.250
+  result["readyReplacementClearsWait"] = choice.shouldPresentVideoFrame(
+   readySources:[sourceB],pendingSources:[],lastSubmittedPresentationSources:[sourceA],switchDeadline:&deadline,hostTime:10.252)
+   && deadline == nil
+  _=choice.shouldPresentVideoFrame(readySources:[],pendingSources:[sourceB],lastSubmittedPresentationSources:[sourceA],
+   switchDeadline:&deadline,hostTime:20)
+  let failedChoice=Renderer.PreparedFrame(commandBuffer:queue.makeCommandBuffer()!,
+   initialVideoPresentation:.init(hasUnavailableVideo:true),submit:{_ in},cancel:{})
+  result["unavailableReplacementEndsWait"] = failedChoice.shouldPresentVideoFrame(
+   readySources:[],pendingSources:[sourceB],lastSubmittedPresentationSources:[sourceA],switchDeadline:&deadline,hostTime:20.1)
+   && deadline == nil
+  result["oneRetiredSourceAmongLivePeersStillWaitsForItsReplacement"] = !choice.shouldPresentVideoFrame(
+   readySources:[sourceC],pendingSources:[sourceB],lastSubmittedPresentationSources:[sourceA,sourceC],
+   switchDeadline:&deadline,hostTime:30) && deadline == 30.250
+  let startupFacts=Renderer.InitialVideoPresentation(readyLayerIDs:[7],pendingLayerIDs:[8],
+   pendingSurfaceLayerIDs:[],hasUnavailableVideo:false)
+  result["startupReadinessRetainsGroupPendingFacts"] = !startupFacts.isComplete
+   && startupFacts.readyLayerIDs == [7] && startupFacts.pendingSurfaceLayerIDs.isEmpty
+  choice.cancel();failedChoice.cancel()
+
+  // A withheld presentation still submits real encoded GPU/source work.
+  let heldBuffer=queue.makeCommandBuffer()!,heldMarker=device.makeBuffer(length:4,options:.storageModeShared)!
+  memset(heldMarker.contents(),0,4)
+  let heldBlit=heldBuffer.makeBlitCommandEncoder()!
+  heldBlit.fill(buffer:heldMarker,range:0..<4,value:91);heldBlit.endEncoding()
+  let heldTransaction=SceneSourceUpdateTransaction(),heldFIFO=SceneSourceUpdateStateFIFO(initial:0)
+  let heldDepth:SceneParticleDepthTargetLease
+  guard case let .acquired(lease)=pool.acquire(device:device,width:8,height:8,on:heldBuffer) else {fatalError("held depth")}
+  heldDepth=lease
+  _=heldFIFO.update(transaction:heldTransaction){$0=4;return $0}
+  var presentationFlags:[Bool]=[]
+  let held=Renderer.PreparedFrame(commandBuffer:heldBuffer,submit:{present in
+   presentationFlags.append(present);heldTransaction.arm(on:heldBuffer);heldDepth.arm(on:heldBuffer)
+   heldBuffer.commit();heldTransaction.didSubmit()
+  },cancel:{heldTransaction.cancel();heldDepth.cancel()})
+  let heldOutcome=Renderer.submitPreparedFrame(.prepared(held),present:false)
+  heldBuffer.waitUntilCompleted()
+  let afterHeld=SceneSourceUpdateTransaction()
+  result["withheldFrameCommitsGPUAndSourceWork"] = heldOutcome.isSubmitted && heldBuffer.status == .completed
+   && heldMarker.contents().load(as:UInt8.self)==91 && presentationFlags == [false]
+   && heldFIFO.update(transaction:afterHeld){$0} == 4
+  afterHeld.cancel()
+  result["withheldFrameCannotSubmitAgain"] = !Renderer.submitPreparedFrame(.prepared(held),present:true).isSubmitted
+   && presentationFlags == [false]
 
   // A missing diagnostic program label must not change product publication.
   // Use the production observation builder, coordinator and real Metal buffer.
@@ -118,7 +187,13 @@ struct SceneMetalRenderer {}
     result["noSuccessEvidenceBeforeGPU-\(capture)-\(damagedObservation)"] = !recorder.lines.contains{$0.contains("outcome=succeeded")}
     _ = observed.endFrame()
     if sealed {
-     buffer.commit();buffer.waitUntilCompleted()
+     let withheld=Renderer.PreparedFrame(commandBuffer:buffer,submit:{present in
+      result["graphSubmissionWithholdsOnlyPresentation-\(capture)-\(damagedObservation)"] = !present
+      buffer.commit()
+     },cancel:{observed.cancelUnsubmittedFrame(on:buffer)})
+     result["withheldGraphStillSubmits-\(capture)-\(damagedObservation)"] =
+      Renderer.submitPreparedFrame(.prepared(withheld),present:false).isSubmitted
+     buffer.waitUntilCompleted()
      observed.completeCommandBuffer(identity:ObjectIdentifier(buffer),
       observationID:observed.commandBufferRecords[ObjectIdentifier(buffer)]?.observationID ?? 0,status:.completed)
      result["diagnosticModesPublishAndRelease-\(capture)-\(damagedObservation)"] = buffer.status == .completed

@@ -318,7 +318,7 @@ extension SceneDesktopWallpaperSession {
         // Unavailable storage rejects its own callbacks; unrelated owners still advance.
         _ = launchContext.sceneScriptStorageSession?.beginFrameTransaction()
         let sceneScriptVideoSnapshots = videoTextureSourceRegistry?
-            .sceneScriptSnapshots(sceneTime: timing.sceneTime) ?? [:]
+            .sceneScriptSnapshots(sceneTime: timing.sceneTime) ?? .empty
         let sceneScriptTextureAnimationSnapshots = launchContext.textureAnimationPlaybackRuntime.snapshots(
             sceneTime: timing.sceneTime)
         let puppetPoseFrames = surfaces.mapValues {
@@ -700,10 +700,11 @@ extension SceneDesktopWallpaperSession {
                 rejectingDependents: {
                     launchContext.sceneScriptStorageSession?.resolveRejectedOwners($0) ?? $0
                 }
-            ) { admitted in
+            ) { admitted, layerPlan in
                 let failures = SceneScriptOwnerEffectsRuntimeValidation
                     .failures(
                         for: admitted,
+                        createdVideoConsumers: layerPlan.createdDynamicImageModelPathsByID,
                         timelineRuntime: launchContext.timelinePlaybackRuntime,
                         textureAnimationRuntime:
                             launchContext.textureAnimationPlaybackRuntime,
@@ -787,7 +788,7 @@ extension SceneDesktopWallpaperSession {
         }
         let animationMutations = SceneScriptAnimationHandleBridge.orderedMutations(in: admittedOwnerEffects)
         let puppetBoneMutations = SceneScriptPuppetBoneMutationBridge.orderedMutations(in: admittedOwnerEffects)
-        let mediaPlaybackCommands = admittedOwnerEffects.flatMap(\.mediaPlaybackCommands)
+        let mediaPlaybackCommands = SceneScriptMediaPlaybackCommandBridge.orderedCommands(in: admittedOwnerEffects)
         let textureAnimationCommands = admittedOwnerEffects.flatMap(
             \.textureAnimationCommands
         )

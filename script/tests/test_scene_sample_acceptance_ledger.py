@@ -177,6 +177,13 @@ class SceneSampleAcceptanceLedgerTests(unittest.TestCase):
             unknown_sample = _write(root / "unknown.json", _verdicts({"99": {"verdict": "fail", "reviewedOn": "2026-09-08"}}))
             with self.assertRaisesRegex(ValueError, "absent from the root"):
                 build_ledger(samples, archive, unknown_sample)
+            historical_archive = _write(root / "historical.json", _archive([{"id": "99"}]))
+            original_overlay = unknown_sample.read_bytes()
+            historical = build_ledger(samples, historical_archive, unknown_sample)
+            self.assertEqual(historical["source"]["verdicts"]["archivedOnlySampleIDs"], ["99"])
+            self.assertNotIn("99", [row["id"] for row in historical["samples"]])
+            self.assertEqual(unknown_sample.read_bytes(), original_overlay)
+            self.assertIn("99；不计当前目录表", render_markdown(historical))
             wrong_allowed = _write(root / "allowed.json", {"allowedVerdicts": ["pass"], "verdicts": {}})
             with self.assertRaisesRegex(ValueError, "allowedVerdicts"):
                 build_ledger(samples, archive, wrong_allowed)

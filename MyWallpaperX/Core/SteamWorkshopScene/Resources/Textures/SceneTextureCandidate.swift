@@ -144,16 +144,12 @@ nonisolated enum SceneTextureProviderIdentity: Hashable, Sendable {
 }
 
 /// Playback ownership is distinct from a logical sampler request. Asset sources
-/// share one physical decoder; layer sources retain independent authored control.
+/// share one physical decoder. Ordinary layer consumers share their resource;
+/// asset and user-property playback remain separate ownership domains.
 nonisolated enum SceneVideoTexturePlaybackOwner: Hashable, Sendable {
-    case layer(Int)
+    case ordinary
     case asset
     case userProperty(SceneUserPropertyTextureIdentity)
-
-    var layerID: Int? {
-        guard case let .layer(id) = self else { return nil }
-        return id
-    }
 }
 
 nonisolated enum SceneTextureResourceIdentity: Hashable, Sendable {

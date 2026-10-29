@@ -8,6 +8,7 @@ enum SceneFrameLayerTextureAssembly {
         mediaThumbnail: SceneMediaThumbnailTextureStore.Snapshot? = nil,
         mediaBindings: SceneBaseMaterialProviderBindingProgram = .empty,
         videoSources: [Int: SceneVideoTextureSource],
+        retiredLayerIDs: Set<Int> = [],
         timing: SceneFrameTiming,
         collectsInitialVideoReadiness: Bool = false
     ) -> SceneBaseImageTextureSnapshot {
@@ -16,7 +17,7 @@ enum SceneFrameLayerTextureAssembly {
         var layerSourcePublications: [Int: SceneLayerSourcePublication] = [:]
         var pendingLayerSourceIDs: Set<Int> = []
         var initialVideoReadiness: [Int: SceneOrdinaryVideoFrameReadiness]? = collectsInitialVideoReadiness
-            ? Dictionary(uniqueKeysWithValues: base.unavailableOrdinaryVideoLayerIDs.map { ($0, .unavailable) })
+            ? Dictionary(uniqueKeysWithValues: base.unavailableOrdinaryVideoLayerIDs.subtracting(retiredLayerIDs).map { ($0, .unavailable) })
             : nil
 
         if let dynamicImage {
@@ -27,6 +28,10 @@ enum SceneFrameLayerTextureAssembly {
             pendingLayerSourceIDs.formUnion(
                 dynamicImage.pendingLayerSourceIDs
             )
+            for layerID in dynamicImage.videoLayerRenderSizesWH.keys where videoSources[layerID] == nil {
+                pendingLayerSourceIDs.insert(layerID)
+                initialVideoReadiness?[layerID] = .unavailable
+            }
         }
 
         if let dynamicText {
@@ -39,20 +44,21 @@ enum SceneFrameLayerTextureAssembly {
         // consume it, but it must never overwrite a layer-source publication.
         _ = mediaThumbnail
         _ = mediaBindings
-        for (layerID, source) in videoSources {
+        for (layerID, source) in videoSources where !retiredLayerIDs.contains(layerID) {
             let preparedFrame = source.prepareFrame(for: timing)
             if collectsInitialVideoReadiness {
                 initialVideoReadiness?[layerID] = source.initialFrameReadiness(preparedFrame: preparedFrame)
             }
             guard let frame = preparedFrame,
-                  let publication = frame.publication else {
+                  let publication = frame.layerPublication(for: layerID) else {
                 pendingLayerSourceIDs.insert(layerID)
                 continue
             }
             textures[layerID] = frame.texture
             if let layerSource = SceneLayerSourcePublication(
                 layerID: layerID,
-                publication: publication
+                publication: publication,
+                renderSizeWH: dynamicImage?.videoLayerRenderSizesWH[layerID]
             ) {
                 layerSourcePublications[layerID] = layerSource
             } else {

@@ -76,7 +76,7 @@ class InitialVideoResourceReadinessTests(unittest.TestCase):
             run = subprocess.run([str(p / "run")], capture_output=True, text=True, env=env, timeout=20)
             self.assertEqual(run.returncode, 0, run.stderr)
             checks = json.loads(run.stdout)
-            self.assertEqual(len(checks), 17)
+            self.assertEqual(len(checks), 20)
             for name, passed in checks.items():
                 with self.subTest(contract=name):
                     self.assertTrue(passed)

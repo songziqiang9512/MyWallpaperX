@@ -1291,6 +1291,7 @@ void mwx_scene_quickjs_domain_destroy(MWXSceneQuickJSDomain *domain) {
         free(domain->dynamic_image_resources[index].identity_key);
     }
     free(domain->dynamic_image_resources);
+    free(domain->video_observations);
     domain->asset_path_normalizer = NULL;
     if (domain->context != NULL) {
         JS_FreeValue(domain->context, domain->vec2_constructor);

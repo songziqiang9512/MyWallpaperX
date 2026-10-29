@@ -51,6 +51,30 @@ nonisolated enum SceneScriptCameraCommandBridge {
 }
 
 nonisolated extension SceneScriptQuickJSDomain {
+    private func publishVideoObservations(
+        _ videoSnapshots: SceneScriptVideoFrameSnapshot, diagnostic: inout [CChar]
+    ) throws {
+        let observations = videoSnapshots.sources.map { value -> MWXSceneQuickJSVideoObservation in
+            guard let value else { return .init() }
+            var observation = MWXSceneQuickJSVideoObservation(duration: value.duration, rate: value.rate,
+                current_time: value.currentTime, ended_generation: value.endedGeneration,
+                loop: value.loop ? 1 : 0, is_playing: value.isPlaying ? 1 : 0,
+                available: 1, source_incarnation: (0, 0))
+            var incarnation = value.sourceIncarnation.uuid
+            withUnsafeBytes(of: &incarnation) { bytes in
+                withUnsafeMutableBytes(of: &observation.source_incarnation) { $0.copyBytes(from: bytes) }
+            }
+            return observation
+        }
+        let videoResult = observations.withUnsafeBufferPointer {
+            mwx_scene_quickjs_domain_stage_video_observations(handle, $0.baseAddress,
+                UInt32($0.count), &diagnostic, diagnostic.count)
+        }
+        guard videoResult == MWX_SCENE_QUICKJS_OK else {
+            throw layerSnapshotFailure(videoResult, diagnostic: diagnostic)
+        }
+    }
+
     func configureLayerRuntimeFields(_ descriptor: SceneRenderDescriptor) throws {
         try publishLayerSnapshot(
             .empty(frameIndex: 0),
@@ -61,7 +85,7 @@ nonisolated extension SceneScriptQuickJSDomain {
     func publishLayerRuntimeFields(
         _ snapshot: SceneDynamicSnapshot,
         descriptor: SceneRenderDescriptor,
-        videoSnapshots: [Int: SceneScriptVideoPlaybackSnapshot] = [:],
+        videoSnapshots: SceneScriptVideoFrameSnapshot = .empty,
         soundPlaybackSnapshots: [Int: Bool] = [:],
         particlePlaybackObservations: [Int: SceneParticlePlaybackObservation] = [:],
         particleInstanceLayerIDs: Set<Int> = [],
@@ -72,11 +96,17 @@ nonisolated extension SceneScriptQuickJSDomain {
         runtimeFieldLayerIDs: Set<Int>? = nil,
         diagnostic: inout [CChar]
     ) throws {
+        try publishVideoObservations(videoSnapshots, diagnostic: &diagnostic)
         for (index, layer) in descriptor.layers.enumerated() {
+            let sourceIndex = videoSnapshots.layerBindings[layer.id].map(UInt32.init) ?? UInt32.max
+            let bindingResult = mwx_scene_quickjs_domain_update_layer_video_source(
+                handle, UInt32(index), sourceIndex, &diagnostic, diagnostic.count)
+            guard bindingResult == MWX_SCENE_QUICKJS_OK else {
+                throw layerSnapshotFailure(bindingResult, diagnostic: diagnostic)
+            }
             if let runtimeFieldLayerIDs,
                !runtimeFieldLayerIDs.contains(layer.id),
                !destroyedAuthoredLayerIDs.contains(layer.id),
-               videoSnapshots[layer.id] == nil,
                textureAnimationSnapshots[layer.id] == nil,
                layer.contentKind != "particle", layer.contentKind != "sound" {
                 let result = mwx_scene_quickjs_domain_reuse_layer_runtime_fields(
@@ -228,27 +258,6 @@ nonisolated extension SceneScriptQuickJSDomain {
                     throw layerSnapshotFailure(soundResult, diagnostic: diagnostic)
                 }
             }
-            if let video = videoSnapshots[layer.id] {
-                let videoResult = mwx_scene_quickjs_domain_update_layer_video_fields(
-                    handle,
-                    UInt32(index),
-                    1,
-                    video.duration,
-                    video.rate,
-                    video.loop ? 1 : 0,
-                    video.currentTime,
-                    video.isPlaying ? 1 : 0,
-                    video.endedGeneration,
-                    &diagnostic,
-                    diagnostic.count
-                )
-                guard videoResult == MWX_SCENE_QUICKJS_OK else {
-                    throw layerSnapshotFailure(
-                        videoResult,
-                        diagnostic: diagnostic
-                    )
-                }
-            }
             if let animation = textureAnimationSnapshots[layer.id] {
                 let animationResult =
                     mwx_scene_quickjs_domain_update_layer_texture_animation_fields(
@@ -365,7 +374,7 @@ nonisolated extension SceneScriptQuickJSDomain {
     func publishLayerSnapshot(
         _ snapshot: SceneDynamicSnapshot,
         descriptor: SceneRenderDescriptor,
-        videoSnapshots: [Int: SceneScriptVideoPlaybackSnapshot] = [:],
+        videoSnapshots: SceneScriptVideoFrameSnapshot = .empty,
         soundPlaybackSnapshots: [Int: Bool] = [:],
         textureAnimationSnapshots: [
             Int: SceneTextureAnimationSnapshot
@@ -472,11 +481,12 @@ nonisolated extension SceneScriptQuickJSDomain {
         }
     }
 
-    /// Update only live Sound observations; retain the committed transforms,
-    /// pose, video, particle and text fields during a paused property event.
+    /// Refresh media observations without advancing transforms, pose, particle
+    /// or text fields during a paused property event.
     func publishSoundPlaybackSnapshot(
         _ snapshot: SceneDynamicSnapshot, descriptor: SceneRenderDescriptor,
-        soundPlaybackSnapshots: [Int: Bool], catalogToken: String
+        soundPlaybackSnapshots: [Int: Bool], videoSnapshots: SceneScriptVideoFrameSnapshot = .empty,
+        catalogToken: String
     ) throws {
         guard layerCatalogSignature == catalogToken else {
             throw SceneScriptScalarRuntimeFailure.invalidArgument("SceneScript layer catalog identity changed")
@@ -484,7 +494,14 @@ nonisolated extension SceneScriptQuickJSDomain {
         try withLayerSnapshotPublication(snapshot,
             dynamicTransformIDs: committedDynamicWorldTransformLayerIDs,
             awaitingHostFrameOutcome: true) { diagnostic in
+            try publishVideoObservations(videoSnapshots, diagnostic: &diagnostic)
             for (index, layer) in descriptor.layers.enumerated() {
+                let sourceIndex = videoSnapshots.layerBindings[layer.id].map(UInt32.init) ?? UInt32.max
+                let binding = mwx_scene_quickjs_domain_update_layer_video_source(
+                    handle, UInt32(index), sourceIndex, &diagnostic, diagnostic.count)
+                guard binding == MWX_SCENE_QUICKJS_OK else {
+                    throw layerSnapshotFailure(binding, diagnostic: diagnostic)
+                }
                 let reused = mwx_scene_quickjs_domain_reuse_layer_runtime_fields(
                     handle, UInt32(index), &diagnostic, diagnostic.count)
                 guard reused == MWX_SCENE_QUICKJS_OK else {

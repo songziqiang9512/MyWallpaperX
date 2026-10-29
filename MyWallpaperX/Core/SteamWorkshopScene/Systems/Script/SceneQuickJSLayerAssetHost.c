@@ -160,7 +160,8 @@ MWXSceneQuickJSResult mwx_scene_quickjs_domain_configure_dynamic_image_catalog(
     MWXSceneQuickJSResult result = MWX_SCENE_QUICKJS_OK;
     for (uint32_t index = 0; index < count; ++index) {
         const MWXSceneQuickJSDynamicImageDescriptor *input = &descriptors[index];
-        if (!mwx_scene_quickjs_layer_valid_asset_path(input->model_path, input->model_path_length, MWX_SCENE_QUICKJS_MAX_LAYER_ASSET_PATH) || input->autosize > 1 || input->resource_kind > MWX_SCENE_QUICKJS_PREPARED_LAYER_COMPOSITION ||
+        if (!mwx_scene_quickjs_layer_valid_asset_path(input->model_path, input->model_path_length, MWX_SCENE_QUICKJS_MAX_LAYER_ASSET_PATH) || input->autosize > 1 || input->is_video > 1 || input->resource_kind > MWX_SCENE_QUICKJS_PREPARED_LAYER_COMPOSITION ||
+            (input->is_video && input->resource_kind != MWX_SCENE_QUICKJS_PREPARED_LAYER_IMAGE) ||
             (input->resource_kind == MWX_SCENE_QUICKJS_PREPARED_LAYER_COMPOSITION && input->autosize != 0) ||
             !(input->natural_size[0] > 0 && input->natural_size[1] > 0 &&
               input->natural_size[0] <= FLT_MAX && input->natural_size[1] <= FLT_MAX)) {
@@ -179,6 +180,8 @@ MWXSceneQuickJSResult mwx_scene_quickjs_domain_configure_dynamic_image_catalog(
         memcpy(records[index].natural_size, input->natural_size, sizeof(input->natural_size));
         records[index].autosize = input->autosize != 0;
         records[index].resource_kind = (MWXSceneQuickJSPreparedLayerKind)input->resource_kind;
+        records[index].is_video = input->is_video != 0;
+        records[index].video_source_index = UINT32_MAX;
     }
     if (result != MWX_SCENE_QUICKJS_OK) {
         for (uint32_t index = 0; index < count; ++index) {
@@ -194,4 +197,39 @@ MWXSceneQuickJSResult mwx_scene_quickjs_domain_configure_dynamic_image_catalog(
     domain->dynamic_image_resource_count = count;
     domain->dynamic_image_catalog_configured = true;
     return MWX_SCENE_QUICKJS_OK;
+}
+
+MWXSceneQuickJSResult mwx_scene_quickjs_domain_configure_prepared_video_source(
+    MWXSceneQuickJSDomain *domain, const char *model_path, size_t model_path_length,
+    uint32_t source_index, char *diagnostic, size_t diagnostic_capacity
+) {
+    if (domain == NULL || domain->callback_active || domain->frame_input_active ||
+        domain->pending_layer_snapshot != NULL || domain->rollback_layer_snapshot != NULL ||
+        !domain->dynamic_image_catalog_configured || domain->asset_path_normalizer == NULL ||
+        !mwx_scene_quickjs_layer_valid_asset_path(model_path, model_path_length, MWX_SCENE_QUICKJS_MAX_LAYER_ASSET_PATH))
+        return MWX_SCENE_QUICKJS_INVALID_ARGUMENT;
+    char *key = domain->asset_path_normalizer(model_path, model_path_length);
+    if (key == NULL) return MWX_SCENE_QUICKJS_MEMORY_EXCEEDED;
+    MWXSceneQuickJSResult result = MWX_SCENE_QUICKJS_INVALID_ARGUMENT;
+    for (uint32_t index = 0; index < domain->dynamic_image_resource_count; ++index) {
+        MWXSceneQuickJSDynamicImageRecord *resource = &domain->dynamic_image_resources[index];
+        if (!resource->is_video || strcmp(resource->identity_key, key) != 0) continue;
+        if (resource->video_source_index != source_index) {
+            // Surface/device replacement is a preparation boundary. Existing
+            // consumers follow this model's first device without frame scans.
+            for (uint32_t layer = domain->authored_layer_count; layer < domain->layer_count; ++layer) {
+                MWXSceneQuickJSLayerRecord *record = &domain->layers[layer];
+                if (record->configured && !record->destroyed && record->asset_path != NULL &&
+                    strcmp(record->asset_path, resource->model_path) == 0)
+                    record->video_source_index = source_index;
+            }
+        }
+        resource->video_source_index = source_index;
+        result = MWX_SCENE_QUICKJS_OK;
+        break;
+    }
+    free(key);
+    mwx_scene_quickjs_write_diagnostic(diagnostic, diagnostic_capacity,
+        result == MWX_SCENE_QUICKJS_OK ? "" : "prepared video template unavailable");
+    return result;
 }

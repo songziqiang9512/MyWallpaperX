@@ -35,6 +35,7 @@ nonisolated struct SceneScriptLayerMutation: Equatable, Sendable {
         static let pointSize = Self(rawValue: UInt32(
             MWX_SCENE_QUICKJS_LAYER_MUTATION_FIELD_POINT_SIZE.rawValue
         ))
+        static let created = Self(rawValue: UInt32(MWX_SCENE_QUICKJS_LAYER_MUTATION_FIELD_CREATED.rawValue))
         static let effectVisibility = Self(rawValue: UInt32(MWX_SCENE_QUICKJS_LAYER_MUTATION_FIELD_EFFECT_VISIBILITY.rawValue))
 
         static let perspective = Self(rawValue: UInt32(MWX_SCENE_QUICKJS_LAYER_MUTATION_FIELD_PERSPECTIVE.rawValue))
@@ -50,7 +51,8 @@ nonisolated struct SceneScriptLayerMutation: Equatable, Sendable {
 
     let kind: Kind
     let isDynamic: Bool
-    let fields: Fields
+    var fields: Fields
+    var isNewborn: Bool { fields.contains(.created) }
     let layerID: Int
     let orderIndex: Int
     let visible: Bool
@@ -173,7 +175,9 @@ nonisolated struct SceneScriptLayerMutation: Equatable, Sendable {
     func merging(with newer: Self) -> Self {
         guard kind != .destroy, kind == .upsert, newer.kind == .upsert,
               !isDynamic, !newer.isDynamic else {
-            return kind == .destroy ? self : newer
+            var selected = kind == .destroy ? self : newer
+            if isDynamic && newer.isDynamic { selected.fields.formUnion(fields.intersection(.created)) }
+            return selected
         }
         let mergedFields = fields.union(newer.fields)
         return .init(

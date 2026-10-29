@@ -20,6 +20,7 @@ nonisolated struct SceneScriptPreparedResourceLayerTemplate: Equatable, Sendable
     var puppetMeshPath: String? = nil
     var kind: Kind = .image
     var imageMaterialRenderState: SceneMaterialRenderState? = nil
+    var isVideo: Bool = false
 
     var defaultRenderSizeWH: [Float] { autosize ? renderSizeWH : [1, 1] }
 }
@@ -55,6 +56,14 @@ nonisolated struct SceneScriptLayerMutationPlan: Sendable {
     var textTemplateIdentitiesByLayerID: [Int: UInt64] = [:]
     var retiredDynamicLayerIDs: Set<Int> = []
     var createdPreparedTextValues: [SceneDynamicTarget: SceneDynamicValue] = [:]
+    /// Accepted birth records survive a net-zero topology for media admission.
+    var createdDynamicLayerMutations: [SceneScriptLayerMutation] = []
+
+    var createdDynamicImageModelPathsByID: [Int: String] {
+        createdDynamicLayerMutations.reduce(into: [:]) { result, mutation in
+            if let path = mutation.assetPath { result[mutation.layerID] = path }
+        }
+    }
 
     /// Camera setters join this frame without advancing ordinary layer setters.
     func overlayCameraValues(into values: inout [SceneDynamicTarget: SceneDynamicValue]) {

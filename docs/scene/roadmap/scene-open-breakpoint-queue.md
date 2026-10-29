@@ -17,7 +17,8 @@
 
 | 公共首断点 / 样本 | 未闭问题与最小下一门 |
 |---|---|
-| 动态视频实例/衔接 · 3372715909 | 原120控制器保存12份配置后删除原层，update每帧销毁旧实例并创建所选视频，当前create返回null并中断。按本地小时自动切换，也可用时段/主题属性手选，无生效点击切换。先补prepared视频资格、同callback播放命令与原provider接续；槽位寿命修正不代验视频。多路供帧竞争另有轨道消融，时刻映射偏差仅约1ms；[本轮资格](../capabilities/runtime-evidence-current.md#video-publication-demand-20261021)不认稳定性能收益，官方双实例/最后carrier重建仍未知。 |
+| 新目录增量运行筛查 | 当前目录453个，既有373目录静态快照之后新增81、移除1；本次只生成目录/参数台账，未跑这81个原包。后续按已有报告逐一去重后做默认播放与“截屏”对照，不能把历史归档not-run当从未运行，也不把目录增加误记新能力缺口。具体运行首断点再并入下列公共类型。 |
+| 视频热切后的AV资源驻留 · 3372715909 | 遍历12源后MTL allocated约9.75GB，单源约0.8GB；暂停/flush尚未收敛AV解码/转换池，数值不等同进程RAM，当前边界见[后验](../history/video-instance-observations-2026-10-29.md#明确保留的成本与边界)。下一门先测真实源消费、空窗及整Session在进程内退场，不重复包装层或改clock，不以提高预算规避。group/named/effect衔接与官方完整seek/播放态空窗仍未知，不能据直接输出正例关闭。 |
 | Program来源/命名绑定 · 3086016320 | 430仍拒execution-stage-conservation/named binding，属父426下封面转场，默认父alpha0；无可归因默认ROI。先取可见媒体正控及base/potential/selected依赖向量，再沿原多槽owner扩展；保隐藏forward259的作者顺序，不将其归因独立1521频谱。 |
 | source材质/lookup · 3616476797 /3679907516 | 361113与36771/74/83仍有source-only render-state首拒；36771回调产黑、83初alpha0待thumbnail，74普通effect实际已消费。先资格受控媒体/source独占ROI，区分texture×g_Color4等价与非等价source；不泛化translucent/VERSION2、吞lookup错误或据缺祖父认缺API。 |
 | forward copy-background · 2972071249 | 313引用后置隐藏composition234，dependency stage order拒绝仍在；隐式copyBackground使全局prepass不独立于作者顺序，白波形因果未定。先证consumer prefix与跨consumer身份，复用原graph发布；[原板正控STOP](../capabilities/runtime-evidence-current.md#forward-composition-prefix-20261019)不作语义结论。 |

@@ -594,6 +594,7 @@ void mwx_scene_quickjs_owner_discard_layer_mutations(
     owner->effect_visibility_staged = false;
     owner->effect_visibility_pending = false;
     finish_dynamic_layer_transaction(owner, false);
+    mwx_scene_quickjs_finish_video_ended_callbacks(owner, false);
     clear_layer_mutation_buffers(owner);
     owner->media_playback_command_count = 0;
     owner->media_playback_command_overflow = false;
@@ -632,6 +633,7 @@ void mwx_scene_quickjs_owner_commit_layer_mutations(
     owner->effect_visibility_staged = false;
     owner->effect_visibility_pending = false;
     finish_dynamic_layer_transaction(owner, true);
+    mwx_scene_quickjs_finish_video_ended_callbacks(owner, true);
     clear_layer_mutation_buffers(owner);
     owner->particle_playback_command_count = 0;
     owner->particle_playback_command_overflow = false;

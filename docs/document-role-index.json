@@ -926,13 +926,13 @@
       "role": "stable-contract",
       "entrypoint": "docs/scene/architecture/runtime-architecture.md",
       "currentStateAuthority": "docs/scene/capabilities/coverage-ledger.md",
-      "lastReviewed": "2026-10-22",
+      "lastReviewed": "2026-10-29",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "87bb0c600a15b2fce98e1736847e5e0ad372996673f82c46ecc7031e37075a79",
+        "sourceSHA256": "dae1e6b436cc91e6f2009a234b49b39c9385b70f6440c82c3b8feeecd2954b32",
         "method": "document_registry --audit + document_health --check",
-        "scope": "单一视频定位状态、普通拒帧与backend事实分界及单份未发布像素复用；native/Debug/真实双视频和独立WebM验收由运行记录拥有，消费需求优化仍未实施。",
-        "limitations": "导航收据不替代运行；未验Release/HDR/多屏/长稳/性能或官方同phase，不关闭337空档及动态实例。"
+        "scope": "同步prepared动态MP4、共享Source/命令身份、纹理退休及直接主输出有界呈现；原生同身份窗口采样和官方有限语义各归本轮历史，剩余AV池驻留归唯一队列。",
+        "limitations": "仅导航与状态一致性；运行只按历史已验范围，未关闭动态WebM、group/named/effect衔接、完整官方seek/空窗、所有HDR组合及整体CPU/GPU/能耗收益。"
       }
     },
     {
@@ -999,10 +999,10 @@
       "lastReviewed": "2026-10-29",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "0795b63f38de8ef6604250036d94b620a8efa6dd17d21717856fe3687de23639",
+        "sourceSHA256": "f1e32e62eb70ceb60ce195f3100bfcd9130d98234574c58ac3d287b3a7db10fb",
         "method": "document_registry --audit + document_health --check",
-        "scope": "动态逻辑身份/slot共同回收合同与实际限定后验同步；修正旧64动态上限文案，337普通播放首错与性能资格分界、保净零出生待验。",
-        "limitations": "导航收据不替代实际运行；原生C寿命与独立样本只按批次历史已验范围，动态视频/官方身份、HDR多屏及稳定整体性能仍未闭。"
+        "scope": "同步prepared动态MP4、共享Source/命令身份、纹理退休及直接主输出有界呈现；原生同身份窗口采样和官方有限语义各归本轮历史，剩余AV池驻留归唯一队列。",
+        "limitations": "仅导航与状态一致性；运行只按历史已验范围，未关闭动态WebM、group/named/effect衔接、完整官方seek/空窗、所有HDR组合及整体CPU/GPU/能耗收益。"
       }
     },
     {
@@ -4191,6 +4191,19 @@
       ],
       "cutoffDate": "2026-10-16",
       "uniqueValue": "固定官方24case的Vec3/Vec2缺维数值与独立中性交接、共享ValueHost四方法修复、真实VM及TEXT滞后fixture修正；原包1128首错消失与S3、同窗热改及独立314实图分列，保位置motion/整样本/parity未知和缓存不同无性能结论。"
+    },
+    {
+      "path": "docs/scene/history/video-instance-observations-2026-10-29.md",
+      "role": "historical-evidence",
+      "entrypoint": "docs/scene/history/README.md",
+      "cutoffDate": "2026-10-29",
+      "uniqueValue": "固定官方视频实例观察与原生通用动态MP4、12组合热改、68张实际窗口衔接采样；分列AV池驻留与未覆盖边界。",
+      "commandPolicy": "historical-only",
+      "currentAuthorities": [
+        "docs/scene/capabilities/material-video-assets.md",
+        "docs/scene/roadmap/batch2/script-component-api-design.md",
+        "docs/scene/roadmap/scene-open-breakpoint-queue.md"
+      ]
     },
     {
       "path": "docs/scene/history/video-pair-current-recheck-2026-10-28.md",

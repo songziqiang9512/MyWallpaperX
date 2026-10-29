@@ -206,6 +206,13 @@ static bool read_optional_bool(
         *output = fallback;
         return true;
     }
+    if (JS_IsObject(value)) {
+        // Initial authored configurations retain their property envelope.
+        // Consume its literal Boolean without creating another script owner.
+        JSValue literal = JS_GetPropertyStr(context, value, "value");
+        JS_FreeValue(context, value);
+        value = literal;
+    }
     if (!JS_IsBool(value)) {
         JS_FreeValue(context, value);
         return false;
@@ -379,6 +386,7 @@ static JSValue create_layer(
         return JS_NULL;
     char *text = NULL, *font = NULL, *name = NULL;
     uint64_t text_template_identity = 0;
+    uint32_t video_source_index = UINT32_MAX;
     char *asset_path = NULL;
     double point_size = 32, alpha = 1;
     double origin[3] = {0, 0, 0};
@@ -474,6 +482,14 @@ static JSValue create_layer(
         if (domain->dynamic_image_catalog_configured && resource == NULL) {
             free(text); free(font); free(name); free(asset_path);
             return JS_NULL;
+        }
+        if (resource != NULL && resource->is_video) {
+            if (resource->video_source_index >= domain->video_observation_count ||
+                !domain->video_observations[resource->video_source_index].available) {
+                free(text); free(font); free(name); free(asset_path);
+                return JS_NULL;
+            }
+            video_source_index = resource->video_source_index;
         }
         if (resource != NULL && resource->resource_kind != MWX_SCENE_QUICKJS_PREPARED_LAYER_IMAGE && JS_IsObject(argv[0])) {
             // Special templates supply only prepared empty/default geometry.
@@ -572,6 +588,7 @@ static JSValue create_layer(
     *record = (MWXSceneQuickJSLayerRecord){
         .layer_id = identity, .name = name, .text = text, .font = font,
         .asset_path = asset_path,
+        .video_source_index = video_source_index,
         .current_origin = {origin[0], origin[1], origin[2]},
         .scale = {scale[0], scale[1], scale[2]},
         .angles = {angles[0], angles[1], angles[2]},
@@ -585,6 +602,7 @@ static JSValue create_layer(
         cancel_created_layer(owner, record, creation_operation);
         return JS_ThrowInternalError(context, "layer mutation buffer exceeded");
     }
+    record->dirty_fields |= MWX_SCENE_QUICKJS_LAYER_MUTATION_FIELD_CREATED;
     if (text_template_identity && !mwx_scene_quickjs_activate_text_clone(owner, index, text_template_identity)) {
         // Birth has occurred: even a caller catch cannot accept this bundle.
         owner->text_clone_failed = true;

@@ -22,7 +22,7 @@ class SceneMetalView: NSView {
     var imageTextures = SceneBaseImageTextureStore()
     private var spriteAnimations: [Int: SceneSpriteAnimation] = [:]
     private var specializedBaseTextureSamplings: [Int: SceneTextureSampling] = [:]
-    private var videoTextureSources: [Int: SceneVideoTextureSource] = [:]
+    private var videoSourceRegistry: SceneVideoTextureSourceRegistry?
 #if DEBUG
     var recordedPuppetPoseLayerIDs: Set<Int> = []
     var debugDrawableUnavailableFrameCount: UInt64 = 0
@@ -233,7 +233,7 @@ class SceneMetalView: NSView {
         var loaded = SceneBaseImageTextureStore()
         var loadedSpriteAnimations: [Int: SceneSpriteAnimation] = [:]
         var loadedSpecializedBaseTextureSamplings: [Int: SceneTextureSampling] = [:]
-        var loadedVideoSources: [Int: SceneVideoTextureSource] = [:]
+        var loadedVideoLayerCount = 0
         var loadedPuppetPlaybackStates: [Int: ScenePuppetPlaybackState] = [:]
         var preparedBaseImageHitCount = 0
 #if DEBUG
@@ -345,25 +345,25 @@ class SceneMetalView: NSView {
                 continue
             }
             let videoSource: SceneVideoTextureSource?
-            do { videoSource = try videoSourceRegistry.source(
-                from: url, layerID: layer.id, cacheDirectory: privateMediaCacheDirectory,
-                device: metalDevice, loader: loader,
-                onSourceCreationFailure: { loaded.markOrdinaryVideoUnavailable(layerID: layer.id) }
-            ) } catch { loaded.markOrdinaryVideoUnavailable(layerID: layer.id); continue }
-            if let videoSource {
-                loadedVideoSources[layer.id] = videoSource
-#if DEBUG
-                if report.isEnabled {
-                    var message = "layer \(layer.id) \"\(name)\":"
-                        + " mp4 payload video source ready (\(url.lastPathComponent))"
-                    message += " [\(url.diagnosticPath)]"
-                    if let effectSummary = renderer.effectRuntimeSummary(for: layer) {
-                        message += "; \(effectSummary)"
-                    }
-                    message += "; \(placementSummary)"
-                    report.append(message)
-
+            do {
+                if let modelPath = layer.imagePath,
+                   case let .video(sourceKey, file, _)? = preparedBaseImages.dynamicImageResources[modelPath.lowercased()]?.product,
+                   url == resolver.resolvePrimaryTexture(modelPath: modelPath) {
+                    videoSource = try videoSourceRegistry.source(sourceKey: sourceKey, preparedFile: file,
+                        owner: .ordinary, layerID: layer.id, device: metalDevice,
+                        onSourceCreationFailure: { loaded.markOrdinaryVideoUnavailable(layerID: layer.id) })
+                } else {
+                    videoSource = try videoSourceRegistry.source(
+                        from: url, layerID: layer.id, cacheDirectory: privateMediaCacheDirectory,
+                        device: metalDevice, loader: loader,
+                        onSourceCreationFailure: { loaded.markOrdinaryVideoUnavailable(layerID: layer.id) })
                 }
+            } catch { loaded.markOrdinaryVideoUnavailable(layerID: layer.id); continue }
+            if videoSource != nil {
+                loadedVideoLayerCount += 1
+#if DEBUG
+                report.append("layer \(layer.id) \"\(name)\": mp4 payload video source ready (\(url.lastPathComponent)) [\(url.diagnosticPath)]"
+                    + (renderer.effectRuntimeSummary(for: layer).map { "; \($0)" } ?? "") + "; \(placementSummary)")
 #endif
 
                 continue
@@ -510,7 +510,7 @@ class SceneMetalView: NSView {
 #if DEBUG
         report.append(contentsOf: textLoad.messages)
 #endif
-        videoTextureSources = loadedVideoSources
+        self.videoSourceRegistry = videoSourceRegistry
         puppetPlaybackStates = loadedPuppetPlaybackStates
         installDirectModelAnimations()
         particlePlayback = SceneParticlePlaybackState(
@@ -558,8 +558,7 @@ class SceneMetalView: NSView {
 
 #if DEBUG
         if report.isEnabled {
-            let loadedLayerCount = Set(loaded.textures.keys)
-                .union(loadedVideoSources.keys).count
+            let loadedLayerCount = loaded.textures.count + loadedVideoLayerCount
             let reportedLayerCount = report.layerEntryCount
             report.append("loaded: \(loadedLayerCount) / \(reportedLayerCount)")
 
@@ -850,7 +849,8 @@ class SceneMetalView: NSView {
             base: imageTextures, dynamicImage: dynamicImageSnapshot,
             dynamicText: dynamicTextSnapshot,
             mediaThumbnail: mediaThumbnail, mediaBindings: mediaThumbnailCoordinator.program,
-            videoSources: videoTextureSources, timing: timing,
+            videoSources: videoSourceRegistry?.layerSources(deviceRegistryID: metalDevice.registryID) ?? [:],
+            retiredLayerIDs: layerTopology.destroyedAuthoredLayerIDs, timing: timing,
             collectsInitialVideoReadiness: collectsInitialVideoReadiness
         )
         #if DEBUG

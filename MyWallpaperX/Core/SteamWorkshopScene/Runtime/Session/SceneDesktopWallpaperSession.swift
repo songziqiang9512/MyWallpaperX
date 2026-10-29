@@ -23,6 +23,8 @@ final class SceneDesktopWallpaperSession {
         let scriptGeneration: UInt64
         var didSubmitSimulationFrame = false
         var pendingPausedFrame: SceneMetalRenderer.PreparedFrame?
+        var lastSubmittedPresentationSources: Set<UUID> = []
+        var videoSwitchDeadline: TimeInterval?
 
         init(
             window: NSWindow,
@@ -432,7 +434,9 @@ final class SceneDesktopWallpaperSession {
         teardownReason: SceneGraphExecutionResetReason = .surfaceStop
     ) -> Bool {
         guard let launchContext, let videoTextureSourceRegistry else { return false }
-
+        let domain = launchContext.propertyVectorScriptProgram.domain
+        do { try domain?.withdrawAuthoredVideoSources() }
+        catch { return false }
         let rebuildHostTime = CACurrentMediaTime()
         videoTextureSourceRegistry.beginSurfaceRebuild(
             sceneTime: sceneClock.currentSceneTime(hostTime: rebuildHostTime),
@@ -490,6 +494,18 @@ final class SceneDesktopWallpaperSession {
         }
 #endif
         var assetVideoSources: [SceneAssetTextureIdentity: SceneVideoTextureSource] = [:]
+        let committedTopology = launchContext.sceneScriptDynamicLayerRuntime.snapshot()
+        do {
+            try videoTextureSourceRegistry.prepareDynamicVideoSources(
+                resources: launchContext.preparedDeviceResources.baseImages.dynamicImageResources,
+                modelPaths: domain?.preparedVideoModelPaths ?? [],
+                device: launchContext.preparedDeviceResources.device)
+            try domain?.configurePreparedVideoSources(videoTextureSourceRegistry.preparedVideoSourceReferences)
+        } catch { return false }
+        videoTextureSourceRegistry.bindPreparedVideoConsumers(Dictionary(uniqueKeysWithValues:
+            committedTopology.dynamicLayers.compactMap { layer in
+                layer.imagePath.map { (layer.id, $0) }
+            }))
         let userVideoSources = videoTextureSourceRegistry.userPropertySources(
             declarations: userPropertyTextureLoad.videoDeclarations,
             device: launchContext.preparedDeviceResources.device
@@ -687,6 +703,7 @@ final class SceneDesktopWallpaperSession {
             )
 #endif
         }
+        videoTextureSourceRegistry.retire(layerIDs: committedTopology.destroyedAuthoredLayerIDs)
         startFrameDriver()
         return true
     }

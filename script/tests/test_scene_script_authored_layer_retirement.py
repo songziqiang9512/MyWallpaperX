@@ -186,7 +186,7 @@ private func branchRetirementChecks() throws -> [String: Bool] {
     let lateProgram = try program(branch, complete), lateRuntime = topology(branch)
     let lateResult = evaluate(lateProgram)
     let late = lateRuntime.preflightOwnerEffectsToFixedPoint(lateResult.ownerEffects,
-        rejectingExternally: { _ in [controller] })
+        rejectingExternally: { _, _ in [controller] })
     facts["late-rejection-is-deferred"] = lateRuntime.snapshot().destroyedAuthoredLayerIDs.isEmpty
         && late.externallyRejectedOwners == [controller]
     finish(lateProgram, rejected: late.externallyRejectedOwners)
@@ -406,7 +406,7 @@ class SceneScriptAuthoredLayerRetirementTests(unittest.TestCase):
     @classmethod
     def setUpClass(cls) -> None:
         with tempfile.TemporaryDirectory(prefix="mwx-authored-retirement-vm-") as temp:
-            binary = compile_vector_harness(Path(temp), HARNESS, "authored-retirement")
+            binary = compile_vector_harness(Path(temp), HARNESS, "authored-retirement", whole_module_optimization=True)
             result = subprocess.run([str(binary)], check=True, capture_output=True, text=True, timeout=30)
             cls.result = json.loads(result.stdout)
 

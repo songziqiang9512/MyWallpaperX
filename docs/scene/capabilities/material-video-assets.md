@@ -2,7 +2,7 @@
 
 # 材质视频资产合同
 
-本页视频入口与定位发布合同已实施；下方消费需求生命周期设计尚未实施。
+本页视频入口与定位发布合同已实施；下方按可见性推导消费需求仍待实施。动态实例与实际消费者退休归[D4](../roadmap/batch2/script-component-api-design.md#prepared-dynamic-video)；切换呈现设计见下节。
 
 本合同扩现役Scene视频owner的材质入口；能力与实际证据归[台账](coverage-ledger.md#current-overview)及[批次记录](../history/material-video-assets-2026-10-12.md)。
 
@@ -24,6 +24,17 @@
 - **覆盖与退出：** 同目标命令仍更新逻辑时钟；同item、在途或完成且backend尚未离开目标的相同定位可复用，避免重复命令在取图前重启seek。播放重锚成功即退出ready，暂停定位在首commit退出；6→2→6必须新token，不永久按数值去重。新目标/stop/退场使旧回调无效，缺item先保请求；拒帧不撤销真实定位。保负loop相位等待、非loop停止、generation仅commit与取消/late install；来源不ready局部保last-ready，不能整景失败。
 - **观测与验收：** 旧字段`decodedItemTime`记录AVPlayer的display deadline，不保证源packet PTS，不用于定位资格或筛帧。首新真实像素、等价目标/覆盖seek、暂停/EOF、同index拒帧重试及原WebM/priming门覆盖行为；Debug和真实seek消费者、独立视频补画面。失败撤候选，不以正确性修复认整体性能收益。
 
+<a id="video-switch-presentation"></a>
+## 视频切换首帧衔接
+
+**目标与触发。** 自动脚本、属性选择及动态视频重建共用原视频/合成链。上一正常提交呈现的普通视频来源已退出，而当前实际可见编码所需的新来源尚 pending 时，短暂保留上次显示结果；同 Source 换 layer ID、单纯增添 optional 视频、隐藏/离屏源及首次启动不触发。不配对排序位置、图层名、样本或资源路径，不将旧视频帧伪装为新来源 ready。
+
+**唯一职责。** 沿原 Surface/PreparedFrame 保存最小上次呈现提交来源事实及一次等待截止点，来源使用现 Source incarnation，不能因每帧新 layer ID 或连续改选而续期。现初始就绪只按层visible筛选，尚不代表alpha或离屏资格；本片复用原quad `projectedGeometry` 裁剪及实际encoder的alpha，模型矩阵在原准备边界算一次并交encoder复用。只收直接mainPass、实际选择ordinary authored source的需求，原startup/group规则不改，未知group/named/effect依赖不猜扩，不另造可见性算法。原 GPU、Source、graph 与脚本事务照常提交，只暂缓唯一 `present(drawable)` 和相应可见通知，让系统保留上帧；不走 cancel/deferred 或启动 cohort 去冻结 VM、回滚媒体 clock。逐 surface prepare→submit、共享 provider 最终 commit、HDR/SDR及现失败回退保持。
+
+**退出与成本。** 新帧 ready 即呈现；取消、永久 unavailable 或决策点的现 hostTime 上最多 250ms 到期立即退出等待，沿原局部降级。Scene 暂停时继续既有资源重试，不能因一次 GPU 提交睡死。只保有限来源/截止数据，不增视频 owner、时钟、全屏拷贝、history/FBO或淡入淡出算法；同源普通帧不反复启动等待，也不为此提前解码所有候选。
+
+**验收。** 最近真实提交门覆盖 pending→ready、同源重建、仅增 optional、连续选源不续期、失败/到期/暂停重试及多屏提交/取消；测试真实 Source/PreparedFrame，不复制业务规则。原包自动时段与全部主题切换检查实际显示连续性，另用未参与修法的切换视频及原双视频/Xray核对。readback 候选画面和真正已呈现画面分开，不能用提交 FPS 或 ready 冒充没有黑闪。稳定内存/能耗另按同条件测量，不预授收益。
+
 <a id="video-consumer-demand"></a>
 ## 待实施：视频消费需求与后台解码分离
 
@@ -34,4 +45,4 @@
 - **identity与失败：** 同源不同owner/播放intent不合并。跨屏取并集，单屏缺drawable不能停另一屏所需source；需求不能在一个surface拒绝后覆盖共享生命周期。原epoch/command generation、候选/commit/discard、GPU持有texture与stop/rebuild/迟到回调继续生效。不能证明无消费时退回当前eager行为，不能扩大黑屏或整帧失败半径。
 - **切片与退出：** 无图像消费者的帧提取/Metal包装原型已因非目标footprint退步撤回，限定结果归[运行记录](runtime-evidence-current.md#video-publication-demand-20261021)，不重复同型验收。后继须先取得新的backend消费或实际供帧证据；保原prepare/anchor/EOF与last-ready，任何首次prepare前汇合跨屏需求，未知依赖保持eager，不合并不同source/intent。dormant另待隐藏行为和typed clock资格，dynamic createLayer另立切片。覆盖改名/等价输入、隐藏→显现、seek/rate、真实loop/EOF、跨屏拒帧/重建/停止及独立真实视频；资格或收益不成立撤候选。
 
-普通优化配置的同输入前后对照须证明可见视频供帧及CPU/内存收益且无非目标退步，按[性能卡](../roadmap/performance-convergence-card.md)风险分级，不把删除输入的消融当性能验收。动态视频实例另需prepared资格、每实例owner/epoch、拓扑事务与资源复用/退出设计；不能为绕过null直接放开constructor，更不能照作者每帧destroy/create就重复写MP4、重建播放器。
+普通优化配置的同输入前后对照须证明可见视频供帧及CPU/内存收益且无非目标退步，按[性能卡](../roadmap/performance-convergence-card.md)风险分级，不把删除输入的消融当性能验收。动态视频实例另需prepared资格、来源及消费者身份、拓扑事务与资源复用/退出设计；不能为绕过null直接放开constructor，更不能照作者每帧destroy/create就重复写MP4、重建播放器。

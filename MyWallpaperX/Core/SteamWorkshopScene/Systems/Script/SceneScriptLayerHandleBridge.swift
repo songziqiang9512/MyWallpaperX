@@ -16,13 +16,19 @@ nonisolated enum SceneScriptAngleUnits {
 }
 
 nonisolated struct SceneScriptVideoPlaybackSnapshot: Equatable, Sendable {
-    let layerID: Int
+    let sourceIncarnation: UUID
     let duration: TimeInterval
     let rate: Double
     let loop: Bool
     let currentTime: TimeInterval
     let isPlaying: Bool
     let endedGeneration: UInt64
+}
+
+nonisolated struct SceneScriptVideoFrameSnapshot: Equatable, Sendable {
+    let sources: [SceneScriptVideoPlaybackSnapshot?]
+    let layerBindings: [Int: Int]
+    static let empty = Self(sources: [], layerBindings: [:])
 }
 
 nonisolated struct SceneScriptMediaPlaybackCommand: Equatable, Sendable {
@@ -39,11 +45,18 @@ nonisolated struct SceneScriptMediaPlaybackCommand: Equatable, Sendable {
     let destination: Destination
     let layerID: Int
     let action: Action
+    let callbackEpoch: UInt64
+    let ordinal: UInt32
+    let videoSourceIncarnation: UUID?
 
-    init(layerID: Int, action: Action, destination: Destination = .videoTexture) {
+    init(layerID: Int, action: Action, destination: Destination = .videoTexture,
+         callbackEpoch: UInt64 = 0, ordinal: UInt32 = 0, videoSourceIncarnation: UUID? = nil) {
         self.destination = destination
         self.layerID = layerID
         self.action = action
+        self.callbackEpoch = callbackEpoch
+        self.ordinal = ordinal
+        self.videoSourceIncarnation = videoSourceIncarnation
     }
 }
 
@@ -218,6 +231,14 @@ nonisolated enum SceneScriptParticlePlaybackCommandBridge {
 }
 
 nonisolated enum SceneScriptMediaPlaybackCommandBridge {
+    /// Recover callback order after admission has filtered the owner bundles.
+    static func orderedCommands(in effects: [SceneScriptOwnerEffects]) -> [SceneScriptMediaPlaybackCommand] {
+        effects.flatMap(\.mediaPlaybackCommands).sorted {
+            if $0.callbackEpoch != $1.callbackEpoch { return $0.callbackEpoch < $1.callbackEpoch }
+            return $0.ordinal < $1.ordinal
+        }
+    }
+
     static func commands(
         owner: OpaquePointer
     ) -> Result<[SceneScriptMediaPlaybackCommand], SceneScriptScalarRuntimeFailure> {
@@ -263,7 +284,10 @@ nonisolated enum SceneScriptMediaPlaybackCommandBridge {
             default:
                 return .failure(.invalidArgument("unknown media playback command"))
             }
-            output.append(.init(layerID: Int(raw.layer_id), action: action, destination: destination))
+            let sourceIncarnation: UUID? = destination == .videoTexture
+                ? withUnsafeBytes(of: raw.video_source_incarnation) { UUID(uuid: $0.loadUnaligned(as: uuid_t.self)) } : nil
+            output.append(.init(layerID: Int(raw.layer_id), action: action, destination: destination,
+                callbackEpoch: raw.callback_epoch, ordinal: raw.ordinal, videoSourceIncarnation: sourceIncarnation))
         }
         return .success(output)
     }
@@ -502,7 +526,8 @@ nonisolated enum SceneScriptLayerMutationBridge {
             guard !fields.contains(.perspective) || raw.perspective <= 1 else {
                 return .failure(.invalidArgument("invalid perspective mutation ABI"))
             }
-            guard raw.fields & ~SceneScriptLayerMutation.Fields.authoredFields.rawValue == 0 else {
+            guard raw.fields & ~SceneScriptLayerMutation.Fields.authoredFields.union(.created).rawValue == 0,
+                  raw.dynamic != 0 || !fields.contains(.created) else {
                 return .failure(.invalidArgument("unknown layer mutation fields"))
             }
             if raw.dynamic == 1 {
@@ -514,10 +539,11 @@ nonisolated enum SceneScriptLayerMutationBridge {
                     ))
                 }
             }
-            switch (kind, raw.dynamic, raw.fields) {
+            let writtenFields = fields.subtracting(.created)
+            switch (kind, raw.dynamic, writtenFields.rawValue) {
             case (.destroy, 0, 0), (.destroy, 1, 0), (.upsert, 1, 0):
                 break
-            case (.upsert, 1, _) where fields.isSubset(of: [.text, .pointSize]):
+            case (.upsert, 1, _) where writtenFields.isSubset(of: [.text, .pointSize]):
                 break
             case (.upsert, 0, 0):
                 // An order-only authored mutation: the script sorted this
@@ -659,7 +685,8 @@ nonisolated extension SceneScriptQuickJSDomain {
                 natural_size: (Double(entry.value.renderSizeWH[0]), Double(entry.value.renderSizeWH[1])),
                 autosize: entry.value.autosize ? 1 : 0,
                 resource_kind: entry.value.kind == .composition ? 2
-                    : (entry.value.puppetMeshPath != nil ? 1 : 0))
+                    : (entry.value.puppetMeshPath != nil ? 1 : 0),
+                is_video: entry.value.isVideo ? 1 : 0)
         }
         var diagnostic = [CChar](repeating: 0, count: 512)
         let result = descriptors.withUnsafeBufferPointer { buffer in
@@ -670,6 +697,32 @@ nonisolated extension SceneScriptQuickJSDomain {
             throw layerSnapshotFailure(result, diagnostic: diagnostic)
         }
         preparedResourceLayerCatalog = templates
+    }
+
+    var preparedVideoModelPaths: Set<String> {
+        Set((preparedResourceLayerCatalog ?? [:]).filter { $0.value.isVideo }.map(\.key))
+    }
+
+    func withdrawAuthoredVideoSources() throws {
+        guard mwx_scene_quickjs_domain_withdraw_authored_video_sources(handle) == MWX_SCENE_QUICKJS_OK else {
+            throw SceneScriptScalarRuntimeFailure.invalidArgument("video consumers cannot rebuild inside a callback")
+        }
+    }
+
+    /// Source construction and this immutable model binding precede callbacks.
+    /// Rebuilds may change the first device; stable Registry rows retain clocks.
+    func configurePreparedVideoSources(_ references: [String: Int]) throws {
+        for path in preparedVideoModelPaths {
+            let index = references[path].map(UInt32.init) ?? UInt32.max
+            var diagnostic = [CChar](repeating: 0, count: 512)
+            let result = path.withCString {
+                mwx_scene_quickjs_domain_configure_prepared_video_source(
+                    handle, $0, path.utf8.count, index, &diagnostic, diagnostic.count)
+            }
+            guard result == MWX_SCENE_QUICKJS_OK else {
+                throw layerSnapshotFailure(result, diagnostic: diagnostic)
+            }
+        }
     }
 
     func configureLayerCatalog(_ descriptor: SceneRenderDescriptor) throws {

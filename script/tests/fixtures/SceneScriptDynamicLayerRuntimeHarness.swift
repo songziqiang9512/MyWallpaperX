@@ -133,7 +133,7 @@ nonisolated struct SceneRenderDescriptor: Sendable {
         var particleInstanceOverride: SceneParticleInstanceOverride? = nil
 
         static func dynamicText(_ mutation: SceneScriptLayerMutation) -> Self? {
-            guard mutation.isDynamic, mutation.kind == .upsert else { return nil }
+            guard mutation.isDynamic, mutation.kind == .upsert || mutation.isNewborn else { return nil }
             return .init(
                 id: mutation.layerID,
                 visible: mutation.visible,
@@ -158,7 +158,7 @@ nonisolated struct SceneRenderDescriptor: Sendable {
             _ mutation: SceneScriptLayerMutation,
             template: SceneScriptPreparedResourceLayerTemplate
         ) -> Self? {
-            guard mutation.isDynamic, mutation.kind == .upsert,
+            guard mutation.isDynamic, mutation.kind == .upsert || mutation.isNewborn,
                   mutation.assetPath == template.modelPath else { return nil }
             return .init(
                 id: mutation.layerID,
@@ -329,7 +329,7 @@ enum Harness {
                 && $0.authoredLayerValues[replayColor] == .vector3(1, 1, 1)
         }
         let pausedSetter = replayRuntime.preflightOwnerEffects(replayEffects([.pause]))
-        let rejectedReplay = replayRuntime.preflightOwnerEffectsToFixedPoint(replayEffects([.play])) { _ in [replayTarget] }
+        let rejectedReplay = replayRuntime.preflightOwnerEffectsToFixedPoint(replayEffects([.play])) { _, _ in [replayTarget] }
         let rejectedReplayPreservesValue = rejectedReplay.admission.layerPlan.authoredLayerValues == replayBefore.authoredLayerValues
         let invalidReplay = replayRuntime.preflightOwnerEffects([.init(
             ownerTarget: replayTarget,
@@ -491,7 +491,7 @@ enum Harness {
         ]
         let fixedPoint = budgetRuntime.preflightOwnerEffectsToFixedPoint(
             budgetEffects
-        ) { admitted in
+        ) { admitted, _ in
             admitted.contains { $0.ownerTarget == budgetOwnerA }
                 ? [budgetOwnerA] : []
         }
@@ -515,7 +515,7 @@ enum Harness {
                 particleEligibleCommands.append(commands)
                 return commands.contains(-1) ? [projectionOwnerB] : []
             }
-        ) { admitted in
+        ) { admitted, _ in
             Set(admitted.filter { $0.mediaPlaybackCommands.contains(-1) }.map(\.ownerTarget))
         }
         var projectedCommandRounds: [[Int]] = []
@@ -527,7 +527,7 @@ enum Harness {
             rejectingDependents: { rejected in
                 rejected.union([projectionOwnerA, budgetOwnerC])
             }
-        ) { admitted in
+        ) { admitted, _ in
             projectedCommandRounds.append(admitted.flatMap(\.mediaPlaybackCommands))
             return []
         }
@@ -650,9 +650,25 @@ enum Harness {
             } + [.init(ownerTarget: perspectiveImage, layerMutations: [
                 mutation(10, dynamic: false, fields: [.perspective], ownerTarget: perspectiveImage, perspective: true)
             ])]
-        ) { _ in [] }
+        ) { _, _ in [] }
         perspectiveConsumerRuntime.commit(perspectiveIsolation.admission.layerPlan)
         let templateSource = SceneDynamicTarget.text(layerID: 20, field: .content)
+        // Typed creator closure only; nested C clone creation has its own gate.
+        let transientRuntime = SceneScriptDynamicLayerRuntime(descriptor: descriptor, authoredMutationLayerIDs: [])
+        let transientParent = SceneDynamicTarget.text(layerID: -201, field: .content)
+        let transientChild = SceneDynamicTarget.text(layerID: -202, field: .content)
+        let transientPlan = transientRuntime.preflightIsolatingOwners([
+            mutation(-201, kind: .destroy, fields: [.created], ownerTarget: ownerA),
+            mutation(-202, fields: [.created], ownerTarget: transientParent),
+            mutation(-203, fields: [.created], ownerTarget: transientChild)
+        ])
+        let transientReadOnly = transientRuntime.snapshot().dynamicLayers.isEmpty
+        transientRuntime.commit(transientPlan)
+        let transientCreatorClosure = transientPlan.outcome.failures.isEmpty
+            && transientPlan.createdDynamicLayerMutations.count == 3
+            && transientPlan.dynamicLayersByID.isEmpty && !transientPlan.dynamicTopologyChanged
+            && transientRuntime.snapshot().renderOrderLayerIDs == descriptor.renderOrderLayerIDs
+            && transientRuntime.snapshot().dynamicLayers.isEmpty
         let cloneTarget = SceneDynamicTarget.text(layerID: -101, field: .content)
         let nestedTarget = SceneDynamicTarget.text(layerID: -102, field: .content)
         let templateRuntime = SceneScriptDynamicLayerRuntime(
@@ -715,6 +731,8 @@ enum Harness {
             "templateUnknownOrMissingRejectLocally": !succeeded(unknownTemplate) && !succeeded(missingTemplate)
                 && transformDoesNotFreezeText,
             "templateExplicitSetterPublished": actualSetterPublished,
+            "transientCreatorClosureReadOnly": transientReadOnly,
+            "transientCreatorClosureRetiresDescendants": transientCreatorClosure,
             "templateCreatorCascadeRetiresDescendants": cascadeReadOnly
                 && creatorDelete.retiredDynamicLayerIDs == [-101, -102] && afterCascade.dynamicLayers.isEmpty,
             "templateCascadeReleasesValuesDefinitionsAndAliases": afterCascade.authoredLayerValues[nestedTarget] == nil

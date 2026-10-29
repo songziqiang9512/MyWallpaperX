@@ -24,6 +24,14 @@ enum VideoFunction {
     VIDEO_ADD_ENDED_CALLBACK,
 };
 
+// Only video closures carry a Source reference. The embedded ordinary handle
+// continues through the same logical-layer resolver and ownership contract.
+typedef struct {
+    MWXSceneQuickJSLayerAccessHandle layer;
+    uint32_t source_index;
+    uint64_t source_incarnation[2];
+} MWXSceneQuickJSVideoAccessHandle;
+
 enum TextureAnimationProperty {
     TEXTURE_ANIMATION_FRAME_COUNT,
     TEXTURE_ANIMATION_DURATION,
@@ -41,11 +49,16 @@ enum TextureAnimationFunction {
 };
 
 static MWXSceneQuickJSLayerRecord *video_record_for_handle(
-    MWXSceneQuickJSLayerAccessHandle *handle
+    MWXSceneQuickJSVideoAccessHandle *handle
 ) {
     MWXSceneQuickJSLayerRecord *record = mwx_scene_quickjs_layer_record_for_handle(
-        handle, MWX_SCENE_QUICKJS_LAYER_OWNER_BOUND);
-    return record != NULL && record->video_available ? record : NULL;
+        &handle->layer, MWX_SCENE_QUICKJS_LAYER_OWNER_BOUND);
+    MWXSceneQuickJSDomain *domain = handle->layer.domain;
+    if (record == NULL || record->video_source_index != handle->source_index ||
+        record->video_source_index >= domain->video_observation_count) return NULL;
+    const MWXSceneQuickJSVideoObservation *video = &domain->video_observations[record->video_source_index];
+    return video->available && memcmp(video->source_incarnation, handle->source_incarnation,
+        sizeof(video->source_incarnation)) == 0 ? record : NULL;
 }
 
 static size_t media_playback_callback_start(MWXSceneQuickJSOwner *owner) {
@@ -65,11 +78,12 @@ static bool append_media_playback_command(
     uint32_t bool_value
 ) {
     if (owner->value_only) return false;
-    media_playback_callback_start(owner);
+    const size_t callback_start = media_playback_callback_start(owner);
     if (owner->media_playback_command_count >= MWX_SCENE_QUICKJS_MAX_MEDIA_PLAYBACK_COMMANDS) {
         owner->media_playback_command_overflow = true;
         return false;
     }
+    const uint32_t ordinal = (uint32_t)(owner->media_playback_command_count - callback_start);
     owner->media_playback_commands[owner->media_playback_command_count++] =
         (MWXSceneQuickJSMediaPlaybackCommand){
             .kind = kind,
@@ -77,7 +91,13 @@ static bool append_media_playback_command(
             .layer_id = record->layer_id,
             .number_value = number_value,
             .bool_value = bool_value,
+            .ordinal = ordinal,
+            .callback_epoch = owner->domain->callback_epoch,
         };
+    if (destination == MWX_SCENE_QUICKJS_MEDIA_VIDEO_TEXTURE) {
+        memcpy(owner->media_playback_commands[owner->media_playback_command_count - 1].video_source_incarnation,
+            owner->domain->video_observations[record->video_source_index].source_incarnation, sizeof(uint64_t) * 2);
+    }
     return true;
 }
 
@@ -92,12 +112,15 @@ static JSValue video_get(
     JSValueConst *argv, int magic, void *opaque
 ) {
     (void)this_value; (void)argc; (void)argv;
-    MWXSceneQuickJSLayerRecord *record = video_record_for_handle(opaque);
+    MWXSceneQuickJSVideoAccessHandle *handle = opaque;
+    MWXSceneQuickJSLayerRecord *record = video_record_for_handle(handle);
     if (record == NULL) return JS_ThrowTypeError(context, "video handle is stale");
+    const MWXSceneQuickJSVideoObservation *video =
+        &handle->layer.domain->video_observations[record->video_source_index];
     switch ((enum VideoProperty)magic) {
-    case VIDEO_DURATION: return JS_NewFloat64(context, record->video_duration);
-    case VIDEO_RATE: return JS_NewFloat64(context, record->video_rate);
-    case VIDEO_LOOP: return JS_NewBool(context, record->video_loop);
+    case VIDEO_DURATION: return JS_NewFloat64(context, video->duration);
+    case VIDEO_RATE: return JS_NewFloat64(context, video->rate);
+    case VIDEO_LOOP: return JS_NewBool(context, video->loop);
     }
     return JS_UNDEFINED;
 }
@@ -107,11 +130,11 @@ static JSValue video_set(
     JSValueConst *argv, int magic, void *opaque
 ) {
     (void)this_value;
-    MWXSceneQuickJSLayerAccessHandle *handle = opaque;
+    MWXSceneQuickJSVideoAccessHandle *handle = opaque;
     MWXSceneQuickJSLayerRecord *record = video_record_for_handle(handle);
     if (record == NULL || argc != 1)
         return JS_ThrowTypeError(context, "video handle is stale");
-    MWXSceneQuickJSOwner *owner = handle->domain->active_owner;
+    MWXSceneQuickJSOwner *owner = handle->layer.domain->active_owner;
     bool accepted = false;
     if ((enum VideoProperty)magic == VIDEO_RATE) {
         double value = 0;
@@ -141,23 +164,25 @@ static JSValue video_call(
     JSValueConst *argv, int magic, void *opaque
 ) {
     (void)this_value;
-    MWXSceneQuickJSLayerAccessHandle *handle = opaque;
+    MWXSceneQuickJSVideoAccessHandle *handle = opaque;
     MWXSceneQuickJSLayerRecord *record = video_record_for_handle(handle);
     if (record == NULL) return JS_ThrowTypeError(context, "video handle is stale");
-    MWXSceneQuickJSOwner *owner = handle->domain->active_owner;
+    const MWXSceneQuickJSVideoObservation *video =
+        &handle->layer.domain->video_observations[record->video_source_index];
+    MWXSceneQuickJSOwner *owner = handle->layer.domain->active_owner;
     switch ((enum VideoFunction)magic) {
     case VIDEO_IS_PLAYING:
         if (argc != 0) return JS_ThrowTypeError(context, "isPlaying expects no arguments");
-        return JS_NewBool(context, record->video_is_playing);
+        return JS_NewBool(context, video->is_playing);
     case VIDEO_GET_CURRENT_TIME:
         if (argc != 0)
             return JS_ThrowTypeError(context, "getCurrentTime expects no arguments");
-        return JS_NewFloat64(context, record->video_current_time);
+        return JS_NewFloat64(context, video->current_time);
     case VIDEO_SET_CURRENT_TIME: {
         double value = 0;
         if (argc != 1 || JS_ToFloat64(context, &value, argv[0]) < 0 ||
             !isfinite(value) || value < 0 ||
-            (record->video_duration > 0 && value > record->video_duration))
+            (video->duration > 0 && value > video->duration))
             return JS_ThrowRangeError(
                 context, "setCurrentTime expects a bounded finite time"
             );
@@ -178,7 +203,10 @@ static JSValue video_call(
             &owner->video_ended_callbacks[owner->video_ended_callback_count++];
         *callback = (MWXSceneQuickJSVideoEndedCallbackRecord){
             .layer_id = record->layer_id,
-            .delivered_generation = record->video_ended_generation,
+            .layer_index = handle->layer.layer_index,
+            .video_source_index = record->video_source_index,
+            .source_incarnation = {video->source_incarnation[0], video->source_incarnation[1]},
+            .delivered_generation = video->ended_generation,
             .callback = JS_DupValue(context, argv[0]),
             .active = true,
         };
@@ -204,24 +232,24 @@ static JSValue video_call(
 
 static void free_layer_resource_handle(void *opaque) { free(opaque); }
 
-static MWXSceneQuickJSLayerAccessHandle *copy_layer_resource_handle(
-    MWXSceneQuickJSLayerAccessHandle identity
-) {
-    MWXSceneQuickJSLayerAccessHandle *copy = malloc(sizeof(*copy));
-    if (copy != NULL) *copy = identity;
+static void *copy_layer_resource_handle(const void *identity, size_t size) {
+    void *copy = malloc(size);
+    if (copy != NULL) memcpy(copy, identity, size);
     return copy;
 }
 
 static JSValue make_video_handle(
     JSContext *context, MWXSceneQuickJSOwner *owner, uint32_t layer_index
 ) {
-    MWXSceneQuickJSLayerAccessHandle identity = {
-        .domain = owner->domain,
-        .owner_identity = owner->identity,
-        .layer_index = layer_index,
-        .expected_layer_id = owner->domain->layers[layer_index].layer_id,
-        .persistent = true,
+    MWXSceneQuickJSVideoAccessHandle identity = {
+        .layer = {.domain = owner->domain, .owner_identity = owner->identity,
+            .layer_index = layer_index, .expected_layer_id = owner->domain->layers[layer_index].layer_id,
+            .persistent = true},
+        .source_index = owner->domain->layers[layer_index].video_source_index,
     };
+    memcpy(identity.source_incarnation,
+        owner->domain->video_observations[identity.source_index].source_incarnation,
+        sizeof(identity.source_incarnation));
     JSValue video = JS_NewObject(context);
     if (JS_IsException(video)) return video;
     const struct {
@@ -232,9 +260,9 @@ static JSValue make_video_handle(
         {"loop", VIDEO_LOOP, true},
     };
     for (size_t index = 0; index < sizeof(properties) / sizeof(properties[0]); ++index) {
-        MWXSceneQuickJSLayerAccessHandle *getter_handle = copy_layer_resource_handle(identity);
-        MWXSceneQuickJSLayerAccessHandle *setter_handle = properties[index].writable
-            ? copy_layer_resource_handle(identity) : NULL;
+        MWXSceneQuickJSVideoAccessHandle *getter_handle = copy_layer_resource_handle(&identity, sizeof(identity));
+        MWXSceneQuickJSVideoAccessHandle *setter_handle = properties[index].writable
+            ? copy_layer_resource_handle(&identity, sizeof(identity)) : NULL;
         if (getter_handle == NULL ||
             (properties[index].writable && setter_handle == NULL)) {
             free(getter_handle); free(setter_handle); JS_FreeValue(context, video);
@@ -263,7 +291,7 @@ static JSValue make_video_handle(
         {"addEndedCallback", VIDEO_ADD_ENDED_CALLBACK, 1},
     };
     for (size_t index = 0; index < sizeof(functions) / sizeof(functions[0]); ++index) {
-        MWXSceneQuickJSLayerAccessHandle *function_handle = copy_layer_resource_handle(identity);
+        MWXSceneQuickJSVideoAccessHandle *function_handle = copy_layer_resource_handle(&identity, sizeof(identity));
         if (function_handle == NULL) { JS_FreeValue(context, video); return JS_EXCEPTION; }
         JSValue function = JS_NewCClosure(
             context, video_call, functions[index].name, free_layer_resource_handle,
@@ -286,7 +314,8 @@ static JSValue get_video_texture(
     MWXSceneQuickJSLayerRecord *record = mwx_scene_quickjs_layer_record_for_handle(handle, MWX_SCENE_QUICKJS_LAYER_OWNER_BOUND);
     if (record == NULL || argc != 0)
         return JS_ThrowTypeError(context, "getVideoTexture unavailable");
-    if (!record->video_available) return JS_UNDEFINED;
+    if (record->video_source_index >= handle->domain->video_observation_count ||
+        !handle->domain->video_observations[record->video_source_index].available) return JS_UNDEFINED;
     uint32_t index = handle->owner_target
         ? handle->domain->active_owner->target_layer_index
         : handle->layer_index;
@@ -643,9 +672,9 @@ static JSValue make_texture_animation_handle(
     };
     for (size_t index = 0;
          index < sizeof(properties) / sizeof(properties[0]); ++index) {
-        MWXSceneQuickJSLayerAccessHandle *getter = copy_layer_resource_handle(identity);
+        MWXSceneQuickJSLayerAccessHandle *getter = copy_layer_resource_handle(&identity, sizeof(identity));
         MWXSceneQuickJSLayerAccessHandle *setter = properties[index].writable
-            ? copy_layer_resource_handle(identity) : NULL;
+            ? copy_layer_resource_handle(&identity, sizeof(identity)) : NULL;
         if (getter == NULL || (properties[index].writable && setter == NULL)) {
             free(getter); free(setter); JS_FreeValue(context, animation);
             return JS_EXCEPTION;
@@ -682,7 +711,7 @@ static JSValue make_texture_animation_handle(
     };
     for (size_t index = 0;
          index < sizeof(functions) / sizeof(functions[0]); ++index) {
-        MWXSceneQuickJSLayerAccessHandle *handle = copy_layer_resource_handle(identity);
+        MWXSceneQuickJSLayerAccessHandle *handle = copy_layer_resource_handle(&identity, sizeof(identity));
         if (handle == NULL) {
             JS_FreeValue(context, animation);
             return JS_EXCEPTION;
@@ -813,19 +842,17 @@ MWXSceneQuickJSResult mwx_scene_quickjs_dispatch_video_ended_callbacks(
         MWXSceneQuickJSVideoEndedCallbackRecord *callback =
             &owner->video_ended_callbacks[index];
         if (!callback->active) continue;
-        MWXSceneQuickJSLayerRecord *record = NULL;
-        for (uint32_t layer = 0; layer < owner->domain->layer_count; ++layer) {
-            MWXSceneQuickJSLayerRecord *candidate = &owner->domain->layers[layer];
-            if (candidate->configured && !candidate->destroyed &&
-                candidate->layer_id == callback->layer_id &&
-                candidate->video_available) {
-                record = candidate;
-                break;
-            }
-        }
-        if (record == NULL ||
-            record->video_ended_generation <= callback->delivered_generation)
-            continue;
+        MWXSceneQuickJSVideoAccessHandle identity = {
+            .layer = {.domain = owner->domain, .owner_identity = owner->identity,
+                .layer_index = callback->layer_index, .expected_layer_id = callback->layer_id, .persistent = true},
+            .source_index = callback->video_source_index,
+            .source_incarnation = {callback->source_incarnation[0], callback->source_incarnation[1]},
+        };
+        MWXSceneQuickJSLayerRecord *record = video_record_for_handle(&identity);
+        if (record == NULL) continue;
+        const uint64_t ended_generation = owner->domain->video_observations[
+            record->video_source_index].ended_generation;
+        if (ended_generation <= callback->delivered_generation) continue;
         mwx_scene_quickjs_begin_callback(owner);
         JSValue result = JS_Call(
             context, callback->callback, owner->module, 0, NULL
@@ -848,7 +875,7 @@ MWXSceneQuickJSResult mwx_scene_quickjs_dispatch_video_ended_callbacks(
                 owner->particle_playback_command_overflow || owner->storage_mutation_overflow
                 ? MWX_SCENE_QUICKJS_MUTATION_OVERFLOW : outcome;
         }
-        callback->delivered_generation = record->video_ended_generation;
+        callback->delivered_generation = ended_generation;
     }
     return MWX_SCENE_QUICKJS_OK;
 }
@@ -866,5 +893,39 @@ void mwx_scene_quickjs_clear_video_ended_callbacks(
             callback->active = false;
         }
     }
-    owner->video_ended_callback_count = 0;
+    owner->video_ended_callback_count = owner->committed_video_ended_callback_count = 0;
+}
+
+// Callback roots join the existing owner journal. Failed registrations never
+// survive admission; accepted short-lived carriers release their roots here.
+void mwx_scene_quickjs_finish_video_ended_callbacks(MWXSceneQuickJSOwner *owner, bool committing) {
+    if (owner == NULL || owner->domain == NULL) return;
+    if (!committing) {
+        while (owner->video_ended_callback_count > owner->committed_video_ended_callback_count) {
+            MWXSceneQuickJSVideoEndedCallbackRecord *callback =
+                &owner->video_ended_callbacks[--owner->video_ended_callback_count];
+            JS_FreeValue(owner->domain->context, callback->callback);
+            *callback = (MWXSceneQuickJSVideoEndedCallbackRecord){.callback = JS_UNDEFINED};
+        }
+        return;
+    }
+    const size_t previous_count = owner->video_ended_callback_count;
+    size_t kept = 0;
+    for (size_t index = 0; index < owner->video_ended_callback_count; ++index) {
+        MWXSceneQuickJSVideoEndedCallbackRecord callback = owner->video_ended_callbacks[index];
+        const MWXSceneQuickJSLayerRecord *record = callback.layer_index < owner->domain->layer_count
+            ? &owner->domain->layers[callback.layer_index] : NULL;
+        const MWXSceneQuickJSVideoObservation *video = callback.video_source_index < owner->domain->video_observation_count
+            ? &owner->domain->video_observations[callback.video_source_index] : NULL;
+        // A peer's provisional authored edit cannot retire this registration.
+        const bool retired = record == NULL || !record->configured || record->layer_id != callback.layer_id ||
+            video == NULL || !video->available || record->video_source_index != callback.video_source_index ||
+            memcmp(video->source_incarnation, callback.source_incarnation, sizeof(callback.source_incarnation)) != 0 ||
+            (record->dynamic && record->owner_identity == owner->identity && record->destroyed);
+        if (retired) JS_FreeValue(owner->domain->context, callback.callback);
+        else owner->video_ended_callbacks[kept++] = callback;
+    }
+    for (size_t index = kept; index < previous_count; ++index)
+        owner->video_ended_callbacks[index] = (MWXSceneQuickJSVideoEndedCallbackRecord){.callback = JS_UNDEFINED};
+    owner->video_ended_callback_count = owner->committed_video_ended_callback_count = kept;
 }

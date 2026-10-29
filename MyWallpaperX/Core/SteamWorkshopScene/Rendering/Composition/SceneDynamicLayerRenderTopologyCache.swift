@@ -67,6 +67,15 @@ final class SceneDynamicLayerRenderTopologyCache {
     private var projection: Projection?
     private(set) var lastResolveWasCacheHit = false
 
+    @discardableResult
+    func reset() -> Bool {
+        let hadProjection = projection != nil
+        projection = nil
+        revision = nil
+        lastResolveWasCacheHit = false
+        return hadProjection
+    }
+
     func resolve(
         baseDescriptor: SceneRenderDescriptor,
         topology: SceneScriptLayerTopologySnapshot,

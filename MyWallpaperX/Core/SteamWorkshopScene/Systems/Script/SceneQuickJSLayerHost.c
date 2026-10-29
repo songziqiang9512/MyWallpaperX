@@ -183,7 +183,11 @@ MWXSceneQuickJSResult mwx_scene_quickjs_owner_layer_mutation_at(
         *mutation = (MWXSceneQuickJSLayerMutation){
             .kind = record->destroyed ? MWX_SCENE_QUICKJS_LAYER_MUTATION_DESTROY
                                       : MWX_SCENE_QUICKJS_LAYER_MUTATION_UPSERT,
-            .dynamic = record->dynamic, .fields = record->dirty_fields, .layer_id = record->layer_id,
+            .dynamic = record->dynamic,
+            .fields = record->destroyed
+                ? record->dirty_fields & MWX_SCENE_QUICKJS_LAYER_MUTATION_FIELD_CREATED
+                : record->dirty_fields,
+            .layer_id = record->layer_id,
             .order_index = record->order_index, .visible = record->visible, .solid = record->solid,
             .perspective = record->perspective,
             .alpha = record->alpha, .point_size = record->point_size,
@@ -312,6 +316,7 @@ MWXSceneQuickJSResult mwx_scene_quickjs_domain_set_layer_runtime_descriptor(
     record->font = copy_string(font, font_length);
     if (record->name == NULL || record->text == NULL || record->font == NULL) return MWX_SCENE_QUICKJS_MEMORY_EXCEEDED;
     record->layer_id = layer_id; record->parent_id = parent_id;
+    record->video_source_index = UINT32_MAX;
     if (layer_id <= domain->next_dynamic_layer_id)
         domain->next_dynamic_layer_id = layer_id - 1;
     record->has_parent = has_parent != 0;

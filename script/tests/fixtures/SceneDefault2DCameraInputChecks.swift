@@ -165,7 +165,7 @@ struct SceneMetalRenderer {
                 effectivePropertyValues: live.effectiveValues, propertyRevision: live.revision)
             let fixedPoint = layers.preflightOwnerEffectsToFixedPoint(
                 result.ownerEffects + scalar.ownerEffects, excludingOwners: excludingOwners,
-                rejectingExternally: { _ in [] })
+                rejectingExternally: { _, _ in [] })
             let admission = fixedPoint.admission
             rejectedOwners = Set(admission.rejectedOwners.compactMap(\.ownerTarget))
                 .union(fixedPoint.externallyRejectedOwners)

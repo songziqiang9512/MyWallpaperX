@@ -74,7 +74,7 @@ struct SceneLayerFullFramePairPlan {
     let layerID: Int
 }
 
-struct SceneGraphExecutionState {
+struct SceneGraphExecutionState: Equatable {
     typealias Identity = SceneAuthoredEffectRenderPlan.TextureIdentity
     struct PhysicalToken: Hashable { let rawValue: String }
     struct ResourceDescriptor: Equatable {
@@ -94,7 +94,7 @@ struct SceneGraphExecutionState {
             self.addressMode = addressMode
         }
     }
-    struct VersionedResource {
+    struct VersionedResource: Equatable {
         let token: PhysicalToken
         let descriptor: ResourceDescriptor
         let contentGeneration: UInt64
@@ -898,7 +898,6 @@ extension SceneResolvedMaterialRuntimeBridge.FrameInputs {
         )
     }
 }
-
 final class SceneResolvedMaterialGraphExecutor {
     typealias Graph = SceneAuthoredEffectRenderPlan
     typealias State = SceneGraphExecutionState
@@ -960,6 +959,7 @@ final class SceneResolvedMaterialGraphExecutor {
         framebufferSourceMaterial: SceneResolvedMaterialRuntimeBridge.FramebufferSourceMaterial? = nil,
         sourceLighting: SceneBaseMaterialLitCapturePayload? = nil,
         terminalReplayTarget: MTLTexture? = nil, terminalReplayBlendMode: Int = 0,
+        terminalReplayIsOptional: Bool = false,
         pool: SceneOffscreenTexturePool? = nil,
         frameInputs: SceneResolvedMaterialRuntimeBridge.FrameInputs,
         commandBuffer: MTLCommandBuffer,

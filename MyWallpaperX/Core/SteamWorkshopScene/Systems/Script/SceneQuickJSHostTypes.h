@@ -139,6 +139,7 @@ typedef enum MWXSceneQuickJSLayerMutationField {
     MWX_SCENE_QUICKJS_LAYER_MUTATION_FIELD_PARTICLE_ALPHA = 1u << 10,
     MWX_SCENE_QUICKJS_LAYER_MUTATION_FIELD_PERSPECTIVE = 1u << 11,
     MWX_SCENE_QUICKJS_LAYER_MUTATION_FIELD_POINT_SIZE = 1u << 12,
+    MWX_SCENE_QUICKJS_LAYER_MUTATION_FIELD_CREATED = 1u << 13, /* read-only, this callback */
 } MWXSceneQuickJSLayerMutationField;
 
 typedef struct MWXSceneQuickJSLayerMutation {
@@ -216,6 +217,9 @@ typedef struct MWXSceneQuickJSMediaPlaybackCommand {
     int64_t layer_id;
     double number_value;
     uint32_t bool_value;
+    uint32_t ordinal;
+    uint64_t callback_epoch;
+    uint64_t video_source_incarnation[2];
 } MWXSceneQuickJSMediaPlaybackCommand;
 
 // Prepared observations only; C owns no particle simulation or persistent intent.
@@ -357,6 +361,16 @@ typedef struct MWXSceneQuickJSDynamicImageDescriptor {
     double natural_size[2];
     uint32_t autosize;
     uint32_t resource_kind;
+    uint32_t is_video;
 } MWXSceneQuickJSDynamicImageDescriptor;
+
+/// One renderer observation per ordinary Source, independent of its consumers.
+typedef struct MWXSceneQuickJSVideoObservation {
+    double duration, rate, current_time;
+    uint64_t ended_generation;
+    uint32_t loop, is_playing;
+    uint32_t available;
+    uint64_t source_incarnation[2];
+} MWXSceneQuickJSVideoObservation;
 
 #endif

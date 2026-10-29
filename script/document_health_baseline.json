@@ -129,8 +129,8 @@
       "bytes": 10776
     },
     "docs/scene/capabilities/material-video-assets.md": {
-      "lines": 37,
-      "bytes": 7388
+      "lines": 48,
+      "bytes": 9941
     },
     "docs/scene/capabilities/particle-component-coverage.md": {
       "lines": 509,
@@ -150,7 +150,7 @@
     },
     "docs/scene/capabilities/runtime-evidence-current.md": {
       "lines": 600,
-      "bytes": 219778
+      "bytes": 219908
     },
     "docs/scene/capabilities/runtime-input-property-coverage.md": {
       "lines": 600,
@@ -173,8 +173,8 @@
       "bytes": 34298
     },
     "docs/scene/capabilities/scene-sample-acceptance-ledger.md": {
-      "lines": 436,
-      "bytes": 98139
+      "lines": 517,
+      "bytes": 108683
     },
     "docs/scene/capabilities/scene-sample-debug-ledger.md": {
       "lines": 534,
@@ -182,7 +182,7 @@
     },
     "docs/scene/capabilities/scenescript-api-coverage.md": {
       "lines": 419,
-      "bytes": 116576
+      "bytes": 116791
     },
     "docs/scene/capabilities/static-source-draw-only-degradation.md": {
       "lines": 54,
@@ -249,8 +249,8 @@
       "bytes": 5522
     },
     "docs/scene/roadmap/batch2/script-component-api-design.md": {
-      "lines": 599,
-      "bytes": 164512
+      "lines": 598,
+      "bytes": 160309
     },
     "docs/scene/roadmap/batch2/system-media-input-design.md": {
       "lines": 59,
@@ -266,7 +266,7 @@
     },
     "docs/scene/roadmap/performance-convergence-card.md": {
       "lines": 70,
-      "bytes": 18924
+      "bytes": 19177
     },
     "docs/scene/roadmap/properties-panel-card.md": {
       "lines": 45,
@@ -277,8 +277,8 @@
       "bytes": 22423
     },
     "docs/scene/roadmap/scene-open-breakpoint-queue.md": {
-      "lines": 169,
-      "bytes": 33961
+      "lines": 170,
+      "bytes": 34260
     },
     "docs/web/cold-descriptor-parse-offload-design.md": {
       "lines": 30,
@@ -1458,15 +1458,6 @@
     },
     {
       "section": "bodies",
-      "path": "docs/scene/roadmap/performance-convergence-card.md",
-      "before": "1eaf31cac58289626d7639d442d7ca145ec9d29e6f322e6d2af08a306e517047",
-      "after": "fea8d0e8f7875d4e629081a03120fceaa0a2fccf7029b29f4d6506dfdc7aa78b",
-      "owner": "Scene性能路线导航",
-      "reason": "用旧专项已结算及其未覆盖范围替换继续实施的旧入口，保当前路线职责；文档指针增长不授新性能结论。",
-      "decision": "docs/development/wallpaper-startup-optimization-plan.md#decision"
-    },
-    {
-      "section": "bodies",
       "path": "docs/web/dedicated-host-process-design.md",
       "before": "f2403aa66064e2b12c0dedc9e9ddc9dfcd962823187bc544db93112d02e7c17e",
       "after": "a3ca3489e93d45f5b4eb0fd6b8333f09743b3e07f733391fac9849099c305ee1",
@@ -1701,15 +1692,6 @@
     },
     {
       "section": "bodies",
-      "path": "docs/scene/capabilities/scenescript-api-coverage.md",
-      "before": "1c0264b7769fd218434618c9d56a0ea9810eaba745296d7e78bec56fd0c64b7d",
-      "after": "fe4dd86e689c36f793a7cb3bd6bad0e90eab2256ce5248cda8ad7469aee43dab",
-      "owner": "Scene translation gravity closeout",
-      "reason": "显式平移重力接原唯一Motion并以三包重复交互收尾；修正过时U40状态与重复API行，压缩已闭Color输入过程保持设计600行，保所有独立边界和证据可用性。",
-      "decision": "docs/scene/history/puppet-linear-impulse-2026-10-28.md#translation-gravity-20261028"
-    },
-    {
-      "section": "bodies",
       "path": "docs/scene/roadmap/batch2/script-component-api-design.md",
       "before": "b9a667ca0a7a2666c179f223b594dade5da64eb7871bb211144ccb249d74094e",
       "after": "aeb6af0714484f071051218610ffbfb6d768dfa382918db058bc329fb56329cc",
@@ -1737,27 +1719,9 @@
     },
     {
       "section": "bodies",
-      "path": "docs/scene/capabilities/runtime-evidence-current.md",
-      "before": "35389159df8bbf13b50d812655c6bcf67730323b6ce15544af8f5c4c6e0a122f",
-      "after": "0278ffe6f9aa5f9fd3dd6e8225511671ab09d58c7030a67f089896b247c864e0",
-      "owner": "Scene additive local fallback",
-      "reason": "用既有preparedMap隔离未支持additive，结构/消费边界与实际原377六动作恢复、左手仍开放；合并旧state1/auxiliary状态，证据细节只归历史，保direct及未知语义边界。",
-      "decision": "docs/scene/history/puppet-additive-local-fallback-2026-10-29.md"
-    },
-    {
-      "section": "bodies",
       "path": "docs/scene/architecture/runtime-architecture.md",
       "before": "851be0006cec6ef0eb85d82cf9a45f1a6b6494b34f75fd7bfa665374291ba640",
       "after": "c31c83b1b22ed0dccfcc07aabf07febaa25011f4eb01dd16c113ccb86c6fbc98",
-      "owner": "Scene dynamic slot lifetime",
-      "reason": "原domain区分逻辑身份与存储、共同事务结束后复用；修正旧特殊资源/动态上限叙述，记录337真实首错及独立净零出生候选，未把视频/性能未知记完成。",
-      "decision": "docs/scene/history/dynamic-layer-slot-lifetime-2026-10-29.md"
-    },
-    {
-      "section": "bodies",
-      "path": "docs/scene/roadmap/scene-open-breakpoint-queue.md",
-      "before": "6c7d98cea09b4ea1288b3b856db4f0b99e44e5d1b7212b620620e48c8b29ab8f",
-      "after": "e87ff560bd33ecdba17391fde81182eb27afcefdb798fec5776808735cc058cd",
       "owner": "Scene dynamic slot lifetime",
       "reason": "原domain区分逻辑身份与存储、共同事务结束后复用；修正旧特殊资源/动态上限叙述，记录337真实首错及独立净零出生候选，未把视频/性能未知记完成。",
       "decision": "docs/scene/history/dynamic-layer-slot-lifetime-2026-10-29.md"
@@ -1788,6 +1752,60 @@
       "owner": "UI23",
       "reason": "落实用户九项UI修复的现役规则、调用边界和逐卡验证状态；替换旧选择/最近移除/进程范围规则，保留前轮证据。",
       "decision": "docs/development/ui-quality-audit.md#ui23-scope"
+    },
+    {
+      "section": "bodies",
+      "path": "docs/scene/capabilities/material-video-assets.md",
+      "before": "2c31888e57a2741d6f1016f4c0fe50feae56fa5f4d966596f93dbaf00070bd6c",
+      "after": "f6e39762fbd800f923245998375c6a8975f87511bcd469263bfd81a9cb44459f",
+      "owner": "scene-video-runtime",
+      "reason": "新增通用动态MP4和真实视频替换的有界呈现合同，同步当前能力及AV池剩余；设计先落库，原修复过程归历史，未扩官方未知。",
+      "decision": "docs/scene/capabilities/material-video-assets.md#video-switch-presentation"
+    },
+    {
+      "section": "bodies",
+      "path": "docs/scene/capabilities/runtime-evidence-current.md",
+      "before": "5dacfc5e0252d9071506ae468461290b1c9da5ab16adc03f7035b30ddc70fa1d",
+      "after": "a864b8027463abf970d43d9158f0458817fe4e14b9296729f0ffbd554eb2023b",
+      "owner": "scene-video-runtime",
+      "reason": "新增通用动态MP4和真实视频替换的有界呈现合同，同步当前能力及AV池剩余；设计先落库，原修复过程归历史，未扩官方未知。",
+      "decision": "docs/scene/capabilities/material-video-assets.md#video-switch-presentation"
+    },
+    {
+      "section": "bodies",
+      "path": "docs/scene/capabilities/scenescript-api-coverage.md",
+      "before": "fc1fa889ad82b02735fd135a5001674132d1006fe530608edbf3832b2aa7f0a2",
+      "after": "adc22dc3e705a7cc5f3e25c4d02dc6393e2c7ef7b4418004c01710e6bbf3f72f",
+      "owner": "scene-video-runtime",
+      "reason": "新增通用动态MP4和真实视频替换的有界呈现合同，同步当前能力及AV池剩余；设计先落库，原修复过程归历史，未扩官方未知。",
+      "decision": "docs/scene/capabilities/material-video-assets.md#video-switch-presentation"
+    },
+    {
+      "section": "bodies",
+      "path": "docs/scene/roadmap/performance-convergence-card.md",
+      "before": "fea8d0e8f7875d4e629081a03120fceaa0a2fccf7029b29f4d6506dfdc7aa78b",
+      "after": "bb7499f0f414fa3b05d705addfd69bd0bb20fb28098f1c11b7b35d75b94dda7b",
+      "owner": "scene-video-runtime",
+      "reason": "新增通用动态MP4和真实视频替换的有界呈现合同，同步当前能力及AV池剩余；设计先落库，原修复过程归历史，未扩官方未知。",
+      "decision": "docs/scene/capabilities/material-video-assets.md#video-switch-presentation"
+    },
+    {
+      "section": "bodies",
+      "path": "docs/scene/capabilities/scene-sample-acceptance-ledger.md",
+      "before": "d758f5479e4aecf961348407a51f34c755c4e5cb71296f64de93c22102228163",
+      "after": "59120aac8ab39c628cdd40c97b516de8b967b64543cd948ed119a058c245d13c",
+      "owner": "Scene video runtime and corpus intake",
+      "reason": "按已证通用视频链和真实窗口衔接结果替换旧首断点；生成表同步当前453目录，保留已归档移除样本的历史verdict且不混入当前统计，81个目录增量仅登记待运行筛查。",
+      "decision": "docs/scene/capabilities/material-video-assets.md#video-switch-presentation"
+    },
+    {
+      "section": "bodies",
+      "path": "docs/scene/roadmap/scene-open-breakpoint-queue.md",
+      "before": "e87ff560bd33ecdba17391fde81182eb27afcefdb798fec5776808735cc058cd",
+      "after": "ba0714ca734db5fe74a40ed2cb2b22802e02722dfdc78d218599c4086685672f",
+      "owner": "Scene video runtime and corpus intake",
+      "reason": "按已证通用视频链和真实窗口衔接结果替换旧首断点；生成表同步当前453目录，保留已归档移除样本的历史verdict且不混入当前统计，81个目录增量仅登记待运行筛查。",
+      "decision": "docs/scene/capabilities/material-video-assets.md#video-switch-presentation"
     }
   ]
 }

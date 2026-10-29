@@ -49,6 +49,7 @@ extension SceneDesktopWallpaperSession {
             try program.domain?.publishSoundPlaybackSnapshot(base,
                 descriptor: context.runtimeInput.renderDescriptor,
                 soundPlaybackSnapshots: soundPlaybackRegistry?.sceneScriptSnapshots() ?? [:],
+                videoSnapshots: videoTextureSourceRegistry?.sceneScriptSnapshots(sceneTime: timing.sceneTime) ?? .empty,
                 catalogToken: catalogToken)
         } catch {
             return false
@@ -91,7 +92,7 @@ extension SceneDesktopWallpaperSession {
         let fixedPoint = context.sceneScriptDynamicLayerRuntime.preflightOwnerEffectsToFixedPoint(
             effects, excludingOwners: failures,
             rejectingDependents: { context.sceneScriptStorageSession?.resolveRejectedOwners($0) ?? $0 }
-        ) { admitted in
+        ) { admitted, _ in
             Set(SceneScriptOwnerEffectsRuntimeValidation.failures(for: admitted,
                 timelineRuntime: context.timelinePlaybackRuntime,
                 textureAnimationRuntime: context.textureAnimationPlaybackRuntime,
@@ -106,7 +107,8 @@ extension SceneDesktopWallpaperSession {
             sceneScriptValues: acceptedValues) else { return false }
         program.restoreFrameState(previousState, rejectedOwnerTargets: rejected)
         commitSceneScriptLayerPlan(context, plan: fixedPoint.admission.layerPlan, rejectedOwnerTargets: rejected)
-        commitSceneMediaPlayback(fixedPoint.admission.admittedEffects.flatMap(\.mediaPlaybackCommands), timing: timing)
+        commitSceneMediaPlayback(SceneScriptMediaPlaybackCommandBridge.orderedCommands(
+            in: fixedPoint.admission.admittedEffects), timing: timing)
         commitSceneDynamicEvaluation(pending)
         context.sceneScriptStorageSession?.commitFrameTransaction()
         program.domain?.finalizeCommittedLayerSnapshot()

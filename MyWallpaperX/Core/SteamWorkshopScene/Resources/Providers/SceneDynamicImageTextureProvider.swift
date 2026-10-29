@@ -3,6 +3,7 @@ import Metal
 struct SceneDynamicImageTextureProviderSnapshot {
     let layerSources: [Int: SceneLayerSourcePublication]
     let pendingLayerSourceIDs: Set<Int>
+    var videoLayerRenderSizesWH: [Int: [Float]] = [:]
 }
 
 /// Surface-scoped view over launch-prepared immutable image resources. Layer
@@ -25,11 +26,16 @@ final class SceneDynamicImageTextureProvider {
         }
         var layerSources: [Int: SceneLayerSourcePublication] = [:]
         var pending: Set<Int> = []
+        var videos: [Int: [Float]] = [:]
         for layer in topology.dynamicLayers where layer.contentKind == "image" && layer.puppetMeshPath == nil {
+            if let modelPath = layer.imagePath,
+               case .video? = resources[modelPath.lowercased()]?.product {
+                videos[layer.id] = layer.renderSizeWH
+                continue
+            }
             guard let modelPath = layer.imagePath,
                   let resource = resources[modelPath.lowercased()],
-                  let candidate = resource.loaded.candidate,
-                  candidate.texture === resource.loaded.texture,
+                  case let .image(candidate) = resource.product,
                   let layerSource = SceneLayerSourcePublication(
                     layerID: layer.id,
                     publication: .init(
@@ -46,7 +52,8 @@ final class SceneDynamicImageTextureProvider {
         }
         let snapshot = SceneDynamicImageTextureProviderSnapshot(
             layerSources: layerSources,
-            pendingLayerSourceIDs: pending
+            pendingLayerSourceIDs: pending,
+            videoLayerRenderSizesWH: videos
         )
         cachedRevision = topology.topologyRevision
         cachedSnapshot = snapshot

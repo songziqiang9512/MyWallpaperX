@@ -52,7 +52,7 @@ import Metal
                 owner.cancelUnsubmittedFrame(on: buffer)
             } else {
                 let candidate = SceneMetalRenderer.PreparedFrame(commandBuffer: buffer,
-                    submit: { buffer.commit() }, cancel: { owner.cancelUnsubmittedFrame(on: buffer) })
+                    submit: { _ in buffer.commit() }, cancel: { owner.cancelUnsubmittedFrame(on: buffer) })
                 precondition(SceneMetalRenderer.submitPreparedFrame(.prepared(candidate)).isSubmitted)
                 buffer.waitUntilCompleted()
                 precondition(buffer.error == nil)

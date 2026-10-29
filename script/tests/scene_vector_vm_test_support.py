@@ -533,6 +533,7 @@ def compile_vector_harness(
             "xcrun",
             "swiftc",
             "-parse-as-library",
+            "-module-cache-path", str(temporary_directory / "modules"),
             "-O",
             *(["-whole-module-optimization"] if whole_module_optimization else []),
             "-import-objc-header",

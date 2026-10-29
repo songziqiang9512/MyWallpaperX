@@ -116,14 +116,15 @@ extension SceneMetalView {
         for layer in layers where !dynamicPuppetLayerIDs.contains(layer.id) {
             guard let model = layer.imagePath,
                   let resource = resources.dynamicImageResources[model.lowercased()],
+                  case let .image(candidate) = resource.product,
                   let mesh = resource.puppetMeshPath,
                   mesh.caseInsensitiveCompare(layer.puppetMeshPath ?? "") == .orderedSame,
                   let pose = resource.puppetPose,
                   let outcome = instantiatePuppetGeometry(for: layer, pose: pose,
-                      atlasTexture: resource.loaded.texture, resources: resources, resolver: resolver),
+                      atlasTexture: candidate.texture, resources: resources, resolver: resolver),
                   let product = outcome.geometryProduct else { continue }
-            imageTextures.setPuppetGeometry(product, samplingAtlas: resource.loaded.texture,
-                samplingCandidate: resource.loaded.candidate, layerID: layer.id)
+            imageTextures.setPuppetGeometry(product, samplingAtlas: candidate.texture,
+                samplingCandidate: candidate, layerID: layer.id)
             puppetPlaybackStates[layer.id] = outcome.playback
 #if DEBUG
             if SceneDesktopWallpaperHost.usesDebugEvidenceWindow {

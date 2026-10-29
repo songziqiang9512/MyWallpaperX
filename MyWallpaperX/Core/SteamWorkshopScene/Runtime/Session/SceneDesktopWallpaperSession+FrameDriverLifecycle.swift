@@ -147,7 +147,12 @@ extension SceneDesktopWallpaperSession {
             )
 #endif
         }
+        let createdVideoConsumers = layerPlan.createdDynamicImageModelPathsByID
+        videoTextureSourceRegistry?.bindPreparedVideoConsumers(createdVideoConsumers)
         commitSceneMediaPlayback(mediaPlaybackCommands, timing: timing)
+        videoTextureSourceRegistry?.retire(layerIDs: layerPlan.destroyedAuthoredLayerIDs
+            .union(layerPlan.retiredDynamicLayerIDs)
+            .union(Set(createdVideoConsumers.keys).subtracting(layerPlan.dynamicLayersByID.keys)))
         if !textureAnimationCommands.isEmpty,
            case .success = context.textureAnimationPlaybackRuntime.apply(
                textureAnimationCommands,
@@ -240,7 +245,7 @@ extension SceneDesktopWallpaperSession {
     ) {
         for command in mediaPlaybackCommands {
             switch command.destination {
-            case .videoTexture: _ = videoTextureSourceRegistry?.apply([command], timing: timing)
+            case .videoTexture: videoTextureSourceRegistry?.applyAdmitted(command, timing: timing)
             case .soundLayer: _ = soundPlaybackRegistry?.apply([command])
             }
         }

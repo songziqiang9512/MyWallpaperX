@@ -124,6 +124,10 @@ class SceneScriptDynamicLayerRuntimeTests(unittest.TestCase):
                     "templateCreatorCascadeRetiresDescendants", "templateCascadeReleasesValuesDefinitionsAndAliases"):
             self.assertTrue(self.result[key], key)
 
+    def test_unpublished_parent_still_retires_its_live_creator_descendants(self) -> None:
+        self.assertTrue(self.result["transientCreatorClosureReadOnly"])
+        self.assertTrue(self.result["transientCreatorClosureRetiresDescendants"])
+
     def test_create_and_value_update_publish_only_through_snapshots(self) -> None:
         self.assertTrue(self.result["createSucceeded"])
         self.assertTrue(self.result["priorSnapshotStable"])

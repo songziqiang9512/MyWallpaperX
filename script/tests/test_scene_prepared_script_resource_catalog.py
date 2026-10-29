@@ -71,10 +71,12 @@ class ScenePreparedScriptResourceCatalogTests(unittest.TestCase):
         self.assertEqual(set(templates), {
             "models/plain.json", "models/lit.json", "models/full-source.json",
             "models/lowered.json", "models/autosize.json", "models/puppet.json",
-            "models/composition.json",
+            "models/composition.json", "models/video.json", "models/video-autosize.json",
+            "models/video-source.json",
         })
         self.assertEqual(set(result["profiles"]), {
             "models/plain.json", "models/lit.json", "models/autosize.json", "models/puppet.json",
+            "models/video.json", "MODELS\\VIDEO-AUTOSIZE.JSON",
         })
         for key in ("models/plain.json", "models/lit.json"):
             with self.subTest(builtin=key):
@@ -86,7 +88,7 @@ class ScenePreparedScriptResourceCatalogTests(unittest.TestCase):
         self.assertEqual(len(result["profiles"]["models/lit.json"]["scalar"]), 2)
         for actual, wanted in zip(result["profiles"]["models/lit.json"]["scalar"], [.21, .79]):
             self.assertAlmostEqual(actual, wanted, places=6)
-        for key in ("models/full-source.json", "models/lowered.json"):
+        for key in ("models/full-source.json", "models/lowered.json", "models/video-source.json"):
             with self.subTest(source_material=key):
                 self.assertIn(key, templates)
                 self.assertNotIn(key, result["profiles"])
@@ -99,6 +101,18 @@ class ScenePreparedScriptResourceCatalogTests(unittest.TestCase):
         self.assertTrue(autosize["autosize"])
         self.assertEqual(autosize["renderSizeWH"], [800, 600])
         self.assertEqual(autosize["defaultRenderSizeWH"], [800, 600])
+        video = templates["models/video.json"]
+        self.assertEqual(video["kind"], "image")
+        self.assertEqual(video["renderSizeWH"], [3750, 2250])
+        self.assertEqual(video["defaultRenderSizeWH"], [1, 1])
+        self.assertFalse(video["autosize"])
+        self.assertIsNone(video["puppetMeshPath"])
+        video_auto = templates["models/video-autosize.json"]
+        self.assertEqual(video_auto["modelPath"], "MODELS\\VIDEO-AUTOSIZE.JSON")
+        self.assertEqual(video_auto["kind"], "image")
+        self.assertTrue(video_auto["autosize"])
+        self.assertEqual(video_auto["renderSizeWH"], [3750, 2250])
+        self.assertEqual(video_auto["defaultRenderSizeWH"], [3750, 2250])
         puppet = templates["models/puppet.json"]
         self.assertEqual(puppet["puppetMeshPath"], "models/unseen-puppet.mdl")
         self.assertEqual(puppet["renderSizeWH"], [512, 256])

@@ -112,7 +112,8 @@ int mwx_test_layer_perspective_cases(void) {
         "return v;}");
     perspective_update(owner, 1, MWX_SCENE_QUICKJS_OK);
     mutation = perspective_mutation(owner);
-    perspective_check(mutation.dynamic && mutation.fields == 0 && mutation.perspective == 1 &&
+    perspective_check(mutation.dynamic &&
+        (mutation.fields & ~MWX_SCENE_QUICKJS_LAYER_MUTATION_FIELD_CREATED) == 0 && mutation.perspective == 1 &&
         strcmp(mutation.asset_path, "models/unseen/relabelled.json") == 0,
         "renamed dynamic resource receives same setter");
     mwx_scene_quickjs_owner_commit_layer_mutations(owner);

@@ -167,15 +167,9 @@ typedef struct MWXSceneQuickJSLayerRecord {
     bool text_mutable;
     bool image_font_script_state;
     bool world_transform_available;
-    bool video_available;
-    bool video_loop;
-    bool video_is_playing;
+    uint32_t video_source_index;
     bool sound_available;
     bool sound_is_playing;
-    double video_duration;
-    double video_rate;
-    double video_current_time;
-    uint64_t video_ended_generation;
     MWXSceneQuickJSParticlePlaybackState particle_playback;
     bool texture_animation_available;
     bool texture_animation_is_playing;
@@ -194,6 +188,8 @@ typedef struct MWXSceneQuickJSDynamicImageRecord {
     double natural_size[2];
     bool autosize;
     MWXSceneQuickJSPreparedLayerKind resource_kind;
+    bool is_video;
+    uint32_t video_source_index;
 } MWXSceneQuickJSDynamicImageRecord;
 
 typedef struct MWXSceneQuickJSTextCloneSnapshot {
@@ -224,15 +220,9 @@ typedef struct MWXSceneQuickJSStagedLayerSnapshot {
     bool destroyed;
     bool world_transform_available;
     bool runtime_fields_staged;
-    bool video_available;
-    bool video_loop;
-    bool video_is_playing;
+    uint32_t video_source_index;
     bool sound_available;
     bool sound_is_playing;
-    double video_duration;
-    double video_rate;
-    double video_current_time;
-    uint64_t video_ended_generation;
     MWXSceneQuickJSParticlePlaybackState particle_playback;
     bool texture_animation_available;
     bool texture_animation_is_playing;
@@ -266,6 +256,8 @@ typedef struct MWXSceneQuickJSAuthoredLayerMutationRecord {
 
 typedef struct MWXSceneQuickJSVideoEndedCallbackRecord {
     int64_t layer_id;
+    uint32_t layer_index, video_source_index;
+    uint64_t source_incarnation[2];
     uint64_t delivered_generation;
     JSValue callback;
     bool active;
@@ -457,6 +449,14 @@ struct MWXSceneQuickJSDomain {
     MWXSceneQuickJSStagedLayerSnapshot *rollback_layer_snapshot;
     uint64_t rollback_layer_snapshot_generation;
     bool rollback_defaults_to_perspective;
+    MWXSceneQuickJSVideoObservation *video_observations;
+    uint32_t video_observation_count;
+    MWXSceneQuickJSVideoObservation *pending_video_observations;
+    uint32_t pending_video_observation_count;
+    bool pending_video_observations_staged;
+    MWXSceneQuickJSVideoObservation *rollback_video_observations;
+    uint32_t rollback_video_observation_count;
+    bool rollback_video_observations_replaced;
     int32_t *rollback_layer_order;
     uint32_t rollback_layer_order_count;
     MWXSceneQuickJSOwner *puppet_animation_owners;
@@ -539,6 +539,7 @@ struct MWXSceneQuickJSOwner {
     size_t texture_animation_command_count;
     bool texture_animation_command_overflow;
     size_t video_ended_callback_count;
+    size_t committed_video_ended_callback_count;
     bool current_animation_available;
     bool puppet_animation_configured, puppet_animation_available;
     bool puppet_handles_events;
@@ -728,6 +729,7 @@ MWXSceneQuickJSResult mwx_scene_quickjs_dispatch_video_ended_callbacks(
 void mwx_scene_quickjs_clear_video_ended_callbacks(
     MWXSceneQuickJSOwner *owner
 );
+void mwx_scene_quickjs_finish_video_ended_callbacks(MWXSceneQuickJSOwner *owner, bool committing);
 bool mwx_scene_quickjs_bind_owner_handles(
     MWXSceneQuickJSOwner *owner,
     JSValue *previous_layer,

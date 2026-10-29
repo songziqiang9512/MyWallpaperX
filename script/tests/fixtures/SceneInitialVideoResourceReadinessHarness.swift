@@ -21,6 +21,7 @@ struct SceneFrameTiming { let frameIndex: UInt64 }
 struct SceneDynamicImageTextureProviderSnapshot {
     let layerSources: [Int: SceneLayerSourcePublication]
     let pendingLayerSourceIDs: Set<Int>
+    var videoLayerRenderSizesWH: [Int: [Float]] = [:]
 }
 enum SceneDynamicTextTextureStore { struct Snapshot { let layerSources: [Int: SceneLayerSourcePublication] } }
 enum SceneMediaThumbnailTextureStore { struct Snapshot {} }
@@ -28,7 +29,11 @@ enum SceneMediaThumbnailTextureStore { struct Snapshot {} }
 // Only the backend facts are controlled. The observation method compiled into
 // this shell is read unchanged from SceneVideoTextureSource.swift.
 final class SceneVideoTextureSource {
-    struct Frame { let texture: MTLTexture; let publication: SceneTextureProviderPublication? }
+    struct Frame {
+        let texture: MTLTexture; let publication: SceneTextureProviderPublication?
+        var owner: SceneVideoTexturePlaybackOwner = .ordinary
+        func layerPublication(for layerID: Int) -> SceneTextureProviderPublication? { publication }
+    }
     enum Status { case unknown, ready, failed }
     struct Item { let status: Status }
     let item: Item?
@@ -85,6 +90,21 @@ final class SceneVideoTextureSource {
         let unavailableSnapshot = SceneFrameLayerTextureAssembly.make(base:unavailable,dynamicText:nil,
             videoSources:[:],timing:timing,collectsInitialVideoReadiness:true)
         checks["loadFailureRetainedWithoutSource"] = unavailableSnapshot.initialVideoReadiness?[41] == .unavailable
+        let retiredSource = SceneVideoTextureSource(frame: frame)
+        let retired = SceneFrameLayerTextureAssembly.make(base: unavailable, dynamicText: nil,
+            videoSources: [41: retiredSource], retiredLayerIDs: [41], timing: timing, collectsInitialVideoReadiness: true)
+        checks["retiredAuthoredVideoDoesNotHoldFirstFrame"] = retired.initialVideoReadiness?[41] == nil && retiredSource.prepares == 0
+        let dynamic = SceneDynamicImageTextureProviderSnapshot(layerSources: [:], pendingLayerSourceIDs: [],
+            videoLayerRenderSizesWH: [-7: [200, 100]])
+        let missingDynamic = SceneFrameLayerTextureAssembly.make(base: base, dynamicImage: dynamic, dynamicText: nil,
+            videoSources: [:], timing: timing, collectsInitialVideoReadiness: true)
+        checks["preparedFileWithoutSourceIsUnavailable"] = missingDynamic.initialVideoReadiness?[-7] == .unavailable
+            && missingDynamic[-7] == nil
+        let dynamicSource = SceneVideoTextureSource(frame: .init(texture: video, publication: publication(video, layerID: -7)))
+        let readyDynamic = SceneFrameLayerTextureAssembly.make(base: base, dynamicImage: dynamic, dynamicText: nil,
+            videoSources: [-7: dynamicSource], timing: timing, collectsInitialVideoReadiness: true)
+        checks["dynamicVideoKeepsPublicationAndLogicalQuad"] = readyDynamic.initialVideoReadiness?[-7] == .ready
+            && readyDynamic[-7] === video && readyDynamic.layerSourceRenderSize(for: -7) == [200, 100]
         unavailable.set(still,candidate:nil,layerID:41)
         checks["selectedStillReplacesLoadFailure"] = unavailable.unavailableOrdinaryVideoLayerIDs.isEmpty
         let direct = SceneMetalRenderer(baseMaterialProviderBindings:.empty,textureRegistry:.init())

@@ -47,6 +47,9 @@ extension SceneMetalRenderer {
                 resolvedMaterialLayerIDs:
                     imageCompositor.resolvedMaterialRuntime?.executionLayerIDs ?? []
             )
+            if !dynamicLayerTopologyCache.lastResolveWasCacheHit {
+                textureRegistry.retireLayerSources(keeping: projection.layersByID.keys)
+            }
             descriptor = projection.descriptor
             layersByID = projection.layersByID
             staticWorldFrames = projection.staticWorldFrames
@@ -60,6 +63,9 @@ extension SceneMetalRenderer {
             framebufferSourceLayerIDs = projection.framebufferSourceLayerIDs
             imageMaterialStateLayerIDs = projection.imageMaterialStateLayerIDs
         } else {
+            if dynamicLayerTopologyCache.reset() {
+                textureRegistry.retireLayerSources(keeping: self.layersByID.keys)
+            }
             descriptor = renderDescriptor
             layersByID = self.layersByID
             staticWorldFrames = worldFramesByLayerID

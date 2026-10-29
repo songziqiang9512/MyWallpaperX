@@ -20,18 +20,17 @@ extension SceneDesktopWallpaperSession {
             let mainFrameStart = ProcessInfo.processInfo.systemUptime
 #endif
             let frameOutcome = surface.metalView.renderFrame(
-                collectsInitialVideoReadiness: awaitsInitialPresentation,
+                collectsInitialVideoReadiness: true,
                 performanceTelemetry: SceneDesktopWallpaperHost.usesDebugEvidenceWindow
                     ? SceneFramePerformanceTelemetry.debugEvidence : nil
             )
-            if case let .prepared(candidate) = frameOutcome {
 #if DEBUG
+            if case let .prepared(candidate) = frameOutcome {
                 if let readiness = candidate.initialVideoPresentation {
                     pendingVideoLayerIDs.formUnion(readiness.pendingLayerIDs)
                 }
-#endif
-                observeSurfaceCompletion(candidate, surface: surface, displayID: displayID, attempt: attempt)
             }
+#endif
             frameOutcomes.append(frameOutcome)
 #if DEBUG
             if case let .prepared(candidate) = frameOutcome {
@@ -59,20 +58,65 @@ extension SceneDesktopWallpaperSession {
             }
 #endif
             let outcomeIndex = frameOutcomes.count - 1
-            let submitted = SceneMetalRenderer.submitPreparedFrame(frameOutcomes[outcomeIndex])
+            var presentsFrame = true
+            var hasPendingVideo = false
+            var readySources: Set<UUID> = []
+            if case let .prepared(candidate) = frameOutcomes[outcomeIndex] {
+                readySources = videoTextureSourceRegistry?.sourceIncarnations(
+                    for: candidate.initialVideoPresentation?.readyLayerIDs ?? [],
+                    deviceRegistryID: surface.metalView.metalDevice.registryID
+                ) ?? []
+                let pendingLayerIDs = candidate.initialVideoPresentation?.pendingSurfaceLayerIDs ?? []
+                hasPendingVideo = !pendingLayerIDs.isEmpty
+                let pendingSources = videoTextureSourceRegistry?.sourceIncarnations(
+                    for: pendingLayerIDs,
+                    deviceRegistryID: surface.metalView.metalDevice.registryID
+                ) ?? []
+#if DEBUG
+                let previousDeadline = surface.videoSwitchDeadline
+#endif
+                let hostTime = CACurrentMediaTime()
+                presentsFrame = candidate.shouldPresentVideoFrame(
+                    readySources: readySources, pendingSources: pendingSources,
+                    lastSubmittedPresentationSources: surface.lastSubmittedPresentationSources,
+                    switchDeadline: &surface.videoSwitchDeadline, hostTime: hostTime
+                )
+#if DEBUG
+                if SceneDesktopWallpaperHost.usesDebugEvidenceWindow,
+                   !presentsFrame || previousDeadline != nil {
+                    NSLog("MWX DEBUG SCENE: phase=video-switch-presentation frame=%llu surface=%u present=%@ ready=%d pending=%d hostTime=%.6f deadline=%.6f",
+                        surface.metalView.simulationFrameIndex, displayID, presentsFrame ? "true" : "false",
+                        readySources.count, pendingSources.count, hostTime, surface.videoSwitchDeadline ?? 0)
+                }
+#endif
+                observeSurfaceCompletion(
+                    candidate, surface: surface, displayID: displayID, attempt: attempt
+                )
+            }
+            let submitted = SceneMetalRenderer.submitPreparedFrame(
+                frameOutcomes[outcomeIndex], present: presentsFrame
+            )
             frameOutcomes[outcomeIndex] = submitted
             if submitted.isSubmitted {
                 if case let .prepared(candidate) = frameOutcome,
                    candidate.initialVideoPresentation?.isComplete == true {
                     qualifiedSubmitted[displayID] = ObjectIdentifier(surface)
                 }
-                surface.didSubmitSimulationFrame = true
+                if presentsFrame {
+                    surface.lastSubmittedPresentationSources = readySources
+                    surface.videoSwitchDeadline = nil
+                }
+                // Pending video needs paused retries even after presentation times out.
+                surface.didSubmitSimulationFrame = presentsFrame && !hasPendingVideo
                 surface.metalView.commitPreparedMaterialAssetFrame()
                 surface.metalView.commitPreparedFrameTexturePublication()
                 surface.metalView.commitPreparedMediaThumbnailUpdate()
                 surface.metalView.commitPreparedDynamicTextUpdate()
             } else {
                 if frameOutcome.isPrepared { surface.pendingPausedFrame = nil }
+                if !submitted.isDeferred, let deadline = surface.videoSwitchDeadline {
+                    surface.videoSwitchDeadline = min(deadline, CACurrentMediaTime())
+                }
                 surface.metalView.discardPreparedMaterialAssetFrame()
                 surface.metalView.discardPreparedFrameTexturePublication()
                 surface.metalView.discardPreparedMediaThumbnailUpdate()
@@ -110,11 +154,15 @@ extension SceneDesktopWallpaperSession {
         surface: Surface, displayID: CGDirectDisplayID,
         attempt: SceneInitialPresentationCohort.AttemptToken?
     ) {
-        guard awaitsInitialPresentation || sceneClock.isPaused else { return }
+        guard awaitsInitialPresentation || sceneClock.isPaused
+            || surface.videoSwitchDeadline != nil else { return }
         if sceneClock.isPaused { surface.pendingPausedFrame = candidate }
         candidate.whenCompleted { [weak self, weak surface, weak candidate] succeeded in
             DispatchQueue.main.async {
                 guard let self, let surface, self.surfaces[displayID] === surface else { return }
+                if !succeeded, let deadline = surface.videoSwitchDeadline {
+                    surface.videoSwitchDeadline = min(deadline, CACurrentMediaTime())
+                }
                 if self.awaitsInitialPresentation {
                     if !succeeded {
                         // A live candidate's old/pending attempt may still fail.

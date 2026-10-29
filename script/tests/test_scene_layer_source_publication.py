@@ -40,9 +40,9 @@ enum SceneTextureLoadOutcome {
 }
 
 struct ScenePreparedDynamicImageResource {
-    struct Loaded { let texture: MTLTexture; let candidate: SceneTextureCandidate? }
+    enum Product { case image(SceneTextureCandidate); case video }
     let modelPath: String
-    let loaded: Loaded
+    let product: Product
 }
 struct SceneScriptLayerTopologySnapshot {
     struct Layer {
@@ -245,19 +245,23 @@ enum Harness {
             uvTransform: .identity, sampling: .linearClamp)
         let imageProvider = SceneDynamicImageTextureProvider(resources: [
             "models/renamed.json": .init(modelPath: "models/renamed.json",
-                loaded: .init(texture: texture, candidate: imageCandidate))])
+                product: .image(imageCandidate)),
+            "models/movie.json": .init(modelPath: "models/movie.json", product: .video)])
         let imageTopology = SceneScriptLayerTopologySnapshot(topologyRevision: 1, dynamicLayers: [
             .init(id: -2, contentKind: "image", imagePath: "MODELS/RENAMED.JSON", renderSizeWH: [200, 100]),
             .init(id: -3, contentKind: "image", imagePath: "models/missing.json", renderSizeWH: [200, 100]),
             .init(id: -4, contentKind: "text", imagePath: nil, renderSizeWH: [200, 100]),
             .init(id: -5, contentKind: "image", imagePath: "models/renamed.json", renderSizeWH: [200, 100],
-                  puppetMeshPath: "models/puppet.mdl")])
+                  puppetMeshPath: "models/puppet.mdl"),
+            .init(id: -6, contentKind: "image", imagePath: "models/movie.json", renderSizeWH: [200, 100])])
         let createdImage = imageProvider.snapshot(topology: imageTopology)
         guard createdImage.layerSources[-2]?.renderSizeWH == [200, 100],
               createdImage.layerSources[-2]?.publication.texture === texture,
               createdImage.pendingLayerSourceIDs == [-3],
               createdImage.layerSources[-4] == nil,
               createdImage.layerSources[-5] == nil,
+              createdImage.layerSources[-6] == nil,
+              createdImage.videoLayerRenderSizesWH == [-6: [200, 100]],
               createdImage.layerSources[-2]?.isComplete(layerID: -2, matching: texture) == true,
               imageProvider.snapshot(topology: imageTopology).layerSources[-2]?.renderSizeWH == [200, 100]
         else { fatalError("created image publication lost logical geometry or candidate identity") }

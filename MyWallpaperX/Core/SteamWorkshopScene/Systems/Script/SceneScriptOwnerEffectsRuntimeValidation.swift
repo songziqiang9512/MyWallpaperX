@@ -21,6 +21,7 @@ nonisolated struct SceneScriptOwnerEffectsRuntimeFailure: Sendable {
 nonisolated enum SceneScriptOwnerEffectsRuntimeValidation {
     @MainActor static func failures(
         for effects: [SceneScriptOwnerEffects],
+        createdVideoConsumers: [Int: String] = [:],
         timelineRuntime: SceneTimelinePlaybackRuntime,
         textureAnimationRuntime: SceneTextureAnimationPlaybackRuntime,
         videoRegistry: SceneVideoTextureSourceRegistry?,
@@ -167,7 +168,8 @@ nonisolated enum SceneScriptOwnerEffectsRuntimeValidation {
             var reason: String?
             if !video.isEmpty {
                 if let videoRegistry {
-                    if case let .failure(failure) = videoRegistry.validate(video, timing: timing) {
+                    if case let .failure(failure) = videoRegistry.validate(video,
+                        createdConsumers: createdVideoConsumers, timing: timing) {
                         reason = String(describing: failure)
                     }
                 } else { reason = "video registry unavailable" }

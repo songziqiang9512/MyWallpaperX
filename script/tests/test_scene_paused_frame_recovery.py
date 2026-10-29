@@ -129,10 +129,15 @@ final class Window {
     func close() { closes += 1 }
 }
 final class VideoProviders {
-    func discardPreparedFrame() {}
+    var identities: [Int: UUID] = [:]
+    var commits = 0, discards = 0
+    func sourceIncarnations(for layerIDs: Set<Int>, deviceRegistryID: UInt64) -> Set<UUID> {
+        Set(layerIDs.compactMap { identities[$0] })
+    }
+    func discardPreparedFrame() { discards += 1 }
     func pause(sceneTime: Double, hostTime: Double) {}
     func resume(sceneTime: Double, hostTime: Double) {}
-    func commitPreparedFrame() {}
+    func commitPreparedFrame() { commits += 1 }
 }
 final class SoundProviders { func pause() {}; func resume() {} }
 // Shortcut delivery/scopes are outside the controlled frame transport. Keep
@@ -151,6 +156,10 @@ final class SceneMetalView {
     var textPublication: ((SceneDynamicTextTextureStore) -> Void)?
     let hasSimulationFrame = true
     let simulationFrameIndex: UInt64 = 7
+    struct Device { let registryID: UInt64 = 1 }
+    let metalDevice = Device()
+    var videoPresentation: SceneMetalRenderer.InitialVideoPresentation?
+    var presentationFlags: [Bool] = []
     var plan: Plan = .prepared
     var draws = 0, commits = 0, cancels = 0
     var publicationCommits = 0, publicationDiscards = 0
@@ -173,8 +182,8 @@ final class SceneMetalView {
         if plan == .deferred { return .deferred(reasonCode: "controlled-in-flight") }
         let buffer = MTLCommandBuffer()
         let candidate = SceneMetalRenderer.PreparedFrame(commandBuffer: buffer,
-            initialVideoPresentation: collectsInitialVideoReadiness ? .init() : nil,
-            submit: { [self] in commits += 1; buffer.commit() },
+            initialVideoPresentation: collectsInitialVideoReadiness ? (videoPresentation ?? .init()) : nil,
+            submit: { [self] present in commits += 1; presentationFlags.append(present); buffer.commit() },
             cancel: { [self] in cancels += 1 })
         drawnTextGenerations.append(dynamicTextTextures!.generation)
         buffers.append(buffer)
@@ -200,6 +209,8 @@ final class SceneDesktopWallpaperSession {
         let metalView = SceneMetalView()
         var didSubmitSimulationFrame = false
         var pendingPausedFrame: SceneMetalRenderer.PreparedFrame?
+        var lastSubmittedPresentationSources: Set<UUID> = []
+        var videoSwitchDeadline: TimeInterval?
     }
     var sceneClock = SceneClock(hostTime: 0)
     var launchContext: Int? = 1
@@ -494,7 +505,7 @@ SCENARIOS = r'''
         let buffer = MTLCommandBuffer()
         var completions = 0, submissions = 0, cancellations = 0
         let candidate = SceneMetalRenderer.PreparedFrame(commandBuffer: buffer,
-            submit: { submissions += 1; buffer.commit() }, cancel: { cancellations += 1 })
+            submit: { _ in submissions += 1; buffer.commit() }, cancel: { cancellations += 1 })
         candidate.whenCompleted { _ in completions += 1 }
         candidate.cancel()
         candidate.cancel()
@@ -631,6 +642,111 @@ SCENARIOS = r'''
         stopped(owner)
         frozen(owner, before)
     }
+    static let videoA = UUID(uuidString: "00000000-0000-0000-0000-000000000001")!
+    static let videoB = UUID(uuidString: "00000000-0000-0000-0000-000000000002")!
+    static let videoC = UUID(uuidString: "00000000-0000-0000-0000-000000000003")!
+    static func seededVideo() -> (SceneDesktopWallpaperSession, SceneDesktopWallpaperSession.Surface, SceneClock.State, VideoProviders) {
+        let (owner, surface, before) = fixture()
+        let providers = VideoProviders()
+        providers.identities = [1: videoA, 2: videoB, 3: videoC]
+        owner.videoTextureSourceRegistry = providers
+        surface.metalView.videoPresentation = .init(readyLayerIDs: [1])
+        owner.startFrameDriver()
+        precondition(surface.lastSubmittedPresentationSources == [videoA])
+        complete(surface.metalView, 0, true)
+        stopped(owner)
+        return (owner, surface, before, providers)
+    }
+    static func videoSwitchRecovery() {
+        let (owner, surface, before, providers) = seededVideo()
+        let view = surface.metalView, healthy = owner.attach(2)
+        healthy.metalView.videoPresentation = .init(readyLayerIDs: [1])
+        view.videoPresentation = .init(pendingLayerIDs: [2], pendingSurfaceLayerIDs: [2])
+        view.onRenderInvalidated?(.surface); DispatchQueue.main.drain()
+        let deadline = surface.videoSwitchDeadline!
+        precondition(view.presentationFlags == [true, false] && !surface.didSubmitSimulationFrame)
+        precondition(view.commits == 2 && view.publicationCommits == 2 && providers.commits == 2)
+        precondition(surface.lastSubmittedPresentationSources == [videoA] && view.publicationDiscards == 0)
+        complete(view, 1, true); complete(healthy.metalView, 0, true)
+        TransportTime.now = deadline - 0.05; view.plan = .deferred
+        precondition(RunLoop.main.fireNext() && surface.videoSwitchDeadline == deadline)
+        precondition(providers.discards == 1 && healthy.metalView.draws == 1)
+        TransportTime.now = deadline - 0.04; view.plan = .prepared
+        view.videoPresentation = .init(pendingLayerIDs: [3], pendingSurfaceLayerIDs: [3])
+        precondition(RunLoop.main.fireNext() && surface.videoSwitchDeadline == deadline)
+        precondition(view.presentationFlags.last == false && !surface.didSubmitSimulationFrame)
+        complete(view, 2, true)
+        view.videoPresentation = .init(readyLayerIDs: [3])
+        precondition(RunLoop.main.fireNext() && view.presentationFlags.last == true)
+        precondition(surface.lastSubmittedPresentationSources == [videoC] && surface.videoSwitchDeadline == nil)
+        complete(view, 3, true)
+        precondition(healthy.metalView.draws == 1 && providers.commits == 4)
+        stopped(owner); frozen(owner, before)
+    }
+    static func videoSwitchExpiry() {
+        let (owner, surface, before, _) = seededVideo()
+        let view = surface.metalView
+        view.videoPresentation = .init(pendingLayerIDs: [2], pendingSurfaceLayerIDs: [2])
+        view.onRenderInvalidated?(.surface); DispatchQueue.main.drain()
+        let deadline = surface.videoSwitchDeadline!
+        complete(view, 1, true)
+        TransportTime.now = deadline
+        precondition(RunLoop.main.fireNext() && view.presentationFlags.last == true)
+        precondition(!surface.didSubmitSimulationFrame && owner.frameTimer != nil,
+                     "spent presentation wait stopped paused resource retry")
+        complete(view, 2, true)
+        view.videoPresentation = .init(readyLayerIDs: [2])
+        precondition(RunLoop.main.fireNext())
+        complete(view, 3, true)
+        precondition(surface.didSubmitSimulationFrame && surface.lastSubmittedPresentationSources == [videoB])
+        stopped(owner); frozen(owner, before)
+    }
+    static func videoSwitchRejected(_ kind: String) {
+        let (owner, surface, before, _) = seededVideo()
+        let view = surface.metalView
+        view.videoPresentation = .init(pendingLayerIDs: [2], pendingSurfaceLayerIDs: [2])
+        view.onRenderInvalidated?(.surface); DispatchQueue.main.drain()
+        let deadline = surface.videoSwitchDeadline!
+        TransportTime.now = deadline - 0.05
+        if kind == "gpu" { complete(view, 1, false) }
+        else {
+            complete(view, 1, true)
+            view.plan = kind == "cancel" ? .cancelled : .synchronousDrop
+            precondition(RunLoop.main.fireNext())
+        }
+        precondition(surface.videoSwitchDeadline.map { $0 <= TransportTime.now } == true)
+        view.plan = .prepared
+        view.videoPresentation = .init(pendingLayerIDs: [3], pendingSurfaceLayerIDs: [3])
+        precondition(RunLoop.main.fireNext() && view.presentationFlags.last == true)
+        precondition(!surface.didSubmitSimulationFrame && owner.frameTimer != nil)
+        complete(view, view.buffers.count - 1, true)
+        view.videoPresentation = .init(readyLayerIDs: [3])
+        precondition(RunLoop.main.fireNext())
+        complete(view, view.buffers.count - 1, true)
+        stopped(owner); frozen(owner, before)
+    }
+    static func submittedVideoSet() {
+        let (owner, surface, before, _) = seededVideo()
+        let view = surface.metalView
+        for ids: Set<Int> in [[1, 2], [1]] {
+            view.videoPresentation = .init(readyLayerIDs: ids)
+            view.onRenderInvalidated?(.surface); DispatchQueue.main.drain()
+            precondition(surface.lastSubmittedPresentationSources == (ids.count == 2 ? [videoA, videoB] : [videoA]))
+        }
+        // Older GPU callbacks have not run; optional C cannot revive retired B.
+        view.videoPresentation = .init(readyLayerIDs: [1], pendingLayerIDs: [3], pendingSurfaceLayerIDs: [3])
+        view.onRenderInvalidated?(.surface); DispatchQueue.main.drain()
+        precondition(view.presentationFlags.allSatisfy { $0 } && surface.videoSwitchDeadline == nil)
+        precondition(!surface.didSubmitSimulationFrame && owner.frameTimer != nil)
+        complete(view, 1, true); complete(view, 2, true); complete(view, 3, true)
+        precondition(surface.lastSubmittedPresentationSources == [videoA])
+        view.videoPresentation = .init(readyLayerIDs: [1], pendingLayerIDs: [3])
+        precondition(RunLoop.main.fireNext())
+        precondition(surface.didSubmitSimulationFrame && surface.videoSwitchDeadline == nil,
+                     "startup-only pending escaped into surface switch scope")
+        complete(view, 4, true)
+        stopped(owner); frozen(owner, before)
+    }
     static func main() {
         let scenario = CommandLine.arguments[1]
         switch scenario {
@@ -652,6 +768,12 @@ SCENARIOS = r'''
         case "candidateGPUFailure": candidateGPUFailure(false)
         case "staleGPUFailureAfterDelivery": candidateGPUFailure(true)
         case "activePausedText": activePausedText()
+        case "videoSwitchRecovery": videoSwitchRecovery()
+        case "videoSwitchExpiry": videoSwitchExpiry()
+        case "videoSwitchGPUFailure": videoSwitchRejected("gpu")
+        case "videoSwitchCancel": videoSwitchRejected("cancel")
+        case "videoSwitchDrop": videoSwitchRejected("drop")
+        case "submittedVideoSet": submittedVideoSet()
         default: fatalError("unknown scenario")
         }
         print("paused-frame-recovery-pass: \(scenario)")
@@ -787,6 +909,14 @@ class ScenePausedFrameRecoveryTests(unittest.TestCase):
 
     def test_active_paused_text_adopts_latest_store_without_advancing_simulation(self):
         self.run_scenario("activePausedText")
+
+    def test_video_switch_withheld_submissions_retry_resources_and_preserve_peer(self):
+        for scenario in ("videoSwitchRecovery", "videoSwitchExpiry", "videoSwitchGPUFailure", "videoSwitchCancel", "videoSwitchDrop"):
+            with self.subTest(scenario=scenario):
+                self.run_scenario(scenario)
+
+    def test_video_source_set_follows_ordered_submissions_before_gpu_callbacks(self):
+        self.run_scenario("submittedVideoSet")
 
 
 if __name__ == "__main__":

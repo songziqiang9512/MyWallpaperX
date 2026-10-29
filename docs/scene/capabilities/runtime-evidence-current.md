@@ -1144,7 +1144,7 @@ copied-background+双成员+根invert实际验背景孔、半透明、X/Y越界�
 <a id="video-publication-demand-20261021"></a>
 ## 2026-10-21—29：视频供帧、候选撤回与实例资格
 
-337仍有动态create中断和多路供帧空档。旧包装候选因footprint退步已全部撤回；新时刻映射仅约1ms，未支持改clock。关闭11个video tracks的临时消融恢复可见供帧，但恢复等待、整体性能及dormant仍未闭；官方隐藏clock和本轮双实例载体均保持UNKNOWN。三轮身份、供帧观测边界、轨道新数值及官方STOP由[唯一后验](../history/dynamic-layer-slot-lifetime-2026-10-29.md#video-carrier-qualification)保存；原eager产品链未变，不重复已撤提取实验。
+337动态构造、原Source控制及直接主输出的有界切换已原生闭合，当前身份、真实窗口采样与完整12组合资格归[后验](../history/video-instance-observations-2026-10-29.md#当前原生身份与结果)。原12层因Boolean二次门未退休、逐帧新ID持有历史纹理两项已退役；净consumer退出停backend，保clock/last-ready，原startup/group行为保持。热切后AV池驻留仍高，group/named/effect衔接、整体性能、完整官方seek/空窗未覆盖。旧包装/轨道消融与官方STOP仍归[原后验](../history/dynamic-layer-slot-lifetime-2026-10-29.md#video-carrier-qualification)，不重复已撤提取实验。
 
 <a id="boolean-dynamic-text-20261021"></a>
 ## 2026-10-21：Bool可见性owner复用动态文字事务

@@ -80,7 +80,7 @@ final class SceneDesktopWallpaperSession {
                     rejectingParticleTransitions:{ commands,bundles,_ in
                         guard let failed=tx.prepare(commands) else{return []}
                         return Set(bundles.filter{$0.particlePlaybackCommands.contains{$0.callbackEpoch==failed.callbackEpoch && $0.ordinal==failed.ordinal}}.map(\.ownerTarget))
-                    }){_ in []}
+                    }){_, _ in []}
                 tx.install()
             result["explicit_emit_actual_query"] = admitted.externallyRejectedOwners.isEmpty
                     && emitSim.particles.count==3 && secondSim.particles.count==3
@@ -177,7 +177,7 @@ final class SceneDesktopWallpaperSession {
                         return Set(bundles.filter { $0.particlePlaybackCommands.contains {
                             $0.callbackEpoch == failed.callbackEpoch && $0.ordinal == failed.ordinal
                         }}.map(\.ownerTarget))
-                    }) { _ in [] }
+                    }) { _, _ in [] }
                 if failsPreparation {
                     result[key + "-rejects-whole-owner-without-install"] = admitted.externallyRejectedOwners == [author.target]
                         && admitted.admission.layerPlan.particleTransitions.isEmpty
@@ -221,7 +221,7 @@ final class SceneDesktopWallpaperSession {
             let author=try owner(domain,"export function init(v){thisLayer.\(method)(); if(thisLayer.isPlaying()!==\(method == "pause" ? "true":"false"))throw Error('query');return v;} export function update(v){return v;}")
             let evaluation=try evaluate(author)
             let state=SceneScriptDynamicLayerRuntime(descriptor:descriptor,authoredMutationLayerIDs:[])
-            let admission=state.preflightOwnerEffectsToFixedPoint([effects(author,evaluation)],particleObservations:[42:a.playbackObservation!],validateParticleTransitions:{ !$0.isEmpty }) { _ in [] }
+            let admission=state.preflightOwnerEffectsToFixedPoint([effects(author,evaluation)],particleObservations:[42:a.playbackObservation!],validateParticleTransitions:{ !$0.isEmpty }) { _, _ in [] }
             precondition(admission.admission.rejectedOwners.isEmpty)
             for command in admission.admission.layerPlan.particleTransitions {a.applyPlaybackTransition(command);b.applyPlaybackTransition(command)}
             a.advance(by:0.25);b.advance(by:0.25)
@@ -257,7 +257,7 @@ final class SceneDesktopWallpaperSession {
         let observations=[42:a.playbackObservation!]
         let plan=state.preflightOwnerEffects([firstEffects,secondEffects],particleObservations:observations).layerPlan
         result["cross_owner_order"] = plan.particleTransitions.map(\.action)==[.stop,.play,.pause]
-        let late=state.preflightOwnerEffectsToFixedPoint([firstEffects,secondEffects],particleObservations:observations,validateParticleTransitions:{_ in true}) { _ in [first.target] }
+        let late=state.preflightOwnerEffectsToFixedPoint([firstEffects,secondEffects],particleObservations:observations,validateParticleTransitions:{_ in true}) { _, _ in [first.target] }
         result["late_rejection"] = late.admission.layerPlan.particleTransitions.map(\.action)==[.play] && a.playback.revision==0 && b.playback.revision==0
         first.discardLayerMutations()
         result["c_discard"] = mwx_scene_quickjs_owner_particle_playback_command_count(first.handle)==0
@@ -363,7 +363,7 @@ final class SceneDesktopWallpaperSession {
         let videoDomain=try SceneScriptQuickJSDomain();try videoDomain.configureLayerCatalog(videoDescriptor)
         func publishVideo(_ generation:UInt64) throws {
             try videoDomain.publishLayerSnapshot(.empty(frameIndex:generation),descriptor:videoDescriptor,
-                videoSnapshots:[43:.init(layerID:43,duration:10,rate:1,loop:false,currentTime:10,isPlaying:false,endedGeneration:generation)],
+                videoSnapshots:.init(sources:[SceneScriptVideoPlaybackSnapshot(sourceIncarnation:UUID(uuidString:"00000000-0000-0000-0000-000000000043")!,duration:10,rate:1,loop:false,currentTime:10,isPlaying:false,endedGeneration:generation)],layerBindings:[43:0]),
                 particlePlaybackObservations:observations)
         }
         try publishVideo(0)
@@ -428,7 +428,7 @@ final class SceneDesktopWallpaperSession {
                 rejectingParticleTransitions:{commands,admitted,_ in
                     guard let failed=tx.prepare(commands) else{return []}
                     return Set(admitted.filter{$0.particlePlaybackCommands.contains{$0.callbackEpoch==failed.callbackEpoch && $0.ordinal==failed.ordinal}}.map(\.ownerTarget))
-                }){_ in []}
+                }){_, _ in []}
         }
         for argument in ["", "-1", "1.5", "NaN", "Infinity", "'2'", "true", "null", "1,2", "1025"] {
             let sim=try simulator(start:0)
@@ -781,7 +781,9 @@ class ParticlePlaybackTransactionTests(unittest.TestCase):
             projection=source[source.index("extension SceneDesktopWallpaperSession {\n    func particlePlaybackObservations("):]
             harness=HARNESS.replace("// PRODUCTION_SESSION_PROJECTION",projection)
             binary=compile_vector_harness(Path(raw),harness,"particle-transaction",
-                extra_swift_sources=tuple(PARTICLE_SOURCES),preamble=preamble)
+                extra_swift_sources=tuple(PARTICLE_SOURCES),preamble=preamble,
+                whole_module_optimization=True,
+            )
             run=subprocess.run([str(binary)],capture_output=True,text=True,timeout=20)
             self.assertEqual(run.returncode,0,run.stdout+run.stderr)
             print(run.stdout + run.stderr)

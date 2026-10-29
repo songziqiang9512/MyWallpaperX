@@ -45,6 +45,211 @@ enum SceneScriptBooleanReturnChecks {
         return value
     }
 
+    static func preparedVideoChecks() throws -> [String: Bool] {
+        let paths = ["models/prepared-selection.json", "models/renamed-selection.json"]
+        let still = "models/neighbor-still.json", unbound = "models/unbound-selection.json"
+        let incarnation = UUID(uuidString: "00000000-0000-0000-0000-000000000073")!
+        var templates = Dictionary(uniqueKeysWithValues: (paths + [unbound]).map {
+            ($0, SceneScriptPreparedResourceLayerTemplate(modelPath: $0,
+                renderSizeWH: [320, 180], autosize: true, isVideo: true))
+        })
+        templates[still] = .init(modelPath: still, renderSizeWH: [20, 10], autosize: true)
+        func makeProgram(_ source: String, peer: String? = nil,
+                         configuration: SceneJSONValue? = nil) throws -> SceneScriptVectorProgram {
+            let domain = try SceneScriptQuickJSDomain()
+            var scene = descriptor()
+            scene.layers[0].initialConfiguration = configuration
+            if peer != nil {
+                scene.layers.append(.init(id: 74, layerIndex: 1, name: "independent-peer",
+                    visible: false, originXYZ: [0, 0, 0], scaleXYZ: [1, 1, 1],
+                    alpha: 1, effects: [], sizeWH: [80, 80]))
+            }
+            try domain.configureLayerCatalog(scene)
+            try domain.configurePreparedResourceLayerCatalog(templates)
+            try domain.configurePreparedVideoSources(Dictionary(uniqueKeysWithValues: paths.map { ($0, 0) }))
+            try domain.publishLayerSnapshot(
+                SceneDynamicSnapshotResolver().resolve(frameIndex: 1, generation: 1, definitions: []).snapshot,
+                descriptor: scene, videoSnapshots: .init(sources: [
+                    .init(sourceIncarnation: incarnation, duration: 10, rate: 1, loop: true,
+                        currentTime: 3, isPlaying: true, endedGeneration: 0)
+                ], layerBindings: [:]))
+            let bindings = ([source] + (peer.map { [$0] } ?? [])).enumerated().map { index, source in
+                SceneScriptBindingIR(source: source,
+                    owner: .init(kind: .object, objectIndex: index, objectID: 73 + index,
+                        effectIndex: nil, effectID: nil, passIndex: nil, passID: nil),
+                    targetPath: [.key("objects"), .index(index), .key("visible")],
+                    properties: [:], authoredValue: .bool(false), valueType: .boolean,
+                    wrapperKeys: ["script", "value"])
+            }
+            return .compile(domain: domain, descriptor: scene, scriptBindings: bindings,
+                userPropertyDefinitions: [], generation: 73)
+        }
+        var facts: [String: Bool] = [:]
+        for (index, seed) in [false, true].enumerated() {
+            let initial: SceneJSONValue = .object([
+                "id": .number(73), "image": .string(paths[index]),
+                "visible": .object(["script": .string("// inactive visibility\n/* raw authored data */"), "value": .bool(seed)]),
+                "solid": .object(["user": .string("unresolved-neighbor"), "value": .bool(!seed)]),
+            ])
+            let program = try makeProgram("""
+                export function update(value) {
+                    const inherited = thisScene.getInitialLayerConfig(thisLayer);
+                    const before = JSON.stringify(inherited);
+                    if (inherited.visible.value !== \(seed) || inherited.solid.value !== \(!seed) ||
+                        inherited.visible.script !== '// inactive visibility\\n/* raw authored data */' || 'id' in inherited)
+                        throw Error('initial Boolean envelopes were rewritten');
+                    const fresh = thisScene.createLayer(inherited);
+                    if (!fresh || fresh.visible !== \(seed) || fresh.solid !== \(!seed))
+                        throw Error('inherited Boolean literal not consumed');
+                    fresh.visible = true;
+                    if (fresh.visible !== true || inherited.visible.value !== \(seed) || JSON.stringify(inherited) !== before)
+                        throw Error('scalar setter changed inherited configuration');
+                    fresh.getVideoTexture().play(); thisScene.destroyLayer(fresh);
+                    let reads = 0;
+                    Object.defineProperty(inherited.visible, 'script', {get(){++reads;throw Error('script getter executed');}});
+                    Object.defineProperty(inherited.solid, 'user', {get(){++reads;throw Error('user getter executed');}});
+                    const spied = thisScene.createLayer(inherited);
+                    if (!spied || spied.visible !== \(seed) || spied.solid !== \(!seed) || reads !== 0)
+                        throw Error('constructor evaluated Boolean property controls');
+                    spied.getVideoTexture().play(); thisScene.destroyLayer(spied);
+                    thisLayer.visible = true;
+                    if (thisLayer.visible !== true || JSON.stringify(thisScene.getInitialLayerConfig(thisLayer)) !== before)
+                        throw Error('current visibility replaced initial raw value');
+                    return false;
+                }
+                """, configuration: initial)
+            let result = evaluate(program, input: false)
+            let commands = SceneScriptMediaPlaybackCommandBridge.orderedCommands(in: result.ownerEffects)
+            let born = result.layerMutations.filter(\.isNewborn)
+            facts["inherited-envelope-\(seed)-raw-scalar-and-controls"] = result.failures.isEmpty
+                && value(result) == true && born.count == 2 && commands.count == 2
+                && born.allSatisfy { $0.assetPath == paths[index] && $0.solid == !seed && $0.kind == .destroy }
+                && commands.allSatisfy { $0.action == .play && $0.videoSourceIncarnation == incarnation }
+                && commands.first.flatMap { command in born.first { $0.layerID == command.layerID } }?.visible == true
+            program.finalizeLayerMutations(committing: true)
+        }
+        for (label, field, invalid) in [
+            ("number", "visible", "{value:1}"), ("string", "solid", "{value:'false'}"),
+            ("missing", "visible", "{script:'// no value'}"), ("nested", "solid", "{value:{value:false}}"),
+            ("truthy-object", "visible", "{value:{}}"), ("scalar-number", "solid", "1"),
+            ("scalar-string", "visible", "'true'"),
+        ] {
+            let program = try makeProgram("""
+                export function update(value) {
+                    const provisional = thisScene.createLayer({name:'rejected-envelope-layer',image:'\(paths[0])'});
+                    provisional.getVideoTexture().play();
+                    const inherited = thisScene.getInitialLayerConfig(thisLayer);
+                    inherited.\(field) = \(invalid);
+                    thisScene.createLayer(inherited); return value;
+                }
+                """, peer: """
+                export function update(value) {
+                    if (thisScene.getLayer('rejected-envelope-layer') !== null) throw Error('failed owner escaped');
+                    const layer = thisScene.createLayer('\(paths[1])');
+                    layer.getVideoTexture().play(); thisScene.destroyLayer(layer); return true;
+                }
+                """, configuration: .object(["image": .string(paths[0]), "visible": .object(["value": .bool(false)]),
+                    "solid": .object(["value": .bool(true)])]))
+            let peerTarget = SceneDynamicTarget.layer(layerID: 74, field: .visibility)
+            let result = program.evaluate(inputs: [target: .bool(false), peerTarget: .bool(false)],
+                effectivePropertyValues: [:], frame: frame(1))
+            let commands = SceneScriptMediaPlaybackCommandBridge.orderedCommands(in: result.ownerEffects)
+            facts["invalid-envelope-\(label)-rejects-only-owner"] = result.failures[target]?.code == "exception"
+                && result.failures[peerTarget] == nil && result.values[peerTarget] == .bool(true)
+                && result.ownerEffects.allSatisfy { $0.ownerTarget == peerTarget }
+                && result.layerMutations.filter(\.isNewborn).count == 1
+                && result.layerMutations.filter(\.isNewborn).allSatisfy { $0.assetPath == paths[1] }
+                && commands.count == 1 && commands.first?.videoSourceIncarnation == incarnation
+            program.finalizeLayerMutations(committing: true, rejectedOwnerTargets: [target])
+        }
+        for (index, path) in paths.enumerated() {
+            let argument = index == 0 ? "{image:'\(path)',name:'selected'}"
+                : "{name:'renamed',image:'models/'+'renamed-selection.json'}"
+            let program = try makeProgram("""
+                let previous, phase = 0;
+                export function update(value) {
+                    ++phase;
+                    if (previous) thisScene.destroyLayer(previous);
+                    const fresh = thisScene.createLayer(\(argument));
+                    if (!fresh) throw Error('prepared-only video failed to construct');
+                    const video = fresh.getVideoTexture();
+                    if (!video || video.duration !== 10 || video.rate !== 1 || video.getCurrentTime() !== 3)
+                        throw Error('prepared Source observation missing');
+                    video.play(); video.setCurrentTime(4);
+                    if (video.getCurrentTime() !== 3) throw Error('journal invented a media clock');
+                    const image = thisScene.createLayer('\(still)');
+                    const label = thisScene.createLayer({text:'neighbor'});
+                    if (!image || !label || image.getVideoTexture() !== undefined || label.getVideoTexture() !== undefined)
+                        throw Error('neighbor resource acquired video capability');
+                    thisScene.destroyLayer(image); thisScene.destroyLayer(label);
+                    if (phase === 3) { thisScene.destroyLayer(fresh); previous = null; }
+                    else previous = fresh;
+                    return value;
+                }
+                """)
+            facts["variant\(index)-prepared-without-video-prototype"] = program.definitions.count == 1
+                && program.descriptor.layers.count == 1 && program.descriptor.modelMaterialLinks.isEmpty
+                && program.descriptor.layers.allSatisfy { $0.imagePath != path }
+            var bornIDs: Set<Int> = []
+            for phase in 1...3 {
+                let result = evaluate(program, input: true, time: Double(phase))
+                let commands = SceneScriptMediaPlaybackCommandBridge.orderedCommands(in: result.ownerEffects)
+                let born = result.layerMutations.first { $0.isNewborn && $0.assetPath == path }
+                facts["variant\(index)-phase\(phase)-Bool-and-resource"] = result.failures.isEmpty
+                    && value(result) == true && born?.isDynamic == true
+                    && born?.kind == (phase == 3 ? .destroy : .upsert)
+                    && (phase == 1 || result.layerMutations.contains { $0.kind == .destroy && bornIDs.contains($0.layerID) })
+                if let born {
+                    let epoch = commands.first?.callbackEpoch ?? 0
+                    facts["variant\(index)-phase\(phase)-typed-media-order"] = epoch > 0 && commands == [
+                        .init(layerID: born.layerID, action: .play, callbackEpoch: epoch,
+                            ordinal: 0, videoSourceIncarnation: incarnation),
+                        .init(layerID: born.layerID, action: .setCurrentTime(4), callbackEpoch: epoch,
+                            ordinal: 1, videoSourceIncarnation: incarnation),
+                    ]
+                    bornIDs.insert(born.layerID)
+                } else { facts["variant\(index)-phase\(phase)-typed-media-order"] = false }
+                program.finalizeLayerMutations(committing: true)
+            }
+            facts["variant\(index)-three-distinct-logical-consumers"] = bornIDs.count == 3
+        }
+        for path in ["models/not-prepared.json", unbound] {
+            let program = try makeProgram("""
+                export function update(value) {
+                    if (thisScene.createLayer({image:'\(path)'}) !== null) throw Error('resource admission escaped');
+                    return value;
+                }
+                """)
+            let result = evaluate(program, input: true)
+            facts["C-catalog-rejects-\(path)"] = result.failures.isEmpty && value(result) == true
+                && result.layerMutations.isEmpty
+                && SceneScriptMediaPlaybackCommandBridge.orderedCommands(in: result.ownerEffects).isEmpty
+            program.finalizeLayerMutations(committing: true)
+        }
+        let failed = try makeProgram("""
+            export function update(value) {
+                const layer = thisScene.createLayer('\(paths[0])');
+                layer.getVideoTexture().play(); throw Error('reject this owner');
+            }
+            """, peer: """
+            export function update(value) {
+                const layer = thisScene.createLayer('\(paths[1])');
+                layer.getVideoTexture().play(); thisScene.destroyLayer(layer); return value;
+            }
+            """)
+        let peerTarget = SceneDynamicTarget.layer(layerID: 74, field: .visibility)
+        let result = failed.evaluate(inputs: [target: .bool(true), peerTarget: .bool(true)],
+            effectivePropertyValues: [:], frame: frame(1))
+        let commands = SceneScriptMediaPlaybackCommandBridge.orderedCommands(in: result.ownerEffects)
+        facts["failed-video-owner-does-not-export-media-or-mutations"] = result.failures[target]?.code == "exception"
+            && result.failures[peerTarget] == nil && result.ownerEffects.allSatisfy { $0.ownerTarget == peerTarget }
+            && result.layerMutations.filter(\.isNewborn).allSatisfy { $0.assetPath == paths[1] }
+            && commands.count == 1 && commands.first?.action == .play
+            && commands.first?.videoSourceIncarnation == incarnation
+        failed.finalizeLayerMutations(committing: true, rejectedOwnerTargets: [target])
+        return facts
+    }
+
     static func run() throws -> [String: Bool] {
         var facts: [String: Bool] = [:]
         // Opposite input makes accidental truthiness observable. These are

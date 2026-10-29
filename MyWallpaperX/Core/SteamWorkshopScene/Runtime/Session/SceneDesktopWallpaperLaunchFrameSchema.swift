@@ -22,15 +22,13 @@ nonisolated final class SceneDesktopWallpaperLaunchFrameSchema: @unchecked Senda
         for (key, resource) in baseImages.dynamicImageResources {
             let autosize = autosizeByModel[key] ?? false
             guard !autosize || resource.naturalSizeWH != nil,
-                  resource.loaded.animation == nil,
-                  let candidate = resource.loaded.candidate,
-                  candidate.texture === resource.loaded.texture,
                   resource.lightingProfile != nil || sourceMaterialModelPaths.contains(
                     SceneModelResourceIdentity(resource.modelPath).value) else { continue }
             templates[key] = .init(modelPath: resource.modelPath,
                 renderSizeWH: resource.naturalSizeWH ?? resource.renderSizeWH, autosize: autosize,
                 puppetMeshPath: resource.puppetMeshPath,
-                imageMaterialRenderState: resource.imageMaterialRenderState)
+                imageMaterialRenderState: resource.imageMaterialRenderState,
+                isVideo: { if case .video = resource.product { return true }; return false }())
             profiles[resource.modelPath] = resource.lightingProfile
         }
         // Empty clones carry no source effects, members, scripts or final texture.
