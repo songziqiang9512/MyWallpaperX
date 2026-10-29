@@ -53,7 +53,7 @@ class WallpaperPlaylistPickerTests(unittest.TestCase):
         prelude = prelude.replace('// ACTUAL_FAVORITE_ACTION_STATE',
             declaration(commands.read_text(), 'nonisolated struct WallpaperLibraryFavoriteActionState'))
         methods = declaration(delegate.read_text(), ' func validateMenuItem(')
-        for action in ['createPlaylist', 'import', 'undo', 'redo', 'selectAll', 'toggleMultiSelect', 'deleteSelected',
+        for action in ['createPlaylist', 'import', 'undo', 'redo', 'toggleMultiSelect', 'deleteSelected',
                        'focusSearch', 'zoomIn', 'zoomOut', 'setAsWallpaper', 'nextWallpaper', 'previousWallpaper',
                        'toggleFavorite', 'addToPlaylist', 'showInfo', 'preview', 'revealInFinder', 'navigateLibraryPage']:
             methods += '\n' + declaration(delegate.read_text(), ' @objc func ' + action + 'MenuAction(')
