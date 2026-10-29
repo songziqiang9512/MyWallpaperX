@@ -112,10 +112,21 @@ class SceneGenericShaderPreparedNormalizationTests(unittest.TestCase):
 
     def test_same_pair_preserves_actual_artifact_program_and_analysis_cache(self) -> None:
         report = self.run_harness("equivalence")
-        self.assertEqual(len(report["rows"]), 3)
+        self.assertEqual(len(report["rows"]), 6)
         self.assertTrue(all(not row["warmHasPair"] for row in report["rows"]))
+        self.assertTrue(all(row["vertexPositionInput"] == "clipSpace"
+                            and row["textureSlots"] == [0] for row in report["rows"]))
         self.assertEqual(report["rows"][2]["audioArrays"],
                          ["g_AudioSpectrum16Left", "g_AudioSpectrum16Right"])
+
+    def test_only_proven_unused_extra_vertex_attributes_leave_the_fixed_quad_abi(self) -> None:
+        rejected = self.run_harness("attributes")["rejected"]
+        self.assertEqual(rejected, {
+            name: "declarationDuplicate" if name == "duplicate" else "attributeUnsupported"
+            for name in ("live-varying", "live-helper", "unknown-macro", "unknown-scope",
+                         "array", "invalid-type", "duplicate", "fragment-attribute",
+                         "required-uv-z", "model-normal")
+        })
 
     def test_compiler_owns_configuration_raw_and_normalized_budgets(self) -> None:
         report = self.run_harness("budgets")

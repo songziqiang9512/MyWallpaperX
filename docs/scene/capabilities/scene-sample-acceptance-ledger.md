@@ -11,9 +11,9 @@
 - 样本根：`/Users/songziqiang/Movies/MyWallpaperX/创意工坊/Scene`（491 个 sample 目录）。
 - 运行归档：`scene_sample_debug_archive.json` SHA-256 `95c328619bb6cab7863b2e58b92c2010632f3213907f8d09865b6c1ce3991226`（生成于 2026-10-29T12:48:50.531681+00:00）。
 - 归档运行身份：CDHash `f92774bdf124ae9f7bfae8f6f3e4d30a713c5036`、CDHash `edde7df24e63e3b9830a72900437596b3634c3dd`、CDHash `8a1967f399d11dad1dfbfb1b15379dffeb4a76db`；**归档内不止一个执行身份**，运行状态与首断点因此是混合身份事实，单样本结论必须回到该样本自己的 report 身份。
-- 裁决覆盖层：`scene_sample_acceptance_verdicts.json` SHA-256 `ec8f6cf6fe19a3de94c3f3a27576e077a1d437db02968ee4d56877b2828f3d00`。
+- 裁决覆盖层：`scene_sample_acceptance_verdicts.json` SHA-256 `df17340cb93c869a9b48c4c6ca2feea21154642eb267649277baae3dc2f2817a`。
 - 仅历史归档保留、当前目录已移除的裁决：3806887870；不计当前目录表，原裁决不删除。
-- 本页生成于 2026-10-29T13:47:06.443470+00:00。
+- 本页生成于 2026-10-29T16:03:07.434248+00:00。
 
 本页生成日仅表示台账生成，不表示归档运行或人工裁决已重新验收。旧归档首断点可能已在后续开发中修复；最新技术状态以[断点队列](../roadmap/scene-open-breakpoint-queue.md)和[运行证据](runtime-evidence-current.md)为准。`not-run` 仅表示本归档未关联运行证据，不表示样本从未运行；归档中的失败状态也不等于当前 HEAD 的失败。
 本机已清理的历史证据：68 个样本、222 个引用；原路径保留在裁决覆盖层的 `unavailableLocalRuns/unavailableLocalEvidence`，不计可用载荷。清理不撤销历史结论，也不代表当前重新验收；见[证据可用性](runtime-evidence-current.md#local-evidence-availability)。
@@ -326,7 +326,7 @@
 | `3616886261` | 哇噢 | 3(0) color 1 combo 1 slider 1 | `structural-chain-complete-visual-review` | - | `visual-review` | `unreviewed` |  |
 | `3617056047` | 麻匪 模型音频互动 Model - audio interaction | 49(14) bool 4 color 6 combo 2 scenetexture 1 slider 7 text … | `structural-chain-complete-visual-review` | - | `visual-review` | `unreviewed` 2026-10-18 | 限定后验：位置/倒置反馈已闭。同批行为等价前版758f9b原包9秒/after5/resize/noPCM回归，罐体正立位于虚线圈内、不压底字，背景文字保持；… |
 | `3617449489` | WLOP 未竟之谋2 | 仅 schemecolor | `structural-chain-complete-visual-review` | - | `visual-review` | `unreviewed` |  |
-| `3622727585` | WLOP 云 中 人 | 4(0) bool 3 color 1 | `degraded-runtime` | `resource-load / SceneSolidTextureLoader / solid-texture-load-incomplete / solid-layer` | `texture-load` | `unreviewed` |  |
+| `3622727585` | WLOP 云 中 人 | 4(0) bool 3 color 1 | `degraded-runtime` | `resource-load / SceneSolidTextureLoader / solid-texture-load-incomplete / solid-layer` | `texture-load` | `unreviewed` 2026-10-30 | 615#354的死attribute与LOD采样闭包首门退出；原属性/标准PCM/pointer outside、Ready后22秒/总24秒，真实Progr… |
 | `3627973226` | [Sakiko Togawa]snowy night - It's MyGO!… | 18(0) bool 17 color 1 | `structural-chain-complete-visual-review` | - | `visual-review` | `unreviewed` 2026-10-17 | 人物、雪景、日期与底部频谱呈现；未定位大面积主体缺失，完整参数未验。 与目录官方截屏仅作基础构图对照；viewport、时相、媒体和全部属性尚未同状态验收。 |
 | `3629927359` | 奶牛大鸭鸭 2 | 2(0) color 1 combo 1 | `degraded-runtime` | `resource-load / BaseImageTextureStore / base-image-texture-load-incomplete / image-layer` | `texture-load` | `unreviewed` |  |
 | `3632513108` | 千咲 不散的春之花——夜莺Night《鸣潮 Wuthering Waves》 | 242(150) bool 74 color 44 combo 10 group 9 scenetexture 24 … | `degraded-runtime` | `resource-load / SceneSolidTextureLoader / solid-texture-load-incomplete / solid-layer` | `texture-load` | `unreviewed` |  |

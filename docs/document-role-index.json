@@ -989,10 +989,10 @@
       "role": "current-state",
       "entrypoint": "docs/scene/capabilities/README.md",
       "purpose": "限定专题的实现状态、偏差或证据；运行结论须复核身份和边界，不决定任务顺序。",
-      "lastReviewed": "2026-10-23",
+      "lastReviewed": "2026-10-30",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "d087849c23f54f57c4c4242396d9117326274dc70b3017caafe9d3492e596d90",
+        "sourceSHA256": "3bc42f9470109e10ee94f4177d71eabdbed461f62f48ba80bb953dc752bca704",
         "method": "document_registry --audit + document_health --check",
         "scope": "B12 按授权退役隐藏详情报告，保属性、播放与独立开发工具；同步现役合同与失效链接。",
         "limitations": "仅审查本次变更职责与导航；回归及构建结果归专项，不升级历史样本、性能或发布验收。"
@@ -1109,10 +1109,10 @@
       "role": "current-state",
       "entrypoint": "docs/scene/capabilities/README.md",
       "purpose": "限定专题的实现状态、偏差或证据；运行结论须复核身份和边界，不决定任务顺序。",
-      "lastReviewed": "2026-10-29",
+      "lastReviewed": "2026-10-30",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "39b2e9d26284e5eb705308323806ac5895703fff35d60d5b4519b042923173e6",
+        "sourceSHA256": "f0445ec771d4ff1fd83533d1c0464ed43b31429219ecea14c0a7a7def203cb0a",
         "method": "document_registry --audit + document_health --check",
         "scope": "Declared texture/RGB graph bounded change: route, queue retirement and archived runtime evidence reconciled with the same source/App identity.",
         "limitations": "Only this change and navigation reviewed; startup texture selection is not live-panel, full parity, HDR or performance acceptance."
@@ -2504,10 +2504,10 @@
       ],
       "cutoffDate": "2026-10-29",
       "uniqueValue": "保存10-23清单对账及后继有界关闭；10-28两封面与particle默认mode后验，保未资格gravity、烟团颜色与整样本余项。 10-29几何命名输出PMA恢复首帧、原/独立图与真实Aggregate夹具去重；保像素probe入口债。",
-      "lastReviewed": "2026-10-29",
+      "lastReviewed": "2026-10-30",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "92aefa8cb5fb5b74494a82858cb2aa05cc13b6c3c1bbe4ab44f6f52238129461",
+        "sourceSHA256": "6f43ad7364592f4a8daad2f8efc196e5738e1a739513c5571350231827ebfd05",
         "method": "document_registry --audit + document_health --check",
         "scope": "Only geometry named-raster PMA versus graph-copy content contract and bounded 295/independent322 closure; retain prior historical claims.",
         "limitations": "No full-document product revalidation; standalone pixel probe entry remains stale, no official parity/full-property/HDR/performance conclusion."
@@ -4464,10 +4464,10 @@
       "role": "active-plan",
       "entrypoint": "docs/scene/README.md",
       "retirementCondition": "当队列中的公共 authored target 首断点关闭，后续只剩路线 P0/P3/P4/P5 的系统性验收，且不再需要该派生执行入口时，删除或转为 historical-evidence。",
-      "lastReviewed": "2026-10-29",
+      "lastReviewed": "2026-10-30",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "279d9dc0344882ba084d232ebd5f5d0442572640a058ff57552a30d5f90dc2a1",
+        "sourceSHA256": "ccf37a385c3196b1e260628f18670a73e0063deeffddd6f47c691813ae13f6c9",
         "method": "document_registry --audit + document_health --check",
         "scope": "动态逻辑身份/slot共同回收合同与实际限定后验同步；修正旧64动态上限文案，337普通播放首错与性能资格分界、保净零出生待验。",
         "limitations": "导航收据不替代实际运行；原生C寿命与独立样本只按批次历史已验范围，动态视频/官方身份、HDR多屏及稳定整体性能仍未闭。"

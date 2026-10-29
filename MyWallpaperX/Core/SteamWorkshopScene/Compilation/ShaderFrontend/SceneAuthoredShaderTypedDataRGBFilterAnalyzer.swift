@@ -133,7 +133,7 @@ nonisolated enum SceneAuthoredShaderTypedDataRGBFilterAnalyzer {
                 ),
               let sourceSlot = SceneAuthoredShaderColorTransferAnalyzer
                 .directTextureSampleSlot(initializer),
-              let calls = sampleCalls(tokens: tokens),
+              let calls = sampleCalls(fragment),
               calls.allSatisfy({
                   main.bodyRange.contains($0.index) && $0.index < output
               })
@@ -277,7 +277,7 @@ nonisolated enum SceneAuthoredShaderTypedDataRGBFilterAnalyzer {
                 ),
               let sourceSlot = SceneAuthoredShaderColorTransferAnalyzer
                 .directTextureSampleSlot(sourceInitializer),
-              let calls = sampleCalls(tokens: tokens),
+              let calls = sampleCalls(fragment),
               calls.allSatisfy({
                   main.bodyRange.contains($0.index) && $0.index < output
               })
@@ -556,17 +556,28 @@ nonisolated enum SceneAuthoredShaderTypedDataRGBFilterAnalyzer {
         return declarations.count == 1
     }
 
-    private static func sampleCalls(tokens: [Token]) -> [SampleCall]? {
+    private static func sampleCalls(_ fragment: Unit) -> [SampleCall]? {
+        let tokens = fragment.tokens
+        let functionNames = Set(fragment.functions.map(\.name))
         var result: [SampleCall] = []
-        for index in tokens.indices where
-            ["texSample2D", "texture2D"].contains(tokens[index].text) {
-            guard index + 3 < tokens.count,
+        for index in tokens.indices {
+            guard let argumentCount = SceneAuthoredShaderMetalEmitter
+                .textureSampleArgumentCount(
+                    tokens[index].text, functionNames: functionNames
+                ) else { continue }
+            guard index + 1 < tokens.count,
                   tokens[index + 1].text == "(",
-                  let slot = SceneShaderSourceTextFacts.textureSlot(tokens[index + 2].text),
-                  tokens[index + 3].text == ",",
-                  let close = matchingClose(
-                      opening: index + 1,
-                      tokens: tokens
+                  let close = SceneAuthoredShaderTokenScanner.matchingParenthesis(
+                      tokens: tokens, opening: index + 1
+                  ),
+                  let arguments = SceneAuthoredShaderMetalEmitter
+                    .textureSampleArguments(
+                        tokens: tokens, opening: index + 1, closing: close
+                    ),
+                  arguments.count == argumentCount,
+                  arguments[0].count == 1,
+                  let slot = SceneShaderSourceTextFacts.textureSlot(
+                      tokens[arguments[0].lowerBound].text
                   ) else { return nil }
             let projection: Projection
             if close + 2 < tokens.count, tokens[close + 1].text == "." {
@@ -586,24 +597,6 @@ nonisolated enum SceneAuthoredShaderTypedDataRGBFilterAnalyzer {
             ))
         }
         return result
-    }
-
-    private static func matchingClose(
-        opening: Int,
-        tokens: [Token]
-    ) -> Int? {
-        var depth = 0
-        for index in opening..<tokens.count {
-            switch tokens[index].text {
-            case "(": depth += 1
-            case ")":
-                depth -= 1
-                if depth == 0 { return index }
-            default: break
-            }
-            guard depth >= 0 else { return nil }
-        }
-        return nil
     }
 
     private static func isLocalVectorDataDeclaration(

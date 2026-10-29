@@ -2492,6 +2492,20 @@
         "docs/scene/history/open-breakpoint-reconciliation-2026-10-23.md"
       ],
       "remainingDifferences": "活动change3d frontend的vec3→vec2返回拒绝仍在；官方音频响应幅度/密度轨迹、完整媒体/属性与整幅视觉未资格。R8准备和实发射GPU首门退出，整样本unreviewed，不改为视觉PASS。"
+    },
+    "3622727585": {
+      "verdict": "unreviewed",
+      "reviewedOn": "2026-10-30",
+      "reviewer": "Codex root 原App固定晚窗看图、目标Program/GPU/后缀及独立健康样本；未作官方对照",
+      "officialComparison": "unknown",
+      "note": "615#354的死attribute与LOD采样闭包首门退出；原属性/标准PCM/pointer outside、Ready后22秒/总24秒，真实Program579183c3… frame0/1 GPU完成，后缀进入最终615合成。晚窗右背景Tint实际转暖，预登记右中median RGB(7,89,123)→(149,84,66)，外控159/183/201不变。strict NON-PASS→PASS不授整样本或官方parity。",
+      "runs": [
+        ".artifacts/scene-evidence/runs/dead-attribute-lod-20261029/metadata/report.json"
+      ],
+      "evidence": [
+        "docs/scene/history/open-breakpoint-reconciliation-2026-10-23.md"
+      ],
+      "remainingDifferences": "624 utility source-program-unsupported仍归来源准入；完整属性/媒体、精确Timeline/官方同phase、HDR/多屏及长期性能未资格。视觉仍unreviewed。"
     }
   },
   "localEvidenceRetirement": {

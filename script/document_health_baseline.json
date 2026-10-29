@@ -146,7 +146,7 @@
     },
     "docs/scene/capabilities/render-graph-shader-coverage.md": {
       "lines": 600,
-      "bytes": 348876
+      "bytes": 348370
     },
     "docs/scene/capabilities/runtime-evidence-current.md": {
       "lines": 600,
@@ -174,7 +174,7 @@
     },
     "docs/scene/capabilities/scene-sample-acceptance-ledger.md": {
       "lines": 553,
-      "bytes": 126017
+      "bytes": 126160
     },
     "docs/scene/capabilities/scene-sample-debug-ledger.md": {
       "lines": 534,
@@ -278,7 +278,7 @@
     },
     "docs/scene/roadmap/scene-open-breakpoint-queue.md": {
       "lines": 176,
-      "bytes": 38444
+      "bytes": 38398
     },
     "docs/web/cold-descriptor-parse-offload-design.md": {
       "lines": 30,
@@ -1859,11 +1859,11 @@
     {
       "section": "bodies",
       "path": "docs/scene/capabilities/scene-sample-acceptance-ledger.md",
-      "before": "a03caaabec18ffb8c23d618c6ae859b6a19ebfb871f7b567a2c1f357940831b6",
-      "after": "ed79b89a159c10dce106115437b6cf0108aff22b41be09dcc898c93e084d36f6",
-      "owner": "Scene REFRACT color preparation",
-      "reason": "Reuse the existing R8 color adapter for REFRACT, record real GPU/resource and strong-PCM original-root completion evidence, retain normal/frame/depth counterexamples and unresolved visual boundaries.",
-      "decision": "docs/scene/history/open-breakpoint-reconciliation-2026-10-23.md#refract-r8-20261029"
+      "before": "ed79b89a159c10dce106115437b6cf0108aff22b41be09dcc898c93e084d36f6",
+      "after": "5d6e34d9a6229c80820b321f6c90df920b19717fa21112d673318a2e7daad15d",
+      "owner": "Scene shader interface and typed sampling",
+      "reason": "Document dead vertex-input projection and complete explicit-LOD sample conservation through existing owners, with bounded native output and independent rendering; retain unresolved utility source and visual limits.",
+      "decision": "docs/scene/history/open-breakpoint-reconciliation-2026-10-23.md#dead-attribute-lod-20261029"
     }
   ]
 }

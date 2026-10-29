@@ -213,6 +213,27 @@ nonisolated enum SceneGenericShaderSourceNormalizer {
                     }
                 }
             }
+            let extraAttributes = attributes.keys.filter {
+                $0 != "a_Position" && $0 != "a_TexCoord"
+            }
+            if !extraAttributes.isEmpty, let vertex = parsed["vertex"] {
+                let referenceSource = vertex.declarations.map {
+                    "\($0.storage) \($0.type) \($0.name)"
+                        + ($0.count.map { "[\($0)]" } ?? "") + ";"
+                }.joined(separator: "\n") + "\n" + vertex.body
+                let references = SceneAuthoredShaderSyntaxAnalyzer.analyzeForTypeConversions(
+                    lexerOutput: SceneAuthoredShaderLexer.lex(source: referenceSource, stage: .vertex),
+                    stage: .vertex
+                )
+                // A dead declaration needs no quad input. Unknown syntax or
+                // scope retains the original unsupported interface instead.
+                if references.diagnostics.isEmpty, let unit = references.unit {
+                    for name in extraAttributes where
+                        !SceneAuthoredShaderGlobalReferenceAnalyzer.isReferenced(name, in: unit) {
+                        attributes.removeValue(forKey: name)
+                    }
+                }
+            }
             // An `attribute vec3 a_TexCoord` whose vertex body only reads
             // `.xy` is dead metadata: the generated Metal wrapper supplies a
             // float2 texcoord and the `.xy` swizzle keeps its meaning.

@@ -123,6 +123,13 @@ enum SceneGenericShaderPreparedNormalizationChecks {
                 "uniform float g_AudioSpectrum16Left[16];\nuniform float g_AudioSpectrum16Right[16];\nvoid main()")
                 .replacingOccurrences(of: "texSample2D(g_Texture0, v_TexCoord)", with:
                     "texSample2D(g_Texture0, v_TexCoord) * vec4(vec3(g_AudioSpectrum16Left[0] + g_AudioSpectrum16Right[0]), 1.0)")),
+            ("attribute vec2 spareUV;\n" + vertex, fragment),
+            ("attribute vec4 renamedSpare;\n" + vertex.replacingOccurrences(
+                of: "v_TexCoord = a_TexCoord;", with:
+                    "vec4 renamedSpare = vec4(a_TexCoord, 0.0, 1.0); v_TexCoord = renamedSpare.xy;"), fragment),
+            ("#version 120\nattribute\tvec4 unusedColour; // retained author metadata\n"
+                + vertex.replacingOccurrences(of: "attribute vec2 a_TexCoord;", with: "attribute vec3 a_TexCoord;")
+                    .replacingOccurrences(of: "v_TexCoord = a_TexCoord;", with: "v_TexCoord = a_TexCoord.xy;"), fragment),
         ]
         var rows: [[String: Any]] = []
         for (index, sources) in variants.enumerated() {
@@ -149,6 +156,10 @@ enum SceneGenericShaderPreparedNormalizationChecks {
             let providedData = try acceptedArtifact(provided, input: input, analysis: fresh.analysis)
             let ordinaryData = try acceptedArtifact(ordinary, input: input, analysis: fresh.analysis)
             try expect(providedData == ordinaryData, "same-actual-artifact-and-program")
+            let artifact = try JSONDecoder().decode(SceneGenericShaderProgramArtifact.self, from: providedData)
+            try expect(pair.vertexPositionInput == .clipSpace
+                && artifact.program.vertexPositionInput == "clipSpace", "fixed-quad-position-input")
+            try expect(artifact.program.textureBindings.map(\.slot) == [0], "unchanged-texture-input")
             let normalizedInput = self.input(vertex: pair.vertex, fragment: pair.fragment)
             try expect(key(input, fresh.analysis) != key(normalizedInput, fresh.analysis), "raw-key-not-normalized-key")
             SceneGenericShaderAnalysisCache.store(analysis: fresh.analysis, input: input)
@@ -157,9 +168,57 @@ enum SceneGenericShaderPreparedNormalizationChecks {
             try expect(analysisFields(warm.analysis) == analysisFields(fresh.analysis), "same-persisted-analysis")
             rows.append(["index": index, "pairSHA256": SceneGenericShaderProgramArtifact.sha256(fields),
                 "artifactSHA256": SceneGenericShaderProgramArtifact.sha256(providedData),
-                "audioArrays": pair.activeAudioSpectrumArrays.sorted(), "warmHasPair": false])
+                "audioArrays": pair.activeAudioSpectrumArrays.sorted(), "warmHasPair": false,
+                "vertexPositionInput": artifact.program.vertexPositionInput ?? "missing",
+                "textureSlots": artifact.program.textureBindings.map(\.slot)])
         }
         return ["rows": rows]
+    }
+
+    static func attributeBoundaries(bundle: Bundle, root: URL) throws -> [String: Any] {
+        let extra = "attribute vec2 spareInput;\n" + vertex
+        let cases: [(String, String, String, SceneGenericShaderSourceNormalizer.Failure)] = [
+            ("live-varying", extra.replacingOccurrences(of: "v_TexCoord = a_TexCoord;",
+                with: "v_TexCoord = spareInput;"), fragment, .attributeUnsupported),
+            ("live-helper", extra.replacingOccurrences(of: "void main()", with:
+                "vec2 fetchInput() { return spareInput; }\nvoid main()")
+                .replacingOccurrences(of: "v_TexCoord = a_TexCoord;", with: "v_TexCoord = fetchInput();"),
+                fragment, .attributeUnsupported),
+            ("unknown-macro", "#define READ_INPUT spareInput\n" + extra, fragment, .attributeUnsupported),
+            ("unknown-scope", extra.replacingOccurrences(of: "v_TexCoord = a_TexCoord;",
+                with: "UnknownType spareInput; v_TexCoord = a_TexCoord;"), fragment, .attributeUnsupported),
+            ("array", extra.replacingOccurrences(of: "spareInput;", with: "spareInput[2];"),
+                fragment, .attributeUnsupported),
+            ("invalid-type", extra.replacingOccurrences(of: "attribute vec2 spareInput;",
+                with: "attribute sampler2D spareInput;"), fragment, .attributeUnsupported),
+            ("duplicate", "attribute vec2 spareInput;\n" + extra, fragment, .declarationDuplicate),
+            ("fragment-attribute", vertex, "attribute vec2 spareInput;\n" + fragment, .attributeUnsupported),
+            ("required-uv-z", extra.replacingOccurrences(of: "attribute vec2 a_TexCoord;",
+                with: "attribute vec3 a_TexCoord;")
+                .replacingOccurrences(of: "v_TexCoord = a_TexCoord;", with:
+                    "v_TexCoord = a_TexCoord.xy; gl_Position += vec4(vec3(a_TexCoord.z), 0.0);"),
+                fragment, .attributeUnsupported),
+            ("model-normal", "attribute vec3 a_Normal;\n" + vertex.replacingOccurrences(
+                of: "vec4(a_Position, 1.0)", with: "vec4(a_Position + a_Normal, 1.0)"),
+                fragment, .attributeUnsupported),
+        ]
+        var rejected: [String: String] = [:]
+        for (name, vertex, fragment, expected) in cases {
+            guard case let .failure(failure) = SceneGenericShaderSourceNormalizer.normalize(
+                vertexSource: vertex, fragmentSource: fragment,
+                maximumStageSourceBytes: Cache.maximumRouteAnalysisSourceBytes
+            ), failure == expected else { throw NSError(domain: "attribute-boundary-\(name)", code: 1) }
+            let input = input(vertex: vertex, fragment: fragment)
+            let route = Cache.computeAnalysis(input: input)
+            try expect(route.normalizedSources == nil, "rejected-route-has-no-pair-\(name)")
+            guard case let .failure(.normalization(reason)) = compile(
+                input, analysis: route.analysis, pair: nil, bundle: bundle, root: root
+            ), reason == String(describing: expected) else {
+                throw NSError(domain: "compiler-attribute-boundary-\(name)", code: 1)
+            }
+            rejected[name] = String(describing: expected)
+        }
+        return ["rejected": rejected]
     }
 
     static func budgets(low: Bundle, high: Bundle, missing: Bundle, root: URL) throws -> [String: Any] {
@@ -218,9 +277,12 @@ enum SceneGenericShaderPreparedNormalizationChecks {
             .resolvingSymlinksInPath().standardizedFileURL
         try expect(FileManager.default.homeDirectoryForCurrentUser.resolvingSymlinksInPath()
             .standardizedFileURL == expectedHome, "isolated-home")
-        let report = try args[1] == "equivalence"
-            ? equivalence(bundle: bundles[0], root: root)
-            : budgets(low: bundles[1], high: bundles[2], missing: bundles[3], root: root)
+        let report: [String: Any]
+        switch args[1] {
+        case "equivalence": report = try equivalence(bundle: bundles[0], root: root)
+        case "attributes": report = try attributeBoundaries(bundle: bundles[0], root: root)
+        default: report = try budgets(low: bundles[1], high: bundles[2], missing: bundles[3], root: root)
+        }
         FileHandle.standardOutput.write(try JSONSerialization.data(withJSONObject: report, options: [.sortedKeys]))
     }
 }

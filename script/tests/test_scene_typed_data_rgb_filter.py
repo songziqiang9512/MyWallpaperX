@@ -56,6 +56,8 @@ private struct Output: Codable {
     let redGreenCounts: [Int: Int]?
     let auxiliarySlots: [Int]?
     let totalSamples: Int?
+    let lodCases: [String: Bool]
+    let lodLevelPreserved: Bool
     let renamedAccepted: Bool
     let alphaWriteRejected: Bool
     let alphaIncrementRejected: Bool
@@ -152,7 +154,7 @@ private enum TypedDataRGBFilterHarness {
             "    float mask = texSample2D(g_Texture1, v_TexCoord).r;",
             "    vec4 shiftColor = texSample2D(g_Texture4, v_TexCoord) * 2.0 - 1.0;",
             "    vec4 noiseColor = texSample2D(g_Texture3, v_TexCoord) * 2.0 - 1.0;",
-            "    vec4 noiseColor2 = texSample2D(g_Texture3, v_TexCoord * 2.0) * 2.0 - 1.0;",
+            "    vec4 noiseColor2 = texSample2DLod(g_Texture3, v_TexCoord * 2.0, 1.0) * 2.0 - 1.0;",
             "    vec3 pattern = vec3(texSample2D(g_Texture2, v_TexCoord).r, texSample2D(g_Texture2, v_TexCoord * 2.0).r, texSample2D(g_Texture2, v_TexCoord * 3.0).r);",
             "    float glow = texSample2D(g_Texture5, v_TexCoord).r;",
             "    vec4 blendColor = texSample2D(g_Texture3, v_TexCoord * 3.0);",
@@ -170,7 +172,7 @@ private enum TypedDataRGBFilterHarness {
             "    float mask = g_Texture1.sample(g_Texture1Smplr, in.v_TexCoord).x;",
             "    float4 shiftColor = g_Texture4.sample(g_Texture4Smplr, in.v_TexCoord) * 2.0 - 1.0;",
             "    float4 noiseColor = g_Texture3.sample(g_Texture3Smplr, in.v_TexCoord) * 2.0 - 1.0;",
-            "    float4 noiseColor2 = g_Texture3.sample(g_Texture3Smplr, in.v_TexCoord * 2.0) * 2.0 - 1.0;",
+            "    float4 noiseColor2 = g_Texture3.sample(g_Texture3Smplr, in.v_TexCoord * 2.0, level(1.0)) * 2.0 - 1.0;",
             "    float3 pattern = float3(g_Texture2.sample(g_Texture2Smplr, in.v_TexCoord).x, g_Texture2.sample(g_Texture2Smplr, in.v_TexCoord * 2.0).x, g_Texture2.sample(g_Texture2Smplr, in.v_TexCoord * 3.0).x);",
             "    float glow = g_Texture5.sample(g_Texture5Smplr, in.v_TexCoord).x;",
             "    float4 blendColor = g_Texture3.sample(g_Texture3Smplr, in.v_TexCoord * 3.0);",
@@ -404,6 +406,23 @@ private enum TypedDataRGBFilterHarness {
             .replacingOccurrences(of: "albedo", with: "sceneCarrier")
             .replacingOccurrences(of: "generated", with: "proceduralRGB")
             .replacingOccurrences(of: "noiseColor", with: "fieldValue")
+        let lodCall = "texSample2DLod(g_Texture3, v_TexCoord * 2.0, 1.0)"
+        let lodVariants = [
+            "renamed": renamed,
+            "dialectAlias": authored.replacingOccurrences(of: "texSample2DLod", with: "texture2DLod"),
+            "nestedArguments": authored.replacingOccurrences(of: lodCall, with: "texSample2DLod(g_Texture3, (v_TexCoord * (1.0 + 1.0)), (0.5 + 0.5))"),
+            "unknownSample": authored.replacingOccurrences(of: "texSample2DLod", with: "unprovenSample"),
+            "authoredHelper": authored.replacingOccurrences(of: "void main() {", with: "vec4 texSample2DLod(sampler2D source, vec2 uv, float lod) { return vec4(0.0); }\nvoid main() {"),
+            "helperSample": authored.replacingOccurrences(of: "return mix(base, generated, opacity);", with: "return mix(base, generated, opacity) + texSample2DLod(g_Texture3, vec2(0.0), 0.0).rgb;"),
+            "unsupportedProjection": authored.replacingOccurrences(of: lodCall, with: lodCall + ".b"),
+            "secondSourceSample": authored.replacingOccurrences(of: lodCall, with: "texSample2DLod(g_Texture0, v_TexCoord * 2.0, 1.0)"),
+            "missingLevel": authored.replacingOccurrences(of: lodCall, with: "texSample2DLod(g_Texture3, v_TexCoord * 2.0)"),
+        ]
+        let lodCases = lodVariants.mapValues { source in
+            guard let sourceFact = fact(source) else { return false }
+            return SceneGenericShaderTypedDataRGBFilterLowering
+                .lower(msl, fact: sourceFact) != nil
+        }
 
         let output = Output(
             transfer: {
@@ -419,6 +438,8 @@ private enum TypedDataRGBFilterHarness {
             redGreenCounts: analyzed?.redGreenDataSampleCallCounts,
             auxiliarySlots: analyzed?.auxiliarySlots.sorted(),
             totalSamples: analyzed?.totalSampleCallCount,
+            lodCases: lodCases,
+            lodLevelPreserved: loweredMSL.contains("in.v_TexCoord * 2.0, level(1.0))"),
             renamedAccepted: fact(renamed) != nil,
             alphaWriteRejected: fact(authored.replacingOccurrences(
                 of: "    gl_FragColor = albedo;",
@@ -824,6 +845,20 @@ class SceneTypedDataRGBFilterTests(unittest.TestCase):
             "compilerSampleDriftRejected",
         ):
             self.assertTrue(self.result[key], (key, self.result))
+
+    def test_lod_auxiliary_sampling_conserves_the_existing_boundary(self) -> None:
+        self.assertTrue(self.result["lodLevelPreserved"])
+        self.assertEqual(self.result["lodCases"], {
+            "renamed": True,
+            "dialectAlias": True,
+            "nestedArguments": True,
+            "unknownSample": False,
+            "authoredHelper": False,
+            "helperSample": False,
+            "unsupportedProjection": False,
+            "secondSourceSample": False,
+            "missingLevel": False,
+        })
 
     def test_masked_snapshot_carrier_reuses_the_typed_data_boundary(self) -> None:
         self.assertEqual(

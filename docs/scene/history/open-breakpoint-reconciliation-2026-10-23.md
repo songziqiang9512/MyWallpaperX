@@ -261,3 +261,18 @@ SourceFacts在检查与launch准备队列同步建立，原类型却继承App默
 未参与修法2419444134实际图完整、粒子4/4及1REFRACT、strict PASS；3566323704仍5/9，531动画normal不匹配、398 depth、552/141显式hole均保原拒绝。三例及强输入补跑均exit0、surface1→0/GPU drained，不作官方parity、整样本通过或性能收益结论。
 
 必要前后图/日志、源/App身份、真实像素与失败收据、独审归本机`refract-r8-followup-20261029`及`-candidate`、`-audio`正式包，普通14天/单包32MiB；按原图字节拆包，不保Workshop副本/HOME/App。连续迭代只复用原一份build-cache，旧声明观察不冒充本批重验。
+
+<a id="dead-attribute-lod-20261029"></a>
+## 2026-10-29 shader死输入与LOD采样闭包
+
+3622727585的615#354原被只声明未读取的a_TexCoordC1挡住固定quad ABI。现normalizer只在有额外名时，以同一次parsed声明/body构造一个Unit，复用缓存bindingFacts证明无全局引用后删除死接口；局部/参数遮蔽可区分，活用、未知scope/宏、数组、重复/fragment/非法type和模型输入保持拒绝。没有额外顶点数据、绑定、owner或普通帧分析，普通两属性不新增parse。
+
+第一候选退出属性首错后，原24秒强窗仍在artifact colorTransfer局部降级，故未将CPU通过记成修复。直接原因是typed data RGB filter仅枚举普通2D调用，漏掉已有显式LOD：真实源slot0+slot1(Lod)+slot2三次，分析只数两次，MSL完整计数门拒绝。slot1的rgbmask已由现SamplerPurpose资格为preservedChannels，slot2为mask；没有新数据用途。现分析直接读取已有Unit，复用Emitter的采样函数/参数原语，保显式level并删除私有matchingClose；不改MSL lowering、颜色/alpha数学或任何守门。
+
+产品两owner分别净增21/净减7行；normalizer三方法152.947秒通过，含真实冷prepared/ordinary compiler+Program和暖analysis，不授暖Program cache-hit。LOD八方法39.676秒通过；只替换原analyzer源码的同fixture反证一方法37.286秒，唯一失败为full-vector计数2而非3。原计数/投影及类型、别名、输出逃逸、编译漂移门保留；新增3正6反调真实analyzer/lowerer/Builder，不复制算法。最终普通Debug26.829秒、优化DEBUG诊断32.560秒零警告，源无漂移，两项独审GO。
+
+原属性/PCM/pointer outside，预登记Ready后22秒截图/总24秒；基线47.981秒，属性首门候选50.536秒仍因LOD闭包失败，最终49.483秒strict PASS。目标615#354从0 material/1 rejected的previous-current变为真实Program579183c3…，frame0/1均1 material/0 rejected、GPU completed；四段后缀继续，最终615 effect4由唯一compositor消费。修前两观察右侧仍蓝，最终原图见暖色调参与背景；预登记中右ROI中位RGB由(7,89,123)到(149,84,66)，左外部控制区保持(159,183,201)。这符合作者Tint在晚窗参与输出，但不授精确Timeline逐帧值、完整周期或官方同phase fidelity；三轮ready图均有共同暂态，不参与颜色/启动结论。
+
+未参与修法2419444134最终App独立4秒运行/看图PASS（22.524秒），此前同独立样本亦PASS；所有原362及独立运行均App exit0、surface1→0/GPU drained。362的624 utility source-program-unsupported另归来源准入，不随本片结清；完整属性、媒体、HDR/多屏、长稳及性能均未验。原视觉裁决不改PASS，原图/日志与每轮App身份保留，未将历史失败追写成功。
+
+必要原报告/日志/runtime JSON、固定晚窗原图、首失败、源码/App身份、旧源反证、独审与gate归本机`dead-attribute-lod-20261029`正式包，普通14天/单包32MiB；仅保必要截图，不留Workshop副本/HOME/App或重建shader输出。连续迭代仍只复用原一份build-cache。
