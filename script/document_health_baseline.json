@@ -182,7 +182,7 @@
     },
     "docs/scene/capabilities/scenescript-api-coverage.md": {
       "lines": 419,
-      "bytes": 117461
+      "bytes": 117983
     },
     "docs/scene/capabilities/static-source-draw-only-degradation.md": {
       "lines": 54,
@@ -249,8 +249,8 @@
       "bytes": 5522
     },
     "docs/scene/roadmap/batch2/script-component-api-design.md": {
-      "lines": 598,
-      "bytes": 160309
+      "lines": 599,
+      "bytes": 161160
     },
     "docs/scene/roadmap/batch2/system-media-input-design.md": {
       "lines": 59,
@@ -277,8 +277,8 @@
       "bytes": 22423
     },
     "docs/scene/roadmap/scene-open-breakpoint-queue.md": {
-      "lines": 175,
-      "bytes": 37197
+      "lines": 174,
+      "bytes": 36886
     },
     "docs/web/cold-descriptor-parse-offload-design.md": {
       "lines": 30,
@@ -1696,15 +1696,6 @@
     },
     {
       "section": "bodies",
-      "path": "docs/scene/roadmap/batch2/script-component-api-design.md",
-      "before": "b9a667ca0a7a2666c179f223b594dade5da64eb7871bb211144ccb249d74094e",
-      "after": "aeb6af0714484f071051218610ffbfb6d768dfa382918db058bc329fb56329cc",
-      "owner": "Scene translation gravity closeout",
-      "reason": "显式平移重力接原唯一Motion并以三包重复交互收尾；修正过时U40状态与重复API行，压缩已闭Color输入过程保持设计600行，保所有独立边界和证据可用性。",
-      "decision": "docs/scene/history/puppet-linear-impulse-2026-10-28.md#translation-gravity-20261028"
-    },
-    {
-      "section": "bodies",
       "path": "docs/scene/capabilities/advanced-object-coverage.md",
       "before": "8852e58ab0815bbd37bac67d6a0e4556a97d6e8702891096e7870a326dcddde9",
       "after": "be93ca01972fe7257fe3aad32fef010b9004a455a59e038e6c6efc45befe3bc7",
@@ -1849,15 +1840,6 @@
     },
     {
       "section": "bodies",
-      "path": "docs/scene/capabilities/scenescript-api-coverage.md",
-      "before": "2e1e827b4e69b245996b315db31333b38fb0bee3d4ecee1609cdeed669082eae",
-      "after": "1380be8da4307adcdd0f5413f771fc69535bb59201f3160bda99c483bf0f3164",
-      "owner": "Scene engine query owner",
-      "reason": "Record one proven public desktop query, retire its missing-method item, retain actual downstream consumers and the unqualified perspective positive control without full-scene claims.",
-      "decision": "docs/scene/history/open-breakpoint-reconciliation-2026-10-23.md#engine-screensaver-20261029"
-    },
-    {
-      "section": "bodies",
       "path": "docs/scene/roadmap/scene-open-breakpoint-queue.md",
       "before": "10f0fc38d00ce0bb7b1aafc03dd3926c476fcc7cb12edafe8cffab10f4d87aab",
       "after": "5dc21b791a57346d0b74843df9be31b0e6821efb492b4a5fd9a7e5334d8cfdbc",
@@ -1873,6 +1855,24 @@
       "owner": "Scene sample acceptance overlay",
       "reason": "Add current two-player log-only technical follow-up while preserving unreviewed verdicts, original corpus identity and explicit downstream failures.",
       "decision": "docs/scene/history/open-breakpoint-reconciliation-2026-10-23.md#engine-screensaver-20261029"
+    },
+    {
+      "section": "bodies",
+      "path": "docs/scene/capabilities/scenescript-api-coverage.md",
+      "before": "1380be8da4307adcdd0f5413f771fc69535bb59201f3160bda99c483bf0f3164",
+      "after": "fc3619cd282e37ae7ad8729aa6bd3b5e98b2cecfb3c80240e06001c1c72ec0d2",
+      "owner": "Scene authored sound reference",
+      "reason": "Replace creator ownership with the existing authored referent policy for prepared Sound only, preserve executing journals and other attached capability limits, and retain downstream mutation failures.",
+      "decision": "docs/scene/roadmap/batch2/script-component-api-design.md#authored-sound-reference"
+    },
+    {
+      "section": "bodies",
+      "path": "docs/scene/roadmap/batch2/script-component-api-design.md",
+      "before": "580e116d93c4444d385366eba9282ba73862c3d77d05ca52c362a29b3283cdf8",
+      "after": "1cb98fc15f08e8999a0bc8ae1e5d87fe8a392a0e89104dc9b57652b149a57401",
+      "owner": "Scene authored sound reference",
+      "reason": "Replace creator ownership with the existing authored referent policy for prepared Sound only, preserve executing journals and other attached capability limits, and retain downstream mutation failures.",
+      "decision": "docs/scene/roadmap/batch2/script-component-api-design.md#authored-sound-reference"
     }
   ]
 }

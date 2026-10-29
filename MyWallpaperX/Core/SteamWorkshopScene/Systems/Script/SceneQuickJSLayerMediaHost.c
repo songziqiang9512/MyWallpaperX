@@ -344,7 +344,8 @@ bool mwx_scene_quickjs_layer_define_get_video_texture(
     ) >= 0;
 }
 
-// play/pause/stop and isPlaying share the ordinary layer-handle identity checks.
+// Authored sound references follow the scene target, while particle playback
+// remains bound to the owner that captured the handle.
 static JSValue layer_playback_call(JSContext *context, JSValueConst this_value,
     int argc, JSValueConst *argv, int magic, void *opaque) {
     (void)this_value;
@@ -363,7 +364,7 @@ static JSValue layer_playback_call(JSContext *context, JSValueConst this_value,
         return JS_ThrowTypeError(context, "prepared text init particle commands are unavailable");
     }
     MWXSceneQuickJSLayerAccessHandle *handle = opaque;
-    MWXSceneQuickJSLayerRecord *record = mwx_scene_quickjs_layer_record_for_handle(handle, MWX_SCENE_QUICKJS_LAYER_OWNER_BOUND);
+    MWXSceneQuickJSLayerRecord *record = mwx_scene_quickjs_layer_record_for_handle(handle, MWX_SCENE_QUICKJS_LAYER_AUTHORED_REFERENCE);
     if ((magic == 4 ? argc != 1 : argc != 0) || record == NULL)
         return JS_ThrowTypeError(context, "layer playback unavailable or unsupported arguments");
     MWXSceneQuickJSOwner *owner = handle->domain->active_owner;
@@ -386,7 +387,7 @@ static JSValue layer_playback_call(JSContext *context, JSValueConst this_value,
             return media_playback_command_failure(context, owner);
         return JS_UNDEFINED;
     }
-    if (!record->particle_playback.available)
+    if (owner->identity != handle->owner_identity || !record->particle_playback.available)
         return JS_ThrowTypeError(context, "particle playback unavailable or unsupported arguments");
     uint32_t count = 0;
     if (magic == 4) {

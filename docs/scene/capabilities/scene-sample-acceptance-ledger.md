@@ -11,9 +11,9 @@
 - 样本根：`/Users/songziqiang/Movies/MyWallpaperX/创意工坊/Scene`（453 个 sample 目录）。
 - 运行归档：`scene_sample_debug_archive.json` SHA-256 `656769ceeb256acbbed4a50cc5ac85eba0b55f9bac3c46261fec8d512f37fe80`（生成于 2026-10-29T02:16:22.751422+00:00）。
 - 归档运行身份：CDHash `f92774bdf124ae9f7bfae8f6f3e4d30a713c5036`、CDHash `edde7df24e63e3b9830a72900437596b3634c3dd`；**归档内不止一个执行身份**，运行状态与首断点因此是混合身份事实，单样本结论必须回到该样本自己的 report 身份。
-- 裁决覆盖层：`scene_sample_acceptance_verdicts.json` SHA-256 `81c02a88273a97da8f7ce73457022dbcc33e6745af247d9fc9b91fd03083594a`。
+- 裁决覆盖层：`scene_sample_acceptance_verdicts.json` SHA-256 `4d10d4d9d404b2dfd4a9c77ca7ac7db795cb82f7a8c2a103c0f8d4e536eb16da`。
 - 仅历史归档保留、当前目录已移除的裁决：3806887870；不计当前目录表，原裁决不删除。
-- 本页生成于 2026-10-29T07:20:38.934802+00:00。
+- 本页生成于 2026-10-29T10:25:56.097498+00:00。
 
 本页生成日仅表示台账生成，不表示归档运行或人工裁决已重新验收。旧归档首断点可能已在后续开发中修复；最新技术状态以[断点队列](../roadmap/scene-open-breakpoint-queue.md)和[运行证据](runtime-evidence-current.md)为准。`not-run` 仅表示本归档未关联运行证据，不表示样本从未运行；归档中的失败状态也不等于当前 HEAD 的失败。
 本机已清理的历史证据：68 个样本、222 个引用；原路径保留在裁决覆盖层的 `unavailableLocalRuns/unavailableLocalEvidence`，不计可用载荷。清理不撤销历史结论，也不代表当前重新验收；见[证据可用性](runtime-evidence-current.md#local-evidence-availability)。

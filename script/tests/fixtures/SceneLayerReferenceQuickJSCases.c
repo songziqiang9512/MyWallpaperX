@@ -358,8 +358,9 @@ static void attached_capabilities_remain_owner_bound(void) {
         "Object.create(shared.ref).text", "shared.ref.getParent()",
         "shared.ref.getChildren()", "shared.ref.getTransformMatrix()",
         "shared.ref.getVideoTexture()", "shared.ref.getTextureAnimation()",
-        "shared.ref.play()", "shared.ref.pause()", "shared.ref.stop()",
-        "shared.ref.isPlaying()", "shared.ref.emitParticles(1)",
+        "shared.particle.play()", "shared.particle.pause()", "shared.particle.stop()",
+        "shared.particle.isPlaying()", "shared.ref.emitParticles(1)",
+        "shared.bound.play()", "shared.bound.pause()", "shared.bound.stop()", "shared.bound.isPlaying()",
         "shared.ref.instance.alpha=0.25", "shared.instance.alpha=0.25",
         "shared.video.play()", "shared.texture.play()",
     };
@@ -386,7 +387,8 @@ static void attached_capabilities_remain_owner_bound(void) {
             diagnostic, sizeof(diagnostic)) == MWX_SCENE_QUICKJS_OK,
             "sound fixture publishes");
         MWXSceneQuickJSParticlePlaybackState playback = {.available = 1};
-        check(mwx_scene_quickjs_domain_update_layer_particle_playback(d, 0, playback,
+        for (uint32_t layer = 0; layer < 2; ++layer)
+            check(mwx_scene_quickjs_domain_update_layer_particle_playback(d, layer, playback,
             diagnostic, sizeof(diagnostic)) == MWX_SCENE_QUICKJS_OK,
             "particle playback fixture publishes");
         check(mwx_scene_quickjs_domain_update_layer_particle_instance_alpha(d, 0, 1, 1,
@@ -403,7 +405,11 @@ static void attached_capabilities_remain_owner_bound(void) {
         mwx_scene_quickjs_domain_begin_particle_frame(d, owned_emission, NULL, NULL,
             100000, 1024 * 1024);
         MWXSceneQuickJSOwner *producer = at(d,
-            "export function update(v){shared.ref=thisScene.getLayerByID('17');"
+            "export function update(v){const sound=thisScene.getLayerByID('17');shared.ref=sound;"
+            "shared.particle=thisScene.getLayerByID('42');shared.bound=thisLayer;"
+            "shared.soundRun=()=>{sound.play();if(sound.isPlaying()!==true)throw Error('play');"
+            "sound.pause();if(sound.isPlaying()!==false)throw Error('pause');sound.stop();"
+            "if(sound.isPlaying()!==false)throw Error('stop');};shared.soundQuery=()=>sound.isPlaying();"
             "const d=Object.getOwnPropertyDescriptor(shared.ref,'text');"
             "shared.get=d.get;shared.set=d.set;shared.instance=shared.ref.instance;"
             "shared.video=shared.ref.getVideoTexture();"
@@ -443,6 +449,38 @@ static void attached_capabilities_remain_owner_bound(void) {
                 mwx_scene_quickjs_owner_particle_playback_command_count(consumer) == 1 &&
                 emission_calls == 1,
                 "fresh lookup reaches original typed native command channels");
+            mwx_scene_quickjs_owner_destroy(consumer);
+            consumer = at(d, "export function update(v){shared.soundRun();thisLayer.text=v;return v;}", 42, 92, 0);
+            run(consumer, 92, 4, "sound", MWX_SCENE_QUICKJS_OK, NULL, "shared closure controls authored Sound");
+            check(mwx_scene_quickjs_owner_media_playback_command_count(consumer) == 3 &&
+                mwx_scene_quickjs_owner_media_playback_command_count(producer) == 0,
+                "Sound commands belong only to executing owner");
+            const uint32_t actions[] = {MWX_SCENE_QUICKJS_MEDIA_PLAY, MWX_SCENE_QUICKJS_MEDIA_PAUSE, MWX_SCENE_QUICKJS_MEDIA_STOP};
+            for (size_t index = 0; index < 3; ++index) {
+                MWXSceneQuickJSMediaPlaybackCommand command = {0};
+                check(mwx_scene_quickjs_owner_media_playback_command_at(consumer,index,&command,diagnostic,sizeof(diagnostic))
+                    == MWX_SCENE_QUICKJS_OK && command.layer_id == 17 && command.destination == MWX_SCENE_QUICKJS_MEDIA_SOUND_LAYER
+                    && command.kind == actions[index], "shared Sound retains referent and command order");
+            }
+            mwx_scene_quickjs_owner_discard_layer_mutations(consumer);
+            mwx_scene_quickjs_owner_destroy(producer); producer = NULL;
+            run(consumer, 92, 5, "retired", MWX_SCENE_QUICKJS_OK, NULL, "creator retirement does not retire authored Sound");
+            check(mwx_scene_quickjs_owner_media_playback_command_count(consumer) == 3, "live target still receives Sound commands");
+            mwx_scene_quickjs_owner_discard_layer_mutations(consumer);
+            MWXSceneQuickJSOwner *read_only = at(d,
+                "export function update(v){const media=thisScene.getLayerByID('17');if(media.isPlaying()!==false)throw Error('query');"
+                "let denied=false;try{media.play();}catch(e){denied=e instanceof TypeError;}"
+                "if(!denied)throw Error('readonly control');return v;}", 42, 93, 1);
+            MWXSceneQuickJSFrameInput query_frame = {.frame_time=0.016,.runtime=6}; uint32_t queried = 0;
+            check(mwx_scene_quickjs_owner_update_bool_with_properties(read_only,93,1,&query_frame,
+                NULL,0,"{}",2,&queried,diagnostic,sizeof(diagnostic)) == MWX_SCENE_QUICKJS_OK && queried == 1,
+                "readonly Sound lookup queries but cannot control live target");
+            check(mwx_scene_quickjs_owner_media_playback_command_count(read_only) == 0, "readonly shared Sound stages no command");
+            mwx_scene_quickjs_owner_destroy(read_only);
+            d->layers[0].configured = false;
+            run(consumer, 92, 7, "removed", MWX_SCENE_QUICKJS_EXCEPTION, "layer playback unavailable", "target retirement invalidates retained Sound");
+            check(mwx_scene_quickjs_owner_media_playback_command_count(consumer) == 0, "retired Sound target stages no command");
+            d->layers[0].configured = true;
             mwx_scene_quickjs_owner_destroy(consumer);
         }
         mwx_scene_quickjs_domain_end_particle_frame(d);

@@ -1132,7 +1132,7 @@
       "lastReviewed": "2026-10-29",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "bc1fcd60168cdf269cca2bf882682ead86dde07735344e987db8356b432c9930",
+        "sourceSHA256": "d531729003b9daf6aa884e54e812b5830af2e8d4115f5f52d02e766fc6e18a4a",
         "method": "document_registry --audit + document_health --check",
         "scope": "动态逻辑身份/slot共同回收合同与实际限定后验同步；修正旧64动态上限文案，337普通播放首错与性能资格分界、保净零出生待验。",
         "limitations": "导航收据不替代实际运行；原生C寿命与独立样本只按批次历史已验范围，动态视频/官方身份、HDR多屏及稳定整体性能仍未闭。"
@@ -2507,7 +2507,7 @@
       "lastReviewed": "2026-10-29",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "5d06742e757786c7144ff5b1f09cea672edd93ab75f8e91a9bf796734e116891",
+        "sourceSHA256": "bf21759ac215b0c7c8b2e9833e8b48535afe454b87dd81184ff2cc5444fc28c0",
         "method": "document_registry --audit + document_health --check",
         "scope": "Only geometry named-raster PMA versus graph-copy content contract and bounded 295/independent322 closure; retain prior historical claims.",
         "limitations": "No full-document product revalidation; standalone pixel probe entry remains stale, no official parity/full-property/HDR/performance conclusion."
@@ -4369,7 +4369,7 @@
       "lastReviewed": "2026-10-29",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "d1d1b1880a1e0eac8437f9e9d170ef550e1108221463bca065e6419b4595fd8e",
+        "sourceSHA256": "c38b9407aae262ddec6dccb90ab7cf714ee7485bf75bf8b090db87dd08fd5569",
         "method": "document_registry --audit + document_health --check",
         "scope": "动态逻辑身份/slot共同回收合同与实际限定后验同步；修正旧64动态上限文案，337普通播放首错与性能资格分界、保净零出生待验。",
         "limitations": "导航收据不替代实际运行；原生C寿命与独立样本只按批次历史已验范围，动态视频/官方身份、HDR多屏及稳定整体性能仍未闭。"
@@ -4467,7 +4467,7 @@
       "lastReviewed": "2026-10-29",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "9a4e0febc748d89e571a028928c615cd1b8569aeef1a9a7243076e82408b18ac",
+        "sourceSHA256": "1a5726222af02f67eb721f5685d613319379f74a970c1445414a6af7944c33c6",
         "method": "document_registry --audit + document_health --check",
         "scope": "动态逻辑身份/slot共同回收合同与实际限定后验同步；修正旧64动态上限文案，337普通播放首错与性能资格分界、保净零出生待验。",
         "limitations": "导航收据不替代实际运行；原生C寿命与独立样本只按批次历史已验范围，动态视频/官方身份、HDR多屏及稳定整体性能仍未闭。"

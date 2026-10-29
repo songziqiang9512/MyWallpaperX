@@ -224,3 +224,14 @@ SourceFacts在检查与launch准备队列同步建立，原类型却继承App默
 ## 2026-10-29 childless透视后继仍未知
 
 旧正式包及临时载体已不可用，使用新自有solid/反色effect载体重新资格，不能冒称复用旧正控。真实官方2.8.0.42新窗口、A/B标签/getter/计时与反色已确认；A false和B true及唯一一次FOV95修正均未建立内部倾斜四角正控，只见矩形范围差异，STOP_UNKNOWN，未运行passthrough后续臂或改产品。不能据此判passthrough支持/不支持、赋值无效，或移除原camera资格门。输入、命令、失败与原图保存于`.artifacts/scene-evidence/runs/childless-perspective-qualification-20261029/metadata/`普通14天；自有guest副本/预览已退出，官方主客户端与VM保持运行。
+
+<a id="authored-sound-reference-20261029"></a>
+## 2026-10-29 普通声音引用按执行者提交
+
+原360的641.origin枚举并缓存Sound407，经shared.playTrack由566.visibility调用，旧OWNER_BOUND在资源检查前拒绝。现Sound四方法复用一次AUTHORED_REFERENCE解析，命令归当前执行owner及原Registry；非Sound particle分派保创建者约束。普通引用随作者目标寿命，creator脚本退休不撤仍活音源；owner_target、非persistent、foreign dynamic、错误ID/目标退休和readonly控制拒绝保持。captured方法沿原bound callable语义：f=ref.play、f()或换receiver仍作用原sound，不把receiver当新目标。无新权限状态/owner/player/cache，产品一文件净增1行。
+
+原C附属负矩阵只把Sound四项迁至无sound的particle目标，保其余限制；最终1638检查/0失败，首轮value-only测试误走String ABI的两setup失败保留，改用原Bool入口后仅重跑该门。原真实VM/AVQueuePlayer门32事实通过（1 unittest，22.537秒），含共享闭包、执行者journal、同callback查询、下一snapshot、显式discard/throw/健康peer及creator/target退休分离；显式discard不冒充完整fixed-point晚拒绝验收。普通Debug17.293秒、优化DEBUG诊断14.483秒零警告，源输入无漂移，独审最终GO。
+
+原三例同jobs3、默认属性、固定PCM、Ready后4秒log-only共17.773秒，均report PASS/exit0、surface1→0/GPU drained。360的566.visibility completed，frame0/epoch36提交407 play；原MP3 ready rate1，clock由0到.331636/.496029且advanced=true，关闭本次声音引用首门。565旧owner冲突仍在，音乐激活后641.origin又暴露target冲突，按原previous-current降级且未阻断独立566的声音提交，已合并入队；不据此认画面不变或整个播放器恢复。304仍默认隐藏空playerLayers的alpha错误，不判默认缺图或伪造元素，83979冲突留队；未参与修法355无VM failure。无PNG/听感、长换曲、全部codec、完整UI/官方parity或性能收益结论。
+
+必要前后日志、源/App身份、真实门、失败收据与独审保存在`.artifacts/scene-evidence/runs/authored-sound-reference-20261029/`普通14天；原Sound循环/单次/随机、宿主pause与退休仍归原Registry，没有新增AV路径。临时执行副本提取后清理，连续迭代复用唯一原build-cache。

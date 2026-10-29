@@ -58,13 +58,13 @@ struct SceneSoundPlaybackProgram {
                     currentTime: 0, isPlaying: true, endedGeneration: 0)], layerBindings: [2: 0]),
                 soundPlaybackSnapshots: sound, runtimeFieldLayerIDs: [], awaitingHostFrameOutcome: pending)
         }
-        func owner(_ source: String) throws -> SceneScriptValueOwner {
-            try SceneScriptValueOwner(domain: domain, source: source, target: .layer(layerID: 1, field: .alpha),
+        func owner(_ source: String, layerID: Int = 1) throws -> SceneScriptValueOwner {
+            try SceneScriptValueOwner(domain: domain, source: source, target: .layer(layerID: layerID, field: .alpha),
                 valueType: .scalar, effectNames: [], allowsStatefulLayerSideEffects: true, generation: 1, budget: .default)
         }
-        func boolOwner(_ source: String, stateful: Bool = false) throws -> SceneScriptValueOwner {
+        func boolOwner(_ source: String, stateful: Bool = false, layerID: Int = 1) throws -> SceneScriptValueOwner {
             try SceneScriptValueOwner(domain: domain, source: source,
-                target: .layer(layerID: 1, field: .visibility), valueType: .bool,
+                target: .layer(layerID: layerID, field: .visibility), valueType: .bool,
                 effectNames: [], allowsStatefulLayerSideEffects: stateful, generation: 1, budget: .default)
         }
         let frame = SceneScriptFrameInput(timing: .init(wallDate: Date(), simulationFrameTime: 0.016, sceneTime: 1))
@@ -175,6 +175,59 @@ struct SceneSoundPlaybackProgram {
             && controlled.mediaPlaybackCommands.map(\.action) == [.play,.pause,.stop,.play,.pause,.stop]
             && controlled.mediaPlaybackCommands.map(\.videoSourceIncarnation) == [nil,nil,nil,UUID(uuidString:"00000000-0000-0000-0000-000000000002")!,UUID(uuidString:"00000000-0000-0000-0000-000000000002")!,UUID(uuidString:"00000000-0000-0000-0000-000000000002")!]
         stateful.discardLayerMutations()
+        var creator: SceneScriptValueOwner? = try owner("""
+            let cached;
+            export function init(v){cached=thisScene.getLayer('sound');
+                shared.playTrack=()=>{cached.play();if(cached.isPlaying()!==true)throw Error('play');
+                    cached.pause();if(cached.isPlaying()!==false)throw Error('pause');
+                    cached.stop();if(cached.isPlaying()!==false)throw Error('stop');
+                    cached.play();return cached.isPlaying();};
+                shared.trackPlaying=()=>cached.isPlaying();return v;}
+            export function update(v){return v;}
+            """)
+        _ = try evaluate(creator!); creator!.discardLayerMutations()
+        let borrowed = try boolOwner("export function update(v){if(shared.playTrack()!==true)throw Error('projection');return v;}",
+            stateful: true, layerID: 2)
+        let sharedEvaluation = try evaluateBool(borrowed)
+        let sharedCommands = sharedEvaluation.mediaPlaybackCommands
+        result["shared_sound_order"] = sharedEvaluation.value == .bool(true)
+            && sharedCommands.map(\.action) == [.play,.pause,.stop,.play]
+            && sharedCommands.allSatisfy { $0.layerID == 1 && $0.destination == .soundLayer }
+        result["shared_executing_owner_journal"] = mwx_scene_quickjs_owner_media_playback_command_count(borrowed.handle) == 4
+            && mwx_scene_quickjs_owner_media_playback_command_count(creator!.handle) == 0
+        result["shared_evaluation_has_no_player_effect"] = registry.sceneScriptSnapshots()[1] == false
+        borrowed.discardLayerMutations()
+        _ = try registry.apply(sharedCommands).get()
+        result["shared_commands_reach_real_player"] = waitPlaying()
+        _ = try registry.apply([.init(layerID: 1, action: .stop, destination: .soundLayer)]).get()
+        try publish(registry.sceneScriptSnapshots())
+        let readonlyBorrower = try boolOwner("""
+            export function update(v){const track=thisScene.getLayer('sound');if(track.isPlaying()!==false)throw Error('snapshot');
+                let denied=false;try{track.play();}catch(e){denied=e instanceof TypeError;}
+                if(!denied)throw Error('readonly control');return v;}
+            """, layerID: 2)
+        let readonlyShared = try evaluateBool(readonlyBorrower)
+        result["readonly_sound_after_shared_commit"] = readonlyShared.value == .bool(true)
+            && readonlyShared.mediaPlaybackCommands.isEmpty && registry.sceneScriptSnapshots()[1] == false
+        readonlyBorrower.discardLayerMutations()
+        let sharedThrow = try boolOwner("export function update(v){shared.playTrack();throw Error('shared failure');}",
+            stateful: true, layerID: 2)
+        do { _ = try evaluateBool(sharedThrow); result["shared_throw_rollback"] = false }
+        catch { result["shared_throw_rollback"] = mwx_scene_quickjs_owner_media_playback_command_count(sharedThrow.handle) == 0
+            && registry.sceneScriptSnapshots()[1] == false }
+        sharedThrow.discardLayerMutations()
+        _ = try evaluateBool(borrowed); borrowed.discardLayerMutations()
+        result["shared_discard_rollback"] = mwx_scene_quickjs_owner_media_playback_command_count(borrowed.handle) == 0
+            && registry.sceneScriptSnapshots()[1] == false
+        let healthy = try boolOwner("export function update(v){return typeof shared.trackPlaying()==='boolean'&&!shared.trackPlaying()&&v;}", stateful: true, layerID: 2)
+        let peer = try evaluateBool(healthy)
+        result["shared_healthy_peer_after_failure"] = peer.value == .bool(true) && peer.mediaPlaybackCommands.isEmpty
+        healthy.discardLayerMutations()
+        creator = nil
+        let retiredCreator = try evaluateBool(borrowed)
+        result["shared_creator_retired_target_live"] = retiredCreator.mediaPlaybackCommands.map(\.action) == [.play,.pause,.stop,.play]
+            && retiredCreator.mediaPlaybackCommands.allSatisfy { $0.layerID == 1 && $0.destination == .soundLayer }
+        borrowed.discardLayerMutations()
         let held = try owner("""
             let sound;
             export function init(v){sound=thisLayer;return v;}
@@ -189,9 +242,31 @@ struct SceneSoundPlaybackProgram {
         result["removed_source_unavailable"] = removed.value == .scalar(0)
             && removed.mediaPlaybackCommands.isEmpty
         held.discardLayerMutations()
+        let missingShared = try boolOwner("""
+            export function update(v){let refused=false;try{shared.playTrack();}
+                catch(e){refused=e instanceof TypeError;}return refused&&v;}
+            """, stateful: true, layerID: 2)
+        let missing = try evaluateBool(missingShared)
+        result["shared_retired_reference_source_unavailable"] = missing.value == .bool(true) && missing.mediaPlaybackCommands.isEmpty
+        missingShared.discardLayerMutations()
         domain.discardCommittedLayerSnapshot()
         result["snapshot_rollback_restores_availability"] = try evaluate(held).mediaPlaybackCommands.count == 1
         held.discardLayerMutations()
+        result["shared_source_rollback_restores_reference"] = try evaluateBool(borrowed).mediaPlaybackCommands.count == 4
+        borrowed.discardLayerMutations()
+        let renamedCreator = try owner("""
+            export function update(seed){const renamed=thisScene.enumerateLayers().find(item=>item.id===1);
+                shared.renamedMusic=()=>{renamed.play();if(!renamed.isPlaying())throw Error('renamed play');
+                    renamed.pause();if(renamed.isPlaying())throw Error('renamed pause');renamed.stop();return !renamed.isPlaying();};return seed;}
+            """)
+        _ = try evaluate(renamedCreator); renamedCreator.discardLayerMutations()
+        let renamedCaller = try boolOwner("export function update(seed){return shared.renamedMusic()&&seed;}", stateful: true, layerID: 2)
+        let renamed = try evaluateBool(renamedCaller)
+        result["shared_renamed_equivalent_lookup"] = renamed.value == .bool(true)
+            && renamed.mediaPlaybackCommands.map(\.action) == [.play,.pause,.stop]
+            && renamed.mediaPlaybackCommands.allSatisfy { $0.layerID == 1 && $0.destination == .soundLayer }
+            && mwx_scene_quickjs_owner_media_playback_command_count(renamedCreator.handle) == 0
+        renamedCaller.discardLayerMutations()
         print(String(decoding: try JSONSerialization.data(withJSONObject: result, options: [.sortedKeys]), as: UTF8.self))
     }
 }
@@ -215,7 +290,7 @@ class SceneSoundScriptCommandsTests(unittest.TestCase):
             run = subprocess.run([str(binary), str(audio)], capture_output=True, text=True, timeout=30)
             self.assertEqual(run.returncode, 0, run.stderr)
             facts = json.loads(run.stdout)
-            self.assertEqual(len(facts), 20)
+            self.assertEqual(len(facts), 32)
             for key, value in facts.items():
                 with self.subTest(key=key):
                     self.assertTrue(value, run.stderr)

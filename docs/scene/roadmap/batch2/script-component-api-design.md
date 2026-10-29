@@ -453,15 +453,16 @@ builtin首片只含唯一model/material/pass、slot0、VERSION2与静态LIGHTING
 
 ## Sound 播放控制接入（2026-10-12）
 
-目标是把作者对已准备 Sound 层的 play/pause/stop/isPlaying 接到唯一 SceneSoundPlaybackRegistry，首验 MP3 loop/single 与 startsilent。公开ISoundLayer描述启动、pause保留位置与stop重置计时，未明确重复play位置；本次黑盒对照补足single重复play和同回调查询，宿主暂停仍按产品生命周期合同验证。本次播放方法不扩volume脚本属性（后继见下节）；random/spatial不借此准入，OGG后继见[平台格式门](#sound-ogg-native)，失败仍只影响相应脚本owner或声音资源，不改变视觉算法。
+目标是把作者对已准备 Sound 层的 play/pause/stop/isPlaying 接到唯一 SceneSoundPlaybackRegistry，首验 MP3 loop/single 与 startsilent。公开ISoundLayer描述启动、pause保留位置与stop重置计时，未明确重复play位置；本次黑盒对照补足single重复play和同回调查询，宿主暂停仍按产品生命周期合同验证。本次播放方法不扩volume脚本属性（后继见下节）；random/spatial不借此准入，OGG后继见[平台格式门](#sound-ogg-native)，失败仍只影响相应脚本owner或声音资源，不改变视觉算法。首片执行与当时Vector属性接线修正归[Sound后验](../../history/sound-script-control-2026-10-12.md)；新批验收须证明typed提交、实际时钟及相邻失败边界，不把ready当播放。
 
 复用现video command buffer/owner effects/frame validation/commit链，将其显式泛化为media playback command，携带videoTexture/soundLayer destination；保留一个64条预算与一次收集，不复制Sound回调/事件/遍历。旧Video名称迁移后退出，不保留alias或第二命令buffer。Video纹理handle沿原接口，Sound方法复用普通layer handle身份/过期检查；只对prepared registry有来源的层开放。查询读取当帧已发布状态，并在公开/黑盒合同要求时投影当前callback暂存命令；只读Bool仅可查询，不获得播放权限；异常、捕获后的预算超额和owner拒绝均随原事务丢弃，不在VM调用中操作AVPlayer。
 
+<a id="authored-sound-reference"></a>
+**普通Sound引用后继（2026-10-29，有界实施）。** 360的选曲闭包缓存普通authored sound引用，却由另一个callback执行；旧OWNER_BOUND在资源检查前拒绝合法目标。将Sound四方法接入原AUTHORED_REFERENCE解析，目标仍须为同domain、持久、已配置且未退休的作者声音层；命令与同callback查询投影归当前执行owner，读取原SoundRegistry snapshot。脚本creator退休不销毁作者音源或撤销仍被shared持有的普通引用；目标销毁/替换仍由原expected ID与record寿命拒绝。其余particle播放/发射保创建owner限制，video/texture/hierarchy及owner_target、非persistent、foreign dynamic边界不扩。一次解析后按实际prepared kind分派，不重查整链、不加权限状态/owner/player或资源准备；readonly owner只查询，control仍由原append入口拒绝。
+
+验收限真实共享闭包→执行者journal→原registry时钟：play/pause/stop/query、下一snapshot、改名/等价、creator退休与target退休分离、throw/晚拒绝/健康peer，及其余附属能力负例。原360必须出现407已提交命令与clock推进才认正常播放切片；缺查询/标题等后继consumer另留队，不由本批伪造。公开ISoundLayer/shared支持该表面，精确跨owner官方行为未实测，不声称完整parity。
+
 帧前发布registry状态，现owner fixed-point admission分别交video/sound唯一registry无副作用验证，完整owner成功后才按命令顺序执行。play/pause/stop是可逆作者意图，宿主pause独立阻止实际播放，resume不得把脚本停止/暂停或startsilent对象改为播放；ready回调也服从同一意图。Sound registry stop仍是epoch销毁，不作为脚本stop复用。官方自有2秒MP3双层对照确认：single正在播放时再次play从头，pause后play续播；single播完后play可重建同player的item。loop重复play位置未证，保持原连续行为并登记边界。停止重置用现AVFoundation定位，不新增时钟或PCM播放器；已提交的authored layer销毁按ID从同registry撤observers/looper/queue，其他层继续；场景退役清整registry，迟到事件不能复活。首帧会在surface安装内同步执行，故registry必须在rebuildSurfaces之前建立并继承候选暂停/静音，失败由原session stop回收。
-
-Vector applyUserProperties原已执行，但live state仅登记Scalar/String导致属性切换fallback重建；沿同一consumer map给Vector补真实callback owner/已声明key，失效owner仍由all−active拒绝，不新增属性解析器。
-
-验收：真实VM方法→typed destination→owner提交/拒绝→AVQueuePlayer时钟与查询；startsilent、重复play、pause位置、stop归零重播、single自然结束、宿主暂停/恢复与停止后恢复、stale句柄/跨owner/throw/超额回滚，Video原方法回归。真实3761619125选曲脚本四MP3进入链，其他样本仅报告准入子集。Debug构建、独审及隔离运行，不把方法存在或player ready当成已播放；无法验证的模式继续记录首断点。
 
 <a id="sound-random-playback"></a>
 ### Random Sound多源接续（2026-10-16，有界实施）
