@@ -70,6 +70,7 @@ SWIFT_SOURCES = [
     *scene_swift_sources("authored_shader_frontend_support"),
     *scene_swift_sources("scene_resource_input"),
     SCENE_ROOT / "Compilation/ShaderContract/SceneShaderContractLoader.swift",
+    SCENE_ROOT / "Resources/Assets/SceneShaderSourceResolver.swift",
     SCENE_ROOT / "Compilation/ShaderContract/SceneBuiltinShaderIdentity.swift",
     SCENE_ROOT / "Format/SceneBCTextureDecoder.swift",
     SCENE_ROOT / "Format/SceneTexContainer.swift",
@@ -237,6 +238,26 @@ class SceneResolvedMaterialProgramFinalizerTests(unittest.TestCase):
     @classmethod
     def tearDownClass(cls) -> None:
         cls.temporary_directory.cleanup()
+
+    def test_shared_material_key_fans_out_to_independent_uniform_fields(self) -> None:
+        expected = {
+            "distinctOffsets": True,
+            "staticValues": [0.375, 0.375],
+            "renamedValues": [0.375, 0.375],
+            "defaultValues": [0.125, 0.75],
+            "dynamicFrames": [[0.25, 0.25], [0.625, 0.625]],
+            "samePreparedIdentity": True,
+            "singleDynamicTarget": True,
+            "noRecompile": True,
+            "missingDefault": "uniform/staticUniformBindingInvalid",
+            "staticShape": "uniform/staticUniformBindingInvalid",
+            "dynamicShape": "uniform/dynamicUniformBindingInvalid",
+            "declarationConflict": "uniform/uniformDeclarationConflict",
+            "mixedValues": [1, 1],
+            "mixedFraction": "uniform/staticUniformBindingInvalid",
+        }
+        for result in (self.result, self.warmed_result):
+            self.assertEqual(result["uniformKeyFanout"], expected)
 
     def test_real_preparation_frontend_uniforms_and_derivation_produce_program(self) -> None:
         self.assertEqual(

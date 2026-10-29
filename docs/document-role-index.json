@@ -797,14 +797,14 @@
       "path": "docs/scene/architecture/shader-metadata-failure-contract.md",
       "role": "stable-contract",
       "entrypoint": "docs/scene/architecture/runtime-architecture.md",
-      "purpose": "Shader metadata记录级失败、源码/声明保真、共享准入与下游拒绝边界；不决定批次选序。",
-      "lastReviewed": "2026-10-29",
+      "purpose": "Shader metadata记录失败、源码/声明保真、材质值来源与独立uniform字段、共享准入及下游拒绝边界；不决定批次选序。",
+      "lastReviewed": "2026-10-30",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "55b02cff3038ce756603d59b01fbd9ec9969c5952bbcac6cd51db818c55520d8",
+        "sourceSHA256": "5f084760ed22aaf1f1eb8ffd35bfd6bb968fa5cd8fde28d362159d7514a8ddbf",
         "method": "document_registry --audit + document_health --check",
-        "scope": "Only dead-varying uniform preparation contract and bounded native317/independent322 evidence, with hidden495 observation debt and original strict FAIL retained.",
-        "limitations": "Existing unrelated historical claims not revalidated; no full sample, inverse numeric, official parity, HDR, all-property or performance acceptance."
+        "scope": "Shared material-key ownership contract and bounded 373 Program/GPU/waveform closure; retain the original mixed archive and its strict diagnostic debt.",
+        "limitations": "Only this local change and navigation reviewed. No full-document product revalidation, official parity, full properties/panel, HDR, multi-screen or performance conclusion."
       },
       "currentStateAuthority": "docs/scene/capabilities/runtime-evidence-current.md"
     },
@@ -1112,10 +1112,10 @@
       "lastReviewed": "2026-10-30",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "f0445ec771d4ff1fd83533d1c0464ed43b31429219ecea14c0a7a7def203cb0a",
+        "sourceSHA256": "da1b493ceade87d70122ccf0d1567270455f648429c3c02577bc5261cb040ee8",
         "method": "document_registry --audit + document_health --check",
-        "scope": "Declared texture/RGB graph bounded change: route, queue retirement and archived runtime evidence reconciled with the same source/App identity.",
-        "limitations": "Only this change and navigation reviewed; startup texture selection is not live-panel, full parity, HDR or performance acceptance."
+        "scope": "Shared material-key ownership contract and bounded 373 Program/GPU/waveform closure; retain the original mixed archive and its strict diagnostic debt.",
+        "limitations": "Only this local change and navigation reviewed. No full-document product revalidation, official parity, full properties/panel, HDR, multi-screen or performance conclusion."
       }
     },
     {
@@ -2502,15 +2502,15 @@
         "docs/scene/roadmap/scene-open-breakpoint-queue.md",
         "docs/scene/capabilities/coverage-ledger.md"
       ],
-      "cutoffDate": "2026-10-29",
+      "cutoffDate": "2026-10-30",
       "uniqueValue": "保存10-23清单对账及后继有界关闭；10-28两封面与particle默认mode后验，保未资格gravity、烟团颜色与整样本余项。 10-29几何命名输出PMA恢复首帧、原/独立图与真实Aggregate夹具去重；保像素probe入口债。",
       "lastReviewed": "2026-10-30",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "6f43ad7364592f4a8daad2f8efc196e5738e1a739513c5571350231827ebfd05",
+        "sourceSHA256": "1ee939f4ff1ecfabfad4e7b6c89df1a7f0c5ec840ac0b5d2c6f69812992bcf42",
         "method": "document_registry --audit + document_health --check",
-        "scope": "Only geometry named-raster PMA versus graph-copy content contract and bounded 295/independent322 closure; retain prior historical claims.",
-        "limitations": "No full-document product revalidation; standalone pixel probe entry remains stale, no official parity/full-property/HDR/performance conclusion."
+        "scope": "Shared material-key ownership contract and bounded 373 Program/GPU/waveform closure; retain the original mixed archive and its strict diagnostic debt.",
+        "limitations": "Only this local change and navigation reviewed. No full-document product revalidation, official parity, full properties/panel, HDR, multi-screen or performance conclusion."
       }
     },
     {
@@ -4467,10 +4467,10 @@
       "lastReviewed": "2026-10-30",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "ccf37a385c3196b1e260628f18670a73e0063deeffddd6f47c691813ae13f6c9",
+        "sourceSHA256": "4441ebfb375464bf30a7f7374e004791dc3f7401ba9c9d850607a4d7a4565e69",
         "method": "document_registry --audit + document_health --check",
-        "scope": "动态逻辑身份/slot共同回收合同与实际限定后验同步；修正旧64动态上限文案，337普通播放首错与性能资格分界、保净零出生待验。",
-        "limitations": "导航收据不替代实际运行；原生C寿命与独立样本只按批次历史已验范围，动态视频/官方身份、HDR多屏及稳定整体性能仍未闭。"
+        "scope": "Shared material-key ownership contract and bounded 373 Program/GPU/waveform closure; retain the original mixed archive and its strict diagnostic debt.",
+        "limitations": "Only this local change and navigation reviewed. No full-document product revalidation, official parity, full properties/panel, HDR, multi-screen or performance conclusion."
       }
     },
     {

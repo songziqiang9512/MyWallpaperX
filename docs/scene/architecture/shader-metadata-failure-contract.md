@@ -80,3 +80,12 @@ source-proven purpose沿原TextureSlotPurpose→Catalog精确asset/user atom需�
 实际目标还无条件采slot3 framebuffer RGB，与slot0按source alpha预混，再消费slot1；默认WRITEALPHA0保source0.a。因此slot1 proof只产该sampler的input事实，不能授权整个Program。最小自有assembly须含RT背景、source0与replacement三输入，逐slot核原RT词汇/graph input角色，验证源alpha非1及背景attachment非1的RGB/A与最终transfer，并保错RT/混用data反例。若RT角色、输出transfer或attachment alpha未资格，停在下一真实首拒，不放宽整Program或改写作者算法。
 
 **验收与退出。** 先以小parse→Resolver→Template红绿门及真实跨Document/AssetCatalog/SourceFacts/Context门证明`property:_1`，覆盖改名、underscore、无声明、路径、RT、显式system/shortcut、kind冲突与材质/instance优先级。颜色门使用独立自写双/三颜色RGB图、覆盖权重、变量/资源/helper改名、mix/等价表达与相邻data/逃逸反例，继承现颜色/资源门；三输入数值门验证0/3为PMA、1为straight及partial attachment。实际Program/GPU/普通compositor像素与原358启动选图/空值恢复、健康邻图分开验证；启动覆盖不等于真实面板热切换。实际存储转换只沿既有ordinaryColorBoundary/frame mask，保sceneBackground consumer身份及terminal replay原限制；root直线RGB图以外的控制流、MASK/WRITEALPHA组合不自动获资格。先资格实际camera、inactive滚动与固定ROI；默认滚动另看真实输出，不混作静态golden。没有可归因换图收益、出现相邻回归或证明持续失格即收窄/撤回候选并重排，不以构建、加载OK或执行数认领改善；无可比测量不报性能收益。
+
+<a id="material-uniform-key-fanout"></a>
+## 材质值来源与 uniform 字段
+
+材质 key 标识值来源，反射字段的 name/type/offset 标识消费者。不同 uniform 可消费同一材质 key；Schema 保持字段身份唯一，取消跨字段的 key 独占；不新增同型、default、range 或 label 组级认证。既有 Finalizer 为每个字段准备绑定，同一 typed target 的值沿原逐字段编码写入各自偏移，不增加 producer、snapshot 状态或帧期查找链。
+
+显式材质值逐字段覆盖 shader default；没有该来源时，各字段沿原 fallback 使用自己的 default，不能借用另一字段的值。动态来源继续要求本帧 target；同一字段匹配多份声明、host 冲突、错误类型/shape 或不可表示值仍由原消费者在最小 pass/effect 拒绝。特殊 `uniqueActiveUniform/exactActiveUniforms` 的唯一消费者证明不随共享 key 放宽。
+
+本片的真实执行、可见结果与未覆盖范围见[有界后验](../history/open-breakpoint-reconciliation-2026-10-23.md#material-key-fanout-20261030)。

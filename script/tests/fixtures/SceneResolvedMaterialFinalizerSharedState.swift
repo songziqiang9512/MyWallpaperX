@@ -216,6 +216,7 @@ final class SceneResolvedMaterialFinalizerFixture {
         let extra = try additionalResults()
         let result: [String: Any] = [
             "metalAvailable": true,
+            "uniformKeyFanout": fixture.uniforms.uniformKeyFanout,
             "mappedTextureResolution": mappedTextureResolution,
             "mixedSystemNamedProvider": mixedSystemNamedProvider,
             "namedProviderRuntimePurpose": namedProviderRuntimePurpose,

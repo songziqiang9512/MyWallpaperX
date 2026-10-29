@@ -649,4 +649,128 @@ final class SceneResolvedMaterialFinalizerDynamicUniformCases {
         dynamicSource: .userProperty
     )
 
+    lazy var uniformKeyFanout: [String: Any] = {
+        let names = ["u_OffsetA", "u_OffsetB"]
+        func shader(
+            _ revision: String,
+            key: String = "alpha",
+            fields: [String] = ["u_OffsetA", "u_OffsetB"],
+            secondType: String = "float",
+            secondDefault: String? = "0.75"
+        ) -> SceneShaderContract {
+            let fallback = secondDefault.map { ",\"default\":\($0)" } ?? ""
+            let second = secondType == "int" ? "float(\(fields[1]))" : fields[1]
+            return contract(revision: revision, fragmentSourceOverride: """
+            varying vec2 v_TexCoord;
+            uniform sampler2D g_Texture0;
+            uniform float \(fields[0]); // {"material":"\(key)","default":0.125,"range":[0,1],"label":"horizontal"}
+            uniform \(secondType) \(fields[1]); // {"material":"\(key)"\(fallback),"range":[0,2],"label":"vertical"}
+            void main() {
+                vec2 uv = v_TexCoord + vec2(\(fields[0]), \(second));
+                gl_FragColor = texSample2D(g_Texture0, uv);
+            }
+            """)
+        }
+        func pair(_ program: Program, fields: [String] = ["u_OffsetA", "u_OffsetB"]) -> [Float]? {
+            let layout = program.frontendProgram.uniformLayout.fields
+            guard let first = layout.first(where: { $0.authoredName == fields[0] }),
+                  let second = layout.first(where: { $0.authoredName == fields[1] }),
+                  first.type == .float, second.type == .float else { return nil }
+            return [first, second].map {
+                sceneResolvedMaterialFixtureFloat(program.uniformBytes, at: $0.offset)
+            }
+        }
+        let shared = shader("uniform-key-fanout")
+        let staticResult = finalize(shader: shared, device: self.fixture.device,
+            uniformDeclarations: [staticDeclaration("alpha", components: [0.375])])
+        let renamedFields = ["u_HorizontalShift", "u_VerticalShift"]
+        let renamedResult = finalize(
+            shader: shader("uniform-key-fanout-renamed", key: "sharedShift", fields: renamedFields),
+            device: self.fixture.device,
+            uniformDeclarations: [staticDeclaration("sharedShift", components: [0.375])])
+        let defaultsResult = finalize(shader: shared, device: self.fixture.device)
+        guard case let .success(staticProgram) = staticResult,
+              case let .success(renamedProgram) = renamedResult,
+              case let .success(defaultsProgram) = defaultsResult,
+              let staticValues = pair(staticProgram),
+              let renamedValues = pair(renamedProgram, fields: renamedFields),
+              let defaults = pair(defaultsProgram),
+              let firstField = staticProgram.frontendProgram.uniformLayout.fields.first(where: {
+                  $0.authoredName == names[0]
+              }),
+              let secondField = staticProgram.frontendProgram.uniformLayout.fields.first(where: {
+                  $0.authoredName == names[1]
+              }) else {
+            return ["staticSetup": [failureToken(staticResult), failureToken(renamedResult), failureToken(defaultsResult)]]
+        }
+        let declarations = [dynamicAlphaDeclaration([.timeline])]
+        guard case let .success(cache) = SceneResolvedMaterialVariantCache.launchValidated(
+            template: template(shared, uniformDeclarations: declarations), maximumVariantCount: 1
+        ), case .success = cache.precompileLaunchEnvelope(implicitFramebufferIdentity: nil) else {
+            return ["dynamicSetup": false]
+        }
+        let initialCounters = cache.counters
+        let frames = [(UInt64(5), 0.25), (UInt64(6), 0.625)].map { index, value in
+            finalize(shader: shared, device: self.fixture.device, uniformDeclarations: declarations,
+                textureFrameIndex: index, dynamicFrameIndex: index, frameInputIndex: index,
+                dynamicSource: .timeline, dynamicAlphaValue: .scalar(value), variantCache: cache)
+        }
+        let finalCounters = cache.counters
+        guard case let .success(first) = frames[0], case let .success(second) = frames[1],
+              let firstValues = pair(first), let secondValues = pair(second) else {
+            return ["dynamicSetup": frames.map(failureToken)]
+        }
+        let dynamicShape = finalize(shader: shared, device: self.fixture.device,
+            uniformDeclarations: declarations, dynamicSource: .timeline,
+            dynamicAlphaValue: .vector2(0.25, 0.5), authoredAlphaValue: .vector2(1, 1),
+            variantCache: cache)
+        let mixedResult = finalize(shader: shader("uniform-key-fanout-mixed", secondType: "int", secondDefault: "1"),
+            device: self.fixture.device,
+            uniformDeclarations: [staticDeclaration("alpha", components: [1])])
+        guard case let .success(mixed) = mixedResult,
+              let floatField = mixed.frontendProgram.uniformLayout.fields.first(where: {
+                  $0.authoredName == names[0]
+              }),
+              let intField = mixed.frontendProgram.uniformLayout.fields.first(where: {
+                  $0.authoredName == names[1]
+              }), floatField.type == .float, intField.type == .int else {
+            return ["mixedSetup": failureToken(mixedResult)]
+        }
+        let target = SceneDynamicTarget.effectConstant(layerID: fixtureLayerID,
+            effectIndex: 0, passIndex: 0, name: "alpha")
+        let firstRange = firstField.offset ..< firstField.offset + firstField.storageByteSize
+        let secondRange = secondField.offset ..< secondField.offset + secondField.storageByteSize
+        return [
+            "distinctOffsets": firstField.name != secondField.name && !firstRange.overlaps(secondRange),
+            "staticValues": staticValues,
+            "renamedValues": renamedValues,
+            "defaultValues": defaults,
+            "dynamicFrames": [firstValues, secondValues],
+            "samePreparedIdentity": first.semanticIdentity == second.semanticIdentity
+                && first.exactIdentity.prepared == second.exactIdentity.prepared
+                && first.preparedShader.cacheKey == second.preparedShader.cacheKey,
+            "singleDynamicTarget": [first, second].allSatisfy {
+                $0.exactIdentity.dynamicUniforms.count == 2
+                    && $0.exactIdentity.dynamicUniforms.allSatisfy { $0.target == target }
+            },
+            "noRecompile": initialCounters.shaderPreparationCount == finalCounters.shaderPreparationCount
+                && initialCounters.frontendCompilationCount == finalCounters.frontendCompilationCount,
+            "missingDefault": failureToken(finalize(
+                shader: shader("uniform-key-fanout-missing-default", secondDefault: nil),
+                device: self.fixture.device)),
+            "staticShape": failureToken(finalize(shader: shared, device: self.fixture.device,
+                uniformDeclarations: [staticDeclaration("alpha", components: [0.25, 0.5])])),
+            "dynamicShape": failureToken(dynamicShape),
+            "declarationConflict": failureToken(finalize(shader: shared, device: self.fixture.device,
+                uniformDeclarations: [staticDeclaration("alpha", components: [0.25]),
+                    staticDeclaration(names[0], components: [0.5])])),
+            "mixedValues": [Double(sceneResolvedMaterialFixtureFloat(mixed.uniformBytes, at: floatField.offset)),
+                mixed.uniformBytes.withUnsafeBytes { Double($0.loadUnaligned(fromByteOffset: intField.offset, as: Int32.self)) }],
+            "mixedFraction": failureToken(finalize(
+                shader: shader("uniform-key-fanout-mixed", secondType: "int", secondDefault: "1"),
+                device: self.fixture.device,
+                uniformDeclarations: [staticDeclaration("alpha", components: [0.5])])),
+        ]
+    }()
+
 }

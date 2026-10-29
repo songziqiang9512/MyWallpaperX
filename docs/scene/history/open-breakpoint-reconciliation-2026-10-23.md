@@ -276,3 +276,16 @@ SourceFacts在检查与launch准备队列同步建立，原类型却继承App默
 未参与修法2419444134最终App独立4秒运行/看图PASS（22.524秒），此前同独立样本亦PASS；所有原362及独立运行均App exit0、surface1→0/GPU drained。362的624 utility source-program-unsupported另归来源准入，不随本片结清；完整属性、媒体、HDR/多屏、长稳及性能均未验。原视觉裁决不改PASS，原图/日志与每轮App身份保留，未将历史失败追写成功。
 
 必要原报告/日志/runtime JSON、固定晚窗原图、首失败、源码/App身份、旧源反证、独审与gate归本机`dead-attribute-lod-20261029`正式包，普通14天/单包32MiB；仅保必要截图，不留Workshop副本/HOME/App或重建shader输出。连续迭代仍只复用原一份build-cache。
+
+<a id="material-key-fanout-20261030"></a>
+## 材质 key 一源多 uniform 消费（2026-10-30）
+
+**通用语义与改动。** material key 是来源、反射 name/type/offset 是各自消费者；原 `activeUniforms.keyOwners` 错将两者当一对一。仅删除该独占表与循环7行，沿既有 prepared binding、typed snapshot 和逐字段编码，不新增 owner、状态、组认证或普通帧工作；[稳定合同](../architecture/shader-metadata-failure-contract.md#material-uniform-key-fanout)保留字段唯一、host/实际多声明冲突与输入类型/shape检查。缺来源时各 field 用自己的 default。特殊 unique/exact uniform 证明未改。构建语义身份已覆盖该源码，不另清 cache 或抬版本。
+
+**原包纵向结果。** `3737267090:160#effect#175` 的两个 float 都消费显式 `Offset=0`，且 `SUPPRESS=1`。修前诊断 App `a4dd05a4…00b70` 实跑重现 `uniform(Offset)`，frame0/1为materialNodes0/rejected1。候选 `def4777c…349b` 同属性/标准PCM/pointer outside、duration4/after3短窗，目标为Program `5526e8ff…ca4069`，两帧materialNodes1/rejected0、GPU completed；中间175不直接进compositor，后缀220继续实际消费并进入唯一合成。frame6的左右32-band输入分别32/28个非零。实际after原图中横向音频波形恢复，前景/布局保留；没有精确音频phase或像素等价结论。
+
+**验证与保留项。** 原 Finalizer 36方法通过（119.333秒），冷/暖运行同结果；新增实际字节检查覆盖不同offset、静态共享、改名、各自default、同cache两帧更新且无重编译、float/int共享值及错误shape/真声明冲突。最近门先遇旧source list缺SourceResolver和无消费vertex探针强解包，两次均为0测试ERROR，不作产品红证；补现依赖、让已有matrix/parallax/可选stage probe实际影响UV，保原断言与gl_Position，不撤DCE。Debug37.373秒、优化DEBUG诊断51.060秒均零构建警告、无源码漂移。产品净−7行，测试净+151行，用现夹具而无新owner。
+
+未参与修法的 `2419444134` 实图与短跑strict PASS。三次App exit0，停止surfaces1→0且GPU排空，正式安装App保留运行。373候选仍strict NON-PASS，仅余作者默认关闭186的utility计数与成功scene-color-completed promotion误诊，继续留队列；不改诊断来凑PASS。382仍先止于宏重定义，不计受益；整样本官方、全属性/真实面板、音频包络、HDR/多屏、长稳与性能均未验收。
+
+必要三次原report/log/runtime、三张after原图与源码/测试/构建身份归 `.artifacts/scene-evidence/runs/uniform-key-fanout-20261030/metadata/`；最终patch、独审补签及门禁另收同根 `uniform-key-fanout-20261030-closure/`，不重复图片，metadata初审不冒充最终补签。carrier不合成native状态。本条只退出跨字段key独占首门，旧453+38混合运行档案不改写成最新执行。

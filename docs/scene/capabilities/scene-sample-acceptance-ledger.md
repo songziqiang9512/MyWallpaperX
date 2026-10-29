@@ -11,9 +11,9 @@
 - 样本根：`/Users/songziqiang/Movies/MyWallpaperX/创意工坊/Scene`（491 个 sample 目录）。
 - 运行归档：`scene_sample_debug_archive.json` SHA-256 `95c328619bb6cab7863b2e58b92c2010632f3213907f8d09865b6c1ce3991226`（生成于 2026-10-29T12:48:50.531681+00:00）。
 - 归档运行身份：CDHash `f92774bdf124ae9f7bfae8f6f3e4d30a713c5036`、CDHash `edde7df24e63e3b9830a72900437596b3634c3dd`、CDHash `8a1967f399d11dad1dfbfb1b15379dffeb4a76db`；**归档内不止一个执行身份**，运行状态与首断点因此是混合身份事实，单样本结论必须回到该样本自己的 report 身份。
-- 裁决覆盖层：`scene_sample_acceptance_verdicts.json` SHA-256 `df17340cb93c869a9b48c4c6ca2feea21154642eb267649277baae3dc2f2817a`。
+- 裁决覆盖层：`scene_sample_acceptance_verdicts.json` SHA-256 `0ff3c97d65e8df49877443067a7c7185aa1ca38842696c1bf55d5d199712ff97`。
 - 仅历史归档保留、当前目录已移除的裁决：3806887870；不计当前目录表，原裁决不删除。
-- 本页生成于 2026-10-29T16:03:07.434248+00:00。
+- 本页生成于 2026-10-29T17:16:06.422831+00:00。
 
 本页生成日仅表示台账生成，不表示归档运行或人工裁决已重新验收。旧归档首断点可能已在后续开发中修复；最新技术状态以[断点队列](../roadmap/scene-open-breakpoint-queue.md)和[运行证据](runtime-evidence-current.md)为准。`not-run` 仅表示本归档未关联运行证据，不表示样本从未运行；归档中的失败状态也不等于当前 HEAD 的失败。
 本机已清理的历史证据：68 个样本、222 个引用；原路径保留在裁决覆盖层的 `unavailableLocalRuns/unavailableLocalEvidence`，不计可用载荷。清理不撤销历史结论，也不代表当前重新验收；见[证据可用性](runtime-evidence-current.md#local-evidence-availability)。
@@ -368,7 +368,7 @@
 | `3725148661` | 电锯人 玛奇玛 闪光灯 Chainsaw Man Makima | 4(0) bool 2 color 1 slider 1 | `degraded-runtime` | `effect-admission / EffectStageAdmission / admitted-fallback / effect-local-passthrough` | `effect-chain` | `unreviewed` |  |
 | `3726992337` | GIRLS BAND CRY 安和昴 486 SUBARU AWA | 8(0) bool 7 color 1 | `structural-chain-complete-visual-review` | - | `visual-review` | `unreviewed` |  |
 | `3730622939` | MyGO 长崎素世 Soyo 深度视差 自定义大小和位置 | 5(0) bool 3 color 1 slider 1 | `degraded-runtime` | `resource-load / SceneSolidTextureLoader / solid-texture-load-incomplete / solid-layer` | `texture-load` | `unreviewed` |  |
-| `3737267090` | WLOP Chapter4 上 | 3(0) bool 2 color 1 | `degraded-runtime` | `resource-load / SceneSolidTextureLoader / solid-texture-load-incomplete / solid-layer` | `texture-load` | `unreviewed` |  |
+| `3737267090` | WLOP Chapter4 上 | 3(0) bool 2 color 1 | `degraded-runtime` | `resource-load / SceneSolidTextureLoader / solid-texture-load-incomplete / solid-layer` | `texture-load` | `unreviewed` 2026-10-30 | 160#175同material key多uniform首门退出，实际横向音频波形恢复。strict NON-PASS保留两项既有诊断计数问题；本片不授整样本… |
 | `3737409266` | WLOP Chapter4 中 | 仅 schemecolor | `degraded-runtime` | `resource-load / SceneSolidTextureLoader / solid-texture-load-incomplete / solid-layer` | `texture-load` | `unreviewed` |  |
 | `3737432178` | 老人-嘉宾身影 | 10(0) bool 7 color 1 combo 1 group 1 | `structural-chain-complete-visual-review` | - | `visual-review` | `unreviewed` 2026-10-22 | 底图、时钟/日期、颜色变化及粒子可见；VHS/CRT/godrays和模式2音条默认关。无媒体事件时标题/alpha按作者回调清空。 本轮20s/30FPS固… |
 | `3738202317` | Albedo. | 仅 schemecolor | `structural-chain-complete-visual-review` | - | `visual-review` | `unreviewed` |  |

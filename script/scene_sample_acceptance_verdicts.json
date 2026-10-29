@@ -2506,6 +2506,20 @@
         "docs/scene/history/open-breakpoint-reconciliation-2026-10-23.md"
       ],
       "remainingDifferences": "624 utility source-program-unsupported仍归来源准入；完整属性/媒体、精确Timeline/官方同phase、HDR/多屏及长期性能未资格。视觉仍unreviewed。"
+    },
+    "3737267090": {
+      "verdict": "unreviewed",
+      "reviewedOn": "2026-10-30",
+      "reviewer": "Codex root 原App短窗看图、目标Program/GPU/后缀合成及独立样本；未作官方对照",
+      "officialComparison": "unknown",
+      "note": "160#175同material key多uniform首门退出，实际横向音频波形恢复。strict NON-PASS保留两项既有诊断计数问题；本片不授整样本视觉PASS。",
+      "runs": [
+        ".artifacts/scene-evidence/runs/uniform-key-fanout-20261030/metadata/report.json"
+      ],
+      "evidence": [
+        "docs/scene/history/open-breakpoint-reconciliation-2026-10-23.md"
+      ],
+      "remainingDifferences": "默认关闭186的utility不足与成功scene-color-completed promotion误诊仍待处理；官方同phase、全属性/面板、HDR/多屏、长稳及性能未资格。"
     }
   },
   "localEvidenceRetirement": {

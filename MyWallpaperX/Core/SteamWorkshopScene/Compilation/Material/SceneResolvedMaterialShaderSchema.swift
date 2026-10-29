@@ -485,17 +485,10 @@ nonisolated enum SceneResolvedMaterialShaderSchema {
     ) throws -> [String: Uniform] {
         let allRecords = records(prepared)
         var result: [String: Uniform] = [:]
-        var keyOwners: [String: String] = [:]
         for field in fields {
             let schema = try uniformSchema(field, records: allRecords)
             guard result.updateValue(schema, forKey: field.name) == nil else {
                 throw Issue.uniform(field.name)
-            }
-            for key in schema.materialKeys {
-                if let owner = keyOwners[key], owner != field.authoredName {
-                    throw Issue.uniform(key)
-                }
-                keyOwners[key] = field.authoredName
             }
         }
         return result

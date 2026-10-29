@@ -68,7 +68,12 @@ func vertexSource(
         mat4 forwardProjectionProbe = g_EffectTextureProjectionMatrix;
         mat4 layerModelProbe = g_LayerModelMatrix;
         vec2 parallaxProbe = g_ParallaxPosition;
-        v_TexCoord.xy = a_TexCoord;
+        float hostProbe = modelViewProjectionInverseProbe[0][0]
+            + effectModelViewProjectionProbe[0][0]
+            + forwardProjectionProbe[0][0]
+            + layerModelProbe[0][0]
+            \(stageLocalUniforms ? "+ vertexProbe" : "");
+        v_TexCoord.xy = a_TexCoord + parallaxProbe + vec2(hostProbe);
         \(maskCoordinates)
         gl_Position = mul(
             vec4(a_Position, 1.0),

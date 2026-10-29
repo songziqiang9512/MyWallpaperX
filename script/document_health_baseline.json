@@ -93,8 +93,8 @@
       "bytes": 7045
     },
     "docs/scene/architecture/shader-metadata-failure-contract.md": {
-      "lines": 82,
-      "bytes": 17083
+      "lines": 91,
+      "bytes": 18173
     },
     "docs/scene/architecture/variant-analysis-cache-contract.md": {
       "lines": 19,
@@ -174,7 +174,7 @@
     },
     "docs/scene/capabilities/scene-sample-acceptance-ledger.md": {
       "lines": 553,
-      "bytes": 126160
+      "bytes": 126329
     },
     "docs/scene/capabilities/scene-sample-debug-ledger.md": {
       "lines": 534,
@@ -278,7 +278,7 @@
     },
     "docs/scene/roadmap/scene-open-breakpoint-queue.md": {
       "lines": 176,
-      "bytes": 38398
+      "bytes": 38336
     },
     "docs/web/cold-descriptor-parse-offload-design.md": {
       "lines": 30,
@@ -1750,15 +1750,6 @@
     },
     {
       "section": "bodies",
-      "path": "docs/scene/architecture/shader-metadata-failure-contract.md",
-      "before": "38c0f6fa6168c44f642eabfef4b3001e053ed45abf72ff493ef34ad97461c410",
-      "after": "d053a685566acfa1f347f836db7f28e6144458b236003a29dcb713de1122e04e",
-      "owner": "scene-dead-varying-uniform-projection",
-      "reason": "Register the bounded preparation design and real first-frame closure; retire stale zero-particle/no-ready claims while retaining hidden-capture observation debt, original strict FAIL, and historical identities. No new current issue document.",
-      "decision": "docs/scene/architecture/shader-metadata-failure-contract.md#dead-varying-uniform-projection"
-    },
-    {
-      "section": "bodies",
       "path": "docs/development/lock-screen-screensaver-design.md",
       "before": "229cb069609b0869c83c69cae04f45dc65bd72d182569e8638a2c3342559934e",
       "after": "e7244b976f0eb1273c456d14f14363c7f073062671cb2f81ed5e2d344f552b69",
@@ -1831,15 +1822,6 @@
     },
     {
       "section": "bodies",
-      "path": "docs/scene/capabilities/scene-sample-acceptance-ledger.md",
-      "before": "ed79b89a159c10dce106115437b6cf0108aff22b41be09dcc898c93e084d36f6",
-      "after": "5d6e34d9a6229c80820b321f6c90df920b19717fa21112d673318a2e7daad15d",
-      "owner": "Scene shader interface and typed sampling",
-      "reason": "Document dead vertex-input projection and complete explicit-LOD sample conservation through existing owners, with bounded native output and independent rendering; retain unresolved utility source and visual limits.",
-      "decision": "docs/scene/history/open-breakpoint-reconciliation-2026-10-23.md#dead-attribute-lod-20261029"
-    },
-    {
-      "section": "bodies",
       "path": "docs/architecture/steam-workshop-acquisition-contract.md",
       "before": "86790d0f07f7bd242c496568a31db82bf9e08c5cfa125c792bbbd063c81d3fd6",
       "after": "5a03f96bc0d9798d46a203f43265f84875a6f1d9e4296c904a1e6f7428f2203d",
@@ -1864,6 +1846,24 @@
       "owner": "UI24/UI25",
       "reason": "同步原生纵向菜单、下载三组多选的唯一集合查询与旧数据解码、清空及播放恢复，记录相关反例/Debug与后续提交合入授权，保留其他专题事实。",
       "decision": "docs/development/ui-quality-audit.md#ui25-toolbar-menus"
+    },
+    {
+      "section": "bodies",
+      "path": "docs/scene/architecture/shader-metadata-failure-contract.md",
+      "before": "d053a685566acfa1f347f836db7f28e6144458b236003a29dcb713de1122e04e",
+      "after": "2ad0e1feb2330445316efcd1c83cb29b356df3c9bc94e8486c2f2596d9393e37",
+      "owner": "Scene material uniform binding",
+      "reason": "在既有metadata合同内明确材质值来源与独立反射字段，删除错误key独占并保存必要的默认值、真实冲突及typed更新边界；已有owner内局部修正，有原包横向波形与真实字段字节验收，不新增文档或运行owner。",
+      "decision": "docs/scene/architecture/shader-metadata-failure-contract.md#material-uniform-key-fanout"
+    },
+    {
+      "section": "bodies",
+      "path": "docs/scene/capabilities/scene-sample-acceptance-ledger.md",
+      "before": "5d6e34d9a6229c80820b321f6c90df920b19717fa21112d673318a2e7daad15d",
+      "after": "b7f010c54fce6668ad74a5d98fe30d1268396deaa857a04c44fc1bc5f328e620",
+      "owner": "Scene sample acceptance ledger generator",
+      "reason": "生成台账新增373的有界波形恢复说明，保留原混合执行档案及unreviewed裁决；不把历史首拒当当前故障，不复制完整后验或增设第二统计文档。",
+      "decision": "docs/scene/history/open-breakpoint-reconciliation-2026-10-23.md#material-key-fanout-20261030"
     }
   ]
 }
