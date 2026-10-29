@@ -1,6 +1,17 @@
 <!-- document-role: stable-contract -->
 # Shader metadata 失败合同
 
+<a id="dead-varying-uniform-projection"></a>
+## 无消费者顶点计算的准备期投影
+
+**目标与职责。** 只供fragment-dead varying分量的纯顶点计算，不应制造运行期uniform、资源或逆矩阵要求。原DeadBindingAnalyzer只由inactive sampler Resolution触发，漏掉其他uniform；同一Projection扩充候选并复用main顶层分量写、单定义局部initializer、引用闭包与纯度证明，不新增DCE/SSA、parser、矩阵算法或帧期状态。
+
+**数据流与边界。** 原BackendCanonicalizer在准备期调用同一Analyzer；generic投影复用SyntaxAnalyzer既有非执行语法入口，只取得同一AST事实，允许无关动态loop共存，不授予bounded执行权。原后端已有的无副作用mul仅在删除证明中作为纯运算接纳，仍拒同名作者函数/宏遮蔽及参数内副作用，不扩大其他颜色证明。bounded仍沿原analyze及loop准入。某uniform在fragment无读取且vertex全部读取均位于原已证明可删范围，方可随这些语句退出；保留原neutral Resolution与sampler规则。fragment任一分量活读、gl_Position或其他live消费者、别名/遮蔽歧义、nested/control-flow候选、非法swizzle、递增/赋值副作用、采样、未知/作者helper及超预算均保原输入或局部拒绝，不能删除可观察工作。
+
+**消费者与退出。** 同一投影结果进入bounded/generic、实际layout和Program；没有活跃inverse绑定时，原terminalReplay自然不求逆。实际活读inverse仍沿原完整矩阵/有限性检查，不补identity、伪逆或改变composition丢弃无关Z的语义。退出旧的Resolution-only提前返回，保唯一语义身份`SceneShaderCacheIdentity.semantics`及canonical source/request/layout身份；wire不变，不增cache盐、平行版本或清目录。
+
+**验收与停止。** 扩现真实dead-binding编译门：无inactive sampler的死inverse、变量/资源改名、等价纯表达、无关audio动态loop与冷暖artifact/layout一致；上述活读、副作用及控制流反例须保留。以实际Program验证flat raster下死inverse退出、真正活读inverse仍拒奇异矩阵，再验原阻断样本及未参与修法样本真实画面、Debug与独审。若没有撤掉真实绑定或首断点，先查准备证据，不能借此放松矩阵guard、扩大helper/control-flow分析或仅凭源码变短宣称性能收益。
+
 <a id="malformed-combo-record"></a>
 
 ### 畸形 COMBO 的记录局部失败（2026-10-16 决策）

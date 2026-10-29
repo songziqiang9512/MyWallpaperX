@@ -28,65 +28,69 @@ nonisolated enum SceneAuthoredShaderDeadBindingAnalyzer {
             units.contains { referenced(name, in: $0) }
         })
         let inactiveSamplerNames = samplerNames.subtracting(activeSamplerNames)
-        guard !inactiveSamplerNames.isEmpty else {
+        let resolutionSamplers = Dictionary(uniqueKeysWithValues:
+            inactiveSamplerNames.map { ($0 + "Resolution", $0) }
+        )
+        let uniformNames = Set(vertex.declarations.compactMap { declaration -> String? in
+            guard declaration.storage == .uniform,
+                  !samplerNames.contains(declaration.name) else { return nil }
+            return declaration.name
+        }).union(resolutionSamplers.keys)
+        guard !uniformNames.isEmpty else {
             return .init(activeSamplerNames: activeSamplerNames,
                          omittedUniformNames: [], omittedVertexStatementRanges: [])
         }
         let directlyActiveSlots = Set(activeSamplerNames.compactMap(textureSlot))
-        let neutralTextureResolution =
+        let neutralTextureResolution = inactiveSamplerNames.isEmpty ? nil :
             SceneAuthoredShaderNeutralTextureResolutionAnalyzer.analyze(
                 vertex: vertex,
                 fragment: fragment,
                 activeSamplerSlots: directlyActiveSlots.union(boundTextureSlots)
             )
-        let needsProjection = inactiveSamplerNames.contains { name in
-            neutralTextureResolution?.resolutionSlot != textureSlot(name)
-                && referenced(name + "Resolution", in: vertex)
-                && !referenced(name + "Resolution", in: fragment)
+        var candidates: [(name: String, references: [Int], sampler: String?)] = []
+        for name in uniformNames.sorted() {
+            let samplerName = resolutionSamplers[name]
+            guard !SceneAuthoredShaderGlobalReferenceAnalyzer.isReferenced(name, in: fragment),
+                  let references = SceneAuthoredShaderGlobalReferenceAnalyzer
+                    .exactReferenceIndices(name, in: vertex) else {
+                if let samplerName { activeSamplerNames.insert(samplerName) }
+                continue
+            }
+            guard !references.isEmpty else { continue }
+            if let samplerName,
+               neutralTextureResolution?.resolutionSlot == textureSlot(samplerName) {
+                continue
+            }
+            candidates.append((name, references, samplerName))
         }
-        let removableRanges: [Range<Int>]
-        if needsProjection {
-            let vertexVaryings = Dictionary(uniqueKeysWithValues: vertex.declarations.compactMap {
-                declaration -> (String, Int)? in
-                guard declaration.storage == .varying, declaration.arraySize == nil,
-                      let count = componentCount(declaration.typeName) else { return nil }
-                return (declaration.name, count)
-            })
-            removableRanges = removableMainStatements(
-                vertex: vertex, vertexVaryings: vertexVaryings,
-                fragmentReads: varyingComponentReads(in: fragment)
-            )
-        } else {
-            removableRanges = []
+        guard !candidates.isEmpty else {
+            return .init(activeSamplerNames: activeSamplerNames,
+                         omittedUniformNames: [], omittedVertexStatementRanges: [])
         }
+        let vertexVaryings = Dictionary(uniqueKeysWithValues: vertex.declarations.compactMap {
+            declaration -> (String, Int)? in
+            guard declaration.storage == .varying, declaration.arraySize == nil,
+                  let count = componentCount(declaration.typeName) else { return nil }
+            return (declaration.name, count)
+        })
+        let removableRanges = removableMainStatements(
+            vertex: vertex, vertexVaryings: vertexVaryings,
+            fragmentReads: varyingComponentReads(in: fragment)
+        )
         var omittedUniformNames: Set<String> = []
-        var omittedRanges: [Range<Int>] = []
-        for samplerName in inactiveSamplerNames.sorted() {
-            let resolutionName = samplerName + "Resolution"
-            let vertexReferences = referenceIndices(resolutionName, in: vertex)
-            if !referenceIndices(resolutionName, in: fragment).isEmpty {
-                activeSamplerNames.insert(samplerName)
-                continue
-            }
-            guard !vertexReferences.isEmpty else { continue }
-            if neutralTextureResolution?.resolutionSlot == textureSlot(samplerName) {
-                continue
-            }
-            guard vertexReferences.allSatisfy({ index in
+        for candidate in candidates {
+            guard candidate.references.allSatisfy({ index in
                 removableRanges.contains(where: { $0.contains(index) })
             }) else {
-                activeSamplerNames.insert(samplerName)
+                if let samplerName = candidate.sampler { activeSamplerNames.insert(samplerName) }
                 continue
             }
-            omittedUniformNames.insert(resolutionName)
-            omittedRanges = removableRanges
+            omittedUniformNames.insert(candidate.name)
         }
         return Projection(
             activeSamplerNames: activeSamplerNames,
             omittedUniformNames: omittedUniformNames,
-            omittedVertexStatementRanges: Array(Set(omittedRanges)).sorted {
-                $0.lowerBound < $1.lowerBound
-            }
+            omittedVertexStatementRanges: omittedUniformNames.isEmpty ? [] : removableRanges
         )
     }
 
@@ -388,8 +392,16 @@ nonisolated enum SceneAuthoredShaderDeadBindingAnalyzer {
     static func projectVertexSource(
         vertex: String, fragment: String, boundTextureSlots: Set<Int> = []
     ) -> String {
-        let outputs = syntaxOutputs(vertexSource: vertex, fragmentSource: fragment,
-                                    runtimeLoopBounds: .none)
+        let outputs = (
+            vertex: SceneAuthoredShaderSyntaxAnalyzer.analyzeForTypeConversions(
+                lexerOutput: SceneAuthoredShaderLexer.lex(source: vertex, stage: .vertex),
+                stage: .vertex
+            ),
+            fragment: SceneAuthoredShaderSyntaxAnalyzer.analyzeForTypeConversions(
+                lexerOutput: SceneAuthoredShaderLexer.lex(source: fragment, stage: .fragment),
+                stage: .fragment
+            )
+        )
         guard outputs.vertex.diagnostics.isEmpty, outputs.fragment.diagnostics.isEmpty,
               let vertexUnit = outputs.vertex.unit, let fragmentUnit = outputs.fragment.unit else {
             return vertex

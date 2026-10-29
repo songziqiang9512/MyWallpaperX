@@ -791,13 +791,13 @@
       "role": "stable-contract",
       "entrypoint": "docs/scene/architecture/runtime-architecture.md",
       "purpose": "Shader metadata记录级失败、源码/声明保真、共享准入与下游拒绝边界；不决定批次选序。",
-      "lastReviewed": "2026-10-24",
+      "lastReviewed": "2026-10-29",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "7dfb573f7fdac15b2ee69f371b061f0c20ced9b9aad4c43412db6186734ba030",
+        "sourceSHA256": "55b02cff3038ce756603d59b01fbd9ec9969c5952bbcac6cd51db818c55520d8",
         "method": "document_registry --audit + document_health --check",
-        "scope": "Declared texture/RGB graph bounded change: route, queue retirement and archived runtime evidence reconciled with the same source/App identity.",
-        "limitations": "Only this change and navigation reviewed; startup texture selection is not live-panel, full parity, HDR or performance acceptance."
+        "scope": "Only dead-varying uniform preparation contract and bounded native317/independent322 evidence, with hidden495 observation debt and original strict FAIL retained.",
+        "limitations": "Existing unrelated historical claims not revalidated; no full sample, inverse numeric, official parity, HDR, all-property or performance acceptance."
       },
       "currentStateAuthority": "docs/scene/capabilities/runtime-evidence-current.md"
     },
@@ -999,10 +999,10 @@
       "lastReviewed": "2026-10-29",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "ebcbdb7f73c79829e2c36c3f0fa7c07ef97e00f5563f21b60431c6ed70b5fe96",
+        "sourceSHA256": "8d4918a031a499c6f3a03312d040e97efefda4f8d57bf751e37c95c522b3b635",
         "method": "document_registry --audit + document_health --check",
-        "scope": "Only geometry named-raster PMA versus graph-copy content contract and bounded 295/independent322 closure; retain prior historical claims.",
-        "limitations": "No full-document product revalidation; standalone pixel probe entry remains stale, no official parity/full-property/HDR/performance conclusion."
+        "scope": "Only dead-varying uniform preparation contract and bounded native317/independent322 evidence, with hidden495 observation debt and original strict FAIL retained.",
+        "limitations": "Existing unrelated historical claims not revalidated; no full sample, inverse numeric, official parity, HDR, all-property or performance acceptance."
       }
     },
     {

@@ -43,11 +43,20 @@ float S = min(res0.x / g_Texture1Resolution.x, res0.y / g_Texture1Resolution.y);
 vec2 excessSize = (res0 - g_Texture1Resolution.xy * S) / res0;
 v_Coordinates.zw += excessSize * ratio * .5;
 gl_Position = vec4(a_Position, 1.0);"""
+INVERSE = "g_EffectTextureProjectionMatrixInverse"
+INVERSE_DECLARATION = f"uniform mat4 {INVERSE};\n"
+ACTIVE_FRAGMENT = FRAGMENT.replace("uniform sampler2D g_Texture1;\n", "")
+UNPROJECT = f"mul(vec4(a_TexCoord, 0.0, 1.0), {INVERSE}).xyw"
+INVERSE_CHAIN = f"""v_Coordinates.xy = a_TexCoord;
+vec3 unprojected = {UNPROJECT};
+vec2 localUV = unprojected.xy / unprojected.z;
+v_Coordinates.zw = localUV;
+gl_Position = vec4(a_Position, 1.0);"""
 
 
-def vertex(body: str, helpers: str = "") -> str:
-    return """uniform vec4 g_Texture1Resolution;
-attribute vec3 a_Position;
+def vertex(body: str, helpers: str = "", *,
+           uniforms: str = "uniform vec4 g_Texture1Resolution;\n") -> str:
+    return uniforms + """attribute vec3 a_Position;
 attribute vec2 a_TexCoord;
 varying vec4 v_Coordinates;
 """ + helpers + "\nvoid main() {\n" + body + "\n}\n"
@@ -116,6 +125,122 @@ gl_Position = vec4(a_Position + vec3(counter), 1.0);"""))
         self.assertEqual(result["boundedMetalError"], "")
         self.assertEqual(result["genericMetalError"], "")
         self.assertTrue(result.get("genericPublicationAccepted"), result)
+
+    def assert_layout_uniform(self, result: dict, name: str, *, present: bool,
+                              backends: tuple[str, ...] = ("bounded", "generic")) -> None:
+        for backend in backends:
+            fields = result[f"{backend}Layout"]["fields"]
+            self.assertEqual(any(field["authoredName"] == name for field in fields),
+                             present, (backend, name, result))
+
+    def test_dead_inverse_without_inactive_sampler_leaves_no_runtime_abi(self) -> None:
+        variants = [
+            (INVERSE, UNPROJECT, "v_Coordinates", 0),
+            ("g_ModelViewProjectionMatrixInverse",
+             f"({INVERSE} * vec4(a_TexCoord * vec2(1.0), 0.0, 1.0)).xyw",
+             "renamedCoordinates", 3),
+        ]
+        for name, expression, varying, slot in variants:
+            with self.subTest(uniform=name, slot=slot):
+                body = (INVERSE_CHAIN.replace(UNPROJECT, expression)
+                        .replace("unprojected", "worldCoordinate")
+                        .replace("localUV", "planeUV").replace(INVERSE, name))
+                source = vertex(body, uniforms=f"uniform mat4 {name};\n")
+                source = source.replace("v_Coordinates", varying)
+                fragment = ACTIVE_FRAGMENT.replace("g_Texture0", f"g_Texture{slot}")
+                fragment = fragment.replace("v_Coordinates", varying)
+                result = self.compile(source, fragment, metadata={"verifyWarmCache": True})
+                self.assert_compiled_slots(result, [slot])
+                self.assert_layout_uniform(result, name, present=False)
+                control = self.compile(vertex("""v_Coordinates.xy = a_TexCoord;
+gl_Position = vec4(a_Position, 1.0);""", uniforms="").replace("v_Coordinates", varying),
+                                       fragment)
+                self.assert_compiled_slots(control, [slot])
+                for backend in ("bounded", "generic"):
+                    self.assertEqual(result[f"{backend}Layout"], control[f"{backend}Layout"])
+                self.assertEqual(result["genericWarmLayout"], result["genericLayout"])
+                self.assertTrue(result["genericWarmArtifactEqual"])
+
+    def test_audio_dynamic_loop_does_not_block_generic_dead_uniform_projection(self) -> None:
+        fragment = """uniform sampler2D g_Texture0;
+uniform float g_AudioSpectrum16Left[16];
+uniform float g_Time;
+varying vec4 v_Coordinates;
+void main() {
+    float energy = 0.0;
+    for (int i = 0; i < int(g_Time); ++i) {
+        energy += g_AudioSpectrum16Left[i % 16];
+    }
+    gl_FragColor = texSample2D(g_Texture0, v_Coordinates.xy) * vec4(vec3(energy), 1.0);
+}
+"""
+        result = self.compile(vertex(INVERSE_CHAIN, uniforms=INVERSE_DECLARATION), fragment)
+        self.assertEqual(result["boundedDiagnostics"], ["dynamicLoop"], result)
+        self.assertNotIn("boundedLayout", result)
+        self.assertEqual(result.get("genericSlots"), [0], result)
+        self.assertEqual(result["genericMetalError"], "")
+        self.assertGreater(result["genericLoopGuardCap"], 0)
+        self.assert_layout_uniform(result, INVERSE, present=False, backends=("generic",))
+        self.assert_layout_uniform(result, "g_AudioSpectrum16Left", present=True,
+                                   backends=("generic",))
+
+    def test_live_inverse_varying_position_alias_and_fragment_reads_keep_abi(self) -> None:
+        fixtures = [
+            (INVERSE_CHAIN, ACTIVE_FRAGMENT.replace("v_Coordinates.xy", f"vec2(v_Coordinates.{c})"))
+            for c in ("z", "w")
+        ]
+        fixtures.extend([
+            (INVERSE_CHAIN.replace("vec4(a_Position, 1.0)",
+                                   "vec4(a_Position + vec3(localUV.x), 1.0)"), ACTIVE_FRAGMENT),
+            (INVERSE_CHAIN.replace("gl_Position =", "vec4 alias = v_Coordinates;\ngl_Position =")
+             .replace("vec4(a_Position, 1.0)", "vec4(a_Position + vec3(alias.z), 1.0)"),
+             ACTIVE_FRAGMENT),
+            (INVERSE_CHAIN, INVERSE_DECLARATION + ACTIVE_FRAGMENT.replace(
+                "texSample2D(g_Texture0, v_Coordinates.xy)",
+                f"{INVERSE} * texSample2D(g_Texture0, v_Coordinates.xy)")),
+        ])
+        for body, fragment in fixtures:
+            with self.subTest(body=body[-100:], fragment=fragment):
+                result = self.compile(vertex(body, uniforms=INVERSE_DECLARATION), fragment)
+                self.assert_compiled_slots(result, [0])
+                self.assert_layout_uniform(result, INVERSE, present=True)
+
+    def test_inverse_nested_side_effect_sample_and_authored_call_keep_abi(self) -> None:
+        nested = INVERSE_CHAIN.replace("vec3 unprojected", "if (a_TexCoord.x > 0.5) {\nvec3 unprojected")
+        nested = nested.replace("v_Coordinates.zw = localUV;", "v_Coordinates.zw = localUV;\n}")
+        fixtures = [(nested, ""), (INVERSE_CHAIN.replace(
+            UNPROJECT, f"mul(texSample2D(g_Texture0, a_TexCoord), {INVERSE}).xyw"),
+            "uniform sampler2D g_Texture0;")]
+        for mutation in ("counter++", "(counter = 2.0)"):
+            body = "float counter = 1.0;\n" + INVERSE_CHAIN.replace(
+                "vec4(a_TexCoord, 0.0, 1.0)", f"vec4(a_TexCoord * {mutation}, 0.0, 1.0)")
+            body = body.replace("vec4(a_Position, 1.0)",
+                                "vec4(a_Position + vec3(counter), 1.0)")
+            fixtures.append((body, ""))
+        fixtures.append((INVERSE_CHAIN.replace(
+            UNPROJECT, f"authorWarp(vec4(a_TexCoord, 0.0, 1.0), {INVERSE})"),
+            "vec3 authorWarp(vec4 p, mat4 m) { return (m * p).xyw; }"))
+        for body, helpers in fixtures:
+            with self.subTest(body=body, helpers=helpers):
+                result = self.compile(vertex(body, helpers, uniforms=INVERSE_DECLARATION),
+                                      ACTIVE_FRAGMENT)
+                self.assertEqual(result["vertex"], vertex(body, helpers, uniforms=INVERSE_DECLARATION))
+                self.assertEqual(result.get("genericSlots"), [0], result)
+                self.assertEqual(result["genericMetalError"], "")
+                self.assert_layout_uniform(result, INVERSE, present=True, backends=("generic",))
+
+    def test_authored_mul_and_macro_shadow_are_not_erased(self) -> None:
+        for helper in ("vec4 mul(vec4 p, mat4 m) { return m * p; }", "#define mul 4"):
+            with self.subTest(helper=helper):
+                source = vertex(INVERSE_CHAIN, helper, uniforms=INVERSE_DECLARATION)
+                result = self.compile(source, ACTIVE_FRAGMENT)
+                self.assertEqual(result["vertex"], source)
+                if "genericLayout" in result:
+                    self.assertEqual(result["genericMetalError"], "")
+                    self.assert_layout_uniform(result, INVERSE, present=True,
+                                               backends=("generic",))
+                else:
+                    self.assertIn("stage-link:rejected", result.get("genericFailure", ""), result)
 
     def test_single_definition_chain_and_compound_dead_writes(self) -> None:
         helpers = "float unrelated() { float S = 3.0; return S; }"
@@ -238,7 +363,7 @@ gl_Position = vec4(a_Position, 1.0);""")
                 self.assertIn("stage-link:rejected", result.get("genericFailure", ""), result)
                 self.assertEqual(result.get("boundedSlots"), [0, 1])
 
-    def test_projection_budget_keeps_dependencies_and_no_resolution_skips_work(self) -> None:
+    def test_projection_budget_and_unreferenced_uniform_preserve_work(self) -> None:
         for expression, names in (("g_Texture1Resolution.xy", ["g_Texture0", "g_Texture1"]),
                                   ("vec2(.25)", ["g_Texture0"])):
             with self.subTest(expression=expression):
