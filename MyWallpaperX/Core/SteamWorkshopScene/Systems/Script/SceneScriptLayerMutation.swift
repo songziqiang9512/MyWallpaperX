@@ -158,6 +158,7 @@ nonisolated struct SceneScriptLayerMutation: Equatable, Sendable {
     /// Dynamic upserts carry a complete current record, while authored writes
     /// retain untouched fields from the earlier mutation.
     static func coalescing(_ mutations: [Self]) -> [Self] {
+        guard mutations.count > 1 else { return mutations }
         var indices: [Int: Int] = [:]
         var output: [Self] = []
         output.reserveCapacity(mutations.count)

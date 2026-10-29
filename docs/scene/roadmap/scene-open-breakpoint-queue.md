@@ -18,7 +18,8 @@
 | 公共首断点 / 样本 | 未闭问题与最小下一门 |
 |---|---|
 | childless passthrough composition透视资格 · 2731896598 | 五层init写true、update写三维angles；[原D1](batch2/composition-render-target-design.md#无子层-composition-的透视回绘决定2026-10-16)仅资格非passthrough。10-29新自有A/B及一次FOV修正仍未建立内部倾斜正控，STOP_UNKNOWN，见[记录](../history/open-breakpoint-reconciliation-2026-10-23.md#childless-perspective-qualification-20261029)。先有合格正控再修订资格，不据矩形输出删setter/Camera门或以false-only绕过真实输入；保group/parent/dependency/native边界。 |
-| 动态mutation合并/回滚 · 3763428294 /3779904456 /3787382101 /3804971850；3632522893；3603711180 /3047405322 | 前四例先拒target冲突后报destroyLayer stale；363初始化255个bar先拒516条预算后报owned handle错误。360的565/641及304的83979仍报authored owner/target冲突，641随音乐分支真实激活后显露。分别资格多callback合并/别名、跨owner写入、聚合工作量与回滚寿命；不归缺destroyLayer API、直接加预算或合并成同callback净零出生候选。 |
+| 动态mutation分歧/工作量 · 3632522893；3603711180 /3047405322 | 363初始化255个bar先拒516条预算后报owned handle错误，须资格实际工作量/回滚寿命；360的565和304的83979仍有不同owner authored写入分歧，先核当前作者顺序/最终字段，不删guard或归缺API。保原raw预算，不合并成同callback净零出生候选。 |
+| Sound跨callback查询时序 · 3603711180 | 566 pending play407同callback查询为true，641新callback读旧snapshot为false，触发作者skip到532；非默认选曲或时长解析。短窗532已播放，无长稳结论。现门刻意隔离callback投影，官方只有同callback证据；先补跨callback/owner正反臂，再决定意图可见性，不直接扩全域pending状态。 |
 | 视频热切后的AV资源驻留 · 3372715909 | 遍历12源后MTL allocated约9.75GB，单源约0.8GB；暂停/flush尚未收敛AV解码/转换池，数值不等同进程RAM，当前边界见[后验](../history/video-instance-observations-2026-10-29.md#明确保留的成本与边界)。下一门先测真实源消费、空窗及整Session在进程内退场，不重复包装层或改clock，不以提高预算规避。group/named/effect衔接与官方完整seek/播放态空窗仍未知，不能据直接输出正例关闭。 |
 | Program来源/命名绑定 · 3086016320 | 430仍拒execution-stage-conservation/named binding，属父426下封面转场，默认父alpha0；无可归因默认ROI。先取可见媒体正控及base/potential/selected依赖向量，再沿原多槽owner扩展；保隐藏forward259的作者顺序，不将其归因独立1521频谱。 |
 | source材质/lookup · 3616476797 /3679907516 | 361113与36771/74/83仍有source-only render-state首拒；36771回调产黑、83初alpha0待thumbnail，74普通effect实际已消费。先资格受控媒体/source独占ROI，区分texture×g_Color4等价与非等价source；不泛化translucent/VERSION2、吞lookup错误或据缺祖父认缺API。 |

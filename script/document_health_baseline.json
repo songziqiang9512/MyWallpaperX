@@ -173,8 +173,8 @@
       "bytes": 42037
     },
     "docs/scene/capabilities/scene-sample-acceptance-ledger.md": {
-      "lines": 515,
-      "bytes": 118404
+      "lines": 554,
+      "bytes": 122798
     },
     "docs/scene/capabilities/scene-sample-debug-ledger.md": {
       "lines": 534,
@@ -277,8 +277,8 @@
       "bytes": 22423
     },
     "docs/scene/roadmap/scene-open-breakpoint-queue.md": {
-      "lines": 174,
-      "bytes": 37109
+      "lines": 175,
+      "bytes": 37355
     },
     "docs/web/cold-descriptor-parse-offload-design.md": {
       "lines": 30,
@@ -1840,15 +1840,6 @@
     },
     {
       "section": "bodies",
-      "path": "docs/scene/capabilities/scene-sample-acceptance-ledger.md",
-      "before": "1bddab26a38a000b4192841f351d2a929d46bd5508fe19945590d3a5a4d4e426",
-      "after": "d1d87bf10e93defb31164ddc22c467e8c009d5f9126515029a45ad9c86e37479",
-      "owner": "Scene sample acceptance overlay",
-      "reason": "Add current two-player log-only technical follow-up while preserving unreviewed verdicts, original corpus identity and explicit downstream failures.",
-      "decision": "docs/scene/history/open-breakpoint-reconciliation-2026-10-23.md#engine-screensaver-20261029"
-    },
-    {
-      "section": "bodies",
       "path": "docs/scene/capabilities/scenescript-api-coverage.md",
       "before": "1380be8da4307adcdd0f5413f771fc69535bb59201f3160bda99c483bf0f3164",
       "after": "fc3619cd282e37ae7ad8729aa6bd3b5e98b2cecfb3c80240e06001c1c72ec0d2",
@@ -1868,11 +1859,20 @@
     {
       "section": "bodies",
       "path": "docs/scene/roadmap/scene-open-breakpoint-queue.md",
-      "before": "02cb03442dfadd4d1b762133b21dac5be7e7280ec88e947effb0328bcac2b21c",
-      "after": "589b494b153a919ae54355e2e0c94d39ca78bcf2302e6ef35b65fc1f5401ca7d",
-      "owner": "Scene Chroma qualification",
-      "reason": "Replace stale JPEG-only qualification with bounded true-PNG response evidence while preserving unresolved Cloud and whole-Earth behavior.",
-      "decision": "docs/scene/history/model-view-tint-2026-10-28.md#chroma-response-20261029"
+      "before": "589b494b153a919ae54355e2e0c94d39ca78bcf2302e6ef35b65fc1f5401ca7d",
+      "after": "97399d48428dbfd045bb309d22ab52dab07db96edd4f909ed530de0dead2a4cf",
+      "owner": "Scene owner callback normalization",
+      "reason": "Retire four reproduced duplicate-target first gates, retain cross-owner/raw-budget failures, and separate newly exposed Sound query timing without changing visual verdicts.",
+      "decision": "docs/scene/history/open-breakpoint-reconciliation-2026-10-23.md#owner-callback-coalescing-20261029"
+    },
+    {
+      "section": "bodies",
+      "path": "docs/scene/capabilities/scene-sample-acceptance-ledger.md",
+      "before": "d1d87bf10e93defb31164ddc22c467e8c009d5f9126515029a45ad9c86e37479",
+      "after": "e01fcec0332228bf41be18aed31a21196d24f31c919c1c8a9cf588717548991a",
+      "owner": "Scene sample acceptance overlay",
+      "reason": "Record seven bounded runtime cases and retire duplicate-target first gates without changing prior visual verdicts or attributing all earlier fixes to this batch.",
+      "decision": "docs/scene/history/open-breakpoint-reconciliation-2026-10-23.md#owner-callback-coalescing-20261029"
     }
   ]
 }

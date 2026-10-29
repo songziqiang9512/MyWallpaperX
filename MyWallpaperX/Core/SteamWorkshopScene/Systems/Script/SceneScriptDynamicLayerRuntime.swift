@@ -844,7 +844,8 @@ nonisolated final class SceneScriptDynamicLayerRuntime: @unchecked Sendable {
         var requiresRetirement = false
         let committedDestroyedIDs = destroyedAuthoredLayerIDs
         for owner in ownerOrder {
-            guard let batch = grouped[owner] else { continue }
+            guard let callbacks = grouped[owner] else { continue }
+            let batch = SceneScriptLayerMutation.coalescing(callbacks)
             let authoredValues = batch.flatMap {
                 Self.authoredValues($0, cameraOriginInputLayerID: cameraOriginInputLayerID)
             }

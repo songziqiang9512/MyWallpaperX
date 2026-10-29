@@ -31,6 +31,106 @@ SOURCES = [
 HARNESS = (Path(__file__).parent / "fixtures/SceneScriptDynamicLayerRuntimeHarness.swift").read_text(encoding="utf-8")
 CAMERA_PROFILE = SCENE_SCRIPT.parent / "Properties/SceneDefault2DCameraInputProfile.swift"
 
+# Add behavior to the existing harness while leaving its shared fixture intact.
+HARNESS = HARNESS.replace('let payload: [String: Any] = [', 'var payload: [String: Any] = [').replace(
+    '        let data = try JSONSerialization.data(withJSONObject: payload, options: [.sortedKeys])',
+    '        payload["ownerCallbacks"] = callbackCoalescing()\n'
+    '        let data = try JSONSerialization.data(withJSONObject: payload, options: [.sortedKeys])')
+HARNESS += r'''
+extension Harness {
+    static func callbackCoalescing() -> [String: Bool] {
+        let descriptor = SceneRenderDescriptor(layers: [
+            .init(id: 10, visible: true, originXYZ: [0,0,0], scaleXYZ: [1,1,1], anglesXYZ: [0,0,0]),
+            .init(id: 20, visible: true, originXYZ: [0,0,0], scaleXYZ: [1,1,1], anglesXYZ: [0,0,0],
+                contentKind: "text", text: "authored", textStyle: .init(fontPath: nil))],
+            renderOrderLayerIDs: [10,20])
+        let a = SceneDynamicTarget.layer(layerID: 10, field: .origin)
+        let b = SceneDynamicTarget.layer(layerID: 20, field: .origin)
+        let bad = SceneDynamicTarget.layer(layerID: 10, field: .angles)
+        let peer = SceneDynamicTarget.layer(layerID: 20, field: .angles)
+        let runtime = SceneScriptDynamicLayerRuntime(descriptor: descriptor, authoredMutationLayerIDs: [])
+        let effects = [
+            SceneScriptOwnerEffects(ownerTarget: a, layerMutations: [
+                mutation(10, dynamic: false, alpha: 0.2, fields: [.alpha, .scale], scale: .init(2,3,4), ownerTarget: a)]),
+            SceneScriptOwnerEffects(ownerTarget: b, layerMutations: [
+                mutation(10, dynamic: false, alpha: 0.1, fields: [.alpha], ownerTarget: b),
+                mutation(20, dynamic: false, text: "retained", fields: [.text], ownerTarget: b)]),
+            SceneScriptOwnerEffects(ownerTarget: a, layerMutations: [
+                mutation(10, dynamic: false, alpha: 0.6, fields: [.alpha, .visibility], visible: false, ownerTarget: a)]),
+            SceneScriptOwnerEffects(ownerTarget: b, layerMutations: [
+                mutation(10, dynamic: false, alpha: 0.6, fields: [.alpha], ownerTarget: b)]),
+            SceneScriptOwnerEffects(ownerTarget: bad, layerMutations: [
+                mutation(10, dynamic: false, alpha: 0.6, fields: [.alpha], ownerTarget: bad),
+                mutation(20, dynamic: false, fields: [.visibility], visible: false, ownerTarget: bad)]),
+            SceneScriptOwnerEffects(ownerTarget: bad, layerMutations: [
+                mutation(10, dynamic: false, alpha: 0.8, fields: [.alpha], ownerTarget: bad)]),
+            SceneScriptOwnerEffects(ownerTarget: peer, layerMutations: [
+                mutation(20, dynamic: false, fields: [.scale], scale: .init(5,6,7), ownerTarget: peer)])]
+        let admission = runtime.preflightOwnerEffects(effects)
+        let readOnly = runtime.snapshot().authoredLayerValues.isEmpty
+        runtime.commit(admission.layerPlan)
+        let snapshot = runtime.snapshot()
+        let rawRejected = [0.2, 0.6].allSatisfy { alpha in
+            let raw = SceneScriptDynamicLayerRuntime(descriptor: descriptor, authoredMutationLayerIDs: [])
+            let result = raw.apply([
+                mutation(10, dynamic: false, alpha: 0.2, fields: [.alpha], ownerTarget: a),
+                mutation(10, dynamic: false, alpha: alpha, fields: [.alpha], ownerTarget: a)])
+            return !succeeded(result) && raw.snapshot().authoredLayerValues.isEmpty
+        }
+        let order = OrderInput()
+        order.value = [10,-2,20,-1]
+        let dynamic = SceneScriptDynamicLayerRuntime(descriptor: descriptor, authoredMutationLayerIDs: [],
+            layerOrderProjection: { _ in .success(order.value) })
+        let births = [mutation(-1, text: "seed", fields: [.created], origin: .init(1,2,3),
+                              scale: .init(2,2,2), ownerTarget: a),
+                      mutation(-2, text: "peer birth", fields: [.created], ownerTarget: a),
+                      mutation(-3, text: "transient", fields: [.created], ownerTarget: a)]
+        let birth = dynamic.preflightOwnerEffects([
+            .init(ownerTarget: a, layerMutations: births),
+            .init(ownerTarget: a, layerMutations: [
+                mutation(-1, order: 2, text: "complete final", origin: .init(9,8,7), visible: false, ownerTarget: a),
+                mutation(-3, kind: .destroy, ownerTarget: a),
+                mutation(-3, text: "cannot resurrect", ownerTarget: a)])])
+        let birthReadOnly = dynamic.snapshot().dynamicLayers.isEmpty
+        dynamic.commit(birth.layerPlan)
+        let born = dynamic.snapshot()
+        let final = born.dynamicLayers.first { $0.id == -1 }
+        let staleBirth = dynamic.preflightOwnerEffects([.init(ownerTarget: a, layerMutations: [births[0]])])
+        order.value = [10,20]
+        let retire = dynamic.preflightOwnerEffects([
+            .init(ownerTarget: a, layerMutations: [mutation(-1, kind: .destroy, ownerTarget: a)]),
+            .init(ownerTarget: a, layerMutations: [mutation(-2, kind: .destroy, ownerTarget: a)])])
+        dynamic.commit(retire.layerPlan)
+        let retired = dynamic.snapshot()
+        let single = mutation(10, dynamic: false, fields: [.visibility], ownerTarget: a)
+        return [
+            "preflightReadOnly": readOnly && birthReadOnly,
+            "lastCallbackWinsAndPreservesFields": snapshot.authoredLayerValues[.layer(layerID: 10, field: .alpha)] == .scalar(0.6)
+                && snapshot.authoredLayerValues[.layer(layerID: 10, field: .scale)] == .vector3(2,3,4)
+                && snapshot.authoredLayerValues[.layer(layerID: 10, field: .visibility)] == .bool(false),
+            "conflictUsesFinalValues": admission.admittedEffects.map(\.ownerTarget) == [a,b,a,b,peer]
+                && snapshot.authoredLayerValues[.text(layerID: 20, field: .content)] == .string("retained"),
+            "divergentOwnerRejectedAtomically": admission.rejectedOwners.map(\.ownerTarget) == [bad]
+                && snapshot.authoredLayerValues[.layer(layerID: 20, field: .visibility)] == nil,
+            "healthyPeerSurvives": snapshot.authoredLayerValues[.layer(layerID: 20, field: .scale)] == .vector3(5,6,7),
+            "rawDuplicatesStillReject": rawRejected,
+            "emptyAndSingleInputUnchanged": SceneScriptLayerMutation.coalescing([]).isEmpty
+                && SceneScriptLayerMutation.coalescing([single]) == [single],
+            "dynamicUsesCompleteLatestRecord": birth.rejectedOwners.isEmpty && final?.text == "complete final"
+                && final?.originXYZ == [9,8,7] && final?.scaleXYZ == [1,1,1] && final?.visible == false,
+            "createdMarkerAndOrderSurvive": birth.layerPlan.dynamicLayerCreatorTargetsByID[-1] == a
+                && Set(birth.layerPlan.createdDynamicLayerMutations.map(\.layerID)) == [-1,-2,-3]
+                && born.renderOrderLayerIDs == [10,-2,20,-1],
+            "destroyIsTerminalWithinOwner": born.dynamicLayers.map(\.id).sorted() == [-2,-1]
+                && birth.layerPlan.dynamicLayerCreatorTargetsByID[-3] == nil,
+            "newbornCannotReplaceCommittedLayer": staleBirth.rejectedOwners.map(\.ownerTarget) == [a],
+            "retirementPreservesStableSnapshots": retire.rejectedOwners.isEmpty && retired.dynamicLayers.isEmpty
+                && retired.renderOrderLayerIDs == [10,20] && born.dynamicLayers.count == 2
+                && retired.topologyRevision > born.topologyRevision]
+    }
+}
+'''
+
 
 def camera_numeric_leaf() -> str:
     """Compile the unchanged real numeric owner, without the unrelated parser DTOs.
@@ -110,6 +210,10 @@ class SceneScriptDynamicLayerRuntimeTests(unittest.TestCase):
     @classmethod
     def tearDownClass(cls) -> None:
         cls.temporary_directory.cleanup()
+
+    def test_ordered_owner_callbacks_coalesce_before_conflict_admission(self) -> None:
+        for behavior, passed in self.result["ownerCallbacks"].items():
+            self.assertTrue(passed, behavior)
 
     def test_perspective_is_typed_atomic_and_rejects_missing_consumers_locally(self) -> None:
         for key in ("perspectivePreflightReadOnly", "perspectiveImageTextAccepted",

@@ -20,7 +20,8 @@ struct SceneTextureAnimationPlaybackRuntime {
     }
 }
 struct SceneVideoTextureSourceRegistry {
-    func validate(_ commands: [SceneScriptMediaPlaybackCommand], timing: SceneFrameTiming) -> Result<Void, NSError> {
+    func validate(_ commands: [SceneScriptMediaPlaybackCommand], createdConsumers: [Int: String],
+                  timing: SceneFrameTiming) -> Result<Void, NSError> {
         fatalError("unexpected video validation")
     }
 }
@@ -171,6 +172,94 @@ struct SceneSoundPlaybackRegistry {
             "initOnlyKeepsAcceptedValue": settledValue.scalar.values[animatedAlphaTarget] == .scalar(0.375)
                 && settledValue.string.values[stringTarget] == nil,
         ]
+    }
+
+    static func callbackCohort(_ failure: String, renamed: Bool = false) throws -> [String: Bool] {
+        let vm = try SceneScriptQuickJSDomain()
+        let captionName = renamed ? "alternate caption" : "caption"
+        let lookup = renamed ? "thisScene.enumerateLayers().find(entry=>entry.name===['alternate','caption'].join(' '))"
+            : "thisScene.getLayer('caption')"
+        let local = renamed ? "renamedLabel" : "label"
+        let source = """
+        let \(local), observed=false;
+        export function init(value){
+          \(local)=\(lookup);\(local).text='seed';\(local).scale=new Vec3(2,3,4);
+          thisLayer.alpha=0.2;return value;
+        }
+        export function applyUserProperties(properties){
+          observed=true;\(local).text='event';\(local).color=new Vec3(0.25,0.5,0.75);
+        }
+        export function update(value){
+          if(!observed)throw new Error('missing property event');
+          \(local).text=\(renamed ? "['fi','nal'].join('')" : "'final'");thisLayer.alpha=0.6;
+          \(failure == "throw" ? "throw new Error('late callback');" : "return value;")
+        }
+        """
+        let descriptor = SceneRenderDescriptor(layers: (1...4).map { id in
+            .init(id: id, layerIndex: id-1, name: id == 3 ? captionName : "controller \(id)",
+                visible: true, originXYZ: [0,0,0], scaleXYZ: [1,1,1], scaleHasScript: nil,
+                alpha: 1, effects: [], contentKind: id == 3 ? "text" : "image",
+                text: id == 3 ? "authored" : nil,
+                textStyle: id == 3 ? .init(fontPath: nil, colorRGB: nil, pointSize: 20) : nil)
+        })
+        func binding(_ id: Int, _ script: String) -> SceneScriptBindingIR {
+            .init(source: script, owner: .init(kind: .object, objectIndex: id-1, objectID: id,
+                effectIndex: nil, effectID: nil, passIndex: nil, passID: nil),
+                targetPath: [.key("objects"), .index(id-1), .key("visible")], properties: [:],
+                authoredValue: .bool(true), valueType: .boolean, wrapperKeys: ["script", "value"])
+        }
+        let peer = "export function init(value){thisLayer.origin=new Vec3(7,8,9);return value;}"
+        var bindings = [binding(1, source), binding(2, peer)]
+        if failure == "conflict" {
+            bindings.append(binding(4, "export function init(value){thisScene.getLayerByID(3).text='foreign';thisLayer.origin=new Vec3(99,0,0);return value;}"))
+        }
+        let vectors = SceneScriptVectorProgram.compile(domain: vm, descriptor: descriptor,
+            scriptBindings: bindings, userPropertyDefinitions: [], generation: 1)
+        let strings = SceneScriptStringProgram.compile(domain: vm, descriptor: descriptor,
+            scriptBindings: [], generation: 1)
+        let scalars = SceneScriptScalarProgram.compile(domain: vm, descriptor: descriptor, scriptBindings: [])
+        let scheduler = SceneScriptMediaFrameCoordinator(vectorProgram: vectors, stringProgram: strings, scalarProgram: scalars)
+        let runtime = SceneScriptDynamicLayerRuntime(descriptor: descriptor, authoredMutationLayerIDs: [])
+        let sourceTarget = SceneDynamicTarget.layer(layerID: 1, field: .visibility)
+        let peerTarget = SceneDynamicTarget.layer(layerID: 2, field: .visibility)
+        let conflictTarget = SceneDynamicTarget.layer(layerID: 4, field: .visibility)
+        let inputs: [SceneDynamicTarget: SceneDynamicValue] = [sourceTarget: .bool(true), peerTarget: .bool(true), conflictTarget: .bool(true)]
+        let previous = vectors.frameStateSnapshot()
+        let initResult = scheduler.initialize(vectorInputs: inputs, stringInputs: [:], scalarInputs: [:],
+            effectivePropertyValues: [:], frame: frame(1), userPropertiesJSON: "{}", audioSpectrum: .silent)
+        let update = scheduler.evaluate(vectorInputs: inputs, stringInputs: [:], scalarInputs: [:],
+            effectivePropertyValues: [:], frame: frame(1), userPropertiesJSON: "{}", propertyRevision: 1,
+            events: .empty, audioSpectrum: .silent, initializationFailures: initResult.failures)
+        let combined = initResult.effects + update.ownerEffects
+        let admission = runtime.preflightOwnerEffectsToFixedPoint(combined,
+            excludingOwners: Set(update.vector.failures.keys)) { _, _ in [] }
+        let rejected = admission.externallyRejectedOwners.union(admission.admission.rejectedOwners.compactMap(\.ownerTarget))
+        let readOnly = runtime.snapshot().authoredLayerValues.isEmpty
+        runtime.commit(admission.admission.layerPlan)
+        vectors.restoreFrameState(previous, rejectedOwnerTargets: rejected)
+        vectors.finalizeLayerMutations(committing: true, rejectedOwnerTargets: rejected)
+        scheduler.finalizeInitializations()
+        let values = runtime.snapshot().authoredLayerValues
+        let accepted = failure != "throw"
+        let initWrite = initResult.effects.first { $0.ownerTarget == sourceTarget }?.layerMutations.first { $0.layerID == 3 }
+        let updateWrite = update.ownerEffects.first { $0.ownerTarget == sourceTarget }?.layerMutations.first { $0.layerID == 3 }
+        let alpha = SceneDynamicTarget.layer(layerID: 1, field: .alpha)
+        let content = SceneDynamicTarget.text(layerID: 3, field: .content)
+        return [
+            "separateRealCallbackPackages": initResult.failures.isEmpty && initWrite?.text == "seed"
+                && (accepted ? updateWrite?.text == "final" : updateWrite == nil),
+            "sameOwnerAdmittedOnceForState": rejected.contains(sourceTarget) != accepted
+                && values[alpha] == (accepted ? .scalar(0.6) : nil)
+                && values[content] == (accepted ? .string("final") : nil),
+            "unmodifiedInitAndPropertyFieldsSurvive": values[.layer(layerID: 3, field: .scale)] == (accepted ? .vector3(2,3,4) : nil)
+                && values[.text(layerID: 3, field: .color)] == (accepted ? .vector3(0.25,0.5,0.75) : nil),
+            "preflightIsReadOnly": readOnly,
+            "throwRejectsWholeOwner": failure != "throw" || update.vector.failures[sourceTarget]?.code == "exception"
+                && !admission.admission.admittedEffects.contains { $0.ownerTarget == sourceTarget },
+            "differentOwnerStillConflicts": failure != "conflict" || rejected.contains(conflictTarget)
+                && values[.layer(layerID: 4, field: .origin)] == nil,
+            "healthyPeerRemainsCommitted": !rejected.contains(peerTarget)
+                && values[.layer(layerID: 2, field: .origin)] == .vector3(7,8,9)]
     }
 
     @MainActor static func mixedAnimationSeek(_ failure: String, renamed: Bool = false) throws -> [String: Bool] {
@@ -489,6 +578,8 @@ struct SceneSoundPlaybackRegistry {
         payload["stale"] = value(stale.initializeIfNeeded(input: .vector3(1,0,0), frame: frame(1),
             scriptPropertiesJSON: "", userPropertiesJSON: "{}", expectedGeneration: 2, interruptBudget: nil))
         payload["cohorts"] = try [cohort(false), cohort(true)]
+        payload["callbackCohorts"] = try [callbackCohort("none"), callbackCohort("none", renamed: true),
+            callbackCohort("throw"), callbackCohort("conflict")]
         payload["mixedSeeks"] = try [mixedAnimationSeek("none"), mixedAnimationSeek("none", renamed: true),
             mixedAnimationSeek("throw"), mixedAnimationSeek("rate")]
         print(String(decoding: try JSONSerialization.data(withJSONObject: payload, options: [.sortedKeys]), as: UTF8.self))
@@ -542,6 +633,10 @@ class SceneScriptInitializationTransactionTests(unittest.TestCase):
         for variant in self.value["cohorts"]:
             for behavior, passed in variant.items():
                 self.assertTrue(passed, (behavior, variant))
+    def test_cohort_init_and_later_property_update_share_ordered_owner_admission(self):
+        for scenario in self.value["callbackCohorts"]:
+            for behavior, passed in scenario.items():
+                self.assertTrue(passed, (behavior, scenario))
     def test_effectful_boolean_non_bool_init_preserves_current_input(self):
         self.assertEqual(self.value["booleanNonBoolInit"], ["ok", "ok"])
         self.assertEqual(self.value["booleanValues"], [False, False])

@@ -2507,7 +2507,7 @@
       "lastReviewed": "2026-10-29",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "bf21759ac215b0c7c8b2e9833e8b48535afe454b87dd81184ff2cc5444fc28c0",
+        "sourceSHA256": "64db3e6566a2254a82638c47cc0dba9d670cda6cd9beca75a5ed2a63da917b21",
         "method": "document_registry --audit + document_health --check",
         "scope": "Only geometry named-raster PMA versus graph-copy content contract and bounded 295/independent322 closure; retain prior historical claims.",
         "limitations": "No full-document product revalidation; standalone pixel probe entry remains stale, no official parity/full-property/HDR/performance conclusion."
@@ -4467,7 +4467,7 @@
       "lastReviewed": "2026-10-29",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "84ec7f4b6968232ae024232931261f7d2dc061ebe875a836a87b6bf333c6f5ae",
+        "sourceSHA256": "a96eeaaaf381534a32a2a125aff2c2fbfa15d2ddfcded6a8bf8742839464dce2",
         "method": "document_registry --audit + document_health --check",
         "scope": "动态逻辑身份/slot共同回收合同与实际限定后验同步；修正旧64动态上限文案，337普通播放首错与性能资格分界、保净零出生待验。",
         "limitations": "导航收据不替代实际运行；原生C寿命与独立样本只按批次历史已验范围，动态视频/官方身份、HDR多屏及稳定整体性能仍未闭。"

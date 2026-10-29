@@ -235,3 +235,16 @@ SourceFacts在检查与launch准备队列同步建立，原类型却继承App默
 原三例同jobs3、默认属性、固定PCM、Ready后4秒log-only共17.773秒，均report PASS/exit0、surface1→0/GPU drained。360的566.visibility completed，frame0/epoch36提交407 play；原MP3 ready rate1，clock由0到.331636/.496029且advanced=true，关闭本次声音引用首门。565旧owner冲突仍在，音乐激活后641.origin又暴露target冲突，按原previous-current降级且未阻断独立566的声音提交，已合并入队；不据此认画面不变或整个播放器恢复。304仍默认隐藏空playerLayers的alpha错误，不判默认缺图或伪造元素，83979冲突留队；未参与修法355无VM failure。无PNG/听感、长换曲、全部codec、完整UI/官方parity或性能收益结论。
 
 必要前后日志、源/App身份、真实门、失败收据与独审保存在`.artifacts/scene-evidence/runs/authored-sound-reference-20261029/`普通14天；原Sound循环/单次/随机、宿主pause与退休仍归原Registry，没有新增AV路径。临时执行副本提取后清理，连续迭代复用唯一原build-cache。
+
+<a id="owner-callback-coalescing-20261029"></a>
+## 2026-10-29 同owner有序回调合流
+
+初始化cohort与后续cursor/普通回调各自产出合法packet，汇合后同owner重复写同字段被低层唯一target门拒绝。现只在DynamicRuntime原owner分组处复用已有coalescing，再按最终authoredValues检查不同owner分歧并调用原apply；未改merging算法、raw apply重复/非法门或先计raw的512预算。原Program仍规范自身packet，晚合流规范新组合；0/1输入直接返回，避免小包新建索引。无新owner、状态、权限或资源链，产品两文件净增2行。动态完整record、created/destroy、原C拓扑顺序及其他media/texture命令的callback epoch顺序保持。
+
+同最终dynamic门配两个旧Swift源，19项仅新增conflictUsesFinalValues断言首失败；候选dynamic19项、真实VM初始化13项通过，新增40个行为事实覆盖互补字段、同owner最后写、跨owner最终分歧/健康peer、raw反例、动态生命周期及改名/等价/late throw。首轮init旧video stub缺createdConsumers参数的编译失败保留，仅补局部unused参数后重跑init，不重复dynamic。普通Debug39.494秒、优化DEBUG诊断38.087秒零警告，源输入无漂移；独审GO。C/ABI入口仍按原合同拒绝或不发布非法DTO，consumer特定约束继续校最终值，未新增中间值扫描。
+
+原5例jobs3/Ready后4秒32.574秒，再仅补两未测相邻例jobs2/4秒20.794秒；7例均report PASS/exit0、surface1→0/GPU drained。3763428294、3779904456、3787382101、3804971850本窗无VM failure，旧重复target及连带destroy stale首门有界退出；四例未做当前旧App单变量复跑，不将独占因果全归本片。360的641重复target退出，565跨owner分歧保留；304默认隐藏空alpha及83979分歧保留；独立355无VM failure。两新增归档member保留原全量失败身份，不回写旧全量为成功；所有视觉verdict保持原值，未新增PASS。
+
+360现在完整提交407 play(epoch36)→407 stop/532 play/play(epoch38)，532 ready且clock=.454793、advanced=true；本轮407停止，不能沿用上一批407推进结论。作者641 private playStatus在前callback设true，后callback Sound查询只见旧snapshot导致自动skip；不是默认选第二首或时长解析，已另列查询时序资格，未擅自改原投影合同。不认整播放器、像素/听感/长稳、官方parity或CPU/GPU收益；本片只修同owner合流及其真实初始执行。
+
+必要原日志、输入/App/源身份、旧源反例、真实门/失败收据及独审归`.artifacts/scene-evidence/runs/owner-callback-coalescing-20261029/`普通14天；停止的运行副本和重试输出提取后清理，连续迭代只保原一份build-cache。跨owner分歧、363工作量和未验能力继续由现役队列拥有。
