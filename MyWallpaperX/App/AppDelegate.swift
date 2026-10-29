@@ -291,6 +291,7 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSMenuItemValidation {
  @objc func navigateLibraryPageMenuAction(_ sender: NSMenuItem) { MainWindowMenuCommands.menuNavigatePage(sender) }
 
  @objc func closeWindowMenuAction(_ sender: Any?) {
- NSApp.keyWindow?.performClose(nil)
+ // Popover owners precede their host window; borderless sheets also handle this action.
+ NSApp.keyWindow?.firstResponder?.tryToPerform(#selector(NSWindow.performClose(_:)), with: sender)
  }
 }

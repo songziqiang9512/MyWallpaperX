@@ -20,7 +20,7 @@
 
 - `main.swift` 创建 `NSApplication`，设置 `AppDelegate`，调用 `NSApp.run()`。
 - `AppDelegate` 只负责应用生命周期、Help Book、状态栏、主菜单安装、启动阶段调度。
-- 主菜单由 `NSMenu` / `NSMenuItem` 构建，动态可用性通过 `NSMenuItemValidation` 实现；浏览命令消费当前来源网格选择，输入框/原生sheet默认动作优先。普通action不携带check的勾选AX值。
+- 主菜单用`NSMenu`/`NSMenuItem`与`NSMenuItemValidation`；浏览取来源选择，文本/sheet优先，普通action无check AX值。关闭从first responder沿`tryToPerform`派发`performClose:`，交NSPopover/无边框sheet。
 - 设置窗口使用 `NSWindowController + NSViewController + AppKitSettingsContainerView`；无关状态回填保留当前原生field editor草稿，模式禁用则撤销，失焦沿原提交；背景只消费主窗已投影色与动画决策，共用原0.75 s原生过渡；隐藏只记呈现值、可见消费点一次准入，首show/原生模式即时，不串层读取或重复采样。
 
 ### Shell 层

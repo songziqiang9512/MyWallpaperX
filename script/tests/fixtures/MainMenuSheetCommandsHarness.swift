@@ -285,6 +285,42 @@ import AppKit
         let searchAfterSheet = controller.searches
         key("f", code: 3)
         checks["main-search-key-equivalent-remains-live-after-sheet-closes"] = controller.searches == searchAfterSheet + 1
+        let close = item(.closeWindow)
+        checks["close-menu-retains-command-w"] = close.keyEquivalent == "w"
+            && close.keyEquivalentModifierMask == [.command]
+        let popover = NSPopover()
+        popover.animates = false
+        popover.behavior = .transient
+        let popoverController = NSViewController()
+        popoverController.view = NSView(frame: NSRect(x: 0, y: 0, width: 240, height: 80))
+        let field = NSTextField(string: "Popover editor")
+        field.frame = NSRect(x: 16, y: 16, width: 200, height: 24)
+        popoverController.view.addSubview(field)
+        popover.contentViewController = popoverController
+        defer { popover.close() }
+        for attempt in 0..<2 {
+            popover.show(relativeTo: NSRect(x: 30, y: 30, width: 10, height: 10),
+                of: host.contentView!, preferredEdge: .maxY)
+            precondition(popoverController.view.window?.makeFirstResponder(field) == true)
+            try pump("popover editor") { popover.isShown && field.currentEditor() != nil }
+            checks["popover-close-target-is-its-owner-\(attempt)"] = app.target(forAction: #selector(NSWindow.performClose(_:)), to: nil, from: close) as AnyObject? === popover
+            if attempt == 0 { _ = app.sendAction(close.action!, to: close.target, from: close) }
+            else { key("w", code: 13) }
+            try pump("only popover closed while host remains visible") { !popover.isShown && host.isVisible }
+            checks["popover-close-preserves-host-and-original-page-\(attempt)"] = host.isVisible
+                && controller.libraryPresentation.page == .images && host.attachedSheet == nil
+            precondition(host.makeFirstResponder(mainGrid))
+        }
+        precondition(WallpaperLibrarySheetPresentation.present(sheet, in: host))
+        try pump("reopened sheet input") { sheet.isKeyWindow && sheet.sheetParent === host }
+        precondition(sheet.makeFirstResponder(sheetGrid))
+        key("w", code: 13)
+        try pump("sheet closed by command-w") { !sheet.isVisible && sheet.sheetParent == nil && host.isKeyWindow }
+        checks["command-w-closes-owned-sheet-once-and-keeps-host"] = host.isVisible && buttons.sheetCloses == 2
+        precondition(host.makeFirstResponder(mainGrid))
+        key("w", code: 13)
+        try pump("ordinary window closed by command-w") { !host.isVisible }
+        checks["command-w-still-closes-ordinary-application-window"] = !host.isVisible
         print(String(data: try JSONSerialization.data(withJSONObject: checks, options: [.sortedKeys]), encoding: .utf8)!)
     }
 }

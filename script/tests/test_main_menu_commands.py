@@ -47,7 +47,7 @@ class MainMenuCommandTests(unittest.TestCase):
         methods = declaration(delegate, ' func validateMenuItem(')
         actions = ['createPlaylist', 'import', 'undo', 'redo', 'toggleMultiSelect', 'deleteSelected',
                    'focusSearch', 'zoomIn', 'zoomOut', 'setAsWallpaper', 'nextWallpaper', 'previousWallpaper',
-                   'toggleFavorite', 'addToPlaylist', 'showInfo', 'preview', 'revealInFinder', 'navigateLibraryPage']
+                   'toggleFavorite', 'addToPlaylist', 'showInfo', 'preview', 'revealInFinder', 'navigateLibraryPage', 'closeWindow']
         methods += '\n' + '\n'.join(declaration(delegate, ' @objc func ' + name + 'MenuAction(') for name in actions)
         prelude = original_fixture.read_text().split('@main enum MainMenuCommandChecks')[0]
         fixture = prelude.replace('// ACTUAL_DELEGATE_MENU', methods).replace('// ACTUAL_FAVORITE_ACTION_STATE',
@@ -92,7 +92,7 @@ class MainMenuCommandTests(unittest.TestCase):
         methods = declaration(delegate, ' func validateMenuItem(')
         actions = ['createPlaylist', 'import', 'undo', 'redo', 'toggleMultiSelect', 'deleteSelected',
                    'focusSearch', 'zoomIn', 'zoomOut', 'setAsWallpaper', 'nextWallpaper', 'previousWallpaper',
-                   'toggleFavorite', 'addToPlaylist', 'showInfo', 'preview', 'revealInFinder', 'navigateLibraryPage']
+                   'toggleFavorite', 'addToPlaylist', 'showInfo', 'preview', 'revealInFinder', 'navigateLibraryPage', 'closeWindow']
         methods += '\n' + '\n'.join(declaration(delegate, ' @objc func ' + name + 'MenuAction(') for name in actions)
         fixture = (ROOT / 'script/tests/fixtures/MainMenuCommandsHarness.swift').read_text().replace('// ACTUAL_DELEGATE_MENU', methods)
         fixture = fixture.replace('// ACTUAL_FAVORITE_ACTION_STATE', declaration(

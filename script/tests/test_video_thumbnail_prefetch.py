@@ -37,8 +37,9 @@ def prepare_video_thumbnail_generator_sources(tree: Path, work: Path, fixture: P
     import_processing = core / 'WallpaperManager+ImportProcessing.swift'
     application = core / 'WallpaperManager+WallpaperApplication.swift'
     model = tree / 'MyWallpaperX/Models/VideoWallpaper.swift'
+    still_frame = tree / 'MyWallpaperX/Shared/VideoStillFrame.swift'
     fixture = fixture or tree / 'script/tests/fixtures/VideoThumbnailGeneratorChecks.swift'
-    inputs = [pipeline, manager, persistence, static_frames, application, import_processing, model, fixture]
+    inputs = [pipeline, manager, persistence, static_frames, application, import_processing, model, still_frame, fixture]
     hashes = {str(path): hashlib.sha256(path.read_bytes()).hexdigest() for path in inputs}
     manager_source = manager.read_text()
     fields = []
@@ -62,17 +63,19 @@ def prepare_video_thumbnail_generator_sources(tree: Path, work: Path, fixture: P
         + '\n' + declaration(application.read_text(), '    func clearUnprotectedStaticFrameFiles('))
     harness = harness.replace('// ACTUAL_STATIC_FRAME_OUTPUT', declaration(static_frames.read_text(), '    func staticFrameOutputURL('))
     observed = pipeline.read_text()
-    entry = '    func generateCGImage(using generator: AVAssetImageGenerator, at time: CMTime) -> CGImage? {'
+    shared_decode = still_frame.read_text()
+    entry = '        let result = ImageResult()'
     hash_leaf = '        let digest = SHA256.hash(data: Data(normalized.utf8))'
-    if observed.count(entry) != 1 or observed.count(hash_leaf) != 1:
+    if shared_decode.count(entry) != 1 or observed.count(hash_leaf) != 1:
         raise AssertionError('unique real AV and key observation leaves required')
-    observed = observed.replace(entry, entry + '\n        VideoThumbnailObservations.shared.beginDecode(generator)\n'
-        '        defer { VideoThumbnailObservations.shared.endDecode() }')
+    shared_decode = shared_decode.replace(entry, '        VideoThumbnailObservations.shared.beginDecode(generator)\n'
+        '        defer { VideoThumbnailObservations.shared.endDecode() }\n' + entry)
     observed = observed.replace(hash_leaf, '        VideoThumbnailObservations.shared.hashed()\n' + hash_leaf)
     source = work / pipeline.name; source.write_text(observed)
     support = work / 'VideoThumbnailGeneratorChecks.swift'; support.write_text(harness)
     frozen_model = work / model.name; shutil.copy2(model, frozen_model)
-    return [source, frozen_model, support], hashes
+    frozen_still_frame = work / still_frame.name; frozen_still_frame.write_text(shared_decode)
+    return [source, frozen_model, frozen_still_frame, support], hashes
 
 
 def prepare_video_static_frame_sources(tree: Path, work: Path, fixtures: Path | None = None):

@@ -125,7 +125,6 @@ final class PixabayService {static let shared=PixabayService();var refreshes=0;f
 final class AppDelegate:NSObject,NSApplicationDelegate,NSMenuItemValidation {
     @objc func showAboutMenuAction(_ sender:Any?){}
     @objc func showSettingsMenuAction(_ sender:Any?){}
-    @objc func closeWindowMenuAction(_ sender:Any?){}
     // ACTUAL_DELEGATE_MENU
 }
 
