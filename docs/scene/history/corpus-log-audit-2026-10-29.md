@@ -9,7 +9,7 @@
 
 真实Scene根只读，一次扫描453目录：452可解析、3763323436缺project。声明193099点、4878结构family、2428参数profile、23940字段；19个粗能力映射不等于19条独立加载链。主链与五类prepared产品保持，按原准备/消费者分为九类视觉路线和Sound旁路；跨路线的Script/Property/Timeline/Camera不重复计链。具体分组见诊断合同。
 
-粒子声明组件共42种：2 emitter、14 initializer、22 operator、4 renderer；CP序号不是算法。`objects.[].model`有308次声明、涉及37样本；包内models presence映射451样本不能当451个模型消费者。现census对直模/Puppet的细粒度分类仍不全，细分保持unknown，不另做第二全文扫描补数字。
+粒子声明组件共42种：2 emitter、14 initializer、22 operator、4 renderer；CP序号不是算法。`objects.[].model`有308个raw字段叶值/37样本，含256个string MDL引用/12样本与52个粒子对象model:null/25样本；null不是加载请求。包内models presence映射451样本也不能当451个模型消费者。后续沿既有入口定点关联105个sample/model路径，未读vertex/index或纹理；这是453快照的声明澄清，不是已加载数，也不覆盖随后新增38样本。
 
 ## 执行身份与时序
 

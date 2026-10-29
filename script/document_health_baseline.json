@@ -193,8 +193,8 @@
       "bytes": 3517
     },
     "docs/scene/development/corpus-diagnostic-workflow.md": {
-      "lines": 105,
-      "bytes": 13605
+      "lines": 109,
+      "bytes": 14563
     },
     "docs/scene/development/development-workflow.md": {
       "lines": 78,
@@ -1777,15 +1777,6 @@
     },
     {
       "section": "bodies",
-      "path": "docs/scene/development/corpus-diagnostic-workflow.md",
-      "before": "609cbdcf92861fee4dbd8f90e212a20213227b0884ffc7c2e79b960c0b61c0b7",
-      "after": "691cb1d8d09f9877b65fd6f0dcb068d2d022d6525b9c4d5d0c50bc2a46198e85",
-      "owner": "scene-corpus-diagnostics",
-      "reason": "Replace stale corpus status with one current declaration/run join and log-only parallel workflow; preserve unknown/visual boundaries and old human verdicts.",
-      "decision": "docs/scene/development/corpus-diagnostic-workflow.md#log-first-corpus-audit"
-    },
-    {
-      "section": "bodies",
       "path": "docs/scene/architecture/runtime-architecture.md",
       "before": "c31c83b1b22ed0dccfcc07aabf07febaa25011f4eb01dd16c113ccb86c6fbc98",
       "after": "de82d6db2df0d2127b6620cd86ee8a493f62ffc16f72fb825c99a085d1865678",
@@ -1873,6 +1864,15 @@
       "owner": "Scene sample acceptance overlay",
       "reason": "Record seven bounded runtime cases and retire duplicate-target first gates without changing prior visual verdicts or attributing all earlier fixes to this batch.",
       "decision": "docs/scene/history/open-breakpoint-reconciliation-2026-10-23.md#owner-callback-coalescing-20261029"
+    },
+    {
+      "section": "bodies",
+      "path": "docs/scene/development/corpus-diagnostic-workflow.md",
+      "before": "691cb1d8d09f9877b65fd6f0dcb068d2d022d6525b9c4d5d0c50bc2a46198e85",
+      "after": "e83ade1d1bb8fe8bc567552927afc2de636d8f218dc1aa775d77fb6736cf83d8",
+      "owner": "Scene census subset",
+      "reason": "Use the existing scanner for explicit selected inputs, protect full outputs, distinguish selected declarations from root matrix membership, and reuse one-transaction digests.",
+      "decision": "docs/scene/development/corpus-diagnostic-workflow.md#log-first-corpus-audit"
     }
   ]
 }

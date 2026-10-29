@@ -3,18 +3,26 @@
 
 from __future__ import annotations
 
+import hashlib
+import io
 import json
+import shutil
 import sys
 import tempfile
 import unittest
 from collections import Counter
+from contextlib import redirect_stdout
 from pathlib import Path
+from types import SimpleNamespace
+from unittest.mock import patch
 
 SCRIPT_ROOT = Path(__file__).resolve().parents[1]
 if str(SCRIPT_ROOT) not in sys.path:
     sys.path.insert(0, str(SCRIPT_ROOT))
 
 import scene_capability_census as census
+import scene_capability_census_io as census_io
+import scene_capability_census_samples as census_samples
 from scene_capability_census_io import ResolvedResource
 from scene_capability_census_profiles import family_key, scenescript_audio_registrations, script_profile
 from script.tests.scene_capability_census_test_support import json_bytes, make_fixture, pkg
@@ -531,6 +539,135 @@ class SceneCapabilityCensusObservationTests(unittest.TestCase):
                     self.assertGreater(row["file_count"], 0)
                     self.assertEqual(row["occurrence_refs"], [])
             self.assertEqual(result["validation"]["failures"], [])
+
+
+class SceneCapabilityCensusSubsetTests(unittest.TestCase):
+    def test_selection_precedes_all_unselected_reads_and_preserves_global_id_references(self) -> None:
+        with tempfile.TemporaryDirectory(prefix="mwx-census-subset-") as directory:
+            samples, stock, matrix, ledger = make_fixture(Path(directory).resolve())
+            selected, other = samples / "0000000001", samples / "0000000002"
+            shutil.copytree(selected, other)
+            matrix.write_bytes(json_bytes({"schema_version": 1, "samples": [{"id": p.name} for p in (selected, other)]}))
+            full = census.build_census(samples, stock, matrix, ledger)
+            explicit_full = census.build_census(samples, stock, matrix, ledger, sample_ids=None)
+            self.assertEqual(census.canonical_json_bytes(full), census.canonical_json_bytes(explicit_full))
+            self.assertEqual(full["summary"]["discovered_sample_count"], 2)
+            self.assertEqual(full["summary"]["matrix_coverage_state"], "current")
+            self.assertNotIn("scope", full["snapshot"]["inputs"])
+            matrix.write_bytes(json_bytes({"schema_version": 1, "samples": [{"id": selected.name}]}))
+            ledger.write_bytes(json_bytes({"schema_version": 1, "families": [{
+                "family_key": full["families"][0]["family_key"], "repair_state": "untriaged",
+                "commit": census.REPAIR_COMMIT_PLACEHOLDER,
+                "runtime_proof_state": "none", "regression_protection_state": "none",
+                "targeted_samples": [other.name], "regression_gates": [], "events": [],
+            }]}))
+            original_open = Path.open
+            opened = []
+            def selected_only(path, *args, **kwargs):
+                self.assertFalse(path.is_relative_to(other), f"unselected input read: {path}")
+                opened.append(path)
+                return original_open(path, *args, **kwargs)
+            with patch.object(Path, "open", new=selected_only):
+                subset = census.build_census(samples, stock, matrix, ledger,
+                    sample_ids=[selected.name, selected.name])
+            self.assertIn(selected / "scene.pkg", opened)
+            self.assertEqual(subset["validation"]["failures"], [])
+            self.assertEqual([row["sample_id"] for row in subset["samples"]], [selected.name])
+            self.assertEqual(subset["snapshot"]["inputs"]["scope"], "subset")
+            self.assertEqual(subset["snapshot"]["inputs"]["selected_sample_ids"], [selected.name])
+            self.assertEqual(subset["summary"]["removed_since_matrix"], [])
+            self.assertEqual(subset["summary"]["added_since_matrix"], [])
+            self.assertEqual(subset["summary"]["matrix_coverage_state"], "pending-expansion")
+            rendered = census.render_markdown(subset)
+            self.assertIn("所选新增仅指本子集与matrix的差集", rendered)
+            self.assertIn("状态为 `pending-expansion`", rendered)
+            self.assertEqual(subset["summary"]["occurrence_count"] * 2, full["summary"]["occurrence_count"])
+            ordered = census.build_census(samples, stock, matrix, ledger,
+                sample_ids=[other.name, selected.name, other.name])
+            self.assertEqual(ordered["snapshot"]["inputs"]["selected_sample_ids"], [selected.name, other.name])
+
+    def test_missing_or_empty_selection_fails_before_any_sample_observation(self) -> None:
+        with tempfile.TemporaryDirectory(prefix="mwx-census-missing-id-") as directory:
+            samples, stock, matrix, ledger = make_fixture(Path(directory))
+            for requested, reason in ((["0000000001", "9999999999"], "9999999999"), ([], "empty")):
+                with self.subTest(requested=requested), \
+                        patch.object(census, "_sample_census", wraps=census._sample_census) as observe:
+                    with self.assertRaisesRegex(ValueError, reason):
+                        census.build_census(samples, stock, matrix, ledger, sample_ids=requested)
+                    observe.assert_not_called()
+
+    def test_subset_generate_verify_protect_full_outputs_and_label_both_pages(self) -> None:
+        with tempfile.TemporaryDirectory(prefix="mwx-census-subset-outputs-") as directory:
+            root = Path(directory)
+            samples, stock, matrix, ledger = make_fixture(root)
+            full_outputs = [root / "full/cache.json", root / "full/overview.md", root / "full/details.md"]
+            full_outputs[0].parent.mkdir()
+            for path in full_outputs:
+                path.write_bytes(b"preserve full baseline")
+            args = census.parse_args(["generate", "--samples-root", str(samples), "--stock-root", str(stock),
+                "--matrix", str(matrix), "--ledger", str(ledger), "--sample-id", "0000000001",
+                "--sample-id", "0000000001", "--snapshot", str(root / "subset/cache.json"),
+                "--markdown", str(root / "subset/overview.md"), "--sample-markdown", str(root / "subset/details.md")])
+            args.snapshot.parent.mkdir()
+            args.snapshot.write_bytes(b"old subset")
+            alias = root / "full-cache-alias"
+            alias.symlink_to(full_outputs[0])
+            with patch.multiple(census, DEFAULT_SNAPSHOT=full_outputs[0],
+                                DEFAULT_MARKDOWN=full_outputs[1], DEFAULT_SAMPLE_MARKDOWN=full_outputs[2]):
+                for field, target in zip(("snapshot", "markdown", "sample_markdown", "snapshot"), [*full_outputs, alias]):
+                    for command in (census.generate, census.verify):
+                        bad = SimpleNamespace(**vars(args))
+                        setattr(bad, field, target)
+                        with self.subTest(field=field, command=command.__name__), \
+                                patch.object(census, "build_census", wraps=census.build_census) as build, \
+                                patch.object(census, "atomic_write", wraps=census.atomic_write) as write:
+                            with self.assertRaisesRegex(ValueError, "dedicated"):
+                                command(bad)
+                            build.assert_not_called()
+                            write.assert_not_called()
+                for path in full_outputs:
+                    self.assertEqual(path.read_bytes(), b"preserve full baseline")
+            with redirect_stdout(io.StringIO()):
+                self.assertEqual(census.generate(args), 0)
+                self.assertEqual(census.verify(args), 0)
+            stored = json.loads(args.snapshot.read_text())
+            self.assertEqual(stored["snapshot"]["inputs"]["selected_sample_ids"], ["0000000001"])
+            for path, title in ((args.markdown, "# Scene 子集能力"), (args.sample_markdown, "# Scene 子集静态")):
+                text = path.read_text()
+                self.assertIn(title, text)
+                self.assertIn("只统计所选ID", text)
+                self.assertIn("`0000000001`", text)
+            self.assertNotIn(str(census.DEFAULT_SNAPSHOT.relative_to(census.REPOSITORY_ROOT)), args.markdown.read_text())
+            query = census.parse_args(["query", "--sample", "0000000001", "--snapshot", str(args.snapshot)])
+            self.assertEqual(query.sample, "0000000001")
+            self.assertFalse(hasattr(query, "sample_ids"))
+
+    def test_manifest_digests_are_reused_once_and_symlink_identity_keeps_its_fallback(self) -> None:
+        with tempfile.TemporaryDirectory(prefix="mwx-census-hash-reuse-") as directory:
+            root = Path(directory).resolve()
+            samples, stock, matrix, ledger = make_fixture(root)
+            sample = samples / "0000000001"
+            project, package = sample / "project.json", sample / "scene.pkg"
+            expected_project = hashlib.sha256(project.read_bytes()).hexdigest()
+            expected_package = hashlib.sha256(package.read_bytes()).hexdigest()
+            for linked in (False, True):
+                if linked:
+                    external = root / "authored-project.json"
+                    project.rename(external)
+                    project.symlink_to(external)
+                expected_tree = census_io.tree_manifest(sample)
+                with self.subTest(symlink_project=linked), \
+                        patch.object(census_io, "sha256_file", wraps=census_io.sha256_file) as hashed, \
+                        patch.object(census_samples, "sha256_file", wraps=census_samples.sha256_file) as fallback:
+                    built = census.build_census(samples, stock, matrix, ledger)
+                row = built["samples"][0]
+                self.assertEqual((row["tree_sha256"], row["file_count"], row["byte_count"]), expected_tree)
+                self.assertEqual(row["project_sha256"], expected_project)
+                self.assertEqual(row["package_sha256"], expected_package)
+                counts = Counter(call.args[0] for call in hashed.call_args_list)
+                self.assertEqual(counts[package], 1)
+                self.assertEqual(counts[project], 0 if linked else 1)
+                self.assertEqual([call.args[0] for call in fallback.call_args_list], [project] if linked else [])
 
 
 if __name__ == "__main__":

@@ -35,3 +35,7 @@
 六图magic/解码均PNG，guest/host hash和ICC一致；没有把旧JPEG转壳或作为精确golden。只确认独立roughness与联合normal/view/light响应可用于最小设计，不能凭三点唯一求BRDF、拟gain或将generic4改名。未跑当前macOS同新载体；Cloud的r0/彩色specular/pigment、HDR/coverage及343完整夜侧均未资格，不关闭原用户反馈。
 
 协议、输入、固定官方身份、6张原始PNG、实际ICC、像素数据及helper失败/退出收据已归本机`.artifacts/scene-evidence/runs/chroma-response-qualification-20261029/metadata/`，普通14天/单包32MiB。首次PNG helper只读变量名错误在取像前失败，仅修变量名，未改场景/ROI；Windows自有预览/精确guest输入及本轮缓存已退出，主客户端与VM保持运行。下一步先沿原static material/shared surface职责设计，不新增渲染或资源owner，不据资格报告直接宣称产品修复。
+
+### 453快照中的真实直接模型范围
+
+同日定点盘点区分raw字段与真实引用：308个model叶值含52个null；256个string MDL引用分属12样本、105个sample/model路径身份，既非256独立网格也非37个加载consumer。仅查首部/材料关联得693个实例化pass，stock Chroma只有343 Cloud114，明确pigment=.2、roughness0、cyan specular与dynamic tintback；stock缺省pigment=.5，不能把缺省当0。基线中的neutral pigment0候选真实consumer为0，因此后续须面向该完整材料，不以只覆盖实验板的窄片代交付。原compact field/schema统计本来保留null/string，数字不改；此盘点不覆盖新增38或全部非二进制/Puppet材料。关联来源与未知项保在本机限期研究归档。

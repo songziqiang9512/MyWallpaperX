@@ -1188,7 +1188,7 @@
       "lastReviewed": "2026-10-29",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "677914a9ff4b6de38ac62b340ee010b93fb591d89c2196ca6913a7f68aac432c",
+        "sourceSHA256": "6b79521471c0146826e18229306896225685cb30bc66779d4a58609d9458656a",
         "method": "document_registry --audit + document_health --check",
         "scope": "One census and original DEBUG runner/normalizer/archive chain; optimized diagnostic profile, log-only Ready+4s, isolated bounded parallelism, stage evidence and independent historical verdicts.",
         "limitations": "Navigation and source review; actual short-window runtime identities and scoped tests are separately recorded. No visual, official parity or formal performance conclusion."

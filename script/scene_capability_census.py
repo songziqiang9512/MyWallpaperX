@@ -107,6 +107,8 @@ DEFAULT_MATRIX = REPOSITORY_ROOT / "script/scene_wallpaper_full_sample_matrix.js
 DEFAULT_LEDGER = REPOSITORY_ROOT / "script/scene_capability_repair_ledger.json"
 DEFAULT_FAMILY_MAP = REPOSITORY_ROOT / "script/scene_capability_family_map.json"
 DEFAULT_SNAPSHOT = REPOSITORY_ROOT / ".artifacts/scene-evidence/census/scene_capability_census_snapshot.json"
+DEFAULT_MARKDOWN = REPOSITORY_ROOT / "docs/scene/capabilities/scene-corpus-capability-inventory.md"
+DEFAULT_SAMPLE_MARKDOWN = DEFAULT_MARKDOWN.with_name("scene-corpus-sample-inventory.md")
 
 
 GENERATOR_PATHS = (
@@ -231,6 +233,8 @@ def build_census(
     matrix_path: Path,
     ledger_path: Path,
     family_map_path: Path = DEFAULT_FAMILY_MAP,
+    *,
+    sample_ids: Iterable[str] | None = None,
 ) -> dict[str, Any]:
     samples_root = samples_root.expanduser().resolve()
     stock_root = stock_root.expanduser().resolve()
@@ -239,6 +243,15 @@ def build_census(
     if not stock_root.is_dir():
         raise FileNotFoundError(stock_root)
     samples = list(iter_sample_directories(samples_root))
+    known_sample_ids = {sample.name for sample in samples}
+    if sample_ids is not None:
+        selected_ids = set(sample_ids)
+        if not selected_ids:
+            raise ValueError("sample selection is empty")
+        missing = selected_ids - known_sample_ids
+        if missing:
+            raise ValueError("sample ids not found: " + ", ".join(sorted(missing)))
+        samples = [sample for sample in samples if sample.name in selected_ids]
     matrix = matrix_identity(matrix_path)
     matrix_ids = set(matrix.get("sample_ids", []))
     profiles = ParameterProfiles()
@@ -303,7 +316,7 @@ def build_census(
     ledger_failures = validate_repair_ledger(ledger, family_keys)
     ledger_failures.extend(validate_repair_references(
         ledger,
-        {sample.name for sample in samples},
+        known_sample_ids,
         REPOSITORY_ROOT,
     ))
     family_rows = _family_rollup(all_occurrences, ledger)
@@ -314,7 +327,7 @@ def build_census(
     failed_count = len(sample_rows) - parsed_count
     discovered_ids = [sample.name for sample in samples]
     added = sorted(set(discovered_ids) - matrix_ids)
-    removed = sorted(matrix_ids - set(discovered_ids))
+    removed = sorted(matrix_ids - known_sample_ids)
     texture_occurrences = [
         item for item in all_occurrences if item["domain"] == "texture"
     ]
@@ -432,7 +445,7 @@ def build_census(
             "parsed_sample_count": parsed_count,
             "failed_sample_count": failed_count,
             "matrix_sample_count": len(matrix_ids),
-            "matrix_coverage_state": "current" if not added and not removed else "pending-expansion",
+            "matrix_coverage_state": "current" if known_sample_ids == matrix_ids else "pending-expansion",
             "added_since_matrix": added,
             "removed_since_matrix": removed,
             "occurrence_count": len(all_occurrences),
@@ -549,6 +562,10 @@ def build_census(
             },
         },
     }
+    if sample_ids is not None:
+        result["snapshot"]["inputs"].update(
+            scope="subset", selected_sample_ids=discovered_ids
+        )
     digest_input = json.loads(json.dumps(result, ensure_ascii=False))
     digest_input["validation"]["determinism"]["payload_sha256"] = None
     result["validation"]["determinism"]["payload_sha256"] = canonical_sha256(digest_input)
@@ -564,6 +581,15 @@ def _report_output_paths(args: argparse.Namespace) -> tuple[Path, Path, Path]:
         else overview.with_name("scene-corpus-sample-inventory.md")
     )
     outputs = (snapshot, overview, samples)
+    if getattr(args, "sample_ids", None) is not None:
+        full_outputs = {path.resolve() for path in (
+            DEFAULT_SNAPSHOT, DEFAULT_MARKDOWN, DEFAULT_SAMPLE_MARKDOWN
+        )}
+        if any(path.resolve() in full_outputs for path in outputs):
+            raise ValueError(
+                "subset scan requires dedicated --snapshot/--markdown/detail outputs; "
+                "default full-corpus outputs are protected"
+            )
     ensure_outputs_outside_roots(outputs, [args.samples_root, args.stock_root])
     return outputs
 
@@ -591,6 +617,7 @@ def generate(args: argparse.Namespace) -> int:
     census = build_census(
         args.samples_root, args.stock_root, args.matrix, args.ledger,
         getattr(args, "family_map", DEFAULT_FAMILY_MAP),
+        sample_ids=getattr(args, "sample_ids", None),
     )
     if census["validation"]["failures"]:
         print(json.dumps(census["validation"], ensure_ascii=False, indent=2), file=sys.stderr)
@@ -619,6 +646,7 @@ def verify(args: argparse.Namespace) -> int:
     expected = build_census(
         args.samples_root, args.stock_root, args.matrix, args.ledger,
         getattr(args, "family_map", DEFAULT_FAMILY_MAP),
+        sample_ids=getattr(args, "sample_ids", None),
     )
     failures = list(expected["validation"]["failures"])
     payloads = _report_payloads(expected, outputs)
@@ -704,6 +732,10 @@ def parse_args(argv: Iterable[str] | None = None) -> argparse.Namespace:
         subparser.add_argument("--family-map", type=Path, default=DEFAULT_FAMILY_MAP)
         if command != "query":
             subparser.add_argument(
+                "--sample-id", dest="sample_ids", action="append",
+                help="observe only this sample directory ID; repeat for a subset with dedicated outputs",
+            )
+            subparser.add_argument(
                 "--snapshot",
                 type=Path,
                 default=DEFAULT_SNAPSHOT,
@@ -711,10 +743,7 @@ def parse_args(argv: Iterable[str] | None = None) -> argparse.Namespace:
             subparser.add_argument(
                 "--markdown",
                 type=Path,
-                default=(
-                    REPOSITORY_ROOT
-                    / "docs/scene/capabilities/scene-corpus-capability-inventory.md"
-                ),
+                default=DEFAULT_MARKDOWN,
             )
             subparser.add_argument(
                 "--sample-markdown",

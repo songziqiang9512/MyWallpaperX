@@ -16,6 +16,9 @@ def render_markdown(
 ) -> str:
     summary = census["summary"]
     samples = census["samples"]
+    inputs = census.get("snapshot", {}).get("inputs", {})
+    subset = inputs.get("scope") == "subset"
+    snapshot_location = "本次专用 snapshot" if subset else "`.artifacts/scene-evidence/census/scene_capability_census_snapshot.json`"
     family_rows = sorted(
         census["families"],
         key=lambda value: (
@@ -45,18 +48,24 @@ def render_markdown(
         )
     anomaly_summary = "；".join(anomaly_lines) or "无"
     lines = [
-        "# Scene 全样本能力分类与修复事件台账",
+        "# Scene 子集能力分类与修复事件台账" if subset else "# Scene 全样本能力分类与修复事件台账",
         "",
+        *([
+            "> 子集观察：只统计所选ID，未与旧缓存合并，不代表完整corpus。",
+            f"> 所选ID：`{', '.join(inputs['selected_sample_ids'])}`。",
+            "> 所选新增仅指本子集与matrix的差集；full-matrix状态比较完整目录ID与matrix成员，不表示未选输入已扫描。",
+            "",
+        ] if subset else []),
         "> 状态：现役 corpus 事实、公共结构影响面与修复事件索引。",
         ">",
-        f"> 本页由 `script/scene_capability_census.py` 从只读 authored corpus 生成；逐样本材料事实见[静态清单]({sample_markdown_link})。完整 family、样本归属、参数/字段 profile、compact layer/pass/slot occurrence index 与守恒摘要在 `.artifacts/scene-evidence/census/scene_capability_census_snapshot.json`。资源 identity 和详细 owner 事实仅在显式 `query --live` 时从私有 corpus 重建。系统 current capability 只以 `coverage-ledger.md` 为摘要，逐项合同/专题内等级以专项表为准，App/GPU/ROI 证据仍以 `runtime-evidence-current.md` 为准。",
+        f"> 本页由 `script/scene_capability_census.py` 从只读 authored corpus 生成；逐样本材料事实见[静态清单]({sample_markdown_link})。完整 family、样本归属、参数/字段 profile、compact layer/pass/slot occurrence index 与守恒摘要在 {snapshot_location}。资源 identity 和详细 owner 事实仅在显式 `query --live` 时从私有 corpus 重建。系统 current capability 只以 `coverage-ledger.md` 为摘要，逐项合同/专题内等级以专项表为准，App/GPU/ROI 证据仍以 `runtime-evidence-current.md` 为准。",
         "",
         "## 1. 当前结论",
         "",
-        f"- 当前真实 Scene 根发现 **{summary['discovered_sample_count']}** 个样本，**{summary['parsed_sample_count']}/{summary['discovered_sample_count']}** 的 project、PKGV 索引和入口 JSON 可解析。",
+        f"- {'本次所选子集观察' if subset else '当前真实 Scene 根发现'} **{summary['discovered_sample_count']}** 个样本，**{summary['parsed_sample_count']}/{summary['discovered_sample_count']}** 的 project、PKGV 索引和入口 JSON 可解析。",
         f"- tracked full-matrix baseline 当前覆盖 **{summary['matrix_sample_count']}** 个历史成员，状态为 `{summary['matrix_coverage_state']}`；该成员关系不表示本轮新增或从未运行。实际播放与人工裁决见[验收台账](scene-sample-acceptance-ledger.md)，本 census 不 join 运行证据。",
-        f"- 全量 authored census 共保存 **{summary['occurrence_count']}** 个 typed occurrence、**{summary['family_count']}** 个公共结构 family、**{summary['parameter_profile_count']}** 个参数 profile 与 **{summary['schema_field_profile_count']}** 个 JSON 字段 profile。",
-        f"- 物理 corpus 共 **{summary['package_entry_count']}** 个 PKG entry / **{summary['package_unique_path_count']}** 个唯一路径，包体约 **{summary['package_byte_count'] / 1_000_000_000:.3f} GB**；tracked baseline 在单独的 milestone 扩容并建立运行期待前仍为 {summary['matrix_sample_count']}，期间不得称为当前完整快照门。",
+        f"- {'子集' if subset else '全量'} authored census 共保存 **{summary['occurrence_count']}** 个 typed occurrence、**{summary['family_count']}** 个公共结构 family、**{summary['parameter_profile_count']}** 个参数 profile 与 **{summary['schema_field_profile_count']}** 个 JSON 字段 profile。",
+        f"- {'所选子集' if subset else '物理 corpus'} 共 **{summary['package_entry_count']}** 个 PKG entry / **{summary['package_unique_path_count']}** 个唯一路径，包体约 **{summary['package_byte_count'] / 1_000_000_000:.3f} GB**；tracked baseline 在单独的 milestone 扩容并建立运行期待前仍为 {summary['matrix_sample_count']}，期间不得称为当前完整快照门。",
         f"- package anomaly：{anomaly_summary}；重复entry继续保留在物理守恒中，不是漏扫。",
         f"- 结构 fallback 记录为 **{summary['unclassified_count']}**，另有 **{summary['generic_or_unknown_family_count']}** 个 generic/unknown/unresolved family；两者都不是运行失败数。本 census 未 join 运行证据的样本，其第一 blocker 保持 `unknown`，不得从静态形态猜测。",
         "- 开发按“真实可见链第一断裂边覆盖的共享 family”排序；大类用于汇总，不允许把所有纹理、Effect 或粒子一次性做成巨型补丁。",
@@ -201,9 +210,9 @@ def render_markdown(
             "",
         ]
     lines += [
-        "## 5. 全部样本清单",
+        "## 5. 所选样本清单" if subset else "## 5. 全部样本清单",
         "",
-        f"逐样本的对象、Effect、粒子、occurrence 与人工材料状态见[全样本静态明细]({sample_markdown_link})。此处只导航，实际播放与视觉裁决仍归[验收台账](scene-sample-acceptance-ledger.md)。",
+        f"逐样本的对象、Effect、粒子、occurrence 与人工材料状态见[{'子集' if subset else '全样本'}静态明细]({sample_markdown_link})。此处只导航，实际播放与视觉裁决仍归[验收台账](scene-sample-acceptance-ledger.md)。",
         "解析失败的目录仍在明细中保留 identity、失败原因与实际材料事实；零计数不表示已成功播放。",
     ]
     lines += [
@@ -266,6 +275,11 @@ def render_markdown(
         "4. 先核对官方作者合同和现有固定证据；只有材料不足以解释 producer-to-consumer 结构时才按需固定 MirageWallpaper revision，并记录实际读取模块与 divergence。第三方参考不是每批前置，也不提供算法真值。",
         "5. 同批实现公共代码、synthetic 正反门和与声明相称的代表运行门；只有具体 fidelity 修复才强制真实 ROI。再写 repair event 和必要的专项文档，不建立样本专用分支，也不复制第三方算法或 payload。",
         "6. `targeted_samples` 与 `regression_gates` 是后续必须重跑的 sentinel 合同；触达同 family 或它依赖的 selection/Program/publication/composition 时必须执行，不能用新的 aggregate count 覆盖旧视觉正证。",
+    ]
+    if subset:
+        lines += ["", "重跑本子集须重复指定上述 `--sample-id`，并为 generate/verify 使用专用 snapshot/markdown 输出；不覆盖默认全量输出。"]
+        return "\n".join(lines)
+    lines += [
         "",
         "生成命令：",
         "",
@@ -295,11 +309,19 @@ def render_sample_markdown(
     snapshot_sha256: str | None = None,
 ) -> str:
     summary = census["summary"]
+    inputs = census.get("snapshot", {}).get("inputs", {})
+    subset = inputs.get("scope") == "subset"
     lines = [
         "<!-- document-role: current-state -->",
         "",
-        "# Scene 全样本静态明细",
+        "# Scene 子集静态明细" if subset else "# Scene 全样本静态明细",
         "",
+        *([
+            "> 子集观察：只统计所选ID，未与旧缓存合并，不代表完整corpus。",
+            f"> 所选ID：`{', '.join(inputs['selected_sample_ids'])}`。",
+            "> 所选新增仅指本子集与matrix的差集；full-matrix状态比较完整目录ID与matrix成员，不表示未选输入已扫描。",
+            "",
+        ] if subset else []),
         f"本页由{summary['discovered_sample_count']}目录的同一次静态观察投影；统计方法、family 及参数汇总归[声明统计]({overview_link})。每行只记作者声明和材料是否存在，不判断缺能力或视觉通过；播放与人工裁决归[验收台账](scene-sample-acceptance-ledger.md)。",
         f"{summary['parsed_sample_count']}个可解析；解析失败目录也保留，零计数不表示成功播放。末列仅记旧{summary['matrix_sample_count']}个 matrix 成员，不表示从未运行或本轮新增。作者 preview 不能代替官方金标。",
     ]

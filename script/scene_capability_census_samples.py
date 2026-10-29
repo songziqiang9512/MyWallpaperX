@@ -521,7 +521,8 @@ def _sample_census(
     schema: SchemaInventory,
 ) -> tuple[dict[str, Any], list[dict[str, Any]], list[dict[str, Any]], list[dict[str, Any]]]:
     sample_id = sample.name
-    tree_sha, file_count, byte_count = tree_manifest(sample)
+    file_digests: dict[Path, str] = {}
+    tree_sha, file_count, byte_count = tree_manifest(sample, file_digests=file_digests)
     project_path = sample / "project.json"
     base = {
         "sample_id": sample_id,
@@ -568,8 +569,9 @@ def _sample_census(
         "project_type": project_type,
         "entry_path": entry_name,
         "package_file": package_path.name,
-        "project_sha256": sha256_file(project_path),
-        "package_sha256": sha256_file(package_path) if package_path.is_file() else None,
+        "project_sha256": file_digests.get(project_path) or sha256_file(project_path),
+        "package_sha256": (file_digests.get(package_path) or sha256_file(package_path))
+            if package_path.is_file() else None,
         "package_byte_count": package_path.stat().st_size if package_path.is_file() else 0,
         "preview_file": project.get("preview") if isinstance(project.get("preview"), str) else None,
     })

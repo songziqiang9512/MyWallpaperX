@@ -88,7 +88,9 @@ def safe_relative_path(raw: str) -> str | None:
     return normalized
 
 
-def tree_manifest(root: Path) -> tuple[str, int, int]:
+def tree_manifest(
+    root: Path, *, file_digests: dict[Path, str] | None = None
+) -> tuple[str, int, int]:
     digest = hashlib.sha256()
     file_count = 0
     byte_count = 0
@@ -99,9 +101,12 @@ def tree_manifest(root: Path) -> tuple[str, int, int]:
             continue
         relative = path.relative_to(root).as_posix()
         size = path.stat().st_size
+        file_digest = sha256_file(path)
+        if file_digests is not None:
+            file_digests[path] = file_digest
         digest.update(relative.encode("utf-8"))
         digest.update(b"\0")
-        digest.update(sha256_file(path).encode("ascii"))
+        digest.update(file_digest.encode("ascii"))
         digest.update(b"\0")
         digest.update(str(size).encode("ascii"))
         digest.update(b"\n")

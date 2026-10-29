@@ -28,6 +28,10 @@ CLI / build_census 唯一遍历与守恒
 
 原 `generate / verify / query`、缓存优先及显式live语义保留。新增可选 `--sample-markdown`；未提供时从 `--markdown` 所在目录派生 `scene-corpus-sample-inventory.md`，自定义总览输出不能悄悄写入仓库默认明细。旧Namespace调用缺新属性也用同一规则。具体参数以 `--help` 为准。
 
+`generate/verify --sample-id <目录ID>` 可重复指定显式子集；在任何单样本读取前筛选，缺失ID报错，不读取未选样本。子集必须指定专用 snapshot/markdown 输出，三项输出不得覆盖默认全量路径；snapshot和两页明确记录子集范围与所选ID，本次声明/资源计数仅归该子集。repair样本引用、matrix删除成员及full-matrix覆盖状态仍按根目录发现的完整ID集合判断，仅枚举目录不读取未选包；所选新增差集与全根matrix状态分别表达。默认全量语义与 `query --sample` 的结果过滤语义保持；子集不合并旧缓存，也不冒充更新后的完整corpus。新增样本先单列声明/能力并集，再沿原runner短log筛查，旧基线保留。
+
+单样本 tree manifest 已读取的文件摘要在本次观察内供 project/package identity 复用；manifest与identity值不变，不建立跨事务缓存或新增播放认证。
+
 ## 失败、写入与退出
 
 1. 构建前校验snapshot、总览、明细的resolved路径均不在只读输入根，且三者不互相覆盖；符号链接按实际目标判断。
