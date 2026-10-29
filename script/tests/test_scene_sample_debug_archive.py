@@ -122,6 +122,69 @@ class SceneSampleDebugArchiveTests(unittest.TestCase):
                 _json(path)
             self.assertIsInstance(raised.exception.__cause__, OSError)
 
+    def test_append_normalizes_only_disjoint_subset_and_keeps_base_rows(self) -> None:
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            samples = root / "Scene"
+            (samples / "10").mkdir(parents=True)
+            old_snapshot = self._write(root / "old-census.json", {"samples": [{
+                "sample_id": "10", "parse_state": "parsed", "title": "Old",
+            }]})
+            old_report = self._write(root / "old-report.json", {
+                "app_identity": {"executable_sha256": "old-app"},
+                "samples": [{"id": "10", "passed": False, "runtime": {}}],
+            })
+            original = build_archive(samples, old_snapshot, [old_report])
+            base = self._write(root / "base.json", original)
+            base_bytes = base.read_bytes()
+            old_snapshot.unlink()
+            old_report.unlink()
+            (samples / "20").mkdir()
+            subset_value = {
+                "snapshot": {"inputs": {"scope": "subset"}},
+                "samples": [{"sample_id": "20", "parse_state": "parsed"}],
+            }
+            subset = self._write(root / "subset.json", subset_value)
+            new_report_value = {
+                "app_identity": {"executable_sha256": "new-app"},
+                "samples": [{"id": "20", "passed": True, "runtime": {}}],
+            }
+            new_report = self._write(root / "new-report.json", new_report_value)
+            real_open = Path.open
+
+            def forbid_old_reads(path: Path, *args: object, **kwargs: object):
+                if path in (old_snapshot, old_report):
+                    raise AssertionError(f"old observation reopened: {path}")
+                return real_open(path, *args, **kwargs)
+
+            with patch.object(Path, "open", forbid_old_reads):
+                merged = build_archive(samples, subset, [new_report], base_archive_path=base)
+
+            self.assertEqual(base.read_bytes(), base_bytes)
+            self.assertEqual(merged["samples"][0], original["samples"][0])
+            self.assertEqual(merged["reports"][:1], original["reports"])
+            self.assertEqual(merged["source"]["baseArchive"]["sha256"], hashlib.sha256(base_bytes).hexdigest())
+            self.assertEqual(merged["source"]["censusSnapshot"]["sampleCount"], 1)
+            self.assertEqual(merged["source"]["censusSnapshot"]["scope"], "subset")
+            self.assertEqual(merged["summary"]["sampleCount"], 2)
+            self.assertEqual(merged["summary"]["reportedSampleCount"], 2)
+            self.assertEqual(sum(merged["summary"]["statusCounts"].values()), 2)
+            self.assertEqual(merged["appIdentities"], [
+                {"executable_sha256": "old-app"}, {"executable_sha256": "new-app"},
+            ])
+
+            for label, static_rows, report_rows, expected in (
+                ("overlap", [{"sample_id": "10"}], [{"id": "10"}], "overlap"),
+                ("gap", [], [], "mismatch"),
+                ("duplicate", [{"sample_id": "20"}, {"sample_id": "20"}], [{"id": "20"}], "duplicate census"),
+                ("outside-report", [{"sample_id": "20"}], [{"id": "10"}], "outside"),
+            ):
+                with self.subTest(label=label):
+                    self._write(subset, {**subset_value, "samples": static_rows})
+                    self._write(new_report, {**new_report_value, "samples": report_rows})
+                    with self.assertRaisesRegex(ValueError, expected):
+                        build_archive(samples, subset, [new_report], base_archive_path=base)
+
 
 if __name__ == "__main__":
     unittest.main()

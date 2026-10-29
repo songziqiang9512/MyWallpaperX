@@ -55,3 +55,26 @@
 本批发现普通O0 Debug是可避免的筛查耗时来源，故后续默认采用现优化诊断profile，仅重试未决例；每个普通样本仍只跑4秒，不统一拉长时窗。队列按公共首断点替换“新增81未跑”，旧具体视觉反馈保留待同状态复验，不据日志健康销账。
 
 生成台账时移除“已移走样本还必须出现在当前运行archive”的检查：历史裁决保原overlay，不计当前分母；不新增存储或把缺目录改成运行成功。最近行为门同时覆盖当前archive有/无该历史ID时，当前行相同且overlay字节不变。
+
+<a id="incremental-38-20261029"></a>
+## 新增38份的增量观察
+
+随后根目录为491，与保留453基线相比新增38、删除0；新包两次大小/mtime观察无变化，不把它当内容认证。沿原census显式子集只读一次，11.094秒：38份均可解析，21036声明点、887结构family、734参数profile、1870字段profile、1120 effects、125粒子层、4378包内entry/路径，未分类与包异常均0。与旧基线比较新增280个family，集合并集5158；19类粗能力及一条主链/五类prepared产品/九类视觉路线与Sound旁路不变。此为旧453与新38的集合观察，不是新鲜完整491 compact快照；原声明双页与完整缓存保留453身份，未重读旧包或拼接丢失的occurrence refs。
+
+同一签名优化DEBUG App，源`157fc9aa7`、executable `08cf95c6…93c31b`、CDHash `8a1967f3…b4a76db`；jobs4、Ready后4秒、标准PCM、pointer outside、无PNG请求。38份共147.853秒，31 strict PASS、7 strict诊断FAIL；全部Ready/exit0，无timeout，stop surface1→0且GPU drained。并发争用下的时间不作启动/CPU/GPU性能对照，日志健康不授视觉通过。
+
+七份告警须按实际consumer分流，不能整体记成缺图：
+
+| 观察 | 当前归属与边界 |
+|---|---|
+| 3186328539 | 媒体源1045 frame0未ready；effect alpha输出0，随后effective visibility=false，隐藏原因未资格。此告警不是已证可见失败。 |
+| 3382111183 /3383210272 | 活动change3d在frontend拒vec3→vec2返回；3382111183另有粒子未准备，分别记录，不以空媒体文字归Script故障。 |
+| 3622727585 | 活动better_blend被generic-owner-revoked拒绝，额外attribute仅声明未读，却挡住固定顶点ABI准入；尚未取得候选编译或输出，不直接扩大顶点输入。 |
+| 3737267090 /3828126394 | 活动oscilloscope分别止于同名uniform binding alias和宏重定义准备。373的utility 4→3对应默认关闭的186；scene-color-completed属成功promotion记录，不混为实际capture失败。 |
+| 3382111183 /3566323704 | 粒子loading incomplete，先核每层资源、有效显隐及原typed模块边界；不把所有候选未加载都判缺能力。 |
+
+38份均未见VM异常、typed owner拒绝或非零Script teardown failure。7份共63个script wrapper、61个teardown owner、30个首次completed target是不同维度，不以数量差推未支持。21个作者Sound源均admitted/Ready且clock推进，另17份无Sound声明；未验可听播放。默认空媒体文字等待真实媒体事件，PCM不提供标题/封面；未触发的hover、热改、animationEvent及长Timeline不新增为缺口。
+
+原archive增加可选base入口，仅新38沿既有normalizer投影；旧453行按值完全保留、原人工overlay字节不变，491行均有运行关联，原19个视觉fail保留，其余472 unreviewed。base副本和本次subset来源分别保留SHA，summary由合并行产生，不恢复或重新归一旧日志。最近17个archive/ledger行为方法通过，审查指出的重复census ID静默覆盖已在读取入口修正并单独复验，不为派生展示字段增加第二认证。新增运行只更新这38份；旧453后继修复不被追认为本轮重验。
+
+必要声明、原报告/日志/runtime JSON、归因、旧base输入、行保留与来源收据归本机`corpus-incremental-20261029`正式证据包；普通14天、单包32MiB，不保留Workshop副本/HOME/App/PNG。后继未闭项只并入原队列的frontend、粒子和诊断观察职责，不另建样本专用清单；下一修复先确认活动effect的真实消费者和通用拒绝原因。

@@ -101,6 +101,8 @@ def build_archive(
     samples_root: Path,
     snapshot_path: Path,
     report_paths: Sequence[Path],
+    *,
+    base_archive_path: Path | None = None,
 ) -> dict[str, Any]:
     if not snapshot_path.is_file():
         raise ValueError(
@@ -125,10 +127,36 @@ def build_archive(
     for row in static_rows:
         if not isinstance(row, Mapping) or not isinstance(row.get("sample_id"), str):
             raise ValueError(f"census snapshot has malformed sample row: {snapshot_path}")
+        if row["sample_id"] in static_by_id:
+            raise ValueError(f"duplicate census sample: {row['sample_id']}")
         static_by_id[row["sample_id"]] = row
-    if set(static_by_id) != set(sample_ids):
-        missing = sorted(set(sample_ids) - set(static_by_id))
-        extra = sorted(set(static_by_id) - set(sample_ids))
+    base: Mapping[str, Any] = {}
+    retained: dict[str, dict[str, Any]] = {}
+    base_source: dict[str, Any] = {}
+    if base_archive_path is not None:
+        base, base_sha = _json(base_archive_path)
+        if (base.get("kind") != "scene-sample-debug-archive"
+                or base.get("claimBoundary") != CLAIM_BOUNDARY
+                or not isinstance(base.get("samples"), list)):
+            raise ValueError(f"invalid base archive: {base_archive_path}")
+        for row in base["samples"]:
+            if not isinstance(row, dict) or not isinstance(row.get("id"), str):
+                raise ValueError(f"malformed base archive sample: {base_archive_path}")
+            if row["id"] in retained:
+                raise ValueError(f"duplicate base archive sample: {row['id']}")
+            retained[row["id"]] = row
+        if set(retained) & set(static_by_id):
+            raise ValueError("base archive and new census sample IDs overlap")
+        if snapshot.get("snapshot", {}).get("inputs", {}).get("scope") != "subset":
+            raise ValueError("base archive append requires an explicit subset census")
+        base_source = {"baseArchive": {
+            "path": str(base_archive_path), "sha256": base_sha,
+            "sampleCount": len(retained),
+        }}
+    observed_ids = set(retained) | set(static_by_id)
+    if observed_ids != set(sample_ids):
+        missing = sorted(set(sample_ids) - observed_ids)
+        extra = sorted(observed_ids - set(sample_ids))
         raise ValueError(
             f"census/sample-root mismatch: missing={missing[:5]} extra={extra[:5]}"
         )
@@ -153,6 +181,8 @@ def build_archive(
             if not isinstance(sample, Mapping) or not isinstance(sample.get("id"), str):
                 raise ValueError(f"malformed sample in benchmark report: {report_path}")
             sample_id = sample["id"]
+            if base_archive_path is not None and sample_id not in static_by_id:
+                raise ValueError(f"new report sample is outside the subset census: {sample_id}")
             if sample_id in raw_by_id:
                 raise ValueError(f"duplicate sample id across reports: {sample_id}")
             raw_by_id[sample_id] = (report_path, report_sha, index, sample)
@@ -172,19 +202,16 @@ def build_archive(
     }
 
     archive_samples: list[dict[str, Any]] = []
-    status_counts: Counter[str] = Counter()
-    breakpoint_counts: Counter[str] = Counter()
     for sample_id in sample_ids:
+        if sample_id in retained:
+            archive_samples.append(retained[sample_id])
+            continue
         row = static_by_id[sample_id]
         observation = observations.get(sample_id)
         status = _sample_status(observation)
         first = observation.get("firstBreakpoint") if observation else None
         if not isinstance(first, Mapping):
             first = None
-        status_counts[status] += 1
-        if first:
-            key = f"{first.get('stage', 'unknown-stage')}:{first.get('reasonCode', 'unknown-reason')}"
-            breakpoint_counts[key] += 1
 
         runtime: dict[str, Any] = {
             "status": status,
@@ -235,17 +262,27 @@ def build_archive(
             "nextAction": _next_action(status, first),
         })
 
-    app_identities = [
+    status_counts: Counter[str] = Counter()
+    breakpoint_counts: Counter[str] = Counter()
+    for row in archive_samples:
+        status_counts[row["runtime"]["status"]] += 1
+        first = row["runtime"].get("firstBreakpoint")
+        if first:
+            key = f"{first.get('stage', 'unknown-stage')}:{first.get('reasonCode', 'unknown-reason')}"
+            breakpoint_counts[key] += 1
+    app_identities = list(base.get("appIdentities", []))
+    app_identities.extend(
         report.get("app_identity")
         for report in reports
         if isinstance(report.get("app_identity"), Mapping)
-    ]
+    )
     return {
         "schemaVersion": 1,
         "kind": "scene-sample-debug-archive",
         "claimBoundary": CLAIM_BOUNDARY,
         "generatedAtUtc": datetime.now(timezone.utc).isoformat(),
         "source": {
+            **base_source,
             "samplesRoot": str(samples_root),
             "sampleCount": len(sample_ids),
             "sampleIdManifestSha256": _corpus_manifest(sample_ids),
@@ -253,6 +290,7 @@ def build_archive(
                 "path": str(snapshot_path),
                 "sha256": snapshot_sha,
                 "sampleCount": len(static_rows),
+                **({"scope": "subset"} if base_archive_path is not None else {}),
             },
             "previewOracleRegistry": {
                 "path": str(preview_oracle_registry_path),
@@ -260,11 +298,11 @@ def build_archive(
                 "registeredSampleCount": len(preview_oracle_uncontrolled),
             },
         },
-        "reports": report_meta,
+        "reports": [*base.get("reports", []), *report_meta],
         "appIdentities": app_identities,
         "summary": {
             "sampleCount": len(archive_samples),
-            "reportedSampleCount": len(raw_by_id),
+            "reportedSampleCount": sum(row["evidence"].get("report") is not None for row in archive_samples),
             "statusCounts": dict(sorted(status_counts.items())),
             "firstBreakpointCounts": dict(sorted(breakpoint_counts.items())),
             "normalizedDiagnosticClaim": normalized.get("claimBoundary"),
@@ -277,6 +315,7 @@ def parse_args(argv: Sequence[str] | None = None) -> argparse.Namespace:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--samples-root", type=Path, default=DEFAULT_SAMPLES_ROOT)
     parser.add_argument("--snapshot", type=Path, default=DEFAULT_SNAPSHOT)
+    parser.add_argument("--base-archive", type=Path)
     parser.add_argument("--report", type=Path, action="append", required=True)
     parser.add_argument("--output", type=Path, required=True)
     return parser.parse_args(argv)
@@ -289,6 +328,7 @@ def main(argv: Sequence[str] | None = None) -> int:
             args.samples_root.expanduser().resolve(),
             args.snapshot.expanduser().resolve(),
             [path.expanduser().resolve() for path in args.report],
+            base_archive_path=args.base_archive.expanduser().resolve() if args.base_archive else None,
         )
         args.output.parent.mkdir(parents=True, exist_ok=True)
         args.output.write_text(

@@ -91,6 +91,8 @@ launch失败/取消或closing后不请求新截图。该时间只约束DEBUG请�
 
 人工裁决由原overlay独立保存。已移除样本只列历史ID，不进入当前目录行和分母；无需当前运行archive继续携带该ID，不能因此阻断其余台账生成。裁决类型/必需日期等入口校验保持，不自动改视觉结论。
 
+新增样本的运行归档可用原 `scene_sample_debug_archive --base-archive <旧archive>` 追加互不重叠的子集。旧行、原report身份与断点原样保留，仅新子集调用原normalizer和行投影；两组ID并集须等于当前目录，重复ID或缺口报错，不静默覆盖。source分别记录base archive与本次subset census身份，summary从合并行生成，原ledger照常join人工overlay。这是多次观察的归档，不是完整census重建；不恢复/重读旧日志，不另增扫描、归一或视觉裁决链。替换旧样本观察仍显式选择原report后按完整入口生成，不能借追加改旧事实。
+
 调用顺序如下；`current-matrix.json`只从本次snapshot的`samples[].sample_id`投影schema-1的`id`行，按需记录受控PCM等条件，不继承旧matrix的截图/性能期待。原始Scene父目录只读，runner按样本复制并及时清理，不能先复制整库再跑。
 
 ```sh

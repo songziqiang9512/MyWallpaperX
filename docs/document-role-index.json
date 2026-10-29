@@ -827,10 +827,10 @@
       "role": "navigation",
       "entrypoint": "docs/scene/README.md",
       "purpose": "按需链接所属专题的事实、合同与路线，不拥有当前能力结论。",
-      "lastReviewed": "2026-10-19",
+      "lastReviewed": "2026-10-29",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "60b40838d8bb9191e67a54d145d69057ca55fd1d9019b3d252f70fb092b0bf3d",
+        "sourceSHA256": "c9c1cdb0cdabd5a6f18f55d7fba58a5f74a87e79fdf30fa3101d8a99783e54aa",
         "method": "document_registry --audit + document_health --check",
         "scope": "Shared direct3D pose/XYZ stream and qualified imported clips; actual default34/crosssample image-static health; updated outstanding property and user edge feedback.",
         "limitations": "No fullsample/officialsamephase/audio-rate/conditional-selection/HDR/performance claim. Edge feedback remains open."
@@ -1109,10 +1109,10 @@
       "role": "current-state",
       "entrypoint": "docs/scene/capabilities/README.md",
       "purpose": "限定专题的实现状态、偏差或证据；运行结论须复核身份和边界，不决定任务顺序。",
-      "lastReviewed": "2026-10-24",
+      "lastReviewed": "2026-10-29",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "6f6a63221284448428338aa2296146f8c660539c2e139fb2cecba2229c547271",
+        "sourceSHA256": "898a78dff8f012ed9704df84a878d16b7cc984f221a8801caca6ae9c0f24838a",
         "method": "document_registry --audit + document_health --check",
         "scope": "Declared texture/RGB graph bounded change: route, queue retirement and archived runtime evidence reconciled with the same source/App identity.",
         "limitations": "Only this change and navigation reviewed; startup texture selection is not live-panel, full parity, HDR or performance acceptance."
@@ -1188,7 +1188,7 @@
       "lastReviewed": "2026-10-29",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "6b79521471c0146826e18229306896225685cb30bc66779d4a58609d9458656a",
+        "sourceSHA256": "96fbf238cc6d50f0f743a9caa8a183db8d654c0052076a583c3579815a6a965e",
         "method": "document_registry --audit + document_health --check",
         "scope": "One census and original DEBUG runner/normalizer/archive chain; optimized diagnostic profile, log-only Ready+4s, isolated bounded parallelism, stage evidence and independent historical verdicts.",
         "limitations": "Navigation and source review; actual short-window runtime identities and scoped tests are separately recorded. No visual, official parity or formal performance conclusion."
@@ -4467,7 +4467,7 @@
       "lastReviewed": "2026-10-29",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "a96eeaaaf381534a32a2a125aff2c2fbfa15d2ddfcded6a8bf8742839464dce2",
+        "sourceSHA256": "2326f21ebec2c23fe1a672a53f34234358e33811b3113554852b1b5b3cb39d76",
         "method": "document_registry --audit + document_health --check",
         "scope": "动态逻辑身份/slot共同回收合同与实际限定后验同步；修正旧64动态上限文案，337普通播放首错与性能资格分界、保净零出生待验。",
         "limitations": "导航收据不替代实际运行；原生C寿命与独立样本只按批次历史已验范围，动态视频/官方身份、HDR多屏及稳定整体性能仍未闭。"

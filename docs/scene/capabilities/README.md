@@ -55,7 +55,7 @@
 - [官方页面映射](../development/reference/official-page-map.md)：公开页面到合同 anchor 的入口；目录和 crosswalk 仅作按需交叉参考。
 - [官方客户端静态取证](../development/reference/client-runtime-static-forensics.md)：版本有界的研究观察，不是稳定实现合同。
 - [MirageWallpaper 静态研究](../development/reference/miragewallpaper-rendering-reference.md)：固定 revision 的参考研究，不定义官方语义或像素真值。
-- [Scene corpus 清单](scene-corpus-capability-inventory.md)：作者输入影响面，不证明当前运行支持。
+- [Scene corpus 清单](scene-corpus-capability-inventory.md)：保留的完整声明观察及作者输入影响面；后续新增见[增量观察](../history/corpus-log-audit-2026-10-29.md#incremental-38-20261029)，当前运行关联归原验收台账。声明不证明运行支持。
 
 研究资料按需阅读，不作为每批前置；可以在同一上下文研究后独立实现，不因阅读停工。不得直接复制、照译或移植参考实现，目标行为与验收仍归本项目现役合同。
 
