@@ -26,3 +26,12 @@
 必要身份、输入冻结、红绿/治理日志、实际报告及固定姿态修前/修后原图归主仓`.artifacts/scene-evidence/runs/model-view-tint-20261028-baseline/`与`model-view-tint-20261028-candidate/`。同阶段合成一包，均小于32MiB；报告保留原裁决并明确未归档的默认343重复截图。普通结果14天、总预算5GiB。两个已停止的staged App、HOME、样本副本与冗余结果当轮清理；连续后继只留一份构建缓存。
 
 343 的完整夜侧光色/宽暗区因果、MR/specular/pigment、间歇全屏闪烁与collision继续由现役队列拥有。未做CPU/GPU/启动收益比较，无性能收益结论。
+
+<a id="chroma-response-20261029"></a>
+## 2026-10-29 Chroma独立响应资格
+
+当前Cloud114声明chroma4、metallic=.1/roughness0、彩色specular tint和pigmentation.2，现consumer仍缺独立响应；不把它并入generic4或调整Earth总gain。新自有explicit albedo板、neutral tint/specular、pigment0、固定白directional/非零clear、SDR无Bloom，在同1000×650与实际sRGB ICC下得到真正PNG：r=.5正向、r=1正向、r=.5固定Y倾斜三臂中央RGB中位数分别107/66/45，两次静态捕获逐臂SHA相同，clear均32/32/64。Root另实看三原图确认灰板/倾斜；C近侧超出client，不认完整四角几何对齐。
+
+六图magic/解码均PNG，guest/host hash和ICC一致；没有把旧JPEG转壳或作为精确golden。只确认独立roughness与联合normal/view/light响应可用于最小设计，不能凭三点唯一求BRDF、拟gain或将generic4改名。未跑当前macOS同新载体；Cloud的r0/彩色specular/pigment、HDR/coverage及343完整夜侧均未资格，不关闭原用户反馈。
+
+协议、输入、固定官方身份、6张原始PNG、实际ICC、像素数据及helper失败/退出收据已归本机`.artifacts/scene-evidence/runs/chroma-response-qualification-20261029/metadata/`，普通14天/单包32MiB。首次PNG helper只读变量名错误在取像前失败，仅修变量名，未改场景/ROI；Windows自有预览/精确guest输入及本轮缓存已退出，主客户端与VM保持运行。下一步先沿原static material/shared surface职责设计，不新增渲染或资源owner，不据资格报告直接宣称产品修复。

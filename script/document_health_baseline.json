@@ -278,7 +278,7 @@
     },
     "docs/scene/roadmap/scene-open-breakpoint-queue.md": {
       "lines": 174,
-      "bytes": 36886
+      "bytes": 37109
     },
     "docs/web/cold-descriptor-parse-offload-design.md": {
       "lines": 30,
@@ -1840,15 +1840,6 @@
     },
     {
       "section": "bodies",
-      "path": "docs/scene/roadmap/scene-open-breakpoint-queue.md",
-      "before": "10f0fc38d00ce0bb7b1aafc03dd3926c476fcc7cb12edafe8cffab10f4d87aab",
-      "after": "5dc21b791a57346d0b74843df9be31b0e6821efb492b4a5fd9a7e5334d8cfdbc",
-      "owner": "Scene engine query owner",
-      "reason": "Record one proven public desktop query, retire its missing-method item, retain actual downstream consumers and the unqualified perspective positive control without full-scene claims.",
-      "decision": "docs/scene/history/open-breakpoint-reconciliation-2026-10-23.md#engine-screensaver-20261029"
-    },
-    {
-      "section": "bodies",
       "path": "docs/scene/capabilities/scene-sample-acceptance-ledger.md",
       "before": "1bddab26a38a000b4192841f351d2a929d46bd5508fe19945590d3a5a4d4e426",
       "after": "d1d87bf10e93defb31164ddc22c467e8c009d5f9126515029a45ad9c86e37479",
@@ -1873,6 +1864,15 @@
       "owner": "Scene authored sound reference",
       "reason": "Replace creator ownership with the existing authored referent policy for prepared Sound only, preserve executing journals and other attached capability limits, and retain downstream mutation failures.",
       "decision": "docs/scene/roadmap/batch2/script-component-api-design.md#authored-sound-reference"
+    },
+    {
+      "section": "bodies",
+      "path": "docs/scene/roadmap/scene-open-breakpoint-queue.md",
+      "before": "02cb03442dfadd4d1b762133b21dac5be7e7280ec88e947effb0328bcac2b21c",
+      "after": "589b494b153a919ae54355e2e0c94d39ca78bcf2302e6ef35b65fc1f5401ca7d",
+      "owner": "Scene Chroma qualification",
+      "reason": "Replace stale JPEG-only qualification with bounded true-PNG response evidence while preserving unresolved Cloud and whole-Earth behavior.",
+      "decision": "docs/scene/history/model-view-tint-2026-10-28.md#chroma-response-20261029"
     }
   ]
 }
