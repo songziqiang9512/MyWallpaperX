@@ -536,7 +536,7 @@
       "owner": "scene-video-assets",
       "status": "approved",
       "designDoc": "docs/scene/capabilities/material-video-assets.md",
-      "design_notes": "材质asset/fallback已接原媒体owner；同页video-position-publication设计复用Source单一定位屏障，保Lifecycle clock；普通drop退出backend anchor/event旧快照回滚，仅首次start另管。未发布decoded payload单份有界复用，发布仍只commit；property priming独立。同页video-consumer-demand仍待逻辑起点/clock/loop/EOF、脚本观测与跨屏资格，不skip prepare、借全局pause或合并intent；动态constructor另立实例/拓扑切片。批准不代表实施或收益。 2026-10-29同页#video-switch-presentation先行批准普通视频真实来源替换的有界呈现保留：原GPU/媒体事务正常commit，只延后present，保clock/paused资源重试；现Source incarnation不被新layerID或改选续期，ready/失败/取消/250ms退出。不是startup冻结、全屏copy或新history；实际画面与资源收益另验。",
+      "design_notes": "材质asset/fallback已接原媒体owner；同页video-position-publication设计复用Source单一定位屏障，保Lifecycle clock；普通drop退出backend anchor/event旧快照回滚，仅首次start另管。未发布decoded payload单份有界复用，发布仍只commit；property priming独立。同页video-consumer-demand仍待逻辑起点/clock/loop/EOF、脚本观测与跨屏资格，不skip prepare、借全局pause或合并intent；动态constructor另立实例/拓扑切片。批准不代表实施或收益。 2026-10-29同页#video-switch-presentation先行批准普通视频真实来源替换的有界呈现保留：原GPU/媒体事务正常commit，只延后present，保clock/paused资源重试；现Source incarnation不被新layerID或改选续期，ready/失败/取消/250ms退出。不是startup冻结、全屏copy或新history；实际画面与资源收益另验。 2026-10-30输出关联/资源退休原型已因原包非目标footprint峰值退步NO-GO，全部产品/临时观测/候选门退出；反证归video-instance-observations-2026-10-29.md#video-output-residency-20261030。此登记不授予重新实施该原型或性能收益，后继须新物理驻留/供帧依据。",
       "matchPatterns": [
         "MyWallpaperX/Core/SteamWorkshopScene/Resources/Providers/SceneVideo*.swift",
         "MyWallpaperX/Core/SteamWorkshopScene/Resources/Textures/SceneMaterialAssetTextureCatalog.swift",

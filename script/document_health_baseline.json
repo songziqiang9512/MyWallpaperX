@@ -130,7 +130,7 @@
     },
     "docs/scene/capabilities/material-video-assets.md": {
       "lines": 48,
-      "bytes": 9941
+      "bytes": 10140
     },
     "docs/scene/capabilities/particle-component-coverage.md": {
       "lines": 509,
@@ -266,7 +266,7 @@
     },
     "docs/scene/roadmap/performance-convergence-card.md": {
       "lines": 70,
-      "bytes": 19177
+      "bytes": 19267
     },
     "docs/scene/roadmap/properties-panel-card.md": {
       "lines": 45,
@@ -277,8 +277,8 @@
       "bytes": 22423
     },
     "docs/scene/roadmap/scene-open-breakpoint-queue.md": {
-      "lines": 176,
-      "bytes": 38336
+      "lines": 177,
+      "bytes": 38741
     },
     "docs/web/cold-descriptor-parse-offload-design.md": {
       "lines": 30,
@@ -1705,24 +1705,6 @@
     },
     {
       "section": "bodies",
-      "path": "docs/scene/capabilities/material-video-assets.md",
-      "before": "2c31888e57a2741d6f1016f4c0fe50feae56fa5f4d966596f93dbaf00070bd6c",
-      "after": "f6e39762fbd800f923245998375c6a8975f87511bcd469263bfd81a9cb44459f",
-      "owner": "scene-video-runtime",
-      "reason": "新增通用动态MP4和真实视频替换的有界呈现合同，同步当前能力及AV池剩余；设计先落库，原修复过程归历史，未扩官方未知。",
-      "decision": "docs/scene/capabilities/material-video-assets.md#video-switch-presentation"
-    },
-    {
-      "section": "bodies",
-      "path": "docs/scene/roadmap/performance-convergence-card.md",
-      "before": "fea8d0e8f7875d4e629081a03120fceaa0a2fccf7029b29f4d6506dfdc7aa78b",
-      "after": "bb7499f0f414fa3b05d705addfd69bd0bb20fb28098f1c11b7b35d75b94dda7b",
-      "owner": "scene-video-runtime",
-      "reason": "新增通用动态MP4和真实视频替换的有界呈现合同，同步当前能力及AV池剩余；设计先落库，原修复过程归历史，未扩官方未知。",
-      "decision": "docs/scene/capabilities/material-video-assets.md#video-switch-presentation"
-    },
-    {
-      "section": "bodies",
       "path": "docs/scene/capabilities/scene-corpus-capability-inventory.md",
       "before": "d38d6228b282e4b2020a67538eea2d17324f7f0913ed9058a33dca8be65ef705",
       "after": "d6faa722ab2d681cedcbe76e7617d83d81f037348e37d7160138ae1ab46fdcac",
@@ -1864,6 +1846,33 @@
       "owner": "Scene sample acceptance ledger generator",
       "reason": "生成台账新增373的有界波形恢复说明，保留原混合执行档案及unreviewed裁决；不把历史首拒当当前故障，不复制完整后验或增设第二统计文档。",
       "decision": "docs/scene/history/open-breakpoint-reconciliation-2026-10-23.md#material-key-fanout-20261030"
+    },
+    {
+      "section": "bodies",
+      "path": "docs/scene/capabilities/material-video-assets.md",
+      "before": "f6e39762fbd800f923245998375c6a8975f87511bcd469263bfd81a9cb44459f",
+      "after": "0789d819da8f87be4e9a8e3e34d2722cee5518de7485fde59d06b96c613bad27",
+      "owner": "Scene video runtime qualification",
+      "reason": "记录已撤输出退休原型的非目标退步，避免把手动消融或有限Metal下降当已修；队列仅保仍开放驻留及新AV完成边界，原数和过程集中到既有历史，不新增问题文档或产品关卡。",
+      "decision": "docs/scene/history/video-instance-observations-2026-10-29.md#video-output-residency-20261030"
+    },
+    {
+      "section": "bodies",
+      "path": "docs/scene/roadmap/performance-convergence-card.md",
+      "before": "bb7499f0f414fa3b05d705addfd69bd0bb20fb28098f1c11b7b35d75b94dda7b",
+      "after": "83340cdfefb179f46859db7e0b9a1771758f86d98155c7274eea639447c79876",
+      "owner": "Scene video runtime qualification",
+      "reason": "记录已撤输出退休原型的非目标退步，避免把手动消融或有限Metal下降当已修；队列仅保仍开放驻留及新AV完成边界，原数和过程集中到既有历史，不新增问题文档或产品关卡。",
+      "decision": "docs/scene/history/video-instance-observations-2026-10-29.md#video-output-residency-20261030"
+    },
+    {
+      "section": "bodies",
+      "path": "docs/scene/roadmap/scene-open-breakpoint-queue.md",
+      "before": "dde651afbcb07e7c67957ae9b9688f87fc933fc722886e4083e4ddb66dac7160",
+      "after": "113ec28572dcab3dc5c788ead79dde32314fd57d2efd0ecbb5c144781788cb39",
+      "owner": "Scene video runtime qualification",
+      "reason": "记录已撤输出退休原型的非目标退步，避免把手动消融或有限Metal下降当已修；队列仅保仍开放驻留及新AV完成边界，原数和过程集中到既有历史，不新增问题文档或产品关卡。",
+      "decision": "docs/scene/history/video-instance-observations-2026-10-29.md#video-output-residency-20261030"
     }
   ]
 }

@@ -51,3 +51,26 @@
 单源GPU分配约0.8GB且不再随每帧换ID增长；完整遍历12源后MTL allocated仍约9.75GB，不能把它等同进程物理RAM，也没有已证整体CPU/能耗收益。停后台和flush没有闭合AV解码/转换池驻留，仍须按实际Source寿命测量后收敛，不能提高预算过门。DEBUG进程结束后曾留7个私有MP4共约310MB；这不证明生产in-process退场失败，也不能用exit0/GPU排空授予完整AV借用回落。实际borrower门有界通过，整Session释放另验。
 
 未覆盖动态WebM、未知group/named/effect首帧衔接、所有HDR/SDR组合、跨整点自动切换、任意作者材质与官方完整seek/播放态空窗。官方客户端及虚拟机保留运行，本轮未重试已停止的大实验。
+
+<a id="video-output-residency-20261030"></a>
+## 输出驻留后继：原型撤回（2026-10-30）
+
+固定主线 `015781e87`。原337两份完整TEX分别为37,141,320/40,932,255B，经原prepared动态实例链组成A→B→原A→净零；没有转码或降低尺寸，均3750×2250、H.264 High、60fps、12s、无音轨。相同Source UUID回访，实际binding/提交UUID、代次和解码时间推进；净零保持Scene/Surface/bridge活跃，consumer=0而cached/prepared=2。不是隐藏、暂停或杀进程代替退场。
+
+一次性weak探针只强持同一个MTLDevice及一份明确的末帧view。Registry单独stop使Metal allocated从1497.516降至106.063MiB，整Scene仍在；仅断开player.currentItem后10s保持1465.156MiB，元数据仍ready/12s。净零10s后手动移除item的output并沿原suspend/flush，使1465.156降至170.781MiB，Source/player/item/output仍活；因此只有输出关联/缓存整组寿命的因果线索，不能据此声称实际热切已修。整Session真实drain后持view约34.516MiB，撤view后同device约2.156MiB、Scene预算0、所有AV/Session弱引用退出；该残余不是通过surface消失自动记0。
+
+**候选反证。** 第一版只在原净零入口移除output、真实定位时重关联，产品净增6行。三份基线/候选的四秒A/B/A短窗均仍约1.43GiB，虽实际关联已退出，不能把手动静置消融当收益。最后一版在原Source内退休output/cache资源对、保player/item/clock/file/last-ready，净增30行；三次实际A回访约786–818MiB，净零均170.781MiB，对照约1432.797/1465–1498MiB；源身份、相位、3750×2250供帧与R0保持。这只证明有限两源资源机制，不是正式稳态性能或完整原包无退步。
+
+| 原337完整12主题/时段，同诊断优化配置32s、同输入/属性/静音/FPS | 基线 | 最后候选 |
+| --- | ---: | ---: |
+| Metal allocated采样峰值（B） | 9,547,710,464 | 1,234,518,016 |
+| process footprint采样峰值（B） | 269,681,720 | 1,033,766,520 |
+| 进程CPU时间（ms） | 10,018.198 | 9,792.256 |
+| 已完成GPU帧／失败 | 1650／0 | 1650／0 |
+| 实际present超过1.5倍预算／间隔数 | 43／1548 | 61／1535 |
+
+12次属性更新各自全部接纳，约60次提交/s，正常stop至0 surface且GPU排空；但footprint峰值达3.83倍、超预算呈现比例2.78%→3.97%。**NO-GO，两个产品候选、三个临时App/Debug观测文件及尚未实施的候选测试全部恢复。** 不用Metal下降抵消非目标退步；单对短窗不够解释物理分配归属、泄漏、热状态或稳定CPU/GPU收益，也不把推测的IOSurface归属转移当免责理由。保原clock/EOF/last-ready，隐藏/离屏需求及完整官方空窗语义仍未资格；该方向仅凭新物理驻留/实际供帧证据重入，不加延时清池、提高预算或重复上述原型。
+
+基线App SHA `41ee7438a2c7d2f82b90a304571706f88186277c821a9ebdae067091cf3b5e00`，最后候选 `d05f051df5515deba89469b046867250a89236db9f5ec6bc6cae04a6ef74e197`；均由同一Release+diagnostic xcconfig构建，单独签名隔离运行。常规Release、30s预热/60s稳态、长期循环和官方画面未验，不授整样本PASS。必要原日志、弱引用/预算、输入身份、探针/候选差异、失败及独审按普通14天归 `.artifacts/scene-evidence/runs/video-output-residency-stop-20261030/`；未查看自动截图不作画面证据，78MB测试媒体、App/HOME/解码文件只作临时执行物。
+
+另在完全未修改的Source/原6方法基线中，discard-before/after两子场景同frameIndex重试2s仍无新候选；合并重复编译后另两处same-inflight6/paused-discard-after失败，失败场景随运行变化。原6次及新1次编译的实际probe SHA均`7f54dd78041400fde09fd543458104044dda79769d02f7b690d439990c2f620b`，输入/进程仍各自隔离、断言未变；总时长120.993→53.371s，仅认测试准备节省，不报原门全绿。失败均有目标pixel buffer、playerTime=6而定位pending；Source/AV完成与测试执行边界待资格，不归因于已撤退休原型或编译复用，不判真实样本卡帧/官方差异，不放宽2s预算或绕过定位资格。

@@ -933,13 +933,13 @@
       "role": "stable-contract",
       "entrypoint": "docs/scene/architecture/runtime-architecture.md",
       "currentStateAuthority": "docs/scene/capabilities/coverage-ledger.md",
-      "lastReviewed": "2026-10-29",
+      "lastReviewed": "2026-10-30",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "dae1e6b436cc91e6f2009a234b49b39c9385b70f6440c82c3b8feeecd2954b32",
+        "sourceSHA256": "0d3772d7181f686af481f128cccd5b7d51fcfb9bafed1e0d08536954f4c84139",
         "method": "document_registry --audit + document_health --check",
-        "scope": "同步prepared动态MP4、共享Source/命令身份、纹理退休及直接主输出有界呈现；原生同身份窗口采样和官方有限语义各归本轮历史，剩余AV池驻留归唯一队列。",
-        "limitations": "仅导航与状态一致性；运行只按历史已验范围，未关闭动态WebM、group/named/effect衔接、完整官方seek/空窗、所有HDR组合及整体CPU/GPU/能耗收益。"
+        "scope": "按当前未改Source和原包非目标退步撤回输出退休候选；开放问题仅归队列，实验原数/停止理由归既有视频历史，保留新的AV定位完成资格项。",
+        "limitations": "状态与引用复核；未接受新引擎修复或整体性能收益。原6方法仍有间歇pending失败，正式Release、长稳态与官方空窗/全样本未资格。"
       }
     },
     {
@@ -4422,13 +4422,13 @@
       "role": "active-plan",
       "entrypoint": "docs/scene/roadmap/scene-open-breakpoint-queue.md",
       "retirementCondition": "用户结束该专项，或本卡已证问题及对应实际验收完成后退役到历史，不保第二执行路线。",
-      "lastReviewed": "2026-10-26",
+      "lastReviewed": "2026-10-30",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "e3007f2b29b60d60f38e70c08b29c80c1dc60bb3db7b1e929e1698a229e3a5c9",
+        "sourceSHA256": "1e15569b629f4a14c68877cca8c32a05a7c17f4edc821dc812edea9fcb85a9d3",
         "method": "document_registry --audit + document_health --check",
-        "scope": "仅复核当前正文hash、文档角色、入口及现役/历史指针；精简方案拥有本轮实施与验证状态，历史结算保留原边界。",
-        "limitations": "这是导航与文档治理复核，不代表源码、编译、运行、视觉、性能、真实账号或发布复验；不重授旧证据的适用范围。"
+        "scope": "按当前未改Source和原包非目标退步撤回输出退休候选；开放问题仅归队列，实验原数/停止理由归既有视频历史，保留新的AV定位完成资格项。",
+        "limitations": "状态与引用复核；未接受新引擎修复或整体性能收益。原6方法仍有间歇pending失败，正式Release、长稳态与官方空窗/全样本未资格。"
       }
     },
     {
@@ -4467,10 +4467,10 @@
       "lastReviewed": "2026-10-30",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "4441ebfb375464bf30a7f7374e004791dc3f7401ba9c9d850607a4d7a4565e69",
+        "sourceSHA256": "67f2f335dead5821727b0f51ee792a2ea2ae40a4efcf64f5e5665f0bcfabec6c",
         "method": "document_registry --audit + document_health --check",
-        "scope": "Shared material-key ownership contract and bounded 373 Program/GPU/waveform closure; retain the original mixed archive and its strict diagnostic debt.",
-        "limitations": "Only this local change and navigation reviewed. No full-document product revalidation, official parity, full properties/panel, HDR, multi-screen or performance conclusion."
+        "scope": "按当前未改Source和原包非目标退步撤回输出退休候选；开放问题仅归队列，实验原数/停止理由归既有视频历史，保留新的AV定位完成资格项。",
+        "limitations": "状态与引用复核；未接受新引擎修复或整体性能收益。原6方法仍有间歇pending失败，正式Release、长稳态与官方空窗/全样本未资格。"
       }
     },
     {

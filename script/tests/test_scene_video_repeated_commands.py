@@ -44,6 +44,22 @@ def compile_probe(work):
         raise RuntimeError(compiled.stderr)
 
 class SceneVideoRepeatedCommandsTests(unittest.TestCase):
+    @classmethod
+    def setUpClass(cls):
+        if any(not shutil.which(tool) for tool in ("swiftc", "ffmpeg")):
+            raise unittest.SkipTest("Swift and ffmpeg are required for real AVPlayer/Metal evidence")
+        cls.probe_directory = tempfile.TemporaryDirectory(prefix="mwx-video-shared-probe-")
+        cls.probe = Path(cls.probe_directory.name) / "probe"
+        try:
+            compile_probe(cls.probe.parent)
+        except BaseException:
+            cls.probe_directory.cleanup()
+            raise
+
+    @classmethod
+    def tearDownClass(cls):
+        cls.probe_directory.cleanup()
+
     def test_playing_seek_first_pixels_and_discarded_retry_match_latest_target(self):
         if not shutil.which("swiftc") or not shutil.which("ffmpeg"):
             self.skipTest("Swift and ffmpeg are required for real seek pixel evidence")
@@ -67,7 +83,7 @@ class SceneVideoRepeatedCommandsTests(unittest.TestCase):
                 channel = 0 if expected == "red" else 2
                 self.assertGreater(pixel[channel], 127)
                 self.assertTrue(all(value < 127 for i, value in enumerate(pixel) if i != channel))
-            compile_probe(work)
+            (work / "probe").symlink_to(self.probe)
             expected = [("seek6", "blue"), ("seek2", "red"),
                         ("same-inflight6", "blue"), ("repeat-until-ready6", "blue"),
                         ("latest6-2-6", "blue"),
@@ -174,7 +190,7 @@ class SceneVideoRepeatedCommandsTests(unittest.TestCase):
                 "testsrc2=size=320x180:rate=30:duration=12", "-c:v", "libx264",
                 "-pix_fmt", "yuv420p", str(work / "clip.mp4")
             ], check=True, capture_output=True, timeout=30)
-            compile_probe(work)
+            (work / "probe").symlink_to(self.probe)
             run = subprocess.run([str(work / "probe"), str(work)],
                                  check=True, capture_output=True, text=True, timeout=30)
             result = json.loads(run.stdout)
@@ -213,7 +229,7 @@ class SceneVideoRepeatedCommandsTests(unittest.TestCase):
             subprocess.run(["ffmpeg", "-v", "error", "-f", "lavfi", "-i",
                 "testsrc2=size=320x180:rate=30:duration=10", "-c:v", "libx264",
                 "-pix_fmt", "yuv420p", str(work / "clip.mp4")], check=True, capture_output=True)
-            compile_probe(work)
+            (work / "probe").symlink_to(self.probe)
             run = subprocess.run([str(work / "probe"), str(work), "--paused-seek"],
                 check=True, capture_output=True, text=True, timeout=20)
             result = json.loads(run.stdout)
@@ -238,7 +254,7 @@ class SceneVideoRepeatedCommandsTests(unittest.TestCase):
                 "testsrc2=size=320x180:rate=30:duration=2", "-c:v", "libx264",
                 "-pix_fmt", "yuv420p", str(work / "clip.mp4")],
                 check=True, capture_output=True, timeout=30)
-            compile_probe(work)
+            (work / "probe").symlink_to(self.probe)
             run = subprocess.run([str(work / "probe"), str(work), "--loop-phase"],
                 check=True, capture_output=True, text=True, timeout=20)
             result = json.loads(run.stdout)
@@ -264,7 +280,7 @@ class SceneVideoRepeatedCommandsTests(unittest.TestCase):
                 "testsrc2=size=320x180:rate=30:duration=2", "-c:v", "libx264",
                 "-pix_fmt", "yuv420p", str(work / "clip.mp4")],
                 check=True, capture_output=True, timeout=30)
-            compile_probe(work)
+            (work / "probe").symlink_to(self.probe)
             for looping in (True, False):
                 with self.subTest(looping=looping):
                     args = [str(work / "probe"), str(work), "--eof-discard"]
@@ -307,7 +323,7 @@ class SceneVideoRepeatedCommandsTests(unittest.TestCase):
                 "-deadline", "realtime", "-cpu-used", "8", "-g", "30",
                 "-pix_fmt", "yuv420p", str(work / "clip.webm")
             ], check=True, capture_output=True, timeout=30)
-            compile_probe(work)
+            (work / "probe").symlink_to(self.probe)
             result = json.loads(subprocess.run(
                 [str(work / "probe"), str(work), "--webm"],
                 check=True, capture_output=True, text=True, timeout=20).stdout)
