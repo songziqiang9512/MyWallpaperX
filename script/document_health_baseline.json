@@ -66,7 +66,7 @@
     },
     "docs/scene/architecture/runtime-architecture.md": {
       "lines": 600,
-      "bytes": 134715
+      "bytes": 135064
     },
     "docs/scene/architecture/runtime-as-built-map.md": {
       "lines": 158,
@@ -150,7 +150,7 @@
     },
     "docs/scene/capabilities/runtime-evidence-current.md": {
       "lines": 600,
-      "bytes": 220066
+      "bytes": 220335
     },
     "docs/scene/capabilities/runtime-input-property-coverage.md": {
       "lines": 600,
@@ -174,7 +174,7 @@
     },
     "docs/scene/capabilities/scene-sample-acceptance-ledger.md": {
       "lines": 515,
-      "bytes": 118233
+      "bytes": 118353
     },
     "docs/scene/capabilities/scene-sample-debug-ledger.md": {
       "lines": 534,
@@ -278,7 +278,7 @@
     },
     "docs/scene/roadmap/scene-open-breakpoint-queue.md": {
       "lines": 175,
-      "bytes": 36954
+      "bytes": 37166
     },
     "docs/web/cold-descriptor-parse-offload-design.md": {
       "lines": 30,
@@ -1719,15 +1719,6 @@
     },
     {
       "section": "bodies",
-      "path": "docs/scene/architecture/runtime-architecture.md",
-      "before": "851be0006cec6ef0eb85d82cf9a45f1a6b6494b34f75fd7bfa665374291ba640",
-      "after": "c31c83b1b22ed0dccfcc07aabf07febaa25011f4eb01dd16c113ccb86c6fbc98",
-      "owner": "Scene dynamic slot lifetime",
-      "reason": "原domain区分逻辑身份与存储、共同事务结束后复用；修正旧特殊资源/动态上限叙述，记录337真实首错及独立净零出生候选，未把视频/性能未知记完成。",
-      "decision": "docs/scene/history/dynamic-layer-slot-lifetime-2026-10-29.md"
-    },
-    {
-      "section": "bodies",
       "path": "docs/development/ui-quality-audit.md",
       "before": "2c188a70ae3ca836e287520c62ce60db31c88fd92fb95e541de173fb25ce9957",
       "after": "e00ed36d30540385dcc4e86f74d4cc22ae6812ed658cf2eb59ce904071cb976e",
@@ -1782,15 +1773,6 @@
     },
     {
       "section": "bodies",
-      "path": "docs/scene/capabilities/runtime-evidence-current.md",
-      "before": "a864b8027463abf970d43d9158f0458817fe4e14b9296729f0ffbd554eb2023b",
-      "after": "7476fb485e82580065a8f14be2b0a0587d385a144ff68d584ba365c9396b38c2",
-      "owner": "scene-corpus-diagnostics",
-      "reason": "Replace stale corpus status with one current declaration/run join and log-only parallel workflow; preserve unknown/visual boundaries and old human verdicts.",
-      "decision": "docs/scene/development/corpus-diagnostic-workflow.md#log-first-corpus-audit"
-    },
-    {
-      "section": "bodies",
       "path": "docs/scene/capabilities/scene-corpus-capability-inventory.md",
       "before": "d38d6228b282e4b2020a67538eea2d17324f7f0913ed9058a33dca8be65ef705",
       "after": "d6faa722ab2d681cedcbe76e7617d83d81f037348e37d7160138ae1ab46fdcac",
@@ -1809,15 +1791,6 @@
     },
     {
       "section": "bodies",
-      "path": "docs/scene/capabilities/scene-sample-acceptance-ledger.md",
-      "before": "59120aac8ab39c628cdd40c97b516de8b967b64543cd948ed119a058c245d13c",
-      "after": "5f84d56d238010bad7c24e4481994a97a5995309fd100aed5c59ad159b70fd5f",
-      "owner": "scene-corpus-diagnostics",
-      "reason": "Replace stale corpus status with one current declaration/run join and log-only parallel workflow; preserve unknown/visual boundaries and old human verdicts.",
-      "decision": "docs/scene/development/corpus-diagnostic-workflow.md#log-first-corpus-audit"
-    },
-    {
-      "section": "bodies",
       "path": "docs/scene/development/corpus-diagnostic-workflow.md",
       "before": "609cbdcf92861fee4dbd8f90e212a20213227b0884ffc7c2e79b960c0b61c0b7",
       "after": "691cb1d8d09f9877b65fd6f0dcb068d2d022d6525b9c4d5d0c50bc2a46198e85",
@@ -1827,12 +1800,39 @@
     },
     {
       "section": "bodies",
+      "path": "docs/scene/architecture/runtime-architecture.md",
+      "before": "c31c83b1b22ed0dccfcc07aabf07febaa25011f4eb01dd16c113ccb86c6fbc98",
+      "after": "de82d6db2df0d2127b6620cd86ee8a493f62ffc16f72fb825c99a085d1865678",
+      "owner": "scene-geometry-named-publication",
+      "reason": "Clarify existing geometry PMA publication boundary, preserve direct-copy content, and record bounded first-frame closure without claiming full sample or pixel-probe acceptance.",
+      "decision": "docs/scene/architecture/runtime-architecture.md"
+    },
+    {
+      "section": "bodies",
+      "path": "docs/scene/capabilities/runtime-evidence-current.md",
+      "before": "7476fb485e82580065a8f14be2b0a0587d385a144ff68d584ba365c9396b38c2",
+      "after": "af598285d3c5712205271382a9f740d137b7ad7b3f63228b1a8d766f72e00dfb",
+      "owner": "scene-geometry-named-publication",
+      "reason": "Clarify existing geometry PMA publication boundary, preserve direct-copy content, and record bounded first-frame closure without claiming full sample or pixel-probe acceptance.",
+      "decision": "docs/scene/architecture/runtime-architecture.md"
+    },
+    {
+      "section": "bodies",
+      "path": "docs/scene/capabilities/scene-sample-acceptance-ledger.md",
+      "before": "5f84d56d238010bad7c24e4481994a97a5995309fd100aed5c59ad159b70fd5f",
+      "after": "676042bcbb5526ba42283df2d4236e2a24a15ac72614c0b5a26550466556dd35",
+      "owner": "scene-geometry-named-publication",
+      "reason": "Clarify existing geometry PMA publication boundary, preserve direct-copy content, and record bounded first-frame closure without claiming full sample or pixel-probe acceptance.",
+      "decision": "docs/scene/architecture/runtime-architecture.md"
+    },
+    {
+      "section": "bodies",
       "path": "docs/scene/roadmap/scene-open-breakpoint-queue.md",
-      "before": "ba0714ca734db5fe74a40ed2cb2b22802e02722dfdc78d218599c4086685672f",
-      "after": "f6a2c3d112e88530aec55c8fd2bd1f11e6ceb4d68e55db8f9357be06c190b30b",
-      "owner": "scene-corpus-diagnostics",
-      "reason": "Replace stale corpus status with one current declaration/run join and log-only parallel workflow; preserve unknown/visual boundaries and old human verdicts.",
-      "decision": "docs/scene/development/corpus-diagnostic-workflow.md#log-first-corpus-audit"
+      "before": "f6a2c3d112e88530aec55c8fd2bd1f11e6ceb4d68e55db8f9357be06c190b30b",
+      "after": "854821a696c8f55c023858fb8f7aa0d750b4079fa6614b06bf1d47b45dc93bf8",
+      "owner": "scene-geometry-named-publication",
+      "reason": "Clarify existing geometry PMA publication boundary, preserve direct-copy content, and record bounded first-frame closure without claiming full sample or pixel-probe acceptance.",
+      "decision": "docs/scene/architecture/runtime-architecture.md"
     }
   ]
 }

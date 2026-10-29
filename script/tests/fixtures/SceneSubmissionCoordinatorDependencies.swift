@@ -425,62 +425,7 @@ struct SceneDependencyRenderPlan {
         let slot: SceneEffectPassSlot
         let variant: SceneNamedTextureReference.Variant
     }
-    struct MultiProviderAggregate: Hashable {
-        let consumerLayerID: Int
-        let bindings: [Binding]
-        let authoredSlotOrder: [SceneEffectPassSlot]
 
-        var orderedBindings: [Binding] {
-            guard authoredSlotOrder.count == bindings.count else { return [] }
-            var bindingsBySlot: [SceneEffectPassSlot: Binding] = [:]
-            for binding in bindings {
-                guard bindingsBySlot.updateValue(
-                    binding, forKey: binding.slot
-                ) == nil else { return [] }
-            }
-            guard bindingsBySlot.count == authoredSlotOrder.count else {
-                return []
-            }
-            return authoredSlotOrder.compactMap { bindingsBySlot[$0] }
-        }
-
-        var referenceSlots: [SceneEffectPassSlot] {
-            authoredSlotOrder
-        }
-
-        var providerLayerIDs: Set<Int> { Set(bindings.map(\.providerLayerID)) }
-        var hasStrictBindingVector: Bool {
-            guard bindings.count >= 2,
-                  authoredSlotOrder.count == bindings.count,
-                  Set(authoredSlotOrder).count == authoredSlotOrder.count,
-                  Set(authoredSlotOrder) == Set(bindings.map(\.slot)),
-                  bindings == orderedBindings,
-                  Set(bindings.map(\.providerLayerID)).count > 1 else {
-                return false
-            }
-            return bindings.allSatisfy { binding in
-                binding.consumerLayerID == consumerLayerID
-                    && binding.providerLayerID != consumerLayerID
-                    && binding.referenceSlots == [binding.slot]
-                    && binding.kind == .imageLayerBlend
-                    && binding.blendMode == 0
-                    && binding.requiresResolvedMaterialProgram
-            }
-        }
-
-        func admits(_ references: [Reference]) -> Bool {
-            guard hasStrictBindingVector else { return false }
-            let expected = orderedBindings.map {
-                Reference(
-                    consumerLayerID: consumerLayerID,
-                    providerLayerID: $0.providerLayerID,
-                    slot: $0.slot,
-                    variant: .primary
-                )
-            }
-            return references == expected
-        }
-    }
 }
 enum SceneResolvedMaterialDependencyOwnership: Equatable {
     case none

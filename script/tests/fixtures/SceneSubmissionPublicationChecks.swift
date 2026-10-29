@@ -245,214 +245,152 @@ enum SceneSubmissionPublicationChecks {
         device: MTLDevice, queue: MTLCommandQueue,
         results: inout [String: Bool]
     ) throws {
-        do {
+        let pma: SceneTextureContent = .color(.resolved(.premultipliedAlpha))
+        let straight: SceneTextureContent = .color(.resolved(.straightAlpha))
+        // The executor supplies metadata; this exercises the real coordinator,
+        // while the geometry rasterizer's PMA pixels have a separate GPU gate.
+        let scenarios: [(String, [Int], [SceneDependencyRenderPlan.Binding.Kind], SceneTextureContent,
+                         [SceneTextureContent], String?)] = [
+            ("preparedProviderOutputKeepsNamedReservationWithoutCompositorOwnership", [7], [.resolvedMaterial], pma, [pma], nil),
+            ("geometryProviderStraightSourceKeepsPMAReservation", [7], [.geometryLayer], straight, [pma], nil),
+            ("graphCopyProviderInheritsStraightContent", [7], [.resolvedMaterial], straight, [straight], nil),
+            ("mixedAggregateGeometryThenImageKeepsContentOrder", [9, 7], [.geometryLayer, .imageLayerBlend], straight, [pma, straight], nil),
+            ("mixedAggregateImageThenGeometryKeepsContentOrder", [7, 9], [.imageLayerBlend, .geometryLayer], straight, [straight, pma], nil),
+            ("mixedAggregateWrongContentRejected", [9, 7], [.geometryLayer, .imageLayerBlend], straight, [pma, straight], "content"),
+            ("mixedAggregateWrongTextureRejected", [9, 7], [.geometryLayer, .imageLayerBlend], straight, [pma, straight], "texture"),
+            ("mixedAggregateWrongEpochRejected", [9, 7], [.geometryLayer, .imageLayerBlend], straight, [pma, straight], "epoch"),
+            ("mixedAggregateWrongSlotRejected", [9, 7], [.geometryLayer, .imageLayerBlend], straight, [pma, straight], "slot"),
+        ]
+        for (resultKey, providerIDs, kinds, upstreamContent, expectedContents, drift) in scenarios {
             SceneResolvedMaterialGraphExecutor.prepareCallCount = 0
             SceneResolvedMaterialGraphExecutor.prepareTokens = []
-            SceneResolvedMaterialGraphExecutor
-                .preparedDependencyTextureByToken = [:]
+            SceneResolvedMaterialGraphExecutor.preparedDependencyTextureByToken = [:]
             SceneResolvedMaterialGraphExecutor.encodeSucceeds = true
-            let providerPrepared = makeAtomicPrepared(
-                device: device,
-                layerID: 7,
-                generation: 1
-            )
-            let consumerPrepared = makeAtomicPrepared(
-                device: device,
-                layerID: 8,
-                generation: 2
-            )
-            SceneResolvedMaterialGraphExecutor.preparedByToken = [
-                7: providerPrepared,
-                8: consumerPrepared,
-            ]
-            let binding = externalPrimaryBinding(
-                consumerLayerID: 8,
-                providerLayerID: 7
-            )
-            let provisionalTexture = makeTexture(
-                device,
-                "nested-dependency-provisional"
-            )
-            let provisionalInput = dependencyInput(
-                binding: binding,
-                texture: provisionalTexture,
-                frameEpoch: 13
-            )
-            let coordinator = makeCoordinator(
-                device,
-                layerIDs: [7, 8],
-                dependencyOwnershipByLayerID: [8: .externalPrimary(binding)]
-            )
+            defer {
+                SceneResolvedMaterialGraphExecutor.preparedByToken = [:]
+                SceneResolvedMaterialGraphExecutor.preparedDependencyTextureByToken = [:]
+                SceneResolvedMaterialGraphExecutor.encodeSucceeds = false
+            }
+            let layerIDs = providerIDs + [8]
+            let preparedByID = Dictionary(uniqueKeysWithValues: layerIDs.enumerated().map { index, layerID in
+                (layerID, makeAtomicPrepared(device: device, layerID: layerID,
+                    generation: UInt64(index + 1), terminalContent: layerID == 8 ? pma : upstreamContent))
+            })
+            SceneResolvedMaterialGraphExecutor.preparedByToken = preparedByID
+            let bindings = zip(providerIDs, kinds).map { providerID, kind in
+                SceneDependencyRenderPlan.Binding(consumerLayerID: 8, providerLayerID: providerID,
+                    slot: .init(effectID: "provider-\(providerID)", passIndex: 0, slotIndex: 1),
+                    blendMode: 0, kind: kind, requiresResolvedMaterialProgram: true)
+            }
+            let ownership: SceneResolvedMaterialDependencyOwnership = bindings.count == 1
+                ? .externalPrimary(bindings[0])
+                : .externalAggregate(.init(consumerLayerID: 8, bindings: bindings,
+                    authoredSlotOrder: bindings.map(\.slot)))
+            let reservations = bindings.map { binding in
+                dependencyInput(binding: binding,
+                    texture: makeTexture(device, "named-reservation-\(binding.providerLayerID)"), frameEpoch: 13)
+            }
+            let expectedInputs = zip(reservations, expectedContents).map { $0.withContent($1) }
+            let coordinator = makeCoordinator(device, layerIDs: layerIDs,
+                dependencyOwnershipByLayerID: [8: ownership])
             let buffer = queue.makeCommandBuffer()!
-            coordinator.beginFrame(
-                textureSnapshot: .init(frameIndex: 13, valid: true),
-                dynamicSnapshot: .init(),
-                frameInputs: .init()
-            )
-            func preflightClaim(_ layerID: Int) ->
-                SceneResolvedMaterialRuntimeBridge.ClaimedExecution {
+            coordinator.beginFrame(textureSnapshot: .init(frameIndex: 13, valid: true),
+                dynamicSnapshot: .init(), frameInputs: .init())
+            let claims = layerIDs.map { layerID -> SceneResolvedMaterialRuntimeBridge.ClaimedExecution in
                 switch coordinator.preflightClaim(layerID: layerID) {
                 case let .claimed(value): return value
                 case let .rejected(reasonCode): fatalError(reasonCode)
                 case .notMigrated: fatalError("claim unavailable")
                 }
             }
-            let providerClaim = preflightClaim(7)
-            let consumerClaim = preflightClaim(8)
-            let providerTargets = makeAtomicTargets(
-                layerID: 7,
-                generation: 1
-            )
-            let consumerTargets = makeAtomicTargets(
-                layerID: 8,
-                generation: 2
-            )
-            let pool = SceneOffscreenTexturePool(factory: { plan in
-                plan.graphPlan.key.layerID == 7
-                    ? providerTargets.prepared : consumerTargets.prepared
+            let targetsByID = Dictionary(uniqueKeysWithValues: layerIDs.enumerated().map { index, layerID in
+                (layerID, makeAtomicTargets(layerID: layerID, generation: UInt64(index + 1)))
             })
-            let preparation = coordinator.prepareFrame(
-                [
-                    .init(
-                        claim: providerClaim,
-                        targetPlan: .init(
-                            token: providerClaim.token,
-                            allocation: .init(
-                                graphPlan: .init(key: .init(layerID: 7))
-                            )
-                        ),
-                        sourceTexture: makeTexture(
-                            device,
-                            "nested-provider-source"
-                        ),
-                        sourceUniforms: .init(),
-                        sourcePipeline: .init(),
-                        frameInputs: .fixture
-                    ),
-                    .init(
-                        claim: consumerClaim,
-                        targetPlan: .init(
-                            token: consumerClaim.token,
-                            allocation: .init(
-                                graphPlan: .init(key: .init(layerID: 8))
-                            )
-                        ),
-                        sourceTexture: makeTexture(
-                            device,
-                            "nested-consumer-source"
-                        ),
-                        sourceUniforms: .init(),
-                        sourcePipeline: .init(),
-                        frameInputs: .fixture
-                            .replacingDependencyEffects([provisionalInput])
-                    ),
-                ],
-                pool: pool,
-                commandBuffer: buffer
-            )
+            let pool = SceneOffscreenTexturePool(factory: { plan in
+                targetsByID[plan.graphPlan.key.layerID]!.prepared
+            })
+            let preparation = coordinator.prepareFrame(claims.map { claim in
+                .init(claim: claim,
+                    targetPlan: .init(token: claim.token,
+                        allocation: .init(graphPlan: .init(key: .init(layerID: claim.layerID)))),
+                    sourceTexture: makeTexture(device, "nested-source-\(claim.layerID)"),
+                    sourceUniforms: .init(), sourcePipeline: .init(),
+                    frameInputs: .fixture.replacingDependencyEffects(claim.layerID == 8 ? reservations : []))
+            }, pool: pool, commandBuffer: buffer)
             let preparedReady: Bool
             if case .ready = preparation { preparedReady = true }
             else { preparedReady = false }
             let outputs = coordinator.preparedOutputTexturesByLayerID()
-            let namedReservationWasRetained =
-                SceneResolvedMaterialGraphExecutor
-                    .preparedDependencyTextureByToken[8]
-                    == ObjectIdentifier(provisionalTexture)
-                && outputs?[7] === providerPrepared.finalTexture
-                && outputs?[8] === consumerPrepared.finalTexture
-
-            let providerPublished: Bool
-            let providerTerminalIsNotCompositor: Bool
-            switch coordinator.claim(layerID: 7) {
-            case let .claimed(claim):
-                switch coordinator.executeClaimed(
-                    claim: claim,
-                    dependencyEffects: [],
-                    commandBuffer: buffer
-                ) {
-                case let .encoded(texture, ticket):
-                    if case .consumed = coordinator.markNamedPublication(
-                        ticket,
-                        texture: texture,
-                        published: true
-                    ) {
-                        providerPublished = true
-                    } else {
-                        providerPublished = false
-                    }
-                    providerTerminalIsNotCompositor =
-                        coordinator.activeByID[ticket.identity]?.phase
-                            == .outputConsumed
-                        && coordinator.activeByID[ticket.identity]?
-                            .outputConsumed == true
-                        && coordinator.activeByID[ticket.identity]?
-                            .compositorConsumed == false
-                case .failed:
-                    providerPublished = false
-                    providerTerminalIsNotCompositor = false
+            let retained = coordinator.preparedLedgerByLayerID[8]
+                .flatMap { coordinator.activeByID[$0]?.preparedDependencyEffects } ?? []
+            let namedReservationWasRetained = retained.count == expectedInputs.count
+                && retained.map(\.providerLayerID) == providerIDs
+                && zip(retained, expectedInputs).allSatisfy {
+                    $0.content == $1.content && $0.texture === $1.texture
                 }
-            case .rejected, .notMigrated:
-                providerPublished = false
-                providerTerminalIsNotCompositor = false
+                && layerIDs.allSatisfy { outputs?[$0] === preparedByID[$0]?.finalTexture }
+
+            var providerPublished = true
+            var providerTerminalIsNotCompositor = true
+            for providerID in providerIDs {
+                if case let .claimed(claim) = coordinator.claim(layerID: providerID),
+                   case let .encoded(texture, ticket) = coordinator.executeClaimed(
+                        claim: claim, dependencyEffects: [], commandBuffer: buffer),
+                   case .consumed = coordinator.markNamedPublication(ticket, texture: texture, published: true) {
+                    providerTerminalIsNotCompositor = providerTerminalIsNotCompositor
+                        && coordinator.activeByID[ticket.identity]?.phase == .outputConsumed
+                        && coordinator.activeByID[ticket.identity]?.outputConsumed == true
+                        && coordinator.activeByID[ticket.identity]?.compositorConsumed == false
+                } else { providerPublished = false }
             }
-
-            let consumerComposited: Bool
-            let readyInput = dependencyInput(
-                binding: binding,
-                texture: provisionalTexture,
-                frameEpoch: 13
-            )
-            switch coordinator.claim(layerID: 8) {
-            case let .claimed(claim):
-                switch coordinator.executeClaimed(
-                    claim: claim,
-                    dependencyEffects: [readyInput],
-                    commandBuffer: buffer
-                ) {
+            var readyInputs = expectedInputs
+            switch drift {
+            case "content": readyInputs[0] = readyInputs[0].withContent(straight)
+            case "texture": readyInputs[0] = dependencyInput(binding: bindings[0],
+                texture: makeTexture(device, "named-ready-lookalike"), frameEpoch: 13)
+            case "epoch": readyInputs[0] = dependencyInput(binding: bindings[0],
+                texture: reservations[0].texture, frameEpoch: 14)
+            case "slot": readyInputs[0] = dependencyInput(binding: bindings[0],
+                texture: reservations[0].texture, frameEpoch: 13,
+                slot: .init(effectID: bindings[0].slot.effectID, passIndex: 0, slotIndex: 2))
+            default: break
+            }
+            var consumerComposited = false
+            var consumerRejection: String?
+            if case let .claimed(claim) = coordinator.claim(layerID: 8) {
+                switch coordinator.executeClaimed(claim: claim,
+                    dependencyEffects: readyInputs, commandBuffer: buffer) {
                 case let .encoded(texture, ticket):
-                    if case .consumed = coordinator.markComposite(
-                        ticket,
-                        texture: texture,
-                        consumed: true
-                    ) {
+                    if case .consumed = coordinator.markComposite(ticket, texture: texture, consumed: true) {
                         consumerComposited = true
-                    } else {
-                        consumerComposited = false
                     }
-                case .failed:
-                    consumerComposited = false
+                case let .failed(reasonCode): consumerRejection = reasonCode
                 }
-            case .rejected, .notMigrated:
-                consumerComposited = false
+            }
+            if drift != nil {
+                results[resultKey] = preparedReady && namedReservationWasRetained
+                    && providerPublished && providerTerminalIsNotCompositor
+                    && consumerRejection == "prepared-frame-consumption-rejected"
+                    && !consumerComposited && buffer.status == .notEnqueued
+                _ = coordinator.endFrame()
+                continue
             }
             let sealed = coordinator.sealFrame(on: buffer)
             buffer.commit()
             buffer.waitUntilCompleted()
-            coordinator.completeCommandBuffer(
-                identity: ObjectIdentifier(buffer), observationID: coordinator.commandBufferRecords[ObjectIdentifier(buffer)]?.observationID ?? 0,
-                status: buffer.status == .completed && buffer.error == nil
-                    ? .completed : .failed
-            )
-            results[
-                "preparedProviderOutputKeepsNamedReservationWithoutCompositorOwnership"
-            ] = preparedReady
-                && namedReservationWasRetained
-                && providerPublished
-                && providerTerminalIsNotCompositor
-                && consumerComposited
-                && sealed
-                && buffer.status == .completed
-                && buffer.error == nil
-                && coordinator.activeByID.isEmpty
-                && coordinator.pendingSubmissions.isEmpty
+            coordinator.completeCommandBuffer(identity: ObjectIdentifier(buffer),
+                observationID: coordinator.commandBufferRecords[ObjectIdentifier(buffer)]?.observationID ?? 0,
+                status: buffer.status == .completed && buffer.error == nil ? .completed : .failed)
+            let succeeded = preparedReady && namedReservationWasRetained
+                && providerPublished && providerTerminalIsNotCompositor && consumerComposited && sealed
+                && buffer.status == .completed && buffer.error == nil
+                && coordinator.activeByID.isEmpty && coordinator.pendingSubmissions.isEmpty
                 && pool.batchCommitCount == 1
-                && providerTargets.commit.submissionPin.releaseCount == 1
-                && consumerTargets.commit.submissionPin.releaseCount == 1
+                && targetsByID.values.allSatisfy { $0.commit.submissionPin.releaseCount == 1 }
+            results[resultKey] = succeeded
+            let sharedKey = "preparedProviderOutputKeepsNamedReservationWithoutCompositorOwnership"
+            results[sharedKey] = (results[sharedKey] ?? true) && succeeded
             _ = coordinator.endFrame()
-            SceneResolvedMaterialGraphExecutor.preparedByToken = [:]
-            SceneResolvedMaterialGraphExecutor
-                .preparedDependencyTextureByToken = [:]
-            SceneResolvedMaterialGraphExecutor.encodeSucceeds = false
         }
 
         do {

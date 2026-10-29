@@ -438,13 +438,9 @@ final class SceneResolvedMaterialSubmissionCoordinator: @unchecked Sendable {
             let request = requests[index]
             let claim = request.claim
             let targets = preparedTargets[index]
-            // A single-provider owner carries a one-element vector; the
-            // provider's graph target may be reused by a later transaction
-            // in the same frame, so each prepared input keeps the
-            // independently reserved named target and only its content is
-            // refreshed from the provider's final output. The renderer then
-            // copies the provider final into it between the ordered
-            // transactions.
+            // Named targets keep their physical reservation. Direct graph
+            // copies inherit provider content; geometry rerasterizes that
+            // content into the reservation's PMA representation.
             var preparedDependencyEffects = request.frameInputs.dependencyEffects
             let preparedDependencyUnavailability =
                 request.frameInputs.dependencyUnavailability
@@ -485,19 +481,20 @@ final class SceneResolvedMaterialSubmissionCoordinator: @unchecked Sendable {
                         emit(emission)
                         return .rejected(reasonCode: reason)
                     }
-                    preparedDependencyEffects[0] =
-                        preparedDependencyEffects[0].withContent(
-                            provider.prepared.finalResource.publication
-                                .candidate.content
-                        )
+                    if binding.kind != .geometryLayer {
+                        preparedDependencyEffects[0] =
+                            preparedDependencyEffects[0].withContent(
+                                provider.prepared.finalResource.publication
+                                    .candidate.content
+                            )
+                    }
                 }
-            case .none, .graphInternal, .externalAggregate:
-                // The ordered vector is carried by FrameInputs and validated
-                // at executeClaimed; graph-internal owners carry no external
-                // inputs.
-                preparedDependencyEffects = preparedDependencyEffects.map {
-                    input in
-                    guard let provider = candidates.first(where: {
+            case let .externalAggregate(aggregate):
+                preparedDependencyEffects = zip(
+                    aggregate.bindings, preparedDependencyEffects
+                ).map { binding, input in
+                    guard binding.kind != .geometryLayer,
+                          let provider = candidates.first(where: {
                         $0.layerID == input.providerLayerID
                     }) else { return input }
                     return input.withContent(
@@ -505,6 +502,8 @@ final class SceneResolvedMaterialSubmissionCoordinator: @unchecked Sendable {
                             .content
                     )
                 }
+            case .none, .graphInternal:
+                break
             }
             let frameInputs = request.frameInputs.withDependencyEffects(
                 preparedDependencyEffects

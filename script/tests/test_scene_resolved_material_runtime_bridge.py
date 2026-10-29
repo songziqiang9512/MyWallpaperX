@@ -5,6 +5,7 @@
 from __future__ import annotations
 
 from script.tests.source_family import read_source_family
+from script.tests.scene_framebuffer_source_test_support import _declaration
 import json
 import shutil
 import subprocess
@@ -19,36 +20,18 @@ from script.tests.scene_dependency_binding_test_support import (
 
 REPOSITORY_ROOT = Path(__file__).resolve().parents[2]
 SCENE_ROOT = REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene"
-RUNTIME_CATALOG = (
-    REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Compilation/Material/SceneResolvedMaterialRuntimeCatalog.swift"
-)
-RUNTIME_BRIDGE = (
-    REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Graph/SceneResolvedMaterialRuntimeBridge.swift"
-)
-ASSET_CATALOG = (
-    REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Resources/Textures/SceneMaterialAssetTextureCatalog.swift"
-)
+RUNTIME_CATALOG = SCENE_ROOT / "Compilation/Material/SceneResolvedMaterialRuntimeCatalog.swift"
+RUNTIME_BRIDGE = SCENE_ROOT / "Rendering/Graph/SceneResolvedMaterialRuntimeBridge.swift"
+ASSET_CATALOG = SCENE_ROOT / "Resources/Textures/SceneMaterialAssetTextureCatalog.swift"
 LAUNCH = REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Runtime/Session/SceneDesktopWallpaperHost+Launch.swift"
 TEXTURE_FRAME = REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Frame/SceneMetalRenderer+TextureFrame.swift"
 COMPOSITOR = REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Composition/SceneImageLayerCompositor.swift"
-CAPABILITY_STAGES = (
-    REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Compilation/Material/SceneResolvedMaterialExecutionCapability+Stages.swift"
-)
-LAYER_SOURCE_PASSTHROUGH_PLAN = (
-    REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Composition/SceneLayerSourcePassthroughPlan.swift"
-)
-GRAPH_COMPOSITION = (
-    REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Composition/SceneResolvedMaterialGraphComposition.swift"
-)
-RENDERER_DIAGNOSTICS = (
-    REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Frame/SceneMetalRenderer+Diagnostics.swift"
-)
-RENDERER_EXECUTION_EVIDENCE = (
-    REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Frame/SceneMetalRenderer+ExecutionEvidence.swift"
-)
-FRAME_PREFLIGHT = (
-    REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Frame/SceneResolvedMaterialFramePreflight.swift"
-)
+CAPABILITY_STAGES = SCENE_ROOT / "Compilation/Material/SceneResolvedMaterialExecutionCapability+Stages.swift"
+LAYER_SOURCE_PASSTHROUGH_PLAN = SCENE_ROOT / "Rendering/Composition/SceneLayerSourcePassthroughPlan.swift"
+GRAPH_COMPOSITION = SCENE_ROOT / "Rendering/Composition/SceneResolvedMaterialGraphComposition.swift"
+RENDERER_DIAGNOSTICS = SCENE_ROOT / "Rendering/Frame/SceneMetalRenderer+Diagnostics.swift"
+RENDERER_EXECUTION_EVIDENCE = SCENE_ROOT / "Rendering/Frame/SceneMetalRenderer+ExecutionEvidence.swift"
+FRAME_PREFLIGHT = SCENE_ROOT / "Rendering/Frame/SceneResolvedMaterialFramePreflight.swift"
 TARGET_ALLOCATOR = (
     REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Targets/ScenePersistentGraphTargetAllocator.swift"
 )
@@ -222,7 +205,12 @@ enum SceneGPUStageTimestampHook {
         "SceneSubmissionLifecycleChecks.swift",
         "SceneSubmissionCoordinatorMain.swift",
     )
-) + SCENE_DEPENDENCY_BINDING_SUPPORT + RESOURCE_PHASE_UNAVAILABLE_SUPPORT
+) + SCENE_DEPENDENCY_BINDING_SUPPORT + RESOURCE_PHASE_UNAVAILABLE_SUPPORT + (
+    "extension SceneDependencyRenderPlan {\n" + _declaration(
+        (SCENE_ROOT / "Rendering/Dependencies/SceneDependencyRenderPlan+Aggregate.swift").read_text(encoding="utf-8"),
+        "MultiProviderAggregate", marker="    nonisolated struct MultiProviderAggregate: Hashable {",
+    ) + "\n}\n"
+)
 
 
 STATIC_SOURCE_DRAW_ONLY_HARNESS = (
@@ -829,7 +817,6 @@ class SceneResolvedMaterialRuntimeBridgeTests(unittest.TestCase):
         self.assertEqual(result["completed"], [True, False, True])
         self.assertEqual(result["rejection"], "resolved-material-frame-seal-rejected")
 
-
     @unittest.skipUnless(shutil.which("swiftc"), "swiftc is required")
     def test_current_submission_coordinator_lifecycle_behaviors(self) -> None:
         with tempfile.TemporaryDirectory(
@@ -930,6 +917,14 @@ class SceneResolvedMaterialRuntimeBridgeTests(unittest.TestCase):
                 "cascadingDependencyCaptureFailureRejectsTransitiveSubgraph",
                 "repeatTerminalPublicationRejectsBeforeLedgerAndPreservesPreviousCurrent",
                 "preparedProviderOutputKeepsNamedReservationWithoutCompositorOwnership",
+                "geometryProviderStraightSourceKeepsPMAReservation",
+                "graphCopyProviderInheritsStraightContent",
+                "mixedAggregateGeometryThenImageKeepsContentOrder",
+                "mixedAggregateImageThenGeometryKeepsContentOrder",
+                "mixedAggregateWrongContentRejected",
+                "mixedAggregateWrongTextureRejected",
+                "mixedAggregateWrongEpochRejected",
+                "mixedAggregateWrongSlotRejected",
                 "namedPublicationMissKeepsSuffixAndFrameLocal",
                 "aggregatePublicationMissRejectsOnlyConsumer",
                 "aggregateSourceUnavailableSkipsClaimAndKeepsSuffix",

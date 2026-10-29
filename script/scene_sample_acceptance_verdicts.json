@@ -2397,6 +2397,13 @@
       "evidence": [
         "/Users/songziqiang/Documents/Development/MyWallpaperX/.artifacts/scene-evidence/runs/original-gross-screen-20261023/current/samples/3722749868/after_snapshot.png"
       ]
+    },
+    "2959875782": {
+      "verdict": "unreviewed",
+      "note": "2026-10-29几何命名输出表示修复：原持续dependency-input-mismatch已消失，1413 publication→134 binding成功，真实App恢复Ready与完整出画，停止正常。当前archive的blocked属于修前全量观察；不改为官方/整样本PASS，完整属性与长周期未验。",
+      "runs": [
+        ".artifacts/scene-evidence/runs/geometry-named-content-20261029/2959875782/native/report.json#2959875782"
+      ]
     }
   },
   "localEvidenceRetirement": {

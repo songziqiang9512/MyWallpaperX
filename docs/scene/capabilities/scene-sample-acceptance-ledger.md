@@ -11,9 +11,9 @@
 - 样本根：`/Users/songziqiang/Movies/MyWallpaperX/创意工坊/Scene`（453 个 sample 目录）。
 - 运行归档：`scene_sample_debug_archive.json` SHA-256 `656769ceeb256acbbed4a50cc5ac85eba0b55f9bac3c46261fec8d512f37fe80`（生成于 2026-10-29T02:16:22.751422+00:00）。
 - 归档运行身份：CDHash `f92774bdf124ae9f7bfae8f6f3e4d30a713c5036`、CDHash `edde7df24e63e3b9830a72900437596b3634c3dd`；**归档内不止一个执行身份**，运行状态与首断点因此是混合身份事实，单样本结论必须回到该样本自己的 report 身份。
-- 裁决覆盖层：`scene_sample_acceptance_verdicts.json` SHA-256 `7aeb9e4bee89d02f3973c2c365fc9d9bc82ba116f37c036e7cc40518c955e1bd`。
+- 裁决覆盖层：`scene_sample_acceptance_verdicts.json` SHA-256 `4d0fc6976945ab7eb1744eb6a379435ef1dd43223198d2bf734a846135de923d`。
 - 仅历史归档保留、当前目录已移除的裁决：3806887870；不计当前目录表，原裁决不删除。
-- 本页生成于 2026-10-29T02:23:44.343313+00:00。
+- 本页生成于 2026-10-29T03:16:40.528846+00:00。
 
 本页生成日仅表示台账生成，不表示归档运行或人工裁决已重新验收。旧归档首断点可能已在后续开发中修复；最新技术状态以[断点队列](../roadmap/scene-open-breakpoint-queue.md)和[运行证据](runtime-evidence-current.md)为准。`not-run` 仅表示本归档未关联运行证据，不表示样本从未运行；归档中的失败状态也不等于当前 HEAD 的失败。
 本机已清理的历史证据：68 个样本、222 个引用；原路径保留在裁决覆盖层的 `unavailableLocalRuns/unavailableLocalEvidence`，不计可用载荷。清理不撤销历史结论，也不代表当前重新验收；见[证据可用性](runtime-evidence-current.md#local-evidence-availability)。
@@ -152,7 +152,7 @@
 | `2942486721` | R18 Ishtar And Ereshkigal / 遠坂  凛 Tohsa… | 3(0) bool 2 color 1 | `structural-chain-complete-visual-review` | - | `visual-review` | `unreviewed` |  |
 | `2949019513` | [4K \| 可自定义] A.R.O.N.A.    (碧蓝档案) | 41(20) bool 23 color 3 slider 15 | `structural-chain-complete-visual-review` | - | `visual-review` | `unreviewed` |  |
 | `2951452910` | 麻匪 一伊那尔栖 21:9 16:9 | 29(10) bool 5 color 8 slider 2 text 13 textinput 1 | `structural-chain-complete-visual-review` | - | `visual-review` | `unreviewed` 2026-10-21 | 雪林、人物、悬浮小生物、金色光环、雪点和右上时钟/日期/小频谱均可见；未见大缺层、黑块或明显混合破坏。 actual人物更大、树干位置与局部雪点不同；主体与背… |
-| `2959875782` | [R18] Lexaiduer Last Origin Dark Elven … | 4(0) color 1 combo 2 slider 1 | `blocked` | `launch / SceneDesktopWallpaperHost / ready-event-missing / scene-surface` | `visual-review` | `unreviewed` |  |
+| `2959875782` | [R18] Lexaiduer Last Origin Dark Elven … | 4(0) color 1 combo 2 slider 1 | `blocked` | `launch / SceneDesktopWallpaperHost / ready-event-missing / scene-surface` | `visual-review` | `unreviewed` | 2026-10-29几何命名输出表示修复：原持续dependency-input-mismatch已消失，1413 publication→134 bindi… |
 | `2960821850` | Media Player (2.0) | 5(0) bool 4 color 1 | `structural-chain-complete-visual-review` | - | `visual-review` | `unreviewed` |  |
 | `2964778792` | [4K/动态/R18-3.0版]碧蓝航线-莱莎琳·斯托特「熬夜的炼金术士」补档… | 4(0) bool 1 color 1 slider 2 | `structural-chain-complete-visual-review` | - | `visual-review` | `unreviewed` 2026-10-17 | 动态origin63的准备/74.stop首门已修，原包第一idle已实际可见黑色Z；与目录官方截屏基础构图相符。复用driver因explicit拖动不生成… |
 | `2969308380` | 麻匪 三分钟一张流水线壁纸 简单且无聊 | 26(4) bool 6 color 6 slider 1 text 10 textinput 3 | `structural-chain-complete-visual-review` | - | `visual-review` | `unreviewed` 2026-10-19 | 人物、粒子、时钟可见；日期右端裁切和STANDBY保留视口/媒体状态未知，不作适配根因。 |
