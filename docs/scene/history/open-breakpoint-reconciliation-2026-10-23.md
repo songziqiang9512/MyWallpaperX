@@ -289,3 +289,18 @@ SourceFacts在检查与launch准备队列同步建立，原类型却继承App默
 未参与修法的 `2419444134` 实图与短跑strict PASS。三次App exit0，停止surfaces1→0且GPU排空，正式安装App保留运行。373候选仍strict NON-PASS，仅余作者默认关闭186的utility计数与成功scene-color-completed promotion误诊，继续留队列；不改诊断来凑PASS。382仍先止于宏重定义，不计受益；整样本官方、全属性/真实面板、音频包络、HDR/多屏、长稳与性能均未验收。
 
 必要三次原report/log/runtime、三张after原图与源码/测试/构建身份归 `.artifacts/scene-evidence/runs/uniform-key-fanout-20261030/metadata/`；最终patch、独审补签及门禁另收同根 `uniform-key-fanout-20261030-closure/`，不重复图片，metadata初审不冒充最终补签。carrier不合成native状态。本条只退出跨字段key独占首门，旧453+38混合运行档案不改写成最新执行。
+
+<a id="function-macro-redefinition-20261030"></a>
+## 函数宏顺序重定义与示波效果（2026-10-30）
+
+**通用语义。** 依[稳定合同](../architecture/shader-metadata-failure-contract.md#ordered-function-macro-redefinition)，原 Preprocessor 仅删除3行函数宏 replacement 冲突拒绝，继续在 directive 前展开已有代码，再更新同一宏表；host/object/kind、参数、递归、预算与来源映射不变。不增产品状态、owner、帧期工作或手工缓存版本。
+
+**官方资格。** [官方 Syntax](https://docs.wallpaperengine.io/en/scene/shader/syntax.html#preprocessor)只说明自定义预处理器，并未规定本次冲突语义。固定 wallpaper32.exe 2.8.0.42（SHA `DAAC1EA7…6BDA07`）自有静态六格板：同定义D匹配旧值参考、undef后的U与不同 replacement 的C均匹配顺序参考；C与另两候选各差127/255。两个不同内容的CUA捕获经嵌入ICC→sRGB、四角注册后各格对参考误差0；重复捕获a/b同SHA只计一次，a/full-state尺寸相同且实际为JPEG。初次载体缺loose资源、六格全退回粉底，不作为宏结果；唯一一次原字节transport修正后31文件逐一相同，正控才成立。该静态结果不外推所有预处理语法、色域或动画。
+
+**原包结果。** 原 `3828126394:215#effect#220` 在有效签名基线 `e5b8b7e7…9738` 先拒vertex81的avg重定义、materialNodes0/rejected1。候选 `8f3a2089…158f` 同属性、标准PCM、pointer outside、duration4/after3：目标Program `7df10ecb…c4579f` 两帧materialNodes1/rejected0、GPU completed；后缀249仍为原Program `282ef60c…ea3763` 并实际消费至唯一compositor。原图中背景纵向示波纹理恢复，人物、蝴蝶与水纹保留；工具strict PASS只覆盖这次短窗，不认完整属性/动作、音频phase或官方整景像素等价。
+
+**验证与限制。** 自有板本机Program/GPU/合成ready/after均D→ref00、U/C→ref01且误差0；该板用同产品源码的临时adhoc身份 `9b6f5568…15a85`，六格均由boundedSwift实际执行；其generic helper签名未资格，不能冒称generic后端或最终签名App，原382由后续有效签名运行单独证明。预处理器、跨行与module门通过；variant环境门首次因既有standalone源清单漏CacheIdentity编译失败，补真实依赖后2方法通过，未改断言。Debug31.854秒，无Swift诊断，仅工具提示无AppIntents依赖。错误重签辅助程序的第一轮真实样本因helperSignatureInvalid失格，明确废弃；恢复产品团队签名后才作上述有效运行。
+
+未参与修法的3737267090仍显示横向波形，175/220真实GPU链保留，无failed CPU；strict NON-PASS仍是上批已记录的默认隐藏186 utility计数及成功scene-color-completed通知被误归diagnostic，未为绿色结果修改门。两真实样本exit0、无timeout、停止surface归零/GPU排空。未测性能收益、HDR/多屏或长稳。382的其他未知辅助动画与旧细节不随宏首门退出。
+
+必要原输入manifest、自有fixture、官方原图/注册量化、有效基线/候选report与原图、失格签名日志、构建/门和独审归本机 `function-macro-redefinition-20261030` 正式包；不留样本副本、HOME或staged App，只续用原一份构建缓存。

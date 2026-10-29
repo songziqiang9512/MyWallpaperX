@@ -93,8 +93,8 @@
       "bytes": 7045
     },
     "docs/scene/architecture/shader-metadata-failure-contract.md": {
-      "lines": 91,
-      "bytes": 18173
+      "lines": 100,
+      "bytes": 19785
     },
     "docs/scene/architecture/variant-analysis-cache-contract.md": {
       "lines": 19,
@@ -150,7 +150,7 @@
     },
     "docs/scene/capabilities/runtime-evidence-current.md": {
       "lines": 600,
-      "bytes": 220580
+      "bytes": 220417
     },
     "docs/scene/capabilities/runtime-input-property-coverage.md": {
       "lines": 600,
@@ -278,7 +278,7 @@
     },
     "docs/scene/roadmap/scene-open-breakpoint-queue.md": {
       "lines": 177,
-      "bytes": 38741
+      "bytes": 38682
     },
     "docs/web/cold-descriptor-parse-offload-design.md": {
       "lines": 30,
@@ -1831,15 +1831,6 @@
     },
     {
       "section": "bodies",
-      "path": "docs/scene/architecture/shader-metadata-failure-contract.md",
-      "before": "d053a685566acfa1f347f836db7f28e6144458b236003a29dcb713de1122e04e",
-      "after": "2ad0e1feb2330445316efcd1c83cb29b356df3c9bc94e8486c2f2596d9393e37",
-      "owner": "Scene material uniform binding",
-      "reason": "在既有metadata合同内明确材质值来源与独立反射字段，删除错误key独占并保存必要的默认值、真实冲突及typed更新边界；已有owner内局部修正，有原包横向波形与真实字段字节验收，不新增文档或运行owner。",
-      "decision": "docs/scene/architecture/shader-metadata-failure-contract.md#material-uniform-key-fanout"
-    },
-    {
-      "section": "bodies",
       "path": "docs/scene/capabilities/scene-sample-acceptance-ledger.md",
       "before": "5d6e34d9a6229c80820b321f6c90df920b19717fa21112d673318a2e7daad15d",
       "after": "b7f010c54fce6668ad74a5d98fe30d1268396deaa857a04c44fc1bc5f328e620",
@@ -1873,6 +1864,15 @@
       "owner": "Scene video runtime qualification",
       "reason": "记录已撤输出退休原型的非目标退步，避免把手动消融或有限Metal下降当已修；队列仅保仍开放驻留及新AV完成边界，原数和过程集中到既有历史，不新增问题文档或产品关卡。",
       "decision": "docs/scene/history/video-instance-observations-2026-10-29.md#video-output-residency-20261030"
+    },
+    {
+      "section": "bodies",
+      "path": "docs/scene/architecture/shader-metadata-failure-contract.md",
+      "before": "2ad0e1feb2330445316efcd1c83cb29b356df3c9bc94e8486c2f2596d9393e37",
+      "after": "867255c9f0b4ec24a62ecbc793709e92ef14ee4ac7437846f085bd02b49edc59",
+      "owner": "scene-shader-preprocessor",
+      "reason": "原唯一metadata/预处理合同新增函数宏顺序替换的已资格目标、职责退出与正反验收；仅9行并有原包GPU/示波可见收益，避免另造设计文档和运行owner。",
+      "decision": "docs/scene/architecture/shader-metadata-failure-contract.md#ordered-function-macro-redefinition"
     }
   ]
 }

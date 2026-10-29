@@ -23,6 +23,7 @@ SWIFT_SOURCES = [
     REPO_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Compilation/ShaderContract/SceneShaderSourceGraph.swift",
     REPO_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Compilation/ShaderContract/SceneShaderLegacyAnnotationJSON.swift",
     REPO_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Compilation/ShaderContract/SceneShaderContract.swift",
+    SCENE_ROOT / "Compilation/ShaderContract/SceneShaderCacheIdentity.swift",
     REPO_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Resources/Textures/SceneTextureSampling.swift",
     # Includes the canonical shader_preprocessing_and_variant_implementation
     # family plus the prepared-program cache assembly exercised below.

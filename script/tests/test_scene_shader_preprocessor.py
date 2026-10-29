@@ -671,10 +671,40 @@ private func runPreprocessorFixtures(at base: URL) throws -> [String] {
         float subtractNegative = 2.0-NEGATIVE;
         float addPositive = 2.0+PLUS;
         float reference = DOUBLE;
+        #define F(x) x
+        float beforeRedefinition = F(3);
+        uniform float u_MacroBefore; // [COMBO] {"combo":"MACRO_BEFORE","default":1}
+        #define F(x) (x + 1)
+        float afterRedefinition = F(3);
+        #define OFFSET_FN(argument) (argument)
+        float renamedBefore = OFFSET_FN((2 + 1));
+        #define OFFSET_FN(component) ((component) + (1))
+        float renamedAfter = OFFSET_FN((2 + 1));
+        #if 0
+        #define F(ignored) (ignored + 99)
+        #include "function_redefinition.glsl"
+        #endif
+        float inactiveFunction = F(3);
+        #include "function_redefinition.glsl"
+        float afterInclude = F(3);
+        #undef F
+        #define F(restored) (restored - 1)
+        float afterUndef = F(3);
+        uniform float u_MacroAfter; // [COMBO] {"combo":"MACRO_AFTER","default":1}
         const char* label = "DOUBLE(9)"; // APPLY(8, DOUBLE)
         """,
         to: looseRoot,
         "shaders/macros/functions.frag"
+    )
+    try write(
+        """
+        float beforeIncludeDefinition = F(4);
+        #define F(included) ((included) * 2)
+        float includedDefinition = F(4);
+        uniform float u_MacroInclude; // [COMBO] {"combo":"MACRO_INCLUDE","default":1}
+        """,
+        to: looseRoot,
+        "shaders/macros/function_redefinition.glsl"
     )
     view = resourceView(loose: looseRoot)
     let functionPrepared = try prepared(
@@ -693,6 +723,15 @@ private func runPreprocessorFixtures(at base: URL) throws -> [String] {
         "float functionDefined = 1;",
         "float functionUndefined = 1;",
         "float reference = DOUBLE;",
+        "float beforeRedefinition = 3;",
+        "float afterRedefinition = (3 + 1);",
+        "float renamedBefore = ((2 + 1));",
+        "float renamedAfter = (((2 + 1)) + (1));",
+        "float inactiveFunction = (3 + 1);",
+        "float beforeIncludeDefinition = (4 + 1);",
+        "float includedDefinition = ((4) * 2);",
+        "float afterInclude = ((3) * 2);",
+        "float afterUndef = (3 - 1);",
         "\"DOUBLE(9)\"; // APPLY(8, DOUBLE)",
     ] {
         try expect(
@@ -701,6 +740,18 @@ private func runPreprocessorFixtures(at base: URL) throws -> [String] {
         )
     }
     checks.append("function_macros")
+    try expect(functionPrepared.activeDeclarations.filter {
+        $0.declaration.name.hasPrefix("u_Macro")
+    }.map(\.declaration.name) == ["u_MacroBefore", "u_MacroInclude", "u_MacroAfter"],
+        "Function replacement changed declaration order across the include.")
+    try expect(functionPrepared.activeAnnotations.compactMap { comboName($0.annotation) }
+        == ["MACRO_BEFORE", "MACRO_INCLUDE", "MACRO_AFTER"],
+        "Function replacement changed metadata order or composed the inactive include.")
+    try expect(functionPrepared.sourceMap.filter {
+        $0.sourcePath == "shaders/macros/function_redefinition.glsl"
+    }.map(\.sourceLine) == [1, 3, 4],
+        "Redefinition source mapping lost include lines or composed the inactive include.")
+    checks.append("function_redefinition")
 
     try write(
         "#if 1\nFIRST\n#endif\n\n#endif\n\n#if 1\nSECOND\n#endif",
@@ -752,7 +803,7 @@ private func runPreprocessorFixtures(at base: URL) throws -> [String] {
         ("function_arity", "#define F(x) x\nF(1, 2)", .functionLikeMacro),
         ("function_empty_argument", "#define F(x) x\nF()", .functionLikeMacro),
         ("function_invocation", "#define F(x) x\nF(1", .functionLikeMacro),
-        ("function_redefinition", "#define F(x) x\n#define F(x) (x + 1)", .conflictingMacro),
+        ("function_redefined_arity", "#define F(x) x\n#define F(left, right) (left + right)\nF(1)", .functionLikeMacro),
         ("function_kind_change", "#define F(x) x\n#define F 1", .conflictingMacro),
         ("object_kind_change", "#define F 1\n#define F(x) x", .conflictingMacro),
         ("function_parameter_budget", "#define F(a,b,c,d,e,f,g,h,i,j,k,l,m,n,o,p,q) a", .budgetExceeded),
@@ -1632,6 +1683,7 @@ class SceneShaderPreprocessorTests(unittest.TestCase):
                 "conditional_includes",
                 "trailing_condition_semicolon",
                 "function_macros",
+                "function_redefinition",
                 "redundant_top_level_endif",
                 "trailing_redundant_endif",
                 "directive_failures",

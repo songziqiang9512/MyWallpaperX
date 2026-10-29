@@ -114,9 +114,6 @@ extension SceneShaderPreprocessor.State {
             if selectedDefinitions[macro.name] != nil || macros[macro.name] != nil {
                 throw failure(.conflictingMacro, "Macro '\(macro.name)' changes from object-like to function-like.", node.virtualPath, line)
             }
-            if let existing = functionMacros[macro.name], existing != macro {
-                throw failure(.conflictingMacro, "Function-like macro '\(macro.name)' is redefined.", node.virtualPath, line)
-            }
             functionMacros[macro.name] = macro
         case let .undef(name):
             guard currentActive else { return }

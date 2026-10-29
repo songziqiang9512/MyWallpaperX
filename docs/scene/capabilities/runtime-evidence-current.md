@@ -1,9 +1,9 @@
 <!-- document-role: stable-contract -->
 # Scene 当前运行证据摘要
 
-> 按需证据库：先读[当前快照](#current-snapshot)与[证据深度](#evidence-levels)。D36完成文件复用、D37命中免读已采用，产品仍D37；D38近上限输入RAM三条件通过，正式整体启动时序仍未过噪声门，375完整统计按D39停止未覆盖。D40当前版本普通UI21次GPU首帧/提交、20次切换、1816.635秒视频稳态和自然退出通过；真实锁睡/显示缩放/人工OS警告恢复仅证本次Scene视频，Web真实OS恢复未验。旧失败与成本STOP保留，专项已结算，不再另排启动队列。 专项实施、原失败/STOP与最终结算统一查[完成记录](../../history/cross-topic/wallpaper-startup-optimization-completed-2026-10-25.md)，稳定职责归[启动合同](../architecture/scene-launch-responsiveness-contract.md)。
+> 按需证据库：先读[当前快照](#current-snapshot)与[证据深度](#evidence-levels)。Scene/Web启动专项已结算，不再另排启动队列；D36至D40产品结果、原失败/成本STOP及未覆盖边界统一查[完成记录](../../history/cross-topic/wallpaper-startup-optimization-completed-2026-10-25.md)，稳定职责归[启动合同](../architecture/scene-launch-responsiveness-contract.md)。
 >
-> <a id="corpus-log-audit-20261029"></a>全样本短窗日志筛查见[固定记录](../history/corpus-log-audit-2026-10-29.md)，不含像素或性能裁决。本页只回答能力在何种输入、代码与产品身份下取得过哪一级证据；当前路线与能力等级分别由[执行路线](../roadmap/scene-compatibility-roadmap.md)和[能力台账](coverage-ledger.md#current-overview)拥有。旧包不自动成为当前 HEAD 的 fresh 复现。
+> <a id="corpus-log-audit-20261029"></a>全样本短窗日志筛查见[固定记录](../history/corpus-log-audit-2026-10-29.md)，不含像素或性能裁决。最新[函数宏后验](../history/open-breakpoint-reconciliation-2026-10-23.md#function-macro-redefinition-20261030)已闭官方自有板及原382纵向示波链，独立373旧工具告警保留；无整景parity或性能结论。本页只回答能力在何种输入、代码与产品身份下取得过哪一级证据；当前路线与能力等级分别由[执行路线](../roadmap/scene-compatibility-roadmap.md)和[能力台账](coverage-ledger.md#current-overview)拥有。旧包不自动成为当前 HEAD 的 fresh 复现。
 <a id="local-evidence-availability"></a>
 
 > **本机证据可用性（2026-10-20核对）**：用户已清理大量旧缓存。旧段落中的本机路径、App/DerivedData保留和“当前”只描述该段的执行日期，不承诺载荷现在仍存在；缺失路径不能当作可复验的截图、日志或当前HEAD证据。历史有界结论保留，不能据缓存消失重开已修反馈或改写原人工裁决。

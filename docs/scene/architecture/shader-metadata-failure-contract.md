@@ -89,3 +89,12 @@ source-proven purpose沿原TextureSlotPurpose→Catalog精确asset/user atom需�
 显式材质值逐字段覆盖 shader default；没有该来源时，各字段沿原 fallback 使用自己的 default，不能借用另一字段的值。动态来源继续要求本帧 target；同一字段匹配多份声明、host 冲突、错误类型/shape 或不可表示值仍由原消费者在最小 pass/effect 拒绝。特殊 `uniqueActiveUniform/exactActiveUniforms` 的唯一消费者证明不随共享 key 放宽。
 
 本片的真实执行、可见结果与未覆盖范围见[有界后验](../history/open-breakpoint-reconciliation-2026-10-23.md#material-key-fanout-20261030)。
+
+<a id="ordered-function-macro-redefinition"></a>
+## 函数宏按定义顺序替换
+
+**目标与依据。** 已活动的同名函数宏更换 replacement，不应在准备阶段丢弃整个 pass。固定官方客户端 2.8.0.42 的自有静态六格板中，重复同一定义与显式 undef 正控成立；不同 replacement 的前后调用分别匹配旧、新常量参考，排除首次定义独占和全文使用最后定义。证据仅覆盖该函数宏形态，不把公开文档未规定的其他重定义行为一起开放。
+
+**唯一职责与退出。** 原 Preprocessor 在每条 directive 前完成 pending 展开；继续沿这个顺序更新原 functionMacros 表，只删除不同函数定义的冲突拒绝，不预扫、重解析或保留历史表。变量/参数改名、active include、inactive 分支和 undef 沿原解析与执行规则。选定 host 宏、object 值冲突、宏种类切换、非法参数/调用、递归、来源映射和原预算保持原最小失败边界。没有普通帧工作、新 owner 或缓存层；此前合法输入的 prepared 内容不变，原 build/source 身份承担失效，原拒绝不作为成功缓存复用。
+
+**验收与停止。** 现预处理器门验证定义前后、改名与等价表达、include/inactive/undef、metadata/sourceMap及相邻拒绝；自有板须到实际 Program/GPU/合成且匹配同路径参考，原包与未参与修法样本另验。若原包进入下一拒绝，只记录首断点推进，不称整效果或样本修复；没有实际可见收益则重排下一方向，不以编译数或日志消失替代成果。
