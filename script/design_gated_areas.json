@@ -1660,6 +1660,19 @@
       "contentPatterns": []
     },
     {
+      "id": "scene-dead-varying-uniform-projection",
+      "title": "跨阶段死varying的uniform准备期投影",
+      "owner": "Existing DeadBindingAnalyzer, BackendCanonicalizer and Program uniform consumers",
+      "status": "approved",
+      "designDoc": "docs/scene/architecture/shader-metadata-failure-contract.md",
+      "design_notes": "2026-10-29 design recorded before implementation at #dead-varying-uniform-projection: extend the existing pure main-statement/local closure proof beyond inactive sampler Resolution; reuse non-execution syntax facts for generic projection without changing bounded loop admission. Preserve live varying/position, side effects, sampling, unknown helpers and matrix guards. Reuse semantics/canonical-source identity, no new owner or frame work. Verify actual binding/layout, flat-raster counterexample, native samples and independent review. The existing backend mul leaf is pure only for deletion proof; retain authored function/define shadow guards and all non-deletion color-admission boundaries.",
+      "matchPatterns": [
+        "MyWallpaperX/Core/SteamWorkshopScene/Compilation/ShaderFrontend/SceneAuthoredShaderDeadBindingAnalyzer.swift",
+        "MyWallpaperX/Core/SteamWorkshopScene/Compilation/ShaderFrontend/SceneAuthoredShaderColorTransferAnalyzer+Syntax.swift"
+      ],
+      "contentPatterns": []
+    },
+    {
       "id": "lock-screen-and-system-screensaver",
       "title": "macOS系统视频屏保与锁定显示",
       "owner": "App + Core/System + system ScreenSaver host",

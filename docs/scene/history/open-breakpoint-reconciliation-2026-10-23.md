@@ -13,6 +13,7 @@
 
 | 样本 / 公共语义 | 有界关闭与证据 |
 |---|---|
+| 3175039950 · dead-varying uniform投影 | Program218的无消费者inverse退出实际布局，原局部采集回绘首拒及未Ready退出；严格样本结果仍FAIL，不授整样本PASS。[本批边界](#dead-varying-uniform-20261029) |
 | 3662790108 · provider文字发布/首提升 | 未adopt文字发布不再误作surface失效；原包由反复准备超时恢复一次held/Host提升，开场说明可见。只认启动恢复，球体/曲率/交互仍开放；无消费的Data误读不列引擎待修。[后验](text-publication-first-frame-2026-10-23.md) |
 | 3321237804 · 普通视频首提升、主时钟 | 实际可见视频首publication及同次全surface/GPU完成后提升；冷暂停、改名双屏/坏源与旧active门支持有界首呈现。639字形不可表达时同链typographic重排恢复主HH:MM；不认seek目标同步/全部字体或整景parity。[视频](initial-video-presentation-2026-10-23.md)、[文字](../capabilities/runtime-evidence-current.md#native-text-bounds-20261022) |
 | 281/299292 · Bool文字创建 | nil-path文本不再被图片路径门误拒；原文字/隐藏副本沿typed事务。阴影Off→Static受控副本偏移黑字可见，不外推默认姿态/精确XY。[后验](../capabilities/runtime-evidence-current.md#boolean-dynamic-text-20261021) |
@@ -171,3 +172,16 @@
 **实际画面。** 原295在基线持续dependency-input-mismatch、无Ready；修后layer1413的visible publication和134 binding成功、mismatch为0，Ready9648.709ms，完整主体与背景出画。独立322默认人物、背景文字、频谱和发光曲线保持，不关闭旧手部等反馈。两例各Ready后7秒、after请求3秒、固定PCM，均exit0/FAIL[]、normalization terminal-chain-complete、surface1→0/GPU drained。它们是本修复的两次画面验收，不重跑全量；未验官方同phase、全属性/长周期、普通桌面媒体、完整HDR或性能。
 
 **身份与保存。** 普通Debug25.546秒、现优化DEBUG28.310秒构建通过，7个受测/配置源无漂移；后者App SHA256 `2a76ace1a2b5e47278bb699aa2991b50b5c9159d79cdeeaa6af781ef24d376dc`。独审复核产品、真实声明装配、两图与日志GO。必要原图/日志及来源明确的逐样本投影在`.artifacts/scene-evidence/runs/geometry-named-content-20261029/{2959875782,3226487183}/native/`；summary保存完整原report、源摘要、原失败和验证记录，均普通14天、每包≤32MiB。原全量归档的blocked属于修前身份，保留历史而不回写成功；只退出本次首帧断点，不授整样本官方PASS。
+
+<a id="dead-varying-uniform-20261029"></a>
+## 2026-10-29 无消费者顶点uniform的准备期投影
+
+**通用语义。** 同一DeadBindingAnalyzer不再只由inactive sampler Resolution触发：fragment不读、且vertex全部引用都落在已有可删范围内的uniform，随纯dead-varying计算退出bounded/generic实际布局。复用main顶层分量写、单定义局部引用闭包和纯度证明；既有后端mul仅供删除证明接纳，同名作者函数/宏、副作用、采样、活读及控制流边界保留。generic用既有非执行语法入口取得事实，无关动态loop不妨碍投影，也不扩大bounded执行资格。无活跃inverse时terminalReplay自然不再求逆；活读inverse仍拒奇异矩阵，未补假逆矩阵或改变局部采集丢弃无关Z的语义。[合同](../architecture/shader-metadata-failure-contract.md#dead-varying-uniform-projection)
+
+**验证。** 实际编译主门16通过、1条保留作者请求跳过；死inverse及改名/等价表达的两后端layout与控制输入相同，第二次请求产物/layout一致，活读与副作用反例保留，动态音频例仍由bounded报dynamicLoop。合并调用的第二类prepared-normalization在夹具编译时被停止，整次exit1，不能称全绿。实际Program两门PASS，覆盖flat raster无inverse与真正活读inverse拒绝；普通Debug29.323秒、优化DEBUG诊断构建31.140秒通过，独审对有界范围给GO。
+
+**真实输出。** 原3175039950由Program218183166b6c的pass-uniforms-rejected、未Ready恢复至Ready4440.089ms；147#effect#674首帧与次帧均succeeded、GPU完成且compositor消费。Root实看人物、雪人、白方雪粒和地面可见。严格report仍FAIL，仅报utility capture失败及低于planned计数；未参与修法的3226487183严格PASS、Ready10320.286ms，其背景文字、谱条与发光线可见。两例均exit0、surface1→0、GPU drained；不作性能、完整HDR、全属性或官方parity结论。
+
+**退出边界。** 317默认newproperty24=1选择人物+雪人，495为选项2的隐藏composition，子层479/488也隐藏；当前可见雪人属于423组，无实际可见consumer要求495输出。现隐藏组未分配source却记capture failed，8条静态planned只有5条succeeded，保[合同与验证债](../roadmap/scene-open-breakpoint-queue.md#contract-validation-debt)。修前归档被Program218挡在utility执行前，不能写成“修前已复现495 failed”。两方块雪粒393/1229当前已出生、非空并完成GPU，修前预热人口也已非零，撤去“人口0待修”的现状表述；音频rate发布不证明音频导致出生或对应像素变化，相关因果尚未资格，不新增已知缺陷，也不据可见白粒结清音频一致性。
+
+**证据保存。** 必要原图、日志、来源身份与逐样本投影保存于`.artifacts/scene-evidence/runs/dead-varying-uniform-20261029/{3175039950,3226487183}/native/`，`summary/`保原report、构建/Program/编译门及独审收据，普通14天。原全量的blocked记录保留修前身份，本批仅退出列明首门。

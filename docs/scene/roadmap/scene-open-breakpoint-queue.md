@@ -17,7 +17,6 @@
 
 | 公共首断点 / 样本 | 未闭问题与最小下一门 |
 |---|---|
-| 局部合成回绘uniform/MVP · 3175039950 | 当前优化DEBUG原包未Ready，Program218183166b6c的terminalReplay返回nil，报pass-uniforms-rejected并撤回整帧；不是已定位的音频粒子问题。局部采集使用降维MVP，而回绘请求完整逆矩阵；先关联具体pass及平面消费者合同，保无关child world-Z被丢弃的现语义，不把scaleZ改1或补假逆矩阵。 |
 | childless composition透视更新 · 2731896598 | 五个无成员、copyBackground/passthrough层已有背景采集与terminal消费者，但hasPerspectiveGeometryConsumer额外拒passthrough，整个origin owner bundle回退previous-current。先用实际Layer谓词及typed true→false/GPU回绘正反例移除错误资格限制；保有成员group、parent/dependency及native边界，不新增坐标链。 |
 | 动态mutation合并/回滚 · 3763428294 /3779904456 /3787382101 /3804971850；3632522893 | 前四例先拒conflicting authored layer mutation target，后报destroyLayer stale；363初始化255个bar时先拒516条mutation预算，后报owned handle错误。分别资格共同写入冲突、聚合工作量与回滚引用寿命；不能归缺destroyLayer API、直接加预算或合并成同callback净零出生候选。 |
 | 视频热切后的AV资源驻留 · 3372715909 | 遍历12源后MTL allocated约9.75GB，单源约0.8GB；暂停/flush尚未收敛AV解码/转换池，数值不等同进程RAM，当前边界见[后验](../history/video-instance-observations-2026-10-29.md#明确保留的成本与边界)。下一门先测真实源消费、空窗及整Session在进程内退场，不重复包装层或改clock，不以提高预算规避。group/named/effect衔接与官方完整seek/播放态空窗仍未知，不能据直接输出正例关闭。 |
@@ -43,7 +42,7 @@
 | 样本 / 具体余项 | 下一关闭门与边界 |
 |---|---|
 | 3022080536 ·水墨烟雾颜色 | 原包静止烟团已恢复，移动阶段原Rope仍输出；缺省mode误启用音频而整拒child的子断点退出，见[后验](../history/open-breakpoint-reconciliation-2026-10-23.md#particle-audio-mode-default-20261028)。当前烟团偏红，官方定点静音为灰褐；须沿实际颜色输入/继承/ColorChange定位，端点单位仍未知，四格颜色对照的出生青色正控失格，保持[STOP](../capabilities/runtime-evidence-current.md#particle-color-composition-20261029)，不猜除255、gain或混合。显式启用audio的child emitter仍不在本次支持范围；302整体不销账。 |
-| 2919854127 /2927205881 /3175039950 · 音频可见性 | 蓝环未见、曲线右短段、白方雪粒人口0分别保待复验。先同源PCM与作者实际触发条件、出生/像素正控；不把非零总量当目标band、改阈值或共用“发光”修法。 |
+| 2919854127 /2927205881 · 音频可见性 | 蓝环未见、曲线右短段分别保待复验。先同源PCM与作者实际触发条件、出生/像素正控；不把非零总量当目标band、改阈值或共用“发光”修法。 |
 | 3577990983 · 远距离提前hover放大 | 先同设置官方/原生及真实鼠标对照；作者约602场景单位半径只解释部分观察，不调全局倍率，也不与已正常的199固定视口认同根。[入口边界](../capabilities/runtime-evidence-current.md#physical-pointer-ingress-20261023) |
 | 2887542690 · 音频ROI、黑遮挡/字体、片区布局 | 图框内音频缺可重复正证，pointer消融已STOP；先取得可区分输入/ROI，不把旧外悬蓝条消失当音频恢复。[资格](../history/composition-local-perspective-2026-10-16.md) |
 | 2134765860 · 旧右黑块 | 默认日景/Night选项4未定位独立黑矩形；旧ROI、媒体和phase不齐。仅待同状态可区分复现，不列当前已证缺图，不据无归属mask实施。旧`213-black-region-night-qualification-20261016`收据按[可用性边界](../capabilities/runtime-evidence-current.md#local-evidence-availability)使用 |
@@ -145,6 +144,7 @@
 
 | 项目 | 具体依据 / 最小下一门 |
 |---|---|
+| 合同与验证债 · 3175039950隐藏utility | 默认newproperty24=1时495及子层479/488隐藏，无实际可见consumer；495仍被记capture failed，8条静态planned只有5条succeeded。先资格活动计划与执行观测口径，不据此再判活跃雪人缺图；原Program218首帧阻断已[有界退出](../history/open-breakpoint-reconciliation-2026-10-23.md#dead-varying-uniform-20261029)。 |
 | <a id="animation-direct-state"></a>静态 · direct MDL与dense state1更广动画 | [DirectModel playback](../../../MyWallpaperX/Core/SteamWorkshopScene/Systems/Puppet/ScenePuppetPlaybackState+DirectModel.swift)对实际参与且权重>0的非中性bone alpha/auxiliary选typed bind fallback并拒非空attachment；[资源准备](../../../MyWallpaperX/Core/SteamWorkshopScene/Resources/Textures/ScenePreparedStaticModelResources.swift)只为单geometry/entry安装动画。dense state1的[Reader](../../../MyWallpaperX/Core/SteamWorkshopScene/Format/SceneMdlPuppetAnimationReader.swift)保留完整TRS与state，[Evaluator](../../../MyWallpaperX/Core/SteamWorkshopScene/Systems/Puppet/ScenePuppetAnimationEvaluator.swift)仍限常量、无独立reference matrices且bind差≤0.0001，含state1的多opaque contributor仍拒。先证合法channel/attachment坐标基、多part或非中性reference的姿态ROI，扩同一selector/evaluator/pose/stream；不把任意state1当state0。[动画合同](../capabilities/direct-model-skeletal-animation.md) |
 | <a id="effect-render-state"></a>静态 · resolved effect非overwrite state | 最早[Template admission](../../../MyWallpaperX/Core/SteamWorkshopScene/Compilation/Material/SceneResolvedMaterialExecutionCapabilityTemplateAdmission.swift)复用[RenderState谓词](../../../MyWallpaperX/Core/SteamWorkshopScene/Runtime/Frame/SceneMaterialRenderState.swift)仅准normal、depth test/write disabled、nocull、alpha unspecified/enabled，Finalizer/PassEncoder再核；只指resolved fullscreen effect，不泛指普通图片/模型。先证active pass精确state、blend factor、alpha convention/输出用途，再沿原Program做像素正反门。 |
 | 静态 · 动态层同callback出生后销毁 | C导出最终destroy，而原DynamicLayerRuntime要求该ID已有已发布实例，可能将净零出生误判staleOwner；只有代码证据，尚未做真实VM→Swift运行资格。先核共同plan的净零语义及peer/rollback，不与跨帧槽位复用或337视频创建混报完成。 |

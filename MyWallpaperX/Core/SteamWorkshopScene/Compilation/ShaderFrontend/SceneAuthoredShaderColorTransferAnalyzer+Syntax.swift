@@ -352,7 +352,8 @@ nonisolated extension SceneAuthoredShaderColorTransferAnalyzer {
                 guard (builtins.contains(name)
                        && (!discardingExpression || !["fast", "CAST3"].contains(name)))
                     || (discardingExpression
-                        && SceneAuthoredShaderValueType(authoredName: name) != nil)
+                        && (name == "mul"
+                            || SceneAuthoredShaderValueType(authoredName: name) != nil))
                     || (!discardingExpression && permitsUnexpandedBlendingHelper
                         && name == "ApplyBlending") else {
                     return false

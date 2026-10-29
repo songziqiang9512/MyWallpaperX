@@ -1912,14 +1912,16 @@
       "verdict": "unreviewed",
       "reviewedOn": "2026-10-21",
       "reviewer": "Codex 隔离Debug诊断与独立原图复核；未作人工整样本裁决",
-      "note": "青蓝背景、Wallpaper Engine文字、墨镜人物、雪人、地面虚线均呈现；视口较窄造成左右裁切，不据裁切判错。 官方大量白色方形雪粒，本次after中未见；这是独立可见差异候选，当前音源/phase未控，尚不作为已证产品错误。 日志2个Snow perspective粒子层loaded/visible，但initial=0、current/committed nonempty=[]，teardown rootParticles=0；尚未闭合出生producer到可见缺失的原因。 本批请求12s/after8，但pointer中心进入后移出并提前写after；官方音源/时相/viewport未齐，未认完整播放、参数或性能通过。",
-      "remainingDifferences": "具体待修/待复验归现役队列；早截图、音频、视差、媒体状态差异不自动是缺陷。",
+      "note": "2026-10-29优化DEBUG补验：死varying的inverse准备需求退出，原未Ready/撤帧首门闭合，Ready4440.089ms；人物、雪人、文字、白方粒子与地面可见。393/1229出生及GPU非零，修前预热也非零，不归功于本批出生算法。严格报告仍FAIL：默认隐藏495采集记failed、5/8计划计数债；不判活跃雪人缺图。原2026-10-21零人口只属当轮输入/时刻；音频出生/像素因果及官方同条件比较仍未资格，visual verdict保持unreviewed。",
+      "remainingDifferences": "495隐藏分支的计划/观测口径归队列验证债；无静音同phase出生/像素因果、完整属性/HDR/官方parity或性能结论。",
       "officialComparison": "compared",
       "runs": [
+        ".artifacts/scene-evidence/runs/dead-varying-uniform-20261029/3175039950/native/report.json",
         ".artifacts/scene-evidence/runs/new-sample-intake-20261021/group-05/current/report.json"
       ],
       "evidence": [
-        "docs/scene/capabilities/runtime-evidence-current.md"
+        "docs/scene/capabilities/runtime-evidence-current.md",
+        "docs/scene/history/open-breakpoint-reconciliation-2026-10-23.md"
       ]
     },
     "3742497499": {

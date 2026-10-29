@@ -11,9 +11,9 @@
 - 样本根：`/Users/songziqiang/Movies/MyWallpaperX/创意工坊/Scene`（453 个 sample 目录）。
 - 运行归档：`scene_sample_debug_archive.json` SHA-256 `656769ceeb256acbbed4a50cc5ac85eba0b55f9bac3c46261fec8d512f37fe80`（生成于 2026-10-29T02:16:22.751422+00:00）。
 - 归档运行身份：CDHash `f92774bdf124ae9f7bfae8f6f3e4d30a713c5036`、CDHash `edde7df24e63e3b9830a72900437596b3634c3dd`；**归档内不止一个执行身份**，运行状态与首断点因此是混合身份事实，单样本结论必须回到该样本自己的 report 身份。
-- 裁决覆盖层：`scene_sample_acceptance_verdicts.json` SHA-256 `4d0fc6976945ab7eb1744eb6a379435ef1dd43223198d2bf734a846135de923d`。
+- 裁决覆盖层：`scene_sample_acceptance_verdicts.json` SHA-256 `161c93996bf182223e028282e260d00d7e9909dbee4cffc9fdd903e49ca091c9`。
 - 仅历史归档保留、当前目录已移除的裁决：3806887870；不计当前目录表，原裁决不删除。
-- 本页生成于 2026-10-29T03:16:40.528846+00:00。
+- 本页生成于 2026-10-29T04:53:26.414874+00:00。
 
 本页生成日仅表示台账生成，不表示归档运行或人工裁决已重新验收。旧归档首断点可能已在后续开发中修复；最新技术状态以[断点队列](../roadmap/scene-open-breakpoint-queue.md)和[运行证据](runtime-evidence-current.md)为准。`not-run` 仅表示本归档未关联运行证据，不表示样本从未运行；归档中的失败状态也不等于当前 HEAD 的失败。
 本机已清理的历史证据：68 个样本、222 个引用；原路径保留在裁决覆盖层的 `unavailableLocalRuns/unavailableLocalEvidence`，不计可用载荷。清理不撤销历史结论，也不代表当前重新验收；见[证据可用性](runtime-evidence-current.md#local-evidence-availability)。
@@ -193,7 +193,7 @@
 | `3148125112` | 麻匪 薇薇安娜 明日方舟 4K | 41(6) bool 6 color 5 combo 2 slider 3 text 25 | `structural-chain-complete-visual-review` | - | `visual-review` | `unreviewed` 2026-10-21 | 分组只读XY误拒已修：同PCM全分辨率前后对照中，2661/effect2663恢复顶部蓝窗内细星线/亮节点；角落星网原已存在。实际Program/GPU/末… |
 | `3167210190` | [Blue Archive] 奶牛装明日奈 | 7(0) bool 5 color 1 group 1 | `structural-chain-complete-visual-review` | - | `visual-review` | `unreviewed` |  |
 | `3173418061` | Persona 5/女神异闻录5 音乐播放器 | 2(0) color 1 slider 1 | `structural-chain-complete-visual-review` | - | `visual-review` | `unreviewed` 2026-10-17 | 已修mix首错：7条effect scale恢复；56标题按下/释放反馈可见，hover保持。主体与文字正常，其他播放/交互及官方同phase未验。 |
-| `3175039950` | 麻匪 音频节拍互动 Music beat interaction | 57(15) bool 11 color 6 combo 1 scenetexture 1 slider 8 text… | `blocked` | `launch / SceneDesktopWallpaperHost / ready-event-missing / scene-surface` | `visual-review` | `unreviewed` 2026-10-21 | 青蓝背景、Wallpaper Engine文字、墨镜人物、雪人、地面虚线均呈现；视口较窄造成左右裁切，不据裁切判错。 官方大量白色方形雪粒，本次after中未… |
+| `3175039950` | 麻匪 音频节拍互动 Music beat interaction | 57(15) bool 11 color 6 combo 1 scenetexture 1 slider 8 text… | `blocked` | `launch / SceneDesktopWallpaperHost / ready-event-missing / scene-surface` | `visual-review` | `unreviewed` 2026-10-21 | 2026-10-29优化DEBUG补验：死varying的inverse准备需求退出，原未Ready/撤帧首门闭合，Ready4440.089ms；人物、雪人… |
 | `3187857248` | 黑丝狱卒.4K.动态.视差.可拖拽 | 仅 schemecolor | `structural-chain-complete-visual-review` | - | `visual-review` | `unreviewed` 2026-10-22 | 人物、背景和效果可见；骨0/1 unsupported-enabled-physics沿作者姿态回退。拖动/释放未测试，不归因U40或宣称人物不可用。 本轮2… |
 | `3211615441` | 捆绑悬挂 \| Bind & Suspend [ 可交互/interactiv… | 26(12) bool 7 color 1 combo 5 group 4 slider 4 text 4 texti… | `structural-chain-complete-visual-review` | - | `visual-review` | `unreviewed` |  |
 | `3219398263` | Acheron Black Hole (StarchaserArt) | 仅 schemecolor | `structural-chain-complete-visual-review` | - | `visual-review` | `unreviewed` | 2026-10-18用户补报（待当前身份复验）：背景圆环/漩涡差异大；并入旧方向疑似相反观察，不从单帧改符号。 |

@@ -132,7 +132,8 @@ private func dependencySizingChecks(
 
 private func overflowCase(
     device: MTLDevice, queue: MTLCommandQueue, skew: Float, offset: Float,
-    alpha: Float = 1, probeX: Int, probeY: Int, attachmentReplay: Bool? = nil
+    alpha: Float = 1, probeX: Int, probeY: Int, attachmentReplay: Bool? = nil,
+    flatRaster: Bool = false, liveInverse: Bool = false
 ) throws -> [String: Any] {
     // Match the existing bare-Swift effect host gate; no Program is manufactured.
     let previousRoute = getenv("MWX_SCENE_GENERIC_SHADER_PROFILE_ROUTES").map { String(cString: $0) }
@@ -145,18 +146,27 @@ private func overflowCase(
     let base = template(for: node)
     let original = shaderContract(nodeIndex: node.nodeIndex, pass: false, fragmentOverride: """
         varying vec2 v_TexCoord;
+        \(liveInverse ? "varying vec2 v_PointerUV;" : "")
         uniform sampler2D g_Texture0;
         void main() {
-            vec4 color = texSample2D(g_Texture0, v_TexCoord);
+            vec4 color = texSample2D(g_Texture0, \(liveInverse ? "v_PointerUV" : "v_TexCoord"));
             gl_FragColor = color;
         }
         """)
     let stages = original.stages.map { stage -> SceneShaderContract.Stage in
         guard stage.kind == .vertex else { return stage }
-        let source = stage.source.replacingOccurrences(
+        var source = stage.source.replacingOccurrences(
             of: "gl_Position = mul(vec4(a_Position, 1.0), g_ModelViewProjectionMatrix);",
             with: "vec3 point = a_Position; point.x += \(skew) * point.y + \(offset); "
                 + "gl_Position = mul(vec4(point, 1.0), g_ModelViewProjectionMatrix);")
+        if liveInverse {
+            source = source.replacingOccurrences(of: "varying vec2 v_TexCoord;",
+                with: "varying vec2 v_TexCoord;\nvarying vec2 v_PointerUV;\n"
+                    + "uniform mat4 g_ModelViewProjectionMatrixInverse;")
+                .replacingOccurrences(of: "v_TexCoord = a_TexCoord;",
+                    with: "v_TexCoord = a_TexCoord; v_PointerUV = "
+                        + "mul(vec4(a_TexCoord, 0.0, 1.0), g_ModelViewProjectionMatrixInverse).xy;")
+        }
         let parsed = SceneShaderContractSourceParser().parse(source, stageRelativePath: stage.relativePath)
         return .init(kind: stage.kind, relativePath: stage.relativePath, source: source,
             rawSHA256: SceneShaderStableDigest.hash(Data(source.utf8)), includes: parsed.includes,
@@ -185,6 +195,9 @@ private func overflowCase(
           let leases = makeChainedLeases(capability, device: device) else {
         return ["failure": "overflow-setup", "reports": caps.reportLines]
     }
+    let inverseFields = capability.materials.values.flatMap {
+        $0.variants.launchEnvelopeCapabilitySnapshot().variants.flatMap { $0.frontendProgram.uniformLayout.fields }
+    }.filter { $0.authoredName == "g_ModelViewProjectionMatrixInverse" }.count
     let channel = UInt8((alpha * 255).rounded())
     let source = makeSource(device, width: 10, height: 10, bgra: [0, 0, channel, channel])
     let replayTarget = makeSource(device, width: 64, height: 64, usage: [.renderTarget])
@@ -201,6 +214,7 @@ private func overflowCase(
         if attachmentReplay {
             var raster = placement
             raster.columns.3.x = 0.5; raster.columns.3.y = -0.5
+            if flatRaster { raster.columns.2.z = 0 }
             rasterPlacement = raster
         }
     }
@@ -209,12 +223,20 @@ private func overflowCase(
         terminalReplayModelViewProjection: rasterPlacement)
     let copiedInputs = originalInputs.withDependencyEffects([])
     let command = queue.makeCommandBuffer()!
-    let prepared = try executor.prepare(token: claim.token, leases: leases,
+    let preparation = executor.prepare(token: claim.token, leases: leases,
         historyRehydrateCopiesByEffect: [:], frame: frame(1), sourceTexture: source,
         sourceUniforms: .neutral(), sourcePipeline: makeSourcePipeline(device),
         terminalReplayTarget: replayTarget,
         frameInputs: copiedInputs, commandBuffer: command,
-        previousStates: [:], previousGraphResources: [:], effectGeneration: 1, resetGeneration: 1).get()
+        previousStates: [:], previousGraphResources: [:], effectGeneration: 1, resetGeneration: 1)
+    if liveInverse && flatRaster {
+        let rejected: Bool
+        if case let .failure(.materialPassPreparationRejected(_, _, _, _, failure)) = preparation {
+            rejected = failure == .uniformsRejected
+        } else { rejected = false }
+        return ["results": ["liveInverseBinding": inverseFields == 1, "singularReplayRejected": rejected]]
+    }
+    let prepared = try preparation.get()
     let weightsSourceAlpha = prepared.finalResource.publication.candidate.content
         == .color(.resolved(.straightAlpha))
     var graphUniforms = SceneLayerFragmentUniforms.neutral()
@@ -265,6 +287,7 @@ private func overflowCase(
             "graphWorldPixel": graphWorld, "graphAttachmentPixel": graphAttachment,
             "replayWorldPixel": replayWorld, "replayAttachmentPixel": replayAttachment,
             "results": ["graphEncoded": encoded,
+                "inverseBindingMatchesConsumer": inverseFields == (liveInverse ? 1 : 0),
                 "terminalReplayAvailable": prepared.terminalMaterialReplay != nil,
                 "bothMainDrawsEncoded": graphDraw && replayDraw && graphFinished && replayFinished,
                 "gpuCompleted": command.status == .completed && command.error == nil,
@@ -816,6 +839,12 @@ private func densityCase(
     let attachment = [
         "localRaster": try overflowCase(device: device, queue: queue, skew: 0, offset: 0,
             probeX: 48, probeY: 48, attachmentReplay: true),
+        "flatRaster": try overflowCase(device: device, queue: queue, skew: 0, offset: 0,
+            probeX: 48, probeY: 48, attachmentReplay: true, flatRaster: true),
+        "liveInverseWorld": try overflowCase(device: device, queue: queue, skew: 0, offset: 0,
+            probeX: 48, probeY: 48, attachmentReplay: true, liveInverse: true),
+        "liveInverseFlat": try overflowCase(device: device, queue: queue, skew: 0, offset: 0,
+            probeX: 48, probeY: 48, attachmentReplay: true, flatRaster: true, liveInverse: true),
         "nilWorld": try overflowCase(device: device, queue: queue, skew: 0, offset: 0,
             probeX: 16, probeY: 16, attachmentReplay: false)]
     let named = [
@@ -910,10 +939,14 @@ class TerminalMaterialGraphTests(unittest.TestCase):
         self.assertEqual([k for k, v in row['results'].items() if not v], [], row)
 
     def test_attachment_raster_override_and_nil_survive_dependency_copy(self):
-        for name in ('localRaster', 'nilWorld'):
+        for name in ('localRaster', 'nilWorld', 'flatRaster', 'liveInverseWorld'):
             with self.subTest(case=name):
                 row = self.result['attachment'][name]
                 self.assertEqual([k for k, v in row['results'].items() if not v], [], row)
+
+    def test_flat_raster_rejects_the_actual_inverse_consumer(self):
+        row = self.result['attachment']['liveInverseFlat']
+        self.assertEqual([k for k, v in row['results'].items() if not v], [], row)
 
     def test_named_input_survives_active_inactive_and_failed_terminal_suffixes(self):
         for name in ('active', 'inactive', 'failed'):

@@ -49,6 +49,7 @@ import Metal
         if let program = frontend.program {
             output["boundedSlots"] = program.textureBindings.map(\.slot)
             output["boundedUniforms"] = program.uniformLayout.fields.map(\.name)
+            output["boundedLayout"] = try layoutJSON(program.uniformLayout)
             output["boundedMetal"] = program.metalSource
             output["boundedMetalError"] = libraryError(program.metalSource)
         }
@@ -63,19 +64,30 @@ import Metal
                 outputSemantics: semantics, expectedColorTransfer: nil,
                 premultipliedColorInputSlots: slots, boundTextureSlots: boundSlots)
             output["requestKey"] = key
-            switch SceneGenericShaderCompiler.compile(
-                requestKey: key, vertexSource: pair.vertex, fragmentSource: pair.fragment,
-                outputSemantics: semantics, premultipliedColorInputSlots: slots,
-                boundTextureSlots: boundSlots, cacheRoot: URL(fileURLWithPath: arguments[3]), bundle: bundle) {
+            let compileArtifact = {
+                SceneGenericShaderCompiler.compile(
+                    requestKey: key, vertexSource: pair.vertex, fragmentSource: pair.fragment,
+                    outputSemantics: semantics, premultipliedColorInputSlots: slots,
+                    boundTextureSlots: boundSlots, cacheRoot: URL(fileURLWithPath: arguments[3]), bundle: bundle)
+            }
+            switch compileArtifact() {
             case let .failure(failure): output["genericFailure"] = String(describing: failure)
             case let .success(url):
-                let artifact = try JSONDecoder().decode(SceneGenericShaderProgramArtifact.self,
-                    from: Data(contentsOf: url))
+                let data = try Data(contentsOf: url)
+                let artifact = try JSONDecoder().decode(SceneGenericShaderProgramArtifact.self, from: data)
                 output["genericSlots"] = artifact.program.textureBindings.map(\.slot)
                 output["genericUniforms"] = artifact.program.uniformLayout.fields.map(\.name)
+                output["genericLayout"] = try layoutJSON(artifact.program.uniformLayout)
+                output["genericLoopGuardCap"] = artifact.program.loopGuardCap.map { $0 as Any } ?? NSNull()
                 output["genericMetal"] = artifact.program.metalSource
                 output["genericMetalError"] = libraryError(artifact.program.metalSource)
                 output["genericArtifact"] = url.path
+                if input["verifyWarmCache"] as? Bool == true {
+                    let warmData = try Data(contentsOf: compileArtifact().get())
+                    let warm = try JSONDecoder().decode(SceneGenericShaderProgramArtifact.self, from: warmData)
+                    output["genericWarmLayout"] = try layoutJSON(warm.program.uniformLayout)
+                    output["genericWarmArtifactEqual"] = warmData == data
+                }
                 if let contract = frontend.program {
                     let program = artifact.makeProgram(
                         expectedKey: key, expectedOutputSemantics: semantics,
@@ -88,6 +100,10 @@ import Metal
         }
         FileHandle.standardOutput.write(try JSONSerialization.data(
             withJSONObject: output, options: [.sortedKeys]))
+    }
+
+    private static func layoutJSON(_ layout: some Encodable) throws -> Any {
+        try JSONSerialization.jsonObject(with: JSONEncoder().encode(layout))
     }
 
     private static func libraryError(_ source: String) -> String {

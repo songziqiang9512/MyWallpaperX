@@ -93,8 +93,8 @@
       "bytes": 7045
     },
     "docs/scene/architecture/shader-metadata-failure-contract.md": {
-      "lines": 71,
-      "bytes": 14659
+      "lines": 82,
+      "bytes": 17083
     },
     "docs/scene/architecture/variant-analysis-cache-contract.md": {
       "lines": 19,
@@ -146,11 +146,11 @@
     },
     "docs/scene/capabilities/render-graph-shader-coverage.md": {
       "lines": 600,
-      "bytes": 349060
+      "bytes": 348876
     },
     "docs/scene/capabilities/runtime-evidence-current.md": {
       "lines": 600,
-      "bytes": 220335
+      "bytes": 220383
     },
     "docs/scene/capabilities/runtime-input-property-coverage.md": {
       "lines": 600,
@@ -174,7 +174,7 @@
     },
     "docs/scene/capabilities/scene-sample-acceptance-ledger.md": {
       "lines": 515,
-      "bytes": 118353
+      "bytes": 118297
     },
     "docs/scene/capabilities/scene-sample-debug-ledger.md": {
       "lines": 534,
@@ -278,7 +278,7 @@
     },
     "docs/scene/roadmap/scene-open-breakpoint-queue.md": {
       "lines": 175,
-      "bytes": 37166
+      "bytes": 37137
     },
     "docs/web/cold-descriptor-parse-offload-design.md": {
       "lines": 30,
@@ -1760,10 +1760,10 @@
     {
       "section": "bodies",
       "path": "docs/scene/capabilities/scenescript-api-coverage.md",
-      "before": "fe4dd86e689c36f793a7cb3bd6bad0e90eab2256ce5248cda8ad7469aee43dab",
+      "before": "fc1fa889ad82b02735fd135a5001674132d1006fe530608edbf3832b2aa7f0a2",
       "after": "adc22dc3e705a7cc5f3e25c4d02dc6393e2c7ef7b4418004c01710e6bbf3f72f",
       "owner": "scene-video-runtime",
-      "reason": "新增通用动态MP4和真实视频替换的有界呈现合同，同步当前能力及AV池剩余；设计先落库，原修复过程归历史，未扩官方未知。（整合主仓798660e7已提交预算，合并前父提交00d6be459；正文沿主仓保留，本专项不扩大Scene能力。）",
+      "reason": "新增通用动态MP4和真实视频替换的有界呈现合同，同步当前能力及AV池剩余；设计先落库，原修复过程归历史，未扩官方未知。",
       "decision": "docs/scene/capabilities/material-video-assets.md#video-switch-presentation"
     },
     {
@@ -1805,17 +1805,8 @@
     {
       "section": "bodies",
       "path": "docs/scene/architecture/runtime-architecture.md",
-      "before": "851be0006cec6ef0eb85d82cf9a45f1a6b6494b34f75fd7bfa665374291ba640",
+      "before": "c31c83b1b22ed0dccfcc07aabf07febaa25011f4eb01dd16c113ccb86c6fbc98",
       "after": "de82d6db2df0d2127b6620cd86ee8a493f62ffc16f72fb825c99a085d1865678",
-      "owner": "scene-geometry-named-publication",
-      "reason": "Clarify existing geometry PMA publication boundary, preserve direct-copy content, and record bounded first-frame closure without claiming full sample or pixel-probe acceptance.（整合主仓798660e7已提交预算，合并前父提交00d6be459；正文沿主仓保留，本专项不扩大Scene能力。）",
-      "decision": "docs/scene/architecture/runtime-architecture.md"
-    },
-    {
-      "section": "bodies",
-      "path": "docs/scene/capabilities/runtime-evidence-current.md",
-      "before": "7476fb485e82580065a8f14be2b0a0587d385a144ff68d584ba365c9396b38c2",
-      "after": "af598285d3c5712205271382a9f740d137b7ad7b3f63228b1a8d766f72e00dfb",
       "owner": "scene-geometry-named-publication",
       "reason": "Clarify existing geometry PMA publication boundary, preserve direct-copy content, and record bounded first-frame closure without claiming full sample or pixel-probe acceptance.",
       "decision": "docs/scene/architecture/runtime-architecture.md"
@@ -1823,20 +1814,38 @@
     {
       "section": "bodies",
       "path": "docs/scene/capabilities/scene-sample-acceptance-ledger.md",
-      "before": "d758f5479e4aecf961348407a51f34c755c4e5cb71296f64de93c22102228163",
+      "before": "5f84d56d238010bad7c24e4481994a97a5995309fd100aed5c59ad159b70fd5f",
       "after": "676042bcbb5526ba42283df2d4236e2a24a15ac72614c0b5a26550466556dd35",
       "owner": "scene-geometry-named-publication",
-      "reason": "Clarify existing geometry PMA publication boundary, preserve direct-copy content, and record bounded first-frame closure without claiming full sample or pixel-probe acceptance.（整合主仓798660e7已提交预算，合并前父提交00d6be459；正文沿主仓保留，本专项不扩大Scene能力。）",
+      "reason": "Clarify existing geometry PMA publication boundary, preserve direct-copy content, and record bounded first-frame closure without claiming full sample or pixel-probe acceptance.",
       "decision": "docs/scene/architecture/runtime-architecture.md"
     },
     {
       "section": "bodies",
       "path": "docs/scene/roadmap/scene-open-breakpoint-queue.md",
-      "before": "6c7d98cea09b4ea1288b3b856db4f0b99e44e5d1b7212b620620e48c8b29ab8f",
+      "before": "f6a2c3d112e88530aec55c8fd2bd1f11e6ceb4d68e55db8f9357be06c190b30b",
       "after": "854821a696c8f55c023858fb8f7aa0d750b4079fa6614b06bf1d47b45dc93bf8",
       "owner": "scene-geometry-named-publication",
-      "reason": "Clarify existing geometry PMA publication boundary, preserve direct-copy content, and record bounded first-frame closure without claiming full sample or pixel-probe acceptance.（整合主仓798660e7已提交预算，合并前父提交00d6be459；正文沿主仓保留，本专项不扩大Scene能力。）",
+      "reason": "Clarify existing geometry PMA publication boundary, preserve direct-copy content, and record bounded first-frame closure without claiming full sample or pixel-probe acceptance.",
       "decision": "docs/scene/architecture/runtime-architecture.md"
+    },
+    {
+      "section": "bodies",
+      "path": "docs/scene/architecture/shader-metadata-failure-contract.md",
+      "before": "38c0f6fa6168c44f642eabfef4b3001e053ed45abf72ff493ef34ad97461c410",
+      "after": "d053a685566acfa1f347f836db7f28e6144458b236003a29dcb713de1122e04e",
+      "owner": "scene-dead-varying-uniform-projection",
+      "reason": "Register the bounded preparation design and real first-frame closure; retire stale zero-particle/no-ready claims while retaining hidden-capture observation debt, original strict FAIL, and historical identities. No new current issue document.",
+      "decision": "docs/scene/architecture/shader-metadata-failure-contract.md#dead-varying-uniform-projection"
+    },
+    {
+      "section": "bodies",
+      "path": "docs/scene/capabilities/runtime-evidence-current.md",
+      "before": "af598285d3c5712205271382a9f740d137b7ad7b3f63228b1a8d766f72e00dfb",
+      "after": "5269616b8ee27391f921615999526c99f6b185c13ae3424b373ecb7652acbc17",
+      "owner": "scene-dead-varying-uniform-projection",
+      "reason": "Register the bounded preparation design and real first-frame closure; retire stale zero-particle/no-ready claims while retaining hidden-capture observation debt, original strict FAIL, and historical identities. No new current issue document.",
+      "decision": "docs/scene/architecture/shader-metadata-failure-contract.md#dead-varying-uniform-projection"
     },
     {
       "section": "bodies",
