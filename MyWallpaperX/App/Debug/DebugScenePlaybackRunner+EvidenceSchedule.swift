@@ -16,7 +16,9 @@ extension DebugScenePlaybackRunner {
         requestUptime: TimeInterval,
         recordID: String
     ) async throws -> SceneRuntimeModel? {
-        if let hoverPointer = requestedHoverPointer {
+        let hoverPointer = requestedHoverPointer
+        let pointerIsDeclared = hoverPointer != nil || requestedPointerTrajectory != nil
+        if let hoverPointer {
             // Freeze the synthetic pointer outside before surface creation so
             // the first authored edge belongs to the declared benchmark step,
             // not to the operator's current mouse location. The explicit
@@ -31,6 +33,15 @@ extension DebugScenePlaybackRunner {
                         isPrimaryButtonDown: false
                     )
                     : .init()
+            )
+        } else if requestedLogOnly, !pointerIsDeclared {
+            runtimeHost.setDebugPointerOverride(.init())
+        }
+        if requestedLogOnly {
+            NSLog(
+                "MWX DEBUG SCENE: phase=evidence-mode mode=log-only duration=%.3f pointer=%@",
+                requestedDuration,
+                pointerIsDeclared ? "declared" : "outside"
             )
         }
         NSLog(
@@ -64,7 +75,11 @@ extension DebugScenePlaybackRunner {
                 dragPointer: requestedDragPointer,
                 pointerTrajectory: requestedPointerTrajectory
             )
-            schedulePeriodicSnapshots(outputDirectory: outputDirectory)
+            if requestedLogOnly {
+                scheduleSnapshots(outputDirectory: outputDirectory, previewLogURL: previewLogURL)
+            } else {
+                schedulePeriodicSnapshots(outputDirectory: outputDirectory)
+            }
         } else {
             scheduleSnapshots(outputDirectory: outputDirectory, previewLogURL: previewLogURL)
         }
@@ -82,6 +97,7 @@ extension DebugScenePlaybackRunner {
         previewLogURL: URL?
     ) {
         for (reason, delay) in [("ready", 1.0), ("after", requestedAfterSnapshotDelay)] {
+            if requestedLogOnly, reason == "ready" { continue }
             DispatchQueue.main.asyncAfter(deadline: .now() + delay) {
                 guard !isClosing else { return }
                 requestSnapshot(reason: reason, outputDirectory: outputDirectory)
@@ -105,7 +121,7 @@ extension DebugScenePlaybackRunner {
     }
 
     private static func schedulePeriodicSnapshots(outputDirectory: URL) {
-        guard let interval = requestedPeriodicSnapshotInterval else { return }
+        guard !requestedLogOnly, let interval = requestedPeriodicSnapshotInterval else { return }
         schedulePeriodicSnapshot(outputDirectory: outputDirectory, interval: interval,
                                  elapsed: max(1.5, interval), index: 0)
     }
@@ -125,7 +141,7 @@ extension DebugScenePlaybackRunner {
 
     static func requestSnapshot(reason: String, outputDirectory: URL,
                                 kind: SceneDebugFrameCapture.RequestClass = .required) {
-        guard !isClosing else { return }
+        guard !isClosing, !requestedLogOnly else { return }
         guard let windowNumber = runtimeHost.debugSnapshot().windowNumbers.first else {
             SceneDebugFrameCapture.reportRejected(reason: reason, stage: "surface-lookup")
             return

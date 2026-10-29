@@ -8,8 +8,7 @@ import os
 import re
 import subprocess
 from pathlib import Path
-from scene_preview_visual_evidence import collect_preview_visual_evidence
-from scene_puppet_interaction_evidence import collect_puppet_interaction_evidence
+from scene_preview_visual_evidence import collect_sample_visual_evidence
 from scene_wallpaper_authored_effects import (
     authored_effect_graph_authored_shader_count, authored_effect_graph_blend_count,
     authored_effect_graph_clipping_mask_count, authored_effect_graph_color_key_count,
@@ -64,7 +63,7 @@ from scene_wallpaper_pointer_evidence import (
     cursor_drag_to_normalized, cursor_primary_click, cursor_primary_click_subframe,
     cursor_ripple_persistence_metrics, cursor_ripple_visible_metrics,
     hover_pointer_from_launch, hover_pointer_normalized, hover_pointer_stationary_entry,
-    pointer_trajectory_motion_metrics, pointer_trajectory_normalized,
+    pointer_trajectory_normalized,
 )
 from scene_wallpaper_property_updates import (
     append_dynamic_values_fault_argument, append_media_thumbnail_sequence_argument,
@@ -91,7 +90,6 @@ from scene_wallpaper_utility_capture import (
     utility_capture_execution_metrics, utility_runtime_metrics,
 )
 from typing import Any
-from web_benchmark_capture import png_flat_border_ratio, png_has_non_black_pixel, png_motion_metrics
 
 
 READY_RE = re.compile(
@@ -150,11 +148,14 @@ def run_sample(
     require_cursor_ripple_persistence: bool = False,
     no_execution_observations: bool = False,
     startup_timeout_allowance: float = 60,
+    log_only: bool = False,
 ) -> dict[str, Any]:
     # Playback duration starts after preparation; cold shader/resource work
     # needs its own bounded allowance in the supervising process.
     if not math.isfinite(startup_timeout_allowance) or startup_timeout_allowance <= 0:
         raise ValueError("startup_timeout_allowance must be finite and positive")
+    if log_only and no_execution_observations:
+        raise ValueError("log-only runs require execution observations")
     execution_observations_enabled = not no_execution_observations
     validate_execution_observation_policy(
         execution_observations_enabled=execution_observations_enabled,
@@ -168,7 +169,17 @@ def run_sample(
     runtime_sample = runtime_root / "runtime-samples" / sample_id
     runtime_home = runtime_root / "runtime-homes" / sample_id
     result_dir.mkdir(parents=True)
+    if not (source / "project.json").is_file():
+        return {
+            "id": sample_id, "title": sample.get("title"), "passed": False,
+            "input_status": "source-invalid", "failures": ["Scene sample project.json is missing"],
+            "exit_code": None, "timed_out": False, "hashes": {},
+            "runtime_sample": None, "runtime_home": None, "runtime_retained": False,
+            "evidence": {"visual_status": "not-requested"}, "runtime": {},
+        }
     runtime_home.mkdir(parents=True)
+    runtime_tmp = runtime_home / "tmp"
+    runtime_tmp.mkdir(mode=0o700)
     copy_sample(source, runtime_sample)
     package_path = scene_package_path(source)
 
@@ -194,6 +205,8 @@ def run_sample(
         "--mwx-debug-scene-duration",
         str(duration),
     ]
+    if log_only:
+        command.append("--mwx-debug-scene-log-only")
     append_performance_profile_argument(command, performance_fps)
     append_performance_warmup_argument(command, performance_warmup)
     if no_execution_observations:
@@ -313,6 +326,7 @@ def run_sample(
     environment = os.environ.copy()
     environment["HOME"] = str(runtime_home)
     environment["CFFIXED_USER_HOME"] = str(runtime_home)
+    environment["TMPDIR"] = str(runtime_tmp) + "/"
     if "cursor_start_second" in sample:
         second = float(sample["cursor_start_second"])
         if not math.isfinite(second) or not 0 <= second < 60:
@@ -337,14 +351,16 @@ def run_sample(
         )
         try:
             exit_code = process.wait(timeout=duration + startup_timeout_allowance)
-        except subprocess.TimeoutExpired:
-            timed_out = True
+        except BaseException as error:
+            timed_out = isinstance(error, subprocess.TimeoutExpired)
             process.terminate()
             try:
                 exit_code = process.wait(timeout=5)
             except subprocess.TimeoutExpired:
                 process.kill()
                 exit_code = process.wait(timeout=5)
+            if not timed_out:
+                raise
 
     log_text = app_log.read_text(encoding="utf-8", errors="replace")
     preview_log = result_dir / "scene-preview.log"
@@ -543,64 +559,10 @@ def run_sample(
     )
     camera_match = CAMERA_RE.search(preview_text)
     camera_shake_match = CAMERA_SHAKE_RE.search(preview_text)
-    initial_reason = "before" if hover_pointer is not None else "ready"
-    ready_snapshot = result_dir / f"scene-{initial_reason}-window.png"
-    hover_snapshot = result_dir / "scene-hover-window.png"
-    after_snapshot = result_dir / "scene-after-window.png"
-    pointer_trajectory_snapshots = (
-        [
-            result_dir / f"scene-pointer-trajectory-{index:02d}-window.png"
-            for index in range(len(pointer_trajectory))
-        ]
-        if pointer_trajectory is not None
-        else []
+    visual = {"visual_status": "not-requested"} if log_only else collect_sample_visual_evidence(
+        runtime_sample, result_dir, sample=sample, hover_pointer=hover_pointer,
+        pointer_trajectory=pointer_trajectory, log_text=log_text,
     )
-    ready_non_black = png_has_non_black_pixel(ready_snapshot)
-    flat_border_ratio = {"ready": png_flat_border_ratio(ready_snapshot)}
-    after_non_black = png_has_non_black_pixel(after_snapshot)
-    flat_border_ratio["after"] = png_flat_border_ratio(after_snapshot)
-    motion = png_motion_metrics(ready_snapshot, after_snapshot)
-    hover_non_black = (
-        png_has_non_black_pixel(hover_snapshot)
-        if hover_pointer is not None
-        else None
-    )
-    if hover_pointer is not None:
-        flat_border_ratio["hover"] = png_flat_border_ratio(hover_snapshot)
-    hover_motion = (
-        {
-            "before_to_hover": png_motion_metrics(ready_snapshot, hover_snapshot),
-            "hover_to_after": png_motion_metrics(hover_snapshot, after_snapshot),
-        }
-        if hover_pointer is not None
-        else None
-    )
-    puppet_interaction = None
-    response = sample.get("cursor_drag_response", "hold")
-    if response in {"spring-return", "no-capture"}:
-        roi = sample.get("cursor_interaction_roi")
-        if response == "spring-return":
-            hover_motion = dict(hover_motion or {})
-            hover_motion["before_to_drag"] = png_motion_metrics(
-                ready_snapshot, result_dir / "scene-drag-held-window.png", region=roi)
-            hover_motion["before_to_spring_after"] = png_motion_metrics(
-                ready_snapshot, result_dir / "scene-spring-after-window.png", region=roi)
-        puppet_interaction = collect_puppet_interaction_evidence(
-            log_text, sample.get("puppet_interaction_layer_ids", []), response=response)
-    preview_visual = collect_preview_visual_evidence(
-        runtime_sample,
-        after_snapshot,
-        result_dir,
-    )
-    # Consume each completed snapshot while its rows are in the bounded PNG cache.
-    pointer_trajectory_non_black = []
-    pointer_trajectory_motion = [] if pointer_trajectory_snapshots else None
-    previous_snapshot = ready_snapshot
-    for path in pointer_trajectory_snapshots:
-        pointer_trajectory_non_black.append(png_has_non_black_pixel(path))
-        pointer_trajectory_motion.extend(
-            pointer_trajectory_motion_metrics(previous_snapshot, [path]))
-        previous_snapshot = path
     runtime_evidence_path = (
         Path(runtime_evidence_match.group("path").strip())
         if runtime_evidence_match is not None
@@ -661,22 +623,7 @@ def run_sample(
                 if audio_scaled_value["has_evidence"] else None
             ),
             "sample_root_residue": sample_root_residue,
-            "ready_snapshot": str(ready_snapshot),
-            "hover_snapshot": str(hover_snapshot) if hover_pointer is not None else None,
-            "pointer_trajectory_snapshots": [
-                str(path) for path in pointer_trajectory_snapshots
-            ],
-            "after_snapshot": str(after_snapshot),
-            "ready_non_black": ready_non_black,
-            "hover_non_black": hover_non_black,
-            "after_non_black": after_non_black,
-            "flat_border_ratio": flat_border_ratio,
-            "motion": motion,
-            "hover_motion": hover_motion,
-            "pointer_trajectory_non_black": pointer_trajectory_non_black,
-            "pointer_trajectory_motion": pointer_trajectory_motion,
-            "puppet_interaction": puppet_interaction,
-            "preview_visual": preview_visual,
+            **visual,
         },
         "runtime": {
             "layers": int(ready_match.group("layers")) if ready_match else None,
@@ -971,6 +918,7 @@ def run_sample(
         utility_capture_execution=utility_capture_execution,
         utility_runtime=utility_runtime,
         visible_graph_output_publication_execution=visible_graph_output_publication_execution,
+        log_only=log_only,
     ))
     result["passed"] = not failures
     if startup_timeout_allowance != 60:

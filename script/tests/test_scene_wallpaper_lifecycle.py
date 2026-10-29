@@ -108,7 +108,13 @@ class SceneWallpaperLifecycleTests(unittest.TestCase):
                 app_identity,
                 [result],
                 keep_runtime=False,
+                finalize_stage=False,
             )
+            self.assertTrue(runtime_binary.is_file())
+            self.assertTrue(app_identity["runtime_retained"])
+            self.assertFalse(runtime_sample.exists())
+            self.assertFalse(runtime_home.exists())
+            benchmark.apply_runtime_retention(runtime_root, app_identity, [result], keep_runtime=False)
 
             self.assertFalse(runtime_root.exists())
             self.assertFalse(result["runtime_retained"])

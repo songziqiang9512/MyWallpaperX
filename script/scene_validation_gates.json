@@ -2628,7 +2628,8 @@
         "script/tests/scene_wallpaper_benchmark_test_support.py",
         "script/tests/scene_wallpaper_sample_fixture.py",
         "script/tests/fixtures/scene_wallpaper_sample_report_golden.json",
-        "script/tests/scene_wallpaper_graph_output_test_support.py"
+        "script/tests/scene_wallpaper_graph_output_test_support.py",
+        "script/scene_preview_visual_evidence.py"
       ],
       "modules": [
         "test_scene_matrix_contract",

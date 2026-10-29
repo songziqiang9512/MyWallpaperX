@@ -1093,17 +1093,24 @@
     },
     {
       "id": "scene-corpus-diagnostic-reporting",
-      "title": "Scene 声明诊断单次观察与双页报告",
-      "owner": "Existing corpus CLI/build orchestrator, samples, contracts and reporting owners",
+      "title": "Scene 单次声明观察与全样本日志诊断",
+      "owner": "Existing corpus, signed Debug runner, sample lifecycle and diagnostic normalizer owners",
       "status": "approved",
       "designDoc": "docs/scene/development/corpus-diagnostic-workflow.md",
-      "design_notes": "2026-10-23 implementation design is recorded before source changes. Complete sample/contract/report responsibilities move out of oversized main; original definitions exit and explicit same-function exports preserve imports. Failed rows retain real directory materials before early returns. One build projects snapshot/overview/sample detail before writing; resolved outputs stay outside readonly inputs and distinct; existing query and semantic scanners remain. No App/VM/normalizer changes or new census owner.",
+      "design_notes": "2026-10-29 design recorded before implementation: reuse one census/runner/normalizer chain, explicit log-only skips PNG requests and image-derived assertions while retaining execution observations and settled particle logs. Bounded parallel workers own isolated sample/HOME/TMPDIR; normal runs stay serial, immediate worker cleanup bounds disk use. Ready+4s default with targeted longer exceptions, no performance/parity claim. Preserve existing visual gates; negative dynamic IDs are ordinary diagnostics. No Scene render algorithm or new owner. Historical human verdicts remain owned by the overlay when samples leave the current root; do not require the current runtime archive to retain removed IDs or count them in the current denominator. Existing input field validation stays.",
       "matchPatterns": [
         "script/scene_capability_census.py",
         "script/scene_capability_census_io.py",
         "script/scene_capability_census_samples.py",
         "script/scene_capability_census_contracts.py",
-        "script/scene_capability_census_reporting.py"
+        "script/scene_capability_census_reporting.py",
+        "MyWallpaperX/App/Debug/DebugScenePlaybackRunner*.swift",
+        "script/scene_wallpaper_benchmark.py",
+        "script/scene_wallpaper_sample_run.py",
+        "script/scene_wallpaper_sample_lifecycle.py",
+        "script/scene_wallpaper_sample_acceptance.py",
+        "script/scene_diagnostic_report.py",
+        "script/scene_sample_acceptance_ledger.py"
       ],
       "contentPatterns": []
     },

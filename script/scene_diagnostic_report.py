@@ -51,16 +51,16 @@ STAGE_ORDER = {
 SEVERITY_ORDER = {"warning": 0, "degraded": 1, "blocking": 2}
 
 SCENE_SCRIPT_TARGET_FAILURE_RE = re.compile(
-    r"MWX SceneScript VM: target=(?P<kind>layer|text|particle)"
-    r"\(layerID: (?P<layer>\d+), field: [^)]*\."
-    r"(?P<field>[A-Za-z][A-Za-z0-9]*)\) failure=(?P<failure>.*?) "
-    r"code=(?P<code>\S+) fallback=(?P<fallback>\S+)"
+    r"MWX SceneScript VM: (?:target=|layerMutations=\d+ owner=)(?P<kind>layer|text|particle)"
+    r"\(layerID: (?P<layer>-?\d+), field: [^)]*\."
+    r"(?P<field>[A-Za-z][A-Za-z0-9]*)\)(?: callback=(?:failed|rejected))? failure=(?P<failure>.*?) "
+    r"(?:code=(?P<code>\S+) )?fallback=(?P<fallback>\S+)"
 )
 SCENE_SCRIPT_EFFECT_FAILURE_RE = re.compile(
-    r"MWX SceneScript VM: target=effectConstant"
-    r"\(layerID: (?P<layer>\d+), effectIndex: (?P<effect>\d+), "
-    r"passIndex: \d+, name: \"[^\"]+\"\) failure=(?P<failure>.*?) "
-    r"code=(?P<code>\S+) fallback=(?P<fallback>\S+)"
+    r"MWX SceneScript VM: (?:target=|layerMutations=\d+ owner=)effectConstant"
+    r"\(layerID: (?P<layer>-?\d+), effectIndex: (?P<effect>\d+), "
+    r"passIndex: \d+, name: \"[^\"]+\"\)(?: callback=(?:failed|rejected))? failure=(?P<failure>.*?) "
+    r"(?:code=(?P<code>\S+) )?fallback=(?P<fallback>\S+)"
 )
 
 
@@ -250,14 +250,15 @@ def _process_events(sample: Mapping[str, Any]) -> list[dict[str, Any]]:
     runtime = _mapping(sample.get("runtime"))
     surfaces = _integer(runtime.get("surfaces"))
     if surfaces is None:
+        source_invalid = sample.get("input_status") == "source-invalid"
         events.append(_event(
-            stage="launch",
-            owner="SceneDesktopWallpaperHost",
-            reason_code="ready-event-missing",
-            profile_or_shape="scene-surface",
+            stage="resource-load" if source_invalid else "launch",
+            owner="SceneProjectLoader" if source_invalid else "SceneDesktopWallpaperHost",
+            reason_code="project-json-missing" if source_invalid else "ready-event-missing",
+            profile_or_shape="project-entry" if source_invalid else "scene-surface",
             failure_radius="scene",
             severity="blocking",
-            evidence_basis="runtime.surfaces",
+            evidence_basis="sample.input_status" if source_invalid else "runtime.surfaces",
         ))
     elif surfaces < 1:
         events.append(_event(
@@ -340,6 +341,8 @@ def _output_events(
     preview_oracle_uncontrolled: Mapping[str, str] | None = None,
 ) -> list[dict[str, Any]]:
     evidence = _mapping(sample.get("evidence"))
+    if evidence.get("visual_status") == "not-requested":
+        return []
     events: list[dict[str, Any]] = []
     if evidence.get("ready_non_black") is not True or (
         evidence.get("after_non_black") is not True
@@ -444,8 +447,9 @@ def _scene_script_events(sample: Mapping[str, Any]) -> list[dict[str, Any]]:
 
 
 def _scene_script_reason_code(match: re.Match[str]) -> str:
-    code = match.group("code")
     failure = match.group("failure")
+    code = match.group("code") or failure.split("(", 1)[0]
+    code = re.sub(r"(?<!^)(?=[A-Z])", "-", code).lower()
     if code == "exception":
         exception_match = re.match(
             r'exception\("(?P<class>[A-Za-z][A-Za-z0-9]*):', failure
@@ -750,6 +754,7 @@ def _evidence_summary(sample: Mapping[str, Any]) -> dict[str, Any]:
     preview_metrics = _mapping(preview.get("metrics"))
     return {
         "surfaceCount": _integer(runtime.get("surfaces")),
+        "visualObservationStatus": evidence.get("visual_status", "requested"),
         "readyNonBlackObserved": evidence.get("ready_non_black") is True,
         "afterNonBlackObserved": evidence.get("after_non_black") is True,
         "readyFlatBorderRatio": borders.get("ready"),

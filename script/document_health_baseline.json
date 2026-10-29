@@ -150,7 +150,7 @@
     },
     "docs/scene/capabilities/runtime-evidence-current.md": {
       "lines": 600,
-      "bytes": 219908
+      "bytes": 220066
     },
     "docs/scene/capabilities/runtime-input-property-coverage.md": {
       "lines": 600,
@@ -166,15 +166,15 @@
     },
     "docs/scene/capabilities/scene-corpus-capability-inventory.md": {
       "lines": 247,
-      "bytes": 46598
+      "bytes": 47486
     },
     "docs/scene/capabilities/scene-corpus-sample-inventory.md": {
-      "lines": 388,
-      "bytes": 34298
+      "lines": 468,
+      "bytes": 42037
     },
     "docs/scene/capabilities/scene-sample-acceptance-ledger.md": {
-      "lines": 517,
-      "bytes": 108683
+      "lines": 515,
+      "bytes": 118233
     },
     "docs/scene/capabilities/scene-sample-debug-ledger.md": {
       "lines": 534,
@@ -193,8 +193,8 @@
       "bytes": 3517
     },
     "docs/scene/development/corpus-diagnostic-workflow.md": {
-      "lines": 55,
-      "bytes": 5455
+      "lines": 105,
+      "bytes": 13605
     },
     "docs/scene/development/development-workflow.md": {
       "lines": 78,
@@ -277,8 +277,8 @@
       "bytes": 22423
     },
     "docs/scene/roadmap/scene-open-breakpoint-queue.md": {
-      "lines": 170,
-      "bytes": 34260
+      "lines": 175,
+      "bytes": 36954
     },
     "docs/web/cold-descriptor-parse-offload-design.md": {
       "lines": 30,
@@ -1764,15 +1764,6 @@
     },
     {
       "section": "bodies",
-      "path": "docs/scene/capabilities/runtime-evidence-current.md",
-      "before": "5dacfc5e0252d9071506ae468461290b1c9da5ab16adc03f7035b30ddc70fa1d",
-      "after": "a864b8027463abf970d43d9158f0458817fe4e14b9296729f0ffbd554eb2023b",
-      "owner": "scene-video-runtime",
-      "reason": "新增通用动态MP4和真实视频替换的有界呈现合同，同步当前能力及AV池剩余；设计先落库，原修复过程归历史，未扩官方未知。",
-      "decision": "docs/scene/capabilities/material-video-assets.md#video-switch-presentation"
-    },
-    {
-      "section": "bodies",
       "path": "docs/scene/capabilities/scenescript-api-coverage.md",
       "before": "fc1fa889ad82b02735fd135a5001674132d1006fe530608edbf3832b2aa7f0a2",
       "after": "adc22dc3e705a7cc5f3e25c4d02dc6393e2c7ef7b4418004c01710e6bbf3f72f",
@@ -1791,21 +1782,57 @@
     },
     {
       "section": "bodies",
+      "path": "docs/scene/capabilities/runtime-evidence-current.md",
+      "before": "a864b8027463abf970d43d9158f0458817fe4e14b9296729f0ffbd554eb2023b",
+      "after": "7476fb485e82580065a8f14be2b0a0587d385a144ff68d584ba365c9396b38c2",
+      "owner": "scene-corpus-diagnostics",
+      "reason": "Replace stale corpus status with one current declaration/run join and log-only parallel workflow; preserve unknown/visual boundaries and old human verdicts.",
+      "decision": "docs/scene/development/corpus-diagnostic-workflow.md#log-first-corpus-audit"
+    },
+    {
+      "section": "bodies",
+      "path": "docs/scene/capabilities/scene-corpus-capability-inventory.md",
+      "before": "d38d6228b282e4b2020a67538eea2d17324f7f0913ed9058a33dca8be65ef705",
+      "after": "d6faa722ab2d681cedcbe76e7617d83d81f037348e37d7160138ae1ab46fdcac",
+      "owner": "scene-corpus-diagnostics",
+      "reason": "Replace stale corpus status with one current declaration/run join and log-only parallel workflow; preserve unknown/visual boundaries and old human verdicts.",
+      "decision": "docs/scene/development/corpus-diagnostic-workflow.md#log-first-corpus-audit"
+    },
+    {
+      "section": "bodies",
+      "path": "docs/scene/capabilities/scene-corpus-sample-inventory.md",
+      "before": "259e5194f4bd534b7eb5af6e27ca7a64c7f78e3d827410f9b334b6f85ee4c003",
+      "after": "be816f570e28b687d1aa16b0718dd5eab7ed6896802ef2b0f6fd0d460c72cc60",
+      "owner": "scene-corpus-diagnostics",
+      "reason": "Replace stale corpus status with one current declaration/run join and log-only parallel workflow; preserve unknown/visual boundaries and old human verdicts.",
+      "decision": "docs/scene/development/corpus-diagnostic-workflow.md#log-first-corpus-audit"
+    },
+    {
+      "section": "bodies",
       "path": "docs/scene/capabilities/scene-sample-acceptance-ledger.md",
-      "before": "d758f5479e4aecf961348407a51f34c755c4e5cb71296f64de93c22102228163",
-      "after": "59120aac8ab39c628cdd40c97b516de8b967b64543cd948ed119a058c245d13c",
-      "owner": "Scene video runtime and corpus intake",
-      "reason": "按已证通用视频链和真实窗口衔接结果替换旧首断点；生成表同步当前453目录，保留已归档移除样本的历史verdict且不混入当前统计，81个目录增量仅登记待运行筛查。",
-      "decision": "docs/scene/capabilities/material-video-assets.md#video-switch-presentation"
+      "before": "59120aac8ab39c628cdd40c97b516de8b967b64543cd948ed119a058c245d13c",
+      "after": "5f84d56d238010bad7c24e4481994a97a5995309fd100aed5c59ad159b70fd5f",
+      "owner": "scene-corpus-diagnostics",
+      "reason": "Replace stale corpus status with one current declaration/run join and log-only parallel workflow; preserve unknown/visual boundaries and old human verdicts.",
+      "decision": "docs/scene/development/corpus-diagnostic-workflow.md#log-first-corpus-audit"
+    },
+    {
+      "section": "bodies",
+      "path": "docs/scene/development/corpus-diagnostic-workflow.md",
+      "before": "609cbdcf92861fee4dbd8f90e212a20213227b0884ffc7c2e79b960c0b61c0b7",
+      "after": "691cb1d8d09f9877b65fd6f0dcb068d2d022d6525b9c4d5d0c50bc2a46198e85",
+      "owner": "scene-corpus-diagnostics",
+      "reason": "Replace stale corpus status with one current declaration/run join and log-only parallel workflow; preserve unknown/visual boundaries and old human verdicts.",
+      "decision": "docs/scene/development/corpus-diagnostic-workflow.md#log-first-corpus-audit"
     },
     {
       "section": "bodies",
       "path": "docs/scene/roadmap/scene-open-breakpoint-queue.md",
-      "before": "e87ff560bd33ecdba17391fde81182eb27afcefdb798fec5776808735cc058cd",
-      "after": "ba0714ca734db5fe74a40ed2cb2b22802e02722dfdc78d218599c4086685672f",
-      "owner": "Scene video runtime and corpus intake",
-      "reason": "按已证通用视频链和真实窗口衔接结果替换旧首断点；生成表同步当前453目录，保留已归档移除样本的历史verdict且不混入当前统计，81个目录增量仅登记待运行筛查。",
-      "decision": "docs/scene/capabilities/material-video-assets.md#video-switch-presentation"
+      "before": "ba0714ca734db5fe74a40ed2cb2b22802e02722dfdc78d218599c4086685672f",
+      "after": "f6a2c3d112e88530aec55c8fd2bd1f11e6ceb4d68e55db8f9357be06c190b30b",
+      "owner": "scene-corpus-diagnostics",
+      "reason": "Replace stale corpus status with one current declaration/run join and log-only parallel workflow; preserve unknown/visual boundaries and old human verdicts.",
+      "decision": "docs/scene/development/corpus-diagnostic-workflow.md#log-first-corpus-audit"
     }
   ]
 }

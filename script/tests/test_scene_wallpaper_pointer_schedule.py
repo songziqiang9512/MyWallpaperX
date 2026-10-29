@@ -72,7 +72,10 @@ class SceneDebugEvidenceScheduleTests(unittest.TestCase):
         environment.pop("MYWALLPAPERX_SCENE_DEBUG_POINTER_SECOND", None)
         result = subprocess.run(args, capture_output=True, text=True, check=True,
                                 timeout=15, env=environment)
-        return json.loads(result.stdout)
+        payload = json.loads(result.stdout)
+        payload["modeLogs"] = [line for line in result.stderr.splitlines()
+                               if "phase=evidence-mode" in line]
+        return payload
 
     def assert_pointer_sequence(self, payload: dict, *, stationary: bool = False,
                                 click: bool = False, drag: bool = False,
@@ -323,8 +326,70 @@ class SceneDebugEvidenceScheduleTests(unittest.TestCase):
         self.assertEqual(names[:5], ["launch", "launch-complete", "ready", "capture:ready", "capture:after"])
         self.assert_after_deadline(positive, pointer=False)
         self.assertIn("capture:series-0001", names)
+        self.assertEqual(positive["previewLog"], "fixture-launch-evidence\nfixture-report\n")
         closed = self.run_schedule("close-before-capture", pointer=False, extra=flags)
         self.assertEqual([row["event"] for row in closed["events"]], ["launch", "launch-complete", "ready"])
+
+    def test_log_only_keeps_one_after_report_without_captures_or_surface_lookups(self) -> None:
+        for pointer in (False, True):
+            with self.subTest(pointer=pointer):
+                payload = self.run_schedule(pointer=pointer, extra=(
+                    "--mwx-debug-scene-log-only",
+                    "--mwx-debug-scene-periodic-snapshot-interval", "0.08",
+                ))
+                self.assertTrue(payload["logOnly"])
+                self.assertEqual(payload["duration"], 4)
+                self.assertEqual(len(payload["modeLogs"]), 1)
+                self.assertIn("pointer=declared" if pointer else "pointer=outside",
+                              payload["modeLogs"][0])
+                events = payload["events"]
+                reports = [row for row in events if row["event"] == "particle-report"]
+                self.assertEqual(len(reports), 1, events)
+                self.assertGreaterEqual(reports[0]["time"],
+                                        payload["scheduleTime"] + payload["afterDelay"] - 0.01)
+                self.assertFalse(any(row["event"].startswith("capture:") for row in events))
+                self.assertEqual(payload["snapshotLookups"], 0)
+                self.assertEqual(payload["previewLog"], "fixture-launch-evidence\nfixture-report\n")
+                if pointer:
+                    self.assertGreater(sum(row["event"] == "pointer:up" for row in events), 0)
+
+    def test_log_only_closing_suppresses_the_after_report(self) -> None:
+        payload = self.run_schedule("close-before-capture", pointer=False, extra=(
+            "--mwx-debug-scene-log-only", "--mwx-debug-scene-duration", "3",
+        ))
+        self.assertEqual([row["event"] for row in payload["events"]],
+                         ["pointer:outside", "launch", "launch-complete", "ready"])
+        self.assertEqual(payload["snapshotLookups"], 0)
+        self.assertEqual(payload["previewLog"], "fixture-launch-evidence\n")
+
+    def test_log_only_fixes_undeclared_pointer_outside_without_changing_visual_input(self) -> None:
+        for log_only in (False, True):
+            with self.subTest(log_only=log_only):
+                flags = ("--mwx-debug-scene-after-snapshot-delay", "1.1")
+                if log_only:
+                    flags += ("--mwx-debug-scene-log-only",)
+                payload = self.run_schedule("physical-pointer-inside", pointer=False, extra=flags)
+                launch = next(row for row in payload["events"] if row["event"] == "launch")
+                self.assertEqual(launch["inside"], not log_only)
+                self.assertEqual(launch["point"], [0, 0] if log_only else [0.75, 0.5])
+                self.assertEqual([row["event"] for row in payload["suspendedEvents"]],
+                                 ["pointer:outside", "launch"] if log_only else ["launch"])
+                self.assertEqual(len(payload["modeLogs"]), int(log_only))
+
+    def test_log_only_duration_bounds_preserve_visual_defaults_and_delayed_representatives(self) -> None:
+        for flags, expected in [
+            ((), 10), (("--mwx-debug-scene-duration", "3"), 7),
+            (("--mwx-debug-scene-duration", "nan"), 10),
+            (("--mwx-debug-scene-log-only",), 4),
+            *((
+                ("--mwx-debug-scene-log-only", "--mwx-debug-scene-duration", raw), duration
+            ) for raw, duration in [("0", 3), ("3", 3), ("4", 4), ("5", 5),
+                                    ("30", 30), ("4000", 3600), ("nan", 4), ("inf", 4)]),
+        ]:
+            with self.subTest(flags=flags):
+                payload = self.run_schedule("arguments", pointer=False, extra=flags)
+                self.assertEqual(payload["duration"], expected)
+                self.assertEqual(payload["afterDelay"], min(3, expected - 0.5))
 
     def test_fault_injected_early_schedule_is_rejected_by_the_same_event_oracle(self) -> None:
         payload = self.run_schedule("fault-early-capture")

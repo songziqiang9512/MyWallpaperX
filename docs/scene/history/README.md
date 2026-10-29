@@ -5,6 +5,7 @@
 | 截止日期 | 专题 | 类型 | 文件 | 独有价值 | 当前权威 |
 |---|---|---|---|---|---|
 跨专题的[冷暖启动专项结算](../../history/cross-topic/wallpaper-startup-optimization-completed-2026-10-25.md)保留最终限定验收、原失败与 STOP；统一登记见[全仓历史索引](../../history/README.md)，不产生新的 Scene 任务。
+| 2026-10-29 | 全样本日志筛查 | 能力集合与公共错误归并 | [453目录短窗审计](corpus-log-audit-2026-10-29.md) | 一次声明观察、6并发4秒、超时优化profile补跑及原始/当前身份；分开首帧阻断、局部降级与未触发 | [诊断合同](../development/corpus-diagnostic-workflow.md)、[队列](../roadmap/scene-open-breakpoint-queue.md)、[验收台账](../capabilities/scene-sample-acceptance-ledger.md) |
 | 2026-10-29 | 视频实例/切换 | 通用播放与实显边界 | [共享来源与首帧衔接](video-instance-observations-2026-10-29.md) | 固定官方观察、原包12组合、窗口红蓝红及历史纹理退休；AV池驻留保持开放 | [视频合同](../capabilities/material-video-assets.md)、[API设计](../roadmap/batch2/script-component-api-design.md#prepared-dynamic-video)、[队列](../roadmap/scene-open-breakpoint-queue.md) |
 | 2026-10-29 | 动态实例寿命/视频资格 | 公共存储回收与限定原生对照 | [slot、旧句柄与视频余项](dynamic-layer-slot-lifetime-2026-10-29.md) | 原生6704出生/8存活、独立63层；337三轮轨道消融与官方正控未知分开 | [D4设计](../roadmap/batch2/script-component-api-design.md#dynamic-layer-slot-lifetime)、[API](../capabilities/scenescript-api-coverage.md)、[视频](../capabilities/material-video-assets.md)、[队列](../roadmap/scene-open-breakpoint-queue.md) |
 | 2026-10-29 | Puppet动作失败半径 | 公共局部降级 | [附加动作与健康主体](puppet-additive-local-fallback-2026-10-29.md) | 原377六动作恢复、未知左手保留；结构与消费分离、原slot/required反例、独立323与官方STOP | [骨骼合同](../capabilities/direct-model-skeletal-animation.md)、[对象合同](../capabilities/advanced-object-coverage.md#puppet-additive-local-unavailable)、[队列](../roadmap/scene-open-breakpoint-queue.md) |

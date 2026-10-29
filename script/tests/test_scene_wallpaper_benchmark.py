@@ -3,12 +3,14 @@
 from __future__ import annotations
 
 import hashlib
+import io
 import json
 import os
 import shutil
 import subprocess
 import sys
 import tempfile
+import threading
 import unittest
 from collections import defaultdict
 from pathlib import Path
@@ -26,6 +28,7 @@ DEBUG_ARGUMENTS_RUNNER_SOURCE = (
 
 import scene_wallpaper_benchmark as benchmark
 import scene_preview_visual_evidence as visual
+import scene_wallpaper_sample_lifecycle as lifecycle
 import generate_scene_full_matrix as matrix_generator
 from script.tests.scene_wallpaper_graph_output_test_support import (
     assert_named_graph_output_publication_has_one_terminal_owner,
@@ -54,6 +57,105 @@ from script.tests.scene_wallpaper_benchmark_test_support import (
 
 
 class SceneWallpaperBenchmarkTests(unittest.TestCase):
+    def test_log_mode_cli_bounds_duration_and_limits_parallelism(self):
+        base = ["scene_wallpaper_benchmark.py", "--app", "/tmp/App",
+                "--sample-root", "/tmp/samples", "--output-dir", "/tmp/results"]
+        for options, duration in (([], 7), (["--duration", "2"], 7),
+                                  (["--log-only"], 4),
+                                  (["--log-only", "--jobs", "9"], 4),
+                                  (["--log-only", "--duration", "2"], 3),
+                                  (["--log-only", "--duration", "5", "--jobs", "2"], 5)):
+            with self.subTest(options=options), mock.patch.object(sys, "argv", base + options):
+                self.assertEqual(benchmark.parse_args().duration, duration)
+        for options in (["--jobs", "2"], ["--log-only", "--jobs", "0"],
+                        ["--log-only", "--jobs", "-1"],
+                        ["--log-only", "--no-execution-observations"],
+                        ["--log-only", "--product-entry-audio-baseline"]):
+            with self.subTest(options=options), mock.patch.object(sys, "argv", base + options), \
+                    mock.patch.object(sys, "stderr", io.StringIO()), self.assertRaises(SystemExit):
+                benchmark.parse_args()
+
+    def test_parallel_scheduler_preserves_order_retires_each_worker_and_joins_on_error(self):
+        for tool_error in (False, True):
+            with self.subTest(tool_error=tool_error), tempfile.TemporaryDirectory() as directory:
+                root = Path(directory)
+                matrix = root / "matrix.json"
+                matrix.write_text(json.dumps({"schema_version": 1, "name": "isolated-log-audit",
+                                              "samples": [{"id": value} for value in ("11", "22", "33", "bad")]}))
+                output = root / "output"
+                rendezvous = threading.Barrier(2)
+                third_started = threading.Event()
+                peer_finished = threading.Event()
+                lock = threading.Lock()
+                events = []
+                real_run_sample = benchmark.run_sample
+
+                def stage(app, runtime):
+                    binary = runtime / "signed-app"
+                    binary.write_bytes(b"owned-stage")
+                    return binary, {"fixture": str(binary)}
+
+                def run(**arguments):
+                    identity = arguments["sample"]["id"]
+                    if identity == "bad":
+                        return real_run_sample(**arguments)
+                    runtime = arguments["runtime_root"]
+                    sample_path = runtime / "runtime-samples" / identity
+                    home = runtime / "runtime-homes" / identity
+                    sample_path.mkdir(parents=True)
+                    (home / "tmp").mkdir(parents=True)
+                    self.assertTrue(arguments["runtime_binary"].is_file())
+                    self.assertTrue(arguments["log_only"])
+                    self.assertEqual(arguments["duration"], 4)
+                    with lock:
+                        events.append(identity)
+                    if identity in {"11", "22"}:
+                        rendezvous.wait(timeout=5)
+                    if identity == "11" and tool_error:
+                        raise RuntimeError("unknown tool fault")
+                    if identity == "22":
+                        if not tool_error:
+                            self.assertTrue(third_started.wait(5))
+                        self.assertTrue(arguments["runtime_binary"].is_file())
+                        peer_finished.set()
+                    if identity == "33":
+                        if not tool_error:
+                            self.assertFalse((runtime / "runtime-homes/11").exists())
+                            self.assertFalse((runtime / "runtime-samples/11").exists())
+                        third_started.set()
+                    return {"id": identity, "passed": True, "failures": [],
+                            "runtime": {"loaded_ratio": 1}, "evidence": {},
+                            "runtime_sample": str(sample_path), "runtime_home": str(home),
+                            "runtime_retained": True}
+
+                command = ["scene_wallpaper_benchmark.py", "--app", str(root / "App"),
+                           "--sample-root", str(root / "samples"), "--matrix", str(matrix),
+                           "--output-dir", str(output), "--log-only", "--jobs", "2"]
+                with mock.patch.object(sys, "argv", command), \
+                        mock.patch.object(sys, "stdout", io.StringIO()), \
+                        mock.patch.object(benchmark, "stage_signed_app", side_effect=stage) as staged, \
+                        mock.patch.object(benchmark, "verify_staged_app") as verified, \
+                        mock.patch.object(benchmark, "run_sample", side_effect=run), \
+                        mock.patch.object(lifecycle, "discard_staged_app") as discarded:
+                    if tool_error:
+                        with self.assertRaisesRegex(RuntimeError, "unknown tool fault"):
+                            benchmark.main()
+                    else:
+                        self.assertEqual(benchmark.main(), 1)
+                        report = json.loads((output / "report.json").read_text())
+                        self.assertEqual([value["id"] for value in report["samples"]], ["11", "22", "33", "bad"])
+                        self.assertEqual(report["samples"][-1]["input_status"], "source-invalid")
+                        self.assertTrue(all(value["passed"] for value in report["samples"][:-1]))
+                        self.assertTrue(all(value["runtime_home"] is None for value in report["samples"]))
+                        self.assertEqual(report["summary"]["preview_visual"]["status"], "not-requested")
+                        self.assertFalse(report["summary"]["performance"]["comparison_eligible"])
+                        verified.assert_called_once()
+                        discarded.assert_called_once()
+                    staged.assert_called_once()
+                self.assertEqual(set(events[:2]), {"11", "22"})
+                self.assertTrue(peer_finished.is_set())
+                self.assertFalse((output / "runtime").exists())
+
     def test_disabled_graph_observations_report_unavailable_without_execution_pass(
         self,
     ) -> None:

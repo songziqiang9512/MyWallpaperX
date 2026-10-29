@@ -536,9 +536,6 @@ def build_ledger(
 
     verdicts = load_verdicts(verdicts_path)
     archived_only = sorted(set(verdicts) - set(sample_ids))
-    unknown = [sample_id for sample_id in archived_only if sample_id not in archive_by_id]
-    if unknown:
-        raise ValueError(f"verdict overlay names samples absent from the root: {unknown[:5]}")
 
     rows: list[dict[str, Any]] = []
     for sample_dir in sample_dirs:

@@ -4,6 +4,7 @@
 from __future__ import annotations
 
 import argparse
+from concurrent.futures import ThreadPoolExecutor, as_completed
 import hashlib
 import json
 import math
@@ -234,7 +235,7 @@ def positive_uint64(raw: str) -> int:
         raise argparse.ArgumentTypeError("expected a positive UInt64")
     return value
 
-def bounded_duration(raw: str) -> float:
+def bounded_duration(raw: str, minimum: float = 7) -> float:
     try:
         value = float(raw)
     except ValueError as error:
@@ -243,7 +244,7 @@ def bounded_duration(raw: str) -> float:
         raise argparse.ArgumentTypeError(
             "expected a finite duration no greater than 3600 seconds"
         )
-    return max(value, 7)
+    return max(value, minimum)
 
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(description=__doc__)
@@ -291,7 +292,11 @@ def parse_args() -> argparse.Namespace:
             "product work; observation-derived evidence becomes unavailable"
         ),
     )
-    parser.add_argument("--duration", type=bounded_duration, default=7)
+    parser.add_argument("--log-only", action="store_true",
+                        help="collect runtime logs without PNG or visual qualification")
+    parser.add_argument("--jobs", type=int, default=1,
+                        help="bounded sample concurrency; multiple jobs require --log-only")
+    parser.add_argument("--duration", type=lambda raw: bounded_duration(raw, 0))
     parser.add_argument(
         "--performance-fps",
         type=int,
@@ -380,6 +385,17 @@ def parse_args() -> argparse.Namespace:
         ),
     )
     args = parser.parse_args()
+    if args.jobs < 1:
+        parser.error("--jobs must be a positive integer")
+    args.duration = max(args.duration if args.duration is not None else (4 if args.log_only else 7),
+                        3 if args.log_only else 7)
+    if args.jobs != 1 and not args.log_only:
+        parser.error("parallel samples require --log-only; visual/performance runs stay serial")
+    if args.log_only and (args.no_execution_observations or args.product_entry_audio_baseline):
+        parser.error("log-only requires direct-host execution observations")
+    if args.log_only and (args.periodic_snapshot_interval is not None
+                          or args.require_cursor_ripple_persistence):
+        parser.error("log-only cannot promise periodic images or visible cursor output")
     try:
         validate_execution_observation_policy(
             execution_observations_enabled=not args.no_execution_observations,
@@ -541,42 +557,56 @@ def main() -> int:
                     duration=duration,
                     property_overrides=product_entry_property_overrides,
                 )
+                apply_runtime_retention(runtime_root, app_identity, [result], args.keep_runtime,
+                                        finalize_stage=False)
                 results.append(result)
                 print(
                     f"{sample_id}: {result['baseline']['status']}",
                     flush=True,
                 )
         else:
-            results = [
-                run_sample(
+            def run_selected(sample: dict[str, Any]) -> dict[str, Any]:
+                result = run_sample(
                     runtime_binary=runtime_binary,
                     sample_root=args.sample_root.expanduser().resolve(),
-                    sample=sample,
-                    output_dir=output_dir,
-                    runtime_root=runtime_root,
-                    duration=duration,
-                    performance_fps=args.performance_fps,
+                    sample=sample, output_dir=output_dir, runtime_root=runtime_root,
+                    duration=duration, performance_fps=args.performance_fps,
                     after_snapshot_delay=args.after_snapshot_delay,
                     performance_warmup=args.performance_warmup,
                     periodic_snapshot_interval=args.periodic_snapshot_interval,
                     resize_sequence=args.resize_sequence,
                     drop_dynamic_values_frame=args.drop_dynamic_values_frame,
                     audio_spectrum_fixture=args.audio_spectrum_fixture,
-                    audio_spectrum_silence_fixture=(
-                        args.audio_spectrum_silence_fixture
-                    ),
-                    require_effect_stage_admission=(
-                        args.require_effect_stage_admission
-                    ),
+                    audio_spectrum_silence_fixture=args.audio_spectrum_silence_fixture,
+                    require_effect_stage_admission=args.require_effect_stage_admission,
                     require_effect_execution=args.require_effect_execution,
                     require_graph_execution=args.require_graph_execution,
                     no_execution_observations=args.no_execution_observations,
-                    require_cursor_ripple_persistence=(
-                        args.require_cursor_ripple_persistence
-                    ),
+                    require_cursor_ripple_persistence=args.require_cursor_ripple_persistence,
+                    log_only=args.log_only,
                 )
-                for sample in matrix["samples"]
-            ]
+                apply_runtime_retention(runtime_root, app_identity, [result], args.keep_runtime,
+                                        finalize_stage=False)
+                return result
+
+            if args.jobs == 1:
+                results = [run_selected(sample) for sample in matrix["samples"]]
+            else:
+                # The executor joins running workers before the outer cleanup
+                # can remove their shared, read-only staged App.
+                with ThreadPoolExecutor(max_workers=args.jobs) as pool:
+                    futures = {}
+                    try:
+                        for index, sample in enumerate(matrix["samples"]):
+                            futures[pool.submit(run_selected, sample)] = index
+                        results = [None] * len(futures)
+                        for future in as_completed(futures):
+                            results[futures[future]] = future.result()
+                    except BaseException:
+                        for future in futures:
+                            future.cancel()
+                        raise
+
     except (Exception, KeyboardInterrupt):
         if not args.keep_runtime:
             try:
@@ -606,8 +636,10 @@ def main() -> int:
             "passed": all(result["passed"] for result in results),
             "sample_count": len(results),
             "passed_count": sum(result["passed"] for result in results),
-            "preview_visual": summarize_preview_visual_evidence(results),
-            "performance": summarize_performance(results),
+            "preview_visual": ({"status": "not-requested"} if args.log_only
+                               else summarize_preview_visual_evidence(results)),
+            "performance": ({"status": "diagnostic-only", "comparison_eligible": False}
+                            if args.log_only else summarize_performance(results)),
         }
     )
     passed = bool(summary["passed"])
@@ -622,7 +654,7 @@ def main() -> int:
         "mode": (
             PRODUCT_ENTRY_AUDIO_MODE
             if args.product_entry_audio_baseline
-            else "direct-host-scene-benchmark"
+            else "direct-host-scene-log-audit" if args.log_only else "direct-host-scene-benchmark"
         ),
         "matrix": matrix["name"],
         "matrix_path": str(matrix_path),
@@ -634,6 +666,8 @@ def main() -> int:
         "summary": summary,
         "samples": results,
     }
+    if args.log_only:
+        report.update(jobs=args.jobs, claim_boundary="runtime-diagnostics-only-not-visual-or-performance")
     if args.product_entry_audio_baseline:
         report["product_entry_property_overrides"] = (
             product_entry_property_overrides
@@ -645,7 +679,7 @@ def main() -> int:
         for result in results:
             print(
                 f"{result['id']}: {'PASS' if result['passed'] else 'FAIL'} "
-                f"loaded={result['runtime']['loaded_ratio']:.3f} "
+                f"loaded={result['runtime'].get('loaded_ratio', 0):.3f} "
                 f"failures={result['failures']}"
             )
     return 0 if passed else 1

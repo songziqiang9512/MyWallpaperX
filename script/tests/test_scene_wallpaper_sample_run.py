@@ -2,13 +2,12 @@
 
 from __future__ import annotations
 
-import ast
-import inspect
 import json
 import os
 import sys
 import tempfile
 import unittest
+from unittest import mock
 from pathlib import Path
 
 SCRIPT_DIR = Path(__file__).resolve().parents[1]
@@ -17,9 +16,11 @@ sys.path.insert(0, str(SCRIPT_DIR))
 import scene_wallpaper_benchmark as benchmark
 import scene_wallpaper_sample_run as sample_run
 import web_benchmark_capture as capture
+import scene_preview_visual_evidence as visual
 from scene_preview_visual_evidence import _write_rgb_png
 from script.tests.scene_wallpaper_benchmark_test_support import effect_execution_log
 from script.tests.scene_wallpaper_sample_fixture import run_sample_fixture, write_png
+from script.tests.scene_wallpaper_sample_fixture import PERFORMANCE_LOG
 
 
 WINDOW_FIELDS = (
@@ -30,21 +31,13 @@ WINDOW_FIELDS = (
 
 
 def collect_window_evidence(root, *, hover=True, trajectory_count=7, sample=None):
-    """Execute the actual caller's post-process block without launching a process."""
-    function = ast.parse(inspect.getsource(sample_run.run_sample)).body[0]
-    def assigns(node, name):
-        return isinstance(node, ast.Assign) and any(
-            isinstance(target, ast.Name) and target.id == name for target in node.targets
-        )
-    start = next(i for i, node in enumerate(function.body) if assigns(node, "initial_reason"))
-    end = next(i for i, node in enumerate(function.body) if assigns(node, "runtime_evidence_path"))
-    namespace = dict(vars(sample_run), result_dir=root, runtime_sample=root / "source",
-                     hover_pointer=(0.5, 0.5) if hover else None,
-                     pointer_trajectory=[(0.1, 0.2)] * trajectory_count or None,
-                     sample=sample or {}, log_text="")
-    exec(compile(ast.Module(body=function.body[start:end], type_ignores=[]),
-                 sample_run.__file__, "exec"), namespace)
-    return {field: namespace[field] for field in WINDOW_FIELDS}
+    """Call the visual axis consumed by the real sample runner."""
+    values = visual.collect_sample_visual_evidence(
+        root / "source", root, sample=sample or {},
+        hover_pointer=(0.5, 0.5) if hover else None,
+        pointer_trajectory=[(0.1, 0.2)] * trajectory_count or None, log_text="",
+    )
+    return {field: values[field] for field in WINDOW_FIELDS}
 
 
 def write_window_inputs(root, trajectory_count=7):
@@ -75,9 +68,9 @@ def reference_window_evidence(root, *, hover=True, trajectory_count=7):
         "hover_motion": {"before_to_hover": capture.png_motion_metrics(ready, hovered),
                          "hover_to_after": capture.png_motion_metrics(hovered, after)} if hover else None,
         "pointer_trajectory_non_black": [capture.png_has_non_black_pixel(path) for path in trajectory],
-        "pointer_trajectory_motion": sample_run.pointer_trajectory_motion_metrics(ready, trajectory),
+        "pointer_trajectory_motion": visual.pointer_trajectory_motion_metrics(ready, trajectory),
         "puppet_interaction": None,
-        "preview_visual": sample_run.collect_preview_visual_evidence(root / "source", after, root),
+        "preview_visual": visual.collect_preview_visual_evidence(root / "source", after, root),
     }
 
 
@@ -310,6 +303,59 @@ class SceneWallpaperSampleRunTests(unittest.TestCase):
                                        no_execution_observations=disabled)
                 if message is not None:
                     self.assertEqual(str(raised.exception), message)
+
+    def test_log_only_keeps_runtime_chain_without_calling_visual_axis(self):
+        with mock.patch.object(sample_run, "collect_sample_visual_evidence",
+                               side_effect=AssertionError("log audit read pixels")):
+            result, command = run_sample_fixture(benchmark, log_only=True,
+                sample_overrides={"requires_motion": True, "minimum_changed_ratio": 1,
+                                  "maximum_flat_border_ratio": 0})
+        self.assertTrue(result["passed"], result["failures"])
+        self.assertIn("--mwx-debug-scene-log-only", command)
+        self.assertNotIn("--mwx-debug-scene-no-execution-observations", command)
+        self.assertEqual(result["evidence"]["visual_status"], "not-requested")
+        self.assertNotIn("ready_snapshot", result["evidence"])
+        self.assertGreater(result["runtime"]["performance"]["completed_frames"], 0)
+        self.assertEqual(result["runtime"]["runtime_evidence"]["schema_version"], 1)
+        short, _ = run_sample_fixture(benchmark, log_only=True, control={
+            "missing_performance": True,
+            "log_lines": ["phase=surface-submission state=completed frame=0 surface=1 gpu=completed"],
+        })
+        self.assertTrue(short["passed"], short["failures"])
+        self.assertFalse(short["runtime"]["performance"]["available"])
+
+    def test_log_only_requires_real_runtime_and_drain_but_visual_missing_still_fails(self):
+        for control in ({"missing_ready": True}, {"missing_drain": True},
+                        {"malformed_runtime": True}, {"missing_performance": True},
+                        {"performance_log": PERFORMANCE_LOG.replace("completed=409", "completed=0")},
+                        {"log_lines": [effect_execution_log(7, [], [], status="failed")]}):
+            with self.subTest(control=control):
+                result, _ = run_sample_fixture(benchmark, log_only=True, control=control)
+                self.assertFalse(result["passed"], result)
+                self.assertNotIn("non-black window evidence missing", result["failures"])
+        missing, _ = run_sample_fixture(benchmark, control={"missing_png": True})
+        self.assertIn("non-black window evidence missing", missing["failures"])
+        with self.assertRaisesRegex(ValueError, "require execution observations"):
+            run_sample_fixture(benchmark, log_only=True, no_execution_observations=True)
+
+    def test_missing_project_is_a_source_invalid_row_without_starting_process(self):
+        for log_only in (False, True):
+            with self.subTest(log_only=log_only):
+                result, command = run_sample_fixture(benchmark, log_only=log_only,
+                    control={"missing_project": True})
+                self.assertEqual(command, [])
+                self.assertEqual(result["input_status"], "source-invalid")
+                self.assertFalse(result["passed"])
+                self.assertFalse(result["runtime_retained"])
+                self.assertIsNone(result["exit_code"])
+
+    def test_unknown_process_tool_error_stops_owned_child_and_is_not_a_result_row(self):
+        actions, waits = [], []
+        with self.assertRaisesRegex(RuntimeError, "unknown process tool failure"):
+            run_sample_fixture(benchmark, control={"raise_wait": True, "process_actions": actions,
+                                                  "observed_wait_timeouts": waits})
+        self.assertEqual(actions, ["terminate"])
+        self.assertEqual(waits, [67, 5])
 
 
 if __name__ == "__main__":

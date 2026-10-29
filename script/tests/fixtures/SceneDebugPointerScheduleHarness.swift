@@ -22,6 +22,7 @@ final class HarnessHost {
     }
     struct Snapshot { var windowNumbers = [17] }
     var pointer = Pointer()
+    var snapshotLookups = 0
     var suspendedLaunch: CheckedContinuation<SceneRuntimeModel, Error>?
     var launchObserver: CheckedContinuation<Void, Never>?
 
@@ -57,8 +58,14 @@ final class HarnessHost {
         await withCheckedContinuation { launchObserver = $0 }
     }
 
-    func debugSnapshot() -> Snapshot { Snapshot() }
-    func debugParticleLoadReportLines() -> [String] { ["fixture-report"] }
+    func debugSnapshot() -> Snapshot {
+        snapshotLookups += 1
+        return Snapshot()
+    }
+    func debugParticleLoadReportLines() -> [String] {
+        DebugScenePlaybackRunner.record("particle-report")
+        return ["fixture-report"]
+    }
     func requestDebugSnapshot(windowNumber: Int, reason: String, outputDirectory: URL,
                               kind: SceneDebugFrameCapture.RequestClass) -> Bool {
         DebugScenePlaybackRunner.record("capture:\(reason)", point: pointer.current,
@@ -101,8 +108,14 @@ struct SceneDebugPointerScheduleHarness {
     @MainActor static func main() async throws {
         typealias Runner = DebugScenePlaybackRunner
         let scenario = CommandLine.arguments[1]
-        let output = URL(fileURLWithPath: "/private/tmp/mwx-unused-capture-output")
+        let output = FileManager.default.temporaryDirectory
+            .appendingPathComponent("mwx-pointer-schedule-\(UUID().uuidString)", isDirectory: true)
+        try FileManager.default.createDirectory(at: output, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(at: output) }
+        let previewLogURL = output.appendingPathComponent("scene-preview.log")
+        try Data("fixture-launch-evidence\n".utf8).write(to: previewLogURL)
         var payload: [String: Any] = [
+            "logOnly": Runner.requestedLogOnly,
             "hover": Runner.requestedHoverPointer.map { [$0.x, $0.y] } as Any? ?? NSNull(),
             "stationary": Runner.requestedHoverPointerStationaryEntry,
             "fromLaunch": Runner.requestedHoverPointerFromLaunch,
@@ -118,10 +131,15 @@ struct SceneDebugPointerScheduleHarness {
                 "heldSeconds": timing.heldSeconds, "betweenSeconds": timing.betweenSeconds]
         } else { payload["dragTiming"] = NSNull() }
         if scenario != "arguments", Runner.pointerDragTimingPreconditionFailure == nil {
+            if scenario == "physical-pointer-inside" {
+                Runner.runtimeHost.pointer = .init(
+                    current: SIMD2(0.75, 0.5), isInside: true, isPrimaryButtonDown: false
+                )
+            }
             if scenario == "already-closing" { Runner.isClosing = true }
             let task = Task { @MainActor in
                 try await Runner.launchForEvidence(
-                    rootURL: output, userPropertyTextureURLs: [:], previewLogURL: nil,
+                    rootURL: output, userPropertyTextureURLs: [:], previewLogURL: previewLogURL,
                     requestUptime: ProcessInfo.processInfo.systemUptime,
                     recordID: "fixture-record"
                 )
@@ -132,7 +150,7 @@ struct SceneDebugPointerScheduleHarness {
                 // while host launch is suspended; the Python event oracle rejects it.
                 if scenario == "fault-early-capture" {
                     payload["scheduleTime"] = ProcessInfo.processInfo.systemUptime - Runner.start
-                    Runner.scheduleInitialEvidenceSnapshots(outputDirectory: output, previewLogURL: nil)
+                    Runner.scheduleInitialEvidenceSnapshots(outputDirectory: output, previewLogURL: previewLogURL)
                     await Runner.waitFor("capture:before")
                 }
                 payload["suspendedEvents"] = Runner.events
@@ -154,7 +172,7 @@ struct SceneDebugPointerScheduleHarness {
                     Runner.record("ready")
                     if scenario != "fault-early-capture" {
                         payload["scheduleTime"] = ProcessInfo.processInfo.systemUptime - Runner.start
-                        Runner.scheduleInitialEvidenceSnapshots(outputDirectory: output, previewLogURL: nil)
+                        Runner.scheduleInitialEvidenceSnapshots(outputDirectory: output, previewLogURL: previewLogURL)
                     }
                     if scenario == "close-after-hover" {
                         await Runner.waitFor("capture:hover")
@@ -175,16 +193,21 @@ struct SceneDebugPointerScheduleHarness {
                     } else if scenario == "close-before-capture" {
                         Runner.isClosing = true
                         // Let the actual regular/periodic callbacks become due.
-                        try await Task.sleep(for: .seconds(1.75))
+                        try await Task.sleep(for: .seconds(
+                            Runner.requestedLogOnly ? Runner.requestedAfterSnapshotDelay + 0.3 : 1.75
+                        ))
                     } else {
-                        if let timing = Runner.requestedPointerDragTiming {
+                        if Runner.requestedLogOnly {
+                            await Runner.waitFor("particle-report")
+                            try await Task.sleep(for: .seconds(0.25))
+                        } else if let timing = Runner.requestedPointerDragTiming {
                             await Runner.waitFor(String(format: "capture:drag-%02d-released", timing.count))
                             try await Task.sleep(for: .seconds(0.25))
                         } else {
                             await Runner.waitFor("capture:after")
                             if scenario == "legacy-drag-full" { await Runner.waitFor("capture:spring-after") }
                         }
-                        if Runner.requestedPeriodicSnapshotInterval != nil {
+                        if !Runner.requestedLogOnly, Runner.requestedPeriodicSnapshotInterval != nil {
                             await Runner.waitFor("capture:series-0001")
                         }
                     }
@@ -196,6 +219,8 @@ struct SceneDebugPointerScheduleHarness {
             }
         }
         payload["events"] = Runner.events
+        payload["snapshotLookups"] = Runner.runtimeHost.snapshotLookups
+        payload["previewLog"] = try String(contentsOf: previewLogURL, encoding: .utf8)
         let data = try JSONSerialization.data(withJSONObject: payload, options: [.sortedKeys])
         print(String(decoding: data, as: UTF8.self))
     }

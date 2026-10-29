@@ -429,7 +429,7 @@ class SceneDiagnosticReportTests(unittest.TestCase):
     def test_scene_script_failures_cluster_by_typed_target_not_identity(self) -> None:
         with tempfile.TemporaryDirectory() as directory:
             fixtures = []
-            for sample_id, layer_id in (("script-a", 214), ("script-b", 991)):
+            for sample_id, layer_id in (("script-a", 214), ("script-b", 991), ("dynamic", -17)):
                 app_log = Path(directory) / f"{sample_id}.log"
                 app_log.write_text(
                     "MWX SceneScript VM: target=layer(layerID: "
@@ -456,7 +456,7 @@ class SceneDiagnosticReportTests(unittest.TestCase):
             if cluster["key"]["reasonCode"] == "scene-script-bad-return"
         ]
         self.assertEqual(len(clusters), 1)
-        self.assertEqual(clusters[0]["affectedSampleCount"], 2)
+        self.assertEqual(clusters[0]["affectedSampleCount"], 3)
         self.assertEqual(
             clusters[0]["key"]["capabilityProfileOrAuthoredShape"],
             "target:layer:origin",
@@ -466,6 +466,55 @@ class SceneDiagnosticReportTests(unittest.TestCase):
             result["samples"][0]["firstBreakpoint"]["stage"],
             "script-execution",
         )
+
+    def test_log_only_does_not_invent_missing_pixels_and_retains_source_invalid(self):
+        logged, visual = sample("logged"), sample("visual")
+        logged["evidence"] = {"visual_status": "not-requested"}
+        visual["evidence"] = {}
+        invalid = {"id": "invalid", "input_status": "source-invalid", "runtime": {},
+                   "evidence": {"visual_status": "not-requested"}}
+        normalized = diagnostic.normalize_reports([report(logged, visual, invalid)])
+        observed = {value["sampleId"]: value for value in normalized["samples"]}
+        self.assertIsNone(observed["logged"]["firstBreakpoint"])
+        self.assertEqual(observed["logged"]["evidenceSummary"]["visualObservationStatus"], "not-requested")
+        self.assertFalse(observed["logged"]["evidenceSummary"]["readyNonBlackObserved"])
+        self.assertEqual(observed["visual"]["firstBreakpoint"]["reasonCode"],
+                         "terminal-output-non-black-missing")
+        self.assertEqual(observed["invalid"]["firstBreakpoint"]["reasonCode"], "project-json-missing")
+        self.assertEqual(observed["invalid"]["firstBreakpoint"]["owner"], "SceneProjectLoader")
+
+    def test_rejected_callbacks_without_code_retain_typed_failure(self):
+        targets = ["layerMutations=40 owner=layer(layerID: 213, field: MyWallpaperX.SceneDynamicLayerField.origin)",
+                   'target=effectConstant(layerID: -17, effectIndex: 0, passIndex: 0, name: "tint")']
+        with tempfile.TemporaryDirectory() as directory:
+            for target in targets:
+                with self.subTest(target=target):
+                    path = Path(directory) / "app.log"
+                    path.write_text(f'MWX SceneScript VM: {target} callback=rejected '
+                                    'failure=invalidArgument("layer has no perspective geometry consumer") '
+                                    'fallback=previous-current\n', encoding="utf-8")
+                    fixture = sample("rejected")
+                    fixture["evidence"]["app_log"] = str(path)
+                    events = diagnostic.normalize_reports([report(fixture)])["samples"][0]
+                    self.assertEqual(events["firstBreakpoint"]["reasonCode"], "scene-script-invalid-argument")
+                    self.assertEqual(events["firstBreakpoint"]["stage"], "script-execution")
+
+    def test_effect_failures_accept_negative_dynamic_id_without_changing_public_cluster(self):
+        with tempfile.TemporaryDirectory() as directory:
+            fixtures = []
+            for identity in (8, -8):
+                value = sample(str(identity), layer_id=identity)
+                path = Path(directory) / f"{identity}.log"
+                path.write_text(f'MWX SceneScript VM: target=effectConstant(layerID: {identity}, '
+                    'effectIndex: 0, passIndex: 0, name: "tint") failure=exception("TypeError: missing value") '
+                    'code=exception fallback=current-frame-lower-priority\n')
+                value["evidence"]["app_log"] = str(path)
+                fixtures.append(value)
+            normalized = diagnostic.normalize_reports([report(*fixtures)])
+        clusters = [value for value in normalized["clusters"] if value["key"]["stage"] == "script-execution"]
+        self.assertEqual(len(clusters), 1)
+        self.assertEqual(clusters[0]["affectedSampleCount"], 2)
+        self.assertEqual(clusters[0]["key"]["reasonCode"], "scene-script-exception-type-error")
 
     def test_scene_script_exception_classes_remain_separate_contracts(self) -> None:
         with tempfile.TemporaryDirectory() as directory:

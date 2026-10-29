@@ -53,6 +53,7 @@ def sample_result_failures(
     utility_capture_execution: dict[str, Any],
     utility_runtime: dict[str, Any],
     visible_graph_output_publication_execution: dict[str, Any],
+    log_only: bool = False,
 ) -> list[str]:
     """Validate collected evidence without parsing or executing another run."""
     runtime = result["runtime"]
@@ -68,7 +69,8 @@ def sample_result_failures(
         failures.append("no Scene surface")
     else:
         failures.extend(startup_runtime_failures(sample, runtime['startup_ready_ms']))
-    failures.extend(performance_failures(runtime['performance']))
+    if not log_only:
+        failures.extend(performance_failures(runtime['performance']))
     failures.extend(runtime['audio_scaled_value']["failures"])
     if runtime_evidence_match is None:
         failures.append("missing runtime evidence path")
@@ -82,6 +84,17 @@ def sample_result_failures(
         )
     if stopped_match is None or int(stopped_match.group("after")) != 0:
         failures.append("Scene surfaces not released")
+    if log_only:
+        performance = runtime['performance']
+        completed = performance.get("completed_frames", 0) > 0 or bool(
+            runtime['effect_execution'].get("completed_frame_ids")
+        ) or re.search(r"phase=surface-submission state=completed[^\n]*gpu=completed(?:\s|$)", log_text)
+        if not completed:
+            failures.append("no completed GPU frame")
+        if performance.get("failed_frames", 0):
+            failures.append("GPU frames failed")
+        if not re.search(r"phase=stopped[^\n]*gpuDrained=true(?:\s|$)", log_text):
+            failures.append("Scene GPU drain not confirmed")
     failures.extend(live_property_update_failures(
         live_property_overrides,
         runtime['live_property_update'],
@@ -493,46 +506,47 @@ def sample_result_failures(
             failures.append(f"Scene effect file missing: {effect_file}")
     if runtime['bloom_runtime_count'] < int(sample.get("minimum_bloom_runtime_count", 0)):
         failures.append("bloom runtime count below minimum")
-    if not evidence['ready_non_black'] or not evidence['after_non_black']:
-        failures.append("non-black window evidence missing")
-    if runtime['hover_pointer_normalized'] is not None:
-        if not evidence['hover_non_black']:
-            failures.append("hover window evidence missing")
-        if evidence['puppet_interaction'] is not None:
-            failures.extend(evidence['puppet_interaction']["failures"])
-        failures.extend(cursor_interaction_output_failures(
-            sample, evidence['hover_motion'], runtime['cursor_drag_to_normalized']
-        ))
-    if runtime['pointer_trajectory_normalized'] is not None:
-        if not all(evidence['pointer_trajectory_non_black']):
-            failures.append("pointer trajectory window evidence missing")
-        minimum_trajectory_change = pointer_trajectory_minimum_changed_ratio(sample)
-        if minimum_trajectory_change is not None and (
-            evidence['pointer_trajectory_motion'] is None
-            or any(
-                metric is None
-                or metric["changed_ratio"] < float(minimum_trajectory_change)
-                for metric in evidence['pointer_trajectory_motion']
-            )
-        ):
-            failures.append("pointer trajectory output evidence below minimum")
-    if sample.get("requires_motion"):
-        minimum_changed_ratio = float(sample.get("minimum_changed_ratio", 0))
-        if evidence['motion'] is None or evidence['motion']["changed_ratio"] < minimum_changed_ratio:
-            failures.append("animated output evidence below minimum")
-    failures.extend(live_property_output_failures(sample, evidence['motion']))
-    maximum_changed_ratio = sample.get("maximum_changed_ratio")
-    if maximum_changed_ratio is not None:
-        if evidence['motion'] is None or evidence['motion']["changed_ratio"] > float(maximum_changed_ratio):
-            failures.append("static output evidence above maximum")
-    maximum_flat_border_ratio = sample.get("maximum_flat_border_ratio")
-    if maximum_flat_border_ratio is not None:
-        ratios = [value for value in evidence['flat_border_ratio'].values() if value is not None]
-        expected_ratio_count = 3 if runtime['hover_pointer_normalized'] is not None else 2
-        if (
-            len(ratios) != expected_ratio_count
-            or max(ratios) > float(maximum_flat_border_ratio)
-        ):
-            failures.append("flat border evidence above maximum")
+    if not log_only:
+        if not evidence['ready_non_black'] or not evidence['after_non_black']:
+            failures.append("non-black window evidence missing")
+        if runtime['hover_pointer_normalized'] is not None:
+            if not evidence['hover_non_black']:
+                failures.append("hover window evidence missing")
+            if evidence['puppet_interaction'] is not None:
+                failures.extend(evidence['puppet_interaction']["failures"])
+            failures.extend(cursor_interaction_output_failures(
+                sample, evidence['hover_motion'], runtime['cursor_drag_to_normalized']
+            ))
+        if runtime['pointer_trajectory_normalized'] is not None:
+            if not all(evidence['pointer_trajectory_non_black']):
+                failures.append("pointer trajectory window evidence missing")
+            minimum_trajectory_change = pointer_trajectory_minimum_changed_ratio(sample)
+            if minimum_trajectory_change is not None and (
+                evidence['pointer_trajectory_motion'] is None
+                or any(
+                    metric is None
+                    or metric["changed_ratio"] < float(minimum_trajectory_change)
+                    for metric in evidence['pointer_trajectory_motion']
+                )
+            ):
+                failures.append("pointer trajectory output evidence below minimum")
+        if sample.get("requires_motion"):
+            minimum_changed_ratio = float(sample.get("minimum_changed_ratio", 0))
+            if evidence['motion'] is None or evidence['motion']["changed_ratio"] < minimum_changed_ratio:
+                failures.append("animated output evidence below minimum")
+        failures.extend(live_property_output_failures(sample, evidence['motion']))
+        maximum_changed_ratio = sample.get("maximum_changed_ratio")
+        if maximum_changed_ratio is not None:
+            if evidence['motion'] is None or evidence['motion']["changed_ratio"] > float(maximum_changed_ratio):
+                failures.append("static output evidence above maximum")
+        maximum_flat_border_ratio = sample.get("maximum_flat_border_ratio")
+        if maximum_flat_border_ratio is not None:
+            ratios = [value for value in evidence['flat_border_ratio'].values() if value is not None]
+            expected_ratio_count = 3 if runtime['hover_pointer_normalized'] is not None else 2
+            if (
+                len(ratios) != expected_ratio_count
+                or max(ratios) > float(maximum_flat_border_ratio)
+            ):
+                failures.append("flat border evidence above maximum")
 
     return failures

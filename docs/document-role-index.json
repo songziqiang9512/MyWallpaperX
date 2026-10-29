@@ -999,9 +999,9 @@
       "lastReviewed": "2026-10-29",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "f1e32e62eb70ceb60ce195f3100bfcd9130d98234574c58ac3d287b3a7db10fb",
+        "sourceSHA256": "9deb45b37a0d7c60f7ecb5167f414a2188873ace3628cd41024d08666a7ec5b4",
         "method": "document_registry --audit + document_health --check",
-        "scope": "同步prepared动态MP4、共享Source/命令身份、纹理退休及直接主输出有界呈现；原生同身份窗口采样和官方有限语义各归本轮历史，剩余AV池驻留归唯一队列。",
+        "scope": "同步prepared动态MP4、共享Source/命令身份、纹理退休及直接主输出有界呈现；原生同身份窗口采样和官方有限语义各归本轮历史，剩余AV池驻留归唯一队列。 Add pointer to bounded full-corpus log audit; historical pixel claims are not revalidated.",
         "limitations": "仅导航与状态一致性；运行只按历史已验范围，未关闭动态WebM、group/named/effect衔接、完整官方seek/空窗、所有HDR组合及整体CPU/GPU/能耗收益。"
       }
     },
@@ -1178,15 +1178,15 @@
       "role": "stable-contract",
       "entrypoint": "docs/scene/development/development-workflow.md",
       "currentStateAuthority": "docs/scene/capabilities/scene-corpus-capability-inventory.md",
-      "lastReviewed": "2026-10-23",
+      "lastReviewed": "2026-10-29",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "832c08f1a2eba0a658f8c371e6ad762ad35da275b8a063075804338671c17ad8",
+        "sourceSHA256": "677914a9ff4b6de38ac62b340ee010b93fb591d89c2196ca6913a7f68aac432c",
         "method": "document_registry --audit + document_health --check",
-        "scope": "Retain the unique declaration scanner and three-output contract; document DEBUG after-request timing shared by hover/click/trajectory/single drag, with original capture owner and historical evidence limits.",
-        "limitations": "Navigation/source review only. Runtime capture timing is separately tested through the actual DEBUG extensions; no full sample, GPU image or performance claim."
+        "scope": "One census and original DEBUG runner/normalizer/archive chain; optimized diagnostic profile, log-only Ready+4s, isolated bounded parallelism, stage evidence and independent historical verdicts.",
+        "limitations": "Navigation and source review; actual short-window runtime identities and scoped tests are separately recorded. No visual, official parity or formal performance conclusion."
       },
-      "purpose": "唯一声明扫描、机器快照/总览/明细生成验证及DEBUG观测时刻合同；运行与视觉裁决归验收台账。"
+      "purpose": "唯一声明观察、三项投影与全样本短窗日志筛查合同；复用原runner/normalizer/archive，视觉裁决归原overlay。"
     },
     {
       "path": "docs/scene/development/development-workflow.md",
@@ -1521,6 +1521,19 @@
       ],
       "cutoffDate": "2026-10-23",
       "uniqueValue": "普通组合根效果的固定局部源、344白卡因果与原包收益；322静音/PCM及用户候选反馈、预算和非golden边界。"
+    },
+    {
+      "path": "docs/scene/history/corpus-log-audit-2026-10-29.md",
+      "role": "historical-evidence",
+      "entrypoint": "docs/scene/history/README.md",
+      "cutoffDate": "2026-10-29",
+      "uniqueValue": "453目录同次声明与全量并行4秒日志、普通Debug超时及优化DEBUG补跑；固定身份、共同首错、未触发和画像边界。",
+      "commandPolicy": "historical-only",
+      "currentAuthorities": [
+        "docs/scene/development/corpus-diagnostic-workflow.md",
+        "docs/scene/roadmap/scene-open-breakpoint-queue.md",
+        "docs/scene/capabilities/scene-sample-acceptance-ledger.md"
+      ]
     },
     {
       "path": "docs/scene/history/coverage-ledger-batches-through-2026-10-03.md",
