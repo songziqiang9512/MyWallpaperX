@@ -18,6 +18,85 @@ except ImportError:
     from scene_vector_vm_test_support import compile_vector_harness
 
 
+SCREENSAVER_HARNESS = r'''
+extension Harness {
+    static func desktopScreensaverFacts() throws -> [String: Any] {
+        let sources = [
+            """
+            const moduleMode=engine.isScreensaver();
+            if(typeof moduleMode!=='boolean'||moduleMode!==false)throw new Error('module mode');
+            let initialized=false;
+            export function init(value){initialized=engine.isScreensaver()===false;return value;}
+            export function update(value){const mode=engine.isScreensaver();
+              if(typeof mode!=='boolean'||mode!==false||!initialized)throw new Error('frame mode');
+              thisLayer.alpha=mode?0.875:0.25;return mode;}
+            """,
+            """
+            const revealed=!engine.isScreensaver();if(revealed!==true)throw new Error('renamed module');
+            let prepared=false;
+            export function init(seed){prepared=!engine.isScreensaver();return seed;}
+            export function update(seed){const desktop=engine.isScreensaver()===false;
+              if(!prepared)throw new Error('renamed init');thisLayer.alpha=desktop?0.5:0.875;
+              if(desktop)return false;else return true;}
+            """,
+            "'use strict';engine.isScreensaver=()=>true;export function update(v){return v;}",
+            "export function update(v){thisLayer.alpha=0.99;engine.isScreensaverUnknown();return false;}",
+        ]
+        let descriptor = SceneRenderDescriptor(layers: sources.indices.map { index in
+            .init(id: 700+index, layerIndex: index, name: "renamed-desktop-\(index)",
+                visible: true, originXYZ: [0,0,0], scaleXYZ: [1,1,1], scaleHasScript: false,
+                alpha: 1, effects: [], contentKind: "image", sizeWH: [100,100])
+        })
+        let bindings = sources.enumerated().map { index, source in
+            SceneScriptBindingIR(source: source,
+                owner: .init(kind: .object, objectIndex: index, objectID: 700+index,
+                    effectIndex: nil, effectID: nil, passIndex: nil, passID: nil),
+                targetPath: [.key("objects"),.index(index),.key("visible")],
+                properties: [:], authoredValue: .bool(true), valueType: .boolean,
+                wrapperKeys: ["script","value"])
+        }
+        let projection = SceneScriptVectorProgram.project(descriptor: descriptor, scriptBindings: bindings)
+        let candidate = try SceneScriptQuickJSProgramCandidate.compile(
+            authoredDescriptor: descriptor, runtimeDescriptor: descriptor,
+            scriptBindings: bindings, vectorProjection: projection, userPropertyDefinitions: [],
+            timelineTargets: [], scalarExcludedTargets: [], stringExcludedTargets: [],
+            admittedVectorPassTargets: [], generation: 818)
+        let targets = sources.indices.map { SceneDynamicTarget.layer(layerID: 700+$0,field: .visibility) }
+        let inputs = Dictionary(uniqueKeysWithValues: targets.map { ($0,SceneDynamicValue.bool(true)) })
+        func frame(_ time: Double) -> SceneScriptFrameInput {
+            .init(timing: .init(wallDate: Date(timeIntervalSince1970: time),
+                simulationFrameTime: 1.0/60.0, sceneTime: time),timeZone: TimeZone(secondsFromGMT: 0)!)
+        }
+        let first = candidate.vectorProgram.evaluate(inputs: inputs,
+            effectivePropertyValues: [:],frame: frame(1))
+        let second = candidate.vectorProgram.evaluate(inputs: first.values,
+            effectivePropertyValues: [:],frame: frame(2))
+        return [
+            "committed": candidate.domain != nil,
+            "complete": candidate.constructionReport.isComplete,
+            "methodPoisonRejected": candidate.constructionReport.vectorFailures[targets[2]]?.code == "exception",
+            "firstVisibility": targets.prefix(2).map { first.values[$0] == .bool(false) },
+            "nextVisibility": targets.prefix(2).map { second.values[$0] == .bool(false) },
+            "alphas": first.layerMutations.filter { $0.fields.contains(.alpha) }
+                .sorted { $0.layerID < $1.layerID }.map { [$0.alpha,Double($0.layerID)] },
+            "unknownRejected": first.failures[targets[3]]?.code == "exception",
+            "unknownNotPublished": first.values[targets[3]] == nil && second.values[targets[3]] == nil,
+            "poisonNotPublished": first.values[targets[2]] == nil && second.values[targets[2]] == nil,
+            "failedAlphaRolledBack": !first.layerMutations.contains { $0.layerID == 703 },
+        ]
+    }
+}
+'''
+
+# Extend the existing candidate binary; share its production VM build and peer gate.
+HARNESS = HARNESS.replace(
+    '        let payload: [String: Any] = [\n',
+    '        let payload: [String: Any] = [\n'
+    '            "desktopScreensaver": try desktopScreensaverFacts(),\n',
+    1,
+) + SCREENSAVER_HARNESS
+
+
 class SceneVectorOwnerAdmissionTests(unittest.TestCase):
     @classmethod
     def setUpClass(cls) -> None:
@@ -40,6 +119,16 @@ class SceneVectorOwnerAdmissionTests(unittest.TestCase):
     @classmethod
     def tearDownClass(cls) -> None:
         cls.temporary_directory.cleanup()
+
+    def test_desktop_screensaver_query_reaches_typed_visibility_and_alpha(self) -> None:
+        facts = self.value["desktopScreensaver"]
+        for key in ("committed", "complete", "methodPoisonRejected", "unknownRejected",
+                    "unknownNotPublished", "poisonNotPublished", "failedAlphaRolledBack"):
+            with self.subTest(key=key):
+                self.assertIs(facts[key], True)
+        self.assertEqual(facts["firstVisibility"], [True, True])
+        self.assertEqual(facts["nextVisibility"], [True, True])
+        self.assertEqual(facts["alphas"], [[0.25, 700], [0.5, 701]])
 
     def test_only_material_consumers_construct_pass_owners(self) -> None:
         value = self.value

@@ -208,3 +208,19 @@ SourceFacts在检查与launch准备队列同步建立，原类型却继承App默
 保原Swift5、default-isolation=MainActor及InferIsolatedConformances，普通Debug37.916秒和优化DEBUG诊断89.073秒构建成功、两者无编译警告，冻结12个源文件无漂移。原3条预存警告退出后，前两轮暴露的CPU叶隔离警告逐项修正，失败日志保留；共享旧测试夹具缺camera DTO与newborn getter，改为提取产品原声明/原getter，不复制业务算法或降低断言。实际准备取消加alpha builder共14项通过，未受后继编辑影响的callback facts停启门复用原PASS；独立审查核对隔离与共享夹具。
 
 本批只修编译期职责声明，不声称可见画面、性能、Swift6完整模式或TSan通过，也不重复执行GPU/官方对照。必要源码差分、身份、前后构建与测试日志及审查保存在本机`.artifacts/scene-evidence/runs/preparation-isolation-20261029/metadata/`，普通14天；连续迭代仍只保留原一份构建缓存。
+
+<a id="engine-screensaver-20261029"></a>
+## 2026-10-29 非屏保Scene的环境查询
+
+官方公开IEngine定义isScreensaver(): Boolean；304/360同播放器模板在init正确调用该方法，旧host缺失而永久停用owner。现仅在原module/frame共同bind发布readonly native方法，当前Scene全部真实入口为desktop，返回严格false；ScreenSaver仅接Video，不以debug窗口、pause或系统屏保覆盖推用途。无新owner、用途字段、IPC或缓存；每次原engine构造多一个零闭包function/property，未测成本，不宣称性能收益。产品一文件净增22行。
+
+同最终C夹具配冻结旧ValueHost仅四条新增query断言失败；候选真实C门通过，覆盖module/init/update/property event/timer、严格Bool、改名反向分支、readonly/unknown拒绝与健康peer。Swift真实VM→visibility/alpha、下一帧及拒绝撤回等34门通过。合并首轮35项的C新fixture因错误传{}而失格，改为既有无配置NULL/0后只重跑该C门，未改产品或重复Swift。普通Debug16.295秒、优化DEBUG诊断15.138秒零警告，产品输入无漂移；独立审查核对所有入口、失败释放和真实门。
+
+三例jobs3、Ready后4秒log-only共18.461秒，均report PASS/exit0、surface1→0/GPU drained，PNG=0且不具性能比较资格。360的641.alpha由notfunction恢复completed，并在固定PCM fixture下发布typed值；566播放不可用与565冲突仍在。304默认隐藏播放器越过缺方法后，暴露空playerLayers读取alpha异常，83979冲突仍在，不改作者输入或伪造元素。未参与修法的355无VM failure；这些只证明列明的执行范围，不代表live音频、完整UI/纹理动画、画面或官方parity。后继首门保现役队列，不改旧全量身份或整样本verdict。
+
+必要原日志、原/后C输入、App/源身份、测试、构建和审查保存在本机`.artifacts/scene-evidence/runs/engine-screensaver-20261029/`普通14天；提取后清理临时运行副本与重试输出，保一份连续迭代build-cache。
+
+<a id="childless-perspective-qualification-20261029"></a>
+## 2026-10-29 childless透视后继仍未知
+
+旧正式包及临时载体已不可用，使用新自有solid/反色effect载体重新资格，不能冒称复用旧正控。真实官方2.8.0.42新窗口、A/B标签/getter/计时与反色已确认；A false和B true及唯一一次FOV95修正均未建立内部倾斜四角正控，只见矩形范围差异，STOP_UNKNOWN，未运行passthrough后续臂或改产品。不能据此判passthrough支持/不支持、赋值无效，或移除原camera资格门。输入、命令、失败与原图保存于`.artifacts/scene-evidence/runs/childless-perspective-qualification-20261029/metadata/`普通14天；自有guest副本/预览已退出，官方主客户端与VM保持运行。

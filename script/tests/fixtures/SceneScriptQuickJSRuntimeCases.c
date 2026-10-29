@@ -166,6 +166,84 @@ void mwx_fixture_scalar_runtime_cases(MWXSceneScriptQuickJSFixture *fixture) {
         "WEMath engine.timeOfDay"
     );
 
+
+    const char *screensaver_source =
+        "'use strict'; const moduleMode=engine.isScreensaver();"
+        "if(typeof engine.isScreensaver!=='function'||engine.isScreensaver.length!==0||"
+        "typeof moduleMode!=='boolean'||moduleMode!==false)throw new Error('module mode');"
+        "let moduleWriteRejected=false;try{engine.isScreensaver=()=>true;}"
+        "catch(e){moduleWriteRejected=e instanceof TypeError;}"
+        "if(!moduleWriteRejected)throw new Error('module method writable');"
+        "let initialized=false,changed=false,fired=false;"
+        "function desktop(){const mode=engine.isScreensaver();"
+        "if(typeof mode!=='boolean'||mode!==false)throw new Error('callback mode');return !mode;}"
+        "export function init(v){initialized=desktop();"
+        "engine.setTimeout(()=>{fired=desktop();},50);return v;}"
+        "export function applyUserProperties(){changed=desktop();}"
+        "export function update(v){if(!initialized||!desktop())throw new Error('desktop init');"
+        "return v+(changed?2:0)+(fired?4:0);}";
+    MWXSceneQuickJSOwner *screensaver = mwx_scene_quickjs_owner_create(
+        fixture->domain, screensaver_source, strlen(screensaver_source),
+        86, fixture->diagnostic, sizeof(fixture->diagnostic));
+    fixture->failures += mwx_fixture_check(screensaver != NULL,
+        "desktop screensaver query at module evaluation", fixture->diagnostic);
+    if (screensaver != NULL) {
+        fixture->failures += mwx_fixture_update_at(screensaver,86,3,0,0,
+            MWX_SCENE_QUICKJS_OK,3,"strict false in init and first update");
+        mwx_scene_quickjs_owner_commit_layer_mutations(screensaver);
+        MWXSceneQuickJSFrameInput event_frame = {.frame_time=1.0/60.0,.runtime=0};
+        fixture->failures += mwx_fixture_check(
+            mwx_scene_quickjs_owner_dispatch_user_properties(screensaver,86,
+                "{}",2,NULL,0,&event_frame,"{}",2,
+                fixture->diagnostic,sizeof(fixture->diagnostic)) == MWX_SCENE_QUICKJS_OK,
+            "screensaver query in property event",fixture->diagnostic);
+        mwx_scene_quickjs_owner_commit_layer_mutations(screensaver);
+        fixture->failures += mwx_fixture_update_at(screensaver,86,3,0.2,0.2,
+            MWX_SCENE_QUICKJS_OK,9,"event and due timer observe desktop mode");
+        mwx_scene_quickjs_owner_commit_layer_mutations(screensaver);
+    }
+    const char *renamed_screensaver_source =
+        "const atLoad=engine.isScreensaver();if(atLoad!==false)throw new Error('renamed module');"
+        "let permitted=false;export function init(seed){permitted=!engine.isScreensaver();"
+        "return seed+2;}export function update(seed){const hidden=engine.isScreensaver();"
+        "if(typeof hidden!=='boolean'||!permitted)throw new Error('renamed mode');"
+        "if(hidden)return -100;else return seed+3;}";
+    MWXSceneQuickJSOwner *renamed_screensaver = mwx_scene_quickjs_owner_create(
+        fixture->domain,renamed_screensaver_source,strlen(renamed_screensaver_source),
+        87,fixture->diagnostic,sizeof(fixture->diagnostic));
+    fixture->failures += mwx_fixture_check(renamed_screensaver != NULL,
+        "renamed equivalent desktop branch",fixture->diagnostic);
+    if (renamed_screensaver != NULL) {
+        fixture->failures += mwx_fixture_update(renamed_screensaver,87,3,
+            MWX_SCENE_QUICKJS_OK,8,"renamed init and inverse branch");
+        fixture->failures += mwx_fixture_update(renamed_screensaver,87,4,
+            MWX_SCENE_QUICKJS_OK,7,"renamed later frame");
+    }
+    mwx_scene_quickjs_owner_destroy(renamed_screensaver);
+    const char *screensaver_failures[] = {
+        "'use strict';export function update(v){engine.isScreensaver=()=>true;return v;}",
+        "'use strict';export function update(v){engine={isScreensaver:()=>true};return v;}",
+        "export function update(v){return engine.isScreensaverUnknown()?v:0;}",
+    };
+    for (size_t index=0;index<sizeof(screensaver_failures)/sizeof(screensaver_failures[0]);++index) {
+        const char *source=screensaver_failures[index];
+        MWXSceneQuickJSOwner *rejected=mwx_scene_quickjs_owner_create(
+            fixture->domain,source,strlen(source),88,fixture->diagnostic,sizeof(fixture->diagnostic));
+        fixture->failures += mwx_fixture_check(rejected != NULL,
+            "screensaver negative owner compiles",fixture->diagnostic);
+        if (rejected != NULL) {
+            fixture->failures += mwx_fixture_update(rejected,88,3,
+                MWX_SCENE_QUICKJS_EXCEPTION,0,"readonly global/method or unknown API rejects");
+            fixture->failures += mwx_fixture_update(rejected,88,3,
+                MWX_SCENE_QUICKJS_DISABLED,0,"failed query owner remains disabled");
+        }
+        mwx_scene_quickjs_owner_destroy(rejected);
+        if (screensaver != NULL) fixture->failures += mwx_fixture_update_at(
+            screensaver,86,3,0.2,0.2,MWX_SCENE_QUICKJS_OK,9,
+            "query failure cannot poison healthy desktop owner");
+    }
+    mwx_scene_quickjs_owner_destroy(screensaver);
+
     const char *surface_input_source =
         "'use strict';\n"
         "export function update(value) {\n"

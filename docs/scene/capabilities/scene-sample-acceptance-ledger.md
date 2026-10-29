@@ -11,9 +11,9 @@
 - 样本根：`/Users/songziqiang/Movies/MyWallpaperX/创意工坊/Scene`（453 个 sample 目录）。
 - 运行归档：`scene_sample_debug_archive.json` SHA-256 `656769ceeb256acbbed4a50cc5ac85eba0b55f9bac3c46261fec8d512f37fe80`（生成于 2026-10-29T02:16:22.751422+00:00）。
 - 归档运行身份：CDHash `f92774bdf124ae9f7bfae8f6f3e4d30a713c5036`、CDHash `edde7df24e63e3b9830a72900437596b3634c3dd`；**归档内不止一个执行身份**，运行状态与首断点因此是混合身份事实，单样本结论必须回到该样本自己的 report 身份。
-- 裁决覆盖层：`scene_sample_acceptance_verdicts.json` SHA-256 `f7d9baf7c56d36ae8ce9e7a6c247b540ca043faaf12d89e47418941a4297bf78`。
+- 裁决覆盖层：`scene_sample_acceptance_verdicts.json` SHA-256 `81c02a88273a97da8f7ce73457022dbcc33e6745af247d9fc9b91fd03083594a`。
 - 仅历史归档保留、当前目录已移除的裁决：3806887870；不计当前目录表，原裁决不删除。
-- 本页生成于 2026-10-29T05:59:21.578821+00:00。
+- 本页生成于 2026-10-29T07:20:38.934802+00:00。
 
 本页生成日仅表示台账生成，不表示归档运行或人工裁决已重新验收。旧归档首断点可能已在后续开发中修复；最新技术状态以[断点队列](../roadmap/scene-open-breakpoint-queue.md)和[运行证据](runtime-evidence-current.md)为准。`not-run` 仅表示本归档未关联运行证据，不表示样本从未运行；归档中的失败状态也不等于当前 HEAD 的失败。
 本机已清理的历史证据：68 个样本、222 个引用；原路径保留在裁决覆盖层的 `unavailableLocalRuns/unavailableLocalEvidence`，不计可用载荷。清理不撤销历史结论，也不代表当前重新验收；见[证据可用性](runtime-evidence-current.md#local-evidence-availability)。
@@ -29,8 +29,8 @@
 
 | 官方对照状态 | 样本数 |
 |---|---:|
-| `unknown` | 347 |
-| `not-run` | 24 |
+| `unknown` | 346 |
+| `not-run` | 25 |
 | `blocked` | 0 |
 | `compared` | 82 |
 
@@ -176,7 +176,7 @@
 | `3039704323` | 赛博color-宣纸国画-紫罗兰永恒花园3 | 7(0) bool 5 color 1 slider 1 | `structural-chain-complete-visual-review` | - | `visual-review` | `unreviewed` 2026-10-19 | 米白水墨人物、竖字及双弧可见；主构图保持，完整动态/输入未验收。 |
 | `3039882306` | 麻匪 音频识别 抽签 Media Player | 49(10) bool 11 color 9 combo 1 scenetexture 2 slider 2 text… | `blocked` | `effect-admission / EffectStageAdmission / admitted-fallback / effect-local-passthrough` | `effect-chain` | `unreviewed` |  |
 | `3042492564` | [4K \| Customizable] Hoshi-Tele \| 星屑テレ… | 249(203) bool 76 color 18 combo 8 slider 127 text 10 textin… | `degraded-runtime` | `resource-load / ParticleRuntime / particle-layer-load-incomplete / particle-layer` | `particle-load` | `unreviewed` 2026-10-22 | 10-22普通图片加法末合成恢复X白亮核心；默认/关Shine与GPU末消费有界通过，完整属性/光束/媒体及粒子738仍开放。 |
-| `3047405322` | SandBlack [4k] | 15(0) bool 5 color 2 combo 2 group 1 text 5 | `degraded-runtime` | `script-execution / SceneScriptVM / scene-script-exception-type-error / target:layer:alpha` | `scenescript` | `unreviewed` |  |
+| `3047405322` | SandBlack [4k] | 15(0) bool 5 color 2 combo 2 group 1 text 5 | `degraded-runtime` | `script-execution / SceneScriptVM / scene-script-exception-type-error / target:layer:alpha` | `scenescript` | `unreviewed` 2026-10-29 | Ready后4秒log-only/固定PCM，isScreensaver方法缺失退出；默认musicplayer=false，84005.alpha随后访问空… |
 | `3078285611` | 麻匪 金克丝 jinx 音频识别 Media Player | 53(13) bool 10 color 10 slider 11 text 22 | `degraded-runtime` | `script-execution / SceneScriptVM / scene-script-exception-type-error / target:effectConstant` | `scenescript` | `unreviewed` |  |
 | `3086016320` | 麻匪 发如雪 21:9 16:9 | 28(1) bool 5 color 3 slider 2 text 18 | `degraded-runtime` | `resource-load / SceneSolidTextureLoader / solid-texture-load-incomplete / solid-layer` | `texture-load` | `unreviewed` 2026-10-21 | 实际为中部全身背影人物、浅灰背景和半透明巨幅面部；官方为右侧近景正面人物，底部白色柱状频谱本次截图未见。 画面有可见主体与背景，未见整屏黑块；构图、姿态和图像… |
 | `3087231311` | 麻匪 明日方舟 凯尔希 | 55(0) bool 9 color 4 slider 4 text 37 textinput 1 | `structural-chain-complete-visual-review` | - | `visual-review` | `unreviewed` 2026-10-19 | 荧绿人物、灰白斜条、文字与粒子可见；未见主构图缺层，不外推完整播放。 |
