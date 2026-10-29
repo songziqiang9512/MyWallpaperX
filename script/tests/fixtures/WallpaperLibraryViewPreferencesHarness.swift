@@ -159,8 +159,8 @@ import Foundation
 
         // Exercise the persisted product codec, not a replica of its migration.
         func object<T: Encodable>(_ value: T) throws -> Any { try JSONSerialization.jsonObject(with: JSONEncoder().encode(value)) }
-        let geometryQuery = WallpaperLibraryQueryState(search: "preserve all fields", provider: .steamWorkshop, kind: .scene,
-            status: .failed, sort: .legacyTime, ascending: false, legacyTimeOrder: [b, a], preferredColumns: 3,
+        let geometryQuery = WallpaperLibraryQueryState(search: "preserve all fields", providers: [.steamWorkshop, .pixabay], kinds: [.scene, .video],
+            statuses: [.failed, .playable], sort: .legacyTime, ascending: false, legacyTimeOrder: [b, a], preferredColumns: 3,
             scrollAnchor: b, scrollOffset: -27.5, scrollAtTop: false)
         var allDensitiesRoundTrip = true
         for columns in 3...6 {
@@ -171,12 +171,22 @@ import Foundation
         checks["all-explicit-column-preferences-round-trip-with-independent-query-fields"] = allDensitiesRoundTrip
         let queryObject = try object(geometryQuery) as! [String: Any]
         checks["current-query-encodes-one-column-preference-and-no-retired-zoom"] = queryObject["preferredColumns"] as? Int == 3 && queryObject["zoomOffset"] == nil
+        checks["current-query-persists-all-filter-sets-without-retired-single-value-fields"] =
+            Set(queryObject["providers"] as! [String]) == Set([WallpaperProvider.steamWorkshop.rawValue, WallpaperProvider.pixabay.rawValue])
+            && Set(queryObject["kinds"] as! [String]) == Set([WallpaperMediaKind.scene.rawValue, WallpaperMediaKind.video.rawValue])
+            && Set(queryObject["statuses"] as! [String]) == Set([WallpaperLibraryStatusFilter.failed.rawValue, WallpaperLibraryStatusFilter.playable.rawValue])
+            && queryObject["provider"] == nil && queryObject["kind"] == nil && queryObject["status"] == nil
         var legacyQueryObject = queryObject
+        for key in ["providers", "kinds", "statuses"] { legacyQueryObject.removeValue(forKey: key) }
+        legacyQueryObject["provider"] = WallpaperProvider.steamWorkshop.rawValue
+        legacyQueryObject["kind"] = WallpaperMediaKind.scene.rawValue
+        legacyQueryObject["status"] = WallpaperLibraryStatusFilter.failed.rawValue
         legacyQueryObject.removeValue(forKey: "preferredColumns")
         legacyQueryObject.removeValue(forKey: "scrollOffset")
         legacyQueryObject.removeValue(forKey: "scrollAtTop")
         legacyQueryObject["zoomOffset"] = -2
         var expectedLegacyQuery = geometryQuery
+        expectedLegacyQuery.providers = [.steamWorkshop]; expectedLegacyQuery.kinds = [.scene]; expectedLegacyQuery.statuses = [.failed]
         expectedLegacyQuery.preferredColumns = 5; expectedLegacyQuery.scrollOffset = nil; expectedLegacyQuery.scrollAtTop = nil
         let pageObject = try object(WallpaperLibraryPage.videos)
         let imagePageObject = try object(WallpaperLibraryPage.images)
@@ -243,8 +253,8 @@ import Foundation
         checks["all-current-page-cases-keep-the-original-associated-value-codec"] = currentPagesRoundTrip
         let publicQuery = WallpaperLibraryQueryState(search: "public", sort: .name, preferredColumns: 6,
             scrollAnchor: a, scrollOffset: 14, scrollAtTop: false)
-        let privateQuery = WallpaperLibraryQueryState(search: "private", provider: .steamWorkshop, kind: .scene,
-            status: .failed, sort: .fileSize, ascending: false, preferredColumns: 3,
+        let privateQuery = WallpaperLibraryQueryState(search: "private", providers: [.steamWorkshop], kinds: [.scene],
+            statuses: [.failed], sort: .fileSize, ascending: false, preferredColumns: 3,
             scrollAnchor: b, scrollOffset: -12, scrollAtTop: false)
         let publicEntry: [String: Any] = ["page": ["workshop": [:]], "query": try object(publicQuery)]
         let oldPersonalEntry: [String: Any] = ["page": ["workshopSubscriptions": [:]], "query": try object(privateQuery)]
@@ -290,9 +300,10 @@ import Foundation
         var badLegacy = legacyQueryObject; badLegacy["zoomOffset"] = "not an old integer"
         let badLegacyBytes = try invalidEnvelope(badLegacy, version: 1)
         defaults.set(badLegacyBytes, forKey: WallpaperLibraryPresentation.settingsKey)
-        let refusedLegacy = WallpaperLibraryPresentation(collections: nil, defaults: defaults)
-        checks["v1-retired-zoom-bad-type-is-not-silently-accepted-or-rewritten"] = refusedLegacy.lastError != nil
-            && defaults.data(forKey: WallpaperLibraryPresentation.settingsKey) == badLegacyBytes
+        let ignoredRetiredZoom = WallpaperLibraryPresentation(collections: nil, defaults: defaults)
+        checks["v1-ignores-retired-zoom-type-and-retains-valid-filter-sets-and-default-five-columns"] = ignoredRetiredZoom.lastError == nil
+            && ignoredRetiredZoom.queryState == expectedLegacyQuery && ignoredRetiredZoom.queryState.preferredColumns == 5
+            && defaults.data(forKey: WallpaperLibraryPresentation.settingsKey) != badLegacyBytes
         var missingColumns = queryObject; missingColumns.removeValue(forKey: "preferredColumns")
         checks["missing-column-key-decodes-new-five-column-default-without-other-loss"] = try JSONDecoder().decode(
             WallpaperLibraryQueryState.self, from: data(missingColumns)).preferredColumns == 5
@@ -324,11 +335,19 @@ import Foundation
             facet("stock", provider: .pixabay, kind: .video, title: "needle", available: true)])
         _ = facets.update(catalog: facetCatalog, relationships: relationships)
         _ = facets.switchPage(.downloads)
-        let facetQuery = WallpaperLibraryQueryState(search: "needle", provider: .steamWorkshop, kind: .scene,
-            status: .playable, sort: .name, ascending: false)
+        let facetQuery = WallpaperLibraryQueryState(search: "needle", providers: [.steamWorkshop], kinds: [.scene],
+            statuses: [.playable], sort: .name, ascending: false)
         _ = facets.setQueryState(facetQuery)
         checks["type-counts-remove-only-kind-filter-and-preserve-search-provider-status"] = facets.mediaKindCounts == [.video: 1]
             && facets.queryResult.items.isEmpty && facets.queryState == facetQuery
+        var mixedFacetQuery = facetQuery
+        mixedFacetQuery.providers.insert(.pixabay)
+        mixedFacetQuery.kinds = [.scene, .web]
+        mixedFacetQuery.statuses = [.playable, .unavailable]
+        _ = facets.setQueryState(mixedFacetQuery)
+        checks["type-facet-counts-ignore-all-selected-kinds-without-clearing-composed-provider-status-or-search"] =
+            facets.mediaKindCounts == [.video: 2, .scene: 1] && facets.queryState == mixedFacetQuery
+            && facets.queryResult.items.map(\.reference.sourceID) == ["scene"]
         print(String(decoding: try JSONEncoder().encode(checks), as: UTF8.self))
     }
 }

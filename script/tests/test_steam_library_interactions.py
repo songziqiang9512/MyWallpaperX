@@ -85,6 +85,10 @@ extension Notification.Name { static let appKitSelectItemRequested = Notificatio
     func remove(_ id: DownloadTaskIdentity) throws {}
     func clear() throws {}
 }
+@MainActor final class FinderRevealCoordinator {
+    static let shared = FinderRevealCoordinator()
+    func reveal(_ urls: [URL]) {}
+}
 @MainActor final class Actions: NSObject {
     let steam: SteamWorkshopService
     let pixabay = PixabayActions(), images = ImageActions()
@@ -145,15 +149,30 @@ extension Notification.Name { static let appKitSelectItemRequested = Notificatio
         let other = job("5", .failed, account: "B")
         func row(_ job: SteamDownloadJob, phase: DownloadTaskPhase) -> DownloadTaskRow {
             .init(id: .init(reference: .init(provider: .steamWorkshop, sourceID: job.workshopItemId),
-                attemptID: "\(job.id)-\(job.attempt)"), title: job.title, phase: phase, actions: [.retry, .abandon])
+                attemptID: "\(job.id)-\(job.attempt)"), title: job.title, phase: phase, actions: [.retry, .removeHistory])
         }
         let failedRow = row(failed, phase: .failed)
-        actions.perform(failedRow, action: .abandon)
+        actions.perform(failedRow, action: .removeHistory)
         precondition(store.job(id: running.id) == running && store.job(id: queued.id) == queued)
         precondition(store.job(id: failed.id)?.state == .cancelled)
         precondition(store.job(id: other.id) == other)
         precondition(store.history.contains { $0.accountSteamId == "A" })
         precondition(store.history.contains { $0.accountSteamId == "B" })
+        precondition(!store.history.contains { $0.jobID == failed.id },
+            "one clear action abandons the failed intent and removes all its terminal receipts")
+        actions.perform(row(other, phase: .failed), action: .removeHistory)
+        precondition(store.job(id: other.id) == other && !store.history.contains { $0.jobID == other.id },
+            "local history can be cleared without cancelling another account's intent")
+        let cannotSave = job("6", .failed)
+        let jobsURL = root.appendingPathComponent("jobs.json")
+        let persisted = try Data(contentsOf: jobsURL)
+        try FileManager.default.removeItem(at: jobsURL)
+        try FileManager.default.createDirectory(at: jobsURL, withIntermediateDirectories: false)
+        actions.perform(row(cannotSave, phase: .failed), action: .removeHistory)
+        precondition(store.job(id: cannotSave.id) == cannotSave && store.history.contains { $0.jobID == cannotSave.id },
+            "a failed intent write must retain the history and retry entry")
+        try FileManager.default.removeItem(at: jobsURL)
+        try persisted.write(to: jobsURL)
         actions.clearHistory()
         precondition(store.history.isEmpty && store.job(id: running.id) == running && store.job(id: queued.id) == queued
             && store.job(id: other.id) == other, "clearing local history changes neither another account's intent nor active queue")
@@ -161,7 +180,7 @@ extension Notification.Name { static let appKitSelectItemRequested = Notificatio
         precondition(service.retried == ["3"])
         service.steamAuth.steamId = "B"
         actions.perform(failedRow, action: .retry)
-        actions.perform(failedRow, action: .abandon)
+        actions.perform(failedRow, action: .removeHistory)
         actions.clearHistory()
         precondition(service.retried == ["3"] && store.job(id: other.id) == other)
 

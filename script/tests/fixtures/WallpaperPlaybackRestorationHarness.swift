@@ -106,11 +106,14 @@ private struct SavedPlayback: Codable {
         }
         do {
             let p=RestorationProbe();defer{p.close()}
-            let id=UUID();var query=WallpaperLibraryQueryState();query.search="filtered";query.kind = .video;query.preferredColumns=3;query.scrollAnchor=p.b;query.scrollOffset = -21.5;query.scrollAtTop = false
+            let id=UUID();var query=WallpaperLibraryQueryState();query.search="filtered";query.kinds = [.video, .image];query.providers = [.videoLibrary, .steamWorkshop];query.statuses = [.playable, .unavailable];query.preferredColumns=3;query.scrollAnchor=p.b;query.scrollOffset = -21.5;query.scrollAtTop = false
             p.save(source:.page(.playlist(id)),ref:p.a,query:query)
             p.snapshot=try .init(source:.page(.playlist(id)),revision:2,entries:[.init(reference:p.a,runtime:.video,isPlayable:true)],sourceQuery:query)
             p.start();p.ready(ids:[id])
             checks["filtered-source-is-preserved-without-full-list-expansion"] = p.requests.first?.proposal.snapshot.source == .page(.playlist(id)) && p.requests.first?.proposal.snapshot.entries.count == 1 && p.snapshotQueries.first??.search == "filtered"
+            checks["restored-source-retains-all-three-multiselect-dimensions"] = p.requests.first?.proposal.snapshot.sourceQuery?.providers == query.providers
+                && p.requests.first?.proposal.snapshot.sourceQuery?.kinds == query.kinds
+                && p.requests.first?.proposal.snapshot.sourceQuery?.statuses == query.statuses
             checks["view-only-query-fields-normalized"] = p.requests.first?.proposal.snapshot.sourceQuery?.preferredColumns == 5
                 && p.requests.first?.proposal.snapshot.sourceQuery?.scrollAnchor == nil
                 && p.requests.first?.proposal.snapshot.sourceQuery?.scrollOffset == nil
@@ -358,11 +361,23 @@ private struct SavedPlayback: Codable {
             checks["stopped-global-manual-replay-retains-original-source"] = stoppedReady
                 && p.requests.count == 2 && p.requests.last?.proposal.snapshot.source == .global
         }
+        do {
+            let p = RestorationProbe(); defer { p.close() }
+            let query = WallpaperLibraryQueryState(providers: [.steamWorkshop, .pixiv], kinds: [.web, .scene], statuses: [.playable, .unavailable])
+            p.save(source: .page(.downloads), ref: p.web, query: query)
+            p.snapshot = try .init(source: .page(.downloads), revision: 1,
+                entries: [.init(reference: p.web, runtime: .web, isPlayable: true)], sourceQuery: query)
+            p.start(); p.ready([.steamWorkshop])
+            checks["multiselect-download-restore-waits-for-each-selected-provider"] = p.requests.isEmpty
+            p.ready([.steamWorkshop, .pixiv])
+            checks["multiselect-download-restore-keeps-the-scope-without-waiting-for-unselected-providers"] = p.requests.count == 1
+                && p.requests[0].proposal.snapshot.sourceQuery == query && p.requests[0].proposal.entry.reference == p.web
+        }
         for provider in [WallpaperProvider.wallhaven, .pixiv] {
             let p = RestorationProbe(); defer { p.close() }
             let reference = WallpaperReference(provider: provider, sourceID: provider == .pixiv ? "42:p2" : "Ab001")
             p.add(reference, .image)
-            p.save(source: .page(.downloads), ref: reference, query: .init(provider: provider))
+            p.save(source: .page(.downloads), ref: reference, query: .init(providers: [provider]))
             p.start(); p.ready([provider])
             checks["filtered-image-download-restores-from-local-provider-without-other-source-or-login-" + provider.rawValue] = p.requests.count == 1
                 && p.requests[0].proposal.entry.reference == reference && p.requests[0].ticket.runtime == .systemStill

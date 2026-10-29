@@ -37,12 +37,14 @@ import AppKit
         row.addArrangedSubview(labels)
         row.addArrangedSubview(buttons)
         row.addArrangedSubview(closeButton)
-        contentView = row
+        let content = NSView()
+        content.addSubview(row)
+        contentView = content
         NSLayoutConstraint.activate([
-            row.leadingAnchor.constraint(equalTo: leadingAnchor, constant: 16),
-            row.trailingAnchor.constraint(equalTo: trailingAnchor, constant: -16),
-            row.topAnchor.constraint(equalTo: topAnchor, constant: 10),
-            row.bottomAnchor.constraint(equalTo: bottomAnchor, constant: -10),
+            row.leadingAnchor.constraint(equalTo: content.leadingAnchor, constant: 16),
+            row.trailingAnchor.constraint(equalTo: content.trailingAnchor, constant: -16),
+            row.topAnchor.constraint(equalTo: content.topAnchor, constant: 10),
+            row.bottomAnchor.constraint(equalTo: content.bottomAnchor, constant: -10),
             closeButton.widthAnchor.constraint(equalToConstant: 22),
             closeButton.heightAnchor.constraint(equalToConstant: 22)
         ])

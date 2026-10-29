@@ -51,7 +51,7 @@ import Combine
     private var subscription: AnyCancellable?
     private var rowsByID: [DownloadTaskIdentity: DownloadTaskRowView] = [:]
     private let countLabel = NSTextField(labelWithString: "")
-    private let retryButton = NSButton(title: "重试全部失败", target: nil, action: nil)
+    private let retryButton = NSButton(title: "重试全部", target: nil, action: nil)
     private let clearButton = NSButton(title: "清空历史", target: nil, action: nil)
     private let emptyLabel = NSTextField(labelWithString: "暂无下载任务")
     private let scrollView = NSScrollView()
@@ -132,8 +132,8 @@ import Combine
             scrollView.bottomAnchor.constraint(equalTo: root.bottomAnchor),
             documentView.widthAnchor.constraint(equalTo: scrollView.contentView.widthAnchor),
             rowsStack.topAnchor.constraint(equalTo: documentView.topAnchor),
-            rowsStack.leadingAnchor.constraint(equalTo: documentView.leadingAnchor),
-            rowsStack.trailingAnchor.constraint(equalTo: documentView.trailingAnchor),
+            rowsStack.leadingAnchor.constraint(equalTo: documentView.leadingAnchor, constant: 16),
+            rowsStack.trailingAnchor.constraint(equalTo: documentView.trailingAnchor, constant: -16),
             rowsStack.bottomAnchor.constraint(equalTo: documentView.bottomAnchor),
             emptyLabel.centerXAnchor.constraint(equalTo: scrollView.centerXAnchor),
             emptyLabel.centerYAnchor.constraint(equalTo: scrollView.centerYAnchor)

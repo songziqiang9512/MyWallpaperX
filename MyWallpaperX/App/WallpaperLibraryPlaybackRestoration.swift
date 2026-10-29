@@ -268,7 +268,7 @@ private nonisolated struct WallpaperPlaybackRestorationEnvelope: Codable, Equata
                 case .downloads: providers = [.steamWorkshop, .pixabay, .wallhaven, .pixiv]
                 default: providers = try dependencyProvider(source, saved.sourceQuery)
                 }
-                if let filtered = saved.sourceQuery?.provider { providers.formIntersection([filtered]) }
+                if let filtered = saved.sourceQuery?.providers, !filtered.isEmpty { providers.formIntersection(filtered) }
             }
             if !targetIsReady { providers.insert(owner) }
             return providers

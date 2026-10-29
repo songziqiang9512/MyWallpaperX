@@ -31,10 +31,6 @@ final class PixabayToolbarController: NSObject, NSSearchFieldDelegate {
 
     weak var window:  NSWindow?
 
-    /// Pixabay API Key 设置菜单。
-    lazy var menuPopover = ToolbarMenuPopoverPresenter(
-        fallbackAnchorProvider: { [weak self] in self?.window?.contentView }
-    )
     private let filterPopover: NSPopover = { let value = NSPopover(); value.behavior = .transient; return value }()
     private lazy var filterScrollDismissal = ToolbarPopoverScrollDismissal(popover: filterPopover)
 
@@ -126,7 +122,6 @@ final class PixabayToolbarController: NSObject, NSSearchFieldDelegate {
         isPixabayMode = pixabay
         guard pixabay else {
             searchDebounceTask?.cancel(); searchDebounceTask = nil
-            menuPopover.close()
             filterPopover.performClose(nil)
             return
         }
@@ -177,7 +172,7 @@ final class PixabayToolbarController: NSObject, NSSearchFieldDelegate {
         let item = NSToolbarItem(itemIdentifier: .pixabayFilter)
         item.label = "筛选"; item.paletteLabel = "筛选"; item.toolTip = "筛选 Pixabay"
         item.autovalidates = false
-        let button = NSButton(title: "筛选", target: self, action: #selector(handleFilterAction(_:)))
+        let button = NSButton(title: "筛选", target: self, action: #selector(handleFilterAction))
         button.image = NSImage(systemSymbolName: WallpaperLibraryControlStyle.filterSymbol, accessibilityDescription: "筛选")
         button.imagePosition = .imageLeading
         WallpaperLibraryControlStyle.capsule(button)
@@ -245,7 +240,7 @@ final class PixabayToolbarController: NSObject, NSSearchFieldDelegate {
         item.toolTip       = "更改 Pixabay API Key"
         item.autovalidates = false
         item.view          = settingsButton
-        item.menuFormRepresentation = ToolbarMenuPopoverPresenter.menuRepresentation(title: "API Key", rows: settingsRows())
+        item.menuFormRepresentation = ToolbarMenu.menuRepresentation(title: "API Key", rows: settingsRows())
         item.visibilityPriority = .low
         return item
     }()
@@ -272,15 +267,16 @@ extension PixabayToolbarController {
 
 extension PixabayToolbarController {
 
-    @objc private func handleFilterAction(_ sender: NSButton) {
-        guard isPixabayMode, WallpaperLibrarySheetPresentation.permitsInput(in: window) else { return }
-        menuPopover.close()
+    @objc private func handleFilterAction() {
+        guard isPixabayMode, WallpaperLibrarySheetPresentation.permitsInput(in: window),
+              let toolbar = filterToolbarItem.toolbar, toolbar === window?.toolbar,
+              let content = window?.contentView else { return }
         if filterPopover.isShown { filterPopover.performClose(nil); return }
         let panel = makeFilterPanel()
         filterPopover.contentViewController = panel; panel.loadViewIfNeeded()
         filterPopover.contentSize = panel.preferredContentSize
-        filterScrollDismissal.watch(relativeTo: sender)
-        filterPopover.show(relativeTo: sender.bounds, of: sender, preferredEdge: .maxY)
+        filterScrollDismissal.watch(relativeTo: content)
+        filterPopover.show(relativeTo: filterToolbarItem)
     }
 
     private func makeFilterPanel() -> WallpaperFilterPanelController {
@@ -308,19 +304,20 @@ extension PixabayToolbarController {
     }
 
     @objc private func handleSettingsButtonAction(_ sender: NSButton) {
+        guard isPixabayMode, WallpaperLibrarySheetPresentation.permitsInput(in: window) else { return }
         filterPopover.performClose(nil)
-        menuPopover.toggle(anchor: sender) { [weak self] in self?.settingsRows() ?? [] }
+        ToolbarMenu.popUp(anchor: sender, rows: settingsRows())
     }
 
-    private func settingsRows() -> [ToolbarMenuPopoverPresenter.Row] {
+    private func settingsRows() -> [ToolbarMenu.Row] {
         [
-            ToolbarMenuPopoverPresenter.Row(
+            ToolbarMenu.Row(
                 title: "更改 API Key",
                 kind: .action,
                 handler: { [weak self] in self?.handleChangeAPIKey() }
             ),
             .separator(),
-            ToolbarMenuPopoverPresenter.Row(
+            ToolbarMenu.Row(
                 title: "清空并返回登录界面",
                 kind: .action,
                 handler: { [weak self] in self?.handleClearAPIKey() }
@@ -376,8 +373,10 @@ extension PixabayToolbarController {
 
     /// 切换到在线模式时同步控件状态，避免重建后选中项丢失
     private func syncFilterControl() {
-        filterToolbarItem.menuFormRepresentation = makeFilterPanel().menuRepresentation(title: "筛选")
-        (filterPopover.contentViewController as? WallpaperFilterPanelController)?.synchronize()
+        filterToolbarItem.menuFormRepresentation = ActionMenuItem(title: "筛选", symbol: WallpaperLibraryControlStyle.filterSymbol) { [weak self] in
+            self?.handleFilterAction()
+        }
+        if filterPopover.isShown { (filterPopover.contentViewController as? WallpaperFilterPanelController)?.synchronize() }
     }
 
     private func syncSearchField() {

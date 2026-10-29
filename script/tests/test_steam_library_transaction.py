@@ -76,7 +76,6 @@ import Darwin
         if mode == "capacity" {
             let gib = Int64(1024 * 1024 * 1024)
             let reserve = Int64(SteamWorkshopLibraryTransaction.diskSafetyReserveBytes)
-            precondition(SteamWorkshopLibraryTransaction.maximumRetainedBytesBeforeAdmissions == 16 * 1024 * 1024 * 1024)
             precondition(SteamWorkshopLibraryTransaction.canReserveDiskBytes(
                 required: 8 * gib, available: 16 * gib + reserve, alreadyReserved: 8 * gib))
             precondition(!SteamWorkshopLibraryTransaction.canReserveDiskBytes(
@@ -568,7 +567,7 @@ class SteamLibraryTransactionTests(unittest.TestCase):
     def tearDownClass(cls):
         cls.build.cleanup()
 
-    def scenario(self, files=None, mutate=None, mode='publish', accepted=True):
+    def scenario(self, files=None, mutate=None, mode='publish', accepted=True, preserved=()):
         files = files or {'project.json': b'{"type":"web","file":"index.html"}', 'index.html': b'<h1>safe</h1>',
                           'assets/e\u0301.txt': b'UTF8', 'empty': b''}
         with tempfile.TemporaryDirectory(prefix='mwx-steam-transaction-', dir='/private/tmp') as temporary:
@@ -595,6 +594,7 @@ class SteamLibraryTransactionTests(unittest.TestCase):
             (root / 'receipt.json').write_text(json.dumps(receipt))
             if mutate:
                 mutate(root, stage)
+            retained = {path: (root / path).stat() for path in preserved}
             result = subprocess.run([str(self.binary), str(root), mode], capture_output=True, text=True, timeout=30)
             self.assertEqual(result.returncode, 0, result.stderr + result.stdout)
             if mode in ('cancel', 'cancel-during-copy'):
@@ -616,6 +616,10 @@ class SteamLibraryTransactionTests(unittest.TestCase):
             self.assertFalse((root / 'library' / '.mywallpaperx-steam-versions').exists())
             incoming = root / 'library' / '.mywallpaperx-steam-incoming'
             self.assertTrue(not incoming.exists() or not any(len(path.name) == 36 for path in incoming.iterdir()))
+            for path, before in retained.items():
+                after = (root / path).stat()
+                self.assertEqual((after.st_ino, after.st_size, after.st_mtime_ns),
+                                 (before.st_ino, before.st_size, before.st_mtime_ns))
             return result.stdout
 
     def test_publish_and_preserve_old_playback(self):
@@ -806,21 +810,22 @@ class SteamLibraryTransactionTests(unittest.TestCase):
             index.symlink_to(root / 'outside-index')
         self.scenario(mutate=mutate, accepted=False)
 
-    def test_retained_disk_budget(self):
+    def test_large_retained_incoming_does_not_limit_admission(self):
         def mutate(root, stage):
             versions = root / 'library' / '.mywallpaperx-steam-incoming'
             versions.mkdir()
             with (versions / 'retained').open('wb') as f:
                 f.truncate(17 * 1024 * 1024 * 1024)  # sparse, isolated fixture; no 17GiB payload allocation
-        self.scenario(mutate=mutate, accepted=False)
+        self.scenario(mutate=mutate, preserved=('library/.mywallpaperx-steam-incoming/retained',))
 
-    def test_public_managed_generations_count_toward_retained_budget(self):
+    def test_large_public_generation_does_not_limit_admission(self):
+        relative = 'library/Web/654321-11111111-1111-4111-8111-111111111111/payload'
         def mutate(root, stage):
-            retained = root / 'library' / 'Web' / ('654321-' + '1' * 8 + '-1111-4111-8111-' + '1' * 12)
-            retained.mkdir(parents=True)
-            with (retained / 'payload').open('wb') as f:
+            payload = root / relative
+            payload.parent.mkdir(parents=True)
+            with payload.open('wb') as f:
                 f.truncate(17 * 1024 * 1024 * 1024)
-        self.scenario(mutate=mutate, accepted=False)
+        self.scenario(mutate=mutate, preserved=(relative,))
 
     def test_concurrent_disk_reservation_boundary(self):
         with tempfile.TemporaryDirectory(prefix='mwx-steam-capacity-', dir='/private/tmp') as temporary:
@@ -828,13 +833,13 @@ class SteamLibraryTransactionTests(unittest.TestCase):
             self.assertEqual(result.returncode, 0, result.stderr)
             self.assertIn('CAPACITY', result.stdout)
 
-    def test_retained_directory_budget(self):
+    def test_unrelated_incoming_directories_do_not_limit_admission(self):
         def mutate(root, stage):
             versions = root / 'library' / '.mywallpaperx-steam-incoming'
             versions.mkdir()
             for i in range(64):
                 (versions / str(i)).mkdir()
-        self.scenario(mutate=mutate, accepted=False)
+        self.scenario(mutate=mutate, preserved=tuple(f'library/.mywallpaperx-steam-incoming/{i}' for i in range(64)))
 
     def test_reclaim_only_old_unreferenced_uuid_version(self):
         with tempfile.TemporaryDirectory(prefix='mwx-steam-reclaim-', dir='/private/tmp') as temporary:

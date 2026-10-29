@@ -1,7 +1,7 @@
 import Foundation
 
 nonisolated enum DownloadTaskAction: CaseIterable, Hashable, Sendable {
-    case promote, pause, resume, retry, revealFile, cancel, abandon, removeHistory
+    case promote, pause, resume, retry, revealFile, cancel, removeHistory
 }
 
 /// A delivered progress sample, never another progress store. Sequence and

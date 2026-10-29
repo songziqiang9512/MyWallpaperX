@@ -127,6 +127,7 @@ final class TestItem: NSCollectionViewItem {
         controller.view.layoutSubtreeIfNeeded()
         precondition(controller.view.fittingSize == NSSize(width: 400, height: 460))
         precondition(controller.clearButton.frame.maxX <= 384)
+        precondition(controller.retryButton.title == "重试全部")
         precondition(controller.scrollView.frame.height > 350)
         controller.view.layoutSubtreeIfNeeded()
         precondition(controller.view.fittingSize == NSSize(width: 400, height: 460), "long titles must not enlarge queue")
@@ -138,7 +139,14 @@ final class TestItem: NSCollectionViewItem {
             precondition(row.bounds.height == 76)
             precondition(row.progressBar.bounds.width > 200)
             precondition(!row.titleLabel.stringValue.isEmpty)
+            let imageX = row.thumbnailView.convert(.zero, to: controller.view).x
+            precondition(abs(imageX - 16) < 0.5, "row thumbnail shares the header's inset")
         }
+        let historyHeading = controller.rowsStack.arrangedSubviews.compactMap { $0 as? NSTextField }
+            .first { $0.stringValue.hasPrefix("历史记录") }!
+        let headingAlignment = historyHeading.alignmentRect(forFrame: historyHeading.frame)
+        precondition(abs(historyHeading.superview!.convert(headingAlignment.origin, to: controller.view).x - 16) < 0.5,
+            "history heading is inset from the popover edge, including native label alignment insets")
         controller.emptyLabel.isHidden = true
         controller.view.appearance = NSAppearance(named: .aqua)
         controller.view.wantsLayer = true

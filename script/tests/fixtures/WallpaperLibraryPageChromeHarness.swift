@@ -398,12 +398,12 @@ private final class ChromeToolbar: NSObject, NSToolbarDelegate {
         probe.workspace.catalog.catalog.loadedProviders = [.steamWorkshop]
         probe.apply(partialDownloads)
         checks["one-ready-download-provider-reports-loaded-items-without-claiming-a-complete-total"] = grid.scrollView.pullCountText == "已加载 3 张壁纸"
-        partialDownloads.query.provider = .steamWorkshop
+        partialDownloads.query.providers = [.steamWorkshop]
         partialDownloads.queryResult = .init(items: Array(values.prefix(1)), unfilteredCount: 3)
         probe.apply(partialDownloads)
         checks["provider-filter-does-not-misclassify-an-unfiltered-partial-download-total-as-complete"] = grid.scrollView.pullCountText == "显示 1 / 已加载 3 张壁纸"
         probe.workspace.catalog.catalog.sourceScanStatuses[.pixabay] = .init(phase: .failed(message: coldFailure), hasSuccessfulScan: false)
-        partialDownloads.query.provider = nil
+        partialDownloads.query.providers = []
         partialDownloads.queryResult = .init(items: Array(values.prefix(3)), unfilteredCount: 3)
         probe.apply(partialDownloads)
         checks["first-failed-other-provider-keeps-the-count-explicitly-partial"] = grid.scrollView.pullCountText == "已加载 3 张壁纸"
@@ -411,7 +411,7 @@ private final class ChromeToolbar: NSObject, NSToolbarDelegate {
         checks["zero-items-with-an-unknown-or-first-failed-provider-has-no-fabricated-total"] = grid.scrollView.pullCountText == nil
         probe.workspace.catalog.catalog.loadedProviders.insert(.pixabay)
         probe.workspace.catalog.catalog.sourceScanStatuses.removeValue(forKey: .pixabay)
-        partialDownloads.query.provider = .steamWorkshop
+        partialDownloads.query.providers = [.steamWorkshop]
         partialDownloads.queryResult = .init(items: Array(values.prefix(1)), unfilteredCount: 3)
         probe.apply(partialDownloads)
         checks["older-two-download-providers-do-not-claim-the-new-image-scan-is-ready"] = grid.scrollView.pullCountText == "显示 1 / 已加载 3 张壁纸"
@@ -421,14 +421,15 @@ private final class ChromeToolbar: NSObject, NSToolbarDelegate {
         probe.apply(state(.downloads))
         checks["all-successful-empty-download-providers-have-known-zero"] = grid.scrollView.pullCountText == "共 0 张壁纸"
         var adultOnly = state(.downloads)
-        adultOnly.query = .init(sort: .name, preferredColumns: 4, showsAdultContent: false)
+        adultOnly.query = .init(providers: [.steamWorkshop, .pixiv], kinds: [.image, .scene], statuses: [.playable, .unavailable], sort: .name, preferredColumns: 4, showsAdultContent: false)
         probe.apply(adultOnly); settle()
         checks["all-adult-downloads-hidden-by-filter-have-a-recoverable-filtered-empty-state"] = label("没有符合条件的壁纸") != nil
             && label("下载的壁纸将显示在这里") == nil && button("清除筛选") != nil
         let beforeAdultClear = probe.workspace.presentation.queries.count
         send(button("清除筛选")!)
         checks["explicit-clear-restores-download-adult-default-and-preserves-sort-density"] = probe.workspace.presentation.queries.count == beforeAdultClear + 1
-            && probe.workspace.presentation.queryState.showsAdultContent && probe.workspace.presentation.queryState.status == .all
+            && probe.workspace.presentation.queryState.showsAdultContent && probe.workspace.presentation.queryState.statuses.isEmpty
+            && probe.workspace.presentation.queryState.providers.isEmpty && probe.workspace.presentation.queryState.kinds.isEmpty
             && probe.workspace.presentation.queryState.sort == .name && probe.workspace.presentation.queryState.preferredColumns == 4
         var unrelatedAdultFlag = state(.favorites); unrelatedAdultFlag.query.showsAdultContent = false
         probe.apply(unrelatedAdultFlag); settle()

@@ -7,24 +7,47 @@ import AppKit
 import Sparkle
 
 @MainActor
-final class AppUpdateController {
+final class AppUpdateController: NSObject, SPUStandardUserDriverDelegate, NSMenuItemValidation {
     static let shared = AppUpdateController()
 
-    private let updaterController: SPUStandardUpdaterController
+    private(set) var availableUpdateVersion: String?
 
-    private init() {
+    private lazy var updaterController: SPUStandardUpdaterController = {
         #if DEBUG
-        updaterController = SPUStandardUpdaterController(
-            startingUpdater: false,
-            updaterDelegate: nil,
-            userDriverDelegate: nil
-        )
+        let startsUpdater = false
         #else
-        updaterController = SPUStandardUpdaterController(
-            startingUpdater: true,
-            updaterDelegate: nil,
-            userDriverDelegate: nil
-        )
+        let startsUpdater = true
+        #endif
+        return SPUStandardUpdaterController(startingUpdater: startsUpdater,
+            updaterDelegate: nil, userDriverDelegate: self)
+    }()
+
+    private override init() {
+        super.init()
+        _ = updaterController
+    }
+
+    var supportsGentleScheduledUpdateReminders: Bool { true }
+
+    func standardUserDriverWillHandleShowingUpdate(_ handleShowingUpdate: Bool,
+        forUpdate update: SUAppcastItem, state: SPUUserUpdateState) {
+        availableUpdateVersion = state.userInitiated ? nil : update.displayVersionString
+    }
+
+    func standardUserDriverDidReceiveUserAttention(forUpdate update: SUAppcastItem) {
+        availableUpdateVersion = nil
+    }
+
+    func standardUserDriverWillFinishUpdateSession() {
+        availableUpdateVersion = nil
+    }
+
+    func validateMenuItem(_ menuItem: NSMenuItem) -> Bool {
+        menuItem.title = availableUpdateVersion.map { "发现新版本 \($0)…" } ?? "检查更新…"
+        #if DEBUG
+        return true
+        #else
+        return updaterController.updater.canCheckForUpdates
         #endif
     }
 

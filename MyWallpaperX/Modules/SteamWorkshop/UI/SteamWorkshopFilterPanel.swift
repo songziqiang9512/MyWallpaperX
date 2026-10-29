@@ -39,9 +39,9 @@ import Combine
             + SteamWorkshopResolutionFilter.allCases.filter { $0 != .all }.map { value in
                 facet(value.displayName, marked: { $0.resolutions.contains(value) }, toggle: { $0.resolutions.formSymmetricDifference([value]) })
             }
-        super.init(sections: [.init(title: "分类", columns: 4, options: content),
+        super.init(sections: { [.init(title: "分类", columns: 4, options: content),
             .init(title: "类型", columns: 4, options: themes), .init(title: "分级", columns: 2, options: ratings),
-            .init(title: "分辨率", columns: 3, options: resolutions)],
+            .init(title: "分辨率", columns: 3, options: resolutions)] },
             summary: { [weak service] in service?.activeFilterSummary ?? "全部" },
             canClear: { [weak service] in service.map { !$0.facetFilters.isEmpty || !$0.browserContentMode.isAll } ?? false },
             clear: { [weak service] in apply { service?.clearFilters() } })

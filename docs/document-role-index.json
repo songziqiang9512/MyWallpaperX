@@ -163,12 +163,12 @@
       "role": "stable-contract",
       "entrypoint": "docs/README.md",
       "currentStateAuthority": "docs/architecture/repository-map.md",
-      "lastReviewed": "2026-10-28",
+      "lastReviewed": "2026-10-29",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "aabec0c902577be6075c7fc9be9fed91c9c06de59c576a4b97f590c9cf40cf0f",
+        "sourceSHA256": "23c7dba3fa71a11e2ad804f70bcb32231a5d60e7af9a167b660c73284c5c886e",
         "method": "document_registry --audit + document_health --check",
-        "scope": "UI21同步当前浏览上下文、可见需求和防抖入口的源码/导航职责；具体行为验收归本轮审查卡，保原账号与入库合同。",
+        "scope": "UI24同步下载按真实磁盘空间及在途预约准入、单一失败记录清除的源码/导航边界；具体红绿与运行验收归UI24卡，不扩大账号或发布证据。",
         "limitations": "这是导航与文档治理复核，不代表源码、编译、运行、视觉、性能、真实账号或发布复验；不重授旧证据的适用范围。"
       }
     },
@@ -5332,7 +5332,7 @@
       ],
       "verification": "按具体首错点选真实用户事件与输出反例、最近行为门及Debug；关窗/迟到/第二次操作另验，未测成本不称性能提升，真实账号和硬件输入边界单列。",
       "owner": "App/Shell and existing source UI/lifecycle owners",
-      "firstRead": "docs/development/ui-quality-audit.md#ui23-scope",
+      "firstRead": "docs/development/ui-quality-audit.md#ui25-toolbar-menus",
       "nearestTestGroups": [
         "main-library-main-menu",
         "main-library-window-toolbar",

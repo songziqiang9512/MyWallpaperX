@@ -11,15 +11,15 @@ extension SteamWorkshopToolbarController {
             syncBrowserContextControls()
             return
         }
-        menuPopover.toggle(anchor: sender) { [weak self] in self?.sortRows() ?? [] }
+        ToolbarMenu.popUp(anchor: sender, rows: sortRows())
     }
 
-    func sortRows() -> [ToolbarMenuPopoverPresenter.Row] {
+    func sortRows() -> [ToolbarMenu.Row] {
         let service = SteamWorkshopService.shared
         let enabled = !service.isBrowsingAuthorWorkshop
         if service.source.isPersonal {
             return SteamWorkshopPersonalSort.allCases.map { sort in
-                .init(title: sort.displayName, kind: .check, isChecked: service.personalSort == sort, isEnabled: enabled,
+                .init(title: sort.displayName, kind: .action, isChecked: service.personalSort == sort, isEnabled: enabled,
                     handler: { [weak self] in
                         guard let self, self.isSteamWorkshopMode,
                               !service.isBrowsingAuthorWorkshop, service.source.isPersonal else { return }
@@ -29,7 +29,7 @@ extension SteamWorkshopToolbarController {
             }
         }
         return SteamWorkshopSource.publicSources.map { source in
-            .init(title: source.displayName, kind: .check, isChecked: service.source == source, isEnabled: enabled,
+            .init(title: source.displayName, kind: .action, isChecked: service.source == source, isEnabled: enabled,
                 handler: { [weak self] in
                     guard let self, self.isSteamWorkshopMode,
                           !service.isBrowsingAuthorWorkshop, !service.source.isPersonal else { return }
@@ -43,13 +43,13 @@ extension SteamWorkshopToolbarController {
 
     @objc func handlePersonalListAction(_ sender: NSButton) {
         guard !SteamWorkshopService.shared.isBrowsingAuthorWorkshop else { return }
-        menuPopover.toggle(anchor: sender) { [weak self] in self?.personalListRows() ?? [] }
+        ToolbarMenu.popUp(anchor: sender, rows: personalListRows())
     }
 
-    func personalListRows() -> [ToolbarMenuPopoverPresenter.Row] {
+    func personalListRows() -> [ToolbarMenu.Row] {
         let service = SteamWorkshopService.shared
         return SteamWorkshopSource.personalSources.map { source in
-            .init(title: source == .myFavorites ? "Steam 收藏" : source.toolbarDisplayName, kind: .check, isChecked: service.source == source,
+            .init(title: source == .myFavorites ? "Steam 收藏" : source.toolbarDisplayName, kind: .action, isChecked: service.source == source,
                 isEnabled: service.source.isPersonal && !service.isBrowsingAuthorWorkshop,
                 handler: { [weak self] in
                     guard let self, self.isSteamWorkshopMode,
@@ -67,13 +67,13 @@ extension SteamWorkshopToolbarController {
             syncBrowserContextControls()
             return
         }
-        menuPopover.toggle(anchor: sender) { [weak self] in self?.trendingWindowRows() ?? [] }
+        ToolbarMenu.popUp(anchor: sender, rows: trendingWindowRows())
     }
 
-    func trendingWindowRows() -> [ToolbarMenuPopoverPresenter.Row] {
+    func trendingWindowRows() -> [ToolbarMenu.Row] {
         let service = SteamWorkshopService.shared
         return SteamWorkshopTrendingWindow.allCases.map { window in
-            .init(title: window.displayName, kind: .check, isChecked: service.trendingWindow == window,
+            .init(title: window.displayName, kind: .action, isChecked: service.trendingWindow == window,
                 isEnabled: service.source.supportsTimeRange && !service.isBrowsingAuthorWorkshop,
                 handler: { [weak self] in
                     guard let self, self.isSteamWorkshopMode,
@@ -91,29 +91,29 @@ extension SteamWorkshopToolbarController {
 
     @objc func handleAccountMenu() {
         guard isSteamWorkshopMode, accountActionsEnabled else { return }
-        menuPopover.toggle(anchor: accountButton) { [weak self] in self?.accountRows() ?? [] }
+        ToolbarMenu.popUp(anchor: accountButton, rows: accountRows())
     }
 
-    func accountRows() -> [ToolbarMenuPopoverPresenter.Row] {
+    func accountRows() -> [ToolbarMenu.Row] {
         let auth = SteamWorkshopService.shared.steamAuth
         let accountID = auth.steamId
-        var rows: [ToolbarMenuPopoverPresenter.Row] = []
+        var rows: [ToolbarMenu.Row] = []
         // Personal browsing is an authenticated subpage of this same browser.
         if auth.isOnline {
-            rows.append(ToolbarMenuPopoverPresenter.Row(
+            rows.append(ToolbarMenu.Row(
                 title: "Steam：\(auth.accountName ?? "已登录")",
                 kind: .info
             ))
             if let steamId = auth.steamId {
-                rows.append(ToolbarMenuPopoverPresenter.Row(title: "SteamID：\(steamId)", kind: .info))
+                rows.append(ToolbarMenu.Row(title: "SteamID：\(steamId)", kind: .info))
             }
             rows.append(.separator())
-            rows.append(ToolbarMenuPopoverPresenter.Row(title: "我的订阅", kind: .action, handler: { [weak self] in
+            rows.append(ToolbarMenu.Row(title: "我的订阅", kind: .action, handler: { [weak self] in
                 guard let self, self.isSteamWorkshopMode, auth.isOnline, auth.steamId == accountID else { return }
                 SteamWorkshopService.shared.showMySubscriptions()
             }))
             rows.append(.separator())
-            rows.append(ToolbarMenuPopoverPresenter.Row(
+            rows.append(ToolbarMenu.Row(
                 title: "切换账号",
                 kind: .action,
                 handler: { [weak self] in
@@ -121,7 +121,7 @@ extension SteamWorkshopToolbarController {
                     self?.handlePresentLogin()
                 }
             ))
-            rows.append(ToolbarMenuPopoverPresenter.Row(
+            rows.append(ToolbarMenu.Row(
                 title: "退出登录",
                 kind: .action,
                 handler: { [weak self] in
@@ -130,7 +130,7 @@ extension SteamWorkshopToolbarController {
                 }
             ))
         } else {
-            rows.append(ToolbarMenuPopoverPresenter.Row(
+            rows.append(ToolbarMenu.Row(
                 title: auth.expired ? "重新登录" : "登录 Steam",
                 kind: .action,
                 handler: { [weak self] in

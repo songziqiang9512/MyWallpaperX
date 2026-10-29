@@ -32,7 +32,6 @@ nonisolated enum SteamWorkshopLibraryTransaction {
     static let ownershipMarkerName = SteamWorkshopStorageTree.ownershipMarkerName
     static let retiredPrefix = ".retired-"
     static let maxBytes = 8 * 1024 * 1024 * 1024
-    static let maximumRetainedBytesBeforeAdmissions = 16 * 1024 * 1024 * 1024
     static let diskSafetyReserveBytes = 256 * 1024 * 1024
 
     struct ReclamationResult: Equatable, Sendable {
@@ -52,7 +51,6 @@ nonisolated enum SteamWorkshopLibraryTransaction {
         "scene": "Scene",
     ]
     typealias FD = SteamWorkshopStorageTree.FD
-    typealias FileEntry = SteamWorkshopStorageTree.FileEntry
     static func require(_ condition: Bool, _ message: String = "下载内容或文件路径校验失败。") throws {
         guard condition else { throw Failure(message: message) }
     }
@@ -70,9 +68,6 @@ nonisolated enum SteamWorkshopLibraryTransaction {
     }
     static func openFile(_ root: FD, _ path: String, create: Bool = false, readableOutput: Bool = false) throws -> FD {
         try SteamWorkshopStorageTree.openFile(root, path, create: create, readableOutput: readableOutput)
-    }
-    private static func files(_ root: FD, topLevelLimit: Int? = nil) throws -> [FileEntry] {
-        try SteamWorkshopStorageTree.files(root, topLevelLimit: topLevelLimit, checkCancellation: { try Task.checkCancellation() })
     }
     static func write(_ data: Data, to fd: FD) throws {
         try SteamWorkshopStorageTree.write(data, to: fd)
@@ -311,57 +306,6 @@ nonisolated enum SteamWorkshopLibraryTransaction {
         }
         try require(unlinkat(parent.value, name, AT_REMOVEDIR) == 0, "版本目录回收失败。")
     }
-    // Retention never silently consumes unlimited disk while lifecycle-aware garbage collection is pending.
-    private static func admitRetainedBytes(in root: FD) throws {
-        var total: Int64 = 0
-        for entry in try files(root, topLevelLimit: 64) {
-            try require(entry.size <= Int64(maximumRetainedBytesBeforeAdmissions) - total,
-                "保留的下载/版本已达到磁盘预算；请先处理旧任务和版本。")
-            total += entry.size
-        }
-    }
-
-    /// The public layout is still a version store. Count v1 compatibility,
-    /// crash-orphan incoming and every reserved v2 generation before admitting
-    /// another full copy; unrelated user folders in the public roots are not owned.
-    static func libraryRetainedBytes(in library: FD) throws -> Int64 {
-        var total: Int64 = 0
-        func add(_ amount: Int64) throws {
-            guard amount >= 0 && amount <= Int64(maximumRetainedBytesBeforeAdmissions) - total else {
-                throw Failure(message: "保留的下载/版本已达到磁盘预算；请先处理旧任务和版本。")
-            }
-            total += amount
-        }
-        func addTree(_ root: FD, topLevelLimit: Int? = nil) throws {
-            for entry in try files(root, topLevelLimit: topLevelLimit) {
-                try add(entry.size)
-            }
-        }
-
-        if let versions = try? directory(library, versionsName) {
-            try addTree(versions, topLevelLimit: 64)
-        }
-        if let incoming = try? directory(library, incomingName) {
-            try addTree(incoming, topLevelLimit: 64)
-        }
-        for typeDirectoryName in publicTypeDirectories.values.sorted() {
-            guard let typeRoot = try? directory(library, typeDirectoryName) else { continue }
-            for name in try childNames(typeRoot, limit: 100_000)
-            where managedPublicDirectoryWorkshopID(name) != nil
-                || (try? markerCommit(in: directory(typeRoot, name))) != nil {
-                let managed = try directory(typeRoot, name)
-                try addTree(managed)
-            }
-        }
-        return total
-    }
-    private static func admitLibraryRetainedBytes(in library: FD, adding bytes: Int64) throws {
-        let retained = try libraryRetainedBytes(in: library)
-        guard bytes >= 0 && bytes <= Int64(maximumRetainedBytesBeforeAdmissions) - retained else {
-            throw Failure(message: "保留的下载/版本已达到磁盘预算；请先处理旧任务和版本。")
-        }
-    }
-
     static func availableDiskBytes(at root: URL) throws -> Int64 {
         _ = try absoluteDirectory(root, create: true)
         let attributes = try FileManager.default.attributesOfFileSystem(forPath: root.path)
@@ -414,12 +358,6 @@ nonisolated enum SteamWorkshopLibraryTransaction {
         }
         throw Failure(message: "配置的下载目录无法解析。")
     }
-    static func stagingBase(at url: URL) throws -> URL {
-        let root = try absoluteDirectory(url, create: true)
-        try admitRetainedBytes(in: root)
-        return url
-    }
-
     /// Capture the exact helper lease identity when its allocated event is accepted.
     /// The persisted identity is later required by ack, preparation and cleanup.
     static func stagingLeaseIdentity(
@@ -504,7 +442,8 @@ nonisolated enum SteamWorkshopLibraryTransaction {
         try require(commit.version == 1 && !commit.removed && storageIdentity(for: commit) != nil,
                     "旧下载版本身份无效，无法迁移。")
         let source = try absoluteDirectory(try contentURL(for: commit, libraryRoot: libraryRoot))
-        let inventory = try files(source)
+        let inventory = try SteamWorkshopStorageTree.files(source,
+            checkCancellation: { try Task.checkCancellation() })
         try require(!inventory.contains { $0.path == ownershipMarkerName }, "旧下载版本包含保留标记名。")
         return try inventory.reduce(Int64(0)) { partial, entry in
             try require(entry.size <= Int64(maxBytes) - partial)
@@ -550,7 +489,6 @@ nonisolated enum SteamWorkshopLibraryTransaction {
             checkCancellation: { try Task.checkCancellation() })
         try require(!inventory.contains { $0.path == ownershipMarkerName }, "下载内容使用了保留标记名。")
         let library = try absoluteDirectory(libraryRoot, create: true)
-        try admitLibraryRetainedBytes(in: library, adding: verifiedBytes)
         let incoming = try directory(library, incomingName, create: true)
         // Reject volumes without stable birth identity before creating an
         // attempt-owned UUID. The child is still validated again after mkdir.
@@ -661,7 +599,6 @@ nonisolated enum SteamWorkshopLibraryTransaction {
             entryPath: entry,
             committedAt: committedAt
         )
-        try admitLibraryRetainedBytes(in: library, adding: Int64(try JSONEncoder().encode(commit).count))
         try writeMarker(commit, to: destination)
         try require(fsync(destination.value) == 0, "下载版本目录无法同步到磁盘。")
         try require(renameatx_np(version.value, "content", typeDirectory.value, finalDirectoryName, UInt32(RENAME_EXCL)) == 0,

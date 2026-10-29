@@ -779,7 +779,7 @@ import Combine
         let playable = state.queryResult.items.filter { $0.capabilities.contains(.play) }.count
         let query = state.query
         let filtered = !query.search.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
-            || query.provider != nil || query.kind != nil || query.status != .all
+            || !query.providers.isEmpty || !query.kinds.isEmpty || !query.statuses.isEmpty
         let summary = filtered ? "显示 \(state.queryResult.items.count) / 共 \(entry.count) 张壁纸" : "\(entry.count) 张壁纸"
         header.update(name: entry.name, summary: summary, image: covers[id]?.image, canPlay: playable > 0, canAdd: commands.canOrganize,
             descriptionText: workspace.relationships.playlists.first(where: { $0.id == id })?.descriptionText, playableCount: playable,
@@ -802,8 +802,8 @@ import Combine
                 perform(self)
             })
         }
-        let filtered = !state.query.search.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty || state.query.provider != nil
-            || state.query.kind != nil || state.query.status != .all || (page == .downloads && !state.query.showsAdultContent)
+        let filtered = !state.query.search.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty || !state.query.providers.isEmpty
+            || !state.query.kinds.isEmpty || !state.query.statuses.isEmpty || (page == .downloads && !state.query.showsAdultContent)
         var message: String?, actions: [(String, () -> Void)] = []
         var notices = [workspace.recoveryMessage, state.lastError].compactMap { $0 }.filter { !$0.isEmpty }
         var noticeActions: [(String, () -> Void)] = []
@@ -876,7 +876,7 @@ import Combine
                 message = "没有符合条件的壁纸"
                 actions = [action("清除筛选") { composition in
                     var query = composition.workspace.presentation.queryState
-                    query.search = ""; query.provider = nil; query.kind = nil; query.status = .all
+                    query.search = ""; query.providers = []; query.kinds = []; query.statuses = []
                     if page == .downloads { query.showsAdultContent = true }
                     _ = composition.workspace.presentation.setQueryState(query)
                 }]

@@ -48,7 +48,7 @@ nonisolated enum WallpaperLibraryQuery {
             else { canonical = try references.map { try resolver.canonical($0) } }
             result.formUnion(canonical.map(\.provider))
         }
-        return state.provider.map { result.intersection([$0]) } ?? result
+        return state.providers.isEmpty ? result : result.intersection(state.providers)
     }
 
     static func resolve(_ references: [WallpaperReference], catalog: WallpaperLibraryCatalog,
@@ -156,16 +156,19 @@ nonisolated enum WallpaperLibraryQuery {
         }
         let steamIDSearch = WallpaperProvider.workshopItemIDSearchID(from: search) ?? search
         var visible = candidates.filter { item in
-            guard state.provider == nil || state.provider == item.reference.provider,
-                  state.kind == nil || state.kind == item.kind else { return false }
-            switch state.status {
-            case .all: break
-            case .playable: guard item.capabilities.contains(.play) else { return false }
-            case .unavailable: guard item.publishedAvailability == .unavailable else { return false }
-            case .transferring:
-                guard item.acquisition.phase != .idle && item.acquisition.phase != .failed
-                    || item.update.phase != .idle && item.update.phase != .failed else { return false }
-            case .failed: guard item.acquisition.phase == .failed || item.update.phase == .failed else { return false }
+            guard state.providers.isEmpty || state.providers.contains(item.reference.provider),
+                  state.kinds.isEmpty || state.kinds.contains(item.kind) else { return false }
+            if !state.statuses.isEmpty && !state.statuses.contains(where: { status in
+                switch status {
+                case .playable: return item.capabilities.contains(.play)
+                case .unavailable: return item.publishedAvailability == .unavailable
+                case .transferring:
+                    return item.acquisition.phase != .idle && item.acquisition.phase != .failed
+                        || item.update.phase != .idle && item.update.phase != .failed
+                case .failed: return item.acquisition.phase == .failed || item.update.phase == .failed
+                }
+            }) {
+                return false
             }
             guard !search.isEmpty else { return true }
             var terms = [item.title] + item.reference.provider.librarySearchTerms + (memberships[item.reference] ?? [])
@@ -246,7 +249,7 @@ nonisolated enum WallpaperLibraryQuery {
     /// Search only filters names. One resolver serves covers without per-list catalog scans.
     static func directory(state: WallpaperLibraryQueryState, catalog: WallpaperLibraryCatalog,
                           relationships: UserCollectionsSnapshot) throws -> [WallpaperPlaylistDirectoryEntry] {
-        guard state.provider == nil, state.kind == nil, state.status == .all else {
+        guard state.providers.isEmpty, state.kinds.isEmpty, state.statuses.isEmpty else {
             throw WallpaperLibraryQueryError.unsupportedDirectoryFilter
         }
         let resolver = try Resolver(catalog: catalog, relationships: relationships)
