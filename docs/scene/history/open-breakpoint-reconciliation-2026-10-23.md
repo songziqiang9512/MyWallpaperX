@@ -13,6 +13,7 @@
 
 | 样本 / 公共语义 | 有界关闭与证据 |
 |---|---|
+| 3808922316 · sort topology-only | 纯SORT退出property dirty/空DTO，原包三个visibility init完成，buffer异常退出；只闭此公共首错，无可见层序验收。[本批边界](#layer-sort-topology-only-20261029) |
 | 3175039950 · dead-varying uniform投影 | Program218的无消费者inverse退出实际布局，原局部采集回绘首拒及未Ready退出；严格样本结果仍FAIL，不授整样本PASS。[本批边界](#dead-varying-uniform-20261029) |
 | 3662790108 · provider文字发布/首提升 | 未adopt文字发布不再误作surface失效；原包由反复准备超时恢复一次held/Host提升，开场说明可见。只认启动恢复，球体/曲率/交互仍开放；无消费的Data误读不列引擎待修。[后验](text-publication-first-frame-2026-10-23.md) |
 | 3321237804 · 普通视频首提升、主时钟 | 实际可见视频首publication及同次全surface/GPU完成后提升；冷暂停、改名双屏/坏源与旧active门支持有界首呈现。639字形不可表达时同链typographic重排恢复主HH:MM；不认seek目标同步/全部字体或整景parity。[视频](initial-video-presentation-2026-10-23.md)、[文字](../capabilities/runtime-evidence-current.md#native-text-bounds-20261022) |
@@ -185,3 +186,16 @@
 **退出边界。** 317默认newproperty24=1选择人物+雪人，495为选项2的隐藏composition，子层479/488也隐藏；当前可见雪人属于423组，无实际可见consumer要求495输出。现隐藏组未分配source却记capture failed，8条静态planned只有5条succeeded，保[合同与验证债](../roadmap/scene-open-breakpoint-queue.md#contract-validation-debt)。修前归档被Program218挡在utility执行前，不能写成“修前已复现495 failed”。两方块雪粒393/1229当前已出生、非空并完成GPU，修前预热人口也已非零，撤去“人口0待修”的现状表述；音频rate发布不证明音频导致出生或对应像素变化，相关因果尚未资格，不新增已知缺陷，也不据可见白粒结清音频一致性。
 
 **证据保存。** 必要原图、日志、来源身份与逐样本投影保存于`.artifacts/scene-evidence/runs/dead-varying-uniform-20261029/{3175039950,3226487183}/native/`，`summary/`保原report、构建/Program/编译门及独审收据，普通14天。原全量的blocked记录保留修前身份，本批仅退出列明首门。
+
+<a id="layer-sort-topology-only-20261029"></a>
+## 2026-10-29 排序仅由原拓扑journal发布
+
+**通用语义。** sortLayer只向原C topology journal追加有序操作，经OwnerEffects carrier与接受owner集合投影到Swift候选；即时层序、提交及拒绝回放共用原journal。退掉冗余property dirty及空DTO，真实authored属性继续走owner-local DTO；未改lookup、动态层ownership、预算、返回值或新增owner。产品一文件净删6行，不按同目标去重。
+
+**真实门。** 冻结旧C源配新门仅失败一条纯SORT零DTO断言；候选C两门9.359秒、Swift layer_order十五门29.15秒通过。实际VM→DTO→接受集回放覆盖纯SORT零DTO、真实alpha共存、C/Swift顺序一致和拒绝仅撤first保peer。sharedFirst写authored103的C.alpha，peer写102的B.alpha；前者是owner-local DTO，不声称撞到另一owner的共享record.dirty_owner_identity。原no-op、非法目标/索引、foreign dynamic、throw、创建/销毁及晚拒绝边界保持。
+
+**原包日志。** 两例按jobs2、Ready后4秒运行，整次16.9秒，均日志PASS/exit0、surface1→0、GPU drained。3808922316的679/995/1763 visibility init均completed，无layer mutation buffer exceeded，admittedLayers=0；不同输入时刻的admittedOwners总量不作为本批增幅。未参与修法的3372715909保admittedDynamic=1，报告声明的运行门及GPU/drain通过，未验视频内容；不关闭其长期切换/AV驻留反馈，其他样本同callback mutation冲突及预算问题仍保现役。
+
+**验证边界。** 普通Debug35.740秒、优化DEBUG诊断构建41.611秒通过；两profile均有3条预存actor隔离警告，C源无新警告，另项跟进。独审对有界范围给GO。本批log-only、PNG=0，只认真实VM与原包短窗日志，不认可见层序收益、性能、官方parity或长时间切换；273的passthrough透视仍需先补官方小正反臂及现役D1资格，未随sort修复开放。
+
+**证据保存。** 原日志、输入/产品身份、基线反例、构建及最近门收据的归档保存在`.artifacts/scene-evidence/runs/layer-sort-topology-only-20261029/native/`及`metadata/`，普通14天；不刷新原全量verdict或其他样本的可见裁决。

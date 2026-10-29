@@ -697,20 +697,14 @@ static JSValue sort_layer(
     if (desired == old) return JS_UNDEFINED;
     const uint32_t target_index =
         (uint32_t)(target - owner->domain->layers);
-    // Authored and dynamic sorts share the topology journal: baseline+ops
-    // rebuild reproduces the sort across mixed frames, rolls it back when the
-    // owning batch is rejected, and keeps the C catalog consistent with the
-    // order the dirty record reports to Swift.
+    // One topology journal preserves callback order across owners and rolls
+    // rejected owners back without claiming the target's property dirty slot.
     if (!mwx_scene_quickjs_layer_append_dynamic_layer_topology_operation(
             owner, MWX_SCENE_QUICKJS_DYNAMIC_LAYER_SORT,
             target_index, desired))
         return JS_ThrowInternalError(
             context, "dynamic layer topology operation journal exceeded"
         );
-    if (!mwx_scene_quickjs_layer_mark_dirty(owner, target)) {
-        mwx_scene_quickjs_layer_discard_last_dynamic_layer_topology_operation(owner);
-        return JS_ThrowInternalError(context, "layer mutation buffer exceeded");
-    }
     for (uint32_t i = 0; i < owner->domain->layer_count; ++i) {
         MWXSceneQuickJSLayerRecord *record = &owner->domain->layers[i];
         if (!record->configured || record->destroyed || record == target) continue;

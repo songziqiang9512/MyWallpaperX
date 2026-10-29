@@ -71,7 +71,7 @@
 | 动态实例槽位寿命 | <a id="dynamic-layer-slot-lifetime-20261029"></a>[6704次原生构造及边界](../history/dynamic-layer-slot-lifetime-2026-10-29.md)：逻辑ID不复用、原slot共同终结后回收，旧对象/方法/媒体lookup统一；C/ASAN和实际8-live、独立379的63个dynamic GPU已验。旧原生仅2832/UNDERQUALIFIED，不称null；候选左裁、heldout仅单臂、视频身份及整体性能未验。 |
 | 生命周期与发布完整性 | [生命周期完整性记录](#e-2026-10-01-lifecycle-integrity) |
 | Prepared文字实例 | [clone/user热更及退休](../history/prepared-text-clones-2026-10-15.md)已证；特殊clone、字体/布局/parity开放。<a id="clock-color-current-20261019"></a>375时钟差异已确认，首错未证，STOP_UNKNOWN，证据不足未改产品；雨弱/雷电开放。必要证据 `../../../.artifacts/scene-evidence/runs/clock-color-current-20261019/current/report.json`。 |
-| 动态层顺序同步 | [排序后验](../history/dynamic-layer-order-2026-10-12.md)：同回调属性写入与跨回调插入恢复实际遮挡顺序，旧Swift索引重排退出；379独立原包频谱仍可见，288黑遮挡与特殊clone失败未解。 |
+| 动态层顺序同步 | [排序后验](../history/dynamic-layer-order-2026-10-12.md)：同回调属性写入与跨回调插入恢复实际遮挡顺序，旧Swift索引重排退出；379独立原包频谱仍可见，288黑遮挡与特殊clone失败未解。 [纯SORT后继](../history/open-breakpoint-reconciliation-2026-10-23.md#layer-sort-topology-only-20261029)补零DTO与380初始化首错退出；本轮仅日志门，不认视觉或性能改善。 |
 | 普通静态图片尺寸 | [自动尺寸](../history/static-image-autosize-2026-10-12.md)：原资源头部尺寸经同一prepared sizeWH供getter/cursor/绘制，TEX/改名PNG及model宽高共24格首/后帧实际像素已验；原延迟加载保留。两份独立原包未见布局回归，不计全样本parity。 |
 | 动态图片创建几何 | [普通图片实际尺寸](../history/dynamic-layer-geometry-2026-10-12.md)：autosize三态9格、String/Vec2与省略尺寸实际输出已验；原自然尺寸/资源映射复用，特殊资源与完整wrapper仍开放。 |
 | 图层透视状态 | [Bool事务/共享相机](../history/layer-perspective-2026-10-12.md)及[缺省FOV/反算](../history/canvas-perspective-default-2026-10-12.md)有界已修；自有深度/倾斜、变体与独立样本实际绘制已验，特殊clone及其他组合仍开放。 |

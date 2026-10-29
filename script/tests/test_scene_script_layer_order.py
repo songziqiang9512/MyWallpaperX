@@ -107,7 +107,8 @@ enum SceneDocumentLoader {
         let outcome = apply([effect],runtime)
         let result: [String:Any] = ["c":try cOrder(domain),"swift":swiftOrder(runtime),
             "failures":outcome.failures.count,"alpha":runtime.snapshot().authoredLayerValues[.layer(layerID:102,field:.alpha)] == .scalar(0.5),
-            "mutationCount":mutations.count,"fields":mutations.map { $0.fields.rawValue },"indices":mutations.map(\.orderIndex)]
+            "mutationCount":mutations.count,"fields":mutations.map { $0.fields.rawValue },"indices":mutations.map(\.orderIndex),
+            "carrierKept":effect.layerTopologyOwnerIdentity != nil]
         value.discardLayerMutations()
         return result
     }
@@ -180,18 +181,51 @@ enum SceneDocumentLoader {
             "healthyPeer":settled.admission.admittedEffects.contains { $0.ownerTarget == peer.target },
             "cleared":cleared,"emptyCadenceStable":swiftOrder(runtime) == committed]
     }
-    static func interleavedCallbacks() throws -> [String:Any] {
-        let (_,domain,runtime) = try setup("models/order.json")
-        let first = try owner(domain,101,"export function update(v){thisScene.sortLayer(thisLayer,v.x===0?2:1);return new Vec3(1,1,1);}")
-        let peer = try owner(domain,102,"export function update(v){thisScene.sortLayer(thisScene.getLayer('C'),0);return new Vec3(1,1,1);}")
-        var firstEffects = effects(try evaluate(first),first)
-        let peerEffects = effects(try evaluate(peer),peer)
-        firstEffects.append(try evaluate(first,1))
-        firstEffects.layerMutations = SceneScriptLayerMutation.coalescing(firstEffects.layerMutations)
-        let outcome = apply([firstEffects,peerEffects],runtime)
-        let result:[String:Any] = ["c":try cOrder(domain),"swift":swiftOrder(runtime),"failures":outcome.failures.count]
-        first.discardLayerMutations();peer.discardLayerMutations()
-        return result
+    static func interleavedCallbacks() throws -> [[String:Any]] {
+        let sharedFirst = """
+            export function update(v){
+                if(v.x===0)thisScene.sortLayer(thisScene.getLayer('C'),0);
+                else thisScene.sortLayer(thisScene.getLayer('B'),2);
+                thisScene.getLayer('C').alpha=0.5;return new Vec3(1,1,1);}
+            """
+        let sharedPeer = """
+            export function update(v){thisScene.sortLayer(thisScene.getLayer('C'),2);
+                thisLayer.alpha=0.25;return new Vec3(1,1,1);}
+            """
+        return try [
+            (first:"export function update(v){thisScene.sortLayer(thisLayer,v.x===0?2:1);return new Vec3(1,1,1);}",
+             peer:"export function update(v){thisScene.sortLayer(thisScene.getLayer('C'),0);return new Vec3(1,1,1);}",rejectFirst:false),
+            (first:sharedFirst,peer:sharedPeer,rejectFirst:false),
+            (first:sharedFirst,peer:sharedPeer,rejectFirst:true),
+        ].map { scripts in
+            let (_,domain,runtime) = try setup("models/order.json")
+            let first = try owner(domain,101,scripts.first)
+            let peer = try owner(domain,102,scripts.peer)
+            var firstEffects = effects(try evaluate(first),first)
+            let peerEffects = effects(try evaluate(peer),peer)
+            firstEffects.append(try evaluate(first,1))
+            firstEffects.layerMutations = SceneScriptLayerMutation.coalescing(firstEffects.layerMutations)
+            let packages = [firstEffects,peerEffects]
+            let before = try cOrder(domain)
+            let settled = runtime.preflightOwnerEffectsToFixedPoint(packages) { _, _ in
+                scripts.rejectFirst ? [first.target] : []
+            }
+            runtime.commit(settled.admission.layerPlan)
+            if scripts.rejectFirst { first.discardLayerMutations() }
+            else { first.commitLayerMutations() }
+            peer.commitLayerMutations()
+            return ["before":before,"c":try cOrder(domain),"swift":swiftOrder(runtime),
+                "failures":settled.admission.rejectedOwners.count,
+                "dtoCounts":packages.map { $0.layerMutations.count },
+                "propertyFieldsOnly":packages.flatMap(\.layerMutations).allSatisfy { $0.fields == .alpha },
+                "alphaC":runtime.snapshot().authoredLayerValues[.layer(layerID:103,field:.alpha)] == .scalar(0.5),
+                "alphaB":runtime.snapshot().authoredLayerValues[.layer(layerID:102,field:.alpha)] == .scalar(0.25),
+                "firstRejected":settled.externallyRejectedOwners.contains(first.target),
+                "healthyPeer":settled.admission.admittedEffects.contains { $0.ownerTarget == peer.target },
+                "carriersKept":packages.allSatisfy { $0.layerTopologyOwnerIdentity != nil },
+                "cleared":first.pendingLayerTopologyIdentity == nil && peer.pendingLayerTopologyIdentity == nil
+                    && mwx_scene_quickjs_domain_has_pending_layer_topology(domain.handle) == 0]
+        }
     }
     static func destroyShift() throws -> [String:Any] {
         let (_,domain,runtime) = try setup("models/order.json")
@@ -294,14 +328,18 @@ enum SceneDocumentLoader {
         var throwPreserved = false
         do{_ = try evaluate(throwing)}catch{throwPreserved=String(describing:error).contains("return-controlled-throw")}
         let invalid = try owner(domain,101,"""
-            export function update(v){let successBranch=false,caught=false;
-                try{if(thisScene.sortLayer(thisScene.getLayer('missing'),-1)===true)successBranch=true;}
-                catch(e){caught=e instanceof TypeError;}
-                if(!caught || successBranch)throw Error('invalid-sort-success');
+            export function update(v){
+                for(const [layer,index] of [[thisLayer,-1],[thisLayer,0.5],[thisScene.getLayer('missing'),0]]){
+                    let caught=false,successBranch=false;
+                    try{if(thisScene.sortLayer(layer,index)===true)successBranch=true;}
+                    catch(e){caught=e instanceof TypeError;}
+                    if(!caught || successBranch)throw Error('invalid-sort-success');}
                 thisLayer.alpha=0.75;return new Vec3(1,1,1);}
             """)
-        _ = apply([effects(try evaluate(invalid),invalid)],runtime)
+        let invalidEffects = effects(try evaluate(invalid),invalid)
+        _ = apply([invalidEffects],runtime)
         let result:[String:Any] = ["c":try cOrder(domain),"swift":swiftOrder(runtime),
+            "invalidHadNoTopology":invalidEffects.layerTopologyOwnerIdentity == nil,
             "settled":settled,"typedAlpha":alpha,"noOpPreserved":noOpPreserved,
             "throwPreserved":throwPreserved,"invalidDidNotEnterSuccess":runtime.snapshot().authoredLayerValues[.layer(layerID:101,field:.alpha)] == .scalar(0.75)]
         invalid.commitLayerMutations()
@@ -464,6 +502,7 @@ class SceneScriptLayerOrderTests(unittest.TestCase):
             self.assertEqual(result["swift"], result["c"])
             self.assertIs(result["alpha"], True)
             self.assertEqual(result["failures"], 0)
+            self.assertEqual(result["mutationCount"], 1)
 
     def test_later_callback_creation_preserves_earlier_shifted_layer_order(self) -> None:
         for result in self.result["creates"]:
@@ -525,11 +564,28 @@ class SceneScriptLayerOrderTests(unittest.TestCase):
             self.assertIs(result[key], True, key)
 
     def test_global_callback_order_survives_owner_coalescing_and_dynamic_destroy(self) -> None:
-        for name, expected in [("interleaved", ["C", "A", "B"]), ("destroyShift", ["X", "A", "B", "C"])]:
-            with self.subTest(name=name):
-                result = self.result[name]
-                self.assertEqual(result["c"], expected)
-                self.assertEqual(result["swift"], expected)
+        expected_rows = [
+            (["C", "A", "B"], ["C", "A", "B"], [0, 0], False, False, False),
+            (["A", "C", "B"], ["A", "C", "B"], [1, 1], True, True, False),
+            (["A", "C", "B"], ["A", "B", "C"], [1, 1], False, True, True),
+        ]
+        self.assertEqual(len(self.result["interleaved"]), len(expected_rows))
+        for result, (before, order, counts, alpha_c, alpha_b, rejected) in zip(
+                self.result["interleaved"], expected_rows):
+            with self.subTest(order=order, rejected=rejected):
+                self.assertEqual(result["before"], before)
+                self.assertEqual(result["c"], order)
+                self.assertEqual(result["swift"], order)
+                self.assertEqual(result["dtoCounts"], counts)
+                self.assertEqual(result["failures"], 0)
+                self.assertIs(result["alphaC"], alpha_c)
+                self.assertIs(result["alphaB"], alpha_b)
+                self.assertIs(result["firstRejected"], rejected)
+                for key in ("propertyFieldsOnly", "healthyPeer", "carriersKept", "cleared"):
+                    self.assertIs(result[key], True, key)
+        result = self.result["destroyShift"]
+        self.assertEqual(result["c"], ["X", "A", "B", "C"])
+        self.assertEqual(result["swift"], result["c"])
 
     def test_boolean_return_clips_attributes_without_losing_topology_carrier(self) -> None:
         result = self.result["carrier"]
@@ -565,7 +621,7 @@ class SceneScriptLayerOrderTests(unittest.TestCase):
             self.assertEqual(result["settled"], ["B", "C", "A"])
             self.assertEqual(result["c"], result["settled"])
             self.assertEqual(result["swift"], result["settled"])
-            for key in ("typedAlpha", "noOpPreserved", "throwPreserved", "invalidDidNotEnterSuccess"):
+            for key in ("typedAlpha", "noOpPreserved", "throwPreserved", "invalidDidNotEnterSuccess", "invalidHadNoTopology"):
                 self.assertIs(result[key], True, key)
 
     def test_many_sorts_of_one_layer_use_original_journal_budget(self) -> None:
@@ -583,6 +639,11 @@ class SceneScriptLayerOrderTests(unittest.TestCase):
                 self.assertEqual(result["c"], expected)
                 self.assertEqual(result["swift"], expected)
                 self.assertEqual(result["failures"], 0)
+        self.assertEqual(self.result["sortOnly"]["mutationCount"], 0)
+        self.assertEqual(self.result["sortOnly"]["fields"], [])
+        self.assertIs(self.result["sortOnly"]["carrierKept"], True)
+        self.assertEqual(self.result["alphaOnly"]["mutationCount"], 1)
+        self.assertIs(self.result["alphaOnly"]["carrierKept"], False)
 
 if __name__ == "__main__":
     unittest.main()

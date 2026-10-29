@@ -1645,11 +1645,15 @@
       "verdict": "unreviewed",
       "reviewedOn": "2026-10-19",
       "reviewer": "Codex root（原图审查）",
-      "note": "红发人物、彩翼、三球与背景可见；有typed VM InternalError待判，球环形变/透明差异未锁音频、pointer和phase。",
+      "note": "2026-10-29 log-only短窗：原995/1763排序InternalError已退出，679/995/1763初始化均completed，纯SORT不产属性DTO；声明运行门、GPU/末输出及停止排空通过。未截图，不认视觉/性能改善。2026-10-19红发人物、彩翼、三球与背景为旧原图观察；球环形变/透明差异未锁音频、pointer和phase，未由本批结清。",
       "remainingDifferences": "仅默认短窗及目录参考对照；音频、鼠标视差、phase、属性与viewport未同输入锁定，完整播放、交互、作者参数及HDR未验收。",
       "officialComparison": "compared",
-      "runs": [],
-      "evidence": [],
+      "runs": [
+        ".artifacts/scene-evidence/runs/layer-sort-topology-only-20261029/native/report.json"
+      ],
+      "evidence": [
+        "docs/scene/history/open-breakpoint-reconciliation-2026-10-23.md"
+      ],
       "unavailableLocalRuns": [
         ".artifacts/scene-evidence/runs/new-sample-runtime-audit-20261019/index/current/report.json"
       ],

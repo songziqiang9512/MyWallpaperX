@@ -154,6 +154,8 @@ void mwx_fixture_dynamic_layer_creation_cases(MWXSceneScriptQuickJSFixture *fixt
         "if(!rejected)throw new Error('foreign dynamic write');"
         "rejected=false;try{layer.scale=new Vec3(NaN);}catch(error){rejected=true;}"
         "if(!rejected)throw new Error('foreign NaN write survived');"
+        "rejected=false;try{thisScene.sortLayer(layer,0);}catch(error){rejected=error instanceof TypeError;}"
+        "if(!rejected)throw new Error('foreign dynamic sort');"
         "return layer.text==='tick'?1:0;}",
         strlen(
             "export function update(value){const layer=thisScene.enumerateLayers()[1];"
@@ -161,6 +163,8 @@ void mwx_fixture_dynamic_layer_creation_cases(MWXSceneScriptQuickJSFixture *fixt
             "if(!rejected)throw new Error('foreign dynamic write');"
         "rejected=false;try{layer.scale=new Vec3(NaN);}catch(error){rejected=true;}"
         "if(!rejected)throw new Error('foreign NaN write survived');"
+        "rejected=false;try{thisScene.sortLayer(layer,0);}catch(error){rejected=error instanceof TypeError;}"
+        "if(!rejected)throw new Error('foreign dynamic sort');"
             "return layer.text==='tick'?1:0;}"
         ),
         41, fixture->diagnostic, sizeof(fixture->diagnostic)
@@ -170,6 +174,11 @@ void mwx_fixture_dynamic_layer_creation_cases(MWXSceneScriptQuickJSFixture *fixt
     fixture->failures += mwx_fixture_update(
         fixture->dynamic_intruder, 41, 1, MWX_SCENE_QUICKJS_OK, 1,
         "cross-owner dynamic layer is readable but not writable"
+    );
+    fixture->failures += mwx_fixture_check(
+        mwx_scene_quickjs_owner_pending_layer_topology_identity(fixture->dynamic_intruder) == 0
+            && mwx_scene_quickjs_owner_layer_mutation_count(fixture->dynamic_intruder) == 0,
+        "foreign dynamic sort stages neither topology nor properties", ""
     );
 
 }
@@ -500,11 +509,8 @@ void mwx_fixture_dynamic_layer_transaction_cases(MWXSceneScriptQuickJSFixture *f
 }
 
 void mwx_fixture_layer_order_cases(MWXSceneScriptQuickJSFixture *fixture) {
-    // Authored sorts: run after every other order-sensitive fixture because
-    // the sort permanently shifts the shared catalog order. The order-only
-    // mutation carries the new index to Swift. Layer 42's index at this point
-    // is whatever earlier fixtures left; the assertions pin the shape, not an
-    // absolute index.
+    // Run after other order-sensitive fixtures: the committed sort changes
+    // the shared catalog order through the topology journal alone.
     fixture->static_sort = mwx_scene_quickjs_owner_create(
         fixture->domain,
         "export function update(value){thisScene.sortLayer(thisLayer,0);return value;}",
@@ -518,22 +524,10 @@ void mwx_fixture_layer_order_cases(MWXSceneScriptQuickJSFixture *fixture) {
         "authored layer sort accepted"
     );
     fixture->failures += mwx_fixture_check(
-        mwx_scene_quickjs_owner_layer_mutation_count(fixture->static_sort) == 1,
-        "authored layer sort mutation staged", ""
+        mwx_scene_quickjs_owner_layer_mutation_count(fixture->static_sort) == 0
+            && mwx_scene_quickjs_owner_pending_layer_topology_identity(fixture->static_sort) != 0,
+        "authored sort stages topology without a property DTO", ""
     );
-    {
-        MWXSceneQuickJSLayerMutation sort_mutation = {0};
-        fixture->failures += mwx_fixture_check(
-            mwx_scene_quickjs_owner_layer_mutation_at(
-                fixture->static_sort, 0, &sort_mutation, fixture->diagnostic, sizeof(fixture->diagnostic)
-            ) == MWX_SCENE_QUICKJS_OK
-                && sort_mutation.kind == MWX_SCENE_QUICKJS_LAYER_MUTATION_UPSERT
-                && sort_mutation.dynamic == 0
-                && sort_mutation.fields == 0
-                && sort_mutation.layer_id == 42,
-            "authored layer sort order-only mutation", ""
-        );
-    }
     // Committing the sort owner runs the topology rebuild: the journaled
     // authored SORT op replays through the relaxed authored branch and the
     // new order is what later owners read.

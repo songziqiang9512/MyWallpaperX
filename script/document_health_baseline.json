@@ -150,7 +150,7 @@
     },
     "docs/scene/capabilities/runtime-evidence-current.md": {
       "lines": 600,
-      "bytes": 220383
+      "bytes": 220580
     },
     "docs/scene/capabilities/runtime-input-property-coverage.md": {
       "lines": 600,
@@ -174,7 +174,7 @@
     },
     "docs/scene/capabilities/scene-sample-acceptance-ledger.md": {
       "lines": 515,
-      "bytes": 118297
+      "bytes": 118271
     },
     "docs/scene/capabilities/scene-sample-debug-ledger.md": {
       "lines": 534,
@@ -182,7 +182,7 @@
     },
     "docs/scene/capabilities/scenescript-api-coverage.md": {
       "lines": 419,
-      "bytes": 116791
+      "bytes": 116960
     },
     "docs/scene/capabilities/static-source-draw-only-degradation.md": {
       "lines": 54,
@@ -277,8 +277,8 @@
       "bytes": 22423
     },
     "docs/scene/roadmap/scene-open-breakpoint-queue.md": {
-      "lines": 175,
-      "bytes": 37137
+      "lines": 174,
+      "bytes": 36826
     },
     "docs/web/cold-descriptor-parse-offload-design.md": {
       "lines": 30,
@@ -1759,15 +1759,6 @@
     },
     {
       "section": "bodies",
-      "path": "docs/scene/capabilities/scenescript-api-coverage.md",
-      "before": "fc1fa889ad82b02735fd135a5001674132d1006fe530608edbf3832b2aa7f0a2",
-      "after": "adc22dc3e705a7cc5f3e25c4d02dc6393e2c7ef7b4418004c01710e6bbf3f72f",
-      "owner": "scene-video-runtime",
-      "reason": "新增通用动态MP4和真实视频替换的有界呈现合同，同步当前能力及AV池剩余；设计先落库，原修复过程归历史，未扩官方未知。",
-      "decision": "docs/scene/capabilities/material-video-assets.md#video-switch-presentation"
-    },
-    {
-      "section": "bodies",
       "path": "docs/scene/roadmap/performance-convergence-card.md",
       "before": "fea8d0e8f7875d4e629081a03120fceaa0a2fccf7029b29f4d6506dfdc7aa78b",
       "after": "bb7499f0f414fa3b05d705addfd69bd0bb20fb28098f1c11b7b35d75b94dda7b",
@@ -1840,15 +1831,6 @@
     },
     {
       "section": "bodies",
-      "path": "docs/scene/capabilities/runtime-evidence-current.md",
-      "before": "af598285d3c5712205271382a9f740d137b7ad7b3f63228b1a8d766f72e00dfb",
-      "after": "5269616b8ee27391f921615999526c99f6b185c13ae3424b373ecb7652acbc17",
-      "owner": "scene-dead-varying-uniform-projection",
-      "reason": "Register the bounded preparation design and real first-frame closure; retire stale zero-particle/no-ready claims while retaining hidden-capture observation debt, original strict FAIL, and historical identities. No new current issue document.",
-      "decision": "docs/scene/architecture/shader-metadata-failure-contract.md#dead-varying-uniform-projection"
-    },
-    {
-      "section": "bodies",
       "path": "docs/development/lock-screen-screensaver-design.md",
       "before": "229cb069609b0869c83c69cae04f45dc65bd72d182569e8638a2c3342559934e",
       "after": "e7244b976f0eb1273c456d14f14363c7f073062671cb2f81ed5e2d344f552b69",
@@ -1873,6 +1855,24 @@
       "owner": "lock-screen-screensaver-design",
       "reason": "轻量视频组件沿原版本、arm64、inside-out签名和符号包发布；撤销其shader助手与大资源要求，主App签名不变。",
       "decision": "docs/development/lock-screen-screensaver-design.md"
+    },
+    {
+      "section": "bodies",
+      "path": "docs/scene/capabilities/scenescript-api-coverage.md",
+      "before": "adc22dc3e705a7cc5f3e25c4d02dc6393e2c7ef7b4418004c01710e6bbf3f72f",
+      "after": "2e1e827b4e69b245996b315db31333b38fb0bee3d4ecee1609cdeed669082eae",
+      "owner": "scene-sort-topology-only",
+      "reason": "Record the existing topology journal as the only order owner, retire redundant property dirty/empty DTO and closed native callback failures, and correct passthrough qualification against the existing D1 boundary. Preserve old visual verdicts and measurement limits.",
+      "decision": "docs/scene/capabilities/scenescript-api-coverage.md"
+    },
+    {
+      "section": "bodies",
+      "path": "docs/scene/capabilities/runtime-evidence-current.md",
+      "before": "5269616b8ee27391f921615999526c99f6b185c13ae3424b373ecb7652acbc17",
+      "after": "6fcfd56607ba24f0c43689890c79ad04f2926c884990687b8e2813bf4b1555d2",
+      "owner": "scene-sort-topology-only",
+      "reason": "Record the existing topology journal as the only order owner, retire redundant property dirty/empty DTO and closed native callback failures, and correct passthrough qualification against the existing D1 boundary. Preserve old visual verdicts and measurement limits.",
+      "decision": "docs/scene/capabilities/scenescript-api-coverage.md"
     }
   ]
 }

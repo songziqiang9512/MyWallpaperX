@@ -1006,10 +1006,10 @@
       "lastReviewed": "2026-10-29",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "8d4918a031a499c6f3a03312d040e97efefda4f8d57bf751e37c95c522b3b635",
+        "sourceSHA256": "de66ab59a057a5d45096e2d7f206f5f20f0e2f094de703b4050655803c175738",
         "method": "document_registry --audit + document_health --check",
-        "scope": "Only dead-varying uniform preparation contract and bounded native317/independent322 evidence, with hidden495 observation debt and original strict FAIL retained.",
-        "limitations": "Existing unrelated historical claims not revalidated; no full sample, inverse numeric, official parity, HDR, all-property or performance acceptance."
+        "scope": "Only topology-only SORT, real owner-local property DTO coexistence, current380/independent337 log evidence and the existing passthrough qualification limit.",
+        "limitations": "Historical unrelated claims not revalidated; no new visual, performance, official, long-switch or full-sample acceptance."
       }
     },
     {
