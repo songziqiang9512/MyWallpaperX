@@ -1648,6 +1648,33 @@
         "MyWallpaperX/Core/SteamWorkshopScene/Runtime/Session/SceneDesktopWallpaperHost+LiveConsumers.swift"
       ],
       "contentPatterns": []
+    },
+    {
+      "id": "lock-screen-and-system-screensaver",
+      "title": "macOS系统视频屏保与锁定显示",
+      "owner": "App + Core/System + system ScreenSaver host",
+      "status": "approved",
+      "designDoc": "docs/development/lock-screen-screensaver-design.md",
+      "design_notes": "2026-10-29用户明确收敛为Video-only并撤销本批所有Scene/Web屏保改造；按唯一专项设计移除原接缝、命名空间适配和组件大资源，主App原三引擎不变。仅AVFoundation、视频发布/静帧/可选活动交接；主App不运行也必须独立播放。approved不是持续运行或功耗验收，不提交推送。 App配置按用户要求复用公共玻璃材质与原列表网格单选；共同背景不改宿主窗口策略，原列表多选事务不变，具体UI验收归同一专项§4/§7。",
+      "matchPatterns": [
+        "ScreenSaverSources/*",
+        "MyWallpaperX/Core/System/ScreenSaver*.swift",
+        "MyWallpaperX/App/ScreenSaver*.swift"
+      ],
+      "contentPatterns": []
+    },
+    {
+      "id": "independent-dynamic-lock-screen",
+      "title": "独立动态密码页背景私有扩展候选",
+      "owner": "system integration",
+      "status": "blocked-pending-design",
+      "designDoc": "docs/development/lock-screen-screensaver-design.md",
+      "design_notes": "当前仅授权公开系统Video屏保；独立密码页扩展仍未批准，私有ABI与系统恢复成本须另行设计。",
+      "matchPatterns": [
+        "WallpaperLockScreenExtension/*",
+        "MyWallpaperX/Core/System/DynamicLockScreen*.swift"
+      ],
+      "contentPatterns": []
     }
   ]
 }

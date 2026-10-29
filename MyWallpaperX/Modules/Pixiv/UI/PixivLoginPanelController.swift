@@ -45,7 +45,7 @@ final class PixivLoginPanelController: NSObject, NSWindowDelegate, WKNavigationD
         browser.layer?.cornerRadius = 12
         browser.layer?.masksToBounds = true
 
-        let surface = WallpaperLibrarySheetSurface()
+        let surface = WallpaperPanelSurface()
         let icon = NSImageView(image: NSImage(systemSymbolName: "person.crop.circle", accessibilityDescription: nil)!)
         icon.symbolConfiguration = .init(pointSize: 27, weight: .medium)
         icon.contentTintColor = .controlAccentColor
@@ -88,11 +88,11 @@ final class PixivLoginPanelController: NSObject, NSWindowDelegate, WKNavigationD
         status.setAccessibilityRole(.staticText)
         status.setAccessibilityLabel("Pixiv 页面状态")
         status.translatesAutoresizingMaskIntoConstraints = false
-        surface.addSubview(header)
-        surface.addSubview(browser)
-        surface.addSubview(status)
-        surface.addSubview(done)
-        surface.addSubview(cancel)
+        surface.bodyView.addSubview(header)
+        surface.bodyView.addSubview(browser)
+        surface.bodyView.addSubview(status)
+        surface.bodyView.addSubview(done)
+        surface.bodyView.addSubview(cancel)
         NSLayoutConstraint.activate([
             icon.widthAnchor.constraint(equalToConstant: 44),
             icon.heightAnchor.constraint(equalToConstant: 44),

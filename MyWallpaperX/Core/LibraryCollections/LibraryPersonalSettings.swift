@@ -55,6 +55,10 @@ nonisolated enum LibraryPersonalSettings {
         collections.coverAssets = needed.sorted { $0.uuidString < $1.uuidString }.compactMap { covers[$0] }
         let excluded = Set(state.excludedLibraryReferences.map { canonical[$0.reference] ?? $0.reference })
         collections.libraryExclusionStates = references.map { .init(reference: $0, isExcluded: excluded.contains($0)) }
+        var preferences = preferences
+        if let reference = preferences.screenSaver?.reference {
+            preferences.screenSaver?.reference = canonical[reference] ?? reference
+        }
         return PersonalSettingsPayload(exportedAt: date, preferences: preferences, sources: sources, collections: collections)
     }
 
@@ -186,6 +190,15 @@ nonisolated enum LibraryPersonalSettings {
             }
         }
         try validate(collections, state: state)
+        var targetPreferences = targetPreferences
+        // Only an explicitly imported intent follows the import's source map.
+        // A missing old-profile field must not remap the existing local choice.
+        if var screenSaver = payload.preferences.screenSaver {
+            if let reference = screenSaver.reference {
+                screenSaver.reference = remapping[reference] ?? reference
+            }
+            targetPreferences.screenSaver = screenSaver
+        }
         return .init(commandID: commandID, resetEpoch: state.resetEpoch, expectedOrganization: state.organizationState,
                      sourcePatches: patchOrder.compactMap { patches[$0] }, beforePreferences: beforePreferences,
                      targetPreferences: targetPreferences, collections: collections,

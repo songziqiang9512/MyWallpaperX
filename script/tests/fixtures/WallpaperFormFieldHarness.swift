@@ -6,16 +6,16 @@ import AppKit
 }
 @MainActor private final class FormServiceLeaf {
     var apiKey = "original-key"
-    var resets = 0, clears = 0
+    var keySubmissions: [String] = []
+    var clears = 0
     var hasValidAPIKey: Bool { !apiKey.isEmpty }
-    func resetLoadedState() { resets += 1 }
+    func setAPIKeyAndSearch(_ key: String) { keySubmissions.append(key); apiKey = key }
     func clearAPIKeyAndReset() { clears += 1; apiKey = "" }
 }
 @MainActor private final class PixabayBrowserView: NSView {
     let service = FormServiceLeaf()
     private var keyPanel: WallpaperAPIKeyPanelController?
-    var searches = 0, refreshes = 0
-    func triggerInitialSearchIfNeeded() { searches += 1 }
+    var refreshes = 0
     func syncContent(force: Bool) { precondition(force); refreshes += 1 }
     // ACTUAL_API_KEY_PRESENTATION
 }
@@ -162,7 +162,7 @@ import AppKit
             "currentNativeEditor": panel.firstResponder === editor && editor.isFieldEditor,
             "initialValueIsEmpty": field.stringValue.isEmpty,
             "nativeSheet": panel.isSheet && panel.sheetParent === host && host.attachedSheet === panel,
-            "oneSharedSurface": panel.contentView is WallpaperLibrarySheetSurface && descendants(panel.contentView!, NSGlassEffectView.self).count == 1,
+            "oneSharedSurface": panel.contentView is WallpaperPanelSurface && descendants(panel.contentView!, NSGlassEffectView.self).count == 1,
             "clearWindow": !panel.isOpaque && panel.backgroundColor == .clear,
             "fieldWidth": abs((field.superview?.bounds.width ?? 0) - ((panel.contentView?.bounds.width ?? 0) - 48)) <= 0.5,
             "fieldHeight": field.superview?.bounds.height == 40
@@ -189,7 +189,7 @@ import AppKit
         post("\u{1b}", keyCode: 53, in: panel)
         try await wait("API-key cancel did not settle") { host.attachedSheet == nil && !panel.isVisible && host.isKeyWindow }
         checks["native-typed-api-key-cancel-does-not-save-or-trigger-search"] = view.service.apiKey == "original-key"
-            && view.service.resets == 0 && view.service.clears == 0 && view.searches == 0 && view.refreshes == 0
+            && view.service.keySubmissions.isEmpty && view.service.clears == 0 && view.refreshes == 0
 
         action.performClick(nil)
         try await wait("second original API-key dialog did not attach") { host.attachedSheet?.isKeyWindow == true }
@@ -201,7 +201,7 @@ import AppKit
         post("\r", keyCode: 36, in: savePanel)
         try await wait("native Return did not settle the original API-key response") { host.attachedSheet == nil && !savePanel.isVisible }
         checks["native-input-Return-saves-trimmed-api-key-and-refreshes-once"] = view.service.apiKey == "committed-fixture-key"
-            && view.service.resets == 1 && view.service.clears == 0 && view.searches == 1 && view.refreshes == 1
+            && view.service.keySubmissions == ["committed-fixture-key"] && view.service.clears == 0 && view.refreshes == 1
         print(String(data: try JSONSerialization.data(withJSONObject: checks, options: [.sortedKeys]), encoding: .utf8)!)
     }
 }

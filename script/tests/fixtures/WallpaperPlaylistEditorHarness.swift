@@ -182,7 +182,7 @@ extension WallpaperPlaylistEditorController {
             && !WallpaperLibrarySheetPresentation.permitsInput(in: sibling) && !WallpaperLibrarySheetPresentation.permitsInput(in: host)
         sibling.close(); host.removeChildWindow(sibling)
         checks["editor-is-the-real-key-native-sheet-with-original-native-controls"] = panel.delegate === draft && panel.sheetParent === host && panel.isSheet
-            && panel.contentView is WallpaperLibrarySheetSurface && name(panel).isEditable && description(panel).isEditable
+            && panel.contentView is WallpaperPanelSurface && name(panel).isEditable && description(panel).isEditable
         let buttons = descendants(panel.contentView!, NSButton.self)
         checks["native-capsules-preserve-default-cancel-and-control-labels"] = ["完成", "取消", "选择封面…", "恢复自动封面"].allSatisfy { title in
             buttons.contains { $0.title == title && $0.bezelStyle == .glass && $0.controlSize == .large && $0.borderShape == .capsule && $0.isBordered }
@@ -206,7 +206,7 @@ extension WallpaperPlaylistEditorController {
             && descriptionScroll.frame.height == 60 && descriptionScroll.borderType == .noBorder
             && descriptionScroll.superview is WallpaperFormFieldSurface && !descriptionScroll.drawsBackground && !descriptionView.drawsBackground
             && descriptionView.textContainer?.widthTracksTextView == true
-        let body = panel.contentView!.subviews.compactMap { $0 as? NSStackView }.first!
+        let body = (panel.contentView as! WallpaperPanelSurface).bodyView.subviews.compactMap { $0 as? NSStackView }.first!
         let rootBounds = panel.contentView!.bounds
         checks["editor-body-and-action-controls-fit-its-real-panel"] = body.fittingSize.height <= rootBounds.height - 31
             && [name(panel) as NSView, descriptionView.enclosingScrollView!, preview(panel), button(panel, "完成"), button(panel, "取消"),
@@ -488,7 +488,7 @@ extension WallpaperPlaylistEditorController {
             && saved.count == savedBeforeConflict && conflictPanel.isVisible && name(conflictPanel).stringValue == "旧草稿"
             && descendants(conflictPanel.contentView!, NSTextField.self).contains { !$0.isHidden && $0.textColor == .systemRed && !$0.stringValue.isEmpty }
         conflictPanel.contentView?.layoutSubtreeIfNeeded()
-        let conflictBody = conflictPanel.contentView!.subviews.compactMap { $0 as? NSStackView }.first!
+        let conflictBody = (conflictPanel.contentView as! WallpaperPanelSurface).bodyView.subviews.compactMap { $0 as? NSStackView }.first!
         checks["visible-metadata-error-keeps-save-cancel-and-draft-fields-within-native-panel"] = conflictBody.fittingSize.height <= conflictPanel.contentView!.bounds.height - 31
             && [name(conflictPanel) as NSView, description(conflictPanel).enclosingScrollView!, button(conflictPanel, "完成"), button(conflictPanel, "取消")].allSatisfy {
                 conflictPanel.contentView!.bounds.contains($0.convert($0.bounds, to: conflictPanel.contentView))

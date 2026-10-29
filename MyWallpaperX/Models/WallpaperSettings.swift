@@ -50,6 +50,7 @@ public struct WallpaperSettings: Codable, Equatable {
     var sortAscending: Bool = true // 排序方向：true=升序，false=降序
     var libraryBackgroundStyle: LibraryBackgroundStyle = .listCoverTint
     var libraryCardClickAction: LibraryCardClickAction = .selectOnly
+    var screenSaver = ScreenSaverPreferences()
 
     init() {}
 
@@ -100,6 +101,7 @@ public struct WallpaperSettings: Codable, Equatable {
             .flatMap(LibraryBackgroundStyle.init(rawValue:)) ?? defaults.libraryBackgroundStyle
         libraryCardClickAction = (try? container.decode(String.self, forKey: .libraryCardClickAction))
             .flatMap(LibraryCardClickAction.init(rawValue:)) ?? defaults.libraryCardClickAction
+        screenSaver = try container.decodeIfPresent(ScreenSaverPreferences.self, forKey: .screenSaver) ?? defaults.screenSaver
     }
 
     enum CodingKeys: String, CodingKey {
@@ -144,6 +146,7 @@ public struct WallpaperSettings: Codable, Equatable {
         case sortAscending
         case libraryBackgroundStyle
         case libraryCardClickAction
+        case screenSaver
     }
 }
 

@@ -32,7 +32,7 @@ final class PlaybackPolicyController: NSObject {
         }
     }
 
-    enum Interruption: Hashable { case screenLock, systemSleep, displaySleep }
+    enum Interruption: Hashable { case screenLock, screenSaver, systemSleep, displaySleep }
     private var interruptions: Set<Interruption> = []
     private var settings: Settings?
     private var refreshWork: DispatchWorkItem?

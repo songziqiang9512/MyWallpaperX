@@ -5,7 +5,7 @@ import AppKit
 @MainActor final class WallpaperLibraryArtworkProvider {
     typealias Cancellation = () -> Void
     typealias Loader = (WallpaperContentItem, @escaping (NSImage?) -> Void) -> Cancellation
-    private struct Identity: Equatable {
+    struct Identity: Equatable {
         let reference: WallpaperReference
         let assets: [Data]
         init(_ content: WallpaperContentItem) {
@@ -46,9 +46,13 @@ import AppKit
     isolated deinit { for cover in covers.values { cover.cancel() } }
 
     convenience init(manager: WallpaperManager, images: SILService, steam: SteamWorkshopService, pixabay: PixabayService) {
+        self.init(loader: Self.liveLoader(manager: manager, images: images, steam: steam, pixabay: pixabay))
+    }
+
+    static func liveLoader(manager: WallpaperManager, images: SILService, steam: SteamWorkshopService, pixabay: PixabayService) -> Loader {
         let videos = AppKitThumbnailProvider(wallpaperManager: manager)
         let stills = SILThumbnailProvider()
-        self.init { content, completion in
+        return { content, completion in
             let reference = content.providerReference
             func matches(_ id: String) -> Bool { id.utf8.elementsEqual(reference.sourceID.utf8) }
             guard content.publishedAvailability == .available else { completion(nil); return {} }

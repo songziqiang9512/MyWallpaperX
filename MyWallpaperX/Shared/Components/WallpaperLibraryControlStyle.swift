@@ -55,3 +55,37 @@ import AppKit
         button.isBordered = true
     }
 }
+
+@MainActor final class WallpaperPanelCloseButton: NSButton {
+    var showsBackground = true { didSet { refreshAppearance() } }
+
+    override init(frame frameRect: NSRect) {
+        super.init(frame: frameRect)
+        isBordered = false
+        bezelStyle = .regularSquare
+        wantsLayer = true
+        layer?.cornerRadius = 10
+        translatesAutoresizingMaskIntoConstraints = false
+        NSLayoutConstraint.activate([
+            widthAnchor.constraint(equalToConstant: 32), heightAnchor.constraint(equalToConstant: 18)
+        ])
+        refreshAppearance()
+    }
+
+    required init?(coder: NSCoder) { nil }
+
+    override func viewDidChangeEffectiveAppearance() {
+        super.viewDidChangeEffectiveAppearance()
+        refreshAppearance()
+    }
+
+    private func refreshAppearance() {
+        let dark = effectiveAppearance.bestMatch(from: [.darkAqua, .aqua]) == .darkAqua
+        contentTintColor = .labelColor
+        layer?.backgroundColor = (showsBackground
+            ? (dark ? NSColor.white.withAlphaComponent(0.16) : NSColor.black.withAlphaComponent(0.05)) : .clear).cgColor
+        layer?.borderColor = (showsBackground
+            ? (dark ? NSColor.white.withAlphaComponent(0.20) : NSColor.black.withAlphaComponent(0.07)) : .clear).cgColor
+        layer?.borderWidth = showsBackground ? 0.5 : 0
+    }
+}

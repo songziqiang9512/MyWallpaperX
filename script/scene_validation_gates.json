@@ -5422,7 +5422,8 @@
         "test_scene_native_property_list",
         "test_steam_login_modal",
         "test_wallpaper_form_fields",
-        "test_steam_login_layout"
+        "test_steam_login_layout",
+        "test_steam_property_window"
       ]
     },
     {
@@ -5431,7 +5432,8 @@
         "MyWallpaperX/Modules/VideoLibrary/Core/WallpaperManager+CachePipeline.swift",
         "MyWallpaperX/Modules/VideoLibrary/Core/WallpaperManager+StaticFramePipeline.swift",
         "script/tests/fixtures/VideoThumbnailGeneratorChecks.swift",
-        "script/tests/fixtures/VideoStaticFramePipelineChecks.swift"
+        "script/tests/fixtures/VideoStaticFramePipelineChecks.swift",
+        "MyWallpaperX/Shared/VideoStillFrame.swift"
       ],
       "modules": [
         "test_video_thumbnail_prefetch",
@@ -5589,6 +5591,26 @@
         "test_wallpaper_library_sidebar",
         "test_wallpaper_playlist_editor",
         "test_wallpaper_playlist_picker"
+      ]
+    },
+    {
+      "id": "system-screen-saver",
+      "patterns": [
+        "ScreenSaverSources/**",
+        "MyWallpaperX/Core/System/ScreenSaver*.swift",
+        "MyWallpaperX/App/ScreenSaver*.swift",
+        "MyWallpaperX/Models/ScreenSaverPreferences.swift",
+        "MyWallpaperX/Shared/VideoStillFrame.swift",
+        "script/generate_screen_saver_thumbnails.swift",
+        "script/tests/test_screen_saver_integration.py",
+        "script/tests/fixtures/ScreenSaver*.swift"
+      ],
+      "modules": [
+        "test_screen_saver_integration",
+        "test_wallpaper_playlist_picker",
+        "test_personal_settings_import",
+        "test_playback_policy_delivery",
+        "test_apple_silicon_release_contract"
       ]
     }
   ],

@@ -919,7 +919,7 @@ import Combine
     private func showPicker(for id: UUID) {
         guard permitsInput, commands.canOrganize, picker == nil else { return }
         let picker = WallpaperPlaylistPickerController(workspace: workspace, manager: manager, images: images, steam: steam,
-            pixabay: pixabay, target: id, hostWindow: { [weak self] in self?.split.view.window })
+            pixabay: pixabay, destination: .playlist(id), hostWindow: { [weak self] in self?.split.view.window })
         self.picker = picker
         picker.onClose = { [weak self] in self?.picker = nil }
         inspector.closePreview()

@@ -35,6 +35,16 @@ class WallpaperLibraryCommandTransactionsTests(unittest.TestCase):
         factory = '\n'.join(declaration(commands, signature) for signature in (
             '    func makePrimaryAction(', '    func makeApplyAction(', '    func stop(', '    func playDisplayed('))
         fixture = (ROOT / 'script/tests/fixtures/WallpaperLibraryCommandTransactionsHarness.swift').read_text()
+        # The unrelated published-state UI leaf does no I/O in removal tests;
+        # actual publication/leases have their own production integration gate.
+        fixture += """
+@MainActor final class ScreenSaverIntegration {
+    static let shared = ScreenSaverIntegration()
+    struct Content { let sourceIdentity: String? }
+    struct Configuration { let content: Content? }
+    var configuration: Configuration?
+}
+"""
         fixture = fixture.replace('// ACTUAL_PRIMARY_FACTORY', factory)
         fixture = fixture.replace('// ACTUAL_PLAYLIST_MENU', declaration(commands, '    func makePlaylistMenu('))
         fixture = fixture.replace('// ACTUAL_FAVORITE_STATE', declaration(commands, 'nonisolated struct WallpaperLibraryFavoriteActionState'))

@@ -14,6 +14,22 @@ from web_wallpaper_benchmark import load_sample_matrix
 
 
 class CIReleaseRoutingTests(unittest.TestCase):
+    def test_screen_saver_sources_require_a_build(self):
+        registry = verify.load_registry()
+        paths = ['ScreenSaverSources/MyWallpaperXScreenSaverView.swift', 'ScreenSaverSources/Info.plist']
+        for phase in ('checkpoint', 'integration'):
+            for path in paths:
+                with self.subTest(phase=phase, path=path):
+                    args = SimpleNamespace(base='HEAD', phase=phase, test_scope='changed', ci=True,
+                                           sample_id=[], matrix_tier=None, skip_runtime=False,
+                                           app=Path('/usr/bin/true'), sample_root=None, output_dir=None)
+                    gates, _ = verify.build_plan([path], args, registry)
+                    self.assertIn('build-verify', [gate.gate_id for gate in gates])
+        source = paths[0]
+        report = verify.product_test_mapping([source], registry, ['test_screen_saver_integration'])
+        self.assertEqual(report['product_paths'], [source])
+        self.assertEqual(report['mapped_paths'], [source])
+
     def test_changed_fixture_selects_its_executable_consumer(self):
         registry = verify.load_registry()
         cases = {
@@ -66,7 +82,7 @@ class CIReleaseRoutingTests(unittest.TestCase):
         modules = [p.stem for p in (ROOT / 'script/tests').glob('test_*.py')]
         selected = runner.discover_modules(modules, scope='release')
         for module in ['test_steam_helper_signing', 'test_release_diagnostic_isolation',
-                       'test_ci_release_routing']:
+                       'test_ci_release_routing', 'test_screen_saver_integration']:
             self.assertIn('script.tests.' + module, selected)
 
     def test_project_changes_include_release_core_before_publication(self):

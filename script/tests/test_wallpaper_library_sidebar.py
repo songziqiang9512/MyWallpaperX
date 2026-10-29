@@ -9,7 +9,6 @@ import unittest
 
 from script.tests.native_app_harness import prepare_native_app, run_native_app
 from script.tests.test_video_thumbnail_prefetch import SWIFT_ISOLATION_FLAGS
-from script.tests.test_ui_library_algorithms import declaration
 
 ROOT = Path(__file__).resolve().parents[2]
 
@@ -35,8 +34,7 @@ class WallpaperLibrarySidebarTests(unittest.TestCase):
                  "MyWallpaperX/Shell/WallpaperPlaylistEditorController.swift",
                  "MyWallpaperX/Shell/PlaylistOrganizationActions.swift", "MyWallpaperX/Shell/WallpaperLibrarySidebarController.swift",
                  "script/tests/fixtures/NativeAppHarness.swift", "script/tests/fixtures/WallpaperLibrarySidebarHarness.swift"]
-        palette = "MyWallpaperX/Shared/UI/InspectorHostViewController.swift"
-        observed = paths + [palette, str(Path(__file__).relative_to(ROOT)), "script/tests/test_ui_library_algorithms.py"]
+        observed = paths + [ str(Path(__file__).relative_to(ROOT)), "script/tests/test_ui_library_algorithms.py"]
         identities = {p: hashlib.sha256((ROOT / p).read_bytes()).hexdigest() for p in observed}
         with tempfile.TemporaryDirectory(prefix="mwx-library-sidebar-", dir="/private/tmp") as folder:
             work = Path(folder)
@@ -59,9 +57,6 @@ class WallpaperLibrarySidebarTests(unittest.TestCase):
                         "purpose": "observe production willBegin native session; original body and delegate retained",
                     }
                 sources.append(str(target))
-            palette_source = work / "InspectorGlassPalette.swift"
-            palette_source.write_text("import AppKit\n" + declaration((ROOT / palette).read_text(), "enum InspectorGlassPalette"))
-            sources.append(str(palette_source))
             binary = prepare_native_app(work, "WallpaperLibrarySidebar")
             build = subprocess.run(["xcrun", "swiftc", *SWIFT_ISOLATION_FLAGS, "-warnings-as-errors", "-parse-as-library",
                 *sources, "-module-cache-path", str(work / "modules"), "-o", str(binary)],

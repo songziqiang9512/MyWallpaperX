@@ -122,14 +122,20 @@ import AppKit
             styleMask: [.titled, .closable], backing: .buffered, defer: false)
         host.isReleasedWhenClosed = false
         MainWindowCoordinator.host = host
+        host.center()
         host.makeKeyAndOrderFront(nil); NSApp.activate()
         defer { host.orderOut(nil); host.close(); MainWindowCoordinator.host = nil }
-        try await wait("main host not key") { host.isKeyWindow && NSApp.isActive }
+        try await wait("main host not key", diagnostic: {
+            let screens = NSScreen.screens.map { "\($0.frame)/\($0.visibleFrame)" }
+            let state = "NativeAlertHost active=\(NSApp.isActive) key=\(String(describing: NSApp.keyWindow)) "
+                + "visible=\(host.isVisible) frame=\(host.frame) screens=\(screens)\n"
+            FileHandle.standardError.write(Data(state.utf8))
+        }) { host.isKeyWindow && NSApp.isActive }
         var checks: [String: Bool] = [:]
         let draft = WallpaperLibraryModalPanel(contentRect: NSRect(x: 0, y: 0, width: 360, height: 400),
             styleMask: [.borderless], backing: .buffered, defer: false)
         draft.isReleasedWhenClosed = false
-        draft.contentView = WallpaperLibrarySheetSurface()
+        draft.contentView = WallpaperPanelSurface()
         precondition(WallpaperLibrarySheetPresentation.present(draft, in: host))
         try await wait("real draft sheet not key") { draft.isKeyWindow }
         var draftResponses: [NSApplication.ModalResponse] = []

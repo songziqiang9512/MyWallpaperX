@@ -80,7 +80,7 @@ Agent 按以下顺序执行：
 ### 版本一致性
 
 项目中的 `MARKETING_VERSION` 与 `CURRENT_PROJECT_VERSION` 是版本号和构建号的唯一来源，
-App/Daemon、Debug/Release 必须一致。准备版本时先读取公开的 `update-feed/appcast.xml`，
+App/Daemon/内嵌屏保组件、Debug/Release 必须一致。准备版本时先读取公开的 `update-feed/appcast.xml`，
 同版且构建号高于线上时沿用，重复准备不递增；新版本取 `max(项目构建号, 已发布构建号) + 1`。
 已准备构建号不高于线上即停止。无变化时复用提交；CI 不另算构建号。
 
@@ -97,10 +97,11 @@ App/Daemon、Debug/Release 必须一致。准备版本时先读取公开的 `upd
 
 1. 检查输入版本、正式日志、重复/倒退版本及已有 Release 草稿。
 2. 准备锁定的 Python/NuGet 依赖，运行 `--scope release` 的安装包与核心链路检查；首次失败立即打印详情并取消未开始的模块。检查代码健康，再构建 arm64 Release。
-3. 检查 bundle，逐层签署 SteamService、Scene 工具、WallpaperDaemon、Sparkle、主 App；
+3. 检查 bundle，逐层签署 SteamService、Scene 工具、WallpaperDaemon、视频屏保组件、Sparkle、主 App；
    校验全包同 Team 的 Developer ID、runtime、时间戳，App Apple Events、Steam JIT，以及 逐项匹配 Sparkle 2.9.2 原包权限；禁止注入 sandbox/JIT/调试权限（[上游合同](https://sparkle-project.org/documentation/sandboxing/)）。
+   `.saver`仅含视频播放和自身许可证，不携带Scene/Web或shader工具、stock/font等退役资源；其entitlement不能提升Apple宿主权限。
 4. 公证并 staple App，使用保留符号链接的 `ditto` 装入 DMG；签署、公证、staple 并校验 DMG。
-5. 生成含 EdDSA 签名与日志的 appcast；合包 App/WallpaperDaemon dSYM，计算 DMG SHA-256。
+5. 生成含 EdDSA 签名与日志的 appcast；合包 App/WallpaperDaemon/屏保组件 dSYM，计算 DMG SHA-256。
 6. 保存 Actions artifacts；将 DMG、SHA-256、dSYM 和 appcast 上传到 Release 草稿，上传完成后
    发布为正式 Latest。公开版本不使用 `--clobber` 覆盖安装包。
 7. 正式 Release 可下载后，才替换 `update-feed/appcast.xml`。已安装版本每天检查一次，也可以手动

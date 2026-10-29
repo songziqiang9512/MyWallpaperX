@@ -8,13 +8,15 @@ import json
 import plistlib
 import re
 import stat
+import struct
 import subprocess
 from pathlib import Path
 
 
-OWN_TARGETS = ("MyWallpaperX", "MyWallpaperXWallpaperDaemon")
+OWN_TARGETS = ("MyWallpaperX", "MyWallpaperXWallpaperDaemon", "MyWallpaperXScreenSaver")
 CONFIGURATIONS = ("Debug", "Release")
 MINIMUM_MACOS = "26.0"
+SCREEN_SAVER_BUNDLE = Path("Contents/PlugIns/MyWallpaperX.saver")
 REQUIRED_BUNDLE_EXECUTABLES = (
     Path("Contents/MacOS/MyWallpaperX"),
     Path("Contents/Helpers/MyWallpaperXWallpaperDaemon"),
@@ -22,6 +24,7 @@ REQUIRED_BUNDLE_EXECUTABLES = (
     Path("Contents/Helpers/spirv-cross"),
     Path("Contents/Resources/SteamService/SteamService"),
     Path("Contents/Resources/SceneMediaObserver/SceneMediaObserver.dylib"),
+    SCREEN_SAVER_BUNDLE / "Contents/MacOS/MyWallpaperX",
 )
 THIRD_PARTY_HELPERS = {
     Path("Contents/Helpers/glslang"),
@@ -96,7 +99,7 @@ def validate_project(project: Path) -> None:
                     f"{target} {configuration} deployment target must be {MINIMUM_MACOS}; "
                     f"got {deployment or 'missing'}"
                 )
-    print("Effective settings: App and WallpaperDaemon Debug/Release = arm64, macOS 26.0")
+    print("Effective settings: App, WallpaperDaemon and ScreenSaver Debug/Release = arm64, macOS 26.0")
 
 
 def executable_candidates(app: Path) -> list[Path]:
@@ -145,6 +148,7 @@ def validate_bundle(app: Path) -> None:
 
     validate_resource_hygiene(app)
     validate_steam_helper(app / "Contents/Resources/SteamService")
+    validate_screen_saver(app)
 
     mach_o_count = 0
     third_party_count = 0
@@ -193,14 +197,16 @@ def validate_bundle(app: Path) -> None:
     )
 
 
-def validate_resource_hygiene(app: Path) -> None:
+def validate_resource_hygiene(app: Path, *, include_quickjs: bool = True) -> None:
     resources = app / "Contents/Resources"
     source_root = Path(__file__).resolve().parents[1]
-    for name, source_name in (
+    license_sources = [
         ("LICENSE", "LICENSE"),
         ("NOTICE.md", "NOTICE.md"),
-        ("QuickJSNG/LICENSE", "MyWallpaperX/Core/SteamWorkshopScene/Systems/Script/QuickJSNG/LICENSE"),
-    ):
+    ]
+    if include_quickjs:
+        license_sources.append(("QuickJSNG/LICENSE", "MyWallpaperX/Core/SteamWorkshopScene/Systems/Script/QuickJSNG/LICENSE"))
+    for name, source_name in license_sources:
         bundled = resources / name
         source = source_root / source_name
         if not bundled.is_file() or bundled.read_bytes() != source.read_bytes():
@@ -214,6 +220,51 @@ def validate_resource_hygiene(app: Path) -> None:
     for name in ("en", "zh-Hans", "README.md"):
         if (resources / name).exists():
             raise RuntimeError(f"Unexpected root resource: {name}")
+
+
+def validate_screen_saver(app: Path) -> None:
+    saver = app / SCREEN_SAVER_BUNDLE
+    try:
+        info = plistlib.loads((saver / "Contents/Info.plist").read_bytes())
+        app_info = plistlib.loads((app / "Contents/Info.plist").read_bytes())
+    except (OSError, ValueError, plistlib.InvalidFileException) as error:
+        raise RuntimeError("ScreenSaver or App bundle metadata is missing or invalid") from error
+    expected = {
+        "CFBundleIdentifier": "com.songziqiang.MyWallpaperX.ScreenSaver",
+        "CFBundleExecutable": "MyWallpaperX",
+        "CFBundlePackageType": "BNDL",
+        "NSPrincipalClass": "MyWallpaperXScreenSaverView",
+        "LSMinimumSystemVersion": MINIMUM_MACOS,
+    }
+    if not isinstance(info, dict) or not isinstance(app_info, dict):
+        raise RuntimeError("ScreenSaver or App bundle metadata must be a dictionary")
+    for key, value in expected.items():
+        if info.get(key) != value:
+            raise RuntimeError(f"Unexpected ScreenSaver metadata: {key} -> {info.get(key)!r}")
+    for key in ("CFBundleShortVersionString", "CFBundleVersion"):
+        if not isinstance(app_info.get(key), str) or not app_info[key] or info.get(key) != app_info[key]:
+            raise RuntimeError(f"ScreenSaver version differs from App: {key}")
+
+    # Video-only modules have no nested tools or engine assets. Reject stale
+    # build output before traversing a retired stock/font corpus.
+    helpers = saver / "Contents/Helpers"
+    if helpers.exists() or helpers.is_symlink():
+        raise RuntimeError("Unexpected Video-only ScreenSaver content: Contents/Helpers")
+    resources = saver / "Contents/Resources"
+    if resources.is_dir():
+        for path in resources.iterdir():
+            if path.name not in {"LICENSE", "NOTICE.md", "thumbnail.png", "thumbnail@2x.png"}:
+                raise RuntimeError(f"Unexpected Video-only ScreenSaver resource: {path.name}")
+    for name, dimensions in (("thumbnail.png", (90, 58)), ("thumbnail@2x.png", (180, 116))):
+        try:
+            with (resources / name).open("rb") as image:
+                header = image.read(24)
+            valid = header[:8] == b"\x89PNG\r\n\x1a\n" and struct.unpack(">II", header[16:24]) == dimensions
+        except (OSError, struct.error):
+            valid = False
+        if not valid:
+            raise RuntimeError(f"Missing or invalid ScreenSaver thumbnail: {name}")
+    validate_resource_hygiene(saver, include_quickjs=False)
 
 
 def validate_steam_helper(helper: Path) -> None:
@@ -297,6 +348,9 @@ def validate_codesign(app: Path, expected_team_id: str | None = None) -> None:
             raise RuntimeError(f"Required signed entitlement is missing: {path} -> {key}")
         if entitlements.get("com.apple.security.get-task-allow") is True:
             raise RuntimeError(f"Development debugging entitlement in release: {path}")
+    saver = app / SCREEN_SAVER_BUNDLE
+    if signed_entitlements(saver) != {}:
+        raise RuntimeError("Unexpected ScreenSaver signed entitlements; its Apple host owns permissions")
     sparkle = app / "Contents/Frameworks/Sparkle.framework/Versions/B"
     try:
         metadata = plistlib.loads((sparkle / "Resources/Info.plist").read_bytes())
@@ -308,7 +362,7 @@ def validate_codesign(app: Path, expected_team_id: str | None = None) -> None:
         path = sparkle / relative
         if signed_entitlements(path) != expected:
             raise RuntimeError(f"Unexpected Sparkle signed entitlements: {path}")
-    print("Signed permissions: Apple Events, Steam JIT and stock Sparkle helpers verified")
+    print("Signed permissions: Apple Events, Steam JIT, ScreenSaver and stock Sparkle helpers verified")
 
 
 def main() -> int:

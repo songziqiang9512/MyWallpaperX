@@ -21,6 +21,7 @@ struct AppSettingsActions {
     var startAutoSwitchTimer: () -> Void = {}
     var stopAutoSwitchTimer: () -> Void = {}
     var updateLoginItemStatus: () -> Void = {}
+    var openScreenSaverSettings: () -> Void = {}
     var updateVolume: (_ volume: Double) -> Void = { _ in }
 }
 

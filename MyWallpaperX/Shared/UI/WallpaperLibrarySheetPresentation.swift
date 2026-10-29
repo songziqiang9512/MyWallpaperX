@@ -80,43 +80,44 @@ import AppKit
     }
 }
 
-/// Native glass shared by library and source sheets. No image
-/// observation, thumbnail demand, color sampling or transition lives here.
-@MainActor class WallpaperLibrarySheetSurface: NSView {
-    private let glass = NSGlassEffectView()
+/// Native glass owns the shape; the presenting owner controls window transparency and shadow.
+@MainActor class WallpaperPanelSurface: NSGlassEffectView {
+    let bodyView = NSView()
 
     override init(frame frameRect: NSRect) {
         super.init(frame: frameRect)
-        wantsLayer = true
-        layer?.cornerRadius = 20
-        layer?.masksToBounds = true
-        layer?.borderWidth = 1
-        glass.style = .regular
-        glass.cornerRadius = 20
-        glass.translatesAutoresizingMaskIntoConstraints = false
-        addSubview(glass)
-        NSLayoutConstraint.activate([
-            glass.leadingAnchor.constraint(equalTo: leadingAnchor), glass.trailingAnchor.constraint(equalTo: trailingAnchor),
-            glass.topAnchor.constraint(equalTo: topAnchor), glass.bottomAnchor.constraint(equalTo: bottomAnchor)
-        ])
+        cornerRadius = 20
+        setup()
+    }
+
+    init(cornerRadius: CGFloat) {
+        super.init(frame: .zero)
+        self.cornerRadius = cornerRadius
+        setup()
+    }
+
+    required init?(coder: NSCoder) { nil }
+
+    private func setup() {
+        style = .regular
+        bodyView.wantsLayer = true
+        contentView = bodyView
         NSWorkspace.shared.notificationCenter.addObserver(self, selector: #selector(refreshMaterial),
             name: NSWorkspace.accessibilityDisplayOptionsDidChangeNotification, object: nil)
         refreshMaterial()
     }
 
-    required init?(coder: NSCoder) { nil }
     override func viewDidChangeEffectiveAppearance() { super.viewDidChangeEffectiveAppearance(); refreshMaterial() }
     override func viewDidMoveToWindow() { super.viewDidMoveToWindow(); refreshMaterial() }
 
     @objc private func refreshMaterial() {
         let opaque = NSWorkspace.shared.accessibilityDisplayShouldReduceTransparency
             || NSWorkspace.shared.accessibilityDisplayShouldIncreaseContrast
-        glass.isHidden = opaque
         effectiveAppearance.performAsCurrentDrawingAppearance {
-            layer?.backgroundColor = opaque ? NSColor.windowBackgroundColor.cgColor : nil
-            layer?.borderColor = NSColor.separatorColor.cgColor
+            let dark = effectiveAppearance.bestMatch(from: [.darkAqua, .aqua]) == .darkAqua
+            tintColor = dark ? .black.withAlphaComponent(0.10) : .controlBackgroundColor.withAlphaComponent(0.15)
+            bodyView.layer?.backgroundColor = (opaque ? NSColor.windowBackgroundColor
+                : (dark ? NSColor.black.withAlphaComponent(0.18) : NSColor.white.withAlphaComponent(0.82))).cgColor
         }
-        window?.isOpaque = false
-        window?.backgroundColor = .clear
     }
 }

@@ -142,6 +142,7 @@ import Foundation
             self.refreshPlaybackAvailability()
             self.playbackChanges.send()
             self.restoration.onCommitted(commit)
+            if commit.shouldRecordRecent { ScreenSaverCoordinator.shared.onDesktopCommitted(commit.reference) }
             guard commit.shouldRecordRecent else { return }
             self.collections?.recordSuccessfulUse(commit.reference,
                 locator: (try? self.content(for: commit.reference))?.locator, sequence: commit.ticket.epoch)

@@ -38,6 +38,7 @@
 
 - [播放进程生命周期与统一切换事务](architecture/playback-lifecycle-transaction-design.md)：三引擎退出、可见确认、取消和退休边界。
 - [状态栏控制面板专项](development/status-bar-panel-redesign.md)：原生封面、播放控制、监控与窗口交接设计及验收。
+- [视频屏保与锁定显示接入设计](development/lock-screen-screensaver-design.md)：macOS 26 公开接口、独立视频组件、轻量部署、UI与分阶段验收。
 - [Wallhaven在线浏览接入](development/wallhaven-online-browser-design.md)：来源接口预检、两图片来源共享的获取/发布合同及Wallhaven实施步骤。
 - [Pixiv在线浏览接入](development/pixiv-online-browser-design.md)：隔离登录会话、排行/搜索/作者、多页图片及共享库接入步骤。
 - [AppKit 迁移](architecture/appkit-migration.md)：当前 SwiftUI 残留和迁移门。

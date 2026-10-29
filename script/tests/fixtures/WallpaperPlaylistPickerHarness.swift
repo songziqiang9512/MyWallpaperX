@@ -116,11 +116,12 @@ extension UserCollectionsStore {
         let workspace = WallpaperLibraryWorkspace(collections), manager = WallpaperManager()
         let images = SILService(), steam = SteamWorkshopService(), pixabay = PixabayService()
         var checks: [String: Bool] = [:]
-        func content(_ provider: WallpaperProvider, _ id: String, _ kind: WallpaperMediaKind) -> WallpaperContentItem {
+        func content(_ provider: WallpaperProvider, _ id: String, _ kind: WallpaperMediaKind,
+                     availability: WallpaperPublishedAvailability = .available) -> WallpaperContentItem {
             let reference = WallpaperReference(provider: provider, sourceID: id)
             return .init(reference: reference, providerReference: reference,
                 locator: .init(path: "/controlled/\(id).media", titleHint: id, mediaKind: kind), title: id, kind: kind,
-                publishedAvailability: .available, capabilities: [.play, .organize, .inspect], metadata: .init(),
+                publishedAvailability: availability, capabilities: [.play, .organize, .inspect], metadata: .init(),
                 acquisition: .idle, update: .idle, aliases: [])
         }
         let values = [content(.videoLibrary, "video-one", .video), content(.videoLibrary, "video-two", .video),
@@ -156,7 +157,7 @@ extension UserCollectionsStore {
         }
         func open(_ id: UUID) async throws -> (WallpaperPlaylistPickerController, NSWindow, WallpaperLibraryGridController) {
             let picker = WallpaperPlaylistPickerController(workspace: workspace, manager: manager, images: images,
-                steam: steam, pixabay: pixabay, target: id, hostWindow: { host })
+                steam: steam, pixabay: pixabay, destination: .playlist(id), hostWindow: { host })
             keepAlive.append(picker); picker.show()
             try await wait("Picker did not become the actual native key sheet") {
                 host.attachedSheet?.delegate === picker && app.keyWindow === host.attachedSheet
@@ -165,7 +166,17 @@ extension UserCollectionsStore {
             await settle()
             let collection = descendants(panel.contentView!, NSCollectionView.self).first!
             let grid = collection.delegate as! WallpaperLibraryGridController
-            try await wait("Picker did not publish its real cells") { !grid.items.isEmpty && !collection.visibleItems().isEmpty }
+            do {
+                try await wait("Picker did not publish its real cells") { !grid.items.isEmpty && !collection.visibleItems().isEmpty }
+            } catch {
+                var view: NSView? = collection
+                while let current = view {
+                    let line = "Picker geometry \(type(of: current)) frame=\(current.frame) visible=\(current.visibleRect) hidden=\(current.isHiddenOrHasHiddenAncestor)\n"
+                    FileHandle.standardError.write(Data(line.utf8))
+                    view = current.superview
+                }
+                throw error
+            }
             return (picker, panel, grid)
         }
         func entries(_ menu: NSMenu) -> [NSMenuItem] { menu.items.flatMap { [$0] + ($0.submenu.map(entries) ?? []) } }
@@ -186,9 +197,12 @@ extension UserCollectionsStore {
         }
         func addButton(_ panel: NSWindow) -> NSButton { descendants(panel.contentView!, NSButton.self).first { $0.title.hasPrefix("添加 ") }! }
         func footer(_ panel: NSWindow) -> String { descendants(panel.contentView!, NSTextField.self).first { $0.stringValue.hasPrefix("已选 ") }!.stringValue }
-        func filter(_ picker: WallpaperPlaylistPickerController, _ panel: NSWindow, text: String) async {
+        func filter(_ picker: WallpaperPlaylistPickerController, _ panel: NSWindow, text: String, expectedCount: Int = 1) async throws {
             let search = descendants(panel.contentView!, NSSearchField.self).first!
             search.stringValue = text; picker.controlTextDidChange(.init(name: NSControl.textDidChangeNotification, object: search)); await settle()
+            let collection = descendants(panel.contentView!, NSCollectionView.self).first!
+            let grid = collection.delegate as! WallpaperLibraryGridController
+            try await wait("Picker did not finish its filtered grid update") { grid.items.count == expectedCount }
         }
         func marker(_ cell: NSCollectionViewItem) -> NSView? {
             cell.view.subviews.first { view in descendants(view, NSTextField.self).contains { $0.stringValue == "已在列表" } }
@@ -254,7 +268,7 @@ extension UserCollectionsStore {
             && contentFrames.allSatisfy { panel.contentView!.bounds.contains($0) }
             && abs(search.frame.width - 220) <= 0.5 && source.frame.width + 0.5 >= source.fittingSize.width
             && source.segmentCount == 4 && source.label(forSegment: 3) == "我的下载"
-        checks["picker-uses-detail-material-without-observing-main-tint-and-keeps-native-capsules"] = panel.contentView is WallpaperLibrarySheetSurface
+        checks["picker-uses-detail-material-without-observing-main-tint-and-keeps-native-capsules"] = panel.contentView is WallpaperPanelSurface
             && sharedTint.request?.revision == sourceRevision && tintLoads == 0 && source.segmentStyle == .capsule
             && source.borderShape == .capsule && zoom.borderShape == .capsule
             && descendants(panel.contentView!, NSButton.self).filter { ["取消", "添加 0 项"].contains($0.title) }.allSatisfy {
@@ -324,6 +338,7 @@ extension UserCollectionsStore {
         addButton(panel).performClick(nil); await settle()
         checks["all-existing-add-zero-does-not-write-or-report-a-fake-success"] = collections.snapshot == beforeNoop && workspace.memberEdits.isEmpty
         source.selectedSegment = 2; _ = app.sendAction(source.action!, to: source.target, from: source); await settle()
+        try await wait("Image filter did not finish its native grid transition") { grid.items.count == 2 && grid.items.allSatisfy { $0.kind == .image } }
         tracePicker("after-native-image-filter", panel: panel, grid: grid)
         checks["reused-cells-explicitly-clear-the-former-target-membership-marker"] = grid.items.count == 2
             && grid.selection.references.isEmpty && grid.collection.visibleItems().allSatisfy { marker($0)?.isHidden == true }
@@ -337,7 +352,7 @@ extension UserCollectionsStore {
         checks["picker-close-ends-native-modality-and-restores-background-click-drag-and-key"] = WallpaperModalInputProbe.hasOneDelivery(afterPickerClose, backgroundProbe.values)
 
         let (keyPicker, keyPanel, keyGrid) = try await open(target)
-        await filter(keyPicker, keyPanel, text: "video-one")
+        try await filter(keyPicker, keyPanel, text: "video-one")
         keyPanel.makeFirstResponder(keyGrid.collection); try await key(0, "a", modifiers: .command)
         let spaceSelection = keyGrid.selection, hostSelection = hostController.libraryCommands.selection.map(\.reference)
         let hostPreviews = hostController.libraryCommands.previews, hostApplies = hostController.libraryCommands.applies
@@ -373,14 +388,14 @@ extension UserCollectionsStore {
             && aliasGrid.selection.focusedReference == values[2].reference && aliasGrid.selection.references.isEmpty
             && aliasGrid.items.count == 7
         // The canonical title is image-one, so the old search no longer matches.
-        await filter(aliasPicker, aliasPanel, text: "image-two")
+        try await filter(aliasPicker, aliasPanel, text: "image-two", expectedCount: 0)
         checks["alias-refresh-canonicalizes-then-clips-focus-that-is-no-longer-visible"] = focusBeforeAlias == values[3].reference
             && aliasGrid.items.isEmpty && aliasGrid.selection.focusedReference == nil && aliasGrid.selection.references.isEmpty
         aliasPicker.close(); host.makeKeyAndOrderFront(nil); await settle()
 
         let lateTarget = try await collections.createPlaylist(name: "FIFO canonical")
         let (latePicker, latePanel, lateGrid) = try await open(lateTarget)
-        await filter(latePicker, latePanel, text: "video-two")
+        try await filter(latePicker, latePanel, text: "video-two")
         latePanel.makeFirstResponder(lateGrid.collection); try await key(0, "a", modifiers: .command)
         let release = try await holdStore()
         let linkSubmission = PickerSubmissionFlag()
@@ -399,7 +414,7 @@ extension UserCollectionsStore {
         let failedTarget = try await collections.createPlaylist(name: "Closed failure")
         host.makeKeyAndOrderFront(nil); await settle()
         let (failedPicker, failedPanel, failedGrid) = try await open(failedTarget)
-        await filter(failedPicker, failedPanel, text: "image-one")
+        try await filter(failedPicker, failedPanel, text: "image-one")
         failedPanel.makeFirstResponder(failedGrid.collection); try await key(0, "a", modifiers: .command)
         let failureRelease = try await holdStore()
         let deleteSubmission = PickerSubmissionFlag()
@@ -421,6 +436,59 @@ extension UserCollectionsStore {
         checks["picker-never-claims-provider-playback-or-inspector-actions"] = manager.playbackSwitch.committed?.ticket == externalTicket
             && manager.libraryPlaybackSequence.committed?.ticket == externalTicket && hostController.libraryCommands.applies == 0
             && hostController.libraryCommands.infos == 0 && workspace.presentation.errors.isEmpty
+        host.makeKeyAndOrderFront(nil); await settle()
+        let settings = WallpaperLibraryModalPanel(contentRect: NSRect(x: 0, y: 0, width: 520, height: 700),
+            styleMask: [.borderless], backing: .buffered, defer: false)
+        settings.isReleasedWhenClosed = false; settings.contentView = WallpaperPanelSurface()
+        precondition(WallpaperLibrarySheetPresentation.present(settings, in: host))
+        try await wait("Video settings sheet did not become key") { settings.isKeyWindow }
+        let beforeVideoSelection = collections.snapshot
+        var chosenVideos: [WallpaperReference] = []
+        var videoCatalog = catalog
+        videoCatalog.revision += 1
+        videoCatalog.downloads += [content(.steamWorkshop, "missing-video", .video, availability: .unavailable),
+                                   content(.steamWorkshop, "remote-video", .video, availability: .remote)]
+        workspace.publish(videoCatalog)
+        func openVideo() async throws -> (WallpaperPlaylistPickerController, NSWindow, WallpaperLibraryGridController) {
+            let picker = WallpaperPlaylistPickerController(workspace: workspace, manager: manager, images: images,
+                steam: steam, pixabay: pixabay, destination: .video(initial: values[6].reference, accept: { chosenVideos.append($0.reference) }),
+                hostWindow: { settings })
+            keepAlive.append(picker); picker.show()
+            try await wait("Shared video picker did not become the nested key sheet") { settings.attachedSheet?.isKeyWindow == true }
+            let panel = settings.attachedSheet!
+            await settle()
+            let collection = descendants(panel.contentView!, NSCollectionView.self).first!
+            return (picker, panel, collection.delegate as! WallpaperLibraryGridController)
+        }
+        let (videoPicker, videoPanel, videoGrid) = try await openVideo()
+        let videoSource = descendants(videoPanel.contentView!, NSSegmentedControl.self).first { !($0 is WallpaperLibraryZoomControl) }!
+        checks["video-purpose-reuses-native-grid-and-only-available-local-videos"] = Set(videoGrid.items.map(\.reference))
+            == Set([values[0], values[1], values[6], values[7]].map(\.reference))
+            && videoSource.segmentCount == 3 && videoSource.label(forSegment: 2) == "我的下载"
+            && videoPanel.contentView is WallpaperPanelSurface && !videoGrid.collection.allowsMultipleSelection
+            && videoGrid.selection.references == [values[6].reference]
+        videoPanel.makeFirstResponder(videoGrid.collection)
+        try await key(124, String(UnicodeScalar(NSRightArrowFunctionKey)!))
+        try await key(0, "a", modifiers: .command)
+        try await key(49, " ")
+        checks["video-picker-keeps-one-selection-and-never-plays-the-host"] = videoGrid.selection.references.count == 1
+            && hostController.libraryCommands.previews == 0 && hostController.libraryCommands.applies == 0
+            && manager.playbackSwitch.committed?.ticket == externalTicket
+        let acceptedVideo = videoGrid.selection.references.first!
+        try await key(36, "\r")
+        checks["video-return-returns-one-value-without-writing-playlist-or-publishing"] = chosenVideos == [acceptedVideo]
+            && !videoPanel.isVisible && collections.snapshot == beforeVideoSelection && settings.isKeyWindow
+            && !videoPicker.canFocusSearch
+        let (cancelledVideoPicker, cancelledVideoPanel, cancelledVideoGrid) = try await openVideo()
+        try await filter(cancelledVideoPicker, cancelledVideoPanel, text: "no-match", expectedCount: 0)
+        let videoAccept = descendants(cancelledVideoPanel.contentView!, NSButton.self).first { $0.title == "选择视频" }!
+        checks["video-picker-empty-search-disables-confirm"] = cancelledVideoGrid.items.isEmpty && !videoAccept.isEnabled
+        cancelledVideoPanel.makeFirstResponder(cancelledVideoGrid.collection)
+        try await key(53, "\u{1b}")
+        checks["video-picker-cancel-keeps-draft-and-releases-demand"] = chosenVideos == [acceptedVideo]
+            && collections.snapshot == beforeVideoSelection && !cancelledVideoPanel.isVisible
+            && workspace.catalog.leases.values.allSatisfy(\.isEmpty)
+        settings.close(); host.makeKeyAndOrderFront(nil); await settle()
         let hostClosingTarget = try await collections.createPlaylist(name: "Host lifecycle")
         host.makeKeyAndOrderFront(nil); await settle()
         let (hostClosingPicker, hostClosingPanel, _) = try await open(hostClosingTarget)

@@ -110,6 +110,8 @@ Video、Web、Scene 采用一致的控制面/播放面隔离：主 App 管用户
 
 产品切换事务由 WallpaperManager 的唯一意图权威持有；引擎只报告身份化准备/可交接事实并执行授权的激活、回滚和退休。正常退出等待三类型精确播放进程的实际退出，父死亡兜底独立于子主循环；Web/Video窗口可见确认与Scene实际presented保持不同证据等级。迁移职责与旧分支退出见[播放生命周期设计](playback-lifecycle-transaction-design.md)。
 
+系统屏保仅支持Video：App部署视频及同版本静帧并安装组件，macOS拥有窗口、认证和退出；组件用AVFoundation独立循环播放，不编入Scene/Web或依赖主App存活。活动连接只供配套App暂停桌面，不是播放许可。App不提供额外屏保播放器；系统预览、自动屏保与锁定显示按[专项](../development/lock-screen-screensaver-design.md)分别验证，普通全屏窗口不能替代安全锁屏。
+
 ### 3.6 迁移 owner 必须显式路由
 
 每个被通用执行器替代的旧 owner 必须登记以下 route state，不允许从调用顺序猜产品权威：

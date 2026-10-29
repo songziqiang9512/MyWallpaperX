@@ -4,7 +4,7 @@ import CoreImage
 /// Presentation only. Authentication attempts and credentials remain owned by
 /// SteamLoginPanelController and SteamAuthRoute.
 @MainActor
-final class SteamLoginPanelView: WallpaperLibrarySheetSurface, NSTextFieldDelegate {
+final class SteamLoginPanelView: WallpaperPanelSurface, NSTextFieldDelegate {
     enum Page {
         case qr, password, guardInput(GuardKind), completed
         enum GuardKind {
@@ -57,7 +57,7 @@ final class SteamLoginPanelView: WallpaperLibrarySheetSurface, NSTextFieldDelega
     private func setup() {
         configureStack(content, spacing: 12)
         content.alignment = .centerX
-        addSubview(content)
+        bodyView.addSubview(content)
         NSLayoutConstraint.activate([
             content.leadingAnchor.constraint(equalTo: leadingAnchor, constant: 24),
             content.trailingAnchor.constraint(equalTo: trailingAnchor, constant: -24),
@@ -133,7 +133,7 @@ final class SteamLoginPanelView: WallpaperLibrarySheetSurface, NSTextFieldDelega
         cancelButton.toolTip = "关闭并取消本次登录（Esc）"
         cancelButton.setAccessibilityLabel("关闭登录")
         cancelButton.translatesAutoresizingMaskIntoConstraints = false
-        addSubview(cancelButton)
+        bodyView.addSubview(cancelButton)
         NSLayoutConstraint.activate([
             cancelButton.widthAnchor.constraint(equalToConstant: 32),
             cancelButton.heightAnchor.constraint(equalToConstant: 32),

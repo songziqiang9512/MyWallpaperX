@@ -144,11 +144,15 @@ private final class SettingsContentViewController: NSViewController {
                 return try await coordinator.exportPersonalSettings(to: url)
             },
             importPersonalSettings: { [weak self] url in
+                ScreenSaverCoordinator.shared.cancel()
                 guard let coordinator = self?.personalSettings else { throw PersonalSettingsError.recoveryRequired("设置导入尚未就绪") }
                 return try await coordinator.importPersonalSettings(from: url)
             },
             refreshAutoSwitchTimerIfNeeded: { manager.refreshAutoSwitchTimerIfNeeded() },
-            resetToFreshInstallState: { [weak self] in self?.resetAction?() },
+            resetToFreshInstallState: { [weak self] in
+                ScreenSaverCoordinator.shared.cancel()
+                self?.resetAction?()
+            },
             setLoopPlaybackEnabled: { manager.setLoopPlaybackEnabled($0) },
             setRandomPlaybackEnabled: { manager.setRandomPlaybackEnabled($0) },
             setSequentialPlaybackEnabled: { manager.setSequentialPlaybackEnabled($0) },
@@ -156,6 +160,9 @@ private final class SettingsContentViewController: NSViewController {
             startAutoSwitchTimer: { manager.startAutoSwitchTimer() },
             stopAutoSwitchTimer: { manager.stopAutoSwitchTimer() },
             updateLoginItemStatus: { manager.updateLoginItemStatus() },
+            openScreenSaverSettings: { [weak self] in
+                ScreenSaverWindowController.shared.show(relativeTo: self?.view.window)
+            },
             updateVolume: { manager.updateVolume($0) }
         )
     }()

@@ -87,7 +87,7 @@ import Combine
         checks["original-login-controller-owns-one-key-native-sheet-with-shared-clear-glass"] = panel.sheetParent === host && host.attachedSheet === panel
             && panel.isSheet && !panel.isOpaque && panel.backgroundColor == .clear
             && !panel.isMovable && !panel.isMovableByWindowBackground
-            && descendants(view, NSGlassEffectView.self).count == 1 && panel.contentView is WallpaperLibrarySheetSurface
+            && descendants(view, NSGlassEffectView.self).count == 1 && panel.contentView is WallpaperPanelSurface
         let blockedBefore = probe.values
         try await probe.deliver()
         checks["steam-login-native-sheet-blocks-main-click-drag-and-key-with-system-backdrop"] = nativePositive

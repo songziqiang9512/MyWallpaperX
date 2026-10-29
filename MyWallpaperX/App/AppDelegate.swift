@@ -205,6 +205,7 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSMenuItemValidation {
  pendingInitialWindowOpen?.cancel()
  pendingInitialWindowOpen = nil
  statusBarController = nil
+ ScreenSaverCoordinator.shared.cancel()
  // Revoke accepted async work before a Scene drain enters terminateLater.
  // Engine cleanup alone does not invalidate the selection authority's epoch.
  let epoch = WallpaperManager.shared.beginPlaybackIntent()
@@ -213,6 +214,7 @@ class AppDelegate: NSObject, NSApplicationDelegate, NSMenuItemValidation {
  WallpaperManager.shared.restoreSystemDesktopWallpaperOnTermination()
  WallpaperManager.shared.flushPersistentState()
  WallpaperEngine.shared.cleanup()
+ ScreenSaverActivityMonitor.shared.stop()
  }
 
  /// 工坊整库扫描延后补跑：主窗口激活后让出一轮 runloop（首帧先起），

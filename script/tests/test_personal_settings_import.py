@@ -32,6 +32,7 @@ class PersonalSettingsImportTests(unittest.TestCase):
     def run_profile_harness(self, *arguments):
         sources = [ROOT / 'MyWallpaperX' / path for path in (
             'Models/WallpaperControls.swift', 'Models/WallpaperSettings.swift',
+            'Models/ScreenSaverPreferences.swift',
             'Models/WallpaperReference.swift', 'Models/WallpaperContent.swift', 'Models/WallpaperLibraryPage.swift',
             'Models/PersonalSettingsPayload.swift', 'Models/VideoWallpaper.swift',
             'Core/LibraryCollections/WallpaperLibraryQuery.swift', 'Shell/WallpaperLibraryPresentation.swift',
@@ -49,7 +50,8 @@ class PersonalSettingsImportTests(unittest.TestCase):
         removal_path = ROOT / 'MyWallpaperX/Modules/VideoLibrary/Core/WallpaperManager+Removal.swift'
         fixture_path = ROOT / 'script/tests/fixtures/PersonalSettingsImportHarness.swift'
         sort_fixture_path = ROOT / 'script/tests/fixtures/PersonalSettingsVideoSortHarness.swift'
-        inputs = sources + [persistence_path, images_path, index_path, manager_path, removal_path, fixture_path, sort_fixture_path]
+        screen_saver_fixture_path = ROOT / 'script/tests/fixtures/ScreenSaverPreferencesChecks.swift'
+        inputs = sources + [persistence_path, images_path, index_path, manager_path, removal_path, fixture_path, sort_fixture_path, screen_saver_fixture_path]
         identities = {str(path): hashlib.sha256(path.read_bytes()).hexdigest() for path in inputs}
         persistence, images, manager = (p.read_text() for p in (persistence_path, images_path, manager_path))
         fixture = fixture_path.read_text()
@@ -91,7 +93,7 @@ extension WallpaperIndexStore {
             store = work / 'WallpaperIndexStore.swift'; store.write_text(index)
             binary = work / 'checks'
             build = subprocess.run(['xcrun', 'swiftc', *SWIFT_ISOLATION_FLAGS, '-parse-as-library',
-                *map(str, sources), str(store), str(actual), str(sort_fixture_path), '-module-cache-path', str(work / 'modules'),
+                *map(str, sources), str(store), str(actual), str(sort_fixture_path), str(screen_saver_fixture_path), '-module-cache-path', str(work / 'modules'),
                 '-o', str(binary)], capture_output=True, text=True, timeout=120)
             self.assertEqual(build.returncode, 0, build.stdout + build.stderr)
             home = work / 'home'; home.mkdir()

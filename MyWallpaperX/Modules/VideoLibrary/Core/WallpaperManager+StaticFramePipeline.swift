@@ -4,8 +4,6 @@
 //
 
 import Foundation
-import AVFoundation
-import AppKit
 
 extension WallpaperManager {
     func staticFrameOutputURL(forKey key: String) -> URL {
@@ -96,28 +94,11 @@ extension WallpaperManager {
             return outputURL.path
         }
 
-        return autoreleasepool {
-            let asset = AVURLAsset(url: url)
-            let imageGenerator = AVAssetImageGenerator(asset: asset)
-            imageGenerator.appliesPreferredTrackTransform = true
-            imageGenerator.maximumSize = CGSize(width: 4096, height: 4096)
-            imageGenerator.requestedTimeToleranceBefore = .zero
-            imageGenerator.requestedTimeToleranceAfter = .zero
-            guard let cgImage = generateCGImage(using: imageGenerator, at: .zero) else {
-                return nil
-            }
-
-            let rep = NSBitmapImageRep(cgImage: cgImage)
-            guard let data = rep.representation(using: .jpeg, properties: [.compressionFactor: 0.9]) else {
-                return nil
-            }
-
-            do {
-                try data.write(to: outputURL)
-                return outputURL.path
-            } catch {
-                return nil
-            }
+        do {
+            try VideoStillFrame.writeJPEG(from: url, to: outputURL)
+            return outputURL.path
+        } catch {
+            return nil
         }
     }
 }

@@ -4,6 +4,7 @@
   "sourceRoots": [
     "MyWallpaperX",
     "WallpaperDaemonSources",
+    "ScreenSaverSources",
     "script/tests/fixtures",
     "script"
   ],

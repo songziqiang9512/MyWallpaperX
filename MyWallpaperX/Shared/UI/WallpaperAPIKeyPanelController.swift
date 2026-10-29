@@ -71,13 +71,13 @@ final class WallpaperAPIKeyPanelController: NSObject, NSWindowDelegate, NSTextFi
     }
 
     private func makeContent() -> NSView {
-        let surface = WallpaperLibrarySheetSurface()
+        let surface = WallpaperPanelSurface()
         let content = NSStackView()
         content.orientation = .vertical
         content.alignment = .leading
         content.spacing = 14
         content.translatesAutoresizingMaskIntoConstraints = false
-        surface.addSubview(content)
+        surface.bodyView.addSubview(content)
         NSLayoutConstraint.activate([
             content.leadingAnchor.constraint(equalTo: surface.leadingAnchor, constant: 24),
             content.trailingAnchor.constraint(equalTo: surface.trailingAnchor, constant: -24),
@@ -110,7 +110,7 @@ final class WallpaperAPIKeyPanelController: NSObject, NSWindowDelegate, NSTextFi
         cancel.toolTip = "关闭（Esc）"
         cancel.setAccessibilityLabel("关闭 API Key 面板")
         cancel.translatesAutoresizingMaskIntoConstraints = false
-        surface.addSubview(cancel)
+        surface.bodyView.addSubview(cancel)
         NSLayoutConstraint.activate([
             icon.widthAnchor.constraint(equalToConstant: 44),
             icon.heightAnchor.constraint(equalToConstant: 44),

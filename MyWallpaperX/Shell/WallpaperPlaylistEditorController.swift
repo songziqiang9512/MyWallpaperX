@@ -54,7 +54,7 @@ import UniformTypeIdentifiers
         panel.title = original == nil ? "新建播放列表" : "编辑播放列表"
         panel.delegate = self
         panel.isReleasedWhenClosed = false
-        let root = WallpaperLibrarySheetSurface()
+        let root = WallpaperPanelSurface()
         panel.contentView = root
         let heading = NSTextField(labelWithString: panel.title)
         heading.font = .systemFont(ofSize: 17, weight: .semibold)
@@ -128,7 +128,7 @@ import UniformTypeIdentifiers
         body.orientation = .vertical; body.alignment = .centerX; body.spacing = 10
         body.detachesHiddenViews = true
         body.translatesAutoresizingMaskIntoConstraints = false
-        root.addSubview(body)
+        root.bodyView.addSubview(body)
         NSLayoutConstraint.activate([
             body.leadingAnchor.constraint(equalTo: root.leadingAnchor, constant: 20),
             body.trailingAnchor.constraint(equalTo: root.trailingAnchor, constant: -20),

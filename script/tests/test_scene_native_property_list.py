@@ -961,6 +961,7 @@ class NativeScenePropertyListTests(unittest.TestCase):
                        MODULE / 'Web/Core/SteamWorkshopService+WebDisplayConditionSupport.swift',
                        MODULE / 'Web/Core/SteamWorkshopService+WebDisplayConditionParsing.swift',
                        ROOT / 'MyWallpaperX/Shared/UI/InspectorFadingScrollView.swift',
+                       ROOT / 'MyWallpaperX/Shared/UI/WallpaperLibrarySheetPresentation.swift',
                        ROOT / 'MyWallpaperX/Shared/UI/WorkshopPropertyPanelViews.swift',
                        web_editor,
                        MODULE / 'UI/WorkshopPropertySlider.swift', editor, path]

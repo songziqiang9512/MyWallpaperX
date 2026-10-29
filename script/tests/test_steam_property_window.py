@@ -4,6 +4,7 @@ import os
 import subprocess
 import tempfile
 import unittest
+from script.tests.test_ui_library_algorithms import declaration
 
 ROOT = pathlib.Path(__file__).resolve().parents[2]
 
@@ -47,6 +48,15 @@ final class TraversalView: NSView, WorkshopPropertyKeyTraversal {
         }
         func checkHeader(_ card: InspectorHostCardView) {
             card.layoutSubtreeIfNeeded()
+            precondition(descendants(card, WallpaperPanelSurface.self).count == 1,
+                         "detail and property panels must share one material owner")
+            precondition(descendants(card, NSGlassEffectView.self).first?.style == .regular,
+                         "shared panel material must preserve the original inspector glass")
+            let glass = descendants(card, NSGlassEffectView.self).first!
+            precondition(glass === descendants(card, WallpaperPanelSurface.self).first!,
+                         "the native glass must own the surface shape without a second wrapper contour")
+            precondition(glass.contentView?.subviews.isEmpty == false,
+                         "panel controls must be inside the native glass content view")
             let close = descendants(card, NSButton.self).first { $0.toolTip == "关闭详情" }!
             let row = close.superview!
             // AppKit constrains alignment rects; NSButton's frame includes
@@ -144,10 +154,13 @@ final class TraversalView: NSView, WorkshopPropertyKeyTraversal {
         let main = NSWindow(contentRect: NSRect(x: 0, y: 0, width: 1100, height: 800),
             styleMask: [.titled], backing: .buffered, defer: false)
         main.identifier = NSUserInterfaceItemIdentifier("MainWindow")
+        let originalOpaque = main.isOpaque, originalBackground = main.backgroundColor
         main.center()
         let detail = InspectorHostCardView(frame: NSRect(x: 720, y: 18, width: 360, height: 680))
         main.contentView!.addSubview(detail)
         main.orderFront(nil)
+        precondition(main.isOpaque == originalOpaque && main.backgroundColor == originalBackground,
+                     "embedded panel material must not change main-window transparency")
         let owner = SteamWorkshopPropertyPanelController.shared
         // Actual Steam and video detail anchors use 356pt and 368pt. The
         // standalone window owns its content width; a second required 360pt
@@ -234,7 +247,11 @@ final class TraversalView: NSView, WorkshopPropertyKeyTraversal {
             path = pathlib.Path(folder) / 'Harness.swift'
             card = (ROOT / 'MyWallpaperX/Shared/UI/InspectorHostViewController.swift').read_text()
             card = card[card.index('final class InspectorHostCardView:'): ]
-            path.write_text(stubs + source + card)
+            surface = declaration((ROOT / 'MyWallpaperX/Shared/UI/WallpaperLibrarySheetPresentation.swift').read_text(),
+                                  '@MainActor class WallpaperPanelSurface:')
+            close = declaration((ROOT / 'MyWallpaperX/Shared/Components/WallpaperLibraryControlStyle.swift').read_text(),
+                                '@MainActor final class WallpaperPanelCloseButton:')
+            path.write_text('\n'.join([stubs, surface, close, source, card]))
             binary = path.with_suffix('')
             compiled = subprocess.run(['xcrun', 'swiftc', '-parse-as-library', str(path), '-o', str(binary)],
                                       capture_output=True, text=True, timeout=60)

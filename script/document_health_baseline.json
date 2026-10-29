@@ -13,8 +13,8 @@
       "bytes": 9051
     },
     "docs/architecture/repository-map.md": {
-      "lines": 35,
-      "bytes": 7937
+      "lines": 36,
+      "bytes": 8451
     },
     "docs/architecture/steam-workshop-acquisition-contract.md": {
       "lines": 80,
@@ -25,8 +25,8 @@
       "bytes": 5740
     },
     "docs/architecture/technology-stack-boundaries.md": {
-      "lines": 259,
-      "bytes": 26517
+      "lines": 261,
+      "bytes": 26983
     },
     "docs/development/apple-silicon-optimization-plan.md": {
       "lines": 554,
@@ -49,8 +49,8 @@
       "bytes": 4111
     },
     "docs/release/release-signing.md": {
-      "lines": 163,
-      "bytes": 12890
+      "lines": 164,
+      "bytes": 13104
     },
     "docs/scene/architecture/capability-dependency-map.md": {
       "lines": 220,
@@ -343,6 +343,10 @@
     "docs/development/ui-quality-audit.md": {
       "lines": 116,
       "bytes": 20837
+    },
+    "docs/development/lock-screen-screensaver-design.md": {
+      "lines": 83,
+      "bytes": 17035
     }
   },
   "archives": [
@@ -1504,11 +1508,11 @@
     {
       "section": "bodies",
       "path": "docs/architecture/repository-map.md",
-      "before": "00a9f87e82154f598602f637e5ad9c7d54e3fdb2f18db7b7a8685f7ec5784a02",
-      "after": "496f292655c3baf3270063898925daf077ea78696a873daf6de71c0b9e00d750",
-      "owner": "main-window-playlists-ui20",
-      "reason": "UI20六项当前契约与真实阻塞、共享筛选owner及账号失败边界同步；旧链退役，保持600行硬限，不将静态实现冒作真实账号或匿名源验收。",
-      "decision": "docs/development/main-window-playlists-redesign.md#ui-online-panels-twenty"
+      "before": "496f292655c3baf3270063898925daf077ea78696a873daf6de71c0b9e00d750",
+      "after": "821783bf0ecf85b96934cd79f620237e1f0f1a50872e19381b58c48e1651bfb6",
+      "owner": "lock-screen-screensaver-design",
+      "reason": "登记视频屏保与共享App面板的唯一职责入口，不复制专项验收状态。",
+      "decision": "docs/development/lock-screen-screensaver-design.md"
     },
     {
       "section": "bodies",
@@ -1788,6 +1792,33 @@
       "owner": "Scene additive local fallback",
       "reason": "用既有preparedMap隔离未支持additive，结构/消费边界与实际原377六动作恢复、左手仍开放；合并旧state1/auxiliary状态，证据细节只归历史，保direct及未知语义边界。",
       "decision": "docs/scene/history/puppet-additive-local-fallback-2026-10-29.md"
+    },
+    {
+      "section": "bodies",
+      "path": "docs/development/lock-screen-screensaver-design.md",
+      "before": "74234e98afe7498fb5daf1f36ac2d78acc339464f950703b8c019892f982b90b",
+      "after": "229cb069609b0869c83c69cae04f45dc65bd72d182569e8638a2c3342559934e",
+      "owner": "lock-screen-screensaver-design",
+      "reason": "按用户最新决定以Video-only替换三引擎方案，退役重型组件并记录真实体积/验证边界；App UI复用原公共材质和选择器，避免第二套渲染及网格链路。",
+      "decision": "docs/development/lock-screen-screensaver-design.md"
+    },
+    {
+      "section": "bodies",
+      "path": "docs/architecture/technology-stack-boundaries.md",
+      "before": "27693b3b1884bff0272163c7446474cc090e379b33d5c24a17ff62237cc2b324",
+      "after": "e2b73234cfc58c5c33752a11dcbbe2e9b55a95ca1e76d0ac2b1267ca1e5b135a",
+      "owner": "lock-screen-screensaver-design",
+      "reason": "屏保明确收敛为AVFoundation独立视频组件，保留主App原Scene/Web桌面职责与系统认证边界。",
+      "decision": "docs/development/lock-screen-screensaver-design.md"
+    },
+    {
+      "section": "bodies",
+      "path": "docs/release/release-signing.md",
+      "before": "cefc78996056700f33ba3e086c55189b3f82c4f89f65633abdd8af5117863a30",
+      "after": "b08aeefa06d35bb11fe31b6da32bbed0871d3089725bfa0652d5c5c486513726",
+      "owner": "lock-screen-screensaver-design",
+      "reason": "轻量视频组件沿原版本、arm64、inside-out签名和符号包发布；撤销其shader助手与大资源要求，主App签名不变。",
+      "decision": "docs/development/lock-screen-screensaver-design.md"
     }
   ]
 }

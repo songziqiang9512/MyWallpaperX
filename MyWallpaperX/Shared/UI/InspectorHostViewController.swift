@@ -109,13 +109,11 @@ final class InspectorHostCardView: NSView {
     var headerTitleOverride: String?
     /// Standalone windows use AppKit's shadow; embedded cards draw their own.
     var drawsShadow = true
-    private let clippedContent = NSView()
+    private let clippedContent = WallpaperPanelSurface(cornerRadius: 22)
     var compactHeader = false
     private var centeredHeaderConstraint: NSLayoutConstraint?
     private var iconWidthConstraint: NSLayoutConstraint?
     private let headerSpacer = NSView()
-    private let glassView = NSGlassEffectView()
-    private let panelOverlayView = NSView()
     private let stackView = NSStackView()
     private let headerRow = NSStackView()
     private let titleContainer = NSStackView()
@@ -123,7 +121,7 @@ final class InspectorHostCardView: NSView {
     private let infoTitleLabel = NSTextField(labelWithString: "详情")
     private let titleLabel = NSTextField(labelWithString: "")
     private let subtitleLabel = NSTextField(labelWithString: "")
-    private let closeButton = NSButton()
+    private let closeButton = WallpaperPanelCloseButton()
     private let contentContainer = InspectorHostedContentContainerView()
     private let progressIndicator = NSProgressIndicator()
     private var request: InspectorHostRequest?
@@ -177,21 +175,6 @@ final class InspectorHostCardView: NSView {
 
     func refreshAppearance() {
         guard isViewLoadedInWindow || window != nil || superview != nil else { return }
-        let isDark = InspectorGlassPalette.isDarkMode(for: self)
-
-        glassView.layer?.cornerRadius = 22
-        glassView.layer?.masksToBounds = true
-        glassView.cornerRadius = 22
-        glassView.style = .regular
-        glassView.tintColor = InspectorGlassPalette.baseTint(isDark: isDark)
-        glassView.layer?.backgroundColor = InspectorGlassPalette.innerFill(isDark: isDark).cgColor
-
-        panelOverlayView.layer?.cornerRadius = 22
-        panelOverlayView.layer?.masksToBounds = true
-        panelOverlayView.layer?.backgroundColor = InspectorGlassPalette.panelFill(isDark: isDark).cgColor
-        panelOverlayView.layer?.borderColor = InspectorGlassPalette.panelStroke(isDark: isDark).cgColor
-        panelOverlayView.layer?.borderWidth = 1
-
         layer?.shadowColor = NSColor.black.cgColor
         // Embedded inspectors cannot receive a WindowServer shadow. Approximate
         // its neutral, compact falloff without changing density between themes.
@@ -205,14 +188,7 @@ final class InspectorHostCardView: NSView {
         iconView.contentTintColor = .labelColor
 
         let infoPanel = request?.chromeStyle == .infoPanel
-        closeButton.contentTintColor = .labelColor
-        closeButton.layer?.backgroundColor = infoPanel
-            ? (isDark ? NSColor.white.withAlphaComponent(0.16) : NSColor.black.withAlphaComponent(0.05)).cgColor
-            : NSColor.clear.cgColor
-        closeButton.layer?.borderColor = infoPanel
-            ? (isDark ? NSColor.white.withAlphaComponent(0.20) : NSColor.black.withAlphaComponent(0.07)).cgColor
-            : NSColor.clear.cgColor
-        closeButton.layer?.borderWidth = infoPanel ? 0.5 : 0
+        closeButton.showsBackground = infoPanel
     }
 
     override func viewDidChangeEffectiveAppearance() {
@@ -231,9 +207,6 @@ final class InspectorHostCardView: NSView {
         layer?.cornerRadius = 22
         layer?.masksToBounds = false
 
-        clippedContent.wantsLayer = true
-        clippedContent.layer?.cornerRadius = 22
-        clippedContent.layer?.masksToBounds = true
         clippedContent.translatesAutoresizingMaskIntoConstraints = false
         addSubview(clippedContent)
         NSLayoutConstraint.activate([
@@ -243,8 +216,6 @@ final class InspectorHostCardView: NSView {
             clippedContent.bottomAnchor.constraint(equalTo: bottomAnchor)
         ])
 
-        setupGlass()
-        setupPanelOverlay()
         setupHeader()
         setupContent()
         refreshAppearance()
@@ -253,32 +224,6 @@ final class InspectorHostCardView: NSView {
     override func layout() {
         super.layout()
         layer?.shadowPath = CGPath(roundedRect: bounds, cornerWidth: 22, cornerHeight: 22, transform: nil)
-    }
-
-    private func setupGlass() {
-        glassView.translatesAutoresizingMaskIntoConstraints = false
-        glassView.wantsLayer = true
-        clippedContent.addSubview(glassView)
-
-        NSLayoutConstraint.activate([
-            glassView.leadingAnchor.constraint(equalTo: leadingAnchor),
-            glassView.trailingAnchor.constraint(equalTo: trailingAnchor),
-            glassView.topAnchor.constraint(equalTo: topAnchor),
-            glassView.bottomAnchor.constraint(equalTo: bottomAnchor)
-        ])
-    }
-
-    private func setupPanelOverlay() {
-        panelOverlayView.translatesAutoresizingMaskIntoConstraints = false
-        panelOverlayView.wantsLayer = true
-        clippedContent.addSubview(panelOverlayView)
-
-        NSLayoutConstraint.activate([
-            panelOverlayView.leadingAnchor.constraint(equalTo: leadingAnchor),
-            panelOverlayView.trailingAnchor.constraint(equalTo: trailingAnchor),
-            panelOverlayView.topAnchor.constraint(equalTo: topAnchor),
-            panelOverlayView.bottomAnchor.constraint(equalTo: bottomAnchor)
-        ])
     }
 
     private func setupHeader() {
@@ -323,17 +268,8 @@ final class InspectorHostCardView: NSView {
         titleContainer.addArrangedSubview(titleLabel)
         titleContainer.addArrangedSubview(subtitleLabel)
 
-        closeButton.isBordered = false
-        closeButton.bezelStyle = .regularSquare
         closeButton.target = self
         closeButton.action = #selector(closeInspector)
-        closeButton.wantsLayer = true
-        closeButton.layer?.cornerRadius = 10
-        closeButton.translatesAutoresizingMaskIntoConstraints = false
-        NSLayoutConstraint.activate([
-            closeButton.widthAnchor.constraint(equalToConstant: 32),
-            closeButton.heightAnchor.constraint(equalToConstant: 18)
-        ])
 
         let spacer = headerSpacer
         spacer.translatesAutoresizingMaskIntoConstraints = false
@@ -349,7 +285,7 @@ final class InspectorHostCardView: NSView {
         centeredHeaderConstraint = centered
 
         stackView.addArrangedSubview(headerRow)
-        clippedContent.addSubview(stackView)
+        clippedContent.bodyView.addSubview(stackView)
 
         NSLayoutConstraint.activate([
             stackView.leadingAnchor.constraint(equalTo: leadingAnchor),
@@ -392,40 +328,6 @@ final class InspectorHostCardView: NSView {
 
     override func mouseDown(with event: NSEvent) {
         // Blank panel areas should not bubble to the transparent overlay and dismiss the inspector.
-    }
-}
-
-enum InspectorGlassPalette {
-    static func isDarkMode(for view: NSView) -> Bool {
-        return view.effectiveAppearance.bestMatch(from: [.darkAqua, .aqua]) == .darkAqua
-    }
-
-    static func baseTint(isDark: Bool) -> NSColor {
-        if isDark {
-            return .black.withAlphaComponent(0.10)
-        }
-        return .controlBackgroundColor.withAlphaComponent(0.15)
-    }
-
-    static func innerFill(isDark: Bool) -> NSColor {
-        if isDark {
-            return .black.withAlphaComponent(0.04)
-        }
-        return .windowBackgroundColor.withAlphaComponent(0.05)
-    }
-
-    static func panelFill(isDark: Bool) -> NSColor {
-        if isDark {
-            return .black.withAlphaComponent(0.18)
-        }
-        return .white.withAlphaComponent(0.82)
-    }
-
-    static func panelStroke(isDark: Bool) -> NSColor {
-        if isDark {
-            return .white.withAlphaComponent(0.24)
-        }
-        return .white.withAlphaComponent(0.74)
     }
 }
 

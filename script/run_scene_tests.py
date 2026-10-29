@@ -54,6 +54,7 @@ RELEASE_MODULES = frozenset({
     "test_steam_playback_lifetime",
     "test_playback_policy",
     "test_playback_policy_delivery",
+    "test_screen_saver_integration",
     "test_playback_command_multiplexer",
     "test_web_playback_pause",
     "test_scene_daemon_protocol",

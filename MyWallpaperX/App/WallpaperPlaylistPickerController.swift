@@ -4,16 +4,20 @@ import Combine
 /// A bounded main-window modal over the same local projections and original cards.
 /// It holds a fixed target/epoch and a selection only, never another media index.
 @MainActor final class WallpaperPlaylistPickerController: NSObject, NSSearchFieldDelegate, NSWindowDelegate {
+    enum Destination {
+        case playlist(UUID)
+        case video(initial: WallpaperReference?, accept: (WallpaperContentItem) -> Void)
+    }
     var onClose: (() -> Void)?
     private let workspace: WallpaperLibraryWorkspace
     private let manager: WallpaperManager
-    private let target: UUID
+    private let destination: Destination
     private let epoch: UUID
     private let hostWindow: () -> NSWindow?
     private let panel = WallpaperLibraryModalPanel(contentRect: NSRect(x: 0, y: 0, width: 800, height: 600),
         styleMask: [.borderless, .resizable], backing: .buffered, defer: false)
     private let search = NSSearchField()
-    private let source = NSSegmentedControl(labels: ["全部", "我的视频", "我的图片", "我的下载"], trackingMode: .selectOne, target: nil, action: nil)
+    private let source = NSSegmentedControl()
     private let zoom = WallpaperLibraryZoomControl()
     private let count = NSTextField(labelWithString: "未选择壁纸")
     private let add = NSButton(title: "添加", target: nil, action: nil)
@@ -39,22 +43,27 @@ import Combine
     private var grid: WallpaperLibraryGridController!
 
     init(workspace: WallpaperLibraryWorkspace, manager: WallpaperManager, images: SILService,
-         steam: SteamWorkshopService, pixabay: PixabayService, target: UUID, hostWindow: @escaping () -> NSWindow?) {
-        self.workspace = workspace; self.manager = manager; self.target = target; self.hostWindow = hostWindow
+         steam: SteamWorkshopService, pixabay: PixabayService, destination: Destination, hostWindow: @escaping () -> NSWindow?) {
+        self.workspace = workspace; self.manager = manager; self.destination = destination; self.hostWindow = hostWindow
         epoch = workspace.relationships.resetEpoch
         super.init()
+        if case let .video(initial, _) = destination {
+            selection.isSelecting = false
+            selection.references = Set(initial.map { [$0] } ?? [])
+            selection.focusedReference = initial
+        }
         adapter = WallpaperLibraryCellAdapter(manager: manager, images: images, steam: steam, pixabay: pixabay,
             isPlaying: { [weak self] in self?.cardState?.isPlaying($0) ?? false },
             makePrimaryAction: { _ in nil })
         grid = WallpaperLibraryGridController { [weak self] collection, path, content, state in
             guard let self else { return NSCollectionViewItem() }
-            let cell = self.adapter.makeCell(collection: collection, indexPath: path, content: content, state: state)
+            let cell = self.adapter.makeCell(collection: collection, indexPath: path, content: content, state: self.selectionAppearance(state))
             self.configureExistingMarker(cell, reference: content.reference, visible: false)
             return cell
         }
         grid.updateCell = { [weak self] cell, content, state in
             guard let self else { return }
-            self.adapter.updateCell(cell, content: content, state: state)
+            self.adapter.updateCell(cell, content: content, state: self.selectionAppearance(state))
             self.configureExistingMarker(cell, reference: content.reference)
         }
         grid.needsCellReplacement = { [weak self] in self?.adapter.needsCellReplacement($0, content: $1) ?? false }
@@ -72,6 +81,7 @@ import Combine
             return self.selection.sessionID
         }
         grid.onEscape = { [weak self] in guard let self, self.ownsInput else { return }; self.close() }
+        if isVideoSelection { grid.onPrimaryAction = { [weak self] _ in self?.accept(nil) } }
         workspace.presentation.$state.receive(on: DispatchQueue.main).sink { [weak self] _ in self?.refresh() }.store(in: &subscriptions)
         workspace.catalog.visibleLocalFactsRefreshed.receive(on: DispatchQueue.main).sink { [weak self] in
             self?.adapter.repairVisiblePreviews()
@@ -81,17 +91,21 @@ import Combine
     }
 
     private func configure() {
-        panel.title = "添加壁纸"
+        panel.title = isVideoSelection ? "选择屏保视频" : "添加壁纸"
         panel.minSize = NSSize(width: 680, height: 480)
         panel.delegate = self
         panel.isReleasedWhenClosed = false
+        let sources = isVideoSelection ? ["全部", "我的视频", "我的下载"] : ["全部", "我的视频", "我的图片", "我的下载"]
+        source.segmentCount = sources.count
+        for (index, title) in sources.enumerated() { source.setLabel(title, forSegment: index) }
+        source.trackingMode = .selectOne
         source.selectedSegment = 0
         source.segmentStyle = .capsule
         source.borderShape = .capsule
         zoom.borderShape = .capsule
         source.target = self; source.action = #selector(filterChanged(_:))
         search.delegate = self
-        search.placeholderString = "查找本地或已下载壁纸"
+        search.placeholderString = isVideoSelection ? "查找本地或已下载视频" : "查找本地或已下载壁纸"
         search.sendsSearchStringImmediately = true
         search.widthAnchor.constraint(equalToConstant: 220).isActive = true
         zoom.makeAction = { [weak self] in self?.makeZoomAction($0) }
@@ -105,10 +119,10 @@ import Combine
         add.keyEquivalent = "\r"
         let footer = NSStackView(views: [count, NSView(), cancel, add])
         footer.spacing = 12
-        let root = WallpaperLibrarySheetSurface()
+        let root = WallpaperPanelSurface()
         panel.contentView = root
         let gridView = grid.view
-        for child in [top, gridView, footer] { child.translatesAutoresizingMaskIntoConstraints = false; root.addSubview(child) }
+        for child in [top, gridView, footer] { child.translatesAutoresizingMaskIntoConstraints = false; root.bodyView.addSubview(child) }
         NSLayoutConstraint.activate([
             top.leadingAnchor.constraint(equalTo: root.leadingAnchor, constant: 20), top.trailingAnchor.constraint(equalTo: root.trailingAnchor, constant: -20),
             top.topAnchor.constraint(equalTo: root.topAnchor, constant: 16),
@@ -135,8 +149,19 @@ import Combine
     /// The main menu delegates only to the controller of its actual key panel.
     /// A disabled Picker command must never fall through to the host page.
     private var ownsInput: Bool {
-        !isClosed && NSApp.keyWindow === panel && WallpaperLibrarySheetPresentation.permitsInput(in: panel) && workspace.relationships.resetEpoch == epoch
-            && workspace.presentation.canEditCollections && workspace.relationships.playlists.contains { $0.id == target }
+        !isClosed && NSApp.keyWindow === panel && WallpaperLibrarySheetPresentation.permitsInput(in: panel) && targetIsAvailable
+    }
+    private var isVideoSelection: Bool { if case .video = destination { return true }; return false }
+    private var targetIsAvailable: Bool {
+        guard workspace.relationships.resetEpoch == epoch else { return false }
+        if case let .playlist(target) = destination {
+            return workspace.presentation.canEditCollections && workspace.relationships.playlists.contains { $0.id == target }
+        }
+        return true
+    }
+    private func selectionAppearance(_ state: WallpaperLibraryGridController.CellState) -> WallpaperLibraryGridController.CellState {
+        // Use the existing checkmark cards while native selection remains single.
+        .init(isSelected: state.isSelected, isSelecting: true, isFocused: state.isFocused)
     }
     var canFocusSearch: Bool { ownsInput && search.isEnabled }
     func focusSearch() { if canFocusSearch { panel.makeFirstResponder(search) } }
@@ -160,8 +185,7 @@ import Combine
 
     private func refresh() {
         guard !isClosed else { return }
-        guard workspace.relationships.resetEpoch == epoch, workspace.presentation.canEditCollections,
-              workspace.relationships.playlists.contains(where: { $0.id == target }) else { close(); return }
+        guard targetIsAvailable else { close(); return }
         let relationships = workspace.relationships, catalog = workspace.catalog.catalog
         let signature = RefreshSignature(catalogRevision: catalog.revision, relationshipsRevision: relationships.revision,
             ticket: manager.playbackSwitch.committed?.ticket, segment: source.selectedSegment, search: search.stringValue,
@@ -169,13 +193,21 @@ import Combine
         guard signature != lastRefresh else { return }
         do {
             var query = WallpaperLibraryQueryState(); query.search = search.stringValue
-            let pages: [WallpaperLibraryPage] = source.selectedSegment == 1 ? [.videos] : source.selectedSegment == 2 ? [.images]
-                : source.selectedSegment == 3 ? [.downloads] : [.videos, .images, .downloads]
+            let pages: [WallpaperLibraryPage]
+            if isVideoSelection { pages = source.selectedSegment == 1 ? [.videos] : source.selectedSegment == 2 ? [.downloads] : [.videos, .downloads] }
+            else { pages = source.selectedSegment == 1 ? [.videos] : source.selectedSegment == 2 ? [.images]
+                : source.selectedSegment == 3 ? [.downloads] : [.videos, .images, .downloads] }
             var seen = Set<WallpaperReference>()
             let projected = try pages.flatMap { try WallpaperLibraryQuery.project(page: $0, state: query, catalog: catalog,
-                relationships: relationships).items }.filter { $0.capabilities.contains(.organize) && seen.insert($0.reference).inserted }
+                relationships: relationships).items }.filter {
+                    let eligible = isVideoSelection ? $0.kind == .video && $0.publishedAvailability.isPublishedLocally
+                        && $0.publishedAvailability.isAvailable : $0.capabilities.contains(.organize)
+                    return eligible && seen.insert($0.reference).inserted
+                }
             let committed = manager.libraryPlaybackSequence.committed
-            let targetReferences = relationships.members.filter { $0.playlistID == target }.map(\.reference)
+            let targetReferences: [WallpaperReference]
+            if case let .playlist(target) = destination { targetReferences = relationships.members.filter { $0.playlistID == target }.map(\.reference) }
+            else { targetReferences = [] }
             let selectionReferences = Array(selection.references) + (selection.focusedReference.map { [$0] } ?? [])
             let state = try WallpaperLibraryCardStateProjection(items: projected, relationships: relationships,
                 committedReference: committed?.reference, sequenceTicket: committed?.ticket, runtimeTicket: manager.playbackSwitch.committed?.ticket,
@@ -190,7 +222,9 @@ import Combine
             selection.references = Set(selection.references.map(state.canonical)).intersection(visible)
             selection.focusedReference = selection.focusedReference.map(state.canonical).flatMap { visible.contains($0) ? $0 : nil }
             if previous.references != selection.references || previous.focusedReference != selection.focusedReference { selection.sessionID = UUID() }
-            grid.update(page: .playlist(target), items: items, selection: selection, preferredColumns: preferredColumns, permitsDragging: false, scrollAnchor: nil)
+            let page: WallpaperLibraryPage
+            if case let .playlist(target) = destination { page = .playlist(target) } else { page = .videos }
+            grid.update(page: page, items: items, selection: selection, preferredColumns: preferredColumns, permitsDragging: false, scrollAnchor: nil)
             refreshZoom()
             refreshCount()
         } catch { workspace.presentation.report(error); close() }
@@ -198,6 +232,14 @@ import Combine
 
     private func refreshCount() {
         let selected = items.filter { selection.references.contains($0.reference) }
+        if isVideoSelection {
+            count.stringValue = selected.first?.title ?? (items.isEmpty ? "暂无可用视频，请先导入或下载" : "选择一段视频作为屏保")
+            count.lineBreakMode = .byTruncatingTail
+            count.setContentCompressionResistancePriority(.defaultLow, for: .horizontal)
+            add.title = "选择视频"
+            add.isEnabled = selected.count == 1
+            return
+        }
         let already = selected.filter { existingReferences.contains($0.reference) }.count
         let added = selected.count - already
         count.stringValue = "已选 \(selected.count) 项 · 将新增 \(added) 项 · \(already) 项已在列表"
@@ -210,7 +252,14 @@ import Combine
     @objc private func cancel(_ sender: Any?) { if ownsInput { close() } }
 
     @objc private func accept(_ sender: Any?) {
-        guard ownsInput, !isApplying, workspace.relationships.resetEpoch == epoch, workspace.presentation.canEditCollections,
+        guard ownsInput, !isApplying else { return }
+        if case let .video(_, accept) = destination {
+            guard let selected = items.first(where: { selection.references.contains($0.reference) }) else { return }
+            close()
+            accept(selected)
+            return
+        }
+        guard case let .playlist(target) = destination, workspace.presentation.canEditCollections,
               let collections = workspace.collections else { return }
         let fixed = items.filter { selection.references.contains($0.reference) }.map(\.reference)
         guard !fixed.isEmpty else { return }
@@ -257,6 +306,7 @@ import Combine
     }
 
     private func configureExistingMarker(_ cell: NSCollectionViewItem, reference: WallpaperReference, visible: Bool? = nil) {
+        guard !isVideoSelection else { return }
         let marker: PickerExistingMemberMarker
         if let current = cell.view.subviews.compactMap({ $0 as? PickerExistingMemberMarker }).first { marker = current }
         else {

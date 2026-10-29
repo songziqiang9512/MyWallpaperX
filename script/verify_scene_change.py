@@ -36,6 +36,7 @@ PRODUCT_PREFIXES = (
     "MyWallpaperXHelp/",
     "SteamService/",
     "WallpaperDaemonSources/",
+    "ScreenSaverSources/",
 )
 PRODUCT_SOURCE_SUFFIXES = {".swift", ".c", ".h", ".m", ".mm", ".metal", ".metalh", ".cs"}
 ROOT_GOVERNANCE_FILES = {"AGENTS.md", "README.md", ".gitignore"}

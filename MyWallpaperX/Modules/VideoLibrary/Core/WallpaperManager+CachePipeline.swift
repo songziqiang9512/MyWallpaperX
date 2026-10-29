@@ -271,16 +271,7 @@ extension WallpaperManager {
     }
 
     func generateCGImage(using generator: AVAssetImageGenerator, at time: CMTime) -> CGImage? {
-        // macOS 15 废弃了同步 copyCGImage，改用异步 API + Semaphore。
-        // 回调派到独立的全局队列（.userInitiated），不派回 thumbnailQueue，避免同队列死锁。
-        var result: CGImage?
-        let semaphore = DispatchSemaphore(value: 0)
-        generator.generateCGImageAsynchronously(for: time) { cgImage, _, _ in
-            result = cgImage
-            semaphore.signal()
-        }
-        semaphore.wait()
-        return result
+        VideoStillFrame.image(using: generator, at: time)
     }
 
 }

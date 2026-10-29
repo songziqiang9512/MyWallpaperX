@@ -259,9 +259,11 @@ enum MyWallpaperXApplication {
         }
 #endif
         if !usesDirectPlaybackHarness, let startup = userCollectionsStartup {
+            ScreenSaverActivityMonitor.shared.start()
             WallpaperManager.shared.configureRuntimeSwitching()
             libraryWorkspace = WallpaperLibraryWorkspace(startup: startup, manager: .shared, images: .shared,
                                                          steam: .shared, pixabay: .shared, defaults: .standard)
+            if let workspace = libraryWorkspace { ScreenSaverCoordinator.shared.configure(workspace: workspace) }
             configurePersonalSettings()
         }
         app.run()
@@ -280,7 +282,10 @@ enum MyWallpaperXApplication {
             }, applyVideoSort: { [weak workspace] patch, epoch in
                 guard let workspace else { throw UserCollectionsError.staleResetEpoch }
                 try workspace.presentation.applyVideoSortPatch(patch, resetEpoch: epoch)
-            }, beforeApply: { WallpaperManager.shared.stopCurrentPlayback() })
+            }, beforeApply: {
+                ScreenSaverCoordinator.shared.cancel()
+                WallpaperManager.shared.stopCurrentPlayback()
+            })
         personalSettings = coordinator
         workspace.setPersonalSettingsReady(coordinator.allowsEditing)
         coordinator.$isApplying.combineLatest(coordinator.$recoveryMessage).receive(on: DispatchQueue.main)
@@ -305,8 +310,14 @@ enum MyWallpaperXApplication {
     @MainActor private static func resetLibrary() {
         guard let workspace = libraryWorkspace, let collections = workspace.collections, let profile = personalSettings else { return }
         workspace.presentation.setEditingAllowed(false)
+        ScreenSaverCoordinator.shared.cancel()
         Task { @MainActor in
             do {
+                // Reset is explicit and infrequent. Its serial disk operation
+                // must not treat an initial asynchronous UI projection as empty.
+                try await withCheckedThrowingContinuation { continuation in
+                    ScreenSaverCoordinator.shared.clear { continuation.resume(with: $0) }
+                }
                 try await collections.reset(beforeStoreReset: {
                     profile.cancelForReset()
                     // The existing owner revokes source/ticket callbacks and

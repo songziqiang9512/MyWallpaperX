@@ -358,7 +358,8 @@ def harness_source() -> str:
     return '\n'.join(pieces) + CHECKS
 
 
-def run_harness(test: unittest.TestCase, source_text: str, sentinel: str, *, with_library: bool = True) -> str:
+def run_harness(test: unittest.TestCase, source_text: str, sentinel: str, *, with_library: bool = True,
+                extra_sources: tuple[Path, ...] = ()) -> str:
     with tempfile.TemporaryDirectory(prefix='mwx-web-author-') as directory:
         task = Path(directory)
         source = task / 'Harness.swift'; source.write_text(source_text)
@@ -370,7 +371,8 @@ def run_harness(test: unittest.TestCase, source_text: str, sentinel: str, *, wit
             'SteamWorkshopLibraryTransaction+FailedVisibility.swift',
             'SteamWorkshopLibraryPublication.swift', 'SteamWorkshopLibraryVersionLease.swift'}]
         command = ['xcrun', 'swiftc', '-swift-version', '6', '-strict-concurrency=complete', '-D', 'DEBUG', '-parse-as-library',
-            *map(str, library), str(source), '-module-cache-path', str(task / 'modules'), '-o', str(task / 'harness')]
+            *map(str, library), *map(str, extra_sources), str(source),
+            '-module-cache-path', str(task / 'modules'), '-o', str(task / 'harness')]
         result = subprocess.run(command, capture_output=True, text=True, timeout=120)
         test.assertEqual(result.returncode, 0, result.stdout + result.stderr)
         home = task / 'home'; home.mkdir()

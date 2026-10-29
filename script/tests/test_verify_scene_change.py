@@ -141,6 +141,10 @@ class SceneValidationSelectionTests(unittest.TestCase):
         cases = {
             'LICENSE': 'test_apple_silicon_release_contract',
             'NOTICE.md': 'test_apple_silicon_release_contract',
+            'MyWallpaperX/Core/System/ScreenSaverIntegration.swift': 'test_screen_saver_integration',
+            'script/tests/fixtures/ScreenSaverActivityChecks.swift': 'test_screen_saver_integration',
+            'script/tests/fixtures/ScreenSaverPreferencesChecks.swift': 'test_personal_settings_import',
+            'MyWallpaperX/Shared/VideoStillFrame.swift': 'test_video_thumbnail_prefetch',
             'script/scene_diagnostic_report_io.py': 'test_scene_diagnostic_report',
             'script/tests/fixtures/GridViewportSizingHarness.swift': 'test_steam_grid_updates',
             'script/tests/fixtures/SteamBrowserContainerHarness.swift': 'test_steam_grid_updates',

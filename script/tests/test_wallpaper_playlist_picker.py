@@ -14,6 +14,7 @@ import unittest
 from script.tests.native_app_harness import prepare_native_app, run_native_app
 from script.tests.test_ui_library_algorithms import declaration
 from script.tests.test_video_thumbnail_prefetch import SWIFT_ISOLATION_FLAGS
+from script.tests.test_main_menu_commands import browser_menu_fixture
 
 ROOT = Path(__file__).resolve().parents[2]
 
@@ -41,9 +42,11 @@ class WallpaperPlaylistPickerTests(unittest.TestCase):
         delegate = ROOT / 'MyWallpaperX/App/AppDelegate.swift'
         commands = ROOT / 'MyWallpaperX/App/WallpaperLibraryCommands.swift'
         observed = [*paths, fixture, menu_fixture, delegate, commands, Path(__file__),
-                    ROOT / 'script/tests/native_app_harness.py', ROOT / 'script/tests/test_ui_library_algorithms.py']
+                    ROOT / 'script/tests/native_app_harness.py', ROOT / 'script/tests/test_ui_library_algorithms.py',
+                    ROOT / 'script/tests/test_main_menu_commands.py', ROOT / 'script/tests/fixtures/MainMenuBrowserSelectionHarness.swift',
+                    ROOT / 'MyWallpaperX/App/WallpaperLibraryWindowComposition.swift']
         hashes = {str(path): hashlib.sha256(path.read_bytes()).hexdigest() for path in observed}
-        prelude = menu_fixture.read_text().split('@main enum MainMenuCommandChecks')[0]
+        prelude = menu_fixture.read_text().split('@main enum MainMenuCommandChecks')[0] + '\n' + browser_menu_fixture()
         controlled_picker = declaration(prelude, 'final class WallpaperPlaylistPickerController:')
         self.assertEqual(prelude.count(controlled_picker), 1)
         prelude = prelude.replace(controlled_picker, '')

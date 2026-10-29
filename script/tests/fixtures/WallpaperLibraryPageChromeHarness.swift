@@ -541,7 +541,7 @@ private final class ChromeToolbar: NSObject, NSToolbarDelegate {
             let panel = WallpaperLibraryModalPanel(contentRect: NSRect(x: 0, y: 0, width: 360, height: 240),
                 styleMask: [.borderless], backing: .buffered, defer: false)
             panel.isReleasedWhenClosed = false
-            panel.contentView = WallpaperLibrarySheetSurface(frame: NSRect(x: 0, y: 0, width: 360, height: 240))
+            panel.contentView = WallpaperPanelSurface(frame: NSRect(x: 0, y: 0, width: 360, height: 240))
             return panel
         }
         let clearModal = makeInputModal()

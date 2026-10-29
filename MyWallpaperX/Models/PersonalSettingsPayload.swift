@@ -68,6 +68,7 @@ nonisolated struct PersonalSettingsPreferences: Codable, Equatable, Sendable {
     var sortAscending: Bool?
     var libraryBackgroundStyle: String?
     var libraryCardClickAction: String?
+    var screenSaver: ScreenSaverPreferences?
     var videoLibrarySort: WallpaperLibraryVideoSortPreference?
     var systemAudioSpectrumEnabled: Bool?
     var systemAudioSpectrumStyle: String?
@@ -107,6 +108,7 @@ nonisolated struct PersonalSettingsPreferences: Codable, Equatable, Sendable {
         sortAscending = settings.sortAscending
         libraryBackgroundStyle = settings.libraryBackgroundStyle.rawValue
         libraryCardClickAction = settings.libraryCardClickAction.rawValue
+        screenSaver = settings.screenSaver
         systemAudioSpectrumEnabled = settings.systemAudioSpectrumEnabled
         systemAudioSpectrumStyle = settings.systemAudioSpectrumStyle.rawValue
         systemAudioSpectrumSensitivity = settings.systemAudioSpectrumSensitivity.rawValue
@@ -124,6 +126,7 @@ nonisolated struct PersonalSettingsPreferences: Codable, Equatable, Sendable {
         var comparable = current
         if libraryBackgroundStyle == nil { comparable.libraryBackgroundStyle = nil }
         if libraryCardClickAction == nil { comparable.libraryCardClickAction = nil }
+        if screenSaver == nil { comparable.screenSaver = nil }
         if systemHotkeysEnabled == nil { comparable.systemHotkeysEnabled = nil }
         if previousWallpaperHotkey == nil { comparable.previousWallpaperHotkey = nil }
         if nextWallpaperHotkey == nil { comparable.nextWallpaperHotkey = nil }
@@ -169,6 +172,7 @@ nonisolated struct PersonalSettingsPreferences: Codable, Equatable, Sendable {
         if let libraryCardClickAction, let value = LibraryCardClickAction(rawValue: libraryCardClickAction) {
             result.libraryCardClickAction = value
         }
+        if let screenSaver { result.screenSaver = screenSaver }
         if let systemAudioSpectrumEnabled { result.systemAudioSpectrumEnabled = systemAudioSpectrumEnabled }
         if let systemAudioSpectrumStyle, let value = SystemAudioSpectrumStyle(rawValue: systemAudioSpectrumStyle) { result.systemAudioSpectrumStyle = value }
         if let systemAudioSpectrumSensitivity, let value = SystemAudioSpectrumSensitivity(rawValue: systemAudioSpectrumSensitivity) { result.systemAudioSpectrumSensitivity = value }

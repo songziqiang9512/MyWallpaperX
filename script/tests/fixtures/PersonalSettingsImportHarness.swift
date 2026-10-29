@@ -184,6 +184,7 @@ extension Notification.Name {
         let storeURL = root.appendingPathComponent("relations.sqlite3")
         let store = UserCollectionsStore(url: storeURL)
         let initial = try await store.snapshot()
+        checks.merge(try screenSaverPreferenceChecks(state: initial)) { _, next in next }
         let controller = UserCollectionsController(store: store, snapshot: initial)
         let presentation = WallpaperLibraryPresentation(collections: controller, defaults: manager.defaults)
         _ = presentation.update(catalog: .init(), relationships: controller.snapshot)

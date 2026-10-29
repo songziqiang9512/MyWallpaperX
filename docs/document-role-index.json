@@ -9,6 +9,7 @@
       "docs/architecture/technology-stack-boundaries.md",
       "docs/development/apple-silicon-optimization-plan.md",
       "docs/development/code-slimming-program.md",
+      "docs/development/lock-screen-screensaver-design.md",
       "docs/development/main-window-playlists-redesign.md",
       "docs/development/pixiv-online-browser-design.md",
       "docs/development/repository-workflow.md",
@@ -182,13 +183,13 @@
       "role": "stable-contract",
       "entrypoint": "docs/README.md",
       "currentStateAuthority": "docs/README.md",
-      "lastReviewed": "2026-10-18",
+      "lastReviewed": "2026-10-29",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "ed4180fc3b29018a03f82f9fdf2b5ce648fe15edfeaadb17acee41e820632990",
+        "sourceSHA256": "f16f8bc58803ed26cd5df614b8f0da89c28ec9029fa368da747ed2b625c800c2",
         "method": "document_registry --audit + document_health --check",
-        "scope": "Playback lifetime, native visibility gates, sole product transaction and their document routes.",
-        "limitations": "Source and routing review; runtime acceptance is recorded separately and is not full compatibility or Space parity."
+        "scope": "屏保明确收敛为AVFoundation独立视频组件，保留主App原Scene/Web桌面职责与系统认证边界。",
+        "limitations": "仅文档和接线静态复核；不代表最终Release、公证、真实系统宿主或功耗资格已通过。"
       }
     },
     {
@@ -202,6 +203,12 @@
       "role": "active-plan",
       "entrypoint": "docs/README.md",
       "retirementCondition": "已证候选按批验收或由用户结束专项后，稳定职责回归原合同，本页归档且退役专项设计登记。"
+    },
+    {
+      "path": "docs/development/lock-screen-screensaver-design.md",
+      "role": "active-plan",
+      "entrypoint": "docs/README.md",
+      "retirementCondition": "仅Video的组件、App接线、真实系统宿主和资源验收完成后由稳定系统集成合同接管；已撤销的Scene/Web屏保及私有动态锁屏不在授权范围内。"
     },
     {
       "path": "docs/development/main-window-playlists-redesign.md",
@@ -612,13 +619,13 @@
       "role": "stable-contract",
       "entrypoint": "docs/README.md",
       "currentStateAuthority": "docs/release/bundle-content.md",
-      "lastReviewed": "2026-10-28",
+      "lastReviewed": "2026-10-29",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "2147305983cfdaa0e58b0dac857af037932cfb78fcc607fb4bc7c85297067770",
+        "sourceSHA256": "6eaee29bd739759d241fd06f971a6de8bf2be8035d3214d4501f8393e33b9d08",
         "method": "document_registry --audit + document_health --check",
-        "scope": "普通CI按推送改动验证并独立于发布；发布核心、构建、包体、签名及公证检查保留。仅脚本与文档复核。",
-        "limitations": "Static contract review only; signed release and public artifact checks are performed by the release workflow."
+        "scope": "轻量视频组件沿原版本、arm64、inside-out签名和符号包发布；撤销其shader助手与大资源要求，主App签名不变。",
+        "limitations": "仅文档和接线静态复核；不代表最终Release、公证、真实系统宿主或功耗资格已通过。"
       }
     },
     {

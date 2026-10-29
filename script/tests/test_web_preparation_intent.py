@@ -9,15 +9,6 @@ from script.tests.test_web_author_preparation import CHECKS, CORE, ROOT, WEB, ha
 from script.tests.test_steam_library_interactions import method
 
 ENTRY_SUPPORT = r'''
-@MainActor final class ImportedVideoAutoplayGate {
-    static let shared = ImportedVideoAutoplayGate()
-    func invalidate() {}
-    func claim() -> Int { 1 }
-}
-struct ImportedVideoPlaybackRequest {
-    let localURL: URL; let autoplayToken: Int; let resourceLifetime: PlaybackResourceLifetime?
-    func post(name: Notification.Name) {}
-}
 enum AlertStyle { case warning }
 enum AlertResponse { case alertSecondButtonReturn }
 func makeAppAlert(title: String, message: String, style: AlertStyle, buttons: [String]) -> Int { 0 }
@@ -65,11 +56,26 @@ nonisolated final class ReadyReceiver: @unchecked Sendable {
         }
         defer { NotificationCenter.default.removeObserver(token) }
         var processCancels = 0
-        service.prepareWebPlaybackProcess = {
-            // Same synchronous callback as Manager.beginPlaybackIntent -> App
-            // injection. The new request must sample its generation after this.
+        service.prepareWebPlaybackProcess = { pending in
+            // Process preparation may synchronously revoke the prior provider
+            // intent. The new request must sample its generation after this.
             service.advanceWebLaunchIntentGeneration()
-            return (UUID(), { processCancels += 1 }, { true }, service.webLaunchIntentGeneration)
+            return (UUID(), { processCancels += 1 }, { true }, pending.ticket.epoch)
+        }
+        var sequence = WallpaperPlaybackSequence()
+        var transaction = PlaybackSwitchTransaction()
+        // The App supplies a staged product selection. Preserve the exact
+        // provider record below so its current eligibility is still exercised.
+        @MainActor @discardableResult
+        func select(_ record: SteamWorkshopDownloadRecord) throws -> Bool {
+            let reference = WallpaperReference(provider: .steamWorkshop, sourceID: record.id)
+            let snapshot = try WallpaperPlaybackSequence.Snapshot(source: .single(reference),
+                revision: sequence.rotationGeneration,
+                entries: [.init(reference: reference, runtime: .web, isPlayable: true)])
+            let proposal = sequence.proposeSelection(reference, from: snapshot)!
+            let (ticket, _) = transaction.begin(.web)
+            check(sequence.stage(proposal, ticket: ticket), "fixture stages a real product selection")
+            return service.setAsWallpaper(record, libraryPending: sequence.pending!)
         }
         // Entry eligibility is genuinely production code and must not read a
         // project or invoke legacy source discovery on the actor.
@@ -84,7 +90,7 @@ nonisolated final class ReadyReceiver: @unchecked Sendable {
         check(!service.canLaunchDownloadRecord(record), "directory cannot masquerade as entry")
         try fm.removeItem(at: entry); try Data("<script>fetch('https://cdn.intent.test/config.json')</script>".utf8).write(to: entry)
         check(service.canLaunchDownloadRecord(record), "restored regular entry re-enables admission")
-        service.setAsWallpaper(record)
+        try select(record)
         await service.webLaunchPreparationTask!.value
         check(receiver.ids == ["A"] && service.webLaunchPreparationTask == nil, "new Web survives its own intent callback and releases only its handle")
         check(receiver.hosts("A") == ["cdn.intent.test"], "actual ready publication carries the prepared author hosts")
@@ -94,18 +100,18 @@ nonisolated final class ReadyReceiver: @unchecked Sendable {
         check(service.steamLibraryVersionLeaseRegistry.protectedStorageIdentities().isEmpty, "consumer release ends transferred source lifetime")
         let before = service.webLaunchIntentGeneration
         var invalid = record; invalid.status = .queued
-        service.setAsWallpaper(invalid)
+        try select(invalid)
         check(service.webLaunchIntentGeneration > before && service.webLaunchPreparationTask == nil, "invalid new request still advances/revokes at product entry")
         service.removeWebRuntimeCaches(for: record.id)
         trace.reset(); let oldGate = Gate(); trace.readGate = oldGate
-        service.setAsWallpaper(record)
+        try select(record)
         let old = service.webLaunchPreparationTask!
         await oldGate.wait()
         let storage = SteamWorkshopLibraryTransaction.storageIdentity(containing: folder, libraryRoot: service.steamDownloadLibraryRootURL)!
         var next = record; next = SteamWorkshopDownloadRecord(id: "B", folderURL: folder,
             projectFileURL: record.projectFileURL, entryURL: record.entryURL)
         let nextGate = Gate(); trace.readGate = nextGate
-        service.setAsWallpaper(next)
+        try select(next)
         let current = service.webLaunchPreparationTask!
         await nextGate.wait()
         check(old.isCancelled && service.steamLibraryVersionLeaseRegistry.protectedStorageIdentities().contains(storage), "new selection actually cancels stored old preparation while joined read owns lease")
@@ -116,7 +122,7 @@ nonisolated final class ReadyReceiver: @unchecked Sendable {
         receiver.releaseTokens()
         service.removeWebRuntimeCaches(for: next.id)
         trace.reset(); let crossGate = Gate(); trace.readGate = crossGate
-        service.setAsWallpaper(next)
+        try select(next)
         let cross = service.webLaunchPreparationTask!
         await crossGate.wait()
         service.advanceWebLaunchIntentGeneration() // real callback target for non-Web intents/stop
@@ -126,14 +132,14 @@ nonisolated final class ReadyReceiver: @unchecked Sendable {
             "renderer preparation and sole source lease release only after joins")
         NotificationCenter.default.removeObserver(token)
         service.removeWebRuntimeCaches(for: record.id)
-        service.setAsWallpaper(record)
+        try select(record)
         await service.webLaunchPreparationTask!.value
         check(service.steamLibraryVersionLeaseRegistry.protectedStorageIdentities().isEmpty,
             "ready notification without a consumer releases the sole source token when producer exits")
         service.downloadError = nil
         try Data("<html>new declared entry</html>".utf8).write(to: folder.appendingPathComponent("other.html"))
         try Data(#"{"file":"other.html"}"#.utf8).write(to: record.projectFileURL!)
-        service.setAsWallpaper(record)
+        try select(record)
         await service.webLaunchPreparationTask!.value
         check(service.downloadError == nil && service.steamLibraryVersionLeaseRegistry.protectedStorageIdentities().isEmpty,
             "changed declaration does not reject a selected readable entry or retain a source token")
@@ -198,13 +204,15 @@ class WebPreparationIntentTests(unittest.TestCase):
     var webLaunchIntentGeneration: UInt64 = 0
     var webLaunchPreparationTask: Task<Void, Never>?
     var cancelWebProcessPreparation: (() -> Void)?
-    var prepareWebPlaybackProcess: (() -> (requestID: UUID, cancel: () -> Void, isCurrent: () -> Bool, intentEpoch: UInt64))?
+    var requestLibraryPlayback: ((WallpaperReference) -> Void)?
+    var prepareWebPlaybackProcess: ((WallpaperPlaybackSequence.Pending) -> (requestID: UUID, cancel: () -> Void, isCurrent: () -> Bool, intentEpoch: UInt64)?)?
+    var prepareVideoPlaybackIntent: ((WallpaperReference, WallpaperPlaybackSequence.Pending?) -> ImportedVideoPlaybackAdmission?)?
     var statusMessage = ""
     var downloadError: String?
     func markLaunchPending(recordID: String) {}
     func clearLaunchPending(matching id: String) {}
     func scheduleLaunchPendingFallbackClear(recordID: String) {}
-    func requestSceneRender(_ record: SteamWorkshopDownloadRecord) {}
+    func requestSceneRender(_ record: SteamWorkshopDownloadRecord, libraryPending: WallpaperPlaybackSequence.Pending?) -> Bool { false }
     func requestMissingDependencyDownload(for record: SteamWorkshopDownloadRecord) {}
 '''
         source = source.replace('    var removingDownloadIDs = Set<String>()', fields + '\n    var removingDownloadIDs = Set<String>()', 1)
@@ -212,7 +220,16 @@ class WebPreparationIntentTests(unittest.TestCase):
         playback = (WEB / 'SteamWorkshopService+WebPlayback.swift').read_text()
         risk = (WEB / 'SteamWorkshopWebResolvedRuntimeRiskFlags.swift').read_text()
         source += '\nextension SteamWorkshopService {\n' + '@discardableResult\n' + method(core, 'func advanceWebLaunchIntentGeneration(') + '\n' + method(playback, 'func setAsWallpaper(') + '\n' + method(risk, 'func recommendedWebRuntimeProfile(for descriptor:') + '\n}\n'
-        run_harness(self, source + ENTRY_SUPPORT, 'web-preparation-intent-pass')
+        playback_sources = tuple(ROOT / path for path in (
+            'MyWallpaperX/Models/WallpaperReference.swift',
+            'MyWallpaperX/Models/WallpaperLibraryPage.swift',
+            'MyWallpaperX/Core/PlaybackControl/WallpaperRuntimeSwitch.swift',
+            'MyWallpaperX/Core/PlaybackControl/PlaybackSwitchTransaction.swift',
+            'MyWallpaperX/Core/PlaybackControl/WallpaperPlaybackSequence.swift',
+            'MyWallpaperX/Core/PlaybackControl/ImportedVideoAutoplayGate.swift',
+            'MyWallpaperX/Core/PlaybackControl/ImportedVideoPlaybackAdmission.swift',
+        ))
+        run_harness(self, source + ENTRY_SUPPORT, 'web-preparation-intent-pass', extra_sources=playback_sources)
 
 
 if __name__ == '__main__': unittest.main()

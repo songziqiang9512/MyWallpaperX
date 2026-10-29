@@ -28,7 +28,8 @@ class LibraryBackgroundStyleTests(unittest.TestCase):
         fixture_path = ROOT / "script/tests/fixtures/LibraryBackgroundStyleHarness.swift"
         settings_window = APP / "App/SettingsWindowController.swift"
         tint_sources = [APP / "Shared/UI/ListThumbnailTintSource.swift", APP / "Shell/AppKitListBackgroundTint.swift"]
-        models = [APP / "Models/WallpaperControls.swift", APP / "Models/WallpaperSettings.swift"]
+        models = [APP / "Models/WallpaperControls.swift", APP / "Models/WallpaperSettings.swift",
+                  APP / "Models/ScreenSaverPreferences.swift", APP / "Models/WallpaperReference.swift"]
         inputs = [*models, *tint_sources, settings_window, settings_path, layout_path, composition_path, fixture_path, Path(__file__).resolve()]
         hashes = {str(path.relative_to(ROOT)): hashlib.sha256(path.read_bytes()).hexdigest() for path in inputs}
         settings, composition = settings_path.read_text(), composition_path.read_text()

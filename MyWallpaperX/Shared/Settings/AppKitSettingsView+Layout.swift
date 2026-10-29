@@ -1,6 +1,8 @@
 import AppKit
 
 extension AppKitSettingsContainerView {
+    @objc func openScreenSaverSettings() { dependency.actions.openScreenSaverSettings() }
+
     func setupSections() {
         // 分组顺序固定：播放、系统、节能、显示、维护；由左侧导航决定当前显示哪些块。
         setupPlaybackSection()
@@ -310,6 +312,10 @@ extension AppKitSettingsContainerView {
         }
         displaySection.addRow(makeSettingRow(title: "卡片单击操作", iconSystemName: "cursorarrow.click",
             trailing: libraryCardClickPopup))
+        let screenSaverButton = NSButton(title: "配置", target: self, action: #selector(openScreenSaverSettings))
+        screenSaverButton.bezelStyle = .rounded
+        displaySection.addRow(makeSettingRow(title: "锁屏与屏保", iconSystemName: "display",
+            subtitle: "让本地视频在系统屏保中静音循环播放", trailing: screenSaverButton))
         multiDisplaySwitch.toolTip = "在所有显示器上显示壁纸（视频/Web/Scene）"
         displaySection.addRow(makeSettingRow(title: "多屏支持", iconSystemName: "rectangle.on.rectangle", trailing: multiDisplaySwitch))
 

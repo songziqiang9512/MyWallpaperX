@@ -330,7 +330,10 @@ import Combine
         case .downloads: scope = "仅从我的下载移除，源文件和其他列表保留。"
         default: scope = "仅从资料库移除，源文件和其他列表保留。"
         }
+        let saver = ScreenSaverIntegration.shared.configuration?.content
+        let retainedSaver = fixed.contains { $0.reference.storageKey == saver?.sourceIdentity }
         let message = scope + "勾选会删除源文件，无法撤销。"
+            + (retainedSaver ? "\n已保存的屏保副本会保留，可在「锁屏与屏保」中清除。" : "")
         let alert = makeAppAlert(title: "\(title) \(fixed.count) 项？", message: message, style: .warning, buttons: ["移除", "取消"])
         let deleteFiles = NSButton(checkboxWithTitle: "删除磁盘的源文件", target: nil, action: nil)
         deleteFiles.state = .off
@@ -549,6 +552,16 @@ import Combine
             } else {
                 add("设为壁纸", "play.fill", enabled: item.capabilities.contains(.play)) { [weak self] in
                     self?.workspace.play(item.reference, from: source)
+                }
+            }
+            if item.kind == .video {
+                add("用作屏保", "display") { [weak self] in
+                    guard let self else { return }
+                    guard item.publishedAvailability.isAvailable, item.capabilities.contains(.play) else {
+                        presentAppAlert(makeAppAlert(title: "视频暂不可用", message: "请重新定位本地文件或完成下载后，再将此视频保存为系统屏保。"), in: self.hostWindow())
+                        return
+                    }
+                    ScreenSaverWindowController.shared.show(reference: item.reference, relativeTo: self.hostWindow())
                 }
             }
             add("查看信息", "info.circle") { [weak self] in self?.onInspect?(item) }

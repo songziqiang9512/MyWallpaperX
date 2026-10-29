@@ -935,7 +935,7 @@ final class AppKitSettingsContainerView: NSView {
         let hostWindow = preferredHostWindow()
         let alert = makeAppAlert(
             title: "重置应用",
-            message: "将清空应用中的入库记录、喜爱、播放列表和最近使用，并恢复默认设置。磁盘上的媒体与下载文件保留，此操作不可撤销。",
+            message: "将清空应用中的入库记录、喜爱、播放列表、最近使用及已保存的屏保内容，并恢复默认设置。磁盘上的原始媒体与下载文件保留，此操作不可撤销。",
             buttons: ["取消", "重置"]
         )
         presentAppAlert(alert, in: hostWindow) { [weak self] response in
