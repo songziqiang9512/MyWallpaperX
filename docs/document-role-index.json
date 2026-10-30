@@ -1066,27 +1066,27 @@
       "role": "current-state",
       "entrypoint": "docs/scene/capabilities/README.md",
       "purpose": "限定专题的实现状态、偏差或证据；运行结论须复核身份和边界，不决定任务顺序。",
-      "lastReviewed": "2026-10-23",
+      "lastReviewed": "2026-10-30",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "5ad128c3a04fc46e3625ad7a3a39923f68ac344fe8560311256e1a3110ffa011",
+        "sourceSHA256": "d42a61a518c1c31c2c50c73ac3fa73b28f5fe190218c12d1297230666685e9ac",
         "method": "document_registry --audit + document_health --check",
-        "scope": "Same-corpus generate and verify pass for 373 directories; declaration summary/families/profiles unchanged. Runtime decisions remain only in the acceptance ledger.",
-        "limitations": "Declaration-tool and navigation evidence only; no App build, runtime support, performance or official visual parity claim."
+        "scope": "522份静态生成/投影、仅31新增的优化DEBUG日志；旧491归档行/人工verdict不变，逐能力因果记录及待修队列。",
+        "limitations": "无截图/官方parity或性能验收；日志健康不授每个组件或未触发分支通过，作者配置与漏计不认引擎缺口。"
       }
     },
     {
       "path": "docs/scene/capabilities/scene-corpus-sample-inventory.md",
       "role": "current-state",
       "entrypoint": "docs/scene/capabilities/scene-corpus-capability-inventory.md",
-      "purpose": "373目录的静态声明逐样本清单；统计方法归corpus总览，运行/视觉裁决归验收台账。",
-      "lastReviewed": "2026-10-23",
+      "purpose": "逐样本静态声明清单；统计版本/方法归corpus总览，运行与视觉裁决归验收台账。",
+      "lastReviewed": "2026-10-30",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "e9eaa910e302faf2500e3ccbff222e327cefff96a89064a997337f2b59fcf329",
+        "sourceSHA256": "1ca0d2d854aa532289535c5fabc1aac0af1b3673ad039719bd7efb8ed5290037",
         "method": "document_registry --audit + document_health --check",
-        "scope": "All 373 sample rows preserved; failed 3763323436 retains project-json-missing and actual material flags. Page references the exact verified snapshot bytes.",
-        "limitations": "Declaration-tool and navigation evidence only; no App build, runtime support, performance or official visual parity claim."
+        "scope": "522份静态生成/投影、仅31新增的优化DEBUG日志；旧491归档行/人工verdict不变，逐能力因果记录及待修队列。",
+        "limitations": "无截图/官方parity或性能验收；日志健康不授每个组件或未触发分支通过，作者配置与漏计不认引擎缺口。"
       }
     },
     {
@@ -1112,10 +1112,10 @@
       "lastReviewed": "2026-10-30",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "da1b493ceade87d70122ccf0d1567270455f648429c3c02577bc5261cb040ee8",
+        "sourceSHA256": "e671e355a10f49754fb8649e042c1803671e8520ab0c8b42b967daf5e8206171",
         "method": "document_registry --audit + document_health --check",
-        "scope": "Shared material-key ownership contract and bounded 373 Program/GPU/waveform closure; retain the original mixed archive and its strict diagnostic debt.",
-        "limitations": "Only this local change and navigation reviewed. No full-document product revalidation, official parity, full properties/panel, HDR, multi-screen or performance conclusion."
+        "scope": "522份静态生成/投影、仅31新增的优化DEBUG日志；旧491归档行/人工verdict不变，逐能力因果记录及待修队列。",
+        "limitations": "无截图/官方parity或性能验收；日志健康不授每个组件或未触发分支通过，作者配置与漏计不认引擎缺口。"
       }
     },
     {
@@ -1534,7 +1534,7 @@
       "role": "historical-evidence",
       "entrypoint": "docs/scene/history/README.md",
       "cutoffDate": "2026-10-30",
-      "uniqueValue": "453+38目录短窗筛查与来源首错；10月30日self override来源后验、正式时窗的原包波形收益及未参与修法邻例。",
+      "uniqueValue": "453+38+31样本增量短窗日志、公共首错因果与未触发/作者配置/诊断漏计分层；原包来源修复的正式时窗后验。",
       "commandPolicy": "historical-only",
       "currentAuthorities": [
         "docs/scene/development/corpus-diagnostic-workflow.md",
@@ -4469,10 +4469,10 @@
       "lastReviewed": "2026-10-30",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "7cb13185bf3be4d715f47b7c41602fd21f74832d68491cf41520e7fc1d348c97",
+        "sourceSHA256": "0d8542d2426f4045ef2e15c9890057c6a4f75946fcbf39699cf8cdb2b6ae717a",
         "method": "document_registry --audit + document_health --check",
-        "scope": "有效同层override与闲置default来源合同、624正式开场后输出和独立374邻例；队列仅退出对应子问题。",
-        "limitations": "不授同音频/动画相位、官方parity、HDR/多屏或性能；3秒过渡图与原hover误请求FAIL保留。"
+        "scope": "522份静态生成/投影、仅31新增的优化DEBUG日志；旧491归档行/人工verdict不变，逐能力因果记录及待修队列。",
+        "limitations": "无截图/官方parity或性能验收；日志健康不授每个组件或未触发分支通过，作者配置与漏计不认引擎缺口。"
       }
     },
     {

@@ -93,3 +93,23 @@
 未参与修法的3747190633原包保留相邻健康路径：1897的后继1900显式self override且shader仍有asset default，1898→1900→1902全链GPU/末合成/次帧保持。原默认属性、PCM、after4s/4秒请求，原包无single开场timeline；实际normal runner最少7秒。root亲看人物、粒子、时钟、青色音频条与灰白线保留，strict PASS、exit0、surface1→0/GPU排空。不据截图判字体精确布局、动作相位或官方parity。
 
 本批只退出624这项来源拒绝及其已证局部可见损失；356的无源producer、357/363用途/Combined及其他旧视觉问题仍留原队列。未测性能、HDR、多屏和外部真实音频；必要原图、原始短窗FAIL、稳定对照、身份、门与独审限量归档 `.artifacts/scene-evidence/runs/self-source-override-20261030/`。执行副本/HOME与重试缓存提取后清理，连续构建只留现役一份Debug缓存。
+
+<a id="incremental-31-20261030"></a>
+## 新增31份日志筛查（2026-10-30）
+
+当前522目录相对已知453+38=491新增31、移除0；原静态双页只到453，本轮经原census一次完整生成并以原renderer纯投影同步522。521可解析，唯一旧3763323436缺project；新31全部可解析，旧491声明源身份/计数不变。全体226245声明点、5271结构family、2515参数profile、24803字段profile；新31为12110声明点，涉及703 family，其中新增113，参数新增19、字段profile新增97；新unknown/unclassified均0。
+
+新31涉及15项已有注册能力，注册新增0。沿既有九类视觉路线及Sound旁路分组，本次有静态/序列、文字、文件/系统媒体、Puppet候选、直接模型声明、粒子与Effect/Utility七类视觉入口及Sound；未识别新视频TEX或SpotLight入口。不能把15能力、family/profile或包内model presence称独立加载链：仍一条共享主链、五类prepared产品，Script/Property/Timeline是控制面。新文本11包30对象、粒子24包88根层、684 effect instance；21包puppet定义与3包objects.model只是候选，不认已执行。
+
+复用scene_diagnostic_build.xcconfig的优化DEBUG，原签名App主体a85e9618…4dff；首构81.406s有一个并行非Scene文件漂移，补一次增量42.694s后所有冻结输入无漂移/签名通过。为先验隔离再扩并发，沿原CLI分4份pilot和剩27份，各stage同一App一次、不另造staging owner；每worker独立副本/HOME/TMPDIR，Ready后4秒、PCM、pointer outside、无PNG，结束即删除worker执行环境。四份含最大655MB包，4并发均完成后剩余6并发。不是正式Release/WMO或性能比较。
+
+31份均Ready、有graph GPU完成、exit0且surface1→0/GPU排空，无超时；raw25 PASS/6 FAIL。原normalizer有19条结构完成、12条degraded及18组事件，排序不等于因果首错，12也不等于12个缺图。image加载31、text11、puppet clip准备16、sprite2、粒子加载23/非空人口22、utility capture28包；这些层级不同，不代每组件正确。Sound处paused，未注入外部媒体或真实鼠标/属性事件，日志不能授官方画面/音频/全参数通过。
+
+| 公共观察 | 本轮因果资格及后继 |
+|---|---|
+| effect输入/前端局部降级 | 2832796442有unused texture artifact及dynamicLoop后继；2861017657 previous-blurred-composite owner缺口；3358871872条件分支内对象宏重定义；2899371377显式LOD采样.r未形成redOnly用途proof。2857410102的91是未选预设，另128/428实际活跃链被末motionblur节点textureReferenceInvalid拒绝，不能混作同一noise用途问题。具体形态与下一门归[唯一队列](../roadmap/scene-open-breakpoint-queue.md#incremental-effect-20261030)。 |
+| world-space Rope | 3141464346的188/332均真实dynamicSystemTransform拒绝，资源存在、正subdivision3，超出现动态root仅Sprite平移范围。332要scene约28.4s才显alpha，4秒不裁可见损失；并入原world-space项，不与负subdivision猜测合修。 |
+| 五包solid观察 | 3280903509、3303319749、3347416586、3350026230、3357689320合计22层，21个instanced solid实际已沿asset通道加载white，仅1个procedural被parser计入。共享诊断漏计，不是五个缺纹理；原raw/normalized红项保留，工具待修并入合同债。 |
+| Script异常 | 3028048463的init仅收visible player层，默认19层均隐藏，随后访问空数组playerLayers[0].alpha；现enumeration/visible/alpha/isScreensaver已有。3280903509的225.alpha挂了clearcolor脚本并返回Vec3，故BAD_RETURN；两者均未资格引擎缺API，不把Vec3强转标量。 302另有506.origin的authored mutation owner冲突（25条mutation、previous-current），不归入空数组错误，保原公共mutation待资格项。 |
+
+原491归档行逐值不变，只用full snapshot的31行明确subset投影追加；未再次扫原包，未修改人工verdict。生成台账包含全部522，旧失败与最新队列分层，不把本轮当旧491复验。必要raw报告、日志、声明、来源投影/身份/独审限量归档 .artifacts/scene-evidence/runs/corpus-incremental-20261030/；截图未请求，用户新放“截屏/已粘贴”仅供后继正式阶段对照。执行方法归原诊断合同，项目skill只补入口与高成本误判经验。

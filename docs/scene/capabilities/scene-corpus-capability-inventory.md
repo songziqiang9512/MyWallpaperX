@@ -6,13 +6,13 @@
 
 ## 1. 当前结论
 
-- 当前真实 Scene 根发现 **453** 个样本，**452/453** 的 project、PKGV 索引和入口 JSON 可解析。
+- 当前真实 Scene 根发现 **522** 个样本，**521/522** 的 project、PKGV 索引和入口 JSON 可解析。
 - tracked full-matrix baseline 当前覆盖 **45** 个历史成员，状态为 `pending-expansion`；该成员关系不表示本轮新增或从未运行。实际播放与人工裁决见[验收台账](scene-sample-acceptance-ledger.md)，本 census 不 join 运行证据。
-- 全量 authored census 共保存 **193099** 个 typed occurrence、**4878** 个公共结构 family、**2428** 个参数 profile 与 **23940** 个 JSON 字段 profile。
-- 物理 corpus 共 **33000** 个 PKG entry / **32996** 个唯一路径，包体约 **18.464 GB**；tracked baseline 在单独的 milestone 扩容并建立运行期待前仍为 45，期间不得称为当前完整快照门。
+- 全量 authored census 共保存 **226245** 个 typed occurrence、**5271** 个公共结构 family、**2515** 个参数 profile 与 **24803** 个 JSON 字段 profile。
+- 物理 corpus 共 **40190** 个 PKG entry / **40186** 个唯一路径，包体约 **22.403 GB**；tracked baseline 在单独的 milestone 扩容并建立运行期待前仍为 45，期间不得称为当前完整快照门。
 - package anomaly：样本 `3690065713` 的 `fonts/workshop/3651835769/nasalization.otf` entry重复（indices 36/54，同字节；该包 107 entries / 106 unique paths）；样本 `3744157078` 的 `fonts/workshop/3651835769/nasalization.otf` entry重复（indices 93/160，同字节；该包 167 entries / 166 unique paths）；样本 `3768724269` 的 `fonts/workshop/3651835769/nasalization.otf` entry重复（indices 59/80，同字节；该包 87 entries / 86 unique paths）；样本 `3807013762` 的 `fonts/workshop/3651835769/nasalization.otf` entry重复（indices 49/57，同字节；该包 73 entries / 72 unique paths）；重复entry继续保留在物理守恒中，不是漏扫。
 - 结构 fallback 记录为 **93**，另有 **7** 个 generic/unknown/unresolved family；两者都不是运行失败数。本 census 未 join 运行证据的样本，其第一 blocker 保持 `unknown`，不得从静态形态猜测。
-- 公共能力粗映射：**4869** 个 family 按声明形态映射到台账登记能力，**9** 个显式 unknown（`{"effect-declaration-unresolved-static": 1, "family-map-domain-fallback": 1, "project-property-kind-empty": 1, "project-property-kind-unknown": 6}`）；映射只表达声明覆盖关系，不表示运行支持。
+- 公共能力粗映射：**5262** 个 family 按声明形态映射到台账登记能力，**9** 个显式 unknown（`{"effect-declaration-unresolved-static": 1, "family-map-domain-fallback": 1, "project-property-kind-empty": 1, "project-property-kind-unknown": 6}`）；映射只表达声明覆盖关系，不表示运行支持。
 - 开发按“真实可见链第一断裂边覆盖的共享 family”排序；大类用于汇总，不允许把所有纹理、Effect 或粒子一次性做成巨型补丁。
 
 ## 2. 口径与权威边界
@@ -29,46 +29,46 @@
 
 | 大类 | occurrence | family | family 语义/专项入口（非 current 状态） |
 |---|---:|---:|---|
-| `resource` | 17789 | 15 | [格式/资源](scene-format-and-render-graph.md) |
-| `shader` | 7330 | 404 | [Graph/Shader](render-graph-shader-coverage.md) |
-| `layer` | 17136 | 2542 | [格式/对象](scene-format-and-render-graph.md) |
-| `material` | 19379 | 72 | [Graph/Shader](render-graph-shader-coverage.md) |
-| `effect` | 10871 | 15 | [Effect](effect-execution-coverage.md) |
-| `render-graph` | 13204 | 28 | [Graph/Shader](render-graph-shader-coverage.md) |
-| `render-target` | 1573 | 8 | [Graph/Shader](render-graph-shader-coverage.md) |
-| `texture` | 37289 | 73 | [格式/资源](scene-format-and-render-graph.md) / [Graph/Shader](render-graph-shader-coverage.md) / [Provider](runtime-input-property-coverage.md) |
-| `particle` | 35024 | 957 | [粒子](particle-component-coverage.md) |
-| `audio-declaration` | 4189 | 40 | [音频声明](coverage-ledger.md) |
-| `dynamic-input` | 19810 | 676 | [属性/输入](runtime-input-property-coverage.md) |
-| `project-property` | 9505 | 48 | [属性/输入](runtime-input-property-coverage.md) |
+| `resource` | 21224 | 15 | [格式/资源](scene-format-and-render-graph.md) |
+| `shader` | 9472 | 421 | [Graph/Shader](render-graph-shader-coverage.md) |
+| `layer` | 19482 | 2820 | [格式/对象](scene-format-and-render-graph.md) |
+| `material` | 23308 | 73 | [Graph/Shader](render-graph-shader-coverage.md) |
+| `effect` | 12675 | 16 | [Effect](effect-execution-coverage.md) |
+| `render-graph` | 16165 | 31 | [Graph/Shader](render-graph-shader-coverage.md) |
+| `render-target` | 2418 | 8 | [Graph/Shader](render-graph-shader-coverage.md) |
+| `texture` | 46096 | 75 | [格式/资源](scene-format-and-render-graph.md) / [Graph/Shader](render-graph-shader-coverage.md) / [Provider](runtime-input-property-coverage.md) |
+| `particle` | 40254 | 1033 | [粒子](particle-component-coverage.md) |
+| `audio-declaration` | 4658 | 47 | [音频声明](coverage-ledger.md) |
+| `dynamic-input` | 20729 | 684 | [属性/输入](runtime-input-property-coverage.md) |
+| `project-property` | 9764 | 48 | [属性/输入](runtime-input-property-coverage.md) |
 
 ### 3.1 纹理本体与使用点
 
-- 包内物理 TEX：**7881**；格式分布：`{"0": 3146, "4": 641, "6": 30, "7": 38, "8": 1181, "9": 2845}`。
-- TEX 结构特征：`{"animated": 92, "static": 7789, "video-mp4": 5}`。这些只证明文件结构可读，不证明上传、purpose、sampler 或合成正确。
-- 纹理使用 occurrence：**29408**；slot 状态：`{"hole": 7994, "missing": 115, "resolved": 16183, "runtime-provided": 5116}`。`runtime-provided` 是 graph/named target 等运行身份，`missing` 需要结合 default/optional combo/VFS 语义判断，不能一律当缺图。
+- 包内物理 TEX：**9494**；格式分布：`{"0": 3751, "4": 644, "6": 30, "7": 38, "8": 1390, "9": 3641}`。
+- TEX 结构特征：`{"animated": 102, "static": 9392, "video-mp4": 5}`。这些只证明文件结构可读，不证明上传、purpose、sampler 或合成正确。
+- 纹理使用 occurrence：**36602**；slot 状态：`{"hole": 9496, "missing": 168, "resolved": 19299, "runtime-provided": 7639}`。`runtime-provided` 是 graph/named target 等运行身份，`missing` 需要结合 default/optional combo/VFS 语义判断，不能一律当缺图。
 
 ### 3.2 对象、Effect 与动态输入
 
-- 对象类型：`{"camera": 25, "image": 6252, "light": 52, "particle": 1299, "shape": 40, "sound": 260, "text": 1858, "utility": 1098}`；静态非 hidden：`{"camera": 21, "image": 4204, "light": 34, "particle": 1040, "shape": 31, "sound": 260, "text": 1235, "utility": 905}`。
-- Effect instance **10871**，粒子 root layer **1299**；动态 wrapper：`{"condition_wrappers": 1795, "script_wrappers": 6764, "timeline_wrappers": 1079, "user_bindings": 10416}`。
+- 对象类型：`{"camera": 26, "image": 7271, "light": 53, "particle": 1512, "shape": 47, "sound": 292, "text": 1912, "utility": 1098}`；静态非 hidden：`{"camera": 22, "image": 5126, "light": 35, "particle": 1248, "shape": 38, "sound": 292, "text": 1281, "utility": 905}`。
+- Effect instance **12675**，粒子 root layer **1512**；动态 wrapper：`{"condition_wrappers": 1906, "script_wrappers": 6891, "timeline_wrappers": 1651, "user_bindings": 10561}`。
 - 粒子组件分布完整保存在机器快照 `summary.particle.component_counts`；Effect/Graph/FBO、包内 shader uniform/annotation/combo、material authored combo/constant 与全部 JSON 字段可按 family/profile 查询。active/prepared shader variant 仍以专项 census 与运行证据为准。
 
 ### 3.3 音频声明与 consumer 意图关系
 
-- payload-free 音频关系共 **4189** 个 occurrence / **369** 个样本；其中 editor `supportsaudioprocessing=true` 为 **258** 个样本，存在至少一种非 project 声明关系的样本为 **369** 个。
-- 标记有而没有非 project 声明关系：`无`；有声明关系而没有 editor 标记：`1553008362, 1636394814, 1695673397, 1926190458, 1943018087, 1994794519, 2069136288, 2112262451, 2269193950, 2473638329, 2505351195, 2524111047, 2607203340, 2616828675, 2775915974, 2797913147, 2802243144, 2808936045, 2811643059, 2824109832, 2896873092, 2942486721, 2959875782, 2987771245, 2998757800, 3021013015, 3025969015, 3088601835, 3167210190, 3187857248, 3221354414, 3323988600, 3395392965, 3486887298, 3549827466, 3575109244, 3576374111, 3587930444, 3588027687, 3600590272, 3600595499, 3600599916, 3600610212, 3600636270, 3600642307, 3600647083, 3603225398, 3603698851, 3603819103, 3603835830, 3604867866, 3604880711, 3604887305, 3612659809, 3616019317, 3663810817, 3680252478, 3686637340, 3691275829, 3699213569, 3703104370, 3721991999, 3730622939, 3738202317, 3748513141, 3750342273, 3750813609, 3751548217, 3751630571, 3751642956, 3752078227, 3752531443, 3757555836, 3761050403, 3762312138, 3764725758, 3766403294, 3767232084, 3769761761, 3770444459, 3776193909, 3776842481, 3780247348, 3781299603, 3781307553, 3782614820, 3782650329, 3786048634, 3786641495, 3787355076, 3788645041, 3790631363, 3790956325, 3791905266, 3792745102, 3793328876, 3801294161, 3803087940, 3804171526, 3804899284, 3804930129, 3807239614, 3807553861, 3822822401, 3824617466, 3824936757, 3825183869, 3825309870, 3825819266, 3826951629, 3827042397`。两者都不是运行支持集合，不能从静态相等或差集推导 capture demand。
-- 静态 consumer 意图为 **190** 个样本：`1937925563, 2131872317, 2134765860, 2241938645, 2419444134, 2507971256, 2684431262, 2731896598, 2745810856, 2776912698, 2780710296, 2784267518, 2787219305, 2794098047, 2797943632, 2804817823, 2807058277, 2813231542, 2813240634, 2814167871, 2815826216, 2819143171, 2821634935, 2824690710, 2831174267, 2834973884, 2835398595, 2849382252, 2850139759, 2866086594, 2871552691, 2877499944, 2877855240, 2884170082, 2884628849, 2887542690, 2890473419, 2902406982, 2913492057, 2919854127, 2927205881, 2932157836, 2932631210, 2938612768, 2951452910, 2960821850, 2972071249, 2974757317, 2983846453, 2992924426, 2999907577, 3002649614, 3027056454, 3027068980, 3039704323, 3039882306, 3042492564, 3047405322, 3078285611, 3087231311, 3114332546, 3137495261, 3148125112, 3175039950, 3211615441, 3226487183, 3232289987, 3233141951, 3238423642, 3248220186, 3264246690, 3291326967, 3292370168, 3299228616, 3321237804, 3325624777, 3337494481, 3341111071, 3351163962, 3351179520, 3363252053, 3374523158, 3383535304, 3395777145, 3396722575, 3420215721, 3435573282, 3436945972, 3448845950, 3448877775, 3454689854, 3471294034, 3476868923, 3477054430, 3507496797, 3554161528, 3562021804, 3585542943, 3585875739, 3586308277, 3586705329, 3587571382, 3589454154, 3589819394, 3593919489, 3595178660, 3598930685, 3601964477, 3603711180, 3603812691, 3605722997, 3610154602, 3612199597, 3612795410, 3617056047, 3627973226, 3632513108, 3632522893, 3655958892, 3662790108, 3665307769, 3666041758, 3679907516, 3690065713, 3694697894, 3695791724, 3696646175, 3707474273, 3708363772, 3716328771, 3719111841, 3723344874, 3724289844, 3725148661, 3737432178, 3742497499, 3744157078, 3745828537, 3747190633, 3747492842, 3749463715, 3750312644, 3754639143, 3761619125, 3763312650, 3765904723, 3766299002, 3766310551, 3767460992, 3768020435, 3768229922, 3768724269, 3769688830, 3773747576, 3775655074, 3777761326, 3779026256, 3779107475, 3780119725, 3780391264, 3781757083, 3786330502, 3787382101, 3788066613, 3788467391, 3789316755, 3790806929, 3791967416, 3792249095, 3793998447, 3795384177, 3797217144, 3800356808, 3802537611, 3804441338, 3806202923, 3806222046, 3806337293, 3806836928, 3807013762, 3807151772, 3807668787, 3809034761, 3809609151, 3810943704, 3811154012, 3823874401, 3824111011, 3825170583, 3828725306`。这里只接受精确源码数组形状、显式启用的 material/particle 响应或 proven-global 且分辨率有效的 SceneScript 调用；material active variant/host ABI 与所有运行 execution 尚未 join，因此本批 runtime-confirmed 仍为 **0**。
+- payload-free 音频关系共 **4658** 个 occurrence / **434** 个样本；其中 editor `supportsaudioprocessing=true` 为 **313** 个样本，存在至少一种非 project 声明关系的样本为 **434** 个。
+- 标记有而没有非 project 声明关系：`无`；有声明关系而没有 editor 标记：`1553008362, 1636394814, 1695673397, 1926190458, 1943018087, 1994794519, 2069136288, 2112262451, 2269193950, 2473638329, 2505351195, 2524111047, 2607203340, 2616828675, 2761155250, 2775915974, 2797913147, 2802243144, 2808936045, 2811643059, 2824109832, 2868991816, 2896873092, 2899371377, 2942486721, 2957870426, 2959875782, 2987771245, 2998757800, 3021013015, 3025969015, 3088601835, 3167210190, 3187857248, 3221354414, 3323988600, 3355587815, 3375392695, 3375885250, 3395392965, 3486887298, 3494938648, 3549827466, 3564173599, 3575109244, 3576374111, 3587930444, 3588027687, 3600590272, 3600595499, 3600599916, 3600610212, 3600636270, 3600642307, 3600647083, 3603225398, 3603698851, 3603819103, 3603835830, 3604867866, 3604880711, 3604887305, 3612659809, 3616019317, 3617449489, 3663810817, 3680252478, 3686637340, 3691275829, 3699213569, 3703104370, 3721991999, 3730622939, 3738202317, 3748513141, 3750342273, 3750813609, 3751548217, 3751630571, 3751642956, 3752078227, 3752531443, 3757555836, 3761050403, 3762312138, 3764725758, 3766403294, 3767232084, 3769761761, 3770444459, 3776193909, 3776842481, 3780247348, 3781299603, 3781307553, 3782614820, 3782650329, 3786048634, 3786641495, 3787355076, 3788645041, 3790631363, 3790956325, 3791905266, 3792745102, 3793328876, 3801294161, 3803087940, 3804171526, 3804899284, 3804930129, 3807239614, 3807553861, 3822822401, 3824617466, 3824936757, 3825183869, 3825309870, 3825819266, 3826951629, 3827042397`。两者都不是运行支持集合，不能从静态相等或差集推导 capture demand。
+- 静态 consumer 意图为 **209** 个样本：`1937925563, 2131872317, 2134765860, 2241938645, 2419444134, 2507971256, 2684431262, 2731896598, 2745810856, 2776912698, 2780710296, 2784267518, 2787219305, 2794098047, 2797943632, 2804817823, 2807058277, 2813231542, 2813240634, 2814167871, 2815826216, 2819143171, 2821277078, 2821634935, 2824690710, 2831174267, 2832796442, 2834973884, 2835398595, 2849382252, 2850139759, 2857410102, 2864202526, 2866086594, 2866723317, 2871552691, 2877499944, 2877855240, 2884170082, 2884628849, 2887542690, 2890473419, 2902406982, 2913492057, 2915301481, 2919854127, 2927070084, 2927205881, 2932157836, 2932631210, 2938612768, 2947584319, 2951452910, 2960821850, 2972071249, 2974757317, 2983846453, 2992924426, 2999907577, 3002649614, 3027056454, 3027068980, 3028048463, 3039704323, 3039882306, 3042492564, 3047405322, 3078285611, 3087231311, 3114332546, 3137495261, 3148125112, 3175039950, 3211615441, 3226487183, 3232289987, 3233141951, 3238423642, 3248220186, 3264246690, 3280903509, 3291326967, 3292370168, 3299228616, 3321237804, 3325624777, 3337494481, 3341111071, 3350026230, 3351163962, 3351179520, 3363252053, 3374523158, 3382111183, 3383210272, 3383535304, 3395777145, 3396722575, 3420215721, 3435573282, 3436945972, 3448845950, 3448877775, 3454689854, 3471294034, 3476868923, 3477054430, 3507496797, 3554161528, 3562021804, 3566323704, 3585542943, 3585875739, 3586308277, 3586705329, 3587571382, 3589454154, 3589819394, 3593919489, 3595178660, 3598930685, 3601964477, 3603711180, 3603812691, 3605722997, 3610154602, 3612199597, 3612795410, 3617056047, 3622727585, 3627973226, 3632513108, 3632522893, 3655958892, 3662790108, 3665307769, 3666041758, 3669623379, 3673609113, 3679907516, 3690065713, 3694697894, 3695791724, 3696646175, 3707474273, 3708363772, 3716328771, 3719111841, 3723344874, 3724289844, 3725148661, 3737267090, 3737409266, 3737432178, 3742497499, 3744157078, 3745828537, 3747190633, 3747492842, 3749463715, 3750312644, 3754639143, 3761619125, 3763312650, 3765904723, 3766299002, 3766310551, 3767460992, 3768020435, 3768229922, 3768724269, 3769688830, 3773747576, 3775655074, 3777761326, 3779026256, 3779107475, 3780119725, 3780391264, 3781757083, 3786330502, 3787382101, 3788066613, 3788467391, 3789316755, 3790806929, 3791967416, 3792249095, 3793998447, 3795384177, 3797217144, 3800356808, 3802537611, 3804441338, 3806202923, 3806222046, 3806337293, 3806836928, 3807013762, 3807151772, 3807668787, 3809034761, 3809609151, 3810943704, 3811154012, 3823874401, 3824111011, 3825170583, 3828725306`。这里只接受精确源码数组形状、显式启用的 material/particle 响应或 proven-global 且分辨率有效的 SceneScript 调用；material active variant/host ABI 与所有运行 execution 尚未 join，因此本批 runtime-confirmed 仍为 **0**。
 - 其中同一 SceneScript owner 同时具有静态准入 AudioBuffers 与显式导出 cursor callback 的意图为 **3** 个样本：`3238423642, 3321237804, 3632513108`；这只登记实例化候选关系，不证明 hit、事件触发、snapshot refresh 或可见输出。
-- editor 标记有而静态意图无：`2067939514, 2871175822, 2887099508, 2917306763, 2949019513, 2964778792, 2969308380, 3009275235, 3022080536, 3086016320, 3113287126, 3113554287, 3122339805, 3146507587, 3147346398, 3287715210, 3290491250, 3357627941, 3372715909, 3443450456, 3470948192, 3487629864, 3509243656, 3563038726, 3566880847, 3577990983, 3581882134, 3597772384, 3605502569, 3609108600, 3616389236, 3616476797, 3641200550, 3662390671, 3690859128, 3698459055, 3701177677, 3712499998, 3721456868, 3726992337, 3742003469, 3743305891, 3747595588, 3748311238, 3749851384, 3754630802, 3761159935, 3763428294, 3765760121, 3766831622, 3769364482, 3779904456, 3782740481, 3788129418, 3788734811, 3788897599, 3792400801, 3792817546, 3796588443, 3800075350, 3802005866, 3804906814, 3804971850, 3805547608, 3808922316, 3809618616, 3812473896, 3815761795`；静态意图有而 editor 标记无：`无`。普通 App 运行基线必须覆盖这些差集与全部声明关系，不能只测标记集合。
+- editor 标记有而静态意图无：`2067939514, 2861017657, 2862207493, 2869415541, 2871175822, 2882180783, 2887099508, 2917306763, 2933898202, 2949019513, 2964778792, 2969308380, 2999944205, 3009275235, 3022080536, 3086016320, 3113287126, 3113554287, 3122339805, 3141464346, 3146507587, 3147346398, 3186328539, 3262080812, 3262230777, 3265157904, 3287715210, 3290491250, 3302769090, 3303319749, 3347423252, 3354345922, 3354442824, 3354495107, 3356086131, 3357627941, 3357689320, 3358871872, 3362592285, 3372715909, 3375012481, 3376129843, 3443450456, 3470948192, 3482520234, 3483627128, 3487488093, 3487629864, 3493799887, 3509243656, 3561969313, 3562172900, 3563038726, 3566880847, 3577990983, 3581882134, 3597772384, 3605502569, 3609108600, 3611935237, 3616389236, 3616476797, 3616886261, 3641200550, 3662390671, 3690859128, 3698459055, 3701177677, 3707632423, 3712499998, 3721456868, 3726992337, 3742003469, 3743305891, 3747595588, 3748311238, 3749851384, 3754630802, 3761159935, 3763428294, 3765760121, 3766831622, 3769364482, 3779904456, 3782740481, 3787816776, 3788129418, 3788734811, 3788897599, 3792400801, 3792817546, 3795252261, 3796588443, 3800075350, 3802005866, 3804906814, 3804971850, 3805547608, 3808922316, 3809618616, 3812473896, 3815761795, 3827542784, 3828126394`；静态意图有而 editor 标记无：`无`。普通 App 运行基线必须覆盖这些差集与全部声明关系，不能只测标记集合。
 
 | 声明关系 | occurrence | 样本 | 静态状态分布 |
 |---|---:|---:|---|
-| `material-audio-response` | 270 | 84 | `{"activation": {"absent": 10, "disabled": 1, "enabled": 259}, "cursor_audio_consumer": {}, "cursor_events": {}, "runtime_admission": {}, "script_admission": {}, "script_resolution": {}, "script_scope": {}, "source_abi": {}}` |
-| `material-host-spectrum` | 2453 | 353 | `{"activation": {"disabled": 1, "enabled": 259, "not-authored": 2193}, "cursor_audio_consumer": {}, "cursor_events": {}, "runtime_admission": {"launch-envelope-unjoined": 2453}, "script_admission": {}, "script_resolution": {}, "script_scope": {}, "source_abi": {"preprocessor-conditioned": 6590, "source-shape-exact": 148}}` |
-| `particle-audio-response` | 141 | 32 | `{"activation": {"disabled": 4, "enabled": 80, "missing-mode": 57}, "cursor_audio_consumer": {}, "cursor_events": {}, "runtime_admission": {}, "script_admission": {}, "script_resolution": {}, "script_scope": {}, "source_abi": {}}` |
-| `project-support-enabled` | 258 | 258 | `{"activation": {}, "cursor_audio_consumer": {}, "cursor_events": {}, "runtime_admission": {}, "script_admission": {}, "script_resolution": {}, "script_scope": {}, "source_abi": {}}` |
-| `scenescript-registration` | 1067 | 164 | `{"activation": {}, "cursor_audio_consumer": {"no-cursor-event": 1063, "statically-admitted": 4}, "cursor_events": {"cursorEnter+cursorLeave": 4}, "runtime_admission": {}, "script_admission": {"resolution-unresolved": 158, "statically-admitted": 909}, "script_resolution": {"16": 832, "32": 12, "64": 65, "dynamic-or-invalid": 158}, "script_scope": {"proven-global": 1067}, "source_abi": {}}` |
+| `material-audio-response` | 309 | 97 | `{"activation": {"absent": 13, "disabled": 5, "enabled": 291}, "cursor_audio_consumer": {}, "cursor_events": {}, "runtime_admission": {}, "script_admission": {}, "script_resolution": {}, "script_scope": {}, "source_abi": {}}` |
+| `material-host-spectrum` | 2780 | 417 | `{"activation": {"disabled": 5, "enabled": 291, "not-authored": 2484}, "cursor_audio_consumer": {}, "cursor_events": {}, "runtime_admission": {"launch-envelope-unjoined": 2780}, "script_admission": {}, "script_resolution": {}, "script_scope": {}, "source_abi": {"preprocessor-conditioned": 7578, "source-shape-exact": 154}}` |
+| `particle-audio-response` | 184 | 42 | `{"activation": {"disabled": 4, "enabled": 117, "missing-mode": 63}, "cursor_audio_consumer": {}, "cursor_events": {}, "runtime_admission": {}, "script_admission": {}, "script_resolution": {}, "script_scope": {}, "source_abi": {}}` |
+| `project-support-enabled` | 313 | 313 | `{"activation": {}, "cursor_audio_consumer": {}, "cursor_events": {}, "runtime_admission": {}, "script_admission": {}, "script_resolution": {}, "script_scope": {}, "source_abi": {}}` |
+| `scenescript-registration` | 1072 | 166 | `{"activation": {}, "cursor_audio_consumer": {"no-cursor-event": 1068, "statically-admitted": 4}, "cursor_events": {"cursorEnter+cursorLeave": 4}, "runtime_admission": {}, "script_admission": {"resolution-unresolved": 158, "statically-admitted": 914}, "script_resolution": {"16": 837, "32": 12, "64": 65, "dynamic-or-invalid": 158}, "script_scope": {"proven-global": 1072}, "source_abi": {}}` |
 
 ## 4. 当前公共 family 影响面索引
 
@@ -76,86 +76,86 @@
 
 | family | domain/kind | occurrence | 样本 | 可见 occurrence / 样本 | 修复事件（非能力状态） |
 |---|---|---:|---:|---:|---|
-| `material/effect-pass@526202cd27954701` | `material/effect-pass` | 11656 | 425 | 7649 / 423 | `untriaged` |
-| `texture/image-material-slot@2e7ce906c5bcf601` | `texture/image-material-slot` | 3577 | 425 | 2407 / 418 | `untriaged` |
-| `effect/authored-graph@9231d5e82bfe3a7f` | `effect/authored-graph` | 9437 | 417 | 6086 / 415 | `untriaged` |
-| `render-graph/effect-pass@91c374f0320bbf80` | `render-graph/effect-pass` | 9437 | 417 | 6086 / 415 | `untriaged` |
-| `material/image-pass@f0e77c0708dc8bfc` | `material/image-pass` | 3095 | 405 | 2069 / 397 | `untriaged` |
-| `texture/effect-material-slot@aba645ada829ada9` | `texture/effect-material-slot` | 7893 | 395 | 5648 / 394 | `untriaged` |
-| `texture/effect-material-slot@72d5c351e3518afd` | `texture/effect-material-slot` | 4098 | 324 | 2955 / 320 | `untriaged` |
-| `layer/image@5e4c8117d0220cb3` | `layer/image` | 1684 | 360 | 1096 / 304 | `untriaged` |
-| `particle/initializer-lifetimerandom@4f49d422ee93b4b2` | `particle/initializer` | 1276 | 288 | 1052 / 274 | `untriaged` |
-| `texture/effect-material-slot@09cd4f00c72ef79a` | `texture/effect-material-slot` | 1709 | 274 | 1268 / 272 | `untriaged` |
-| `particle/initializer-sizerandom@af7900ad7fa8e825` | `particle/initializer` | 1579 | 283 | 1261 / 271 | `untriaged` |
-| `audio-declaration/material-host-spectrum@f54a244027c2d7a1` | `audio-declaration/material-host-spectrum` | 1665 | 275 | 1232 / 267 | `untriaged` |
-| `particle/renderer-sprite@13d5b961a929229b` | `particle/renderer` | 1189 | 276 | 940 / 260 | `untriaged` |
-| `particle/controlpoint-1@dd58b5d5d5dc53b6` | `particle/controlpoint` | 1348 | 252 | 1052 / 244 | `untriaged` |
-| `particle/controlpoint-2@610f46c501bc0ab3` | `particle/controlpoint` | 1348 | 252 | 1052 / 244 | `untriaged` |
-| `particle/controlpoint-3@c68c0bfbed2d003f` | `particle/controlpoint` | 1348 | 252 | 1052 / 244 | `untriaged` |
-| `particle/controlpoint-4@836ca1b0e44c7396` | `particle/controlpoint` | 1348 | 252 | 1052 / 244 | `untriaged` |
-| `particle/controlpoint-5@5147f5e0ff1dc4d8` | `particle/controlpoint` | 1348 | 252 | 1052 / 244 | `untriaged` |
-| `particle/controlpoint-6@19856d86c6ba8777` | `particle/controlpoint` | 1348 | 252 | 1052 / 244 | `untriaged` |
-| `particle/controlpoint-7@1981e7ba62a17e45` | `particle/controlpoint` | 1348 | 252 | 1052 / 244 | `untriaged` |
-| `particle/controlpoint-unknown@ab32a4d63b720bf0` | `particle/controlpoint` | 1348 | 252 | 1052 / 244 | `untriaged` |
-| `particle/initializer-velocityrandom@28cd03ab4eb204db` | `particle/initializer` | 920 | 247 | 739 / 237 | `untriaged` |
-| `particle/initializer-colorrandom@92fe2a1db1c0a335` | `particle/initializer` | 975 | 236 | 814 / 226 | `untriaged` |
-| `particle/material@0cc12e1c65aba7ca` | `particle/material` | 1038 | 234 | 834 / 224 | `untriaged` |
-| `texture/effect-material-slot@b9dbbf20539e7403` | `texture/effect-material-slot` | 1428 | 235 | 930 / 222 | `untriaged` |
-| `texture/image-material-slot@1914e3ff4fa250de` | `texture/image-material-slot` | 873 | 236 | 571 / 216 | `untriaged` |
-| `texture/particle-material-slot@c890a3f690d3cae8` | `texture/particle-material-slot` | 1309 | 230 | 1000 / 213 | `untriaged` |
-| `texture/graph-binding@1cb3111748f1f792` | `texture/graph-binding` | 1273 | 213 | 864 / 190 | `untriaged` |
-| `layer/image@740da70a0906f520` | `layer/image` | 718 | 205 | 438 / 183 | `untriaged` |
-| `texture/graph-binding@dc7a25a33e535aae` | `texture/graph-binding` | 1805 | 197 | 1170 / 173 | `untriaged` |
-| `particle/operator-movement@241f23d1981eba83` | `particle/operator` | 596 | 183 | 500 / 172 | `untriaged` |
-| `layer/image@1963ea2b13ddb536` | `layer/image` | 902 | 173 | 630 / 165 | `untriaged` |
-| `material/image-pass@a16e3bc68008f398` | `material/image-pass` | 902 | 173 | 630 / 165 | `untriaged` |
-| `particle/operator-alphafade@79efef34b1e1efd1` | `particle/operator` | 508 | 174 | 430 / 162 | `untriaged` |
-| `particle/operator-alphafade@42039ec7351e2817` | `particle/operator` | 538 | 173 | 414 / 160 | `untriaged` |
-| `audio-declaration/material-host-spectrum@b45ca2db59b7644c` | `audio-declaration/material-host-spectrum` | 435 | 170 | 228 / 149 | `untriaged` |
-| `material/effect-pass@84145b2e51f1d262` | `material/effect-pass` | 522 | 156 | 373 / 148 | `untriaged` |
-| `render-graph/effect-pass@27a4e0a2441c4633` | `render-graph/effect-pass` | 522 | 156 | 373 / 148 | `untriaged` |
-| `effect/authored-graph@c1df0b7918ba4c2d` | `effect/authored-graph` | 521 | 155 | 372 / 147 | `untriaged` |
-| `material/effect-pass@cdf796695d9b62b3` | `material/effect-pass` | 501 | 157 | 364 / 141 | `untriaged` |
-| `render-graph/effect-pass@87b44c43e3733ab2` | `render-graph/effect-pass` | 401 | 157 | 272 / 140 | `untriaged` |
-| `render-graph/effect-pass@95943be768e36742` | `render-graph/effect-pass` | 508 | 137 | 341 / 120 | `untriaged` |
-| `render-graph/effect-pass@aa00f242facc660d` | `render-graph/effect-pass` | 355 | 137 | 229 / 120 | `untriaged` |
-| `particle/initializer-rotationrandom@50be9f80182bdd6c` | `particle/initializer` | 366 | 131 | 292 / 119 | `untriaged` |
-| `particle/operator-movement@38205f18a84856b8` | `particle/operator` | 331 | 125 | 262 / 115 | `untriaged` |
-| `material/image-pass@3d8e72eb1cf88e44` | `material/image-pass` | 934 | 114 | 665 / 110 | `untriaged` |
-| `particle/emitter-sphererandom@e75b31b9bb9c07b9` | `particle/emitter` | 324 | 123 | 253 / 108 | `untriaged` |
-| `layer/sound@c8fc9e2c506965ac` | `layer/sound` | 137 | 108 | 137 / 108 | `untriaged` |
-| `audio-declaration/scenescript-registration@c41c05c7b52d814f` | `audio-declaration/scenescript-registration` | 828 | 122 | 509 / 105 | `untriaged` |
-| `render-target/fbo@9901cebdf4c0a822` | `render-target/fbo` | 654 | 126 | 405 / 103 | `implemented` |
-| `particle/initializer-colorrandom@37ca9b83db0e48a4` | `particle/initializer` | 396 | 111 | 295 / 98 | `untriaged` |
-| `particle/initializer-alpharandom@6ee0ff0ba37418ef` | `particle/initializer` | 253 | 105 | 201 / 98 | `untriaged` |
-| `layer/image@ce6e6edd1955feb5` | `layer/image` | 673 | 99 | 447 / 92 | `untriaged` |
-| `particle/operator-alphafade@6e7ca1434b17529b` | `particle/operator` | 317 | 96 | 236 / 87 | `untriaged` |
-| `material/effect-pass@a1fbcf4e6cc961a5` | `material/effect-pass` | 369 | 98 | 268 / 86 | `untriaged` |
-| `render-graph/effect-pass@c76a5976d14e6a9b` | `render-graph/effect-pass` | 358 | 97 | 265 / 86 | `untriaged` |
-| `material/image-pass@56589507d93ffe7f` | `material/image-pass` | 443 | 103 | 234 / 82 | `untriaged` |
-| `effect/authored-graph@49c310bdbcb3af55` | `effect/authored-graph` | 346 | 93 | 255 / 81 | `untriaged` |
-| `render-graph/effect-pass@419b55fe86b12fd0` | `render-graph/effect-pass` | 346 | 93 | 255 / 81 | `untriaged` |
-| `render-target/fbo@b7f0838a5064473e` | `render-target/fbo` | 346 | 93 | 255 / 81 | `untriaged` |
-| `particle/material@39fc82b1fae017f5` | `particle/material` | 209 | 92 | 161 / 81 | `untriaged` |
-| `effect/authored-graph@dfc634e4773519c6` | `effect/authored-graph` | 203 | 92 | 118 / 76 | `untriaged` |
-| `render-graph/effect-pass@3c0d08489093a45a` | `render-graph/effect-pass` | 202 | 91 | 117 / 75 | `untriaged` |
-| `particle/operator-controlpointattract@dbf3bebbae124331` | `particle/operator` | 148 | 76 | 130 / 73 | `untriaged` |
-| `texture/effect-material-slot@8ec2c2b3a7358158` | `texture/effect-material-slot` | 355 | 80 | 230 / 71 | `untriaged` |
-| `texture/particle-material-slot@e4ffb6288070b82c` | `texture/particle-material-slot` | 147 | 78 | 131 / 71 | `untriaged` |
-| `render-graph/effect-pass@ec2c0b2d9211f95c` | `render-graph/effect-pass` | 178 | 78 | 130 / 71 | `untriaged` |
-| `particle/operator-movement@553cd133739c7c5a` | `particle/operator` | 197 | 75 | 158 / 71 | `untriaged` |
-| `texture/particle-material-slot@dfeab2f354eab98d` | `texture/particle-material-slot` | 155 | 72 | 132 / 70 | `untriaged` |
-| `particle/initializer-angularvelocityrandom@198daf786a62e408` | `particle/initializer` | 189 | 80 | 144 / 69 | `untriaged` |
-| `particle/operator-movement@632199e7235723e5` | `particle/operator` | 190 | 73 | 145 / 67 | `untriaged` |
-| `texture/image-material-slot@299f5ffe42ba7db6` | `texture/image-material-slot` | 617 | 75 | 419 / 66 | `untriaged` |
-| `particle/controlpoint-2@7c86ea44340e0cde` | `particle/controlpoint` | 206 | 75 | 161 / 66 | `untriaged` |
-| `particle/controlpoint-4@b3f2f2b3dee04ff7` | `particle/controlpoint` | 207 | 75 | 161 / 66 | `untriaged` |
-| `particle/controlpoint-5@023884c1ea1cda46` | `particle/controlpoint` | 207 | 75 | 161 / 66 | `untriaged` |
-| `particle/controlpoint-6@e8fb3f11c6b7a3f8` | `particle/controlpoint` | 207 | 75 | 161 / 66 | `untriaged` |
-| `particle/controlpoint-7@e40b75574f9be222` | `particle/controlpoint` | 207 | 75 | 161 / 66 | `untriaged` |
-| `particle/controlpoint-3@3bdff8cdd5c735a6` | `particle/controlpoint` | 206 | 74 | 160 / 65 | `untriaged` |
-| `layer/image@5af3291c18378ed6` | `layer/image` | 222 | 64 | 162 / 64 | `untriaged` |
-| `audio-declaration/material-host-spectrum@4f38735fd4b152f6` | `audio-declaration/material-host-spectrum` | 259 | 80 | 150 / 63 | `untriaged` |
+| `material/effect-pass@526202cd27954701` | `material/effect-pass` | 13970 | 494 | 9693 / 492 | `untriaged` |
+| `texture/image-material-slot@2e7ce906c5bcf601` | `texture/image-material-slot` | 4307 | 493 | 3082 / 486 | `untriaged` |
+| `effect/authored-graph@9231d5e82bfe3a7f` | `effect/authored-graph` | 10780 | 486 | 7277 / 484 | `untriaged` |
+| `render-graph/effect-pass@91c374f0320bbf80` | `render-graph/effect-pass` | 10780 | 486 | 7277 / 484 | `untriaged` |
+| `material/image-pass@f0e77c0708dc8bfc` | `material/image-pass` | 3789 | 471 | 2699 / 463 | `untriaged` |
+| `texture/effect-material-slot@aba645ada829ada9` | `texture/effect-material-slot` | 9393 | 464 | 7006 / 463 | `untriaged` |
+| `texture/effect-material-slot@72d5c351e3518afd` | `texture/effect-material-slot` | 5086 | 393 | 3852 / 389 | `untriaged` |
+| `layer/image@5e4c8117d0220cb3` | `layer/image` | 1859 | 407 | 1252 / 351 | `untriaged` |
+| `texture/effect-material-slot@09cd4f00c72ef79a` | `texture/effect-material-slot` | 1957 | 336 | 1488 / 334 | `untriaged` |
+| `audio-declaration/material-host-spectrum@f54a244027c2d7a1` | `audio-declaration/material-host-spectrum` | 1868 | 333 | 1420 / 324 | `untriaged` |
+| `particle/initializer-lifetimerandom@4f49d422ee93b4b2` | `particle/initializer` | 1479 | 337 | 1251 / 322 | `untriaged` |
+| `particle/initializer-sizerandom@af7900ad7fa8e825` | `particle/initializer` | 1812 | 330 | 1489 / 317 | `untriaged` |
+| `particle/renderer-sprite@13d5b961a929229b` | `particle/renderer` | 1383 | 324 | 1129 / 307 | `untriaged` |
+| `particle/controlpoint-1@dd58b5d5d5dc53b6` | `particle/controlpoint` | 1552 | 294 | 1250 / 285 | `untriaged` |
+| `particle/controlpoint-2@610f46c501bc0ab3` | `particle/controlpoint` | 1552 | 294 | 1250 / 285 | `untriaged` |
+| `particle/controlpoint-3@c68c0bfbed2d003f` | `particle/controlpoint` | 1552 | 294 | 1250 / 285 | `untriaged` |
+| `particle/controlpoint-4@836ca1b0e44c7396` | `particle/controlpoint` | 1552 | 294 | 1250 / 285 | `untriaged` |
+| `particle/controlpoint-5@5147f5e0ff1dc4d8` | `particle/controlpoint` | 1552 | 294 | 1250 / 285 | `untriaged` |
+| `particle/controlpoint-6@19856d86c6ba8777` | `particle/controlpoint` | 1552 | 294 | 1250 / 285 | `untriaged` |
+| `particle/controlpoint-7@1981e7ba62a17e45` | `particle/controlpoint` | 1552 | 294 | 1250 / 285 | `untriaged` |
+| `particle/controlpoint-unknown@ab32a4d63b720bf0` | `particle/controlpoint` | 1552 | 294 | 1250 / 285 | `untriaged` |
+| `texture/image-material-slot@1914e3ff4fa250de` | `texture/image-material-slot` | 1119 | 302 | 793 / 282 | `untriaged` |
+| `texture/effect-material-slot@b9dbbf20539e7403` | `texture/effect-material-slot` | 1696 | 295 | 1160 / 280 | `untriaged` |
+| `particle/initializer-velocityrandom@28cd03ab4eb204db` | `particle/initializer` | 1085 | 290 | 900 / 279 | `untriaged` |
+| `particle/initializer-colorrandom@92fe2a1db1c0a335` | `particle/initializer` | 1143 | 279 | 977 / 268 | `untriaged` |
+| `particle/material@0cc12e1c65aba7ca` | `particle/material` | 1185 | 272 | 976 / 261 | `untriaged` |
+| `texture/graph-binding@1cb3111748f1f792` | `texture/graph-binding` | 1870 | 274 | 1386 / 250 | `untriaged` |
+| `layer/image@740da70a0906f520` | `layer/image` | 951 | 268 | 648 / 246 | `untriaged` |
+| `texture/particle-material-slot@c890a3f690d3cae8` | `texture/particle-material-slot` | 1424 | 255 | 1114 / 238 | `untriaged` |
+| `texture/graph-binding@dc7a25a33e535aae` | `texture/graph-binding` | 2374 | 257 | 1689 / 232 | `untriaged` |
+| `material/effect-pass@cdf796695d9b62b3` | `material/effect-pass` | 718 | 217 | 550 / 200 | `untriaged` |
+| `render-graph/effect-pass@87b44c43e3733ab2` | `render-graph/effect-pass` | 617 | 217 | 461 / 199 | `untriaged` |
+| `particle/operator-movement@241f23d1981eba83` | `particle/operator` | 668 | 210 | 572 / 199 | `untriaged` |
+| `material/effect-pass@84145b2e51f1d262` | `material/effect-pass` | 693 | 206 | 521 / 198 | `untriaged` |
+| `render-graph/effect-pass@27a4e0a2441c4633` | `render-graph/effect-pass` | 693 | 206 | 521 / 198 | `untriaged` |
+| `effect/authored-graph@c1df0b7918ba4c2d` | `effect/authored-graph` | 692 | 205 | 520 / 197 | `untriaged` |
+| `audio-declaration/material-host-spectrum@b45ca2db59b7644c` | `audio-declaration/material-host-spectrum` | 512 | 216 | 292 / 195 | `untriaged` |
+| `particle/operator-alphafade@79efef34b1e1efd1` | `particle/operator` | 587 | 206 | 506 / 193 | `untriaged` |
+| `particle/operator-alphafade@42039ec7351e2817` | `particle/operator` | 612 | 199 | 487 / 186 | `untriaged` |
+| `layer/image@1963ea2b13ddb536` | `layer/image` | 937 | 183 | 656 / 173 | `untriaged` |
+| `material/image-pass@a16e3bc68008f398` | `material/image-pass` | 937 | 183 | 656 / 173 | `untriaged` |
+| `render-graph/effect-pass@95943be768e36742` | `render-graph/effect-pass` | 712 | 184 | 527 / 166 | `untriaged` |
+| `render-graph/effect-pass@aa00f242facc660d` | `render-graph/effect-pass` | 467 | 184 | 330 / 166 | `untriaged` |
+| `render-target/fbo@9901cebdf4c0a822` | `render-target/fbo` | 1312 | 185 | 974 / 162 | `implemented` |
+| `particle/operator-movement@38205f18a84856b8` | `particle/operator` | 429 | 157 | 360 / 147 | `untriaged` |
+| `particle/initializer-rotationrandom@50be9f80182bdd6c` | `particle/initializer` | 435 | 154 | 360 / 142 | `untriaged` |
+| `particle/emitter-sphererandom@e75b31b9bb9c07b9` | `particle/emitter` | 375 | 146 | 304 / 131 | `untriaged` |
+| `material/image-pass@3d8e72eb1cf88e44` | `material/image-pass` | 1063 | 135 | 787 / 131 | `untriaged` |
+| `layer/sound@c8fc9e2c506965ac` | `layer/sound` | 149 | 120 | 149 / 120 | `untriaged` |
+| `particle/initializer-colorrandom@37ca9b83db0e48a4` | `particle/initializer` | 437 | 127 | 335 / 114 | `untriaged` |
+| `material/image-pass@56589507d93ffe7f` | `material/image-pass` | 566 | 134 | 354 / 112 | `untriaged` |
+| `layer/image@ce6e6edd1955feb5` | `layer/image` | 773 | 119 | 543 / 112 | `untriaged` |
+| `render-graph/effect-pass@ec2c0b2d9211f95c` | `render-graph/effect-pass` | 271 | 117 | 216 / 110 | `untriaged` |
+| `particle/initializer-alpharandom@6ee0ff0ba37418ef` | `particle/initializer` | 283 | 116 | 231 / 109 | `untriaged` |
+| `audio-declaration/scenescript-registration@c41c05c7b52d814f` | `audio-declaration/scenescript-registration` | 833 | 124 | 513 / 106 | `untriaged` |
+| `particle/operator-alphafade@6e7ca1434b17529b` | `particle/operator` | 365 | 110 | 283 / 101 | `untriaged` |
+| `layer/image@5af3291c18378ed6` | `layer/image` | 369 | 101 | 301 / 100 | `untriaged` |
+| `effect/authored-graph@812aa00e4d7bfe07` | `effect/authored-graph` | 245 | 105 | 197 / 99 | `untriaged` |
+| `particle/material@39fc82b1fae017f5` | `particle/material` | 255 | 109 | 206 / 97 | `untriaged` |
+| `particle/initializer-angularvelocityrandom@198daf786a62e408` | `particle/initializer` | 253 | 109 | 205 / 97 | `untriaged` |
+| `render-graph/effect-pass@c76a5976d14e6a9b` | `render-graph/effect-pass` | 376 | 104 | 283 / 93 | `untriaged` |
+| `texture/particle-material-slot@dfeab2f354eab98d` | `texture/particle-material-slot` | 208 | 96 | 181 / 92 | `untriaged` |
+| `effect/authored-graph@dfc634e4773519c6` | `effect/authored-graph` | 223 | 108 | 134 / 90 | `untriaged` |
+| `render-graph/effect-pass@3c0d08489093a45a` | `render-graph/effect-pass` | 222 | 107 | 133 / 89 | `untriaged` |
+| `material/effect-pass@a1fbcf4e6cc961a5` | `material/effect-pass` | 373 | 100 | 272 / 88 | `untriaged` |
+| `texture/particle-material-slot@e4ffb6288070b82c` | `texture/particle-material-slot` | 203 | 95 | 186 / 88 | `untriaged` |
+| `effect/authored-graph@49c310bdbcb3af55` | `effect/authored-graph` | 350 | 95 | 259 / 83 | `untriaged` |
+| `render-graph/effect-pass@419b55fe86b12fd0` | `render-graph/effect-pass` | 350 | 95 | 259 / 83 | `untriaged` |
+| `render-target/fbo@b7f0838a5064473e` | `render-target/fbo` | 350 | 95 | 259 / 83 | `untriaged` |
+| `particle/operator-movement@553cd133739c7c5a` | `particle/operator` | 211 | 84 | 172 / 80 | `untriaged` |
+| `particle/operator-controlpointattract@dbf3bebbae124331` | `particle/operator` | 159 | 83 | 141 / 80 | `untriaged` |
+| `texture/effect-material-slot@8ec2c2b3a7358158` | `texture/effect-material-slot` | 370 | 88 | 245 / 79 | `untriaged` |
+| `layer/image@67f81dd00082b114` | `layer/image` | 425 | 95 | 256 / 78 | `untriaged` |
+| `particle/controlpoint-2@7c86ea44340e0cde` | `particle/controlpoint` | 245 | 86 | 200 / 77 | `untriaged` |
+| `particle/controlpoint-4@b3f2f2b3dee04ff7` | `particle/controlpoint` | 246 | 86 | 200 / 77 | `untriaged` |
+| `particle/controlpoint-5@023884c1ea1cda46` | `particle/controlpoint` | 246 | 86 | 200 / 77 | `untriaged` |
+| `particle/controlpoint-6@e8fb3f11c6b7a3f8` | `particle/controlpoint` | 246 | 86 | 200 / 77 | `untriaged` |
+| `particle/controlpoint-7@e40b75574f9be222` | `particle/controlpoint` | 246 | 86 | 200 / 77 | `untriaged` |
+| `particle/controlpoint-3@3bdff8cdd5c735a6` | `particle/controlpoint` | 245 | 85 | 199 / 76 | `untriaged` |
+| `particle/operator-movement@632199e7235723e5` | `particle/operator` | 217 | 82 | 172 / 76 | `untriaged` |
 
 完整 family、payload-free feature summary、样本归属与 revision 数在机器快照中；此表故意只保留前 80 个高覆盖项，避免人类文档成为不可维护的 payload 转储。
 
@@ -165,25 +165,25 @@
 
 | capability | 台账 authority 行 | family | occurrence | 样本 |
 |---|---|---:|---:|---:|
-| `cap.audio.declarations` | [Audio declarations](coverage-ledger.md) | 61 | 4726 | 387 |
-| `cap.camera.parallax` | [Camera Parallax](coverage-ledger.md) | 12 | 25 | 23 |
-| `cap.camera.shake` | [Scene Camera Shake](coverage-ledger.md) | 12 | 25 | 23 |
-| `cap.effect.executor` | [Bounded effect executors](coverage-ledger.md) | 14 | 10860 | 429 |
-| `cap.graph.fbo` | [Generic FBO command graph](coverage-ledger.md) | 39 | 18433 | 429 |
+| `cap.audio.declarations` | [Audio declarations](coverage-ledger.md) | 68 | 5259 | 452 |
+| `cap.camera.parallax` | [Camera Parallax](coverage-ledger.md) | 12 | 26 | 24 |
+| `cap.camera.shake` | [Scene Camera Shake](coverage-ledger.md) | 12 | 26 | 24 |
+| `cap.effect.executor` | [Bounded effect executors](coverage-ledger.md) | 15 | 12664 | 498 |
+| `cap.graph.fbo` | [Generic FBO command graph](coverage-ledger.md) | 42 | 24483 | 498 |
 | `cap.graph.utility-composition` | [Utility composition](coverage-ledger.md) | 97 | 1098 | 90 |
-| `cap.layer.ir` | [Scene IR 与基础层级](coverage-ledger.md) | 2542 | 17136 | 452 |
-| `cap.light.hdr` | [2D lighting/Scene HDR](coverage-ledger.md) | 17 | 52 | 18 |
-| `cap.material.ir` | [EffectDefinition/Material IR](coverage-ledger.md) | 75 | 30881 | 452 |
-| `cap.model3d.runtime` | [3D model/camera/physics](coverage-ledger.md) | 2 | 3608 | 451 |
-| `cap.particle.runtime` | [Particle runtime](coverage-ledger.md) | 1090 | 37396 | 297 |
-| `cap.property.atomic-state` | [Atomic live property state/routing](coverage-ledger.md) | 1 | 1796 | 125 |
-| `cap.property.user` | [User Properties](coverage-ledger.md) | 117 | 19932 | 452 |
-| `cap.resource.index` | [PKG/TEX/资源索引](coverage-ledger.md) | 43 | 25670 | 452 |
-| `cap.resource.texture-provider` | [Typed texture provider](coverage-ledger.md) | 44 | 25952 | 451 |
-| `cap.scenescript.binding-ir` | [SceneScript property binding IR](coverage-ledger.md) | 660 | 6766 | 287 |
-| `cap.shader.source-contract` | [Shader source/include/annotation/declaration contract](coverage-ledger.md) | 404 | 7330 | 434 |
-| `cap.text.runtime` | [Text/Font runtime](coverage-ledger.md) | 438 | 2709 | 254 |
-| `cap.timeline.runtime` | [Timeline runtime](coverage-ledger.md) | 34 | 1081 | 147 |
+| `cap.layer.ir` | [Scene IR 与基础层级](coverage-ledger.md) | 2820 | 19482 | 521 |
+| `cap.light.hdr` | [2D lighting/Scene HDR](coverage-ledger.md) | 17 | 53 | 19 |
+| `cap.material.ir` | [EffectDefinition/Material IR](coverage-ledger.md) | 76 | 37391 | 521 |
+| `cap.model3d.runtime` | [3D model/camera/physics](coverage-ledger.md) | 2 | 4227 | 520 |
+| `cap.particle.runtime` | [Particle runtime](coverage-ledger.md) | 1176 | 42969 | 347 |
+| `cap.property.atomic-state` | [Atomic live property state/routing](coverage-ledger.md) | 1 | 1907 | 134 |
+| `cap.property.user` | [User Properties](coverage-ledger.md) | 117 | 20339 | 521 |
+| `cap.resource.index` | [PKG/TEX/资源索引](coverage-ledger.md) | 43 | 30718 | 521 |
+| `cap.resource.texture-provider` | [Typed texture provider](coverage-ledger.md) | 46 | 30902 | 520 |
+| `cap.scenescript.binding-ir` | [SceneScript property binding IR](coverage-ledger.md) | 668 | 6893 | 305 |
+| `cap.shader.source-contract` | [Shader source/include/annotation/declaration contract](coverage-ledger.md) | 421 | 9472 | 503 |
+| `cap.text.runtime` | [Text/Font runtime](coverage-ledger.md) | 455 | 2766 | 273 |
+| `cap.timeline.runtime` | [Timeline runtime](coverage-ledger.md) | 36 | 1653 | 203 |
 
 显式 unknown family 共 **9** 个，原因分布：`{"effect-declaration-unresolved-static": 1, "family-map-domain-fallback": 1, "project-property-kind-empty": 1, "project-property-kind-unknown": 6}`；unknown 是静态不可判定的显式登记，不是运行失败，也不得据此宣称缺失。
 

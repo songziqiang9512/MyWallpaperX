@@ -166,15 +166,15 @@
     },
     "docs/scene/capabilities/scene-corpus-capability-inventory.md": {
       "lines": 247,
-      "bytes": 47486
+      "bytes": 48227
     },
     "docs/scene/capabilities/scene-corpus-sample-inventory.md": {
-      "lines": 468,
-      "bytes": 42037
+      "lines": 537,
+      "bytes": 47000
     },
     "docs/scene/capabilities/scene-sample-acceptance-ledger.md": {
-      "lines": 553,
-      "bytes": 126329
+      "lines": 584,
+      "bytes": 131782
     },
     "docs/scene/capabilities/scene-sample-debug-ledger.md": {
       "lines": 534,
@@ -277,8 +277,8 @@
       "bytes": 22423
     },
     "docs/scene/roadmap/scene-open-breakpoint-queue.md": {
-      "lines": 177,
-      "bytes": 38491
+      "lines": 179,
+      "bytes": 40270
     },
     "docs/web/cold-descriptor-parse-offload-design.md": {
       "lines": 30,
@@ -1697,19 +1697,19 @@
     {
       "section": "bodies",
       "path": "docs/scene/capabilities/scene-corpus-capability-inventory.md",
-      "before": "d38d6228b282e4b2020a67538eea2d17324f7f0913ed9058a33dca8be65ef705",
-      "after": "d6faa722ab2d681cedcbe76e7617d83d81f037348e37d7160138ae1ab46fdcac",
-      "owner": "scene-corpus-diagnostics",
-      "reason": "Replace stale corpus status with one current declaration/run join and log-only parallel workflow; preserve unknown/visual boundaries and old human verdicts.",
+      "before": "d6faa722ab2d681cedcbe76e7617d83d81f037348e37d7160138ae1ab46fdcac",
+      "after": "2c1527bd7fd100bf62e3b6d6562578ab54a69e8df83fa6f4c3c9ad98fbae55d9",
+      "owner": "scene-engine-maintainer",
+      "reason": "用户要求新增样本日志诊断与统计同步；原生成器一次盘点/纯投影到522，保旧运行及人工裁决，公共首错按实际因果并入唯一队列。",
       "decision": "docs/scene/development/corpus-diagnostic-workflow.md#log-first-corpus-audit"
     },
     {
       "section": "bodies",
       "path": "docs/scene/capabilities/scene-corpus-sample-inventory.md",
-      "before": "259e5194f4bd534b7eb5af6e27ca7a64c7f78e3d827410f9b334b6f85ee4c003",
-      "after": "be816f570e28b687d1aa16b0718dd5eab7ed6896802ef2b0f6fd0d460c72cc60",
-      "owner": "scene-corpus-diagnostics",
-      "reason": "Replace stale corpus status with one current declaration/run join and log-only parallel workflow; preserve unknown/visual boundaries and old human verdicts.",
+      "before": "be816f570e28b687d1aa16b0718dd5eab7ed6896802ef2b0f6fd0d460c72cc60",
+      "after": "c115a9d1dbd46216a561466555aa82df9c8754d118b20ab76e0f75964c59b28d",
+      "owner": "scene-engine-maintainer",
+      "reason": "用户要求新增样本日志诊断与统计同步；原生成器一次盘点/纯投影到522，保旧运行及人工裁决，公共首错按实际因果并入唯一队列。",
       "decision": "docs/scene/development/corpus-diagnostic-workflow.md#log-first-corpus-audit"
     },
     {
@@ -1814,11 +1814,11 @@
     {
       "section": "bodies",
       "path": "docs/scene/capabilities/scene-sample-acceptance-ledger.md",
-      "before": "5d6e34d9a6229c80820b321f6c90df920b19717fa21112d673318a2e7daad15d",
-      "after": "b7f010c54fce6668ad74a5d98fe30d1268396deaa857a04c44fc1bc5f328e620",
-      "owner": "Scene sample acceptance ledger generator",
-      "reason": "生成台账新增373的有界波形恢复说明，保留原混合执行档案及unreviewed裁决；不把历史首拒当当前故障，不复制完整后验或增设第二统计文档。",
-      "decision": "docs/scene/history/open-breakpoint-reconciliation-2026-10-23.md#material-key-fanout-20261030"
+      "before": "b7f010c54fce6668ad74a5d98fe30d1268396deaa857a04c44fc1bc5f328e620",
+      "after": "c6be418ed5f51c4310409a6ce59ebe5bed66502a85927ce7274a5304b9659900",
+      "owner": "scene-engine-maintainer",
+      "reason": "用户要求新增样本日志诊断与统计同步；原生成器一次盘点/纯投影到522，保旧运行及人工裁决，公共首错按实际因果并入唯一队列。",
+      "decision": "docs/scene/development/corpus-diagnostic-workflow.md#log-first-corpus-audit"
     },
     {
       "section": "bodies",
@@ -1841,11 +1841,11 @@
     {
       "section": "bodies",
       "path": "docs/scene/roadmap/scene-open-breakpoint-queue.md",
-      "before": "57d50e4b70c9fdf06176ab0fe73f8ad133ad8e8d63543e7cc17095f56b8f4ffc",
-      "after": "9b24492dbd315940a240f39571e5ed7f104079bec304257d3ee5fff111a8b91f",
+      "before": "9b24492dbd315940a240f39571e5ed7f104079bec304257d3ee5fff111a8b91f",
+      "after": "e724f7746e628cd80804d24ecfb962cd5bfb40b53b6ae8811cd4df7b0f8e4539",
       "owner": "scene-engine-maintainer",
-      "reason": "原owner承接已证明self ingress并删除idle default复验；同步有界运行后验、开场时机规则及唯一未闭队列，不新增产品链路。",
-      "decision": "docs/scene/capabilities/sampler-alias-precedence.md#captured-main-self-override"
+      "reason": "用户要求新增样本日志诊断与统计同步；公共首错/未触发/作者配置/统计漏计分层，保302独立mutation冲突，不修改播放合同。",
+      "decision": "docs/scene/development/corpus-diagnostic-workflow.md#log-first-corpus-audit"
     },
     {
       "section": "bodies",
