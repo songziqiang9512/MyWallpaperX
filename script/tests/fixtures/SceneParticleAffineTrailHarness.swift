@@ -194,25 +194,20 @@ enum SceneParticleAffineTrailHarness {
     }
 
     private static func makeVertexProbe(device: MTLDevice) throws -> MTLRenderPipelineState {
-        // The existing FixedGeometryHarness uses the same bounded publication
-        // probe. Compile the production body unchanged; only its entry return
-        // and final result publication are redirected into a shared buffer.
-        let source = sceneParticleShaderSource
-            .replacingOccurrences(
-                of: "vertex Varyings sceneParticleVert",
-                with: "vertex void sceneParticleVert"
-            )
-            .replacingOccurrences(
-                of: "constant LayerUniforms &uniforms [[buffer(2)]])",
-                with: "constant LayerUniforms &uniforms [[buffer(2)]], device float4 *probe [[buffer(3)]])"
-            )
-            .replacingOccurrences(
-                of: "    return out;",
-                with: "    probe[vertexID] = out.position;\n    return;"
-            )
+        let source = sceneParticleShaderSource + """
+        vertex void sceneParticleProbe(
+            uint vertexID [[vertex_id]], uint instanceID [[instance_id]],
+            constant QuadVertex *quad [[buffer(0)]],
+            device const ParticleInstance *instances [[buffer(1)]],
+            constant LayerUniforms &uniforms [[buffer(2)]],
+            device float4 *probe [[buffer(3)]]) {
+            Varyings out = particleVertex(vertexID, instanceID, quad, instances, uniforms, false);
+            probe[vertexID] = out.position;
+        }
+        """
         let library = try device.makeLibrary(source: source, options: nil)
         let descriptor = MTLRenderPipelineDescriptor()
-        descriptor.vertexFunction = library.makeFunction(name: "sceneParticleVert")
+        descriptor.vertexFunction = library.makeFunction(name: "sceneParticleProbe")
         descriptor.isRasterizationEnabled = false
         return try device.makeRenderPipelineState(descriptor: descriptor)
     }

@@ -387,27 +387,41 @@ extension Harness {
         try texture("raw", embedded: false)
         try texture("embedded", embedded: true)
         try texture("atlas", embedded: false, atlas: true)
-        let names = ["raw", "embedded", "atlas", "refract"]
+        let names = ["raw", "embedded", "atlas", "refract", "trail", "trail-refract"]
         var layers: [SceneRenderDescriptor.Layer] = []
         var materials: [SceneRenderDescriptor.MaterialPassDescriptor] = []
         for (index, name) in names.enumerated() {
             let material = "materials/\(name).json"
+            let isTrail = name.hasPrefix("trail")
             try writeParticle("particles/\(name).json", material: material,
+                renderer: isTrail ? "spritetrail" : "sprite",
+                rendererLength: isTrail ? 1 : nil,
+                rendererMinimumLength: isTrail ? 2 : nil,
+                rendererMaximumLength: isTrail ? 2 : nil,
+                velocityX: isTrail ? 2 : nil,
                 instantaneous: 1, children: name == "raw" ? [[
                     "name": "particles/child.json", "type": "static"
-                ], ["name": "particles/child-refract.json", "type": "static"]] : [], under: directory)
+                ], ["name": "particles/child-refract.json", "type": "static"],
+                ["name": "particles/child-trail.json", "type": "static"],
+                ["name": "particles/child-trail-refract.json", "type": "static"]] : [], under: directory)
             layers.append(layer(index + 1, "particles/\(name).json"))
             materials.append(.init(materialPath: material, shaderPath: "genericparticle",
-                texturePaths: ["materials/\(name == "refract" ? "raw" : name).tex"],
-                blending: "translucent", combos: name == "refract" ? ["REFRACT": 1] : [:]))
+                texturePaths: ["materials/\(name == "refract" || isTrail ? "raw" : name).tex"],
+                blending: "translucent", combos: name.hasSuffix("refract") ? ["REFRACT": 1] : [:]))
         }
         try writeParticle("particles/child.json", material: "materials/embedded.json",
             instantaneous: 1, under: directory)
         try writeParticle("particles/child-refract.json", material: "materials/refract.json",
             instantaneous: 1, under: directory)
+        for name in ["trail", "trail-refract"] {
+            try writeParticle("particles/child-\(name).json", material: "materials/\(name).json",
+                renderer: "spritetrail", rendererLength: 1,
+                rendererMinimumLength: 2, rendererMaximumLength: 2, velocityX: 2,
+                instantaneous: 1, under: directory)
+        }
         guard let device = MTLCreateSystemDefaultDevice() else { throw HarnessError.noMetal }
         let runtime = SceneParticleRuntime(descriptor: .init(layers: layers,
-            renderOrderLayerIDs: [1, 2, 3, 4], materialPasses: materials),
+            renderOrderLayerIDs: layers.map(\.id), materialPasses: materials),
             cacheDirectory: directory, device: device)
         let batches = runtime.advance(by: 1.0 / 60.0)
         var result: [String: Any] = [:]
@@ -416,6 +430,7 @@ extension Harness {
             let name = URL(fileURLWithPath: batch.particlePath).deletingPathExtension().lastPathComponent
             result[name] = [
                 "aspect": [instance.frame0B.z, instance.frame0B.w],
+                "stretch": instance.velocityAndTrail.w,
                 "uvScale": [batch.colorUVScale.x, batch.colorUVScale.y],
                 "textureSize": [batch.texture.width, batch.texture.height],
                 "pixels": spriteBatchBounds(batch, device: device)

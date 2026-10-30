@@ -21,6 +21,12 @@ SWIFT_SOURCES = [
     SOURCE_ROOT / "Systems/Input/SceneCameraProjection.swift",
     SOURCE_ROOT / "Systems/Particles/SceneParticleCameraFrame.swift",
     SOURCE_ROOT / "Systems/Particles/SceneParticleTrailRenderPlan.swift",
+    SOURCE_ROOT / "Systems/Particles/SceneParticleTextureSource.swift",
+    SOURCE_ROOT / "Resources/Assets/SceneResourceView.swift",
+    SOURCE_ROOT / "Resources/Assets/SceneResourceView+Backing.swift",
+    SOURCE_ROOT / "Resources/Assets/SceneResourceIndex.swift",
+    SOURCE_ROOT / "Resources/Assets/SceneResourceIdentity.swift",
+    SOURCE_ROOT / "Format/ScenePkgReader.swift",
 
     REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Diagnostics/ScenePerformanceCounterHub.swift",
     REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Diagnostics/SceneGPUCensus.swift",
@@ -55,7 +61,6 @@ SWIFT_SOURCES = [
     REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Particles/SceneParticleSamplerStateSet.swift",
     REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Particles/SceneParticleMetalPipeline.swift",
     REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Particles/SceneParticleDepthTargetPool.swift",
-    REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Systems/Particles/SceneParticleTextureSource.swift",
 ]
 
 
@@ -263,6 +268,21 @@ enum Harness {
             "explicitXRotationBounds": authoredRotationBounds("0.3 0 0"),
             "broadcastRotationBounds": authoredRotationBounds("0.3 0.3 0.3"),
             "defaultTrailBounds": defaultTrailBounds(),
+            "trailAspectBounds": [
+                "square": trailBounds(velocity: SIMD3(1, 0, 0), stretch: 2),
+                "tall": trailBounds(velocity: SIMD3(1, 0, 0), stretch: 2, currentAspect: 0.25),
+                "wide": trailBounds(velocity: SIMD3(1, 0, 0), stretch: 2, currentAspect: 4),
+                "blended": trailBounds(velocity: SIMD3(1, 0, 0), stretch: 2,
+                    currentAspect: 0.25, nextAspect: 0.75, frameMix: 0.5),
+                "minimum": trailBounds(velocity: SIMD3(1, 0, 0), stretch:
+                    SceneParticleTrailRenderPlan(length: 0.01, minimumLength: 2, maximumLength: 3)!
+                        .stretch(for: SIMD3(0.0, 0, 0)), currentAspect: 0.25),
+                "maximum": trailBounds(velocity: SIMD3(1, 0, 0), stretch:
+                    SceneParticleTrailRenderPlan(length: 0.01, minimumLength: 2, maximumLength: 3)!
+                        .stretch(for: SIMD3(10000.0, 0, 0)), currentAspect: 0.25),
+                "displacementSquare": trailBounds(velocity: SIMD3(1, 0, 0), rope: true),
+                "displacementTall": trailBounds(velocity: SIMD3(1, 0, 0), rope: true, currentAspect: 0.25),
+            ],
             "localScaledWidth": trailBounds(velocity: SIMD3(1, 0, 0),
                 layerModel: SceneMatrix.scale(SIMD3(10, 10, 1)), rope: true),
             "worldScaledWidth": trailBounds(velocity: SIMD3(1, 0, 0),
@@ -1254,6 +1274,9 @@ enum Harness {
         sizeIsWorldSpace: Bool = false,
         particleSize: Float = 0.2,
         stretch: Float = 4,
+        currentAspect: Float = 1,
+        nextAspect: Float? = nil,
+        frameMix: Float = 0,
         viewProjection: simd_float4x4 = SceneMatrix.identity(),
         basis: SceneParticleOrientationBasis = .init(right: SIMD3(1, 0, 0), up: SIMD3(0, 1, 0))
     ) -> [String: Int] {
@@ -1286,7 +1309,8 @@ enum Harness {
             usesTrailDisplacement: rope,
             trailHeadDirection: rope ? velocity * 0.12 : nil,
             trailTailDirection: rope ? velocity * 0.12 : nil,
-            trailEndpointSizes: rope ? SIMD2(repeating: particleSize) : nil
+            trailEndpointSizes: rope ? SIMD2(repeating: particleSize) : nil,
+            currentFrameAspect: currentAspect, nextFrameAspect: nextAspect, frameMix: frameMix
         )]
         guard instances.update(device: device, instances: values) else { return [:] }
         let pass = MTLRenderPassDescriptor()
@@ -2420,6 +2444,17 @@ class SceneParticleRenderingTests(unittest.TestCase):
         self.assertGreater(local["height"], world["height"] * 8)
         self.assertGreater(world["width"], baseline["width"] * 8)
         self.assertGreater(override["height"], world["height"] * 3)
+
+    def test_sprite_trail_frame_aspect_changes_only_length_after_stretch_limits(self) -> None:
+        bounds = self.result["trailAspectBounds"]
+        square = bounds["square"]
+        for name, factor in [("tall", 4), ("wide", 0.25), ("blended", 2),
+                             ("minimum", 4), ("maximum", 6)]:
+            with self.subTest(name=name):
+                self.assertAlmostEqual(bounds[name]["width"], square["width"] * factor, delta=3)
+                self.assertEqual(bounds[name]["height"], square["height"])
+        self.assertGreater(bounds["wide"]["width"], 0)
+        self.assertEqual(bounds["displacementTall"], bounds["displacementSquare"])
 
     def test_rope_trail_joins_have_no_gap_or_double_alpha(self) -> None:
         results = self.result["ropeTrailJoins"]

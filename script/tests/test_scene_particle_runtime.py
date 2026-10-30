@@ -188,7 +188,7 @@ class SceneParticleRuntimeTests(
 
     def test_static_sprite_geometry_uses_mapped_color_extent_in_root_and_child(self) -> None:
         result = self.run_harness("sprite-geometry-synthetic")
-        self.assertEqual(result["active"], [1, 2, 3, 4])
+        self.assertEqual(result["active"], [1, 2, 3, 4, 5, 6])
         for name in ["raw", "embedded", "atlas", "refract", "child", "child-refract"]:
             with self.subTest(name=name):
                 self.assertEqual(result[name]["aspect"], [0.25, 0.25])
@@ -200,6 +200,11 @@ class SceneParticleRuntimeTests(
         for name in ["embedded", "refract", "child", "child-refract"]:
             self.assertEqual(result[name]["textureSize"], [8, 8])
             self.assertEqual(result[name]["uvScale"], [0.25, 1])
+        for name in ["trail", "trail-refract", "child-trail", "child-trail-refract"]:
+            with self.subTest(name=name):
+                self.assertEqual(result[name]["aspect"], [0, 1])
+                self.assertEqual(result[name]["stretch"], 8)
+                self.assertEqual(result[name]["pixels"][:2], [32, 4])
 
     def test_root_and_child_trail_packing_uses_current_motion_and_safe_unit_direction(self) -> None:
         import math

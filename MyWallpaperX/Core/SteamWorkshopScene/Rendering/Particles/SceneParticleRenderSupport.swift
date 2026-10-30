@@ -367,6 +367,7 @@ nonisolated struct SceneParticleGPUInstance: Sendable {
         let currentAspect = Self.validAspect(currentFrameAspect) ? currentFrameAspect : 1
         let authoredNextAspect = nextFrameAspect ?? currentAspect
         let followingAspect = Self.validAspect(authoredNextAspect) ? authoredNextAspect : currentAspect
+        let frameBlend = min(max(frameMix, 0), 1)
         // The qualified unrotated square Sprite renders authored size 80 at
         // half the width of an 80-wide image in the official client and here.
         // Keep that half-size upload against the unit quad's [-0.5, 0.5] span.
@@ -374,7 +375,7 @@ nonisolated struct SceneParticleGPUInstance: Sendable {
         // Operators/collision retain the unmodified authored size.
         positionAndSize = SIMD4(position.x, position.y, position.z, size * 0.5)
         rotationAndAlpha = SIMD4(rotation.x, rotation.y, rotation.z, alpha)
-        colorAndFrameMix = SIMD4(color.x, color.y, color.z, min(max(frameMix, 0), 1))
+        colorAndFrameMix = SIMD4(color.x, color.y, color.z, frameBlend)
         frame0A = SIMD4(
             currentFrame.origin.x,
             currentFrame.origin.y,
@@ -407,7 +408,12 @@ nonisolated struct SceneParticleGPUInstance: Sendable {
             velocity.x,
             velocity.y,
             velocity.z,
-            trailStretch.map { max($0, 0) } ?? -1
+            trailStretch.map {
+                // Velocity limits precede texture aspect; ribbons already carry endpoint displacement.
+                let aspect = usesTrailDisplacement ? 1
+                    : currentAspect + (followingAspect - currentAspect) * frameBlend
+                return max($0, 0) / aspect
+            } ?? -1
         )
     }
 

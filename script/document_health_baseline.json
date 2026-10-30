@@ -133,8 +133,8 @@
       "bytes": 10869
     },
     "docs/scene/capabilities/particle-component-coverage.md": {
-      "lines": 520,
-      "bytes": 166792
+      "lines": 533,
+      "bytes": 170209
     },
     "docs/scene/capabilities/previous-blurred-composite-admission.md": {
       "lines": 20,
@@ -1922,11 +1922,11 @@
     {
       "section": "bodies",
       "path": "docs/scene/capabilities/particle-component-coverage.md",
-      "before": "c0b2800fa5f47094c811c0edcf00eed1068afe3f37c2b4560ee9bcd9583a73f2",
-      "after": "9f5b997570d0b8dbd2a4f902156c7c6760902bbfaa4bc63742bbf9016b1b3039",
-      "owner": "scene-world-rope-reference",
-      "reason": "现役root平移合同接通已有Rope/pointer力的reference输入，移除314两个蒸汽首门；运行过程归已有历史，音频环及官方同phase保持开放。",
-      "decision": "docs/scene/capabilities/particle-component-coverage.md#root-world-rope-reference-inputs"
+      "before": "9f5b997570d0b8dbd2a4f902156c7c6760902bbfaa4bc63742bbf9016b1b3039",
+      "after": "6ef77568eadcd5766004ef14fdb994ac95c161044f19f37c00ff707c800f5975",
+      "owner": "scene-sprite-trail-aspect",
+      "reason": "在已提交world Rope/pointer合同上整合SpriteTrail比例设计及真实原包/修前对照；保留两侧职责与证据边界，不新增重复链。",
+      "decision": "docs/scene/capabilities/particle-component-coverage.md#sprite-trail-frame-aspect"
     }
   ]
 }
