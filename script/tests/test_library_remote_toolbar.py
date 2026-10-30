@@ -15,6 +15,96 @@ from script.tests.test_ui_library_algorithms import declaration
 ROOT = Path(__file__).resolve().parents[2]
 
 
+BROWSER_PREVIEW_LEAF = '''
+    var browserPreviews: [WallpaperReference: URL] = [:]
+    var browserPreviewRequests: [WallpaperReference] = []
+    func browserItemForDownload(id: String) -> ToolbarPreviewItem? {
+        let reference = WallpaperReference(provider: .steamWorkshop, sourceID: id)
+        browserPreviewRequests.append(reference)
+        return browserPreviews[reference].map { ToolbarPreviewItem(previewImageURL: $0) }
+    }
+'''
+
+
+TASK_SNAPSHOT_PREVIEW_CHECKS = r'''
+        do {
+            let priorDownloads = service.downloads, priorJobs = service.downloadJobStore.jobs
+            let priorHistory = service.downloadJobStore.history, priorToken = service.previewReloadToken
+            let priorPreviews = service.browserPreviews, priorRequests = service.browserPreviewRequests
+            let priorLookups = service.latestDownloadRecordCalls
+            defer {
+                service.downloads = priorDownloads; service.downloadJobStore.jobs = priorJobs
+                service.downloadJobStore.history = priorHistory; service.previewReloadToken = priorToken
+                service.browserPreviews = priorPreviews; service.browserPreviewRequests = priorRequests
+                service.latestDownloadRecordCalls = priorLookups
+            }
+            let recordURL = URL(string: "https://fixture.invalid/record.jpg")!
+            let browserURL = URL(string: "https://fixture.invalid/browser.jpg")!
+            let skippedURL = URL(string: "https://fixture.invalid/duplicate.jpg")!
+            let decomposedID = "e\u{301}", composedID = "\u{e9}"
+            func reference(_ item: String) -> WallpaperReference { .init(provider: .steamWorkshop, sourceID: item) }
+            func row(_ item: String, in rows: [DownloadTaskRow]) -> DownloadTaskRow? {
+                rows.first { $0.id.reference == reference(item) }
+            }
+            func history(_ id: String, item: String, owner: String, outcome: SteamDownloadHistoryOutcome = .completed) -> SteamDownloadHistoryEntry {
+                .init(jobID: id, workshopItemId: item, title: id, accountSteamId: owner, attempt: 1,
+                    outcome: outcome, failureMessage: nil, recordID: nil, terminalAt: Date(timeIntervalSince1970: 2))
+            }
+            service.downloads = [
+                .init(id: "record-preview", status: .ready, previewURL: recordURL),
+                .init(id: "duplicate-preview", status: .ready),
+                .init(id: "duplicate-preview", status: .ready, previewURL: skippedURL),
+                .init(id: "ready-history", status: .ready, previewURL: recordURL),
+                .init(id: decomposedID, status: .ready, previewURL: recordURL)]
+            service.browserPreviews = Dictionary(uniqueKeysWithValues:
+                ["record-preview", "duplicate-preview", "browser-only", "missing-history", composedID].map { (reference($0), browserURL) })
+            service.browserPreviewRequests = []; service.latestDownloadRecordCalls = 0; service.previewReloadToken = 17
+            service.downloadJobStore.jobs = ["record-preview", "duplicate-preview", "browser-only", "missing-preview"].enumerated().map {
+                job("preview-\($0.offset)", item: $0.element, state: .running, account: account, ordinal: $0.offset)
+            }
+            service.downloadJobStore.history = [
+                history("ready", item: "ready-history", owner: account),
+                history("missing", item: "missing-history", owner: account),
+                history("foreign", item: "foreign-history", owner: "other-account"),
+                history("active", item: "browser-only", owner: account, outcome: .failed),
+                history("decomposed", item: decomposedID, owner: account),
+                history("composed", item: composedID, owner: account)]
+            let previewSnapshot = taskCommands.snapshot()
+            checks["task-snapshot-uses-published-preview-before-browser-fallback"] =
+                row("record-preview", in: previewSnapshot.active)?.thumbnailKey == recordURL.absoluteString + ":17"
+                && !service.browserPreviewRequests.contains(reference("record-preview"))
+            checks["task-snapshot-first-duplicate-with-nil-preview-keeps-browser-fallback"] =
+                row("duplicate-preview", in: previewSnapshot.active)?.thumbnailKey == browserURL.absoluteString + ":17"
+            checks["task-snapshot-missing-record-keeps-browser-or-empty-preview"] =
+                previewSnapshot.active.count == 4
+                && row("browser-only", in: previewSnapshot.active)?.thumbnailKey == browserURL.absoluteString + ":17"
+                && row("missing-preview", in: previewSnapshot.active)?.thumbnailKey == nil
+            checks["task-snapshot-history-keeps-ready-reveal-missing-retry-and-account-gating"] =
+                row("ready-history", in: previewSnapshot.history)?.actions == [.removeHistory, .revealFile]
+                && row("ready-history", in: previewSnapshot.history)?.thumbnailKey == recordURL.absoluteString + ":17"
+                && row("missing-history", in: previewSnapshot.history)?.actions == [.removeHistory, .retry]
+                && row("missing-history", in: previewSnapshot.history)?.thumbnailKey == browserURL.absoluteString + ":17"
+                && row("foreign-history", in: previewSnapshot.history)?.actions == [.removeHistory]
+                && row("browser-only", in: previewSnapshot.history)?.actions == [.removeHistory]
+            checks["task-snapshot-keeps-byte-distinct-record-previews-and-actions-separate"] =
+                reference(decomposedID) != reference(composedID)
+                && row(decomposedID, in: previewSnapshot.history)?.thumbnailKey == recordURL.absoluteString + ":17"
+                && row(decomposedID, in: previewSnapshot.history)?.actions == [.removeHistory, .revealFile]
+                && row(composedID, in: previewSnapshot.history)?.thumbnailKey == browserURL.absoluteString + ":17"
+                && row(composedID, in: previewSnapshot.history)?.actions == [.removeHistory, .retry]
+            checks["task-snapshot-does-not-repeat-record-array-lookups"] = service.latestDownloadRecordCalls == 0
+            service.latestDownloadRecordCalls = 0
+            checks["real-record-accessor-keeps-byte-distinct-identities"] = service.latestDownloadRecord(for: composedID) == nil
+                && service.latestDownloadRecordCalls == 1
+            service.downloads = [.init(id: "record-preview", status: .ready, previewURL: skippedURL)]
+            let freshPreview = taskCommands.steamPreviewURL(id: "record-preview",
+                publishedPreviewURL: service.latestDownloadRecord(for: "record-preview")?.previewURL)
+            checks["thumbnail-url-consumer-can-use-the-current-record-after-a-snapshot"] = freshPreview == skippedURL
+                && service.latestDownloadRecordCalls == 2
+        }
+'''
+
+
 class LibraryRemoteToolbarTests(unittest.TestCase):
     def test_online_image_menu_disables_duplicate_starts_during_transfer(self):
         app = ROOT / 'MyWallpaperX/App/WallpaperLibraryOnlineImages.swift'
@@ -169,10 +259,14 @@ class LibraryRemoteToolbarTests(unittest.TestCase):
         service = ROOT / 'MyWallpaperX/Modules/SteamWorkshop/Core/SteamWorkshopService.swift'
         navigation = ROOT / 'MyWallpaperX/Modules/SteamWorkshop/Core/SteamWorkshopService+BrowseNavigation.swift'
         filtering = ROOT / 'MyWallpaperX/Modules/SteamWorkshop/Core/SteamWorkshopService+DownloadFiltering.swift'
-        observed = [*paths, fixture, tasks, models, service, navigation, filtering, Path(__file__), ROOT / 'script/tests/native_app_harness.py',
+        accessors = ROOT / 'MyWallpaperX/Modules/SteamWorkshop/Core/SteamWorkshopService+DownloadAccessors.swift'
+        observed = [*paths, fixture, tasks, models, service, navigation, filtering, accessors, Path(__file__), ROOT / 'script/tests/native_app_harness.py',
                     ROOT / 'script/tests/test_ui_library_algorithms.py']
         hashes = {str(path): hashlib.sha256(path.read_bytes()).hexdigest() for path in observed}
         template = fixture.read_text()
+        lookup = method(accessors.read_text(), '    func latestDownloadRecord(').replace(
+            'SteamWorkshopDownloadRecord', 'ToolbarDownloadRecord')
+        lookup = lookup.replace('        downloads.first(', '        latestDownloadRecordCalls += 1\n        return downloads.first(')
         for marker, content in {
             '// ACTUAL_STEAM_QUERY_FIELDS': '\n'.join(declaration(service.read_text(), signature) for signature in [
                 '    @Published var source:', '    @Published var browserContentMode:',
@@ -188,6 +282,9 @@ class LibraryRemoteToolbarTests(unittest.TestCase):
             '// ACTUAL_TASK_COMMANDS': '\n'.join(method(tasks.read_text(), signature) for signature in [
                 '    func makePopoverController(', '    private func snapshot(', '    private func perform(',
                 '    private func clearHistory(', '    private func steamPhase(', '    private func steamPreviewURL(']),
+            '// ACTUAL_DOWNLOAD_LOOKUP': '    var latestDownloadRecordCalls = 0\n' + lookup,
+            '// BROWSER_PREVIEW_LEAF': BROWSER_PREVIEW_LEAF,
+            '// TASK_SNAPSHOT_PREVIEW_CHECKS': TASK_SNAPSHOT_PREVIEW_CHECKS,
         }.items():
             self.assertEqual(template.count(marker), 1)
             template = template.replace(marker, content)

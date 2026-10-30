@@ -78,10 +78,12 @@ import Combine
     private func snapshot() -> DownloadTaskSnapshot {
         let jobs = SteamWorkshopDownloadTaskProjection.currentJobs(from: steam.downloadJobStore.jobs)
         let pixabayTasks = pixabay.downloadActivities, imageTasks = images.downloadActivities
-        let steamRecords = Dictionary(steam.downloads.map { ($0.id, $0) }, uniquingKeysWith: { first, _ in first })
+        let steamRecords = Dictionary(steam.downloads.map { (WallpaperReference(provider: .steamWorkshop, sourceID: $0.id), $0) },
+            uniquingKeysWith: { first, _ in first })
         let pixabayRecords = Dictionary(pixabay.downloadedContent.entries.map { ($0.id, $0) }, uniquingKeysWith: { first, _ in first })
         let imageRecords = Dictionary(images.snapshot.records.map { ($0.id, $0) }, uniquingKeysWith: { first, _ in first })
         var current = jobs.map { job -> DownloadTaskRow in
+            let reference = WallpaperReference(provider: .steamWorkshop, sourceID: job.workshopItemId)
             let phase = steamPhase(job)
             var actions: Set<DownloadTaskAction> = []
             if job.accountSteamId == steam.steamAuth.steamId {
@@ -90,9 +92,9 @@ import Combine
                 else if job.state == .running { actions.insert(.pause) }
                 else if job.state == .queued { actions.insert(.promote) }
             }
-            let url = steamPreviewURL(id: job.workshopItemId)
+            let url = steamPreviewURL(id: job.workshopItemId, publishedPreviewURL: steamRecords[reference]?.previewURL)
             let progressKey = SteamWorkshopDownloadTaskProjection.jobKey(for: job)
-            return .init(id: .init(reference: .init(provider: .steamWorkshop, sourceID: job.workshopItemId),
+            return .init(id: .init(reference: reference,
                 attemptID: progressKey ?? "\(job.id)-0"), title: job.title, phase: phase,
                 recordedAt: job.createdAt, progress: progressKey.flatMap { steamProgress(id: job.workshopItemId, attempt: $0) },
                 thumbnailKey: url.map { $0.absoluteString + ":\(steam.previewReloadToken)" }, actions: actions)
@@ -111,17 +113,19 @@ import Combine
         }
         let activeReferences = Set(current.map { $0.id.reference })
         var terminal = SteamWorkshopDownloadHistoryProjection.summaries(from: steam.downloadJobStore.history).map { summary -> DownloadTaskRow in
+            let reference = WallpaperReference(provider: .steamWorkshop, sourceID: summary.workshopItemID)
             let phase: DownloadTaskPhase = summary.latestOutcome == .completed ? .completed
                 : summary.latestOutcome == .failed ? .failed : .cancelled
             var actions: Set<DownloadTaskAction> = [.removeHistory]
-            if summary.accountSteamID == steam.steamAuth.steamId, !activeReferences.contains(.init(provider: .steamWorkshop, sourceID: summary.workshopItemID)) {
-                if phase == .failed || phase == .cancelled || steamRecords[summary.workshopItemID]?.status != .ready { actions.insert(.retry) }
+            if summary.accountSteamID == steam.steamAuth.steamId, !activeReferences.contains(reference) {
+                if phase == .failed || phase == .cancelled || steamRecords[reference]?.status != .ready { actions.insert(.retry) }
             }
-            if steamRecords[summary.workshopItemID]?.status == .ready { actions.insert(.revealFile) }
-            return .init(id: .init(reference: .init(provider: .steamWorkshop, sourceID: summary.workshopItemID),
+            if steamRecords[reference]?.status == .ready { actions.insert(.revealFile) }
+            return .init(id: .init(reference: reference,
                 attemptID: "\(summary.jobID)-\(summary.latestAttempt)"), title: summary.title, phase: phase,
                 statusText: summary.attempts.first?.failureMessage, recordedAt: summary.latestTerminalAt,
-                thumbnailKey: steamPreviewURL(id: summary.workshopItemID).map { $0.absoluteString + ":\(steam.previewReloadToken)" }, actions: actions)
+                thumbnailKey: steamPreviewURL(id: summary.workshopItemID, publishedPreviewURL: steamRecords[reference]?.previewURL)
+                    .map { $0.absoluteString + ":\(steam.previewReloadToken)" }, actions: actions)
         }
         terminal += (history?.entries ?? []).map { receipt in
             let reference = receipt.id.reference
@@ -250,13 +254,14 @@ import Combine
         return { subscription.cancel() }
     }
 
-    private func steamPreviewURL(id: String) -> URL? {
-        steam.latestDownloadRecord(for: id)?.previewURL ?? steam.browserItemForDownload(id: id)?.previewImageURL
+    private func steamPreviewURL(id: String, publishedPreviewURL: URL?) -> URL? {
+        publishedPreviewURL ?? steam.browserItemForDownload(id: id)?.previewImageURL
     }
 
     private func loadThumbnail(_ row: DownloadTaskRow, receive: @escaping (NSImage?) -> Void) -> (() -> Void)? {
         let reference = row.id.reference
-        if reference.provider == .steamWorkshop, let url = steamPreviewURL(id: reference.sourceID) {
+        if reference.provider == .steamWorkshop,
+           let url = steamPreviewURL(id: reference.sourceID, publishedPreviewURL: steam.latestDownloadRecord(for: reference.sourceID)?.previewURL) {
             let cancellation = SteamWorkshopPreviewLoadCancellation()
             steamWorkshopLoadPreviewImage(from: url, cancellation: cancellation, completion: receive)
             return { cancellation.cancel() }

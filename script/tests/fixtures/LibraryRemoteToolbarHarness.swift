@@ -70,9 +70,9 @@ struct ToolbarPreviewItem { var previewImageURL: URL? = nil }
     var retryRequests: [String] = [], discardedJobs: [String] = []
     var downloads: [ToolbarDownloadRecord] = []
     var previewReloadToken = 0
-    func latestDownloadRecord(for id: String) -> ToolbarDownloadRecord? { downloads.first { $0.id == id } }
+    // ACTUAL_DOWNLOAD_LOOKUP
     func downloadRecord(for id: String) -> ToolbarDownloadRecord? { latestDownloadRecord(for: id) }
-    func browserItemForDownload(id: String) -> ToolbarPreviewItem? { nil }
+    // BROWSER_PREVIEW_LEAF
     func revealItem(_ record: ToolbarDownloadRecord) {}
     func isDownloadPaused(itemID: String) -> Bool { false }
     func cancelDownloadImmediately(itemID: String, showFeedback: Bool) {}
@@ -717,7 +717,7 @@ extension NSToolbarItem.Identifier { static let downloadTasks = Self("downloadTa
         func job(_ id: String, item: String, state: SteamDownloadJobState, account: String, ordinal: Int) -> SteamDownloadJob {
             SteamDownloadJob(id: id, workshopItemId: item, title: id, state: state, attempt: 1, queueOrdinal: ordinal,
                 accountSteamId: account, stagingPath: nil, failureMessage: nil, createdAt: Date(timeIntervalSince1970: 1), updatedAt: Date(timeIntervalSince1970: 1))
-        }
+        } // TASK_SNAPSHOT_PREVIEW_CHECKS
         service.downloadJobStore.jobs = [job("active", item: "123456", state: .running, account: account, ordinal: 0),
             job("failed", item: "123457", state: .failed, account: account, ordinal: 1),
             job("foreign", item: "123458", state: .failed, account: "other-account", ordinal: 0)]

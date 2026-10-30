@@ -67,6 +67,12 @@ class WallpaperLibraryWorkspaceTests(unittest.TestCase):
                     self.assertEqual(source.count(marker), 1, marker)
                     source = source.replace(marker, marker + "\n            defer { WorkspaceBackingProbe.completed += 1 }", 1)
                     (work / Path(path).name).write_text(source)
+                elif path == "MyWallpaperX/Core/LibraryCollections/WallpaperLibraryQuery.swift":
+                    source = (ROOT / path).read_text()
+                    marker = "        init(catalog: WallpaperLibraryCatalog, relationships: UserCollectionsSnapshot) throws {"
+                    self.assertEqual(source.count(marker), 1, marker)
+                    source = source.replace(marker, marker + "\n            WorkspaceIdentityQueryProbe.catalogInitializations += 1", 1)
+                    (work / Path(path).name).write_text(source)
                 else:
                     shutil.copy2(ROOT / path, work / Path(path).name)
             (work / "Checks.swift").write_text(fixture)
@@ -81,6 +87,7 @@ class WallpaperLibraryWorkspaceTests(unittest.TestCase):
             self.assertTrue(checks)
             for name, passed in checks.items():
                 self.assertIs(passed, True, name + "\n" + run.stdout + "\n" + run.stderr)
+            print(json.dumps(checks, sort_keys=True))
         self.assertEqual(hashes, {p: hashlib.sha256((ROOT / p).read_bytes()).hexdigest() for p in paths + extra})
 
 

@@ -9,6 +9,7 @@ import QuartzCore
 // The copied production Task increments this only on exit. Waiting on the
 // receipt proves a duplicate callback actually ran before asserting no write.
 @MainActor enum WorkspaceBackingProbe { static var completed = 0 }
+nonisolated enum WorkspaceIdentityQueryProbe { nonisolated(unsafe) static var catalogInitializations = 0 }
 
 // Screen-saver policy is a boundary leaf; only callback timing is recorded here.
 @MainActor final class ScreenSaverCoordinator {
@@ -351,6 +352,73 @@ struct WorkspacePause { let isUserPaused: Bool }
         _ = applyManager.playbackSwitch.begin(.video)
         checks["later-product-selection-revokes-pending-image-application"] = !secondImageIntent()
         _ = applyWorkspace
+        checks.merge(try runWorkspaceIdentityQueryChecks(store: store, epoch: initial.resetEpoch, defaults: defaults),
+            uniquingKeysWith: { _, newer in newer })
         print(String(data: try JSONSerialization.data(withJSONObject: checks, options: [.sortedKeys]), encoding: .utf8)!)
     }
+}
+
+@MainActor private func runWorkspaceIdentityQueryChecks(store: UserCollectionsStore, epoch: UUID,
+                                                       defaults: UserDefaults) throws -> [String: Bool] {
+    let target = WallpaperReference(provider: .videoLibrary, sourceID: "identity-target")
+    let first = WallpaperReference(provider: .steamWorkshop, sourceID: "identity-first")
+    let second = WallpaperReference(provider: .pixabay, sourceID: "identity-second")
+    let other = WallpaperReference(provider: .videoLibrary, sourceID: "identity-other")
+    func alias(_ source: WallpaperReference, _ destination: WallpaperReference) -> WallpaperReferenceAlias {
+        .init(alias: source, canonical: destination, proof: .publishedDownload)
+    }
+    func fixture(aliases: [WallpaperReferenceAlias] = [], favorite: WallpaperReference? = nil,
+                 playing: WallpaperReference? = nil, committed: Bool = true, catalog: WallpaperLibraryCatalog = .init(),
+                 locators: [WallpaperReferenceLocator] = []) throws -> (WallpaperLibraryWorkspace, WallpaperManager) {
+        let manager = WallpaperManager()
+        if committed {
+            let playing = playing ?? target
+            manager.libraryPlaybackDispatcher = { _ in true }
+            let snapshot = try WallpaperPlaybackSequence.Snapshot(source: .single(playing), revision: 1,
+                entries: [.init(reference: playing, runtime: .video, isPlayable: true)])
+            precondition(manager.requestLibraryPlayback(reference: playing, from: snapshot, cause: .userSelection) != nil)
+            manager.presentPreparedTarget()
+        }
+        let relationships = UserCollectionsSnapshot(revision: 1, resetEpoch: epoch, migrationManifestID: nil,
+            playlists: [], members: [], favorites: [.init(reference: favorite ?? target)], recent: [], aliases: aliases, locators: locators)
+        let workspace = WallpaperLibraryWorkspace(startup: .ready(.init(store: store, snapshot: relationships, disposition: .published)),
+            manager: manager, images: SILService(), steam: SteamWorkshopService(), pixabay: PixabayService(), defaults: defaults)
+        workspace.catalog.publish(catalog)
+        return (workspace, manager)
+    }
+    var checks: [String: Bool] = [:]
+    let chain = [alias(first, second), alias(second, target)]
+    let (missing, manager) = try fixture(aliases: chain)
+    WorkspaceIdentityQueryProbe.catalogInitializations = 0
+    checks["identity-flags-resolve-multiple-alias-hops-without-published-content"] = missing.isFavorite(first)
+        && missing.isFavorite(second) && missing.isPlaying(first) && missing.isPlaying(second)
+        && missing.isFavorite(target) && missing.isPlaying(target)
+    checks["identity-flags-reject-unrelated-missing-reference"] = !missing.isFavorite(other) && !missing.isPlaying(other)
+    checks["identity-flags-do-not-construct-full-catalog-resolvers"] = WorkspaceIdentityQueryProbe.catalogInitializations == 0
+    manager.playbackSwitch = PlaybackSwitchTransaction()
+    checks["identity-playing-still-rejects-a-stale-runtime-ticket"] = !missing.isPlaying(target) && !missing.isPlaying(first)
+    let (idle, _) = try fixture(aliases: chain, committed: false)
+    checks["identity-playing-still-rejects-an-uncommitted-session"] = !idle.isPlaying(first) && idle.isFavorite(first)
+
+    let cycle = [alias(first, second), alias(second, first)]
+    let (cyclic, _) = try fixture(aliases: cycle, favorite: first, playing: first)
+    checks["identity-flags-reject-the-requested-alias-cycle"] = !cyclic.isFavorite(first) && !cyclic.isPlaying(first)
+    let (conflicting, _) = try fixture(aliases: [alias(first, target), alias(first, other)])
+    checks["identity-flags-retain-conflicting-alias-rejection"] = !conflicting.isFavorite(target) && !conflicting.isPlaying(target)
+
+    let broken = WallpaperContentItem(reference: first, providerReference: first,
+        locator: .init(path: "/controlled/unrelated", mediaKind: .video), title: "Unrelated cyclic identity", kind: .video,
+        publishedAvailability: .available, capabilities: [.play], metadata: .init(), acquisition: .idle, update: .idle, aliases: [])
+    let (unrelatedCatalog, _) = try fixture(aliases: cycle, catalog: .init(videos: [broken]))
+    checks["identity-flags-ignore-an-unrelated-catalog-alias-cycle"] = unrelatedCatalog.isFavorite(target) && unrelatedCatalog.isPlaying(target)
+    let (unrelatedLocator, _) = try fixture(aliases: cycle,
+        locators: [.init(reference: first, locator: .init(path: "/controlled/unrelated", mediaKind: .video))])
+    checks["identity-flags-ignore-an-unrelated-locator-alias-cycle"] = unrelatedLocator.isFavorite(target) && unrelatedLocator.isPlaying(target)
+
+    let nfc = WallpaperReference(provider: .steamWorkshop, sourceID: "\u{e9}")
+    let nfd = WallpaperReference(provider: .steamWorkshop, sourceID: "e\u{301}")
+    let (opaque, _) = try fixture(favorite: nfc, playing: nfc)
+    checks["identity-flags-preserve-opaque-reference-byte-distinction"] = opaque.isFavorite(nfc) && !opaque.isFavorite(nfd)
+        && opaque.isPlaying(nfc) && !opaque.isPlaying(nfd)
+    return checks
 }

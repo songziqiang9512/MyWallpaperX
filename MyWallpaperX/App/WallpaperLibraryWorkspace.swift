@@ -188,15 +188,15 @@ import Foundation
     }
 
     func isFavorite(_ reference: WallpaperReference) -> Bool {
-        guard let item = try? content(for: reference) else { return false }
-        return relationships.favorites.contains { $0.reference == item.reference }
+        guard let canonical = try? WallpaperLibraryQuery.canonicalReferences([reference], relationships: relationships)[reference] else { return false }
+        return relationships.favorites.contains { $0.reference == canonical }
     }
 
     func isPlaying(_ reference: WallpaperReference) -> Bool {
         guard let current = manager.libraryPlaybackSequence.committed,
               manager.playbackSwitch.committed?.ticket == current.ticket,
-              let currentContent = try? content(for: current.reference), let target = try? content(for: reference) else { return false }
-        return currentContent.reference == target.reference
+              let canonical = try? WallpaperLibraryQuery.canonicalReferences([current.reference, reference], relationships: relationships) else { return false }
+        return canonical[current.reference] == canonical[reference]
     }
 
     /// The displayed ordered/filter result is captured only by an explicit
