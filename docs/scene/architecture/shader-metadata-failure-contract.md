@@ -102,11 +102,12 @@ source-proven purpose沿原TextureSlotPurpose→Catalog精确asset/user atom需�
 本片的真实执行、可见结果与未覆盖范围见[有界后验](../history/open-breakpoint-reconciliation-2026-10-23.md#material-key-fanout-20261030)。
 
 <a id="ordered-function-macro-redefinition"></a>
-## 函数宏按定义顺序替换
+<a id="ordered-object-macro-redefinition"></a>
+## 作者宏按定义顺序替换
 
-**目标与依据。** 已活动的同名函数宏更换 replacement，不应在准备阶段丢弃整个 pass。固定官方客户端 2.8.0.42 的自有静态六格板中，重复同一定义与显式 undef 正控成立；不同 replacement 的前后调用分别匹配旧、新常量参考，排除首次定义独占和全文使用最后定义。证据仅覆盖该函数宏形态，不把公开文档未规定的其他重定义行为一起开放。
+**目标与依据。** 已活动的同名作者宏更换 replacement，不应在准备阶段丢弃整个 pass。固定官方客户端 2.8.0.42 的函数宏与独立对象宏六格板分别资格：重复定义、显式 undef 和同帧常量参考成立；不同 replacement 的前后使用分别匹配旧、新参考，排除首次定义独占和全文使用最后定义。对象板另涵盖活动条件内 scalar→表达式及 inactive 定义不生效，不扩宏种类切换或宿主宏覆盖。
 
-**唯一职责与退出。** 原 Preprocessor 在每条 directive 前完成 pending 展开；继续沿这个顺序更新原 functionMacros 表，只删除不同函数定义的冲突拒绝，不预扫、重解析或保留历史表。变量/参数改名、active include、inactive 分支和 undef 沿原解析与执行规则。选定 host 宏、object 值冲突、宏种类切换、非法参数/调用、递归、来源映射和原预算保持原最小失败边界。没有普通帧工作、新 owner 或缓存层；此前合法输入的 prepared 内容不变，原 build/source 身份承担失效，原拒绝不作为成功缓存复用。
+**唯一职责与退出。** 原 Preprocessor 在每条 directive 前完成 pending 展开；继续沿这个顺序更新原 macros/functionMacros 表，只删除同种作者宏不同 replacement 的冲突拒绝，不预扫、重解析或保留历史表。变量/参数改名、active include、inactive 分支和 undef 沿原解析与执行规则。选定 host 宏与普通 selected combo 的冲突/undef、宏种类切换、非法参数/调用、递归、来源映射和原预算保持原最小失败边界；对象别名在消费处展开，不改 token 优先级。没有普通帧工作、新 owner 或缓存层；此前合法输入的 prepared 内容不变，原 build/source 身份承担失效，原拒绝不作为成功缓存复用。
 
 **验收与停止。** 现预处理器门验证定义前后、改名与等价表达、include/inactive/undef、metadata/sourceMap及相邻拒绝；自有板须到实际 Program/GPU/合成且匹配同路径参考，原包与未参与修法样本另验。若原包进入下一拒绝，只记录首断点推进，不称整效果或样本修复；没有实际可见收益则重排下一方向，不以编译数或日志消失替代成果。
 

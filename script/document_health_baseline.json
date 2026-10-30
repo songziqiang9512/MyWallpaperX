@@ -93,8 +93,8 @@
       "bytes": 7045
     },
     "docs/scene/architecture/shader-metadata-failure-contract.md": {
-      "lines": 120,
-      "bytes": 23919
+      "lines": 121,
+      "bytes": 24118
     },
     "docs/scene/architecture/variant-analysis-cache-contract.md": {
       "lines": 19,
@@ -150,7 +150,7 @@
     },
     "docs/scene/capabilities/runtime-evidence-current.md": {
       "lines": 600,
-      "bytes": 220859
+      "bytes": 221021
     },
     "docs/scene/capabilities/runtime-input-property-coverage.md": {
       "lines": 600,
@@ -278,7 +278,7 @@
     },
     "docs/scene/roadmap/scene-open-breakpoint-queue.md": {
       "lines": 179,
-      "bytes": 40142
+      "bytes": 40091
     },
     "docs/web/cold-descriptor-parse-offload-design.md": {
       "lines": 30,
@@ -1831,15 +1831,6 @@
     },
     {
       "section": "bodies",
-      "path": "docs/scene/roadmap/scene-open-breakpoint-queue.md",
-      "before": "9b24492dbd315940a240f39571e5ed7f104079bec304257d3ee5fff111a8b91f",
-      "after": "e724f7746e628cd80804d24ecfb962cd5bfb40b53b6ae8811cd4df7b0f8e4539",
-      "owner": "scene-engine-maintainer",
-      "reason": "用户要求新增样本日志诊断与统计同步；公共首错/未触发/作者配置/统计漏计分层，保302独立mutation冲突，不修改播放合同。",
-      "decision": "docs/scene/development/corpus-diagnostic-workflow.md#log-first-corpus-audit"
-    },
-    {
-      "section": "bodies",
       "path": "docs/scene/development/corpus-diagnostic-workflow.md",
       "before": "4c10958a4a1f504236f0c8a8acaa60cd58557e80c23c7699e8365ae79b3ff046",
       "after": "9f980a2857c8c0fa6171de5c668ba9468aec857476726591b8babad8a440f854",
@@ -1886,20 +1877,20 @@
     {
       "section": "bodies",
       "path": "docs/scene/architecture/shader-metadata-failure-contract.md",
-      "before": "f5a5fdb03cf579b0d16bf9f53692051c7f68cc446ea5c80cf66bf97faf9cecb1",
-      "after": "59ecb656fe0545a71bd0893a18253e05c39e42e51b8349ffadabe1ef5608fa0a",
+      "before": "59ecb656fe0545a71bd0893a18253e05c39e42e51b8349ffadabe1ef5608fa0a",
+      "after": "331204bb21a0256ad9debe55ba21c9b24a627abaa7aa77390844f60520b640dd",
       "owner": "scene-engine-maintainer",
-      "reason": "原ArtifactBuilder及Variant发布统一已优化资源的执行接口，复用scanner并保实际读取/ABI反例，记录首候选反证和最终背景软化贡献，无新产品owner。",
-      "decision": "docs/scene/architecture/shader-metadata-failure-contract.md#optimized-texture-interface"
+      "reason": "沿原宏owner删除对象replacement错误拒绝；合并原设计并链接有界原包收益/本机载体资格限制，不新增运行结构或重复权威。",
+      "decision": "docs/scene/architecture/shader-metadata-failure-contract.md#ordered-object-macro-redefinition"
     },
     {
       "section": "bodies",
       "path": "docs/scene/capabilities/runtime-evidence-current.md",
-      "before": "431fbe61ccd2511012c65b43c0c55a9ab2ec2b764543959e3c60afae71a38627",
-      "after": "f1a16c582060463255fbedfdb8c722cb89b65afa7da80e561b8b8564b1593629",
+      "before": "f1a16c582060463255fbedfdb8c722cb89b65afa7da80e561b8b8564b1593629",
+      "after": "4afa5989a44448c27ec60964c7cf849da1a4b9be82e7b0c4922ec664ef5da561",
       "owner": "scene-engine-maintainer",
-      "reason": "原ArtifactBuilder及Variant发布统一已优化资源的执行接口，复用scanner并保实际读取/ABI反例，记录首候选反证和最终背景软化贡献，无新产品owner。",
-      "decision": "docs/scene/architecture/shader-metadata-failure-contract.md#optimized-texture-interface"
+      "reason": "沿原宏owner删除对象replacement错误拒绝；合并原设计并链接有界原包收益/本机载体资格限制，不新增运行结构或重复权威。",
+      "decision": "docs/scene/architecture/shader-metadata-failure-contract.md#ordered-object-macro-redefinition"
     }
   ]
 }

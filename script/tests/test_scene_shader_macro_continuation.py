@@ -1,4 +1,4 @@
-"""Function macro continuation through the real graph and preprocessor owners."""
+"""Ordered macros and continuation through the real graph/preprocessor owners."""
 
 import json
 import os
@@ -18,9 +18,14 @@ DEFINITION = "#define USER_FN(x) ((x) + 1.0)\n"
 def cases():
     result = []
 
-    def add(name, source, *, path="shaders/main.frag", files=None, limits=None):
-        result.append(dict(name=name, root=path, files={path: source, **(files or {})},
-                           limits=limits or {}))
+    def add(name, source, *, path="shaders/main.frag", files=None, limits=None,
+            combos=None, windows_target=False):
+        item = dict(name=name, root=path, files={path: source, **(files or {})}, limits=limits or {})
+        if combos is not None:
+            item["combos"] = combos
+        if windows_target:
+            item["windowsTarget"] = True
+        result.append(item)
 
     add("same", DEFINITION + "float result = USER_FN(2.0);")
     add("split-name", DEFINITION + "float result = USER_FN\n(2.0);")
@@ -89,6 +94,54 @@ def cases():
         add(name, repeated + "float result = DUP\n(2.0);", limits=limits)
     add("depth-budget", "#define FIRST(x) SECOND(x)\n#define SECOND(x) x\n"
         + "float result = FIRST\n(2.0);", limits={"maximumMacroExpansionDepth": 1})
+    add("object-same", '#define VALUE 0.25\n#define VALUE 0.25\n'
+        'float VALUE_SUFFIX = VALUE; // VALUE\nconst char* label = "VALUE";')
+    add("object-inactive", "#define VALUE 0.25\n#if 0\n#define VALUE 0.875\n#endif\n"
+        "float result = VALUE;")
+    add("object-undef-alias", "#define VALUE 0.25\n#define ALIAS VALUE\n"
+        "float before = ALIAS;\n#undef VALUE\n#define VALUE (0.5 + 0.25)\nfloat after = ALIAS;")
+    add("object-precedence", "#define VALUE 0.5 + 0.25\nfloat result = VALUE * 2.0;")
+    for name, macro, alias, variable, path, relative in (
+        ("object-order", "VALUE", "ALIAS", "tone", "shaders/object/main.frag", "nested/tail.glsl"),
+        ("object-renamed-order", "UNSEEN", "OTHER_ALIAS", "shade",
+         "shaders/renamed/other.frag", "changed/extension.glsl"),
+    ):
+        included = str(Path(path).parent / relative)
+        add(name, f"""#define {macro} 0.25
+#define {alias} {macro}
+float {variable}Before = {alias};
+#if 0
+#define {macro} 0.875
+#endif
+float {variable}Inactive = {macro};
+#if 1
+#define {macro} 0.5 + 0.25
+#endif
+float {variable}After = {alias} * 2.0;
+#include "{relative}"
+float {variable}Included = {alias};
+#undef {macro}
+#define {macro} (0.125 + 0.125)
+float {variable}Restored = {alias};""", path=path, files={included: f"""float {variable}InsideBefore = {alias};
+#define {macro} 0.25 + 0.25
+float {variable}InsideAfter = {alias};"""})
+    add("selected-same", "#define MODE 2\nfloat result = MODE;", combos={"MODE": 2})
+    add("selected-different", "#define MODE 3\nfloat result = MODE;", combos={"MODE": 2})
+    add("selected-undef", "#undef MODE\nfloat result = 0;", combos={"MODE": 2})
+    add("host-same", "#define HLSL\nfloat result = HLSL;", windows_target=True)
+    add("host-different", "#define HLSL 0\nfloat result = HLSL;", windows_target=True)
+    add("host-undef", "#undef HLSL\nfloat result = 0;", windows_target=True)
+    add("object-to-function", "#define VALUE 1\n#define VALUE(x) x\nfloat result = VALUE(1);")
+    add("function-to-object", "#define VALUE(x) x\n#define VALUE 1\nfloat result = VALUE;")
+    add("object-recursive", "#define LEFT RIGHT\n#define RIGHT LEFT\nfloat result = LEFT;")
+    add("object-unbalanced", "#define VALUE (1 + 2\nfloat result = VALUE;")
+    add("object-quoted", '#define VALUE "quoted"\nfloat result = VALUE;')
+    add("object-token-budget", "#define VALUE (1 + 2 + 3 + 4)\nfloat result = VALUE;",
+        limits={"maximumMacroExpansionTokens": 4})
+    add("object-byte-budget", "#define VALUE 1234567890\nfloat result = VALUE;",
+        limits={"maximumMacroExpansionBytes": 4})
+    add("object-depth-budget", "#define FIRST SECOND\n#define SECOND THIRD\n#define THIRD 1\n"
+        "float result = FIRST;", limits={"maximumMacroExpansionDepth": 1})
     return result
 
 
@@ -227,6 +280,45 @@ class SceneShaderMacroContinuationTests(unittest.TestCase):
         for name in ["metadata", "span-annotation", "included-metadata", "all-split"]:
             value = self.rows[name]
             self.assertEqual(len(value["source"].split("\n")), len(value["sourceMap"]), name)
+
+    def test_object_definitions_keep_order_alias_use_and_include_source_mapping(self):
+        for name, variable, path, included in (
+            ("object-order", "tone", "shaders/object/main.frag", "shaders/object/nested/tail.glsl"),
+            ("object-renamed-order", "shade", "shaders/renamed/other.frag",
+             "shaders/renamed/changed/extension.glsl"),
+        ):
+            with self.subTest(case=name):
+                self.assertEqual(self.code(name),
+                    f"float{variable}Before=0.25;float{variable}Inactive=0.25;"
+                    f"float{variable}After=0.5+0.25*2.0;float{variable}InsideBefore=0.5+0.25;"
+                    f"float{variable}InsideAfter=0.25+0.25;float{variable}Included=0.25+0.25;"
+                    f"float{variable}Restored=(0.125+0.125);")
+                row = self.rows[name]
+                self.assertEqual([(m["sourcePath"], m["sourceLine"]) for m in row["sourceMap"]],
+                    [(path, 3), (path, 7), (path, 11), (included, 1), (included, 3),
+                     (path, 13), (path, 16)])
+                self.assertEqual(row["dependencies"], sorted([path, included]))
+
+    def test_object_healthy_controls_and_selected_macro_boundaries(self):
+        self.assertEqual(self.rows["object-same"]["source"],
+                         'float VALUE_SUFFIX = 0.25; // VALUE\nconst char* label = "VALUE";')
+        self.assertEqual(self.code("object-inactive"), "floatresult=0.25;")
+        self.assertEqual(self.code("object-undef-alias"), "floatbefore=0.25;floatafter=(0.5+0.25);")
+        self.assertEqual(self.code("object-precedence"), "floatresult=0.5+0.25*2.0;")
+        self.assertEqual(self.code("selected-same"), "floatresult=2;")
+        for name in ("host-same", "host-different", "host-undef"):
+            with self.subTest(case=name):
+                self.assert_failure(name, "unresolved-environment-define")
+        for name in ("selected-different", "selected-undef",
+                     "object-to-function", "function-to-object"):
+            with self.subTest(case=name):
+                self.assert_failure(name, "conflicting-macro")
+        self.assert_failure("object-recursive", "function-like-macro")
+        for name in ("object-unbalanced", "object-quoted"):
+            self.assert_failure(name, "malformed-directive")
+        for name in ("object-token-budget", "object-byte-budget", "object-depth-budget"):
+            with self.subTest(case=name):
+                self.assert_failure(name, "budget-exceeded")
 
     def assert_failure(self, name, code, line=None):
         row = self.rows[name]

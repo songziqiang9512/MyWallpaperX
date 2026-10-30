@@ -21,7 +21,13 @@ private enum SceneShaderMacroContinuationChecks {
             let graph = try SceneShaderSourceGraphBuilder().build(
                 roots: [.init(label: "fragment", virtualPath: rootPath)],
                 resourceView: SceneResourceView(projectRootURL: directory, packageRootURL: nil))
-            let environment = try SceneShaderVariantEnvironment(stage: .fragment, combos: [])
+            let combos = (item["combos"] as? [String: Int] ?? [:]).sorted {
+                $0.key < $1.key
+            }.map { SceneShaderMacroBinding(name: $0.key, definition: .defined(.integer(Int64($0.value)))) }
+            let environment = try SceneShaderVariantEnvironment(stage: .fragment,
+                compatibilityTarget: item["windowsTarget"] as? Bool == true
+                    ? .windowsDX11ShaderModel4 : .unprofiledMetal,
+                combos: combos)
             let overrides = item["limits"] as? [String: Int] ?? [:]
             let defaults = SceneShaderPreprocessor.Limits.default
             let limits = SceneShaderPreprocessor.Limits(
@@ -65,7 +71,7 @@ private enum SceneShaderMacroContinuationChecks {
                 row["status"] = "failure"
                 row["diagnostics"] = failure.diagnostics.map {
                     ["code": $0.code.rawValue, "path": $0.relativePath,
-                     "line": $0.line ?? -1] as [String: Any]
+                     "line": $0.line ?? -1, "message": $0.message] as [String: Any]
                 }
             }
             rows.append(row)

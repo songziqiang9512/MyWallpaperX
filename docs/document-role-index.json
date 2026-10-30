@@ -808,10 +808,10 @@
       "lastReviewed": "2026-10-30",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "dfd0198e3b8bf411a1a9e4aee09a2e916e5baeb2821c821465dc9d923177b9f2",
+        "sourceSHA256": "c54c69d0d09396635c0fa568adf2cbe9ef290d772c4e286dfe7f94d2c775c232",
         "method": "document_registry --audit + document_health --check",
-        "scope": "后端物理纹理接口及最终Variant活动资源的唯一投影合同/有界后验导航；实际测试、运行身份与限制归链接历史，本登记仅核导航。",
-        "limitations": "不授完整shader/样本、官方整景parity、HDR/多屏或性能结论。"
+        "scope": "原宏准备合同扩展同种作者对象的顺序替换；短链接指向真实恢复和本机载体未资格的唯一后验。",
+        "limitations": "仅导航与合同变更；不授官方整景parity、完整音频周期或性能结论。"
       },
       "currentStateAuthority": "docs/scene/capabilities/runtime-evidence-current.md"
     },
@@ -1013,10 +1013,10 @@
       "lastReviewed": "2026-10-30",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "48ea27f490549813a9b29ab1de8088a2ab500587fad2529c49d7d68606a2d543",
+        "sourceSHA256": "a8d1d7cc99bf8d2bc13d7df7e41bfae200548919676867bd7cf9c0374d0263d0",
         "method": "document_registry --audit + document_health --check",
-        "scope": "后端物理纹理接口及最终Variant活动资源的唯一投影合同/有界后验导航；实际测试、运行身份与限制归链接历史，本登记仅核导航。",
-        "limitations": "不授完整shader/样本、官方整景parity、HDR/多屏或性能结论。"
+        "scope": "原宏准备合同扩展同种作者对象的顺序替换；短链接指向真实恢复和本机载体未资格的唯一后验。",
+        "limitations": "仅导航与合同变更；不授官方整景parity、完整音频周期或性能结论。"
       }
     },
     {

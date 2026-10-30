@@ -158,3 +158,16 @@
 自有9000000808保原project层/Bokeh shader和Strength1，仅给前级普通image换自绘静态棋盘，移除无关动画；原PKG副本与唯一loose入口，原件只读。载体输入未修正，首次失败由上述产品后继造成。最终单一Bool热切在同runtime7ea5…、window32179/surface1 accepted：两ON原图逐像素相同、四OFF亦同；ON同Program完成，OFF是明确visibility-disabled activation bypass（rejected1表示跳过作者节点、failure=-），两状态GPU/末合成/次帧成立。32px内ROI梯度ON8.295020、OFF13.733548，亲看格子软化/恢复锐利。这是实际原shader贡献，非性能指标，不外推完整Bokeh家族、原整景精确像素或官方parity。
 
 仅退出283这条公开首门，其他effect/335宏等继续留队列，原522统计、raw记录及人工裁决不改。必要基线/失败首候选、最终身份/图证、真实测试与独审归档`.artifacts/scene-evidence/runs/dead-helper-texture-20261030/`；运行HOME/App、临时PKG/棋盘及重复帧提取后清理，只保同一连续构建缓存。未做Release、HDR/多屏、长稳或同条件性能测量；不认性能收益。
+
+<a id="ordered-object-macro-20261030"></a>
+## 2026-10-30：同种对象宏顺序替换与活动示波器恢复
+
+3358871872的122#123、96#98在活动AUDIOTHICKNESS分支将对象宏由1.0重定义为表达式，旧Preprocessor先报conflicting-macro，两个pass均局部透传，横向波形缺失。默认GLOW0未消费thickFactor，收益是解除错误宏拒绝以恢复原活动pass，不认领新的发光/厚度算法。沿[原宏设计](../architecture/shader-metadata-failure-contract.md#ordered-object-macro-redefinition)仅删除同种作者对象宏不同replacement的三行拒绝；每directive前原finishExpansion及同一macros表已承担时序，不加parser、历史状态、帧工作或效果特判。selected combo/host、undef、种类切换、语法、实际递归及预算边界保持。
+
+固定官方2.8.0.42/exe DAAC1EA7…DA07自有六格板独立资格object语义：完整loose及30项manifest校验，前后使用旧/新值；duplicate与显式undef正控成立，inactive定义不生效。两次实际JPEG（含Display ICC、桌面15:57/15:58，SHA不同）按嵌入ICC转sRGB，四角定位完整；D=ref00、U=C=ref01，各同帧ROI误差0，满足预登记3/255，ref11可区分。首次测量误用raw ICC RGB、随后额外对角标套像素3门的失败均保留；纠正只撤销非预注册角标像素门，原图、ROI与参考格容差不改。这里只证明该静态vertex/active条件对象宏，不外推官方host或种类切换语义。
+
+最近真实graph→preprocessor门9方法/63输入：两组变量/路径改名的顺序用例精确line9冲突RED，其余通过；GREEN8.694s全通过。涵盖无括号replacement优先级、alias消费点、include/sourceMap/metadata、inactive/undef及selected/kind/递归/紧预算反例。首轮误将保留HLSL source define视为合法的夹具错误独立保留，修夹具不扩产品。
+
+最终Debug31.095s、单产品输入无漂移、strict deep签名通过，exe46583ae2…0dcbe/dylibee525aaf…674c。原335同PCM fixture、Ready后3秒/4秒窗口严格FAIL→PASS；两个目标Program a8dfb56d…ac27均在frame0/1完成material1/rejected0、GPU与最终compositor/次帧，frame10左右32band输入实际非零。亲看原包两条横向波形从无到有，主体/其余背景保留；独立3350026230同App严格PASS，当前波形与画面正常；未采集其修前基线，不认领前后像素不变。两者均exit0、surface1→0/GPU排空。目录官方参考已查看，viewport/音频phase不同，不认精确形状、幅度、整景parity或完整周期。
+
+原生自有板总报告PASS，六色可见，但全屏aspect-fill裁掉上下角标，违反其预登记定位门；像素资格保持UNKNOWN，不能以总分或肉眼相似追认本机板parity，也不为载体改产品/追加窗口链路。该限制独立于官方完整板与真实原包恢复。仅退出335这条首拒，原统计/verdict不重写。必要失败/成功报告、原335前后图、独立图、官方双图/manifest、测试和独审归`.artifacts/scene-evidence/runs/ordered-object-macro-20261030/`；本轮临时运行、复制输入及guest stage在停用后清理，保唯一既有构建缓存和VM主客户端。未测Release、HDR/多屏、长稳或同条件性能，不认性能收益。
