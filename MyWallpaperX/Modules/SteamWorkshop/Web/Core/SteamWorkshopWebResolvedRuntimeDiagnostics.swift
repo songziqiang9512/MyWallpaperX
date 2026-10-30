@@ -50,7 +50,7 @@ extension SteamWorkshopService {
         observeReference: ((String, URL, URL?) -> Void)? = nil
     ) -> ResolvedWebStaticContentSummary {
         var scannedFiles = Set<URL>()
-        var pendingFiles = [entryURL]
+        var pendingFiles: ArraySlice<URL> = [entryURL]
         var externalDependencyURLs = Set<String>()
         var usesWebMResource = false
         var usesHoverOnlyInteraction = false
@@ -73,8 +73,7 @@ extension SteamWorkshopService {
             $0.kind == .directory && $0.directoryMode?.lowercased() == "ondemand"
         }
 
-        while let fileURL = pendingFiles.first {
-            pendingFiles.removeFirst()
+        while let fileURL = pendingFiles.popFirst() {
             guard scannedFiles.insert(fileURL).inserted else { continue }
             guard !Task.isCancelled else { break }
             let observation: WebAuthorFileReader.Observation?

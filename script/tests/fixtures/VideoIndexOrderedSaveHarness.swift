@@ -40,6 +40,7 @@ enum BundledVideoLibrary {
     var auditPublications = 0
     var auditCurrentPublications = 0
     var auditScheduleEntries = 0
+    var auditInitialSizeCallbacks = 0
     func observeAssetPublication() {
         $wallpapers.dropFirst().sink { [weak self] _ in self?.auditPublications += 1 }.store(in: &cancellables)
         $currentWallpaper.dropFirst().sink { [weak self] _ in self?.auditCurrentPublications += 1 }.store(in: &cancellables)
@@ -663,6 +664,7 @@ extension VideoIndexOrderedSaveChecks {
             manager.wallpapers = rows; manager.currentWallpaper = current
             try store.saveWallpapers(rows); store.clearAudit()
             manager.auditPublications = 0; manager.auditCurrentPublications = 0; manager.auditScheduleEntries = 0
+            manager.auditInitialSizeCallbacks = 0
             manager.observeAssetPublication()
         }
         func settle() {
@@ -763,6 +765,63 @@ extension VideoIndexOrderedSaveChecks {
         manager.migrationRecoveryMessage = "owned recovery-mode fixture"
         manager.updateWallpaperAssetPaths(forPath: a.path, staticFramePath: frameChanged.staticFramePath)
         try capture("readOnly", expectedRows: [frameChanged, b], expectedCurrent: frameChanged, expectedDatabase: [a, b])
+
+        try Data(repeating: 3, count: 19).write(to: source)
+        try Data(repeating: 5, count: 31).write(to: URL(fileURLWithPath: b.path))
+        let thirdURL = root.appendingPathComponent("third.mp4")
+        try Data(repeating: 7, count: 41).write(to: thirdURL)
+        var missingA = a, missingB = b, missingC = record("C", path: thirdURL.path)
+        missingA.fileSize = nil; missingA.duration = 12; missingA.resolution = "9x9"
+        missingB.fileSize = nil; missingC.fileSize = nil
+        var filledA = missingA, filledB = missingB
+        filledA.fileSize = 19; filledB.fileSize = 31
+        var absent = record("absent", path: root.appendingPathComponent("absent.mp4").path); absent.fileSize = nil
+        let missing = [missingA, missingB, absent]
+        try seed(missing, current: missingA)
+        manager.settleInitialIndex(.init(wallpapers: missing, initialized: true))
+        // Main has not yielded, so these setup publications precede the real callback.
+        try seed(missing, current: missingA)
+        wait("initial size batch callback") { manager.auditInitialSizeCallbacks == 1 }
+        try capture("initialSizeBatch", expectedRows: [filledA, filledB, absent], expectedCurrent: missingA)
+
+        let original = [missingA, missingB, missingC]
+        try seed(original, current: missingA)
+        manager.settleInitialIndex(.init(wallpapers: original, initialized: true))
+        let editedA = VideoWallpaper(id: missingA.id, title: "Changed while size worker ran", path: missingA.path,
+            thumbnailPath: missingA.thumbnailPath, staticFramePath: missingA.staticFramePath,
+            isFavorite: missingA.isFavorite, lastUsed: missingA.lastUsed, tags: ["new tag"],
+            duration: missingA.duration, resolution: missingA.resolution, firstIndexedAt: missingA.firstIndexedAt)
+        var movedB = record(missingB.id, path: root.appendingPathComponent("moved.mp4").path); movedB.fileSize = nil
+        var replacement = record("replacement-C", path: missingC.path); replacement.fileSize = nil
+        let added = record("added", path: root.appendingPathComponent("new.mp4").path)
+        let currentRows = [replacement, movedB, editedA, added]
+        try seed(currentRows, current: movedB)
+        wait("initial size current-row callback") { manager.auditInitialSizeCallbacks == 1 }
+        var editedFilledA = editedA; editedFilledA.fileSize = 19
+        try capture("initialSizeCurrentRows", expectedRows: [replacement, movedB, editedFilledA, added], expectedCurrent: movedB)
+
+        try seed(missing, current: missingA)
+        manager.settleInitialIndex(.init(wallpapers: missing, initialized: true))
+        var metadataA = missingA, metadataB = missingB
+        metadataA.fileSize = 77; metadataA.duration = 88; metadataA.resolution = "77x88"
+        metadataB.fileSize = 99; metadataB.thumbnailPath = "metadata-thumb"
+        let metadataRows = [metadataA, metadataB, absent]
+        try seed(metadataRows, current: metadataA)
+        wait("initial size earlier-metadata callback") { manager.auditInitialSizeCallbacks == 1 }
+        try capture("initialSizeMetadataWins", expectedRows: metadataRows, expectedCurrent: metadataA)
+
+        try seed(missing, current: missingA)
+        manager.settleInitialIndex(.init(wallpapers: missing, initialized: true))
+        try seed([added], current: added)
+        wait("initial size removed-row callback") { manager.auditInitialSizeCallbacks == 1 }
+        try capture("initialSizeRemoved", expectedRows: [added], expectedCurrent: added)
+
+        try seed(missing, current: missingA)
+        manager.settleInitialIndex(.init(wallpapers: missing, initialized: true))
+        manager.resetIndexForAudit()
+        try seed([added], current: added)
+        wait("initial size revoked-epoch callback") { manager.auditInitialSizeCallbacks == 1 }
+        try capture("initialSizeRevoked", expectedRows: [added], expectedCurrent: added)
         print(String(data: try JSONSerialization.data(withJSONObject: ["functional": functional, "work": work],
             options: [.sortedKeys]), encoding: .utf8)!)
     }

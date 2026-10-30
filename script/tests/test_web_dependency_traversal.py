@@ -35,6 +35,23 @@ TRAVERSAL = r'''
             "single summary reaches author signals at 198/199/204")
         check(trace.rows.count == 206 && Set(trace.rows.map { $0.0 }).count == 206, "each actual dependency is read once without a certification traversal")
 
+        let wide = try fixture("wide-shared-cycle")
+        let branches = (0..<32).map { "branch\($0).js" }, leaves = (0..<32).map { "leaf\($0).js" }
+        try write(branches.map { "<script src='\($0)'></script>" }.joined(), "index.html", wide)
+        for (index, branch) in branches.enumerated() {
+            try write("import 'shared.js'; import '\(leaves[index])'; import '\(branches[(index + 1) % branches.count])';", branch, wide)
+            try write("import 'shared.js';", leaves[index], wide)
+        }
+        try write("import 'tail.js'; import 'branch0.js';", "shared.js", wide)
+        try write("localStorage.setItem('tail',1); navigator.serviceWorker.register('sw.js'); const movie='tail.webm'; WebAssembly.instantiateStreaming(fetch('addon.wasm'));", "tail.js", wide)
+        trace.reset(); let wideCapture = capture(wide)
+        let wideSummary = service.parseWebProjectDescriptorCore(record: wide, captured: wideCapture)!.staticContentSummary
+        check(trace.rows.map { $0.0 } == ["index.html"] + branches + ["shared.js"] + leaves + ["tail.js"],
+            "wide shared and cyclic graph reads each actual file once in breadth-first order")
+        check(wideSummary.usesPersistentBrowserStorage && wideSummary.usesServiceWorkerRegistration
+            && wideSummary.usesWebMResource && wideSummary.usesWASMStreaming,
+            "wide graph reaches all final-level author signals")
+
         let large = try fixture("fragments")
         let prefix = "<script>" + String(repeating: "x", count: 150_000)
         let middle = "navigator.serviceWorker.register('sw.js'); import 'middle.js';"

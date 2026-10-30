@@ -128,6 +128,10 @@ extension WallpaperIndexStore {
     startup = startup.replace(report, "    func reportUnreadableInitialIndexChanges() { unreadableRecoveryCount += 1 }")
     asset_path = Path(cache_assets_override) if cache_assets_override is not None else core / "WallpaperManager+CacheAssets.swift"
     if published_assets:
+        size_receipt = "                guard let self, self.wallpaperIndexSaveEpoch == epoch else { return }"
+        if startup.count(size_receipt) != 1:
+            raise AssertionError("one initial size callback receipt required")
+        startup = startup.replace(size_receipt, "                defer { self?.auditInitialSizeCallbacks += 1 }\n" + size_receipt, 1)
         fixture = fixture.replace("@MainActor final class WallpaperManager {", "@MainActor final class WallpaperManager: ObservableObject {")
         current_field = next(line for line in manager.splitlines() if "    @Published var currentWallpaper:" in line)
         fixture = fixture.replace("    var currentWallpaper: VideoWallpaper?", current_field)
@@ -220,6 +224,9 @@ class VideoIndexOrderedSaveTests(unittest.TestCase):
             "currentOnly": (0, 1, 0, 0), "absentRowCurrent": (0, 1, 0, 0),
             "removedBeforeCallback": (1, 0, 1, 1), "aliasFirstMatch": (1, 1, 1, 1),
             "emptyString": (1, 1, 1, 1), "initialLoad": (2, 2, 2, 2), "readOnly": (1, 1, 1, 0),
+            "initialSizeBatch": (1, 0, 1, 1), "initialSizeCurrentRows": (1, 0, 1, 1),
+            "initialSizeMetadataWins": (0, 0, 0, 0), "initialSizeRemoved": (0, 0, 0, 0),
+            "initialSizeRevoked": (0, 0, 0, 0),
         }
         with tempfile.TemporaryDirectory(prefix="mwx-video-assets-", dir="/private/tmp") as directory:
             root = Path(directory)

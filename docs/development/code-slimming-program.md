@@ -16,6 +16,8 @@ R2（cdb8e3fc1起）：单provider可见时跳过另一整库filter；源文件�
 
 R3（20d348aef起）：下载快照在原owner用一次调用期URL字典复用同reference的完整预览结果（含nil），省去active/history重复进入同步detail-cache读取；每次新快照与loadThumbnail仍读取当前值，同一同步快照统一首个结果。可见需求同token/local不变时直接返回，避免两次全consumer并集；新token同ref仍登记租约，最后释放/重开和generation/单worker原语义保留，不抑制viewport或预取。产品净+9行，无长期状态/owner；变化token多一次有界Set比较。当前原生111项、Catalog97项、真实worker40项及负例通过；旧源三个预览/两个union反例红，旧原生另两项取消最小化断言失败、原因未定，当前通过不等于修复该UI问题。隔离Debug通过（5854输入无漂移，0error/0warning），独立复核及代码/断言/设计/隔离文档/产物门通过；工作区全仓文档门被并行Scene文档正文/导航receipt暂未同步阻断，该WIP保留。测试只观测原真实方法，预览文件IO为受控叶，未测性能幅度或完整App；后继在原Video初载owner合并大小发布、以标准slice消费Web冷分析FIFO，暂缓书签binding跨API改造。
 
+R4（524e06522起）：Video初载size回填在原Main回调复制当前数组，保epoch、首项id/path和仅补nil，最后有变化只发布一次；不新增索引/helper/数组全比较。受控两文件publication2→1、保存调度2→1，SQLite仍1次；旧/新Debug完整功能JSON一致，最终Debug/优化各16phase、67功能及7退出检查通过，旧优化/退出未执行。Web冷分析以局部ArraySlice/popFirst替换Array.removeFirst，保FIFO、去重/取消/读取与观察顺序，旧新traversal各12项（深链206读、宽图67读）顺序一致；最终author preparation70项含取消/join/token释放通过。产品净+3行，全部werror，隔离Debug通过（5854输入无漂移，0error/0warning）；交叉复核与固定快照质量/文档门通过。最终字段/读取/生命周期保持，只合并同回执的中间发布；slice可能本次遍历内保留底层buffer，不作耗时/能耗/内存结论，AV/UI未实跑。下一候选是无消费预取assets准备；Scene脚本/typed-frame抽查已在准备期/revision复用、检查有实际提交/撤销消费者，本轮不改，C层snapshot复制仅待观察线索。
+
 “无调用”须排查 selector、协议回调、独立进程、作者脚本、动态资源及调试工具；测试、文档或结构登记出现名字不等于产品调用。第一批只删除已确认不可达的链路，不以行数作为收益或验收目标。
 
 ## 第一批设计与停止条件
