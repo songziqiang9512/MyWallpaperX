@@ -160,7 +160,90 @@ final class SceneDaemonClient: PlaybackEngineControlling {
 '''
 
 
+SCREEN_NOTIFICATION_HARNESS = r'''
+import AppKit
+struct ScreenData {
+    var deviceDescription: [NSDeviceDescriptionKey: Any]
+    var frame: CGRect
+    var visibleFrame: CGRect
+}
+enum ScreenLeaf { static var screens: [ScreenData] = [] }
+final class WallpaperEngine: NSObject {
+    struct Candidate { let ticket = UUID() }
+    var displayIDs: [CGDirectDisplayID] = [], displayFrames: [CGRect] = []
+    var currentWallpaper: String? = "unchanged-video"
+    var currentMultiDisplayEnabled = true, currentShouldLoopCurrentItem = true
+    var currentVideoFillMode = "aspectFit"
+    var videoCandidate: Candidate?
+    var cancellations = 0, reloads = 0, failures = 0
+    lazy var switchFailed: ((UUID, String) -> Void)? = { [weak self] _, _ in self?.failures += 1 }
+    func cancelVideoExecution(_ candidate: Candidate, completion: () -> Void) { cancellations += 1; completion() }
+    func applyWallpaper(_ wallpaper: String, multiDisplayEnabled: Bool, videoFillMode: String, shouldLoopCurrentItem: Bool) {
+        precondition(wallpaper == "unchanged-video" && multiDisplayEnabled && videoFillMode == "aspectFit" && shouldLoopCurrentItem)
+        reloads += 1
+    }
+    // SCAN
+    // NOTIFICATION
+}
+@main enum Checks {
+    static func main() {
+        let frame = CGRect(x: 0, y: 0, width: 1512, height: 982)
+        ScreenLeaf.screens = [.init(deviceDescription: [NSDeviceDescriptionKey("NSScreenNumber"): NSNumber(value: 1)],
+            frame: frame, visibleFrame: frame.insetBy(dx: 0, dy: 30))]
+        let engine = WallpaperEngine()
+        engine.scanDisplays()
+        engine.videoCandidate = .init()
+        for _ in 0..<8 {
+            ScreenLeaf.screens[0].visibleFrame.size.height -= 1
+            engine.handleScreenParametersChanged()
+        }
+        precondition(engine.reloads == 0 && engine.cancellations == 0 && engine.failures == 0,
+                     "Dock/work-area notifications must not reload video or cancel a pending switch")
+        ScreenLeaf.screens[0].frame.size.width = 1920
+        engine.handleScreenParametersChanged()
+        precondition(engine.reloads == 1 && engine.cancellations == 1 && engine.failures == 1)
+        engine.handleScreenParametersChanged()
+        precondition(engine.reloads == 1 && engine.cancellations == 1)
+        ScreenLeaf.screens.append(.init(deviceDescription: [NSDeviceDescriptionKey("NSScreenNumber"): NSNumber(value: 2)],
+            frame: CGRect(x: 1920, y: 0, width: 1920, height: 1080), visibleFrame: .zero))
+        engine.handleScreenParametersChanged()
+        precondition(engine.reloads == 2 && engine.displayIDs == [1, 2])
+        ScreenLeaf.screens[1].frame.origin.y = 200
+        engine.handleScreenParametersChanged()
+        precondition(engine.reloads == 3, "real display rearrangement must still rebuild video surfaces")
+        ScreenLeaf.screens.removeLast()
+        engine.handleScreenParametersChanged()
+        precondition(engine.reloads == 4 && engine.displayIDs == [1])
+        ScreenLeaf.screens[0].deviceDescription[NSDeviceDescriptionKey("NSScreenNumber")] = NSNumber(value: 3)
+        engine.currentWallpaper = nil
+        engine.handleScreenParametersChanged()
+        precondition(engine.reloads == 4 && engine.cancellations == 5 && engine.displayIDs == [3])
+        engine.handleScreenParametersChanged()
+        precondition(engine.cancellations == 5)
+        print("display-notification-checks-passed")
+    }
+}
+'''
+
+
 class PlaybackPolicyDeliveryTests(unittest.TestCase):
+    def test_screen_parameter_notifications_only_reload_changed_video_geometry(self):
+        events = (CORE / "Playback/WallpaperEngine+DaemonEvents.swift").read_text()
+        controls = (CORE / "Playback/WallpaperEngine+PlaybackControl.swift").read_text()
+        harness = SCREEN_NOTIFICATION_HARNESS.replace("    // SCAN", method(events, "func scanDisplays(").replace(
+            "NSScreen.screens", "ScreenLeaf.screens")).replace(
+            "    // NOTIFICATION", method(controls, "@objc func handleScreenParametersChanged("))
+        with tempfile.TemporaryDirectory(prefix="mwx-video-displays-") as directory:
+            root = Path(directory)
+            source = root / "Checks.swift"; source.write_text(harness)
+            binary = root / "checks"
+            result = subprocess.run(["xcrun", "swiftc", "-parse-as-library", str(source), "-o", str(binary)],
+                                    capture_output=True, text=True, timeout=60)
+            self.assertEqual(result.returncode, 0, result.stderr)
+            result = subprocess.run([str(binary)], capture_output=True, text=True, timeout=10)
+            self.assertEqual(result.returncode, 0, result.stderr)
+            self.assertIn("display-notification-checks-passed", result.stdout)
+
     def test_paused_scene_admission_presents_once_without_running_timer(self):
         driver = (CORE / "SteamWorkshopScene/Runtime/Session/SceneDesktopWallpaperSession+FrameDriver.swift").read_text()
         pause = (CORE / "SteamWorkshopScene/Runtime/Session/SceneDesktopWallpaperSession+VideoProviders.swift").read_text()

@@ -91,6 +91,7 @@ public final class WallpaperEngine: NSObject {
     var playbackIntentEpoch: UInt64 = 0
     lazy var dedicatedWebHostAdapter: WebWallpaperHostAdapter = WebDaemonHostAdapter(spectrumDelivery: spectrumDelivery)
     var displayIDs: [CGDirectDisplayID] = []
+    var displayFrames: [CGRect] = []
     var playbackPaused = false
     var isPlaybackPaused: Bool { playbackPaused }
     var targetPlaybackRate: Float = 1.0

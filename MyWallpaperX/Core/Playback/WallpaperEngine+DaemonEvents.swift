@@ -106,21 +106,16 @@ extension WallpaperEngine {
         }
     }
 
-    func shouldMaintainSession(for displayID: CGDirectDisplayID) -> Bool {
-        scanDisplays()
-        guard displayIDs.contains(displayID) else { return false }
-        if currentMultiDisplayEnabled {
-            return true
+    @discardableResult func scanDisplays() -> Bool {
+        var ids: [CGDirectDisplayID] = [], frames: [CGRect] = []
+        for screen in NSScreen.screens {
+            guard let number = screen.deviceDescription[NSDeviceDescriptionKey(rawValue: "NSScreenNumber")] as? NSNumber else { continue }
+            ids.append(number.uint32Value)
+            frames.append(screen.frame)
         }
-        return displayID == displayIDs.first
-    }
-
-    func scanDisplays() {
-        displayIDs = NSScreen.screens.compactMap {
-            guard let screenNumber = $0.deviceDescription[NSDeviceDescriptionKey(rawValue: "NSScreenNumber")] as? NSNumber else {
-                return nil
-            }
-            return CGDirectDisplayID(screenNumber.uint32Value)
-        }
+        let changed = ids != displayIDs || frames != displayFrames
+        displayIDs = ids
+        displayFrames = frames
+        return changed
     }
 }

@@ -29,7 +29,9 @@ extension WallpaperEngine {
     }
 
     @objc func handleScreenParametersChanged() {
-        scanDisplays()
+        // Dock visibility also emits this notification. Only actual display
+        // identity/geometry changes require rebuilding the playback surfaces.
+        guard scanDisplays() else { return }
         if let videoCandidate {
             switchFailed?(videoCandidate.ticket, "Video display topology changed during preparation")
             cancelVideoExecution(videoCandidate, completion: {})

@@ -165,7 +165,7 @@ extension WallpaperDaemon {
     }
 
     @objc func handleScreenParametersChanged() {
-        guard let screen = WallpaperDaemon.screen(for: displayID) else { return }
+        guard let screen = WallpaperDaemon.screen(for: displayID), window.frame != screen.frame else { return }
         window.setFrame(screen.frame, display: true)
         updateLayerFrames()
     }
