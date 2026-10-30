@@ -82,6 +82,12 @@ evidence_limit: highest claim this batch can support
 
 checkpoint 使用新组合或未见 fixture 证明公共 primitive 不依赖 sample/layer/path/hash/asset/screenshot identity。只有 corpus fingerprint/schema/family 解释变化或现有 snapshot 无法回答影响面时刷新全 corpus。
 
+## 新增或全量样本筛查
+
+先读 `docs/scene/development/corpus-diagnostic-workflow.md#log-first-corpus-audit`，复用其 census → benchmark → normalizer → archive 链。已知样本集合同时核 canonical snapshot 与后来登记的 subset/archive；统计双页可能尚未吸收后者，不把它的旧分母直接当新增基线。一次盘点产生能力并集与影响面，family/profile/声明数量不当独立加载链数。
+
+批量日志筛查优先现有优化 DEBUG 配置，App只stage一次；按当前 `--help` 设置隔离worker、Ready后3–5秒及有界并发，先小批再按设备余量扩大。普通Debug冷准备超时先区分配置/争用，只串行补未决项，不整批重复。日志不授画面或未触发分支资格；过渡和延迟只对相关代表延长。需要看图时先核正式阶段、音频/鼠标条件，再找样本中的“截屏”或“已粘贴”参考，不把时间相位当缺陷。共同首错回当前队列核是否已闭，再选公共修复；历史raw拒绝不能直接重开现役已修项。
+
 ## Identity、frame channel 与失效域
 
 先读取 `docs/scene/architecture/runtime-architecture.md` 当前的作者 identity/order、typed frame channel、frame commit、optional resource 和失效域合同；本 Skill 不复制其枚举。为当前 producer 建立一张工作表：payload contract、source identity/generation、commit phase、consumer、最小 invalidation domain、stale/teardown 反例。
