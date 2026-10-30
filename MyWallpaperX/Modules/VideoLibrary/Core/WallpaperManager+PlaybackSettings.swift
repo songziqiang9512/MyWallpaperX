@@ -18,7 +18,9 @@ extension WallpaperManager {
         // 音量是播放态设置，既要写回 settings，也要同步到当前 engine。
         let candidate = volume.isFinite ? volume : settings.volume
         let clampedVolume = min(max(candidate, 0), 100)
-        settings.volume = clampedVolume
+        if settings.volume != clampedVolume {
+            settings.volume = clampedVolume
+        }
         if clampedVolume > 0 {
             previousAudibleVolume = clampedVolume
         }

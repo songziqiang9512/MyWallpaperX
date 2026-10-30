@@ -14,14 +14,15 @@ enum Trace {
     static var video: [Float] = []
     static var web: [Float] = []
     static var scene: [[String: Any]] = []
-    static func reset() { video = []; web = []; scene = [] }
+    static var settingsPublications = 0
+    static func reset() { video = []; web = []; scene = []; settingsPublications = 0 }
     static var sceneVolumes: [Float] { scene.compactMap { $0["volume"] as? Float } }
     static var sceneMutes: [Bool] { scene.compactMap { $0["muted"] as? Bool } }
 }
 
-final class WallpaperManager {
+final class WallpaperManager: ObservableObject {
     static let shared = WallpaperManager()
-    var settings = WallpaperSettings()
+    @Published var settings = WallpaperSettings()
     var previousAudibleVolume: Double = 50
     func stopCurrentPlayback() {}
     // ACTUAL_MANAGER_VOLUME_METHODS
@@ -87,6 +88,7 @@ final class StatusBarController {
     static func openProperties(_: Int) {}
     func togglePlayback() {}
     func cyclePlaybackMode() {}
+    func toggleFavorite() {}
     func quitApp() {}
     func scheduleRefresh() { refreshes += 1 }
     func send(_ action: StatusBarPanelViewController.Action) { perform(action) }
@@ -128,9 +130,12 @@ final class AppKitSettingsContainerView: NSObject {
         mux.register(video, as: .web)
         mux.register(SceneVolumeEndpoint())
         let manager = WallpaperManager.shared
+        let settingsSubscription = manager.$settings.dropFirst().sink { _ in Trace.settingsPublications += 1 }
+        defer { settingsSubscription.cancel() }
         let status = StatusBarController()
         let settings = AppKitSettingsContainerView()
         var checks: [String: Bool] = [:]
+        var publications: [String: Int] = [:]
         func check(_ name: String, _ condition: @autoclosure () -> Bool) {
             precondition(condition(), name); checks[name] = true
         }
@@ -152,6 +157,7 @@ final class AppKitSettingsContainerView: NSObject {
                   && Trace.video == [0.6, 0.61, 0.62] && Trace.web == Trace.video
                   && manager.settings.volume == 62 && manager.previousAudibleVolume == 62
                   && !PlaybackMuteState.shared.isMuted)
+            publications[name + "-changing-positive-inputs"] = Trace.settingsPublications
 
             Trace.reset(); send(0)
             check(name + "-crossing-zero-keeps-primary-volume-and-one-mute-transition",
@@ -163,6 +169,7 @@ final class AppKitSettingsContainerView: NSObject {
             check(name + "-repeated-zero-does-not-reissue-mute-or-nested-volume",
                   Trace.sceneVolumes == [0] && Trace.sceneMutes.isEmpty
                   && Trace.video == [0] && Trace.web == Trace.video && PlaybackMuteState.shared.isMuted)
+            publications[name + "-repeated-zero"] = Trace.settingsPublications
 
             Trace.reset(); send(24)
             check(name + "-zero-to-positive-unmutes-and-immediately-restores-the-new-volume",
@@ -220,6 +227,29 @@ final class AppKitSettingsContainerView: NSObject {
         check("status-explicit-mute-toggle-unmutes-with-retained-volume",
               Trace.sceneMutes == [false] && Trace.video == [0.4] && !PlaybackMuteState.shared.isMuted)
         check("status-original-refresh-still-runs-after-every-deliberate-action", status.refreshes == 10)
+
+        prepare(60, muted: false)
+        settings.sendVolume(60.1); settings.sendVolume(60.2); settings.sendVolume(60.49)
+        check("settings-rounded-repeated-positive-inputs-still-replay-each-volume-intent",
+              Trace.sceneVolumes == [0.6, 0.6, 0.6] && Trace.sceneMutes.isEmpty
+              && Trace.video == [0.6, 0.6, 0.6] && Trace.web == Trace.video
+              && manager.settings.volume == 60 && settings.volumeValueLabel.stringValue == "60%")
+        publications["settings-rounded-repeated-positive-inputs"] = Trace.settingsPublications
+
+        prepare(40, muted: false)
+        manager.previousAudibleVolume = 12
+        PlaybackVolumeState.shared.setNormalizedVolume(0.9)
+        WallpaperEngine.shared.currentVolumeNormalized = 0.9
+        manager.updateVolume(40)
+        check("manager-same-positive-volume-still-replays-and-refreshes-all-projections",
+              Trace.sceneVolumes == [0.4] && Trace.sceneMutes.isEmpty
+              && Trace.video == [0.4] && Trace.web == Trace.video
+              && manager.previousAudibleVolume == 40
+              && PlaybackVolumeState.shared.normalizedVolume == 0.4
+              && WallpaperEngine.shared.currentVolumeNormalized == 0.4)
+        publications["manager-same-positive-volume"] = Trace.settingsPublications
+        print("volume-publications: " + String(data: try JSONSerialization.data(withJSONObject: publications,
+              options: [.sortedKeys]), encoding: .utf8)!)
         print(String(data: try JSONSerialization.data(withJSONObject: checks, options: [.sortedKeys]), encoding: .utf8)!)
     }
 }

@@ -28,6 +28,8 @@ R8（6fe7ef94e起）：PlaybackPolicyController.refresh前移原timer取消/清�
 
 R9（2ef8945ea起）：个人设置来源owner在原准入后跳过无本provider补丁的全库写入，按[导入合同](main-window-playlists-redesign.md#93-正式个人设置导入导出兼容)保留相关相等补丁ACK、阶段日志/恢复与原待写生命周期。产品各+1行，无新状态/owner；旧数组赋值是COW，不把它计为物理复制。实际省Video全表替换和SIL全JSON编码/写入/synchronize，未声明来源的写入故障不再阻塞当前导入，原入口准入不变。固定2ef旧新增15项恰6预期红；最终四方法204项（15来源写、34路径复用、120 schema/恢复、35排序）全绿，werror及6284输入/五源SHA无漂移。主fixture976行、原117检查未动；新145行fixture独立表达来源writer行为，只在临时原源观测真实入口，故障也计attempt。首次新增JSON逐字节断言经三事实诊断证实仅键序不同，改模型相等；不是产品修复。原timer未被no-op撤销、真实pending/in-flight排空已测，timer被测试主动取消收尾，不称自然到点已测。独审及f17bca514整合Debug（5856输入，0error/0warning）、质量/文档门通过；未测完整App导入面板或真实用户库。显式save与debounce还负担timer/失败重试，暂不合并；后继核同值音量发布。
 
+R10（2ef8945ea起）：WallpaperManager.updateVolume只在百分比不同才赋settings.volume，省同值@Published发布引发的规范化、保存调度和设置投影比较；previousAudibleVolume、共享音量、每次显式IPC及静音/零边界完整保留。产品净+2行，无新缓存/state/owner，未删各入口clamp。固定旧/新真实UI action门均25项trace（23原+2重放）通过；六项真实Combine发布观察当前全绿，旧源只4反例红，同值/舍入重复1/1/3/1→0/0/0/0，正常变化仍各3。fixture只计settings发布，不复制实际sink逻辑；记录IPC叶不证明真实传输/听感。初次原fixture漏toggleFavorite导致编译未入测试，只补未执行的记录叶后重跑，未把装配失败计旧红。werror、6283导出输入及实际编译依赖/三源SHA无漂移；独审、bb4b3992a整合Debug（5856输入，0error/0warning）与质量/文档门通过。并入f17后编入本门的perform未变，改动的quitApp不在本门消费面。未测完整App设置持久化或声音；静音首次false迁移落盘保留，音频未注册档扫描与SystemMedia小Set候选低收益/有错误语义取舍，暂不改。下一轮核Web完整属性分支的无消费值准备及非tracking slider重复preview/commit；shared媒体采集/封面复用与撤权链本轮只读保留。
+
 “无调用”须排查 selector、协议回调、独立进程、作者脚本、动态资源及调试工具；测试、文档或结构登记出现名字不等于产品调用。第一批只删除已确认不可达的链路，不以行数作为收益或验收目标。
 
 ## 第一批设计与停止条件

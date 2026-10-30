@@ -76,13 +76,16 @@ class UIVolumeActionsTests(unittest.TestCase):
             actual = work / "Checks.swift"
             actual.write_text(source)
             binary = work / "checks"
-            build = subprocess.run(["xcrun", "swiftc", "-parse-as-library", *SWIFT_ISOLATION_FLAGS,
+            build = subprocess.run(["xcrun", "swiftc", "-parse-as-library", "-warnings-as-errors", *SWIFT_ISOLATION_FLAGS,
                 *frozen, str(actual), "-module-cache-path", str(work / "modules"), "-o", str(binary)],
                 capture_output=True, text=True, env=env, timeout=100)
             self.assertEqual(build.returncode, 0, build.stdout + build.stderr)
             run = subprocess.run([str(binary)], capture_output=True, text=True, env=env, timeout=25)
             self.assertEqual(run.returncode, 0, run.stdout + run.stderr)
-            checks = json.loads(run.stdout)
+            lines = run.stdout.splitlines()
+            checks = json.loads(lines[-1])
+            publications = json.loads(next(line.removeprefix("volume-publications: ")
+                for line in lines if line.startswith("volume-publications: ")))
             for entry in ("status", "settings"):
                 for scenario in (
                     "continuous-positive-volume-sends-one-volume-per-input-without-mute-intent",
@@ -97,6 +100,17 @@ class UIVolumeActionsTests(unittest.TestCase):
             for name, value in checks.items():
                 with self.subTest(name=name):
                     self.assertIs(value, True, run.stdout + run.stderr)
+            for name, expected in {
+                "status-changing-positive-inputs": 3,
+                "settings-changing-positive-inputs": 3,
+                "status-repeated-zero": 0,
+                "settings-repeated-zero": 0,
+                "settings-rounded-repeated-positive-inputs": 0,
+                "manager-same-positive-volume": 0,
+            }.items():
+                with self.subTest(publications=name):
+                    self.assertEqual(publications[name], expected, run.stdout + run.stderr)
+            print("volume-publications: " + json.dumps(publications, sort_keys=True))
             print(json.dumps(checks, sort_keys=True))
         self.assertEqual(inputs, {str(path): hashlib.sha256(path.read_bytes()).hexdigest() for path in paths})
 
