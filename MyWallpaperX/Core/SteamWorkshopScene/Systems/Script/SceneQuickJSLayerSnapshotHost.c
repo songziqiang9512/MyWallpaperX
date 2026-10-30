@@ -297,9 +297,10 @@ MWXSceneQuickJSResult mwx_scene_quickjs_domain_update_layer_runtime_fields(
             return MWX_SCENE_QUICKJS_INVALID_ARGUMENT;
         }
     }
+    const bool native_font = !domain->layers[layer_index].image_font_script_state;
     char *text_copy = copy_snapshot_string(text, text_length);
-    char *font_copy = copy_snapshot_string(font, font_length);
-    if (text_copy == NULL || font_copy == NULL) {
+    char *font_copy = native_font ? copy_snapshot_string(font, font_length) : NULL;
+    if (text_copy == NULL || (native_font && font_copy == NULL)) {
         free(text_copy);
         free(font_copy);
         mwx_scene_quickjs_write_diagnostic(

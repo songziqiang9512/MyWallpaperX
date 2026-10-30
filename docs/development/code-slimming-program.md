@@ -20,6 +20,8 @@ R4（524e06522起）：Video初载size回填在原Main回调复制当前数组�
 
 R5（e00c83b9f起）：CellAdapter在原viewport source/seen分派内只求一次isNearby，非near且无既有lease时跳过随后无人消费的prefetchAssets资源签名；有旧lease仍比较当前assets/温度并按原逻辑保留或撤销，Video独立owner、预取方向、源当次缓存和离开viewport清理不变。产品净+2行，无新索引/长期状态/helper；不捆绑新Steam需求内videoURL二次读取的小候选。原门76项当前全绿，精确旧源仅visibleOnlyWithoutPrefetchLeaseSkipsAssetPreparation反例红；其他75项及四新增入口观察中其余三项旧源均过，原空viewport/lease断言保持独立。werror及5643输入/工作区SHA无漂移；隔离Debug通过（5854输入无漂移，0error/0warning），交叉静审与固定快照质量/文档门通过。getter/媒体为受控叶，只证真实helper入口不再执行，未测实际stat/解码/时耗或完整App视觉。下一轮核C snapshot对image font的无消费复制和GPU整表只取单键；状态栏隐藏时CPU/内存/网络已有消费门，GPU图标持续消费，采样生命周期不改。
 
+R6（52e38ec26起）：QuickJS原snapshot owner仅在native font有提交消费者时复制该字符串，image_font_script_state保留JS record.font，省去完整runtime-field更新里最终只释放的native font副本；不是每个getter/静态reuse/整帧统一省一次。保原text、输入/数值校验与commit/abort/rollback/finalize，无新状态/helper/ABI，产品净+1行。App仅配置期设cap且签名包含它；不为无现役App caller的裸C pending期间切cap增加防御层，帧间cap切换仍保留。三层实际copy helper6→5、重复image2→1，native text/无cap仍2；旧产品六组713检查仅8项新复制计数红，原行为保持，最终及ASan均713/713，最近snapshot atomicity1方法通过；ASan无内存访问错误，不作泄漏或OOM故障注入声明。78输入及3文件SHA无漂移，werror、Debug构建（5854输入，0error/0warning）与固定快照结构/质量门通过。planner通用C底座关联62模块，本次按实际font分支选原六组、ASan和atomicity，未把宽选择当必跑覆盖数或GPU声明。GPU只读10对本机单service键/类型一致，但首对67/0无法区分动态/刷新窗口，低频候选暂保留原整表；不新增fallback。后继再从实际消费者选链，不扩font字段mask或快照缓存，未测渲染/帧率/时耗。
+
 “无调用”须排查 selector、协议回调、独立进程、作者脚本、动态资源及调试工具；测试、文档或结构登记出现名字不等于产品调用。第一批只删除已确认不可达的链路，不以行数作为收益或验收目标。
 
 ## 第一批设计与停止条件

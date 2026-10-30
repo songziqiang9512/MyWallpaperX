@@ -10,6 +10,9 @@
 enum { CAP_NONE = 0, CAP_TEXT = 1, CAP_IMAGE_FONT = 2 };
 static char diagnostic[1024];
 static int checks, failures;
+extern size_t mwx_test_snapshot_string_copies;
+static size_t snapshot_copies, repeated_image_copies, repeated_text_copies;
+static size_t native_capability_copies;
 static const double zero[3] = {0, 0, 0}, one[3] = {1, 1, 1};
 static const double extent[2] = {100, 80};
 static const uint64_t generation = 91;
@@ -192,13 +195,19 @@ static void stage_snapshot(MWXSceneQuickJSDomain *d, uint64_t revision,
     int destroy_image, const char *native_font) {
     check(mwx_scene_quickjs_domain_begin_layer_snapshot(d, revision, 0,
         diagnostic, sizeof(diagnostic)) == MWX_SCENE_QUICKJS_OK, "native snapshot begins");
+    const size_t batch_start = mwx_test_snapshot_string_copies;
     for (uint32_t i = 0; i < 3; ++i) {
         const char *font = i == 1 ? native_font : "";
+        const size_t start = mwx_test_snapshot_string_copies;
         check(mwx_scene_quickjs_domain_update_layer_runtime_fields(d, i,
             one, zero, i == 0 && destroy_image, 1, 1, 0, 1, "seed", 4,
             font, strlen(font), 12, one, diagnostic, sizeof(diagnostic))
             == MWX_SCENE_QUICKJS_OK, "native runtime fields stage");
+        check(mwx_test_snapshot_string_copies - start == (i == 0 ? 1 : 2),
+            i == 0 ? "image snapshot copies text without unused native font"
+                   : "non-image snapshot still copies text and native font");
     }
+    snapshot_copies = mwx_test_snapshot_string_copies - batch_start;
 }
 
 static void commit_snapshot(MWXSceneQuickJSDomain *d) {
@@ -228,6 +237,36 @@ static void snapshots(void) {
     commit_snapshot(d);
     read_font(d, "Canvas", "fonts/after-snapshot.ttf");
     mwx_scene_quickjs_domain_finalize_layer_snapshot(d);
+    stage_snapshot(d, 5, 0, "fonts/FirstStage.ttf");
+    size_t start = mwx_test_snapshot_string_copies;
+    check(mwx_scene_quickjs_domain_update_layer_runtime_fields(d, 0,
+        one, zero, 0, 1, 1, 0, 1, "restaged image", 14,
+        "fonts/Ignored.ttf", strlen("fonts/Ignored.ttf"), 12, one,
+        diagnostic, sizeof(diagnostic)) == MWX_SCENE_QUICKJS_OK,
+        "image runtime fields can replace their pending stage");
+    repeated_image_copies = mwx_test_snapshot_string_copies - start;
+    check(repeated_image_copies == 1, "restaged image copies only consumed text");
+    start = mwx_test_snapshot_string_copies;
+    check(mwx_scene_quickjs_domain_update_layer_runtime_fields(d, 1,
+        one, zero, 0, 1, 1, 0, 1, "restaged caption", 16,
+        "fonts/Repeated.ttf", strlen("fonts/Repeated.ttf"), 12, one,
+        diagnostic, sizeof(diagnostic)) == MWX_SCENE_QUICKJS_OK,
+        "text runtime fields can replace their pending stage");
+    repeated_text_copies = mwx_test_snapshot_string_copies - start;
+    check(repeated_text_copies == 2, "restaged text still copies text and native font");
+    commit_snapshot(d);
+    read_font(d, "Canvas", "fonts/after-snapshot.ttf");
+    read_font(d, "Caption", "fonts/Repeated.ttf");
+    MWXSceneQuickJSOwner *reader = owner(d,
+        "export function update(v){return thisScene.getLayer(v).text;}");
+    execute(reader, "Canvas", MWX_SCENE_QUICKJS_OK, "restaged image", "restaged image text publishes");
+    execute(reader, "Caption", MWX_SCENE_QUICKJS_OK, "restaged caption", "restaged native text publishes");
+    check(mwx_scene_quickjs_domain_rollback_layer_snapshot(d), "restaged snapshot rolls back");
+    read_font(d, "Caption", "fonts/Next.ttf");
+    execute(reader, "Canvas", MWX_SCENE_QUICKJS_OK, "seed", "image text baseline restores");
+    execute(reader, "Caption", MWX_SCENE_QUICKJS_OK, "seed", "native text baseline restores");
+    no_native_mutation(reader);
+    mwx_scene_quickjs_owner_destroy(reader);
     mwx_scene_quickjs_domain_destroy(d);
 }
 
@@ -368,6 +407,32 @@ static void capabilities(void) {
         "no capability does not admit image writes");
     no_native_mutation(none);
     mwx_scene_quickjs_owner_destroy(none);
+    check(mwx_scene_quickjs_domain_begin_layer_snapshot(d, 1, 0,
+        diagnostic, sizeof(diagnostic)) == MWX_SCENE_QUICKJS_OK,
+        "snapshot begins after capability changes between frames");
+    for (uint32_t i = 1; i < 3; ++i)
+        check(mwx_scene_quickjs_domain_reuse_layer_runtime_fields(d, i,
+            diagnostic, sizeof(diagnostic)) == MWX_SCENE_QUICKJS_OK, "unchanged peer fields reuse");
+    const size_t start = mwx_test_snapshot_string_copies;
+    check(mwx_scene_quickjs_domain_update_layer_runtime_fields(d, 0,
+        one, zero, 0, 1, 1, 0, 1, "seed", 4,
+        "fonts/NowNative.ttf", strlen("fonts/NowNative.ttf"), 12, one,
+        diagnostic, sizeof(diagnostic)) == MWX_SCENE_QUICKJS_OK,
+        "revoked image capability consumes native font again");
+    native_capability_copies = mwx_test_snapshot_string_copies - start;
+    check(native_capability_copies == 2, "current non-image capability copies both strings");
+    commit_snapshot(d);
+    read_font(d, "Canvas", "fonts/NowNative.ttf");
+    mwx_scene_quickjs_domain_finalize_layer_snapshot(d);
+    check(mwx_scene_quickjs_domain_set_layer_mutation_capabilities(d, 0, CAP_IMAGE_FONT,
+        diagnostic, sizeof(diagnostic)) == MWX_SCENE_QUICKJS_OK,
+        "image capability restores between finalized frames");
+    stage_snapshot(d, 2, 0, "fonts/Caption.ttf");
+    commit_snapshot(d);
+    read_font(d, "Canvas", "fonts/NowNative.ttf");
+    write_font(d, "Canvas", "fonts/ScriptAgain.ttf");
+    check(mwx_scene_quickjs_domain_rollback_layer_snapshot(d), "restored image snapshot rolls back");
+    read_font(d, "Canvas", "fonts/ScriptAgain.ttf");
     mwx_scene_quickjs_domain_destroy(d);
 }
 
@@ -380,6 +445,10 @@ int main(int argc, char **argv) {
     else if (strcmp(argv[1], "validation") == 0) validation();
     else if (strcmp(argv[1], "capabilities") == 0) capabilities();
     else return 2;
-    printf("{\"group\":\"%s\",\"checks\":%d,\"failures\":%d}\n", argv[1], checks, failures);
+    printf("{\"group\":\"%s\",\"checks\":%d,\"failures\":%d,"
+        "\"snapshotStringCopies\":%zu,\"repeatedImageCopies\":%zu,"
+        "\"repeatedTextCopies\":%zu,\"nativeCapabilityCopies\":%zu}\n",
+        argv[1], checks, failures, snapshot_copies, repeated_image_copies,
+        repeated_text_copies, native_capability_copies);
     return failures == 0 ? 0 : 1;
 }

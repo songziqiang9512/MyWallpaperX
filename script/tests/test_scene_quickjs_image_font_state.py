@@ -35,6 +35,18 @@ class SceneQuickJSImageFontStateTests(unittest.TestCase):
         ]
         inputs = [*sources, fixture, *source_root.glob("*.h")]
         cls.hashes = {str(p): hashlib.sha256(p.read_bytes()).hexdigest() for p in inputs}
+        # Count entries into the real copy helper without changing its decisions.
+        snapshot = source_root / "SceneQuickJSLayerSnapshotHost.c"
+        marker = "static char *copy_snapshot_string(const char *source, size_t length) {"
+        contents = snapshot.read_text(encoding="utf-8")
+        if contents.count(marker) != 1:
+            cls.temporary.cleanup()
+            raise AssertionError("snapshot string-copy probe entry is ambiguous")
+        observed_snapshot = cls.work / snapshot.name
+        observed_snapshot.write_text(contents.replace(
+            marker, "size_t mwx_test_snapshot_string_copies;\n\n" + marker
+            + "\n    ++mwx_test_snapshot_string_copies;", 1), encoding="utf-8")
+        sources = [observed_snapshot if source == snapshot else source for source in sources]
         command = [clang, "-std=c11", "-O0", "-I", str(source_root),
                    "-I", str(VM), "-I", str(QUICKJS), *map(str, sources),
                    str(fixture), "-lm", "-o", str(cls.binary)]
