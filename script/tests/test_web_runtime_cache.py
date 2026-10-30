@@ -5,6 +5,7 @@ properties, assembly and playback preparation. Gates pause staging/rename only.
 """
 from __future__ import annotations
 
+import json
 import unittest
 from script.tests.test_steam_library_interactions import method
 from script.tests.test_web_author_preparation import CHECKS, WEB, harness_source as author_source, run_harness
@@ -278,7 +279,45 @@ CACHE_CHECKS = r'''
         try Data(optionJSON.replacingOccurrences(of: "\"value\":0", with: "\"value\":1").utf8).write(to: optionProject)
         check(service.visibleWebPropertyOptions(for: pick, record: optionRecord).map(\.value) == [.string("a"), .string("b")],
             "nonempty option conditions re-read changed project defaults")
+        let mode = service.webPropertyDefinitions(for: optionRecord).first { $0.key == "mode" }!
+        let engine = WallpaperEngine.shared
+        var updateObservations: [String: Any] = [:]
+        service.activeRecord = true
+        optionReads.reset(); let beforeFullOff = engine.payloads.count
+        service.updateWebPropertyValue(.number(0), for: mode, record: optionRecord)
+        updateObservations["fullOffProjectReads"] = optionReads.urls.count
+        let fullOff = try JSONSerialization.jsonObject(with: Data(engine.payloads.last!.utf8)) as! [String: [String: Any]]
+        check(engine.payloads.count == beforeFullOff + 1 && Set(fullOff.keys) == ["mode", "pick"]
+            && fullOff["mode"]?["value"] as? Double == 0
+            && (fullOff["pick"]?["options"] as? [[String: Any]])?.compactMap { $0["value"] as? String } == ["a"],
+            "full property update publishes one complete payload with current conditional options")
+        updateObservations["fullOffPayload"] = fullOff
+        optionReads.reset(); let beforeFullOn = engine.payloads.count
+        service.updateWebPropertyValue(.number(1), for: mode, record: optionRecord)
+        updateObservations["fullOnProjectReads"] = optionReads.urls.count
+        let fullOn = try JSONSerialization.jsonObject(with: Data(engine.payloads.last!.utf8)) as! [String: [String: Any]]
+        check(engine.payloads.count == beforeFullOn + 1 && Set(fullOn.keys) == ["mode", "pick"]
+            && fullOn["mode"]?["value"] as? Double == 1
+            && (fullOn["pick"]?["options"] as? [[String: Any]])?.compactMap { $0["value"] as? String } == ["a", "b"],
+            "full property update restores condition-dependent options without another publication")
+        updateObservations["fullOnPayload"] = fullOn
+        optionReads.reset(); let beforeDelta = engine.payloads.count
+        service.updateWebPropertyValue(.string("b"), for: pick, record: optionRecord)
+        updateObservations["deltaProjectReads"] = optionReads.urls.count
+        let delta = try JSONSerialization.jsonObject(with: Data(engine.payloads.last!.utf8)) as! [String: [String: Any]]
+        check(engine.payloads.count == beforeDelta + 1 && Set(delta.keys) == ["pick"]
+            && service.overrides["pick"] == .string("b") && delta["pick"]?["value"] as? String == "b",
+            "delta property update still reads the committed value and publishes once")
+        updateObservations["deltaPayload"] = delta
+        service.activeRecord = false
+        optionReads.reset(); let beforeInactive = engine.payloads.count
+        service.updateWebPropertyValue(.number(0), for: mode, record: optionRecord)
+        updateObservations["inactiveProjectReads"] = optionReads.urls.count
+        check(engine.payloads.count == beforeInactive && service.overrides["mode"] == .number(0),
+            "inactive property update persists without preparing or publishing a live payload")
         _ = try webBindingFallbackChecks()
+        print("web-property-update-observations:" + String(decoding: try JSONSerialization.data(withJSONObject: updateObservations,
+            options: [.sortedKeys]), as: UTF8.self))
         print("web-runtime-cache-pass")
     }
 }
@@ -455,7 +494,13 @@ nonisolated let optionReads = OptionProjectReads()
 
 class WebRuntimeCacheTests(unittest.TestCase):
     def test_real_preparation_and_publication_fence(self):
-        run_harness(self, harness_source(), 'web-runtime-cache-pass')
+        output = run_harness(self, harness_source(), 'web-runtime-cache-pass')
+        observations = json.loads(next(line.removeprefix('web-property-update-observations:')
+            for line in output.splitlines() if line.startswith('web-property-update-observations:')))
+        for name, expected in {'fullOffProjectReads': 3, 'fullOnProjectReads': 3,
+                               'deltaProjectReads': 5, 'inactiveProjectReads': 1}.items():
+            with self.subTest(observation=name):
+                self.assertEqual(observations[name], expected, output)
 
 
 if __name__ == '__main__': unittest.main()

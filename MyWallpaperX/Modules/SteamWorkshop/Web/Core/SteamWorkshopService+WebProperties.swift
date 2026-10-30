@@ -94,7 +94,6 @@ extension SteamWorkshopService {
 
         guard isActiveWebRecord(record) else { return }
         let propertyDefinitions = webPropertyDefinitions(for: record)
-        let committedValue = currentWebPropertyValue(for: definition, record: record)
         let resourcesChanged = webPropertyChangesResources(definition, record: record)
         let grants = resourcesChanged
             ? resolvedWebResourceGrants(for: record, definitions: propertyDefinitions,
@@ -114,6 +113,7 @@ extension SteamWorkshopService {
             return
         }
 
+        let committedValue = currentWebPropertyValue(for: definition, record: record)
         let delta = resolvedWebRuntimeProperty(
             forKey: definition.key,
             definition: definition,

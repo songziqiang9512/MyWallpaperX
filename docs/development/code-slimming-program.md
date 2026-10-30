@@ -30,6 +30,8 @@ R9（2ef8945ea起）：个人设置来源owner在原准入后跳过无本provide
 
 R10（2ef8945ea起）：WallpaperManager.updateVolume只在百分比不同才赋settings.volume，省同值@Published发布引发的规范化、保存调度和设置投影比较；previousAudibleVolume、共享音量、每次显式IPC及静音/零边界完整保留。产品净+2行，无新缓存/state/owner，未删各入口clamp。固定旧/新真实UI action门均25项trace（23原+2重放）通过；六项真实Combine发布观察当前全绿，旧源只4反例红，同值/舍入重复1/1/3/1→0/0/0/0，正常变化仍各3。fixture只计settings发布，不复制实际sink逻辑；记录IPC叶不证明真实传输/听感。初次原fixture漏toggleFavorite导致编译未入测试，只补未执行的记录叶后重跑，未把装配失败计旧红。werror、6283导出输入及实际编译依赖/三源SHA无漂移；独审、bb4b3992a整合Debug（5856输入，0error/0warning）与质量/文档门通过。并入f17后编入本门的perform未变，改动的quitApp不在本门消费面。未测完整App设置持久化或声音；静音首次false迁移落盘保留，音频未注册档扫描与SystemMedia小Set候选低收益/有错误语义取舍，暂不改。下一轮核Web完整属性分支的无消费值准备及非tracking slider重复preview/commit；shared媒体采集/封面复用与撤权链本轮只读保留。
 
+R11（b80f81bc5起）：Web属性commit只在delta分支读取committedValue，完整分支已有全部有效值的唯一消费读取，省去提前产生却无人使用的单值准备；仅移动1行、净0，无新状态/helper/缓存。保存、书签、active与grant判断/发布顺序不改；不是普通帧优化。固定旧/新真实门均96项Swift检查（92原+4载荷/发布边界）通过，旧源只有两项full读取计数红4/4→3/3，delta5与inactive1保持；三份实际JSON载荷逐对象相等、发布次数及检查顺序一致。Swift6 strict+werror、6285导出及实际编译输入/两源SHA无漂移；记录叶保存/书签/active不证明真实Defaults/授权/IPC/页面。独审及隔离Debug（5856输入，0error/0warning）、质量/文档门通过；首轮被共享锁阻止启动，确认锁已释放后同SHA重试成功，未把锁阻塞计作编译错误。候选slider非tracking先preview再commit仅静态确认native/service重复工作，页面已有签名去重/合并，未证作者回调重复或视觉问题；未实施，键盘/AX、真实tracking与页面仍待验证。本轮按用户要求在本批收尾后暂停，后继候选只保留为线索。
+
 “无调用”须排查 selector、协议回调、独立进程、作者脚本、动态资源及调试工具；测试、文档或结构登记出现名字不等于产品调用。第一批只删除已确认不可达的链路，不以行数作为收益或验收目标。
 
 ## 第一批设计与停止条件
