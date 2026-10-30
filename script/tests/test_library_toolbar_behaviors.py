@@ -23,6 +23,7 @@ class LibraryToolbarBehaviorTests(unittest.TestCase):
     def run_behavior_harness(self, *, source_only):
         core = STEAM / 'Core'
         watched = [core / 'SteamWorkshopService.swift', core / 'SteamWorkshopService+DownloadFiltering.swift',
+                   core / 'SteamWorkshopService+BrowseStateRecovery.swift',
                    core / 'SteamWorkshopService+LibraryRecords.swift',
                    ROOT / 'MyWallpaperX/Models/WallpaperReference.swift', ROOT / 'MyWallpaperX/Models/WallpaperContent.swift',
                    ROOT / 'MyWallpaperX/Models/WallpaperLibraryPage.swift',
@@ -49,6 +50,11 @@ class LibraryToolbarBehaviorTests(unittest.TestCase):
         # merge, value guards and jobs/history publisher subscription stay real.
         steam_methods = steam_methods.replace('downloadJobStore.history.lazy', 'downloadJobStore.historyForProjection.lazy')
         template = (ROOT / 'script/tests/fixtures/LibraryToolbarBehaviorHarness.swift').read_text()
+        template = template.replace('// ACTUAL_BROWSER_CONTENT_MODE', method(service, '    @Published var browserContentMode:'))
+        recovery = method((core / 'SteamWorkshopService+BrowseStateRecovery.swift').read_text(), '    func clearAllCachedState(')
+        start = recovery.index('        suppressAutomaticBrowseNavigation = true')
+        end = recovery.index('        suppressAutomaticBrowseNavigation = false', start) + len('        suppressAutomaticBrowseNavigation = false')
+        template = template.replace('// ACTUAL_BROWSER_FILTER_RESET', recovery[start:end])
         template = template.replace('// DOWNLOADS_PROPERTY', method(service, '    @Published var downloads:'))
         for marker, fragment in {
             '// STEAM_METHODS': steam_methods,

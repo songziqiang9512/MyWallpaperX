@@ -81,11 +81,33 @@ final class IntentAuth { @Published var steamId: String? = "A" }
 }
 final class DimmingSurface: NSView, ToolbarGridScrollDismissalSurface {}
 
+@MainActor final class SteamBrowserDefaultsProbe {
+    var suppressAutomaticBrowseNavigation = false, navigations = 0
+    var source = SteamWorkshopSource.recent
+    var personalSort = SteamWorkshopPersonalSort.name
+    var trendingWindow = SteamWorkshopTrendingWindow.week
+    var facetFilters = SteamWorkshopBrowseFacetFilters.none
+    // ACTUAL_BROWSER_CONTENT_MODE
+    func navigateToBrowse() { navigations += 1 }
+    func restoreFilterDefaults() {
+        // ACTUAL_BROWSER_FILTER_RESET
+    }
+}
+
 @main struct LibraryToolbarBehaviorHarness {
     @MainActor static func main() throws {
         _ = NSApplication.shared
         NSApp.setActivationPolicy(.prohibited)
         var checks: [String: Bool] = [:]
+        let defaultsProbe = SteamBrowserDefaultsProbe()
+        checks["steam-initial-content-mode-allows-video-web-and-scene-without-type-tags"] = defaultsProbe.browserContentMode == .all
+            && defaultsProbe.browserContentMode.queryTags.isEmpty && ["Video", "Web", "Scene"].allSatisfy { defaultsProbe.browserContentMode.allows(tags: [$0]) }
+        defaultsProbe.browserContentMode = .video
+        let navigations = defaultsProbe.navigations
+        defaultsProbe.restoreFilterDefaults()
+        checks["steam-restoring-filter-defaults-returns-all-without-an-extra-browse-request"] = defaultsProbe.browserContentMode == .all
+            && defaultsProbe.source == .featured && defaultsProbe.personalSort == .subscriptionDate
+            && defaultsProbe.facetFilters == .none && !defaultsProbe.suppressAutomaticBrowseNavigation && defaultsProbe.navigations == navigations
         let service = SteamWorkshopService.shared
         service.downloads = [
             .init(id: "clean", browserItem: .init(tags: ["Everyone"])),

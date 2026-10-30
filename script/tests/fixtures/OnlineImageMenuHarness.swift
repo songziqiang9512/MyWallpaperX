@@ -1,5 +1,13 @@
 import AppKit
 
+// Image-menu scenarios must never dispatch these unrelated video-only leaves.
+@MainActor private func makeAppAlert(title: String, message: String) -> NSAlert { preconditionFailure("Unexpected video alert") }
+@MainActor private func presentAppAlert(_ alert: NSAlert, in window: NSWindow?) { preconditionFailure("Unexpected video alert") }
+@MainActor private final class ScreenSaverWindowController {
+    static let shared = ScreenSaverWindowController()
+    func show(reference: WallpaperReference, relativeTo window: NSWindow?) { preconditionFailure("Unexpected screen saver") }
+}
+
 // The real online menu, shared Commands.contextMenu and complete Recovery run with the
 // real model/projection and ActionMenuItem. Transfers and unrelated business
 // services are controlled leaves; no network, Finder or user files are used.
@@ -116,6 +124,7 @@ private typealias PixabayService = MenuOnline
     var stops = 0
     var onInspect: ((WallpaperContentItem) -> Void)?
     var onPreview: ((WallpaperContentItem) -> Void)?
+    func hostWindow() -> NSWindow? { nil }
     init(workspace: MenuWorkspace) { self.workspace = workspace }
     func favoriteActionState(for items: [WallpaperContentItem]) -> WallpaperLibraryFavoriteActionState {
         .init(canEdit: canOrganize, hasItems: !items.isEmpty, allFavorite: false,

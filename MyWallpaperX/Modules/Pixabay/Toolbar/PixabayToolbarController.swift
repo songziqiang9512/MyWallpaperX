@@ -182,13 +182,17 @@ final class PixabayToolbarController: NSObject, NSSearchFieldDelegate {
 
     // MARK: - 排序（主类存储属性）
 
-    lazy var orderToolbarItem: NSMenuToolbarItem = {
-        let item = NSMenuToolbarItem(itemIdentifier: .pixabayOrder)
+    lazy var orderToolbarItem: NSToolbarItem = {
+        let item = NSToolbarItem(itemIdentifier: .pixabayOrder)
         item.label = "排序"
         item.paletteLabel = "排序"
         item.image = NSImage(systemSymbolName: WallpaperLibraryControlStyle.sortSymbol, accessibilityDescription: "排序")
-        item.showsIndicator = false
-        item.isBordered = true
+        let button = NSButton(title: "", target: self, action: #selector(handleOrderAction(_:)))
+        WallpaperLibraryControlStyle.capsule(button)
+        button.image = item.image
+        button.imagePosition = .imageOnly
+        button.setAccessibilityLabel("排序")
+        item.view = button
         item.autovalidates = false
         return item
     }()
@@ -396,8 +400,16 @@ extension PixabayToolbarController {
             item.state = order == current ? .on : .off
             menu.addItem(item)
         }
-        orderToolbarItem.menu = menu
+        (orderToolbarItem.view as? NSButton)?.menu = menu
+        let overflow = NSMenuItem(title: "排序", action: nil, keyEquivalent: "")
+        overflow.submenu = menu
+        orderToolbarItem.menuFormRepresentation = overflow
         orderToolbarItem.toolTip = "排序：\(current.displayName)"
+    }
+
+    @objc private func handleOrderAction(_ sender: NSButton) {
+        guard let menu = sender.menu else { return }
+        ToolbarMenu.popUp(anchor: sender, menu: menu)
     }
 
 }

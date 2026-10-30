@@ -357,7 +357,7 @@ extension NSToolbarItem.Identifier { static let downloadTasks = Self("downloadTa
             }
             return item.menuFormRepresentation!.submenu!
         }
-        func tracksNativeSteamMenu(_ button: NSButton, expected: NSMenu) -> Bool {
+        func tracksNativeSteamMenu(_ button: NSButton, expected: NSMenu, copiedMenu: Bool = true) -> Bool {
             var tracked: NSMenu?, ended = false
             var cancellation: Timer?
             let popoverShows = didShowCounts.values.reduce(0, +)
@@ -384,7 +384,7 @@ extension NSToolbarItem.Identifier { static let downloadTasks = Self("downloadTa
             }
             button.performClick(nil)
             return tracked.map { native in
-                ended && !native.autoenablesItems && native !== expected
+                ended && native.autoenablesItems == expected.autoenablesItems && (native !== expected) == copiedMenu && ToolbarMenuAnchorProbe.isBelow(button)
                     && native.items.map(\.title) == expected.items.map(\.title)
                     && native.items.map(\.state) == expected.items.map(\.state)
                     && native.items.map(\.isEnabled) == expected.items.map(\.isEnabled)
@@ -849,11 +849,11 @@ extension NSToolbarItem.Identifier { static let downloadTasks = Self("downloadTa
             buttons.first { $0.title == "清空筛选" }!.performClick(nil)
             _ = await afterPopoverEvent(NSPopover.didCloseNotification, matching: { $0 === popup }, perform: popup.close)
         } else { checks["pixabay-detached-filter-overflow-opens-the-original-native-multicondition-panel"] = false }
-        window.setContentSize(NSSize(width: 600, height: 500)); await settle()
-        checks["pixabay-sort-is-native-icon-menu-without-retired-segmented-control"] = pixabay.orderToolbarItem.view == nil
+        window.setContentSize(NSSize(width: 1200, height: 500)); await settle()
+        checks["pixabay-sort-is-native-icon-menu-without-retired-segmented-control"] = pixabay.orderToolbarItem.view is NSButton && pixabay.orderToolbarItem.view?.window === window
             && pixabay.orderToolbarItem.image?.tiffRepresentation == NSImage(systemSymbolName: "line.3.horizontal.decrease", accessibilityDescription: nil)?.tiffRepresentation
-            && pixabay.orderToolbarItem.menu.items.map(\.title) == PixabayOrder.allCases.map(\.displayName)
-        perform(menu(pixabay.filterToolbarItem), "自然")
+            && menu(pixabay.orderToolbarItem).items.map(\.title) == PixabayOrder.allCases.map(\.displayName) && tracksNativeSteamMenu(pixabay.orderToolbarItem.view as! NSButton, expected: menu(pixabay.orderToolbarItem), copiedMenu: false)
+        window.setContentSize(NSSize(width: 600, height: 500)); await settle(); perform(menu(pixabay.filterToolbarItem), "自然")
         menu(pixabay.orderToolbarItem).performActionForItem(at: PixabayOrder.allCases.firstIndex(of: .latest)!)
         checks["pixabay-native-overflow-uses-original-category-and-order-enums"] = pixabayService.toolbarCategory == .nature
             && pixabayService.currentParams.category == .nature && pixabayService.currentParams.order == .latest
@@ -870,13 +870,13 @@ extension NSToolbarItem.Identifier { static let downloadTasks = Self("downloadTa
             && toolbar.items.contains { $0 === downloadItem } && pixabayService.refreshes == 0
         await settle()
         let filterBeforeTyping = pixabay.filterToolbarItem.menuFormRepresentation
-        let orderBeforeTyping = pixabay.orderToolbarItem.menu
+        let orderBeforeTyping = menu(pixabay.orderToolbarItem)
         pixabay.searchField.stringValue = "first"; pixabay.controlTextDidChange(.init(name: NSControl.textDidChangeNotification, object: pixabay.searchField))
         pixabay.searchField.stringValue = "last"; pixabay.controlTextDidChange(.init(name: NSControl.textDidChangeNotification, object: pixabay.searchField))
         let priorSearchCount = pixabayService.searches.count
         await settle(0.05)
         checks["pixabay-draft-typing-only-syncs-search-without-rebuilding-filter-or-sort-menus"] = pixabay.searchField.stringValue == "last"
-            && pixabay.filterToolbarItem.menuFormRepresentation === filterBeforeTyping && pixabay.orderToolbarItem.menu === orderBeforeTyping
+            && pixabay.filterToolbarItem.menuFormRepresentation === filterBeforeTyping && menu(pixabay.orderToolbarItem) === orderBeforeTyping
             && pixabayService.searches.count == priorSearchCount
         await settle(0.45)
         checks["pixabay-original-search-debounce-merges-to-the-latest-query"] = pixabayService.toolbarQuery == "last"
@@ -910,7 +910,7 @@ extension NSToolbarItem.Identifier { static let downloadTasks = Self("downloadTa
         await settle()
         checks["pixabay-source-echo-updates-category-order-search-and-overflow-without-requesting"] = pixabayService.searches.count == countBeforeSourceEcho
             && menu(pixabay.filterToolbarItem).items.first { $0.title == "全部" }?.state == .on
-            && pixabay.orderToolbarItem.menu.items.first { $0.state == .on }?.title == PixabayOrder.popular.displayName
+            && menu(pixabay.orderToolbarItem).items.first { $0.state == .on }?.title == PixabayOrder.popular.displayName
             && pixabay.searchField.stringValue == "external context"
             && menu(pixabay.filterToolbarItem).items.first { $0.title == "全部" }?.state == .on
             && menu(pixabay.orderToolbarItem).items[0].state == .on

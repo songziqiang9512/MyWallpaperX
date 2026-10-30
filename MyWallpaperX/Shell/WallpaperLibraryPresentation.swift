@@ -435,6 +435,10 @@ nonisolated struct WallpaperLibrarySelectionReceipt: Sendable {
             let result: WallpaperLibraryPageResult
             var entries: [WallpaperPlaylistDirectoryEntry]?
             var session = sessions[requestedPage] ?? Session()
+            let clearsSelection = entering || session.selection.isSelecting && (
+                query.search != session.query.search || query.providers != session.query.providers
+                || query.kinds != session.query.kinds || query.statuses != session.query.statuses
+                || query.showsAdultContent != session.query.showsAdultContent)
             session.query = query
             if let catalog, let relationships {
                 result = try project(page: requestedPage, query: query, catalog: catalog, relationships: relationships, relationshipsKnown: relationshipsKnown)
@@ -443,14 +447,14 @@ nonisolated struct WallpaperLibrarySelectionReceipt: Sendable {
                 }
                 let previousSessionID = session.selection.sessionID
                 try reconcile(&session, page: requestedPage, items: result.items, relationships: relationships)
-                if !entering {
+                if !clearsSelection {
                     advanceRemovalSessions(page: requestedPage, from: previousSessionID, to: session.selection.sessionID)
                     try settleRemovals(in: &session, page: requestedPage, items: result.items, catalog: catalog, relationships: relationships)
                 }
             } else {
                 result = WallpaperLibraryPageResult(items: [], unfilteredCount: 0)
             }
-            if entering {
+            if clearsSelection {
                 sessions[page]?.selection = WallpaperLibrarySelectionState()
                 session.selection = WallpaperLibrarySelectionState()
                 pendingRemovals.removeAll()

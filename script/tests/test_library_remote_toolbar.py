@@ -273,6 +273,7 @@ class LibraryRemoteToolbarTests(unittest.TestCase):
         paths = [ROOT / 'MyWallpaperX' / path for path in relative]
         paths.append(ROOT / 'script/tests/fixtures/NativeAppHarness.swift')
         paths.append(ROOT / 'script/tests/fixtures/NativeFilterPanelSnapshot.swift')
+        paths.append(ROOT / 'script/tests/fixtures/ToolbarMenuAnchorChecks.swift')
         fixture = ROOT / 'script/tests/fixtures/LibraryRemoteToolbarHarness.swift'
         tasks = ROOT / 'MyWallpaperX/App/DownloadTasksController.swift'
         models = ROOT / 'MyWallpaperX/Modules/SteamWorkshop/Core/SteamWorkshopJobStore.swift'
@@ -313,7 +314,13 @@ class LibraryRemoteToolbarTests(unittest.TestCase):
             copies = []
             for path in paths:
                 copied = work / path.name
-                shutil.copy2(path, copied)
+                if path.name == 'ToolbarMenuPopover.swift':
+                    actual = path.read_text()
+                    popup = '        menu.popUp(positioning: nil, at: point, in: anchor)'
+                    self.assertEqual(actual.count(popup), 1)
+                    copied.write_text(actual.replace(popup, '        ToolbarMenuAnchorProbe.record(point, in: anchor)\n' + popup))
+                else:
+                    shutil.copy2(path, copied)
                 copies.append(str(copied))
             harness = work / 'Checks.swift'; harness.write_text(template); copies.append(str(harness))
             binary = prepare_native_app(work, 'LibraryRemoteToolbar')

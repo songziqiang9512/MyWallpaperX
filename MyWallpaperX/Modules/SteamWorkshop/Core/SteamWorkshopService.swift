@@ -96,7 +96,7 @@ final class SteamWorkshopService: ObservableObject {
         if let recordID, launchPendingRecordID != recordID { return }
         launchPendingRecordID = nil
     }
-    @Published var browserContentMode: SteamWorkshopBrowserContentMode = .video {
+    @Published var browserContentMode: SteamWorkshopBrowserContentMode = .all {
         didSet { if !suppressAutomaticBrowseNavigation { navigateToBrowse() } }
     }
     @Published var source: SteamWorkshopSource = .featured {

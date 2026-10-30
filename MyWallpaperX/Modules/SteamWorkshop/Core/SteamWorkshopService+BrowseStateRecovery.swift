@@ -76,7 +76,7 @@ extension SteamWorkshopService {
         browserQuery = ""
         isUpdatingBrowserQueryProgrammatically = false
         suppressAutomaticBrowseNavigation = true
-        browserContentMode = .video
+        browserContentMode = .all
         source = .featured
         personalSort = .subscriptionDate
         trendingWindow = .week

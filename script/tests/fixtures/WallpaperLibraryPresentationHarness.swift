@@ -42,6 +42,44 @@ import Foundation
         try await controller.perform(.addMembers(first, refs.map { .init(reference: $0, locator: .init(titleHint: $0.sourceID), isPublishedLocally: true, isAvailable: true) }, Date(timeIntervalSince1970: 300)))
         try await controller.perform(.linkAlias(.init(alias: backing, canonical: steam, proof: .publishedDownload), Date(timeIntervalSince1970: 400)))
         var relations = controller.snapshot
+        let filterEdits: [(String, (inout WallpaperLibraryQueryState) -> Void)] = [
+            ("source", { $0.providers = [.steamWorkshop] }), ("kind", { $0.kinds = [.scene] }),
+            ("status", { $0.statuses = [.unavailable] }), ("adult", { $0.showsAdultContent = false }),
+            ("search", { $0.search = "Alpha" })]
+        for page in [WallpaperLibraryPage.videos, .images, .downloads, .recent, .favorites, .playlist(first)] {
+            let name = "mwx.filter-selection." + UUID().uuidString
+            let isolated = UserDefaults(suiteName: name)!
+            defer { isolated.removePersistentDomain(forName: name) }
+            let view = WallpaperLibraryPresentation(collections: controller, defaults: isolated)
+            _ = view.update(catalog: catalog, relationships: relations); _ = view.switchPage(page)
+            var publications = 0
+            let subscription = view.$state.sink { _ in publications += 1 }
+            for (filter, edit) in filterEdits {
+                _ = view.setQueryState(.init())
+                let selected = view.queryResult.items.first?.reference
+                _ = view.setSelection(selected.map { [$0] } ?? [], focused: selected, isSelecting: true)
+                let lease = view.selectionState.sessionID, before = publications
+                var query = view.queryState; edit(&query)
+                checks["filter-\(page)-\(filter)-ends-multiselect-in-one-publication"] = view.setQueryState(query)
+                    && !view.selectionState.isSelecting && view.selectionState.references.isEmpty
+                    && view.selectionState.focusedReference == nil && view.selectionState.sessionID != lease
+                    && publications == before + 1
+            }
+            _ = view.setSelection([], isSelecting: true)
+            checks["filter-\(page)-clear-also-ends-multiselect"] = view.setQueryState(.init()) && !view.selectionState.isSelecting
+            _ = view.setSelection([], isSelecting: true)
+            let lease = view.selectionState.sessionID
+            var geometry = view.queryState; geometry.preferredColumns = 3
+            _ = view.setQueryState(geometry); view.setScrollAnchor(nil, offset: 30, atTop: false)
+            checks["filter-\(page)-zoom-and-scroll-preserve-multiselect"] = view.selectionState.isSelecting && view.selectionState.sessionID == lease
+            var invalid = view.queryState; invalid.search = "Rejected filter"; invalid.preferredColumns = 9
+            checks["filter-\(page)-rejected-query-preserves-selection"] = !view.setQueryState(invalid)
+                && view.selectionState.isSelecting && view.selectionState.sessionID == lease
+            _ = view.switchPage(page == .videos ? .downloads : .videos)
+            _ = view.switchPage(page)
+            checks["filter-\(page)-return-visit-does-not-restore-multiselect"] = !view.selectionState.isSelecting && view.selectionState.references.isEmpty
+            subscription.cancel()
+        }
         checks["injectedControllerIsOnlyRelationshipWriter"] = model.canEditCollections && model.collections === controller
         checks["publishedCatalogIsOnlyQueryInput"] = model.update(catalog: catalog, relationships: relations) && model.queryResult.items.map(\.reference) == [a, b, nfc, nfd]
         checks["relationshipRevisionIsDerivedFromTheAcceptedQuerySnapshot"] = model.relationshipsRevision == relations.revision

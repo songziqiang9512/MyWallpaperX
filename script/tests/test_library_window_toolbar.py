@@ -34,6 +34,7 @@ class LibraryWindowToolbarTests(unittest.TestCase):
                  if name == 'App/WallpaperLibraryWindowToolbar.swift' else ROOT / 'MyWallpaperX' / name for name in relative]
         paths.append(ROOT / 'script/tests/fixtures/NativeAppHarness.swift')
         paths.append(ROOT / 'script/tests/fixtures/NativeFilterPanelSnapshot.swift')
+        paths.append(ROOT / 'script/tests/fixtures/ToolbarMenuAnchorChecks.swift')
         fixture = ROOT / 'script/tests/fixtures/LibraryWindowToolbarHarness.swift'
         sheet = ROOT / 'MyWallpaperX/Shared/UI/WallpaperLibrarySheetPresentation.swift'
         observed = paths + [sheet, fixture, Path(__file__).resolve(), ROOT / 'script/tests/native_app_harness.py']
@@ -50,6 +51,11 @@ class LibraryWindowToolbarTests(unittest.TestCase):
                         self.assertEqual(source.count(marker), 1)
                         source = source.replace(marker, '    func ' + name + '(', 1)
                     copied.write_text(source)
+                elif path.name == 'ToolbarMenuPopover.swift':
+                    source = path.read_text()
+                    call = '        menu.popUp(positioning: nil, at: point, in: anchor)'
+                    self.assertEqual(source.count(call), 1)
+                    copied.write_text(source.replace(call, '        ToolbarMenuAnchorProbe.record(point, in: anchor)\n' + call, 1))
                 else:
                     shutil.copy2(path, copied)
                 copies.append(str(copied))

@@ -47,8 +47,13 @@ import AppKit
     }
 
     static func popUp(anchor: NSView, rows: [Row]) {
-        let point = NSPoint(x: anchor.bounds.minX, y: anchor.isFlipped ? anchor.bounds.maxY : anchor.bounds.minY)
-        makeMenu(rows: rows).popUp(positioning: nil, at: point, in: anchor)
+        popUp(anchor: anchor, menu: makeMenu(rows: rows))
+    }
+
+    static func popUp(anchor: NSView?, menu: NSMenu) {
+        let point = anchor.map { NSPoint(x: $0.bounds.minX, y: $0.isFlipped ? $0.bounds.maxY : $0.bounds.minY) }
+            ?? NSEvent.mouseLocation
+        menu.popUp(positioning: nil, at: point, in: anchor)
     }
 }
 

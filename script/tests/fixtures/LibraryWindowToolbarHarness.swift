@@ -338,16 +338,14 @@ extension WallpaperLibraryCatalog { var catalog: Self { self } }
                 return workspace.presentation.page == .downloads ? controller.makeDownloadFilterMenu()
                     : nativeFilterMenuSnapshot(controller.makeFilterPanel())
             }
-            let native = item(raw) as! NSMenuToolbarItem
-            // NSMenu.update validates an existing menu; AppKit asks the
-            // delegate for its dynamic contents when native tracking opens.
+            let native = (item(raw).view as! NSButton).menu!
             let cancellation = Timer(timeInterval: 0.025, repeats: false) { _ in
-                MainActor.assumeIsolated { native.menu.cancelTracking() }
+                MainActor.assumeIsolated { native.cancelTracking() }
             }
             RunLoop.main.add(cancellation, forMode: .eventTracking)
-            native.menu.popUp(positioning: nil, at: NSPoint(x: 24, y: 24), in: window.contentView)
+            native.popUp(positioning: nil, at: NSPoint(x: 24, y: 24), in: window.contentView)
             cancellation.invalidate()
-            return native.menu
+            return native
         }
         func invoke(_ menu: NSMenu, _ title: String, file: StaticString = #file, line: UInt = #line) {
             guard let index = menu.items.firstIndex(where: { $0.title == title }) else {
@@ -449,9 +447,9 @@ extension WallpaperLibraryCatalog { var catalog: Self { self } }
         window.setContentSize(NSSize(width: 1280, height: 560)); settle()
         checks["fixed-sidebar-has-no-toolbar-toggle"] = !controller.toolbar.items.contains { $0.itemIdentifier == .toggleSidebar }
         checks["ordinary-library-does-not-duplicate-play-header-actions"] = !controller.toolbar.items.contains { ["play", "random", "back"].contains($0.itemIdentifier.rawValue) }
-        checks["native-menu-items-own-menu-without-custom-view-anchor"] = ["sort", "more"].allSatisfy {
-            let native = item($0) as? NSMenuToolbarItem
-            return native != nil && native?.menu.delegate === controller && native?.showsIndicator == false
+        checks["native-menu-buttons-own-anchored-menu-and-system-overflow"] = ["sort", "more"].allSatisfy {
+            let native = item($0).view as? NSButton
+            return native != nil && native?.menu?.delegate === controller && item($0).menuFormRepresentation?.submenu === native?.menu
         }
         checks["empty-selection-disables-organization-actions-with-stable-identifiers"] = !item("remove").isEnabled && !item("favorite").isEnabled && !item("more").isEnabled
         _ = workspace.presentation.setSelection([video.reference], focused: video.reference, isSelecting: true); controller.refresh()
@@ -491,7 +489,8 @@ extension WallpaperLibraryCatalog { var catalog: Self { self } }
         invoke(playlistMenu, "固定播放列表")
         checks["more-submenu-retains-add-to-list-without-duplicate-toolbar-entry"] = commands.playlistChoices == 1
             && !controller.toolbar.items.contains { $0.itemIdentifier.rawValue == "addToPlaylist" }
-        let nativeSort = item("sort") as! NSMenuToolbarItem, sorts = menu("sort")
+        let nativeSort = item("sort"), sorts = menu("sort")
+        checks.merge(toolbarMenuAnchorChecks(buttons: ["more", "sort"].map { item($0).view as! NSButton }), uniquingKeysWith: { _, new in new })
         checks["native-default-video-sort-checkmark-and-direction"] = sorts.items.first { $0.title == "默认顺序" }?.state == .on
             && sorts.items.first { $0.title == "改为降序" }?.isEnabled == false
         let staleSort = sorts.items.first { $0.title == "文件名称" }!
@@ -574,7 +573,7 @@ extension WallpaperLibraryCatalog { var catalog: Self { self } }
         downloadMenuCancellation?.invalidate()
         NotificationCenter.default.removeObserver(menuBegan); NotificationCenter.default.removeObserver(downloadPopoverObserver)
         let downloadGroups = downloadTrackedMenu?.items.split { $0.isSeparatorItem }.map { $0.map(\.title) } ?? []
-        checks["downloads-filter-button-tracks-a-system-menu-without-a-popover"] = downloadTrackedMenu != nil && downloadPopoverShows == 0
+        checks["downloads-filter-button-tracks-a-system-menu-without-a-popover"] = downloadTrackedMenu != nil && downloadPopoverShows == 0 && ToolbarMenuAnchorProbe.isBelow(item("filter").view!)
         checks["downloads-filter-menu-is-vertical-with-source-type-status-and-adult-groups"] = downloadGroups.compactMap(\.first)
             == ["全部来源", "全部类型（2）", "全部状态", "显示成人内容", "清空筛选"] && downloadTrackedMenu?.items.allSatisfy { $0.submenu == nil } == true
         let adultMenu = menu("filter"), oldAdult = menu("filter").items.first { $0.title == "显示成人内容" }!
@@ -681,10 +680,10 @@ extension WallpaperLibraryCatalog { var catalog: Self { self } }
             && favoritesSort.items.contains { $0.title == "改为升序" }
         page(.recent)
         checks["recent-toolbar-groups-organization-filter-zoom-search-without-playback"] = actionGroups() == [["select"], ["remove", "favorite", "more"], ["filter"], ["zoom"], ["search"]]
-        let disabledRecentMore = item("more") as! NSMenuToolbarItem
-        controller.menuNeedsUpdate(disabledRecentMore.menu)
+        let disabledRecentMore = item("more"), disabledRecentMenu = (disabledRecentMore.view as! NSButton).menu!
+        controller.menuNeedsUpdate(disabledRecentMenu)
         checks["recent-fixed-time-order-retains-clear-menu-content-while-empty-selection-disables-entry"] = !controller.toolbar.items.contains { $0.itemIdentifier.rawValue == "sort" }
-            && !disabledRecentMore.isEnabled && disabledRecentMore.menu.items.contains { $0.title == "清空最近使用…" }
+            && !disabledRecentMore.isEnabled && disabledRecentMenu.items.contains { $0.title == "清空最近使用…" }
         page(.playlists)
         checks["native-title-metadata-and-accessibility-follow-playlist-directory"] = titleMetadataMatches("所有播放列表", summary: "显示 0 / 共 0 个播放列表")
         checks["directory-toolbar-has-only-zoom-and-search-without-duplicate-create-or-sort"] = actionGroups() == [["zoom"], ["search"]]
@@ -934,7 +933,7 @@ extension WallpaperLibraryCatalog { var catalog: Self { self } }
         checks["old-native-zoom-overflow-cannot-write-across-reset"] = workspace.presentation.queryState == afterZoomReset
         let search = item("search") as! NSSearchToolbarItem
         checks["native-search-and-menu-overflow-are-not-replaced-by-ordinary-button-actions"] = !(search.menuFormRepresentation is ActionMenuItem)
-            && (item("sort") as! NSMenuToolbarItem).menuFormRepresentation?.submenu === (item("sort") as! NSMenuToolbarItem).menu
+            && item("sort").menuFormRepresentation?.submenu === (item("sort").view as! NSButton).menu
         search.searchField.stringValue = "local only"
         controller.controlTextDidChange(Notification(name: NSControl.textDidChangeNotification, object: search.searchField))
         page(.pixabay); page(.videos)
@@ -990,7 +989,7 @@ extension WallpaperLibraryCatalog { var catalog: Self { self } }
         window.setContentSize(NSSize(width: 360, height: 560)); settle()
         _ = menu("sort")
         checks["native-overflow-preserves-menu-representation-and-enabled-sort-actions"] = (controller.toolbar.visibleItems?.count ?? 0) < controller.toolbar.items.count
-            && nativeSort.menuFormRepresentation?.submenu === nativeSort.menu && nativeSort.menu.items.contains { $0.title == "文件名称" && $0.isEnabled }
+            && nativeSort.menuFormRepresentation?.submenu === (nativeSort.view as! NSButton).menu && (nativeSort.view as! NSButton).menu!.items.contains { $0.title == "文件名称" && $0.isEnabled }
         checks["old-playlist-id-is-not-reused-after-reset"] = workspace.relationships.playlists.allSatisfy { $0.id != list }
         print(String(data: try JSONSerialization.data(withJSONObject: checks, options: [.sortedKeys]), encoding: .utf8)!)
     }

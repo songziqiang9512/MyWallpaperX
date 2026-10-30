@@ -311,15 +311,22 @@ import Combine
             button.imagePosition = .imageOnly
             item.view = button
         } else if [.more, .sort, .addToPlaylist].contains(action) {
-            let menuItem = NSMenuToolbarItem(itemIdentifier: id)
+            let menuItem = NSToolbarItem(itemIdentifier: id)
             let menu = NSMenu()
             menu.delegate = self
             menu.autoenablesItems = false
             menuActions[ObjectIdentifier(menu)] = action
-            menuItem.menu = menu
-            menuItem.showsIndicator = false
-            menuItem.isBordered = true
             menuItem.image = NSImage(systemSymbolName: symbol(action), accessibilityDescription: nil)
+            let button = NSButton(title: "", target: self, action: #selector(showToolbarMenu(_:)))
+            WallpaperLibraryControlStyle.capsule(button)
+            button.image = menuItem.image
+            button.imagePosition = .imageOnly
+            button.setAccessibilityLabel(label(action))
+            button.menu = menu
+            menuItem.view = button
+            let overflow = NSMenuItem(title: label(action), action: nil, keyEquivalent: "")
+            overflow.submenu = menu
+            menuItem.menuFormRepresentation = overflow
             item = menuItem
         } else {
             item = NSToolbarItem(itemIdentifier: id)
@@ -385,12 +392,16 @@ import Combine
         perform(action)
     }
 
+    @objc private func showToolbarMenu(_ sender: NSButton) {
+        guard let menu = sender.menu, let action = menuActions[ObjectIdentifier(menu)], enabled(action) else { return }
+        ToolbarMenu.popUp(anchor: sender, menu: menu)
+    }
+
     @objc private func toggleFilter() {
         guard enabled(.filter), let item = items[.filter], let anchor = window?.contentView else { return }
         if workspace.presentation.page == .downloads {
             let view = item.view?.window == nil ? nil : item.view
-            let point = view.map { NSPoint(x: $0.bounds.minX, y: $0.isFlipped ? $0.bounds.maxY : $0.bounds.minY) } ?? NSEvent.mouseLocation
-            makeDownloadFilterMenu().popUp(positioning: nil, at: point, in: view)
+            ToolbarMenu.popUp(anchor: view, menu: makeDownloadFilterMenu())
             return
         }
         if filterPopover.isShown { filterPopover.performClose(nil); return }
@@ -480,11 +491,6 @@ import Combine
         default: return
         }
         menu.removeAllItems()
-        // The native toolbar pull-down consumes its first item as the title.
-        // Reserve it so the first real command (e.g. All Sources) stays visible.
-        let title = NSMenuItem(title: label(action), action: nil, keyEquivalent: "")
-        title.isEnabled = false
-        menu.addItem(title)
         // These private factories all enter through this gate. Their handlers
         // retain the fixed page/epoch checks without repeating modal admission.
         source.requireAppActionPermission { [weak self] in self?.permitsInput == true }
