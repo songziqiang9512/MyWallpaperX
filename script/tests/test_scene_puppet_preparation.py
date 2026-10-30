@@ -40,6 +40,7 @@ SOURCES = [
     "Format/SceneMdlPuppetAnimation.swift",
     "Format/SceneMdlPuppetAnimationReader.swift",
     "Format/ScenePuppetAnimationLayer.swift",
+    "Format/SceneTimelineAnimation.swift",
     "Format/ScenePuppetBoneCatalog.swift",
     "Systems/Script/ScenePuppetBoneTransformBridge.swift",
     "Systems/Puppet/ScenePuppetAnimationSelection.swift",

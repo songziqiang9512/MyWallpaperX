@@ -36,6 +36,7 @@ SOURCES = list(dict.fromkeys([
     SCENE/'Format/SceneMdlPuppetMeshReader.swift',
     SCENE/'Format/SceneMdlPuppetRigReader.swift',
     SCENE/'Format/ScenePuppetAnimationLayer.swift',
+    SCENE/'Format/SceneTimelineAnimation.swift',
     SCENE/'Rendering/Metal/SceneStaticModelVertexStream.swift',
     SCENE/'Rendering/Frame/SceneSourceUpdateTransaction.swift',
     SCENE/'Rendering/Frame/SceneMetalRenderer+StaticModels.swift',

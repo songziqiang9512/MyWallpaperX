@@ -117,8 +117,8 @@
       "bytes": 3319
     },
     "docs/scene/capabilities/direct-model-skeletal-animation.md": {
-      "lines": 88,
-      "bytes": 19279
+      "lines": 92,
+      "bytes": 20274
     },
     "docs/scene/capabilities/effect-execution-coverage.md": {
       "lines": 277,
@@ -250,7 +250,7 @@
     },
     "docs/scene/roadmap/batch2/script-component-api-design.md": {
       "lines": 600,
-      "bytes": 163076
+      "bytes": 162516
     },
     "docs/scene/roadmap/batch2/system-media-input-design.md": {
       "lines": 59,
@@ -278,7 +278,7 @@
     },
     "docs/scene/roadmap/scene-open-breakpoint-queue.md": {
       "lines": 188,
-      "bytes": 43582
+      "bytes": 43934
     },
     "docs/web/cold-descriptor-parse-offload-design.md": {
       "lines": 30,
@@ -1678,15 +1678,6 @@
     },
     {
       "section": "bodies",
-      "path": "docs/scene/capabilities/direct-model-skeletal-animation.md",
-      "before": "780f8dc417d875a393776a73dc0c3f8a7fc084d2ba2b7fd01af79a8d632700ac",
-      "after": "37a5d7a32f23034f898df437d1a22421abb0b3b2e7954c1e9731cba56a667171",
-      "owner": "Scene additive local fallback",
-      "reason": "用既有preparedMap隔离未支持additive，结构/消费边界与实际原377六动作恢复、左手仍开放；合并旧state1/auxiliary状态，证据细节只归历史，保direct及未知语义边界。",
-      "decision": "docs/scene/history/puppet-additive-local-fallback-2026-10-29.md"
-    },
-    {
-      "section": "bodies",
       "path": "docs/development/status-bar-panel-redesign.md",
       "before": "bdeef0b46815519d21eea3412f3f552be42b102306c4a27704a4509ed8da266f",
       "after": "9a94d92cd91c48ab6133d6dab3baf15fa36c845bf3b992b03efb46ec683256ca",
@@ -1912,21 +1903,30 @@
     },
     {
       "section": "bodies",
-      "path": "docs/scene/roadmap/batch2/script-component-api-design.md",
-      "before": "e33e9299b4d3596dc6d904ffe94eb4289f672ab1ebd3a3fcaba402563b8d577b",
-      "after": "fe23e1626f137214dcd252278169536698f982b37fadc36bafdf1f16bbd9f7da",
-      "owner": "scene-user-priority-capabilities",
-      "reason": "替换旧视频PMA-only边界、先记木偶参数曲线设计，并接纳用户十包待复核清单；只为真实通用能力及唯一队列新增必要合同，不复制历史验收。",
-      "decision": "docs/scene/roadmap/batch2/script-component-api-design.md#puppet-parameter-timelines"
+      "path": "docs/scene/roadmap/scene-open-breakpoint-queue.md",
+      "before": "f8736d2417b91687783901d86be1208c965d5c65baf7a96dfb41a00330e26b6f",
+      "after": "d18c98242acf93cd3f3f78c8fe21a9b93a5f71a064eaaaad94cb6ef49c4c28f2",
+      "owner": "scene-puppet-parameter-timelines",
+      "reason": "将已实施rate/blend设计收敛为合同/后验指针，保必要值源、零速/失败边界，并把未闭环/Rope/脚部和329诊断留在唯一队列。",
+      "decision": "docs/scene/history/puppet-animation-visibility-2026-10-07.md#puppet-parameter-timelines-20261031"
     },
     {
       "section": "bodies",
-      "path": "docs/scene/roadmap/scene-open-breakpoint-queue.md",
-      "before": "d99128d8b43b318d248d485e1e9d0a80bf05bb888701ed09d88011d57aca5071",
-      "after": "f8736d2417b91687783901d86be1208c965d5c65baf7a96dfb41a00330e26b6f",
-      "owner": "scene-compound-remainder",
-      "reason": "退出已恢复的灰底/点阵首错，拆出298真实启动与alpha余项，保303其他分支及322疑似的证据边界。",
-      "decision": "docs/scene/history/corpus-log-audit-2026-10-29.md#float-compound-remainder-20261031"
+      "path": "docs/scene/roadmap/batch2/script-component-api-design.md",
+      "before": "fe23e1626f137214dcd252278169536698f982b37fadc36bafdf1f16bbd9f7da",
+      "after": "ea712886c13bd6591c5f15bfd23a617b3271f35a432fa41122047c3236e22331",
+      "owner": "scene-puppet-parameter-timelines",
+      "reason": "将已实施rate/blend设计收敛为合同/后验指针，保必要值源、零速/失败边界，并把未闭环/Rope/脚部和329诊断留在唯一队列。",
+      "decision": "docs/scene/history/puppet-animation-visibility-2026-10-07.md#puppet-parameter-timelines-20261031"
+    },
+    {
+      "section": "bodies",
+      "path": "docs/scene/capabilities/direct-model-skeletal-animation.md",
+      "before": "37a5d7a32f23034f898df437d1a22421abb0b3b2e7954c1e9731cba56a667171",
+      "after": "b2d716e734b29227048e9660931302c502cd208b2a7ff49ac106f91a5182a0ac",
+      "owner": "scene-puppet-parameter-timelines",
+      "reason": "将已实施rate/blend设计收敛为合同/后验指针，保必要值源、零速/失败边界，并把未闭环/Rope/脚部和329诊断留在唯一队列。",
+      "decision": "docs/scene/history/puppet-animation-visibility-2026-10-07.md#puppet-parameter-timelines-20261031"
     }
   ]
 }

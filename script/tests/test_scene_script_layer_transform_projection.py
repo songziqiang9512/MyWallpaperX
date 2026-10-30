@@ -23,6 +23,7 @@ SOURCES = [
     SCENE / "Runtime/Frame/SceneStaticModelMaterialBindings.swift",
     SCENE / "Format/SceneJSONValue.swift",
     SCENE / "Format/ScenePuppetAnimationLayer.swift",
+    SCENE / "Format/SceneTimelineAnimation.swift",
     SCENE / "Systems/Puppet/ScenePuppetAnimationControl.swift",
     SCENE / "Systems/Properties/ScenePuppetAnimationPropertyTarget.swift",
     SCENE / "Systems/Properties/SceneUserProperty.swift",

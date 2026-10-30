@@ -70,7 +70,7 @@ enum ScenePuppetAnimationSelector {
                   layer.blendOut != true,
                   let rate = layer.rate,
                   rate.isFinite,
-                  rate > 0 else {
+                  rate >= 0 else {
                 // An optional hidden resource cannot revoke a healthy parent.
                 // A caller receives unavailable metadata for that slot.
                 if optionalClip { continue }

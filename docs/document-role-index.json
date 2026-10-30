@@ -896,13 +896,13 @@
       "role": "stable-contract",
       "entrypoint": "docs/scene/capabilities/README.md",
       "currentStateAuthority": "docs/scene/capabilities/advanced-object-coverage.md",
-      "lastReviewed": "2026-10-29",
+      "lastReviewed": "2026-10-31",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "c60bad046524d2ef3a9df06d0f7f06b835b591defae4ac2513f170d31bae40b0",
+        "sourceSHA256": "2f9af513d246b35dbc7acf2ebab3a1bb649ad0cf0d4606181e9a48d5f8ac6726",
         "method": "document_registry --audit + document_health --check",
-        "scope": "仅同步已知post-bounds结构与播放资格分离、原377健康主体动作的局部恢复与独立323；补颜色四格正控失格。其余正文未重审。",
-        "limitations": "未知scalar/变化reference消费者、完整混合/官方phase、HDR/多屏和性能未闭；不因旧记录外推当前整体结果。"
+        "scope": "rate/blend已实施设计退出、稳定共享Playback合同及真实314后验分责；335、环/Rope和382脚部仍开放。",
+        "limitations": "只认image原包参数链；direct输出、完整329、官方parity及性能未由本片资格。"
       },
       "title": "Direct model的骨骼动画合同",
       "authority": "advanced-object-animation-design"
@@ -2852,7 +2852,8 @@
         "docs/scene/capabilities/advanced-object-coverage.md",
         "docs/scene/capabilities/runtime-evidence-current.md",
         "docs/scene/roadmap/batch2/script-component-api-design.md"
-      ]
+      ],
+      "lastReviewed": "2026-10-31"
     },
     {
       "path": "docs/scene/history/puppet-bone-alpha-2026-10-07.md",
@@ -4395,10 +4396,10 @@
       "lastReviewed": "2026-10-31",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "bdbf784cd4f47da3265080cd0eb62934718d219bd4a961dee94bc1912bae3402",
+        "sourceSHA256": "8d0ab575fbd50f0f7930faccbe31b9c110ce55245f440acf8ef34ad4e49df453",
         "method": "document_registry --audit + document_health --check",
-        "scope": "十包显式子集、opaque通道视频验收与rate/blend后继设计；同一事实按合同、队列和历史分责。",
-        "limitations": "只关闭已证子门；未认官方parity、整样本通过、direct输出或性能收益。"
+        "scope": "rate/blend已实施设计退出、稳定共享Playback合同及真实314后验分责；335、环/Rope和382脚部仍开放。",
+        "limitations": "只认image原包参数链；direct输出、完整329、官方parity及性能未由本片资格。"
       }
     },
     {
@@ -4493,10 +4494,10 @@
       "lastReviewed": "2026-10-31",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "a565c8295480f7dcfcfb60d62cba769879759df6f47cae81272b25343625466b",
+        "sourceSHA256": "72bbbbffaa8ce624959485aea9792db09b59f730930e0b84f847b65999f2812c",
         "method": "document_registry --audit + document_health --check",
-        "scope": "十包复核及compound remainder已证子门移历史，剩余视频/视觉和Puppet设计不混销。",
-        "limitations": "只关闭已证子门；未认官方parity、整样本通过、direct输出或性能收益。"
+        "scope": "rate/blend已实施设计退出、稳定共享Playback合同及真实314后验分责；335、环/Rope和382脚部仍开放。",
+        "limitations": "只认image原包参数链；direct输出、完整329、官方parity及性能未由本片资格。"
       }
     },
     {

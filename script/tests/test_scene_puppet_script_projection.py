@@ -13,6 +13,7 @@ SOURCES = [
     "Format/SceneScriptSourceEvidence.swift",
     "Systems/Properties/SceneScriptDynamicProviderHostContract.swift",
     "Format/ScenePuppetAnimationLayer.swift", "Format/SceneMdlPuppetAnimation.swift",
+    "Format/SceneTimelineAnimation.swift",
     "Systems/Puppet/ScenePuppetAnimationSelection.swift",
 ]
 HARNESS = r'''

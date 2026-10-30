@@ -73,6 +73,11 @@ struct SceneRenderDescriptor {
     var camera = Camera()
 }
 
+// This leaf descriptor carries animation controls and no light consumers.
+enum SceneLightSnapshot {
+    static func liveConsumerTargets(descriptor: SceneRenderDescriptor) -> Set<SceneDynamicTarget> { [] }
+}
+
 @main enum Harness {
     static let ids = [56, 150, 120, 135, 153, 176, 208, 210]
     struct Fixture {

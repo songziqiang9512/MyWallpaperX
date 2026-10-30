@@ -15,9 +15,24 @@ struct SceneMdlPuppetAttachment {
     let name: String
     let sceneBindFrameColumnMajor: [Float]
 }
+struct SceneShaderContract {
+    enum SourceKind { case hostBuiltin, authoredSource }
+    struct Graph {
+        struct Node {
+            enum Provenance { case stock }
+            let provenance: Provenance
+        }
+        let diagnostics: [String]
+        let nodes: [Node]
+    }
+    let identity: String
+    let sourceKind: SourceKind
+    let sourceGraph: Graph?
+}
 struct SceneAssetCatalog {
     struct ModelAsset {
         var declaredSizeWH: [Float]? { nil }
+        var passthrough: Bool? { nil }
         let relativePath: String
         let materialPath: String?
         let cropOffsetXY: [Float]?
@@ -50,7 +65,7 @@ struct SceneAssetCatalog {
     let effectDefinitions: [SceneEffectDefinition]
     let effectDefinitionDiagnostics: [SceneEffectDefinitionDiagnostic]
     let shaderReferences: [String]
-    var shaderContracts: [Never] { [] }
+    var shaderContracts: [SceneShaderContract] { [] }
     let textureReferences: [String]
 }
 struct SceneResourceReferenceIndex {

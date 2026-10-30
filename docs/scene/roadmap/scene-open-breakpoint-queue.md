@@ -2,7 +2,7 @@
 
 # Scene 当前断点修复队列
 
-> 更新：2026-10-30。这里只保具体未闭问题；按**画面合成/正常播放 → 有证性能成本 → 属性接线 → 合同与验证债**选序，同档先补真实缺失能力、再扩大既有覆盖，服从[兼容路线](scene-compatibility-roadmap.md)。已闭首门、正常/误报及旧批背景移入[退出记录](../history/open-breakpoint-reconciliation-2026-10-23.md)。部分修复按子现象退出，不销整样本账。
+> 更新：2026-10-31。这里只保具体未闭问题；按**画面合成/正常播放 → 有证性能成本 → 属性接线 → 合同与验证债**选序，同档先补真实缺失能力、再扩大既有覆盖，服从[兼容路线](scene-compatibility-roadmap.md)。已闭首门、正常/误报及旧批背景移入[退出记录](../history/open-breakpoint-reconciliation-2026-10-23.md)。部分修复按子现象退出，不销整样本账。
 
 “运行首拒”不等于缺图；“待复验”不等于当前HEAD缺陷。默认隐藏、空媒体、作者入场/延迟、未ready、没有golden或未验更宽profile均不单独排实现。矩阵PASS/FAIL不代视觉裁决。样本原verdict及运行关联归[台账](../capabilities/scene-sample-acceptance-ledger.md)，分母归[声明统计](../capabilities/scene-corpus-capability-inventory.md)，现存证据身份归[运行记录](../capabilities/runtime-evidence-current.md#local-evidence-availability)。
 
@@ -86,8 +86,8 @@
 |---|---|
 | 2982559622 · 首帧资源/alpha余项 | 103.alpha仍badReturn；初5帧视频pending记resourceSnapshotUnresolved、utility capture实1/计划3，需区分真实启动等待与观测期待。普通图片/最终合成其余分支及官方同状态未全验；素材视频控制不得从effect slot推layer handle。 |
 | 3034166869 /3223543799 · 完整性待对照 | 303活动Dot Matrix的float复合余数首门已移[历史](../history/corpus-log-audit-2026-10-29.md#float-compound-remainder-20261031)，其他effect/媒体分支尚未与官方同输入复核；322用户仅疑似，4秒结构PASS，常开音条与条件隐藏不能混作缺图。两者无目录官方图，需有可区分缺失再实施，不能为旧报告猜算法。 |
-| 3350026230 · 默认PPT自动转场 | 用户报默认PPT失效。真实默认选项5，655为127s视频且末段alpha与底层交接有Timeline；视频内部切换时刻另按内容观察，不能把125s淡出当首换图时刻。旧4s波形PASS不覆盖完整PPT；核实际视频帧推进及末段交接，长窗只给此代表。目录五张官方图可对照。 |
-| 3141464346 /3828342721 · 动画、摆放 | 用户报314木偶动画错误/错位及右下音频环，382脚部图层错位。314的blend/rate动画wrapper被静态parse取value，是待实际运行关联的通用Timeline输入缺口；不由此认全部错位同根。右下环与现world-space Rope、shader链分别核；382为不同MDL/MDLA与约28.57s周期，4秒只验初段，无目录官方图须另核原相位。 |
+| 3350026230 · 默认PPT自动转场 | 用户报默认PPT失效。真实默认选项5，655为127s视频且末段alpha与底层交接有Timeline；视频内部切换时刻另按内容观察，不能把125s淡出当首换图时刻。旧4s波形PASS不覆盖完整PPT；新4秒日志frame0 play、frame1起永久stop；生成H264创建duration0仅作线索，原包首次快照数值未定。核元数据在init前准备、实际视频帧推进及末段交接，长窗只给此代表。目录五张官方图可对照。 |
+| 3141464346 /3828342721 · 动画余项/摆放 | 314剩余木偶错位须按官方同phase核；右下音频环与188/332 world-space Rope、shader链分别开放，已闭的rate/blend/零速首门归[后验](../history/puppet-animation-visibility-2026-10-07.md#puppet-parameter-timelines-20261031)，不作全动作通过。382脚部错位仍待确认，为不同MDL/MDLA、约28.57s周期，无目录官方图须另核原相位；不能由314修复推顺带完成。 |
 | 2957870426 /3383210272 · 光线色彩/样式 | 用户报295中央竖光应白、338光线差异大。两者宽束共享light_shafts_0粒子/颜色组合候选；338另有独立音频细线。颜色参数未丢不能直接改gain/乘法，旧颜色板STOP保留；官方图含不同phase，先核真实出生色、typed输入、混合与输出。 |
 | 3347416586 /3589819394 · 虹彩与文字放射 | 用户报334虹彩光缺失、358中文字放射变黑。334候选为常开compose484#492 Lens Flare Sun及末层opacity/blend，隐藏particle129不作缺光。358有英文Clock/Day/Date三条blur→godrays，中文ROI尚未对应，不能先归字体；核实际source/signal/RGBA与末合成。旧solid计数漏报不作视觉根因。 |
 | 3351179520 · 文字环位置/尺度与旋转漂移 | 8原图跨53.496秒未见明显整圈平移/半径跳变，但未得同帧slot1/MVP/g_Time，精确贴合仍partial。仅有新可区分几何/官方ROI才再开，不重复长窗、不强制三组TRS同速同心或用glyph框补偿。[资格](../capabilities/runtime-evidence-current.md#ring-motion-qualification-20261018) |
@@ -170,7 +170,7 @@
 | 日志API候选 · 3605722997 | 作者调用console.warn而现只有log/error，但实际notfunction callee仍未资格。先实际调用/堆栈与consumer，不将标量上调Vec.add或文本上调纹理动画一并当缺API。 |
 | 样本脚本/配置归属 · 3028048463 /3280903509 | 当前302的531.alpha在默认player层全隐藏时访问空数组；328的225.alpha返回Vec3并报BAD_RETURN，脚本本属clearcolor。未证缺API；保原回退，不吞错、不强转scalar。若要修样本可见缺失，先核官方同默认/媒体/属性时序，区分作者配置与引擎语义；不能因同样TypeError合修。 |
 | 诊断计数 · instanced solid | 新增3280903509/3303319749/3347416586/3350026230/3357689320中21层已沿普通asset通道加载white，却因成功正则只计procedural solid而报不全。沿原producer/parser用真实solid身份统一分母/分子；保真加载失败与普通image反例，不能把所有white纹理都当solid。原报告保留，不将其记成引擎缺纹理。 |
-| 短窗未决资源/graph观察 | 旧453默认4秒：56例solid、7例image、4例particle候选数未全加载，15例layer-source-not-ready；含隐藏、alpha0、按需或已退休层，非全部缺图。2804817823/3039882306/3292370168虽Ready但图单元缺完成，先锁active consumer/媒体或延迟再补窗口；正常双视频告警不重开已确认正常的Xray。新增3186328539的1045未ready后alpha0/hidden不代表缺图。3763323436缺project归输入不完整，不改引擎迎合。 |
+| 短窗未决资源/graph观察 | 旧453默认4秒：56例solid、7例image、4例particle候选数未全加载，15例layer-source-not-ready；含隐藏、alpha0、按需或已退休层，非全部缺图。2804817823/3039882306旧窗虽Ready但图单元缺完成，先锁active consumer/媒体或延迟；329新Debug可见骷髅/视频且模型draw，仍七项utility/graph期待失败（含505 capture），无同条件修前，不判新/旧回归，按活动consumer核口径；正常双视频告警不重开已确认正常的Xray。新增3186328539的1045未ready后alpha0/hidden不代表缺图。3763323436缺project归输入不完整，不改引擎迎合。 |
 | 验证债 · 连续PNG采样 | 同一自有载体0.5s及1.5s连续采样均有superseded，前者另有teardown capture失败；原包普通两图成功，不能当播放器缺图。现有晚窗图虽完成，注册因果仍UNKNOWN。先核实际snapshot队列/导出与采样职责，不重复高频全图或改变产品渲染来消报告；[反证](../history/corpus-log-audit-2026-10-29.md#declared-framebuffer-shadow-20261030)。 |
 | 验证债 · 模板VFS旧case | 原Template harness在本批RED/GREEN均assetVFSBoundaries=false；旧escapedAssets将Windows盘符样式一并预期拒绝，而当前VFS将其规范为相对token。未证实际越界/壁纸故障；按VFS及ResourceView入口合同复核旧口径，不为刷绿重新添加路径拒绝。 |
 | 验证债 · named geometry独立像素probe入口 | 当前老入口的编译源列表缺SceneMaterialRenderState，且引用DEBUG CounterHub却未传DEBUG；未取得fresh独立像素门结果。后继在原fixture职责中补齐真实依赖/配置，保来源身份与原断言；不据此改产品或把编译失败算像素失败。当前几何content修复已有真实Coordinator门及原包/独立样本App画面，见[关闭边界](../history/open-breakpoint-reconciliation-2026-10-23.md#geometry-named-content-20261029)。 |

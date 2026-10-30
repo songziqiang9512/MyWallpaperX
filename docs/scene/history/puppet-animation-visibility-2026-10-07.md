@@ -28,3 +28,17 @@
 - 原始 `3791967416` 隔离回放：六个Puppet层、十条clip进入现役播放；graph GPU完成、terminal compositor与next-frame均有证据。通用hover位移仍未通过。亮度、眼部组装和动画层脚本seek尚未闭合，不报整样本正确率。
 
 产物只保留必要日志、报告、身份和对照截图；中央证据库已满，promotion拒绝、prune无可清包；不删除未知旧证据，本批限量保留于上述根目录。临时App/输入/重复运行产物在进程退出后清理。同一连续任务仅保留既有build cache `/private/tmp/mwx-scene-next-build/cache/14d60a183f08e048bc3d072d`。完整显示器切换、长稳、性能与官方整帧parity未由本批证明。
+
+
+<a id="puppet-parameter-timelines-20261031"></a>
+## 动画层rate/blend时间线（2026-10-31）
+
+3141464346的动画参数wrapper被parse取静态value，曲线未入现Timeline链；另原Selector以rate>0拒196/284的零速clip，使整父没有实际播放consumer。先在D4设计，后沿原IR保两条Optional曲线/诊断，原compiler发布具唯一parent/动画ID的scalar target，原SceneClock/resolver/Playback消费；原setRate保相位、ClipState.blend/LayerFrame.blends供pose与alpha，静态0保持冻结。五产品净增70行，必要增长为保作者参数及接既有消费者，未增owner、clock、持久播放状态或skin算法；普通static clip保短路，不每帧造target查snapshot。
+
+旧产品语义RED38→Puppet playback12门GREEN，连真实parse/compiler/resolver/Selector/evaluator；0启动、blend>1、改名/等价曲线、隐藏冻结/同cadence、坏参数/真实混源与未准备Timeline99反例通过。另原rateScript11、property-preparation8、Timeline相邻2通过；standalone旧依赖漂移的编译失败保留并仅修source list/叶carrier。独审发现显式null被错误当竞争source，精确RED8后按原String codec修，最终12门17.396s通过；原direct变体带alpha却绕真实consumer的错误证据声明已撤，最终变体全部image，不认direct输出验收。
+
+最终普通Debug32.197s build/严格签名、产品漂移0，主体2411aecf…6e756/dylib7364bc11…38de。314与baseline同包、PCM/指针、24秒after/30秒运行；baseline优化Release诊断、final普通Debug，不能比较性能。修前196/284无Playback consumer且骨骼hash不变；最终各640/204两个clip，204从rate0/frame0经变化到rate1/currentFrame502.098517，骨骼GPU完成且末graph被合成消费至frame773。原166/438、412/337的blend target已在真实prepared descriptor，日志未逐帧印blend，不把这一点升级成所有动作/混合数值已证。实际手臂及持烟位置明显改变，亲看与独立Max核对一致；无同官方输入/phase，仍不认整景parity或全部错位关闭。
+
+原314前后strict均particle loading incomplete，188/332 world-space Rope与右下环保开放。独立3292370168最终App可见中央骷髅及背景视频，layer29 53 bones、model-depth encode与视频frame12 qualified，八rate VM target完成0.15；只证明所观测输出，不认八clip全播放。该run仍七项utility/graph期待失败，且无同条件修前，不能称新/旧回归或整例PASS。原始失败、完整日志、六张必要原PNG与改名门/红绿/构建身份归同次`.artifacts/scene-evidence/runs/user-priority-capabilities-20261031/`，29,371,936B/181成员、SHA23122036…c3d808；heldout仅保缩小JPEG及原图SHA，不能作精确像素/HDR golden。
+
+后继6d2a390e6只合入UI文件，逐Scene输入hash与最终构建一致；二进制不追认成含该UI的新App。本轮原生/worker均退出，真实样本只读，VM/主客户端保持运行未做新官方实验。临时副本、HOME、原图与重复build报告归档后清理，仅保`.build-cache/scene-gravity-20261028`连续缓存；不认长稳、HDR/多屏、全部属性或性能收益。

@@ -111,6 +111,7 @@ nonisolated enum SceneTimelineTargetCompiler {
                 "layer \(layer.id) \($0)"
             })
             appendLayerTimelines(in: layer, into: &candidates, diagnostics: &diagnostics)
+            appendPuppetParameterTimelines(in: layer, into: &candidates, diagnostics: &diagnostics)
             diagnostics.append(contentsOf: layer.particleTimelineDiagnostics.map {
                 "layer \(layer.id) \($0)"
             })
@@ -167,6 +168,37 @@ nonisolated enum SceneTimelineTargetCompiler {
             }
         }
         return SceneTimelineProgram(bindings: bindings, diagnostics: diagnostics.sorted())
+    }
+
+    private nonisolated static func appendPuppetParameterTimelines(
+        in layer: SceneRenderDescriptor.Layer,
+        into candidates: inout [(binding: SceneTimelineBinding, label: String)],
+        diagnostics: inout [String]
+    ) {
+        let identities = Dictionary(grouping: layer.puppetAnimationLayers, by: \.id)
+        for entry in layer.puppetAnimationLayers {
+            let label = "layer \(layer.id) animationlayer \(entry.id.map(String.init) ?? "unknown")"
+            diagnostics.append(contentsOf: (entry.parameterTimelineDiagnostics ?? []).map {
+                "\(label) \($0)"
+            })
+            for (field, animation, authored) in [
+                ("rate", entry.rateTimeline, entry.rate),
+                ("blend", entry.blendTimeline, entry.blend),
+            ] {
+                guard let animation else { continue }
+                guard let id = entry.id, identities[id]?.count == 1,
+                      let authored, authored.isFinite, authored >= 0 else {
+                    diagnostics.append("\(label) \(field): \(Diagnostic.invalidAuthoredValue.rawValue)")
+                    continue
+                }
+                let target = field == "rate"
+                    ? ScenePuppetAnimationPropertyTarget.rate(layerID: layer.id, animationLayerID: id)
+                    : ScenePuppetAnimationPropertyTarget.blend(layerID: layer.id, animationLayerID: id)
+                append(animation: animation, target: target, valueType: .scalar,
+                    authoredValue: .scalar(authored), label: "\(label) \(field)",
+                    into: &candidates, diagnostics: &diagnostics)
+            }
+        }
     }
 
     /// Resolve membership only inside this authored layer. Connected malformed

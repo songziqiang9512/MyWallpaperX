@@ -46,6 +46,10 @@ Scalar结果由原accepted typed snapshot发布，PlaybackRuntime在下一cadenc
 
 回归贯通真实parser→ScalarProgram/QuickJS→typed snapshot→原PlaybackRuntime，覆盖变量/资源改名、等价式、path/index/ID错配、重复定义、无script邻例、0/正rate、非法返回、throw/晚拒及健康peer；变速点phase连续且暂停/隐藏/同cadence不重复推进。原329默认34的固定PCM/静音已取得实际rate与GPU完成姿态的速度差，独立真实Puppet样本有界渲染/退场；本轮不重认普通Release视频连续播放或全部动作面板。rate带`applyUserProperties`的live readiness未扩，原329仅有init/update，不由此推断该组合已支持。不以owner命中或构建代替播放收益，官方精确audio/phase未对齐不宣称parity；若原作者脚本仍有更早失败或没有可归因动作收益，停止升级能力并重排。
 
+<a id="animation-parameter-timelines"></a>
+**动画参数Timeline（2026-10-31）。** 原IR保留rate/blend曲线及参数诊断，原compiler以parent/唯一动画层ID发布scriptInstanceProperty target，经SceneClock→同一resolver→Playback消费；零速clip允许准备并冻结，随后可由曲线启动。rate沿原相位连续setRate，blend进原LayerFrame.blends供pose/alpha，允许大于1；脚本rate仅接sceneScript，曲线字段仅接timeline，无来源的静态clip不做target查找。缺/坏参数保静态fallback；真实String script/user混源不合入Timeline，显式null按原codec视无来源，Relative/Combined及动态clone范围不扩。不增clock、播放状态或skinning owner。共享消费者合同与[实施后验](../history/puppet-animation-visibility-2026-10-07.md#puppet-parameter-timelines-20261031)只资格本片image真实运行，direct的原alpha/aux/pose准入和既有rateScript能力保持，不借本片新增direct输出证明。
+
+
 <a id="conditional-animation-properties"></a>
 ### 条件动画的准备与热切换
 

@@ -211,12 +211,21 @@ nonisolated final class ScenePuppetAnimationPlaybackRuntime: @unchecked Sendable
                     // Preserve first-visible nonzero sceneTime compatibility.
                     local[index].playbackTime = local[index].visible ? max(0, currentSceneTime) : 0
                 }
-                if clip.layer.hasRateScript == true, let id = clip.layer.id,
+                if clip.layer.hasRateScript == true || clip.layer.rateTimeline != nil, let id = clip.layer.id,
                    let resolved = dynamicValues[ScenePuppetAnimationPropertyTarget.rate(
                        layerID: layerID, animationLayerID: id)],
-                   resolved.source == .sceneScript, case let .scalar(rate) = resolved.value,
+                   (clip.layer.hasRateScript == true && resolved.source == .sceneScript)
+                    || (clip.layer.rateTimeline != nil && resolved.source == .timeline),
+                   case let .scalar(rate) = resolved.value,
                    ScenePuppetAnimationCommand.acceptsScalarControl(rate) {
                     local[index].setRate(rate, clip: clip)
+                }
+                if clip.layer.blendTimeline != nil, let id = clip.layer.id,
+                   let resolved = dynamicValues[ScenePuppetAnimationPropertyTarget.blend(
+                       layerID: layerID, animationLayerID: id)],
+                   resolved.source == .timeline, case let .scalar(blend) = resolved.value,
+                   ScenePuppetAnimationCommand.acceptsScalarControl(blend) {
+                    local[index].blend = Double(Float(blend))
                 }
                 if !startsNow && local[index].visible && local[index].isPlaying {
                     let previousPhase = local[index].explicitFrame ?? local[index].phase(clip)

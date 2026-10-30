@@ -22,6 +22,11 @@ from .fixtures.scene_timeline_combined_cases import accepted_combined_scenes, co
 REPOSITORY_ROOT = Path(__file__).resolve().parents[2]
 SOURCE_ROOT = REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene"
 SWIFT_SOURCES = [
+    SOURCE_ROOT / "Runtime/Frame/SceneMaterialRenderState.swift",
+    SOURCE_ROOT / "Compilation/Material/SceneMaterialRenderState+Compilation.swift",
+    SOURCE_ROOT / "Compilation/ShaderContract/SceneBuiltinShaderIdentity.swift",
+    SOURCE_ROOT / "Resources/Assets/SceneModelResourceIdentity.swift",
+    SOURCE_ROOT / "Systems/Properties/ScenePuppetAnimationPropertyTarget.swift",
     SOURCE_ROOT / "Systems/Properties/SceneUserProperty.swift",
     SOURCE_ROOT / "Systems/Properties/SceneUserPropertyBindings.swift",
     SOURCE_ROOT / "Systems/Properties/SceneUserPropertyResolver.swift",

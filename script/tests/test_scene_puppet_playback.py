@@ -9,6 +9,8 @@ import tempfile
 import unittest
 from pathlib import Path
 
+from .test_scene_timeline_target_compiler import SWIFT_SOURCES as TIMELINE_SOURCES
+
 
 REPOSITORY_ROOT = Path(__file__).resolve().parents[2]
 SCENE_ROOT = REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene"
@@ -20,6 +22,7 @@ SWIFT_SOURCES = [
     SCENE_ROOT / "Format/SceneMdlPuppetRigReader.swift",
     SCENE_ROOT / "Format/SceneMdlPuppetAnimation.swift",
     SCENE_ROOT / "Format/ScenePuppetAnimationLayer.swift",
+    SCENE_ROOT / "Format/SceneTimelineAnimation.swift",
     REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Geometry/SceneMatrix.swift",
     REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Systems/Puppet/ScenePuppetAnimationSelection.swift",
     REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Systems/Puppet/ScenePuppetSkinMatrixProjection.swift",
@@ -27,6 +30,16 @@ SWIFT_SOURCES = [
     REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Systems/Puppet/ScenePuppetAnimationEvaluator+Transforms.swift",
     REPOSITORY_ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Systems/Puppet/ScenePuppetAnimationEvaluator+FrameSampling.swift",
 ]
+
+PARAMETER_SOURCES = list(dict.fromkeys([
+    *SWIFT_SOURCES, *TIMELINE_SOURCES,
+    SCENE_ROOT / "Runtime/Frame/SceneMaterialRenderState.swift",
+    SCENE_ROOT / "Systems/Properties/ScenePuppetAnimationPropertyTarget.swift",
+    SCENE_ROOT / "Systems/Puppet/ScenePuppetAnimationPlaybackRuntime.swift",
+    SCENE_ROOT / "Systems/Puppet/ScenePuppetAnimationControl.swift",
+]))
+PARAMETER_FIXTURE = Path(__file__).with_name("fixtures") / "ScenePuppetParameterTimelineChecks.swift"
+PARAMETER_CARRIERS = (Path(__file__).with_name("fixtures") / "SceneTimelineTargetCompilerHarness.swift").read_text().split("@main", 1)[0]
 
 HARNESS = r'''
 import Foundation
@@ -491,6 +504,7 @@ enum Harness {
             "malformedNumbersAreNil": malformedNumbers.blend == nil
                 && malformedNumbers.blendTime == nil
                 && malformedNumbers.rate == nil,
+            "parameterTimelines": try ScenePuppetParameterTimelineChecks.run(),
         ]
         let data = try JSONSerialization.data(withJSONObject: payload, options: [.sortedKeys])
         print(String(decoding: data, as: UTF8.self))
@@ -507,23 +521,29 @@ class ScenePuppetPlaybackTests(unittest.TestCase):
         cls.temporary_directory = tempfile.TemporaryDirectory(prefix="mwx-puppet-playback-")
         directory = Path(cls.temporary_directory.name)
         harness = directory / "Harness.swift"
-        harness.write_text(HARNESS, encoding="utf-8")
+        harness.write_text(PARAMETER_CARRIERS + HARNESS, encoding="utf-8")
         binary = directory / "puppet-playback"
         compilation = subprocess.run(
-            ["swiftc", *map(str, SWIFT_SOURCES), str(harness), "-o", str(binary)],
+            ["swiftc", "-module-cache-path", str(directory / "modules"),
+             *map(str, PARAMETER_SOURCES), str(PARAMETER_FIXTURE), str(harness), "-o", str(binary)],
             capture_output=True,
             text=True,
         )
         if compilation.returncode != 0:
             raise RuntimeError(compilation.stderr)
         completed = subprocess.run(
-            [str(binary)], check=True, capture_output=True, text=True
+            [str(binary), str(directory)], check=True, capture_output=True, text=True
         )
         cls.result = json.loads(completed.stdout)
 
     @classmethod
     def tearDownClass(cls) -> None:
         cls.temporary_directory.cleanup()
+
+    def test_parameter_timelines_share_prepared_targets_clock_pose_and_local_failures(self) -> None:
+        for behavior, passed in self.result["parameterTimelines"].items():
+            with self.subTest(behavior=behavior):
+                self.assertTrue(passed)
 
     def test_strict_single_clip_selection(self) -> None:
         self.assertEqual(self.result["selection"], "selected:single-absolute:100")
@@ -548,10 +568,7 @@ class ScenePuppetPlaybackTests(unittest.TestCase):
             self.result["fractionalRate"],
             "selected:single-absolute:100",
         )
-        self.assertIn(
-            "outside the bounded playback profile",
-            self.result["zeroRate"],
-        )
+        self.assertEqual(self.result["zeroRate"], "selected:single-absolute:100")
         self.assertEqual(
             self.result["boundVisibility"],
             "selected:single-absolute:100",

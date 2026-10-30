@@ -19,12 +19,17 @@ nonisolated struct ScenePuppetAnimationLayer: Codable, Equatable {
     // Preparation provenance, never inferred from raw author keys. Missing in
     // older descriptors and on legacy String/script visibility inputs.
     var hasPreparedVisibilityProperty: Bool? = nil
+    var rateTimeline: SceneTimelineAnimation? = nil
+    var blendTimeline: SceneTimelineAnimation? = nil
+    var parameterTimelineDiagnostics: [String]? = nil
 
     nonisolated static func parse(_ value: Any?) -> [ScenePuppetAnimationLayer] {
         (value as? [[String: Any]] ?? []).map { root in
             let visibleWrapper = root["visible"] as? [String: Any]
             let rateWrapper = root["rate"] as? [String: Any]
-            return ScenePuppetAnimationLayer(
+            let rateTimeline = parameterTimeline(root["rate"], field: "rate")
+            let blendTimeline = parameterTimeline(root["blend"], field: "blend")
+            var layer = ScenePuppetAnimationLayer(
                 id: root["id"] as? Int,
                 animationID: root["animation"] as? Int,
                 name: root["name"] as? String,
@@ -40,7 +45,24 @@ nonisolated struct ScenePuppetAnimationLayer: Codable, Equatable {
                 rateBinding: rateWrapper?["user"] as? String,
                 hasRateScript: rateWrapper?["script"] is String ? true : nil
             )
+            layer.rateTimeline = rateTimeline.animation
+            layer.blendTimeline = blendTimeline.animation
+            let diagnostics = rateTimeline.diagnostics + blendTimeline.diagnostics
+            layer.parameterTimelineDiagnostics = diagnostics.isEmpty ? nil : diagnostics
+            return layer
         }
+    }
+
+    private static func parameterTimeline(_ value: Any?, field: String)
+        -> (animation: SceneTimelineAnimation?, diagnostics: [String]) {
+        let parsed = SceneTimelineAnimationParser.parse(host: value)
+        var diagnostics = parsed.diagnostics.map { "\(field):\($0.token)" }
+        if let wrapper = value as? [String: Any], wrapper["animation"] != nil,
+           wrapper["script"] is String || wrapper["user"] is String {
+            diagnostics.append("\(field):unsupportedSourceCombination")
+            return (nil, diagnostics)
+        }
+        return (parsed.animation, diagnostics)
     }
 
     nonisolated private static func boolValue(_ value: Any?) -> Bool? {

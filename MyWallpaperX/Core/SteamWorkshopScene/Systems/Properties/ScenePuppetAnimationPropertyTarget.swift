@@ -1,5 +1,5 @@
 nonisolated enum ScenePuppetAnimationPropertyTarget {
-    enum Field: String { case visibility = "visible", rate }
+    enum Field: String { case visibility = "visible", rate, blend }
 
     nonisolated static func visibility(
         layerID: Int,
@@ -15,6 +15,13 @@ nonisolated enum ScenePuppetAnimationPropertyTarget {
         .scriptInstanceProperty(
             layerID: layerID,
             path: ["puppetAnimationLayer", String(animationLayerID), "rate"]
+        )
+    }
+
+    nonisolated static func blend(layerID: Int, animationLayerID: Int) -> SceneDynamicTarget {
+        .scriptInstanceProperty(
+            layerID: layerID,
+            path: ["puppetAnimationLayer", String(animationLayerID), "blend"]
         )
     }
 
