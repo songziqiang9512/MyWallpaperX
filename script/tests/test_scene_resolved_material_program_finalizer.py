@@ -220,6 +220,29 @@ class SceneResolvedMaterialProgramFinalizerTests(unittest.TestCase):
         for label in ("pending-candidate", "unavailable-candidate"):
             self.assertNotEqual(results[label], "success", results)
 
+    def test_self_composite_override_owns_source_ahead_of_idle_asset_default(self) -> None:
+        results = self.result["sameLayerCompositeOverride"]
+        for variant in ("original", "renamed"):
+            prefix = f"self-{variant}"
+            self.assertEqual(results[prefix + ":override:source"], "0", results)
+            self.assertEqual(results[prefix + ":override:internal"], "false", results)
+            self.assertEqual(results[prefix + ":override:ready"], "graph-ingress", results)
+            self.assertEqual(results[prefix + ":override:pending"], "texture/resourceSnapshotUnresolved", results)
+            self.assertEqual(results[prefix + ":override:incomplete"], "texture/textureMetadataIncomplete", results)
+            self.assertEqual(results[prefix + ":default:source"], "none", results)
+            self.assertEqual(results[prefix + ":default:internal"], "true", results)
+            self.assertEqual(results[prefix + ":default:ready"], "asset-default", results)
+        for case in ("chain", "previous"):
+            self.assertEqual(results[f"self-original:{case}:source"], "0", results)
+            self.assertEqual(results[f"self-original:{case}:internal"], "false", results)
+        for case in ("foreign", "mixed-foreign", "mixed-asset", "conflict", "unprepared"):
+            self.assertEqual(results[f"self-original:{case}:source"], "none", results)
+            self.assertEqual(
+                results[f"self-original:{case}:internal"],
+                "true" if case in ("foreign", "mixed-foreign", "mixed-asset") else "false",
+                results,
+            )
+
     def test_rt_defaults_do_not_manufacture_authored_presence_or_reject_dead_sampler(self) -> None:
         results = self.result["rtDefaultAdmission"]
         self.assertEqual(results["dead-unknown"], "success", results)

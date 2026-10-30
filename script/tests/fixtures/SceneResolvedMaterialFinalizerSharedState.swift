@@ -531,6 +531,7 @@ final class SceneResolvedMaterialFinalizerFixture {
             "neutralTextureResolutionFailures": neutralTextureResolutionFailures,
             "dormantGraphInputFacts": dormantGraphInputFacts,
             "rtDefaultAdmission": rtDefaultAdmissionTokens(device),
+            "sameLayerCompositeOverride": sameLayerCompositeOverrideTokens(device),
             "capturedMainInternalTerminal": capturedMainInternalTerminal,
             "admittedEffectIngress": fixture.preparation.admittedEffectIngress,
             "failures": fixture.failures.failures,

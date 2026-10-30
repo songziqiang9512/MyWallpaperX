@@ -1,4 +1,4 @@
-// Dormant graph inputs, exact terminal capture, and active effect ingress.
+// Dormant graph inputs, self-composite overrides, and exact effect ingress.
 import Foundation
 import Metal
 import simd
@@ -108,6 +108,150 @@ func dormantGraphInputFactTokens(
         "arbitraryHiddenKeySlot0": token(result(0), slot: 0),
         "unseenArbitraryHiddenKeySlot3": token(result(3), slot: 3),
     ]
+}
+
+func sameLayerCompositeOverrideTokens(_ device: MTLDevice) -> [String: String] {
+    var result: [String: String] = [:]
+    for (variant, layerID, coordinates, sampling, asset) in [
+        ("original", 42, "v_TexCoord", "texSample2D", "textures/idle-source-default.tex"),
+        ("renamed", 947, "uvUnseen", "texture2D", "fixtures/renamed-idle.tex")
+    ] {
+        let input = Graph.TextureIdentity(kind: .layerSource, layerID: layerID, effect: nil, name: nil)
+        let owner = Graph.EffectKey(layerID: layerID, effectIndex: 0, descriptorID: "self-override-\(variant)")
+        let output = Graph.TextureIdentity(kind: .effectOutput, layerID: layerID, effect: owner, name: nil)
+        let path = SceneVFSAssetPath(asset)!
+        let assetID = SceneAssetTextureIdentity(path: path, purpose: .straightAlbedo)
+        let defaultResource = readyStatus(
+            device, identity: .asset(assetID), purpose: .straightAlbedo,
+            content: .color(.resolved(.straightAlpha))
+        )
+        let graphPublication = publication(
+            device, requestIdentity: .graph(input),
+            candidateIdentity: .provider(.graph(
+                allocationGeneration: 1, physicalToken: "self-\(variant)"
+            ))
+        )
+        let graphReady = SceneFrameTextureLookupStatus.ready(.init(
+            publication: graphPublication, resourceGeneration: 1
+        ))
+        func named(
+            _ id: Int, _ member: SceneNamedTextureReference.Variant = .secondary
+        ) -> Template.TextureCandidate {
+            .init(reference: .provider(.namedLayerTarget(.init(
+                providerLayerID: id, variant: member
+            ))), provenance: .instance)
+        }
+        func observe(
+            _ name: String, _ candidates: [Template.TextureCandidate]?,
+            binding: Graph.TextureIdentity? = nil, prepared: Bool = true
+        ) {
+            let shader = contract(
+                revision: "self-\(variant)-\(name)", uniformMetadata: nil, semanticProbes: false,
+                vertexSourceOverride: """
+                attribute vec3 a_Position;
+                attribute vec2 a_TexCoord;
+                varying vec2 \(coordinates);
+                void main() {
+                    \(coordinates) = a_TexCoord;
+                    gl_Position = vec4(a_Position, 1.0);
+                }
+                """,
+                fragmentSourceOverride: """
+                varying vec2 \(coordinates);
+                uniform sampler2D g_Texture0; // {"default":"\(asset)","material":"albedo"}
+                void main() {
+                    vec4 color\(variant) = \(sampling)(g_Texture0, (\(coordinates).xy));
+                    gl_FragColor = color\(variant);
+                }
+                """)
+            var slots = Array<Template.TextureSlot?>(repeating: nil, count: 8)
+            if let candidates { slots[0] = .init(index: 0, candidates: candidates) }
+            let value = template(shader, includePrimaryCandidate: false,
+                graphBindingsOverride: binding == nil ? [] : [.init(slot: 0, texture: .layerSource)],
+                textureSlotsOverride: slots, effectContext: .init(key: owner, input: input))
+            let prefix = "self-\(variant):\(name)"
+            guard case let .success(cache) = SceneResolvedMaterialVariantCache.launchValidated(
+                template: value, maximumVariantCount: 8
+            ) else { result[prefix + ":source"] = "launch-failed"; return }
+            if prepared {
+                guard case .success = cache.precompileLaunchEnvelope(
+                    implicitFramebufferIdentity: input,
+                    graphTextureContentFacts: [input: .color(.resolved(.premultipliedAlpha))],
+                    assetStates: [assetID: .ready(.color(.resolved(.straightAlpha)))]
+                ) else { result[prefix + ":source"] = "prepare-failed"; return }
+            }
+            let effect = Graph.Effect(
+                key: owner, definitionPath: "effects/self-\(variant).json",
+                input: input, output: output, nodeIndices: [0]
+            )
+            let bindings: [Graph.Binding] = binding.map {
+                [.init(slot: 0, authoredName: "previous", texture: $0, conditions: nil)]
+            } ?? []
+            let node = Graph.Node(
+                nodeIndex: 0, effect: owner, definitionPassIndex: 0, materialOrdinal: 0,
+                instancePassIndex: 0, kind: .material, materialPath: "materials/self-\(variant).json",
+                materialPassID: "0", target: output, bindings: bindings,
+                commandSource: nil, commandTarget: nil, compose: nil, conditions: nil
+            )
+            result[prefix + ":source"] = cache.capturedMainTargetSourceSlot(
+                node: node, effect: effect
+            ).map(String.init) ?? "none"
+            result[prefix + ":internal"] = String(cache.supportsCapturedMainTargetInternalProgram(
+                node: node, effect: effect
+            ))
+            guard name == "override" || name == "default" else { return }
+            for (statusName, status) in [("ready", graphReady), ("pending", .pending),
+                ("incomplete", .incomplete(.publication(graphPublication, resourceGeneration: 2)))] {
+                if name == "default" && statusName != "ready" { continue }
+                guard case let .success(frame) = SceneResolvedMaterialFrameSnapshot.validated(
+                    textureSnapshot: snapshot(device, kind: .missing, additionalEntries: [
+                        .graph(input): status, .asset(assetID): defaultResource
+                    ]),
+                    dynamicSnapshot: dynamicSnapshot(frameIndex: 1, source: nil),
+                    frameInputs: frameInputs(frameIndex: 1)
+                ) else { result[prefix + ":" + statusName] = "frame-failed"; continue }
+                let finalized = SceneResolvedMaterialProgramFinalizer.finalize(
+                    frame.finalizationInput(
+                        template: value, layerID: layerID, renderSize: CGSize(width: 640, height: 360),
+                        modelViewProjection: matrix_identity_float4x4, layerModelMatrix: layerModelMatrix,
+                        effectOutputModelViewProjection: effectOutputModelViewProjection,
+                        effectTextureProjectionMatrixInverse: effectProjectionInverse,
+                        implicitFramebufferIdentity: input
+                    ), variantCache: cache
+                )
+                var token = failureToken(finalized)
+                if case let .success(program) = finalized, let slot = program.textureSlots[0] {
+                    if name == "default" {
+                        token = slot.reference == .asset(path) && slot.registryIdentity == .asset(assetID)
+                            && slot.graphInputSourceFact == nil
+                            && slot.diagnosticSelectionProvenance == .shaderDefault
+                            ? "asset-default" : "binding-mismatch"
+                    } else if let fact = slot.graphInputSourceFact {
+                        token = slot.reference == .graph(input) && slot.registryIdentity == .graph(input)
+                            && fact.slot == 0 && fact.inputIdentity == input
+                            && fact.provenance == .sameLayerCompositeDefault
+                            && slot.diagnosticSelectionProvenance == .authored(.instance)
+                            && fact.selectionProvenance == .authored(.instance)
+                            && program.semanticIdentity.textureSlots[0]?.graphInputSource == fact
+                            && program.exactIdentity.textureSlots[0]?.graphInputSource == fact
+                            ? "graph-ingress" : "binding-mismatch"
+                    } else { token = "fact-missing" }
+                }
+                result[prefix + ":" + statusName] = token
+            }
+        }
+        observe("override", [named(layerID)])
+        observe("default", nil)
+        guard variant == "original" else { continue }
+        observe("chain", [named(layerID, .primary), named(layerID)])
+        observe("foreign", [named(layerID + 1)])
+        observe("mixed-foreign", [named(layerID + 1), named(layerID)])
+        observe("mixed-asset", [.init(reference: .asset(path), provenance: .material), named(layerID)])
+        observe("previous", [.init(reference: .graph(input), provenance: .explicitBinding)], binding: input)
+        observe("conflict", [named(layerID)], binding: .init(kind: .layerSource, layerID: layerID + 1, effect: nil, name: nil))
+        observe("unprepared", [named(layerID)], prepared: false)
+    }
+    return result
 }
 
 func capturedMainInternalTerminalTokens() -> [String: Bool] {

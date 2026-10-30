@@ -33,8 +33,8 @@
       "bytes": 116594
     },
     "docs/development/code-slimming-program.md": {
-      "lines": 459,
-      "bytes": 102712
+      "lines": 461,
+      "bytes": 103879
     },
     "docs/development/repository-workflow.md": {
       "lines": 100,
@@ -150,15 +150,15 @@
     },
     "docs/scene/capabilities/runtime-evidence-current.md": {
       "lines": 600,
-      "bytes": 220360
+      "bytes": 220515
     },
     "docs/scene/capabilities/runtime-input-property-coverage.md": {
       "lines": 600,
       "bytes": 203940
     },
     "docs/scene/capabilities/sampler-alias-precedence.md": {
-      "lines": 13,
-      "bytes": 2480
+      "lines": 16,
+      "bytes": 3393
     },
     "docs/scene/capabilities/scalar-mask-data-purpose.md": {
       "lines": 17,
@@ -194,7 +194,7 @@
     },
     "docs/scene/development/corpus-diagnostic-workflow.md": {
       "lines": 111,
-      "bytes": 15301
+      "bytes": 15460
     },
     "docs/scene/development/development-workflow.md": {
       "lines": 78,
@@ -278,7 +278,7 @@
     },
     "docs/scene/roadmap/scene-open-breakpoint-queue.md": {
       "lines": 177,
-      "bytes": 38427
+      "bytes": 38491
     },
     "docs/web/cold-descriptor-parse-offload-design.md": {
       "lines": 30,
@@ -1751,11 +1751,11 @@
     {
       "section": "bodies",
       "path": "docs/scene/capabilities/runtime-evidence-current.md",
-      "before": "5269616b8ee27391f921615999526c99f6b185c13ae3424b373ecb7652acbc17",
-      "after": "6fcfd56607ba24f0c43689890c79ad04f2926c884990687b8e2813bf4b1555d2",
-      "owner": "scene-sort-topology-only",
-      "reason": "Record the existing topology journal as the only order owner, retire redundant property dirty/empty DTO and closed native callback failures, and correct passthrough qualification against the existing D1 boundary. Preserve old visual verdicts and measurement limits.",
-      "decision": "docs/scene/capabilities/scenescript-api-coverage.md"
+      "before": "662fb1e3cd2fbad53fe1ca2753f9c2b2d3f92c91166b51084a565c0aa17ba179",
+      "after": "a58549aa7755e913f9aadcd80262f3da04a2184a4bf3af65ec0a0acf44a16b83",
+      "owner": "scene-engine-maintainer",
+      "reason": "原owner承接已证明self ingress并删除idle default复验；同步有界运行后验、开场时机规则及唯一未闭队列，不新增产品链路。",
+      "decision": "docs/scene/capabilities/sampler-alias-precedence.md#captured-main-self-override"
     },
     {
       "section": "bodies",
@@ -1841,20 +1841,20 @@
     {
       "section": "bodies",
       "path": "docs/scene/roadmap/scene-open-breakpoint-queue.md",
-      "before": "8d2913bc89a111eed8502dda867c85dac3b6eab2717c78014a109d5ee23ae5aa",
-      "after": "56fd5ec1ea657c9eeb3816244c694e2958fc62973404a0245b49f23514a8267d",
-      "owner": "scene-video-residency-research",
-      "reason": "唯一待修行同步已完成单源物理寿命实验的停止边界，防止重试同一未资格路径或误记性能收益；原数和过程归已有历史，不新增文档。",
-      "decision": "docs/scene/history/video-instance-observations-2026-10-29.md#video-item-stop-boundary-20261030"
+      "before": "57d50e4b70c9fdf06176ab0fe73f8ad133ad8e8d63543e7cc17095f56b8f4ffc",
+      "after": "9b24492dbd315940a240f39571e5ed7f104079bec304257d3ee5fff111a8b91f",
+      "owner": "scene-engine-maintainer",
+      "reason": "原owner承接已证明self ingress并删除idle default复验；同步有界运行后验、开场时机规则及唯一未闭队列，不新增产品链路。",
+      "decision": "docs/scene/capabilities/sampler-alias-precedence.md#captured-main-self-override"
     },
     {
       "section": "bodies",
       "path": "docs/scene/development/corpus-diagnostic-workflow.md",
-      "before": "18c632e5cf730c20341687612ec8b418e83ea7fe226fd658a7182c7dd733e5cd",
-      "after": "4c10958a4a1f504236f0c8a8acaa60cd58557e80c23c7699e8365ae79b3ff046",
-      "owner": "scene-corpus-diagnostic",
-      "reason": "同一运行观察合同明确成功promotion通知不作错误也不授执行资格，原失败与dormant门保持；正文同步简化，修复两批真实误报而不新增产品链或文档。",
-      "decision": "docs/scene/development/corpus-diagnostic-workflow.md#log-first-corpus-audit"
+      "before": "4c10958a4a1f504236f0c8a8acaa60cd58557e80c23c7699e8365ae79b3ff046",
+      "after": "9f980a2857c8c0fa6171de5c668ba9468aec857476726591b8babad8a440f854",
+      "owner": "scene-engine-maintainer",
+      "reason": "原owner承接已证明self ingress并删除idle default复验；同步有界运行后验、开场时机规则及唯一未闭队列，不新增产品链路。",
+      "decision": "docs/scene/capabilities/sampler-alias-precedence.md#captured-main-self-override"
     },
     {
       "section": "bodies",
@@ -1867,11 +1867,20 @@
     },
     {
       "section": "bodies",
+      "path": "docs/scene/capabilities/sampler-alias-precedence.md",
+      "before": "b1da23cbc44deb4de495fe63c274fc703a3033aebb1073bca4eca887c9c39df5",
+      "after": "9c035b195d24073a98436c93b1cc7160f421699108e5b6e2675a977d70758425",
+      "owner": "scene-engine-maintainer",
+      "reason": "原owner承接已证明self ingress并删除idle default复验；同步有界运行后验、开场时机规则及唯一未闭队列，不新增产品链路。",
+      "decision": "docs/scene/capabilities/sampler-alias-precedence.md#captured-main-self-override"
+    },
+    {
+      "section": "bodies",
       "path": "docs/development/code-slimming-program.md",
-      "before": "eb604f338df3d2c9ec91f8e12f04b8c62f4fd9c502113d76bb1edb5951b1a2a3",
-      "after": "0b53a9338d8c9243eda0fe320e4be6b480f2fbca6baab4d0e7e4169bb29c411b",
+      "before": "0b53a9338d8c9243eda0fe320e4be6b480f2fbca6baab4d0e7e4169bb29c411b",
+      "after": "5fd8b81a5dc01f33d99c795879179f206eed7cb0682a82e2f289fec9dcf6b0cf",
       "owner": "repository-maintainer",
-      "reason": "在既有专项补R3当次预览和相同需求的复用证据、成本取舍与旧UI未定失败边界；沿用同一owner/台账并列出下轮既有候选。",
+      "reason": "在同一专项补R4实际Combine/SQLite与冷依赖图验证、标准容器取舍及未覆盖边界，复用原owner和状态记录，不增加平行报告。",
       "decision": "docs/development/code-slimming-program.md#目标与边界"
     }
   ]

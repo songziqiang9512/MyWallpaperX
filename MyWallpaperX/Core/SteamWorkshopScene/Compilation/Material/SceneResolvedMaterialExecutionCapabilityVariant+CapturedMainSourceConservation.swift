@@ -122,16 +122,11 @@ extension SceneResolvedMaterialVariantCache {
                         let sampler = variant.activeSamplers[slot] else {
                       return false
                   }
-                  // An exact explicit previous binding owns this input even
-                  // with an idle default. Otherwise only the same-layer
-                  // composite default may name this ingress.
+                  // Explicit previous bindings and proven self-composite
+                  // candidates own ingress ahead of an idle shader default.
                   return sampler.mode == .regular
                       && (slot == explicitSourceSlot || sampler.defaultTexture == nil
-                          || (fact.provenance == .sameLayerCompositeDefault
-                              && isSameLayerCompositeDefault(
-                                  sampler.defaultTexture,
-                                  layerID: effect.key.layerID
-                              )))
+                          || fact.provenance == .sameLayerCompositeDefault)
               }) else { return nil }
         let activeBindings = node.bindings.filter { binding in
             guard let slot = binding.slot else { return false }
@@ -174,12 +169,7 @@ extension SceneResolvedMaterialVariantCache {
             return activeSourceBinding == nil ? .internalFramebufferOnly : nil
         }
         guard let sourceSampler = variant.activeSamplers[sourceSlot],
-              sourceSampler.mode == .regular,
-              sourceSlot == explicitSourceSlot || sourceSampler.defaultTexture == nil
-                  || isSameLayerCompositeDefault(
-                      sourceSampler.defaultTexture,
-                      layerID: effect.key.layerID
-                  ) else { return nil }
+              sourceSampler.mode == .regular else { return nil }
         if let activeSourceBinding {
             guard activeSourceBinding.slot == sourceSlot,
                   explicitSourceSlot == sourceSlot else { return nil }
@@ -284,20 +274,6 @@ extension SceneResolvedMaterialVariantCache {
             && identity.layerID == effect.layerID
             && identity.effect == effect
             && identity.name?.isEmpty == false
-    }
-
-    /// True when the default texture names the consuming layer's own
-    /// composite target (`_rt_imageLayerComposite_<self>_{a,b}`).
-    private func isSameLayerCompositeDefault(
-        _ defaultTexture: SceneResolvedMaterialShaderSchema.DefaultTexture?,
-        layerID: Int
-    ) -> Bool {
-        guard case let .internalTarget(name)? = defaultTexture,
-              case let .namedLayerTarget(reference) = name.admission,
-              reference.providerLayerID == layerID else {
-            return false
-        }
-        return true
     }
 
 }

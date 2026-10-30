@@ -3,7 +3,7 @@
 
 > 按需证据库：先读[当前快照](#current-snapshot)与[证据深度](#evidence-levels)。Scene/Web启动专项已结算，不再另排启动队列；D36至D40产品结果、原失败/成本STOP及未覆盖边界统一查[完成记录](../../history/cross-topic/wallpaper-startup-optimization-completed-2026-10-25.md)，稳定职责归[启动合同](../architecture/scene-launch-responsiveness-contract.md)。
 >
-> <a id="corpus-log-audit-20261029"></a>全样本短窗日志筛查见[固定记录](../history/corpus-log-audit-2026-10-29.md)，不含像素或性能裁决。[源码准备后验](../history/open-breakpoint-reconciliation-2026-10-23.md#known-vector-return-20261030)记录宏/向量return；[模型半球光后验](../history/model-view-tint-2026-10-28.md#hemisphere-basis-20261030)记录canvas宽夜区修复。原373报告保留，不授整景parity或性能。本页回答输入/身份与证据深度；顺序和等级分别归[路线](../roadmap/scene-compatibility-roadmap.md)与[台账](coverage-ledger.md#current-overview)。
+> <a id="corpus-log-audit-20261029"></a>全样本短窗日志筛查见[固定记录](../history/corpus-log-audit-2026-10-29.md)，不含像素或性能裁决。[源码准备后验](../history/open-breakpoint-reconciliation-2026-10-23.md#known-vector-return-20261030)记录宏/向量return；[模型半球光后验](../history/model-view-tint-2026-10-28.md#hemisphere-basis-20261030)记录canvas宽夜区修复；[self输入后验](../history/corpus-log-audit-2026-10-29.md#self-source-override-20261030)记录闲置default重复拒绝的退出与开场时机纠正。原373报告保留，不授整景parity或性能。本页回答输入/身份与证据深度；顺序和等级分别归[路线](../roadmap/scene-compatibility-roadmap.md)与[台账](coverage-ledger.md#current-overview)。
 <a id="local-evidence-availability"></a>
 
 > **本机证据可用性（2026-10-20核对）**：用户已清理大量旧缓存。旧段落中的本机路径、App/DerivedData保留和“当前”只描述该段的执行日期，不承诺载荷现在仍存在；缺失路径不能当作可复验的截图、日志或当前HEAD证据。历史有界结论保留，不能据缓存消失重开已修反馈或改写原人工裁决。

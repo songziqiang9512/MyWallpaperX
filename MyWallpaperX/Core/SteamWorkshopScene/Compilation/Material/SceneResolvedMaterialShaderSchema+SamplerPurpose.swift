@@ -376,8 +376,8 @@ extension SceneResolvedMaterialShaderSchema {
                     template.textureSlots[slot],
                     inputIdentity: inputIdentity
                 )) {
-                // Both authored self variants consume this exact effect
-                // ingress, including the previous effect's current output.
+                // These effective candidates consume the exact ingress,
+                // including a previous effect's output, ahead of idle defaults.
                 provenance = .sameLayerCompositeDefault
             } else {
                 provenance = nil

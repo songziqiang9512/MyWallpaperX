@@ -81,7 +81,7 @@ launch失败/取消或closing后不请求新截图。该时间只约束DEBUG请�
 
 **唯一链与范围。** `census → scene_wallpaper_benchmark/run_sample → scene_diagnostic_report → scene_sample_debug_archive`。仅在原入口增加显式`--log-only`及有界`--jobs`，不另写一套发现、启动、解析、渲染或队列。DEBUG runner保原launch、typed更新、Metal提交、停止及after时刻粒子报告，只停PNG请求；Python日志模式不打开/计算PNG、预览或运动指标，报告明确`not-requested`。现视觉模式和性能模式的图片断言、缺图失败及串行条件保持；日志模式必须保留execution observations。SceneScript动态负layer ID错误与正ID同样归一，不得漏掉后误称未触发。
 
-**阶段证据。** 逐能力保存`declared / prepared / executed / failed / not-triggered / unknown`，分别由现parser、Program/graph、provider和实际encode/完成支撑，prepared或总帧非零不能代目标执行。无事件先核触发/观测，隐藏、alpha0、离屏、延迟、缺输入或退休不算可见失败。`scene-color-completed`是唯一producer在GPU成功promote后发出的通知，原日志parser不将其归错误，也不给terminal/GPU/publication补证；未知、畸形与显式失败保原错误链，dormant成员仍须原完整图门。日志健康只归所跑条件，不授像素、官方或全属性通过。
+**阶段证据。** 逐能力保存`declared / prepared / executed / failed / not-triggered / unknown`，分别由现parser、Program/graph、provider和实际encode/完成支撑，prepared或总帧非零不能代目标执行。无事件先核触发/观测，隐藏、alpha0、离屏、延迟、缺输入或退休不算可见失败。开场和切换过渡不作正式效果；先核作者时序与实际scene时钟越过过渡，再在同输入/阶段比较，只有相关代表延长观察。`scene-color-completed`是唯一producer在GPU成功promote后发出的通知，原日志parser不将其归错误，也不给terminal/GPU/publication补证；未知、畸形与显式失败保原错误链，dormant成员仍须原完整图门。日志健康只归所跑条件，不授像素、官方或全属性通过。
 
 **批次与并发。** 使用现有`scene_diagnostic_build.xcconfig`的优化DEBUG构建筛查，保完整App身份（普通Debug含主体dylib），只stage一次。未优化Debug的shader源码分析会放大冷准备时间，不能把它的超时直接记成缺能力；改profile时只补未决项并分别记录身份，不混作性能对照。每样本独立输入副本、HOME、TMPDIR、日志与进程；只给worker自己的子进程/目录执行退出清理，全部worker结束后再清公共stage。先小批确认隔离、实际GPU完成和回收，再按设备内存/GPU余量提升并发；普通样本ready后约4秒（允许3–5秒），冷准备有单独超时。长时/延迟/定时行为只对相关代表延长，未触发分支先留未覆盖，不给每个样本几十秒。普通日志诊断可并行；正式性能、真实系统音频/全局媒体与真实鼠标对照仍串行协调，不能从争用数据认性能收益。标准PCM与受控鼠标输入如使用须写入条件，禁止触发作者外部快捷操作。
 
