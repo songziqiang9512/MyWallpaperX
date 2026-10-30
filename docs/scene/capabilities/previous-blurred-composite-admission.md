@@ -12,6 +12,9 @@
 
 **失败与退出：** 资源身份/hazard/ABI/producer 失败拒绝最小不安全 stage；普通编译或可选视觉失败沿已有 typed passthrough。无 profile、旧 owner 或 fallback 变更；不得因为路径改名恢复 dedicated owner。现四 pass cohort 与 source analyzer 有界形状属迁移偏差，集中登记于[兼容例外](../development/development-workflow.md#compatibility-exceptions)，由更宽 Program 证明及真实正反验收替换。
 
+<a id="previous-input-shadow"></a>
+**显式 previous 的旧来源遮蔽（2026-10-30）：** 末位显式 `previous → effect.input` graph binding 拥有该槽，低优先级同层 named candidate 只保留作者来源。紧邻前序 effectOutput 可遮蔽 primary 或 secondary 引用；layerSource 仍只接受 primary。此规则不把 named target 变体解释成前序输出，也不创建其 publication。原 `ExactPreviousInputShadow` 同时服务依赖资格、合成和 captured-main；保留同层、无名、紧邻 producer、唯一 effect/pass/slot/previous binding、单一 instance 来源限制。foreign、unspecified、非紧邻或歧义来源不扩大。启动和帧选择继续只取显式 graph；其 absent/pending/unavailable/incomplete 沿原失败链，不能回退采样旧 named candidate。验收使用真实 Eligibility、资源选择失败反例及原包 GPU/合成；完整官方像素一致性另验。
+
 **验收与停止：** 自有输入复现旧数值与改名拒绝，改动后验证变量/资源改名、等价表达式、Float 溢出、不同 pass 值、错误 binding/target/state 与未证动态 producer；须检查 actual compiler→GPU 像素及两个连续 frame。另用未参与修法的真实样本验画面，实际主样本两段运行及末合成；路由命中/非黑/构建不等于视觉完成。二级拒绝另按最早 owner 处理，不修改私有算法；无可見收益不能宣布本批兼容闭合。
 
 **2026-10-19 有界后验：** 原GraphAdmission仅将下界`.01→0`；11方法准入门与四个自有真实App/GPU模式门通过，负值/Float非法、两pass同源与原shape/state/producer/资源证明保持。原360由整段拒绝转四Program/GPU执行，但目标细条被后画UI大幅覆盖且camera阶段不同，未辨独立视觉收益；只闭旧数值首拒，不认完整Standard Blur或整图闭合。未参与修法的213原包短窗主体可见、after-only边界保留，详见[零轴后继](../history/previous-blurred-composite-admission-2026-10-12.md#zero-axis-followup-20261019)。

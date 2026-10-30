@@ -45,7 +45,7 @@
     },
     {
       "name": "matchingClose",
-      "allowedCopies": 13,
+      "allowedCopies": 12,
       "canonical": "Compilation/ShaderFrontend/SceneAuthoredShaderSyntax.swift",
       "note": "Source-token scanner copy; the family merge picks the shared home.",
       "owner": "Compilation/ShaderFrontend family merge",
@@ -61,7 +61,7 @@
     },
     {
       "name": "argumentRanges",
-      "allowedCopies": 4,
+      "allowedCopies": 3,
       "canonical": "Compilation/ShaderFrontend/SceneAuthoredShaderSyntax.swift",
       "note": "Source-token scanner copy; the family merge picks the shared home.",
       "owner": "Compilation/ShaderFrontend family merge",

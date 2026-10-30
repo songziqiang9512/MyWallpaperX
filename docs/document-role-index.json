@@ -968,13 +968,13 @@
       "role": "stable-contract",
       "entrypoint": "docs/scene/capabilities/render-graph-shader-coverage.md",
       "currentStateAuthority": "docs/scene/capabilities/render-graph-shader-coverage.md",
-      "lastReviewed": "2026-10-19",
+      "lastReviewed": "2026-10-30",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "7a49fdea28488dde9481c0363ec0e4ebc680e5f835eb8919460896cfd7873a9b",
+        "sourceSHA256": "87660dc7d6ab04db397afa556a9fabd43a4dc7fb22139d0d42f21f1737307267",
         "method": "document_registry --audit + document_health --check",
-        "scope": "Bind the original GraphAdmission zero-axis sampling decision to bounded admission/GPU results and real-sample limits; retain source, state, producer and resource proofs.",
-        "limitations": "Navigation and source identities only; no whole-sample or official-phase parity, measured blur visual gain, complete lighting/flicker closure, performance benefit or replay-crash cause claim."
+        "scope": "同层named旧来源被唯一explicit previous graph binding遮蔽；captured-main仍受layerSource前置条件约束。",
+        "limitations": "仅新增primary/immediate effectOutput准入；不等价named变体，不支持原整景官方parity、全部Blur、HDR/多屏或性能结论。"
       }
     },
     {
@@ -1013,9 +1013,9 @@
       "lastReviewed": "2026-10-30",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "a40423babd6a0a4e3ece2049c30ff330aa835f7d5946e50a7ee72f1d2a2bd890",
+        "sourceSHA256": "bb041f2e8361bc4585448a90033235e3d0375600dacefd32d1297859ad1e8a8f",
         "method": "document_registry --audit + document_health --check",
-        "scope": "复用原采样primitive的LOD组件事实；289 Program/GPU恢复、自有静态on/off因果图证及独立335渲染，队列仅退出该首门。",
+        "scope": "仅同步previous shadow有界后验链接；实际Eligibility/GPU/静态图证及未验范围归链接历史，本登记仅复核导航。",
         "limitations": "原289跨启动像素受相位影响；off rejected计数按inactive语义保留。未额外验磁盘暖重放、HDR/多屏、官方整景parity或性能。"
       }
     },
@@ -1541,7 +1541,7 @@
       "role": "historical-evidence",
       "entrypoint": "docs/scene/history/README.md",
       "cutoffDate": "2026-10-30",
-      "uniqueValue": "453+38+31日志诊断及来源/LOD通道后验；正式时窗、静态启停图证、独立样本与明确未验边界。",
+      "uniqueValue": "453+38+31日志诊断与来源、LOD和previous遮蔽后验；正式时窗、静态因果图证、独立样本与未验边界。",
       "commandPolicy": "historical-only",
       "currentAuthorities": [
         "docs/scene/development/corpus-diagnostic-workflow.md",

@@ -15,17 +15,14 @@ nonisolated enum SceneResolvedMaterialExactPreviousInputShadow {
         guard reference.providerLayerID == input.layerID,
               input.layerID == consumer.layerID,
               input.name == nil else { return false }
-        switch reference.variant {
-        case .unspecified:
-            return false
-        case .primary:
-            return input.kind == .layerSource && input.effect == nil
-        case .secondary:
-            guard input.kind == .effectOutput,
-                  let producer = input.effect else { return false }
-            return producer.layerID == consumer.layerID
-                && producer.effectIndex + 1 == consumer.effectIndex
+        guard reference.variant != .unspecified else { return false }
+        if input.kind == .layerSource {
+            return reference.variant == .primary && input.effect == nil
         }
+        guard input.kind == .effectOutput,
+              let producer = input.effect else { return false }
+        return producer.layerID == consumer.layerID
+            && producer.effectIndex + 1 == consumer.effectIndex
     }
 }
 

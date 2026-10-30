@@ -128,3 +128,17 @@
 未参与修法的3355587815原包短窗strict PASS，root亲看人物/背景与白色框形保留，实际Program/GPU及退出正常；不由非黑或加载数授整景通过。variant/demand key已有build producer语义identity，generator覆盖本次源码，未改持久字段、手工版本或新增运行时校验。跨进程磁盘暖重放、HDR/多屏、官方整景精确像素及性能未单独验；不报告性能收益。
 
 本批仅退出上述通道识别首门，原31份raw归档与人工裁决保持，其他前端/粒子/属性及日志问题继续留队列。必要输入、红绿/邻门、固定App身份、原包正式图与静态对照、独审归档 .artifacts/scene-evidence/runs/lod-channel-use-20261030/；临时HOME/副本与多余帧提取后清理，仅留连续构建缓存。
+
+
+<a id="previous-input-shadow-20261030"></a>
+## 显式previous遮蔽旧named来源后验（2026-10-30）
+
+2861017657的30层先waterflow107、后blur585；末combine槽2同时保存实例`_rt_imageLayerComposite_30_a`和显式`previous`图绑定。启动/普通帧已只选择后者，连graph absent也不回退named；原ExactPreviousInputShadow却仅允许primary遮蔽layerSource，误拒紧邻effectOutput，四pass整体降级。沿同一predicate让primary复用已有immediate producer条件，保primary layerSource、secondary限制、foreign/unspecified/非紧邻/歧义与唯一binding；产品净减3行，不改loader、shader数学、graph/history或输出owner，不将_a/_b解释成前序输出。captured-main外层仍先要求layerSource，未扩其资格。合同归[原准入设计](../capabilities/previous-blurred-composite-admission.md#previous-input-shadow)。
+
+两组层/效果/target改名的真实Eligibility测试在旧产品准确6项RED，原其余检查通过（50.197s）；同一922行fixture修后2方法通过（47.997s）。另跑原GraphExecutor原子GPU门1方法/112.492s及Finalizer的graph override unavailable、实际effect ingress与captured-main terminal三方法/91.133s通过，保原失败边界。Debug30.184s/严格签名通过，主体074db96b…f7d4、dylib714baa14…a163；构建输入无本批漂移。独立审查核对selection、launch和demand都不采样lower named。上批删除重复参数/括号解析后漏收紧的两项defense计数已由原工具从4→3、13→12锁定，未放宽关卡。
+
+原286同静音、Ready后3秒图/运行7秒：修前strict FAIL、blur四节点passthrough；候选strict PASS，blur四Program、两帧GPU完成且terminal compositor消费，前级waterflow保留。未参与修法的2866723317同候选strict PASS，亲看人物、红底和花枝完整。两例均exit0、surface1→0、GPU drained。官方目录参考已查看；原286两次雪粒/相机晃动相位不同，只认完整构图与执行恢复，不从整图差值推官方精确一致。
+
+另用自有9000000585单背景载体保留原30层、水流和blur/mask，水流速度0、相机晃动关闭、无其他对象；唯一loose场景入口、原PKG字节副本，原件只读。仅Bool热切blur visible，单次strict PASS。两ON原图逐像素相同，四OFF亦相同；同window31681/surface1，live accepted，ON四blur pass→OFF typed activation-passthrough，两状态均GPU/末合成/次帧成立。预登记32px边界内RGB梯度ON0.997532、OFF1.723259，亲看右侧背景雪点和建筑按原mask组合软化；这是效果贡献而非性能指标。OFF rejectedNodes4表示visibility-disabled跳过四作者节点，failure=-，不当编译或GPU失败。只证明原shader与mask整体在静态输入有可见贡献，不分别授mask算法、原整景像素、完整Blur或官方parity。
+
+本批只退出286上述首门，其他effect与视觉问题继续留唯一队列；全样本原raw归档、统计及人工verdict不改。必要身份、红绿/资源失败门、原包与静态图、独审归档`.artifacts/scene-evidence/runs/previous-input-shadow-20261030/`；临时副本/HOME/App与重复帧提取后清理，保一份连续构建缓存。未做Release、HDR/多屏、跨进程暖缓存或性能比较。

@@ -137,8 +137,8 @@
       "bytes": 164328
     },
     "docs/scene/capabilities/previous-blurred-composite-admission.md": {
-      "lines": 17,
-      "bytes": 4014
+      "lines": 20,
+      "bytes": 4950
     },
     "docs/scene/capabilities/puppet-clipping-design.md": {
       "lines": 45,
@@ -150,7 +150,7 @@
     },
     "docs/scene/capabilities/runtime-evidence-current.md": {
       "lines": 600,
-      "bytes": 220679
+      "bytes": 220670
     },
     "docs/scene/capabilities/runtime-input-property-coverage.md": {
       "lines": 600,
@@ -278,7 +278,7 @@
     },
     "docs/scene/roadmap/scene-open-breakpoint-queue.md": {
       "lines": 179,
-      "bytes": 40231
+      "bytes": 40193
     },
     "docs/web/cold-descriptor-parse-offload-design.md": {
       "lines": 30,
@@ -1891,6 +1891,15 @@
       "owner": "scene-engine-maintainer",
       "reason": "沿原采样/通道owner补已支持LOD的组件事实并退役重复解析；同步正式运行和有界因果图证，保协议局限及其他未闭问题。",
       "decision": "docs/scene/capabilities/scalar-mask-data-purpose.md#lod-channel-use"
+    },
+    {
+      "section": "bodies",
+      "path": "docs/scene/capabilities/previous-blurred-composite-admission.md",
+      "before": "fa17a1e9d415ae9ad367a8d3d951d987b79f51d47b2691c546ff98d7621634cb",
+      "after": "44444e596744c6f8f9049725dd72472d8d7df25db770b4c006b55c0f45ba6a68",
+      "owner": "scene-engine-maintainer",
+      "reason": "原owner修正显式previous对同层旧来源的遮蔽资格，保原资源失败边界并登记静态因果图证；无新运行路径。",
+      "decision": "docs/scene/capabilities/previous-blurred-composite-admission.md#previous-input-shadow"
     }
   ]
 }

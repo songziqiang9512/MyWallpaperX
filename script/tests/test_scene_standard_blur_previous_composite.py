@@ -176,6 +176,7 @@ private struct Output: Codable {
     let gaussianArrayRejected: Bool
     let missingGaussianDefaultRejected: Bool
     let unequalGaussianDefaultRejected: Bool
+    let previousInputShadowCases: [String: Bool]
 }
 
 private struct CompilerOutput: Codable {
@@ -293,14 +294,18 @@ private func template(
     declarations: [Template.UniformDeclaration] = [],
     ownerEligible: Bool = true,
     includeMask: Bool = false,
-    maskReference: Template.TextureReference? = nil
+    maskReference: Template.TextureReference? = nil,
+    input: Graph.TextureIdentity = previous,
+    consumer: Graph.EffectKey = effectKey,
+    blurTarget: Graph.TextureIdentity = blurred,
+    inputProvenance: [Template.TextureCandidate] = []
 ) -> Template {
     var slots = Array<Template.TextureSlot?>(repeating: nil, count: 8)
     slots[0] = .init(index: 0, candidates: [
-        .init(reference: .graph(blurred), provenance: .explicitBinding),
+        .init(reference: .graph(blurTarget), provenance: .explicitBinding),
     ])
-    slots[2] = .init(index: 2, candidates: [
-        .init(reference: .graph(previous), provenance: .explicitBinding),
+    slots[2] = .init(index: 2, candidates: inputProvenance + [
+        .init(reference: .graph(input), provenance: .explicitBinding),
     ])
     if includeMask {
         slots[1] = .init(index: 1, candidates: [
@@ -316,7 +321,7 @@ private func template(
         inheritedInactiveCombos: [],
         uniformDeclarations: declarations,
         previousBlurredCompositeGenericOwnerEligible: ownerEligible,
-        effectContext: .init(key: effectKey, input: previous),
+        effectContext: .init(key: consumer, input: input),
         shaderContract: contract
     )
 }
@@ -324,10 +329,14 @@ private func template(
 private func eligible(
     _ value: (SceneShaderContract, SceneShaderPreparedProgram)?,
     declarations: [Template.UniformDeclaration] = [],
-    identities: [Int: Graph.TextureIdentity] = [0: blurred, 2: previous],
+    identities: [Int: Graph.TextureIdentity]? = nil,
     ownerEligible: Bool = true,
     includeMask: Bool = false,
-    maskReference: Template.TextureReference? = nil
+    maskReference: Template.TextureReference? = nil,
+    input: Graph.TextureIdentity = previous,
+    consumer: Graph.EffectKey = effectKey,
+    blurTarget: Graph.TextureIdentity = blurred,
+    inputProvenance: [Template.TextureCandidate] = []
 ) -> Bool {
     guard let (contract, prepared) = value,
           let samplers = try? SceneResolvedMaterialShaderSchema.activeSamplers(prepared)
@@ -339,15 +348,99 @@ private func eligible(
         template: template(
             contract: contract, declarations: declarations,
             ownerEligible: ownerEligible, includeMask: includeMask,
-            maskReference: maskReference
+            maskReference: maskReference, input: input, consumer: consumer,
+            blurTarget: blurTarget, inputProvenance: inputProvenance
         ),
-        implicitFramebufferIdentity: previous,
-        activeGraphTextureIdentities: identities
+        implicitFramebufferIdentity: input,
+        activeGraphTextureIdentities: identities ?? [0: blurTarget, 2: input]
     ) == .init(
         blurred: 0,
         previous: 2,
         mask: includeMask ? 1 : nil
     )
+}
+
+private func previousInputShadowCases(
+    _ stock: (SceneShaderContract, SceneShaderPreparedProgram)?
+) -> [String: Bool] {
+    guard let (contract, _) = stock else { return ["prepared": false] }
+    var checks: [String: Bool] = [:]
+    for (layer, index, descriptor, target) in [
+        (721, 4, "unseen-structural-effect", "unseen-quarter-target"),
+        (938, 7, "renamed-composite", "renamed-half-target"),
+    ] {
+        let consumer = Graph.EffectKey(layerID: layer, effectIndex: index,
+                                       descriptorID: descriptor)
+        let producer = Graph.EffectKey(layerID: layer, effectIndex: index - 1,
+                                       descriptorID: "prior-" + descriptor)
+        let immediate = Graph.TextureIdentity(kind: .effectOutput, layerID: layer,
+                                               effect: producer, name: nil)
+        let source = Graph.TextureIdentity(kind: .layerSource, layerID: layer,
+                                            effect: nil, name: nil)
+        let blurTarget = Graph.TextureIdentity(kind: .framebuffer, layerID: layer,
+                                                effect: consumer, name: target)
+        func lower(
+            _ variant: SceneNamedTextureReference.Variant,
+            layerID: Int? = nil,
+            provenance: SceneResolvedMaterialNode.TextureProvenance = .instance
+        ) -> [Template.TextureCandidate] {
+            [.init(reference: .provider(.namedLayerTarget(.init(
+                providerLayerID: layerID ?? layer, variant: variant
+            ))), provenance: provenance)]
+        }
+        let earlier = Graph.EffectKey(layerID: layer, effectIndex: index - 2,
+                                      descriptorID: "earlier-" + descriptor)
+        let foreign = Graph.EffectKey(layerID: layer + 1, effectIndex: index - 1,
+                                      descriptorID: "foreign-" + descriptor)
+        let cases: [(String, Graph.TextureIdentity, [Template.TextureCandidate], Bool)] = [
+            ("immediate-no-shadow", immediate, [], true),
+            ("immediate-primary", immediate, lower(.primary), true),
+            ("immediate-secondary", immediate, lower(.secondary), true),
+            ("source-primary", source, lower(.primary), true),
+            ("source-secondary", source, lower(.secondary), false),
+            ("unspecified", immediate, lower(.unspecified), false),
+            ("foreign-reference", immediate, lower(.primary, layerID: layer + 1), false),
+            ("foreign-input", .init(kind: .effectOutput, layerID: layer + 1,
+                effect: producer, name: nil), lower(.primary), false),
+            ("foreign-producer", .init(kind: .effectOutput, layerID: layer,
+                effect: foreign, name: nil), lower(.primary), false),
+            ("nonimmediate", .init(kind: .effectOutput, layerID: layer,
+                effect: earlier, name: nil), lower(.primary), false),
+            ("named-input", .init(kind: .effectOutput, layerID: layer,
+                effect: producer, name: target), lower(.primary), false),
+            ("wrong-kind", .init(kind: .framebuffer, layerID: layer,
+                effect: producer, name: nil), lower(.primary), false),
+            ("missing-producer", .init(kind: .effectOutput, layerID: layer,
+                effect: nil, name: nil), lower(.primary), false),
+            ("source-with-producer", .init(kind: .layerSource, layerID: layer,
+                effect: producer, name: nil), lower(.primary), false),
+            ("multiple-lower", immediate, lower(.primary) + lower(.secondary), false),
+            ("noninstance-lower", immediate,
+                lower(.primary, provenance: .explicitBinding), false),
+            ("asset-lower", immediate,
+                [.init(reference: .asset(maskPath), provenance: .instance)], false),
+        ]
+        for (name, input, provenance, expected) in cases {
+            let label = "\(layer)/\(name)"
+            let candidate = template(contract: contract, input: input, consumer: consumer,
+                                     blurTarget: blurTarget, inputProvenance: provenance)
+            checks[label + "/override"] =
+                SceneResolvedMaterialPreviousBlurredCompositeEligibility.exactGraphOverride(
+                    slot: 2, identity: input, template: candidate,
+                    allowsNamedInputProvenance: true
+                ) == expected
+            checks[label + "/slots"] = eligible(
+                stock, input: input, consumer: consumer, blurTarget: blurTarget,
+                inputProvenance: provenance
+            ) == expected
+        }
+        checks["\(layer)/primary-predicate"] =
+            SceneResolvedMaterialExactPreviousInputShadow.accepts(
+                .init(providerLayerID: layer, variant: .primary),
+                input: immediate, consumer: consumer
+            )
+    }
+    return checks
 }
 
 @main
@@ -590,7 +683,8 @@ private struct Harness {
             missingGaussianDefaultRejected:
                 !gaussianScaleConsumerEligible(try prepareGaussian(roots[9])),
             unequalGaussianDefaultRejected:
-                !gaussianScaleConsumerEligible(try prepareGaussian(roots[10]))
+                !gaussianScaleConsumerEligible(try prepareGaussian(roots[10])),
+            previousInputShadowCases: previousInputShadowCases(stock)
         )
         FileHandle.standardOutput.write(try JSONEncoder().encode(output))
     }
@@ -755,6 +849,9 @@ class StandardBlurPreviousCompositeTests(unittest.TestCase):
             cwd=REPOSITORY_ROOT, capture_output=True, text=True,
         )
         output = json.loads(completed.stdout)
+        for case, passed in output.pop("previousInputShadowCases").items():
+            with self.subTest(shadow_case=case):
+                self.assertTrue(passed)
         self.assertTrue(all(output.values()), output)
 
     def compiler_output(
