@@ -54,6 +54,7 @@ class SceneShaderScalarRemainderTests(unittest.TestCase):
         if swiftc is None or not GLSLANG.is_file():
             raise unittest.SkipTest("Swift/Metal shader toolchain is unavailable")
         cls.directory = tempfile.TemporaryDirectory()
+        cls.cpu_compilations = []
         root = Path(cls.directory.name)
         harness = root / "ScalarRemainderHarness.swift"
         harness.write_text(HARNESS, encoding="utf-8")
@@ -112,6 +113,96 @@ class SceneShaderScalarRemainderTests(unittest.TestCase):
             if uniforms is not None:
                 arguments.append("--uniforms=" + ",".join(map(str, uniforms)))
             return json.loads(subprocess.check_output(arguments, text=True, timeout=30))
+
+    def compile_cpu(self, statement: str, declarations: str = "", *, succeeds: bool = True) -> str:
+        output = self.normalize(statement, declarations)
+        self.assertTrue(output["idempotent"])
+        with tempfile.TemporaryDirectory() as directory:
+            root = Path(directory)
+            vertex, fragment, spirv = root / "case.vert", root / "case.frag", root / "case.spv"
+            vertex.write_text(output["normalizedVertex"])
+            fragment.write_text(output["normalizedFragment"])
+            compiled = subprocess.run([
+                str(GLSLANG), "-V", "--auto-map-bindings", "--auto-map-locations", "-l",
+                "-g0", str(vertex), str(fragment), "-o", str(spirv),
+            ], capture_output=True, text=True, timeout=30)
+            record = {"method": self._testMethodName, "statement": statement,
+                      "declarations": declarations, "exitCode": compiled.returncode,
+                      "expectedSuccess": succeeds, "diagnostic": compiled.stdout + compiled.stderr,
+                      "canonicalFragment": output["canonicalFragment"]}
+            self.cpu_compilations.append(record)
+            proof = os.environ.get("MWX_SCALAR_REMAINDER_PROOF")
+            if proof:
+                evidence = Path(proof)
+                evidence.mkdir(parents=True, exist_ok=True)
+                (evidence / "compiler-cases.json").write_text(json.dumps(self.cpu_compilations, indent=2) + "\n")
+            self.assertEqual(compiled.returncode == 0, succeeds, record["diagnostic"])
+            if not succeeds:
+                return ""
+            return subprocess.check_output([
+                str(GLSLANG.with_name("spirv-cross")), str(spirv), "--msl",
+            ], text=True, timeout=30)
+
+    def test_compound_float_remainder_cpu_link_matches_binary_reference(self) -> None:
+        cases = [
+            ("float phase = -5.75; float period = 2.0; phase %= period;",
+             "float phase = -5.75; float period = 2.0; phase = phase % period;",
+             "gl_FragColor = vec4(phase, 0.0, 0.0, 1.0);", ""),
+            ("float distance = 14.5; float span = 4.0; float observed = (distance %= span * 2.0 + 1.0);",
+             "float distance = 14.5; float span = 4.0; float observed = (distance = distance % (span * 2.0 + 1.0));",
+             "gl_FragColor = vec4(distance, observed, 0.0, 1.0);", ""),
+            ("float value = 5.75; float observed = 2.0 * (value %= 4) + 1.0;",
+             "float value = 5.75; float observed = 2.0 * (value = value % 4) + 1.0;",
+             "gl_FragColor = vec4(value, observed, 0.0, 1.0);", ""),
+            ("float value = 14.5; float period = 5.0; value %= (period % 3.0) + 0.5;",
+             "float value = 14.5; float period = 5.0; value = value % ((period % 3.0) + 0.5);",
+             "gl_FragColor = vec4(value, 0.0, 0.0, 1.0);", ""),
+            ("float value = 5.75; value %= 2.0, value += 1.0;",
+             "float value = 5.75; value = value % 2.0, value += 1.0;",
+             "gl_FragColor = vec4(value, 0.0, 0.0, 1.0);", ""),
+            ("float wrap(float travel, float period) { return travel %= period + 1.0; }",
+             "float wrap(float travel, float period) { return (travel = travel % (period + 1.0)); }",
+             "gl_FragColor = vec4(wrap(5.75, 1.0), 0.0, 0.0, 1.0);", "helper"),
+            ("float signal = 0.0; for (float x = -radius; x <= radius; ++x) { signal += 1.0; } signal %= 2;",
+             "float signal = 0.0; for (float x = -radius; x <= radius; ++x) { signal += 1.0; } signal = signal % 2;",
+             "gl_FragColor = vec4(signal, 0.0, 0.0, 1.0);", "uniform float radius;"),
+        ]
+        for candidate, reference, output, declarations in cases:
+            with self.subTest(candidate=candidate):
+                if declarations == "helper":
+                    actual = self.compile_cpu(output, candidate)
+                    expected = self.compile_cpu(output, reference)
+                else:
+                    actual = self.compile_cpu(candidate + output, declarations)
+                    expected = self.compile_cpu(reference + output, declarations)
+                self.assertEqual(actual, expected)
+
+    def test_compound_remainder_cpu_keeps_unknown_integer_and_readonly_boundaries(self) -> None:
+        for statement in (
+            "missing %= 2.0;", "vec2 value = vec2(5.75); value %= 2.0;",
+            "float table[2]; int index = 0; table[index++] %= 2.0;",
+            "Payload value; value.phase %= 2.0;",
+            "float value = 5.75; { vec2 value = vec2(1.0); value %= 2.0; }",
+            "float value = 5.75; value %= ++value;",
+        ):
+            with self.subTest(statement=statement):
+                output = self.normalize(statement + "gl_FragColor = vec4(1.0);",
+                                        "struct Payload { float phase; };")
+                self.assertIn("%=", output["canonicalFragment"])
+                self.assertNotIn("mwxScalarRemainder", output["canonicalFragment"])
+        integer = "int signedValue = 19; uint unsignedValue = 19u; signedValue %= 6; unsignedValue %= 6u;"
+        output = self.normalize(integer + "gl_FragColor = vec4(float(signedValue), float(unsignedValue), 0.0, 1.0);")
+        self.assertNotIn("mwxScalarRemainder", output["canonicalFragment"])
+        self.compile_cpu(integer + "gl_FragColor = vec4(float(signedValue), float(unsignedValue), 0.0, 1.0);")
+        for statement, declarations in (
+            ("const float frozen = 5.75; frozen %= 2.0;", ""),
+            ("frozen %= 2.0;", "uniform float frozen;"),
+            ("int value = 9; value %= 2.0;", ""),
+            ("float a = 1.0; float x = 5.75; a + x %= 2;", ""),
+            ("float x = 5.75; -x %= 2;", ""),
+        ):
+            with self.subTest(statement=statement, declarations=declarations):
+                self.compile_cpu(statement + "gl_FragColor = vec4(1.0);", declarations, succeeds=False)
 
     def test_parenthesized_scalar_expression_remainder_renders(self) -> None:
         pixels = self.render(

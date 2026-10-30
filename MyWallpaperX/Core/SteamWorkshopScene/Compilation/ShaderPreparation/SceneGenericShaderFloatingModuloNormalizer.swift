@@ -7,6 +7,7 @@ nonisolated enum SceneGenericShaderFloatingModuloNormalizer {
     private struct Operation {
         let left: Range<Int>
         let right: Range<Int>
+        var isAssignment = false
         var range: Range<Int> { left.lowerBound..<right.upperBound }
     }
 
@@ -36,7 +37,7 @@ nonisolated enum SceneGenericShaderFloatingModuloNormalizer {
         }
         let scalarTypes: Set<SceneAuthoredShaderValueType> = [.float, .int, .uint]
         let operations = tokens.indices.compactMap { index -> Operation? in
-            guard tokens[index].text == "%",
+            guard ["%", "%="].contains(tokens[index].text),
                   let caller = unit.functions.first(where: { $0.bodyRange.contains(index) }),
                   let operands = operands(at: index, tokens: tokens),
                   caller.bodyRange.contains(operands.left.lowerBound),
@@ -56,7 +57,8 @@ nonisolated enum SceneGenericShaderFloatingModuloNormalizer {
             }
             guard expressions.count == 2,
                   expressions.allSatisfy({ scalarTypes.contains($0.type) && $0.conversions.isEmpty }),
-                  expressions.contains(where: { $0.type == .float }) else { return nil }
+                  expressions.contains(where: { $0.type == .float }),
+                  !operands.isAssignment || expressions[0].type == .float else { return nil }
             return operands
         }
         guard !operations.isEmpty else { return normalized }
@@ -108,8 +110,10 @@ nonisolated enum SceneGenericShaderFloatingModuloNormalizer {
             return text
         }
         for operation in operations.sorted(by: { $0.range.count < $1.range.count }) {
+            let left = render(operation.left)
+            let value = "\(helper)(float(\(left)), float(\(render(operation.right))))"
             replacements.append((operation.range,
-                "\(helper)(float(\(render(operation.left))), float(\(render(operation.right))))"))
+                operation.isAssignment ? "(\(left) = \(value))" : value))
         }
         var result = render(0..<tokens.count)
         // Keep leading directives/comments and trailing whitespace outside the
@@ -136,6 +140,25 @@ nonisolated enum SceneGenericShaderFloatingModuloNormalizer {
         at operation: Int, tokens: [SceneAuthoredShaderToken]
     ) -> Operation? {
         guard operation > 0, operation + 1 < tokens.count else { return nil }
+        if tokens[operation].text == "%=" {
+            // The target must begin at an expression boundary: taking only the
+            // last identifier could make an invalid `-x %= rhs` writable.
+            guard tokens[operation - 1].kind == .identifier,
+                  operation < 2 || [";", "{", "}", "(", ",", "=", "+=", "-=", "*=", "/=", "%=", "return"]
+                    .contains(tokens[operation - 2].text) else { return nil }
+            var upper = operation + 1
+            var depth = 0
+            while upper < tokens.count {
+                let text = tokens[upper].text
+                if depth == 0, [";", ",", ")", "]", "}"].contains(text) { break }
+                if ["(", "["].contains(text) { depth += 1 }
+                if [")", "]"].contains(text) { depth -= 1 }
+                upper += 1
+            }
+            guard depth == 0, upper > operation + 1 else { return nil }
+            return Operation(left: (operation - 1)..<operation,
+                right: (operation + 1)..<upper, isAssignment: true)
+        }
         let boundaries: Set<String> = [";", "{", "}", "=", "+=", "-=", "*=", "/=", "%=",
             ",", "?", ":", "&&", "||", "==", "!=", "<", ">", "<=", ">=", "&", "|", "^", "return"]
         var lower = operation, depth = 0

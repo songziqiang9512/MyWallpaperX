@@ -1551,9 +1551,9 @@
       "lastReviewed": "2026-10-31",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "17db2b4a294ff85963b7e094c3ac2f8152060e2e0ae6f1fc9b8a290871c9d0c4",
+        "sourceSHA256": "8305deb3e440bb63091e1a48de762c61ead9ce9fa6bd9e1e6bd204249bfd5da9",
         "method": "document_registry --audit + document_health --check",
-        "scope": "十包显式子集、opaque通道视频验收与rate/blend后继设计；同一事实按合同、队列和历史分责。",
+        "scope": "十包复核及compound remainder已证子门移历史，剩余视频/视觉和Puppet设计不混销。",
         "limitations": "只关闭已证子门；未认官方parity、整样本通过、direct输出或性能收益。"
       }
     },
@@ -4493,9 +4493,9 @@
       "lastReviewed": "2026-10-31",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "6c00d708d79ad91f854f16002350983f83deeeaa334b118fc42ff171af580e74",
+        "sourceSHA256": "a565c8295480f7dcfcfb60d62cba769879759df6f47cae81272b25343625466b",
         "method": "document_registry --audit + document_health --check",
-        "scope": "十包显式子集、opaque通道视频验收与rate/blend后继设计；同一事实按合同、队列和历史分责。",
+        "scope": "十包复核及compound remainder已证子门移历史，剩余视频/视觉和Puppet设计不混销。",
         "limitations": "只关闭已证子门；未认官方parity、整样本通过、direct输出或性能收益。"
       }
     },

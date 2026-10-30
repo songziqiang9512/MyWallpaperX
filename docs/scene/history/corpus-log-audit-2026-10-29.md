@@ -239,3 +239,13 @@ Debug基于de1d6dc99+唯一Runtime文件，30.314s/零漂移/签名0；App `f07a
 逐owner追踪得到三条通用能力首错：298 rgbmask视频合同、303 float复合余数、314动画层rate/blend曲线及零速准备；后继分别在所属合同/批次记录验收，不能把一项修复销掉十包。另335首次Source时长快照仍待实际原包定因：生成H264观察创建时duration0、首publication为3秒，只作机制线索，不替代335数值证据。所有用户视觉观察保待复核，音频、指针、过渡与截图时机分开。
 
 本机正式证据`.artifacts/scene-evidence/runs/user-priority-capabilities-20261031/`保原失败/完整日志、census/归一结果、App与输入身份及必要原图；不将日志七过、后继非黑或构建次数当画面一致率。全样本历史raw、统计双页和人工裁决本轮未重写。
+
+
+<a id="float-compound-remainder-20261031"></a>
+## float标量复合余数（2026-10-31）
+
+3034166869的两项strict失败同属13#283 Dot Matrix，原作者float变量执行`%=2`，现normalizer仅支持二元余数，bundledglslang拒const int→float后effect透传；152主体、39/86音条此前正常，不因本片重算其视觉算法。在原FloatingModuloNormalizer识别已证明float的bare可写标量，取完整RHS并保赋值表达式返回值，继续复用单次参数的原fmod helper；整数、成员/数组及未证明类型不扩。产品净增23行，无新parser、视觉算法、运行状态或GPU pass。
+
+CPU初轮五方法通过、18次真实stage-link，七组负值/优先级/返回/逗号/loop等与显式二元余数参考的SPIR-V→MSL相等。根审查发现`a+x%=2`、`-x%=2`原候选错误改成合法式，真实RED两项后收窄原LHS边界；最终受影响两方法34.193s、20次stage-link通过，非法LHS/const/uniform真实拒绝、整数与合法赋值保持。首轮工具不具备-Os失败保留，非产品RED；不新造优化器或以MSL文本相等冒充GPU像素。
+
+同PCM/7秒真实候选13#283在frame0/1实际material Program6b611…、GPU completed，经后续334透传进入末合成，修前无绿色点阵、修后背景点阵清楚可见；亲看与独立审查一致，完整候选strict PASS。独立381普通视频保持PASS，只作相邻未参与样本，不说它使用本新语义。最终Debug构建/签名通过，精确源码记录在同一正式包；未认303全部分支、官方parity、完整向量/复杂lvalue或性能收益。剩余视觉复核只归队列，不保留已关闭的Dot Matrix首错。

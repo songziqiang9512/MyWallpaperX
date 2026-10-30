@@ -277,8 +277,8 @@
       "bytes": 22465
     },
     "docs/scene/roadmap/scene-open-breakpoint-queue.md": {
-      "lines": 187,
-      "bytes": 43254
+      "lines": 188,
+      "bytes": 43582
     },
     "docs/web/cold-descriptor-parse-offload-design.md": {
       "lines": 30,
@@ -1922,11 +1922,11 @@
     {
       "section": "bodies",
       "path": "docs/scene/roadmap/scene-open-breakpoint-queue.md",
-      "before": "9d7694d3d80ff3dfb60b674e30fa8dd6b6f56ab1d30f6a44bcafb3b38fdad89b",
-      "after": "d99128d8b43b318d248d485e1e9d0a80bf05bb888701ed09d88011d57aca5071",
-      "owner": "scene-user-priority-capabilities",
-      "reason": "替换旧视频PMA-only边界、先记木偶参数曲线设计，并接纳用户十包待复核清单；只为真实通用能力及唯一队列新增必要合同，不复制历史验收。",
-      "decision": "docs/scene/history/corpus-log-audit-2026-10-29.md#user-priority-20261031"
+      "before": "d99128d8b43b318d248d485e1e9d0a80bf05bb888701ed09d88011d57aca5071",
+      "after": "f8736d2417b91687783901d86be1208c965d5c65baf7a96dfb41a00330e26b6f",
+      "owner": "scene-compound-remainder",
+      "reason": "退出已恢复的灰底/点阵首错，拆出298真实启动与alpha余项，保303其他分支及322疑似的证据边界。",
+      "decision": "docs/scene/history/corpus-log-audit-2026-10-29.md#float-compound-remainder-20261031"
     }
   ]
 }
