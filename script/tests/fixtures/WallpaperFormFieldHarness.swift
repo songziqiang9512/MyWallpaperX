@@ -108,6 +108,38 @@ import AppKit
         defer { host.close(); MainWindowCoordinator.host = nil }
         try await wait("real host never became active/key") { host.isKeyWindow && NSApp.isActive }
 
+        let longValue = String(repeating: "长元数据保持完整可复制", count: 12)
+        let metadata = WallpaperLibraryControlStyle.inspectorFacts([("格式", "MP4"), ("来源", longValue), ("创建时间", "2026-10-31")])
+        view.addSubview(metadata)
+        NSLayoutConstraint.activate([metadata.leadingAnchor.constraint(equalTo: view.leadingAnchor, constant: 20),
+            metadata.topAnchor.constraint(equalTo: view.topAnchor, constant: 20), metadata.widthAnchor.constraint(equalToConstant: 320)])
+        view.layoutSubtreeIfNeeded()
+        let rows = (metadata as! NSStackView).arrangedSubviews.compactMap { $0 as? NSStackView }
+        let fields = descendants(metadata, NSTextField.self)
+        let longText = fields.first { $0.stringValue == longValue }!
+        checks["shared-metadata-keeps-two-equal-columns-and-an-odd-final-cell"] = rows.count == 2
+            && rows.allSatisfy { $0.arrangedSubviews.count == 2 && abs($0.arrangedSubviews[0].bounds.width - $0.arrangedSubviews[1].bounds.width) < 1 }
+        checks["shared-metadata-wraps-without-truncating-or-disabling-copy"] = longText.maximumNumberOfLines == 0
+            && longText.isSelectable && longText.bounds.height > longText.font!.boundingRectForFont.height
+            && longText.alignmentRect(forFrame: longText.frame).width <= 154
+        metadata.removeFromSuperview()
+        let stateLabel = NSTextField(wrappingLabelWithString: "没有可显示的作品")
+        let stateView = WallpaperLibraryControlStyle.gridState(symbol: "square.grid.2x2", label: stateLabel)
+        view.addSubview(stateView)
+        NSLayoutConstraint.activate([stateView.centerXAnchor.constraint(equalTo: view.centerXAnchor), stateView.centerYAnchor.constraint(equalTo: view.centerYAnchor)])
+        view.layoutSubtreeIfNeeded()
+        let stateIcon = stateView.arrangedSubviews.first as! NSImageView
+        let iconPoint = stateIcon.convert(NSPoint(x: stateIcon.bounds.midX, y: stateIcon.bounds.midY), to: stateView.superview)
+        let labelPoint = stateLabel.convert(NSPoint(x: stateLabel.bounds.midX, y: stateLabel.bounds.midY), to: stateView.superview)
+        checks["shared-grid-state-keeps-centered-icon-and-text-without-consuming-grid-input"] = stateIcon.alignmentRect(forFrame: stateIcon.frame).size == NSSize(width: 44, height: 44)
+            && stateLabel.alignment == .center && stateView.frame.contains(iconPoint) && stateView.frame.contains(labelPoint)
+            && stateView.hitTest(iconPoint) == nil && stateView.hitTest(labelPoint) == nil
+        let retry = NSButton(title: "重试", target: nil, action: nil)
+        stateView.addArrangedSubview(retry); view.layoutSubtreeIfNeeded()
+        let retryPoint = retry.convert(NSPoint(x: retry.bounds.midX, y: retry.bounds.midY), to: stateView.superview)
+        checks["shared-grid-state-retains-native-action-hit-testing"] = stateView.hitTest(retryPoint) === retry
+        stateView.removeFromSuperview()
+
         // Stock NSAlert supplies the native Tab baseline for the same secure
         // input and button order; no full-keyboard-access preference is changed.
         let stockField = NSSecureTextField(frame: NSRect(x: 0, y: 0, width: 280, height: 24))
@@ -148,6 +180,10 @@ import AppKit
         action.performClick(nil)
         try await wait("original API-key dialog did not attach") { host.attachedSheet?.isKeyWindow == true }
         let panel = host.attachedSheet!
+        let panelButtons = descendants(panel.contentView!, NSButton.self)
+        checks["api-key-actions-share-native-glass-capsules-and-close-control"] = panelButtons.filter { !$0.title.isEmpty }.allSatisfy {
+            $0.bezelStyle == .glass && $0.borderShape == .capsule
+        } && panelButtons.contains { $0 is WallpaperPanelCloseButton && $0.alignmentRect(forFrame: $0.frame).size == NSSize(width: 32, height: 18) }
         let field = descendants(panel.contentView!, NSSecureTextField.self).first!
         try await wait("wrapped API-key editor was not the original initial responder") { field.currentEditor() != nil }
         let buttonKeys = descendants(panel.contentView!, NSButton.self).map {

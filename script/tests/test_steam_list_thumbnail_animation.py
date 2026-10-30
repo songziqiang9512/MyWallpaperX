@@ -28,6 +28,7 @@ CORE = ROOT / "MyWallpaperX/Modules/SteamWorkshop/Core"
 SHARED_UI = ROOT / "MyWallpaperX/Shared/UI"
 
 SOURCES = [
+    ROOT / "MyWallpaperX/Shared/Components/WallpaperLibraryControlStyle.swift",
     SHARED_UI / "DecodedThumbnailMemoryCache.swift",
     SHARED_UI / "GridThumbnailDecoder.swift",
     CORE / "SteamWorkshopPreviewSource.swift",

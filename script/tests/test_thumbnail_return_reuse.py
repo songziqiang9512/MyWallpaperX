@@ -44,7 +44,7 @@ class ThumbnailReturnReuseTests(unittest.TestCase):
 
             core = ROOT / "MyWallpaperX/Modules/SteamWorkshop/Core"
             shared = ROOT / "MyWallpaperX/Shared/UI"
-            sources = [shared / "GridThumbnailPrefetchDemand.swift", shared / "GridThumbnailDecoder.swift", shared / "DecodedThumbnailMemoryCache.swift", shared / "ThumbnailCache.swift",
+            sources = [ROOT / "MyWallpaperX/Shared/Components/WallpaperLibraryControlStyle.swift", shared / "GridThumbnailPrefetchDemand.swift", shared / "GridThumbnailDecoder.swift", shared / "DecodedThumbnailMemoryCache.swift", shared / "ThumbnailCache.swift",
                 ROOT / "MyWallpaperX/Shared/WallpaperNetworkSession.swift",
                 ROOT / "MyWallpaperX/Shared/UI/OnlineImageThumbnailPipeline.swift",
                 core / "SteamWorkshopModels.swift", core / "SteamWorkshopPreviewImageSupport.swift",

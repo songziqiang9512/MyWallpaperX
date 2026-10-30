@@ -1,7 +1,6 @@
 import AppKit
 import AVFoundation
 import Foundation
-import ObjectiveC
 import QuartzCore
 
 enum GridCardMotionFixture {
@@ -159,28 +158,7 @@ enum OnlineImageThumbnailRequestPriority { case visible, prefetch }
     }
 }
 
-// Browser failure's only mutation is spinner.stopAnimation. Observe the real
-// NSProgressIndicator call, invoke its original implementation, then restore the
-// method before this isolated process exits. No UI object is substituted.
-@MainActor enum SpinnerObservation {
-    static var stops: [ObjectIdentifier: Int] = [:]
-    static func count(_ spinner: NSProgressIndicator) -> Int { stops[ObjectIdentifier(spinner), default: 0] }
-    static func exchange() -> Bool {
-        guard let original = class_getInstanceMethod(NSProgressIndicator.self,
-                  #selector(NSProgressIndicator.stopAnimation(_:))),
-              let observer = class_getInstanceMethod(NSProgressIndicator.self,
-                  #selector(NSProgressIndicator.gridCardObservedStop(_:))) else { return false }
-        method_exchangeImplementations(original, observer)
-        return true
-    }
-}
 
-extension NSProgressIndicator {
-    @objc dynamic func gridCardObservedStop(_ sender: Any?) {
-        SpinnerObservation.stops[ObjectIdentifier(self), default: 0] += 1
-        gridCardObservedStop(sender)
-    }
-}
 
 @MainActor final class Facts {
     var checks: [String: Bool] = [:]
@@ -586,10 +564,6 @@ func samePoint(_ lhs: NSPoint, _ rhs: NSPoint) -> Bool { close(lhs.x, rhs.x) && 
     guard let card = host.first() as? AppKitPixabayBrowserItem else {
         facts.expect("registered-browser", false); return
     }
-    let observed = SpinnerObservation.exchange()
-    facts.expect("observe-real-spinner-original-method", observed)
-    guard observed else { return }
-    defer { _ = SpinnerObservation.exchange() }
     let oldImage = image(1), newImage = image(2)
     let oldData = Data([0xA1]), newData = Data([0xA2])
     OnlineImageThumbnailCache.shared.decoded[oldData] = oldImage
@@ -605,23 +579,23 @@ func samePoint(_ lhs: NSPoint, _ rhs: NSPoint) -> Bool { close(lhs.x, rhs.x) && 
         guard let newA = browserNetworkTicket(card, browserModel(1, thumbnail: "a"), facts, label + ".new-A") else { return }
         facts.expect(label + ".A-B-A-has-new-request", firstGeneration != card.thumbnailRequestID)
         facts.expect(label + ".long-loading-reveals-placeholder", waitUntil { !card.placeholderView.isHidden })
-        let stopsBefore = SpinnerObservation.count(card.spinner)
+        let pendingTitle = card.placeholderLabel.stringValue
+        facts.expect(label + ".ordinary-load-uses-static-loading-label", pendingTitle == "加载中")
         OnlineImageThumbnailRequestCoordinator.shared.deliver(oldA, data: staleSucceeds ? oldData : nil)
         facts.expect(label + ".old-A-delivered", waitUntil { OnlineImageThumbnailRequestCoordinator.shared.returned.contains(oldA) })
         pump(0.06)
         facts.expect(label + ".old-A-cannot-replace-new-A-image", card.thumbnailView.image == nil)
         facts.expect(label + ".old-A-cannot-hide-new-A-placeholder", !card.placeholderView.isHidden)
-        facts.expect(label + ".old-A-cannot-stop-new-A-spinner", SpinnerObservation.count(card.spinner) == stopsBefore)
+        facts.expect(label + ".old-A-cannot-change-new-A-loading-label", card.placeholderLabel.stringValue == pendingTitle)
         OnlineImageThumbnailRequestCoordinator.shared.deliver(newA, data: newData)
         let delivered = waitUntil { card.thumbnailView.image === newImage }
         facts.expect(label + ".current-A-success-is-not-suppressed", delivered && card.placeholderView.isHidden)
-        facts.expect(label + ".current-A-stops-own-spinner", SpinnerObservation.count(card.spinner) == stopsBefore + 1)
-        let currentStops = SpinnerObservation.count(card.spinner)
+        facts.expect(label + ".current-A-retires-own-loading-label", card.placeholderView.isHidden)
         OnlineImageThumbnailRequestCoordinator.shared.deliver(oldB, data: staleSucceeds ? oldData : nil)
         facts.expect(label + ".old-B-delivered", waitUntil { OnlineImageThumbnailRequestCoordinator.shared.returned.contains(oldB) })
         pump(0.06)
         facts.expect(label + ".late-B-cannot-change-current-A", card.thumbnailView.image === newImage
-            && card.placeholderView.isHidden && SpinnerObservation.count(card.spinner) == currentStops)
+            && card.placeholderView.isHidden && card.placeholderLabel.stringValue == pendingTitle)
     }
 }
 
@@ -761,7 +735,7 @@ func samePoint(_ lhs: NSPoint, _ rhs: NSPoint) -> Bool { close(lhs.x, rhs.x) && 
     let cache = OnlineImageThumbnailCache.shared
     let previous = Set(cache.pending.keys)
     configure(browser, browserModel(1001, thumbnail: "fast-disk"), downloaded: false)
-    facts.expect("browser-warm-load-initially-quiet", browser.placeholderView.isHidden)
+    facts.expect("browser-cache-miss-immediately-shows-static-loading-label", !browser.placeholderView.isHidden && browser.placeholderLabel.stringValue == "加载中")
     guard waitUntil(1, { !Set(cache.pending.keys).subtracting(previous).isEmpty }),
           let ticket = Set(cache.pending.keys).subtracting(previous).first else {
         facts.expect("browser-cache-request", false); return
@@ -770,7 +744,7 @@ func samePoint(_ lhs: NSPoint, _ rhs: NSPoint) -> Bool { close(lhs.x, rhs.x) && 
     cache.deliver(ticket, image: ready)
     facts.expect("browser-ready-is-immediate", waitUntil { browser.thumbnailView.image === ready })
     pump(0.15)
-    facts.expect("browser-delayed-spinner-cannot-cover-ready", browser.placeholderView.isHidden)
+    facts.expect("browser-loading-label-cannot-cover-ready", browser.placeholderView.isHidden)
     browser.endDisplayingThumbnail()
     browser.prepareForReuse()
     configure(browser, browserModel(1002, thumbnail: "slow"), downloaded: false)

@@ -31,38 +31,7 @@ enum SILInspectorViews {
         return label
     }
 
-    static func makeFactsGrid(_ facts: [(String, String)]) -> NSView {
-        let stack = makeVerticalStack(spacing: 12)
-        var index = 0
-        while index < facts.count {
-            let row = NSStackView()
-            row.orientation = .horizontal
-            row.alignment = .top
-            row.spacing = 12
-            row.distribution = .fillEqually
-            row.translatesAutoresizingMaskIntoConstraints = false
-            row.addArrangedSubview(makeFactView(label: facts[index].0, value: facts[index].1))
-            if index + 1 < facts.count {
-                row.addArrangedSubview(makeFactView(label: facts[index + 1].0, value: facts[index + 1].1))
-            } else {
-                row.addArrangedSubview(NSView())
-            }
-            stack.addArrangedSubview(row)
-            NSLayoutConstraint.activate([row.widthAnchor.constraint(equalTo: stack.widthAnchor)])
-            index += 2
-        }
-        return stack
-    }
 
-    static func makeFactView(label: String, value: String) -> NSView {
-        let stack = makeVerticalStack(spacing: 6)
-        stack.addArrangedSubview(makeLabel(label, font: .systemFont(ofSize: 11, weight: .medium), color: .secondaryLabelColor))
-        let valueLabel = makeLabel(value, font: .systemFont(ofSize: 13, weight: .semibold), color: .labelColor)
-        valueLabel.maximumNumberOfLines = 2
-        valueLabel.isSelectable = true
-        stack.addArrangedSubview(valueLabel)
-        return stack
-    }
 
     static func makeNotice(icon: String, text: String) -> NSView {
         let row = NSStackView()

@@ -65,17 +65,16 @@ final class PixivLoginPanelController: NSObject, NSWindowDelegate, WKNavigationD
         header.alignment = .centerY
         header.spacing = 14
         header.translatesAutoresizingMaskIntoConstraints = false
-        let cancel = NSButton(title: "", target: self, action: #selector(closeFromButton))
+        let cancel = WallpaperPanelCloseButton()
+        cancel.target = self; cancel.action = #selector(closeFromButton)
         cancel.image = NSImage(systemSymbolName: "xmark", accessibilityDescription: "关闭 Pixiv 页面")
-        cancel.isBordered = false
         cancel.keyEquivalent = "\u{1b}"
         cancel.toolTip = "关闭 Pixiv 页面（Esc）"
         cancel.setAccessibilityLabel("关闭 Pixiv 页面")
         cancel.translatesAutoresizingMaskIntoConstraints = false
         let done = NSButton(title: "完成", target: self, action: #selector(closeFromButton))
         // Enter belongs to the site's login forms, not to the panel's Done button.
-        done.bezelStyle = .rounded
-        done.controlSize = .large
+        WallpaperLibraryControlStyle.sheetCapsule(done)
         done.font = .systemFont(ofSize: 13, weight: .semibold)
         done.bezelColor = .controlAccentColor
         done.setAccessibilityHelp("关闭官方页面，返回壁纸库并检查 Pixiv 账号状态。")
@@ -99,8 +98,6 @@ final class PixivLoginPanelController: NSObject, NSWindowDelegate, WKNavigationD
             header.leadingAnchor.constraint(equalTo: surface.leadingAnchor, constant: 24),
             header.trailingAnchor.constraint(lessThanOrEqualTo: cancel.leadingAnchor, constant: -8),
             header.topAnchor.constraint(equalTo: surface.topAnchor, constant: 20),
-            cancel.widthAnchor.constraint(equalToConstant: 32),
-            cancel.heightAnchor.constraint(equalToConstant: 32),
             cancel.trailingAnchor.constraint(equalTo: surface.trailingAnchor, constant: -12),
             cancel.topAnchor.constraint(equalTo: surface.topAnchor, constant: 10),
             browser.leadingAnchor.constraint(equalTo: surface.leadingAnchor, constant: 24),

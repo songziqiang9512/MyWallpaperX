@@ -22,6 +22,7 @@ class SteamLoginModalTests(unittest.TestCase):
         paths = [ROOT / path for path in (
             'MyWallpaperX/Shared/UI/WallpaperLibrarySheetPresentation.swift',
             'MyWallpaperX/Shared/Components/WallpaperFormFieldStyle.swift',
+            'MyWallpaperX/Shared/Components/WallpaperLibraryControlStyle.swift',
             'MyWallpaperX/Shared/UI/ModalPresentation.swift',
             'MyWallpaperX/Modules/SteamWorkshop/UI/SteamLoginPanelController.swift',
             'MyWallpaperX/Modules/SteamWorkshop/UI/SteamLoginPanelView.swift',

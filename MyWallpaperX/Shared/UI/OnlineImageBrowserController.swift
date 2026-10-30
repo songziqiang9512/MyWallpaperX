@@ -5,6 +5,7 @@ import Combine
     let session: OnlineImageBrowserSession
     private let library: OnlineImageLibrary
     private let empty = NSTextField(wrappingLabelWithString: "")
+    private lazy var emptyState = WallpaperLibraryControlStyle.gridState(symbol: "square.grid.2x2", label: empty)
     private var subscriptions = Set<AnyCancellable>()
     private var selection = WallpaperLibrarySelectionState()
     private var anchor: (WallpaperReference?, Double?, Bool?) = (nil, nil, true)
@@ -65,14 +66,13 @@ import Combine
         view = root
         addChild(grid); grid.view.translatesAutoresizingMaskIntoConstraints = false
         root.addSubview(grid.view)
-        empty.alignment = .center; empty.textColor = .secondaryLabelColor
-        empty.translatesAutoresizingMaskIntoConstraints = false
-        root.addSubview(empty)
+        root.addSubview(emptyState)
         NSLayoutConstraint.activate([
             grid.view.leadingAnchor.constraint(equalTo: root.leadingAnchor), grid.view.trailingAnchor.constraint(equalTo: root.trailingAnchor),
             grid.view.topAnchor.constraint(equalTo: root.topAnchor), grid.view.bottomAnchor.constraint(equalTo: root.bottomAnchor),
-            empty.centerXAnchor.constraint(equalTo: grid.view.centerXAnchor), empty.centerYAnchor.constraint(equalTo: grid.view.centerYAnchor),
-            empty.widthAnchor.constraint(lessThanOrEqualToConstant: 420), empty.leadingAnchor.constraint(greaterThanOrEqualTo: root.leadingAnchor, constant: 28)
+            emptyState.centerXAnchor.constraint(equalTo: grid.view.centerXAnchor), emptyState.centerYAnchor.constraint(equalTo: grid.view.centerYAnchor),
+            emptyState.leadingAnchor.constraint(greaterThanOrEqualTo: root.leadingAnchor, constant: 28),
+            emptyState.trailingAnchor.constraint(lessThanOrEqualTo: root.trailingAnchor, constant: -28)
         ])
         grid.updateCell = { [weak self] cell, content, state in
             if let card = cell as? OnlineImageGridItem { self?.configure(card, content: content, state: state) }
@@ -187,7 +187,8 @@ import Combine
         grid.update(page: page, items: items, selection: selection, preferredColumns: preferredColumns,
             permitsDragging: false, scrollAnchor: anchor.0, scrollOffset: anchor.1, scrollAtTop: anchor.2, resetScroll: resetScroll, footerText: footerText(state, count: items.count))
         resetScroll = false
-        empty.isHidden = !items.isEmpty
+        emptyState.isHidden = !items.isEmpty
+        emptyState.arrangedSubviews.first?.isHidden = state.isLoading
         empty.stringValue = state.isLoading ? "正在加载…" : (state.error ?? (state.next != nil
             ? "本页没有符合条件的作品\n向下滚动以继续获取" : (state.hasLoaded ? "没有可显示的作品\n试试其他关键词或筛选条件" : "准备浏览…")))
         updateTint()

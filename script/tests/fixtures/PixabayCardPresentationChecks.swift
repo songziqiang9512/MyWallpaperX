@@ -948,7 +948,7 @@ import QuartzCore
         && transport.history.count == requests && card.thumbnailView.image === decoded)
     facts.expect("metadata-keeps-selection-playing-presentation", card.isSelectedState && card.isMultiSelectMode
         && card.isPlaying && firstBadge.playButton.contentTintColor == .controlAccentColor && firstBadge.isHidden && !card.multiSelectBadge.isHidden
-        && !card.multiSelectBadgeIcon.isHidden && close(card.imageContainer.layer?.borderWidth ?? 0, 2)
+        && !card.multiSelectBadgeIcon.isHidden && close(card.imageContainer.layer?.borderWidth ?? 0, 1.6)
         && close(card.selectionTintView.alphaValue, 0.2))
     let unchangedMask = card.controlBar?.titleView.layer?.mask
     card.configure(entry: metadataOnly, isSelected: false, isMultiSelectMode: false, isPlaying: false)

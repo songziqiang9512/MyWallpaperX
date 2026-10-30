@@ -214,7 +214,7 @@ class VideoThumbnailPrefetchTests(unittest.TestCase):
             work = Path(directory)
             actual = work / 'ActualCard.swift'
             actual.write_text(leaves + '\n' + provider + '\n' + card)
-            sources = [actual, ROOT / 'MyWallpaperX/Shared/Components/WallpaperCardInteractionView.swift',
+            sources = [actual, ROOT / 'MyWallpaperX/Shared/Components/WallpaperLibraryControlStyle.swift', ROOT / 'MyWallpaperX/Shared/Components/WallpaperCardInteractionView.swift',
                        ROOT / 'MyWallpaperX/Shared/Components/WallpaperCardSupportViews.swift',
                        ROOT / 'MyWallpaperX/Shared/Components/WallpaperCardControlsView.swift', fixtures / 'VideoCardInteractionHarness.swift',
                        fixtures / 'GridCardInteractionChecks.swift', fixtures / 'NativeAppHarness.swift', *[shared / name for name in [

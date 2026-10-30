@@ -245,7 +245,7 @@ final class OnlineImageInspectorView: NSView {
         let rating: String
         switch artwork.rating { case .safe: rating = "全年龄"; case .sensitive: rating = "可能含敏感内容"; case .adult: rating = "年龄限制"; case .unknown: rating = "暂未确认" }
         values.append(("内容分级", rating))
-        let grid = SILInspectorViews.makeFactsGrid(values)
+        let grid = WallpaperLibraryControlStyle.inspectorFacts(values)
         facts.addArrangedSubview(grid); grid.widthAnchor.constraint(equalTo: facts.widthAnchor).isActive = true
         let tags = record?.tags ?? asset?.tags ?? artwork.tags
         if !tags.isEmpty {

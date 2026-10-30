@@ -103,9 +103,9 @@ final class WallpaperAPIKeyPanelController: NSObject, NSWindowDelegate, NSTextFi
         header.spacing = 14
         content.addArrangedSubview(header)
 
-        let cancel = NSButton(title: "", target: self, action: #selector(closeFromButton))
+        let cancel = WallpaperPanelCloseButton()
+        cancel.target = self; cancel.action = #selector(closeFromButton)
         cancel.image = NSImage(systemSymbolName: "xmark", accessibilityDescription: "关闭 API Key 面板")
-        cancel.isBordered = false
         cancel.keyEquivalent = "\u{1b}"
         cancel.toolTip = "关闭（Esc）"
         cancel.setAccessibilityLabel("关闭 API Key 面板")
@@ -115,8 +115,6 @@ final class WallpaperAPIKeyPanelController: NSObject, NSWindowDelegate, NSTextFi
             icon.widthAnchor.constraint(equalToConstant: 44),
             icon.heightAnchor.constraint(equalToConstant: 44),
             header.trailingAnchor.constraint(lessThanOrEqualTo: cancel.leadingAnchor, constant: -8),
-            cancel.widthAnchor.constraint(equalToConstant: 32),
-            cancel.heightAnchor.constraint(equalToConstant: 32),
             cancel.trailingAnchor.constraint(equalTo: surface.trailingAnchor, constant: -12),
             cancel.topAnchor.constraint(equalTo: surface.topAnchor, constant: 10)
         ])
@@ -158,8 +156,7 @@ final class WallpaperAPIKeyPanelController: NSObject, NSWindowDelegate, NSTextFi
         statusLabel = status
 
         let save = NSButton(title: "保存 API Key", target: self, action: #selector(saveFromButton))
-        save.bezelStyle = .rounded
-        save.controlSize = .large
+        WallpaperLibraryControlStyle.sheetCapsule(save)
         save.font = .systemFont(ofSize: 13, weight: .semibold)
         save.bezelColor = .controlAccentColor
         save.keyEquivalent = "\r"
@@ -169,12 +166,12 @@ final class WallpaperAPIKeyPanelController: NSObject, NSWindowDelegate, NSTextFi
         saveButton = save
 
         let remove = NSButton(title: "移除 API Key", target: self, action: #selector(removeFromButton))
-        remove.bezelStyle = .rounded
+        WallpaperLibraryControlStyle.sheetCapsule(remove)
         remove.font = .systemFont(ofSize: 12)
         remove.isEnabled = hasStoredKey != false
         remove.setAccessibilityHelp("移除当前来源已保存的 API Key，不会影响其他来源。")
         let help = NSButton(title: "获取 API Key", target: self, action: #selector(openHelp))
-        help.bezelStyle = .rounded
+        WallpaperLibraryControlStyle.sheetCapsule(help)
         help.font = .systemFont(ofSize: 12)
         help.setAccessibilityHelp("在系统浏览器中打开官方 API Key 说明。")
         let actions = NSStackView(views: [remove, NSView(), help])

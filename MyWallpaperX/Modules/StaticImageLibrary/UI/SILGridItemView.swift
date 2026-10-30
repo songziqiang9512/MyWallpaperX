@@ -30,7 +30,7 @@ final class SILGridItem: WallpaperCardCollectionViewItem, WallpaperGridHoverItem
     private var controlBarFrame = NSRect.zero
     private var barVisibilityRevision: UInt64 = 0
     private let multiSelectBadge = NSView()
-    private let multiSelectIcon  = NSImageView()
+    private let multiSelectIcon  = WallpaperLibraryControlStyle.selectionCheckmark()
 
     var onApplyRequested: ((String) -> Void)? {
         didSet { if controlBar != nil { updateControlBarContent() } }
@@ -407,12 +407,11 @@ final class SILGridItem: WallpaperCardCollectionViewItem, WallpaperGridHoverItem
         guard let layer = imageContainer.layer else { return }
         imageContainer.effectiveAppearance.performAsCurrentDrawingAppearance {
             layer.backgroundColor = NSColor.windowBackgroundColor.cgColor
-            layer.borderColor = (isSelectedState ? NSColor.controlAccentColor : NSColor.separatorColor).cgColor
-            multiSelectBadge.layer?.backgroundColor = (isSelectedState
-                ? NSColor.controlAccentColor : NSColor.black.withAlphaComponent(0.42)).cgColor
-            hoverOutline.layer?.borderColor = NSColor.white.cgColor
+            layer.borderColor = (isSelectedState ? WallpaperLibraryControlStyle.cardOutlineColor(selected: true, in: imageContainer.effectiveAppearance) : NSColor.separatorColor).cgColor
+            WallpaperLibraryControlStyle.selectionBadge(multiSelectBadge, selected: isSelectedState)
+            hoverOutline.layer?.borderColor = (isSelectedState ? NSColor.clear : WallpaperLibraryControlStyle.cardOutlineColor(selected: false, in: imageContainer.effectiveAppearance)).cgColor
         }
-        layer.borderWidth = isSelectedState ? 2 : 1
+        layer.borderWidth = isSelectedState ? WallpaperLibraryControlStyle.cardSelectionBorderWidth : 1
         // 不显示蓝色遮罩，只用描边表示选中
         selectionTint.alphaValue = 0
     }
@@ -423,8 +422,7 @@ final class SILGridItem: WallpaperCardCollectionViewItem, WallpaperGridHoverItem
         multiSelectBadge.isHidden = !isMultiSelect
         guard isMultiSelect else { return }
         imageContainer.effectiveAppearance.performAsCurrentDrawingAppearance {
-            multiSelectBadge.layer?.backgroundColor = (selected
-                ? NSColor.controlAccentColor : NSColor.black.withAlphaComponent(0.42)).cgColor
+            WallpaperLibraryControlStyle.selectionBadge(multiSelectBadge, selected: selected)
         }
         multiSelectIcon.isHidden = !selected
     }
@@ -442,9 +440,7 @@ final class SILGridItem: WallpaperCardCollectionViewItem, WallpaperGridHoverItem
 
         thumbnailView.imageScaling = .scaleProportionallyUpOrDown
 
-        placeholderLabel.alignment = .center
-        placeholderLabel.textColor = .secondaryLabelColor
-        placeholderLabel.font = .systemFont(ofSize: 11, weight: .regular)
+        WallpaperLibraryControlStyle.thumbnailPlaceholder(placeholderLabel)
 
         selectionTint.wantsLayer = true
         selectionTint.alphaValue = 0
@@ -463,8 +459,6 @@ final class SILGridItem: WallpaperCardCollectionViewItem, WallpaperGridHoverItem
         multiSelectBadge.layer?.masksToBounds = true
         multiSelectBadge.isHidden = true
 
-        multiSelectIcon.image = NSImage(systemSymbolName: "checkmark", accessibilityDescription: nil)
-        multiSelectIcon.contentTintColor = .white
         multiSelectIcon.isHidden = true
 
         view.addSubview(imageContainer)

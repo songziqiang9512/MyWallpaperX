@@ -223,7 +223,7 @@ final class SILInspectorView: NSView {
         if !metadataFacts.isEmpty {
             WallpaperLibraryControlStyle.addSectionDivider(to: stack)
             stack.addArrangedSubview(SILInspectorViews.makeSectionTitle("原数据"))
-            stack.addArrangedSubview(SILInspectorViews.makeFactsGrid(metadataFacts))
+            stack.addArrangedSubview(WallpaperLibraryControlStyle.inspectorFacts(metadataFacts))
         }
 
         WallpaperLibraryControlStyle.addSectionDivider(to: stack)

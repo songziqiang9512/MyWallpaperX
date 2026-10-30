@@ -164,15 +164,15 @@ final class PixabayBrowserView: NSView, ListThumbnailTintProviding {
             contentView = makeAPIKeyPromptView()
             fillsHost = false
         case .loadingInitial:
-            contentView = PixabayBrowserViews.makeLoadingState(title: "加载中...")
+            contentView = WallpaperLibraryControlStyle.gridState(label: NSTextField(labelWithString: "正在加载…"))
             fillsHost = false
         case .initialError(let message):
             contentView = makeErrorStateView(message: message)
             fillsHost = false
         case .emptyLoaded:
-            contentView = PixabayBrowserViews.makeCenteredStateView(
-                symbolName: "video.slash",
-                title: "没有找到相关视频",
+            contentView = WallpaperLibraryControlStyle.gridState(
+                symbol: "video.slash",
+                label: NSTextField(labelWithString: "没有找到相关视频"),
                 message: "试试其他关键词或分类"
             )
             fillsHost = false
@@ -230,9 +230,9 @@ final class PixabayBrowserView: NSView, ListThumbnailTintProviding {
     }
 
     private func makeErrorStateView(message: String) -> NSView {
-        let stack = PixabayBrowserViews.makeCenteredStateView(
-            symbolName: "wifi.exclamationmark",
-            title: message,
+        let stack = WallpaperLibraryControlStyle.gridState(
+            symbol: "wifi.exclamationmark",
+            label: NSTextField(wrappingLabelWithString: message),
             message: nil
         )
 
@@ -250,9 +250,9 @@ final class PixabayBrowserView: NSView, ListThumbnailTintProviding {
     }
 
     private func makeStartPromptView() -> NSView {
-        let stack = PixabayBrowserViews.makeCenteredStateView(
-            symbolName: "play.rectangle.on.rectangle",
-            title: "探索 Pixabay 海量免费视频",
+        let stack = WallpaperLibraryControlStyle.gridState(
+            symbol: "play.rectangle.on.rectangle",
+            label: NSTextField(labelWithString: "探索 Pixabay 海量免费视频"),
             message: nil
         )
         stack.addArrangedSubview(

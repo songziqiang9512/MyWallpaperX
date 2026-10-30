@@ -24,65 +24,7 @@ enum PixabayBrowserViews {
         return stack
     }
 
-    static func makeCenteredStateView(symbolName: String, title: String, message: String?) -> NSStackView {
-        let outer = makeCenteredStack(spacing: 12)
-        outer.edgeInsets = NSEdgeInsets(top: 40, left: 40, bottom: 40, right: 40)
 
-        let spacerTop = NSView()
-        spacerTop.translatesAutoresizingMaskIntoConstraints = false
-        let spacerBottom = NSView()
-        spacerBottom.translatesAutoresizingMaskIntoConstraints = false
-
-        let content = makeCenteredStack(spacing: 12)
-        content.addArrangedSubview(makeSymbol(symbolName, pointSize: 36, color: .secondaryLabelColor))
-
-        let titleLabel = makeLabel(title, font: .systemFont(ofSize: 13), color: .secondaryLabelColor)
-        titleLabel.alignment = .center
-        titleLabel.maximumNumberOfLines = 0
-        content.addArrangedSubview(titleLabel)
-        titleLabel.widthAnchor.constraint(lessThanOrEqualToConstant: 300).isActive = true
-
-        if let message {
-            let messageLabel = makeLabel(message, font: .systemFont(ofSize: 11), color: .secondaryLabelColor)
-            messageLabel.alignment = .center
-            messageLabel.maximumNumberOfLines = 0
-            content.addArrangedSubview(messageLabel)
-            messageLabel.widthAnchor.constraint(lessThanOrEqualToConstant: 300).isActive = true
-        }
-
-        outer.addArrangedSubview(spacerTop)
-        outer.addArrangedSubview(content)
-        outer.addArrangedSubview(spacerBottom)
-        spacerTop.heightAnchor.constraint(equalTo: spacerBottom.heightAnchor).isActive = true
-        return outer
-    }
-
-    static func makeLoadingState(title: String) -> NSView {
-        let stack = makeCenteredStack(spacing: 12)
-        let spinner = NSProgressIndicator()
-        spinner.style = .spinning
-        spinner.controlSize = .small
-        spinner.isIndeterminate = true
-        spinner.startAnimation(nil)
-        spinner.translatesAutoresizingMaskIntoConstraints = false
-        stack.addArrangedSubview(spinner)
-        stack.addArrangedSubview(makeLabel(title, font: .systemFont(ofSize: 13), color: .secondaryLabelColor))
-
-        let wrapper = makeCenteredStateView(symbolName: "play.rectangle.on.rectangle", title: "", message: nil)
-        wrapper.arrangedSubviews.forEach {
-            wrapper.removeArrangedSubview($0)
-            $0.removeFromSuperview()
-        }
-        let top = NSView()
-        let bottom = NSView()
-        top.translatesAutoresizingMaskIntoConstraints = false
-        bottom.translatesAutoresizingMaskIntoConstraints = false
-        wrapper.addArrangedSubview(top)
-        wrapper.addArrangedSubview(stack)
-        wrapper.addArrangedSubview(bottom)
-        top.heightAnchor.constraint(equalTo: bottom.heightAnchor).isActive = true
-        return wrapper
-    }
 
     static func makeSymbol(_ symbolName: String, pointSize: CGFloat, color: NSColor) -> NSImageView {
         let imageView = NSImageView()

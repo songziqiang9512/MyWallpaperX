@@ -159,7 +159,7 @@ final class AppKitPixabayDownloadsItem: WallpaperCardCollectionViewItem, Wallpap
         didSet { if controlBar != nil { updateControlBarContent() } }
     }
     private let multiSelectBadge = NSView()
-    private let multiSelectBadgeIcon = NSImageView()
+    private let multiSelectBadgeIcon = WallpaperLibraryControlStyle.selectionCheckmark()
 
     private var isHovering = false
     private var isMultiSelectMode = false
@@ -340,9 +340,6 @@ final class AppKitPixabayDownloadsItem: WallpaperCardCollectionViewItem, Wallpap
         multiSelectBadge.layer?.masksToBounds = true
         multiSelectBadge.isHidden = true
 
-        multiSelectBadgeIcon.image = NSImage(systemSymbolName: "checkmark", accessibilityDescription: nil)
-        multiSelectBadgeIcon.contentTintColor = .white
-        multiSelectBadgeIcon.imageScaling = .scaleProportionallyDown
         multiSelectBadgeIcon.translatesAutoresizingMaskIntoConstraints = false
         multiSelectBadgeIcon.isHidden = true
 
@@ -559,7 +556,7 @@ final class AppKitPixabayDownloadsItem: WallpaperCardCollectionViewItem, Wallpap
 
         CATransaction.begin()
         CATransaction.setDisableActions(true)
-        imageContainer.layer?.borderWidth = isSelected ? 2 : 1
+        imageContainer.layer?.borderWidth = isSelected ? WallpaperLibraryControlStyle.cardSelectionBorderWidth : 1
         CATransaction.commit()
 
         selectionTintView.alphaValue = isSelected ? 0.2 : 0
@@ -589,8 +586,7 @@ final class AppKitPixabayDownloadsItem: WallpaperCardCollectionViewItem, Wallpap
             return
         }
         imageContainer.effectiveAppearance.performAsCurrentDrawingAppearance {
-            multiSelectBadge.layer?.backgroundColor = (selected
-                ? NSColor.controlAccentColor : NSColor.black.withAlphaComponent(0.42)).cgColor
+            WallpaperLibraryControlStyle.selectionBadge(multiSelectBadge, selected: selected)
         }
         if selected {
             multiSelectBadgeIcon.isHidden = false
@@ -614,11 +610,10 @@ final class AppKitPixabayDownloadsItem: WallpaperCardCollectionViewItem, Wallpap
         guard let layer = imageContainer.layer else { return }
         imageContainer.effectiveAppearance.performAsCurrentDrawingAppearance {
             layer.backgroundColor = NSColor.windowBackgroundColor.cgColor
-            layer.borderColor = (isSelectedState ? NSColor.controlAccentColor : NSColor.separatorColor).cgColor
+            layer.borderColor = (isSelectedState ? WallpaperLibraryControlStyle.cardOutlineColor(selected: true, in: imageContainer.effectiveAppearance) : NSColor.separatorColor).cgColor
             selectionTintView.layer?.backgroundColor = NSColor.controlAccentColor.withAlphaComponent(0.2).cgColor
-            multiSelectBadge.layer?.backgroundColor = (isSelectedState
-                ? NSColor.controlAccentColor : NSColor.black.withAlphaComponent(0.42)).cgColor
-            hoverOutlineView.layer?.borderColor = NSColor.white.cgColor
+            WallpaperLibraryControlStyle.selectionBadge(multiSelectBadge, selected: isSelectedState)
+            hoverOutlineView.layer?.borderColor = (isSelectedState ? NSColor.clear : WallpaperLibraryControlStyle.cardOutlineColor(selected: false, in: imageContainer.effectiveAppearance)).cgColor
         }
     }
 }

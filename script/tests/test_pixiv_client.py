@@ -25,7 +25,8 @@ class PixivClientTests(unittest.TestCase):
                    *sorted(CORE.glob("*.swift")),
                    ROOT / "MyWallpaperX/Modules/Pixiv/UI/PixivLoginPanelController.swift",
                    ROOT / "MyWallpaperX/Shared/WallpaperNetworkSession.swift",
-                   ROOT / "MyWallpaperX/Shared/UI/WallpaperLibrarySheetPresentation.swift"]
+                   ROOT / "MyWallpaperX/Shared/UI/WallpaperLibrarySheetPresentation.swift",
+                   ROOT / "MyWallpaperX/Shared/Components/WallpaperLibraryControlStyle.swift"]
         fixture = ROOT / "script/tests/fixtures/PixivClientHarness.swift"
         account_status = declaration((ROOT / "MyWallpaperX/App/WallpaperLibraryOnlineImages.swift").read_text(),
             "    var pixivAccountStatus: String {")

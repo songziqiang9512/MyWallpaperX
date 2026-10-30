@@ -164,7 +164,7 @@ import Combine
 
     func choosePlaylist(_ references: [WallpaperReference]? = nil, anchor: NSView? = nil) {
         guard let menu = makePlaylistMenu(references) else { return }
-        if let anchor { menu.popUp(positioning: nil, at: NSPoint(x: 0, y: anchor.bounds.maxY), in: anchor) }
+        if let anchor { ToolbarMenu.popUp(anchor: anchor, menu: menu) }
         else if let view = hostWindow()?.contentView { menu.popUp(positioning: nil, at: NSPoint(x: view.bounds.midX, y: view.bounds.midY), in: view) }
     }
 

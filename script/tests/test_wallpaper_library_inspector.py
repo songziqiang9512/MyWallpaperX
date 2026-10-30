@@ -116,6 +116,7 @@ def prepare_sil_inspector_sources(tree, work, inspector_override=None, fixture_t
         "Shared/UI/InspectorBadgeView.swift", "Shared/UI/InspectorFadingScrollView.swift",
         "Shared/UI/ModuleFocusable.swift", "Shared/UI/InspectorHost.swift", "Shared/UI/InspectorHostBridge.swift",
         "Shared/UI/InspectorHostActions.swift", "Shared/UI/InspectorHostViewController.swift",
+        "Shared/UI/WallpaperLibrarySheetPresentation.swift",
         "Modules/StaticImageLibrary/UI/SILInspectorSupport.swift", "Modules/StaticImageLibrary/UI/SILInspectorView.swift",
         "Modules/Pixabay/Core/PixabayModels.swift", "Modules/Pixabay/UI/PixabayDownloadsInspectorSupport.swift", "Modules/Pixabay/UI/PixabayDownloadsInspectorView.swift")]
     if inspector_override is not None:
@@ -144,6 +145,7 @@ class WallpaperLibraryInspectorTests(unittest.TestCase):
             "Shared/UI/InspectorBadgeView.swift", "Shared/UI/InspectorFadingScrollView.swift",
             "Shared/UI/ModuleFocusable.swift", "Shared/UI/InspectorHost.swift", "Shared/UI/InspectorHostBridge.swift",
             "Shared/UI/InspectorHostActions.swift", "Shared/UI/InspectorHostViewController.swift",
+        "Shared/UI/WallpaperLibrarySheetPresentation.swift",
             "Modules/StaticImageLibrary/UI/SILInspectorSupport.swift", "Modules/StaticImageLibrary/UI/SILInspectorView.swift",
             "Modules/Pixabay/Core/PixabayModels.swift", "Modules/Pixabay/UI/PixabayDownloadsInspectorSupport.swift", "Modules/Pixabay/UI/PixabayDownloadsInspectorView.swift")]
         paths += [*DOWNLOADED_CARD_DEPENDENCIES, DOWNLOADED_STORE,

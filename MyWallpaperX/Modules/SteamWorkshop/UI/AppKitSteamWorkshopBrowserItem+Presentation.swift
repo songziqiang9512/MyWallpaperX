@@ -69,9 +69,6 @@ extension AppKitSteamWorkshopBrowserItem {
         multiSelectBadgeView.isHidden = true
         cardView.addSubview(multiSelectBadgeView)
 
-        multiSelectBadgeIcon.image = NSImage(systemSymbolName: "checkmark", accessibilityDescription: nil)
-        multiSelectBadgeIcon.contentTintColor = .white
-        multiSelectBadgeIcon.imageScaling = .scaleProportionallyDown
         multiSelectBadgeIcon.isHidden = true
         multiSelectBadgeView.addSubview(multiSelectBadgeIcon)
 
@@ -113,27 +110,22 @@ extension AppKitSteamWorkshopBrowserItem {
         )
         guard inputs != lastThemedChromeInputs else { return }
         lastThemedChromeInputs = inputs
-        let hoverOutlineColor = NSColor.white.withAlphaComponent(isDarkMode ? 0.56 : 0.72)
         cardView.effectiveAppearance.performAsCurrentDrawingAppearance {
-            let selectedOutlineColor = NSColor.controlAccentColor.withAlphaComponent(isDarkMode ? 0.92 : 0.84)
             layer.backgroundColor = NSColor.clear.cgColor
             let ringColor = NSColor.white.withAlphaComponent(isHovering ? 0.12 : 0.028)
             layer.borderColor = ringColor.cgColor
-            hoverOutlineView.layer?.borderColor = (isSelectionHighlighted ? selectedOutlineColor : hoverOutlineColor).cgColor
+            hoverOutlineView.layer?.borderColor = WallpaperLibraryControlStyle.cardOutlineColor(selected: isSelectionHighlighted, in: cardView.effectiveAppearance).cgColor
             previewContainer.layer?.backgroundColor = NSColor.windowBackgroundColor.withAlphaComponent(0.14).cgColor
-            multiSelectBadgeView.layer?.backgroundColor = (isSelectionHighlighted
-                ? NSColor.controlAccentColor : NSColor.black.withAlphaComponent(0.42)).cgColor
+            WallpaperLibraryControlStyle.selectionBadge(multiSelectBadgeView, selected: isSelectionHighlighted)
         }
         layer.shadowOpacity = isHovering ? 0.05 : 0.025
         layer.shadowRadius = isHovering ? 7 : 6
         layer.shadowOffset = CGSize(width: 0, height: -1)
-        hoverOutlineView.layer?.borderWidth = isSelectionHighlighted ? 1.6 : 1
+        hoverOutlineView.layer?.borderWidth = isSelectionHighlighted ? WallpaperLibraryControlStyle.cardSelectionBorderWidth : 1
 
         let showsSelectionBadge = currentDisplayContext == .downloads && isMultiSelectMode
         multiSelectBadgeView.isHidden = !showsSelectionBadge
         if showsSelectionBadge {
-            multiSelectBadgeView.layer?.borderColor = NSColor.white.withAlphaComponent(0.28).cgColor
-            multiSelectBadgeView.layer?.borderWidth = isSelectionHighlighted ? 0 : 1
             multiSelectBadgeIcon.isHidden = !isSelectionHighlighted
         } else {
             multiSelectBadgeIcon.isHidden = true

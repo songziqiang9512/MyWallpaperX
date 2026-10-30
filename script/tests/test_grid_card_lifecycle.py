@@ -55,6 +55,7 @@ DEPENDENCIES = [
     ROOT / "MyWallpaperX/Shared/Components/WallpaperCardControlsView.swift",
     ROOT / "MyWallpaperX/Shared/Components/ActionMenuItem.swift",
     ROOT / "MyWallpaperX/Shared/Components/WallpaperLibrarySymbols.swift",
+    ROOT / "MyWallpaperX/Shared/Components/WallpaperLibraryControlStyle.swift",
     SHARED / "WallpaperInspectorActions.swift",
     SHARED / "WallpaperLibrarySheetPresentation.swift",
     ROOT / "script/tests/fixtures/GridCardInteractionChecks.swift",

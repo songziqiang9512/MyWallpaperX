@@ -264,13 +264,13 @@ final class AppKitSteamWorkshopBrowserView: NSView, ListThumbnailTintProviding {
         let fillsHost: Bool
         switch nextState {
         case .loading:
-            contentView = makeLoadingStateView(text: loadingText)
+            contentView = WallpaperLibraryControlStyle.gridState(label: NSTextField(labelWithString: loadingText))
             fillsHost = false
         case .error(let message):
             contentView = makeErrorStateView(message: message)
             fillsHost = false
         case .empty(let symbolName, let message):
-            contentView = makeCenteredStateView(symbolName: symbolName, message: message)
+            contentView = WallpaperLibraryControlStyle.gridState(symbol: symbolName, label: NSTextField(wrappingLabelWithString: message))
             fillsHost = false
         case .grid:
             gridView.preferredColumns = preferredColumns
@@ -303,66 +303,19 @@ final class AppKitSteamWorkshopBrowserView: NSView, ListThumbnailTintProviding {
         }
     }
 
-    private func makeLoadingStateView(text: String) -> NSView {
-        let stack = makeCenteredStack(spacing: 12)
-        let indicator = NSProgressIndicator()
-        indicator.style = .spinning
-        indicator.controlSize = .large
-        indicator.startAnimation(nil)
-        stack.addArrangedSubview(indicator)
-        stack.addArrangedSubview(makeStateLabel(text))
-        return stack
-    }
 
     private func makeErrorStateView(message: String) -> NSView {
-        let stack = makeCenteredStack(spacing: 12)
-        stack.addArrangedSubview(makeSymbol("wifi.exclamationmark", pointSize: 30))
-        stack.addArrangedSubview(makeStateLabel(service.isBrowsingAuthorWorkshop ? "抓取作者工坊信息失败" : "抓取创意工坊信息失败", weight: .semibold))
-        let messageLabel = makeStateLabel(message)
-        messageLabel.maximumNumberOfLines = 0
-        stack.addArrangedSubview(messageLabel)
-
+        let stack = WallpaperLibraryControlStyle.gridState(symbol: "wifi.exclamationmark",
+            label: NSTextField(labelWithString: service.isBrowsingAuthorWorkshop ? "抓取作者工坊信息失败" : "抓取创意工坊信息失败"), message: message)
         let retryButton = NSButton(title: "重试", target: self, action: #selector(retryBrowserFetch))
         retryButton.bezelStyle = .rounded
         stack.addArrangedSubview(retryButton)
         return stack
     }
 
-    private func makeCenteredStateView(symbolName: String, message: String) -> NSView {
-        let stack = makeCenteredStack(spacing: 10)
-        stack.addArrangedSubview(makeSymbol(symbolName, pointSize: 32))
-        let label = makeStateLabel(message)
-        label.maximumNumberOfLines = 0
-        stack.addArrangedSubview(label)
-        return stack
-    }
 
-    private func makeCenteredStack(spacing: CGFloat) -> NSStackView {
-        let stack = NSStackView()
-        stack.orientation = .vertical
-        stack.alignment = .centerX
-        stack.spacing = spacing
-        stack.translatesAutoresizingMaskIntoConstraints = false
-        return stack
-    }
 
-    private func makeStateLabel(_ text: String, weight: NSFont.Weight = .regular) -> NSTextField {
-        let label = NSTextField(labelWithString: text)
-        label.alignment = .center
-        label.font = .systemFont(ofSize: 13, weight: weight)
-        label.textColor = .secondaryLabelColor
-        label.lineBreakMode = .byWordWrapping
-        label.widthAnchor.constraint(lessThanOrEqualToConstant: 420).isActive = true
-        return label
-    }
 
-    private func makeSymbol(_ name: String, pointSize: CGFloat) -> NSImageView {
-        let imageView = NSImageView()
-        imageView.image = NSImage(systemSymbolName: name, accessibilityDescription: nil)
-        imageView.symbolConfiguration = NSImage.SymbolConfiguration(pointSize: pointSize, weight: .regular)
-        imageView.contentTintColor = .secondaryLabelColor
-        return imageView
-    }
 
     private func syncSelectedInspectorItem(_ item: SteamWorkshopBrowserItem?) {
         latestInspectorItem = item

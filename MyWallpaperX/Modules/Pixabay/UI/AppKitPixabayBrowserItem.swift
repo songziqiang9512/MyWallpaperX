@@ -26,7 +26,7 @@ final class AppKitPixabayBrowserItem: NSCollectionViewItem, WallpaperGridHoverIt
     private let hoverTracking = WallpaperGridHoverTracking()
     private let thumbnailView      = NSImageView()
     private let placeholderView    = NSView()
-    private let spinner            = NSProgressIndicator()
+    private let placeholderLabel = NSTextField(labelWithString: "加载中")
     private let hoverOutlineView   = NSView()
     private let durationBadgeView  = NSView()
     private let durationBadgeTextLayer = CATextLayer()
@@ -50,7 +50,6 @@ final class AppKitPixabayBrowserItem: NSCollectionViewItem, WallpaperGridHoverIt
     private var requestedPixelLimit = 0
     private var thumbnailRequestID = UUID()
     private var thumbnailTask:    Task<Void, Never>?
-    private var thumbnailLoadingWork: DispatchWorkItem?
     private var terminalThumbnailFailureGeneration: Int?
     private var isThumbnailDemandActive = true
     private var onInspect: (() -> Void)?
@@ -71,7 +70,6 @@ final class AppKitPixabayBrowserItem: NSCollectionViewItem, WallpaperGridHoverIt
         thumbnailTask?.cancel(); thumbnailTask = nil
         terminalThumbnailFailureGeneration = nil
         isThumbnailDemandActive = true
-        thumbnailLoadingWork?.cancel(); thumbnailLoadingWork = nil
         presentedItem = nil
         currentItemID = -1
         currentThumbnailURL = nil
@@ -79,7 +77,6 @@ final class AppKitPixabayBrowserItem: NSCollectionViewItem, WallpaperGridHoverIt
         currentPageURL = nil
         thumbnailView.image = nil
         placeholderView.isHidden = true
-        spinner.stopAnimation(nil)
         currentTitle = ""
         durationBadgeTextLayer.string = nil
         currentMetadata = ""
@@ -134,14 +131,12 @@ final class AppKitPixabayBrowserItem: NSCollectionViewItem, WallpaperGridHoverIt
         }
         if imageChanged {
             thumbnailTask?.cancel(); thumbnailTask = nil
-            thumbnailLoadingWork?.cancel(); thumbnailLoadingWork = nil
             terminalThumbnailFailureGeneration = nil
             thumbnailRequestID = UUID()
             currentThumbnailURL = item.previewThumbnailURL
             requestedPixelLimit = 0
             thumbnailView.image = nil
             placeholderView.isHidden = true
-            spinner.stopAnimation(nil)
             if isThumbnailDemandActive { loadThumbnail(url: item.previewThumbnailURL) }
         } else if isThumbnailDemandActive && !wasActive { beginDisplayingThumbnail() }
         setDownloadState(
@@ -218,33 +213,27 @@ final class AppKitPixabayBrowserItem: NSCollectionViewItem, WallpaperGridHoverIt
         guard isThumbnailDemandActive else { return }
         thumbnailTask?.cancel()
         terminalThumbnailFailureGeneration = nil
-        thumbnailLoadingWork?.cancel(); thumbnailLoadingWork = nil
         let requestID = UUID()
         thumbnailRequestID = requestID
         if requestedPixelLimit == 0 {
-            thumbnailView.image = nil; placeholderView.isHidden = true; spinner.stopAnimation(nil)
+            thumbnailView.image = nil; placeholderView.isHidden = true
         }
         let pixelLimit = GridThumbnailDecoder.pixelLimit(width: view.bounds.width, scale: view.window?.backingScaleFactor ?? 2)
         requestedPixelLimit = pixelLimit
         guard let url else {
-            placeholderView.isHidden = false; spinner.stopAnimation(nil)
+            placeholderLabel.stringValue = "暂无缩略图"
+            placeholderView.isHidden = false
             return
         }
         if let ready = OnlineImageThumbnailCache.shared.readyImage(for: url, maxPixelSize: pixelLimit) {
             thumbnailView.image = ready
             layoutThumbnail()
             placeholderView.isHidden = true
-            spinner.stopAnimation(nil)
             return
         }
         if thumbnailView.image == nil {
-            let work = DispatchWorkItem { [weak self] in
-                guard let self, self.thumbnailRequestID == requestID, self.thumbnailView.image == nil else { return }
-                self.placeholderView.isHidden = false
-                self.spinner.startAnimation(nil)
-            }
-            thumbnailLoadingWork = work
-            DispatchQueue.main.asyncAfter(deadline: .now() + 0.1, execute: work)
+            placeholderLabel.stringValue = "加载中"
+            placeholderView.isHidden = false
         }
         let id = currentItemID
         thumbnailTask = Task { [weak self] in
@@ -255,20 +244,17 @@ final class AppKitPixabayBrowserItem: NSCollectionViewItem, WallpaperGridHoverIt
                 await MainActor.run {
                     guard let self, self.currentItemID == id, self.thumbnailRequestID == requestID else { return }
                     self.terminalThumbnailFailureGeneration = generation
-                    self.thumbnailLoadingWork?.cancel(); self.thumbnailLoadingWork = nil
                     if self.thumbnailView.image == nil { self.placeholderView.isHidden = false }
-                    self.spinner.stopAnimation(nil)
+                    self.placeholderLabel.stringValue = "暂无缩略图"
                 }
                 return
             }
             guard !Task.isCancelled else { return }
             await MainActor.run {
                 guard let self, self.currentItemID == id, self.thumbnailRequestID == requestID else { return }
-                self.thumbnailLoadingWork?.cancel(); self.thumbnailLoadingWork = nil
                 self.thumbnailView.image = img
                 self.layoutThumbnail()
                 self.placeholderView.isHidden = true
-                self.spinner.stopAnimation(nil)
             }
         }
     }
@@ -281,8 +267,6 @@ final class AppKitPixabayBrowserItem: NSCollectionViewItem, WallpaperGridHoverIt
         controlBar.glass.setProgressAnimationVisible(false)
         thumbnailTask?.cancel()
         thumbnailTask = nil
-        thumbnailLoadingWork?.cancel(); thumbnailLoadingWork = nil
-        spinner.stopAnimation(nil)
         thumbnailRequestID = UUID()
     }
 
@@ -418,8 +402,8 @@ final class AppKitPixabayBrowserItem: NSCollectionViewItem, WallpaperGridHoverIt
 
         placeholderView.wantsLayer = true
         placeholderView.layer?.backgroundColor = NSColor.controlBackgroundColor.cgColor
-        spinner.style = .spinning; spinner.controlSize = .small; spinner.isIndeterminate = true
-        placeholderView.addSubview(spinner)
+        WallpaperLibraryControlStyle.thumbnailPlaceholder(placeholderLabel)
+        placeholderView.addSubview(placeholderLabel)
 
 
         hoverOutlineView.wantsLayer = true
@@ -490,8 +474,7 @@ final class AppKitPixabayBrowserItem: NSCollectionViewItem, WallpaperGridHoverIt
 
         layoutThumbnail()
         placeholderView.frame = imageContainer.bounds
-        let spinSz: CGFloat = min(20, w * 0.12)
-        spinner.frame = NSRect(x: (w-spinSz)/2, y: (h-spinSz)/2, width: spinSz, height: spinSz)
+        placeholderLabel.frame = NSRect(x: 12, y: (h - 16) / 2, width: max(0, w - 24), height: 16)
         hoverOutlineView.frame = NSRect(x: 1, y: 1, width: w-2, height: h-2)
 
         let (_, _, badgeSz) = fontSizeForWidth(w)
@@ -646,8 +629,8 @@ final class AppKitPixabayBrowserItem: NSCollectionViewItem, WallpaperGridHoverIt
                 ? NSColor.systemGreen.blended(withFraction: 0.38, of: .black)?.withAlphaComponent(0.82)
                     ?? NSColor.systemGreen.withAlphaComponent(0.82)
                 : NSColor.black.withAlphaComponent(0.55)).cgColor
-            hoverOutlineView.layer?.borderColor = (isSelected ? NSColor.controlAccentColor : .white).cgColor
-            hoverOutlineView.layer?.borderWidth = isSelected ? 1.6 : 1
+            hoverOutlineView.layer?.borderColor = WallpaperLibraryControlStyle.cardOutlineColor(selected: isSelected, in: imageContainer.effectiveAppearance).cgColor
+            hoverOutlineView.layer?.borderWidth = isSelected ? WallpaperLibraryControlStyle.cardSelectionBorderWidth : 1
         }
     }
 }

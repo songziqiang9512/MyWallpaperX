@@ -29,7 +29,7 @@ final class SteamLoginPanelView: WallpaperPanelSurface, NSTextFieldDelegate {
     let rememberCheck = NSButton(checkboxWithTitle: "记住登录，下次自动恢复", target: nil, action: nil)
     let loginButton = NSButton(title: "登录 Steam", target: nil, action: nil)
     let guardSubmitButton = NSButton(title: "提交验证码", target: nil, action: nil)
-    let cancelButton = NSButton(title: "", target: nil, action: nil)
+    let cancelButton = WallpaperPanelCloseButton()
     let doneButton = NSButton(title: "完成", target: nil, action: nil)
     private let submitArea = NSStackView()
     private let qrActions = NSStackView()
@@ -129,14 +129,11 @@ final class SteamLoginPanelView: WallpaperPanelSurface, NSTextFieldDelegate {
         addFullWidth(statusLabel, to: content)
         statusLabel.heightAnchor.constraint(equalToConstant: 44).isActive = true
         cancelButton.image = NSImage(systemSymbolName: "xmark", accessibilityDescription: "关闭登录")
-        cancelButton.isBordered = false
         cancelButton.toolTip = "关闭并取消本次登录（Esc）"
         cancelButton.setAccessibilityLabel("关闭登录")
         cancelButton.translatesAutoresizingMaskIntoConstraints = false
         bodyView.addSubview(cancelButton)
         NSLayoutConstraint.activate([
-            cancelButton.widthAnchor.constraint(equalToConstant: 32),
-            cancelButton.heightAnchor.constraint(equalToConstant: 32),
             cancelButton.trailingAnchor.constraint(equalTo: trailingAnchor, constant: -12),
             cancelButton.topAnchor.constraint(equalTo: topAnchor, constant: 10)
         ])
@@ -382,8 +379,7 @@ final class SteamLoginPanelView: WallpaperPanelSurface, NSTextFieldDelegate {
     }
 
     private func styleButton(_ button: NSButton, primary: Bool = false) {
-        button.bezelStyle = .rounded
-        button.controlSize = .large
+        WallpaperLibraryControlStyle.sheetCapsule(button)
         button.font = .systemFont(ofSize: 13, weight: .semibold)
         if primary { button.bezelColor = .controlAccentColor }
         button.setContentCompressionResistancePriority(.required, for: .horizontal)

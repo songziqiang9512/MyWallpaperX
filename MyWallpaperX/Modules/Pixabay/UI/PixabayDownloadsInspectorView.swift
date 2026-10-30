@@ -205,7 +205,7 @@ final class PixabayDownloadsInspectorView: NSView {
         if snapshot != nil || remoteItem != nil {
             addContentSection(WallpaperLibraryControlStyle.sectionDivider(), to: stack)
             if !metadataFacts.isEmpty {
-                addContentSection(makeFactsGrid(), to: stack)
+                addContentSection(WallpaperLibraryControlStyle.inspectorFacts(metadataFacts), to: stack)
                 addContentSection(WallpaperLibraryControlStyle.sectionDivider(), to: stack)
             }
             if let snapshot { addContentSection(makeFileLocationSection(snapshot: snapshot), to: stack) }
@@ -283,34 +283,6 @@ final class PixabayDownloadsInspectorView: NSView {
         return stack
     }
 
-    private func makeFactsGrid() -> NSView {
-        let stack = NSStackView()
-        stack.orientation = .vertical
-        stack.alignment = .leading
-        stack.spacing = 12
-        stack.translatesAutoresizingMaskIntoConstraints = false
-
-        var index = 0
-        while index < metadataFacts.count {
-            let row = NSStackView()
-            row.orientation = .horizontal
-            row.alignment = .top
-            row.spacing = 12
-            row.distribution = .fillEqually
-            row.translatesAutoresizingMaskIntoConstraints = false
-            row.addArrangedSubview(PixabayDownloadsInspectorViews.makeFactView(label: metadataFacts[index].0, value: metadataFacts[index].1))
-            if index + 1 < metadataFacts.count {
-                row.addArrangedSubview(PixabayDownloadsInspectorViews.makeFactView(label: metadataFacts[index + 1].0, value: metadataFacts[index + 1].1))
-            } else {
-                row.addArrangedSubview(NSView())
-            }
-            stack.addArrangedSubview(row)
-            NSLayoutConstraint.activate([row.widthAnchor.constraint(equalTo: stack.widthAnchor)])
-            index += 2
-        }
-
-        return stack
-    }
 
     private func makeFileLocationSection(snapshot: PixabayDownloadsInspectorSnapshot) -> NSView {
         let stack = NSStackView()

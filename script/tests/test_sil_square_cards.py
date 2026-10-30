@@ -35,7 +35,7 @@ class SILSquareCardTests(unittest.TestCase):
                     "Shared/Components/WallpaperLibraryGridMetrics.swift", "Shell/WallpaperLibraryGridController.swift")]
         sources += [ROOT / "MyWallpaperX/Core/PlaybackControl" / name for name in (
             "WallpaperRuntimeSwitch.swift", "PlaybackSwitchTransaction.swift", "WallpaperPlaybackSequence.swift")]
-        sources += [shared / "Components/WallpaperCardInteractionView.swift",
+        sources += [shared / "Components/WallpaperLibraryControlStyle.swift", shared / "Components/WallpaperCardInteractionView.swift",
                     shared / "Components/WallpaperCardSupportViews.swift", shared / "Components/WallpaperCardControlsView.swift",
                     ROOT / "script/tests/fixtures/NativeAppHarness.swift"]
         with tempfile.TemporaryDirectory(prefix="mwx-sil-square-", dir="/private/tmp") as folder:

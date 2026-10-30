@@ -22,6 +22,7 @@ class WallpaperFormFieldTests(unittest.TestCase):
     def test_native_api_key_input_default_cancel_and_shared_surface(self):
         paths = [ROOT / path for path in (
             "MyWallpaperX/Shared/Components/WallpaperFormFieldStyle.swift",
+            "MyWallpaperX/Shared/Components/WallpaperLibraryControlStyle.swift",
             "MyWallpaperX/Shared/UI/WallpaperLibrarySheetPresentation.swift",
             "MyWallpaperX/Shared/UI/ModalPresentation.swift",
             "MyWallpaperX/Shared/UI/WallpaperAPIKeyPanelController.swift",

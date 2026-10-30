@@ -343,7 +343,7 @@ final class VideoLibraryInspectorView: NSView {
         let stack = VideoLibraryInspectorViews.makeVerticalStack(spacing: 14)
         WallpaperLibraryControlStyle.addSectionDivider(to: stack)
         stack.addArrangedSubview(VideoLibraryInspectorViews.makeSectionTitle("原数据"))
-        stack.addArrangedSubview(VideoLibraryInspectorViews.makeFactsGrid(metadataFacts))
+        stack.addArrangedSubview(WallpaperLibraryControlStyle.inspectorFacts(metadataFacts))
         return stack
     }
 

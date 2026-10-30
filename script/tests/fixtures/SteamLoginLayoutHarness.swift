@@ -31,6 +31,10 @@ import CoreImage
                 panel.layoutSubtreeIfNeeded()
                 RunLoop.main.run(until: Date().addingTimeInterval(0.08))
                 panel.layoutSubtreeIfNeeded()
+                precondition(panel.cancelButton.alignmentRect(forFrame: panel.cancelButton.frame).size == NSSize(width: 32, height: 18), "shared close hitbox: frame=\(panel.cancelButton.frame), bounds=\(panel.cancelButton.bounds), constraints=\(panel.cancelButton.constraints)")
+                for button in [panel.loginButton, panel.guardSubmitButton, panel.refreshQRButton, panel.zoomQRButton] {
+                    precondition(button.bezelStyle == .glass && button.borderShape == .capsule, "login uses native glass capsule")
+                }
                 let visibleControls = descendants(panel).compactMap { $0 as? NSControl }.filter {
                     !$0.isHiddenOrHasHiddenAncestor && ($0 is NSButton || ($0 as? NSTextField)?.isEditable == true)
                 }

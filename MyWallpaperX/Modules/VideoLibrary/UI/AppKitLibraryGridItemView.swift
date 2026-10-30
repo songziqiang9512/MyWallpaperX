@@ -31,7 +31,7 @@ final class AppKitWallpaperItem: WallpaperCardCollectionViewItem, WallpaperGridH
     private let thumbnailImageView = NSImageView()
     private let placeholderLabel = NSTextField(labelWithString: "生成中...")
     private let multiSelectBadge = NSView()
-    private let multiSelectBadgeIcon = NSImageView()
+    private let multiSelectBadgeIcon = WallpaperLibraryControlStyle.selectionCheckmark()
     private var controlBar: WallpaperCardControlsView?
     private var controlBarFrame = NSRect.zero
     private var barVisibilityRevision = 0
@@ -257,9 +257,7 @@ final class AppKitWallpaperItem: WallpaperCardCollectionViewItem, WallpaperGridH
 
         thumbnailImageView.imageScaling = .scaleProportionallyUpOrDown
 
-        placeholderLabel.alignment = .center
-        placeholderLabel.textColor = .secondaryLabelColor
-        placeholderLabel.font = .systemFont(ofSize: 11, weight: .regular)
+        WallpaperLibraryControlStyle.thumbnailPlaceholder(placeholderLabel)
         placeholderLabel.translatesAutoresizingMaskIntoConstraints = false
 
         multiSelectBadge.wantsLayer = true
@@ -268,8 +266,6 @@ final class AppKitWallpaperItem: WallpaperCardCollectionViewItem, WallpaperGridH
         multiSelectBadge.translatesAutoresizingMaskIntoConstraints = false
         multiSelectBadge.isHidden = true
 
-        multiSelectBadgeIcon.image = NSImage(systemSymbolName: "checkmark", accessibilityDescription: nil)
-        multiSelectBadgeIcon.contentTintColor = .white
         multiSelectBadgeIcon.translatesAutoresizingMaskIntoConstraints = false
         multiSelectBadgeIcon.isHidden = true
 
@@ -476,8 +472,7 @@ final class AppKitWallpaperItem: WallpaperCardCollectionViewItem, WallpaperGridH
         multiSelectBadge.isHidden = !isMultiSelectMode
         guard isMultiSelectMode else { return }
         imageContainer.effectiveAppearance.performAsCurrentDrawingAppearance {
-            multiSelectBadge.layer?.backgroundColor = (selected
-                ? NSColor.controlAccentColor : NSColor.black.withAlphaComponent(0.42)).cgColor
+            WallpaperLibraryControlStyle.selectionBadge(multiSelectBadge, selected: selected)
         }
         if selected {
             multiSelectBadgeIcon.isHidden = false
@@ -493,7 +488,7 @@ final class AppKitWallpaperItem: WallpaperCardCollectionViewItem, WallpaperGridH
         refreshThemeAwareAppearance()
         CATransaction.begin()
         CATransaction.setDisableActions(true)
-        imageContainer.layer?.borderWidth = isSelected ? 2 : 1
+        imageContainer.layer?.borderWidth = isSelected ? WallpaperLibraryControlStyle.cardSelectionBorderWidth : 1
         CATransaction.commit()
         selectionTintView.alphaValue = isSelected ? 0.2 : 0
         updateMultiSelectBadge(selected: isSelected)
@@ -538,11 +533,10 @@ final class AppKitWallpaperItem: WallpaperCardCollectionViewItem, WallpaperGridH
         guard let layer = imageContainer.layer else { return }
         imageContainer.effectiveAppearance.performAsCurrentDrawingAppearance {
             layer.backgroundColor = NSColor.windowBackgroundColor.cgColor
-            layer.borderColor = (isSelectedState ? NSColor.controlAccentColor : NSColor.separatorColor).cgColor
+            layer.borderColor = (isSelectedState ? WallpaperLibraryControlStyle.cardOutlineColor(selected: true, in: imageContainer.effectiveAppearance) : NSColor.separatorColor).cgColor
             selectionTintView.layer?.backgroundColor = NSColor.controlAccentColor.withAlphaComponent(0.2).cgColor
-            multiSelectBadge.layer?.backgroundColor = (isSelectedState
-                ? NSColor.controlAccentColor : NSColor.black.withAlphaComponent(0.42)).cgColor
-            hoverOutlineView.layer?.borderColor = NSColor.white.cgColor
+            WallpaperLibraryControlStyle.selectionBadge(multiSelectBadge, selected: isSelectedState)
+            hoverOutlineView.layer?.borderColor = (isSelectedState ? NSColor.clear : WallpaperLibraryControlStyle.cardOutlineColor(selected: false, in: imageContainer.effectiveAppearance)).cgColor
         }
     }
 

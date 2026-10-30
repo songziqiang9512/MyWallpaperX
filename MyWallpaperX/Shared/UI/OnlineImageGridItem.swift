@@ -11,7 +11,8 @@ final class OnlineImageGridItem: WallpaperCardCollectionViewItem, WallpaperGridH
     private var originalPreviewOverlay: NSView?
     private var originalPreviewSpinner: NSProgressIndicator?
     private var originalPreviewLoading = false
-    private let badge = NSTextField(labelWithString: "")
+    private let badge = NSView()
+    private let badgeIcon = WallpaperLibraryControlStyle.selectionCheckmark()
     private let hover = WallpaperGridHoverTracking()
     private let localThumbnails = SILThumbnailProvider()
     private var content: WallpaperContentItem?
@@ -52,11 +53,9 @@ final class OnlineImageGridItem: WallpaperCardCollectionViewItem, WallpaperGridH
         outline.alphaValue = 0
         thumbnail.imageScaling = .scaleProportionallyUpOrDown
         imageView = thumbnail
-        placeholder.font = .systemFont(ofSize: 11); placeholder.textColor = .secondaryLabelColor
-        placeholder.alignment = .center
-        badge.font = .systemFont(ofSize: 12, weight: .semibold)
-        badge.alignment = .center; badge.textColor = .white
+        WallpaperLibraryControlStyle.thumbnailPlaceholder(placeholder)
         badge.wantsLayer = true; badge.layer?.cornerRadius = 12
+        badge.addSubview(badgeIcon)
         view.addSubview(surface)
         [thumbnail, placeholder, outline, badge].forEach(surface.addSubview)
         surface.appearanceDidChangeHandler = { [weak self] in
@@ -100,7 +99,7 @@ final class OnlineImageGridItem: WallpaperCardCollectionViewItem, WallpaperGridH
         view.setAccessibilityLabel(content.title)
         updateControls()
         applyTransfer(busy: busy, fraction: fraction)
-        badge.stringValue = selected ? "✓" : ""
+        badgeIcon.isHidden = !selected
         updateAppearance()
         if changed {
             retireRequest(); if mustClear { thumbnail.image = nil }; pixelLimit = 0; hasFailed = false
@@ -136,6 +135,7 @@ final class OnlineImageGridItem: WallpaperCardCollectionViewItem, WallpaperGridH
             layoutControls()
             placeholder.frame = .init(x: 8, y: surface.bounds.midY - 10, width: max(0, surface.bounds.width - 16), height: 20)
             badge.frame = .init(x: surface.bounds.midX - 12, y: surface.bounds.midY - 12, width: 24, height: 24)
+            badgeIcon.frame = badge.bounds.insetBy(dx: 5, dy: 5)
             layoutImage()
             originalPreviewOverlay?.frame = surface.bounds
             originalPreviewSpinner?.frame = .init(x: surface.bounds.midX - 14, y: surface.bounds.midY - 14, width: 28, height: 28)
@@ -309,13 +309,10 @@ final class OnlineImageGridItem: WallpaperCardCollectionViewItem, WallpaperGridH
         surface.effectiveAppearance.performAsCurrentDrawingAppearance {
             surface.layer?.backgroundColor = NSColor.clear.cgColor
             surface.layer?.borderColor = NSColor.white.withAlphaComponent(hovering ? 0.12 : 0.028).cgColor
-            outline.layer?.borderColor = (cardSelected ? NSColor.controlAccentColor.withAlphaComponent(dark ? 0.92 : 0.84)
-                : NSColor.white.withAlphaComponent(dark ? 0.56 : 0.72)).cgColor
-            badge.layer?.backgroundColor = (cardSelected ? NSColor.controlAccentColor : NSColor.black.withAlphaComponent(0.42)).cgColor
-            badge.layer?.borderColor = NSColor.white.withAlphaComponent(0.28).cgColor
+            outline.layer?.borderColor = WallpaperLibraryControlStyle.cardOutlineColor(selected: cardSelected, in: surface.effectiveAppearance).cgColor
+            WallpaperLibraryControlStyle.selectionBadge(badge, selected: cardSelected)
         }
-        outline.layer?.borderWidth = cardSelected ? 1.6 : 1
-        badge.layer?.borderWidth = cardSelected ? 0 : 1
+        outline.layer?.borderWidth = cardSelected ? WallpaperLibraryControlStyle.cardSelectionBorderWidth : 1
         let alpha: CGFloat = hovering || cardSelected ? 1 : 0
         if animated, !NSWorkspace.shared.accessibilityDisplayShouldReduceMotion {
             NSAnimationContext.runAnimationGroup { context in

@@ -23,7 +23,7 @@ final class AppKitSteamWorkshopBrowserItem: WallpaperCardCollectionViewItem, Wal
     let previewImageView = NSImageView()
     let previewPlaceholderView = SteamWorkshopPreviewPlaceholderView()
     let multiSelectBadgeView = NSView()
-    let multiSelectBadgeIcon = NSImageView()
+    let multiSelectBadgeIcon = WallpaperLibraryControlStyle.selectionCheckmark()
     let controlBar = WallpaperCardControlsView()
 
     lazy var previewState: SteamWorkshopPreviewState = {

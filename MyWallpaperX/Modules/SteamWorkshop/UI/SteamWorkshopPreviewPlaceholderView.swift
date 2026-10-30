@@ -74,9 +74,7 @@ final class SteamWorkshopPreviewPlaceholderView: NSView {
         refreshBackgroundColor()
         addSubview(backgroundView)
 
-        titleLabel.alignment = .center
-        titleLabel.font = .systemFont(ofSize: 12, weight: .medium)
-        titleLabel.textColor = .secondaryLabelColor
+        WallpaperLibraryControlStyle.thumbnailPlaceholder(titleLabel)
         titleLabel.backgroundColor = .clear
         addSubview(titleLabel)
 

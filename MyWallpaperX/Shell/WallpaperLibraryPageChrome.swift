@@ -82,17 +82,6 @@ final class WallpaperLibraryPageChrome: NSViewController {
 
 }
 
-private final class WallpaperLibraryEmptyStackView: NSStackView {
-    override func hitTest(_ point: NSPoint) -> NSView? {
-        guard let hit = super.hitTest(point) else { return nil }
-        var current: NSView? = hit
-        while let candidate = current, candidate !== self {
-            if candidate is NSButton { return hit }
-            current = candidate.superview
-        }
-        return nil
-    }
-}
 
 final class WallpaperPlaylistHeaderView: NSView {
     private let cover = WallpaperPlaylistHeaderCoverView()

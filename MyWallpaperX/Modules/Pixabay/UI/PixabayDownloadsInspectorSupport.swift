@@ -46,21 +46,6 @@ struct PixabayDownloadsInspectorSnapshot {
 }
 
 enum PixabayDownloadsInspectorViews {
-    static func makeFactView(label: String, value: String) -> NSView {
-        let stack = NSStackView()
-        stack.orientation = .vertical
-        stack.alignment = .leading
-        stack.spacing = 6
-        stack.translatesAutoresizingMaskIntoConstraints = false
-
-        stack.addArrangedSubview(makeLabel(label, font: .systemFont(ofSize: 11, weight: .medium), color: .secondaryLabelColor))
-        let valueLabel = makeLabel(value, font: .systemFont(ofSize: 13, weight: .semibold), color: .labelColor)
-        valueLabel.maximumNumberOfLines = 3
-        valueLabel.isSelectable = true
-        stack.addArrangedSubview(valueLabel)
-
-        return stack
-    }
 
     static func makeLabel(_ text: String, font: NSFont, color: NSColor) -> NSTextField {
         let label = NSTextField(wrappingLabelWithString: text)

@@ -372,7 +372,7 @@ final class AppKitSteamWorkshopItemDetailView: NSView {
         }
         if !currentItem.dependencyIDs.isEmpty { facts.append(("依赖作品", currentItem.dependencyIDs.joined(separator: "、"))) }
         facts.append(("作品 ID", currentItem.id))
-        stack.addArrangedSubview(factsGrid(facts))
+        stack.addArrangedSubview(WallpaperLibraryControlStyle.inspectorFacts(facts))
         stack.addArrangedSubview(WallpaperLibraryControlStyle.sectionDivider())
         stack.addArrangedSubview(label(detailDescriptionLine, font: .systemFont(ofSize: 13), color: .labelColor, lines: 0))
         contentStack.addArrangedSubview(stack)
@@ -472,7 +472,7 @@ final class AppKitSteamWorkshopItemDetailView: NSView {
             let hint = NSMenuItem(title: "不会删除本地文件或中断播放", action: nil, keyEquivalent: "")
             hint.isEnabled = false
             menu.addItem(hint)
-            menu.popUp(positioning: nil, at: NSPoint(x: 0, y: sender.bounds.maxY + 4), in: sender)
+            ToolbarMenu.popUp(anchor: sender, menu: menu)
         } else if entry.isEnabled, let action = entry.action {
             NSApp.sendAction(action, to: entry.target, from: entry)
         }
@@ -682,40 +682,7 @@ final class AppKitSteamWorkshopItemDetailView: NSView {
 
 
 
-    private func factsGrid(_ facts: [(String, String)]) -> NSView {
-        let grid = NSStackView()
-        grid.orientation = .vertical
-        grid.alignment = .leading
-        grid.spacing = 12
-        grid.translatesAutoresizingMaskIntoConstraints = false
 
-        var index = 0
-        while index < facts.count {
-            let row = NSStackView()
-            row.orientation = .horizontal
-            row.alignment = .top
-            row.spacing = 12
-            row.distribution = .fillEqually
-            row.translatesAutoresizingMaskIntoConstraints = false
-            row.addArrangedSubview(factView(label: facts[index].0, value: facts[index].1))
-            if index + 1 < facts.count {
-                row.addArrangedSubview(factView(label: facts[index + 1].0, value: facts[index + 1].1))
-            } else {
-                row.addArrangedSubview(NSView())
-            }
-            grid.addArrangedSubview(row)
-            row.widthAnchor.constraint(equalTo: grid.widthAnchor).isActive = true
-            index += 2
-        }
-        return grid
-    }
-
-    private func factView(label title: String, value: String) -> NSView {
-        let stack = verticalStack(spacing: 4)
-        stack.addArrangedSubview(label(title, font: .systemFont(ofSize: 11, weight: .medium), color: .secondaryLabelColor, lines: 1))
-        stack.addArrangedSubview(label(value, font: .systemFont(ofSize: 13, weight: .semibold), color: .labelColor, lines: 0))
-        return stack
-    }
 
     func notice(icon: String, text: String) -> NSView {
         let row = NSStackView()
