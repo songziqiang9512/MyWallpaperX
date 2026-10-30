@@ -2,7 +2,11 @@ import AppKit
 import Combine
 
 // Owners and media transports are recording leaves. The complete production
-// App adapter, its native makeItem path and value models are compiled unchanged.
+// App adapter and native makeItem path run with an asset-helper entry observer.
+// Source getters here do not stat; this observer counts helper entry only.
+@MainActor enum AdapterPrefetchAssetsProbe {
+    static var references: [WallpaperReference] = []
+}
 final class WallpaperManager {
     var sourceReads = 0
     private var records: [VideoWallpaper] = []
@@ -428,8 +432,12 @@ final class AdapterCollectionDataSource: NSObject, NSCollectionViewDataSource {
         func resetSourceReads() { manager.sourceReads = 0; images.sourceReads = 0; steam.sourceReads = 0; pixabayService.sourceReads = 0 }
         func readsEachSourceOnce() -> Bool { [manager.sourceReads, images.sourceReads, steam.sourceReads, pixabayService.sourceReads] == [1, 1, 1, 1] }
         resetSourceReads()
+        AdapterPrefetchAssetsProbe.references = []
         adapter.updateViewport(visible: [v, i, o, s], prefetch: [v, i, o, s, alias])
         checks["oneViewportResolvesEachProviderReferenceOnceAcrossVisiblePrefetchAndAlias"] = readsEachSourceOnce()
+        let nonvideoReferences = Set([i, o, s].map(\.providerReference))
+        checks["nearbyPreparesEachNonvideoReferenceOnceAcrossVisiblePrefetchAndAlias"] =
+            Set(AdapterPrefetchAssetsProbe.references) == nonvideoReferences && AdapterPrefetchAssetsProbe.references.count == 3
         let scopedImageLease = SILThumbnailProvider.requests.last!.2
         let scopedOnlineLease = PixabayDownloadedThumbnailStore.requests.last!.1
         let scopedSteamLease = SteamWorkshopPreviewState.configured.last!
@@ -460,22 +468,45 @@ final class AdapterCollectionDataSource: NSObject, NSCollectionViewDataSource {
             && PixabayDownloadedThumbnailStore.requests.last?.0 == 1 && steamLease.pixelSize == 256
         let countsBeforeHandoff = (SILThumbnailProvider.requests.count, PixabayDownloadedThumbnailStore.requests.count,
                                    SteamWorkshopPreviewState.configured.count)
+        AdapterPrefetchAssetsProbe.references = []
         adapter.updateViewport(visible: [v, i, o, s], prefetch: [])
         checks["near-to-visible-handoff-retains-existing-leases-without-restarting"] = !imageLease.cancelled
             && !pixabayLease.cancelled && steamLease.resets == 0 && AppKitThumbnailProvider.batches.last?.1 == ["1"]
             && countsBeforeHandoff.0 == SILThumbnailProvider.requests.count
             && countsBeforeHandoff.1 == PixabayDownloadedThumbnailStore.requests.count
             && countsBeforeHandoff.2 == SteamWorkshopPreviewState.configured.count
+        checks["nearToVisibleStillChecksAssetsForEveryRetainedLease"] =
+            Set(AdapterPrefetchAssetsProbe.references) == nonvideoReferences && AdapterPrefetchAssetsProbe.references.count == 3
         adapter.updateViewport(visible: [], prefetch: [])
         checks["empty-viewport-revokes-every-nonvideo-lease-and-video-demand"] = imageLease.cancelled && pixabayLease.cancelled
             && steamLease.resets == 1 && AppKitThumbnailProvider.batches.last?.0.isEmpty == true
             && AppKitThumbnailProvider.batches.last?.1.isEmpty == true
         let countsBeforeVisibleOnly = (SILThumbnailProvider.requests.count, PixabayDownloadedThumbnailStore.requests.count,
                                       SteamWorkshopPreviewState.configured.count)
+        AdapterPrefetchAssetsProbe.references = []
         adapter.updateViewport(visible: [i, o, s], prefetch: [])
         checks["visible-only-cells-do-not-acquire-second-prefetch-consumers"] = countsBeforeVisibleOnly.0 == SILThumbnailProvider.requests.count
             && countsBeforeVisibleOnly.1 == PixabayDownloadedThumbnailStore.requests.count
             && countsBeforeVisibleOnly.2 == SteamWorkshopPreviewState.configured.count
+        checks["visibleOnlyWithoutPrefetchLeaseSkipsAssetPreparation"] = AdapterPrefetchAssetsProbe.references.isEmpty
+        adapter.updateViewport(visible: [], prefetch: [i, o, s])
+        let changedImageLease = SILThumbnailProvider.requests.last!.2
+        let changedOnlineLease = PixabayDownloadedThumbnailStore.requests.last!.1
+        let changedSteamLease = SteamWorkshopPreviewState.configured.last!
+        let countsBeforeVisibleChange = (SILThumbnailProvider.requests.count, PixabayDownloadedThumbnailStore.requests.count,
+                                        SteamWorkshopPreviewState.configured.count)
+        images.wallpapers = [.init(id: "1", path: "/visible-replaced", title: "same id")]
+        pixabayService.downloadedContent.entries[0].thumbnailSourceKey = "visible-replaced"
+        steam.previewReloadToken += 1
+        AdapterPrefetchAssetsProbe.references = []
+        adapter.updateViewport(visible: [i, o, s], prefetch: [])
+        checks["visibleOnlyResourceChangesRetireExistingPrefetchLeasesWithoutRestart"] =
+            Set(AdapterPrefetchAssetsProbe.references) == nonvideoReferences && AdapterPrefetchAssetsProbe.references.count == 3
+            && changedImageLease.cancelled && changedOnlineLease.cancelled && changedSteamLease.resets == 1
+            && countsBeforeVisibleChange.0 == SILThumbnailProvider.requests.count
+            && countsBeforeVisibleChange.1 == PixabayDownloadedThumbnailStore.requests.count
+            && countsBeforeVisibleChange.2 == SteamWorkshopPreviewState.configured.count
+        images.wallpapers = viewportImages; pixabayService.downloadedContent = viewportOnline; steam.previewReloadToken = viewportSteamToken
         adapter.updateViewport(visible: [], prefetch: [i, i, o, s])
         let oldImage = SILThumbnailProvider.requests.last!.2
         let oldOnline = PixabayDownloadedThumbnailStore.requests.last!.1

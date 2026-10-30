@@ -18,6 +18,8 @@ R3（20d348aef起）：下载快照在原owner用一次调用期URL字典复用�
 
 R4（524e06522起）：Video初载size回填在原Main回调复制当前数组，保epoch、首项id/path和仅补nil，最后有变化只发布一次；不新增索引/helper/数组全比较。受控两文件publication2→1、保存调度2→1，SQLite仍1次；旧/新Debug完整功能JSON一致，最终Debug/优化各16phase、67功能及7退出检查通过，旧优化/退出未执行。Web冷分析以局部ArraySlice/popFirst替换Array.removeFirst，保FIFO、去重/取消/读取与观察顺序，旧新traversal各12项（深链206读、宽图67读）顺序一致；最终author preparation70项含取消/join/token释放通过。产品净+3行，全部werror，隔离Debug通过（5854输入无漂移，0error/0warning）；交叉复核与固定快照质量/文档门通过。最终字段/读取/生命周期保持，只合并同回执的中间发布；slice可能本次遍历内保留底层buffer，不作耗时/能耗/内存结论，AV/UI未实跑。下一候选是无消费预取assets准备；Scene脚本/typed-frame抽查已在准备期/revision复用、检查有实际提交/撤销消费者，本轮不改，C层snapshot复制仅待观察线索。
 
+R5（e00c83b9f起）：CellAdapter在原viewport source/seen分派内只求一次isNearby，非near且无既有lease时跳过随后无人消费的prefetchAssets资源签名；有旧lease仍比较当前assets/温度并按原逻辑保留或撤销，Video独立owner、预取方向、源当次缓存和离开viewport清理不变。产品净+2行，无新索引/长期状态/helper；不捆绑新Steam需求内videoURL二次读取的小候选。原门76项当前全绿，精确旧源仅visibleOnlyWithoutPrefetchLeaseSkipsAssetPreparation反例红；其他75项及四新增入口观察中其余三项旧源均过，原空viewport/lease断言保持独立。werror及5643输入/工作区SHA无漂移；隔离Debug通过（5854输入无漂移，0error/0warning），交叉静审与固定快照质量/文档门通过。getter/媒体为受控叶，只证真实helper入口不再执行，未测实际stat/解码/时耗或完整App视觉。下一轮核C snapshot对image font的无消费复制和GPU整表只取单键；状态栏隐藏时CPU/内存/网络已有消费门，GPU图标持续消费，采样生命周期不改。
+
 “无调用”须排查 selector、协议回调、独立进程、作者脚本、动态资源及调试工具；测试、文档或结构登记出现名字不等于产品调用。第一批只删除已确认不可达的链路，不以行数作为收益或验收目标。
 
 ## 第一批设计与停止条件

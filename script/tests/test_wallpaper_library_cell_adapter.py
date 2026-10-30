@@ -44,6 +44,11 @@ class WallpaperLibraryCellAdapterTests(unittest.TestCase):
                 target = work / f"Source{index}.swift"
                 if source == sources[-1]:
                     target.write_text(fixture)
+                elif source.name == "WallpaperLibraryCellAdapter.swift":
+                    actual = source.read_text()
+                    entry = "    private func prefetchAssets(_ content: WallpaperContentItem, source: Source) -> [Data] {"
+                    self.assertEqual(actual.count(entry), 1)
+                    target.write_text(actual.replace(entry, entry + "\n        AdapterPrefetchAssetsProbe.references.append(content.providerReference)", 1))
                 else:
                     target.write_bytes(source.read_bytes())
                 frozen.append(target)

@@ -104,10 +104,12 @@ import Combine
             guard seen.insert(reference).inserted else { continue }
             let source = resolved(reference)
             if case .video = source { continue }
+            let isNearby = nearby.contains(reference)
+            guard isNearby || prefetches[reference] != nil else { continue }
             let assets = prefetchAssets(content, source: source)
             if let old = prefetches[reference], old.assets == assets, old.isWarm() { continue }
             prefetches.removeValue(forKey: reference)?.cancel()
-            guard nearby.contains(reference) else { continue }
+            guard isNearby else { continue }
             let demand = Prefetch(assets: assets)
             switch source {
             case .image(let value):
