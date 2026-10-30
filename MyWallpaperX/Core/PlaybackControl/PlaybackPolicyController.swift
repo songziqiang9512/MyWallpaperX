@@ -87,20 +87,23 @@ final class PlaybackPolicyController: NSObject {
         refreshWork?.cancel()
         refreshWork = nil
         guard let settings else { return }
+        pollTimer?.cancel()
+        pollTimer = nil
+        guard interruptions.isEmpty else {
+            PlaybackCommandMultiplexer.shared.setSystemPaused(true)
+            return
+        }
         let idleSeconds = settings.idle
             ? CGEventSource.secondsSinceLastEventType(.hidSystemState, eventType: CGEventType(rawValue: UInt32.max)!) : 0
         let otherAppFocused = settings.focused && isOtherApplicationFocused()
         let fullscreen = settings.fullscreen && isOtherAppFullscreenSpaceActive()
-        let paused = !interruptions.isEmpty || settings.requiresPause(
+        let paused = settings.requiresPause(
             otherAppFocused: otherAppFocused, otherAppFullscreen: fullscreen,
             onBattery: settings.battery && isRunningOnBattery(), idleSeconds: idleSeconds)
         PlaybackCommandMultiplexer.shared.setSystemPaused(paused)
 
         // Sleep until the idle deadline. Once idle, check for resumed activity at
         // most once a second. Battery normally uses IOKit's event source.
-        pollTimer?.cancel()
-        pollTimer = nil
-        guard interruptions.isEmpty else { return }
         var delay: TimeInterval?
         if settings.idle {
             delay = idleSeconds.isFinite && idleSeconds >= 0

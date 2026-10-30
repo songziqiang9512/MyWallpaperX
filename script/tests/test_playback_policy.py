@@ -1,4 +1,6 @@
 """Execute the shared production policy, event observer and command routing."""
+import json
+import os
 from pathlib import Path
 import subprocess
 import tempfile
@@ -10,8 +12,12 @@ CONTROL = ROOT / "MyWallpaperX/Core/PlaybackControl"
 HARNESS = r'''
 import AppKit
 var simulatedSpaces: [[String: Any]] = [["Current Space": ["type": 4]]]
+var managedDisplaySpaceReads = 0
 func CGSMainConnectionID() -> UInt32 { 0 }
-func CGSCopyManagedDisplaySpaces(_ connection: UInt32) -> CFArray { simulatedSpaces as CFArray }
+func CGSCopyManagedDisplaySpaces(_ connection: UInt32) -> CFArray {
+    managedDisplaySpaceReads += 1
+    return simulatedSpaces as CFArray
+}
 struct WallpaperSettings: Codable {
     var volume: Double = 50
     var pauseWhenOtherAppFocused = false
@@ -132,6 +138,43 @@ final class Handler: PlaybackEngineControlling {
         RunLoop.main.run(until: Date().addingTimeInterval(0.5))
         expect(false) // All toggles off, including after external activation events.
         print("policy-pass: 256 combinations, interruption overlap, manual intent, replay")
+
+        var observations: [String: Any] = [:]
+        var timedSettings = WallpaperSettings()
+        timedSettings.pauseWhenOtherAppFullscreen = true
+        timedSettings.pauseWhenIdle = true
+        let readsBeforeSettings = managedDisplaySpaceReads
+        observer.updateSettings(timedSettings)
+        observations["fullscreenSettingsReads"] = managedDisplaySpaceReads - readsBeforeSettings
+        observations["idleTimerScheduled"] = observer.pollTimer != nil
+        mux.dispatch(.pause)
+
+        let readsBeforeLock = managedDisplaySpaceReads
+        observer.setInterruption(.screenLock, active: true)
+        observations["lockSpaceReads"] = managedDisplaySpaceReads - readsBeforeLock
+        observations["idleTimerRemovedOnLock"] = observer.pollTimer == nil
+        observer.setInterruption(.systemSleep, active: true)
+        observations["overlapSpaceReads"] = managedDisplaySpaceReads - readsBeforeLock
+        observations["idleTimerAbsentDuringOverlap"] = observer.pollTimer == nil
+        observer.setInterruption(.screenLock, active: false)
+        observations["remainingInterruptionSpaceReads"] = managedDisplaySpaceReads - readsBeforeLock
+        observations["idleTimerAbsentWithRemainingInterruption"] = observer.pollTimer == nil
+
+        let readsBeforeFinalRelease = managedDisplaySpaceReads
+        observer.setInterruption(.systemSleep, active: false)
+        observations["finalReleaseSpaceReads"] = managedDisplaySpaceReads - readsBeforeFinalRelease
+        observations["idleTimerRestoredOnFinalRelease"] = observer.pollTimer != nil
+        observations["manualPauseSurvivesFinalRelease"] = mux.isUserPaused
+            && mux.isPlaybackPaused && handlers.allSatisfy { $0.paused }
+        observer.updateSettings(WallpaperSettings())
+        observations["idleTimerRemovedWhenDisabled"] = observer.pollTimer == nil
+        observations["manualPauseSurvivesDisabledPolicies"] = mux.isUserPaused
+            && !mux.isSystemPaused && handlers.allSatisfy { $0.paused }
+        mux.dispatch(.resume)
+        observations["manualResumeAfterRelease"] = !mux.isPlaybackPaused
+            && handlers.allSatisfy { !$0.paused }
+        let data = try! JSONSerialization.data(withJSONObject: observations, options: [.sortedKeys])
+        print("policy-observations: " + String(decoding: data, as: UTF8.self))
     }
 }
 '''
@@ -141,26 +184,54 @@ class PlaybackPolicyTests(unittest.TestCase):
     def test_shared_policy_and_system_notifications(self):
         with tempfile.TemporaryDirectory(prefix="mwx-playback-policy-") as directory:
             path = Path(directory)
+            home = path / "home"
+            home.mkdir()
+            environment = {**os.environ, "HOME": str(home), "CFFIXED_USER_HOME": str(home)}
             harness = path / "Harness.swift"
             persistence = (ROOT / "MyWallpaperX/Modules/VideoLibrary/Core/WallpaperManager+Persistence.swift").read_text()
             harness.write_text(HARNESS.replace("// SETTINGS_METHODS", "\n".join([
                 method(persistence, "func loadSettings("), method(persistence, "func saveSettings("),
             ])))
+            policy_source = path / "PlaybackPolicyController.swift"
+            policy_source.write_text((CONTROL / "PlaybackPolicyController.swift").read_text().replace(
+                "private var pollTimer:", "var pollTimer:", 1))
             binary = path / "harness"
             sources = [
                 ROOT / "MyWallpaperX/Core/SteamWorkshopScene/Systems/Properties/SceneUserProperty.swift",
                 ROOT / "MyWallpaperX/Core/SteamWorkshopStorage/ScenePlaybackSource.swift",
                 *[CONTROL / name for name in ["ScenePlaybackShortcut.swift", "WallpaperEngineCommand.swift",
-                    "PlaybackEngineControlling.swift", "PlaybackCommandMultiplexer.swift",
-                    "PlaybackPolicyController.swift"]],
+                    "PlaybackEngineControlling.swift", "PlaybackCommandMultiplexer.swift"]],
+                policy_source,
             ]
-            result = subprocess.run(["xcrun", "swiftc", "-parse-as-library",
+            result = subprocess.run(["xcrun", "swiftc", "-parse-as-library", "-warnings-as-errors",
                 *map(str, sources), str(harness), "-o", str(binary)],
-                capture_output=True, text=True, timeout=90)
+                capture_output=True, text=True, timeout=90, env=environment)
             self.assertEqual(result.returncode, 0, result.stderr)
-            result = subprocess.run([str(binary)], capture_output=True, text=True, timeout=10)
+            result = subprocess.run([str(binary)], capture_output=True, text=True, timeout=10,
+                                    env=environment)
             self.assertEqual(result.returncode, 0, result.stderr)
             self.assertIn("policy-pass", result.stdout)
+            observations = json.loads(next(line.removeprefix("policy-observations: ")
+                for line in result.stdout.splitlines() if line.startswith("policy-observations: ")))
+            expected = {
+                "fullscreenSettingsReads": 1,
+                "idleTimerScheduled": True,
+                "lockSpaceReads": 0,
+                "idleTimerRemovedOnLock": True,
+                "overlapSpaceReads": 0,
+                "idleTimerAbsentDuringOverlap": True,
+                "remainingInterruptionSpaceReads": 0,
+                "idleTimerAbsentWithRemainingInterruption": True,
+                "finalReleaseSpaceReads": 1,
+                "idleTimerRestoredOnFinalRelease": True,
+                "manualPauseSurvivesFinalRelease": True,
+                "idleTimerRemovedWhenDisabled": True,
+                "manualPauseSurvivesDisabledPolicies": True,
+                "manualResumeAfterRelease": True,
+            }
+            for name, value in expected.items():
+                with self.subTest(observation=name):
+                    self.assertEqual(observations[name], value, observations)
 
 
 if __name__ == "__main__":

@@ -24,6 +24,8 @@ R6（52e38ec26起）：QuickJS原snapshot owner仅在native font有提交消费�
 
 R7（b6d53be68起）：ThumbnailCache在原finish身份检查后才求值非逃逸encodedData；同步image生成只交image，原tuple的非nil Data仍优先，异步PNG表达式与raw/source字节不变。省去loader/decoder运行中最后consumer取消、请求已退役后的JPEG/PNG编码，不保证首guard之后取消也免编码。产品净-1行，无新状态/helper/owner/guard；peer/pinned、clear/remove仍交付且禁止回填、锁外编码、二次锁内身份核及队列slot保持。真实编码入口/finish返回探针仅在临时完整源副本，零计数等真实finish defer，去掉旧40ms等待；旧源108项只两项新取消编码反例红，最终108/108、相邻原字节/GIF/缓存返回46/46通过，均werror，6283导出输入与三源SHA无漂移。独立静审、隔离Debug（5854输入，0error/0warning）及固定快照质量/文档门通过；未测完整App、动画可见、耗时/能耗。静态图片桌面恢复与跨异步身份检查有真实消费者；SIL导入路径解析跨发布/弹窗重入，暂不合并。下一批核强制中断时无消费的暂停条件查询；不改低频GPU整表与Scene topology冷miss子层语义。
 
+R8（6fe7ef94e起）：PlaybackPolicyController.refresh前移原timer取消/清空及interruption判断；锁屏/屏保/睡眠已强制暂停时只发布system pause，不读无人消费的idle/focus/fullscreen条件，battery原本已短路，不算新增收益。最后解除仍清fullscreen缓存并完整重算、恢复timer，manual/system独立位与OR保持。产品净+3行，无新状态/helper/observer；不捆绑零调用shouldMaintainSession或低频重复扫屏。固定b6d53be68旧/新真实policy门保原256组合/通知/持久化/manual/replay断言，新增14观察当前全绿；旧源仅3计数反例红，交叠中断累计Space读取1/2/3→0/0/0，最后解除两边仍1次，真实timer字段只在临时完整副本放开。werror、6283输入/直接编译依赖与两源SHA无漂移；独立静审、6fe7ef94e隔离Debug（5854输入，0error/0warning）及质量/文档门通过。现役同步pause订阅者无policy回调；不扩为任意自定义subscriber发布途中改中断的保证，不加假设重入状态。未测60秒idle唤醒、实际睡眠/多屏/AV播放或功耗。后继查音量/静音的真实入口归一化及跨层重复发布；material/compiler磁盘暖命中待并行owner释放后再核，不重复微调已保留链。
+
 “无调用”须排查 selector、协议回调、独立进程、作者脚本、动态资源及调试工具；测试、文档或结构登记出现名字不等于产品调用。第一批只删除已确认不可达的链路，不以行数作为收益或验收目标。
 
 ## 第一批设计与停止条件
