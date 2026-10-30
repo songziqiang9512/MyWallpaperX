@@ -464,11 +464,10 @@ nonisolated extension SceneResolvedMaterialTextureResolver {
             let identity = SceneAssetTextureIdentity(path: path, purpose: purpose)
             let content: SceneTextureContent
             switch assetStates[identity] {
-            case let .ready(value)?: content = value
-            case .preparedVideoColor? where purpose == .premultipliedColor:
+            case let .ready(value)?, let .preparedVideo(value)?:
                 // A provider contract, like a prepared scene-background input.
                 // Runtime finalization still requires a complete decoded frame.
-                content = .color(.resolved(.premultipliedAlpha))
+                content = value
             default: return nil
             }
             return .init(

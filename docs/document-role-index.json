@@ -940,13 +940,13 @@
       "role": "stable-contract",
       "entrypoint": "docs/scene/architecture/runtime-architecture.md",
       "currentStateAuthority": "docs/scene/capabilities/coverage-ledger.md",
-      "lastReviewed": "2026-10-30",
+      "lastReviewed": "2026-10-31",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "0d3772d7181f686af481f128cccd5b7d51fcfb9bafed1e0d08536954f4c84139",
+        "sourceSHA256": "72ccda0fecbc25cb83415ebb3a9162bb2f32c8ca97f921c8743b443de4cfac07",
         "method": "document_registry --audit + document_health --check",
-        "scope": "按当前未改Source和原包非目标退步撤回输出退休候选；开放问题仅归队列，实验原数/停止理由归既有视频历史，保留新的AV定位完成资格项。",
-        "limitations": "状态与引用复核；未接受新引擎修复或整体性能收益。原6方法仍有间歇pending失败，正式Release、长稳态与官方空窗/全样本未资格。"
+        "scope": "十包显式子集、opaque通道视频验收与rate/blend后继设计；同一事实按合同、队列和历史分责。",
+        "limitations": "只关闭已证子门；未认官方parity、整样本通过、direct输出或性能收益。"
       }
     },
     {
@@ -1548,13 +1548,13 @@
         "docs/scene/roadmap/scene-open-breakpoint-queue.md",
         "docs/scene/capabilities/scene-sample-acceptance-ledger.md"
       ],
-      "lastReviewed": "2026-10-30",
+      "lastReviewed": "2026-10-31",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "30676f4e3c42a26452c8493e5b870c2a2d12ea41ca92a56f6eada4771eb6497b",
+        "sourceSHA256": "17db2b4a294ff85963b7e094c3ac2f8152060e2e0ae6f1fc9b8a290871c9d0c4",
         "method": "document_registry --audit + document_health --check",
-        "scope": "同步owner raw准入职责、363频谱恢复与未闭特效/短窗CPU成本；保357 ready黑资格与失败。",
-        "limitations": "不认整景或全部独立门PASS，不认JS heap回滚、优化配置/Release/稳态性能及官方同音源parity。"
+        "scope": "十包显式子集、opaque通道视频验收与rate/blend后继设计；同一事实按合同、队列和历史分责。",
+        "limitations": "只关闭已证子门；未认官方parity、整样本通过、direct输出或性能收益。"
       }
     },
     {
@@ -2240,7 +2240,8 @@
         "docs/scene/architecture/runtime-architecture.md",
         "docs/scene/capabilities/coverage-ledger.md",
         "docs/scene/roadmap/scene-open-breakpoint-queue.md"
-      ]
+      ],
+      "lastReviewed": "2026-10-31"
     },
     {
       "path": "docs/scene/history/media-artwork-palette-implementation-2026-10-05.md",
@@ -4391,13 +4392,13 @@
       "role": "active-plan",
       "entrypoint": "docs/scene/roadmap/batch2/batch2-design-index.md",
       "retirementCondition": "公开 API 的限定表面、生命周期与预算通过双侧事务门并归入唯一脚本合同后归档，设计登记随实施关闭。",
-      "lastReviewed": "2026-10-30",
+      "lastReviewed": "2026-10-31",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "6059b32887706dcc61d89c3f3afed7894eecd2923d2771211d6a22a5241e1ea2",
+        "sourceSHA256": "bdbf784cd4f47da3265080cd0eb62934718d219bd4a961dee94bc1912bae3402",
         "method": "document_registry --audit + document_health --check",
-        "scope": "同步owner raw准入职责、363频谱恢复与未闭特效/短窗CPU成本；保357 ready黑资格与失败。",
-        "limitations": "不认整景或全部独立门PASS，不认JS heap回滚、优化配置/Release/稳态性能及官方同音源parity。"
+        "scope": "十包显式子集、opaque通道视频验收与rate/blend后继设计；同一事实按合同、队列和历史分责。",
+        "limitations": "只关闭已证子门；未认官方parity、整样本通过、direct输出或性能收益。"
       }
     },
     {
@@ -4489,13 +4490,13 @@
       "role": "active-plan",
       "entrypoint": "docs/scene/README.md",
       "retirementCondition": "当队列中的公共 authored target 首断点关闭，后续只剩路线 P0/P3/P4/P5 的系统性验收，且不再需要该派生执行入口时，删除或转为 historical-evidence。",
-      "lastReviewed": "2026-10-30",
+      "lastReviewed": "2026-10-31",
       "reviewBasis": {
         "kind": "navigation-audit",
-        "sourceSHA256": "9150cb06807011e005b0bf979e1b73e8255eefa2c3a046a94016db4839093186",
+        "sourceSHA256": "6c00d708d79ad91f854f16002350983f83deeeaa334b118fc42ff171af580e74",
         "method": "document_registry --audit + document_health --check",
-        "scope": "同步owner raw准入职责、363频谱恢复与未闭特效/短窗CPU成本；保357 ready黑资格与失败。",
-        "limitations": "不认整景或全部独立门PASS，不认JS heap回滚、优化配置/Release/稳态性能及官方同音源parity。"
+        "scope": "十包显式子集、opaque通道视频验收与rate/blend后继设计；同一事实按合同、队列和历史分责。",
+        "limitations": "只关闭已证子门；未认官方parity、整样本通过、direct输出或性能收益。"
       }
     },
     {

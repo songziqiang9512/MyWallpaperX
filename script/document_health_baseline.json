@@ -130,7 +130,7 @@
     },
     "docs/scene/capabilities/material-video-assets.md": {
       "lines": 48,
-      "bytes": 10140
+      "bytes": 10869
     },
     "docs/scene/capabilities/particle-component-coverage.md": {
       "lines": 509,
@@ -250,7 +250,7 @@
     },
     "docs/scene/roadmap/batch2/script-component-api-design.md": {
       "lines": 600,
-      "bytes": 162315
+      "bytes": 163076
     },
     "docs/scene/roadmap/batch2/system-media-input-design.md": {
       "lines": 59,
@@ -277,8 +277,8 @@
       "bytes": 22465
     },
     "docs/scene/roadmap/scene-open-breakpoint-queue.md": {
-      "lines": 182,
-      "bytes": 41166
+      "lines": 187,
+      "bytes": 43254
     },
     "docs/web/cold-descriptor-parse-offload-design.md": {
       "lines": 30,
@@ -1795,15 +1795,6 @@
     },
     {
       "section": "bodies",
-      "path": "docs/scene/capabilities/material-video-assets.md",
-      "before": "f6e39762fbd800f923245998375c6a8975f87511bcd469263bfd81a9cb44459f",
-      "after": "0789d819da8f87be4e9a8e3e34d2722cee5518de7485fde59d06b96c613bad27",
-      "owner": "Scene video runtime qualification",
-      "reason": "记录已撤输出退休原型的非目标退步，避免把手动消融或有限Metal下降当已修；队列仅保仍开放驻留及新AV完成边界，原数和过程集中到既有历史，不新增问题文档或产品关卡。",
-      "decision": "docs/scene/history/video-instance-observations-2026-10-29.md#video-output-residency-20261030"
-    },
-    {
-      "section": "bodies",
       "path": "docs/scene/development/corpus-diagnostic-workflow.md",
       "before": "4c10958a4a1f504236f0c8a8acaa60cd58557e80c23c7699e8365ae79b3ff046",
       "after": "9f980a2857c8c0fa6171de5c668ba9468aec857476726591b8babad8a440f854",
@@ -1885,24 +1876,6 @@
     },
     {
       "section": "bodies",
-      "path": "docs/scene/roadmap/batch2/script-component-api-design.md",
-      "before": "5ad2c86d8b62c909bb23591533ed349483b3b176422244a7322efe3fdb8797d7",
-      "after": "e33e9299b4d3596dc6d904ffe94eb4289f672ab1ebd3a3fcaba402563b8d577b",
-      "owner": "scene-engine-maintainer",
-      "reason": "退役跨owner全帧固定容量混责、保每owner raw/原atomic预算并记录总工作增长取舍；363子门退出、成本归原性能卡，其他失败不销账。",
-      "decision": "docs/scene/roadmap/batch2/script-component-api-design.md#layer-mutation-owner-capacity"
-    },
-    {
-      "section": "bodies",
-      "path": "docs/scene/roadmap/scene-open-breakpoint-queue.md",
-      "before": "d7e641142b548d11820924ae5083905410b93542b471fb4403f53f78dec8cf3a",
-      "after": "9d7694d3d80ff3dfb60b674e30fa8dd6b6f56ab1d30f6a44bcafb3b38fdad89b",
-      "owner": "scene-engine-maintainer",
-      "reason": "退役跨owner全帧固定容量混责、保每owner raw/原atomic预算并记录总工作增长取舍；363子门退出、成本归原性能卡，其他失败不销账。",
-      "decision": "docs/scene/roadmap/batch2/script-component-api-design.md#layer-mutation-owner-capacity"
-    },
-    {
-      "section": "bodies",
       "path": "docs/scene/roadmap/performance-convergence-card.md",
       "before": "83340cdfefb179f46859db7e0b9a1771758f86d98155c7274eea639447c79876",
       "after": "ee125427bbfbea5eaa02e1f50b07dddfd4488083569bfe1da8e35eeef1652e84",
@@ -1927,6 +1900,33 @@
       "owner": "scene-engine-maintainer",
       "reason": "退役跨owner全帧固定容量混责、保每owner raw/原atomic预算并记录总工作增长取舍；363子门退出、成本归原性能卡，其他失败不销账。",
       "decision": "docs/scene/roadmap/batch2/script-component-api-design.md#layer-mutation-owner-capacity"
+    },
+    {
+      "section": "bodies",
+      "path": "docs/scene/capabilities/material-video-assets.md",
+      "before": "0789d819da8f87be4e9a8e3e34d2722cee5518de7485fde59d06b96c613bad27",
+      "after": "3c6bd738658d9758788076bf4e32cd53f0be6949d17ed259d65a5aeb85627dd0",
+      "owner": "scene-user-priority-capabilities",
+      "reason": "替换旧视频PMA-only边界、先记木偶参数曲线设计，并接纳用户十包待复核清单；只为真实通用能力及唯一队列新增必要合同，不复制历史验收。",
+      "decision": "docs/scene/capabilities/material-video-assets.md#decoded-video-channels"
+    },
+    {
+      "section": "bodies",
+      "path": "docs/scene/roadmap/batch2/script-component-api-design.md",
+      "before": "e33e9299b4d3596dc6d904ffe94eb4289f672ab1ebd3a3fcaba402563b8d577b",
+      "after": "fe23e1626f137214dcd252278169536698f982b37fadc36bafdf1f16bbd9f7da",
+      "owner": "scene-user-priority-capabilities",
+      "reason": "替换旧视频PMA-only边界、先记木偶参数曲线设计，并接纳用户十包待复核清单；只为真实通用能力及唯一队列新增必要合同，不复制历史验收。",
+      "decision": "docs/scene/roadmap/batch2/script-component-api-design.md#puppet-parameter-timelines"
+    },
+    {
+      "section": "bodies",
+      "path": "docs/scene/roadmap/scene-open-breakpoint-queue.md",
+      "before": "9d7694d3d80ff3dfb60b674e30fa8dd6b6f56ab1d30f6a44bcafb3b38fdad89b",
+      "after": "d99128d8b43b318d248d485e1e9d0a80bf05bb888701ed09d88011d57aca5071",
+      "owner": "scene-user-priority-capabilities",
+      "reason": "替换旧视频PMA-only边界、先记木偶参数曲线设计，并接纳用户十包待复核清单；只为真实通用能力及唯一队列新增必要合同，不复制历史验收。",
+      "decision": "docs/scene/history/corpus-log-audit-2026-10-29.md#user-priority-20261031"
     }
   ]
 }

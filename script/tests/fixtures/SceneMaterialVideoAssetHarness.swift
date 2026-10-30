@@ -102,42 +102,45 @@ final class ScenePerformanceCounterHub {
             }
             let view = SceneResourceView(projectRootURL: root, packageRootURL: nil, stockAssetsRootURL: nil)
             let asset = SceneAssetTextureIdentity(virtualPath: assetName, purpose: .premultipliedColor)!
+            let dataAsset = SceneAssetTextureIdentity(virtualPath: assetName, purpose: .preservedChannels)!
             let alias = SceneAssetTextureIdentity(virtualPath: "./" + assetName + ".tex", purpose: .premultipliedColor)!
             let invalid = SceneAssetTextureIdentity(virtualPath: "bad/truncated", purpose: .premultipliedColor)!
             let unsupported = SceneAssetTextureIdentity(virtualPath: assetName, purpose: .normal)!
             let still = SceneAssetTextureIdentity(virtualPath: "still.png", purpose: .premultipliedColor)!
-            let catalog = try SceneMaterialAssetTextureCatalog(demands: [asset, alias, invalid, unsupported, still],
+            let catalog = try SceneMaterialAssetTextureCatalog(demands: [asset, dataAsset, alias, invalid, unsupported, still],
                 resourceView: view, descriptor: .init(), device: device)
             guard let declaration = catalog.videoDeclarations[asset],
-                  let aliasDeclaration = catalog.videoDeclarations[alias] else { fatalError("video declaration missing") }
+                  let aliasDeclaration = catalog.videoDeclarations[alias],
+                  let dataDeclaration = catalog.videoDeclarations[dataAsset] else { fatalError("video declaration missing") }
             let loader = SceneTextureLoader()
             let registry = SceneVideoTextureSourceRegistry(epoch: 40)
             defer { registry.stop() }
             let cache = root.appendingPathComponent("cache")
             guard let source = try registry.source(declaration: declaration, owner: .asset,
+                cacheDirectory: cache, device: device, loader: loader) else { fatalError("asset source missing") }
+            var durationSnapshots = ["created": videoObservation(source)]
+            guard let shared = try registry.source(declaration: aliasDeclaration, owner: .asset,
                       cacheDirectory: cache, device: device, loader: loader),
-                  let shared = try registry.source(declaration: aliasDeclaration, owner: .asset,
+                  let dataSource = try registry.source(declaration: dataDeclaration, owner: .asset,
                       cacheDirectory: cache, device: device, loader: loader),
                   let layerSource = try registry.source(from: declaration.input, layerID: videoLayerID,
                       cacheDirectory: cache, device: device, loader: loader) else { fatalError("registry source missing") }
             let initialVideoFrame = registry.sceneScriptSnapshots(sceneTime: 0)
             var checks: [String: Bool] = [
-                "declarationIsNotReady": catalog.launchStates[asset] == .preparedVideoColor,
+                "declarationIsNotReady": catalog.launchStates[asset] == .preparedVideo(.color(.resolved(.premultipliedAlpha)))
+                    && catalog.launchStates[dataAsset] == .preparedVideo(.data),
                 "initialStatePending": {
                     if case .pending? = catalog.makeFrameProvider().states(sceneTime: 0)[asset] { return true }
                     return false
                 }(),
-                "aliasesSharePhysicalDecoder": source === shared,
+                "aliasesSharePhysicalDecoder": source === shared && source === dataSource,
                 "layerPlaybackIsIndependent": source !== layerSource,
                 "assetHasNoLayerBinding": Set(initialVideoFrame.layerBindings.keys) == [videoLayerID]
                     && !initialVideoFrame.sources.compactMap { $0 }.contains { $0.sourceIncarnation == source.playbackSnapshot(sceneTime: 0).sourceIncarnation },
                 "unsupportedPurposeUnavailable": catalog.launchStates[unsupported] == .unavailable,
                 "badTexUnavailable": catalog.launchStates[invalid] == .unavailable,
             ]
-            let fragment = try String(contentsOfFile: CommandLine.arguments[2], encoding: .utf8)
-            let library = try device.makeLibrary(source: fragment, options: nil)
-            let pipeline = SceneImageLayerPipeline(device: device, pixelFormat: .rgba16Float,
-                blendMode: .sourceOver, library: library)!
+            let pipeline = try imagePipeline(device), channels = try channelPipeline(device)
             let frameRegistry = SceneFrameTextureRegistry()
             let peerRegistry = SceneFrameTextureRegistry()
             let property = SceneUserPropertyTextureIdentity(propertyKey: propertyName, purpose: .premultipliedColor)!
@@ -146,7 +149,7 @@ final class ScenePerformanceCounterHub {
             let renderer = SceneMetalRenderer(baseMaterialProviderBindings: .init(baseMaterialBindings: [layerID: binding]),
                 textureRegistry: frameRegistry)
             let layer = SceneRenderDescriptor.Layer(id: layerID, contentKind: "solid")
-            var pixels: [[Float]] = [], generations: [UInt64] = []
+            var pixels: [[Float]] = [], dataPixels: [[Float]] = [], generations: [UInt64] = []
             var firstPublication: SceneTextureProviderPublication?
             var latestPublication: SceneTextureProviderPublication?
             let start = CACurrentMediaTime()
@@ -181,8 +184,13 @@ final class ScenePerformanceCounterHub {
                         && peerRegistry.resource(for: .asset(alias))?.publication.requestIdentity == .asset(alias)
                     pixels.append(try draw(selected, layer: layer, tint: selected.usesAuthoredLayerColor
                         ? .zero : SIMD3(repeating: 1), device: device, queue: queue, pipeline: pipeline))
+                    try observeChannels(frame: frame, color: publication, asset: dataAsset, colorAsset: asset,
+                        device: device, queue: queue, pipeline: channels, checks: &checks, pixels: &dataPixels)
                     generations.append(frame.contentGeneration)
-                    if firstPublication == nil { firstPublication = publication }
+                    if firstPublication == nil {
+                        firstPublication = publication
+                        durationSnapshots["firstPublication"] = videoObservation(source, sceneTime: time.sceneTime)
+                    }
                     latestPublication = publication
                     peerRegistry.commitFramePublication()
                 }
@@ -193,6 +201,8 @@ final class ScenePerformanceCounterHub {
             guard let latest = latestPublication else { fatalError("latest publication missing") }
             checks["videoBypassesBlackPlaceholder"] = pixels.contains { $0[0] > 0.9 && $0[2] < 0.1 }
                 && pixels.contains { $0[2] > 0.9 && $0[0] < 0.1 }
+            checks["dataKeepsDecodedMidGray"] = dataPixels.contains { $0.prefix(3).allSatisfy { (0.47...0.53).contains($0) } && $0[3] > 0.99 }
+            checks["dataUsesLogicalRGBAOrder"] = dataPixels.first.map { $0[0] > 0.9 && $0[2] < 0.1 } == true
             let tinted = select(latest, override: true)!
             let tintedPixel = try draw(tinted, layer: layer, tint: SIMD3(0.25, 0.5, 0.75), device: device, queue: queue, pipeline: pipeline)
             checks["dynamicColorOverrideRemainsActive"] = tinted.usesAuthoredLayerColor
@@ -276,16 +286,16 @@ final class ScenePerformanceCounterHub {
             let blackStatic = try draw(staticSource, layer: layer, tint: .zero, device: device, queue: queue, pipeline: pipeline)
             checks["staticFallbackKeepsAuthoredColor"] = staticSource.usesAuthoredLayerColor && blackStatic.prefix(3).allSatisfy { abs($0) < 0.001 }
             frameRegistry.commitFramePublication()
-            let beforePause = Mirror(reflecting: source).children.compactMap { $0.value as? AVPlayer }.first!.rate
+            let beforePause = player(source).rate
             let pauseCommand = SceneScriptMediaPlaybackCommand(layerID: videoLayerID, action: .pause, videoSourceIncarnation: layerSource.sourceIncarnation), pauseTiming = timing()
             try registry.validate([pauseCommand], timing: pauseTiming).get()
             registry.applyAdmitted(pauseCommand, timing: pauseTiming)
             let pausedVideoFrame = registry.sceneScriptSnapshots(sceneTime: 3.2)
             checks["layerCommandsDoNotControlAsset"] = beforePause > 0
-                && Mirror(reflecting: source).children.compactMap { $0.value as? AVPlayer }.first!.rate > 0
+                && player(source).rate > 0
                 && pausedVideoFrame.layerBindings[videoLayerID].flatMap { pausedVideoFrame.sources[$0] }?.isPlaying == false
             registry.pause(sceneTime: 3.2, hostTime: CACurrentMediaTime())
-            checks["globalPauseControlsAsset"] = Mirror(reflecting: source).children.compactMap { $0.value as? AVPlayer }.first!.rate == 0
+            checks["globalPauseControlsAsset"] = player(source).rate == 0
             registry.resume(sceneTime: 3.2, hostTime: CACurrentMediaTime())
             registry.beginSurfaceRebuild(sceneTime: 3.2, hostTime: CACurrentMediaTime())
             let reacquired = try registry.source(declaration: declaration, owner: .asset, cacheDirectory: cache,
@@ -309,7 +319,8 @@ final class ScenePerformanceCounterHub {
             checks["stopRejectsFramesImmediately"] = source.prepareFrame(for: timing()) == nil
             cleanupDirectory = cache.appendingPathComponent(".mywallpaperx-scene-video-payloads")
             return ["checks": checks,
-                "pixels": pixels, "generations": generations, "tinted": tintedPixel, "still": stillPixel,
+                "pixels": pixels, "dataPixels": dataPixels, "durationSnapshots": durationSnapshots,
+                "generations": generations, "tinted": tintedPixel, "still": stillPixel,
                 "afterStopInsideAVScope": ["sourceAlive": stoppedSource != nil,
                     "assetAlive": stoppedAsset != nil, "fileAlive": stoppedFile != nil]]
         }
@@ -321,8 +332,7 @@ final class ScenePerformanceCounterHub {
         result["checks"] = checks
         result["afterAVScopeRelease"] = ["sourceAlive": stoppedSource != nil,
             "assetAlive": stoppedAsset != nil, "fileAlive": stoppedFile != nil]
-        print(String(decoding: try JSONSerialization.data(withJSONObject: result,
-            options: [.sortedKeys]), as: UTF8.self))
+        try emit(result)
     }
 
     static func pump(_ seconds: Double, until condition: () -> Bool) -> Bool {
@@ -336,6 +346,13 @@ final class ScenePerformanceCounterHub {
 
     static func player(_ source: SceneVideoTextureSource) -> AVPlayer {
         Mirror(reflecting: source).children.compactMap { $0.value as? AVPlayer }.first!
+    }
+
+    static func imagePipeline(_ device: MTLDevice) throws -> SceneImageLayerPipeline {
+        let fragment = try String(contentsOfFile: CommandLine.arguments[2], encoding: .utf8)
+        let library = try device.makeLibrary(source: fragment, options: nil)
+        return SceneImageLayerPipeline(device: device, pixelFormat: .rgba16Float,
+            blendMode: .sourceOver, library: library)!
     }
 
     static func firstFrame(_ source: SceneVideoTextureSource) -> SceneVideoTextureSource.Frame? {
@@ -357,10 +374,7 @@ final class ScenePerformanceCounterHub {
         guard let device = MTLCreateSystemDefaultDevice(), let queue = device.makeCommandQueue() else {
             fatalError("Metal unavailable")
         }
-        let fragment = try String(contentsOfFile: CommandLine.arguments[2], encoding: .utf8)
-        let library = try device.makeLibrary(source: fragment, options: nil)
-        let pipeline = SceneImageLayerPipeline(device: device, pixelFormat: .rgba16Float,
-            blendMode: .sourceOver, library: library)!
+        let pipeline = try imagePipeline(device)
         let package = root.appendingPathComponent("scene.pkg")
         let packageBytes = try Data(contentsOf: package)
         guard let ownedHome = ProcessInfo.processInfo.environment["CFFIXED_USER_HOME"] else { fatalError("owned HOME required") }
@@ -535,9 +549,7 @@ final class ScenePerformanceCounterHub {
             checks[kind + "LooseAuthorNamespaceUnchanged"] = before == after && (try? Data(contentsOf: leaf)) == authorBytes
             registry.stop()
         }
-        print(String(decoding: try JSONSerialization.data(withJSONObject: ["checks": checks, "pixels": pixels,
-            "storageMapping": "actual package Root with explicit App-private media domain"],
-            options: [.sortedKeys]), as: UTF8.self))
+        try emit(["checks": checks, "pixels": pixels, "storageMapping": "actual package Root with explicit App-private media domain"])
     }
     #endif
 
@@ -547,10 +559,7 @@ final class ScenePerformanceCounterHub {
         guard let device = MTLCreateSystemDefaultDevice(), let queue = device.makeCommandQueue() else {
             fatalError("Metal unavailable")
         }
-        let fragment = try String(contentsOfFile: CommandLine.arguments[2], encoding: .utf8)
-        let library = try device.makeLibrary(source: fragment, options: nil)
-        let pipeline = SceneImageLayerPipeline(device: device, pixelFormat: .rgba16Float,
-            blendMode: .sourceOver, library: library)!
+        let pipeline = try imagePipeline(device)
         let packageURL = root.appendingPathComponent("scene.pkg")
         let privateBase = root.deletingLastPathComponent().appendingPathComponent("completed-private")
         let cache = privateBase.appendingPathComponent("media")
@@ -595,13 +604,7 @@ final class ScenePerformanceCounterHub {
                 fileA === fileB && fileB.url == privateURL && ledger.reservedBytes == charge
             let bStarted = CACurrentMediaTime()
             var bIndex: UInt64 = 0
-            var firstB: SceneVideoTextureSource.Frame?
-            guard pump(10, until: {
-                bIndex += 1
-                let now = CACurrentMediaTime()
-                firstB = sourceB.currentFrame(for: .init(frameIndex: bIndex, hostTime: now, sceneTime: now - bStarted))
-                return firstB != nil
-            }), let frameB = firstB, let publicationB = frameB.assetPublication(for: asset) else {
+            guard let frameB = firstFrame(sourceB), let publicationB = frameB.assetPublication(for: asset) else {
                 fatalError("second actual WebM frame missing")
             }
             for (frame, publication) in [(frameA, publicationA), (frameB, publicationB)] {
@@ -732,9 +735,8 @@ final class ScenePerformanceCounterHub {
         checks["replacedOutputCannotHitOldSuccess"] = try SceneVideoOwnedFile.borrowCompletedWebM(
             identity: identity, cacheDirectory: boundaryCache, diskBudget: budget) == nil
         withExtendedLifetime((stoppedSources, writer, completed, rejected, other, sourceCopy)) {}
-        print(String(decoding: try JSONSerialization.data(withJSONObject: ["checks": checks, "pixels": pixels,
-            "scope": "real package Root/Loader/Registry and independent AV players; low-level table negatives use original controlled Writer"],
-            options: [.sortedKeys]), as: UTF8.self))
+        try emit(["checks": checks, "pixels": pixels,
+            "scope": "real package Root/Loader/Registry and independent AV players; low-level table negatives use original controlled Writer"])
     }
     #endif
 
@@ -948,9 +950,7 @@ final class ScenePerformanceCounterHub {
             weakFile == nil && !FileManager.default.fileExists(atPath: fileURL.path)
                 && SceneVideoOwnedFile.DiskBudget.shared.reservedBytes == initialReservation
         }
-        print(String(decoding: try JSONSerialization.data(withJSONObject: ["checks": checks, "payloadReadBytes": reads,
-            "entryBytes": entryBytes],
-            options: [.sortedKeys]), as: UTF8.self))
+        try emit(["checks": checks, "payloadReadBytes": reads, "entryBytes": entryBytes])
     }
     #endif
 

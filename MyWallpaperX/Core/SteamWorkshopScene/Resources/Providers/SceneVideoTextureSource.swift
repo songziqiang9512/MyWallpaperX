@@ -17,17 +17,26 @@ final class SceneVideoTextureSource {
             guard owner == .ordinary else { return nil }
             return publication(request: .layerSource(layerID), provider: .video(
                 layerID: layerID, lifecycleEpoch: epoch
-            ), authoredFormat: nil)
+            ), purpose: .premultipliedColor, content: content, authoredFormat: nil)
         }
 
         func assetPublication(
             for asset: SceneAssetTextureIdentity
         ) -> SceneTextureProviderPublication? {
-            guard owner == .asset, asset.purpose == .premultipliedColor else { return nil }
+            guard owner == .asset else { return nil }
+            let assetContent: SceneTextureContent
+            switch asset.purpose {
+            case .premultipliedColor:
+                assetContent = content
+            case .preservedChannels where content == .color(.resolved(.opaque)):
+                assetContent = .data
+            default:
+                return nil
+            }
             return publication(request: .asset(asset), provider: .videoAsset(
                 asset: asset, sourceIncarnation: sourceIncarnation,
                 lifecycleEpoch: epoch
-            ), authoredFormat: .rgba8888)
+            ), purpose: asset.purpose, content: assetContent, authoredFormat: .rgba8888)
         }
 
         func userPropertyPublication(
@@ -38,12 +47,14 @@ final class SceneVideoTextureSource {
             return publication(request: .materialUserProperty(property), provider: .videoUserProperty(
                 property: property, sourceIncarnation: sourceIncarnation,
                 lifecycleEpoch: epoch
-            ), authoredFormat: nil)
+            ), purpose: .premultipliedColor, content: content, authoredFormat: nil)
         }
 
         private func publication(
             request: SceneFrameTextureIdentity,
             provider: SceneTextureProviderIdentity,
+            purpose: SceneTextureLoadPurpose,
+            content: SceneTextureContent,
             authoredFormat: SceneShaderTextureFormat?
         ) -> SceneTextureProviderPublication {
             let size = CGSize(width: texture.width, height: texture.height)
@@ -53,7 +64,7 @@ final class SceneVideoTextureSource {
                     texture: texture,
                     identity: .provider(provider),
                     generation: .provider(contentGeneration: contentGeneration),
-                    purpose: .premultipliedColor,
+                    purpose: purpose,
                     content: content,
                     physicalSize: size,
                     mappedSize: size,

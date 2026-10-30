@@ -227,3 +227,15 @@ Debug基于de1d6dc99+唯一Runtime文件，30.314s/零漂移/签名0；App `f07a
 新工作负载未优化Debug CPU p50 9.642→19.537ms、driver59.09→28.90fps；修前没有255动态绘制，不作同工作收益/退化。额外关execution observer后19.536ms/31.97fps，成本仍在，不能全归诊断；这只是一次短窗、非Release/普通优化配置/稳态或能耗结论。首个no-observer+log-only命令被既有runner前置拒绝、未启动App，纠正参数后的实际run另保，不能计两轮测量；其缺观察器的strict缺项仍保。下一项先资格优化普通帧热点，见唯一性能卡。没有原生面板、官方同音源幅度、完整fade/长稳/多屏/HDR或全样本parity结论。
 
 本机正式包`.artifacts/scene-evidence/runs/layer-mutation-owner-capacity-20261030/metadata/samples/0/runtime_evidence.zip`为14,834,101B/80成员、SHA `d5f14931…7c0a55`，普通14天；保363修前/修后原PNG与357 ready黑原PNG、完整日志/红绿/错误夹具/构建身份。357 after保1280px sRGB JPEG及原23.67MiB 16bit PNG的SHA，只证粗构图、不供原像素/亮度/HDR golden；初包38.34MB超单包上限未归档，去此非目标原图后重提取，无拆包规避。本轮临时执行环境归档后清理，仍只留`.build-cache/scene-gravity-20261028`连续缓存。VM/官方主客户端保持运行，未为本批重启或发起新官方实验。
+
+
+<a id="user-priority-20261031"></a>
+## 十包用户优先项的声明与短日志（2026-10-31）
+
+本子集为[用户十包清单](../roadmap/scene-open-breakpoint-queue.md#user-priority-20261030)，不是十个新增目录或全corpus重扫。一次census解析10/10，4570声明、433结构family、422参数profile、951字段profile，251effect及25粒子层；这些不当独立加载链。沿原一条主链、五类产品和九类视觉诊断路线/Sound分组，snapshot保在本轮证据包，不覆盖全量生成双页或历史人工verdict。
+
+优化DEBUG（Release配置加现役诊断xcconfig、arm64）baseline221.625s构建/签名通过，App bc4f4bf6…346e1d；每包Ready后4秒、并发2、确定性PCM、默认属性/受控指针，无PNG，61.431s完成。结构strict七过三败：298/303各两条effect准入/透传，314粒子未全载；其余七过只证明该短窗。335首轮play后永久stop仍属实际播放问题，短窗PASS不能盖过；382约28.57s动作、灯光phase、媒体/鼠标分支亦未闭。归一器solid计数五包是现役已知报告口径，338的初期layer-source-not-ready须连后续成功看，不把旧计数/恢复期重开为缺图。
+
+逐owner追踪得到三条通用能力首错：298 rgbmask视频合同、303 float复合余数、314动画层rate/blend曲线及零速准备；后继分别在所属合同/批次记录验收，不能把一项修复销掉十包。另335首次Source时长快照仍待实际原包定因：生成H264观察创建时duration0、首publication为3秒，只作机制线索，不替代335数值证据。所有用户视觉观察保待复核，音频、指针、过渡与截图时机分开。
+
+本机正式证据`.artifacts/scene-evidence/runs/user-priority-capabilities-20261031/`保原失败/完整日志、census/归一结果、App与输入身份及必要原图；不将日志七过、后继非黑或构建次数当画面一致率。全样本历史raw、统计双页和人工裁决本轮未重写。

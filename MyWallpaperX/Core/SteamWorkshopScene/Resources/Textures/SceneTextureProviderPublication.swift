@@ -274,7 +274,7 @@ nonisolated enum SceneAssetTextureLaunchState: Hashable {
     case ready(SceneTextureContent)
     /// Only the publication contract is prepared. No concrete frame, alpha
     /// attachment or ready publication has been observed yet.
-    case preparedVideoColor
+    case preparedVideo(SceneTextureContent)
     case absent
     case pending
     case unavailable

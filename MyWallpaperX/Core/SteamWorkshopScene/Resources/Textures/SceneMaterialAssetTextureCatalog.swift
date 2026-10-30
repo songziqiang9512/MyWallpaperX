@@ -199,7 +199,12 @@ final class SceneMaterialAssetTextureCatalog {
             let container = prepared?.container
             if let prepared, let container,
                let declaration = try loader.videoSourceDeclaration(from: prepared, checkCancellation: checkCancellation) {
-                guard identity.purpose == .premultipliedColor,
+                let content: SceneTextureContent? = switch identity.purpose {
+                case .premultipliedColor: .color(.resolved(.premultipliedAlpha))
+                case .preservedChannels: .data
+                default: nil
+                }
+                guard let content,
                       !container.isVolume, !container.isAnimated,
                       container.spriteFrames.isEmpty,
                       container.imageCount == 1, container.mips.count == 1 else {
@@ -209,7 +214,7 @@ final class SceneMaterialAssetTextureCatalog {
                 }
                 videos[identity] = declaration
                 loaded[identity] = .pending
-                launchStates[identity] = .preparedVideoColor
+                launchStates[identity] = .preparedVideo(content)
                 continue
             }
             if let prepared, let container,

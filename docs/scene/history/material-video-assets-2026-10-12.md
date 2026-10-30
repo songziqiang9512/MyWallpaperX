@@ -56,3 +56,15 @@ asset acquire参加原begin/completeSurfaceRebuild集合；保留same-source复�
 ## 文档归属与退出
 
 开工有界设计已从Batch2待实施目录退出；唯一稳定媒体合同归材质能力文档，架构只留入口与接线。该公共资源入口需要记录prepared与ready分域、共享提交和身份退出，用短合同替代现役设计，按实际正文登记预算；不扩其他旧合同来绕门。后续未验purpose、普通material组合及完整桌面/长稳仍按原队列推进，不把设计批准、profile命中或几份截图当全库正确率。
+
+
+<a id="decoded-video-channels-20261031"></a>
+## 解码后通道材质视频（2026-10-31）
+
+2982559622默认111#144的better_blend实际slot1为rgbmask视频；原catalog只准PMA，使整个活动Program透传，真实输出为整片灰。按[现役合同](../capabilities/material-video-assets.md#decoded-video-channels)在同一catalog准备color/data合同，在原Frame按实际opaque发布data，Launch退重复PMA-only判断；逻辑purpose不另开Source/decoder、clock或缓存。五产品净增12行，不做CPU反预乘，不猜HDR/源YUV数值，也不把effect slot绑成layer视频控制。
+
+最近CPU两套改名/换槽输入实际prepared data→Finalizer通过；原AV/GPU整class四方法37.957s通过，两variant各31帧共用Source/纹理，中灰实际采样0.501960814。原storage/WebM/取消/epoch门保持；fractional/zero PMA、unknown、straight与data→plain-color反例是typed Frame构造门，不冒充实际透明媒体解码。CPU记录早于独立modulo修改且明确限定snapshot，GPU最后输入无漂移。
+
+联合优化DEBUG候选137.659s build/signature通过，产品无漂移（四个standalone测试源列表在构建中更新，不是App输入）；App 9c0f8851…877f3。原包同PCM/7秒窗，111在frame5/6实际material1、GPU completed及compositorConsumed，视频generation持续推进；原灰底恢复竹林人物视频，亲看及独立审查一致。首5帧pending报resourceSnapshotUnresolved、utility capture实1/计划3、103.alpha badReturn原样保留，完整report仍FAIL；仅关闭不出画面的材质通道首门，不认全样本/全部效果或首帧无等待。独立3811216799实际普通视频保持、报告PASS，generation到418；不作官方parity、HDR、多屏、长稳或性能收益。
+
+最终普通Debug也已构建、严格签名及产品零漂移；该片五产品与候选身份一致。必要原PNG、日志、失败、输入哈希和红绿归本机`.artifacts/scene-evidence/runs/user-priority-capabilities-20261031/`，与同次十包诊断及独立后继片共享一个限量证据包；视频合同/验收只归本节，其他能力不由联合构建预支。

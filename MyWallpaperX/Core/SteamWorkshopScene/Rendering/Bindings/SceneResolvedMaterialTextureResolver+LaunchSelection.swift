@@ -90,7 +90,7 @@ nonisolated extension SceneResolvedMaterialTextureResolver {
                     assetStates: assetStates,
                     slot: slot
                 ) {
-                case .ready, .preparedVideoColor:
+                case .ready, .preparedVideo:
                     return .selected(candidate.reference, purpose: purpose)
                 case .absent: continue
                 case .effectLocalUnavailable(.animatedFrameMetadataInvalid):
@@ -140,7 +140,7 @@ nonisolated extension SceneResolvedMaterialTextureResolver {
         switch try launchAssetState(
             reference, sampler: sampler, assetStates: assetStates, slot: slot
         ) {
-        case .ready, .preparedVideoColor: return .selected(reference, purpose: purpose)
+        case .ready, .preparedVideo: return .selected(reference, purpose: purpose)
         case .absent:
             guard SceneStockTextureSemanticRegistry.canSubstituteNoise(
                 path, purpose: purpose
@@ -190,9 +190,6 @@ nonisolated extension SceneResolvedMaterialTextureResolver {
         let identity = SceneAssetTextureIdentity(path: path, purpose: purpose)
         guard let state = assetStates[identity] else {
             throw launchSelectionFailure(.textureBindingInvalid, slot: slot)
-        }
-        guard state != .preparedVideoColor || purpose == .premultipliedColor else {
-            throw launchSelectionFailure(.texturePurposeUnproven, slot: slot)
         }
         return state
     }

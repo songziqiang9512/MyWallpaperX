@@ -50,12 +50,15 @@ import Metal
 import simd
 
 func mediaTemplate(_ path: SceneVFSAssetPath, variant: Int,
-                   propertyKey: String? = nil) -> SceneResolvedMaterialTemplate {
+                   propertyKey: String? = nil, channels: Bool = false) -> SceneResolvedMaterialTemplate {
     let slot = variant == 0 ? 0 : 2
     let varying = variant == 0 ? "v_TexCoord" : "renamedUV"
     let name = variant == 0 ? "self/neutral" : "alternate/renamed-resource"
-    let annotation = propertyKey == nil ? "" : #" // {"formatcombo":true}"#
-    let result = variant == 0
+    let annotation = channels ? #" // {"mode":"rgbmask"}"#
+        : (propertyKey == nil ? "" : #" // {"formatcombo":true}"#)
+    let result = channels
+        ? "vec4 sampledColor = texSample2D(g_Texture\(slot), \(varying)); gl_FragColor = vec4(sampledColor.rgb, 1.0);"
+        : variant == 0
         ? "gl_FragColor = texSample2D(g_Texture0, v_TexCoord);"
         : "vec2 copiedUV = renamedUV; vec4 sampledColor = texSample2D(g_Texture2, copiedUV); gl_FragColor = sampledColor;"
     let sources: [(SceneShaderContract.StageKind, String, String)] = [
@@ -181,7 +184,7 @@ func propertyFormatProfileChecks(path: SceneVFSAssetPath, variant: Int, device: 
             }
             return false
         }
-        checks["preparedProviderColorEnvelope"] = envelope(.preparedVideoColor)
+        checks["preparedProviderColorEnvelope"] = envelope(.preparedVideo(.color(.resolved(.premultipliedAlpha))))
         let selected = try SceneResolvedMaterialTextureResolver.launchDefaultReference(sampler: active,
             slot: slot, assetStates: catalog.launchStates, systemProviderStates: [:])
         if case let .selected(reference, purpose) = selected {
@@ -196,11 +199,146 @@ func propertyFormatProfileChecks(path: SceneVFSAssetPath, variant: Int, device: 
         }
         checks.merge(try propertyFormatProfileChecks(path: identity.path, variant: variant,
             device: MTLCreateSystemDefaultDevice()!)) { _, new in new }
+        let device = MTLCreateSystemDefaultDevice()!
+        let dataIdentity = SceneAssetTextureIdentity(path: identity.path, purpose: .preservedChannels)
+        let normal = SceneAssetTextureIdentity(path: identity.path, purpose: .normal)
+        let dataCatalog = try SceneMaterialAssetTextureCatalog(demands: [dataIdentity, normal],
+            resourceView: SceneResourceView(projectRootURL: root, packageRootURL: nil,
+                stockAssetsRootURL: nil), descriptor: .init(), device: device)
+        checks["preparedDataIsAContractNotAReadyFrame"] = dataCatalog.launchStates[dataIdentity] == .preparedVideo(.data)
+            && { if case .pending? = dataCatalog.makeFrameProvider().states(sceneTime: 0)[dataIdentity] { return true }; return false }()
+        checks["normalVideoRemainsUnavailable"] = dataCatalog.launchStates[normal] == .unavailable
+        let dataTemplate = mediaTemplate(identity.path, variant: variant, channels: true)
+        let dataCache = try SceneResolvedMaterialVariantCache.launchValidated(template: dataTemplate,
+            maximumVariantCount: 8, assetFormatFacts: dataCatalog.launchFormatFacts).get()
+        try dataCache.precompileLaunchEnvelope(implicitFramebufferIdentity: nil,
+            assetStates: dataCatalog.launchStates).get()
+        checks["rgbmaskPreparedDataEnvelope"] = dataCache.launchEnvelopeCapabilitySnapshot().allEntriesReady
+        let textureDescriptor = MTLTextureDescriptor.texture2DDescriptor(pixelFormat: .bgra8Unorm,
+            width: 2, height: 2, mipmapped: false)
+        textureDescriptor.usage = .shaderRead
+        let texture = device.makeTexture(descriptor: textureDescriptor)!
+        let publication = SceneTextureProviderPublication(requestIdentity: .asset(dataIdentity),
+            candidate: .init(texture: texture, identity: .provider(.videoAsset(asset: dataIdentity,
+                sourceIncarnation: UUID(), lifecycleEpoch: 3)), generation: .provider(contentGeneration: 1),
+                purpose: .preservedChannels, content: .data, physicalSize: .init(width: 2, height: 2),
+                mappedSize: .init(width: 2, height: 2), uvTransform: .identity, sampling: .linearClamp,
+                authoredFormat: .rgba8888), contentGeneration: 1)
+        let dynamic = SceneDynamicSnapshotResolver().resolve(frameIndex: 1, generation: 1,
+            definitions: [], userValues: [:], timelineValues: [:], sceneScriptValues: [:]).snapshot
+        let frameInputs = SceneAuthoredShaderFrameInputs(frameIndex: 1, screenSize: .init(width: 2, height: 2),
+            sceneTime: 0, dayTime: 0, frameTime: 1 / 60, pointerCurrentNDC: .zero,
+            pointerPreviousNDC: .zero, pointerPrimaryButtonDown: false, parallaxPositionNDC: .zero, audioSpectrum: .silent)
+        let snapshot = SceneFrameTextureRegistrySnapshot(frameEpoch: 1, frameIndex: 1,
+            entries: [.asset(dataIdentity): .ready(.init(publication: publication, resourceGeneration: 1))])
+        let frame = try SceneResolvedMaterialFrameSnapshot.validated(textureSnapshot: snapshot,
+            dynamicSnapshot: dynamic, frameInputs: frameInputs).get()
+        let input = frame.finalizationInput(template: dataTemplate, layerID: 17,
+            renderSize: .init(width: 2, height: 2), modelViewProjection: matrix_identity_float4x4,
+            layerModelMatrix: matrix_identity_float4x4, effectOutputModelViewProjection: matrix_identity_float4x4,
+            effectTextureProjectionMatrixInverse: matrix_identity_float4x4, implicitFramebufferIdentity: nil)
+        let program = try SceneResolvedMaterialProgramFinalizer.finalize(input, variantCache: dataCache).get()
+        checks["rgbmaskFinalizationKeepsDataIdentity"] = program.textureSlots[slot]?.reference == .asset(identity.path)
+            && program.textureSlots[slot]?.expectedPurpose == .preservedChannels
+            && program.exactIdentity.textureSlots[slot]?.purpose == .preservedChannels
         print(String(decoding: try JSONSerialization.data(withJSONObject: [
             "mediaAdmitted": catalog.launchStates[identity] != .unavailable,
             "report": catalog.reportLines, "checks": checks, "variant": variant,
             "contractIdentity": value.shaderContract.identity
         ]), as: UTF8.self))
+    }
+}
+'''
+
+
+CHANNEL_CASES = r'''
+import Metal
+
+extension Harness {
+    static func emit(_ result: [String: Any]) throws {
+        print(String(decoding: try JSONSerialization.data(withJSONObject: result, options: [.sortedKeys]), as: UTF8.self))
+    }
+
+    static func videoObservation(_ source: SceneVideoTextureSource, sceneTime: Double = 0) -> [String: Double] {
+        let snapshot = source.playbackSnapshot(sceneTime: sceneTime)
+        return ["duration": snapshot.duration, "currentTime": snapshot.currentTime]
+    }
+
+    static func channelPipeline(_ device: MTLDevice) throws -> MTLComputePipelineState {
+        let source = """
+        #include <metal_stdlib>
+        using namespace metal;
+        kernel void decodedChannels(texture2d<float> image [[texture(0)]], device float4 *pixel [[buffer(0)]]) {
+            constexpr sampler linearClamp(coord::normalized, address::clamp_to_edge, filter::linear);
+            pixel[0] = image.sample(linearClamp, float2(0.5));
+        }
+        """
+        let library = try device.makeLibrary(source: source, options: nil)
+        return try device.makeComputePipelineState(function: library.makeFunction(name: "decodedChannels")!)
+    }
+
+    static func observeChannels(frame: SceneVideoTextureSource.Frame, color: SceneTextureProviderPublication,
+        asset: SceneAssetTextureIdentity, colorAsset: SceneAssetTextureIdentity, device: MTLDevice,
+        queue: MTLCommandQueue, pipeline: MTLComputePipelineState,
+        checks: inout [String: Bool], pixels: inout [[Float]]) throws {
+        let publication = frame.assetPublication(for: asset)
+        checks["dataRequiresActualOpaqueDecodedFrame"] = checks["dataRequiresActualOpaqueDecodedFrame", default: true]
+            && ((publication != nil) == (frame.content == .color(.resolved(.opaque))))
+        guard let publication else { return }
+        checks["colorAndDataShareDecodedBacking"] = checks["colorAndDataShareDecodedBacking", default: true]
+            && publication.texture === color.texture && publication.contentGeneration == color.contentGeneration
+            && publication.candidate.identity == .provider(.videoAsset(asset: asset,
+                sourceIncarnation: frame.sourceIncarnation, lifecycleEpoch: frame.epoch))
+            && publication.candidate.content == .data && publication.candidate.purpose == .preservedChannels
+            && publication.candidate.pixelFormat == .bgra8Unorm && publication.candidate.sampling == .linearClamp
+        let registry = SceneFrameTextureRegistry()
+        registry.beginFrame(frameIndex: frame.contentGeneration, layerSources: [:],
+            assetStates: [asset: .ready(publication), colorAsset: .ready(color)])
+        guard let data = registry.resource(for: .asset(asset)),
+              let binding = SceneTextureSlotBinding(slotIndex: 1, candidate: data.publication.candidate) else {
+            fatalError("actual decoded channel publication did not reach its typed sampler")
+        }
+        checks["purposeQualifiedAtomsStayDistinct"] = checks["purposeQualifiedAtomsStayDistinct", default: true]
+            && data.publication.isSameAtom(as: publication)
+            && registry.resource(for: .asset(colorAsset))?.publication.isSameAtom(as: color) == true
+            && publication.requestIdentity != color.requestIdentity
+        let output = device.makeBuffer(length: 16, options: .storageModeShared)!
+        let command = queue.makeCommandBuffer()!, encoder = command.makeComputeCommandEncoder()!
+        encoder.setComputePipelineState(pipeline); encoder.setTexture(binding.texture, index: 0)
+        encoder.setBuffer(output, offset: 0, index: 0)
+        encoder.dispatchThreads(MTLSize(width: 1, height: 1, depth: 1),
+            threadsPerThreadgroup: MTLSize(width: 1, height: 1, depth: 1))
+        encoder.endEncoding(); command.commit(); command.waitUntilCompleted()
+        guard command.status == .completed, command.error == nil else { fatalError("channel GPU sample failed") }
+        pixels.append(Array(UnsafeBufferPointer(start: output.contents().assumingMemoryBound(to: Float.self), count: 4)))
+        registry.commitFramePublication()
+        guard pixels.count == 1 else { return }
+        func typedFrame(_ content: SceneTextureContent, texture: MTLTexture? = nil, epoch: UInt64? = nil) -> SceneVideoTextureSource.Frame {
+            .init(texture: texture ?? frame.texture, content: content, contentGeneration: frame.contentGeneration,
+                requestedItemTime: frame.requestedItemTime, decodedItemTime: frame.decodedItemTime,
+                epoch: epoch ?? frame.epoch, owner: frame.owner, sourceIncarnation: frame.sourceIncarnation)
+        }
+        for (name, bytes) in [("fractionalAlpha", [UInt8(64), 32, 16, 128]), ("zeroAlpha", [UInt8(0), 0, 0, 0])] {
+            let descriptor = MTLTextureDescriptor.texture2DDescriptor(pixelFormat: .bgra8Unorm, width: 1, height: 1, mipmapped: false)
+            descriptor.usage = .shaderRead; descriptor.storageMode = .shared
+            let texture = device.makeTexture(descriptor: descriptor)!
+            bytes.withUnsafeBytes { texture.replace(region: MTLRegionMake2D(0, 0, 1, 1), mipmapLevel: 0,
+                withBytes: $0.baseAddress!, bytesPerRow: 4) }
+            let premultiplied = typedFrame(.color(.resolved(.premultipliedAlpha)), texture: texture)
+            checks[name + "PMAStillPublishesColor"] = premultiplied.assetPublication(for: colorAsset)?.isComplete == true
+            checks[name + "PMARejectsPreservedChannels"] = premultiplied.assetPublication(for: asset) == nil
+        }
+        for (name, content) in [("unknownAlpha", SceneTextureContent.color(.unresolved)),
+                                ("straightAlpha", .color(.resolved(.straightAlpha)))] {
+            checks[name + "CannotPublishChannels"] = typedFrame(content).assetPublication(for: asset) == nil
+        }
+        let request = request(texture: publication.texture, candidate: publication.candidate,
+            layer: .init(id: 81, contentKind: "solid"), tint: SIMD3(repeating: 1))
+        checks["dataCannotBecomePlainFinalColor"] = request.resolvedBaseTextureSample() == nil
+            && SceneImageLayerCompositor().sourceFragmentUniforms(for: request, routesOffscreen: false) == nil
+        checks["dataZeroEpochIsIncomplete"] = typedFrame(frame.content, epoch: 0).assetPublication(for: asset)?.isComplete == false
+        checks["dataWrongRequestIsIncomplete"] = !SceneTextureProviderPublication(requestIdentity: .asset(colorAsset),
+            candidate: publication.candidate, contentGeneration: publication.contentGeneration).isComplete
     }
 }
 '''
@@ -282,7 +420,7 @@ class SceneMaterialVideoAssetGPUTests(unittest.TestCase):
         harness = ROOT / "script/tests/fixtures/SceneMaterialVideoAssetHarness.swift"
         carriers, carrier_inputs = video_carrier_source(cls.product_root / "MyWallpaperX/Core/SteamWorkshopScene")
         readiness_source.write_text("import Foundation\n" + readiness.declaration(readiness_input.read_text(),
-            "enum SceneOrdinaryVideoFrameReadiness:") + "\n" + carriers + "\n")
+            "enum SceneOrdinaryVideoFrameReadiness:") + "\n" + carriers + "\n" + CHANNEL_CASES)
         shader = cls.product_root / "MyWallpaperX/Core/SteamWorkshopScene/Rendering/Composition/SceneImageLayer.metal"
         delegate_sources = segment_delegate_sources(cls.product_root / "MyWallpaperX/Core/SteamWorkshopScene")
         cls.source_inputs = list(dict.fromkeys(sources + list(delegate_sources) + [
@@ -332,8 +470,9 @@ class SceneMaterialVideoAssetGPUTests(unittest.TestCase):
             shader.with_name("SceneDistanceFog.metalh").read_text()))
         subprocess.run(["ffmpeg", "-v", "error", "-f", "lavfi", "-i",
             "color=red:size=32x24:rate=10:duration=1", "-f", "lavfi", "-i",
-            "color=blue:size=32x24:rate=10:duration=1", "-filter_complex",
-            "[0:v][1:v]concat=n=2:v=1:a=0", "-c:v", "libx264", "-pix_fmt", "yuv420p",
+            "color=blue:size=32x24:rate=10:duration=1", "-f", "lavfi", "-i",
+            "color=c=0x808080:size=32x24:rate=10:duration=1", "-filter_complex",
+            "[0:v][1:v][2:v]concat=n=3:v=1:a=0", "-c:v", "libx264", "-pix_fmt", "yuv420p",
             str(cls.work / "clip.mp4")], check=True, capture_output=True)
 
     @classmethod
@@ -407,11 +546,18 @@ class SceneMaterialVideoAssetGPUTests(unittest.TestCase):
                 for name, passed in result["checks"].items():
                     self.assertTrue(passed, (name, result))
                 self.assertGreater(len(result["generations"]), 10)
+                self.assertGreater(len(result["dataPixels"]), 10)
+                self.assertTrue({"colorAndDataShareDecodedBacking", "purposeQualifiedAtomsStayDistinct",
+                    "fractionalAlphaPMARejectsPreservedChannels", "zeroAlphaPMARejectsPreservedChannels",
+                    "unknownAlphaCannotPublishChannels", "straightAlphaCannotPublishChannels",
+                    "dataCannotBecomePlainFinalColor", "dataZeroEpochIsIncomplete",
+                    "dataWrongRequestIsIncomplete"}.issubset(result["checks"]), result)
                 self.assertTrue(all(b == a + 1 for a, b in zip(result["generations"], result["generations"][1:])))
                 print(json.dumps({"variant": index, "resource": resource, "property": property_name,
                     "layerID": layer_id, "videoLayerID": video_layer_id,
                     "checks": result["checks"], "frames": len(result["pixels"]),
-                    "red": result["pixels"][0], "tinted": result["tinted"], "still": result["still"],
+                    "red": result["pixels"][0], "dataPixels": result["dataPixels"],
+                    "durationSnapshots": result["durationSnapshots"], "tinted": result["tinted"], "still": result["still"],
                     "afterStopInsideAVScope": result.get("afterStopInsideAVScope"),
                     "afterAVScopeRelease": result.get("afterAVScopeRelease")}, sort_keys=True))
 
