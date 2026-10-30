@@ -804,7 +804,8 @@ class PreparedTextCloneTests(unittest.TestCase):
                 self.assertTrue(row["authoredAngles"])
                 self.assertTrue(row["discardRetainsVisible"])
                 self.assertEqual(row["afterDestroy"], 0)
-                self.assertEqual(row["unknownImage"], "invalid-argument")
+                self.assertEqual(row["unknownImage"], "ok")
+                self.assertEqual(row["unknownImageMutations"], 0)
 
     def test_user_value_and_safe_own_data_admission(self) -> None:
         row = self.result["wrappers"]

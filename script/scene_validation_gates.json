@@ -5584,6 +5584,7 @@
         "test_scene_test_runner",
         "test_sil_square_cards",
         "test_sil_thumbnail_demand",
+        "test_status_bar_panel",
         "test_steam_client_lifecycle",
         "test_steam_download_card_progress_diff",
         "test_steam_login_modal",

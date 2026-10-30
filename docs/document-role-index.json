@@ -657,6 +657,13 @@
       "commandPolicy": "reference-only"
     },
     {
+      "path": "docs/releases/2.12.1.md",
+      "role": "reference",
+      "entrypoint": "docs/README.md",
+      "purpose": "2.12.1 用户更新说明，仅记录相对上一正式版本的变化；正式状态以 GitHub Release 为准。",
+      "commandPolicy": "reference-only"
+    },
+    {
       "path": "docs/releases/TEMPLATE.md",
       "role": "reference",
       "entrypoint": "docs/release/release-signing.md",

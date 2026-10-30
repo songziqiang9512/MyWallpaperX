@@ -4,6 +4,7 @@ import Foundation
 enum BooleanTextCloneChecks {
     static func run(_ renamed: Bool) throws -> [String: Any] {
         let fixture = try Harness.fixture(renamed: renamed)
+        try fixture.domain.configurePreparedResourceLayerCatalog([:])
         let layers = Harness.runtime(fixture)
         let target = SceneDynamicTarget.layer(layerID: 110, field: .visibility)
         let name = renamed ? "renamed-watch" : "clock"
@@ -62,8 +63,15 @@ enum BooleanTextCloneChecks {
         layers.commit(removal.layerPlan)
         owner.commitLayerMutations()
 
+        let missingImage = renamed ? "models/renamed-absent.json" : "models/unknown.json"
         let unknown = try SceneScriptValueOwner(domain: fixture.domain,
-            source: "export function update(v){thisScene.createLayer({image:'models/unknown.json'});return v;}",
+            source: """
+                export function update(v) {
+                    if (thisScene.createLayer({image:'\(missingImage)'}) !== null)
+                        throw Error('missing image must not create a layer');
+                    return v;
+                }
+                """,
             target: target, valueType: .bool, effectNames: [],
             allowsStatefulLayerSideEffects: true, generation: 1, budget: .default)
         let rejected = unknown.evaluate(input: .bool(true), frame: Harness.frame(5),
@@ -78,6 +86,7 @@ enum BooleanTextCloneChecks {
             },
             "discardRetainsVisible": retained,
             "afterDestroy": layers.snapshot().dynamicLayers.count,
-            "unknownImage": Harness.status(rejected)]
+            "unknownImage": Harness.status(rejected),
+            "unknownImageMutations": (try? rejected.get().layerMutations.count) ?? -1]
     }
 }

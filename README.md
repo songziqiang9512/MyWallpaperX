@@ -16,7 +16,7 @@
 
 <p align="center">
   <a href="https://github.com/songziqiang9512/MyWallpaperX/releases/latest">下载正式版</a> ·
-  <a href="docs/releases/2.12.0.md">2.12.0 更新说明</a> ·
+  <a href="docs/releases/2.12.1.md">2.12.1 更新说明</a> ·
   <a href="https://www.mwpx.me">官方网站</a> ·
   <a href="https://github.com/songziqiang9512/MyWallpaperX/issues">问题反馈</a>
 </p>
@@ -27,15 +27,30 @@
 
 ## 看见喜欢的桌面
 
-<p align="center">
-  <img src="Screenshot/%E6%88%AA%E5%B1%8F2026-05-12%2006.00.16.png" width="960" alt="MyWallpaperX 视频资料库，展示侧栏分类、搜索和壁纸网格">
-  <br><sub>集中浏览与管理喜欢的壁纸。</sub>
-</p>
+<table align="center">
+  <tr>
+    <td width="50%" align="center">
+      <a href="Screenshot/本地视频.png"><img src="Screenshot/本地视频.png" width="480" alt="本地视频资料库与播放列表"></a>
+      <br><sub>本地视频 · 收藏与整理喜欢的影像</sub>
+    </td>
+    <td width="50%" align="center">
+      <a href="Screenshot/创意工坊.png"><img src="Screenshot/创意工坊.png" width="480" alt="Steam 创意工坊浏览与作品详情"></a>
+      <br><sub>创意工坊 · 发现与下载更多作品</sub>
+    </td>
+  </tr>
+  <tr>
+    <td width="50%" align="center">
+      <a href="Screenshot/桌面效果+cai'dan'kong'zhi.png"><img src="Screenshot/桌面效果+cai'dan'kong'zhi.png" width="480" alt="动态桌面效果与菜单栏播放控制"></a>
+      <br><sub>动态桌面 · 常用控制触手可及</sub>
+    </td>
+    <td width="50%" align="center">
+      <a href="Screenshot/桌面效果+属性调节+菜单控制.png"><img src="Screenshot/桌面效果+属性调节+菜单控制.png" width="480" alt="Scene 壁纸属性调节与菜单栏面板"></a>
+      <br><sub>作品属性 · 调整属于自己的桌面</sub>
+    </td>
+  </tr>
+</table>
 
-<p align="center">
-  <img src="Screenshot/%E6%88%AA%E5%B1%8F2026-05-12%2006.03.09.png" width="960" alt="动态桌面效果，山景背景上显示时钟与环形音频可视化">
-  <br><sub>让影像、时钟与互动融入桌面。截图为界面与作品效果示意，具体表现以版本和作品为准。</sub>
-</p>
+<p align="center"><sub>点击图片查看大图，具体效果以版本与作品为准。</sub></p>
 
 ## 选择你的壁纸方式
 
@@ -63,6 +78,7 @@ Scene 兼容范围持续完善，部分复杂作品仍可能存在特效、动�
 - **恢复与节能**：按需恢复上次播放内容，并根据全屏、焦点、电池供电和电脑不活跃等状态暂停播放。
 - **音频与歌曲响应**：兼容的 Web、Scene 作品可响应系统音频；启用歌曲信息后，可按作品实现展示标题、封面与进度。
 - **HDR 场景**：在支持的屏幕上呈现兼容 Scene 作品的 HDR 高光，也可切换回普通亮度。
+- **视频屏保**：从“锁屏与屏保”设置或本地视频卡片选择视频，保存后在系统设置中启用。可固定视频或跟随最近播放的视频；主 App 退出后仍可独立播放，使用电池时默认显示静帧。
 
 ## 安装与开始使用
 

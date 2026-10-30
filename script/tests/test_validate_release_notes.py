@@ -274,6 +274,8 @@ if args[:2] == ['release', 'edit'] and os.environ.get('FAIL_EDIT') == '1': sys.e
         media_observer = app / "Contents/Resources/SceneMediaObserver/SceneMediaObserver.dylib"
         media_observer.parent.mkdir(parents=True)
         media_observer.touch()
+        saver = app / "Contents/PlugIns/MyWallpaperX.saver"
+        saver.mkdir(parents=True)
         for name in ("MyWallpaperXWallpaperDaemon", "glslang", "spirv-cross"):
             path = app / "Contents/Helpers" / name
             path.parent.mkdir(exist_ok=True)
@@ -304,14 +306,28 @@ if args[:2] == ['release', 'edit'] and os.environ.get('FAIL_EDIT') == '1': sys.e
         self.assertLess(commands.index(media_command), len(commands) - 1)
         downloader = next(command for command in commands if command[-1].endswith("Downloader.xpc"))
         self.assertIn("--preserve-metadata=entitlements", downloader)
+        saver_target = str(saver.relative_to(self.root))
+        saver_command = next(command for command in commands if command[-1] == saver_target)
+        self.assertIn("--timestamp", saver_command)
+        self.assertEqual(saver_command[saver_command.index("--options") + 1], "runtime")
+        self.assertNotIn("--entitlements", saver_command)
+        self.assertLess(commands.index(saver_command), len(commands) - 1)
 
-        # A missing required nested library must stop before the outer App is sealed.
-        self.log.unlink()
-        media_observer.unlink()
-        result = self.run_shell(workflow_shell("Sign app"))
-        self.assertNotEqual(result.returncode, 0)
-        self.assertIn(media_target, result.stderr)
-        self.assertFalse(any(command[-1].endswith("MyWallpaperX.app") for command in self.commands()))
+        for missing in (media_observer, saver):
+            with self.subTest(missing=missing.relative_to(app)):
+                self.log.unlink()
+                if missing == saver:
+                    missing.rmdir()
+                else:
+                    missing.unlink()
+                result = self.run_shell(workflow_shell("Sign app"))
+                self.assertNotEqual(result.returncode, 0)
+                self.assertIn(str(missing.relative_to(self.root)), result.stderr)
+                self.assertFalse(any(command[-1].endswith("MyWallpaperX.app") for command in self.commands()))
+                if missing == saver:
+                    missing.mkdir()
+                else:
+                    missing.touch()
 
 
 if __name__ == "__main__":

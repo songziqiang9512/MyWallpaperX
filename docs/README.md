@@ -34,7 +34,7 @@
 
 ## App、Web 与发布
 
-- [2.12.0 更新说明](releases/2.12.0.md)；历史说明：[2.11.0](releases/2.11.0.md)、[2.10.1](releases/2.10.1.md)、[2.10.0](releases/2.10.0.md)。实际发布状态以正式 Release 为准。
+- [2.12.1 更新说明](releases/2.12.1.md)；历史说明：[2.12.0](releases/2.12.0.md)、[2.11.0](releases/2.11.0.md)、[2.10.1](releases/2.10.1.md)、[2.10.0](releases/2.10.0.md)。实际发布状态以正式 Release 为准。
 
 - [播放进程生命周期与统一切换事务](architecture/playback-lifecycle-transaction-design.md)：三引擎退出、可见确认、取消和退休边界。
 - [状态栏控制面板专项](development/status-bar-panel-redesign.md)：原生封面、播放控制、监控与窗口交接设计及验收。
